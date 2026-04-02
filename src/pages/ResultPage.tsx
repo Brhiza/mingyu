@@ -392,7 +392,6 @@ function ZiweiTraditionalBoard(props: {
       <div className="ziwei-traditional-head">
         <div>
           <h3>{boardTitle}</h3>
-          <p>参考 `zw` 项目的传统盘布局，按 4x4 盘面集中展示十二宫。</p>
         </div>
         <span className="result-chip result-chip-highlight">{payload.active_scope.label}</span>
       </div>
@@ -1011,7 +1010,6 @@ function BaziChartBoard(props: {
         <div className="bazi-pillars-card">
           <div className="bazi-pillars-header">
             <h3>四柱盘</h3>
-            <p>参考 `bz` 项目的专业盘表结构，按年、月、日、时展开。</p>
           </div>
           <div className="bazi-pillars-table">
             <div className="bazi-pillars-cell is-label is-head">信息</div>
@@ -1179,7 +1177,6 @@ function ZiweiBoard(props: {
           <div className="ziwei-focus-card ziwei-summary-card">
             <div className="result-side-head">
               <h3>盘面摘要</h3>
-              <p>参考 `zw` 项目的结果页，先看时限与四化，再看宫位。</p>
             </div>
             <div className="result-meta-lines">
               <div>
@@ -1749,304 +1746,315 @@ export function ResultPage() {
         </button>
       </div>
 
-      {promptState.tab === 'bazi' ? (
-        <div className="single-panel-shell">
-          <section className="panel result-panel result-panel-bazi">
-            {baziError ? <p className="error-text">{baziError}</p> : null}
-            {inputState.analysisMode === 'compatibility' ? (
-              <div className="result-dual-layout">
-                {baziResult ? (
-                  <BaziChartBoard
-                    title="第一人八字"
-                    name={inputState.name || '第一人'}
-                    result={baziResult}
-                  />
-                ) : null}
-                {partnerBaziResult ? (
-                  <BaziChartBoard
-                    title="第二人八字"
-                    name={inputState.partnerName || '第二人'}
-                    result={partnerBaziResult}
-                  />
-                ) : null}
-              </div>
-            ) : baziResult ? (
-              <BaziChartBoard
-                title="八字总览"
-                name={inputState.name || '当前命盘'}
-                result={baziResult}
-              />
-            ) : null}
-          </section>
+      <div className="result-tab-stage">
+        <div
+          className={`result-tab-pane ${promptState.tab === 'bazi' ? 'is-active' : 'is-inactive'}`}
+          aria-hidden={promptState.tab !== 'bazi'}
+        >
+          <div className="single-panel-shell">
+            <section className="panel result-panel result-panel-bazi">
+              {baziError ? <p className="error-text">{baziError}</p> : null}
+              {inputState.analysisMode === 'compatibility' ? (
+                <div className="result-dual-layout">
+                  {baziResult ? (
+                    <BaziChartBoard
+                      title="第一人八字"
+                      name={inputState.name || '第一人'}
+                      result={baziResult}
+                    />
+                  ) : null}
+                  {partnerBaziResult ? (
+                    <BaziChartBoard
+                      title="第二人八字"
+                      name={inputState.partnerName || '第二人'}
+                      result={partnerBaziResult}
+                    />
+                  ) : null}
+                </div>
+              ) : baziResult ? (
+                <BaziChartBoard
+                  title="八字总览"
+                  name={inputState.name || '当前命盘'}
+                  result={baziResult}
+                />
+              ) : null}
+            </section>
+          </div>
         </div>
-      ) : null}
 
-      {promptState.tab === 'ziwei' ? (
-        <div className="single-panel-shell">
-          <section className="panel result-panel result-panel-ziwei">
-            {ziweiError ? <p className="error-text">{ziweiError}</p> : null}
-            {inputState.analysisMode === 'compatibility' && currentZiweiPayload && partnerZiweiPayload ? (
-              <div className="result-dual-layout">
+        <div
+          className={`result-tab-pane ${promptState.tab === 'ziwei' ? 'is-active' : 'is-inactive'}`}
+          aria-hidden={promptState.tab !== 'ziwei'}
+        >
+          <div className="single-panel-shell">
+            <section className="panel result-panel result-panel-ziwei">
+              {ziweiError ? <p className="error-text">{ziweiError}</p> : null}
+              {inputState.analysisMode === 'compatibility' && currentZiweiPayload && partnerZiweiPayload ? (
+                <div className="result-dual-layout">
+                  <ZiweiBoard
+                    title="第一人紫微"
+                    name={inputState.name || '第一人'}
+                    payload={currentZiweiPayload}
+                    runtime={ziweiRuntime!}
+                  />
+                  <ZiweiBoard
+                    title="第二人紫微"
+                    name={inputState.partnerName || '第二人'}
+                    payload={partnerZiweiPayload}
+                    runtime={partnerZiweiRuntime!}
+                  />
+                </div>
+              ) : null}
+              {inputState.analysisMode !== 'compatibility' && currentZiweiPayload ? (
                 <ZiweiBoard
-                  title="第一人紫微"
-                  name={inputState.name || '第一人'}
+                  title="紫微总览"
+                  name={inputState.name || '当前命盘'}
                   payload={currentZiweiPayload}
                   runtime={ziweiRuntime!}
                 />
-                <ZiweiBoard
-                  title="第二人紫微"
-                  name={inputState.partnerName || '第二人'}
-                  payload={partnerZiweiPayload}
-                  runtime={partnerZiweiRuntime!}
-                />
-              </div>
-            ) : null}
-            {inputState.analysisMode !== 'compatibility' && currentZiweiPayload ? (
-              <ZiweiBoard
-                title="紫微总览"
-                name={inputState.name || '当前命盘'}
-                payload={currentZiweiPayload}
-                runtime={ziweiRuntime!}
-              />
-            ) : null}
-          </section>
+              ) : null}
+            </section>
+          </div>
         </div>
-      ) : null}
 
-      {promptState.tab === 'prompt' ? (
-        <div className="workspace-grid">
-          <section className="panel">
-            <div className="panel-head">
-              <div>
-                <h2>提示词设置</h2>
-                <p>选择基于八字或紫微，再用快捷按钮生成问题。</p>
+        <div
+          className={`result-tab-pane ${promptState.tab === 'prompt' ? 'is-active' : 'is-inactive'}`}
+          aria-hidden={promptState.tab !== 'prompt'}
+        >
+          <div className="workspace-grid">
+            <section className="panel">
+              <div className="panel-head">
+                <div>
+                  <h2>提示词设置</h2>
+                  <p>选择基于八字或紫微，再用快捷按钮生成问题。</p>
+                </div>
               </div>
-            </div>
 
-            <div className="field-list">
-              <div className="prompt-compact-grid">
-                <label className="field-card">
-                  <div className="field-header">
-                    <span>提示词来源</span>
-                  </div>
-                  <select
-                    value={promptState.promptSource}
-                    onChange={(event) =>
-                      updatePromptState({
-                        promptSource: event.target.value as PromptSourceKey,
-                      })
-                    }
-                  >
-                    <option value="bazi">基于八字</option>
-                    <option value="ziwei">基于紫微</option>
-                  </select>
-                </label>
-
-                {promptState.promptSource === 'bazi' && inputState.analysisMode === 'single' ? (
-                  <div className="field-card">
+              <div className="field-list">
+                <div className="prompt-compact-grid">
+                  <label className="field-card">
                     <div className="field-header">
-                      <span>年限选择</span>
+                      <span>提示词来源</span>
                     </div>
-                    <button
-                      type="button"
-                      className="place-trigger"
-                      onClick={() => setIsBaziFortuneModalOpen(true)}
+                    <select
+                      value={promptState.promptSource}
+                      onChange={(event) =>
+                        updatePromptState({
+                          promptSource: event.target.value as PromptSourceKey,
+                        })
+                      }
                     >
-                      {isBaziFortuneSummaryLoading ? (
-                        <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
-                      ) : (
-                        <span>{baziFortuneSummaryText}</span>
-                      )}
-                    </button>
-                  </div>
+                      <option value="bazi">基于八字</option>
+                      <option value="ziwei">基于紫微</option>
+                    </select>
+                  </label>
+
+                  {promptState.promptSource === 'bazi' && inputState.analysisMode === 'single' ? (
+                    <div className="field-card">
+                      <div className="field-header">
+                        <span>年限选择</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="place-trigger"
+                        onClick={() => setIsBaziFortuneModalOpen(true)}
+                      >
+                        {isBaziFortuneSummaryLoading ? (
+                          <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
+                        ) : (
+                          <span>{baziFortuneSummaryText}</span>
+                        )}
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {promptState.promptSource === 'ziwei' ? (
+                    <div className="field-card">
+                      <div className="field-header">
+                        <span>年限选择</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="place-trigger"
+                        onClick={() => setIsZiweiScopeModalOpen(true)}
+                      >
+                        <span>{ziweiScopeSummaryText}</span>
+                      </button>
+                      <small>点击后用模态窗切换紫微提示词使用的运限层级。</small>
+                    </div>
+                  ) : null}
+                </div>
+
+                {promptState.promptSource === 'bazi' ? (
+                  <>
+                    <div className="quick-grid">
+                      {(inputState.analysisMode === 'compatibility'
+                        ? [
+                            { label: '合婚', promptId: 'ai-compat-marriage', question: '请重点分析我们两人的婚恋匹配度、长期磨合点和相处建议。' },
+                            { label: '合伙', promptId: 'ai-compat-career', question: '请重点分析我们两人的合作模式、分工建议和利益风险。' },
+                            { label: '友情', promptId: 'ai-compat-friendship', question: '请重点分析我们两人的相处默契、冲突点和关系建议。' },
+                          ]
+                        : baziSingleShortcutActions
+                      ).map((item) => (
+                        <button
+                          key={item.label}
+                          type="button"
+                          className={`quick-chip ${
+                            inputState.analysisMode === 'single' && activeBaziShortcutMode === item.label
+                              ? 'is-active'
+                              : ''
+                          }`}
+                          onClick={() =>
+                            inputState.analysisMode === 'compatibility'
+                              ? updatePromptState({
+                                  baziPresetId: item.promptId,
+                                  baziQuickQuestion: item.question,
+                                })
+                              : applyBaziShortcutMode(item.label)
+                          }
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                      {inputState.analysisMode === 'single' ? (
+                        <>
+                          <button
+                            type="button"
+                            className={`quick-chip ${activeBaziShortcutMode === '自定义' ? 'is-active' : ''}`}
+                            onClick={() => applyBaziShortcutMode('自定义')}
+                          >
+                            自定义
+                          </button>
+                          <button
+                            type="button"
+                            className="quick-chip"
+                            onClick={openQuestionInspirationModal}
+                          >
+                            问题灵感
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+
+                    {inputState.analysisMode === 'single' && activeBaziShortcutMode === '自定义' ? (
+                      <label className="field-card">
+                        <div className="field-header">
+                          <span>自定义问题</span>
+                        </div>
+                        <textarea
+                          rows={6}
+                          value={promptState.baziQuickQuestion}
+                          placeholder="例如：我近期适合换工作还是稳住？"
+                          onChange={(event) =>
+                            updatePromptState({
+                              baziQuickQuestion: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                    ) : null}
+                  </>
                 ) : null}
 
                 {promptState.promptSource === 'ziwei' ? (
-                  <div className="field-card">
-                    <div className="field-header">
-                      <span>年限选择</span>
+                  <>
+                    <div className="quick-grid">
+                      {(inputState.analysisMode === 'compatibility'
+                        ? [
+                            { label: '感情', topic: 'relationship', question: '请重点分析双方关系匹配度、吸引点、冲突点和相处建议。' },
+                            { label: '合作', topic: 'career-wealth', question: '请重点分析双方合作默契、优势互补和潜在风险。' },
+                            { label: '相处', topic: 'chat', question: '请从双方盘面看互动模式、沟通盲点和长期建议。' },
+                          ]
+                        : ziweiSingleShortcutActions
+                      ).map((item) => (
+                        <button
+                          key={item.label}
+                          type="button"
+                          className={`quick-chip ${
+                            inputState.analysisMode === 'single' && activeZiweiShortcutMode === item.label
+                              ? 'is-active'
+                              : ''
+                          }`}
+                          onClick={() =>
+                            inputState.analysisMode === 'compatibility'
+                              ? updatePromptState({
+                                  ziweiTopic: item.topic,
+                                  ziweiQuickQuestion: item.question,
+                                })
+                              : applyZiweiShortcutMode(item.label)
+                          }
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                      {inputState.analysisMode === 'single' ? (
+                        <>
+                          <button
+                            type="button"
+                            className={`quick-chip ${activeZiweiShortcutMode === '自定义' ? 'is-active' : ''}`}
+                            onClick={() => applyZiweiShortcutMode('自定义')}
+                          >
+                            自定义
+                          </button>
+                          <button
+                            type="button"
+                            className="quick-chip"
+                            onClick={openQuestionInspirationModal}
+                          >
+                            问题灵感
+                          </button>
+                        </>
+                      ) : null}
                     </div>
-                    <button
-                      type="button"
-                      className="place-trigger"
-                      onClick={() => setIsZiweiScopeModalOpen(true)}
-                    >
-                      <span>{ziweiScopeSummaryText}</span>
-                    </button>
-                    <small>点击后用模态窗切换紫微提示词使用的运限层级。</small>
-                  </div>
+
+                    {inputState.analysisMode === 'single' && activeZiweiShortcutMode === '自定义' ? (
+                      <label className="field-card">
+                        <div className="field-header">
+                          <span>自定义问题</span>
+                        </div>
+                        <textarea
+                          rows={6}
+                          value={promptState.ziweiQuickQuestion}
+                          placeholder="例如：请重点分析我这段时间该主动还是先稳住。"
+                          onChange={(event) =>
+                            updatePromptState({
+                              ziweiQuickQuestion: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                    ) : null}
+                  </>
                 ) : null}
               </div>
+            </section>
 
-              {promptState.promptSource === 'bazi' ? (
-                <>
-                  <div className="quick-grid">
-                    {(inputState.analysisMode === 'compatibility'
-                      ? [
-                          { label: '合婚', promptId: 'ai-compat-marriage', question: '请重点分析我们两人的婚恋匹配度、长期磨合点和相处建议。' },
-                          { label: '合伙', promptId: 'ai-compat-career', question: '请重点分析我们两人的合作模式、分工建议和利益风险。' },
-                          { label: '友情', promptId: 'ai-compat-friendship', question: '请重点分析我们两人的相处默契、冲突点和关系建议。' },
-                        ]
-                      : baziSingleShortcutActions
-                    ).map((item) => (
-                      <button
-                        key={item.label}
-                        type="button"
-                        className={`quick-chip ${
-                          inputState.analysisMode === 'single' && activeBaziShortcutMode === item.label
-                            ? 'is-active'
-                            : ''
-                        }`}
-                        onClick={() =>
-                          inputState.analysisMode === 'compatibility'
-                            ? updatePromptState({
-                                baziPresetId: item.promptId,
-                                baziQuickQuestion: item.question,
-                              })
-                            : applyBaziShortcutMode(item.label)
-                        }
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                    {inputState.analysisMode === 'single' ? (
-                      <>
-                        <button
-                          type="button"
-                          className={`quick-chip ${activeBaziShortcutMode === '自定义' ? 'is-active' : ''}`}
-                          onClick={() => applyBaziShortcutMode('自定义')}
-                        >
-                          自定义
-                        </button>
-                        <button
-                          type="button"
-                          className="quick-chip"
-                          onClick={openQuestionInspirationModal}
-                        >
-                          问题灵感
-                        </button>
-                      </>
-                    ) : null}
-                  </div>
-
-                  {inputState.analysisMode === 'single' && activeBaziShortcutMode === '自定义' ? (
-                    <label className="field-card">
-                      <div className="field-header">
-                        <span>自定义问题</span>
-                      </div>
-                      <textarea
-                        rows={6}
-                        value={promptState.baziQuickQuestion}
-                        placeholder="例如：我近期适合换工作还是稳住？"
-                        onChange={(event) =>
-                          updatePromptState({
-                            baziQuickQuestion: event.target.value,
-                          })
-                        }
-                      />
-                    </label>
-                  ) : null}
-                </>
-              ) : null}
-
-              {promptState.promptSource === 'ziwei' ? (
-                <>
-                  <div className="quick-grid">
-                    {(inputState.analysisMode === 'compatibility'
-                      ? [
-                          { label: '感情', topic: 'relationship', question: '请重点分析双方关系匹配度、吸引点、冲突点和相处建议。' },
-                          { label: '合作', topic: 'career-wealth', question: '请重点分析双方合作默契、优势互补和潜在风险。' },
-                          { label: '相处', topic: 'chat', question: '请从双方盘面看互动模式、沟通盲点和长期建议。' },
-                        ]
-                      : ziweiSingleShortcutActions
-                    ).map((item) => (
-                      <button
-                        key={item.label}
-                        type="button"
-                        className={`quick-chip ${
-                          inputState.analysisMode === 'single' && activeZiweiShortcutMode === item.label
-                            ? 'is-active'
-                            : ''
-                        }`}
-                        onClick={() =>
-                          inputState.analysisMode === 'compatibility'
-                            ? updatePromptState({
-                                ziweiTopic: item.topic,
-                                ziweiQuickQuestion: item.question,
-                              })
-                            : applyZiweiShortcutMode(item.label)
-                        }
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                    {inputState.analysisMode === 'single' ? (
-                      <>
-                        <button
-                          type="button"
-                          className={`quick-chip ${activeZiweiShortcutMode === '自定义' ? 'is-active' : ''}`}
-                          onClick={() => applyZiweiShortcutMode('自定义')}
-                        >
-                          自定义
-                        </button>
-                        <button
-                          type="button"
-                          className="quick-chip"
-                          onClick={openQuestionInspirationModal}
-                        >
-                          问题灵感
-                        </button>
-                      </>
-                    ) : null}
-                  </div>
-
-                  {inputState.analysisMode === 'single' && activeZiweiShortcutMode === '自定义' ? (
-                    <label className="field-card">
-                      <div className="field-header">
-                        <span>自定义问题</span>
-                      </div>
-                      <textarea
-                        rows={6}
-                        value={promptState.ziweiQuickQuestion}
-                        placeholder="例如：请重点分析我这段时间该主动还是先稳住。"
-                        onChange={(event) =>
-                          updatePromptState({
-                            ziweiQuickQuestion: event.target.value,
-                          })
-                        }
-                      />
-                    </label>
-                  ) : null}
-                </>
-              ) : null}
-            </div>
-          </section>
-
-          <section className="panel panel-output">
-            <div className="panel-head">
-              <div>
-                <h2>提示词正文</h2>
-                <p>系统要求和问题正文已合并，复制这一整段提示词即可。</p>
-              </div>
-              <div className="action-row compact-actions">
-                <button className="copy-button secondary-button" type="button" onClick={handleCopy}>
-                  {copyState}
-                </button>
-                {showShareButton ? (
-                  <button className="copy-button" type="button" onClick={handleShare}>
-                    {shareState}
+            <section className="panel panel-output">
+              <div className="panel-head">
+                <div>
+                  <h2>提示词正文</h2>
+                  <p>系统要求和问题正文已合并，复制这一整段提示词即可。</p>
+                </div>
+                <div className="action-row compact-actions">
+                  <button className="copy-button secondary-button" type="button" onClick={handleCopy}>
+                    {copyState}
                   </button>
-                ) : null}
+                  {showShareButton ? (
+                    <button className="copy-button" type="button" onClick={handleShare}>
+                      {shareState}
+                    </button>
+                  ) : null}
+                </div>
               </div>
-            </div>
-            {activePromptText ? (
-              <pre className="result-pre">{activePromptText}</pre>
-            ) : (
-              <PromptPreSkeleton />
-            )}
-          </section>
+              {activePromptText ? (
+                <pre className="result-pre">{activePromptText}</pre>
+              ) : (
+                <PromptPreSkeleton />
+              )}
+            </section>
+          </div>
         </div>
-      ) : null}
+      </div>
 
       {isBaziFortuneModalOpen && baziResult && inputState.analysisMode === 'single' ? (
         <Suspense fallback={<BaziFortuneLoadingModal />}>
