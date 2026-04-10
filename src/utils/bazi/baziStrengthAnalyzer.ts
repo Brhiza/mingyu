@@ -9,7 +9,6 @@ import type {
 } from './baziTypes'
 
 export interface SeasonalStatusAnalysis {
-  status: string;
   isTimely: boolean;
 }
 
@@ -79,11 +78,10 @@ export function analyzeSupport(dayMaster: string, pillars: Pillars, getWuxing: G
 export function analyzeSeasonalStatus(dayMaster: string, monthBranch: string, getSeasonStatus: GetSeasonStatusFn, getWuxing: GetWuxingFn): SeasonalStatusAnalysis {
   const season = getSeasonStatus(monthBranch)
   const dayMasterWuxing = getWuxing(dayMaster)
-  const status = season[dayMasterWuxing as string]
+  const seasonStatus = season[dayMasterWuxing as string]
 
   return {
-    status,
-    isTimely: status === '旺' || status === '相'
+    isTimely: seasonStatus === '旺' || seasonStatus === '相'
   }
 }
 
@@ -97,16 +95,15 @@ export function analyzeDayMasterStrength(
   score += rootAnalysis.totalStrength
   score += supportAnalysis.totalStrength
 
-  let strength = '中和'
-  if (score >= 7) strength = '身强'
-  if (score <= 3) strength = '身弱'
-  if (rootAnalysis.strongRoot && seasonalStatus.isTimely) strength = '极强'
-  if (!rootAnalysis.hasRoot && !seasonalStatus.isTimely) strength = '极弱'
+  let status = '中和'
+  if (score >= 7) status = '身强'
+  if (score <= 3) status = '身弱'
+  if (rootAnalysis.strongRoot && seasonalStatus.isTimely) status = '极强'
+  if (!rootAnalysis.hasRoot && !seasonalStatus.isTimely && supportAnalysis.totalStrength === 0) status = '极弱'
 
   return {
-    strength,
     score,
-    status: strength,
+    status,
     details: {
       timely: seasonalStatus.isTimely,
       rootStrength: rootAnalysis.totalStrength,

@@ -120,10 +120,6 @@ function normalizePalaceName(name: string) {
   return name.endsWith('宫') ? name.slice(0, -1) : name;
 }
 
-function joinNames(items: Array<{ name: string }>, fallback = '无') {
-  return items.length > 0 ? items.map((item) => item.name).join('、') : fallback;
-}
-
 function mapTopicLabel(selectedTopic: string) {
   switch (selectedTopic) {
     case 'destiny':
@@ -262,60 +258,6 @@ function buildScopeFocusPalaces(payload: AnalysisPayloadV1) {
   ]).slice(0, 6);
 }
 
-function scoreRiskPalace(payload: AnalysisPayloadV1, palace: PalaceFact) {
-  const normalizedName = normalizePalaceName(palace.name);
-  const evidenceScore = payload.evidence_pool.reduce((score, item) => {
-    const palaceMatched =
-      item.palace_indexes.includes(palace.index) ||
-      item.palace_names.some((name) => normalizePalaceName(name) === normalizedName);
-
-    if (!palaceMatched) {
-      return score;
-    }
-
-    return (
-      score +
-      (item.mutagens.includes('忌') ? 8 : 0) +
-      (item.type === 'palace_scope_hit' ? 4 : 0) +
-      Math.min(item.priority, 100) / 20
-    );
-  }, 0);
-
-  const palaceScore =
-    evidenceScore +
-    (palace.summary_tags.includes('三方四正见化忌') ? 8 : 0) +
-    (palace.summary_tags.includes('有自化') ? 5 : 0) +
-    (palace.summary_tags.includes('有当前运限四化') ? 3 : 0) +
-    palace.scope_hits.length * 3 +
-    getAllStars(palace).filter((star) => star.birth_mutagen === '忌').length * 4 +
-    getAllStars(palace).filter((star) => star.active_scope_mutagen === '忌').length * 5;
-
-  return palaceScore;
-}
-
-function buildRiskFocusPalaces(payload: AnalysisPayloadV1) {
-  const activePalace = getPalaceByIndex(payload, payload.active_scope.palace_index);
-  const scoredPalaces = [...payload.palaces]
-    .map((item) => ({
-      palace: item,
-      score: scoreRiskPalace(payload, item),
-    }))
-    .filter((item) => item.score > 0)
-    .sort((left, right) => right.score - left.score)
-    .map((item) => item.palace);
-
-  return dedupePalaces([
-    ...scoredPalaces,
-    activePalace,
-    getPalaceByName(payload, '疾厄'),
-    getPalaceByName(payload, '迁移'),
-    getPalaceByName(payload, '财帛'),
-    getPalaceByName(payload, '官禄'),
-    getPalaceByName(payload, '夫妻'),
-    getPalaceByName(payload, '命宫'),
-  ]).slice(0, 6);
-}
-
 function buildFocusTaskBundle(payload: AnalysisPayloadV1, reportContext: AiReportContext) {
   const activePalace = getPalaceByIndex(payload, payload.active_scope.palace_index);
   const bodyPalace = getBodyPalace(payload);
@@ -323,7 +265,6 @@ function buildFocusTaskBundle(payload: AnalysisPayloadV1, reportContext: AiRepor
   const spousePalace = getPalaceByName(payload, '夫妻');
   const childrenPalace = getPalaceByName(payload, '子女');
   const wealthPalace = getPalaceByName(payload, '财帛');
-  const healthPalace = getPalaceByName(payload, '疾厄');
   const travelPalace = getPalaceByName(payload, '迁移');
   const careerPalace = getPalaceByName(payload, '官禄');
   const housePalace = getPalaceByName(payload, '田宅');
@@ -705,10 +646,7 @@ export function buildAnalysisMessages(params: {
   reportContext: AiReportContext;
 }) {
   if (isSynastryAnalysisPayload(params.payload)) {
-    return buildSynastryAnalysisMessages({
-      payload: params.payload,
-      reportContext: params.reportContext,
-    });
+    return buildSynastryAnalysisMessages();
   }
 
   return [

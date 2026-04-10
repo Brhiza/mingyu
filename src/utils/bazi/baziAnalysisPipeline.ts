@@ -44,14 +44,7 @@ export interface BaziAnalysisPipelineInput {
   monthCommander?: string;
 }
 
-export interface BaziAnalysisPipelineState {
-  dayMaster: string;
-  dayMasterElement: string;
-  monthBranch: string;
-  monthCommander?: string;
-  rootAnalysis: RootAnalysis;
-  supportAnalysis: SupportAnalysis;
-  seasonalStatus: SeasonalStatusAnalysis;
+interface BaziAnalysisPipelineState {
   dayMasterStrength: DayMasterStrengthAnalysis;
   pattern: PatternAnalysis;
   usefulGod: UsefulGodAnalysis & { favorableWuxing: string[]; unfavorableWuxing: string[] };
@@ -74,13 +67,6 @@ function buildPipelineState(
   const usefulGod = deps.determineUsefulGod(dayMasterStrength.status, pattern, dayMasterElement, monthBranch, monthCommander)
 
   return {
-    dayMaster,
-    dayMasterElement,
-    monthBranch,
-    monthCommander,
-    rootAnalysis,
-    supportAnalysis,
-    seasonalStatus,
     dayMasterStrength,
     pattern,
     usefulGod
@@ -90,22 +76,8 @@ function buildPipelineState(
 function buildAnalysisResult(state: BaziAnalysisPipelineState): BaziAnalysisResult {
   return {
     dayMasterStrength: state.dayMasterStrength,
-    dayMasterStatus: state.dayMasterStrength.status,
     mingGe: state.pattern,
-    patternType: state.pattern.type,
-    patternDescription: state.pattern.description,
-    favorableElements: state.usefulGod.favorableWuxing || [],
-    unfavorableElements: state.usefulGod.unfavorableWuxing || [],
-    usefulGod: state.usefulGod,
-    avoidGod: state.usefulGod.avoid,
-    circulation: state.usefulGod.circulation,
-    rootAnalysis: state.rootAnalysis,
-    supportAnalysis: state.supportAnalysis,
-    seasonalStatus: {
-      month: state.monthBranch,
-      dayMasterStatus: state.seasonalStatus.isTimely ? '得令' : '失令',
-      isTimely: state.seasonalStatus.isTimely
-    }
+    usefulGod: state.usefulGod
   }
 }
 
@@ -113,9 +85,6 @@ export function createBaziAnalysisPipeline(deps: BaziAnalysisPipelineDeps) {
   return {
     run(input: BaziAnalysisPipelineInput): BaziAnalysisResult {
       return buildAnalysisResult(buildPipelineState(input, deps))
-    },
-    runStages(input: BaziAnalysisPipelineInput): BaziAnalysisPipelineState {
-      return buildPipelineState(input, deps)
     }
   }
 }

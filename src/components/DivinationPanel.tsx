@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   DIVINATION_METHOD_OPTIONS,
+  LIUREN_TEMPLATE_OPTIONS,
   MEIHUA_METHOD_OPTIONS,
   TAROT_SPREAD_OPTIONS,
 } from '@/lib/divination/config';
@@ -26,6 +27,7 @@ const defaultDraft: DivinationDraft = {
   birthYear: '',
   meihuaMethod: 'time',
   meihuaNumber: '',
+  liurenTemplate: 'general',
   tarotSpread: 'three',
 };
 
@@ -41,15 +43,19 @@ const tarotSpreadLabelMap = Object.fromEntries(
   TAROT_SPREAD_OPTIONS.map((item) => [item.value, item.label]),
 ) as Record<NonNullable<DivinationDraft['tarotSpread']>, string>;
 
+const liurenTemplateLabelMap = Object.fromEntries(
+  LIUREN_TEMPLATE_OPTIONS.map((item) => [item.value, item.label]),
+) as Record<NonNullable<DivinationDraft['liurenTemplate']>, string>;
+
 function getSummaryBlocks(method: DivinationDraft['method'], data: DivinationData) {
   switch (method) {
     case 'liuyao':
       return {
         title: '六爻起卦结果',
         tags: [
-          `主卦：${data.originalName}`,
-          `变卦：${data.changedName || '无'}`,
-          `互卦：${data.interName || '无'}`,
+          `主卦：${'originalName' in data ? data.originalName : '未知'}`,
+          `变卦：${'changedName' in data ? (data.changedName || '无') : '无'}`,
+          `互卦：${'interName' in data ? (data.interName || '无') : '无'}`,
           `动爻：${'changingYaos' in data ? data.changingYaos.map((item) => item.position).join('、') || '无' : '无'}`,
         ],
         lines: [
@@ -61,9 +67,9 @@ function getSummaryBlocks(method: DivinationDraft['method'], data: DivinationDat
       return {
         title: '梅花起卦结果',
         tags: [
-          `主卦：${data.originalName}`,
-          `互卦：${data.interName || '无'}`,
-          `变卦：${data.changedName || '无'}`,
+          `主卦：${'originalName' in data ? data.originalName : '未知'}`,
+          `互卦：${'interName' in data ? (data.interName || '无') : '无'}`,
+          `变卦：${'changedName' in data ? (data.changedName || '无') : '无'}`,
           `动爻：${'movingYao' in data ? `第${data.movingYao.position}爻` : '未知'}`,
         ],
         lines: [
@@ -82,6 +88,27 @@ function getSummaryBlocks(method: DivinationDraft['method'], data: DivinationDat
         lines: [
           `节气：${'timeInfo' in data ? data.timeInfo.solarTerm : '未知'}`,
           `格局标签：${'patternTags' in data && data.patternTags?.length ? data.patternTags.join('、') : '无明显标签'}`,
+        ],
+      };
+    case 'liuren':
+      return {
+        title: '大六壬起课结果',
+        tags: [
+          `时段：${'dayNight' in data && data.dayNight ? data.dayNight : '未知'}`,
+          `月将：${'monthLeader' in data ? data.monthLeader : '未知'}`,
+          `占时：${'divinationBranch' in data ? data.divinationBranch : '未知'}`,
+          `初传：${'threeTransmissions' in data ? data.threeTransmissions[0]?.branch || '未知' : '未知'}`,
+          `末传：${'threeTransmissions' in data ? data.threeTransmissions[2]?.branch || '未知' : '未知'}`,
+        ],
+        lines: [
+          `贵人落地：${'noblemanBranch' in data && data.noblemanBranch ? data.noblemanBranch : '未知'}`,
+          `旬空：${'xunKong' in data && data.xunKong?.length ? data.xunKong.join('、') : '未知'}`,
+          `取传法：${'transmissionRule' in data && data.transmissionRule ? data.transmissionRule : '未标注'}`,
+          `传态：${'transmissionPattern' in data && data.transmissionPattern ? data.transmissionPattern : '未标注'}`,
+          `课体标签：${'patternTags' in data && data.patternTags?.length ? data.patternTags.join('、') : '无明显标签'}`,
+          'transmissionDetail' in data && data.transmissionDetail ? `取传说明：${data.transmissionDetail}` : '',
+          'lessonSummary' in data && data.lessonSummary ? `四课：${data.lessonSummary}` : '',
+          'transmissionSummary' in data && data.transmissionSummary ? `三传：${data.transmissionSummary}` : '',
         ],
       };
     case 'tarot':
@@ -282,6 +309,10 @@ export function DivinationPanel() {
       if (!savedRecord) {
         return;
       }
+      const nextSearchParams = new URLSearchParams(searchParams);
+      nextSearchParams.set('mode', 'divination');
+      nextSearchParams.set('record', savedRecord.id);
+      setSearchParams(nextSearchParams, { replace: true });
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : '占卜生成失败，请稍后重试');
     } finally {
@@ -394,6 +425,29 @@ export function DivinationPanel() {
                       </div>
                     ) : null}
 
+                    {draft.method === 'liuren' ? (
+                      <div className="form-item divination-inline-field">
+                        <label htmlFor="liuren-template-select">断课模板</label>
+                        <div className="divination-select-shell divination-desktop-select-shell">
+                          <span className="divination-trigger-text">{liurenTemplateLabelMap[draft.liurenTemplate]}</span>
+                          <select
+                            id="liuren-template-select"
+                            value={draft.liurenTemplate}
+                            className="form-input divination-overlay-select"
+                            onChange={(event) =>
+                              updateDraft('liurenTemplate', event.target.value as DivinationDraft['liurenTemplate'])
+                            }
+                          >
+                            {LIUREN_TEMPLATE_OPTIONS.map((item) => (
+                              <option key={item.value} value={item.value}>
+                                {item.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ) : null}
+
                     {draft.method === 'tarot' ? (
                       <div className="form-item divination-inline-field">
                         <label htmlFor="tarot-spread-select">牌阵</label>
@@ -430,7 +484,7 @@ export function DivinationPanel() {
 
               <div
                 className={`divination-mobile-control-row ${
-                  draft.method === 'meihua' || draft.method === 'tarot' ? 'has-secondary' : ''
+                  draft.method === 'meihua' || draft.method === 'liuren' || draft.method === 'tarot' ? 'has-secondary' : ''
                 }`}
               >
                 <div className="divination-mobile-method-picker">
@@ -489,6 +543,28 @@ export function DivinationPanel() {
                       }
                     >
                       {TAROT_SPREAD_OPTIONS.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+
+                {draft.method === 'liuren' ? (
+                  <div className="divination-mobile-secondary-picker">
+                    <span className="divination-mobile-trigger-text divination-trigger-text">
+                      {liurenTemplateLabelMap[draft.liurenTemplate]}
+                    </span>
+                    <select
+                      aria-label="断课模板"
+                      value={draft.liurenTemplate}
+                      className="form-input divination-mobile-method-select divination-overlay-select"
+                      onChange={(event) =>
+                        updateDraft('liurenTemplate', event.target.value as DivinationDraft['liurenTemplate'])
+                      }
+                    >
+                      {LIUREN_TEMPLATE_OPTIONS.map((item) => (
                         <option key={item.value} value={item.value}>
                           {item.label}
                         </option>
@@ -661,6 +737,9 @@ export function DivinationPanel() {
                   </button>
                 ) : null}
               </div>
+            </div>
+            <div className="prompt-send-tip">
+              点击复制后，发送到你常用的在线 AI 软件继续提问。
             </div>
 
             <pre className="result-pre">{session.prompt}</pre>

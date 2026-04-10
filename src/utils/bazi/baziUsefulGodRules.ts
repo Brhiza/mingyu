@@ -11,16 +11,10 @@ export interface BaseUsefulGodRule {
   priority?: number;
   patterns?: string[];
   strengths?: string[];
-  method: string;
   favorable: UsefulGodWuxingBundle;
   unfavorable: UsefulGodWuxingBundle;
   trace: string;
   primaryReason: string;
-}
-
-export interface UsefulGodSummaryRule {
-  prefix: string;
-  summary: string;
 }
 
 export const BASE_USEFUL_GOD_RULES: BaseUsefulGodRule[] = [
@@ -30,7 +24,6 @@ export const BASE_USEFUL_GOD_RULES: BaseUsefulGodRule[] = [
     description: '专旺格以顺势为主，喜印比及顺气之神。',
     priority: 100,
     patterns: ['专旺格'],
-    method: '顺势法',
     favorable: 'resource_companion_output',
     unfavorable: 'wealth_officer',
     trace: '专旺格顺势取用',
@@ -42,7 +35,6 @@ export const BASE_USEFUL_GOD_RULES: BaseUsefulGodRule[] = [
     description: '从格以从势为主，喜顺从克泄耗之气。',
     priority: 100,
     patterns: ['从格'],
-    method: '从势法',
     favorable: 'output_wealth_officer',
     unfavorable: 'resource_companion',
     trace: '从格从势取用',
@@ -54,7 +46,6 @@ export const BASE_USEFUL_GOD_RULES: BaseUsefulGodRule[] = [
     description: '普通身强命局以泄耗克为先，抑其太过。',
     priority: 50,
     strengths: ['身强', '极强'],
-    method: '扶抑法',
     favorable: 'output_wealth_officer',
     unfavorable: 'resource_companion',
     trace: '身强取泄耗克',
@@ -66,25 +57,9 @@ export const BASE_USEFUL_GOD_RULES: BaseUsefulGodRule[] = [
     description: '普通身弱命局以印比扶助为先，培元固本。',
     priority: 50,
     strengths: ['身弱', '极弱'],
-    method: '扶抑法',
     favorable: 'resource_companion',
     unfavorable: 'output_wealth_officer',
     trace: '身弱取印比',
     primaryReason: '扶抑'
-  }
-]
-
-export const USEFUL_GOD_SUMMARY_RULES: UsefulGodSummaryRule[] = [
-  {
-    prefix: '调候优先:',
-    summary: '兼顾调候'
-  },
-  {
-    prefix: '司令排序:',
-    summary: '参考司令'
-  },
-  {
-    prefix: '病药优先:',
-    summary: '病药优先'
   }
 ]

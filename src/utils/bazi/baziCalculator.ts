@@ -38,6 +38,9 @@ import {
 } from './baziTypes'
 import { getTimeIndexFromClock } from '../dateUtils'
 
+type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>
+type LunarHourInstance = ReturnType<SolarTimeInstance['getLunarHour']>
+
 /**
  * 八字计算工具类
  * 整合了所有计算逻辑
@@ -109,8 +112,8 @@ export class BaziCalculator {
     }
 
     // 根据用户选择的日历类型创建时间对象
-    let solarTime: SolarTime
-    let lunarHour: LunarHour
+    let solarTime: SolarTimeInstance
+    let lunarHour: LunarHourInstance
     let timing: TimingInfo | undefined
     const baseHour = useTrueSolarTime ? birthHour! : selectedTimeInfo!.hour
     const baseMinute = useTrueSolarTime ? birthMinute! : 0
@@ -205,11 +208,7 @@ export class BaziCalculator {
       wuxingStrength: {
         percentages: { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 },
         scores: { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 },
-        status: '',
-        yongShen: [],
-        jiShen: [],
-        missing: [],
-        suggestions: { favorable: [], unfavorable: [] }
+        missing: []
       },
       mingGong: '',
       shenGong: '',
@@ -232,19 +231,9 @@ export class BaziCalculator {
         jieqiList: []
       },
       analysis: {
-        dayMasterStrength: { strength: '未知', score: 0, status: '未知', details: { timely: false, rootStrength: 0, supportStrength: 0 } },
-        dayMasterStatus: '',
-        mingGe: { pattern: '未知', type: '未知', description: '', success: false, successReason: '', isSpecial: false },
-        patternType: '',
-        patternDescription: '',
-        favorableElements: [],
-        unfavorableElements: [],
-        usefulGod: { favorable: [], unfavorable: [], useful: '', avoid: '', circulation: '' },
-        avoidGod: '',
-        circulation: '',
-        rootAnalysis: { roots: [], totalStrength: 0, hasRoot: false, strongRoot: false },
-        supportAnalysis: { supporters: [], totalStrength: 0, hasSupport: false },
-        seasonalStatus: { month: '', dayMasterStatus: '', isTimely: false }
+        dayMasterStrength: { score: 0, status: '未知', details: { timely: false, rootStrength: 0, supportStrength: 0 } },
+        mingGe: { pattern: '未知', isSpecial: false },
+        usefulGod: { favorable: [], unfavorable: [], useful: '', avoid: '' }
       },
       shenShaAnalysis: { year: [], month: [], day: [], hour: [], global: [] }
     }
@@ -347,7 +336,7 @@ export class BaziCalculator {
     return calculateLiuriRange(startDate, endDate, dayMaster)
   }
 
-  public calculateSeasonInfo(solarTime: SolarTime) {
+  public calculateSeasonInfo(solarTime: SolarTimeInstance) {
     return calculateSeasonInfo(solarTime)
   }
 

@@ -1,22 +1,19 @@
 import {
   WUXING_STRENGTH_SCORES,
   HIDDEN_STEMS,
-  WUXING_MONTH_WEIGHTS,
-  WUXING_RELATIONSHIPS,
-  WUXING_SUGGESTIONS
+  WUXING_MONTH_WEIGHTS
 } from './baziDefinitions'
 import { getWuxing as getWuxingUtil } from './baziUtils'
-import type { Pillars, WuxingStrengthDetails, Wuxing } from './baziTypes'
+import type { Pillars, WuxingStrengthDetails } from './baziTypes'
 
 /**
- * 专注于五行强度、旺衰、用神和忌神计算的工具类
+ * 专注于五行分布强度计算的工具类
  */
 export class WuxingCalculator {
   /**
-   * 计算五行强弱（高级版）
+   * 计算五行分布（高级版）
    * @param pillars - 四柱
-   * @param hiddenStems - 藏干
-   * @returns 包含分数、百分比和旺衰状态的详细对象
+   * @returns 包含分数、百分比和缺失项的详细对象
    */
   public calculateWuxingStrength(pillars: Pillars): WuxingStrengthDetails {
     const rawStrength = this._calculateRawStrength(pillars)
@@ -25,14 +22,6 @@ export class WuxingCalculator {
     const totalStrength = Object.values(weightedStrength).reduce((sum, val) => sum + val, 0)
     const percentages = this._calculatePercentages(weightedStrength, totalStrength)
 
-    const dayMasterWuxing = getWuxingUtil(pillars.day.gan)
-    if (dayMasterWuxing === '未知') {
-      return this._getUnknownStrengthResult(weightedStrength, percentages)
-    }
-
-    const { status, allies, enemies } = this._determineStrengthStatus(dayMasterWuxing, weightedStrength, totalStrength)
-    const { yongShen, jiShen } = this._determineYongShen(status, allies, enemies, dayMasterWuxing)
-
     const missingElements = Object.entries(rawStrength)
       .filter(([, score]) => score === 0)
       .map(([wuxing]) => wuxing)
@@ -40,14 +29,7 @@ export class WuxingCalculator {
     return {
       scores: weightedStrength,
       percentages,
-      status,
-      yongShen,
-      jiShen,
-      missing: missingElements,
-      suggestions: {
-        favorable: yongShen.map(w => ({ wuxing: w, ...WUXING_SUGGESTIONS[w] })),
-        unfavorable: jiShen.map(w => ({ wuxing: w, ...WUXING_SUGGESTIONS[w] }))
-      }
+      missing: missingElements
     }
   }
 
@@ -105,49 +87,5 @@ export class WuxingCalculator {
     percentages[lastWuxing] = 100 - accumulatedPercentage
 
     return percentages
-  }
-
-  private _getUnknownStrengthResult(scores: Record<string, number>, percentages: Record<string, number>): WuxingStrengthDetails {
-    return {
-      scores,
-      percentages,
-      status: '无法判断',
-      yongShen: [],
-      jiShen: [],
-      missing: [],
-      suggestions: { favorable: [], unfavorable: [] }
-    }
-  }
-
-  private _determineStrengthStatus(dayMasterWuxing: Wuxing, weightedStrength: Record<string, number>, totalStrength: number) {
-    const { allies, enemies } = WUXING_RELATIONSHIPS[dayMasterWuxing]
-    const allyScore = allies.reduce((sum, type) => sum + (weightedStrength[type] || 0), 0)
-    const allyPercentage = totalStrength > 0 ? (allyScore / totalStrength) * 100 : 0
-
-    let status = '均衡'
-    if (allyPercentage > 60) status = '身强'
-    else if (allyPercentage < 20) status = '身弱'
-    else if (allyPercentage >= 40 && allyPercentage <= 60) status = '中和'
-    else if (allyPercentage > 50) status = '偏强'
-    else if (allyPercentage < 30) status = '偏弱'
-
-    return { status, allies, enemies }
-  }
-
-  private _determineYongShen(status: string, allies: string[], enemies: string[], dayMasterWuxing: Wuxing) {
-    let yongShen: string[] = []
-    let jiShen: string[] = []
-
-    if (status === '身强' || status === '偏强') {
-      yongShen = enemies
-      jiShen = allies
-    } else if (status === '身弱' || status === '偏弱') {
-      yongShen = allies
-      jiShen = enemies
-    } else {
-      // 中和状态，取克泄耗为用神
-      yongShen = WUXING_RELATIONSHIPS[dayMasterWuxing].enemies.slice(0, 2)
-    }
-    return { yongShen, jiShen }
   }
 }

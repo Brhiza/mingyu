@@ -60,14 +60,7 @@ export interface HiddenStems {
 export interface WuxingStrengthDetails {
   scores: Record<string, number>;
   percentages: Record<string, number>;
-  status: string;
-  yongShen: string[];
-  jiShen: string[];
   missing: string[];
-  suggestions: {
-    favorable: { wuxing: string; [key: string]: unknown }[];
-    unfavorable: { wuxing: string; [key: string]: unknown }[];
-  };
 }
 
 export interface LiunianInfo {
@@ -181,7 +174,6 @@ export interface SupportAnalysis {
 }
 
 export interface DayMasterStrengthAnalysis {
-  strength: string;
   score: number;
   status: string;
   details: {
@@ -193,10 +185,6 @@ export interface DayMasterStrengthAnalysis {
 
 export interface PatternAnalysis {
   pattern: string;
-  type: string;
-  description: string;
-  success: boolean;
-  successReason: string;
   isSpecial: boolean;
 }
 
@@ -205,12 +193,10 @@ export interface UsefulGodAnalysis {
   unfavorable: string[];
   useful: string;
   avoid: string;
-  circulation: string;
   favorableWuxing?: string[];
   unfavorableWuxing?: string[];
   strategyTrace?: string[];
   primaryReason?: string;
-  matchedRuleIds?: string[];
   matchedRules?: {
     id: string;
     label: string;
@@ -220,25 +206,12 @@ export interface UsefulGodAnalysis {
 
 export interface BaziAnalysisResult {
   dayMasterStrength: DayMasterStrengthAnalysis; // 升级为完整对象
-  dayMasterStatus: string;
   mingGe: PatternAnalysis; // 升级为完整对象
-  patternType: string;
-  patternDescription: string;
-  favorableElements: string[];
-  unfavorableElements: string[];
   usefulGod: UsefulGodAnalysis; // 升级为完整对象
-  avoidGod: string;
-  circulation: string;
-  rootAnalysis: RootAnalysis;
-  supportAnalysis: SupportAnalysis;
-  seasonalStatus: {
-    month: string;
-    dayMasterStatus: string;
-    isTimely: boolean;
-  };
 }
 
 import { SolarTime } from 'tyme4ts'
+type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>
 
 interface NamedValue {
   getName(): string;
@@ -262,7 +235,7 @@ export interface InternalEightChar {
 
 // 内部计算使用的类型，包含了临时数据
 export interface InternalBaziChartResult extends BaziChartResult {
-  solarTime?: SolarTime;
+  solarTime?: SolarTimeInstance;
   eightChar?: InternalEightChar;
 }
 

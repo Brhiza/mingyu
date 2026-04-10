@@ -3,6 +3,9 @@ import { MONTH_COMMANDER } from './baziDefinitions'
 import { getTenGod, getTenGodForBranch } from './baziUtils'
 import type { BaziChartResult, SeasonInfo, ShenShaResult } from './baziTypes'
 
+type SolarTermInstance = ReturnType<typeof SolarTerm.fromIndex>
+type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>
+
 export interface LiuyueInfo {
   month: number;
   gan: string;
@@ -59,13 +62,13 @@ function getNextMonth(year: number, month: number): { year: number; month: numbe
 }
 
 function collectSolarTermsInMonth(year: number, month: number): Array<{
-  term: SolarTerm;
-  solarTime: SolarTime;
+  term: SolarTermInstance;
+  solarTime: SolarTimeInstance;
   date: string;
 }> {
   const terms: Array<{
-    term: SolarTerm;
-    solarTime: SolarTime;
+    term: SolarTermInstance;
+    solarTime: SolarTimeInstance;
     date: string;
   }> = []
 
@@ -158,15 +161,15 @@ export function calculateLiuriRange(startDate: string, endDate: string, dayMaste
   return result
 }
 
-export function getMonthCommander(solarTime: SolarTime, monthBranch: string): string {
+export function getMonthCommander(solarTime: SolarTimeInstance, monthBranch: string): string {
   const commanders = MONTH_COMMANDER[monthBranch]
   if (!commanders) return '未知'
 
   try {
     const birthYear = solarTime.getSolarDay().getYear()
     const birthTime = solarTime.getJulianDay()
-    let jieBefore: SolarTerm | null = null
-    const terms: SolarTerm[] = []
+    let jieBefore: SolarTermInstance | null = null
+    const terms: SolarTermInstance[] = []
 
     for (let i = 0; i < 24; i++) {
       terms.push(SolarTerm.fromIndex(birthYear, i))
@@ -201,7 +204,7 @@ export function getMonthCommander(solarTime: SolarTime, monthBranch: string): st
   }
 }
 
-export function calculateSeasonInfo(solarTime: SolarTime): SeasonInfo {
+export function calculateSeasonInfo(solarTime: SolarTimeInstance): SeasonInfo {
   try {
     const solarTerms: { name: string; date: string; jd: number; index: number; isJie: boolean }[] = []
     const scanTerms: { name: string; date: string; jd: number; index: number; isJie: boolean }[] = []

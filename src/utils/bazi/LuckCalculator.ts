@@ -1,8 +1,11 @@
-import { SolarTime, Gender, ChildLimit, DecadeFortune } from 'tyme4ts'
+import { SolarTime, Gender, ChildLimit } from 'tyme4ts'
 import { BASIC_MAPPINGS } from './baziDefinitions'
 import { getTenGod, getTenGodForBranch } from './baziUtils'
 import type { LuckInfo, LuckCycle, LiunianInfo, SolarDateTimeInfo } from './baziTypes'
 import { formatSolarDateTime, shiftSolarDateTimeYears, toSolarDateTimeInfo } from './luckTiming'
+
+type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>
+type LuckGender = Parameters<typeof ChildLimit.fromSolarTime>[1]
 
 /**
  * 专注于大运、小运、流年等运势计算的工具类
@@ -14,7 +17,7 @@ export class LuckCalculator {
   /**
    * 主计算函数：计算大运、小运和所有关联的流年信息
    */
-  public calculateLuckInfo(solarTime: SolarTime, gender: Gender, hourGanZhi: string, yearGan: string, dayMaster: string): LuckInfo {
+  public calculateLuckInfo(solarTime: SolarTimeInstance, gender: LuckGender, hourGanZhi: string, yearGan: string, dayMaster: string): LuckInfo {
     try {
       // 1. 计算童限 (起运前)
       const childLimit = ChildLimit.fromSolarTime(solarTime, gender)
@@ -34,7 +37,7 @@ export class LuckCalculator {
       // 2. 获取大运列表 (DecadeFortune)
       // tyme4ts 的 ChildLimit 提供了获取第一步大运的方法 getStartDecadeFortune()
       // 后续大运可以通过 next() 方法获取
-      const decadeFortunes: DecadeFortune[] = []
+      const decadeFortunes: Array<ReturnType<typeof childLimit.getStartDecadeFortune>> = []
       let currentDecade = childLimit.getStartDecadeFortune()
 
       // 获取 12 步大运

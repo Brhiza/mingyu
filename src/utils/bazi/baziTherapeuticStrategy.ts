@@ -8,7 +8,6 @@ import { matchFirstRule } from './baziRuleMatcher'
 interface UsefulGodDecisionStateLike {
   favorableWuxing: string[];
   unfavorableWuxing: string[];
-  method: string;
   trace: string[];
   primaryReason: string;
 }

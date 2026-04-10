@@ -2141,6 +2141,16 @@ select {
   overflow-wrap: anywhere;
 }
 
+.prompt-send-tip {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-soft);
+  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-soft));
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .result-pre-skeleton {
   display: grid;
   align-content: start;
@@ -2243,6 +2253,26 @@ select {
   background: var(--accent-strong);
   color: var(--surface-base);
   box-shadow: 0 10px 24px var(--accent-soft-strong);
+}
+
+.reverse-topic-grid .quick-chip {
+  text-align: center;
+}
+
+.field-helper-top {
+  display: block;
+}
+
+.reverse-field-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.reverse-field-options .quick-chip {
+  width: 100%;
+  min-width: 0;
+  text-align: center;
 }
 
 .place-trigger {
@@ -2761,6 +2791,28 @@ select {
   margin: 0 auto;
 }
 
+.tutorial-entry-button {
+  border: none;
+  background: transparent;
+  color: var(--accent-strong);
+  border-radius: 999px;
+  min-height: 32px;
+  min-width: auto;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.tutorial-entry-button:hover {
+  color: var(--accent-deep);
+  opacity: 0.86;
+}
+
 .analysis-mode-strip {
   margin-bottom: 8px;
   display: flex;
@@ -2789,6 +2841,42 @@ select {
 
 .top-switch-control .segmented-control-react {
   width: 100%;
+}
+
+.input-page-bottom-tools {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.tutorial-entry-card {
+  width: min(100%, 720px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border-soft);
+  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-soft));
+  box-shadow: var(--shadow-sm);
+}
+
+.tutorial-entry-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.tutorial-entry-copy strong {
+  color: var(--text-strong);
+  font-size: 14px;
+}
+
+.tutorial-entry-copy p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .records-header-bar .segmented-control-react {
@@ -2863,7 +2951,7 @@ select {
 
 .input-mode-loading-methods {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -2959,7 +3047,7 @@ select {
 
 .divination-method-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -3358,6 +3446,29 @@ select {
   color: var(--text-muted);
 }
 
+.birth-time-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.birth-time-reverse-button {
+  width: fit-content;
+  border: 1px solid var(--border-contrast);
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--accent-soft), var(--secondary-soft));
+  color: var(--accent-deep);
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.birth-time-reverse-button:hover {
+  border-color: var(--accent-strong);
+  background: linear-gradient(180deg, var(--accent-surface), var(--accent-soft));
+}
+
 .form-error-text {
   font-size: 13px;
   color: #b91c1c;
@@ -3597,6 +3708,144 @@ div.form-actions.page-submit-actions {
   border-radius: 18px;
   box-shadow: var(--shadow-card);
   padding: 14px;
+}
+
+.tutorial-page-container {
+  max-width: 860px;
+}
+
+.tutorial-topbar-shell {
+  max-width: 1200px;
+  margin: 0 auto 12px;
+}
+
+.tutorial-page-section {
+  display: grid;
+  gap: 12px;
+}
+
+.tutorial-intro-card {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-soft);
+  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-soft));
+}
+
+.tutorial-intro-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.tutorial-step-list,
+.tutorial-tip-list,
+.tutorial-faq-list {
+  display: grid;
+  gap: 8px;
+}
+
+.tutorial-step-card {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-panel);
+}
+
+.tutorial-step-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.tutorial-step-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.tutorial-step-copy h3,
+.tutorial-mode-card h4,
+.tutorial-section-heading h3 {
+  margin: 0;
+  color: var(--text-strong);
+}
+
+.tutorial-step-copy p,
+.tutorial-mode-card p,
+.tutorial-tip-card p,
+.tutorial-faq-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.tutorial-section-heading {
+  display: grid;
+  gap: 2px;
+}
+
+.tutorial-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tutorial-mode-card,
+.tutorial-tip-card,
+.tutorial-ai-card,
+.tutorial-faq-card {
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-panel);
+  box-shadow: var(--shadow-sm);
+}
+
+.tutorial-mode-card {
+  display: grid;
+  gap: 6px;
+}
+
+.tutorial-bullet-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  display: grid;
+  gap: 4px;
+}
+
+.tutorial-bullet-list-compact {
+  padding-left: 16px;
+}
+
+.tutorial-ai-card,
+.tutorial-tip-card {
+  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-soft));
+}
+
+.tutorial-faq-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tutorial-faq-card {
+  display: grid;
+  gap: 6px;
+}
+
+.tutorial-faq-card h4 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 14px;
 }
 
 .compact-secondary-button {
@@ -4134,6 +4383,10 @@ div.form-actions.page-submit-actions {
     gap: 6px;
   }
 
+  .reverse-field-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .quick-chip {
     width: 100%;
     min-width: 0;
@@ -4163,6 +4416,13 @@ div.form-actions.page-submit-actions {
     border-radius: 10px;
     font-size: 12px;
     line-height: 1.45;
+  }
+
+  .prompt-send-tip {
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    line-height: 1.4;
   }
 
   .fortune-focus-card,
@@ -4284,6 +4544,13 @@ div.form-actions.page-submit-actions {
     padding: 8px 6px 16px;
   }
 
+  .tutorial-entry-button {
+    min-height: 0;
+    min-width: auto;
+    padding: 0;
+    font-size: 12px;
+  }
+
   .analysis-view {
     min-height: max(520px, calc(100dvh - 150px));
   }
@@ -4340,6 +4607,26 @@ div.form-actions.page-submit-actions {
 
   .top-switch-control {
     width: min(320px, 100%);
+  }
+
+  .input-page-bottom-tools {
+    margin-top: 10px;
+  }
+
+  .tutorial-entry-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .tutorial-entry-copy strong {
+    font-size: 13px;
+  }
+
+  .tutorial-entry-copy p {
+    font-size: 11px;
   }
 
   .page-topbar {
@@ -4568,6 +4855,50 @@ div.form-actions.page-submit-actions {
   .history-page-section {
     padding: 10px;
     border-radius: 12px;
+  }
+
+  .tutorial-page-section {
+    gap: 10px;
+  }
+
+  .tutorial-topbar-shell {
+    margin-bottom: 10px;
+  }
+
+  .tutorial-intro-card,
+  .tutorial-step-card,
+  .tutorial-mode-card,
+  .tutorial-tip-card,
+  .tutorial-ai-card {
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .tutorial-step-card {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .tutorial-step-index {
+    min-height: 36px;
+    border-radius: 10px;
+    font-size: 15px;
+  }
+
+  .tutorial-mode-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .tutorial-faq-list {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .tutorial-bullet-list {
+    gap: 4px;
+    padding-left: 16px;
+    font-size: 12px;
   }
 
   .records-header-bar {
@@ -5056,6 +5387,10 @@ div.form-actions.page-submit-actions {
   .quick-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 5px;
+  }
+
+  .reverse-field-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .ziwei-grid-cell {

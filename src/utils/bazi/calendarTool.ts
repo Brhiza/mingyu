@@ -1,5 +1,7 @@
 import { SolarTime, SolarTerm } from 'tyme4ts'
 
+type SolarTermInstance = ReturnType<typeof SolarTerm.fromIndex>
+
 export interface CalendarInfo {
   solarDate: string;
   lunarDate: string;
@@ -49,7 +51,7 @@ export function getCalendarInfo(date: Date = new Date()): CalendarInfo {
   let nextJieQiDate = ''
 
   const currentYear = year
-  const terms: SolarTerm[] = []
+  const terms: SolarTermInstance[] = []
   // 扫描当年所有节气
   for (let i = 0; i < 24; i++) {
     terms.push(SolarTerm.fromIndex(currentYear, i))

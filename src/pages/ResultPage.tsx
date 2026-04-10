@@ -8,7 +8,6 @@ import {
   buildPersonFromInput,
   buildZiweiChartInput,
 } from '@/lib/full-chart-engine';
-import { buildAnalysisPayloadV1 } from '@/lib/iztro/build-analysis-payload';
 import {
   getDefaultHoroscopeContext,
 } from '@/lib/iztro/runtime-helpers';
@@ -20,7 +19,6 @@ import {
 import {
   buildResultSearch,
   buildInputSearch,
-  defaultPromptState,
   parseInputState,
   parsePromptState,
   type PromptSourceKey,
@@ -36,11 +34,18 @@ import {
 import { PageTopbar } from '@/components/PageTopbar';
 import { QuestionInspirationModal } from '@/components/QuestionInspirationModal';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
+import {
+  buildThreePillarsProfile,
+  buildUnknownTimeBaziPrompt,
+  isUnknownTimeIndex,
+  type ThreePillarsProfile,
+} from '@/lib/birth-time-reverse';
 import type { AnalysisPayloadV1, PalaceFact } from '@/types/analysis';
 import type { BaziChartResult } from '@/utils/bazi/baziTypes';
 import type { ScopeType } from '@/types/analysis';
 import type { BaziFortuneSelectionValue } from '@/utils/bazi/fortuneSelection';
 import type { ChartInput } from '@/types/chart';
+import { formatBaziForPrompt } from '@/utils/bazi/baziAnalysisFormatter';
 
 type ZiweiRuntimeState = Awaited<ReturnType<typeof calculateFullZiweiChart>> | null;
 type ZiweiPayloadByScopeState = Record<ScopeType, AnalysisPayloadV1> | null;
@@ -377,6 +382,32 @@ function buildCombinedPromptText(system: string, user: string) {
   return [system, '', user].join('\n');
 }
 
+function buildCompatibilityPromptWithUnknownTime(params: {
+  firstName: string;
+  firstText: string;
+  secondName: string;
+  secondText: string;
+  question: string;
+}) {
+  return [
+    '你是资深八字命理师，当前合盘信息里至少有一方出生时辰未知，请只做保守分析。',
+    '【要求】',
+    '- 只基于提供的双方信息作答。',
+    '- 其中带“时辰未知”的一方只能按三柱理解，不得自行补足时柱。',
+    '- 先说能确认的关系主线，再说因时辰未知而待确认的部分。',
+    '- 最后补充最值得继续核验的时辰线索。',
+    '',
+    `【当前时间】\n${new Date().toLocaleString('zh-CN')}`,
+    `【第一人排盘信息】\n${params.firstText}`,
+    '',
+    `【第二人排盘信息】\n${params.secondText}`,
+    '',
+    `【问题】\n${params.question.trim() || '请先从整体关系匹配度和相处建议开始分析。'}`,
+    '【任务】\n请结合双方已知信息，先做保守的关系分析，并明确哪些部分需要等时辰确认后再细化。',
+    '【输出要求】\n先给关系结论，再分成“可确认部分”“待确认部分”“建议继续核验的线索”三段；用简体中文。',
+  ].join('\n');
+}
+
 function formatGender(value: string) {
   return value === 'male' ? '男' : value === 'female' ? '女' : value || '未知';
 }
@@ -398,16 +429,6 @@ function joinStarNames(stars: PalaceFact['major_stars'], fallback: string) {
   return stars.length > 0 ? stars.map((star) => star.name).join(' ') : fallback;
 }
 
-function getCurrentLiunian(result: BaziChartResult) {
-  if (!result.liunian?.length) return null;
-  const currentYear = new Date().getFullYear();
-  return (
-    result.liunian.find((item) => item.year === currentYear) ??
-    result.liunian[0] ??
-    null
-  );
-}
-
 function splitGanZhi(value: string) {
   return [value.charAt(0), value.charAt(1)];
 }
@@ -415,15 +436,6 @@ function splitGanZhi(value: string) {
 function formatMonthDayLabel(dateStr: string) {
   const [, month, day] = dateStr.split('-');
   return `${month}/${day}`;
-}
-
-function getDateParts(dateStr: string) {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return { year, month, day };
-}
-
-function getDaysInMonth(year: number, month: number) {
-  return new Date(year, month, 0).getDate();
 }
 
 function parseOptionalNumber(value: string) {
@@ -1227,12 +1239,12 @@ const BaziChartBoard = memo(function BaziChartBoard(props: {
         <div className="result-stat-card">
           <span>用神</span>
           <strong>{result.analysis.usefulGod.useful || '待定'}</strong>
-          <small>{joinText(result.analysis.favorableElements, '暂无')}</small>
+          <small>{joinText(result.analysis.usefulGod.favorableWuxing ?? [], '暂无')}</small>
         </div>
         <div className="result-stat-card">
           <span>忌神</span>
-          <strong>{result.analysis.avoidGod || '待定'}</strong>
-          <small>{joinText(result.analysis.unfavorableElements, '暂无')}</small>
+          <strong>{result.analysis.usefulGod.avoid || '待定'}</strong>
+          <small>{joinText(result.analysis.usefulGod.unfavorableWuxing ?? [], '暂无')}</small>
         </div>
       </div>
 
@@ -1266,13 +1278,12 @@ const BaziChartBoard = memo(function BaziChartBoard(props: {
         </div>
 
         <div className="bazi-side-panel">
-          <div className="result-side-card bazi-fortune-card">
-            <div className="result-side-head">
-              <h3>五行分布</h3>
-              <p>{result.wuxingStrength.status}</p>
-            </div>
-            <div className="wuxing-bars">
-              {Object.entries(result.wuxingStrength.percentages).map(([key, value]) => (
+            <div className="result-side-card bazi-fortune-card">
+              <div className="result-side-head">
+                <h3>五行分布</h3>
+              </div>
+              <div className="wuxing-bars">
+                {Object.entries(result.wuxingStrength.percentages).map(([key, value]) => (
                 <div className="wuxing-bar-row" key={key}>
                   <span className="wuxing-bar-label">{key}</span>
                   <div className="wuxing-bar-track">
@@ -1294,6 +1305,163 @@ const BaziChartBoard = memo(function BaziChartBoard(props: {
           <Suspense fallback={<BaziFortuneLoadingCard />}>
             <LazyBaziFortuneSelector result={result} />
           </Suspense>
+        </div>
+      </div>
+    </section>
+  );
+});
+
+const ThreePillarsBoard = memo(function ThreePillarsBoard(props: {
+  title: string;
+  name: string;
+  profile: ThreePillarsProfile;
+}) {
+  const { title, name, profile } = props;
+  const pillarRows = [
+    {
+      label: '天干',
+      values: [
+        profile.pillars.year.gan,
+        profile.pillars.month.gan,
+        profile.pillars.day.gan,
+        '待反推',
+      ],
+      className: 'is-stem',
+    },
+    {
+      label: '地支',
+      values: [
+        profile.pillars.year.zhi,
+        profile.pillars.month.zhi,
+        profile.pillars.day.zhi,
+        '待反推',
+      ],
+      className: 'is-branch',
+    },
+    {
+      label: '天干十神',
+      values: [
+        profile.pillars.year.tenGod,
+        profile.pillars.month.tenGod,
+        profile.pillars.day.tenGod,
+        '待确认',
+      ],
+      className: 'is-multiline',
+    },
+    {
+      label: '地支十神',
+      values: [
+        profile.pillars.year.branchTenGod,
+        profile.pillars.month.branchTenGod,
+        profile.pillars.day.branchTenGod,
+        '待确认',
+      ],
+      className: 'is-multiline',
+    },
+    {
+      label: '五行',
+      values: [
+        `${profile.pillars.year.ganWuxing}/${profile.pillars.year.zhiWuxing}`,
+        `${profile.pillars.month.ganWuxing}/${profile.pillars.month.zhiWuxing}`,
+        `${profile.pillars.day.ganWuxing}/${profile.pillars.day.zhiWuxing}`,
+        '待确认',
+      ],
+      className: 'is-multiline',
+    },
+  ];
+
+  return (
+    <section className="result-showcase-card bazi-showcase-card">
+      <div className="result-showcase-head">
+        <div>
+          <p className="result-section-kicker">{title}</p>
+          <h2>{name}</h2>
+        </div>
+        <div className="result-chip-row">
+          <span className="result-chip">{profile.genderLabel}</span>
+          <span className="result-chip">{profile.solarDateLabel}</span>
+          <span className="result-chip">未知时辰</span>
+        </div>
+      </div>
+
+      <div className="result-summary-grid result-summary-grid-bazi">
+        <div className="result-stat-card result-stat-card-accent">
+          <span>日主</span>
+          <strong>{profile.dayMaster.gan}</strong>
+          <small>
+            {profile.dayMaster.element} · {profile.dayMaster.yinYang}
+          </small>
+        </div>
+        <div className="result-stat-card">
+          <span>年柱</span>
+          <strong>{profile.pillars.year.ganZhi}</strong>
+          <small>{profile.pillars.year.tenGod}</small>
+        </div>
+        <div className="result-stat-card">
+          <span>月柱</span>
+          <strong>{profile.pillars.month.ganZhi}</strong>
+          <small>{profile.pillars.month.tenGod}</small>
+        </div>
+        <div className="result-stat-card">
+          <span>日柱</span>
+          <strong>{profile.pillars.day.ganZhi}</strong>
+          <small>{profile.zodiac} · {profile.constellation}</small>
+        </div>
+      </div>
+
+      <div className="bazi-core-layout">
+        <div className="bazi-pillars-card">
+          <div className="bazi-pillars-header">
+            <h3>三柱盘</h3>
+            <p>当前时辰未知，时柱先保留为待反推。</p>
+          </div>
+          <div className="bazi-pillars-table">
+            <div className="bazi-pillars-cell is-label is-head">信息</div>
+            <div className="bazi-pillars-cell is-head">年柱</div>
+            <div className="bazi-pillars-cell is-head">月柱</div>
+            <div className="bazi-pillars-cell is-head is-day-master">日柱</div>
+            <div className="bazi-pillars-cell is-head">时柱</div>
+            {pillarRows.flatMap((row) => [
+              <div key={`${row.label}-label`} className="bazi-pillars-cell is-label">
+                {row.label}
+              </div>,
+              ...row.values.map((value, index) => (
+                <div
+                  key={`${row.label}-${index}`}
+                  className={`bazi-pillars-cell ${row.className ?? ''} ${
+                    index === 2 ? 'is-day-master' : ''
+                  }`}
+                >
+                  {value}
+                </div>
+              )),
+            ])}
+          </div>
+        </div>
+
+        <div className="bazi-side-panel">
+          <div className="result-side-card bazi-fortune-card">
+            <div className="result-side-head">
+              <h3>三柱说明</h3>
+              <p>这里只统计三柱六字，不把未知时柱强行补全。</p>
+            </div>
+            <div className="wuxing-bars">
+              {Object.entries(profile.wuxingCount).map(([key, value]) => (
+                <div className="wuxing-bar-row" key={key}>
+                  <span className="wuxing-bar-label">{key}</span>
+                  <div className="wuxing-bar-track">
+                    <div className="wuxing-bar-fill" style={{ width: `${(value / 6) * 100}%` }} />
+                  </div>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
+            <div className="fortune-focus-card">
+              <span>当前状态</span>
+              <strong>按三柱先看主线</strong>
+              <small>涉及时柱、子女、晚年、细节应期等内容，需要反推时辰后再细化。</small>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -1637,17 +1805,101 @@ export function ResultPage() {
     ziwei: promptState.tab === 'ziwei',
     prompt: promptState.tab === 'prompt',
   }));
+  const primaryHasUnknownTime = !inputState.useTrueSolarTime && isUnknownTimeIndex(inputState.timeIndex);
+  const partnerHasUnknownTime =
+    inputState.analysisMode === 'compatibility' &&
+    !inputState.partnerUseTrueSolarTime &&
+    isUnknownTimeIndex(inputState.partnerTimeIndex);
+  const hasUnknownBirthTime = primaryHasUnknownTime || partnerHasUnknownTime;
   const shouldLoadZiweiPromptPayload =
     mountedTabs.prompt && promptState.promptSource === 'ziwei' && !mountedTabs.ziwei;
+  const primaryThreePillarsState = useMemo(() => {
+    if (!primaryHasUnknownTime) {
+      return {
+        profile: null as ThreePillarsProfile | null,
+        error: '',
+      };
+    }
+
+    try {
+      return {
+        profile: buildThreePillarsProfile({
+          gender: inputState.gender,
+          dateType: inputState.dateType,
+          year: inputState.year,
+          month: inputState.month,
+          day: inputState.day,
+          isLeapMonth: inputState.isLeapMonth,
+        }),
+        error: '',
+      };
+    } catch (error) {
+      return {
+        profile: null,
+        error: error instanceof Error ? error.message : '三柱排盘失败。',
+      };
+    }
+  }, [
+    inputState.dateType,
+    inputState.day,
+    inputState.gender,
+    inputState.isLeapMonth,
+    inputState.month,
+    inputState.year,
+    primaryHasUnknownTime,
+  ]);
+  const partnerThreePillarsState = useMemo(() => {
+    if (!partnerHasUnknownTime) {
+      return {
+        profile: null as ThreePillarsProfile | null,
+        error: '',
+      };
+    }
+
+    try {
+      return {
+        profile: buildThreePillarsProfile({
+          gender: inputState.partnerGender,
+          dateType: inputState.partnerDateType,
+          year: inputState.partnerYear,
+          month: inputState.partnerMonth,
+          day: inputState.partnerDay,
+          isLeapMonth: inputState.partnerIsLeapMonth,
+        }),
+        error: '',
+      };
+    } catch (error) {
+      return {
+        profile: null,
+        error: error instanceof Error ? error.message : '第二人三柱排盘失败。',
+      };
+    }
+  }, [
+    inputState.partnerDateType,
+    inputState.partnerDay,
+    inputState.partnerGender,
+    inputState.partnerIsLeapMonth,
+    inputState.partnerMonth,
+    inputState.partnerYear,
+    partnerHasUnknownTime,
+  ]);
   const primaryZiweiInput = useMemo(() => {
+    if (primaryHasUnknownTime) {
+      return null;
+    }
+
     try {
       return buildZiweiChartInput(inputState);
     } catch {
       return null;
     }
-  }, [inputState]);
+  }, [inputState, primaryHasUnknownTime]);
   const partnerZiweiInput = useMemo(() => {
     if (inputState.analysisMode !== 'compatibility') {
+      return null;
+    }
+
+    if (partnerHasUnknownTime) {
       return null;
     }
 
@@ -1665,9 +1917,15 @@ export function ResultPage() {
     } catch {
       return null;
     }
-  }, [inputState]);
+  }, [inputState, partnerHasUnknownTime]);
 
   useEffect(() => {
+    if (primaryHasUnknownTime) {
+      setBaziResult(null);
+      setBaziError(primaryThreePillarsState.error);
+      return;
+    }
+
     try {
       const person = buildPersonFromInput(inputState);
       setBaziResult(calculateFullBaziChart(person));
@@ -1676,11 +1934,17 @@ export function ResultPage() {
       setBaziResult(null);
       setBaziError(error instanceof Error ? error.message : '八字排盘失败。');
     }
-  }, [inputState]);
+  }, [inputState, primaryHasUnknownTime, primaryThreePillarsState.error]);
 
   useEffect(() => {
     if (inputState.analysisMode !== 'compatibility') {
       setPartnerBaziResult(null);
+      return;
+    }
+
+    if (partnerHasUnknownTime) {
+      setPartnerBaziResult(null);
+      setBaziError(partnerThreePillarsState.error);
       return;
     }
 
@@ -1705,7 +1969,7 @@ export function ResultPage() {
       setPartnerBaziResult(null);
       setBaziError(error instanceof Error ? error.message : '第二人八字排盘失败。');
     }
-  }, [inputState]);
+  }, [inputState, partnerHasUnknownTime, partnerThreePillarsState.error]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -1736,6 +2000,16 @@ export function ResultPage() {
       };
     });
   }, [promptState.tab]);
+
+  useEffect(() => {
+    if (!hasUnknownBirthTime || promptState.promptSource !== 'ziwei') {
+      return;
+    }
+
+    updatePromptState({
+      promptSource: 'bazi',
+    });
+  }, [hasUnknownBirthTime, promptState.promptSource]);
 
   useEffect(() => {
     if (
@@ -1931,8 +2205,13 @@ export function ResultPage() {
     let cancelled = false;
 
     async function run() {
+      const chartInput = primaryZiweiInput;
+      if (!chartInput) {
+        return;
+      }
+
       try {
-        const runtime = await calculateFullZiweiChart(primaryZiweiInput);
+        const runtime = await calculateFullZiweiChart(chartInput);
         if (!cancelled) {
           setZiweiRuntime(runtime);
           setZiweiPayloadByScope(runtime.payloadByScope);
@@ -1961,8 +2240,13 @@ export function ResultPage() {
     let cancelled = false;
 
     async function run() {
+      const chartInput = partnerZiweiInput;
+      if (!chartInput) {
+        return;
+      }
+
       try {
-        const runtime = await calculateFullZiweiChart(partnerZiweiInput);
+        const runtime = await calculateFullZiweiChart(chartInput);
         if (!cancelled) {
           setPartnerZiweiRuntime(runtime);
           setPartnerZiweiPayloadByScope(runtime.payloadByScope);
@@ -2076,10 +2360,33 @@ export function ResultPage() {
   }, [baziFortuneContext, deferredBaziQuickQuestion]);
 
   const latestBaziPromptText = useMemo(() => {
-    if (promptState.tab !== 'prompt' || !promptEngine) return '';
-    if (!baziResult) return '';
+    if (promptState.tab !== 'prompt') return '';
     if (inputState.analysisMode === 'compatibility') {
-      if (!partnerBaziResult) return '';
+      if (primaryHasUnknownTime || partnerHasUnknownTime) {
+        const firstText = primaryHasUnknownTime
+          ? primaryThreePillarsState.profile?.promptText || ''
+          : baziResult
+            ? formatBaziForPrompt(baziResult, null, 'compatibility')
+            : '';
+        const secondText = partnerHasUnknownTime
+          ? partnerThreePillarsState.profile?.promptText || ''
+          : partnerBaziResult
+            ? formatBaziForPrompt(partnerBaziResult, null, 'compatibility')
+            : '';
+
+        if (!firstText || !secondText) return '';
+
+        return buildCompatibilityPromptWithUnknownTime({
+          firstName: inputState.name || '第一人',
+          firstText,
+          secondName: inputState.partnerName || '第二人',
+          secondText,
+          question: effectiveBaziQuickQuestion.trim() || '请先从婚恋匹配角度做整体解读。',
+        });
+      }
+
+      if (promptState.tab !== 'prompt' || !promptEngine) return '';
+      if (!baziResult || !partnerBaziResult) return '';
       const compatibilityPrompt = promptEngine.getCompatibilityPrompt(
         effectiveBaziQuickQuestion.trim() || '请先从婚恋匹配角度做整体解读。',
         baziResult,
@@ -2087,6 +2394,15 @@ export function ResultPage() {
       );
       return buildCombinedPromptText(compatibilityPrompt.system, compatibilityPrompt.user);
     }
+    if (primaryHasUnknownTime) {
+      if (!primaryThreePillarsState.profile) return '';
+      return buildUnknownTimeBaziPrompt(
+        primaryThreePillarsState.profile,
+        effectiveBaziQuickQuestion.trim() || '请先做整体解读。',
+      );
+    }
+    if (promptState.tab !== 'prompt' || !promptEngine) return '';
+    if (!baziResult) return '';
     if (!baziFortuneSelectionModule) return '';
     if (!selectedBaziPreset) return '';
     const { system, user } = promptEngine.buildPromptFromConfig(
@@ -2098,12 +2414,35 @@ export function ResultPage() {
       baziFortuneContext,
     );
     return buildCombinedPromptText(system, user);
-  }, [baziFortuneContext, baziFortuneSelectionModule, baziResult, effectiveBaziQuickQuestion, finalBaziQuestion, inputState.analysisMode, partnerBaziResult, promptEngine, promptState.tab, selectedBaziPreset]);
+  }, [baziFortuneContext, baziFortuneSelectionModule, baziResult, effectiveBaziQuickQuestion, finalBaziQuestion, inputState.analysisMode, inputState.name, inputState.partnerName, partnerBaziResult, partnerHasUnknownTime, partnerThreePillarsState.profile, primaryHasUnknownTime, primaryThreePillarsState.profile, promptEngine, promptState.tab, selectedBaziPreset]);
   const previewBaziPromptText = useMemo(() => {
-    if (promptState.tab !== 'prompt' || !promptEngine) return '';
-    if (!baziResult) return '';
+    if (promptState.tab !== 'prompt') return '';
     if (inputState.analysisMode === 'compatibility') {
-      if (!partnerBaziResult) return '';
+      if (primaryHasUnknownTime || partnerHasUnknownTime) {
+        const firstText = primaryHasUnknownTime
+          ? primaryThreePillarsState.profile?.promptText || ''
+          : baziResult
+            ? formatBaziForPrompt(baziResult, null, 'compatibility')
+            : '';
+        const secondText = partnerHasUnknownTime
+          ? partnerThreePillarsState.profile?.promptText || ''
+          : partnerBaziResult
+            ? formatBaziForPrompt(partnerBaziResult, null, 'compatibility')
+            : '';
+
+        if (!firstText || !secondText) return '';
+
+        return buildCompatibilityPromptWithUnknownTime({
+          firstName: inputState.name || '第一人',
+          firstText,
+          secondName: inputState.partnerName || '第二人',
+          secondText,
+          question: deferredBaziQuickQuestion.trim() || '请先从婚恋匹配角度做整体解读。',
+        });
+      }
+
+      if (promptState.tab !== 'prompt' || !promptEngine) return '';
+      if (!baziResult || !partnerBaziResult) return '';
       const compatibilityPrompt = promptEngine.getCompatibilityPrompt(
         deferredBaziQuickQuestion.trim() || '请先从婚恋匹配角度做整体解读。',
         baziResult,
@@ -2111,6 +2450,15 @@ export function ResultPage() {
       );
       return buildCombinedPromptText(compatibilityPrompt.system, compatibilityPrompt.user);
     }
+    if (primaryHasUnknownTime) {
+      if (!primaryThreePillarsState.profile) return '';
+      return buildUnknownTimeBaziPrompt(
+        primaryThreePillarsState.profile,
+        deferredBaziQuickQuestion.trim() || '请先做整体解读。',
+      );
+    }
+    if (promptState.tab !== 'prompt' || !promptEngine) return '';
+    if (!baziResult) return '';
     if (!baziFortuneSelectionModule) return '';
     if (!selectedBaziPreset) return '';
     const { system, user } = promptEngine.buildPromptFromConfig(
@@ -2122,7 +2470,7 @@ export function ResultPage() {
       baziFortuneContext,
     );
     return buildCombinedPromptText(system, user);
-  }, [baziFortuneContext, baziFortuneSelectionModule, baziResult, deferredBaziQuickQuestion, deferredFinalBaziQuestion, inputState.analysisMode, partnerBaziResult, promptEngine, promptState.tab, selectedBaziPreset]);
+  }, [baziFortuneContext, baziFortuneSelectionModule, baziResult, deferredBaziQuickQuestion, deferredFinalBaziQuestion, inputState.analysisMode, inputState.name, inputState.partnerName, partnerBaziResult, partnerHasUnknownTime, partnerThreePillarsState.profile, primaryHasUnknownTime, primaryThreePillarsState.profile, promptEngine, promptState.tab, selectedBaziPreset]);
 
   const latestZiweiPromptText = useMemo(() => {
     if (promptState.tab !== 'prompt') return '';
@@ -2323,7 +2671,7 @@ export function ResultPage() {
           紫薇
         </button>
         <button type="button" className={`tab-chip ${promptState.tab === 'prompt' ? 'is-active' : ''}`} onClick={() => switchTab('prompt')}>
-          AI
+          提示词
         </button>
       </div>
 
@@ -2344,12 +2692,24 @@ export function ResultPage() {
                         name={inputState.name || '第一人'}
                         result={baziResult}
                       />
+                    ) : primaryThreePillarsState.profile ? (
+                      <ThreePillarsBoard
+                        title="第一人三柱"
+                        name={inputState.name || '第一人'}
+                        profile={primaryThreePillarsState.profile}
+                      />
                     ) : null}
                     {partnerBaziResult ? (
                       <BaziChartBoard
                         title="第二人八字"
                         name={inputState.partnerName || '第二人'}
                         result={partnerBaziResult}
+                      />
+                    ) : partnerThreePillarsState.profile ? (
+                      <ThreePillarsBoard
+                        title="第二人三柱"
+                        name={inputState.partnerName || '第二人'}
+                        profile={partnerThreePillarsState.profile}
                       />
                     ) : null}
                   </div>
@@ -2358,6 +2718,12 @@ export function ResultPage() {
                     title="八字总览"
                     name={inputState.name || '当前命盘'}
                     result={baziResult}
+                  />
+                ) : primaryThreePillarsState.profile ? (
+                  <ThreePillarsBoard
+                    title="三柱总览"
+                    name={inputState.name || '当前命盘'}
+                    profile={primaryThreePillarsState.profile}
                   />
                 ) : null}
               </section>
@@ -2373,6 +2739,11 @@ export function ResultPage() {
             <div className="single-panel-shell">
               <section className="panel result-panel result-panel-ziwei">
                 {ziweiError ? <p className="error-text">{ziweiError}</p> : null}
+                {hasUnknownBirthTime ? (
+                  <div className="prompt-send-tip">
+                    当前存在未知时辰。紫微排盘必须先确定出生时辰，请先使用“反推时辰”确认后再看紫微结果。
+                  </div>
+                ) : null}
                 {inputState.analysisMode === 'compatibility' && currentZiweiPayload && partnerZiweiPayload ? (
                   <div className="result-dual-layout">
                     {ziweiRuntime && primaryZiweiInput ? (
@@ -2455,11 +2826,15 @@ export function ResultPage() {
                       }
                     >
                       <option value="bazi">基于八字</option>
-                      <option value="ziwei">基于紫微</option>
+                      <option value="ziwei" disabled={hasUnknownBirthTime}>
+                        {hasUnknownBirthTime ? '基于紫微（未知时辰不可用）' : '基于紫微'}
+                      </option>
                     </select>
                   </label>
 
-                  {promptState.promptSource === 'bazi' && inputState.analysisMode === 'single' ? (
+                  {promptState.promptSource === 'bazi' &&
+                  inputState.analysisMode === 'single' &&
+                  !primaryHasUnknownTime ? (
                     <div className="field-card">
                       <div className="field-header">
                         <span>年限选择</span>
@@ -2620,6 +2995,14 @@ export function ResultPage() {
                   ) : null}
                 </div>
               </div>
+              <div className="prompt-send-tip">
+                点击复制后，发送到你常用的在线 AI 软件继续提问。
+              </div>
+              {hasUnknownBirthTime && promptState.promptSource === 'bazi' ? (
+                <div className="prompt-send-tip">
+                  当前存在未知时辰，已自动改为三柱保守提示词，不会假定时柱。
+                </div>
+              ) : null}
               {previewActivePromptText ? (
                 <pre className="result-pre">{previewActivePromptText}</pre>
               ) : (

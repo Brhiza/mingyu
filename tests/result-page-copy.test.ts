@@ -17,6 +17,7 @@ test('AI 页预览使用延迟值，复制和分享始终使用最新提示词',
   assert.match(source, /const previewActivePromptText =/);
   assert.match(source, /await navigator\.clipboard\.writeText\(latestActivePromptText\);/);
   assert.match(source, /const ok = await shareText\(latestActivePromptText\);/);
+  assert.match(source, /<div className="prompt-send-tip">\s*点击复制后，发送到你常用的在线 AI 软件继续提问。\s*<\/div>/);
   assert.match(source, /<pre className="result-pre">\{previewActivePromptText\}<\/pre>/);
 });
 

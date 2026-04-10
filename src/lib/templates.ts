@@ -6,7 +6,7 @@ function getText(values: Record<string, string>, key: string) {
   return values[key]?.trim() ?? '';
 }
 
-function formatTemplateValue(value: unknown) {
+function formatTemplateValue(value: unknown): string {
   if (value === undefined || value === null || value === '') {
     return '暂无';
   }
@@ -30,7 +30,7 @@ function formatTemplateValue(value: unknown) {
   return String(value);
 }
 
-function buildTemplateKeyValueSection(title: string, record: Record<string, unknown>) {
+function buildTemplateKeyValueSection(title: string, record: Record<string, unknown>): string {
   const body = Object.entries(record)
     .filter(([, value]) => value !== undefined)
     .map(([key, value]) => `- ${key}：${formatTemplateValue(value)}`)
@@ -39,7 +39,7 @@ function buildTemplateKeyValueSection(title: string, record: Record<string, unkn
   return [`【${title}】`, body || '- 暂无'].join('\n');
 }
 
-function buildZiweiTemplatePromptBody(payload: unknown, reportContext: unknown) {
+function buildZiweiTemplatePromptBody(payload: unknown, reportContext: unknown): string {
   const payloadRecord =
     payload && typeof payload === 'object' ? (payload as Record<string, any>) : {};
   const reportContextRecord =

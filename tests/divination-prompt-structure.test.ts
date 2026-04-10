@@ -5,6 +5,7 @@ import { buildDivinationPrompt } from '../src/lib/divination/engine';
 import type {
   DivinationData,
   DivinationType,
+  LiurenData,
   SupplementaryInfo,
 } from '../src/types';
 
@@ -126,6 +127,39 @@ function createData(method: Exclude<DivinationType, 'tarot_single'>): Divination
         timeInfo: { solarTerm: '春分', epoch: '上元' },
         timestamp: Date.now(),
       };
+    case 'liuren':
+      return {
+        ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
+        timestamp: Date.now(),
+        dayNight: '昼占',
+        monthLeader: '亥',
+        divinationBranch: '卯',
+        dayOfficer: '贵人',
+        noblemanBranch: '亥',
+        xunKong: ['戌', '亥'],
+        transmissionRule: '比用法',
+        transmissionPattern: '递传',
+        transmissionDetail: '取传采用比用法，传态为递传，链路为初传亥 → 中传丑 → 末传寅。',
+        fourLessons: [
+          { name: '一课', upper: '亥', lower: '卯', god: '贵人', relation: '水生木', note: '外援先动' },
+          { name: '二课', upper: '子', lower: '辰', god: '螣蛇', relation: '土克水', note: '过程有牵制' },
+          { name: '三课', upper: '丑', lower: '巳', god: '朱雀', relation: '火生土', note: '沟通带动变化' },
+          { name: '四课', upper: '寅', lower: '午', god: '六合', relation: '木生火', note: '后续利于协同' },
+        ],
+        threeTransmissions: [
+          { stage: '初传', branch: '亥', god: '贵人', relation: '生扶', note: '起因来自外部推动' },
+          { stage: '中传', branch: '丑', god: '朱雀', relation: '承压', note: '中段要处理沟通与执行偏差' },
+          { stage: '末传', branch: '寅', god: '六合', relation: '转合', note: '结果更利于合作收束' },
+        ],
+        heavenlyPlate: [
+          { branch: '子', under: '丑', god: '青龙' },
+          { branch: '丑', under: '寅', god: '天空' },
+          { branch: '寅', under: '卯', god: '白虎' },
+        ],
+        patternTags: ['贵人发用', '顺传', '比用'],
+        lessonSummary: '四课由生入克，先得助后承压，再转协同。',
+        transmissionSummary: '三传顺传，事情会逐步推进，但中段要过一道沟通关。',
+      } satisfies LiurenData;
     case 'tarot':
       return {
         spreadType: 'single',
@@ -152,7 +186,7 @@ function createData(method: Exclude<DivinationType, 'tarot_single'>): Divination
 }
 
 test('各类占卜提示词都使用统一的角色加信息加问题结构', async () => {
-  const methods: Exclude<DivinationType, 'tarot_single'>[] = ['liuyao', 'meihua', 'qimen', 'tarot', 'ssgw'];
+  const methods: Exclude<DivinationType, 'tarot_single'>[] = ['liuyao', 'meihua', 'qimen', 'liuren', 'tarot', 'ssgw'];
 
   for (const method of methods) {
     const prompt = buildDivinationPrompt(
@@ -177,4 +211,22 @@ test('占卜提示词的输出要求保持统一且精简', async () => {
   assert.match(session, /最后补一条最值得执行的提醒/);
   assert.doesNotMatch(session, /请直接回答：/);
   assert.doesNotMatch(session, /语气和表达要求/);
+});
+
+test('大六壬提示词会带可选断课模板', () => {
+  const prompt = buildDivinationPrompt(
+    'liuren',
+    '我现在要不要换工作？',
+    createData('liuren'),
+    createSupplementaryInfo(),
+    'shiye',
+  );
+
+  assert.match(prompt, /【断课模板】/);
+  assert.match(prompt, /模板选择：事业断课/);
+  assert.match(prompt, /作答模板：/);
+  assert.match(prompt, /起因判断：/);
+  assert.match(prompt, /过程判断：/);
+  assert.match(prompt, /结果判断：/);
+  assert.match(prompt, /行动建议：/);
 });

@@ -51,6 +51,8 @@ export type QueryPromptState = {
   ziweiScope: ZiweiScopeMode;
 };
 
+export const UNKNOWN_TIME_INDEX = -1;
+
 export const defaultInputState: QueryInputState = {
   analysisMode: 'single',
   name: '',
@@ -82,7 +84,7 @@ export const defaultInputState: QueryInputState = {
 };
 
 export const defaultPromptState: QueryPromptState = {
-  tab: 'bazi',
+  tab: 'prompt',
   promptSource: 'bazi',
   baziPresetId: 'ai-mingge-zonglun',
   baziShortcutMode: '自定义',
@@ -153,7 +155,7 @@ function parseTimeIndex(value: string) {
   }
 
   const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : '';
+  return Number.isInteger(parsed) && parsed >= UNKNOWN_TIME_INDEX ? parsed : '';
 }
 
 export function buildBirthDate(year: string, month: string, day: string) {
@@ -275,5 +277,11 @@ export function buildResultSearch(
   appendInputStateParams(params, input);
   appendPromptStateParams(params, prompt);
 
+  return params.toString();
+}
+
+export function buildInputStateSearch(input: QueryInputState) {
+  const params = new URLSearchParams();
+  appendInputStateParams(params, input);
   return params.toString();
 }

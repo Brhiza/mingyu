@@ -8,12 +8,14 @@ import {
   upsertPersonalHistory,
 } from '@/lib/history-records';
 import {
+  buildInputStateSearch,
   buildResultSearch,
   defaultInputState,
   defaultPromptState,
   type QueryInputState,
 } from '@/lib/query-state';
 import { getTimeIndexFromClock } from '@/utils/dateUtils';
+import { UNKNOWN_TIME_INDEX } from '@/lib/birth-time-reverse';
 
 const SELF_FIELD_MAP = {
   name: 'name',
@@ -451,6 +453,24 @@ export function InputPage() {
     closeBirthPlaceModal();
   }
 
+  function openBirthTimeReversePage(role: PersonRole) {
+    const selfLabel = getPersonReferenceLabel(form.analysisMode, role);
+
+    if (
+      !String(getPersonValue(form, role, 'year')).trim() ||
+      !String(getPersonValue(form, role, 'month')).trim() ||
+      !String(getPersonValue(form, role, 'day')).trim()
+    ) {
+      setError(`请先填写完整的${selfLabel}出生日期`);
+      return;
+    }
+
+    navigate({
+      pathname: '/birth-time-reverse',
+      search: `?${buildInputStateSearch(form)}&target=${role}`,
+    });
+  }
+
   function updateEntryMode(value: InputEntryMode) {
     setEntryMode(value);
 
@@ -646,7 +666,19 @@ export function InputPage() {
                       {time.label}（{time.range}）
                     </option>
                   ))}
+                  <option value={UNKNOWN_TIME_INDEX}>未知时辰</option>
                 </select>
+                {form.analysisMode === 'single' && role === 'self' ? (
+                  <div className="birth-time-actions">
+                    <button
+                      type="button"
+                      className="birth-time-reverse-button"
+                      onClick={() => openBirthTimeReversePage(role)}
+                    >
+                      反推时辰
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
           )}
@@ -667,7 +699,7 @@ export function InputPage() {
           <span className="skeleton-block input-mode-loading-line" />
         </div>
         <div className="input-mode-loading-methods">
-          {Array.from({ length: 6 }, (_, index) => (
+          {Array.from({ length: 7 }, (_, index) => (
             <span className="skeleton-block input-mode-loading-method" key={index} />
           ))}
         </div>
@@ -743,6 +775,22 @@ export function InputPage() {
               </div>
             </div>
           )}
+        </div>
+
+        <div className="input-page-bottom-tools">
+          <div className="tutorial-entry-card">
+            <div className="tutorial-entry-copy">
+              <strong>第一次使用？先看教程</strong>
+              <p>里面会说明三种模式分别怎么用，以及从录入到查看结果的完整步骤。</p>
+            </div>
+            <button
+              type="button"
+              className="tutorial-entry-button"
+              onClick={() => navigate('/tutorial')}
+            >
+              查看教程
+            </button>
+          </div>
         </div>
       </div>
 

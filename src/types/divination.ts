@@ -4,6 +4,7 @@ export type DivinationType =
   | 'liuyao'
   | 'meihua'
   | 'qimen'
+  | 'liuren'
   | 'tarot'
   | 'tarot_single'
   | 'ssgw';
@@ -281,6 +282,49 @@ export interface QimenData {
   timestamp: number;
 }
 
+export interface LiurenPlateItem {
+  branch: string;
+  under: string;
+  god: string;
+}
+
+export interface LiurenLesson {
+  name: '一课' | '二课' | '三课' | '四课';
+  upper: string;
+  lower: string;
+  god: string;
+  relation: string;
+  note: string;
+}
+
+export interface LiurenTransmission {
+  stage: '初传' | '中传' | '末传';
+  branch: string;
+  god: string;
+  relation: string;
+  note: string;
+}
+
+export interface LiurenData {
+  ganzhi: BaseGanZhi;
+  timestamp: number;
+  dayNight?: '昼占' | '夜占';
+  monthLeader: string;
+  divinationBranch: string;
+  dayOfficer: string;
+  noblemanBranch?: string;
+  xunKong?: string[];
+  transmissionRule?: string;
+  transmissionPattern?: '伏吟' | '反吟' | '回环' | '递传';
+  transmissionDetail?: string;
+  heavenlyPlate: LiurenPlateItem[];
+  fourLessons: LiurenLesson[];
+  threeTransmissions: LiurenTransmission[];
+  patternTags?: string[];
+  lessonSummary?: string;
+  transmissionSummary?: string;
+}
+
 export interface TarotData {
   spreadType: string;
   spreadName: string;
@@ -306,6 +350,8 @@ export type TarotSpreadType =
   | 'mindBodySpirit'
   | 'horseshoe';
 
+export type LiurenTemplateType = 'general' | 'ganqing' | 'shiye' | 'caifu';
+
 export interface SsgwData {
   number: number;
   title: string;
@@ -316,7 +362,7 @@ export interface SsgwData {
   ganzhi: BaseGanZhi;
 }
 
-export type DivinationData = LiuyaoData | MeihuaData | QimenData | TarotData | SsgwData;
+export type DivinationData = LiuyaoData | MeihuaData | QimenData | LiurenData | TarotData | SsgwData;
 
 export interface SupplementaryInfo {
   gender?: '男' | '女';

@@ -1,8 +1,8 @@
-import type { DivinationType, MeihuaDivinationMethod, TarotSpreadType } from '@/types';
+import type { DivinationType, LiurenTemplateType, MeihuaDivinationMethod, TarotSpreadType } from '@/types';
 
 export type DivinationMethodId =
   | 'random'
-  | Extract<DivinationType, 'liuyao' | 'meihua' | 'qimen' | 'tarot' | 'ssgw'>;
+  | Extract<DivinationType, 'liuyao' | 'meihua' | 'qimen' | 'liuren' | 'tarot' | 'ssgw'>;
 
 export const DIVINATION_METHOD_OPTIONS: Array<{
   value: DivinationMethodId;
@@ -28,6 +28,11 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
     value: 'qimen',
     label: '奇门遁甲',
     description: '适合看时机、策略和局势走向。',
+  },
+  {
+    value: 'liuren',
+    label: '大六壬',
+    description: '适合看事情如何演变、卡点在哪以及该先处理什么。',
   },
   {
     value: 'tarot',
@@ -62,6 +67,11 @@ export const DIVINATION_EXAMPLES: Record<DivinationMethodId, string[]> = {
     '我目前更适合谈合作还是先独自推进？',
     '这件事最合适的发力点在哪里？',
   ],
+  liuren: [
+    '这件事接下来会怎么发展？',
+    '我现在最该先处理哪个关键卡点？',
+    '这次推进最后会落到什么结果？',
+  ],
   tarot: [
     '我和对方接下来的关系会怎么发展？',
     '我现在最需要被提醒的事情是什么？',
@@ -92,4 +102,14 @@ export const TAROT_SPREAD_OPTIONS: Array<{
   { value: 'love', label: '爱情牌阵' },
   { value: 'career', label: '事业牌阵' },
   { value: 'decision', label: '选择牌阵' },
+];
+
+export const LIUREN_TEMPLATE_OPTIONS: Array<{
+  value: LiurenTemplateType;
+  label: string;
+}> = [
+  { value: 'general', label: '通用断课' },
+  { value: 'ganqing', label: '感情断课' },
+  { value: 'shiye', label: '事业断课' },
+  { value: 'caifu', label: '财富断课' },
 ];

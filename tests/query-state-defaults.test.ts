@@ -31,6 +31,10 @@ test('空查询参数不应把空时辰解析成 0', () => {
   assert.equal(inputState.partnerTimeIndex, '');
 });
 
+test('结果页默认应直接打开提示词页', () => {
+  assert.equal(defaultPromptState.tab, 'prompt');
+});
+
 test('仅切换 AI 提示词参数时，输入参数快照应保持不变', () => {
   const baseParams = new URLSearchParams({
     analysisMode: 'single',

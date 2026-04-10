@@ -10,7 +10,6 @@ import {
 } from './baziTherapeuticStrategy'
 import {
   BASE_USEFUL_GOD_RULES,
-  USEFUL_GOD_SUMMARY_RULES,
   type UsefulGodWuxingBundle
 } from './baziUsefulGodRules'
 import { matchFirstRule } from './baziRuleMatcher'
@@ -20,10 +19,28 @@ import { resolveRuleMetadataList } from './baziRuleCatalog'
 interface UsefulGodDecisionState {
   favorableWuxing: string[];
   unfavorableWuxing: string[];
-  method: string;
   trace: string[];
   primaryReason: string;
   matchedRuleIds: string[];
+}
+
+function resolveBaseUsefulGodRule(
+  strengthStatus: string,
+  pattern: PatternAnalysis
+) {
+  const specialPatternRules = BASE_USEFUL_GOD_RULES.filter(rule => Array.isArray(rule.patterns) && rule.patterns.length > 0)
+  const ordinaryStrengthRules = BASE_USEFUL_GOD_RULES.filter(rule => Array.isArray(rule.strengths) && rule.strengths.length > 0)
+
+  if (pattern.isSpecial) {
+    return matchFirstRule(specialPatternRules, {
+      pattern: pattern.pattern,
+      strengthStatus
+    })
+  }
+
+  return matchFirstRule(ordinaryStrengthRules, {
+    strengthStatus
+  })
 }
 
 function buildBaseDecisionState(
@@ -48,17 +65,16 @@ function buildBaseDecisionState(
     resource_companion: [resource, companion].filter(Boolean)
   }
 
-  const matchedRule = matchFirstRule(BASE_USEFUL_GOD_RULES, {
-    pattern: pattern.pattern,
-    strengthStatus
-  })
+  const ordinaryPatternTrace = pattern.isSpecial
+    ? []
+    : [`普通格局:${pattern.pattern}，喜忌先按${strengthStatus}扶抑，不因格名直接改判`]
+  const matchedRule = resolveBaseUsefulGodRule(strengthStatus, pattern)
 
   if (!matchedRule) {
     return {
       favorableWuxing: bundles.output_wealth_officer,
       unfavorableWuxing: bundles.resource_companion,
-      method: '扶抑法',
-      trace: ['默认取泄耗克'],
+      trace: [...ordinaryPatternTrace, '默认取泄耗克'],
       primaryReason: '扶抑',
       matchedRuleIds: []
     }
@@ -67,8 +83,7 @@ function buildBaseDecisionState(
   return {
     favorableWuxing: bundles[matchedRule.favorable],
     unfavorableWuxing: bundles[matchedRule.unfavorable],
-    method: matchedRule.method,
-    trace: [matchedRule.trace],
+    trace: [...ordinaryPatternTrace, matchedRule.trace],
     primaryReason: matchedRule.primaryReason,
     matchedRuleIds: [matchedRule.id]
   }
@@ -107,8 +122,7 @@ function applyCommanderAdjustment(
       ...state,
       favorableWuxing,
       trace: [...state.trace, `司令排序:${commanderWuxing}`],
-      primaryReason: state.primaryReason === '调候' ? state.primaryReason : '司令',
-      matchedRuleIds: state.matchedRuleIds
+      primaryReason: state.primaryReason === '调候' ? state.primaryReason : '司令'
     },
     adjusted: true
   }
@@ -141,28 +155,22 @@ function finalizeUsefulGodAnalysis(
   unfavorableWuxing: string[];
   strategyTrace: string[];
   primaryReason: string;
-  matchedRuleIds: string[];
 } {
   const wuxingToTenGodMap = buildWuxingToTenGodMap(dmWuxing)
 
   const favorableGods = state.favorableWuxing.flatMap(wx => wuxingToTenGodMap[wx] || [])
   const unfavorableGods = state.unfavorableWuxing.flatMap(wx => wuxingToTenGodMap[wx] || [])
   const usefulGod = favorableGods[0]
-  const summaryNotes = USEFUL_GOD_SUMMARY_RULES
-    .filter(rule => state.trace.some(step => step.startsWith(rule.prefix)))
-    .map(rule => rule.summary)
 
   return {
     favorable: favorableGods,
     unfavorable: unfavorableGods,
     useful: usefulGod || '暂无',
     avoid: unfavorableGods[0] || '暂无',
-    circulation: `${state.method}${summaryNotes.length ? `，${summaryNotes.join('，')}` : ''}。喜${state.favorableWuxing.join('')}`,
     favorableWuxing: state.favorableWuxing,
     unfavorableWuxing: state.unfavorableWuxing,
     strategyTrace: state.trace,
     primaryReason: state.primaryReason,
-    matchedRuleIds: state.matchedRuleIds,
     matchedRules: resolveRuleMetadataList(state.matchedRuleIds)
   }
 }
@@ -178,7 +186,6 @@ export function determineUsefulGod(
   unfavorableWuxing: string[];
   strategyTrace: string[];
   primaryReason: string;
-  matchedRuleIds: string[];
 } {
   const isPatternSpecial = pattern.isSpecial
   const baseState = buildBaseDecisionState(strengthStatus, pattern, dmWuxing)

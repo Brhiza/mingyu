@@ -155,9 +155,15 @@ function buildBaziText(
 
   result += '\n【核心判断依据】\n'
   const analysis = baziResult.analysis
-  result += `旺衰: ${analysis.dayMasterStrength.strength}（得分:${analysis.dayMasterStrength.score}）\n`
+  result += `旺衰: ${analysis.dayMasterStrength.status}（得分:${analysis.dayMasterStrength.score}）\n`
   result += `格局: ${analysis.mingGe.pattern}\n`
   if (analysis.usefulGod) {
+    if (analysis.usefulGod.favorableWuxing?.length || analysis.usefulGod.unfavorableWuxing?.length) {
+      result += `喜神五行: ${(analysis.usefulGod.favorableWuxing || []).join('、') || '暂无'} | 忌神五行: ${(analysis.usefulGod.unfavorableWuxing || []).join('、') || '暂无'}\n`
+    }
+    if (analysis.usefulGod.favorable?.length || analysis.usefulGod.unfavorable?.length) {
+      result += `喜用十神: ${analysis.usefulGod.favorable.join('、') || '暂无'} | 忌神十神: ${analysis.usefulGod.unfavorable.join('、') || '暂无'}\n`
+    }
     result += `喜用: ${analysis.usefulGod.useful} | 忌神: ${analysis.usefulGod.avoid}\n`
     if (includeRules && analysis.usefulGod.primaryReason) {
       result += `主导规则: ${analysis.usefulGod.primaryReason}\n`
@@ -257,7 +263,7 @@ function buildBaziText(
 function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
   if (scene === 'comprehensive') {
     return {
-      includeRules: false,
+      includeRules: true,
       includeShensha: false,
       includeWuxing: true,
       includeCurrentTiming: true,
@@ -269,7 +275,7 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
 
   if (scene === 'fortune') {
     return {
-      includeRules: false,
+      includeRules: true,
       includeShensha: false,
       includeWuxing: false,
       includeCurrentTiming: true,
@@ -281,7 +287,7 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
 
   if (scene === 'compatibility') {
     return {
-      includeRules: false,
+      includeRules: true,
       includeShensha: false,
       includeWuxing: false,
       includeCurrentTiming: false,
@@ -293,7 +299,7 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
 
   if (scene === 'concise') {
     return {
-      includeRules: false,
+      includeRules: true,
       includeShensha: false,
       includeWuxing: false,
       includeCurrentTiming: true,
@@ -304,7 +310,7 @@ function getPromptSceneOptions(scene: PromptChartScene): FormatBaziOptions {
   }
 
   return {
-    includeRules: false,
+    includeRules: true,
     includeShensha: false,
     includeWuxing: false,
     includeCurrentTiming: true,
