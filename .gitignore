@@ -18,6 +18,10 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# AI 协作说明文件
+agent.md
+AGENTS.md
+
 # 系统与编辑器杂项
 .DS_Store
 Thumbs.db
