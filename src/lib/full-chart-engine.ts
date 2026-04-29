@@ -1,6 +1,7 @@
 import { baziCalculator } from '@/utils/bazi/baziCalculator';
 import type { BaziChartResult } from '@/utils/bazi/baziTypes';
 import type { Person } from '@/composables/useFormState';
+import { resolveZiweiTrueSolarBirth } from '@/lib/ziwei/true-solar-input';
 import type { ChartInput } from '@/types/chart';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import {
@@ -144,20 +145,38 @@ export function buildZiweiChartInput(input: {
   day: string;
   timeIndex: number | '';
   isLeapMonth: boolean;
+  useTrueSolarTime?: boolean;
+  birthHour?: string;
+  birthMinute?: string;
+  birthLongitude?: string;
 }): ChartInput {
-  if (input.timeIndex === '') {
+  if (!input.useTrueSolarTime && input.timeIndex === '') {
     throw new Error('请选择出生时辰。');
   }
 
   const gender = input.gender === 'male' ? '男' : '女';
-  const birthDate = `${input.year}-${input.month.padStart(2, '0')}-${input.day.padStart(2, '0')}`;
+  const trueSolarBirth = input.useTrueSolarTime
+    ? resolveZiweiTrueSolarBirth({
+        dateType: input.dateType,
+        year: input.year,
+        month: input.month,
+        day: input.day,
+        isLeapMonth: input.isLeapMonth,
+        birthHour: input.birthHour ?? '',
+        birthMinute: input.birthMinute ?? '',
+        birthLongitude: input.birthLongitude ?? '',
+      })
+    : null;
+  const birthDate =
+    trueSolarBirth?.birthDate ??
+    `${input.year}-${input.month.padStart(2, '0')}-${input.day.padStart(2, '0')}`;
 
   return {
     name: input.name,
     gender,
-    dateType: input.dateType,
+    dateType: input.useTrueSolarTime ? 'solar' : input.dateType,
     birthDate,
-    birthTimeIndex: input.timeIndex,
+    birthTimeIndex: trueSolarBirth?.birthTimeIndex ?? Number(input.timeIndex),
     isLeapMonth: input.isLeapMonth,
     fixLeap: true,
     astroType: 'earth',

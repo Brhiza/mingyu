@@ -2454,6 +2454,10 @@ export function ResultPage() {
         day: inputState.partnerDay,
         timeIndex: inputState.partnerTimeIndex,
         isLeapMonth: inputState.partnerIsLeapMonth,
+        useTrueSolarTime: inputState.partnerUseTrueSolarTime,
+        birthHour: inputState.partnerBirthHour,
+        birthMinute: inputState.partnerBirthMinute,
+        birthLongitude: inputState.partnerBirthLongitude,
       });
     } catch {
       return null;
