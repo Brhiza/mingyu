@@ -357,6 +357,71 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     unfavorableWuxing: ['水', '金'],
     level: '极品',
   },
+  {
+    id: 'ri-gui',
+    name: '日贵格',
+    description:
+      '丁酉日或癸巳日生，夜生更贵。丁酉日贵人在酉，癸巳日贵人在巳。主人聪慧温和，多得贵人相助。忌午冲子破。',
+    conditions: {
+      dayStems: ['丁', '癸'],
+      otherConditions: ['日柱为丁酉', '日柱为癸巳'],
+    },
+    favorableWuxing: ['金', '水'],
+    unfavorableWuxing: ['火', '午'],
+    level: '上等',
+  },
+  {
+    id: 'ri-de',
+    name: '日德格',
+    description:
+      '甲寅、丙辰、戊辰、庚辰、壬戌五日生人。日德入命，主性格敦厚宽仁，多福多寿。忌刑冲破害，喜官印相生。',
+    conditions: {
+      dayStems: ['甲', '丙', '戊', '庚', '壬'],
+      otherConditions: ['日柱为甲寅', '日柱为丙辰', '日柱为戊辰', '日柱为庚辰', '日柱为壬戌'],
+    },
+    favorableWuxing: ['印', '食'],
+    unfavorableWuxing: ['伤', '杀'],
+    level: '上等',
+  },
+  {
+    id: 'fu-de',
+    name: '福德格',
+    description:
+      '甲申、乙酉、丙子、丁亥、戊午、己巳、庚辰、辛卯、壬寅、癸丑十位日柱。福德入命，主一生福禄厚重。忌刑冲破害。',
+    conditions: {
+      dayStems: ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'],
+      otherConditions: ['日柱为甲申', '日柱为乙酉', '日柱为丙子', '日柱为丁亥', '日柱为戊午', '日柱为己巳', '日柱为庚辰', '日柱为辛卯', '日柱为壬寅', '日柱为癸丑'],
+    },
+    favorableWuxing: ['财', '官'],
+    unfavorableWuxing: ['刑', '冲'],
+    level: '中等',
+  },
+  {
+    id: 'zi-wu-shuang-bao',
+    name: '子午双包格',
+    description:
+      '四柱中有两子、两午，或子午各二。子午为坎离水火，子午双包主阴阳调和、水火既济。忌丑未破局。主人聪明智慧。',
+    conditions: {
+      dayStems: ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'],
+      otherConditions: ['地支有两子', '地支有两午', '子午各二'],
+    },
+    favorableWuxing: ['水', '火'],
+    unfavorableWuxing: ['土'],
+    level: '上等',
+  },
+  {
+    id: 'mu-yu',
+    name: '沐浴格/败地逢生格',
+    description:
+      '日主坐沐浴（败）地，如甲子、乙巳、庚午、辛亥等。沐浴又名败地，但逢合则化凶为吉。主艺术才华。',
+    conditions: {
+      dayStems: ['甲', '乙', '庚', '辛'],
+      otherConditions: ['日柱为甲子', '日柱为乙巳', '日柱为庚午', '日柱为辛亥'],
+    },
+    favorableWuxing: ['印', '官'],
+    unfavorableWuxing: ['比', '劫'],
+    level: '中等',
+  },
 ];
 
 export function identifyClassicPattern(

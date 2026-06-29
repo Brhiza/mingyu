@@ -180,6 +180,99 @@ const JIANCHU_DUTIES: Record<string, { good: string[]; bad: string[]; advice: st
   闭: { good: ['安葬', '收藏', '修补'], bad: ['开市', '出行'], advice: '宜安葬收藏，忌开市出行' },
 };
 
+/**
+ * 二十八宿吉凶属性（《象吉通书》《择日全纪》）：
+ * 每宿含名称、五行、吉凶、宜忌事项
+ */
+const TWENTY_EIGHT_STARS: Record<string, { wuxing: string; fortune: string; meaning: string }> = {
+  角: { wuxing: '木', fortune: '吉', meaning: '角宿值日宜嫁娶、修造、出行，诸事可为' },
+  亢: { wuxing: '金', fortune: '凶', meaning: '亢宿值日宜婚嫁，忌葬埋、开市' },
+  氐: { wuxing: '土', fortune: '吉', meaning: '氐宿值日百事吉，宜嫁娶出行、修造动土' },
+  房: { wuxing: '火', fortune: '吉', meaning: '房宿值日宜嫁娶、开市、入宅，忌安葬' },
+  心: { wuxing: '火', fortune: '凶', meaning: '心宿值日宜嫁娶，忌安葬、出行、求财' },
+  尾: { wuxing: '火', fortune: '吉', meaning: '尾宿值日诸事吉，宜嫁娶、开市、修造' },
+  箕: { wuxing: '水', fortune: '凶', meaning: '箕宿值日宜造桥、修仓库，不宜嫁娶开市' },
+  斗: { wuxing: '木', fortune: '吉', meaning: '斗宿值日百事吉，宜嫁娶、开市、修造、出行' },
+  牛: { wuxing: '金', fortune: '凶', meaning: '牛宿值日宜祭祀，忌嫁娶、开市、修造' },
+  女: { wuxing: '土', fortune: '凶', meaning: '女宿值日宜祭祀，忌嫁娶、出行、开市' },
+  虚: { wuxing: '水', fortune: '凶', meaning: '虚宿值日百事不宜，诸事不吉' },
+  危: { wuxing: '水', fortune: '凶', meaning: '危宿值日宜祭祀、安床，忌出行、开市' },
+  室: { wuxing: '火', fortune: '吉', meaning: '室宿值日百事吉，宜修造、嫁娶、入宅' },
+  壁: { wuxing: '水', fortune: '吉', meaning: '壁宿值日诸事吉，宜嫁娶、出行、开市' },
+  奎: { wuxing: '木', fortune: '凶', meaning: '奎宿值日宜出行，忌修造、嫁娶、开市' },
+  娄: { wuxing: '金', fortune: '吉', meaning: '娄宿值日诸事吉，宜婚嫁、修造、开市' },
+  胃: { wuxing: '土', fortune: '凶', meaning: '胃宿值日宜祭祀，忌嫁娶、出行、开市' },
+  昴: { wuxing: '火', fortune: '凶', meaning: '昴宿值日百事不宜，诸事不吉' },
+  毕: { wuxing: '水', fortune: '吉', meaning: '毕宿值日宜修造、葬埋，忌嫁娶' },
+  觜: { wuxing: '火', fortune: '凶', meaning: '觜宿值日宜祭祀，忌嫁娶、开市、出行' },
+  参: { wuxing: '水', fortune: '吉', meaning: '参宿值日诸事吉，宜嫁娶、开市、修造' },
+  井: { wuxing: '木', fortune: '吉', meaning: '井宿值日百事吉，宜修造、开市、出行' },
+  鬼: { wuxing: '金', fortune: '凶', meaning: '鬼宿值日宜祭祀，忌嫁娶、修造、出行' },
+  柳: { wuxing: '土', fortune: '凶', meaning: '柳宿值日宜祭祀，忌开市、出行' },
+  星: { wuxing: '火', fortune: '吉', meaning: '星宿值日诸事吉，宜嫁娶、修造' },
+  张: { wuxing: '木', fortune: '吉', meaning: '张宿值日百事吉，宜嫁娶、开市、出行' },
+  翼: { wuxing: '火', fortune: '凶', meaning: '翼宿值日宜祭祀、出行，忌嫁娶' },
+  轸: { wuxing: '水', fortune: '吉', meaning: '轸宿值日诸事吉，宜嫁娶、开市、修造' },
+};
+
+/**
+ * 九星吉凶属性（《紫白九星》玄空飞星）：
+ */
+const NINE_STARS: Record<string, { wuxing: string; fortune: string; meaning: string }> = {
+  一白: { wuxing: '水', fortune: '吉', meaning: '一白贪狼星，主官贵、文运、财禄' },
+  二黑: { wuxing: '土', fortune: '凶', meaning: '二黑巨门星，主疾病、破财、是非' },
+  三碧: { wuxing: '木', fortune: '凶', meaning: '三碧禄存星，主是非、争斗、官非' },
+  四绿: { wuxing: '木', fortune: '吉', meaning: '四绿文曲星，主文昌、考试、名声' },
+  五黄: { wuxing: '土', fortune: '凶', meaning: '五黄廉贞星，大凶，主凶灾、病患' },
+  六白: { wuxing: '金', fortune: '吉', meaning: '六白武曲星，主财禄、武职、贵气' },
+  七赤: { wuxing: '金', fortune: '凶', meaning: '七赤破军星，主破财、口舌、盗贼' },
+  八白: { wuxing: '土', fortune: '吉', meaning: '八白左辅星，主财运、田宅、吉庆' },
+  九紫: { wuxing: '火', fortune: '吉', meaning: '九紫右弼星，主喜事、婚姻、文书' },
+};
+
+/**
+ * 六曜（《象吉通书》六曜历注）：
+ */
+const LIUYAO: Record<string, { fortune: string; meaning: string }> = {
+  先胜: { fortune: '吉', meaning: '先胜日，上午吉下午衰，宜早不宜迟' },
+  友引: { fortune: '吉', meaning: '友引日，早晚吉中午凶，宜社交' },
+  先负: { fortune: '凶', meaning: '先负日，上午衰下午吉，宜迟不宜早' },
+  佛灭: { fortune: '凶', meaning: '佛灭日，诸事不宜，百事皆凶' },
+  大安: { fortune: '吉', meaning: '大安日，百事皆吉，最宜婚嫁出行' },
+  赤口: { fortune: '凶', meaning: '赤口日，午前吉午后凶，宜祭祀' },
+};
+
+/**
+ * 彭祖百忌（每日天干地支对应的禁忌）：
+ */
+const PENGZU_DAY_GAN: Record<string, string> = {
+  甲: '甲不开仓财物耗散',
+  乙: '乙不栽植千株不长',
+  丙: '丙不修灶必见灾殃',
+  丁: '丁不剃头头必生疮',
+  戊: '戊不受田田主不祥',
+  己: '己不破券二比并亡',
+  庚: '庚不经络织机虚张',
+  辛: '辛不合酱主人不尝',
+  壬: '壬不汲水更难提防',
+  癸: '癸不词讼理弱敌强',
+};
+
+const PENGZU_DAY_ZHI: Record<string, string> = {
+  子: '子不问卜自惹祸殃',
+  丑: '丑不冠带主不还乡',
+  寅: '寅不祭祀神鬼不尝',
+  卯: '卯不穿井水泉不香',
+  辰: '辰不哭泣必主重丧',
+  巳: '巳不远行财物伏藏',
+  午: '午不苫盖屋主更张',
+  未: '未不服药毒气入肠',
+  申: '申不安床鬼祟入房',
+  酉: '酉不宴客醉坐颠狂',
+  戌: '戌不吃狗作怪上床',
+  亥: '亥不嫁娶不利新郎',
+};
+
 // 传统吉凶神煞清单（取自《协纪辨方书》，名称与 tyme4ts God.NAMES 对齐）。
 // tyme4ts 的 getGods() 已返回每日临值神煞及其吉凶（getLuck），此处按传统
 // 择日口径识别大吉神与大凶神，用于评分加权。
@@ -400,11 +493,16 @@ function buildDayCandidate(
     dayOfficer: lunarDay.getDuty().getName(),
     twelveStar: lunarDay.getTwelveStar().getName(),
     twentyEightStar: lunarDay.getTwentyEightStar().getName(),
+    twentyEightStarDetail: TWENTY_EIGHT_STARS[lunarDay.getTwentyEightStar().getName()] || null,
     nineStar: lunarDay.getNineStar().getName(),
+    nineStarDetail: NINE_STARS[lunarDay.getNineStar().getName()] || null,
     gods,
     recommends,
     avoids,
     pengZu: dayCycle.getPengZu().getName(),
+    // 彭祖百忌完整：天干+地支
+    pengZuGan: PENGZU_DAY_GAN[lunarDay.getSixtyCycle().getHeavenlyStem().getName()] || '',
+    pengZuZhi: PENGZU_DAY_ZHI[lunarDay.getSixtyCycle().getEarthBranch().getName()] || '',
     clash: `冲${dayBranch.getOpposite().getName()}，煞${dayBranch.getOminous().getName()}`,
     score: scoring.score,
     highlights: scoring.highlights,

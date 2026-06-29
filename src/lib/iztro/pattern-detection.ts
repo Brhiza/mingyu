@@ -582,6 +582,93 @@ const PATTERN_RULES: PatternRule[] = [
       return null;
     },
   },
+
+  // ═══════ 以下为新增补全格局 ═══════
+
+  {
+    id: 'wu-tan-tong-xing',
+    name: '武贪同行',
+    kind: 'neutral',
+    description: '武曲与贪狼同坐命宫或财帛宫，主少年艰难、三十后发越。武贪不发少年人。发福在晚。',
+    priority: 88,
+    detect(context) {
+      for (const targetName of ['命宫', '财帛']) {
+        const target = getPalaceByName(context, targetName);
+        if (!target) continue;
+        if (hasAllStars(target, ['武曲', '贪狼'])) {
+          return { palaces: [target], stars: ['武曲', '贪狼'] };
+        }
+      }
+      return null;
+    },
+  },
+  {
+    id: 'huo-tan-ge',
+    name: '火贪格',
+    kind: 'auspicious',
+    description: '火星与贪狼同坐命宫，主暴发、突发之财，横发横破。限运逢之亦然。',
+    priority: 92,
+    detect(context) {
+      const ming = getPalaceByName(context, '命宫');
+      if (!ming) return null;
+      if (hasStar(ming, '火星') && hasStar(ming, '贪狼')) {
+        return { palaces: [ming], stars: ['火星', '贪狼'] };
+      }
+      return null;
+    },
+  },
+  {
+    id: 'ling-tan-ge',
+    name: '铃贪格',
+    kind: 'auspicious',
+    description: '铃星与贪狼同坐命宫，主异路功名、偏财爆发，限运逢之亦然。',
+    priority: 90,
+    detect(context) {
+      const ming = getPalaceByName(context, '命宫');
+      if (!ming) return null;
+      if (hasStar(ming, '铃星') && hasStar(ming, '贪狼')) {
+        return { palaces: [ming], stars: ['铃星', '贪狼'] };
+      }
+      return null;
+    },
+  },
+  {
+    id: 'yang-liang-chang-lu',
+    name: '阳梁昌禄',
+    kind: 'auspicious',
+    description: '太阳、天梁、文昌、禄存会照命宫三方四正，主考试大利、学历高、官运亨通。',
+    priority: 91,
+    detect(context) {
+      const ming = getPalaceByName(context, '命宫');
+      if (!ming) return null;
+      const hasYang = surroundedHasOneOf(context, ming, ['太阳']);
+      const hasLiang = surroundedHasOneOf(context, ming, ['天梁']);
+      const hasChang = surroundedHasOneOf(context, ming, ['文昌']);
+      const hasLu = surroundedHasOneOf(context, ming, ['禄存']);
+      const hasHuaLu = getSurroundedMutagens(context, ming, 'birth_mutagen').includes('禄');
+      if (hasYang && hasLiang && hasChang && (hasLu || hasHuaLu)) {
+        return { palaces: [ming], stars: ['太阳', '天梁', '文昌', '禄存'] };
+      }
+      return null;
+    },
+  },
+  {
+    id: 'ju-ri-tong-gong',
+    name: '巨日同宫',
+    kind: 'neutral',
+    description: '巨门与太阳同坐命宫或迁移宫，主口才辩给、靠嘴谋生。日蔽则减力。',
+    priority: 85,
+    detect(context) {
+      for (const targetName of ['命宫', '迁移']) {
+        const target = getPalaceByName(context, targetName);
+        if (!target) continue;
+        if (hasAllStars(target, ['巨门', '太阳'])) {
+          return { palaces: [target], stars: ['巨门', '太阳'] };
+        }
+      }
+      return null;
+    },
+  },
 ];
 
 export function detectPatterns(params: { palaces: PalaceFact[] }): PatternFact[] {

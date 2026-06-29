@@ -17,17 +17,86 @@ import type { MeihuaData, MeihuaSettings } from '../../../../types/divination';
 import { trigramsByIndex } from '../../../../utils/hexagram-data';
 import { MeihuaHelpers } from '../../../../utils/divination-helpers';
 import { getDivinationTime } from '../../../../utils/timeManager';
-import { getSeasonState } from '../_shared';
+import { getSeasonState, BRANCH_WUXING, isSheng, isKe, LIUHE_MAP, LIUCHONG_MAP } from '../_shared';
 import { findHexagramByTrigrams, resolveTiYongByMovingYao } from './helpers/hexagram';
 import {
   resolveExternalMethod,
+  resolveLaterHeavenMethod,
   resolveNumberMethod,
   resolveRandomMethod,
   resolveTimeMethod,
   type MeihuaMethodResult,
 } from './helpers/methods';
 
-const trigrams = trigramsByIndex;
+const trigrams = trigramsByIndex;/**
+ * 体用生克关系判定字串
+ */
+function getTiYongRelation(yongElement: string, tiElement: string): string {
+  if (!yongElement || !tiElement) return '无';
+  if (yongElement === tiElement) return '比和';
+  if (isSheng(yongElement, tiElement)) return '用生体';
+  if (isSheng(tiElement, yongElement)) return '体生用';
+  if (isKe(yongElement, tiElement)) return '用克体';
+  if (isKe(tiElement, yongElement)) return '体克用';
+  return '杂';
+}
+
+/**
+ * 应期判断（按《梅花易数》动静应期法）：
+ * 根据动爻数、卦数、体用旺衰综合判断应期范围
+ */
+function estimateYingQi(params: {
+  movingYaoIndex: number;
+  upperTrigramIndex: number;
+  lowerTrigramIndex: number;
+  tiElement: string;
+  yongElement: string;
+  seasonState: '旺' | '相' | '休' | '囚' | '死' | '平';
+}): string[] {
+  const periods: string[] = [];
+  const { movingYaoIndex, upperTrigramIndex, lowerTrigramIndex, tiElement, yongElement, seasonState } = params;
+
+  // 1. 动爻数定应期范围：初爻快（日），二爻周，三爻月，四爻季，五爻半年，上爻年
+  const yaoPeriodMap: Record<number, string> = {
+    1: '应期较快，以日计（1-6日或1-6周）',
+    2: '应期以周计（7-14日）',
+    3: '应期以月计（1-3月）',
+    4: '应期以季计（3-6月）',
+    5: '应期以半年计（6-12月）',
+    6: '应期以年计（1年以上）',
+  };
+  periods.push(yaoPeriodMap[movingYaoIndex] || '应期视卦气进退而定');
+
+  // 2. 卦数定应期（上下卦数之和或乘积）
+  const guaSum = upperTrigramIndex + lowerTrigramIndex;
+  if (guaSum <= 6) {
+    periods.push(`卦数和为${guaSum}，应期偏向短期（${guaSum * 3}日内）`);
+  } else if (guaSum <= 12) {
+    periods.push(`卦数和为${guaSum}，应期以月计（${Math.round(guaSum / 2)}月左右）`);
+  } else {
+    periods.push(`卦数和为${guaSum}，应期偏长（以季或年计）`);
+  }
+
+  // 3. 体用生克定吉凶时限
+  if (yongElement === tiElement) {
+    periods.push('体用比和，事成较快，应期缩短');
+  } else if (isSheng(yongElement, tiElement)) {
+    periods.push('用生体，事有助力，应期顺势）');
+  } else if (isKe(yongElement, tiElement)) {
+    periods.push('用克体，需先破解阻力，应期推迟');
+  } else if (isKe(tiElement, yongElement)) {
+    periods.push('体克用，我克事势虽可成但需消耗时日');
+  }
+
+  // 4. 旺衰定迟速
+  if (seasonState === '旺' || seasonState === '相') {
+    periods.push('体卦旺相，应期快于常规');
+  } else if (seasonState === '休' || seasonState === '囚' || seasonState === '死') {
+    periods.push('体卦休囚，应期迟缓');
+  }
+
+  return periods;
+}
 
 /**
  * 生成梅花易数卦盘
@@ -48,6 +117,8 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
         return resolveRandomMethod();
       case 'external':
         return resolveExternalMethod(settings?.externalOmens);
+      case 'laterHeaven':
+        return resolveLaterHeavenMethod(ganzhi.hour.slice(-1));
       case 'time':
       default:
         return resolveTimeMethod(ganzhi, lunar);
@@ -248,6 +319,17 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
             changedTiYong.tiGua.element,
           )
         : '无变卦',
+      // 4. 体用生克细化：按五行生克定吉凶程度
+      tiYongRaw: getTiYongRelation(yongGua.element, tiGua.element),
+      // 5. 应期判断
+      yingQi: estimateYingQi({
+        movingYaoIndex,
+        upperTrigramIndex,
+        lowerTrigramIndex,
+        tiElement: tiGua.element,
+        yongElement: yongGua.element,
+        seasonState: tiSeasonState,
+      }),
     },
 
     ganzhi,

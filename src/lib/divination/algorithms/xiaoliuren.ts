@@ -5,6 +5,7 @@ import type {
 } from '../../../types/divination';
 import { getTimeIndexFromClock } from '../../../utils/dateUtils';
 import { getDivinationTime } from '../../../utils/timeManager';
+import { getSeasonState } from './_shared';
 
 const XIAOLIUREN_PALACES: XiaoliurenPalaceDetail[] = [
   {
@@ -15,6 +16,14 @@ const XIAOLIUREN_PALACES: XiaoliurenPalaceDetail[] = [
     keywords: ['稳定', '守成', '缓进'],
     tendency: '宜等待',
     advice: '先稳住节奏，确认资源和立场，再决定下一步。',
+    direction: '东',
+    shenSha: '青龙',
+    yinYang: '阳',
+    number: '1/5/7',
+    seasonProsper: '春（寅卯月）最旺',
+    bodyPart: '足',
+    fortune: '吉',
+    timing: '代表1-7日内平稳发展',
   },
   {
     name: '留连',
@@ -24,6 +33,14 @@ const XIAOLIUREN_PALACES: XiaoliurenPalaceDetail[] = [
     keywords: ['拖延', '牵扯', '反复'],
     tendency: '易反复',
     advice: '不要急着定论，先清理卡点与未处理事项。',
+    direction: '东南',
+    shenSha: '六合',
+    yinYang: '阴',
+    number: '2/6/8',
+    seasonProsper: '春（寅卯月）最旺',
+    bodyPart: '股',
+    fortune: '平（偏凶）',
+    timing: '代表2-8日内反复拖延',
   },
   {
     name: '速喜',
@@ -33,6 +50,14 @@ const XIAOLIUREN_PALACES: XiaoliurenPalaceDetail[] = [
     keywords: ['消息', '转机', '加速'],
     tendency: '宜推进',
     advice: '有机会就及时跟进，但别因为顺而失去判断。',
+    direction: '南',
+    shenSha: '朱雀',
+    yinYang: '阳',
+    number: '3/6/9',
+    seasonProsper: '夏（巳午月）最旺',
+    bodyPart: '目',
+    fortune: '吉',
+    timing: '代表3-9日内消息到来',
   },
   {
     name: '赤口',
@@ -42,6 +67,14 @@ const XIAOLIUREN_PALACES: XiaoliurenPalaceDetail[] = [
     keywords: ['争执', '误会', '情绪'],
     tendency: '易争执',
     advice: '少硬碰硬，先控情绪和表达，再谈结果。',
+    direction: '西',
+    shenSha: '白虎',
+    yinYang: '阳',
+    number: '4/7/10',
+    seasonProsper: '秋（申酉月）最旺',
+    bodyPart: '口舌',
+    fortune: '凶',
+    timing: '代表4-7日或1-2周内出现争执',
   },
   {
     name: '小吉',
@@ -51,6 +84,14 @@ const XIAOLIUREN_PALACES: XiaoliurenPalaceDetail[] = [
     keywords: ['助力', '可成', '渐进'],
     tendency: '有助力',
     advice: '可以推进，但要一步一步拿结果，不宜贪快。',
+    direction: '北',
+    shenSha: '玄武',
+    yinYang: '阴',
+    number: '1/4/8',
+    seasonProsper: '冬（亥子月）最旺',
+    bodyPart: '耳',
+    fortune: '吉',
+    timing: '代表1-4周内有贵人助力',
   },
   {
     name: '空亡',
@@ -60,6 +101,14 @@ const XIAOLIUREN_PALACES: XiaoliurenPalaceDetail[] = [
     keywords: ['落空', '失焦', '不实'],
     tendency: '易落空',
     advice: '先核实人事物是否真实有效，再决定是否投入。',
+    direction: '中央',
+    shenSha: '勾陈',
+    yinYang: '阴',
+    number: '5/8/10',
+    seasonProsper: '冬（亥子月）最旺',
+    bodyPart: '脾',
+    fortune: '凶（大凶）',
+    timing: '应期不定或落空，需重新评估',
   },
 ];
 
@@ -184,6 +233,24 @@ export function generateXiaoliuren(params?: {
     description: wuXingDesc || '三宫五行无特殊生克态势',
   };
 
+  // 旺衰按月令分析
+  const monthBranch = (timeInfo as any)?.lunar?.monthBranch || '';
+  const seasonStates = {
+    start: monthBranch ? getSeasonState(start.element, monthBranch) : '平',
+    process: monthBranch ? getSeasonState(process.element, monthBranch) : '平',
+    result: monthBranch ? getSeasonState(result.element, monthBranch) : '平',
+  };
+
+  // 应期估算
+  const yingQiEstimates: Record<string, string> = {
+    '大安': '1-7日内或有初步消息，春季应期更快',
+    '留连': '2-8日内或1-2月内，需等待转机，夏秋间或可解',
+    '速喜': '3-9日内消息即至，夏季应期更快',
+    '赤口': '4-7日内注意争执，秋季尤验',
+    '小吉': '1-4周内可见助力，冬季应期更佳',
+    '空亡': '应期不定，建议重新评估后再定时间',
+  };
+
   return {
     method,
     methodLabel: XIAOLIUREN_METHOD_LABEL_MAP[method],
@@ -201,5 +268,13 @@ export function generateXiaoliuren(params?: {
     primary: result,
     tendency: result.tendency,
     questionHint: buildQuestionHint(result),
+    // 新增字段
+    seasonStates,
+    yingQi: yingQiEstimates[result.name] || '应期视具体问题而定',
+    direction: result.direction,
+    shenSha: result.shenSha,
+    fortune: result.fortune,
+    timing: result.timing,
+    bodyPart: result.bodyPart,
   };
 }

@@ -182,6 +182,10 @@ const LENORMAND_CARDS = [
 const SPREADS: Record<LenormandSpreadType, { name: string; positions: string[] }> = {
   single: { name: '单牌线索', positions: ['核心线索'] },
   three: { name: '三牌事件线', positions: ['起因', '现状', '走向'] },
+  five: {
+    name: '五牌十字阵',
+    positions: ['过去背景', '当前处境', '隐藏因素', '外在助力', '最终走向'],
+  },
   relationship: {
     name: '关系牌阵',
     positions: ['你的状态', '对方状态', '关系纽带', '隐藏因素', '后续走向'],
@@ -194,6 +198,14 @@ const SPREADS: Record<LenormandSpreadType, { name: string; positions: string[] }
     name: '九宫牌阵',
     positions: ['左上', '上方', '右上', '左侧', '核心', '右侧', '左下', '下方', '右下'],
   },
+  element: {
+    name: '五行牌阵',
+    positions: ['木（根基/成长）', '火（行动/热情）', '土（稳定/现实）', '金（决断/边界）', '水（流动/直觉）'],
+  },
+  grandTableau: {
+    name: '大桌牌阵',
+    positions: Array.from({ length: 26 }, (_, i) => `位置${i + 1}（全桌解读）`),
+  },
 };
 
 function shuffleCards() {
@@ -205,6 +217,42 @@ function shuffleCards() {
   return shuffled;
 }
 
+/**
+ * 雷诺曼牌组两牌组合含义（为配对解读提供传统关键词）
+ * 如 "太阳+鱼" = 财运好、"鞭子+鼠" = 消耗性争执
+ */
+const CARD_COMBINATIONS: Record<string, string> = {
+  '骑士+心': '消息带来感情进展',
+  '心+戒指': '感情的承诺或婚约',
+  '心+花束': '被人喜欢或表白',
+  '心+百合': '成熟的感情关系',
+  '戒指+花束': '订婚或喜讯',
+  '戒指+房子': '家庭契约/购房',
+  '花束+花园': '社交上受到欢迎',
+  '房子+锚': '稳定安家',
+  '锚+星星': '目标明确并趋于稳定',
+  '星星+月亮': '直觉准确的时期',
+  '月亮+太阳': '从迷茫走向清晰',
+  '蛇+狐狸': '欺骗与策略',
+  '云+蛇': '隐藏在迷雾中的欺骗',
+  '棺材+十字架': '沉重的结束与考验',
+  '镰刀+棺材': '突然的结束/切割',
+  '老鼠+十字架': '消耗性的压力',
+  '鱼+星星': '通过网络/远程获利',
+  '鱼+船': '跨国或远距离财运',
+  '船+鹤': '改善环境的搬迁',
+  '书+信': '秘密文件或消息',
+  '钥匙+心': '关键的情感答案',
+  '狗+花束': '朋友的善意',
+  '孩子+房子': '家庭添丁',
+  '塔+山': '制度性阻碍',
+  '路+十字架': '两难选择',
+  '鸟+蛇': '流言蜚语',
+  '鞭子+鸟': '争吵与焦虑',
+  '熊+鱼': '资源或资金充裕',
+  '树+心': '深厚的感情基础',
+};
+
 export function drawLenormandSpread(spreadType: LenormandSpreadType = 'three'): LenormandData {
   const spread = SPREADS[spreadType] ?? SPREADS.three;
   const cards = shuffleCards()
@@ -214,10 +262,26 @@ export function drawLenormandSpread(spreadType: LenormandSpreadType = 'three'): 
       position: spread.positions[index],
     }));
 
+  // 两牌组合分析（仅当至少有2张牌时）
+  const combinations: Array<{ card1: string; card2: string; meaning: string }> = [];
+  for (let i = 0; i < cards.length - 1; i++) {
+    const comboKey = `${cards[i].name}+${cards[i + 1].name}`;
+    const reverseComboKey = `${cards[i + 1].name}+${cards[i].name}`;
+    const meaning = CARD_COMBINATIONS[comboKey] || CARD_COMBINATIONS[reverseComboKey] || null;
+    if (meaning) {
+      combinations.push({
+        card1: cards[i].name,
+        card2: cards[i + 1].name,
+        meaning,
+      });
+    }
+  }
+
   return {
     spreadType,
     spreadName: spread.name,
     cards,
+    combinations,
     timestamp: Date.now(),
   };
 }

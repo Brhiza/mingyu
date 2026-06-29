@@ -23,8 +23,7 @@ import {
   palaceHexagrams,
 } from '../../../config/divination-data.ts';
 import { generateYaosByTime, getDivinationTime } from '../../../utils/timeManager.ts';
-import { isSheng, isKe } from './_shared/wuxing.ts';
-import { getSeasonState } from './_shared';
+import { isSheng, isKe, isLiuhe, isLiuhai, isSanxing, getSanxingType, getSeasonState } from './_shared';
 
 // 六冲关系
 const LIU_CHONG: Record<string, string> = {
@@ -42,7 +41,7 @@ const LIU_CHONG: Record<string, string> = {
   亥: '巳',
 };
 
-// 地支五行
+// 地支五行（与 _shared/wuxing.ts 一致，重复定义避免跨模块耦合）
 const BRANCH_WUXING: Record<string, string> = {
   子: '水',
   丑: '土',
@@ -60,6 +59,88 @@ const BRANCH_WUXING: Record<string, string> = {
 
 // 地支顺序（用于判断进神退神）
 const BRANCH_ORDER = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+
+/**
+ * 五行入墓支（按《卜筮正宗》定例）：
+ * 金墓在丑、木墓在未、火墓在戌、水土墓在辰
+ */
+const WUXING_RUMU: Record<string, string> = {
+  金: '丑',
+  木: '未',
+  火: '戌',
+  水: '辰',
+  土: '辰',
+};
+
+/**
+ * 五行十二宫（长生沐浴冠带临官帝旺衰病死墓绝胎养）
+ * 此处仅取常用三宫：长生、帝旺、墓（入墓）
+ */
+function getShiErGong(wuxing: string, branch: string): string {
+  // 五行各局的长生位：
+  const ZHANG_SHENG_START: Record<string, string> = {
+    金: '巳', // 金长生在巳
+    木: '亥', // 木长生在亥
+    火: '寅', // 火长生在寅
+    水: '申', // 水长生在申
+    土: '申', // 土长生在申（与火不同，按《三命通会》水土共长生）
+  };
+  const startBranch = ZHANG_SHENG_START[wuxing];
+  if (!startBranch) return '';
+  const startIndex = BRANCH_ORDER.indexOf(startBranch);
+  const branchIndex = BRANCH_ORDER.indexOf(branch);
+  if (startIndex === -1 || branchIndex === -1) return '';
+  const offset = ((branchIndex - startIndex) % 12 + 12) % 12;
+  const SHI_ER_GONG = ['长生', '沐浴', '冠带', '临官', '帝旺', '衰', '病', '死', '墓', '绝', '胎', '养'];
+  return SHI_ER_GONG[offset] || '';
+}
+
+/** 判断爻之地支是否入墓（按地支五行入墓支） */
+function isRuMu(branchWuxing: string, monthBranch: string): boolean {
+  const muBranch = WUXING_RUMU[branchWuxing];
+  return muBranch === monthBranch;
+}
+
+/** 判断爻之地支是否在当月为月墓 */
+function isYueMu(branch: string, monthBranch: string): boolean {
+  const wuxing = BRANCH_WUXING[branch];
+  return isRuMu(wuxing, monthBranch);
+}
+
+/** 判断爻之地支是否入日墓 */
+function isRiMu(branch: string, dayBranch: string): boolean {
+  const wuxing = BRANCH_WUXING[branch];
+  return WUXING_RUMU[wuxing] === dayBranch;
+}
+
+/**
+ * 检测日辰对爻的三合局触发：若日辰与两个静爻成三合，则为三合局起用
+ */
+function checkSanheWithDay(
+  yaoBranches: string[],
+  dayBranch: string,
+): { group: string; members: string[]; description: string } | null {
+  const allBranches = [...yaoBranches, dayBranch];
+  // 完整三合局
+  for (const [group, members] of Object.entries({
+    水局: ['申', '子', '辰'],
+    木局: ['亥', '卯', '未'],
+    火局: ['寅', '午', '戌'],
+    金局: ['巳', '酉', '丑'],
+  })) {
+    const present = members.filter((m) => allBranches.includes(m));
+    if (present.length === 3) {
+      return {
+        group,
+        members,
+        description: `日辰${dayBranch}引动三合${group}，三合局成，事势增强`,
+      };
+    }
+  }
+  return null;
+}
+
+// 六合月日暗助检测（已在 yaosDetail 中通过 seasonState + isDayBreak + isChanging 实现暗动判定）
 
 /**
  * 回头生克冲：动爻变出之爻对动爻本身的关系。
@@ -438,6 +519,16 @@ export function generateLiuyao(customDate?: Date) {
       seasonState: seasonState,
       changeDirection: changeDirection,
       changeRelation: changeRelation,
+      // 新增长支关系检测
+      isSanxing: isSanxing(info.dizhi, dayBranch) || isSanxing(info.dizhi, monthBranch),
+      sanxingType: getSanxingType(info.dizhi) || undefined,
+      isLiuhe: isLiuhe(info.dizhi, dayBranch) || isLiuhe(info.dizhi, monthBranch),
+      liuhePartner: isLiuhe(info.dizhi, dayBranch) ? dayBranch : isLiuhe(info.dizhi, monthBranch) ? monthBranch : undefined,
+      isLiuhai: isLiuhai(info.dizhi, dayBranch) || isLiuhai(info.dizhi, monthBranch),
+      isRuMu: isRuMu(info.wuxing, dayBranch) || isRuMu(info.wuxing, monthBranch),
+      shiErGong: getShiErGong(info.wuxing, info.dizhi),
+      isYueMu: isYueMu(info.dizhi, monthBranch),
+      isRiMu: isRiMu(info.dizhi, dayBranch),
       changedYao: changedInfo
         ? {
             dizhi: changedInfo.dizhi,
@@ -454,6 +545,49 @@ export function generateLiuyao(customDate?: Date) {
     yaosDetail,
     voidBranches: voids,
   });
+
+  // 三合局检测：日辰与爻中静爻/动爻组成的三合局
+  const sanheWithDay = checkSanheWithDay(
+    yaosInfo.map((i) => i.dizhi),
+    dayBranch,
+  );
+
+  // 三刑检测：各爻之间是否构成三刑关系（寅巳申三刑、丑戌未三刑等）
+  const sanxingInYaos: Array<{ branches: string[]; type: string }> = [];
+  const yaoBranches = yaosInfo.map((i) => i.dizhi);
+  // 寅巳申三刑
+  if (['寅', '巳', '申'].every((b) => yaoBranches.includes(b))) {
+    sanxingInYaos.push({ branches: ['寅', '巳', '申'], type: '无恩之刑' });
+  }
+  // 丑戌未三刑
+  if (['丑', '戌', '未'].every((b) => yaoBranches.includes(b))) {
+    sanxingInYaos.push({ branches: ['丑', '戌', '未'], type: '恃势之刑' });
+  }
+  // 子卯刑
+  if (yaoBranches.includes('子') && yaoBranches.includes('卯')) {
+    sanxingInYaos.push({ branches: ['子', '卯'], type: '无礼之刑' });
+  }
+  // 自刑
+  for (const branch of ['辰', '午', '酉', '亥'] as const) {
+    if (yaoBranches.filter((b) => b === branch).length >= 2) {
+      sanxingInYaos.push({ branches: [branch, branch], type: '自刑' });
+    }
+  }
+
+  // 卦身（按六爻传统，世爻所在位置对应卦身地支）：
+  // 世在初爻卦身在子、二爻在寅、三爻在辰、四爻在午、五爻在申、六爻在戌
+  const SHI_TO_GUA_SHEN: Record<number, string> = {
+    1: '子', 2: '寅', 3: '辰', 4: '午', 5: '申', 6: '戌',
+  };
+  const guaShenBranch = SHI_TO_GUA_SHEN[shiYing.shi] || '';
+  const guaShenYao = yaosInfo.find((i) => i.dizhi === guaShenBranch);
+  const guaShen = guaShenYao
+    ? {
+        branch: guaShenBranch,
+        sixRelative: guaShenYao.liuqin,
+        position: yaosInfo.indexOf(guaShenYao) + 1,
+      }
+    : null;
 
   return {
     originalName: mainHexagram.name,
@@ -475,6 +609,9 @@ export function generateLiuyao(customDate?: Date) {
     chaoticReason,
     yaosDetail,
     hiddenSpirits,
+    sanheWithDay,
+    sanxingInYaos,
+    guaShen,
     timestamp,
   };
 }

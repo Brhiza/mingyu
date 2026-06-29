@@ -60,6 +60,76 @@ export function resolveTimeMethod(
   };
 }
 
+/**
+ * 端法后天起卦法（《梅花易数》端法后天占验）：
+ * 按邵雍《梅花易数》端法后天占验篇，以外应方向为卜卦依据，
+ * 以方取象：乾南、坤北、离东、坎西、震东北、兑东南、巽西南、艮西北。
+ * 用八卦方位取代先天数，直接将外界感知转化为卦象。
+ *
+ * 此方法与外应起卦法不同：外应法将外应映射为先天八卦数，
+ * 端法后天起卦直接以方位定卦，并以时辰地支序数定动爻。
+ *
+ * 返回八卦索引：1乾 2兑 3离 4震 5巽 6坎 7艮 8坤
+ */
+export function resolveLaterHeavenMethod(timeBranch: string): MeihuaMethodResult {
+  // 后天方位八卦映射（以观测者为中心）：
+  // 南=乾(1)、东南=兑(2)、东=离(3)、东北=震(4)、
+  // 西南=巽(5)、西=坎(6)、西北=艮(7)、北=坤(8)
+  // 此处是定例：若用户从东方来→离(3)，南方来→乾(1)
+  // 使用时辰对应的地支方位来定上下卦
+
+  // 地支与后天八卦方位映射（邵雍定例）
+  const BRANCH_TO_TRIGRAM: Record<string, { upper: number; lower: number }> = {
+    子: { upper: 8, lower: 3 }, // 子(北)→坤(上)离(下)
+    丑: { upper: 7, lower: 4 }, // 丑(东北)→艮(上)震(下)
+    寅: { upper: 4, lower: 7 }, // 寅(东北)→震(上)艮(下)
+    卯: { upper: 3, lower: 8 }, // 卯(东)→离(上)坤(下)
+    辰: { upper: 5, lower: 2 }, // 辰(东南)→巽(上)兑(下)
+    巳: { upper: 2, lower: 5 }, // 巳(东南)→兑(上)巽(下)
+    午: { upper: 1, lower: 6 }, // 午(南)→乾(上)坎(下)
+    未: { upper: 6, lower: 1 }, // 未(西南)→坎(上)乾(下)
+    申: { upper: 6, lower: 1 }, // 申(西南)→坎(上)乾(下)
+    酉: { upper: 6, lower: 8 }, // 酉(西)→坎(上)坤(下)
+    戌: { upper: 7, lower: 7 }, // 戌(西北)→艮(上)艮(下)
+    亥: { upper: 8, lower: 6 }, // 亥(西北偏北)→坤(上)坎(下)
+  };
+
+  const mapping = BRANCH_TO_TRIGRAM[timeBranch];
+  if (!mapping) {
+    // fallback: 使用时辰序数
+    const timeIndex = dizhi.indexOf(timeBranch) + 1;
+    return {
+      upperTrigramIndex: ((timeIndex % 8) || 8),
+      lowerTrigramIndex: (((timeIndex * 3) % 8) || 8),
+      movingYaoIndex: (timeIndex % 6) || 6,
+      calculation: {
+        method: '端法后天起卦法',
+        methodKey: 'laterHeaven',
+        timeBranch,
+        upperTrigramIndex: ((timeIndex % 8) || 8),
+        lowerTrigramIndex: (((timeIndex * 3) % 8) || 8),
+        movingYaoIndex: (timeIndex % 6) || 6,
+      },
+    };
+  }
+
+  const movingYaoIndex = (dizhi.indexOf(timeBranch) + 1) % 6 || 6;
+
+  return {
+    upperTrigramIndex: mapping.upper,
+    lowerTrigramIndex: mapping.lower,
+    movingYaoIndex,
+    calculation: {
+      method: '端法后天起卦法',
+      methodKey: 'laterHeaven',
+      timeBranch,
+      upperTrigramIndex: mapping.upper,
+      lowerTrigramIndex: mapping.lower,
+      movingYaoIndex,
+    },
+  };
+}
+
 export function resolveNumberMethod(number: number): MeihuaMethodResult {
   if (!Number.isInteger(number) || number <= 0) {
     throw new Error('数字起卦必须提供正整数');
