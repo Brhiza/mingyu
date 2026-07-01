@@ -6263,3 +6263,475 @@ div.form-actions.page-submit-actions {
   justify-content: center;
   flex-wrap: wrap;
 }
+
+/* ─── AI 解析面板 ──────────────────────────────── */
+
+.panel-ai-analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.ai-analysis-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 60px;
+}
+
+.ai-analysis-content {
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-soft);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  overflow: auto;
+  overflow-wrap: anywhere;
+  max-height: 600px;
+}
+
+/* Markdown 渲染样式 */
+.ai-analysis-content.markdown-body > *:first-child {
+  margin-top: 0;
+}
+
+.ai-analysis-content.markdown-body > *:last-child {
+  margin-bottom: 0;
+}
+
+.ai-analysis-content.markdown-body h1,
+.ai-analysis-content.markdown-body h2,
+.ai-analysis-content.markdown-body h3,
+.ai-analysis-content.markdown-body h4 {
+  margin: 16px 0 8px;
+  font-weight: 600;
+  color: var(--text-strong);
+  line-height: 1.4;
+}
+
+.ai-analysis-content.markdown-body h1 {
+  font-size: 1.3rem;
+}
+
+.ai-analysis-content.markdown-body h2 {
+  font-size: 1.15rem;
+}
+
+.ai-analysis-content.markdown-body h3 {
+  font-size: 1.05rem;
+}
+
+.ai-analysis-content.markdown-body h4 {
+  font-size: 1rem;
+}
+
+.ai-analysis-content.markdown-body p {
+  margin: 8px 0;
+}
+
+.ai-analysis-content.markdown-body ul,
+.ai-analysis-content.markdown-body ol {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.ai-analysis-content.markdown-body li {
+  margin: 4px 0;
+}
+
+.ai-analysis-content.markdown-body strong {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.ai-analysis-content.markdown-body em {
+  font-style: italic;
+}
+
+.ai-analysis-content.markdown-body blockquote {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 8px 8px 0;
+  color: var(--text-secondary);
+}
+
+.ai-analysis-content.markdown-body code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--surface-muted);
+  font-size: 0.88em;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.ai-analysis-content.markdown-body pre {
+  margin: 8px 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-muted);
+  overflow: auto;
+}
+
+.ai-analysis-content.markdown-body pre code {
+  padding: 0;
+  background: none;
+}
+
+.ai-analysis-content.markdown-body hr {
+  border: none;
+  border-top: 1px solid var(--border-soft);
+  margin: 16px 0;
+}
+
+.ai-analysis-content.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.ai-analysis-content.markdown-body th,
+.ai-analysis-content.markdown-body td {
+  padding: 6px 10px;
+  border: 1px solid var(--border-soft);
+  text-align: left;
+}
+
+.ai-analysis-content.markdown-body th {
+  background: var(--surface-muted);
+  font-weight: 600;
+}
+
+/* 加载动画 */
+.ai-analysis-spinner-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-analysis-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: ai-analysis-spin 0.6s linear infinite;
+}
+
+@keyframes ai-analysis-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ai-analysis-cursor {
+  display: inline-block;
+  animation: ai-analysis-blink 1s step-end infinite;
+  color: var(--accent);
+  font-weight: bold;
+}
+
+@keyframes ai-analysis-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* 错误提示 */
+.ai-analysis-error {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(220, 80, 80, 0.08);
+  border: 1px solid rgba(220, 80, 80, 0.2);
+  color: #c44;
+  font-size: 13px;
+}
+
+/* 骨架屏 */
+.ai-analysis-placeholder {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.ai-analysis-skeleton-line {
+  height: 13px;
+  border-radius: 999px;
+  width: 72%;
+}
+
+.ai-analysis-skeleton-line-long {
+  width: 100%;
+}
+
+.ai-analysis-skeleton-line-short {
+  width: 48%;
+}
+
+/* 禁用状态 */
+.copy-button.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .ai-analysis-content {
+    padding: 12px;
+    font-size: 13px;
+    max-height: 500px;
+  }
+
+  .ai-analysis-content.markdown-body h1 {
+    font-size: 1.15rem;
+  }
+
+  .ai-analysis-content.markdown-body h2 {
+    font-size: 1.05rem;
+  }
+}
+
+/* ─── AI 对话面板 ──────────────────────────────── */
+
+.panel-ai-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.ai-chat-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.ai-chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  max-height: 560px;
+  padding: 4px 4px 8px;
+  scroll-behavior: smooth;
+}
+
+.ai-chat-msg {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ai-chat-msg-user {
+  justify-content: flex-end;
+}
+
+.ai-chat-msg-user .ai-chat-msg-bubble {
+  max-width: 80%;
+  background: var(--accent-soft);
+  border: 1px solid var(--border-soft);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 10px 14px;
+  border-radius: 16px 16px 4px 16px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ai-chat-msg-assistant {
+  align-items: flex-start;
+}
+
+.ai-chat-msg-avatar {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent-strong);
+  color: var(--surface-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble {
+  flex: 1;
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: 4px 16px 16px 16px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-soft);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+/* 对话气泡内 Markdown 样式 */
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body > *:first-child {
+  margin-top: 0;
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body > *:last-child {
+  margin-bottom: 0;
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body h1,
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body h2,
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body h3,
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body h4 {
+  margin: 14px 0 8px;
+  font-weight: 600;
+  color: var(--text-strong);
+  line-height: 1.4;
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body h1 {
+  font-size: 1.25rem;
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body h2 {
+  font-size: 1.1rem;
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body h3 {
+  font-size: 1rem;
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body p {
+  margin: 8px 0;
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body ul,
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body ol {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body li {
+  margin: 4px 0;
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body strong {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body em {
+  font-style: italic;
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body blockquote {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 8px 8px 0;
+  color: var(--text-secondary);
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--surface-muted);
+  font-size: 0.88em;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body pre {
+  margin: 8px 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-muted);
+  overflow: auto;
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body pre code {
+  padding: 0;
+  background: none;
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body hr {
+  border: none;
+  border-top: 1px solid var(--border-soft);
+  margin: 14px 0;
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body th,
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body td {
+  padding: 6px 10px;
+  border: 1px solid var(--border-soft);
+  text-align: left;
+}
+
+.ai-chat-msg-assistant .ai-chat-msg-bubble.markdown-body th {
+  background: var(--surface-muted);
+  font-weight: 600;
+}
+
+/* 流式生成中的光标 */
+.ai-chat-msg .ai-analysis-cursor {
+  align-self: flex-end;
+  margin-bottom: 14px;
+}
+
+/* 解析完成后的提示 */
+.ai-chat-hint {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-soft);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+/* 空状态 */
+.ai-chat-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  padding: 24px;
+  text-align: center;
+}
+
+.ai-chat-empty p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* 移动端对话面板适配 */
+@media (max-width: 768px) {
+  .ai-chat-messages {
+    max-height: 420px;
+  }
+
+  .ai-chat-msg-assistant .ai-chat-msg-bubble {
+    font-size: 13px;
+  }
+
+  .ai-chat-msg-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+}

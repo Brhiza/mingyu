@@ -20,6 +20,7 @@
   "dependencies": {
     "celestine": "^0.2.1",
     "iztro": "^2.5.8",
+    "marked": "^16.0.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.4",
