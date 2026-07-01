@@ -64,9 +64,16 @@ yarn add mingyu-core
 | **灵签 SSGW** | `mingyu-core/divination/ssgw` | 三山国王 92 签随机抽签 |
 | **雷诺曼 Lenormand** | `mingyu-core/divination/lenormand` | 36 张牌、8 种牌阵、牌义组合 |
 | **西洋占星 Astrolabe** | `mingyu-core/divination/astrolabe` | 本命盘、Placidus 宫位、十大相位、行运 |
-| **紫微斗数 Ziwei** | `mingyu-core/ziwei/iztro` | iztro 封装、35 格局检测、证据池、大限时间线 |
 | **历法 Calendar** | `mingyu-core/calendar` | 农历、干支、节气、空亡、真太阳时 |
 | **类型 Types** | `mingyu-core/types` | 所有共享类型定义 |
+| **原始数据 Data** | `mingyu-core/divination/divination-data` | 五行、六亲、纳甲、星曜等配置数据 |
+| **梅花外应配置** | `mingyu-core/divination/meihua-omens` | 梅花易数外应物象映射 |
+| **六十四卦数据** | `mingyu-core/divination/hexagram-data` | 六爻卦象数据、梅花八卦索引 |
+| **塔罗 Tarot** | `mingyu-core/divination/tarot` | 塔罗抽牌、牌阵、关键字 |
+| **塔罗牌数据** | `mingyu-core/divination/tarot-data` | 塔罗牌定义与牌阵配置 |
+| **占卜辅助工具** | `mingyu-core/divination/divination-helpers` | 占卜通用格式与计算工具 |
+| **反推未知时辰** | `mingyu-core/birth-time-reverse` | 根据命盘特征反推时辰 |
+| **紫微斗数 Ziwei** | `mingyu-core/ziwei/iztro` | iztro 封装、35 格局检测、证据池、大限时间线 |
 
 ---
 

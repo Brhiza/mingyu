@@ -23,7 +23,7 @@ import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
 import { formatBaziForPrompt } from '@/utils/bazi/baziAnalysisFormatter';
 import { buildDivinationPrompt } from '@/lib/divination/engine';
-import { generateAstrolabe } from '@/lib/divination/algorithms/astrolabe';
+import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import type { AstrolabeData } from '@/types/divination';
 import type {
   BaziFortuneSelectionModule,

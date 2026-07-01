@@ -170,6 +170,32 @@ function formatDateTime(birth: {
   return `${birth.year}-${String(birth.month).padStart(2, '0')}-${String(birth.day).padStart(2, '0')} ${String(birth.hour).padStart(2, '0')}:${String(birth.minute).padStart(2, '0')}`;
 }
 
+/**
+ * 生成西洋占星星盘
+ *
+ * 使用 Placidus 宫位制计算本命盘，含太阳、月亮、上升、十大星体
+ * 落宫、星座、以及主要相位分析。支持真太阳时校正。
+ *
+ * @param input 出生信息，含经纬度、时区、出生日期时间等。
+ *   设置 useTrueSolarTime 为 true 可启用真太阳时校正。
+ * @returns 星盘数据对象 AstrolabeData，含星体、宫位、相位等信息。
+ *
+ * @example
+ * ```ts
+ * const result = generateAstrolabe({
+ *   name: '某人',
+ *   gender: '男',
+ *   year: '1990',
+ *   month: '1',
+ *   day: '1',
+ *   hour: '10',
+ *   minute: '30',
+ *   latitude: '39.9',
+ *   longitude: '116.4',
+ *   timezone: '8',
+ * });
+ * ```
+ */
 export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
   const standardBirth = localTimestamp(input);
   const latitude = requireNumber(input.latitude, '出生地纬度');

@@ -512,6 +512,29 @@ function buildDayCandidate(
   };
 }
 
+/**
+ * 生成黄历择日结果
+ *
+ * 对指定日期范围内逐日分析宜忌、神煞、冲煞、建除十二值、
+ * 二十八宿、彭祖百忌等，并基于参与人八字进行冲突校验。
+ *
+ * @param params 择日参数：
+ *   - topic: 事项类型（marriage/move/opening/…）
+ *   - startDate: 开始日期 (YYYY-MM-DD)
+ *   - endDate: 结束日期 (YYYY-MM-DD)，最多比较 31 天
+ *   - participants: 参与人信息（可选），含八字用于冲煞校验
+ * @returns 黄历择日数据对象 AlmanacData。
+ *
+ * @example
+ * ```ts
+ * const result = generateAlmanacSelection({
+ *   topic: 'marriage',
+ *   startDate: '2025-06-01',
+ *   endDate: '2025-06-30',
+ * });
+ * // result 包含 bestDate、goodDates、avoidDates 等字段
+ * ```
+ */
 export function generateAlmanacSelection(params: {
   topic: AlmanacTopic;
   startDate: string;

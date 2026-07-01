@@ -1,6 +1,6 @@
 {
   "name": "mingyu-core",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Mingyu core algorithms: traditional Chinese metaphysics (八字Bazi, 紫微斗数Ziwei, 奇门遁甲Qimen, 六爻Liuyao, 六壬Liuren, 梅花易数Meihua, and more)",
   "type": "module",
   "main": "./dist/index.js",
@@ -63,10 +63,6 @@
       "import": "./dist/divination/hexagram-data.js",
       "types": "./dist/divination/hexagram-data.d.ts"
     },
-    "./divination/ssgw-data": {
-      "import": "./dist/divination/ssgw-data/index.js",
-      "types": "./dist/divination/ssgw-data/index.d.ts"
-    },
     "./divination/tarot": {
       "import": "./dist/divination/tarot.js",
       "types": "./dist/divination/tarot.d.ts"
@@ -102,7 +98,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc --build tsconfig.json",
+    "build": "tsc --build tsconfig.json && node scripts/add-esm-extensions.mjs",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run build",
     "test": "tsx --test \"tests/**/*.test.ts\""
@@ -138,11 +134,15 @@
     "chinese-metaphysics",
     "divination"
   ],
-  "author": "",
+  "author": "Brhiza",
   "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Brhiza/mingyu/issues"
+  },
+  "homepage": "https://github.com/Brhiza/mingyu#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Brhiza/mingyu"
+    "url": "git+https://github.com/Brhiza/mingyu.git"
   },
   "devDependencies": {
     "celestine": "^0.2.1",

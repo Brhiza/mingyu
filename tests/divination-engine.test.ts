@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateDivinationSession } from '../src/lib/divination/engine';
 import { buildTimeInfoText } from '../src/lib/divination/engine/formatters';
-import { generateLiuyao } from '../src/lib/divination/algorithms/liuyao';
-import { generateXiaoliuren } from '../src/lib/divination/algorithms/xiaoliuren';
-import { generateQimen } from '../src/lib/divination/algorithms/qimen';
+import { generateLiuyao } from 'mingyu-core/divination/liuyao';
+import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
+import { generateQimen } from 'mingyu-core/divination/qimen';
 
 type DivinationDraftInput = Parameters<typeof generateDivinationSession>[0];
 

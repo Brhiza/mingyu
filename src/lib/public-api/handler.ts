@@ -1,6 +1,6 @@
 import { baziCalculator } from '../../utils/bazi/baziCalculator';
 import type { Person } from '../../utils/bazi/baziTypes';
-import { getTimeIndexFromClock } from '../../utils/dateUtils';
+import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import {
   buildZiweiChartInput,
   calculatePublicZiweiChartForScopes,
@@ -18,15 +18,15 @@ import {
   meihuaPersonOptions,
   meihuaSoundOptions,
 } from '../../config/meihua-omens';
-import { generateLiuyao } from '../divination/algorithms/liuyao';
-import { generateMeihua } from '../divination/algorithms/meihua';
-import { generateXiaoliuren } from '../divination/algorithms/xiaoliuren';
-import { generateQimen } from '../divination/algorithms/qimen';
-import { generateLiuren } from '../divination/algorithms/liuren';
-import { generateAlmanacSelection } from '../divination/algorithms/almanac';
-import { drawLenormandSpread } from '../divination/algorithms/lenormand';
-import { generateAstrolabe } from '../divination/algorithms/astrolabe';
-import { drawRandomSign } from '../divination/algorithms/ssgw';
+import { generateLiuyao } from 'mingyu-core/divination/liuyao';
+import { generateMeihua } from 'mingyu-core/divination/meihua';
+import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
+import { generateQimen } from 'mingyu-core/divination/qimen';
+import { generateLiuren } from 'mingyu-core/divination/liuren';
+import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
+import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
+import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
 import { ASTROLABE_PROMPT_TOPICS } from '../astrolabe-prompts';
@@ -43,7 +43,7 @@ import type {
   SupplementaryInfo,
   XiaoliurenDivinationMethod,
 } from '../../types/divination';
-import { drawSingleCard, drawSpreadCards, getCardKeywords } from '../../utils/tarot';
+import { drawSingleCard, drawSpreadCards, getCardKeywords } from 'mingyu-core/divination/tarot';
 import type { DivinationMethodId } from '../divination/config';
 import {
   BAZI_PROMPT_TOPICS,
@@ -874,8 +874,8 @@ function calculateTarot(input: JsonRecord) {
   return output;
 }
 
-function calculateSsgw(_input: JsonRecord) {
-  const result = drawRandomSign();
+function calculateSsgw(input: JsonRecord) {
+  const result = drawRandomSign(readCustomDate(input));
   // 三连阴杯拒绝起卦，返回结构化提示而非签文
   if (result.ritual?.rejected) {
     return {
@@ -970,7 +970,7 @@ function calculateDivinationData(method: Exclude<DivinationMethodId, 'random'>, 
     case 'tarot':
       return calculateTarot(input);
     case 'ssgw':
-      return drawRandomSign();
+      return drawRandomSign(readCustomDate(input));
     case 'almanac':
       return calculateAlmanac(input);
     case 'lenormand':

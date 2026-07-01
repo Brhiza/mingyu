@@ -273,7 +273,6 @@
 | `getVoidBranches(dayGanZhi)` | 由日柱干支查旬空地支 |
 | `getSixAnimals(dayGan)` | 由日干起六神 |
 | `getTimeIndexFromClock(hour, minute)` | 由时钟转时辰索引 |
-| `calculateTrueSolarTime(standardTime, longitude)` | 真太阳时校正 |
 | `daysInSolarMonth(year, month)` | 公历月天数 |
 | `getBirthDateValidationMessage(...)` | 出生日期校验 |
 
@@ -288,4 +287,10 @@
 - 紫微分析：`AnalysisPayloadV1`、`PalaceFact`、`PatternFact`、`EvidenceFact`、`ScopeType`
 - 增强分析：`TenGodStructureProfile`、`StemRootProfile`、`RelationStructureProfile`、`KongWangProfile`、`TombStorageProfile`、`MingGuaProfile`、`XiaoYunProfile` 等
 
-完整字段定义请参考 `packages/core/src/types/` 源码。
+### 使用方式
+
+```typescript
+import type { QimenData, MeihuaData, LiuyaoData, LiurenData, BaziChartResult } from 'mingyu-core/types';
+```
+
+各类型的字段说明可在 IDE 中直接查看（.d.ts 文件已附带 JSDoc 注释）。

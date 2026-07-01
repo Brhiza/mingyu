@@ -5,7 +5,7 @@ import {
   calculateEquationOfTimeMinutes,
   calculateTrueSolarTime,
 } from '../src/utils/bazi/trueSolarTime';
-import { getTimeIndexFromClock } from '../src/utils/dateUtils';
+import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 
 test('紫微真太阳时排盘应改用修正后的公历日期与时辰', () => {
   const corrected = calculateTrueSolarTime(

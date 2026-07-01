@@ -37,22 +37,9 @@ export const TWELVE_STAGES = [
   '长生', '沐浴', '冠带', '临官', '帝旺',
   '衰', '病', '死', '墓', '绝', '胎', '养',
 ];
-const TWELVE_STAGES_START: Record<string, string> = {
-  木: '亥', 火: '寅', 金: '巳', 水: '申', 土: '申',
-};
+import { TWELVE_STAGES_MAP } from './baziMappingsData';
 export function getLifeStage(stem: string, branch: string): string {
-  const elemMap: Record<string, string> = {
-    甲: '木', 乙: '木', 丙: '火', 丁: '火',
-    戊: '土', 己: '土', 庚: '金', 辛: '金', 壬: '水', 癸: '水',
-  };
-  const elem = elemMap[stem];
-  const start = TWELVE_STAGES_START[elem || ''];
-  if (!start) return '未知';
-  const branches = ['寅','卯','辰','巳','午','未','申','酉','戌','亥','子','丑'];
-  const si = branches.indexOf(start);
-  const bi = branches.indexOf(branch);
-  if (si === -1 || bi === -1) return '未知';
-  return TWELVE_STAGES[((bi - si + 12) % 12)];
+  return TWELVE_STAGES_MAP[stem]?.[branch] || '未知';
 }
 export const MONTH_LING: Record<string, string> = {
   寅: '木', 卯: '木', 辰: '土', 巳: '火', 午: '火',
@@ -357,7 +344,8 @@ function getTripleGathering(b1: string, b2: string, b3: string): string | null {
   return null;
 }
 function getHalfCombination(b1: string, b2: string): { element: string; type: string } | null {
-  const p = [b1, b2].sort().join('');
+  const BRANCH_ORDER = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+  const p = [b1, b2].sort((a, b) => BRANCH_ORDER.indexOf(a) - BRANCH_ORDER.indexOf(b)).join('');
   const map: Record<string, { element: string; type: string }> = {
     '亥卯': { element: '木', type: '生地半合' }, '卯未': { element: '木', type: '墓地半合' },
     '寅午': { element: '火', type: '生地半合' }, '午戌': { element: '火', type: '墓地半合' },
@@ -543,20 +531,9 @@ const TWELVE_STAGES = ['长生','沐浴','冠带','临官','帝旺','衰','病',
 const TWELVE_STAGES_START: Record<string, string> = {
   木: '亥', 火: '寅', 金: '巳', 水: '申', 土: '申',
 };
-
+import { TWELVE_STAGES_MAP } from '../baziMappingsData';
 function getLifeStage(stem: string, branch: string): string {
-  const elemMap: Record<string, string> = {
-    甲: '木', 乙: '木', 丙: '火', 丁: '火',
-    戊: '土', 己: '土', 庚: '金', 辛: '金', 壬: '水', 癸: '水',
-  };
-  const elem = elemMap[stem];
-  const start = TWELVE_STAGES_START[elem || ''];
-  if (!start) return '未知';
-  const branches = ['寅','卯','辰','巳','午','未','申','酉','戌','亥','子','丑'];
-  const si = branches.indexOf(start);
-  const bi = branches.indexOf(branch);
-  if (si === -1 || bi === -1) return '未知';
-  return TWELVE_STAGES[((bi - si + 12) % 12)];
+  return TWELVE_STAGES_MAP[stem]?.[branch] || '未知';
 }
 
 export function analyzeLifeStageProfile(
@@ -671,16 +648,41 @@ console.log('Written usefulGodPlacement.ts');
 fs.writeFileSync(path.join(baziNewDir, 'mingGua.ts'), `
 import type { MingGuaProfile } from '../types/analysis';
 
-export function calculateMingGua(solarTime: any, gender: string): MingGuaProfile {
-  const year = solarTime.getYear();
-  // Formula: (year - 2000) * 5 + (year - 2000 + 3) / 4
-  const base = ((year - 2000) * 5 + Math.floor((year - 2000 + 3) / 4)) % 8;
-  const guaIndex = gender === 'male' ? (11 - base) % 8 : (4 + base) % 8;
-  const guaNames = ['', '坎', '坤', '震', '巽', '坤', '乾', '兑', '艮'];
-  const guaElements = ['', '水', '土', '木', '木', '土', '金', '金', '土'];
-  const eastWest: Record<string, '东四命' | '西四命'> = { 坎: '东四命', 离: '东四命', 震: '东四命', 巽: '东四命' };
-  const gua = guaNames[guaIndex] || '离';
-  return { gua: gua, element: guaElements[guaIndex] || '火', eastWest: eastWest[gua] || '西四命' };
+const MING_GUA_TABLE: Record<number, { gua: string; star: string; element: string; group: '东四命' | '西四命' }> = {
+  1: { gua: '坎', star: '一白贪狼', element: '水', group: '东四命' },
+  2: { gua: '坤', star: '二黑巨门', element: '土', group: '西四命' },
+  3: { gua: '震', star: '三碧禄存', element: '木', group: '东四命' },
+  4: { gua: '巽', star: '四绿文曲', element: '木', group: '东四命' },
+  6: { gua: '乾', star: '六白武曲', element: '金', group: '西四命' },
+  7: { gua: '兑', star: '七赤破军', element: '金', group: '西四命' },
+  8: { gua: '艮', star: '八白左辅', element: '土', group: '西四命' },
+  9: { gua: '离', star: '九紫右弼', element: '火', group: '东四命' },
+};
+
+function positiveModulo(value: number, divisor: number): number {
+  return ((value % divisor) + divisor) % divisor;
+}
+
+function normalizeMingGuaNumber(value: number): number {
+  return positiveModulo(value - 1, 9) + 1;
+}
+
+export function calculateMingGua(birthYear: number, gender: string): MingGuaProfile {
+  const remainder = positiveModulo(birthYear, 9);
+  const rawNumber =
+    gender === 'male'
+      ? normalizeMingGuaNumber(11 - remainder)
+      : normalizeMingGuaNumber(4 + remainder);
+  const number = rawNumber === 5 ? (gender === 'male' ? 2 : 8) : rawNumber;
+  const config = MING_GUA_TABLE[number] || MING_GUA_TABLE[1];
+
+  return {
+    number,
+    gua: config.gua,
+    star: config.star,
+    element: config.element,
+    eastWest: config.group,
+  };
 }
 `);
 console.log('Written mingGua.ts');

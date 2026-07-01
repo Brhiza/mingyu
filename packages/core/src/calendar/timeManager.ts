@@ -233,3 +233,35 @@ export class TimeManager {
 // 导出便捷函数
 export const getDivinationTime = TimeManager.getDivinationTime.bind(TimeManager);
 export const generateYaosByTime = TimeManager.generateYaosByTime.bind(TimeManager);
+
+// ─── 全局配置入口 ───
+
+/**
+ * 全局配置选项
+ */
+export interface MingyuCoreConfig {
+  /** 时区偏移分钟数（默认 480 = UTC+8 东八区） */
+  timezoneOffset?: number;
+}
+
+/**
+ * 统一全局配置入口
+ *
+ * 用于设置时区等全局参数，取代手动调用 TimeManager.setTimezoneOffsetMinutesOverride()。
+ * 不传字段则保持当前值不变。
+ *
+ * @param config 配置选项
+ *
+ * @example
+ * ```ts
+ * import { configure } from 'mingyu-core/calendar';
+ *
+ * // 设置东八区（北京时间）
+ * configure({ timezoneOffset: 480 });
+ * ```
+ */
+export function configure(config: MingyuCoreConfig): void {
+  if (config.timezoneOffset !== undefined) {
+    TimeManager.setTimezoneOffsetMinutesOverride(config.timezoneOffset);
+  }
+}

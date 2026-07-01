@@ -12,7 +12,7 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       const map: Record<string, string[]> = {
         甲: ['丑', '未'],
         戊: ['丑', '未'],
-        庚: ['寅', '午'],
+        庚: ['丑', '未'],
         己: ['子', '申'],
         乙: ['子', '申'],
         丙: ['亥', '酉'],

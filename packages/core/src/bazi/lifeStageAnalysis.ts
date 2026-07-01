@@ -1,24 +1,9 @@
 
 import type { TenGodLifeStageItem, TenGodLifeStageProfile } from '../types/analysis';
-
-const TWELVE_STAGES = ['长生','沐浴','冠带','临官','帝旺','衰','病','死','墓','绝','胎','养'];
-const TWELVE_STAGES_START: Record<string, string> = {
-  木: '亥', 火: '寅', 金: '巳', 水: '申', 土: '申',
-};
+import { TWELVE_STAGES_MAP } from './baziMappingsData';
 
 function getLifeStage(stem: string, branch: string): string {
-  const elemMap: Record<string, string> = {
-    甲: '木', 乙: '木', 丙: '火', 丁: '火',
-    戊: '土', 己: '土', 庚: '金', 辛: '金', 壬: '水', 癸: '水',
-  };
-  const elem = elemMap[stem];
-  const start = TWELVE_STAGES_START[elem || ''];
-  if (!start) return '未知';
-  const branches = ['寅','卯','辰','巳','午','未','申','酉','戌','亥','子','丑'];
-  const si = branches.indexOf(start);
-  const bi = branches.indexOf(branch);
-  if (si === -1 || bi === -1) return '未知';
-  return TWELVE_STAGES[((bi - si + 12) % 12)];
+  return TWELVE_STAGES_MAP[stem]?.[branch] || '未知';
 }
 
 export function analyzeLifeStageProfile(

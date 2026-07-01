@@ -21,7 +21,6 @@ import {
   LIUHE_MAP,
   LIUCHONG_MAP,
   LIUHAI_MAP,
-  SANXING_MAP,
   SANHE_GROUPS,
   isTianGanHe,
 } from '../../_shared/wuxing';
@@ -598,7 +597,7 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
       }
 
       // 相刑
-      if (SANXING_MAP[a.zhi] === b.zhi) {
+      if (isSanxingPair(a.zhi, b.zhi)) {
         const typeLabel = getSanxingLabel(a.zhi, b.zhi);
         interactions.push({
           type: '相刑',
@@ -669,7 +668,7 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
  * 检查两个天干是否相冲
  */
 function isTianGanChong(a: string, b: string): boolean {
-  // 甲庚冲、乙辛冲、丙壬冲、丁癸冲、戊己冲
+  // 甲庚冲、乙辛冲、丙壬冲、丁癸冲
   const chongPairs: Record<string, string> = {
     甲: '庚',
     庚: '甲',
@@ -679,8 +678,6 @@ function isTianGanChong(a: string, b: string): boolean {
     壬: '丙',
     丁: '癸',
     癸: '丁',
-    戊: '己',
-    己: '戊',
   };
   return chongPairs[a] === b;
 }
@@ -757,14 +754,18 @@ function getSanxingLabel(a: string, b: string): string {
   if ((a === '子' && b === '卯') || (a === '卯' && b === '子')) {
     return '无礼之刑';
   }
-  if ((a === '寅' && b === '巳') || (a === '巳' && b === '申') || (a === '申' && b === '寅')) {
-    return '无恩之刑';
-  }
-  if ((a === '丑' && b === '戌') || (a === '戌' && b === '未') || (a === '未' && b === '丑')) {
-    return '恃势之刑';
-  }
   if (a === b && ['辰', '午', '酉', '亥'].includes(a)) {
     return '自刑';
   }
+  if (a !== b && ['寅', '巳', '申'].includes(a) && ['寅', '巳', '申'].includes(b)) {
+    return '无恩之刑';
+  }
+  if (a !== b && ['丑', '戌', '未'].includes(a) && ['丑', '戌', '未'].includes(b)) {
+    return '恃势之刑';
+  }
   return '';
+}
+
+function isSanxingPair(a: string, b: string): boolean {
+  return getSanxingLabel(a, b) !== '';
 }

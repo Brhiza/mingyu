@@ -202,37 +202,52 @@ export interface BaseHexagramData {
 }
 
 export interface LiuyaoData extends BaseHexagramData {
+  /** 原始摇卦数字数组（6/7/8/9 分别代表老阴/少阳/少阴/老阳） */
   yaoArray: number[];
+  /** 动爻详情：位置、是否变化、变化类型 */
   changingYaos: Array<{
     position: number;
     isChanging: boolean;
     type: string;
   }>;
+  /** 六神排列（青龙、朱雀、勾陈…），基于起卦日干起 */
   sixGods: string[];
+  /** 六亲排列（父母、兄弟、官鬼…），基于宫位五行定 */
   sixRelatives: string[];
+  /** 纳甲地支：各爻对应的十二地支 */
   najiaDizhi: string[];
+  /** 各爻的五行属性 */
   wuxing: string[];
+  /** 世应位置：[世爻位置, 应爻位置] */
   worldAndResponse: string[];
+  /** 旬空地支（日柱旬空） */
   voidBranches: string[];
+  /** 所属卦宫（八宫之一） */
   palace: {
     name: string;
     wuxing: string;
   };
+  /** 各爻的完整详情 */
   yaosDetail: LiuyaoYaoDetail[];
+  /** 伏神（伏藏之爻） */
   hiddenSpirits?: LiuyaoHiddenSpirit[];
+  /** 特殊卦象标记：静卦、独静卦、全动卦、乾卦用九、坤卦用六 */
   specialPattern?: '静卦' | '独静卦' | '全动卦' | '乾卦用九' | '坤卦用六';
   specialAdvice?: string;
   isChaotic?: boolean;
   chaoticReason?: string;
+  /** 与日支的三合局 */
   sanheWithDay?: {
     group: string;
     members: string[];
     description: string;
   } | null;
+  /** 爻中的三刑 */
   sanxingInYaos?: Array<{
     branches: string[];
     type: string;
   }>;
+  /** 卦神（卦身）信息 */
   guaShen?: {
     branch: string;
     sixRelative: string;
@@ -267,31 +282,37 @@ export interface MeihuaCalculation {
 }
 
 export interface MeihuaData extends BaseHexagramData {
+  /** 体卦（代表问卦者） */
   tiGua: {
     name: string;
     element: string;
     nature: string;
   };
+  /** 用卦（代表所问之事） */
   yongGua: {
     name: string;
     element: string;
     nature: string;
   };
+  /** 变后的体卦（动爻变化导致） */
   changedTiGua?: {
     name: string;
     element: string;
     nature: string;
   } | null;
+  /** 变后的用卦 */
   changedYongGua?: {
     name: string;
     element: string;
     nature: string;
   } | null;
+  /** 动爻位置与描述 */
   movingYao: {
     position: number;
     description: string;
     yaoName: string;
   };
+  /** 体用生克综合分析 */
   analysis: {
     season: '春' | '夏' | '秋' | '冬';
     tiYongRelation: string;
@@ -304,6 +325,7 @@ export interface MeihuaData extends BaseHexagramData {
     tiYongRaw?: string;
     yingQi?: string[];
   };
+  /** 主卦信息 */
   mainHexagram: {
     name: string;
     symbol: string;
@@ -313,6 +335,7 @@ export interface MeihuaData extends BaseHexagramData {
     yaoCi?: string[];
     movingYaoCi?: string;
   };
+  /** 互卦（代表过程） */
   interHexagram?: {
     name: string;
     symbol: string;
@@ -321,6 +344,7 @@ export interface MeihuaData extends BaseHexagramData {
     description: string;
     yaoCi?: string[];
   } | null;
+  /** 变卦（代表结果） */
   changedHexagram?: {
     name: string;
     symbol: string;
@@ -329,7 +353,9 @@ export interface MeihuaData extends BaseHexagramData {
     description: string;
     yaoCi?: string[];
   } | null;
+  /** 各爻详情 */
   yaosDetail: MeihuaYaoDetail[];
+  /** 起卦计算过程 */
   calculation?: MeihuaCalculation;
 }
 
@@ -374,31 +400,45 @@ export interface QimenBranchPalace {
 }
 
 export interface QimenData {
+  /** 九宫格完整数据（1-9宫） */
   jiuGongGe: QimenJiuGongGe[];
+  /** 四柱干支（年/月/日/时） */
   ganzhi: BaseGanZhi;
+  /** 是否为阳遁 */
   isYangDun: boolean;
+  /** 局数（1-9） */
   juShu: number;
+  /** 值符星名 */
   zhiFu: string;
+  /** 值使门名 */
   zhiShi: string;
+  /** 基础格局标签列表（如星伏吟、门迫、三奇得等） */
   patternTags?: string[];
+  /** 格局标签的详细解释 */
   patternDetails?: Array<{
     tag: string;
     summary: string;
   }>;
+  /** 各宫位综合洞察评估 */
   palaceInsights?: Array<{
     gong: number;
     name: string;
     level: '有利' | '风险' | '关注';
     summary: string;
   }>;
+  /** 空亡地支 */
   voidBranches?: string[];
+  /** 空亡对应的宫位 */
   voidPalaces?: QimenBranchPalace[];
+  /** 驿马（马星）信息 */
   horseStar?: QimenBranchPalace & {
     sourceBranch: string;
   };
+  /** 排盘时间信息（节气、三元等） */
   timeInfo: QimenTimeInfo;
+  /** 特殊时辰检查（六甲时、六癸时、时干入墓、五不遇时） */
   specialConditions?: QimenSpecialConditions;
-  // 新增算法字段
+  /** 经典格局（九遁、三奇得使、天乙等） */
   classicPatterns?: Array<{
     name: string;
     type: 'good' | 'bad' | 'neutral';
@@ -406,6 +446,7 @@ export interface QimenData {
     summary: string;
     palaces: number[];
   }>;
+  /** 各宫天地盘干关系（生克/合/墓/刑） */
   stemRelations?: Array<{
     gong: number;
     heavenStem: string;
@@ -413,6 +454,7 @@ export interface QimenData {
     relation: string;
     pattern?: string;
   }>;
+  /** 方位吉凶建议 */
   directions?: {
     goodDirections: Array<{
       gong: number;
@@ -431,6 +473,7 @@ export interface QimenData {
       reasons: string[];
     }>;
   };
+  /** 应期估算（最快/最慢天数、节奏） */
   yingQi?: {
     minDays: number;
     maxDays: number;
@@ -438,6 +481,7 @@ export interface QimenData {
     sources: string[];
     description: string;
   };
+  /** Unix 时间戳（毫秒） */
   timestamp: number;
 }
 
@@ -472,29 +516,53 @@ export interface LiurenClassicalRule {
 }
 
 export interface LiurenData {
+  /** 四柱干支（年/月/日/时） */
   ganzhi: BaseGanZhi;
+  /** Unix 时间戳（毫秒） */
   timestamp: number;
+  /** 昼夜占：昼占或夜占 */
   dayNight?: '昼占' | '夜占';
+  /** 月将（所用太阳过宫） */
   monthLeader: string;
+  /** 占时地支（起课时辰） */
   divinationBranch: string;
+  /** 日上官贵（日干对应贵人） */
   dayOfficer: string;
+  /** 贵人临支 */
   noblemanBranch?: string;
+  /** 贵人所临地盘 */
   noblemanGroundBranch?: string;
+  /** 旬空地支 */
   xunKong?: string[];
+  /** 发用规则名称（如涉害、遥克、昴星等九宗门） */
   transmissionRule?: string;
+  /** 三传特殊模式：伏吟/反吟/回环/递传 */
   transmissionPattern?: '伏吟' | '反吟' | '回环' | '递传';
+  /** 三传详细说明 */
   transmissionDetail?: string;
+  /** 地盘十二支 */
   earthlyPlate?: string[];
+  /** 日干寄宫 */
   dayStemResidence?: string;
+  /** 天盘（十二支加十二天将） */
   heavenlyPlate: LiurenPlateItem[];
+  /** 四课 */
   fourLessons: LiurenLesson[];
+  /** 三传（初传/中传/末传） */
   threeTransmissions: LiurenTransmission[];
+  /** 课体标签 */
   patternTags?: string[];
+  /** 经典课体 */
   classicalRules?: LiurenClassicalRule[];
+  /** 四课概要总结 */
   lessonSummary?: string;
+  /** 三传概要总结 */
   transmissionSummary?: string;
+  /** 课体名称列表 */
   guaTi?: string[];
+  /** 神煞汇总 */
   shenShaSummary?: string[];
+  /** 天将属性详情 */
   tianJiangProps?: Record<
     string,
     {

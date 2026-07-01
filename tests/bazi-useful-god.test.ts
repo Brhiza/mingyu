@@ -318,6 +318,10 @@ const testCases: Array<{
   { name: '癸日午月土虽重但混入戊土时，不应误判为一派己土从杀', args: ['身弱', { pattern: '七杀格', isSpecial: false }, '水', '午', undefined, '癸', { visibleStems: ['癸', '己', '戊', '丙'], hiddenStems: ['己', '己'], wuxingCounts: { 木: 0, 火: 2, 土: 5, 金: 0, 水: 1 }, }], expected: { traceNotIncludes: '成格层次:作从杀而论，又主大贵', ruleNotHas: 'wu-month-gui-ji-pure-follow-kill' }, },
   { name: '丙日子月调候应以壬水为尊戊土为佐，不应仍取壬辛庚方向', args: ['身弱', { pattern: '七杀格', isSpecial: false }, '火', '子', undefined, '丙'], expected: { favorableSlice: ['水', '土'], primaryReason: '调候', traceIncludes: '调候优先:水 -> 土', ruleHas: 'zi-month-bing-wu-xin-first' }, },
   { name: '戊日巳月调候应以壬水润燥甲木疏土，不应仍取先癸后丙', args: ['身强', { pattern: '比肩格', isSpecial: false }, '土', '巳', undefined, '戊'], expected: { favorableSlice: ['水', '木'], primaryReason: '调候', traceIncludes: '调候优先:水 -> 木', ruleHas: 'si-month-wu-gui-bing-first' }, },
+  { name: '戊日戌月调候应先甲疏土次丙癸，不应退回普通扶抑', args: ['身强', { pattern: '比肩格', isSpecial: false }, '土', '戌', undefined, '戊'], expected: { favorableSlice: ['木', '火', '水'], primaryReason: '调候', traceIncludes: '调候优先:木 -> 火 -> 水', ruleHas: 'xu-month-wu-jia-bing-gui' }, },
+  { name: '己日丑月调候应先丙暖土再甲疏土，不应只取冬土通用火候', args: ['身强', { pattern: '比肩格', isSpecial: false }, '土', '丑', undefined, '己'], expected: { favorableSlice: ['火', '木'], primaryReason: '调候', traceIncludes: '调候优先:火 -> 木', ruleHas: 'chou-month-ji-bing-jia-first' }, },
+  { name: '乙日丑月调候应专取丙火，不应只命中泛化冬木规则', args: ['身弱', { pattern: '偏财格', isSpecial: false }, '木', '丑', undefined, '乙'], expected: { favorableFirst: '火', primaryReason: '调候', traceIncludes: '调候优先:火', ruleHas: 'chou-month-yi-bing-only' }, },
+  { name: '丁日丑月调候应甲木为尊庚金佐之，不应只取冬火通用木候', args: ['身弱', { pattern: '七杀格', isSpecial: false }, '火', '丑', undefined, '丁'], expected: { favorableSlice: ['木', '金'], primaryReason: '调候', traceIncludes: '调候优先:木 -> 金', ruleHas: 'chou-month-ding-jia-geng' }, },
   { name: '乙日巳月调候应以癸水为先丙火为次，不应仍取先丙后癸', args: ['身弱', { pattern: '偏财格', isSpecial: false }, '木', '巳', undefined, '乙'], expected: { favorableSlice: ['水', '火'], primaryReason: '调候', traceIncludes: '调候优先:水 -> 火', ruleHas: 'si-month-yi-bing-gui-first' }, },
 ];
 

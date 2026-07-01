@@ -215,6 +215,30 @@ export const diPanPalaces: Record<string, number> = {
   亥: 6,
 };
 
+/**
+ * 天干入墓表：天干 → 墓支 → 墓宫
+ * 《烟波钓叟歌》：「十干入墓主事迟」
+ * 奇门中天干入墓的统一判定依据（《奇门遁甲秘籍大全》）：
+ *   乙入未(坤2)、丙入戌(乾6)、丁入丑(艮8)
+ *   戊入戌(乾6/中5寄乾6)、己入辰(巽4/中5寄巽4)
+ *   庚入未(坤2)、辛入丑(艮8)
+ *   壬入辰(巽4)、癸入辰(巽4)
+ *
+ * @property {string} branch - 墓支
+ * @property {number} palace - 墓宫编号
+ */
+export const STEM_TOMB_MAP: Record<string, { branch: string; palace: number }> = {
+  乙: { branch: '未', palace: 2 },
+  丙: { branch: '戌', palace: 6 },
+  丁: { branch: '丑', palace: 8 },
+  戊: { branch: '戌', palace: 6 },
+  己: { branch: '辰', palace: 4 },
+  庚: { branch: '未', palace: 2 },
+  辛: { branch: '丑', palace: 8 },
+  壬: { branch: '辰', palace: 4 },
+  癸: { branch: '辰', palace: 4 },
+};
+
 // ============================================================================
 // 7. 天干地支基础数据
 // ============================================================================

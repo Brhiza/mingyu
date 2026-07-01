@@ -1,16 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import type { LiurenLesson, LiurenPlateItem } from '../src/types/divination';
-import { generateLiuren } from '../src/lib/divination/algorithms/liuren';
+import type { LiurenLesson, LiurenPlateItem } from 'mingyu-core/types';
+import { generateLiuren } from 'mingyu-core/divination/liuren';
 import {
   buildFourLessons,
   resolveInitialTransmission,
-} from '../src/lib/divination/algorithms/liuren/helpers/lessons';
+} from '../packages/core/src/divination/algorithms/liuren/helpers/lessons.ts';
 import {
   buildHeavenlyPlate,
   getDayStemResidence,
-} from '../src/lib/divination/algorithms/liuren/helpers/plate';
+} from '../packages/core/src/divination/algorithms/liuren/helpers/plate.ts';
 
 const DIZHI = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'] as const;
 const GUIREN_BRANCH_BY_STEM: Record<string, { day: string; night: string }> = {

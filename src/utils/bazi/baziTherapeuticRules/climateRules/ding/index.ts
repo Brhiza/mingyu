@@ -10,6 +10,7 @@ import { DING_YOU_CLIMATE_RULES } from './you';
 import { DING_XU_CLIMATE_RULES } from './xu';
 import { DING_HAI_CLIMATE_RULES } from './hai';
 import { DING_ZI_CLIMATE_RULES } from './zi';
+import { DING_CHOU_CLIMATE_RULES } from './chou';
 
 export const DING_CLIMATE_RULES: ClimateRule[] = [
   ...DING_YIN_CLIMATE_RULES,
@@ -23,4 +24,5 @@ export const DING_CLIMATE_RULES: ClimateRule[] = [
   ...DING_XU_CLIMATE_RULES,
   ...DING_HAI_CLIMATE_RULES,
   ...DING_ZI_CLIMATE_RULES,
+  ...DING_CHOU_CLIMATE_RULES,
 ];

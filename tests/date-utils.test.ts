@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { getDaysInMonth, getTimeIndexFromClock } from '../src/utils/dateUtils';
+import { getDaysInMonth, getTimeIndexFromClock } from 'mingyu-core/calendar';
 
 test('时辰索引工具应拒绝非法小时或分钟', () => {
   assert.equal(getTimeIndexFromClock(1, 30), 1);

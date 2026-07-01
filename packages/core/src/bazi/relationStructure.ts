@@ -26,6 +26,7 @@ const SANXING: Record<string, string[]> = {
   申: ['寅','巳'], 丑: ['戌','未'], 戌: ['未','丑'], 未: ['丑','戌'],
   辰: ['辰'], 午: ['午'], 酉: ['酉'], 亥: ['亥'],
 };
+const BRANCH_ORDER = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
 
 function getTripleCombination(b1: string, b2: string, b3: string): string | null {
   const s = new Set([b1, b2, b3]);
@@ -46,9 +47,11 @@ function getTripleGathering(b1: string, b2: string, b3: string): string | null {
   return null;
 }
 function getHalfCombination(b1: string, b2: string): { element: string; type: string } | null {
-  const p = [b1, b2].sort().join('');
+  const p = [b1, b2]
+    .sort((left, right) => BRANCH_ORDER.indexOf(left) - BRANCH_ORDER.indexOf(right))
+    .join('');
   const map: Record<string, { element: string; type: string }> = {
-    '亥卯': { element: '木', type: '生地半合' }, '卯未': { element: '木', type: '墓地半合' },
+    '卯亥': { element: '木', type: '生地半合' }, '卯未': { element: '木', type: '墓地半合' },
     '寅午': { element: '火', type: '生地半合' }, '午戌': { element: '火', type: '墓地半合' },
     '巳酉': { element: '金', type: '生地半合' }, '丑酉': { element: '金', type: '墓地半合' },
     '子申': { element: '水', type: '生地半合' }, '子辰': { element: '水', type: '墓地半合' },

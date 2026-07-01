@@ -650,17 +650,17 @@ export async function generateDivinationSession(
   let data: DivinationData;
   switch (method) {
     case 'liuyao': {
-      const module = await import('../algorithms/liuyao');
+      const module = await import('mingyu-core/divination/liuyao');
       data = module.generateLiuyao(customDate);
       break;
     }
     case 'meihua': {
-      const module = await import('../algorithms/meihua');
+      const module = await import('mingyu-core/divination/meihua');
       data = module.generateMeihua(customDate, supplementaryInfo?.meihuaSettings);
       break;
     }
     case 'xiaoliuren': {
-      const module = await import('../algorithms/xiaoliuren');
+      const module = await import('mingyu-core/divination/xiaoliuren');
       data = module.generateXiaoliuren({
         method: draft.xiaoliurenMethod,
         customDate,
@@ -671,17 +671,17 @@ export async function generateDivinationSession(
       break;
     }
     case 'qimen': {
-      const module = await import('../algorithms/qimen');
+      const module = await import('mingyu-core/divination/qimen');
       data = module.generateQimen(customDate);
       break;
     }
     case 'liuren': {
-      const module = await import('../algorithms/liuren');
+      const module = await import('mingyu-core/divination/liuren');
       data = module.generateLiuren(customDate);
       break;
     }
     case 'tarot': {
-      const module = await import('../../../utils/tarot');
+      const module = await import('mingyu-core/divination/tarot');
       if (draft.tarotSpread === 'single') {
         const result = module.drawSingleCard();
         data = {
@@ -716,12 +716,12 @@ export async function generateDivinationSession(
       break;
     }
     case 'ssgw': {
-      const module = await import('../algorithms/ssgw');
-      data = module.drawRandomSign();
+      const module = await import('mingyu-core/divination/ssgw');
+      data = module.drawRandomSign(customDate);
       break;
     }
     case 'almanac': {
-      const module = await import('../algorithms/almanac');
+      const module = await import('mingyu-core/divination/almanac');
       data = module.generateAlmanacSelection({
         topic: draft.almanacTopic,
         startDate: draft.almanacStartDate,
@@ -731,12 +731,12 @@ export async function generateDivinationSession(
       break;
     }
     case 'lenormand': {
-      const module = await import('../algorithms/lenormand');
+      const module = await import('mingyu-core/divination/lenormand');
       data = module.drawLenormandSpread(draft.lenormandSpread);
       break;
     }
     case 'astrolabe': {
-      const module = await import('../algorithms/astrolabe');
+      const module = await import('mingyu-core/divination/astrolabe');
       const input: AstrolabeBirthInput = {
         name: draft.astrolabeName,
         gender: draft.astrolabeGender,

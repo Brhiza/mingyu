@@ -15,8 +15,7 @@ import type {
   XiaoliurenData,
   XiaoliurenPalaceDetail,
 } from '../../../types/divination';
-import { LunarUtil } from '../../../utils/lunar';
-import { getDivinationTime } from '../../../utils/timeManager';
+import { LunarUtil, getDivinationTime } from 'mingyu-core/calendar';
 import { resolveSsgwStoryContent } from '../ssgw-content';
 import { formatTarotCardLabel, getTarotFocusCards } from '../tarot-focus';
 import {

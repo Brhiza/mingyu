@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { generateLiuyao } from '../src/lib/divination/algorithms/liuyao.ts';
-import type { LiuyaoYaoDetail } from '../src/types/divination.ts';
+import { generateLiuyao } from 'mingyu-core/divination/liuyao';
+import type { LiuyaoYaoDetail } from 'mingyu-core/types';
 
 // 2025-01-01 农历为丙子月（子月：水旺木相火休金囚土死）、丙寅日（日支寅）
 // 该日期的卦象固定，用于回归月令旺衰、暗动、回头生克冲的字段输出。

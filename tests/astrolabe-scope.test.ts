@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { buildAstrolabeScopeContext } from '../src/lib/astrolabe-scope';
-import { generateAstrolabe } from '../src/lib/divination/algorithms/astrolabe';
-import type { AstrolabeData } from '../src/types/divination';
+import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import type { AstrolabeData } from 'mingyu-core/types';
 
 const astrolabeData = generateAstrolabe({
   name: '本人',

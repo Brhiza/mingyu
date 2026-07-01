@@ -7,6 +7,7 @@ import { WU_WU_CLIMATE_RULES } from './wu';
 import { WU_WEI_CLIMATE_RULES } from './wei';
 import { WU_SHEN_CLIMATE_RULES } from './shen';
 import { WU_YOU_CLIMATE_RULES } from './you';
+import { WU_XU_CLIMATE_RULES } from './xu';
 import { WU_HAI_CLIMATE_RULES } from './hai';
 import { WU_ZI_CLIMATE_RULES } from './zi';
 import { WU_CHOU_CLIMATE_RULES } from './chou';
@@ -20,6 +21,7 @@ export const WU_CLIMATE_RULES: ClimateRule[] = [
   ...WU_WEI_CLIMATE_RULES,
   ...WU_SHEN_CLIMATE_RULES,
   ...WU_YOU_CLIMATE_RULES,
+  ...WU_XU_CLIMATE_RULES,
   ...WU_HAI_CLIMATE_RULES,
   ...WU_ZI_CLIMATE_RULES,
   ...WU_CHOU_CLIMATE_RULES,

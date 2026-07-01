@@ -253,6 +253,22 @@ const CARD_COMBINATIONS: Record<string, string> = {
   '树+心': '深厚的感情基础',
 };
 
+/**
+ * 抽取雷诺曼牌阵
+ *
+ * 支持 single（单牌）、three（三张）、relationship（感情）、
+ * decision（决策）、nine（九宫格）等 8 种牌阵。
+ * 抽牌为随机洗牌，每次独立。
+ *
+ * @param spreadType 牌阵类型，默认 'three'。
+ * @returns 雷诺曼牌阵数据对象 LenormandData，含牌面、位置和两牌组合含义。
+ *
+ * @example
+ * ```ts
+ * const result = drawLenormandSpread('three');
+ * // result 包含 cards（牌面列表）和 combinations（组合含义）
+ * ```
+ */
 export function drawLenormandSpread(spreadType: LenormandSpreadType = 'three'): LenormandData {
   const spread = SPREADS[spreadType] ?? SPREADS.three;
   const cards = shuffleCards()

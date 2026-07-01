@@ -11,6 +11,19 @@ function shuffleCards() {
   return shuffled;
 }
 
+/**
+ * 抽取单张塔罗牌
+ *
+ * 从 78 张塔罗牌中随机洗牌后抽取第一张，用于单牌指引类占卜。
+ *
+ * @returns 一张塔罗牌，含牌名、正逆位、位置（固定为"当前指引"）和时间戳。
+ *
+ * @example
+ * ```ts
+ * const result = drawSingleCard();
+ * // => { card: { number: 1, name: '魔术师', ... }, isReversed: false, position: '当前指引', timestamp: 1700000000000 }
+ * ```
+ */
 export function drawSingleCard() {
   const shuffled = shuffleCards();
   const card = shuffled[0];
@@ -24,6 +37,21 @@ export function drawSingleCard() {
   };
 }
 
+/**
+ * 抽取指定牌阵的多张塔罗牌
+ *
+ * 根据 spreadType 从已定义牌阵中取对应数量和位置的牌。
+ * 支持 single、three、love、career、celtic 等十余种牌阵。
+ *
+ * @param spreadType 牌阵类型，必须是 tarotSpreads 中定义的键名。
+ * @returns 牌阵结果，含牌名、正逆位、位置名称和时间戳。
+ *
+ * @example
+ * ```ts
+ * const result = drawSpreadCards('three');
+ * // => { spreadType: 'three', spreadName: '三张牌阵', cards: [...] }
+ * ```
+ */
 export function drawSpreadCards(spreadType: keyof typeof tarotSpreads) {
   const spread = tarotSpreads[spreadType];
   if (!spread) {
@@ -52,6 +80,18 @@ export function drawSpreadCards(spreadType: keyof typeof tarotSpreads) {
   };
 }
 
+/**
+ * 获取塔罗牌关键字描述
+ *
+ * @param cardName 塔罗牌名称，如 "愚者"、"魔术师"
+ * @returns 逗号分隔的关键字字符串
+ *
+ * @example
+ * ```ts
+ * const keywords = getCardKeywords('愚者');
+ * // => '开始,冒险,纯真,自由,新旅程'
+ * ```
+ */
 export function getCardKeywords(cardName: string): string {
   const keywordsMap: Record<string, string> = {
     愚者: '新开始,冒险,纯真',

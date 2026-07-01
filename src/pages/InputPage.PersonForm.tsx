@@ -3,7 +3,7 @@ import { SegmentedControl } from '@/components/SegmentedControl';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { getPersonSectionTitle } from '@/lib/input-labels';
 import type { QueryInputState } from '@/lib/query-state';
-import { getTimeIndexFromClock } from '@/utils/dateUtils';
+import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { UNKNOWN_TIME_INDEX } from '@/lib/birth-time-reverse';
 import { isValidHourMinute } from '@/lib/input-validation';
 import { getPersonValue, type SELF_FIELD_MAP } from './InputPage.field-helpers';

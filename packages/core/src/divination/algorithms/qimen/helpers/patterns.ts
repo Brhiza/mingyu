@@ -16,6 +16,7 @@ import type { QimenJiuGongGe } from '../../../../types/divination';
 import { qimen } from '../../../../divination/divination-data';
 import { isKe } from '../../_shared';
 import { getDoorElement, getOppositePalace } from './palace-utils';
+import { STEM_TOMB_MAP } from './_constants';
 
 const { palaceStars, doorPalaceMap } = qimen;
 
@@ -33,20 +34,10 @@ const SAN_QI_NAME: Record<string, string> = {
   丁: '丁奇（星奇）',
 };
 
-/**
- * 入墓规则：天干入墓宫
- * 《烟波钓叟歌》：「十干入墓主事迟」
- * 戊墓在辰（5），己墓在丑（2），庚墓在丑（2），
- * 辛墓在辰（5），壬墓在辰（5），癸墓在未（8）
- */
-const RU_MU_MAP: Record<string, number> = {
-  戊: 5,
-  己: 2,
-  庚: 2,
-  辛: 5,
-  壬: 5,
-  癸: 8,
-};
+/** @deprecated 请使用 _constants 中统一导出的 STEM_TOMB_MAP */
+const RU_MU_MAP: Record<string, number> = Object.fromEntries(
+  Object.entries(STEM_TOMB_MAP).map(([stem, info]) => [stem, info.palace]),
+);
 
 /**
  * 击刑规则：时干落击刑宫

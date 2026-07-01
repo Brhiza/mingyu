@@ -243,6 +243,21 @@ function getMonthLeaderByZhongqi(timeInfo: ReturnType<typeof getDivinationTime>[
   return MONTH_LEADER_BY_ZHONGQI[activeZhongqi] || '丑';
 }
 
+/**
+ * 生成大六壬完整课盘
+ *
+ * 按月将加时、天地盘、四课、三传、天将、神煞顺序完成排盘。
+ * 支持传入自定义时间，不传则使用当前时间。
+ *
+ * @param customDate 自定义排盘时间（可选），不传则使用当前时间。
+ * @returns 完整的大六壬课盘数据对象 LiurenData。
+ *
+ * @example
+ * ```ts
+ * const result = generateLiuren();
+ * // result 包含 fourLessons（四课）、threeTransmissions（三传）等字段
+ * ```
+ */
 export function generateLiuren(customDate?: Date): LiurenData {
   const { ganzhi, timeInfo, timestamp } = getDivinationTime(customDate);
   const dayStem = ganzhi.day.charAt(0);

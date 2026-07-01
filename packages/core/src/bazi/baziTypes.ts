@@ -263,35 +263,66 @@ export interface InternalBaziChartResult extends BaziChartResult {
 }
 
 export interface BaziChartResult {
+  /** 性别：male / female */
   gender: string;
+  /** 公历出生日期 */
   solarDate: { year: number; month: number; day: number };
+  /** 农历出生日期（含月名和日名） */
   lunarDate: { year: number; month: number; day: number; monthName: string; dayName: string };
+  /** 出生时间完整信息（干支、节气、生肖等） */
   timeInfo: TimeInfo;
+  /** 四柱（年柱/月柱/日柱/时柱） */
   pillars: Pillars;
+  /** 日主（出生日的天干，代表命主自身） */
   dayMaster: DayMaster;
+  /** 生肖 */
   zodiac: string;
+  /** 星座（公历月日对应的西方星座） */
   constellation: string;
+  /** 十神映射（各天干对应的十神） */
   tenGods: Record<string, string>;
+  /** 藏干（地支中暗藏的天干） */
   hiddenStems: HiddenStems;
+  /** 藏干的十神 */
   hiddenTenGods: Record<string, string[]>;
+  /** 五行强度详细分析 */
   wuxingStrength: WuxingStrengthDetails;
+  /** 大运信息（起运时间、各步大运干支） */
   luckInfo: LuckInfo;
+  /** 命宫 */
   mingGong: string;
+  /** 身宫 */
   shenGong: string;
+  /** 胎元 */
   taiYuan: string;
+  /** 胎息 */
   taiXi: string;
+  /** 各柱十二长生 */
   lifeStages: Record<string, string>;
+  /** 各柱的十二长生详情 */
   pillarLifeStages: PillarLifeStages;
+  /** 纳音五行 */
   nayin: Nayin;
+  /** 神煞（旧版，保留兼容） */
   shensha: ShenShaResult;
+  /** 神煞详细分析 */
   shenShaAnalysis: ShenShaResult;
+  /** 自坐信息 */
   ziZuo: ZiZuoResult;
+  /** 空亡结果 */
   kongWang: KongWangResult;
+  /** 各天干的四时旺相休囚死 */
   wuxingSeasonStatus: Record<string, string>;
+  /** 月令司权天干 */
   monthCommander: string;
+  /** 季节信息（当前节气、月令等） */
   seasonInfo: SeasonInfo;
+  /** 八字综合分析（格局、用神、旺衰、十神结构等） */
   analysis: BaziAnalysisResult;
+  /** 择日：当前时间信息 */
   timing?: TimingInfo;
+  /** 当前年龄 */
   age?: number;
+  /** 流年列表 */
   liunian?: LiunianInfo[];
 }

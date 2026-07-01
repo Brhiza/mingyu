@@ -10,6 +10,7 @@ import { YI_YOU_CLIMATE_RULES } from './you';
 import { YI_XU_CLIMATE_RULES } from './xu';
 import { YI_HAI_CLIMATE_RULES } from './hai';
 import { YI_ZI_CLIMATE_RULES } from './zi';
+import { YI_CHOU_CLIMATE_RULES } from './chou';
 
 export const YI_CLIMATE_RULES: ClimateRule[] = [
   ...YI_YIN_CLIMATE_RULES,
@@ -23,4 +24,5 @@ export const YI_CLIMATE_RULES: ClimateRule[] = [
   ...YI_XU_CLIMATE_RULES,
   ...YI_HAI_CLIMATE_RULES,
   ...YI_ZI_CLIMATE_RULES,
+  ...YI_CHOU_CLIMATE_RULES,
 ];

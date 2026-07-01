@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { LunarUtil } from '../src/utils/lunar';
+import { LunarUtil } from 'mingyu-core/calendar';
 
 test('农历工具应拒绝无效时间对象', () => {
   const invalidDate = new Date(Number.NaN);

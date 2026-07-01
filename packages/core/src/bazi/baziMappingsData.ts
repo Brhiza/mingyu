@@ -83,8 +83,6 @@ export const BASIC_MAPPINGS: {
     壬: '丙',
     丁: '癸',
     癸: '丁',
-    戊: '己',
-    己: '戊',
   },
   DI_ZHI_LIU_HE: {
     子: '丑',
@@ -225,7 +223,7 @@ export const MONTH_COMMANDER: Record<string, CommanderEntry[]> = {
     ['己', 18],
   ],
   申: [
-    ['己', 7],
+    ['戊', 7],
     ['壬', 7],
     ['庚', 16],
   ],

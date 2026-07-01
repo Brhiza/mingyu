@@ -5,7 +5,7 @@
  * @古籍依据 《小六壬金口诀》《李淳风六壬时课》
  * @核心算法
  * 1. 以月、日、时辰三数逐宫顺数定三宫（起因→过程→结果）。
- * 2. 六宫五行生克断吉凶：大安(木)→留连(木)→速喜(火)→赤口(金)→小吉(水)→空亡(水)
+ * 2. 六宫五行生克断吉凶：大安(木)→留连(木)→速喜(火)→赤口(金)→小吉(水)→空亡(土)
  * 3. 起因生过程→顺遂，过程生结果→渐入佳境；克则反之。
  * 4. 按月令定各宫旺衰休囚，影响事态力度和应期。
  */
@@ -174,6 +174,27 @@ function buildQuestionHint(primary: XiaoliurenPalaceDetail) {
   }
 }
 
+/**
+ * 生成小六壬课盘
+ *
+ * 支持时间起课、数字起课、随机起课三种方式。
+ * 不传 `customDate` 时使用当前时间。
+ *
+ * @param params 起课参数：
+ *   - method: 起课方式，默认 'time'
+ *   - number: 数字起课时的数字
+ *   - customDate: 自定义时间（可选）
+ * @returns 完整的小六壬课盘数据对象 XiaoliurenData。
+ *
+ * @example
+ * ```ts
+ * // 时间起课（默认）
+ * const result = generateXiaoliuren({ method: 'time' });
+ *
+ * // 数字起课
+ * const result = generateXiaoliuren({ method: 'number', number: 123 });
+ * ```
+ */
 export function generateXiaoliuren(params?: {
   method?: XiaoliurenDivinationMethod;
   number?: number;

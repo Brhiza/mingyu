@@ -41,7 +41,7 @@ import {
   TimingInfo,
   Wuxing,
 } from './baziTypes';
-import { getTimeIndexFromClock } from '../dateUtils';
+import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { getBirthDateValidationMessage } from '../../lib/date-validation';
 
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;

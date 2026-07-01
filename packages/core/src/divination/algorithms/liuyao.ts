@@ -414,8 +414,18 @@ function getSpecialPattern(
 
 /**
  * 生成六爻卦盘
- * @param customDate 自定义时间，若不提供则使用当前时间
- * @returns 返回一个完整的六爻卦盘数据对象
+ *
+ * 使用京房八宫法，按时间起卦。支持传入自定义时间，不传则使用当前时间。
+ * 返回完整的六爻卦盘，包含主卦、变卦、互卦、世应、纳甲、六亲、六神等信息。
+ *
+ * @param customDate 自定义起卦时间（可选），若不提供则使用当前时间。
+ * @returns 完整的六爻卦盘数据对象 LiuyaoData。
+ *
+ * @example
+ * ```ts
+ * const result = generateLiuyao();
+ * // result 包含 mainHexagram、changedHexagram、yaos（六爻详情）等字段
+ * ```
  */
 export function generateLiuyao(customDate?: Date) {
   // 1. 获取占卜时间的干支信息
@@ -590,8 +600,9 @@ export function generateLiuyao(customDate?: Date) {
   }
 
   // 卦身（按六爻传统，世爻所在位置对应卦身地支）：
-  // 世在初爻卦身在子、二爻在寅、三爻在辰、四爻在午、五爻在申、六爻在戌
-  const SHI_TO_GUA_SHEN: Record<number, string> = {
+  // 阳世：世爻为阳，从子上顺行——初爻子、二爻寅、三爻辰、四爻午、五爻申、六爻戌
+  // 阴世：世爻为阴，从午上逆行——初爻午、二爻辰、三爻寅、四爻子、五爻戌、六爻申
+  const SHI_YANG_TO_GUA_SHEN: Record<number, string> = {
     1: '子',
     2: '寅',
     3: '辰',
@@ -599,7 +610,17 @@ export function generateLiuyao(customDate?: Date) {
     5: '申',
     6: '戌',
   };
-  const guaShenBranch = SHI_TO_GUA_SHEN[shiYing.shi] || '';
+  const SHI_YIN_TO_GUA_SHEN: Record<number, string> = {
+    1: '午',
+    2: '辰',
+    3: '寅',
+    4: '子',
+    5: '戌',
+    6: '申',
+  };
+  // 世爻的阴阳决定卦身取阳表还是阴表
+  const shiYaoIsYang = mainYaos[shiYing.shi - 1] === '阳';
+  const guaShenBranch = (shiYaoIsYang ? SHI_YANG_TO_GUA_SHEN : SHI_YIN_TO_GUA_SHEN)[shiYing.shi] || '';
   const guaShenYao = yaosInfo.find((i) => i.dizhi === guaShenBranch);
   const guaShen = guaShenYao
     ? {

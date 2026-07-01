@@ -255,8 +255,7 @@ export const TIAN_GAN_HE: Record<string, { partner: string; wuxing: string }> = 
 
 /**
  * 天干相冲：
- * 甲庚冲、乙辛冲、丙壬冲、丁癸冲、戊己冲
- * 注：戊己冲部分流派不列入天干冲，此处纳入以便齐全天干冲关系全貌。
+ * 甲庚冲、乙辛冲、丙壬冲、丁癸冲
  */
 export const TIAN_GAN_CHONG: Record<string, string> = {
   甲: '庚',
@@ -267,8 +266,6 @@ export const TIAN_GAN_CHONG: Record<string, string> = {
   壬: '丙',
   丁: '癸',
   癸: '丁',
-  戊: '己',
-  己: '戊',
 };
 
 /**

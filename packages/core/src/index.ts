@@ -22,5 +22,8 @@ export * as bazi from './bazi/index';
 export * as calendar from './calendar/index';
 export * as divination from './divination/index';
 
+// 全局配置
+export { configure } from './calendar/timeManager';
+
 // Re-export shared types
 export type * from './types/index';

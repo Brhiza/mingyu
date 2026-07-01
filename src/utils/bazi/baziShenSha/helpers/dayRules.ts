@@ -56,15 +56,17 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
       ),
     十灵日: () =>
       pillarIndex === 2 &&
-      ['甲辰', '乙亥', '丙辰', '丁酉', '戊午', '庚戌', '辛亥', '壬寅', '癸未'].includes(riGZ),
+      ['甲辰', '乙亥', '丙辰', '丁酉', '戊午', '庚寅', '庚戌', '辛亥', '壬寅', '癸未'].includes(
+        riGZ,
+      ),
     六秀日: () =>
       pillarIndex === 2 && ['丙午', '丁未', '戊子', '戊午', '己丑', '己未'].includes(riGZ),
     八专: () =>
       pillarIndex === 2 &&
-      ['甲寅', '乙卯', '己未', '丁巳', '庚申', '辛酉', '戊戌', '癸丑'].includes(riGZ),
+      ['甲寅', '乙卯', '丁未', '戊戌', '己未', '庚申', '辛酉', '癸丑'].includes(riGZ),
     九丑: () =>
       pillarIndex === 2 &&
-      ['戊子', '戊午', '壬子', '壬午', '丁酉', '己酉', '己卯', '乙卯', '辛卯'].includes(riGZ),
+      ['戊子', '戊午', '壬子', '壬午', '丁酉', '丁卯', '己酉', '己卯', '辛卯'].includes(riGZ),
     四废日: () => {
       if (pillarIndex !== 2) return false;
       const seasonMap: Record<string, string> = {

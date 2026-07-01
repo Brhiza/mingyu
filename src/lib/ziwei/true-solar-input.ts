@@ -1,5 +1,5 @@
 import { calculateTrueSolarTime } from '../../utils/bazi/trueSolarTime';
-import { getTimeIndexFromClock } from '../../utils/dateUtils';
+import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { getBirthDateValidationMessage } from '../date-validation';
 import { LunarHour, SolarTime } from 'tyme4ts';
 

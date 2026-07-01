@@ -4,7 +4,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { TIME_MAP } from '../src/utils/bazi/baziDisplayData';
 import { calculateTrueSolarTime } from '../src/utils/bazi/trueSolarTime';
-import { getTimeIndexFromClock } from '../src/utils/dateUtils';
+import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 
 const toolCalls: Array<[string, Record<string, unknown>]> = [
   ['divine_liuyao', {}],

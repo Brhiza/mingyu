@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { generateAstrolabe } from '../src/lib/divination/algorithms/astrolabe';
-import type { AstrolabeBirthInput } from '../src/types/divination';
+import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import type { AstrolabeBirthInput } from 'mingyu-core/types';
 
 const validInput: AstrolabeBirthInput = {
   name: '本人',

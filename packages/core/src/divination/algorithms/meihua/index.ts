@@ -109,8 +109,22 @@ function estimateYingQi(params: {
 
 /**
  * 生成梅花易数卦盘
- * @param customDate 自定义时间，若不提供则使用当前时间
- * @returns 返回一个完整的梅花易数卦盘数据对象
+ *
+ * 支持时间起卦、数字起卦、随机起卦、外应起卦和时辰纳卦五种方式。
+ * 不传 `customDate` 则使用当前时间。
+ *
+ * @param customDate 自定义起卦时间（可选），影响时间卦和时辰纳卦的时间干支。
+ * @param settings   起卦设置，含 method（起卦方式）、number（数字起卦用）、externalOmens（外应起卦用）等。
+ * @returns 完整的梅花易数卦盘数据对象 MeihuaData。
+ *
+ * @example
+ * ```ts
+ * // 时间起卦（默认）
+ * const result = generateMeihua();
+ *
+ * // 数字起卦
+ * const result = generateMeihua(undefined, { method: 'number', number: 123 });
+ * ```
  */
 export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): MeihuaData {
   // 1. 获取占卜时间的农历及干支信息

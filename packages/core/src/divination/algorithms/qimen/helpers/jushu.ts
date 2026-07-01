@@ -26,6 +26,7 @@
 
 import { SolarDay } from 'tyme4ts';
 import { tiangan, jiazi, qimen } from '../../../../divination/divination-data';
+import { STEM_TOMB_MAP } from './_constants';
 
 const { dizhi, diPanPalaces, palaceStars, palaceDoorMap, jieQiJuShuMap } = qimen;
 const tenStems = tiangan;
@@ -257,21 +258,8 @@ export function checkSpecialHourConditions(hourGanZhi: string): {
   }
 
   // ── 3. 时干入墓 ──
-  // 《遁甲演义》论入墓法：
-  //   乙入坤二宫（未支）、丙入乾六宫（戌支）、丁入艮八宫（丑支）
-  //   己入巽四宫（辰支）、庚入坤二宫（未支）、辛入艮八宫（丑支）
-  //   壬入巽四宫（辰支）、癸入离九宫（午支）
-  const ruMuMap: Record<string, { palace: number; branch: string }> = {
-    乙: { palace: 2, branch: '未' }, // 坤二宫
-    丙: { palace: 6, branch: '戌' }, // 乾六宫
-    丁: { palace: 8, branch: '丑' }, // 艮八宫
-    戊: { palace: 6, branch: '戌' }, // 乾六宫（戊随丙入墓）
-    己: { palace: 4, branch: '辰' }, // 巽四宫
-    庚: { palace: 2, branch: '未' }, // 坤二宫
-    辛: { palace: 8, branch: '丑' }, // 艮八宫
-    壬: { palace: 4, branch: '辰' }, // 巽四宫
-    癸: { palace: 9, branch: '午' }, // 离九宫
-  };
+  // 《遁甲演义》论入墓法（采用 _constants STEM_TOMB_MAP 统一表）：
+  const ruMuMap = STEM_TOMB_MAP;
 
   const ruMuInfo = ruMuMap[hourGan];
   if (ruMuInfo && hourZhi === ruMuInfo.branch) {

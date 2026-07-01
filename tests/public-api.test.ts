@@ -8,7 +8,7 @@ import {
 } from '../src/lib/public-api/prompt-builders';
 import { baziCalculator } from '../src/utils/bazi/baziCalculator';
 import { calculateTrueSolarTime } from '../src/utils/bazi/trueSolarTime';
-import { getTimeIndexFromClock } from '../src/utils/dateUtils';
+import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 
 async function callApi(path: string, init?: RequestInit) {
   const request = new Request(`https://aov.cc/api/v1/${path}`, init);
