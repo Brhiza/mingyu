@@ -69,8 +69,9 @@ export const AI_PROVIDER_PRESETS: AiProviderPreset[] = [
 ];
 
 export function isServerBuiltinAiEnabled(): boolean {
-  const runtimeConfig = (globalThis as typeof globalThis & { __MINGYU_RUNTIME_CONFIG__?: RuntimeAiConfig })
-    .__MINGYU_RUNTIME_CONFIG__;
+  const runtimeConfig = (
+    globalThis as typeof globalThis & { __MINGYU_RUNTIME_CONFIG__?: RuntimeAiConfig }
+  ).__MINGYU_RUNTIME_CONFIG__;
   if (typeof runtimeConfig?.aiDefaultEnabled === 'boolean') {
     return runtimeConfig.aiDefaultEnabled;
   }
@@ -78,8 +79,9 @@ export function isServerBuiltinAiEnabled(): boolean {
 }
 
 export function getServerBuiltinAiLabel(): string {
-  const runtimeConfig = (globalThis as typeof globalThis & { __MINGYU_RUNTIME_CONFIG__?: RuntimeAiConfig })
-    .__MINGYU_RUNTIME_CONFIG__;
+  const runtimeConfig = (
+    globalThis as typeof globalThis & { __MINGYU_RUNTIME_CONFIG__?: RuntimeAiConfig }
+  ).__MINGYU_RUNTIME_CONFIG__;
   if (runtimeConfig?.aiProviderName) {
     return runtimeConfig.aiProviderName;
   }

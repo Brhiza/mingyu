@@ -106,7 +106,6 @@ function ChatMessageItem({ turn }: { turn: ChatTurn }) {
       <div className="ai-chat-msg-avatar">AI</div>
       <div
         className="ai-chat-msg-bubble markdown-body"
-        // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>
@@ -308,7 +307,6 @@ function AiChatPanelImpl({
               <div className="ai-chat-msg-avatar">AI</div>
               <div
                 className="ai-chat-msg-bubble markdown-body"
-                // eslint-disable-next-line react/no-danger
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(streamingContent) }}
               />
               <span className="ai-analysis-cursor" aria-hidden="true">

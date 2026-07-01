@@ -9,8 +9,18 @@ function escapeHtml(value: string) {
     .replace(/'/g, '&#39;');
 }
 
+function stripUnsafeUrlCharacters(value: string) {
+  let normalized = '';
+  for (const char of value.trim()) {
+    const code = char.charCodeAt(0);
+    if (code <= 31 || code === 127 || /\s/.test(char)) continue;
+    normalized += char;
+  }
+  return normalized;
+}
+
 function isSafeMarkdownUrl(value: string) {
-  const normalized = value.trim().replace(/[\u0000-\u001F\u007F\s]+/g, '');
+  const normalized = stripUnsafeUrlCharacters(value);
   if (!normalized) return true;
   if (/^(?:https?:|mailto:|tel:|#|\/(?!\/)|\.{0,2}\/)/i.test(normalized)) return true;
   return !/^[a-z][a-z0-9+.-]*:/i.test(normalized);
