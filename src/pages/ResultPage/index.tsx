@@ -24,9 +24,10 @@ import {
 } from '@/lib/query-state';
 import { buildAstrolabeScopeContext } from '@/lib/astrolabe-scope';
 import { shouldShowPromptShareButton } from '@/lib/prompt-page-rules';
+import { shouldUsePhoneLayout } from '@/lib/responsive-layout';
 import { PageTopbar } from '@/components/PageTopbar';
 import { QuestionInspirationModal } from '@/components/QuestionInspirationModal';
-import { useViewportWidth } from '@/hooks/useViewportWidth';
+import { useViewportSize } from '@/hooks/useViewportWidth';
 import { buildUnknownTimeBaziPrompt } from '@/lib/birth-time-reverse';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
@@ -120,11 +121,16 @@ export function ResultPage() {
   const [isZiweiScopeModalOpen, setIsZiweiScopeModalOpen] = useState(false);
   const [isAstrolabeScopeModalOpen, setIsAstrolabeScopeModalOpen] = useState(false);
   const inspiration = useQuestionInspiration();
-  const viewportWidth = useViewportWidth(0);
+  const viewportSize = useViewportSize({ width: 0, height: 0 });
   const [aiSettings] = useAiSettings();
   const isAiEnabled = aiSettings.enabled;
   const aiRequestConfig = useMemo(() => buildAiRequestConfig(aiSettings), [aiSettings]);
-  const isMobileAi = isAiEnabled && viewportWidth > 0 && viewportWidth < 768;
+  const isMobileAi =
+    isAiEnabled &&
+    shouldUsePhoneLayout({
+      viewportWidth: viewportSize.width,
+      viewportHeight: viewportSize.height,
+    });
   const [isAiShortcutPopoverOpen, setIsAiShortcutPopoverOpen] = useState(false);
   const [isAiMobileSettingsOpen, setIsAiMobileSettingsOpen] = useState(true);
   const [promptEngine, setPromptEngine] = useState<PromptEngineModule | null>(null);
@@ -836,7 +842,8 @@ export function ResultPage() {
   const { copyState, shareState, handleCopy, handleShare } =
     usePromptCopyShare(latestActivePromptText);
   const showShareButton = shouldShowPromptShareButton({
-    viewportWidth,
+    viewportWidth: viewportSize.width,
+    viewportHeight: viewportSize.height,
     hasNavigatorShare: typeof navigator !== 'undefined' && typeof navigator.share === 'function',
   });
 

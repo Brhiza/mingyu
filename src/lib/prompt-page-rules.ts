@@ -1,8 +1,11 @@
+import { shouldUsePhoneLayout } from './responsive-layout';
+
 export function shouldShowPromptShareButton(options: {
   viewportWidth: number;
+  viewportHeight?: number;
   hasNavigatorShare: boolean;
 }) {
-  return options.viewportWidth < 1024 && options.hasNavigatorShare;
+  return shouldUsePhoneLayout(options) && options.hasNavigatorShare;
 }
 
 export function buildBaziCustomPromptPatch() {

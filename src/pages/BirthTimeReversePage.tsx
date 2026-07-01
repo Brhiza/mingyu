@@ -12,13 +12,13 @@ import {
   type ReverseBirthTimeFormData,
 } from '@/lib/birth-time-reverse';
 import { shouldShowPromptShareButton } from '@/lib/prompt-page-rules';
-import { useViewportWidth } from '@/hooks/useViewportWidth';
+import { useViewportSize } from '@/hooks/useViewportWidth';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 
 export function BirthTimeReversePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const viewportWidth = useViewportWidth(1280);
+  const viewportSize = useViewportSize({ width: 1280, height: 800 });
   const [formData, setFormData] = useState<ReverseBirthTimeFormData>(
     DEFAULT_REVERSE_BIRTH_TIME_FORM_DATA,
   );
@@ -82,7 +82,8 @@ export function BirthTimeReversePage() {
   }
 
   const showShareButton = shouldShowPromptShareButton({
-    viewportWidth,
+    viewportWidth: viewportSize.width,
+    viewportHeight: viewportSize.height,
     hasNavigatorShare: typeof navigator !== 'undefined' && typeof navigator.share === 'function',
   });
 
