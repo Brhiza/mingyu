@@ -67,7 +67,7 @@ export function AiSettingsModal({ settings, onApply, onClose }: AiSettingsModalP
             <h2>AI 设置</h2>
             <p>
               {builtinEnabled
-                ? `打开后可使用${builtinLabel}，也可以填写自己的 OpenAI 兼容接口。`
+                ? `打开后可使用${builtinLabel}；需要自己的接口时切换到“自行配置”。`
                 : '填写 OpenAI 兼容接口后可使用 AI 解读。'}
             </p>
           </div>
@@ -112,92 +112,91 @@ export function AiSettingsModal({ settings, onApply, onClose }: AiSettingsModalP
             ) : null}
           </section>
 
-          <section className="ai-settings-section">
-            <label className="field-card">
-              <div className="field-header">
-                <span>服务商</span>
-              </div>
-              <select
-                value={draft.providerId}
-                onChange={(event) => applyProvider(event.target.value)}
-                disabled={draft.mode === 'builtin'}
-              >
-                {AI_PROVIDER_PRESETS.map((preset) => (
-                  <option value={preset.id} key={preset.id}>
-                    {preset.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+          {draft.mode === 'custom' ? (
+            <section className="ai-settings-section">
+              <label className="field-card">
+                <div className="field-header">
+                  <span>服务商</span>
+                </div>
+                <select
+                  value={draft.providerId}
+                  onChange={(event) => applyProvider(event.target.value)}
+                >
+                  {AI_PROVIDER_PRESETS.map((preset) => (
+                    <option value={preset.id} key={preset.id}>
+                      {preset.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="field-card">
-              <div className="field-header">
-                <span>接口地址</span>
-              </div>
-              <input
-                value={draft.baseUrl}
-                disabled={draft.mode === 'builtin'}
-                onChange={(event) =>
-                  setDraft((current) => ({ ...current, baseUrl: event.target.value }))
-                }
-              />
-            </label>
+              <label className="field-card">
+                <div className="field-header">
+                  <span>接口地址</span>
+                </div>
+                <input
+                  value={draft.baseUrl}
+                  onChange={(event) =>
+                    setDraft((current) => ({ ...current, baseUrl: event.target.value }))
+                  }
+                />
+              </label>
 
-            <label className="field-card">
-              <div className="field-header">
-                <span>API Key</span>
-              </div>
-              <input
-                type="password"
-                value={draft.apiKey}
-                disabled={draft.mode === 'builtin'}
-                placeholder="仅自行配置时填写，保存在本机浏览器"
-                onChange={(event) =>
-                  setDraft((current) => ({ ...current, apiKey: event.target.value }))
-                }
-              />
-            </label>
+              <label className="field-card">
+                <div className="field-header">
+                  <span>API Key</span>
+                </div>
+                <input
+                  type="password"
+                  value={draft.apiKey}
+                  placeholder="仅自行配置时填写，保存在本机浏览器"
+                  onChange={(event) =>
+                    setDraft((current) => ({ ...current, apiKey: event.target.value }))
+                  }
+                />
+              </label>
 
-            <label className="field-card">
-              <div className="field-header">
-                <span>模型</span>
-              </div>
-              <input
-                value={draft.model}
-                placeholder="点击获取模型后选择，或手动填写"
-                onChange={(event) =>
-                  setDraft((current) => ({ ...current, model: event.target.value }))
-                }
-              />
-            </label>
+              <label className="field-card">
+                <div className="field-header">
+                  <span>模型</span>
+                </div>
+                <input
+                  value={draft.model}
+                  placeholder="点击获取模型后选择，或手动填写"
+                  onChange={(event) =>
+                    setDraft((current) => ({ ...current, model: event.target.value }))
+                  }
+                />
+              </label>
 
-            <div className="ai-settings-model-actions">
-              <button
-                type="button"
-                className="modal-btn modal-btn-secondary"
-                onClick={handleFetchModels}
-                disabled={!canFetchModels}
-              >
-                获取模型
-              </button>
-              {modelStatus ? <span>{modelStatus}</span> : null}
-            </div>
-
-            {models.length ? (
-              <div className="ai-settings-model-list">
-                {models.map((model) => (
-                  <button
-                    type="button"
-                    className={`quick-chip ${draft.model === model ? 'is-active' : ''}`}
-                    onClick={() => setDraft((current) => ({ ...current, model }))}
-                    key={model}
-                  >
-                    {model}
-                  </button>
-                ))}
+              <div className="ai-settings-model-actions">
+                <button
+                  type="button"
+                  className="modal-btn modal-btn-secondary"
+                  onClick={handleFetchModels}
+                  disabled={!canFetchModels}
+                >
+                  获取模型
+                </button>
+                {modelStatus ? <span>{modelStatus}</span> : null}
               </div>
-            ) : null}
-          </section>
+
+              {models.length ? (
+                <div className="ai-settings-model-list">
+                  {models.map((model) => (
+                    <button
+                      type="button"
+                      className={`quick-chip ${draft.model === model ? 'is-active' : ''}`}
+                      onClick={() => setDraft((current) => ({ ...current, model }))}
+                      key={model}
+                    >
+                      {model}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
         </div>
 
         <div className="modal-actions">
