@@ -1,24 +1,25 @@
 # Changelog
 
-## 0.1.3 (2026-07-01)
+## 0.1.4 (2026-07-01)
 
 ### 🚀 新增功能
 
-- **`drawRandomSign(customDate?)`** — 灵签现在支持传入自定义时间参数，与其他占卜算法保持一致 ([#feedback](#))
+- **`drawRandomSign(customDate?)`** — 灵签现在支持传入自定义时间参数，与其他占卜算法保持一致
 - **`configure({ timezoneOffset })`** — 新增统一全局配置入口，取代手动调用 `TimeManager.setTimezoneOffsetMinutesOverride()`
 
 ### 📚 文档改进
 
-- 所有占卜主入口函数（`generateLiuyao`、`generateMeihua`、`generateQimen`、`generateLiuren`、`generateXiaoliuren`、`generateAlmanacSelection`、`drawRandomSign`、`drawLenormandSpread`、`generateAstrolabe`、`drawSingleCard`、`drawSpreadCards`、`getCardKeywords`）补全了 JSDoc（`@param`、`@returns`、`@example`）
-- 核心类型接口（`QimenData`、`MeihuaData`、`LiuyaoData`、`LiurenData`、`BaziChartResult`）所有字段添加了 JSDoc 注释，IDE 编码时可查看字段说明
+- 所有占卜主入口函数补全了 JSDoc（`@param`、`@returns`、`@example`）
+- 核心类型接口（`QimenData`、`MeihuaData`、`LiuyaoData`、`LiurenData`、`BaziChartResult`）所有字段添加了 JSDoc 注释
+- API.md 修正 `calculateTrueSolarTime` 错误列在 calendar 命名空间下的问题
 - README 补充了所有子路径导出清单
 
 ### 🧹 清理与修复
 
-- **SSGW 统一**：从 `package.json exports` 中移除 `./divination/ssgw-data`，不再对外暴露内部数据模块
-- **删除重复代码**：移除 `src/` 下 17,913 行与 `mingyu-core` 重复的算法副本（`src/lib/divination/algorithms/`、`src/utils/timeManager.ts`、`src/utils/lunar.ts` 等）
+- **SSGW 统一**：从 `package.json exports` 中移除 `./divination/ssgw-data`
+- **删除 17,893 行重复代码**：移除 `src/` 下与 `mingyu-core` 重复的算法副本
 - **类型统一**：`src/types/divination.ts` 改为 re-export `mingyu-core/types`
-- **API.md**：修正 `calculateTrueSolarTime` 错误列在 calendar 命名空间下的问题
+- 排除死代码（`config.ts`、`share-text.ts`、`engine/*` 不再编译）
 
 ### 🐛 修复
 
@@ -27,6 +28,8 @@
 ### 📦 打包
 
 - 修复 package.json 元数据：补充 `author`、`bugs`、`homepage` 字段，修正 `repository.url`
+
+## 0.1.3 (2026-07-01)
 
 ---
 
