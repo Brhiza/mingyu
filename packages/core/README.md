@@ -106,6 +106,23 @@ console.log(result.analysis);      // 强度、格局、用神
 console.log(result.luckInfo);      // 大运
 ```
 
+神煞争议口径默认采用主流算法：空亡按日柱旬空、羊刃只取阳干帝旺、童子煞只查日柱和时柱。需要兼容其他系统时，可显式传入 `shenShaVariants`：
+
+```typescript
+const result = baziCalculator.calculateBazi({
+  year: 1990,
+  month: 1,
+  day: 1,
+  timeIndex: 5,
+  gender: 'male',
+  shenShaVariants: {
+    kongWangBasis: 'day-and-year',
+    yangRenMode: 'include-yin-ren',
+    tongZiScope: 'all-pillars',
+  },
+});
+```
+
 ### 农历输入与真太阳时
 
 ```typescript
@@ -142,7 +159,8 @@ const meihua = generateMeihua({ method: 'number', number: 123 });
 
 // 奇门遁甲
 import { generateQimen } from 'mingyu-core/divination/qimen';
-const qimen = generateQimen();  // 当前时间
+const qimen = generateQimen();                     // 当前时间，默认转盘法
+const qimenFeipan = generateQimen(undefined, 'feipan');  // 可选飞盘法
 
 // 大六壬
 import { generateLiuren } from 'mingyu-core/divination/liuren';

@@ -54,7 +54,7 @@ test('六爻用神评分已接入统一证据类型再格式化为现有文案',
 });
 
 test('八字年限触发摘要已通过统一证据类型生成', () => {
-  const source = readFileSync(resolve('src/utils/bazi/fortuneSelection/index.ts'), 'utf8');
+  const source = readFileSync(resolve('packages/core/src/bazi/fortuneSelection/index.ts'), 'utf8');
 
   assert.match(source, /formatPromptEvidenceBundle/);
   assert.match(source, /PromptEvidenceItem\[\]/);

@@ -434,7 +434,7 @@ export function getOppositeBranch(branch: string): string {
 
 /**
  * 获取五行长生位地支
- * 木长生在亥、火长生在寅、金长生在巳、水长生在申、土长生在寅（火土同宫）
+ * 木长生在亥、火长生在寅、金长生在巳、水长生在申、土长生在申（水土同宫）
  * @param wuxing 五行
  * @returns 长生地支
  */
@@ -442,7 +442,7 @@ export function getWuxingChangSheng(wuxing: string): string {
   const map: Record<string, string> = {
     木: '亥',
     火: '寅',
-    土: '寅',
+    土: '申',
     金: '巳',
     水: '申',
   };

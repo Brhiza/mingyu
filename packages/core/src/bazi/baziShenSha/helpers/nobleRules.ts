@@ -1,11 +1,17 @@
-import { BASIC_MAPPINGS } from '../../baziDefinitions';
+import { TWELVE_STAGES_MAP } from '../../baziDefinitions';
 import type { RuleContext, ShenShaRuleMap } from './types';
+
+function getChangshengBranch(stem: string) {
+  const stages = TWELVE_STAGES_MAP[stem];
+  if (!stages) return '';
+  return Object.entries(stages).find(([, stage]) => stage === '长生')?.[0] || '';
+}
 
 /**
  * 贵人神煞规则
  */
 export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
-  const { gan, zhi, nianGan, yueZhi, riGan, pillarGZ, ctg, baziArray } = ctx;
+  const { gan, zhi, nianGan, yueZhi, riGan, pillarGZ, baziArray } = ctx;
 
   return {
     天乙贵人: () => {
@@ -209,17 +215,9 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       return map[nianGan] === zhi || map[riGan] === zhi;
     },
     学堂: () => {
-      // 学堂取日干五行长生位，土长生在寅（火土同宫）
-      const wuxingMap: Record<string, string> = {
-        木: '亥',
-        火: '寅',
-        土: '寅',
-        金: '巳',
-        水: '申',
-      };
-      const riGanWuxing = BASIC_MAPPINGS.STEM_WUXING[ctg.indexOf(riGan)];
-      const nianGanWuxing = BASIC_MAPPINGS.STEM_WUXING[ctg.indexOf(nianGan)];
-      return wuxingMap[riGanWuxing] === zhi || wuxingMap[nianGanWuxing] === zhi;
+      const riChangsheng = getChangshengBranch(riGan);
+      const nianChangsheng = getChangshengBranch(nianGan);
+      return riChangsheng === zhi || nianChangsheng === zhi;
     },
     词馆: () => {
       const map: Record<string, string> = {

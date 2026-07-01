@@ -114,31 +114,35 @@ function isRiMu(branch: string, dayBranch: string): boolean {
   return WUXING_RUMU[wuxing] === dayBranch;
 }
 
+const SANHE_GROUPS: Record<string, string[]> = {
+  水局: ['申', '子', '辰'],
+  木局: ['亥', '卯', '未'],
+  火局: ['寅', '午', '戌'],
+  金局: ['巳', '酉', '丑'],
+};
+
 /**
- * 检测日辰对爻的三合局触发（《卜筮正宗》卷三《三合局章》）：
- * 若日辰与两个静爻成三合，则为三合局起用。
+ * 检测月建/日辰对爻的三合局触发（《卜筮正宗》卷三《三合局章》）：
+ * 若月建或日辰为三合局中一支，再有两爻相配，即为完整三合局。
  * "三合主久远、多人协力，事势增强，吉凶随局而定。"
- * 申子辰合水局、亥卯未合木局、寅午戌合火局、巳酉丑合金局。
- * 日辰为三合局中一支，再有两爻相配，即为完整三合局。
  */
-function checkSanheWithDay(
+function checkSanheWithTrigger(
   yaoBranches: string[],
-  dayBranch: string,
+  triggerBranch: string,
+  triggerLabel: '日辰' | '月建',
 ): { group: string; members: string[]; description: string } | null {
-  const allBranches = [...yaoBranches, dayBranch];
+  const allBranches = new Set([...yaoBranches, triggerBranch]);
   // 完整三合局
-  for (const [group, members] of Object.entries({
-    水局: ['申', '子', '辰'],
-    木局: ['亥', '卯', '未'],
-    火局: ['寅', '午', '戌'],
-    金局: ['巳', '酉', '丑'],
-  })) {
-    const present = members.filter((m) => allBranches.includes(m));
-    if (present.length === 3) {
+  for (const [group, members] of Object.entries(SANHE_GROUPS)) {
+    if (!members.includes(triggerBranch)) {
+      continue;
+    }
+    const present = members.filter((m) => allBranches.has(m));
+    if (present.length === members.length) {
       return {
         group,
         members,
-        description: `日辰${dayBranch}引动三合${group}，三合局成，事势增强`,
+        description: `${triggerLabel}${triggerBranch}引动三合${group}，三合局成，事势增强`,
       };
     }
   }
@@ -571,15 +575,13 @@ export function generateLiuyao(customDate?: Date) {
     voidBranches: voids,
   });
 
-  // 三合局检测：日辰与爻中静爻/动爻组成的三合局
-  const sanheWithDay = checkSanheWithDay(
-    yaosInfo.map((i) => i.dizhi),
-    dayBranch,
-  );
+  // 三合局检测：日辰/月建与爻中静爻/动爻组成的三合局
+  const yaoBranches = yaosInfo.map((i) => i.dizhi);
+  const sanheWithDay = checkSanheWithTrigger(yaoBranches, dayBranch, '日辰');
+  const sanheWithMonth = checkSanheWithTrigger(yaoBranches, monthBranch, '月建');
 
   // 三刑检测：各爻之间是否构成三刑关系（寅巳申三刑、丑戌未三刑等）
   const sanxingInYaos: Array<{ branches: string[]; type: string }> = [];
-  const yaoBranches = yaosInfo.map((i) => i.dizhi);
   // 寅巳申三刑
   if (['寅', '巳', '申'].every((b) => yaoBranches.includes(b))) {
     sanxingInYaos.push({ branches: ['寅', '巳', '申'], type: '无恩之刑' });
@@ -651,6 +653,7 @@ export function generateLiuyao(customDate?: Date) {
     yaosDetail,
     hiddenSpirits,
     sanheWithDay,
+    sanheWithMonth,
     sanxingInYaos,
     guaShen,
     timestamp,

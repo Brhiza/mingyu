@@ -2,7 +2,8 @@
  * AI 解析代理 — 共享逻辑
  *
  * 被 catch-all handler 和独立 Pages Function 共用。
- * 接收提示词或对话消息，调用 DeepSeek API 流式解析，返回 SSE Response。
+ * 接收提示词或对话消息，调用 OpenAI 兼容的 Chat Completions API 流式解析，返回 SSE Response。
+ * 支持任何兼容接口（DeepSeek、千问、豆包、Groq、OpenAI 等）。
  */
 
 const DEFAULT_BASE_URL = 'https://api.deepseek.com/v1';
@@ -23,9 +24,16 @@ export type AiEnv = {
   AI_API_KEY?: string;
   AI_BASE_URL?: string;
   AI_MODEL?: string;
+  AI_DEFAULT_ENABLED?: string;
 };
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string };
+type AiProviderConfig = {
+  mode?: 'builtin' | 'custom';
+  apiKey?: unknown;
+  baseUrl?: unknown;
+  model?: unknown;
+};
 
 const SYSTEM_PROMPT_SINGLE =
   '你是一位精通中国传统命理学、占卜术数的分析师。' +
@@ -54,19 +62,16 @@ const SYSTEM_PROMPT_CHAT =
  * 2. { messages: Array<{role, content}> } — 多轮对话
  */
 export async function handleAiAnalyze(request: Request, env?: AiEnv): Promise<Response> {
-  const apiKey = env?.AI_API_KEY ?? '';
-  const baseUrl = (env?.AI_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
-  const model = env?.AI_MODEL ?? DEFAULT_MODEL;
-
-  if (!apiKey) {
-    return aiJsonError(500, 'AI_API_KEY 未配置', '服务端缺少 AI 密钥，请联系管理员。');
-  }
-
-  let body: { prompt?: unknown; messages?: unknown };
+  let body: { prompt?: unknown; messages?: unknown; aiConfig?: AiProviderConfig };
   try {
     body = await request.json();
   } catch {
     return aiJsonError(400, 'BAD_REQUEST', '请求体必须是合法 JSON。');
+  }
+
+  const provider = resolveAiProvider(body.aiConfig, env);
+  if ('error' in provider) {
+    return provider.error;
   }
 
   // 解析对话消息：优先使用 messages 数组，否则回退到 prompt 字符串
@@ -108,15 +113,15 @@ export async function handleAiAnalyze(request: Request, env?: AiEnv): Promise<Re
 
   const systemPrompt = isMultiTurn ? SYSTEM_PROMPT_CHAT : SYSTEM_PROMPT_SINGLE;
 
-  const endpoint = `${baseUrl}/chat/completions`;
+  const endpoint = `${provider.baseUrl}/chat/completions`;
   const upstream = await fetch(endpoint, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${provider.apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model,
+      model: provider.model,
       stream: true,
       max_tokens: 4096,
       temperature: 0.7,
@@ -194,6 +199,115 @@ export async function handleAiAnalyze(request: Request, env?: AiEnv): Promise<Re
     status: 200,
     headers: SSE_HEADERS,
   });
+}
+
+export async function handleAiModels(request: Request, env?: AiEnv): Promise<Response> {
+  let body: { aiConfig?: AiProviderConfig };
+  try {
+    body = await request.json();
+  } catch {
+    return aiJsonError(400, 'BAD_REQUEST', '请求体必须是合法 JSON。');
+  }
+
+  const provider = resolveAiProvider(body.aiConfig, env, { requireModel: false });
+  if ('error' in provider) {
+    return provider.error;
+  }
+
+  const upstream = await fetch(`${provider.baseUrl}/models`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${provider.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!upstream.ok) {
+    const errText = await upstream.text().catch(() => '');
+    return aiJsonError(
+      upstream.status,
+      'AI_UPSTREAM_ERROR',
+      `获取模型失败（${upstream.status}）。${errText.slice(0, 200)}`,
+    );
+  }
+
+  const data = await upstream.json().catch(() => null);
+  const models = Array.isArray(data?.data)
+    ? data.data
+        .map((item: unknown) => {
+          if (item && typeof item === 'object' && 'id' in item) {
+            return (item as { id?: unknown }).id;
+          }
+          return null;
+        })
+        .filter((item: unknown): item is string => typeof item === 'string' && item.length > 0)
+    : [];
+
+  return new Response(JSON.stringify({ ok: true, models }), {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Content-Type': 'application/json; charset=utf-8',
+    },
+  });
+}
+
+function resolveAiProvider(
+  config: AiProviderConfig | undefined,
+  env?: AiEnv,
+  options: { requireModel?: boolean } = {},
+):
+  | {
+      apiKey: string;
+      baseUrl: string;
+      model: string;
+    }
+  | { error: Response } {
+  const mode = config?.mode === 'custom' ? 'custom' : 'builtin';
+  const requireModel = options.requireModel ?? true;
+
+  if (mode === 'custom') {
+    const apiKey = typeof config?.apiKey === 'string' ? config.apiKey.trim() : '';
+    const baseUrl =
+      typeof config?.baseUrl === 'string' && config.baseUrl.trim()
+        ? config.baseUrl.trim().replace(/\/+$/, '')
+        : '';
+    const model = typeof config?.model === 'string' ? config.model.trim() : '';
+
+    if (!apiKey || !baseUrl || (requireModel && !model)) {
+      return {
+        error: aiJsonError(
+          400,
+          'AI_CUSTOM_CONFIG_REQUIRED',
+          '请先填写自定义 AI 的接口、密钥和模型。',
+        ),
+      };
+    }
+
+    return { apiKey, baseUrl, model };
+  }
+
+  if (env?.AI_DEFAULT_ENABLED !== 'true') {
+    return {
+      error: aiJsonError(
+        403,
+        'AI_SERVER_NOT_ENABLED',
+        '服务端 AI 未启用，请在设置里改用自己的 AI 接口。',
+      ),
+    };
+  }
+
+  const apiKey = env?.AI_API_KEY ?? '';
+  const baseUrl = (env?.AI_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
+  const model = env?.AI_MODEL ?? DEFAULT_MODEL;
+
+  if (!apiKey) {
+    return {
+      error: aiJsonError(500, 'AI_API_KEY 未配置', '服务端缺少 AI 密钥，请联系管理员。'),
+    };
+  }
+
+  return { apiKey, baseUrl, model };
 }
 
 function aiJsonError(status: number, code: string, message: string): Response {

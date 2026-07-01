@@ -3,6 +3,8 @@
  * @description Contains all shared type definitions and interfaces for the Bazi calculation engine.
  */
 
+import type { ShenShaVariantConfig } from './baziShenSha/variants';
+
 export const WUXING = ['木', '火', '土', '金', '水'] as const;
 export type Wuxing = (typeof WUXING)[number];
 
@@ -22,6 +24,7 @@ export interface Person {
   birthPlace?: string;
   birthLongitude?: number;
   age?: number;
+  shenShaVariants?: Partial<ShenShaVariantConfig>;
 }
 
 export interface TimeInfo {

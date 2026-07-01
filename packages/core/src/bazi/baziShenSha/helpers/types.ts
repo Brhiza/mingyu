@@ -1,3 +1,5 @@
+import type { ShenShaVariantConfig } from '../variants';
+
 export type BaziArray = [string, string][];
 export type PillarKey = 'year' | 'month' | 'day' | 'hour';
 
@@ -18,6 +20,7 @@ export interface RuleContext {
   ctg: readonly string[];
   cdz: readonly string[];
   zhiIdx: (zhi: string) => number;
+  variants: ShenShaVariantConfig;
 }
 
 export type ShenShaRule = () => boolean;

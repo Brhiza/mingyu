@@ -242,6 +242,12 @@ export interface LiuyaoData extends BaseHexagramData {
     members: string[];
     description: string;
   } | null;
+  /** 与月建的三合局 */
+  sanheWithMonth?: {
+    group: string;
+    members: string[];
+    description: string;
+  } | null;
   /** 爻中的三刑 */
   sanxingInYaos?: Array<{
     branches: string[];

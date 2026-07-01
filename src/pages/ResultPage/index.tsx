@@ -1,4 +1,13 @@
-import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   buildCombinedZiweiCompatibilityPrompt,
@@ -14,8 +23,10 @@ import {
   type ResultTabKey,
 } from '@/lib/query-state';
 import { buildAstrolabeScopeContext } from '@/lib/astrolabe-scope';
+import { shouldShowPromptShareButton } from '@/lib/prompt-page-rules';
 import { PageTopbar } from '@/components/PageTopbar';
 import { QuestionInspirationModal } from '@/components/QuestionInspirationModal';
+import { useViewportWidth } from '@/hooks/useViewportWidth';
 import { buildUnknownTimeBaziPrompt } from '@/lib/birth-time-reverse';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
@@ -27,6 +38,7 @@ import type {
   BaziFortuneSelectionModule,
   InspirationCategory,
   PromptEngineModule,
+  QuestionInspirationIntent,
 } from './ResultPage.types';
 import { PROMPT_DRAFT_STORAGE_PREFIX } from './ResultPage.constants';
 import {
@@ -47,9 +59,11 @@ import { singlePromptShortcutSections } from './ResultPage.constants';
 import {
   BaziFortuneLoadingModal,
   InlineSkeleton,
+  PromptPreSkeleton,
   ZiweiBoardSkeleton,
 } from './components/skeletons';
 import { AstrolabeBoard } from './components/AstrolabeBoard';
+import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import { BaziChartBoard } from './components/BaziChartBoard';
 import { ThreePillarsBoard } from './components/ThreePillarsBoard';
 import { ZiweiBoard } from './components/ZiweiBoard';
@@ -61,6 +75,8 @@ import { useBaziCalculations } from './hooks/useBaziCalculations';
 import { useZiweiCalculations } from './hooks/useZiweiCalculations';
 import { usePromptShortcuts } from './hooks/usePromptShortcuts';
 import { AiChatPanel } from '@/components/AiChatPanel';
+import { useAiSettings } from '@/hooks/useAiSettings';
+import { buildAiRequestConfig } from '@/lib/ai/settings';
 
 const LazyBaziFortuneModal = lazy(async () => {
   const module = await import('@/components/BaziFortuneTools/BaziFortuneModal');
@@ -104,6 +120,13 @@ export function ResultPage() {
   const [isZiweiScopeModalOpen, setIsZiweiScopeModalOpen] = useState(false);
   const [isAstrolabeScopeModalOpen, setIsAstrolabeScopeModalOpen] = useState(false);
   const inspiration = useQuestionInspiration();
+  const viewportWidth = useViewportWidth(0);
+  const [aiSettings] = useAiSettings();
+  const isAiEnabled = aiSettings.enabled;
+  const aiRequestConfig = useMemo(() => buildAiRequestConfig(aiSettings), [aiSettings]);
+  const isMobileAi = isAiEnabled && viewportWidth > 0 && viewportWidth < 768;
+  const [isAiShortcutPopoverOpen, setIsAiShortcutPopoverOpen] = useState(false);
+  const [isAiMobileSettingsOpen, setIsAiMobileSettingsOpen] = useState(true);
   const [promptEngine, setPromptEngine] = useState<PromptEngineModule | null>(null);
   const [baziFortuneSelectionModule, setBaziFortuneSelectionModule] =
     useState<BaziFortuneSelectionModule | null>(null);
@@ -784,13 +807,86 @@ export function ResultPage() {
         : promptState.promptSource === 'bazi'
           ? previewBaziPromptText
           : previewZiweiPromptText;
+
+  // AI 对话页使用的上下文提示词（不含用户自定义问题，仅排盘数据 + 设置摘要）
+  const aiContextPrompt = useMemo(() => {
+    if (promptState.tab !== 'prompt') return '';
+
+    // 以现有完整提示词为基础，去掉末尾的用户问题部分
+    // 实际发送时由 AiChatPanel 拼接用户输入
+    return previewActivePromptText;
+  }, [previewActivePromptText, promptState.tab]);
+
+  // 灵感选取的问题文本，传递给 AiChatPanel 填入输入框
+  const [inspirationText, setInspirationText] = useState('');
+  // 快捷按钮直接发送指令
+  const [directSend, setDirectSend] = useState<{ text: string; id: string } | undefined>();
   const isBaziFortuneSummaryLoading = shouldLoadBaziPromptModules && !baziFortuneSelectionModule;
   const baziFortuneSummaryText = baziFortuneContext?.displayText ?? '仅使用本命信息';
   const astrolabeScopeSummaryText = astrolabeScopeContext.displayText;
 
+  const latestActivePromptText =
+    promptState.promptSource === 'astrolabe'
+      ? latestAstrolabePromptText
+      : promptState.promptSource === 'bazi-ziwei'
+        ? latestEnhancedPromptText
+        : promptState.promptSource === 'bazi'
+          ? latestBaziPromptText
+          : latestZiweiPromptText;
+  const { copyState, shareState, handleCopy, handleShare } =
+    usePromptCopyShare(latestActivePromptText);
+  const showShareButton = shouldShowPromptShareButton({
+    viewportWidth,
+    hasNavigatorShare: typeof navigator !== 'undefined' && typeof navigator.share === 'function',
+  });
+
   function switchTab(tab: ResultTabKey) {
     updatePromptState({ tab });
   }
+
+  function handleInspirationSelect(question: string, category?: string, intent?: string) {
+    applyInspiredQuestion(question, category, intent as QuestionInspirationIntent | undefined);
+    setInspirationText(question);
+  }
+
+  // AI 模式：快捷问题点击 → 直接发送
+  const directSendCounterRef = useRef(0);
+  function handleAiShortcutClick(label: string) {
+    const source = promptState.promptSource;
+    let question = '';
+    if (source === 'bazi' || source === 'bazi-ziwei') {
+      applyBaziShortcutMode(label);
+      const actions = getBaziShortcutActions(inputState.analysisMode);
+      question = actions.find((a) => a.label === label)?.question ?? '';
+    } else if (source === 'ziwei') {
+      applyZiweiShortcutMode(label);
+      const actions = getZiweiShortcutActions(inputState.analysisMode);
+      question = actions.find((a) => a.label === label)?.question ?? '';
+    } else if (source === 'astrolabe') {
+      applyAstrolabeShortcutMode(label);
+      question = ASTROLABE_SHORTCUT_ACTIONS.find((a) => a.label === label)?.question ?? '';
+    }
+    if (question) {
+      directSendCounterRef.current++;
+      setDirectSend({ text: question, id: `s-${directSendCounterRef.current}` });
+    }
+    setIsAiShortcutPopoverOpen(false);
+  }
+
+  const aiMobileShortcutActions =
+    promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei'
+      ? getBaziShortcutActions(inputState.analysisMode)
+      : promptState.promptSource === 'ziwei'
+        ? getZiweiShortcutActions(inputState.analysisMode)
+        : promptState.promptSource === 'astrolabe'
+          ? ASTROLABE_SHORTCUT_ACTIONS
+          : [];
+  const aiMobileActiveShortcutMode =
+    promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei'
+      ? activeBaziShortcutMode
+      : promptState.promptSource === 'ziwei'
+        ? activeZiweiShortcutMode
+        : activeAstrolabeShortcutMode;
 
   return (
     <div className="page-shell">
@@ -833,7 +929,7 @@ export function ResultPage() {
           className={`tab-chip ${promptState.tab === 'prompt' ? 'is-active' : ''}`}
           onClick={() => switchTab('prompt')}
         >
-          AI 解析
+          {isAiEnabled ? 'AI 解析' : '提示词'}
         </button>
       </div>
 
@@ -982,27 +1078,53 @@ export function ResultPage() {
           aria-hidden={promptState.tab !== 'prompt'}
         >
           {mountedTabs.prompt ? (
-            <div className="workspace-grid">
-              <section className="panel">
-                <div className="panel-head">
-                  <div>
-                    <h2 className="prompt-settings-title">解析设置</h2>
-                    <p>
-                      {hasAstrolabeChart
-                        ? '选择星盘解读重点和问题，开始 AI 解析。'
-                        : '选择基于八字、紫微或八字+紫微的分析对象和年限，再用快捷按钮选择问题。'}
-                    </p>
-                  </div>
-                </div>
+            isAiEnabled ? (
+              isMobileAi ? (
+                /* ── AI 移动端：全屏聊天，顶部紧凑设置栏 + 快捷按钮收进弹层 ── */
+                <div className="ai-mobile-chat">
+                  <div className="ai-mobile-setting-shell">
+                    <div className="ai-mobile-setting-top">
+                      <button
+                        type="button"
+                        className="ai-mobile-settings-toggle"
+                        onClick={() => setIsAiMobileSettingsOpen((value) => !value)}
+                      >
+                        {isAiMobileSettingsOpen ? '收起设置' : '展开设置'}
+                      </button>
 
-                <div className="field-list">
-                  <>
-                    <div className="prompt-compact-grid">
-                      <label className="field-card">
-                        <div className="field-header">
-                          <span className="prompt-source-title">解析来源</span>
+                      <button
+                        type="button"
+                        className={`ai-mobile-shortcut-btn ${isAiShortcutPopoverOpen ? 'is-active' : ''}`}
+                        onClick={() => setIsAiShortcutPopoverOpen((value) => !value)}
+                        title="快捷问题"
+                      >
+                        ✨ 快捷
+                      </button>
+
+                      {isAiShortcutPopoverOpen ? (
+                        <div className="ai-mobile-shortcut-popover">
+                          <div className="ai-mobile-shortcut-popover-inner">
+                            <PromptShortcutPanel
+                              actions={aiMobileShortcutActions}
+                              activeMode={aiMobileActiveShortcutMode}
+                              onApplyMode={handleAiShortcutClick}
+                              showCustomAndInspiration={false}
+                              showCustomAction={false}
+                              showInspirationAction={false}
+                              customDraft=""
+                              onCustomDraftChange={() => {}}
+                              customPlaceholder=""
+                              onOpenInspiration={() => {}}
+                            />
+                          </div>
                         </div>
+                      ) : null}
+                    </div>
+
+                    {isAiMobileSettingsOpen ? (
+                      <div className="ai-mobile-setting-bar">
                         <select
+                          className="ai-mobile-source-select"
                           value={promptState.promptSource}
                           onChange={(event) =>
                             updatePromptState({
@@ -1010,162 +1132,478 @@ export function ResultPage() {
                             })
                           }
                         >
-                          <option value="bazi">基于八字</option>
+                          <option value="bazi">八字</option>
                           <option value="ziwei" disabled={hasUnknownBirthTime}>
-                            {hasUnknownBirthTime ? '基于紫微（未知时辰不可用）' : '基于紫微'}
+                            {hasUnknownBirthTime ? '紫微(未知时辰)' : '紫微'}
                           </option>
                           {inputState.analysisMode === 'single' ? (
                             <option value="bazi-ziwei" disabled={hasUnknownBirthTime}>
-                              {hasUnknownBirthTime
-                                ? '基于八字+紫微（未知时辰不可用）'
-                                : '基于八字+紫微'}
+                              八字+紫微
                             </option>
                           ) : null}
-                          {hasAstrolabeChart ? <option value="astrolabe">基于星盘</option> : null}
+                          {hasAstrolabeChart ? <option value="astrolabe">星盘</option> : null}
                         </select>
-                      </label>
 
-                      {(promptState.promptSource === 'bazi' ||
-                        promptState.promptSource === 'bazi-ziwei') &&
-                      inputState.analysisMode === 'single' &&
-                      !primaryHasUnknownTime ? (
-                        <div className="field-card">
-                          <div className="field-header">
-                            <span>年限选择</span>
-                          </div>
+                        {(promptState.promptSource === 'bazi' ||
+                          promptState.promptSource === 'bazi-ziwei') &&
+                        inputState.analysisMode === 'single' &&
+                        !primaryHasUnknownTime ? (
                           <button
                             type="button"
-                            className="place-trigger"
+                            className="ai-mobile-scope-btn"
                             onClick={() => setIsBaziFortuneModalOpen(true)}
                           >
-                            {isBaziFortuneSummaryLoading ? (
-                              <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
-                            ) : (
-                              <span>{baziFortuneSummaryText}</span>
-                            )}
+                            {isBaziFortuneSummaryLoading ? '年限…' : baziFortuneSummaryText}
                           </button>
-                        </div>
-                      ) : null}
+                        ) : null}
 
-                      {promptState.promptSource === 'ziwei' ? (
-                        <div className="field-card">
-                          <div className="field-header">
-                            <span>年限选择</span>
-                          </div>
+                        {promptState.promptSource === 'ziwei' ? (
                           <button
                             type="button"
-                            className="place-trigger"
+                            className="ai-mobile-scope-btn"
                             onClick={() => setIsZiweiScopeModalOpen(true)}
                             disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
                           >
-                            {!primaryZiweiInput || !activeZiweiPayloadByScope ? (
-                              <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
-                            ) : (
-                              <span>{ziweiScopeSummaryText}</span>
-                            )}
+                            {!primaryZiweiInput || !activeZiweiPayloadByScope
+                              ? '年限…'
+                              : ziweiScopeSummaryText}
                           </button>
-                        </div>
-                      ) : null}
+                        ) : null}
 
-                      {promptState.promptSource === 'astrolabe' ? (
-                        <div className="field-card">
-                          <div className="field-header">
-                            <span>年限选择</span>
-                          </div>
+                        {promptState.promptSource === 'astrolabe' ? (
                           <button
                             type="button"
-                            className="place-trigger"
+                            className="ai-mobile-scope-btn"
                             onClick={() => setIsAstrolabeScopeModalOpen(true)}
                             disabled={!astrolabeCalculation.data}
                           >
-                            {!astrolabeCalculation.data ? (
-                              <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
-                            ) : (
-                              <span>{astrolabeScopeSummaryText}</span>
-                            )}
+                            {!astrolabeCalculation.data ? '年限…' : astrolabeScopeSummaryText}
                           </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {hasUnknownBirthTime &&
+                  (promptState.promptSource === 'bazi' ||
+                    promptState.promptSource === 'bazi-ziwei') ? (
+                    <div className="ai-mobile-hint">未知时辰，已自动三柱保守解析。</div>
+                  ) : null}
+                  {isAstrolabePromptSource && astrolabeCalculation.error ? (
+                    <div className="ai-mobile-hint ai-mobile-hint-error">
+                      {astrolabeCalculation.error}
+                    </div>
+                  ) : null}
+
+                  <AiChatPanel
+                    contextPrompt={aiContextPrompt}
+                    resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}`}
+                    onOpenInspiration={inspiration.open}
+                    externalInput={inspirationText}
+                    onExternalInputConsumed={() => setInspirationText('')}
+                    directSend={directSend}
+                    aiConfig={aiRequestConfig}
+                  />
+                </div>
+              ) : (
+                /* ── AI 桌面端：左栏设置+快捷，右栏对话 ── */
+                <div className="workspace-grid-ai">
+                  <section className="panel">
+                    <div className="panel-head">
+                      <div>
+                        <h2 className="prompt-settings-title">解析设置</h2>
+                        <p>选择排盘来源和分析年限，在右侧输入问题即可开始 AI 解析。</p>
+                      </div>
+                    </div>
+                    <div className="field-list">
+                      <div className="prompt-compact-grid">
+                        <label className="field-card">
+                          <div className="field-header">
+                            <span className="prompt-source-title">解析来源</span>
+                          </div>
+                          <select
+                            value={promptState.promptSource}
+                            onChange={(event) =>
+                              updatePromptState({
+                                promptSource: event.target.value as PromptSourceKey,
+                              })
+                            }
+                          >
+                            <option value="bazi">基于八字</option>
+                            <option value="ziwei" disabled={hasUnknownBirthTime}>
+                              {hasUnknownBirthTime ? '基于紫微（未知时辰不可用）' : '基于紫微'}
+                            </option>
+                            {inputState.analysisMode === 'single' ? (
+                              <option value="bazi-ziwei" disabled={hasUnknownBirthTime}>
+                                {hasUnknownBirthTime
+                                  ? '基于八字+紫微（未知时辰不可用）'
+                                  : '基于八字+紫微'}
+                              </option>
+                            ) : null}
+                            {hasAstrolabeChart ? <option value="astrolabe">基于星盘</option> : null}
+                          </select>
+                        </label>
+
+                        {(promptState.promptSource === 'bazi' ||
+                          promptState.promptSource === 'bazi-ziwei') &&
+                        inputState.analysisMode === 'single' &&
+                        !primaryHasUnknownTime ? (
+                          <div className="field-card">
+                            <div className="field-header">
+                              <span>年限选择</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="place-trigger"
+                              onClick={() => setIsBaziFortuneModalOpen(true)}
+                            >
+                              {isBaziFortuneSummaryLoading ? (
+                                <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
+                              ) : (
+                                <span>{baziFortuneSummaryText}</span>
+                              )}
+                            </button>
+                          </div>
+                        ) : null}
+
+                        {promptState.promptSource === 'ziwei' ? (
+                          <div className="field-card">
+                            <div className="field-header">
+                              <span>年限选择</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="place-trigger"
+                              onClick={() => setIsZiweiScopeModalOpen(true)}
+                              disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
+                            >
+                              {!primaryZiweiInput || !activeZiweiPayloadByScope ? (
+                                <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
+                              ) : (
+                                <span>{ziweiScopeSummaryText}</span>
+                              )}
+                            </button>
+                          </div>
+                        ) : null}
+
+                        {promptState.promptSource === 'astrolabe' ? (
+                          <div className="field-card">
+                            <div className="field-header">
+                              <span>年限选择</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="place-trigger"
+                              onClick={() => setIsAstrolabeScopeModalOpen(true)}
+                              disabled={!astrolabeCalculation.data}
+                            >
+                              {!astrolabeCalculation.data ? (
+                                <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
+                              ) : (
+                                <span>{astrolabeScopeSummaryText}</span>
+                              )}
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {promptState.promptSource === 'bazi' ||
+                      promptState.promptSource === 'bazi-ziwei' ? (
+                        <PromptShortcutPanel
+                          actions={getBaziShortcutActions(inputState.analysisMode)}
+                          activeMode={activeBaziShortcutMode}
+                          onApplyMode={handleAiShortcutClick}
+                          showCustomAndInspiration={false}
+                          showCustomAction={false}
+                          showInspirationAction={false}
+                          customDraft=""
+                          onCustomDraftChange={() => {}}
+                          customPlaceholder=""
+                          onOpenInspiration={() => {}}
+                          sections={
+                            inputState.analysisMode === 'single'
+                              ? singlePromptShortcutSections
+                              : undefined
+                          }
+                        />
+                      ) : null}
+
+                      {promptState.promptSource === 'ziwei' ? (
+                        <PromptShortcutPanel
+                          actions={getZiweiShortcutActions(inputState.analysisMode)}
+                          activeMode={activeZiweiShortcutMode}
+                          onApplyMode={handleAiShortcutClick}
+                          showCustomAndInspiration={false}
+                          showCustomAction={false}
+                          showInspirationAction={false}
+                          customDraft=""
+                          onCustomDraftChange={() => {}}
+                          customPlaceholder=""
+                          onOpenInspiration={() => {}}
+                          sections={
+                            inputState.analysisMode === 'single'
+                              ? singlePromptShortcutSections
+                              : undefined
+                          }
+                        />
+                      ) : null}
+
+                      {promptState.promptSource === 'astrolabe' ? (
+                        <PromptShortcutPanel
+                          actions={ASTROLABE_SHORTCUT_ACTIONS}
+                          activeMode={activeAstrolabeShortcutMode}
+                          onApplyMode={handleAiShortcutClick}
+                          showCustomAndInspiration={false}
+                          showCustomAction={false}
+                          showInspirationAction={false}
+                          customDraft=""
+                          onCustomDraftChange={() => {}}
+                          customPlaceholder=""
+                          onOpenInspiration={() => {}}
+                        />
+                      ) : null}
+
+                      {hasUnknownBirthTime &&
+                      (promptState.promptSource === 'bazi' ||
+                        promptState.promptSource === 'bazi-ziwei') ? (
+                        <div className="prompt-send-tip">
+                          当前存在未知时辰，已自动改为三柱保守解析，不会假定时柱。
                         </div>
                       ) : null}
+                      {isAstrolabePromptSource && astrolabeCalculation.error ? (
+                        <p className="error-text">{astrolabeCalculation.error}</p>
+                      ) : null}
                     </div>
+                  </section>
 
-                    {promptState.promptSource === 'bazi' ||
-                    promptState.promptSource === 'bazi-ziwei' ? (
-                      <PromptShortcutPanel
-                        actions={getBaziShortcutActions(inputState.analysisMode)}
-                        activeMode={activeBaziShortcutMode}
-                        onApplyMode={applyBaziShortcutMode}
-                        showCustomAndInspiration={inputState.analysisMode === 'single'}
-                        showCustomAction
-                        showInspirationAction={inputState.analysisMode === 'single'}
-                        customDraft={baziQuestionDraft}
-                        onCustomDraftChange={setBaziQuestionDraft}
-                        customPlaceholder={
-                          inputState.analysisMode === 'compatibility'
-                            ? '例如：我们适合继续合作，还是更适合保持边界？'
-                            : '例如：我近期适合换工作还是稳住？'
-                        }
-                        onOpenInspiration={inspiration.open}
-                        sections={
-                          inputState.analysisMode === 'single'
-                            ? singlePromptShortcutSections
-                            : undefined
-                        }
-                      />
-                    ) : null}
-
-                    {promptState.promptSource === 'ziwei' ? (
-                      <PromptShortcutPanel
-                        actions={getZiweiShortcutActions(inputState.analysisMode)}
-                        activeMode={activeZiweiShortcutMode}
-                        onApplyMode={applyZiweiShortcutMode}
-                        showCustomAndInspiration={inputState.analysisMode === 'single'}
-                        showCustomAction
-                        showInspirationAction={inputState.analysisMode === 'single'}
-                        customDraft={ziweiQuestionDraft}
-                        onCustomDraftChange={setZiweiQuestionDraft}
-                        customPlaceholder={
-                          inputState.analysisMode === 'compatibility'
-                            ? '例如：请直接分析我们这段关系更适合推进，还是先放慢节奏。'
-                            : '例如：请重点分析我这段时间该主动还是先稳住。'
-                        }
-                        onOpenInspiration={inspiration.open}
-                        sections={
-                          inputState.analysisMode === 'single'
-                            ? singlePromptShortcutSections
-                            : undefined
-                        }
-                      />
-                    ) : null}
-
-                    {promptState.promptSource === 'astrolabe' ? (
-                      <PromptShortcutPanel
-                        actions={ASTROLABE_SHORTCUT_ACTIONS}
-                        activeMode={activeAstrolabeShortcutMode}
-                        onApplyMode={applyAstrolabeShortcutMode}
-                        showCustomAndInspiration
-                        quickGridClassName="astrolabe-quick-grid"
-                        customDraft={astrolabeQuestionDraft}
-                        onCustomDraftChange={setAstrolabeQuestionDraft}
-                        customPlaceholder="例如：请重点分析我的事业天赋和长期发展方向。"
-                        onOpenInspiration={inspiration.open}
-                      />
-                    ) : null}
-                  </>
+                  <AiChatPanel
+                    contextPrompt={aiContextPrompt}
+                    resetKey={`${promptState.promptSource}-${promptState.baziFortuneScope}-${promptState.ziweiScope}`}
+                    onOpenInspiration={inspiration.open}
+                    externalInput={inspirationText}
+                    onExternalInputConsumed={() => setInspirationText('')}
+                    directSend={directSend}
+                    aiConfig={aiRequestConfig}
+                  />
                 </div>
-              </section>
+              )
+            ) : (
+              /* ── 非 AI 模式：原始布局，左侧设置+提示词快捷面板，右侧提示词正文 ── */
+              <div className="workspace-grid">
+                <section className="panel">
+                  <div className="panel-head">
+                    <div>
+                      <h2 className="prompt-settings-title">提示词设置</h2>
+                      <p>
+                        {hasAstrolabeChart
+                          ? '选择星盘解读重点，生成可复制给 AI 的提示词。'
+                          : '选择基于八字、紫微或八字+紫微的已选分析对象，再用快捷按钮生成问题。'}
+                      </p>
+                    </div>
+                  </div>
 
-              {hasUnknownBirthTime &&
-              (promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei') ? (
-                <div className="prompt-send-tip">
-                  当前存在未知时辰，已自动改为三柱保守解析，不会假定时柱。
-                </div>
-              ) : null}
-              {isAstrolabePromptSource && astrolabeCalculation.error ? (
-                <p className="error-text">{astrolabeCalculation.error}</p>
-              ) : null}
+                  <div className="field-list">
+                    <>
+                      <div className="prompt-compact-grid">
+                        <label className="field-card">
+                          <div className="field-header">
+                            <span className="prompt-source-title">提示词来源</span>
+                          </div>
+                          <select
+                            value={promptState.promptSource}
+                            onChange={(event) =>
+                              updatePromptState({
+                                promptSource: event.target.value as PromptSourceKey,
+                              })
+                            }
+                          >
+                            <option value="bazi">基于八字</option>
+                            <option value="ziwei" disabled={hasUnknownBirthTime}>
+                              {hasUnknownBirthTime ? '基于紫微（未知时辰不可用）' : '基于紫微'}
+                            </option>
+                            {inputState.analysisMode === 'single' ? (
+                              <option value="bazi-ziwei" disabled={hasUnknownBirthTime}>
+                                {hasUnknownBirthTime
+                                  ? '基于八字+紫微（未知时辰不可用）'
+                                  : '基于八字+紫微'}
+                              </option>
+                            ) : null}
+                            {hasAstrolabeChart ? <option value="astrolabe">基于星盘</option> : null}
+                          </select>
+                        </label>
 
-              <AiChatPanel prompt={previewActivePromptText} resetKey={previewActivePromptText} />
-            </div>
+                        {(promptState.promptSource === 'bazi' ||
+                          promptState.promptSource === 'bazi-ziwei') &&
+                        inputState.analysisMode === 'single' &&
+                        !primaryHasUnknownTime ? (
+                          <div className="field-card">
+                            <div className="field-header">
+                              <span>年限选择</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="place-trigger"
+                              onClick={() => setIsBaziFortuneModalOpen(true)}
+                            >
+                              {isBaziFortuneSummaryLoading ? (
+                                <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
+                              ) : (
+                                <span>{baziFortuneSummaryText}</span>
+                              )}
+                            </button>
+                          </div>
+                        ) : null}
+
+                        {promptState.promptSource === 'ziwei' ? (
+                          <div className="field-card">
+                            <div className="field-header">
+                              <span>年限选择</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="place-trigger"
+                              onClick={() => setIsZiweiScopeModalOpen(true)}
+                              disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
+                            >
+                              {!primaryZiweiInput || !activeZiweiPayloadByScope ? (
+                                <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
+                              ) : (
+                                <span>{ziweiScopeSummaryText}</span>
+                              )}
+                            </button>
+                          </div>
+                        ) : null}
+
+                        {promptState.promptSource === 'astrolabe' ? (
+                          <div className="field-card">
+                            <div className="field-header">
+                              <span>年限选择</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="place-trigger"
+                              onClick={() => setIsAstrolabeScopeModalOpen(true)}
+                              disabled={!astrolabeCalculation.data}
+                            >
+                              {!astrolabeCalculation.data ? (
+                                <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
+                              ) : (
+                                <span>{astrolabeScopeSummaryText}</span>
+                              )}
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {promptState.promptSource === 'bazi' ||
+                      promptState.promptSource === 'bazi-ziwei' ? (
+                        <PromptShortcutPanel
+                          actions={getBaziShortcutActions(inputState.analysisMode)}
+                          activeMode={activeBaziShortcutMode}
+                          onApplyMode={applyBaziShortcutMode}
+                          showCustomAndInspiration={inputState.analysisMode === 'single'}
+                          showCustomAction
+                          showInspirationAction={inputState.analysisMode === 'single'}
+                          customDraft={baziQuestionDraft}
+                          onCustomDraftChange={setBaziQuestionDraft}
+                          customPlaceholder={
+                            inputState.analysisMode === 'compatibility'
+                              ? '例如：我们适合继续合作，还是更适合保持边界？'
+                              : '例如：我近期适合换工作还是稳住？'
+                          }
+                          onOpenInspiration={inspiration.open}
+                          sections={
+                            inputState.analysisMode === 'single'
+                              ? singlePromptShortcutSections
+                              : undefined
+                          }
+                        />
+                      ) : null}
+
+                      {promptState.promptSource === 'ziwei' ? (
+                        <PromptShortcutPanel
+                          actions={getZiweiShortcutActions(inputState.analysisMode)}
+                          activeMode={activeZiweiShortcutMode}
+                          onApplyMode={applyZiweiShortcutMode}
+                          showCustomAndInspiration={inputState.analysisMode === 'single'}
+                          showCustomAction
+                          showInspirationAction={inputState.analysisMode === 'single'}
+                          customDraft={ziweiQuestionDraft}
+                          onCustomDraftChange={setZiweiQuestionDraft}
+                          customPlaceholder={
+                            inputState.analysisMode === 'compatibility'
+                              ? '例如：请直接分析我们这段关系更适合推进，还是先放慢节奏。'
+                              : '例如：请重点分析我这段时间该主动还是先稳住。'
+                          }
+                          onOpenInspiration={inspiration.open}
+                          sections={
+                            inputState.analysisMode === 'single'
+                              ? singlePromptShortcutSections
+                              : undefined
+                          }
+                        />
+                      ) : null}
+
+                      {promptState.promptSource === 'astrolabe' ? (
+                        <PromptShortcutPanel
+                          actions={ASTROLABE_SHORTCUT_ACTIONS}
+                          activeMode={activeAstrolabeShortcutMode}
+                          onApplyMode={applyAstrolabeShortcutMode}
+                          showCustomAndInspiration
+                          quickGridClassName="astrolabe-quick-grid"
+                          customDraft={astrolabeQuestionDraft}
+                          onCustomDraftChange={setAstrolabeQuestionDraft}
+                          customPlaceholder="例如：请重点分析我的事业天赋和长期发展方向。"
+                          onOpenInspiration={inspiration.open}
+                        />
+                      ) : null}
+                    </>
+                  </div>
+                </section>
+
+                {hasUnknownBirthTime &&
+                (promptState.promptSource === 'bazi' ||
+                  promptState.promptSource === 'bazi-ziwei') ? (
+                  <div className="prompt-send-tip">
+                    当前存在未知时辰，已自动改为三柱保守提示词，不会假定时柱。
+                  </div>
+                ) : null}
+                {isAstrolabePromptSource && astrolabeCalculation.error ? (
+                  <p className="error-text">{astrolabeCalculation.error}</p>
+                ) : null}
+
+                <section className="panel panel-output">
+                  <div className="panel-head">
+                    <div>
+                      <h2>提示词正文</h2>
+                      <p>系统要求和问题正文已合并，复制这一整段提示词即可。</p>
+                    </div>
+                    <div className="action-row compact-actions">
+                      <button
+                        className="copy-button secondary-button"
+                        type="button"
+                        onClick={handleCopy}
+                      >
+                        {copyState}
+                      </button>
+                      {showShareButton ? (
+                        <button className="copy-button" type="button" onClick={handleShare}>
+                          {shareState}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="prompt-send-tip">
+                    点击复制后，发送到你常用的在线 AI 软件继续提问。
+                  </div>
+                  {previewActivePromptText ? (
+                    <pre className="result-pre">{previewActivePromptText}</pre>
+                  ) : (
+                    <PromptPreSkeleton />
+                  )}
+                </section>
+              </div>
+            )
           ) : null}
         </div>
       </div>
@@ -1238,7 +1676,7 @@ export function ResultPage() {
           onSearchChange={inspiration.setSearch}
           sections={inspiration.filteredSections}
           emptyText="没有找到匹配的问题，请换个关键词或分类。"
-          onSelect={applyInspiredQuestion}
+          onSelect={handleInspirationSelect}
           onClose={inspiration.close}
         />
       ) : null}

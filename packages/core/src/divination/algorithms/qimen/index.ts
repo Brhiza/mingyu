@@ -30,7 +30,7 @@ import { getVoidBranches } from '../../../calendar/lunar';
 import { diPanPalaces, STEM_TOMB_MAP } from './helpers/_constants';
 import { getQimenJuShu, getZhiFuZhiShi, getZhiFuZhiShiByGanZhi, getDunJiaStem } from './helpers/jushu';
 import { getMonthQimenJuShu, getYearQimenJuShu } from './helpers/jushu-extended';
-import { arrangeJiuGongGe } from './helpers/layout';
+import { arrangeJiuGongGe, resolveZhiShiLandingPalace } from './helpers/layout';
 import { getQimenPatternTags, buildPatternDetails, buildPalaceInsights } from './helpers/patterns';
 import { getStemRelations, getClassicPatterns } from './helpers/classic-patterns';
 import { buildDirectionAdvice } from './helpers/directions';
@@ -248,10 +248,7 @@ export function generateQimen(
   if (zhiFuLandingPalace === undefined) {
     throw new Error(`找不到值符星 "${zhiFu}" 落宫。`);
   }
-  const zhiShiLandingPalace = diPanPalaces[activeZhi];
-  if (zhiShiLandingPalace === undefined) {
-    throw new Error(`找不到 "${activeZhi}" 对应的地盘宫位。`);
-  }
+  const zhiShiLandingPalace = resolveZhiShiLandingPalace(isYangDun, zhiShi, activeGanZhi);
 
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 6：基础格局标签
@@ -472,10 +469,10 @@ function checkDayRuMu(
   }
 }
 
-export type { QimenScope }; // re-export for consumer convenience
+export type { QimenScope, QimenMethod }; // re-export for consumer convenience
 
 // ============================================================================
 // 导出内部工具（供外部模块或测试使用）
 // ============================================================================
 
-export { getHorseBranch, resolveQimenBranchPalace };
+export { getHorseBranch, resolveQimenBranchPalace, resolveZhiShiLandingPalace };

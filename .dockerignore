@@ -1,7 +1,13 @@
 .git
 node_modules
 dist
+.wrangler
+.dev.vars
+.env
+.env.*
 .DS_Store
 npm-debug.log*
-Dockerfile
-docker-compose*.yml
+pnpm-debug.log*
+*.log
+coverage
+tsconfig*.tsbuildinfo

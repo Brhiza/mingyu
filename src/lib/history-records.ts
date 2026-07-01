@@ -7,6 +7,7 @@ const PERSONAL_HISTORY_STORAGE_KEY = 'prompt_studio_personal_history_v1';
 const COMPATIBILITY_HISTORY_STORAGE_KEY = 'prompt_studio_compatibility_history_v1';
 const DIVINATION_HISTORY_STORAGE_KEY = 'prompt_studio_divination_history_v1';
 const MAX_HISTORY_RECORDS = 20;
+const DEFAULT_CASE_NAME = '案例';
 
 type PersonalHistoryRecord = {
   id: string;
@@ -17,6 +18,7 @@ type PersonalHistoryRecord = {
   birthText: string;
   input: QueryInputState;
   updatedAt: string;
+  generatedName?: boolean;
 };
 
 type CompatibilityHistoryRecord = {
@@ -27,6 +29,8 @@ type CompatibilityHistoryRecord = {
   partnerName: string;
   input: QueryInputState;
   updatedAt: string;
+  primaryNameGenerated?: boolean;
+  partnerNameGenerated?: boolean;
 };
 
 export type DivinationHistoryRecord = {
@@ -51,6 +55,89 @@ function writeRecords<T>(key: string, records: T[]): boolean {
 
 function normalizeText(value: string) {
   return value.trim().toLowerCase();
+}
+
+function resolveAvailableCaseName(existingNames: string[], reservedNames: string[] = []) {
+  const usedNames = new Set([...existingNames, ...reservedNames].map(normalizeText));
+  if (!usedNames.has(normalizeText(DEFAULT_CASE_NAME))) {
+    return DEFAULT_CASE_NAME;
+  }
+
+  let index = 2;
+  while (usedNames.has(normalizeText(`${DEFAULT_CASE_NAME}${index}`))) {
+    index += 1;
+  }
+  return `${DEFAULT_CASE_NAME}${index}`;
+}
+
+function isSamePersonalHistoryInput(left: QueryInputState, right: QueryInputState) {
+  return (
+    left.chartType === right.chartType &&
+    left.gender === right.gender &&
+    left.dateType === right.dateType &&
+    left.year === right.year &&
+    left.month === right.month &&
+    left.day === right.day
+  );
+}
+
+function isSameCompatibilityHistoryInput(left: QueryInputState, right: QueryInputState) {
+  return (
+    left.gender === right.gender &&
+    left.partnerGender === right.partnerGender &&
+    left.year === right.year &&
+    left.month === right.month &&
+    left.day === right.day &&
+    left.partnerYear === right.partnerYear &&
+    left.partnerMonth === right.partnerMonth &&
+    left.partnerDay === right.partnerDay
+  );
+}
+
+function resolvePersonalRecordName(input: QueryInputState, records: PersonalHistoryRecord[]) {
+  const explicitName = input.name.trim();
+  if (explicitName) {
+    return {
+      name: explicitName,
+      generated: false,
+    };
+  }
+
+  const existingRecord = records.find(
+    (item) => item.generatedName && isSamePersonalHistoryInput(item.input, input),
+  );
+  return {
+    name: existingRecord?.name ?? resolveAvailableCaseName(records.map((item) => item.name)),
+    generated: true,
+  };
+}
+
+function resolveCompatibilityRecordNames(
+  input: QueryInputState,
+  records: CompatibilityHistoryRecord[],
+) {
+  const primaryExplicitName = input.name.trim();
+  const partnerExplicitName = input.partnerName.trim();
+  const existingRecord = records.find((item) => isSameCompatibilityHistoryInput(item.input, input));
+  const existingNames = records.flatMap((item) => [item.primaryName, item.partnerName]);
+
+  const primaryName = primaryExplicitName
+    ? primaryExplicitName
+    : existingRecord?.primaryNameGenerated
+      ? existingRecord.primaryName
+      : resolveAvailableCaseName(existingNames);
+  const partnerName = partnerExplicitName
+    ? partnerExplicitName
+    : existingRecord?.partnerNameGenerated
+      ? existingRecord.partnerName
+      : resolveAvailableCaseName(existingNames, [primaryName]);
+
+  return {
+    primaryName,
+    partnerName,
+    primaryGenerated: !primaryExplicitName,
+    partnerGenerated: !partnerExplicitName,
+  };
 }
 
 function buildBirthText(input: QueryInputState, role: 'self' | 'partner' = 'self') {
@@ -106,11 +193,12 @@ export function loadDivinationHistory() {
 }
 
 export function upsertPersonalHistory(input: QueryInputState) {
-  const name = input.name.trim();
-  if (!name || !input.year || !input.month || !input.day) {
+  if (!input.year || !input.month || !input.day) {
     return loadPersonalHistory();
   }
 
+  const records = loadPersonalHistory();
+  const { name, generated } = resolvePersonalRecordName(input, records);
   const id = [
     normalizeText(name),
     input.chartType,
@@ -131,22 +219,20 @@ export function upsertPersonalHistory(input: QueryInputState) {
     input: cloneInput({
       ...input,
       analysisMode: 'single',
+      name,
     }),
     updatedAt: new Date().toISOString(),
+    generatedName: generated,
   };
 
-  const next = [record, ...loadPersonalHistory().filter((item) => item.id !== id)];
+  const next = [record, ...records.filter((item) => item.id !== id)];
   writeRecords(PERSONAL_HISTORY_STORAGE_KEY, next);
   return next.slice(0, MAX_HISTORY_RECORDS);
 }
 
 export function upsertCompatibilityHistory(input: QueryInputState) {
-  const primaryName = input.name.trim();
-  const partnerName = input.partnerName.trim();
   if (
     input.analysisMode !== 'compatibility' ||
-    !primaryName ||
-    !partnerName ||
     !input.year ||
     !input.month ||
     !input.day ||
@@ -157,6 +243,9 @@ export function upsertCompatibilityHistory(input: QueryInputState) {
     return loadCompatibilityHistory();
   }
 
+  const records = loadCompatibilityHistory();
+  const { primaryName, partnerName, primaryGenerated, partnerGenerated } =
+    resolveCompatibilityRecordNames(input, records);
   const id = [
     normalizeText(primaryName),
     normalizeText(partnerName),
@@ -176,11 +265,17 @@ export function upsertCompatibilityHistory(input: QueryInputState) {
     name: `${primaryName} 和 ${partnerName}`,
     primaryName,
     partnerName,
-    input: cloneInput(input),
+    input: cloneInput({
+      ...input,
+      name: primaryName,
+      partnerName,
+    }),
     updatedAt: new Date().toISOString(),
+    primaryNameGenerated: primaryGenerated,
+    partnerNameGenerated: partnerGenerated,
   };
 
-  const next = [record, ...loadCompatibilityHistory().filter((item) => item.id !== id)];
+  const next = [record, ...records.filter((item) => item.id !== id)];
   writeRecords(COMPATIBILITY_HISTORY_STORAGE_KEY, next);
   return next.slice(0, MAX_HISTORY_RECORDS);
 }

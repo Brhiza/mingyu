@@ -1,1 +1,1 @@
-export * from './baziTherapeuticRules/index';
+export * from '../../../packages/core/src/bazi/baziTherapeuticRules';

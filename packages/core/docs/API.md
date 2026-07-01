@@ -46,8 +46,17 @@
 | `birthHour` | `number` | * | 真太阳时模式下的小时（0-23） |
 | `birthMinute` | `number` | * | 真太阳时模式下的分钟（0-59） |
 | `birthLongitude` | `number` | * | 出生地经度（-180~180） |
+| `shenShaVariants` | `Partial<ShenShaVariantConfig>` | | 神煞争议口径配置；不传时使用默认主流口径 |
 
 \* `timeIndex` 与真太阳时三参数二选一。
+
+**神煞争议口径 `shenShaVariants`：**
+
+| 字段 | 默认值 | 可选值 | 说明 |
+|------|--------|--------|------|
+| `kongWangBasis` | `day` | `day` / `day-and-year` | 空亡默认只按日柱旬空；兼容口径可同时参考年柱旬空 |
+| `yangRenMode` | `yang-stems-only` | `yang-stems-only` / `include-yin-ren` | 羊刃默认只取阳干帝旺；兼容口径可把阴干帝旺位作为阴刃并入 |
+| `tongZiScope` | `day-hour` | `day-hour` / `all-pillars` | 童子煞默认只查日柱、时柱；兼容口径可四柱同查 |
 
 **返回 `BaziChartResult`：**
 
@@ -164,11 +173,12 @@
 
 导入：`import { generateQimen } from 'mingyu-core/divination/qimen'`
 
-### `generateQimen(customDate?, method?)`
+### `generateQimen(customDate?, method?, scope?)`
 
 **参数：**
 - `customDate?: Date` — 排盘时间
-- `method?: QimenMethod` — 转盘法/飞盘法
+- `method?: QimenMethod` — 排盘方法，`zhuanpan` 为转盘法（默认主流口径），`feipan` 为飞盘法
+- `scope?: QimenScope` — 排盘级别，`hour`（默认）、`day`、`month`、`year`
 
 **返回 `QimenData`：** 含 13 步完整排盘：定局数（拆补法）、值符值使、九宫格（天地人神四盘）、基础格局标签、经典格局（九遁/三奇得使等）、宫位洞察、方位吉凶、应期估算（庚格法）、马星落宫、旬空。
 

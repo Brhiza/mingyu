@@ -24,7 +24,7 @@ function parseDevVars(filePath: string): Record<string, string> {
 }
 
 /**
- * Vite 开发服务器中间件：在本地开发时处理 /api/v1/ai/analyze 请求。
+ * Vite 开发服务器中间件：在本地开发时处理 /api/v1/ai/* 请求。
  * 生产环境由 Cloudflare Pages Functions 处理，此插件不生效。
  */
 function aiProxyDevPlugin(): Plugin {
@@ -32,7 +32,7 @@ function aiProxyDevPlugin(): Plugin {
     name: 'ai-proxy-dev',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        if (!req.url?.startsWith('/api/v1/ai/analyze')) return next();
+        if (!req.url?.startsWith('/api/v1/ai/')) return next();
         if (req.method === 'OPTIONS') {
           res.writeHead(204, {
             'Access-Control-Allow-Origin': '*',
@@ -45,7 +45,7 @@ function aiProxyDevPlugin(): Plugin {
         if (req.method !== 'POST') return next();
 
         // 动态导入共享代理逻辑
-        const { handleAiAnalyze } = await import('./src/lib/ai/proxy');
+        const { handleAiAnalyze, handleAiModels } = await import('./src/lib/ai/proxy');
 
         // 读取 .dev.vars 环境变量
         const devVars = parseDevVars(path.resolve(__dirname, '.dev.vars'));
@@ -62,7 +62,9 @@ function aiProxyDevPlugin(): Plugin {
           body,
         });
 
-        const response = await handleAiAnalyze(request, devVars);
+        const response = req.url.startsWith('/api/v1/ai/models')
+          ? await handleAiModels(request, devVars)
+          : await handleAiAnalyze(request, devVars);
 
         // 将 Web Response 写回 Node.js ServerResponse
         res.writeHead(response.status, Object.fromEntries(response.headers.entries()));
@@ -84,7 +86,23 @@ function aiProxyDevPlugin(): Plugin {
   };
 }
 
+// ── AI 功能开关 ──────────────────────────────────────
+// 不再因为配置了 AI_API_KEY 自动开启前端 AI。
+// AI_DEFAULT_ENABLED=true 且配置了 AI_API_KEY 时，页面默认打开 AI，并允许使用服务端 AI。
+const devAiVars = parseDevVars(path.resolve(__dirname, '.dev.vars'));
+const isAiDefaultEnabled =
+  (process.env.AI_DEFAULT_ENABLED ?? devAiVars.AI_DEFAULT_ENABLED) === 'true' &&
+  !!(devAiVars.AI_API_KEY || process.env.AI_API_KEY);
+const aiProviderName = process.env.AI_PROVIDER_NAME ?? devAiVars.AI_PROVIDER_NAME ?? '';
+
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_AI_ENABLED': JSON.stringify(isAiDefaultEnabled ? 'true' : 'false'),
+    'import.meta.env.VITE_AI_DEFAULT_ENABLED': JSON.stringify(
+      isAiDefaultEnabled ? 'true' : 'false',
+    ),
+    'import.meta.env.VITE_AI_PROVIDER_NAME': JSON.stringify(aiProviderName),
+  },
   plugins: [react(), aiProxyDevPlugin()],
   worker: {
     format: 'es',

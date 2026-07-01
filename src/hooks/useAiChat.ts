@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { streamAiChat, type ChatMessage } from '@/lib/ai/stream-client';
+import type { AiRequestConfig } from '@/lib/ai/settings';
 
 export type AiChatStatus = 'idle' | 'loading' | 'streaming' | 'done' | 'error';
 
@@ -21,13 +22,15 @@ export interface UseAiChat {
   analyze: (prompt: string) => void;
   /** 发送追问消息 */
   ask: (question: string) => void;
+  /** 恢复已保存的对话 */
+  restore: (turns: ChatTurn[]) => void;
   /** 重置整个对话 */
   reset: () => void;
   /** 取消当前请求 */
   cancel: () => void;
 }
 
-export function useAiChat(): UseAiChat {
+export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [streamingContent, setStreamingContent] = useState('');
   const [status, setStatus] = useState<AiChatStatus>('idle');
@@ -62,48 +65,64 @@ export function useAiChat(): UseAiChat {
     setHasStarted(false);
   }, []);
 
+  const restore = useCallback((nextTurns: ChatTurn[]) => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    streamingRef.current = '';
+    turnsRef.current = nextTurns;
+    setTurns(nextTurns);
+    setStreamingContent('');
+    setStatus(nextTurns.length ? 'done' : 'idle');
+    setError('');
+    setHasStarted(nextTurns.length > 0);
+  }, []);
+
   const cancel = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
     setStatus('idle');
   }, []);
 
-  const startStream = useCallback((messages: ChatMessage[]) => {
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
+  const startStream = useCallback(
+    (messages: ChatMessage[]) => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
 
-    setStatus('loading');
-    streamingRef.current = '';
-    setStreamingContent('');
-    setError('');
+      setStatus('loading');
+      streamingRef.current = '';
+      setStreamingContent('');
+      setError('');
 
-    streamAiChat(messages, {
-      signal: controller.signal,
-      onChunk: (text) => {
-        setStatus('streaming');
-        streamingRef.current += text;
-        setStreamingContent(streamingRef.current);
-      },
-      onDone: () => {
-        const finalContent = streamingRef.current;
-        streamingRef.current = '';
-        setStreamingContent('');
-        if (finalContent) {
-          setTurns((prev) => [...prev, { role: 'assistant', content: finalContent }]);
-        }
-        setStatus('done');
-        abortRef.current = null;
-      },
-      onError: (message) => {
-        setStatus('error');
-        setError(message);
-        streamingRef.current = '';
-        setStreamingContent('');
-        abortRef.current = null;
-      },
-    });
-  }, []);
+      streamAiChat(messages, {
+        signal: controller.signal,
+        aiConfig,
+        onChunk: (text) => {
+          setStatus('streaming');
+          streamingRef.current += text;
+          setStreamingContent(streamingRef.current);
+        },
+        onDone: () => {
+          const finalContent = streamingRef.current;
+          streamingRef.current = '';
+          setStreamingContent('');
+          if (finalContent) {
+            setTurns((prev) => [...prev, { role: 'assistant', content: finalContent }]);
+          }
+          setStatus('done');
+          abortRef.current = null;
+        },
+        onError: (message) => {
+          setStatus('error');
+          setError(message);
+          streamingRef.current = '';
+          setStreamingContent('');
+          abortRef.current = null;
+        },
+      });
+    },
+    [aiConfig],
+  );
 
   const analyze = useCallback(
     (prompt: string) => {
@@ -138,6 +157,7 @@ export function useAiChat(): UseAiChat {
     hasStarted,
     analyze,
     ask,
+    restore,
     reset,
     cancel,
   };

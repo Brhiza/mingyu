@@ -1,8 +1,8 @@
-import { BASIC_MAPPINGS, HIDDEN_STEMS, NAYIN_MAP, TWELVE_STAGES_MAP } from './baziDefinitions';
+import { HIDDEN_STEMS, NAYIN_MAP, TWELVE_STAGES_MAP } from './baziDefinitions';
+export { calculateKongWang } from './kongWang';
 import { getTenGod } from './baziUtils';
 import type {
   HiddenStems,
-  KongWangResult,
   Nayin,
   PillarLifeStages,
   Pillars,
@@ -63,28 +63,6 @@ export function calculateNayin(pillars: Pillars): Nayin {
     const pillar = pillars[key];
     result[key] = NAYIN_MAP[pillar.gan + pillar.zhi] || '未知';
   });
-  return result;
-}
-
-export function calculateKongWang(pillars: Pillars): KongWangResult {
-  const result = {} as KongWangResult;
-  const heavenlyStems = BASIC_MAPPINGS.HEAVENLY_STEMS as readonly string[];
-  const earthlyBranches = BASIC_MAPPINGS.EARTHLY_BRANCHES as readonly string[];
-
-  (Object.keys(pillars) as Array<keyof Pillars>).forEach((key) => {
-    const pillar = pillars[key];
-    const ganIndex = heavenlyStems.indexOf(pillar.gan);
-    const zhiIndex = earthlyBranches.indexOf(pillar.zhi);
-    if (ganIndex === -1 || zhiIndex === -1) {
-      result[key] = [];
-      return;
-    }
-
-    const emptyBranch1Index = (10 + zhiIndex - ganIndex) % 12;
-    const emptyBranch2Index = (11 + zhiIndex - ganIndex) % 12;
-    result[key] = [earthlyBranches[emptyBranch1Index], earthlyBranches[emptyBranch2Index]];
-  });
-
   return result;
 }
 

@@ -20,9 +20,18 @@ OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.jso
 
 公开 skill：[https://aov.cc/skills/aov-mingyu-api/SKILL.md](https://aov.cc/skills/aov-mingyu-api/SKILL.md)
 
+## 快速导航
+
+- [核心能力](#核心能力)
+- [集成方式](#集成方式)
+- [核心算法包](#核心算法包-mingyu-core)
+- [运行与部署方式](#运行与部署方式)
+- [模型评测](#模型评测)
+
 ## 核心能力
 
-### 命理排盘
+<details>
+<summary>命理排盘</summary>
 
 - 八字排盘：四柱、十神、藏干、纳音、神煞、大运、流年、旺衰、格局、用神与调候分析，支持传统派、盲派、新派流派指引。
 - 紫微斗数：基于 `iztro` 的完整命盘，支持本命、大限、流年、流月、流日、流时等数据范围，支持三合派、飞星派、四化派流派指引。
@@ -30,11 +39,14 @@ OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.jso
 - 合盘与关系分析：支持双方盘面结构化提示词，适配婚恋、合作、友情、亲子、父母、兄弟等场景。
 - 时辰反推：在用户不确定出生时辰时，生成保守的三柱分析与互动式反推提示词。
 
-### 占卜术数
+</details>
+
+<details>
+<summary>占卜术数</summary>
 
 - 六爻：京房八宫法排盘，包含纳甲、六亲、六神、世应、动变、空亡、日破、月破、化进神、化退神、六亲持世等信息。
 - 梅花易数：支持时间起卦、数字起卦、随机起卦、外应起卦，包含体用生克、四时旺衰与64卦完整爻辞。
-- 奇门遁甲：时家奇门转盘法/飞盘法，包含天地人神四盘、值符值使、格局标签（含入墓、击刑、伏吟反吟、门迫等）与宫位洞察。
+- 奇门遁甲：时家奇门默认转盘法，可通过 API 参数请求飞盘法，包含天地人神四盘、值符值使、格局标签（含入墓、击刑、伏吟反吟、门迫等）与宫位洞察。
 - 大六壬：天盘、四课、三传、月将、贵人、旬空、课体与断课模板。
 - 小六壬：大安、留连、速喜、赤口、小吉、空亡六宫起课，支持时间起课、数字起课与随机起课，输出起因、过程、结果三宫提示词。
 - 自定起卦时间：六爻、梅花易数、奇门遁甲、大六壬、小六壬可在网页端选择当前时间或自定北京时间；公开 API、MCP Server 和 skill 使用 `customDate` 传入带时区的 ISO 8601 时间。
@@ -42,22 +54,31 @@ OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.jso
 - 雷诺曼：36 张雷诺曼牌，支持单牌、时间流、爱情、事业、选择等牌阵。
 - 三山国王灵签：92 签灵签，源自广东潮汕三山国王祖庙，包含签题、签诗、典故故事与分类解签，体系完备。
 
-### 择吉择日
+</details>
+
+<details>
+<summary>择吉择日</summary>
 
 - 黄历择日：支持搬家入宅、订婚结婚、开业启动、签约合作、出行赴任、就医手术、考试学习、安葬修坟、修造动土等事项，按参与人生辰与事项类型推荐最佳日期并给出评分。
 
-### 模型评测
+</details>
+
+<details>
+<summary>模型评测</summary>
 
 - 内置 `2025年第十六届全球算命师比赛` 评测资料，包含原题、8 份提示词和 40 题正确答案。
 - 提示词已补入题目涉及年份、年龄段对应的大运、流年、年龄、十神和小运信息，方便直接评测不同模型的命理选择题表现。
 - 提供快速评测脚本，支持 OpenAI Chat Completions、OpenAI Responses、Claude Messages、Gemini generateContent 四种接口格式。
 - 评测结果按 100 分制输出，并同时给出准确率和逐题明细。
 
-## 给开发者
+</details>
+
+## 集成方式
 
 命语提供三种集成方式：公开 API、MCP Server、公开 skill。API 和 MCP 都支持一站式返回 `result` 与 `prompt`；六爻、梅花易数、奇门遁甲、大六壬、小六壬还支持通过 `customDate` 指定起卦或排盘时间。README 只保留快速入口和安装方式，接口参数、客户端配置和调用示例请跳转到对应文档。
 
-### 公开 API
+<details>
+<summary>公开 API</summary>
 
 无需安装，直接调用线上接口：
 
@@ -69,7 +90,10 @@ https://aov.cc/api/v1
 
 OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.json)
 
-### MCP Server
+</details>
+
+<details>
+<summary>MCP Server</summary>
 
 命语内置 MCP Server，让支持 MCP 的 AI 客户端直接调用本地排盘引擎，不需要用户手动复制 JSON 或提示词。
 
@@ -89,7 +113,10 @@ npm run mcp
 
 详细文档：[mcp/README.md](mcp/README.md)
 
-### 公开 skill
+</details>
+
+<details>
+<summary>公开 skill</summary>
 
 这个 skill 面向 AI 代理和开发者，说明如何通过 `aov.cc` 公开 API 完成排盘、占卜和提示词生成。
 
@@ -126,9 +153,14 @@ Invoke-WebRequest "https://aov.cc/skills/aov-mingyu-api/SKILL.md" `
 
 元数据发现：[https://aov.cc/.well-known/aov-mingyu-api.json](https://aov.cc/.well-known/aov-mingyu-api.json)
 
+</details>
+
 ## 核心算法包 `mingyu-core`
 
 命语的所有命理排盘与占卜算法已抽取为独立 npm 包 [`mingyu-core`](https://www.npmjs.com/package/mingyu-core)，本仓库以 pnpm workspace 形式同时维护应用与算法包。
+
+<details>
+<summary>安装和使用示例</summary>
 
 ```text
 mingyu/
@@ -171,6 +203,8 @@ import type { BaziChartResult, QimenData, LiurenData } from 'mingyu-core/types';
 
 算法包详细文档：[packages/core/README.md](packages/core/README.md)
 
+</details>
+
 ## 技术栈
 
 | 类别 | 技术 |
@@ -179,13 +213,16 @@ import type { BaziChartResult, QimenData, LiurenData } from 'mingyu-core/types';
 | 构建 | Vite 7 |
 | 路由 | React Router 7 |
 | 包管理 | pnpm workspace（应用层 + `mingyu-core` 算法包） |
-| 部署 | Cloudflare Pages、Pages Functions |
+| 部署 | Cloudflare Pages、Pages Functions、Docker |
 | 历法与星盘 | `tyme4ts`、`iztro`、`celestine` |
 | 数据校验 | `zod` |
 | 测试 | Node.js 原生测试运行器 |
 | AI 集成 | MCP Server、OpenAPI、skill 文档 |
 
 ## 项目结构
+
+<details>
+<summary>展开目录结构</summary>
 
 ```text
 mingyu/
@@ -200,6 +237,7 @@ mingyu/
 ├── public/
 │   ├── .well-known/           # 公开发现元数据
 │   └── skills/                # 公开 skill 文档
+├── server/                    # Docker 自部署服务入口
 ├── src/
 │   ├── components/            # 页面组件与通用 UI
 │   ├── lib/
@@ -215,7 +253,14 @@ mingyu/
 └── tests/                     # 单元测试与集成测试
 ```
 
-## 本地开发
+</details>
+
+## 运行与部署方式
+
+本项目支持本地开发、Cloudflare Pages 和 Docker 三种常用运行方式。AI 相关变量也放在这里，部署时可以一起配置。
+
+<details>
+<summary>本地开发</summary>
 
 本项目使用 pnpm workspace 管理应用层与 `mingyu-core` 算法包，需先安装 [pnpm](https://pnpm.io)：
 
@@ -265,9 +310,129 @@ pnpm --filter mingyu-core build
 npx tsc --project mcp/tsconfig.json --noEmit
 ```
 
+</details>
+
+<details>
+<summary>Cloudflare Pages 部署</summary>
+
+推荐部署到 Cloudflare Pages，静态页面由 Pages 托管，`/api/v1/*` 由 Pages Functions 处理。
+
+Pages 构建设置：
+
+| 配置项 | 值 |
+| --- | --- |
+| Build command | `pnpm build` |
+| Build output directory | `dist` |
+| Root directory | 仓库根目录 |
+| Node.js version | 建议 `22` |
+
+如果 Cloudflare 没有自动启用 pnpm，可在环境变量中添加：
+
+```text
+PNPM_VERSION=10
+```
+
+公开 API 路由来自 `functions/api/v1/[[path]].ts`，部署后可访问：
+
+```text
+https://你的域名/api/v1/manifest
+https://你的域名/api/v1/openapi.json
+```
+
+Cloudflare Pages 的环境变量在 Dashboard → Settings → Environment variables 中配置。密钥不要写进代码仓库。
+
+</details>
+
+<details>
+<summary>Docker 部署</summary>
+
+Docker 镜像会构建前端页面，并在容器内启动一个 Node 服务，同时提供：
+
+- 网页访问
+- `/api/v1/*` 公开 API
+- `/api/v1/ai/analyze` 流式 AI 解读
+- `/api/v1/ai/models` 模型列表获取
+
+构建镜像：
+
+```bash
+docker build -t mingyu .
+```
+
+启动基础服务：
+
+```bash
+docker run --rm -p 3000:3000 mingyu
+```
+
+访问：
+
+```text
+http://localhost:3000
+```
+
+带服务端 AI 启动：
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e AI_API_KEY=sk-xxx \
+  -e AI_BASE_URL=https://api.deepseek.com/v1 \
+  -e AI_MODEL=deepseek-chat \
+  -e AI_PROVIDER_NAME=DeepSeek \
+  -e AI_DEFAULT_ENABLED=true \
+  mingyu
+```
+
+也可以使用 Docker Compose：
+
+```bash
+docker compose up --build
+```
+
+Compose 会读取本地 `.env`。可以在本地 `.env` 中填写下面内容，但不要提交这个文件：
+
+```text
+AI_API_KEY=sk-xxx
+AI_BASE_URL=https://api.deepseek.com/v1
+AI_MODEL=deepseek-chat
+AI_PROVIDER_NAME=DeepSeek
+AI_DEFAULT_ENABLED=true
+```
+
+默认端口是 `3000`。如需修改容器内端口，可设置 `PORT`；如需修改宿主机端口，调整 compose 或 `docker run` 的 `-p` 左侧端口。
+
+</details>
+
+<details>
+<summary>服务端 AI（内置 AI）配置</summary>
+
+命语支持两种 AI 使用方式：
+
+- 用户在首页顶部齿轮中自行填写 OpenAI 兼容接口，API Key 只保存在用户自己的浏览器。
+- 站点部署者在服务端配置 AI，前端会显示一个可选服务商。这个能力也可以理解为“内置 AI”。
+
+服务端 AI 环境变量：
+
+| 变量 | 说明 |
+| --- | --- |
+| `AI_API_KEY` | 服务端调用模型的密钥 |
+| `AI_BASE_URL` | OpenAI 兼容接口地址，例如 `https://api.deepseek.com/v1` |
+| `AI_MODEL` | 默认模型名称 |
+| `AI_PROVIDER_NAME` | 前端显示的服务商名称，可自行命名 |
+| `AI_DEFAULT_ENABLED` | 设为 `true` 时，才默认显示并启用服务端 AI |
+
+只配置 `AI_API_KEY` 不会自动打开服务端 AI；必须同时设置 `AI_DEFAULT_ENABLED=true`。如果不启用，前端不会提示服务端 AI，用户仍可通过齿轮自行填写自己的接口。
+
+`.dev.vars.example` 提供了本地和 Cloudflare 可参考的变量模板。公开站点启用服务端 AI 会产生调用成本，也可能受上游模型稳定性影响，建议先确认额度、限流和可用性。
+
+</details>
+
 ## 模型评测
 
 比赛资料位于：[docs/2025第十六届全球算命师比赛](docs/2025第十六届全球算命师比赛)
+
+<details>
+<summary>展开评测命令和参数</summary>
 
 交互式运行：
 
@@ -303,6 +468,8 @@ npm run contest:evaluate -- --format chat --url https://openrouter.ai/api/v1 --k
 | `gemini` | Gemini generateContent | `https://generativelanguage.googleapis.com/v1beta` |
 
 不传 `--format` 时会自动识别；评测报告会保存到比赛资料目录下的 `评测结果/`。
+
+</details>
 
 ## 适合贡献的方向
 

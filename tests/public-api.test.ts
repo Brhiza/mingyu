@@ -9,6 +9,7 @@ import {
 import { baziCalculator } from '../src/utils/bazi/baziCalculator';
 import { calculateTrueSolarTime } from '../src/utils/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
+import { generateQimen } from 'mingyu-core/divination/qimen';
 
 async function callApi(path: string, init?: RequestInit) {
   const request = new Request(`https://aov.cc/api/v1/${path}`, init);
@@ -272,6 +273,18 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     body.data.components.schemas.ZiweiRequest.properties.promptScope.description,
     /避免一次性生成全部运限/,
   );
+  assert.equal(
+    body.data.components.schemas.BaziRequest.properties.shenShaVariants.$ref,
+    '#/components/schemas/ShenShaVariants',
+  );
+  assert.match(
+    body.data.components.schemas.ShenShaVariants.description,
+    /默认主流口径/,
+  );
+  assert.deepEqual(body.data.components.schemas.ShenShaVariants.properties.kongWangBasis.enum, [
+    'day',
+    'day-and-year',
+  ]);
 });
 
 test('公开 API 应支持八字排盘', async () => {
@@ -292,6 +305,74 @@ test('公开 API 应支持八字排盘', async () => {
   assert.equal(body.ok, true);
   assert.equal(body.data.pillars.day.ganZhi.length, 2);
   assert.equal(body.data.gender, 'male');
+});
+
+test('公开 API 八字神煞默认使用主流口径', async () => {
+  const { response, body } = await callApi('bazi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      gender: 'male',
+      year: 1980,
+      month: 1,
+      day: 1,
+      timeIndex: 0,
+      dateType: 'solar',
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.deepEqual(body.data.kongWang.year, ['子', '丑']);
+  assert.deepEqual(body.data.kongWang.day, ['戌', '亥']);
+  assert.ok(!body.data.shensha.month.includes('空亡'));
+  assert.ok(!body.data.shensha.hour.includes('空亡'));
+});
+
+test('公开 API 八字可通过 shenShaVariants 请求兼容争议口径', async () => {
+  const { response, body } = await callApi('bazi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      gender: 'male',
+      year: 1980,
+      month: 1,
+      day: 1,
+      timeIndex: 0,
+      dateType: 'solar',
+      shenShaVariants: {
+        kongWangBasis: 'day-and-year',
+      },
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.ok(body.data.shensha.month.includes('空亡'));
+  assert.ok(body.data.shensha.hour.includes('空亡'));
+});
+
+test('公开 API 八字 shenShaVariants 非法值应返回参数错误', async () => {
+  const { response, body } = await callApi('bazi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      gender: 'male',
+      year: 1980,
+      month: 1,
+      day: 1,
+      timeIndex: 0,
+      dateType: 'solar',
+      shenShaVariants: {
+        kongWangBasis: 'year',
+      },
+    }),
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(body.ok, false);
+  assert.equal(body.error.code, 'BAD_REQUEST');
+  assert.match(body.error.message, /kongWangBasis 必须是以下值之一/);
 });
 
 test('公开 API 八字排盘接口只返回排盘结果', async () => {
@@ -1326,6 +1407,75 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
   assert.equal(body.data.spreadType, 'single');
   assert.equal(body.data.cards.length, 1);
   assert.equal(typeof body.data.cards[0].name, 'string');
+});
+
+test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async () => {
+  const customDate = '2025-01-01T08:00:00+08:00';
+  const zhuanpanStars = generateQimen(new Date(customDate), 'zhuanpan').jiuGongGe.map(
+    (gong) => gong.tianPan.star,
+  );
+  const feipanStars = generateQimen(new Date(customDate), 'feipan').jiuGongGe.map(
+    (gong) => gong.tianPan.star,
+  );
+
+  const defaultResult = await callApi('divination/qimen', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customDate }),
+  });
+  assert.equal(defaultResult.response.status, 200);
+  assert.equal(defaultResult.body.ok, true);
+  assert.deepEqual(
+    defaultResult.body.data.jiuGongGe.map((gong: { tianPan: { star: string } }) => gong.tianPan.star),
+    zhuanpanStars,
+  );
+
+  const feipanResult = await callApi('divination/qimen', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customDate, qimenMethod: 'feipan' }),
+  });
+  assert.equal(feipanResult.response.status, 200);
+  assert.equal(feipanResult.body.ok, true);
+  assert.deepEqual(
+    feipanResult.body.data.jiuGongGe.map((gong: { tianPan: { star: string } }) => gong.tianPan.star),
+    feipanStars,
+  );
+  assert.notDeepEqual(feipanStars, zhuanpanStars);
+
+  const feipanPrompt = await callApi('divination/qimen/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      customDate,
+      qimenMethod: 'feipan',
+      question: '我近期事业应该注意什么？',
+    }),
+  });
+  assert.equal(feipanPrompt.response.status, 200);
+  assert.equal(feipanPrompt.body.ok, true);
+  assert.deepEqual(
+    feipanPrompt.body.data.result.jiuGongGe.map(
+      (gong: { tianPan: { star: string } }) => gong.tianPan.star,
+    ),
+    feipanStars,
+  );
+});
+
+test('公开 API 奇门 qimenMethod 非法值应返回参数错误', async () => {
+  const { response, body } = await callApi('divination/qimen', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      customDate: '2025-01-01T08:00:00+08:00',
+      qimenMethod: 'unknown',
+    }),
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(body.ok, false);
+  assert.equal(body.error.code, 'BAD_REQUEST');
+  assert.match(body.error.message, /qimenMethod 必须是以下值之一/);
 });
 
 test('公开 API 可选请求体接口无请求体时仍应使用默认参数', async () => {

@@ -5,7 +5,7 @@ import type { RuleContext, ShenShaRuleMap } from './types';
  * 吉日凶煞神煞规则
  */
 export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
-  const { zhi, pillarIndex, yueZhi, riGan, riGZ, pillarGZ, ctg } = ctx;
+  const { zhi, pillarIndex, yueZhi, riGan, riGZ, pillarGZ, ctg, variants } = ctx;
 
   return {
     天赦日: () => {
@@ -111,7 +111,9 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
       return badDays.includes(riGZ);
     },
     童子煞: () => {
-      if (pillarIndex !== 2 && pillarIndex !== 3) return false;
+      if (variants.tongZiScope === 'day-hour' && pillarIndex !== 2 && pillarIndex !== 3) {
+        return false;
+      }
       const seasonMap: Record<string, string> = {
         寅: '春',
         卯: '春',

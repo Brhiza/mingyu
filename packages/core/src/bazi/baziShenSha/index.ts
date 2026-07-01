@@ -1,6 +1,6 @@
 /**
  * 八字神煞计算模块
- * 统一采用当前项目固定口径的神煞计算逻辑
+ * 默认采用主流口径，争议算法通过 options.variants 保留可切换分支。
  */
 
 import { BASIC_MAPPINGS } from '../baziDefinitions';
@@ -13,6 +13,23 @@ import { buildDisasterRules } from './helpers/disasterRules';
 import { analyzeGlobalShenSha, calculateGlobalShenSha } from './helpers/globalRules';
 import { analyzeShenShaWithTenGod } from './helpers/tenGodAnalysis';
 import type { BaziArray, PillarKey, RuleContext } from './helpers/types';
+import {
+  resolveShenShaVariantConfig,
+  type ShenShaCalculatorOptions,
+  type ShenShaVariantConfig,
+} from './variants';
+
+export {
+  DEFAULT_SHENSHA_VARIANT_CONFIG,
+  resolveShenShaVariantConfig,
+} from './variants';
+export type {
+  ShenShaCalculatorOptions,
+  ShenShaKongWangBasis,
+  ShenShaTongZiScope,
+  ShenShaVariantConfig,
+  ShenShaYangRenMode,
+} from './variants';
 
 /**
  * 神煞计算器
@@ -20,10 +37,12 @@ import type { BaziArray, PillarKey, RuleContext } from './helpers/types';
 export class ShenShaCalculator {
   private ctg: readonly string[];
   private cdz: readonly string[];
+  private variants: ShenShaVariantConfig;
 
-  constructor() {
+  constructor(options: ShenShaCalculatorOptions = {}) {
     this.ctg = BASIC_MAPPINGS.HEAVENLY_STEMS;
     this.cdz = BASIC_MAPPINGS.EARTHLY_BRANCHES;
+    this.variants = resolveShenShaVariantConfig(options.variants);
   }
 
   /**
@@ -106,6 +125,7 @@ export class ShenShaCalculator {
       ctg: this.ctg,
       cdz: this.cdz,
       zhiIdx: (z: string) => this.zhiIdx(z),
+      variants: this.variants,
     };
 
     const rules = {

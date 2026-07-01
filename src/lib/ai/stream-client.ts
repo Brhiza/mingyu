@@ -5,6 +5,8 @@
  * 逐 token 回调更新 UI。
  */
 
+import type { AiRequestConfig } from './settings';
+
 export interface StreamCallbacks {
   onChunk: (text: string) => void;
   onDone: () => void;
@@ -14,37 +16,10 @@ export interface StreamCallbacks {
 export interface StreamOptions extends StreamCallbacks {
   /** AbortSignal 用于取消请求 */
   signal?: AbortSignal;
+  aiConfig?: AiRequestConfig;
 }
 
 export type ChatMessage = { role: 'user' | 'assistant'; content: string };
-
-/**
- * 发送提示词到 AI 解析端点，流式接收回复（单轮，向后兼容）。
- *
- * @param prompt 完整的提示词文本
- * @param options 回调和可选的 AbortSignal
- * @returns fetch Response（流已消费完毕）
- */
-export async function streamAiAnalysis(prompt: string, options: StreamOptions) {
-  const { onChunk, onDone, onError, signal } = options;
-
-  try {
-    const response = await fetch('/api/v1/ai/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt }),
-      signal,
-    });
-
-    await consumeSseStream(response, { onChunk, onDone, onError });
-  } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      onDone();
-      return;
-    }
-    onError(err instanceof Error ? err.message : '网络请求异常');
-  }
-}
 
 /**
  * 发送多轮对话消息到 AI 解析端点，流式接收回复。
@@ -53,13 +28,13 @@ export async function streamAiAnalysis(prompt: string, options: StreamOptions) {
  * @param options 回调和可选的 AbortSignal
  */
 export async function streamAiChat(messages: ChatMessage[], options: StreamOptions) {
-  const { onChunk, onDone, onError, signal } = options;
+  const { onChunk, onDone, onError, signal, aiConfig } = options;
 
   try {
     const response = await fetch('/api/v1/ai/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({ messages, aiConfig }),
       signal,
     });
 
@@ -71,6 +46,33 @@ export async function streamAiChat(messages: ChatMessage[], options: StreamOptio
     }
     onError(err instanceof Error ? err.message : '网络请求异常');
   }
+}
+
+export async function fetchAiModels(aiConfig: AiRequestConfig): Promise<string[]> {
+  const response = await fetch('/api/v1/ai/models', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ aiConfig }),
+  });
+
+  if (!response.ok) {
+    let message = `获取模型失败（${response.status}）`;
+    try {
+      const data = await response.json();
+      if (data?.error?.message) {
+        message = data.error.message;
+      }
+    } catch {
+      // 忽略 JSON 解析失败
+    }
+    throw new Error(message);
+  }
+
+  const data = await response.json();
+  const models = Array.isArray(data?.models) ? data.models : [];
+  return models.filter(
+    (item: unknown): item is string => typeof item === 'string' && item.length > 0,
+  );
 }
 
 /**

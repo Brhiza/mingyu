@@ -67,3 +67,19 @@ test('六爻：动爻变爻输出回头生克冲化空比和关系', () => {
     }
   }
 });
+
+test('六爻：三合局应区分日辰与月建的实际参与', () => {
+  const data = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'));
+
+  assert.equal(data.ganzhi.month.slice(1), '子');
+  assert.equal(data.ganzhi.day.slice(1), '午');
+  assert.deepEqual(data.najiaDizhi, ['寅', '辰', '午', '申', '戌', '子']);
+
+  assert.equal(data.sanheWithDay?.group, '火局');
+  assert.deepEqual(data.sanheWithDay?.members, ['寅', '午', '戌']);
+  assert.match(data.sanheWithDay?.description || '', /日辰午引动三合火局/);
+
+  assert.equal(data.sanheWithMonth?.group, '水局');
+  assert.deepEqual(data.sanheWithMonth?.members, ['申', '子', '辰']);
+  assert.match(data.sanheWithMonth?.description || '', /月建子引动三合水局/);
+});

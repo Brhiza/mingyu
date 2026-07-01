@@ -66,7 +66,9 @@ function filterPromptStrategyTrace(strategyTrace: string[] | undefined): string[
     const normalized = trace.trim();
     if (!normalized) return false;
 
-    return !['成格层次:', '成格转轻:', '病药提示:'].some((prefix) => normalized.startsWith(prefix));
+    return !['成格层次:', '成格转轻:', '病药提示:', '运势警语:'].some((prefix) =>
+      normalized.startsWith(prefix),
+    );
   });
 }
 
@@ -220,6 +222,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   result += '\n【四柱】\n';
   const pillarNames = ['年柱', '月柱', '日柱', '时柱'] as const;
   const keys: Array<keyof typeof pillars> = ['year', 'month', 'day', 'hour'];
+  const dayKongWangBranches = baziResult.kongWang?.day || [];
 
   keys.forEach((key, index) => {
     const pillar = pillars[key];
@@ -227,7 +230,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     const nayinValue = nayin?.[key] || '';
     const lifeStage = pillarLifeStages?.[key] || '';
     const shenShaValue = shensha?.[key]?.join(',') || '';
-    const kongWangFlag = shenShaValue.includes('空亡') ? '(空亡)' : '';
+    const kongWangFlag = dayKongWangBranches.includes(pillar.zhi) ? '(空亡)' : '';
     const hiddenStemValues = hiddenStems?.[key] || [];
     const hiddenTenGodValues = hiddenTenGods?.[key] || [];
     const dayMasterLifeStage = baziResult.lifeStages?.[key] || '';

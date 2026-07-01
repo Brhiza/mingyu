@@ -16,12 +16,12 @@ export function getManualChunk(id: string) {
   }
 
   if (
-    id.includes('src/lib/iztro') ||
+    id.includes('packages/core/src/bazi') ||
+    id.includes('packages/core/src/ziwei/iztro') ||
     id.includes('src/lib/ziwei-') ||
     id.includes('src/lib/full-chart-engine.ts') ||
     id.includes('src/lib/full-chart-engine/') ||
     id.includes('src/types/analysis.ts') ||
-    id.includes('src/utils/bazi') ||
     id.includes('src/utils/dateUtils.ts')
   ) {
     return 'chart-engine';

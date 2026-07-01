@@ -20,7 +20,7 @@ import {
   doorElements,
   auspiciousDoors,
   sanQiStems,
-  palaceBranches,
+  STEM_TOMB_MAP,
   isGenerating,
   isControlling,
 } from './_constants';
@@ -73,47 +73,44 @@ export interface StemRelation {
 /** 三奇 */
 const sanQi = sanQiStems;
 
-/**
- * 干入墓表：天干在某地支为墓库（用于宫位的地支）
- * 《烟波钓叟歌》：「十干入墓主事迟」
- * 甲墓在未（坤2）、丙墓在戌（乾6）、丁墓在丑（艮8）、
- * 乙墓在未（坤2）、庚/辛墓在丑（艮8）、壬/癸墓在辰（巽4）
- * 戊/己随支同墓。
- */
-const stemTombBranch: Record<string, string> = {
-  甲: '未',
-  乙: '未',
-  丙: '戌',
-  戊: '戌',
-  丁: '丑',
-  己: '丑',
-  庚: '丑',
-  辛: '丑',
-  壬: '辰',
-  癸: '辰',
-};
+const getStemTombBranch = (stem: string): string | undefined => STEM_TOMB_MAP[stem]?.branch;
+const getStemTombPalace = (stem: string): number | undefined => STEM_TOMB_MAP[stem]?.palace;
 
-/**
- * 天干入墓宫（直接按宫编号即可判定的简化表）
- * 《奇门遁甲秘籍大全》论入墓：
- *   乙入坤2（未墓），丙入乾6（戌墓），丁入艮8（丑墓），
- *   戊入乾6（戌墓），己入巽4（辰墓），
- *   庚入坤2（未墓），辛入艮8（丑墓），
- *   壬入巽4（辰墓），癸入巽4（辰墓）
- *
- * 注：与 _constants STEM_TOMB_MAP 保持一致。
- */
-const stemTombPalace: Record<string, number[]> = {
-  甲: [2],
-  乙: [2],
-  丙: [6],
-  丁: [8],
-  戊: [6],
-  己: [4],
-  庚: [2],
-  辛: [8],
-  壬: [4],
-  癸: [4],
+const sanQiRuMuConfig: Record<
+  string,
+  {
+    key: string;
+    name: string;
+    score: number;
+    result: string;
+    modern: string;
+    manifestation: string;
+  }
+> = {
+  乙: {
+    key: 'yiRuMu',
+    name: '日奇入墓',
+    score: -4,
+    result: '主协商不力',
+    modern: '柔和的事今天发挥不出来，遇到顺势就走，别强求。',
+    manifestation: '协商和文书发挥不出来、柔和方式效果弱',
+  },
+  丙: {
+    key: 'bingRuMu',
+    name: '月奇入墓',
+    score: -5,
+    result: '主展示不显',
+    modern: '今天对外推广、表达类的事难显效，先做内部准备。',
+    manifestation: '展示和表达类事难显效、对内准备更好',
+  },
+  丁: {
+    key: 'dingRuMu',
+    name: '星奇入墓',
+    score: -4,
+    result: '主智不展',
+    modern: '今天精细工作和暗中协调发挥不出来，劲使在能落地的事上。',
+    manifestation: '精细工作发挥不出来、暗中协调效果弱',
+  },
 };
 
 /**
@@ -573,46 +570,23 @@ function getSanQiRuMuPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
   jiuGongGe.forEach((palace) => {
     const heaven = palace.tianPan.stem;
     const gong = palace.gong;
+    const config = sanQiRuMuConfig[heaven];
+    const tombPalace = getStemTombPalace(heaven);
+    const tombBranch = getStemTombBranch(heaven);
 
-    if (heaven === '乙' && gong === 2) {
-      out.push({
-        key: `pattern:yiRuMu:${gong}`,
-        name: '日奇入墓',
-        tone: 'bad',
-        score: -4,
-        summary: '乙奇入坤二宫（乙墓在未），日奇入墓，主协商不力。',
-        modern: '柔和的事今天发挥不出来，遇到顺势就走，别强求。',
-        manifestation: '协商和文书发挥不出来、柔和方式效果弱',
-        palace: gong,
-        tokens: ['乙', '坤二'],
-      });
-    }
-    if (heaven === '丙' && gong === 6) {
-      out.push({
-        key: `pattern:bingRuMu:${gong}`,
-        name: '月奇入墓',
-        tone: 'bad',
-        score: -5,
-        summary: '丙奇入乾六宫（丙墓在戌），月奇入墓，主展示不显。',
-        modern: '今天对外推广、表达类的事难显效，先做内部准备。',
-        manifestation: '展示和表达类事难显效、对内准备更好',
-        palace: gong,
-        tokens: ['丙', '乾六'],
-      });
-    }
-    if (heaven === '丁' && gong === 8) {
-      out.push({
-        key: `pattern:dingRuMu:${gong}`,
-        name: '星奇入墓',
-        tone: 'bad',
-        score: -4,
-        summary: '丁奇入艮八宫（丁墓在丑），星奇入墓，主智不展。',
-        modern: '今天精细工作和暗中协调发挥不出来，劲使在能落地的事上。',
-        manifestation: '精细工作发挥不出来、暗中协调效果弱',
-        palace: gong,
-        tokens: ['丁', '艮八'],
-      });
-    }
+    if (!config || tombPalace !== gong || !tombBranch) return;
+
+    out.push({
+      key: `pattern:${config.key}:${gong}`,
+      name: config.name,
+      tone: 'bad',
+      score: config.score,
+      summary: `${heaven}奇入${palace.name}（${heaven}墓在${tombBranch}），${config.name}，${config.result}。`,
+      modern: config.modern,
+      manifestation: config.manifestation,
+      palace: gong,
+      tokens: [heaven, palace.name],
+    });
   });
 
   return out;
@@ -981,11 +955,10 @@ function getJiXingPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
  * 《烟波钓叟歌》：「十干入墓主事迟」
  * 天干入墓宫，主能量收敛、事情停滞或难以施展。
  *
- * 墓宫对照：
- *   乙入坤2（未墓），丙入乾6（戌墓），丁入艮8（丑墓），
- *   戊入中5（戌墓），己入中5（丑墓），
- *   庚入坤2（丑墓寄坤），辛入艮8（丑墓），
- *   壬入巽4（辰墓），癸入离9（巳墓）
+ * 墓宫以 _constants.STEM_TOMB_MAP 为唯一来源：
+ *   乙入未（坤2），丙入戌（乾6），丁入丑（艮8），
+ *   戊入戌（乾6），己入辰（巽4），庚入未（坤2），
+ *   辛入丑（艮8），壬入辰（巽4），癸入辰（巽4）
  *
  * @param jiuGongGe - 九宫格数据
  * @param position - 检查天盘或地盘，默认为天盘
@@ -1001,16 +974,17 @@ function getRuMuPatterns(
     const stem = position === 'tianPan' ? palace.tianPan.stem : palace.diPan.stem;
     if (!stem) return;
 
-    const muGongs = stemTombPalace[stem];
-    if (!muGongs) return;
+    const muGong = getStemTombPalace(stem);
+    if (!muGong) return;
 
-    if (muGongs.includes(palace.gong)) {
+    if (muGong === palace.gong) {
+      const tombBranch = getStemTombBranch(stem);
       out.push({
         key: `pattern:ruMu:${stem}:${palace.gong}:${position === 'diPan' ? 'di' : 'tian'}`,
         name: `${stem}入墓`,
         tone: 'bad',
         score: -3,
-        summary: `${stem}在${palace.name}入墓，主能量收敛、事情停滞或难以施展。`,
+        summary: `${stem}在${palace.name}入墓${tombBranch ? `（墓在${tombBranch}）` : ''}，主能量收敛、事情停滞或难以施展。`,
         modern: `${stem}相关的方面今天劲使不出来，建议先做其他准备，等时机转好再推。`,
         manifestation: '能量收敛、进展缓慢',
         palace: palace.gong,
@@ -1048,17 +1022,18 @@ export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
     const he = stemElements[heaven];
     const ee = stemElements[earth];
 
-    // 入墓判断：天盘干入本宫的地支墓库（入墓与击刑可同宫并存，均独立判定）
-    const branches = palaceBranches[palace.gong] || [];
+    // 入墓判断：天盘干落入统一入墓表对应墓宫（入墓与击刑可同宫并存，均独立判定）
+    const tombPalace = getStemTombPalace(heaven);
+    const tombBranch = getStemTombBranch(heaven);
     let muHit = false;
-    if (branches.includes(stemTombBranch[heaven] || '')) {
+    if (tombPalace === palace.gong) {
       muHit = true;
       relations.push({
         heaven,
         earth,
         palace: palace.gong,
         type: '入墓',
-        note: `${heaven}入${palace.name}墓库，能量收敛，事情容易停在原地`,
+        note: `${heaven}入${palace.name}墓库${tombBranch ? `（墓在${tombBranch}）` : ''}，能量收敛，事情容易停在原地`,
       });
     }
 

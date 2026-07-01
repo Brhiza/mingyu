@@ -34,11 +34,6 @@ const SAN_QI_NAME: Record<string, string> = {
   丁: '丁奇（星奇）',
 };
 
-/** @deprecated 请使用 _constants 中统一导出的 STEM_TOMB_MAP */
-const RU_MU_MAP: Record<string, number> = Object.fromEntries(
-  Object.entries(STEM_TOMB_MAP).map(([stem, info]) => [stem, info.palace]),
-);
-
 /**
  * 击刑规则：时干落击刑宫
  * 《烟波钓叟歌》：「击刑之处防官非」
@@ -110,7 +105,7 @@ function getJiXingTag(stem: string, landingPalace: number, palaceName: string): 
  * @returns 入墓标签字符串，不命中时返回 null
  */
 function getRuMuTag(stem: string, landingPalace: number, palaceName: string): string | null {
-  const muPalace = RU_MU_MAP[stem];
+  const muPalace = STEM_TOMB_MAP[stem]?.palace;
   if (muPalace === landingPalace) {
     return `入墓（时干${stem}落${palaceName}）`;
   }

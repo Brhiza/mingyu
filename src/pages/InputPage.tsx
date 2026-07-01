@@ -16,6 +16,8 @@ import { useBirthPlace } from '@/hooks/useBirthPlace';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 import { PersonForm } from './InputPage.PersonForm';
 import { getFieldKey, getPersonValue, type SELF_FIELD_MAP } from './InputPage.field-helpers';
+import { AiSettingsModal } from '@/components/AiSettingsModal';
+import { useAiSettings } from '@/hooks/useAiSettings';
 
 type InputEntryMode = 'single' | 'compatibility' | 'divination' | 'almanac';
 
@@ -31,6 +33,8 @@ export function InputPage() {
   const [form, setForm] = useState<QueryInputState>(defaultInputState);
   const [entryMode, setEntryMode] = useState<InputEntryMode>('single');
   const [error, setError] = useState('');
+  const [aiSettings, setAiSettings] = useAiSettings();
+  const [isAiSettingsModalOpen, setIsAiSettingsModalOpen] = useState(false);
   const mainContentRef = useRef<HTMLDivElement | null>(null);
   const tutorialEntryRef = useRef<HTMLDivElement | null>(null);
   const [tutorialEntryPinned, setTutorialEntryPinned] = useState(false);
@@ -101,6 +105,20 @@ export function InputPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     form.analysisMode,
+    form.name,
+    form.gender,
+    form.dateType,
+    form.year,
+    form.month,
+    form.day,
+    form.timeIndex,
+    form.isLeapMonth,
+    form.useTrueSolarTime,
+    form.birthHour,
+    form.birthMinute,
+    form.birthPlace,
+    form.birthLongitude,
+    form.birthLatitude,
     form.partnerName,
     form.partnerGender,
     form.partnerDateType,
@@ -392,6 +410,15 @@ export function InputPage() {
                 ]}
                 onChange={updateEntryMode}
               />
+              <button
+                type="button"
+                className="top-ai-settings-icon-button"
+                onClick={() => setIsAiSettingsModalOpen(true)}
+                aria-label="AI 设置"
+                title="AI 设置"
+              >
+                <span aria-hidden="true">⚙</span>
+              </button>
             </div>
           </div>
 
@@ -488,6 +515,13 @@ export function InputPage() {
       </div>
 
       {birthPlace.isBirthPlaceModalOpen ? <BirthPlaceModal birthPlace={birthPlace} /> : null}
+      {isAiSettingsModalOpen ? (
+        <AiSettingsModal
+          settings={aiSettings}
+          onApply={setAiSettings}
+          onClose={() => setIsAiSettingsModalOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

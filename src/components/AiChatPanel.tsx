@@ -1,36 +1,39 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
-import { marked } from 'marked';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { marked } from '@/lib/marked-init';
 import { useAiChat } from '@/hooks/useAiChat';
-import type { AiChatStatus } from '@/hooks/useAiChat';
 import type { ChatTurn } from '@/hooks/useAiChat';
-
-// 配置 marked：启用 GFM 和换行转换
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-});
+import type { AiRequestConfig } from '@/lib/ai/settings';
+import { safeStorage } from '@/lib/safe-storage';
 
 interface AiChatPanelProps {
-  /** 完整的提示词文本（不展示给用户，仅发送给 AI） */
-  prompt: string;
-  /** 用于在提示词变化时重置对话的 key */
+  /** AI 上下文提示（排盘数据 + 设置摘要，不含用户问题） */
+  contextPrompt: string;
+  /** 用于在 contextPrompt 变化时重置对话的 key */
   resetKey?: string;
+  /** 问题灵感弹窗 */
+  onOpenInspiration?: () => void;
+  /** 外部设置输入框文本（如从灵感选取，填入后用户手动发送） */
+  externalInput?: string;
+  /** 外部输入已被使用的回调 */
+  onExternalInputConsumed?: () => void;
+  /** 直接发送文本（点击快捷按钮时立即发送，不经过输入框） */
+  directSend?: { text: string; id: string };
+  /** 自动发送的完整文本（占卜页：session.prompt 已含问题），首次或变化时自动发送 */
+  autoStart?: string;
+  /** autoStart 变化触发的 key（通常等于 autoStart） */
+  autoStartKey?: string;
+  /** AI 对话历史缓存 key；不传时根据 resetKey/contextPrompt 自动生成 */
+  historyKey?: string;
+  aiConfig?: AiRequestConfig;
 }
 
-function analyzeButtonLabel(status: AiChatStatus): string {
-  switch (status) {
-    case 'loading':
-      return '正在连接…';
-    case 'streaming':
-      return '解析中…';
-    case 'done':
-      return '重新解析';
-    case 'error':
-      return '重试';
-    default:
-      return '开始解析';
-  }
-}
+const PLACEHOLDER = '输入你想询问的问题…';
+const AI_CHAT_HISTORY_STORAGE_PREFIX = 'mingyu:ai-chat-history:v1:';
+
+type SavedAiChatHistory = {
+  turns: ChatTurn[];
+  updatedAt: string;
+};
 
 function renderMarkdown(content: string): string {
   if (!content) return '';
@@ -39,6 +42,52 @@ function renderMarkdown(content: string): string {
   } catch {
     return content;
   }
+}
+
+function hashText(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function getAiChatStorageKey(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return `${AI_CHAT_HISTORY_STORAGE_PREFIX}${hashText(trimmed)}:${trimmed.length}`;
+}
+
+function normalizeSavedTurns(value: unknown): ChatTurn[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (item): item is ChatTurn =>
+      item &&
+      typeof item === 'object' &&
+      ((item as ChatTurn).role === 'user' || (item as ChatTurn).role === 'assistant') &&
+      typeof (item as ChatTurn).content === 'string' &&
+      (item as ChatTurn).content.length > 0,
+  );
+}
+
+function readAiChatHistory(storageKey: string): SavedAiChatHistory | null {
+  if (!storageKey) return null;
+  const saved = safeStorage.getJSON<Partial<SavedAiChatHistory> | null>(storageKey, null);
+  const turns = normalizeSavedTurns(saved?.turns);
+  if (!turns.length) return null;
+  return {
+    turns,
+    updatedAt: typeof saved?.updatedAt === 'string' ? saved.updatedAt : '',
+  };
+}
+
+function writeAiChatHistory(storageKey: string, turns: ChatTurn[]) {
+  if (!storageKey || !turns.length) return;
+  safeStorage.setJSON<SavedAiChatHistory>(storageKey, {
+    turns,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 function ChatMessageItem({ turn }: { turn: ChatTurn }) {
@@ -64,15 +113,102 @@ function ChatMessageItem({ turn }: { turn: ChatTurn }) {
   );
 }
 
-function AiChatPanelImpl({ prompt, resetKey }: AiChatPanelProps) {
-  const { turns, streamingContent, status, error, hasStarted, analyze, reset } = useAiChat();
+function AiChatPanelImpl({
+  contextPrompt,
+  resetKey,
+  onOpenInspiration,
+  externalInput,
+  onExternalInputConsumed,
+  directSend,
+  autoStart,
+  autoStartKey,
+  historyKey,
+  aiConfig,
+}: AiChatPanelProps) {
+  const { turns, streamingContent, status, error, hasStarted, analyze, ask, restore, reset } =
+    useAiChat(aiConfig);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const [inputValue, setInputValue] = useState('');
+  const isBusy = status === 'loading' || status === 'streaming';
+  const isContextReady = contextPrompt.trim().length > 0;
+  const storageKey = useMemo(
+    () => getAiChatStorageKey(historyKey || `${resetKey || ''}\n${contextPrompt}`),
+    [historyKey, resetKey, contextPrompt],
+  );
+  const directSendIdRef = useRef('');
+  const autoStartKeyRef = useRef<string | undefined>(undefined);
+  const autoStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 当 resetKey 变化时重置对话
+  // 当上下文变化时，优先恢复已保存的 AI 对话；没有历史才重置。
   useEffect(() => {
+    const saved = readAiChatHistory(storageKey);
+    const key = autoStartKey ?? autoStart;
+
+    if (saved) {
+      restore(saved.turns);
+      autoStartKeyRef.current = key;
+    } else {
+      reset();
+      autoStartKeyRef.current = undefined;
+    }
+
+    directSendIdRef.current = '';
+    setInputValue('');
+  }, [storageKey, autoStart, autoStartKey, restore, reset]);
+
+  // AI 回复完成后保存历史；加载中不覆盖已有完整记录。
+  useEffect(() => {
+    if (!hasStarted || !turns.length || status === 'loading' || status === 'streaming') return;
+    writeAiChatHistory(storageKey, turns);
+  }, [hasStarted, turns, status, storageKey]);
+
+  // 接收外部设置的输入文本（如从灵感选取，填入后用户手动发送）
+  useEffect(() => {
+    if (externalInput) {
+      setInputValue(externalInput);
+      inputRef.current?.focus();
+      onExternalInputConsumed?.();
+    }
+  }, [externalInput, onExternalInputConsumed]);
+
+  // 接收直接发送指令（快捷按钮 → 立即重置并发送，不经过输入框）
+  useEffect(() => {
+    if (!directSend || !directSend.text.trim() || directSend.id === directSendIdRef.current) return;
+    directSendIdRef.current = directSend.id;
+    const text = directSend.text.trim();
+    if (!text || !isContextReady) return;
+    // reset 会 abort 当前请求并清空对话
+    safeStorage.remove(storageKey);
     reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetKey]);
+    setInputValue('');
+    // React 18 批处理：即使 reset 和 analyze 在同一帧调用，最终状态正确
+    analyze(contextPrompt + '\n\n' + text);
+  }, [directSend, isContextReady, contextPrompt, storageKey, analyze, reset]);
+
+  // 自动发送首轮（占卜页：session.prompt 已含完整问题，无需用户输入）
+  useEffect(() => {
+    const key = autoStartKey ?? autoStart;
+    if (!autoStart || !autoStart.trim() || key === autoStartKeyRef.current) return;
+
+    // 延迟到下一 tick，让 resetKey effect 的状态更新先落地，
+    // 同时避免 StrictMode 第一次挂载清理时误记为已发送。
+    if (autoStartTimerRef.current) clearTimeout(autoStartTimerRef.current);
+    autoStartTimerRef.current = setTimeout(() => {
+      autoStartTimerRef.current = null;
+      if (key === autoStartKeyRef.current) return;
+      autoStartKeyRef.current = key;
+      reset();
+      setInputValue('');
+      analyze(autoStart.trim());
+    }, 0);
+    return () => {
+      if (autoStartTimerRef.current) {
+        clearTimeout(autoStartTimerRef.current);
+        autoStartTimerRef.current = null;
+      }
+    };
+  }, [autoStart, autoStartKey, analyze, reset]);
 
   // 自动滚动到底部
   useEffect(() => {
@@ -82,17 +218,48 @@ function AiChatPanelImpl({ prompt, resetKey }: AiChatPanelProps) {
     }
   }, [turns, streamingContent, status]);
 
-  const isBusy = status === 'loading' || status === 'streaming';
-  const isPromptReady = prompt.trim().length > 0;
-
-  function handleAnalyze() {
-    if (isBusy || !isPromptReady) return;
-    // reset 会清空 turns 和 hasStarted，analyze 会重新设置 hasStarted=true 并开始流式
-    // React 18 批处理保证最终状态正确
-    if (status === 'done' || status === 'error') {
-      reset();
+  // 自动调整输入框高度
+  useEffect(() => {
+    const el = inputRef.current;
+    if (el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
     }
-    analyze(prompt);
+  }, [inputValue]);
+
+  const handleSend = useCallback(() => {
+    const text = inputValue.trim();
+    if (!text || isBusy || !isContextReady) return;
+
+    setInputValue('');
+
+    if (!hasStarted) {
+      // 首次发送：context + 用户问题
+      const fullPrompt = contextPrompt + '\n\n' + text;
+      analyze(fullPrompt);
+    } else {
+      // 追问
+      ask(text);
+    }
+  }, [inputValue, isBusy, isContextReady, hasStarted, contextPrompt, analyze, ask]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    },
+    [handleSend],
+  );
+
+  function handleReset() {
+    safeStorage.remove(storageKey);
+    reset();
+    setInputValue('');
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
   }
 
   return (
@@ -101,96 +268,130 @@ function AiChatPanelImpl({ prompt, resetKey }: AiChatPanelProps) {
         <div>
           <h2>AI 解析</h2>
           <p>
-            {hasStarted
-              ? '如需询问其他问题，请在左侧重新选择/输入问题后再次解析。'
-              : isPromptReady
-                ? '选择好左侧来源、年限和问题后，点击下方按钮开始 AI 解析。'
-                : '正在生成排盘数据，请稍候…'}
+            {!isContextReady
+              ? '正在生成排盘数据，请稍候…'
+              : hasStarted
+                ? '可以继续追问，或点击重置开始新对话。'
+                : '在下方输入问题开始 AI 解析。'}
           </p>
         </div>
-        <div className="action-row compact-actions">
-          <button
-            className={`copy-button ${isBusy || !isPromptReady ? 'is-disabled' : ''}`}
-            type="button"
-            onClick={handleAnalyze}
-            disabled={isBusy || !isPromptReady}
-          >
-            {isBusy ? (
-              <span className="ai-analysis-spinner-wrap">
-                <span className="ai-analysis-spinner" />
-                {analyzeButtonLabel(status)}
-              </span>
-            ) : (
-              analyzeButtonLabel(status)
-            )}
-          </button>
-        </div>
+        {hasStarted ? (
+          <div className="action-row compact-actions">
+            <button
+              className="copy-button secondary-button"
+              type="button"
+              onClick={handleReset}
+              disabled={isBusy}
+            >
+              重置
+            </button>
+          </div>
+        ) : null}
       </div>
 
-      {hasStarted ? (
-        <div className="ai-chat-container">
-          <div className="ai-chat-messages" ref={scrollRef}>
-            {error && !streamingContent ? (
-              <div className="ai-analysis-error">
-                <p>解析失败：{error}</p>
+      {/* 消息区域 */}
+      <div className="ai-chat-container">
+        <div className="ai-chat-messages" ref={scrollRef}>
+          {error && !streamingContent ? (
+            <div className="ai-analysis-error">
+              <p>解析失败：{error}</p>
+            </div>
+          ) : null}
+
+          {turns.map((turn, index) => (
+            <ChatMessageItem key={index} turn={turn} />
+          ))}
+
+          {/* 流式生成中的助手消息 */}
+          {streamingContent ? (
+            <div className="ai-chat-msg ai-chat-msg-assistant">
+              <div className="ai-chat-msg-avatar">AI</div>
+              <div
+                className="ai-chat-msg-bubble markdown-body"
+                // eslint-disable-next-line react/no-danger
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(streamingContent) }}
+              />
+              <span className="ai-analysis-cursor" aria-hidden="true">
+                ▋
+              </span>
+            </div>
+          ) : null}
+
+          {/* loading 状态骨架屏 */}
+          {status === 'loading' && !streamingContent ? (
+            <div className="ai-chat-msg ai-chat-msg-assistant">
+              <div className="ai-chat-msg-avatar">AI</div>
+              <div className="ai-chat-thinking" role="status" aria-live="polite">
+                <span className="ai-chat-thinking-dot" />
+                <span className="ai-chat-thinking-dot" />
+                <span className="ai-chat-thinking-dot" />
+                <span className="ai-chat-thinking-text">AI 正在思考</span>
               </div>
-            ) : null}
+            </div>
+          ) : null}
 
-            {turns.map((turn, index) => (
-              <ChatMessageItem key={index} turn={turn} />
-            ))}
-
-            {/* 流式生成中的助手消息 */}
-            {streamingContent ? (
-              <div className="ai-chat-msg ai-chat-msg-assistant">
-                <div className="ai-chat-msg-avatar">AI</div>
-                <div
-                  className="ai-chat-msg-bubble markdown-body"
-                  // eslint-disable-next-line react/no-danger
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(streamingContent) }}
-                />
-                <span className="ai-analysis-cursor" aria-hidden="true">
-                  ▋
-                </span>
+          {!hasStarted && !streamingContent && !error && isContextReady ? (
+            <div className="ai-chat-empty">
+              <div className="ai-chat-empty-inner">
+                <div className="ai-chat-empty-icon">💬</div>
+                <p>在下方输入你想了解的问题，AI 将基于排盘数据给出解读。</p>
               </div>
-            ) : null}
-
-            {/* loading 状态骨架屏 */}
-            {status === 'loading' && !streamingContent ? (
-              <div className="ai-chat-msg ai-chat-msg-assistant">
-                <div className="ai-chat-msg-avatar">AI</div>
-                <div className="ai-analysis-placeholder">
-                  <span className="skeleton-block ai-analysis-skeleton-line" />
-                  <span className="skeleton-block ai-analysis-skeleton-line ai-analysis-skeleton-line-long" />
-                  <span className="skeleton-block ai-analysis-skeleton-line" />
-                  <span className="skeleton-block ai-analysis-skeleton-line ai-analysis-skeleton-line-short" />
-                  <span className="skeleton-block ai-analysis-skeleton-line" />
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          {status === 'done' ? (
-            <div className="ai-chat-hint">
-              如需询问其他问题，请在左侧重新选择/输入问题后再次解析。
             </div>
           ) : null}
         </div>
-      ) : (
-        <div className="ai-chat-empty">
-          {isPromptReady ? (
-            <p>点击「开始解析」按钮，AI 将根据你选择的排盘数据和问题给出解读。</p>
-          ) : (
-            <div className="ai-analysis-placeholder">
-              <span className="skeleton-block ai-analysis-skeleton-line" />
-              <span className="skeleton-block ai-analysis-skeleton-line ai-analysis-skeleton-line-long" />
-              <span className="skeleton-block ai-analysis-skeleton-line" />
-              <span className="skeleton-block ai-analysis-skeleton-line ai-analysis-skeleton-line-short" />
-              <span className="skeleton-block ai-analysis-skeleton-line" />
-            </div>
-          )}
+
+        {/* 底部输入区 */}
+        <div className="ai-chat-input-area">
+          <div className="ai-chat-input-row">
+            <textarea
+              ref={inputRef}
+              className="ai-chat-input"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={PLACEHOLDER}
+              rows={1}
+              disabled={!isContextReady}
+            />
+            {onOpenInspiration ? (
+              <button
+                className="ai-chat-inspire-btn"
+                type="button"
+                onClick={onOpenInspiration}
+                title="问题灵感"
+              >
+                ✨
+              </button>
+            ) : null}
+            <button
+              className="ai-chat-send-btn"
+              type="button"
+              onClick={handleSend}
+              disabled={isBusy || !inputValue.trim() || !isContextReady}
+            >
+              {isBusy ? (
+                <span className="ai-analysis-spinner-wrap">
+                  <span className="ai-analysis-spinner" />
+                </span>
+              ) : (
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
-      )}
+      </div>
     </section>
   );
 }

@@ -1,27 +1,33 @@
+import { calculateKongWangBranches } from '../../kongWang';
 import type { RuleContext, ShenShaRuleMap } from './types';
 
 /**
  * 灾厄神煞规则
  */
 export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
-  const { zhi, nianGan, nianZhi, yueZhi, riGan, riZhi, isMan, ctg, cdz, zhiIdx, baziArray } = ctx;
+  const {
+    zhi,
+    nianGan,
+    nianZhi,
+    yueZhi,
+    riGan,
+    riZhi,
+    isMan,
+    ctg,
+    cdz,
+    zhiIdx,
+    baziArray,
+    variants,
+  } = ctx;
 
   return {
     空亡: () => {
-      // 以日柱和年柱的旬查空亡地支，看当前柱地支是否落入
-      // 注：同时以日柱和年柱判定空亡，较传统仅以日柱定空亡更为宽松。
-      // 此为兼容多流派应用，调用方可按需仅取日柱空亡。
-      const getEmptyBranches = (g: string, z: string): string[] => {
-        const gIdx = ctg.indexOf(g);
-        const zIdx = cdz.indexOf(z);
-        if (gIdx === -1 || zIdx === -1) return [];
-        const e1 = (10 + zIdx - gIdx) % 12;
-        const e2 = (11 + zIdx - gIdx) % 12;
-        return [cdz[e1], cdz[e2]];
-      };
-      const riEmpty = getEmptyBranches(riGan, riZhi);
-      const nianEmpty = getEmptyBranches(nianGan, nianZhi);
-      return riEmpty.includes(zhi) || nianEmpty.includes(zhi);
+      const riEmpty = calculateKongWangBranches(riGan, riZhi);
+      if (riEmpty.includes(zhi)) return true;
+      if (variants.kongWangBasis !== 'day-and-year') return false;
+
+      const nianEmpty = calculateKongWangBranches(nianGan, nianZhi);
+      return nianEmpty.includes(zhi);
     },
     亡神: () => {
       const map: Record<string, string> = {

@@ -1,10 +1,23 @@
+import { REN_BRANCH_MAP, TWELVE_STAGES_MAP } from '../../baziDefinitions';
 import type { RuleContext, ShenShaRuleMap } from './types';
+
+function getYangRenMap(includeYinRen: boolean): Record<string, string> {
+  if (!includeYinRen) return REN_BRANCH_MAP;
+
+  return Object.fromEntries(
+    Object.entries(TWELVE_STAGES_MAP).map(([stem, stages]) => {
+      const wangBranch = Object.entries(stages).find(([, stage]) => stage === '帝旺');
+      return [stem, wangBranch ? wangBranch[0] : ''];
+    }),
+  );
+}
 
 /**
  * 禄刃马星神煞规则
  */
 export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
-  const { zhi, pillarIndex, nianGan, nianZhi, riGan, riZhi, pillarGZ } = ctx;
+  const { zhi, pillarIndex, nianGan, nianZhi, riGan, riZhi, pillarGZ, variants } = ctx;
+  const yangRenMap = getYangRenMap(variants.yangRenMode === 'include-yin-ren');
 
   return {
     禄神: () => {
@@ -23,35 +36,9 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
       return map[riGan] === zhi;
     },
     羊刃: () => {
-      // 阳干羊刃（帝旺位）+ 阴干羊刃（帝旺位，传统亦称"阴刃"）
-      // 注意：月刃格判定（REN_BRANCH_MAP）仅限阳干，此为神煞体系口径更宽，两者不矛盾
-      const map: Record<string, string> = {
-        甲: '卯',
-        乙: '寅',
-        丙: '午',
-        丁: '巳',
-        戊: '午',
-        己: '巳',
-        庚: '酉',
-        辛: '申',
-        壬: '子',
-        癸: '亥',
-      };
-      return map[riGan] === zhi;
+      return yangRenMap[riGan] === zhi;
     },
     飞刃: () => {
-      const yangRenMap: Record<string, string> = {
-        甲: '卯',
-        乙: '寅',
-        丙: '午',
-        丁: '巳',
-        戊: '午',
-        己: '巳',
-        庚: '酉',
-        辛: '申',
-        壬: '子',
-        癸: '亥',
-      };
       const yangRenZhi = yangRenMap[riGan];
       if (!yangRenZhi) return false;
       const clashMap: Record<string, string> = {

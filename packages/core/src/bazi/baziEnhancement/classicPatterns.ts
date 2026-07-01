@@ -21,6 +21,7 @@ interface ClassicPattern {
     dayStems?: string[];
     monthBranch?: string[];
     otherConditions?: string[];
+    anyConditions?: string[];
     exactMonthBranchMap?: Record<string, string>;
     excludePatterns?: string[];
   };
@@ -80,7 +81,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
       '甲己日生乙丑、己巳、癸酉三时。金神入格，性情刚烈，多主武贵。忌火乡运行，喜水木运。',
     conditions: {
       dayStems: ['甲', '己'],
-      otherConditions: ['时柱为乙丑', '时柱为己巳', '时柱为癸酉'],
+      anyConditions: ['时柱为乙丑', '时柱为己巳', '时柱为癸酉'],
     },
     favorableWuxing: ['水', '木'],
     unfavorableWuxing: ['火'],
@@ -227,13 +228,27 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
   },
 
   {
-    id: 'fei-tian-lu-ma',
+    id: 'fei-tian-lu-ma-geng',
     name: '飞天禄马格',
     description:
       '庚日子时或壬日子时。庚禄在申、壬禄在亥，借子位暗冲丙火官星、午火财星。忌丙丁巳午填实，喜金水助之。主大贵。',
     conditions: {
-      dayStems: ['庚', '壬'],
-      otherConditions: ['时柱为丙子', '时柱为庚子'],
+      dayStems: ['庚'],
+      otherConditions: ['时柱为丙子'],
+    },
+    favorableWuxing: ['金', '水'],
+    unfavorableWuxing: ['火', '土'],
+    level: '极品',
+  },
+
+  {
+    id: 'fei-tian-lu-ma-ren',
+    name: '飞天禄马格',
+    description:
+      '庚日子时或壬日子时。庚禄在申、壬禄在亥，借子位暗冲丙火官星、午火财星。忌丙丁巳午填实，喜金水助之。主大贵。',
+    conditions: {
+      dayStems: ['壬'],
+      otherConditions: ['时柱为庚子'],
     },
     favorableWuxing: ['金', '水'],
     unfavorableWuxing: ['火', '土'],
@@ -269,13 +284,27 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
   },
 
   {
-    id: 'dao-chong',
+    id: 'dao-chong-bing',
     name: '倒冲格',
     description:
       '丙日见午多或丁日见巳多，火势极旺，反冲子水为官。忌壬癸亥子填实，喜火旺助冲。主异路功名。',
     conditions: {
-      dayStems: ['丙', '丁'],
-      otherConditions: ['地支多午', '地支多巳'],
+      dayStems: ['丙'],
+      otherConditions: ['地支多午'],
+    },
+    favorableWuxing: ['火', '木'],
+    unfavorableWuxing: ['水'],
+    level: '上等',
+  },
+
+  {
+    id: 'dao-chong-ding',
+    name: '倒冲格',
+    description:
+      '丙日见午多或丁日见巳多，火势极旺，反冲子水为官。忌壬癸亥子填实，喜火旺助冲。主异路功名。',
+    conditions: {
+      dayStems: ['丁'],
+      otherConditions: ['地支多巳'],
     },
     favorableWuxing: ['火', '木'],
     unfavorableWuxing: ['水'],
@@ -288,7 +317,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     description: '戊己日生辰戌时或丑未时，两库夹日。土得库藏，财富丰厚。忌木来克破，喜火生土。',
     conditions: {
       dayStems: ['戊', '己'],
-      otherConditions: ['时支见辰', '时支见戌', '时支见丑', '时支见未'],
+      anyConditions: ['时支见辰', '时支见戌', '时支见丑', '时支见未'],
     },
     favorableWuxing: ['火', '土'],
     unfavorableWuxing: ['木'],
@@ -372,7 +401,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
       '丁酉日或癸巳日生，夜生更贵。丁酉日贵人在酉，癸巳日贵人在巳。主人聪慧温和，多得贵人相助。忌午冲子破。',
     conditions: {
       dayStems: ['丁', '癸'],
-      otherConditions: ['日柱为丁酉', '日柱为癸巳'],
+      anyConditions: ['日柱为丁酉', '日柱为癸巳'],
     },
     favorableWuxing: ['金', '水'],
     unfavorableWuxing: ['火', '午'],
@@ -385,7 +414,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
       '甲寅、丙辰、戊辰、庚辰、壬戌五日生人。日德入命，主性格敦厚宽仁，多福多寿。忌刑冲破害，喜官印相生。',
     conditions: {
       dayStems: ['甲', '丙', '戊', '庚', '壬'],
-      otherConditions: ['日柱为甲寅', '日柱为丙辰', '日柱为戊辰', '日柱为庚辰', '日柱为壬戌'],
+      anyConditions: ['日柱为甲寅', '日柱为丙辰', '日柱为戊辰', '日柱为庚辰', '日柱为壬戌'],
     },
     favorableWuxing: ['印', '食'],
     unfavorableWuxing: ['伤', '杀'],
@@ -398,7 +427,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
       '甲申、乙酉、丙子、丁亥、戊午、己巳、庚辰、辛卯、壬寅、癸丑十位日柱。福德入命，主一生福禄厚重。忌刑冲破害。',
     conditions: {
       dayStems: ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'],
-      otherConditions: [
+      anyConditions: [
         '日柱为甲申',
         '日柱为乙酉',
         '日柱为丙子',
@@ -435,7 +464,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
       '日主坐沐浴（败）地，如甲子、乙巳、庚午、辛亥等。沐浴又名败地，但逢合则化凶为吉。主艺术才华。',
     conditions: {
       dayStems: ['甲', '乙', '庚', '辛'],
-      otherConditions: ['日柱为甲子', '日柱为乙巳', '日柱为庚午', '日柱为辛亥'],
+      anyConditions: ['日柱为甲子', '日柱为乙巳', '日柱为庚午', '日柱为辛亥'],
     },
     favorableWuxing: ['印', '官'],
     unfavorableWuxing: ['比', '劫'],
@@ -481,6 +510,13 @@ export function identifyClassicPattern(
         }
       }
       if (!conditionsMet) continue;
+    }
+
+    if (pattern.conditions.anyConditions) {
+      const anyConditionMet = pattern.conditions.anyConditions.some((condition) =>
+        checkCondition(condition, dayStem, pillars, hiddenStems),
+      );
+      if (!anyConditionMet) continue;
     }
 
     return pattern;

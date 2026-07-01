@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import type { DivinationSession } from '@/lib/divination/engine';
 import type { DivinationSummaryBlocks } from '@/lib/divination/summary';
@@ -10,7 +11,9 @@ import type {
   XiaoliurenPalaceDetail,
 } from '@/types/divination';
 import { AstrolabeChart } from '@/components/AstrolabeChart';
-import { AiAnalysisPanel } from '@/components/AiAnalysisPanel';
+import { AiChatPanel } from '@/components/AiChatPanel';
+import { useAiSettings } from '@/hooks/useAiSettings';
+import { buildAiRequestConfig } from '@/lib/ai/settings';
 
 interface DivinationResultProps {
   isSubmitting: boolean;
@@ -235,7 +238,30 @@ export function DivinationResult({
   onCopy,
   onShare,
 }: DivinationResultProps) {
+  const [aiSettings] = useAiSettings();
+  const isAiEnabled = aiSettings.enabled;
+  const aiRequestConfig = useMemo(() => buildAiRequestConfig(aiSettings), [aiSettings]);
   if (isSubmitting) {
+    if (isAiEnabled) {
+      return (
+        <div className="divination-ai-card" aria-hidden="true">
+          <section className="panel divination-result-panel">
+            <div className="divination-result-skeleton">
+              <span className="skeleton-block divination-result-skeleton-title" />
+              <div className="divination-result-skeleton-list">
+                {Array.from({ length: 6 }, (_, index) => (
+                  <span
+                    className="skeleton-block divination-result-skeleton-line"
+                    key={`ai-line-${index}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        </div>
+      );
+    }
+
     return (
       <div className="workspace-grid divination-output-grid" aria-hidden="true">
         <section className="panel divination-result-panel">
@@ -283,52 +309,75 @@ export function DivinationResult({
 
   const isLiurenResult = session.method === 'liuren';
 
+  // 占卜结果区块（复用于折叠展示和原有双栏）
+  const resultBlock = (
+    <section className="panel divination-result-panel">
+      {!isLiurenResult ? (
+        <div className="panel-head">
+          <div>
+            <h2>{summary.title}</h2>
+            <p>这部分是本地算法生成的结构化结果，方便你判断本次提示词是否符合预期。</p>
+          </div>
+        </div>
+      ) : null}
+
+      {session.requestedMethod === 'random' ? (
+        <div className="divination-random-note">本次随机到：{methodLabelMap[session.method]}</div>
+      ) : null}
+
+      {!isLiurenResult ? (
+        <>
+          <div className="divination-tag-cloud">
+            {summary.tags.map((item) => (
+              <span className="result-soft-tag" key={item}>
+                {item}
+              </span>
+            ))}
+          </div>
+
+          <div className="divination-summary-list">
+            {summary.lines.filter(Boolean).map((item) => (
+              <div className="divination-summary-item" key={item}>
+                {item}
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+
+      {session.method === 'astrolabe' ? (
+        <AstrolabeChart data={session.data as AstrolabeData} />
+      ) : null}
+
+      {session.method === 'xiaoliuren' ? (
+        <XiaoliurenBoard data={session.data as XiaoliurenData} />
+      ) : null}
+
+      {session.method === 'liuren' ? <LiurenBoard data={session.data as LiurenData} /> : null}
+    </section>
+  );
+
+  if (isAiEnabled) {
+    return (
+      <div className="divination-ai-card">
+        <details className="divination-result-collapse">
+          <summary>排盘结果（点开查看卦象 / 星盘）</summary>
+          {resultBlock}
+        </details>
+        <AiChatPanel
+          contextPrompt={session.prompt}
+          autoStart={session.prompt}
+          autoStartKey={session.prompt}
+          resetKey={session.prompt}
+          aiConfig={aiRequestConfig}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="workspace-grid divination-output-grid">
-      <section className="panel divination-result-panel">
-        {!isLiurenResult ? (
-          <div className="panel-head">
-            <div>
-              <h2>{summary.title}</h2>
-              <p>这部分是本地算法生成的结构化结果，方便你判断本次提示词是否符合预期。</p>
-            </div>
-          </div>
-        ) : null}
-
-        {session.requestedMethod === 'random' ? (
-          <div className="divination-random-note">本次随机到：{methodLabelMap[session.method]}</div>
-        ) : null}
-
-        {!isLiurenResult ? (
-          <>
-            <div className="divination-tag-cloud">
-              {summary.tags.map((item) => (
-                <span className="result-soft-tag" key={item}>
-                  {item}
-                </span>
-              ))}
-            </div>
-
-            <div className="divination-summary-list">
-              {summary.lines.filter(Boolean).map((item) => (
-                <div className="divination-summary-item" key={item}>
-                  {item}
-                </div>
-              ))}
-            </div>
-          </>
-        ) : null}
-
-        {session.method === 'astrolabe' ? (
-          <AstrolabeChart data={session.data as AstrolabeData} />
-        ) : null}
-
-        {session.method === 'xiaoliuren' ? (
-          <XiaoliurenBoard data={session.data as XiaoliurenData} />
-        ) : null}
-
-        {session.method === 'liuren' ? <LiurenBoard data={session.data as LiurenData} /> : null}
-      </section>
+      {resultBlock}
 
       <section className="panel panel-output divination-result-panel">
         <div className="panel-head divination-prompt-head">
@@ -351,8 +400,6 @@ export function DivinationResult({
 
         <pre className="result-pre">{session.prompt}</pre>
       </section>
-
-      <AiAnalysisPanel prompt={session.prompt} resetKey={session.prompt} />
     </div>
   );
 }

@@ -2,9 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateDivinationSession } from '../src/lib/divination/engine';
 import { buildTimeInfoText } from '../src/lib/divination/engine/formatters';
+import type { QimenJiuGongGe } from '../packages/core/src/types/divination';
+import { STEM_TOMB_MAP } from '../packages/core/src/divination/algorithms/qimen/helpers/_constants';
+import { getStemRelations } from '../packages/core/src/divination/algorithms/qimen/helpers/classic-patterns';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
-import { generateQimen } from 'mingyu-core/divination/qimen';
+import { generateQimen, resolveZhiShiLandingPalace } from 'mingyu-core/divination/qimen';
 
 type DivinationDraftInput = Parameters<typeof generateDivinationSession>[0];
 
@@ -41,6 +44,31 @@ function buildDraft(overrides: Partial<DivinationDraftInput>): DivinationDraftIn
     astrolabeLongitude: '116.4074',
     astrolabeTimezone: '8',
     ...overrides,
+  };
+}
+
+const qimenPalaceNameByGong: Record<number, string> = {
+  1: '坎一宫',
+  2: '坤二宫',
+  3: '震三宫',
+  4: '巽四宫',
+  5: '中五宫',
+  6: '乾六宫',
+  7: '兑七宫',
+  8: '艮八宫',
+  9: '离九宫',
+};
+
+function buildQimenPalace(gong: number, heavenStem: string): QimenJiuGongGe {
+  return {
+    gong,
+    name: qimenPalaceNameByGong[gong] ?? `${gong}宫`,
+    direction: '',
+    element: '土',
+    tianPan: { star: '', stem: heavenStem },
+    diPan: { stem: '甲' },
+    renPan: { door: '' },
+    shenPan: { god: '' },
   };
 }
 
@@ -139,6 +167,52 @@ test('奇门算法会补出时旬空亡与马星落宫', () => {
   assert.ok(data.horseStar?.sourceBranch);
 });
 
+test('奇门默认使用转盘法，飞盘法九星完整且可区分', () => {
+  const date = new Date('2025-01-01T08:00:00+08:00');
+  const defaultData = generateQimen(date);
+  const zhuanpanData = generateQimen(date, 'zhuanpan');
+  const feipanData = generateQimen(date, 'feipan');
+
+  assert.deepEqual(defaultData.jiuGongGe, zhuanpanData.jiuGongGe);
+  assert.deepEqual(defaultData.patternTags, zhuanpanData.patternTags);
+
+  const zhuanpanStars = zhuanpanData.jiuGongGe.map((gong) => gong.tianPan.star);
+  const feipanStars = feipanData.jiuGongGe.map((gong) => gong.tianPan.star);
+  assert.notDeepEqual(feipanStars, zhuanpanStars);
+
+  const expectedStars = ['天蓬', '天任', '天冲', '天辅', '天英', '天芮', '天柱', '天心', '天禽'];
+  assert.equal(new Set(feipanStars).size, 9);
+  assert.ok(expectedStars.every((star) => feipanStars.includes(star)));
+
+  const feipanDoors = feipanData.jiuGongGe.map((gong) => gong.renPan.door).filter(Boolean);
+  assert.equal(feipanDoors.length, 8);
+  assert.equal(new Set(feipanDoors).size, 8);
+  assert.equal(feipanData.jiuGongGe.find((gong) => gong.gong === 5)?.renPan.door, '');
+
+  const expectedZhiShiPalace = resolveZhiShiLandingPalace(
+    feipanData.isYangDun,
+    feipanData.zhiShi,
+    feipanData.ganzhi.hour,
+  );
+  const actualZhiShiPalace = feipanData.jiuGongGe.find(
+    (gong) => gong.renPan.door === feipanData.zhiShi,
+  )?.gong;
+  assert.equal(actualZhiShiPalace, expectedZhiShiPalace);
+});
+
+test('奇门天地盘干入墓关系与统一天干入墓表一致', () => {
+  for (const [stem, tomb] of Object.entries(STEM_TOMB_MAP)) {
+    const relations = getStemRelations([buildQimenPalace(tomb.palace, stem)]);
+
+    assert.ok(
+      relations.some(
+        (relation) => relation.heaven === stem && relation.type === '入墓' && relation.palace === tomb.palace,
+      ),
+      `${stem}应在${tomb.palace}宫/${tomb.branch}支入墓`,
+    );
+  }
+});
+
 test('时间型占卜算法应拒绝无效自定义时间对象', () => {
   const invalidDate = new Date(Number.NaN);
 
@@ -167,6 +241,23 @@ test('前端占卜草稿可把自定北京时间传给按时间起卦的方法',
   assert.equal(session.method, 'qimen');
   assert.equal(session.data.timestamp, new Date('2025-01-01T08:30:00+08:00').getTime());
   assert.match(session.prompt, /2025年1月1日 8时30分/);
+});
+
+test('六爻提示词应同时写出日辰和月建参与的三合局', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'liuyao',
+      divinationTimeMode: 'custom',
+      customDivinationDate: '2025-01-01',
+      customDivinationTime: '00:00',
+    }),
+  );
+  const data = session.data as ReturnType<typeof generateLiuyao>;
+
+  assert.equal(data.sanheWithDay?.group, '火局');
+  assert.equal(data.sanheWithMonth?.group, '水局');
+  assert.match(session.prompt, /日辰午引动火局（寅、午、戌）/);
+  assert.match(session.prompt, /月建子引动水局（申、子、辰）/);
 });
 
 test('自定起卦时间缺少日期或时间时应明确提示', async () => {

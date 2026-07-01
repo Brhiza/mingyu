@@ -1234,8 +1234,16 @@ function formatLiuyaoInfo(
   const monthDayEvidence = createLiuyaoMonthDayEvidence(data);
   const timingEvidence = createLiuyaoTimingEvidence(data);
   const timingPriorityEvidence = createLiuyaoTimingPriorityEvidence(data);
-  const sanheDetail = data.sanheWithDay
-    ? `三合局：日辰${data.ganzhi.day.charAt(1)}引动${data.sanheWithDay.group}（${data.sanheWithDay.members.join('、')}），事势增强，应期可参考合局五行旺衰`
+  const sanheParts = [
+    data.sanheWithDay
+      ? `日辰${getGanzhiBranch(data.ganzhi.day)}引动${data.sanheWithDay.group}（${data.sanheWithDay.members.join('、')}）`
+      : '',
+    data.sanheWithMonth
+      ? `月建${getGanzhiBranch(data.ganzhi.month)}引动${data.sanheWithMonth.group}（${data.sanheWithMonth.members.join('、')}）`
+      : '',
+  ].filter(Boolean);
+  const sanheDetail = sanheParts.length
+    ? `三合局：${sanheParts.join('；')}；事势增强，应期可参考合局五行旺衰`
     : null;
   const sanxingDetail = data.sanxingInYaos?.length
     ? `三刑：${data.sanxingInYaos.map((s) => `${s.branches.join('、')}构成${s.type}`).join('；')}，主纠缠、对立或反复，先看刑中是否有救（合冲解刑）`

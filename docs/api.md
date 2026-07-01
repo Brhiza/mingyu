@@ -83,6 +83,14 @@ curl -X POST https://aov.cc/api/v1/bazi/prompt \
   -d '{"gender":"male","year":1990,"month":5,"day":15,"timeIndex":1,"dateType":"solar","question":"我适合创业还是上班？","promptTopic":"career"}'
 ```
 
+八字神煞争议口径默认使用主流算法；如需兼容其他系统，可通过 `shenShaVariants` 指定：
+
+```bash
+curl -X POST https://aov.cc/api/v1/bazi/calculate \
+  -H "Content-Type: application/json" \
+  -d '{"gender":"male","year":1990,"month":5,"day":15,"timeIndex":1,"dateType":"solar","shenShaVariants":{"kongWangBasis":"day-and-year","yangRenMode":"include-yin-ren","tongZiScope":"all-pillars"}}'
+```
+
 紫微斗数排盘并生成提示词：
 
 ```bash
@@ -152,6 +160,7 @@ curl -X POST https://aov.cc/api/v1/divination/almanac \
 - 紫微排盘结果以 `payloadByScope.origin.palaces` 为主结构；同时提供 `四化`、`fourMutagens`、`birthMutagens` 和 `gongList`，方便 agent 直接读取生年四化和十二宫星曜。
 - `promptMode` 支持 `framework`（内置完整框架，默认）和 `custom`（只围绕用户问题自由作答）。
 - 八字 `school` 支持 `traditional`（传统派子平正法）、`mangpai`（盲派十神象法）、`xinpai`（新派调候流通）。不传则不附加流派指引。
+- 八字 `shenShaVariants` 用于请求神煞争议口径；不传时使用默认主流口径：空亡只按日柱旬空、羊刃只取阳干帝旺、童子煞只查日柱和时柱。可选值：`kongWangBasis` 为 `day` 或 `day-and-year`；`yangRenMode` 为 `yang-stems-only` 或 `include-yin-ren`；`tongZiScope` 为 `day-hour` 或 `all-pillars`。
 - 紫微 `school` 支持 `sanhe`（三合派三方四正）、`feixing`（飞星派四化飞星链路）、`sihua`（四化派生年四化主线）。不传则不附加流派指引。
 - `customDate` 用于指定时间类占卜的起卦或排盘时间，支持六爻、梅花易数、小六壬、奇门遁甲、大六壬；不传时使用服务器当前时间。该字段必须使用带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:00:00+08:00` 或 `2025-01-01T00:00:00Z`。
 - Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用时请显式设置正常 `User-Agent`，例如 `curl/8.0.0` 或业务自己的客户端名称。

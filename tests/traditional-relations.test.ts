@@ -7,9 +7,14 @@ import {
 } from '../packages/core/src/bazi/baziMappingsData';
 import { MONTH_COMMANDER as appMonthCommander } from '../src/utils/bazi/baziMappingsData';
 import { TIAN_GAN_CHONG as appDivinationChong } from '../packages/core/src/divination/algorithms/_shared/wuxing';
-import { TIAN_GAN_CHONG as coreDivinationChong } from '../packages/core/src/divination/algorithms/_shared/wuxing';
+import {
+  TIAN_GAN_CHONG as coreDivinationChong,
+  getWuxingChangSheng,
+} from '../packages/core/src/divination/algorithms/_shared/wuxing';
 import { analyzeLifeStageProfile } from '../packages/core/src/bazi/lifeStageAnalysis';
 import { analyzeRelationStructure } from '../packages/core/src/bazi/relationStructure';
+import { analyzeTombStorage } from '../packages/core/src/bazi/tombStorage';
+import { getTenGod, getWuxing } from '../packages/core/src/bazi/baziUtils';
 import { analyzeGanzhiInteractions as analyzeAppQimenGanzhi } from '../packages/core/src/divination/algorithms/qimen/helpers/seasonality';
 import { analyzeGanzhiInteractions as analyzeCoreQimenGanzhi } from '../packages/core/src/divination/algorithms/qimen/helpers/seasonality';
 import { buildFortuneSelectionContext } from '../src/utils/bazi/fortuneSelection';
@@ -95,10 +100,14 @@ test('奇门干支互动中的三刑不应因柱位顺序不同而漏判', () =>
   for (const analyze of [analyzeAppQimenGanzhi, analyzeCoreQimenGanzhi]) {
     const punishments = analyze(ganzhi).filter((item) => item.type === '相刑');
     assert.ok(
-      punishments.some((item) => item.values.join('') === '巳寅' && item.description.includes('无恩之刑')),
+      punishments.some(
+        (item) => item.values.join('') === '巳寅' && item.description.includes('无恩之刑'),
+      ),
     );
     assert.ok(
-      punishments.some((item) => item.values.join('') === '未戌' && item.description.includes('恃势之刑')),
+      punishments.some(
+        (item) => item.values.join('') === '未戌' && item.description.includes('恃势之刑'),
+      ),
     );
   }
 });
@@ -157,4 +166,42 @@ test('八字关系结构应识别寅午火局生地半合', () => {
         item.values.join('') === '寅午',
     ),
   );
+});
+
+test('八字墓库分析应按日主天干十二长生取墓位', () => {
+  const pillars = [
+    { gan: '戊', zhi: '辰' },
+    { gan: '戊', zhi: '戌' },
+    { gan: '己', zhi: '丑' },
+    { gan: '己', zhi: '未' },
+  ];
+  const expectedTombs: Record<string, string> = {
+    甲: '未',
+    乙: '戌',
+    丙: '戌',
+    丁: '丑',
+    戊: '戌',
+    己: '丑',
+    庚: '丑',
+    辛: '辰',
+    壬: '辰',
+    癸: '未',
+  };
+
+  for (const [dayMaster, expectedBranch] of Object.entries(expectedTombs)) {
+    const profile = analyzeTombStorage(pillars, dayMaster, getWuxing, getTenGod);
+    const dayMasterTombs = profile.items
+      .filter((item) => item.isDayMasterTomb)
+      .map((item) => item.branch);
+
+    assert.deepEqual(dayMasterTombs, [expectedBranch]);
+  }
+});
+
+test('占法共享五行长生应与六爻奇门口径保持水土同长生在申', () => {
+  assert.equal(getWuxingChangSheng('木'), '亥');
+  assert.equal(getWuxingChangSheng('火'), '寅');
+  assert.equal(getWuxingChangSheng('土'), '申');
+  assert.equal(getWuxingChangSheng('金'), '巳');
+  assert.equal(getWuxingChangSheng('水'), '申');
 });

@@ -395,10 +395,13 @@ export class BaziCalculator {
       pillars,
       monthCommander,
     );
+    const shenShaCalculator = person.shenShaVariants
+      ? new ShenShaCalculator({ variants: person.shenShaVariants })
+      : this.shenShaCalculator;
 
     // Calculate basic data first
     const tenGods = calculateTenGods(pillars, dayMasterGan);
-    const shensha = this.shenShaCalculator.calculateAllShenSha(baziArray, gender);
+    const shensha = shenShaCalculator.calculateAllShenSha(baziArray, gender);
 
     // Calculate ShenSha interactions
     const shenShaAnalysis = {
@@ -406,13 +409,13 @@ export class BaziCalculator {
       month: [] as string[],
       day: [] as string[],
       hour: [] as string[],
-      global: shensha.global ? this.shenShaCalculator.analyzeGlobalShenSha(shensha.global) : [],
+      global: shensha.global ? shenShaCalculator.analyzeGlobalShenSha(shensha.global) : [],
     };
     const pillarKeys = ['year', 'month', 'day', 'hour'] as const;
     pillarKeys.forEach((key) => {
       const ssList = shensha[key] || [];
       const tg = tenGods[key] || '';
-      shenShaAnalysis[key] = this.shenShaCalculator.analyzeShenShaWithTenGod(ssList, tg);
+      shenShaAnalysis[key] = shenShaCalculator.analyzeShenShaWithTenGod(ssList, tg);
     });
 
     return {

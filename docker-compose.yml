@@ -1,0 +1,11 @@
+services:
+  mingyu:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_BASE_URL: ${AI_BASE_URL:-https://api.deepseek.com/v1}
+      AI_MODEL: ${AI_MODEL:-deepseek-chat}
+      AI_PROVIDER_NAME: ${AI_PROVIDER_NAME:-DeepSeek}
+      AI_DEFAULT_ENABLED: ${AI_DEFAULT_ENABLED:-false}
