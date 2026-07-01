@@ -1,4 +1,4 @@
-import { handleAiAnalyze, type AiEnv } from '../../../src/lib/ai/proxy';
+import { handleAiAnalyze, type AiEnv } from '../../../../src/lib/ai/proxy';
 
 type PagesContext = {
   request: Request;
