@@ -14,10 +14,8 @@ import {
   type ResultTabKey,
 } from '@/lib/query-state';
 import { buildAstrolabeScopeContext } from '@/lib/astrolabe-scope';
-import { shouldShowPromptShareButton } from '@/lib/prompt-page-rules';
 import { PageTopbar } from '@/components/PageTopbar';
 import { QuestionInspirationModal } from '@/components/QuestionInspirationModal';
-import { useViewportWidth } from '@/hooks/useViewportWidth';
 import { buildUnknownTimeBaziPrompt } from '@/lib/birth-time-reverse';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
@@ -49,11 +47,9 @@ import { singlePromptShortcutSections } from './ResultPage.constants';
 import {
   BaziFortuneLoadingModal,
   InlineSkeleton,
-  PromptPreSkeleton,
   ZiweiBoardSkeleton,
 } from './components/skeletons';
 import { AstrolabeBoard } from './components/AstrolabeBoard';
-import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import { BaziChartBoard } from './components/BaziChartBoard';
 import { ThreePillarsBoard } from './components/ThreePillarsBoard';
 import { ZiweiBoard } from './components/ZiweiBoard';
@@ -64,6 +60,7 @@ import { useQuestionInspiration } from './hooks/useQuestionInspiration';
 import { useBaziCalculations } from './hooks/useBaziCalculations';
 import { useZiweiCalculations } from './hooks/useZiweiCalculations';
 import { usePromptShortcuts } from './hooks/usePromptShortcuts';
+import { AiChatPanel } from '@/components/AiChatPanel';
 
 const LazyBaziFortuneModal = lazy(async () => {
   const module = await import('@/components/BaziFortuneTools/BaziFortuneModal');
@@ -107,7 +104,6 @@ export function ResultPage() {
   const [isZiweiScopeModalOpen, setIsZiweiScopeModalOpen] = useState(false);
   const [isAstrolabeScopeModalOpen, setIsAstrolabeScopeModalOpen] = useState(false);
   const inspiration = useQuestionInspiration();
-  const viewportWidth = useViewportWidth(0);
   const [promptEngine, setPromptEngine] = useState<PromptEngineModule | null>(null);
   const [baziFortuneSelectionModule, setBaziFortuneSelectionModule] =
     useState<BaziFortuneSelectionModule | null>(null);
@@ -780,16 +776,6 @@ export function ResultPage() {
     ],
   );
 
-  const latestActivePromptText =
-    promptState.promptSource === 'astrolabe'
-      ? latestAstrolabePromptText
-      : promptState.promptSource === 'bazi-ziwei'
-        ? latestEnhancedPromptText
-        : promptState.promptSource === 'bazi'
-          ? latestBaziPromptText
-          : latestZiweiPromptText;
-  const { copyState, shareState, handleCopy, handleShare } =
-    usePromptCopyShare(latestActivePromptText);
   const previewActivePromptText =
     promptState.promptSource === 'astrolabe'
       ? previewAstrolabePromptText
@@ -801,10 +787,6 @@ export function ResultPage() {
   const isBaziFortuneSummaryLoading = shouldLoadBaziPromptModules && !baziFortuneSelectionModule;
   const baziFortuneSummaryText = baziFortuneContext?.displayText ?? '仅使用本命信息';
   const astrolabeScopeSummaryText = astrolabeScopeContext.displayText;
-  const showShareButton = shouldShowPromptShareButton({
-    viewportWidth,
-    hasNavigatorShare: typeof navigator !== 'undefined' && typeof navigator.share === 'function',
-  });
 
   function switchTab(tab: ResultTabKey) {
     updatePromptState({ tab });
@@ -851,7 +833,7 @@ export function ResultPage() {
           className={`tab-chip ${promptState.tab === 'prompt' ? 'is-active' : ''}`}
           onClick={() => switchTab('prompt')}
         >
-          提示词
+          AI 解析
         </button>
       </div>
 
@@ -1004,11 +986,11 @@ export function ResultPage() {
               <section className="panel">
                 <div className="panel-head">
                   <div>
-                    <h2 className="prompt-settings-title">提示词设置</h2>
+                    <h2 className="prompt-settings-title">解析设置</h2>
                     <p>
                       {hasAstrolabeChart
-                        ? '选择星盘解读重点，生成可复制给 AI 的提示词。'
-                        : '选择基于八字、紫微或八字+紫微的已选分析对象，再用快捷按钮生成问题。'}
+                        ? '选择星盘解读重点和问题，开始 AI 解析。'
+                        : '选择基于八字、紫微或八字+紫微的分析对象和年限，再用快捷按钮选择问题。'}
                     </p>
                   </div>
                 </div>
@@ -1018,7 +1000,7 @@ export function ResultPage() {
                     <div className="prompt-compact-grid">
                       <label className="field-card">
                         <div className="field-header">
-                          <span className="prompt-source-title">提示词来源</span>
+                          <span className="prompt-source-title">解析来源</span>
                         </div>
                         <select
                           value={promptState.promptSource}
@@ -1172,45 +1154,17 @@ export function ResultPage() {
                 </div>
               </section>
 
-              <section className="panel panel-output">
-                <div className="panel-head">
-                  <div>
-                    <h2>提示词正文</h2>
-                    <p>系统要求和问题正文已合并，复制这一整段提示词即可。</p>
-                  </div>
-                  <div className="action-row compact-actions">
-                    <button
-                      className="copy-button secondary-button"
-                      type="button"
-                      onClick={handleCopy}
-                    >
-                      {copyState}
-                    </button>
-                    {showShareButton ? (
-                      <button className="copy-button" type="button" onClick={handleShare}>
-                        {shareState}
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
+              {hasUnknownBirthTime &&
+              (promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei') ? (
                 <div className="prompt-send-tip">
-                  点击复制后，发送到你常用的在线 AI 软件继续提问。
+                  当前存在未知时辰，已自动改为三柱保守解析，不会假定时柱。
                 </div>
-                {hasUnknownBirthTime &&
-                (promptState.promptSource === 'bazi' ||
-                  promptState.promptSource === 'bazi-ziwei') ? (
-                  <div className="prompt-send-tip">
-                    当前存在未知时辰，已自动改为三柱保守提示词，不会假定时柱。
-                  </div>
-                ) : null}
-                {isAstrolabePromptSource && astrolabeCalculation.error ? (
-                  <p className="error-text">{astrolabeCalculation.error}</p>
-                ) : previewActivePromptText ? (
-                  <pre className="result-pre">{previewActivePromptText}</pre>
-                ) : (
-                  <PromptPreSkeleton />
-                )}
-              </section>
+              ) : null}
+              {isAstrolabePromptSource && astrolabeCalculation.error ? (
+                <p className="error-text">{astrolabeCalculation.error}</p>
+              ) : null}
+
+              <AiChatPanel prompt={previewActivePromptText} resetKey={previewActivePromptText} />
             </div>
           ) : null}
         </div>

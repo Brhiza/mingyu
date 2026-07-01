@@ -10,6 +10,7 @@ import type {
   XiaoliurenPalaceDetail,
 } from '@/types/divination';
 import { AstrolabeChart } from '@/components/AstrolabeChart';
+import { AiAnalysisPanel } from '@/components/AiAnalysisPanel';
 
 interface DivinationResultProps {
   isSubmitting: boolean;
@@ -350,6 +351,8 @@ export function DivinationResult({
 
         <pre className="result-pre">{session.prompt}</pre>
       </section>
+
+      <AiAnalysisPanel prompt={session.prompt} resetKey={session.prompt} />
     </div>
   );
 }

@@ -31,3 +31,6 @@ Thumbs.db
 
 # Claude Code 本地数据
 .claude/
+
+# Cloudflare Pages 本地环境变量（含 API 密钥）
+.dev.vars

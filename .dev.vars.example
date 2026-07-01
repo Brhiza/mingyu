@@ -1,0 +1,12 @@
+# AI 解析功能环境变量
+# 复制此文件为 .dev.vars 后填入真实值
+# Cloudflare Pages 部署时在 Dashboard → Settings → Environment variables 中配置同样的变量
+
+# DeepSeek API Key
+AI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxx
+
+# DeepSeek 接口地址（默认 https://api.deepseek.com/v1）
+AI_BASE_URL=https://api.deepseek.com/v1
+
+# 模型名称（默认 deepseek-chat，也可用 deepseek-reasoner）
+AI_MODEL=deepseek-chat

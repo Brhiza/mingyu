@@ -62,6 +62,7 @@ import {
   type ZiweiPromptTopic,
   type ZiweiSchool,
 } from './prompt-builders';
+import { handleAiAnalyze, type AiEnv } from '../ai/proxy';
 
 const API_VERSION = 'v1';
 const SERVICE_NAME = 'aov.cc';
@@ -92,6 +93,7 @@ type JsonRecord = Record<string, unknown>;
 type RouteContext = {
   request: Request;
   segments: string[];
+  env?: AiEnv;
 };
 
 class ApiError extends Error {
@@ -144,6 +146,7 @@ const ENDPOINTS = [
   'POST /api/v1/divination/lenormand/prompt',
   'POST /api/v1/divination/astrolabe',
   'POST /api/v1/divination/astrolabe/prompt',
+  'POST /api/v1/ai/analyze',
 ] as const;
 
 const DIVINATION_METHODS = [
@@ -447,6 +450,50 @@ export function getPublicApiOpenApiDocument() {
           responses: { '200': { description: '占卜结果、统一摘要和结构化提示词' } },
         },
       },
+      '/ai/analyze': {
+        post: {
+          summary: 'AI 解读（流式 SSE）',
+          description:
+            '接收提示词或对话消息，调用 DeepSeek 进行流式解析，返回 SSE 流。' +
+            '支持两种请求格式：1) { prompt: string } 单轮解析；' +
+            '2) { messages: Array<{role, content}> } 多轮对话（追问仅限当前解析主题）。',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    prompt: {
+                      type: 'string',
+                      description: '完整的提示词文本（单轮模式）',
+                    },
+                    messages: {
+                      type: 'array',
+                      description: '对话消息数组（多轮模式，优先于 prompt）',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          role: {
+                            type: 'string',
+                            enum: ['user', 'assistant'],
+                          },
+                          content: { type: 'string' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'SSE 流式响应，data 字段包含 { content: string } 增量。',
+            },
+          },
+        },
+      },
     },
     components: {
       schemas: {
@@ -550,7 +597,11 @@ export function normalizeApiPath(pathname: string) {
     .filter(Boolean);
 }
 
-export async function handlePublicApiRequest(request: Request, segments?: string[]) {
+export async function handlePublicApiRequest(
+  request: Request,
+  segments?: string[],
+  env?: AiEnv,
+) {
   if (request.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
@@ -560,8 +611,13 @@ export async function handlePublicApiRequest(request: Request, segments?: string
 
   const routeSegments = segments ?? normalizeApiPath(new URL(request.url).pathname);
 
+  // AI 解析走独立的 SSE 流式响应，不经过 JSON 包装
+  if (routeSegments.join('/') === 'ai/analyze' && request.method === 'POST') {
+    return handleAiAnalyze(request, env);
+  }
+
   try {
-    const data = await route({ request, segments: routeSegments });
+    const data = await route({ request, segments: routeSegments, env });
     return json(success(data));
   } catch (error) {
     return handleError(error);
