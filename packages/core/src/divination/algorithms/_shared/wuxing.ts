@@ -20,7 +20,7 @@ export const BRANCH_WUXING: Record<string, string> = {
 };
 
 // 月令当令五行（按月建地支本气定当令之神）：
-// 同令为旺，令生为相，生令为休，令克为囚，克令为死。
+// 同令为旺，令生我为相，我生令为休，我克令为囚，令克我为死。
 // 六爻、梅花共用，比季节粗分（春夏秋冬）更精确。
 export const MONTH_LING_WUXING: Record<string, string> = {
   子: '水',
@@ -310,7 +310,7 @@ const KE_MAP: Record<string, string> = {
 
 /**
  * 按《增删卜易》月令提纲定五行旺相休囚死：
- * 旺=同令，相=令生，休=生令，囚=令克，死=克令。
+ * 旺=同令，相=令生我，休=我生令，囚=我克令，死=令克我。
  */
 export function getSeasonState(
   yaoWuxing: string,
@@ -323,8 +323,8 @@ export function getSeasonState(
   if (lingWuxing === yaoWuxing) return '旺';
   if (isSheng(lingWuxing, yaoWuxing)) return '相';
   if (isSheng(yaoWuxing, lingWuxing)) return '休';
-  if (isKe(lingWuxing, yaoWuxing)) return '囚';
-  if (isKe(yaoWuxing, lingWuxing)) return '死';
+  if (isKe(yaoWuxing, lingWuxing)) return '囚';
+  if (isKe(lingWuxing, yaoWuxing)) return '死';
   return '平';
 }
 

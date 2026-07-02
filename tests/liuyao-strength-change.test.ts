@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import type { LiuyaoYaoDetail } from 'mingyu-core/types';
 
-// 2025-01-01 农历为丙子月（子月：水旺木相火休金囚土死）、丙寅日（日支寅）
+// 2025-01-01 农历为丙子月（子月：水旺木相金休土囚火死）、丙寅日（日支寅）
 // 该日期的卦象固定，用于回归月令旺衰、暗动、回头生克冲的字段输出。
 const SAMPLE_DATE = new Date('2025-01-01T08:00:00+08:00');
 
@@ -18,13 +18,13 @@ test('六爻：各爻输出月令旺相休囚死状态', () => {
     if (yao.wuxing === '水') {
       assert.equal(yao.seasonState, '旺', `第${yao.position}爻水在子月应旺`);
     }
-    // 子月火囚（令克火，水克火），火爻应为"囚"
+    // 子月火死（令克火，水克火），火爻应为"死"
     if (yao.wuxing === '火') {
-      assert.equal(yao.seasonState, '囚', `第${yao.position}爻火在子月应囚`);
+      assert.equal(yao.seasonState, '死', `第${yao.position}爻火在子月应死`);
     }
-    // 子月土死（土克令水，克令者死），土爻应为"死"
+    // 子月土囚（土克令水，我克令者囚），土爻应为"囚"
     if (yao.wuxing === '土') {
-      assert.equal(yao.seasonState, '死', `第${yao.position}爻土在子月应死`);
+      assert.equal(yao.seasonState, '囚', `第${yao.position}爻土在子月应囚`);
     }
   }
 });

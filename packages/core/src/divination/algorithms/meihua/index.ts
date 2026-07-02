@@ -236,7 +236,7 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   }));
 
   // 四时旺衰：按《梅花易数》以月建地支定旺相休囚死，比季节粗分更精确。
-  // 复用六爻的 getSeasonState（同令→旺，令生→相，生令→休，令克→囚，克令→死）。
+  // 复用六爻的 getSeasonState（同令→旺，令生我→相，我生令→休，我克令→囚，令克我→死）。
   const monthBranch = ganzhi.month.slice(-1);
   const tiSeasonState = getSeasonState(tiGua.element, monthBranch);
   const yongSeasonState = getSeasonState(yongGua.element, monthBranch);
