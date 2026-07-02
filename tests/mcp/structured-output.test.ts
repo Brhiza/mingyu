@@ -249,7 +249,9 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
 
     assert.equal(result.isError, undefined, 'almanac_prompt 不填 question 不应返回错误');
     assert.ok(result.structuredContent?.result, 'almanac_prompt 应返回 result');
-    assert.match(String(result.structuredContent?.prompt), /【占卜信息】/);
+    const prompt = String(result.structuredContent?.prompt);
+    assert.match(prompt, /【占卜信息】/);
+    assertPromptIsPortableTaskText(prompt);
   });
 });
 
@@ -285,6 +287,7 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
       prompt,
       /【分析对象】已经给出本命、流年、流月或流日范围时，必须以该范围作为本次回答主范围/,
     );
+    assertPromptIsPortableTaskText(prompt);
   });
 });
 
@@ -884,8 +887,10 @@ test('MCP 六爻与大六壬提示词工具应区分专项模板字段', async (
       },
     });
     assert.equal(liuyaoResult.isError, undefined, 'liuyao_prompt 不应返回错误');
-    assert.match(String(liuyaoResult.structuredContent?.prompt), /【断卦要点】/);
-    assert.match(String(liuyaoResult.structuredContent?.prompt), /断卦类型：鬼神怪异/);
+    const liuyaoPrompt = String(liuyaoResult.structuredContent?.prompt);
+    assert.match(liuyaoPrompt, /【断卦要点】/);
+    assert.match(liuyaoPrompt, /断卦类型：鬼神怪异/);
+    assertPromptIsPortableTaskText(liuyaoPrompt);
 
     const liurenResult = await client.callTool({
       name: 'liuren_prompt',
@@ -896,7 +901,9 @@ test('MCP 六爻与大六壬提示词工具应区分专项模板字段', async (
       },
     });
     assert.equal(liurenResult.isError, undefined, 'liuren_prompt 不应返回错误');
-    assert.match(String(liurenResult.structuredContent?.prompt), /【分析思路】/);
-    assert.match(String(liurenResult.structuredContent?.prompt), /分析类型：事业断课/);
+    const liurenPrompt = String(liurenResult.structuredContent?.prompt);
+    assert.match(liurenPrompt, /【分析思路】/);
+    assert.match(liurenPrompt, /分析类型：事业断课/);
+    assertPromptIsPortableTaskText(liurenPrompt);
   });
 });
