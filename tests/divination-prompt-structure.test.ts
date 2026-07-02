@@ -56,6 +56,7 @@ function assertStandardPromptStructure(prompt: string) {
   assert.match(prompt, /占法：/);
   assert.match(prompt, /核心结构：/);
   assert.doesNotMatch(prompt, /\*\*/);
+  assertNoPromptPlaceholders(prompt);
 }
 
 function assertLiurenPromptStructure(prompt: string) {
@@ -83,11 +84,16 @@ function assertLiurenPromptStructure(prompt: string) {
 
   assert.doesNotMatch(prompt, /^【占卜信息】$/m);
   assert.doesNotMatch(prompt, /^【断课要点】$/m);
+  assertNoPromptPlaceholders(prompt);
 }
 
 function assertNoEngineeringPromptText(prompt: string) {
   assert.doesNotMatch(prompt, /当前项目|本地算法|技术限制|未计算|资料包|提示词规则/);
   assert.doesNotMatch(prompt, /当前已写入|当前未写入|未写入/);
+}
+
+function assertNoPromptPlaceholders(prompt: string) {
+  assert.doesNotMatch(prompt, /\b(?:undefined|null|NaN)\b/);
 }
 
 function findSectionHeadingIndex(prompt: string, section: string) {
@@ -731,6 +737,7 @@ test('占卜输出提示词应是可复制给在线 AI 的独立任务书，不�
       createSupplementaryInfo(),
     );
     assertNoEngineeringPromptText(prompt);
+    assertNoPromptPlaceholders(prompt);
   });
 });
 
