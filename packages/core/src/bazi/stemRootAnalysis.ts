@@ -33,8 +33,16 @@ const HIDDEN_STEMS: Record<string, string[]> = {
 };
 
 const STEM_ELEMENT: Record<string, string> = {
-  甲: '木', 乙: '木', 丙: '火', 丁: '火', 戊: '土',
-  己: '土', 庚: '金', 辛: '金', 壬: '水', 癸: '水',
+  甲: '木',
+  乙: '木',
+  丙: '火',
+  丁: '火',
+  戊: '土',
+  己: '土',
+  庚: '金',
+  辛: '金',
+  壬: '水',
+  癸: '水',
 };
 
 function getHiddenRootScore(index: number): number {
@@ -63,18 +71,19 @@ export function analyzeStemRootProfile(
     let hasSameElement = false;
     let rootScore = 0;
 
-    const stems = HIDDEN_STEMS[p.zhi] || [];
-    stems.forEach((stem, index) => {
-      const isSameStem = stem === visibleStem;
-      const isSameElement =
-        STEM_ELEMENT[stem] === visibleElement && stem !== visibleStem;
-      if (isSameStem) {
-        hasSameStem = true;
-        rootScore += getHiddenRootScore(index) * 1.0; // 本根权重 1.0
-      } else if (isSameElement) {
-        hasSameElement = true;
-        rootScore += getHiddenRootScore(index) * 0.6; // 同气根权重 0.6
-      }
+    pillars.forEach((rootPillar) => {
+      const stems = HIDDEN_STEMS[rootPillar.zhi] || [];
+      stems.forEach((stem, index) => {
+        const isSameStem = stem === visibleStem;
+        const isSameElement = STEM_ELEMENT[stem] === visibleElement && stem !== visibleStem;
+        if (isSameStem) {
+          hasSameStem = true;
+          rootScore += getHiddenRootScore(index) * 1.0; // 本根权重 1.0
+        } else if (isSameElement) {
+          hasSameElement = true;
+          rootScore += getHiddenRootScore(index) * 0.6; // 同气根权重 0.6
+        }
+      });
     });
 
     const status: VisibleStemRootItem['status'] = hasSameStem
@@ -91,9 +100,9 @@ export function analyzeStemRootProfile(
       status,
       summary:
         status === '有本根'
-          ? '有本根支撑'
+          ? '四柱地支见本根支撑'
           : status === '有同气根'
-            ? '有同气根支撑'
+            ? '四柱地支见同气根支撑'
             : '无根漂浮',
     });
   });

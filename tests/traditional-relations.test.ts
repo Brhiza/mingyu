@@ -15,6 +15,7 @@ import {
 } from '../packages/core/src/divination/algorithms/_shared/wuxing';
 import { analyzeLifeStageProfile } from '../packages/core/src/bazi/lifeStageAnalysis';
 import { analyzeRelationStructure } from '../packages/core/src/bazi/relationStructure';
+import { analyzeStemRootProfile } from '../packages/core/src/bazi/stemRootAnalysis';
 import { analyzeTombStorage } from '../packages/core/src/bazi/tombStorage';
 import { getTenGod, getWuxing } from '../packages/core/src/bazi/baziUtils';
 import { analyzeGanzhiInteractions as analyzeAppQimenGanzhi } from '../packages/core/src/divination/algorithms/qimen/helpers/seasonality';
@@ -168,6 +169,26 @@ test('八字关系结构应识别寅午火局生地半合', () => {
         item.values.join('') === '寅午',
     ),
   );
+});
+
+test('八字透干通根应扫描四柱地支，不应只看本柱坐支', () => {
+  const profile = analyzeStemRootProfile(
+    [
+      { gan: '甲', zhi: '子' },
+      { gan: '丙', zhi: '辰' },
+      { gan: '庚', zhi: '寅' },
+      { gan: '辛', zhi: '午' },
+    ],
+    '甲',
+    getWuxing,
+    getTenGod,
+  );
+
+  const yearStem = profile.items.find((item) => item.pillar === 'year');
+
+  assert.equal(yearStem?.stem, '甲');
+  assert.equal(yearStem?.status, '有本根');
+  assert.ok((yearStem?.rootScore || 0) >= 1.2);
 });
 
 test('占法共享半合判断不应把重复地支当作两个成员', () => {
