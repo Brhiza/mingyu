@@ -6,6 +6,7 @@ import {
   buildBaziPromptForResult,
   buildZiweiPromptForRuntime,
   type BaziPromptTopic,
+  type ZiweiPromptTopic,
 } from '../src/lib/public-api/prompt-builders';
 import { baziCalculator } from '../src/utils/bazi/baziCalculator';
 import { calculateTrueSolarTime } from '../src/utils/bazi/trueSolarTime';
@@ -789,7 +790,7 @@ test('紫微公开 API prompt builder 空问题会按所选方向补默认问题
   assert.doesNotMatch(prompt, /【问题】\n请先做整体解读。/);
 });
 
-test('紫微公开 API 新增专项主题应输出对应分析主题与框架', async () => {
+test('紫微公开 API 健康养护专项主题应输出对应分析主题与框架', async () => {
   const runtime = await calculateFullZiweiChart(
     buildZiweiChartInput({
       name: '测试',
@@ -928,7 +929,7 @@ test('紫微公开 API 工作变动专项主题应输出对应分析主题与框
   assert.match(prompt, /工作变动先看官禄宫、迁移宫、财帛宫、命宫、田宅宫与福德宫/);
 });
 
-test('紫微公开 API 第二批专项主题应输出对应分析主题与框架', async () => {
+test('紫微公开 API 批量新增专项主题应输出对应分析主题与框架', async () => {
   const runtime = await calculateFullZiweiChart(
     buildZiweiChartInput({
       name: '测试',
@@ -943,128 +944,71 @@ test('紫微公开 API 第二批专项主题应输出对应分析主题与框架
     }),
   );
 
-  const startupPrompt = buildZiweiPromptForRuntime({
-    result: runtime,
-    question: '',
-    topic: 'startup-partnership',
-    scope: 'origin',
-  });
-  assert.match(startupPrompt, /分析主题：创业合作/);
-  assert.match(
-    startupPrompt,
-    /【问题】\n请先从适不适合创业、单干还是合作，以及如何判断当前时机开始分析。/,
-  );
-  assert.match(startupPrompt, /创业合作先看官禄宫、财帛宫、迁移宫、命宫、福德宫与兄弟宫/);
+  const cases: Array<{ topic: ZiweiPromptTopic; title: RegExp; question: RegExp; frame: RegExp }> =
+    [
+      {
+        topic: 'startup-partnership',
+        title: /分析主题：创业合作/,
+        question: /【问题】\n请先从适不适合创业、单干还是合作，以及如何判断当前时机开始分析。/,
+        frame: /创业合作先看官禄宫、财帛宫、迁移宫、命宫、福德宫与兄弟宫/,
+      },
+      {
+        topic: 'relationship-decision',
+        title: /分析主题：关系去留/,
+        question: /【问题】\n请先从这段关系该继续投入、放手止损还是保持观察开始分析。/,
+        frame: /关系去留先看夫妻宫、命宫、福德宫、迁移宫与当前运限牵动/,
+      },
+      {
+        topic: 'home-move',
+        title: /分析主题：搬家置业/,
+        question: /【问题】\n请先从现在适不适合搬家、换城市、买房置业和居住调整开始分析。/,
+        frame: /搬家置业先看田宅宫、迁移宫、财帛宫、福德宫、命宫与父母宫/,
+      },
+      {
+        topic: 'study-advance',
+        title: /分析主题：考证进修/,
+        question: /【问题】\n请先从我适不适合考证、读研进修或跨领域学习开始分析。/,
+        frame: /考证进修先看命宫、福德宫、官禄宫、父母宫、迁移宫和当前运限联动/,
+      },
+      {
+        topic: 'investment-partnership',
+        title: /分析主题：投资合作/,
+        question: /【问题】\n请先从我现在适不适合投资、跟人合作求财还是继续观望开始分析。/,
+        frame: /投资合作先看财帛宫、官禄宫、福德宫、兄弟宫、迁移宫与命宫的联动。/,
+      },
+      {
+        topic: 'reconciliation-decision',
+        title: /分析主题：复合判断/,
+        question:
+          /【问题】\n请先从这段旧关系现在还有没有复合空间，以及更适合争取、观察还是放下开始分析。/,
+        frame: /复合判断先看夫妻宫、命宫、福德宫、迁移宫、子女宫与当前运限牵动/,
+      },
+      {
+        topic: 'settle-relocate',
+        title: /分析主题：定居换城/,
+        question: /【问题】\n请先从我现在适不适合长期定居、换城市发展还是留在当前城市开始分析。/,
+        frame: /定居换城先看田宅宫、迁移宫、官禄宫、财帛宫、福德宫、命宫与父母宫/,
+      },
+      {
+        topic: 'exam-landing',
+        title: /分析主题：考试上岸/,
+        question:
+          /【问题】\n请先从这次考试、面试或申请更适合冲刺、稳住发挥还是调整预期开始分析。/,
+        frame: /考试上岸先看命宫、福德宫、官禄宫、父母宫、迁移宫与当前运限联动/,
+      },
+    ];
 
-  const relationshipPrompt = buildZiweiPromptForRuntime({
-    result: runtime,
-    question: '',
-    topic: 'relationship-decision',
-    scope: 'origin',
-  });
-  assert.match(relationshipPrompt, /分析主题：关系去留/);
-  assert.match(
-    relationshipPrompt,
-    /【问题】\n请先从这段关系该继续投入、放手止损还是保持观察开始分析。/,
-  );
-  assert.match(relationshipPrompt, /关系去留先看夫妻宫、命宫、福德宫、迁移宫与当前运限牵动/);
-
-  const homePrompt = buildZiweiPromptForRuntime({
-    result: runtime,
-    question: '',
-    topic: 'home-move',
-    scope: 'origin',
-  });
-  assert.match(homePrompt, /分析主题：搬家置业/);
-  assert.match(
-    homePrompt,
-    /【问题】\n请先从现在适不适合搬家、换城市、买房置业和居住调整开始分析。/,
-  );
-  assert.match(homePrompt, /搬家置业先看田宅宫、迁移宫、财帛宫、福德宫、命宫与父母宫/);
-
-  const studyPrompt = buildZiweiPromptForRuntime({
-    result: runtime,
-    question: '',
-    topic: 'study-advance',
-    scope: 'origin',
-  });
-  assert.match(studyPrompt, /分析主题：考证进修/);
-  assert.match(studyPrompt, /【问题】\n请先从我适不适合考证、读研进修或跨领域学习开始分析。/);
-  assert.match(studyPrompt, /考证进修先看命宫、福德宫、官禄宫、父母宫、迁移宫和当前运限联动/);
-});
-
-test('紫微公开 API 第三批专项主题应输出对应分析主题与框架', async () => {
-  const runtime = await calculateFullZiweiChart(
-    buildZiweiChartInput({
-      name: '测试',
-      gender: 'female',
-      dateType: 'solar',
-      year: '1992',
-      month: '8',
-      day: '21',
-      timeIndex: 4,
-      isLeapMonth: false,
-      useTrueSolarTime: false,
-    }),
-  );
-
-  const investmentPrompt = buildZiweiPromptForRuntime({
-    result: runtime,
-    question: '',
-    topic: 'investment-partnership',
-    scope: 'origin',
-  });
-  assert.match(investmentPrompt, /分析主题：投资合作/);
-  assert.match(
-    investmentPrompt,
-    /【问题】\n请先从我现在适不适合投资、跟人合作求财还是继续观望开始分析。/,
-  );
-  assert.match(
-    investmentPrompt,
-    /投资合作先看财帛宫、官禄宫、福德宫、兄弟宫、迁移宫与命宫的联动。/,
-  );
-
-  const reconciliationPrompt = buildZiweiPromptForRuntime({
-    result: runtime,
-    question: '',
-    topic: 'reconciliation-decision',
-    scope: 'origin',
-  });
-  assert.match(reconciliationPrompt, /分析主题：复合判断/);
-  assert.match(
-    reconciliationPrompt,
-    /【问题】\n请先从这段旧关系现在还有没有复合空间，以及更适合争取、观察还是放下开始分析。/,
-  );
-  assert.match(
-    reconciliationPrompt,
-    /复合判断先看夫妻宫、命宫、福德宫、迁移宫、子女宫与当前运限牵动/,
-  );
-
-  const settlePrompt = buildZiweiPromptForRuntime({
-    result: runtime,
-    question: '',
-    topic: 'settle-relocate',
-    scope: 'origin',
-  });
-  assert.match(settlePrompt, /分析主题：定居换城/);
-  assert.match(
-    settlePrompt,
-    /【问题】\n请先从我现在适不适合长期定居、换城市发展还是留在当前城市开始分析。/,
-  );
-  assert.match(settlePrompt, /定居换城先看田宅宫、迁移宫、官禄宫、财帛宫、福德宫、命宫与父母宫/);
-
-  const examPrompt = buildZiweiPromptForRuntime({
-    result: runtime,
-    question: '',
-    topic: 'exam-landing',
-    scope: 'origin',
-  });
-  assert.match(examPrompt, /分析主题：考试上岸/);
-  assert.match(
-    examPrompt,
-    /【问题】\n请先从这次考试、面试或申请更适合冲刺、稳住发挥还是调整预期开始分析。/,
-  );
-  assert.match(examPrompt, /考试上岸先看命宫、福德宫、官禄宫、父母宫、迁移宫与当前运限联动/);
+  for (const { topic, title, question, frame } of cases) {
+    const prompt = buildZiweiPromptForRuntime({
+      result: runtime,
+      question: '',
+      topic,
+      scope: 'origin',
+    });
+    assert.match(prompt, title, `${topic} 应输出对应分析主题`);
+    assert.match(prompt, question, `${topic} 应输出对应默认问题`);
+    assert.match(prompt, frame, `${topic} 应输出对应框架依据`);
+  }
 });
 
 test('公开 API 紫微未指定方向时应默认走综合框架而不是自由问答', async () => {
