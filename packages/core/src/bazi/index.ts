@@ -64,6 +64,15 @@ export { matchesRule } from './baziRuleMatcher/index';
 export { determinePattern } from './baziPatternStrategy';
 export { determineUsefulGod } from './baziUsefulGodStrategy';
 export { calculateTrueSolarTime } from './trueSolarTime';
+export { checkChinaDst, isDateInChinaDstRange } from './chinaDst';
+export type { ChinaDstCheckResult } from './chinaDst';
+export {
+  collectBoundaryWarnings,
+  checkJieqiBoundary,
+  checkShichenBoundary,
+  BOUNDARY_THRESHOLD_MINUTES,
+} from './paipanWarnings';
+export type { BoundaryCheckInput } from './paipanWarnings';
 export { LuckCalculator } from './LuckCalculator';
 export {
   formatSolarDateTime,

@@ -154,6 +154,12 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   result += `出生历法: 阳历${solarDate.year}年${solarDate.month}月${solarDate.day}日 | 农历${formatLunarDate(baziResult)} | 生肖:${baziResult.zodiac}\n`;
   if (baziResult.timing?.enabled) {
     result += `真太阳时: ${baziResult.timing.correctedTime.year}年${baziResult.timing.correctedTime.month}月${baziResult.timing.correctedTime.day}日 ${String(baziResult.timing.correctedTime.hour).padStart(2, '0')}:${String(baziResult.timing.correctedTime.minute).padStart(2, '0')} | 出生地:${baziResult.timing.birthPlace || '未填写'} | 经度:${baziResult.timing.birthLongitude}\n`;
+    if (baziResult.timing.dstCorrectionMinutes) {
+      result += `夏令时校正: ${baziResult.timing.dstCorrectionMinutes} 分钟（中国夏令时 1986-1991）\n`;
+    }
+  }
+  if (baziResult.warnings?.length) {
+    result += `【排盘预警】\n${baziResult.warnings.map((w) => `⚠ ${w}`).join('\n')}\n`;
   }
   result += `日元本命: ${dayMaster.gan}${dayMaster.element} (${dayMaster.yinYang})\n`;
   if (baziResult.monthCommander) result += `月令司权: ${baziResult.monthCommander}\n`;

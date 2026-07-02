@@ -25,6 +25,12 @@ export interface Person {
   birthLongitude?: number;
   age?: number;
   shenShaVariants?: Partial<ShenShaVariantConfig>;
+  /**
+   * 是否自动校正中国夏令时（1986-1991，钟表时间快 1 小时）。
+   * 默认 true；仅在真太阳时模式（有精确时分）下执行 -60 分钟校正，
+   * 仅时辰精度时只输出提示不做校正。
+   */
+  applyChinaDst?: boolean;
 }
 
 export interface TimeInfo {
@@ -99,6 +105,8 @@ export interface TimingInfo {
   longitudeCorrectionMinutes: number;
   equationOfTimeMinutes: number;
   totalCorrectionMinutes: number;
+  /** 中国夏令时校正（命中 1986-1991 夏令时时为 -60，未命中时省略） */
+  dstCorrectionMinutes?: number;
 }
 
 export interface LuckCycle {
@@ -328,4 +336,9 @@ export interface BaziChartResult {
   age?: number;
   /** 流年列表 */
   liunian?: LiunianInfo[];
+  /**
+   * 排盘预警：出生时刻贴近节气交接/时辰边界/23:00 换日线，
+   * 或落于中国夏令时期间等可能翻柱的情形。无预警时为空数组。
+   */
+  warnings: string[];
 }
