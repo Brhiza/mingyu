@@ -12,13 +12,23 @@ test('小六壬：空亡宫五行应为土，类型与算法数据保持一致',
   assert.equal(data.sequence.process.element, '土');
 });
 
-test('小六壬：五行说明应按真实生克方向描述，不应反写得生与所生', () => {
+test('小六壬：留连宫应按四季土口径，不应误作木', () => {
   const data = generateXiaoliuren({ method: 'number', number: 2, customDate: SAMPLE_DATE });
 
   assert.equal(data.sequence.start.name, '留连');
-  assert.equal(data.sequence.start.element, '木');
-  assert.equal(data.sequence.process.name, '速喜');
-  assert.equal(data.sequence.process.element, '火');
+  assert.equal(data.sequence.start.element, '土');
+  assert.equal(data.sequence.start.shenSha, '螣蛇');
+  assert.equal(data.sequence.start.direction, '四角');
+  assert.match(data.sequence.start.seasonProsper || '', /辰戌丑未月/);
+});
+
+test('小六壬：五行说明应按真实生克方向描述，不应反写得生与所生', () => {
+  const data = generateXiaoliuren({ method: 'number', number: 4, customDate: SAMPLE_DATE });
+
+  assert.equal(data.sequence.start.name, '赤口');
+  assert.equal(data.sequence.start.element, '金');
+  assert.equal(data.sequence.process.name, '小吉');
+  assert.equal(data.sequence.process.element, '水');
   assert.equal(data.wuxingRelations.startToProcess, '所生');
   assert.match(data.wuxingRelations.description, /起因生过程/);
   assert.doesNotMatch(data.wuxingRelations.description, /起因被过程泄气/);
