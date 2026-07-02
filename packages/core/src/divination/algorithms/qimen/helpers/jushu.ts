@@ -30,6 +30,18 @@ import { STEM_TOMB_MAP } from './_constants';
 
 const { dizhi, diPanPalaces, palaceStars, palaceDoorMap, jieQiJuShuMap } = qimen;
 const tenStems = tiangan;
+const wuBuYuHourStemByDayStem: Record<string, string> = {
+  甲: '庚',
+  乙: '辛',
+  丙: '壬',
+  丁: '癸',
+  戊: '甲',
+  己: '乙',
+  庚: '丙',
+  辛: '丁',
+  壬: '戊',
+  癸: '己',
+};
 
 // ============================================================================
 // 内部辅助方法
@@ -220,9 +232,13 @@ export function getQimenJuShu(timeInfo: {
  *   时干克日干，名为五不遇，主事多不顺，好事被阻，凶时。
  *
  * @param hourGanZhi 时辰干支字符串（如 "甲子"、"乙丑"）
+ * @param dayGanZhi  日干支字符串（用于判断五不遇时）
  * @returns 包含各项特殊条件的检查结果
  */
-export function checkSpecialHourConditions(hourGanZhi: string): {
+export function checkSpecialHourConditions(
+  hourGanZhi: string,
+  dayGanZhi?: string,
+): {
   isLiuJiaHour: boolean;
   isLiuGuiHour: boolean;
   isShiGanRuMu: boolean;
@@ -269,23 +285,11 @@ export function checkSpecialHourConditions(hourGanZhi: string): {
 
   // ── 4. 五不遇时 ──
   // 《遁甲演义》："五不遇时者，时干克日干也。"
-  // 传统固定列：甲申、乙酉、丙子、丁亥、戊寅、己卯、庚午、辛巳、壬辰、癸未
-  // 此时辰时干克日干，主事多不顺
-  const wuBuYuShiHours = [
-    '甲申',
-    '乙酉',
-    '丙子',
-    '丁亥',
-    '戊寅',
-    '己卯',
-    '庚午',
-    '辛巳',
-    '壬辰',
-    '癸未',
-  ];
-  if (wuBuYuShiHours.includes(hourGanZhi)) {
+  // 五不遇必须同时比较日干与时干，不能只凭时辰干支固定列表判断。
+  const dayGan = dayGanZhi?.charAt(0);
+  if (dayGan && wuBuYuHourStemByDayStem[dayGan] === hourGan) {
     result.isWuBuYuShi = true;
-    result.description += '五不遇时（时干克日干），事多不顺，不宜举事；';
+    result.description += `五不遇时（日干${dayGan}遇时干${hourGan}克日干），事多不顺，不宜举事；`;
   }
 
   return result;
@@ -312,6 +316,7 @@ export function checkSpecialHourConditions(hourGanZhi: string): {
  *   3. 该宫之星 = 值符，该宫之门 = 值使
  *
  * @param hourGanZhi 时辰干支（如 "甲子"、"乙丑"）
+ * @param dayGanZhi  日干支（用于特殊时辰中的五不遇时判断）
  * @returns { zhiFu, zhiShi, zhiFuPalace, specialConditions }
  *    zhiFu            - 值符星名
  *    zhiShi           - 值使门名
@@ -320,7 +325,10 @@ export function checkSpecialHourConditions(hourGanZhi: string): {
  *
  * @throws 当时辰干支无法识别时
  */
-export function getZhiFuZhiShi(hourGanZhi: string): {
+export function getZhiFuZhiShi(
+  hourGanZhi: string,
+  dayGanZhi?: string,
+): {
   zhiFu: string;
   zhiShi: string;
   zhiFuPalace: number;
@@ -348,7 +356,7 @@ export function getZhiFuZhiShi(hourGanZhi: string): {
   const zhiShi = palaceDoorMap[xunShouPalace as keyof typeof palaceDoorMap];
 
   // 检查当前时辰的特殊情况
-  const specialConditions = checkSpecialHourConditions(hourGanZhi);
+  const specialConditions = checkSpecialHourConditions(hourGanZhi, dayGanZhi);
 
   return { zhiFu, zhiShi, zhiFuPalace: xunShouPalace, specialConditions };
 }

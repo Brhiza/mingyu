@@ -5,6 +5,7 @@ import { buildTimeInfoText } from '../src/lib/divination/engine/formatters';
 import type { QimenJiuGongGe } from '../packages/core/src/types/divination';
 import { STEM_TOMB_MAP } from '../packages/core/src/divination/algorithms/qimen/helpers/_constants';
 import { getStemRelations } from '../packages/core/src/divination/algorithms/qimen/helpers/classic-patterns';
+import { checkSpecialHourConditions } from '../packages/core/src/divination/algorithms/qimen/helpers/jushu';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateQimen, resolveZhiShiLandingPalace } from 'mingyu-core/divination/qimen';
@@ -167,6 +168,22 @@ test('奇门算法会补出时旬空亡与马星落宫', () => {
   assert.ok(data.horseStar?.sourceBranch);
 });
 
+test('奇门五不遇时应按日干克应判断，不只看时辰干支', () => {
+  assert.equal(checkSpecialHourConditions('庚午', '甲戌').isWuBuYuShi, true);
+  assert.equal(checkSpecialHourConditions('戊寅', '庚午').isWuBuYuShi, false);
+  assert.equal(checkSpecialHourConditions('戊寅').isWuBuYuShi, false);
+
+  const falsePositiveCase = generateQimen(new Date('2025-01-01T04:00:00+08:00'));
+  assert.equal(falsePositiveCase.ganzhi.day, '庚午');
+  assert.equal(falsePositiveCase.ganzhi.hour, '戊寅');
+  assert.equal(falsePositiveCase.specialConditions?.isWuBuYuShi, false);
+
+  const trueCase = generateQimen(new Date('2025-01-05T12:00:00+08:00'));
+  assert.equal(trueCase.ganzhi.day, '甲戌');
+  assert.equal(trueCase.ganzhi.hour, '庚午');
+  assert.equal(trueCase.specialConditions?.isWuBuYuShi, true);
+});
+
 test('奇门算法会输出节令背景与复合格局结构', () => {
   const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'));
 
@@ -228,7 +245,8 @@ test('奇门天地盘干入墓关系与统一天干入墓表一致', () => {
 
     assert.ok(
       relations.some(
-        (relation) => relation.heaven === stem && relation.type === '入墓' && relation.palace === tomb.palace,
+        (relation) =>
+          relation.heaven === stem && relation.type === '入墓' && relation.palace === tomb.palace,
       ),
       `${stem}应在${tomb.palace}宫/${tomb.branch}支入墓`,
     );

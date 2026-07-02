@@ -28,7 +28,12 @@ import type { QimenMethod } from './helpers/layout';
 import { getDivinationTime } from '../../../calendar/timeManager';
 import { getVoidBranches } from '../../../calendar/lunar';
 import { diPanPalaces, STEM_TOMB_MAP } from './helpers/_constants';
-import { getQimenJuShu, getZhiFuZhiShi, getZhiFuZhiShiByGanZhi, getDunJiaStem } from './helpers/jushu';
+import {
+  getQimenJuShu,
+  getZhiFuZhiShi,
+  getZhiFuZhiShiByGanZhi,
+  getDunJiaStem,
+} from './helpers/jushu';
 import { getMonthQimenJuShu, getYearQimenJuShu } from './helpers/jushu-extended';
 import { arrangeJiuGongGe, resolveZhiShiLandingPalace } from './helpers/layout';
 import { getQimenPatternTags, buildPatternDetails, buildPalaceInsights } from './helpers/patterns';
@@ -390,10 +395,14 @@ function getActiveGanZhi(
   scope: QimenScope,
 ): string {
   switch (scope) {
-    case 'year':  return ganzhi.year;
-    case 'month': return ganzhi.month;
-    case 'day':   return ganzhi.day;
-    default:      return ganzhi.hour;
+    case 'year':
+      return ganzhi.year;
+    case 'month':
+      return ganzhi.month;
+    case 'day':
+      return ganzhi.day;
+    default:
+      return ganzhi.hour;
   }
 }
 
@@ -445,7 +454,7 @@ function getZhiFuShiForScope(
   switch (scope) {
     case 'hour': {
       // 时家奇门：支持特殊时辰检查
-      const result = getZhiFuZhiShi(activeGanZhi);
+      const result = getZhiFuZhiShi(activeGanZhi, ganzhi.day);
       return {
         zhiFu: result.zhiFu,
         zhiShi: result.zhiShi,
