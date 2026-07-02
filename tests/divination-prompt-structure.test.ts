@@ -2,6 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
+import {
+  assertNoPromptPlaceholders,
+  assertPromptIsPortableTaskText,
+  assertPromptSectionsInOrder,
+  findPromptSectionHeadingIndex,
+} from './prompt-assertions';
 import type {
   AstrolabeData,
   DivinationData,
@@ -14,6 +20,7 @@ import type {
 
 const PROJECT_DECISION_QUESTION = '我现在应该继续推进这个项目，还是先调整策略再行动？';
 const PROJECT_DECISION_SUPPLEMENT = '正在做一个需要投入时间和资金的新项目，想判断行动节奏。';
+type FixtureMethod = 'liuyao' | 'meihua' | 'xiaoliuren' | 'qimen' | 'liuren' | 'tarot' | 'ssgw';
 
 function createSupplementaryInfo(): SupplementaryInfo {
   return {
@@ -34,35 +41,6 @@ function createProjectSupplementaryInfo(): SupplementaryInfo {
   };
 }
 
-function escapeRegExp(text: string) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function assertSectionsInOrder(
-  prompt: string,
-  expectedSections: string[],
-  options: { requireUnique?: boolean; requireBodyAfterHeading?: boolean } = {},
-) {
-  let lastIndex = -1;
-  for (const section of expectedSections) {
-    const escapedSection = escapeRegExp(section);
-    if (options.requireUnique) {
-      const headingMatches = prompt.match(new RegExp(`^${escapedSection}$`, 'gm')) ?? [];
-      assert.equal(headingMatches.length, 1, `${section} 不应重复出现`);
-    }
-
-    const headingIndex = prompt.search(new RegExp(`^${escapedSection}$`, 'm'));
-    assert.notEqual(headingIndex, -1, `缺少 section：${section}`);
-    assert.ok(headingIndex > lastIndex, `${section} 顺序不正确`);
-
-    if (options.requireBodyAfterHeading) {
-      assert.match(prompt, new RegExp(`${escapedSection}\\n(?!\\n)`), `${section} 后应直接接正文`);
-    }
-
-    lastIndex = headingIndex;
-  }
-}
-
 function assertStandardPromptStructure(prompt: string) {
   const expectedSections = [
     '【要求】',
@@ -74,7 +52,7 @@ function assertStandardPromptStructure(prompt: string) {
     '【输出要求】',
   ];
 
-  assertSectionsInOrder(prompt, expectedSections, {
+  assertPromptSectionsInOrder(prompt, expectedSections, {
     requireUnique: true,
     requireBodyAfterHeading: true,
   });
@@ -82,8 +60,7 @@ function assertStandardPromptStructure(prompt: string) {
   assert.match(prompt, /^你是资深.+/);
   assert.match(prompt, /占法：/);
   assert.match(prompt, /核心结构：/);
-  assert.doesNotMatch(prompt, /\*\*/);
-  assertNoPromptPlaceholders(prompt);
+  assertPromptIsPortableTaskText(prompt);
 }
 
 function assertLiurenPromptStructure(prompt: string) {
@@ -101,24 +78,37 @@ function assertLiurenPromptStructure(prompt: string) {
     '【输出要求】',
   ];
 
-  assertSectionsInOrder(prompt, expectedSections);
+  assertPromptSectionsInOrder(prompt, expectedSections, {
+    requireUnique: true,
+    requireBodyAfterHeading: true,
+  });
 
   assert.doesNotMatch(prompt, /^【占卜信息】$/m);
   assert.doesNotMatch(prompt, /^【断课要点】$/m);
-  assertNoPromptPlaceholders(prompt);
+  assertPromptIsPortableTaskText(prompt);
 }
 
-function assertNoEngineeringPromptText(prompt: string) {
-  assert.doesNotMatch(prompt, /当前项目|本地算法|技术限制|未计算|资料包|提示词规则/);
-  assert.doesNotMatch(prompt, /当前已写入|当前未写入|未写入/);
-}
+function assertAlmanacPromptStructure(prompt: string) {
+  const expectedSections = [
+    '【要求】',
+    '【当前时间】',
+    '【补充信息】',
+    '【占卜信息】',
+    '【应期判断方法】',
+    '【任务】',
+    '【输出要求】',
+  ];
 
-function assertNoPromptPlaceholders(prompt: string) {
-  assert.doesNotMatch(prompt, /\b(?:undefined|null|NaN)\b/);
-}
+  assertPromptSectionsInOrder(prompt, expectedSections, {
+    requireUnique: true,
+    requireBodyAfterHeading: true,
+  });
 
-function findSectionHeadingIndex(prompt: string, section: string) {
-  return prompt.search(new RegExp(`^${escapeRegExp(section)}$`, 'm'));
+  assert.match(prompt, /^你是资深.+/);
+  assert.match(prompt, /占法：黄历择日/);
+  assert.match(prompt, /核心结构：/);
+  assert.doesNotMatch(prompt, /^【问题】$/m);
+  assertPromptIsPortableTaskText(prompt);
 }
 
 function createAstrolabeData(
@@ -239,7 +229,7 @@ function createAstrolabeData(
   };
 }
 
-function createData(method: Exclude<DivinationType, 'tarot_single'>): DivinationData {
+function createData(method: FixtureMethod): DivinationData {
   switch (method) {
     case 'liuyao':
       return {
@@ -711,29 +701,83 @@ function createAlmanacData(): DivinationData {
 }
 
 test('各类占卜提示词都使用统一的角色加信息加问题结构', async () => {
-  const methods: Exclude<DivinationType, 'tarot_single'>[] = [
-    'liuyao',
-    'meihua',
-    'xiaoliuren',
-    'qimen',
-    'liuren',
-    'tarot',
-    'ssgw',
+  const cases: Array<{
+    method: Exclude<DivinationType, 'tarot_single'>;
+    question: string;
+    data: DivinationData;
+    structure: 'standard' | 'liuren' | 'almanac';
+  }> = [
+    {
+      method: 'liuyao',
+      question: '这件事接下来该怎么推进？',
+      data: createData('liuyao'),
+      structure: 'standard',
+    },
+    {
+      method: 'meihua',
+      question: '这件事接下来该怎么推进？',
+      data: createData('meihua'),
+      structure: 'standard',
+    },
+    {
+      method: 'xiaoliuren',
+      question: '这件事接下来该怎么推进？',
+      data: createData('xiaoliuren'),
+      structure: 'standard',
+    },
+    {
+      method: 'qimen',
+      question: '这件事接下来该怎么推进？',
+      data: createData('qimen'),
+      structure: 'standard',
+    },
+    {
+      method: 'liuren',
+      question: '这件事接下来该怎么推进？',
+      data: createData('liuren'),
+      structure: 'liuren',
+    },
+    {
+      method: 'tarot',
+      question: '这件事接下来该怎么推进？',
+      data: createData('tarot'),
+      structure: 'standard',
+    },
+    {
+      method: 'ssgw',
+      question: '这件事接下来该怎么推进？',
+      data: createData('ssgw'),
+      structure: 'standard',
+    },
+    {
+      method: 'lenormand',
+      question: '这件事接下来该怎么推进？',
+      data: createLenormandData(),
+      structure: 'standard',
+    },
+    { method: 'almanac', question: '', data: createAlmanacData(), structure: 'almanac' },
+    {
+      method: 'astrolabe',
+      question: '这件事接下来该怎么推进？',
+      data: createAstrolabeData(),
+      structure: 'standard',
+    },
   ];
 
-  for (const method of methods) {
+  for (const item of cases) {
     const prompt = buildDivinationPrompt(
-      method,
-      '这件事接下来该怎么推进？',
-      createData(method),
+      item.method,
+      item.question,
+      item.data,
       createSupplementaryInfo(),
     );
-    if (method === 'liuren') {
+    if (item.structure === 'liuren') {
       assertLiurenPromptStructure(prompt);
+    } else if (item.structure === 'almanac') {
+      assertAlmanacPromptStructure(prompt);
     } else {
       assertStandardPromptStructure(prompt);
     }
-    assertNoEngineeringPromptText(prompt);
   }
 });
 
@@ -756,8 +800,7 @@ test('占卜输出提示词应是可复制给在线 AI 的独立任务书，不�
       item.data,
       createSupplementaryInfo(),
     );
-    assertNoEngineeringPromptText(prompt);
-    assertNoPromptPlaceholders(prompt);
+    assertPromptIsPortableTaskText(prompt);
   });
 });
 
@@ -792,17 +835,17 @@ test('非命盘占法提示词会写入各自的应期判断方法', () => {
 
     assert.match(prompt, /【应期判断方法】/);
     assert.match(prompt, item.expected);
-    const infoIndex = findSectionHeadingIndex(
+    const infoIndex = findPromptSectionHeadingIndex(
       prompt,
       item.method === 'liuren' ? '【排盘信息】' : '【占卜信息】',
     );
-    const timingIndex = findSectionHeadingIndex(prompt, '【应期判断方法】');
+    const timingIndex = findPromptSectionHeadingIndex(prompt, '【应期判断方法】');
     assert.ok(infoIndex < timingIndex);
     if (item.method === 'almanac') {
-      assert.equal(findSectionHeadingIndex(prompt, '【问题】'), -1);
-      assert.ok(timingIndex < findSectionHeadingIndex(prompt, '【任务】'));
+      assert.equal(findPromptSectionHeadingIndex(prompt, '【问题】'), -1);
+      assert.ok(timingIndex < findPromptSectionHeadingIndex(prompt, '【任务】'));
     } else {
-      assert.ok(timingIndex < findSectionHeadingIndex(prompt, '【问题】'));
+      assert.ok(timingIndex < findPromptSectionHeadingIndex(prompt, '【问题】'));
     }
   }
 });
@@ -859,8 +902,8 @@ test('择日提示词应保留用户补充诉求但不强制输出问题 section
   );
   assert.doesNotMatch(prompt, /^【问题】$/m);
   assert.ok(
-    findSectionHeadingIndex(prompt, '【补充信息】') <
-      findSectionHeadingIndex(prompt, '【占卜信息】'),
+    findPromptSectionHeadingIndex(prompt, '【补充信息】') <
+      findPromptSectionHeadingIndex(prompt, '【占卜信息】'),
   );
 });
 
@@ -906,8 +949,8 @@ test('雷诺曼提示词应保留用户补充背景', () => {
   assert.match(prompt, /出生年份：1990/);
   assert.match(prompt, new RegExp(`用户补充：${PROJECT_DECISION_SUPPLEMENT}`));
   assert.ok(
-    findSectionHeadingIndex(prompt, '【补充信息】') <
-      findSectionHeadingIndex(prompt, '【占卜信息】'),
+    findPromptSectionHeadingIndex(prompt, '【补充信息】') <
+      findPromptSectionHeadingIndex(prompt, '【占卜信息】'),
   );
 });
 
