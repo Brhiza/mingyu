@@ -1,8 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import {
+  DEFAULT_REVERSE_BIRTH_TIME_FORM_DATA,
+  buildReverseBirthTimePrompt,
+  buildThreePillarsProfile,
+} from '../src/lib/birth-time-reverse';
 import { formatPromptCurrentTime } from '../src/lib/prompt-time';
+
+function assertCurrentTimeSectionHasGanzhiCalendar(prompt: string) {
+  const currentTimeSection = prompt.match(/^【当前时间】\n([\s\S]*?)(?=\n【)/m)?.[1] ?? '';
+
+  assert.match(currentTimeSection, /^公历：\d{4}年\d{1,2}月\d{1,2}日 \d{1,2}时\d{1,2}分/m);
+  assert.match(currentTimeSection, /^农历：.+[子丑寅卯辰巳午未申酉戌亥]时$/m);
+  assert.match(currentTimeSection, /^干支历：.+年 .+月 .+日 .+时$/m);
+  assert.match(currentTimeSection, /^当前节气：.+/m);
+}
 
 test('提示词当前时间应同时给出公历、农历、干支历与节气', () => {
   const date = new Date(2025, 0, 2, 3, 4);
@@ -17,15 +29,19 @@ test('提示词当前时间应同时给出公历、农历、干支历与节气',
   );
 });
 
-test('八字、紫微和反推时辰提示词应复用统一时间格式 helper', () => {
-  const source = [
-    readFileSync(resolve('src/utils/ai/aiPrompts.ts'), 'utf8'),
-    readFileSync(resolve('src/lib/birth-time-reverse/prompts.ts'), 'utf8'),
-    readFileSync(resolve('src/lib/full-chart-engine/ziwei.ts'), 'utf8'),
-    readFileSync(resolve('src/pages/ResultPage/ResultPage.helpers.ts'), 'utf8'),
-  ].join('\n');
+test('反推时辰提示词会输出统一的当前时间证据', () => {
+  const reverseProfile = buildThreePillarsProfile({
+    gender: 'male',
+    dateType: 'solar',
+    year: '1994',
+    month: '10',
+    day: '23',
+    isLeapMonth: false,
+  });
+  const reversePrompt = buildReverseBirthTimePrompt({
+    profile: reverseProfile,
+    formData: DEFAULT_REVERSE_BIRTH_TIME_FORM_DATA,
+  });
 
-  assert.match(source, /formatPromptCurrentTime/);
-  assert.match(readFileSync(resolve('src/lib/prompt-time.ts'), 'utf8'), /干支历：/);
-  assert.doesNotMatch(source, /toLocaleString\('zh-CN'\)/);
+  assertCurrentTimeSectionHasGanzhiCalendar(reversePrompt);
 });

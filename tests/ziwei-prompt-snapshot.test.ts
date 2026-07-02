@@ -16,6 +16,15 @@ function assertNoEngineeringPromptText(prompt: string) {
   assert.doesNotMatch(prompt, /当前已写入|当前未写入|未写入/);
 }
 
+function assertCurrentTimeSectionHasGanzhiCalendar(prompt: string) {
+  const currentTimeSection = prompt.match(/^【当前时间】\n([\s\S]*?)(?=\n【)/m)?.[1] ?? '';
+
+  assert.match(currentTimeSection, /^公历：\d{4}年\d{1,2}月\d{1,2}日 \d{1,2}时\d{1,2}分/m);
+  assert.match(currentTimeSection, /^农历：.+[子丑寅卯辰巳午未申酉戌亥]时$/m);
+  assert.match(currentTimeSection, /^干支历：.+年 .+月 .+日 .+时$/m);
+  assert.match(currentTimeSection, /^当前节气：.+/m);
+}
+
 function createPalace(index: number, name: string, stars: string[] = []): PalaceFact {
   return {
     index,
@@ -338,6 +347,7 @@ test('紫微完整提示词应补充完整运限任务书', () => {
   assert.match(prompt, /【解读目标】/);
   assert.match(prompt, /【本命资料】/);
   assert.match(prompt, /【分析对象】/);
+  assertCurrentTimeSectionHasGanzhiCalendar(prompt);
   assert.match(prompt, /【运限重点】/);
   assert.match(prompt, /【主证】所选运限落宫/);
   assert.doesNotMatch(prompt, /【运限资料】/);
