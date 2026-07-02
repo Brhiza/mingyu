@@ -5,6 +5,7 @@ import { buildZiweiChartInput, calculateFullZiweiChart } from '../src/lib/full-c
 import {
   buildBaziPromptForResult,
   buildZiweiPromptForRuntime,
+  type BaziPromptTopic,
 } from '../src/lib/public-api/prompt-builders';
 import { baziCalculator } from '../src/utils/bazi/baziCalculator';
 import { calculateTrueSolarTime } from '../src/utils/bazi/trueSolarTime';
@@ -593,7 +594,7 @@ test('八字公开 API 决策型跳槽专项会输出对应默认问题与任务
   assert.match(prompt, /【任务】\n结合当前大运、流年、流月与命局主线，判断现在更适合留在原岗位/);
 });
 
-test('八字公开 API 第二批专项会输出对应默认问题与任务主题', () => {
+test('八字公开 API 新增专项会输出对应默认问题与任务主题', () => {
   const result = baziCalculator.calculateBazi({
     gender: 'male',
     year: 1990,
@@ -605,127 +606,54 @@ test('八字公开 API 第二批专项会输出对应默认问题与任务主题
     useTrueSolarTime: false,
   });
 
-  const startupPrompt = buildBaziPromptForResult({
-    result,
-    question: '',
-    topic: 'startup-partnership',
-  });
-  assert.match(
-    startupPrompt,
-    /【问题】\n请先从适不适合创业、单干还是合作，以及如何判断当前时机开始分析。/,
-  );
-  assert.match(
-    startupPrompt,
-    /【任务】\n结合当前大运、流年、流月与命局主线，判断现在更适合创业、找人合作、小范围试跑、继续上班积累还是暂缓，并说明方向选择、资源来源、合作分工、现金流压力和现实风险。/,
-  );
+  const cases: Array<{ topic: BaziPromptTopic; question: RegExp; task: RegExp }> = [
+    {
+      topic: 'startup-partnership',
+      question: /【问题】\n请先从适不适合创业、单干还是合作，以及如何判断当前时机开始分析。/,
+      task: /【任务】\n结合当前大运、流年、流月与命局主线，判断现在更适合创业、找人合作、小范围试跑、继续上班积累还是暂缓，并说明方向选择、资源来源、合作分工、现金流压力和现实风险。/,
+    },
+    {
+      topic: 'relationship-decision',
+      question: /【问题】\n请先从这段关系该继续投入、放手止损还是保持观察开始分析。/,
+      task: /【任务】\n围绕配偶星、夫妻宫、桃花与当前岁运引动，判断这段关系现在更适合继续投入、放慢观察、重新建立边界还是及时止损，并说明继续投入的条件、止损信号、现实代价和接下来的判断标准。/,
+    },
+    {
+      topic: 'home-move',
+      question: /【问题】\n请先从现在适不适合搬家、换城市、买房置业和居住调整开始分析。/,
+      task: /【任务】\n围绕搬家、换城市、买房置业与居住调整做整体分析，判断现在更适合行动还是继续观望，并说明居住稳定性、资金压力、家庭牵动、行动时机和风险控制重点。/,
+    },
+    {
+      topic: 'study-advance',
+      question: /【问题】\n请先从我适不适合考证、读研进修或跨领域学习开始分析。/,
+      task: /【任务】\n围绕考证、读研进修、跨领域学习与当前岁运引动做整体分析，判断现在更适合冲刺、长期准备、换赛道学习还是暂缓，并说明投入产出、执行压力和现实代价。/,
+    },
+    {
+      topic: 'investment-partnership',
+      question: /【问题】\n请先从我现在适不适合投资、跟人合作求财还是继续观望开始分析。/,
+      task: /【任务】\n围绕财星、官杀、印星、食伤、比劫与当前岁运引动，判断现在更适合独立投资、合作求财、继续观望还是先守财，并说明资金压力、收益模式、合作分工、风险边界和现实代价。/,
+    },
+    {
+      topic: 'reconciliation-decision',
+      question: /【问题】\n请先从这段旧关系现在还有没有复合空间，以及更适合争取、观察还是放下开始分析。/,
+      task: /【任务】\n围绕配偶星、夫妻宫、桃花、旧缘信号与当前岁运引动，判断这段旧关系现在更适合争取复合、保持观察、先立边界还是及时放下，并说明复合条件、现实阻力、风险信号和接下来的判断标准。/,
+    },
+    {
+      topic: 'settle-relocate',
+      question: /【问题】\n请先从我现在适不适合长期定居、换城市发展还是留在当前城市开始分析。/,
+      task: /【任务】\n围绕长期定居、换城市发展与居住根基做整体分析，判断现在更适合留在当前城市、换城发展、两地过渡还是暂缓决定，并说明稳定性、事业机会、家庭牵动、成本压力和行动顺序。/,
+    },
+    {
+      topic: 'exam-landing',
+      question: /【问题】\n请先从这次考试、面试或申请更适合冲刺、稳住发挥还是调整预期开始分析。/,
+      task: /【任务】\n围绕印星、食伤、官杀、文凭考试与当前岁运引动做整体分析，判断这次考试、面试或申请更适合冲刺上岸、稳住发挥、调整目标还是暂缓重来，并说明发挥短板、竞争压力、准备重点和现实风险。/,
+    },
+  ];
 
-  const relationshipPrompt = buildBaziPromptForResult({
-    result,
-    question: '',
-    topic: 'relationship-decision',
-  });
-  assert.match(
-    relationshipPrompt,
-    /【问题】\n请先从这段关系该继续投入、放手止损还是保持观察开始分析。/,
-  );
-  assert.match(
-    relationshipPrompt,
-    /【任务】\n围绕配偶星、夫妻宫、桃花与当前岁运引动，判断这段关系现在更适合继续投入、放慢观察、重新建立边界还是及时止损，并说明继续投入的条件、止损信号、现实代价和接下来的判断标准。/,
-  );
-
-  const homePrompt = buildBaziPromptForResult({
-    result,
-    question: '',
-    topic: 'home-move',
-  });
-  assert.match(
-    homePrompt,
-    /【问题】\n请先从现在适不适合搬家、换城市、买房置业和居住调整开始分析。/,
-  );
-  assert.match(
-    homePrompt,
-    /【任务】\n围绕搬家、换城市、买房置业与居住调整做整体分析，判断现在更适合行动还是继续观望，并说明居住稳定性、资金压力、家庭牵动、行动时机和风险控制重点。/,
-  );
-
-  const studyPrompt = buildBaziPromptForResult({
-    result,
-    question: '',
-    topic: 'study-advance',
-  });
-  assert.match(studyPrompt, /【问题】\n请先从我适不适合考证、读研进修或跨领域学习开始分析。/);
-  assert.match(
-    studyPrompt,
-    /【任务】\n围绕考证、读研进修、跨领域学习与当前岁运引动做整体分析，判断现在更适合冲刺、长期准备、换赛道学习还是暂缓，并说明投入产出、执行压力和现实代价。/,
-  );
-});
-
-test('八字公开 API 第三批专项会输出对应默认问题与任务主题', () => {
-  const result = baziCalculator.calculateBazi({
-    gender: 'male',
-    year: 1990,
-    month: 5,
-    day: 15,
-    timeIndex: 1,
-    isLunar: false,
-    isLeapMonth: false,
-    useTrueSolarTime: false,
-  });
-
-  const investmentPrompt = buildBaziPromptForResult({
-    result,
-    question: '',
-    topic: 'investment-partnership',
-  });
-  assert.match(
-    investmentPrompt,
-    /【问题】\n请先从我现在适不适合投资、跟人合作求财还是继续观望开始分析。/,
-  );
-  assert.match(
-    investmentPrompt,
-    /【任务】\n围绕财星、官杀、印星、食伤、比劫与当前岁运引动，判断现在更适合独立投资、合作求财、继续观望还是先守财，并说明资金压力、收益模式、合作分工、风险边界和现实代价。/,
-  );
-
-  const reconciliationPrompt = buildBaziPromptForResult({
-    result,
-    question: '',
-    topic: 'reconciliation-decision',
-  });
-  assert.match(
-    reconciliationPrompt,
-    /【问题】\n请先从这段旧关系现在还有没有复合空间，以及更适合争取、观察还是放下开始分析。/,
-  );
-  assert.match(
-    reconciliationPrompt,
-    /【任务】\n围绕配偶星、夫妻宫、桃花、旧缘信号与当前岁运引动，判断这段旧关系现在更适合争取复合、保持观察、先立边界还是及时放下，并说明复合条件、现实阻力、风险信号和接下来的判断标准。/,
-  );
-
-  const settlePrompt = buildBaziPromptForResult({
-    result,
-    question: '',
-    topic: 'settle-relocate',
-  });
-  assert.match(
-    settlePrompt,
-    /【问题】\n请先从我现在适不适合长期定居、换城市发展还是留在当前城市开始分析。/,
-  );
-  assert.match(
-    settlePrompt,
-    /【任务】\n围绕长期定居、换城市发展与居住根基做整体分析，判断现在更适合留在当前城市、换城发展、两地过渡还是暂缓决定，并说明稳定性、事业机会、家庭牵动、成本压力和行动顺序。/,
-  );
-
-  const examPrompt = buildBaziPromptForResult({
-    result,
-    question: '',
-    topic: 'exam-landing',
-  });
-  assert.match(
-    examPrompt,
-    /【问题】\n请先从这次考试、面试或申请更适合冲刺、稳住发挥还是调整预期开始分析。/,
-  );
-  assert.match(
-    examPrompt,
-    /【任务】\n围绕印星、食伤、官杀、文凭考试与当前岁运引动做整体分析，判断这次考试、面试或申请更适合冲刺上岸、稳住发挥、调整目标还是暂缓重来，并说明发挥短板、竞争压力、准备重点和现实风险。/,
-  );
+  for (const { topic, question, task } of cases) {
+    const prompt = buildBaziPromptForResult({ result, question: '', topic });
+    assert.match(prompt, question, `${topic} 应输出对应默认问题`);
+    assert.match(prompt, task, `${topic} 应输出对应任务主题`);
+  }
 });
 
 test('公开 API 八字自定义提示词不强塞专项框架', async () => {
