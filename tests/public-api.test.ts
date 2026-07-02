@@ -496,8 +496,10 @@ test('公开 API 八字提示词接口应一次返回排盘和提示词', async 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
   assert.equal(body.data.result.gender, 'male');
-  assert.match(body.data.prompt, /【排盘信息】/);
-  assert.match(body.data.prompt, /我适合创业还是上班/);
+  const prompt = body.data.prompt;
+  assert.match(prompt, /【排盘信息】/);
+  assert.match(prompt, /我适合创业还是上班/);
+  assertPromptIsPortableTaskText(prompt);
 });
 
 test('公开 API 八字空问题应返回 400，保持 question 必填契约', async () => {
@@ -773,8 +775,10 @@ test('公开 API 紫微提示词接口应一次返回排盘和提示词', async 
   assert.equal(body.ok, true);
   assert.deepEqual(body.data.result.scopeNames, ['origin']);
   assert.equal(body.data.result.payloadByScope.origin.evidence_pool.length, 0);
-  assert.match(body.data.prompt, /【问题】/);
-  assert.match(body.data.prompt, /我的感情关系要注意什么/);
+  const prompt = body.data.prompt;
+  assert.match(prompt, /【问题】/);
+  assert.match(prompt, /我的感情关系要注意什么/);
+  assertPromptIsPortableTaskText(prompt);
 });
 
 test('公开 API 紫微提示词接口只生成所需范围，避免线上函数超时', async () => {
@@ -802,8 +806,10 @@ test('公开 API 紫微提示词接口只生成所需范围，避免线上函数
   assert.equal(body.data.result.payloadByScope.yearly.evidence_pool.length, 0);
   assert.equal(body.data.result.payloadByScope.yearly.patterns.length, 0);
   assert.equal(body.data.result.payloadByScope.decadal, undefined);
-  assert.match(body.data.prompt, /分析范围：流年/);
-  assert.match(body.data.prompt, /【任务】/);
+  const prompt = body.data.prompt;
+  assert.match(prompt, /分析范围：流年/);
+  assert.match(prompt, /【任务】/);
+  assertPromptIsPortableTaskText(prompt);
 });
 
 test('公开 API 紫微空问题应返回 400，保持 question 必填契约', async () => {
