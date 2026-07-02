@@ -9,20 +9,12 @@ import { buildEvidencePool } from '../src/lib/iztro/build-evidence-pool';
 import { buildEvidenceSummary } from '../src/lib/ziwei-prompts/builders';
 import { buildZiweiReadableSnapshot } from '../src/lib/ziwei-prompts/snapshot';
 import type { PromptContext } from '../src/lib/ziwei-prompts/types';
+import { assertPromptCurrentTimeHasGanzhiCalendar } from './prompt-assertions';
 import type { AnalysisPayloadV1, PalaceFact } from '../src/types/analysis';
 
 function assertNoEngineeringPromptText(prompt: string) {
   assert.doesNotMatch(prompt, /当前项目|本地算法|技术限制|未计算|资料包|提示词规则/);
   assert.doesNotMatch(prompt, /当前已写入|当前未写入|未写入/);
-}
-
-function assertCurrentTimeSectionHasGanzhiCalendar(prompt: string) {
-  const currentTimeSection = prompt.match(/^【当前时间】\n([\s\S]*?)(?=\n【)/m)?.[1] ?? '';
-
-  assert.match(currentTimeSection, /^公历：\d{4}年\d{1,2}月\d{1,2}日 \d{1,2}时\d{1,2}分/m);
-  assert.match(currentTimeSection, /^农历：.+[子丑寅卯辰巳午未申酉戌亥]时$/m);
-  assert.match(currentTimeSection, /^干支历：.+年 .+月 .+日 .+时$/m);
-  assert.match(currentTimeSection, /^当前节气：.+/m);
 }
 
 function createPalace(index: number, name: string, stars: string[] = []): PalaceFact {
@@ -347,7 +339,7 @@ test('紫微完整提示词应补充完整运限任务书', () => {
   assert.match(prompt, /【解读目标】/);
   assert.match(prompt, /【本命资料】/);
   assert.match(prompt, /【分析对象】/);
-  assertCurrentTimeSectionHasGanzhiCalendar(prompt);
+  assertPromptCurrentTimeHasGanzhiCalendar(prompt);
   assert.match(prompt, /【运限重点】/);
   assert.match(prompt, /【主证】所选运限落宫/);
   assert.doesNotMatch(prompt, /【运限资料】/);

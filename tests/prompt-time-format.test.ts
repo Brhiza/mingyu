@@ -6,15 +6,7 @@ import {
   buildThreePillarsProfile,
 } from '../src/lib/birth-time-reverse';
 import { formatPromptCurrentTime } from '../src/lib/prompt-time';
-
-function assertCurrentTimeSectionHasGanzhiCalendar(prompt: string) {
-  const currentTimeSection = prompt.match(/^【当前时间】\n([\s\S]*?)(?=\n【)/m)?.[1] ?? '';
-
-  assert.match(currentTimeSection, /^公历：\d{4}年\d{1,2}月\d{1,2}日 \d{1,2}时\d{1,2}分/m);
-  assert.match(currentTimeSection, /^农历：.+[子丑寅卯辰巳午未申酉戌亥]时$/m);
-  assert.match(currentTimeSection, /^干支历：.+年 .+月 .+日 .+时$/m);
-  assert.match(currentTimeSection, /^当前节气：.+/m);
-}
+import { assertPromptCurrentTimeHasGanzhiCalendar } from './prompt-assertions';
 
 test('提示词当前时间应同时给出公历、农历、干支历与节气', () => {
   const date = new Date(2025, 0, 2, 3, 4);
@@ -43,5 +35,5 @@ test('反推时辰提示词会输出统一的当前时间证据', () => {
     formData: DEFAULT_REVERSE_BIRTH_TIME_FORM_DATA,
   });
 
-  assertCurrentTimeSectionHasGanzhiCalendar(reversePrompt);
+  assertPromptCurrentTimeHasGanzhiCalendar(reversePrompt);
 });
