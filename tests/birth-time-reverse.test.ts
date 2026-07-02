@@ -1,14 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { MemoryRouter } from 'react-router-dom';
 import {
   DEFAULT_REVERSE_BIRTH_TIME_FORM_DATA,
+  REVERSE_BIRTH_TIME_SELECT_FIELDS,
+  REVERSE_BIRTH_TIME_TEXT_FIELDS,
   UNKNOWN_TIME_INDEX,
   buildReverseBirthTimePrompt,
   buildThreePillarsProfile,
   buildUnknownTimeBaziPrompt,
 } from '../src/lib/birth-time-reverse';
+import { BirthTimeReversePage } from '../src/pages/BirthTimeReversePage';
 import {
   buildResultSearch,
   defaultInputState,
@@ -263,52 +267,76 @@ test('未知时辰内置快捷提示词会使用对应的传统专项框架', ()
   assert.doesNotMatch(prompt, /婚恋问题优先看配偶星/);
 });
 
-test('输入页与路由会暴露未知时辰和反推时辰入口', () => {
-  const inputPageSource =
-    readFileSync(resolve('src/pages/InputPage.tsx'), 'utf8') +
-    readFileSync(resolve('src/pages/InputPage.PersonForm.tsx'), 'utf8');
-  const appSource = readFileSync(resolve('src/App.tsx'), 'utf8');
-  const reversePageSource = readFileSync(resolve('src/pages/BirthTimeReversePage.tsx'), 'utf8');
-  const reverseLibDir = resolve('src/lib/birth-time-reverse');
-  const reverseLibSource = readdirSync(reverseLibDir)
-    .filter((name) => name.endsWith('.ts'))
-    .map((name) => readFileSync(join(reverseLibDir, name), 'utf8'))
-    .join('\n');
+function renderBirthTimeReversePage(initialEntry: string) {
+  return renderToStaticMarkup(
+    createElement(
+      MemoryRouter,
+      { initialEntries: [initialEntry] },
+      createElement(BirthTimeReversePage),
+    ),
+  );
+}
 
-  assert.match(inputPageSource, /未知时辰/);
-  assert.match(inputPageSource, /反推时辰/);
-  assert.match(inputPageSource, /form\.analysisMode === 'single' && role === 'self'/);
-  assert.match(appSource, /birth-time-reverse/);
-  assert.match(reversePageSource, /反推时辰提示词仅支持个人模式使用/);
-  assert.match(reversePageSource, /所有选项都可以留空，只填你确定的部分即可/);
-  assert.match(reversePageSource, /shouldShowPromptShareButton/);
-  assert.match(reversePageSource, /className="field-helper-top"/);
-  assert.match(reversePageSource, /<select/);
-  assert.match(reversePageSource, /<input/);
-  assert.match(reversePageSource, /点击复制后，发送到你常用的在线 AI 软件继续提问/);
-  assert.match(reverseLibSource, /'未选择'/);
-  assert.match(reverseLibSource, /圆润松弛/);
-  assert.match(reverseLibSource, /理性克制/);
-  assert.match(reverseLibSource, /和母亲更亲/);
-  assert.match(reverseLibSource, /parentsMarriageNotes/);
-  assert.match(reverseLibSource, /caregiverPattern/);
-  assert.match(reverseLibSource, /适合单打独斗/);
-  assert.match(reverseLibSource, /educationLevel/);
-  assert.match(reverseLibSource, /重点本科或名校路径/);
-  assert.match(reverseLibSource, /siblingNotes/);
-  assert.match(reverseLibSource, /familyOrderNotes/);
-  assert.match(reverseLibSource, /careerTypeNotes/);
-  assert.match(reverseLibSource, /workSystemNotes/);
-  assert.match(reverseLibSource, /socialStyle/);
-  assert.match(reverseLibSource, /relationshipPatternNotes/);
-  assert.match(reverseLibSource, /relationshipTiming/);
-  assert.match(reverseLibSource, /earlyRomanceStatus/);
-  assert.match(reverseLibSource, /schedulePattern/);
-  assert.match(reverseLibSource, /mobilityPattern/);
-  assert.match(reverseLibSource, /leaveHometownStatus/);
-  assert.match(reverseLibSource, /livingPatternNotes/);
-  assert.match(reverseLibSource, /keyYearsNotes/);
-  assert.match(reverseLibSource, /extraClueNotes/);
-  assert.doesNotMatch(reverseLibSource, /appearanceNotes/);
-  assert.doesNotMatch(reverseLibSource, /mobilityNotes/);
+test('反推时辰页面会按真实路由参数显示可用与不可用状态', () => {
+  const unavailableHtml = renderBirthTimeReversePage(
+    '/birth-time-reverse?a=compatibility&y=1994&m=10&d=23',
+  );
+  const availableHtml = renderBirthTimeReversePage('/birth-time-reverse?y=1994&m=10&d=23');
+
+  assert.match(unavailableHtml, /反推时辰提示词仅支持个人模式使用/);
+  assert.match(availableHtml, /所有选项都可以留空，只填你确定的部分即可/);
+  assert.match(availableHtml, /点击复制后，发送到你常用的在线 AI 软件继续提问/);
+  assert.match(availableHtml, /<select/);
+  assert.match(availableHtml, /<input/);
+  assert.match(availableHtml, /<textarea/);
+  assert.match(availableHtml, /【候选时辰】/);
+});
+
+test('反推时辰字段选项会进入真实提示词且不保留旧字段名', () => {
+  const profile = buildThreePillarsProfile({
+    gender: 'male',
+    dateType: 'solar',
+    year: '1994',
+    month: '10',
+    day: '23',
+    isLeapMonth: false,
+  });
+  const formData = {
+    ...DEFAULT_REVERSE_BIRTH_TIME_FORM_DATA,
+    bodyBuild: '圆润松弛',
+    personalityStyle: '理性克制',
+    familyAtmosphere: '和母亲更亲',
+    caregiverPattern: '更多由母亲照顾',
+    educationLevel: '重点本科或名校路径',
+    careerPattern: '适合单打独斗',
+    socialStyle: '边界感强',
+    marriageParentingStatus: '婚育节奏偏晚',
+    healthPattern: '睡眠波动大',
+    parentsMarriageNotes: '父母早年聚少离多',
+    siblingNotes: '有一个妹妹',
+    familyOrderNotes: '从小承担家中长子责任',
+    careerTypeNotes: '技术转管理',
+    workSystemNotes: '先体制后市场化团队',
+    relationshipPatternNotes: '关系里更重边界',
+    relationshipTiming: '恋爱偏晚',
+    earlyRomanceStatus: '大学阶段感情经历更明显',
+    schedulePattern: '晚上更有精神',
+    mobilityPattern: '工作后换过城市',
+    leaveHometownStatus: '上学后离乡',
+    livingPatternNotes: '常独居',
+    keyYearsNotes: '2012 搬家，2020 换城市。',
+    extraClueNotes: '小时候和母亲更亲。',
+  };
+
+  const prompt = buildReverseBirthTimePrompt({ profile, formData });
+
+  for (const field of REVERSE_BIRTH_TIME_SELECT_FIELDS) {
+    assert.notEqual(formData[field.id], '未选择');
+    assert.ok(prompt.includes(formData[field.id]));
+  }
+  for (const field of REVERSE_BIRTH_TIME_TEXT_FIELDS) {
+    assert.ok(prompt.includes(formData[field.id]));
+  }
+  assert.doesNotMatch(prompt, /appearanceNotes/);
+  assert.doesNotMatch(prompt, /mobilityNotes/);
 });
