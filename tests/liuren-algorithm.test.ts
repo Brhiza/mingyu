@@ -411,6 +411,19 @@ test('大六壬破碎煞应按四孟四仲四季取，不按三合局取', () =>
   assert.ok(ji.shenShaSummary?.includes('破碎煞在丑'));
 });
 
+test('大六壬天罗地网应按戌亥为天罗、辰巳为地网', () => {
+  const chenYear = generateLiuren(new Date('2024-06-01T12:00:00+08:00'));
+  const xuYear = generateLiuren(new Date('2030-06-01T12:00:00+08:00'));
+
+  assert.equal(chenYear.ganzhi.year, '甲辰');
+  assert.ok(chenYear.shenShaSummary?.includes('命带地网'));
+  assert.ok(!chenYear.shenShaSummary?.includes('命带天罗'));
+
+  assert.equal(xuYear.ganzhi.year, '庚戌');
+  assert.ok(xuYear.shenShaSummary?.includes('命带天罗'));
+  assert.ok(!xuYear.shenShaSummary?.includes('命带地网'));
+});
+
 test('大六壬天将应按贵人所临地盘定顺逆，不是简单昼顺夜逆', () => {
   const result = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
 

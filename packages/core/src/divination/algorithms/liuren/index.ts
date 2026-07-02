@@ -210,9 +210,9 @@ function buildShenShaSummary(
 
   // ===== 年支取神煞 =====
 
-  // 天罗地网：辰巳为天罗（属辰），戌亥为地网（属戌）
-  if (yearBranch === '辰' || yearBranch === '巳') items.push('命带天罗');
-  if (yearBranch === '戌' || yearBranch === '亥') items.push('命带地网');
+  // 天罗地网：戌亥为天罗，辰巳为地网。
+  if (yearBranch === '戌' || yearBranch === '亥') items.push('命带天罗');
+  if (yearBranch === '辰' || yearBranch === '巳') items.push('命带地网');
 
   return items;
 }
