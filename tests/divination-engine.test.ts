@@ -239,6 +239,33 @@ test('奇门默认使用转盘法，飞盘法九星完整且可区分', () => {
   assert.equal(actualZhiShiPalace, expectedZhiShiPalace);
 });
 
+test('年家奇门应按实际年份区分同一甲子的三元周期', () => {
+  const year1924 = generateQimen(new Date('1924-07-01T08:00:00+08:00'), 'zhuanpan', 'year');
+  const year1984 = generateQimen(new Date('1984-07-01T08:00:00+08:00'), 'zhuanpan', 'year');
+  const year2044 = generateQimen(new Date('2044-07-01T08:00:00+08:00'), 'zhuanpan', 'year');
+
+  assert.equal(year1924.ganzhi.year, '甲子');
+  assert.equal(year1984.ganzhi.year, '甲子');
+  assert.equal(year2044.ganzhi.year, '甲子');
+
+  assert.equal(year1924.timeInfo.epoch, '中元');
+  assert.equal(year1924.isYangDun, false);
+  assert.equal(year1984.timeInfo.epoch, '下元');
+  assert.equal(year1984.isYangDun, true);
+  assert.equal(year2044.timeInfo.epoch, '上元');
+  assert.equal(year2044.isYangDun, true);
+});
+
+test('年家奇门在年初干支未切换时应沿用匹配干支的三元周期年', () => {
+  const beforeYearChange = generateQimen(new Date('2025-01-01T08:00:00+08:00'), 'zhuanpan', 'year');
+  const sameGanzhiYear = generateQimen(new Date('2024-07-01T08:00:00+08:00'), 'zhuanpan', 'year');
+
+  assert.equal(beforeYearChange.ganzhi.year, '甲辰');
+  assert.equal(sameGanzhiYear.ganzhi.year, '甲辰');
+  assert.equal(beforeYearChange.timeInfo.epoch, sameGanzhiYear.timeInfo.epoch);
+  assert.equal(beforeYearChange.isYangDun, sameGanzhiYear.isYangDun);
+});
+
 test('奇门天地盘干入墓关系与统一天干入墓表一致', () => {
   for (const [stem, tomb] of Object.entries(STEM_TOMB_MAP)) {
     const relations = getStemRelations([buildQimenPalace(tomb.palace, stem)]);

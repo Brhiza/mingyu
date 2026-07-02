@@ -14,6 +14,7 @@
 import { jiazi, qimen } from '../../../../divination/divination-data';
 
 const { jieQiJuShuMap } = qimen;
+const SAN_YUAN_BASE_YEAR = 1864; // 甲子上元起点
 
 /**
  * 月家奇门定局
@@ -30,7 +31,10 @@ const { jieQiJuShuMap } = qimen;
  *
  * @throws 当月支无法识别时
  */
-export function getMonthQimenJuShu(monthGanZhi: string, _yearGanZhi: string): {
+export function getMonthQimenJuShu(
+  monthGanZhi: string,
+  _yearGanZhi: string,
+): {
   isYangDun: boolean;
   juShu: number;
   yuan: string;
@@ -39,8 +43,18 @@ export function getMonthQimenJuShu(monthGanZhi: string, _yearGanZhi: string): {
 
   // 月支对应的月数（寅=1，卯=2，…，丑=12）
   const monthZhiOrder: Record<string, number> = {
-    寅: 1, 卯: 2, 辰: 3, 巳: 4, 午: 5, 未: 6,
-    申: 7, 酉: 8, 戌: 9, 亥: 10, 子: 11, 丑: 12,
+    寅: 1,
+    卯: 2,
+    辰: 3,
+    巳: 4,
+    午: 5,
+    未: 6,
+    申: 7,
+    酉: 8,
+    戌: 9,
+    亥: 10,
+    子: 11,
+    丑: 12,
   };
 
   const monthNum = monthZhiOrder[monthZhi];
@@ -53,9 +67,7 @@ export function getMonthQimenJuShu(monthGanZhi: string, _yearGanZhi: string): {
   const isYangDun = yangZhiSet.has(monthZhi);
 
   // 阳遁顺起，阴遁逆起
-  const juShu = isYangDun
-    ? ((monthNum - 1) % 9) + 1
-    : ((9 - ((monthNum - 1) % 9)) % 9) + 1;
+  const juShu = isYangDun ? ((monthNum - 1) % 9) + 1 : ((9 - ((monthNum - 1) % 9)) % 9) + 1;
 
   // 月家无上中下三元概念
   const yuan = '月局';
@@ -70,18 +82,22 @@ export function getMonthQimenJuShu(monthGanZhi: string, _yearGanZhi: string): {
  *       丁壬之年起1局，戊癸之年起7局。
  * 同年干各年均起同局，不随旬变。
  *
- * 阴阳遁以三元甲子定（180年大循环）：
- *   上元（第1-60年）= 阳遁
- *   中元（第61-120年）= 阴遁
- *   下元（第121-180年）= 阳遁
- *   基准：1924甲子年属下元
+ * 阴阳遁以三元甲子定（180 年大循环）：
+ *   上元（第 1-60 年）= 阳遁
+ *   中元（第 61-120 年）= 阴遁
+ *   下元（第 121-180 年）= 阳遁
+ *   基准：1864 甲子年属上元，1924 甲子年属中元，1984 甲子年属下元。
  *
  * @param yearGanZhi 年干支（如 "甲辰"）
+ * @param solarYear  实际公历年，用于区分同一干支所在的 180 年三元周期
  * @returns { isYangDun, juShu, yuan }
  *
  * @throws 当年干支无法识别时
  */
-export function getYearQimenJuShu(yearGanZhi: string): {
+export function getYearQimenJuShu(
+  yearGanZhi: string,
+  solarYear?: number,
+): {
   isYangDun: boolean;
   juShu: number;
   yuan: string;
@@ -94,17 +110,22 @@ export function getYearQimenJuShu(yearGanZhi: string): {
 
   // 年家奇门按天干分组定起始局数
   const ganJuMap: Record<string, number> = {
-    甲: 1, 己: 1,
-    乙: 7, 庚: 7,
-    丙: 4, 辛: 4,
-    丁: 1, 壬: 1,
-    戊: 7, 癸: 7,
+    甲: 1,
+    己: 1,
+    乙: 7,
+    庚: 7,
+    丙: 4,
+    辛: 4,
+    丁: 1,
+    壬: 1,
+    戊: 7,
+    癸: 7,
   };
 
-  // 三元甲子定阴阳遁（180年大循环）
-  // 基准：1924甲子年（yearIndex=0）属下元（阳遁）
-  const yuanOffset = 120;
-  const cyclePos = ((yearIndex + yuanOffset) % 180 + 180) % 180;
+  // 三元甲子定阴阳遁（180 年大循环）。同一干支每 60 年重复一次，
+  // 必须结合实际年份才能区分上元、中元、下元。
+  const cycleYear = resolveSanYuanCycleYear(yearGanZhi, yearIndex, solarYear);
+  const cyclePos = positiveMod(cycleYear - SAN_YUAN_BASE_YEAR, 180);
   const yuanCycle = cyclePos < 60 ? '上元' : cyclePos < 120 ? '中元' : '下元';
   // 上元阳遁、中元阴遁、下元阳遁（《奇门旨归》）
   const isYangDun = yuanCycle === '上元' || yuanCycle === '下元';
@@ -112,9 +133,33 @@ export function getYearQimenJuShu(yearGanZhi: string): {
   // 古法按年干分组定局，同年干各年均起同局
   const juShu = ganJuMap[yearGan] || 1;
 
-  // 年家分上中下元（每20年一元）
-  const yIndex = Math.floor(yearIndex / 20) % 3;
-  const yuan = ['上元', '中元', '下元'][yIndex];
+  return { isYangDun, juShu, yuan: yuanCycle };
+}
 
-  return { isYangDun, juShu, yuan };
+function positiveMod(value: number, divisor: number): number {
+  return ((value % divisor) + divisor) % divisor;
+}
+
+function resolveSanYuanCycleYear(
+  yearGanZhi: string,
+  yearIndex: number,
+  solarYear?: number,
+): number {
+  if (solarYear === undefined) {
+    return SAN_YUAN_BASE_YEAR + yearIndex;
+  }
+
+  if (!Number.isInteger(solarYear)) {
+    throw new Error(`无法识别公历年份 "${solarYear}"。`);
+  }
+
+  // 年初干支未切换时，传入的年干支可能对应上一公历年。
+  for (const offset of [0, -1, 1]) {
+    const candidateYear = solarYear + offset;
+    if (positiveMod(candidateYear - SAN_YUAN_BASE_YEAR, 60) === yearIndex) {
+      return candidateYear;
+    }
+  }
+
+  throw new Error(`公历年 "${solarYear}" 与年干支 "${yearGanZhi}" 不匹配。`);
 }

@@ -414,7 +414,7 @@ function getJushuForScope(
 ): { isYangDun: boolean; juShu: number; yuan: string; jieQi?: string } {
   switch (scope) {
     case 'year': {
-      const r = getYearQimenJuShu(ganzhi.year);
+      const r = getYearQimenJuShu(ganzhi.year, timeInfo.solar.year);
       return { ...r, jieQi: timeInfo.jieQi };
     }
     case 'month': {
