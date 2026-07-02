@@ -220,8 +220,8 @@ export function generateQimen(
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 3：寻值符与值使（旬首法）
   // ──────────────────────────────────────────────────────────────────────────
-  const zhiFuShiResult = getZhiFuShiForScope(scope, activeGanZhi, ganzhi);
-  const { zhiFu, zhiShi, specialConditions } = zhiFuShiResult;
+  const zhiFuShiResult = getZhiFuShiForScope(scope, activeGanZhi, ganzhi, jushuResult);
+  const { zhiFu, zhiShi, zhiFuPalace, specialConditions } = zhiFuShiResult;
 
   // ── 后续步骤 4-12 与 scope 无关，共用同一套排盘逻辑 ──
 
@@ -255,7 +255,12 @@ export function generateQimen(
   if (zhiFuLandingPalace === undefined) {
     throw new Error(`找不到值符星 "${zhiFu}" 落宫。`);
   }
-  const zhiShiLandingPalace = resolveZhiShiLandingPalace(isYangDun, zhiShi, activeGanZhi);
+  const zhiShiLandingPalace = resolveZhiShiLandingPalace(
+    isYangDun,
+    zhiShi,
+    activeGanZhi,
+    zhiFuPalace,
+  );
 
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 6：基础格局标签
@@ -442,7 +447,13 @@ function getZhiFuShiForScope(
   scope: QimenScope,
   activeGanZhi: string,
   ganzhi: { day: string },
-): { zhiFu: string; zhiShi: string; specialConditions: QimenData['specialConditions'] } {
+  jushuResult: { isYangDun: boolean; juShu: number },
+): {
+  zhiFu: string;
+  zhiShi: string;
+  zhiFuPalace: number;
+  specialConditions: QimenData['specialConditions'];
+} {
   const defaultSpecialConditions = {
     isLiuJiaHour: false,
     isLiuGuiHour: false,
@@ -454,21 +465,23 @@ function getZhiFuShiForScope(
   switch (scope) {
     case 'hour': {
       // 时家奇门：支持特殊时辰检查
-      const result = getZhiFuZhiShi(activeGanZhi, ganzhi.day);
+      const result = getZhiFuZhiShi(activeGanZhi, ganzhi.day, jushuResult);
       return {
         zhiFu: result.zhiFu,
         zhiShi: result.zhiShi,
+        zhiFuPalace: result.zhiFuPalace,
         specialConditions: result.specialConditions,
       };
     }
     case 'day': {
       // 日家奇门：使用通用旬首法，补充日干入墓检查
-      const result = getZhiFuZhiShiByGanZhi(activeGanZhi);
+      const result = getZhiFuZhiShiByGanZhi(activeGanZhi, jushuResult);
       const conditions = { ...defaultSpecialConditions };
       checkDayRuMu(ganzhi.day, conditions);
       return {
         zhiFu: result.zhiFu,
         zhiShi: result.zhiShi,
+        zhiFuPalace: result.xunShouPalace,
         specialConditions: conditions,
       };
     }
@@ -476,10 +489,11 @@ function getZhiFuShiForScope(
     case 'year':
     default: {
       // 月家/年家：使用通用旬首法（无特殊条件）
-      const result = getZhiFuZhiShiByGanZhi(activeGanZhi);
+      const result = getZhiFuZhiShiByGanZhi(activeGanZhi, jushuResult);
       return {
         zhiFu: result.zhiFu,
         zhiShi: result.zhiShi,
+        zhiFuPalace: result.xunShouPalace,
         specialConditions: defaultSpecialConditions,
       };
     }

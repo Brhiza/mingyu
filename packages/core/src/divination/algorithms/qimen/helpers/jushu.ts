@@ -26,10 +26,18 @@
 
 import { SolarDay } from 'tyme4ts';
 import { tiangan, jiazi, qimen } from '../../../../divination/divination-data';
-import { STEM_TOMB_MAP } from './_constants';
+import { STEM_TOMB_MAP, sanQiLiuYi } from './_constants';
 
 const { dizhi, diPanPalaces, palaceStars, palaceDoorMap, jieQiJuShuMap } = qimen;
 const tenStems = tiangan;
+const dunJiaStemByXun: Record<string, string> = {
+  甲子: '戊',
+  甲戌: '己',
+  甲申: '庚',
+  甲午: '辛',
+  甲辰: '壬',
+  甲寅: '癸',
+};
 const wuBuYuHourStemByDayStem: Record<string, string> = {
   甲: '庚',
   乙: '辛',
@@ -42,6 +50,11 @@ const wuBuYuHourStemByDayStem: Record<string, string> = {
   壬: '戊',
   癸: '己',
 };
+
+export interface QimenLayoutContext {
+  isYangDun: boolean;
+  juShu: number;
+}
 
 // ============================================================================
 // 内部辅助方法
@@ -101,6 +114,53 @@ function findFuTou(start: SolarDay, direction: -1 | 1): { day: SolarDay; ganzhi:
  */
 function dayDiff(from: SolarDay, to: SolarDay): number {
   return Math.round(Number(to.getJulianDay()) - Number(from.getJulianDay()));
+}
+
+function getXunShouBranch(ganZhi: string): string {
+  const gan = ganZhi.charAt(0);
+  const zhi = ganZhi.charAt(1);
+
+  const ganIndex = tenStems.indexOf(gan);
+  const zhiIndex = dizhi.indexOf(zhi);
+
+  if (ganIndex === -1 || zhiIndex === -1) {
+    throw new Error(`无法识别干支 "${ganZhi}"。`);
+  }
+
+  const xunShouZhiIndex = (zhiIndex - ganIndex + 12) % 12;
+  return dizhi[xunShouZhiIndex];
+}
+
+function getXunShouPalace(ganZhi: string, layout?: QimenLayoutContext): number {
+  const xunShouZhi = getXunShouBranch(ganZhi);
+  const xunShou = `甲${xunShouZhi}`;
+
+  if (layout) {
+    const dunStem = dunJiaStemByXun[xunShou];
+    if (!dunStem) {
+      throw new Error(`无法识别旬首 "${xunShou}" 的遁干。`);
+    }
+
+    for (let i = 0; i < sanQiLiuYi.length; i++) {
+      const palace = layout.isYangDun
+        ? ((layout.juShu + i - 1 + 9) % 9) + 1
+        : ((layout.juShu - i - 1 + 9) % 9) + 1;
+      if (sanQiLiuYi[i] === dunStem) return palace;
+    }
+
+    throw new Error(
+      `无法在${layout.isYangDun ? '阳' : '阴'}遁${layout.juShu}局中定位旬首 "${xunShou}"。`,
+    );
+  }
+
+  // 兼容旧调用：没有当前局信息时，只能退回地支方位，主入口不会使用此兜底。
+  return diPanPalaces[xunShouZhi as keyof typeof diPanPalaces];
+}
+
+function getDoorByXunShouPalace(palace: number): string {
+  // 旬首落中五宫时，中宫无门，按古籍“寄于坤二”借死门为值使。
+  if (palace === 5) return '死门';
+  return palaceDoorMap[palace as keyof typeof palaceDoorMap];
 }
 
 // ============================================================================
@@ -304,19 +364,20 @@ export function checkSpecialHourConditions(
  *
  * 法理：
  *   值符（九星之主）与值使（八门之主）由时辰干支所属的"旬"来决定。
- *   旬首（如甲子、甲戌、甲申等）所在的九宫，其对应的星即为值符，
+ *   旬首（如甲子、甲戌、甲申等）所遁六仪在当前局地盘所在的九宫，其对应的星即为值符，
  *   其对应的门即为值使。
  *
- * 《奇门遁甲秘籍大全》卷四：
- *   "凡占事，先看值符以定九星之吉凶，再看值使以定八门之休咎。"
+ * 《奇门遁甲统宗》：
+ *   "地盘旬首所临之宫，其星即为值符，其门即为值使。"
  *
  * 计算步骤：
  *   1. 求旬首地支：旬首地支序数 = (时支序 - 时干序 + 12) % 12
- *   2. 旬首地支对应地盘宫位即为旬首落宫
- *   3. 该宫之星 = 值符，该宫之门 = 值使
+ *   2. 以旬首所遁六仪在当前局地盘的落宫作为旬首落宫
+ *   3. 该宫之星 = 值符，该宫之门 = 值使；旬首落中五宫时，借坤二死门为值使
  *
  * @param hourGanZhi 时辰干支（如 "甲子"、"乙丑"）
  * @param dayGanZhi  日干支（用于特殊时辰中的五不遇时判断）
+ * @param layout      当前奇门局数，用于定位旬首所遁六仪的地盘落宫
  * @returns { zhiFu, zhiShi, zhiFuPalace, specialConditions }
  *    zhiFu            - 值符星名
  *    zhiShi           - 值使门名
@@ -328,32 +389,18 @@ export function checkSpecialHourConditions(
 export function getZhiFuZhiShi(
   hourGanZhi: string,
   dayGanZhi?: string,
+  layout?: QimenLayoutContext,
 ): {
   zhiFu: string;
   zhiShi: string;
   zhiFuPalace: number;
   specialConditions: ReturnType<typeof checkSpecialHourConditions>;
 } {
-  const hourGan = hourGanZhi.charAt(0);
-  const hourZhi = hourGanZhi.charAt(1);
-
-  const hourGanIndex = tenStems.indexOf(hourGan);
-  const hourZhiIndex = dizhi.indexOf(hourZhi);
-
-  if (hourGanIndex === -1 || hourZhiIndex === -1) {
-    throw new Error(`无法识别时辰干支 "${hourGanZhi}"。`);
-  }
-
-  // 旬首地支序数 = (时支序 - 时干序 + 12) % 12
-  const xunShouZhiIndex = (hourZhiIndex - hourGanIndex + 12) % 12;
-  const xunShouZhi = dizhi[xunShouZhiIndex];
-
-  // 旬首地支对应地盘宫位
-  const xunShouPalace = diPanPalaces[xunShouZhi as keyof typeof diPanPalaces];
+  const xunShouPalace = getXunShouPalace(hourGanZhi, layout);
 
   // 该宫之星 = 值符，该宫之门 = 值使
   const zhiFu = palaceStars[xunShouPalace - 1];
-  const zhiShi = palaceDoorMap[xunShouPalace as keyof typeof palaceDoorMap];
+  const zhiShi = getDoorByXunShouPalace(xunShouPalace);
 
   // 检查当前时辰的特殊情况
   const specialConditions = checkSpecialHourConditions(hourGanZhi, dayGanZhi);
@@ -368,10 +415,10 @@ export function getZhiFuZhiShi(
  * 适用于任意干支（年柱、月柱、日柱、时柱均可）。
  *
  * 旬首法源出《奇门遁甲秘籍大全》：
- *   由干支求旬首地支，旬首地支对应地盘宫位，
- *   该宫之星为值符，该宫之门为值使。
+ *   由干支求旬首，再以旬首所遁六仪在当前局地盘所临之宫定值符值使。
  *
  * @param ganZhi 任意干支字符串（如 "甲子"、"乙丑"）
+ * @param layout 当前奇门局数，用于定位旬首所遁六仪的地盘落宫
  * @returns { zhiFu, zhiShi, xunShouPalace }
  *    zhiFu         - 值符星名
  *    zhiShi        - 值使门名
@@ -379,31 +426,16 @@ export function getZhiFuZhiShi(
  *
  * @throws 当干支无法识别时
  */
-export function getZhiFuZhiShiByGanZhi(ganZhi: string): {
+export function getZhiFuZhiShiByGanZhi(ganZhi: string, layout?: QimenLayoutContext): {
   zhiFu: string;
   zhiShi: string;
   xunShouPalace: number;
 } {
-  const gan = ganZhi.charAt(0);
-  const zhi = ganZhi.charAt(1);
-
-  const ganIndex = tenStems.indexOf(gan);
-  const zhiIndex = dizhi.indexOf(zhi);
-
-  if (ganIndex === -1 || zhiIndex === -1) {
-    throw new Error(`无法识别干支 "${ganZhi}"。`);
-  }
-
-  // 旬首地支序数 = (支序 - 干序 + 12) % 12
-  const xunShouZhiIndex = (zhiIndex - ganIndex + 12) % 12;
-  const xunShouZhi = dizhi[xunShouZhiIndex];
-
-  // 旬首地支对应地盘宫位
-  const xunShouPalace = diPanPalaces[xunShouZhi as keyof typeof diPanPalaces];
+  const xunShouPalace = getXunShouPalace(ganZhi, layout);
 
   // 该宫之星 = 值符，该宫之门 = 值使
   const zhiFu = palaceStars[xunShouPalace - 1];
-  const zhiShi = palaceDoorMap[xunShouPalace as keyof typeof palaceDoorMap];
+  const zhiShi = getDoorByXunShouPalace(xunShouPalace);
 
   return { zhiFu, zhiShi, xunShouPalace };
 }

@@ -107,15 +107,16 @@ export function resolveZhiShiLandingPalace(
   isYangDun: boolean,
   zhiShi: string,
   ganZhi: string,
+  startPalace?: number,
 ): number {
   const zhiShiDoorIndex = palaceDoors.indexOf(zhiShi);
   if (zhiShiDoorIndex === -1) {
     throw new Error(`找不到值使门 "${zhiShi}"，请检查八门数据。`);
   }
 
-  const startPalace = luoShuDoorPath[zhiShiDoorIndex];
+  const start = startPalace ?? luoShuDoorPath[zhiShiDoorIndex];
   const steps = getGanZhiStepInXun(ganZhi);
-  return normalizeNoDoorPalace(advanceNinePalace(startPalace, steps, isYangDun));
+  return normalizeNoDoorPalace(advanceNinePalace(start, steps, isYangDun));
 }
 
 // ─── 排盘主函数 ───
@@ -202,6 +203,10 @@ export function arrangeJiuGongGe(
   // 值符星追时干：找到时干的遁干在地盘中的落宫，值符星即落此宫。
   // 值使门按当前干支在本旬中的步数顺逆行宫，中五无门时寄坤二。
   const hourGanForFind = getDunJiaStem(ganzhi.hour); // 遁干（甲遁于六仪之下）
+  const zhiFuHomePalace = starHomePalace[zhiFu];
+  if (!zhiFuHomePalace) {
+    throw new Error(`找不到值符星 "${zhiFu}" 的本宫，请检查九星数据。`);
+  }
 
   // ── 3a. 定值符落宫 ──
   let zhiFuLandingPalace = -1;
@@ -228,7 +233,12 @@ export function arrangeJiuGongGe(
   }
 
   // ── 3b. 定值使落宫 ──
-  const zhiShiLandingPalace = resolveZhiShiLandingPalace(isYangDun, zhiShi, ganzhi.hour);
+  const zhiShiLandingPalace = resolveZhiShiLandingPalace(
+    isYangDun,
+    zhiShi,
+    ganzhi.hour,
+    zhiFuHomePalace,
+  );
 
   // ──────────────────────────────────────────────
   // 第四步：排天盘九星与天干（TianPan）

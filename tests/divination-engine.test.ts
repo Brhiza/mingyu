@@ -5,7 +5,11 @@ import { buildTimeInfoText } from '../src/lib/divination/engine/formatters';
 import type { QimenJiuGongGe } from '../packages/core/src/types/divination';
 import { STEM_TOMB_MAP } from '../packages/core/src/divination/algorithms/qimen/helpers/_constants';
 import { getStemRelations } from '../packages/core/src/divination/algorithms/qimen/helpers/classic-patterns';
-import { checkSpecialHourConditions } from '../packages/core/src/divination/algorithms/qimen/helpers/jushu';
+import {
+  checkSpecialHourConditions,
+  getZhiFuZhiShi,
+} from '../packages/core/src/divination/algorithms/qimen/helpers/jushu';
+import { arrangeJiuGongGe } from '../packages/core/src/divination/algorithms/qimen/helpers/layout';
 import { estimateYingQi } from '../packages/core/src/divination/algorithms/qimen/helpers/ying-qi';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
@@ -117,6 +121,41 @@ test('奇门五不遇时应按日干克应判断，不只看时辰干支', () =>
   assert.equal(trueCase.ganzhi.day, '甲戌');
   assert.equal(trueCase.ganzhi.hour, '庚午');
   assert.equal(trueCase.specialConditions?.isWuBuYuShi, true);
+});
+
+test('奇门值符值使应按当前局地盘旬首落宫定位', () => {
+  const yangNine = getZhiFuZhiShi('丙辰', '癸亥', { isYangDun: true, juShu: 9 });
+  assert.equal(yangNine.zhiFu, '天禽');
+  assert.equal(yangNine.zhiShi, '死门');
+  assert.equal(yangNine.zhiFuPalace, 5);
+
+  const yangNinePalaces = arrangeJiuGongGe(
+    true,
+    9,
+    yangNine.zhiFu,
+    yangNine.zhiShi,
+    { hour: '丙辰' },
+  );
+  assert.equal(yangNinePalaces.find((gong) => gong.gong === 5)?.diPan.stem, '癸');
+  assert.equal(yangNinePalaces.find((gong) => gong.gong === 7)?.diPan.stem, '丙');
+  assert.equal(yangNinePalaces.find((gong) => gong.tianPan.star === '天禽')?.gong, 7);
+  assert.equal(yangNinePalaces.find((gong) => gong.renPan.door === '死门')?.gong, 7);
+
+  const yinEight = getZhiFuZhiShi('辛未', '甲寅', { isYangDun: false, juShu: 8 });
+  assert.equal(yinEight.zhiFu, '天任');
+  assert.equal(yinEight.zhiShi, '生门');
+  assert.equal(yinEight.zhiFuPalace, 8);
+
+  const yinEightPalaces = arrangeJiuGongGe(
+    false,
+    8,
+    yinEight.zhiFu,
+    yinEight.zhiShi,
+    { hour: '辛未' },
+  );
+  assert.equal(yinEightPalaces.find((gong) => gong.gong === 5)?.diPan.stem, '辛');
+  assert.equal(yinEightPalaces.find((gong) => gong.tianPan.star === '天任')?.gong, 5);
+  assert.equal(yinEightPalaces.find((gong) => gong.renPan.door === '生门')?.gong, 1);
 });
 
 test('奇门庚格应期应按日干阴阳判断，不应误用时干', () => {
