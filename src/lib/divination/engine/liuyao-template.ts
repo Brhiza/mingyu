@@ -34,22 +34,23 @@ export function buildLiuyaoTemplateText(template: LiuyaoTemplateType, question: 
     guaishen:
       '明确更像心理压力、现实扰动，还是民俗意义上的冲犯征象；建议以稳妥、现实、不过度渲染的口径作答。',
   };
+  const safeTemplate = templateLabelMap[template] ? template : 'general';
 
   const caution =
-    template === 'guaishen'
+    safeTemplate === 'guaishen'
       ? '若卦中证据不足，只能说“未见明显鬼神主证”或“更偏情绪/环境因素”，不要故作惊悚判断。'
       : '若主证不足，要明确说明只是倾向判断，不要强行下绝对结论。';
 
   return [
-    `断卦类型：${templateLabelMap[template]}`,
-    `断卦重点：${focusMap[template]}`,
-    `取证顺序：${evidenceMap[template]}`,
+    `断卦类型：${templateLabelMap[safeTemplate]}`,
+    `断卦重点：${focusMap[safeTemplate]}`,
+    `取证顺序：${evidenceMap[safeTemplate]}`,
     `问题聚焦：${question || '请围绕当前问题落到现实决策。'} `,
     '建议展开顺序：',
     '1. 主判断：先说明这件事当前整体是顺、卡、反复，还是需要止损。',
     '2. 主证据：点明世应、用神、动爻、变卦、空亡、伏神里最关键的证据。',
     '3. 过程变化：说明事情为何这样发展，中间会卡在哪、会怎么变。',
-    `4. 行动建议：${actionMap[template]}`,
+    `4. 行动建议：${actionMap[safeTemplate]}`,
     `5. 风险提醒：${caution}`,
   ].join('\n');
 }

@@ -60,6 +60,67 @@ function buildAstrolabeTransitScaleText(hasScopeText: boolean) {
   ].join('\n');
 }
 
+function buildDivinationEvidenceTerms(method: Exclude<DivinationMethodId, 'random'>) {
+  switch (method) {
+    case 'liuyao':
+      return {
+        facts: '卦名、六亲、六神、世应、用神、动变、伏神、空亡、日月建或生克冲合',
+        timing: '日月建、动变、空亡、冲合、伏神透出、用神旺衰或问题限定范围',
+      };
+    case 'meihua':
+      return {
+        facts: '本卦、互卦、变卦、体用、动爻、五行生克、卦气、外应或现实补充',
+        timing: '动爻、体用生克、卦气、互变推进、外应条件或问题限定范围',
+      };
+    case 'xiaoliuren':
+      return {
+        facts: '三宫落点、六神、事项宫、三段过程、空亡、宫位关系或现实补充',
+        timing: '三宫推进、事项宫、空亡、宫位迟速、问题限定范围或现实触发条件',
+      };
+    case 'qimen':
+      return {
+        facts: '值符值使、九宫、门星神干、用神宫、格局、空亡、马星、伏吟反吟或方位时机',
+        timing: '值使门、用神宫、门星神干、空亡填实、马星、伏吟反吟、庚格或问题限定范围',
+      };
+    case 'liuren':
+      return {
+        facts: '四课、三传、发用、天将、课体、神煞、空亡或类神取用',
+        timing: '发用、三传推进、空亡出空、明确神煞、类神状态或问题限定范围',
+      };
+    case 'tarot':
+    case 'tarot_single':
+      return {
+        facts: '牌面、牌阵位置、正逆位、相邻组合、元素数字、人物姿态或问题限定范围',
+        timing: '牌阵位置、牌面节奏、正逆位状态、牌面组合或问题限定范围',
+      };
+    case 'ssgw':
+      return {
+        facts: '签诗、签题、典故、解签、吉凶语气、宜忌或现实处境',
+        timing: '签诗迟速、典故处境、签文宜忌、解签语气或问题限定范围',
+      };
+    case 'lenormand':
+      return {
+        facts: '核心牌、相邻组合、镜像关系、人物牌、事件牌、时间牌、牌阵位置或问题限定范围',
+        timing: '时间牌、事件链顺序、相邻组合、镜像关系、牌阵位置或问题限定范围',
+      };
+    case 'almanac':
+      return {
+        facts: '黄历宜忌、冲煞、神煞、执日、星宿、候选日期或参与人八字适配信息',
+        timing: '候选日期、黄历宜忌、冲煞、神煞、执日、星宿或现实约束',
+      };
+    case 'astrolabe':
+      return {
+        facts: '星体、宫位、角点、相位、格局或行运范围',
+        timing: '本命结构、行运相位、落宫触发或分析对象范围',
+      };
+    default:
+      return {
+        facts: '已提供资料中的本体系事实、关键结构、辅助信息或现实补充',
+        timing: '已提供资料中的时机线索、结构触发、问题限定范围或现实条件',
+      };
+  }
+}
+
 function buildLiurenAnalysisObjectText(data: LiurenData) {
   const initial = data.threeTransmissions[0];
   return [
@@ -219,20 +280,28 @@ export function buildDivinationPrompt(
   const timeInfo = method === 'astrolabe' ? buildSolarTimeInfoText(data) : buildTimeInfoText(data);
   const supplementarySection = formatSupplementaryInfoSection(method, supplementaryInfo);
   const infoText = formatDivinationInfo(method, data, normalizedQuestion, supplementaryInfo);
+  const isAstrolabe = method === 'astrolabe';
+  const evidenceTerms = buildDivinationEvidenceTerms(method);
   const requirementText = [
     isAlmanac
       ? '- 只基于提供的择日信息、补充信息与现实约束作答。'
-      : '- 只基于提供的占卜信息与问题作答。',
+      : isAstrolabe
+        ? '- 只基于提供的星盘信息、分析对象与问题作答。'
+        : '- 只基于提供的占卜信息与问题作答。',
     isAlmanac
       ? '- 不得编造已提供资料没有给出的现实约束、参与人信息或择日条件；允许基于候选日期、黄历、冲煞、神煞、星宿和参与人八字参考做择日推理。'
-      : '- 不得编造已提供资料没有给出的卦象细节、盘局数据、牌位信息或签文条件；允许基于已提供资料做本体系推理，但必须标明证据来源。',
+      : isAstrolabe
+        ? '- 不得编造已提供资料没有给出的星体、宫位、角点、相位、格局或行运范围；允许基于已提供资料做星盘推理，但必须标明证据来源。'
+        : `- 不得编造已提供资料没有给出的${evidenceTerms.facts}；允许基于已提供资料做本体系推理，但必须标明证据来源。`,
     ...(isCustomQuestion
       ? []
       : [
           '- 每个关键判断都要区分主证、辅证、反证或限制；若证据不足，只能给倾向和条件，不得强行下绝对结论。',
-          '- 涉及应期、日期或时间窗口时，必须说明来自卦象、课传、盘局、牌阵、签诗或择日资料中的哪一类证据。',
+          isAstrolabe
+            ? '- 涉及应期、日期或时间窗口时，必须说明来自本命结构、行运相位、落宫触发或分析对象范围中的哪一类证据。'
+            : `- 涉及应期、日期或时间窗口时，必须说明来自${evidenceTerms.timing}中的哪一类证据。`,
         ]),
-    ...(method === 'astrolabe'
+    ...(isAstrolabe
       ? [
           '- 不要泛泛讲星座性格，必须把相关星体、宫位、守护星和相位连到问题。',
           '- 本命盘只定长期结构；若【分析对象】提供流年、流月或流日，必须把所选时间段作为当前回答的主范围。',
@@ -247,11 +316,17 @@ export function buildDivinationPrompt(
             '- 优先抓最能影响筛选结果的 2 到 4 个证据点，不要平均复述全部候选日期资料。',
             '- 依据必须尽量落到黄历宜忌、冲煞、神煞、执日、星宿和参与人八字适配信息。',
           ]
-        : [
-            '- 先直接回答【问题】，再讲主证据、条件限制和建议。',
-            '- 优先抓最能决定判断方向的 2 到 4 个证据点，不要平均复述全部材料。',
-            '- 依据必须尽量落到卦象、盘局、牌面或签文信息。',
-          ]),
+        : isAstrolabe
+          ? [
+              '- 先直接回答【问题】，再讲主证据、条件限制和建议。',
+              '- 优先抓最能决定判断方向的 2 到 4 个证据点，不要平均复述全部星盘资料。',
+              '- 依据必须尽量落到星体、宫位、角点、相位、格局或行运信息。',
+            ]
+          : [
+              '- 先直接回答【问题】，再讲主证据、条件限制和建议。',
+              '- 优先抓最能决定判断方向的 2 到 4 个证据点，不要平均复述全部材料。',
+              `- 依据必须尽量落到${evidenceTerms.facts}。`,
+            ]),
     '- 使用简体中文，不写空话，不重复抄写原始信息。',
     isCustomQuestion ? '' : buildMethodRequirementText(method),
     isCustomQuestion
@@ -276,8 +351,12 @@ export function buildDivinationPrompt(
           buildMethodOutputRequirementText(method),
         ].join('\n')
       : [
-          '先直接回答【问题】，再展开最关键的 2 到 4 个重点；每个重点都要写明占卜依据、触发条件与现实建议。',
-          '每个重点都要区分主证、辅证、反证或限制；涉及应期时必须说明来自卦象、盘局、牌位、签诗或行运证据的哪一层。',
+          isAstrolabe
+            ? '先直接回答【问题】，再展开最关键的 2 到 4 个重点；每个重点都要写明星盘依据、触发条件与现实建议。'
+            : '先直接回答【问题】，再展开最关键的 2 到 4 个重点；每个重点都要写明占卜依据、触发条件与现实建议。',
+          isAstrolabe
+            ? '每个重点都要区分主证、辅证、反证或限制；涉及应期时必须说明来自本命结构、行运相位、落宫触发或分析对象范围中的哪一层。'
+            : `每个重点都要区分主证、辅证、反证或限制；涉及应期时必须说明来自${evidenceTerms.timing}中的哪一层。`,
           '如果信息不足或存在不确定性，需要明确说明，不要强行下绝对判断。',
           '最后补一条最值得执行的提醒。',
           buildDivinationFocusOutputRequirementText(
