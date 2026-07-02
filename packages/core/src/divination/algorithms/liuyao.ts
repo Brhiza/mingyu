@@ -156,7 +156,7 @@ function checkSanheWithTrigger(
  * - 回头克：变爻克动爻
  * - 回头冲：变爻冲动爻（六冲）
  * - 化空：变爻落旬空
- * - 化进/化退：同五行递进退（由 getChangeDirection 判定）
+ * - 化进/化退：同五行递进退（由 getLiuyaoChangeDirection 判定）
  * - 比和：同五行同比和
  */
 function getChangeRelation(
@@ -189,51 +189,275 @@ function isMonthBreak(branch: string, monthBranch: string): boolean {
   return isLiuchong(branch, monthBranch);
 }
 
+const LIUYAO_ADVANCING_CHANGE: Record<string, string> = {
+  亥: '子',
+  寅: '卯',
+  巳: '午',
+  申: '酉',
+  丑: '辰',
+  辰: '未',
+  未: '戌',
+};
+
+const LIUYAO_RETREATING_CHANGE: Record<string, string> = {
+  子: '亥',
+  卯: '寅',
+  午: '巳',
+  酉: '申',
+  辰: '丑',
+  未: '辰',
+  戌: '未',
+};
+
 /**
- * 判断化进神/退神
- * 化进神：动爻变出的爻与原爻同五行，且顺序递进（如寅木化卯木）
- * 化退神：动爻变出的爻与原爻同五行，且顺序递退（如卯木化寅木）
+ * 判断化进神/退神。
+ * 按《增删卜易》进神退神章明表取用，不按十二地支循环外推。
  */
-function getChangeDirection(
+export function getLiuyaoChangeDirection(
   originalBranch: string,
   changedBranch: string,
 ): '化进神' | '化退神' | null {
-  const originalWuxing = BRANCH_WUXING[originalBranch];
-  const changedWuxing = BRANCH_WUXING[changedBranch];
-
-  // 必须同五行
-  if (!originalWuxing || !changedWuxing || originalWuxing !== changedWuxing) {
-    return null;
-  }
-
-  const originalIndex = BRANCH_ORDER.indexOf(originalBranch);
-  const changedIndex = BRANCH_ORDER.indexOf(changedBranch);
-
-  if (originalIndex === -1 || changedIndex === -1) {
-    return null;
-  }
-
-  // 计算顺时针距离（进）
-  const forwardDistance = (changedIndex - originalIndex + 12) % 12;
-  // 计算逆时针距离（退）
-  const backwardDistance = (originalIndex - changedIndex + 12) % 12;
-
-  // 进神：顺行一位（距离1）
-  if (forwardDistance === 1) {
+  if (LIUYAO_ADVANCING_CHANGE[originalBranch] === changedBranch) {
     return '化进神';
   }
-  // 退神：逆行一位（距离1）
-  if (backwardDistance === 1) {
+  if (LIUYAO_RETREATING_CHANGE[originalBranch] === changedBranch) {
     return '化退神';
   }
+  return null;
+}
 
-  // 土支（辰戌丑未）进神退神：《增删卜易》辰→未→戌→丑 顺行3位为进神，逆行3位为退神
-  if (originalWuxing === '土') {
-    if (forwardDistance === 3) return '化进神';
-    if (backwardDistance === 3) return '化退神';
+export type LiuyaoHexagramRelation = '六合卦' | '六冲卦';
+export type LiuyaoFanFuScope = '内卦' | '外卦' | '内外';
+export type LiuyaoFanFuKind = '卦反吟' | '爻反吟' | '伏吟';
+
+export interface LiuyaoFanFuRelationItem {
+  kind: LiuyaoFanFuKind;
+  scope: LiuyaoFanFuScope;
+  label: string;
+  description: string;
+}
+
+export interface LiuyaoFanFuRelations {
+  /** 反吟结构，可能同时存在内卦、外卦不同类型 */
+  fanyin: LiuyaoFanFuRelationItem[];
+  /** 伏吟结构，按动变后纳甲地支不变识别 */
+  fuyin: LiuyaoFanFuRelationItem[];
+  /** 便于前端与提示词直接展示的标签 */
+  labels: string[];
+}
+
+export type LiuyaoPalaceStage = '首卦' | '一世' | '二世' | '三世' | '四世' | '五世' | '游魂' | '归魂';
+
+const WHOLE_HEXAGRAM_PAIR_INDEXES: Array<[number, number]> = [
+  [0, 3],
+  [1, 4],
+  [2, 5],
+];
+
+const LIUYAO_FANYIN_TRIGRAM_PAIRS: Record<string, string> = {
+  乾: '巽',
+  巽: '乾',
+  坎: '离',
+  离: '坎',
+  震: '兑',
+  兑: '震',
+  坤: '艮',
+  艮: '坤',
+};
+
+function trimHexagramRelationSuffix(relation: LiuyaoHexagramRelation) {
+  return relation.replace(/卦$/, '');
+}
+
+/**
+ * 判断整卦层面的六合卦/六冲卦。
+ * 《增删卜易》六合章、六冲章以初四、二五、三上三组爻支相合/相冲定整卦关系，
+ * 如天地否为六合卦、乾为天为六冲卦。
+ */
+export function getLiuyaoHexagramRelation(hexagramName: string): LiuyaoHexagramRelation | null {
+  const branches = hexagramNaJia[hexagramName];
+  if (!branches || branches.length !== 6) {
+    return null;
+  }
+
+  if (WHOLE_HEXAGRAM_PAIR_INDEXES.every(([lower, upper]) => isLiuhe(branches[lower], branches[upper]))) {
+    return '六合卦';
+  }
+
+  if (
+    WHOLE_HEXAGRAM_PAIR_INDEXES.every(([lower, upper]) =>
+      isLiuchong(branches[lower], branches[upper]),
+    )
+  ) {
+    return '六冲卦';
   }
 
   return null;
+}
+
+export function getLiuyaoHexagramRelations(
+  originalName: string,
+  changedName: string | undefined,
+  hasChangingYaos: boolean,
+) {
+  const original = getLiuyaoHexagramRelation(originalName);
+  const changed =
+    hasChangingYaos && changedName ? getLiuyaoHexagramRelation(changedName) : null;
+  const transition =
+    original && changed
+      ? `${trimHexagramRelationSuffix(original)}变${trimHexagramRelationSuffix(changed)}`
+      : null;
+
+  return {
+    original,
+    changed,
+    transition,
+  };
+}
+
+function getHexagramDataByName(hexagramName: string) {
+  return hexagramsData.find((item) => item.name === hexagramName);
+}
+
+function isTrigramFanyin(originalTrigram: string, changedTrigram: string) {
+  return LIUYAO_FANYIN_TRIGRAM_PAIRS[originalTrigram] === changedTrigram;
+}
+
+function getScope(lowerMatched: boolean, upperMatched: boolean): LiuyaoFanFuScope | null {
+  if (lowerMatched && upperMatched) return '内外';
+  if (lowerMatched) return '内卦';
+  if (upperMatched) return '外卦';
+  return null;
+}
+
+function getScopes(scope: LiuyaoFanFuScope): Array<'内卦' | '外卦'> {
+  return scope === '内外' ? ['内卦', '外卦'] : [scope];
+}
+
+function buildFanyinLabel(kind: Exclude<LiuyaoFanFuKind, '伏吟'>, scope: LiuyaoFanFuScope) {
+  if (kind === '爻反吟') {
+    return scope === '内外' ? '内外爻反吟' : `${scope}爻反吟`;
+  }
+  return scope === '内外' ? '内外反吟' : `${scope}反吟`;
+}
+
+function buildFanyinDescription(
+  kind: Exclude<LiuyaoFanFuKind, '伏吟'>,
+  scope: LiuyaoFanFuScope,
+  original: { upper: string; lower: string },
+  changed: { upper: string; lower: string },
+) {
+  const parts = getScopes(scope).map((item) =>
+    item === '内卦'
+      ? `内卦${original.lower}变${changed.lower}`
+      : `外卦${original.upper}变${changed.upper}`,
+  );
+  const rule =
+    kind === '爻反吟'
+      ? '对应纳甲地支逐位相冲'
+      : '按乾巽、坎离、震兑、坤艮相变';
+  return `${parts.join('，')}，${rule}`;
+}
+
+function buildFuyinDescription(
+  scope: LiuyaoFanFuScope,
+  original: { upper: string; lower: string },
+  changed: { upper: string; lower: string },
+) {
+  const parts = getScopes(scope).map((item) =>
+    item === '内卦'
+      ? `内卦${original.lower}变${changed.lower}`
+      : `外卦${original.upper}变${changed.upper}`,
+  );
+  return `${parts.join('，')}，动变后纳甲地支不变`;
+}
+
+function pushFanyinItem(
+  items: LiuyaoFanFuRelationItem[],
+  kind: Exclude<LiuyaoFanFuKind, '伏吟'> | null,
+  scope: LiuyaoFanFuScope | null,
+  original: { upper: string; lower: string },
+  changed: { upper: string; lower: string },
+) {
+  if (!kind || !scope) {
+    return;
+  }
+  items.push({
+    kind,
+    scope,
+    label: buildFanyinLabel(kind, scope),
+    description: buildFanyinDescription(kind, scope, original, changed),
+  });
+}
+
+/**
+ * 判断六爻卦变层面的反吟、伏吟。
+ *
+ * 《增删卜易》“反吟伏吟”：
+ * - 卦反吟：乾巽、坎离、震兑、坤艮相变。
+ * - 爻反吟：对应爻纳甲地支逐位相冲。
+ * - 伏吟：卦有动变，但变后六爻纳甲地支不变，并分内卦、外卦、内外。
+ */
+export function getLiuyaoFanFuRelations(
+  originalName: string,
+  changedName: string | undefined,
+  hasChangingYaos: boolean,
+): LiuyaoFanFuRelations {
+  const empty: LiuyaoFanFuRelations = { fanyin: [], fuyin: [], labels: [] };
+  if (!hasChangingYaos || !changedName) {
+    return empty;
+  }
+
+  const original = getHexagramDataByName(originalName);
+  const changed = getHexagramDataByName(changedName);
+  const originalBranches = hexagramNaJia[originalName];
+  const changedBranches = hexagramNaJia[changedName];
+  if (!original || !changed || !originalBranches || !changedBranches) {
+    return empty;
+  }
+
+  const lowerYaoFanyin = originalBranches
+    .slice(0, 3)
+    .every((branch, index) => isLiuchong(branch, changedBranches[index]));
+  const upperYaoFanyin = originalBranches
+    .slice(3)
+    .every((branch, index) => isLiuchong(branch, changedBranches[index + 3]));
+  const lowerGuaFanyin = isTrigramFanyin(original.lower, changed.lower);
+  const upperGuaFanyin = isTrigramFanyin(original.upper, changed.upper);
+
+  const lowerFanyinKind = lowerYaoFanyin ? '爻反吟' : lowerGuaFanyin ? '卦反吟' : null;
+  const upperFanyinKind = upperYaoFanyin ? '爻反吟' : upperGuaFanyin ? '卦反吟' : null;
+  const fanyin: LiuyaoFanFuRelationItem[] = [];
+  if (lowerFanyinKind && lowerFanyinKind === upperFanyinKind) {
+    pushFanyinItem(fanyin, lowerFanyinKind, '内外', original, changed);
+  } else {
+    pushFanyinItem(fanyin, lowerFanyinKind, lowerFanyinKind ? '内卦' : null, original, changed);
+    pushFanyinItem(fanyin, upperFanyinKind, upperFanyinKind ? '外卦' : null, original, changed);
+  }
+
+  const lowerFuyin =
+    original.lower !== changed.lower &&
+    originalBranches.slice(0, 3).every((branch, index) => branch === changedBranches[index]);
+  const upperFuyin =
+    original.upper !== changed.upper &&
+    originalBranches.slice(3).every((branch, index) => branch === changedBranches[index + 3]);
+  const fuyinScope = getScope(lowerFuyin, upperFuyin);
+  const fuyin: LiuyaoFanFuRelationItem[] = fuyinScope
+    ? [
+        {
+          kind: '伏吟',
+          scope: fuyinScope,
+          label: fuyinScope === '内外' ? '内外伏吟' : `${fuyinScope}伏吟`,
+          description: buildFuyinDescription(fuyinScope, original, changed),
+        },
+      ]
+    : [];
+
+  return {
+    fanyin,
+    fuyin,
+    labels: [...fanyin, ...fuyin].map((item) => item.label),
+  };
 }
 
 /**
@@ -325,23 +549,36 @@ function buildHiddenSpirits(params: {
  * @param palaceName 宫位名
  * @returns 返回世爻和应爻所在的爻位（1-6）
  */
-function getShiYing(hexagramName: string, palaceName: string): { shi: number; ying: number } {
+export function getLiuyaoPalaceStage(hexagramName: string, palaceName?: string): LiuyaoPalaceStage {
   // 京房八宫卦序，决定了世爻的位置
-  const palaceOrder = ['首卦', '一世', '二世', '三世', '四世', '五世', '游魂', '归魂'];
-  const shiYaoMap = { 首卦: 6, 一世: 1, 二世: 2, 三世: 3, 四世: 4, 五世: 5, 游魂: 4, 归魂: 3 };
-
-  const hexagramsInPalace = palaceHexagrams[palaceName as keyof typeof palaceHexagrams];
+  const palaceOrder: LiuyaoPalaceStage[] = ['首卦', '一世', '二世', '三世', '四世', '五世', '游魂', '归魂'];
+  const resolvedPalaceName = palaceName || hexagramPalaceMap[hexagramName as keyof typeof hexagramPalaceMap];
+  const hexagramsInPalace = palaceHexagrams[resolvedPalaceName as keyof typeof palaceHexagrams];
   if (!hexagramsInPalace) {
-    throw new Error(`找不到宫位 "${palaceName}" 的卦象列表。`);
+    throw new Error(`找不到宫位 "${resolvedPalaceName}" 的卦象列表。`);
   }
 
   const generation = hexagramsInPalace.indexOf(hexagramName);
   if (generation === -1) {
-    // 理论上不应该发生，因为 palaceName 是从 hexagramName 查出来的
-    throw new Error(`卦象 "${hexagramName}" 不在宫位 "${palaceName}" 的列表中。`);
+    throw new Error(`卦象 "${hexagramName}" 不在宫位 "${resolvedPalaceName}" 的列表中。`);
   }
 
-  const shiYao = shiYaoMap[palaceOrder[generation] as keyof typeof shiYaoMap];
+  return palaceOrder[generation];
+}
+
+function getShiYing(hexagramName: string, palaceName: string): { shi: number; ying: number } {
+  const shiYaoMap: Record<LiuyaoPalaceStage, number> = {
+    首卦: 6,
+    一世: 1,
+    二世: 2,
+    三世: 3,
+    四世: 4,
+    五世: 5,
+    游魂: 4,
+    归魂: 3,
+  };
+  const palaceStage = getLiuyaoPalaceStage(hexagramName, palaceName);
+  const shiYao = shiYaoMap[palaceStage];
   // 应爻永远在世爻之上或之下三位
   const yingYao = shiYao + 3 > 6 ? shiYao - 3 : shiYao + 3;
   return { shi: shiYao, ying: yingYao };
@@ -477,6 +714,7 @@ export function generateLiuyao(customDate?: Date) {
   const palace = findPalace(mainHexagram.name);
   const yaosInfo = getNaJiaAndLiuQin(mainHexagram.name, palace);
   const shiYing = getShiYing(mainHexagram.name, palace.name);
+  const palaceStage = getLiuyaoPalaceStage(mainHexagram.name, palace.name);
   const voids = getVoidBranches(ganzhi.day);
 
   //【核心修正：增加变卦分析】
@@ -500,12 +738,24 @@ export function generateLiuyao(customDate?: Date) {
     changingYaosResult.length,
     mainHexagram.name,
   );
+  const hexagramRelations = getLiuyaoHexagramRelations(
+    mainHexagram.name,
+    changedHexagram.name,
+    changingYaosResult.length > 0,
+  );
+  const fanfuRelations = getLiuyaoFanFuRelations(
+    mainHexagram.name,
+    changedHexagram.name,
+    changingYaosResult.length > 0,
+  );
   const yaosDetail = yaosInfo.map((info, index) => {
     const isChanging = rawYaos[index] === 6 || rawYaos[index] === 9;
     const changedInfo = isChanging ? changedYaosInfo[index] : null;
     const isDayBreakFlag = isDayBreak(info.dizhi, dayBranch);
     const isMonthBreakFlag = isMonthBreak(info.dizhi, monthBranch);
-    const changeDirection = changedInfo ? getChangeDirection(info.dizhi, changedInfo.dizhi) : null;
+    const changeDirection = changedInfo
+      ? getLiuyaoChangeDirection(info.dizhi, changedInfo.dizhi)
+      : null;
 
     // 月令旺衰：按月建定爻之五行的旺相休囚死。旺相为有力，休囚死为无力。
     const seasonState = getSeasonState(info.wuxing, monthBranch);
@@ -645,6 +895,7 @@ export function generateLiuyao(customDate?: Date) {
     worldAndResponse: getWorldAndResponseArray(shiYing),
     voidBranches: voids,
     palace,
+    palaceStage,
     ganzhi,
     specialPattern,
     specialAdvice,
@@ -652,6 +903,8 @@ export function generateLiuyao(customDate?: Date) {
     chaoticReason,
     yaosDetail,
     hiddenSpirits,
+    hexagramRelations,
+    fanfuRelations,
     sanheWithDay,
     sanheWithMonth,
     sanxingInYaos,

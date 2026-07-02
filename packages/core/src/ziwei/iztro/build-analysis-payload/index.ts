@@ -39,7 +39,13 @@ export function buildAnalysisPayloadV1(params: {
         palaces,
       });
 
-  const patterns = skipAnalysis ? [] : detectPatterns({ palaces });
+  const patterns = skipAnalysis
+    ? []
+    : detectPatterns({
+        palaces,
+        birthTimeLabel: basic_info.birth_time_label,
+        birthTimeRange: basic_info.birth_time_range,
+      });
 
   return {
     payload_version: 'analysis_payload_v1',

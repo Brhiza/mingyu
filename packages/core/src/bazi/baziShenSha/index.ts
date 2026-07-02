@@ -1,8 +1,3 @@
-/**
- * 八字神煞计算模块
- * 默认采用主流口径，争议算法通过 options.variants 保留可切换分支。
- */
-
 import { BASIC_MAPPINGS } from '../baziDefinitions';
 import type { ShenShaResult } from '../baziTypes';
 import { buildNobleRules } from './helpers/nobleRules';
@@ -31,9 +26,6 @@ export type {
   ShenShaYangRenMode,
 } from './variants';
 
-/**
- * 神煞计算器
- */
 export class ShenShaCalculator {
   private ctg: readonly string[];
   private cdz: readonly string[];
@@ -45,16 +37,10 @@ export class ShenShaCalculator {
     this.variants = resolveShenShaVariantConfig(options.variants);
   }
 
-  /**
-   * 获取地支索引
-   */
   private zhiIdx(zhi: string): number {
     return this.cdz.indexOf(zhi);
   }
 
-  /**
-   * 计算所有神煞
-   */
   public calculateAllShenSha(baziArray: BaziArray, gender: string): ShenShaResult {
     const result: ShenShaResult = {
       year: [],
@@ -82,17 +68,10 @@ export class ShenShaCalculator {
     return analyzeGlobalShenSha(shenShaList);
   }
 
-  /**
-   * 结合十神的神煞分析 (高级分析)
-   * 例如：驿马+偏财 = 动中求财；桃花+七杀 = 桃花劫
-   */
   public analyzeShenShaWithTenGod(shenShaList: string[], tenGod: string): string[] {
     return analyzeShenShaWithTenGod(shenShaList, tenGod);
   }
 
-  /**
-   * 计算单柱神煞
-   */
   private calculatePillarShenSha(
     gan: string,
     zhi: string,

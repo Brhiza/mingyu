@@ -26,7 +26,7 @@
 
 import { SolarDay } from 'tyme4ts';
 import { tiangan, jiazi, qimen } from '../../../../divination/divination-data';
-import { STEM_TOMB_MAP, sanQiLiuYi } from './_constants';
+import { sanQiLiuYi } from './_constants';
 
 const { dizhi, diPanPalaces, palaceStars, palaceDoorMap, jieQiJuShuMap } = qimen;
 const tenStems = tiangan;
@@ -49,6 +49,19 @@ const wuBuYuHourStemByDayStem: Record<string, string> = {
   辛: '丁',
   壬: '戊',
   癸: '己',
+};
+const hourRuMuByGanZhi: Record<
+  string,
+  { branch: string; palace: number; category: '三奇日时干入墓' | '时干入墓' }
+> = {
+  乙未: { branch: '未', palace: 2, category: '三奇日时干入墓' },
+  丙戌: { branch: '戌', palace: 6, category: '三奇日时干入墓' },
+  丁丑: { branch: '丑', palace: 8, category: '三奇日时干入墓' },
+  戊辰: { branch: '辰', palace: 4, category: '时干入墓' },
+  壬辰: { branch: '辰', palace: 4, category: '时干入墓' },
+  己未: { branch: '未', palace: 2, category: '时干入墓' },
+  癸未: { branch: '未', palace: 2, category: '时干入墓' },
+  辛丑: { branch: '丑', palace: 8, category: '时干入墓' },
 };
 
 export interface QimenLayoutContext {
@@ -284,9 +297,9 @@ export function getQimenJuShu(timeInfo: {
  *
  * 包括：六甲时、六癸时、时干入墓、五不遇时。
  *
- * 时干入墓法理依据（《烟波钓叟歌》："时干入墓凶无疑"）：
- *   各天干五行墓地不同，时干遇其墓支即为入墓，
- *   主事情停滞、阻力大，不宜举事。
+ * 时干入墓法理依据：
+ *   《奇门宝鉴御定》校正为戊辰、壬辰、己未、癸未、辛丑五时；
+ *   另列乙未、丙戌、丁丑为日时干三奇入墓，其凶与墓制同。
  *
  * 五不遇时法理依据（《遁甲演义》）：
  *   时干克日干，名为五不遇，主事多不顺，好事被阻，凶时。
@@ -334,13 +347,11 @@ export function checkSpecialHourConditions(
   }
 
   // ── 3. 时干入墓 ──
-  // 《遁甲演义》论入墓法（采用 _constants STEM_TOMB_MAP 统一表）：
-  const ruMuMap = STEM_TOMB_MAP;
-
-  const ruMuInfo = ruMuMap[hourGan];
+  // 《奇门宝鉴御定》明言旧本有误，时辰级入墓采用校正后的干支专表。
+  const ruMuInfo = hourRuMuByGanZhi[hourGanZhi];
   if (ruMuInfo && hourZhi === ruMuInfo.branch) {
     result.isShiGanRuMu = true;
-    result.description += `时干${hourGan}入墓（${hourGan}入${ruMuInfo.palace}宫/${ruMuInfo.branch}支），事情停滞，不宜举事；`;
+    result.description += `${ruMuInfo.category}（${hourGanZhi}，${hourGan}入${ruMuInfo.palace}宫/${ruMuInfo.branch}支），事情停滞，不宜举事；`;
   }
 
   // ── 4. 五不遇时 ──

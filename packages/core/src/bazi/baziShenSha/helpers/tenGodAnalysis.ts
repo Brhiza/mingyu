@@ -1,11 +1,6 @@
-/**
- * 结合十神的神煞分析 (高级分析)
- * 例如：驿马+偏财 = 动中求财；桃花+七杀 = 桃花劫
- */
 export function analyzeShenShaWithTenGod(shenShaList: string[], tenGod: string): string[] {
   const analysis: string[] = [];
 
-  // 驿马互参
   if (shenShaList.includes('驿马')) {
     if (tenGod === '偏财' || tenGod === '正财') {
       analysis.push('驿马逢财星，传统多视为资源流动、外出求财或交易机会增加。');
@@ -21,7 +16,6 @@ export function analyzeShenShaWithTenGod(shenShaList: string[], tenGod: string):
     }
   }
 
-  // 桃花互参
   if (shenShaList.includes('桃花')) {
     if (tenGod === '七杀') {
       analysis.push('桃花逢七杀，传统多视为情感吸引与压力并见，需留意边界和关系复杂度。');
@@ -37,7 +31,6 @@ export function analyzeShenShaWithTenGod(shenShaList: string[], tenGod: string):
     }
   }
 
-  // 羊刃互参
   if (shenShaList.includes('羊刃')) {
     if (tenGod === '七杀') {
       analysis.push('羊刃逢七杀，传统多视为执行力、压强与果断性增强，需结合制化判断。');
@@ -50,7 +43,6 @@ export function analyzeShenShaWithTenGod(shenShaList: string[], tenGod: string):
     }
   }
 
-  // 贵人互参
   if (shenShaList.includes('天乙贵人')) {
     if (tenGod === '食神') {
       analysis.push('天乙贵人逢食神，传统多视为表达、人缘与助力较易接上。');

@@ -91,6 +91,13 @@ function getHorseBranch(sourceBranch: string): string {
   return '';
 }
 
+function isHorseActivated(
+  horsePalace: number | undefined,
+  keyPalaces: Array<number | undefined>,
+): boolean {
+  return horsePalace !== undefined && keyPalaces.some((palace) => palace === horsePalace);
+}
+
 /**
  * 将 ClassicPattern（classic-patterns 模块原始输出）映射为 QimenData 兼容的格式
  *
@@ -236,6 +243,7 @@ export function generateQimen(
     { hour: activeGanZhi },
     method,
   );
+  enrichLiuGuiTianWang(specialConditions, jiuGongGe);
 
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 5：辅助数据（空亡、驿马）
@@ -285,11 +293,20 @@ export function generateQimen(
   // 步骤 8：经典格局
   // ──────────────────────────────────────────────────────────────────────────
   const dayStem = ganzhi.day.charAt(0);
+  const yearBranch = ganzhi.year.charAt(1);
+  const dayBranch = ganzhi.day.charAt(1);
+  const monthBranch = ganzhi.month.charAt(1);
+  const hourStem = ganzhi.hour.charAt(0);
+  const hourBranch = ganzhi.hour.charAt(1);
   const classicPatternContext: PatternContext = {
     jiuGongGe,
     zhiFu,
     zhiShi,
+    yearGanZhi: ganzhi.year,
+    monthGanZhi: ganzhi.month,
     dayStem,
+    dayGanZhi: ganzhi.day,
+    hourGanZhi: ganzhi.hour,
   };
   const classicPatternsRaw = getClassicPatterns(classicPatternContext);
   const classicPatterns = mapClassicPatterns(classicPatternsRaw);
@@ -332,18 +349,25 @@ export function generateQimen(
   // ──────────────────────────────────────────────────────────────────────────
   const isFuyin = patternTags.some((t) => t.includes('伏吟'));
   const isFanyin = patternTags.some((t) => t.includes('反吟'));
-  const hasVoid = voidBranches.length > 0;
-  const hasHorse = !!horsePalace;
+  const yingQiVoidBranches = voidPalaces
+    .filter((item) => item.palace === zhiFuLandingPalace)
+    .map((item) => item.branch);
+  const hasVoid = yingQiVoidBranches.length > 0;
+  const hasHorse = isHorseActivated(horsePalace?.palace, [
+    zhiFuLandingPalace,
+    zhiShiLandingPalace,
+  ]);
   const yingQi = estimateYingQi(jiuGongGe, zhiFuLandingPalace, {
     isFuyin,
     isFanyin,
     hasHorse,
     hasVoid,
+    isYangDun,
     zhiFuLandingPalace,
     zhiShiLandingPalace,
     dayGanZhi: ganzhi.day,
     classicPatterns: classicPatternsRaw,
-    voidBranches,
+    voidBranches: yingQiVoidBranches,
   });
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -353,8 +377,20 @@ export function generateQimen(
     classicPatterns: classicPatternsRaw,
     patternTags,
     voidPalaces,
-    horseStar: horsePalace || undefined,
+    horseStar: hasHorse ? horsePalace || undefined : undefined,
+    activeGanZhi,
+    zhiFu,
     zhiShi,
+    dayGanZhi: ganzhi.day,
+    yearBranch,
+    dayStem,
+    dayBranch,
+    monthBranch,
+    solarTerm: jushuResult.jieQi || jieQi,
+    epoch: yuan,
+    hourGanZhi: ganzhi.hour,
+    hourStem,
+    hourBranch,
     jiuGongGe,
   });
 
@@ -517,6 +553,42 @@ function checkDayRuMu(
   if (ruMuInfo && dayZhi === ruMuInfo.branch) {
     conditions.isShiGanRuMu = true;
     conditions.description += `日干${dayGan}入墓（${dayGan}入${ruMuInfo.palace}宫/${ruMuInfo.branch}支），大势迟滞，宜静不宜动；`;
+  }
+}
+
+/**
+ * 六癸时补充天网高低与细分避忌。
+ *
+ * 《奇门遁甲统宗》：「天网者，六癸也。六癸时，不宜举动……临一二三四五宫低，可扬而出；
+ * 临六七八九宫高过人，为四张无走路。」
+ * 《奇门宝鉴御定》又细分四宫入墓、六宫触冠，故输出时单独提示，避免把入墓/触冠误作可出。
+ */
+function enrichLiuGuiTianWang(
+  conditions: QimenData['specialConditions'],
+  jiuGongGe: QimenJiuGongGe[],
+): void {
+  if (!conditions?.isLiuGuiHour) return;
+
+  const guiPalace = jiuGongGe.find((palace) => palace.tianPan.stem === '癸');
+  if (!guiPalace) return;
+
+  switch (guiPalace.gong) {
+    case 1:
+    case 2:
+    case 3:
+      conditions.description += `天盘癸落${guiPalace.name}，天网临一至三宫为低，可取天上六癸方隐避，不宜主动举事；`;
+      return;
+    case 4:
+      conditions.description += `天盘癸落${guiPalace.name}，天网临巽四宫为入墓，不宜出避，宜静守；`;
+      return;
+    case 5:
+      conditions.description += `天盘癸落${guiPalace.name}，中五宫沿简分归低网，仍宜静守，不宜主动举事；`;
+      return;
+    case 6:
+      conditions.description += `天盘癸落${guiPalace.name}，天网临乾六宫为触冠，不宜出避，主动举事多阻；`;
+      return;
+    default:
+      conditions.description += `天盘癸落${guiPalace.name}，天网临七至九宫为高，古称天网四张，主动举事多阻；`;
   }
 }
 

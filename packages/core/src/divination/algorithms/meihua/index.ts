@@ -139,7 +139,7 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
       case 'random':
         return resolveRandomMethod();
       case 'external':
-        return resolveExternalMethod(settings?.externalOmens);
+        return resolveExternalMethod(settings?.externalOmens, ganzhi.hour.slice(-1));
       case 'timeTrigram':
         return resolveTimeTrigramMethod(ganzhi.hour.slice(-1));
       case 'time':

@@ -64,3 +64,69 @@ test('黄历择日：破日求医不应被建除表无条件扣分', () => {
   assert.match(day.highlights.join('；'), /执日破宜就医手术/);
   assert.doesNotMatch(day.cautions.join('；'), /执日破/);
 });
+
+test('黄历择日：岁支十二神方位应从年支起太岁顺排', () => {
+  const result = generateAlmanacSelection({
+    topic: 'renovation',
+    startDate: '2026-06-01',
+    endDate: '2026-06-01',
+  });
+  const day = result.days[0];
+
+  assert.equal(day.ganzhi.year, '丙午');
+  assert.deepEqual(
+    day.annualDirectionGods?.map((item) => `${item.god}${item.branch}`),
+    [
+      '太岁午',
+      '太阳未',
+      '丧门申',
+      '太阴酉',
+      '官符戌',
+      '死符亥',
+      '岁破子',
+      '龙德丑',
+      '白虎寅',
+      '福德卯',
+      '吊客辰',
+      '病符巳',
+    ],
+  );
+  assert.equal(day.annualDirectionGods?.find((item) => item.god === '太岁')?.direction, '正南');
+  assert.equal(day.annualDirectionGods?.find((item) => item.god === '岁破')?.direction, '正北');
+  assert.equal(day.annualDirectionGods?.find((item) => item.god === '福德')?.fortune, '吉');
+  assert.equal(day.annualDirectionGods?.find((item) => item.god === '病符')?.fortune, '凶');
+});
+
+test('黄历择日：参与人适配应覆盖本命日支刑冲破害', () => {
+  const noParticipant = generateAlmanacSelection({
+    topic: 'move',
+    startDate: '2026-06-10',
+    endDate: '2026-06-10',
+  }).days[0];
+  const result = generateAlmanacSelection({
+    topic: 'move',
+    startDate: '2026-06-10',
+    endDate: '2026-06-10',
+    participants: [
+      {
+        id: 'owner',
+        name: '屋主',
+        gender: '男',
+        year: '1990',
+        month: '2',
+        day: '4',
+        timeIndex: '6',
+        dateType: 'solar',
+      },
+    ],
+  });
+  const day = result.days[0];
+  const participantText = day.participantNotes.join('；');
+
+  assert.equal(day.ganzhi.day, '乙卯');
+  assert.match(participantText, /候选日地支卯/);
+  assert.match(participantText, /破生肖\/年支午/);
+  assert.match(participantText, /刑日支子（无礼之刑）/);
+  assert.ok(day.score < noParticipant.score);
+  assert.doesNotMatch(participantText, /未见直接/);
+});

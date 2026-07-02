@@ -336,31 +336,22 @@ export function arrangeJiuGongGe(
   // 第六步：排神盘八神（ShenPan）
   // ──────────────────────────────────────────────
   //
-  // 法理（《遁甲演义》）：
-  //   "八神随遁顺逆，中宫无神位。"
-  //
-  // 八神之首"值符神"（小值符）永远追随天盘值符星（大值符）。
-  // 值符神落于天盘值符星所在之宫，其余七神依次排布。
-  // 阳遁顺排（沿九宫序顺时针），阴遁逆排（沿九宫序逆时针）。
-  // 中五宫不排神，值符落中五时借坤二宫起布。
-  //
-  // 阳遁七神顺序：螣蛇 → 太阴 → 六合 → 白虎 → 玄武 → 九地 → 九天
-  // 阴遁七神顺序：九天 → 九地 → 玄武 → 白虎 → 六合 → 太阴 → 螣蛇
-  // 八神之首"值符"固定在前端，随遁变迁
+  // 《奇门宝鉴御定》：“直符前三六合位，太阴之神在前二，后一宫中为九天，后二之神为九地。”
   const gods = isYangDun ? yangGods : yinGods;
+  const shenPanStartPalace = zhiFuLandingPalace === 5 ? 2 : zhiFuLandingPalace;
+  const shenPanStartIndex = luoShuDoorPath.indexOf(shenPanStartPalace);
 
-  // 收集排神宫的宫位（跳过中五宫，共 8 宫）
-  const shenPanPalaces: number[] = [];
-  for (let offset = 0; shenPanPalaces.length < 8; offset++) {
-    const palaceNum = ((zhiFuLandingPalace - 1 + (isYangDun ? offset : -offset) + 18) % 9) + 1;
-    if (palaceNum === 5) {
-      // 中五宫无神位，跳过
-      continue;
-    }
-    shenPanPalaces.push(palaceNum);
+  if (shenPanStartIndex === -1) {
+    throw new Error(`神盘起宫 "${shenPanStartPalace}" 不在洛书八宫路径中。`);
   }
 
-  // 值符神数组依次放入排神宫位
+  const shenPanPalaces: number[] = [];
+  const shenPanDirection = isYangDun ? -1 : 1;
+  for (let offset = 0; offset < 8; offset++) {
+    const pathIndex = (shenPanStartIndex + shenPanDirection * offset + 8) % 8;
+    shenPanPalaces.push(luoShuDoorPath[pathIndex]);
+  }
+
   for (let i = 0; i < 8; i++) {
     const palaceNum = shenPanPalaces[i];
     jiuGong[palaceNum - 1].shenPan.god = gods[i];

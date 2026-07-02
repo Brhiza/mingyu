@@ -196,7 +196,8 @@ const DIVINATION_REQUEST_PROPERTIES = {
   number: { type: 'integer', minimum: 1 },
   externalOmens: {
     type: 'object',
-    description: '梅花外应起卦信息。method 为 external 时至少提供两项可映射外应，并提供 count。',
+    description:
+      '梅花外应起卦信息。method 为 external 时至少提供两项可映射外应，并提供 count；含方位时按后天端法以物象为上卦、方位为下卦、加时取动爻。',
     properties: {
       direction: { enum: ['东', '东南', '南', '西南', '西', '西北', '北', '东北'] },
       count: { type: 'integer', minimum: 1 },

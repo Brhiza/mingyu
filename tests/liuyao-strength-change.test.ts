@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { generateLiuyao } from 'mingyu-core/divination/liuyao';
+import {
+  generateLiuyao,
+  getLiuyaoChangeDirection,
+  getLiuyaoFanFuRelations,
+  getLiuyaoHexagramRelation,
+  getLiuyaoHexagramRelations,
+  getLiuyaoPalaceStage,
+} from 'mingyu-core/divination/liuyao';
 import type { LiuyaoYaoDetail } from 'mingyu-core/types';
 
 // 2025-01-01 农历为丙子月（子月：水旺木相金休土囚火死）、丙寅日（日支寅）
@@ -66,6 +73,109 @@ test('六爻：动爻变爻输出回头生克冲化空比和关系', () => {
       );
     }
   }
+});
+
+test('六爻：进退神按增删卜易明表判定，不按地支循环外推', () => {
+  const advancingChanges: Array<[string, string]> = [
+    ['亥', '子'],
+    ['寅', '卯'],
+    ['巳', '午'],
+    ['申', '酉'],
+    ['丑', '辰'],
+    ['辰', '未'],
+    ['未', '戌'],
+  ];
+  const retreatingChanges: Array<[string, string]> = [
+    ['子', '亥'],
+    ['卯', '寅'],
+    ['午', '巳'],
+    ['酉', '申'],
+    ['辰', '丑'],
+    ['未', '辰'],
+    ['戌', '未'],
+  ];
+
+  for (const [originalBranch, changedBranch] of advancingChanges) {
+    assert.equal(getLiuyaoChangeDirection(originalBranch, changedBranch), '化进神');
+  }
+  for (const [originalBranch, changedBranch] of retreatingChanges) {
+    assert.equal(getLiuyaoChangeDirection(originalBranch, changedBranch), '化退神');
+  }
+
+  assert.equal(getLiuyaoChangeDirection('戌', '丑'), null);
+  assert.equal(getLiuyaoChangeDirection('丑', '戌'), null);
+});
+
+test('六爻：整卦六合六冲应按初四二五三上爻支成组判断', () => {
+  assert.equal(getLiuyaoHexagramRelation('乾为天'), '六冲卦');
+  assert.equal(getLiuyaoHexagramRelation('巽为风'), '六冲卦');
+  assert.equal(getLiuyaoHexagramRelation('天地否'), '六合卦');
+  assert.equal(getLiuyaoHexagramRelation('地天泰'), '六合卦');
+  assert.equal(getLiuyaoHexagramRelation('风水涣'), null);
+
+  assert.deepEqual(getLiuyaoHexagramRelations('乾为天', '地天泰', true), {
+    original: '六冲卦',
+    changed: '六合卦',
+    transition: '六冲变六合',
+  });
+  assert.deepEqual(getLiuyaoHexagramRelations('天地否', '坤为地', true), {
+    original: '六合卦',
+    changed: '六冲卦',
+    transition: '六合变六冲',
+  });
+
+  const data = generateLiuyao(new Date('2025-01-01T01:00:00+08:00'));
+  assert.equal(data.originalName, '巽为风');
+  assert.equal(data.hexagramRelations?.original, '六冲卦');
+});
+
+test('六爻：反吟伏吟应按卦变和纳甲地支判断', () => {
+  const guaFanyin = getLiuyaoFanFuRelations('乾为天', '巽为风', true);
+  assert.deepEqual(
+    guaFanyin.fanyin.map(({ kind, scope, label }) => ({ kind, scope, label })),
+    [{ kind: '卦反吟', scope: '内外', label: '内外反吟' }],
+  );
+  assert.deepEqual(guaFanyin.fuyin, []);
+  assert.deepEqual(guaFanyin.labels, ['内外反吟']);
+
+  const yaoFanyin = getLiuyaoFanFuRelations('风地观', '地风升', true);
+  assert.deepEqual(
+    yaoFanyin.fanyin.map(({ kind, scope, label }) => ({ kind, scope, label })),
+    [{ kind: '爻反吟', scope: '内外', label: '内外爻反吟' }],
+  );
+  assert.deepEqual(yaoFanyin.labels, ['内外爻反吟']);
+
+  const outerFuyin = getLiuyaoFanFuRelations('天风姤', '雷风恒', true);
+  assert.deepEqual(
+    outerFuyin.fuyin.map(({ kind, scope, label }) => ({ kind, scope, label })),
+    [{ kind: '伏吟', scope: '外卦', label: '外卦伏吟' }],
+  );
+  assert.deepEqual(outerFuyin.fanyin, []);
+
+  const innerFuyin = getLiuyaoFanFuRelations('风天小畜', '风雷益', true);
+  assert.deepEqual(
+    innerFuyin.fuyin.map(({ kind, scope, label }) => ({ kind, scope, label })),
+    [{ kind: '伏吟', scope: '内卦', label: '内卦伏吟' }],
+  );
+
+  const staticHexagram = getLiuyaoFanFuRelations('乾为天', '乾为天', false);
+  assert.deepEqual(staticHexagram.labels, []);
+
+  const data = generateLiuyao(SAMPLE_DATE);
+  assert.ok(data.fanfuRelations);
+  assert.ok(Array.isArray(data.fanfuRelations.labels));
+});
+
+test('六爻：八宫卦位应输出首卦一世游魂归魂等卦序', () => {
+  assert.equal(getLiuyaoPalaceStage('乾为天'), '首卦');
+  assert.equal(getLiuyaoPalaceStage('天风姤'), '一世');
+  assert.equal(getLiuyaoPalaceStage('山地剥'), '五世');
+  assert.equal(getLiuyaoPalaceStage('火地晋'), '游魂');
+  assert.equal(getLiuyaoPalaceStage('火天大有'), '归魂');
+
+  const data = generateLiuyao(new Date('2025-01-01T16:00:00+08:00'));
+  assert.equal(data.originalName, '风水涣');
+  assert.equal(data.palaceStage, '五世');
 });
 
 test('六爻：三合局应区分日辰与月建的实际参与', () => {

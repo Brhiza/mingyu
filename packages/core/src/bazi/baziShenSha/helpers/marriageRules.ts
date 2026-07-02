@@ -1,8 +1,5 @@
 import type { RuleContext, ShenShaRuleMap } from './types';
 
-/**
- * 姻缘神煞规则
- */
 export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
   const { zhi, nianZhi, riGan, riZhi, cdz, zhiIdx } = ctx;
 
@@ -95,14 +92,14 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
     红艳煞: () => {
       const map: Record<string, string> = {
         甲: '午',
-        乙: '申',
+        乙: '午',
         丙: '寅',
         丁: '未',
-        戊: '辰',
+        戊: '子',
         己: '辰',
         庚: '戌',
         辛: '酉',
-        壬: '子',
+        壬: '巳',
         癸: '申',
       };
       return map[riGan] === zhi;

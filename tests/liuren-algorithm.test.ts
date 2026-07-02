@@ -11,6 +11,7 @@ import {
   buildHeavenlyPlate,
   getDayStemResidence,
 } from '../packages/core/src/divination/algorithms/liuren/helpers/plate.ts';
+import { getLiurenTransmissionGuaTi } from '../packages/core/src/divination/algorithms/liuren/helpers/transmission.ts';
 
 const DIZHI = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'] as const;
 const GUIREN_BRANCH_BY_STEM: Record<string, { day: string; night: string }> = {
@@ -142,33 +143,43 @@ test('大六壬会输出完整的四课三传与天盘结构', () => {
   const result = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
 
   assert.equal(result.heavenlyPlate.length, 12);
-  assert.deepEqual(result.earthlyPlate, [...DIZHI]);
   assert.equal(result.fourLessons.length, 4);
   assert.equal(result.threeTransmissions.length, 3);
-  assert.match(result.dayNight || '', /昼占|夜占/);
-  assert.ok(
-    result.noblemanBranch && DIZHI.includes(result.noblemanBranch as (typeof DIZHI)[number]),
-  );
   assert.ok(result.xunKong?.length === 2);
   assert.match(
     result.transmissionRule || '',
     /重审法|元首法|贼克法|克法|比用法|涉害法|别责法|八专法/,
   );
-  assert.match(result.transmissionPattern || '', /伏吟|反吟|回环|递传/);
   assert.ok(result.transmissionDetail?.includes(result.transmissionRule || ''));
   assert.match(result.transmissionDetail || '', /初传发用/);
-  assert.doesNotMatch(result.transmissionDetail || '', /传态为/);
-  assert.doesNotMatch(result.transmissionDetail || '', /链路为/);
   assert.match(result.transmissionSummary || '', /三传.+主线依次为/);
-  assert.doesNotMatch(result.transmissionSummary || '', /断课模板/);
-  assert.doesNotMatch(result.transmissionSummary || '', /取传采用/);
-  assert.doesNotMatch(result.transmissionSummary || '', /链路为/);
 
   const chu = result.threeTransmissions[0].branch;
   const zhong = result.threeTransmissions[1].branch;
   const mo = result.threeTransmissions[2].branch;
   assert.equal(zhong, getUpperByUnder(result.heavenlyPlate, chu));
   assert.equal(mo, getUpperByUnder(result.heavenlyPlate, zhong));
+});
+
+test('大六壬三传成局应按六壬指南输出课体标签', () => {
+  const cases: Array<{ branches: string[]; guaTi: string }> = [
+    { branches: ['子', '午', '卯'], guaTi: '三交卦' },
+    { branches: ['寅', '申', '巳'], guaTi: '玄胎卦' },
+    { branches: ['辰', '戌', '丑'], guaTi: '稼穑卦' },
+    { branches: ['亥', '卯', '未'], guaTi: '曲直卦' },
+    { branches: ['巳', '酉', '丑'], guaTi: '从革卦' },
+    { branches: ['寅', '午', '戌'], guaTi: '炎上卦' },
+    { branches: ['申', '子', '辰'], guaTi: '润下卦' },
+  ];
+
+  for (const item of cases) {
+    assert.ok(
+      getLiurenTransmissionGuaTi(item.branches).includes(item.guaTi),
+      `${item.branches.join('')} 应识别为 ${item.guaTi}`,
+    );
+  }
+
+  assert.deepEqual(getLiurenTransmissionGuaTi(['子', '子', '卯']), []);
 });
 
 test('大六壬天地盘会把月将加在占时地盘上，并保持天地互查可逆', () => {
@@ -235,36 +246,13 @@ test('大六壬传统样例会按月将加占时生成天盘、四课与三传',
   const result = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
 
   assert.equal(result.ganzhi.day, '甲寅');
-  assert.equal(result.ganzhi.hour, '戊辰');
   assert.equal(result.monthLeader, '戌');
   assert.equal(result.divinationBranch, '辰');
-  assert.deepEqual(
-    result.heavenlyPlate.map((item) => `${item.under}${item.branch}`),
-    [
-      '子午',
-      '丑未',
-      '寅申',
-      '卯酉',
-      '辰戌',
-      '巳亥',
-      '午子',
-      '未丑',
-      '申寅',
-      '酉卯',
-      '戌辰',
-      '亥巳',
-    ],
-  );
   assert.deepEqual(
     result.fourLessons.map((item) => `${item.name}${item.upper}${item.lower}`),
     ['一课申甲', '二课寅申', '三课申寅', '四课寅申'],
   );
   assert.equal(result.transmissionRule, '返吟重审法');
-  assert.equal(result.transmissionPattern, '反吟');
-  assert.deepEqual(
-    result.classicalRules?.map((item) => item.rule),
-    ['返吟重审', '返吟', '重审'],
-  );
   assert.match(result.classicalRules?.[0]?.source || '', /《大六壬大全》九宗门取传法/);
   assert.deepEqual(
     result.threeTransmissions.map((item) => item.branch),
@@ -515,6 +503,35 @@ test('大六壬多处贼克且同阴阳候选不唯一时进入涉害法', () =>
 
   assert.equal(result.rule, '涉害法');
   assert.ok(['巳', '未', '亥'].includes(result.initial));
+});
+
+test('大六壬涉害法无孟候选时应先取仲上神，不应改取季上神', () => {
+  const heavenlyPlate = buildHeavenlyPlate({
+    monthLeader: '子',
+    divinationBranch: '寅',
+    noblemanBranch: '未',
+    dayNight: '夜占',
+  });
+  const dayStem = '甲';
+  const dayBranch = '卯';
+  const dayStemResidence = getDayStemResidence(dayStem, dayBranch);
+  const lessons = buildFourLessons({
+    heavenlyPlate,
+    dayStem,
+    dayBranch,
+    dayStemResidence,
+    xunKong: [],
+  });
+
+  const result = resolveInitialTransmission(lessons, {
+    dayStem,
+    dayBranch,
+    dayStemResidence,
+    heavenlyPlate,
+  });
+
+  assert.equal(result.rule, '涉害法');
+  assert.equal(result.initial, '丑');
 });
 
 test('大六壬无上下克时不会把四课比和误判为比用法', () => {

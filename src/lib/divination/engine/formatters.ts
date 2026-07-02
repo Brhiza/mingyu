@@ -154,6 +154,34 @@ function formatHiddenSpirit(item: NonNullable<LiuyaoData['hiddenSpirits']>[numbe
   return `${item.sixRelative}伏第${item.position}爻${item.najiaDizhi}${item.wuxing}${item.isVoid ? '（空）' : ''}，伏于${item.underYao.sixRelative}${item.underYao.najiaDizhi}${item.underYao.wuxing}下`;
 }
 
+function formatLiuyaoHexagramRelation(data: LiuyaoData) {
+  const relations = data.hexagramRelations;
+  if (!relations) {
+    return '';
+  }
+
+  return [
+    relations.original ? `主卦${relations.original}` : '',
+    relations.changed ? `变卦${relations.changed}` : '',
+    relations.transition || '',
+  ]
+    .filter(Boolean)
+    .join('；');
+}
+
+function formatLiuyaoFanFuRelation(data: LiuyaoData) {
+  const relations = data.fanfuRelations;
+  if (!relations?.labels?.length) {
+    return '';
+  }
+
+  const details = [...(relations.fanyin || []), ...(relations.fuyin || [])]
+    .map((item) => `${item.label}（${item.description}）`)
+    .join('；');
+
+  return details || relations.labels.join('；');
+}
+
 function normalizePromptCompareText(text: string) {
   return text.replace(/[：:，,；;。、\s]/g, '');
 }
@@ -1224,6 +1252,8 @@ function formatLiuyaoInfo(
   const hiddenSpiritText = data.hiddenSpirits?.length
     ? data.hiddenSpirits.map(formatHiddenSpirit).join('；')
     : '本卦六亲齐备或本宫首卦无可伏之神';
+  const hexagramRelationText = formatLiuyaoHexagramRelation(data);
+  const fanfuRelationText = formatLiuyaoFanFuRelation(data);
   const usefulGodScoreEvidenceItems = createLiuyaoUsefulGodScoreEvidenceItems(
     question,
     data,
@@ -1257,6 +1287,9 @@ function formatLiuyaoInfo(
     `动爻${movingYaos}`,
     `空亡${data.voidBranches?.join('、') || '无'}`,
     data.specialPattern ? `卦式${data.specialPattern}` : '',
+    data.palaceStage ? `八宫卦位：${data.palaceStage}` : '',
+    hexagramRelationText ? `整卦关系：${hexagramRelationText}` : '',
+    fanfuRelationText ? `反伏关系：${fanfuRelationText}` : '',
     worldYao ? `六亲持世：${worldYao.sixRelative}` : '',
     data.guaShen ? `卦身在${data.guaShen.branch}` : '',
   ].filter(Boolean);
@@ -1292,6 +1325,9 @@ function formatLiuyaoInfo(
     `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
     `核心结构：主卦${data.originalName}${data.palace?.name ? `（${data.palace.name}宫）` : ''}；变卦${data.changedName || '无'}；互卦${data.interName || '无'}`,
     `关键提示：空亡${data.voidBranches?.join('、') || '无'}；动爻${movingYaos}；世应${worldYao ? `世爻在第${worldYao.position}爻` : '世爻未知'}、${responseYao ? `应爻在第${responseYao.position}爻` : '应爻未知'}；特殊卦式${data.specialPattern || '常规卦'}`,
+    data.palaceStage ? `八宫卦位：${data.palaceStage}` : '',
+    hexagramRelationText ? `整卦关系：${hexagramRelationText}` : '',
+    fanfuRelationText ? `反伏关系：${fanfuRelationText}` : '',
     worldYao
       ? `六亲持世：${worldYao.sixRelative}持世，${worldYao.sixRelative === '父母' ? '主辛苦、劳累、文书、消息' : worldYao.sixRelative === '官鬼' ? '主压力、忧虑、疾病、官非' : worldYao.sixRelative === '妻财' ? '主财运、妻子、情感' : worldYao.sixRelative === '子孙' ? '主平安、解忧、医药' : '主竞争、破财、朋友'}`
       : '',
@@ -1478,7 +1514,7 @@ function formatQimenInfo(question: string, data: QimenData, supplementaryInfo?: 
         .filter(
           (item) =>
             item.pattern &&
-            /青龙返首|飞鸟跌穴|白虎干格|朱雀投江|螣蛇夭矫|九地九天|伏干飞干|伏宫飞宫/.test(
+            /青龙返首|飞鸟跌穴|青龙逃走|白虎猖狂|朱雀投江|螣蛇夭矫|荧入太白|太白入荧|大格|小格|刑格|天网四张|地网四张|伏干飞干|伏宫飞宫/.test(
               item.pattern,
             ),
         )
@@ -1964,7 +2000,7 @@ function createAlmanacTabooEvidenceItems(
       );
       const cautionText = item.cautions.length ? item.cautions.join('、') : '';
       const participantText = item.participantNotes.filter(
-        (note) => /冲|忌|不宜|避/.test(note) && !/未见|未冲|不冲|无明显/.test(note),
+        (note) => /冲|刑|害|破|忌|不宜|避/.test(note) && !/未见|未冲|不冲|无明显/.test(note),
       );
       const scoreRisk = item.score < 60 ? `评分${item.score}偏低` : '';
       const risks = [
@@ -2034,6 +2070,36 @@ function createAlmanacSelectionEvidenceItems(
   return items.filter((item): item is PromptEvidenceItem => Boolean(item));
 }
 
+function formatAlmanacAnnualDirectionGods(item: AlmanacDayCandidate) {
+  const gods = item.annualDirectionGods ?? [];
+  if (!gods.length) return '';
+
+  const importantBadGods = new Set([
+    '太岁',
+    '岁破',
+    '丧门',
+    '官符',
+    '死符',
+    '白虎',
+    '吊客',
+    '病符',
+  ]);
+  const helpfulGods = new Set(['太阳', '太阴', '龙德', '福德']);
+  const importantBad = gods
+    .filter((god) => importantBadGods.has(god.god))
+    .map((god) => `${god.god}${god.branch}${god.direction}`);
+  const helpful = gods
+    .filter((god) => helpfulGods.has(god.god))
+    .map((god) => `${god.god}${god.branch}${god.direction}`);
+
+  return [
+    importantBad.length ? `岁支方位避${importantBad.join('、')}` : '',
+    helpful.length ? `可参考${helpful.join('、')}` : '',
+  ]
+    .filter(Boolean)
+    .join('；');
+}
+
 function formatAlmanacInfo(data: AlmanacData) {
   const topDays = data.days.slice(0, 8);
   const topicAvoidKeywords: Record<AlmanacData['topic'], string[]> = {
@@ -2065,10 +2131,12 @@ function formatAlmanacInfo(data: AlmanacData) {
       ? `（${item.nineStarDetail.wuxing}，${item.nineStarDetail.fortune}，${item.nineStarDetail.meaning}）`
       : '';
     const godText = item.gods.length ? `吉神${item.gods.join('、')}` : '';
+    const annualDirectionGodsText = formatAlmanacAnnualDirectionGods(item);
     const evidence = [
       `宜${item.recommends.slice(0, 8).join('、') || '无'}`,
       `忌${item.avoids.slice(0, 8).join('、') || '无'}`,
       godText,
+      annualDirectionGodsText,
       item.highlights.length ? `加分${item.highlights.join('、')}` : '',
       item.cautions.length ? `风险${item.cautions.join('、')}` : '',
       item.participantNotes.length ? `参与人${item.participantNotes.join('；')}` : '',
@@ -2115,12 +2183,12 @@ function formatAlmanacInfo(data: AlmanacData) {
                 .map((note) => `${day.date}${note}`),
             )
             .slice(0, 3);
-          return `${participant.name}：日主${participant.dayMaster}${participant.dayMasterElement}，喜用${participant.usefulGods.join('、') || '未标注'}，忌神${participant.avoidGods.join('、') || '未标注'}；${relatedNotes.join('；') || '候选日期未见直接参与人冲克提醒'}`;
+          return `${participant.name}：日主${participant.dayMaster}${participant.dayMasterElement}，喜用${participant.usefulGods.join('、') || '未标注'}，忌神${participant.avoidGods.join('、') || '未标注'}；${relatedNotes.join('；') || '候选日期未见直接参与人刑冲破害提醒'}`;
         })
         .join('；')
     : '未填写参与人八字，不能编造个人适配，只按通用黄历规则判断';
   const tabooDowngradeEvidence = tabooEvidence.length
-    ? `${tabooEvidence.join('；')}；命中事项忌项、参与人冲克或低分强风险时，即使总分靠前也必须降为备选或慎用`
+    ? `${tabooEvidence.join('；')}；命中事项忌项、参与人刑冲破害或低分强风险时，即使总分靠前也必须降为备选或慎用`
     : '未见强禁忌命中；仍需检查用户现实限制，不能只按分数定案';
   const realityConstraintEvidence = [
     '现实刚性约束包括场地、证件、人员到场、交通、预算、天气和办理窗口',
@@ -2138,14 +2206,14 @@ function formatAlmanacInfo(data: AlmanacData) {
 
   return [
     '占法：黄历择日',
-    `核心结构：择日事项：${data.topicLabel}；候选日期：${data.startDate} 至 ${data.endDate}；先按黄历宜忌、神煞、冲煞与参与人八字做初筛`,
+    `核心结构：择日事项：${data.topicLabel}；候选日期：${data.startDate} 至 ${data.endDate}；先按黄历宜忌、神煞、冲煞与参与人刑冲破害做初筛`,
     bestDay
       ? `初筛结论：当前排序第一为${bestDay.date}，评分${bestDay.score}；仍需结合用户现实约束复核，不可只按分数机械决定`
       : '初筛结论：暂无候选日期',
     '择日抓手：先排除直接冲犯和忌项明显命中的日期，再比较宜项、吉神、执日、星宿与参与人日主喜忌。',
     `事项权重：${topicWeightEvidence}`,
     `参与人适配：${participantFitEvidence}`,
-    `禁忌筛查：${tabooEvidence.length ? tabooEvidence.join('；') : '候选日期未见事项忌项、参与人冲克或低分强风险；仍需按现实约束复核'}；先排禁忌，再看评分，高分日期若命中事项忌项或参与人冲克必须降级`,
+    `禁忌筛查：${tabooEvidence.length ? tabooEvidence.join('；') : '候选日期未见事项忌项、参与人刑冲破害或低分强风险；仍需按现实约束复核'}；先排禁忌，再看评分，高分日期若命中事项忌项或参与人刑冲破害必须降级`,
     `禁忌降级：${tabooDowngradeEvidence}`,
     selectionEvidence.length ? `取舍证据：${selectionEvidence.join('；')}` : '',
     `现实约束：${realityConstraintEvidence}`,

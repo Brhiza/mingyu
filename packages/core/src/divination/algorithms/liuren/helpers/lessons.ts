@@ -203,25 +203,29 @@ function pickByHarmDepth(candidates: KeCandidate[], context: ResolveTransmission
       index,
       depth: getHarmDepth(candidate, context),
       under: getUnderByUpper(context.heavenlyPlate, candidate.lesson.upper),
-    }))
-    .sort((a, b) => b.depth - a.depth || a.index - b.index);
-  const maxDepth = ranked[0]?.depth ?? 0;
-  const tied = ranked.filter((item) => item.depth === maxDepth);
-  const meng = tied.find((item) => MENG_BRANCHES.has(item.under));
+    }));
+  const meng = ranked
+    .filter((item) => MENG_BRANCHES.has(item.under))
+    .sort((a, b) => b.depth - a.depth || a.index - b.index)[0];
   if (meng) {
     return meng.candidate;
   }
 
-  const zhong = tied.find((item) => ZHONG_BRANCHES.has(item.under));
+  const zhong = ranked
+    .filter((item) => ZHONG_BRANCHES.has(item.under))
+    .sort((a, b) => b.depth - a.depth || a.index - b.index)[0];
   if (zhong) {
     return zhong.candidate;
   }
 
-  const ji = tied.find((item) => JI_BRANCHES.has(item.under));
+  const ji = ranked
+    .filter((item) => JI_BRANCHES.has(item.under))
+    .sort((a, b) => b.depth - a.depth || a.index - b.index)[0];
   if (ji) {
     return ji.candidate;
   }
 
+  const tied = ranked.sort((a, b) => b.depth - a.depth || a.index - b.index);
   const preferredUpper = YANG_STEMS.has(context.dayStem)
     ? context.dayStemResidence
     : context.dayBranch;

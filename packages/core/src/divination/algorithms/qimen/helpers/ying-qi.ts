@@ -1,11 +1,11 @@
 /**
  * @file 应期判断（《奇门遁甲大全》应期章、《奇门旨归》）
  * @description 综合多种方法估算应期时间：
- *   1. 用神落宫数 → 远近基线
+ *   1. 用神落宫 → 按阴阳遁内外宫取远近基线
  *   2. 值符落宫数 → 辅助基线
  *   3. 值使落宫数 → 辅助基线
  *   4. 庚格定应期：阳日看庚下（地盘庚），阴日看庚上（天盘庚），地支逢冲为应
- *   5. 马星加快、空亡填实/冲实、伏吟延迟、反吟加快
+ *   5. 马星加快、用神落空则待填实/冲实、伏吟延迟、反吟加快
  *   6. 吉格加快、凶格延迟
  */
 
@@ -33,6 +33,40 @@ const sixChong: Record<string, string> = {
 
 /** 阳干 */
 const YANG_STEMS = ['甲', '丙', '戊', '庚', '壬'];
+
+/** 阳遁内四宫：冬至以后，自坎至巽四宫为内 */
+const YANG_DUN_INNER_PALACES = new Set([1, 8, 3, 4]);
+
+/** 阳遁外四宫：冬至以后，自离至乾四宫为外；阴遁内外反之 */
+const YANG_DUN_OUTER_PALACES = new Set([9, 2, 7, 6]);
+
+type PalaceDistance = 'inner' | 'middle' | 'outer';
+
+function getPalaceDistance(gong: number, isYangDun?: boolean): PalaceDistance {
+  if (isYangDun === true) {
+    if (YANG_DUN_INNER_PALACES.has(gong)) return 'inner';
+    if (YANG_DUN_OUTER_PALACES.has(gong)) return 'outer';
+    return 'middle';
+  }
+
+  if (isYangDun === false) {
+    if (YANG_DUN_OUTER_PALACES.has(gong)) return 'inner';
+    if (YANG_DUN_INNER_PALACES.has(gong)) return 'outer';
+    return 'middle';
+  }
+
+  // 兼容旧调用：未传阴阳遁时保留原先固定宫号口径。
+  if (gong <= 3) return 'inner';
+  if (gong <= 6) return 'middle';
+  return 'outer';
+}
+
+function getPalaceDistanceLabel(distance: PalaceDistance, isYangDun?: boolean): string {
+  if (distance === 'middle') return '中宫';
+
+  const dunLabel = isYangDun === undefined ? '' : isYangDun ? '阳遁' : '阴遁';
+  return `${dunLabel}${distance === 'inner' ? '内宫' : '外宫'}`;
+}
 
 // ============================================================================
 // 类型定义
@@ -92,7 +126,7 @@ export function estimateYingQi(
     isFanyin?: boolean;
     /** 是否有马星冲动 */
     hasHorse?: boolean;
-    /** 是否有空亡 */
+    /** 用神落宫是否逢空亡 */
     hasVoid?: boolean;
     /** 值符落宫 */
     zhiFuLandingPalace?: number;
@@ -104,52 +138,66 @@ export function estimateYingQi(
     hourGanZhi?: string;
     /** 经典格局列表 */
     classicPatterns?: Array<{ name: string; score: number }>;
-    /** 空亡地支列表（用于细化说明填实时间） */
+    /** 命中用神落宫的空亡地支列表（用于细化说明填实时间） */
     voidBranches?: string[];
+    /** 是否阳遁；用于按冬至/夏至后内外宫判断应期远近 */
+    isYangDun?: boolean;
   },
 ): YingQiEstimate {
   const sources: string[] = [];
 
   // ==========================================================================
-  // 1. 用神落宫数 → 远近基线
+  // 1. 用神落宫 → 远近基线
   // ==========================================================================
-  // 内宫（1-3）：应速，1-15 日
-  // 中宫（4-6）：渐进，15-60 日
-  // 外宫（7-9）：迟应，60 日以上
+  // 阴阳遁内外宫随冬至/夏至后切换；未传阴阳遁时保留旧固定宫号兼容。
 
   const baseGong = useShenPalace || options?.zhiFuLandingPalace || 5;
+  const baseDistance = getPalaceDistance(baseGong, options?.isYangDun);
   let baseDays: number;
   let rhythm: '快' | '中' | '慢';
 
-  if (baseGong <= 3) {
+  if (baseDistance === 'inner') {
     baseDays = 7;
     rhythm = '快';
-    sources.push(`用神落${baseGong}宫（内宫速应），基线 1-15 日`);
-  } else if (baseGong <= 6) {
+    sources.push(
+      `用神落${baseGong}宫（${getPalaceDistanceLabel(baseDistance, options?.isYangDun)}速应），基线 1-15 日`,
+    );
+  } else if (baseDistance === 'middle') {
     baseDays = 30;
     rhythm = '中';
-    sources.push(`用神落${baseGong}宫（中宫渐近），基线 15-60 日`);
+    sources.push(
+      `用神落${baseGong}宫（${getPalaceDistanceLabel(baseDistance, options?.isYangDun)}渐近），基线 15-60 日`,
+    );
   } else {
     baseDays = 120;
     rhythm = '慢';
-    sources.push(`用神落${baseGong}宫（外宫迟应），基线 60 日以上`);
+    sources.push(
+      `用神落${baseGong}宫（${getPalaceDistanceLabel(baseDistance, options?.isYangDun)}迟应），基线 60 日以上`,
+    );
   }
 
   // ==========================================================================
   // 2. 值符落宫 → 辅助调整
   // ==========================================================================
-  // 值符落内宫（1-3）→ 加快，落外宫（7-9）→ 减缓
+  // 值符落内宫 → 加快，落外宫 → 减缓
 
   if (options?.zhiFuLandingPalace) {
     const fuGong = options.zhiFuLandingPalace;
-    if (fuGong <= 3) {
+    const fuDistance = getPalaceDistance(fuGong, options.isYangDun);
+    if (fuDistance === 'inner') {
       baseDays *= 0.85;
-      sources.push(`值符落${fuGong}宫（内宫），应期偏快`);
-    } else if (fuGong >= 7) {
+      sources.push(
+        `值符落${fuGong}宫（${getPalaceDistanceLabel(fuDistance, options.isYangDun)}），应期偏快`,
+      );
+    } else if (fuDistance === 'outer') {
       baseDays *= 1.15;
-      sources.push(`值符落${fuGong}宫（外宫），应期偏缓`);
+      sources.push(
+        `值符落${fuGong}宫（${getPalaceDistanceLabel(fuDistance, options.isYangDun)}），应期偏缓`,
+      );
     } else {
-      sources.push(`值符落${fuGong}宫（中宫），应期中平`);
+      sources.push(
+        `值符落${fuGong}宫（${getPalaceDistanceLabel(fuDistance, options.isYangDun)}），应期中平`,
+      );
     }
   }
 
@@ -159,12 +207,17 @@ export function estimateYingQi(
 
   if (options?.zhiShiLandingPalace) {
     const shiGong = options.zhiShiLandingPalace;
-    if (shiGong <= 3) {
+    const shiDistance = getPalaceDistance(shiGong, options.isYangDun);
+    if (shiDistance === 'inner') {
       baseDays *= 0.9;
-      sources.push(`值使落${shiGong}宫（内宫），应期略快`);
-    } else if (shiGong >= 7) {
+      sources.push(
+        `值使落${shiGong}宫（${getPalaceDistanceLabel(shiDistance, options.isYangDun)}），应期略快`,
+      );
+    } else if (shiDistance === 'outer') {
       baseDays *= 1.1;
-      sources.push(`值使落${shiGong}宫（外宫），应期略迟`);
+      sources.push(
+        `值使落${shiGong}宫（${getPalaceDistanceLabel(shiDistance, options.isYangDun)}），应期略迟`,
+      );
     }
   }
 
@@ -354,10 +407,10 @@ export function estimateYingQi(
   if (options?.isFanyin) {
     parts.push('反吟局主反复，虽快但易生变数，多做预案。');
   }
-  if (baseGong <= 3 && !options?.hasVoid && !options?.isFuyin) {
+  if (baseDistance === 'inner' && !options?.hasVoid && !options?.isFuyin) {
     parts.push('内宫用神，事在近期，果断推进即可。');
   }
-  if (baseGong >= 7 && !options?.hasHorse && !options?.isFanyin) {
+  if (baseDistance === 'outer' && !options?.hasHorse && !options?.isFanyin) {
     parts.push('外宫用神，事在远日，宜耐心布局。');
   }
 

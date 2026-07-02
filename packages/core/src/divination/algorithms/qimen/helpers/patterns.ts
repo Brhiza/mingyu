@@ -1,11 +1,12 @@
 /**
  * @file 奇门遁甲模式标签与宫位洞察
  * @description 提供奇门遁甲基础格局标签识别（伏吟、反吟、门迫、击刑、入墓、
- * 三奇得、符使同宫、三奇得使、马星）、标签转详情、以及宫位级洞察。
+ * 三奇得、符使同宫、三奇得使、三奇游六仪、马星）、标签转详情、以及宫位级洞察。
  *
  * 古籍依据：
  *   - 《烟波钓叟歌》：「星反吟兮门反吟，门迫宫兮事难行」
  *   - 《烟波钓叟歌》：「击刑之处防官非，十干入墓主事迟」
+ *   - 《遁甲演义》：「三奇倘合开休生，便是吉门利出行」
  *   - 《烟波钓叟歌》：「三奇得使最为良，符使同宫事必成」
  *   - 《遁甲演义》：「天马方为动应之神，驿马冲则事速」
  *
@@ -32,6 +33,30 @@ const SAN_QI_NAME: Record<string, string> = {
   乙: '乙奇（日奇）',
   丙: '丙奇（月奇）',
   丁: '丁奇（星奇）',
+};
+
+const SAN_QI_DE_SHI_EARTH_STEMS: Record<string, { earthStems: string[]; xunShouText: string }> = {
+  乙: { earthStems: ['己', '辛'], xunShouText: '甲戌/甲午' },
+  丙: { earthStems: ['戊', '庚'], xunShouText: '甲子/甲申' },
+  丁: { earthStems: ['壬', '癸'], xunShouText: '甲辰/甲寅' },
+};
+
+const SAN_QI_YOU_LIU_YI: Record<
+  string,
+  Record<string, { xunShou: string; targetStem: string; targetXunShou: string }>
+> = {
+  乙: {
+    己: { xunShou: '甲戌', targetStem: '辛', targetXunShou: '甲午' },
+    辛: { xunShou: '甲午', targetStem: '己', targetXunShou: '甲戌' },
+  },
+  丙: {
+    戊: { xunShou: '甲子', targetStem: '庚', targetXunShou: '甲申' },
+    庚: { xunShou: '甲申', targetStem: '戊', targetXunShou: '甲子' },
+  },
+  丁: {
+    壬: { xunShou: '甲辰', targetStem: '癸', targetXunShou: '甲寅' },
+    癸: { xunShou: '甲寅', targetStem: '壬', targetXunShou: '甲辰' },
+  },
 };
 
 /**
@@ -176,9 +201,9 @@ export interface QimenPatternTagParams {
  *   - 入墓：时干遁干落入墓宫，主能量被困
  *
  * **吉格局**
- *   - 三奇得：乙/丙/丁在天盘显现
+ *   - 三奇得：乙/丙/丁与开/休/生三吉门同宫
  *   - 符使同宫：值符星与值使门同落一宫
- *   - 三奇得使：乙/丙/丁临值使门所在宫
+ *   - 三奇得使：乙/丙/丁加特定六甲旬首所遁六仪
  *   - 马星：驿马所在宫（需传入 horsePalace）
  *
  * @param params - 标签识别参数
@@ -195,7 +220,7 @@ export interface QimenPatternTagParams {
  *   hourGanForFind: '戊',
  *   horsePalace: 3,
  * });
- * // => ['星伏吟', '三奇得（乙奇到震三宫）', '马星（驿马落震三宫）']
+ * // => ['星伏吟', '三奇得（乙奇（日奇）合休门于震三宫）', '马星（驿马落震三宫）']
  * ```
  */
 export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
@@ -255,13 +280,27 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
   }
 
   // ── 6. 三奇得 ──
-  // 检测天盘是否有乙/丙/丁三奇显现
-  // 《烟波钓叟歌》：「三奇得使最为良」
-  // 三奇在天盘显现为吉，依各自五行属性各有所主
-  const sanQiPalaces = jiuGongGe.filter((gong) => SAN_QI.includes(gong.tianPan.stem));
+  // 古籍以「奇门会合」为用，单见天盘三奇不足以判吉。
+  // 《遁甲演义》：「三奇倘合开休生，便是吉门利出行」
+  // 《奇门遁甲统宗》：「有奇无门，则当另择矣」
+  const sanQiPalaces = jiuGongGe.filter(
+    (gong) => SAN_QI.includes(gong.tianPan.stem) && GOOD_DOORS.has(gong.renPan.door),
+  );
   for (const gong of sanQiPalaces) {
     const qiDisplay = SAN_QI_NAME[gong.tianPan.stem] || gong.tianPan.stem;
-    tags.push(`三奇得（${qiDisplay}到${gong.name}）`);
+    tags.push(`三奇得（${qiDisplay}合${gong.renPan.door}于${gong.name}）`);
+  }
+
+  // ── 6.1 宝鉴三奇得使 ──
+  // 《奇门宝鉴御定》：「三奇得使者，谓得三吉门、直使加奇也」
+  if (GOOD_DOORS.has(zhiShi)) {
+    const zhiShiSanQiPalace = jiuGongGe.find(
+      (gong) => gong.renPan.door === zhiShi && SAN_QI.includes(gong.tianPan.stem),
+    );
+    if (zhiShiSanQiPalace) {
+      const qiName = SAN_QI_NAME[zhiShiSanQiPalace.tianPan.stem] || zhiShiSanQiPalace.tianPan.stem;
+      tags.push(`宝鉴三奇得使（值使${zhiShi}加${qiName}于${zhiShiSanQiPalace.name}）`);
+    }
   }
 
   // ── 7. 符使同宫 ──
@@ -274,17 +313,35 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
   }
 
   // ── 8. 三奇得使 ──
-  // 《烟波钓叟歌》：「三奇得使最为良」
-  // 《奇门遁甲秘籍大全》：乙/丙/丁三奇临值使门所在宫为"得使"
-  // 乙奇+值使门 = 日奇得使，丙奇+值使门 = 月奇得使，丁奇+值使门 = 星奇得使
-  if (shiPalace && SAN_QI.includes(shiPalace.tianPan.stem)) {
-    const qiName = SAN_QI_NAME[shiPalace.tianPan.stem] || shiPalace.tianPan.stem;
-    tags.push(`三奇得使（${qiName}临值使${zhiShi}所在${shiPalace.name}）`);
+  // 《遁甲演义》：「甲戌甲午乙为使，甲子甲申丙为使，甲辰甲寅丁为使」
+  for (const gong of jiuGongGe) {
+    const heavenStem = gong.tianPan.stem;
+    const config = SAN_QI_DE_SHI_EARTH_STEMS[heavenStem];
+    if (!config || !config.earthStems.includes(gong.diPan.stem)) continue;
+
+    const qiName = SAN_QI_NAME[heavenStem] || heavenStem;
+    tags.push(`三奇得使（${qiName}加${config.xunShouText}所遁${gong.diPan.stem}于${gong.name}）`);
   }
 
-  // ── 9. 马星 ──
+  // ── 9. 三奇游六仪 ──
+  // 《奇门宝鉴御定》：「左仪加奇，则奇游于右仪。右仪加奇，则奇游于左仪……
+  // 必为当旬直符来加方是」
+  const youYiZhiFuPalace = jiuGongGe.find((gong) => gong.tianPan.star === zhiFu);
+  if (youYiZhiFuPalace) {
+    const qi = youYiZhiFuPalace.diPan.stem;
+    const zhiFuStem = youYiZhiFuPalace.tianPan.stem;
+    const config = SAN_QI_YOU_LIU_YI[qi]?.[zhiFuStem];
+    if (config) {
+      const qiName = SAN_QI_NAME[qi] || `${qi}奇`;
+      tags.push(
+        `三奇游六仪（${config.xunShou}${zhiFuStem}值符加${qiName}于${youYiZhiFuPalace.name}，游${config.targetXunShou}${config.targetStem}）`,
+      );
+    }
+  }
+
+  // ── 10. 马星 ──
   // 《遁甲演义》：「天马方为动应之神」
-  // 驿马所在宫位主变动、加速、远行
+  // 驿马所在宫位提供变动、远行线索；是否发动需结合用事宫位。
   if (horsePalace !== undefined) {
     const horseGong = jiuGongGe.find((gong) => gong.gong === horsePalace);
     if (horseGong) {
@@ -333,7 +390,7 @@ function getPatternSummary(tag: string): string {
 
   // 门迫
   if (tag.startsWith('门迫')) {
-    return '门受宫克，该宫事项易受压制，行动阻力偏大。';
+    return '门克宫，该宫事项易受压制，行动阻力偏大。';
   }
 
   // 击刑
@@ -348,7 +405,7 @@ function getPatternSummary(tag: string): string {
 
   // 三奇得
   if (tag.startsWith('三奇得（')) {
-    return '三奇到宫，主该宫方位有吉气临照，可借助该方位之利推进事项。';
+    return '三奇与开休生吉门同宫，主该宫方位得奇门会合之助，可借助该方位推进事项。';
   }
 
   // 符使同宫
@@ -357,13 +414,23 @@ function getPatternSummary(tag: string): string {
   }
 
   // 三奇得使
+  if (tag.startsWith('宝鉴三奇得使')) {
+    return '值使吉门加临三奇，关键入口与关键资源重合，谋事更有利。';
+  }
+
+  // 三奇得使（常用六甲旬首口径）
   if (tag.startsWith('三奇得使')) {
-    return '三奇临值使门，吉格相助，所谋之事有贵人暗助，宜主动把握。';
+    return '三奇加特定六甲旬首所遁六仪，得使相助，所谋之事有贵人暗助，宜主动把握。';
+  }
+
+  // 三奇游六仪
+  if (tag.startsWith('三奇游六仪')) {
+    return '当旬值符所带六仪加到地盘三奇，主资源转换成助力，适合请托、协商和争取机会。';
   }
 
   // 马星
   if (tag.startsWith('马星')) {
-    return '驿马发动，主变动、加速或远行，该宫方位之事会较快推进。';
+    return '驿马所在宫提示移动、变动或远行线索，是否加速需结合值符、值使和用事宫位。';
   }
 
   return '需结合全局继续参看。';
@@ -382,7 +449,7 @@ function getPatternSummary(tag: string): string {
  * buildPatternDetails(['星伏吟', '门迫（离九宫景门）']);
  * // => [
  * //   { tag: '星伏吟', summary: '九星回原位，事情多原地盘旋、推进偏慢。' },
- * //   { tag: '门迫（离九宫景门）', summary: '门受宫克，该宫事项易受压制，行动阻力偏大。' },
+ * //   { tag: '门迫（离九宫景门）', summary: '门克宫，该宫事项易受压制，行动阻力偏大。' },
  * // ]
  * ```
  */

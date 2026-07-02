@@ -613,6 +613,7 @@ test('MCP 梅花工具应支持外应起卦入参', async () => {
       name: 'divine_meihua',
       arguments: {
         method: 'external',
+        customDate: '2025-01-01T08:00:00+08:00',
         externalOmens: {
           direction: '南',
           object: '火电文书',
@@ -628,12 +629,19 @@ test('MCP 梅花工具应支持外应起卦入参', async () => {
         externalSummary?: string;
         externalMappedOmens?: Array<{ label?: string; trigram?: string }>;
         movingYaoIndex?: number;
+        timeZhi?: string;
+        timeZhiIndex?: number;
+        totalWithTime?: number;
       };
     };
     assert.equal(meihua.calculation?.methodKey, 'external');
     assert.match(String(meihua.calculation?.externalSummary), /方位：南（离）/);
     assert.match(String(meihua.calculation?.externalSummary), /物件：火电文书（离）/);
-    assert.equal(meihua.calculation?.movingYaoIndex, 3);
+    assert.match(String(meihua.calculation?.externalSummary), /时辰：辰（5）/);
+    assert.equal(meihua.calculation?.movingYaoIndex, 5);
+    assert.equal(meihua.calculation?.timeZhi, '辰');
+    assert.equal(meihua.calculation?.timeZhiIndex, 5);
+    assert.equal(meihua.calculation?.totalWithTime, 11);
     assert.deepEqual(meihua.calculation?.externalMappedOmens, [
       { source: 'direction', label: '南', trigram: '离', trigramIndex: 3 },
       { source: 'object', label: '火电文书', trigram: '离', trigramIndex: 3 },

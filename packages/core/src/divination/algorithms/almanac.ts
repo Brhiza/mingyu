@@ -1,8 +1,9 @@
 import { SolarDay } from 'tyme4ts';
 import { baziCalculator } from '../../bazi/baziCalculator';
 import { getBirthDateValidationMessage } from '../../calendar/date-validation';
-import { getOppositeBranch } from './_shared';
+import { getOppositeBranch, getSanxingType, isLiuhai, isLiupo, isSanxing } from './_shared';
 import type {
+  AlmanacAnnualDirectionGod,
   AlmanacData,
   AlmanacDayCandidate,
   AlmanacParticipantInput,
@@ -50,6 +51,48 @@ const TOPIC_AVOID_KEYWORDS: Record<AlmanacTopic, string[]> = {
 };
 
 const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+const EARTH_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+type ParticipantBranchConflictType = '冲' | '刑' | '害' | '破';
+
+const BRANCH_DIRECTIONS: Record<string, string> = {
+  子: '正北',
+  丑: '东北偏北',
+  寅: '东北偏东',
+  卯: '正东',
+  辰: '东南偏东',
+  巳: '东南偏南',
+  午: '正南',
+  未: '西南偏南',
+  申: '西南偏西',
+  酉: '正西',
+  戌: '西北偏西',
+  亥: '西北偏北',
+};
+
+const ANNUAL_DIRECTION_GOD_SEQUENCE: Array<
+  Omit<AlmanacAnnualDirectionGod, 'branch' | 'direction'>
+> = [
+  { god: '太岁', fortune: '凶', meaning: '犯太岁防宅长大凶' },
+  { god: '太阳', fortune: '吉', meaning: '修太阳能制诸煞，移床此方主添丁' },
+  { god: '丧门', fortune: '凶', meaning: '犯丧门主死丧哭泣' },
+  { god: '太阴', fortune: '吉', meaning: '修太阴主生女，散病患' },
+  { god: '官符', fortune: '凶', meaning: '犯官符主口舌官讼' },
+  { god: '死符', fortune: '凶', meaning: '犯死符主灾病死亡' },
+  { god: '岁破', fortune: '凶', meaning: '犯岁破忧宅母' },
+  { god: '龙德', fortune: '吉', meaning: '修龙德能散瘟疫官讼' },
+  { god: '白虎', fortune: '凶', meaning: '犯白虎主哭泣死亡及小儿凶' },
+  { god: '福德', fortune: '吉', meaning: '修福德主添丁生子' },
+  { god: '吊客', fortune: '凶', meaning: '犯吊客主丧服' },
+  { god: '病符', fortune: '凶', meaning: '犯病符主疾病' },
+];
+
+const PARTICIPANT_BRANCH_CONFLICT_PENALTY: Record<
+  'year' | 'day',
+  Record<ParticipantBranchConflictType, number>
+> = {
+  year: { 冲: 8, 刑: 6, 害: 5, 破: 5 },
+  day: { 冲: 12, 刑: 10, 害: 8, 破: 8 },
+};
 
 function parseDateText(value: string, fieldName: string) {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -329,6 +372,20 @@ function getNineStarDetail(name: string) {
   return NINE_STARS[name] || NINE_STAR_SHORT_NAME_MAP[name.slice(0, 1)] || null;
 }
 
+function getAnnualDirectionGods(yearBranch: string): AlmanacAnnualDirectionGod[] {
+  const startIndex = EARTH_BRANCHES.indexOf(yearBranch);
+  if (startIndex < 0) return [];
+
+  return ANNUAL_DIRECTION_GOD_SEQUENCE.map((item, index) => {
+    const branch = EARTH_BRANCHES[(startIndex + index) % EARTH_BRANCHES.length];
+    return {
+      ...item,
+      branch,
+      direction: BRANCH_DIRECTIONS[branch] || '',
+    };
+  });
+}
+
 /**
  * 六曜历注（备查，tyme4ts 未直接提供六曜数据）：
  * 先胜(吉)、友引(吉)、先负(凶)、佛灭(凶)、大安(吉)、赤口(凶)
@@ -447,6 +504,63 @@ const SHENSHA_INAUSPICIOUS = [
   '天罡',
 ];
 
+function getParticipantBranchConflict(
+  candidateBranch: string,
+  targetBranch: string,
+): { type: ParticipantBranchConflictType; detail?: string } | null {
+  if (!candidateBranch || !targetBranch) return null;
+
+  if (candidateBranch === getOppositeBranch(targetBranch)) {
+    return { type: '冲' };
+  }
+
+  if (isSanxing(candidateBranch, targetBranch)) {
+    const sanxingType = getSanxingType(candidateBranch) || getSanxingType(targetBranch);
+    return { type: '刑', detail: sanxingType || undefined };
+  }
+
+  if (isLiuhai(candidateBranch, targetBranch)) {
+    return { type: '害' };
+  }
+
+  if (isLiupo(candidateBranch, targetBranch)) {
+    return { type: '破' };
+  }
+
+  return null;
+}
+
+function getParticipantBranchConflictSummary(
+  candidateBranch: string,
+  participant: AlmanacParticipantProfile,
+) {
+  const targets: Array<{
+    branch: string;
+    label: string;
+    scope: 'year' | 'day';
+  }> = [
+    { branch: participant.pillars.year.slice(-1), label: '生肖/年支', scope: 'year' },
+    { branch: participant.pillars.day.slice(-1), label: '日支', scope: 'day' },
+  ];
+
+  const texts: string[] = [];
+  let penalty = 0;
+
+  targets.forEach((target) => {
+    const conflict = getParticipantBranchConflict(candidateBranch, target.branch);
+    if (!conflict) return;
+
+    penalty += PARTICIPANT_BRANCH_CONFLICT_PENALTY[target.scope][conflict.type];
+    const detail = conflict.detail ? `（${conflict.detail}）` : '';
+    texts.push(`${conflict.type}${target.label}${target.branch}${detail}`);
+  });
+
+  return {
+    penalty: Math.min(20, penalty),
+    text: texts.length ? `候选日地支${candidateBranch}${texts.join('、')}，需谨慎` : '',
+  };
+}
+
 function scoreDay(params: {
   topic: AlmanacTopic;
   dayBranch: string;
@@ -515,21 +629,16 @@ function scoreDay(params: {
   }
 
   params.participants.forEach((participant) => {
-    const yearBranch = participant.pillars.year.slice(-1);
-    const dayBranch = participant.pillars.day.slice(-1);
-    const isYearClash = yearBranch && params.dayBranch === getOppositeBranch(yearBranch);
-    const isDayClash = dayBranch && params.dayBranch === getOppositeBranch(dayBranch);
+    const branchConflict = getParticipantBranchConflictSummary(params.dayBranch, participant);
 
-    if (isYearClash || isDayClash) {
-      score -= isDayClash ? 12 : 8;
-      participantNotes.push(
-        `${participant.name}：候选日地支${params.dayBranch}${isDayClash ? `冲日支${dayBranch}` : `冲生肖/年支${yearBranch}`}，需谨慎`,
-      );
+    if (branchConflict.text) {
+      score -= branchConflict.penalty;
+      participantNotes.push(`${participant.name}：${branchConflict.text}`);
       return;
     }
 
     participantNotes.push(
-      `${participant.name}：日主${participant.dayMaster}${participant.dayMasterElement}，生肖${participant.zodiac}，未见直接冲克提醒`,
+      `${participant.name}：日主${participant.dayMaster}${participant.dayMasterElement}，生肖${participant.zodiac}，未见直接刑冲破害提醒`,
     );
   });
 
@@ -541,7 +650,7 @@ function scoreDay(params: {
   };
 }
 
-// getOppositeBranch 已委托 _shared 模块（LOC 454-458 旧版删除）
+// 地支刑冲破害判断已委托 _shared 模块。
 
 function buildDayCandidate(
   date: Date,
@@ -594,6 +703,9 @@ function buildDayCandidate(
     pengZuGan: PENGZU_DAY_GAN[dayStemName] || '',
     pengZuZhi: PENGZU_DAY_ZHI[dayZhiName] || '',
     clash: `冲${dayBranch.getOpposite().getName()}，煞${dayBranch.getOminous().getName()}`,
+    annualDirectionGods: getAnnualDirectionGods(
+      lunarDay.getYearSixtyCycle().getEarthBranch().getName(),
+    ),
     score: scoring.score,
     highlights: scoring.highlights,
     cautions: scoring.cautions,
@@ -605,13 +717,13 @@ function buildDayCandidate(
  * 生成黄历择日结果
  *
  * 对指定日期范围内逐日分析宜忌、神煞、冲煞、建除十二值、
- * 二十八宿、彭祖百忌等，并基于参与人八字进行冲突校验。
+ * 二十八宿、彭祖百忌等，并基于参与人八字进行刑冲破害校验。
  *
  * @param params 择日参数：
  *   - topic: 事项类型（marriage/move/opening/…）
  *   - startDate: 开始日期 (YYYY-MM-DD)
  *   - endDate: 结束日期 (YYYY-MM-DD)，最多比较 31 天
- *   - participants: 参与人信息（可选），含八字用于冲煞校验
+ *   - participants: 参与人信息（可选），含八字用于刑冲破害校验
  * @returns 黄历择日数据对象 AlmanacData。
  *
  * @example

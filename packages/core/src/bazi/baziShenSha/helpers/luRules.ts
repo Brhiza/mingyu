@@ -1,6 +1,21 @@
 import { REN_BRANCH_MAP, TWELVE_STAGES_MAP } from '../../baziDefinitions';
 import type { RuleContext, ShenShaRuleMap } from './types';
 
+const YI_MA_BY_BRANCH: Record<string, string> = {
+  申: '寅',
+  子: '寅',
+  辰: '寅',
+  亥: '巳',
+  卯: '巳',
+  未: '巳',
+  寅: '申',
+  午: '申',
+  戌: '申',
+  巳: '亥',
+  酉: '亥',
+  丑: '亥',
+};
+
 function getYangRenMap(includeYinRen: boolean): Record<string, string> {
   if (!includeYinRen) return REN_BRANCH_MAP;
 
@@ -12,12 +27,14 @@ function getYangRenMap(includeYinRen: boolean): Record<string, string> {
   );
 }
 
-/**
- * 禄刃马星神煞规则
- */
 export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
-  const { zhi, pillarIndex, nianGan, nianZhi, riGan, riZhi, pillarGZ, variants } = ctx;
+  const { zhi, pillarIndex, nianGan, nianZhi, riGan, riZhi, pillarGZ, cdz, zhiIdx, variants } =
+    ctx;
   const yangRenMap = getYangRenMap(variants.yangRenMode === 'include-yin-ren');
+  const forwardBranch = (branch: string, offset: number) => {
+    const index = zhiIdx(branch);
+    return index < 0 ? '' : cdz[(index + offset) % cdz.length];
+  };
 
   return {
     禄神: () => {
@@ -58,21 +75,12 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
       return clashMap[yangRenZhi] === zhi;
     },
     驿马: () => {
-      const map: Record<string, string> = {
-        申: '寅',
-        子: '寅',
-        辰: '寅',
-        亥: '巳',
-        卯: '巳',
-        未: '巳',
-        寅: '申',
-        午: '申',
-        戌: '申',
-        巳: '亥',
-        酉: '亥',
-        丑: '亥',
-      };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return YI_MA_BY_BRANCH[nianZhi] === zhi || YI_MA_BY_BRANCH[riZhi] === zhi;
+    },
+    攀鞍: () => {
+      const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
+      const riYiMa = YI_MA_BY_BRANCH[riZhi];
+      return forwardBranch(nianYiMa, -1) === zhi || forwardBranch(riYiMa, -1) === zhi;
     },
     将星: () => {
       const map: Record<string, string> = {
@@ -109,7 +117,7 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
       return map[nianZhi] === zhi || map[riZhi] === zhi;
     },
     金舆: () => {
-      // 金舆：日干/年干禄神前两位的地支
+      // 来源：《五行精纪》金舆条。
       const map: Record<string, string> = {
         甲: '辰',
         乙: '巳',
@@ -122,7 +130,15 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
         壬: '丑',
         癸: '寅',
       };
-      return map[riGan] === zhi || map[nianGan] === zhi;
+      const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
+      const riYiMa = YI_MA_BY_BRANCH[riZhi];
+      return (
+        map[riGan] === zhi ||
+        map[nianGan] === zhi ||
+        forwardBranch(nianZhi, 2) === zhi ||
+        forwardBranch(nianYiMa, 2) === zhi ||
+        forwardBranch(riYiMa, 2) === zhi
+      );
     },
     金神: () =>
       ['乙丑', '己巳', '癸酉'].includes(pillarGZ) && (pillarIndex === 2 || pillarIndex === 3),

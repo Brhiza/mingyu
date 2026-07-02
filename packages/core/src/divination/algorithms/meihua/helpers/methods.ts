@@ -232,7 +232,10 @@ function mapExternalOmens(externalOmens: MeihuaExternalOmens): MappedExternalOme
   return mapped;
 }
 
-export function resolveExternalMethod(externalOmens?: MeihuaExternalOmens): MeihuaMethodResult {
+export function resolveExternalMethod(
+  externalOmens?: MeihuaExternalOmens,
+  timeBranch?: string,
+): MeihuaMethodResult {
   if (!externalOmens) {
     throw new Error('外应起卦必须提供外应信息');
   }
@@ -245,15 +248,26 @@ export function resolveExternalMethod(externalOmens?: MeihuaExternalOmens): Meih
     throw new Error('外应起卦必须提供数量');
   }
 
-  const upperTrigramIndex = mappedOmens[0].trigramIndex;
-  const lowerTrigramIndex = mappedOmens[1].trigramIndex;
-  const movingYaoIndex = externalOmens.count! % 6 || 6;
+  const directionOmen = mappedOmens.find((omen) => omen.source === 'direction');
+  const primaryOmen = mappedOmens.find((omen) => omen.source !== 'direction');
+  const timeZhiIndex = timeBranch ? dizhi.indexOf(timeBranch) + 1 : 0;
+  const useHouTianDuanFa = Boolean(directionOmen && primaryOmen && timeZhiIndex > 0);
+
+  const upperOmen = useHouTianDuanFa ? primaryOmen! : mappedOmens[0];
+  const lowerOmen = useHouTianDuanFa ? directionOmen! : mappedOmens[1];
+  const upperTrigramIndex = upperOmen.trigramIndex;
+  const lowerTrigramIndex = lowerOmen.trigramIndex;
+  const totalWithTime = upperTrigramIndex + lowerTrigramIndex + timeZhiIndex;
+  const movingYaoIndex = useHouTianDuanFa
+    ? totalWithTime % 6 || 6
+    : externalOmens.count! % 6 || 6;
   const externalSummary = mappedOmens
     .map(
       (omen) =>
         `${MeihuaHelpers.getExternalOmenSourceLabel(omen.source)}：${omen.label}（${omen.trigramName}）`,
     )
     .concat(`数量：${externalOmens.count}`)
+    .concat(useHouTianDuanFa ? `时辰：${timeBranch}（${timeZhiIndex}）` : [])
     .join('；');
 
   return {
@@ -265,12 +279,34 @@ export function resolveExternalMethod(externalOmens?: MeihuaExternalOmens): Meih
       methodKey: 'external',
       externalOmens,
       externalSummary,
+      externalRule: useHouTianDuanFa
+        ? '后天端法：物象为上卦、方位为下卦，合物卦数、方位卦数与时数取动爻。'
+        : '多外应顺序取卦：前两项外应分取上下卦，以数量取动爻。',
+      externalUpperOmen: {
+        source: upperOmen.source,
+        label: upperOmen.label,
+        trigram: upperOmen.trigramName,
+        trigramIndex: upperOmen.trigramIndex,
+      },
+      externalLowerOmen: {
+        source: lowerOmen.source,
+        label: lowerOmen.label,
+        trigram: lowerOmen.trigramName,
+        trigramIndex: lowerOmen.trigramIndex,
+      },
       externalMappedOmens: mappedOmens.map((omen) => ({
         source: omen.source,
         label: omen.label,
         trigram: omen.trigramName,
         trigramIndex: omen.trigramIndex,
       })),
+      ...(useHouTianDuanFa
+        ? {
+            timeZhi: timeBranch,
+            timeZhiIndex,
+            totalWithTime,
+          }
+        : {}),
       upperTrigramIndex,
       lowerTrigramIndex,
       movingYaoIndex,

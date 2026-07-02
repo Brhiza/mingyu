@@ -20,6 +20,7 @@ import { resolveLiurenClassicalRules } from './helpers/classical-rules';
 import {
   buildTransmissionDetail,
   buildTransmissionNote,
+  getLiurenTransmissionGuaTi,
   getPatternTag,
   getTransmissionPattern,
 } from './helpers/transmission';
@@ -335,6 +336,8 @@ export function generateLiuren(customDate?: Date): LiurenData {
     threeTransmissions.some((item) => xunKong.includes(item.branch)) ? '空亡入传' : '传不逢空',
     getPatternTag(transmissionPattern),
   ];
+  const guaTi = getLiurenTransmissionGuaTi(transmissionBranches);
+  patternTags.push(...guaTi);
 
   const lessonSummary = `四课源于日干寄宫${dayStemResidence}与日支${dayBranch}，关系呈${fourLessons
     .map((item) => item.relation)
@@ -403,6 +406,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     classicalRules,
     lessonSummary: `${lessonSummary} 当前节气为${timeInfo.jieQi}。`,
     transmissionSummary,
+    guaTi,
     shenShaSummary,
     tianJiangProps,
   };

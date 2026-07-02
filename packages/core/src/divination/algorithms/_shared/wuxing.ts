@@ -1,6 +1,6 @@
 /**
  * @file 五行与地支关系共享函数库
- * @description 提供五行生克、地支六合/三合/半合/六冲/六害/三刑/三会/藏干等完整传统关系。
+ * @description 提供五行生克、地支六合/三合/半合/六冲/六害/六破/三刑/三会/藏干等完整传统关系。
  * @古籍依据 《渊海子平》《三命通会》《协纪辨方书》《蠡海集》
  */
 
@@ -162,6 +162,25 @@ export const LIUCHONG_MAP: Record<string, string> = {
   戌: '辰',
   巳: '亥',
   亥: '巳',
+};
+
+/**
+ * 地支六破/相破：
+ * 子酉破、丑辰破、寅亥破、卯午破、巳申破、未戌破
+ */
+export const LIUPO_MAP: Record<string, string> = {
+  子: '酉',
+  酉: '子',
+  丑: '辰',
+  辰: '丑',
+  寅: '亥',
+  亥: '寅',
+  卯: '午',
+  午: '卯',
+  巳: '申',
+  申: '巳',
+  未: '戌',
+  戌: '未',
 };
 
 /**
@@ -348,6 +367,11 @@ export function isLiuhe(a: string, b: string): boolean {
 /** 检查两个地支是否为六冲关系 */
 export function isLiuchong(a: string, b: string): boolean {
   return LIUCHONG_MAP[a] === b;
+}
+
+/** 检查两个地支是否为六破/相破关系 */
+export function isLiupo(a: string, b: string): boolean {
+  return LIUPO_MAP[a] === b;
 }
 
 /** 检查两个地支是否为六害关系 */

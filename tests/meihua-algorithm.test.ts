@@ -54,3 +54,25 @@ test('梅花：用生体应期描述不应带多余标点', () => {
   assert.ok(data.analysis.yingQi?.includes('用生体，事有助力，应期顺势'));
   assert.ok(data.analysis.yingQi?.every((item) => !item.includes('顺势）')));
 });
+
+test('梅花：外应起卦应按后天端法以物为上卦、方位为下卦并加时取动爻', () => {
+  const data = generateMeihua(SAMPLE_DATE, {
+    method: 'external',
+    externalOmens: {
+      direction: '南',
+      object: '石块门板',
+      count: 4,
+    },
+  });
+
+  assert.equal(data.calculation.methodKey, 'external');
+  assert.equal(data.calculation.upperTrigramIndex, 7);
+  assert.equal(data.calculation.lowerTrigramIndex, 3);
+  assert.equal(data.mainHexagram.upper, '艮');
+  assert.equal(data.mainHexagram.lower, '离');
+  assert.equal(data.calculation.timeZhi, '辰');
+  assert.equal(data.calculation.timeZhiIndex, 5);
+  assert.equal(data.calculation.totalWithTime, 15);
+  assert.equal(data.movingYao.position, 3);
+  assert.match(String(data.calculation.externalRule), /物象为上卦、方位为下卦/);
+});

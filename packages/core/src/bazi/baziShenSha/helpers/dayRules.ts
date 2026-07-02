@@ -1,11 +1,8 @@
 import { BASIC_MAPPINGS } from '../../baziDefinitions';
 import type { RuleContext, ShenShaRuleMap } from './types';
 
-/**
- * 吉日凶煞神煞规则
- */
 export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
-  const { zhi, pillarIndex, yueZhi, riGan, riGZ, pillarGZ, ctg, variants } = ctx;
+  const { zhi, pillarIndex, yueZhi, riGan, riZhi, riGZ, pillarGZ, ctg, zhiIdx, variants } = ctx;
 
   return {
     天赦日: () => {
@@ -66,7 +63,7 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
       ['甲寅', '乙卯', '丁未', '戊戌', '己未', '庚申', '辛酉', '癸丑'].includes(riGZ),
     九丑: () =>
       pillarIndex === 2 &&
-      ['丁酉', '戊子', '戊午', '己卯', '己酉', '辛卯', '辛酉', '壬子', '壬午'].includes(riGZ),
+      ['乙卯', '戊子', '戊午', '己卯', '己酉', '辛卯', '辛酉', '壬子', '壬午'].includes(riGZ),
     四废日: () => {
       if (pillarIndex !== 2) return false;
       const seasonMap: Record<string, string> = {
@@ -93,8 +90,6 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
       return !!season && rulesMap[season].includes(riGZ);
     },
     十恶大败: () => {
-      // 十恶大败日：甲辰、乙巳、丙申、丁亥、戊戌、己丑、庚辰、辛巳、壬申、癸亥
-      // 此十日禄入空亡（如甲辰旬空寅卯，甲禄在寅，故为空）
       if (pillarIndex !== 2) return false;
       const badDays = [
         '甲辰',
@@ -130,22 +125,17 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
       };
       const season = seasonMap[yueZhi];
       if (!season) return false;
-      // 春秋寅子贵
       if ((season === '春' || season === '秋') && (zhi === '寅' || zhi === '子')) return true;
-      // 夏冬卯未辰
       if ((season === '夏' || season === '冬') && (zhi === '卯' || zhi === '未' || zhi === '辰'))
         return true;
-      // 木火连牛角（木火命见丑/辰）
       const riGanWuxing = BASIC_MAPPINGS.STEM_WUXING[ctg.indexOf(riGan)];
       if ((riGanWuxing === '木' || riGanWuxing === '火') && (zhi === '丑' || zhi === '辰'))
         return true;
-      // 金水马犬龙（金水命见午/戌/辰）
       if (
         (riGanWuxing === '金' || riGanWuxing === '水') &&
         (zhi === '午' || zhi === '戌' || zhi === '辰')
       )
         return true;
-      // 土命逢辰巳（土命见辰/巳）
       if (riGanWuxing === '土' && (zhi === '辰' || zhi === '巳')) return true;
       return false;
     },
@@ -189,5 +179,10 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
           } as Record<string, string>
         )[yueZhi]
       ] === pillarGZ,
+    隔角: () => {
+      if (pillarIndex !== 3) return false;
+      const diff = (zhiIdx(zhi) - zhiIdx(riZhi) + 12) % 12;
+      return diff === 2 || diff === 10;
+    },
   };
 }

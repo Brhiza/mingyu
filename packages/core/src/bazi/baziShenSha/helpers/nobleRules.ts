@@ -1,15 +1,20 @@
 import { TWELVE_STAGES_MAP } from '../../baziDefinitions';
 import type { RuleContext, ShenShaRuleMap } from './types';
 
-function getChangshengBranch(stem: string) {
+function getStageBranch(stem: string, stageName: string) {
   const stages = TWELVE_STAGES_MAP[stem];
   if (!stages) return '';
-  return Object.entries(stages).find(([, stage]) => stage === '长生')?.[0] || '';
+  return Object.entries(stages).find(([, stage]) => stage === stageName)?.[0] || '';
 }
 
-/**
- * 贵人神煞规则
- */
+function getChangshengBranch(stem: string) {
+  return getStageBranch(stem, '长生');
+}
+
+function getLinguanBranch(stem: string) {
+  return getStageBranch(stem, '临官');
+}
+
 export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
   const { gan, zhi, nianGan, yueZhi, riGan, pillarGZ, baziArray } = ctx;
 
@@ -220,23 +225,11 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       return riChangsheng === zhi || nianChangsheng === zhi;
     },
     词馆: () => {
-      const map: Record<string, string> = {
-        甲: '寅',
-        乙: '卯',
-        丙: '巳',
-        丁: '午',
-        戊: '巳',
-        己: '午',
-        庚: '申',
-        辛: '酉',
-        壬: '亥',
-        癸: '子',
-      };
-      return map[riGan] === zhi;
+      const riLinguan = getLinguanBranch(riGan);
+      const nianLinguan = getLinguanBranch(nianGan);
+      return riLinguan === zhi || nianLinguan === zhi;
     },
     天厨贵人: () => {
-      // 天厨贵人：食神临官禄位的天干在四柱中见对应地支
-      // 食神：日干所生之同性天干
       const foodGodMap: Record<string, string> = {
         甲: '丙',
         乙: '丁',
@@ -249,7 +242,6 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
         壬: '甲',
         癸: '乙',
       };
-      // 食神临官禄位（食神的禄神地支）
       const luBranchMap: Record<string, string> = {
         甲: '寅',
         乙: '卯',
@@ -262,39 +254,30 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
         壬: '亥',
         癸: '子',
       };
-      // 按日干查
       const riFoodGod = foodGodMap[riGan];
       const riLuBranch = riFoodGod ? luBranchMap[riFoodGod] : undefined;
-      // 按年干查
       const nianFoodGod = foodGodMap[nianGan];
       const nianLuBranch = nianFoodGod ? luBranchMap[nianFoodGod] : undefined;
       return riLuBranch === zhi || nianLuBranch === zhi;
     },
     德秀贵人: () => {
-      // 德秀贵人：以月令三合局定德与秀
-      // 德=三合局五行之阴干，秀=德之合化天干
-      // 修正为按五行生克关系推算，并支持天干合化
+      // 来源：《三命通会》卷三《论德秀》。
       const deXiuMap: Record<string, { de: string[]; xiu: string[] }> = {
-        // 寅午戌火局：火之德在丙丁，秀在丙丁所合之干（辛壬）化为戊癸水
         寅: { de: ['丙', '丁'], xiu: ['戊', '癸'] },
         午: { de: ['丙', '丁'], xiu: ['戊', '癸'] },
         戌: { de: ['丙', '丁'], xiu: ['戊', '癸'] },
-        // 申子辰水局：水之德在壬癸，秀在丁壬化木（甲乙）
-        申: { de: ['壬', '癸'], xiu: ['甲', '乙'] },
-        子: { de: ['壬', '癸'], xiu: ['甲', '乙'] },
-        辰: { de: ['壬', '癸'], xiu: ['甲', '乙'] },
-        // 巳酉丑金局：金之德在庚辛，秀在乙庚化金
+        申: { de: ['壬', '癸', '戊', '己'], xiu: ['丙', '辛', '甲', '己'] },
+        子: { de: ['壬', '癸', '戊', '己'], xiu: ['丙', '辛', '甲', '己'] },
+        辰: { de: ['壬', '癸', '戊', '己'], xiu: ['丙', '辛', '甲', '己'] },
         巳: { de: ['庚', '辛'], xiu: ['乙', '庚'] },
         酉: { de: ['庚', '辛'], xiu: ['乙', '庚'] },
         丑: { de: ['庚', '辛'], xiu: ['乙', '庚'] },
-        // 亥卯未木局：木之德在甲乙，秀在丁壬化木
         亥: { de: ['甲', '乙'], xiu: ['丁', '壬'] },
         卯: { de: ['甲', '乙'], xiu: ['丁', '壬'] },
         未: { de: ['甲', '乙'], xiu: ['丁', '壬'] },
       };
       const config = deXiuMap[yueZhi];
       if (!config) return false;
-      // 天干五合映射
       const heGanMap: Record<string, string> = {
         甲: '己',
         乙: '庚',
@@ -308,11 +291,8 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
         癸: '戊',
       };
       const allGans = baziArray.map(([currentGan]) => currentGan);
-      // 德：四柱天干直接见德干，或见德干之合干（合化成德）
       const hasDe = config.de.some((d) => allGans.includes(d) || allGans.includes(heGanMap[d]));
-      // 秀：四柱天干直接见秀干，或见秀干之合干
       const hasXiu = config.xiu.some((s) => allGans.includes(s) || allGans.includes(heGanMap[s]));
-      // 当前柱天干需是德或秀（含合化）
       const isDeOrXiu =
         config.de.includes(gan) ||
         config.xiu.includes(gan) ||

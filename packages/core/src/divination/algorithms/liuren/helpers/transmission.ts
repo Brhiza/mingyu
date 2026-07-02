@@ -71,6 +71,60 @@ export function getPatternTag(pattern: LiurenData['transmissionPattern']) {
   return '递传';
 }
 
+const TRANSMISSION_BRANCH_CLASS_GUA_TI: Array<{
+  name: string;
+  branches: string[];
+}> = [
+  { name: '三交卦', branches: ['子', '午', '卯', '酉'] },
+  { name: '玄胎卦', branches: ['寅', '申', '巳', '亥'] },
+  { name: '稼穑卦', branches: ['辰', '戌', '丑', '未'] },
+];
+
+const TRANSMISSION_SANHE_GUA_TI: Array<{
+  name: string;
+  branches: string[];
+}> = [
+  { name: '曲直卦', branches: ['亥', '卯', '未'] },
+  { name: '从革卦', branches: ['巳', '酉', '丑'] },
+  { name: '炎上卦', branches: ['寅', '午', '戌'] },
+  { name: '润下卦', branches: ['申', '子', '辰'] },
+];
+
+function hasSameBranchSet(actualBranches: string[], expectedBranches: string[]) {
+  return (
+    actualBranches.length === expectedBranches.length &&
+    expectedBranches.every((branch) => actualBranches.includes(branch))
+  );
+}
+
+/**
+ * 识别三传成局课体。
+ * 《六壬指南》列三交、玄胎、稼穑及曲直、从革、炎上、润下等三传课体；
+ * 这里仅按三传地支结构打标签，吉凶仍交由后续断课结合用神、天将与旺衰判断。
+ */
+export function getLiurenTransmissionGuaTi(branches: string[]) {
+  const uniqueBranches = Array.from(new Set(branches));
+  if (uniqueBranches.length !== 3) {
+    return [];
+  }
+
+  const guaTi: string[] = [];
+
+  for (const item of TRANSMISSION_BRANCH_CLASS_GUA_TI) {
+    if (uniqueBranches.every((branch) => item.branches.includes(branch))) {
+      guaTi.push(item.name);
+    }
+  }
+
+  for (const item of TRANSMISSION_SANHE_GUA_TI) {
+    if (hasSameBranchSet(uniqueBranches, item.branches)) {
+      guaTi.push(item.name);
+    }
+  }
+
+  return guaTi;
+}
+
 export function buildTransmissionDetail(
   rule: string,
   _pattern: LiurenData['transmissionPattern'],

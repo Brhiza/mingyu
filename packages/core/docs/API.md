@@ -144,8 +144,11 @@
 | `worldAndResponse` | `string[]` | 世应标记（'世'/'应'/''） |
 | `voidBranches` | `string[]` | 旬空地支 |
 | `palace` | `{ name, wuxing }` | 所属宫位 |
+| `palaceStage` | `LiuyaoPalaceStage?` | 八宫卦序位置（首卦、一世至五世、游魂、归魂） |
 | `yaosDetail` | `LiuyaoYaoDetail[]` | 每爻详细（含月破/日破/暗动/回头生克/化进退神等） |
 | `hiddenSpirits` | `LiuyaoHiddenSpirit[]?` | 伏神（本宫首卦补未现六亲） |
+| `hexagramRelations` | `LiuyaoHexagramRelations?` | 整卦六合/六冲及六冲变六合、六合变六冲等卦变关系 |
+| `fanfuRelations` | `LiuyaoFanFuRelations?` | 卦变反吟/伏吟结构，含卦反吟、爻反吟、内外伏吟等标签 |
 | `specialPattern` | `'静卦' \| '独静卦' \| '全动卦' \| '乾卦用九' \| '坤卦用六'?` | 特殊卦型 |
 | `sanheWithDay` | `{group,members,description}?` | 日辰引动三合局 |
 | `sanxingInYaos` | `Array<{branches,type}>?` | 三刑检测 |
@@ -166,7 +169,7 @@
 |------|------|------|
 | `method` | `'time' \| 'number' \| 'random' \| 'external' \| 'timeTrigram'` | 起卦法 |
 | `number` | `number` | 数字起卦的正整数 |
-| `externalOmens` | `MeihuaExternalOmens` | 外应（方向/人物/动物/物品/声音/颜色/数量） |
+| `externalOmens` | `MeihuaExternalOmens` | 外应（方向/人物/动物/物品/声音/颜色/数量）；含方位时按后天端法以物象为上卦、方位为下卦、加时取动爻 |
 
 **返回 `MeihuaData`：** 含主卦/互卦/变卦、体用关系（tiGua/yongGua）、四时旺衰、应期估算、体用生克分析（tiYongRelation/inter1Relation/changedRelation/yingQi）。
 

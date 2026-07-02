@@ -1,12 +1,117 @@
 import { calculateKongWangBranches } from '../../kongWang';
 import type { RuleContext, ShenShaRuleMap } from './types';
 
-/**
- * 灾厄神煞规则
- */
+const AN_JIN_SHA_BY_YEAR_BRANCH: Record<string, { branch: string; name: '吟呻煞' | '破碎煞' | '白衣煞' }> = {
+  子: { branch: '巳', name: '吟呻煞' },
+  午: { branch: '巳', name: '吟呻煞' },
+  卯: { branch: '巳', name: '吟呻煞' },
+  酉: { branch: '巳', name: '吟呻煞' },
+  寅: { branch: '酉', name: '破碎煞' },
+  申: { branch: '酉', name: '破碎煞' },
+  巳: { branch: '酉', name: '破碎煞' },
+  亥: { branch: '酉', name: '破碎煞' },
+  辰: { branch: '丑', name: '白衣煞' },
+  戌: { branch: '丑', name: '白衣煞' },
+  丑: { branch: '丑', name: '白衣煞' },
+  未: { branch: '丑', name: '白衣煞' },
+};
+
+const SAN_QIU_WU_MU_BY_MONTH_BRANCH: Record<string, { sanQiu: string; wuMu: string }> = {
+  寅: { sanQiu: '丑', wuMu: '未' },
+  卯: { sanQiu: '丑', wuMu: '未' },
+  辰: { sanQiu: '丑', wuMu: '未' },
+  巳: { sanQiu: '辰', wuMu: '戌' },
+  午: { sanQiu: '辰', wuMu: '戌' },
+  未: { sanQiu: '辰', wuMu: '戌' },
+  申: { sanQiu: '未', wuMu: '丑' },
+  酉: { sanQiu: '未', wuMu: '丑' },
+  戌: { sanQiu: '未', wuMu: '丑' },
+  亥: { sanQiu: '戌', wuMu: '辰' },
+  子: { sanQiu: '戌', wuMu: '辰' },
+  丑: { sanQiu: '戌', wuMu: '辰' },
+};
+
+const PO_JUN_BY_YEAR_BRANCH: Record<string, string> = {
+  申: '亥',
+  子: '亥',
+  辰: '亥',
+  亥: '寅',
+  卯: '寅',
+  未: '寅',
+  寅: '巳',
+  午: '巳',
+  戌: '巳',
+  巳: '申',
+  酉: '申',
+  丑: '申',
+};
+
+const SAN_GONG_SHA_BY_YEAR_BRANCH: Record<string, string> = {
+  寅: '壬子',
+  午: '壬子',
+  戌: '壬子',
+  巳: '丙午',
+  酉: '丙午',
+  丑: '丙午',
+  申: '乙卯',
+  子: '乙卯',
+  辰: '乙卯',
+  亥: '辛酉',
+  卯: '辛酉',
+  未: '辛酉',
+};
+
+const TIAN_SHA_BY_BRANCH: Record<string, string> = {
+  申: '未',
+  子: '未',
+  辰: '未',
+  亥: '辰',
+  卯: '辰',
+  未: '辰',
+  寅: '丑',
+  午: '丑',
+  戌: '丑',
+  巳: '戌',
+  酉: '戌',
+  丑: '戌',
+};
+
+const TIAN_XING_HOUR_STEM_BY_YEAR_BRANCH: Record<string, string> = {
+  子: '乙',
+  丑: '乙',
+  寅: '庚',
+  卯: '辛',
+  辰: '辛',
+  巳: '壬',
+  午: '癸',
+  未: '癸',
+  申: '丙',
+  酉: '丁',
+  戌: '丁',
+  亥: '戊',
+};
+
+const GUI_MEN_BRANCH_BY_YEAR_BRANCH: Record<string, string> = {
+  子: '酉',
+  酉: '子',
+  丑: '午',
+  午: '丑',
+  寅: '未',
+  未: '寅',
+  卯: '申',
+  申: '卯',
+  辰: '亥',
+  亥: '辰',
+  巳: '戌',
+  戌: '巳',
+};
+
 export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
   const {
+    gan,
     zhi,
+    pillarIndex,
+    pillarGZ,
     nianGan,
     nianZhi,
     yueZhi,
@@ -19,16 +124,25 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     baziArray,
     variants,
   } = ctx;
+  const anJinSha = AN_JIN_SHA_BY_YEAR_BRANCH[nianZhi];
+  const anJinShaHits = anJinSha?.branch === zhi;
+  const sanQiuWuMu = SAN_QIU_WU_MU_BY_MONTH_BRANCH[yueZhi];
+  const riKongWangBranches = calculateKongWangBranches(riGan, riZhi);
+  const nianKongWangBranches =
+    variants.kongWangBasis === 'day-and-year' ? calculateKongWangBranches(nianGan, nianZhi) : [];
+  const kongWangBranches = [...riKongWangBranches, ...nianKongWangBranches];
+  const guXuBranches = kongWangBranches
+    .map((branch) => cdz[(zhiIdx(branch) + 6) % 12])
+    .filter(Boolean);
+  const annualPalace = (offset: number) => cdz[(zhiIdx(nianZhi) + offset + 12) % 12] === zhi;
+  const clashes = (source: string, target: string) => {
+    const index = zhiIdx(source);
+    return index >= 0 && cdz[(index + 6) % 12] === target;
+  };
 
   return {
-    空亡: () => {
-      const riEmpty = calculateKongWangBranches(riGan, riZhi);
-      if (riEmpty.includes(zhi)) return true;
-      if (variants.kongWangBasis !== 'day-and-year') return false;
-
-      const nianEmpty = calculateKongWangBranches(nianGan, nianZhi);
-      return nianEmpty.includes(zhi);
-    },
+    空亡: () => kongWangBranches.includes(zhi),
+    孤虚: () => guXuBranches.includes(zhi),
     亡神: () => {
       const map: Record<string, string> = {
         申: '亥',
@@ -80,6 +194,24 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
       };
       return map[nianZhi] === zhi || map[riZhi] === zhi;
     },
+    天杀: () => TIAN_SHA_BY_BRANCH[nianZhi] === zhi || TIAN_SHA_BY_BRANCH[riZhi] === zhi,
+    六厄: () => {
+      const map: Record<string, string> = {
+        申: '卯',
+        子: '卯',
+        辰: '卯',
+        寅: '酉',
+        午: '酉',
+        戌: '酉',
+        亥: '午',
+        卯: '午',
+        未: '午',
+        巳: '子',
+        酉: '子',
+        丑: '子',
+      };
+      return map[nianZhi] === zhi || map[riZhi] === zhi;
+    },
     元辰: () => {
       const nianGanIsYang = ctg.indexOf(nianGan) % 2 === 0;
       const offset = (nianGanIsYang && isMan) || (!nianGanIsYang && !isMan) ? 5 : 7;
@@ -119,26 +251,58 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
       return map[riGan] === zhi;
     },
     天罗: () => {
-      // 戌亥互见为天罗
       const hasXu = baziArray.some((p) => p[1] === '戌');
       const hasHai = baziArray.some((p) => p[1] === '亥');
       return hasXu && hasHai && (zhi === '戌' || zhi === '亥');
     },
     地网: () => {
-      // 辰巳互见为地网
       const hasChen = baziArray.some((p) => p[1] === '辰');
       const hasSi = baziArray.some((p) => p[1] === '巳');
       return hasChen && hasSi && (zhi === '辰' || zhi === '巳');
     },
     天医: () => {
-      // 正月(寅)见丑，二月(卯)见寅... 即月令前一位
       const monthIdx = cdz.indexOf(yueZhi);
       if (monthIdx === -1) return false;
       const targetIdx = (monthIdx - 1 + 12) % 12;
       return cdz[targetIdx] === zhi;
     },
-    丧门: () => cdz[(zhiIdx(nianZhi) + 2) % 12] === zhi,
-    吊客: () => cdz[(zhiIdx(nianZhi) - 2 + 12) % 12] === zhi,
-    披麻: () => cdz[(zhiIdx(nianZhi) - 3 + 12) % 12] === zhi,
+    太岁: () => annualPalace(0),
+    剑锋: () => annualPalace(0),
+    伏尸: () => annualPalace(0),
+    太阳: () => annualPalace(1),
+    天空: () => annualPalace(1),
+    官符: () => pillarIndex >= 2 && annualPalace(4),
+    病符: () => annualPalace(-1),
+    死符: () => pillarIndex >= 1 && annualPalace(5),
+    吟呻煞: () => anJinSha?.name === '吟呻煞' && anJinShaHits,
+    破碎煞: () => anJinSha?.name === '破碎煞' && anJinShaHits,
+    白衣煞: () => anJinSha?.name === '白衣煞' && anJinShaHits,
+    太白星: () => anJinShaHits,
+    斧劈星: () => anJinShaHits,
+    破军: () => PO_JUN_BY_YEAR_BRANCH[nianZhi] === zhi,
+    三公煞: () => SAN_GONG_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
+    三丘: () => sanQiuWuMu?.sanQiu === zhi,
+    五墓: () => sanQiuWuMu?.wuMu === zhi,
+    天刑: () => pillarIndex === 3 && TIAN_XING_HOUR_STEM_BY_YEAR_BRANCH[nianZhi] === gan,
+    鬼门: () => GUI_MEN_BRANCH_BY_YEAR_BRANCH[nianZhi] === zhi,
+    冲天杀: () =>
+      (pillarIndex === 1 && clashes(nianZhi, zhi)) || (pillarIndex === 3 && clashes(riZhi, zhi)),
+    丧门: () => annualPalace(2),
+    地丧: () => annualPalace(2),
+    勾绞: () => annualPalace(3),
+    贯索: () => annualPalace(3),
+    吊客: () => annualPalace(-2),
+    披麻: () => annualPalace(-3),
+    五鬼: () => pillarIndex >= 2 && annualPalace(4),
+    小耗: () => pillarIndex >= 1 && annualPalace(5),
+    栏杆: () => annualPalace(6),
+    大耗: () => annualPalace(6),
+    暴败: () => annualPalace(7),
+    天厄: () => annualPalace(7),
+    飞廉: () => annualPalace(8),
+    白虎: () => annualPalace(8),
+    卷舌: () => annualPalace(9),
+    福星: () => annualPalace(9),
+    天狗: () => annualPalace(-2),
   };
 }

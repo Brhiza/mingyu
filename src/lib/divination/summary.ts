@@ -46,6 +46,26 @@ function formatLiuyaoFocusSummary(data: LiuyaoData) {
     .join('；');
 }
 
+function formatLiuyaoHexagramRelationSummary(data: LiuyaoData) {
+  const relations = data.hexagramRelations;
+  if (!relations) {
+    return '';
+  }
+
+  return [
+    relations.original ? `主卦${relations.original}` : '',
+    relations.changed ? `变卦${relations.changed}` : '',
+    relations.transition || '',
+  ]
+    .filter(Boolean)
+    .join('；');
+}
+
+function formatLiuyaoFanFuRelationSummary(data: LiuyaoData) {
+  const labels = data.fanfuRelations?.labels;
+  return labels?.length ? labels.join('；') : '';
+}
+
 function wrapMainEvidence(text: string) {
   return text ? `主轴：${text}` : '';
 }
@@ -259,14 +279,19 @@ export function getDivinationSummaryBlocks(
   switch (method) {
     case 'liuyao': {
       const liuyao = data as LiuyaoData;
+      const hexagramRelationText = formatLiuyaoHexagramRelationSummary(liuyao);
+      const fanfuRelationText = formatLiuyaoFanFuRelationSummary(liuyao);
       return {
         title: '六爻起卦结果',
         tags: [
           `主卦：${liuyao.originalName}`,
           `变卦：${liuyao.changedName || '无'}`,
           `互卦：${liuyao.interName || '无'}`,
+          liuyao.palaceStage ? `卦位：${liuyao.palaceStage}` : '',
+          hexagramRelationText ? `整卦：${hexagramRelationText}` : '',
+          fanfuRelationText ? `反伏：${fanfuRelationText}` : '',
           `动爻：${liuyao.changingYaos?.map((item) => item.position).join('、') || '无'}`,
-        ],
+        ].filter(Boolean),
         lines: [
           wrapMainEvidence(formatLiuyaoFocusSummary(liuyao)),
           `宫位：${liuyao.palace?.name ? `${liuyao.palace.name}宫` : '未知'}`,
