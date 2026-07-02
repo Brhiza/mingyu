@@ -83,3 +83,19 @@ test('六爻：三合局应区分日辰与月建的实际参与', () => {
   assert.deepEqual(data.sanheWithMonth?.members, ['申', '子', '辰']);
   assert.match(data.sanheWithMonth?.description || '', /月建子引动三合水局/);
 });
+
+test('六爻：月卦身应按阳世起子、阴世起午逐爻顺数', () => {
+  const yangShi = generateLiuyao(new Date('2025-01-01T16:00:00+08:00'));
+  assert.equal(yangShi.originalName, '风水涣');
+  assert.equal(yangShi.worldAndResponse.indexOf('世') + 1, 5);
+  assert.equal(yangShi.yaosDetail[4].yaoType, '阳');
+  assert.equal(yangShi.guaShen?.branch, '辰');
+  assert.equal(yangShi.guaShen?.position, 2);
+
+  const yinShi = generateLiuyao(new Date('2025-01-01T01:00:00+08:00'));
+  assert.equal(yinShi.originalName, '巽为风');
+  assert.equal(yinShi.worldAndResponse.indexOf('世') + 1, 6);
+  assert.equal(yinShi.yaosDetail[5].yaoType, '阴');
+  assert.equal(yinShi.guaShen?.branch, '亥');
+  assert.equal(yinShi.guaShen?.position, 2);
+});

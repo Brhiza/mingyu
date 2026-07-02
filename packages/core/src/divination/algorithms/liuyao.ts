@@ -37,7 +37,6 @@ import {
   LIUCHONG_MAP,
 } from './_shared';
 
-
 /**
  * 五行入墓支（《卜筮正宗》卷三《墓库章》、《增删卜易·入墓》定例）：
  * 金墓在丑、木墓在未、火墓在戌、水土墓在辰。
@@ -601,28 +600,29 @@ export function generateLiuyao(customDate?: Date) {
     }
   }
 
-  // 卦身（按六爻传统，世爻所在位置对应卦身地支）：
-  // 阳世：世爻为阳，从子上顺行——初爻子、二爻寅、三爻辰、四爻午、五爻申、六爻戌
-  // 阴世：世爻为阴，从午上逆行——初爻午、二爻辰、三爻寅、四爻子、五爻戌、六爻申
+  // 月卦身（按六爻传统“阳世从子月起，阴世从午月生，从初数至世方真”）：
+  // 阳世：初爻子、二爻丑、三爻寅、四爻卯、五爻辰、六爻巳
+  // 阴世：初爻午、二爻未、三爻申、四爻酉、五爻戌、六爻亥
   const SHI_YANG_TO_GUA_SHEN: Record<number, string> = {
     1: '子',
-    2: '寅',
-    3: '辰',
-    4: '午',
-    5: '申',
-    6: '戌',
+    2: '丑',
+    3: '寅',
+    4: '卯',
+    5: '辰',
+    6: '巳',
   };
   const SHI_YIN_TO_GUA_SHEN: Record<number, string> = {
     1: '午',
-    2: '辰',
-    3: '寅',
-    4: '子',
+    2: '未',
+    3: '申',
+    4: '酉',
     5: '戌',
-    6: '申',
+    6: '亥',
   };
   // 世爻的阴阳决定卦身取阳表还是阴表
   const shiYaoIsYang = mainYaos[shiYing.shi - 1] === '阳';
-  const guaShenBranch = (shiYaoIsYang ? SHI_YANG_TO_GUA_SHEN : SHI_YIN_TO_GUA_SHEN)[shiYing.shi] || '';
+  const guaShenBranch =
+    (shiYaoIsYang ? SHI_YANG_TO_GUA_SHEN : SHI_YIN_TO_GUA_SHEN)[shiYing.shi] || '';
   const guaShenYao = yaosInfo.find((i) => i.dizhi === guaShenBranch);
   const guaShen = guaShenYao
     ? {
