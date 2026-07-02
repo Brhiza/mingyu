@@ -72,7 +72,7 @@ export interface YingQiEstimate {
  *   hasVoid: true,
  *   zhiFuLandingPalace: 1,
  *   zhiShiLandingPalace: 8,
- *   hourGanZhi: '甲子',
+ *   dayGanZhi: '甲子',
  *   classicPatterns: [{ name: '青龙返首', score: 8 }],
  *   voidBranches: ['寅', '卯'],
  * });
@@ -98,7 +98,9 @@ export function estimateYingQi(
     zhiFuLandingPalace?: number;
     /** 值使落宫 */
     zhiShiLandingPalace?: number;
-    /** 时干支（如 "甲子"） */
+    /** 日干支（如 "甲子"），用于庚格定应期的阳日/阴日判断 */
+    dayGanZhi?: string;
+    /** 旧字段兼容：历史上误传时干支，新调用请使用 dayGanZhi */
     hourGanZhi?: string;
     /** 经典格局列表 */
     classicPatterns?: Array<{ name: string; score: number }>;
@@ -174,7 +176,7 @@ export function estimateYingQi(
   //   阴日（乙丁己辛癸）看庚上 → 天盘庚所在宫
   //   地支逢冲为应 → 庚所在宫的地支逢其六冲之日/月为应期
 
-  const ganZhi = options?.hourGanZhi || '';
+  const ganZhi = options?.dayGanZhi || options?.hourGanZhi || '';
   if (ganZhi) {
     const dayStem = ganZhi.charAt(0);
     const isYangDay = YANG_STEMS.includes(dayStem);

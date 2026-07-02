@@ -6,6 +6,7 @@ import type { QimenJiuGongGe } from '../packages/core/src/types/divination';
 import { STEM_TOMB_MAP } from '../packages/core/src/divination/algorithms/qimen/helpers/_constants';
 import { getStemRelations } from '../packages/core/src/divination/algorithms/qimen/helpers/classic-patterns';
 import { checkSpecialHourConditions } from '../packages/core/src/divination/algorithms/qimen/helpers/jushu';
+import { estimateYingQi } from '../packages/core/src/divination/algorithms/qimen/helpers/ying-qi';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateQimen, resolveZhiShiLandingPalace } from 'mingyu-core/divination/qimen';
@@ -182,6 +183,32 @@ test('奇门五不遇时应按日干克应判断，不只看时辰干支', () =>
   assert.equal(trueCase.ganzhi.day, '甲戌');
   assert.equal(trueCase.ganzhi.hour, '庚午');
   assert.equal(trueCase.specialConditions?.isWuBuYuShi, true);
+});
+
+test('奇门庚格应期应按日干阴阳判断，不应误用时干', () => {
+  const result = estimateYingQi(
+    [
+      {
+        gong: 1,
+        tianPan: { stem: '庚', star: '' },
+        diPan: { stem: '甲' },
+      },
+      {
+        gong: 2,
+        tianPan: { stem: '乙', star: '' },
+        diPan: { stem: '庚' },
+      },
+    ],
+    2,
+    {
+      dayGanZhi: '甲子',
+      hourGanZhi: '乙丑',
+    },
+  );
+
+  const sourcesText = result.sources.join('\n');
+  assert.match(sourcesText, /阳日（甲日）见庚在地盘2宫/);
+  assert.doesNotMatch(sourcesText, /阴日（乙日）见庚在天盘1宫/);
 });
 
 test('奇门算法会输出节令背景与复合格局结构', () => {

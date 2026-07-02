@@ -336,7 +336,7 @@ export function generateQimen(
     hasVoid,
     zhiFuLandingPalace,
     zhiShiLandingPalace,
-    hourGanZhi: activeGanZhi,
+    dayGanZhi: ganzhi.day,
     classicPatterns: classicPatternsRaw,
     voidBranches,
   });
