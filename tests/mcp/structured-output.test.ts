@@ -304,8 +304,10 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
       },
     });
     assert.equal(baziResult.isError, undefined, 'bazi_prompt custom 不应返回错误');
-    assert.doesNotMatch(String(baziResult.structuredContent?.prompt), /【任务】/);
-    assert.doesNotMatch(String(baziResult.structuredContent?.prompt), /【输出要求】/);
+    const baziPrompt = String(baziResult.structuredContent?.prompt);
+    assert.doesNotMatch(baziPrompt, /【任务】/);
+    assert.doesNotMatch(baziPrompt, /【输出要求】/);
+    assertPromptIsPortableTaskText(baziPrompt);
 
     const tarotResult = await client.callTool({
       name: 'tarot_prompt',
@@ -316,8 +318,10 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
       },
     });
     assert.equal(tarotResult.isError, undefined, 'tarot_prompt custom 不应返回错误');
-    assert.doesNotMatch(String(tarotResult.structuredContent?.prompt), /【任务】/);
-    assert.doesNotMatch(String(tarotResult.structuredContent?.prompt), /【输出要求】/);
+    const tarotPrompt = String(tarotResult.structuredContent?.prompt);
+    assert.doesNotMatch(tarotPrompt, /【任务】/);
+    assert.doesNotMatch(tarotPrompt, /【输出要求】/);
+    assertPromptIsPortableTaskText(tarotPrompt);
 
     const ziweiFrameworkResult = await client.callTool({
       name: 'ziwei_prompt',
@@ -333,14 +337,13 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
       },
     });
     assert.equal(ziweiFrameworkResult.isError, undefined, 'ziwei_prompt framework 不应返回错误');
+    const ziweiFrameworkPrompt = String(ziweiFrameworkResult.structuredContent?.prompt);
     assert.match(
-      String(ziweiFrameworkResult.structuredContent?.prompt),
+      ziweiFrameworkPrompt,
       /人生解析按“命身定位、长期课题、能力资源、关系模式、关键转折、当前阶段策略”展开。/,
     );
-    assert.doesNotMatch(
-      String(ziweiFrameworkResult.structuredContent?.prompt),
-      /自由问答先判断问题落在哪些宫位/,
-    );
+    assert.doesNotMatch(ziweiFrameworkPrompt, /自由问答先判断问题落在哪些宫位/);
+    assertPromptIsPortableTaskText(ziweiFrameworkPrompt);
   });
 });
 
