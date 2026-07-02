@@ -89,49 +89,29 @@ test('各占卜方式都可以直接使用当前项目本地算法生成会话',
   ] as const;
 
   for (const method of methods) {
-    const session = await generateDivinationSession({
-      method,
-      question: '这件事接下来该怎么推进？',
-      questionSource: 'inspiration',
-      gender: '男',
-      birthYear: '1995',
-      meihuaMethod: 'number',
-      meihuaNumber: '123',
-      xiaoliurenMethod: 'time',
-      xiaoliurenNumber: '',
-      meihuaFocus: 'general',
-      xiaoliurenFocus: 'general',
-      qimenFocus: 'general',
-      liuyaoTemplate: 'general',
-      liurenTemplate: 'general',
-      tarotSpread: 'three',
-      almanacTopic: 'move',
-      almanacStartDate: '2026-06-01',
-      almanacEndDate: '2026-06-07',
-      almanacParticipants: [
-        {
-          id: 'p1',
-          name: '本人',
-          gender: '男',
-          year: '1995',
-          month: '5',
-          day: '20',
-          timeIndex: '6',
-          dateType: 'solar',
-        },
-      ],
-      lenormandSpread: 'three',
-      astrolabeName: '本人',
-      astrolabeGender: '男',
-      astrolabeYear: '1995',
-      astrolabeMonth: '5',
-      astrolabeDay: '20',
-      astrolabeHour: '12',
-      astrolabeMinute: '30',
-      astrolabeLatitude: '39.9042',
-      astrolabeLongitude: '116.4074',
-      astrolabeTimezone: '8',
-    });
+    const session = await generateDivinationSession(
+      buildDraft({
+        method,
+        gender: '男',
+        birthYear: '1995',
+        meihuaMethod: 'number',
+        meihuaNumber: '123',
+        almanacEndDate: '2026-06-07',
+        almanacParticipants: [
+          {
+            id: 'p1',
+            name: '本人',
+            gender: '男',
+            year: '1995',
+            month: '5',
+            day: '20',
+            timeIndex: '6',
+            dateType: 'solar',
+          },
+        ],
+        astrolabeGender: '男',
+      }),
+    );
 
     assert.equal(session.method, method);
     assert.equal(typeof session.prompt, 'string');
@@ -370,23 +350,13 @@ test('自定起卦时间缺少日期或时间时应明确提示', async () => {
 });
 
 test('占卜自定义问题只保留基础信息与用户问题，不强塞任务和输出要求', async () => {
-  const session = await generateDivinationSession({
-    method: 'meihua',
-    question: '我自己只想问这个具体情况。',
-    questionSource: 'custom',
-    gender: '',
-    birthYear: '',
-    meihuaMethod: 'time',
-    meihuaNumber: '',
-    xiaoliurenMethod: 'time',
-    xiaoliurenNumber: '',
-    meihuaFocus: 'general',
-    xiaoliurenFocus: 'general',
-    qimenFocus: 'general',
-    liuyaoTemplate: 'general',
-    liurenTemplate: 'general',
-    tarotSpread: 'three',
-  });
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'meihua',
+      question: '我自己只想问这个具体情况。',
+      questionSource: 'custom',
+    }),
+  );
 
   assert.ok(session.prompt.includes('【占卜信息】'));
   assert.ok(session.prompt.includes('【问题】'));
@@ -396,48 +366,34 @@ test('占卜自定义问题只保留基础信息与用户问题，不强塞任�
 });
 
 test('黄历择日会结合可选事项、日期范围和多位出生信息生成提示词', async () => {
-  const session = await generateDivinationSession({
-    method: 'almanac',
-    question: '我们准备搬家，想选一个兼顾两个人的日子。',
-    questionSource: 'inspiration',
-    gender: '',
-    birthYear: '',
-    meihuaMethod: 'time',
-    meihuaNumber: '',
-    xiaoliurenMethod: 'time',
-    xiaoliurenNumber: '',
-    meihuaFocus: 'general',
-    xiaoliurenFocus: 'general',
-    qimenFocus: 'general',
-    liuyaoTemplate: 'general',
-    liurenTemplate: 'general',
-    tarotSpread: 'three',
-    almanacTopic: 'move',
-    almanacStartDate: '2026-06-01',
-    almanacEndDate: '2026-06-05',
-    almanacParticipants: [
-      {
-        id: 'self',
-        name: '本人',
-        gender: '男',
-        year: '1990',
-        month: '1',
-        day: '1',
-        timeIndex: '12',
-        dateType: 'solar',
-      },
-      {
-        id: 'partner',
-        name: '伴侣',
-        gender: '女',
-        year: '1992',
-        month: '6',
-        day: '8',
-        timeIndex: '5',
-        dateType: 'solar',
-      },
-    ],
-  });
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'almanac',
+      question: '我们准备搬家，想选一个兼顾两个人的日子。',
+      almanacParticipants: [
+        {
+          id: 'self',
+          name: '本人',
+          gender: '男',
+          year: '1990',
+          month: '1',
+          day: '1',
+          timeIndex: '12',
+          dateType: 'solar',
+        },
+        {
+          id: 'partner',
+          name: '伴侣',
+          gender: '女',
+          year: '1992',
+          month: '6',
+          day: '8',
+          timeIndex: '5',
+          dateType: 'solar',
+        },
+      ],
+    }),
+  );
 
   assert.equal(session.method, 'almanac');
   assert.match(session.prompt, /占法：黄历择日/);
@@ -456,25 +412,15 @@ test('黄历择日会结合可选事项、日期范围和多位出生信息生�
 });
 
 test('黄历择日不强制填写问题，空补充时仍生成完整择日提示词和历史标题', async () => {
-  const session = await generateDivinationSession({
-    method: 'almanac',
-    question: '',
-    questionSource: 'custom',
-    gender: '',
-    birthYear: '',
-    meihuaMethod: 'time',
-    meihuaNumber: '',
-    meihuaFocus: 'general',
-    xiaoliurenFocus: 'general',
-    qimenFocus: 'general',
-    liuyaoTemplate: 'general',
-    liurenTemplate: 'general',
-    tarotSpread: 'three',
-    almanacTopic: 'contract',
-    almanacStartDate: '2026-06-01',
-    almanacEndDate: '2026-06-03',
-    almanacParticipants: [],
-  });
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'almanac',
+      question: '',
+      questionSource: 'custom',
+      almanacTopic: 'contract',
+      almanacEndDate: '2026-06-03',
+    }),
+  );
 
   assert.equal(session.method, 'almanac');
   assert.equal(session.question, '黄历择日：签约合作（2026-06-01 至 2026-06-03）');
@@ -608,55 +554,25 @@ test('占卜引擎数字起卦只接受十进制正整数文本', async () => {
 });
 
 test('雷诺曼与星盘可以生成适合复制给 AI 的结构化提示词', async () => {
-  const lenormand = await generateDivinationSession({
-    method: 'lenormand',
-    question: '这段关系接下来会如何发展？',
-    questionSource: 'inspiration',
-    gender: '',
-    birthYear: '',
-    meihuaMethod: 'time',
-    meihuaNumber: '',
-    xiaoliurenMethod: 'time',
-    xiaoliurenNumber: '',
-    meihuaFocus: 'general',
-    xiaoliurenFocus: 'general',
-    qimenFocus: 'general',
-    liuyaoTemplate: 'general',
-    liurenTemplate: 'general',
-    tarotSpread: 'three',
-    lenormandSpread: 'relationship',
-  });
+  const lenormand = await generateDivinationSession(
+    buildDraft({
+      method: 'lenormand',
+      question: '这段关系接下来会如何发展？',
+      lenormandSpread: 'relationship',
+    }),
+  );
 
   assert.equal(lenormand.method, 'lenormand');
   assert.match(lenormand.prompt, /占法：雷诺曼/);
   assert.match(lenormand.prompt, /牌阵/);
   assert.ok('cards' in lenormand.data && lenormand.data.cards.length >= 5);
 
-  const astrolabe = await generateDivinationSession({
-    method: 'astrolabe',
-    question: '请看我的事业天赋和未来方向。',
-    questionSource: 'inspiration',
-    gender: '',
-    birthYear: '',
-    meihuaMethod: 'time',
-    meihuaNumber: '',
-    meihuaFocus: 'general',
-    xiaoliurenFocus: 'general',
-    qimenFocus: 'general',
-    liuyaoTemplate: 'general',
-    liurenTemplate: 'general',
-    tarotSpread: 'three',
-    astrolabeName: '本人',
-    astrolabeGender: '女',
-    astrolabeYear: '1995',
-    astrolabeMonth: '5',
-    astrolabeDay: '20',
-    astrolabeHour: '12',
-    astrolabeMinute: '30',
-    astrolabeLatitude: '39.9042',
-    astrolabeLongitude: '116.4074',
-    astrolabeTimezone: '8',
-  });
+  const astrolabe = await generateDivinationSession(
+    buildDraft({
+      method: 'astrolabe',
+      question: '请看我的事业天赋和未来方向。',
+    }),
+  );
 
   assert.equal(astrolabe.method, 'astrolabe');
   assert.match(astrolabe.prompt, /占法：星盘/);
@@ -670,38 +586,14 @@ test('雷诺曼与星盘可以生成适合复制给 AI 的结构化提示词', a
 });
 
 test('小六壬支持时间起课与数字起课，并生成适合复制给 AI 的提示词', async () => {
-  const timeSession = await generateDivinationSession({
-    method: 'xiaoliuren',
-    question: '这件事现在该不该继续推进？',
-    questionSource: 'inspiration',
-    gender: '',
-    birthYear: '',
-    meihuaMethod: 'time',
-    meihuaNumber: '',
-    xiaoliurenMethod: 'time',
-    xiaoliurenNumber: '',
-    meihuaFocus: 'general',
-    xiaoliurenFocus: 'general',
-    qimenFocus: 'general',
-    liuyaoTemplate: 'general',
-    liurenTemplate: 'general',
-    tarotSpread: 'three',
-    almanacTopic: 'move',
-    almanacStartDate: '',
-    almanacEndDate: '',
-    almanacParticipants: [],
-    lenormandSpread: 'three',
-    astrolabeName: '本人',
-    astrolabeGender: '',
-    astrolabeYear: '',
-    astrolabeMonth: '',
-    astrolabeDay: '',
-    astrolabeHour: '12',
-    astrolabeMinute: '00',
-    astrolabeLatitude: '39.9042',
-    astrolabeLongitude: '116.4074',
-    astrolabeTimezone: '8',
-  });
+  const timeSession = await generateDivinationSession(
+    buildDraft({
+      method: 'xiaoliuren',
+      question: '这件事现在该不该继续推进？',
+      almanacStartDate: '',
+      almanacEndDate: '',
+    }),
+  );
 
   assert.equal(timeSession.method, 'xiaoliuren');
   assert.match(timeSession.prompt, /占法：小六壬/);
@@ -709,38 +601,16 @@ test('小六壬支持时间起课与数字起课，并生成适合复制给 AI �
   assert.match(timeSession.prompt, /过程/);
   assert.match(timeSession.prompt, /结果/);
 
-  const numberSession = await generateDivinationSession({
-    method: 'xiaoliuren',
-    question: '这件事现在该不该继续推进？',
-    questionSource: 'inspiration',
-    gender: '',
-    birthYear: '',
-    meihuaMethod: 'time',
-    meihuaNumber: '',
-    xiaoliurenMethod: 'number',
-    xiaoliurenNumber: '18',
-    meihuaFocus: 'general',
-    xiaoliurenFocus: 'general',
-    qimenFocus: 'general',
-    liuyaoTemplate: 'general',
-    liurenTemplate: 'general',
-    tarotSpread: 'three',
-    almanacTopic: 'move',
-    almanacStartDate: '',
-    almanacEndDate: '',
-    almanacParticipants: [],
-    lenormandSpread: 'three',
-    astrolabeName: '本人',
-    astrolabeGender: '',
-    astrolabeYear: '',
-    astrolabeMonth: '',
-    astrolabeDay: '',
-    astrolabeHour: '12',
-    astrolabeMinute: '00',
-    astrolabeLatitude: '39.9042',
-    astrolabeLongitude: '116.4074',
-    astrolabeTimezone: '8',
-  });
+  const numberSession = await generateDivinationSession(
+    buildDraft({
+      method: 'xiaoliuren',
+      question: '这件事现在该不该继续推进？',
+      xiaoliurenMethod: 'number',
+      xiaoliurenNumber: '18',
+      almanacStartDate: '',
+      almanacEndDate: '',
+    }),
+  );
 
   assert.equal(numberSession.method, 'xiaoliuren');
   assert.match(numberSession.prompt, /起课方式数字起课/);
