@@ -43,6 +43,18 @@ const AUDIT_DATE = new Date('2026-05-19T10:30:00+08:00');
 const AUDIT_DATE_TEXT = '2026年5月19日 10时30分（北京时间）';
 const CUSTOM_DATE = '2026-05-19T10:30:00+08:00';
 const CONTEST_SOURCE = 'docs/2025第十六届全球算命师比赛/00_原题目.md；本脚本未读取“正确答案.md”。';
+const COMMON_PROJECT_QUESTION = '我现在应该继续推进这个项目，还是先调整策略再行动？';
+const COMMON_PROJECT_SUPPLEMENT = '正在做一个需要投入时间和资金的新项目，想判断行动节奏。';
+const COMMON_PROJECT_SUPPLEMENT_FIELD = `用户补充：${COMMON_PROJECT_SUPPLEMENT}`;
+
+function buildCommonProjectInputSummary(extra: string) {
+  return `问题：${COMMON_PROJECT_QUESTION}；${extra}；补充：男，1990年生；用户补充：${COMMON_PROJECT_SUPPLEMENT}`;
+}
+
+function withCommonProjectSupplementRequired(fields: string[]) {
+  return [COMMON_PROJECT_SUPPLEMENT_FIELD, ...fields];
+}
+
 const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   {
     sampleName: '八字排盘',
@@ -74,50 +86,77 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '六爻',
-    requiredFields: ['用神评分表', '原神忌神仇神', '应期优先级'],
+    requiredFields: withCommonProjectSupplementRequired([
+      '用神评分表',
+      '原神忌神仇神',
+      '应期优先级',
+    ]),
   },
   {
     sampleName: '梅花易数',
-    requiredFields: ['体用评分', '互变阶段', '外应置信度', '应期优先级'],
+    requiredFields: withCommonProjectSupplementRequired([
+      '体用评分',
+      '互变阶段',
+      '外应置信度',
+      '应期优先级',
+    ]),
   },
   {
     sampleName: '奇门遁甲',
-    requiredFields: ['主宫评分', '辅宫评分', '反证宫', '方位策略', '时间窗口'],
+    requiredFields: withCommonProjectSupplementRequired([
+      '主宫评分',
+      '辅宫评分',
+      '反证宫',
+      '方位策略',
+      '时间窗口',
+    ]),
   },
   {
     sampleName: '大六壬',
-    requiredFields: [
+    requiredFields: withCommonProjectSupplementRequired([
       '【排盘信息】',
       '取证顺序',
       '发用',
       '三传推进',
       '四课背景',
       '应期只能写课传支持的触发条件',
-    ],
+    ]),
   },
   {
     sampleName: '小六壬',
-    requiredFields: ['问题映射', '行动建议等级', '复盘窗口'],
+    requiredFields: withCommonProjectSupplementRequired(['问题映射', '行动建议等级', '复盘窗口']),
   },
   {
     sampleName: '塔罗牌',
-    requiredFields: ['牌组层级', '元素数字', '宫廷人物', '牌间叙事', '现实边界'],
+    requiredFields: withCommonProjectSupplementRequired([
+      '牌组层级',
+      '元素数字',
+      '宫廷人物',
+      '牌间叙事',
+      '现实边界',
+    ]),
   },
   {
     sampleName: '雷诺曼',
-    requiredFields: [
-      '用户补充：正在做一个需要投入时间和资金的新项目，想判断行动节奏。',
+    requiredFields: withCommonProjectSupplementRequired([
       '核心牌',
       '相邻组合',
       '人物牌',
       '事件牌',
       '时间牌',
       '镜像提示',
-    ],
+    ]),
   },
   {
     sampleName: '三山国王灵签',
-    requiredFields: ['逐句签意', '事项分类', '吉凶层级', '宜忌条件', '典故映射', '复盘条件'],
+    requiredFields: withCommonProjectSupplementRequired([
+      '逐句签意',
+      '事项分类',
+      '吉凶层级',
+      '宜忌条件',
+      '典故映射',
+      '复盘条件',
+    ]),
   },
   {
     sampleName: '择日',
@@ -389,11 +428,11 @@ async function buildSamples(): Promise<PromptSample[]> {
     );
 
     const auditDate = new Date(CUSTOM_DATE);
-    const commonQuestion = '我现在应该继续推进这个项目，还是先调整策略再行动？';
+    const commonQuestion = COMMON_PROJECT_QUESTION;
     const commonInfo = {
       gender: '男' as const,
       birthYear: 1990,
-      userSupplement: '正在做一个需要投入时间和资金的新项目，想判断行动节奏。',
+      userSupplement: COMMON_PROJECT_SUPPLEMENT,
     };
 
     const liuyaoData = generateLiuyao(auditDate);
@@ -533,56 +572,56 @@ async function buildSamples(): Promise<PromptSample[]> {
       {
         name: '六爻',
         source: '项目算法真实起卦；固定时间 2026-05-19T10:30:00+08:00。',
-        inputSummary: `问题：${commonQuestion}；模板：事业断卦；补充：男，1990年生。`,
+        inputSummary: buildCommonProjectInputSummary('模板：事业断卦'),
         prompt: liuyaoPrompt,
         notes: [],
       },
       {
         name: '梅花易数',
         source: '项目算法真实起卦；固定时间 2026-05-19T10:30:00+08:00；数字起卦 42。',
-        inputSummary: `问题：${commonQuestion}；焦点：决策。`,
+        inputSummary: buildCommonProjectInputSummary('焦点：决策；数字起卦 42'),
         prompt: meihuaPrompt,
         notes: [],
       },
       {
         name: '奇门遁甲',
         source: '项目算法真实排盘；固定时间 2026-05-19T10:30:00+08:00。',
-        inputSummary: `问题：${commonQuestion}；焦点：策略。`,
+        inputSummary: buildCommonProjectInputSummary('焦点：策略'),
         prompt: qimenPrompt,
         notes: ['本次直接调用核心提示词生成函数，使用了页面侧支持的 qimenFocus。'],
       },
       {
         name: '大六壬',
         source: '项目算法真实排盘；固定时间 2026-05-19T10:30:00+08:00。',
-        inputSummary: `问题：${commonQuestion}；模板：事业断课。`,
+        inputSummary: buildCommonProjectInputSummary('模板：事业断课'),
         prompt: liurenPrompt,
         notes: [],
       },
       {
         name: '小六壬',
         source: '项目算法真实起课；固定时间 2026-05-19T10:30:00+08:00；数字起课 18。',
-        inputSummary: `问题：${commonQuestion}；焦点：事业。`,
+        inputSummary: buildCommonProjectInputSummary('焦点：事业；数字起课 18'),
         prompt: xiaoliurenPrompt,
         notes: [],
       },
       {
         name: '塔罗牌',
         source: '项目牌组真实抽牌；固定随机种子 20260519；决策牌阵。',
-        inputSummary: `问题：${commonQuestion}。`,
+        inputSummary: buildCommonProjectInputSummary('牌阵：决策'),
         prompt: tarotPrompt,
         notes: [],
       },
       {
         name: '雷诺曼',
         source: '项目牌组真实抽牌；固定随机种子 20260520；选择牌阵。',
-        inputSummary: `问题：${commonQuestion}；补充：男，1990年生。`,
+        inputSummary: buildCommonProjectInputSummary('牌阵：选择'),
         prompt: lenormandPrompt,
         notes: [],
       },
       {
         name: '三山国王灵签',
         source: '项目签文库真实抽签；固定随机种子 20260521。',
-        inputSummary: `问题：${commonQuestion}。`,
+        inputSummary: buildCommonProjectInputSummary('随机抽签'),
         prompt: ssgwPrompt,
         notes: [],
       },
