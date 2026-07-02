@@ -287,6 +287,40 @@ test('合盘提示词不应误要求使用单盘核心用神句式', () => {
   assert.doesNotMatch(prompt.system, /核心用神：……，辅助喜用：……，主忌：……/);
 });
 
+test('八字合盘内嵌命盘资料不应重复使用顶层 section 标题', () => {
+  const result1 = baziCalculator.calculateBazi({
+    year: 1988,
+    month: 1,
+    day: 1,
+    timeIndex: 0,
+    gender: 'female',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+  const result2 = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 6,
+    day: 15,
+    timeIndex: 5,
+    gender: 'male',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+
+  const prompt = getCompatibilityPrompt('请分析我们适不适合长期合伙。', result1, result2, 'career');
+
+  assert.equal((prompt.user.match(/^【第一人排盘信息】$/gm) ?? []).length, 1);
+  assert.equal((prompt.user.match(/^【第二人排盘信息】$/gm) ?? []).length, 1);
+  assert.doesNotMatch(prompt.user, /^【命盘】$/m);
+  assert.doesNotMatch(prompt.user, /^【核心判断依据】$/m);
+  assert.doesNotMatch(prompt.user, /^【四柱】$/m);
+  assert.match(prompt.user, /命盘：\n/);
+  assert.match(prompt.user, /核心判断依据：\n/);
+  assert.match(prompt.user, /四柱：\n/);
+});
+
 test('八字提示词在病药结论与正式主忌一致时应保留病药法片段（不冲突不隐藏）', () => {
   const result = baziCalculator.calculateBazi({
     year: 1995,

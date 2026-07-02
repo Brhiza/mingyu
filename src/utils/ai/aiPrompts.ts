@@ -84,6 +84,10 @@ function buildPromptSection(title: string, content: string): string {
   return `【${title}】\n${content}`;
 }
 
+function demoteEmbeddedPromptSections(content: string): string {
+  return content.replace(/^【([^】]+)】$/gm, '$1：');
+}
+
 function joinPromptSections(sections: Array<string | null | undefined>): string {
   return sections.filter(Boolean).join('\n\n');
 }
@@ -657,10 +661,10 @@ export function getCompatibilityPrompt(
 ): { system: string; user: string } {
   const isCustomQuestion = Boolean(options.isCustomQuestion);
   const data1 = baziResult1
-    ? formatBaziForPrompt(baziResult1, null, 'compatibility')
+    ? demoteEmbeddedPromptSections(formatBaziForPrompt(baziResult1, null, 'compatibility'))
     : '无法获取第一人命盘数据。';
   const data2 = baziResult2
-    ? formatBaziForPrompt(baziResult2, null, 'compatibility')
+    ? demoteEmbeddedPromptSections(formatBaziForPrompt(baziResult2, null, 'compatibility'))
     : '无法获取第二人命盘数据。';
 
   const enhancedSection = compatType ? generateCompatibilityEnhancedSection(compatType) : '';

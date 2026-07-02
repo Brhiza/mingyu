@@ -8,6 +8,7 @@ import type {
   DivinationType,
   LiuyaoTemplateType,
   LiurenData,
+  LiurenTemplateType,
   SupplementaryInfo,
 } from '../src/types';
 
@@ -1282,6 +1283,20 @@ test('大六壬提示词会吸收课体与神煞补充信息', () => {
   assert.doesNotMatch(prompt, /辅证：/);
   assert.doesNotMatch(prompt, /课体补充：龙德卦、连珠卦/);
   assert.doesNotMatch(prompt, /神煞补充：旬奇临初传；天马并发；末传逢月德/);
+});
+
+test('大六壬未知专项模板应回落到通用断课，避免输出 undefined', () => {
+  const prompt = buildDivinationPrompt(
+    'liuren',
+    '这件事后面会怎么发展？',
+    createData('liuren'),
+    createSupplementaryInfo(),
+    { liurenTemplate: 'progress' as LiurenTemplateType },
+  );
+
+  assert.match(prompt, /分析类型：通用断课/);
+  assert.match(prompt, /关注重点：核心目标、现实阻力、下一步动作/);
+  assert.doesNotMatch(prompt, /undefined|null/);
 });
 
 test('塔罗提示词会给出牌阵主轴、位置关系与行动建议抓手', () => {

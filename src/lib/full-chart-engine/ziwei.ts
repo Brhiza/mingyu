@@ -441,6 +441,10 @@ function createZiweiReportContext(payload: AnalysisPayloadV1, topic: string): Pr
   };
 }
 
+function demoteEmbeddedPromptSections(content: string) {
+  return content.replace(/^【([^】]+)】$/gm, '$1：');
+}
+
 function buildZiweiTopicGuidanceSection(topic: string) {
   const commonLines = [
     '先判断【问题】对应的宫位范围，再组织证据，不要只做星曜罗列。',
@@ -682,6 +686,8 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
     reportContext: partnerContext,
     mode: 'task-book',
   });
+  const primaryEmbeddedPack = demoteEmbeddedPromptSections(primaryPack);
+  const partnerEmbeddedPack = demoteEmbeddedPromptSections(partnerPack);
   const compatibilityTopic = params.topic || 'chat';
 
   const compatibilityRulesMap: Record<string, string[]> = {
@@ -742,10 +748,10 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
     '',
     `【当前时间】\n${formatPromptCurrentTime()}`,
     '【第一人盘面】',
-    primaryPack,
+    primaryEmbeddedPack,
     '',
     '【第二人盘面】',
-    partnerPack,
+    partnerEmbeddedPack,
     '',
     `【问题】\n${params.question.trim() || compatibilityQuestion}`,
     ...(isCustomQuestion

@@ -32,10 +32,11 @@ export function buildLiurenTemplateText(template: LiurenTemplateType, data: Liur
   };
   const chu = data.threeTransmissions[0];
   const classicalRule = data.classicalRules?.[0];
+  const safeTemplate = templateLabelMap[template] ? template : 'general';
 
   return [
-    `分析类型：${templateLabelMap[template]}`,
-    `关注重点：${templateFocusMap[template]}`,
+    `分析类型：${templateLabelMap[safeTemplate]}`,
+    `关注重点：${templateFocusMap[safeTemplate]}`,
     getLiurenPatternHint(data.transmissionPattern),
     `取证顺序：先按${classicalRule?.rule || '取传法'}看发用${chu ? `${chu.branch}乘${chu.god}` : '初传'}，再看三传推进，四课看背景，课体神煞只作辅证。`,
     '回答格式：先给结论，再列 2 到 4 条关键依据和建议；不要复述完整课盘。',
