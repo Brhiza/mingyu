@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { hexagramNaJia } from '../src/config/divination-data.ts';
+import { hexagramNaJia as appHexagramNaJia } from '../src/config/divination-data.ts';
+import { getSixAnimals } from '../packages/core/src/calendar/lunar.ts';
+import { hexagramNaJia as coreHexagramNaJia } from '../packages/core/src/divination/divination-data.ts';
 
 /**
  * 六爻纳甲规则回归测试
@@ -102,13 +104,23 @@ const trigrams: Record<string, [string, string]> = {
   雷泽归妹: ['震', '兑'],
 };
 
-test('六爻纳甲：全 64 卦按上下经卦所属纯卦分别纳甲', () => {
+test('六爻纳甲：核心包全 64 卦按上下经卦所属纯卦分别纳甲', () => {
   for (const [name, [upper, lower]] of Object.entries(trigrams)) {
     const expected = [...pureNaJia[lower].inner, ...pureNaJia[upper].outer];
     assert.deepEqual(
-      hexagramNaJia[name],
+      coreHexagramNaJia[name],
       expected,
-      `${name} 纳甲不符规则（上${upper}下${lower}）：应为 ${expected.join('')}，实际 ${hexagramNaJia[name].join('')}`,
+      `${name} 纳甲不符规则（上${upper}下${lower}）：应为 ${expected.join('')}，实际 ${coreHexagramNaJia[name].join('')}`,
+    );
+  }
+});
+
+test('六爻纳甲：前端配置与核心包保持一致', () => {
+  for (const name of Object.keys(trigrams)) {
+    assert.deepEqual(
+      appHexagramNaJia[name],
+      coreHexagramNaJia[name],
+      `${name} 前端配置与核心包不一致`,
     );
   }
 });
@@ -116,7 +128,26 @@ test('六爻纳甲：全 64 卦按上下经卦所属纯卦分别纳甲', () => {
 test('六爻纳甲：覆盖全 64 卦，无遗漏', () => {
   assert.equal(Object.keys(trigrams).length, 64, '上下经卦归属表应为 64 卦');
   for (const name of Object.keys(trigrams)) {
-    assert.ok(hexagramNaJia[name], `${name} 缺失纳甲数据`);
-    assert.equal(hexagramNaJia[name].length, 6, `${name} 纳甲应为 6 爻`);
+    assert.ok(coreHexagramNaJia[name], `${name} 缺失纳甲数据`);
+    assert.equal(coreHexagramNaJia[name].length, 6, `${name} 纳甲应为 6 爻`);
+  }
+});
+
+test('六爻六神：按日干从初爻起六神，使用螣蛇标准写法', () => {
+  const expectedByDayStem: Record<string, string[]> = {
+    甲: ['青龙', '朱雀', '勾陈', '螣蛇', '白虎', '玄武'],
+    乙: ['青龙', '朱雀', '勾陈', '螣蛇', '白虎', '玄武'],
+    丙: ['朱雀', '勾陈', '螣蛇', '白虎', '玄武', '青龙'],
+    丁: ['朱雀', '勾陈', '螣蛇', '白虎', '玄武', '青龙'],
+    戊: ['勾陈', '螣蛇', '白虎', '玄武', '青龙', '朱雀'],
+    己: ['螣蛇', '白虎', '玄武', '青龙', '朱雀', '勾陈'],
+    庚: ['白虎', '玄武', '青龙', '朱雀', '勾陈', '螣蛇'],
+    辛: ['白虎', '玄武', '青龙', '朱雀', '勾陈', '螣蛇'],
+    壬: ['玄武', '青龙', '朱雀', '勾陈', '螣蛇', '白虎'],
+    癸: ['玄武', '青龙', '朱雀', '勾陈', '螣蛇', '白虎'],
+  };
+
+  for (const [dayStem, expected] of Object.entries(expectedByDayStem)) {
+    assert.deepEqual(getSixAnimals(dayStem), expected, `${dayStem}日六神起法不正确`);
   }
 });

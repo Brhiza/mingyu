@@ -19,6 +19,7 @@ import {
   detectDiseaseMedicine,
   detectTongguanNeed,
 } from './baziEnhancement';
+import { assessAllHarmonyTransforms } from './harmonyTransform';
 
 /**
  * 分析维度配置
@@ -32,6 +33,7 @@ interface AnalysisDimensionConfig {
   includeFuxin: boolean; // 伏吟反吟
   includeKongWang: boolean; // 空亡详解
   includeXingChong: boolean; // 刑冲合会破
+  includeHarmonyTransform: boolean; // 合化程度
   includePeriod: boolean; // 限运分析
 }
 
@@ -103,8 +105,9 @@ function toClassicPatternPromptDescription(description: string): string {
     .replace(/多主([^。；]+)[。；]?/g, (_match, claim: string) =>
       formatClassicPatternMainClaim(claim),
     )
-    .replace(/(^|[^日])主([^。；]+)[。；]?/g, (_match, prefix: string, claim: string) =>
-      `${prefix}${formatClassicPatternMainClaim(claim)}`,
+    .replace(
+      /(^|[^日])主([^。；]+)[。；]?/g,
+      (_match, prefix: string, claim: string) => `${prefix}${formatClassicPatternMainClaim(claim)}`,
     );
 }
 
@@ -214,6 +217,7 @@ const DEFAULT_ANALYSIS_DIMENSIONS: AnalysisDimensionConfig = {
   includeFuxin: false,
   includeKongWang: false,
   includeXingChong: false,
+  includeHarmonyTransform: true,
   includePeriod: false,
 };
 
@@ -230,6 +234,7 @@ const SCENE_ANALYSIS_DIMENSIONS: Record<string, AnalysisDimensionConfig> = {
     includeFuxin: true,
     includeKongWang: true,
     includeXingChong: true,
+    includeHarmonyTransform: true,
     includePeriod: false,
   },
   career: {
@@ -241,6 +246,7 @@ const SCENE_ANALYSIS_DIMENSIONS: Record<string, AnalysisDimensionConfig> = {
     includeFuxin: false,
     includeKongWang: false,
     includeXingChong: true,
+    includeHarmonyTransform: true,
     includePeriod: true,
   },
   health: {
@@ -252,6 +258,7 @@ const SCENE_ANALYSIS_DIMENSIONS: Record<string, AnalysisDimensionConfig> = {
     includeFuxin: false,
     includeKongWang: false,
     includeXingChong: false,
+    includeHarmonyTransform: false,
     includePeriod: false,
   },
   wealth: {
@@ -263,6 +270,7 @@ const SCENE_ANALYSIS_DIMENSIONS: Record<string, AnalysisDimensionConfig> = {
     includeFuxin: false,
     includeKongWang: true,
     includeXingChong: true,
+    includeHarmonyTransform: true,
     includePeriod: false,
   },
   study: {
@@ -274,6 +282,7 @@ const SCENE_ANALYSIS_DIMENSIONS: Record<string, AnalysisDimensionConfig> = {
     includeFuxin: false,
     includeKongWang: false,
     includeXingChong: false,
+    includeHarmonyTransform: false,
     includePeriod: true,
   },
   children: {
@@ -285,6 +294,7 @@ const SCENE_ANALYSIS_DIMENSIONS: Record<string, AnalysisDimensionConfig> = {
     includeFuxin: true,
     includeKongWang: true,
     includeXingChong: true,
+    includeHarmonyTransform: true,
     includePeriod: false,
   },
   parents: {
@@ -296,6 +306,7 @@ const SCENE_ANALYSIS_DIMENSIONS: Record<string, AnalysisDimensionConfig> = {
     includeFuxin: false,
     includeKongWang: true,
     includeXingChong: true,
+    includeHarmonyTransform: false,
     includePeriod: false,
   },
   general: {
@@ -307,6 +318,7 @@ const SCENE_ANALYSIS_DIMENSIONS: Record<string, AnalysisDimensionConfig> = {
     includeFuxin: false,
     includeKongWang: false,
     includeXingChong: false,
+    includeHarmonyTransform: true,
     includePeriod: false,
   },
 };
@@ -409,6 +421,45 @@ function generateXingChongSection(chartResult: BaziChartResult): string {
   );
 }
 
+function generateHarmonyTransformSection(chartResult: BaziChartResult): string {
+  if (!chartResult.pillars) return '';
+
+  const pillars = PILLAR_KEYS.map((pillar) => ({
+    label: PILLAR_LABELS[pillar],
+    gan: chartResult.pillars[pillar].gan,
+    zhi: chartResult.pillars[pillar].zhi,
+    hiddenStems: chartResult.hiddenStems?.[pillar] || [],
+  }));
+  const profiles = assessAllHarmonyTransforms(pillars, chartResult.pillars.month.zhi);
+
+  if (!profiles.length) return '';
+
+  const strongestProfiles = profiles
+    .sort((a, b) => {
+      if (a.isTransformed !== b.isTransformed) return a.isTransformed ? -1 : 1;
+      return b.score - a.score;
+    })
+    .slice(0, 2);
+  const evidence = strongestProfiles
+    .map((profile) => {
+      const scoreParts = [
+        `月令${profile.monthSupport}`,
+        `透干${profile.stemScore}`,
+        `根气${profile.rootScore}`,
+        profile.clashPenalty ? `冲破${profile.clashPenalty}` : '',
+        profile.competitionPenalty ? `争合${profile.competitionPenalty}` : '',
+      ].filter(Boolean);
+      return `${profile.type}${profile.participants.join('与')}化${profile.transformElement}：${profile.level}${profile.score}分，方向${profile.direction}（${scoreParts.join('、')}）`;
+    })
+    .join('；');
+
+  return buildEvidenceDrivenHintSection(
+    '合化程度',
+    `命盘见合化候选：${evidence}`,
+    '【合化程度】合化评分只用于复核“合而能否化”的强弱，不替代日主旺衰、格局调候和正式喜忌。80分以下不得直接按成化处理，80分以上也要回扣月令、透干、根气、清杂、冲破和岁运触发。',
+  );
+}
+
 /**
  * 生成限运分析片段
  */
@@ -501,6 +552,12 @@ export function generateEnhancedAnalysisSection(
   if (config.includeXingChong) {
     const xingChongSection = generateXingChongSection(chartResult);
     if (xingChongSection) sections.push(xingChongSection);
+  }
+
+  // 合化程度
+  if (config.includeHarmonyTransform) {
+    const harmonyTransformSection = generateHarmonyTransformSection(chartResult);
+    if (harmonyTransformSection) sections.push(harmonyTransformSection);
   }
 
   // 限运分析

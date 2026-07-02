@@ -1478,7 +1478,7 @@ function formatQimenInfo(question: string, data: QimenData, supplementaryInfo?: 
         .filter(
           (item) =>
             item.pattern &&
-            /青龙返首|飞鸟跌穴|白虎干格|朱雀投江|腾蛇夭矫|九地九天|伏干飞干|伏宫飞宫/.test(
+            /青龙返首|飞鸟跌穴|白虎干格|朱雀投江|螣蛇夭矫|九地九天|伏干飞干|伏宫飞宫/.test(
               item.pattern,
             ),
         )

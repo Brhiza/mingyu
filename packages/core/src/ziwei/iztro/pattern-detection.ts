@@ -100,6 +100,10 @@ function getPalaceByName(context: PatternContext, name: string): PalaceFact | un
   return context.palaceByName.get(normalizePalaceName(name));
 }
 
+function palaceInBranch(palace: PalaceFact, branches: string[]): boolean {
+  return branches.includes(palace.earthly_branch);
+}
+
 function getOppositePalace(context: PatternContext, palace: PalaceFact): PalaceFact | undefined {
   return context.palaceByIndex.get(palace.opposite_palace_index);
 }
@@ -316,7 +320,7 @@ const PATTERN_RULES: PatternRule[] = [
     detect(context) {
       const ming = getPalaceByName(context, '命宫');
       if (!ming) return null;
-      if (ming.index === 11 && hasStar(ming, '太阴')) {
+      if (palaceInBranch(ming, ['亥']) && hasStar(ming, '太阴')) {
         return { palaces: [ming], stars: ['太阴'] };
       }
       return null;
@@ -332,7 +336,7 @@ const PATTERN_RULES: PatternRule[] = [
     detect(context) {
       const ming = getPalaceByName(context, '命宫');
       if (!ming) return null;
-      if (ming.index === 3 && hasStar(ming, '太阳')) {
+      if (palaceInBranch(ming, ['卯']) && hasStar(ming, '太阳')) {
         return { palaces: [ming], stars: ['太阳'] };
       }
       return null;
@@ -391,7 +395,7 @@ const PATTERN_RULES: PatternRule[] = [
       const ming = getPalaceByName(context, '命宫');
       const qian = getPalaceByName(context, '迁移');
       if (!ming || !qian) return null;
-      if (ming.index !== 7) return null;
+      if (!palaceInBranch(ming, ['未'])) return null;
       const mStars = getAllStars(ming);
       const hasSunMoonSurrounded =
         surroundedHasOneOf(context, ming, ['太阳']) && surroundedHasOneOf(context, ming, ['太阴']);
@@ -410,7 +414,7 @@ const PATTERN_RULES: PatternRule[] = [
     detect(context) {
       const ming = getPalaceByName(context, '命宫');
       if (!ming) return null;
-      if (ming.index === 11 && hasStar(ming, '廉贞')) {
+      if (palaceInBranch(ming, ['亥']) && hasStar(ming, '廉贞')) {
         return { palaces: [ming], stars: ['廉贞'] };
       }
       return null;
@@ -425,7 +429,7 @@ const PATTERN_RULES: PatternRule[] = [
     detect(context) {
       const ming = getPalaceByName(context, '命宫');
       if (!ming) return null;
-      if ((ming.index === 2 || ming.index === 8) && hasStar(ming, '七杀')) {
+      if (palaceInBranch(ming, ['寅', '申']) && hasStar(ming, '七杀')) {
         return { palaces: [ming], stars: ['七杀'] };
       }
       return null;
@@ -440,7 +444,7 @@ const PATTERN_RULES: PatternRule[] = [
     detect(context) {
       const ming = getPalaceByName(context, '命宫');
       if (!ming) return null;
-      if (ming.index === 0 && hasStar(ming, '巨门')) {
+      if (palaceInBranch(ming, ['子']) && hasStar(ming, '巨门')) {
         const mutagens = getSurroundedMutagens(context, ming, 'birth_mutagen');
         if (mutagens.some((m) => ['禄', '权', '科'].includes(m))) {
           return { palaces: [ming], stars: ['巨门'] };
@@ -543,7 +547,7 @@ const PATTERN_RULES: PatternRule[] = [
     detect(context) {
       const ming = getPalaceByName(context, '命宫');
       if (!ming) return null;
-      if (ming.index === 6 && hasStar(ming, '天同')) {
+      if (palaceInBranch(ming, ['午']) && hasStar(ming, '天同')) {
         if (surroundedHasOneOf(context, ming, ['擎羊'])) {
           return { palaces: [ming], stars: ['天同', '擎羊'] };
         }
@@ -579,10 +583,10 @@ const PATTERN_RULES: PatternRule[] = [
     detect(context) {
       const ming = getPalaceByName(context, '命宫');
       if (!ming) return null;
-      if (ming.index === 10 && hasStar(ming, '太阳')) {
+      if (palaceInBranch(ming, ['戌']) && hasStar(ming, '太阳')) {
         return { palaces: [ming], stars: ['太阳'] };
       }
-      if (ming.index === 4 && hasStar(ming, '太阴')) {
+      if (palaceInBranch(ming, ['辰']) && hasStar(ming, '太阴')) {
         return { palaces: [ming], stars: ['太阴'] };
       }
       return null;
@@ -599,8 +603,7 @@ const PATTERN_RULES: PatternRule[] = [
     detect(context) {
       const ming = getPalaceByName(context, '命宫');
       if (!ming) return null;
-      // 辰(4)为天罗，戌(10)为地网
-      if (ming.index !== 4 && ming.index !== 10) return null;
+      if (!palaceInBranch(ming, ['辰', '戌'])) return null;
       // 判断是否有吉星解网：紫微、天府坐罗网可解，天同、天梁亦能缓解
       const jieWangStars = ['紫微', '天府', '天同', '天梁', '太阳', '贪狼'];
       const hasJieWang = jieWangStars.some((n) => hasStar(ming, n));

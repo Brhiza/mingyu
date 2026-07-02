@@ -90,7 +90,7 @@ function estimateYingQi(params: {
   if (yongElement === tiElement) {
     periods.push('体用比和，事成较快，应期缩短');
   } else if (isSheng(yongElement, tiElement)) {
-    periods.push('用生体，事有助力，应期顺势）');
+    periods.push('用生体，事有助力，应期顺势');
   } else if (isKe(yongElement, tiElement)) {
     periods.push('用克体，需先破解阻力，应期推迟');
   } else if (isKe(tiElement, yongElement)) {
@@ -158,19 +158,25 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   }
   const mainHexagram = findHexagramByTrigrams(upperTrigramIndex, lowerTrigramIndex);
 
-  const mainLines = [...lowerTrigram.lines, ...upperTrigram.lines];
+  const toBottomUpLines = (lines: number[]) => [...lines].reverse();
+  const toStoredLines = (bottomUpLines: number[]) => [...bottomUpLines].reverse();
+
+  const mainLines = [
+    ...toBottomUpLines(lowerTrigram.lines),
+    ...toBottomUpLines(upperTrigram.lines),
+  ];
 
   const interLowerLines = mainLines.slice(1, 4);
   const interUpperLines = mainLines.slice(2, 5);
 
-  // 使用更直接的方法查找互卦
-  const findTrigramByLines = (lines: number[]) => {
+  const findTrigramByBottomUpLines = (lines: number[]) => {
+    const storedLines = toStoredLines(lines);
     for (let i = 1; i <= 8; i++) {
       const trigram = trigrams[i];
-      if (trigram && trigram.lines.length === lines.length) {
+      if (trigram && trigram.lines.length === storedLines.length) {
         let match = true;
-        for (let j = 0; j < lines.length; j++) {
-          if (trigram.lines[j] !== lines[j]) {
+        for (let j = 0; j < storedLines.length; j++) {
+          if (trigram.lines[j] !== storedLines[j]) {
             match = false;
             break;
           }
@@ -181,8 +187,8 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
     return null;
   };
 
-  const interLowerResult = findTrigramByLines(interLowerLines);
-  const interUpperResult = findTrigramByLines(interUpperLines);
+  const interLowerResult = findTrigramByBottomUpLines(interLowerLines);
+  const interUpperResult = findTrigramByBottomUpLines(interUpperLines);
 
   const interHexagram =
     interLowerResult && interUpperResult
@@ -195,8 +201,8 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   const changedLowerLines = changedLines.slice(0, 3);
   const changedUpperLines = changedLines.slice(3, 6);
 
-  const changedLowerResult = findTrigramByLines(changedLowerLines);
-  const changedUpperResult = findTrigramByLines(changedUpperLines);
+  const changedLowerResult = findTrigramByBottomUpLines(changedLowerLines);
+  const changedUpperResult = findTrigramByBottomUpLines(changedUpperLines);
 
   const changingHexagram =
     changedLowerResult && changedUpperResult
@@ -226,8 +232,7 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
     isChanging: index === movingYaoIndex - 1,
     // 标注体用，并进行类型断言
     tiYong: ((index < 3 ? lowerTrigram.name : upperTrigram.name) === tiGua.name ? '体' : '用') as
-      | '体'
-      | '用',
+      '体' | '用',
   }));
 
   // 四时旺衰：按《梅花易数》以月建地支定旺相休囚死，比季节粗分更精确。
@@ -237,7 +242,9 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   const yongSeasonState = getSeasonState(yongGua.element, monthBranch);
   const seasonByJieQi = MeihuaHelpers.getSeasonByJieQi(timeInfo.jieQi);
   const season: '春' | '夏' | '秋' | '冬' =
-    seasonByJieQi !== '未知' ? (seasonByJieQi as '春' | '夏' | '秋' | '冬') : '春';
+    seasonByJieQi !== '未知'
+      ? (seasonByJieQi as '春' | '夏' | '秋' | '冬')
+      : MeihuaHelpers.getSeasonByMonth(lunar.monthNumber);
 
   return {
     originalName: mainHexagram.name,

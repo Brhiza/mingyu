@@ -204,7 +204,7 @@ const SPREADS: Record<LenormandSpreadType, { name: string; positions: string[] }
   },
   grandTableau: {
     name: '大桌牌阵',
-    positions: Array.from({ length: 26 }, (_, i) => `位置${i + 1}（全桌解读）`),
+    positions: Array.from({ length: 36 }, (_, i) => `位置${i + 1}（全桌解读）`),
   },
 };
 
@@ -240,7 +240,7 @@ const CARD_COMBINATIONS: Record<string, string> = {
   '老鼠+十字架': '消耗性的压力',
   '鱼+星星': '通过网络/远程获利',
   '鱼+船': '跨国或远距离财运',
-  '船+鹤': '改善环境的搬迁',
+  '船+鹳': '改善环境的搬迁',
   '书+信': '秘密文件或消息',
   '钥匙+心': '关键的情感答案',
   '狗+花束': '朋友的善意',

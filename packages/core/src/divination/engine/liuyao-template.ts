@@ -14,7 +14,7 @@ export function buildLiuyaoTemplateText(template: LiuyaoTemplateType, question: 
     ganqing: '对象意向、关系推进阻力、复合或止损节奏、沟通窗口。',
     shiye: '岗位机会、领导规则压力、跳槽窗口、推进与观望节奏。',
     caifu: '财源兑现、合作交易风险、守财能力、进退节奏。',
-    guaishen: '官鬼与子孙制鬼、世应受冲、玄武腾蛇白虎勾陈、空破入墓与家宅怪异线索。',
+    guaishen: '官鬼与子孙制鬼、世应受冲、玄武螣蛇白虎勾陈、空破入墓与家宅怪异线索。',
   };
 
   const evidenceMap: Record<LiuyaoTemplateType, string> = {
@@ -23,7 +23,7 @@ export function buildLiuyaoTemplateText(template: LiuyaoTemplateType, question: 
     shiye: '优先看官鬼、父母与世应，再看动爻、变卦、空亡与外部规则压力。',
     caifu: '优先看妻财、兄弟、子孙与世应，再看动变、空亡与是否有耗财分财迹象。',
     guaishen:
-      '优先看官鬼是否旺动贴世，再看子孙能否制鬼，并结合玄武、腾蛇、白虎、勾陈与家宅疾病语义判断。',
+      '优先看官鬼是否旺动贴世，再看子孙能否制鬼，并结合玄武、螣蛇、白虎、勾陈与家宅疾病语义判断。',
   };
 
   const actionMap: Record<LiuyaoTemplateType, string> = {

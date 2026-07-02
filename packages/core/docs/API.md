@@ -137,7 +137,7 @@
 | `interName` | `string` | 互卦名 |
 | `yaoArray` | `number[]` | 六爻数值（6/7/8/9，老阴老阳少阴少阳） |
 | `changingYaos` | `Array<{position,isChanging,type}>` | 动爻 |
-| `sixGods` | `string[]` | 六神（青龙/朱雀/勾陈/腾蛇/白虎/玄武） |
+| `sixGods` | `string[]` | 六神（青龙/朱雀/勾陈/螣蛇/白虎/玄武） |
 | `sixRelatives` | `string[]` | 六亲（父母/兄弟/子孙/妻财/官鬼） |
 | `najiaDizhi` | `string[]` | 纳甲地支 |
 | `wuxing` | `string[]` | 各爻五行 |

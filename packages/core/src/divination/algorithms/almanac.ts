@@ -238,6 +238,17 @@ const NINE_STARS: Record<string, { wuxing: string; fortune: string; meaning: str
   九紫: { wuxing: '火', fortune: '吉', meaning: '九紫右弼星，主喜事、婚姻、文书' },
 };
 
+const NINE_STAR_SHORT_NAME_MAP: Record<
+  string,
+  { wuxing: string; fortune: string; meaning: string }
+> = Object.fromEntries(
+  Object.entries(NINE_STARS).map(([name, detail]) => [name.slice(0, 1), detail]),
+);
+
+function getNineStarDetail(name: string) {
+  return NINE_STARS[name] || NINE_STAR_SHORT_NAME_MAP[name.slice(0, 1)] || null;
+}
+
 /**
  * 六曜历注（备查，tyme4ts 未直接提供六曜数据）：
  * 先胜(吉)、友引(吉)、先负(凶)、佛灭(凶)、大安(吉)、赤口(凶)
@@ -288,7 +299,6 @@ const SHENSHA_AUSPICIOUS = [
   '岁德',
   '月恩',
   '月空',
-  '天德合',
   '母仓',
   '生气',
   '益后',
@@ -396,16 +406,15 @@ function scoreDay(params: {
     }
   }
 
-  if (params.gods.length >= 4) {
-    score += 6;
-    highlights.push('吉神信息较多，可作为辅助加分');
-  }
-
   // 传统吉凶神煞评分（tyme4ts God 已含天德/月德/天赦/天愿/岁德等大吉神与四废/劫煞/灾煞等大凶神）。
   // 按《协纪辨方书》口径：大吉神临值宜趋吉，大凶神临值宜避忌。
   // 天赦：百无禁忌，+15；天德/月德为众神之首，+12；天恩天愿等次之+6。
   const bigAuspicious = SHENSHA_AUSPICIOUS.filter((name) => params.gods.includes(name));
   const bigInauspicious = SHENSHA_INAUSPICIOUS.filter((name) => params.gods.includes(name));
+  if (bigAuspicious.length >= 2) {
+    score += 6;
+    highlights.push('吉神信息较多，可作为辅助加分');
+  }
   for (const name of bigAuspicious) {
     if (name === '天赦') {
       score += 15;
@@ -496,7 +505,7 @@ function buildDayCandidate(
     twentyEightStar: lunarDay.getTwentyEightStar().getName(),
     twentyEightStarDetail: TWENTY_EIGHT_STARS[lunarDay.getTwentyEightStar().getName()] || null,
     nineStar: lunarDay.getNineStar().getName(),
-    nineStarDetail: NINE_STARS[lunarDay.getNineStar().getName()] || null,
+    nineStarDetail: getNineStarDetail(lunarDay.getNineStar().getName()),
     gods,
     recommends,
     avoids,

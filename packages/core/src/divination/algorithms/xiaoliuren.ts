@@ -18,7 +18,7 @@ import { getTimeIndexFromClock } from '../../calendar/dateUtils';
 import { getDivinationTime } from '../../calendar/timeManager';
 import { getSeasonState } from './_shared';
 
-const XIAOLIUREN_PALACES = ([
+const XIAOLIUREN_PALACES = [
   {
     name: '大安',
     index: 0,
@@ -121,7 +121,7 @@ const XIAOLIUREN_PALACES = ([
     fortune: '凶（大凶）',
     timing: '应期不定或落空，需重新评估',
   },
-]) as XiaoliurenPalaceDetail[];
+] as XiaoliurenPalaceDetail[];
 
 const XIAOLIUREN_METHOD_LABEL_MAP: Record<XiaoliurenDivinationMethod, string> = {
   time: '时间起课',
@@ -246,15 +246,15 @@ export function generateXiaoliuren(params?: {
   const processToResult = elementRelations[process.element]?.[result.element] || '无关系';
   const wuXingDesc = [
     startToProcess === '比和' ? '起因与过程平稳衔接' : '',
-    startToProcess === '得生' ? '起因生过程，事态自然推进' : '',
-    startToProcess === '所生' ? '起因被过程泄气，事态发展消耗初衷' : '',
+    startToProcess === '得生' ? '过程回生起因，推进中有反哺助力' : '',
+    startToProcess === '所生' ? '起因生过程，事态自然推进' : '',
     startToProcess === '被克' ? '起因被过程克制，起步受阻需耐心' : '',
-    startToProcess === '所克' ? '起因克过程，主导推进但消耗精力' : '',
+    startToProcess === '所克' ? '起因克过程，前段有压制，先难后易' : '',
     processToResult === '比和' ? '过程与结果保持同势' : '',
-    processToResult === '得生' ? '过程生结果，越做越顺' : '',
-    processToResult === '所生' ? '过程被结果泄气，事态越做越弱' : '',
+    processToResult === '得生' ? '结果回生过程，后续仍有支撑' : '',
+    processToResult === '所生' ? '过程生结果，越做越顺' : '',
     processToResult === '被克' ? '过程被结果克制，先易后难需谨慎' : '',
-    processToResult === '所克' ? '过程克结果，强力推进可见成效' : '',
+    processToResult === '所克' ? '过程克结果，后段受压，先易后难' : '',
   ]
     .filter(Boolean)
     .join('；');
