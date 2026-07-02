@@ -105,7 +105,15 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '雷诺曼',
-    requiredFields: ['核心牌', '相邻组合', '人物牌', '事件牌', '时间牌', '镜像提示'],
+    requiredFields: [
+      '用户补充：正在做一个需要投入时间和资金的新项目，想判断行动节奏。',
+      '核心牌',
+      '相邻组合',
+      '人物牌',
+      '事件牌',
+      '时间牌',
+      '镜像提示',
+    ],
   },
   {
     sampleName: '三山国王灵签',
@@ -445,7 +453,12 @@ async function buildSamples(): Promise<PromptSample[]> {
 
     const lenormandData = withSeed(20260520, () => drawLenormandSpread('decision'));
     lenormandData.timestamp = fixedNow.getTime();
-    const lenormandPrompt = buildDivinationPrompt('lenormand', commonQuestion, lenormandData);
+    const lenormandPrompt = buildDivinationPrompt(
+      'lenormand',
+      commonQuestion,
+      lenormandData,
+      commonInfo,
+    );
 
     const ssgwData = withSeed(20260521, () => drawRandomSign());
     ssgwData.timestamp = fixedNow.getTime();
@@ -562,7 +575,7 @@ async function buildSamples(): Promise<PromptSample[]> {
       {
         name: '雷诺曼',
         source: '项目牌组真实抽牌；固定随机种子 20260520；选择牌阵。',
-        inputSummary: `问题：${commonQuestion}。`,
+        inputSummary: `问题：${commonQuestion}；补充：男，1990年生。`,
         prompt: lenormandPrompt,
         notes: [],
       },
