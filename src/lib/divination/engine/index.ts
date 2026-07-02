@@ -378,7 +378,9 @@ export function buildDivinationPrompt(
           ...(method === 'astrolabe' ? [buildAstrolabeTopicOutputRequirement(astrolabeTopic)] : []),
           ...(method === 'astrolabe'
             ? [
-                '星盘回答必须区分本命底色与行运触发：先讲本命结构如何形成长期倾向，再讲所选流年、流月或流日具体触发了哪些议题。',
+                astrolabeScopeText
+                  ? '星盘回答必须区分本命底色与行运触发：先讲本命结构如何形成长期倾向，再讲所选流年、流月或流日具体触发了哪些议题。'
+                  : '星盘回答只能以本命结构说明长期倾向、能力与限制；没有【分析对象】行运证据时，不得写成具体流年、流月或流日触发。',
               ]
             : []),
           buildMethodOutputRequirementText(method),

@@ -2175,12 +2175,24 @@ function formatLenormandInfo(data: LenormandData) {
     .map((card, index) => {
       const keywordText = joinLimited(card.keywords, 2);
       if (index === 0) {
-        return `${card.position}${card.name}定主轴：${keywordText}`;
+        return `${card.position}${card.name}定起点或主轴：${keywordText}`;
       }
-      if (index === 1) {
-        return `${card.position}${card.name}补阻力或修饰：${keywordText}`;
+      if (index === firstThree.length - 1) {
+        return `${card.position}${card.name}看走向或落点：${keywordText}`;
       }
-      return `${card.position}${card.name}看结果或落点：${keywordText}`;
+      if (/阻|障碍|挑战|风险|卡点/.test(card.position)) {
+        return `${card.position}${card.name}补阻力或限制：${keywordText}`;
+      }
+      if (/现状|当前/.test(card.position)) {
+        return `${card.position}${card.name}承接当前状态：${keywordText}`;
+      }
+      if (/建议|行动|对策/.test(card.position)) {
+        return `${card.position}${card.name}给行动建议：${keywordText}`;
+      }
+      if (/过程|中间|发展/.test(card.position)) {
+        return `${card.position}${card.name}看过程转折：${keywordText}`;
+      }
+      return `${card.position}${card.name}补充事件条件或修饰：${keywordText}`;
     })
     .join('；');
   const neighborPairs =
