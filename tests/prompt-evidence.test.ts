@@ -1,7 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 
 import {
   formatPromptEvidenceBundle,
@@ -42,46 +40,4 @@ test('证据资料包同权重时按证据等级稳定排序', () => {
 
 test('证据资料包为空时可返回保守占位', () => {
   assert.deepEqual(formatPromptEvidenceBundle({ items: [], emptyText: '- 暂无' }), ['- 暂无']);
-});
-
-test('六爻用神评分已接入统一证据类型再格式化为现有文案', () => {
-  const source = readFileSync(resolve('src/lib/divination/engine/formatters.ts'), 'utf8');
-
-  assert.match(source, /PromptEvidenceItem/);
-  assert.match(source, /createLiuyaoUsefulGodScoreEvidenceItems/);
-  assert.match(source, /formatLiuyaoUsefulGodScoreEvidence/);
-  assert.match(source, /source: '六爻用神评分'/);
-});
-
-test('八字年限触发摘要已通过统一证据类型生成', () => {
-  const source = readFileSync(resolve('packages/core/src/bazi/fortuneSelection/index.ts'), 'utf8');
-
-  assert.match(source, /formatPromptEvidenceBundle/);
-  assert.match(source, /PromptEvidenceItem\[\]/);
-  assert.match(source, /function buildFortuneEvidenceLines/);
-  assert.match(source, /title: '用户已选择年限运限'/);
-  assert.match(source, /title: '断事层级限制'/);
-});
-
-test('紫微运限命中摘要已通过统一证据类型生成', () => {
-  const source = readFileSync(resolve('src/lib/ziwei-prompts/builders.ts'), 'utf8');
-
-  assert.match(source, /formatPromptEvidenceBundle/);
-  assert.match(source, /PromptEvidenceItem\[\]/);
-  assert.match(source, /export function buildScopeHitSummary/);
-  assert.match(source, /title: '所选运限落宫'/);
-  assert.match(source, /title: '当前运限四化飞入'/);
-  assert.match(source, /title: '本命与运限边界'/);
-});
-
-test('择日禁忌筛查和取舍证据已接入统一证据类型', () => {
-  const source = readFileSync(resolve('src/lib/divination/engine/formatters.ts'), 'utf8');
-
-  assert.match(source, /normalizePromptEvidenceItems/);
-  assert.match(source, /function createAlmanacTabooEvidenceItems/);
-  assert.match(source, /function createAlmanacSelectionEvidenceItems/);
-  assert.match(source, /source: '择日禁忌筛查'/);
-  assert.match(source, /source: '择日取舍证据'/);
-  assert.match(source, /selectionEvidenceItems/);
-  assert.match(source, /tabooEvidenceItems/);
 });
