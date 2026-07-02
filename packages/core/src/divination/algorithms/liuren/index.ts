@@ -98,20 +98,22 @@ function buildShenShaSummary(
   const peach = getTaoHua(dayBranch);
   if (peach) items.push(`桃花在${peach}`);
 
-  // 破碎煞/红沙（日支取）：申子辰在酉、亥卯未在巳、寅午戌在卯、巳酉丑在丑
+  // 破碎煞/红砂（日支取）：《六壬指南》“四孟金鸡，四仲蛇，四季丑日是红砂”。
   const poSuiMap: Record<string, string> = {
-    子: '酉',
+    寅: '酉',
     申: '酉',
-    辰: '酉',
-    亥: '巳',
+    巳: '酉',
+    亥: '酉',
+
+    子: '巳',
     卯: '巳',
-    未: '巳',
-    寅: '卯',
-    午: '卯',
-    戌: '卯',
-    巳: '丑',
-    酉: '丑',
+    午: '巳',
+    酉: '巳',
+
+    辰: '丑',
+    戌: '丑',
     丑: '丑',
+    未: '丑',
   };
   const poSui = poSuiMap[dayBranch];
   if (poSui) items.push(`破碎煞在${poSui}`);

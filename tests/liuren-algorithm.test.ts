@@ -396,6 +396,21 @@ test('大六壬月将按中气切换，不按整个月支粗略取值', () => {
   assert.equal(afterGuyu.monthLeader, '酉');
 });
 
+test('大六壬破碎煞应按四孟四仲四季取，不按三合局取', () => {
+  const meng = generateLiuren(new Date('2026-01-01T12:00:00+08:00'));
+  const zhong = generateLiuren(new Date('2026-01-02T12:00:00+08:00'));
+  const ji = generateLiuren(new Date('2026-01-06T12:00:00+08:00'));
+
+  assert.equal(meng.ganzhi.day, '乙亥');
+  assert.ok(meng.shenShaSummary?.includes('破碎煞在酉'));
+
+  assert.equal(zhong.ganzhi.day, '丙子');
+  assert.ok(zhong.shenShaSummary?.includes('破碎煞在巳'));
+
+  assert.equal(ji.ganzhi.day, '庚辰');
+  assert.ok(ji.shenShaSummary?.includes('破碎煞在丑'));
+});
+
 test('大六壬天将应按贵人所临地盘定顺逆，不是简单昼顺夜逆', () => {
   const result = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
 
