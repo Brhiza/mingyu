@@ -225,6 +225,32 @@ function assertRequiredSampleFields(samples: PromptSample[]) {
   }
 }
 
+function assertSamplePromptsAreClean(samples: PromptSample[]) {
+  const leakedMessages: string[] = [];
+  const forbiddenPatterns = [
+    { label: 'undefined', pattern: /\bundefined\b/i },
+    { label: 'null', pattern: /\bnull\b/i },
+    { label: 'NaN', pattern: /\bNaN\b/ },
+    { label: '[object Object]', pattern: /\[object Object\]/ },
+    { label: 'PromptContext', pattern: /\bPromptContext\b/ },
+    { label: 'report_key', pattern: /\breport_key\b/ },
+    { label: 'selected_topic', pattern: /\bselected_topic\b/ },
+    { label: 'scope_type', pattern: /\bscope_type\b/ },
+  ];
+
+  samples.forEach((sample) => {
+    forbiddenPatterns.forEach(({ label, pattern }) => {
+      if (pattern.test(sample.prompt)) {
+        leakedMessages.push(`${sample.name} 出现异常占位或工程字段：${label}`);
+      }
+    });
+  });
+
+  if (leakedMessages.length > 0) {
+    throw new Error(`提示词真实样本质量检查失败：\n${leakedMessages.join('\n')}`);
+  }
+}
+
 async function buildSamples(): Promise<PromptSample[]> {
   const fixedNow = AUDIT_DATE;
 
@@ -539,6 +565,7 @@ async function buildSamples(): Promise<PromptSample[]> {
 async function main() {
   const samples = await buildSamples();
   assertRequiredSampleFields(samples);
+  assertSamplePromptsAreClean(samples);
   const outputDir = resolve('docs', 'prompt-audit');
   mkdirSync(outputDir, { recursive: true });
 
