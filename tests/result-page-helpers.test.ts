@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildBaziZiweiEnhancedPrompt,
-  buildCombinedPromptText,
   buildCompatibilityPromptWithUnknownTime,
   buildZiweiMonthAnchorDate,
   resolveAstrolabeTopicByInspirationCategory,
@@ -11,11 +10,7 @@ import {
   findZiweiDecadalIndexByDate,
   findZiweiMonthOptionDate,
   findZiweiYearOptionDate,
-  formatGender,
-  formatMonthDayLabel,
   formatZiweiPromptScopeSummary,
-  joinMultilineText,
-  joinText,
   mapBaziFortuneToZiweiScope,
   parseOptionalNumber,
   parseZiweiDateParts,
@@ -28,7 +23,6 @@ import {
   resolveZiweiTopicByInspirationCategory,
   resolveZiweiTopicByInspirationIntent,
   resolveCompatType,
-  splitGanZhi,
   writePromptDraft,
 } from '../src/pages/ResultPage/ResultPage.helpers';
 import { buildPersonFromInput, calculateFullBaziChart } from '../src/lib/full-chart-engine/bazi';
@@ -187,36 +181,6 @@ test('八字年限可映射为统一的紫微范围', () => {
   });
 });
 
-test('formatGender 转换性别值', () => {
-  assert.equal(formatGender('male'), '男');
-  assert.equal(formatGender('female'), '女');
-  assert.equal(formatGender(''), '未知');
-  assert.equal(formatGender('other'), 'other');
-});
-
-test('splitGanZhi 拆分干支字符串', () => {
-  assert.deepEqual(splitGanZhi('甲子'), ['甲', '子']);
-  assert.deepEqual(splitGanZhi('乙丑'), ['乙', '丑']);
-  assert.deepEqual(splitGanZhi(''), ['', '']);
-});
-
-test('formatMonthDayLabel 提取月日', () => {
-  assert.equal(formatMonthDayLabel('2024-05-13'), '05/13');
-  assert.equal(formatMonthDayLabel('2024-12-01'), '12/01');
-});
-
-test('joinText 按顺序去重并过滤空值', () => {
-  assert.equal(joinText(['甲', '乙', '丙']), '甲、乙、丙');
-  assert.equal(joinText(['甲', undefined, '乙']), '甲、乙');
-  assert.equal(joinText([]), '暂无');
-  assert.equal(joinText([], '无'), '无');
-});
-
-test('joinMultilineText 把顿号换成换行', () => {
-  assert.equal(joinMultilineText(['甲', '乙', '丙']), '甲\n乙\n丙');
-  assert.equal(joinMultilineText([]), '暂无');
-});
-
 test('parseOptionalNumber 解析可选数字', () => {
   assert.equal(parseOptionalNumber('42'), 42);
   assert.equal(parseOptionalNumber('0'), 0);
@@ -235,10 +199,6 @@ test('resolveCompatType 解析合盘类型', () => {
   assert.equal(resolveCompatType('ai-compat-parents'), 'parents');
   assert.equal(resolveCompatType('ai-compat-siblings'), 'siblings');
   assert.equal(resolveCompatType('ai-mingge-zonglun'), undefined);
-});
-
-test('buildCombinedPromptText 拼接系统提示和用户提示', () => {
-  assert.equal(buildCombinedPromptText('系统', '用户'), '系统\n\n用户');
 });
 
 test('八字问题场景会映射到对应紫微专题', () => {

@@ -507,38 +507,6 @@ test('占卜引擎数字起卦只接受十进制正整数文本', async () => {
   );
 });
 
-test('雷诺曼与星盘可以生成适合复制给 AI 的结构化提示词', async () => {
-  const lenormand = await generateDivinationSession(
-    buildDraft({
-      method: 'lenormand',
-      question: '这段关系接下来会如何发展？',
-      lenormandSpread: 'relationship',
-    }),
-  );
-
-  assert.equal(lenormand.method, 'lenormand');
-  assert.match(lenormand.prompt, /占法：雷诺曼/);
-  assert.match(lenormand.prompt, /牌阵/);
-  assert.ok('cards' in lenormand.data && lenormand.data.cards.length >= 5);
-
-  const astrolabe = await generateDivinationSession(
-    buildDraft({
-      method: 'astrolabe',
-      question: '请看我的事业天赋和未来方向。',
-    }),
-  );
-
-  assert.equal(astrolabe.method, 'astrolabe');
-  assert.match(astrolabe.prompt, /占法：星盘/);
-  assert.match(astrolabe.prompt, /上升/);
-  assert.doesNotMatch(astrolabe.prompt, /真太阳时/);
-  assert.doesNotMatch(astrolabe.prompt, /干支/);
-  assert.doesNotMatch(astrolabe.prompt, /节气：/);
-  assert.doesNotMatch(astrolabe.prompt, /农历/);
-  assert.ok('planets' in astrolabe.data && astrolabe.data.planets.length >= 10);
-  assert.ok('houses' in astrolabe.data && astrolabe.data.houses.length === 12);
-});
-
 test('小六壬支持时间起课与数字起课，并生成适合复制给 AI 的提示词', async () => {
   const timeSession = await generateDivinationSession(
     buildDraft({

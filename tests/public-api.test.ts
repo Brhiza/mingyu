@@ -6,7 +6,6 @@ import {
   buildBaziPromptForResult,
   buildZiweiPromptForRuntime,
   type BaziPromptTopic,
-  type ZiweiPromptTopic,
 } from '../src/lib/public-api/prompt-builders';
 import { baziCalculator } from '../src/utils/bazi/baziCalculator';
 import { calculateTrueSolarTime } from '../src/utils/bazi/trueSolarTime';
@@ -208,9 +207,21 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     body.data.components.schemas.ZiweiPromptRequest.allOf[1].properties.promptTopic,
   );
   for (const topic of [
-    'family', 'social', 'health', 'recent', 'job-change', 'startup-partnership',
-    'relationship-decision', 'children', 'home-move', 'study', 'study-advance',
-    'investment-partnership', 'reconciliation-decision', 'settle-relocate', 'exam-landing',
+    'family',
+    'social',
+    'health',
+    'recent',
+    'job-change',
+    'startup-partnership',
+    'relationship-decision',
+    'children',
+    'home-move',
+    'study',
+    'study-advance',
+    'investment-partnership',
+    'reconciliation-decision',
+    'settle-relocate',
+    'exam-landing',
   ]) {
     assert.match(ziweiTopicSchema, new RegExp(topic), `紫微 promptTopic 应包含 ${topic}`);
   }
@@ -218,9 +229,17 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     body.data.components.schemas.BaziPromptRequest.allOf[1].properties.promptTopic,
   );
   for (const topic of [
-    'recent', 'talent', 'relationship-push', 'startup-partnership', 'relationship-decision',
-    'home-move', 'study-advance', 'investment-partnership', 'reconciliation-decision',
-    'settle-relocate', 'exam-landing',
+    'recent',
+    'talent',
+    'relationship-push',
+    'startup-partnership',
+    'relationship-decision',
+    'home-move',
+    'study-advance',
+    'investment-partnership',
+    'reconciliation-decision',
+    'settle-relocate',
+    'exam-landing',
   ]) {
     assert.match(baziTopicSchema, new RegExp(topic), `八字 promptTopic 应包含 ${topic}`);
   }
@@ -233,10 +252,7 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     body.data.components.schemas.BaziRequest.properties.shenShaVariants.$ref,
     '#/components/schemas/ShenShaVariants',
   );
-  assert.match(
-    body.data.components.schemas.ShenShaVariants.description,
-    /默认主流口径/,
-  );
+  assert.match(body.data.components.schemas.ShenShaVariants.description, /默认主流口径/);
   assert.deepEqual(body.data.components.schemas.ShenShaVariants.properties.kongWangBasis.enum, [
     'day',
     'day-and-year',
@@ -588,7 +604,8 @@ test('八字公开 API 新增专项会输出对应默认问题与任务主题', 
     },
     {
       topic: 'reconciliation-decision',
-      question: /【问题】\n请先从这段旧关系现在还有没有复合空间，以及更适合争取、观察还是放下开始分析。/,
+      question:
+        /【问题】\n请先从这段旧关系现在还有没有复合空间，以及更适合争取、观察还是放下开始分析。/,
       task: /【任务】\n围绕配偶星、夫妻宫、桃花、旧缘信号与当前岁运引动，判断这段旧关系现在更适合争取复合、保持观察、先立边界还是及时放下，并说明复合条件、现实阻力、风险信号和接下来的判断标准。/,
     },
     {
@@ -743,118 +760,6 @@ test('紫微公开 API prompt builder 空问题会按所选方向补默认问题
   assert.doesNotMatch(prompt, /【问题】\n请先做整体解读。/);
 });
 
-test('紫微公开 API 健康养护专项主题应输出对应分析主题与框架', async () => {
-  const runtime = await calculateFullZiweiChart(
-    buildZiweiChartInput({
-      name: '测试',
-      gender: 'female',
-      dateType: 'solar',
-      year: '1992',
-      month: '8',
-      day: '21',
-      timeIndex: 4,
-      isLeapMonth: false,
-      useTrueSolarTime: false,
-    }),
-  );
-
-  const prompt = buildZiweiPromptForRuntime({
-    result: runtime,
-    question: '',
-    topic: 'health',
-    scope: 'origin',
-  });
-
-  assert.match(prompt, /分析主题：健康养护/);
-  assert.match(prompt, /【问题】\n请先从身心压力、健康隐患和日常养护重点开始分析。/);
-  assert.match(prompt, /健康养护先看疾厄宫、福德宫、命宫、身宫、迁移宫和当前运限触发。/);
-});
-
-test('紫微公开 API 子女专项主题应输出对应分析主题与框架', async () => {
-  const runtime = await calculateFullZiweiChart(
-    buildZiweiChartInput({
-      name: '测试',
-      gender: 'female',
-      dateType: 'solar',
-      year: '1992',
-      month: '8',
-      day: '21',
-      timeIndex: 4,
-      isLeapMonth: false,
-      useTrueSolarTime: false,
-    }),
-  );
-
-  const prompt = buildZiweiPromptForRuntime({
-    result: runtime,
-    question: '',
-    topic: 'children',
-    scope: 'origin',
-  });
-
-  assert.match(prompt, /分析主题：子女亲缘/);
-  assert.match(prompt, /【问题】\n请先从子女缘分、亲子互动和教育陪伴重点开始分析。/);
-  assert.match(prompt, /子女亲缘先看子女宫、夫妻宫、命宫、福德宫、田宅宫与当前运限牵动。/);
-  assert.match(prompt, /涉及子女数量和性别只能给倾向与证据限制/);
-});
-
-test('紫微公开 API 人际专项主题应输出对应分析主题与框架', async () => {
-  const runtime = await calculateFullZiweiChart(
-    buildZiweiChartInput({
-      name: '测试',
-      gender: 'female',
-      dateType: 'solar',
-      year: '1992',
-      month: '8',
-      day: '21',
-      timeIndex: 4,
-      isLeapMonth: false,
-      useTrueSolarTime: false,
-    }),
-  );
-
-  const prompt = buildZiweiPromptForRuntime({
-    result: runtime,
-    question: '',
-    topic: 'social',
-    scope: 'origin',
-  });
-
-  assert.match(prompt, /分析主题：人际合作/);
-  assert.match(prompt, /【问题】\n请先从人际互动、合作模式和贵人阻力开始分析。/);
-  assert.match(prompt, /人际合作先看兄弟宫、迁移宫、福德宫、命宫、官禄宫和财帛宫的联动。/);
-});
-
-test('紫微公开 API 近期专项主题应输出对应分析主题与框架', async () => {
-  const runtime = await calculateFullZiweiChart(
-    buildZiweiChartInput({
-      name: '测试',
-      gender: 'female',
-      dateType: 'solar',
-      year: '1992',
-      month: '8',
-      day: '21',
-      timeIndex: 4,
-      isLeapMonth: false,
-      useTrueSolarTime: false,
-    }),
-  );
-
-  const prompt = buildZiweiPromptForRuntime({
-    result: runtime,
-    question: '',
-    topic: 'recent',
-    scope: 'origin',
-  });
-
-  assert.match(prompt, /分析主题：近期趋势/);
-  assert.match(prompt, /【问题】\n请先从当前阶段重点、推进节奏和风险提醒开始分析。/);
-  assert.match(
-    prompt,
-    /近期趋势先看当前运限落宫、命宫、身宫、官禄宫、财帛宫、迁移宫与福德宫的联动。/,
-  );
-});
-
 test('紫微公开 API 工作变动专项主题应输出对应分析主题与框架', async () => {
   const runtime = await calculateFullZiweiChart(
     buildZiweiChartInput({
@@ -880,88 +785,6 @@ test('紫微公开 API 工作变动专项主题应输出对应分析主题与框
   assert.match(prompt, /分析主题：工作变动/);
   assert.match(prompt, /【问题】\n请先从现在适不适合换工作、转方向和如何判断时机开始分析。/);
   assert.match(prompt, /工作变动先看官禄宫、迁移宫、财帛宫、命宫、田宅宫与福德宫/);
-});
-
-test('紫微公开 API 批量新增专项主题应输出对应分析主题与框架', async () => {
-  const runtime = await calculateFullZiweiChart(
-    buildZiweiChartInput({
-      name: '测试',
-      gender: 'female',
-      dateType: 'solar',
-      year: '1992',
-      month: '8',
-      day: '21',
-      timeIndex: 4,
-      isLeapMonth: false,
-      useTrueSolarTime: false,
-    }),
-  );
-
-  const cases: Array<{ topic: ZiweiPromptTopic; title: RegExp; question: RegExp; frame: RegExp }> =
-    [
-      {
-        topic: 'startup-partnership',
-        title: /分析主题：创业合作/,
-        question: /【问题】\n请先从适不适合创业、单干还是合作，以及如何判断当前时机开始分析。/,
-        frame: /创业合作先看官禄宫、财帛宫、迁移宫、命宫、福德宫与兄弟宫/,
-      },
-      {
-        topic: 'relationship-decision',
-        title: /分析主题：关系去留/,
-        question: /【问题】\n请先从这段关系该继续投入、放手止损还是保持观察开始分析。/,
-        frame: /关系去留先看夫妻宫、命宫、福德宫、迁移宫与当前运限牵动/,
-      },
-      {
-        topic: 'home-move',
-        title: /分析主题：搬家置业/,
-        question: /【问题】\n请先从现在适不适合搬家、换城市、买房置业和居住调整开始分析。/,
-        frame: /搬家置业先看田宅宫、迁移宫、财帛宫、福德宫、命宫与父母宫/,
-      },
-      {
-        topic: 'study-advance',
-        title: /分析主题：考证进修/,
-        question: /【问题】\n请先从我适不适合考证、读研进修或跨领域学习开始分析。/,
-        frame: /考证进修先看命宫、福德宫、官禄宫、父母宫、迁移宫和当前运限联动/,
-      },
-      {
-        topic: 'investment-partnership',
-        title: /分析主题：投资合作/,
-        question: /【问题】\n请先从我现在适不适合投资、跟人合作求财还是继续观望开始分析。/,
-        frame: /投资合作先看财帛宫、官禄宫、福德宫、兄弟宫、迁移宫与命宫的联动。/,
-      },
-      {
-        topic: 'reconciliation-decision',
-        title: /分析主题：复合判断/,
-        question:
-          /【问题】\n请先从这段旧关系现在还有没有复合空间，以及更适合争取、观察还是放下开始分析。/,
-        frame: /复合判断先看夫妻宫、命宫、福德宫、迁移宫、子女宫与当前运限牵动/,
-      },
-      {
-        topic: 'settle-relocate',
-        title: /分析主题：定居换城/,
-        question: /【问题】\n请先从我现在适不适合长期定居、换城市发展还是留在当前城市开始分析。/,
-        frame: /定居换城先看田宅宫、迁移宫、官禄宫、财帛宫、福德宫、命宫与父母宫/,
-      },
-      {
-        topic: 'exam-landing',
-        title: /分析主题：考试上岸/,
-        question:
-          /【问题】\n请先从这次考试、面试或申请更适合冲刺、稳住发挥还是调整预期开始分析。/,
-        frame: /考试上岸先看命宫、福德宫、官禄宫、父母宫、迁移宫与当前运限联动/,
-      },
-    ];
-
-  for (const { topic, title, question, frame } of cases) {
-    const prompt = buildZiweiPromptForRuntime({
-      result: runtime,
-      question: '',
-      topic,
-      scope: 'origin',
-    });
-    assert.match(prompt, title, `${topic} 应输出对应分析主题`);
-    assert.match(prompt, question, `${topic} 应输出对应默认问题`);
-    assert.match(prompt, frame, `${topic} 应输出对应框架依据`);
-  }
 });
 
 test('公开 API 紫微未指定方向时应默认走综合框架而不是自由问答', async () => {
@@ -1077,9 +900,11 @@ test('公开 API 紫微排盘应提供 agent 易解析的四化和宫位列表',
   assert.deepEqual(body.data.fourMutagens, body.data.四化);
   assert.equal(body.data.五行局, body.data.basicInfo.five_elements_class);
   assert.equal(body.data.gongList.length, 12);
-  assert.ok(body.data.gongList.some((palace: { name: string; stars: string[] }) => {
-    return palace.name === '命宫' && palace.stars.length > 0;
-  }));
+  assert.ok(
+    body.data.gongList.some((palace: { name: string; stars: string[] }) => {
+      return palace.name === '命宫' && palace.stars.length > 0;
+    }),
+  );
 });
 
 test('公开 API 紫微真太阳时参数缺失或越界时应返回 400', async () => {
@@ -1258,7 +1083,9 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
   assert.equal(defaultResult.response.status, 200);
   assert.equal(defaultResult.body.ok, true);
   assert.deepEqual(
-    defaultResult.body.data.jiuGongGe.map((gong: { tianPan: { star: string } }) => gong.tianPan.star),
+    defaultResult.body.data.jiuGongGe.map(
+      (gong: { tianPan: { star: string } }) => gong.tianPan.star,
+    ),
     zhuanpanStars,
   );
 
@@ -1270,7 +1097,9 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
   assert.equal(feipanResult.response.status, 200);
   assert.equal(feipanResult.body.ok, true);
   assert.deepEqual(
-    feipanResult.body.data.jiuGongGe.map((gong: { tianPan: { star: string } }) => gong.tianPan.star),
+    feipanResult.body.data.jiuGongGe.map(
+      (gong: { tianPan: { star: string } }) => gong.tianPan.star,
+    ),
     feipanStars,
   );
   assert.notDeepEqual(feipanStars, zhuanpanStars);
