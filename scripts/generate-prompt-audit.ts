@@ -113,7 +113,14 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '择日',
-    requiredFields: ['事项权重', '参与人适配', '禁忌降级', '现实约束', '可用时段边界'],
+    requiredFields: [
+      '择日补充：计划在六月上旬签署项目合作合同，希望兼顾推进效率、资金安全和双方合作稳定。',
+      '事项权重',
+      '参与人适配',
+      '禁忌降级',
+      '现实约束',
+      '可用时段边界',
+    ],
   },
 ];
 
@@ -164,6 +171,16 @@ function sectionNames(prompt: string) {
 
 function uniqueSectionNames(prompt: string) {
   return Array.from(new Set(sectionNames(prompt)));
+}
+
+function duplicateSectionNames(prompt: string) {
+  const counts = new Map<string, number>();
+  sectionNames(prompt).forEach((name) => {
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  });
+  return Array.from(counts.entries())
+    .filter(([, count]) => count > 1)
+    .map(([name, count]) => `${name}x${count}`);
 }
 
 function buildPromptMarkdown(samples: PromptSample[]) {
@@ -239,6 +256,11 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
   ];
 
   samples.forEach((sample) => {
+    const duplicatedSections = duplicateSectionNames(sample.prompt);
+    if (duplicatedSections.length > 0) {
+      leakedMessages.push(`${sample.name} 出现重复 section：${duplicatedSections.join('、')}`);
+    }
+
     forbiddenPatterns.forEach(({ label, pattern }) => {
       if (pattern.test(sample.prompt)) {
         leakedMessages.push(`${sample.name} 出现异常占位或工程字段：${label}`);

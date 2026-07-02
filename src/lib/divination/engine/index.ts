@@ -278,8 +278,18 @@ export function buildDivinationPrompt(
       ? question.trim() || getAstrolabeDefaultQuestion(astrolabeTopic, { isCustomQuestion })
       : question;
   const timeInfo = method === 'astrolabe' ? buildSolarTimeInfoText(data) : buildTimeInfoText(data);
-  const supplementarySection = formatSupplementaryInfoSection(method, supplementaryInfo);
-  const infoText = formatDivinationInfo(method, data, normalizedQuestion, supplementaryInfo);
+  const almanacQuestionSupplement = isAlmanac ? normalizedQuestion.trim() : '';
+  const effectiveSupplementaryInfo =
+    almanacQuestionSupplement && !supplementaryInfo?.userSupplement?.trim()
+      ? { ...(supplementaryInfo ?? {}), userSupplement: almanacQuestionSupplement }
+      : supplementaryInfo;
+  const supplementarySection = formatSupplementaryInfoSection(method, effectiveSupplementaryInfo);
+  const infoText = formatDivinationInfo(
+    method,
+    data,
+    normalizedQuestion,
+    effectiveSupplementaryInfo,
+  );
   const isAstrolabe = method === 'astrolabe';
   const evidenceTerms = buildDivinationEvidenceTerms(method);
   const requirementText = [

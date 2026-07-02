@@ -826,6 +826,24 @@ test('择日资料包会先给禁忌筛查再给取舍证据', () => {
   assert.ok(prompt.indexOf('禁忌筛查：') < prompt.indexOf('取舍证据：'));
 });
 
+test('择日提示词应保留用户补充诉求但不强制输出问题 section', () => {
+  const prompt = buildDivinationPrompt(
+    'almanac',
+    '计划六月上旬签合作合同，希望兼顾资金安全和双方合作稳定。',
+    createAlmanacData(),
+  );
+
+  assert.match(
+    prompt,
+    /【补充信息】\n择日补充：计划六月上旬签合作合同，希望兼顾资金安全和双方合作稳定。/,
+  );
+  assert.doesNotMatch(prompt, /^【问题】$/m);
+  assert.ok(
+    findSectionHeadingIndex(prompt, '【补充信息】') <
+      findSectionHeadingIndex(prompt, '【占卜信息】'),
+  );
+});
+
 test('占卜提示词的输出要求保持统一且精简', async () => {
   const session = buildDivinationPrompt(
     'qimen',
