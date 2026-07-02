@@ -10,8 +10,10 @@ import { estimateYingQi } from '../packages/core/src/divination/algorithms/qimen
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateQimen, resolveZhiShiLandingPalace } from 'mingyu-core/divination/qimen';
+import { assertPromptIsPortableTaskText, assertPromptSectionsInOrder } from './prompt-assertions';
 
 type DivinationDraftInput = Parameters<typeof generateDivinationSession>[0];
+type GeneratedSessionMethod = DivinationDraftInput['method'];
 
 function buildDraft(overrides: Partial<DivinationDraftInput>): DivinationDraftInput {
   return {
@@ -74,6 +76,60 @@ function buildQimenPalace(gong: number, heavenStem: string): QimenJiuGongGe {
   };
 }
 
+function assertGeneratedSessionPrompt(method: GeneratedSessionMethod, prompt: string) {
+  const baseSections = ['【要求】', '【当前时间】', '【补充信息】'];
+  const commonOptions = { requireUnique: true, requireBodyAfterHeading: true };
+
+  if (method === 'liuren') {
+    assertPromptSectionsInOrder(
+      prompt,
+      [
+        ...baseSections,
+        '【排盘信息】',
+        '【分析对象】',
+        '【解读范围】',
+        '【应期判断方法】',
+        '【问题】',
+        '【分析思路】',
+        '【任务】',
+        '【输出要求】',
+      ],
+      commonOptions,
+    );
+  } else if (method === 'almanac') {
+    assertPromptSectionsInOrder(
+      prompt,
+      [...baseSections, '【占卜信息】', '【应期判断方法】', '【任务】', '【输出要求】'],
+      commonOptions,
+    );
+    assert.doesNotMatch(prompt, /^【问题】$/m);
+  } else if (method === 'astrolabe') {
+    assertPromptSectionsInOrder(
+      prompt,
+      [...baseSections, '【占卜信息】', '【问题】', '【分析思路】', '【任务】', '【输出要求】'],
+      commonOptions,
+    );
+    assert.doesNotMatch(prompt, /^【应期判断方法】$/m);
+  } else {
+    assertPromptSectionsInOrder(
+      prompt,
+      [
+        ...baseSections,
+        '【占卜信息】',
+        '【应期判断方法】',
+        '【问题】',
+        '【任务】',
+        ...(method === 'liuyao' ? ['【断卦要点】'] : []),
+        '【输出要求】',
+      ],
+      commonOptions,
+    );
+  }
+
+  assert.match(prompt, /^你是资深.+/);
+  assertPromptIsPortableTaskText(prompt);
+}
+
 test('各占卜方式都可以直接使用当前项目本地算法生成会话', async () => {
   const methods = [
     'liuyao',
@@ -115,8 +171,7 @@ test('各占卜方式都可以直接使用当前项目本地算法生成会话',
 
     assert.equal(session.method, method);
     assert.equal(typeof session.prompt, 'string');
-    assert.ok(session.prompt.includes(method === 'liuren' ? '【排盘信息】' : '【占卜信息】'));
-    assert.ok(session.prompt.includes('【输出要求】'));
+    assertGeneratedSessionPrompt(method, session.prompt);
     assert.equal(typeof session.data.timestamp, 'number');
   }
 });
