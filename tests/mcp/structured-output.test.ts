@@ -5,6 +5,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { TIME_MAP } from '../../src/utils/bazi/baziDisplayData';
 import { calculateTrueSolarTime } from '../../src/utils/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
+import { assertPromptIsPortableTaskText } from '../prompt-assertions';
 
 const toolCalls: Array<[string, Record<string, unknown>]> = [
   ['divine_liuyao', {}],
@@ -225,11 +226,9 @@ test('MCP 一站式提示词工具应同时返回结果和 prompt', async () => 
 
       assert.equal(result.isError, undefined, `${name} 不应返回错误`);
       assert.ok(result.structuredContent?.result, `${name} 应返回 result`);
-      assert.match(
-        String(result.structuredContent?.prompt),
-        promptPattern,
-        `${name} prompt 格式不正确`,
-      );
+      const prompt = String(result.structuredContent?.prompt);
+      assert.match(prompt, promptPattern, `${name} prompt 格式不正确`);
+      assertPromptIsPortableTaskText(prompt);
 
       const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
       assert.deepEqual(JSON.parse(text), result.structuredContent);
