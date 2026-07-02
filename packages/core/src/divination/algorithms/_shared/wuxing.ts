@@ -104,8 +104,9 @@ export const BRANCH_SANHE: Record<string, { group: string; partners: string[] }>
  * 如有申子而无辰，为水局半合，合而不全
  */
 export function isHalfSanhe(branches: string[]): string | null {
+  const uniqueBranches = Array.from(new Set(branches));
   for (const [group, members] of Object.entries(SANHE_GROUPS)) {
-    const present = branches.filter((b) => members.includes(b));
+    const present = uniqueBranches.filter((b) => members.includes(b));
     if (present.length === 2) {
       return group;
     }
@@ -356,7 +357,12 @@ export function isLiuhai(a: string, b: string): boolean {
 
 /** 检查两个地支是否为三刑关系 */
 export function isSanxing(a: string, b: string): boolean {
-  return SANXING_MAP[a] === b;
+  if (!a || !b) return false;
+  if ((a === '子' && b === '卯') || (a === '卯' && b === '子')) return true;
+  if (['寅', '巳', '申'].includes(a) && ['寅', '巳', '申'].includes(b) && a !== b) return true;
+  if (['丑', '戌', '未'].includes(a) && ['丑', '戌', '未'].includes(b) && a !== b) return true;
+  if (['辰', '午', '酉', '亥'].includes(a) && a === b) return true;
+  return false;
 }
 
 /** 检查数组中是否构成完整的三合局 */

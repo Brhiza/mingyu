@@ -9,6 +9,8 @@ import { MONTH_COMMANDER as appMonthCommander } from '../src/utils/bazi/baziMapp
 import { TIAN_GAN_CHONG as appDivinationChong } from '../packages/core/src/divination/algorithms/_shared/wuxing';
 import {
   TIAN_GAN_CHONG as coreDivinationChong,
+  isHalfSanhe,
+  isSanxing,
   getWuxingChangSheng,
 } from '../packages/core/src/divination/algorithms/_shared/wuxing';
 import { analyzeLifeStageProfile } from '../packages/core/src/bazi/lifeStageAnalysis';
@@ -166,6 +168,23 @@ test('八字关系结构应识别寅午火局生地半合', () => {
         item.values.join('') === '寅午',
     ),
   );
+});
+
+test('占法共享半合判断不应把重复地支当作两个成员', () => {
+  assert.equal(isHalfSanhe(['申', '子']), '水局');
+  assert.equal(isHalfSanhe(['申', '申']), null);
+  assert.equal(isHalfSanhe(['寅', '寅', '午']), '火局');
+});
+
+test('占法共享三刑关系应按同组三刑互见判断，不因传入顺序漏判', () => {
+  assert.equal(isSanxing('寅', '申'), true);
+  assert.equal(isSanxing('申', '寅'), true);
+  assert.equal(isSanxing('未', '戌'), true);
+  assert.equal(isSanxing('戌', '未'), true);
+  assert.equal(isSanxing('子', '卯'), true);
+  assert.equal(isSanxing('辰', '辰'), true);
+  assert.equal(isSanxing('寅', '寅'), false);
+  assert.equal(isSanxing('子', '午'), false);
 });
 
 test('八字墓库分析应按日主天干十二长生取墓位', () => {
