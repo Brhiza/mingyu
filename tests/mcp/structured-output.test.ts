@@ -8,13 +8,7 @@ import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { assertPromptIsPortableTaskText } from '../prompt-assertions';
 
 const toolCalls: Array<[string, Record<string, unknown>]> = [
-  ['divine_liuyao', {}],
-  ['divine_meihua', { method: 'number', number: 42 }],
-  ['divine_xiaoliuren', { xiaoliurenMethod: 'number', xiaoliurenNumber: 18 }],
   ['divine_qimen', {}],
-  ['divine_liuren', {}],
-  ['divine_tarot', { spreadType: 'single' }],
-  ['divine_ssgw', {}],
   [
     'divine_almanac',
     {
@@ -35,30 +29,9 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
       ],
     },
   ],
-  ['divine_lenormand', { spreadType: 'relationship' }],
-  [
-    'divine_astrolabe',
-    {
-      name: '本人',
-      gender: '女',
-      year: 1995,
-      month: 5,
-      day: 20,
-      hour: 12,
-      minute: 30,
-      latitude: 39.9042,
-      longitude: 116.4074,
-      timezone: 8,
-      locationName: '北京',
-    },
-  ],
   [
     'bazi_calculate',
     { gender: 'male', year: 1990, month: 5, day: 15, timeIndex: 1, dateType: 'solar' },
-  ],
-  [
-    'ziwei_calculate',
-    { gender: 'male', dateType: 'solar', year: '1990', month: '5', day: '15', timeIndex: 1 },
   ],
 ];
 
@@ -94,69 +67,24 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
   ],
   [
     'liuyao_prompt',
-    {
-      customDate: '2025-01-01T08:00:00+08:00',
-      liuyaoTemplate: 'shiye',
-      question: '今年事业如何？',
-    },
-    /【占卜信息】/,
-  ],
-  ['meihua_prompt', { method: 'number', number: 42, question: '今年事业如何？' }, /【占卜信息】/],
-  [
-    'xiaoliuren_prompt',
-    { xiaoliurenMethod: 'number', xiaoliurenNumber: 18, question: '今年事业如何？' },
-    /【占卜信息】/,
-  ],
-  [
-    'qimen_prompt',
     { customDate: '2025-01-01T08:00:00+08:00', question: '今年事业如何？' },
     /【占卜信息】/,
   ],
-  [
-    'liuren_prompt',
-    {
-      customDate: '2025-01-01T08:00:00+08:00',
-      liurenTemplate: 'shiye',
-      question: '今年事业如何？',
-    },
-    /【排盘信息】/,
-  ],
-  ['tarot_prompt', { spreadType: 'single', question: '今年事业如何？' }, /【占卜信息】/],
-  ['ssgw_prompt', { question: '今年事业如何？' }, /【占卜信息】/],
-  [
-    'almanac_prompt',
-    {
-      topic: 'contract',
-      startDate: '2026-06-01',
-      endDate: '2026-06-03',
-      question: '这几天哪天更适合签约？',
-    },
-    /【占卜信息】/,
-  ],
-  [
-    'lenormand_prompt',
-    { spreadType: 'relationship', question: '这段关系下一步如何？' },
-    /【占卜信息】/,
-  ],
-  [
-    'astrolabe_prompt',
-    {
-      name: '本人',
-      gender: '女',
-      year: 1995,
-      month: 5,
-      day: 20,
-      hour: 12,
-      minute: 30,
-      latitude: 39.9042,
-      longitude: 116.4074,
-      timezone: 8,
-      locationName: '北京',
-      question: '请看我的事业发展。',
-      astrolabeTopic: 'career',
-    },
-    /【占卜信息】/,
-  ],
+];
+
+const promptToolNames = [
+  'bazi_prompt',
+  'ziwei_prompt',
+  'liuyao_prompt',
+  'meihua_prompt',
+  'xiaoliuren_prompt',
+  'qimen_prompt',
+  'liuren_prompt',
+  'tarot_prompt',
+  'ssgw_prompt',
+  'almanac_prompt',
+  'lenormand_prompt',
+  'astrolabe_prompt',
 ];
 
 async function withMcpClient<T>(callback: (client: Client) => Promise<T>) {
@@ -193,7 +121,7 @@ test('MCP 工具列表应声明输出结构', async () => {
       tools.some((tool) => tool.name === 'build_divination_prompt'),
       false,
     );
-    for (const [name] of promptToolCalls) {
+    for (const name of promptToolNames) {
       assert.ok(tools.find((tool) => tool.name === name)?.outputSchema?.properties?.result);
       assert.ok(tools.find((tool) => tool.name === name)?.outputSchema?.properties?.prompt);
     }

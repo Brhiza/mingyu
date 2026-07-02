@@ -1,4 +1,4 @@
-import type { ScopeType } from '../../types/analysis';
+import type { PalaceFact, ScopeType, StarFact } from '../../types/analysis';
 import type { BaziChartResult } from '../../utils/bazi/baziTypes';
 import type { FortuneSelectionContext } from '../../utils/bazi/fortuneSelection';
 import {
@@ -279,6 +279,75 @@ function buildPublicZiweiTaskText(topic: ZiweiPromptTopic) {
   return topicTextMap[topic] ?? topicTextMap.chat!;
 }
 
+const ZIWEI_TOPIC_PALACE_NAMES: Partial<Record<ZiweiPromptTopic, string[]>> = {
+  relationship: ['夫妻宫', '命宫', '福德宫', '迁移宫'],
+  'relationship-push': ['夫妻宫', '命宫', '福德宫', '迁移宫'],
+  'relationship-decision': ['夫妻宫', '命宫', '福德宫', '迁移宫'],
+  'reconciliation-decision': ['夫妻宫', '命宫', '福德宫', '迁移宫', '子女宫'],
+  children: ['子女宫', '夫妻宫', '命宫', '福德宫', '田宅宫'],
+  'career-wealth': ['官禄宫', '财帛宫', '命宫', '迁移宫', '福德宫'],
+  'job-change': ['官禄宫', '迁移宫', '财帛宫', '命宫', '田宅宫', '福德宫'],
+  'startup-partnership': ['官禄宫', '财帛宫', '迁移宫', '命宫', '福德宫', '兄弟宫'],
+  'investment-partnership': ['财帛宫', '官禄宫', '福德宫', '兄弟宫', '迁移宫', '命宫'],
+  recent: ['命宫', '身宫', '官禄宫', '财帛宫', '迁移宫', '福德宫'],
+  family: ['父母宫', '兄弟宫', '田宅宫', '命宫', '福德宫'],
+  'home-move': ['田宅宫', '迁移宫', '财帛宫', '福德宫', '命宫', '父母宫'],
+  'settle-relocate': ['田宅宫', '迁移宫', '官禄宫', '财帛宫', '福德宫', '命宫', '父母宫'],
+  social: ['兄弟宫', '迁移宫', '福德宫', '命宫', '官禄宫', '财帛宫'],
+  emotion: ['福德宫', '命宫', '疾厄宫', '夫妻宫', '迁移宫'],
+  health: ['疾厄宫', '福德宫', '命宫', '身宫', '迁移宫'],
+  study: ['命宫', '福德宫', '官禄宫', '父母宫', '迁移宫'],
+  'study-advance': ['命宫', '福德宫', '官禄宫', '父母宫', '迁移宫'],
+  'exam-landing': ['命宫', '福德宫', '官禄宫', '父母宫', '迁移宫'],
+  growth: ['命宫', '福德宫', '迁移宫', '官禄宫'],
+  talent: ['命宫', '福德宫', '官禄宫', '财帛宫'],
+  life: ['命宫', '身宫', '福德宫', '官禄宫', '财帛宫', '迁移宫'],
+  destiny: ['命宫', '身宫', '福德宫', '官禄宫', '财帛宫', '迁移宫'],
+};
+
+function formatPublicZiweiStar(star: StarFact) {
+  return [star.name, star.brightness ? `(${star.brightness})` : ''].join('');
+}
+
+function formatPublicZiweiPalaceBrief(palace: PalaceFact) {
+  const stars = [...palace.major_stars, ...palace.minor_stars]
+    .map(formatPublicZiweiStar)
+    .filter(Boolean)
+    .slice(0, 8);
+  const tags = palace.summary_tags.length > 0 ? `；标记：${palace.summary_tags.join('、')}` : '';
+  return `- ${palace.name}（${palace.heavenly_stem}${palace.earthly_branch}）：星曜：${stars.length > 0 ? stars.join('、') : '未提供主星资料'}；长生：${palace.changsheng12 || '未提供'}；博士：${palace.boshi12 || '未提供'}${tags}`;
+}
+
+function findPublicZiweiPalaceByName(palaces: PalaceFact[], name: string) {
+  const normalizedName = name.endsWith('宫') ? name.slice(0, -1) : name;
+  return palaces.find((palace) => palace.name === name || palace.name === normalizedName);
+}
+
+function buildPublicZiweiKeyPalaceSection(params: {
+  topic: ZiweiPromptTopic;
+  palaces: PalaceFact[];
+  activePalace?: PalaceFact;
+  bodyPalace?: PalaceFact;
+}) {
+  const palaceNames = [
+    ...(ZIWEI_TOPIC_PALACE_NAMES[params.topic] ?? ['命宫', '身宫', '福德宫', '迁移宫']),
+    params.activePalace?.name,
+    params.bodyPalace?.name,
+  ].filter(Boolean) as string[];
+  const selected = Array.from(
+    new Map(
+      palaceNames
+        .map((name) => findPublicZiweiPalaceByName(params.palaces, name))
+        .filter((palace): palace is PalaceFact => Boolean(palace))
+        .map((palace) => [palace.index, palace]),
+    ).values(),
+  ).slice(0, 7);
+
+  return selected.length > 0
+    ? `【重点宫位】\n${selected.map(formatPublicZiweiPalaceBrief).join('\n')}`
+    : '';
+}
+
 export function buildPublicZiweiPromptForRuntime(params: {
   result: ZiweiRuntime;
   question?: string;
@@ -320,8 +389,16 @@ export function buildPublicZiweiPromptForRuntime(params: {
   const prompt = [
     `【分析背景】\n分析主题：${topicLabel}\n分析范围：${scopeLabel}\n分析对象：${payload.active_scope.label || scopeLabel}\n参考日期：${payload.active_scope.solar_date}\n虚岁：${payload.active_scope.nominal_age}`,
     `【排盘信息】\n出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}\n命宫：${lifePalace?.name ?? '命宫'}；星曜：${formatStars(lifePalace)}\n身宫：${bodyPalace?.name ?? '未标出'}；星曜：${formatStars(bodyPalace)}\n当前落宫：${activePalace?.name ?? '本命范围'}\n当前四化：${mutagenText}`,
+    buildPublicZiweiKeyPalaceSection({
+      topic,
+      palaces: payload.palaces,
+      activePalace,
+      bodyPalace,
+    }),
     `【问题】\n${params.question ?? ''}`,
-  ].join('\n\n');
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 
   const schoolGuidance = getZiweiSchoolGuidance(params.school);
   const promptWithSchool = schoolGuidance ? `${schoolGuidance}\n\n${prompt}` : prompt;

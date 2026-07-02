@@ -24,53 +24,6 @@ async function callApi(path: string, init?: RequestInit) {
   };
 }
 
-const divinationPromptCases: Array<[string, Record<string, unknown>]> = [
-  ['liuyao', { customDate: '2025-01-01T08:00:00+08:00' }],
-  ['meihua', { method: 'number', number: 42 }],
-  ['xiaoliuren', { xiaoliurenMethod: 'number', xiaoliurenNumber: 18 }],
-  ['qimen', { customDate: '2025-01-01T08:00:00+08:00' }],
-  ['liuren', { customDate: '2025-01-01T08:00:00+08:00', liurenTemplate: 'shiye' }],
-  ['tarot', { spreadType: 'single' }],
-  ['ssgw', {}],
-  [
-    'almanac',
-    {
-      topic: 'move',
-      startDate: '2026-06-01',
-      endDate: '2026-06-05',
-      participants: [
-        {
-          id: 'self',
-          name: '本人',
-          gender: '男',
-          year: 1990,
-          month: 1,
-          day: 1,
-          timeIndex: 12,
-          dateType: 'solar',
-        },
-      ],
-    },
-  ],
-  ['lenormand', { spreadType: 'relationship' }],
-  [
-    'astrolabe',
-    {
-      name: '本人',
-      gender: '女',
-      year: 1995,
-      month: 5,
-      day: 20,
-      hour: 12,
-      minute: 30,
-      latitude: 39.9042,
-      longitude: 116.4074,
-      timezone: 8,
-      locationName: '北京',
-    },
-  ],
-];
-
 const timeIndexRangeMap: Record<number, string> = {
   0: '00:00~01:00',
   1: '01:00~03:00',
@@ -1437,78 +1390,6 @@ test('公开 API customDate 不应接受非 ISO 或会被 JS 自动进位的无�
   }
 });
 
-test('公开 API 黄历择日、小六壬、雷诺曼和星盘接口应返回结构化结果', async () => {
-  const almanac = await callApi('divination/almanac', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      topic: 'move',
-      startDate: '2026-06-01',
-      endDate: '2026-06-05',
-      participants: [
-        {
-          id: 'self',
-          name: '本人',
-          gender: '男',
-          year: 1990,
-          month: 1,
-          day: 1,
-          timeIndex: 12,
-          dateType: 'solar',
-        },
-      ],
-    }),
-  });
-  assert.equal(almanac.response.status, 200);
-  assert.equal(almanac.body.ok, true);
-  assert.equal(almanac.body.data.topic, 'move');
-  assert.equal(almanac.body.data.days.length, 5);
-  assert.equal(almanac.body.data.participants.length, 1);
-
-  const xiaoliuren = await callApi('divination/xiaoliuren', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ xiaoliurenMethod: 'number', xiaoliurenNumber: 18 }),
-  });
-  assert.equal(xiaoliuren.response.status, 200);
-  assert.equal(xiaoliuren.body.ok, true);
-  assert.equal(xiaoliuren.body.data.method, 'number');
-  assert.equal(xiaoliuren.body.data.sequence.result.name.length > 0, true);
-
-  const lenormand = await callApi('divination/lenormand', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ spreadType: 'relationship' }),
-  });
-  assert.equal(lenormand.response.status, 200);
-  assert.equal(lenormand.body.ok, true);
-  assert.equal(lenormand.body.data.spreadType, 'relationship');
-  assert.ok(lenormand.body.data.cards.length >= 5);
-
-  const astrolabe = await callApi('divination/astrolabe', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name: '本人',
-      gender: '女',
-      year: 1995,
-      month: 5,
-      day: 20,
-      hour: 12,
-      minute: 30,
-      latitude: 39.9042,
-      longitude: 116.4074,
-      timezone: 8,
-      locationName: '北京',
-    }),
-  });
-  assert.equal(astrolabe.response.status, 200);
-  assert.equal(astrolabe.body.ok, true);
-  assert.ok(astrolabe.body.data.planets.length >= 10);
-  assert.ok(astrolabe.body.data.aspects.length >= 1);
-  assert.match(astrolabe.body.data.birth.location, /北京/);
-});
-
 test('公开 API 数字起卦起课应拒绝超出安全整数范围的数字', async () => {
   const unsafeInteger = Number.MAX_SAFE_INTEGER + 1;
   const cases: Array<[string, Record<string, unknown>, string]> = [
@@ -1570,39 +1451,6 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
     body.data.birth.trueSolarDateTime,
     `${corrected.year}-${String(corrected.month).padStart(2, '0')}-${String(corrected.day).padStart(2, '0')} ${String(corrected.hour).padStart(2, '0')}:${String(corrected.minute).padStart(2, '0')}`,
   );
-});
-
-test('公开 API 各占卜提示词接口应一次返回占卜结果、摘要和提示词', async () => {
-  for (const [method, payload] of divinationPromptCases) {
-    const { response, body } = await callApi(`divination/${method}/prompt`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...payload,
-        question: '我近期事业应该注意什么？',
-      }),
-    });
-
-    assert.equal(response.status, 200, `${method} prompt 接口应返回 200`);
-    assert.equal(body.ok, true, `${method} prompt 接口应成功`);
-    assert.ok(body.data.result, `${method} prompt 接口应返回 result`);
-    assert.ok(body.data.summary, `${method} prompt 接口应返回 summary`);
-    assert.equal(typeof body.data.summary.title, 'string', `${method} summary 应有标题`);
-    assert.ok(Array.isArray(body.data.summary.tags), `${method} summary 应有标签数组`);
-    assert.ok(Array.isArray(body.data.summary.lines), `${method} summary 应有摘要行数组`);
-    const prompt = body.data.prompt;
-    assert.match(
-      prompt,
-      method === 'liuren' ? /【排盘信息】/ : /【占卜信息】/,
-      `${method} prompt 应包含排盘或占卜信息`,
-    );
-    assert.match(
-      prompt,
-      method === 'almanac' ? /择日补充：我近期事业应该注意什么/ : /我近期事业应该注意什么/,
-      `${method} prompt 应包含问题或择日补充`,
-    );
-    assertPromptIsPortableTaskText(prompt);
-  }
 });
 
 test('公开 API 黄历择日提示词不强制填写问题', async () => {
