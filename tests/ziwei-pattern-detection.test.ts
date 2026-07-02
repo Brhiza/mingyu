@@ -23,7 +23,9 @@ function createPalaces(mingBranch: string, mingStars: StarFact[]): PalaceFact[] 
   return branches.map((branch, index) => {
     const isMing = index === mingIndex;
     const oppositeIndex = (index + 6) % 12;
-    const surroundedIndexes = Array.from(new Set([index, oppositeIndex, (index + 4) % 12, (index + 8) % 12]));
+    const surroundedIndexes = Array.from(
+      new Set([index, oppositeIndex, (index + 4) % 12, (index + 8) % 12]),
+    );
 
     return {
       index,
@@ -56,13 +58,19 @@ test('紫微格局：按实际地支判断月朗天门和日照雷门，不依�
   assert.ok(yueLang.some((item) => item.name === '月朗天门'));
 
   const wrongYueLang = detectPatterns({ palaces: createPalaces('丑', [star('太阴')]) });
-  assert.equal(wrongYueLang.some((item) => item.name === '月朗天门'), false);
+  assert.equal(
+    wrongYueLang.some((item) => item.name === '月朗天门'),
+    false,
+  );
 
   const riZhao = detectPatterns({ palaces: createPalaces('卯', [star('太阳')]) });
   assert.ok(riZhao.some((item) => item.name === '日照雷门'));
 
   const wrongRiZhao = detectPatterns({ palaces: createPalaces('巳', [star('太阳')]) });
-  assert.equal(wrongRiZhao.some((item) => item.name === '日照雷门'), false);
+  assert.equal(
+    wrongRiZhao.some((item) => item.name === '日照雷门'),
+    false,
+  );
 });
 
 test('紫微格局：天罗地网和日月反背按辰戌地支判断', () => {
@@ -102,4 +110,13 @@ test('紫微格局：子午寅申亥未等地支规则不受 iztro 索引起点�
   mingZhu[1].major_stars.push(star('太阳'));
   mingZhu[9].major_stars.push(star('太阴'));
   assert.ok(detectPatterns({ palaces: mingZhu }).some((item) => item.name === '明珠出海'));
+
+  const mingZhuWithMinorStar = createPalaces('未', []);
+  mingZhuWithMinorStar[11].name = '迁移';
+  mingZhuWithMinorStar[5].minor_stars.push(star('文昌'));
+  mingZhuWithMinorStar[1].major_stars.push(star('太阳'));
+  mingZhuWithMinorStar[9].major_stars.push(star('太阴'));
+  assert.ok(
+    detectPatterns({ palaces: mingZhuWithMinorStar }).some((item) => item.name === '明珠出海'),
+  );
 });

@@ -249,8 +249,7 @@ const PATTERN_RULES: PatternRule[] = [
       // 明禄暗禄：传统指禄存或生年化禄在命宫（明）和对宫（暗）对应，
       // 不含运限化禄——本命格局不应随大限/流年变化
       const mingHasLu =
-        hasStar(ming, '禄存') ||
-        getAllStars(ming).some((star) => star.birth_mutagen === '禄');
+        hasStar(ming, '禄存') || getAllStars(ming).some((star) => star.birth_mutagen === '禄');
       const oppositeHasLu =
         hasStar(opposite, '禄存') ||
         getAllStars(opposite).some((star) => star.birth_mutagen === '禄');
@@ -364,7 +363,8 @@ const PATTERN_RULES: PatternRule[] = [
     id: 'cai-yin-jia-yin',
     name: '财荫夹印',
     kind: 'auspicious',
-    description: '天相（印）坐命宫或财帛宫，被天府（财星）与天梁（荫星）邻宫夹拱，主因财得官、富贵绵延。',
+    description:
+      '天相（印）坐命宫或财帛宫，被天府（财星）与天梁（荫星）邻宫夹拱，主因财得官、富贵绵延。',
     priority: 88,
     detect(context) {
       const ming = getPalaceByName(context, '命宫');
@@ -396,10 +396,9 @@ const PATTERN_RULES: PatternRule[] = [
       const qian = getPalaceByName(context, '迁移');
       if (!ming || !qian) return null;
       if (!palaceInBranch(ming, ['未'])) return null;
-      const mStars = getAllStars(ming);
       const hasSunMoonSurrounded =
         surroundedHasOneOf(context, ming, ['太阳']) && surroundedHasOneOf(context, ming, ['太阴']);
-      if (mStars.length === 0 && hasSunMoonSurrounded) {
+      if (ming.empty_state && hasSunMoonSurrounded) {
         return { palaces: [ming], stars: ['太阳', '太阴'] };
       }
       return null;
@@ -607,7 +606,10 @@ const PATTERN_RULES: PatternRule[] = [
       // 判断是否有吉星解网：紫微、天府坐罗网可解，天同、天梁亦能缓解
       const jieWangStars = ['紫微', '天府', '天同', '天梁', '太阳', '贪狼'];
       const hasJieWang = jieWangStars.some((n) => hasStar(ming, n));
-      return { palaces: [ming], stars: hasJieWang ? jieWangStars.filter((n) => hasStar(ming, n)) : [] };
+      return {
+        palaces: [ming],
+        stars: hasJieWang ? jieWangStars.filter((n) => hasStar(ming, n)) : [],
+      };
     },
   },
 
