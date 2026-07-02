@@ -66,7 +66,7 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
       ['甲寅', '乙卯', '丁未', '戊戌', '己未', '庚申', '辛酉', '癸丑'].includes(riGZ),
     九丑: () =>
       pillarIndex === 2 &&
-      ['戊子', '戊午', '壬子', '壬午', '丁酉', '丁卯', '己酉', '己卯', '辛卯'].includes(riGZ),
+      ['丁酉', '戊子', '戊午', '己卯', '己酉', '辛卯', '辛酉', '壬子', '壬午'].includes(riGZ),
     四废日: () => {
       if (pillarIndex !== 2) return false;
       const seasonMap: Record<string, string> = {
