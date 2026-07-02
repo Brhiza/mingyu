@@ -10,6 +10,7 @@ import { baziCalculator } from '../src/utils/bazi/baziCalculator';
 import { calculateTrueSolarTime } from '../src/utils/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { generateQimen } from 'mingyu-core/divination/qimen';
+import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 async function callApi(path: string, init?: RequestInit) {
   const request = new Request(`https://aov.cc/api/v1/${path}`, init);
@@ -1711,16 +1712,18 @@ test('公开 API 各占卜提示词接口应一次返回占卜结果、摘要和
     assert.equal(typeof body.data.summary.title, 'string', `${method} summary 应有标题`);
     assert.ok(Array.isArray(body.data.summary.tags), `${method} summary 应有标签数组`);
     assert.ok(Array.isArray(body.data.summary.lines), `${method} summary 应有摘要行数组`);
+    const prompt = body.data.prompt;
     assert.match(
-      body.data.prompt,
+      prompt,
       method === 'liuren' ? /【排盘信息】/ : /【占卜信息】/,
       `${method} prompt 应包含排盘或占卜信息`,
     );
     assert.match(
-      body.data.prompt,
+      prompt,
       method === 'almanac' ? /择日补充：我近期事业应该注意什么/ : /我近期事业应该注意什么/,
       `${method} prompt 应包含问题或择日补充`,
     );
+    assertPromptIsPortableTaskText(prompt);
   }
 });
 
