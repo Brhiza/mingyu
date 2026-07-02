@@ -80,17 +80,15 @@ export function analyzeSupport(
   )?.[0] as Wuxing | undefined;
 
   Object.entries(pillars).forEach(([position, pillar]) => {
-    if (position === 'day') {
-      return;
-    }
+    if (position !== 'day') {
+      const stemWuxing = getWuxing(pillar.gan);
+      const isCompanion = stemWuxing === dayMasterWuxing;
+      const isResource = generatingElement ? stemWuxing === generatingElement : false;
 
-    const stemWuxing = getWuxing(pillar.gan);
-    const isCompanion = stemWuxing === dayMasterWuxing;
-    const isResource = generatingElement ? stemWuxing === generatingElement : false;
-
-    if (isCompanion || isResource) {
-      supporters.push({ position, stem: pillar.gan, strength: 1 });
-      totalStrength += 1;
+      if (isCompanion || isResource) {
+        supporters.push({ position, stem: pillar.gan, strength: 1 });
+        totalStrength += 1;
+      }
     }
 
     if (generatingElement && getWuxing(pillar.zhi) === generatingElement) {
