@@ -43,6 +43,21 @@ const JI_FENG_SHA_STEMS_BY_MONTH_BRANCH: Record<string, string[]> = {
   丑: ['己'],
 };
 
+const SEASON_BY_MONTH_BRANCH: Record<string, string> = {
+  寅: '春',
+  卯: '春',
+  辰: '春',
+  巳: '夏',
+  午: '夏',
+  未: '夏',
+  申: '秋',
+  酉: '秋',
+  戌: '秋',
+  亥: '冬',
+  子: '冬',
+  丑: '冬',
+};
+
 export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
   const {
     gan,
@@ -61,6 +76,7 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
   const [, , , [hourGan]] = baziArray;
   const jiFengStems = JI_FENG_SHA_STEMS_BY_MONTH_BRANCH[yueZhi] || [];
   const hasJiFengSha = jiFengStems.includes(riGan) && jiFengStems.includes(hourGan);
+  const season = SEASON_BY_MONTH_BRANCH[yueZhi];
 
   return {
     截路空亡: () => pillarIndex === 3 && JIE_LU_KONG_WANG_HOUR_BRANCHES[riGan]?.includes(zhi),
@@ -128,28 +144,19 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
       ['乙卯', '戊子', '戊午', '己卯', '己酉', '辛卯', '辛酉', '壬子', '壬午'].includes(riGZ),
     四废日: () => {
       if (pillarIndex !== 2) return false;
-      const seasonMap: Record<string, string> = {
-        寅: '春',
-        卯: '春',
-        辰: '春',
-        巳: '夏',
-        午: '夏',
-        未: '夏',
-        申: '秋',
-        酉: '秋',
-        戌: '秋',
-        亥: '冬',
-        子: '冬',
-        丑: '冬',
-      };
       const rulesMap: Record<string, string[]> = {
         春: ['庚申', '辛酉'],
         夏: ['壬子', '癸亥'],
         秋: ['甲寅', '乙卯'],
         冬: ['丙午', '丁巳'],
       };
-      const season = seasonMap[yueZhi];
-      return !!season && rulesMap[season].includes(riGZ);
+      const bigRulesMap: Record<string, string[]> = {
+        春: ['申', '酉'],
+        夏: ['亥', '子'],
+        秋: ['寅', '卯'],
+        冬: ['巳', '午'],
+      };
+      return !!season && (rulesMap[season].includes(riGZ) || bigRulesMap[season].includes(riZhi));
     },
     十恶大败: () => {
       if (pillarIndex !== 2) return false;
@@ -203,44 +210,14 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
     },
     天转: () =>
       (pillarIndex === 2 || pillarIndex === 3) &&
-      ({ 春: '乙卯', 夏: '戊午', 秋: '辛酉', 冬: '癸子' } as Record<string, string>)[
-        (
-          {
-            寅: '春',
-            卯: '春',
-            辰: '春',
-            巳: '夏',
-            午: '夏',
-            未: '夏',
-            申: '秋',
-            酉: '秋',
-            戌: '秋',
-            亥: '冬',
-            子: '冬',
-            丑: '冬',
-          } as Record<string, string>
-        )[yueZhi]
-      ] === pillarGZ,
+      !!season &&
+      ({ 春: '乙卯', 夏: '戊午', 秋: '辛酉', 冬: '癸子' } as Record<string, string>)[season] ===
+        pillarGZ,
     地转: () =>
       (pillarIndex === 2 || pillarIndex === 3) &&
-      ({ 春: '甲寅', 夏: '丁巳', 秋: '庚申', 冬: '癸亥' } as Record<string, string>)[
-        (
-          {
-            寅: '春',
-            卯: '春',
-            辰: '春',
-            巳: '夏',
-            午: '夏',
-            未: '夏',
-            申: '秋',
-            酉: '秋',
-            戌: '秋',
-            亥: '冬',
-            子: '冬',
-            丑: '冬',
-          } as Record<string, string>
-        )[yueZhi]
-      ] === pillarGZ,
+      !!season &&
+      ({ 春: '甲寅', 夏: '丁巳', 秋: '庚申', 冬: '癸亥' } as Record<string, string>)[season] ===
+        pillarGZ,
     隔角: () => {
       if (pillarIndex !== 3) return false;
       const diff = (zhiIdx(zhi) - zhiIdx(riZhi) + 12) % 12;

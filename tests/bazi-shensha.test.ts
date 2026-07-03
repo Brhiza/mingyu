@@ -1054,6 +1054,32 @@ test('九丑应按三命通会定例取乙卯不取丁酉', () => {
   }
 });
 
+test('四废日应包含五行精纪大四废季支', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丁', '卯'],
+        ['甲', '申'],
+        ['戊', '辰'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丁', '卯'],
+        ['甲', '午'],
+        ['戊', '辰'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.day.includes('四废日'));
+    assert.ok(!missResult.day.includes('四废日'));
+  }
+});
+
 test('天屠煞按三命通会取日时配对，子日午时与午日子时不取', () => {
   for (const calculator of createCalculators()) {
     const hitResult = calculator.calculateAllShenSha(
