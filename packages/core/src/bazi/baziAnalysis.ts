@@ -12,7 +12,6 @@ import { determinePattern } from './baziPatternStrategy';
 import { determineUsefulGod } from './baziUsefulGodStrategy';
 import { createBaziAnalysisPipeline } from './baziAnalysisPipeline';
 
-// Re-implement BaziAnalyzer based on usage in baziCalculator.ts
 export class BaziAnalyzer {
   private getWuxing: (ganOrZhi: string) => Wuxing;
   private getTenGod: (gan: string, dayMaster: string) => string;
@@ -42,7 +41,6 @@ export class BaziAnalyzer {
     });
   }
 
-  // Main analysis function
   public analyzeBaziChart(
     pillars: Pillars,
     hiddenStems: HiddenStems,

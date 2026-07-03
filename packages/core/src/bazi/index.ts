@@ -74,7 +74,6 @@ export {
   toSolarDateTimeInfo,
 } from './luckTiming';
 
-// Enhanced analysis modules (from vibebazi integration)
 export { analyzeTenGodStructure, analyzeTenGodFlow } from './tenGodAnalysis';
 export { analyzeStemRootProfile, analyzeExposedStemProfile } from './stemRootAnalysis';
 export { analyzeRelationStructure } from './relationStructure';

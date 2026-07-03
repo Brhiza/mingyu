@@ -1017,3 +1017,55 @@ test('九丑应按三命通会定例取乙卯不取丁酉', () => {
     assert.ok(!missResult.day.includes('九丑'));
   }
 });
+
+test('天屠煞按三命通会取日时配对，子日午时与午日子时不取', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丙', '寅'],
+        ['丁', '丑'],
+        ['辛', '亥'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丙', '寅'],
+        ['丁', '子'],
+        ['庚', '午'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.hour.includes('天屠煞'));
+    assert.ok(!missResult.hour.includes('天屠煞'));
+  }
+});
+
+test('雷霆煞应按三命通会正七二八等月支口诀取地支', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丙', '寅'],
+        ['丁', '丑'],
+        ['辛', '卯'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '丑'],
+        ['丙', '寅'],
+        ['丁', '丑'],
+        ['辛', '卯'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.year.includes('雷霆煞'));
+    assert.ok(!missResult.year.includes('雷霆煞'));
+  }
+});

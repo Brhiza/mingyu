@@ -29,7 +29,6 @@ export function analyzeTenGodLifeStageProfile(
     if (stem === dayMaster) return;
     const tg = getTenGod(stem, dayMaster);
     if (!tenGodMap[tg]) tenGodMap[tg] = { strong: 0, low: 0 };
-    // Calculate life stage for each branch
     pillars.forEach(p => {
       const stage = getLifeStage(stem, p.zhi);
       if (stageScores[stage]) tenGodMap[tg].strong += stageScores[stage];
@@ -37,9 +36,7 @@ export function analyzeTenGodLifeStageProfile(
     });
   };
 
-  // Process visible stems
   pillars.forEach(p => { processStem(p.gan); });
-  // Process hidden stems
   pillars.forEach(p => {
     (p.hiddenStems || []).forEach(s => processStem(s));
   });

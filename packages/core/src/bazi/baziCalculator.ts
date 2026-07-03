@@ -415,11 +415,9 @@ export class BaziCalculator {
       ? new ShenShaCalculator({ variants: person.shenShaVariants })
       : this.shenShaCalculator;
 
-    // Calculate basic data first
     const tenGods = calculateTenGods(pillars, dayMasterGan);
     const shensha = shenShaCalculator.calculateAllShenSha(baziArray, gender);
 
-    // Calculate ShenSha interactions
     const shenShaAnalysis = {
       year: [] as string[],
       month: [] as string[],

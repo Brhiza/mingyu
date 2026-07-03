@@ -64,7 +64,6 @@ export function analyzeRelationStructure(pillars: Array<{ zhi: string }>): Relat
   const branches = pillars.map(p => p.zhi);
   const pillarNames = ['year', 'month', 'day', 'hour'];
 
-  // Triple combinations
   for (let i = 0; i < 4; i++) {
     for (let j = i + 1; j < 4; j++) {
       for (let k = j + 1; k < 4; k++) {
@@ -90,7 +89,6 @@ export function analyzeRelationStructure(pillars: Array<{ zhi: string }>): Relat
     }
   }
 
-  // Half combinations
   for (let i = 0; i < 4; i++) {
     for (let j = i + 1; j < 4; j++) {
       const half = getHalfCombination(branches[i], branches[j]);
@@ -103,7 +101,6 @@ export function analyzeRelationStructure(pillars: Array<{ zhi: string }>): Relat
     }
   }
 
-  // Six combinations, clash, harm, break
   for (let i = 0; i < 4; i++) {
     for (let j = i + 1; j < 4; j++) {
       if (LIUHE[branches[i]] === branches[j]) items.push({
@@ -129,7 +126,6 @@ export function analyzeRelationStructure(pillars: Array<{ zhi: string }>): Relat
     }
   }
 
-  // Sanxing
   for (let i = 0; i < 4; i++) {
     const targets = SANXING[branches[i]];
     if (targets) {

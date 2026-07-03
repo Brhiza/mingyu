@@ -27,7 +27,6 @@ export function analyzeUsefulGodPlacement(
 
   pillars.forEach((p, idx) => {
     const pn = pillarNames[idx];
-    // Stem
     const fw = getWuxing(p.gan);
     const isFav = favorableWuxing.includes(fw);
     const isUnfav = unfavorableWuxing.includes(fw);
@@ -36,7 +35,6 @@ export function analyzeUsefulGodPlacement(
       status: isFav ? '喜神得力' : isUnfav ? '忌神猖獗' : '中性',
       evidence: p.gan + '透于' + pn,
     });
-    // Hidden stems
     const stems = HIDDEN_STEMS[p.zhi] || [];
     stems.forEach(s => {
       const sw = getWuxing(s);

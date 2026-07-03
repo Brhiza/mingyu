@@ -14,11 +14,26 @@ const JIE_LU_KONG_WANG_HOUR_BRANCHES: Record<string, string[]> = {
   癸: ['戌', '亥'],
 };
 
+// 来源：《三命通会》卷三，天屠煞除子日午时、午日子时外，余按日时配对取。
+const TIAN_TU_SHA_HOUR_BRANCH_BY_DAY_BRANCH: Record<string, string> = {
+  丑: '亥',
+  亥: '丑',
+  寅: '戌',
+  戌: '寅',
+  卯: '酉',
+  酉: '卯',
+  辰: '申',
+  申: '辰',
+  巳: '未',
+  未: '巳',
+};
+
 export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
   const { zhi, pillarIndex, yueZhi, riGan, riZhi, riGZ, pillarGZ, ctg, zhiIdx, variants } = ctx;
 
   return {
     截路空亡: () => pillarIndex === 3 && JIE_LU_KONG_WANG_HOUR_BRANCHES[riGan]?.includes(zhi),
+    天屠煞: () => pillarIndex === 3 && TIAN_TU_SHA_HOUR_BRANCH_BY_DAY_BRANCH[riZhi] === zhi,
     天赦日: () => {
       if (pillarIndex !== 2) return false;
       const season: string = (

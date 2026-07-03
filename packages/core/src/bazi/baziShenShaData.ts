@@ -124,6 +124,8 @@ const shenShaCategories: StringMap = {
   金匮: '中性',
   元武: '凶神',
   天刑: '凶神',
+  雷霆煞: '凶神',
+  天屠煞: '凶神',
   鬼门: '凶神',
   冲天杀: '凶神',
 
@@ -206,6 +208,8 @@ export const shenShaTypes: { lucky: string[]; unlucky: string[]; neutral: string
     '三丘',
     '五墓',
     '天刑',
+    '雷霆煞',
+    '天屠煞',
     '鬼门',
     '冲天杀',
     '丧门',

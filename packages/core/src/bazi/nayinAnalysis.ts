@@ -29,7 +29,6 @@ export function analyzeNayinProfile(
   const items: NayinItem[] = pillars.map((p, idx) => {
     const gz = p.gan + p.zhi;
     const na = NAYIN_MAP[gz] || '未知';
-    // Extract element from nayin name (last character)
     const lastChar = na.slice(-1);
     const elements: Record<string, string> = { 金:'金',木:'木',水:'水',火:'火',土:'土' };
     return { pillar: pillarNames[idx], ganZhi: gz, nayin: na, element: elements[lastChar] || '土' };
