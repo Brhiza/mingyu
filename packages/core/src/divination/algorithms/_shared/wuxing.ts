@@ -478,15 +478,3 @@ export function getWuxingChangSheng(wuxing: string): string {
   };
   return map[wuxing] || '';
 }
-
-/**
- * 获取地支的五行长生位（简易版）
- * 根据五行长生位推算某地支是否是某五行的长生
- * @deprecated 功能不完整，仅保留为简易参考；完整十二长生请使用 qimen/helpers/chang-sheng.ts 中的 getChangSheng
- */
-export function getChangSheng(branch: string): string {
-  const map: Record<string, string> = {
-    寅: '亥',
-  };
-  return map[branch] || '';
-}
