@@ -1319,6 +1319,45 @@ test('挂剑煞应按三命通会取巳酉丑申四柱纯全', () => {
   }
 });
 
+test('平头杀与悬针杀应按古籍字表三字以上作为全局旁证', () => {
+  for (const calculator of createCalculators()) {
+    const pingTouResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '辰'],
+        ['丙', '寅'],
+        ['丁', '丑'],
+        ['庚', '申'],
+      ],
+      'male',
+    );
+    const xuanZhenResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['辛', '卯'],
+        ['乙', '午'],
+        ['庚', '申'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丙', '寅'],
+        ['乙', '丑'],
+        ['庚', '申'],
+      ],
+      'male',
+    );
+
+    assert.ok(pingTouResult.global?.includes('平头杀'));
+    assert.ok(!pingTouResult.global?.includes('悬针杀'));
+    assert.ok(xuanZhenResult.global?.includes('悬针杀'));
+    assert.ok(!xuanZhenResult.global?.includes('平头杀'));
+    assert.ok(!missResult.global?.includes('平头杀'));
+    assert.ok(!missResult.global?.includes('悬针杀'));
+  }
+});
+
 test('戟锋煞应按五行精纪逐月旺干取日时两重', () => {
   for (const calculator of createCalculators()) {
     const hitResult = calculator.calculateAllShenSha(

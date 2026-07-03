@@ -91,11 +91,16 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
   {
     id: 'jing-lan-cha',
     name: '井栏叉格',
-    description:
-      '庚申、庚子、庚辰三柱重逢，天干三庚、地支申子辰三合水局。忌丙丁火破局，喜水木清华。主清贵富足。',
+    description: '庚日地支申子辰全，取水局暗冲寅午戌中财官印。忌丙丁巳午填实破局。',
     conditions: {
       dayStems: ['庚'],
-      otherConditions: ['天干三庚', '申子辰三合水局'],
+      otherConditions: [
+        '申子辰三合水局',
+        '不见天干丙',
+        '不见天干丁',
+        '不见地支巳',
+        '不见地支午',
+      ],
     },
     favorableWuxing: ['水', '木'],
     unfavorableWuxing: ['火', '土'],
@@ -118,10 +123,10 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
   {
     id: 'ren-qi-long',
     name: '壬骑龙背格',
-    description: '壬辰日生，辰为水库，壬水得辰中癸水帮扶。多见辰字更贵，忌戌冲辰破局。主大富大贵。',
+    description: '壬辰日生，地支多辰，取辰多冲戌中官星。忌戌字填实冲破。',
     conditions: {
       dayStems: ['壬'],
-      otherConditions: ['日柱为壬辰'],
+      otherConditions: ['日柱为壬辰', '地支多辰', '不见地支戌'],
     },
     favorableWuxing: ['水', '木'],
     unfavorableWuxing: ['土', '戌'],
@@ -131,11 +136,10 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
   {
     id: 'liu-yin-chao-yang',
     name: '六阴朝阳格',
-    description:
-      '辛日见戊子时。六阴至子而朝阳，辛金得戊土生扶、子水润泽。忌午冲子破局，忌丙丁火出干混局。主清贵。',
+    description: '辛日见戊子时，取子位一阳来复。忌午冲子，忌丙丁火出干填实。',
     conditions: {
       dayStems: ['辛'],
-      otherConditions: ['时柱为戊子'],
+      otherConditions: ['时柱为戊子', '不见地支午', '不见天干丙', '不见天干丁'],
     },
     favorableWuxing: ['金', '水'],
     unfavorableWuxing: ['火', '午'],
@@ -230,11 +234,17 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
   {
     id: 'fei-tian-lu-ma-geng',
     name: '飞天禄马格',
-    description:
-      '庚日子时或壬日子时。庚禄在申、壬禄在亥，借子位暗冲丙火官星、午火财星。忌丙丁巳午填实，喜金水助之。主大贵。',
+    description: '庚子日地支多子，暗冲午中丁火为官、己土为印。忌丑绊、午冲及丁己填实。',
     conditions: {
       dayStems: ['庚'],
-      otherConditions: ['时柱为丙子'],
+      otherConditions: [
+        '日柱为庚子',
+        '地支多子',
+        '不见地支丑',
+        '不见地支午',
+        '不见天干丁',
+        '不见天干己',
+      ],
     },
     favorableWuxing: ['金', '水'],
     unfavorableWuxing: ['火', '土'],
@@ -244,11 +254,17 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
   {
     id: 'fei-tian-lu-ma-ren',
     name: '飞天禄马格',
-    description:
-      '庚日子时或壬日子时。庚禄在申、壬禄在亥，借子位暗冲丙火官星、午火财星。忌丙丁巳午填实，喜金水助之。主大贵。',
+    description: '壬子日地支多子，暗冲午中丁火为财、己土为官。忌丑绊、午冲及丁己填实。',
     conditions: {
       dayStems: ['壬'],
-      otherConditions: ['时柱为庚子'],
+      otherConditions: [
+        '日柱为壬子',
+        '地支多子',
+        '不见地支丑',
+        '不见地支午',
+        '不见天干丁',
+        '不见天干己',
+      ],
     },
     favorableWuxing: ['金', '水'],
     unfavorableWuxing: ['火', '土'],

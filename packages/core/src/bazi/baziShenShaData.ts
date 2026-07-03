@@ -135,6 +135,8 @@ const shenShaCategories: StringMap = {
   天屠煞: '凶神',
   鬼门: '凶神',
   冲天杀: '凶神',
+  平头杀: '凶神',
+  悬针杀: '凶神',
 
   // 空亡类
   空亡: '空亡',
@@ -227,6 +229,8 @@ export const shenShaTypes: { lucky: string[]; unlucky: string[]; neutral: string
     '天屠煞',
     '鬼门',
     '冲天杀',
+    '平头杀',
+    '悬针杀',
     '丧门',
     '吊客',
     '披麻',

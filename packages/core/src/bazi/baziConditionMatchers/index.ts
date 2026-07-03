@@ -1,13 +1,14 @@
 import type { BaziChartResult } from '../baziTypes';
 import { sanHeMatcher, sanHuiMatcher, siKuMatcher } from './formationMatchers';
 import { shiZhuMatcher, shiZhiMatcher, riZhiMatcher, riZhuMatcher } from './pillarMatchers';
-import { chongMatcher, jianZhiMatcher, diZhiDuoMatcher } from './branchMatchers';
+import { chongMatcher, jianZhiMatcher, noJianZhiMatcher, diZhiDuoMatcher } from './branchMatchers';
 import {
   touGanMatcher,
   faYongMatcher,
   tianGanDuoMatcher,
   wuHeMatcher,
   noZhengHeMatcher,
+  noTouGanMatcher,
 } from './stemMatchers';
 import { strengthMatcher } from './strengthMatchers';
 import { luShenChongMatcher } from './miscMatchers';
@@ -26,10 +27,12 @@ const MATCHERS: Matcher[] = [
   riZhiMatcher,
   riZhuMatcher,
   jianZhiMatcher,
+  noJianZhiMatcher,
   touGanMatcher,
   faYongMatcher,
   strengthMatcher,
   tianGanDuoMatcher,
+  noTouGanMatcher,
   luShenChongMatcher,
   diZhiDuoMatcher,
   wuHeMatcher,

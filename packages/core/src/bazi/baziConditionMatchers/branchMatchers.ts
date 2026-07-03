@@ -2,6 +2,7 @@ import type { Matcher } from './types';
 
 const CHONG_REGEX = /([子丑寅卯辰巳午未申酉戌亥])([子丑寅卯辰巳午未申酉戌亥])冲/;
 const JIAN_ZHI_REGEX = /见([子丑寅卯辰巳午未申酉戌亥])/;
+const NO_JIAN_ZHI_REGEX = /不见地支([子丑寅卯辰巳午未申酉戌亥])/;
 const DI_ZHI_DUO_REGEX = /地支多([子丑寅卯辰巳午未申酉戌亥])/;
 const DI_ZHI_TWO_REGEX = /地支有两([子丑寅卯辰巳午未申酉戌亥])/;
 
@@ -15,6 +16,12 @@ export const jianZhiMatcher: Matcher = ({ condition, allBranches }) => {
   const match = condition.match(JIAN_ZHI_REGEX);
   if (!match) return null;
   return allBranches.includes(match[1]);
+};
+
+export const noJianZhiMatcher: Matcher = ({ condition, allBranches }) => {
+  const match = condition.match(NO_JIAN_ZHI_REGEX);
+  if (!match) return null;
+  return !allBranches.includes(match[1]);
 };
 
 export const diZhiDuoMatcher: Matcher = ({ condition, allBranches }) => {

@@ -14,6 +14,9 @@ export function calculateGlobalShenSha(baziArray: BaziArray): string[] {
   const globalShenSha: string[] = [];
   const gans = baziArray.map(([gan]) => gan);
   const zhis = baziArray.map(([, zhi]) => zhi);
+  const allCharacters = [...gans, ...zhis];
+  const countCharacters = (targets: string[]) =>
+    allCharacters.filter((character) => targets.includes(character)).length;
   const sequences: string[][] = [
     ['甲', '戊', '庚'],
     ['乙', '丙', '丁'],
@@ -40,6 +43,14 @@ export function calculateGlobalShenSha(baziArray: BaziArray): string[] {
 
   if (['巳', '酉', '丑', '申'].every((zhi) => zhis.includes(zhi))) {
     globalShenSha.push('挂剑煞');
+  }
+
+  if (countCharacters(['甲', '丙', '丁', '壬', '辰']) >= 3) {
+    globalShenSha.push('平头杀');
+  }
+
+  if (countCharacters(['甲', '辛', '卯', '午', '申']) >= 3) {
+    globalShenSha.push('悬针杀');
   }
 
   return globalShenSha;
