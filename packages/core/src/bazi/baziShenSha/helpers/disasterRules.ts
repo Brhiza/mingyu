@@ -46,6 +46,21 @@ const YUE_SHA_BY_MONTH_BRANCH: Record<string, string> = {
   丑: '辰',
 };
 
+const TOU_DAI_SHA_BY_YEAR_BRANCH: Record<string, string> = {
+  寅: '辰',
+  午: '辰',
+  戌: '辰',
+  巳: '未',
+  酉: '未',
+  丑: '未',
+  申: '戌',
+  子: '戌',
+  辰: '戌',
+  亥: '丑',
+  卯: '丑',
+  未: '丑',
+};
+
 const PO_JUN_BY_YEAR_BRANCH: Record<string, string> = {
   申: '亥',
   子: '亥',
@@ -340,6 +355,7 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     三公煞: () => SAN_GONG_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
     真亡杀: () => ZHEN_WANG_SHA_BY_YEAR_BRANCH[nianZhi]?.includes(pillarGZ),
     月煞: () => YUE_SHA_BY_MONTH_BRANCH[yueZhi] === zhi,
+    头戴杀: () => pillarIndex >= 2 && TOU_DAI_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
     三丘: () => sanQiuWuMu?.sanQiu === zhi,
     五墓: () => sanQiuWuMu?.wuMu === zhi,
     天刑: () => pillarIndex === 3 && TIAN_XING_HOUR_STEM_BY_YEAR_BRANCH[nianZhi] === gan,

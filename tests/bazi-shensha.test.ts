@@ -1238,6 +1238,35 @@ test('月煞应按三命通会月令三合组取地支', () => {
   }
 });
 
+test('头戴杀应按五行精纪只取生日生时', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '寅'],
+        ['丙', '辰'],
+        ['戊', '辰'],
+        ['庚', '辰'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '寅'],
+        ['丙', '辰'],
+        ['戊', '丑'],
+        ['庚', '未'],
+      ],
+      'male',
+    );
+
+    assert.ok(!hitResult.month.includes('头戴杀'));
+    assert.ok(hitResult.day.includes('头戴杀'));
+    assert.ok(hitResult.hour.includes('头戴杀'));
+    assert.ok(!missResult.day.includes('头戴杀'));
+    assert.ok(!missResult.hour.includes('头戴杀'));
+  }
+});
+
 test('天火煞应按三命通会取寅午戌全且天干不见水', () => {
   for (const calculator of createCalculators()) {
     const hitResult = calculator.calculateAllShenSha(
