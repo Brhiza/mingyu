@@ -1069,3 +1069,57 @@ test('雷霆煞应按三命通会正七二八等月支口诀取地支', () => {
     assert.ok(!missResult.year.includes('雷霆煞'));
   }
 });
+
+test('破煞应按三命通会只取子酉丑辰卯午未戌四组', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丁', '卯'],
+        ['己', '酉'],
+        ['庚', '午'],
+      ],
+      'male',
+    );
+    const excludedResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '寅'],
+        ['丁', '亥'],
+        ['己', '丑'],
+        ['庚', '申'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.year.includes('破煞'));
+    assert.ok(hitResult.month.includes('破煞'));
+    assert.ok(!excludedResult.year.includes('破煞'));
+    assert.ok(!excludedResult.month.includes('破煞'));
+  }
+});
+
+test('天火煞应按三命通会取寅午戌全且天干不见水', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '寅'],
+        ['丙', '午'],
+        ['戊', '戌'],
+        ['庚', '辰'],
+      ],
+      'male',
+    );
+    const waterResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '寅'],
+        ['丙', '午'],
+        ['壬', '戌'],
+        ['庚', '辰'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.global?.includes('天火煞'));
+    assert.ok(!waterResult.global?.includes('天火煞'));
+  }
+});

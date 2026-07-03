@@ -13,6 +13,7 @@ export function analyzeGlobalShenSha(shenShaList: string[]): string[] {
 export function calculateGlobalShenSha(baziArray: BaziArray): string[] {
   const globalShenSha: string[] = [];
   const gans = baziArray.map(([gan]) => gan);
+  const zhis = baziArray.map(([, zhi]) => zhi);
   const sequences: string[][] = [
     ['甲', '戊', '庚'],
     ['乙', '丙', '丁'],
@@ -27,6 +28,14 @@ export function calculateGlobalShenSha(baziArray: BaziArray): string[] {
       globalShenSha.push('三奇贵人');
       break;
     }
+  }
+
+  if (
+    ['寅', '午', '戌'].every((zhi) => zhis.includes(zhi)) &&
+    gans.some((gan) => gan === '丙' || gan === '丁') &&
+    !gans.some((gan) => gan === '壬' || gan === '癸')
+  ) {
+    globalShenSha.push('天火煞');
   }
 
   return globalShenSha;
