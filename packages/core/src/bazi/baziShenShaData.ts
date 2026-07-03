@@ -129,6 +129,7 @@ const shenShaCategories: StringMap = {
 
   // 空亡类
   空亡: '空亡',
+  截路空亡: '空亡',
 
   // 转换类
   天转: '变化',
@@ -221,6 +222,7 @@ export const shenShaTypes: { lucky: string[]; unlucky: string[]; neutral: string
     '十恶大败',
     '孤鸾煞',
     '红艳煞',
+    '截路空亡',
   ],
   neutral: [
     '驿马',

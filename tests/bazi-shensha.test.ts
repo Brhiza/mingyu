@@ -413,6 +413,33 @@ test('三公煞应按生年地支分组匹配固定干支', () => {
   }
 });
 
+test('截路空亡应只按日干取时支判断', () => {
+  for (const calculator of createCalculators()) {
+    const result = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['壬', '申'],
+        ['甲', '子'],
+        ['壬', '申'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['壬', '申'],
+        ['乙', '丑'],
+        ['壬', '申'],
+      ],
+      'male',
+    );
+
+    assert.ok(result.hour.includes('截路空亡'));
+    assert.ok(!result.month.includes('截路空亡'));
+    assert.ok(!missResult.hour.includes('截路空亡'));
+  }
+});
+
 test('三丘五墓应按月令四季取本支与对宫', () => {
   for (const calculator of createCalculators()) {
     const springResult = calculator.calculateAllShenSha(

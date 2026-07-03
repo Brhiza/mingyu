@@ -1,10 +1,24 @@
 import { BASIC_MAPPINGS } from '../../baziDefinitions';
 import type { RuleContext, ShenShaRuleMap } from './types';
 
+const JIE_LU_KONG_WANG_HOUR_BRANCHES: Record<string, string[]> = {
+  甲: ['申', '酉'],
+  己: ['申', '酉'],
+  乙: ['午', '未'],
+  庚: ['午', '未'],
+  丙: ['辰', '巳'],
+  辛: ['辰', '巳'],
+  丁: ['寅', '卯'],
+  壬: ['寅', '卯'],
+  戊: ['戌', '亥'],
+  癸: ['戌', '亥'],
+};
+
 export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
   const { zhi, pillarIndex, yueZhi, riGan, riZhi, riGZ, pillarGZ, ctg, zhiIdx, variants } = ctx;
 
   return {
+    截路空亡: () => pillarIndex === 3 && JIE_LU_KONG_WANG_HOUR_BRANCHES[riGan]?.includes(zhi),
     天赦日: () => {
       if (pillarIndex !== 2) return false;
       const season: string = (
