@@ -121,6 +121,36 @@ const TIAN_SHA_BY_BRANCH: Record<string, string> = {
   丑: '戌',
 };
 
+const MU_SHA_BY_YEAR_BRANCH: Record<string, string> = {
+  申: '辰',
+  子: '辰',
+  辰: '辰',
+  亥: '未',
+  卯: '未',
+  未: '未',
+  寅: '戌',
+  午: '戌',
+  戌: '戌',
+  巳: '丑',
+  酉: '丑',
+  丑: '丑',
+};
+
+const HAI_QI_SHA_BY_YEAR_BRANCH: Record<string, string> = {
+  申: '亥',
+  子: '亥',
+  辰: '亥',
+  亥: '寅',
+  卯: '寅',
+  未: '寅',
+  寅: '巳',
+  午: '巳',
+  戌: '巳',
+  巳: '申',
+  酉: '申',
+  丑: '申',
+};
+
 const TIAN_XING_HOUR_STEM_BY_YEAR_BRANCH: Record<string, string> = {
   子: '乙',
   丑: '乙',
@@ -312,6 +342,8 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
       return map[nianZhi] === zhi || map[riZhi] === zhi;
     },
     天杀: () => TIAN_SHA_BY_BRANCH[nianZhi] === zhi || TIAN_SHA_BY_BRANCH[riZhi] === zhi,
+    墓杀: () => MU_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
+    害气杀: () => HAI_QI_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
     六厄: () => {
       const map: Record<string, string> = {
         申: '卯',

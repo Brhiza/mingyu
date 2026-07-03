@@ -1414,3 +1414,31 @@ test('天罡杀阴杀阳杀应按五行精纪以年支取目标地支', () => {
     assert.ok(!missNames.some((name) => ['天罡杀', '阴杀', '阳杀'].includes(name)));
   }
 });
+
+test('墓杀和害气杀应按五行精纪以年支三合组取目标地支', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['壬', '申'],
+        ['甲', '辰'],
+        ['乙', '亥'],
+        ['丙', '午'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['壬', '申'],
+        ['甲', '子'],
+        ['乙', '寅'],
+        ['丙', '午'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.month.includes('墓杀'));
+    assert.ok(hitResult.day.includes('害气杀'));
+    const missNames = Object.values(missResult).flat();
+    assert.ok(!missNames.some((name) => ['墓杀', '害气杀'].includes(name)));
+  }
+});
