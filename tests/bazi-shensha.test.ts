@@ -166,6 +166,32 @@ test('三奇贵人应按年月日时顺布取用，不应要求相邻三柱', ()
   }
 });
 
+test('月空应按月德互换取干', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['乙', '寅'],
+        ['壬', '午'],
+        ['丁', '亥'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['乙', '寅'],
+        ['癸', '午'],
+        ['丁', '亥'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.day.includes('月空'));
+    assert.ok(!Object.values(missResult).flat().includes('月空'));
+  }
+});
+
 test('披麻应取年支后三位，不应只退一位', () => {
   const calculator = new ShenShaCalculator();
   const result = calculator.calculateAllShenSha(

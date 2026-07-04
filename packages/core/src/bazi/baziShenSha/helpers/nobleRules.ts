@@ -171,6 +171,23 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       };
       return heGanMap[yueDeGan] === gan;
     },
+    月空: () => {
+      const map: Record<string, string> = {
+        寅: '壬',
+        午: '壬',
+        戌: '壬',
+        亥: '庚',
+        卯: '庚',
+        未: '庚',
+        申: '丙',
+        子: '丙',
+        辰: '丙',
+        巳: '甲',
+        酉: '甲',
+        丑: '甲',
+      };
+      return map[yueZhi] === gan;
+    },
     福星贵人: () => {
       const map: Record<string, string[]> = {
         甲: ['丙寅', '丙子'],
