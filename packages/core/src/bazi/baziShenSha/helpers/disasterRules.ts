@@ -584,6 +584,13 @@ const PO_SHA_BRANCH_PAIRS = [
   ['未', '戌'],
 ];
 
+const JIAO_HAI_SHA_DAY_HOUR_BRANCH_PAIRS = [
+  ['申', '亥'],
+  ['亥', '申'],
+  ['巳', '寅'],
+  ['寅', '巳'],
+];
+
 const GUI_MEN_BRANCH_BY_YEAR_BRANCH: Record<string, string> = {
   子: '酉',
   酉: '子',
@@ -682,6 +689,9 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
       (zhi === left && baziArray.some((pillar) => pillar[1] === right)) ||
       (zhi === right && baziArray.some((pillar) => pillar[1] === left)),
   );
+  const hasJiaoHaiSha = JIAO_HAI_SHA_DAY_HOUR_BRANCH_PAIRS.some(([dayBranch, hourBranch]) => {
+    return riZhi === dayBranch && shiZhi === hourBranch;
+  });
   const annualPalace = (offset: number) => cdz[(zhiIdx(nianZhi) + offset + 12) % 12] === zhi;
   const nianGanIsYang = ctg.indexOf(nianGan) % 2 === 0;
   const yuanChenOffset = (nianGanIsYang && isMan) || (!nianGanIsYang && !isMan) ? 5 : 7;
@@ -888,6 +898,7 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     天伤: () => tianShangBranch === zhi,
     雷霆煞: () => LEI_TING_SHA_BRANCH_BY_MONTH_BRANCH[yueZhi] === zhi,
     破煞: () => hasPoSha,
+    狡害杀: () => pillarIndex >= 2 && hasJiaoHaiSha,
     自缢煞: () => GUI_MEN_BRANCH_BY_YEAR_BRANCH[nianZhi] === zhi,
     鬼门: () => GUI_MEN_BRANCH_BY_YEAR_BRANCH[nianZhi] === zhi,
     天罡杀: () => TIAN_GANG_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
