@@ -1647,6 +1647,37 @@ test('五行精纪天官贵人应按阴官贵十干支表取用', () => {
   }
 });
 
+test('五行精纪扶生日旌德旌钺应按月支年支定例取用', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '寅'],
+        ['乙', '午'],
+        ['丙', '亥'],
+        ['丙', '寅'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '寅'],
+        ['乙', '午'],
+        ['丁', '子'],
+        ['戊', '卯'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.day.includes('扶生日'));
+    assert.ok(hitResult.day.includes('旌德'));
+    assert.ok(hitResult.hour.includes('旌德'));
+    assert.ok(hitResult.hour.includes('旌钺'));
+    assert.ok(!Object.values(missResult).flat().includes('扶生日'));
+    assert.ok(!Object.values(missResult).flat().includes('旌德'));
+    assert.ok(!Object.values(missResult).flat().includes('旌钺'));
+  }
+});
+
 test('五行精纪点头杀与无形鬼应按日时固定干支旁证取用', () => {
   for (const calculator of createCalculators()) {
     const dianTouResult = calculator.calculateAllShenSha(

@@ -22,6 +22,8 @@ const shenShaCategories: StringMap = {
   将星: '权力',
   攀鞍: '权力',
   金舆: '权力',
+  旌德: '权力',
+  旌钺: '权力',
 
   羊刃: '刃煞',
   飞刃: '刃煞',
@@ -32,6 +34,7 @@ const shenShaCategories: StringMap = {
   天医: '宗教',
   太阳: '吉神',
   福星: '吉神',
+  扶生日: '吉神',
   青龙杀: '吉神',
   良会杀: '吉神',
 
@@ -169,6 +172,8 @@ export const shenShaTypes: { lucky: string[]; unlucky: string[]; neutral: string
     '将星',
     '攀鞍',
     '金舆',
+    '旌德',
+    '旌钺',
     '天赦日',
     '十灵日',
     '六秀日',
@@ -177,6 +182,7 @@ export const shenShaTypes: { lucky: string[]; unlucky: string[]; neutral: string
     '天医',
     '太阳',
     '福星',
+    '扶生日',
     '青龙杀',
     '良会杀',
   ],

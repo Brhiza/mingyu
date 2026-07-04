@@ -121,6 +121,51 @@ const LIANG_HUI_SHA_BY_YEAR_BRANCH: Record<string, string> = {
   未: '甲子',
 };
 
+const FU_SHENG_DAY_BY_MONTH_BRANCH: Record<string, string> = {
+  寅: '酉',
+  卯: '卯',
+  辰: '戌',
+  巳: '辰',
+  午: '亥',
+  未: '巳',
+  申: '子',
+  酉: '午',
+  戌: '丑',
+  亥: '未',
+  子: '寅',
+  丑: '申',
+};
+
+const JING_DE_STEM_BY_MONTH_BRANCH: Record<string, string> = {
+  寅: '丙',
+  午: '丙',
+  戌: '丙',
+  巳: '庚',
+  酉: '庚',
+  丑: '庚',
+  申: '壬',
+  子: '壬',
+  辰: '壬',
+  亥: '甲',
+  卯: '甲',
+  未: '甲',
+};
+
+const JING_YUE_HOUR_BRANCH_BY_YEAR_BRANCH: Record<string, string> = {
+  寅: '寅',
+  午: '寅',
+  戌: '寅',
+  巳: '巳',
+  酉: '巳',
+  丑: '巳',
+  申: '申',
+  子: '申',
+  辰: '申',
+  亥: '亥',
+  卯: '亥',
+  未: '亥',
+};
+
 const ZHEN_WANG_SHA_BY_YEAR_BRANCH: Record<string, string[]> = {
   寅: ['癸巳', '癸亥'],
   午: ['癸巳', '癸亥'],
@@ -556,6 +601,9 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     三公煞: () => SAN_GONG_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
     青龙杀: () => QING_LONG_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
     良会杀: () => LIANG_HUI_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
+    扶生日: () => FU_SHENG_DAY_BY_MONTH_BRANCH[yueZhi] === zhi,
+    旌德: () => pillarIndex >= 2 && JING_DE_STEM_BY_MONTH_BRANCH[yueZhi] === gan,
+    旌钺: () => pillarIndex === 3 && JING_YUE_HOUR_BRANCH_BY_YEAR_BRANCH[nianZhi] === zhi,
     真亡杀: () => ZHEN_WANG_SHA_BY_YEAR_BRANCH[nianZhi]?.includes(pillarGZ),
     月煞: () => YUE_SHA_BY_MONTH_BRANCH[yueZhi] === zhi,
     头戴杀: () => pillarIndex >= 2 && TOU_DAI_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
