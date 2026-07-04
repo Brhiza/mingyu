@@ -31,6 +31,19 @@ const SHENG_CHENG_MA_BY_BRANCH: Record<string, string> = {
   未: '丁巳',
 };
 
+const FOOD_GOD_BY_STEM: Record<string, string> = {
+  甲: '丙',
+  乙: '丁',
+  丙: '戊',
+  丁: '己',
+  戊: '庚',
+  己: '辛',
+  庚: '壬',
+  辛: '癸',
+  壬: '甲',
+  癸: '乙',
+};
+
 const LU_BRANCH_BY_STEM: Record<string, string> = {
   甲: '寅',
   乙: '卯',
@@ -68,6 +81,13 @@ const MING_WEI_LU_BY_STEM: Record<string, string> = {
   辛: '癸酉',
   壬: '甲亥',
   癸: '乙子',
+};
+
+const SHI_SHEN_DAI_LU_BY_STEM: Record<string, string> = {
+  壬: '甲寅',
+  癸: '乙卯',
+  戊: '庚申',
+  己: '辛酉',
 };
 
 const FEI_REN_PILLARS = ['丙子', '丁丑', '戊子', '己丑', '壬午', '癸未'];
@@ -194,6 +214,8 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
     const index = zhiIdx(branch);
     return index < 0 ? '' : cdz[(index + offset) % cdz.length];
   };
+  const mingWeiMaPillar = (stem: string, branch: string) =>
+    `${FOOD_GOD_BY_STEM[stem] ?? ''}${YI_MA_BY_BRANCH[branch] ?? ''}`;
 
   return {
     禄神: () => {
@@ -204,6 +226,9 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
       SHENG_CHENG_LU_BY_STEM[riGan]?.includes(pillarGZ),
     名位禄: () =>
       MING_WEI_LU_BY_STEM[nianGan] === pillarGZ || MING_WEI_LU_BY_STEM[riGan] === pillarGZ,
+    食神带禄: () =>
+      SHI_SHEN_DAI_LU_BY_STEM[nianGan] === pillarGZ ||
+      SHI_SHEN_DAI_LU_BY_STEM[riGan] === pillarGZ,
     禄对神: () => {
       return (
         forwardBranch(LU_BRANCH_BY_STEM[nianGan], 6) === zhi ||
@@ -253,6 +278,7 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
     生成马: () =>
       SHENG_CHENG_MA_BY_BRANCH[nianZhi] === pillarGZ ||
       SHENG_CHENG_MA_BY_BRANCH[riZhi] === pillarGZ,
+    名位马: () => mingWeiMaPillar(nianGan, nianZhi) === pillarGZ || mingWeiMaPillar(riGan, riZhi) === pillarGZ,
     攀鞍: () => {
       const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
       const riYiMa = YI_MA_BY_BRANCH[riZhi];

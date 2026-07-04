@@ -776,7 +776,7 @@ test('五行精纪马天庭马九天马九地应按驿马前后定支取用', ()
   }
 });
 
-test('五行精纪生成马应按年支或日支三合组取固定干支', () => {
+test('五行精纪生成马与名位马应按年支日支或食神驿马取固定干支', () => {
   for (const calculator of createCalculators()) {
     const yearHitResult = calculator.calculateAllShenSha(
       [
@@ -796,6 +796,15 @@ test('五行精纪生成马应按年支或日支三合组取固定干支', () =>
       ],
       'male',
     );
+    const mingWeiHitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '寅'],
+        ['丙', '申'],
+        ['乙', '卯'],
+        ['丁', '巳'],
+      ],
+      'male',
+    );
     const missResult = calculator.calculateAllShenSha(
       [
         ['甲', '寅'],
@@ -808,11 +817,14 @@ test('五行精纪生成马应按年支或日支三合组取固定干支', () =>
 
     assert.ok(yearHitResult.month.includes('生成马'));
     assert.ok(dayHitResult.hour.includes('生成马'));
+    assert.ok(mingWeiHitResult.month.includes('名位马'));
+    assert.ok(mingWeiHitResult.hour.includes('名位马'));
     assert.ok(!Object.values(missResult).flat().includes('生成马'));
+    assert.ok(!Object.values(missResult).flat().includes('名位马'));
   }
 });
 
-test('五行精纪生成禄与名位禄应按年干或日干固定干支取用', () => {
+test('五行精纪生成禄名位禄食神带禄应按年干或日干固定干支取用', () => {
   for (const calculator of createCalculators()) {
     const hitResult = calculator.calculateAllShenSha(
       [
@@ -832,6 +844,15 @@ test('五行精纪生成禄与名位禄应按年干或日干固定干支取用',
       ],
       'male',
     );
+    const daiLuHitResult = calculator.calculateAllShenSha(
+      [
+        ['壬', '子'],
+        ['甲', '寅'],
+        ['己', '丑'],
+        ['辛', '酉'],
+      ],
+      'male',
+    );
     const missResult = calculator.calculateAllShenSha(
       [
         ['甲', '子'],
@@ -846,8 +867,11 @@ test('五行精纪生成禄与名位禄应按年干或日干固定干支取用',
     assert.ok(hitResult.hour.includes('生成禄'));
     assert.ok(mingWeiHitResult.month.includes('名位禄'));
     assert.ok(mingWeiHitResult.hour.includes('名位禄'));
+    assert.ok(daiLuHitResult.month.includes('食神带禄'));
+    assert.ok(daiLuHitResult.hour.includes('食神带禄'));
     assert.ok(!Object.values(missResult).flat().includes('生成禄'));
     assert.ok(!Object.values(missResult).flat().includes('名位禄'));
+    assert.ok(!Object.values(missResult).flat().includes('食神带禄'));
   }
 });
 
