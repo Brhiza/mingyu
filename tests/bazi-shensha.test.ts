@@ -955,6 +955,34 @@ test('科名贵应只取甲辰至癸丑一旬的日时干支', () => {
   }
 });
 
+test('岁窠应只在年支与月支相同时标记月柱', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丙', '子'],
+        ['戊', '辰'],
+        ['庚', '子'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丁', '丑'],
+        ['戊', '辰'],
+        ['庚', '子'],
+      ],
+      'male',
+    );
+
+    assert.ok(!hitResult.year.includes('岁窠'));
+    assert.ok(hitResult.month.includes('岁窠'));
+    assert.ok(!hitResult.hour.includes('岁窠'));
+    assert.ok(!Object.values(missResult).flat().includes('岁窠'));
+  }
+});
+
 test('红艳煞应按三命通会定例取乙午戊子壬巳', () => {
   const cases = [
     { stem: '乙', hitBranch: '午', oldWrongBranch: '申' },

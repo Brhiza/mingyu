@@ -42,7 +42,8 @@ const KE_MING_GUI_PILLARS = [
 ];
 
 export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
-  const { gan, zhi, pillarIndex, nianGan, yueZhi, riGan, pillarGZ, baziArray } = ctx;
+  const { gan, zhi, pillarIndex, nianGan, nianZhi, yueZhi, riGan, pillarGZ, baziArray } =
+    ctx;
 
   return {
     天乙贵人: () => {
@@ -278,6 +279,7 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       return map[nianGan] === zhi || map[riGan] === zhi;
     },
     科名贵: () => pillarIndex >= 2 && KE_MING_GUI_PILLARS.includes(pillarGZ),
+    岁窠: () => pillarIndex === 1 && zhi === nianZhi,
     国印贵人: () => {
       const map: Record<string, string> = {
         甲: '戌',
