@@ -1246,6 +1246,34 @@ test('五行精纪官贵堂应按稳定九干取地支', () => {
   }
 });
 
+test('五行精纪天奇天宝应按生时前后五辰取用', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '寅'],
+        ['乙', '巳'],
+        ['丙', '未'],
+        ['戊', '子'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '寅'],
+        ['乙', '巳'],
+        ['丙', '未'],
+        ['己', '丑'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.month.includes('天奇'));
+    assert.ok(hitResult.day.includes('天宝'));
+    assert.ok(!Object.values(missResult).flat().includes('天奇'));
+    assert.ok(!Object.values(missResult).flat().includes('天宝'));
+  }
+});
+
 test('科名贵应只取甲辰至癸丑一旬的日时干支', () => {
   for (const calculator of createCalculators()) {
     const hitResult = calculator.calculateAllShenSha(

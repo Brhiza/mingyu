@@ -111,8 +111,13 @@ const GUAN_GUI_TANG_BRANCH_BY_STEM: Record<string, string> = {
 };
 
 export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
-  const { gan, zhi, pillarIndex, nianGan, nianZhi, yueZhi, riGan, pillarGZ, baziArray } =
+  const { gan, zhi, pillarIndex, nianGan, nianZhi, yueZhi, riGan, pillarGZ, baziArray, cdz, zhiIdx } =
     ctx;
+  const shiZhi = baziArray[3]?.[1] || '';
+  const branchFromHour = (offset: number) => {
+    const index = zhiIdx(shiZhi);
+    return index < 0 ? '' : cdz[(index + offset + cdz.length) % cdz.length];
+  };
 
   return {
     天乙贵人: () => {
@@ -352,6 +357,8 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
     官贵堂: () =>
       GUAN_GUI_TANG_BRANCH_BY_STEM[nianGan] === zhi ||
       GUAN_GUI_TANG_BRANCH_BY_STEM[riGan] === zhi,
+    天奇: () => branchFromHour(5) === zhi,
+    天宝: () => branchFromHour(-5) === zhi,
     科名贵: () => pillarIndex >= 2 && KE_MING_GUI_PILLARS.includes(pillarGZ),
     真魁星: () => pillarIndex >= 2 && ZHEN_KUI_XING_PILLARS.includes(pillarGZ),
     岁窠: () => pillarIndex === 1 && zhi === nianZhi,
