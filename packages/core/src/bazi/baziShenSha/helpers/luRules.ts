@@ -31,6 +31,13 @@ const SHENG_CHENG_MA_BY_BRANCH: Record<string, string> = {
   未: '丁巳',
 };
 
+const MA_CAI_KU_BY_YI_MA_BRANCH: Record<string, string> = {
+  寅: '辰',
+  申: '未',
+  巳: '丑',
+  亥: '戌',
+};
+
 const FOOD_GOD_BY_STEM: Record<string, string> = {
   甲: '丙',
   乙: '丁',
@@ -278,7 +285,17 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
     生成马: () =>
       SHENG_CHENG_MA_BY_BRANCH[nianZhi] === pillarGZ ||
       SHENG_CHENG_MA_BY_BRANCH[riZhi] === pillarGZ,
-    名位马: () => mingWeiMaPillar(nianGan, nianZhi) === pillarGZ || mingWeiMaPillar(riGan, riZhi) === pillarGZ,
+    名位马: () =>
+      mingWeiMaPillar(nianGan, nianZhi) === pillarGZ ||
+      mingWeiMaPillar(riGan, riZhi) === pillarGZ,
+    马财库: () => {
+      const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
+      const riYiMa = YI_MA_BY_BRANCH[riZhi];
+      return (
+        MA_CAI_KU_BY_YI_MA_BRANCH[nianYiMa] === zhi ||
+        MA_CAI_KU_BY_YI_MA_BRANCH[riYiMa] === zhi
+      );
+    },
     攀鞍: () => {
       const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
       const riYiMa = YI_MA_BY_BRANCH[riZhi];

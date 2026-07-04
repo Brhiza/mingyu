@@ -54,6 +54,7 @@ const shenShaCategories: StringMap = {
   旌钺: '权力',
   生成马: '权力',
   名位马: '权力',
+  马财库: '权力',
 
   羊刃: '刃煞',
   飞刃: '刃煞',
@@ -266,6 +267,7 @@ export const shenShaTypes: { lucky: string[]; unlucky: string[]; neutral: string
     '旌钺',
     '生成马',
     '名位马',
+    '马财库',
     '官会杀',
     '天赦日',
     '十灵日',
