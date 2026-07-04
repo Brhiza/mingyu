@@ -1541,11 +1541,36 @@ test('五行精纪年支凶杀应按原文固定地支取用', () => {
       ],
       'male',
     );
+    const fixedBranchResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['戊', '辰'],
+        ['己', '未'],
+        ['庚', '申'],
+      ],
+      'male',
+    );
+    const fixedBranchMissResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['戊', '巳'],
+        ['己', '午'],
+        ['庚', '申'],
+      ],
+      'male',
+    );
 
     assert.ok(hitResult.month.includes('截命杀'));
     assert.ok(hitResult.day.includes('破外杀'));
     assert.ok(hitResult.hour.includes('血光杀'));
     assert.ok(pushResult.month.includes('推命杀'));
+    assert.ok(fixedBranchResult.month.includes('死气杀'));
+    assert.ok(fixedBranchResult.day.includes('暴败杀'));
+    assert.ok(
+      !Object.values(fixedBranchMissResult)
+        .flat()
+        .some((name) => ['死气杀', '暴败杀'].includes(name)),
+    );
     const missNames = Object.values(missResult).flat();
     assert.ok(!missNames.some((name) => ['破外杀', '血光杀', '截命杀', '推命杀'].includes(name)));
   }

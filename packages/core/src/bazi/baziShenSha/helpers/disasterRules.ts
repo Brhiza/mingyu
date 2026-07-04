@@ -166,6 +166,21 @@ const WU_CHENG_SHA_BY_YEAR_BRANCH: Record<string, string> = {
   未: '子',
 };
 
+const BAO_BAI_SHA_BY_YEAR_BRANCH: Record<string, string> = {
+  子: '未',
+  丑: '午',
+  寅: '巳',
+  卯: '辰',
+  辰: '卯',
+  巳: '寅',
+  午: '丑',
+  未: '子',
+  申: '亥',
+  酉: '戌',
+  戌: '酉',
+  亥: '申',
+};
+
 const LI_XIANG_SHA_BY_YEAR_BRANCH: Record<string, string> = {
   寅: '午',
   午: '午',
@@ -418,7 +433,9 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     天杀: () => TIAN_SHA_BY_BRANCH[nianZhi] === zhi || TIAN_SHA_BY_BRANCH[riZhi] === zhi,
     墓杀: () => MU_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
     害气杀: () => HAI_QI_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
+    死气杀: () => cdz[(zhiIdx(nianZhi) + 4) % 12] === zhi,
     无成杀: () => WU_CHENG_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
+    暴败杀: () => BAO_BAI_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
     离乡杀: () => pillarIndex >= 2 && LI_XIANG_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
     破外杀: () => pillarIndex >= 2 && PO_WAI_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
     血光杀: () => pillarIndex >= 2 && XUE_GUANG_SHA_BY_YEAR_BRANCH[nianZhi]?.includes(zhi),
