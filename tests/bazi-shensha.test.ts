@@ -773,6 +773,42 @@ test('五行精纪马天庭马九天马九地应按驿马前后定支取用', ()
   }
 });
 
+test('五行精纪生成马应按年支或日支三合组取固定干支', () => {
+  for (const calculator of createCalculators()) {
+    const yearHitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '寅'],
+        ['庚', '申'],
+        ['戊', '辰'],
+        ['丁', '卯'],
+      ],
+      'male',
+    );
+    const dayHitResult = calculator.calculateAllShenSha(
+      [
+        ['丁', '丑'],
+        ['乙', '未'],
+        ['戊', '子'],
+        ['甲', '寅'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '寅'],
+        ['庚', '午'],
+        ['戊', '巳'],
+        ['丁', '卯'],
+      ],
+      'male',
+    );
+
+    assert.ok(yearHitResult.month.includes('生成马'));
+    assert.ok(dayHitResult.hour.includes('生成马'));
+    assert.ok(!Object.values(missResult).flat().includes('生成马'));
+  }
+});
+
 test('五行精纪勾陈真武应按年干日干定支取用', () => {
   for (const calculator of createCalculators()) {
     const hitResult = calculator.calculateAllShenSha(

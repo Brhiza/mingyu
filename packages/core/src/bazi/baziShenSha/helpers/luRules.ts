@@ -16,6 +16,21 @@ const YI_MA_BY_BRANCH: Record<string, string> = {
   丑: '亥',
 };
 
+const SHENG_CHENG_MA_BY_BRANCH: Record<string, string> = {
+  寅: '庚申',
+  午: '庚申',
+  戌: '庚申',
+  申: '甲寅',
+  子: '甲寅',
+  辰: '甲寅',
+  巳: '癸亥',
+  酉: '癸亥',
+  丑: '癸亥',
+  亥: '丁巳',
+  卯: '丁巳',
+  未: '丁巳',
+};
+
 const LU_BRANCH_BY_STEM: Record<string, string> = {
   甲: '寅',
   乙: '卯',
@@ -204,6 +219,9 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
     驿马: () => {
       return YI_MA_BY_BRANCH[nianZhi] === zhi || YI_MA_BY_BRANCH[riZhi] === zhi;
     },
+    生成马: () =>
+      SHENG_CHENG_MA_BY_BRANCH[nianZhi] === pillarGZ ||
+      SHENG_CHENG_MA_BY_BRANCH[riZhi] === pillarGZ,
     攀鞍: () => {
       const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
       const riYiMa = YI_MA_BY_BRANCH[riZhi];
