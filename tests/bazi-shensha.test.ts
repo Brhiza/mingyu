@@ -1093,6 +1093,33 @@ test('五行精纪名福应按年干所定生月取用', () => {
   }
 });
 
+test('五行精纪命学堂应按年支后一辰取用', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['乙', '亥'],
+        ['丙', '寅'],
+        ['丁', '卯'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['乙', '戌'],
+        ['丙', '寅'],
+        ['丁', '卯'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.month.includes('命学堂'));
+    assert.ok(!hitResult.year.includes('命学堂'));
+    assert.ok(!Object.values(missResult).flat().includes('命学堂'));
+  }
+});
+
 test('红艳煞应按三命通会定例取乙午戊子壬巳', () => {
   const cases = [
     { stem: '乙', hitBranch: '午', oldWrongBranch: '申' },

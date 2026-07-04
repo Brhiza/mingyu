@@ -54,6 +54,21 @@ const MING_FU_MONTH_BRANCH_BY_YEAR_STEM: Record<string, string> = {
   癸: '申',
 };
 
+const MING_XUE_TANG_BRANCH_BY_YEAR_BRANCH: Record<string, string> = {
+  子: '亥',
+  丑: '子',
+  寅: '丑',
+  卯: '寅',
+  辰: '卯',
+  巳: '辰',
+  午: '巳',
+  未: '午',
+  申: '未',
+  酉: '申',
+  戌: '酉',
+  亥: '戌',
+};
+
 export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
   const { gan, zhi, pillarIndex, nianGan, nianZhi, yueZhi, riGan, pillarGZ, baziArray } =
     ctx;
@@ -294,6 +309,7 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
     科名贵: () => pillarIndex >= 2 && KE_MING_GUI_PILLARS.includes(pillarGZ),
     岁窠: () => pillarIndex === 1 && zhi === nianZhi,
     名福: () => pillarIndex === 1 && MING_FU_MONTH_BRANCH_BY_YEAR_STEM[nianGan] === zhi,
+    命学堂: () => MING_XUE_TANG_BRANCH_BY_YEAR_BRANCH[nianZhi] === zhi,
     国印贵人: () => {
       const map: Record<string, string> = {
         甲: '戌',
