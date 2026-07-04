@@ -711,6 +711,33 @@ test('五行精纪命天庭禄九天禄九地应按命前与禄后定支取用',
   }
 });
 
+test('五行精纪禄对神应按年干或日干禄位对冲取用', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '申'],
+        ['乙', '丑'],
+        ['丁', '子'],
+        ['戊', '寅'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '酉'],
+        ['乙', '丑'],
+        ['丁', '亥'],
+        ['戊', '寅'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.year.includes('禄对神'));
+    assert.ok(hitResult.day.includes('禄对神'));
+    assert.ok(!Object.values(missResult).flat().includes('禄对神'));
+  }
+});
+
 test('天厨贵人对丙日应取巳，不应错判为子', () => {
   const calculator = new ShenShaCalculator();
   const hitResult = calculator.calculateAllShenSha(

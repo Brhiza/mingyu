@@ -79,6 +79,12 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
     禄神: () => {
       return LU_BRANCH_BY_STEM[riGan] === zhi;
     },
+    禄对神: () => {
+      return (
+        forwardBranch(LU_BRANCH_BY_STEM[nianGan], 6) === zhi ||
+        forwardBranch(LU_BRANCH_BY_STEM[riGan], 6) === zhi
+      );
+    },
     羊刃: () => {
       return yangRenMap[riGan] === zhi;
     },
