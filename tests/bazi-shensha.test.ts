@@ -1066,6 +1066,33 @@ test('岁窠应只在年支与月支相同时标记月柱', () => {
   }
 });
 
+test('五行精纪名福应按年干所定生月取用', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['癸', '酉'],
+        ['丙', '寅'],
+        ['丁', '卯'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['壬', '申'],
+        ['丙', '寅'],
+        ['丁', '卯'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.month.includes('名福'));
+    assert.ok(!hitResult.year.includes('名福'));
+    assert.ok(!Object.values(missResult).flat().includes('名福'));
+  }
+});
+
 test('红艳煞应按三命通会定例取乙午戊子壬巳', () => {
   const cases = [
     { stem: '乙', hitBranch: '午', oldWrongBranch: '申' },
