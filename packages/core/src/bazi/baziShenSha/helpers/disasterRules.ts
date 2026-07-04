@@ -160,6 +160,19 @@ const WU_GUI_KONG_WANG_BRANCHES_BY_YEAR_STEM: Record<string, string[]> = {
   癸: ['申', '酉'],
 };
 
+const PO_ZU_KONG_WANG_BRANCH_BY_YEAR_STEM: Record<string, string> = {
+  甲: '午',
+  乙: '午',
+  丙: '申',
+  丁: '申',
+  戊: '戌',
+  己: '戌',
+  庚: '子',
+  辛: '子',
+  壬: '寅',
+  癸: '寅',
+};
+
 const QING_LONG_SHA_BY_YEAR_BRANCH: Record<string, string> = {
   寅: '丙寅',
   午: '丙寅',
@@ -762,6 +775,7 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     财会杀: () => CAI_HUI_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
     真鬼刑疾: () => pillarIndex >= 2 && ZHEN_GUI_XING_JI_STEMS_BY_YEAR_STEM[nianGan]?.includes(gan),
     五鬼空亡: () => WU_GUI_KONG_WANG_BRANCHES_BY_YEAR_STEM[nianGan]?.includes(zhi),
+    破祖空亡: () => PO_ZU_KONG_WANG_BRANCH_BY_YEAR_STEM[nianGan] === zhi,
     青龙杀: () => QING_LONG_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
     良会杀: () => LIANG_HUI_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
     扶生日: () => FU_SHENG_DAY_BY_MONTH_BRANCH[yueZhi] === zhi,

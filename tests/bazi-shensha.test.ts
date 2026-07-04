@@ -2482,7 +2482,7 @@ test('五行精纪天瞽杀应按月令起申逆行十二支取用', () => {
   }
 });
 
-test('五行精纪五鬼空亡与鸱枭杀应按古籍原文取用', () => {
+test('五行精纪五鬼空亡、破祖空亡与鸱枭杀应按古籍原文取用', () => {
   for (const calculator of createCalculators()) {
     const wuGuiResult = calculator.calculateAllShenSha(
       [
@@ -2490,6 +2490,15 @@ test('五行精纪五鬼空亡与鸱枭杀应按古籍原文取用', () => {
         ['丁', '巳'],
         ['戊', '午'],
         ['己', '申'],
+      ],
+      'male',
+    );
+    const poZuResult = calculator.calculateAllShenSha(
+      [
+        ['戊', '子'],
+        ['甲', '戌'],
+        ['乙', '卯'],
+        ['丙', '辰'],
       ],
       'male',
     );
@@ -2514,9 +2523,11 @@ test('五行精纪五鬼空亡与鸱枭杀应按古籍原文取用', () => {
 
     assert.ok(wuGuiResult.month.includes('五鬼空亡'));
     assert.ok(wuGuiResult.day.includes('五鬼空亡'));
+    assert.ok(poZuResult.month.includes('破祖空亡'));
     assert.ok(chiXiaoResult.day.includes('鸱枭杀'));
     assert.ok(chiXiaoResult.hour.includes('鸱枭杀'));
     assert.ok(!Object.values(missResult).flat().includes('五鬼空亡'));
+    assert.ok(!Object.values(missResult).flat().includes('破祖空亡'));
     assert.ok(!Object.values(missResult).flat().includes('鸱枭杀'));
   }
 });
