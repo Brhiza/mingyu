@@ -116,7 +116,7 @@
 | `analyzeUsefulGodPlacement(pillars, dayMaster, getTenGod, favorableWuxing, unfavorableWuxing)` | 四柱、日干、十神函数、喜用五行、忌神五行 | `UsefulGodPlacementProfile` | 用神落点（喜神得力/受制/忌神等） |
 | `analyzeNayinProfile(pillars)` | 四柱 | `NayinProfile` | 各柱纳音五行 |
 | `analyzeMonthQiProfile(monthBranch, commanderStem?)` | 月支、司令 | `MonthQiProfile` | 月令气数（五行旺相休囚死） |
-| `analyzeMatterFocusProfile(gender, favorableWuxing)` | 性别、喜用五行 | `MatterFocusProfile` | 事项宫位（事业/财运/感情等） |
+| `analyzeMatterFocusProfile(gender, favorableWuxing)` | 性别、喜用五行 | `MatterFocusProfile` | 兼容保留；当前返回空列表，不输出无依据事项分析 |
 | `calculateMingGua(birthYear, gender)` | 出生年、性别 | `MingGuaProfile` | 命卦（东四命/西四命） |
 | `calculateXiaoYunProfile(solarTime, gender, dayMasterGan, getTenGod)` | 太阳时、性别、日干、十神函数 | `XiaoYunProfile` | 小运（童限逐年干支） |
 | `buildLuckDirectionProfile(gender, yearStem)` | 性别、年干 | `LuckDirectionProfile` | 大运顺逆方向 |
@@ -267,7 +267,7 @@
 
 **参数 `input`：** 出生年月日时分、经纬度、时区、可选真太阳时。
 
-**返回 `AstrolabeData`：** 十大行星、四轴（上升/天顶/下降/天底）、Placidus 十二宫、Top 12 相位（合/六合/刑/拱/冲/半六合/半刑/五分相等）、四元素三形态总结、逆行星。依赖 `celestine`。
+**返回 `AstrolabeData`：** 十大行星、四轴（上升/天顶/下降/天底）、Placidus 十二宫、凯龙、四小行星、南北交、莉莉丝、福点/精神点、Top 12 相位（合/六合/刑/拱/冲/半六合/半刑/五分相等）、四元素三形态总结、逆行星。依赖 `celestine`。
 
 ---
 

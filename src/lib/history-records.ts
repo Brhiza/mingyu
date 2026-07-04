@@ -1,6 +1,6 @@
 import type { QueryInputState } from '@/lib/query-state';
 import type { DivinationDraft, DivinationSession } from '@/lib/divination/engine';
-import { ALMANAC_TOPIC_OPTIONS } from '@/lib/divination/config';
+import { ALMANAC_TOPIC_OPTIONS } from '@core/divination/config';
 import { safeStorage } from '@/lib/safe-storage';
 
 const PERSONAL_HISTORY_STORAGE_KEY = 'prompt_studio_personal_history_v1';

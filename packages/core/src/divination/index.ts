@@ -11,4 +11,8 @@ export * as ssgw from './algorithms/ssgw';
 export * as lenormand from './algorithms/lenormand';
 export * as astrolabe from './algorithms/astrolabe';
 
+export * from './config';
+export * from './engine/liuyao-template';
+export * from './engine/method-text';
+
 export type * from '../types/index';

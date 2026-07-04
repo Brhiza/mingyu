@@ -63,9 +63,11 @@ yarn add mingyu-core
 | **择日 Almanac** | `mingyu-core/divination/almanac` | 黄历择日、神煞评分、二十八宿、彭祖百忌 |
 | **灵签 SSGW** | `mingyu-core/divination/ssgw` | 三山国王 92 签随机抽签 |
 | **雷诺曼 Lenormand** | `mingyu-core/divination/lenormand` | 36 张牌、8 种牌阵、牌义组合 |
-| **西洋占星 Astrolabe** | `mingyu-core/divination/astrolabe` | 本命盘、Placidus 宫位、十大相位、行运 |
+| **西洋占星 Astrolabe** | `mingyu-core/divination/astrolabe` | 本命盘、Placidus 宫位、行星、凯龙/四小行星/交点/莉莉丝/福点等扩展点、相位与行运 |
 | **历法 Calendar** | `mingyu-core/calendar` | 农历、干支、节气、空亡、真太阳时 |
 | **类型 Types** | `mingyu-core/types` | 所有共享类型定义 |
+| **占法配置 Config** | `mingyu-core/divination/config` | 占法列表、起盘方式和前端共享配置 |
+| **占法提示文本** | `mingyu-core/divination/engine/method-text`、`mingyu-core/divination/engine/liuyao-template` | 占法方法说明与六爻通用/专项模板 |
 | **原始数据 Data** | `mingyu-core/divination/divination-data` | 五行、六亲、纳甲、星曜等配置数据 |
 | **梅花外应配置** | `mingyu-core/divination/meihua-omens` | 梅花易数外应物象映射 |
 | **六十四卦数据** | `mingyu-core/divination/hexagram-data` | 六爻卦象数据、梅花八卦索引 |
@@ -241,7 +243,7 @@ const voidBranches = getVoidBranches('甲子');      // ['戌','亥'] 旬空
 | `analyzeUsefulGodPlacement` | 函数 | 用神落点分析 |
 | `analyzeNayinProfile` | 函数 | 纳音五行分析 |
 | `analyzeMonthQiProfile` | 函数 | 月令气数（旺相休囚死） |
-| `analyzeMatterFocusProfile` | 函数 | 事项宫位分析 |
+| `analyzeMatterFocusProfile` | 函数 | 兼容保留，当前返回空列表，不输出无依据事项分析 |
 | `calculateMingGua` | 函数 | 命卦计算 |
 | `calculateXiaoYunProfile` | 函数 | 小运（童限逐年） |
 | `buildLuckDirectionProfile` | 函数 | 大运顺逆方向 |

@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
-import { getDefaultHoroscopeContext } from '@/lib/iztro/runtime-helpers';
+import { getDefaultHoroscopeContext } from '@core/ziwei/iztro';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
 import type { ZiweiRuntimeState } from '../ResultPage.types';

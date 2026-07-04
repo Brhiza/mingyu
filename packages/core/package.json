@@ -1,6 +1,6 @@
 {
   "name": "mingyu-core",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Mingyu core algorithms: traditional Chinese metaphysics (八字Bazi, 紫微斗数Ziwei, 奇门遁甲Qimen, 六爻Liuyao, 六壬Liuren, 梅花易数Meihua, and more)",
   "type": "module",
   "main": "./dist/index.js",
@@ -50,6 +50,18 @@
     "./divination/astrolabe": {
       "import": "./dist/divination/algorithms/astrolabe.js",
       "types": "./dist/divination/algorithms/astrolabe.d.ts"
+    },
+    "./divination/config": {
+      "import": "./dist/divination/config.js",
+      "types": "./dist/divination/config.d.ts"
+    },
+    "./divination/engine/liuyao-template": {
+      "import": "./dist/divination/engine/liuyao-template.js",
+      "types": "./dist/divination/engine/liuyao-template.d.ts"
+    },
+    "./divination/engine/method-text": {
+      "import": "./dist/divination/engine/method-text.js",
+      "types": "./dist/divination/engine/method-text.d.ts"
     },
     "./divination/divination-data": {
       "import": "./dist/divination/divination-data.js",

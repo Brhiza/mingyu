@@ -54,3 +54,20 @@ test('星盘底层算法应拒绝越界经纬度和时区', () => {
     /时区需在 -12 到 14 之间/,
   );
 });
+
+test('星盘底层算法应保留扩展计算点，不再只返回十大星体', () => {
+  const result = generateAstrolabe(validInput);
+  const labels = result.planets.map((item) => item.label);
+
+  assert.ok(result.planets.length > 10);
+  assert.ok(labels.includes('凯龙星'));
+  assert.ok(labels.includes('谷神星'));
+  assert.ok(labels.includes('智神星'));
+  assert.ok(labels.includes('婚神星'));
+  assert.ok(labels.includes('灶神星'));
+  assert.ok(labels.includes('北交点'));
+  assert.ok(labels.includes('南交点'));
+  assert.ok(labels.includes('莉莉丝'));
+  assert.ok(labels.includes('福点'));
+  assert.ok(labels.includes('精神点'));
+});

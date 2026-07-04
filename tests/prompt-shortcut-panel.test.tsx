@@ -47,15 +47,16 @@ test('自定义模式时应只展开自定义提问分组，其余分类保持�
     />,
   );
 
-  assert.match(html, /先看整体/);
-  assert.match(html, /工作与财务/);
-  assert.match(html, /关系与家庭/);
-  assert.match(html, /生活与成长/);
+  assert.match(html, /通用/);
+  assert.match(html, /工作财务/);
+  assert.match(html, /关系家庭/);
+  assert.match(html, /生活成长/);
   assert.match(html, /自定义提问/);
   assert.match(html, /自定义问题/);
   assert.match(html, /问题灵感/);
   assert.match(html, /直接输入问题/);
   assert.match(html, /textarea/);
+  assert.doesNotMatch(html, /先看整体/);
 });
 
 test('普通快捷项模式时应只展开当前快捷项所属分组', () => {
@@ -73,7 +74,7 @@ test('普通快捷项模式时应只展开当前快捷项所属分组', () => {
     />,
   );
 
-  assert.match(html, /工作与财务/);
+  assert.match(html, /工作财务/);
   assert.match(html, /换工作/);
   assert.doesNotMatch(html, /直接输入问题/);
   assert.doesNotMatch(html, /关系推进/);

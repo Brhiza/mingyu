@@ -8,15 +8,7 @@ import {
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { formatBaziForPrompt as formatBaziForPromptLocal } from '@core/bazi/baziAnalysisFormatter';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
-import {
-  generateAnalysisDimensionHints,
-  generateCareerPartnershipHints,
-  generateChildrenFateHints,
-  generateFriendshipHints,
-  generateMarriageMatchHints,
-  generateParentsAnalysisHints,
-  generateSiblingsAnalysisHints,
-} from '@core/bazi/baziEnhancement';
+import { generateAnalysisDimensionHints } from '@core/bazi/baziEnhancement';
 import { formatBaziForPrompt as formatBaziForPromptCore } from '../packages/core/src/bazi/baziAnalysisFormatter';
 import { identifyClassicPattern as identifyClassicPatternCore } from '../packages/core/src/bazi/baziEnhancement/classicPatterns';
 import { identifyClassicPattern as identifyClassicPatternLocal } from '@core/bazi/baziEnhancement/classicPatterns';
@@ -106,15 +98,14 @@ test('八字问题场景只由内置快捷配置提供，不再根据问题文�
   assert.equal(resolveBaziQuestionScene('未知类型'), 'general');
 });
 
-test('八字单盘空问题会按所选方向补默认问题，不把内置任务塞进问题栏', () => {
+test('八字单盘空问题补通用问题，分类不再塞本地固定问题', () => {
   const result = createBaziResult();
 
   const prompt = buildPromptFromConfig(
     '',
     {
       id: 'ai-career',
-      prompt:
-        '判断命局更适合守成、开拓、技术、管理还是经营，再说明当前阶段的赚钱方式、职业方向和风险点。',
+      prompt: '测试',
       scene: 'career',
     },
     result,
@@ -123,12 +114,13 @@ test('八字单盘空问题会按所选方向补默认问题，不把内置任�
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /【问题】\n请先从事业方向、工作模式和当前风险开始分析。/);
+  assert.match(prompt.user, /【问题】\n请先做整体解读。/);
   assert.match(
     prompt.user,
-    /【任务】\n判断命局更适合守成、开拓、技术、管理还是经营，再说明当前阶段的赚钱方式、职业方向和风险点。/,
+    /【任务】\n请围绕【问题】和用户所选分类范围直接判断重点；未填写具体问题时按通用八字口径做整体分析。/,
   );
-  assert.doesNotMatch(prompt.user, /【问题】\n判断命局更适合守成、开拓、技术、管理还是经营/);
+  assert.doesNotMatch(prompt.user, /【问题】\n判断命局更适合守成/);
+  assert.doesNotMatch(prompt.user, /【任务】\n判断命局更适合守成/);
 });
 
 test('八字提示词写入年限选择后应补充完整岁运任务书', () => {
@@ -851,28 +843,7 @@ test('高风险旁证提示改为辅助研判框架，避免直接断语', () =>
   assert.doesNotMatch(generateAnalysisDimensionHints('lifespan'), /晚年孤寂/);
 });
 
-test('婚姻子女父母兄弟专项提示改为传统框架加证据约束', () => {
-  assert.match(generateMarriageMatchHints(), /先定关系主轴/);
-  assert.doesNotMatch(generateMarriageMatchHints(), /配偶缘浅/);
-
-  assert.match(generateCareerPartnershipHints(), /先看双方命局重心与合作分工是否顺手/);
-  assert.match(generateCareerPartnershipHints(), /不可只凭表面投缘就判断适合长期合伙/);
-
-  assert.match(generateFriendshipHints(), /先看双方气势是否投契/);
-  assert.match(generateFriendshipHints(), /不可把一时投缘直接当成长期稳定/);
-
-  assert.match(generateChildrenFateHints(), /不可只凭单一符号判断/);
-  assert.match(generateChildrenFateHints(), /分开说明证据强弱/);
-  assert.doesNotMatch(generateChildrenFateHints(), /子女缘薄/);
-
-  assert.match(generateParentsAnalysisHints(), /神煞与刑冲只作旁证/);
-  assert.match(generateParentsAnalysisHints(), /不可单凭一星定应/);
-  assert.doesNotMatch(generateParentsAnalysisHints(), /祖上无缘/);
-
-  assert.match(generateSiblingsAnalysisHints(), /避免只按比劫多少直接下结论/);
-});
-
-test('合盘提示词会按不同主题使用对应专项框架与任务口径', () => {
+test('合盘分类只作为关系范围，不再插入本地专项框架', () => {
   const { result1, result2 } = createCompatibilityBaziResults();
 
   const careerPrompt = getCompatibilityPrompt(
@@ -881,13 +852,12 @@ test('合盘提示词会按不同主题使用对应专项框架与任务口径',
     result2,
     'career',
   );
-  assert.match(careerPrompt.user, /【合盘分析思路】\n【合作合伙】/);
-  assert.match(careerPrompt.user, /先判断合作主轴，再说明分工互补、利益风险、沟通成本和长期建议。/);
+  assert.doesNotMatch(careerPrompt.user, /【合盘分析思路】/);
+  assert.match(careerPrompt.user, /【任务】\n请先判断关系主轴，再说明相处模式、互补点、冲突点和建议。/);
   assert.match(
     careerPrompt.user,
     /【输出要求】\n先直接回答【问题】，再展开最关键的 2 到 4 个重点。/,
   );
-  assert.doesNotMatch(careerPrompt.user, /关系主基调/);
 
   const friendshipPrompt = getCompatibilityPrompt(
     '请分析我们两人的朋友相处模式。',
@@ -895,9 +865,7 @@ test('合盘提示词会按不同主题使用对应专项框架与任务口径',
     result2,
     'friendship',
   );
-  assert.match(friendshipPrompt.user, /【合盘分析思路】\n【友情往来】/);
-  assert.match(friendshipPrompt.user, /先判断相处主轴，再说明投缘点、边界风险、相处节奏和建议。/);
-  assert.doesNotMatch(friendshipPrompt.user, /关系主基调/);
+  assert.doesNotMatch(friendshipPrompt.user, /【合盘分析思路】|【友情往来】/);
 
   const childrenPrompt = getCompatibilityPrompt(
     '请分析我们的子女缘。',
@@ -905,19 +873,14 @@ test('合盘提示词会按不同主题使用对应专项框架与任务口径',
     result2,
     'children',
   );
-  assert.match(childrenPrompt.user, /【合盘分析思路】\n【子女缘分】/);
-  assert.match(childrenPrompt.user, /先说明子女议题的主线，再分证据强弱展开重点。/);
+  assert.doesNotMatch(childrenPrompt.user, /【合盘分析思路】|【子女缘分】/);
   assert.match(
     childrenPrompt.user,
-    /【输出要求】\n先直接回答【问题】，再展开最关键的 2 到 4 个重点，并分清证据强弱。/,
+    /【输出要求】\n先直接回答【问题】，再展开最关键的 2 到 4 个重点。/,
   );
 
   const parentsPrompt = getCompatibilityPrompt('请分析双方父母情况。', result1, result2, 'parents');
-  assert.match(parentsPrompt.user, /【合盘分析思路】\n【父母研判】/);
-  assert.match(
-    parentsPrompt.user,
-    /先说明父母议题主线，再分健康风险、照护压力、关系边界与建议展开。/,
-  );
+  assert.doesNotMatch(parentsPrompt.user, /【合盘分析思路】|【父母研判】/);
 });
 
 test('八字合盘自定义问题不应额外拼接框架任务书', () => {

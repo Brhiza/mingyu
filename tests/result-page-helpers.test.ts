@@ -311,7 +311,7 @@ test('未知时辰合盘提示词应保持中性任务口径，不预设为婚�
     question: '',
   });
 
-  assert.match(prompt, /【问题】\n请先从双方互动模式与现实建议开始分析。/);
+  assert.match(prompt, /【问题】\n请先做整体合盘解读。/);
   assert.match(prompt, /【第一人排盘信息】\n姓名：第一人\n甲方三柱资料/);
   assert.match(prompt, /【第二人排盘信息】\n姓名：第二人\n乙方三柱资料/);
   assert.match(prompt, /先直接回答【问题】，并区分当前能确认的主线与因时辰未知而待确认的部分/);

@@ -294,348 +294,72 @@ export const commonQuestionInspirations: Array<{
 ];
 
 export const baziSingleShortcutActions = [
-  {
-    label: '综合' as const,
-    promptId: 'ai-mingge-zonglun',
-    question:
-      '请做一份综合分析，按“命局特点、性格优势与短板、事业发展、财运节奏、婚恋关系、六亲互动、健康隐患、学业与成长、当前阶段提醒、落地建议”这几个部分展开，结论尽量具体。',
-  },
-  {
-    label: '近期' as const,
-    promptId: 'ai-recent',
-    question:
-      '请重点分析我当前阶段的主线、近期适合主动推进的事项、应该暂缓或规避的风险、节奏变化点，以及接下来更稳妥的行动建议。',
-  },
-  {
-    label: '事业' as const,
-    promptId: 'ai-career',
-    question:
-      '请重点分析我的事业方向、适合的发展路径、职场优势、容易遇到的阻力、适合上班还是创业、当前阶段的突破口，以及接下来更值得投入的方向。',
-  },
-  {
-    label: '换工作' as const,
-    promptId: 'ai-job-change',
-    question:
-      '请重点分析我现在适不适合换工作、转方向或试探新机会，并说明平台、收入、成长空间和短期风险的取舍重点。',
-  },
-  {
-    label: '创业合作' as const,
-    promptId: 'ai-startup-partnership',
-    question:
-      '请重点分析我现在适不适合创业、单干还是找人合作，并说明方向选择、资源来源、合作分工、现金流压力和现实风险。',
-  },
-  {
-    label: '投资合作' as const,
-    promptId: 'ai-investment-partnership',
-    question:
-      '请重点分析我现在适不适合投资、独立布局、跟人合作求财还是继续观望，并说明收益模式、资金压力、合作分工、风险边界和现实代价。',
-  },
-  {
-    label: '财运' as const,
-    promptId: 'ai-wealth-timing',
-    question:
-      '请重点分析我的财运类型、正财偏财表现、赚钱方式、起财时机、守财能力、容易破财的风险点，以及现阶段更稳妥的财务建议。',
-  },
-  {
-    label: '婚恋' as const,
-    promptId: 'ai-marriage',
-    question:
-      '请重点分析我的婚恋观与关系模式、适合的伴侣类型、感情中的优势和问题、婚缘节奏、进入长期关系后的注意点，以及当前最该调整的重点。',
-  },
-  {
-    label: '关系推进' as const,
-    promptId: 'ai-relationship-push',
-    question:
-      '请重点分析这段关系现在更适合主动推进、稳定经营、放慢观察还是及时止损，并说明投入价值、风险边界和接下来的判断标准。',
-  },
-  {
-    label: '关系去留' as const,
-    promptId: 'ai-relationship-decision',
-    question:
-      '请重点分析这段关系现在更适合继续投入、放慢观察、重新建立边界还是及时止损，并说明止损信号、继续条件和现实代价。',
-  },
-  {
-    label: '复合判断' as const,
-    promptId: 'ai-reconciliation-decision',
-    question:
-      '请重点分析这段旧关系现在还有没有复合空间，更适合争取、观察、先立边界还是及时放下，并说明复合条件、现实阻力、风险信号和判断标准。',
-  },
-  {
-    label: '子女' as const,
-    promptId: 'ai-children-fate',
-    question:
-      '请重点分析我的子女缘、子女互动模式、亲子关系中的优势与压力、教育相处重点、需要注意的阶段性问题，以及更适合的引导方式。',
-  },
-  {
-    label: '六亲' as const,
-    promptId: 'ai-family',
-    question:
-      '请重点分析我的六亲关系，分别说明与父母、兄弟姐妹、伴侣、子女之间的互动模式、助力与牵制、边界问题、责任压力，以及最需要改善的关系重点。',
-  },
-  {
-    label: '家庭' as const,
-    promptId: 'ai-home',
-    question:
-      '请重点分析我的原生家庭影响、安全感来源、家庭边界、居住秩序与现实责任分工，以及当前最需要调整的家庭议题。',
-  },
-  {
-    label: '搬家置业' as const,
-    promptId: 'ai-home-move',
-    question:
-      '请重点分析我现在适不适合搬家、换城市、买房置业或调整居住安排，并说明时机、成本压力、稳定性和风险重点。',
-  },
-  {
-    label: '定居换城' as const,
-    promptId: 'ai-settle-relocate',
-    question:
-      '请重点分析我现在适不适合长期定居、换城市发展、两地过渡还是继续留在当前城市，并说明稳定性、事业机会、家庭牵动、成本压力和行动顺序。',
-  },
-  {
-    label: '人际' as const,
-    promptId: 'ai-social',
-    question:
-      '请重点分析我的社交风格、合作关系、贵人来源、沟通短板、人脉筛选方式，以及当前更适合采取的人际策略。',
-  },
-  {
-    label: '情绪' as const,
-    promptId: 'ai-emotion',
-    question:
-      '请重点分析我的情绪触发点、压力来源、安全感需求、内耗模式与修复方式，以及当前最值得先调整的状态。',
-  },
-  {
-    label: '健康' as const,
-    promptId: 'ai-health',
-    question:
-      '请重点分析我最需要注意的健康隐患，说明更容易受影响的身心方向、压力与作息对健康的影响、生活习惯中的主要问题、日常调理重点，以及当前阶段的提醒。',
-  },
-  {
-    label: '学业' as const,
-    promptId: 'ai-study',
-    question:
-      '请重点分析我的学业运、理解力与专注力特点、考试发挥、适合的学习方式、容易拖后腿的问题、进修深造潜力，以及当前最有效的提升建议。',
-  },
-  {
-    label: '考证进修' as const,
-    promptId: 'ai-study-advance',
-    question:
-      '请重点分析我现在适不适合考证、读研进修或跨领域学习，并说明投入产出、执行压力、现实节奏和更稳妥的选择。',
-  },
-  {
-    label: '考试上岸' as const,
-    promptId: 'ai-exam-landing',
-    question:
-      '请重点分析这次考试、面试或申请更适合冲刺、稳住发挥还是调整预期，并说明上岸机会、失误风险、准备节奏和接下来最关键的动作。',
-  },
-  {
-    label: '成长' as const,
-    promptId: 'ai-growth',
-    question:
-      '请重点分析我最需要突破的性格卡点、长期成长课题、反复卡住的旧模式，以及可以直接执行的调整建议。',
-  },
-  {
-    label: '天赋' as const,
-    promptId: 'ai-talent',
-    question:
-      '请重点分析我的核心天赋、学习吸收、表达输出、组织执行和资源整合能力，以及最值得长期放大的优势方向。',
-  },
+  { label: '综合' as const, promptId: 'ai-mingge-zonglun' },
+  { label: '近期' as const, promptId: 'ai-recent' },
+  { label: '事业' as const, promptId: 'ai-career' },
+  { label: '换工作' as const, promptId: 'ai-job-change' },
+  { label: '创业合作' as const, promptId: 'ai-startup-partnership' },
+  { label: '投资合作' as const, promptId: 'ai-investment-partnership' },
+  { label: '财运' as const, promptId: 'ai-wealth-timing' },
+  { label: '婚恋' as const, promptId: 'ai-marriage' },
+  { label: '关系推进' as const, promptId: 'ai-relationship-push' },
+  { label: '关系去留' as const, promptId: 'ai-relationship-decision' },
+  { label: '复合判断' as const, promptId: 'ai-reconciliation-decision' },
+  { label: '子女' as const, promptId: 'ai-children-fate' },
+  { label: '六亲' as const, promptId: 'ai-family' },
+  { label: '家庭' as const, promptId: 'ai-home' },
+  { label: '搬家置业' as const, promptId: 'ai-home-move' },
+  { label: '定居换城' as const, promptId: 'ai-settle-relocate' },
+  { label: '人际' as const, promptId: 'ai-social' },
+  { label: '情绪' as const, promptId: 'ai-emotion' },
+  { label: '健康' as const, promptId: 'ai-health' },
+  { label: '学业' as const, promptId: 'ai-study' },
+  { label: '考证进修' as const, promptId: 'ai-study-advance' },
+  { label: '考试上岸' as const, promptId: 'ai-exam-landing' },
+  { label: '成长' as const, promptId: 'ai-growth' },
+  { label: '天赋' as const, promptId: 'ai-talent' },
 ] as const;
 
 export const baziCompatibilityShortcutActions = [
-  {
-    label: '合婚' as const,
-    promptId: 'ai-compat-marriage',
-    question: '请重点分析我们两人的婚恋匹配度、长期磨合点和相处建议。',
-  },
-  {
-    label: '合伙' as const,
-    promptId: 'ai-compat-career',
-    question: '请重点分析我们两人的合作模式、分工建议和利益风险。',
-  },
-  {
-    label: '友情' as const,
-    promptId: 'ai-compat-friendship',
-    question: '请重点分析我们两人的相处默契、冲突点和关系建议。',
-  },
-  {
-    label: '子女' as const,
-    promptId: 'ai-compat-children',
-    question: '请重点分析我们两人的子女缘分深浅、子女性格倾向和亲子相处重点。',
-  },
-  {
-    label: '父母' as const,
-    promptId: 'ai-compat-parents',
-    question: '请重点分析我们双方父母的健康状况、需关注的风险方向和赡养建议。',
-  },
-  {
-    label: '兄弟' as const,
-    promptId: 'ai-compat-siblings',
-    question: '请重点分析我们两人之间兄弟朋友关系的亲疏、助力与牵制、相处建议。',
-  },
+  { label: '合婚' as const, promptId: 'ai-compat-marriage' },
+  { label: '合伙' as const, promptId: 'ai-compat-career' },
+  { label: '友情' as const, promptId: 'ai-compat-friendship' },
+  { label: '子女' as const, promptId: 'ai-compat-children' },
+  { label: '父母' as const, promptId: 'ai-compat-parents' },
+  { label: '兄弟' as const, promptId: 'ai-compat-siblings' },
 ] as const;
 
 export const ziweiSingleShortcutActions = [
-  {
-    label: '综合' as const,
-    topic: 'life',
-    question:
-      '请做一份综合分析，按“人生主线、性格优势与短板、事业发展、财运节奏、婚恋关系、六亲互动、健康隐患、学业与成长、当前阶段提醒、落地建议”这几个部分展开，结论尽量具体。',
-  },
-  {
-    label: '近期' as const,
-    topic: 'recent',
-    question:
-      '请重点分析我当前阶段的主线、近期适合主动推进的事项、应该暂缓或规避的风险、节奏变化点，以及接下来更稳妥的行动建议。',
-  },
-  {
-    label: '事业' as const,
-    topic: 'career-wealth',
-    question:
-      '请重点分析我的事业方向、适合的发展路径、职场优势、容易遇到的阻力、适合上班还是创业、当前阶段的突破口，以及接下来更值得投入的方向。',
-  },
-  {
-    label: '换工作' as const,
-    topic: 'job-change',
-    question:
-      '请重点分析我现在适不适合换工作、转方向或试探新机会，并说明平台、收入、成长空间和短期风险的取舍重点。',
-  },
-  {
-    label: '创业合作' as const,
-    topic: 'startup-partnership',
-    question:
-      '请重点分析我现在适不适合创业、单干还是找人合作，并说明方向选择、资源来源、合作分工、现金流压力和现实风险。',
-  },
-  {
-    label: '投资合作' as const,
-    topic: 'investment-partnership',
-    question:
-      '请重点分析我现在适不适合投资、独立布局、跟人合作求财还是继续观望，并说明收益模式、资金压力、合作分工、风险边界和现实代价。',
-  },
-  {
-    label: '财运' as const,
-    topic: 'career-wealth',
-    question:
-      '请重点分析我的财运类型、赚钱抓手、正财偏财表现、起财节奏、守财能力、容易破财的风险点，以及现阶段更稳妥的财务建议。',
-  },
-  {
-    label: '婚恋' as const,
-    topic: 'relationship',
-    question:
-      '请重点分析我的婚恋观与关系模式、适合的伴侣类型、感情中的优势和问题、婚缘节奏、进入长期关系后的注意点，以及当前最该调整的重点。',
-  },
-  {
-    label: '关系推进' as const,
-    topic: 'relationship-push',
-    question:
-      '请重点分析这段关系现在更适合主动推进、稳定经营、放慢观察还是及时止损，并说明投入价值、风险边界和接下来的判断标准。',
-  },
-  {
-    label: '关系去留' as const,
-    topic: 'relationship-decision',
-    question:
-      '请重点分析这段关系现在更适合继续投入、放慢观察、重新建立边界还是及时止损，并说明止损信号、继续条件和现实代价。',
-  },
-  {
-    label: '复合判断' as const,
-    topic: 'reconciliation-decision',
-    question:
-      '请重点分析这段旧关系现在还有没有复合空间，更适合争取、观察、先立边界还是及时放下，并说明复合条件、现实阻力、风险信号和判断标准。',
-  },
-  {
-    label: '子女' as const,
-    topic: 'children',
-    question:
-      '请重点分析我的子女缘、子女互动模式、亲子关系中的优势与压力、教育相处重点、需要注意的阶段性问题，以及更适合的引导方式。',
-  },
-  {
-    label: '六亲' as const,
-    topic: 'family',
-    question:
-      '请重点分析我的六亲关系，分别说明与父母、兄弟姐妹、伴侣、子女之间的互动模式、助力与牵制、边界问题、责任压力，以及最需要改善的关系重点。',
-  },
-  {
-    label: '家庭' as const,
-    topic: 'family',
-    question:
-      '请重点分析我的原生家庭影响、安全感来源、家庭边界、居住秩序与现实责任分工，以及当前最需要调整的家庭议题。',
-  },
-  {
-    label: '搬家置业' as const,
-    topic: 'home-move',
-    question:
-      '请重点分析我现在适不适合搬家、换城市、买房置业或调整居住安排，并说明时机、成本压力、稳定性和风险重点。',
-  },
-  {
-    label: '定居换城' as const,
-    topic: 'settle-relocate',
-    question:
-      '请重点分析我现在适不适合长期定居、换城市发展、两地过渡还是继续留在当前城市，并说明稳定性、事业机会、家庭牵动、成本压力和行动顺序。',
-  },
-  {
-    label: '人际' as const,
-    topic: 'social',
-    question:
-      '请重点分析我的社交风格、合作关系、贵人来源、沟通短板、人脉筛选方式，以及当前更适合采取的人际策略。',
-  },
-  {
-    label: '情绪' as const,
-    topic: 'emotion',
-    question:
-      '请重点分析我的情绪触发点、压力来源、安全感需求、内耗模式与修复方式，以及当前最值得先调整的状态。',
-  },
-  {
-    label: '健康' as const,
-    topic: 'health',
-    question:
-      '请重点分析我最需要注意的健康隐患，说明更容易受影响的身心方向、压力与作息对健康的影响、生活习惯中的主要问题、日常养护重点，以及当前阶段的提醒。',
-  },
-  {
-    label: '学业' as const,
-    topic: 'study',
-    question:
-      '请重点分析我的学业运、理解力与专注力特点、考试发挥、适合的学习方式、容易拖后腿的问题、进修深造潜力，以及当前最有效的提升建议。',
-  },
-  {
-    label: '考证进修' as const,
-    topic: 'study-advance',
-    question:
-      '请重点分析我现在适不适合考证、读研进修或跨领域学习，并说明投入产出、执行压力、现实节奏和更稳妥的选择。',
-  },
-  {
-    label: '考试上岸' as const,
-    topic: 'exam-landing',
-    question:
-      '请重点分析这次考试、面试或申请更适合冲刺、稳住发挥还是调整预期，并说明上岸机会、失误风险、准备节奏和接下来最关键的动作。',
-  },
-  {
-    label: '成长' as const,
-    topic: 'growth',
-    question:
-      '请重点分析我最需要突破的性格卡点、长期成长课题、反复卡住的旧模式，以及可以直接执行的调整建议。',
-  },
-  {
-    label: '天赋' as const,
-    topic: 'talent',
-    question:
-      '请重点分析我的核心天赋、学习吸收、表达输出、组织执行和资源整合能力，以及最值得长期放大的优势方向。',
-  },
+  { label: '综合' as const, topic: 'life' },
+  { label: '近期' as const, topic: 'recent' },
+  { label: '事业' as const, topic: 'career-wealth' },
+  { label: '换工作' as const, topic: 'job-change' },
+  { label: '创业合作' as const, topic: 'startup-partnership' },
+  { label: '投资合作' as const, topic: 'investment-partnership' },
+  { label: '财运' as const, topic: 'career-wealth' },
+  { label: '婚恋' as const, topic: 'relationship' },
+  { label: '关系推进' as const, topic: 'relationship-push' },
+  { label: '关系去留' as const, topic: 'relationship-decision' },
+  { label: '复合判断' as const, topic: 'reconciliation-decision' },
+  { label: '子女' as const, topic: 'children' },
+  { label: '六亲' as const, topic: 'family' },
+  { label: '家庭' as const, topic: 'family' },
+  { label: '搬家置业' as const, topic: 'home-move' },
+  { label: '定居换城' as const, topic: 'settle-relocate' },
+  { label: '人际' as const, topic: 'social' },
+  { label: '情绪' as const, topic: 'emotion' },
+  { label: '健康' as const, topic: 'health' },
+  { label: '学业' as const, topic: 'study' },
+  { label: '考证进修' as const, topic: 'study-advance' },
+  { label: '考试上岸' as const, topic: 'exam-landing' },
+  { label: '成长' as const, topic: 'growth' },
+  { label: '天赋' as const, topic: 'talent' },
 ] as const;
 
 export const ziweiCompatibilityShortcutActions = [
-  {
-    label: '感情' as const,
-    topic: 'relationship',
-    question: '请重点分析双方关系匹配度、吸引点、冲突点和相处建议。',
-  },
-  {
-    label: '合作' as const,
-    topic: 'career-wealth',
-    question: '请重点分析双方合作默契、优势互补和潜在风险。',
-  },
-  {
-    label: '相处' as const,
-    topic: 'chat',
-    question: '请从双方盘面看互动模式、沟通盲点和长期建议。',
-  },
+  { label: '感情' as const, topic: 'relationship' },
+  { label: '合作' as const, topic: 'career-wealth' },
+  { label: '相处' as const, topic: 'chat' },
 ] as const;
 
 export const ziweiScopeLabelMap: Record<ZiweiScopeMode, string> = {
@@ -650,26 +374,26 @@ export const ziweiScopeLabelMap: Record<ZiweiScopeMode, string> = {
 export const singlePromptShortcutSections = [
   {
     key: 'overview',
-    title: '先看整体',
-    description: '适合先判断大方向和近期主线。',
+    title: '通用',
+    description: '不限定细分问题，按通用口径处理。',
     labels: ['综合', '近期'],
   },
   {
     key: 'career',
-    title: '工作与财务',
-    description: '事业选择、跳槽、创业、合作和财运都放在这里。',
+    title: '工作财务',
+    description: '只选择分析范围，不预置固定问法。',
     labels: ['事业', '换工作', '创业合作', '投资合作', '财运'],
   },
   {
     key: 'relationship',
-    title: '关系与家庭',
-    description: '婚恋推进、关系去留、亲子和家庭议题集中处理。',
+    title: '关系家庭',
+    description: '只选择分析范围，具体问题可留空或自填。',
     labels: ['婚恋', '关系推进', '关系去留', '复合判断', '子女', '六亲', '家庭'],
   },
   {
     key: 'life',
-    title: '生活与成长',
-    description: '搬家、人际、情绪、健康、学习和天赋相关问题。',
+    title: '生活成长',
+    description: '只选择分析范围，不使用本地固定问题。',
     labels: [
       '搬家置业',
       '定居换城',

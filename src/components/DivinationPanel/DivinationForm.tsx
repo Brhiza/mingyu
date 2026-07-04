@@ -7,7 +7,7 @@ import {
   MEIHUA_METHOD_OPTIONS,
   TAROT_SPREAD_OPTIONS,
   XIAOLIUREN_METHOD_OPTIONS,
-} from '@/lib/divination/config';
+} from '@core/divination/config';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import {
   almanacTopicLabelMap,

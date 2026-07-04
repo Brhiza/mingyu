@@ -15,6 +15,19 @@ export function AstrolabeChart({
   data: AstrolabeData;
   showHeader?: boolean;
 }) {
+  const majorPlanetNames = new Set([
+    'Sun',
+    'Moon',
+    'Mercury',
+    'Venus',
+    'Mars',
+    'Jupiter',
+    'Saturn',
+    'Uranus',
+    'Neptune',
+    'Pluto',
+  ]);
+  const visiblePlanets = data.planets.filter((planet) => majorPlanetNames.has(planet.name));
   const zodiacSigns = [
     '白羊',
     '金牛',
@@ -98,7 +111,7 @@ export function AstrolabeChart({
             />
           );
         })}
-        {data.planets.map((planet) => {
+        {visiblePlanets.map((planet) => {
           const point = toChartPoint(planet.longitude, 78);
           return (
             <g key={planet.name}>

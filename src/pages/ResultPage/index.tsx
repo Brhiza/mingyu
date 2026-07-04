@@ -1,13 +1,4 @@
-import {
-  Suspense,
-  lazy,
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   buildCombinedZiweiCompatibilityPrompt,
@@ -814,19 +805,13 @@ export function ResultPage() {
           ? previewBaziPromptText
           : previewZiweiPromptText;
 
-  // AI 对话页使用的上下文提示词（不含用户自定义问题，仅排盘数据 + 设置摘要）
   const aiContextPrompt = useMemo(() => {
     if (promptState.tab !== 'prompt') return '';
 
-    // 以现有完整提示词为基础，去掉末尾的用户问题部分
-    // 实际发送时由 AiChatPanel 拼接用户输入
     return previewActivePromptText;
   }, [previewActivePromptText, promptState.tab]);
 
-  // 灵感选取的问题文本，传递给 AiChatPanel 填入输入框
   const [inspirationText, setInspirationText] = useState('');
-  // 快捷按钮直接发送指令
-  const [directSend, setDirectSend] = useState<{ text: string; id: string } | undefined>();
   const isBaziFortuneSummaryLoading = shouldLoadBaziPromptModules && !baziFortuneSelectionModule;
   const baziFortuneSummaryText = baziFortuneContext?.displayText ?? '仅使用本命信息';
   const astrolabeScopeSummaryText = astrolabeScopeContext.displayText;
@@ -856,26 +841,14 @@ export function ResultPage() {
     setInspirationText(question);
   }
 
-  // AI 模式：快捷问题点击 → 直接发送
-  const directSendCounterRef = useRef(0);
   function handleAiShortcutClick(label: string) {
     const source = promptState.promptSource;
-    let question = '';
     if (source === 'bazi' || source === 'bazi-ziwei') {
       applyBaziShortcutMode(label);
-      const actions = getBaziShortcutActions(inputState.analysisMode);
-      question = actions.find((a) => a.label === label)?.question ?? '';
     } else if (source === 'ziwei') {
       applyZiweiShortcutMode(label);
-      const actions = getZiweiShortcutActions(inputState.analysisMode);
-      question = actions.find((a) => a.label === label)?.question ?? '';
     } else if (source === 'astrolabe') {
       applyAstrolabeShortcutMode(label);
-      question = ASTROLABE_SHORTCUT_ACTIONS.find((a) => a.label === label)?.question ?? '';
-    }
-    if (question) {
-      directSendCounterRef.current++;
-      setDirectSend({ text: question, id: `s-${directSendCounterRef.current}` });
     }
     setIsAiShortcutPopoverOpen(false);
   }
@@ -1208,7 +1181,6 @@ export function ResultPage() {
                     onOpenInspiration={inspiration.open}
                     externalInput={inspirationText}
                     onExternalInputConsumed={() => setInspirationText('')}
-                    directSend={directSend}
                     aiConfig={aiRequestConfig}
                   />
                 </div>
@@ -1389,7 +1361,6 @@ export function ResultPage() {
                     onOpenInspiration={inspiration.open}
                     externalInput={inspirationText}
                     onExternalInputConsumed={() => setInspirationText('')}
-                    directSend={directSend}
                     aiConfig={aiRequestConfig}
                   />
                 </div>

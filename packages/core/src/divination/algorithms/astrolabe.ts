@@ -19,6 +19,17 @@ const PLANET_LABELS: Record<string, string> = {
   Uranus: '天王星',
   Neptune: '海王星',
   Pluto: '冥王星',
+  Chiron: '凯龙星',
+  Ceres: '谷神星',
+  Pallas: '智神星',
+  Juno: '婚神星',
+  Vesta: '灶神星',
+  'North Node': '北交点',
+  'South Node': '南交点',
+  'True Lilith': '莉莉丝',
+  'Mean Lilith': '莉莉丝',
+  'Part of Fortune': '福点',
+  'Part of Spirit': '精神点',
 };
 
 const ANGLE_LABELS: Record<string, string> = {
@@ -49,6 +60,13 @@ const ASPECT_LABELS: Record<string, string> = {
   square: '刑相',
   trine: '拱相',
   opposition: '冲相',
+  'semi-sextile': '半六合',
+  semisextile: '半六合',
+  'semi-square': '半刑',
+  semisquare: '半刑',
+  quintile: '五分相',
+  sesquiquadrate: '补八分相',
+  biquintile: '倍五分相',
 };
 
 function requireNumber(value: string, label: string) {
@@ -87,7 +105,7 @@ function mapPlanet(planet: {
   degree: number;
   minute: number;
   house: number;
-  isRetrograde: boolean;
+  isRetrograde?: boolean;
 }): AstrolabePoint {
   return {
     name: planet.name,
@@ -98,7 +116,7 @@ function mapPlanet(planet: {
     minute: planet.minute,
     house: planet.house,
     formatted: formatPosition(planet.signName, planet.degree, planet.minute),
-    retrograde: planet.isRetrograde,
+    retrograde: planet.isRetrograde ?? false,
   };
 }
 
@@ -250,6 +268,12 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     chart.angles.descendant,
     chart.angles.imumCoeli,
   ].map(mapAngle);
+  const calculatedPoints = [
+    ...chart.planets,
+    ...chart.nodes,
+    ...chart.lilith,
+    ...chart.lots,
+  ].map(mapPlanet);
 
   return {
     birth: {
@@ -266,7 +290,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
         : undefined,
       isTrueSolarTime: Boolean(trueSolarResult),
     },
-    planets: chart.planets.slice(0, 10).map(mapPlanet),
+    planets: calculatedPoints,
     angles,
     houses: chart.houses.cusps.map((cusp) => ({
       name: `House ${cusp.house}`,

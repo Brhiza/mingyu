@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   formatPromptEvidenceBundle,
   normalizePromptEvidenceItems,
-} from '../src/lib/prompt-evidence/format';
+} from '@core/prompt-evidence/format';
 
 test('证据资料包会过滤空标题、去重并按权重降序输出', () => {
   const lines = formatPromptEvidenceBundle({

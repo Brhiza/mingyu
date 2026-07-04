@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getDefaultHoroscopeContext } from '@/lib/iztro/runtime-helpers';
 import {
   buildDecadalTimelineOptions,
   findCurrentDecadalOption,
   formatDecadalAgeRange,
-} from '@/lib/iztro/decadal';
+  getDefaultHoroscopeContext,
+} from '@core/ziwei/iztro';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
 import { formatMonthDayLabel, splitGanZhi } from '../ResultPage.helpers';

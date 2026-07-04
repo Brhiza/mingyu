@@ -6,12 +6,13 @@ import { getBirthDateValidationMessage } from '../date-validation';
 import {
   buildAstrolabeFromInput,
   buildHoroscope,
+  buildActiveScope,
+  buildAnalysisPayloadV1,
+  buildBasicInfo,
+  getCurrentScopeItem,
   getDefaultHoroscopeContext,
-} from '../iztro/runtime-helpers';
-import { buildAnalysisPayloadV1 } from '../iztro/build-analysis-payload';
-import { buildActiveScope, buildBasicInfo } from '../iztro/build-analysis-payload/helpers/builders';
-import { mapStarFact } from '../iztro/build-analysis-payload/helpers/mappers';
-import { getCurrentScopeItem } from '../iztro/build-analysis-payload/helpers/scope';
+  mapStarFact,
+} from '@core/ziwei/iztro';
 import {
   getZiweiCompatibilityDefaultQuestion,
   getZiweiDefaultQuestion,
@@ -589,54 +590,13 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
   const primaryEmbeddedPack = demoteEmbeddedPromptSections(primaryPack);
   const partnerEmbeddedPack = demoteEmbeddedPromptSections(partnerPack);
   const compatibilityTopic = params.topic || 'chat';
-
-  const compatibilityRulesMap: Record<string, string[]> = {
-    recent: [
-      '- 先判断双方当前阶段的互动主轴，再展开 2 到 4 个关键点。',
-      '- 重点说明近期节奏变化、推进阻力、关系或合作压力，以及更适合的行动顺序。',
-    ],
-    relationship: [
-      '- 先判断关系主轴，再展开 2 到 4 个关键点。',
-      '- 重点说明关系模式、互补点、冲突点、四化牵动、推进节奏与建议。',
-    ],
-    'relationship-push': [
-      '- 先判断当前这段关系更适合推进、放慢还是重新评估，再展开 2 到 4 个关键点。',
-      '- 重点说明推进阻力、投入价值、关系节奏、现实边界和下一步建议。',
-    ],
-    'career-wealth': [
-      '- 先判断合作主轴，再展开 2 到 4 个关键点。',
-      '- 重点说明合作分工、资源互补、利益风险、四化牵动与长期建议。',
-    ],
-    chat: [
-      '- 先判断互动主轴，再展开 2 到 4 个关键点。',
-      '- 重点说明互动模式、沟通盲点、边界压力、四化牵动与长期建议。',
-    ],
-  };
-  const compatibilityTaskMap: Record<string, string> = {
-    recent:
-      '请综合双方盘面，重点分析当前阶段最强触发点、近期互动节奏、主要阻力风险，以及更适合的现实推进建议。',
-    relationship:
-      '请综合双方盘面，重点分析关系模式、互补点、冲突点、四化牵动、长期走向与相处建议。',
-    'relationship-push':
-      '请综合双方盘面，重点分析这段关系当前更适合推进、放慢还是重新评估，并说明投入价值、现实阻力、节奏变化与建议。',
-    'career-wealth': '请综合双方盘面，重点分析合作分工、资源互补、利益风险、四化牵动与长期建议。',
-    chat: '请综合双方盘面，重点分析互动模式、沟通盲点、边界压力、四化牵动与长期建议。',
-  };
-  const compatibilityQuestionMap: Record<string, string> = {
-    recent: '请先从当前阶段重点、近期互动节奏和风险提醒开始分析。',
-    relationship: '请先从双方关系匹配度、互动模式和相处建议开始分析。',
-    'relationship-push': '请先从这段关系该主动推进、稳定经营还是先放慢开始分析。',
-    'relationship-decision': '请先从这段关系该继续投入、放手止损还是保持观察开始分析。',
-    'career-wealth': '请先从合作默契、优势互补和潜在风险开始分析。',
-    'startup-partnership': '请先从适不适合创业、单干还是合作，以及如何判断当前时机开始分析。',
-    chat: '请先从互动模式、沟通盲点和长期建议开始分析。',
-  };
-  const compatibilityRules =
-    compatibilityRulesMap[compatibilityTopic] ?? compatibilityRulesMap.chat;
-  const compatibilityTask = compatibilityTaskMap[compatibilityTopic] ?? compatibilityTaskMap.chat;
-  const compatibilityQuestion =
-    compatibilityQuestionMap[compatibilityTopic] ??
-    getZiweiCompatibilityDefaultQuestion(compatibilityTopic);
+  const compatibilityRules = [
+    '- 先围绕【问题】判断双方互动主轴，再展开 2 到 4 个关键点。',
+    '- 用户选择主题时只把主题作为关系范围，不补充本地固定话术；未选择或问题为空时按通用合盘口径处理。',
+  ];
+  const compatibilityTask =
+    '请综合双方盘面和用户所选关系范围，直接判断互动主轴、互补点、冲突点、触发机制与建议。';
+  const compatibilityQuestion = getZiweiCompatibilityDefaultQuestion(compatibilityTopic);
 
   return [
     ZIWEI_COMPATIBILITY_ROLE,
