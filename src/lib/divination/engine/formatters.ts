@@ -219,7 +219,7 @@ function createLiuyaoUsefulGodHints(data: LiuyaoData, template: LiuyaoTemplateTy
     if (candidate.label === '通用断卦') {
       return `${candidate.label}：${candidate.note}`;
     }
-    return `${candidate.label}：以${candidate.relative}为用神候选，${candidate.note}；盘中${yaoText}`;
+    return `${candidate.label}：以${candidate.relative}为取用参考，${candidate.note}；盘中${yaoText}`;
   });
 }
 
@@ -276,8 +276,8 @@ function createLiuyaoUsefulGodCandidates(
         );
       });
   } else if (safeTemplate === 'ganqing') {
-    addCandidate('感情关系', '官鬼', '用户选择感情断卦，可作对象、关系压力或约束候选');
-    addCandidate('感情关系', '妻财', '用户选择感情断卦，可作对象、现实互动或承接候选');
+    addCandidate('感情关系', '官鬼', '用户选择感情断卦，可参考对象、关系压力或约束');
+    addCandidate('感情关系', '妻财', '用户选择感情断卦，可参考对象、现实互动或承接');
   } else if (safeTemplate === 'shiye') {
     addCandidate('事业工作', '官鬼', '用户选择事业断卦，主职位、压力、约束、领导与风险');
     addCandidate('事业工作', '父母', '用户选择事业断卦，主合同、资质、文书、平台与规则');
@@ -363,7 +363,7 @@ function createLiuyaoUsefulGodScoreEvidenceItems(
         level: '限制',
         title: candidate.label,
         detail: `${candidate.relative}本卦未见，需看伏神、变爻或用户补充后再取，不可硬当主证`,
-        source: '六爻用神评分',
+        source: '六爻取用评分',
         weight: 30 - index,
         tags: [candidate.relative],
       };
@@ -442,8 +442,8 @@ function createLiuyaoUsefulGodScoreEvidenceItems(
     return {
       level,
       title: candidate.label,
-      detail: `${formatLiuyaoYaoBrief(primary)}为主候选（第${index + 1}顺位，权重${weight}）；主证${support.join('、') || '待世应、动变、月日继续确认'}；反证/限制${limits.join('、') || '未见明显空亡或脱节'}`,
-      source: '六爻用神评分',
+      detail: `${formatLiuyaoYaoBrief(primary)}作取用主轴（第${index + 1}顺位，权重${weight}）；主证${support.join('、') || '待世应、动变、月日继续确认'}；反证/限制${limits.join('、') || '未见明显空亡或脱节'}`,
+      source: '六爻取用评分',
       weight,
       tags: [candidate.relative],
     };
@@ -455,7 +455,7 @@ function createLiuyaoUsefulGodScoreEvidenceItems(
 function formatLiuyaoUsefulGodScoreEvidence(items: PromptEvidenceItem[]) {
   return [
     ...items.map((item) => `${item.title}：${item.detail}`),
-    '评分口径：用神先按用户选择的断卦类型或通用世应动爻取候选，再看是否临世应、是否发动或暗动、月令旺相休囚死、是否得月日触发、回头生克；空亡、伏藏、月令休囚死、回头克冲或非动爻均降权',
+    '评分口径：取用先按用户选择的断卦类型或通用世应动爻定参考，再看是否临世应、是否发动或暗动、月令旺相休囚死、是否得月日触发、回头生克；空亡、伏藏、月令休囚死、回头克冲或非动爻均降权',
   ].join('；');
 }
 
@@ -489,7 +489,7 @@ function createLiuyaoRelationGodEvidence(data: LiuyaoData, template: LiuyaoTempl
   };
 
   return [
-    `以${candidate.label}${formatLiuyaoYaoBrief(primary)}为用神基准`,
+    `以${candidate.label}${formatLiuyaoYaoBrief(primary)}为取用基准`,
     describeElementYaos('原神', sourceElement),
     describeElementYaos('忌神', jiElement),
     describeElementYaos('仇神', chouElement),
@@ -864,9 +864,9 @@ function formatLiuyaoInfo(data: LiuyaoData, template: LiuyaoTemplateType) {
       ? `六亲持世：${worldYao.sixRelative}持世，${worldYao.sixRelative === '父母' ? '主辛苦、劳累、文书、消息' : worldYao.sixRelative === '官鬼' ? '主压力、忧虑、疾病、官非' : worldYao.sixRelative === '妻财' ? '主财运、妻子、情感' : worldYao.sixRelative === '子孙' ? '主平安、解忧、医药' : '主竞争、破财、朋友'}`
       : '',
     `断卦抓手：${focusParts.join('；')}`,
-    `用神候选：${usefulGodHints.join('；')}`,
+    `取用参考：${usefulGodHints.join('；')}`,
     `主轴证据：${worldYao ? `世爻${formatLiuyaoYaoBrief(worldYao)}` : '世爻未知'}；${responseYao ? `应爻${formatLiuyaoYaoBrief(responseYao)}` : '应爻未知'}；${changingLines.length ? `动变${changingLines.join('、')}` : '无动变，以静卦世应用神为主'}`,
-    `用神评分表：${usefulGodScoreEvidence}`,
+    `取用评分表：${usefulGodScoreEvidence}`,
     `原神忌神仇神：${relationGodEvidence}`,
     `辅助证据：${voidYaoText.length ? `空亡爻位${voidYaoText.join('、')}` : `空亡${data.voidBranches?.join('、') || '无'}未直接落到本卦爻位`}；伏神${hiddenSpiritText}`,
     `月日触发：${monthDayEvidence}`,

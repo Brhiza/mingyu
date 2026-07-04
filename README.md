@@ -248,7 +248,7 @@ mingyu/
 │   │   └── ziwei-prompts/     # 紫微提示词模块
 │   ├── pages/                 # 输入页、结果页、历史页、教程页
 │   ├── types/                 # 领域类型定义
-│   ├── utils/                 # 八字、塔罗、历法、灵签等工具
+│   ├── utils/                 # 页面层工具，核心算法统一来自 mingyu-core
 │   └── workers/               # 紫微相关 Web Worker
 └── tests/                     # 单元测试与集成测试
 ```

@@ -11,6 +11,8 @@ import {
 } from '../../../../divination/meihua-omens';
 import { MeihuaHelpers } from '../../../../divination/divination-helpers';
 import { getDivinationTime } from '../../../../calendar/timeManager';
+import type { RandomOptions } from '../../../../shared/random';
+import { createRandomSource, randomInt } from '../../../../shared/random';
 
 export type MappedExternalOmen = {
   source: (typeof meihuaOmenPriority)[number];
@@ -115,10 +117,11 @@ export function resolveNumberMethod(number: number, timeBranch: string): MeihuaM
   };
 }
 
-export function resolveRandomMethod(): MeihuaMethodResult {
-  const upperTrigramIndex = Math.floor(Math.random() * 8) + 1;
-  const lowerTrigramIndex = Math.floor(Math.random() * 8) + 1;
-  const movingYaoIndex = Math.floor(Math.random() * 6) + 1;
+export function resolveRandomMethod(options?: RandomOptions): MeihuaMethodResult {
+  const rng = createRandomSource(options);
+  const upperTrigramIndex = randomInt(8, rng) + 1;
+  const lowerTrigramIndex = randomInt(8, rng) + 1;
+  const movingYaoIndex = randomInt(6, rng) + 1;
 
   return {
     upperTrigramIndex,

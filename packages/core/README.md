@@ -172,7 +172,7 @@ const liuyao = generateLiuyao();
 
 // 梅花易数（数字起卦）
 import { generateMeihua } from 'mingyu-core/divination/meihua';
-const meihua = generateMeihua({ method: 'number', number: 123 });
+const meihua = generateMeihua(undefined, { method: 'number', number: 123 });
 
 // 奇门遁甲
 import { generateQimen } from 'mingyu-core/divination/qimen';
@@ -253,13 +253,14 @@ const voidBranches = getVoidBranches('甲子');      // ['戌','亥'] 旬空
 | 导出 | 说明 |
 |------|------|
 | `generateLiuyao(date?)` | 六爻起卦 |
-| `generateMeihua(settings?)` | 梅花易数起卦 |
+| `generateMeihua(date?, settings?)` | 梅花易数起卦 |
 | `generateQimen(date?, method?, scope?)` | 奇门遁甲排盘，返回节令背景、经典格局、复合格局、方位和应期 |
 | `generateLiuren(date?)` | 大六壬排盘 |
 | `generateXiaoliuren(params?)` | 小六壬起课 |
 | `generateAlmanacSelection(params)` | 黄历择日 |
-| `drawRandomSign()` | 三山国王灵签 |
-| `drawLenormandSpread(spreadType?)` | 雷诺曼牌阵 |
+| `drawSingleCard(options?)` / `drawSpreadCards(spreadType, options?)` | 塔罗抽牌；`options.seed` 可复现                            |
+| `drawRandomSign(date?, options?)` | 三山国王灵签；`options.seed` 可复现 |
+| `drawLenormandSpread(spreadType?, options?)` | 雷诺曼牌阵；`options.seed` 可复现 |
 | `generateAstrolabe(input)` | 西洋星盘 |
 
 ### 类型（`mingyu-core/types`）

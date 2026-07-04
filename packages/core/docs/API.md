@@ -16,6 +16,7 @@
 - [小六壬 Xiaoliuren](#小六壬-xiaoliuren)
 - [择日 Almanac](#择日-almanac)
 - [灵签 SSGW](#灵签-ssgw)
+- [塔罗 Tarot](#塔罗-tarot)
 - [雷诺曼 Lenormand](#雷诺曼-lenormand)
 - [西洋占星 Astrolabe](#西洋占星-astrolabe)
 - [紫微斗数 Ziwei](#紫微斗数-ziwei)
@@ -173,6 +174,8 @@
 | `method` | `'time' \| 'number' \| 'random' \| 'external' \| 'timeTrigram'` | 起卦法；`timeTrigram` 为历史兼容入口，按年月日时起卦法计算 |
 | `number` | `number` | 数字起卦的正整数 |
 | `externalOmens` | `MeihuaExternalOmens` | 外应（方向/人物/动物/物品/声音/颜色/数量）；含方位时按后天端法以物象为上卦、方位为下卦、加时取动爻 |
+| `seed` | `string \| number` | 随机起卦时可选；同一 seed 可复现同一组随机卦数 |
+| `rng` | `() => number` | 随机起卦时可选；自定义随机源，返回 0 到 1 之间的数 |
 
 **返回 `MeihuaData`：** 含主卦/互卦/变卦、体用关系（tiGua/yongGua）、四时旺衰、应期估算、体用生克分析（tiYongRelation/inter1Relation/changedRelation/yingQi）。
 
@@ -241,9 +244,31 @@
 
 导入：`import { drawRandomSign } from 'mingyu-core/divination/ssgw'`
 
-### `drawRandomSign()`
+### `drawRandomSign(customDate?, options?)`
+
+**参数：**
+
+- `customDate?: Date`
+- `options?: { seed?: string | number; rng?: () => number }`
 
 **返回 `SsgwData`：** 随机抽取三山国王 92 签之一，含签号、签题、签诗、典故故事、分类解签。
+
+---
+
+## 塔罗 Tarot
+
+导入：`import { drawSingleCard, drawSpreadCards } from 'mingyu-core/divination/tarot'`
+
+### `drawSingleCard(options?)`
+
+### `drawSpreadCards(spreadType, options?)`
+
+**参数：**
+
+- `spreadType`: `tarotSpreads` 中的牌阵键名；单牌可直接使用 `drawSingleCard`
+- `options?: { seed?: string | number; rng?: () => number }`
+
+**返回：** 抽取的牌、牌位、正逆位和时间戳。`tarotSpreads` 只保留牌阵结构，不再附带默认问题。
 
 ---
 
@@ -251,9 +276,12 @@
 
 导入：`import { drawLenormandSpread } from 'mingyu-core/divination/lenormand'`
 
-### `drawLenormandSpread(spreadType?)`
+### `drawLenormandSpread(spreadType?, options?)`
 
-**参数：** `spreadType?: 'single' | 'three' | 'five' | 'relationship' | 'decision' | 'nine' | 'element' | 'grandTableau'`，不传时使用 `single`。
+**参数：**
+
+- `spreadType?: 'single' | 'three' | 'five' | 'relationship' | 'decision' | 'nine' | 'element' | 'grandTableau'`，不传时使用 `single`
+- `options?: { seed?: string | number; rng?: () => number }`
 
 **返回 `LenormandData`：** 36 张雷诺曼牌、Fisher-Yates 洗牌、各位置牌义、相邻两牌组合含义。
 
