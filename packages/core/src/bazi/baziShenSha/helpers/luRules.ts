@@ -128,6 +128,10 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
         forwardBranch(LU_BRANCH_BY_STEM[riGan], -1) === zhi
       );
     },
+    离祖杀: () =>
+      pillarIndex === 3 &&
+      (forwardBranch(LU_BRANCH_BY_STEM[nianGan], -1) === zhi ||
+        forwardBranch(LU_BRANCH_BY_STEM[riGan], -1) === zhi),
     禄九地: () => {
       const stems = [nianGan, riGan].filter((stem) => !['戊', '己'].includes(stem));
       return stems.some((stem) => forwardBranch(LU_BRANCH_BY_STEM[stem], -2) === zhi);
