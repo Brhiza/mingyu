@@ -134,6 +134,19 @@ const CAI_HUI_SHA_BY_YEAR_BRANCH: Record<string, string> = {
   未: '戊辰',
 };
 
+const WU_GUI_KONG_WANG_BRANCHES_BY_YEAR_STEM: Record<string, string[]> = {
+  甲: ['巳', '午'],
+  己: ['巳', '午'],
+  乙: ['寅', '卯'],
+  庚: ['寅', '卯'],
+  丙: ['子', '丑'],
+  辛: ['子', '丑'],
+  丁: ['戌', '亥'],
+  壬: ['戌', '亥'],
+  戊: ['申', '酉'],
+  癸: ['申', '酉'],
+};
+
 const QING_LONG_SHA_BY_YEAR_BRANCH: Record<string, string> = {
   寅: '丙寅',
   午: '丙寅',
@@ -559,6 +572,8 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
   const yuanChenOffset = (nianGanIsYang && isMan) || (!nianGanIsYang && !isMan) ? 5 : 7;
   const yuanChenBranch = cdz[(zhiIdx(nianZhi) + yuanChenOffset + 12) % 12];
   const hasYuanChen = baziArray.some((pillar) => pillar[1] === yuanChenBranch);
+  const chiXiaoMonthBranch = cdz[(zhiIdx(nianZhi) + 2) % 12];
+  const chiXiaoDayHourBranch = cdz[(zhiIdx(yueZhi) + 3) % 12];
   const hasRepeatedWuXingGui = baziArray.some(
     (pillar, index) =>
       index >= 1 &&
@@ -723,6 +738,7 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     三公煞: () => SAN_GONG_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
     官会杀: () => GUAN_HUI_SHA_BY_YEAR_STEM[nianGan] === pillarGZ,
     财会杀: () => CAI_HUI_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
+    五鬼空亡: () => WU_GUI_KONG_WANG_BRANCHES_BY_YEAR_STEM[nianGan]?.includes(zhi),
     青龙杀: () => QING_LONG_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
     良会杀: () => LIANG_HUI_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
     扶生日: () => FU_SHENG_DAY_BY_MONTH_BRANCH[yueZhi] === zhi,
@@ -753,6 +769,7 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     天罡杀: () => TIAN_GANG_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
     阴杀: () => YIN_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
     阳杀: () => YANG_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
+    鸱枭杀: () => pillarIndex >= 2 && yueZhi === chiXiaoMonthBranch && zhi === chiXiaoDayHourBranch,
     冲天杀: () =>
       (pillarIndex === 1 && clashes(nianZhi, zhi)) || (pillarIndex === 3 && clashes(riZhi, zhi)),
     丧门: () => annualPalace(2),

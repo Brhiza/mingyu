@@ -2460,3 +2460,42 @@ test('五行精纪天瞽杀应按月令起申逆行十二支取用', () => {
     assert.ok(!Object.values(missResult).flat().includes('飞廉杀'));
   }
 });
+
+test('五行精纪五鬼空亡与鸱枭杀应按古籍原文取用', () => {
+  for (const calculator of createCalculators()) {
+    const wuGuiResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丁', '巳'],
+        ['戊', '午'],
+        ['己', '申'],
+      ],
+      'male',
+    );
+    const chiXiaoResult = calculator.calculateAllShenSha(
+      [
+        ['壬', '子'],
+        ['壬', '寅'],
+        ['丁', '巳'],
+        ['戊', '巳'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['壬', '子'],
+        ['壬', '卯'],
+        ['丁', '巳'],
+        ['戊', '辰'],
+      ],
+      'male',
+    );
+
+    assert.ok(wuGuiResult.month.includes('五鬼空亡'));
+    assert.ok(wuGuiResult.day.includes('五鬼空亡'));
+    assert.ok(chiXiaoResult.day.includes('鸱枭杀'));
+    assert.ok(chiXiaoResult.hour.includes('鸱枭杀'));
+    assert.ok(!Object.values(missResult).flat().includes('五鬼空亡'));
+    assert.ok(!Object.values(missResult).flat().includes('鸱枭杀'));
+  }
+});
