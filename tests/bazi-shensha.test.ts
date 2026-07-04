@@ -1778,6 +1778,34 @@ test('五行精纪天官贵人应按阴官贵十干支表取用', () => {
   }
 });
 
+test('三命通会妄语煞应取日时官符落日柱旬空', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丙', '寅'],
+        ['甲', '午'],
+        ['戊', '辰'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丙', '寅'],
+        ['甲', '子'],
+        ['戊', '辰'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.hour.includes('官符'));
+    assert.ok(hitResult.hour.includes('空亡'));
+    assert.ok(hitResult.hour.includes('妄语煞'));
+    assert.ok(!missResult.hour.includes('妄语煞'));
+  }
+});
+
 test('五行精纪扶生日旌德旌钺应按月支年支定例取用', () => {
   for (const calculator of createCalculators()) {
     const hitResult = calculator.calculateAllShenSha(
