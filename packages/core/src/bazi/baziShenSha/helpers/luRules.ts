@@ -209,6 +209,21 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
       const riYiMa = YI_MA_BY_BRANCH[riZhi];
       return forwardBranch(nianYiMa, -1) === zhi || forwardBranch(riYiMa, -1) === zhi;
     },
+    马天庭: () => {
+      const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
+      const riYiMa = YI_MA_BY_BRANCH[riZhi];
+      return forwardBranch(nianYiMa, 1) === zhi || forwardBranch(riYiMa, 1) === zhi;
+    },
+    马九天: () => {
+      const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
+      const riYiMa = YI_MA_BY_BRANCH[riZhi];
+      return forwardBranch(nianYiMa, -1) === zhi || forwardBranch(riYiMa, -1) === zhi;
+    },
+    马九地: () => {
+      const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
+      const riYiMa = YI_MA_BY_BRANCH[riZhi];
+      return forwardBranch(nianYiMa, -2) === zhi || forwardBranch(riYiMa, -2) === zhi;
+    },
     勾陈: () => {
       return GOU_CHEN_BY_STEM[nianGan]?.includes(zhi) || GOU_CHEN_BY_STEM[riGan]?.includes(zhi);
     },

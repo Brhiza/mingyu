@@ -741,6 +741,38 @@ test('攀鞍应取驿马后一辰，不应算到将星或驿马本位', () => {
   }
 });
 
+test('五行精纪马天庭马九天马九地应按驿马前后定支取用', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['丁', '丑'],
+        ['甲', '子'],
+        ['戊', '戌'],
+        ['癸', '酉'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['丁', '丑'],
+        ['甲', '亥'],
+        ['戊', '巳'],
+        ['癸', '申'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.month.includes('马天庭'));
+    assert.ok(hitResult.day.includes('马九天'));
+    assert.ok(hitResult.hour.includes('马九地'));
+    assert.ok(
+      !Object.values(missResult)
+        .flat()
+        .some((name) => ['马天庭', '马九天', '马九地'].includes(name)),
+    );
+  }
+});
+
 test('五行精纪勾陈真武应按年干日干定支取用', () => {
   for (const calculator of createCalculators()) {
     const hitResult = calculator.calculateAllShenSha(
@@ -2182,6 +2214,34 @@ test('无成杀应按五行精纪以年支三合组取目标地支', () => {
     assert.ok(hitResult.month.includes('无成杀'));
     const missNames = Object.values(missResult).flat();
     assert.ok(!missNames.includes('无成杀'));
+  }
+});
+
+test('宅墓煞应按三命通会命前后五辰只取日时', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['乙', '丑'],
+        ['丙', '巳'],
+        ['丁', '未'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['乙', '巳'],
+        ['丙', '午'],
+        ['丁', '申'],
+      ],
+      'male',
+    );
+
+    assert.ok(!hitResult.month.includes('宅墓煞'));
+    assert.ok(hitResult.day.includes('宅墓煞'));
+    assert.ok(hitResult.hour.includes('宅墓煞'));
+    assert.ok(!Object.values(missResult).flat().includes('宅墓煞'));
   }
 });
 

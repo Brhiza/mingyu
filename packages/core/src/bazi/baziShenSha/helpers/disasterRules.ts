@@ -771,6 +771,9 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
       (pillarIndex === 3 && XUE_GUANG_SHA_HOUR_BY_DAY_BRANCH[riZhi] === zhi),
     截命杀: () => cdz[(zhiIdx(nianZhi) + 1) % 12] === zhi,
     推命杀: () => cdz[(zhiIdx(nianZhi) + 11) % 12] === zhi,
+    宅墓煞: () =>
+      pillarIndex >= 2 &&
+      (cdz[(zhiIdx(nianZhi) + 5) % 12] === zhi || cdz[(zhiIdx(nianZhi) + 7) % 12] === zhi),
     建命杀: () => pillarIndex === 1 && pillarGZ === `${nianGan}${nianZhi}`,
     六厄: () => {
       const map: Record<string, string> = {
