@@ -1275,6 +1275,35 @@ test('科名贵应只取甲辰至癸丑一旬的日时干支', () => {
   }
 });
 
+test('五行精纪真魁星应只取日时四干支', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '辰'],
+        ['丁', '未'],
+        ['庚', '戌'],
+        ['癸', '丑'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '辰'],
+        ['丁', '未'],
+        ['辛', '亥'],
+        ['壬', '子'],
+      ],
+      'male',
+    );
+
+    assert.ok(!hitResult.year.includes('真魁星'));
+    assert.ok(!hitResult.month.includes('真魁星'));
+    assert.ok(hitResult.day.includes('真魁星'));
+    assert.ok(hitResult.hour.includes('真魁星'));
+    assert.ok(!Object.values(missResult).flat().includes('真魁星'));
+  }
+});
+
 test('岁窠应只在年支与月支相同时标记月柱', () => {
   for (const calculator of createCalculators()) {
     const hitResult = calculator.calculateAllShenSha(
