@@ -1299,6 +1299,35 @@ test('官贵学馆应按官星长生临官位取地支', () => {
   }
 });
 
+test('三命通会学堂会食与官星学堂应按固定干支取用', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['辛', '亥'],
+        ['丙', '寅'],
+        ['壬', '寅'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['辛', '酉'],
+        ['丙', '子'],
+        ['壬', '辰'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.month.includes('官星学堂'));
+    assert.ok(hitResult.day.includes('食神学堂'));
+    assert.ok(hitResult.hour.includes('官星学堂'));
+    assert.ok(!Object.values(missResult).flat().includes('官星学堂'));
+    assert.ok(!Object.values(missResult).flat().includes('食神学堂'));
+  }
+});
+
 test('文星贵应按三命通会十干口诀取地支', () => {
   for (const calculator of createCalculators()) {
     const hitResult = calculator.calculateAllShenSha(

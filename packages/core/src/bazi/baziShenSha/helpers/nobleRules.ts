@@ -45,6 +45,32 @@ const ZHEN_KUI_XING_PILLARS = ['甲辰', '丁未', '庚戌', '癸丑'];
 const KUI_XING_PILLARS = ['丁亥', '辛卯', '庚戌'];
 const WEN_XING_PILLARS = ['乙亥', '丁巳'];
 
+const GUAN_XING_XUE_TANG_BY_STEM: Record<string, string> = {
+  甲: '辛亥',
+  乙: '辛亥',
+  丙: '壬寅',
+  丁: '壬寅',
+  戊: '甲申',
+  己: '甲申',
+  庚: '丁巳',
+  辛: '丁巳',
+  壬: '戊申',
+  癸: '戊申',
+};
+
+const SHI_SHEN_XUE_TANG_BY_STEM: Record<string, string> = {
+  甲: '丙寅',
+  乙: '丁巳',
+  丙: '戊申',
+  丁: '己亥',
+  戊: '庚巳',
+  己: '辛申',
+  庚: '壬申',
+  辛: '癸亥',
+  壬: '甲亥',
+  癸: '乙寅',
+};
+
 const MING_FU_MONTH_BRANCH_BY_YEAR_STEM: Record<string, string> = {
   甲: '酉',
   乙: '午',
@@ -401,6 +427,12 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       ];
       return targets.includes(zhi);
     },
+    官星学堂: () =>
+      GUAN_XING_XUE_TANG_BY_STEM[nianGan] === pillarGZ ||
+      GUAN_XING_XUE_TANG_BY_STEM[riGan] === pillarGZ,
+    食神学堂: () =>
+      SHI_SHEN_XUE_TANG_BY_STEM[nianGan] === pillarGZ ||
+      SHI_SHEN_XUE_TANG_BY_STEM[riGan] === pillarGZ,
     天厨贵人: () => {
       const foodGodMap: Record<string, string> = {
         甲: '丙',
