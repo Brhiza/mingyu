@@ -2521,7 +2521,7 @@ test('五行精纪五鬼空亡与鸱枭杀应按古籍原文取用', () => {
   }
 });
 
-test('五行精纪自刃、飞刃与离祖杀应按日时原文取用', () => {
+test('五行精纪自刃、飞刃、五行真日时与离祖杀应按日时原文取用', () => {
   for (const calculator of createCalculators()) {
     const ziRenResult = calculator.calculateAllShenSha(
       [
@@ -2538,6 +2538,15 @@ test('五行精纪自刃、飞刃与离祖杀应按日时原文取用', () => {
         ['乙', '卯'],
         ['庚', '午'],
         ['丁', '丑'],
+      ],
+      'male',
+    );
+    const zhenRiShiResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['乙', '卯'],
+        ['乙', '酉'],
+        ['庚', '辰'],
       ],
       'male',
     );
@@ -2563,8 +2572,10 @@ test('五行精纪自刃、飞刃与离祖杀应按日时原文取用', () => {
     assert.ok(ziRenResult.day.includes('自刃'));
     assert.ok(ziRenResult.hour.includes('自刃'));
     assert.ok(feiRenResult.hour.includes('飞刃'));
+    assert.ok(zhenRiShiResult.hour.includes('五行真日时'));
     assert.ok(liZuResult.hour.includes('离祖杀'));
     assert.ok(!Object.values(missResult).flat().includes('自刃'));
+    assert.ok(!Object.values(missResult).flat().includes('五行真日时'));
     assert.ok(!Object.values(missResult).flat().includes('离祖杀'));
   }
 });

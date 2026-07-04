@@ -36,6 +36,14 @@ const DIAN_DAO_SHA_HOUR_BRANCH_BY_DAY_BRANCH: Record<string, string> = {
 
 const ZI_REN_PILLARS = ['丙午', '丁未', '戊午', '己未', '壬子', '癸丑'];
 
+const WU_XING_ZHEN_RI_SHI_BY_DAY_PILLAR: Record<string, string> = {
+  乙酉: '庚辰',
+  丁巳: '丙午',
+  癸亥: '壬子',
+  己丑: '戊辰',
+  甲寅: '丁卯',
+};
+
 const JI_FENG_SHA_STEMS_BY_MONTH_BRANCH: Record<string, string[]> = {
   寅: ['甲'],
   卯: ['乙'],
@@ -97,6 +105,7 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
     戟锋煞: () =>
       (pillarIndex === 2 || pillarIndex === 3) && hasJiFengSha && jiFengStems.includes(gan),
     自刃: () => (pillarIndex === 2 || pillarIndex === 3) && ZI_REN_PILLARS.includes(pillarGZ),
+    五行真日时: () => pillarIndex === 3 && WU_XING_ZHEN_RI_SHI_BY_DAY_PILLAR[riGZ] === pillarGZ,
     天赦日: () => {
       if (pillarIndex !== 2) return false;
       const season: string = (
