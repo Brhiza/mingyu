@@ -2037,6 +2037,52 @@ test('五行精纪年支凶杀应按原文固定地支取用', () => {
   }
 });
 
+test('五行精纪官会杀财会杀应按年命固定干支取用', () => {
+  for (const calculator of createCalculators()) {
+    const guanHuiResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['辛', '丑'],
+        ['丙', '寅'],
+        ['丁', '卯'],
+      ],
+      'male',
+    );
+    const caiHuiResult = calculator.calculateAllShenSha(
+      [
+        ['丙', '寅'],
+        ['辛', '丑'],
+        ['甲', '子'],
+        ['丁', '卯'],
+      ],
+      'male',
+    );
+    const guanHuiMissResult = calculator.calculateAllShenSha(
+      [
+        ['丙', '子'],
+        ['辛', '丑'],
+        ['甲', '寅'],
+        ['丁', '卯'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '亥'],
+        ['辛', '丑'],
+        ['丙', '寅'],
+        ['丁', '卯'],
+      ],
+      'male',
+    );
+
+    assert.ok(guanHuiResult.month.includes('官会杀'));
+    assert.ok(caiHuiResult.month.includes('财会杀'));
+    assert.ok(!guanHuiMissResult.month.includes('官会杀'));
+    assert.ok(!missResult.month.includes('财会杀'));
+  }
+});
+
 test('建命杀应按月柱干支与年柱干支相同取出', () => {
   for (const calculator of createCalculators()) {
     const result = calculator.calculateAllShenSha(
