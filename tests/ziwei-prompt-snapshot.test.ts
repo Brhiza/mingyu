@@ -5,7 +5,7 @@ import {
   buildCombinedZiweiCompatibilityPrompt,
   buildCombinedZiweiPrompt,
 } from '../src/lib/full-chart-engine/ziwei';
-import { buildEvidencePool } from '../src/lib/iztro/build-evidence-pool';
+import { buildEvidencePool } from '@core/ziwei/iztro';
 import { buildEvidenceSummary } from '../src/lib/ziwei-prompts/builders';
 import { buildZiweiReadableSnapshot } from '../src/lib/ziwei-prompts/snapshot';
 import type { PromptContext } from '../src/lib/ziwei-prompts/types';

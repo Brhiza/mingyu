@@ -1,6 +1,6 @@
 import type { AnalysisPayloadV1, PalaceFact, StarFact } from '../../types/analysis';
-import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
-import type { PromptEvidenceItem } from '../prompt-evidence/types';
+import { formatPromptEvidenceBundle } from '@core/prompt-evidence/format';
+import type { PromptEvidenceItem } from '@core/prompt-evidence/types';
 import { formatPalaceName, mapScopeLabel, normalizePalaceName } from './labels';
 import {
   collectMutagenStars,

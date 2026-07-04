@@ -16,10 +16,7 @@ import {
   getBaziDefaultQuestion,
 } from '../../lib/prompt-default-questions';
 import { formatPromptCurrentTime } from '../../lib/prompt-time';
-import {
-  generateEnhancedAnalysisSection,
-  generateCompatibilityEnhancedSection,
-} from '@core/bazi/baziPromptEnhancement';
+import { generateEnhancedAnalysisSection } from '@core/bazi/baziPromptEnhancement';
 import {
   BAZI_QUESTION_SCENES,
   buildBaziQuestionGuidanceSection,
@@ -319,193 +316,53 @@ function buildFortunePromptAddon(promptId: string, ctx: FortuneSelectionContext 
   return '';
 }
 
-// ─── 快捷按钮配置 ──────────────────────────────────
+const BAZI_SINGLE_TASK_PROMPT =
+  '请围绕【问题】和用户所选分类范围直接判断重点；未填写具体问题时按通用八字口径做整体分析。';
+const BAZI_COMPATIBILITY_TASK_PROMPT =
+  '请围绕【问题】和用户所选关系范围直接判断重点；未填写具体问题时按通用合盘口径做整体分析。';
+
+function createBaziPromptOption(id: string, scene: BaziQuestionScene): AIPromptOption {
+  return { id, prompt: BAZI_SINGLE_TASK_PROMPT, scene };
+}
+
+function createBaziCompatibilityPromptOption(id: string, scene: BaziQuestionScene): AIPromptOption {
+  return { id, prompt: BAZI_COMPATIBILITY_TASK_PROMPT, scene };
+}
 
 export const BAZI_AI_PROMPTS = {
-  /** 单盘快捷选项 — 仅保留前端 baziSingleShortcutActions 实际引用的 promptId */
   single: [
-    {
-      id: 'ai-mingge-zonglun',
-      prompt:
-        '判断日主旺衰、格局层次、用神喜忌，抓2到3个最有辨识度的影响，讲清命局的病与药，并给出调整建议。',
-      scene: 'general',
-    },
-    {
-      id: 'ai-recent',
-      prompt:
-        '结合当前大运、流年、流月与命局主线，判断现阶段最该优先推进的方向、适合主动出手的事项、需要暂缓的风险和更稳妥的行动节奏。',
-      scene: 'recent',
-    },
-    {
-      id: 'ai-career',
-      prompt:
-        '判断命局更适合守成、开拓、技术、管理还是经营，再说明当前阶段的赚钱方式、职业方向和风险点。',
-      scene: 'career',
-    },
-    {
-      id: 'ai-job-change',
-      prompt:
-        '结合当前大运、流年、流月与命局主线，判断现在更适合留在原岗位、试探新机会、直接跳槽还是先蓄力转方向，并说明平台、收入、成长空间和短期风险的取舍重点。',
-      scene: 'job-change',
-    },
-    {
-      id: 'ai-startup-partnership',
-      prompt:
-        '结合当前大运、流年、流月与命局主线，判断现在更适合创业、找人合作、小范围试跑、继续上班积累还是暂缓，并说明方向选择、资源来源、合作分工、现金流压力和现实风险。',
-      scene: 'startup-partnership',
-    },
-    {
-      id: 'ai-investment-partnership',
-      prompt:
-        '围绕财星、官杀、印星、食伤、比劫与当前岁运引动，判断现在更适合独立投资、合作求财、继续观望还是先守财，并说明资金压力、收益模式、合作分工、风险边界和现实代价。',
-      scene: 'investment-partnership',
-    },
-    {
-      id: 'ai-wealth-timing',
-      prompt: '判断财运应期，说明财更容易在哪些阶段、年份或环境里起来，再指出机会点和破财情形。',
-      scene: 'wealth',
-    },
-    {
-      id: 'ai-marriage',
-      prompt:
-        '围绕配偶星、夫妻宫和相处模式，判断感情优势、隐患与关系节奏，再说明适合的对象、容易推进的阶段和经营建议。',
-      scene: 'marriage',
-    },
-    {
-      id: 'ai-relationship-push',
-      prompt:
-        '围绕配偶星、夫妻宫、桃花与当前岁运引动，判断这段关系现在更适合主动推进、稳定经营、放慢观察还是及时止损，并说明投入价值、风险边界和接下来的判断标准。',
-      scene: 'relationship-push',
-    },
-    {
-      id: 'ai-relationship-decision',
-      prompt:
-        '围绕配偶星、夫妻宫、桃花与当前岁运引动，判断这段关系现在更适合继续投入、放慢观察、重新建立边界还是及时止损，并说明继续投入的条件、止损信号、现实代价和接下来的判断标准。',
-      scene: 'relationship-decision',
-    },
-    {
-      id: 'ai-reconciliation-decision',
-      prompt:
-        '围绕配偶星、夫妻宫、桃花、旧缘信号与当前岁运引动，判断这段旧关系现在更适合争取复合、保持观察、先立边界还是及时放下，并说明复合条件、现实阻力、风险信号和接下来的判断标准。',
-      scene: 'reconciliation-decision',
-    },
-    {
-      id: 'ai-children-fate',
-      prompt:
-        '判断子女缘分深浅、子女性格倾向和教育相处方式，说明更该关注生育时机、子女互动还是教育重点。',
-      scene: 'children',
-    },
-    {
-      id: 'ai-health',
-      prompt:
-        '判断最需要注意的身体倾向与生活习惯问题，说明风险主要落在哪些系统或体质失衡上，再给出饮食、作息、运动建议。',
-      scene: 'health',
-    },
-    {
-      id: 'ai-family',
-      prompt:
-        '围绕父母、兄弟姐妹、家庭责任和亲缘边界做整体分析，说明六亲对命局的助力、牵制、压力来源和更稳妥的相处方式。',
-      scene: 'parents',
-    },
-    {
-      id: 'ai-home',
-      prompt:
-        '围绕原生家庭、安全感来源、家庭边界、居住秩序和现实责任分工做整体分析，说明哪些地方在支持你，哪些地方在消耗你，并给出更稳妥的调整建议。',
-      scene: 'family',
-    },
-    {
-      id: 'ai-home-move',
-      prompt:
-        '围绕搬家、换城市、买房置业与居住调整做整体分析，判断现在更适合行动还是继续观望，并说明居住稳定性、资金压力、家庭牵动、行动时机和风险控制重点。',
-      scene: 'home-move',
-    },
-    {
-      id: 'ai-settle-relocate',
-      prompt:
-        '围绕长期定居、换城市发展与居住根基做整体分析，判断现在更适合留在当前城市、换城发展、两地过渡还是暂缓决定，并说明稳定性、事业机会、家庭牵动、成本压力和行动顺序。',
-      scene: 'settle-relocate',
-    },
-    {
-      id: 'ai-social',
-      prompt:
-        '围绕社交风格、合作关系、贵人来源、沟通短板和人脉策略做整体分析，说明你更适合怎样筛选关系和使用资源。',
-      scene: 'social',
-    },
-    {
-      id: 'ai-emotion',
-      prompt:
-        '围绕情绪触发点、压力来源、安全感需求、内耗模式和修复方式做整体分析，说明当前最值得先调整的状态与节奏。',
-      scene: 'emotion',
-    },
-    {
-      id: 'ai-study',
-      prompt:
-        '围绕印星、食伤、官杀和学业文凭做整体分析，说明学习吸收力、表达输出、考试压力、进修潜力和最适合的提升方式。',
-      scene: 'study',
-    },
-    {
-      id: 'ai-study-advance',
-      prompt:
-        '围绕考证、读研进修、跨领域学习与当前岁运引动做整体分析，判断现在更适合冲刺、长期准备、换赛道学习还是暂缓，并说明投入产出、执行压力和现实代价。',
-      scene: 'study-advance',
-    },
-    {
-      id: 'ai-exam-landing',
-      prompt:
-        '围绕印星、食伤、官杀、文凭考试与当前岁运引动做整体分析，判断这次考试、面试或申请更适合冲刺上岸、稳住发挥、调整目标还是暂缓重来，并说明发挥短板、竞争压力、准备重点和现实风险。',
-      scene: 'exam-landing',
-    },
-    {
-      id: 'ai-growth',
-      prompt:
-        '围绕命局病药、性格卡点、长期成长课题、反复受阻模式和现实突破方向做整体分析，说明最值得优先调整的主线。',
-      scene: 'growth',
-    },
-    {
-      id: 'ai-talent',
-      prompt:
-        '围绕核心天赋、学习吸收、表达输出、组织执行和资源整合能力做整体分析，说明哪些优势最值得长期放大以及如何落地。',
-      scene: 'talent',
-    },
+    createBaziPromptOption('ai-mingge-zonglun', 'general'),
+    createBaziPromptOption('ai-recent', 'recent'),
+    createBaziPromptOption('ai-career', 'career'),
+    createBaziPromptOption('ai-job-change', 'job-change'),
+    createBaziPromptOption('ai-startup-partnership', 'startup-partnership'),
+    createBaziPromptOption('ai-investment-partnership', 'investment-partnership'),
+    createBaziPromptOption('ai-wealth-timing', 'wealth'),
+    createBaziPromptOption('ai-marriage', 'marriage'),
+    createBaziPromptOption('ai-relationship-push', 'relationship-push'),
+    createBaziPromptOption('ai-relationship-decision', 'relationship-decision'),
+    createBaziPromptOption('ai-reconciliation-decision', 'reconciliation-decision'),
+    createBaziPromptOption('ai-children-fate', 'children'),
+    createBaziPromptOption('ai-health', 'health'),
+    createBaziPromptOption('ai-family', 'parents'),
+    createBaziPromptOption('ai-home', 'family'),
+    createBaziPromptOption('ai-home-move', 'home-move'),
+    createBaziPromptOption('ai-settle-relocate', 'settle-relocate'),
+    createBaziPromptOption('ai-social', 'social'),
+    createBaziPromptOption('ai-emotion', 'emotion'),
+    createBaziPromptOption('ai-study', 'study'),
+    createBaziPromptOption('ai-study-advance', 'study-advance'),
+    createBaziPromptOption('ai-exam-landing', 'exam-landing'),
+    createBaziPromptOption('ai-growth', 'growth'),
+    createBaziPromptOption('ai-talent', 'talent'),
   ] as AIPromptOption[],
-  /** 合盘快捷选项 — 仅保留前端 baziCompatibilityShortcutActions 实际引用的 promptId */
   combined: [
-    {
-      id: 'ai-compat-marriage',
-      prompt:
-        '判断两人的婚恋匹配度是互补、互耗还是强吸引强摩擦，再说明相处优势、冲突来源、长期走向和相处建议。',
-      scene: 'marriage',
-    },
-    {
-      id: 'ai-compat-career',
-      prompt:
-        '判断合作是否顺手、谁主导、谁执行、谁控风险，再说明最强互补点、最大利益冲突点和是否适合长期合伙。',
-      scene: 'career',
-    },
-    {
-      id: 'ai-compat-friendship',
-      prompt:
-        '判断两人的相处模式是容易投缘、容易互补还是容易暗中较劲，再说明适合的距离和相处提醒。',
-      scene: 'general',
-    },
-    {
-      id: 'ai-compat-children',
-      prompt:
-        '从双方食伤星、子女宫和桃花配合角度，判断子女缘分的深浅、子女性格倾向和亲子相处重点。',
-      scene: 'children',
-    },
-    {
-      id: 'ai-compat-parents',
-      prompt:
-        '从双方父母星、父母宫和当前岁运切入，判断双方父母健康状况、需要关注的风险方向和赡养建议。',
-      scene: 'parents',
-    },
-    {
-      id: 'ai-compat-siblings',
-      prompt:
-        '从双方比劫关系、命宫和相处模式切入，判断两人之间兄弟朋友关系的亲疏、助力与牵制、相处建议。',
-      scene: 'general',
-    },
+    createBaziCompatibilityPromptOption('ai-compat-marriage', 'marriage'),
+    createBaziCompatibilityPromptOption('ai-compat-career', 'career'),
+    createBaziCompatibilityPromptOption('ai-compat-friendship', 'general'),
+    createBaziCompatibilityPromptOption('ai-compat-children', 'children'),
+    createBaziCompatibilityPromptOption('ai-compat-parents', 'parents'),
+    createBaziCompatibilityPromptOption('ai-compat-siblings', 'general'),
   ] as AIPromptOption[],
 };
 
@@ -617,32 +474,14 @@ export function buildPromptFromConfig(
 export type CompatType = 'marriage' | 'career' | 'friendship' | 'children' | 'parents' | 'siblings';
 
 function getCompatibilityTask(compatType?: CompatType): string {
-  if (compatType === 'career') {
-    return '请先判断合作主轴，再说明分工互补、利益风险、沟通成本和长期建议。';
-  }
-  if (compatType === 'friendship') {
-    return '请先判断相处主轴，再说明投缘点、边界风险、相处节奏和建议。';
-  }
-  if (compatType === 'children') {
-    return '请先说明子女议题的主线，再分证据强弱展开重点。';
-  }
-  if (compatType === 'parents') {
-    return '请先说明父母议题主线，再分健康风险、照护压力、关系边界与建议展开。';
-  }
-  if (compatType === 'siblings') {
-    return '请先说明兄弟朋友议题主线，再分亲疏互动、现实助力牵制与边界建议展开。';
-  }
+  void compatType;
   return '请先判断关系主轴，再说明相处模式、互补点、冲突点和建议。';
 }
 
 function getCompatibilityOutputRequirement(compatType?: CompatType): string {
-  const opening =
-    compatType === 'children' || compatType === 'parents' || compatType === 'siblings'
-      ? '先直接回答【问题】，再展开最关键的 2 到 4 个重点，并分清证据强弱。'
-      : '先直接回答【问题】，再展开最关键的 2 到 4 个重点。';
-
+  void compatType;
   return [
-    opening,
+    '先直接回答【问题】，再展开最关键的 2 到 4 个重点。',
     '每个重点都要写明双方盘面主证、辅证、反证或限制、触发条件与现实建议；证据不足处单独说明。',
   ].join('\n');
 }
@@ -667,17 +506,12 @@ export function getCompatibilityPrompt(
     ? demoteEmbeddedPromptSections(formatBaziForPrompt(baziResult2, null, 'compatibility'))
     : '无法获取第二人命盘数据。';
 
-  const enhancedSection = compatType ? generateCompatibilityEnhancedSection(compatType) : '';
-
   return {
     system: COMPATIBILITY_SYSTEM_PROMPT,
     user: joinPromptSections([
       buildPromptSection('当前时间', formatPromptCurrentTime()),
       buildPromptSection('第一人排盘信息', data1),
       buildPromptSection('第二人排盘信息', data2),
-      !isCustomQuestion && enhancedSection
-        ? buildPromptSection('合盘分析思路', enhancedSection)
-        : '',
       buildPromptSection(
         '问题',
         questionText.trim() || getBaziCompatibilityDefaultQuestion(compatType),

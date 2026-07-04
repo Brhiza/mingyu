@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { getDefaultHoroscopeContext, shiftLocalDate } from '../src/lib/iztro/runtime-helpers';
+import { getDefaultHoroscopeContext, shiftLocalDate } from '@core/ziwei/iztro';
 
 test('紫微运行期日期位移应保持合法日期并处理月底', () => {
   assert.equal(shiftLocalDate('2024-02-29', 1, 'year'), '2025-02-28');

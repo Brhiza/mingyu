@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageTopbar } from '@/components/PageTopbar';
 import { PrivacyHint } from '@/components/PrivacyHint';
 import { SegmentedControl } from '@/components/SegmentedControl';
-import { DIVINATION_METHOD_OPTIONS } from '@/lib/divination/config';
+import { DIVINATION_METHOD_OPTIONS } from '@core/divination/config';
 import {
   loadCompatibilityHistory,
   loadDivinationHistory,

@@ -1,8 +1,4 @@
-import {
-  buildAstrolabeFromInput,
-  buildHoroscope,
-  shiftLocalDate,
-} from '@/lib/iztro/runtime-helpers';
+import { buildAstrolabeFromInput, buildHoroscope, shiftLocalDate } from '@core/ziwei/iztro';
 import type { ChartInput } from '@/types/chart';
 
 type DecadalOptionInput = {

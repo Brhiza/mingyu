@@ -40,7 +40,7 @@ test('紫微 MCP 返回结果应为可 JSON 序列化的纯数据', async () => 
   assert.equal(parsed.horoscope, undefined);
 });
 
-test('紫微合盘提示词会按主题使用匹配的默认问题与任务口径', async () => {
+test('紫微合盘主题只作为关系范围，不再注入固定问题与任务口径', async () => {
   const firstInput = buildZiweiChartInput({
     name: '甲',
     gender: 'male',
@@ -73,16 +73,17 @@ test('紫微合盘提示词会按主题使用匹配的默认问题与任务口�
     topic: 'career-wealth',
     question: '',
   });
-  assert.match(cooperationPrompt, /【问题】\n请先从合作默契、优势互补和潜在风险开始分析。/);
+  assert.match(cooperationPrompt, /【问题】\n请先做整体合盘解读。/);
   assert.match(
     cooperationPrompt,
-    /【任务】\n请综合双方盘面，重点分析合作分工、资源互补、利益风险、四化牵动与长期建议。/,
+    /【任务】\n请综合双方盘面和用户所选关系范围，直接判断互动主轴、互补点、冲突点、触发机制与建议。/,
   );
   assert.match(
     cooperationPrompt,
     /【输出要求】\n先直接回答【问题】，再展开最关键的 2 到 4 个重点；/,
   );
-  assert.doesNotMatch(cooperationPrompt, /关系主基调/);
+  assert.match(cooperationPrompt, /用户选择主题时只把主题作为关系范围，不补充本地固定话术/);
+  assert.doesNotMatch(cooperationPrompt, /合作默契|合作分工|关系主基调/);
 
   const interactionPrompt = buildCombinedZiweiCompatibilityPrompt({
     primaryPayload: firstRuntime.payloadByScope.origin,
@@ -90,12 +91,12 @@ test('紫微合盘提示词会按主题使用匹配的默认问题与任务口�
     topic: 'chat',
     question: '',
   });
-  assert.match(interactionPrompt, /【问题】\n请先从互动模式、沟通盲点和长期建议开始分析。/);
+  assert.match(interactionPrompt, /【问题】\n请先做整体合盘解读。/);
   assert.match(
     interactionPrompt,
-    /【任务】\n请综合双方盘面，重点分析互动模式、沟通盲点、边界压力、四化牵动与长期建议。/,
+    /【任务】\n请综合双方盘面和用户所选关系范围，直接判断互动主轴、互补点、冲突点、触发机制与建议。/,
   );
-  assert.doesNotMatch(interactionPrompt, /整体关系匹配度/);
+  assert.doesNotMatch(interactionPrompt, /沟通盲点|整体关系匹配度/);
 });
 
 test('紫微合盘自定义问题不应额外拼接任务与输出要求', async () => {

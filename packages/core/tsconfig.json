@@ -21,8 +21,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    "src/divination/config.ts",
-    "src/divination/share-text.ts",
-    "src/divination/engine"
+    "src/divination/share-text.ts"
   ]
 }

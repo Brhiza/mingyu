@@ -45,7 +45,7 @@ import type {
   XiaoliurenDivinationMethod,
 } from '../../types/divination';
 import { drawSingleCard, drawSpreadCards, getCardKeywords } from 'mingyu-core/divination/tarot';
-import type { DivinationMethodId } from '../divination/config';
+import type { DivinationMethodId } from '@core/divination/config';
 import {
   BAZI_PROMPT_TOPICS,
   BAZI_SCHOOLS,
@@ -1096,7 +1096,10 @@ function buildDivinationPromptResult(
   };
 }
 
-function calculateDivinationData(method: Exclude<DivinationMethodId, 'random'>, input: JsonRecord) {
+function calculateDivinationData(
+  method: Exclude<DivinationMethodId, 'random'>,
+  input: JsonRecord,
+): DivinationData {
   switch (method) {
     case 'liuyao':
       return generateLiuyao(readCustomDate(input));
@@ -1118,6 +1121,8 @@ function calculateDivinationData(method: Exclude<DivinationMethodId, 'random'>, 
       return calculateLenormand(input);
     case 'astrolabe':
       return calculateAstrolabe(input);
+    default:
+      throw new Error('不支持的占法类型');
   }
 }
 

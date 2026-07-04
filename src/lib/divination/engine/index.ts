@@ -12,7 +12,7 @@ import type {
   TarotSpreadType,
   XiaoliurenDivinationMethod,
 } from '../../../types/divination';
-import type { DivinationMethodId } from '../config';
+import type { DivinationMethodId } from '@core/divination/config';
 import { daysInSolarMonth } from '../../date-validation';
 import {
   buildAstrolabeTopicGuidanceSection,
@@ -33,9 +33,9 @@ import {
   buildMethodRequirementText,
   buildRoleText,
   buildTaskText,
-} from './method-text';
+} from '@core/divination/engine/method-text';
 import { buildLiurenTemplateText } from './liuren-template';
-import { buildLiuyaoTemplateText } from './liuyao-template';
+import { buildLiuyaoTemplateText } from '@core/divination/engine/liuyao-template';
 
 const CONCRETE_DIVINATION_METHODS: Array<Exclude<DivinationMethodId, 'random'>> = [
   'liuyao',

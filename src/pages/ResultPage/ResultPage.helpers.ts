@@ -1,4 +1,4 @@
-import type { DecadalTimelineOption } from '@/lib/iztro/decadal';
+import type { DecadalTimelineOption } from '@core/ziwei/iztro';
 import { formatPromptCurrentTime } from '@/lib/prompt-time';
 import type { BaziQuestionScene, QueryPromptState, ZiweiScopeMode } from '@/lib/query-state';
 import type { AstrolabePromptTopic } from '@/lib/astrolabe-prompts';
@@ -115,7 +115,7 @@ export function findAstrolabeShortcutByMode(mode: string) {
 }
 
 export function resolveBaziShortcutMode(
-  promptState: QueryPromptState,
+  promptState: Pick<QueryPromptState, 'baziPresetId' | 'baziShortcutMode'>,
   analysisMode: 'single' | 'compatibility',
 ) {
   if (promptState.baziShortcutMode === '自定义') {
@@ -138,14 +138,13 @@ export function resolveBaziShortcutMode(
   }
 
   const matched = getBaziShortcutActions(analysisMode).find(
-    (item) =>
-      item.promptId === promptState.baziPresetId && item.question === promptState.baziQuickQuestion,
+    (item) => item.promptId === promptState.baziPresetId,
   );
   return matched?.label ?? '自定义';
 }
 
 export function resolveZiweiShortcutMode(
-  promptState: QueryPromptState,
+  promptState: Pick<QueryPromptState, 'ziweiShortcutMode' | 'ziweiTopic'>,
   analysisMode: 'single' | 'compatibility',
 ) {
   if (promptState.ziweiShortcutMode === '自定义') {
@@ -168,13 +167,14 @@ export function resolveZiweiShortcutMode(
   }
 
   const matched = getZiweiShortcutActions(analysisMode).find(
-    (item) =>
-      item.topic === promptState.ziweiTopic && item.question === promptState.ziweiQuickQuestion,
+    (item) => item.topic === promptState.ziweiTopic,
   );
   return matched?.label ?? '自定义';
 }
 
-export function resolveAstrolabeShortcutMode(promptState: QueryPromptState) {
+export function resolveAstrolabeShortcutMode(
+  promptState: Pick<QueryPromptState, 'astrolabeShortcutMode' | 'astrolabeTopic'>,
+) {
   if (promptState.astrolabeShortcutMode === '自定义') {
     return '自定义';
   }
@@ -188,9 +188,7 @@ export function resolveAstrolabeShortcutMode(promptState: QueryPromptState) {
   }
 
   const matched = ASTROLABE_SHORTCUT_ACTIONS.find(
-    (item) =>
-      item.topic === promptState.astrolabeTopic &&
-      (!promptState.astrolabeQuickQuestion || item.question === promptState.astrolabeQuickQuestion),
+    (item) => item.topic === promptState.astrolabeTopic,
   );
   return matched?.label ?? '综合';
 }
@@ -344,7 +342,7 @@ export function buildCompatibilityPromptWithUnknownTime(params: {
     '',
     `【第二人排盘信息】\n姓名：${params.secondName}\n${params.secondText}`,
     '',
-    `【问题】\n${params.question.trim() || '请先从双方互动模式与现实建议开始分析。'}`,
+    `【问题】\n${params.question.trim() || '请先做整体合盘解读。'}`,
     ...(isCustomQuestion
       ? []
       : [

@@ -19,9 +19,9 @@ import type {
 import { LunarUtil, getDivinationTime } from 'mingyu-core/calendar';
 import { resolveSsgwStoryContent } from '../ssgw-content';
 import { createQimenPriorityPalaces } from '../../../utils/qimen-guidance';
-import { normalizePromptEvidenceItems } from '../../prompt-evidence/format';
-import type { PromptEvidenceItem } from '../../prompt-evidence/types';
-import type { DivinationMethodId } from '../config';
+import { normalizePromptEvidenceItems } from '@core/prompt-evidence/format';
+import type { PromptEvidenceItem } from '@core/prompt-evidence/types';
+import type { DivinationMethodId } from '@core/divination/config';
 
 function resolveDivinationTimestamp(data?: DivinationData): number | null {
   if (!data || typeof data.timestamp !== 'number' || !Number.isFinite(data.timestamp)) {

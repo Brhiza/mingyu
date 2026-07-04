@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import type { QueryInputState, QueryPromptState } from '@/lib/query-state';
 import { buildBaziCustomPromptPatch, buildZiweiCustomPromptPatch } from '@/lib/prompt-page-rules';
 import {
-  findAstrolabeShortcutByMode,
   findBaziShortcutByMode,
   findZiweiShortcutByMode,
   readPromptDraft,
@@ -44,10 +43,22 @@ export function usePromptShortcuts(
   baziDraftStorageKey: string,
   ziweiDraftStorageKey: string,
   astrolabeDraftStorageKey: string,
-  astrolabeShortcutActions: ReadonlyArray<{ label: string; topic: string; question: string }>,
+  astrolabeShortcutActions: ReadonlyArray<{ label: string; topic: string }>,
   onUpdatePromptState: (next: Partial<QueryPromptState>) => void,
   onCloseInspiration: () => void,
 ): PromptShortcuts {
+  const {
+    astrolabeQuickQuestion,
+    astrolabeShortcutMode,
+    astrolabeTopic,
+    baziPresetId,
+    baziQuickQuestion,
+    baziShortcutMode,
+    promptSource,
+    ziweiQuickQuestion,
+    ziweiShortcutMode,
+    ziweiTopic,
+  } = promptState;
   const [activeBaziShortcutMode, setActiveBaziShortcutMode] = useState<PromptShortcutMode>(() =>
     resolveBaziShortcutMode(promptState, inputState.analysisMode),
   );
@@ -57,54 +68,42 @@ export function usePromptShortcuts(
   const [baziQuestionDraft, setBaziQuestionDraft] = useState(() => {
     const mode = resolveBaziShortcutMode(promptState, inputState.analysisMode);
     if (mode === '问题灵感') {
-      return readPromptDraft(baziDraftStorageKey, 'inspiration') || promptState.baziQuickQuestion;
+      return readPromptDraft(baziDraftStorageKey, 'inspiration') || baziQuickQuestion;
     }
-
-    return (
-      readPromptDraft(baziDraftStorageKey) ||
-      promptState.baziQuickQuestion ||
-      findBaziShortcutByMode(mode, inputState.analysisMode)?.question ||
-      ''
-    );
+    if (mode === '自定义') {
+      return readPromptDraft(baziDraftStorageKey) || baziQuickQuestion;
+    }
+    return '';
   });
   const [ziweiQuestionDraft, setZiweiQuestionDraft] = useState(() => {
     const mode = resolveZiweiShortcutMode(promptState, inputState.analysisMode);
     if (mode === '问题灵感') {
-      return readPromptDraft(ziweiDraftStorageKey, 'inspiration') || promptState.ziweiQuickQuestion;
+      return readPromptDraft(ziweiDraftStorageKey, 'inspiration') || ziweiQuickQuestion;
     }
-
-    return (
-      readPromptDraft(ziweiDraftStorageKey) ||
-      promptState.ziweiQuickQuestion ||
-      findZiweiShortcutByMode(mode, inputState.analysisMode)?.question ||
-      ''
-    );
+    if (mode === '自定义') {
+      return readPromptDraft(ziweiDraftStorageKey) || ziweiQuickQuestion;
+    }
+    return '';
   });
   const [astrolabeQuestionDraft, setAstrolabeQuestionDraft] = useState(() => {
     const mode = resolveAstrolabeShortcutMode(promptState);
     if (mode === '问题灵感') {
-      return (
-        readPromptDraft(astrolabeDraftStorageKey, 'inspiration') ||
-        promptState.astrolabeQuickQuestion
-      );
+      return readPromptDraft(astrolabeDraftStorageKey, 'inspiration') || astrolabeQuickQuestion;
     }
 
     if (mode === '自定义') {
-      return readPromptDraft(astrolabeDraftStorageKey) || promptState.astrolabeQuickQuestion;
+      return readPromptDraft(astrolabeDraftStorageKey) || astrolabeQuickQuestion;
     }
-
-    return (
-      promptState.astrolabeQuickQuestion ||
-      findAstrolabeShortcutByMode(mode)?.question ||
-      astrolabeShortcutActions[0]?.question ||
-      ''
-    );
+    return '';
   });
   const [activeAstrolabeShortcutMode, setActiveAstrolabeShortcutMode] =
     useState<PromptShortcutMode>(() => resolveAstrolabeShortcutMode(promptState));
 
   useEffect(() => {
-    const nextMode = resolveBaziShortcutMode(promptState, inputState.analysisMode);
+    const nextMode = resolveBaziShortcutMode(
+      { baziPresetId, baziShortcutMode },
+      inputState.analysisMode,
+    );
     setActiveBaziShortcutMode(nextMode);
     if (nextMode === '自定义') {
       setBaziQuestionDraft(readPromptDraft(baziDraftStorageKey));
@@ -112,23 +111,24 @@ export function usePromptShortcuts(
     }
     if (nextMode === '问题灵感') {
       setBaziQuestionDraft(
-        readPromptDraft(baziDraftStorageKey, 'inspiration') || promptState.baziQuickQuestion,
+        readPromptDraft(baziDraftStorageKey, 'inspiration') || baziQuickQuestion,
       );
       return;
     }
-
-    setBaziQuestionDraft(findBaziShortcutByMode(nextMode, inputState.analysisMode)?.question ?? '');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setBaziQuestionDraft('');
   }, [
     baziDraftStorageKey,
+    baziPresetId,
+    baziQuickQuestion,
+    baziShortcutMode,
     inputState.analysisMode,
-    promptState.baziPresetId,
-    promptState.baziShortcutMode,
-    promptState.baziQuickQuestion,
   ]);
 
   useEffect(() => {
-    const nextMode = resolveZiweiShortcutMode(promptState, inputState.analysisMode);
+    const nextMode = resolveZiweiShortcutMode(
+      { ziweiShortcutMode, ziweiTopic },
+      inputState.analysisMode,
+    );
     setActiveZiweiShortcutMode(nextMode);
     if (nextMode === '自定义') {
       setZiweiQuestionDraft(readPromptDraft(ziweiDraftStorageKey));
@@ -136,25 +136,21 @@ export function usePromptShortcuts(
     }
     if (nextMode === '问题灵感') {
       setZiweiQuestionDraft(
-        readPromptDraft(ziweiDraftStorageKey, 'inspiration') || promptState.ziweiQuickQuestion,
+        readPromptDraft(ziweiDraftStorageKey, 'inspiration') || ziweiQuickQuestion,
       );
       return;
     }
-
-    setZiweiQuestionDraft(
-      findZiweiShortcutByMode(nextMode, inputState.analysisMode)?.question ?? '',
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setZiweiQuestionDraft('');
   }, [
     inputState.analysisMode,
-    promptState.ziweiQuickQuestion,
-    promptState.ziweiShortcutMode,
-    promptState.ziweiTopic,
     ziweiDraftStorageKey,
+    ziweiQuickQuestion,
+    ziweiShortcutMode,
+    ziweiTopic,
   ]);
 
   useEffect(() => {
-    const nextMode = resolveAstrolabeShortcutMode(promptState);
+    const nextMode = resolveAstrolabeShortcutMode({ astrolabeShortcutMode, astrolabeTopic });
     setActiveAstrolabeShortcutMode(nextMode);
     if (nextMode === '自定义') {
       setAstrolabeQuestionDraft(readPromptDraft(astrolabeDraftStorageKey));
@@ -162,20 +158,12 @@ export function usePromptShortcuts(
     }
     if (nextMode === '问题灵感') {
       setAstrolabeQuestionDraft(
-        readPromptDraft(astrolabeDraftStorageKey, 'inspiration') ||
-          promptState.astrolabeQuickQuestion,
+        readPromptDraft(astrolabeDraftStorageKey, 'inspiration') || astrolabeQuickQuestion,
       );
       return;
     }
-
-    setAstrolabeQuestionDraft(findAstrolabeShortcutByMode(nextMode)?.question ?? '');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    astrolabeDraftStorageKey,
-    promptState.astrolabeQuickQuestion,
-    promptState.astrolabeShortcutMode,
-    promptState.astrolabeTopic,
-  ]);
+    setAstrolabeQuestionDraft('');
+  }, [astrolabeDraftStorageKey, astrolabeQuickQuestion, astrolabeShortcutMode, astrolabeTopic]);
 
   useEffect(() => {
     if (activeBaziShortcutMode !== '自定义') {
@@ -229,22 +217,20 @@ export function usePromptShortcuts(
     if (activeBaziShortcutMode === '自定义' || activeBaziShortcutMode === '问题灵感') {
       return baziQuestionDraft;
     }
-    return findBaziShortcutByMode(activeBaziShortcutMode, inputState.analysisMode)?.question || '';
-  }, [activeBaziShortcutMode, baziQuestionDraft, inputState.analysisMode]);
+    return '';
+  }, [activeBaziShortcutMode, baziQuestionDraft]);
 
   const effectiveZiweiQuickQuestion = useMemo(() => {
     if (activeZiweiShortcutMode === '自定义' || activeZiweiShortcutMode === '问题灵感') {
       return ziweiQuestionDraft;
     }
-    return (
-      findZiweiShortcutByMode(activeZiweiShortcutMode, inputState.analysisMode)?.question || ''
-    );
-  }, [activeZiweiShortcutMode, inputState.analysisMode, ziweiQuestionDraft]);
+    return '';
+  }, [activeZiweiShortcutMode, ziweiQuestionDraft]);
   const effectiveAstrolabeQuickQuestion = useMemo(() => {
     if (activeAstrolabeShortcutMode === '自定义' || activeAstrolabeShortcutMode === '问题灵感') {
       return astrolabeQuestionDraft;
     }
-    return findAstrolabeShortcutByMode(activeAstrolabeShortcutMode)?.question || '';
+    return '';
   }, [activeAstrolabeShortcutMode, astrolabeQuestionDraft]);
 
   function applyBaziShortcutMode(mode: PromptShortcutMode) {
@@ -260,11 +246,12 @@ export function usePromptShortcuts(
       return;
     }
 
-    setBaziQuestionDraft(matched.question);
+    setBaziQuestionDraft('');
     onUpdatePromptState({
       baziShortcutMode: mode,
       baziPresetId: matched.promptId,
       baziQuestionScene: resolveBaziQuestionSceneByShortcutMode(mode),
+      baziQuickQuestion: '',
     });
   }
 
@@ -281,10 +268,11 @@ export function usePromptShortcuts(
       return;
     }
 
-    setZiweiQuestionDraft(matched.question);
+    setZiweiQuestionDraft('');
     onUpdatePromptState({
       ziweiShortcutMode: mode,
       ziweiTopic: matched.topic,
+      ziweiQuickQuestion: '',
     });
   }
 
@@ -304,10 +292,11 @@ export function usePromptShortcuts(
       return;
     }
 
-    setAstrolabeQuestionDraft(matched.question);
+    setAstrolabeQuestionDraft('');
     onUpdatePromptState({
       astrolabeShortcutMode: mode,
       astrolabeTopic: resolveAstrolabeTopicByShortcutMode(mode),
+      astrolabeQuickQuestion: '',
     });
   }
 
@@ -316,14 +305,14 @@ export function usePromptShortcuts(
     _category?: string,
     _intent?: QuestionInspirationIntent,
   ) {
-    if (promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei') {
+    if (promptSource === 'bazi' || promptSource === 'bazi-ziwei') {
       writePromptDraft(baziDraftStorageKey, question, 'inspiration');
       setActiveBaziShortcutMode('问题灵感');
       setBaziQuestionDraft(question);
       onUpdatePromptState({
         baziShortcutMode: '问题灵感',
       });
-    } else if (promptState.promptSource === 'astrolabe') {
+    } else if (promptSource === 'astrolabe') {
       writePromptDraft(astrolabeDraftStorageKey, question, 'inspiration');
       setActiveAstrolabeShortcutMode('问题灵感');
       setAstrolabeQuestionDraft(question);
