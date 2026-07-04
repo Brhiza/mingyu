@@ -864,6 +864,7 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     吟呻煞: () => anJinSha?.name === '吟呻煞' && anJinShaHits,
     破碎煞: () => anJinSha?.name === '破碎煞' && anJinShaHits,
     白衣煞: () => anJinSha?.name === '白衣煞' && anJinShaHits,
+    金神大杀: () => anJinShaHits,
     太白星: () => anJinShaHits,
     斧劈星: () => anJinShaHits,
     破军: () => PO_JUN_BY_YEAR_BRANCH[nianZhi] === zhi,

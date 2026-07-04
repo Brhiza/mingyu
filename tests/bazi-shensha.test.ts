@@ -440,7 +440,7 @@ test('太岁十二宫应按流年星耀补出同宫星名', () => {
   }
 });
 
-test('暗金的煞应按年支分组补出古籍星名', () => {
+test('暗金的煞与金神大杀应按年支分组补出古籍星名', () => {
   for (const calculator of createCalculators()) {
     const yinShenResult = calculator.calculateAllShenSha(
       [
@@ -471,12 +471,15 @@ test('暗金的煞应按年支分组补出古籍星名', () => {
     );
 
     assert.ok(yinShenResult.month.includes('吟呻煞'));
+    assert.ok(yinShenResult.month.includes('金神大杀'));
     assert.ok(yinShenResult.month.includes('太白星'));
     assert.ok(yinShenResult.month.includes('斧劈星'));
     assert.ok(poSuiResult.month.includes('破碎煞'));
+    assert.ok(poSuiResult.month.includes('金神大杀'));
     assert.ok(poSuiResult.month.includes('太白星'));
     assert.ok(poSuiResult.month.includes('斧劈星'));
     assert.ok(baiYiResult.month.includes('白衣煞'));
+    assert.ok(baiYiResult.month.includes('金神大杀'));
     assert.ok(baiYiResult.month.includes('太白星'));
     assert.ok(baiYiResult.month.includes('斧劈星'));
   }
