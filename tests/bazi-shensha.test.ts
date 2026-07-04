@@ -2020,10 +2020,31 @@ test('五行精纪年支凶杀应按原文固定地支取用', () => {
       ],
       'male',
     );
+    const xueGuangDayHourResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '丑'],
+        ['丙', '寅'],
+        ['戊', '子'],
+        ['壬', '戌'],
+      ],
+      'male',
+    );
+    const zhenGuiResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丙', '寅'],
+        ['丁', '卯'],
+        ['壬', '辰'],
+      ],
+      'male',
+    );
 
     assert.ok(hitResult.month.includes('截命杀'));
     assert.ok(hitResult.day.includes('破外杀'));
     assert.ok(hitResult.hour.includes('血光杀'));
+    assert.ok(xueGuangDayHourResult.hour.includes('血光杀'));
+    assert.ok(zhenGuiResult.day.includes('真鬼刑疾'));
+    assert.ok(zhenGuiResult.hour.includes('真鬼刑疾'));
     assert.ok(pushResult.month.includes('推命杀'));
     assert.ok(fixedBranchResult.month.includes('死气杀'));
     assert.ok(fixedBranchResult.day.includes('暴败杀'));

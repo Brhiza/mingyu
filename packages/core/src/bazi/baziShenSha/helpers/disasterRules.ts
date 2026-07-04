@@ -134,6 +134,19 @@ const CAI_HUI_SHA_BY_YEAR_BRANCH: Record<string, string> = {
   未: '戊辰',
 };
 
+const ZHEN_GUI_XING_JI_STEMS_BY_YEAR_STEM: Record<string, string[]> = {
+  甲: ['丁', '壬'],
+  己: ['丁', '壬'],
+  乙: ['戊', '癸'],
+  庚: ['戊', '癸'],
+  丙: ['甲', '己'],
+  辛: ['甲', '己'],
+  丁: ['乙', '庚'],
+  壬: ['乙', '庚'],
+  戊: ['丙', '辛'],
+  癸: ['丙', '辛'],
+};
+
 const WU_GUI_KONG_WANG_BRANCHES_BY_YEAR_STEM: Record<string, string[]> = {
   甲: ['巳', '午'],
   己: ['巳', '午'],
@@ -431,6 +444,13 @@ const XUE_GUANG_SHA_BY_YEAR_BRANCH: Record<string, string[]> = {
   亥: ['酉'],
 };
 
+const XUE_GUANG_SHA_HOUR_BY_DAY_BRANCH: Record<string, string> = {
+  子: '戌',
+  丑: '卯',
+  辰: '午',
+  未: '酉',
+};
+
 const DIAN_TOU_SHA_PILLARS = ['戊寅', '戊申', '庚寅', '庚申', '辛巳', '辛亥'];
 
 const WU_XING_GUI_PILLARS = ['甲午', '丁酉', '己巳', '庚子', '辛亥', '壬申', '壬寅', '癸卯'];
@@ -649,7 +669,9 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     暴败杀: () => BAO_BAI_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
     离乡杀: () => pillarIndex >= 2 && LI_XIANG_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
     破外杀: () => pillarIndex >= 2 && PO_WAI_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
-    血光杀: () => pillarIndex >= 2 && XUE_GUANG_SHA_BY_YEAR_BRANCH[nianZhi]?.includes(zhi),
+    血光杀: () =>
+      (pillarIndex >= 2 && XUE_GUANG_SHA_BY_YEAR_BRANCH[nianZhi]?.includes(zhi)) ||
+      (pillarIndex === 3 && XUE_GUANG_SHA_HOUR_BY_DAY_BRANCH[riZhi] === zhi),
     截命杀: () => cdz[(zhiIdx(nianZhi) + 1) % 12] === zhi,
     推命杀: () => cdz[(zhiIdx(nianZhi) + 11) % 12] === zhi,
     建命杀: () => pillarIndex === 1 && pillarGZ === `${nianGan}${nianZhi}`,
@@ -738,6 +760,7 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     三公煞: () => SAN_GONG_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
     官会杀: () => GUAN_HUI_SHA_BY_YEAR_STEM[nianGan] === pillarGZ,
     财会杀: () => CAI_HUI_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
+    真鬼刑疾: () => pillarIndex >= 2 && ZHEN_GUI_XING_JI_STEMS_BY_YEAR_STEM[nianGan]?.includes(gan),
     五鬼空亡: () => WU_GUI_KONG_WANG_BRANCHES_BY_YEAR_STEM[nianGan]?.includes(zhi),
     青龙杀: () => QING_LONG_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
     良会杀: () => LIANG_HUI_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
