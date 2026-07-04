@@ -207,15 +207,15 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
     文昌贵人: () => {
       const map: Record<string, string> = {
         甲: '巳',
-        乙: '午',
-        丙: '申',
-        丁: '酉',
+        乙: '亥',
+        丙: '戌',
+        丁: '辰',
         戊: '申',
-        己: '酉',
-        庚: '亥',
-        辛: '子',
-        壬: '寅',
-        癸: '卯',
+        己: '午',
+        庚: '寅',
+        辛: '未',
+        壬: '卯',
+        癸: '丑',
       };
       return map[nianGan] === zhi || map[riGan] === zhi;
     },

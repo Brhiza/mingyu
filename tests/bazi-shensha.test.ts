@@ -729,6 +729,32 @@ test('天乙贵人对庚干应取丑未，不应误取寅午', () => {
   }
 });
 
+test('文昌贵人应按五行精纪与三命通会口诀取用', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丙', '寅'],
+        ['乙', '丑'],
+        ['辛', '亥'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丙', '寅'],
+        ['乙', '丑'],
+        ['辛', '午'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.hour.includes('文昌贵人'));
+    assert.ok(!missResult.hour.includes('文昌贵人'));
+  }
+});
+
 test('学堂应按年干或日干十干长生支判断，不应按五行长生简化错判阴干', () => {
   const cases = [
     { stem: '乙', hitBranch: '午', oldElementBranch: '亥' },
