@@ -1316,6 +1316,32 @@ test('月煞应按三命通会月令三合组取地支', () => {
   }
 });
 
+test('月厌应按月令逆行取地支', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['乙', '寅'],
+        ['丙', '戌'],
+        ['丁', '亥'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['乙', '寅'],
+        ['丙', '酉'],
+        ['丁', '亥'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.day.includes('月厌'));
+    assert.ok(!Object.values(missResult).flat().includes('月厌'));
+  }
+});
+
 test('头戴杀应按五行精纪只取生日生时', () => {
   for (const calculator of createCalculators()) {
     const hitResult = calculator.calculateAllShenSha(
