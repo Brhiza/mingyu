@@ -655,6 +655,34 @@ test('攀鞍应取驿马后一辰，不应算到将星或驿马本位', () => {
   }
 });
 
+test('五行精纪勾陈真武应按年干日干定支取用', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '丑'],
+        ['丙', '巳'],
+        ['壬', '申'],
+        ['癸', '寅'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '丑'],
+        ['丙', '辰'],
+        ['壬', '申'],
+        ['癸', '卯'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.month.includes('勾陈'));
+    assert.ok(hitResult.hour.includes('真武'));
+    assert.ok(!Object.values(missResult).flat().includes('勾陈'));
+    assert.ok(!Object.values(missResult).flat().includes('真武'));
+  }
+});
+
 test('天厨贵人对丙日应取巳，不应错判为子', () => {
   const calculator = new ShenShaCalculator();
   const hitResult = calculator.calculateAllShenSha(

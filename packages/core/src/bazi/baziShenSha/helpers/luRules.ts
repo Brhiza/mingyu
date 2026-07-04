@@ -16,6 +16,32 @@ const YI_MA_BY_BRANCH: Record<string, string> = {
   丑: '亥',
 };
 
+const GOU_CHEN_BY_STEM: Record<string, string[]> = {
+  甲: ['巳', '亥'],
+  乙: ['巳', '亥'],
+  丙: ['戌', '辰'],
+  丁: ['戌', '辰'],
+  戊: ['寅', '申'],
+  己: ['寅', '申'],
+  庚: ['丑', '未'],
+  辛: ['丑', '未'],
+  壬: ['子', '午'],
+  癸: ['子', '午'],
+};
+
+const ZHEN_WU_BY_STEM: Record<string, string[]> = {
+  甲: ['未'],
+  乙: ['未'],
+  丙: ['午'],
+  丁: ['午'],
+  戊: ['辰'],
+  己: ['辰'],
+  庚: ['卯'],
+  辛: ['卯'],
+  壬: ['寅'],
+  癸: ['寅'],
+};
+
 function getYangRenMap(includeYinRen: boolean): Record<string, string> {
   if (!includeYinRen) return REN_BRANCH_MAP;
 
@@ -82,6 +108,12 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
       const riYiMa = YI_MA_BY_BRANCH[riZhi];
       return forwardBranch(nianYiMa, -1) === zhi || forwardBranch(riYiMa, -1) === zhi;
     },
+    勾陈: () => {
+      return GOU_CHEN_BY_STEM[nianGan]?.includes(zhi) || GOU_CHEN_BY_STEM[riGan]?.includes(zhi);
+    },
+    真武: () => {
+      return ZHEN_WU_BY_STEM[nianGan]?.includes(zhi) || ZHEN_WU_BY_STEM[riGan]?.includes(zhi);
+    },
     将星: () => {
       const map: Record<string, string> = {
         申: '子',
@@ -117,7 +149,6 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
       return map[nianZhi] === zhi || map[riZhi] === zhi;
     },
     金舆: () => {
-      // 来源：《五行精纪》金舆条。
       const map: Record<string, string> = {
         甲: '辰',
         乙: '巳',
