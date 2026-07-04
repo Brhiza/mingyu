@@ -4,11 +4,11 @@ import type { BaziQuestionScene, QueryPromptState, ZiweiScopeMode } from '@/lib/
 import type { AstrolabePromptTopic } from '@/lib/astrolabe-prompts';
 import { buildPortablePromptPack, type PromptContext } from '@/lib/ziwei-prompts';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
-import { formatBaziForPrompt } from '@/utils/bazi/baziAnalysisFormatter';
+import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
 import type { AnalysisPayloadV1 } from '@/types/analysis';
 import type { PalaceFact } from '@/types/analysis';
-import type { BaziChartResult } from '@/utils/bazi/baziTypes';
-import type { BaziFortuneSelectionValue } from '@/utils/bazi/fortuneSelection';
+import type { BaziChartResult } from '@core/bazi/baziTypes';
+import type { BaziFortuneSelectionValue } from '@core/bazi/fortuneSelection';
 import {
   buildBaziQuestionGuidanceSection,
   resolveBaziQuestionScene,
@@ -22,12 +22,7 @@ import {
   ziweiScopeLabelMap,
   ziweiSingleShortcutActions,
 } from './ResultPage.constants';
-import type {
-  QuestionInspirationIntent,
-  ZiweiDayOption,
-  ZiweiMonthOption,
-  ZiweiYearOption,
-} from './ResultPage.types';
+import type { ZiweiDayOption, ZiweiMonthOption, ZiweiYearOption } from './ResultPage.types';
 
 export type PromptDraftKind = 'custom' | 'inspiration';
 
@@ -91,128 +86,8 @@ export function resolveBaziQuestionSceneByShortcutMode(mode: string): BaziQuesti
   return 'general';
 }
 
-export function resolveBaziQuestionSceneByInspirationCategory(
-  category?: string,
-): BaziQuestionScene {
-  return resolveBaziQuestionSceneByShortcutMode(category || '');
-}
-
-export function resolveBaziQuestionSceneByInspirationIntent(
-  intent?: QuestionInspirationIntent,
-): BaziQuestionScene | undefined {
-  if (intent === 'job-change') return 'job-change';
-  if (intent === 'relationship-push') return 'relationship-push';
-  if (intent === 'startup-partnership') return 'startup-partnership';
-  if (intent === 'relationship-decision') return 'relationship-decision';
-  if (intent === 'investment-partnership') return 'investment-partnership';
-  if (intent === 'reconciliation-decision') return 'reconciliation-decision';
-  if (intent === 'family-health') return 'parents';
-  if (intent === 'home-move') return 'home-move';
-  if (intent === 'settle-relocate') return 'settle-relocate';
-  if (intent === 'study-advance') return 'study-advance';
-  if (intent === 'exam-landing') return 'exam-landing';
-  return undefined;
-}
-
-export function resolveBaziPresetIdByInspirationCategory(category?: string) {
-  if (category === '近期') return 'ai-recent';
-  if (category === '事业') return 'ai-career';
-  if (category === '财运') return 'ai-wealth-timing';
-  if (category === '婚恋') return 'ai-marriage';
-  if (category === '子女') return 'ai-children-fate';
-  if (category === '六亲') return 'ai-family';
-  if (category === '家庭') return 'ai-home';
-  if (category === '人际') return 'ai-social';
-  if (category === '情绪') return 'ai-emotion';
-  if (category === '健康') return 'ai-health';
-  if (category === '学业') return 'ai-study';
-  if (category === '成长') return 'ai-growth';
-  if (category === '天赋') return 'ai-talent';
-  return 'ai-mingge-zonglun';
-}
-
-export function resolveBaziPresetIdByInspirationIntent(intent?: QuestionInspirationIntent) {
-  if (intent === 'job-change') return 'ai-job-change';
-  if (intent === 'relationship-push') return 'ai-relationship-push';
-  if (intent === 'startup-partnership') return 'ai-startup-partnership';
-  if (intent === 'relationship-decision') return 'ai-relationship-decision';
-  if (intent === 'investment-partnership') return 'ai-investment-partnership';
-  if (intent === 'reconciliation-decision') return 'ai-reconciliation-decision';
-  if (intent === 'family-health') return 'ai-family';
-  if (intent === 'home-move') return 'ai-home-move';
-  if (intent === 'settle-relocate') return 'ai-settle-relocate';
-  if (intent === 'study-advance') return 'ai-study-advance';
-  if (intent === 'exam-landing') return 'ai-exam-landing';
-  return undefined;
-}
-
-export function resolveZiweiTopicByInspirationCategory(category?: string) {
-  if (category === '近期') return 'recent';
-  if (category === '事业' || category === '财运') return 'career-wealth';
-  if (category === '婚恋') return 'relationship';
-  if (category === '子女') return 'children';
-  if (category === '六亲' || category === '家庭') return 'family';
-  if (category === '人际') return 'social';
-  if (category === '情绪') return 'emotion';
-  if (category === '健康') return 'health';
-  if (category === '学业') return 'study';
-  if (category === '成长') return 'growth';
-  if (category === '天赋') return 'talent';
-  return 'life';
-}
-
-export function resolveZiweiTopicByInspirationIntent(intent?: QuestionInspirationIntent) {
-  if (intent === 'job-change') return 'job-change';
-  if (intent === 'relationship-push') return 'relationship-push';
-  if (intent === 'startup-partnership') return 'startup-partnership';
-  if (intent === 'relationship-decision') return 'relationship-decision';
-  if (intent === 'investment-partnership') return 'investment-partnership';
-  if (intent === 'reconciliation-decision') return 'reconciliation-decision';
-  if (intent === 'family-health') return 'family';
-  if (intent === 'home-move') return 'home-move';
-  if (intent === 'settle-relocate') return 'settle-relocate';
-  if (intent === 'study-advance') return 'study-advance';
-  if (intent === 'exam-landing') return 'exam-landing';
-  return undefined;
-}
-
 export function resolveAstrolabeTopicByShortcutMode(mode: string): AstrolabePromptTopic {
   return ASTROLABE_SHORTCUT_ACTIONS.find((item) => item.label === mode)?.topic ?? 'chat';
-}
-
-export function resolveAstrolabeTopicByInspirationCategory(
-  category?: string,
-): AstrolabePromptTopic {
-  if (category === '近期') return 'recent';
-  if (category === '事业') return 'career';
-  if (category === '财运') return 'wealth';
-  if (category === '婚恋') return 'relationship';
-  if (category === '子女') return 'children';
-  if (category === '六亲' || category === '家庭') return 'family';
-  if (category === '人际') return 'social';
-  if (category === '情绪') return 'emotion';
-  if (category === '健康') return 'health';
-  if (category === '学业') return 'study';
-  if (category === '成长') return 'growth';
-  if (category === '天赋') return 'talent';
-  return 'life';
-}
-
-export function resolveAstrolabeTopicByInspirationIntent(
-  intent?: QuestionInspirationIntent,
-): AstrolabePromptTopic | undefined {
-  if (intent === 'job-change') return 'job-change';
-  if (intent === 'relationship-push') return 'relationship-push';
-  if (intent === 'startup-partnership') return 'startup-partnership';
-  if (intent === 'relationship-decision') return 'relationship-decision';
-  if (intent === 'investment-partnership') return 'investment-partnership';
-  if (intent === 'reconciliation-decision') return 'reconciliation-decision';
-  if (intent === 'family-health') return 'family';
-  if (intent === 'home-move') return 'home-move';
-  if (intent === 'settle-relocate') return 'settle-relocate';
-  if (intent === 'study-advance') return 'study-advance';
-  if (intent === 'exam-landing') return 'exam-landing';
-  return undefined;
 }
 
 export function resolveCompatType(

@@ -26,9 +26,13 @@ export interface MeihuaMethodResult {
   calculation: MeihuaCalculation;
 }
 
+type DivinationTime = ReturnType<typeof getDivinationTime>;
+type DivinationGanzhi = DivinationTime['ganzhi'];
+type DivinationLunar = DivinationTime['timeInfo']['lunar'];
+
 export function resolveTimeMethod(
-  ganzhi: ReturnType<typeof getDivinationTime>['ganzhi'],
-  lunar: ReturnType<typeof getDivinationTime>['timeInfo']['lunar'],
+  ganzhi: DivinationGanzhi,
+  lunar: DivinationLunar,
 ): MeihuaMethodResult {
   const yearZhi = ganzhi.year.substring(1, 2);
   const month = lunar.monthNumber;
@@ -60,72 +64,21 @@ export function resolveTimeMethod(
   };
 }
 
-/**
- * 时辰纳卦法（依时辰地支方位配先天八卦起卦）
- *
- * 以时辰地支对应的自然方位（子北、卯东、午南、酉西），
- * 按先天八卦方位图（乾南、坤北、离东、坎西等）将方位映射为卦象，
- * 再以时辰地支序数取动爻。
- *
- * 注意：本方法与传统《梅花易数》"端法后天占验"不同。
- * 端法后天强调以外应方向定卦，需真实观测到的外应（人物、方位、声音等），
- * 按后天八卦方位（离南、坎北、震东、兑西）起卦。
- * 此处仅以时辰地支推算方向，属简化启发法，并非邵雍原著之端法后天。
- *
- * 八卦索引：1乾 2兑 3离 4震 5巽 6坎 7艮 8坤
- */
-export function resolveTimeTrigramMethod(timeBranch: string): MeihuaMethodResult {
-  // 先天方位八卦映射（以观测者为中心，依先天八卦方位）：
-  // 南=乾(1)、东南=兑(2)、东=离(3)、东北=震(4)、
-  // 西南=巽(5)、西=坎(6)、西北=艮(7)、北=坤(8)
-
-  // 地支与先天八卦方位映射
-  const BRANCH_TO_TRIGRAM: Record<string, { upper: number; lower: number }> = {
-    子: { upper: 8, lower: 3 }, // 子(北)→坤(上)离(下)
-    丑: { upper: 7, lower: 4 }, // 丑(东北)→艮(上)震(下)
-    寅: { upper: 4, lower: 7 }, // 寅(东北)→震(上)艮(下)
-    卯: { upper: 3, lower: 8 }, // 卯(东)→离(上)坤(下)
-    辰: { upper: 5, lower: 2 }, // 辰(东南)→巽(上)兑(下)
-    巳: { upper: 2, lower: 5 }, // 巳(东南)→兑(上)巽(下)
-    午: { upper: 1, lower: 6 }, // 午(南)→乾(上)坎(下)
-    未: { upper: 6, lower: 1 }, // 未(西南)→坎(上)乾(下)
-    申: { upper: 6, lower: 1 }, // 申(西南)→坎(上)乾(下)
-    酉: { upper: 6, lower: 8 }, // 酉(西)→坎(上)坤(下)
-    戌: { upper: 7, lower: 7 }, // 戌(西北)→艮(上)艮(下)
-    亥: { upper: 8, lower: 6 }, // 亥(西北偏北)→坤(上)坎(下)
-  };
-
-  const mapping = BRANCH_TO_TRIGRAM[timeBranch];
-  if (!mapping) {
-    const timeIndex = dizhi.indexOf(timeBranch) + 1;
-    return {
-      upperTrigramIndex: timeIndex % 8 || 8,
-      lowerTrigramIndex: (timeIndex * 3) % 8 || 8,
-      movingYaoIndex: timeIndex % 6 || 6,
-      calculation: {
-        method: '时辰纳卦法',
-        methodKey: 'timeTrigram',
-        timeBranch,
-        upperTrigramIndex: timeIndex % 8 || 8,
-        lowerTrigramIndex: (timeIndex * 3) % 8 || 8,
-        movingYaoIndex: timeIndex % 6 || 6,
-      },
-    };
-  }
-
-  const movingYaoIndex = (dizhi.indexOf(timeBranch) + 1) % 6 || 6;
-
+export function resolveTimeTrigramMethod(
+  ganzhi: DivinationGanzhi,
+  lunar: DivinationLunar,
+): MeihuaMethodResult {
+  const result = resolveTimeMethod(ganzhi, lunar);
   return {
-    upperTrigramIndex: mapping.upper,
-    lowerTrigramIndex: mapping.lower,
-    movingYaoIndex,
+    ...result,
     calculation: {
-      method: '时辰纳卦法',
+      ...result.calculation,
+      method: '年月日时起卦法（timeTrigram 兼容）',
       methodKey: 'timeTrigram',
-      timeBranch,
-      upperTrigramIndex: mapping.upper,
-      lowerTrigramIndex: mapping.lower,
-      movingYaoIndex,
+      formula:
+        '上卦=(年支序+月+日)%8；下卦=(年支序+月+日+时支序)%8；动爻=(年支序+月+日+时支序)%6。',
+      compatibilityNote:
+        'timeTrigram 为历史兼容入口，现按《梅花易数》年月日时起卦法计算，不再使用时辰地支方位自定义映射。',
     },
   };
 }
@@ -258,9 +211,7 @@ export function resolveExternalMethod(
   const upperTrigramIndex = upperOmen.trigramIndex;
   const lowerTrigramIndex = lowerOmen.trigramIndex;
   const totalWithTime = upperTrigramIndex + lowerTrigramIndex + timeZhiIndex;
-  const movingYaoIndex = useHouTianDuanFa
-    ? totalWithTime % 6 || 6
-    : externalOmens.count! % 6 || 6;
+  const movingYaoIndex = useHouTianDuanFa ? totalWithTime % 6 || 6 : externalOmens.count! % 6 || 6;
   const externalSummary = mappedOmens
     .map(
       (omen) =>

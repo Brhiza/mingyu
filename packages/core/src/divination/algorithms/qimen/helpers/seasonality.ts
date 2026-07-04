@@ -114,42 +114,6 @@ export interface JieQiPhaseResult {
 }
 
 /**
- * 二十四节气的农历月日近似起始（用于无太阳历日期时的粗略估算）
- *
- * 由于阴阳历之间的偏移，每年各节气在农历中的日期有 ±2-3 天的浮动。
- * 此处取常见年份的平均值作为近似参考。
- *
- * 《协纪辨方书》：
- *   节气之日所在，随闰移易，难以固定，但大致每月一节一气。
- */
-const JIE_QI_LUNAR_ESTIMATE: Record<string, { lunarMonth: number; startDay: number }> = {
-  立春: { lunarMonth: 1, startDay: 5 },
-  雨水: { lunarMonth: 1, startDay: 20 },
-  惊蛰: { lunarMonth: 2, startDay: 5 },
-  春分: { lunarMonth: 2, startDay: 20 },
-  清明: { lunarMonth: 3, startDay: 6 },
-  谷雨: { lunarMonth: 3, startDay: 21 },
-  立夏: { lunarMonth: 4, startDay: 6 },
-  小满: { lunarMonth: 4, startDay: 21 },
-  芒种: { lunarMonth: 5, startDay: 6 },
-  夏至: { lunarMonth: 5, startDay: 21 },
-  小暑: { lunarMonth: 6, startDay: 7 },
-  大暑: { lunarMonth: 6, startDay: 22 },
-  立秋: { lunarMonth: 7, startDay: 7 },
-  处暑: { lunarMonth: 7, startDay: 22 },
-  白露: { lunarMonth: 8, startDay: 7 },
-  秋分: { lunarMonth: 8, startDay: 22 },
-  寒露: { lunarMonth: 9, startDay: 7 },
-  霜降: { lunarMonth: 9, startDay: 22 },
-  立冬: { lunarMonth: 10, startDay: 7 },
-  小雪: { lunarMonth: 10, startDay: 22 },
-  大雪: { lunarMonth: 11, startDay: 7 },
-  冬至: { lunarMonth: 11, startDay: 21 },
-  小寒: { lunarMonth: 12, startDay: 6 },
-  大寒: { lunarMonth: 12, startDay: 20 },
-};
-
-/**
  * 由太阳历日期精确计算节气三元阶段
  *
  * 每个节气跨度约 15 天，拆分为上元（第 1-5 天）、中元（第 6-10 天）、
@@ -165,61 +129,6 @@ export function getJieQiPhaseByDate(date: Date): JieQiPhaseResult {
   const termStart = term.getSolarDay();
   const diff = Math.round(Number(solarDay.getJulianDay()) - Number(termStart.getJulianDay()));
   const phaseIndex = Math.min(2, Math.floor(diff / 5));
-  const phase = (['上元', '中元', '下元'] as const)[phaseIndex];
-
-  return { jieQi, phase, phaseIndex };
-}
-
-/**
- * 由农历月日估算节气三元阶段（近似方法）
- *
- * 当不具备太阳历日期信息时，通过农历月日结合节气名称进行粗略估算。
- * 由于节气在农历中的日期每年有 ±2-3 天浮动，此方法仅供参考，
- * 精确判定应使用 getJieQiPhaseByDate。
- *
- * 《奇门遁甲秘籍大全》卷三"定局成局诀"：
- *   一气统三，各含上中下三元，每元五日，共十五日。
- *
- * @param jieQi 节气名称
- * @param lunarMonth 农历月份（1-12）
- * @param lunarDay 农历日（1-30）
- * @returns 节气三元阶段信息
- */
-export function getJieQiPhase(
-  jieQi: string,
-  lunarMonth: number,
-  lunarDay: number,
-): JieQiPhaseResult {
-  const estimate = JIE_QI_LUNAR_ESTIMATE[jieQi];
-  if (!estimate) {
-    // 未知节气，默认为中元
-    return { jieQi, phase: '中元', phaseIndex: 1 };
-  }
-
-  // 如果当前农历月与节气所在月不同，尝试调整
-  let dayOffset: number;
-  if (lunarMonth === estimate.lunarMonth) {
-    dayOffset = lunarDay - estimate.startDay;
-  } else if (lunarMonth < estimate.lunarMonth) {
-    // 在节气开始之前，属上一节气末段
-    dayOffset = lunarDay - estimate.startDay; // 负值
-  } else if (lunarMonth === estimate.lunarMonth + 1) {
-    // 进入下一农历月但仍在同一节气内：前月最后几天到当前月初
-    dayOffset = 30 - estimate.startDay + lunarDay;
-  } else if (estimate.lunarMonth === 12 && lunarMonth === 1 && jieQi === '立春') {
-    // 跨年：立春可能在正月，但十二月接正月
-    dayOffset = 30 - estimate.startDay + lunarDay;
-  } else {
-    dayOffset = lunarDay - estimate.startDay;
-  }
-
-  // 超出节气范围的处理
-  if (dayOffset < 0) {
-    // 节气尚未开始，归入本节气上元（兜底）
-    return { jieQi, phase: '上元', phaseIndex: 0 };
-  }
-
-  const phaseIndex = Math.min(2, Math.floor(dayOffset / 5));
   const phase = (['上元', '中元', '下元'] as const)[phaseIndex];
 
   return { jieQi, phase, phaseIndex };

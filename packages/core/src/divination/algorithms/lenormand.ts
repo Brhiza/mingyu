@@ -260,17 +260,17 @@ const CARD_COMBINATIONS: Record<string, string> = {
  * decision（决策）、nine（九宫格）等 8 种牌阵。
  * 抽牌为随机洗牌，每次独立。
  *
- * @param spreadType 牌阵类型，默认 'three'。
+ * @param spreadType 牌阵类型，默认 'single'。
  * @returns 雷诺曼牌阵数据对象 LenormandData，含牌面、位置和两牌组合含义。
  *
  * @example
  * ```ts
- * const result = drawLenormandSpread('three');
+ * const result = drawLenormandSpread('single');
  * // result 包含 cards（牌面列表）和 combinations（组合含义）
  * ```
  */
-export function drawLenormandSpread(spreadType: LenormandSpreadType = 'three'): LenormandData {
-  const spread = SPREADS[spreadType] ?? SPREADS.three;
+export function drawLenormandSpread(spreadType: LenormandSpreadType = 'single'): LenormandData {
+  const spread = SPREADS[spreadType] ?? SPREADS.single;
   const cards = shuffleCards()
     .slice(0, spread.positions.length)
     .map((card, index) => ({

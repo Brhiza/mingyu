@@ -159,17 +159,17 @@ test('紫微提示词快照应输出解读目标，明确范围与边界', () =>
   const taskSection = snapshot.match(/【解读目标】([\s\S]*?)\n\n【本命资料】/)?.[1] || '';
 
   assert.match(snapshot, /【解读目标】/);
-  assert.match(taskSection, /解读目标：只解读事业路径、财运抓手、资源配置与执行节奏。/);
-  assert.match(taskSection, /重点参考宫位：官禄宫、财帛宫、命宫、福德宫/);
-  assert.match(taskSection, /严格边界：围绕事业与财务议题作答，财务判断用趋势与条件表述。/);
-  assert.match(taskSection, /焦点提示：优先看事业与财帛联动；若证据不足要明确保守表达/);
+  assert.match(taskSection, /解读目标：按用户选择主题筛选重点宫位，具体判断仍以问题和盘面证据为准。/);
+  assert.match(taskSection, /重点参考宫位：/);
+  assert.match(taskSection, /严格边界：只基于已提供盘面、运限和问题作答；证据不足时直接说明。/);
   assert.doesNotMatch(taskSection, /报告标题：|解读主题：|报告类型：/);
   assert.doesNotMatch(taskSection, /推荐追问：/);
   assert.doesNotMatch(taskSection, /输出重点：/);
+  assert.doesNotMatch(taskSection, /焦点提示：/);
   assert.doesNotMatch(taskSection, /不要复述全盘/);
 });
 
-test('紫微提示词快照在没有额外焦点备注时应回退到专题输出重点', () => {
+test('紫微提示词快照不再回退到专题焦点话术', () => {
   const snapshot = buildZiweiReadableSnapshot({
     payload: createPayload(),
     reportContext: createReportContext({
@@ -181,10 +181,8 @@ test('紫微提示词快照在没有额外焦点备注时应回退到专题输�
   });
   const taskSection = snapshot.match(/【解读目标】([\s\S]*?)\n\n【本命资料】/)?.[1] || '';
 
-  assert.match(
-    taskSection,
-    /焦点提示：优先判断关系模式、推进阻力与情绪互动；说明哪些结论来自夫妻宫、命宫、福德宫、子女宫或当前运限触发/,
-  );
+  assert.match(taskSection, /解读目标：按用户选择主题筛选重点宫位，具体判断仍以问题和盘面证据为准。/);
+  assert.doesNotMatch(taskSection, /焦点提示：/);
   assert.doesNotMatch(taskSection, /。、/);
 });
 
@@ -200,7 +198,7 @@ test('紫微分析背景不再重复输出报告标题，只保留主题与范�
   assert.doesNotMatch(backgroundSection, /报告标题：/);
 });
 
-test('紫微近期专题快照应输出近期趋势主题与阶段动作焦点', () => {
+test('紫微近期专题快照保留主题和通用目标', () => {
   const snapshot = buildZiweiReadableSnapshot({
     payload: createPayload(),
     reportContext: createReportContext({
@@ -213,14 +211,9 @@ test('紫微近期专题快照应输出近期趋势主题与阶段动作焦点',
   const taskSection = snapshot.match(/【解读目标】([\s\S]*?)\n\n【本命资料】/)?.[1] || '';
 
   assert.match(snapshot, /分析主题：近期趋势/);
-  assert.match(
-    taskSection,
-    /解读目标：只解读当前阶段主线、近期推进节奏、风险提醒与下一步动作优先级。/,
-  );
-  assert.match(
-    taskSection,
-    /焦点提示：先判断当前阶段最强触发点与近期主线；区分适合主动推进的事项、应该暂缓的风险和节奏变化点/,
-  );
+  assert.match(taskSection, /解读目标：按用户选择主题筛选重点宫位，具体判断仍以问题和盘面证据为准。/);
+  assert.match(taskSection, /重点参考宫位：/);
+  assert.doesNotMatch(taskSection, /焦点提示：/);
 });
 
 test('紫微重点宫位资料应输出星曜亮度四化与空宫传统辅证', () => {

@@ -205,7 +205,7 @@ export function buildPalaceSummary(payload: AnalysisPayloadV1, palace: PalaceFac
     当前运限四化: includeScope ? collectMutagenStars(allStars, 'active_scope_mutagen') : undefined,
     自化情况: selfMutagens,
     飞星走向: mutagedFlies,
-    关键词: filterScopeTagsForOrigin(payload, palace.summary_tags),
+    盘面标签: filterScopeTagsForOrigin(payload, palace.summary_tags),
     运限命中: includeScope ? palace.scope_hits : undefined,
     对宫: oppositePalace ? formatPalaceName(oppositePalace.name) : '无',
     三方四正: surroundedPalaces.map((item) => formatPalaceName(item.name)),

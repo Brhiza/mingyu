@@ -11,7 +11,8 @@
     "types": ["node", "vite/client"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../src/*"]
+      "@/*": ["../src/*"],
+      "@core/*": ["../packages/core/src/*"]
     },
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
@@ -21,7 +22,8 @@
     "../src/utils/**/*.ts",
     "../src/types/**/*.ts",
     "../src/config/**/*.ts",
-    "../src/services/**/*.ts"
+    "../src/services/**/*.ts",
+    "../packages/core/src/**/*.ts"
   ],
   "exclude": [
     "../src/**/*.tsx",

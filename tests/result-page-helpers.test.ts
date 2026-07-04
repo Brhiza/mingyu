@@ -4,8 +4,6 @@ import {
   buildBaziZiweiEnhancedPrompt,
   buildCompatibilityPromptWithUnknownTime,
   buildZiweiMonthAnchorDate,
-  resolveAstrolabeTopicByInspirationCategory,
-  resolveAstrolabeTopicByInspirationIntent,
   findZiweiDayOptionDate,
   findZiweiDecadalIndexByDate,
   findZiweiMonthOptionDate,
@@ -15,13 +13,8 @@ import {
   parseOptionalNumber,
   parseZiweiDateParts,
   readPromptDraft,
-  resolveBaziPresetIdByInspirationCategory,
-  resolveBaziPresetIdByInspirationIntent,
-  resolveBaziQuestionSceneByInspirationIntent,
   resolveBaziQuestionSceneByShortcutMode,
   resolveZiweiTopicByBaziQuestionScene,
-  resolveZiweiTopicByInspirationCategory,
-  resolveZiweiTopicByInspirationIntent,
   resolveCompatType,
   writePromptDraft,
 } from '../src/pages/ResultPage/ResultPage.helpers';
@@ -376,155 +369,4 @@ test('没有明确对应关系的快捷按钮会回到综合问题类型', () =>
   assert.equal(resolveBaziQuestionSceneByShortcutMode('综合'), 'general');
   assert.equal(resolveBaziQuestionSceneByShortcutMode('自定义'), 'general');
   assert.equal(resolveBaziQuestionSceneByShortcutMode('问题灵感'), 'general');
-});
-
-test('问题灵感细粒度意图会优先映射到更具体的专项框架', () => {
-  assert.equal(resolveBaziPresetIdByInspirationIntent('job-change'), 'ai-job-change');
-  assert.equal(resolveBaziQuestionSceneByInspirationIntent('job-change'), 'job-change');
-  assert.equal(resolveZiweiTopicByInspirationIntent('job-change'), 'job-change');
-  assert.equal(resolveAstrolabeTopicByInspirationIntent('job-change'), 'job-change');
-
-  assert.equal(resolveBaziPresetIdByInspirationIntent('relationship-push'), 'ai-relationship-push');
-  assert.equal(
-    resolveBaziQuestionSceneByInspirationIntent('relationship-push'),
-    'relationship-push',
-  );
-  assert.equal(resolveZiweiTopicByInspirationIntent('relationship-push'), 'relationship-push');
-  assert.equal(resolveAstrolabeTopicByInspirationIntent('relationship-push'), 'relationship-push');
-
-  assert.equal(
-    resolveBaziPresetIdByInspirationIntent('startup-partnership'),
-    'ai-startup-partnership',
-  );
-  assert.equal(
-    resolveBaziQuestionSceneByInspirationIntent('startup-partnership'),
-    'startup-partnership',
-  );
-  assert.equal(resolveZiweiTopicByInspirationIntent('startup-partnership'), 'startup-partnership');
-  assert.equal(
-    resolveAstrolabeTopicByInspirationIntent('startup-partnership'),
-    'startup-partnership',
-  );
-
-  assert.equal(
-    resolveBaziPresetIdByInspirationIntent('relationship-decision'),
-    'ai-relationship-decision',
-  );
-  assert.equal(
-    resolveBaziQuestionSceneByInspirationIntent('relationship-decision'),
-    'relationship-decision',
-  );
-  assert.equal(
-    resolveZiweiTopicByInspirationIntent('relationship-decision'),
-    'relationship-decision',
-  );
-  assert.equal(
-    resolveAstrolabeTopicByInspirationIntent('relationship-decision'),
-    'relationship-decision',
-  );
-
-  assert.equal(resolveBaziPresetIdByInspirationIntent('home-move'), 'ai-home-move');
-  assert.equal(resolveBaziQuestionSceneByInspirationIntent('home-move'), 'home-move');
-  assert.equal(resolveZiweiTopicByInspirationIntent('home-move'), 'home-move');
-  assert.equal(resolveAstrolabeTopicByInspirationIntent('home-move'), 'home-move');
-
-  assert.equal(
-    resolveBaziPresetIdByInspirationIntent('investment-partnership'),
-    'ai-investment-partnership',
-  );
-  assert.equal(
-    resolveBaziQuestionSceneByInspirationIntent('investment-partnership'),
-    'investment-partnership',
-  );
-  assert.equal(
-    resolveZiweiTopicByInspirationIntent('investment-partnership'),
-    'investment-partnership',
-  );
-  assert.equal(
-    resolveAstrolabeTopicByInspirationIntent('investment-partnership'),
-    'investment-partnership',
-  );
-
-  assert.equal(
-    resolveBaziPresetIdByInspirationIntent('reconciliation-decision'),
-    'ai-reconciliation-decision',
-  );
-  assert.equal(
-    resolveBaziQuestionSceneByInspirationIntent('reconciliation-decision'),
-    'reconciliation-decision',
-  );
-  assert.equal(
-    resolveZiweiTopicByInspirationIntent('reconciliation-decision'),
-    'reconciliation-decision',
-  );
-  assert.equal(
-    resolveAstrolabeTopicByInspirationIntent('reconciliation-decision'),
-    'reconciliation-decision',
-  );
-
-  assert.equal(resolveBaziPresetIdByInspirationIntent('settle-relocate'), 'ai-settle-relocate');
-  assert.equal(resolveBaziQuestionSceneByInspirationIntent('settle-relocate'), 'settle-relocate');
-  assert.equal(resolveZiweiTopicByInspirationIntent('settle-relocate'), 'settle-relocate');
-  assert.equal(resolveAstrolabeTopicByInspirationIntent('settle-relocate'), 'settle-relocate');
-
-  assert.equal(resolveBaziPresetIdByInspirationIntent('study-advance'), 'ai-study-advance');
-  assert.equal(resolveBaziQuestionSceneByInspirationIntent('study-advance'), 'study-advance');
-  assert.equal(resolveZiweiTopicByInspirationIntent('study-advance'), 'study-advance');
-  assert.equal(resolveAstrolabeTopicByInspirationIntent('study-advance'), 'study-advance');
-
-  assert.equal(resolveBaziPresetIdByInspirationIntent('exam-landing'), 'ai-exam-landing');
-  assert.equal(resolveBaziQuestionSceneByInspirationIntent('exam-landing'), 'exam-landing');
-  assert.equal(resolveZiweiTopicByInspirationIntent('exam-landing'), 'exam-landing');
-  assert.equal(resolveAstrolabeTopicByInspirationIntent('exam-landing'), 'exam-landing');
-
-  assert.equal(resolveBaziPresetIdByInspirationIntent('family-health'), 'ai-family');
-  assert.equal(resolveBaziQuestionSceneByInspirationIntent('family-health'), 'parents');
-  assert.equal(resolveZiweiTopicByInspirationIntent('family-health'), 'family');
-  assert.equal(resolveAstrolabeTopicByInspirationIntent('family-health'), 'family');
-});
-
-test('问题灵感会按分类映射到对应的八字、紫微与星盘专项框架', () => {
-  assert.equal(resolveBaziPresetIdByInspirationCategory('近期'), 'ai-recent');
-  assert.equal(resolveBaziPresetIdByInspirationCategory('事业'), 'ai-career');
-  assert.equal(resolveBaziPresetIdByInspirationCategory('财运'), 'ai-wealth-timing');
-  assert.equal(resolveBaziPresetIdByInspirationCategory('婚恋'), 'ai-marriage');
-  assert.equal(resolveBaziPresetIdByInspirationCategory('六亲'), 'ai-family');
-  assert.equal(resolveBaziPresetIdByInspirationCategory('家庭'), 'ai-home');
-  assert.equal(resolveBaziPresetIdByInspirationCategory('人际'), 'ai-social');
-  assert.equal(resolveBaziPresetIdByInspirationCategory('情绪'), 'ai-emotion');
-  assert.equal(resolveBaziPresetIdByInspirationCategory('健康'), 'ai-health');
-  assert.equal(resolveBaziPresetIdByInspirationCategory('学业'), 'ai-study');
-  assert.equal(resolveBaziPresetIdByInspirationCategory('成长'), 'ai-growth');
-  assert.equal(resolveBaziPresetIdByInspirationCategory('天赋'), 'ai-talent');
-  assert.equal(resolveBaziPresetIdByInspirationCategory(undefined), 'ai-mingge-zonglun');
-
-  assert.equal(resolveZiweiTopicByInspirationCategory('近期'), 'recent');
-  assert.equal(resolveZiweiTopicByInspirationCategory('事业'), 'career-wealth');
-  assert.equal(resolveZiweiTopicByInspirationCategory('财运'), 'career-wealth');
-  assert.equal(resolveZiweiTopicByInspirationCategory('婚恋'), 'relationship');
-  assert.equal(resolveZiweiTopicByInspirationCategory('子女'), 'children');
-  assert.equal(resolveZiweiTopicByInspirationCategory('六亲'), 'family');
-  assert.equal(resolveZiweiTopicByInspirationCategory('家庭'), 'family');
-  assert.equal(resolveZiweiTopicByInspirationCategory('人际'), 'social');
-  assert.equal(resolveZiweiTopicByInspirationCategory('情绪'), 'emotion');
-  assert.equal(resolveZiweiTopicByInspirationCategory('健康'), 'health');
-  assert.equal(resolveZiweiTopicByInspirationCategory('学业'), 'study');
-  assert.equal(resolveZiweiTopicByInspirationCategory('成长'), 'growth');
-  assert.equal(resolveZiweiTopicByInspirationCategory('天赋'), 'talent');
-  assert.equal(resolveZiweiTopicByInspirationCategory(undefined), 'life');
-
-  assert.equal(resolveAstrolabeTopicByInspirationCategory('近期'), 'recent');
-  assert.equal(resolveAstrolabeTopicByInspirationCategory('事业'), 'career');
-  assert.equal(resolveAstrolabeTopicByInspirationCategory('财运'), 'wealth');
-  assert.equal(resolveAstrolabeTopicByInspirationCategory('婚恋'), 'relationship');
-  assert.equal(resolveAstrolabeTopicByInspirationCategory('子女'), 'children');
-  assert.equal(resolveAstrolabeTopicByInspirationCategory('六亲'), 'family');
-  assert.equal(resolveAstrolabeTopicByInspirationCategory('家庭'), 'family');
-  assert.equal(resolveAstrolabeTopicByInspirationCategory('人际'), 'social');
-  assert.equal(resolveAstrolabeTopicByInspirationCategory('情绪'), 'emotion');
-  assert.equal(resolveAstrolabeTopicByInspirationCategory('健康'), 'health');
-  assert.equal(resolveAstrolabeTopicByInspirationCategory('学业'), 'study');
-  assert.equal(resolveAstrolabeTopicByInspirationCategory('成长'), 'growth');
-  assert.equal(resolveAstrolabeTopicByInspirationCategory('天赋'), 'talent');
-  assert.equal(resolveAstrolabeTopicByInspirationCategory(undefined), 'life');
 });

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createBaziAnalysisPipeline } from '../src/utils/bazi/baziAnalysisPipeline';
-import type { HiddenStems, PatternAnalysis, Pillars, Wuxing } from '../src/utils/bazi/baziTypes';
+import { createBaziAnalysisPipeline } from '@core/bazi/baziAnalysisPipeline';
+import type { HiddenStems, PatternAnalysis, Pillars, Wuxing } from '@core/bazi/baziTypes';
 
 test('分析管道应把当前节气传入取用判断，避免节后分段规则在整链路中失效', () => {
   const captured: { currentJieqi?: string } = {};

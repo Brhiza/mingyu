@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { baziCalculator } from '../src/utils/bazi/baziCalculator';
-import { formatBaziForPrompt } from '../src/utils/bazi/baziAnalysisFormatter';
-import { analyzeShenShaWithTenGod } from '../src/utils/bazi/baziShenSha/helpers/tenGodAnalysis';
+import { baziCalculator } from '@core/bazi/baziCalculator';
+import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
+import { analyzeShenShaWithTenGod } from '@core/bazi/baziShenSha/helpers/tenGodAnalysis';
 
 test('核心判断依据会输出旺衰拆分与十神归类，避免把归类误写成具体十神', () => {
   const result = baziCalculator.calculateBazi({
@@ -22,7 +22,7 @@ test('核心判断依据会输出旺衰拆分与十神归类，避免把归类�
   assert.match(text, /【核心判断依据】/);
   assert.match(
     text,
-    /旺衰拆分: 月令:[+-]?\d+(?:\.\d+)? \| 成局:[+-]?\d+(?:\.\d+)? \| 通根:[+-]?\d+(?:\.\d+)? \| 帮扶:[+-]?\d+(?:\.\d+)? \| 克泄耗:[+-]?\d+(?:\.\d+)?/,
+    /旺衰拆分: 月令:[+-]?\d+(?:\.\d+)? \| 司令:[+-]?\d+(?:\.\d+)? \| 成局:[+-]?\d+(?:\.\d+)? \| 通根:[+-]?\d+(?:\.\d+)? \| 帮扶:[+-]?\d+(?:\.\d+)? \| 克泄耗:[+-]?\d+(?:\.\d+)?/,
   );
   assert.match(text, /格局依据: /);
   assert.match(text, /用神: 主用/);

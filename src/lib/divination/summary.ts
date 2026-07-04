@@ -174,6 +174,7 @@ function formatMeihuaMethodSummary(data: MeihuaData) {
     number: '数字起卦法',
     random: '随机起卦法',
     external: '外应起卦法',
+    timeTrigram: '年月日时起卦法（兼容）',
   };
   const label =
     (data.calculation?.method?.trim()
@@ -336,9 +337,9 @@ export function getDivinationSummaryBlocks(
           wrapMainEvidence(
             `起因${xiaoliuren.sequence.start.name}；过程${xiaoliuren.sequence.process.name}；结果${xiaoliuren.sequence.result.name}`,
           ),
-          `起因：${xiaoliuren.sequence.start.keywords.join('、')}`,
-          `过程：${xiaoliuren.sequence.process.keywords.join('、')}`,
-          `结果：${xiaoliuren.sequence.result.keywords.join('、')}`,
+          `起因：${xiaoliuren.sequence.start.meaning}`,
+          `过程：${xiaoliuren.sequence.process.meaning}`,
+          `结果：${xiaoliuren.sequence.result.meaning}`,
           `提醒：${xiaoliuren.questionHint}`,
         ].filter(Boolean),
       };
@@ -404,8 +405,7 @@ export function getDivinationSummaryBlocks(
         lines: [
           wrapMainEvidence(formatTarotFocusSummary(tarot)),
           ...tarot.cards.map(
-            (card) =>
-              `${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}，关键词 ${card.keywords.join('、')}`,
+            (card) => `${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}`,
           ),
         ].filter(Boolean),
       };
@@ -470,7 +470,8 @@ export function getDivinationSummaryBlocks(
               .join('；'),
           ),
           ...lenormand.cards.map(
-            (card) => `${card.position}：${card.name}，关键词 ${card.keywords.join('、')}`,
+            (card) =>
+              `${card.position}：${card.name}${card.meaning ? `，牌义 ${card.meaning}` : ''}`,
           ),
         ].filter(Boolean),
       };

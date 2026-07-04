@@ -34,7 +34,7 @@ const lenormandPromptSchema = extendPromptSchema(
 );
 
 function buildLenormandResult(args: z.infer<typeof lenormandSchema>) {
-  return drawLenormandSpread((args.spreadType ?? 'three') as LenormandSpreadType);
+  return drawLenormandSpread((args.spreadType ?? 'single') as LenormandSpreadType);
 }
 
 export function registerLenormandTool(server: McpServer) {

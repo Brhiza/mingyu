@@ -13,7 +13,8 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@core/*": ["packages/core/src/*"]
     },
     "strict": true,
     "noUnusedLocals": true,

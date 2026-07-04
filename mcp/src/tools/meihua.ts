@@ -29,7 +29,7 @@ const meihuaSchema = z.object({
     .enum(['time', 'number', 'random', 'external', 'timeTrigram'])
     .optional()
     .describe(
-      '起卦方式：time=时间起卦, number=数字起卦, random=随机起卦, external=外应起卦, timeTrigram=时辰纳卦法（依时辰方位定卦）',
+      '起卦方式：time=时间起卦, number=数字起卦, random=随机起卦, external=外应起卦, timeTrigram=兼容旧参数并按时间起卦',
     ),
   number: z.number().optional().describe('数字起卦时使用的正整数'),
   externalOmens: z
@@ -140,7 +140,7 @@ export function registerMeihuaTool(server: McpServer) {
     'divine_meihua',
     {
       description:
-        '梅花易数起卦：支持时间起卦、数字起卦、随机起卦、外应起卦、时辰纳卦法（依时辰方位定卦），生成主卦、互卦、变卦/体用生克分析及应期判断',
+        '梅花易数起卦：支持时间起卦、数字起卦、随机起卦、外应起卦，timeTrigram 作为兼容旧参数按时间起卦计算，生成主卦、互卦、变卦/体用生克分析及应期判断',
       inputSchema: meihuaSchema.shape,
       outputSchema: resultOutputSchema,
     },

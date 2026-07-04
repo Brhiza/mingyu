@@ -6,6 +6,7 @@ import type {
   LenormandData,
   LiurenData,
   LiuyaoData,
+  LiuyaoTemplateType,
   MeihuaData,
   QimenData,
   QimenJiuGongGe,
@@ -17,11 +18,7 @@ import type {
 } from '../../../types/divination';
 import { LunarUtil, getDivinationTime } from 'mingyu-core/calendar';
 import { resolveSsgwStoryContent } from '../ssgw-content';
-import { formatTarotCardLabel, getTarotFocusCards } from '../tarot-focus';
-import {
-  createQimenPriorityPalaces,
-  createQimenQuestionHints,
-} from '../../../utils/qimen-guidance';
+import { createQimenPriorityPalaces } from '../../../utils/qimen-guidance';
 import { normalizePromptEvidenceItems } from '../../prompt-evidence/format';
 import type { PromptEvidenceItem } from '../../prompt-evidence/types';
 import type { DivinationMethodId } from '../config';
@@ -90,7 +87,7 @@ export function formatSupplementaryInfoSection(
       number: '数字起卦',
       random: '随机起卦',
       external: '外应起卦',
-      timeTrigram: '时辰纳卦法',
+      timeTrigram: '时间起卦兼容项',
     };
     lines.push(
       `起卦方式：${methodLabelMap[supplementaryInfo.meihuaSettings.method] || supplementaryInfo.meihuaSettings.method}`,
@@ -135,6 +132,7 @@ function getMeihuaMethodLabel(
     number: '数字起卦法',
     random: '随机起卦法',
     external: '外应起卦法',
+    timeTrigram: '年月日时起卦法（兼容）',
   };
 
   if (calculation.method?.trim()) {
@@ -197,22 +195,28 @@ function getOppositeBranch(branch: string) {
   return index >= 0 ? EARTHLY_BRANCHES[(index + 6) % EARTHLY_BRANCHES.length] : '';
 }
 
-function joinLimited(items: string[], limit = 3) {
-  return items.slice(0, limit).join('、');
+type LiuyaoUsefulGodCandidate = {
+  label: string;
+  relative: string;
+  note: string;
+  position?: number;
+};
+
+function findLiuyaoCandidateYaos(data: LiuyaoData, candidate: LiuyaoUsefulGodCandidate) {
+  if (typeof candidate.position === 'number') {
+    return data.yaosDetail.filter((item) => item.position === candidate.position);
+  }
+  return data.yaosDetail.filter((item) => item.sixRelative === candidate.relative);
 }
 
-function createLiuyaoUsefulGodHints(
-  question: string,
-  data: LiuyaoData,
-  supplementaryInfo?: SupplementaryInfo,
-) {
-  const candidates = createLiuyaoUsefulGodCandidates(question, data, supplementaryInfo);
+function createLiuyaoUsefulGodHints(data: LiuyaoData, template: LiuyaoTemplateType) {
+  const candidates = createLiuyaoUsefulGodCandidates(data, template);
   return candidates.map((candidate) => {
-    const matchedYaos = data.yaosDetail.filter((item) => item.sixRelative === candidate.relative);
+    const matchedYaos = findLiuyaoCandidateYaos(data, candidate);
     const yaoText = matchedYaos.length
       ? matchedYaos.map(formatLiuyaoYaoBrief).join('、')
       : '本卦未见';
-    if (candidate.label === '未识别专项用神') {
+    if (candidate.label === '通用断卦') {
       return `${candidate.label}：${candidate.note}`;
     }
     return `${candidate.label}：以${candidate.relative}为用神候选，${candidate.note}；盘中${yaoText}`;
@@ -220,58 +224,81 @@ function createLiuyaoUsefulGodHints(
 }
 
 function createLiuyaoUsefulGodCandidates(
-  question: string,
   data: LiuyaoData,
-  supplementaryInfo?: SupplementaryInfo,
-) {
-  const text = question.trim();
-  const candidates: Array<{ label: string; relative: string; note: string }> = [];
-  const gender = supplementaryInfo?.gender;
+  template: LiuyaoTemplateType,
+): LiuyaoUsefulGodCandidate[] {
+  const candidates: LiuyaoUsefulGodCandidate[] = [];
+  const worldYao = data.yaosDetail.find((item) => item.isWorld);
+  const responseYao = data.yaosDetail.find((item) => item.isResponse);
+  const safeTemplate: LiuyaoTemplateType =
+    template === 'ganqing' ||
+    template === 'shiye' ||
+    template === 'caifu' ||
+    template === 'guaishen'
+      ? template
+      : 'general';
 
-  const addCandidate = (label: string, relative: string, note: string) => {
-    candidates.push({ label, relative, note });
+  const addCandidate = (label: string, relative: string, note: string, position?: number) => {
+    const existing = candidates.some(
+      (item) => item.label === label && item.relative === relative && item.position === position,
+    );
+    if (!existing) {
+      candidates.push({ label, relative, note, position });
+    }
   };
 
-  if (/感情|婚姻|恋爱|复合|对象|伴侣|桃花|关系/.test(text)) {
-    if (gender === '女') {
-      addCandidate('感情婚姻', '官鬼', '女问感情多先看官鬼，再参世应生克');
-    } else if (gender === '男') {
-      addCandidate('感情婚姻', '妻财', '男问感情多先看妻财，再参世应生克');
-    } else {
-      addCandidate('感情婚姻', '官鬼', '未给性别时官鬼可作对象/关系压力候选');
-      addCandidate('感情婚姻', '妻财', '未给性别时妻财可作对象/现实互动候选');
+  if (safeTemplate === 'general') {
+    if (worldYao) {
+      addCandidate(
+        '通用断卦',
+        worldYao.sixRelative,
+        `先以世爻${formatLiuyaoYaoBrief(worldYao)}为我方主轴，再看应爻、动爻、月日与空亡`,
+        worldYao.position,
+      );
     }
-  }
-
-  if (/工作|事业|岗位|升职|跳槽|面试|领导|官司|压力|规则/.test(text)) {
-    addCandidate('事业职位', '官鬼', '主职位、压力、约束、领导与风险');
-  }
-
-  if (/钱|财|收入|投资|生意|项目|客户|订单|资源/.test(text)) {
-    addCandidate('财务资源', '妻财', '主钱财、资源、客户、收益与可兑现结果');
-  }
-
-  if (/考试|合同|证件|房|车|文书|消息|资料|学历|手续/.test(text)) {
-    addCandidate('文书手续', '父母', '主合同、证件、房产、消息、考试文书与保护条件');
-  }
-
-  if (/孩子|子女|创作|作品|输出|方案|宠物|药|医生/.test(text)) {
-    addCandidate('子孙产出', '子孙', '主子女、作品、解决方案、舒缓压力与医药线索');
-  }
-
-  if (/朋友|同事|竞争|合作|兄弟|伙伴|借钱|分成/.test(text)) {
-    addCandidate('同辈竞争', '兄弟', '主同辈、竞争者、合作者、分财与人际牵扯');
+    if (responseYao) {
+      addCandidate(
+        '应爻辅轴',
+        responseYao.sixRelative,
+        `应爻${formatLiuyaoYaoBrief(responseYao)}代表对方或外部条件，需与世爻同看`,
+        responseYao.position,
+      );
+    }
+    data.yaosDetail
+      .filter((item) => item.isChanging)
+      .slice(0, 2)
+      .forEach((item) => {
+        addCandidate(
+          `动爻触发第${item.position}爻`,
+          item.sixRelative,
+          '动爻可作事件变化触发点，需与世应和月日同看',
+          item.position,
+        );
+      });
+  } else if (safeTemplate === 'ganqing') {
+    addCandidate('感情关系', '官鬼', '用户选择感情断卦，可作对象、关系压力或约束候选');
+    addCandidate('感情关系', '妻财', '用户选择感情断卦，可作对象、现实互动或承接候选');
+  } else if (safeTemplate === 'shiye') {
+    addCandidate('事业工作', '官鬼', '用户选择事业断卦，主职位、压力、约束、领导与风险');
+    addCandidate('事业工作', '父母', '用户选择事业断卦，主合同、资质、文书、平台与规则');
+  } else if (safeTemplate === 'caifu') {
+    addCandidate('财运交易', '妻财', '用户选择财运断卦，主钱财、资源、客户、收益与可兑现结果');
+    addCandidate('财运交易', '兄弟', '用户选择财运断卦，主竞争、分财、合伙牵扯与消耗');
+    addCandidate('财运交易', '子孙', '用户选择财运断卦，主产出、方案、客源与生财路径');
+  } else if (safeTemplate === 'guaishen') {
+    addCandidate('鬼神怪异', '官鬼', '用户选择鬼神怪异断卦，主惊疑、压力、疾病、官非或冲犯征象');
+    addCandidate('鬼神怪异', '子孙', '用户选择鬼神怪异断卦，主制鬼、解忧、医药与缓和条件');
   }
 
   if (candidates.length === 0) {
-    const worldYao = data.yaosDetail.find((item) => item.isWorld);
     const fallbackRelative = worldYao?.sixRelative || data.yaosDetail[0]?.sixRelative || '世应';
     addCandidate(
-      '未识别专项用神',
+      '通用断卦',
       fallbackRelative,
       worldYao
-        ? `先以世爻${formatLiuyaoYaoBrief(worldYao)}为我方主轴，再结合应爻、动爻与问题语义取用`
-        : '先以世应、动爻、六亲旺衰与问题语义取用',
+        ? `先以世爻${formatLiuyaoYaoBrief(worldYao)}为我方主轴，再结合应爻、动爻与月日取用`
+        : '先以世应、动爻、六亲旺衰与月日取用',
+      worldYao?.position,
     );
   }
 
@@ -305,9 +332,8 @@ function createLiuyaoMonthDayEvidence(data: LiuyaoData) {
 }
 
 function createLiuyaoUsefulGodScoreEvidenceItems(
-  question: string,
   data: LiuyaoData,
-  supplementaryInfo?: SupplementaryInfo,
+  template: LiuyaoTemplateType,
 ): PromptEvidenceItem[] {
   const monthBranch = getGanzhiBranch(data.ganzhi.month);
   const dayBranch = getGanzhiBranch(data.ganzhi.day);
@@ -326,17 +352,17 @@ function createLiuyaoUsefulGodScoreEvidenceItems(
     午: '未',
     未: '午',
   };
-  const candidates = createLiuyaoUsefulGodCandidates(question, data, supplementaryInfo).slice(0, 3);
+  const candidates = createLiuyaoUsefulGodCandidates(data, template).slice(0, 3);
   const movingYaos = data.yaosDetail.filter((item) => item.isChanging).map(formatLiuyaoYaoBrief);
   const worldYao = data.yaosDetail.find((item) => item.isWorld);
   const responseYao = data.yaosDetail.find((item) => item.isResponse);
   const evidenceItems = candidates.map((candidate, index): PromptEvidenceItem => {
-    const matchedYaos = data.yaosDetail.filter((item) => item.sixRelative === candidate.relative);
+    const matchedYaos = findLiuyaoCandidateYaos(data, candidate);
     if (matchedYaos.length === 0) {
       return {
         level: '限制',
         title: candidate.label,
-        detail: `${candidate.relative}本卦未见，需看伏神、变爻或问题语义补取，不可硬当主证`,
+        detail: `${candidate.relative}本卦未见，需看伏神、变爻或用户补充后再取，不可硬当主证`,
         source: '六爻用神评分',
         weight: 30 - index,
         tags: [candidate.relative],
@@ -429,19 +455,13 @@ function createLiuyaoUsefulGodScoreEvidenceItems(
 function formatLiuyaoUsefulGodScoreEvidence(items: PromptEvidenceItem[]) {
   return [
     ...items.map((item) => `${item.title}：${item.detail}`),
-    '评分口径：用神先按问题取六亲，再看是否临世应、是否发动或暗动、月令旺相休囚死、是否得月日触发、回头生克；空亡、伏藏、月令休囚死、回头克冲或非动爻均降权',
+    '评分口径：用神先按用户选择的断卦类型或通用世应动爻取候选，再看是否临世应、是否发动或暗动、月令旺相休囚死、是否得月日触发、回头生克；空亡、伏藏、月令休囚死、回头克冲或非动爻均降权',
   ].join('；');
 }
 
-function createLiuyaoRelationGodEvidence(
-  question: string,
-  data: LiuyaoData,
-  supplementaryInfo?: SupplementaryInfo,
-) {
-  const candidate = createLiuyaoUsefulGodCandidates(question, data, supplementaryInfo)[0];
-  const matchedYaos = candidate
-    ? data.yaosDetail.filter((item) => item.sixRelative === candidate.relative)
-    : [];
+function createLiuyaoRelationGodEvidence(data: LiuyaoData, template: LiuyaoTemplateType) {
+  const candidate = createLiuyaoUsefulGodCandidates(data, template)[0];
+  const matchedYaos = candidate ? findLiuyaoCandidateYaos(data, candidate) : [];
   const primary =
     matchedYaos[0] || data.yaosDetail.find((item) => item.isWorld) || data.yaosDetail[0];
 
@@ -665,9 +685,9 @@ function createXiaoliurenReviewEvidence(data: XiaoliurenData) {
   const { sequence } = data;
 
   return [
-    `先核实起因${sequence.start.name}对应的${joinLimited(sequence.start.keywords)}是否已出现`,
-    `过程若出现${sequence.process.name}对应的${joinLimited(sequence.process.keywords)}，说明卡点已显化`,
-    `结果以${sequence.result.name}对应的${joinLimited(sequence.result.keywords)}作为短期复盘指标`,
+    `先核实起因${sequence.start.name}所示情境是否已出现`,
+    `过程若符合${sequence.process.name}的宫位含义，说明卡点已显化`,
+    `结果以${sequence.result.name}的宫位含义作为短期复盘指标`,
     `主判断${data.primary.name}只给近事观察，不延伸为长期定局`,
   ].join('；');
 }
@@ -692,456 +712,6 @@ function createXiaoliurenReviewWindowEvidence(data: XiaoliurenData) {
     `最后用结果${data.sequence.result.name}验证短期走向`,
     '若用户给出目标期限，以目标期限内复盘为准；未给期限时只给短期近事观察，不换算绝对日期',
   ].join('；');
-}
-
-function createTarotConflictEvidence(data: TarotData) {
-  const reversedCards = data.cards.filter((card) => card.reversed);
-  const uprightCards = data.cards.filter((card) => !card.reversed);
-  const actionCards = data.cards.filter((card) =>
-    /建议|行动|结果|未来|对策|提醒/.test(card.position),
-  );
-  const structure =
-    data.cards.length >= 3
-      ? data.cards
-          .slice(0, 5)
-          .map((card) => `${card.position}${card.name}${card.reversed ? '逆位' : '正位'}`)
-          .join(' -> ')
-      : data.cards
-          .map((card) => `${card.position}${card.name}${card.reversed ? '逆位' : '正位'}`)
-          .join('；');
-
-  return [
-    structure ? `牌阵链路：${structure}` : '',
-    reversedCards.length
-      ? `逆位阻滞：${reversedCards.map((card) => `${card.position}${card.name}提示${joinLimited(card.keywords)}`).join('、')}`
-      : '逆位阻滞：未见逆位，重点看牌位之间是否互相支持',
-    uprightCards.length
-      ? `正位支持：${uprightCards.map((card) => `${card.position}${card.name}提示${joinLimited(card.keywords)}`).join('、')}`
-      : '',
-    actionCards.length
-      ? `行动牌：${actionCards.map((card) => `${card.position}${card.name}${card.reversed ? '逆位，先处理阻滞' : '正位，可顺势使用'}`).join('、')}`
-      : '行动牌：未见明确建议位，需从牌阵主轴提炼可执行动作',
-  ]
-    .filter(Boolean)
-    .join('；');
-}
-
-function createTarotNarrativeWeightEvidence(data: TarotData) {
-  const focusCards = getTarotFocusCards(data);
-  const reversedCards = data.cards.filter((card) => card.reversed);
-  const actionCards = data.cards.filter((card) =>
-    /建议|行动|结果|未来|对策|提醒/.test(card.position),
-  );
-  const focusText = focusCards.length
-    ? `主牌${focusCards.map((card) => `${card.position}${card.name}${card.reversed ? '逆位' : '正位'}`).join('、')}先定叙事主轴`
-    : '';
-  const obstacleText = reversedCards.length
-    ? `逆位${reversedCards.map((card) => `${card.position}${card.name}`).join('、')}优先视为阻滞、内化或延迟`
-    : '未见逆位，阻力需从牌位冲突和关键词落差中寻找';
-  const actionText = actionCards.length
-    ? `行动牌${actionCards.map((card) => `${card.position}${card.name}${card.reversed ? '逆位先降速处理阻滞' : '正位可顺势推进'}`).join('、')}`
-    : '未见明确行动位，需从主轴牌提炼可执行建议';
-
-  return [focusText, obstacleText, actionText, '权重口径：先牌位，后正逆位，再用关键词互证']
-    .filter(Boolean)
-    .join('；');
-}
-
-const TAROT_MAJOR_NUMBERS: Record<string, number> = {
-  愚者: 0,
-  魔术师: 1,
-  女祭司: 2,
-  女教皇: 2,
-  女皇: 3,
-  皇后: 3,
-  皇帝: 4,
-  教皇: 5,
-  恋人: 6,
-  战车: 7,
-  力量: 8,
-  隐者: 9,
-  命运之轮: 10,
-  正义: 11,
-  吊人: 12,
-  倒吊人: 12,
-  死神: 13,
-  节制: 14,
-  恶魔: 15,
-  塔: 16,
-  高塔: 16,
-  星星: 17,
-  月亮: 18,
-  太阳: 19,
-  审判: 20,
-  世界: 21,
-};
-
-const TAROT_SUIT_META = [
-  { keyword: '权杖', element: '火', meaning: '行动、意志、成长和主动推进' },
-  { keyword: '圣杯', element: '水', meaning: '情感、关系、感受和承接' },
-  { keyword: '宝剑', element: '风', meaning: '沟通、判断、冲突和切割' },
-  { keyword: '星币', element: '土', meaning: '资源、金钱、身体和现实落地' },
-  { keyword: '金币', element: '土', meaning: '资源、金钱、身体和现实落地' },
-  { keyword: '钱币', element: '土', meaning: '资源、金钱、身体和现实落地' },
-];
-
-const TAROT_MINOR_NUMBER_META = [
-  { labels: ['王牌', '一', '1', 'A'], label: '王牌', meaning: '启动、种子、机会露头' },
-  { labels: ['二', '2'], label: '二', meaning: '选择、平衡、协商或拉扯' },
-  { labels: ['三', '3'], label: '三', meaning: '协作、成形、初步扩展' },
-  { labels: ['四', '4'], label: '四', meaning: '稳定、结构、停滞或安全边界' },
-  { labels: ['五', '5'], label: '五', meaning: '冲突、损耗、竞争或失衡' },
-  { labels: ['六', '6'], label: '六', meaning: '调整、过渡、修复或互助' },
-  { labels: ['七', '7'], label: '七', meaning: '试探、防守、策略或不确定推进' },
-  { labels: ['八', '8'], label: '八', meaning: '推进、重复练习、压力加速' },
-  { labels: ['九', '9'], label: '九', meaning: '临界、积累、个人承受或接近结果' },
-  { labels: ['十', '10'], label: '十', meaning: '完成、收束、压力满载或结果落地' },
-];
-
-const TAROT_COURT_META = [
-  { labels: ['侍从', '侍者', '牌童'], label: '侍从', meaning: '消息、学习、新手姿态或试探' },
-  { labels: ['骑士'], label: '骑士', meaning: '行动、推进、追逐和外部变化' },
-  { labels: ['王后', '皇后'], label: '王后', meaning: '内在管理、关系承接、滋养和感受处理' },
-  { labels: ['国王'], label: '国王', meaning: '外在掌控、决策、规则和责任承担' },
-];
-
-type TarotLayer = '大阿卡纳' | '小阿卡纳' | '宫廷牌' | '未识别牌组';
-
-function resolveTarotCardMeta(card: TarotData['cards'][number]) {
-  const suit = TAROT_SUIT_META.find((item) => card.name.includes(item.keyword));
-  const courtMeta = TAROT_COURT_META.find((item) =>
-    item.labels.some((label) => card.name.includes(label)),
-  );
-  const majorName = suit
-    ? undefined
-    : Object.keys(TAROT_MAJOR_NUMBERS).find((name) => card.name.includes(name));
-  const numberMeta = TAROT_MINOR_NUMBER_META.find((item) =>
-    item.labels.some((label) => card.name.includes(label)),
-  );
-
-  const layer: TarotLayer = majorName
-    ? '大阿卡纳'
-    : courtMeta
-      ? '宫廷牌'
-      : suit
-        ? '小阿卡纳'
-        : '未识别牌组';
-
-  return {
-    layer,
-    majorNumber: majorName ? TAROT_MAJOR_NUMBERS[majorName] : null,
-    suit: suit?.keyword || '',
-    element: suit?.element || '',
-    suitMeaning: suit?.meaning || '',
-    court: courtMeta?.label || '',
-    courtMeaning: courtMeta?.meaning || '',
-    numberLabel: suit && !courtMeta ? numberMeta?.label || '' : '',
-    numberMeaning: suit && !courtMeta ? numberMeta?.meaning || '' : '',
-  };
-}
-
-function createTarotLayerEvidence(data: TarotData) {
-  const groups = data.cards.reduce(
-    (acc, card) => {
-      const meta = resolveTarotCardMeta(card);
-      acc[meta.layer].push(card.name);
-      return acc;
-    },
-    {
-      大阿卡纳: [] as string[],
-      小阿卡纳: [] as string[],
-      宫廷牌: [] as string[],
-      未识别牌组: [] as string[],
-    } satisfies Record<TarotLayer, string[]>,
-  );
-
-  return [
-    groups.大阿卡纳.length ? `大阿卡纳${groups.大阿卡纳.join('、')}定人生主题或关键转折` : '',
-    groups.小阿卡纳.length ? `小阿卡纳${groups.小阿卡纳.join('、')}定现实执行层` : '',
-    groups.宫廷牌.length ? `宫廷牌${groups.宫廷牌.join('、')}定人物角色或互动方式` : '',
-    groups.未识别牌组.length
-      ? `未识别牌组${groups.未识别牌组.join('、')}需按牌位关键词保守解释`
-      : '',
-  ]
-    .filter(Boolean)
-    .join('；');
-}
-
-function createTarotElementNumberEvidence(data: TarotData) {
-  const parts = data.cards.map((card) => {
-    const meta = resolveTarotCardMeta(card);
-    if (typeof meta.majorNumber === 'number') {
-      return `${card.position}${card.name}为大阿卡纳${meta.majorNumber}号`;
-    }
-    if (meta.court) {
-      const suitText = meta.suit
-        ? `，属${meta.suit}${meta.element}元素（${meta.suitMeaning}）`
-        : '';
-      return `${card.position}${card.name}为${meta.court}宫廷牌（${meta.courtMeaning}）${suitText}`;
-    }
-    if (meta.suit) {
-      const numberText = meta.numberLabel
-        ? `，数字${meta.numberLabel}（${meta.numberMeaning}）`
-        : '，数字未识别';
-      return `${card.position}${card.name}属${meta.suit}${meta.element}元素（${meta.suitMeaning}）${numberText}`;
-    }
-    return `${card.position}${card.name}元素数字未识别，按牌位和关键词解释`;
-  });
-
-  return `${parts.join('；')}；元素和数字只能辅助牌位叙事，不能单独推出日期`;
-}
-
-function createTarotCourtEvidence(data: TarotData) {
-  const courtCards = data.cards
-    .map((card) => ({ card, meta: resolveTarotCardMeta(card) }))
-    .filter((item) => item.meta.court);
-
-  return courtCards.length
-    ? `${courtCards.map((item) => `${item.card.position}${item.card.name}提示${item.meta.court}式人物、身份或互动姿态（${item.meta.courtMeaning}${item.meta.suit ? `；${item.meta.suit}偏${item.meta.suitMeaning}` : ''}）`).join('；')}；宫廷牌需落回现实人物或行动方式`
-    : '未见宫廷人物牌，不把牌面强行解释成特定人物';
-}
-
-function createLenormandCoreEvidence(data: LenormandData) {
-  const coreCards = data.cards.slice(0, 3);
-  return coreCards.length
-    ? `${coreCards.map((card, index) => `${index + 1}号核心${card.position}${card.name}：${joinLimited(card.keywords, 2)}`).join('；')}；前三张优先构成事件主轴`
-    : '未抽到核心牌，不能补造事件主轴';
-}
-
-const LENORMAND_ADJACENT_COMBINATIONS: Record<string, string> = {
-  '骑士+山': '消息受阻、推进延迟，先等卡点松动',
-  '山+骑士': '阻滞后才有消息，进展不会立刻到来',
-  '山+太阳': '阻力后转明，先难后有结果',
-  '太阳+山': '明朗结果前仍有现实门槛',
-  '信+书': '隐藏文件、待公开信息或需要查证的文本',
-  '书+信': '资料披露、文件通知或秘密消息浮出',
-  '戒指+心': '感情承诺、关系绑定或情感契约',
-  '心+戒指': '感情进入承诺议题，需看是否愿意绑定',
-  '鱼+锚': '稳定收入、长期资源或可持续现金流',
-  '锚+鱼': '资源固定化、收入稳定但流动性降低',
-  '船+鸟': '远方沟通、异地消息或反复联络',
-  '鸟+船': '消息带来出行、远方变化或计划迁移',
-  '钥匙+门': '关键入口打开，问题出现可操作解法',
-  '钥匙+书': '关键资料、密码、证据或专业知识',
-  '花束+信': '好消息、邀请、礼貌通知',
-  '信+花束': '通知带来缓和、邀约或正面回应',
-  '蛇+花束': '表面和气但需防复杂动机',
-  '熊+鱼': '大额资源、资金掌控或强势财务方',
-  '云+太阳': '不确定逐渐转明，但仍要等信息清楚',
-  '太阳+云': '好结果被不确定因素遮挡，需补信息',
-  '镰刀+十字': '突然压力、痛点爆发或不得不止损',
-  '十字+镰刀': '长期压力触发切割、终止或痛苦决定',
-  '棺材+钥匙': '结束旧局是破局关键',
-  '钥匙+棺材': '解法指向收尾、止损或关闭入口',
-  '路+戒指': '关系或合作进入选择节点',
-  '戒指+路': '承诺面临分岔，需重新选择条件',
-  '狗+心': '可信任的感情、友情支持或忠诚陪伴',
-  '心+狗': '情感中重视信任与长期支持',
-  '男人+女人': '两位当事人直接互动，关系主轴明显',
-  '女人+男人': '两位当事人直接互动，关系主轴明显',
-  '孩子+太阳': '新机会转明、轻快开始或小结果见好',
-  '太阳+孩子': '正面开端，但仍处在初期',
-  '塔+书': '机构资料、官方档案或隐藏规则',
-  '书+塔': '资料来自机构、制度或专业渠道',
-  '月亮+花束': '认可、好感、社交曝光带来正面反馈',
-  '花束+月亮': '邀约或礼物带来情绪改善与认可',
-};
-
-function normalizeLenormandCardName(name: string) {
-  return name.replace(/牌$/, '').trim();
-}
-
-function describeLenormandAdjacentPair(
-  card: LenormandData['cards'][number],
-  next: LenormandData['cards'][number],
-) {
-  const left = normalizeLenormandCardName(card.name);
-  const right = normalizeLenormandCardName(next.name);
-  const dictionaryText = LENORMAND_ADJACENT_COMBINATIONS[`${left}+${right}`];
-
-  return dictionaryText
-    ? `${card.name}+${next.name}：${dictionaryText}`
-    : `${card.name}+${next.name}：${joinLimited(card.keywords, 2)}遇${joinLimited(next.keywords, 2)}`;
-}
-
-function createLenormandAdjacentEvidence(data: LenormandData) {
-  if (data.cards.length < 2) {
-    return '单牌牌阵无相邻组合，只能按核心牌保守解释';
-  }
-
-  return data.cards
-    .slice(0, 5)
-    .map((card, index) => {
-      const next = data.cards[index + 1];
-      return next ? describeLenormandAdjacentPair(card, next) : '';
-    })
-    .filter(Boolean)
-    .slice(0, 4)
-    .join('；');
-}
-
-function createLenormandCardCategoryEvidence(data: LenormandData) {
-  const personCards = data.cards.filter((card) =>
-    /男人|女人|男士|女士|骑士|孩子|小孩|熊|蛇|狗/.test(card.name),
-  );
-  const eventCards = data.cards.filter((card) =>
-    /骑士|信|书|船|钥匙|路|山|镰刀|棺材|太阳|云|鸟|十字/.test(card.name),
-  );
-  const timeCards = data.cards.filter((card) =>
-    /太阳|月亮|星星|百合|树|船|骑士|钟|时间/.test(
-      `${card.name}${card.keywords.join('')}${card.meaning}`,
-    ),
-  );
-
-  return {
-    personText: personCards.length
-      ? `${personCards.map((card) => `${card.position}${card.name}`).join('、')}；人物牌只能指向现实角色、互动姿态或消息来源`
-      : '未见明确人物牌，不强行指定某个人',
-    eventText: eventCards.length
-      ? `${eventCards.map((card) => `${card.position}${card.name}提示${joinLimited(card.keywords, 2)}`).join('；')}；事件牌优先落成现实动作、消息、阻碍或结果`
-      : '未见强事件牌，按核心牌链路保守判断',
-    timeText: timeCards.length
-      ? `${timeCards.map((card) => `${card.position}${card.name}`).join('、')}可作节奏旁证；仍需用户期限或事件链支持`
-      : '未见明确时间牌，不硬断具体日期',
-  };
-}
-
-function createLenormandMirrorEvidence(data: LenormandData) {
-  if (data.cards.length < 3) {
-    return '牌数不足三张，镜像关系不作为主证';
-  }
-
-  const pairs: string[] = [];
-  for (let index = 0; index < Math.floor(data.cards.length / 2); index += 1) {
-    const left = data.cards[index];
-    const right = data.cards[data.cards.length - 1 - index];
-    pairs.push(`${left.position}${left.name}镜像${right.position}${right.name}`);
-  }
-
-  return `${pairs.slice(0, 3).join('；')}；镜像只用于复核主轴两端是否呼应，不压过相邻组合`;
-}
-
-function createSsgwDecisionEvidence(data: SsgwData) {
-  const detailMap = data.details || {};
-  const detailText = Object.values(detailMap).join('；');
-  const poemParts = data.poem
-    .split(/[，。；;、,.!?！？\s]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 4);
-  const shouldWait = /守|待|缓|莫强求|不可躁进|云开|月明|周旋/.test(`${data.poem}；${detailText}`);
-  const shouldAdvance = /进|成|吉|利|可|得|喜/.test(`${data.poem}；${detailText}`) && !shouldWait;
-  const avoidText = detailText.match(/不可[^。；;，,]*|忌[^。；;，,]*|莫[^。；;，,]*/)?.[0] || '';
-  const suitableText = detailText.match(/宜[^。；;，,]*/)?.[0] || '';
-
-  return [
-    poemParts.length ? `逐句线索：${poemParts.join('；')}` : '',
-    shouldWait
-      ? '取舍方向：宜守待时，先稳局势再推进'
-      : shouldAdvance
-        ? '取舍方向：可顺势推进，但仍需按签意避险'
-        : '取舍方向：先按签诗主旨保守取象，不作过度承诺',
-    suitableText ? `宜：${suitableText.replace(/^宜/, '')}` : '',
-    avoidText ? `忌：${avoidText.replace(/^(不可|忌|莫)/, '')}` : '',
-    '复盘条件：以签诗和典故对应的现实条件是否出现为准，不硬换算绝对日期',
-  ]
-    .filter(Boolean)
-    .join('；');
-}
-
-function createSsgwTopicEvidence(data: SsgwData) {
-  const detailMap = data.details || {};
-  const detailText = Object.values(detailMap).join('；');
-  const poemParts = data.poem
-    .split(/[，。；;、,.!?！？\s]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 4);
-  const combinedText = `${data.poem}；${detailText}`;
-  const isCautious = /守|待|缓|莫强求|不可躁进|暂避|敛锋芒|云开|月明|周旋/.test(combinedText);
-  const isPositive = /吉|喜|成|利|可|得|明/.test(combinedText);
-  const level = isCautious
-    ? isPositive
-      ? '偏守待，缓中有转机'
-      : '偏谨慎，先守后看'
-    : isPositive
-      ? '偏可进，但仍须避忌'
-      : '吉凶未明，按签诗主旨保守取象';
-  const detailHints = Object.entries(detailMap)
-    .filter(([key]) => key !== '典故')
-    .map(([key, value]) => `${key}${value}`)
-    .slice(0, 3);
-
-  return [
-    `吉凶层级：${level}`,
-    poemParts.length ? `事项重点：${poemParts.join('；')}` : '',
-    detailHints.length ? `事项映射：${detailHints.join('；')}` : '',
-    isCautious
-      ? '守进条件：见阻力松动、信息转明或现实周旋空间出现后再推进'
-      : '守进条件：按签意可行处推进，遇到忌项立即降速',
-  ]
-    .filter(Boolean)
-    .join('；');
-}
-
-function createSsgwTimingEvidence(data: SsgwData) {
-  const detailMap = data.details || {};
-  const combinedText = `${data.poem}；${Object.values(detailMap).join('；')}`;
-  const matchSignals = (rules: Array<{ label: string; pattern: RegExp }>) =>
-    rules.filter((item) => item.pattern.test(combinedText)).map((item) => item.label);
-  const fastSignals = matchSignals([
-    { label: '速', pattern: /速/ },
-    { label: '即', pattern: /即/ },
-    { label: '马上', pattern: /马上/ },
-    { label: '急', pattern: /急/ },
-    { label: '宜进', pattern: /宜进/ },
-    { label: '可成', pattern: /可成/ },
-    { label: '喜', pattern: /喜/ },
-    { label: '早', pattern: /早/ },
-    { label: '立', pattern: /立/ },
-  ]);
-  const waitSignals = matchSignals([
-    { label: '待', pattern: /待/ },
-    { label: '守', pattern: /守/ },
-    { label: '缓', pattern: /缓/ },
-    { label: '云开', pattern: /云开/ },
-    { label: '月明', pattern: /月(?:自)?明/ },
-    { label: '莫强求', pattern: /莫强求/ },
-    { label: '周旋', pattern: /周旋/ },
-    { label: '暂避', pattern: /暂避/ },
-    { label: '敛锋芒', pattern: /敛锋芒/ },
-    { label: '忍', pattern: /忍/ },
-    { label: '迟', pattern: /迟/ },
-  ]);
-  const blockSignals = matchSignals([
-    { label: '不可', pattern: /不可/ },
-    { label: '忌', pattern: /忌/ },
-    { label: '难', pattern: /难/ },
-    { label: '凶', pattern: /凶/ },
-    { label: '祸', pattern: /祸/ },
-    { label: '险', pattern: /险/ },
-    { label: '阻', pattern: /阻/ },
-    { label: '困', pattern: /困/ },
-    { label: '忧', pattern: /忧/ },
-    { label: '躁进', pattern: /躁进/ },
-  ]);
-
-  if (waitSignals.length || blockSignals.length) {
-    return [
-      '偏慢待时',
-      waitSignals.length ? `守待信号${waitSignals.slice(0, 4).join('、')}` : '',
-      blockSignals.length ? `阻滞信号${blockSignals.slice(0, 4).join('、')}` : '',
-      '应期须等现实阻力松动或用户指定期限内出现转明信号',
-    ]
-      .filter(Boolean)
-      .join('；');
-  }
-
-  if (fastSignals.length) {
-    return `偏快可进；速动信号${fastSignals.slice(0, 4).join('、')}；仍需避开签中忌项，不把“快”换算成固定日期`;
-  }
-
-  return '迟速未明；只按签诗主旨给阶段性判断，需用户补充目标期限后再落应期';
 }
 
 const WUXING_GENERATES: Record<string, string> = {
@@ -1182,40 +752,7 @@ function describeWuxingRelation(source: string, target: string) {
   return `${source}与${target}关系待复核`;
 }
 
-function createLiuyaoSpecialFocusHints(question: string) {
-  const text = question.trim();
-  const hints: string[] = [];
-
-  if (
-    /鬼神|怪事|怪异|不干净|冲犯|阴气|附体|家神|祖先|净宅|送替|梦见|噩梦|邪乎|发冷|惊吓|不安/.test(
-      text,
-    )
-  ) {
-    hints.push(
-      '鬼神怪异：重点看官鬼是否旺动贴世，子孙能否制鬼，并结合玄武、螣蛇、白虎、勾陈、空破入墓判断更偏情绪、环境还是民俗冲犯。',
-    );
-  }
-
-  if (/感情|婚姻|恋爱|复合|对象|伴侣|桃花|关系/.test(text)) {
-    hints.push('感情关系：重点看官鬼/妻财、世应生克、动变合冲，以及关系是否还有推进空间。');
-  }
-
-  if (/工作|事业|岗位|升职|跳槽|面试|领导|规则|编制|项目/.test(text)) {
-    hints.push('事业工作：重点看官鬼、父母、世应与动爻，判断机会、压力、规则与窗口时机。');
-  }
-
-  if (/钱|财|收入|投资|生意|项目|客户|订单|资源|回款|交易/.test(text)) {
-    hints.push('财运交易：重点看妻财、兄弟、子孙与世应，判断收益兑现、分财耗财与操作节奏。');
-  }
-
-  return hints;
-}
-
-function formatLiuyaoInfo(
-  question: string,
-  data: LiuyaoData,
-  supplementaryInfo?: SupplementaryInfo,
-) {
+function formatLiuyaoInfo(data: LiuyaoData, template: LiuyaoTemplateType) {
   const movingYaos = data.changingYaos?.length
     ? data.changingYaos
         .map((item) => `第${item.position}爻${item.type ? `（${item.type}）` : ''}`)
@@ -1223,8 +760,7 @@ function formatLiuyaoInfo(
     : '无动爻';
   const worldYao = data.yaosDetail.find((item) => item.isWorld);
   const responseYao = data.yaosDetail.find((item) => item.isResponse);
-  const usefulGodHints = createLiuyaoUsefulGodHints(question, data, supplementaryInfo);
-  const specialFocusHints = createLiuyaoSpecialFocusHints(question);
+  const usefulGodHints = createLiuyaoUsefulGodHints(data, template);
   const changingLines = data.yaosDetail
     .filter((item) => item.isChanging)
     .map((item) => {
@@ -1254,13 +790,9 @@ function formatLiuyaoInfo(
     : '本卦六亲齐备或本宫首卦无可伏之神';
   const hexagramRelationText = formatLiuyaoHexagramRelation(data);
   const fanfuRelationText = formatLiuyaoFanFuRelation(data);
-  const usefulGodScoreEvidenceItems = createLiuyaoUsefulGodScoreEvidenceItems(
-    question,
-    data,
-    supplementaryInfo,
-  );
+  const usefulGodScoreEvidenceItems = createLiuyaoUsefulGodScoreEvidenceItems(data, template);
   const usefulGodScoreEvidence = formatLiuyaoUsefulGodScoreEvidence(usefulGodScoreEvidenceItems);
-  const relationGodEvidence = createLiuyaoRelationGodEvidence(question, data, supplementaryInfo);
+  const relationGodEvidence = createLiuyaoRelationGodEvidence(data, template);
   const monthDayEvidence = createLiuyaoMonthDayEvidence(data);
   const timingEvidence = createLiuyaoTimingEvidence(data);
   const timingPriorityEvidence = createLiuyaoTimingPriorityEvidence(data);
@@ -1333,7 +865,6 @@ function formatLiuyaoInfo(
       : '',
     `断卦抓手：${focusParts.join('；')}`,
     `用神候选：${usefulGodHints.join('；')}`,
-    specialFocusHints.length ? `专项抓手：${specialFocusHints.join('；')}` : '',
     `主轴证据：${worldYao ? `世爻${formatLiuyaoYaoBrief(worldYao)}` : '世爻未知'}；${responseYao ? `应爻${formatLiuyaoYaoBrief(responseYao)}` : '应爻未知'}；${changingLines.length ? `动变${changingLines.join('、')}` : '无动变，以静卦世应用神为主'}`,
     `用神评分表：${usefulGodScoreEvidence}`,
     `原神忌神仇神：${relationGodEvidence}`,
@@ -1453,29 +984,29 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
     `核心结构：起因${sequence.start.name}；过程${sequence.process.name}；结果${sequence.result.name}`,
     `关键提示：起课方式${data.methodLabel}；主判断${data.primary.name}；倾向${data.tendency}${data.fortune ? `；${data.fortune}` : ''}`,
     '断课抓手：先看结果宫位定主判断，再看起因与过程宫位解释事情为何如此、会如何推进。',
-    `主轴证据：起因${sequence.start.name}（${sequence.start.keywords.join('、')}）；过程${sequence.process.name}（${sequence.process.keywords.join('、')}）；结果${sequence.result.name}（${sequence.result.keywords.join('、')}）`,
+    `主轴证据：起因${sequence.start.name}；过程${sequence.process.name}；结果${sequence.result.name}`,
     `辅助证据：起因提示${sequence.start.meaning}；过程提示${sequence.process.meaning}；结果提示${sequence.result.meaning}`,
     data.seasonStates
       ? `月令旺衰：起因${data.seasonStates.start}，过程${data.seasonStates.process}，结果${data.seasonStates.result}`
       : '',
     data.direction ? `方位参考：${data.direction}` : '',
     data.shenSha ? `神煞参考：${data.shenSha}` : '',
-    `问题映射：${data.questionHint}`,
+    `取象提示：${data.questionHint}`,
     data.yingQi ? `应期参考：${data.yingQi}` : `应期候选：${timingEvidence}`,
     `复盘信号：${reviewEvidence}`,
     `行动建议等级：${actionLevelEvidence}`,
     `复盘窗口：${reviewWindowEvidence}`,
     '结构明细：',
     `- 起课方式：${data.methodLabel}`,
-    `- 起因：${sequence.start.name}，关键词：${sequence.start.keywords.join('、')}；建议：${sequence.start.advice}`,
-    `- 过程：${sequence.process.name}，关键词：${sequence.process.keywords.join('、')}；建议：${sequence.process.advice}`,
-    `- 结果：${sequence.result.name}，关键词：${sequence.result.keywords.join('、')}；建议：${sequence.result.advice}`,
+    `- 起因：${sequence.start.name}；宫位含义：${sequence.start.meaning}；建议：${sequence.start.advice}`,
+    `- 过程：${sequence.process.name}；宫位含义：${sequence.process.meaning}；建议：${sequence.process.advice}`,
+    `- 结果：${sequence.result.name}；宫位含义：${sequence.result.meaning}；建议：${sequence.result.advice}`,
   ]
     .filter(Boolean)
     .join('\n');
 }
 
-function formatQimenInfo(question: string, data: QimenData, supplementaryInfo?: SupplementaryInfo) {
+function formatQimenInfo(data: QimenData) {
   const zhiFuPalace = data.jiuGongGe.find((item) => item.tianPan.star === data.zhiFu);
   const zhiShiPalace = data.jiuGongGe.find((item) => item.renPan.door === data.zhiShi);
   const hourStem = data.ganzhi.hour.charAt(0);
@@ -1567,13 +1098,8 @@ function formatQimenInfo(question: string, data: QimenData, supplementaryInfo?: 
   const palaceSummary =
     data.palaceInsights?.map((item) => `${item.name}${item.level}，${item.summary}`).join('；') ||
     '';
-  const questionHints = createQimenQuestionHints(question, data, supplementaryInfo);
-  const priorityPalaces = createQimenPriorityPalaces(question, data, supplementaryInfo).slice(0, 3);
+  const priorityPalaces = createQimenPriorityPalaces(data).slice(0, 3);
   const specialConditionsText = data.specialConditions?.description?.trim();
-  const questionHintText =
-    questionHints.length > 0
-      ? questionHints.map((item) => `${item.label}：${item.value}`).join('；')
-      : '';
   const priorityPalaceText = priorityPalaces
     .map((item) => `${item.name}（${item.score}分，${item.reasons.join('、')}）`)
     .join('；');
@@ -1663,7 +1189,7 @@ function formatQimenInfo(question: string, data: QimenData, supplementaryInfo?: 
           return `${role}${palace?.direction || '未知'}（${item.name}）：按${item.reasons.join('、')}取象`;
         })
         .join('；')
-    : '方位未由问题明确触发，只能按值符值使、时干落宫和现实可行方向取舍';
+    : '方位未由盘面重点触发，只能按值符值使、时干落宫和现实可行方向取舍';
   const timeWindowText = [
     data.yingQi
       ? `应期范围${data.yingQi.minDays}-${data.yingQi.maxDays}日，节奏${data.yingQi.rhythm}（依据：${data.yingQi.sources.join('、')}）`
@@ -1705,7 +1231,7 @@ function formatQimenInfo(question: string, data: QimenData, supplementaryInfo?: 
     ganzhiInteractionSummary ? `四柱互动：${ganzhiInteractionSummary}` : '',
     `起局抓手：${focusParts.join('；')}`,
     `主轴证据：值符${data.zhiFu}${zhiFuPalace ? `落${zhiFuPalace.name}` : '落宫未定位'}；值使${data.zhiShi}${zhiShiPalace ? `落${zhiShiPalace.name}` : '落宫未定位'}；时干${hourStem}${hourStemPalaces.length ? `见于${hourStemPalaces.map((item) => item.name).join('、')}` : '落宫未定位'}`,
-    `用神宫候选：${priorityPalaceText || '未根据问题识别出优先宫，先以值符值使、时干和值事宫为主'}`,
+    `用神宫候选：${priorityPalaceText || '未由盘面重点定位优先宫，先以值符值使、时干和值事宫为主'}`,
     priorityPalaceEvidence ? `用神宫证据：${priorityPalaceEvidence}` : '',
     `主宫评分：${mainPalaceScoreText}`,
     `辅宫评分：${auxiliaryPalaceScoreText}`,
@@ -1715,7 +1241,6 @@ function formatQimenInfo(question: string, data: QimenData, supplementaryInfo?: 
     `时间窗口：${timeWindowText}`,
     `辅助证据：旬空${voidText}；马星${horseText}`,
     specialConditionsText ? `特殊时辰：${specialConditionsText}` : '',
-    questionHintText ? `问事参考：${questionHintText}` : '',
     patternSummary ? `判断依据：${patternSummary}` : '',
     classicPatternSummary ? `经典格局：${classicPatternSummary}` : '',
     patternComboSummary ? `复合格局：${patternComboSummary}` : '',
@@ -1823,67 +1348,15 @@ function formatLiurenInfo(data: LiurenData) {
 }
 
 function formatTarotInfo(data: TarotData) {
-  // 牌阵类型决定读取策略
-  const spreadSpecificHint: Record<string, string> = {
-    love: '感情牌阵优先看牌面情感基调、人物牌互动和阻碍位',
-    career: '事业牌阵优先看行动位、资源位和结果位的呼应',
-    decision: '选择牌阵优先看选项对比、关键建议位和潜在风险',
-    three: '三牌时间流优先看过去成因→当下关键→未来趋势的承接',
-    celtic: '凯尔特十字优先看核心问题位、外界影响和最终结果',
-    chakra: '脉轮牌阵优先看顶轮（大方向）和海底轮（根基）的能量流向',
-    year: '年运牌阵优先看第一季度的行动位和第四季度的收获位',
-    mindBodySpirit: '身心灵魂牌阵优先看身（现实）和灵（方向）两个极位',
-    horseshoe: '马蹄铁牌阵优先看过去、现在、隐藏因素和结果四个关键锚点',
-  };
-  const focusCards = getTarotFocusCards(data);
-  const focusParts = focusCards.map((card) => formatTarotCardLabel(card));
-  const auxiliaryParts = [
-    `牌阵${data.spreadName}`,
-    ...focusCards.map((card) => `${card.position}关键词${card.keywords.join('、')}`),
-  ].filter(Boolean);
   const cardLines = data.cards.map(
-    (card) =>
-      `- ${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}，关键词：${card.keywords.join('、')}`,
+    (card) => `- ${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}`,
   );
-  const conflictEvidence = createTarotConflictEvidence(data);
-  const narrativeWeightEvidence = createTarotNarrativeWeightEvidence(data);
-  const layerEvidence = createTarotLayerEvidence(data);
-  const elementNumberEvidence = createTarotElementNumberEvidence(data);
-  const courtEvidence = createTarotCourtEvidence(data);
-  const relationText =
-    focusCards.length >= 2
-      ? focusCards
-          .slice(0, 3)
-          .map((card, index) => {
-            if (index === 0) {
-              return `${card.position}先提示${card.keywords.join('与')}`;
-            }
-            if (index === 1) {
-              return `${card.position}位再看如何调整${card.keywords.join('与')}`;
-            }
-            return `${card.position}位再看后续${card.keywords.join('与')}`;
-          })
-          .join('，')
-      : focusCards[0]
-        ? `${focusCards[0].position}是当前主轴，先围绕这张牌回答问题`
-        : '';
 
   return [
     '占法：塔罗',
     '时间干支：以【当前时间】为准',
     `核心结构：牌阵${data.spreadName}；共${data.cards.length}张牌`,
-    spreadSpecificHint[data.spreadType as string]
-      ? `读取策略：${spreadSpecificHint[data.spreadType as string]}`
-      : '',
-    '断牌抓手：先统合牌阵主轴，再看关键位置、正逆位变化与牌面呼应',
-    `主轴证据：${focusParts.join('；') || '牌面主轴未定位'}`,
-    `辅助证据：${auxiliaryParts.join('；') || '暂无辅助证据'}`,
-    layerEvidence ? `牌组层级：${layerEvidence}` : '',
-    `元素数字：${elementNumberEvidence}`,
-    `宫廷人物：${courtEvidence}`,
-    `牌面冲突：${conflictEvidence}`,
-    `叙事权重：${narrativeWeightEvidence}`,
-    `牌间叙事：${relationText || '牌数不足时只按单牌与问题关系解释'}`,
+    '断牌口径：按用户选择的牌阵、牌位、牌名和正逆位解读；未选择专项牌阵时按通用断牌。',
     '现实边界：塔罗只能给当下倾向、心理动力、互动节奏和行动建议；未给期限时不把牌义硬换成绝对日期',
     '牌位明细：',
     ...cardLines,
@@ -1893,7 +1366,6 @@ function formatTarotInfo(data: TarotData) {
 }
 
 function formatSsgwInfo(data: SsgwData) {
-  // 三连阴杯拒绝起卦
   if (data.ritual?.rejected) {
     const throwLog = data.ritual.throws.map((t) => t.result).join(' → ');
     return (
@@ -1906,7 +1378,6 @@ function formatSsgwInfo(data: SsgwData) {
   }
 
   const { canonicalStory, extraStory } = resolveSsgwStoryContent(data);
-  // 非拒绝状态下的掷筊记录（神明已应）
   const ritualLog = data.ritual?.throws?.length
     ? `掷筊记录：${data.ritual.throws.map((t) => t.result).join(' → ')}${data.ritual.reason ? `（${data.ritual.reason}）` : ''}`
     : '';
@@ -1915,68 +1386,17 @@ function formatSsgwInfo(data: SsgwData) {
         .filter(([key]) => key !== '典故')
         .map(([key, value]) => `- ${key}：${value}`)
     : [];
-  const detailMap = data.details || {};
-  const auxiliaryParts = [
-    `签题《${data.title}》`,
-    canonicalStory ? `典故${canonicalStory}` : '',
-    detailMap.解签 ? `解签${detailMap.解签}` : '',
-  ].filter(Boolean);
-  const decisionEvidence = createSsgwDecisionEvidence(data);
-  const topicEvidence = createSsgwTopicEvidence(data);
-  const timingEvidence = createSsgwTimingEvidence(data);
-  const poemParts = data.poem
-    .split(/[，。；;、,.!?！？\s]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 6);
-  const detailText = Object.values(detailMap).join('；');
-  const isCautious = /守|待|缓|莫强求|不可躁进|暂避|敛锋芒|周旋/.test(
-    `${data.poem}；${detailText}`,
-  );
-  const isPositive = /吉|喜|成|利|可|得|明|云开|月明/.test(`${data.poem}；${detailText}`);
-  const auspiciousLevel = isCautious
-    ? isPositive
-      ? '中平偏守，等待转明'
-      : '偏谨慎，先守后看'
-    : isPositive
-      ? '偏吉可进，但须守条件'
-      : '吉凶未明，按签诗保守取象';
-  const tabooText =
-    detailText.match(/不可[^。；;，,]*|忌[^。；;，,]*|莫[^。；;，,]*/)?.[0] ||
-    (isCautious ? '忌躁进强求' : '未见明确忌项，仍需按签意避险');
-  const suitableText =
-    detailText.match(/宜[^。；;，,]*/)?.[0] || (isCautious ? '宜守正待时' : '宜顺势推进');
-  const realityHint = detailMap.解签
-    ? detailMap.解签.includes('守正待时')
-      ? '当前更宜先守正待时，再等局势转明，不宜躁进强求'
-      : `当前更宜依签意行事，先稳住节奏，再看后续变化`
-    : '';
 
   return [
     '占法：三山国王灵签',
     `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
     `核心结构：第${data.number}签；签题《${data.title}》`,
-    '断签抓手：先定签诗主旨，再看典故映射、现实处境与宜进宜守',
-    `主轴证据：签诗“${data.poem}”`,
+    '断签口径：按用户问题、签诗原文、典故和签文条目解读；未给具体事项时走通用解签。',
     ritualLog,
-    `辅助证据：${auxiliaryParts.join('；') || '暂无辅助证据'}`,
-    poemParts.length
-      ? `逐句签意：${poemParts.map((item, index) => `第${index + 1}句${item}`).join('；')}`
-      : '',
-    `事项分类：按用户问题映射到求事、关系、事业、财务或行程；未给具体事项时只按签诗主旨给通用取舍`,
-    `吉凶层级：${auspiciousLevel}`,
-    `宜忌条件：${suitableText}；${tabooText}`,
-    `迟速判断：${timingEvidence}`,
-    `典故映射：${canonicalStory ? '已按所给典故作现实处境类比' : '未给典故，不能补造故事'}；典故只用于现实处境类比，不替代签诗主旨`,
-    `签意取舍：${decisionEvidence}`,
-    `事项映射：${topicEvidence}`,
-    '复盘条件：以签诗、典故和现实条件是否对应为准；未给期限时不硬断绝对日期',
-    realityHint ? `现实映射：${realityHint}` : '',
-    '结构明细：',
-    `- 签号：第${data.number}签`,
-    `- 签题：${data.title}`,
-    canonicalStory ? `- 典故：${canonicalStory}` : '',
+    `签诗：${data.poem}`,
+    canonicalStory ? `典故：${canonicalStory}` : '',
     extraStory ? `补充提示：${extraStory}` : '',
+    detailLines.length ? '签文条目：' : '',
     ...detailLines,
   ]
     .filter(Boolean)
@@ -1989,22 +1409,15 @@ function formatAlmanacEvidenceItems(items: PromptEvidenceItem[]) {
   );
 }
 
-function createAlmanacTabooEvidenceItems(
-  days: AlmanacDayCandidate[],
-  topicKeywords: string[],
-): PromptEvidenceItem[] {
+function createAlmanacTabooEvidenceItems(days: AlmanacDayCandidate[]): PromptEvidenceItem[] {
   const items = days
     .map((item, index): PromptEvidenceItem | null => {
-      const directAvoids = topicKeywords.filter((keyword) =>
-        item.avoids.some((avoid) => avoid.includes(keyword) || keyword.includes(avoid)),
-      );
       const cautionText = item.cautions.length ? item.cautions.join('、') : '';
       const participantText = item.participantNotes.filter(
         (note) => /冲|刑|害|破|忌|不宜|避/.test(note) && !/未见|未冲|不冲|无明显/.test(note),
       );
       const scoreRisk = item.score < 60 ? `评分${item.score}偏低` : '';
       const risks = [
-        directAvoids.length ? `事项忌项命中${directAvoids.join('、')}` : '',
         cautionText ? `风险${cautionText}` : '',
         participantText.length ? `参与人${participantText.join('；')}` : '',
         scoreRisk,
@@ -2102,22 +1515,6 @@ function formatAlmanacAnnualDirectionGods(item: AlmanacDayCandidate) {
 
 function formatAlmanacInfo(data: AlmanacData) {
   const topDays = data.days.slice(0, 8);
-  const topicAvoidKeywords: Record<AlmanacData['topic'], string[]> = {
-    marriage: ['嫁娶', '结婚', '订婚', '纳采'],
-    move: ['入宅', '移徙', '搬家', '安床'],
-    opening: ['开市', '开业', '交易', '立券'],
-    contract: ['签约', '交易', '立券', '纳财'],
-    travel: ['出行', '赴任', '远行'],
-    medical: ['求医', '治病', '动土', '手术'],
-    study: ['入学', '考试', '求学', '开光'],
-    burial: ['安葬', '修坟', '启钻', '立碑'],
-    renovation: ['修造', '动土', '竖柱', '上梁'],
-    custom: data.topicLabel
-      .split(/[、，,；;\s]+/)
-      .map((item) => item.trim())
-      .filter(Boolean),
-  };
-  const topicKeywords = topicAvoidKeywords[data.topic] || [];
   const participantLines = data.participants.map((item) => {
     const useful = item.usefulGods.length ? item.usefulGods.join('、') : '未标注';
     const avoid = item.avoidGods.length ? item.avoidGods.join('、') : '未标注';
@@ -2150,8 +1547,8 @@ function formatAlmanacInfo(data: AlmanacData) {
     .sort((a, b) => a.score - b.score)
     .slice(0, 2);
   const formatDayReason = (item: AlmanacDayCandidate) => {
-    const good = item.highlights.length ? item.highlights.join('、') : '未见事项宜项强命中';
-    const risk = item.cautions.length ? item.cautions.join('、') : '未见事项忌项强命中';
+    const good = item.highlights.length ? item.highlights.join('、') : '未见明显宜项';
+    const risk = item.cautions.length ? item.cautions.join('、') : '未见明显忌项';
     const participant = item.participantNotes.length
       ? item.participantNotes.join('；')
       : '未填写参与人八字';
@@ -2164,15 +1561,12 @@ function formatAlmanacInfo(data: AlmanacData) {
     formatDayReason,
   );
   const selectionEvidence = formatAlmanacEvidenceItems(selectionEvidenceItems);
-  const tabooEvidenceItems = createAlmanacTabooEvidenceItems(topDays, topicKeywords);
+  const tabooEvidenceItems = createAlmanacTabooEvidenceItems(topDays);
   const tabooEvidence = formatAlmanacEvidenceItems(tabooEvidenceItems);
-  const topicWeightEvidence = [
-    `事项${data.topicLabel}优先匹配宜项${topicKeywords.join('、') || data.topicLabel}`,
-    '先查事项忌项和冲犯，再看宜项、吉神、执日、星宿与评分',
+  const topicScopeEvidence =
     data.topic === 'custom'
-      ? '自定义事项需结合用户补充拆关键词，无法识别时按通用黄历取舍'
-      : '事项权重高于单日总分，高分但犯事项忌项必须降级',
-  ].join('；');
+      ? '未选择固定事项，按通用黄历取舍；用户补充的具体事项只作现实背景'
+      : `用户选择事项：${data.topicLabel}；按已选事项和候选日期证据处理`;
   const participantFitEvidence = data.participants.length
     ? data.participants
         .map((participant) => {
@@ -2188,7 +1582,7 @@ function formatAlmanacInfo(data: AlmanacData) {
         .join('；')
     : '未填写参与人八字，不能编造个人适配，只按通用黄历规则判断';
   const tabooDowngradeEvidence = tabooEvidence.length
-    ? `${tabooEvidence.join('；')}；命中事项忌项、参与人刑冲破害或低分强风险时，即使总分靠前也必须降为备选或慎用`
+    ? `${tabooEvidence.join('；')}；命中明显禁忌、参与人刑冲破害或低分强风险时，即使总分靠前也必须降为备选或慎用`
     : '未见强禁忌命中；仍需检查用户现实限制，不能只按分数定案';
   const realityConstraintEvidence = [
     '现实刚性约束包括场地、证件、人员到场、交通、预算、天气和办理窗口',
@@ -2211,9 +1605,9 @@ function formatAlmanacInfo(data: AlmanacData) {
       ? `初筛结论：当前排序第一为${bestDay.date}，评分${bestDay.score}；仍需结合用户现实约束复核，不可只按分数机械决定`
       : '初筛结论：暂无候选日期',
     '择日抓手：先排除直接冲犯和忌项明显命中的日期，再比较宜项、吉神、执日、星宿与参与人日主喜忌。',
-    `事项权重：${topicWeightEvidence}`,
+    `事项口径：${topicScopeEvidence}`,
     `参与人适配：${participantFitEvidence}`,
-    `禁忌筛查：${tabooEvidence.length ? tabooEvidence.join('；') : '候选日期未见事项忌项、参与人刑冲破害或低分强风险；仍需按现实约束复核'}；先排禁忌，再看评分，高分日期若命中事项忌项或参与人刑冲破害必须降级`,
+    `禁忌筛查：${tabooEvidence.length ? tabooEvidence.join('；') : '候选日期未见明显禁忌、参与人刑冲破害或低分强风险；仍需按现实约束复核'}；先排禁忌，再看评分，高分日期若命中明显禁忌或参与人刑冲破害必须降级`,
     `禁忌降级：${tabooDowngradeEvidence}`,
     selectionEvidence.length ? `取舍证据：${selectionEvidence.join('；')}` : '',
     `现实约束：${realityConstraintEvidence}`,
@@ -2231,92 +1625,23 @@ function formatAlmanacInfo(data: AlmanacData) {
 
 function formatLenormandInfo(data: LenormandData) {
   const cardLines = data.cards.map(
-    (card) =>
-      `- ${card.position}：${card.name}，关键词：${card.keywords.join('、')}；牌义：${card.meaning}`,
+    (card) => `- ${card.position}：${card.name}${card.meaning ? `；牌义：${card.meaning}` : ''}`,
   );
-  const focus = data.cards
-    .slice(0, 3)
-    .map((card) => `${card.position}${card.name}`)
-    .join('；');
-  const firstThree = data.cards.slice(0, 3);
-  const eventChain = firstThree
-    .map((card, index) => {
-      const keywordText = joinLimited(card.keywords, 2);
-      if (index === 0) {
-        return `${card.position}${card.name}定起点或主轴：${keywordText}`;
-      }
-      if (index === firstThree.length - 1) {
-        return `${card.position}${card.name}看走向或落点：${keywordText}`;
-      }
-      if (/阻|障碍|挑战|风险|卡点/.test(card.position)) {
-        return `${card.position}${card.name}补阻力或限制：${keywordText}`;
-      }
-      if (/现状|当前/.test(card.position)) {
-        return `${card.position}${card.name}承接当前状态：${keywordText}`;
-      }
-      if (/建议|行动|对策/.test(card.position)) {
-        return `${card.position}${card.name}给行动建议：${keywordText}`;
-      }
-      if (/过程|中间|发展/.test(card.position)) {
-        return `${card.position}${card.name}看过程转折：${keywordText}`;
-      }
-      return `${card.position}${card.name}补充事件条件或修饰：${keywordText}`;
-    })
-    .join('；');
-  const neighborPairs =
-    data.cards.length >= 2
-      ? data.cards
-          .slice(0, 5)
-          .map((card, index) => {
-            const left = data.cards[index - 1];
-            const right = data.cards[index + 1];
-            const leftText = left ? `${left.name}左邻` : '';
-            const rightText = right ? `${right.name}右邻` : '';
-            return [leftText, card.name, rightText].filter(Boolean).join(' / ');
-          })
-          .slice(0, 3)
-          .join('；')
-      : '';
-  const combinationWeight =
-    data.cards.length >= 2
-      ? data.cards
-          .slice(0, 4)
-          .map((card, index) => {
-            const next = data.cards[index + 1];
-            if (!next) {
-              return '';
-            }
-            return describeLenormandAdjacentPair(card, next);
-          })
-          .filter(Boolean)
-          .slice(0, 3)
-          .join('；')
-      : '';
-  const coreEvidence = createLenormandCoreEvidence(data);
-  const adjacentEvidence = createLenormandAdjacentEvidence(data);
-  const categoryEvidence = createLenormandCardCategoryEvidence(data);
-  const mirrorEvidence = createLenormandMirrorEvidence(data);
+  const combinationLines =
+    data.combinations?.map((item) => `- ${item.card1}+${item.card2}：${item.meaning}`) ?? [];
 
   return [
     '占法：雷诺曼',
     '时间干支：以【当前时间】为准',
     `核心结构：牌阵${data.spreadName}；共${data.cards.length}张牌`,
-    '断牌抓手：先看核心牌，再看左右邻牌如何补充事件、人、消息、阻碍或结果。',
-    `主轴证据：${focus || '未定位主轴'}`,
-    `核心牌：${coreEvidence}`,
-    eventChain ? `事件链证据：${eventChain}` : '',
-    `相邻组合：${adjacentEvidence}`,
-    `人物牌：${categoryEvidence.personText}`,
-    `事件牌：${categoryEvidence.eventText}`,
-    `时间牌：${categoryEvidence.timeText}`,
-    `镜像提示：${mirrorEvidence}`,
-    neighborPairs ? `邻近关系：${neighborPairs}` : '',
-    combinationWeight
-      ? `组合权重：${combinationWeight}；先看相邻组合是否构成现实事件，再看单牌关键词`
-      : '',
-    '结构明细：',
+    '断牌口径：按用户选择的牌阵、牌位、牌名和牌义解读；单牌或未选专项时按通用断牌。',
+    combinationLines.length ? '组合说明：' : '',
+    ...combinationLines,
+    '牌位明细：',
     ...cardLines,
-  ].join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 export function formatAstrolabeInfo(data: AstrolabeData) {
@@ -2362,18 +1687,19 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
 export function formatDivinationInfo(
   method: Exclude<DivinationMethodId, 'random'>,
   data: DivinationData,
-  question: string,
-  supplementaryInfo?: SupplementaryInfo,
+  _question: string,
+  _supplementaryInfo?: SupplementaryInfo,
+  options: { liuyaoTemplate?: LiuyaoTemplateType } = {},
 ) {
   switch (method) {
     case 'liuyao':
-      return formatLiuyaoInfo(question, data as LiuyaoData, supplementaryInfo);
+      return formatLiuyaoInfo(data as LiuyaoData, options.liuyaoTemplate ?? 'general');
     case 'meihua':
       return formatMeihuaInfo(data as MeihuaData);
     case 'xiaoliuren':
       return formatXiaoliurenInfo(data as XiaoliurenData);
     case 'qimen':
-      return formatQimenInfo(question, data as QimenData, supplementaryInfo);
+      return formatQimenInfo(data as QimenData);
     case 'liuren':
       return formatLiurenInfo(data as LiurenData);
     case 'tarot':

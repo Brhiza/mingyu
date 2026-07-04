@@ -5,9 +5,9 @@ import {
   getCompatibilityPrompt,
   resolveBaziQuestionScene,
 } from '../src/utils/ai/aiPrompts';
-import { baziCalculator } from '../src/utils/bazi/baziCalculator';
-import { formatBaziForPrompt as formatBaziForPromptLocal } from '../src/utils/bazi/baziAnalysisFormatter';
-import { buildFortuneSelectionContext } from '../src/utils/bazi/fortuneSelection';
+import { baziCalculator } from '@core/bazi/baziCalculator';
+import { formatBaziForPrompt as formatBaziForPromptLocal } from '@core/bazi/baziAnalysisFormatter';
+import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import {
   generateAnalysisDimensionHints,
   generateCareerPartnershipHints,
@@ -16,11 +16,11 @@ import {
   generateMarriageMatchHints,
   generateParentsAnalysisHints,
   generateSiblingsAnalysisHints,
-} from '../src/utils/bazi/baziEnhancement';
+} from '@core/bazi/baziEnhancement';
 import { formatBaziForPrompt as formatBaziForPromptCore } from '../packages/core/src/bazi/baziAnalysisFormatter';
 import { identifyClassicPattern as identifyClassicPatternCore } from '../packages/core/src/bazi/baziEnhancement/classicPatterns';
-import { identifyClassicPattern as identifyClassicPatternLocal } from '../src/utils/bazi/baziEnhancement/classicPatterns';
-import { generateEnhancedAnalysisSection } from '../src/utils/bazi/baziPromptEnhancement';
+import { identifyClassicPattern as identifyClassicPatternLocal } from '@core/bazi/baziEnhancement/classicPatterns';
+import { generateEnhancedAnalysisSection } from '@core/bazi/baziPromptEnhancement';
 
 function assertNoEngineeringPromptText(prompt: string) {
   assert.doesNotMatch(prompt, /当前项目|本地算法|技术限制|未计算|资料包|提示词规则/);

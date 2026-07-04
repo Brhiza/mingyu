@@ -47,6 +47,7 @@ export interface BaziAnalysisPipelineDeps {
     monthBranch: string,
     getSeasonStatus: (zhi: string) => Record<string, string>,
     getWuxing: (ganOrZhi: string) => Wuxing,
+    monthCommander?: string,
   ) => SeasonalStatusAnalysis;
   analyzeDayMasterStrength: (
     seasonalStatus: SeasonalStatusAnalysis,
@@ -187,6 +188,7 @@ function buildPipelineState(
     monthBranch,
     deps.getSeasonStatus,
     deps.getWuxing,
+    monthCommander,
   );
   const dayMasterStrength = deps.analyzeDayMasterStrength(
     seasonalStatus,

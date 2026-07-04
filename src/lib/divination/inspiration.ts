@@ -518,53 +518,54 @@ export const LENORMAND_SPREAD_INSPIRATION_CONTENT: Record<
   ],
 };
 
-export const TAROT_SPREAD_INSPIRATION_QUESTIONS: Record<DivinationDraft['tarotSpread'], string[]> =
-  {
-    single: [
-      '今天我需要关注什么？',
-      '我现在最需要的指引是什么？',
-      '宇宙想要告诉我什么？',
-      '我应该如何面对当前的困惑？',
-      '今日的能量指引',
-    ],
-    three: [
-      '我的人生发展趋势如何？',
-      '这个问题的来龙去脉是什么？',
-      '我的过去如何影响现在和未来？',
-      '我应该如何规划接下来的发展？',
-      '时间会如何改变我的处境？',
-    ],
-    love: [
-      '我和TA的感情会如何发展？',
-      'TA对我的真实想法是什么？',
-      '我们的关系现在处于什么状态？',
-      '如何改善我们之间的关系？',
-      '我的感情生活会有什么变化？',
-      '我应该如何表达我的感情？',
-      '这段关系值得我继续投入吗？',
-      '我们之间的问题如何解决？',
-    ],
-    career: [
-      '我的事业发展前景如何？',
-      '我应该换工作吗？',
-      '如何在职场中获得更好的发展？',
-      '我的职业规划应该如何调整？',
-      '这个工作机会适合我吗？',
-      '如何提升我的职场竞争力？',
-      '我的事业瓶颈如何突破？',
-      '什么时候是跳槽的最佳时机？',
-    ],
-    decision: [
-      '我应该选择A还是B？',
-      '这两个选择哪个更适合我？',
-      '我应该接受这个 offer 吗？',
-      '搬家还是留在原地？',
-      '继续这段关系还是分手？',
-      '创业还是继续打工？',
-      '出国还是留在国内发展？',
-      '现在投资还是继续观望？',
-    ],
-  };
+export const TAROT_SPREAD_INSPIRATION_QUESTIONS: Partial<
+  Record<DivinationDraft['tarotSpread'], string[]>
+> = {
+  single: [
+    '今天我需要关注什么？',
+    '我现在最需要的指引是什么？',
+    '宇宙想要告诉我什么？',
+    '我应该如何面对当前的困惑？',
+    '今日的能量指引',
+  ],
+  three: [
+    '我的人生发展趋势如何？',
+    '这个问题的来龙去脉是什么？',
+    '我的过去如何影响现在和未来？',
+    '我应该如何规划接下来的发展？',
+    '时间会如何改变我的处境？',
+  ],
+  love: [
+    '我和TA的感情会如何发展？',
+    'TA对我的真实想法是什么？',
+    '我们的关系现在处于什么状态？',
+    '如何改善我们之间的关系？',
+    '我的感情生活会有什么变化？',
+    '我应该如何表达我的感情？',
+    '这段关系值得我继续投入吗？',
+    '我们之间的问题如何解决？',
+  ],
+  career: [
+    '我的事业发展前景如何？',
+    '我应该换工作吗？',
+    '如何在职场中获得更好的发展？',
+    '我的职业规划应该如何调整？',
+    '这个工作机会适合我吗？',
+    '如何提升我的职场竞争力？',
+    '我的事业瓶颈如何突破？',
+    '什么时候是跳槽的最佳时机？',
+  ],
+  decision: [
+    '我应该选择A还是B？',
+    '这两个选择哪个更适合我？',
+    '我应该接受这个 offer 吗？',
+    '搬家还是留在原地？',
+    '继续这段关系还是分手？',
+    '创业还是继续打工？',
+    '出国还是留在国内发展？',
+    '现在投资还是继续观望？',
+  ],
+};
 
 export type DivinationSpecialInspiration = {
   label: string;
@@ -579,9 +580,6 @@ type DivinationInspiredDraftPatch = Pick<
   | 'liurenTemplate'
   | 'tarotSpread'
   | 'lenormandSpread'
-  | 'meihuaFocus'
-  | 'xiaoliurenFocus'
-  | 'qimenFocus'
 >;
 
 export function getDivinationSpecialInspiration(
@@ -675,120 +673,16 @@ export function getDivinationInspirationSections(
   return DIVINATION_INSPIRATION_CONTENT[tabId];
 }
 
-function matchQuestion(question: string, sections: DivinationInspirationSection[] | string[]) {
-  if (Array.isArray(sections) && typeof sections[0] === 'string') {
-    return (sections as string[]).includes(question);
-  }
-
-  return (sections as DivinationInspirationSection[]).some((section) =>
-    section.questions.includes(question),
-  );
-}
-
 export function resolveDivinationInspiredDraftPatch(
   current: DivinationDraft,
   question: string,
 ): DivinationInspiredDraftPatch {
-  const next: DivinationInspiredDraftPatch = {
+  return {
     question,
     questionSource: 'inspiration',
     liuyaoTemplate: current.liuyaoTemplate,
     liurenTemplate: current.liurenTemplate,
     tarotSpread: current.tarotSpread,
     lenormandSpread: current.lenormandSpread,
-    meihuaFocus: current.meihuaFocus,
-    xiaoliurenFocus: current.xiaoliurenFocus,
-    qimenFocus: current.qimenFocus,
   };
-
-  if (current.method === 'liuyao') {
-    for (const [template, sections] of Object.entries(LIUYAO_TEMPLATE_INSPIRATION_CONTENT)) {
-      if (matchQuestion(question, sections)) {
-        next.liuyaoTemplate = template as DivinationDraft['liuyaoTemplate'];
-        return next;
-      }
-    }
-  }
-
-  if (current.method === 'liuren') {
-    for (const [template, sections] of Object.entries(LIUREN_TEMPLATE_INSPIRATION_CONTENT)) {
-      if (matchQuestion(question, sections)) {
-        next.liurenTemplate = template as DivinationDraft['liurenTemplate'];
-        return next;
-      }
-    }
-  }
-
-  if (current.method === 'tarot') {
-    for (const [spread, questions] of Object.entries(TAROT_SPREAD_INSPIRATION_QUESTIONS)) {
-      if (matchQuestion(question, questions)) {
-        next.tarotSpread = spread as DivinationDraft['tarotSpread'];
-        return next;
-      }
-    }
-  }
-
-  if (current.method === 'lenormand') {
-    for (const [spread, sections] of Object.entries(LENORMAND_SPREAD_INSPIRATION_CONTENT)) {
-      if (matchQuestion(question, sections)) {
-        next.lenormandSpread = spread as DivinationDraft['lenormandSpread'];
-        return next;
-      }
-    }
-  }
-
-  if (current.method === 'meihua') {
-    if (matchQuestion(question, [MEIHUA_SPECIAL_INSPIRATION_CONTENT[0]])) {
-      next.meihuaFocus = 'trend';
-      return next;
-    }
-    if (matchQuestion(question, [MEIHUA_SPECIAL_INSPIRATION_CONTENT[1]])) {
-      next.meihuaFocus = 'relationship';
-      return next;
-    }
-    if (matchQuestion(question, [MEIHUA_SPECIAL_INSPIRATION_CONTENT[2]])) {
-      next.meihuaFocus = 'decision';
-      return next;
-    }
-  }
-
-  if (current.method === 'xiaoliuren') {
-    if (matchQuestion(question, [XIAOLIUREN_SPECIAL_INSPIRATION_CONTENT[0]])) {
-      next.xiaoliurenFocus = 'emotion';
-      return next;
-    }
-    if (matchQuestion(question, [XIAOLIUREN_SPECIAL_INSPIRATION_CONTENT[1]])) {
-      next.xiaoliurenFocus = 'career';
-      return next;
-    }
-    if (matchQuestion(question, [XIAOLIUREN_SPECIAL_INSPIRATION_CONTENT[2]])) {
-      next.xiaoliurenFocus = 'wealth';
-      return next;
-    }
-    if (matchQuestion(question, [XIAOLIUREN_SPECIAL_INSPIRATION_CONTENT[3]])) {
-      next.xiaoliurenFocus = 'social';
-      return next;
-    }
-    if (matchQuestion(question, [XIAOLIUREN_SPECIAL_INSPIRATION_CONTENT[4]])) {
-      next.xiaoliurenFocus = 'trend';
-      return next;
-    }
-  }
-
-  if (current.method === 'qimen') {
-    if (matchQuestion(question, [QIMEN_SPECIAL_INSPIRATION_CONTENT[0]])) {
-      next.qimenFocus = 'timing';
-      return next;
-    }
-    if (matchQuestion(question, [QIMEN_SPECIAL_INSPIRATION_CONTENT[1]])) {
-      next.qimenFocus = 'strategy';
-      return next;
-    }
-    if (matchQuestion(question, [QIMEN_SPECIAL_INSPIRATION_CONTENT[2]])) {
-      next.qimenFocus = 'competition';
-      return next;
-    }
-  }
-
-  return next;
 }

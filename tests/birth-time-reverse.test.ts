@@ -251,7 +251,7 @@ test('未知时辰自定义基础提示词会明确只按三柱作保守判断�
   assert.doesNotMatch(prompt, /【输出要求】/);
 });
 
-test('未知时辰内置快捷提示词会使用对应的传统专项框架', () => {
+test('未知时辰内置快捷提示词只把分类作为问题范围', () => {
   const profile = buildThreePillarsProfile({
     gender: 'male',
     dateType: 'solar',
@@ -263,7 +263,9 @@ test('未知时辰内置快捷提示词会使用对应的传统专项框架', ()
 
   const prompt = buildUnknownTimeBaziPrompt(profile, '我适合换工作吗？', 'career');
 
-  assert.match(prompt, /事业问题先看官杀代表规则职位与压力/);
+  assert.match(prompt, /用户选择了分类时只把分类作为问题范围，不补充本地固定话术/);
+  assert.match(prompt, /先按传统八字次序立论：月令旺衰、格局成败、调候寒暖燥湿、用神忌神/);
+  assert.match(prompt, /我适合换工作吗？/);
   assert.doesNotMatch(prompt, /婚恋问题优先看配偶星/);
 });
 

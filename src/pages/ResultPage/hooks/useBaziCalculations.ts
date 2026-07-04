@@ -5,7 +5,7 @@ import {
   isUnknownTimeIndex,
   type ThreePillarsProfile,
 } from '@/lib/birth-time-reverse';
-import type { BaziChartResult } from '@/utils/bazi/baziTypes';
+import type { BaziChartResult } from '@core/bazi/baziTypes';
 import type { QueryInputState } from '@/lib/query-state';
 
 export interface BaziCalculations {

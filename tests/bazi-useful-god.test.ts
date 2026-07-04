@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { determineUsefulGod } from '../src/utils/bazi/baziUsefulGodStrategy';
-import type { PatternAnalysis } from '../src/utils/bazi/baziTypes';
+import { determineUsefulGod } from '@core/bazi/baziUsefulGodStrategy';
+import type { PatternAnalysis } from '@core/bazi/baziTypes';
 
 // 用神策略测试 - 数据驱动参数化
 // 共 281 个测试用例

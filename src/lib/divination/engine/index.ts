@@ -9,6 +9,7 @@ import type {
   LiurenData,
   LiurenTemplateType,
   SupplementaryInfo,
+  TarotSpreadType,
   XiaoliurenDivinationMethod,
 } from '../../../types/divination';
 import type { DivinationMethodId } from '../config';
@@ -88,20 +89,19 @@ function buildDivinationEvidenceTerms(method: Exclude<DivinationMethodId, 'rando
         timing: '发用、三传推进、空亡出空、明确神煞、类神状态或问题限定范围',
       };
     case 'tarot':
-    case 'tarot_single':
       return {
-        facts: '牌面、牌阵位置、正逆位、相邻组合、元素数字、人物姿态或问题限定范围',
-        timing: '牌阵位置、牌面节奏、正逆位状态、牌面组合或问题限定范围',
+        facts: '牌阵、牌位、牌名、正逆位或问题限定范围',
+        timing: '牌阵位置、正逆位状态或问题限定范围',
       };
     case 'ssgw':
       return {
-        facts: '签诗、签题、典故、解签、吉凶语气、宜忌或现实处境',
-        timing: '签诗迟速、典故处境、签文宜忌、解签语气或问题限定范围',
+        facts: '签号、签题、签诗、典故、签文条目或问题限定范围',
+        timing: '签诗、典故、签文条目或问题限定范围',
       };
     case 'lenormand':
       return {
-        facts: '核心牌、相邻组合、镜像关系、人物牌、事件牌、时间牌、牌阵位置或问题限定范围',
-        timing: '时间牌、事件链顺序、相邻组合、镜像关系、牌阵位置或问题限定范围',
+        facts: '牌阵、牌位、牌名、牌义或问题限定范围',
+        timing: '牌阵位置、牌义或问题限定范围',
       };
     case 'almanac':
       return {
@@ -173,14 +173,14 @@ function buildDivinationTimingBoundaryText(method: Exclude<DivinationMethodId, '
       ].join('\n');
     case 'tarot':
       return [
-        '塔罗时间判断只能来自牌阵位置、牌面节奏、正逆位状态、牌面组合和提问本身限定的时间范围。',
+        '塔罗时间判断只能来自牌阵位置、牌面节奏、正逆位状态和提问本身限定的时间范围。',
         '单张牌不能独立推出绝对日期；只能说明“目前、近期、拖延、转折、先整理后推进”等节奏。',
         '若问题没有限定期限，回答应给现实行动窗口与观察信号，不得把牌义硬翻译成某年某月某日。',
       ].join('\n');
     case 'lenormand':
       return [
-        '雷诺曼时间判断必须来自牌位位置、邻近牌组合、现实事件链、人物与消息流向，以及提问范围。',
-        '核心牌看事件主轴，左右邻牌看触发与阻碍；日期只能在牌阵明确支持或用户限定范围内给出。',
+        '雷诺曼时间判断必须来自牌阵位置、牌位、牌义和提问范围。',
+        '日期只能在牌阵明确支持或用户限定范围内给出。',
         '不得孤立牌义硬断日期；没有期限证据时，只能给事件先后顺序、推进节奏和可观察信号。',
       ].join('\n');
     case 'ssgw':
@@ -213,12 +213,9 @@ export type DivinationDraft = {
   meihuaNumber: string;
   xiaoliurenMethod: XiaoliurenDivinationMethod;
   xiaoliurenNumber: string;
-  meihuaFocus?: 'general' | 'trend' | 'relationship' | 'decision';
-  xiaoliurenFocus?: 'general' | 'emotion' | 'career' | 'wealth' | 'social' | 'trend';
-  qimenFocus?: 'general' | 'timing' | 'strategy' | 'competition';
   liuyaoTemplate: LiuyaoTemplateType;
   liurenTemplate: LiurenTemplateType;
-  tarotSpread: 'single' | 'three' | 'love' | 'career' | 'decision';
+  tarotSpread: TarotSpreadType;
   almanacTopic: AlmanacTopic;
   almanacStartDate: string;
   almanacEndDate: string;
@@ -249,9 +246,6 @@ export type BuildDivinationPromptOptions = {
   isCustomQuestion?: boolean;
   liuyaoTemplate?: LiuyaoTemplateType;
   liurenTemplate?: LiurenTemplateType;
-  meihuaFocus?: NonNullable<DivinationDraft['meihuaFocus']>;
-  xiaoliurenFocus?: NonNullable<DivinationDraft['xiaoliurenFocus']>;
-  qimenFocus?: NonNullable<DivinationDraft['qimenFocus']>;
   astrolabeTopic?: AstrolabePromptTopic;
   astrolabeScopeText?: string;
 };
@@ -266,9 +260,6 @@ export function buildDivinationPrompt(
   const isCustomQuestion = Boolean(options.isCustomQuestion);
   const liuyaoTemplate = options.liuyaoTemplate ?? 'general';
   const liurenTemplate = options.liurenTemplate ?? 'general';
-  const meihuaFocus = options.meihuaFocus ?? 'general';
-  const xiaoliurenFocus = options.xiaoliurenFocus ?? 'general';
-  const qimenFocus = options.qimenFocus ?? 'general';
   const isAlmanac = method === 'almanac';
   const astrolabeTopic =
     method === 'astrolabe' ? (options.astrolabeTopic ?? (isCustomQuestion ? 'chat' : 'life')) : '';
@@ -289,6 +280,7 @@ export function buildDivinationPrompt(
     data,
     normalizedQuestion,
     effectiveSupplementaryInfo,
+    { liuyaoTemplate },
   );
   const isAstrolabe = method === 'astrolabe';
   const evidenceTerms = buildDivinationEvidenceTerms(method);
@@ -339,9 +331,6 @@ export function buildDivinationPrompt(
             ]),
     '- 使用简体中文，不写空话，不重复抄写原始信息。',
     isCustomQuestion ? '' : buildMethodRequirementText(method),
-    isCustomQuestion
-      ? ''
-      : buildDivinationFocusRequirementText(method, meihuaFocus, xiaoliurenFocus, qimenFocus),
   ].join('\n');
   const outputRequirementText = isAlmanac
     ? [
@@ -369,12 +358,6 @@ export function buildDivinationPrompt(
             : `每个重点都要区分主证、辅证、反证或限制；涉及应期时必须说明来自${evidenceTerms.timing}中的哪一层。`,
           '如果信息不足或存在不确定性，需要明确说明，不要强行下绝对判断。',
           '最后补一条最值得执行的提醒。',
-          buildDivinationFocusOutputRequirementText(
-            method,
-            meihuaFocus,
-            xiaoliurenFocus,
-            qimenFocus,
-          ),
           ...(method === 'astrolabe' ? [buildAstrolabeTopicOutputRequirement(astrolabeTopic)] : []),
           ...(method === 'astrolabe'
             ? [
@@ -391,7 +374,7 @@ export function buildDivinationPrompt(
       : '';
   const liuyaoTemplateSection =
     method === 'liuyao'
-      ? buildSection('【断卦要点】', buildLiuyaoTemplateText(liuyaoTemplate, question))
+      ? buildSection('【断卦要点】', buildLiuyaoTemplateText(liuyaoTemplate))
       : '';
   const astrolabeGuidanceSection =
     method === 'astrolabe' && !isCustomQuestion
@@ -408,12 +391,6 @@ export function buildDivinationPrompt(
     method !== 'astrolabe' && !isCustomQuestion
       ? buildSection('【应期判断方法】', buildDivinationTimingBoundaryText(method))
       : '';
-  const divinationFocusGuidanceSection = isCustomQuestion
-    ? ''
-    : buildSection(
-        '【分析思路】',
-        buildDivinationFocusGuidanceText(method, meihuaFocus, xiaoliurenFocus, qimenFocus),
-      );
   const taskText =
     method === 'astrolabe' && !isCustomQuestion
       ? buildAstrolabeTopicTask(astrolabeTopic)
@@ -422,7 +399,7 @@ export function buildDivinationPrompt(
             '请先围绕【问题】给出判断，再按古籍取传法、发用、三传推进、四课背景和辅证说明理由。',
             '需要明确事情会如何演变、卡点在哪、下一步先做什么；应期只能写课传支持的触发条件。',
           ].join('\n')
-        : buildDivinationFocusTaskText(method, meihuaFocus, xiaoliurenFocus, qimenFocus);
+        : buildTaskText(method);
 
   if (method === 'liuren') {
     return [
@@ -454,7 +431,6 @@ export function buildDivinationPrompt(
     timingBoundarySection,
     isAlmanac ? '' : buildSection('【问题】', normalizedQuestion),
     isCustomQuestion ? '' : astrolabeGuidanceSection,
-    isCustomQuestion || astrolabeGuidanceSection ? '' : divinationFocusGuidanceSection,
     isCustomQuestion ? '' : buildSection('【任务】', taskText),
     isCustomQuestion ? '' : liuyaoTemplateSection,
     isCustomQuestion ? '' : liurenTemplateSection,
@@ -855,9 +831,6 @@ export async function generateDivinationSession(
     isCustomQuestion: method === 'almanac' ? false : draft.questionSource === 'custom',
     liuyaoTemplate: draft.liuyaoTemplate,
     liurenTemplate: draft.liurenTemplate,
-    meihuaFocus: draft.meihuaFocus,
-    xiaoliurenFocus: draft.xiaoliurenFocus,
-    qimenFocus: draft.qimenFocus,
     astrolabeTopic: draft.astrolabeTopic,
   });
   return {
@@ -867,204 +840,4 @@ export async function generateDivinationSession(
     prompt,
     data,
   };
-}
-
-function buildDivinationFocusGuidanceText(
-  method: Exclude<DivinationMethodId, 'random'>,
-  meihuaFocus: NonNullable<DivinationDraft['meihuaFocus']>,
-  xiaoliurenFocus: NonNullable<DivinationDraft['xiaoliurenFocus']>,
-  qimenFocus: NonNullable<DivinationDraft['qimenFocus']>,
-) {
-  if (method === 'meihua') {
-    switch (meihuaFocus) {
-      case 'trend':
-        return '先定体用强弱与当前主轴，再看互卦呈现过程变化，最后用变卦判断后续走势、转折点与顺势动作。';
-      case 'relationship':
-        return '重点判断双方关系当前是靠近、僵持还是疏离，再看主要阻力在自身、对方还是外部环境，最后落到短期互动趋势与沟通建议。';
-      case 'decision':
-        return '重点比较当前选择是否顺势、最容易忽略的风险在哪里，以及眼下更适合推进、观望还是调整路径。';
-      default:
-        return '';
-    }
-  }
-
-  if (method === 'xiaoliuren') {
-    switch (xiaoliurenFocus) {
-      case 'emotion':
-        return '先以结果宫位定关系走向，再回看起因、过程解释情绪和沟通卡点，最后给出主动、等待、缓和或止损建议。';
-      case 'career':
-        return '先看结果宫位定事情能否推进，再结合起因与过程判断阻力、节奏、是否宜动，以及下一步更稳的动作。';
-      case 'wealth':
-        return '重点判断见财可能、破财风险、投入节奏，以及当下更适合先守、先看还是先动。';
-      case 'social':
-        return '重点判断对方态度、沟通风险、是否适合请托协作，以及关系后续更容易缓和还是生变。';
-      case 'trend':
-        return '重点判断整体走势、反复点、关键卡点，以及当下先等、先动还是先调整更顺。';
-      default:
-        return '';
-    }
-  }
-
-  if (method === 'qimen') {
-    switch (qimenFocus) {
-      case 'timing':
-        return '先看值符值使与用门落宫判断当前时机，再结合空亡、马星和门星神干判断宜动宜守与更合适的时间窗口。';
-      case 'strategy':
-        return '重点看用门、关键宫位和门星神干组合，判断该怎么布局、借势、绕阻，以及优先做哪一步成功率更高。';
-      case 'competition':
-        return '重点看己方与对方对应宫位的强弱、生克和门星神干状态，判断谁更占上风、风险点在哪，以及该主动还是后手应对。';
-      default:
-        return '';
-    }
-  }
-
-  return '';
-}
-
-function buildDivinationFocusTaskText(
-  method: Exclude<DivinationMethodId, 'random'>,
-  meihuaFocus: NonNullable<DivinationDraft['meihuaFocus']>,
-  xiaoliurenFocus: NonNullable<DivinationDraft['xiaoliurenFocus']>,
-  qimenFocus: NonNullable<DivinationDraft['qimenFocus']>,
-) {
-  if (method === 'meihua') {
-    switch (meihuaFocus) {
-      case 'trend':
-        return '请围绕体用关系、互卦过程、变卦结果和四时旺衰，判断事情走势、转折点与顺势动作，直接回答问题。';
-      case 'relationship':
-        return '请围绕体用关系、互卦过程、变卦结果和四时旺衰，判断关系状态、阻力来源、短期互动趋势与沟通建议，直接回答问题。';
-      case 'decision':
-        return '请围绕体用关系、互卦过程、变卦结果和四时旺衰，判断当前选择是否顺势、风险点在哪、下一步更适合怎么走，直接回答问题。';
-      default:
-        return buildTaskText(method);
-    }
-  }
-
-  if (method === 'xiaoliuren') {
-    switch (xiaoliurenFocus) {
-      case 'emotion':
-        return '请围绕起因、过程、结果三段宫位变化，判断关系走向、沟通卡点与该主动、缓和还是止损，直接回答问题。';
-      case 'career':
-        return '请围绕起因、过程、结果三段宫位变化，判断事情能否推进、节奏是否顺、阻力在哪，以及下一步更稳的动作，直接回答问题。';
-      case 'wealth':
-        return '请围绕起因、过程、结果三段宫位变化，判断见财机会、破财风险、投入节奏与先守先动的取舍，直接回答问题。';
-      case 'social':
-        return '请围绕起因、过程、结果三段宫位变化，判断对方态度、沟通风险、是否适合请托协作，以及关系后续变化，直接回答问题。';
-      case 'trend':
-        return '请围绕起因、过程、结果三段宫位变化，判断整体走势、关键卡点与当前先等还是先动更顺，直接回答问题。';
-      default:
-        return buildTaskText(method);
-    }
-  }
-
-  if (method === 'qimen') {
-    switch (qimenFocus) {
-      case 'timing':
-        return '请围绕值符值使、用门落宫、门星神干组合、空亡与马星变化，判断当前时机、宜动宜守与更合适的时间窗口，直接回答问题。';
-      case 'strategy':
-        return '请围绕值符值使、用门落宫、门星神干组合、格局强弱与可用宫位，判断布局路径、借势方向、优先动作和绕开阻力的方法，直接回答问题。';
-      case 'competition':
-        return '请围绕值符值使、己方与对方对应宫位、门星神干生克与格局强弱，判断双方态势、胜算、风险与先手策略，直接回答问题。';
-      default:
-        return buildTaskText(method);
-    }
-  }
-
-  return buildTaskText(method);
-}
-
-function buildDivinationFocusRequirementText(
-  method: Exclude<DivinationMethodId, 'random'>,
-  meihuaFocus: NonNullable<DivinationDraft['meihuaFocus']>,
-  xiaoliurenFocus: NonNullable<DivinationDraft['xiaoliurenFocus']>,
-  qimenFocus: NonNullable<DivinationDraft['qimenFocus']>,
-) {
-  if (method === 'meihua') {
-    switch (meihuaFocus) {
-      case 'relationship':
-        return '- 不要把关系题泛讲成性格题，必须交代关系现状、阻力位置和短期互动变化。';
-      case 'decision':
-        return '- 不要只说吉凶，要明确当前选择更顺的方向、风险点和行动顺序。';
-      default:
-        return '';
-    }
-  }
-
-  if (method === 'xiaoliuren') {
-    switch (xiaoliurenFocus) {
-      case 'emotion':
-        return '- 不要只给感情吉凶词，必须落到关系走向、沟通卡点和现实动作。';
-      case 'wealth':
-        return '- 不要空泛说财运好坏，必须区分见财机会、破财风险和投入节奏。';
-      default:
-        return '';
-    }
-  }
-
-  if (method === 'qimen') {
-    switch (qimenFocus) {
-      case 'timing':
-        return '- 不要把时机题写成泛化趋势题，必须明确现在宜动、宜守还是宜等。';
-      case 'strategy':
-        return '- 不要只列格局名词，必须交代该借什么势、先做什么、避开什么。';
-      case 'competition':
-        return '- 不要只说谁强谁弱，必须交代胜负关键点和应对顺序。';
-      default:
-        return '';
-    }
-  }
-
-  return '';
-}
-
-function buildDivinationFocusOutputRequirementText(
-  method: Exclude<DivinationMethodId, 'random'>,
-  meihuaFocus: NonNullable<DivinationDraft['meihuaFocus']>,
-  xiaoliurenFocus: NonNullable<DivinationDraft['xiaoliurenFocus']>,
-  qimenFocus: NonNullable<DivinationDraft['qimenFocus']>,
-) {
-  if (method === 'meihua') {
-    switch (meihuaFocus) {
-      case 'trend':
-        return '要明确写出当前走势、关键转折点和最顺势的一步。';
-      case 'relationship':
-        return '要明确写出关系现状、主要阻力、短期互动趋势和沟通建议。';
-      case 'decision':
-        return '要明确写出哪个方向更顺、最大风险点在哪里，以及下一步先做什么。';
-      default:
-        return '';
-    }
-  }
-
-  if (method === 'xiaoliuren') {
-    switch (xiaoliurenFocus) {
-      case 'emotion':
-        return '要明确写出关系走向、沟通风险，以及现在更适合主动、缓和、等待还是止损。';
-      case 'career':
-        return '要明确写出事情能否推进、哪里最卡，以及现在更适合推进、观察还是调整。';
-      case 'wealth':
-        return '要明确写出钱的机会点、风险点，以及现在更适合先守还是先动。';
-      case 'social':
-        return '要明确写出对方态度、沟通风险，以及是否适合请托协作。';
-      case 'trend':
-        return '要明确写出整体走势、关键卡点，以及现在先等还是先动更顺。';
-      default:
-        return '';
-    }
-  }
-
-  if (method === 'qimen') {
-    switch (qimenFocus) {
-      case 'timing':
-        return '要明确写出现在是否宜动、宜守或宜等，以及对应的时机依据。';
-      case 'strategy':
-        return '要明确写出最值得先做的一步、可借的势与需要绕开的阻力。';
-      case 'competition':
-        return '要明确写出双方态势、胜负关键点，以及该主动出击还是后手应对。';
-      default:
-        return '';
-    }
-  }
-
-  return '';
 }

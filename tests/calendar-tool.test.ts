@@ -9,7 +9,7 @@ import {
   getCalendarInfo,
   getMonthDaysInfo,
   getYearInfo,
-} from '../src/utils/bazi/calendarTool';
+} from '@core/bazi/calendarTool';
 
 test('跨年末尾的日历信息应能找到下一节气', () => {
   const info = getCalendarInfo(new Date(2026, 11, 31, 12, 0, 0));

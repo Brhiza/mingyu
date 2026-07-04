@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { determinePattern } from '../src/utils/bazi/baziPatternStrategy';
-import { getTenGod } from '../src/utils/bazi/baziUtils';
-import type { Pillars } from '../src/utils/bazi/baziTypes';
+import { determinePattern } from '@core/bazi/baziPatternStrategy';
+import { getTenGod } from '@core/bazi/baziUtils';
+import type { Pillars } from '@core/bazi/baziTypes';
 
 test('特殊从格判断不能忽略地支副气里的印比', () => {
   const pillars: Pillars = {

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SixtyCycle } from 'tyme4ts';
 
-import { calculateKongWang } from '../src/utils/bazi/baziCalculatorHelpers';
+import { calculateKongWang } from '@core/bazi/baziCalculatorHelpers';
 
 test('旬空计算应与 tyme4ts 的空亡结果一致', () => {
   const samples = ['甲子', '乙卯', '癸巳', '丁丑', '庚辰'];

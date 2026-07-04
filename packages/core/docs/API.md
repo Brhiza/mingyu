@@ -170,7 +170,7 @@
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `method` | `'time' \| 'number' \| 'random' \| 'external' \| 'timeTrigram'` | 起卦法 |
+| `method` | `'time' \| 'number' \| 'random' \| 'external' \| 'timeTrigram'` | 起卦法；`timeTrigram` 为历史兼容入口，按年月日时起卦法计算 |
 | `number` | `number` | 数字起卦的正整数 |
 | `externalOmens` | `MeihuaExternalOmens` | 外应（方向/人物/动物/物品/声音/颜色/数量）；含方位时按后天端法以物象为上卦、方位为下卦、加时取动爻 |
 
@@ -253,7 +253,7 @@
 
 ### `drawLenormandSpread(spreadType?)`
 
-**参数：** `spreadType?: 'single' | 'three' | 'five' | 'relationship' | 'decision' | 'nine' | 'element' | 'grandTableau'`
+**参数：** `spreadType?: 'single' | 'three' | 'five' | 'relationship' | 'decision' | 'nine' | 'element' | 'grandTableau'`，不传时使用 `single`。
 
 **返回 `LenormandData`：** 36 张雷诺曼牌、Fisher-Yates 洗牌、各位置牌义、相邻两牌组合含义。
 

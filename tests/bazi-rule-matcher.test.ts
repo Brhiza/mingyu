@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { matchesRule } from '../src/utils/bazi/baziRuleMatcher';
+import { matchesRule } from '@core/bazi/baziRuleMatcher';
 
 test('十神类别透干计数中，比劫不应把日主自身算作额外比劫', () => {
   const rule = {
