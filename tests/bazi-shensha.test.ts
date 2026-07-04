@@ -683,6 +683,34 @@ test('五行精纪勾陈真武应按年干日干定支取用', () => {
   }
 });
 
+test('五行精纪命天庭禄九天禄九地应按命前与禄后定支取用', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['丙', '子'],
+        ['乙', '丑'],
+        ['庚', '辰'],
+        ['壬', '午'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['戊', '子'],
+        ['甲', '寅'],
+        ['己', '戌'],
+        ['癸', '卯'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.month.includes('命天庭'));
+    assert.ok(hitResult.day.includes('禄九天'));
+    assert.ok(hitResult.hour.includes('禄九地'));
+    assert.ok(!Object.values(missResult).flat().some((name) => ['命天庭', '禄九天', '禄九地'].includes(name)));
+  }
+});
+
 test('天厨贵人对丙日应取巳，不应错判为子', () => {
   const calculator = new ShenShaCalculator();
   const hitResult = calculator.calculateAllShenSha(

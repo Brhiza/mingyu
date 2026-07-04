@@ -16,6 +16,19 @@ const YI_MA_BY_BRANCH: Record<string, string> = {
   丑: '亥',
 };
 
+const LU_BRANCH_BY_STEM: Record<string, string> = {
+  甲: '寅',
+  乙: '卯',
+  丙: '巳',
+  丁: '午',
+  戊: '巳',
+  己: '午',
+  庚: '申',
+  辛: '酉',
+  壬: '亥',
+  癸: '子',
+};
+
 const GOU_CHEN_BY_STEM: Record<string, string[]> = {
   甲: ['巳', '亥'],
   乙: ['巳', '亥'],
@@ -64,19 +77,7 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
 
   return {
     禄神: () => {
-      const map: Record<string, string> = {
-        甲: '寅',
-        乙: '卯',
-        丙: '巳',
-        丁: '午',
-        戊: '巳',
-        己: '午',
-        庚: '申',
-        辛: '酉',
-        壬: '亥',
-        癸: '子',
-      };
-      return map[riGan] === zhi;
+      return LU_BRANCH_BY_STEM[riGan] === zhi;
     },
     羊刃: () => {
       return yangRenMap[riGan] === zhi;
@@ -113,6 +114,17 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
     },
     真武: () => {
       return ZHEN_WU_BY_STEM[nianGan]?.includes(zhi) || ZHEN_WU_BY_STEM[riGan]?.includes(zhi);
+    },
+    命天庭: () => forwardBranch(nianZhi, 1) === zhi,
+    禄九天: () => {
+      return (
+        forwardBranch(LU_BRANCH_BY_STEM[nianGan], -1) === zhi ||
+        forwardBranch(LU_BRANCH_BY_STEM[riGan], -1) === zhi
+      );
+    },
+    禄九地: () => {
+      const stems = [nianGan, riGan].filter((stem) => !['戊', '己'].includes(stem));
+      return stems.some((stem) => forwardBranch(LU_BRANCH_BY_STEM[stem], -2) === zhi);
     },
     将星: () => {
       const map: Record<string, string> = {
