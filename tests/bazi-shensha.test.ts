@@ -2037,6 +2037,32 @@ test('五行精纪年支凶杀应按原文固定地支取用', () => {
   }
 });
 
+test('建命杀应按月柱干支与年柱干支相同取出', () => {
+  for (const calculator of createCalculators()) {
+    const result = calculator.calculateAllShenSha(
+      [
+        ['甲', '戌'],
+        ['甲', '戌'],
+        ['丙', '寅'],
+        ['丁', '卯'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '戌'],
+        ['甲', '申'],
+        ['丙', '寅'],
+        ['丁', '卯'],
+      ],
+      'male',
+    );
+
+    assert.ok(result.month.includes('建命杀'));
+    assert.ok(!missResult.month.includes('建命杀'));
+  }
+});
+
 test('五行精纪青龙杀良会杀应按年支三合组固定干支取用', () => {
   const cases = [
     { yearBranch: '寅', qingLong: ['丙', '寅'], liangHui: ['丁', '卯'] },

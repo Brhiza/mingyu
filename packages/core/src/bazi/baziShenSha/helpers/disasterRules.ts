@@ -609,6 +609,7 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     血光杀: () => pillarIndex >= 2 && XUE_GUANG_SHA_BY_YEAR_BRANCH[nianZhi]?.includes(zhi),
     截命杀: () => cdz[(zhiIdx(nianZhi) + 1) % 12] === zhi,
     推命杀: () => cdz[(zhiIdx(nianZhi) + 11) % 12] === zhi,
+    建命杀: () => pillarIndex === 1 && pillarGZ === `${nianGan}${nianZhi}`,
     六厄: () => {
       const map: Record<string, string> = {
         申: '卯',
