@@ -255,6 +255,34 @@ test('天杀应按劫杀前二辰取出', () => {
   }
 });
 
+test('地杀应按劫杀前五辰取出', () => {
+  for (const calculator of createCalculators()) {
+    const result = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丙', '戌'],
+        ['庚', '寅'],
+        ['戊', '辰'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丁', '酉'],
+        ['庚', '寅'],
+        ['辛', '卯'],
+      ],
+      'male',
+    );
+
+    assert.ok(result.month.includes('地杀'));
+    assert.ok(result.hour.includes('地杀'));
+    assert.ok(!missResult.month.includes('地杀'));
+    assert.ok(!missResult.hour.includes('地杀'));
+  }
+});
+
 test('隔角应按日时隔一字判断并只在时柱标记', () => {
   for (const calculator of createCalculators()) {
     const forwardResult = calculator.calculateAllShenSha(
