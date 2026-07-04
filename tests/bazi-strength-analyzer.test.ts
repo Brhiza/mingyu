@@ -5,8 +5,45 @@ import {
   analyzeConstraint,
   analyzeDayMasterStrength,
   analyzeFormation,
+  analyzeSeasonalStatus,
   analyzeSupport,
-} from '../src/utils/bazi/baziStrengthAnalyzer';
+} from '@core/bazi/baziStrengthAnalyzer';
+import { analyzeMonthQiProfile } from '@core/bazi/monthCommand';
+import { getSeasonStatus, getWuxing } from '@core/bazi/baziUtils';
+import type { Wuxing } from '@core/bazi/baziTypes';
+
+test('月令司令天干应进入日主旺衰评分，避免辰戌丑未只按月支本气粗断', () => {
+  const seasonalStatus = analyzeSeasonalStatus(
+    '甲',
+    '辰',
+    getSeasonStatus,
+    getWuxing as (value: string) => Wuxing,
+    '乙',
+  );
+  const result = analyzeDayMasterStrength(
+    seasonalStatus,
+    { formations: [], totalStrength: 0 },
+    { roots: [], totalStrength: 0, hasRoot: false, strongRoot: false },
+    { supporters: [], totalStrength: 0, hasSupport: false },
+    { constraints: [], totalStrength: 0, hasConstraint: false },
+  );
+
+  assert.equal(seasonalStatus.status, '囚');
+  assert.ok((seasonalStatus.commanderScore ?? 0) > 0);
+  assert.equal(result.details.seasonalScore, -2);
+  assert.ok((result.details.commanderScore ?? 0) > 0);
+});
+
+test('月令气数应输出实际分数和占比，并把司令五行列入主导气', () => {
+  const profile = analyzeMonthQiProfile('辰', '乙');
+  const wood = profile.items.find((item) => item.element === '木');
+
+  assert.ok(profile.items.some((item) => item.score !== 0 && item.percent > 0));
+  assert.ok(profile.leadingElements.includes('土'));
+  assert.ok(profile.leadingElements.includes('木'));
+  assert.ok((wood?.count ?? 0) >= 2);
+  assert.match(wood?.summary ?? '', /乙司令/);
+});
 
 test('无根失令但仍有帮扶时，不应直接判为极弱', () => {
   const result = analyzeDayMasterStrength(

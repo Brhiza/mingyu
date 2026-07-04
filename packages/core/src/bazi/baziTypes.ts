@@ -197,6 +197,7 @@ export interface DayMasterStrengthAnalysis {
   status: string;
   details: {
     seasonalScore: number;
+    commanderScore?: number;
     timely: boolean;
     formationStrength: number;
     rootStrength: number;

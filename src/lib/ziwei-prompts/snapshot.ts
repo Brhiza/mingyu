@@ -20,19 +20,6 @@ function dedupeAndTrim(values: string[] | undefined, limit: number) {
   return Array.from(new Set(values.map((item) => item.trim()).filter(Boolean))).slice(0, limit);
 }
 
-function normalizeHintSentence(value: string) {
-  return value.trim().replace(/[。；;、，,]+$/u, '');
-}
-
-function buildHintSummary(values: string[] | undefined, limit: number) {
-  const normalized = dedupeAndTrim(
-    values?.map((item) => normalizeHintSentence(item)).filter(Boolean),
-    limit,
-  );
-
-  return normalized.length > 0 ? normalized.join('；') : undefined;
-}
-
 function sortByPriority<T extends { priority?: number }>(items: T[]) {
   return [...items].sort((left, right) => (right.priority ?? 0) - (left.priority ?? 0));
 }
@@ -40,17 +27,12 @@ function sortByPriority<T extends { priority?: number }>(items: T[]) {
 function buildPromptTaskSummary(params: {
   focusSummary: string;
   focusPalaces: string[];
-  outputFocus: string[];
   avoid: string[];
-  focusNotes: string[];
 }) {
-  const focusHints = buildHintSummary([...params.focusNotes, ...params.outputFocus], 2);
-
   return {
     解读目标: params.focusSummary,
     重点参考宫位: dedupeAndTrim(params.focusPalaces, 4),
     严格边界: dedupeAndTrim(params.avoid, 2),
-    焦点提示: focusHints,
   };
 }
 
@@ -141,9 +123,7 @@ export function buildPromptContextSnapshot(params: {
     当前报告任务: buildPromptTaskSummary({
       focusSummary: focusTaskBundle.focusSummary,
       focusPalaces: focusTaskBundle.focusPalaces.map((item) => formatPalaceName(item.name)),
-      outputFocus: focusTaskBundle.outputFocus,
       avoid: focusTaskBundle.avoid,
-      focusNotes: reportContext.focus_notes,
     }),
     命主基础信息: buildTaskBookBasicInfo(payload),
     当前运限信息: {
@@ -226,9 +206,7 @@ export function buildZiweiTaskBookSnapshot(params: {
   const taskSummary = buildPromptTaskSummary({
     focusSummary: focusTaskBundle.focusSummary,
     focusPalaces: focusTaskBundle.focusPalaces.map((item) => formatPalaceName(item.name)),
-    outputFocus: focusTaskBundle.outputFocus,
     avoid: focusTaskBundle.avoid,
-    focusNotes: reportContext.focus_notes,
   });
   const evidenceSummary = buildEvidenceSummary(payload, focusPalaces, reportContext).slice(0, 6);
 

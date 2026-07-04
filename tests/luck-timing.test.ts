@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import type { LuckCycle, SolarDateTimeInfo } from '../src/utils/bazi/baziTypes';
+import type { LuckCycle, SolarDateTimeInfo } from '@core/bazi/baziTypes';
 import {
   formatSolarDateTime,
   getLuckCycleForDate,
   isDateWithinLuckCycle,
   shiftSolarDateTimeYears,
   toNativeDate,
-} from '../src/utils/bazi/luckTiming';
+} from '@core/bazi/luckTiming';
 
 const validSolarTime: SolarDateTimeInfo = {
   year: 2026,

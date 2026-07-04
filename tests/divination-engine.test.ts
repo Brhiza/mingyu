@@ -2,6 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateDivinationSession } from '../src/lib/divination/engine';
 import { buildTimeInfoText } from '../src/lib/divination/engine/formatters';
+import {
+  TAROT_SPREAD_INSPIRATION_QUESTIONS,
+  resolveDivinationInspiredDraftPatch,
+} from '../src/lib/divination/inspiration';
 import type { QimenJiuGongGe } from '../packages/core/src/types/divination';
 import { STEM_TOMB_MAP } from '../packages/core/src/divination/algorithms/qimen/helpers/_constants';
 import {
@@ -43,17 +47,14 @@ function buildDraft(overrides: Partial<DivinationDraftInput>): DivinationDraftIn
     meihuaNumber: '',
     xiaoliurenMethod: 'time',
     xiaoliurenNumber: '',
-    meihuaFocus: 'general',
-    xiaoliurenFocus: 'general',
-    qimenFocus: 'general',
     liuyaoTemplate: 'general',
     liurenTemplate: 'general',
-    tarotSpread: 'three',
-    almanacTopic: 'move',
+    tarotSpread: 'single',
+    almanacTopic: 'custom',
     almanacStartDate: '2026-06-01',
     almanacEndDate: '2026-06-05',
     almanacParticipants: [],
-    lenormandSpread: 'three',
+    lenormandSpread: 'single',
     astrolabeName: '本人',
     astrolabeGender: '女',
     astrolabeYear: '1995',
@@ -79,6 +80,16 @@ const qimenPalaceNameByGong: Record<number, string> = {
   8: '艮八宫',
   9: '离九宫',
 };
+
+test('灵感问题只填问题，不自动改用户选择的分类', () => {
+  const tarotQuestion = TAROT_SPREAD_INSPIRATION_QUESTIONS.love?.[0] ?? '我和TA的感情会如何发展？';
+  const tarotPatch = resolveDivinationInspiredDraftPatch(
+    buildDraft({ method: 'tarot', tarotSpread: 'single' }),
+    tarotQuestion,
+  );
+  assert.equal(tarotPatch.question, tarotQuestion);
+  assert.equal(tarotPatch.tarotSpread, 'single');
+});
 
 function buildQimenPalace(
   gong: number,
@@ -3573,6 +3584,7 @@ test('黄历择日会结合可选事项、日期范围和多位出生信息生�
   const session = await generateDivinationSession(
     buildDraft({
       method: 'almanac',
+      almanacTopic: 'move',
       question: '我们准备搬家，想选一个兼顾两个人的日子。',
       almanacParticipants: [
         {

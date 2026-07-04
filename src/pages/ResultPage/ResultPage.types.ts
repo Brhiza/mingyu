@@ -4,7 +4,7 @@ import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 export type ZiweiRuntimeState = Awaited<ReturnType<typeof calculateFullZiweiChart>> | null;
 export type ZiweiPayloadByScopeState = Record<ScopeType, AnalysisPayloadV1> | null;
 export type PromptEngineModule = typeof import('@/lib/prompt-engine');
-export type BaziFortuneSelectionModule = typeof import('@/utils/bazi/fortuneSelection');
+export type BaziFortuneSelectionModule = typeof import('@core/bazi/fortuneSelection');
 export type PromptShortcutMode = string;
 export type InspirationCategory =
   | '全部'

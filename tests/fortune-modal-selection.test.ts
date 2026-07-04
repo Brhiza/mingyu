@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   isFortuneModalDetailOptionActive,
   isFortuneModalParentOptionActive,
-} from '../src/utils/bazi/fortuneModalSelection';
+} from '@core/bazi/fortuneModalSelection';
 
 test('本命状态下不应预选任何大运项', () => {
   assert.equal(isFortuneModalDetailOptionActive('dayun', 'natal'), false);

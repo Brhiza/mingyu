@@ -19,7 +19,7 @@ export function buildRoleText(method: Exclude<DivinationMethodId, 'random'>) {
     case 'almanac':
       return '你是资深择日顾问，熟悉黄历宜忌、建除执日、冲煞、神煞、星宿与八字参与人校验。';
     case 'lenormand':
-      return '你是资深雷诺曼牌解读师，熟悉牌面组合、邻近关系、现实事件链条与行动建议。';
+      return '你是资深雷诺曼牌解读师，熟悉牌阵、牌位、牌名、牌义与行动建议。';
     case 'astrolabe':
       return '你是资深星盘解读师，熟悉太阳、月亮、上升、星体落宫、元素模式与主要相位。';
     default:
@@ -42,11 +42,11 @@ export function buildTaskText(method: Exclude<DivinationMethodId, 'random'>) {
     case 'tarot':
       return '请围绕牌阵整体主题、关键牌、正逆位与位置关系判断，直接回答问题，并给出最值得执行的建议。';
     case 'ssgw':
-      return '请围绕签诗本意、典故启示、现实映射与行动提醒判断，直接回答问题，并说明当前宜进还是宜守。';
+      return '请围绕签诗本意、典故启示、现实处境与行动提醒判断，直接回答问题，并说明当前宜进还是宜守。';
     case 'almanac':
       return '请围绕事项、候选日期、黄历宜忌、冲煞、神煞和参与人八字参考，筛出优先日期、备选日期和需要避开的日期。';
     case 'lenormand':
-      return '请围绕牌阵主轴、牌与牌的组合关系、现实事件链条和行动建议判断，直接回答问题。';
+      return '请围绕牌阵、牌位、牌名、牌义和行动建议判断，直接回答问题。';
     case 'astrolabe':
       return '请围绕太阳、月亮、上升、星体落宫、元素模式和主要相位判断，直接回答问题，并给出现实建议。';
     default:
@@ -73,7 +73,7 @@ export function buildMethodRequirementText(method: Exclude<DivinationMethodId, '
     case 'almanac':
       return '- 先排除冲犯和忌项明显的日期，再比较宜项、吉神、执日、星宿与参与人八字匹配度。';
     case 'lenormand':
-      return '- 不要孤立牌义，要把相邻牌组合成现实事件链，例如消息、阻碍、人物、选择和结果。';
+      return '- 优先依据牌阵、牌位、牌名和牌义组织判断；证据不足时直接说明，不补充本地固定分类。';
     case 'astrolabe':
       return '- 不要泛泛讲星座性格，必须把星体、宫位、相位和用户问题连起来。';
     default:
@@ -88,7 +88,7 @@ export function buildMethodOutputRequirementText(method: Exclude<DivinationMetho
     case 'meihua':
       return '把起因、过程、结果分别落到体用、互卦、变卦，并说明主证、辅证、反证或限制，不要混写。';
     case 'xiaoliuren':
-      return '每个重点都要交代对应宫位含义、现实映射和行动建议，并明确更适合推进、等待、调整还是止损。';
+      return '每个重点都要交代对应宫位含义、现实处境和行动建议，并明确更适合推进、等待、调整还是止损。';
     case 'qimen':
       return '若盘面支持，请明确写出宜动、宜守、宜避的方向、动作或时间窗口，并说明先看哪一宫、哪一项是主证、哪一项只是辅证。';
     case 'liuren':
@@ -96,11 +96,11 @@ export function buildMethodOutputRequirementText(method: Exclude<DivinationMetho
     case 'tarot':
       return '每个重点都要交代牌位含义、牌面关系、反向或冲突牌和建议。';
     case 'ssgw':
-      return '每个重点都要交代签诗原意、现实映射、限制条件和行动提醒。';
+      return '每个重点都要交代签诗原意、现实处境、限制条件和行动提醒。';
     case 'almanac':
       return '请明确给出首选日期、备选日期、慎用日期，并逐条说明依据。';
     case 'lenormand':
-      return '每个重点都要交代牌面组合、现实含义、相邻牌支持或冲突和下一步动作。';
+      return '每个重点都要交代牌位、牌名、牌义和下一步动作。';
     case 'astrolabe':
       return '每个重点都要交代对应星体/宫位/相位依据，避免只写心理鸡汤。';
     default:

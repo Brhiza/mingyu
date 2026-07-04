@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { baziCalculator } from '../src/utils/bazi/baziCalculator';
+import { baziCalculator } from '@core/bazi/baziCalculator';
 import { calculateMingGua } from '../packages/core/src/bazi/mingGua';
 
 test('八宅命卦公式应按年命数计算并处理五黄寄宫', () => {

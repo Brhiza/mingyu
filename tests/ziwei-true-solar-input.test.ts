@@ -4,7 +4,7 @@ import { resolveZiweiTrueSolarBirth } from '../src/lib/ziwei/true-solar-input';
 import {
   calculateEquationOfTimeMinutes,
   calculateTrueSolarTime,
-} from '../src/utils/bazi/trueSolarTime';
+} from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 
 test('紫微真太阳时排盘应改用修正后的公历日期与时辰', () => {

@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { baziCalculator } from '../src/utils/bazi/baziCalculator';
-import { getMonthDaysInfo, getYearInfo } from '../src/utils/bazi/calendarTool';
+import { baziCalculator } from '@core/bazi/baziCalculator';
+import { getMonthDaysInfo, getYearInfo } from '@core/bazi/calendarTool';
 import {
   buildFortuneSelectionContext,
   normalizeFortuneSelection,
-} from '../src/utils/bazi/fortuneSelection';
-import { getDayHourBreakdown } from '../src/utils/bazi/fortuneSelection/helpers/breakdown';
-import type { BaziChartResult } from '../src/utils/bazi/baziTypes';
+} from '@core/bazi/fortuneSelection';
+import { getDayHourBreakdown } from '@core/bazi/fortuneSelection/helpers/breakdown';
+import type { BaziChartResult } from '@core/bazi/baziTypes';
 
 function createMockResult(): BaziChartResult {
   return {

@@ -44,7 +44,8 @@ const almanacSchema = z.object({
       'renovation',
       'custom',
     ])
-    .describe('择日事项'),
+    .optional()
+    .describe('择日事项；不填时使用 custom'),
   startDate: z.string().describe('开始日期，格式为 YYYY-MM-DD'),
   endDate: z.string().describe('结束日期，格式为 YYYY-MM-DD；最多比较 31 天'),
   participants: z
@@ -89,7 +90,7 @@ function buildAlmanacParticipants(
 function buildAlmanacResult(args: z.infer<typeof almanacSchema>) {
   const { startDate, endDate } = readMcpDateRange(args.startDate, args.endDate);
   return generateAlmanacSelection({
-    topic: args.topic as AlmanacTopic,
+    topic: (args.topic ?? 'custom') as AlmanacTopic,
     startDate,
     endDate,
     participants: buildAlmanacParticipants(args.participants),

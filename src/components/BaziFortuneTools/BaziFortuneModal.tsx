@@ -1,21 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { BaziFortuneScope } from '@/lib/query-state';
-import type { BaziChartResult } from '@/utils/bazi/baziTypes';
+import type { BaziChartResult } from '@core/bazi/baziTypes';
 import {
   getBaziDayIndexByDate,
   getBaziMonthIndexByDate,
   getMonthDaysInfo,
   getYearInfo,
-} from '@/utils/bazi/calendarTool';
+} from '@core/bazi/calendarTool';
 import {
   buildFortuneSelectionContext,
   normalizeFortuneSelection,
   type BaziFortuneSelectionValue,
-} from '@/utils/bazi/fortuneSelection';
+} from '@core/bazi/fortuneSelection';
 import {
   isFortuneModalDetailOptionActive,
   isFortuneModalParentOptionActive,
-} from '@/utils/bazi/fortuneModalSelection';
+} from '@core/bazi/fortuneModalSelection';
 import { baziFortuneScopeLabelMap, formatBaziCycleDisplay, getCurrentLuckCycle } from './helpers';
 
 export function BaziFortuneModal(props: {

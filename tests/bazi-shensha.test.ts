@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { ShenShaCalculator as CoreShenShaCalculator } from '../packages/core/src/bazi/baziShenSha';
-import { ShenShaCalculator } from '../src/utils/bazi/baziShenSha';
+import { ShenShaCalculator } from '@core/bazi/baziShenSha';
 
 function createCalculators(options?: ConstructorParameters<typeof CoreShenShaCalculator>[0]) {
   return [new ShenShaCalculator(options), new CoreShenShaCalculator(options)];

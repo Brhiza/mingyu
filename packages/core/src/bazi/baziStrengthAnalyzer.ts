@@ -13,6 +13,10 @@ import type {
 export interface SeasonalStatusAnalysis {
   status: string;
   score: number;
+  baseScore?: number;
+  commanderStem?: string;
+  commanderScore?: number;
+  commanderEffect?: '助身' | '生身' | '泄身' | '耗身' | '克身' | '中性';
   isTimely: boolean;
 }
 
@@ -29,6 +33,33 @@ export interface FormationAnalysis {
 
 type GetWuxingFn = (ganOrZhi: string) => Wuxing;
 type GetSeasonStatusFn = (zhi: string) => Record<string, string>;
+
+function resolveCommanderEffect(
+  dayMasterWuxing: Wuxing,
+  commanderWuxing: Wuxing,
+): Pick<SeasonalStatusAnalysis, 'commanderScore' | 'commanderEffect'> {
+  if (commanderWuxing === dayMasterWuxing) {
+    return { commanderScore: 1.5, commanderEffect: '助身' };
+  }
+
+  if (BASIC_MAPPINGS.WUXING_SHENG[commanderWuxing] === dayMasterWuxing) {
+    return { commanderScore: 1, commanderEffect: '生身' };
+  }
+
+  if (BASIC_MAPPINGS.WUXING_SHENG[dayMasterWuxing] === commanderWuxing) {
+    return { commanderScore: -0.8, commanderEffect: '泄身' };
+  }
+
+  if (BASIC_MAPPINGS.WUXING_KE[dayMasterWuxing] === commanderWuxing) {
+    return { commanderScore: -1, commanderEffect: '耗身' };
+  }
+
+  if (BASIC_MAPPINGS.WUXING_KE[commanderWuxing] === dayMasterWuxing) {
+    return { commanderScore: -1.3, commanderEffect: '克身' };
+  }
+
+  return { commanderScore: 0, commanderEffect: '中性' };
+}
 
 export function analyzeRoot(
   dayMaster: string,
@@ -205,6 +236,7 @@ export function analyzeSeasonalStatus(
   monthBranch: string,
   getSeasonStatus: GetSeasonStatusFn,
   getWuxing: GetWuxingFn,
+  monthCommander?: string,
 ): SeasonalStatusAnalysis {
   const season = getSeasonStatus(monthBranch);
   const dayMasterWuxing = getWuxing(dayMaster);
@@ -217,9 +249,19 @@ export function analyzeSeasonalStatus(
     死: -4,
   };
 
+  const baseScore = scoreMap[seasonStatus] ?? 0;
+  const commanderWuxing = monthCommander ? getWuxing(monthCommander) : undefined;
+  const commander = commanderWuxing
+    ? resolveCommanderEffect(dayMasterWuxing, commanderWuxing)
+    : { commanderScore: 0, commanderEffect: '中性' as const };
+
   return {
     status: seasonStatus || '未知',
-    score: scoreMap[seasonStatus] ?? 0,
+    score: Number((baseScore + (commander.commanderScore ?? 0)).toFixed(1)),
+    baseScore,
+    commanderStem: monthCommander,
+    commanderScore: commander.commanderScore,
+    commanderEffect: commander.commanderEffect,
     isTimely: seasonStatus === '旺' || seasonStatus === '相',
   };
 }
@@ -306,9 +348,13 @@ export function analyzeDayMasterStrength(
   supportAnalysis: SupportAnalysis,
   constraintAnalysis: ConstraintAnalysis,
 ): DayMasterStrengthAnalysis {
+  const seasonalBaseScore = seasonalStatus.baseScore ?? seasonalStatus.score;
+  const commanderScore = seasonalStatus.commanderScore ?? 0;
+  const seasonalTotalScore =
+    seasonalStatus.baseScore === undefined ? seasonalStatus.score : seasonalBaseScore + commanderScore;
   const score = Number(
     (
-      seasonalStatus.score +
+      seasonalTotalScore +
       formationAnalysis.totalStrength +
       rootAnalysis.totalStrength +
       supportAnalysis.totalStrength -
@@ -323,7 +369,7 @@ export function analyzeDayMasterStrength(
   if (score <= 1) status = '身弱';
   if (
     rootAnalysis.strongRoot &&
-    seasonalStatus.score >= 2 &&
+    seasonalTotalScore >= 2 &&
     formationAnalysis.totalStrength >= 0 &&
     constraintAnalysis.totalStrength <= 1.5
   ) {
@@ -331,7 +377,7 @@ export function analyzeDayMasterStrength(
   }
   if (
     !rootAnalysis.hasRoot &&
-    seasonalStatus.score <= 0 &&
+    seasonalTotalScore <= 0 &&
     (supportAnalysis.totalStrength <= 0.5 || score <= 0)
   ) {
     status = '极弱';
@@ -341,7 +387,8 @@ export function analyzeDayMasterStrength(
     score,
     status,
     details: {
-      seasonalScore: seasonalStatus.score,
+      seasonalScore: seasonalBaseScore,
+      commanderScore,
       timely: seasonalStatus.isTimely,
       formationStrength: formationAnalysis.totalStrength,
       rootStrength: rootAnalysis.totalStrength,

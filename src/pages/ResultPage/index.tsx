@@ -31,7 +31,7 @@ import { useViewportSize } from '@/hooks/useViewportWidth';
 import { buildUnknownTimeBaziPrompt } from '@/lib/birth-time-reverse';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
-import { formatBaziForPrompt } from '@/utils/bazi/baziAnalysisFormatter';
+import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
 import { buildDivinationPrompt } from '@/lib/divination/engine';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import type { AstrolabeData } from '@/types/divination';
@@ -269,7 +269,7 @@ export function ResultPage() {
 
       if ((shouldLoadBaziPromptModules || isBaziFortuneModalOpen) && !baziFortuneSelectionModule) {
         loaders.push(
-          import('@/utils/bazi/fortuneSelection').then((module) => {
+          import('@core/bazi/fortuneSelection').then((module) => {
             if (!cancelled) {
               setBaziFortuneSelectionModule(module);
             }

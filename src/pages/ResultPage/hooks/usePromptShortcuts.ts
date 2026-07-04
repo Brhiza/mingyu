@@ -7,17 +7,9 @@ import {
   findZiweiShortcutByMode,
   readPromptDraft,
   resolveAstrolabeShortcutMode,
-  resolveAstrolabeTopicByInspirationCategory,
-  resolveAstrolabeTopicByInspirationIntent,
   resolveAstrolabeTopicByShortcutMode,
-  resolveBaziPresetIdByInspirationCategory,
-  resolveBaziPresetIdByInspirationIntent,
-  resolveBaziQuestionSceneByInspirationCategory,
-  resolveBaziQuestionSceneByInspirationIntent,
   resolveBaziQuestionSceneByShortcutMode,
   resolveBaziShortcutMode,
-  resolveZiweiTopicByInspirationCategory,
-  resolveZiweiTopicByInspirationIntent,
   resolveZiweiShortcutMode,
   writePromptDraft,
 } from '../ResultPage.helpers';
@@ -321,8 +313,8 @@ export function usePromptShortcuts(
 
   function applyInspiredQuestion(
     question: string,
-    category?: string,
-    intent?: QuestionInspirationIntent,
+    _category?: string,
+    _intent?: QuestionInspirationIntent,
   ) {
     if (promptState.promptSource === 'bazi' || promptState.promptSource === 'bazi-ziwei') {
       writePromptDraft(baziDraftStorageKey, question, 'inspiration');
@@ -330,12 +322,6 @@ export function usePromptShortcuts(
       setBaziQuestionDraft(question);
       onUpdatePromptState({
         baziShortcutMode: '问题灵感',
-        baziPresetId:
-          resolveBaziPresetIdByInspirationIntent(intent) ??
-          resolveBaziPresetIdByInspirationCategory(category),
-        baziQuestionScene:
-          resolveBaziQuestionSceneByInspirationIntent(intent) ??
-          resolveBaziQuestionSceneByInspirationCategory(category),
       });
     } else if (promptState.promptSource === 'astrolabe') {
       writePromptDraft(astrolabeDraftStorageKey, question, 'inspiration');
@@ -343,9 +329,6 @@ export function usePromptShortcuts(
       setAstrolabeQuestionDraft(question);
       onUpdatePromptState({
         astrolabeShortcutMode: '问题灵感',
-        astrolabeTopic:
-          resolveAstrolabeTopicByInspirationIntent(intent) ??
-          resolveAstrolabeTopicByInspirationCategory(category),
       });
     } else {
       writePromptDraft(ziweiDraftStorageKey, question, 'inspiration');
@@ -353,9 +336,6 @@ export function usePromptShortcuts(
       setZiweiQuestionDraft(question);
       onUpdatePromptState({
         ziweiShortcutMode: '问题灵感',
-        ziweiTopic:
-          resolveZiweiTopicByInspirationIntent(intent) ??
-          resolveZiweiTopicByInspirationCategory(category),
       });
     }
 

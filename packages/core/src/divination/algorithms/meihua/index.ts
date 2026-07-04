@@ -110,10 +110,10 @@ function estimateYingQi(params: {
 /**
  * 生成梅花易数卦盘
  *
- * 支持时间起卦、数字起卦、随机起卦、外应起卦和时辰纳卦五种方式。
+ * 支持时间起卦、数字起卦、随机起卦和外应起卦；timeTrigram 作为历史兼容入口按时间起卦计算。
  * 不传 `customDate` 则使用当前时间。
  *
- * @param customDate 自定义起卦时间（可选），影响时间卦和时辰纳卦的时间干支。
+ * @param customDate 自定义起卦时间（可选），影响时间卦的时间干支。
  * @param settings   起卦设置，含 method（起卦方式）、number（数字起卦用）、externalOmens（外应起卦用）等。
  * @returns 完整的梅花易数卦盘数据对象 MeihuaData。
  *
@@ -141,7 +141,7 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
       case 'external':
         return resolveExternalMethod(settings?.externalOmens, ganzhi.hour.slice(-1));
       case 'timeTrigram':
-        return resolveTimeTrigramMethod(ganzhi.hour.slice(-1));
+        return resolveTimeTrigramMethod(ganzhi, lunar);
       case 'time':
       default:
         return resolveTimeMethod(ganzhi, lunar);
@@ -209,10 +209,6 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
       ? findHexagramByTrigrams(changedUpperResult.index, changedLowerResult.index)
       : null;
 
-  //【核心修正：注入“体用”之魂】
-  // 梅花易数之精髓，在于体用生克。无体用，则无以论吉凶。
-  // 体卦：代表占卜者自身或所占之事的主体，是相对静止的一方。
-  // 用卦：代表所占之事所遇到的人、事、物，是相对运动的一方。
   // 定体用之法，以动爻为准：动爻所在的经卦为“用”，静止的另一经卦为“体”。
   // 动爻在四、五、上爻时，上卦为用、下卦为体；反之则下卦为用、上卦为体。
   const { tiGua, yongGua } = resolveTiYongByMovingYao(upperTrigram, lowerTrigram, movingYaoIndex);
@@ -230,7 +226,6 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
     position: index + 1,
     yaoType: (line === 1 ? '阳' : '阴') as '阳' | '阴',
     isChanging: index === movingYaoIndex - 1,
-    // 标注体用，并进行类型断言
     tiYong: ((index < 3 ? lowerTrigram.name : upperTrigram.name) === tiGua.name ? '体' : '用') as
       '体' | '用',
   }));
@@ -307,16 +302,11 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
       yaoName: ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][movingYaoIndex - 1] || '未知',
     },
 
-    //【核心修正：重构分析逻辑】
-    // 所有的吉凶判断，都围绕“体卦”的五行展开。
-    // 用生体、互生体、变生体为吉；用克体、互克体、变克体为凶。
     analysis: {
       season,
-      // 1. 用卦与体卦关系：代表事情的开端和当前状态。
       tiYongRelation: MeihuaHelpers.getElementRelation(yongGua.element, tiGua.element),
       tiSeasonState,
       yongSeasonState,
-      // 2. 互卦与体卦关系：代表事情发展的过程。互卦有二，需分别论之。
       // 传统梅花互卦体用定法（《梅花易数》原旨）：
       // 原动爻在下卦（1/2/3爻）→互卦的下卦为互体、上卦为互用；
       // 原动爻在上卦（4/5/6爻）→互卦的上卦为互体、下卦为互用。
@@ -336,7 +326,6 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
       inter2Relation: interUpperResult
         ? MeihuaHelpers.getElementRelation(interUpperResult.trigram.element, tiGua.element)
         : '无',
-      // 3. 变卦与体卦关系：代表事情的最终结局。
       changedRelation: changedTiYong
         ? MeihuaHelpers.getElementRelation(
             changedTiYong.yongGua.element,
@@ -349,9 +338,7 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
             changedTiYong.tiGua.element,
           )
         : '无变卦',
-      // 4. 体用生克细化：按五行生克定吉凶程度
       tiYongRaw: getTiYongRelation(yongGua.element, tiGua.element),
-      // 5. 应期判断
       yingQi: estimateYingQi({
         movingYaoIndex,
         upperTrigramIndex,

@@ -76,3 +76,23 @@ test('梅花：外应起卦应按后天端法以物为上卦、方位为下卦�
   assert.equal(data.movingYao.position, 3);
   assert.match(String(data.calculation.externalRule), /物象为上卦、方位为下卦/);
 });
+
+test('梅花：timeTrigram 兼容入口应回到年月日时起卦', () => {
+  const timeData = generateMeihua(SAMPLE_DATE, { method: 'time' });
+  const compatData = generateMeihua(SAMPLE_DATE, { method: 'timeTrigram' });
+
+  assert.equal(compatData.calculation.methodKey, 'timeTrigram');
+  assert.deepEqual(
+    [
+      compatData.calculation.upperTrigramIndex,
+      compatData.calculation.lowerTrigramIndex,
+      compatData.calculation.movingYaoIndex,
+    ],
+    [
+      timeData.calculation.upperTrigramIndex,
+      timeData.calculation.lowerTrigramIndex,
+      timeData.calculation.movingYaoIndex,
+    ],
+  );
+  assert.match(String(compatData.calculation.compatibilityNote), /年月日时起卦法/);
+});

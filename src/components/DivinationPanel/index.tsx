@@ -122,7 +122,7 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
     if (activeInspirationTab === 'spread') {
       const spreadName =
         TAROT_SPREAD_OPTIONS.find((item) => item.value === draft.tarotSpread)?.label || '当前牌阵';
-      const items = TAROT_SPREAD_INSPIRATION_QUESTIONS[draft.tarotSpread]
+      const items = (TAROT_SPREAD_INSPIRATION_QUESTIONS[draft.tarotSpread] ?? [])
         .filter(includeQuestion)
         .map((question) => ({
           id: `spread-${question}`,

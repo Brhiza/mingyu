@@ -920,12 +920,13 @@ test('择日资料包会先给禁忌筛查再给取舍证据', () => {
     createSupplementaryInfo(),
   );
 
-  assert.match(prompt, /禁忌筛查：2026-06-02：事项忌项命中入宅、移徙/);
-  assert.match(prompt, /事项权重：事项搬家入宅优先匹配宜项入宅、移徙、搬家、安床/);
+  assert.match(prompt, /禁忌筛查：2026-06-02：风险黄历忌项触及搬家入宅；评分42偏低/);
+  assert.match(prompt, /事项口径：用户选择事项：搬家入宅；按已选事项和候选日期证据处理/);
   assert.match(prompt, /岁支方位避太岁午正南、岁破子正北；可参考太阳未西南偏南、福德卯正东/);
   assert.doesNotMatch(prompt, /禁忌筛查：2026-06-01：参与人本人：未见直接刑冲破害提醒/);
-  assert.match(prompt, /先排禁忌，再看评分，高分日期若命中事项忌项或参与人刑冲破害必须降级/);
-  assert.match(prompt, /禁忌降级：2026-06-02：事项忌项命中入宅、移徙/);
+  assert.doesNotMatch(prompt, /事项权重|优先匹配宜项|事项忌项命中/);
+  assert.match(prompt, /先排禁忌，再看评分，高分日期若命中明显禁忌或参与人刑冲破害必须降级/);
+  assert.match(prompt, /禁忌降级：2026-06-02：风险黄历忌项触及搬家入宅；评分42偏低/);
   assert.match(prompt, /取舍证据：首选2026-06-01/);
   assert.match(prompt, /可用时段边界：只允许在2026-06-01至2026-06-03范围内排序/);
   assert.ok(prompt.indexOf('禁忌筛查：') < prompt.indexOf('取舍证据：'));
@@ -1007,7 +1008,7 @@ test('占卜提示词的当前时间应来自起盘结果而不是运行环境�
   assert.doesNotMatch(prompt, /年年/);
 });
 
-test('奇门提示词会结合问题补充取用参考与优先宫位', () => {
+test('奇门提示词会输出盘面优先宫位', () => {
   const prompt = buildDivinationPrompt('qimen', '这次换工作该不该主动推进？', createData('qimen'), {
     gender: '男',
     birthYear: 1995,
@@ -1015,15 +1016,16 @@ test('奇门提示词会结合问题补充取用参考与优先宫位', () => {
 
   assert.match(prompt, /核心结构：阳遁3局；值符天蓬；值使休门/);
   assert.match(prompt, /主轴证据：值符天蓬落坎一宫；值使休门落坎一宫；时干丁见于离九宫/);
-  assert.match(prompt, /用神宫候选：/);
+  assert.match(prompt, /用神宫候选：坎一宫（24分，有利:适合谋划与沟通）/);
   assert.match(prompt, /反证宫：坎一宫：命中空亡、马星或格局标签时，相关结论必须降权复核/);
   assert.match(prompt, /时间窗口：逢空坎一宫、艮八宫先待填实/);
   assert.match(prompt, /辅助证据：旬空子空落坎一宫、丑空落艮八宫；马星卯时驿马在巳，落巽四宫/);
+  assert.doesNotMatch(prompt, /问事参考/);
   assert.doesNotMatch(prompt, /卦象|课传|牌阵|签诗|牌位/);
   assert.match(prompt, /坎一宫（北，五行水）：天盘壬天蓬，地盘癸，人盘休门，神盘值符/);
 });
 
-test('奇门提示词只在命中具体问事线索时输出问事参考', () => {
+test('奇门提示词不再根据问题词表输出问事参考', () => {
   const data = {
     ...createData('qimen'),
     jiuGongGe: [
@@ -1056,7 +1058,9 @@ test('奇门提示词只在命中具体问事线索时输出问事参考', () =>
     birthYear: 1995,
   });
 
-  assert.match(prompt, /问事参考：事业参考：首看开门，当前落乾六宫；兼看生门，当前落艮八宫/);
+  assert.doesNotMatch(prompt, /问事参考/);
+  assert.doesNotMatch(prompt, /事业参考|首看开门|兼看生门/);
+  assert.match(prompt, /用神宫候选：坎一宫（24分，有利:适合谋划与沟通）/);
 });
 
 test('六爻提示词会给出断卦抓手，先看用神世应动变', () => {
@@ -1070,14 +1074,14 @@ test('六爻提示词会给出断卦抓手，先看用神世应动变', () => {
   assert.match(prompt, /断卦抓手：/);
   assert.match(prompt, /用神候选：/);
   assert.match(prompt, /主轴证据：世爻第1爻兄弟子水；应爻第6爻兄弟戌土；动变/);
-  assert.match(prompt, /用神评分表：未识别专项用神：第1爻兄弟子水为主候选/);
-  assert.match(prompt, /原神忌神仇神：以未识别专项用神第1爻兄弟子水为用神基准/);
+  assert.match(prompt, /用神评分表：通用断卦：第1爻兄弟子水为主候选/);
+  assert.match(prompt, /原神忌神仇神：以通用断卦第1爻兄弟子水为用神基准/);
   assert.match(prompt, /应期候选：动变触发：第1爻兄弟子水动/);
   assert.match(prompt, /不得编造已提供资料没有给出的卦名、六亲、六神、世应、用神、动变/);
   assert.doesNotMatch(prompt, /课传|盘局|牌阵|签诗|牌位/);
 });
 
-test('六爻提示词会按问题补充传统用神候选', () => {
+test('六爻提示词不再按问题词表补充用神候选', () => {
   const prompt = buildDivinationPrompt(
     'liuyao',
     '这次换工作有没有机会升职？',
@@ -1085,14 +1089,28 @@ test('六爻提示词会按问题补充传统用神候选', () => {
     createSupplementaryInfo(),
   );
 
-  assert.match(prompt, /用神候选：事业职位：以官鬼为用神候选/);
-  assert.match(prompt, /盘中第4爻官鬼午火/);
-  assert.match(prompt, /用神评分表：事业职位：第4爻官鬼午火为主候选/);
-  assert.match(prompt, /原神忌神仇神：以事业职位第4爻官鬼午火为用神基准/);
-  assert.match(prompt, /非动爻，需参动爻第1爻兄弟子水、第6爻兄弟戌土/);
+  assert.match(prompt, /用神候选：通用断卦：先以世爻第1爻兄弟子水为我方主轴/);
+  assert.doesNotMatch(prompt, /事业职位|事业工作：以官鬼为用神候选/);
+  assert.match(prompt, /用神评分表：通用断卦：第1爻兄弟子水为主候选/);
 });
 
-test('六爻提示词会带专项断卦要点，并把鬼神怪异问题收紧到传统判断口径', () => {
+test('六爻提示词只在用户选择事业模板时补充事业候选', () => {
+  const prompt = buildDivinationPrompt(
+    'liuyao',
+    '这次换工作有没有机会升职？',
+    createData('liuyao'),
+    createSupplementaryInfo(),
+    { liuyaoTemplate: 'shiye' },
+  );
+
+  assert.match(prompt, /断卦类型：事业工作/);
+  assert.match(prompt, /用神候选：事业工作：以官鬼为用神候选/);
+  assert.match(prompt, /盘中第4爻官鬼午火/);
+  assert.match(prompt, /用神评分表：事业工作：第4爻官鬼午火为主候选/);
+  assert.match(prompt, /原神忌神仇神：以事业工作第4爻官鬼午火为用神基准/);
+});
+
+test('六爻提示词按用户选择的鬼神怪异模板收紧口径', () => {
   const prompt = buildDivinationPrompt(
     'liuyao',
     '最近家里总觉得不安，这是不是鬼神怪异或冲犯？',
@@ -1104,7 +1122,8 @@ test('六爻提示词会带专项断卦要点，并把鬼神怪异问题收紧�
   assert.match(prompt, /【断卦要点】/);
   assert.match(prompt, /断卦类型：鬼神怪异/);
   assert.match(prompt, /官鬼与子孙制鬼、世应受冲、玄武螣蛇白虎勾陈、空破入墓与家宅怪异线索/);
-  assert.match(prompt, /专项抓手：鬼神怪异：重点看官鬼是否旺动贴世，子孙能否制鬼/);
+  assert.match(prompt, /用神候选：鬼神怪异：以官鬼为用神候选/);
+  assert.doesNotMatch(prompt, /专项抓手/);
   assert.match(prompt, /若卦中证据不足，只能说“未见明显鬼神主证”或“更偏情绪\/环境因素”/);
 });
 
@@ -1196,74 +1215,32 @@ test('小六壬提示词会给出三段过程、主判断和现实建议抓手',
   );
   assert.match(
     prompt,
-    /主轴证据：起因留连（拖延、牵扯、反复）；过程赤口（争执、误会、情绪）；结果小吉（助力、可成、渐进）/,
+    /主轴证据：起因留连；过程赤口；结果小吉/,
   );
-  assert.match(prompt, /问题映射：当前整体偏可成，适合稳步推进，慢慢拿结果。/);
+  assert.match(prompt, /取象提示：当前整体偏可成，适合稳步推进，慢慢拿结果。/);
   assert.match(prompt, /应期候选：起因留连：偏拖延反复，常需先清旧账或等阻滞松动/);
   assert.match(prompt, /主判断小吉：有助力，只适合短期复盘，不作长期命运定论/);
   assert.match(prompt, /行动建议等级：稳步推进：有助力但不宜贪快，先拿小结果/);
   assert.match(prompt, /- 起课方式：数字起课/);
   assert.match(
     prompt,
-    /- 结果：小吉，关键词：助力、可成、渐进；建议：可以推进，但要一步一步拿结果，不宜贪快。/,
+    /- 结果：小吉；宫位含义：事情整体可成，常有助力，但更适合渐进推进。；建议：可以推进，但要一步一步拿结果，不宜贪快。/,
   );
+  assert.doesNotMatch(prompt, /- 结果：小吉，关键词/);
 });
 
-test('小六壬专项灵感框架会把感情题收紧到关系走向与行动建议', () => {
-  const prompt = buildDivinationPrompt(
-    'xiaoliuren',
-    '这段关系接下来整体会往哪边走？',
-    createData('xiaoliuren'),
-    createSupplementaryInfo(),
-    { xiaoliurenFocus: 'emotion' },
-  );
+test('梅花、小六壬、奇门不再输出隐藏专项分析思路', () => {
+  for (const method of ['meihua', 'xiaoliuren', 'qimen'] as const) {
+    const prompt = buildDivinationPrompt(
+      method,
+      '这件事接下来该怎么推进？',
+      createData(method),
+      createSupplementaryInfo(),
+    );
 
-  assert.match(prompt, /【分析思路】/);
-  assert.match(prompt, /先以结果宫位定关系走向，再回看起因、过程解释情绪和沟通卡点/);
-  assert.match(
-    prompt,
-    /请围绕起因、过程、结果三段宫位变化，判断关系走向、沟通卡点与该主动、缓和还是止损/,
-  );
-  assert.match(prompt, /要明确写出关系走向、沟通风险，以及现在更适合主动、缓和、等待还是止损。/);
-});
-
-test('梅花专项灵感框架会把决策题收紧到顺势方向与风险点', () => {
-  const prompt = buildDivinationPrompt(
-    'meihua',
-    '我现在做这个决定，方向对不对？',
-    createData('meihua'),
-    createSupplementaryInfo(),
-    { meihuaFocus: 'decision' },
-  );
-
-  assert.match(prompt, /【分析思路】/);
-  assert.match(prompt, /重点比较当前选择是否顺势、最容易忽略的风险在哪里/);
-  assert.match(
-    prompt,
-    /请围绕体用关系、互卦过程、变卦结果和四时旺衰，判断当前选择是否顺势、风险点在哪、下一步更适合怎么走/,
-  );
-  assert.match(prompt, /要明确写出哪个方向更顺、最大风险点在哪里，以及下一步先做什么。/);
-});
-
-test('奇门专项灵感框架会把时机题收紧到宜动宜守与时间窗口', () => {
-  const prompt = buildDivinationPrompt(
-    'qimen',
-    '这件事现在是不是合适的行动时机？',
-    createData('qimen'),
-    createSupplementaryInfo(),
-    { qimenFocus: 'timing' },
-  );
-
-  assert.match(prompt, /【分析思路】/);
-  assert.match(
-    prompt,
-    /先看值符值使与用门落宫判断当前时机，再结合空亡、马星和门星神干判断宜动宜守与更合适的时间窗口。/,
-  );
-  assert.match(
-    prompt,
-    /请围绕值符值使、用门落宫、门星神干组合、空亡与马星变化，判断当前时机、宜动宜守与更合适的时间窗口/,
-  );
-  assert.match(prompt, /要明确写出现在是否宜动、宜守或宜等，以及对应的时机依据。/);
+    assert.doesNotMatch(prompt, /【分析思路】/);
+    assert.match(prompt, /【任务】/);
+  }
 });
 
 test('大六壬提示词会按八字式结构带入分析思路', () => {
@@ -1360,7 +1337,7 @@ test('大六壬未知专项模板应回落到通用断课，避免输出 undefin
   assert.doesNotMatch(prompt, /undefined|null/);
 });
 
-test('塔罗提示词会给出牌阵主轴、位置关系与行动建议抓手', () => {
+test('塔罗提示词只保留用户牌阵和牌位明细', () => {
   const prompt = buildDivinationPrompt(
     'tarot',
     '这件事接下来该怎么推进？',
@@ -1368,17 +1345,14 @@ test('塔罗提示词会给出牌阵主轴、位置关系与行动建议抓手',
     createSupplementaryInfo(),
   );
 
-  assert.match(prompt, /断牌抓手：先统合牌阵主轴，再看关键位置、正逆位变化与牌面呼应/);
-  assert.match(prompt, /主轴证据：现状恋人（正位）；建议战车（逆位）/);
-  assert.match(prompt, /牌组层级：大阿卡纳恋人、战车定人生主题或关键转折/);
-  assert.match(prompt, /逆位阻滞：建议战车提示控制、节奏/);
-  assert.match(prompt, /行动牌：建议战车逆位，先处理阻滞/);
-  assert.match(prompt, /权重口径：先牌位，后正逆位，再用关键词互证/);
+  assert.match(prompt, /断牌口径：按用户选择的牌阵、牌位、牌名和正逆位解读/);
   assert.match(prompt, /现实边界：塔罗只能给当下倾向、心理动力、互动节奏和行动建议/);
-  assert.match(prompt, /- 现状：恋人（正位），关键词：选择、连接/);
+  assert.match(prompt, /- 现状：恋人（正位）/);
+  assert.match(prompt, /- 建议：战车（逆位）/);
+  assert.doesNotMatch(prompt, /关键词|牌组层级|宫廷人物|叙事权重|元素数字/);
 });
 
-test('灵签提示词会给出签诗主旨、典故映射与宜进宜守抓手', () => {
+test('灵签提示词保留签诗、典故和签文条目，不再输出事项映射', () => {
   const prompt = buildDivinationPrompt(
     'ssgw',
     '这件事接下来该怎么推进？',
@@ -1386,72 +1360,12 @@ test('灵签提示词会给出签诗主旨、典故映射与宜进宜守抓手',
     createSupplementaryInfo(),
   );
 
-  assert.match(prompt, /断签抓手：先定签诗主旨，再看典故映射、现实处境与宜进宜守/);
-  assert.match(prompt, /主轴证据：签诗“前路迢迢莫强求，且看云开月自明。”/);
-  assert.match(prompt, /逐句签意：第1句前路迢迢莫强求；第2句且看云开月自明/);
-  assert.match(prompt, /吉凶层级：中平偏守，等待转明/);
-  assert.match(prompt, /宜忌条件：宜守正待时；不可躁进/);
-  assert.match(prompt, /典故映射：已按所给典故作现实处境类比/);
-  assert.match(prompt, /现实映射：当前更宜先守正待时，再等局势转明，不宜躁进强求/);
-  assert.match(prompt, /- 签题：刘备借荆州/);
-  assert.match(prompt, /- 典故：刘备借荆州后多方周旋，需审时度势。/);
-});
-
-test('塔罗小阿卡纳和宫廷牌会输出数字阶段、元素领域与人物姿态', () => {
-  const prompt = buildDivinationPrompt(
-    'tarot',
-    '这个合作应该怎么推进？',
-    {
-      spreadType: 'three',
-      spreadName: '三牌指引',
-      cards: [
-        {
-          id: 11,
-          name: '权杖三',
-          position: '现状',
-          reversed: false,
-          keywords: ['规划', '扩展'],
-        },
-        {
-          id: 12,
-          name: '圣杯骑士',
-          position: '对方',
-          reversed: false,
-          keywords: ['邀约', '表达'],
-        },
-        {
-          id: 13,
-          name: '星币十',
-          position: '结果',
-          reversed: true,
-          keywords: ['长期', '资源'],
-        },
-      ],
-      timestamp: Date.now(),
-    },
-    createSupplementaryInfo(),
-  );
-
-  assert.match(
-    prompt,
-    /牌组层级：小阿卡纳权杖三、星币十定现实执行层；宫廷牌圣杯骑士定人物角色或互动方式/,
-  );
-  assert.match(
-    prompt,
-    /现状权杖三属权杖火元素（行动、意志、成长和主动推进），数字三（协作、成形、初步扩展）/,
-  );
-  assert.match(
-    prompt,
-    /对方圣杯骑士为骑士宫廷牌（行动、推进、追逐和外部变化），属圣杯水元素（情感、关系、感受和承接）/,
-  );
-  assert.match(
-    prompt,
-    /结果星币十属星币土元素（资源、金钱、身体和现实落地），数字十（完成、收束、压力满载或结果落地）/,
-  );
-  assert.match(
-    prompt,
-    /宫廷人物：对方圣杯骑士提示骑士式人物、身份或互动姿态（行动、推进、追逐和外部变化；圣杯偏情感、关系、感受和承接）/,
-  );
+  assert.match(prompt, /断签口径：按用户问题、签诗原文、典故和签文条目解读/);
+  assert.match(prompt, /签诗：前路迢迢莫强求，且看云开月自明。/);
+  assert.match(prompt, /典故：刘备借荆州后多方周旋，需审时度势。/);
+  assert.match(prompt, /签文条目：/);
+  assert.match(prompt, /- 解签：宜守正待时，不可躁进。/);
+  assert.doesNotMatch(prompt, /吉凶层级|宜忌条件|事项映射|现实映射|典故映射/);
 });
 
 test('灵签提示词会去重重复典故，避免 story 与 details.典故 双写', () => {
@@ -1473,57 +1387,22 @@ test('灵签提示词会去重重复典故，避免 story 与 details.典故 双
     createSupplementaryInfo(),
   );
 
-  assert.equal((prompt.match(/韩信受胯下之辱，先忍后成大业。/g) ?? []).length, 2);
-  assert.match(
-    prompt,
-    /辅助证据：签题《典故去重测试》；典故韩信受胯下之辱，先忍后成大业。；解签宜暂避锋芒，等待时机。/,
-  );
-  assert.match(prompt, /- 典故：韩信受胯下之辱，先忍后成大业。/);
+  assert.equal((prompt.match(/韩信受胯下之辱，先忍后成大业。/g) ?? []).length, 1);
+  assert.match(prompt, /典故：韩信受胯下之辱，先忍后成大业。/);
+  assert.doesNotMatch(prompt, /辅助证据|^- 典故：/m);
 });
 
-test('雷诺曼提示词应以前三张核心牌作为主轴，不额外插入泛化说明', () => {
+test('雷诺曼提示词只保留牌阵、牌位和牌义', () => {
   const prompt = buildDivinationPrompt(
     'lenormand',
     '这件事接下来该怎么推进？',
     createLenormandData(),
   );
 
-  assert.match(prompt, /断牌抓手：先看核心牌，再看左右邻牌如何补充事件、人、消息、阻碍或结果。/);
-  assert.match(prompt, /主轴证据：现状骑士；阻碍山；结果太阳/);
-  assert.match(
-    prompt,
-    /核心牌：1号核心现状骑士：消息、推进；2号核心阻碍山：阻碍、拖延；3号核心结果太阳：明朗、成功/,
-  );
-  assert.match(
-    prompt,
-    /相邻组合：骑士\+山：消息受阻、推进延迟，先等卡点松动；山\+太阳：阻力后转明，先难后有结果/,
-  );
-  assert.match(prompt, /人物牌：现状骑士；人物牌只能指向现实角色、互动姿态或消息来源/);
-  assert.match(prompt, /先看相邻组合是否构成现实事件，再看单牌关键词/);
-});
-
-test('雷诺曼三牌事件线应按真实牌位描述现状，不把第二张牌固定写成阻力', () => {
-  const prompt = buildDivinationPrompt('lenormand', '这件事接下来该怎么推进？', {
-    spreadType: 'three',
-    spreadName: '三牌事件线',
-    cards: [
-      { position: '起因', name: '船', keywords: ['远方', '变化'], meaning: '有方向转换。' },
-      {
-        position: '现状',
-        name: '三叶草',
-        keywords: ['机会', '短暂好运'],
-        meaning: '短期机会出现。',
-      },
-      { position: '走向', name: '钥匙', keywords: ['答案', '突破'], meaning: '关键条件出现。' },
-    ],
-    timestamp: Date.now(),
-  });
-
-  assert.match(
-    prompt,
-    /事件链证据：起因船定起点或主轴：远方、变化；现状三叶草承接当前状态：机会、短暂好运；走向钥匙看走向或落点：答案、突破/,
-  );
-  assert.doesNotMatch(prompt, /现状三叶草补阻力/);
+  assert.match(prompt, /断牌口径：按用户选择的牌阵、牌位、牌名和牌义解读/);
+  assert.match(prompt, /- 现状：骑士；牌义：事情开始动起来。/);
+  assert.match(prompt, /- 阻碍：山；牌义：进程会被卡住。/);
+  assert.doesNotMatch(prompt, /核心牌|相邻组合|人物牌|事件链证据|组合权重|关键词/);
 });
 
 test('星盘提示词应直接给出太阳月亮上升和主要相位证据', () => {
@@ -1534,7 +1413,7 @@ test('星盘提示词应直接给出太阳月亮上升和主要相位证据', ()
   );
 
   assert.match(prompt, /【分析思路】/);
-  assert.match(prompt, /先用太阳、月亮、上升定人格主轴，再补充最关键的落宫与主相位。/);
+  assert.match(prompt, /用户没有选择具体分类时按通用星盘口径处理/);
   assert.match(prompt, /主轴证据：太阳金牛座 29°；月亮处女座 08°；上升狮子座 12°/);
   assert.match(
     prompt,

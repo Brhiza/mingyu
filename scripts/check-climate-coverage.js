@@ -1,5 +1,12 @@
 import fs from 'fs';
-const content = fs.readFileSync('d:/Administrator/Documents/GitHub/mingyu/src/utils/bazi/baziTherapeuticRules.ts', 'utf-8');
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const content = fs.readFileSync(
+  path.join(repoRoot, 'packages/core/src/bazi/baziTherapeuticRules.ts'),
+  'utf-8',
+);
 
 const rules = [];
 const blocks = content.split(/\n(?=\s*\{)/);

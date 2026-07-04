@@ -1,5 +1,5 @@
-import { baziCalculator } from '@/utils/bazi/baziCalculator';
-import type { BaziChartResult } from '@/utils/bazi/baziTypes';
+import { baziCalculator } from '@core/bazi/baziCalculator';
+import type { BaziChartResult } from '@core/bazi/baziTypes';
 import type { Person } from '@/composables/useFormState';
 
 function readInteger(value: string | number, label: string) {

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { baziCalculator } from '../../../src/utils/bazi/baziCalculator.js';
-import type { Person } from '../../../src/utils/bazi/baziTypes.js';
+import { baziCalculator } from '@core/bazi/baziCalculator';
+import type { Person } from '@core/bazi/baziTypes';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import {
   BAZI_PROMPT_TOPICS,

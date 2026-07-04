@@ -56,7 +56,7 @@ yarn add mingyu-core
 |------|--------|------|
 | **八字 Bazi** | `mingyu-core/bazi` | 四柱排盘、神煞、调候用神、格局、大运、五行强度，含透干根气、十神结构、合化评估、命卦、小运等增强分析 |
 | **六爻 Liuyao** | `mingyu-core/divination/liuyao` | 京房八宫法、纳甲、世应、六亲六神、月破日破、化进退神 |
-| **梅花易数 Meihua** | `mingyu-core/divination/meihua` | 时间/数字/随机/外应/时辰纳卦五种起卦法、体用生克 |
+| **梅花易数 Meihua** | `mingyu-core/divination/meihua` | 时间/数字/随机/外应起卦，timeTrigram 旧参数按时间起卦兼容、体用生克 |
 | **奇门遁甲 Qimen** | `mingyu-core/divination/qimen` | 转盘法、拆补定局、经典格局、节令背景、复合格局、方位应期 |
 | **大六壬 Liuren** | `mingyu-core/divination/liuren` | 月将、贵人、九宗门取传、三传、天将、神煞 |
 | **小六壬 Xiaoliuren** | `mingyu-core/divination/xiaoliuren` | 六宫掌诀、五行生克、月令旺衰 |

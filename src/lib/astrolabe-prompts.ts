@@ -462,16 +462,21 @@ export function getAstrolabeDefaultQuestion(
   return getAstrolabePromptConfig(topic).defaultQuestion;
 }
 
-export function buildAstrolabeTopicGuidanceSection(topic?: string) {
-  return getAstrolabePromptConfig(topic)
-    .guidance.map((line) => `- ${line}`)
+export function buildAstrolabeTopicGuidanceSection(_topic?: string) {
+  return [
+    '先围绕【问题】判断最相关的星体、宫位、守护星和相位，再组织答案，不要平均复述全盘。',
+    '用户没有选择具体分类时按通用星盘口径处理；用户选择了分类时只把分类作为问题范围，不补充本地固定话术。',
+    '不得编造已提供资料没有给出的新盘面事实；允许基于盘面做占星推理，但必须标明来自星体、宫位、守护星、相位或现实补充信息。',
+    '涉及风险、健康、家庭压力或重大决策时保守表达，只给趋势、边界和建议。',
+  ]
+    .map((line) => `- ${line}`)
     .join('\n');
 }
 
-export function buildAstrolabeTopicTask(topic?: string) {
-  return getAstrolabePromptConfig(topic).task;
+export function buildAstrolabeTopicTask(_topic?: string) {
+  return '请围绕用户问题最相关的星体、宫位、守护星和相位作答，提炼关键判断、盘面依据、现实边界与可执行建议。';
 }
 
-export function buildAstrolabeTopicOutputRequirement(topic?: string) {
-  return getAstrolabePromptConfig(topic).output;
+export function buildAstrolabeTopicOutputRequirement(_topic?: string) {
+  return '先直接回答【问题】，再写清主要盘面证据、判断条件和现实建议；证据不足时直接说明。';
 }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import { baziCalculator } from '../src/utils/bazi/baziCalculator';
+import { baziCalculator } from '@core/bazi/baziCalculator';
 import { BaziChartBoard } from '../src/pages/ResultPage/components/BaziChartBoard';
 
 test('八字结果盘应展示排盘预警和稳定基础参考', () => {

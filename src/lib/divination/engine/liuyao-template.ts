@@ -1,6 +1,6 @@
 import type { LiuyaoTemplateType } from '../../../types/divination';
 
-export function buildLiuyaoTemplateText(template: LiuyaoTemplateType, question: string) {
+export function buildLiuyaoTemplateText(template: LiuyaoTemplateType) {
   const templateLabelMap: Record<LiuyaoTemplateType, string> = {
     general: '通用断卦',
     ganqing: '感情关系',
@@ -19,11 +19,11 @@ export function buildLiuyaoTemplateText(template: LiuyaoTemplateType, question: 
 
   const evidenceMap: Record<LiuyaoTemplateType, string> = {
     general: '优先看世应、动爻、用神、变卦与空亡，再用伏神与六神做辅助印证。',
-    ganqing: '优先按性别与问题取官鬼或妻财为候选用神，再看世应、动变与关系阻力。',
+    ganqing: '优先按用户选择的感情断卦取官鬼或妻财为候选用神，再看世应、动变与关系阻力。',
     shiye: '优先看官鬼、父母与世应，再看动爻、变卦、空亡与外部规则压力。',
     caifu: '优先看妻财、兄弟、子孙与世应，再看动变、空亡与是否有耗财分财迹象。',
     guaishen:
-      '优先看官鬼是否旺动贴世，再看子孙能否制鬼，并结合玄武、螣蛇、白虎、勾陈与家宅疾病语义判断。',
+      '优先看官鬼是否旺动贴世，再看子孙能否制鬼，并结合玄武、螣蛇、白虎、勾陈与已知家宅或身体线索判断。',
   };
 
   const actionMap: Record<LiuyaoTemplateType, string> = {
@@ -45,7 +45,6 @@ export function buildLiuyaoTemplateText(template: LiuyaoTemplateType, question: 
     `断卦类型：${templateLabelMap[safeTemplate]}`,
     `断卦重点：${focusMap[safeTemplate]}`,
     `取证顺序：${evidenceMap[safeTemplate]}`,
-    `问题聚焦：${question || '请围绕当前问题落到现实决策。'} `,
     '建议展开顺序：',
     '1. 主判断：先说明这件事当前整体是顺、卡、反复，还是需要止损。',
     '2. 主证据：点明世应、用神、动爻、变卦、空亡、伏神里最关键的证据。',

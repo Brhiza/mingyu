@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ChildLimit, Gender, SolarTime } from 'tyme4ts';
-import { baziCalculator } from '../src/utils/bazi/baziCalculator';
-import { TIME_MAP } from '../src/utils/bazi/baziDisplayData';
+import { baziCalculator } from '@core/bazi/baziCalculator';
+import { TIME_MAP } from '@core/bazi/baziDisplayData';
 
 function collectXiaoyunByAge(result: ReturnType<typeof baziCalculator.calculateBazi>) {
   const ageMap = new Map<number, string>();

@@ -1,6 +1,6 @@
 import type { PalaceFact, ScopeType, StarFact } from '../../types/analysis';
-import type { BaziChartResult } from '../../utils/bazi/baziTypes';
-import type { FortuneSelectionContext } from '../../utils/bazi/fortuneSelection';
+import type { BaziChartResult } from '@core/bazi/baziTypes';
+import type { FortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import {
   BAZI_AI_PROMPTS,
   buildPromptFromConfig,
@@ -261,22 +261,8 @@ export function buildZiweiPromptForRuntime(params: {
   return baseText;
 }
 
-function buildPublicZiweiTaskText(topic: ZiweiPromptTopic) {
-  const topicTextMap: Partial<Record<ZiweiPromptTopic, string>> = {
-    relationship:
-      '围绕感情关系，优先看夫妻宫、命宫、福德宫、迁移宫、三方四正与四化牵动，判断关系模式、风险点和经营建议。',
-    'career-wealth':
-      '围绕事业财运，优先看官禄宫、财帛宫、命宫、迁移宫、福德宫与四化牵动，判断发展方向、资源优势和风险边界。',
-    'job-change':
-      '围绕工作变动，优先看官禄宫、迁移宫、财帛宫、命宫与当前分析对象，判断留任、跳槽或转方向的条件。',
-    recent:
-      '围绕近期趋势，优先看当前分析对象、本命底色、重点宫位和四化触发，判断阶段主线、机会与风险。',
-    life: '围绕人生解析，优先看命身定位、长期课题、能力资源、关系模式、关键转折和当前阶段策略。',
-    destiny: '围绕命局综述，优先看命身格局、核心宫位、生年四化、三方四正与长期人生主线。',
-    chat: '先判断问题落在哪些宫位，再选取对应宫位、三方四正、四化和分析对象作为主要证据。',
-  };
-
-  return topicTextMap[topic] ?? topicTextMap.chat!;
+function buildPublicZiweiTaskText(_topic: ZiweiPromptTopic) {
+  return '先判断问题对应的宫位范围，再选取重点宫位、三方四正、四化和分析对象作为主要证据；用户未选择主题时按通用口径处理，用户选择主题时只把主题作为问题范围。';
 }
 
 const ZIWEI_TOPIC_PALACE_NAMES: Partial<Record<ZiweiPromptTopic, string[]>> = {

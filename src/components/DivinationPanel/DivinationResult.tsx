@@ -61,13 +61,6 @@ function XiaoliurenStageCard(props: { label: string; detail: XiaoliurenPalaceDet
         <strong>{detail.name}</strong>
       </div>
       <p>{detail.meaning}</p>
-      <div className="xiaoliuren-keyword-row">
-        {detail.keywords.map((keyword) => (
-          <span className="result-soft-tag" key={`${detail.name}-${keyword}`}>
-            {keyword}
-          </span>
-        ))}
-      </div>
       <small>建议：{detail.advice}</small>
     </article>
   );

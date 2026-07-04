@@ -4,7 +4,7 @@
  * 所有数据均经过严格考证，以确保其符合古籍记载之法理。
  */
 
-import { EARTHLY_BRANCHES, HEAVENLY_STEMS } from '../utils/bazi/baziMappingsData';
+import { EARTHLY_BRANCHES, HEAVENLY_STEMS } from '@core/bazi/baziMappingsData';
 
 // 地支
 export const dizhi: readonly string[] = EARTHLY_BRANCHES;

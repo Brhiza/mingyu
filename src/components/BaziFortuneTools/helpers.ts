@@ -1,5 +1,5 @@
 import type { BaziFortuneScope } from '@/lib/query-state';
-import type { BaziChartResult } from '@/utils/bazi/baziTypes';
+import type { BaziChartResult } from '@core/bazi/baziTypes';
 
 export const baziFortuneScopeLabelMap: Record<BaziFortuneScope, string> = {
   natal: '本命',

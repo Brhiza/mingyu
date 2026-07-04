@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BASIC_MAPPINGS as appBaziMappings } from '../src/utils/bazi/baziMappingsData';
+import { BASIC_MAPPINGS as appBaziMappings } from '@core/bazi/baziMappingsData';
 import {
   BASIC_MAPPINGS as coreBaziMappings,
   MONTH_COMMANDER as coreMonthCommander,
 } from '../packages/core/src/bazi/baziMappingsData';
-import { MONTH_COMMANDER as appMonthCommander } from '../src/utils/bazi/baziMappingsData';
+import { MONTH_COMMANDER as appMonthCommander } from '@core/bazi/baziMappingsData';
 import { TIAN_GAN_CHONG as appDivinationChong } from '../packages/core/src/divination/algorithms/_shared/wuxing';
 import {
   TIAN_GAN_CHONG as coreDivinationChong,
@@ -22,8 +22,8 @@ import { analyzeTombStorage } from '../packages/core/src/bazi/tombStorage';
 import { getTenGod, getWuxing } from '../packages/core/src/bazi/baziUtils';
 import { analyzeGanzhiInteractions as analyzeAppQimenGanzhi } from '../packages/core/src/divination/algorithms/qimen/helpers/seasonality';
 import { analyzeGanzhiInteractions as analyzeCoreQimenGanzhi } from '../packages/core/src/divination/algorithms/qimen/helpers/seasonality';
-import { buildFortuneSelectionContext } from '../src/utils/bazi/fortuneSelection';
-import type { BaziChartResult } from '../src/utils/bazi/baziTypes';
+import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
+import type { BaziChartResult } from '@core/bazi/baziTypes';
 
 function createFortuneMockResult(): BaziChartResult {
   return {

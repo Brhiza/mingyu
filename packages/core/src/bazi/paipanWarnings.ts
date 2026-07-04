@@ -80,28 +80,27 @@ export function checkJieqiBoundary(t: BoundaryCheckInput): string[] {
 
   for (const y of [t.year - 1, t.year, t.year + 1]) {
     for (let i = 0; i < 24; i++) {
-      let term: SolarTerm;
       try {
-        term = SolarTerm.fromIndex(y, i);
+        const term = SolarTerm.fromIndex(y, i);
+        const name = term.getName();
+        if (!JIE_NAMES.has(name)) {
+          continue;
+        }
+        const st = term.getJulianDay().getSolarTime();
+        const termMs = Date.UTC(
+          st.getYear(),
+          st.getMonth() - 1,
+          st.getDay(),
+          st.getHour(),
+          st.getMinute(),
+          st.getSecond(),
+        );
+        const diffMinutes = Math.abs(termMs - birthMs) / 60000;
+        if (!best || diffMinutes < best.diffMinutes) {
+          best = { name, diffMinutes, before: birthMs < termMs };
+        }
       } catch {
         continue;
-      }
-      const name = term.getName();
-      if (!JIE_NAMES.has(name)) {
-        continue;
-      }
-      const st = term.getJulianDay().getSolarTime();
-      const termMs = Date.UTC(
-        st.getYear(),
-        st.getMonth() - 1,
-        st.getDay(),
-        st.getHour(),
-        st.getMinute(),
-        st.getSecond(),
-      );
-      const diffMinutes = Math.abs(termMs - birthMs) / 60000;
-      if (!best || diffMinutes < best.diffMinutes) {
-        best = { name, diffMinutes, before: birthMs < termMs };
       }
     }
   }

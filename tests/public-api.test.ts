@@ -7,8 +7,8 @@ import {
   buildZiweiPromptForRuntime,
   type BaziPromptTopic,
 } from '../src/lib/public-api/prompt-builders';
-import { baziCalculator } from '../src/utils/bazi/baziCalculator';
-import { calculateTrueSolarTime } from '../src/utils/bazi/trueSolarTime';
+import { baziCalculator } from '@core/bazi/baziCalculator';
+import { calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
@@ -784,7 +784,8 @@ test('紫微公开 API 工作变动专项主题应输出对应分析主题与框
 
   assert.match(prompt, /分析主题：工作变动/);
   assert.match(prompt, /【问题】\n请先从现在适不适合换工作、转方向和如何判断时机开始分析。/);
-  assert.match(prompt, /工作变动先看官禄宫、迁移宫、财帛宫、命宫、田宅宫与福德宫/);
+  assert.match(prompt, /重点参考宫位：官禄宫、迁移宫、财帛宫、命宫/);
+  assert.match(prompt, /用户选择了主题时只把主题作为问题范围，不补充本地固定话术/);
 });
 
 test('公开 API 紫微未指定方向时应默认走综合框架而不是自由问答', async () => {
@@ -807,7 +808,8 @@ test('公开 API 紫微未指定方向时应默认走综合框架而不是自由
   assert.equal(body.ok, true);
   assert.match(body.data.prompt, /【分析背景】/);
   assert.match(body.data.prompt, /分析主题：人生解析/);
-  assert.match(body.data.prompt, /围绕人生解析，优先看命身定位、长期课题、能力资源/);
+  assert.match(body.data.prompt, /用户未选择主题时按通用口径处理，用户选择主题时只把主题作为问题范围/);
+  assert.match(body.data.prompt, /【重点宫位】/);
   assert.match(body.data.prompt, /【输出要求】/);
   assert.doesNotMatch(body.data.prompt, /自由问答先判断问题落在哪些宫位/);
 });

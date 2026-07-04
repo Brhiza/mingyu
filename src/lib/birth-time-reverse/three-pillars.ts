@@ -1,10 +1,5 @@
 import { LunarHour, SolarTime } from 'tyme4ts';
-import {
-  getGanYinYang,
-  getTenGod,
-  getTenGodForBranch,
-  getWuxing,
-} from '../../utils/bazi/baziUtils';
+import { getGanYinYang, getTenGod, getTenGodForBranch, getWuxing } from '@core/bazi/baziUtils';
 import { getBirthDateValidationMessage } from '../date-validation';
 
 export type BirthBaseInput = {

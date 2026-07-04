@@ -7,12 +7,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { baziCalculator } from '../src/utils/bazi/baziCalculator';
-import { checkChinaDst, isDateInChinaDstRange } from '../src/utils/bazi/chinaDst';
+import { baziCalculator } from '@core/bazi/baziCalculator';
+import { checkChinaDst, isDateInChinaDstRange } from '@core/bazi/chinaDst';
 import {
   checkJieqiBoundary,
   checkShichenBoundary,
-} from '../src/utils/bazi/paipanWarnings';
+} from '@core/bazi/paipanWarnings';
 
 const ganZhi = (p: { gan: string; zhi: string }) => `${p.gan}${p.zhi}`;
 

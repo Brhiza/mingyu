@@ -1,6 +1,6 @@
-import { baziCalculator } from '../../utils/bazi/baziCalculator';
-import type { ShenShaVariantConfig } from '../../utils/bazi/baziShenSha';
-import type { Person } from '../../utils/bazi/baziTypes';
+import { baziCalculator } from '@core/bazi/baziCalculator';
+import type { ShenShaVariantConfig } from '@core/bazi/baziShenSha';
+import type { Person } from '@core/bazi/baziTypes';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import {
   buildZiweiChartInput,
@@ -248,7 +248,7 @@ const DIVINATION_REQUEST_PROPERTIES = {
       'nine',
     ],
     description:
-      '塔罗支持 single、three、love、career、decision、celtic、chakra、year、mindBodySpirit、horseshoe；雷诺曼支持 single、three、relationship、decision、nine。',
+      '塔罗支持 single、three、love、career、decision、celtic、chakra、year、mindBodySpirit、horseshoe；雷诺曼支持 single、three、relationship、decision、nine；不传时使用 single。',
   },
   liuyaoTemplate: { enum: ['general', 'ganqing', 'shiye', 'caifu', 'guaishen'] },
   liurenTemplate: { enum: ['general', 'ganqing', 'shiye', 'caifu'] },
@@ -265,6 +265,7 @@ const DIVINATION_REQUEST_PROPERTIES = {
       'renovation',
       'custom',
     ],
+    description: '黄历择日事项；不传时使用 custom。',
   },
   startDate: { type: 'string', format: 'date' },
   endDate: { type: 'string', format: 'date' },
@@ -1026,18 +1027,23 @@ function calculateSsgw(input: JsonRecord) {
 function calculateAlmanac(input: JsonRecord) {
   const { startDate, endDate } = readAlmanacDateRange(input);
   return generateAlmanacSelection({
-    topic: readEnum(input, 'topic', [
-      'marriage',
-      'move',
-      'opening',
-      'contract',
-      'travel',
-      'medical',
-      'study',
-      'burial',
-      'renovation',
+    topic: readEnum(
+      input,
+      'topic',
+      [
+        'marriage',
+        'move',
+        'opening',
+        'contract',
+        'travel',
+        'medical',
+        'study',
+        'burial',
+        'renovation',
+        'custom',
+      ],
       'custom',
-    ]) as AlmanacTopic,
+    ) as AlmanacTopic,
     startDate,
     endDate,
     participants: readAlmanacParticipants(input),
@@ -1050,7 +1056,7 @@ function calculateLenormand(input: JsonRecord) {
       input,
       'spreadType',
       ['single', 'three', 'five', 'relationship', 'decision', 'nine', 'element', 'grandTableau'],
-      'three',
+      'single',
     ) as LenormandSpreadType,
   );
 }

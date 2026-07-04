@@ -18,8 +18,8 @@ import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { buildAstrolabeScopeContext } from '../src/lib/astrolabe-scope';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { drawSpreadCards, getCardKeywords } from 'mingyu-core/divination/tarot';
-import { baziCalculator } from '../src/utils/bazi/baziCalculator';
-import { buildFortuneSelectionContext } from '../src/utils/bazi/fortuneSelection';
+import { baziCalculator } from '@core/bazi/baziCalculator';
+import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import {
   DEFAULT_REVERSE_BIRTH_TIME_FORM_DATA,
   buildReverseBirthTimePrompt,
@@ -124,45 +124,25 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '小六壬',
-    requiredFields: withCommonProjectSupplementRequired(['问题映射', '行动建议等级', '复盘窗口']),
+    requiredFields: withCommonProjectSupplementRequired(['取象提示', '行动建议等级', '复盘窗口']),
   },
   {
     sampleName: '塔罗牌',
-    requiredFields: withCommonProjectSupplementRequired([
-      '牌组层级',
-      '元素数字',
-      '宫廷人物',
-      '牌间叙事',
-      '现实边界',
-    ]),
+    requiredFields: withCommonProjectSupplementRequired(['断牌口径', '牌位明细', '现实边界']),
   },
   {
     sampleName: '雷诺曼',
-    requiredFields: withCommonProjectSupplementRequired([
-      '核心牌',
-      '相邻组合',
-      '人物牌',
-      '事件牌',
-      '时间牌',
-      '镜像提示',
-    ]),
+    requiredFields: withCommonProjectSupplementRequired(['断牌口径', '牌位明细']),
   },
   {
     sampleName: '三山国王灵签',
-    requiredFields: withCommonProjectSupplementRequired([
-      '逐句签意',
-      '事项分类',
-      '吉凶层级',
-      '宜忌条件',
-      '典故映射',
-      '复盘条件',
-    ]),
+    requiredFields: withCommonProjectSupplementRequired(['断签口径', '签诗：', '签文条目']),
   },
   {
     sampleName: '择日',
     requiredFields: [
       '择日补充：计划在六月上旬签署项目合作合同，希望兼顾推进效率、资金安全和双方合作稳定。',
-      '事项权重',
+      '事项口径',
       '参与人适配',
       '禁忌降级',
       '现实约束',

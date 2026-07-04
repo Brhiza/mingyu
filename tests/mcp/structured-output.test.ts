@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { TIME_MAP } from '../../src/utils/bazi/baziDisplayData';
-import { calculateTrueSolarTime } from '../../src/utils/bazi/trueSolarTime';
+import { baziCalculator } from '@core/bazi/baziCalculator';
+import { TIME_MAP } from '@core/bazi/baziDisplayData';
+import { calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { assertPromptIsPortableTaskText } from '../prompt-assertions';
 
@@ -269,10 +270,9 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
     });
     assert.equal(ziweiFrameworkResult.isError, undefined, 'ziwei_prompt framework 不应返回错误');
     const ziweiFrameworkPrompt = String(ziweiFrameworkResult.structuredContent?.prompt);
-    assert.match(
-      ziweiFrameworkPrompt,
-      /人生解析按“命身定位、长期课题、能力资源、关系模式、关键转折、当前阶段策略”展开。/,
-    );
+    assert.match(ziweiFrameworkPrompt, /分析主题：人生解析/);
+    assert.match(ziweiFrameworkPrompt, /用户没有选择具体主题时按通用紫微口径处理/);
+    assert.match(ziweiFrameworkPrompt, /【重点宫位资料】/);
     assert.doesNotMatch(ziweiFrameworkPrompt, /自由问答先判断问题落在哪些宫位/);
     assertPromptIsPortableTaskText(ziweiFrameworkPrompt);
   });
@@ -280,37 +280,44 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
 
 test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
   await withMcpClient(async (client) => {
-    const baziCorrected = calculateTrueSolarTime(
-      {
-        year: 1990,
-        month: 5,
-        day: 15,
-        hour: 1,
-        minute: 20,
-      },
-      73.5,
-    ).correctedTime;
+    const baziPerson = {
+      gender: 'male' as const,
+      year: 1990,
+      month: 5,
+      day: 15,
+      timeIndex: 1,
+      isLunar: false,
+      useTrueSolarTime: true,
+      birthHour: 1,
+      birthMinute: 20,
+      birthLongitude: 73.5,
+    };
+    const baziExpected = baziCalculator.calculateBazi(baziPerson);
     const baziResult = await client.callTool({
       name: 'bazi_calculate',
       arguments: {
-        gender: 'male',
-        year: 1990,
-        month: 5,
-        day: 15,
+        gender: baziPerson.gender,
+        year: baziPerson.year,
+        month: baziPerson.month,
+        day: baziPerson.day,
         dateType: 'solar',
         useTrueSolarTime: true,
-        birthHour: 1,
-        birthMinute: 20,
-        birthLongitude: 73.5,
+        birthHour: baziPerson.birthHour,
+        birthMinute: baziPerson.birthMinute,
+        birthLongitude: baziPerson.birthLongitude,
       },
     });
 
     assert.equal(baziResult.isError, undefined, 'bazi_calculate 真太阳时不应返回错误');
     const baziChart = baziResult.structuredContent?.result as {
-      timing?: { correctedTime?: { hour?: number; minute?: number } };
+      timing?: { correctedTime?: { hour?: number; minute?: number }; dstCorrectionMinutes?: number };
     };
-    assert.equal(baziChart.timing?.correctedTime?.hour, baziCorrected.hour);
-    assert.equal(baziChart.timing?.correctedTime?.minute, baziCorrected.minute);
+    assert.equal(baziChart.timing?.correctedTime?.hour, baziExpected.timing?.correctedTime.hour);
+    assert.equal(
+      baziChart.timing?.correctedTime?.minute,
+      baziExpected.timing?.correctedTime.minute,
+    );
+    assert.equal(baziChart.timing?.dstCorrectionMinutes, baziExpected.timing?.dstCorrectionMinutes);
 
     const ziweiCorrected = calculateTrueSolarTime(
       {
