@@ -812,6 +812,45 @@ test('五行精纪生成马应按年支或日支三合组取固定干支', () =>
   }
 });
 
+test('五行精纪生成禄与名位禄应按年干或日干固定干支取用', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['乙', '卯'],
+        ['戊', '辰'],
+        ['丁', '巳'],
+      ],
+      'male',
+    );
+    const mingWeiHitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丙', '寅'],
+        ['己', '丑'],
+        ['辛', '午'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['庚', '寅'],
+        ['戊', '辰'],
+        ['丙', '巳'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.month.includes('生成禄'));
+    assert.ok(hitResult.hour.includes('生成禄'));
+    assert.ok(mingWeiHitResult.month.includes('名位禄'));
+    assert.ok(mingWeiHitResult.hour.includes('名位禄'));
+    assert.ok(!Object.values(missResult).flat().includes('生成禄'));
+    assert.ok(!Object.values(missResult).flat().includes('名位禄'));
+  }
+});
+
 test('五行精纪勾陈真武应按年干日干定支取用', () => {
   for (const calculator of createCalculators()) {
     const hitResult = calculator.calculateAllShenSha(

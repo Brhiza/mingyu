@@ -32,6 +32,8 @@ const shenShaCategories: StringMap = {
   官贵学馆: '学业',
 
   禄神: '权力',
+  生成禄: '权力',
+  名位禄: '权力',
   禄对神: '权力',
   禄头财: '权力',
   库头财: '权力',
@@ -233,6 +235,8 @@ export const shenShaTypes: { lucky: string[]; unlucky: string[]; neutral: string
     '天奇',
     '天宝',
     '禄神',
+    '生成禄',
+    '名位禄',
     '禄对神',
     '禄头财',
     '库头财',
