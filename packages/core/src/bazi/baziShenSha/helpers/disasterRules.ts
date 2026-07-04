@@ -91,6 +91,85 @@ const PO_JUN_BY_YEAR_BRANCH: Record<string, string> = {
   丑: '申',
 };
 
+type YearBranchGroup = '寅午戌' | '巳酉丑' | '申子辰' | '亥卯未';
+
+const YEAR_BRANCH_GROUP_BY_BRANCH: Record<string, YearBranchGroup> = {
+  寅: '寅午戌',
+  午: '寅午戌',
+  戌: '寅午戌',
+  巳: '巳酉丑',
+  酉: '巳酉丑',
+  丑: '巳酉丑',
+  申: '申子辰',
+  子: '申子辰',
+  辰: '申子辰',
+  亥: '亥卯未',
+  卯: '亥卯未',
+  未: '亥卯未',
+};
+
+const JIE_TOU_SHA_BY_YEAR_GROUP: Record<YearBranchGroup, Record<string, string>> = {
+  寅午戌: {
+    甲: '己亥',
+    丙: '辛亥',
+    戊: '癸亥',
+    庚: '乙亥',
+    壬: '丁亥',
+  },
+  巳酉丑: {
+    乙: '戊寅',
+    丁: '庚寅',
+    己: '壬寅',
+    辛: '甲寅',
+    癸: '丙寅',
+  },
+  申子辰: {
+    甲: '己巳',
+    丙: '辛巳',
+    戊: '癸巳',
+    庚: '乙巳',
+    壬: '丁巳',
+  },
+  亥卯未: {
+    乙: '戊申',
+    丁: '庚申',
+    己: '壬申',
+    辛: '甲申',
+    癸: '丙申',
+  },
+};
+
+const JIE_TOU_GUI_BY_YEAR_GROUP: Record<YearBranchGroup, Record<string, string>> = {
+  寅午戌: {
+    甲: '辛亥',
+    丙: '癸亥',
+    戊: '乙亥',
+    庚: '丁亥',
+    壬: '己亥',
+  },
+  巳酉丑: {
+    乙: '庚寅',
+    丁: '壬寅',
+    己: '甲寅',
+    辛: '丙寅',
+    癸: '戊寅',
+  },
+  申子辰: {
+    甲: '辛巳',
+    丙: '癸巳',
+    戊: '乙巳',
+    庚: '丁巳',
+    壬: '己巳',
+  },
+  亥卯未: {
+    乙: '庚申',
+    丁: '壬申',
+    己: '甲申',
+    辛: '丙申',
+    癸: '戊申',
+  },
+};
+
 const SAN_GONG_SHA_BY_YEAR_BRANCH: Record<string, string> = {
   寅: '壬子',
   午: '壬子',
@@ -586,6 +665,9 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
   const anJinSha = AN_JIN_SHA_BY_YEAR_BRANCH[nianZhi];
   const anJinShaHits = anJinSha?.branch === zhi;
   const sanQiuWuMu = SAN_QIU_WU_MU_BY_MONTH_BRANCH[yueZhi];
+  const yearBranchGroup = YEAR_BRANCH_GROUP_BY_BRANCH[nianZhi];
+  const jieTouShaPillar = JIE_TOU_SHA_BY_YEAR_GROUP[yearBranchGroup]?.[nianGan];
+  const jieTouGuiPillar = JIE_TOU_GUI_BY_YEAR_GROUP[yearBranchGroup]?.[nianGan];
   const shiZhi = baziArray[3]?.[1] || '';
   const tianShangBranch = shiZhi ? cdz[(zhiIdx(shiZhi) - 2 + 12) % 12] : '';
   const riKongWangBranches = calculateKongWangBranches(riGan, riZhi);
@@ -656,6 +738,8 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
       };
       return map[nianZhi] === zhi || map[riZhi] === zhi;
     },
+    劫头杀: () => jieTouShaPillar === pillarGZ,
+    劫头鬼: () => jieTouGuiPillar === pillarGZ,
     灾煞: () => {
       const map: Record<string, string> = {
         申: '午',

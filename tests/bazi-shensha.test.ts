@@ -255,6 +255,37 @@ test('天杀应按劫杀前二辰取出', () => {
   }
 });
 
+test('五行精纪劫头杀与劫头鬼应按年干年支定例取用', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '寅'],
+        ['己', '亥'],
+        ['辛', '亥'],
+        ['丁', '卯'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '寅'],
+        ['己', '戌'],
+        ['辛', '戌'],
+        ['丁', '卯'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.month.includes('劫头杀'));
+    assert.ok(hitResult.day.includes('劫头鬼'));
+    assert.ok(
+      !Object.values(missResult)
+        .flat()
+        .some((name) => ['劫头杀', '劫头鬼'].includes(name)),
+    );
+  }
+});
+
 test('地杀应按劫杀前五辰取出', () => {
   for (const calculator of createCalculators()) {
     const result = calculator.calculateAllShenSha(
@@ -762,7 +793,11 @@ test('五行精纪命天庭禄九天禄九地应按命前与禄后定支取用',
     assert.ok(hitResult.month.includes('命天庭'));
     assert.ok(hitResult.day.includes('禄九天'));
     assert.ok(hitResult.hour.includes('禄九地'));
-    assert.ok(!Object.values(missResult).flat().some((name) => ['命天庭', '禄九天', '禄九地'].includes(name)));
+    assert.ok(
+      !Object.values(missResult)
+        .flat()
+        .some((name) => ['命天庭', '禄九天', '禄九地'].includes(name)),
+    );
   }
 });
 
@@ -790,6 +825,99 @@ test('五行精纪禄对神应按年干或日干禄位对冲取用', () => {
     assert.ok(hitResult.year.includes('禄对神'));
     assert.ok(hitResult.day.includes('禄对神'));
     assert.ok(!Object.values(missResult).flat().includes('禄对神'));
+  }
+});
+
+test('五行精纪禄头财与禄头鬼应按年干或日干禄位干支取用', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['戊', '寅'],
+        ['丁', '卯'],
+        ['壬', '午'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['戊', '卯'],
+        ['丁', '卯'],
+        ['癸', '未'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.month.includes('禄头财'));
+    assert.ok(hitResult.hour.includes('禄头鬼'));
+    assert.ok(
+      !Object.values(missResult)
+        .flat()
+        .some((name) => ['禄头财', '禄头鬼'].includes(name)),
+    );
+  }
+});
+
+test('五行精纪刃头财与刃头鬼应按年干或日干刃位干支取用', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['己', '卯'],
+        ['丁', '卯'],
+        ['癸', '未'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['戊', '寅'],
+        ['丁', '卯'],
+        ['壬', '午'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.month.includes('刃头财'));
+    assert.ok(hitResult.hour.includes('刃头鬼'));
+    assert.ok(
+      !Object.values(missResult)
+        .flat()
+        .some((name) => ['刃头财', '刃头鬼'].includes(name)),
+    );
+  }
+});
+
+test('三命通会库头财与库头鬼应按年干或日干库位干支取用', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['己', '未'],
+        ['丁', '卯'],
+        ['辛', '未'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['己', '卯'],
+        ['丁', '卯'],
+        ['辛', '卯'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.month.includes('库头财'));
+    assert.ok(hitResult.hour.includes('库头鬼'));
+    assert.ok(
+      !Object.values(missResult)
+        .flat()
+        .some((name) => ['库头财', '库头鬼'].includes(name)),
+    );
   }
 });
 
@@ -2170,7 +2298,11 @@ test('五行精纪青龙杀良会杀应按年支三合组固定干支取用', ()
       ],
       'male',
     );
-    assert.ok(!Object.values(missResult).flat().some((name) => ['青龙杀', '良会杀'].includes(name)));
+    assert.ok(
+      !Object.values(missResult)
+        .flat()
+        .some((name) => ['青龙杀', '良会杀'].includes(name)),
+    );
   }
 });
 
