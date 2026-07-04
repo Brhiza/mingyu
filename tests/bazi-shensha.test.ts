@@ -1466,6 +1466,36 @@ test('五行精纪真魁星应只取日时四干支', () => {
   }
 });
 
+test('五行精纪魁星与壶中子文星应只取日时固定干支', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['丁', '巳'],
+        ['辛', '卯'],
+        ['丁', '亥'],
+        ['乙', '亥'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丙', '寅'],
+        ['戊', '辰'],
+        ['己', '未'],
+      ],
+      'male',
+    );
+
+    assert.ok(!hitResult.year.includes('文星'));
+    assert.ok(!hitResult.month.includes('魁星'));
+    assert.ok(hitResult.day.includes('魁星'));
+    assert.ok(hitResult.hour.includes('文星'));
+    assert.ok(!Object.values(missResult).flat().includes('魁星'));
+    assert.ok(!Object.values(missResult).flat().includes('文星'));
+  }
+});
+
 test('岁窠应只在年支与月支相同时标记月柱', () => {
   for (const calculator of createCalculators()) {
     const hitResult = calculator.calculateAllShenSha(

@@ -42,6 +42,8 @@ const KE_MING_GUI_PILLARS = [
 ];
 
 const ZHEN_KUI_XING_PILLARS = ['甲辰', '丁未', '庚戌', '癸丑'];
+const KUI_XING_PILLARS = ['丁亥', '辛卯', '庚戌'];
+const WEN_XING_PILLARS = ['乙亥', '丁巳'];
 
 const MING_FU_MONTH_BRANCH_BY_YEAR_STEM: Record<string, string> = {
   甲: '酉',
@@ -360,6 +362,8 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
     天奇: () => branchFromHour(5) === zhi,
     天宝: () => branchFromHour(-5) === zhi,
     科名贵: () => pillarIndex >= 2 && KE_MING_GUI_PILLARS.includes(pillarGZ),
+    魁星: () => pillarIndex >= 2 && KUI_XING_PILLARS.includes(pillarGZ),
+    文星: () => pillarIndex >= 2 && WEN_XING_PILLARS.includes(pillarGZ),
     真魁星: () => pillarIndex >= 2 && ZHEN_KUI_XING_PILLARS.includes(pillarGZ),
     岁窠: () => pillarIndex === 1 && zhi === nianZhi,
     名福: () => pillarIndex === 1 && MING_FU_MONTH_BRANCH_BY_YEAR_STEM[nianGan] === zhi,
