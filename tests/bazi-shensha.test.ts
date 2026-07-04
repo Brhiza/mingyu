@@ -1219,6 +1219,33 @@ test('三命通会天印贵人应按稳定十干口诀取地支', () => {
   }
 });
 
+test('五行精纪官贵堂应按稳定九干取地支', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丁', '未'],
+        ['癸', '辰'],
+        ['壬', '午'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['戊', '子'],
+        ['丁', '午'],
+        ['壬', '辰'],
+        ['癸', '巳'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.month.includes('官贵堂'));
+    assert.ok(hitResult.hour.includes('官贵堂'));
+    assert.ok(!Object.values(missResult).flat().includes('官贵堂'));
+  }
+});
+
 test('科名贵应只取甲辰至癸丑一旬的日时干支', () => {
   for (const calculator of createCalculators()) {
     const hitResult = calculator.calculateAllShenSha(
