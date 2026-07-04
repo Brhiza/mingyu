@@ -1597,3 +1597,71 @@ test('五行精纪点头杀与无形鬼应按日时固定干支旁证取用', ()
     assert.ok(!Object.values(wuXingGuiMissResult).flat().includes('无形鬼'));
   }
 });
+
+test('五行精纪离乡杀、天屠别名与颠倒杀应按原文字表取用', () => {
+  for (const calculator of createCalculators()) {
+    const liXiangResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '寅'],
+        ['乙', '丑'],
+        ['丙', '午'],
+        ['丁', '卯'],
+      ],
+      'male',
+    );
+    const liXiangMissResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '寅'],
+        ['乙', '丑'],
+        ['丙', '巳'],
+        ['丁', '卯'],
+      ],
+      'male',
+    );
+    const aliasResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['乙', '丑'],
+        ['壬', '辰'],
+        ['辛', '卯'],
+      ],
+      'male',
+    );
+    const aliasMoreResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['乙', '丑'],
+        ['癸', '巳'],
+        ['丁', '未'],
+      ],
+      'male',
+    );
+    const dianDaoResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['乙', '丑'],
+        ['丙', '寅'],
+        ['丁', '丑'],
+      ],
+      'male',
+    );
+    const dianDaoMissResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['乙', '丑'],
+        ['丙', '寅'],
+        ['丁', '寅'],
+      ],
+      'male',
+    );
+
+    assert.ok(liXiangResult.day.includes('离乡杀'));
+    assert.ok(!liXiangMissResult.day.includes('离乡杀'));
+    assert.ok(aliasResult.day.includes('玄武受戮'));
+    assert.ok(aliasResult.hour.includes('白虎丧目'));
+    assert.ok(aliasMoreResult.day.includes('青龙伏藏'));
+    assert.ok(aliasMoreResult.hour.includes('玄武折足'));
+    assert.ok(dianDaoResult.hour.includes('颠倒杀'));
+    assert.ok(!dianDaoMissResult.hour.includes('颠倒杀'));
+  }
+});

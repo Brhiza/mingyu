@@ -14,7 +14,6 @@ const JIE_LU_KONG_WANG_HOUR_BRANCHES: Record<string, string[]> = {
   癸: ['戌', '亥'],
 };
 
-// 来源：《三命通会》卷三，天屠煞除子日午时、午日子时外，余按日时配对取。
 const TIAN_TU_SHA_HOUR_BRANCH_BY_DAY_BRANCH: Record<string, string> = {
   丑: '亥',
   亥: '丑',
@@ -26,6 +25,13 @@ const TIAN_TU_SHA_HOUR_BRANCH_BY_DAY_BRANCH: Record<string, string> = {
   申: '辰',
   巳: '未',
   未: '巳',
+};
+
+const DIAN_DAO_SHA_HOUR_BRANCH_BY_DAY_BRANCH: Record<string, string> = {
+  寅: '丑',
+  巳: '辰',
+  申: '未',
+  亥: '戌',
 };
 
 const JI_FENG_SHA_STEMS_BY_MONTH_BRANCH: Record<string, string[]> = {
@@ -81,6 +87,11 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
   return {
     截路空亡: () => pillarIndex === 3 && JIE_LU_KONG_WANG_HOUR_BRANCHES[riGan]?.includes(zhi),
     天屠煞: () => pillarIndex === 3 && TIAN_TU_SHA_HOUR_BRANCH_BY_DAY_BRANCH[riZhi] === zhi,
+    颠倒杀: () => pillarIndex === 3 && DIAN_DAO_SHA_HOUR_BRANCH_BY_DAY_BRANCH[riZhi] === zhi,
+    玄武受戮: () => (pillarIndex === 2 || pillarIndex === 3) && pillarGZ === '壬辰',
+    青龙伏藏: () => (pillarIndex === 2 || pillarIndex === 3) && pillarGZ === '癸巳',
+    玄武折足: () => (pillarIndex === 2 || pillarIndex === 3) && pillarGZ === '丁未',
+    白虎丧目: () => pillarIndex === 3 && pillarGZ === '辛卯',
     戟锋煞: () =>
       (pillarIndex === 2 || pillarIndex === 3) && hasJiFengSha && jiFengStems.includes(gan),
     天赦日: () => {
