@@ -249,6 +249,21 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       };
       return map[nianGan] === zhi || map[riGan] === zhi;
     },
+    文星贵: () => {
+      const map: Record<string, string> = {
+        甲: '午',
+        乙: '巳',
+        丙: '申',
+        丁: '酉',
+        戊: '申',
+        己: '酉',
+        庚: '戌',
+        辛: '亥',
+        壬: '寅',
+        癸: '卯',
+      };
+      return map[nianGan] === zhi || map[riGan] === zhi;
+    },
     国印贵人: () => {
       const map: Record<string, string> = {
         甲: '戌',

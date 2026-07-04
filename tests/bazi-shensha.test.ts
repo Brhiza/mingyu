@@ -899,6 +899,33 @@ test('官贵学馆应按官星长生临官位取地支', () => {
   }
 });
 
+test('文星贵应按三命通会十干口诀取地支', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丙', '午'],
+        ['壬', '辰'],
+        ['丁', '寅'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '子'],
+        ['丙', '未'],
+        ['壬', '辰'],
+        ['丁', '丑'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.month.includes('文星贵'));
+    assert.ok(hitResult.hour.includes('文星贵'));
+    assert.ok(!Object.values(missResult).flat().includes('文星贵'));
+  }
+});
+
 test('红艳煞应按三命通会定例取乙午戊子壬巳', () => {
   const cases = [
     { stem: '乙', hitBranch: '午', oldWrongBranch: '申' },
