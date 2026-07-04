@@ -140,6 +140,32 @@ test('德秀贵人在申子辰月应按三命通会取干表', () => {
   assert.ok(!missResult.day.includes('德秀贵人'));
 });
 
+test('三奇贵人应按年月日时顺布取用，不应要求相邻三柱', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['乙', '丑'],
+        ['丙', '寅'],
+        ['庚', '申'],
+        ['丁', '亥'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['丁', '丑'],
+        ['丙', '寅'],
+        ['庚', '申'],
+        ['乙', '亥'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.global?.includes('三奇贵人'));
+    assert.ok(!missResult.global?.includes('三奇贵人'));
+  }
+});
+
 test('披麻应取年支后三位，不应只退一位', () => {
   const calculator = new ShenShaCalculator();
   const result = calculator.calculateAllShenSha(
