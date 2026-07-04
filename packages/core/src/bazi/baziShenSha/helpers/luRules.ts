@@ -29,6 +29,8 @@ const LU_BRANCH_BY_STEM: Record<string, string> = {
   癸: '子',
 };
 
+const FEI_REN_PILLARS = ['丙子', '丁丑', '戊子', '己丑', '壬午', '癸未'];
+
 const GOU_CHEN_BY_STEM: Record<string, string[]> = {
   甲: ['巳', '亥'],
   乙: ['巳', '亥'],
@@ -90,7 +92,6 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
     },
     飞刃: () => {
       const yangRenZhi = yangRenMap[riGan];
-      if (!yangRenZhi) return false;
       const clashMap: Record<string, string> = {
         子: '午',
         丑: '未',
@@ -105,7 +106,11 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
         戌: '辰',
         亥: '巳',
       };
-      return clashMap[yangRenZhi] === zhi;
+      const hasYangRenFeiRen = yangRenZhi ? clashMap[yangRenZhi] === zhi : false;
+      return (
+        hasYangRenFeiRen ||
+        ((pillarIndex === 2 || pillarIndex === 3) && FEI_REN_PILLARS.includes(pillarGZ))
+      );
     },
     驿马: () => {
       return YI_MA_BY_BRANCH[nianZhi] === zhi || YI_MA_BY_BRANCH[riZhi] === zhi;
