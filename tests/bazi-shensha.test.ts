@@ -926,6 +926,35 @@ test('文星贵应按三命通会十干口诀取地支', () => {
   }
 });
 
+test('科名贵应只取甲辰至癸丑一旬的日时干支', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '辰'],
+        ['乙', '巳'],
+        ['丙', '午'],
+        ['丁', '未'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['甲', '辰'],
+        ['乙', '巳'],
+        ['丙', '申'],
+        ['丁', '酉'],
+      ],
+      'male',
+    );
+
+    assert.ok(!hitResult.year.includes('科名贵'));
+    assert.ok(!hitResult.month.includes('科名贵'));
+    assert.ok(hitResult.day.includes('科名贵'));
+    assert.ok(hitResult.hour.includes('科名贵'));
+    assert.ok(!Object.values(missResult).flat().includes('科名贵'));
+  }
+});
+
 test('红艳煞应按三命通会定例取乙午戊子壬巳', () => {
   const cases = [
     { stem: '乙', hitBranch: '午', oldWrongBranch: '申' },

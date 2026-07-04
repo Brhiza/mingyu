@@ -28,8 +28,21 @@ const OFFICIAL_ACADEMY_BRANCHES_BY_STEM: Record<string, string[]> = {
   癸: ['申', '亥'],
 };
 
+const KE_MING_GUI_PILLARS = [
+  '甲辰',
+  '乙巳',
+  '丙午',
+  '丁未',
+  '戊申',
+  '己酉',
+  '庚戌',
+  '辛亥',
+  '壬子',
+  '癸丑',
+];
+
 export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
-  const { gan, zhi, nianGan, yueZhi, riGan, pillarGZ, baziArray } = ctx;
+  const { gan, zhi, pillarIndex, nianGan, yueZhi, riGan, pillarGZ, baziArray } = ctx;
 
   return {
     天乙贵人: () => {
@@ -264,6 +277,7 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       };
       return map[nianGan] === zhi || map[riGan] === zhi;
     },
+    科名贵: () => pillarIndex >= 2 && KE_MING_GUI_PILLARS.includes(pillarGZ),
     国印贵人: () => {
       const map: Record<string, string> = {
         甲: '戌',
