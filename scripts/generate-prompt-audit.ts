@@ -87,7 +87,7 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   {
     sampleName: '六爻',
     requiredFields: withCommonProjectSupplementRequired([
-      '用神评分表',
+      '取用评分表',
       '原神忌神仇神',
       '应期优先级',
     ]),
