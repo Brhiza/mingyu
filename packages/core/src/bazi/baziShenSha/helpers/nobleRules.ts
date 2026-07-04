@@ -15,6 +15,19 @@ function getLinguanBranch(stem: string) {
   return getStageBranch(stem, '临官');
 }
 
+const OFFICIAL_ACADEMY_BRANCHES_BY_STEM: Record<string, string[]> = {
+  甲: ['巳', '申'],
+  乙: ['巳', '申'],
+  丙: ['申', '亥'],
+  丁: ['申', '亥'],
+  戊: ['亥', '寅'],
+  己: ['亥', '寅'],
+  庚: ['寅', '巳'],
+  辛: ['寅', '巳'],
+  壬: ['申', '亥'],
+  癸: ['申', '亥'],
+};
+
 export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
   const { gan, zhi, nianGan, yueZhi, riGan, pillarGZ, baziArray } = ctx;
 
@@ -260,6 +273,13 @@ export function buildNobleRules(ctx: RuleContext): ShenShaRuleMap {
       const riLinguan = getLinguanBranch(riGan);
       const nianLinguan = getLinguanBranch(nianGan);
       return riLinguan === zhi || nianLinguan === zhi;
+    },
+    官贵学馆: () => {
+      const targets = [
+        ...(OFFICIAL_ACADEMY_BRANCHES_BY_STEM[riGan] || []),
+        ...(OFFICIAL_ACADEMY_BRANCHES_BY_STEM[nianGan] || []),
+      ];
+      return targets.includes(zhi);
     },
     天厨贵人: () => {
       const foodGodMap: Record<string, string> = {

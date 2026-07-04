@@ -872,6 +872,33 @@ test('词馆应按年干或日干十干临官支判断，不应只看日干', ()
   }
 });
 
+test('官贵学馆应按官星长生临官位取地支', () => {
+  for (const calculator of createCalculators()) {
+    const hitResult = calculator.calculateAllShenSha(
+      [
+        ['乙', '卯'],
+        ['丙', '巳'],
+        ['甲', '子'],
+        ['戊', '申'],
+      ],
+      'male',
+    );
+    const missResult = calculator.calculateAllShenSha(
+      [
+        ['乙', '卯'],
+        ['丙', '午'],
+        ['甲', '子'],
+        ['戊', '未'],
+      ],
+      'male',
+    );
+
+    assert.ok(hitResult.month.includes('官贵学馆'));
+    assert.ok(hitResult.hour.includes('官贵学馆'));
+    assert.ok(!Object.values(missResult).flat().includes('官贵学馆'));
+  }
+});
+
 test('红艳煞应按三命通会定例取乙午戊子壬巳', () => {
   const cases = [
     { stem: '乙', hitBranch: '午', oldWrongBranch: '申' },
