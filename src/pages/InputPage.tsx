@@ -396,7 +396,7 @@ export function InputPage() {
 
   return (
     <div
-      className={`page-shell input-page-shell ${tutorialEntryPinned ? 'has-floating-tutorial-entry' : ''}`}
+      className={`page-shell input-page-shell ${tutorialEntryPinned ? 'has-floating-tutorial-entry' : ''} ${isDonationBoxEnabled ? 'has-donation-entry' : ''}`}
     >
       <div className="bazi-view-container">
         <div className="input-page-main-content" ref={mainContentRef}>
@@ -501,22 +501,22 @@ export function InputPage() {
           className={`input-page-bottom-tools ${tutorialEntryPinned ? 'is-floating' : 'is-inline'}`}
           ref={tutorialEntryRef}
         >
+          {isDonationBoxEnabled ? (
+            <a
+              className="donation-entry-button"
+              href={DONATION_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              功德箱
+            </a>
+          ) : null}
           <div className="tutorial-entry-card">
             <div className="tutorial-entry-copy">
               <strong>第一次使用？先看教程</strong>
               <p>里面会说明三种模式分别怎么用，以及从录入到查看结果的完整步骤。</p>
             </div>
             <div className="tutorial-entry-actions">
-              {isDonationBoxEnabled ? (
-                <a
-                  className="tutorial-entry-button"
-                  href={DONATION_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  功德箱
-                </a>
-              ) : null}
               <button
                 type="button"
                 className="tutorial-entry-button"

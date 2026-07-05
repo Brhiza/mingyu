@@ -1916,6 +1916,10 @@ select {
   padding-bottom: 148px;
 }
 
+.input-page-shell.has-floating-tutorial-entry.has-donation-entry {
+  padding-bottom: 204px;
+}
+
 .input-page-main-content {
   display: grid;
   gap: 0;
@@ -3224,7 +3228,10 @@ select {
   width: 100%;
   position: fixed;
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 10px;
   margin-top: 12px;
 }
 
@@ -3240,6 +3247,34 @@ select {
 .input-page-bottom-tools.is-inline {
   position: static;
   transform: none;
+}
+
+.donation-entry-button {
+  width: 100%;
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid var(--border-contrast);
+  background: linear-gradient(135deg, var(--accent-strong), var(--secondary-strong));
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: 0;
+  pointer-events: auto;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.donation-entry-button:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .tutorial-entry-card {
@@ -5644,9 +5679,19 @@ div.form-actions.page-submit-actions {
     padding-bottom: 158px;
   }
 
+  .input-page-shell.has-floating-tutorial-entry.has-donation-entry {
+    padding-bottom: 218px;
+  }
+
   .input-page-bottom-tools.is-floating {
     width: min(calc(100vw - 16px), 760px);
     bottom: max(8px, env(safe-area-inset-bottom, 0px) + 8px);
+  }
+
+  .donation-entry-button {
+    min-height: 44px;
+    border-radius: 10px;
+    font-size: 14px;
   }
 
   .tutorial-entry-card {
