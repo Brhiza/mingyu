@@ -870,12 +870,7 @@ function calculateQimen(input: JsonRecord) {
 }
 
 function calculateMeihua(input: JsonRecord) {
-  const method = readEnum(
-    input,
-    'method',
-    ['time', 'number', 'random', 'timeTrigram'],
-    'time',
-  );
+  const method = readEnum(input, 'method', ['time', 'number', 'random', 'timeTrigram'], 'time');
   const settings: MeihuaSettings = {
     method,
     ...(method === 'number' ? { number: readInteger(input, 'number', 1) } : {}),
