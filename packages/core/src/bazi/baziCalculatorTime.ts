@@ -254,7 +254,8 @@ export function getMonthCommander(solarTime: SolarTimeInstance, monthBranch: str
     }
 
     return commanders[commanders.length - 1][0];
-  } catch {
+  } catch (error) {
+    console.error('calculateMonthCommander 失败:', error);
     return '计算出错';
   }
 }
@@ -360,12 +361,13 @@ export function calculateSeasonInfo(solarTime: SolarTimeInstance): SeasonInfo {
       currentSeason: prevTerm ? seasonIndexMap[prevTerm.index] : '未知',
       jieqiList: solarTerms.map((term) => ({ name: term.name, date: term.date })),
     };
-  } catch {
+  } catch (error) {
+    console.error('calculateSeasonInfo 失败:', error);
     return {
       currentJieqi: '计算错误',
       nextJieqi: '计算错误',
-      daysSincePrev: 0,
-      daysToNext: 0,
+      daysSincePrev: undefined,
+      daysToNext: undefined,
       currentSeason: '未知',
       jieqiList: [],
     };
@@ -397,7 +399,8 @@ export function getCategorizedYearShenSha(
       unlucky: yearShenSha.filter((shensha) => getShenShaType(shensha) === '凶'),
       neutral: yearShenSha.filter((shensha) => getShenShaType(shensha) === '中性'),
     };
-  } catch {
+  } catch (error) {
+    console.error('getCategorizedYearShenSha 失败:', error);
     return { lucky: [], unlucky: [], neutral: [] };
   }
 }

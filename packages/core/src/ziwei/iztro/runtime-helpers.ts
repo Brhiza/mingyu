@@ -89,6 +89,9 @@ export function shiftLocalDate(
 
   let date: Date;
 
+  // 注意：以下使用本地时区构造 Date(year, month-1, day)，在 DST 跳过午夜的时区可能
+  // 返回前一日 23:00 或次日 01:00。中国大陆 1992 年后无 DST，主要部署场景不触发。
+  // 如需支持有 DST 的时区，应改用 UTC 构造或 TimeManager.getWallClockParts。
   if (unit === 'year') {
     const targetYear = year + amount;
     const targetDay = Math.min(day, daysInGregorianMonth(targetYear, month));

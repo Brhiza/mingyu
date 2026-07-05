@@ -167,8 +167,8 @@ export interface KongWangResult {
 export interface SeasonInfo {
   currentJieqi: string;
   nextJieqi: string;
-  daysSincePrev: number;
-  daysToNext: number;
+  daysSincePrev: number | undefined;
+  daysToNext: number | undefined;
   currentSeason: string;
   jieqiList: { name: string; date: string }[];
 }

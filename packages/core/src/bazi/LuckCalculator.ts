@@ -129,7 +129,9 @@ export class LuckCalculator {
         handoverInfo: handoverInfoText,
         cycles,
       };
-    } catch {
+    } catch (error) {
+      // 记录原始错误以便排查，但仍返回降级结果避免整个计算链路崩溃
+      console.error('LuckCalculator.calculate 失败:', error);
       return { startInfo: '计算失败', handoverInfo: '计算失败', cycles: [] };
     }
   }
