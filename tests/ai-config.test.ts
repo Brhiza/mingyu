@@ -8,7 +8,7 @@ import {
   isServerDefaultAiEnabled,
 } from '../src/lib/ai/settings';
 import { getAiRuntimeConfig, getAiRuntimeConfigScript } from '../src/lib/ai/runtime-config';
-import { onRequest as handleRuntimeConfigRequest } from '../functions/mingyu-runtime-config.js';
+import { onRequest as handleRuntimeConfigRequest } from '../functions/_middleware';
 
 type RuntimeConfigGlobal = typeof globalThis & {
   __MINGYU_RUNTIME_CONFIG__?: {
@@ -84,8 +84,9 @@ test('运行时 AI 配置脚本可被页面直接加载', () => {
 });
 
 test('Pages 运行时配置入口返回不缓存脚本', async () => {
-  const response = handleRuntimeConfigRequest({
+  const response = await handleRuntimeConfigRequest({
     request: new Request('https://aov.cc/mingyu-runtime-config.js'),
+    next: () => new Response('next'),
     env: {
       AI_API_KEY: 'test-key',
       AI_BUILTIN_ENABLED: 'true',
@@ -100,6 +101,15 @@ test('Pages 运行时配置入口返回不缓存脚本', async () => {
     await response.text(),
     'window.__MINGYU_RUNTIME_CONFIG__ = {"aiBuiltinEnabled":true,"aiDefaultEnabled":false,"aiProviderName":"DeepSeek"};\n',
   );
+});
+
+test('Pages middleware 不拦截其他路径', async () => {
+  const response = await handleRuntimeConfigRequest({
+    request: new Request('https://aov.cc/api/v1/manifest'),
+    next: () => new Response('next'),
+  });
+
+  assert.equal(await response.text(), 'next');
 });
 
 test('主动选择内置 AI 时不受默认关闭影响', async (t) => {
