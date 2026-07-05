@@ -7,6 +7,11 @@ import { fileURLToPath } from 'node:url';
 import { handlePublicApiRequest } from '../src/lib/public-api/handler';
 import type { AiEnv } from '../src/lib/ai/proxy';
 import { getAiRuntimeConfigScript } from '../src/lib/ai/runtime-config';
+import { readLimitedNodeRequestBody } from '../src/lib/http/node-request-body';
+import {
+  DEFAULT_MAX_REQUEST_BODY_BYTES,
+  RequestBodyTooLargeError,
+} from '../src/lib/http/request-body';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,19 +52,38 @@ function sendText(
   response.end(body);
 }
 
-async function readRequestBody(request: IncomingMessage) {
-  const chunks: Buffer[] = [];
-  for await (const chunk of request) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks);
+function sendJson(response: ServerResponse, statusCode: number, body: unknown) {
+  sendText(response, statusCode, JSON.stringify(body), 'application/json; charset=utf-8', {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  });
 }
 
 async function handleApiRequest(request: IncomingMessage, response: ServerResponse, url: URL) {
-  const body =
-    request.method === 'GET' || request.method === 'HEAD'
-      ? undefined
-      : await readRequestBody(request);
+  let body: Buffer | undefined;
+  try {
+    body =
+      request.method === 'GET' || request.method === 'HEAD'
+        ? undefined
+        : await readLimitedNodeRequestBody(request, DEFAULT_MAX_REQUEST_BODY_BYTES);
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      sendJson(response, 413, {
+        ok: false,
+        error: {
+          code: 'REQUEST_BODY_TOO_LARGE',
+          message: `请求体不能超过 ${DEFAULT_MAX_REQUEST_BODY_BYTES} 字节。`,
+        },
+        meta: {
+          service: url.host || 'mingyu',
+          version: 'v1',
+        },
+      });
+      return;
+    }
+    throw error;
+  }
   const headers = new Headers();
 
   for (const [key, value] of Object.entries(request.headers)) {
