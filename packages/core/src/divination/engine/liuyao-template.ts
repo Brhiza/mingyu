@@ -18,7 +18,7 @@ export function buildLiuyaoTemplateText(template: LiuyaoTemplateType) {
 
   return [
     `断卦类型：${templateLabelMap[safeTemplate]}`,
-    '用户选择的断卦类型只作为问题范围；未选或通用时按通用断卦处理，不补充本地固定专项框架。',
+    '用户选择的断卦类型只作为问题范围；未选或通用时按通用断卦处理，不补充本地预设事项模板。',
     '取证顺序：先按世应、用神候选、动爻、变卦、空亡、伏神、月日建等卦内证据判断。',
     '回答口径：先直接回答问题，再列最关键的 2 到 4 条卦内依据、触发条件和现实建议。',
     `证据边界：${caution}`,

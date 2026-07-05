@@ -81,7 +81,7 @@ export function buildUnknownTimeBaziPrompt(
     `【问题】\n${normalizedQuestion}`,
     ...(isCustomQuestion
       ? []
-      : [`【问题研判框架】\n${buildBaziQuestionGuidanceSection(scene, false)}`]),
+      : [`【断盘要点】\n${buildBaziQuestionGuidanceSection(scene, false)}`]),
     ...(isCustomQuestion
       ? []
       : [

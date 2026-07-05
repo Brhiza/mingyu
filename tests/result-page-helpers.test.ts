@@ -249,6 +249,8 @@ test('单人增强提示词会保留 section 结构并强调双体系交叉校�
     prompt,
     /先用八字判断长期底色、用神喜忌、结构强弱和当前触发，再用紫微校验对应宫位、四化、三方四正和运限呼应/,
   );
+  assert.match(prompt, /【断盘要点】/);
+  assert.doesNotMatch(prompt, /【八字分析思路】/);
   assert.match(
     prompt,
     /【输出要求】\n先直接回答【问题】，再按“八字主线”“紫微校验”“综合结论与建议”展开/,

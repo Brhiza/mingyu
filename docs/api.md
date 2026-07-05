@@ -160,7 +160,7 @@ curl -X POST https://aov.cc/api/v1/divination/almanac \
 - 紫微 `promptScope` 支持 `origin`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`。
 - 紫微公开 API 为保证线上稳定，返回轻量排盘资料，默认只返回 `origin`（本命）范围；如果请求传入 `promptScope`，接口会返回 `origin` 加指定范围，包含分析对象、落宫与四化信息，供流年、流月、流日等分析使用。
 - 紫微排盘结果以 `payloadByScope.origin.palaces` 为主结构；同时提供 `四化`、`fourMutagens`、`birthMutagens` 和 `gongList`，方便 agent 直接读取生年四化和十二宫星曜。
-- `promptMode` 支持 `framework`（内置完整框架，默认）和 `custom`（只围绕用户问题自由作答）。
+- `promptMode` 支持 `framework`（完整任务书，默认）和 `custom`（只围绕用户问题自由作答）。
 - 八字 `school` 支持 `traditional`（传统派子平正法）、`mangpai`（盲派十神象法）、`xinpai`（新派调候流通）。不传则不附加流派指引。
 - 八字 `shenShaVariants` 用于请求神煞争议口径；不传时使用默认主流口径：空亡只按日柱旬空、羊刃只取阳干帝旺、童子煞只查日柱和时柱。可选值：`kongWangBasis` 为 `day` 或 `day-and-year`；`yangRenMode` 为 `yang-stems-only` 或 `include-yin-ren`；`tongZiScope` 为 `day-hour` 或 `all-pillars`。
 - 紫微 `school` 支持 `sanhe`（三合派三方四正）、`feixing`（飞星派四化飞星链路）、`sihua`（四化派生年四化主线）。不传则不附加流派指引。

@@ -30,7 +30,7 @@ export function buildLiurenTemplateText(template: LiurenTemplateType, data: Liur
 
   return [
     `断课类型：${templateLabelMap[safeTemplate]}`,
-    '用户选择的断课类型只作为问题范围；未选或通用时按通用断课处理，不补充本地固定专项框架。',
+    '用户选择的断课类型只作为问题范围；未选或通用时按通用断课处理，不补充本地预设事项模板。',
     getLiurenPatternHint(data.transmissionPattern),
     `取证顺序：先按${classicalRule?.rule || '取传法'}看发用${chu ? `${chu.branch}乘${chu.god}` : '初传'}，再看三传推进，四课看背景，课体神煞只作辅证。`,
     '回答口径：先给结论，再列 2 到 4 条关键依据、触发条件和建议；不要复述完整课盘。',

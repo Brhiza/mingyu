@@ -301,7 +301,7 @@ export function buildBaziZiweiEnhancedPrompt(params: {
     ...(isCustomQuestion
       ? []
       : [
-          `【八字分析思路】\n${buildBaziQuestionGuidanceSection(
+          `【断盘要点】\n${buildBaziQuestionGuidanceSection(
             questionScene,
             Boolean(params.baziFortuneSummary),
           )}`,
