@@ -1,6 +1,8 @@
 import type { SsgwData } from '../../types/divination';
 import { SSGW_SIGNS } from '../../divination/ssgw-data';
 import { getDivinationTime } from '../../calendar/timeManager';
+import type { RandomOptions } from '../../shared/random';
+import { createRandomSource, randomInt } from '../../shared/random';
 
 /**
  * @file 灵签抽签算法（神算鬼谋）
@@ -37,9 +39,18 @@ const ssgwSigns: Omit<SsgwData, 'ganzhi' | 'timestamp'>[] = SSGW_SIGNS.map((sign
  * const sign = drawRandomSign(new Date('2025-06-15T10:00:00'));
  * ```
  */
-export function drawRandomSign(customDate?: Date): SsgwData {
+export function drawRandomSign(options?: RandomOptions): SsgwData;
+export function drawRandomSign(customDate?: Date, options?: RandomOptions): SsgwData;
+export function drawRandomSign(
+  customDateOrOptions?: Date | RandomOptions,
+  options?: RandomOptions,
+): SsgwData {
+  const customDate = customDateOrOptions instanceof Date ? customDateOrOptions : undefined;
+  const randomOptions =
+    customDateOrOptions instanceof Date ? options : (customDateOrOptions ?? options);
   const { ganzhi, timestamp } = getDivinationTime(customDate);
-  const randomIndex = Math.floor(Math.random() * ssgwSigns.length);
+  const rng = createRandomSource(randomOptions);
+  const randomIndex = randomInt(ssgwSigns.length, rng);
   const sign = ssgwSigns[randomIndex];
   return {
     ...sign,

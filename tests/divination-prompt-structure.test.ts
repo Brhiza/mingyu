@@ -1063,7 +1063,7 @@ test('奇门提示词不再根据问题词表输出问事参考', () => {
   assert.match(prompt, /用神宫候选：坎一宫（24分，有利:适合谋划与沟通）/);
 });
 
-test('六爻提示词会给出断卦抓手，先看用神世应动变', () => {
+test('六爻提示词会给出断卦抓手，先看取用世应动变', () => {
   const prompt = buildDivinationPrompt(
     'liuyao',
     '这件事接下来该怎么推进？',
@@ -1072,16 +1072,16 @@ test('六爻提示词会给出断卦抓手，先看用神世应动变', () => {
   );
 
   assert.match(prompt, /断卦抓手：/);
-  assert.match(prompt, /用神候选：/);
+  assert.match(prompt, /取用参考：/);
   assert.match(prompt, /主轴证据：世爻第1爻兄弟子水；应爻第6爻兄弟戌土；动变/);
-  assert.match(prompt, /用神评分表：通用断卦：第1爻兄弟子水为主候选/);
-  assert.match(prompt, /原神忌神仇神：以通用断卦第1爻兄弟子水为用神基准/);
+  assert.match(prompt, /取用评分表：通用断卦：第1爻兄弟子水作取用主轴/);
+  assert.match(prompt, /原神忌神仇神：以通用断卦第1爻兄弟子水为取用基准/);
   assert.match(prompt, /应期候选：动变触发：第1爻兄弟子水动/);
   assert.match(prompt, /不得编造已提供资料没有给出的卦名、六亲、六神、世应、用神、动变/);
   assert.doesNotMatch(prompt, /课传|盘局|牌阵|签诗|牌位/);
 });
 
-test('六爻提示词不再按问题词表补充用神候选', () => {
+test('六爻提示词不再按问题词表补充取用参考', () => {
   const prompt = buildDivinationPrompt(
     'liuyao',
     '这次换工作有没有机会升职？',
@@ -1089,12 +1089,12 @@ test('六爻提示词不再按问题词表补充用神候选', () => {
     createSupplementaryInfo(),
   );
 
-  assert.match(prompt, /用神候选：通用断卦：先以世爻第1爻兄弟子水为我方主轴/);
-  assert.doesNotMatch(prompt, /事业职位|事业工作：以官鬼为用神候选/);
-  assert.match(prompt, /用神评分表：通用断卦：第1爻兄弟子水为主候选/);
+  assert.match(prompt, /取用参考：通用断卦：先以世爻第1爻兄弟子水为我方主轴/);
+  assert.doesNotMatch(prompt, /事业职位|事业工作：以官鬼为取用参考/);
+  assert.match(prompt, /取用评分表：通用断卦：第1爻兄弟子水作取用主轴/);
 });
 
-test('六爻提示词只在用户选择事业模板时补充事业候选', () => {
+test('六爻提示词只在用户选择事业模板时补充事业取用参考', () => {
   const prompt = buildDivinationPrompt(
     'liuyao',
     '这次换工作有没有机会升职？',
@@ -1104,10 +1104,10 @@ test('六爻提示词只在用户选择事业模板时补充事业候选', () =>
   );
 
   assert.match(prompt, /断卦类型：事业工作/);
-  assert.match(prompt, /用神候选：事业工作：以官鬼为用神候选/);
+  assert.match(prompt, /取用参考：事业工作：以官鬼为取用参考/);
   assert.match(prompt, /盘中第4爻官鬼午火/);
-  assert.match(prompt, /用神评分表：事业工作：第4爻官鬼午火为主候选/);
-  assert.match(prompt, /原神忌神仇神：以事业工作第4爻官鬼午火为用神基准/);
+  assert.match(prompt, /取用评分表：事业工作：第4爻官鬼午火作取用主轴/);
+  assert.match(prompt, /原神忌神仇神：以事业工作第4爻官鬼午火为取用基准/);
 });
 
 test('六爻提示词按用户选择的鬼神怪异模板收紧口径', () => {
@@ -1122,7 +1122,7 @@ test('六爻提示词按用户选择的鬼神怪异模板收紧口径', () => {
   assert.match(prompt, /【断卦要点】/);
   assert.match(prompt, /断卦类型：鬼神怪异/);
   assert.match(prompt, /官鬼与子孙制鬼、世应受冲、玄武螣蛇白虎勾陈、空破入墓与家宅怪异线索/);
-  assert.match(prompt, /用神候选：鬼神怪异：以官鬼为用神候选/);
+  assert.match(prompt, /取用参考：鬼神怪异：以官鬼为取用参考/);
   assert.doesNotMatch(prompt, /专项抓手/);
   assert.match(prompt, /若卦中证据不足，只能说“未见明显鬼神主证”或“更偏情绪\/环境因素”/);
 });
@@ -1213,10 +1213,7 @@ test('小六壬提示词会给出三段过程、主判断和现实建议抓手',
     prompt,
     /断课抓手：先看结果宫位定主判断，再看起因与过程宫位解释事情为何如此、会如何推进。/,
   );
-  assert.match(
-    prompt,
-    /主轴证据：起因留连；过程赤口；结果小吉/,
-  );
+  assert.match(prompt, /主轴证据：起因留连；过程赤口；结果小吉/);
   assert.match(prompt, /取象提示：当前整体偏可成，适合稳步推进，慢慢拿结果。/);
   assert.match(prompt, /应期候选：起因留连：偏拖延反复，常需先清旧账或等阻滞松动/);
   assert.match(prompt, /主判断小吉：有助力，只适合短期复盘，不作长期命运定论/);

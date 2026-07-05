@@ -1,3 +1,7 @@
+import type { RandomOptions } from '../shared/random';
+
+export type { RandomOptions, RandomSource } from '../shared/random';
+
 export type SixGod = '青龙' | '朱雀' | '勾陈' | '螣蛇' | '白虎' | '玄武';
 
 export type DivinationType =
@@ -71,7 +75,7 @@ export interface MeihuaExternalOmens {
   color?: MeihuaExternalColor;
 }
 
-export interface MeihuaSettings {
+export interface MeihuaSettings extends RandomOptions {
   method?: MeihuaDivinationMethod;
   number?: number;
   externalOmens?: MeihuaExternalOmens;

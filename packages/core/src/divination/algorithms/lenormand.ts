@@ -1,4 +1,6 @@
 import type { LenormandData, LenormandSpreadType } from '../../types/divination';
+import type { RandomOptions, RandomSource } from '../../shared/random';
+import { createRandomSource, randomInt } from '../../shared/random';
 
 const LENORMAND_CARDS = [
   { id: 1, name: '骑士', keywords: ['消息', '到来', '进展'], meaning: '消息抵达，事情开始移动。' },
@@ -208,10 +210,10 @@ const SPREADS: Record<LenormandSpreadType, { name: string; positions: string[] }
   },
 };
 
-function shuffleCards() {
+function shuffleCards(rng: RandomSource) {
   const shuffled = [...LENORMAND_CARDS];
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = randomInt(i + 1, rng);
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;
@@ -269,9 +271,13 @@ const CARD_COMBINATIONS: Record<string, string> = {
  * // result 包含 cards（牌面列表）和 combinations（组合含义）
  * ```
  */
-export function drawLenormandSpread(spreadType: LenormandSpreadType = 'single'): LenormandData {
+export function drawLenormandSpread(
+  spreadType: LenormandSpreadType = 'single',
+  options?: RandomOptions,
+): LenormandData {
   const spread = SPREADS[spreadType] ?? SPREADS.single;
-  const cards = shuffleCards()
+  const rng = createRandomSource(options);
+  const cards = shuffleCards(rng)
     .slice(0, spread.positions.length)
     .map((card, index) => ({
       ...card,

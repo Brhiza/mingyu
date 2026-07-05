@@ -4,6 +4,8 @@
  */
 import type { TimeInfo, GanZhiInfo } from './lunar';
 import { SolarTime } from 'tyme4ts';
+import type { RandomOptions } from '../shared/random';
+import { createRandomSource, randomInt } from '../shared/random';
 
 /**
  * 统一的占卜时间数据
@@ -128,10 +130,11 @@ export class TimeManager {
    * @param count 爻象数量
    * @returns 爻象数组
    */
-  static generateYaosByRandom(count: number = 6): number[] {
+  static generateYaosByRandom(count: number = 6, options?: RandomOptions): number[] {
+    const rng = createRandomSource(options);
     const yaos: number[] = [];
     for (let i = 0; i < count; i++) {
-      yaos.push(this.generateYaoByCoinMethod(() => (Math.random() < 0.5 ? 0 : 1)));
+      yaos.push(this.generateYaoByCoinMethod(() => randomInt(2, rng)));
     }
     return yaos;
   }

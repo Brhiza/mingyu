@@ -8,6 +8,7 @@ const COMPATIBILITY_HISTORY_STORAGE_KEY = 'prompt_studio_compatibility_history_v
 const DIVINATION_HISTORY_STORAGE_KEY = 'prompt_studio_divination_history_v1';
 const MAX_HISTORY_RECORDS = 20;
 const DEFAULT_CASE_NAME = '案例';
+let divinationHistoryIdCounter = 0;
 
 type PersonalHistoryRecord = {
   id: string;
@@ -180,6 +181,14 @@ function resolveDivinationRecordTitle(draft: DivinationDraft, session: Divinatio
   return '';
 }
 
+function createDivinationHistoryId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+  divinationHistoryIdCounter += 1;
+  return `${Date.now().toString(36)}-${divinationHistoryIdCounter.toString(36)}`;
+}
+
 export function loadPersonalHistory() {
   return readRecords<PersonalHistoryRecord>(PERSONAL_HISTORY_STORAGE_KEY);
 }
@@ -299,7 +308,7 @@ export function addDivinationHistory(draft: DivinationDraft, session: Divination
   }
 
   const record: DivinationHistoryRecord = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    id: createDivinationHistoryId(),
     type: 'divination',
     question,
     requestedMethod: session.requestedMethod,
