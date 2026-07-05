@@ -123,6 +123,12 @@ const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
 };
 
+export const PUBLIC_API_BASE_PATH = `/api/${API_VERSION}`;
+
+export function isPublicApiRequestPath(pathname: string) {
+  return pathname === PUBLIC_API_BASE_PATH || pathname.startsWith(`${PUBLIC_API_BASE_PATH}/`);
+}
+
 const DIVINATION_METHODS = [
   'liuyao',
   'meihua',
@@ -576,10 +582,10 @@ export function getPublicApiOpenApiDocument(
 }
 
 export function normalizeApiPath(pathname: string) {
-  return pathname
-    .replace(/^\/api\/v1\/?/, '')
-    .split('/')
-    .filter(Boolean);
+  const path = isPublicApiRequestPath(pathname)
+    ? pathname.slice(PUBLIC_API_BASE_PATH.length)
+    : pathname;
+  return path.replace(/^\/+/, '').split('/').filter(Boolean);
 }
 
 export async function handlePublicApiRequest(request: Request, segments?: string[], env?: AiEnv) {

@@ -4,7 +4,7 @@ import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
-import { handlePublicApiRequest } from '../src/lib/public-api/handler';
+import { handlePublicApiRequest, isPublicApiRequestPath } from '../src/lib/public-api/handler';
 import { getPublicApiManifestForRequest } from '../src/lib/public-api/metadata';
 import type { AiEnv } from '../src/lib/ai/proxy';
 import { getAiRuntimeConfigScript } from '../src/lib/ai/runtime-config';
@@ -20,6 +20,11 @@ const projectRoot = path.resolve(__dirname, '..');
 const distDir = path.resolve(projectRoot, 'dist');
 const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST || '0.0.0.0';
+const RUNTIME_CONFIG_PATH = '/mingyu-runtime-config.js';
+const RUNTIME_CONFIG_HEADERS = {
+  'Cache-Control': 'no-store',
+  Allow: 'GET,HEAD,OPTIONS',
+};
 
 const mimeTypes: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
@@ -178,15 +183,24 @@ async function handleStaticRequest(request: IncomingMessage, response: ServerRes
     return;
   }
 
-  if (url.pathname === '/mingyu-runtime-config.js') {
+  if (url.pathname === RUNTIME_CONFIG_PATH) {
+    const method = (request.method || 'GET').toUpperCase();
+    if (method === 'OPTIONS') {
+      sendText(response, 204, '', 'text/javascript; charset=utf-8', RUNTIME_CONFIG_HEADERS);
+      return;
+    }
+
+    if (method !== 'GET' && method !== 'HEAD') {
+      sendText(response, 405, '方法不支持。', 'text/plain; charset=utf-8', RUNTIME_CONFIG_HEADERS);
+      return;
+    }
+
     sendText(
       response,
       200,
-      getAiRuntimeConfigScript(process.env),
+      method === 'HEAD' ? '' : getAiRuntimeConfigScript(process.env),
       'text/javascript; charset=utf-8',
-      {
-        'Cache-Control': 'no-store',
-      },
+      RUNTIME_CONFIG_HEADERS,
     );
     return;
   }
@@ -216,7 +230,7 @@ const server = createServer((request, response) => {
   void (async () => {
     const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
 
-    if (url.pathname.startsWith('/api/v1/')) {
+    if (isPublicApiRequestPath(url.pathname)) {
       await handleApiRequest(request, response, url);
       return;
     }

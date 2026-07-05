@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { handlePublicApiRequest } from '../src/lib/public-api/handler';
+import { handlePublicApiRequest, isPublicApiRequestPath } from '../src/lib/public-api/handler';
 import { onRequest as handleWellKnownApiRequest } from '../functions/.well-known/[[path]]';
 import { buildZiweiChartInput, calculateFullZiweiChart } from '../src/lib/full-chart-engine/ziwei';
 import {
@@ -48,6 +48,20 @@ test('公开 API 健康检查应返回统一成功结构', async () => {
   assert.equal(body.ok, true);
   assert.equal(body.data.status, 'ok');
   assert.equal(body.meta.service, 'aov.cc');
+});
+
+test('公开 API 基础路径本身应返回健康检查', async () => {
+  const request = new Request('https://example.pages.dev/api/v1');
+  const response = await handlePublicApiRequest(request);
+  const body = await response.json();
+
+  assert.equal(isPublicApiRequestPath('/api/v1'), true);
+  assert.equal(isPublicApiRequestPath('/api/v1/manifest'), true);
+  assert.equal(isPublicApiRequestPath('/api/v10'), false);
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.data.status, 'ok');
+  assert.equal(body.meta.service, 'example.pages.dev');
 });
 
 test('公开 API OPTIONS 应返回 CORS 预检响应', async () => {
