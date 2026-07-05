@@ -10,6 +10,9 @@ RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 
+ARG VITE_ENABLE_DONATION_BOX=false
+ENV VITE_ENABLE_DONATION_BOX=$VITE_ENABLE_DONATION_BOX
+
 COPY . .
 RUN pnpm build
 

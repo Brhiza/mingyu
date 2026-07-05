@@ -21,6 +21,9 @@ import { useAiSettings } from '@/hooks/useAiSettings';
 
 type InputEntryMode = 'single' | 'compatibility' | 'divination' | 'almanac';
 
+const DONATION_URL = 'https://lk.sydf.cc/';
+const isDonationBoxEnabled = import.meta.env.VITE_ENABLE_DONATION_BOX === 'true';
+
 const LazyDivinationPanel = lazy(async () => {
   const module = await import('@/components/DivinationPanel');
   return { default: module.DivinationPanel };
@@ -503,13 +506,25 @@ export function InputPage() {
               <strong>第一次使用？先看教程</strong>
               <p>里面会说明三种模式分别怎么用，以及从录入到查看结果的完整步骤。</p>
             </div>
-            <button
-              type="button"
-              className="tutorial-entry-button"
-              onClick={() => navigate('/tutorial')}
-            >
-              查看教程
-            </button>
+            <div className="tutorial-entry-actions">
+              {isDonationBoxEnabled ? (
+                <a
+                  className="tutorial-entry-button"
+                  href={DONATION_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  功德箱
+                </a>
+              ) : null}
+              <button
+                type="button"
+                className="tutorial-entry-button"
+                onClick={() => navigate('/tutorial')}
+              >
+                查看教程
+              </button>
+            </div>
           </div>
         </div>
       </div>

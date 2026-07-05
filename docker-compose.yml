@@ -1,6 +1,9 @@
 services:
   mingyu:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_ENABLE_DONATION_BOX: ${VITE_ENABLE_DONATION_BOX:-false}
     ports:
       - "3000:3000"
     environment:

@@ -20,6 +20,8 @@ OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.jso
 
 公开 skill：[https://aov.cc/skills/aov-mingyu-api/SKILL.md](https://aov.cc/skills/aov-mingyu-api/SKILL.md)
 
+功德箱：[https://lk.sydf.cc/](https://lk.sydf.cc/)
+
 ## 快速导航
 
 - [核心能力](#核心能力)
@@ -399,9 +401,12 @@ AI_MODEL=deepseek-chat
 AI_PROVIDER_NAME=DeepSeek
 AI_BUILTIN_ENABLED=true
 AI_DEFAULT_ENABLED=false
+VITE_ENABLE_DONATION_BOX=false
 ```
 
 默认端口是 `3000`。如需修改容器内端口，可设置 `PORT`；如需修改宿主机端口，调整 compose 或 `docker run` 的 `-p` 左侧端口。
+
+`VITE_ENABLE_DONATION_BOX=true` 时，首页底部会显示功德箱按钮；不设置或设为 `false` 时默认不显示。这个变量只影响前端构建，Cloudflare Pages 需要配置在构建环境变量中，Docker 部署需要在构建时传入。
 
 </details>
 

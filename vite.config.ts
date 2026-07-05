@@ -89,16 +89,17 @@ function aiProxyDevPlugin(): Plugin {
 // ── AI 功能开关 ──────────────────────────────────────
 // AI_BUILTIN_ENABLED=true 且配置了 AI_API_KEY 时，页面显示内置 AI 选项。
 // AI_DEFAULT_ENABLED=true 只表示默认打开 AI 解读；默认关闭时仍保留提示词模式。
-const devAiVars = parseDevVars(path.resolve(__dirname, '.dev.vars'));
-function readAiEnv(name: string) {
-  return process.env[name] ?? devAiVars[name];
+const devVars = parseDevVars(path.resolve(__dirname, '.dev.vars'));
+function readBuildEnv(name: string) {
+  return process.env[name] ?? devVars[name];
 }
 
-const hasAiApiKey = Boolean(readAiEnv('AI_API_KEY'));
-const aiBuiltinFlag = readAiEnv('AI_BUILTIN_ENABLED') ?? readAiEnv('AI_DEFAULT_ENABLED');
+const hasAiApiKey = Boolean(readBuildEnv('AI_API_KEY'));
+const aiBuiltinFlag = readBuildEnv('AI_BUILTIN_ENABLED') ?? readBuildEnv('AI_DEFAULT_ENABLED');
 const isAiBuiltinEnabled = aiBuiltinFlag === 'true' && hasAiApiKey;
-const isAiDefaultEnabled = isAiBuiltinEnabled && readAiEnv('AI_DEFAULT_ENABLED') === 'true';
-const aiProviderName = readAiEnv('AI_PROVIDER_NAME') ?? '';
+const isAiDefaultEnabled = isAiBuiltinEnabled && readBuildEnv('AI_DEFAULT_ENABLED') === 'true';
+const aiProviderName = readBuildEnv('AI_PROVIDER_NAME') ?? '';
+const isDonationBoxEnabled = readBuildEnv('VITE_ENABLE_DONATION_BOX') === 'true';
 
 export default defineConfig({
   define: {
@@ -110,6 +111,9 @@ export default defineConfig({
       isAiDefaultEnabled ? 'true' : 'false',
     ),
     'import.meta.env.VITE_AI_PROVIDER_NAME': JSON.stringify(aiProviderName),
+    'import.meta.env.VITE_ENABLE_DONATION_BOX': JSON.stringify(
+      isDonationBoxEnabled ? 'true' : 'false',
+    ),
   },
   plugins: [react(), aiProxyDevPlugin()],
   worker: {
