@@ -138,10 +138,12 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.latitude);
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.liuyaoTemplate);
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.liurenTemplate);
-  assert.match(
-    JSON.stringify(body.data.components.schemas.DivinationPromptRequest.properties.spreadType),
-    /nine/,
-  );
+  const spreadTypeSchema =
+    body.data.components.schemas.DivinationPromptRequest.properties.spreadType;
+  for (const spreadType of ['five', 'element', 'grandTableau', 'nine']) {
+    assert.ok(spreadTypeSchema.enum.includes(spreadType), `spreadType 应包含 ${spreadType}`);
+  }
+  assert.match(spreadTypeSchema.description, /grandTableau/);
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.astrolabeTopic);
   assert.equal(
     Boolean(body.data.components.schemas.DivinationPromptRequest.properties.template),

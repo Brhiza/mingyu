@@ -341,7 +341,28 @@ https://你的域名/api/v1/manifest
 https://你的域名/api/v1/openapi.json
 ```
 
+如果绑定的域名是 `aov.cc`，上线后检查：
+
+```text
+https://aov.cc/api/v1/manifest
+https://aov.cc/api/v1/openapi.json
+https://aov.cc/mingyu-runtime-config.js
+```
+
 Cloudflare Pages 的环境变量在 Dashboard → Settings → Environment variables 中配置。密钥不要写进代码仓库。
+
+启用内置 AI 时，Production 环境至少配置：
+
+```text
+AI_BUILTIN_ENABLED=true
+AI_DEFAULT_ENABLED=false
+AI_API_KEY=你的模型密钥
+AI_BASE_URL=https://api.deepseek.com/v1
+AI_MODEL=deepseek-chat
+AI_PROVIDER_NAME=DeepSeek
+```
+
+如果同时启用了 Preview 部署，也需要在 Preview 环境配置同一组变量。保存环境变量后重新部署一次，`/mingyu-runtime-config.js` 会从 Pages Functions 读取当前环境变量，并返回 `Cache-Control: no-store`，避免旧配置被缓存。
 
 </details>
 
