@@ -406,7 +406,7 @@ VITE_ENABLE_DONATION_BOX=false
 
 默认端口是 `3000`。如需修改容器内端口，可设置 `PORT`；如需修改宿主机端口，调整 compose 或 `docker run` 的 `-p` 左侧端口。
 
-`VITE_ENABLE_DONATION_BOX=true` 时，首页底部会显示功德箱按钮；不设置或设为 `false` 时默认不显示。这个变量只影响前端构建，Cloudflare Pages 需要配置在构建环境变量中，Docker 部署需要在构建时传入。
+`VITE_ENABLE_DONATION_BOX=true` 时，首页教程入口上方会显示功德箱按钮；不设置或设为 `false` 时默认不显示。这个变量只影响前端构建，Cloudflare Pages 需要配置在构建环境变量中，Docker 部署需要在构建时传入。
 
 </details>
 

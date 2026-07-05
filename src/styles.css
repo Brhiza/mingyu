@@ -3251,7 +3251,7 @@ select {
 
 .donation-entry-button {
   width: 100%;
-  min-height: 46px;
+  min-height: 52px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3260,10 +3260,11 @@ select {
   background: linear-gradient(135deg, var(--accent-strong), var(--secondary-strong));
   color: #fff;
   box-shadow: var(--shadow-sm);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   text-decoration: none;
   letter-spacing: 0;
+  padding: 0 18px;
   pointer-events: auto;
   transition:
     transform 0.2s ease,
@@ -5689,9 +5690,9 @@ div.form-actions.page-submit-actions {
   }
 
   .donation-entry-button {
-    min-height: 44px;
+    min-height: 48px;
     border-radius: 10px;
-    font-size: 14px;
+    font-size: 15px;
   }
 
   .tutorial-entry-card {
