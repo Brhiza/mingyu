@@ -331,7 +331,7 @@ Pages 构建设置：
 如果 Cloudflare 没有自动启用 pnpm，可在环境变量中添加：
 
 ```text
-PNPM_VERSION=10
+PNPM_VERSION=11
 ```
 
 公开 API 路由来自 `functions/api/v1/[[path]].ts`，部署后可访问：
