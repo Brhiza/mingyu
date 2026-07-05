@@ -3,8 +3,10 @@ import { getAiRuntimeConfigScript, type AiRuntimeEnv } from '../src/lib/ai/runti
 type PagesContext = {
   request: Request;
   env?: AiRuntimeEnv;
+  next: () => Response | Promise<Response>;
 };
 
+const RUNTIME_CONFIG_PATH = '/mingyu-runtime-config.js';
 const SCRIPT_HEADERS = {
   'Content-Type': 'text/javascript; charset=utf-8',
   'Cache-Control': 'no-store',
@@ -12,6 +14,11 @@ const SCRIPT_HEADERS = {
 };
 
 export function onRequest(context: PagesContext) {
+  const url = new URL(context.request.url);
+  if (url.pathname !== RUNTIME_CONFIG_PATH) {
+    return context.next();
+  }
+
   const method = context.request.method.toUpperCase();
 
   if (method === 'OPTIONS') {
