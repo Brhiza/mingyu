@@ -6,6 +6,7 @@
 
 - API 元数据：[https://aov.cc/api/v1/manifest](https://aov.cc/api/v1/manifest)
 - OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.json)
+- 发现元数据：[https://aov.cc/.well-known/aov-mingyu-api.json](https://aov.cc/.well-known/aov-mingyu-api.json)
 - Skill 文档：[https://aov.cc/skills/aov-mingyu-api/SKILL.md](https://aov.cc/skills/aov-mingyu-api/SKILL.md)
 
 ## 返回格式

@@ -230,7 +230,7 @@ import type { BaziChartResult, QimenData, LiurenData } from 'mingyu-core/types';
 
 ```text
 mingyu/
-├── functions/                 # Cloudflare Pages Functions 公开 API
+├── functions/                 # Cloudflare Pages Functions 公开 API 和公开发现元数据
 ├── mcp/                       # MCP Server
 ├── packages/
 │   └── core/                  # mingyu-core 独立算法包（发布到 npm）
@@ -239,7 +239,6 @@ mingyu/
 │       ├── src/calendar/      # 历法工具
 │       └── src/types/         # 共享类型
 ├── public/
-│   ├── .well-known/           # 公开发现元数据
 │   └── skills/                # 公开 skill 文档
 ├── server/                    # Docker 自部署服务入口
 ├── src/
@@ -341,6 +340,7 @@ PNPM_VERSION=11
 ```text
 https://你的域名/api/v1/manifest
 https://你的域名/api/v1/openapi.json
+https://你的域名/.well-known/aov-mingyu-api.json
 ```
 
 如果绑定的域名是 `aov.cc`，上线后检查：
@@ -348,6 +348,7 @@ https://你的域名/api/v1/openapi.json
 ```text
 https://aov.cc/api/v1/manifest
 https://aov.cc/api/v1/openapi.json
+https://aov.cc/.well-known/aov-mingyu-api.json
 https://aov.cc/mingyu-runtime-config.js
 ```
 

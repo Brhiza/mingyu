@@ -5,6 +5,7 @@ import path from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { handlePublicApiRequest } from '../src/lib/public-api/handler';
+import { getPublicApiManifestForRequest } from '../src/lib/public-api/metadata';
 import type { AiEnv } from '../src/lib/ai/proxy';
 import { getAiRuntimeConfigScript } from '../src/lib/ai/runtime-config';
 import { readLimitedNodeRequestBody } from '../src/lib/http/node-request-body';
@@ -145,6 +146,38 @@ async function resolveStaticFile(pathname: string) {
 }
 
 async function handleStaticRequest(request: IncomingMessage, response: ServerResponse, url: URL) {
+  if (url.pathname === '/.well-known/aov-mingyu-api.json') {
+    if (request.method === 'OPTIONS') {
+      sendText(response, 204, '', 'application/json; charset=utf-8', {
+        'Cache-Control': 'no-store',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET,HEAD,OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      });
+      return;
+    }
+
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      sendJson(response, 405, { ok: false, error: 'METHOD_NOT_ALLOWED' });
+      return;
+    }
+
+    const manifest = getPublicApiManifestForRequest(new Request(url));
+    sendText(
+      response,
+      200,
+      request.method === 'HEAD' ? '' : JSON.stringify(manifest),
+      'application/json; charset=utf-8',
+      {
+        'Cache-Control': 'no-store',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET,HEAD,OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    );
+    return;
+  }
+
   if (url.pathname === '/mingyu-runtime-config.js') {
     sendText(
       response,

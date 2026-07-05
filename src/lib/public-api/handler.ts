@@ -60,21 +60,17 @@ import {
   type ZiweiSchool,
 } from './prompt-builders';
 import { handleAiAnalyze, handleAiModels, type AiEnv } from '../ai/proxy';
-
-const API_VERSION = 'v1';
-const DEFAULT_PUBLIC_API_RUNTIME = {
-  service: 'mingyu',
-  origin: 'http://localhost:3000',
-};
+import {
+  API_VERSION,
+  DEFAULT_PUBLIC_API_RUNTIME,
+  getPublicApiManifest,
+  getPublicApiRuntime,
+  type PublicApiRuntime,
+} from './metadata';
 
 type ApiMeta = {
   service: string;
   version: typeof API_VERSION;
-};
-
-type PublicApiRuntime = {
-  service: string;
-  origin: string;
 };
 
 type ApiSuccess<T> = {
@@ -126,38 +122,6 @@ const JSON_HEADERS = {
   ...CORS_HEADERS,
   'Content-Type': 'application/json; charset=utf-8',
 };
-
-const ENDPOINTS = [
-  'GET /api/v1/health',
-  'GET /api/v1/manifest',
-  'GET /api/v1/openapi.json',
-  'POST /api/v1/bazi/calculate',
-  'POST /api/v1/bazi/prompt',
-  'POST /api/v1/ziwei/calculate',
-  'POST /api/v1/ziwei/prompt',
-  'POST /api/v1/divination/liuyao',
-  'POST /api/v1/divination/liuyao/prompt',
-  'POST /api/v1/divination/meihua',
-  'POST /api/v1/divination/meihua/prompt',
-  'POST /api/v1/divination/xiaoliuren',
-  'POST /api/v1/divination/xiaoliuren/prompt',
-  'POST /api/v1/divination/qimen',
-  'POST /api/v1/divination/qimen/prompt',
-  'POST /api/v1/divination/liuren',
-  'POST /api/v1/divination/liuren/prompt',
-  'POST /api/v1/divination/tarot',
-  'POST /api/v1/divination/tarot/prompt',
-  'POST /api/v1/divination/ssgw',
-  'POST /api/v1/divination/ssgw/prompt',
-  'POST /api/v1/divination/almanac',
-  'POST /api/v1/divination/almanac/prompt',
-  'POST /api/v1/divination/lenormand',
-  'POST /api/v1/divination/lenormand/prompt',
-  'POST /api/v1/divination/astrolabe',
-  'POST /api/v1/divination/astrolabe/prompt',
-  'POST /api/v1/ai/analyze',
-  'POST /api/v1/ai/models',
-] as const;
 
 const DIVINATION_METHODS = [
   'liuyao',
@@ -273,19 +237,6 @@ const DIVINATION_REQUEST_PROPERTIES = {
   promptMode: { enum: [...PROMPT_MODES] },
   supplementaryInfo: { type: 'object' },
 };
-
-export function getPublicApiManifest(runtime: PublicApiRuntime = DEFAULT_PUBLIC_API_RUNTIME) {
-  const baseUrl = `${runtime.origin}/api/${API_VERSION}`;
-  return {
-    name: 'AOV 命理与占卜公开 API',
-    service: runtime.service,
-    version: API_VERSION,
-    baseUrl,
-    openapiUrl: `${baseUrl}/openapi.json`,
-    skillUrl: `${runtime.origin}/skills/aov-mingyu-api/SKILL.md`,
-    endpoints: [...ENDPOINTS],
-  };
-}
 
 export function getPublicApiOpenApiDocument(
   runtime: PublicApiRuntime = DEFAULT_PUBLIC_API_RUNTIME,
@@ -1421,16 +1372,6 @@ function readEnum<const T extends readonly string[]>(
 
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function getPublicApiRuntime(request: Request): PublicApiRuntime {
-  const url = new URL(request.url);
-  const origin = url.origin.replace(/\/+$/, '');
-
-  return {
-    service: url.host || DEFAULT_PUBLIC_API_RUNTIME.service,
-    origin: origin || DEFAULT_PUBLIC_API_RUNTIME.origin,
-  };
 }
 
 function success<T>(data: T, runtime: PublicApiRuntime): ApiSuccess<T> {
