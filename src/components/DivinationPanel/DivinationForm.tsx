@@ -272,7 +272,7 @@ export function DivinationForm({
 
                     {draft.method === 'liuyao' ? (
                       <div className="form-item divination-inline-field">
-                        <label htmlFor="liuyao-template-select">专项</label>
+                        <label htmlFor="liuyao-template-select">问题范围</label>
                         <div className="divination-select-shell divination-desktop-select-shell">
                           <span className="divination-trigger-text">
                             {liuyaoTemplateLabelMap[draft.liuyaoTemplate]}
@@ -300,7 +300,7 @@ export function DivinationForm({
 
                     {draft.method === 'liuren' ? (
                       <div className="form-item divination-inline-field">
-                        <label htmlFor="liuren-template-select">断课要点</label>
+                        <label htmlFor="liuren-template-select">问题范围</label>
                         <div className="divination-select-shell divination-desktop-select-shell">
                           <span className="divination-trigger-text">
                             {liurenTemplateLabelMap[draft.liurenTemplate]}
@@ -544,7 +544,7 @@ export function DivinationForm({
                       {liuyaoTemplateLabelMap[draft.liuyaoTemplate]}
                     </span>
                     <select
-                      aria-label="六爻专项"
+                      aria-label="六爻问题范围"
                       value={draft.liuyaoTemplate}
                       className="form-input divination-mobile-method-select divination-overlay-select"
                       onChange={(event) =>
@@ -594,7 +594,7 @@ export function DivinationForm({
                       {liurenTemplateLabelMap[draft.liurenTemplate]}
                     </span>
                     <select
-                      aria-label="断课要点"
+                      aria-label="大六壬问题范围"
                       value={draft.liurenTemplate}
                       className="form-input divination-mobile-method-select divination-overlay-select"
                       onChange={(event) =>

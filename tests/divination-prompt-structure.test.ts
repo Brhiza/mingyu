@@ -1093,7 +1093,7 @@ test('六爻提示词不再按问题词表补充取用参考', () => {
   assert.match(prompt, /取用评分表：通用断卦：第1爻兄弟子水作取用主轴/);
 });
 
-test('六爻提示词只在用户选择事业模板时补充事业取用参考', () => {
+test('六爻用户选择事业模板只保留范围，不改取用候选', () => {
   const prompt = buildDivinationPrompt(
     'liuyao',
     '这次换工作有没有机会升职？',
@@ -1103,10 +1103,10 @@ test('六爻提示词只在用户选择事业模板时补充事业取用参考',
   );
 
   assert.match(prompt, /断卦类型：事业工作/);
-  assert.match(prompt, /取用参考：事业工作：以官鬼为取用参考/);
-  assert.match(prompt, /盘中第4爻官鬼午火/);
-  assert.match(prompt, /取用评分表：事业工作：第4爻官鬼午火作取用主轴/);
-  assert.match(prompt, /原神忌神仇神：以事业工作第4爻官鬼午火为取用基准/);
+  assert.match(prompt, /用户选择的断卦类型只作为问题范围/);
+  assert.match(prompt, /取用参考：通用断卦：先以世爻第1爻兄弟子水为我方主轴/);
+  assert.match(prompt, /取用评分表：通用断卦：第1爻兄弟子水作取用主轴/);
+  assert.doesNotMatch(prompt, /事业工作：以官鬼为取用参考|取用评分表：事业工作|以事业工作第4爻官鬼午火为取用基准/);
 });
 
 test('六爻提示词按用户选择的鬼神怪异模板收紧口径', () => {
@@ -1120,10 +1120,11 @@ test('六爻提示词按用户选择的鬼神怪异模板收紧口径', () => {
 
   assert.match(prompt, /【断卦要点】/);
   assert.match(prompt, /断卦类型：鬼神怪异/);
-  assert.match(prompt, /官鬼与子孙制鬼、世应受冲、玄武螣蛇白虎勾陈、空破入墓与家宅怪异线索/);
-  assert.match(prompt, /取用参考：鬼神怪异：以官鬼为取用参考/);
+  assert.match(prompt, /用户选择的断卦类型只作为问题范围/);
+  assert.match(prompt, /取用参考：通用断卦：先以世爻第1爻兄弟子水为我方主轴/);
+  assert.doesNotMatch(prompt, /官鬼与子孙制鬼|鬼神怪异：以官鬼为取用参考/);
   assert.doesNotMatch(prompt, /专项抓手/);
-  assert.match(prompt, /若卦中证据不足，只能说“未见明显鬼神主证”或“更偏情绪\/环境因素”/);
+  assert.match(prompt, /证据不足时只能说“未见明显鬼神主证”或“更偏情绪\/环境因素”/);
 });
 
 test('六爻未知专项模板应回落到通用断卦，避免输出 undefined', () => {
@@ -1136,7 +1137,8 @@ test('六爻未知专项模板应回落到通用断卦，避免输出 undefined'
   );
 
   assert.match(prompt, /断卦类型：通用断卦/);
-  assert.match(prompt, /断卦重点：用神主轴、世应关系、动变趋势、空亡伏神与现实行动建议/);
+  assert.match(prompt, /用户选择的断卦类型只作为问题范围/);
+  assert.match(prompt, /取证顺序：先按世应、用神候选、动爻、变卦、空亡、伏神、月日建等卦内证据判断/);
   assert.doesNotMatch(prompt, /undefined|null/);
 });
 
@@ -1212,9 +1214,10 @@ test('大六壬提示词会按八字式结构带入分析思路', () => {
   assertLiurenPromptStructure(prompt);
   assert.match(prompt, /【分析思路】/);
   assert.match(prompt, /分析类型：事业断课/);
-  assert.match(prompt, /关注重点：岗位路径、协作阻力、窗口时机/);
+  assert.match(prompt, /用户选择的断课类型只作为问题范围/);
   assert.match(prompt, /取证顺序：先按知一\/比用看发用亥乘贵人，再看三传推进/);
-  assert.match(prompt, /回答格式：先给结论，再列 2 到 4 条关键依据和建议；不要复述完整课盘。/);
+  assert.match(prompt, /回答口径：先给结论，再列 2 到 4 条关键依据、触发条件和建议；不要复述完整课盘。/);
+  assert.doesNotMatch(prompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
   assert.doesNotMatch(prompt, /【断课要点】/);
 });
 
@@ -1290,7 +1293,8 @@ test('大六壬未知专项模板应回落到通用断课，避免输出 undefin
   );
 
   assert.match(prompt, /分析类型：通用断课/);
-  assert.match(prompt, /关注重点：核心目标、现实阻力、下一步动作/);
+  assert.match(prompt, /用户选择的断课类型只作为问题范围/);
+  assert.doesNotMatch(prompt, /关注重点：核心目标、现实阻力、下一步动作/);
   assert.doesNotMatch(prompt, /undefined|null/);
 });
 

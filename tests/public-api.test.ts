@@ -1250,7 +1250,7 @@ test('公开 API 占卜自定义提示词不强塞任务和输出要求', async 
   assert.doesNotMatch(body.data.prompt, /【输出要求】/);
 });
 
-test('公开 API 六爻与大六壬提示词接口应区分专项模板字段', async () => {
+test('公开 API 六爻与大六壬提示词接口保留用户模板范围', async () => {
   const liuyao = await callApi('divination/liuyao/prompt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1265,6 +1265,7 @@ test('公开 API 六爻与大六壬提示词接口应区分专项模板字段', 
   assert.equal(liuyao.body.ok, true);
   assert.match(liuyao.body.data.prompt, /【断卦要点】/);
   assert.match(liuyao.body.data.prompt, /断卦类型：鬼神怪异/);
+  assert.doesNotMatch(liuyao.body.data.prompt, /鬼神怪异：以官鬼为取用参考|官鬼与子孙制鬼/);
 
   const liuren = await callApi('divination/liuren/prompt', {
     method: 'POST',
@@ -1280,6 +1281,7 @@ test('公开 API 六爻与大六壬提示词接口应区分专项模板字段', 
   assert.equal(liuren.body.ok, true);
   assert.match(liuren.body.data.prompt, /【分析思路】/);
   assert.match(liuren.body.data.prompt, /分析类型：事业断课/);
+  assert.doesNotMatch(liuren.body.data.prompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
 });
 
 test('公开 API 参数错误应返回统一错误结构', async () => {

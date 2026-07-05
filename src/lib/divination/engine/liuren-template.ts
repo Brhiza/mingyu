@@ -24,21 +24,15 @@ export function buildLiurenTemplateText(template: LiurenTemplateType, data: Liur
     shiye: '事业断课',
     caifu: '财富断课',
   };
-  const templateFocusMap: Record<LiurenTemplateType, string> = {
-    ganqing: '关系定位、沟通边界、推进节奏（继续/观望/止损）。',
-    shiye: '岗位路径、协作阻力、窗口时机（推进/调整/暂缓）。',
-    caifu: '现金流稳定性、风险敞口、操作节奏（进攻/防守/回撤）。',
-    general: '核心目标、现实阻力、下一步动作（先做什么）。',
-  };
   const chu = data.threeTransmissions[0];
   const classicalRule = data.classicalRules?.[0];
   const safeTemplate = templateLabelMap[template] ? template : 'general';
 
   return [
     `分析类型：${templateLabelMap[safeTemplate]}`,
-    `关注重点：${templateFocusMap[safeTemplate]}`,
+    '用户选择的断课类型只作为问题范围；未选或通用时按通用断课处理，不补充本地固定专项框架。',
     getLiurenPatternHint(data.transmissionPattern),
     `取证顺序：先按${classicalRule?.rule || '取传法'}看发用${chu ? `${chu.branch}乘${chu.god}` : '初传'}，再看三传推进，四课看背景，课体神煞只作辅证。`,
-    '回答格式：先给结论，再列 2 到 4 条关键依据和建议；不要复述完整课盘。',
+    '回答口径：先给结论，再列 2 到 4 条关键依据、触发条件和建议；不要复述完整课盘。',
   ].join('\n');
 }

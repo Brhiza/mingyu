@@ -67,7 +67,7 @@ yarn add mingyu-core
 | **历法 Calendar** | `mingyu-core/calendar` | 农历、干支、节气、空亡、真太阳时 |
 | **类型 Types** | `mingyu-core/types` | 所有共享类型定义 |
 | **占法配置 Config** | `mingyu-core/divination/config` | 占法列表、起盘方式和前端共享配置 |
-| **占法提示文本** | `mingyu-core/divination/engine/method-text`、`mingyu-core/divination/engine/liuyao-template` | 占法方法说明与六爻通用/专项模板 |
+| **占法提示文本** | `mingyu-core/divination/engine/method-text`、`mingyu-core/divination/engine/liuyao-template` | 占法方法说明与六爻问题范围提示 |
 | **原始数据 Data** | `mingyu-core/divination/divination-data` | 五行、六亲、纳甲、星曜等配置数据 |
 | **六十四卦数据** | `mingyu-core/divination/hexagram-data` | 六爻卦象数据、梅花八卦索引 |
 | **塔罗 Tarot** | `mingyu-core/divination/tarot` | 塔罗抽牌、牌阵、关键字 |

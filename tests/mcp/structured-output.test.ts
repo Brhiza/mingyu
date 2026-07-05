@@ -710,7 +710,7 @@ test('MCP 数字起卦起课应拒绝超出安全整数范围的数字', async (
   });
 });
 
-test('MCP 六爻与大六壬提示词工具应区分专项模板字段', async () => {
+test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () => {
   await withMcpClient(async (client) => {
     const liuyaoResult = await client.callTool({
       name: 'liuyao_prompt',
@@ -724,6 +724,7 @@ test('MCP 六爻与大六壬提示词工具应区分专项模板字段', async (
     const liuyaoPrompt = String(liuyaoResult.structuredContent?.prompt);
     assert.match(liuyaoPrompt, /【断卦要点】/);
     assert.match(liuyaoPrompt, /断卦类型：鬼神怪异/);
+    assert.doesNotMatch(liuyaoPrompt, /鬼神怪异：以官鬼为取用参考|官鬼与子孙制鬼/);
     assertPromptIsPortableTaskText(liuyaoPrompt);
 
     const liurenResult = await client.callTool({
@@ -738,6 +739,7 @@ test('MCP 六爻与大六壬提示词工具应区分专项模板字段', async (
     const liurenPrompt = String(liurenResult.structuredContent?.prompt);
     assert.match(liurenPrompt, /【分析思路】/);
     assert.match(liurenPrompt, /分析类型：事业断课/);
+    assert.doesNotMatch(liurenPrompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
     assertPromptIsPortableTaskText(liurenPrompt);
   });
 });

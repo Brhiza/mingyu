@@ -207,8 +207,8 @@ function findLiuyaoCandidateYaos(data: LiuyaoData, candidate: LiuyaoUsefulGodCan
   return data.yaosDetail.filter((item) => item.sixRelative === candidate.relative);
 }
 
-function createLiuyaoUsefulGodHints(data: LiuyaoData, template: LiuyaoTemplateType) {
-  const candidates = createLiuyaoUsefulGodCandidates(data, template);
+function createLiuyaoUsefulGodHints(data: LiuyaoData) {
+  const candidates = createLiuyaoUsefulGodCandidates(data);
   return candidates.map((candidate) => {
     const matchedYaos = findLiuyaoCandidateYaos(data, candidate);
     const yaoText = matchedYaos.length
@@ -221,20 +221,10 @@ function createLiuyaoUsefulGodHints(data: LiuyaoData, template: LiuyaoTemplateTy
   });
 }
 
-function createLiuyaoUsefulGodCandidates(
-  data: LiuyaoData,
-  template: LiuyaoTemplateType,
-): LiuyaoUsefulGodCandidate[] {
+function createLiuyaoUsefulGodCandidates(data: LiuyaoData): LiuyaoUsefulGodCandidate[] {
   const candidates: LiuyaoUsefulGodCandidate[] = [];
   const worldYao = data.yaosDetail.find((item) => item.isWorld);
   const responseYao = data.yaosDetail.find((item) => item.isResponse);
-  const safeTemplate: LiuyaoTemplateType =
-    template === 'ganqing' ||
-    template === 'shiye' ||
-    template === 'caifu' ||
-    template === 'guaishen'
-      ? template
-      : 'general';
 
   const addCandidate = (label: string, relative: string, note: string, position?: number) => {
     const existing = candidates.some(
@@ -245,48 +235,33 @@ function createLiuyaoUsefulGodCandidates(
     }
   };
 
-  if (safeTemplate === 'general') {
-    if (worldYao) {
-      addCandidate(
-        '通用断卦',
-        worldYao.sixRelative,
-        `先以世爻${formatLiuyaoYaoBrief(worldYao)}为我方主轴，再看应爻、动爻、月日与空亡`,
-        worldYao.position,
-      );
-    }
-    if (responseYao) {
-      addCandidate(
-        '应爻辅轴',
-        responseYao.sixRelative,
-        `应爻${formatLiuyaoYaoBrief(responseYao)}代表对方或外部条件，需与世爻同看`,
-        responseYao.position,
-      );
-    }
-    data.yaosDetail
-      .filter((item) => item.isChanging)
-      .slice(0, 2)
-      .forEach((item) => {
-        addCandidate(
-          `动爻触发第${item.position}爻`,
-          item.sixRelative,
-          '动爻可作事件变化触发点，需与世应和月日同看',
-          item.position,
-        );
-      });
-  } else if (safeTemplate === 'ganqing') {
-    addCandidate('感情关系', '官鬼', '用户选择感情断卦，可参考对象、关系压力或约束');
-    addCandidate('感情关系', '妻财', '用户选择感情断卦，可参考对象、现实互动或承接');
-  } else if (safeTemplate === 'shiye') {
-    addCandidate('事业工作', '官鬼', '用户选择事业断卦，主职位、压力、约束、领导与风险');
-    addCandidate('事业工作', '父母', '用户选择事业断卦，主合同、资质、文书、平台与规则');
-  } else if (safeTemplate === 'caifu') {
-    addCandidate('财运交易', '妻财', '用户选择财运断卦，主钱财、资源、客户、收益与可兑现结果');
-    addCandidate('财运交易', '兄弟', '用户选择财运断卦，主竞争、分财、合伙牵扯与消耗');
-    addCandidate('财运交易', '子孙', '用户选择财运断卦，主产出、方案、客源与生财路径');
-  } else if (safeTemplate === 'guaishen') {
-    addCandidate('鬼神怪异', '官鬼', '用户选择鬼神怪异断卦，主惊疑、压力、疾病、官非或冲犯征象');
-    addCandidate('鬼神怪异', '子孙', '用户选择鬼神怪异断卦，主制鬼、解忧、医药与缓和条件');
+  if (worldYao) {
+    addCandidate(
+      '通用断卦',
+      worldYao.sixRelative,
+      `先以世爻${formatLiuyaoYaoBrief(worldYao)}为我方主轴，再看应爻、动爻、月日与空亡`,
+      worldYao.position,
+    );
   }
+  if (responseYao) {
+    addCandidate(
+      '应爻辅轴',
+      responseYao.sixRelative,
+      `应爻${formatLiuyaoYaoBrief(responseYao)}代表对方或外部条件，需与世爻同看`,
+      responseYao.position,
+    );
+  }
+  data.yaosDetail
+    .filter((item) => item.isChanging)
+    .slice(0, 2)
+    .forEach((item) => {
+      addCandidate(
+        `动爻触发第${item.position}爻`,
+        item.sixRelative,
+        '动爻可作事件变化触发点，需与世应和月日同看',
+        item.position,
+      );
+    });
 
   if (candidates.length === 0) {
     const fallbackRelative = worldYao?.sixRelative || data.yaosDetail[0]?.sixRelative || '世应';
@@ -329,10 +304,7 @@ function createLiuyaoMonthDayEvidence(data: LiuyaoData) {
   ].join('；');
 }
 
-function createLiuyaoUsefulGodScoreEvidenceItems(
-  data: LiuyaoData,
-  template: LiuyaoTemplateType,
-): PromptEvidenceItem[] {
+function createLiuyaoUsefulGodScoreEvidenceItems(data: LiuyaoData): PromptEvidenceItem[] {
   const monthBranch = getGanzhiBranch(data.ganzhi.month);
   const dayBranch = getGanzhiBranch(data.ganzhi.day);
   // 六合关系（《增删卜易》：用神爻与月建或日辰六合为暗助）
@@ -350,7 +322,7 @@ function createLiuyaoUsefulGodScoreEvidenceItems(
     午: '未',
     未: '午',
   };
-  const candidates = createLiuyaoUsefulGodCandidates(data, template).slice(0, 3);
+  const candidates = createLiuyaoUsefulGodCandidates(data).slice(0, 3);
   const movingYaos = data.yaosDetail.filter((item) => item.isChanging).map(formatLiuyaoYaoBrief);
   const worldYao = data.yaosDetail.find((item) => item.isWorld);
   const responseYao = data.yaosDetail.find((item) => item.isResponse);
@@ -453,12 +425,12 @@ function createLiuyaoUsefulGodScoreEvidenceItems(
 function formatLiuyaoUsefulGodScoreEvidence(items: PromptEvidenceItem[]) {
   return [
     ...items.map((item) => `${item.title}：${item.detail}`),
-    '评分口径：取用先按用户选择的断卦类型或通用世应动爻定参考，再看是否临世应、是否发动或暗动、月令旺相休囚死、是否得月日触发、回头生克；空亡、伏藏、月令休囚死、回头克冲或非动爻均降权',
+    '评分口径：取用先按世应、动爻、月日与空亡定候选，再看是否临世应、是否发动或暗动、月令旺相休囚死、是否得月日触发、回头生克；空亡、伏藏、月令休囚死、回头克冲或非动爻均降权',
   ].join('；');
 }
 
-function createLiuyaoRelationGodEvidence(data: LiuyaoData, template: LiuyaoTemplateType) {
-  const candidate = createLiuyaoUsefulGodCandidates(data, template)[0];
+function createLiuyaoRelationGodEvidence(data: LiuyaoData) {
+  const candidate = createLiuyaoUsefulGodCandidates(data)[0];
   const matchedYaos = candidate ? findLiuyaoCandidateYaos(data, candidate) : [];
   const primary =
     matchedYaos[0] || data.yaosDetail.find((item) => item.isWorld) || data.yaosDetail[0];
@@ -729,7 +701,7 @@ function describeWuxingRelation(source: string, target: string) {
   return `${source}与${target}关系待复核`;
 }
 
-function formatLiuyaoInfo(data: LiuyaoData, template: LiuyaoTemplateType) {
+function formatLiuyaoInfo(data: LiuyaoData) {
   const movingYaos = data.changingYaos?.length
     ? data.changingYaos
         .map((item) => `第${item.position}爻${item.type ? `（${item.type}）` : ''}`)
@@ -737,7 +709,7 @@ function formatLiuyaoInfo(data: LiuyaoData, template: LiuyaoTemplateType) {
     : '无动爻';
   const worldYao = data.yaosDetail.find((item) => item.isWorld);
   const responseYao = data.yaosDetail.find((item) => item.isResponse);
-  const usefulGodHints = createLiuyaoUsefulGodHints(data, template);
+  const usefulGodHints = createLiuyaoUsefulGodHints(data);
   const changingLines = data.yaosDetail
     .filter((item) => item.isChanging)
     .map((item) => {
@@ -767,9 +739,9 @@ function formatLiuyaoInfo(data: LiuyaoData, template: LiuyaoTemplateType) {
     : '本卦六亲齐备或本宫首卦无可伏之神';
   const hexagramRelationText = formatLiuyaoHexagramRelation(data);
   const fanfuRelationText = formatLiuyaoFanFuRelation(data);
-  const usefulGodScoreEvidenceItems = createLiuyaoUsefulGodScoreEvidenceItems(data, template);
+  const usefulGodScoreEvidenceItems = createLiuyaoUsefulGodScoreEvidenceItems(data);
   const usefulGodScoreEvidence = formatLiuyaoUsefulGodScoreEvidence(usefulGodScoreEvidenceItems);
-  const relationGodEvidence = createLiuyaoRelationGodEvidence(data, template);
+  const relationGodEvidence = createLiuyaoRelationGodEvidence(data);
   const monthDayEvidence = createLiuyaoMonthDayEvidence(data);
   const timingEvidence = createLiuyaoTimingEvidence(data);
   const timingPriorityEvidence = createLiuyaoTimingPriorityEvidence(data);
@@ -1646,7 +1618,7 @@ export function formatDivinationInfo(
 ) {
   switch (method) {
     case 'liuyao':
-      return formatLiuyaoInfo(data as LiuyaoData, options.liuyaoTemplate ?? 'general');
+      return formatLiuyaoInfo(data as LiuyaoData);
     case 'meihua':
       return formatMeihuaInfo(data as MeihuaData);
     case 'xiaoliuren':
