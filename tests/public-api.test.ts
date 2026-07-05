@@ -70,6 +70,23 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/astrolabe/prompt'));
 });
 
+test('公开 API 元数据应跟随当前访问域名', async () => {
+  const request = new Request('https://example.pages.dev/api/v1/manifest');
+  const response = await handlePublicApiRequest(request);
+  const body = (await response.json()) as {
+    ok: boolean;
+    meta: { service: string };
+    data: { service: string; baseUrl: string; openapiUrl: string; skillUrl: string };
+  };
+
+  assert.equal(body.ok, true);
+  assert.equal(body.meta.service, 'example.pages.dev');
+  assert.equal(body.data.service, 'example.pages.dev');
+  assert.equal(body.data.baseUrl, 'https://example.pages.dev/api/v1');
+  assert.equal(body.data.openapiUrl, 'https://example.pages.dev/api/v1/openapi.json');
+  assert.equal(body.data.skillUrl, 'https://example.pages.dev/skills/aov-mingyu-api/SKILL.md');
+});
+
 test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', async () => {
   const { response, body } = await callApi('openapi.json');
 

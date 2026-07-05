@@ -1,3 +1,5 @@
+export const DEFAULT_MAX_REQUEST_BODY_BYTES = 512 * 1024;
+
 export class RequestBodyTooLargeError extends Error {
   constructor(public readonly maxBytes: number) {
     super(`请求体不能超过 ${maxBytes} 字节。`);

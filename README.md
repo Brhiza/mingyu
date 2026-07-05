@@ -20,6 +20,8 @@ OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.jso
 
 公开 skill：[https://aov.cc/skills/aov-mingyu-api/SKILL.md](https://aov.cc/skills/aov-mingyu-api/SKILL.md)
 
+以上 `aov.cc` 是本项目的官方线上实例；如果你 fork 后部署到自己的 Cloudflare Pages 或其他域名，公开 API 会按实际访问域名生成元数据和 OpenAPI 地址。
+
 功德箱：[https://lk.sydf.cc/](https://lk.sydf.cc/)
 
 ## 快速导航

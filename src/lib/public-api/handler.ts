@@ -22,7 +22,11 @@ import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
-import { readLimitedRequestText, RequestBodyTooLargeError } from '../http/request-body';
+import {
+  DEFAULT_MAX_REQUEST_BODY_BYTES,
+  readLimitedRequestText,
+  RequestBodyTooLargeError,
+} from '../http/request-body';
 import { ASTROLABE_PROMPT_TOPICS } from '../astrolabe-prompts';
 import type {
   AlmanacParticipantInput,
@@ -58,13 +62,19 @@ import {
 import { handleAiAnalyze, handleAiModels, type AiEnv } from '../ai/proxy';
 
 const API_VERSION = 'v1';
-const SERVICE_NAME = 'aov.cc';
-const BASE_URL = 'https://aov.cc';
-const MAX_PUBLIC_API_REQUEST_BODY_BYTES = 512 * 1024;
+const DEFAULT_PUBLIC_API_RUNTIME = {
+  service: 'mingyu',
+  origin: 'http://localhost:3000',
+};
 
 type ApiMeta = {
-  service: typeof SERVICE_NAME;
+  service: string;
   version: typeof API_VERSION;
+};
+
+type PublicApiRuntime = {
+  service: string;
+  origin: string;
 };
 
 type ApiSuccess<T> = {
@@ -91,6 +101,7 @@ const SHENSHA_TONG_ZI_SCOPE = ['day-hour', 'all-pillars'] as const;
 type RouteContext = {
   request: Request;
   segments: string[];
+  runtime: PublicApiRuntime;
   env?: AiEnv;
 };
 
@@ -263,19 +274,22 @@ const DIVINATION_REQUEST_PROPERTIES = {
   supplementaryInfo: { type: 'object' },
 };
 
-export function getPublicApiManifest() {
+export function getPublicApiManifest(runtime: PublicApiRuntime = DEFAULT_PUBLIC_API_RUNTIME) {
+  const baseUrl = `${runtime.origin}/api/${API_VERSION}`;
   return {
     name: 'AOV 命理与占卜公开 API',
-    service: SERVICE_NAME,
+    service: runtime.service,
     version: API_VERSION,
-    baseUrl: `${BASE_URL}/api/${API_VERSION}`,
-    openapiUrl: `${BASE_URL}/api/${API_VERSION}/openapi.json`,
-    skillUrl: `${BASE_URL}/skills/aov-mingyu-api/SKILL.md`,
+    baseUrl,
+    openapiUrl: `${baseUrl}/openapi.json`,
+    skillUrl: `${runtime.origin}/skills/aov-mingyu-api/SKILL.md`,
     endpoints: [...ENDPOINTS],
   };
 }
 
-export function getPublicApiOpenApiDocument() {
+export function getPublicApiOpenApiDocument(
+  runtime: PublicApiRuntime = DEFAULT_PUBLIC_API_RUNTIME,
+) {
   return {
     openapi: '3.1.0',
     info: {
@@ -284,7 +298,7 @@ export function getPublicApiOpenApiDocument() {
       description:
         '提供八字、紫微斗数、六爻、梅花易数、小六壬、奇门遁甲、大六壬、塔罗、三山国王灵签、黄历择日、雷诺曼、星盘和提示词生成能力。',
     },
-    servers: [{ url: `${BASE_URL}/api/${API_VERSION}` }],
+    servers: [{ url: `${runtime.origin}/api/${API_VERSION}` }],
     paths: {
       '/health': {
         get: {
@@ -626,6 +640,7 @@ export async function handlePublicApiRequest(request: Request, segments?: string
   }
 
   const routeSegments = segments ?? normalizeApiPath(new URL(request.url).pathname);
+  const runtime = getPublicApiRuntime(request);
 
   // AI 解析走独立的 SSE 流式响应，不经过 JSON 包装
   if (routeSegments.join('/') === 'ai/analyze' && request.method === 'POST') {
@@ -637,10 +652,10 @@ export async function handlePublicApiRequest(request: Request, segments?: string
   }
 
   try {
-    const data = await route({ request, segments: routeSegments, env });
-    return json(success(data));
+    const data = await route({ request, segments: routeSegments, runtime, env });
+    return json(success(data, runtime));
   } catch (error) {
-    return handleError(error);
+    return handleError(error, runtime);
   }
 }
 
@@ -651,16 +666,16 @@ async function route(context: RouteContext) {
     if (path === 'health' || path === '') {
       return {
         status: 'ok',
-        service: SERVICE_NAME,
+        service: context.runtime.service,
         version: API_VERSION,
         timestamp: new Date().toISOString(),
       };
     }
     if (path === 'manifest') {
-      return getPublicApiManifest();
+      return getPublicApiManifest(context.runtime);
     }
     if (path === 'openapi.json') {
-      return getPublicApiOpenApiDocument();
+      return getPublicApiOpenApiDocument(context.runtime);
     }
   }
 
@@ -1131,7 +1146,7 @@ async function readJson(request: Request, optional = false): Promise<JsonRecord>
   }
 
   try {
-    const text = await readLimitedRequestText(request, MAX_PUBLIC_API_REQUEST_BODY_BYTES);
+    const text = await readLimitedRequestText(request, DEFAULT_MAX_REQUEST_BODY_BYTES);
     if (optional && !text.trim()) {
       return {};
     }
@@ -1148,7 +1163,7 @@ async function readJson(request: Request, optional = false): Promise<JsonRecord>
       throw new ApiError(
         413,
         'REQUEST_BODY_TOO_LARGE',
-        `请求体不能超过 ${MAX_PUBLIC_API_REQUEST_BODY_BYTES} 字节。`,
+        `请求体不能超过 ${DEFAULT_MAX_REQUEST_BODY_BYTES} 字节。`,
       );
     }
     throw new ApiError(400, 'BAD_REQUEST', '请求体必须是合法 JSON。');
@@ -1408,23 +1423,33 @@ function isRecord(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function success<T>(data: T): ApiSuccess<T> {
+function getPublicApiRuntime(request: Request): PublicApiRuntime {
+  const url = new URL(request.url);
+  const origin = url.origin.replace(/\/+$/, '');
+
+  return {
+    service: url.host || DEFAULT_PUBLIC_API_RUNTIME.service,
+    origin: origin || DEFAULT_PUBLIC_API_RUNTIME.origin,
+  };
+}
+
+function success<T>(data: T, runtime: PublicApiRuntime): ApiSuccess<T> {
   return {
     ok: true,
     data,
     meta: {
-      service: SERVICE_NAME,
+      service: runtime.service,
       version: API_VERSION,
     },
   };
 }
 
-function failure(code: string, message: string): ApiFailure {
+function failure(code: string, message: string, runtime: PublicApiRuntime): ApiFailure {
   return {
     ok: false,
     error: { code, message },
     meta: {
-      service: SERVICE_NAME,
+      service: runtime.service,
       version: API_VERSION,
     },
   };
@@ -1437,11 +1462,11 @@ function json(body: ApiSuccess<unknown> | ApiFailure, status = 200) {
   });
 }
 
-function handleError(error: unknown) {
+function handleError(error: unknown, runtime: PublicApiRuntime) {
   if (error instanceof ApiError) {
-    return json(failure(error.code, error.message), error.status);
+    return json(failure(error.code, error.message, runtime), error.status);
   }
 
   console.error('公开 API 未处理异常', error);
-  return json(failure('INTERNAL_ERROR', '服务内部错误。'), 500);
+  return json(failure('INTERNAL_ERROR', '服务内部错误。', runtime), 500);
 }
