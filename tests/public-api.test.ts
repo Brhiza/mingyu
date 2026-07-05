@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { handlePublicApiRequest } from '../src/lib/public-api/handler';
+import { onRequest as handleWellKnownApiRequest } from '../functions/.well-known/[[path]]';
 import { buildZiweiChartInput, calculateFullZiweiChart } from '../src/lib/full-chart-engine/ziwei';
 import {
   buildBaziPromptForResult,
@@ -68,6 +69,9 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/xiaoliuren/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/lenormand/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/astrolabe/prompt'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/ai/analyze'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/ai/models'));
+  assert.ok(body.data.endpoints.includes('GET /.well-known/aov-mingyu-api.json'));
 });
 
 test('公开 API 元数据应跟随当前访问域名', async () => {
@@ -85,6 +89,28 @@ test('公开 API 元数据应跟随当前访问域名', async () => {
   assert.equal(body.data.baseUrl, 'https://example.pages.dev/api/v1');
   assert.equal(body.data.openapiUrl, 'https://example.pages.dev/api/v1/openapi.json');
   assert.equal(body.data.skillUrl, 'https://example.pages.dev/skills/aov-mingyu-api/SKILL.md');
+});
+
+test('公开 API well-known 元数据应跟随当前访问域名', async () => {
+  const response = await handleWellKnownApiRequest({
+    request: new Request('https://example.pages.dev/.well-known/aov-mingyu-api.json'),
+    params: { path: 'aov-mingyu-api.json' },
+  });
+  const body = (await response.json()) as {
+    service: string;
+    baseUrl: string;
+    openapiUrl: string;
+    skillUrl: string;
+    endpoints: string[];
+  };
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.equal(body.service, 'example.pages.dev');
+  assert.equal(body.baseUrl, 'https://example.pages.dev/api/v1');
+  assert.equal(body.openapiUrl, 'https://example.pages.dev/api/v1/openapi.json');
+  assert.equal(body.skillUrl, 'https://example.pages.dev/skills/aov-mingyu-api/SKILL.md');
+  assert.ok(body.endpoints.includes('POST /api/v1/ai/analyze'));
 });
 
 test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', async () => {
