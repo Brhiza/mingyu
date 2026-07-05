@@ -162,6 +162,28 @@ test('未开启内置 AI 时拒绝服务端 AI 调用', async () => {
   assert.equal(body.error.code, 'AI_SERVER_NOT_ENABLED');
 });
 
+test('AI 代理应拒绝过大的请求体', async () => {
+  const response = await handleAiAnalyze(
+    new Request('https://example.com/api/v1/ai/analyze', {
+      method: 'POST',
+      body: JSON.stringify({
+        prompt: '测'.repeat(512 * 1024),
+        aiConfig: { mode: 'builtin' },
+      }),
+    }),
+    {
+      AI_API_KEY: 'test-key',
+      AI_BASE_URL: 'https://example.com/v1',
+      AI_MODEL: 'free/cc',
+      AI_BUILTIN_ENABLED: 'true',
+    },
+  );
+
+  const body = await response.json();
+  assert.equal(response.status, 413);
+  assert.equal(body.error.code, 'REQUEST_BODY_TOO_LARGE');
+});
+
 test('自定义 AI 应拒绝非 HTTPS、本机和内网接口地址', async () => {
   const unsafeBaseUrls = [
     'http://api.openai.com/v1',

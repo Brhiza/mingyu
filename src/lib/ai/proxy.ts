@@ -6,8 +6,11 @@
  * 支持任何兼容接口（DeepSeek、千问、豆包、Groq、OpenAI 等）。
  */
 
+import { readLimitedRequestText, RequestBodyTooLargeError } from '../http/request-body';
+
 const DEFAULT_BASE_URL = 'https://api.deepseek.com/v1';
 const DEFAULT_MODEL = 'deepseek-chat';
+const MAX_AI_REQUEST_BODY_BYTES = 512 * 1024;
 const MAX_PROMPT_LENGTH = 50_000;
 const MAX_MESSAGES = 30;
 const UPSTREAM_RETRY_DELAYS_MS = [500, 1500];
@@ -70,8 +73,15 @@ const SYSTEM_PROMPT_CHAT =
 export async function handleAiAnalyze(request: Request, env?: AiEnv): Promise<Response> {
   let body: { prompt?: unknown; messages?: unknown; aiConfig?: AiProviderConfig };
   try {
-    body = await request.json();
-  } catch {
+    body = parseJsonObject(await readLimitedRequestText(request, MAX_AI_REQUEST_BODY_BYTES));
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return aiJsonError(
+        413,
+        'REQUEST_BODY_TOO_LARGE',
+        `请求体不能超过 ${MAX_AI_REQUEST_BODY_BYTES} 字节。`,
+      );
+    }
     return aiJsonError(400, 'BAD_REQUEST', '请求体必须是合法 JSON。');
   }
 
@@ -224,8 +234,15 @@ export async function handleAiAnalyze(request: Request, env?: AiEnv): Promise<Re
 export async function handleAiModels(request: Request, env?: AiEnv): Promise<Response> {
   let body: { aiConfig?: AiProviderConfig };
   try {
-    body = await request.json();
-  } catch {
+    body = parseJsonObject(await readLimitedRequestText(request, MAX_AI_REQUEST_BODY_BYTES));
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return aiJsonError(
+        413,
+        'REQUEST_BODY_TOO_LARGE',
+        `请求体不能超过 ${MAX_AI_REQUEST_BODY_BYTES} 字节。`,
+      );
+    }
     return aiJsonError(400, 'BAD_REQUEST', '请求体必须是合法 JSON。');
   }
 
@@ -615,6 +632,14 @@ function parseUpstreamError(rawBody: string): { message?: string; code?: string 
   } catch {
     return { message: sanitizeUpstreamText(trimmed) };
   }
+}
+
+function parseJsonObject<T extends Record<string, unknown>>(text: string): T {
+  const value = JSON.parse(text);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('请求体必须是 JSON 对象。');
+  }
+  return value as T;
 }
 
 function sanitizeUpstreamText(value: string): string | undefined {

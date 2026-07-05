@@ -21,13 +21,13 @@ npm run contest:evaluate
 也可以直接传参：
 
 ```bash
-npm run contest:evaluate -- --url https://api.openai.com/v1 --key sk-xxx --model gpt-4.1-mini
+npm run contest:evaluate -- --url https://api.openai.com/v1 --key your-api-key --model gpt-4.1-mini
 ```
 
 批量并发评测：
 
 ```bash
-npm run contest:evaluate -- --format chat --url https://openrouter.ai/api/v1 --key sk-xxx --concurrency 3 --models "GPT-5.4=openai/gpt-5.4,Claude Sonnet 4.6=anthropic/claude-sonnet-4.6"
+npm run contest:evaluate -- --format chat --url https://openrouter.ai/api/v1 --key your-api-key --concurrency 3 --models "GPT-5.4=openai/gpt-5.4,Claude Sonnet 4.6=anthropic/claude-sonnet-4.6"
 ```
 
 `--concurrency` 控制同时评测的模型数量，默认批量为 3；`--caseConcurrency` 可控制同一模型内 8 个命例的并发数量，默认 1。批量模式会合并更新 `模型评测排名报告.md` 和 `评测结果/本次排名原始结果.json`。
@@ -38,16 +38,16 @@ npm run contest:evaluate -- --format chat --url https://openrouter.ai/api/v1 --k
 
 ```bash
 # OpenAI Chat Completions 或兼容接口
-npm run contest:evaluate -- --format chat --url https://api.openai.com/v1 --key sk-xxx --model gpt-4.1-mini
+npm run contest:evaluate -- --format chat --url https://api.openai.com/v1 --key your-api-key --model gpt-4.1-mini
 
 # OpenAI Responses
-npm run contest:evaluate -- --format responses --url https://api.openai.com/v1 --key sk-xxx --model gpt-5.1
+npm run contest:evaluate -- --format responses --url https://api.openai.com/v1 --key your-api-key --model gpt-5.1
 
 # Claude Messages
-npm run contest:evaluate -- --format claude --url https://api.anthropic.com/v1 --key sk-ant-xxx --model claude-sonnet-4-5
+npm run contest:evaluate -- --format claude --url https://api.anthropic.com/v1 --key your-api-key --model claude-sonnet-4-5
 
 # Gemini generateContent
-npm run contest:evaluate -- --format gemini --url https://generativelanguage.googleapis.com/v1beta --key AIza-xxx --model gemini-2.5-pro
+npm run contest:evaluate -- --format gemini --url https://generativelanguage.googleapis.com/v1beta --key your-api-key --model gemini-2.5-pro
 ```
 
 评测报告会保存到本文件夹下的 `评测结果/` 目录。
