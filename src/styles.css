@@ -3252,7 +3252,7 @@ select {
 
 .donation-entry-button {
   width: 100%;
-  min-height: 82px;
+  min-height: 92px;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
@@ -3287,7 +3287,7 @@ select {
 }
 
 .donation-entry-title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 800;
 }
 
@@ -5705,13 +5705,13 @@ div.form-actions.page-submit-actions {
   }
 
   .donation-entry-button {
-    min-height: 74px;
+    min-height: 82px;
     border-radius: 12px;
     padding: 10px 16px;
   }
 
   .donation-entry-title {
-    font-size: 18px;
+    font-size: 20px;
   }
 
   .donation-entry-note {
