@@ -70,6 +70,8 @@ description: 通过 aov.cc 公开 API 调用命理、占卜和一站式提示词
 - `POST /divination/lenormand/prompt`：雷诺曼抽牌并生成结构化 AI 解读提示词。
 - `POST /divination/astrolabe`：星盘生成。
 - `POST /divination/astrolabe/prompt`：星盘生成并生成结构化 AI 解读提示词。
+- `POST /ai/analyze`：AI 解读，返回 SSE 流式响应。
+- `POST /ai/models`：获取当前 AI 配置可用的模型列表。
 
 ## 请求示例
 
@@ -179,6 +181,22 @@ curl -X POST https://aov.cc/api/v1/divination/astrolabe \
   -d '{"name":"本人","gender":"女","year":1995,"month":5,"day":20,"hour":12,"minute":30,"latitude":39.9042,"longitude":116.4074,"timezone":8,"locationName":"北京"}'
 ```
 
+AI 流式解读：
+
+```bash
+curl -N -X POST https://aov.cc/api/v1/ai/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"请基于这段排盘资料做简明解读。"}'
+```
+
+获取可用模型列表：
+
+```bash
+curl -X POST https://aov.cc/api/v1/ai/models \
+  -H "Content-Type: application/json" \
+  -d '{"aiConfig":{"mode":"builtin"}}'
+```
+
 ## 参数约定
 
 通用参数：
@@ -220,7 +238,7 @@ Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用�
 
 - 梅花易数 `method`：`time`（时间起卦）、`number`（数字起卦）、`random`（随机起卦）、`timeTrigram`（兼容旧参数，按年月日时起卦法计算）。`method` 为 `number` 时需提供 `number`（正整数）。
 - 小六壬 `xiaoliurenMethod`：`time`、`number`、`random`。`number` 时需提供 `xiaoliurenNumber`（正整数）。
-- 塔罗 `spreadType`：`single`（单牌指引）、`three`（时间流）、`love`（爱情）、`career`（事业）、`decision`（选择）。
+- 塔罗 `spreadType`：`single`（单牌指引）、`three`（时间流）、`love`（爱情）、`career`（事业）、`decision`（选择）、`celtic`（凯尔特十字）、`chakra`（七脉轮）、`year`（年运）、`mindBodySpirit`（身心灵）、`horseshoe`（马蹄铁）。
 - 六爻 `liuyaoTemplate`：`general`（通用）、`ganqing`（感情）、`shiye`（事业）、`caifu`（财运）、`guaishen`（鬼神怪异）。
 - 大六壬 `liurenTemplate`：`general`（通用）、`ganqing`（感情）、`shiye`（事业）、`caifu`（财富）。
 - 奇门遁甲 `qimenMethod`：`zhuanpan`（转盘法，默认）、`feipan`（飞盘法）。返回中可读取 `seasonality` 和 `patternCombos` 作为时令与复合格局证据。
@@ -228,3 +246,8 @@ Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用�
 - 黄历择日 `startDate`、`endDate`：日期范围字符串。`participants`：参与者数组，每人包含 `id`、`name`、`gender`、`year`、`month`、`day`、`timeIndex`、`dateType`、`isLeapMonth`。
 - 雷诺曼 `spreadType`：`single`（单牌）、`three`（三牌）、`five`（五牌十字阵）、`relationship`（关系）、`decision`（选择）、`nine`（九宫）、`element`（元素牌阵）、`grandTableau`（大桌牌阵）。
 - 星盘 `year`、`month`、`day`、`hour`、`minute`：出生时间。`latitude`、`longitude`：经纬度。`timezone`：时区偏移。`locationName`：地点名称。可传 `useTrueSolarTime` 启用真太阳时校正；提示词接口可传 `astrolabeTopic` 和 `astrolabeScopeText`，用于写入本命、流年、流月或流日分析对象。
+
+AI 接口参数：
+
+- `/ai/analyze` 请求体支持 `{ "prompt": "..." }` 单轮解析，或 `{ "messages": [{ "role": "user", "content": "..." }] }` 多轮追问；可选 `aiConfig` 指定 `builtin` 或 `custom` 模式。成功时返回 `text/event-stream`，每条增量以 `data: {"content":"..."}` 形式输出。
+- `/ai/models` 请求体支持 `{ "aiConfig": { "mode": "builtin" } }` 或自定义 OpenAI 兼容配置，返回 `{ "ok": true, "models": ["模型 ID"] }`。
