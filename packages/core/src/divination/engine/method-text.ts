@@ -73,7 +73,7 @@ export function buildMethodRequirementText(method: Exclude<DivinationMethodId, '
     case 'almanac':
       return '- 先排除冲犯和忌项明显的日期，再比较宜项、吉神、执日、星宿与参与人八字匹配度。';
     case 'lenormand':
-      return '- 优先依据牌阵、牌位、牌名和牌义组织判断；证据不足时直接说明，不补充本地固定分类。';
+      return '- 优先依据牌阵、牌位、牌名和牌义组织判断；证据不足时直接说明，不补充本地预设内容。';
     case 'astrolabe':
       return '- 不要泛泛讲星座性格，必须把星体、宫位、相位和用户问题连起来。';
     default:

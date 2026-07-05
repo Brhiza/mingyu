@@ -1,5 +1,3 @@
-import type { QuestionInspirationIntent } from '@/pages/ResultPage/ResultPage.types';
-
 export type QuestionInspirationFilter = {
   label: string;
   value: string;
@@ -9,7 +7,6 @@ export type QuestionInspirationItem = {
   id: string;
   question: string;
   tag?: string;
-  intent?: QuestionInspirationIntent;
 };
 
 export type QuestionInspirationSection = {
@@ -28,7 +25,7 @@ type QuestionInspirationModalProps = {
   searchPlaceholder?: string;
   sections: QuestionInspirationSection[];
   emptyText: string;
-  onSelect: (question: string, tag?: string, intent?: QuestionInspirationIntent) => void;
+  onSelect: (question: string) => void;
   onClose: () => void;
 };
 
@@ -106,7 +103,7 @@ export function QuestionInspirationModal(props: QuestionInspirationModalProps) {
                         key={item.id}
                         type="button"
                         className="question-inspiration-item"
-                        onClick={() => onSelect(item.question, item.tag, item.intent)}
+                        onClick={() => onSelect(item.question)}
                       >
                         {item.tag ? (
                           <span className="question-inspiration-tag">{item.tag}</span>

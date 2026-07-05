@@ -22,19 +22,6 @@ export type InspirationCategory =
   | '成长'
   | '天赋';
 
-export type QuestionInspirationIntent =
-  | 'job-change'
-  | 'relationship-push'
-  | 'startup-partnership'
-  | 'relationship-decision'
-  | 'investment-partnership'
-  | 'reconciliation-decision'
-  | 'family-health'
-  | 'home-move'
-  | 'settle-relocate'
-  | 'study-advance'
-  | 'exam-landing';
-
 export type ZiweiYearOption = {
   year: number;
   age: number;

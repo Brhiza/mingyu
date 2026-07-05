@@ -81,7 +81,7 @@ const qimenPalaceNameByGong: Record<number, string> = {
   9: '离九宫',
 };
 
-test('灵感问题只填问题，不自动改用户选择的分类', () => {
+test('灵感问题只填问题，不自动改用户选择的牌阵', () => {
   const tarotQuestion = TAROT_SPREAD_INSPIRATION_QUESTIONS.love?.[0] ?? '我和TA的感情会如何发展？';
   const tarotPatch = resolveDivinationInspiredDraftPatch(
     buildDraft({ method: 'tarot', tarotSpread: 'single' }),

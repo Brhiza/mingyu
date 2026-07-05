@@ -11,7 +11,7 @@ import {
   resolveZiweiShortcutMode,
   writePromptDraft,
 } from '../ResultPage.helpers';
-import type { PromptShortcutMode, QuestionInspirationIntent } from '../ResultPage.types';
+import type { PromptShortcutMode } from '../ResultPage.types';
 
 export interface PromptShortcuts {
   activeBaziShortcutMode: PromptShortcutMode;
@@ -29,11 +29,7 @@ export interface PromptShortcuts {
   applyBaziShortcutMode: (mode: PromptShortcutMode) => void;
   applyZiweiShortcutMode: (mode: PromptShortcutMode) => void;
   applyAstrolabeShortcutMode: (mode: PromptShortcutMode) => void;
-  applyInspiredQuestion: (
-    question: string,
-    category?: string,
-    intent?: QuestionInspirationIntent,
-  ) => void;
+  applyInspiredQuestion: (question: string) => void;
 }
 
 export function usePromptShortcuts(
@@ -298,11 +294,7 @@ export function usePromptShortcuts(
     });
   }
 
-  function applyInspiredQuestion(
-    question: string,
-    _category?: string,
-    _intent?: QuestionInspirationIntent,
-  ) {
+  function applyInspiredQuestion(question: string) {
     if (promptSource === 'bazi' || promptSource === 'bazi-ziwei') {
       writePromptDraft(baziDraftStorageKey, question, 'inspiration');
       setActiveBaziShortcutMode('问题灵感');

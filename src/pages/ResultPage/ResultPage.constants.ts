@@ -1,5 +1,5 @@
 import type { ZiweiScopeMode } from '@/lib/query-state';
-import type { InspirationCategory, QuestionInspirationIntent } from './ResultPage.types';
+import type { InspirationCategory } from './ResultPage.types';
 
 export const inspirationCategories: InspirationCategory[] = [
   '全部',
@@ -21,7 +21,6 @@ export const inspirationCategories: InspirationCategory[] = [
 export const commonQuestionInspirations: Array<{
   category: Exclude<InspirationCategory, '全部'>;
   question: string;
-  intent?: QuestionInspirationIntent;
 }> = [
   { category: '近期', question: '我近期最该优先推进的事情是什么？' },
   { category: '近期', question: '我最近更适合主动出击，还是先稳住节奏？' },
@@ -32,32 +31,26 @@ export const commonQuestionInspirations: Array<{
   {
     category: '事业',
     question: '我现在适合换工作，还是先留在原岗位继续积累？',
-    intent: 'job-change',
   },
   {
     category: '事业',
     question: '这次跳槽机会更值得抓住，还是先稳住现有节奏？',
-    intent: 'job-change',
   },
   {
     category: '事业',
     question: '如果我现在想转方向，更适合留在原行业深耕，还是切换赛道？',
-    intent: 'job-change',
   },
   {
     category: '事业',
     question: '我现在更适合创业、找人合作，还是先继续上班积累？',
-    intent: 'startup-partnership',
   },
   {
     category: '事业',
     question: '如果我想自己做点事，现在更适合单干、合伙，还是先小范围试水？',
-    intent: 'startup-partnership',
   },
   {
     category: '事业',
     question: '这条创业方向现在值得投入吗，还是更适合先观望准备？',
-    intent: 'startup-partnership',
   },
   { category: '事业', question: '我更适合走稳定上班路线，还是尝试主动开拓发展？' },
   { category: '事业', question: '我在工作中更适合做执行、管理、专业技术，还是资源整合？' },
@@ -80,17 +73,14 @@ export const commonQuestionInspirations: Array<{
   {
     category: '财运',
     question: '我现在适合自己投、跟人合作求财，还是先守住现金流继续观望？',
-    intent: 'investment-partnership',
   },
   {
     category: '财运',
     question: '这次投资或合作机会更像能放大的机会，还是容易带来额外风险和牵扯？',
-    intent: 'investment-partnership',
   },
   {
     category: '财运',
     question: '如果我想靠项目、投资或合作赚钱，现在更适合主动布局还是先把风险控住？',
-    intent: 'investment-partnership',
   },
   { category: '财运', question: '我适不适合和别人一起做生意或投资？' },
   { category: '财运', question: '如果要改善财务状态，我最该先管住哪一块？' },
@@ -98,47 +88,38 @@ export const commonQuestionInspirations: Array<{
   {
     category: '婚恋',
     question: '我现在更适合主动推进这段关系，还是先观察一段时间？',
-    intent: 'relationship-push',
   },
   {
     category: '婚恋',
     question: '这段关系现在值得继续投入，还是该慢下来重新判断？',
-    intent: 'relationship-push',
   },
   {
     category: '婚恋',
     question: '面对这段感情，我更该主动争取、稳定经营，还是及时止损？',
-    intent: 'relationship-push',
   },
   {
     category: '婚恋',
     question: '这段关系我现在该继续投入，还是该及时抽身止损？',
-    intent: 'relationship-decision',
   },
   {
     category: '婚恋',
     question: '如果继续这段关系，我是在等结果，还是在消耗自己？',
-    intent: 'relationship-decision',
   },
   {
     category: '婚恋',
     question: '这段感情现在更适合继续观察，还是该尽快做去留判断？',
-    intent: 'relationship-decision',
   },
   {
     category: '婚恋',
     question: '这段旧关系现在还有没有复合空间，我更适合争取、观察还是直接放下？',
-    intent: 'reconciliation-decision',
   },
   {
     category: '婚恋',
     question: '如果我还想回头看这段关系，现在是在等机会，还是在继续消耗自己？',
-    intent: 'reconciliation-decision',
   },
   {
     category: '婚恋',
     question: '这段旧感情当前更像能重新连接的机会，还是该趁早收口止损？',
-    intent: 'reconciliation-decision',
   },
   { category: '婚恋', question: '我适合什么类型的伴侣？' },
   { category: '婚恋', question: '我的未来对象大概是怎样的人？' },
@@ -167,17 +148,14 @@ export const commonQuestionInspirations: Array<{
   {
     category: '六亲',
     question: '我六亲家人的健康整体怎么样，哪些亲人更需要多关注？',
-    intent: 'family-health',
   },
   {
     category: '六亲',
     question: '父母、兄弟姐妹、伴侣和子女各自更需要注意哪些健康或照护问题？',
-    intent: 'family-health',
   },
   {
     category: '六亲',
     question: '面对家人健康和照护压力，我现在最该提前做哪些安排？',
-    intent: 'family-health',
   },
   { category: '六亲', question: '我和兄弟姐妹之间更容易互助还是有隐性消耗？' },
   { category: '六亲', question: '我在家庭关系中更容易承担责任，还是容易被关系拖累？' },
@@ -194,32 +172,26 @@ export const commonQuestionInspirations: Array<{
   {
     category: '家庭',
     question: '我现在适合搬家、换城市或调整居住安排吗？',
-    intent: 'home-move',
   },
   {
     category: '家庭',
     question: '如果考虑买房或长期定居，现在是合适的时机吗？',
-    intent: 'home-move',
   },
   {
     category: '家庭',
     question: '这次居住调整更像机会，还是会带来额外压力和消耗？',
-    intent: 'home-move',
   },
   {
     category: '家庭',
     question: '我现在更适合长期留在当前城市，还是考虑换城市重新扎根发展？',
-    intent: 'settle-relocate',
   },
   {
     category: '家庭',
     question: '如果我要考虑长期定居，这一步更像顺势落地，还是还需要再观察一段时间？',
-    intent: 'settle-relocate',
   },
   {
     category: '家庭',
     question: '这次换城或定居调整，真正要优先看的，是事业机会、生活稳定还是家庭牵动？',
-    intent: 'settle-relocate',
   },
   { category: '家庭', question: '面对家里的长期议题，我现在更该协调、扛住，还是先立边界？' },
   { category: '家庭', question: '我和家人之间最需要先修复的是沟通、距离感还是责任分工？' },
@@ -249,32 +221,26 @@ export const commonQuestionInspirations: Array<{
   {
     category: '学业',
     question: '我现在适合考证、读研进修，还是先把现实节奏稳住？',
-    intent: 'study-advance',
   },
   {
     category: '学业',
     question: '如果继续深造，我更适合短期考证、长期进修，还是跨领域学习？',
-    intent: 'study-advance',
   },
   {
     category: '学业',
     question: '这次学习投入对我来说更像值得冲刺的机会，还是成本过高的消耗？',
-    intent: 'study-advance',
   },
   {
     category: '学业',
     question: '这次考试、面试或申请，我现在更适合全力冲刺、稳住发挥，还是先调整预期？',
-    intent: 'exam-landing',
   },
   {
     category: '学业',
     question: '如果我想争取这次上岸机会，现在最大的关键在准备节奏、临场发挥还是目标选择？',
-    intent: 'exam-landing',
   },
   {
     category: '学业',
     question: '这次考试或申请更像值得硬冲的窗口，还是该先稳住节奏避免失误？',
-    intent: 'exam-landing',
   },
   { category: '学业', question: '如果继续进修，我更适合偏理论、偏实践，还是跨领域学习？' },
   { category: '学业', question: '我当前学业上的主要卡点更在专注力、理解力还是执行力？' },

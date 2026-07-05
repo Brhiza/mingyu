@@ -321,7 +321,7 @@ function generateHarmonyTransformSection(chartResult: BaziChartResult): string {
 
 /**
  * 生成增强分析片段。
- * 用户选择的分类只限定回答范围，不再决定本地资料包塞哪些专项模板。
+ * 用户选择的主题只限定回答范围，不再决定本地资料包塞哪些专项模板。
  */
 export function generateEnhancedAnalysisSection(
   chartResult: BaziChartResult,
@@ -356,9 +356,7 @@ export function generateEnhancedAnalysisSection(
       tg.tongguan &&
       shouldIncludeTongguanSection(tg.tongguan, unfavorableWuxing)
     ) {
-      sections.push(
-        `【通关法】${tg.conflict[0]}与${tg.conflict[1]}相战，以${tg.tongguan}通关调和`,
-      );
+      sections.push(`【通关法】${tg.conflict[0]}与${tg.conflict[1]}相战，以${tg.tongguan}通关调和`);
     }
   }
 

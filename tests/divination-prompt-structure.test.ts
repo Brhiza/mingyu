@@ -1396,7 +1396,7 @@ test('星盘提示词应直接给出太阳月亮上升和主要相位证据', ()
   );
 
   assert.match(prompt, /【星盘要点】/);
-  assert.match(prompt, /用户没有选择具体分类时按通用星盘口径处理/);
+  assert.match(prompt, /用户没有选择具体主题时按通用星盘口径处理/);
   assert.match(prompt, /主轴证据：太阳金牛座 29°；月亮处女座 08°；上升狮子座 12°/);
   assert.match(
     prompt,

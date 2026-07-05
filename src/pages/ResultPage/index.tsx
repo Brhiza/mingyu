@@ -30,7 +30,6 @@ import type {
   BaziFortuneSelectionModule,
   InspirationCategory,
   PromptEngineModule,
-  QuestionInspirationIntent,
 } from './ResultPage.types';
 import { PROMPT_DRAFT_STORAGE_PREFIX } from './ResultPage.constants';
 import {
@@ -830,8 +829,8 @@ export function ResultPage() {
     updatePromptState({ tab });
   }
 
-  function handleInspirationSelect(question: string, category?: string, intent?: string) {
-    applyInspiredQuestion(question, category, intent as QuestionInspirationIntent | undefined);
+  function handleInspirationSelect(question: string) {
+    applyInspiredQuestion(question);
     setInspirationText(question);
   }
 
