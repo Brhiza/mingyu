@@ -1917,7 +1917,7 @@ select {
 }
 
 .input-page-shell.has-floating-tutorial-entry.has-donation-entry {
-  padding-bottom: 204px;
+  padding-bottom: 228px;
 }
 
 .input-page-main-content {
@@ -3231,7 +3231,7 @@ select {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   margin-top: 12px;
 }
 
@@ -3251,20 +3251,22 @@ select {
 
 .donation-entry-button {
   width: 100%;
-  min-height: 52px;
+  min-height: 72px;
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
-  border: 1px solid var(--border-contrast);
+  gap: 4px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent-strong) 54%, #fff);
   background: linear-gradient(135deg, var(--accent-strong), var(--secondary-strong));
   color: #fff;
-  box-shadow: var(--shadow-sm);
-  font-size: 16px;
+  box-shadow: var(--shadow-md);
+  font-size: 18px;
   font-weight: 700;
   text-decoration: none;
   letter-spacing: 0;
-  padding: 0 18px;
+  padding: 12px 20px;
   pointer-events: auto;
   transition:
     transform 0.2s ease,
@@ -3275,7 +3277,23 @@ select {
 .donation-entry-button:hover {
   opacity: 0.92;
   transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.donation-entry-title,
+.donation-entry-note {
+  line-height: 1.25;
+}
+
+.donation-entry-title {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.donation-entry-note {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.88;
 }
 
 .tutorial-entry-card {
@@ -5681,7 +5699,7 @@ div.form-actions.page-submit-actions {
   }
 
   .input-page-shell.has-floating-tutorial-entry.has-donation-entry {
-    padding-bottom: 218px;
+    padding-bottom: 238px;
   }
 
   .input-page-bottom-tools.is-floating {
@@ -5690,9 +5708,17 @@ div.form-actions.page-submit-actions {
   }
 
   .donation-entry-button {
-    min-height: 48px;
-    border-radius: 10px;
-    font-size: 15px;
+    min-height: 64px;
+    border-radius: 12px;
+    padding: 10px 16px;
+  }
+
+  .donation-entry-title {
+    font-size: 17px;
+  }
+
+  .donation-entry-note {
+    font-size: 11px;
   }
 
   .tutorial-entry-card {

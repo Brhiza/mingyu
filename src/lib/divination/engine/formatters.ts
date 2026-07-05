@@ -6,7 +6,6 @@ import type {
   LenormandData,
   LiurenData,
   LiuyaoData,
-  LiuyaoTemplateType,
   MeihuaData,
   QimenData,
   QimenJiuGongGe,
@@ -1614,7 +1613,6 @@ export function formatDivinationInfo(
   data: DivinationData,
   _question: string,
   _supplementaryInfo?: SupplementaryInfo,
-  options: { liuyaoTemplate?: LiuyaoTemplateType } = {},
 ) {
   switch (method) {
     case 'liuyao':

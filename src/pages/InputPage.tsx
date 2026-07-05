@@ -508,7 +508,8 @@ export function InputPage() {
               target="_blank"
               rel="noreferrer"
             >
-              功德箱
+              <span className="donation-entry-title">功德箱</span>
+              <span className="donation-entry-note">支持项目继续维护</span>
             </a>
           ) : null}
           <div className="tutorial-entry-card">
