@@ -21,7 +21,6 @@
     "../src/lib/**/*.ts",
     "../src/utils/**/*.ts",
     "../src/types/**/*.ts",
-    "../src/config/**/*.ts",
     "../src/services/**/*.ts",
     "../packages/core/src/**/*.ts"
   ],

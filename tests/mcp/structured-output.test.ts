@@ -614,80 +614,15 @@ test('MCP 黄历择日工具应拒绝越界日期范围', async () => {
   });
 });
 
-test('MCP 梅花工具应支持外应起卦入参', async () => {
+test('MCP 梅花工具应拒绝未知起卦方式', async () => {
   await withMcpClient(async (client) => {
-    const result = await client.callTool({
-      name: 'divine_meihua',
-      arguments: {
-        method: 'external',
-        customDate: '2025-01-01T08:00:00+08:00',
-        externalOmens: {
-          direction: '南',
-          object: '火电文书',
-          count: 3,
-        },
-      },
-    });
-
-    assert.equal(result.isError, undefined, 'divine_meihua 外应起卦不应返回错误');
-    const meihua = result.structuredContent?.result as {
-      calculation?: {
-        methodKey?: string;
-        externalSummary?: string;
-        externalMappedOmens?: Array<{ label?: string; trigram?: string }>;
-        movingYaoIndex?: number;
-        timeZhi?: string;
-        timeZhiIndex?: number;
-        totalWithTime?: number;
-      };
-    };
-    assert.equal(meihua.calculation?.methodKey, 'external');
-    assert.match(String(meihua.calculation?.externalSummary), /方位：南（离）/);
-    assert.match(String(meihua.calculation?.externalSummary), /物件：火电文书（离）/);
-    assert.match(String(meihua.calculation?.externalSummary), /时辰：辰（5）/);
-    assert.equal(meihua.calculation?.movingYaoIndex, 5);
-    assert.equal(meihua.calculation?.timeZhi, '辰');
-    assert.equal(meihua.calculation?.timeZhiIndex, 5);
-    assert.equal(meihua.calculation?.totalWithTime, 11);
-    assert.deepEqual(meihua.calculation?.externalMappedOmens, [
-      { source: 'direction', label: '南', trigram: '离', trigramIndex: 3 },
-      { source: 'object', label: '火电文书', trigram: '离', trigramIndex: 3 },
-    ]);
-  });
-});
-
-test('MCP 梅花外应起卦应前置校验外应数量和动爻数量', async () => {
-  await withMcpClient(async (client) => {
-    const invalidCases: Array<[string, Record<string, unknown>, string]> = [
-      ['divine_meihua', { method: 'external' }, 'externalOmens 必须是对象。'],
-      [
-        'meihua_prompt',
-        { method: 'external', question: '今年事业如何？' },
-        'externalOmens 必须是对象。',
-      ],
-      [
-        'divine_meihua',
-        { method: 'external', externalOmens: { direction: '南', count: 3 } },
-        '外应起卦至少需要两项可映射的外应。',
-      ],
-      [
-        'meihua_prompt',
-        {
-          method: 'external',
-          question: '今年事业如何？',
-          externalOmens: { direction: '南', object: '火电文书' },
-        },
-        'count 必须是正整数。',
-      ],
-    ];
-
-    for (const [name, args, expectedError] of invalidCases) {
+    for (const name of ['divine_meihua', 'meihua_prompt']) {
+      const args =
+        name === 'meihua_prompt'
+          ? { method: 'external', question: '今年事业如何？' }
+          : { method: 'external' };
       const result = await client.callTool({ name, arguments: args });
-      assert.equal(result.isError, true, `${name} 应返回外应参数错误`);
-      assert.equal(
-        (result.structuredContent as { error?: string } | undefined)?.error,
-        expectedError,
-      );
+      assert.equal(result.isError, true, `${name} 应返回参数错误`);
     }
   });
 });

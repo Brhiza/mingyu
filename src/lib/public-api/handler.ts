@@ -11,14 +11,6 @@ import {
   getBirthDateValidationMessage,
   isValidIsoDateTime,
 } from '../date-validation';
-import {
-  meihuaAnimalOptions,
-  meihuaColorOptions,
-  meihuaDirectionOptions,
-  meihuaObjectOptions,
-  meihuaPersonOptions,
-  meihuaSoundOptions,
-} from '../../config/meihua-omens';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
@@ -37,7 +29,6 @@ import type {
   AstrolabeBirthInput,
   DivinationData,
   LenormandSpreadType,
-  MeihuaExternalOmens,
   LiuyaoTemplateType,
   LiurenTemplateType,
   MeihuaSettings,
@@ -192,44 +183,8 @@ const DIVINATION_REQUEST_PROPERTIES = {
     enum: ['zhuanpan', 'feipan'],
     description: '奇门遁甲排盘方法：zhuanpan 为转盘法（默认），feipan 为飞盘法。',
   },
-  method: { enum: ['time', 'number', 'random', 'external'] },
+  method: { enum: ['time', 'number', 'random', 'timeTrigram'] },
   number: { type: 'integer', minimum: 1 },
-  externalOmens: {
-    type: 'object',
-    description:
-      '梅花外应起卦信息。method 为 external 时至少提供两项可映射外应，并提供 count；含方位时按后天端法以物象为上卦、方位为下卦、加时取动爻。',
-    properties: {
-      direction: { enum: ['东', '东南', '南', '西南', '西', '西北', '北', '东北'] },
-      count: { type: 'integer', minimum: 1 },
-      person: { enum: ['老父', '老妇', '长男', '长女', '中男', '中女', '少男', '少女'] },
-      animal: { enum: ['马', '牛', '龙', '鸡', '猪', '雉', '狗', '羊'] },
-      object: {
-        enum: [
-          '金玉圆器',
-          '布帛陶器',
-          '竹木乐器',
-          '绳索长木',
-          '水器液体',
-          '火电文书',
-          '石块门板',
-          '刀剪口器',
-        ],
-      },
-      sound: {
-        enum: [
-          '洪亮金石',
-          '沉厚低缓',
-          '雷鸣震动',
-          '风声呼啸',
-          '流水滴答',
-          '爆裂鸣叫',
-          '闷阻叩击',
-          '清脆笑语',
-        ],
-      },
-      color: { enum: ['金白', '土黄', '青碧', '青绿', '黑蓝', '赤紫', '棕黄', '银白'] },
-    },
-  },
   xiaoliurenMethod: { enum: ['time', 'number', 'random'] },
   xiaoliurenNumber: { type: 'integer', minimum: 1 },
   spreadType: {
@@ -918,13 +873,12 @@ function calculateMeihua(input: JsonRecord) {
   const method = readEnum(
     input,
     'method',
-    ['time', 'number', 'random', 'external', 'timeTrigram'],
+    ['time', 'number', 'random', 'timeTrigram'],
     'time',
   );
   const settings: MeihuaSettings = {
     method,
     ...(method === 'number' ? { number: readInteger(input, 'number', 1) } : {}),
-    ...(method === 'external' ? { externalOmens: readMeihuaExternalOmens(input) } : {}),
   };
 
   return generateMeihua(readCustomDate(input), settings);
@@ -1280,42 +1234,6 @@ function readOptionalEnum<const T extends readonly string[]>(
     return value;
   }
   throw new ApiError(400, 'BAD_REQUEST', `${key} 必须是以下值之一：${values.join('、')}。`);
-}
-
-function optionNames<const T extends string>(options: ReadonlyArray<{ name: T }>): T[] {
-  return options.map((option) => option.name);
-}
-
-function readMeihuaExternalOmens(input: JsonRecord): MeihuaExternalOmens {
-  const value = input.externalOmens;
-  if (!isRecord(value)) {
-    throw new ApiError(400, 'BAD_REQUEST', 'externalOmens 必须是对象。');
-  }
-
-  const externalOmens: MeihuaExternalOmens = {
-    direction: readOptionalEnum(value, 'direction', optionNames(meihuaDirectionOptions)),
-    person: readOptionalEnum(value, 'person', optionNames(meihuaPersonOptions)),
-    animal: readOptionalEnum(value, 'animal', optionNames(meihuaAnimalOptions)),
-    object: readOptionalEnum(value, 'object', optionNames(meihuaObjectOptions)),
-    sound: readOptionalEnum(value, 'sound', optionNames(meihuaSoundOptions)),
-    color: readOptionalEnum(value, 'color', optionNames(meihuaColorOptions)),
-    count: readInteger(value, 'count', 1),
-  };
-
-  const mappedCount = [
-    externalOmens.direction,
-    externalOmens.person,
-    externalOmens.animal,
-    externalOmens.object,
-    externalOmens.sound,
-    externalOmens.color,
-  ].filter(Boolean).length;
-
-  if (mappedCount < 2) {
-    throw new ApiError(400, 'BAD_REQUEST', '外应起卦至少需要两项可映射的外应。');
-  }
-
-  return externalOmens;
 }
 
 function readDateOnly(input: JsonRecord, key: string) {

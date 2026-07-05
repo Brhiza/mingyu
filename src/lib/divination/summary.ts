@@ -14,7 +14,6 @@ import type {
   XiaoliurenData,
 } from '../../types/divination';
 import { resolveSsgwStoryContent } from './ssgw-content';
-import { formatTarotCardLabel, getTarotFocusCards } from './tarot-focus';
 
 export interface DivinationSummaryBlocks {
   title: string;
@@ -173,7 +172,6 @@ function formatMeihuaMethodSummary(data: MeihuaData) {
     time: '年月日时起卦法',
     number: '数字起卦法',
     random: '随机起卦法',
-    external: '外应起卦法',
     timeTrigram: '年月日时起卦法（兼容）',
   };
   const label =
@@ -185,17 +183,6 @@ function formatMeihuaMethodSummary(data: MeihuaData) {
       : '');
 
   return `起卦法：${label || '未知'}`;
-}
-
-function formatMeihuaExternalSummary(data: MeihuaData) {
-  const isExternalMethod =
-    data.calculation?.methodKey === 'external' || data.calculation?.method === '外应起卦法';
-
-  if (!data.calculation?.externalSummary || !isExternalMethod) {
-    return '';
-  }
-
-  return `外应：${data.calculation.externalSummary}`;
 }
 
 function formatMeihuaFocusSummary(data: MeihuaData) {
@@ -260,8 +247,9 @@ function formatTarotFocusSummary(data: TarotData) {
     return '';
   }
 
-  return getTarotFocusCards(data)
-    .map((card) => formatTarotCardLabel(card))
+  return data.cards
+    .slice(0, 3)
+    .map((card) => `${card.position}${card.name}（${card.reversed ? '逆位' : '正位'}）`)
     .join('；');
 }
 
@@ -320,7 +308,6 @@ export function getDivinationSummaryBlocks(
           formatMeihuaRelationSummary(meihua),
           formatMeihuaChangedSummary(meihua),
           formatMeihuaMethodSummary(meihua),
-          formatMeihuaExternalSummary(meihua),
         ].filter(Boolean),
       };
     }

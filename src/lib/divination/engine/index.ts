@@ -70,8 +70,8 @@ function buildDivinationEvidenceTerms(method: Exclude<DivinationMethodId, 'rando
       };
     case 'meihua':
       return {
-        facts: '本卦、互卦、变卦、体用、动爻、五行生克、卦气、外应或现实补充',
-        timing: '动爻、体用生克、卦气、互变推进、外应条件或问题限定范围',
+        facts: '本卦、互卦、变卦、体用、动爻、五行生克、卦气或现实补充',
+        timing: '动爻、体用生克、卦气、互变推进或问题限定范围',
       };
     case 'xiaoliuren':
       return {
@@ -149,9 +149,9 @@ function buildDivinationTimingBoundaryText(method: Exclude<DivinationMethodId, '
       ].join('\n');
     case 'meihua':
       return [
-        '梅花应期必须来自体用生克、动爻数、卦数、互卦过程、变卦结果、四时旺衰和外应之间的互证。',
+        '梅花应期必须来自体用生克、动爻数、卦数、互卦过程、变卦结果和四时旺衰之间的互证。',
         '体卦定自身承受力，用卦定外部事象，互卦看过程，变卦看结果；应期要说明落在哪一层证据。',
-        '外应只能作辅证，不能独立决定绝对应期；起卦资料不足时只能给阶段与条件，不得凭单一象意给日期。',
+        '起卦资料不足时只能给阶段与条件，不得凭单一象意给日期。',
       ].join('\n');
     case 'xiaoliuren':
       return [
@@ -209,7 +209,7 @@ export type DivinationDraft = {
   divinationTimeMode?: 'current' | 'custom';
   customDivinationDate?: string;
   customDivinationTime?: string;
-  meihuaMethod: 'time' | 'number' | 'random' | 'external' | 'timeTrigram';
+  meihuaMethod: 'time' | 'number' | 'random' | 'timeTrigram';
   meihuaNumber: string;
   xiaoliurenMethod: XiaoliurenDivinationMethod;
   xiaoliurenNumber: string;

@@ -12,7 +12,7 @@
 | `ziwei_prompt`      | 紫微提示词   | 紫微斗数排盘并返回可直接用于 AI 解读的结构化提示词       |
 | `divine_liuyao`     | 六爻起卦     | 基于当前时间或自定义时间生成完整六爻卦象                 |
 | `liuyao_prompt`     | 六爻提示词   | 六爻起卦并返回可直接用于 AI 解读的结构化提示词           |
-| `divine_meihua`     | 梅花易数起卦 | 支持时间/数字/随机/外应四种起卦方式                      |
+| `divine_meihua`     | 梅花易数起卦 | 支持时间/数字/随机三种起卦方式，兼容旧 timeTrigram 参数   |
 | `meihua_prompt`     | 梅花提示词   | 梅花易数起卦并返回可直接用于 AI 解读的结构化提示词       |
 | `divine_xiaoliuren` | 小六壬起课   | 支持时间/数字/随机三种起课方式，返回三段宫位与行动倾向   |
 | `xiaoliuren_prompt` | 小六壬提示词 | 小六壬起课并返回可直接用于 AI 解读的结构化提示词         |
@@ -104,10 +104,6 @@ npm run mcp
 六爻、梅花易数、小六壬、奇门遁甲、大六壬工具默认使用当前时间。需要复盘历史时刻、按用户指定时间起卦，或让本地 MCP 与网页端自定时间保持一致时，传入 `customDate`。
 
 `customDate` 必须是带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:30:00+08:00`。适用工具包括 `divine_liuyao`、`liuyao_prompt`、`divine_meihua`、`meihua_prompt`、`divine_xiaoliuren`、`xiaoliuren_prompt`、`divine_qimen`、`qimen_prompt`、`divine_liuren`、`liuren_prompt`。
-
-### 梅花外应参数
-
-梅花易数工具使用 `method: "external"` 时，需要提供 `externalOmens`。至少填写两项可映射外应，并填写 `count` 作为动爻数量，例如 `direction: "南"`、`object: "火电文书"`、`count: 3`。
 
 ### 小六壬数字起课参数
 
