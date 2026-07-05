@@ -1,8 +1,10 @@
 import type FunctionalAstrolabe from 'iztro/lib/astro/FunctionalAstrolabe';
 import type FunctionalHoroscope from 'iztro/lib/astro/FunctionalHoroscope';
 import type { Config } from 'iztro/lib/data/types';
+import { LunarDay, SolarDay } from 'tyme4ts';
 import type { ChartInput } from '../../types/chart';
 import { daysInSolarMonth } from '../../calendar/date-validation';
+import { TimeManager } from '../../calendar/timeManager';
 
 export function normalizeChartInput(input: ChartInput): ChartInput {
   return {
@@ -52,21 +54,18 @@ export async function buildAstrolabeFromInput(input: ChartInput): Promise<Functi
 }
 
 export function formatLocalDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}`;
+  const parts = TimeManager.getWallClockParts(date);
+  return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
 }
 
 export function getDefaultHoroscopeContext(now = new Date()) {
   if (!(now instanceof Date) || Number.isNaN(now.getTime())) {
     throw new Error('当前时间不是有效日期。');
   }
-
+  const parts = TimeManager.getWallClockParts(now);
   return {
     dateStr: formatLocalDate(now),
-    hourIndex: timeToIndex(now.getHours()),
+    hourIndex: timeToIndex(parts.hour),
   };
 }
 
@@ -106,6 +105,40 @@ export function shiftLocalDate(
   }
 
   return formatLocalDate(date);
+}
+
+/**
+ * 按农历年位移日期：返回出生日对应农历日期在目标农历年中的公历日期。
+ *
+ * 虚岁按农历年（正月初一）递增；公历直移会让春节前出生者（公历 1 月至春节间）
+ * 的"虚岁 N 岁"落入相邻农历年，导致大限/流年时间轴取到错误的年干支。
+ * 闰月出生回退到同名普通月，三十日出生遇目标月小月回退到廿九。
+ */
+export function shiftLunarYear(dateStr: string, amount: number): string {
+  const { year, month, day } = parseSolarDateKey(dateStr);
+  if (!Number.isInteger(amount)) {
+    throw new Error('日期位移量必须是整数。');
+  }
+
+  const lunarBirth = SolarDay.fromYmd(year, month, day).getLunarDay();
+  const lunarMonth = lunarBirth.getLunarMonth();
+  const targetYear = lunarMonth.getYear() + amount;
+  const monthWithLeap = lunarMonth.getMonthWithLeap();
+  const monthCandidates =
+    monthWithLeap < 0 ? [monthWithLeap, Math.abs(monthWithLeap)] : [monthWithLeap];
+
+  for (const targetMonth of monthCandidates) {
+    for (const targetDay of [lunarBirth.getDay(), 29]) {
+      try {
+        const solar = LunarDay.fromYmd(targetYear, targetMonth, targetDay).getSolarDay();
+        return formatLocalDate(new Date(solar.getYear(), solar.getMonth() - 1, solar.getDay()));
+      } catch {
+        // 目标年无此闰月或该月无三十日，按候选顺序回退
+      }
+    }
+  }
+
+  throw new Error('无法按农历年位移出生日期。');
 }
 
 function parseSolarDateKey(dateStr: string): { year: number; month: number; day: number } {

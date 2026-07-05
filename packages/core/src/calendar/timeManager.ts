@@ -91,6 +91,23 @@ export class TimeManager {
   }
 
   /**
+   * 按统一时区策略提取墙上时间的年月日时分（默认东八区）。
+   * 供紫微等模块取"当前时刻"，避免直接读运行环境本地时区导致跨模块日期/时辰不一致。
+   */
+  static getWallClockParts(date: Date = new Date()): {
+    year: number;
+    month: number;
+    day: number;
+    hour: number;
+    minute: number;
+  } {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      throw new Error('当前时间不是有效日期。');
+    }
+    return this.getDatePartsInOffset(date, this.getTimezoneOffsetMinutes(date));
+  }
+
+  /**
    * 基于时间戳生成确定性随机数
    * @param timestamp 时间戳
    * @param range 范围
@@ -213,7 +230,8 @@ export class TimeManager {
         monthInChinese: lunarDayText.split('年')[1].split('月')[0] + '月',
         dayInChinese: lunarDayText.split('月')[1],
         hourInChinese: lunarHourText.slice(-2),
-        monthNumber: lunarDay.getMonth(),
+        // tyme4ts 闰月返回负数，规范为正数月序供起卦取模使用（闰月标志另行处理）
+        monthNumber: Math.abs(lunarDay.getMonth()),
         dayNumber: lunarDay.getDay(),
       },
       ganzhi: {

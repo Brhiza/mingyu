@@ -1,5 +1,5 @@
 import type { PalaceFact } from '../../types/analysis';
-import { shiftLocalDate } from './runtime-helpers';
+import { shiftLunarYear } from './runtime-helpers';
 
 export type DecadalTimelineOption = {
   kind: 'childhood' | 'decadal';
@@ -53,7 +53,8 @@ export function buildDecadalTimelineOptions(
     label: '大限',
     startAge: range.startAge,
     endAge: range.endAge,
-    dateStr: shiftLocalDate(birthSolarDate, range.startAge - 1, 'year'),
+    // 虚岁按农历年递增，须按农历年位移；公历直移会让春节前出生者落入相邻流年干支
+    dateStr: shiftLunarYear(birthSolarDate, range.startAge - 1),
   }));
 
   return [...childhoodOptions, ...decadalOptions];

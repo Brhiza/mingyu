@@ -1,4 +1,4 @@
-import { buildAstrolabeFromInput, buildHoroscope, shiftLocalDate } from '@core/ziwei/iztro';
+import { buildAstrolabeFromInput, buildHoroscope, shiftLunarYear } from '@core/ziwei/iztro';
 import type { ChartInput } from '@/types/chart';
 
 type DecadalOptionInput = {
@@ -93,7 +93,7 @@ self.onmessage = async (event: MessageEvent<ZiweiFortuneOptionsRequest>) => {
       age <= event.data.selectedDecadal.endAge;
       age += 1
     ) {
-      const dateStr = shiftLocalDate(event.data.birthSolarDate, age - 1, 'year');
+      const dateStr = shiftLunarYear(event.data.birthSolarDate, age - 1);
       const horoscope = buildHoroscope(astrolabe, dateStr, event.data.hourIndex);
       const year = getDateParts(dateStr).year;
       yearOptions.push({

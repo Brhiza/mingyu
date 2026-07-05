@@ -58,17 +58,16 @@ const GUAN_XING_XUE_TANG_BY_STEM: Record<string, string> = {
   癸: '戊申',
 };
 
+// 食神学堂「食神天干 + 食神五行长生位」。阳干食神长生居阳支、阴干居阴支，
+// 而食神与日主同阴阳，故戊己壬癸四干无法组成六十甲子，其食神学堂在标准长生法下不成立，
+// 表中不再收录这四项（原硬编码值 庚巳/辛申/甲亥/乙寅 均非六十甲子、规则永不命中）。
 const SHI_SHEN_XUE_TANG_BY_STEM: Record<string, string> = {
   甲: '丙寅',
   乙: '丁巳',
   丙: '戊申',
   丁: '己亥',
-  戊: '庚巳',
-  己: '辛申',
   庚: '壬申',
   辛: '癸亥',
-  壬: '甲亥',
-  癸: '乙寅',
 };
 
 const MING_FU_MONTH_BRANCH_BY_YEAR_STEM: Record<string, string> = {

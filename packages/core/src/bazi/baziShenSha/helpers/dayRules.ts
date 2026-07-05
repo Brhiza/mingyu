@@ -234,7 +234,8 @@ export function buildDayRules(ctx: RuleContext): ShenShaRuleMap {
     天转: () =>
       (pillarIndex === 2 || pillarIndex === 3) &&
       !!season &&
-      ({ 春: '乙卯', 夏: '戊午', 秋: '辛酉', 冬: '癸子' } as Record<string, string>)[season] ===
+      // 冬水旺壬子（原「癸子」阴阳错配，不属六十甲子）
+      ({ 春: '乙卯', 夏: '戊午', 秋: '辛酉', 冬: '壬子' } as Record<string, string>)[season] ===
         pillarGZ,
     地转: () =>
       (pillarIndex === 2 || pillarIndex === 3) &&

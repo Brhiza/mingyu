@@ -77,19 +77,6 @@ const SHENG_CHENG_LU_BY_STEM: Record<string, string[]> = {
   癸: ['癸亥', '壬子'],
 };
 
-const MING_WEI_LU_BY_STEM: Record<string, string> = {
-  甲: '丙寅',
-  乙: '丁卯',
-  丙: '戊巳',
-  丁: '己午',
-  戊: '庚巳',
-  己: '辛午',
-  庚: '壬申',
-  辛: '癸酉',
-  壬: '甲亥',
-  癸: '乙子',
-};
-
 const SHI_SHEN_DAI_LU_BY_STEM: Record<string, string> = {
   壬: '甲寅',
   癸: '乙卯',
@@ -223,6 +210,10 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
   };
   const mingWeiMaPillar = (stem: string, branch: string) =>
     `${FOOD_GOD_BY_STEM[stem] ?? ''}${YI_MA_BY_BRANCH[branch] ?? ''}`;
+  // 名位禄「禄上带食神」：食神天干 + 日/年干本身的禄支（如甲人见丙寅，丙为甲食神、寅为甲禄）。
+  // 因阳干禄居阳支、阴干禄居阴支而食神与日干同阴阳，实际仅甲乙庚辛四干可组成六十甲子。
+  const mingWeiLuPillar = (stem: string) =>
+    `${FOOD_GOD_BY_STEM[stem] ?? ''}${LU_BRANCH_BY_STEM[stem] ?? ''}`;
 
   return {
     禄神: () => {
@@ -232,7 +223,7 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
       SHENG_CHENG_LU_BY_STEM[nianGan]?.includes(pillarGZ) ||
       SHENG_CHENG_LU_BY_STEM[riGan]?.includes(pillarGZ),
     名位禄: () =>
-      MING_WEI_LU_BY_STEM[nianGan] === pillarGZ || MING_WEI_LU_BY_STEM[riGan] === pillarGZ,
+      mingWeiLuPillar(nianGan) === pillarGZ || mingWeiLuPillar(riGan) === pillarGZ,
     食神带禄: () =>
       SHI_SHEN_DAI_LU_BY_STEM[nianGan] === pillarGZ ||
       SHI_SHEN_DAI_LU_BY_STEM[riGan] === pillarGZ,

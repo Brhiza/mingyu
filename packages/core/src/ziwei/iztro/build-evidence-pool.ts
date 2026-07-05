@@ -58,7 +58,7 @@ function resolveCurrentScopeLabel(horoscope: IFunctionalHoroscope, currentScope:
     case 'hourly':
       return horoscope.hourly.name || '流时';
     case 'age':
-      return '小限';
+      return horoscope.age?.name || '小限';
     case 'origin':
     default:
       return mapScopeLabel(currentScope);

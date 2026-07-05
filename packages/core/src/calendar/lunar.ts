@@ -83,8 +83,10 @@ export class LunarUtil {
     // 戌时: 19:00-21:00
     // 亥时: 21:00-23:00
 
-    if (currentHour >= 23 || currentHour < 1) {
-      return 0; // 子时
+    if (currentHour >= 23) {
+      return 12; // 晚子时（夜子时，23:00-24:00），对应 tyme4ts hours 数组末位
+    } else if (currentHour < 1) {
+      return 0; // 早子时（00:00-01:00）
     } else if (currentHour >= 1 && currentHour < 3) {
       return 1; // 丑时
     } else if (currentHour >= 3 && currentHour < 5) {
@@ -166,8 +168,8 @@ export class LunarUtil {
           monthInChinese: lunar.toString().split('年')[1].split('月')[0] + '月',
           dayInChinese: lunar.toString().split('月')[1],
           hourInChinese: currentLunarHour.toString().slice(-2),
-          // 添加数字格式的月日
-          monthNumber: lunar.getMonth(),
+          // 添加数字格式的月日（tyme4ts 闰月返回负数，规范为正数月序，闰月标志另行处理）
+          monthNumber: Math.abs(lunar.getMonth()),
           dayNumber: lunar.getDay(),
         },
         ganzhi: {
@@ -255,8 +257,8 @@ export class LunarUtil {
         monthInChinese: lunar.toString().split('年')[1].split('月')[0] + '月',
         dayInChinese: lunar.toString().split('月')[1],
         hourInChinese: currentLunarHour.toString().slice(-2),
-        // 添加数字格式的月日
-        monthNumber: lunar.getMonth(),
+        // 添加数字格式的月日（tyme4ts 闰月返回负数，此处规范为正数月序，闰月标志另行处理）
+        monthNumber: Math.abs(lunar.getMonth()),
         dayNumber: lunar.getDay(),
       };
     } catch (error) {

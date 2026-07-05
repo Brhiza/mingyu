@@ -323,31 +323,33 @@ export function calculateSeasonInfo(solarTime: SolarTimeInstance): SeasonInfo {
     const daysSincePrev = prevTerm ? Math.floor(birthJulianDay.getDay() - prevTerm.jd) : 0;
     const daysToNext = nextTerm ? Math.floor(nextTerm.jd - birthJulianDay.getDay()) : 0;
 
+    // tyme4ts SolarTerm 索引：0=冬至,3=立春,6=春分,9=立夏,12=夏至,15=立秋,18=秋分,21=立冬。
+    // 传统以「四立」分季：立春(3)起春、立夏(9)起夏、立秋(15)起秋、立冬(21)起冬。
     const seasonIndexMap: Record<number, string> = {
-      0: '春',
-      1: '春',
-      2: '春',
       3: '春',
       4: '春',
       5: '春',
-      6: '夏',
-      7: '夏',
-      8: '夏',
+      6: '春',
+      7: '春',
+      8: '春',
       9: '夏',
       10: '夏',
       11: '夏',
-      12: '秋',
-      13: '秋',
-      14: '秋',
+      12: '夏',
+      13: '夏',
+      14: '夏',
       15: '秋',
       16: '秋',
       17: '秋',
-      18: '冬',
-      19: '冬',
-      20: '冬',
+      18: '秋',
+      19: '秋',
+      20: '秋',
       21: '冬',
       22: '冬',
       23: '冬',
+      0: '冬',
+      1: '冬',
+      2: '冬',
     };
 
     return {
