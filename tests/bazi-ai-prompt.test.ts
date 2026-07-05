@@ -828,6 +828,28 @@ test('八字提示词会节选合化评分，避免把合化候选直接当成�
   assert.doesNotMatch(prompt.user, /原组合可按化神木参与后续结构判断/);
 });
 
+test('八字增强资料包不再按用户分类切换本地模板', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1988,
+    month: 1,
+    day: 1,
+    timeIndex: 0,
+    gender: 'female',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+
+  const generalSection = generateEnhancedAnalysisSection(result, 'general');
+  const healthSection = generateEnhancedAnalysisSection(result, 'health');
+  const careerSection = generateEnhancedAnalysisSection(result, 'career');
+
+  assert.equal(healthSection, generalSection);
+  assert.equal(careerSection, generalSection);
+  assert.doesNotMatch(healthSection, /【寿元分析】/);
+  assert.doesNotMatch(careerSection, /【限运分析】/);
+});
+
 test('高风险旁证提示改为辅助研判框架，避免直接断语', () => {
   assert.match(generateAnalysisDimensionHints('fuxin'), /辅助观察/);
   assert.match(generateAnalysisDimensionHints('fuxin'), /不可脱离原局主线单独定吉凶/);

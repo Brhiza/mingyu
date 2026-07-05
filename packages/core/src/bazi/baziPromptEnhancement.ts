@@ -1,6 +1,6 @@
 /**
  * AI 提示词增强模块
- * 整合病药法、通关法、经典格局、神煞详解、命局分析维度
+ * 整合病药法、通关法、经典格局与可由盘面证明的传统旁证。
  */
 
 import type { BaziChartResult } from './baziTypes';
@@ -9,7 +9,6 @@ import {
   identifyClassicPattern,
   generateCareerPartnershipHints,
   getPeachBlossomDetail,
-  generatePeriodAnalysis,
   generateAnalysisDimensionHints,
   generateFriendshipHints,
   generateMarriageMatchHints,
@@ -20,22 +19,6 @@ import {
   detectTongguanNeed,
 } from './baziEnhancement';
 import { assessAllHarmonyTransforms } from './harmonyTransform';
-
-/**
- * 分析维度配置
- */
-interface AnalysisDimensionConfig {
-  includeDiseaseMedicine: boolean; // 病药法分析
-  includeTongguan: boolean; // 通关法分析
-  includeClassicPattern: boolean; // 经典格局分析
-  includePeachBlossomDetail: boolean; // 桃花详解
-  includeLifespan: boolean; // 寿元分析
-  includeFuxin: boolean; // 伏吟反吟
-  includeKongWang: boolean; // 空亡详解
-  includeXingChong: boolean; // 刑冲合会破
-  includeHarmonyTransform: boolean; // 合化程度
-  includePeriod: boolean; // 限运分析
-}
 
 type PillarKey = 'year' | 'month' | 'day' | 'hour';
 
@@ -206,124 +189,6 @@ function analyzePillarRelations(chartResult: BaziChartResult): {
 }
 
 /**
- * 默认的分析维度配置
- */
-const DEFAULT_ANALYSIS_DIMENSIONS: AnalysisDimensionConfig = {
-  includeDiseaseMedicine: true,
-  includeTongguan: true,
-  includeClassicPattern: true,
-  includePeachBlossomDetail: true,
-  includeLifespan: false,
-  includeFuxin: false,
-  includeKongWang: false,
-  includeXingChong: false,
-  includeHarmonyTransform: true,
-  includePeriod: false,
-};
-
-/**
- * 场景对应的分析维度
- */
-const SCENE_ANALYSIS_DIMENSIONS: Record<string, AnalysisDimensionConfig> = {
-  marriage: {
-    includeDiseaseMedicine: true,
-    includeTongguan: true,
-    includeClassicPattern: true,
-    includePeachBlossomDetail: true,
-    includeLifespan: false,
-    includeFuxin: true,
-    includeKongWang: true,
-    includeXingChong: true,
-    includeHarmonyTransform: true,
-    includePeriod: false,
-  },
-  career: {
-    includeDiseaseMedicine: true,
-    includeTongguan: true,
-    includeClassicPattern: true,
-    includePeachBlossomDetail: false,
-    includeLifespan: false,
-    includeFuxin: false,
-    includeKongWang: false,
-    includeXingChong: true,
-    includeHarmonyTransform: true,
-    includePeriod: true,
-  },
-  health: {
-    includeDiseaseMedicine: true,
-    includeTongguan: false,
-    includeClassicPattern: false,
-    includePeachBlossomDetail: false,
-    includeLifespan: true,
-    includeFuxin: false,
-    includeKongWang: false,
-    includeXingChong: false,
-    includeHarmonyTransform: false,
-    includePeriod: false,
-  },
-  wealth: {
-    includeDiseaseMedicine: true,
-    includeTongguan: true,
-    includeClassicPattern: true,
-    includePeachBlossomDetail: false,
-    includeLifespan: false,
-    includeFuxin: false,
-    includeKongWang: true,
-    includeXingChong: true,
-    includeHarmonyTransform: true,
-    includePeriod: false,
-  },
-  study: {
-    includeDiseaseMedicine: false,
-    includeTongguan: false,
-    includeClassicPattern: true,
-    includePeachBlossomDetail: false,
-    includeLifespan: false,
-    includeFuxin: false,
-    includeKongWang: false,
-    includeXingChong: false,
-    includeHarmonyTransform: false,
-    includePeriod: true,
-  },
-  children: {
-    includeDiseaseMedicine: true,
-    includeTongguan: false,
-    includeClassicPattern: false,
-    includePeachBlossomDetail: true,
-    includeLifespan: false,
-    includeFuxin: true,
-    includeKongWang: true,
-    includeXingChong: true,
-    includeHarmonyTransform: true,
-    includePeriod: false,
-  },
-  parents: {
-    includeDiseaseMedicine: true,
-    includeTongguan: false,
-    includeClassicPattern: false,
-    includePeachBlossomDetail: false,
-    includeLifespan: true,
-    includeFuxin: false,
-    includeKongWang: true,
-    includeXingChong: true,
-    includeHarmonyTransform: false,
-    includePeriod: false,
-  },
-  general: {
-    includeDiseaseMedicine: true,
-    includeTongguan: true,
-    includeClassicPattern: true,
-    includePeachBlossomDetail: true,
-    includeLifespan: false,
-    includeFuxin: false,
-    includeKongWang: false,
-    includeXingChong: false,
-    includeHarmonyTransform: true,
-    includePeriod: false,
-  },
-};
-
-/**
  * 生成经典格局分析片段
  */
 function generateClassicPatternSection(chartResult: BaziChartResult): string {
@@ -461,115 +326,65 @@ function generateHarmonyTransformSection(chartResult: BaziChartResult): string {
 }
 
 /**
- * 生成限运分析片段
- */
-function generatePeriodAnalysisSection(chartResult: BaziChartResult): string {
-  const { analysis } = chartResult;
-  const period = generatePeriodAnalysis(
-    analysis.mingGe,
-    analysis.dayMasterStrength.status,
-    chartResult.pillars?.day.gan || '',
-  );
-
-  return `【限运分析】少年(1-16):${period.earlyStage.description}重点:${period.earlyStage.focus.join('、')}；青中年(17-45):${period.midStage.description}重点:${period.midStage.focus.join('、')}；中老年(46+):${period.lateStage.description}重点:${period.lateStage.focus.join('、')}`;
-}
-
-/**
- * 根据场景生成增强分析片段
+ * 生成增强分析片段。
+ * 用户选择的分类只限定回答范围，不再决定本地资料包塞哪些专项模板。
  */
 export function generateEnhancedAnalysisSection(
   chartResult: BaziChartResult,
-  scene: string = 'general',
+  _topic: string = 'general',
 ): string {
-  const config = SCENE_ANALYSIS_DIMENSIONS[scene] || DEFAULT_ANALYSIS_DIMENSIONS;
   const sections: string[] = [];
 
-  // 病药法
-  if (config.includeDiseaseMedicine) {
-    const wuxingCounts = chartResult.wuxingStrength?.percentages;
-    if (wuxingCounts && chartResult.analysis?.mingGe) {
-      const dm = detectDiseaseMedicine(
-        wuxingCounts,
-        chartResult.analysis.mingGe,
-        chartResult.analysis.dayMasterStrength.status,
-      );
-      const unfavorableWuxing = chartResult.analysis?.usefulGod?.unfavorableWuxing || [];
-      if (
-        dm.hasDisease &&
-        dm.medicine &&
-        shouldIncludeDiseaseMedicineSection(dm.medicine, unfavorableWuxing)
-      ) {
-        sections.push(`【病药法】病:${dm.disease} | 药:${dm.medicine}`);
-      }
-    }
-  }
-
-  // 通关法
-  if (config.includeTongguan) {
-    const wuxingCounts = chartResult.wuxingStrength?.percentages;
-    const favorableWuxing = chartResult.analysis?.usefulGod?.favorableWuxing || [];
+  const wuxingCounts = chartResult.wuxingStrength?.percentages;
+  if (wuxingCounts && chartResult.analysis?.mingGe) {
+    const dm = detectDiseaseMedicine(
+      wuxingCounts,
+      chartResult.analysis.mingGe,
+      chartResult.analysis.dayMasterStrength.status,
+    );
     const unfavorableWuxing = chartResult.analysis?.usefulGod?.unfavorableWuxing || [];
-    if (wuxingCounts && favorableWuxing.length > 0) {
-      const tg = detectTongguanNeed(wuxingCounts, favorableWuxing, unfavorableWuxing);
-      if (
-        tg.need &&
-        tg.conflict &&
-        tg.tongguan &&
-        shouldIncludeTongguanSection(tg.tongguan, unfavorableWuxing)
-      ) {
-        sections.push(
-          `【通关法】${tg.conflict[0]}与${tg.conflict[1]}相战，以${tg.tongguan}通关调和`,
-        );
-      }
+    if (
+      dm.hasDisease &&
+      dm.medicine &&
+      shouldIncludeDiseaseMedicineSection(dm.medicine, unfavorableWuxing)
+    ) {
+      sections.push(`【病药法】病:${dm.disease} | 药:${dm.medicine}`);
     }
   }
 
-  // 经典格局
-  if (config.includeClassicPattern) {
-    const classicSection = generateClassicPatternSection(chartResult);
-    if (classicSection) sections.push(classicSection);
+  const favorableWuxing = chartResult.analysis?.usefulGod?.favorableWuxing || [];
+  const unfavorableWuxing = chartResult.analysis?.usefulGod?.unfavorableWuxing || [];
+  if (wuxingCounts && favorableWuxing.length > 0) {
+    const tg = detectTongguanNeed(wuxingCounts, favorableWuxing, unfavorableWuxing);
+    if (
+      tg.need &&
+      tg.conflict &&
+      tg.tongguan &&
+      shouldIncludeTongguanSection(tg.tongguan, unfavorableWuxing)
+    ) {
+      sections.push(
+        `【通关法】${tg.conflict[0]}与${tg.conflict[1]}相战，以${tg.tongguan}通关调和`,
+      );
+    }
   }
 
-  // 桃花详解
-  if (config.includePeachBlossomDetail) {
-    const taohuaSection = generatePeachBlossomDetailSection(chartResult);
-    if (taohuaSection) sections.push(taohuaSection);
-  }
+  const classicSection = generateClassicPatternSection(chartResult);
+  if (classicSection) sections.push(classicSection);
 
-  // 伏吟反吟
-  if (config.includeFuxin) {
-    const fuxinSection = generateFuxinSection(chartResult);
-    if (fuxinSection) sections.push(fuxinSection);
-  }
+  const taohuaSection = generatePeachBlossomDetailSection(chartResult);
+  if (taohuaSection) sections.push(taohuaSection);
 
-  // 空亡详解
-  if (config.includeKongWang) {
-    const kongWangSection = generateKongWangSection(chartResult);
-    if (kongWangSection) sections.push(kongWangSection);
-  }
+  const fuxinSection = generateFuxinSection(chartResult);
+  if (fuxinSection) sections.push(fuxinSection);
 
-  // 刑冲合会破
-  if (config.includeXingChong) {
-    const xingChongSection = generateXingChongSection(chartResult);
-    if (xingChongSection) sections.push(xingChongSection);
-  }
+  const kongWangSection = generateKongWangSection(chartResult);
+  if (kongWangSection) sections.push(kongWangSection);
 
-  // 合化程度
-  if (config.includeHarmonyTransform) {
-    const harmonyTransformSection = generateHarmonyTransformSection(chartResult);
-    if (harmonyTransformSection) sections.push(harmonyTransformSection);
-  }
+  const xingChongSection = generateXingChongSection(chartResult);
+  if (xingChongSection) sections.push(xingChongSection);
 
-  // 限运分析
-  if (config.includePeriod) {
-    const periodSection = generatePeriodAnalysisSection(chartResult);
-    if (periodSection) sections.push(periodSection);
-  }
-
-  // 寿元分析
-  if (config.includeLifespan) {
-    sections.push(generateAnalysisDimensionHints('lifespan'));
-  }
+  const harmonyTransformSection = generateHarmonyTransformSection(chartResult);
+  if (harmonyTransformSection) sections.push(harmonyTransformSection);
 
   return sections.join('\n\n');
 }
