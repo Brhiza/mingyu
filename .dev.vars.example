@@ -8,7 +8,7 @@
 
 # API Key（填写你的 AI 服务商密钥）
 # 支持任何 OpenAI 兼容接口，如 DeepSeek、千问、豆包、Groq、OpenAI 等
-AI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxx
+AI_API_KEY=your-api-key
 
 # 接口地址（保持 /v1 结尾，默认 https://api.deepseek.com/v1）
 AI_BASE_URL=https://api.deepseek.com/v1

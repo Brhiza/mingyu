@@ -1304,6 +1304,26 @@ test('公开 API 参数错误应返回统一错误结构', async () => {
   assert.match(body.error.message, /year/);
 });
 
+test('公开 API 应拒绝过大的请求体', async () => {
+  const { response, body } = await callApi('bazi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      gender: 'male',
+      year: 1990,
+      month: 1,
+      day: 1,
+      timeIndex: 0,
+      dateType: 'solar',
+      note: '测'.repeat(512 * 1024),
+    }),
+  });
+
+  assert.equal(response.status, 413);
+  assert.equal(body.ok, false);
+  assert.equal(body.error.code, 'REQUEST_BODY_TOO_LARGE');
+});
+
 test('公开 API 梅花未知起卦方式应返回 400 而不是内部错误', async () => {
   const { response, body } = await callApi('divination/meihua', {
     method: 'POST',

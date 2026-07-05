@@ -22,6 +22,7 @@ import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
+import { readLimitedRequestText, RequestBodyTooLargeError } from '../http/request-body';
 import { ASTROLABE_PROMPT_TOPICS } from '../astrolabe-prompts';
 import type {
   AlmanacParticipantInput,
@@ -59,6 +60,7 @@ import { handleAiAnalyze, handleAiModels, type AiEnv } from '../ai/proxy';
 const API_VERSION = 'v1';
 const SERVICE_NAME = 'aov.cc';
 const BASE_URL = 'https://aov.cc';
+const MAX_PUBLIC_API_REQUEST_BODY_BYTES = 512 * 1024;
 
 type ApiMeta = {
   service: typeof SERVICE_NAME;
@@ -1129,7 +1131,7 @@ async function readJson(request: Request, optional = false): Promise<JsonRecord>
   }
 
   try {
-    const text = await request.text();
+    const text = await readLimitedRequestText(request, MAX_PUBLIC_API_REQUEST_BODY_BYTES);
     if (optional && !text.trim()) {
       return {};
     }
@@ -1141,6 +1143,13 @@ async function readJson(request: Request, optional = false): Promise<JsonRecord>
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;
+    }
+    if (error instanceof RequestBodyTooLargeError) {
+      throw new ApiError(
+        413,
+        'REQUEST_BODY_TOO_LARGE',
+        `请求体不能超过 ${MAX_PUBLIC_API_REQUEST_BODY_BYTES} 字节。`,
+      );
     }
     throw new ApiError(400, 'BAD_REQUEST', '请求体必须是合法 JSON。');
   }

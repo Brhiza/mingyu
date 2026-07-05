@@ -398,7 +398,7 @@ http://localhost:3000
 
 ```bash
 docker run --rm -p 3000:3000 \
-  -e AI_API_KEY=sk-xxx \
+  -e AI_API_KEY=your-api-key \
   -e AI_BASE_URL=https://api.deepseek.com/v1 \
   -e AI_MODEL=deepseek-chat \
   -e AI_PROVIDER_NAME=DeepSeek \
@@ -416,7 +416,7 @@ docker compose up --build
 Compose 会读取本地 `.env`。可以在本地 `.env` 中填写下面内容，但不要提交这个文件：
 
 ```text
-AI_API_KEY=sk-xxx
+AI_API_KEY=your-api-key
 AI_BASE_URL=https://api.deepseek.com/v1
 AI_MODEL=deepseek-chat
 AI_PROVIDER_NAME=DeepSeek
@@ -487,13 +487,13 @@ npm run contest:evaluate
 也可以直接传参：
 
 ```bash
-npm run contest:evaluate -- --format chat --url https://api.openai.com/v1 --key sk-xxx --model gpt-4.1-mini
+npm run contest:evaluate -- --format chat --url https://api.openai.com/v1 --key your-api-key --model gpt-4.1-mini
 ```
 
 批量并发评测：
 
 ```bash
-npm run contest:evaluate -- --format chat --url https://openrouter.ai/api/v1 --key sk-xxx --concurrency 3 --models "GPT-5.4=openai/gpt-5.4,Claude Sonnet 4.6=anthropic/claude-sonnet-4.6"
+npm run contest:evaluate -- --format chat --url https://openrouter.ai/api/v1 --key your-api-key --concurrency 3 --models "GPT-5.4=openai/gpt-5.4,Claude Sonnet 4.6=anthropic/claude-sonnet-4.6"
 ```
 
 `--concurrency` 控制同时评测的模型数量，默认批量为 3；`--caseConcurrency` 控制同一模型内命例并发数量，默认 1。批量模式会合并更新比赛目录下的 `模型评测排名报告.md` 和 `评测结果/本次排名原始结果.json`。
