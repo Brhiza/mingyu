@@ -29,6 +29,7 @@ import { tiangan, jiazi, qimen } from '../../../../divination/divination-data';
 import { sanQiLiuYi } from './_constants';
 
 const { dizhi, diPanPalaces, palaceStars, palaceDoorMap, jieQiJuShuMap } = qimen;
+type TymeSolarDay = ReturnType<typeof SolarDay.fromYmd>;
 const tenStems = tiangan;
 const dunJiaStemByXun: Record<string, string> = {
   甲子: '戊',
@@ -77,28 +78,11 @@ export interface QimenLayoutContext {
 const FU_TOU = ['甲子', '甲戌', '甲申', '甲午', '甲辰', '甲寅'];
 
 /**
- * 将 Date 转为东八区年月日对应的 SolarDay
- * @param date 要转换的日期
- * @returns SolarDay 对象
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function toSolarDay(date: Date): SolarDay {
-  const parts = new Intl.DateTimeFormat('zh-CN', {
-    timeZone: 'Asia/Shanghai',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
-  const v = Object.fromEntries(parts.map((p) => [p.type, p.value]));
-  return SolarDay.fromYmd(Number(v.year), Number(v.month), Number(v.day));
-}
-
-/**
  * 取某 SolarDay 的六十甲子名（如 "甲子"）
  * @param sd 公历日
  * @returns 干支字符串
  */
-function getDayGanZhi(sd: SolarDay): string {
+function getDayGanZhi(sd: TymeSolarDay): string {
   return sd.getLunarDay().getSixtyCycle().getName();
 }
 
@@ -108,7 +92,10 @@ function getDayGanZhi(sd: SolarDay): string {
  * @param direction -1 向前找，1 向后找
  * @returns { day, ganzhi } 或 null
  */
-function findFuTou(start: SolarDay, direction: -1 | 1): { day: SolarDay; ganzhi: string } | null {
+function findFuTou(
+  start: TymeSolarDay,
+  direction: -1 | 1,
+): { day: TymeSolarDay; ganzhi: string } | null {
   let cur = start;
   // 最多搜索 70 天（远超节气跨度 15 天），确保能找到
   for (let i = 0; i < 70; i++) {
@@ -125,7 +112,7 @@ function findFuTou(start: SolarDay, direction: -1 | 1): { day: SolarDay; ganzhi:
  * @param to 结束日
  * @returns 相差天数（可为负数）
  */
-function dayDiff(from: SolarDay, to: SolarDay): number {
+function dayDiff(from: TymeSolarDay, to: TymeSolarDay): number {
   return Math.round(Number(to.getJulianDay()) - Number(from.getJulianDay()));
 }
 

@@ -18,7 +18,7 @@
  * 三凶门（伤、死、惊）对应黑道，主损耗
  */
 
-import { isSheng, isKe, getSeasonState } from '../../_shared';
+import { isSheng, isKe } from '../../_shared';
 
 // ============================================================================
 // 1. 五行生克基础（委托 _shared 模块，避免重复数据）

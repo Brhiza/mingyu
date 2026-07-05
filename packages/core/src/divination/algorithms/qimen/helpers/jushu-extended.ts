@@ -11,9 +11,8 @@
  *   - 《遁甲演义》月家奇门："寅上起月，顺逆布之"
  */
 
-import { jiazi, qimen } from '../../../../divination/divination-data';
+import { jiazi } from '../../../../divination/divination-data';
 
-const { jieQiJuShuMap } = qimen;
 const SAN_YUAN_BASE_YEAR = 1864; // 甲子上元起点
 
 /**

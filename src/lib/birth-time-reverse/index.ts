@@ -9,7 +9,7 @@ export {
   REVERSE_BIRTH_TIME_TEXT_FIELDS,
   DEFAULT_REVERSE_BIRTH_TIME_FORM_DATA,
   type ReverseBirthTimeFormData,
-} from './fields';
+} from '@core/birth-time-reverse';
 
 export {
   buildThreePillarsProfile,

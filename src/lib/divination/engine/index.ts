@@ -34,7 +34,7 @@ import {
   buildRoleText,
   buildTaskText,
 } from '@core/divination/engine/method-text';
-import { buildLiurenTemplateText } from './liuren-template';
+import { buildLiurenTemplateText } from '@core/divination/engine/liuren-template';
 import { buildLiuyaoTemplateText } from '@core/divination/engine/liuyao-template';
 
 const CONCRETE_DIVINATION_METHODS: Array<Exclude<DivinationMethodId, 'random'>> = [

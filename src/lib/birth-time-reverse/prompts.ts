@@ -8,7 +8,7 @@ import {
   REVERSE_BIRTH_TIME_SELECT_FIELDS,
   REVERSE_BIRTH_TIME_TEXT_FIELDS,
   type ReverseBirthTimeFormData,
-} from './fields';
+} from '@core/birth-time-reverse';
 import type { ThreePillarsProfile } from './three-pillars';
 
 function isOmittedSelectValue(value: string) {

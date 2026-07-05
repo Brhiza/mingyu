@@ -59,6 +59,10 @@
       "import": "./dist/divination/engine/liuyao-template.js",
       "types": "./dist/divination/engine/liuyao-template.d.ts"
     },
+    "./divination/engine/liuren-template": {
+      "import": "./dist/divination/engine/liuren-template.js",
+      "types": "./dist/divination/engine/liuren-template.d.ts"
+    },
     "./divination/engine/method-text": {
       "import": "./dist/divination/engine/method-text.js",
       "types": "./dist/divination/engine/method-text.d.ts"
