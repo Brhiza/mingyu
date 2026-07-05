@@ -144,6 +144,33 @@ const BAZI_TOPIC_TO_PROMPT_ID: Record<BaziPromptTopic, string> = {
   talent: 'ai-talent',
 };
 
+const BAZI_TOPIC_LABELS: Record<BaziPromptTopic, string> = {
+  general: '通用',
+  recent: '近期',
+  career: '事业',
+  'job-change': '换工作',
+  'startup-partnership': '创业合作',
+  'investment-partnership': '投资合作',
+  wealth: '财运',
+  marriage: '婚恋',
+  'relationship-push': '关系推进',
+  'relationship-decision': '关系去留',
+  'reconciliation-decision': '复合判断',
+  children: '子女',
+  family: '家庭',
+  'home-move': '搬家置业',
+  'settle-relocate': '定居换城',
+  social: '人际',
+  emotion: '情绪',
+  health: '健康',
+  parents: '父母',
+  study: '学业',
+  'study-advance': '考证进修',
+  'exam-landing': '考试上岸',
+  growth: '成长',
+  talent: '天赋',
+};
+
 export function buildCombinedPromptText(system: string, user: string) {
   return [system, user].filter(Boolean).join('\n\n');
 }
@@ -161,13 +188,14 @@ export function buildBaziPromptForResult(params: {
   school?: BaziSchool;
   fortuneSelectionContext?: FortuneSelectionContext | null;
 }) {
-  const option = resolveBaziPromptOption(params.topic ?? 'general');
+  const topic = params.topic ?? 'general';
+  const option = resolveBaziPromptOption(topic);
   const prompt = buildPromptFromConfig(
     params.question ?? '',
     option,
     params.result,
     params.fortuneSelectionContext ?? null,
-    params.topic ?? 'general',
+    BAZI_TOPIC_LABELS[topic],
     { isCustomQuestion: params.mode === 'custom' },
   );
 

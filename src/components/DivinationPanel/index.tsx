@@ -272,7 +272,7 @@ export function DivinationPanel({ initialMethod, lockedMethod }: DivinationPanel
           searchValue={inspirationSearch}
           onSearchChange={setInspirationSearch}
           sections={filteredInspirationSections}
-          emptyText="没有找到匹配的问题，请换个关键词或分类。"
+          emptyText="没有找到匹配的问题，请换个搜索词或主题。"
           onSelect={applyInspiredQuestion}
           onClose={() => setIsQuestionInspirationModalOpen(false)}
         />

@@ -7,21 +7,15 @@ import {
 } from '../../lib/prompt-default-questions';
 import { formatPromptCurrentTime } from '../../lib/prompt-time';
 import { generateEnhancedAnalysisSection } from '@core/bazi/baziPromptEnhancement';
-import {
-  BAZI_QUESTION_SCENES,
-  buildBaziQuestionGuidanceSection,
-  resolveBaziQuestionScene,
-  type BaziQuestionScene,
-} from './baziQuestionScene';
+import { buildBaziQuestionGuidanceSection } from './baziPromptGuidance';
 
 export interface AIPromptOption {
   id: string;
   prompt: string;
-  scene?: string;
+  scopeLabel?: string;
 }
 
-export { BAZI_QUESTION_SCENES, buildBaziQuestionGuidanceSection, resolveBaziQuestionScene };
-export type { BaziQuestionScene };
+export { buildBaziQuestionGuidanceSection };
 
 const BASE_SYSTEM_ROLE = '你是资深八字命理师，熟悉《渊海子平》《滴天髓》《三命通会》《穷通宝鉴》。';
 
@@ -298,52 +292,66 @@ function buildFortunePromptAddon(promptId: string, ctx: FortuneSelectionContext 
 }
 
 const BAZI_SINGLE_TASK_PROMPT =
-  '请围绕【问题】和用户所选分类范围直接判断重点；未填写具体问题时按通用八字口径做整体分析。';
+  '请围绕【问题】直接判断重点；未填写具体问题时按通用八字口径做整体分析。';
 const BAZI_COMPATIBILITY_TASK_PROMPT =
   '请围绕【问题】和用户所选关系范围直接判断重点；未填写具体问题时按通用合盘口径做整体分析。';
 
-function createBaziPromptOption(id: string, scene: BaziQuestionScene): AIPromptOption {
-  return { id, prompt: BAZI_SINGLE_TASK_PROMPT, scene };
+function normalizeBaziScopeLabel(scopeLabel: string | undefined) {
+  const normalized = scopeLabel?.trim();
+  return normalized && normalized !== '综合' ? normalized : '通用';
 }
 
-function createBaziCompatibilityPromptOption(id: string, scene: BaziQuestionScene): AIPromptOption {
-  return { id, prompt: BAZI_COMPATIBILITY_TASK_PROMPT, scene };
+function buildBaziTaskText(scopeLabel: string | undefined, fallbackTask: string) {
+  const normalizedScopeLabel = normalizeBaziScopeLabel(scopeLabel);
+  if (normalizedScopeLabel === '通用') {
+    return fallbackTask;
+  }
+
+  return `用户选择的主题范围是“${normalizedScopeLabel}”。请围绕【问题】和该主题范围直接判断重点；未填写具体问题时按通用八字口径先做整体分析，再结合该主题提示重点。`;
+}
+
+function createBaziPromptOption(id: string, scopeLabel: string): AIPromptOption {
+  return { id, prompt: BAZI_SINGLE_TASK_PROMPT, scopeLabel };
+}
+
+function createBaziCompatibilityPromptOption(id: string, scopeLabel: string): AIPromptOption {
+  return { id, prompt: BAZI_COMPATIBILITY_TASK_PROMPT, scopeLabel };
 }
 
 export const BAZI_AI_PROMPTS = {
   single: [
-    createBaziPromptOption('ai-mingge-zonglun', 'general'),
-    createBaziPromptOption('ai-recent', 'recent'),
-    createBaziPromptOption('ai-career', 'career'),
-    createBaziPromptOption('ai-job-change', 'job-change'),
-    createBaziPromptOption('ai-startup-partnership', 'startup-partnership'),
-    createBaziPromptOption('ai-investment-partnership', 'investment-partnership'),
-    createBaziPromptOption('ai-wealth-timing', 'wealth'),
-    createBaziPromptOption('ai-marriage', 'marriage'),
-    createBaziPromptOption('ai-relationship-push', 'relationship-push'),
-    createBaziPromptOption('ai-relationship-decision', 'relationship-decision'),
-    createBaziPromptOption('ai-reconciliation-decision', 'reconciliation-decision'),
-    createBaziPromptOption('ai-children-fate', 'children'),
-    createBaziPromptOption('ai-health', 'health'),
-    createBaziPromptOption('ai-family', 'parents'),
-    createBaziPromptOption('ai-home', 'family'),
-    createBaziPromptOption('ai-home-move', 'home-move'),
-    createBaziPromptOption('ai-settle-relocate', 'settle-relocate'),
-    createBaziPromptOption('ai-social', 'social'),
-    createBaziPromptOption('ai-emotion', 'emotion'),
-    createBaziPromptOption('ai-study', 'study'),
-    createBaziPromptOption('ai-study-advance', 'study-advance'),
-    createBaziPromptOption('ai-exam-landing', 'exam-landing'),
-    createBaziPromptOption('ai-growth', 'growth'),
-    createBaziPromptOption('ai-talent', 'talent'),
+    createBaziPromptOption('ai-mingge-zonglun', '通用'),
+    createBaziPromptOption('ai-recent', '近期'),
+    createBaziPromptOption('ai-career', '事业'),
+    createBaziPromptOption('ai-job-change', '换工作'),
+    createBaziPromptOption('ai-startup-partnership', '创业合作'),
+    createBaziPromptOption('ai-investment-partnership', '投资合作'),
+    createBaziPromptOption('ai-wealth-timing', '财运'),
+    createBaziPromptOption('ai-marriage', '婚恋'),
+    createBaziPromptOption('ai-relationship-push', '关系推进'),
+    createBaziPromptOption('ai-relationship-decision', '关系去留'),
+    createBaziPromptOption('ai-reconciliation-decision', '复合判断'),
+    createBaziPromptOption('ai-children-fate', '子女'),
+    createBaziPromptOption('ai-health', '健康'),
+    createBaziPromptOption('ai-family', '六亲'),
+    createBaziPromptOption('ai-home', '家庭'),
+    createBaziPromptOption('ai-home-move', '搬家置业'),
+    createBaziPromptOption('ai-settle-relocate', '定居换城'),
+    createBaziPromptOption('ai-social', '人际'),
+    createBaziPromptOption('ai-emotion', '情绪'),
+    createBaziPromptOption('ai-study', '学业'),
+    createBaziPromptOption('ai-study-advance', '考证进修'),
+    createBaziPromptOption('ai-exam-landing', '考试上岸'),
+    createBaziPromptOption('ai-growth', '成长'),
+    createBaziPromptOption('ai-talent', '天赋'),
   ] as AIPromptOption[],
   combined: [
-    createBaziCompatibilityPromptOption('ai-compat-marriage', 'marriage'),
-    createBaziCompatibilityPromptOption('ai-compat-career', 'career'),
-    createBaziCompatibilityPromptOption('ai-compat-friendship', 'general'),
-    createBaziCompatibilityPromptOption('ai-compat-children', 'children'),
-    createBaziCompatibilityPromptOption('ai-compat-parents', 'parents'),
-    createBaziCompatibilityPromptOption('ai-compat-siblings', 'general'),
+    createBaziCompatibilityPromptOption('ai-compat-marriage', '合婚'),
+    createBaziCompatibilityPromptOption('ai-compat-career', '合伙'),
+    createBaziCompatibilityPromptOption('ai-compat-friendship', '友情'),
+    createBaziCompatibilityPromptOption('ai-compat-children', '子女'),
+    createBaziCompatibilityPromptOption('ai-compat-parents', '父母'),
+    createBaziCompatibilityPromptOption('ai-compat-siblings', '兄弟'),
   ] as AIPromptOption[],
 };
 
@@ -354,16 +362,17 @@ export function buildPromptFromConfig(
   selectedOption: AIPromptOption,
   chartResult: BaziChartResult | null,
   fortuneSelectionContext: FortuneSelectionContext | null = null,
-  questionScene?: string,
+  questionScopeLabel?: string,
   options: { isCustomQuestion?: boolean } = {},
 ): { system: string; user: string } {
   const isCustomQuestion = Boolean(options.isCustomQuestion);
   const promptConfig: SinglePromptConfig | null = chartResult?.pillars
     ? (BAZI_AI_PROMPTS.single.find((c) => c.id === selectedOption.id) ?? null)
     : null;
-  const scene = resolveBaziQuestionScene(questionScene || promptConfig?.scene);
+  const scopeLabel =
+    questionScopeLabel ?? selectedOption.scopeLabel ?? promptConfig?.scopeLabel ?? '通用';
   const normalizedQuestion =
-    questionText.trim() || getBaziDefaultQuestion(scene, { isCustomQuestion });
+    questionText.trim() || getBaziDefaultQuestion(undefined, { isCustomQuestion });
 
   if (promptConfig) {
     const chartData = chartResult
@@ -374,11 +383,13 @@ export function buildPromptFromConfig(
     });
     const fortuneEvidenceSection = formatFortuneEvidenceSection(fortuneSelectionContext);
     const fortuneAddon = buildFortunePromptAddon(promptConfig.id, fortuneSelectionContext);
-    const task = [promptConfig.prompt, fortuneAddon].filter(Boolean).join(' ');
+    const task = [buildBaziTaskText(scopeLabel, promptConfig.prompt), fortuneAddon]
+      .filter(Boolean)
+      .join(' ');
 
     let enhancedSection = '';
     if (chartResult && !isCustomQuestion) {
-      enhancedSection = generateEnhancedAnalysisSection(chartResult, scene);
+      enhancedSection = generateEnhancedAnalysisSection(chartResult);
     }
 
     return {
@@ -405,7 +416,7 @@ export function buildPromptFromConfig(
           ? ''
           : buildPromptSection(
               '断盘要点',
-              buildBaziQuestionGuidanceSection(scene, Boolean(fortuneSection)),
+              buildBaziQuestionGuidanceSection(Boolean(fortuneSection)),
             ),
         isCustomQuestion ? '' : buildPromptSection('任务', task || '请直接判断重点。'),
         isCustomQuestion
@@ -429,7 +440,7 @@ export function buildPromptFromConfig(
       buildPromptSection('问题', normalizedQuestion),
       isCustomQuestion
         ? ''
-        : buildPromptSection('断盘要点', buildBaziQuestionGuidanceSection(scene, false)),
+        : buildPromptSection('断盘要点', buildBaziQuestionGuidanceSection(false)),
       isCustomQuestion ? '' : buildPromptSection('任务', '请直接判断重点。'),
       isCustomQuestion
         ? ''
@@ -441,8 +452,17 @@ export function buildPromptFromConfig(
 export type CompatType = 'marriage' | 'career' | 'friendship' | 'children' | 'parents' | 'siblings';
 
 function getCompatibilityTask(compatType?: CompatType): string {
-  void compatType;
-  return '请先判断关系主轴，再说明相处模式、互补点、冲突点和建议。';
+  const labelMap: Record<CompatType, string> = {
+    marriage: '合婚',
+    career: '合伙',
+    friendship: '友情',
+    children: '子女',
+    parents: '父母',
+    siblings: '兄弟',
+  };
+  const label = compatType ? labelMap[compatType] : '';
+  const prefix = label ? `用户选择的关系范围是“${label}”。` : '';
+  return `${prefix}请先判断关系主轴，再说明相处模式、互补点、冲突点和建议。`;
 }
 
 function getCompatibilityOutputRequirement(compatType?: CompatType): string {

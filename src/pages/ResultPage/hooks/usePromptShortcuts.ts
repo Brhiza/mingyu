@@ -7,7 +7,6 @@ import {
   readPromptDraft,
   resolveAstrolabeShortcutMode,
   resolveAstrolabeTopicByShortcutMode,
-  resolveBaziQuestionSceneByShortcutMode,
   resolveBaziShortcutMode,
   resolveZiweiShortcutMode,
   writePromptDraft,
@@ -250,7 +249,6 @@ export function usePromptShortcuts(
     onUpdatePromptState({
       baziShortcutMode: mode,
       baziPresetId: matched.promptId,
-      baziQuestionScene: resolveBaziQuestionSceneByShortcutMode(mode),
       baziQuickQuestion: '',
     });
   }

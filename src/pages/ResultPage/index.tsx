@@ -43,9 +43,8 @@ import {
   getBaziShortcutActions,
   getZiweiShortcutActions,
   mapBaziFortuneToZiweiScope,
-  resolveBaziQuestionSceneByShortcutMode,
   resolveCompatType,
-  resolveZiweiTopicByBaziQuestionScene,
+  resolveZiweiTopicByBaziShortcutMode,
 } from './ResultPage.helpers';
 import { singlePromptShortcutSections } from './ResultPage.constants';
 import {
@@ -390,15 +389,12 @@ export function ResultPage() {
     [astrolabeCalculation.data, promptState.astrolabeScope, promptState.astrolabeScopeDate],
   );
 
-  const activeBaziQuestionScene = useMemo(() => {
-    if (activeBaziShortcutMode === '自定义') {
-      return undefined;
+  const activeBaziQuestionScopeLabel = useMemo(() => {
+    if (activeBaziShortcutMode === '自定义' || activeBaziShortcutMode === '问题灵感') {
+      return '通用';
     }
-    if (activeBaziShortcutMode === '问题灵感') {
-      return promptState.baziQuestionScene;
-    }
-    return resolveBaziQuestionSceneByShortcutMode(activeBaziShortcutMode);
-  }, [activeBaziShortcutMode, promptState.baziQuestionScene]);
+    return activeBaziShortcutMode === '综合' ? '通用' : activeBaziShortcutMode;
+  }, [activeBaziShortcutMode]);
 
   function computeBaziPromptText(question: string, finalQuestion: string): string {
     if (promptState.tab !== 'prompt') return '';
@@ -443,7 +439,7 @@ export function ResultPage() {
       return buildUnknownTimeBaziPrompt(
         primaryThreePillarsState.profile,
         question,
-        activeBaziQuestionScene,
+        activeBaziQuestionScopeLabel,
         { isCustomQuestion },
       );
     }
@@ -455,7 +451,7 @@ export function ResultPage() {
       selectedBaziPreset,
       baziResult,
       baziFortuneContext,
-      activeBaziQuestionScene,
+      activeBaziQuestionScopeLabel,
       { isCustomQuestion: activeBaziShortcutMode === '自定义' },
     );
     return buildCombinedPromptText(system, user);
@@ -463,10 +459,10 @@ export function ResultPage() {
 
   const defaultBaziQuestion = useMemo(
     () =>
-      getBaziDefaultQuestion(activeBaziQuestionScene, {
+      getBaziDefaultQuestion(undefined, {
         isCustomQuestion: activeBaziShortcutMode === '自定义',
       }),
-    [activeBaziQuestionScene, activeBaziShortcutMode],
+    [activeBaziShortcutMode],
   );
   function computeZiweiPromptText(question: string): string {
     if (promptState.tab !== 'prompt') return '';
@@ -504,9 +500,9 @@ export function ResultPage() {
       return '';
     }
 
-    const ziweiTopic = resolveZiweiTopicByBaziQuestionScene(activeBaziQuestionScene);
+    const ziweiTopic = resolveZiweiTopicByBaziShortcutMode(activeBaziShortcutMode);
     return buildEnhancedZiweiPromptPack(currentZiweiPayload, ziweiTopic);
-  }, [activeBaziQuestionScene, currentZiweiPayload, promptState.promptSource, promptState.tab]);
+  }, [activeBaziShortcutMode, currentZiweiPayload, promptState.promptSource, promptState.tab]);
 
   const enhancedBaziPromptPack = useMemo(() => {
     if (
@@ -531,7 +527,7 @@ export function ResultPage() {
       baziText: enhancedBaziPromptPack,
       ziweiText: enhancedZiweiPromptPack,
       question: finalQuestion || question,
-      questionScene: activeBaziQuestionScene,
+      questionScopeLabel: activeBaziQuestionScopeLabel,
       baziFortuneSummary: baziFortuneContext
         ? `八字分析对象：${baziFortuneContext.displayText}`
         : '',
@@ -579,7 +575,6 @@ export function ResultPage() {
       primaryThreePillarsState.profile,
       promptEngine,
       promptState.baziPresetId,
-      promptState.baziQuestionScene,
       promptState.promptSource,
       promptState.tab,
       selectedBaziPreset,
@@ -621,7 +616,6 @@ export function ResultPage() {
       primaryThreePillarsState.profile,
       promptEngine,
       promptState.baziPresetId,
-      promptState.baziQuestionScene,
       promptState.promptSource,
       promptState.tab,
       selectedBaziPreset,
@@ -743,7 +737,7 @@ export function ResultPage() {
         : '',
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
-      activeBaziQuestionScene,
+      activeBaziQuestionScopeLabel,
       activeBaziShortcutMode,
       baziFortuneContext,
       baziResult,
@@ -776,7 +770,7 @@ export function ResultPage() {
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
-      activeBaziQuestionScene,
+      activeBaziQuestionScopeLabel,
       activeBaziShortcutMode,
       baziFortuneContext,
       baziResult,
@@ -1653,7 +1647,7 @@ export function ResultPage() {
           searchValue={inspiration.search}
           onSearchChange={inspiration.setSearch}
           sections={inspiration.filteredSections}
-          emptyText="没有找到匹配的问题，请换个关键词或分类。"
+          emptyText="没有找到匹配的问题，请换个搜索词或主题。"
           onSelect={handleInspirationSelect}
           onClose={inspiration.close}
         />

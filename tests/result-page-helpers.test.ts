@@ -13,8 +13,7 @@ import {
   parseOptionalNumber,
   parseZiweiDateParts,
   readPromptDraft,
-  resolveBaziQuestionSceneByShortcutMode,
-  resolveZiweiTopicByBaziQuestionScene,
+  resolveZiweiTopicByBaziShortcutMode,
   resolveCompatType,
   writePromptDraft,
 } from '../src/pages/ResultPage/ResultPage.helpers';
@@ -194,11 +193,12 @@ test('resolveCompatType 解析合盘类型', () => {
   assert.equal(resolveCompatType('ai-mingge-zonglun'), undefined);
 });
 
-test('八字问题场景会映射到对应紫微专题', () => {
-  assert.equal(resolveZiweiTopicByBaziQuestionScene('career'), 'career-wealth');
-  assert.equal(resolveZiweiTopicByBaziQuestionScene('marriage'), 'relationship');
-  assert.equal(resolveZiweiTopicByBaziQuestionScene('health'), 'health');
-  assert.equal(resolveZiweiTopicByBaziQuestionScene('general'), 'life');
+test('八字快捷按钮会映射到对应紫微专题', () => {
+  assert.equal(resolveZiweiTopicByBaziShortcutMode('事业'), 'career-wealth');
+  assert.equal(resolveZiweiTopicByBaziShortcutMode('婚恋'), 'relationship');
+  assert.equal(resolveZiweiTopicByBaziShortcutMode('健康'), 'health');
+  assert.equal(resolveZiweiTopicByBaziShortcutMode('综合'), 'life');
+  assert.equal(resolveZiweiTopicByBaziShortcutMode('问题灵感'), 'life');
 });
 
 test('单人增强提示词会保留 section 结构并强调双体系交叉校验', async () => {
@@ -235,7 +235,7 @@ test('单人增强提示词会保留 section 结构并强调双体系交叉校�
     baziResult,
     ziweiText: `【分析背景】\n${ziweiRuntime.payloadByScope.origin.report_type || '紫微摘要'}`,
     question: '请重点分析我的事业方向和当前突破口。',
-    questionScene: 'career',
+    questionScopeLabel: '事业',
     baziFortuneSummary: '八字分析对象：当前大运',
     ziweiScopeSummary: '紫微分析范围：流年 · 2028-01-01',
   });
@@ -244,6 +244,7 @@ test('单人增强提示词会保留 section 结构并强调双体系交叉校�
   assert.match(prompt, /【已选分析对象】\n八字分析对象：当前大运\n紫微分析范围：流年 · 2028-01-01/);
   assert.match(prompt, /【八字排盘信息】/);
   assert.match(prompt, /【紫微盘面信息】/);
+  assert.match(prompt, /【问题范围】\n用户选择：事业/);
   assert.match(prompt, /【问题】\n请重点分析我的事业方向和当前突破口。/);
   assert.match(
     prompt,
@@ -340,35 +341,4 @@ test('未知时辰合盘自定义问题不应额外拼接任务书', () => {
   assert.match(prompt, /姓名：第二人/);
   assert.doesNotMatch(prompt, /【任务】/);
   assert.doesNotMatch(prompt, /【输出要求】/);
-});
-
-test('八字快捷按钮会同步到对应的问题类型选择', () => {
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('近期'), 'recent');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('事业'), 'career');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('换工作'), 'job-change');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('创业合作'), 'startup-partnership');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('投资合作'), 'investment-partnership');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('财运'), 'wealth');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('婚恋'), 'marriage');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('关系推进'), 'relationship-push');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('关系去留'), 'relationship-decision');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('复合判断'), 'reconciliation-decision');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('子女'), 'children');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('家庭'), 'family');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('搬家置业'), 'home-move');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('定居换城'), 'settle-relocate');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('人际'), 'social');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('情绪'), 'emotion');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('健康'), 'health');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('学业'), 'study');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('考证进修'), 'study-advance');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('考试上岸'), 'exam-landing');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('成长'), 'growth');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('天赋'), 'talent');
-});
-
-test('没有明确对应关系的快捷按钮会回到综合问题类型', () => {
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('综合'), 'general');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('自定义'), 'general');
-  assert.equal(resolveBaziQuestionSceneByShortcutMode('问题灵感'), 'general');
 });

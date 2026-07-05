@@ -264,7 +264,7 @@ test('未知时辰内置快捷提示词只把分类作为问题范围', () => {
   const prompt = buildUnknownTimeBaziPrompt(profile, '我适合换工作吗？', 'career');
 
   assert.match(prompt, /【断盘要点】/);
-  assert.match(prompt, /用户选择了分类时只把分类作为问题范围，不补充本地固定话术/);
+  assert.match(prompt, /用户选择主题时只把主题作为回答范围，不补充本地预设模板/);
   assert.match(prompt, /先按传统八字次序立论：月令旺衰、格局成败、调候寒暖燥湿、用神忌神/);
   assert.match(prompt, /我适合换工作吗？/);
   assert.doesNotMatch(prompt, /问题研判框架/);

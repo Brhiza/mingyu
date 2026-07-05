@@ -1,9 +1,6 @@
 import { BIRTH_TIME_OPTIONS } from '../birth-time';
 import { formatPromptCurrentTime } from '../prompt-time';
-import {
-  buildBaziQuestionGuidanceSection,
-  resolveBaziQuestionScene,
-} from '../../utils/ai/baziQuestionScene';
+import { buildBaziQuestionGuidanceSection } from '../../utils/ai/baziPromptGuidance';
 import {
   REVERSE_BIRTH_TIME_SELECT_FIELDS,
   REVERSE_BIRTH_TIME_TEXT_FIELDS,
@@ -60,11 +57,10 @@ function buildKnownClueText(selectSummary: string, textSummary: string) {
 export function buildUnknownTimeBaziPrompt(
   profile: ThreePillarsProfile,
   question: string,
-  questionScene?: string,
+  _questionScopeLabel?: string,
   options: { isCustomQuestion?: boolean } = {},
 ) {
   const normalizedQuestion = question.trim() || '请先基于三柱做整体分析。';
-  const scene = resolveBaziQuestionScene(questionScene);
   const isCustomQuestion = Boolean(options.isCustomQuestion);
 
   return [
@@ -79,9 +75,7 @@ export function buildUnknownTimeBaziPrompt(
     `【当前时间】\n${formatPromptCurrentTime()}`,
     `【排盘信息】\n${profile.promptText}`,
     `【问题】\n${normalizedQuestion}`,
-    ...(isCustomQuestion
-      ? []
-      : [`【断盘要点】\n${buildBaziQuestionGuidanceSection(scene, false)}`]),
+    ...(isCustomQuestion ? [] : [`【断盘要点】\n${buildBaziQuestionGuidanceSection(false)}`]),
     ...(isCustomQuestion
       ? []
       : [

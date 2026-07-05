@@ -449,7 +449,7 @@ function demoteEmbeddedPromptSections(content: string) {
 function buildZiweiTopicGuidanceSection(_topic: string) {
   return [
     '先围绕【问题】判断对应宫位范围，再组织证据，不要只做星曜罗列。',
-    '用户没有选择具体主题时按通用紫微口径处理；用户选择了主题时只把主题作为问题范围，不补充本地固定话术。',
+    '用户没有选择具体主题时按通用紫微口径处理；用户选择主题时只把主题作为回答范围，不补充本地预设模板。',
     '先看命宫、身宫、三方四正、对宫与四化，再结合当前运限、自化、飞化和重点宫位触发。',
     '优先使用【重点宫位资料】和【关键判断线索】组织推理，不要平均复述全盘。',
     '不得编造已提供资料没有给出的新盘面事实；允许基于已提供资料做紫微斗数推理，但必须标明来自宫位、星曜、四化、运限、三方四正、格局或现实补充信息。',
@@ -592,7 +592,7 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
   const compatibilityTopic = params.topic || 'chat';
   const compatibilityRules = [
     '- 先围绕【问题】判断双方互动主轴，再展开 2 到 4 个关键点。',
-    '- 用户选择主题时只把主题作为关系范围，不补充本地固定话术；未选择或问题为空时按通用合盘口径处理。',
+    '- 用户选择主题时只把主题作为关系范围，不补充本地预设模板；未选择或问题为空时按通用合盘口径处理。',
   ];
   const compatibilityTask =
     '请综合双方盘面和用户所选关系范围，直接判断互动主轴、互补点、冲突点、触发机制与建议。';

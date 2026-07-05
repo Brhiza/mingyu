@@ -7,14 +7,8 @@ import type { BaziChartResult } from './baziTypes';
 import { BASIC_MAPPINGS, SAN_HE_MAP, SAN_HUI_MAP } from './baziMappingsData';
 import {
   identifyClassicPattern,
-  generateCareerPartnershipHints,
   getPeachBlossomDetail,
   generateAnalysisDimensionHints,
-  generateFriendshipHints,
-  generateMarriageMatchHints,
-  generateChildrenFateHints,
-  generateParentsAnalysisHints,
-  generateSiblingsAnalysisHints,
   detectDiseaseMedicine,
   detectTongguanNeed,
 } from './baziEnhancement';
@@ -387,28 +381,4 @@ export function generateEnhancedAnalysisSection(
   if (harmonyTransformSection) sections.push(harmonyTransformSection);
 
   return sections.join('\n\n');
-}
-
-/**
- * 生成合盘分析增强片段
- */
-export function generateCompatibilityEnhancedSection(
-  type: 'marriage' | 'career' | 'friendship' | 'children' | 'parents' | 'siblings',
-): string {
-  switch (type) {
-    case 'marriage':
-      return generateMarriageMatchHints();
-    case 'career':
-      return generateCareerPartnershipHints();
-    case 'friendship':
-      return generateFriendshipHints();
-    case 'children':
-      return generateChildrenFateHints();
-    case 'parents':
-      return generateParentsAnalysisHints();
-    case 'siblings':
-      return generateSiblingsAnalysisHints();
-    default:
-      return '';
-  }
 }

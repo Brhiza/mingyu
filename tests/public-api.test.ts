@@ -510,7 +510,7 @@ test('八字公开 API prompt builder 空问题走通用问题，不复用本地
   assert.match(prompt, /【问题】\n请先做整体解读。/);
   assert.match(
     prompt,
-    /【任务】\n请围绕【问题】和用户所选分类范围直接判断重点；未填写具体问题时按通用八字口径做整体分析。/,
+    /【任务】\n用户选择的主题范围是“事业”。请围绕【问题】和该主题范围直接判断重点；未填写具体问题时按通用八字口径先做整体分析，再结合该主题提示重点。/,
   );
   assert.doesNotMatch(prompt, /【问题】\n判断命局更适合守成/);
   assert.doesNotMatch(prompt, /【任务】\n判断命局更适合守成/);
@@ -546,8 +546,8 @@ test('八字公开 API 不同主题只切换范围，空问题仍使用通用任
     assert.match(prompt, /【问题】\n请先做整体解读。/, `${topic} 应使用通用默认问题`);
     assert.match(
       prompt,
-      /【任务】\n请围绕【问题】和用户所选分类范围直接判断重点；未填写具体问题时按通用八字口径做整体分析。/,
-      `${topic} 应使用通用任务`,
+      /【任务】\n用户选择的主题范围是“[^”]+”。请围绕【问题】和该主题范围直接判断重点；未填写具体问题时按通用八字口径先做整体分析，再结合该主题提示重点。/,
+      `${topic} 应只把主题作为范围`,
     );
   }
 });
@@ -683,7 +683,7 @@ test('紫微公开 API prompt builder 空问题走通用问题，主题只作为
 
   assert.match(prompt, /分析主题：事业财运/);
   assert.match(prompt, /【问题】\n请先做整体解读。/);
-  assert.match(prompt, /用户选择了主题时只把主题作为问题范围，不补充本地固定话术/);
+  assert.match(prompt, /用户选择主题时只把主题作为回答范围，不补充本地预设模板/);
 });
 
 test('紫微公开 API 工作变动主题只切换范围，不补固定问题', async () => {
@@ -711,7 +711,7 @@ test('紫微公开 API 工作变动主题只切换范围，不补固定问题', 
   assert.match(prompt, /分析主题：工作变动/);
   assert.match(prompt, /【问题】\n请先做整体解读。/);
   assert.match(prompt, /用户选择主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/);
-  assert.match(prompt, /用户选择了主题时只把主题作为问题范围，不补充本地固定话术/);
+  assert.match(prompt, /用户选择主题时只把主题作为回答范围，不补充本地预设模板/);
   assert.doesNotMatch(prompt, /重点参考宫位：官禄宫、迁移宫、财帛宫、命宫/);
 });
 
@@ -735,7 +735,10 @@ test('公开 API 紫微未指定方向时应默认走综合框架而不是自由
   assert.equal(body.ok, true);
   assert.match(body.data.prompt, /【分析背景】/);
   assert.match(body.data.prompt, /分析主题：人生解析/);
-  assert.match(body.data.prompt, /用户未选择主题时按通用口径处理，用户选择主题时只把主题作为问题范围/);
+  assert.match(
+    body.data.prompt,
+    /用户未选择主题时按通用口径处理，用户选择主题时只把主题作为问题范围/,
+  );
   assert.match(body.data.prompt, /【重点宫位】/);
   assert.match(body.data.prompt, /【输出要求】/);
   assert.doesNotMatch(body.data.prompt, /自由问答先判断问题落在哪些宫位/);

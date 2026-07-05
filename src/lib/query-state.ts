@@ -1,4 +1,3 @@
-import { BAZI_QUESTION_SCENES, type BaziQuestionScene } from '@/utils/ai/baziQuestionScene';
 import { ASTROLABE_PROMPT_TOPICS, type AstrolabePromptTopic } from '@/lib/astrolabe-prompts';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { getBirthDateValidationMessage } from '@/lib/date-validation';
@@ -6,7 +5,6 @@ import { getBirthDateValidationMessage } from '@/lib/date-validation';
 export type ResultTabKey = 'bazi' | 'ziwei' | 'astrolabe' | 'prompt';
 export type PromptSourceKey = 'bazi' | 'ziwei' | 'bazi-ziwei' | 'astrolabe';
 export type BaziFortuneScope = 'natal' | 'dayun' | 'year' | 'month' | 'day';
-export type { BaziQuestionScene };
 export type { AstrolabePromptTopic };
 export type ZiweiScopeMode = 'origin' | 'decadal' | 'yearly' | 'monthly' | 'daily' | 'hourly';
 export type AstrolabeScopeMode = 'natal' | 'yearly' | 'monthly' | 'daily';
@@ -51,7 +49,6 @@ export type QueryPromptState = {
   promptSource: PromptSourceKey;
   baziPresetId: string;
   baziShortcutMode: string;
-  baziQuestionScene: BaziQuestionScene;
   baziQuickQuestion: string;
   baziFortuneScope: BaziFortuneScope;
   baziFortuneCycleIndex: string;
@@ -156,7 +153,6 @@ export const defaultPromptState: QueryPromptState = {
   promptSource: 'bazi',
   baziPresetId: 'ai-mingge-zonglun',
   baziShortcutMode: '自定义',
-  baziQuestionScene: 'general',
   baziQuickQuestion: '',
   baziFortuneScope: 'natal',
   baziFortuneCycleIndex: '',
@@ -213,7 +209,6 @@ const PROMPT_PARAM_KEYS: Record<keyof QueryPromptState, string> = {
   promptSource: 'ps',
   baziPresetId: 'bid',
   baziShortcutMode: 'bsm',
-  baziQuestionScene: 'bqs',
   baziQuickQuestion: 'bq',
   baziFortuneScope: 'bfs',
   baziFortuneCycleIndex: 'bci',
@@ -509,13 +504,6 @@ function parseLatitude(value: string) {
   return parseDecimalText(value, -90, 90);
 }
 
-function parseBaziQuestionScene(value: string): BaziQuestionScene {
-  if (BAZI_QUESTION_SCENES.includes(value as BaziQuestionScene)) {
-    return value as BaziQuestionScene;
-  }
-  return 'general';
-}
-
 function parseBaziFortuneScope(value: string): BaziFortuneScope {
   if (BAZI_FORTUNE_SCOPES.includes(value as BaziFortuneScope)) {
     return value as BaziFortuneScope;
@@ -781,9 +769,6 @@ export function parsePromptState(params: URLSearchParams): QueryPromptState {
     promptSource,
     baziPresetId: getString(params, 'baziPresetId', defaultPromptState.baziPresetId),
     baziShortcutMode: getString(params, 'baziShortcutMode', defaultPromptState.baziShortcutMode),
-    baziQuestionScene: parseBaziQuestionScene(
-      getString(params, 'baziQuestionScene', defaultPromptState.baziQuestionScene),
-    ),
     baziQuickQuestion: getString(params, 'baziQuickQuestion', defaultPromptState.baziQuickQuestion),
     baziFortuneScope: parseBaziFortuneScope(
       getString(params, 'baziFortuneScope', defaultPromptState.baziFortuneScope),

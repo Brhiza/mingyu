@@ -1,46 +1,7 @@
-export const BAZI_QUESTION_SCENES = [
-  'general',
-  'recent',
-  'career',
-  'job-change',
-  'startup-partnership',
-  'investment-partnership',
-  'wealth',
-  'marriage',
-  'relationship-push',
-  'relationship-decision',
-  'reconciliation-decision',
-  'children',
-  'family',
-  'home-move',
-  'settle-relocate',
-  'social',
-  'emotion',
-  'health',
-  'parents',
-  'study',
-  'study-advance',
-  'exam-landing',
-  'growth',
-  'talent',
-] as const;
-
-export type BaziQuestionScene = (typeof BAZI_QUESTION_SCENES)[number];
-
-export function resolveBaziQuestionScene(selectedScene: string | undefined): BaziQuestionScene {
-  if (selectedScene && BAZI_QUESTION_SCENES.includes(selectedScene as BaziQuestionScene)) {
-    return selectedScene as BaziQuestionScene;
-  }
-  return 'general';
-}
-
-export function buildBaziQuestionGuidanceSection(
-  _scene: string,
-  hasFortuneSelection: boolean,
-): string {
+export function buildBaziQuestionGuidanceSection(hasFortuneSelection: boolean): string {
   const lines = [
     '先围绕【问题】展开，不要只做命格总论。',
-    '用户没有选择具体分类时按通用八字口径处理；用户选择了分类时只把分类作为问题范围，不补充本地固定话术。',
+    '用户未选择具体主题时按通用八字口径处理；用户选择主题时只把主题作为回答范围，不补充本地预设模板。',
     '先按传统八字次序立论：月令旺衰、格局成败、调候寒暖燥湿、用神忌神，再看十神、宫位、刑冲合害和神煞辅助。',
     '每个关键结论都要区分主证、辅证、反证或限制，并对应到命盘证据、岁运证据或现实建议；证据不足时说“倾向”或“需要补充信息”。',
     '区分“本命长期倾向”和“当前/指定岁运触发”，不要把一时运势说成一生命定。',

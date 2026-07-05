@@ -3,10 +3,7 @@
  */
 export { baziCalculator, BaziCalculator } from './baziCalculator';
 export { formatBaziForPrompt } from './baziAnalysisFormatter';
-export {
-  generateCompatibilityEnhancedSection,
-  generateEnhancedAnalysisSection,
-} from './baziPromptEnhancement';
+export { generateEnhancedAnalysisSection } from './baziPromptEnhancement';
 export {
   buildFortuneSelectionContext,
   normalizeFortuneSelection,

@@ -1,10 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  buildPromptFromConfig,
-  getCompatibilityPrompt,
-  resolveBaziQuestionScene,
-} from '../src/utils/ai/aiPrompts';
+import { buildPromptFromConfig, getCompatibilityPrompt } from '../src/utils/ai/aiPrompts';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { formatBaziForPrompt as formatBaziForPromptLocal } from '@core/bazi/baziAnalysisFormatter';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
@@ -82,20 +78,12 @@ test('八字输出提示词应是可复制给在线 AI 的独立任务书，不�
   });
   const prompt = buildPromptFromConfig(
     '请分析事业方向。',
-    { id: 'ai-career', prompt: '测试', scene: 'career' },
+    { id: 'ai-career', prompt: '测试', scopeLabel: '事业' },
     result,
   );
   const combinedPrompt = `${prompt.system}\n\n${prompt.user}`;
 
   assertNoEngineeringPromptText(combinedPrompt);
-});
-
-test('八字问题场景只由内置快捷配置提供，不再根据问题文本自动猜测', () => {
-  assert.equal(resolveBaziQuestionScene('general'), 'general');
-  assert.equal(resolveBaziQuestionScene('recent'), 'recent');
-  assert.equal(resolveBaziQuestionScene('marriage'), 'marriage');
-  assert.equal(resolveBaziQuestionScene(undefined), 'general');
-  assert.equal(resolveBaziQuestionScene('未知类型'), 'general');
 });
 
 test('八字单盘空问题补通用问题，分类不再塞本地固定问题', () => {
@@ -106,18 +94,18 @@ test('八字单盘空问题补通用问题，分类不再塞本地固定问题',
     {
       id: 'ai-career',
       prompt: '测试',
-      scene: 'career',
+      scopeLabel: '事业',
     },
     result,
     null,
-    'career',
+    '事业',
     { isCustomQuestion: false },
   );
 
   assert.match(prompt.user, /【问题】\n请先做整体解读。/);
   assert.match(
     prompt.user,
-    /【任务】\n请围绕【问题】和用户所选分类范围直接判断重点；未填写具体问题时按通用八字口径做整体分析。/,
+    /【任务】\n用户选择的主题范围是“事业”。请围绕【问题】和该主题范围直接判断重点；未填写具体问题时按通用八字口径先做整体分析，再结合该主题提示重点。/,
   );
   assert.doesNotMatch(prompt.user, /【问题】\n判断命局更适合守成/);
   assert.doesNotMatch(prompt.user, /【任务】\n判断命局更适合守成/);
@@ -138,11 +126,11 @@ test('八字提示词写入年限选择后应补充完整岁运任务书', () =>
       id: 'ai-job-change',
       prompt:
         '结合当前大运、流年、流月与命局主线，判断现在更适合留在原岗位、试探新机会、直接跳槽还是先蓄力转方向，并说明平台、收入、成长空间和短期风险的取舍重点。',
-      scene: 'job-change',
+      scopeLabel: '换工作',
     },
     result,
     fortuneContext,
-    'job-change',
+    '换工作',
     { isCustomQuestion: false },
   );
 
@@ -184,11 +172,11 @@ test('八字流月提示词应突出所选日期范围且不输出证据调试�
     {
       id: 'ai-job-change',
       prompt: '测试',
-      scene: 'job-change',
+      scopeLabel: '换工作',
     },
     result,
     fortuneContext,
-    'job-change',
+    '换工作',
     { isCustomQuestion: false },
   );
   const fortuneSection = prompt.user.match(/【岁运重点】([\s\S]*?)\n\n【解读方法】/)?.[1] || '';
@@ -213,11 +201,11 @@ test('八字提示词未选择年限时输出本命独立任务书且不输出�
       id: 'ai-career',
       prompt:
         '判断命局更适合守成、开拓、技术、管理还是经营，再说明当前阶段的赚钱方式、职业方向和风险点。',
-      scene: 'career',
+      scopeLabel: '事业',
     },
     result,
     null,
-    'career',
+    '事业',
     { isCustomQuestion: false },
   );
 
@@ -267,10 +255,10 @@ test('八字提示词在病药结论与正式主忌一致时应保留病药法�
 
   const prompt = buildPromptFromConfig(
     '请分析我的事业发展方向和风险。',
-    { id: 'ai-career', prompt: '测试', scene: 'career' },
+    { id: 'ai-career', prompt: '测试', scopeLabel: '事业' },
     result,
     null,
-    'career',
+    '事业',
     { isCustomQuestion: false },
   );
 
@@ -293,10 +281,10 @@ test('八字提示词在病药结论与正式喜忌一致时仍可保留病药�
 
   const prompt = buildPromptFromConfig(
     '请分析整体命局。',
-    { id: 'ai-mingge-zonglun', prompt: '测试', scene: 'general' },
+    { id: 'ai-mingge-zonglun', prompt: '测试', scopeLabel: '通用' },
     result,
     null,
-    'general',
+    '通用',
     { isCustomQuestion: false },
   );
 
@@ -318,10 +306,10 @@ test('八字提示词中的经典格局片段不应再单列独立喜忌，避�
 
   const prompt = buildPromptFromConfig(
     '请分析整体命局。',
-    { id: 'ai-mingge-zonglun', prompt: '测试', scene: 'general' },
+    { id: 'ai-mingge-zonglun', prompt: '测试', scopeLabel: '通用' },
     result,
     null,
-    'general',
+    '通用',
     { isCustomQuestion: false },
   );
 
@@ -347,10 +335,10 @@ test('八字提示词中的经典格局片段应收起传统强断语，避免�
 
   const prompt = buildPromptFromConfig(
     '请分析整体命局。',
-    { id: 'ai-mingge-zonglun', prompt: '测试', scene: 'general' },
+    { id: 'ai-mingge-zonglun', prompt: '测试', scopeLabel: '通用' },
     result,
     null,
-    'general',
+    '通用',
     { isCustomQuestion: false },
   );
 
@@ -540,10 +528,10 @@ test('八字提示词资料包中的取用脉络应保留判断依据，不直�
 
   const prompt = buildPromptFromConfig(
     '请分析整体命局。',
-    { id: 'ai-mingge-zonglun', prompt: '测试', scene: 'general' },
+    { id: 'ai-mingge-zonglun', prompt: '测试', scopeLabel: '通用' },
     result,
     null,
-    'general',
+    '通用',
     { isCustomQuestion: false },
   );
 
@@ -576,10 +564,10 @@ test('八字提示词在通关结论落入正式主忌时应隐藏通关法片�
 
   const prompt = buildPromptFromConfig(
     '请分析整体命局。',
-    { id: 'ai-mingge-zonglun', prompt: '测试', scene: 'general' },
+    { id: 'ai-mingge-zonglun', prompt: '测试', scopeLabel: '通用' },
     result,
     null,
-    'general',
+    '通用',
     { isCustomQuestion: false },
   );
 
@@ -601,10 +589,10 @@ test('八字提示词在通关结论不与正式主忌冲突时仍可保留通�
 
   const prompt = buildPromptFromConfig(
     '请分析整体命局。',
-    { id: 'ai-mingge-zonglun', prompt: '测试', scene: 'general' },
+    { id: 'ai-mingge-zonglun', prompt: '测试', scopeLabel: '通用' },
     result,
     null,
-    'general',
+    '通用',
     { isCustomQuestion: false },
   );
 
@@ -630,10 +618,10 @@ test('柱位出现桃花时即使全局神煞没有桃花也应生成桃花详�
 
   const prompt = buildPromptFromConfig(
     '请分析我的婚恋。',
-    { id: 'ai-marriage', prompt: '测试', scene: 'marriage' },
+    { id: 'ai-marriage', prompt: '测试', scopeLabel: '婚恋' },
     result,
     null,
-    'marriage',
+    '婚恋',
     { isCustomQuestion: false },
   );
 
@@ -660,10 +648,10 @@ test('八字提示词的空亡详解应按实际空亡柱位显隐并写明证�
 
   const withPrompt = buildPromptFromConfig(
     '请分析我的婚恋。',
-    { id: 'ai-marriage', prompt: '测试', scene: 'marriage' },
+    { id: 'ai-marriage', prompt: '测试', scopeLabel: '婚恋' },
     withKongWang,
     null,
-    'marriage',
+    '婚恋',
     { isCustomQuestion: false },
   );
 
@@ -682,10 +670,10 @@ test('八字提示词的空亡详解应按实际空亡柱位显隐并写明证�
 
   const withoutPrompt = buildPromptFromConfig(
     '请分析我的婚恋。',
-    { id: 'ai-marriage', prompt: '测试', scene: 'marriage' },
+    { id: 'ai-marriage', prompt: '测试', scopeLabel: '婚恋' },
     withoutKongWang,
     null,
-    'marriage',
+    '婚恋',
     { isCustomQuestion: false },
   );
 
@@ -711,10 +699,10 @@ test('八字提示词空亡详解不应把年柱旬空宽松口径当作日柱�
 
   const prompt = buildPromptFromConfig(
     '请分析我的婚恋。',
-    { id: 'ai-marriage', prompt: '测试', scene: 'marriage' },
+    { id: 'ai-marriage', prompt: '测试', scopeLabel: '婚恋' },
     result,
     null,
-    'marriage',
+    '婚恋',
     { isCustomQuestion: false },
   );
 
@@ -741,10 +729,10 @@ test('八字提示词的伏吟反吟段应按实际证据显隐', () => {
 
   const withPrompt = buildPromptFromConfig(
     '请分析我的婚恋。',
-    { id: 'ai-marriage', prompt: '测试', scene: 'marriage' },
+    { id: 'ai-marriage', prompt: '测试', scopeLabel: '婚恋' },
     withFuxin,
     null,
-    'marriage',
+    '婚恋',
     { isCustomQuestion: false },
   );
 
@@ -765,10 +753,10 @@ test('八字提示词的伏吟反吟段应按实际证据显隐', () => {
 
   const withoutPrompt = buildPromptFromConfig(
     '请分析我的婚恋。',
-    { id: 'ai-marriage', prompt: '测试', scene: 'marriage' },
+    { id: 'ai-marriage', prompt: '测试', scopeLabel: '婚恋' },
     withoutFuxin,
     null,
-    'marriage',
+    '婚恋',
     { isCustomQuestion: false },
   );
 
@@ -789,10 +777,10 @@ test('八字提示词的刑冲合会破段应直接写入盘面证据', () => {
 
   const prompt = buildPromptFromConfig(
     '请分析我的婚恋。',
-    { id: 'ai-marriage', prompt: '测试', scene: 'marriage' },
+    { id: 'ai-marriage', prompt: '测试', scopeLabel: '婚恋' },
     result,
     null,
-    'marriage',
+    '婚恋',
     { isCustomQuestion: false },
   );
 
@@ -815,10 +803,10 @@ test('八字提示词会节选合化评分，避免把合化候选直接当成�
 
   const prompt = buildPromptFromConfig(
     '请分析我的婚恋。',
-    { id: 'ai-marriage', prompt: '测试', scene: 'marriage' },
+    { id: 'ai-marriage', prompt: '测试', scopeLabel: '婚恋' },
     result,
     null,
-    'marriage',
+    '婚恋',
     { isCustomQuestion: false },
   );
 
@@ -875,7 +863,10 @@ test('合盘分类只作为关系范围，不再插入本地专项框架', () =>
     'career',
   );
   assert.doesNotMatch(careerPrompt.user, /【合盘分析思路】/);
-  assert.match(careerPrompt.user, /【任务】\n请先判断关系主轴，再说明相处模式、互补点、冲突点和建议。/);
+  assert.match(
+    careerPrompt.user,
+    /【任务】\n用户选择的关系范围是“合伙”。请先判断关系主轴，再说明相处模式、互补点、冲突点和建议。/,
+  );
   assert.match(
     careerPrompt.user,
     /【输出要求】\n先直接回答【问题】，再展开最关键的 2 到 4 个重点。/,

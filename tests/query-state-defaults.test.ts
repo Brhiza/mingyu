@@ -145,22 +145,14 @@ test('结果页地址栏不应写入自定义问题正文，但会保留快捷�
   assert.doesNotMatch(search, /zsm=/);
 });
 
-test('八字问题类型不再写入地址栏，但旧链接仍可恢复', () => {
-  const search = buildResultSearch(defaultInputState, {
-    ...defaultPromptState,
-    baziQuestionScene: 'health',
-  });
+test('旧八字问题类型参数不再恢复为隐藏状态', () => {
+  const search = buildResultSearch(defaultInputState, defaultPromptState);
 
-  assert.doesNotMatch(search, /baziQuestionScene=health/);
+  assert.doesNotMatch(search, /baziQuestionScene=|bqs=/);
 
-  const parsed = parsePromptState(new URLSearchParams('baziQuestionScene=health'));
-  assert.equal(parsed.baziQuestionScene, 'health');
-});
-
-test('八字问题类型参数非法时回到综合', () => {
-  const parsed = parsePromptState(new URLSearchParams('baziQuestionScene=unknown'));
-
-  assert.equal(parsed.baziQuestionScene, 'general');
+  const parsed = parsePromptState(new URLSearchParams('baziQuestionScene=health&bqs=career'));
+  assert.equal(parsed.baziShortcutMode, defaultPromptState.baziShortcutMode);
+  assert.equal(parsed.baziPresetId, defaultPromptState.baziPresetId);
 });
 
 test('紫微提示词指定年限日期会写入并从地址栏恢复', () => {

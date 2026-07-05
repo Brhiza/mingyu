@@ -1,6 +1,6 @@
 import type { DecadalTimelineOption } from '@core/ziwei/iztro';
 import { formatPromptCurrentTime } from '@/lib/prompt-time';
-import type { BaziQuestionScene, QueryPromptState, ZiweiScopeMode } from '@/lib/query-state';
+import type { QueryPromptState, ZiweiScopeMode } from '@/lib/query-state';
 import type { AstrolabePromptTopic } from '@/lib/astrolabe-prompts';
 import { buildPortablePromptPack, type PromptContext } from '@/lib/ziwei-prompts';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
@@ -9,10 +9,7 @@ import type { AnalysisPayloadV1 } from '@/types/analysis';
 import type { PalaceFact } from '@/types/analysis';
 import type { BaziChartResult } from '@core/bazi/baziTypes';
 import type { BaziFortuneSelectionValue } from '@core/bazi/fortuneSelection';
-import {
-  buildBaziQuestionGuidanceSection,
-  resolveBaziQuestionScene,
-} from '@/utils/ai/baziQuestionScene';
+import { buildBaziQuestionGuidanceSection } from '@/utils/ai/baziPromptGuidance';
 import { safeStorage } from '@/lib/safe-storage';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
 import {
@@ -59,35 +56,16 @@ export function getZiweiShortcutActions(analysisMode: 'single' | 'compatibility'
     : ziweiSingleShortcutActions;
 }
 
-export function resolveBaziQuestionSceneByShortcutMode(mode: string): BaziQuestionScene {
-  if (mode === '近期') return 'recent';
-  if (mode === '事业' || mode === '合伙') return 'career';
-  if (mode === '换工作') return 'job-change';
-  if (mode === '创业合作') return 'startup-partnership';
-  if (mode === '投资合作') return 'investment-partnership';
-  if (mode === '财运') return 'wealth';
-  if (mode === '婚恋' || mode === '合婚') return 'marriage';
-  if (mode === '关系推进') return 'relationship-push';
-  if (mode === '关系去留') return 'relationship-decision';
-  if (mode === '复合判断') return 'reconciliation-decision';
-  if (mode === '子女') return 'children';
-  if (mode === '六亲' || mode === '父母' || mode === '兄弟') return 'parents';
-  if (mode === '家庭') return 'family';
-  if (mode === '搬家置业') return 'home-move';
-  if (mode === '定居换城') return 'settle-relocate';
-  if (mode === '人际') return 'social';
-  if (mode === '情绪') return 'emotion';
-  if (mode === '健康') return 'health';
-  if (mode === '学业') return 'study';
-  if (mode === '考证进修') return 'study-advance';
-  if (mode === '考试上岸') return 'exam-landing';
-  if (mode === '成长') return 'growth';
-  if (mode === '天赋') return 'talent';
-  return 'general';
-}
-
 export function resolveAstrolabeTopicByShortcutMode(mode: string): AstrolabePromptTopic {
   return ASTROLABE_SHORTCUT_ACTIONS.find((item) => item.label === mode)?.topic ?? 'chat';
+}
+
+export function resolveZiweiTopicByBaziShortcutMode(mode: string) {
+  if (mode === '自定义' || mode === '问题灵感') {
+    return 'life';
+  }
+
+  return ziweiSingleShortcutActions.find((item) => item.label === mode)?.topic ?? 'life';
 }
 
 export function resolveCompatType(
@@ -197,55 +175,6 @@ export function buildCombinedPromptText(system: string, user: string) {
   return [system, '', user].join('\n');
 }
 
-export function resolveZiweiTopicByBaziQuestionScene(scene?: BaziQuestionScene) {
-  switch (scene) {
-    case 'recent':
-      return 'recent';
-    case 'career':
-    case 'wealth':
-      return 'career-wealth';
-    case 'job-change':
-      return 'job-change';
-    case 'startup-partnership':
-      return 'startup-partnership';
-    case 'investment-partnership':
-      return 'investment-partnership';
-    case 'marriage':
-      return 'relationship';
-    case 'children':
-      return 'children';
-    case 'relationship-push':
-      return 'relationship-push';
-    case 'relationship-decision':
-      return 'relationship-decision';
-    case 'reconciliation-decision':
-      return 'reconciliation-decision';
-    case 'family':
-    case 'home-move':
-    case 'settle-relocate':
-    case 'parents':
-      return 'family';
-    case 'social':
-      return 'social';
-    case 'emotion':
-      return 'emotion';
-    case 'health':
-      return 'health';
-    case 'study':
-      return 'study';
-    case 'study-advance':
-      return 'study-advance';
-    case 'exam-landing':
-      return 'exam-landing';
-    case 'growth':
-      return 'growth';
-    case 'talent':
-      return 'talent';
-    default:
-      return 'life';
-  }
-}
-
 export function buildEnhancedZiweiPromptPack(payload: AnalysisPayloadV1, selectedTopic: string) {
   const reportContext: PromptContext = {
     report_key: `enhanced:${selectedTopic}:${payload.active_scope.scope}:${payload.active_scope.solar_date}`,
@@ -268,19 +197,19 @@ export function buildBaziZiweiEnhancedPrompt(params: {
   baziText?: string;
   ziweiText: string;
   question: string;
-  questionScene?: BaziQuestionScene;
+  questionScopeLabel?: string;
   baziFortuneSummary?: string;
   ziweiScopeSummary?: string;
   isCustomQuestion?: boolean;
 }) {
   const isCustomQuestion = Boolean(params.isCustomQuestion);
-  const questionScene = resolveBaziQuestionScene(params.questionScene);
   const normalizedQuestion =
-    params.question.trim() || getBaziDefaultQuestion(questionScene, { isCustomQuestion });
+    params.question.trim() || getBaziDefaultQuestion(undefined, { isCustomQuestion });
   const baziText = params.baziText || formatBaziForPrompt(params.baziResult, null, 'general');
   const sourceLabels = [params.baziFortuneSummary, params.ziweiScopeSummary]
     .map((item) => item?.trim())
     .filter(Boolean);
+  const questionScopeLabel = params.questionScopeLabel?.trim();
 
   return [
     '你是一位同时熟悉八字与紫微斗数的资深命理分析师，擅长先用八字判断命局结构与岁运主线，再用紫微斗数校验宫位主轴、四化触发与运限落点。',
@@ -295,16 +224,16 @@ export function buildBaziZiweiEnhancedPrompt(params: {
     '',
     `【当前时间】\n${formatPromptCurrentTime()}`,
     sourceLabels.length > 0 ? `【已选分析对象】\n${sourceLabels.join('\n')}` : '',
+    questionScopeLabel && questionScopeLabel !== '通用'
+      ? `【问题范围】\n用户选择：${questionScopeLabel}`
+      : '',
     `【八字排盘信息】\n${baziText}`,
     `【紫微盘面信息】\n${params.ziweiText}`,
     `【问题】\n${normalizedQuestion}`,
     ...(isCustomQuestion
       ? []
       : [
-          `【断盘要点】\n${buildBaziQuestionGuidanceSection(
-            questionScene,
-            Boolean(params.baziFortuneSummary),
-          )}`,
+          `【断盘要点】\n${buildBaziQuestionGuidanceSection(Boolean(params.baziFortuneSummary))}`,
           '【解读范围】\n如果【已选分析对象】已写入八字年限或紫微范围，必须优先围绕该对象分析；如果问题中的时间与已选分析对象不一致，开头先提醒不一致，再以已写入对象为准；应期判断必须说明来自本命底色、阶段运限、年度触发、月度窗口还是日时短期触发。',
           '【任务】\n先用八字判断命局主线、结构强弱、喜忌取用与当前触发，再用紫微校验对应宫位主轴、四化牵动、三方四正和运限落点，最后整合成一致结论、冲突点与现实建议。',
           '【输出要求】\n先直接回答【问题】，再按“八字主线”“紫微校验”“综合结论与建议”展开；每部分都要写明主证、辅证、反证或限制、触发条件与建议；若两套体系存在冲突，单列“冲突点与待核验项”。',

@@ -1,5 +1,5 @@
 /**
- * 提示词增强：分析维度与合盘/六亲等专项分析片段。
+ * 提示词增强：只保留可由盘面证据触发的分析维度提示。
  */
 
 export function generateAnalysisDimensionHints(
@@ -18,28 +18,4 @@ export function generateAnalysisDimensionHints(
   };
 
   return hints[dimension] || '';
-}
-
-export function generateMarriageMatchHints(): string {
-  return `【婚姻配对】1.先看双方日主、配偶星、夫妻宫与命局寒暖燥湿是否相互成就或彼此消耗 2.传统常参六合、三合、六冲、相刑与桃花，但都只能作旁证 3.用神是否互补、忌神是否互相牵动 4.大运节奏是否同步，分清短期吸引与长期磨合。先定关系主轴，再分相处优势、摩擦来源、现实压力与可执行建议，不可只凭桃花或一组合冲直接断婚缘深浅。`;
-}
-
-export function generateCareerPartnershipHints(): string {
-  return `【合作合伙】1.先看双方命局重心与合作分工是否顺手 2.传统常参财星、官杀、印星、食伤、比劫的配置与互补，判断谁更适合主导、执行、控风险或整合资源 3.合冲刑害与神煞只作旁证，重点仍看利益分配、执行效率与责任边界 4.岁运不同步时要分开看短期项目合作与长期绑定。分析合作主轴、分工互补、利益风险与退出边界，不可只凭表面投缘就判断适合长期合伙。`;
-}
-
-export function generateFriendshipHints(): string {
-  return `【友情往来】1.先看双方气势是否投契 2.再看比劫、食伤、印星、财星在人际往来中的互补与消耗 3.合冲刑害、桃花与贵人类神煞只作旁证 4.岁运引动要区分一时热络、阶段性互助与长期稳定。分析投缘点、边界风险、互动节奏与现实建议，不可把一时投缘直接当成长期稳定。`;
-}
-
-export function generateChildrenFateHints(): string {
-  return `【子女缘分】1.传统常参双方食伤、时柱子女宫与夫妻配合，不可只凭单一符号判断 2.时柱神煞与空亡仅作旁证 3.重点看食伤清浊、子女宫受合冲刑害情况，以及双方在养育分工上的配合 4.岁运是否引动生育、备孕、养育压力与教育议题。分析缘分深浅、相处方式与教育重点，并分开说明证据强弱。`;
-}
-
-export function generateParentsAnalysisHints(): string {
-  return `【父母研判】1.传统常以印星、财星参照父母，再结合双方年柱月柱与家庭责任分配 2.神煞与刑冲只作旁证 3.岁运重点看健康承压、关系边界、现实照护与赡养压力。分析父母缘分、支持压力与需要留意的风险方向，不可单凭一星定应。`;
-}
-
-export function generateSiblingsAnalysisHints(): string {
-  return `【兄弟朋友】1.比劫为主线 2.数量与亲疏不只看单一符号 3.关系要分为用互助、为忌竞争 4.朋友类型结合用神十神与岁运场景。分析兄弟缘分、人际合作与边界感，避免只按比劫多少直接下结论，并区分血缘亲近、现实资源往来与阶段性利益牵扯。`;
 }

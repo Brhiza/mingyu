@@ -82,7 +82,7 @@ test('紫微合盘主题只作为关系范围，不再注入固定问题与任�
     cooperationPrompt,
     /【输出要求】\n先直接回答【问题】，再展开最关键的 2 到 4 个重点；/,
   );
-  assert.match(cooperationPrompt, /用户选择主题时只把主题作为关系范围，不补充本地固定话术/);
+  assert.match(cooperationPrompt, /用户选择主题时只把主题作为关系范围，不补充本地预设模板/);
   assert.doesNotMatch(cooperationPrompt, /合作默契|合作分工|关系主基调/);
 
   const interactionPrompt = buildCombinedZiweiCompatibilityPrompt({
