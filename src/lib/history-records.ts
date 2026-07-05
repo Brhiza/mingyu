@@ -45,17 +45,23 @@ export type DivinationHistoryRecord = {
   updatedAt: string;
 };
 
-function readRecords<T>(key: string): T[] {
+function readRecords<T extends { name?: unknown }>(key: string): T[] {
   const parsed = safeStorage.getJSON<unknown>(key, null);
-  return Array.isArray(parsed) ? (parsed as T[]) : [];
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+  // 校验每条记录至少含 name 字段且为字符串，过滤损坏/旧版结构数据
+  return parsed.filter(
+    (item): item is T => typeof item === 'object' && item !== null && typeof item.name === 'string',
+  );
 }
 
 function writeRecords<T>(key: string, records: T[]): boolean {
   return safeStorage.setJSON(key, records.slice(0, MAX_HISTORY_RECORDS));
 }
 
-function normalizeText(value: string) {
-  return value.trim().toLowerCase();
+function normalizeText(value: string | undefined) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }
 
 function resolveAvailableCaseName(existingNames: string[], reservedNames: string[] = []) {

@@ -98,11 +98,15 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
         signal: controller.signal,
         aiConfig,
         onChunk: (text) => {
+          // 校验回调归属当前活跃请求
+          if (abortRef.current !== controller) return;
           setStatus('streaming');
           streamingRef.current += text;
           setStreamingContent(streamingRef.current);
         },
         onDone: () => {
+          // 校验回调归属当前活跃请求
+          if (abortRef.current !== controller) return;
           const finalContent = streamingRef.current;
           streamingRef.current = '';
           setStreamingContent('');
@@ -113,6 +117,8 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
           abortRef.current = null;
         },
         onError: (message) => {
+          // 校验回调归属当前活跃请求
+          if (abortRef.current !== controller) return;
           setStatus('error');
           setError(message);
           streamingRef.current = '';

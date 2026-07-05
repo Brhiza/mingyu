@@ -10,8 +10,16 @@ import { getPersonValue, type SELF_FIELD_MAP } from './InputPage.field-helpers';
 import type { PersonRole } from './InputPage.field-helpers';
 
 function getTrueSolarTimeLabel(form: QueryInputState, role: PersonRole) {
-  const hour = Number(getPersonValue(form, role, 'birthHour'));
-  const minute = Number(getPersonValue(form, role, 'birthMinute'));
+  const rawHour = getPersonValue(form, role, 'birthHour');
+  const rawMinute = getPersonValue(form, role, 'birthMinute');
+
+  // 空串转 Number 得 0，但未填写时应视为无效输入而非 00:00
+  if (rawHour === '' || rawMinute === '') {
+    return '';
+  }
+
+  const hour = Number(rawHour);
+  const minute = Number(rawMinute);
 
   if (!isValidHourMinute(hour, minute)) {
     return '';
