@@ -11,6 +11,7 @@ const DEFAULT_MODEL = 'deepseek-chat';
 const MAX_PROMPT_LENGTH = 50_000;
 const MAX_MESSAGES = 30;
 const UPSTREAM_RETRY_DELAYS_MS = [500, 1500];
+const BLOCKED_CUSTOM_AI_HOSTS = new Set(['localhost', 'metadata', 'metadata.google.internal']);
 
 const SSE_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -25,6 +26,7 @@ export type AiEnv = {
   AI_API_KEY?: string;
   AI_BASE_URL?: string;
   AI_MODEL?: string;
+  AI_PROVIDER_NAME?: string;
   AI_BUILTIN_ENABLED?: string;
   AI_DEFAULT_ENABLED?: string;
 };
@@ -286,13 +288,10 @@ function resolveAiProvider(
 
   if (mode === 'custom') {
     const apiKey = typeof config?.apiKey === 'string' ? config.apiKey.trim() : '';
-    const baseUrl =
-      typeof config?.baseUrl === 'string' && config.baseUrl.trim()
-        ? config.baseUrl.trim().replace(/\/+$/, '')
-        : '';
+    const rawBaseUrl = typeof config?.baseUrl === 'string' ? config.baseUrl.trim() : '';
     const model = typeof config?.model === 'string' ? config.model.trim() : '';
 
-    if (!apiKey || !baseUrl || (requireModel && !model)) {
+    if (!apiKey || !rawBaseUrl || (requireModel && !model)) {
       return {
         error: aiJsonError(
           400,
@@ -302,7 +301,12 @@ function resolveAiProvider(
       };
     }
 
-    return { apiKey, baseUrl, model };
+    const baseUrlResult = normalizeCustomAiBaseUrl(rawBaseUrl);
+    if ('error' in baseUrlResult) {
+      return baseUrlResult;
+    }
+
+    return { apiKey, baseUrl: baseUrlResult.baseUrl, model };
   }
 
   if (!isBuiltinAiEnabled(env)) {
@@ -331,6 +335,104 @@ function resolveAiProvider(
 function isBuiltinAiEnabled(env?: AiEnv): boolean {
   const enabled = env?.AI_BUILTIN_ENABLED ?? env?.AI_DEFAULT_ENABLED;
   return enabled === 'true';
+}
+
+function normalizeCustomAiBaseUrl(value: string): { baseUrl: string } | { error: Response } {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return {
+      error: aiJsonError(
+        400,
+        'AI_CUSTOM_BASE_URL_INVALID',
+        '自定义 AI 接口地址必须是合法的 HTTPS 公网地址。',
+      ),
+    };
+  }
+
+  if (
+    url.protocol !== 'https:' ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash ||
+    isUnsafeCustomAiHost(url.hostname)
+  ) {
+    return {
+      error: aiJsonError(
+        400,
+        'AI_CUSTOM_BASE_URL_UNSAFE',
+        '自定义 AI 接口地址必须使用 HTTPS 公网地址，不能指向本机、内网或云元数据地址。',
+      ),
+    };
+  }
+
+  return { baseUrl: url.href.replace(/\/+$/, '') };
+}
+
+function isUnsafeCustomAiHost(hostname: string): boolean {
+  const host = hostname
+    .toLowerCase()
+    .replace(/^\[(.*)\]$/, '$1')
+    .replace(/\.$/, '');
+  if (!host) return true;
+  if (BLOCKED_CUSTOM_AI_HOSTS.has(host) || host.endsWith('.localhost')) return true;
+  if (host.endsWith('.internal')) return true;
+
+  const ipv4 = parseIpv4Address(host);
+  if (ipv4) {
+    return isUnsafeIpv4Address(ipv4);
+  }
+
+  const mappedIpv4 = host.startsWith('::ffff:') ? parseIpv4Address(host.slice(7)) : null;
+  if (mappedIpv4) {
+    return isUnsafeIpv4Address(mappedIpv4);
+  }
+
+  if (host.includes(':')) {
+    return isUnsafeIpv6Address(host);
+  }
+
+  return !host.includes('.');
+}
+
+function parseIpv4Address(host: string): [number, number, number, number] | null {
+  const parts = host.split('.');
+  if (parts.length !== 4) return null;
+
+  const parsed = parts.map((part) => {
+    if (!/^\d+$/.test(part)) return Number.NaN;
+    const value = Number(part);
+    return Number.isInteger(value) && value >= 0 && value <= 255 ? value : Number.NaN;
+  });
+
+  return parsed.every(Number.isFinite) ? (parsed as [number, number, number, number]) : null;
+}
+
+function isUnsafeIpv4Address([a, b]: [number, number, number, number]): boolean {
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    a >= 224
+  );
+}
+
+function isUnsafeIpv6Address(host: string): boolean {
+  return (
+    host === '::' ||
+    host === '::1' ||
+    host.startsWith('fc') ||
+    host.startsWith('fd') ||
+    /^fe[89ab]/.test(host) ||
+    host.startsWith('ff')
+  );
 }
 
 async function fetchUpstreamWithRetry(

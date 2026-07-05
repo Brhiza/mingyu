@@ -6,6 +6,7 @@ import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { handlePublicApiRequest } from '../src/lib/public-api/handler';
 import type { AiEnv } from '../src/lib/ai/proxy';
+import { getAiRuntimeConfigScript } from '../src/lib/ai/runtime-config';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,27 +37,14 @@ function sendText(
   statusCode: number,
   body: string,
   contentType = 'text/plain; charset=utf-8',
+  extraHeaders: Record<string, string> = {},
 ) {
   response.writeHead(statusCode, {
     'Content-Type': contentType,
     'Content-Length': Buffer.byteLength(body),
+    ...extraHeaders,
   });
   response.end(body);
-}
-
-function getRuntimeConfigScript() {
-  const hasAiApiKey = Boolean(process.env.AI_API_KEY);
-  const aiBuiltinFlag = process.env.AI_BUILTIN_ENABLED ?? process.env.AI_DEFAULT_ENABLED;
-  const aiBuiltinEnabled = aiBuiltinFlag === 'true' && hasAiApiKey;
-  const aiDefaultEnabled = aiBuiltinEnabled && process.env.AI_DEFAULT_ENABLED === 'true';
-  const aiProviderName = process.env.AI_PROVIDER_NAME || '';
-  const payload = JSON.stringify({
-    aiBuiltinEnabled,
-    aiDefaultEnabled,
-    aiProviderName,
-  });
-
-  return `window.__MINGYU_RUNTIME_CONFIG__ = ${payload};\n`;
 }
 
 async function readRequestBody(request: IncomingMessage) {
@@ -134,7 +122,15 @@ async function resolveStaticFile(pathname: string) {
 
 async function handleStaticRequest(request: IncomingMessage, response: ServerResponse, url: URL) {
   if (url.pathname === '/mingyu-runtime-config.js') {
-    sendText(response, 200, getRuntimeConfigScript(), 'text/javascript; charset=utf-8');
+    sendText(
+      response,
+      200,
+      getAiRuntimeConfigScript(process.env),
+      'text/javascript; charset=utf-8',
+      {
+        'Cache-Control': 'no-store',
+      },
+    );
     return;
   }
 
