@@ -174,12 +174,13 @@ import { generateMeihua } from 'mingyu-core/divination/meihua';
 const meihua = generateMeihua(undefined, { method: 'number', number: 123 });
 
 // 奇门遁甲
-import { generateQimen } from 'mingyu-core/divination/qimen';
+import { generateQimen, createQimenPriorityPalaces } from 'mingyu-core/divination/qimen';
 const qimen = generateQimen();                     // 当前时间，默认转盘法
 const qimenFeipan = generateQimen(undefined, 'feipan');  // 可选飞盘法
 const qimenYear = generateQimen(new Date('2026-07-02T08:00:00+08:00'), 'zhuanpan', 'year');  // 年家奇门
 console.log(qimen.seasonality);                    // 节令背景、月相、建除、四柱互动
 console.log(qimen.patternCombos);                  // 复合格局，如吉格逢空、伏吟叠驿马
+console.log(createQimenPriorityPalaces(qimen));     // 结构化重点宫位候选
 
 // 大六壬
 import { generateLiuren } from 'mingyu-core/divination/liuren';
@@ -242,7 +243,6 @@ const voidBranches = getVoidBranches('甲子');      // ['戌','亥'] 旬空
 | `analyzeUsefulGodPlacement` | 函数 | 用神落点分析 |
 | `analyzeNayinProfile` | 函数 | 纳音五行分析 |
 | `analyzeMonthQiProfile` | 函数 | 月令气数（旺相休囚死） |
-| `analyzeMatterFocusProfile` | 函数 | 兼容保留，当前返回空列表，不输出无依据事项分析 |
 | `calculateMingGua` | 函数 | 命卦计算 |
 | `calculateXiaoYunProfile` | 函数 | 小运（童限逐年） |
 | `buildLuckDirectionProfile` | 函数 | 大运顺逆方向 |
@@ -254,6 +254,7 @@ const voidBranches = getVoidBranches('甲子');      // ['戌','亥'] 旬空
 | `generateLiuyao(date?)` | 六爻起卦 |
 | `generateMeihua(date?, settings?)` | 梅花易数起卦 |
 | `generateQimen(date?, method?, scope?)` | 奇门遁甲排盘，返回节令背景、经典格局、复合格局、方位和应期 |
+| `createQimenPriorityPalaces(data)` | 根据宫位洞察、经典格局、干关系和方位生成奇门重点宫位候选 |
 | `generateLiuren(date?)` | 大六壬排盘 |
 | `generateXiaoliuren(params?)` | 小六壬起课 |
 | `generateAlmanacSelection(params)` | 黄历择日 |

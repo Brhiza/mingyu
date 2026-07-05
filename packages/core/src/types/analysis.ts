@@ -227,8 +227,6 @@ export interface KongWangProfile {
 export interface NayinItem { pillar: string; ganZhi: string; nayin: string; element: string; }
 export interface NayinProfile { items: NayinItem[]; summary: string; }
 export interface MingGuaProfile { number: number; gua: string; star: string; element: string; eastWest: '东四命' | '西四命'; }
-export interface MatterFocusItem { topic: string; relatedPalaces: string[]; keyStars: string[]; priority: number; }
-export interface MatterFocusProfile { items: MatterFocusItem[]; }
 export interface XiaoYunItem { age: number; year: number; ganZhi: string; tenGod: string; }
 export interface XiaoYunProfile {
   startAge: number;

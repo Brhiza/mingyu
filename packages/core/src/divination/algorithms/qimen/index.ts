@@ -43,6 +43,9 @@ import { estimateYingQi } from './helpers/ying-qi';
 import { buildSeasonality } from './helpers/seasonality';
 import { detectQimenPatternCombos } from './helpers/pattern-combos';
 
+export { createQimenPriorityPalaces } from './helpers/guidance';
+export type { QimenPriorityPalace } from './helpers/guidance';
+
 // ============================================================================
 // 内部工具函数
 // ============================================================================

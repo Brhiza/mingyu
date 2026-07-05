@@ -1008,15 +1008,37 @@ test('占卜提示词的当前时间应来自起盘结果而不是运行环境�
 });
 
 test('奇门提示词会输出盘面优先宫位', () => {
-  const prompt = buildDivinationPrompt('qimen', '这次换工作该不该主动推进？', createData('qimen'), {
+  const qimenData = {
+    ...createData('qimen'),
+    classicPatterns: [
+      {
+        name: '太白入荧',
+        type: 'bad' as const,
+        score: -18,
+        summary: '庚加丙主阻力外显。',
+        palaces: [9],
+      },
+    ],
+    stemRelations: [
+      {
+        gong: 9,
+        heavenStem: '庚',
+        earthStem: '丙',
+        relation: '金火相战',
+        pattern: '太白入荧',
+      },
+    ],
+  };
+  const prompt = buildDivinationPrompt('qimen', '这次换工作该不该主动推进？', qimenData, {
     gender: '男',
     birthYear: 1995,
   });
 
   assert.match(prompt, /核心结构：阳遁3局；值符天蓬；值使休门/);
   assert.match(prompt, /主轴证据：值符天蓬落坎一宫；值使休门落坎一宫；时干丁见于离九宫/);
-  assert.match(prompt, /用神宫候选：坎一宫（24分，有利:适合谋划与沟通）/);
-  assert.match(prompt, /反证宫：坎一宫：命中空亡、马星或格局标签时，相关结论必须降权复核/);
+  assert.match(prompt, /用神宫候选：离九宫（36分，凶格:太白入荧、干关系:太白入荧）/);
+  assert.match(prompt, /用神宫证据：离九宫：门景门、星天英、神九天、天盘丙、地盘丁；格局太白入荧；干关系太白入荧/);
+  assert.match(prompt, /反证宫离九宫、坎一宫：逢空、马星或格局标签命中时先降权复核/);
   assert.match(prompt, /时间窗口：逢空坎一宫、艮八宫先待填实/);
   assert.match(prompt, /辅助证据：旬空子空落坎一宫、丑空落艮八宫；马星卯时驿马在巳，落巽四宫/);
   assert.doesNotMatch(prompt, /问事参考/);
@@ -1373,7 +1395,7 @@ test('星盘提示词应直接给出太阳月亮上升和主要相位证据', ()
     createAstrolabeData(),
   );
 
-  assert.match(prompt, /【分析思路】/);
+  assert.match(prompt, /【星盘要点】/);
   assert.match(prompt, /用户没有选择具体分类时按通用星盘口径处理/);
   assert.match(prompt, /主轴证据：太阳金牛座 29°；月亮处女座 08°；上升狮子座 12°/);
   assert.match(

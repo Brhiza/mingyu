@@ -92,7 +92,6 @@ export { analyzeLifeStageProfile, analyzeTenGodLifeStageProfile } from './lifeSt
 export { analyzeUsefulGodPlacement } from './usefulGodPlacement';
 export { calculateMingGua } from './mingGua';
 export { calculateXiaoYunProfile, buildLuckDirectionProfile } from './luckDetails';
-export { analyzeMatterFocusProfile } from './matterFocus';
 export { analyzeNayinProfile } from './nayinAnalysis';
 export { analyzeMonthQiProfile } from './monthCommand';
 export {

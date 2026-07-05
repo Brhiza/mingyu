@@ -17,7 +17,7 @@ import type {
 } from '../../../types/divination';
 import { LunarUtil, getDivinationTime } from 'mingyu-core/calendar';
 import { resolveSsgwStoryContent } from '../ssgw-content';
-import { createQimenPriorityPalaces } from '../../../utils/qimen-guidance';
+import { createQimenPriorityPalaces } from '@core/divination/algorithms/qimen';
 import { normalizePromptEvidenceItems } from '@core/prompt-evidence/format';
 import type { PromptEvidenceItem } from '@core/prompt-evidence/types';
 import type { DivinationMethodId } from '@core/divination/config';
@@ -1032,12 +1032,20 @@ function formatQimenInfo(data: QimenData) {
       const gong = data.jiuGongGe.find((palace) => palace.gong === item.gong);
       const voidHit = data.voidPalaces?.some((voidPalace) => voidPalace.palace === item.gong);
       const horseHit = data.horseStar?.palace === item.gong;
-      const patternHit = data.patternDetails
-        ?.filter(
-          (detail) =>
-            detail.tag.includes(`（${item.name}`) || detail.tag.includes(`落${item.name}`),
-        )
-        .map((detail) => detail.tag);
+      const patternHit = data.classicPatterns
+        ?.filter((pattern) => pattern.palaces.includes(item.gong))
+        .map((pattern) => pattern.name);
+      const stemRelationHit = data.stemRelations
+        ?.filter((relation) => relation.gong === item.gong && relation.pattern)
+        .map((relation) => relation.pattern);
+      const directionHit = [
+        ...(data.directions?.goodDirections ?? [])
+          .filter((direction) => direction.gong === item.gong)
+          .map((direction) => `吉方${direction.direction}`),
+        ...(data.directions?.avoidDirections ?? [])
+          .filter((direction) => direction.gong === item.gong)
+          .map((direction) => `避方${direction.direction}`),
+      ];
       const parts = [
         gong
           ? `门${gong.renPan.door}、星${gong.tianPan.star}、神${gong.shenPan.god}、天盘${gong.tianPan.stem}、地盘${gong.diPan.stem}`
@@ -1045,6 +1053,8 @@ function formatQimenInfo(data: QimenData) {
         voidHit ? '逢空，落地偏虚或需待填实' : '',
         horseHit ? '逢马星，主移动、变动或外部推动' : '',
         patternHit?.length ? `格局${patternHit.join('、')}` : '',
+        stemRelationHit?.length ? `干关系${stemRelationHit.join('、')}` : '',
+        directionHit.length ? directionHit.join('、') : '',
       ].filter(Boolean);
       return `${item.name}：${parts.join('；')}`;
     })
@@ -1066,13 +1076,13 @@ function formatQimenInfo(data: QimenData) {
   const auxiliaryRelationPalaces = relationPalaces.slice(1, 3);
   const adversePalaces = relationPalaces.filter((item) => {
     const voidHit = data.voidPalaces?.some((voidPalace) => voidPalace.palace === item.gong);
-    const patternHit = data.patternDetails?.some(
-      (detail) =>
-        detail.tag.includes(`（${item.name}`) ||
-        detail.tag.includes(`落${item.name}`) ||
-        detail.summary.includes(item.name),
+    const badPatternHit = data.classicPatterns?.some(
+      (pattern) => pattern.type === 'bad' && pattern.palaces.includes(item.gong),
     );
-    return voidHit || patternHit;
+    const avoidDirectionHit = data.directions?.avoidDirections.some(
+      (direction) => direction.gong === item.gong,
+    );
+    return voidHit || badPatternHit || avoidDirectionHit;
   });
   const palaceRelationEvidence = mainRelationPalace
     ? [

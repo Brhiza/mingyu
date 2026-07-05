@@ -121,8 +121,6 @@ export interface KongWangProfile {
 export interface NayinItem { pillar: string; ganZhi: string; nayin: string; element: string; }
 export interface NayinProfile { items: NayinItem[]; summary: string; }
 export interface MingGuaProfile { gua: string; element: string; eastWest: '东四命' | '西四命'; }
-export interface MatterFocusItem { topic: string; relatedPalaces: string[]; keyStars: string[]; priority: number; }
-export interface MatterFocusProfile { items: MatterFocusItem[]; }
 export interface XiaoYunItem { age: number; ganZhi: string; tenGod: string; }
 export interface XiaoYunProfile { items: XiaoYunItem[]; summary: string; }
 export interface LuckDirectionProfile { direction: '顺行' | '逆行'; summary: string; }
@@ -733,27 +731,7 @@ export function buildLuckDirectionProfile(
 `);
 console.log('Written luckDetails.ts');
 
-// 3j. matterFocus.ts
-fs.writeFileSync(path.join(baziNewDir, 'matterFocus.ts'), `
-import type { MatterFocusItem, MatterFocusProfile } from '../types/analysis';
-
-export function analyzeMatterFocusProfile(
-  gender: string,
-  favorableWuxing: string[],
-): MatterFocusProfile {
-  const items: MatterFocusItem[] = [
-    { topic: '事业', relatedPalaces: ['官禄','迁移'], keyStars: [''], priority: 10 },
-    { topic: '财运', relatedPalaces: ['财帛','田宅'], keyStars: [''], priority: 9 },
-    { topic: '感情', relatedPalaces: ['夫妻','子女'], keyStars: [''], priority: 8 },
-    { topic: '健康', relatedPalaces: ['疾厄'], keyStars: [''], priority: 7 },
-    { topic: '人际', relatedPalaces: ['兄弟','父母'], keyStars: [''], priority: 6 },
-  ];
-  return { items };
-}
-`);
-console.log('Written matterFocus.ts');
-
-// 3k. nayinAnalysis.ts
+// 3j. nayinAnalysis.ts
 fs.writeFileSync(path.join(baziNewDir, 'nayinAnalysis.ts'), `
 import type { NayinItem, NayinProfile } from '../types/analysis';
 

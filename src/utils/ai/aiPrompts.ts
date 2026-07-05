@@ -1,13 +1,3 @@
-/**
- * 八字 AI 提示词模块
- *
- * 前端调用链：
- *   单盘 → buildPromptFromConfig()
- *   合盘 → getCompatibilityPrompt()
- *
- * 两者均通过 prompt-engine.ts 统一导出给 ResultPage.tsx
- */
-
 import { formatBaziForPrompt, type PromptChartScene } from '@core/bazi/baziAnalysisFormatter';
 import type { BaziChartResult } from '@core/bazi/baziTypes';
 import type { FortuneSelectionContext } from '@core/bazi/fortuneSelection';
@@ -24,8 +14,6 @@ import {
   type BaziQuestionScene,
 } from './baziQuestionScene';
 
-// ─── 类型 ──────────────────────────────────────────
-
 export interface AIPromptOption {
   id: string;
   prompt: string;
@@ -34,8 +22,6 @@ export interface AIPromptOption {
 
 export { BAZI_QUESTION_SCENES, buildBaziQuestionGuidanceSection, resolveBaziQuestionScene };
 export type { BaziQuestionScene };
-
-// ─── 系统提示词 ────────────────────────────────────
 
 const BASE_SYSTEM_ROLE = '你是资深八字命理师，熟悉《渊海子平》《滴天髓》《三命通会》《穷通宝鉴》。';
 
@@ -70,12 +56,8 @@ function buildSystemText(rules: readonly string[] = BASE_SYSTEM_RULES): string {
   return [BASE_SYSTEM_ROLE, '要求：', ...normalizedRules.map((line) => `- ${line}`)].join('\n');
 }
 
-/** 单盘系统提示词 */
 const SYSTEM_PROMPT = buildSystemText();
-/** 合盘系统提示词 */
 const COMPATIBILITY_SYSTEM_PROMPT = buildSystemText(COMPAT_SYSTEM_RULES);
-
-// ─── 工具函数 ──────────────────────────────────────
 
 function buildPromptSection(title: string, content: string): string {
   return `【${title}】\n${content}`;
@@ -90,7 +72,6 @@ function joinPromptSections(sections: Array<string | null | undefined>): string 
 }
 
 function resolvePromptScene(promptId: string): PromptChartScene {
-  // 当前快捷按钮均已走 general 场景格式化，保留 fortune 分支以备将来扩展
   if (
     promptId.startsWith('ai-fortune-') ||
     promptId === 'ai-current-luck' ||
@@ -366,17 +347,8 @@ export const BAZI_AI_PROMPTS = {
   ] as AIPromptOption[],
 };
 
-// ─── 单盘提示词构建（主入口） ──────────────────────
-
 type SinglePromptConfig = (typeof BAZI_AI_PROMPTS.single)[number];
 
-/**
- * 构建单盘八字提示词
- *
- * 主路径：根据 selectedOption 匹配 BAZI_AI_PROMPTS.single 配置，
- *         注入增强分析（病药法/通关法/经典格局/神煞详解等）
- * fallback：配置匹配不到时走基础拼装
- */
 export function buildPromptFromConfig(
   questionText: string,
   selectedOption: AIPromptOption,
@@ -393,7 +365,6 @@ export function buildPromptFromConfig(
   const normalizedQuestion =
     questionText.trim() || getBaziDefaultQuestion(scene, { isCustomQuestion });
 
-  // ── 主路径 ──
   if (promptConfig) {
     const chartData = chartResult
       ? formatBaziForPrompt(chartResult, selectedOption, resolvePromptScene(promptConfig.id))
@@ -405,7 +376,6 @@ export function buildPromptFromConfig(
     const fortuneAddon = buildFortunePromptAddon(promptConfig.id, fortuneSelectionContext);
     const task = [promptConfig.prompt, fortuneAddon].filter(Boolean).join(' ');
 
-    // 增强分析片段
     let enhancedSection = '';
     if (chartResult && !isCustomQuestion) {
       enhancedSection = generateEnhancedAnalysisSection(chartResult, scene);
@@ -434,7 +404,7 @@ export function buildPromptFromConfig(
         isCustomQuestion
           ? ''
           : buildPromptSection(
-              '分析思路',
+              '断盘要点',
               buildBaziQuestionGuidanceSection(scene, Boolean(fortuneSection)),
             ),
         isCustomQuestion ? '' : buildPromptSection('任务', task || '请直接判断重点。'),
@@ -445,7 +415,6 @@ export function buildPromptFromConfig(
     };
   }
 
-  // ── fallback ──
   const chartData = chartResult?.pillars
     ? formatBaziForPrompt(chartResult, selectedOption, 'general')
     : '命盘数据格式不支持。';
@@ -460,7 +429,7 @@ export function buildPromptFromConfig(
       buildPromptSection('问题', normalizedQuestion),
       isCustomQuestion
         ? ''
-        : buildPromptSection('分析思路', buildBaziQuestionGuidanceSection(scene, false)),
+        : buildPromptSection('断盘要点', buildBaziQuestionGuidanceSection(scene, false)),
       isCustomQuestion ? '' : buildPromptSection('任务', '请直接判断重点。'),
       isCustomQuestion
         ? ''
@@ -468,8 +437,6 @@ export function buildPromptFromConfig(
     ]),
   };
 }
-
-// ─── 合盘提示词构建（主入口） ──────────────────────
 
 export type CompatType = 'marriage' | 'career' | 'friendship' | 'children' | 'parents' | 'siblings';
 
@@ -486,11 +453,6 @@ function getCompatibilityOutputRequirement(compatType?: CompatType): string {
   ].join('\n');
 }
 
-/**
- * 构建合盘八字提示词
- *
- * 接受原始 BaziChartResult，内部完成格式化 + 增强分析注入
- */
 export function getCompatibilityPrompt(
   questionText: string,
   baziResult1: BaziChartResult | null,

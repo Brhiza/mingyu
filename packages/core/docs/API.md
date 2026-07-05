@@ -117,7 +117,6 @@
 | `analyzeUsefulGodPlacement(pillars, dayMaster, getTenGod, favorableWuxing, unfavorableWuxing)` | 四柱、日干、十神函数、喜用五行、忌神五行 | `UsefulGodPlacementProfile` | 用神落点（喜神得力/受制/忌神等） |
 | `analyzeNayinProfile(pillars)` | 四柱 | `NayinProfile` | 各柱纳音五行 |
 | `analyzeMonthQiProfile(monthBranch, commanderStem?)` | 月支、司令 | `MonthQiProfile` | 月令气数（五行旺相休囚死） |
-| `analyzeMatterFocusProfile(gender, favorableWuxing)` | 性别、喜用五行 | `MatterFocusProfile` | 兼容保留；当前返回空列表，不输出无依据事项分析 |
 | `calculateMingGua(birthYear, gender)` | 出生年、性别 | `MingGuaProfile` | 命卦（东四命/西四命） |
 | `calculateXiaoYunProfile(solarTime, gender, dayMasterGan, getTenGod)` | 太阳时、性别、日干、十神函数 | `XiaoYunProfile` | 小运（童限逐年干支） |
 | `buildLuckDirectionProfile(gender, yearStem)` | 性别、年干 | `LuckDirectionProfile` | 大运顺逆方向 |
@@ -182,7 +181,7 @@
 
 ## 奇门遁甲 Qimen
 
-导入：`import { generateQimen } from 'mingyu-core/divination/qimen'`
+导入：`import { generateQimen, createQimenPriorityPalaces } from 'mingyu-core/divination/qimen'`
 
 ### `generateQimen(customDate?, method?, scope?)`
 
@@ -199,6 +198,10 @@
 |------|------|------|
 | `seasonality` | `QimenSeasonalityInfo?` | 当前节气、节气三元、节气五行、日干与节令关系、月相、建除十二神、四柱干支互动 |
 | `patternCombos` | `QimenPatternCombo[]?` | 复合格局，如同宫吉凶叠加、吉格逢空、三奇齐升/齐困、伏吟反吟叠驿马 |
+
+### `createQimenPriorityPalaces(data)`
+
+根据 `QimenData` 里的宫位洞察、经典格局、干关系和方位数据生成重点宫位候选，不再依赖前端解析格局文字标签。
 
 ---
 

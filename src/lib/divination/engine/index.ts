@@ -377,7 +377,7 @@ export function buildDivinationPrompt(
       : '';
   const astrolabeGuidanceSection =
     method === 'astrolabe' && !isCustomQuestion
-      ? buildSection('【分析思路】', buildAstrolabeTopicGuidanceSection(astrolabeTopic))
+      ? buildSection('【星盘要点】', buildAstrolabeTopicGuidanceSection(astrolabeTopic))
       : '';
   const astrolabeTransitScaleSection =
     method === 'astrolabe' && !isCustomQuestion

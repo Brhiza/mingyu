@@ -558,7 +558,7 @@ export function buildCombinedZiweiPrompt(
       ? []
       : [
           '',
-          `【分析思路】\n${buildZiweiTopicGuidanceSection(topic)}`,
+          `【断盘要点】\n${buildZiweiTopicGuidanceSection(topic)}`,
           '',
           '【任务】\n结合【解读目标】、盘面结构与【分析对象】，优先从宫位主线、四化触发、格局线索、自化与三方四正呼应中提炼核心判断、关键依据和建议。',
           '',

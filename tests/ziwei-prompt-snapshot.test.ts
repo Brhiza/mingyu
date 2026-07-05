@@ -351,7 +351,7 @@ test('紫微完整提示词应补充完整运限任务书', () => {
   assert.doesNotMatch(prompt, /【分析框架】/);
   assert.match(prompt, /【解读范围】/);
   assert.match(prompt, /【解读方法】/);
-  assert.match(prompt, /【分析思路】/);
+  assert.match(prompt, /【断盘要点】/);
   assert.match(prompt, /当前已选流年：以该年年度触发、四化飞入、流年命宫落点和年度事件类别为主/);
   assert.match(prompt, /大限层：看十年阶段的主环境、角色变化、资源压力和机会方向/);
   assert.match(prompt, /流月层：看月内窗口、推进节奏和短期反复/);
