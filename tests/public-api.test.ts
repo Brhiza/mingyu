@@ -138,14 +138,9 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.latitude);
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.liuyaoTemplate);
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.liurenTemplate);
-  assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.externalOmens);
   assert.match(
     JSON.stringify(body.data.components.schemas.DivinationPromptRequest.properties.spreadType),
     /nine/,
-  );
-  assert.match(
-    JSON.stringify(body.data.components.schemas.DivinationPromptRequest.properties.externalOmens),
-    /火电文书/,
   );
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.astrolabeTopic);
   assert.equal(
@@ -1300,23 +1295,17 @@ test('公开 API 参数错误应返回统一错误结构', async () => {
   assert.match(body.error.message, /year/);
 });
 
-test('公开 API 梅花外应参数错误应返回 400 而不是内部错误', async () => {
-  for (const payload of [
-    { method: 'external' },
-    { method: 'external', externalOmens: { direction: '南', count: 3 } },
-    { method: 'external', externalOmens: { direction: '无效方位', object: '火电文书', count: 3 } },
-  ]) {
-    const { response, body } = await callApi('divination/meihua', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+test('公开 API 梅花未知起卦方式应返回 400 而不是内部错误', async () => {
+  const { response, body } = await callApi('divination/meihua', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ method: 'external' }),
+  });
 
-    assert.equal(response.status, 400, JSON.stringify(payload));
-    assert.equal(body.ok, false);
-    assert.equal(body.error.code, 'BAD_REQUEST');
-    assert.doesNotMatch(body.error.message, /内部错误/);
-  }
+  assert.equal(response.status, 400);
+  assert.equal(body.ok, false);
+  assert.equal(body.error.code, 'BAD_REQUEST');
+  assert.doesNotMatch(body.error.message, /内部错误/);
 });
 
 test('公开 API 黄历日期参数错误应返回 400 而不是内部错误', async () => {

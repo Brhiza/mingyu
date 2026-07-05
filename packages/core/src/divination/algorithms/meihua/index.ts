@@ -1,6 +1,6 @@
 /**
  * @file 梅花易数排盘算法
- * @description 基于邵雍（康节）先生所传之《梅花易数》，实现年月日时、数字、随机、外应四类起卦法。
+ * @description 基于邵雍（康节）先生所传之《梅花易数》，实现年月日时、数字、随机起卦法。
  * @流派 邵氏心易
  * @核心思想
  * 1. 以数起卦：将农历的年、月、日、时辰之数，通过特定运算转换为八卦。
@@ -20,7 +20,6 @@ import { getDivinationTime } from '../../../calendar/timeManager';
 import { getSeasonState, isSheng, isKe } from '../_shared';
 import { findHexagramByTrigrams, resolveTiYongByMovingYao } from './helpers/hexagram';
 import {
-  resolveExternalMethod,
   resolveTimeTrigramMethod,
   resolveNumberMethod,
   resolveRandomMethod,
@@ -110,11 +109,11 @@ function estimateYingQi(params: {
 /**
  * 生成梅花易数卦盘
  *
- * 支持时间起卦、数字起卦、随机起卦和外应起卦；timeTrigram 作为历史兼容入口按时间起卦计算。
+ * 支持时间起卦、数字起卦和随机起卦；timeTrigram 作为历史兼容入口按时间起卦计算。
  * 不传 `customDate` 则使用当前时间。
  *
  * @param customDate 自定义起卦时间（可选），影响时间卦的时间干支。
- * @param settings   起卦设置，含 method（起卦方式）、number（数字起卦用）、externalOmens（外应起卦用）等。
+ * @param settings   起卦设置，含 method（起卦方式）、number（数字起卦用）等。
  * @returns 完整的梅花易数卦盘数据对象 MeihuaData。
  *
  * @example
@@ -138,8 +137,6 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
         return resolveNumberMethod(settings?.number || 0, ganzhi.hour.slice(-1));
       case 'random':
         return resolveRandomMethod(settings);
-      case 'external':
-        return resolveExternalMethod(settings?.externalOmens, ganzhi.hour.slice(-1));
       case 'timeTrigram':
         return resolveTimeTrigramMethod(ganzhi, lunar);
       case 'time':

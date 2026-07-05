@@ -218,7 +218,7 @@ Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用�
 
 各占卜方法特有参数：
 
-- 梅花易数 `method`：`time`（时间起卦）、`number`（数字起卦）、`random`（随机起卦）、`external`（外应起卦）、`timeTrigram`（时辰纳卦法，依时辰方位配先天八卦取象）。`method` 为 `number` 时需提供 `number`（正整数）；`method` 为 `external` 时需提供 `externalOmens`，至少两项可映射外应，并提供 `count` 作为动爻数量，例如 `{"direction":"南","object":"火电文书","count":3}`；`method` 为 `timeTrigram` 时按时辰地支方位自动取卦，无需额外参数。
+- 梅花易数 `method`：`time`（时间起卦）、`number`（数字起卦）、`random`（随机起卦）、`timeTrigram`（兼容旧参数，按年月日时起卦法计算）。`method` 为 `number` 时需提供 `number`（正整数）。
 - 小六壬 `xiaoliurenMethod`：`time`、`number`、`random`。`number` 时需提供 `xiaoliurenNumber`（正整数）。
 - 塔罗 `spreadType`：`single`（单牌指引）、`three`（时间流）、`love`（爱情）、`career`（事业）、`decision`（选择）。
 - 六爻 `liuyaoTemplate`：`general`（通用）、`ganqing`（感情）、`shiye`（事业）、`caifu`（财运）、`guaishen`（鬼神怪异）。

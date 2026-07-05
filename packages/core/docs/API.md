@@ -171,9 +171,8 @@
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `method` | `'time' \| 'number' \| 'random' \| 'external' \| 'timeTrigram'` | 起卦法；`timeTrigram` 为历史兼容入口，按年月日时起卦法计算 |
+| `method` | `'time' \| 'number' \| 'random' \| 'timeTrigram'` | 起卦法；`timeTrigram` 为历史兼容入口，按年月日时起卦法计算 |
 | `number` | `number` | 数字起卦的正整数 |
-| `externalOmens` | `MeihuaExternalOmens` | 外应（方向/人物/动物/物品/声音/颜色/数量）；含方位时按后天端法以物象为上卦、方位为下卦、加时取动爻 |
 | `seed` | `string \| number` | 随机起卦时可选；同一 seed 可复现同一组随机卦数 |
 | `rng` | `() => number` | 随机起卦时可选；自定义随机源，返回 0 到 1 之间的数 |
 

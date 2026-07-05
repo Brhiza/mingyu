@@ -9,19 +9,6 @@ import type { MeihuaData } from '../types/divination';
  * 梅花易数专用工具函数
  */
 export const MeihuaHelpers = {
-  getExternalOmenSourceLabel(source: string): string {
-    const sourceLabels: Record<string, string> = {
-      direction: '方位',
-      person: '人物',
-      animal: '动物',
-      object: '物件',
-      sound: '声音',
-      color: '颜色',
-    };
-
-    return sourceLabels[source] || '外应';
-  },
-
   getSeasonByJieQi(jieQi: string): '春' | '夏' | '秋' | '冬' | '未知' {
     const seasonByJieQi: Record<string, '春' | '夏' | '秋' | '冬'> = {
       立春: '春',

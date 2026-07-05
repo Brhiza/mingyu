@@ -17,68 +17,13 @@ export type DivinationType =
   | 'lenormand'
   | 'astrolabe';
 
-export type MeihuaDivinationMethod = 'time' | 'number' | 'random' | 'external' | 'timeTrigram';
+export type MeihuaDivinationMethod = 'time' | 'number' | 'random' | 'timeTrigram';
 
 export type XiaoliurenDivinationMethod = 'time' | 'number' | 'random';
-
-export type MeihuaExternalDirection = '东' | '东南' | '南' | '西南' | '西' | '西北' | '北' | '东北';
-
-export type MeihuaExternalPerson =
-  | '老父'
-  | '老妇'
-  | '长男'
-  | '长女'
-  | '中男'
-  | '中女'
-  | '少男'
-  | '少女';
-
-export type MeihuaExternalAnimal = '马' | '牛' | '龙' | '鸡' | '猪' | '雉' | '狗' | '羊';
-
-export type MeihuaExternalObject =
-  | '金玉圆器'
-  | '布帛陶器'
-  | '竹木乐器'
-  | '绳索长木'
-  | '水器液体'
-  | '火电文书'
-  | '石块门板'
-  | '刀剪口器';
-
-export type MeihuaExternalSound =
-  | '洪亮金石'
-  | '沉厚低缓'
-  | '雷鸣震动'
-  | '风声呼啸'
-  | '流水滴答'
-  | '爆裂鸣叫'
-  | '闷阻叩击'
-  | '清脆笑语';
-
-export type MeihuaExternalColor =
-  | '金白'
-  | '土黄'
-  | '青碧'
-  | '青绿'
-  | '黑蓝'
-  | '赤紫'
-  | '棕黄'
-  | '银白';
-
-export interface MeihuaExternalOmens {
-  direction?: MeihuaExternalDirection;
-  count?: number;
-  person?: MeihuaExternalPerson;
-  animal?: MeihuaExternalAnimal;
-  object?: MeihuaExternalObject;
-  sound?: MeihuaExternalSound;
-  color?: MeihuaExternalColor;
-}
 
 export interface MeihuaSettings extends RandomOptions {
   method?: MeihuaDivinationMethod;
   number?: number;
-  externalOmens?: MeihuaExternalOmens;
 }
 
 export interface XiaoliurenPalaceDetail {
@@ -322,14 +267,6 @@ export interface MeihuaCalculation {
   lowerTrigramIndex?: number;
   movingYaoIndex?: number;
   methodKey?: MeihuaDivinationMethod;
-  externalOmens?: MeihuaExternalOmens;
-  externalSummary?: string;
-  externalMappedOmens?: Array<{
-    source: string;
-    label: string;
-    trigram: string;
-    trigramIndex: number;
-  }>;
   [key: string]: unknown;
 }
 

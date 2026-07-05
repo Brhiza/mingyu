@@ -97,7 +97,6 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
     requiredFields: withCommonProjectSupplementRequired([
       '体用评分',
       '互变阶段',
-      '外应置信度',
       '应期优先级',
     ]),
   },

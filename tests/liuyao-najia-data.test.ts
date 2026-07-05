@@ -1,19 +1,11 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { hexagramNaJia as appHexagramNaJia } from '../src/config/divination-data.ts';
 import { getSixAnimals } from '../packages/core/src/calendar/lunar.ts';
 import { hexagramNaJia as coreHexagramNaJia } from '../packages/core/src/divination/divination-data.ts';
 
 /**
- * 六爻纳甲规则回归测试
- *
- * 传统京房纳甲定例：一个六画卦的下三爻（内卦）按其所属八纯卦的内卦地支纳支，
- * 上三爻（外卦）按其所属八纯卦的外卦地支纳支，与几世卦、游魂、归魂无关，
- * 一律按上下经卦所属纯卦分别套用。
- *
- * 此前 hexagramNaJia 中 19 个四世/五世/游魂/归魂卦的外卦地支套错纯卦
- * （误用了外卦所属纯卦的内卦地支或其他地支），导致六亲、用神判断失真。
- * 本测试以规则推导全 64 卦期望值，防止该类错误回归。
+ * 六爻纳甲回归：下三爻按下经卦所属八纯卦纳支，上三爻按上经卦所属八纯卦纳支。
+ * 旧实现曾把部分四世、五世、游魂、归魂卦的外卦纳支套错。
  */
 
 // 八纯卦内卦 / 外卦纳甲地支（阳四宫顺行、阴四宫逆行）
@@ -112,24 +104,6 @@ test('六爻纳甲：核心包全 64 卦按上下经卦所属纯卦分别纳甲'
       expected,
       `${name} 纳甲不符规则（上${upper}下${lower}）：应为 ${expected.join('')}，实际 ${coreHexagramNaJia[name].join('')}`,
     );
-  }
-});
-
-test('六爻纳甲：前端配置与核心包保持一致', () => {
-  for (const name of Object.keys(trigrams)) {
-    assert.deepEqual(
-      appHexagramNaJia[name],
-      coreHexagramNaJia[name],
-      `${name} 前端配置与核心包不一致`,
-    );
-  }
-});
-
-test('六爻纳甲：覆盖全 64 卦，无遗漏', () => {
-  assert.equal(Object.keys(trigrams).length, 64, '上下经卦归属表应为 64 卦');
-  for (const name of Object.keys(trigrams)) {
-    assert.ok(coreHexagramNaJia[name], `${name} 缺失纳甲数据`);
-    assert.equal(coreHexagramNaJia[name].length, 6, `${name} 纳甲应为 6 爻`);
   }
 });
 

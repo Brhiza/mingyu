@@ -86,7 +86,6 @@ export function formatSupplementaryInfoSection(
       time: '时间起卦',
       number: '数字起卦',
       random: '随机起卦',
-      external: '外应起卦',
       timeTrigram: '时间起卦兼容项',
     };
     lines.push(
@@ -131,7 +130,6 @@ function getMeihuaMethodLabel(
     time: '年月日时起卦法',
     number: '数字起卦法',
     random: '随机起卦法',
-    external: '外应起卦法',
     timeTrigram: '年月日时起卦法（兼容）',
   };
 
@@ -566,7 +564,7 @@ function createMeihuaTimingEvidence(data: MeihuaData) {
     `互卦${data.interName || data.interHexagram?.name || '无'}主过程，变卦${data.changedName || data.changedHexagram?.name || '无'}主结果`,
     numberEvidence,
     timeEvidence ? `时间数：${timeEvidence}` : '',
-    `起卦法${methodLabel}只决定取数来源，应期仍需体用、互变、四时和外应互证`,
+    `起卦法${methodLabel}只决定取数来源，应期仍需体用、互变、四时和卦数互证`,
   ]
     .filter(Boolean)
     .join('；');
@@ -599,20 +597,6 @@ function createMeihuaStageEvidence(data: MeihuaData) {
   ].join('；');
 }
 
-function createMeihuaExternalConfidenceEvidence(data: MeihuaData) {
-  const calculation = data.calculation;
-  const mappedCount = calculation?.externalMappedOmens?.length || 0;
-  const hasSummary = Boolean(calculation?.externalSummary?.trim());
-
-  if (calculation?.methodKey === 'external' && mappedCount > 0) {
-    return `中高：已给外应并映射${mappedCount}项八卦类象，但仍需与体用、互卦、变卦同向才升权`;
-  }
-  if (calculation?.methodKey === 'external' && hasSummary) {
-    return '中：已给外应描述但映射不足，只能作辅证，不能独立决定结论或日期';
-  }
-  return '低：当前非外应起卦，外应只作补充提示，不进入主证';
-}
-
 function createMeihuaTimingPriorityEvidence(data: MeihuaData) {
   const calculation = data.calculation;
   const numberText =
@@ -625,7 +609,6 @@ function createMeihuaTimingPriorityEvidence(data: MeihuaData) {
     `二级动爻：第${data.movingYao.position}爻只作阶段、层位或触发点`,
     '三级互变：互卦看过程窗口，变卦看结果落点',
     numberText,
-    '五级外应：外应与体用互变同向时才升权；否则只作旁证',
   ].join('；');
 }
 
@@ -634,11 +617,6 @@ function createMeihuaSymbolEvidence(data: MeihuaData) {
   const methodLabel = getMeihuaMethodLabel(calculation);
   const processHexagram = data.interHexagram?.name || data.interName || '无';
   const resultHexagram = data.changedHexagram?.name || data.changedName || '无';
-  const externalMappedText = calculation?.externalMappedOmens?.length
-    ? `外应已映射${calculation.externalMappedOmens.map((item) => `${item.label}取${item.trigram}`).join('、')}`
-    : calculation?.externalSummary?.trim()
-      ? '外应只作旁证，需与体用互变同向才升权'
-      : '';
   const numberText =
     typeof calculation?.number === 'number'
       ? `数字${calculation.number}只作旁证`
@@ -656,7 +634,6 @@ function createMeihuaSymbolEvidence(data: MeihuaData) {
       : '',
     `起卦法${methodLabel}决定取象来源，不单独压过体用主轴`,
     numberText,
-    externalMappedText,
   ]
     .filter(Boolean)
     .join('；');
@@ -886,10 +863,6 @@ function formatLiuyaoInfo(data: LiuyaoData, template: LiuyaoTemplateType) {
 
 function formatMeihuaInfo(data: MeihuaData) {
   const calculation = data.calculation;
-  const externalOmens = calculation?.externalOmens;
-  const externalSummary = calculation?.externalSummary?.trim() || '';
-  const isExternalMethod = calculation?.methodKey === 'external';
-  const hasExternalSummary = Boolean(externalSummary);
   const methodLabel = getMeihuaMethodLabel(calculation);
   const processHexagram = data.interHexagram?.name || data.interName || '无';
   const resultHexagram = data.changedHexagram?.name || data.changedName || '无';
@@ -897,25 +870,10 @@ function formatMeihuaInfo(data: MeihuaData) {
     data.changedTiGua && data.changedYongGua
       ? `；变后体卦${data.changedTiGua.name}（${data.changedTiGua.element}）；变后用卦${data.changedYongGua.name}（${data.changedYongGua.element}）；变后体用${data.analysis.changedTiYongRelation}`
       : '';
-  const externalMappedText = calculation?.externalMappedOmens?.length
-    ? calculation.externalMappedOmens
-        .map((item) => `${item.label}->${item.trigram}卦（${item.trigramIndex}）`)
-        .join('；')
-    : '';
-  const externalDetailParts = [
-    externalOmens?.direction ? `方向${externalOmens.direction}` : '',
-    externalOmens?.person ? `人物${externalOmens.person}` : '',
-    externalOmens?.animal ? `动物${externalOmens.animal}` : '',
-    externalOmens?.object ? `物象${externalOmens.object}` : '',
-    externalOmens?.sound ? `声音${externalOmens.sound}` : '',
-    externalOmens?.color ? `颜色${externalOmens.color}` : '',
-    typeof externalOmens?.count === 'number' ? `数量${externalOmens.count}` : '',
-  ].filter(Boolean);
   const timingEvidence = createMeihuaTimingEvidence(data);
   const symbolEvidence = createMeihuaSymbolEvidence(data);
   const scoringEvidence = createMeihuaScoringEvidence(data);
   const stageEvidence = createMeihuaStageEvidence(data);
-  const externalConfidenceEvidence = createMeihuaExternalConfidenceEvidence(data);
   const timingPriorityEvidence = createMeihuaTimingPriorityEvidence(data);
   const yaoLines = [...data.yaosDetail]
     .sort((a, b) => b.position - a.position)
@@ -949,13 +907,9 @@ function formatMeihuaInfo(data: MeihuaData) {
     `结果证据：变卦${resultHexagram}${changedTiYongText}；结果关系${data.analysis.changedRelation}`,
     `互变阶段：${stageEvidence}`,
     `辅助证据：四时${data.analysis.season}季，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}；起卦法${methodLabel}${typeof calculation?.number === 'number' ? `；起卦数字${calculation.number}` : ''}`,
-    `外应置信度：${externalConfidenceEvidence}`,
     yingQiText || `应期候选：${timingEvidence}`,
     `应期优先级：${timingPriorityEvidence}`,
     `类象权重：${symbolEvidence}`,
-    isExternalMethod && hasExternalSummary ? `外应：${externalSummary}` : '',
-    externalMappedText ? `外应映射：${externalMappedText}` : '',
-    externalDetailParts.length ? `外应明细：${externalDetailParts.join('；')}` : '',
     '结构明细：',
     `- 四时旺衰：${data.analysis.season}季，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}`,
     `- 体用关系：${data.analysis.tiYongRelation}`,
@@ -965,7 +919,6 @@ function formatMeihuaInfo(data: MeihuaData) {
       ? `- 变后体用：体卦${data.changedTiGua.name}（${data.changedTiGua.element}），用卦${data.changedYongGua.name}（${data.changedYongGua.element}），关系${data.analysis.changedTiYongRelation}`
       : '',
     ...yaoLines,
-    !isExternalMethod && hasExternalSummary ? `补充提示：${externalSummary}` : '',
   ]
     .filter(Boolean)
     .join('\n');

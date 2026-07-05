@@ -433,7 +433,6 @@ function createData(method: FixtureMethod): DivinationData {
           method: 'number',
           methodKey: 'number',
           number: 123,
-          externalSummary: '暂无外应，以数字起卦为主。',
         },
       };
     case 'xiaoliuren':
@@ -859,7 +858,7 @@ test('非命盘占法提示词会写入各自的应期判断方法', () => {
     expected: RegExp;
   }> = [
     { method: 'liuyao', data: createData('liuyao'), expected: /空亡出空、伏神透出/ },
-    { method: 'meihua', data: createData('meihua'), expected: /外应只能作辅证/ },
+    { method: 'meihua', data: createData('meihua'), expected: /体用生克、动爻数、卦数/ },
     {
       method: 'xiaoliuren',
       data: createData('xiaoliuren'),
@@ -1157,47 +1156,8 @@ test('梅花提示词会给出体用主轴、过程结果与起卦细节', () =>
     /结果证据：变卦地火明夷；变后体卦坤（土）；变后用卦离（火）；变后体用体克用/,
   );
   assert.match(prompt, /辅助证据：四时春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
-  assert.match(prompt, /外应置信度：低：当前非外应起卦，外应只作补充提示，不进入主证/);
   assert.match(prompt, /应期候选：动爻第3爻：可作阶段、层位或触发点，不可单独换算绝对日期/);
   assert.match(prompt, /第3爻.*动.*属体/);
-});
-
-test('梅花外应起卦会带外应映射与原始外应信息', () => {
-  const data = {
-    ...createData('meihua'),
-    calculation: {
-      method: '外应起卦法',
-      methodKey: 'external',
-      externalSummary: '见南方来人携红色文书而来，可参离火文明之象。',
-      externalOmens: {
-        direction: '南',
-        person: '长女',
-        object: '火电文书',
-        sound: '清脆笑语',
-        color: '赤紫',
-        count: 5,
-      },
-      externalMappedOmens: [
-        { source: 'direction', label: '方向南', trigram: '离', trigramIndex: 3 },
-        { source: 'person', label: '长女', trigram: '巽', trigramIndex: 4 },
-        { source: 'object', label: '火电文书', trigram: '离', trigramIndex: 3 },
-      ],
-    },
-  } satisfies DivinationData;
-
-  const prompt = buildDivinationPrompt(
-    'meihua',
-    '这件事接下来该怎么推进？',
-    data,
-    createSupplementaryInfo(),
-  );
-
-  assert.match(prompt, /辅助证据：四时春季，体卦相，用卦旺；起卦法外应起卦法/);
-  assert.match(prompt, /外应：见南方来人携红色文书而来，可参离火文明之象/);
-  assert.match(prompt, /外应映射：方向南->离卦（3）；长女->巽卦（4）；火电文书->离卦（3）/);
-  assert.match(prompt, /外应明细：方向南；人物长女；物象火电文书；声音清脆笑语；颜色赤紫；数量5/);
-  assert.match(prompt, /类象权重：体卦离火为主观承载，用卦震木为外部事务/);
-  assert.match(prompt, /外应已映射方向南取离、长女取巽、火电文书取离/);
 });
 
 test('小六壬提示词会给出三段过程、主判断和现实建议抓手', () => {
