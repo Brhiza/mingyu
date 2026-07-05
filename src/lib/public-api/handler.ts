@@ -495,7 +495,12 @@ export function getPublicApiOpenApiDocument(
             year: { type: 'integer', minimum: 1900, maximum: 2100 },
             month: { type: 'integer', minimum: 1, maximum: 12 },
             day: { type: 'integer', minimum: 1, maximum: 31 },
-            timeIndex: { type: 'integer', minimum: 0, maximum: 12 },
+            timeIndex: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 12,
+              description: '时辰索引（0-12）。启用真太阳时（useTrueSolarTime=true）时可省略，将从 birthHour/birthMinute 推导。',
+            },
             dateType: { enum: ['solar', 'lunar'] },
             isLeapMonth: { type: 'boolean' },
             useTrueSolarTime: { type: 'boolean' },
@@ -708,12 +713,31 @@ function calculateBazi(input: JsonRecord) {
     useTrueSolarTime && typeof birthHour === 'number' && typeof birthMinute === 'number'
       ? getTimeIndexFromClock(birthHour, birthMinute)
       : -1;
+
+  // 未启用真太阳时时 timeIndex 必填；启用时优先使用 derivedTimeIndex
+  let finalTimeIndex: number;
+  if (useTrueSolarTime) {
+    if (derivedTimeIndex < 0) {
+      throw new ApiError(400, 'BAD_REQUEST', 'birthHour 和 birthMinute 无法换算为有效时辰。');
+    }
+    finalTimeIndex = derivedTimeIndex;
+  } else {
+    if (input.timeIndex === undefined) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        '未启用真太阳时时 timeIndex 为必填项，或启用 useTrueSolarTime 并提供 birthHour/birthMinute。',
+      );
+    }
+    finalTimeIndex = readInteger(input, 'timeIndex', 0, 12);
+  }
+
   const person: Person = {
     gender,
     year: birthDate.year,
     month: birthDate.month,
     day: birthDate.day,
-    timeIndex: useTrueSolarTime ? derivedTimeIndex : readInteger(input, 'timeIndex', 0, 12),
+    timeIndex: finalTimeIndex,
     isLunar: dateType === 'lunar',
     isLeapMonth: readBoolean(input, 'isLeapMonth', false),
     useTrueSolarTime,
@@ -723,10 +747,6 @@ function calculateBazi(input: JsonRecord) {
     birthPlace: readString(input, 'birthPlace', ''),
     shenShaVariants: readShenShaVariants(input),
   };
-
-  if (useTrueSolarTime && derivedTimeIndex < 0) {
-    throw new ApiError(400, 'BAD_REQUEST', 'birthHour 和 birthMinute 无法换算为有效时辰。');
-  }
 
   const result = baziCalculator.calculateBazi(person);
   return result;
@@ -1142,8 +1162,20 @@ function readCustomDate(input: JsonRecord) {
   return date;
 }
 
-function readInteger(input: JsonRecord, key: string, min?: number, max?: number): number {
+function readInteger(
+  input: JsonRecord,
+  key: string,
+  min?: number,
+  max?: number,
+  defaultValue?: number,
+): number {
   const value = input[key];
+  if (value === undefined) {
+    if (defaultValue !== undefined) {
+      return defaultValue;
+    }
+    throw new ApiError(400, 'BAD_REQUEST', `${key} 必须是整数。`);
+  }
   if (typeof value !== 'number' || !Number.isSafeInteger(value)) {
     throw new ApiError(400, 'BAD_REQUEST', `${key} 必须是整数。`);
   }

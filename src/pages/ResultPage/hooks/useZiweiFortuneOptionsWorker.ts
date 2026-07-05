@@ -34,33 +34,43 @@ export function useZiweiFortuneOptionsWorker(
   const [effectiveMonthDateStr, setEffectiveMonthDateStr] = useState<string | undefined>(undefined);
   const workerRef = useRef<Worker | null>(null);
 
+  // 组件卸载时清理 worker
   useEffect(() => {
-    const worker = new Worker(
-      new URL('../../../workers/ziwei-fortune-options.worker.ts', import.meta.url),
-      { type: 'module' },
-    );
-    workerRef.current = worker;
-
-    const handleFailure = () => {
-      setYearOptions([]);
-      setMonthOptions([]);
-      setDayOptions([]);
-      setEffectiveYearDateStr(undefined);
-      setEffectiveMonthDateStr(undefined);
-      setIsLoading(false);
-    };
-
-    worker.onerror = handleFailure;
-    worker.onmessageerror = handleFailure;
-
     return () => {
-      worker.terminate();
-      workerRef.current = null;
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
     };
   }, []);
 
   useEffect(() => {
+    // 惰性创建：如果 workerRef 为空（初始或脚本加载失败后）则重新创建
     if (!workerRef.current) {
+      const worker = new Worker(
+        new URL('../../../workers/ziwei-fortune-options.worker.ts', import.meta.url),
+        { type: 'module' },
+      );
+      workerRef.current = worker;
+
+      const handleFailure = () => {
+        setYearOptions([]);
+        setMonthOptions([]);
+        setDayOptions([]);
+        setEffectiveYearDateStr(undefined);
+        setEffectiveMonthDateStr(undefined);
+        setIsLoading(false);
+        // worker 脚本加载/执行失败时 terminate 并清空引用，下次依赖变化时将重建
+        worker.terminate();
+        workerRef.current = null;
+      };
+
+      worker.onerror = handleFailure;
+      worker.onmessageerror = handleFailure;
+    }
+
+    const worker = workerRef.current;
+    if (!worker) {
       return;
     }
 

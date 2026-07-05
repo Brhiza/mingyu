@@ -212,6 +212,27 @@ export async function handleAiAnalyze(request: Request, env?: AiEnv): Promise<Re
           }
         }
       }
+
+      // 流结束，flush decoder 并处理残留 buffer
+      buffer += decoder.decode();
+      if (buffer.trim()) {
+        const trimmed = buffer.trim();
+        if (trimmed.startsWith('data:')) {
+          const data = trimmed.slice(5).trim();
+          if (data && data !== '[DONE]') {
+            try {
+              const parsed = JSON.parse(data);
+              const delta = parsed?.choices?.[0]?.delta?.content;
+              if (typeof delta === 'string' && delta) {
+                const payload = JSON.stringify({ content: delta });
+                await writer.write(encoder.encode(`data: ${payload}\n\n`));
+              }
+            } catch {
+              // 忽略
+            }
+          }
+        }
+      }
     } catch (err) {
       const payload = JSON.stringify({
         error: {
@@ -222,9 +243,17 @@ export async function handleAiAnalyze(request: Request, env?: AiEnv): Promise<Re
           detail: err instanceof Error ? err.message : undefined,
         },
       });
-      await writer.write(encoder.encode(`data: ${payload}\n\n`));
+      try {
+        await writer.write(encoder.encode(`data: ${payload}\n\n`));
+      } catch {
+        // writer 已关闭或出错，静默忽略
+      }
     } finally {
-      await writer.close();
+      try {
+        await writer.close();
+      } catch {
+        // writer 已关闭，静默忽略
+      }
     }
   })();
 

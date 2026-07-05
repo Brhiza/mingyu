@@ -138,6 +138,29 @@ async function consumeSseStream(response: Response, { onChunk, onDone, onError }
     }
   }
 
+  // 流结束，flush decoder 并处理残留 buffer
+  buffer += decoder.decode();
+  if (buffer.trim()) {
+    const line = buffer.trim();
+    if (line.startsWith('data:')) {
+      const data = line.slice(5).trim();
+      if (data && data !== '[DONE]') {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.error) {
+            onError(formatAiErrorMessage(parsed, 'AI 返回错误。'));
+            return;
+          }
+          if (typeof parsed.content === 'string' && parsed.content) {
+            onChunk(parsed.content);
+          }
+        } catch {
+          // 忽略
+        }
+      }
+    }
+  }
+
   onDone();
 }
 
