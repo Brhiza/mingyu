@@ -73,7 +73,7 @@ function assertLiurenPromptStructure(prompt: string) {
     '【解读范围】',
     '【应期判断方法】',
     '【问题】',
-    '【分析思路】',
+    '【断课要点】',
     '【任务】',
     '【输出要求】',
   ];
@@ -84,7 +84,7 @@ function assertLiurenPromptStructure(prompt: string) {
   });
 
   assert.doesNotMatch(prompt, /^【占卜信息】$/m);
-  assert.doesNotMatch(prompt, /^【断课要点】$/m);
+  assert.doesNotMatch(prompt, /^【分析思路】$/m);
   assertPromptIsPortableTaskText(prompt);
 }
 
@@ -1202,7 +1202,7 @@ test('梅花、小六壬、奇门不再输出隐藏专项分析思路', () => {
   }
 });
 
-test('大六壬提示词会按八字式结构带入分析思路', () => {
+test('大六壬提示词只保留断课要点，不再使用分析思路标题', () => {
   const prompt = buildDivinationPrompt(
     'liuren',
     '我现在要不要换工作？',
@@ -1212,13 +1212,13 @@ test('大六壬提示词会按八字式结构带入分析思路', () => {
   );
 
   assertLiurenPromptStructure(prompt);
-  assert.match(prompt, /【分析思路】/);
-  assert.match(prompt, /分析类型：事业断课/);
+  assert.match(prompt, /【断课要点】/);
+  assert.match(prompt, /断课类型：事业断课/);
   assert.match(prompt, /用户选择的断课类型只作为问题范围/);
   assert.match(prompt, /取证顺序：先按知一\/比用看发用亥乘贵人，再看三传推进/);
   assert.match(prompt, /回答口径：先给结论，再列 2 到 4 条关键依据、触发条件和建议；不要复述完整课盘。/);
   assert.doesNotMatch(prompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
-  assert.doesNotMatch(prompt, /【断课要点】/);
+  assert.doesNotMatch(prompt, /【分析思路】/);
 });
 
 test('大六壬提示词会给出精简课传资料，避免重复堆叠', () => {
@@ -1292,7 +1292,7 @@ test('大六壬未知专项模板应回落到通用断课，避免输出 undefin
     { liurenTemplate: 'progress' as LiurenTemplateType },
   );
 
-  assert.match(prompt, /分析类型：通用断课/);
+  assert.match(prompt, /断课类型：通用断课/);
   assert.match(prompt, /用户选择的断课类型只作为问题范围/);
   assert.doesNotMatch(prompt, /关注重点：核心目标、现实阻力、下一步动作/);
   assert.doesNotMatch(prompt, /undefined|null/);

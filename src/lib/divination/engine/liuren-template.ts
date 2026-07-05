@@ -29,7 +29,7 @@ export function buildLiurenTemplateText(template: LiurenTemplateType, data: Liur
   const safeTemplate = templateLabelMap[template] ? template : 'general';
 
   return [
-    `分析类型：${templateLabelMap[safeTemplate]}`,
+    `断课类型：${templateLabelMap[safeTemplate]}`,
     '用户选择的断课类型只作为问题范围；未选或通用时按通用断课处理，不补充本地固定专项框架。',
     getLiurenPatternHint(data.transmissionPattern),
     `取证顺序：先按${classicalRule?.rule || '取传法'}看发用${chu ? `${chu.branch}乘${chu.god}` : '初传'}，再看三传推进，四课看背景，课体神煞只作辅证。`,

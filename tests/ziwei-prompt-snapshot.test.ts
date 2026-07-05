@@ -159,7 +159,7 @@ test('紫微提示词快照应输出解读目标，明确范围与边界', () =>
   const taskSection = snapshot.match(/【解读目标】([\s\S]*?)\n\n【本命资料】/)?.[1] || '';
 
   assert.match(snapshot, /【解读目标】/);
-  assert.match(taskSection, /解读目标：按用户选择主题筛选重点宫位，具体判断仍以问题和盘面证据为准。/);
+  assert.match(taskSection, /解读目标：用户选择主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/);
   assert.match(taskSection, /重点参考宫位：/);
   assert.match(taskSection, /严格边界：只基于已提供盘面、运限和问题作答；证据不足时直接说明。/);
   assert.doesNotMatch(taskSection, /报告标题：|解读主题：|报告类型：/);
@@ -181,7 +181,8 @@ test('紫微提示词快照不再回退到专题焦点话术', () => {
   });
   const taskSection = snapshot.match(/【解读目标】([\s\S]*?)\n\n【本命资料】/)?.[1] || '';
 
-  assert.match(taskSection, /解读目标：按用户选择主题筛选重点宫位，具体判断仍以问题和盘面证据为准。/);
+  assert.match(taskSection, /解读目标：用户选择主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/);
+  assert.doesNotMatch(taskSection, /夫妻宫、命宫、福德宫、子女宫、迁移宫/);
   assert.doesNotMatch(taskSection, /焦点提示：/);
   assert.doesNotMatch(taskSection, /。、/);
 });
@@ -211,7 +212,7 @@ test('紫微近期专题快照保留主题和通用目标', () => {
   const taskSection = snapshot.match(/【解读目标】([\s\S]*?)\n\n【本命资料】/)?.[1] || '';
 
   assert.match(snapshot, /分析主题：近期趋势/);
-  assert.match(taskSection, /解读目标：按用户选择主题筛选重点宫位，具体判断仍以问题和盘面证据为准。/);
+  assert.match(taskSection, /解读目标：用户选择主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/);
   assert.match(taskSection, /重点参考宫位：/);
   assert.doesNotMatch(taskSection, /焦点提示：/);
 });
@@ -233,6 +234,10 @@ test('紫微重点宫位资料应输出星曜亮度四化与空宫传统辅证',
     empty_state: true,
     major_stars: [],
     summary_tags: ['空宫'],
+  };
+  payload.active_scope = {
+    ...payload.active_scope,
+    palace_index: payload.palaces[2].index,
   };
 
   const snapshot = buildZiweiReadableSnapshot({

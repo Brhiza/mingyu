@@ -369,7 +369,7 @@ export function buildDivinationPrompt(
         ].join('\n');
   const liurenTemplateSection =
     method === 'liuren'
-      ? buildSection('【分析思路】', buildLiurenTemplateText(liurenTemplate, data as LiurenData))
+      ? buildSection('【断课要点】', buildLiurenTemplateText(liurenTemplate, data as LiurenData))
       : '';
   const liuyaoTemplateSection =
     method === 'liuyao'

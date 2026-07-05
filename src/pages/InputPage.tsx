@@ -396,11 +396,24 @@ export function InputPage() {
 
   return (
     <div
-      className={`page-shell input-page-shell ${tutorialEntryPinned ? 'has-floating-tutorial-entry' : ''} ${isDonationBoxEnabled ? 'has-donation-entry' : ''}`}
+      className={`page-shell input-page-shell ${tutorialEntryPinned ? 'has-floating-tutorial-entry' : ''}`}
     >
       <div className="bazi-view-container">
         <div className="input-page-main-content" ref={mainContentRef}>
           <PrivacyHint />
+          {isDonationBoxEnabled ? (
+            <div className="donation-entry-strip">
+              <a
+                className="donation-entry-button"
+                href={DONATION_URL}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <span className="donation-entry-title">功德箱</span>
+                <span className="donation-entry-note">支持项目继续维护</span>
+              </a>
+            </div>
+          ) : null}
           <div className="analysis-mode-strip">
             <div className="top-switch-control">
               <SegmentedControl
@@ -501,17 +514,6 @@ export function InputPage() {
           className={`input-page-bottom-tools ${tutorialEntryPinned ? 'is-floating' : 'is-inline'}`}
           ref={tutorialEntryRef}
         >
-          {isDonationBoxEnabled ? (
-            <a
-              className="donation-entry-button"
-              href={DONATION_URL}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <span className="donation-entry-title">功德箱</span>
-              <span className="donation-entry-note">支持项目继续维护</span>
-            </a>
-          ) : null}
           <div className="tutorial-entry-card">
             <div className="tutorial-entry-copy">
               <strong>第一次使用？先看教程</strong>

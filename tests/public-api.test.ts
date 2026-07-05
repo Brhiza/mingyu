@@ -710,8 +710,9 @@ test('紫微公开 API 工作变动主题只切换范围，不补固定问题', 
 
   assert.match(prompt, /分析主题：工作变动/);
   assert.match(prompt, /【问题】\n请先做整体解读。/);
-  assert.match(prompt, /重点参考宫位：官禄宫、迁移宫、财帛宫、命宫/);
+  assert.match(prompt, /用户选择主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/);
   assert.match(prompt, /用户选择了主题时只把主题作为问题范围，不补充本地固定话术/);
+  assert.doesNotMatch(prompt, /重点参考宫位：官禄宫、迁移宫、财帛宫、命宫/);
 });
 
 test('公开 API 紫微未指定方向时应默认走综合框架而不是自由问答', async () => {
@@ -1279,8 +1280,9 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
 
   assert.equal(liuren.response.status, 200);
   assert.equal(liuren.body.ok, true);
-  assert.match(liuren.body.data.prompt, /【分析思路】/);
-  assert.match(liuren.body.data.prompt, /分析类型：事业断课/);
+  assert.match(liuren.body.data.prompt, /【断课要点】/);
+  assert.match(liuren.body.data.prompt, /断课类型：事业断课/);
+  assert.doesNotMatch(liuren.body.data.prompt, /【分析思路】/);
   assert.doesNotMatch(liuren.body.data.prompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
 });
 

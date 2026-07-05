@@ -261,35 +261,9 @@ export function buildZiweiPromptForRuntime(params: {
   return baseText;
 }
 
-function buildPublicZiweiTaskText(_topic: ZiweiPromptTopic) {
-  return '先判断问题对应的宫位范围，再选取重点宫位、三方四正、四化和分析对象作为主要证据；用户未选择主题时按通用口径处理，用户选择主题时只把主题作为问题范围。';
+function buildPublicZiweiTaskText() {
+  return '先围绕【问题】判断对应宫位范围，再从已给出的命宫、身宫、当前落宫、三方四正、四化和分析对象中选取主要证据；用户未选择主题时按通用口径处理，用户选择主题时只把主题作为问题范围。';
 }
-
-const ZIWEI_TOPIC_PALACE_NAMES: Partial<Record<ZiweiPromptTopic, string[]>> = {
-  relationship: ['夫妻宫', '命宫', '福德宫', '迁移宫'],
-  'relationship-push': ['夫妻宫', '命宫', '福德宫', '迁移宫'],
-  'relationship-decision': ['夫妻宫', '命宫', '福德宫', '迁移宫'],
-  'reconciliation-decision': ['夫妻宫', '命宫', '福德宫', '迁移宫', '子女宫'],
-  children: ['子女宫', '夫妻宫', '命宫', '福德宫', '田宅宫'],
-  'career-wealth': ['官禄宫', '财帛宫', '命宫', '迁移宫', '福德宫'],
-  'job-change': ['官禄宫', '迁移宫', '财帛宫', '命宫', '田宅宫', '福德宫'],
-  'startup-partnership': ['官禄宫', '财帛宫', '迁移宫', '命宫', '福德宫', '兄弟宫'],
-  'investment-partnership': ['财帛宫', '官禄宫', '福德宫', '兄弟宫', '迁移宫', '命宫'],
-  recent: ['命宫', '身宫', '官禄宫', '财帛宫', '迁移宫', '福德宫'],
-  family: ['父母宫', '兄弟宫', '田宅宫', '命宫', '福德宫'],
-  'home-move': ['田宅宫', '迁移宫', '财帛宫', '福德宫', '命宫', '父母宫'],
-  'settle-relocate': ['田宅宫', '迁移宫', '官禄宫', '财帛宫', '福德宫', '命宫', '父母宫'],
-  social: ['兄弟宫', '迁移宫', '福德宫', '命宫', '官禄宫', '财帛宫'],
-  emotion: ['福德宫', '命宫', '疾厄宫', '夫妻宫', '迁移宫'],
-  health: ['疾厄宫', '福德宫', '命宫', '身宫', '迁移宫'],
-  study: ['命宫', '福德宫', '官禄宫', '父母宫', '迁移宫'],
-  'study-advance': ['命宫', '福德宫', '官禄宫', '父母宫', '迁移宫'],
-  'exam-landing': ['命宫', '福德宫', '官禄宫', '父母宫', '迁移宫'],
-  growth: ['命宫', '福德宫', '迁移宫', '官禄宫'],
-  talent: ['命宫', '福德宫', '官禄宫', '财帛宫'],
-  life: ['命宫', '身宫', '福德宫', '官禄宫', '财帛宫', '迁移宫'],
-  destiny: ['命宫', '身宫', '福德宫', '官禄宫', '财帛宫', '迁移宫'],
-};
 
 function formatPublicZiweiStar(star: StarFact) {
   return [star.name, star.brightness ? `(${star.brightness})` : ''].join('');
@@ -310,15 +284,24 @@ function findPublicZiweiPalaceByName(palaces: PalaceFact[], name: string) {
 }
 
 function buildPublicZiweiKeyPalaceSection(params: {
-  topic: ZiweiPromptTopic;
   palaces: PalaceFact[];
   activePalace?: PalaceFact;
+  lifePalace?: PalaceFact;
   bodyPalace?: PalaceFact;
+  isOriginScope: boolean;
 }) {
+  const scopeHitPalaces = params.isOriginScope
+    ? []
+    : [...params.palaces]
+        .filter((palace) => palace.scope_hits.length > 0)
+        .sort((left, right) => right.scope_hits.length - left.scope_hits.length);
   const palaceNames = [
-    ...(ZIWEI_TOPIC_PALACE_NAMES[params.topic] ?? ['命宫', '身宫', '福德宫', '迁移宫']),
     params.activePalace?.name,
+    params.lifePalace?.name,
     params.bodyPalace?.name,
+    ...scopeHitPalaces.map((palace) => palace.name),
+    '福德宫',
+    '迁移宫',
   ].filter(Boolean) as string[];
   const selected = Array.from(
     new Map(
@@ -376,10 +359,11 @@ export function buildPublicZiweiPromptForRuntime(params: {
     `【分析背景】\n分析主题：${topicLabel}\n分析范围：${scopeLabel}\n分析对象：${payload.active_scope.label || scopeLabel}\n参考日期：${payload.active_scope.solar_date}\n虚岁：${payload.active_scope.nominal_age}`,
     `【排盘信息】\n出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}\n命宫：${lifePalace?.name ?? '命宫'}；星曜：${formatStars(lifePalace)}\n身宫：${bodyPalace?.name ?? '未标出'}；星曜：${formatStars(bodyPalace)}\n当前落宫：${activePalace?.name ?? '本命范围'}\n当前四化：${mutagenText}`,
     buildPublicZiweiKeyPalaceSection({
-      topic,
       palaces: payload.palaces,
       activePalace,
+      lifePalace,
       bodyPalace,
+      isOriginScope: payload.active_scope.scope === 'origin',
     }),
     `【问题】\n${params.question ?? ''}`,
   ]
@@ -396,7 +380,7 @@ export function buildPublicZiweiPromptForRuntime(params: {
   return [
     promptWithSchool,
     '',
-    `【任务】\n${buildPublicZiweiTaskText(topic)}请结合【问题】直接给出判断、关键依据和可执行建议。`,
+    `【任务】\n${buildPublicZiweiTaskText()}请结合【问题】直接给出判断、关键依据和可执行建议。`,
     '',
     '【输出要求】\n先直接回答【问题】，再展开最关键的 2 到 4 个重点；每个重点都要写明主证、辅证、反证或限制；证据不足时要明确说明，不要编造盘面没有提供的信息。',
   ].join('\n');

@@ -737,8 +737,9 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     });
     assert.equal(liurenResult.isError, undefined, 'liuren_prompt 不应返回错误');
     const liurenPrompt = String(liurenResult.structuredContent?.prompt);
-    assert.match(liurenPrompt, /【分析思路】/);
-    assert.match(liurenPrompt, /分析类型：事业断课/);
+    assert.match(liurenPrompt, /【断课要点】/);
+    assert.match(liurenPrompt, /断课类型：事业断课/);
+    assert.doesNotMatch(liurenPrompt, /【分析思路】/);
     assert.doesNotMatch(liurenPrompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
     assertPromptIsPortableTaskText(liurenPrompt);
   });
