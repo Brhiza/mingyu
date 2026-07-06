@@ -44,6 +44,21 @@ const godElements: Record<string, string> = {
   九天: '金',
 };
 
+const WUXING_ELEMENTS = new Set(['木', '火', '土', '金', '水']);
+
+function assertKnownElement(
+  value: string,
+  element: string | undefined,
+  label: string,
+): asserts element is string {
+  if (!value || !element) {
+    throw new Error(`${label} "${value}" 无法识别，不能计算门星神五行关系。`);
+  }
+  if (!WUXING_ELEMENTS.has(element)) {
+    throw new Error(`${label} "${value}" 的五行 "${element}" 无法识别。`);
+  }
+}
+
 // ============================================================================
 // 2. 元素获取函数
 // ============================================================================
@@ -52,7 +67,7 @@ const godElements: Record<string, string> = {
  * 获取八门的五行属性
  *
  * @param door 八门名称（如 "休门"、"生门"）
- * @returns 对应的五行（"水"、"火"、"木"、"金"、"土"），未知时返回空字符串
+ * @returns 对应的五行（"水"、"火"、"木"、"金"、"土"）
  *
  * @example
  * ```ts
@@ -61,14 +76,16 @@ const godElements: Record<string, string> = {
  * ```
  */
 export function getDoorElement(door: string): string {
-  return doorElements[door] || '';
+  const element = doorElements[door];
+  assertKnownElement(door, element, '八门');
+  return element;
 }
 
 /**
  * 获取九星的五行属性
  *
  * @param star 九星名称（如 "天蓬"、"天芮"）
- * @returns 对应的五行（"水"、"火"、"木"、"金"、"土"），未知时返回空字符串
+ * @returns 对应的五行（"水"、"火"、"木"、"金"、"土"）
  *
  * @example
  * ```ts
@@ -77,14 +94,16 @@ export function getDoorElement(door: string): string {
  * ```
  */
 export function getStarElement(star: string): string {
-  return starElements[star] || '';
+  const element = starElements[star];
+  assertKnownElement(star, element, '九星');
+  return element;
 }
 
 /**
  * 获取八神的五行属性
  *
  * @param god 八神名称（如 "值符"、"螣蛇"）
- * @returns 对应的五行（"水"、"火"、"木"、"金"、"土"），未知时返回空字符串
+ * @returns 对应的五行（"水"、"火"、"木"、"金"、"土"）
  *
  * @example
  * ```ts
@@ -94,7 +113,9 @@ export function getStarElement(star: string): string {
  * ```
  */
 export function getGodElement(god: string): string {
-  return godElements[god] || '';
+  const element = godElements[god];
+  assertKnownElement(god, element, '八神');
+  return element;
 }
 
 // ============================================================================
@@ -149,7 +170,9 @@ export interface PalaceRelationsResult {
  * 相克：一方克另一方（双向判断，无论谁克谁）
  */
 function getWuxingRelation(elem1: string, elem2: string): '比和' | '相生' | '相克' {
-  if (!elem1 || !elem2) return '比和';
+  if (!WUXING_ELEMENTS.has(elem1) || !WUXING_ELEMENTS.has(elem2)) {
+    throw new Error(`五行 "${elem1}" 与 "${elem2}" 无法识别，不能计算生克关系。`);
+  }
   if (elem1 === elem2) return '比和';
   if (isGenerating(elem1, elem2) || isGenerating(elem2, elem1)) return '相生';
   return '相克';
@@ -316,24 +339,25 @@ function buildOverallDescription(
 ): string {
   const pairLabels = ['门星', '门神', '星神'];
   const relationText = relations.map((rel, i) => `${pairLabels[i]}${rel}`).join('，');
+  const scoreText = `综合评分 ${score}/3`;
 
   switch (harmony) {
     case '和谐':
       return (
         `该宫门（${door}·${doorElem}）星（${star}·${starElem}）神（${god}·${godElem}）` +
-        `关系总体和谐（${relationText}），宫位内部能量协同，` +
+        `关系总体和谐（${relationText}，${scoreText}），宫位内部能量协同，` +
         `利于在此方位推进事项。`
       );
     case '冲突':
       return (
         `该宫门（${door}·${doorElem}）星（${star}·${starElem}）神（${god}·${godElem}）` +
-        `之间多有克制（${relationText}），宫位内部矛盾突出，` +
+        `之间多有克制（${relationText}，${scoreText}），宫位内部矛盾突出，` +
         `易生阻碍或反复，宜谨慎行事。`
       );
     case '有拉扯':
       return (
         `该宫门（${door}·${doorElem}）星（${star}·${starElem}）神（${god}·${godElem}）` +
-        `关系有生有克（${relationText}），宫位能量存在拉扯，` +
+        `关系有生有克（${relationText}，${scoreText}），宫位能量存在拉扯，` +
         `需结合具体用神判断吉凶。`
       );
   }

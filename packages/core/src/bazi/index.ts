@@ -4,14 +4,8 @@
 export { baziCalculator, BaziCalculator } from './baziCalculator';
 export { formatBaziForPrompt } from './baziAnalysisFormatter';
 export { generateEnhancedAnalysisSection } from './baziPromptEnhancement';
-export {
-  buildFortuneSelectionContext,
-  normalizeFortuneSelection,
-} from './fortuneSelection/index';
-export type {
-  BaziFortuneSelectionValue,
-  FortuneSelectionContext,
-} from './fortuneSelection/index';
+export { buildFortuneSelectionContext, normalizeFortuneSelection } from './fortuneSelection/index';
+export type { BaziFortuneSelectionValue, FortuneSelectionContext } from './fortuneSelection/index';
 export {
   isFortuneModalDetailOptionActive,
   isFortuneModalParentOptionActive,
@@ -41,9 +35,18 @@ export {
 export type { BaziMonthDayInfo, BaziMonthInfo, CalendarInfo } from './calendarTool';
 export { BASIC_MAPPINGS, EARTHLY_BRANCHES, HEAVENLY_STEMS, SIXTY_CYCLE } from './baziMappingsData';
 export {
+  assertBaziGender,
+  assertEarthlyBranch,
+  assertGanZhiName,
+  assertGanZhiPair,
+  assertHeavenlyStem,
+  assertPillars,
   getTenGod,
   getTenGodForBranch,
   getWuxing,
+  isEarthlyBranch,
+  isGanZhiPair,
+  isHeavenlyStem,
 } from './baziUtils';
 export {
   DEFAULT_SHENSHA_VARIANT_CONFIG,

@@ -4,14 +4,20 @@ import assert from 'node:assert/strict';
 import type { LiurenLesson, LiurenPlateItem } from 'mingyu-core/types';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
 import {
+  getLiurenTransmissionGuaTi,
+  getTransmissionPattern,
+} from '../packages/core/src/divination/algorithms/liuren/helpers/transmission.ts';
+import { LIUCHONG_MAP } from '../packages/core/src/divination/algorithms/_shared/wuxing.ts';
+import {
   buildFourLessons,
   resolveInitialTransmission,
 } from '../packages/core/src/divination/algorithms/liuren/helpers/lessons.ts';
 import {
   buildHeavenlyPlate,
   getDayStemResidence,
+  getNoblemanBranch,
+  getPlateItemByBranch,
 } from '../packages/core/src/divination/algorithms/liuren/helpers/plate.ts';
-import { getLiurenTransmissionGuaTi } from '../packages/core/src/divination/algorithms/liuren/helpers/transmission.ts';
 
 const DIZHI = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'] as const;
 const GUIREN_BRANCH_BY_STEM: Record<string, { day: string; night: string }> = {
@@ -25,20 +31,6 @@ const GUIREN_BRANCH_BY_STEM: Record<string, { day: string; night: string }> = {
   壬: { day: '巳', night: '卯' },
   癸: { day: '巳', night: '卯' },
   辛: { day: '午', night: '寅' },
-};
-const LIUCHONG_MAP: Record<string, string> = {
-  子: '午',
-  丑: '未',
-  寅: '申',
-  卯: '酉',
-  辰: '戌',
-  巳: '亥',
-  午: '子',
-  未: '丑',
-  申: '寅',
-  酉: '卯',
-  戌: '辰',
-  亥: '巳',
 };
 const FANYIN_PLATE = DIZHI.map((under) => ({
   under,
@@ -83,7 +75,12 @@ function createResolveContext(
     dayStem: '甲',
     dayBranch: '子',
     dayStemResidence: '寅',
-    heavenlyPlate: [] as LiurenPlateItem[],
+    heavenlyPlate: buildHeavenlyPlate({
+      monthLeader: '亥',
+      divinationBranch: '卯',
+      noblemanBranch: '丑',
+      dayNight: '昼占',
+    }),
     ...overrides,
   };
 }
@@ -180,6 +177,16 @@ test('大六壬三传成局应按六壬指南输出课体标签', () => {
   }
 
   assert.deepEqual(getLiurenTransmissionGuaTi(['子', '子', '卯']), []);
+});
+
+test('大六壬三传传态应复用共享六冲口径识别反吟', () => {
+  for (const branch of DIZHI) {
+    assert.equal(getTransmissionPattern(branch, '寅', LIUCHONG_MAP[branch]), '反吟', branch);
+  }
+
+  assert.equal(getTransmissionPattern('子', '子', '子'), '伏吟');
+  assert.equal(getTransmissionPattern('子', '寅', '子'), '回环');
+  assert.equal(getTransmissionPattern('子', '丑', '寅'), '递传');
 });
 
 test('大六壬天地盘会把月将加在占时地盘上，并保持天地互查可逆', () => {
@@ -711,5 +718,87 @@ test('大六壬应与传统排盘样本的申将午时天地盘和十二天将�
   assert.deepEqual(
     result.threeTransmissions.map((item) => `${item.branch}${item.god}`),
     ['子天后', '寅螣蛇', '辰六合'],
+  );
+});
+
+test('大六壬底层参数非法时应明确报错，不应用默认贵人或首个天盘项兜底', () => {
+  assert.equal(getNoblemanBranch('甲', '昼占'), '丑');
+  assert.throws(() => getNoblemanBranch('A', '昼占'), /日干必须是有效天干/);
+  assert.throws(() => getDayStemResidence('A', '子'), /日干必须是有效天干/);
+  assert.throws(
+    () =>
+      buildHeavenlyPlate({
+        monthLeader: 'A',
+        divinationBranch: '子',
+        noblemanBranch: '丑',
+        dayNight: '昼占',
+      }),
+    /月将必须是有效地支/,
+  );
+
+  const plate = buildHeavenlyPlate({
+    monthLeader: '亥',
+    divinationBranch: '卯',
+    noblemanBranch: '亥',
+    dayNight: '昼占',
+  });
+  assert.throws(() => getPlateItemByBranch(plate, 'A'), /天盘地支必须是有效地支/);
+});
+
+test('大六壬取传入口应拒绝坏四课和坏天盘，不应静默套用取传规则', () => {
+  const context = createResolveContext();
+  const validLessons = [
+    createLesson('巳', '子', '水克火'),
+    createLesson('午', '子', '水克火'),
+    createLesson('寅', '亥', '水生木'),
+    createLesson('卯', '亥', '水生木'),
+  ];
+
+  assert.throws(
+    () => resolveInitialTransmission(validLessons.slice(0, 3), context),
+    /必须传入完整四课/,
+  );
+  assert.throws(
+    () =>
+      resolveInitialTransmission(
+        [{ ...validLessons[0], upper: 'A' }, ...validLessons.slice(1)],
+        context,
+      ),
+    /第 1 课上神必须是有效地支/,
+  );
+  assert.throws(
+    () =>
+      resolveInitialTransmission(
+        [{ ...validLessons[0], lower: 'A' }, ...validLessons.slice(1)],
+        context,
+      ),
+    /第 1 课下位必须是有效天干或地支/,
+  );
+  assert.throws(
+    () => resolveInitialTransmission(validLessons, createResolveContext({ dayStem: 'A' })),
+    /日干必须是有效天干/,
+  );
+  assert.throws(
+    () => resolveInitialTransmission(validLessons, createResolveContext({ hourStem: 'A' })),
+    /时干必须是有效天干/,
+  );
+  assert.throws(
+    () =>
+      resolveInitialTransmission(
+        validLessons,
+        createResolveContext({ heavenlyPlate: context.heavenlyPlate.slice(0, 11) }),
+      ),
+    /天盘必须包含完整 12 个地支/,
+  );
+
+  const duplicatedPlate = context.heavenlyPlate.map((item) => ({ ...item }));
+  duplicatedPlate[0].branch = duplicatedPlate[1].branch;
+  assert.throws(
+    () =>
+      resolveInitialTransmission(
+        validLessons,
+        createResolveContext({ heavenlyPlate: duplicatedPlate }),
+      ),
+    /天盘上下地支必须各自完整且不重复/,
   );
 });

@@ -1,4 +1,4 @@
-import { SolarDay } from 'tyme4ts';
+import { SolarDay, SolarTime } from 'tyme4ts';
 import { baziCalculator } from '../../bazi/baziCalculator';
 import { getBirthDateValidationMessage } from '../../calendar/date-validation';
 import { getOppositeBranch, getSanxingType, isLiuhai, isLiupo, isSanxing } from './_shared';
@@ -50,8 +50,15 @@ const TOPIC_AVOID_KEYWORDS: Record<AlmanacTopic, string[]> = {
   custom: [],
 };
 
+function assertAlmanacTopic(topic: AlmanacTopic): void {
+  if (!Object.prototype.hasOwnProperty.call(ALMANAC_TOPIC_LABELS, topic)) {
+    throw new Error(`未知的黄历择日事项类型: ${String(topic)}`);
+  }
+}
+
 const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
 const EARTH_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+const MAX_ALMANAC_PARTICIPANTS = 30;
 type ParticipantBranchConflictType = '冲' | '刑' | '害' | '破';
 
 const BRANCH_DIRECTIONS: Record<string, string> = {
@@ -133,11 +140,22 @@ function normalizeTaboos(items: Array<{ getName(): string }>) {
   return items.map((item) => item.getName()).filter(Boolean);
 }
 
+function getNoonEightChar(date: Date) {
+  return SolarTime.fromYmdHms(date.getFullYear(), date.getMonth() + 1, date.getDate(), 12, 0, 0)
+    .getLunarHour()
+    .getEightChar();
+}
+
 function shouldBuildParticipantProfile(item: AlmanacParticipantInput) {
-  return Boolean(item.year && item.month && item.day && item.timeIndex !== '');
+  return [item.year, item.month, item.day, item.timeIndex].some(
+    (value) => typeof value === 'string' && value.trim() !== '',
+  );
 }
 
 function readParticipantInteger(value: string, label: string, min: number, max: number) {
+  if (typeof value !== 'string') {
+    throw new Error(`参与人${label}必须是 ${min}-${max} 的整数`);
+  }
   const text = value.trim();
   if (!/^\d+$/.test(text)) {
     throw new Error(`参与人${label}必须是 ${min}-${max} 的整数`);
@@ -151,6 +169,16 @@ function readParticipantInteger(value: string, label: string, min: number, max: 
 }
 
 function readParticipantBirthInput(item: AlmanacParticipantInput) {
+  if (item.gender !== '男' && item.gender !== '女') {
+    throw new Error('参与人性别必须是 男 或 女。');
+  }
+  if (item.dateType !== 'solar' && item.dateType !== 'lunar') {
+    throw new Error('参与人日历类型必须是 solar 或 lunar。');
+  }
+  if (item.isLeapMonth !== undefined && typeof item.isLeapMonth !== 'boolean') {
+    throw new Error('参与人isLeapMonth必须是布尔值。');
+  }
+
   const year = readParticipantInteger(item.year, '出生年份', 1900, 2100);
   const month = readParticipantInteger(item.month, '出生月份', 1, 12);
   const day = readParticipantInteger(item.day, '出生日期', 1, item.dateType === 'lunar' ? 30 : 31);
@@ -170,42 +198,69 @@ function readParticipantBirthInput(item: AlmanacParticipantInput) {
   return { year, month, day, timeIndex };
 }
 
+function readParticipantText(value: unknown, label: string, fallback: string) {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+  if (typeof value !== 'string') {
+    throw new Error(`参与人${label}必须是文本。`);
+  }
+  return value.trim() || fallback;
+}
+
 function createParticipantProfiles(
   participants: AlmanacParticipantInput[],
 ): AlmanacParticipantProfile[] {
-  return participants.filter(shouldBuildParticipantProfile).map((item) => {
-    const birthInput = readParticipantBirthInput(item);
-    const chart = baziCalculator.calculateBazi({
-      year: birthInput.year,
-      month: birthInput.month,
-      day: birthInput.day,
-      timeIndex: birthInput.timeIndex,
-      gender: item.gender === '男' ? 'male' : item.gender === '女' ? 'female' : '',
-      isLunar: item.dateType === 'lunar',
-      isLeapMonth: Boolean(item.isLeapMonth),
-      useTrueSolarTime: false,
-    });
+  if (!Array.isArray(participants)) {
+    throw new Error('参与人信息必须是数组。');
+  }
+  if (participants.length > MAX_ALMANAC_PARTICIPANTS) {
+    throw new Error(`黄历择日一次最多分析 ${MAX_ALMANAC_PARTICIPANTS} 位参与人，请拆分请求。`);
+  }
 
-    return {
-      id: item.id,
-      name: item.name.trim() || '未命名参与人',
-      gender: item.gender,
-      solarDate: `${chart.solarDate.year}-${String(chart.solarDate.month).padStart(2, '0')}-${String(chart.solarDate.day).padStart(2, '0')}`,
-      lunarDate: `${chart.lunarDate.monthName}${chart.lunarDate.dayName}`,
-      zodiac: chart.zodiac,
-      constellation: chart.constellation,
-      dayMaster: chart.dayMaster.gan,
-      dayMasterElement: chart.dayMaster.element,
-      pillars: {
-        year: chart.pillars.year.ganZhi,
-        month: chart.pillars.month.ganZhi,
-        day: chart.pillars.day.ganZhi,
-        hour: chart.pillars.hour.ganZhi,
-      },
-      usefulGods: chart.analysis.usefulGod.favorableWuxing ?? chart.analysis.usefulGod.favorable,
-      avoidGods: chart.analysis.usefulGod.unfavorableWuxing ?? chart.analysis.usefulGod.unfavorable,
-    };
-  });
+  return participants
+    .filter((item, index) => {
+      if (!item || typeof item !== 'object') {
+        throw new Error(`参与人${index + 1}信息必须是对象。`);
+      }
+      return shouldBuildParticipantProfile(item);
+    })
+    .map((item, index) => {
+      const birthInput = readParticipantBirthInput(item);
+      const id = readParticipantText(item.id, 'id', `participant-${index + 1}`);
+      const name = readParticipantText(item.name, '姓名', '未命名参与人');
+      const chart = baziCalculator.calculateBazi({
+        year: birthInput.year,
+        month: birthInput.month,
+        day: birthInput.day,
+        timeIndex: birthInput.timeIndex,
+        gender: item.gender === '男' ? 'male' : item.gender === '女' ? 'female' : '',
+        isLunar: item.dateType === 'lunar',
+        isLeapMonth: Boolean(item.isLeapMonth),
+        useTrueSolarTime: false,
+      });
+
+      return {
+        id,
+        name,
+        gender: item.gender,
+        solarDate: `${chart.solarDate.year}-${String(chart.solarDate.month).padStart(2, '0')}-${String(chart.solarDate.day).padStart(2, '0')}`,
+        lunarDate: `${chart.lunarDate.monthName}${chart.lunarDate.dayName}`,
+        zodiac: chart.zodiac,
+        constellation: chart.constellation,
+        dayMaster: chart.dayMaster.gan,
+        dayMasterElement: chart.dayMaster.element,
+        pillars: {
+          year: chart.pillars.year.ganZhi,
+          month: chart.pillars.month.ganZhi,
+          day: chart.pillars.day.ganZhi,
+          hour: chart.pillars.hour.ganZhi,
+        },
+        usefulGods: chart.analysis.usefulGod.favorableWuxing ?? chart.analysis.usefulGod.favorable,
+        avoidGods:
+          chart.analysis.usefulGod.unfavorableWuxing ?? chart.analysis.usefulGod.unfavorable,
+      };
+    });
 }
 
 // 建除十二神宜忌，按《选择要略》“建除宜忌”整理为择日事项关键词。
@@ -659,6 +714,7 @@ function buildDayCandidate(
 ): AlmanacDayCandidate {
   const solarDay = SolarDay.fromYmd(date.getFullYear(), date.getMonth() + 1, date.getDate());
   const lunarDay = solarDay.getLunarDay();
+  const noonEightChar = getNoonEightChar(date);
   const dayCycle = lunarDay.getSixtyCycle();
   const dayBranch = dayCycle.getEarthBranch();
   const recommends = normalizeTaboos(lunarDay.getRecommends());
@@ -684,9 +740,9 @@ function buildDayCandidate(
     weekday: WEEKDAYS[date.getDay()],
     lunarDate: lunarDay.toString(),
     ganzhi: {
-      year: lunarDay.getYearSixtyCycle().getName(),
-      month: lunarDay.getMonthSixtyCycle().getName(),
-      day: dayCycle.getName(),
+      year: noonEightChar.getYear().getName(),
+      month: noonEightChar.getMonth().getName(),
+      day: noonEightChar.getDay().getName(),
     },
     zodiac: dayBranch.getZodiac().getName(),
     dayOfficer: lunarDay.getDuty().getName(),
@@ -703,9 +759,7 @@ function buildDayCandidate(
     pengZuGan: PENGZU_DAY_GAN[dayStemName] || '',
     pengZuZhi: PENGZU_DAY_ZHI[dayZhiName] || '',
     clash: `冲${dayBranch.getOpposite().getName()}，煞${dayBranch.getOminous().getName()}`,
-    annualDirectionGods: getAnnualDirectionGods(
-      lunarDay.getYearSixtyCycle().getEarthBranch().getName(),
-    ),
+    annualDirectionGods: getAnnualDirectionGods(noonEightChar.getYear().getEarthBranch().getName()),
     score: scoring.score,
     highlights: scoring.highlights,
     cautions: scoring.cautions,
@@ -742,6 +796,7 @@ export function generateAlmanacSelection(params: {
   endDate: string;
   participants?: AlmanacParticipantInput[];
 }): AlmanacData {
+  assertAlmanacTopic(params.topic);
   const start = parseDateText(params.startDate, '开始日期');
   const end = parseDateText(params.endDate, '结束日期');
   const diffDays = Math.round((end.date.getTime() - start.date.getTime()) / 86400000);

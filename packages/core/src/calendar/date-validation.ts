@@ -4,6 +4,9 @@ const ISO_DATE_TIME_PATTERN =
   /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/;
 
 export function isValidIsoDateTime(value: string, date: Date) {
+  if (typeof value !== 'string' || !(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return false;
+  }
   const match = ISO_DATE_TIME_PATTERN.exec(value);
   if (!match) {
     return false;
@@ -65,6 +68,12 @@ export function getBirthDateValidationMessage(params: {
   dateType: 'solar' | 'lunar';
   isLeapMonth?: boolean;
 }) {
+  if (params.dateType !== 'solar' && params.dateType !== 'lunar') {
+    return '日期类型必须是 solar 或 lunar。';
+  }
+  if (params.isLeapMonth !== undefined && typeof params.isLeapMonth !== 'boolean') {
+    return '闰月标志必须是布尔值。';
+  }
   if (!Number.isInteger(params.year) || params.year < 1900 || params.year > 2100) {
     return '年份需在 1900-2100 之间。';
   }

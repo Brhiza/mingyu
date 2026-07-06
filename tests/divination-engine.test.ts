@@ -503,14 +503,10 @@ test('奇门复合格局应按青龙返首飞鸟跌穴输出主客与生门提�
     ],
     jiuGongGe: [buildQimenPalace(4, '丙', { renPan: { door: '生门' } })],
   });
-  const flyingBirdGuest = flyingBirdWithShengMen.find(
-    (combo) => combo.name === '飞鸟跌穴利客',
-  );
+  const flyingBirdGuest = flyingBirdWithShengMen.find((combo) => combo.name === '飞鸟跌穴利客');
   assert.equal(flyingBirdGuest?.palace, 4);
   assert.match(flyingBirdGuest?.summary || '', /丙加甲利为客/);
-  const flyingBirdShengMen = flyingBirdWithShengMen.find(
-    (combo) => combo.name === '飞鸟会生门',
-  );
+  const flyingBirdShengMen = flyingBirdWithShengMen.find((combo) => combo.name === '飞鸟会生门');
   assert.match(flyingBirdShengMen?.summary || '', /会合生门相助/);
 
   const flyingBirdWithXiuMen = detectQimenPatternCombos({
@@ -647,10 +643,7 @@ test('奇门复合格局应按明列宫位输出十干迫制', () => {
   assert.match(stemPressure?.summary || '', /壬癸生死方/);
 
   const noPressure = detectQimenPatternCombos({
-    jiuGongGe: [
-      buildQimenPalace(5, '壬'),
-      buildQimenPalace(6, '丙'),
-    ],
+    jiuGongGe: [buildQimenPalace(5, '壬'), buildQimenPalace(6, '丙')],
   });
   assert.ok(!noPressure.some((combo) => combo.name === '十干迫制'));
 });
@@ -1040,12 +1033,16 @@ test('奇门复合格局应按月将时支输出天三门地四户', () => {
     hourBranch: '午',
     jiuGongGe,
   });
-  const zhengYueWuShi = zhengYueWuShiCombos.find(
-    (combo) => combo.name === '天三门地四户',
-  );
+  const zhengYueWuShi = zhengYueWuShiCombos.find((combo) => combo.name === '天三门地四户');
   assert.match(zhengYueWuShi?.summary || '', /寅月午时以月将亥加时支/);
-  assert.match(zhengYueWuShi?.summary || '', /天三门为太冲在戌支乾六宫、小吉在寅支艮八宫、从魁在辰支巽四宫/);
-  assert.match(zhengYueWuShi?.summary || '', /地四户为除在未支坤二宫、定在戌支乾六宫、危在丑支艮八宫、开在辰支巽四宫/);
+  assert.match(
+    zhengYueWuShi?.summary || '',
+    /天三门为太冲在戌支乾六宫、小吉在寅支艮八宫、从魁在辰支巽四宫/,
+  );
+  assert.match(
+    zhengYueWuShi?.summary || '',
+    /地四户为除在未支坤二宫、定在戌支乾六宫、危在丑支艮八宫、开在辰支巽四宫/,
+  );
   assert.match(zhengYueWuShi?.summary || '', /遇三奇吉门更佳/);
 
   const jiuYueSiShiCombos = detectQimenPatternCombos({
@@ -1055,7 +1052,10 @@ test('奇门复合格局应按月将时支输出天三门地四户', () => {
   });
   const jiuYueSiShi = jiuYueSiShiCombos.find((combo) => combo.name === '天三门地四户');
   assert.match(jiuYueSiShi?.summary || '', /戌月巳时以月将卯加时支/);
-  assert.match(jiuYueSiShi?.summary || '', /地四户为除在午支离九宫、定在酉支兑七宫、危在子支坎一宫、开在卯支震三宫/);
+  assert.match(
+    jiuYueSiShi?.summary || '',
+    /地四户为除在午支离九宫、定在酉支兑七宫、危在子支坎一宫、开在卯支震三宫/,
+  );
 
   const noMonthBranch = detectQimenPatternCombos({
     hourBranch: '午',
@@ -1083,7 +1083,10 @@ test('奇门复合格局应按月将贵人排十二天将输出地私门', () =>
   assert.match(yangNoble?.summary || '', /甲辰日取阳贵未/);
   assert.match(yangNoble?.summary || '', /寅月辰时以月将亥加时支/);
   assert.match(yangNoble?.summary || '', /贵人落子支坎一宫，顺行排十二天将/);
-  assert.match(yangNoble?.summary || '', /地私门为六合在卯支震三宫、太常在申支坤二宫、太阴在戌支乾六宫/);
+  assert.match(
+    yangNoble?.summary || '',
+    /地私门为六合在卯支震三宫、太常在申支坤二宫、太阴在戌支乾六宫/,
+  );
 
   const yinNobleCombos = detectQimenPatternCombos({
     dayStem: '甲',
@@ -1095,7 +1098,10 @@ test('奇门复合格局应按月将贵人排十二天将输出地私门', () =>
   const yinNoble = yinNobleCombos.find((combo) => combo.name === '地私门');
   assert.match(yinNoble?.summary || '', /甲午日取阴贵丑/);
   assert.match(yinNoble?.summary || '', /贵人落午支离九宫，逆行排十二天将/);
-  assert.match(yinNoble?.summary || '', /地私门为六合在卯支震三宫、太常在戌支乾六宫、太阴在申支坤二宫/);
+  assert.match(
+    yinNoble?.summary || '',
+    /地私门为六合在卯支震三宫、太常在戌支乾六宫、太阴在申支坤二宫/,
+  );
 
   const noDay = detectQimenPatternCombos({
     monthBranch: '寅',
@@ -1243,7 +1249,10 @@ test('奇门复合格局应按月将时支输出亭亭白奸方位', () => {
   const zhengYueWuShi = zhengYueWuShiCombos.find((combo) => combo.name === '亭亭白奸');
   assert.match(zhengYueWuShi?.summary || '', /寅月午时以月将亥加时支/);
   assert.match(zhengYueWuShi?.summary || '', /亭亭方：亭亭（神后）在未支坤二宫/);
-  assert.match(zhengYueWuShi?.summary || '', /白奸方：白奸功曹在酉支兑七宫、白奸胜光在丑支艮八宫、白奸天罡在亥支乾六宫/);
+  assert.match(
+    zhengYueWuShi?.summary || '',
+    /白奸方：白奸功曹在酉支兑七宫、白奸胜光在丑支艮八宫、白奸天罡在亥支乾六宫/,
+  );
   assert.match(zhengYueWuShi?.summary || '', /背亭亭击白奸/);
 
   const jiuYueSiShiCombos = detectQimenPatternCombos({
@@ -1254,7 +1263,10 @@ test('奇门复合格局应按月将时支输出亭亭白奸方位', () => {
   const jiuYueSiShi = jiuYueSiShiCombos.find((combo) => combo.name === '亭亭白奸');
   assert.match(jiuYueSiShi?.summary || '', /戌月巳时以月将卯加时支/);
   assert.match(jiuYueSiShi?.summary || '', /亭亭方：亭亭（神后）在寅支艮八宫/);
-  assert.match(jiuYueSiShi?.summary || '', /白奸方：白奸功曹在辰支巽四宫、白奸胜光在申支坤二宫、白奸天罡在午支离九宫/);
+  assert.match(
+    jiuYueSiShi?.summary || '',
+    /白奸方：白奸功曹在辰支巽四宫、白奸胜光在申支坤二宫、白奸天罡在午支离九宫/,
+  );
 
   const noMonthBranch = detectQimenPatternCombos({
     hourBranch: '午',
@@ -1910,9 +1922,7 @@ test('奇门乙加乙应识别为日奇伏刑，不应退化为比和', () => {
     ),
   );
   assert.ok(
-    !data.stemRelations?.some(
-      (relation) => relation.gong === 6 && relation.relation === '比和',
-    ),
+    !data.stemRelations?.some((relation) => relation.gong === 6 && relation.relation === '比和'),
   );
 });
 
@@ -2822,9 +2832,7 @@ test('奇门日干飞伏格应按当天日干判定并处理甲遁六仪', () =>
   assert.ok(
     jiaDayPatterns.some(
       (pattern) =>
-        pattern.name === '伏干格' &&
-        pattern.palace === 2 &&
-        pattern.summary.includes('甲子遁戊'),
+        pattern.name === '伏干格' && pattern.palace === 2 && pattern.summary.includes('甲子遁戊'),
     ),
   );
 
@@ -2869,9 +2877,7 @@ test('奇门岁格月格时格应按六庚加年月时干判定', () => {
   assert.ok(
     jiaMonth.some(
       (pattern) =>
-        pattern.name === '月格' &&
-        pattern.palace === 3 &&
-        pattern.summary.includes('甲子遁戊'),
+        pattern.name === '月格' && pattern.palace === 3 && pattern.summary.includes('甲子遁戊'),
     ),
   );
 
@@ -2884,9 +2890,7 @@ test('奇门岁格月格时格应按六庚加年月时干判定', () => {
   assert.ok(
     shiGe.some(
       (pattern) =>
-        pattern.name === '时格' &&
-        pattern.palace === 4 &&
-        pattern.summary.includes('甲戌遁己'),
+        pattern.name === '时格' && pattern.palace === 4 && pattern.summary.includes('甲戌遁己'),
     ),
   );
 
@@ -2934,9 +2938,7 @@ test('奇门丙奇临年月日时干应输出勃格类风险', () => {
   assert.ok(
     jiaDayBoGe.some(
       (pattern) =>
-        pattern.name === '日干勃格' &&
-        pattern.palace === 3 &&
-        pattern.summary.includes('甲子遁戊'),
+        pattern.name === '日干勃格' && pattern.palace === 3 && pattern.summary.includes('甲子遁戊'),
     ),
   );
 
@@ -2949,9 +2951,7 @@ test('奇门丙奇临年月日时干应输出勃格类风险', () => {
   assert.ok(
     shiGanBoGe.some(
       (pattern) =>
-        pattern.name === '时干勃格' &&
-        pattern.palace === 4 &&
-        pattern.summary.includes('甲戌遁己'),
+        pattern.name === '时干勃格' && pattern.palace === 4 && pattern.summary.includes('甲戌遁己'),
     ),
   );
 });
@@ -2990,9 +2990,7 @@ test('奇门六壬临时干应输出地罗遮蔽', () => {
   assert.ok(
     jiaHourDiLuo.some(
       (pattern) =>
-        pattern.name === '地罗遮蔽' &&
-        pattern.palace === 8 &&
-        pattern.summary.includes('甲戌遁己'),
+        pattern.name === '地罗遮蔽' && pattern.palace === 8 && pattern.summary.includes('甲戌遁己'),
     ),
   );
 });
@@ -3132,9 +3130,7 @@ test('奇门相佐与守户应按值符值使加地盘丙丁判定', () => {
   assert.ok(
     shouHu.some(
       (pattern) =>
-        pattern.name === '守户' &&
-        pattern.palace === 2 &&
-        pattern.summary.includes('地盘丁奇'),
+        pattern.name === '守户' && pattern.palace === 2 && pattern.summary.includes('地盘丁奇'),
     ),
   );
   assert.ok(
@@ -3356,9 +3352,7 @@ test('奇门三奇游六仪应按当旬值符所带六仪加地盘三奇判定',
     jiuGongGe: jiaXuCase,
     hourGanForFind: '乙',
   });
-  assert.ok(
-    jiaXuTags.includes('三奇游六仪（甲戌己值符加乙奇（日奇）于离九宫，游甲午辛）'),
-  );
+  assert.ok(jiaXuTags.includes('三奇游六仪（甲戌己值符加乙奇（日奇）于离九宫，游甲午辛）'));
 
   const jiaWuCase = arrangeJiuGongGe(true, 1, '天辅', '杜门', { hour: '乙未' });
   const jiaWuPatterns = getClassicPatterns({
@@ -3797,5 +3791,8 @@ test('小六壬支持时间起课与数字起课，并生成适合复制给 AI �
 });
 
 test('小六壬数字起课底层算法缺少数字时应明确失败', () => {
-  assert.throws(() => generateXiaoliuren({ method: 'number' }), /小六壬数字起课必须提供正整数/);
+  assert.throws(
+    () => generateXiaoliuren({ method: 'number' }),
+    /小六壬数字起课必须提供安全范围内的正整数/,
+  );
 });

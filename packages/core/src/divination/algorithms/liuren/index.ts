@@ -243,7 +243,11 @@ function getMonthLeaderByZhongqi(timeInfo: ReturnType<typeof getDivinationTime>[
     }
   }
 
-  return MONTH_LEADER_BY_ZHONGQI[activeZhongqi] || '丑';
+  const monthLeader = MONTH_LEADER_BY_ZHONGQI[activeZhongqi];
+  if (!monthLeader) {
+    throw new Error(`找不到中气 "${activeZhongqi}" 对应的大六壬月将。`);
+  }
+  return monthLeader;
 }
 
 /**
@@ -353,20 +357,22 @@ export function generateLiuren(customDate?: Date): LiurenData {
   );
 
   // 为每个天将附加属性
-  const tianJiangProps = threeTransmissions.reduce<Record<
-    string,
-    {
-      wuxing: string;
-      yinYang: string;
-      category: string;
-      color?: string;
-      flavor?: string;
-      number?: number;
-      terrain?: string;
-      description?: string;
-      bodyPart?: string;
-    }
-  >>((acc, t) => {
+  const tianJiangProps = threeTransmissions.reduce<
+    Record<
+      string,
+      {
+        wuxing: string;
+        yinYang: string;
+        category: string;
+        color?: string;
+        flavor?: string;
+        number?: number;
+        terrain?: string;
+        description?: string;
+        bodyPart?: string;
+      }
+    >
+  >((acc, t) => {
     const attr = TIANJIANG_ATTRIBUTES[t.god as TianJiangName];
     if (attr) {
       acc[t.god] = {

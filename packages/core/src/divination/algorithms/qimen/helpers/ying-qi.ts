@@ -10,26 +10,11 @@
  */
 
 import { palaceBranches } from './_constants';
+import { LIUCHONG_MAP } from '../../_shared';
 
 // ============================================================================
 // 常量
 // ============================================================================
-
-/** 六冲映射（地支六冲：子午、丑未、寅申、卯酉、辰戌、巳亥） */
-const sixChong: Record<string, string> = {
-  子: '午',
-  午: '子',
-  丑: '未',
-  未: '丑',
-  寅: '申',
-  申: '寅',
-  卯: '酉',
-  酉: '卯',
-  辰: '戌',
-  戌: '辰',
-  巳: '亥',
-  亥: '巳',
-};
 
 /** 阳干 */
 const YANG_STEMS = ['甲', '丙', '戊', '庚', '壬'];
@@ -244,7 +229,7 @@ export function estimateYingQi(
         const branches = palaceBranches[gongNum] || [];
         const chongDesc = branches
           .map((b) => {
-            const opp = sixChong[b];
+            const opp = LIUCHONG_MAP[b];
             return opp ? `${b}冲${opp}` : b;
           })
           .join('、');
@@ -266,7 +251,7 @@ export function estimateYingQi(
         const branches = palaceBranches[gongNum] || [];
         const chongDesc = branches
           .map((b) => {
-            const opp = sixChong[b];
+            const opp = LIUCHONG_MAP[b];
             return opp ? `${b}冲${opp}` : b;
           })
           .join('、');
@@ -320,7 +305,7 @@ export function estimateYingQi(
     if (options?.voidBranches && options.voidBranches.length > 0) {
       const voidDesc = options.voidBranches
         .map((vb) => {
-          const chong = sixChong[vb];
+          const chong = LIUCHONG_MAP[vb];
           return chong ? `${vb}（冲${chong}填实）` : vb;
         })
         .join('、');

@@ -78,7 +78,9 @@
 
 ## 请求示例
 
-`/calculate` 和 `/divination/{method}` 接口只返回排盘、卦盘、牌阵或灵签数据。需要可直接发送给 AI 的完整提示词时，使用对应的 `/prompt` 一站式接口，八字和紫微返回 `data.result`、`data.prompt`，占卜类还会额外返回 `data.summary`。
+`/calculate` 和 `/divination/{method}` 接口只返回排盘、卦盘、牌阵或灵签数据。需要可直接发送给 AI 的提示词时，使用对应的 `/prompt` 一站式接口。
+
+为降低大排盘、长提示词和代理转发失败风险，`/prompt` 默认只返回 `data.prompt` 加轻量摘要：八字、紫微使用 `data.resultSummary`，占卜类使用 `data.summary`。如确实需要同一次响应带完整排盘，传 `responseMode: "full"`；只要提示词时传 `responseMode: "prompt-only"`。大体量数据建议拆成多次请求，或先调用排盘接口用 `detailMode: "compact"` 按需取轻量字段。
 
 八字排盘并生成提示词：
 
@@ -144,7 +146,15 @@ curl -X POST https://aov.cc/api/v1/divination/qimen/prompt \
   -d '{"qimenMethod":"feipan","question":"项目现在能推进吗？"}'
 ```
 
-奇门排盘结果会包含 `seasonality` 和 `patternCombos`：前者给出节气三元、节气五行、月相、建除十二神和四柱干支互动，后者给出吉凶叠加、吉格逢空、伏吟反吟叠马星等复合格局。提示词接口会把这些字段写入证据区，方便 AI 解读时引用。
+奇门排盘结果会包含 `seasonality` 和 `patternCombos`：前者给出节气三元、节气五行、月相、建除十二神和四柱干支互动，后者给出吉凶叠加、吉格逢空、伏吟反吟叠马星等复合格局。提示词接口会把这些字段写入证据区，方便 AI 解读时引用。直接排盘接口可传 `detailMode: "compact"` 获取轻量结构；轻量结构只保留核心盘面、方位和少量高权重组合，并返回完整数量，适合上游 AI 代理按需拆成多次请求。
+
+需要完整排盘和提示词同时返回：
+
+```bash
+curl -X POST https://aov.cc/api/v1/divination/qimen/prompt \
+  -H "Content-Type: application/json" \
+  -d '{"customDate":"2025-01-01T08:30:00+08:00","question":"这个项目现在适合推进吗？","responseMode":"full"}'
+```
 
 黄历安葬择日：
 
@@ -152,6 +162,22 @@ curl -X POST https://aov.cc/api/v1/divination/qimen/prompt \
 curl -X POST https://aov.cc/api/v1/divination/almanac \
   -H "Content-Type: application/json" \
   -d '{"topic":"burial","startDate":"2026-07-01","endDate":"2026-07-15"}'
+```
+
+黄历择日分页轻量返回：
+
+```bash
+curl -X POST https://aov.cc/api/v1/divination/almanac \
+  -H "Content-Type: application/json" \
+  -d '{"topic":"contract","startDate":"2026-06-01","endDate":"2026-06-30","page":1,"pageSize":5,"detailMode":"compact"}'
+```
+
+黄历提示词也支持分页；大范围或多参与人时建议按页生成提示词，多次请求合并判断：
+
+```bash
+curl -X POST https://aov.cc/api/v1/divination/almanac/prompt \
+  -H "Content-Type: application/json" \
+  -d '{"topic":"contract","startDate":"2026-06-01","endDate":"2026-06-30","page":1,"pageSize":5}'
 ```
 
 AI 流式解读：
@@ -175,7 +201,9 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - `gender` 使用 `male` 或 `female`。
 - `dateType` 使用 `solar` 或 `lunar`。
 - `timeIndex` 范围为 `0` 到 `12`，其中 `0` 为早子时，`12` 为晚子时。
-- `question` 是所有 `/prompt` 接口的必填字段，黄历择日 `/prompt` 可不填。
+- `question` 是所有 `/prompt` 接口的必填字段，黄历择日 `/prompt` 可不填；`question` 和 `astrolabeScopeText` 最多 5000 个字符。
+- `/prompt` 支持 `responseMode`：`summary` 默认只返回提示词和轻量摘要；`full` 返回完整排盘和提示词；`prompt-only` 只返回提示词。
+- 八字、紫微、奇门和黄历择日排盘接口支持 `detailMode`：`full` 返回完整结构；`compact` 返回轻量结构，适合自动化或多次分页请求。
 - 八字 `promptTopic` 支持 `general`、`career`、`wealth`、`marriage`、`children`、`health`、`relationship-push`、`relationship-decision`、`job-change`、`startup-partnership`、`investment-partnership`、`recent`、`home-move`、`settle-relocate`、`study-advance`、`exam-landing`、`reconciliation-decision`、`emotion`、`talent`、`growth`、`social`。
 - 紫微 `promptTopic` 支持 `destiny`、`relationship`、`relationship-push`、`relationship-decision`、`children`、`career-wealth`、`job-change`、`startup-partnership`、`investment-partnership`、`recent`、`family`、`home-move`、`settle-relocate`、`social`、`emotion`、`health`、`study`、`study-advance`、`exam-landing`、`reconciliation-decision`、`growth`、`talent`、`life`、`chat`。
 - 紫微 `promptScope` 支持 `origin`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`。
@@ -193,10 +221,11 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 六爻 `liuyaoTemplate` 支持 `general`、`ganqing`、`shiye`、`caifu`、`guaishen`。
 - 大六壬 `liurenTemplate` 支持 `general`、`ganqing`、`shiye`、`caifu`。
 - 奇门遁甲 `qimenMethod` 支持 `zhuanpan`（转盘法，默认）、`feipan`（飞盘法）。排盘结果包含 `seasonality`（节令背景）和 `patternCombos`（复合格局）。
-- 黄历择日 `topic` 支持 `marriage`、`move`、`opening`、`contract`、`travel`、`medical`、`study`、`burial`、`renovation`、`custom`，不传时使用 `custom`，并使用 `startDate`、`endDate` 和可选 `participants`。
+- 黄历择日 `topic` 支持 `marriage`、`move`、`opening`、`contract`、`travel`、`medical`、`study`、`burial`、`renovation`、`custom`，不传时使用 `custom`，并使用 `startDate`、`endDate` 和可选 `participants`。日期范围一次最多 31 天，`participants` 一次最多 30 位；更大范围或更多参与人请拆成多次请求。
+- 黄历择日支持 `page` 和 `pageSize` 分页，`pageSize` 最大 31。不传分页时保持旧行为返回全部日期；传分页后只返回当前页日期，并带 `pagination`。`page` 超过总页数会返回 400，请调用方按 `pagination.totalPages` 继续请求。
 - 雷诺曼 `spreadType` 支持 `single`、`three`、`five`、`relationship`、`decision`、`nine`、`element`、`grandTableau`，不传时使用 `single`。
 - 星盘需要 `year`、`month`、`day`、`hour`、`minute`、`latitude`、`longitude`、`timezone`，可传 `useTrueSolarTime` 启用真太阳时校正，提示词接口可使用 `astrolabeTopic` 和 `astrolabeScopeText`。
-- `/ai/analyze` 请求体支持 `{ "prompt": "..." }` 单轮解析，或 `{ "messages": [{ "role": "user", "content": "..." }] }` 多轮追问；可选 `aiConfig` 指定 `builtin` 或 `custom` 模式。成功时返回 `text/event-stream`，每条增量以 `data: {"content":"..."}` 形式输出。
+- `/ai/analyze` 请求体支持 `{ "prompt": "..." }` 单轮解析，或 `{ "messages": [{ "role": "user", "content": "..." }] }` 多轮追问；可选 `aiConfig` 指定 `builtin` 或 `custom` 模式。成功时返回 `text/event-stream`，每条增量以 `data: {"content":"..."}` 形式输出。当前接口会拒绝过大的请求体，单次解析消息总内容最多 50000 字符，多轮消息最多 30 条；超限会直接返回 400，调用方应拆分请求。
 - `/ai/models` 请求体支持 `{ "aiConfig": { "mode": "builtin" } }` 或自定义 OpenAI 兼容配置，返回 `{ "ok": true, "models": ["模型 ID"] }`。
 
 更完整的字段结构以 [OpenAPI](https://aov.cc/api/v1/openapi.json) 为准。

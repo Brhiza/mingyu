@@ -16,6 +16,7 @@ const DEFAULT_BASE_URL = 'https://api.deepseek.com/v1';
 const DEFAULT_MODEL = 'deepseek-chat';
 const MAX_PROMPT_LENGTH = 50_000;
 const MAX_MESSAGES = 30;
+const UPSTREAM_FETCH_TIMEOUT_MS = 25_000;
 const UPSTREAM_RETRY_DELAYS_MS = [500, 1500];
 const BLOCKED_CUSTOM_AI_HOSTS = new Set(['localhost', 'metadata', 'metadata.google.internal']);
 
@@ -108,10 +109,17 @@ export async function handleAiAnalyze(request: Request, env?: AiEnv): Promise<Re
         typeof m.content === 'string',
     )
   ) {
+    if (body.messages.length > MAX_MESSAGES) {
+      return aiJsonError(
+        400,
+        'TOO_MANY_MESSAGES',
+        `一次最多发送 ${MAX_MESSAGES} 条消息，请拆分为多次请求。`,
+      );
+    }
+
     chatMessages = (body.messages as ChatMessage[])
       .map((m) => ({ role: m.role, content: m.content.trim() }))
-      .filter((m) => m.content.length > 0)
-      .slice(0, MAX_MESSAGES);
+      .filter((m) => m.content.length > 0);
     isMultiTurn = chatMessages.length > 1;
   } else {
     const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
@@ -490,8 +498,10 @@ async function fetchUpstreamWithRetry(
   const maxAttempts = UPSTREAM_RETRY_DELAYS_MS.length + 1;
 
   for (let attemptIndex = 0; attemptIndex < maxAttempts; attemptIndex += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), UPSTREAM_FETCH_TIMEOUT_MS);
     try {
-      const response = await fetch(url, init);
+      const response = await fetch(url, { ...init, signal: controller.signal });
       if (isRetryableUpstreamStatus(response.status) && attemptIndex < maxAttempts - 1) {
         await response.text().catch(() => '');
         await sleep(getRetryDelayMs(response, attemptIndex));
@@ -500,7 +510,8 @@ async function fetchUpstreamWithRetry(
 
       return { ok: true, response, attempts: attemptIndex + 1 };
     } catch (error) {
-      if (attemptIndex < maxAttempts - 1) {
+      const timedOut = isAbortError(error);
+      if (!timedOut && attemptIndex < maxAttempts - 1) {
         await sleep(UPSTREAM_RETRY_DELAYS_MS[attemptIndex]);
         continue;
       }
@@ -509,9 +520,11 @@ async function fetchUpstreamWithRetry(
       return {
         ok: false,
         error: aiJsonError(
-          502,
-          'AI_UPSTREAM_NETWORK_ERROR',
-          `无法连接 AI 服务${formatRetrySummary(attempts)}。请稍后再试，或在设置里改用自己的接口。`,
+          timedOut ? 504 : 502,
+          timedOut ? 'AI_UPSTREAM_TIMEOUT' : 'AI_UPSTREAM_NETWORK_ERROR',
+          timedOut
+            ? `AI 服务连接超时${formatRetrySummary(attempts)}。请稍后再试，或在设置里改用自己的接口。`
+            : `无法连接 AI 服务${formatRetrySummary(attempts)}。请稍后再试，或在设置里改用自己的接口。`,
           {
             attempts,
             retryable: true,
@@ -519,6 +532,8 @@ async function fetchUpstreamWithRetry(
           },
         ),
       };
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
@@ -529,6 +544,14 @@ async function fetchUpstreamWithRetry(
       retryable: true,
     }),
   };
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    (error instanceof Error ||
+      (typeof DOMException !== 'undefined' && error instanceof DOMException)) &&
+    error.name === 'AbortError'
+  );
 }
 
 function isRetryableUpstreamStatus(status: number): boolean {

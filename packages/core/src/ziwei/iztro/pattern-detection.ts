@@ -43,6 +43,79 @@ function normalizePalaceName(name: string): string {
   return name.endsWith('宫') ? name.slice(0, -1) : name;
 }
 
+const ZIWEI_PALACE_COUNT = 12;
+
+function assertValidPatternPalaces(
+  palaces: PalaceFact[] | undefined,
+): asserts palaces is PalaceFact[] {
+  if (!Array.isArray(palaces) || palaces.length !== ZIWEI_PALACE_COUNT) {
+    throw new Error('紫微格局检测需要完整 12 宫数据。');
+  }
+
+  const seenIndexes = new Set<number>();
+  let mingPalaceCount = 0;
+
+  palaces.forEach((palace, position) => {
+    if (
+      !Number.isInteger(palace?.index) ||
+      palace.index < 0 ||
+      palace.index >= ZIWEI_PALACE_COUNT
+    ) {
+      throw new Error(`紫微格局检测第 ${position + 1} 个宫位索引无效。`);
+    }
+    if (seenIndexes.has(palace.index)) {
+      throw new Error(`紫微格局检测宫位索引 ${palace.index} 重复。`);
+    }
+    seenIndexes.add(palace.index);
+
+    if (typeof palace.name !== 'string' || !palace.name.trim()) {
+      throw new Error(`紫微格局检测第 ${position + 1} 个宫位名称缺失。`);
+    }
+    if (normalizePalaceName(palace.name) === '命') {
+      mingPalaceCount += 1;
+    }
+    if (typeof palace.earthly_branch !== 'string' || !palace.earthly_branch.trim()) {
+      throw new Error(`紫微格局检测${palace.name}地支缺失。`);
+    }
+    if (!Array.isArray(palace.major_stars)) {
+      throw new Error(`紫微格局检测${palace.name}主星数据无效。`);
+    }
+    if (!Array.isArray(palace.minor_stars)) {
+      throw new Error(`紫微格局检测${palace.name}辅星数据无效。`);
+    }
+    if (!Array.isArray(palace.other_stars)) {
+      throw new Error(`紫微格局检测${palace.name}杂曜数据无效。`);
+    }
+    if (!Array.isArray(palace.scope_stars)) {
+      throw new Error(`紫微格局检测${palace.name}运限星曜数据无效。`);
+    }
+  });
+
+  if (mingPalaceCount !== 1) {
+    throw new Error('紫微格局检测必须且只能包含一个命宫。');
+  }
+
+  palaces.forEach((palace) => {
+    if (
+      !Number.isInteger(palace.opposite_palace_index) ||
+      !seenIndexes.has(palace.opposite_palace_index)
+    ) {
+      throw new Error(`紫微格局检测${palace.name}对宫索引无效。`);
+    }
+    if (
+      !Array.isArray(palace.surrounded_palace_indexes) ||
+      palace.surrounded_palace_indexes.length === 0
+    ) {
+      throw new Error(`紫微格局检测${palace.name}三方四正数据无效。`);
+    }
+    palace.surrounded_palace_indexes.forEach((index) => {
+      if (!Number.isInteger(index) || !seenIndexes.has(index)) {
+        throw new Error(`紫微格局检测${palace.name}三方四正宫位索引无效。`);
+      }
+    });
+  });
+}
+
 function getAllStars(palace: PalaceFact): StarFact[] {
   return [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars];
 }
@@ -567,8 +640,7 @@ const PATTERN_RULES: PatternRule[] = [
       const hasLuCun = (palace: PalaceFact) => hasStar(palace, '禄存');
       const hasHuaLu = (palace: PalaceFact) =>
         getAllStars(palace).some((star) => star.birth_mutagen === '禄');
-      const paired =
-        (hasLuCun(ming) && hasHuaLu(anhe)) || (hasHuaLu(ming) && hasLuCun(anhe));
+      const paired = (hasLuCun(ming) && hasHuaLu(anhe)) || (hasHuaLu(ming) && hasLuCun(anhe));
       if (paired) {
         return { palaces: [ming, anhe], stars: ['禄存', '化禄'] };
       }
@@ -1004,7 +1076,9 @@ const PATTERN_RULES: PatternRule[] = [
     detect(context) {
       const ming = getPalaceByName(context, '命宫');
       if (!ming) return null;
-      const maPalace = getSurroundedPalaces(context, ming).find((palace) => hasStar(palace, '天马'));
+      const maPalace = getSurroundedPalaces(context, ming).find((palace) =>
+        hasStar(palace, '天马'),
+      );
       if (!maPalace) return null;
       const frontPalace = context.palaceByIndex.get((maPalace.index + 1) % 12);
       if (frontPalace && hasAllStars(frontPalace, ['禄存', '天相'])) {
@@ -1139,7 +1213,11 @@ const PATTERN_RULES: PatternRule[] = [
     detect(context) {
       const ming = getPalaceByName(context, '命宫');
       if (!ming) return null;
-      if (palaceInBranch(ming, ['卯']) && hasAllStars(ming, ['天机', '巨门']) && !hasStar(ming, '擎羊')) {
+      if (
+        palaceInBranch(ming, ['卯']) &&
+        hasAllStars(ming, ['天机', '巨门']) &&
+        !hasStar(ming, '擎羊')
+      ) {
         return { palaces: [ming], stars: ['天机', '巨门'] };
       }
       return null;
@@ -1474,8 +1552,7 @@ const PATTERN_RULES: PatternRule[] = [
     id: 'cai-yu-qiu-chou',
     name: '财与囚仇',
     kind: 'inauspicious',
-    description:
-      '武曲（财星）与廉贞（囚星）分守命宫与身宫，财星遇囚曜，主因财招扰、是非牵缠。',
+    description: '武曲（财星）与廉贞（囚星）分守命宫与身宫，财星遇囚曜，主因财招扰、是非牵缠。',
     priority: 86,
     detect(context) {
       // 《紫微斗数全书》骨髓赋"财与囚仇，一世贫夭"：武曲为财、廉贞为囚，
@@ -1874,8 +1951,7 @@ const PATTERN_RULES: PatternRule[] = [
     id: 'ju-ri-tong-gong',
     name: '巨日同宫',
     kind: 'auspicious',
-    description:
-      '巨门、太阳同守寅申命宫，主口才辩给、食禄驰名。寅宫日升为上格，申宫日偏则减力。',
+    description: '巨门、太阳同守寅申命宫，主口才辩给、食禄驰名。寅宫日升为上格，申宫日偏则减力。',
     priority: 85,
     detect(context) {
       // 《全书》"巨日同宫，官封三代"专指巨门太阳同宫坐命于寅（申次之），
@@ -1896,7 +1972,7 @@ export function detectPatterns(params: {
   birthTimeRange?: string;
 }): PatternFact[] {
   const { palaces, birthTimeLabel, birthTimeRange } = params;
-  if (!palaces.length) return [];
+  assertValidPatternPalaces(palaces);
 
   const palaceByName = new Map<string, PalaceFact>();
   const palaceByIndex = new Map<number, PalaceFact>();

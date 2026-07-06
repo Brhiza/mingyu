@@ -36,6 +36,21 @@ test('六爻：各爻输出月令旺相休囚死状态', () => {
   }
 });
 
+test('六爻：爻内三刑汇总应按共享三刑口径识别两支互见', () => {
+  const data = generateLiuyao(SAMPLE_DATE);
+
+  assert.equal(data.originalName, '山火贲');
+  assert.deepEqual(
+    data.yaosDetail.map((yao) => yao.najiaDizhi),
+    ['卯', '丑', '亥', '戌', '子', '寅'],
+  );
+  assert.ok(
+    data.sanxingInYaos?.some(
+      (item) => item.type === '恃势之刑' && item.branches.join('') === '丑戌',
+    ),
+  );
+});
+
 test('六爻：静爻被日冲且旺相标记为暗动，休囚标记为日破', () => {
   const data = generateLiuyao(SAMPLE_DATE);
   const dayBranch = data.ganzhi.day.slice(1);
@@ -127,6 +142,13 @@ test('六爻：整卦六合六冲应按初四二五三上爻支成组判断', ()
   const data = generateLiuyao(new Date('2025-01-01T01:00:00+08:00'));
   assert.equal(data.originalName, '巽为风');
   assert.equal(data.hexagramRelations?.original, '六冲卦');
+});
+
+test('六爻：公开关系助手应拒绝未知卦名，不应返回空关系掩盖输入错误', () => {
+  assert.throws(() => getLiuyaoHexagramRelation('不存在的卦'), /找不到卦象/);
+  assert.throws(() => getLiuyaoHexagramRelations('不存在的卦', '乾为天', true), /找不到卦象/);
+  assert.throws(() => getLiuyaoFanFuRelations('乾为天', '不存在的卦', true), /找不到卦象/);
+  assert.throws(() => getLiuyaoFanFuRelations('不存在的卦', undefined, false), /找不到卦象/);
 });
 
 test('六爻：反吟伏吟应按卦变和纳甲地支判断', () => {

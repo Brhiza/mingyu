@@ -41,3 +41,36 @@ test('证据资料包同权重时按证据等级稳定排序', () => {
 test('证据资料包为空时可返回保守占位', () => {
   assert.deepEqual(formatPromptEvidenceBundle({ items: [], emptyText: '- 暂无' }), ['- 暂无']);
 });
+
+test('证据资料包应拒绝无效等级和非法权重，避免排序结果失真', () => {
+  assert.throws(
+    () => normalizePromptEvidenceItems([{ level: '强证' as never, title: '错误等级', weight: 10 }]),
+    /证据等级无效/,
+  );
+  assert.throws(
+    () => normalizePromptEvidenceItems([{ level: '主证', title: '非法权重', weight: Number.NaN }]),
+    /证据权重必须是有效数字/,
+  );
+  assert.throws(
+    () =>
+      normalizePromptEvidenceItems([
+        { level: '主证', title: '非法权重', weight: Number.POSITIVE_INFINITY },
+      ]),
+    /证据权重必须是有效数字/,
+  );
+});
+
+test('证据资料包应拒绝非文本标签和非数组条目', () => {
+  assert.throws(() => normalizePromptEvidenceItems([null as never]), /证据条目必须是对象/);
+  assert.throws(
+    () =>
+      normalizePromptEvidenceItems([
+        { level: '主证', title: '标签类型错误', tags: '合冲刑害' as never },
+      ]),
+    /证据标签必须是文本数组/,
+  );
+  assert.throws(
+    () => normalizePromptEvidenceItems({ level: '主证', title: '不是数组' } as never),
+    /证据条目必须是数组/,
+  );
+});

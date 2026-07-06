@@ -69,7 +69,10 @@ const ASPECT_LABELS: Record<string, string> = {
   biquintile: '倍五分相',
 };
 
-function requireNumber(value: string, label: string) {
+function requireNumber(value: unknown, label: string) {
+  if (typeof value !== 'string') {
+    throw new Error(`星盘需要填写有效的${label}`);
+  }
   const text = value.trim();
   if (!/^[-+]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(text)) {
     throw new Error(`星盘需要填写有效的${label}`);
@@ -188,6 +191,16 @@ function formatDateTime(birth: {
   return `${birth.year}-${String(birth.month).padStart(2, '0')}-${String(birth.day).padStart(2, '0')} ${String(birth.hour).padStart(2, '0')}:${String(birth.minute).padStart(2, '0')}`;
 }
 
+function readOptionalText(value: unknown, fallback: string) {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+  if (typeof value !== 'string') {
+    throw new Error('星盘文本字段必须是字符串。');
+  }
+  return value.trim() || fallback;
+}
+
 /**
  * 生成西洋占星星盘
  *
@@ -226,6 +239,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     ? calculateTrueSolarTime(standardBirth, longitude)
     : null;
   const birth = trueSolarResult?.correctedTime ?? standardBirth;
+  const locationName = readOptionalText(input.locationName, '');
 
   const chart = calculateChart(
     {
@@ -268,21 +282,19 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     chart.angles.descendant,
     chart.angles.imumCoeli,
   ].map(mapAngle);
-  const calculatedPoints = [
-    ...chart.planets,
-    ...chart.nodes,
-    ...chart.lilith,
-    ...chart.lots,
-  ].map(mapPlanet);
+  const calculatedPoints = [...chart.planets, ...chart.nodes, ...chart.lilith, ...chart.lots].map(
+    mapPlanet,
+  );
 
   return {
     birth: {
-      name: input.name.trim() || '未命名',
+      name: readOptionalText(input.name, '未命名'),
       gender: input.gender,
       dateTime: formatDateTime(birth),
-      location: input.locationName?.trim()
-        ? `${input.locationName.trim()}（${latitude.toFixed(4)}, ${longitude.toFixed(4)}）`
-        : `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+      location:
+        locationName.length > 0
+          ? `${locationName}（${latitude.toFixed(4)}, ${longitude.toFixed(4)}）`
+          : `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
       timezone,
       standardDateTime: formatDateTime(standardBirth),
       trueSolarDateTime: trueSolarResult

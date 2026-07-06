@@ -113,7 +113,7 @@
     "build": "tsc --build tsconfig.json && node scripts/add-esm-extensions.mjs",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run build",
-    "test": "tsx --test \"tests/**/*.test.ts\""
+    "test": "node scripts/run-core-tests.mjs"
   },
   "dependencies": {
     "tyme4ts": "^1.3.3"

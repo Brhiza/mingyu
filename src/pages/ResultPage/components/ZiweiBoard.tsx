@@ -4,7 +4,7 @@ import { getDefaultHoroscopeContext } from '@core/ziwei/iztro';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
 import type { ZiweiRuntimeState } from '../ResultPage.types';
-import { joinText } from '../ResultPage.helpers';
+import { getZiweiDisplaySurroundedPalaces, joinText } from '../ResultPage.helpers';
 import { createDisplayWorker } from '../utils/createDisplayWorker';
 import { ZiweiTraditionalBoard } from './ZiweiTraditionalBoard';
 import { ZiweiFortuneSelector } from './ZiweiFortuneSelector';
@@ -32,9 +32,7 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
   const oppositePalace =
     displayPayload.palaces.find((item) => item.index === selectedPalace?.opposite_palace_index) ??
     null;
-  const surroundedPalaces = displayPayload.palaces.filter((item) =>
-    selectedPalace?.surrounded_palace_indexes.includes(item.index),
-  );
+  const surroundedPalaces = getZiweiDisplaySurroundedPalaces(displayPayload, selectedPalace);
   const activeScopeMutagens = uniqueNonEmptyStrings(
     displayPayload.active_scope.mutagen_map.map((item) => `${item.mutagen} ${item.star}`),
   );

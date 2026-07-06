@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildBaziZiweiEnhancedPrompt,
   buildCompatibilityPromptWithUnknownTime,
+  getZiweiDisplaySurroundedPalaces,
   buildZiweiMonthAnchorDate,
   findZiweiDayOptionDate,
   findZiweiDecadalIndexByDate,
@@ -19,6 +20,7 @@ import {
 } from '../src/pages/ResultPage/ResultPage.helpers';
 import { buildPersonFromInput, calculateFullBaziChart } from '../src/lib/full-chart-engine/bazi';
 import { buildZiweiChartInput, calculateFullZiweiChart } from '../src/lib/full-chart-engine/ziwei';
+import type { AnalysisPayloadV1 } from '../src/types/analysis';
 
 test('parseZiweiDateParts 正确解析合法日期', () => {
   assert.deepEqual(parseZiweiDateParts('2024-05-13'), { year: 2024, month: 5, day: 13 });
@@ -157,11 +159,11 @@ test('八字年限可映射为统一的紫微范围', () => {
   });
   assert.deepEqual(mapBaziFortuneToZiweiScope({ scope: 'dayun', year: 2028 }), {
     scope: 'decadal',
-    dateStr: '2028-01-01',
+    dateStr: '2028-07-01',
   });
   assert.deepEqual(mapBaziFortuneToZiweiScope({ scope: 'year', year: 2028 }), {
     scope: 'yearly',
-    dateStr: '2028-01-01',
+    dateStr: '2028-07-01',
   });
   assert.deepEqual(mapBaziFortuneToZiweiScope({ scope: 'month', year: 2028, month: 6 }), {
     scope: 'monthly',
@@ -181,6 +183,20 @@ test('parseOptionalNumber 解析可选数字', () => {
   assert.equal(parseOptionalNumber(''), undefined);
   assert.equal(parseOptionalNumber('  '), undefined);
   assert.equal(parseOptionalNumber('invalid'), undefined);
+});
+
+test('紫微页面展示三方四正时应排除本宫并保留 payload 顺序', () => {
+  const palaces = ['命宫', '迁移', '财帛', '官禄'].map((name, index) => ({
+    index,
+    name,
+    surrounded_palace_indexes: index === 0 ? [0, 1, 2, 3, 1] : [],
+  }));
+  const payload = { palaces } as AnalysisPayloadV1;
+
+  assert.deepEqual(
+    getZiweiDisplaySurroundedPalaces(payload, payload.palaces[0]).map((palace) => palace.name),
+    ['迁移', '财帛', '官禄'],
+  );
 });
 
 test('resolveCompatType 解析合盘类型', () => {

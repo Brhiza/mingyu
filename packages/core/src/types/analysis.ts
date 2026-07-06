@@ -136,52 +136,101 @@ export type PatternFact = {
 };
 
 export interface DayRootItem {
-  pillar: string; branch: string; stem: string; tenGod: string;
-  strength: '本气' | '中气' | '余气'; score: number;
+  pillar: string;
+  branch: string;
+  stem: string;
+  tenGod: string;
+  strength: '本气' | '中气' | '余气';
+  score: number;
 }
 export interface DayRootProfile {
-  status: '有根' | '弱根' | '无根'; score: number; items: DayRootItem[]; summary: string;
+  status: '有根' | '弱根' | '无根';
+  score: number;
+  items: DayRootItem[];
+  summary: string;
 }
 export interface StemRootItem {
-  pillar: string; branch: string; stem: string; tenGod: string;
-  strength: '本气' | '中气' | '余气'; score: number;
+  pillar: string;
+  branch: string;
+  stem: string;
+  tenGod: string;
+  strength: '本气' | '中气' | '余气';
+  score: number;
 }
 export interface VisibleStemRootItem {
-  pillar: string; stem: string; tenGod: string; rootScore: number;
-  status: '有本根' | '有同气根' | '无根'; summary: string;
+  pillar: string;
+  stem: string;
+  tenGod: string;
+  rootScore: number;
+  status: '有本根' | '有同气根' | '无根';
+  summary: string;
 }
 export interface StemRootProfile {
-  items: VisibleStemRootItem[]; rootedCount: number; summary: string;
+  items: VisibleStemRootItem[];
+  rootedCount: number;
+  summary: string;
 }
 export interface ExposedStemItem {
-  pillar: string; stem: string; tenGod: string; seasonStatus: string;
-  commandStatus: string; rootStatus: string; rootScore: number; summary: string;
+  pillar: string;
+  stem: string;
+  tenGod: string;
+  seasonStatus: string;
+  commandStatus: string;
+  rootStatus: string;
+  rootScore: number;
+  summary: string;
 }
 export interface ExposedStemProfile {
-  items: ExposedStemItem[]; summary: string;
+  items: ExposedStemItem[];
+  summary: string;
 }
 export interface TenGodDistributionItem {
-  tenGod: string; visibleCount: number; hiddenCount: number;
-  totalCount: number; score: number; status: string;
+  tenGod: string;
+  visibleCount: number;
+  hiddenCount: number;
+  totalCount: number;
+  score: number;
+  status: string;
 }
 export interface TenGodStructureProfile {
   distributions: TenGodDistributionItem[];
-  familyDistributions: Array<{ family: string; totalCount: number; score: number; status: string; }>;
+  familyDistributions: Array<{ family: string; totalCount: number; score: number; status: string }>;
   summary: string;
 }
-export interface TenGodFlowItem { name: string; description: string; caution: string; }
-export interface TenGodFlowProfile { items: TenGodFlowItem[]; summary: string; }
+export interface TenGodFlowItem {
+  name: string;
+  description: string;
+  caution: string;
+}
+export interface TenGodFlowProfile {
+  items: TenGodFlowItem[];
+  summary: string;
+}
 export interface MonthQiElementItem {
-  element: string; seasonStatus: string; score: number; percent: number; count: number; summary: string;
+  element: string;
+  seasonStatus: string;
+  score: number;
+  percent: number;
+  count: number;
+  summary: string;
 }
 export interface MonthQiProfile {
-  commanderStem: string; leadingElements: string[]; items: MonthQiElementItem[]; summary: string;
+  commanderStem: string;
+  leadingElements: string[];
+  items: MonthQiElementItem[];
+  summary: string;
 }
 export interface RelationStructureItem {
-  category: string; name: string; element?: string; pillars: string[]; values: string[]; evidence: string;
+  category: string;
+  name: string;
+  element?: string;
+  pillars: string[];
+  values: string[];
+  evidence: string;
 }
 export interface RelationStructureProfile {
-  items: RelationStructureItem[]; summary: string;
+  items: RelationStructureItem[];
+  summary: string;
 }
 export type HarmonyTransformLevel = '完全合化' | '大部分化' | '半化半绊' | '合而不化' | '纯粹牵绊';
 export type HarmonyTransformType = '天干五合' | '地支六合';
@@ -205,29 +254,77 @@ export interface HarmonyTransformProfile {
   consequences: string[];
 }
 export interface UsefulGodPlacementItem {
-  pillar: string; branch?: string; stem: string; tenGod: string;
-  status: '喜神得力' | '喜神受制' | '忌神受制' | '忌神猖獗' | '中性'; evidence: string;
+  pillar: string;
+  branch?: string;
+  stem: string;
+  tenGod: string;
+  status: '喜神得力' | '喜神受制' | '忌神受制' | '忌神猖獗' | '中性';
+  evidence: string;
 }
 export interface UsefulGodPlacementProfile {
-  items: UsefulGodPlacementItem[]; favorableCount: number; unfavorableCount: number; summary: string;
-}
-export interface TenGodLifeStageItem {
-  stem: string; tenGod: string; strongCount: number; lowCount: number; summary: string;
-}
-export interface TenGodLifeStageProfile { items: TenGodLifeStageItem[]; summary: string; }
-export interface TombStorageItem {
-  branch: string; storageElement: string; storageStem: string; storageTenGod: string; isDayMasterTomb: boolean;
-}
-export interface TombStorageProfile { items: TombStorageItem[]; summary: string; }
-export interface KongWangFillableItem { fillType: string; condition: string; }
-export interface KongWangProfile {
-  items: Array<{ pillar: string; emptyBranches: string[]; isEmpty: boolean; fillableItems?: KongWangFillableItem[]; }>;
+  items: UsefulGodPlacementItem[];
+  favorableCount: number;
+  unfavorableCount: number;
   summary: string;
 }
-export interface NayinItem { pillar: string; ganZhi: string; nayin: string; element: string; }
-export interface NayinProfile { items: NayinItem[]; summary: string; }
-export interface MingGuaProfile { number: number; gua: string; star: string; element: string; eastWest: '东四命' | '西四命'; }
-export interface XiaoYunItem { age: number; year: number; ganZhi: string; tenGod: string; }
+export interface TenGodLifeStageItem {
+  stem: string;
+  tenGod: string;
+  strongCount: number;
+  lowCount: number;
+  summary: string;
+}
+export interface TenGodLifeStageProfile {
+  items: TenGodLifeStageItem[];
+  summary: string;
+}
+export interface TombStorageItem {
+  branch: string;
+  storageElement: string;
+  storageStem: string;
+  storageTenGod: string;
+  isDayMasterTomb: boolean;
+}
+export interface TombStorageProfile {
+  items: TombStorageItem[];
+  summary: string;
+}
+export interface KongWangFillableItem {
+  fillType: string;
+  condition: string;
+}
+export interface KongWangProfile {
+  items: Array<{
+    pillar: string;
+    emptyBranches: string[];
+    isEmpty: boolean;
+    fillableItems?: KongWangFillableItem[];
+  }>;
+  summary: string;
+}
+export interface NayinItem {
+  pillar: string;
+  ganZhi: string;
+  nayin: string;
+  element: string;
+}
+export interface NayinProfile {
+  items: NayinItem[];
+  summary: string;
+}
+export interface MingGuaProfile {
+  number: number;
+  gua: string;
+  star: string;
+  element: string;
+  eastWest: '东四命' | '西四命';
+}
+export interface XiaoYunItem {
+  age: number;
+  year: number;
+  ganZhi: string;
+  tenGod: string;
+}
 export interface XiaoYunProfile {
   startAge: number;
   startGanZhi: string;
@@ -235,4 +332,7 @@ export interface XiaoYunProfile {
   items: XiaoYunItem[];
   summary: string;
 }
-export interface LuckDirectionProfile { direction: '顺行' | '逆行'; summary: string; }
+export interface LuckDirectionProfile {
+  direction: '顺行' | '逆行';
+  summary: string;
+}

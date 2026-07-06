@@ -1,25 +1,26 @@
 import { HIDDEN_STEMS, NAYIN_MAP, TWELVE_STAGES_MAP } from './baziDefinitions';
 export { calculateKongWang } from './kongWang';
-import { getTenGod } from './baziUtils';
-import type {
-  HiddenStems,
-  Nayin,
-  PillarLifeStages,
-  Pillars,
-  ZiZuoResult,
-} from './baziTypes';
+import { assertHeavenlyStem, assertPillars, getTenGod } from './baziUtils';
+import type { HiddenStems, Nayin, PillarLifeStages, Pillars, ZiZuoResult } from './baziTypes';
 
 export function calculatePillarLifeStages(pillars: Pillars): PillarLifeStages {
+  assertPillars(pillars);
   const result = {} as PillarLifeStages;
   (Object.keys(pillars) as Array<keyof Pillars>).forEach((key) => {
     const pillar = pillars[key];
-    const stageMapForGan = TWELVE_STAGES_MAP[pillar.gan] || {};
-    result[key] = stageMapForGan[pillar.zhi] || '未知';
+    const stage = TWELVE_STAGES_MAP[pillar.gan]?.[pillar.zhi];
+    if (!stage) {
+      throw new Error(`${key}柱十二长生数据缺失：${pillar.gan}${pillar.zhi}`);
+    }
+    result[key] = stage;
   });
   return result;
 }
 
 export function calculateTenGods(pillars: Pillars, dayMaster: string): Record<string, string> {
+  assertPillars(pillars);
+  assertHeavenlyStem(dayMaster, '日主');
+
   return Object.fromEntries(
     Object.entries(pillars).map(([pillar, { gan }]) => {
       if (pillar === 'day') {
@@ -31,9 +32,14 @@ export function calculateTenGods(pillars: Pillars, dayMaster: string): Record<st
 }
 
 export function calculateHiddenStems(pillars: Pillars): HiddenStems {
+  assertPillars(pillars);
   const result = {} as HiddenStems;
   (Object.keys(pillars) as Array<keyof Pillars>).forEach((key) => {
-    result[key] = HIDDEN_STEMS[pillars[key].zhi] || [];
+    const stems = HIDDEN_STEMS[pillars[key].zhi];
+    if (!stems) {
+      throw new Error(`${key}柱藏干数据缺失：${pillars[key].zhi}`);
+    }
+    result[key] = stems;
   });
   return result;
 }
@@ -42,26 +48,46 @@ export function calculateHiddenTenGods(
   hiddenStems: HiddenStems,
   dayMaster: string,
 ): Record<string, string[]> {
+  assertHeavenlyStem(dayMaster, '日主');
+
   return Object.fromEntries(
     Object.entries(hiddenStems).map(([pillar, stems]) => [
       pillar,
-      stems.map((stem: string) => getTenGod(stem, dayMaster)),
+      stems.map((stem: string) => {
+        assertHeavenlyStem(stem, `${pillar}柱藏干`);
+        return getTenGod(stem, dayMaster);
+      }),
     ]),
   );
 }
 
 export function calculateLifeStages(pillars: Pillars, dayMaster: string): Record<string, string> {
-  const stageMap = TWELVE_STAGES_MAP[dayMaster] || {};
+  assertPillars(pillars);
+  assertHeavenlyStem(dayMaster, '日主');
+
+  const stageMap = TWELVE_STAGES_MAP[dayMaster];
   return Object.fromEntries(
-    Object.entries(pillars).map(([pillar, { zhi }]) => [pillar, stageMap[zhi] || '未知']),
+    Object.entries(pillars).map(([pillar, { zhi }]) => {
+      const stage = stageMap[zhi];
+      if (!stage) {
+        throw new Error(`${pillar}柱十二长生数据缺失：${dayMaster}${zhi}`);
+      }
+      return [pillar, stage];
+    }),
   );
 }
 
 export function calculateNayin(pillars: Pillars): Nayin {
+  assertPillars(pillars);
   const result = {} as Nayin;
   (Object.keys(pillars) as Array<keyof Pillars>).forEach((key) => {
     const pillar = pillars[key];
-    result[key] = NAYIN_MAP[pillar.gan + pillar.zhi] || '未知';
+    const ganZhi = pillar.gan + pillar.zhi;
+    const nayin = NAYIN_MAP[ganZhi];
+    if (!nayin) {
+      throw new Error(`${key}柱纳音数据缺失：${ganZhi}`);
+    }
+    result[key] = nayin;
   });
   return result;
 }

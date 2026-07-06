@@ -118,3 +118,31 @@ test('格式化输出应保留评分明细，非法组合应抛出错误', () =>
   assert.throws(() => assessStemHarmonyTransform('甲', '年柱', '乙', '日柱', '戌', pillars));
   assert.throws(() => assessBranchHarmonyTransform('子', '年柱', '寅', '日柱', '戌', pillars));
 });
+
+test('合化评分应拒绝非法干支和藏干，不应生成未知月令证据', () => {
+  const pillars = [
+    createPillar('年柱', '甲', '辰', ['戊', '乙', '癸']),
+    createPillar('月柱', '己', '戌', ['戊', '辛', '丁']),
+    createPillar('日柱', '乙', '丑', ['己', '癸', '辛']),
+    createPillar('时柱', '戊', '午', ['丁', '己']),
+  ];
+
+  assert.throws(
+    () => assessStemHarmonyTransform('风', '年柱', '己', '月柱', '戌', pillars),
+    /年柱天干无效/,
+  );
+  assert.throws(
+    () => assessStemHarmonyTransform('甲', '年柱', '己', '月柱', '风', pillars),
+    /月支无效/,
+  );
+  assert.throws(
+    () =>
+      assessAllHarmonyTransforms([
+        createPillar('年柱', '甲', '辰', ['戊', '乙', '癸']),
+        createPillar('月柱', '己', '戌', ['风']),
+        createPillar('日柱', '乙', '丑', ['己', '癸', '辛']),
+        createPillar('时柱', '戊', '午', ['丁', '己']),
+      ]),
+    /月柱藏干无效/,
+  );
+});

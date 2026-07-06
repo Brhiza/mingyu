@@ -242,8 +242,13 @@ export const BRANCH_HIDDEN_STEMS: Record<string, string[]> = {
 
 /** 地支所藏本气（主气） */
 export function getHiddenMainStem(branch: string): string {
+  assertBranch(branch);
   const stems = BRANCH_HIDDEN_STEMS[branch];
-  return stems?.[0] || '';
+  const stem = stems?.[0];
+  if (!stem) {
+    throw new Error(`地支藏干数据缺失：${branch}`);
+  }
+  return stem;
 }
 
 /** 地支所藏中气（次气） */
@@ -327,6 +332,20 @@ const KE_MAP: Record<string, string> = {
   金: '木',
 };
 
+const WUXING_VALUES = ['木', '火', '土', '金', '水'] as const;
+
+function assertBranch(branch: string, label = '地支'): void {
+  if (!BRANCH_ORDER.includes(branch)) {
+    throw new Error(`${label}无效：${branch}`);
+  }
+}
+
+function assertWuxing(wuxing: string, label = '五行'): void {
+  if (!(WUXING_VALUES as readonly string[]).includes(wuxing)) {
+    throw new Error(`${label}无效：${wuxing}`);
+  }
+}
+
 /**
  * 按《增删卜易》月令提纲定五行旺相休囚死：
  * 旺=同令，相=令生我，休=我生令，囚=我克令，死=令克我。
@@ -334,21 +353,28 @@ const KE_MAP: Record<string, string> = {
 export function getSeasonState(
   yaoWuxing: string,
   monthBranch: string,
-): '旺' | '相' | '休' | '囚' | '死' | '平' {
+): '旺' | '相' | '休' | '囚' | '死' {
+  assertWuxing(yaoWuxing, '爻五行');
+  assertBranch(monthBranch, '月支');
   const lingWuxing = MONTH_LING_WUXING[monthBranch];
-  if (!lingWuxing || !yaoWuxing) {
-    return '平';
+  if (!lingWuxing) {
+    throw new Error(`月令五行数据缺失：${monthBranch}`);
   }
   if (lingWuxing === yaoWuxing) return '旺';
   if (isSheng(lingWuxing, yaoWuxing)) return '相';
   if (isSheng(yaoWuxing, lingWuxing)) return '休';
   if (isKe(yaoWuxing, lingWuxing)) return '囚';
   if (isKe(lingWuxing, yaoWuxing)) return '死';
-  return '平';
+  throw new Error(`月令旺衰关系无法判断：${monthBranch}/${yaoWuxing}`);
 }
 
 export function getBranchWuxing(branch: string): string {
-  return BRANCH_WUXING[branch] || '';
+  assertBranch(branch);
+  const wuxing = BRANCH_WUXING[branch];
+  if (!wuxing) {
+    throw new Error(`地支五行数据缺失：${branch}`);
+  }
+  return wuxing;
 }
 
 export function isSheng(source: string, target: string): boolean {
@@ -421,6 +447,7 @@ export function getTianGanHeWuxing(stem: string): string | null {
 
 /** 检查地支是否为驿马（寅午戌年马在申等） */
 export function getYiMa(yearBranch: string): string {
+  assertBranch(yearBranch, '年支');
   const map: Record<string, string> = {
     寅: '申',
     午: '申',
@@ -435,11 +462,16 @@ export function getYiMa(yearBranch: string): string {
     卯: '巳',
     未: '巳',
   };
-  return map[yearBranch] || '';
+  const branch = map[yearBranch];
+  if (!branch) {
+    throw new Error(`驿马数据缺失：${yearBranch}`);
+  }
+  return branch;
 }
 
 /** 检查地支是否为桃花（寅午戌年卯等） */
 export function getTaoHua(yearBranch: string): string {
+  assertBranch(yearBranch, '年支');
   const map: Record<string, string> = {
     寅: '卯',
     午: '卯',
@@ -454,12 +486,21 @@ export function getTaoHua(yearBranch: string): string {
     卯: '子',
     未: '子',
   };
-  return map[yearBranch] || '';
+  const branch = map[yearBranch];
+  if (!branch) {
+    throw new Error(`桃花数据缺失：${yearBranch}`);
+  }
+  return branch;
 }
 
 /** 获取地支对冲（对宫位） */
 export function getOppositeBranch(branch: string): string {
-  return LIUCHONG_MAP[branch] || branch;
+  assertBranch(branch);
+  const opposite = LIUCHONG_MAP[branch];
+  if (!opposite) {
+    throw new Error(`地支对冲数据缺失：${branch}`);
+  }
+  return opposite;
 }
 
 /**
@@ -469,6 +510,7 @@ export function getOppositeBranch(branch: string): string {
  * @returns 长生地支
  */
 export function getWuxingChangSheng(wuxing: string): string {
+  assertWuxing(wuxing);
   const map: Record<string, string> = {
     木: '亥',
     火: '寅',
@@ -476,5 +518,9 @@ export function getWuxingChangSheng(wuxing: string): string {
     金: '巳',
     水: '申',
   };
-  return map[wuxing] || '';
+  const branch = map[wuxing];
+  if (!branch) {
+    throw new Error(`五行长生数据缺失：${wuxing}`);
+  }
+  return branch;
 }

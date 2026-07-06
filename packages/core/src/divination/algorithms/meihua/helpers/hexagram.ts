@@ -11,6 +11,10 @@ const hexagrams = hexagramsData.map((hex) => ({
 export function resolveTiYongByMovingYao<
   T extends { name: string; element: string; nature: string },
 >(upper: T, lower: T, movingYaoIndex: number) {
+  if (!Number.isInteger(movingYaoIndex) || movingYaoIndex < 1 || movingYaoIndex > 6) {
+    throw new Error(`动爻位置必须在 1-6 之间，当前为 ${movingYaoIndex}。`);
+  }
+
   if (movingYaoIndex > 3) {
     return {
       tiGua: lower,
@@ -31,9 +35,15 @@ export function resolveTiYongByMovingYao<
  * @returns 对应的大成卦对象
  */
 export function findHexagramByTrigrams(upper: number, lower: number) {
-  // 使用模运算确保索引在有效范围内
-  const upperIndex = ((upper - 1) % 8) + 1;
-  const lowerIndex = ((lower - 1) % 8) + 1;
+  if (!Number.isInteger(upper) || upper < 1 || upper > 8) {
+    throw new Error(`上卦索引必须在 1-8 之间，当前为 ${upper}。`);
+  }
+  if (!Number.isInteger(lower) || lower < 1 || lower > 8) {
+    throw new Error(`下卦索引必须在 1-8 之间，当前为 ${lower}。`);
+  }
+
+  const upperIndex = upper;
+  const lowerIndex = lower;
 
   const upperTrigram = trigramsByIndex[upperIndex];
   const lowerTrigram = trigramsByIndex[lowerIndex];

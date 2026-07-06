@@ -154,7 +154,11 @@ function getHourLabel(hourIndex: number) {
     '晚子时',
   ];
 
-  return labels[hourIndex] || '未知时辰';
+  const label = labels[hourIndex];
+  if (!label) {
+    throw new Error(`小六壬时辰索引无效：${hourIndex}`);
+  }
+  return label;
 }
 
 function buildQuestionHint(primary: XiaoliurenPalaceDetail) {
@@ -201,6 +205,10 @@ export function generateXiaoliuren(params?: {
   customDate?: Date;
 }): XiaoliurenData {
   const method = params?.method ?? 'time';
+  if (!Object.hasOwn(XIAOLIUREN_METHOD_LABEL_MAP, method)) {
+    throw new Error(`未知的小六壬起课方式: ${method}`);
+  }
+
   const { ganzhi, timeInfo, timestamp } = getDivinationTime(params?.customDate);
   const lunarMonth = timeInfo.lunar.monthNumber;
   const lunarDay = timeInfo.lunar.dayNumber;
@@ -215,8 +223,8 @@ export function generateXiaoliuren(params?: {
 
   if (method === 'number') {
     const inputNumber = params?.number;
-    if (typeof inputNumber !== 'number' || !Number.isInteger(inputNumber) || inputNumber <= 0) {
-      throw new Error('小六壬数字起课必须提供正整数');
+    if (typeof inputNumber !== 'number' || !Number.isSafeInteger(inputNumber) || inputNumber <= 0) {
+      throw new Error('小六壬数字起课必须提供安全范围内的正整数');
     }
     startSeed = inputNumber;
     processSeed = inputNumber + lunarDay - 1;
@@ -242,8 +250,14 @@ export function generateXiaoliuren(params?: {
     水: { 水: '比和', 土: '被克', 金: '得生', 木: '所生', 火: '所克' },
     土: { 土: '比和', 木: '被克', 火: '得生', 金: '所生', 水: '所克' },
   };
-  const startToProcess = elementRelations[start.element]?.[process.element] || '无关系';
-  const processToResult = elementRelations[process.element]?.[result.element] || '无关系';
+  const startToProcess = elementRelations[start.element]?.[process.element];
+  const processToResult = elementRelations[process.element]?.[result.element];
+  if (!startToProcess) {
+    throw new Error(`小六壬无法判断${start.element}与${process.element}的五行关系。`);
+  }
+  if (!processToResult) {
+    throw new Error(`小六壬无法判断${process.element}与${result.element}的五行关系。`);
+  }
   const wuXingDesc = [
     startToProcess === '比和' ? '起因与过程平稳衔接' : '',
     startToProcess === '得生' ? '过程回生起因，推进中有反哺助力' : '',

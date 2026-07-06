@@ -375,7 +375,7 @@ test('八字经典格局应识别子午双包格的两子与子午各二条件',
   const twoZiPillars = {
     year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
     month: { gan: '丙', zhi: '申', ganZhi: '丙申' },
-    day: { gan: '甲', zhi: '未', ganZhi: '甲未' },
+    day: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
     hour: { gan: '壬', zhi: '子', ganZhi: '壬子' },
   };
   const ziWuBothPillars = {
@@ -387,7 +387,7 @@ test('八字经典格局应识别子午双包格的两子与子午各二条件',
   const hiddenStems = {
     year: ['癸'],
     month: ['庚', '壬', '戊'],
-    day: ['己', '丁', '乙'],
+    day: ['戊', '乙', '癸'],
     hour: ['癸'],
   };
   const ziWuHiddenStems = {
@@ -422,7 +422,7 @@ test('八字经典外格应按古籍口径限制关键成格条件', () => {
       '子',
       {
         year: { gan: '甲', zhi: '申', ganZhi: '甲申' },
-        month: { gan: '乙', zhi: '子', ganZhi: '乙子' },
+        month: { gan: '甲', zhi: '子', ganZhi: '甲子' },
         day: { gan: '庚', zhi: '辰', ganZhi: '庚辰' },
         hour: { gan: '辛', zhi: '卯', ganZhi: '辛卯' },
       },

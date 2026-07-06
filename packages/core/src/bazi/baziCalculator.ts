@@ -14,6 +14,9 @@ import {
   getTenGodForBranch,
   getSeasonStatus,
   getShenShaType,
+  assertBaziGender,
+  assertEarthlyBranch,
+  assertHeavenlyStem,
 } from './baziUtils';
 import {
   calculateHiddenStems,
@@ -94,6 +97,8 @@ export class BaziCalculator {
    * @param dayMaster 日主
    */
   public getTenGod(gan: string, dayMaster: string): string {
+    assertHeavenlyStem(gan, '目标天干');
+    assertHeavenlyStem(dayMaster, '日主');
     return getTenGod(gan, dayMaster);
   }
 
@@ -103,6 +108,8 @@ export class BaziCalculator {
    * @param dayMaster 日主
    */
   public getTenGodForBranch(zhi: string, dayMaster: string): string {
+    assertEarthlyBranch(zhi, '目标地支');
+    assertHeavenlyStem(dayMaster, '日主');
     return getTenGodForBranch(zhi, dayMaster);
   }
 
@@ -125,25 +132,55 @@ export class BaziCalculator {
       birthPlace,
       birthLongitude,
     } = person;
+    if (typeof isLunar !== 'undefined' && typeof isLunar !== 'boolean') {
+      throw new Error('isLunar 必须是布尔值。');
+    }
+    if (typeof isLeapMonth !== 'undefined' && typeof isLeapMonth !== 'boolean') {
+      throw new Error('isLeapMonth 必须是布尔值。');
+    }
+    if (typeof useTrueSolarTime !== 'undefined' && typeof useTrueSolarTime !== 'boolean') {
+      throw new Error('useTrueSolarTime 必须是布尔值。');
+    }
+    if (typeof person.applyChinaDst !== 'undefined' && typeof person.applyChinaDst !== 'boolean') {
+      throw new Error('applyChinaDst 必须是布尔值。');
+    }
+
+    assertBaziGender(gender);
+
+    const useTrueSolarTimeEnabled = useTrueSolarTime === true;
+    const isLunarEnabled = isLunar === true;
+    const isLeapMonthEnabled = isLeapMonth === true;
     const selectedTimeInfo = this.timeMap[timeIndex];
-    if (!useTrueSolarTime && !selectedTimeInfo) {
+    if (!useTrueSolarTimeEnabled && !Number.isInteger(timeIndex)) {
+      throw new Error('无效的时辰索引');
+    }
+    if (!useTrueSolarTimeEnabled && !selectedTimeInfo) {
       throw new Error('无效的时辰索引');
     }
     if (
-      useTrueSolarTime &&
+      useTrueSolarTimeEnabled &&
       (typeof birthHour !== 'number' ||
         typeof birthMinute !== 'number' ||
         typeof birthLongitude !== 'number')
     ) {
       throw new Error('真太阳时缺少精准时间或经度');
     }
-    if (useTrueSolarTime && (birthHour! < 0 || birthHour! > 23)) {
+    if (
+      useTrueSolarTimeEnabled &&
+      (!Number.isInteger(birthHour) || birthHour! < 0 || birthHour! > 23)
+    ) {
       throw new Error('出生小时需在 0-23 之间。');
     }
-    if (useTrueSolarTime && (birthMinute! < 0 || birthMinute! > 59)) {
+    if (
+      useTrueSolarTimeEnabled &&
+      (!Number.isInteger(birthMinute) || birthMinute! < 0 || birthMinute! > 59)
+    ) {
       throw new Error('出生分钟需在 0-59 之间。');
     }
-    if (useTrueSolarTime && (birthLongitude! < -180 || birthLongitude! > 180)) {
+    if (
+      useTrueSolarTimeEnabled &&
+      (!Number.isFinite(birthLongitude) || birthLongitude! < -180 || birthLongitude! > 180)
+    ) {
       throw new Error('出生经度需在 -180 到 180 之间。');
     }
     if (!Number.isInteger(year) || year < 1900 || year > 2100) {
@@ -160,8 +197,8 @@ export class BaziCalculator {
       year,
       month,
       day,
-      dateType: isLunar ? 'lunar' : 'solar',
-      isLeapMonth,
+      dateType: isLunarEnabled ? 'lunar' : 'solar',
+      isLeapMonth: isLeapMonthEnabled,
     });
     if (validationMessage) {
       throw new Error(validationMessage);
@@ -171,12 +208,12 @@ export class BaziCalculator {
     let solarTime: SolarTimeInstance;
     let lunarHour: LunarHourInstance;
     let timing: TimingInfo | undefined;
-    const baseHour = useTrueSolarTime ? birthHour! : selectedTimeInfo!.hour;
-    const baseMinute = useTrueSolarTime ? birthMinute! : 0;
+    const baseHour = useTrueSolarTimeEnabled ? birthHour! : selectedTimeInfo!.hour;
+    const baseMinute = useTrueSolarTimeEnabled ? birthMinute! : 0;
 
-    if (isLunar) {
+    if (isLunarEnabled) {
       // 如果选择农历，使用 LunarHour.fromYmdHms() 创建，然后转换为 SolarTime
-      const lunarMonth = isLeapMonth ? -Math.abs(month) : month;
+      const lunarMonth = isLeapMonthEnabled ? -Math.abs(month) : month;
       lunarHour = LunarHour.fromYmdHms(year, lunarMonth, day, baseHour, baseMinute, 0);
       solarTime = lunarHour.getSolarTime();
     } else {
@@ -188,7 +225,7 @@ export class BaziCalculator {
     const applyChinaDst = person.applyChinaDst !== false;
     const warnings: string[] = [];
 
-    if (useTrueSolarTime) {
+    if (useTrueSolarTimeEnabled) {
       const standardTime = {
         year: solarTime.getYear(),
         month: solarTime.getMonth(),
@@ -559,16 +596,13 @@ export class BaziCalculator {
     if (!yearData?.ganZhi || !baziResult?.pillars) {
       return { lucky: [], unlucky: [], neutral: [] };
     }
-    try {
-      return getCategorizedYearShenSha(
-        yearData,
-        baziResult,
-        (baziArray, gender) => this.shenShaCalculator.calculateAllShenSha(baziArray, gender),
-        getShenShaType,
-      );
-    } catch (_error) {
-      return { lucky: [], unlucky: [], neutral: [] };
-    }
+
+    return getCategorizedYearShenSha(
+      yearData,
+      baziResult,
+      (baziArray, gender) => this.shenShaCalculator.calculateAllShenSha(baziArray, gender),
+      getShenShaType,
+    );
   }
 
   private getTimeInfoFromClock(hour: number, minute: number): TimeInfo {

@@ -13,6 +13,7 @@ function getPromptTimeCacheKey(date: Date) {
     date.getDate(),
     date.getHours(),
     date.getMinutes(),
+    date.getSeconds(),
   ].join('-');
 }
 
@@ -27,13 +28,14 @@ function formatPromptGanzhiCalendar(date: Date) {
   );
   const lunarHour = solarTime.getLunarHour();
   const lunarDay = lunarHour.getLunarDay();
+  const eightChar = lunarHour.getEightChar();
   const lunarText = lunarDay.toString().replace(/^农历/, '');
   const lunarHourText = lunarHour.toString().replace(/^农历/, '');
   const hourLabel = lunarHourText.slice(-2);
 
   return [
     `农历：${lunarText} ${hourLabel}`,
-    `干支历：${lunarHour.getYearSixtyCycle()}年 ${lunarHour.getMonthSixtyCycle()}月 ${lunarDay.getSixtyCycle()}日 ${lunarHour.getSixtyCycle()}时`,
+    `干支历：${eightChar.getYear().getName()}年 ${eightChar.getMonth().getName()}月 ${eightChar.getDay().getName()}日 ${eightChar.getHour().getName()}时`,
     `当前节气：${solarTime.getTerm().getName()}`,
   ].join('\n');
 }

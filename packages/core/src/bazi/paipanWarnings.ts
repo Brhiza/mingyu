@@ -39,20 +39,7 @@ export interface BoundaryCheckInput {
   second?: number;
 }
 
-const TIME_BRANCH_NAMES = [
-  '子',
-  '丑',
-  '寅',
-  '卯',
-  '辰',
-  '巳',
-  '午',
-  '未',
-  '申',
-  '酉',
-  '戌',
-  '亥',
-];
+const TIME_BRANCH_NAMES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
 
 function toUtcMs(t: BoundaryCheckInput): number {
   return Date.UTC(t.year, t.month - 1, t.day, t.hour, t.minute, t.second ?? 0);
@@ -132,8 +119,7 @@ export function checkShichenBoundary(t: BoundaryCheckInput): string[] {
   }
 
   // 找到最近的奇数整点
-  const nearestBoundaryMinute =
-    phase <= 60 ? minuteOfDay - phase : minuteOfDay + (120 - phase);
+  const nearestBoundaryMinute = phase <= 60 ? minuteOfDay - phase : minuteOfDay + (120 - phase);
   const boundaryHour = ((Math.round(nearestBoundaryMinute / 60) % 24) + 24) % 24;
   const nextBranch = branchNameStartingAtHour(boundaryHour);
   const prevBranch = TIME_BRANCH_NAMES[(TIME_BRANCH_NAMES.indexOf(nextBranch) + 11) % 12];

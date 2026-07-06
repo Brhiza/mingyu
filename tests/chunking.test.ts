@@ -34,10 +34,7 @@ test('八字运势面板相关模块会进入独立异步分块', () => {
     getManualChunk('D:/project/src/components/BaziFortuneTools/BaziFortuneModal.tsx'),
     'bazi-fortune-ui',
   );
-  assert.equal(
-    getManualChunk('D:/project/packages/core/src/bazi/calendarTool.ts'),
-    'chart-engine',
-  );
+  assert.equal(getManualChunk('D:/project/packages/core/src/bazi/calendarTool.ts'), 'chart-engine');
   assert.equal(
     getManualChunk('D:/project/packages/core/src/bazi/fortuneSelection/index.ts'),
     'chart-engine',

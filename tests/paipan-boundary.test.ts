@@ -9,10 +9,8 @@ import assert from 'node:assert/strict';
 
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { checkChinaDst, isDateInChinaDstRange } from '@core/bazi/chinaDst';
-import {
-  checkJieqiBoundary,
-  checkShichenBoundary,
-} from '@core/bazi/paipanWarnings';
+import { checkJieqiBoundary, checkShichenBoundary } from '@core/bazi/paipanWarnings';
+import { calculateSeasonInfo, getMonthCommander } from '@core/bazi/baziCalculatorTime';
 
 const ganZhi = (p: { gan: string; zhi: string }) => `${p.gan}${p.zhi}`;
 
@@ -237,12 +235,33 @@ test('边界预警:23:00 换日线额外提示流派差异', () => {
 });
 
 test('边界预警:远离边界时不产生预警', () => {
-  assert.deepEqual(
-    checkJieqiBoundary({ year: 2024, month: 6, day: 15, hour: 12, minute: 0 }),
-    [],
-  );
+  assert.deepEqual(checkJieqiBoundary({ year: 2024, month: 6, day: 15, hour: 12, minute: 0 }), []);
   assert.deepEqual(
     checkShichenBoundary({ year: 2024, month: 6, day: 15, hour: 12, minute: 0 }),
     [],
   );
+});
+
+test('核心节气和月令计算异常不应被降级成未知结果', () => {
+  const brokenSolarTime = {
+    getSolarDay() {
+      throw new Error('模拟底层时间错误');
+    },
+    getJulianDay() {
+      throw new Error('模拟底层时间错误');
+    },
+  } as unknown as Parameters<typeof calculateSeasonInfo>[0];
+
+  assert.throws(() => calculateSeasonInfo(brokenSolarTime), /模拟底层时间错误/);
+  assert.throws(() => getMonthCommander(brokenSolarTime, '寅'), /模拟底层时间错误/);
+});
+
+test('八字公开十神助手应拒绝非法干支，不应返回未知后继续使用', () => {
+  assert.equal(baziCalculator.getTenGod('甲', '甲'), '比肩');
+  assert.equal(baziCalculator.getTenGodForBranch('子', '甲'), '正印');
+
+  assert.throws(() => baziCalculator.getTenGod('不存在', '甲'), /目标天干无效/);
+  assert.throws(() => baziCalculator.getTenGod('甲', '不存在'), /日主无效/);
+  assert.throws(() => baziCalculator.getTenGodForBranch('不存在', '甲'), /目标地支无效/);
+  assert.throws(() => baziCalculator.getTenGodForBranch('子', '不存在'), /日主无效/);
 });

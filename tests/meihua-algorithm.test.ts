@@ -2,6 +2,15 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 
 import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index.ts';
+import {
+  findHexagramByTrigrams,
+  resolveTiYongByMovingYao,
+} from '../packages/core/src/divination/algorithms/meihua/helpers/hexagram.ts';
+import {
+  resolveNumberMethod,
+  resolveTimeMethod,
+} from '../packages/core/src/divination/algorithms/meihua/helpers/methods.ts';
+import { MeihuaHelpers } from '../packages/core/src/divination/divination-helpers.ts';
 
 const SAMPLE_DATE = new Date('2025-01-01T08:00:00+08:00');
 
@@ -73,4 +82,84 @@ test('梅花：timeTrigram 兼容入口应回到年月日时起卦', () => {
     ],
   );
   assert.match(String(compatData.calculation.compatibilityNote), /年月日时起卦法/);
+});
+
+test('梅花：年月日时起卦应以农历年支入数，不应在立春后春节前提前换年', () => {
+  const data = generateMeihua(new Date('2024-02-05T12:00:00+08:00'), { method: 'time' });
+
+  assert.equal(data.ganzhi.year, '甲辰');
+  assert.equal(data.calculation.yearZhi, '卯');
+  assert.equal(data.calculation.yearZhiIndex, 4);
+  assert.equal(data.calculation.month, 12);
+  assert.equal(data.calculation.day, 26);
+  assert.equal(data.calculation.timeZhi, '午');
+  assert.equal(data.calculation.timeZhiIndex, 7);
+  assert.equal(data.calculation.upperTrigramIndex, 2);
+  assert.equal(data.calculation.lowerTrigramIndex, 1);
+  assert.equal(data.calculation.movingYaoIndex, 1);
+  assert.equal(data.originalName, '泽天夬');
+  assert.equal(data.changedName, '兑为泽');
+});
+
+test('梅花：未知起卦方式应明确报错，不应静默退回时间卦', () => {
+  assert.throws(
+    () => generateMeihua(SAMPLE_DATE, { method: 'unknown' as never }),
+    /未知的梅花易数起卦方式/,
+  );
+});
+
+test('梅花：数字起卦应拒绝超出安全整数范围的数字', () => {
+  assert.throws(
+    () => generateMeihua(SAMPLE_DATE, { method: 'number', number: Number.MAX_SAFE_INTEGER + 1 }),
+    /安全范围内的正整数/,
+  );
+});
+
+test('梅花：六十四卦查询应拒绝越界八卦索引，不应取模折回', () => {
+  assert.throws(() => findHexagramByTrigrams(9, 1), /上卦索引必须在 1-8 之间/);
+  assert.throws(() => findHexagramByTrigrams(1, 0), /下卦索引必须在 1-8 之间/);
+});
+
+test('梅花：体用判定应拒绝非法动爻位置', () => {
+  const upper = { name: '乾', element: '金', nature: '天' };
+  const lower = { name: '坤', element: '土', nature: '地' };
+
+  assert.throws(() => resolveTiYongByMovingYao(upper, lower, 0), /动爻位置必须在 1-6 之间/);
+  assert.throws(() => resolveTiYongByMovingYao(upper, lower, 7), /动爻位置必须在 1-6 之间/);
+  assert.throws(() => resolveTiYongByMovingYao(upper, lower, 3.5), /动爻位置必须在 1-6 之间/);
+});
+
+test('梅花：按月份取季节应拒绝越界月份，不应默认归入冬季', () => {
+  assert.equal(MeihuaHelpers.getSeasonByMonth(12), '冬');
+  assert.throws(() => MeihuaHelpers.getSeasonByMonth(0), /月份必须是 1-12/);
+  assert.throws(() => MeihuaHelpers.getSeasonByMonth(13), /月份必须是 1-12/);
+});
+
+test('梅花：低层时间起卦应拒绝坏农历月日和坏时支', () => {
+  const validGanzhi = { year: '甲辰', month: '丁丑', day: '庚午', hour: '庚辰' };
+  const validLunar = {
+    yearInChinese: '农历甲辰',
+    monthNumber: 12,
+    dayNumber: 2,
+  } as Parameters<typeof resolveTimeMethod>[1];
+
+  assert.throws(
+    () => resolveTimeMethod(validGanzhi, { ...validLunar, monthNumber: 13 }),
+    /农历月份必须是 1-12/,
+  );
+  assert.throws(
+    () => resolveTimeMethod(validGanzhi, { ...validLunar, dayNumber: 31 }),
+    /农历日期必须是 1-30/,
+  );
+  assert.throws(
+    () => resolveTimeMethod({ ...validGanzhi, hour: '庚A' }, validLunar),
+    /无法识别时支/,
+  );
+  assert.throws(() => resolveNumberMethod(1, 'A'), /数字起卦无法识别起卦时辰/);
+});
+
+test('梅花：五行关系 helper 应拒绝非法五行，不应返回未知', () => {
+  assert.equal(MeihuaHelpers.getElementRelation('火', '木'), '体生用');
+  assert.throws(() => MeihuaHelpers.getElementRelation('', '木'), /用卦五行无效/);
+  assert.throws(() => MeihuaHelpers.getElementSeasonState('风', '春'), /目标五行无效/);
 });

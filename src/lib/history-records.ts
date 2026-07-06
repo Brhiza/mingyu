@@ -45,15 +45,19 @@ export type DivinationHistoryRecord = {
   updatedAt: string;
 };
 
-function readRecords<T extends { name?: unknown }>(key: string): T[] {
+function isObjectRecord(item: unknown): item is Record<string, unknown> {
+  return typeof item === 'object' && item !== null;
+}
+
+function readRecords<T>(
+  key: string,
+  isValidRecord: (item: Record<string, unknown>) => boolean,
+): T[] {
   const parsed = safeStorage.getJSON<unknown>(key, null);
   if (!Array.isArray(parsed)) {
     return [];
   }
-  // 校验每条记录至少含 name 字段且为字符串，过滤损坏/旧版结构数据
-  return parsed.filter(
-    (item): item is T => typeof item === 'object' && item !== null && typeof item.name === 'string',
-  );
+  return parsed.filter((item): item is T => isObjectRecord(item) && isValidRecord(item));
 }
 
 function writeRecords<T>(key: string, records: T[]): boolean {
@@ -196,15 +200,24 @@ function createDivinationHistoryId() {
 }
 
 export function loadPersonalHistory() {
-  return readRecords<PersonalHistoryRecord>(PERSONAL_HISTORY_STORAGE_KEY);
+  return readRecords<PersonalHistoryRecord>(
+    PERSONAL_HISTORY_STORAGE_KEY,
+    (item) => item.type === 'single' && typeof item.name === 'string',
+  );
 }
 
 export function loadCompatibilityHistory() {
-  return readRecords<CompatibilityHistoryRecord>(COMPATIBILITY_HISTORY_STORAGE_KEY);
+  return readRecords<CompatibilityHistoryRecord>(
+    COMPATIBILITY_HISTORY_STORAGE_KEY,
+    (item) => item.type === 'compatibility' && typeof item.name === 'string',
+  );
 }
 
 export function loadDivinationHistory() {
-  return readRecords<DivinationHistoryRecord>(DIVINATION_HISTORY_STORAGE_KEY);
+  return readRecords<DivinationHistoryRecord>(
+    DIVINATION_HISTORY_STORAGE_KEY,
+    (item) => item.type === 'divination' && typeof item.question === 'string',
+  );
 }
 
 export function upsertPersonalHistory(input: QueryInputState) {

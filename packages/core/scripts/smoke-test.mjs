@@ -4,10 +4,12 @@ import { analyzeNayinProfile } from '../dist/bazi/nayinAnalysis.js';
 import { analyzeKongWangProfile } from '../dist/bazi/kongWangAnalysis.js';
 import { buildLuckDirectionProfile } from '../dist/bazi/luckDetails.js';
 
-let pass = 0, fail = 0;
+let pass = 0,
+  fail = 0;
 function check(name, cond) {
   console.log((cond ? '✓ ' : '✗ ') + name);
-  if (cond) pass++; else fail++;
+  if (cond) pass++;
+  else fail++;
 }
 
 // Test 1: 命卦 - 1990 male: 1990%9=1, 11-1=10→normalize=1 → 坎卦
@@ -24,17 +26,24 @@ check('1990女命卦逢5寄艮=8艮', mg3.number === 8 && mg3.gua === '艮');
 
 // Test 4: 纳音
 const nayin = analyzeNayinProfile([
-  { gan: '甲', zhi: '子' }, { gan: '乙', zhi: '丑' },
-  { gan: '丙', zhi: '寅' }, { gan: '丁', zhi: '卯' },
+  { gan: '甲', zhi: '子' },
+  { gan: '乙', zhi: '丑' },
+  { gan: '丙', zhi: '寅' },
+  { gan: '丁', zhi: '卯' },
 ]);
 check('纳音甲子=海中金', nayin.items[0].nayin === '海中金');
 check('纳音丙寅=炉中火', nayin.items[2].nayin === '炉中火');
 
 // Test 5: 空亡 - 甲子日旬空戌亥
-const kw = analyzeKongWangProfile([
-  { gan: '甲', zhi: '子' }, { gan: '丁', zhi: '卯' },
-  { gan: '甲', zhi: '子' }, { gan: '丁', zhi: '卯' },
-], '甲');
+const kw = analyzeKongWangProfile(
+  [
+    { gan: '甲', zhi: '子' },
+    { gan: '丁', zhi: '卯' },
+    { gan: '甲', zhi: '子' },
+    { gan: '丁', zhi: '卯' },
+  ],
+  '甲',
+);
 check('甲子日旬空=戌亥', kw.items[0].emptyBranches.join('') === '戌亥');
 
 // Test 6: 大运方向

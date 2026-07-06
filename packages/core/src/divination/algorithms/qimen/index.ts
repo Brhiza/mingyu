@@ -101,6 +101,12 @@ function isHorseActivated(
   return horsePalace !== undefined && keyPalaces.some((palace) => palace === horsePalace);
 }
 
+function assertQimenScope(scope: QimenScope): void {
+  if (!['hour', 'day', 'month', 'year'].includes(scope)) {
+    throw new Error(`未知的奇门排盘级别: ${String(scope)}`);
+  }
+}
+
 /**
  * 将 ClassicPattern（classic-patterns 模块原始输出）映射为 QimenData 兼容的格式
  *
@@ -212,6 +218,7 @@ export function generateQimen(
   method: QimenMethod = 'zhuanpan',
   scope: QimenScope = 'hour',
 ): QimenData {
+  assertQimenScope(scope);
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 1：获取统一占卜时间信息
   // ──────────────────────────────────────────────────────────────────────────
@@ -356,10 +363,7 @@ export function generateQimen(
     .filter((item) => item.palace === zhiFuLandingPalace)
     .map((item) => item.branch);
   const hasVoid = yingQiVoidBranches.length > 0;
-  const hasHorse = isHorseActivated(horsePalace?.palace, [
-    zhiFuLandingPalace,
-    zhiShiLandingPalace,
-  ]);
+  const hasHorse = isHorseActivated(horsePalace?.palace, [zhiFuLandingPalace, zhiShiLandingPalace]);
   const yingQi = estimateYingQi(jiuGongGe, zhiFuLandingPalace, {
     isFuyin,
     isFanyin,
@@ -454,7 +458,10 @@ function getActiveGanZhi(
 function getJushuForScope(
   scope: QimenScope,
   ganzhi: { year: string; month: string; day: string; hour: string },
-  timeInfo: { solar: { year: number; month: number; day: number }; jieQi: string },
+  timeInfo: {
+    solar: { year: number; month: number; day: number; hour?: number; minute?: number };
+    jieQi: string;
+  },
 ): { isYangDun: boolean; juShu: number; yuan: string; jieQi?: string } {
   switch (scope) {
     case 'year': {
@@ -475,6 +482,8 @@ function getJushuForScope(
           year: timeInfo.solar.year,
           month: timeInfo.solar.month,
           day: timeInfo.solar.day,
+          hour: timeInfo.solar.hour,
+          minute: timeInfo.solar.minute,
         },
       });
     }

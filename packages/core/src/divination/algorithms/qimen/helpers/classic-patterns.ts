@@ -706,7 +706,12 @@ function getSanQiYouLiuYiPatterns(jiuGongGe: QimenJiuGongGe[], zhiFu: string): C
       modern: '今天关键资源能借势转换，适合请托、宴会、协商和争取机会；若同宫得吉门，推进更顺。',
       manifestation: '关键资源转换成助力、请托协商顺利、人情往来得便',
       palace: zhiFuPalace.gong,
-      tokens: [qi, `${config.xunShou}${zhiFuStem}`, `${config.targetXunShou}${config.targetStem}`, zhiFu],
+      tokens: [
+        qi,
+        `${config.xunShou}${zhiFuStem}`,
+        `${config.targetXunShou}${config.targetStem}`,
+        zhiFu,
+      ],
     },
   ];
 }
@@ -834,8 +839,13 @@ function getJiaPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
       );
     }
 
-    if (isWuJiaThingByDu || (door === '伤门' && god === '六合' && wuJiaThingStems.includes(heaven))) {
-      const source = isWuJiaThingByDu ? `丁奇、太阴、杜门下临地盘己于${palace.name}` : `${heaven}、伤门、六合同宫于${palace.name}`;
+    if (
+      isWuJiaThingByDu ||
+      (door === '伤门' && god === '六合' && wuJiaThingStems.includes(heaven))
+    ) {
+      const source = isWuJiaThingByDu
+        ? `丁奇、太阴、杜门下临地盘己于${palace.name}`
+        : `${heaven}、伤门、六合同宫于${palace.name}`;
       pushPattern(
         palace,
         'wuJia',
@@ -1578,7 +1588,8 @@ function getTianFuShiPattern(dayStem: string, hourGanZhi: string): ClassicPatter
       tone: 'good',
       score: 5,
       summary: `${dayStem}日${hourGanZhi}时，日干与时干五合，合《奇门宝鉴御定》五合时；其吉与天辅时同，但宜谋和合、隐秘诸事，不宜专作雪冤解释。`,
-      modern: '今天适合谈合作、修复关系、暗中协调和处理需要保密推进的事情，但不宜只凭此格处理申诉辩白类事务。',
+      modern:
+        '今天适合谈合作、修复关系、暗中协调和处理需要保密推进的事情，但不宜只凭此格处理申诉辩白类事务。',
       manifestation: '和合隐秘、吉神用事',
       tokens: [dayStem, hourGanZhi, hourStem],
     });
@@ -2040,8 +2051,7 @@ export interface PatternContext {
  * @returns 检测到的所有经典格局列表
  */
 export function getClassicPatterns(ctx: PatternContext): ClassicPattern[] {
-  const { jiuGongGe, zhiFu, zhiShi, yearGanZhi, monthGanZhi, dayStem, dayGanZhi, hourGanZhi } =
-    ctx;
+  const { jiuGongGe, zhiFu, zhiShi, yearGanZhi, monthGanZhi, dayStem, dayGanZhi, hourGanZhi } = ctx;
 
   const patterns: ClassicPattern[] = [
     // 1. 九大遁格

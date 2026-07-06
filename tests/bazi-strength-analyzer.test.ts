@@ -10,7 +10,16 @@ import {
 } from '@core/bazi/baziStrengthAnalyzer';
 import { analyzeMonthQiProfile } from '@core/bazi/monthCommand';
 import { getSeasonStatus, getWuxing } from '@core/bazi/baziUtils';
+import { SEASON_STATUS, WUXING_MONTH_WEIGHTS } from '@core/bazi/baziDefinitions';
 import type { Wuxing } from '@core/bazi/baziTypes';
+
+const SEASON_STATUS_RANK: Record<string, number> = {
+  旺: 5,
+  相: 4,
+  休: 3,
+  囚: 2,
+  死: 1,
+};
 
 test('月令司令天干应进入日主旺衰评分，避免辰戌丑未只按月支本气粗断', () => {
   const seasonalStatus = analyzeSeasonalStatus(
@@ -43,6 +52,30 @@ test('月令气数应输出实际分数和占比，并把司令五行列入主�
   assert.ok(profile.leadingElements.includes('木'));
   assert.ok((wood?.count ?? 0) >= 2);
   assert.match(wood?.summary ?? '', /乙司令/);
+});
+
+test('月令气数应拒绝非法月支和司令天干，不应降级成平气', () => {
+  assert.throws(() => analyzeMonthQiProfile('不存在'), /月支无效/);
+  assert.throws(() => analyzeMonthQiProfile('辰', '不存在'), /司令天干无效/);
+});
+
+test('五行月令展示权重应与旺相休囚死顺序一致', () => {
+  Object.entries(SEASON_STATUS).forEach(([monthBranch, statusByElement]) => {
+    const weights = WUXING_MONTH_WEIGHTS[monthBranch];
+
+    Object.entries(statusByElement).forEach(([leftElement, leftStatus]) => {
+      Object.entries(statusByElement).forEach(([rightElement, rightStatus]) => {
+        if (SEASON_STATUS_RANK[leftStatus] <= SEASON_STATUS_RANK[rightStatus]) {
+          return;
+        }
+
+        assert.ok(
+          weights[leftElement] > weights[rightElement],
+          `${monthBranch}月${leftElement}${leftStatus}权重应大于${rightElement}${rightStatus}`,
+        );
+      });
+    });
+  });
 });
 
 test('无根失令但仍有帮扶时，不应直接判为极弱', () => {
@@ -83,7 +116,7 @@ test('印星落在地支主气或藏干时，也应计入帮扶，但不应把�
       year: { gan: '庚', zhi: '申', ganZhi: '庚申' },
       month: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
       day: { gan: '甲', zhi: '午', ganZhi: '甲午' },
-      hour: { gan: '戊', zhi: '亥', ganZhi: '戊亥' },
+      hour: { gan: '辛', zhi: '亥', ganZhi: '辛亥' },
     },
     {
       year: ['庚', '壬', '戊'],
@@ -216,8 +249,8 @@ test('三合三会成局时，旺衰评分应额外计入成局助势，而不�
     {
       year: { gan: '癸', zhi: '亥', ganZhi: '癸亥' },
       month: { gan: '乙', zhi: '卯', ganZhi: '乙卯' },
-      day: { gan: '甲', zhi: '未', ganZhi: '甲未' },
-      hour: { gan: '甲', zhi: '亥', ganZhi: '甲亥' },
+      day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+      hour: { gan: '辛', zhi: '未', ganZhi: '辛未' },
     },
     (value) => {
       const map: Record<string, '木' | '火' | '土' | '金' | '水'> = {
@@ -261,8 +294,8 @@ test('克泄耗一方三合成局时，旺衰评分也应计入成局破势，�
     {
       year: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
       month: { gan: '己', zhi: '丑', ganZhi: '己丑' },
-      day: { gan: '甲', zhi: '巳', ganZhi: '甲巳' },
-      hour: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+      day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+      hour: { gan: '己', zhi: '巳', ganZhi: '己巳' },
     },
     (value) => {
       const map: Record<string, '木' | '火' | '土' | '金' | '水'> = {
@@ -412,4 +445,55 @@ test('克泄耗统计不应把地支主气与同支本气藏干重复计入', ()
   assert.ok(result.constraints.some((item) => item.stem === '酉'));
   assert.ok(!result.constraints.some((item) => item.stem === '申(庚)'));
   assert.ok(!result.constraints.some((item) => item.stem === '酉(辛)'));
+});
+
+test('旺衰分析器应拒绝坏输入，不应把缺失旺衰或未知五行按零分继续计算', () => {
+  assert.throws(
+    () => analyzeSeasonalStatus('甲', '辰', () => ({}), getWuxing as (value: string) => Wuxing),
+    /月令旺衰数据缺失/,
+  );
+  assert.throws(
+    () => analyzeSeasonalStatus('甲', '辰', getSeasonStatus, () => '未知' as Wuxing),
+    /日主五行无效/,
+  );
+  assert.throws(
+    () =>
+      analyzeSupport(
+        '乙',
+        {
+          year: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+          month: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
+          day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+          hour: { gan: '辛', zhi: '亥', ganZhi: '辛亥' },
+        },
+        {
+          year: ['庚', '壬', '戊'],
+          month: ['辛'],
+          day: ['癸'],
+          hour: ['壬', '甲'],
+        },
+        getWuxing as (value: string) => Wuxing,
+      ),
+    /日主与日柱天干不一致/,
+  );
+  assert.throws(
+    () =>
+      analyzeConstraint(
+        '甲',
+        {
+          year: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+          month: { gan: '丙', zhi: '午', ganZhi: '丙午' },
+          day: { gan: '甲', zhi: '寅', ganZhi: '甲寅' },
+          hour: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+        },
+        {
+          year: ['庚', '壬', '戊'],
+          month: ['风'],
+          day: ['甲', '丙', '戊'],
+          hour: ['戊', '乙', '癸'],
+        },
+        getWuxing as (value: string) => Wuxing,
+      ),
+    /month柱藏干无效/,
+  );
 });

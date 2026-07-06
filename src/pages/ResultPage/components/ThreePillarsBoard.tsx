@@ -105,6 +105,13 @@ export const ThreePillarsBoard = memo(function ThreePillarsBoard(props: {
             <h3>三柱盘</h3>
             <p>当前时辰未知，时柱先保留为待反推。</p>
           </div>
+          {profile.timeBoundaryNotes.length > 0 ? (
+            <div className="prompt-send-tip">
+              {profile.timeBoundaryNotes.map((note) => (
+                <p key={note}>{note}</p>
+              ))}
+            </div>
+          ) : null}
           <div className="bazi-pillars-table">
             <div className="bazi-pillars-cell is-label is-head">信息</div>
             <div className="bazi-pillars-cell is-head">年柱</div>

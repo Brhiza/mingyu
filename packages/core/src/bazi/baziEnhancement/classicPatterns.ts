@@ -94,13 +94,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     description: '庚日地支申子辰全，取水局暗冲寅午戌中财官印。忌丙丁巳午填实破局。',
     conditions: {
       dayStems: ['庚'],
-      otherConditions: [
-        '申子辰三合水局',
-        '不见天干丙',
-        '不见天干丁',
-        '不见地支巳',
-        '不见地支午',
-      ],
+      otherConditions: ['申子辰三合水局', '不见天干丙', '不见天干丁', '不见地支巳', '不见地支午'],
     },
     favorableWuxing: ['水', '木'],
     unfavorableWuxing: ['火', '土'],

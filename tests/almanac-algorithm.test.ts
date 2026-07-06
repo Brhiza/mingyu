@@ -97,6 +97,28 @@ test('黄历择日：岁支十二神方位应从年支起太岁顺排', () => {
   assert.equal(day.annualDirectionGods?.find((item) => item.god === '病符')?.fortune, '凶');
 });
 
+test('黄历择日：交节当天年柱月柱按正午精确干支历显示', () => {
+  const lichun = generateAlmanacSelection({
+    topic: 'renovation',
+    startDate: '2024-02-04',
+    endDate: '2024-02-04',
+  }).days[0];
+  const jingzhe = generateAlmanacSelection({
+    topic: 'move',
+    startDate: '2026-03-05',
+    endDate: '2026-03-05',
+  }).days[0];
+
+  assert.deepEqual(lichun.ganzhi, {
+    year: '癸卯',
+    month: '乙丑',
+    day: '戊戌',
+  });
+  assert.equal(lichun.annualDirectionGods?.find((item) => item.god === '太岁')?.branch, '卯');
+  assert.equal(lichun.annualDirectionGods?.find((item) => item.god === '太岁')?.direction, '正东');
+  assert.equal(jingzhe.ganzhi.month, '庚寅');
+});
+
 test('黄历择日：参与人适配应覆盖本命日支刑冲破害', () => {
   const noParticipant = generateAlmanacSelection({
     topic: 'move',
@@ -129,4 +151,128 @@ test('黄历择日：参与人适配应覆盖本命日支刑冲破害', () => {
   assert.match(participantText, /刑日支子（无礼之刑）/);
   assert.ok(day.score < noParticipant.score);
   assert.doesNotMatch(participantText, /未见直接/);
+});
+
+test('黄历择日：空白参与人行可忽略，但半填资料必须报错', () => {
+  const blank = generateAlmanacSelection({
+    topic: 'move',
+    startDate: '2026-06-10',
+    endDate: '2026-06-10',
+    participants: [
+      {
+        id: 'self',
+        name: '本人',
+        gender: '',
+        year: '',
+        month: '',
+        day: '',
+        timeIndex: '',
+        dateType: 'solar',
+        isLeapMonth: false,
+      },
+    ],
+  });
+
+  assert.deepEqual(blank.participants, []);
+  assert.throws(
+    () =>
+      generateAlmanacSelection({
+        topic: 'move',
+        startDate: '2026-06-10',
+        endDate: '2026-06-10',
+        participants: [
+          {
+            id: 'self',
+            name: '本人',
+            gender: '男',
+            year: '1990',
+            month: '',
+            day: '1',
+            timeIndex: '6',
+            dateType: 'solar',
+          },
+        ],
+      }),
+    /参与人出生月份必须是 1-12 的整数/,
+  );
+});
+
+test('黄历择日：完整参与人资料应先校验性别、日历类型和闰月标志', () => {
+  const baseParticipant = {
+    id: 'self',
+    name: '本人',
+    gender: '男',
+    year: '1990',
+    month: '1',
+    day: '1',
+    timeIndex: '6',
+    dateType: 'solar',
+    isLeapMonth: false,
+  } as const;
+  const baseParams = {
+    topic: 'move',
+    startDate: '2026-06-10',
+    endDate: '2026-06-10',
+  } as const;
+
+  assert.throws(
+    () =>
+      generateAlmanacSelection({
+        ...baseParams,
+        participants: [{ ...baseParticipant, gender: '' }],
+      }),
+    /参与人性别必须是 男 或 女/,
+  );
+  assert.throws(
+    () =>
+      generateAlmanacSelection({
+        ...baseParams,
+        participants: [{ ...baseParticipant, dateType: 'gregorian' as never }],
+      }),
+    /参与人日历类型必须是 solar 或 lunar/,
+  );
+  assert.throws(
+    () =>
+      generateAlmanacSelection({
+        ...baseParams,
+        participants: [{ ...baseParticipant, isLeapMonth: 'false' as never }],
+      }),
+    /参与人isLeapMonth必须是布尔值/,
+  );
+});
+
+test('黄历择日：未知事项类型应在入口明确报错，不应进入内部评分', () => {
+  assert.throws(
+    () =>
+      generateAlmanacSelection({
+        topic: 'invalid-topic' as Parameters<typeof generateAlmanacSelection>[0]['topic'],
+        startDate: '2026-06-01',
+        endDate: '2026-06-01',
+      }),
+    /未知的黄历择日事项类型/,
+  );
+});
+
+test('黄历择日：核心算法应限制参与人数量，避免绕过 API 放大计算量', () => {
+  const participants = Array.from({ length: 31 }, (_, index) => ({
+    id: `p-${index + 1}`,
+    name: `参与人${index + 1}`,
+    gender: '男' as const,
+    year: '1990',
+    month: '1',
+    day: '1',
+    timeIndex: '6',
+    dateType: 'solar' as const,
+  }));
+
+  assert.throws(
+    () =>
+      generateAlmanacSelection({
+        topic: 'move',
+        startDate: '2026-06-01',
+        endDate: '2026-06-01',
+        participants,
+      }),
+    /一次最多分析 30 位参与人/,
+  );
 });

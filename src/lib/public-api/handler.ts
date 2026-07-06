@@ -1,6 +1,6 @@
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import type { ShenShaVariantConfig } from '@core/bazi/baziShenSha';
-import type { Person } from '@core/bazi/baziTypes';
+import type { BaziChartResult, Person } from '@core/bazi/baziTypes';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import {
   buildZiweiChartInput,
@@ -29,6 +29,7 @@ import {
 } from '../http/request-body';
 import { ASTROLABE_PROMPT_TOPICS } from '../astrolabe-prompts';
 import type {
+  AlmanacData,
   AlmanacParticipantInput,
   AlmanacTopic,
   AstrolabeBirthInput,
@@ -89,10 +90,31 @@ type ApiFailure = {
 };
 
 type JsonRecord = Record<string, unknown>;
+type AlmanacPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
+};
+type AlmanacApiResult = Omit<AlmanacData, 'days'> & {
+  days: Array<AlmanacData['days'][number] | ReturnType<typeof compactAlmanacDay>>;
+  pagination?: AlmanacPagination;
+};
 
 const SHENSHA_KONG_WANG_BASIS = ['day', 'day-and-year'] as const;
 const SHENSHA_YANG_REN_MODE = ['yang-stems-only', 'include-yin-ren'] as const;
 const SHENSHA_TONG_ZI_SCOPE = ['day-hour', 'all-pillars'] as const;
+const MAX_PUBLIC_API_TEXT_FIELD_LENGTH = 5000;
+const MAX_PUBLIC_API_RESPONSE_BYTES = 1024 * 1024;
+const MAX_ALMANAC_PARTICIPANTS = 30;
+const MAX_ALMANAC_PAGE_SIZE = 31;
+const MAX_COMPACT_QIMEN_CLASSIC_PATTERNS = 8;
+const MAX_COMPACT_QIMEN_PATTERN_COMBOS = 10;
+const MAX_COMPACT_QIMEN_PALACE_INSIGHTS = 9;
+const PROMPT_RESPONSE_MODES = ['summary', 'full', 'prompt-only'] as const;
+const DETAIL_MODES = ['full', 'compact'] as const;
 
 type RouteContext = {
   request: Request;
@@ -154,6 +176,7 @@ function openApiJsonRequestBody(schemaRef: string, required = true) {
 const DIVINATION_REQUEST_PROPERTIES = {
   question: {
     type: 'string',
+    maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH,
     description: '占卜问题。黄历择日接口中可不填；若填写，会作为择日补充信息处理。',
   },
   customDate: {
@@ -212,6 +235,7 @@ const DIVINATION_REQUEST_PROPERTIES = {
   endDate: { type: 'string', format: 'date' },
   participants: {
     type: 'array',
+    maxItems: MAX_ALMANAC_PARTICIPANTS,
     items: {
       type: 'object',
       properties: {
@@ -239,9 +263,30 @@ const DIVINATION_REQUEST_PROPERTIES = {
   locationName: { type: 'string' },
   useTrueSolarTime: { type: 'boolean' },
   astrolabeTopic: { enum: [...ASTROLABE_PROMPT_TOPICS] },
-  astrolabeScopeText: { type: 'string' },
+  astrolabeScopeText: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
   promptMode: { enum: [...PROMPT_MODES] },
   supplementaryInfo: { type: 'object' },
+  responseMode: {
+    enum: [...PROMPT_RESPONSE_MODES],
+    description:
+      '提示词接口返回模式：summary 默认只返回提示词和摘要，full 才返回完整排盘，prompt-only 只返回提示词。',
+  },
+  detailMode: {
+    enum: [...DETAIL_MODES],
+    description:
+      '排盘接口返回细节：full 返回完整结构；compact 返回轻量摘要，适合自动化和多次分页请求。',
+  },
+  page: {
+    type: 'integer',
+    minimum: 1,
+    description: '黄历择日结果分页页码；不传时保持旧行为返回全部日期。',
+  },
+  pageSize: {
+    type: 'integer',
+    minimum: 1,
+    maximum: MAX_ALMANAC_PAGE_SIZE,
+    description: '黄历择日分页每页数量，最多 31 天。',
+  },
 };
 
 export function getPublicApiOpenApiDocument(
@@ -499,7 +544,8 @@ export function getPublicApiOpenApiDocument(
               type: 'integer',
               minimum: 0,
               maximum: 12,
-              description: '时辰索引（0-12）。启用真太阳时（useTrueSolarTime=true）时可省略，将从 birthHour/birthMinute 推导。',
+              description:
+                '时辰索引（0-12）。启用真太阳时（useTrueSolarTime=true）时可省略，将从 birthHour/birthMinute 推导。',
             },
             dateType: { enum: ['solar', 'lunar'] },
             isLeapMonth: { type: 'boolean' },
@@ -509,6 +555,7 @@ export function getPublicApiOpenApiDocument(
             birthPlace: { type: 'string' },
             birthLongitude: { type: 'number', minimum: -180, maximum: 180 },
             shenShaVariants: { $ref: '#/components/schemas/ShenShaVariants' },
+            detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
           },
         },
         BaziPromptRequest: {
@@ -518,9 +565,13 @@ export function getPublicApiOpenApiDocument(
               type: 'object',
               required: ['question'],
               properties: {
-                question: { type: 'string' },
+                question: {
+                  type: 'string',
+                  maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH,
+                },
                 promptTopic: { enum: [...BAZI_PROMPT_TOPICS] },
                 promptMode: { enum: [...PROMPT_MODES] },
+                responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
                 school: {
                   enum: [...BAZI_SCHOOLS],
                   description:
@@ -551,6 +602,7 @@ export function getPublicApiOpenApiDocument(
             birthHour: { type: 'string' },
             birthMinute: { type: 'string' },
             birthLongitude: { type: 'string' },
+            detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
           },
         },
         ZiweiPromptRequest: {
@@ -560,10 +612,14 @@ export function getPublicApiOpenApiDocument(
               type: 'object',
               required: ['question'],
               properties: {
-                question: { type: 'string' },
+                question: {
+                  type: 'string',
+                  maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH,
+                },
                 promptTopic: { enum: [...ZIWEI_PROMPT_TOPICS] },
                 promptScope: { enum: [...ZIWEI_PROMPT_SCOPES] },
                 promptMode: { enum: [...PROMPT_MODES] },
+                responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
                 school: {
                   enum: [...ZIWEI_SCHOOLS],
                   description:
@@ -647,7 +703,7 @@ async function route(context: RouteContext) {
 
   switch (path) {
     case 'bazi/calculate':
-      return calculateBazi(await readJson(context.request));
+      return calculateBaziApi(await readJson(context.request));
     case 'bazi/prompt':
       return buildBaziPrompt(await readJson(context.request));
     case 'ziwei/calculate':
@@ -667,7 +723,7 @@ async function route(context: RouteContext) {
     case 'divination/xiaoliuren/prompt':
       return buildDivinationPromptResult('xiaoliuren', await readJson(context.request));
     case 'divination/qimen':
-      return calculateQimen(await readJson(context.request, true));
+      return calculateQimenApi(await readJson(context.request, true));
     case 'divination/qimen/prompt':
       return buildDivinationPromptResult('qimen', await readJson(context.request));
     case 'divination/liuren':
@@ -683,7 +739,7 @@ async function route(context: RouteContext) {
     case 'divination/ssgw/prompt':
       return buildDivinationPromptResult('ssgw', await readJson(context.request));
     case 'divination/almanac':
-      return calculateAlmanac(await readJson(context.request));
+      return calculateAlmanacApi(await readJson(context.request));
     case 'divination/almanac/prompt':
       return buildDivinationPromptResult('almanac', await readJson(context.request));
     case 'divination/lenormand':
@@ -697,6 +753,11 @@ async function route(context: RouteContext) {
     default:
       throw new ApiError(404, 'NOT_FOUND', '没有找到对应的 API 路径。');
   }
+}
+
+function calculateBaziApi(input: JsonRecord) {
+  const result = calculateBazi(input);
+  return readDetailMode(input) === 'compact' ? buildCompactBaziResult(result) : result;
 }
 
 function calculateBazi(input: JsonRecord) {
@@ -778,16 +839,20 @@ function buildBaziPrompt(input: JsonRecord) {
     typeof schoolValue === 'string' && (BAZI_SCHOOLS as readonly string[]).includes(schoolValue)
       ? (schoolValue as BaziSchool)
       : undefined;
-  return {
+  const prompt = buildBaziPromptForResult({
     result,
-    prompt: buildBaziPromptForResult({
-      result,
-      question: readRequiredString(input, 'question'),
-      topic: readEnum(input, 'promptTopic', BAZI_PROMPT_TOPICS, 'general') as BaziPromptTopic,
-      mode: readEnum(input, 'promptMode', PROMPT_MODES, 'framework') as PromptMode,
-      school,
-    }),
-  };
+    question: readRequiredString(input, 'question'),
+    topic: readEnum(input, 'promptTopic', BAZI_PROMPT_TOPICS, 'general') as BaziPromptTopic,
+    mode: readEnum(input, 'promptMode', PROMPT_MODES, 'framework') as PromptMode,
+    school,
+  });
+
+  return buildPromptApiResult({
+    responseMode: readPromptResponseMode(input),
+    prompt,
+    fullResult: result,
+    resultSummary: buildCompactBaziResult(result),
+  });
 }
 
 async function calculateZiweiRuntime(input: JsonRecord, scopes: ZiweiPromptScope[] = ['origin']) {
@@ -828,7 +893,8 @@ async function calculateZiweiRuntime(input: JsonRecord, scopes: ZiweiPromptScope
 
 async function calculateZiwei(input: JsonRecord) {
   const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, 'origin') as ZiweiPromptScope;
-  return buildSerializableZiweiResult(await calculateZiweiRuntime(input, [scope]));
+  const result = buildSerializableZiweiResult(await calculateZiweiRuntime(input, [scope]));
+  return readDetailMode(input) === 'compact' ? buildCompactZiweiResult(result) : result;
 }
 
 async function buildZiweiPrompt(input: JsonRecord) {
@@ -844,17 +910,22 @@ async function buildZiweiPrompt(input: JsonRecord) {
     typeof schoolValue === 'string' && (ZIWEI_SCHOOLS as readonly string[]).includes(schoolValue)
       ? (schoolValue as ZiweiSchool)
       : undefined;
-  return {
-    result: buildSerializableZiweiResult(result),
-    prompt: buildPublicZiweiPromptForRuntime({
-      result,
-      question: readRequiredString(input, 'question'),
-      topic: promptTopic,
-      scope,
-      mode,
-      school,
-    }),
-  };
+  const serializableResult = buildSerializableZiweiResult(result);
+  const prompt = buildPublicZiweiPromptForRuntime({
+    result,
+    question: readRequiredString(input, 'question'),
+    topic: promptTopic,
+    scope,
+    mode,
+    school,
+  });
+
+  return buildPromptApiResult({
+    responseMode: readPromptResponseMode(input),
+    prompt,
+    fullResult: serializableResult,
+    resultSummary: buildCompactZiweiResult(serializableResult),
+  });
 }
 
 function calculateLiuyao(input: JsonRecord) {
@@ -864,6 +935,11 @@ function calculateLiuyao(input: JsonRecord) {
 function calculateQimen(input: JsonRecord) {
   const method = readEnum(input, 'qimenMethod', ['zhuanpan', 'feipan'], 'zhuanpan');
   return generateQimen(readCustomDate(input), method as 'zhuanpan' | 'feipan');
+}
+
+function calculateQimenApi(input: JsonRecord) {
+  const result = calculateQimen(input);
+  return readDetailMode(input) === 'compact' ? buildCompactQimenResult(result) : result;
 }
 
 function calculateMeihua(input: JsonRecord) {
@@ -996,6 +1072,11 @@ function calculateAlmanac(input: JsonRecord) {
   });
 }
 
+function calculateAlmanacApi(input: JsonRecord) {
+  const result = calculateAlmanac(input);
+  return shapeAlmanacResult(result, input);
+}
+
 function calculateLenormand(input: JsonRecord) {
   return drawLenormandSpread(
     readEnum(
@@ -1034,12 +1115,20 @@ function buildDivinationPromptResult(
     method === 'almanac'
       ? readString(input, 'question', '')
       : readRequiredString(input, 'question');
-  const data = calculateDivinationData(method, input);
-  return {
-    result: data,
-    summary: getDivinationSummaryBlocks(method, data),
-    prompt: buildDivinationPromptText(method, question, data, input),
-  };
+  const rawData = calculateDivinationData(method, input);
+  const promptData =
+    method === 'almanac' ? shapeAlmanacPromptData(rawData as AlmanacData, input) : rawData;
+  const fullResult =
+    method === 'almanac' ? shapeAlmanacResult(rawData as AlmanacData, input) : rawData;
+  const summary = getDivinationSummaryBlocks(method, promptData);
+  const prompt = buildDivinationPromptText(method, question, promptData, input);
+
+  return buildPromptApiResult({
+    responseMode: readPromptResponseMode(input),
+    prompt,
+    summary,
+    fullResult,
+  });
 }
 
 function calculateDivinationData(
@@ -1111,10 +1200,283 @@ function buildDivinationPromptText(
         ? readEnum(input, 'astrolabeTopic', ASTROLABE_PROMPT_TOPICS, 'life')
         : undefined,
     astrolabeScopeText:
-      method === 'astrolabe' && typeof input.astrolabeScopeText === 'string'
-        ? input.astrolabeScopeText
-        : undefined,
+      method === 'astrolabe' ? readString(input, 'astrolabeScopeText', '') : undefined,
   });
+}
+
+function readPromptResponseMode(input: JsonRecord) {
+  return readEnum(input, 'responseMode', PROMPT_RESPONSE_MODES, 'summary');
+}
+
+function readDetailMode(input: JsonRecord) {
+  return readEnum(input, 'detailMode', DETAIL_MODES, 'full');
+}
+
+function buildPromptApiResult(params: {
+  responseMode: (typeof PROMPT_RESPONSE_MODES)[number];
+  prompt: string;
+  summary?: unknown;
+  fullResult: unknown;
+  resultSummary?: unknown;
+}) {
+  if (params.responseMode === 'prompt-only') {
+    return { prompt: params.prompt };
+  }
+
+  if (params.responseMode === 'full') {
+    return {
+      result: params.fullResult,
+      ...(params.summary === undefined ? {} : { summary: params.summary }),
+      prompt: params.prompt,
+    };
+  }
+
+  return {
+    ...(params.resultSummary === undefined ? {} : { resultSummary: params.resultSummary }),
+    ...(params.summary === undefined ? {} : { summary: params.summary }),
+    prompt: params.prompt,
+  };
+}
+
+function buildCompactBaziResult(result: BaziChartResult) {
+  const currentYear = new Date().getFullYear();
+  const currentLiunian = result.liunian?.find((item) => item.year === currentYear);
+
+  return {
+    gender: result.gender,
+    solarDate: result.solarDate,
+    lunarDate: result.lunarDate,
+    timeInfo: result.timeInfo,
+    pillars: result.pillars,
+    dayMaster: result.dayMaster,
+    zodiac: result.zodiac,
+    constellation: result.constellation,
+    mingGua: result.mingGua,
+    tenGods: result.tenGods,
+    hiddenStems: result.hiddenStems,
+    hiddenTenGods: result.hiddenTenGods,
+    wuxingStrength: result.wuxingStrength,
+    analysis: result.analysis,
+    mingGong: result.mingGong,
+    shenGong: result.shenGong,
+    taiYuan: result.taiYuan,
+    taiXi: result.taiXi,
+    lifeStages: result.lifeStages,
+    nayin: result.nayin,
+    shensha: result.shensha,
+    shenShaAnalysis: result.shenShaAnalysis,
+    kongWang: result.kongWang,
+    wuxingSeasonStatus: result.wuxingSeasonStatus,
+    monthCommander: result.monthCommander,
+    seasonInfo: {
+      ...result.seasonInfo,
+      jieqiList: result.seasonInfo.jieqiList.slice(0, 6),
+    },
+    luckInfo: {
+      startInfo: result.luckInfo.startInfo,
+      handoverInfo: result.luckInfo.handoverInfo,
+      cycles: result.luckInfo.cycles.map((cycle) => ({
+        age: cycle.age,
+        year: cycle.year,
+        ganZhi: cycle.ganZhi,
+        isXiaoyun: cycle.isXiaoyun,
+        type: cycle.type,
+        startSolarTime: cycle.startSolarTime,
+        endSolarTime: cycle.endSolarTime,
+      })),
+    },
+    currentLiunian,
+    warnings: result.warnings,
+  };
+}
+
+function buildCompactZiweiResult(result: ReturnType<typeof buildSerializableZiweiResult>) {
+  return {
+    basicInfo: result.basicInfo,
+    scopeNames: result.scopeNames,
+    activeScopes: Object.fromEntries(
+      Object.entries(result.payloadByScope).map(([scope, payload]) => [
+        scope,
+        {
+          active_scope: payload.active_scope,
+          palaces: payload.palaces.map((palace) => ({
+            index: palace.index,
+            name: palace.name,
+            heavenly_stem: palace.heavenly_stem,
+            earthly_branch: palace.earthly_branch,
+            is_body_palace: palace.is_body_palace,
+            major_stars: palace.major_stars.map((star) => ({
+              name: star.name,
+              brightness: star.brightness,
+              birth_mutagen: star.birth_mutagen,
+            })),
+            minor_stars: palace.minor_stars.map((star) => ({
+              name: star.name,
+              brightness: star.brightness,
+              birth_mutagen: star.birth_mutagen,
+            })),
+            summary_tags: palace.summary_tags,
+            opposite_palace_index: palace.opposite_palace_index,
+            surrounded_palace_indexes: palace.surrounded_palace_indexes,
+            scope_hits: palace.scope_hits,
+          })),
+        },
+      ]),
+    ),
+    birthMutagens: result.birthMutagens,
+    fourMutagens: result.fourMutagens,
+    命宫: result.命宫,
+    身宫: result.身宫,
+    五行局: result.五行局,
+    四化: result.四化,
+  };
+}
+
+function buildCompactQimenResult(result: ReturnType<typeof generateQimen>) {
+  const classicPatterns = takeTopScoredItems(
+    result.classicPatterns,
+    MAX_COMPACT_QIMEN_CLASSIC_PATTERNS,
+  );
+  const patternCombos = takeTopScoredItems(result.patternCombos, MAX_COMPACT_QIMEN_PATTERN_COMBOS);
+
+  return {
+    scope: result.scope,
+    timeInfo: result.timeInfo,
+    ganzhi: result.ganzhi,
+    isYangDun: result.isYangDun,
+    juShu: result.juShu,
+    zhiFu: result.zhiFu,
+    zhiShi: result.zhiShi,
+    patternTags: result.patternTags,
+    patternDetails: result.patternDetails,
+    palaceInsights: (result.palaceInsights ?? []).slice(0, MAX_COMPACT_QIMEN_PALACE_INSIGHTS),
+    palaceInsightTotal: result.palaceInsights?.length ?? 0,
+    voidBranches: result.voidBranches,
+    voidPalaces: result.voidPalaces,
+    horseStar: result.horseStar,
+    specialConditions: result.specialConditions,
+    seasonality: result.seasonality,
+    jiuGongGe: result.jiuGongGe.map((palace) => ({
+      gong: palace.gong,
+      name: palace.name,
+      direction: palace.direction,
+      element: palace.element,
+      tianPan: palace.tianPan,
+      diPan: palace.diPan,
+      renPan: palace.renPan,
+      shenPan: palace.shenPan,
+    })),
+    classicPatternTotal: result.classicPatterns?.length ?? 0,
+    classicPatterns: classicPatterns.map((pattern) => ({
+      name: pattern.name,
+      type: pattern.type,
+      score: pattern.score,
+      summary: pattern.summary,
+      palaces: pattern.palaces,
+    })),
+    stemRelations: result.stemRelations,
+    patternComboTotal: result.patternCombos?.length ?? 0,
+    patternCombos: patternCombos.map((combo) => ({
+      key: combo.key,
+      name: combo.name,
+      tone: combo.tone,
+      score: combo.score,
+      summary: combo.summary,
+      palace: combo.palace,
+    })),
+    directions: result.directions
+      ? {
+          goodDirections: result.directions.goodDirections.map((item) => ({
+            gong: item.gong,
+            name: item.name,
+            direction: item.direction,
+            score: item.score,
+            use: item.use,
+          })),
+          avoidDirections: result.directions.avoidDirections.map((item) => ({
+            gong: item.gong,
+            name: item.name,
+            direction: item.direction,
+            score: item.score,
+            use: item.use,
+          })),
+        }
+      : undefined,
+    yingQi: result.yingQi,
+    timestamp: result.timestamp,
+  };
+}
+
+function takeTopScoredItems<T extends { score: number }>(items: T[] | undefined, maxItems: number) {
+  return [...(items ?? [])]
+    .sort((a, b) => Math.abs(b.score) - Math.abs(a.score))
+    .slice(0, maxItems);
+}
+
+function compactAlmanacDay(day: AlmanacData['days'][number]) {
+  return {
+    date: day.date,
+    weekday: day.weekday,
+    lunarDate: day.lunarDate,
+    ganzhi: day.ganzhi,
+    zodiac: day.zodiac,
+    dayOfficer: day.dayOfficer,
+    clash: day.clash,
+    score: day.score,
+    highlights: day.highlights,
+    cautions: day.cautions,
+    participantNotes: day.participantNotes,
+    recommends: day.recommends.slice(0, 8),
+    avoids: day.avoids.slice(0, 8),
+    gods: day.gods.slice(0, 8),
+  };
+}
+
+function readAlmanacPageSelection(result: AlmanacData, input: JsonRecord) {
+  const shouldPaginate = input.page !== undefined || input.pageSize !== undefined;
+  const page = shouldPaginate ? readInteger(input, 'page', 1, Number.MAX_SAFE_INTEGER, 1) : 1;
+  const pageSize = shouldPaginate
+    ? readInteger(input, 'pageSize', 1, MAX_ALMANAC_PAGE_SIZE, 10)
+    : result.days.length;
+  const total = result.days.length;
+  const totalPages = pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1;
+  if (shouldPaginate && page > totalPages) {
+    throw new ApiError(400, 'BAD_REQUEST', `page 不能超过总页数 ${totalPages}。`);
+  }
+  const pageStart = (page - 1) * pageSize;
+  const selectedDays = shouldPaginate
+    ? result.days.slice(pageStart, pageStart + pageSize)
+    : result.days;
+
+  return {
+    shouldPaginate,
+    selectedDays,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages,
+      hasPrevious: page > 1,
+      hasNext: page < totalPages,
+    },
+  };
+}
+
+function shapeAlmanacPromptData(result: AlmanacData, input: JsonRecord): AlmanacData {
+  const { shouldPaginate, selectedDays } = readAlmanacPageSelection(result, input);
+  return shouldPaginate ? { ...result, days: selectedDays } : result;
+}
+
+function shapeAlmanacResult(result: AlmanacData, input: JsonRecord): AlmanacApiResult {
+  const detailMode = readDetailMode(input);
+  const { shouldPaginate, selectedDays, pagination } = readAlmanacPageSelection(result, input);
+  const days = detailMode === 'compact' ? selectedDays.map(compactAlmanacDay) : selectedDays;
+
+  return {
+    ...result,
+    days,
+    ...(shouldPaginate ? { pagination } : {}),
+  };
 }
 
 async function readJson(request: Request, optional = false): Promise<JsonRecord> {
@@ -1220,6 +1582,13 @@ function readString(input: JsonRecord, key: string, fallback: string) {
   }
   if (typeof value !== 'string') {
     throw new ApiError(400, 'BAD_REQUEST', `${key} 必须是字符串。`);
+  }
+  if (value.length > MAX_PUBLIC_API_TEXT_FIELD_LENGTH) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      `${key} 不能超过 ${MAX_PUBLIC_API_TEXT_FIELD_LENGTH} 个字符。`,
+    );
   }
   return value;
 }
@@ -1368,6 +1737,13 @@ function readAlmanacParticipants(input: JsonRecord): AlmanacParticipantInput[] {
   if (!Array.isArray(value)) {
     throw new ApiError(400, 'BAD_REQUEST', 'participants 必须是数组。');
   }
+  if (value.length > MAX_ALMANAC_PARTICIPANTS) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      `participants 一次最多传 ${MAX_ALMANAC_PARTICIPANTS} 位参与人，请拆分请求。`,
+    );
+  }
 
   return value.map((item, index) => {
     if (!isRecord(item)) {
@@ -1435,7 +1811,21 @@ function failure(code: string, message: string, runtime: PublicApiRuntime): ApiF
 }
 
 function json(body: ApiSuccess<unknown> | ApiFailure, status = 200) {
-  return new Response(JSON.stringify(body), {
+  let text = JSON.stringify(body);
+  const bodyBytes = new TextEncoder().encode(text).byteLength;
+  if (body.ok && bodyBytes > MAX_PUBLIC_API_RESPONSE_BYTES) {
+    text = JSON.stringify({
+      ok: false,
+      error: {
+        code: 'RESPONSE_TOO_LARGE',
+        message: `响应内容不能超过 ${MAX_PUBLIC_API_RESPONSE_BYTES} 字节，请缩小日期范围、减少参与人或拆分请求。`,
+      },
+      meta: body.meta,
+    } satisfies ApiFailure);
+    status = 413;
+  }
+
+  return new Response(text, {
     status,
     headers: JSON_HEADERS,
   });

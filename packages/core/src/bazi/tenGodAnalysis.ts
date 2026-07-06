@@ -16,14 +16,30 @@ import type {
   TenGodFlowProfile,
 } from '../types/analysis';
 
-const TEN_GODS = ['比肩', '劫财', '正印', '偏印', '食神', '伤官', '正财', '偏财', '正官', '七杀'] as const;
+const TEN_GODS = [
+  '比肩',
+  '劫财',
+  '正印',
+  '偏印',
+  '食神',
+  '伤官',
+  '正财',
+  '偏财',
+  '正官',
+  '七杀',
+] as const;
 
 const TEN_GOD_TO_FAMILY: Record<string, string> = {
-  比肩: '比劫', 劫财: '比劫',
-  正印: '印绶', 偏印: '印绶',
-  食神: '食伤', 伤官: '食伤',
-  正财: '财才', 偏财: '财才',
-  正官: '官杀', 七杀: '官杀',
+  比肩: '比劫',
+  劫财: '比劫',
+  正印: '印绶',
+  偏印: '印绶',
+  食神: '食伤',
+  伤官: '食伤',
+  正财: '财才',
+  偏财: '财才',
+  正官: '官杀',
+  七杀: '官杀',
 };
 
 const TEN_GOD_FAMILY_ORDER = ['比劫', '印绶', '食伤', '财才', '官杀'];
@@ -117,10 +133,7 @@ export function analyzeTenGodStructure(
   });
 
   // Family aggregation
-  const familyMap = new Map<
-    string,
-    { totalCount: number; score: number; visibleCount: number }
-  >();
+  const familyMap = new Map<string, { totalCount: number; score: number; visibleCount: number }>();
   TEN_GOD_FAMILY_ORDER.forEach((f) =>
     familyMap.set(f, { totalCount: 0, score: 0, visibleCount: 0 }),
   );
@@ -157,14 +170,9 @@ export function analyzeTenGodStructure(
  * - 财生官杀：财才→官杀
  * - 印比相生：印绶→比劫
  */
-export function analyzeTenGodFlow(
-  structure: TenGodStructureProfile,
-): TenGodFlowProfile {
-  const familyMap = new Map(
-    structure.familyDistributions.map((item) => [item.family, item]),
-  );
-  const has = (family: string) =>
-    (familyMap.get(family)?.totalCount ?? 0) > 0;
+export function analyzeTenGodFlow(structure: TenGodStructureProfile): TenGodFlowProfile {
+  const familyMap = new Map(structure.familyDistributions.map((item) => [item.family, item]));
+  const has = (family: string) => (familyMap.get(family)?.totalCount ?? 0) > 0;
 
   const flows: TenGodFlowItem[] = [];
   if (has('比劫') && has('食伤')) {

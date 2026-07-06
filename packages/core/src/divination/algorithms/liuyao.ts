@@ -34,7 +34,6 @@ import {
   isLiuchong,
   BRANCH_ORDER,
   BRANCH_WUXING,
-  LIUCHONG_MAP,
 } from './_shared';
 
 /**
@@ -73,10 +72,14 @@ function getShiErGong(wuxing: string, branch: string): string {
     土: '申', // 土长生在申（与火不同，按《三命通会》水土共长生）
   };
   const startBranch = ZHANG_SHENG_START[wuxing];
-  if (!startBranch) return '';
+  if (!startBranch) {
+    throw new Error(`六爻十二长生无法识别五行 "${wuxing}"。`);
+  }
   const startIndex = BRANCH_ORDER.indexOf(startBranch);
   const branchIndex = BRANCH_ORDER.indexOf(branch);
-  if (startIndex === -1 || branchIndex === -1) return '';
+  if (startIndex === -1 || branchIndex === -1) {
+    throw new Error(`六爻十二长生无法识别地支 "${branch}"。`);
+  }
   const offset = (((branchIndex - startIndex) % 12) + 12) % 12;
   const SHI_ER_GONG = [
     '长生',
@@ -92,7 +95,11 @@ function getShiErGong(wuxing: string, branch: string): string {
     '胎',
     '养',
   ];
-  return SHI_ER_GONG[offset] || '';
+  const stage = SHI_ER_GONG[offset];
+  if (!stage) {
+    throw new Error(`六爻十二长生无法定位 ${wuxing} 在 ${branch} 支的状态。`);
+  }
+  return stage;
 }
 
 /** 判断爻之地支是否入墓（按地支五行入墓支） */
@@ -246,7 +253,8 @@ export interface LiuyaoFanFuRelations {
   labels: string[];
 }
 
-export type LiuyaoPalaceStage = '首卦' | '一世' | '二世' | '三世' | '四世' | '五世' | '游魂' | '归魂';
+export type LiuyaoPalaceStage =
+  '首卦' | '一世' | '二世' | '三世' | '四世' | '五世' | '游魂' | '归魂';
 
 const WHOLE_HEXAGRAM_PAIR_INDEXES: Array<[number, number]> = [
   [0, 3],
@@ -275,12 +283,11 @@ function trimHexagramRelationSuffix(relation: LiuyaoHexagramRelation) {
  * 如天地否为六合卦、乾为天为六冲卦。
  */
 export function getLiuyaoHexagramRelation(hexagramName: string): LiuyaoHexagramRelation | null {
-  const branches = hexagramNaJia[hexagramName];
-  if (!branches || branches.length !== 6) {
-    return null;
-  }
+  const branches = getNaJiaBranches(hexagramName);
 
-  if (WHOLE_HEXAGRAM_PAIR_INDEXES.every(([lower, upper]) => isLiuhe(branches[lower], branches[upper]))) {
+  if (
+    WHOLE_HEXAGRAM_PAIR_INDEXES.every(([lower, upper]) => isLiuhe(branches[lower], branches[upper]))
+  ) {
     return '六合卦';
   }
 
@@ -301,8 +308,7 @@ export function getLiuyaoHexagramRelations(
   hasChangingYaos: boolean,
 ) {
   const original = getLiuyaoHexagramRelation(originalName);
-  const changed =
-    hasChangingYaos && changedName ? getLiuyaoHexagramRelation(changedName) : null;
+  const changed = hasChangingYaos && changedName ? getLiuyaoHexagramRelation(changedName) : null;
   const transition =
     original && changed
       ? `${trimHexagramRelationSuffix(original)}变${trimHexagramRelationSuffix(changed)}`
@@ -315,8 +321,61 @@ export function getLiuyaoHexagramRelations(
   };
 }
 
+function collectSanxingInBranches(branches: string[]): Array<{ branches: string[]; type: string }> {
+  const uniqueBranches = Array.from(new Set(branches));
+  const result: Array<{ branches: string[]; type: string }> = [];
+  const mutualGroups = [
+    ['寅', '巳', '申'],
+    ['丑', '戌', '未'],
+    ['子', '卯'],
+  ];
+
+  for (const group of mutualGroups) {
+    const present = group.filter((branch) => uniqueBranches.includes(branch));
+    if (
+      present.length >= 2 &&
+      present.some((branch, index) =>
+        present.slice(index + 1).some((other) => isSanxing(branch, other)),
+      )
+    ) {
+      const type = getSanxingType(present[0]);
+      if (type) {
+        result.push({ branches: present, type });
+      }
+    }
+  }
+
+  for (const branch of ['辰', '午', '酉', '亥'] as const) {
+    if (branches.filter((item) => item === branch).length >= 2 && isSanxing(branch, branch)) {
+      const type = getSanxingType(branch);
+      if (type) {
+        result.push({ branches: [branch, branch], type });
+      }
+    }
+  }
+
+  return result;
+}
+
 function getHexagramDataByName(hexagramName: string) {
   return hexagramsData.find((item) => item.name === hexagramName);
+}
+
+function getRequiredHexagramData(hexagramName: string) {
+  const hexagram = getHexagramDataByName(hexagramName);
+  if (!hexagram) {
+    throw new Error(`找不到卦象 "${hexagramName}"。`);
+  }
+  return hexagram;
+}
+
+function getNaJiaBranches(hexagramName: string) {
+  getRequiredHexagramData(hexagramName);
+  const branches = hexagramNaJia[hexagramName];
+  if (!branches || branches.length !== 6) {
+    throw new Error(`找不到卦象 "${hexagramName}" 的完整纳甲信息。`);
+  }
+  return branches;
 }
 
 function isTrigramFanyin(originalTrigram: string, changedTrigram: string) {
@@ -352,10 +411,7 @@ function buildFanyinDescription(
       ? `内卦${original.lower}变${changed.lower}`
       : `外卦${original.upper}变${changed.upper}`,
   );
-  const rule =
-    kind === '爻反吟'
-      ? '对应纳甲地支逐位相冲'
-      : '按乾巽、坎离、震兑、坤艮相变';
+  const rule = kind === '爻反吟' ? '对应纳甲地支逐位相冲' : '按乾巽、坎离、震兑、坤艮相变';
   return `${parts.join('，')}，${rule}`;
 }
 
@@ -404,17 +460,15 @@ export function getLiuyaoFanFuRelations(
   hasChangingYaos: boolean,
 ): LiuyaoFanFuRelations {
   const empty: LiuyaoFanFuRelations = { fanyin: [], fuyin: [], labels: [] };
+  const original = getRequiredHexagramData(originalName);
+  const originalBranches = getNaJiaBranches(originalName);
+
   if (!hasChangingYaos || !changedName) {
     return empty;
   }
 
-  const original = getHexagramDataByName(originalName);
-  const changed = getHexagramDataByName(changedName);
-  const originalBranches = hexagramNaJia[originalName];
-  const changedBranches = hexagramNaJia[changedName];
-  if (!original || !changed || !originalBranches || !changedBranches) {
-    return empty;
-  }
+  const changed = getRequiredHexagramData(changedName);
+  const changedBranches = getNaJiaBranches(changedName);
 
   const lowerYaoFanyin = originalBranches
     .slice(0, 3)
@@ -467,7 +521,11 @@ export function getLiuyaoFanFuRelations(
  */
 function findPalace(hexagramName: string) {
   const palaceName = hexagramPalaceMap[hexagramName as keyof typeof hexagramPalaceMap];
-  return palaces[palaceName as keyof typeof palaces];
+  const palace = palaces[palaceName as keyof typeof palaces];
+  if (!palace) {
+    throw new Error(`找不到卦象 "${hexagramName}" 的所属宫位。`);
+  }
+  return palace;
 }
 
 /**
@@ -551,8 +609,18 @@ function buildHiddenSpirits(params: {
  */
 export function getLiuyaoPalaceStage(hexagramName: string, palaceName?: string): LiuyaoPalaceStage {
   // 京房八宫卦序，决定了世爻的位置
-  const palaceOrder: LiuyaoPalaceStage[] = ['首卦', '一世', '二世', '三世', '四世', '五世', '游魂', '归魂'];
-  const resolvedPalaceName = palaceName || hexagramPalaceMap[hexagramName as keyof typeof hexagramPalaceMap];
+  const palaceOrder: LiuyaoPalaceStage[] = [
+    '首卦',
+    '一世',
+    '二世',
+    '三世',
+    '四世',
+    '五世',
+    '游魂',
+    '归魂',
+  ];
+  const resolvedPalaceName =
+    palaceName || hexagramPalaceMap[hexagramName as keyof typeof hexagramPalaceMap];
   const hexagramsInPalace = palaceHexagrams[resolvedPalaceName as keyof typeof palaceHexagrams];
   if (!hexagramsInPalace) {
     throw new Error(`找不到宫位 "${resolvedPalaceName}" 的卦象列表。`);
@@ -829,26 +897,7 @@ export function generateLiuyao(customDate?: Date) {
   const sanheWithDay = checkSanheWithTrigger(yaoBranches, dayBranch, '日辰');
   const sanheWithMonth = checkSanheWithTrigger(yaoBranches, monthBranch, '月建');
 
-  // 三刑检测：各爻之间是否构成三刑关系（寅巳申三刑、丑戌未三刑等）
-  const sanxingInYaos: Array<{ branches: string[]; type: string }> = [];
-  // 寅巳申三刑
-  if (['寅', '巳', '申'].every((b) => yaoBranches.includes(b))) {
-    sanxingInYaos.push({ branches: ['寅', '巳', '申'], type: '无恩之刑' });
-  }
-  // 丑戌未三刑
-  if (['丑', '戌', '未'].every((b) => yaoBranches.includes(b))) {
-    sanxingInYaos.push({ branches: ['丑', '戌', '未'], type: '恃势之刑' });
-  }
-  // 子卯刑
-  if (yaoBranches.includes('子') && yaoBranches.includes('卯')) {
-    sanxingInYaos.push({ branches: ['子', '卯'], type: '无礼之刑' });
-  }
-  // 自刑
-  for (const branch of ['辰', '午', '酉', '亥'] as const) {
-    if (yaoBranches.filter((b) => b === branch).length >= 2) {
-      sanxingInYaos.push({ branches: [branch, branch], type: '自刑' });
-    }
-  }
+  const sanxingInYaos = collectSanxingInBranches(yaoBranches);
 
   // 月卦身（按六爻传统“阳世从子月起，阴世从午月生，从初数至世方真”）：
   // 阳世：初爻子、二爻丑、三爻寅、四爻卯、五爻辰、六爻巳

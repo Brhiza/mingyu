@@ -1,8 +1,72 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createBaziAnalysisPipeline } from '@core/bazi/baziAnalysisPipeline';
+import {
+  createBaziAnalysisPipeline,
+  type BaziAnalysisPipelineDeps,
+} from '@core/bazi/baziAnalysisPipeline';
 import type { HiddenStems, PatternAnalysis, Pillars, Wuxing } from '@core/bazi/baziTypes';
+import { getWuxing as getBaziWuxing } from '@core/bazi/baziUtils';
+
+const VALID_PILLARS: Pillars = {
+  year: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
+  month: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+  day: { gan: '癸', zhi: '未', ganZhi: '癸未' },
+  hour: { gan: '丙', zhi: '辰', ganZhi: '丙辰' },
+};
+
+const VALID_HIDDEN_STEMS: HiddenStems = {
+  year: ['戊', '乙', '癸'],
+  month: ['戊', '乙', '癸'],
+  day: ['己', '丁', '乙'],
+  hour: ['戊', '乙', '癸'],
+};
+
+function resolveWuxing(value: string): Wuxing {
+  const wuxing = getBaziWuxing(value);
+  if (wuxing === '未知') {
+    throw new Error(`测试夹具五行无效：${value}`);
+  }
+  return wuxing;
+}
+
+function createValidationPipeline(overrides: Partial<BaziAnalysisPipelineDeps> = {}) {
+  return createBaziAnalysisPipeline({
+    getWuxing: resolveWuxing,
+    getTenGod: () => '比肩',
+    getSeasonStatus: () => ({ 水: '休' }),
+    analyzeRoot: () => ({ roots: [], totalStrength: 0, hasRoot: false, strongRoot: false }),
+    analyzeFormation: () => ({ formations: [], totalStrength: 0 }),
+    analyzeSupport: () => ({ supporters: [], totalStrength: 0, hasSupport: false }),
+    analyzeConstraint: () => ({ constraints: [], totalStrength: 0, hasConstraint: false }),
+    analyzeSeasonalStatus: () => ({ status: '休', score: 0, isTimely: false }),
+    analyzeDayMasterStrength: () => ({
+      score: 0,
+      status: '身弱',
+      details: {
+        seasonalScore: 0,
+        timely: false,
+        formationStrength: 0,
+        rootStrength: 0,
+        supportStrength: 0,
+        constraintStrength: 0,
+      },
+    }),
+    determinePattern: (): PatternAnalysis => ({
+      pattern: '偏印格',
+      isSpecial: false,
+    }),
+    determineUsefulGod: () => ({
+      favorable: [],
+      unfavorable: [],
+      useful: '火',
+      avoid: '水',
+      favorableWuxing: ['火'],
+      unfavorableWuxing: ['水'],
+    }),
+    ...overrides,
+  });
+}
 
 test('分析管道应把当前节气传入取用判断，避免节后分段规则在整链路中失效', () => {
   const captured: { currentJieqi?: string } = {};
@@ -151,10 +215,10 @@ test('分析管道应把藏干来源与成局五行传入取用判断，避免�
   });
 
   const pillars: Pillars = {
-    year: { gan: '甲', zhi: '巳', ganZhi: '甲巳' },
+    year: { gan: '己', zhi: '巳', ganZhi: '己巳' },
     month: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
     day: { gan: '丙', zhi: '子', ganZhi: '丙子' },
-    hour: { gan: '戊', zhi: '丑', ganZhi: '戊丑' },
+    hour: { gan: '己', zhi: '丑', ganZhi: '己丑' },
   };
   const hiddenStems: HiddenStems = {
     year: ['丙', '庚', '戊'],
@@ -262,4 +326,82 @@ test('分析管道应把明透天干柱位传入取用判断，避免后续规�
     { pillar: 'day', stem: '辛' },
     { pillar: 'hour', stem: '壬' },
   ]);
+});
+
+test('分析管道应拒绝非法四柱，不应把坏日主继续送入旺衰和用神计算', () => {
+  const pipeline = createValidationPipeline();
+
+  assert.throws(
+    () =>
+      pipeline.run({
+        pillars: {
+          ...VALID_PILLARS,
+          day: { gan: '风', zhi: '未', ganZhi: '风未' },
+        },
+        hiddenStems: VALID_HIDDEN_STEMS,
+      }),
+    /day柱天干无效/,
+  );
+});
+
+test('分析管道应拒绝非法藏干和司令天干，不应让取用规则读取伪造证据', () => {
+  const pipeline = createValidationPipeline();
+
+  assert.throws(
+    () =>
+      pipeline.run({
+        pillars: VALID_PILLARS,
+        hiddenStems: {
+          ...VALID_HIDDEN_STEMS,
+          month: ['风'],
+        },
+      }),
+    /month柱藏干无效/,
+  );
+  assert.throws(
+    () =>
+      pipeline.run({
+        pillars: VALID_PILLARS,
+        hiddenStems: {
+          ...VALID_HIDDEN_STEMS,
+          hour: undefined as unknown as string[],
+        },
+      }),
+    /藏干缺少hour/,
+  );
+  assert.throws(
+    () =>
+      pipeline.run({
+        pillars: VALID_PILLARS,
+        hiddenStems: VALID_HIDDEN_STEMS,
+        monthCommander: '风',
+      }),
+    /月令司权天干无效/,
+  );
+});
+
+test('分析管道应拒绝异常五行映射，不应把未知五行计入用神上下文', () => {
+  const dayMasterBrokenPipeline = createValidationPipeline({
+    getWuxing: (value) => (value === '癸' ? ('未知' as Wuxing) : resolveWuxing(value)),
+  });
+  const visibleStemBrokenPipeline = createValidationPipeline({
+    getWuxing: (value) => (value === '甲' ? ('未知' as Wuxing) : resolveWuxing(value)),
+  });
+
+  assert.throws(
+    () =>
+      dayMasterBrokenPipeline.run({
+        pillars: VALID_PILLARS,
+        hiddenStems: VALID_HIDDEN_STEMS,
+      }),
+    /日主五行无效/,
+  );
+  assert.throws(
+    () =>
+      visibleStemBrokenPipeline.run({
+        pillars: VALID_PILLARS,
+        hiddenStems: VALID_HIDDEN_STEMS,
+      }),
+    /第1个四柱字符五行无效/,
+  );
 });

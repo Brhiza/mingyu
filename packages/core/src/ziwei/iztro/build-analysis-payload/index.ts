@@ -2,7 +2,7 @@ import type { IztroAstrolabe, IztroHoroscope } from '../../../types/iztro';
 import type { AnalysisPayloadV1, ScopeType } from '../../../types/analysis';
 import { buildEvidencePool } from '../build-evidence-pool';
 import { detectPatterns } from '../pattern-detection';
-import { getCurrentScopeItem } from './helpers/scope';
+import { assertScopeType, getCurrentScopeItem } from './helpers/scope';
 import { buildActiveScope, buildBasicInfo, buildPalaceFacts } from './helpers/builders';
 
 export function buildAnalysisPayloadV1(params: {
@@ -12,6 +12,7 @@ export function buildAnalysisPayloadV1(params: {
   skipAnalysis?: boolean;
 }): AnalysisPayloadV1 {
   const { astrolabe, horoscope, currentScope, skipAnalysis } = params;
+  assertScopeType(currentScope);
 
   const currentScopeItem = getCurrentScopeItem(horoscope, currentScope);
   const basic_info = buildBasicInfo(astrolabe);

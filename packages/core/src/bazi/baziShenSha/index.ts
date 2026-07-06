@@ -1,5 +1,6 @@
 import { BASIC_MAPPINGS } from '../baziDefinitions';
 import type { ShenShaResult } from '../baziTypes';
+import { assertBaziGender, assertEarthlyBranch, assertHeavenlyStem } from '../baziUtils';
 import { buildNobleRules } from './helpers/nobleRules';
 import { buildLuRules } from './helpers/luRules';
 import { buildDayRules } from './helpers/dayRules';
@@ -14,10 +15,7 @@ import {
   type ShenShaVariantConfig,
 } from './variants';
 
-export {
-  DEFAULT_SHENSHA_VARIANT_CONFIG,
-  resolveShenShaVariantConfig,
-} from './variants';
+export { DEFAULT_SHENSHA_VARIANT_CONFIG, resolveShenShaVariantConfig } from './variants';
 export type {
   ShenShaCalculatorOptions,
   ShenShaKongWangBasis,
@@ -42,6 +40,9 @@ export class ShenShaCalculator {
   }
 
   public calculateAllShenSha(baziArray: BaziArray, gender: string): ShenShaResult {
+    this.assertBaziArray(baziArray);
+    assertBaziGender(gender);
+
     const result: ShenShaResult = {
       year: [],
       month: [],
@@ -62,6 +63,21 @@ export class ShenShaCalculator {
     }
 
     return result;
+  }
+
+  private assertBaziArray(baziArray: BaziArray): void {
+    if (!Array.isArray(baziArray) || baziArray.length !== 4) {
+      throw new Error('神煞计算需要完整四柱。');
+    }
+
+    baziArray.forEach((pillar, index) => {
+      if (!Array.isArray(pillar) || pillar.length !== 2) {
+        throw new Error(`第 ${index + 1} 柱格式无效。`);
+      }
+
+      assertHeavenlyStem(pillar[0], `第 ${index + 1} 柱天干`);
+      assertEarthlyBranch(pillar[1], `第 ${index + 1} 柱地支`);
+    });
   }
 
   public analyzeGlobalShenSha(shenShaList: string[]): string[] {

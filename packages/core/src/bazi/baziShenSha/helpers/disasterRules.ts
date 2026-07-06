@@ -1,7 +1,11 @@
 import { calculateKongWangBranches } from '../../kongWang';
+import { isGanZhiPair } from '../../baziUtils';
 import type { RuleContext, ShenShaRuleMap } from './types';
 
-const AN_JIN_SHA_BY_YEAR_BRANCH: Record<string, { branch: string; name: '吟呻煞' | '破碎煞' | '白衣煞' }> = {
+const AN_JIN_SHA_BY_YEAR_BRANCH: Record<
+  string,
+  { branch: string; name: '吟呻煞' | '破碎煞' | '白衣煞' }
+> = {
   子: { branch: '巳', name: '吟呻煞' },
   午: { branch: '巳', name: '吟呻煞' },
   卯: { branch: '巳', name: '吟呻煞' },
@@ -651,6 +655,10 @@ const YANG_SHA_BY_YEAR_BRANCH: Record<string, string> = {
   未: '申',
 };
 
+function calculateOptionalKongWangBranches(gan: string, zhi: string): string[] {
+  return isGanZhiPair(gan, zhi) ? calculateKongWangBranches(gan, zhi) : [];
+}
+
 export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
   const {
     gan,
@@ -675,11 +683,13 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
   const yearBranchGroup = YEAR_BRANCH_GROUP_BY_BRANCH[nianZhi];
   const jieTouShaPillar = JIE_TOU_SHA_BY_YEAR_GROUP[yearBranchGroup]?.[nianGan];
   const jieTouGuiPillar = JIE_TOU_GUI_BY_YEAR_GROUP[yearBranchGroup]?.[nianGan];
-  const shiZhi = baziArray[3]?.[1] || '';
-  const tianShangBranch = shiZhi ? cdz[(zhiIdx(shiZhi) - 2 + 12) % 12] : '';
-  const riKongWangBranches = calculateKongWangBranches(riGan, riZhi);
+  const shiZhi = baziArray[3][1];
+  const tianShangBranch = cdz[(zhiIdx(shiZhi) - 2 + 12) % 12];
+  const riKongWangBranches = calculateOptionalKongWangBranches(riGan, riZhi);
   const nianKongWangBranches =
-    variants.kongWangBasis === 'day-and-year' ? calculateKongWangBranches(nianGan, nianZhi) : [];
+    variants.kongWangBasis === 'day-and-year'
+      ? calculateOptionalKongWangBranches(nianGan, nianZhi)
+      : [];
   const kongWangBranches = [...riKongWangBranches, ...nianKongWangBranches];
   const guXuBranches = kongWangBranches
     .map((branch) => cdz[(zhiIdx(branch) + 6) % 12])
@@ -892,7 +902,8 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     头戴杀: () => pillarIndex >= 2 && TOU_DAI_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
     妄语煞: () => pillarIndex >= 2 && annualPalace(4) && riKongWangBranches.includes(zhi),
     点头杀: () => pillarIndex >= 2 && hasYuanChen && DIAN_TOU_SHA_PILLARS.includes(pillarGZ),
-    无形鬼: () => pillarIndex >= 1 && WU_XING_GUI_PILLARS.includes(pillarGZ) && hasRepeatedWuXingGui,
+    无形鬼: () =>
+      pillarIndex >= 1 && WU_XING_GUI_PILLARS.includes(pillarGZ) && hasRepeatedWuXingGui,
     三丘: () => sanQiuWuMu?.sanQiu === zhi,
     五墓: () => sanQiuWuMu?.wuMu === zhi,
     天刑: () => pillarIndex === 3 && TIAN_XING_HOUR_STEM_BY_YEAR_BRANCH[nianZhi] === gan,

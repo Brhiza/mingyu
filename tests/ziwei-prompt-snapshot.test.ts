@@ -6,7 +6,7 @@ import {
   buildCombinedZiweiPrompt,
 } from '../src/lib/full-chart-engine/ziwei';
 import { buildEvidencePool } from '@core/ziwei/iztro';
-import { buildEvidenceSummary } from '../src/lib/ziwei-prompts/builders';
+import { buildEvidenceSummary, buildPalaceSummary } from '../src/lib/ziwei-prompts/builders';
 import { buildZiweiReadableSnapshot } from '../src/lib/ziwei-prompts/snapshot';
 import type { PromptContext } from '../src/lib/ziwei-prompts/types';
 import { assertPromptCurrentTimeHasGanzhiCalendar } from './prompt-assertions';
@@ -38,7 +38,7 @@ function createPalace(index: number, name: string, stars: string[] = []): Palace
     scope_hits: [],
     empty_state: false,
     opposite_palace_index: (index + 6) % 12,
-    surrounded_palace_indexes: [(index + 4) % 12, (index + 8) % 12, (index + 6) % 12],
+    surrounded_palace_indexes: [index, (index + 6) % 12, (index + 4) % 12, (index + 8) % 12],
     summary_tags: stars,
   };
 }
@@ -139,6 +139,14 @@ test('紫微提示词快照应输出已检测出的命盘格局', () => {
   assert.match(snapshot, /【十二宫资料】/);
 });
 
+test('紫微重点宫位资料展示三方四正时应排除本宫', () => {
+  const payload = createPayload();
+  const summary = buildPalaceSummary(payload, payload.palaces[0]);
+
+  assert.equal(summary.对宫, '迁移宫');
+  assert.deepEqual(summary.三方四正, ['迁移宫', '财帛宫', '官禄宫']);
+});
+
 test('紫微输出提示词应是可复制给在线 AI 的独立任务书，不暴露工程提示词', () => {
   const prompt = buildCombinedZiweiPrompt(createPayload(), 'destiny', '请分析命局主线。');
 
@@ -159,7 +167,10 @@ test('紫微提示词快照应输出解读目标，明确范围与边界', () =>
   const taskSection = snapshot.match(/【解读目标】([\s\S]*?)\n\n【本命资料】/)?.[1] || '';
 
   assert.match(snapshot, /【解读目标】/);
-  assert.match(taskSection, /解读目标：用户选择主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/);
+  assert.match(
+    taskSection,
+    /解读目标：用户选择主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/,
+  );
   assert.match(taskSection, /重点参考宫位：/);
   assert.match(taskSection, /严格边界：只基于已提供盘面、运限和问题作答；证据不足时直接说明。/);
   assert.doesNotMatch(taskSection, /报告标题：|解读主题：|报告类型：/);
@@ -181,7 +192,10 @@ test('紫微提示词快照不再回退到专题焦点话术', () => {
   });
   const taskSection = snapshot.match(/【解读目标】([\s\S]*?)\n\n【本命资料】/)?.[1] || '';
 
-  assert.match(taskSection, /解读目标：用户选择主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/);
+  assert.match(
+    taskSection,
+    /解读目标：用户选择主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/,
+  );
   assert.doesNotMatch(taskSection, /夫妻宫、命宫、福德宫、子女宫、迁移宫/);
   assert.doesNotMatch(taskSection, /焦点提示：/);
   assert.doesNotMatch(taskSection, /。、/);
@@ -212,7 +226,10 @@ test('紫微近期专题快照保留主题和通用目标', () => {
   const taskSection = snapshot.match(/【解读目标】([\s\S]*?)\n\n【本命资料】/)?.[1] || '';
 
   assert.match(snapshot, /分析主题：近期趋势/);
-  assert.match(taskSection, /解读目标：用户选择主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/);
+  assert.match(
+    taskSection,
+    /解读目标：用户选择主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/,
+  );
   assert.match(taskSection, /重点参考宫位：/);
   assert.doesNotMatch(taskSection, /焦点提示：/);
 });

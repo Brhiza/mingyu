@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SixtyCycle } from 'tyme4ts';
 
-import { calculateKongWang } from '@core/bazi/baziCalculatorHelpers';
+import { calculateKongWang, calculateKongWangBranches } from '@core/bazi/kongWang';
 
 test('旬空计算应与 tyme4ts 的空亡结果一致', () => {
   const samples = ['甲子', '乙卯', '癸巳', '丁丑', '庚辰'];
@@ -20,4 +20,8 @@ test('旬空计算应与 tyme4ts 的空亡结果一致', () => {
 
     assert.deepEqual(actual, expected);
   }
+});
+
+test('空亡计算遇到非法干支应明确报错，不能降级成空结果', () => {
+  assert.throws(() => calculateKongWangBranches('甲', '甲'), /空亡干支地支无效/);
 });

@@ -1037,7 +1037,10 @@ test('奇门提示词会输出盘面优先宫位', () => {
   assert.match(prompt, /核心结构：阳遁3局；值符天蓬；值使休门/);
   assert.match(prompt, /主轴证据：值符天蓬落坎一宫；值使休门落坎一宫；时干丁见于离九宫/);
   assert.match(prompt, /用神宫候选：离九宫（36分，凶格:太白入荧、干关系:太白入荧）/);
-  assert.match(prompt, /用神宫证据：离九宫：门景门、星天英、神九天、天盘丙、地盘丁；格局太白入荧；干关系太白入荧/);
+  assert.match(
+    prompt,
+    /用神宫证据：离九宫：门景门、星天英、神九天、天盘丙、地盘丁；格局太白入荧；干关系太白入荧/,
+  );
   assert.match(prompt, /反证宫离九宫、坎一宫：逢空、马星或格局标签命中时先降权复核/);
   assert.match(prompt, /时间窗口：逢空坎一宫、艮八宫先待填实/);
   assert.match(prompt, /辅助证据：旬空子空落坎一宫、丑空落艮八宫；马星卯时驿马在巳，落巽四宫/);
@@ -1097,6 +1100,10 @@ test('六爻提示词会给出断卦抓手，先看取用世应动变', () => {
   assert.match(prompt, /主轴证据：世爻第1爻兄弟子水；应爻第6爻兄弟戌土；动变/);
   assert.match(prompt, /取用评分表：通用断卦：第1爻兄弟子水作取用主轴/);
   assert.match(prompt, /原神忌神仇神：以通用断卦第1爻兄弟子水为取用基准/);
+  assert.match(
+    prompt,
+    /月日触发：月建丑：未直接同支入爻；日辰寅：同支第2爻子孙寅木，冲第5爻父母申金/,
+  );
   assert.match(prompt, /应期候选：动变触发：第1爻兄弟子水动/);
   assert.match(prompt, /不得编造已提供资料没有给出的卦名、六亲、六神、世应、用神、动变/);
   assert.doesNotMatch(prompt, /课传|盘局|牌阵|签诗|牌位/);
@@ -1128,7 +1135,10 @@ test('六爻用户选择事业模板只保留范围，不改取用候选', () =>
   assert.match(prompt, /用户选择的断卦类型只作为问题范围/);
   assert.match(prompt, /取用参考：通用断卦：先以世爻第1爻兄弟子水为我方主轴/);
   assert.match(prompt, /取用评分表：通用断卦：第1爻兄弟子水作取用主轴/);
-  assert.doesNotMatch(prompt, /事业工作：以官鬼为取用参考|取用评分表：事业工作|以事业工作第4爻官鬼午火为取用基准/);
+  assert.doesNotMatch(
+    prompt,
+    /事业工作：以官鬼为取用参考|取用评分表：事业工作|以事业工作第4爻官鬼午火为取用基准/,
+  );
 });
 
 test('六爻提示词按用户选择的鬼神怪异模板收紧口径', () => {
@@ -1160,7 +1170,10 @@ test('六爻未知专项模板应回落到通用断卦，避免输出 undefined'
 
   assert.match(prompt, /断卦类型：通用断卦/);
   assert.match(prompt, /用户选择的断卦类型只作为问题范围/);
-  assert.match(prompt, /取证顺序：先按世应、用神候选、动爻、变卦、空亡、伏神、月日建等卦内证据判断/);
+  assert.match(
+    prompt,
+    /取证顺序：先按世应、用神候选、动爻、变卦、空亡、伏神、月日建等卦内证据判断/,
+  );
   assert.doesNotMatch(prompt, /undefined|null/);
 });
 
@@ -1238,7 +1251,10 @@ test('大六壬提示词只保留断课要点，不再使用分析思路标题',
   assert.match(prompt, /断课类型：事业断课/);
   assert.match(prompt, /用户选择的断课类型只作为问题范围/);
   assert.match(prompt, /取证顺序：先按知一\/比用看发用亥乘贵人，再看三传推进/);
-  assert.match(prompt, /回答口径：先给结论，再列 2 到 4 条关键依据、触发条件和建议；不要复述完整课盘。/);
+  assert.match(
+    prompt,
+    /回答口径：先给结论，再列 2 到 4 条关键依据、触发条件和建议；不要复述完整课盘。/,
+  );
   assert.doesNotMatch(prompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
   assert.doesNotMatch(prompt, /【分析思路】/);
 });

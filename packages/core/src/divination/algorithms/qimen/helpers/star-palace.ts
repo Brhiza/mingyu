@@ -27,6 +27,8 @@
 import { starElements } from './_constants';
 import { isGenerating, isControlling } from './_constants';
 
+const WUXING_ELEMENTS = new Set(['木', '火', '土', '金', '水']);
+
 // ============================================================================
 // 1. 九星原宫映射
 // ============================================================================
@@ -135,14 +137,13 @@ export function evaluateSingleStar(
   const originalPalace = STAR_ORIGINAL_PALACES[star] ?? 0;
 
   if (!starWuxing) {
-    return {
-      star,
-      originalPalace,
-      gong: currentGong,
-      state: '休',
-      score: 0,
-      detail: `${star}五行未知，落${currentGong}宫（休）`,
-    };
+    throw new Error(`九星 "${star}" 无法识别，不能评估旺衰。`);
+  }
+  if (!Number.isInteger(currentGong) || currentGong < 1 || currentGong > 9) {
+    throw new Error(`宫位 "${currentGong}" 无效，必须是 1-9 的整数。`);
+  }
+  if (!WUXING_ELEMENTS.has(palaceElement)) {
+    throw new Error(`宫位五行 "${palaceElement}" 无法识别，不能评估九星旺衰。`);
   }
 
   let state: StarState;
@@ -211,7 +212,9 @@ export function evaluateStarPalaces(result: StarPalaceInput): StarPalaceResult[]
   const results: StarPalaceResult[] = [];
 
   for (const palace of result.jiuGongGe) {
-    if (!palace.tianPan.star) continue;
+    if (!palace.tianPan.star) {
+      throw new Error(`第 ${palace.gong} 宫缺少九星，不能评估整盘旺衰。`);
+    }
 
     results.push(evaluateSingleStar(palace.tianPan.star, palace.gong, palace.element));
   }
@@ -252,11 +255,18 @@ export function evaluateStarPalaces(result: StarPalaceInput): StarPalaceResult[]
 export function getZhiFuStarJudgement(result: ZhiFuJudgementInput): StarPalaceResult | null {
   const { jiuGongGe, zhiFu } = result;
 
-  if (!zhiFu) return null;
+  if (!zhiFu) {
+    throw new Error('值符星不能为空。');
+  }
+  if (!STAR_ORIGINAL_PALACES[zhiFu]) {
+    throw new Error(`值符星 "${zhiFu}" 无法识别。`);
+  }
 
   // 找到值符星的落宫
   const palace = jiuGongGe.find((g) => g.tianPan.star === zhiFu);
-  if (!palace) return null;
+  if (!palace) {
+    throw new Error(`找不到值符星 "${zhiFu}" 的落宫。`);
+  }
 
   // 计算标准旺衰
   const baseResult = evaluateSingleStar(zhiFu, palace.gong, palace.element);
