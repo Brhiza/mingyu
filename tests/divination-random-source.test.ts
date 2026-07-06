@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { drawSpreadCards } from '../packages/core/src/divination/tarot.ts';
+import { drawSpreadCards, getCardKeywords } from '../packages/core/src/divination/tarot.ts';
 import { drawRandomSign } from '../packages/core/src/divination/algorithms/ssgw.ts';
 import { drawLenormandSpread } from '../packages/core/src/divination/algorithms/lenormand.ts';
 import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index.ts';
+import { TimeManager } from '../packages/core/src/calendar/timeManager.ts';
+import { createRandomSource, randomInt } from '../packages/core/src/shared/random.ts';
 
 const SEED = 'fixed-random-source';
 const DATE = new Date('2025-01-01T08:00:00+08:00');
@@ -32,4 +34,38 @@ test('随机占法支持种子复现抽取结果', () => {
   assert.equal(ssgw(SEED), ssgw(SEED));
   assert.deepEqual(lenormand(SEED), lenormand(SEED));
   assert.deepEqual(meihua(SEED), meihua(SEED));
+});
+
+test('塔罗抽牌应拒绝未知牌阵和未知牌名，不应用泛化关键词掩盖错误', () => {
+  assert.throws(() => drawSpreadCards('unknown' as never), /未知的牌阵类型/);
+  assert.throws(() => getCardKeywords('不存在的牌'), /未知的塔罗牌名/);
+});
+
+test('时间起卦随机工具应拒绝非法范围和数量，避免返回空结果或 NaN', () => {
+  assert.throws(() => TimeManager.getSeededRandom(Number.NaN, 6), /随机种子时间戳必须是有效数字/);
+  assert.throws(
+    () => TimeManager.getSeededRandom(DATE.getTime(), 0),
+    /随机范围必须是安全范围内的正整数/,
+  );
+  assert.throws(
+    () => TimeManager.generateYaosByTime(DATE.getTime(), 0),
+    /爻象数量必须是安全范围内的正整数/,
+  );
+  assert.throws(() => TimeManager.generateYaosByRandom(-1), /爻象数量必须是安全范围内的正整数/);
+  assert.throws(
+    () => randomInt(Number.MAX_SAFE_INTEGER + 1, () => 0.5),
+    /随机整数范围必须是安全范围内的正整数/,
+  );
+});
+
+test('自定义随机源必须返回合法区间，避免抽取结果被坏输入静默污染', () => {
+  assert.throws(() => createRandomSource({ rng: 0.5 as never }), /自定义随机源必须是函数/);
+  assert.throws(
+    () => createRandomSource({ seed: Number.POSITIVE_INFINITY }),
+    /随机种子必须是有限数字或文本/,
+  );
+  assert.throws(() => createRandomSource({ seed: {} as never }), /随机种子必须是有限数字或文本/);
+  assert.throws(() => randomInt(10, () => Number.NaN), /随机源必须返回/);
+  assert.throws(() => randomInt(10, () => 1), /随机源必须返回/);
+  assert.throws(() => randomInt(10, () => -0.1), /随机源必须返回/);
 });

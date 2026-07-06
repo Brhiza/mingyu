@@ -275,7 +275,11 @@ export function drawLenormandSpread(
   spreadType: LenormandSpreadType = 'single',
   options?: RandomOptions,
 ): LenormandData {
-  const spread = SPREADS[spreadType] ?? SPREADS.single;
+  const spread = SPREADS[spreadType];
+  if (!spread) {
+    throw new Error(`未知的雷诺曼牌阵类型: ${spreadType}`);
+  }
+
   const rng = createRandomSource(options);
   const cards = shuffleCards(rng)
     .slice(0, spread.positions.length)

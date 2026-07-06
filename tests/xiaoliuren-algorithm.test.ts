@@ -34,6 +34,14 @@ test('小六壬：五行说明应按真实生克方向描述，不应反写得�
   assert.doesNotMatch(data.wuxingRelations.description, /起因被过程泄气/);
 });
 
+test('小六壬：有效时间应输出明确时辰标签，不应出现未知时辰', () => {
+  const data = generateXiaoliuren({ method: 'time', customDate: SAMPLE_DATE });
+
+  assert.equal(data.hourIndex, 4);
+  assert.equal(data.hourLabel, '辰时');
+  assert.notEqual(data.hourLabel, '未知时辰');
+});
+
 test('小六壬：过程生结果时应输出越做越顺，不应写成过程被结果泄气', () => {
   const data = generateXiaoliuren({ method: 'number', number: 5, customDate: SAMPLE_DATE });
 
@@ -44,4 +52,23 @@ test('小六壬：过程生结果时应输出越做越顺，不应写成过程�
   assert.equal(data.wuxingRelations.processToResult, '所生');
   assert.match(data.wuxingRelations.description, /过程生结果/);
   assert.doesNotMatch(data.wuxingRelations.description, /过程被结果泄气/);
+});
+
+test('小六壬：未知起课方式应明确报错，不应返回无标签结果', () => {
+  assert.throws(
+    () => generateXiaoliuren({ method: 'unknown' as never, customDate: SAMPLE_DATE }),
+    /未知的小六壬起课方式/,
+  );
+});
+
+test('小六壬：数字起课应拒绝超出安全整数范围的数字', () => {
+  assert.throws(
+    () =>
+      generateXiaoliuren({
+        method: 'number',
+        number: Number.MAX_SAFE_INTEGER + 1,
+        customDate: SAMPLE_DATE,
+      }),
+    /安全范围内的正整数/,
+  );
 });

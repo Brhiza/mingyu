@@ -1,10 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveZiweiTrueSolarBirth } from '../src/lib/ziwei/true-solar-input';
-import {
-  calculateEquationOfTimeMinutes,
-  calculateTrueSolarTime,
-} from '@core/bazi/trueSolarTime';
+import { buildZiweiChartInput } from '../src/lib/full-chart-engine/ziwei';
+import { calculateEquationOfTimeMinutes, calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 
 test('紫微真太阳时排盘应改用修正后的公历日期与时辰', () => {
@@ -35,6 +33,75 @@ test('紫微真太阳时排盘应改用修正后的公历日期与时辰', () =>
     `${corrected.year}-${String(corrected.month).padStart(2, '0')}-${String(corrected.day).padStart(2, '0')}`,
   );
   assert.equal(result.birthTimeIndex, getTimeIndexFromClock(corrected.hour, corrected.minute));
+});
+
+test('紫微农历输入启用真太阳时跨日时应改用校正后的公历日期排盘', () => {
+  const corrected = calculateTrueSolarTime(
+    {
+      year: 2020,
+      month: 8,
+      day: 1,
+      hour: 0,
+      minute: 40,
+    },
+    75.98,
+  ).correctedTime;
+  const input = buildZiweiChartInput({
+    name: '测试',
+    gender: 'male',
+    dateType: 'lunar',
+    year: '2020',
+    month: '6',
+    day: '12',
+    timeIndex: '',
+    isLeapMonth: false,
+    useTrueSolarTime: true,
+    birthHour: '0',
+    birthMinute: '40',
+    birthLongitude: '75.98',
+  });
+
+  assert.equal(input.dateType, 'solar');
+  assert.equal(
+    input.birthDate,
+    `${corrected.year}-${String(corrected.month).padStart(2, '0')}-${String(corrected.day).padStart(2, '0')}`,
+  );
+  assert.equal(input.birthTimeIndex, getTimeIndexFromClock(corrected.hour, corrected.minute));
+});
+
+test('紫微农历闰月输入启用真太阳时时应转为公历并清除闰月标记', () => {
+  const corrected = calculateTrueSolarTime(
+    {
+      year: 2023,
+      month: 3,
+      day: 25,
+      hour: 9,
+      minute: 0,
+    },
+    120,
+  ).correctedTime;
+  const input = buildZiweiChartInput({
+    name: '测试',
+    gender: 'female',
+    dateType: 'lunar',
+    year: '2023',
+    month: '2',
+    day: '4',
+    timeIndex: '',
+    isLeapMonth: true,
+    useTrueSolarTime: true,
+    birthHour: '9',
+    birthMinute: '0',
+    birthLongitude: '120',
+  });
+
+  assert.equal(input.dateType, 'solar');
+  assert.equal(
+    input.birthDate,
+    `${corrected.year}-${String(corrected.month).padStart(2, '0')}-${String(corrected.day).padStart(2, '0')}`,
+  );
+  assert.equal(input.birthTimeIndex, getTimeIndexFromClock(corrected.hour, corrected.minute));
+  assert.equal(input.isLeapMonth, false);
 });
 
 test('紫微真太阳时缺少经度时应直接报错', () => {

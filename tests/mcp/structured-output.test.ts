@@ -310,7 +310,10 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
 
     assert.equal(baziResult.isError, undefined, 'bazi_calculate 真太阳时不应返回错误');
     const baziChart = baziResult.structuredContent?.result as {
-      timing?: { correctedTime?: { hour?: number; minute?: number }; dstCorrectionMinutes?: number };
+      timing?: {
+        correctedTime?: { hour?: number; minute?: number };
+        dstCorrectionMinutes?: number;
+      };
     };
     assert.equal(baziChart.timing?.correctedTime?.hour, baziExpected.timing?.correctedTime.hour);
     assert.equal(

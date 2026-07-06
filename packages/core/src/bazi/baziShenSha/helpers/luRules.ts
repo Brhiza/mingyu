@@ -222,11 +222,9 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
     生成禄: () =>
       SHENG_CHENG_LU_BY_STEM[nianGan]?.includes(pillarGZ) ||
       SHENG_CHENG_LU_BY_STEM[riGan]?.includes(pillarGZ),
-    名位禄: () =>
-      mingWeiLuPillar(nianGan) === pillarGZ || mingWeiLuPillar(riGan) === pillarGZ,
+    名位禄: () => mingWeiLuPillar(nianGan) === pillarGZ || mingWeiLuPillar(riGan) === pillarGZ,
     食神带禄: () =>
-      SHI_SHEN_DAI_LU_BY_STEM[nianGan] === pillarGZ ||
-      SHI_SHEN_DAI_LU_BY_STEM[riGan] === pillarGZ,
+      SHI_SHEN_DAI_LU_BY_STEM[nianGan] === pillarGZ || SHI_SHEN_DAI_LU_BY_STEM[riGan] === pillarGZ,
     禄对神: () => {
       return (
         forwardBranch(LU_BRANCH_BY_STEM[nianGan], 6) === zhi ||
@@ -277,14 +275,12 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
       SHENG_CHENG_MA_BY_BRANCH[nianZhi] === pillarGZ ||
       SHENG_CHENG_MA_BY_BRANCH[riZhi] === pillarGZ,
     名位马: () =>
-      mingWeiMaPillar(nianGan, nianZhi) === pillarGZ ||
-      mingWeiMaPillar(riGan, riZhi) === pillarGZ,
+      mingWeiMaPillar(nianGan, nianZhi) === pillarGZ || mingWeiMaPillar(riGan, riZhi) === pillarGZ,
     马财库: () => {
       const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
       const riYiMa = YI_MA_BY_BRANCH[riZhi];
       return (
-        MA_CAI_KU_BY_YI_MA_BRANCH[nianYiMa] === zhi ||
-        MA_CAI_KU_BY_YI_MA_BRANCH[riYiMa] === zhi
+        MA_CAI_KU_BY_YI_MA_BRANCH[nianYiMa] === zhi || MA_CAI_KU_BY_YI_MA_BRANCH[riYiMa] === zhi
       );
     },
     攀鞍: () => {

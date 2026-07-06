@@ -238,6 +238,24 @@ export const DAY_STEM_RESIDENCE_MAP: Record<string, string> = {
   癸: '丑',
 };
 
+function assertBranch(value: string, label: string): void {
+  if (!DIZHI.includes(value as (typeof DIZHI)[number])) {
+    throw new Error(`${label}必须是有效地支。`);
+  }
+}
+
+function assertStem(value: string, label: string): void {
+  if (!TIANGAN.includes(value as (typeof TIANGAN)[number])) {
+    throw new Error(`${label}必须是有效天干。`);
+  }
+}
+
+function assertDayNight(value: string): asserts value is '昼占' | '夜占' {
+  if (value !== '昼占' && value !== '夜占') {
+    throw new Error('昼夜占必须是“昼占”或“夜占”。');
+  }
+}
+
 export function describeRelation(sourceBranch: string, targetBranch: string) {
   const sourceElement = getGanZhiWuxing(sourceBranch);
   const targetElement = getGanZhiWuxing(targetBranch);
@@ -292,20 +310,28 @@ export function isElementKe(sourceElement: string, targetElement: string) {
 }
 
 export function getNoblemanBranch(dayStem: string, dayNight: '昼占' | '夜占') {
+  assertStem(dayStem, '日干');
+  assertDayNight(dayNight);
   const pair = GUIREN_BRANCH_BY_STEM[dayStem];
-  if (!pair) {
-    return dayNight === '昼占' ? '丑' : '未';
-  }
-
   return dayNight === '昼占' ? pair.day : pair.night;
 }
 
 export function getUpperByUnder(plate: LiurenPlateItem[], under: string) {
-  return plate.find((item) => item.under === under)?.branch || under;
+  assertBranch(under, '地盘地支');
+  const item = plate.find((entry) => entry.under === under);
+  if (!item) {
+    throw new Error(`天盘中找不到地盘地支 "${under}"。`);
+  }
+  return item.branch;
 }
 
 export function getUnderByUpper(plate: LiurenPlateItem[], upper: string) {
-  return plate.find((item) => item.branch === upper)?.under || upper;
+  assertBranch(upper, '天盘地支');
+  const item = plate.find((entry) => entry.branch === upper);
+  if (!item) {
+    throw new Error(`天盘中找不到上神地支 "${upper}"。`);
+  }
+  return item.under;
 }
 
 export function buildHeavenlyPlate(args: {
@@ -314,6 +340,10 @@ export function buildHeavenlyPlate(args: {
   noblemanBranch: string;
   dayNight: '昼占' | '夜占';
 }) {
+  assertBranch(args.monthLeader, '月将');
+  assertBranch(args.divinationBranch, '占时地支');
+  assertBranch(args.noblemanBranch, '贵人地支');
+  assertDayNight(args.dayNight);
   const monthLeaderIndex = getBranchIndex(args.monthLeader);
   const divinationBranchIndex = getBranchIndex(args.divinationBranch);
   const offset = (divinationBranchIndex - monthLeaderIndex + DIZHI.length) % DIZHI.length;
@@ -341,9 +371,15 @@ export function buildHeavenlyPlate(args: {
 }
 
 export function getPlateItemByBranch(plate: LiurenPlateItem[], branch: string) {
-  return plate.find((item) => item.branch === branch) || plate[0];
+  assertBranch(branch, '天盘地支');
+  const item = plate.find((entry) => entry.branch === branch);
+  if (!item) {
+    throw new Error(`天盘中找不到上神地支 "${branch}"。`);
+  }
+  return item;
 }
 
 export function getDayStemResidence(dayStem: string, fallbackBranch: string) {
+  assertStem(dayStem, '日干');
   return DAY_STEM_RESIDENCE_MAP[dayStem] || fallbackBranch;
 }

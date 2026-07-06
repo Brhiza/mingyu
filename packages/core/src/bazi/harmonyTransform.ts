@@ -7,9 +7,10 @@ import type {
   HarmonyTransformLevel,
   HarmonyTransformProfile,
 } from '../types/analysis';
-import type { Wuxing } from './baziTypes';
+import { WUXING, type Wuxing } from './baziTypes';
 import { SEASON_STATUS } from './baziElementData';
 import { BASIC_MAPPINGS, HIDDEN_STEMS } from './baziMappingsData';
+import { assertEarthlyBranch, assertHeavenlyStem } from './baziUtils';
 
 export interface HarmonyPillarInput {
   label?: string;
@@ -58,17 +59,39 @@ const ELEMENT_STEMS: Record<Wuxing, string[]> = {
   水: ['壬', '癸'],
 };
 
+function assertWuxing(value: string, label: string): asserts value is Wuxing {
+  if (!(WUXING as readonly string[]).includes(value)) {
+    throw new Error(`${label}五行无效：${value}`);
+  }
+}
+
 function normalizePillars(pillars: HarmonyPillarInput[]): NormalizedHarmonyPillar[] {
-  return pillars.map((pillar, index) => ({
-    label: pillar.label || PILLAR_LABELS[index] || `pillar${index + 1}`,
-    gan: pillar.gan,
-    zhi: pillar.zhi,
-    hiddenStems: pillar.hiddenStems || HIDDEN_STEMS[pillar.zhi] || [],
-  }));
+  if (pillars.length !== 4) {
+    throw new Error(`四柱数量无效：${pillars.length}`);
+  }
+
+  return pillars
+    .map((pillar, index) => ({
+      label: pillar.label || PILLAR_LABELS[index] || `pillar${index + 1}`,
+      gan: pillar.gan,
+      zhi: pillar.zhi,
+      hiddenStems: pillar.hiddenStems || HIDDEN_STEMS[pillar.zhi] || [],
+    }))
+    .map((pillar, index) => {
+      assertHeavenlyStem(pillar.gan, `${pillar.label || `第${index + 1}柱`}天干`);
+      assertEarthlyBranch(pillar.zhi, `${pillar.label || `第${index + 1}柱`}地支`);
+      pillar.hiddenStems.forEach((stem) => assertHeavenlyStem(stem, `${pillar.label}藏干`));
+      return pillar;
+    });
 }
 
 function getMonthSupport(monthBranch: string, element: Wuxing): number {
+  assertEarthlyBranch(monthBranch, '月支');
+  assertWuxing(element, '化神');
   const status = SEASON_STATUS[monthBranch]?.[element];
+  if (!status) {
+    throw new Error(`月令旺衰数据缺失：${monthBranch}/${element}`);
+  }
   const scoreMap: Record<string, number> = {
     旺: 40,
     相: 30,
@@ -80,7 +103,12 @@ function getMonthSupport(monthBranch: string, element: Wuxing): number {
 }
 
 function buildMonthSupportEvidence(monthBranch: string, element: Wuxing, score: number): string {
-  const status = SEASON_STATUS[monthBranch]?.[element] || '未知';
+  assertEarthlyBranch(monthBranch, '月支');
+  assertWuxing(element, '化神');
+  const status = SEASON_STATUS[monthBranch]?.[element];
+  if (!status) {
+    throw new Error(`月令旺衰数据缺失：${monthBranch}/${element}`);
+  }
   return `月令${monthBranch}对${element}为${status}，月令支持${score}分`;
 }
 
@@ -174,6 +202,10 @@ export function assessStemHarmonyTransform(
   monthBranch: string,
   allPillars: HarmonyPillarInput[],
 ): HarmonyTransformProfile {
+  assertHeavenlyStem(stem1, `${pillar1}天干`);
+  assertHeavenlyStem(stem2, `${pillar2}天干`);
+  assertEarthlyBranch(monthBranch, '月支');
+
   const rule = STEM_TRANSFORM_RULES[stem1];
   if (!rule || rule.partner !== stem2) {
     throw new Error(`${stem1}与${stem2}不构成天干五合`);
@@ -280,6 +312,10 @@ export function assessBranchHarmonyTransform(
   monthBranch: string,
   allPillars: HarmonyPillarInput[],
 ): HarmonyTransformProfile {
+  assertEarthlyBranch(branch1, `${pillar1}地支`);
+  assertEarthlyBranch(branch2, `${pillar2}地支`);
+  assertEarthlyBranch(monthBranch, '月支');
+
   const rule = BRANCH_TRANSFORM_RULES[branch1];
   if (!rule || rule.partner !== branch2) {
     throw new Error(`${branch1}与${branch2}不构成地支六合`);

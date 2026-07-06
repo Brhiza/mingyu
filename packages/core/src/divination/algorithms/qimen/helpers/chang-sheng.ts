@@ -15,6 +15,7 @@
  *   - 《烟波钓叟歌》：「阴阳五行分旺相，八卦甲子论神明」
  */
 
+import { EarthBranch, HeavenStem } from 'tyme4ts';
 import { stemElements, branchIndex, palaceStars } from './_constants';
 import { getDunJiaStem } from './palace-utils';
 import type { QimenJiuGongGe } from '../../../../types/divination';
@@ -88,44 +89,6 @@ const WUXING_CHANGSHENG_START: Record<string, string> = {
   金: '巳',
   水: '申',
   土: '申',
-};
-
-/** 阳干集合 */
-const YANG_STEMS: ReadonlySet<string> = new Set(['甲', '丙', '戊', '庚', '壬']);
-
-/**
- * 天干对应的长生起始地支
- *
- * 法理（《五行大义》《三命通会》）：
- *   "阳顺阴逆，各以五行论长生之位"
- *
- * 阳干以本行长生位为起点，顺行十二宫。
- *
- * 阴干并非直接从本行长生位逆行，而是以阳干"死"位为起点逆行。
- * 阳干顺行第7位（死）恰好是阴干的长生位，此即
- * 《三命通会》"阳死则阴生，阴死则阳生"之律。
- *
- * 以甲乙木为例：
- *   甲木（阳）长生在亥，顺行十二宫：
- *     亥(长生)→子(沐浴)→丑(冠带)→寅(临官)→卯(帝旺)→
- *     辰(衰)→巳(病)→午(死)→未(墓)→申(绝)→酉(胎)→戌(养)
- *   甲死于午 → 乙（阴）长生在午，逆行十二宫：
- *     午(长生)→巳(沐浴)→辰(冠带)→卯(临官)→寅(帝旺)→
- *     丑(衰)→子(病)→亥(死)→戌(墓)→酉(绝)→申(胎)→未(养)
- */
-const STEM_CHANGSHENG_START: Record<string, string> = {
-  // 阳干：从本行长生位起
-  甲: '亥', // 木长生在亥
-  丙: '寅', // 火长生在寅
-  戊: '申', // 土长生在申
-  庚: '巳', // 金长生在巳
-  壬: '申', // 水长生在申
-  // 阴干：从对应阳干死位起（长生位顺数第7位，对冲+6位）
-  乙: '午', // 甲死于午 → 乙长生在午
-  丁: '酉', // 丙死于酉 → 丁长生在酉
-  己: '卯', // 戊死于卯 → 己长生在卯
-  辛: '子', // 庚死于子 → 辛长生在子
-  癸: '卯', // 壬死于卯 → 癸长生在卯
 };
 
 /**
@@ -304,10 +267,16 @@ export function evaluateChangSheng(stem: string, palaceGong: number): ChangSheng
     return { stage: '', index: -1, scoreFactor: NORMAL_FACTOR };
   }
 
-  const startBranch = STEM_CHANGSHENG_START[stem];
-  const isYang = YANG_STEMS.has(stem);
+  const stemTerrain = HeavenStem.fromName(stem)
+    .getTerrain(EarthBranch.fromName(targetBranch))
+    .getName();
+  const index = TWELVE_STAGES_LIST.indexOf(stemTerrain);
 
-  return getChangSheng(stemWuxing, startBranch, targetBranch, isYang);
+  return {
+    stage: stemTerrain,
+    index,
+    scoreFactor: getScoreFactor(stemTerrain),
+  };
 }
 
 // ============================================================================

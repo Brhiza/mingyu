@@ -1,24 +1,50 @@
 import type { TombStorageItem, TombStorageProfile } from '../types/analysis';
-import { TWELVE_STAGES_MAP } from './baziMappingsData';
+import { HIDDEN_STEMS, TWELVE_STAGES_MAP } from './baziMappingsData';
+import { WUXING } from './baziTypes';
+import { assertEarthlyBranch, assertHeavenlyStem } from './baziUtils';
 
-const HIDDEN_STEMS: Record<string, string[]> = {
-  子: ['癸'],
-  丑: ['己', '癸', '辛'],
-  寅: ['甲', '丙', '戊'],
-  卯: ['乙'],
-  辰: ['戊', '乙', '癸'],
-  巳: ['丙', '庚', '戊'],
-  午: ['丁', '己'],
-  未: ['己', '丁', '乙'],
-  申: ['庚', '壬', '戊'],
-  酉: ['辛'],
-  戌: ['戊', '辛', '丁'],
-  亥: ['壬', '甲'],
-};
 function getDayMasterTombBranch(dayMaster: string): string {
+  assertHeavenlyStem(dayMaster, '日主');
   const stages = TWELVE_STAGES_MAP[dayMaster];
-  if (!stages) return '';
-  return Object.entries(stages).find(([, stage]) => stage === '墓')?.[0] || '';
+  if (!stages) {
+    throw new Error(`十二长生数据缺失：${dayMaster}`);
+  }
+  const tombBranch = Object.entries(stages).find(([, stage]) => stage === '墓')?.[0];
+  if (!tombBranch) {
+    throw new Error(`日主墓位缺失：${dayMaster}`);
+  }
+  return tombBranch;
+}
+
+function assertPillarInputs(pillars: Array<{ gan: string; zhi: string }>): void {
+  if (pillars.length !== 4) {
+    throw new Error(`四柱数量无效：${pillars.length}`);
+  }
+
+  pillars.forEach((pillar, index) => {
+    assertHeavenlyStem(pillar.gan, `第${index + 1}柱天干`);
+    assertEarthlyBranch(pillar.zhi, `第${index + 1}柱地支`);
+  });
+}
+
+function resolveWuxing(getWuxing: (s: string) => string, value: string, label: string): string {
+  const wuxing = getWuxing(value);
+  if (!(WUXING as readonly string[]).includes(wuxing)) {
+    throw new Error(`${label}五行无效：${wuxing}`);
+  }
+  return wuxing;
+}
+
+function resolveTenGod(
+  getTenGod: (g: string, d: string) => string,
+  stem: string,
+  dayMaster: string,
+): string {
+  const tenGod = getTenGod(stem, dayMaster);
+  if (!tenGod || tenGod === '未知') {
+    throw new Error(`十神数据缺失：${dayMaster}/${stem}`);
+  }
+  return tenGod;
 }
 
 export function analyzeTombStorage(
@@ -27,20 +53,26 @@ export function analyzeTombStorage(
   getWuxing: (s: string) => string,
   getTenGod: (g: string, d: string) => string,
 ): TombStorageProfile {
+  assertPillarInputs(pillars);
+  assertHeavenlyStem(dayMaster, '日主');
+
   const items: TombStorageItem[] = [];
   const fourTombs = ['辰', '戌', '丑', '未'];
   const dmTomb = getDayMasterTombBranch(dayMaster);
 
   pillars.forEach((p) => {
     if (!fourTombs.includes(p.zhi)) return;
-    const stems = HIDDEN_STEMS[p.zhi] || [];
+    const stems = HIDDEN_STEMS[p.zhi];
+    if (!stems) {
+      throw new Error(`藏干数据缺失：${p.zhi}`);
+    }
     const storageStem = stems[stems.length - 1] || stems[0];
-    const storageWuxing = getWuxing(storageStem);
+    const storageWuxing = resolveWuxing(getWuxing, storageStem, '墓库藏干');
     items.push({
       branch: p.zhi,
       storageElement: storageWuxing,
       storageStem: storageStem,
-      storageTenGod: getTenGod(storageStem, dayMaster),
+      storageTenGod: resolveTenGod(getTenGod, storageStem, dayMaster),
       isDayMasterTomb: p.zhi === dmTomb,
     });
   });

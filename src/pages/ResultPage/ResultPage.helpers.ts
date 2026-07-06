@@ -294,6 +294,29 @@ export function joinText(values: Array<string | undefined>, fallback = '暂无')
   return list.length > 0 ? list.join('、') : fallback;
 }
 
+export function getZiweiDisplaySurroundedPalaces(
+  payload: AnalysisPayloadV1,
+  selectedPalace: PalaceFact | null | undefined,
+) {
+  if (!selectedPalace) {
+    return [];
+  }
+
+  const palaceMap = new Map(payload.palaces.map((palace) => [palace.index, palace]));
+  const seen = new Set<number>();
+
+  return selectedPalace.surrounded_palace_indexes
+    .map((index) => palaceMap.get(index))
+    .filter((palace): palace is PalaceFact => {
+      if (!palace || palace.index === selectedPalace.index || seen.has(palace.index)) {
+        return false;
+      }
+
+      seen.add(palace.index);
+      return true;
+    });
+}
+
 export function joinMultilineText(values: Array<string | undefined>, fallback = '暂无') {
   return joinText(values, fallback).replaceAll('、', '\n');
 }
@@ -351,12 +374,12 @@ export function mapBaziFortuneToZiweiScope(params: {
     case 'dayun':
       return {
         scope: 'decadal' as const,
-        dateStr: params.year ? `${params.year}-01-01` : '',
+        dateStr: params.year ? `${params.year}-07-01` : '',
       };
     case 'year':
       return {
         scope: 'yearly' as const,
-        dateStr: params.year ? `${params.year}-01-01` : '',
+        dateStr: params.year ? `${params.year}-07-01` : '',
       };
     case 'month':
       return {

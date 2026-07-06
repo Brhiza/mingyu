@@ -172,7 +172,8 @@ export interface LiuyaoFanFuRelations {
   labels: string[];
 }
 
-export type LiuyaoPalaceStage = '首卦' | '一世' | '二世' | '三世' | '四世' | '五世' | '游魂' | '归魂';
+export type LiuyaoPalaceStage =
+  '首卦' | '一世' | '二世' | '三世' | '四世' | '五世' | '游魂' | '归魂';
 
 export interface MeihuaYaoDetail extends BaseYaoDetail {
   tiYong: '体' | '用';
@@ -747,14 +748,7 @@ export interface AlmanacData {
 }
 
 export type LenormandSpreadType =
-  | 'single'
-  | 'three'
-  | 'five'
-  | 'relationship'
-  | 'decision'
-  | 'nine'
-  | 'element'
-  | 'grandTableau';
+  'single' | 'three' | 'five' | 'relationship' | 'decision' | 'nine' | 'element' | 'grandTableau';
 
 export interface LenormandData {
   spreadType: LenormandSpreadType;

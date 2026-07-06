@@ -15,13 +15,17 @@
  *   - 《五行大义》论旺相休囚死
  */
 
-import { SolarDay } from 'tyme4ts';
+import { SolarDay, SolarTime } from 'tyme4ts';
 import { stemElements, isGenerating, isControlling } from './_constants';
 import {
   LIUHE_MAP,
   LIUCHONG_MAP,
   LIUHAI_MAP,
   SANHE_GROUPS,
+  TIAN_GAN_CHONG,
+  getSanxingType,
+  getTianGanHeWuxing,
+  isSanxing,
   isTianGanHe,
 } from '../../_shared/wuxing';
 import type { BaseGanZhi } from '../../../../types/divination';
@@ -91,10 +95,14 @@ export const JIE_QI_SEASONS: Record<string, string> = {
 /**
  * 获取节气对应的五行属性
  * @param jieQi 节气名称（如 "立春"、"冬至"）
- * @returns 五行名，未找到时返回空字符串
+ * @returns 五行名
  */
 export function getSeasonalElement(jieQi: string): string {
-  return JIE_QI_SEASONS[jieQi] ?? '';
+  const element = JIE_QI_SEASONS[jieQi];
+  if (!element) {
+    throw new Error(`无法识别节气 "${jieQi}" 的五行属性。`);
+  }
+  return element;
 }
 
 // ============================================================================
@@ -123,11 +131,20 @@ export interface JieQiPhaseResult {
  * @returns 节气三元阶段信息
  */
 export function getJieQiPhaseByDate(date: Date): JieQiPhaseResult {
-  const solarDay = SolarDay.fromYmd(date.getFullYear(), date.getMonth() + 1, date.getDate());
-  const term = solarDay.getTerm();
+  const solarTime = SolarTime.fromYmdHms(
+    date.getFullYear(),
+    date.getMonth() + 1,
+    date.getDate(),
+    date.getHours(),
+    date.getMinutes(),
+    date.getSeconds(),
+  );
+  const term = solarTime.getTerm();
   const jieQi = term.getName();
-  const termStart = term.getSolarDay();
-  const diff = Math.round(Number(solarDay.getJulianDay()) - Number(termStart.getJulianDay()));
+  const termStartTime = term.getJulianDay().getSolarTime();
+  const diff = Math.floor(
+    solarTime.getJulianDay().getDay() - termStartTime.getJulianDay().getDay(),
+  );
   const phaseIndex = Math.min(2, Math.floor(diff / 5));
   const phase = (['上元', '中元', '下元'] as const)[phaseIndex];
 
@@ -175,8 +192,11 @@ export function getDaySeasonRelation(
   description: string;
 } {
   const element = stemElements[dayStem];
-  if (!element || !seasonalElement) {
-    return { relation: 'neutral', description: '无法判定' };
+  if (!element) {
+    throw new Error(`无法识别日干 "${dayStem}" 的五行属性。`);
+  }
+  if (!seasonalElement) {
+    throw new Error('节令五行不能为空。');
   }
 
   if (element === seasonalElement) {
@@ -506,8 +526,8 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
       }
 
       // 相刑
-      if (isSanxingPair(a.zhi, b.zhi)) {
-        const typeLabel = getSanxingLabel(a.zhi, b.zhi);
+      if (isSanxing(a.zhi, b.zhi)) {
+        const typeLabel = getSanxingType(a.zhi) ?? '';
         interactions.push({
           type: '相刑',
           pillars: [a.key, b.key],
@@ -520,7 +540,7 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
 
       // 天干五合
       if (isTianGanHe(a.gan, b.gan)) {
-        const heWuxing = getTianGanHeWuxingLabel(a.gan);
+        const heWuxing = getTianGanHeWuxing(a.gan) ?? '';
         interactions.push({
           type: '天干五合',
           pillars: [a.key, b.key],
@@ -530,7 +550,7 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
       }
 
       // 天干相冲
-      if (isTianGanChong(a.gan, b.gan)) {
+      if (TIAN_GAN_CHONG[a.gan] === b.gan) {
         interactions.push({
           type: '天干相冲',
           pillars: [a.key, b.key],
@@ -574,43 +594,6 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
 }
 
 /**
- * 检查两个天干是否相冲
- */
-function isTianGanChong(a: string, b: string): boolean {
-  // 甲庚冲、乙辛冲、丙壬冲、丁癸冲
-  const chongPairs: Record<string, string> = {
-    甲: '庚',
-    庚: '甲',
-    乙: '辛',
-    辛: '乙',
-    丙: '壬',
-    壬: '丙',
-    丁: '癸',
-    癸: '丁',
-  };
-  return chongPairs[a] === b;
-}
-
-/**
- * 获取天干五合的化气五行
- */
-function getTianGanHeWuxingLabel(stem: string): string {
-  const map: Record<string, string> = {
-    甲: '土',
-    乙: '金',
-    丙: '水',
-    丁: '木',
-    戊: '火',
-    己: '土',
-    庚: '金',
-    辛: '水',
-    壬: '木',
-    癸: '火',
-  };
-  return map[stem] ?? '';
-}
-
-/**
  * 查找四柱中构成完整三合局的地支组合
  */
 function findCompleteSanhe(branches: string[]): Array<{ group: string; members: string[] }> {
@@ -648,33 +631,4 @@ function findHalfSanhe(branches: string[]): Array<{ group: string; members: stri
   }
 
   return results;
-}
-
-/**
- * 获取三刑的具体类型标签
- *
- * 《阴符经》三刑定例：
- *   子卯相刑为无礼之刑
- *   寅巳申三刑为无恩之刑
- *   丑未戌三刑为恃势之刑
- *   辰午酉亥自刑
- */
-function getSanxingLabel(a: string, b: string): string {
-  if ((a === '子' && b === '卯') || (a === '卯' && b === '子')) {
-    return '无礼之刑';
-  }
-  if (a === b && ['辰', '午', '酉', '亥'].includes(a)) {
-    return '自刑';
-  }
-  if (a !== b && ['寅', '巳', '申'].includes(a) && ['寅', '巳', '申'].includes(b)) {
-    return '无恩之刑';
-  }
-  if (a !== b && ['丑', '戌', '未'].includes(a) && ['丑', '戌', '未'].includes(b)) {
-    return '恃势之刑';
-  }
-  return '';
-}
-
-function isSanxingPair(a: string, b: string): boolean {
-  return getSanxingLabel(a, b) !== '';
 }

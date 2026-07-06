@@ -4,6 +4,15 @@
  */
 
 import type { MeihuaData } from '../types/divination';
+import { isKe, isSheng } from './algorithms/_shared';
+
+const WUXING_ELEMENTS = new Set(['木', '火', '土', '金', '水']);
+
+function assertWuxing(value: string, label: string): void {
+  if (!WUXING_ELEMENTS.has(value)) {
+    throw new Error(`${label}五行无效：${value}`);
+  }
+}
 
 /**
  * 梅花易数专用工具函数
@@ -41,6 +50,9 @@ export const MeihuaHelpers = {
   },
 
   getSeasonByMonth(monthNumber: number): '春' | '夏' | '秋' | '冬' {
+    if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) {
+      throw new Error(`月份必须是 1-12 之间的整数，当前为 ${monthNumber}。`);
+    }
     if (monthNumber >= 1 && monthNumber <= 3) return '春';
     if (monthNumber >= 4 && monthNumber <= 6) return '夏';
     if (monthNumber >= 7 && monthNumber <= 9) return '秋';
@@ -51,6 +63,7 @@ export const MeihuaHelpers = {
     element: string,
     season: '春' | '夏' | '秋' | '冬',
   ): '旺' | '相' | '休' | '囚' | '死' | '未知' {
+    assertWuxing(element, '目标');
     const seasonStates: Record<
       '春' | '夏' | '秋' | '冬',
       Record<string, '旺' | '相' | '休' | '囚' | '死'>
@@ -61,7 +74,11 @@ export const MeihuaHelpers = {
       冬: { 水: '旺', 木: '相', 金: '休', 土: '囚', 火: '死' },
     };
 
-    return seasonStates[season]?.[element] || '未知';
+    const state = seasonStates[season]?.[element];
+    if (!state) {
+      throw new Error(`无法判断${season}季${element}的旺衰。`);
+    }
+    return state;
   },
 
   /**
@@ -122,39 +139,23 @@ export const MeihuaHelpers = {
    * 获取五行相生相克关系
    */
   getElementRelation(yong: string, ti: string): string {
-    const shengMap: Record<string, string> = {
-      金: '水',
-      水: '木',
-      木: '火',
-      火: '土',
-      土: '金',
-    };
-    const keMap: Record<string, string> = {
-      金: '木',
-      木: '土',
-      土: '水',
-      水: '火',
-      火: '金',
-    };
-
-    if (!yong || !ti) {
-      return '未知';
-    }
+    assertWuxing(yong, '用卦');
+    assertWuxing(ti, '体卦');
     if (yong === ti) {
       return '体用比和';
     }
-    if (shengMap[yong] === ti) {
+    if (isSheng(yong, ti)) {
       return '用生体';
     }
-    if (shengMap[ti] === yong) {
+    if (isSheng(ti, yong)) {
       return '体生用';
     }
-    if (keMap[yong] === ti) {
+    if (isKe(yong, ti)) {
       return '用克体';
     }
-    if (keMap[ti] === yong) {
+    if (isKe(ti, yong)) {
       return '体克用';
     }
-    return '未知';
+    throw new Error(`无法判断用卦${yong}与体卦${ti}的五行关系。`);
   },
 };

@@ -35,6 +35,7 @@ export class TimeManager {
    * 设置时区偏移覆盖（用于服务端/边缘环境固定时区）
    */
   static setTimezoneOffsetMinutesOverride(offsetMinutes: number | null): void {
+    this.assertTimezoneOffsetMinutes(offsetMinutes);
     this.timezoneOffsetMinutesOverride = offsetMinutes;
   }
 
@@ -48,6 +49,27 @@ export class TimeManager {
     }
     // Date#getTimezoneOffset 返回"本地到UTC需要加多少分钟"，因此本地偏移 = -getTimezoneOffset
     return -date.getTimezoneOffset();
+  }
+
+  private static assertFiniteNumber(value: number, label: string): void {
+    if (!Number.isFinite(value)) {
+      throw new Error(`${label}必须是有效数字。`);
+    }
+  }
+
+  private static assertPositiveInteger(value: number, label: string): void {
+    if (!Number.isSafeInteger(value) || value <= 0) {
+      throw new Error(`${label}必须是安全范围内的正整数。`);
+    }
+  }
+
+  private static assertTimezoneOffsetMinutes(value: number | null): void {
+    if (value === null) {
+      return;
+    }
+    if (!Number.isInteger(value) || value < -720 || value > 840) {
+      throw new Error('时区偏移分钟数需为 -720 到 840 之间的整数。');
+    }
   }
 
   /**
@@ -114,6 +136,8 @@ export class TimeManager {
    * @returns 确定性随机数
    */
   static getSeededRandom(timestamp: number, range: number = 1): number {
+    this.assertFiniteNumber(timestamp, '随机种子时间戳');
+    this.assertPositiveInteger(range, '随机范围');
     // 使用简单但确定性的伪随机算法
     const seed = timestamp % 2147483647;
     const a = 1664525;
@@ -130,6 +154,8 @@ export class TimeManager {
    * @returns 爻象数组
    */
   static generateYaosByTime(timestamp: number, count: number = 6): number[] {
+    this.assertFiniteNumber(timestamp, '起卦时间戳');
+    this.assertPositiveInteger(count, '爻象数量');
     const yaos: number[] = [];
     for (let i = 0; i < count; i++) {
       // 按三钱法逐币起爻，保持时间起卦的确定性。
@@ -148,6 +174,7 @@ export class TimeManager {
    * @returns 爻象数组
    */
   static generateYaosByRandom(count: number = 6, options?: RandomOptions): number[] {
+    this.assertPositiveInteger(count, '爻象数量');
     const rng = createRandomSource(options);
     const yaos: number[] = [];
     for (let i = 0; i < count; i++) {
@@ -182,13 +209,13 @@ export class TimeManager {
       0,
     );
     const lunarHour = solarTime.getLunarHour();
-    const lunarDay = lunarHour.getLunarDay();
+    const eightChar = lunarHour.getEightChar();
 
     return {
-      year: lunarHour.getYearSixtyCycle().toString(),
-      month: lunarHour.getMonthSixtyCycle().toString(),
-      day: lunarDay.getSixtyCycle().toString(),
-      hour: lunarHour.getSixtyCycle().toString(),
+      year: eightChar.getYear().getName(),
+      month: eightChar.getMonth().getName(),
+      day: eightChar.getDay().getName(),
+      hour: eightChar.getHour().getName(),
     };
   }
 
@@ -209,8 +236,8 @@ export class TimeManager {
     const solarDay = solarTime.getSolarDay();
     const lunarHour = solarTime.getLunarHour();
     const lunarDay = lunarHour.getLunarDay();
+    const eightChar = lunarHour.getEightChar();
     const lunarDayText = lunarDay.toString().replace(/^农历/, '');
-    const lunarHourText = lunarHour.toString().replace(/^农历/, '');
     const jieQi = solarTime.getTerm();
 
     return {
@@ -222,29 +249,29 @@ export class TimeManager {
         minute: parts.minute,
       },
       lunar: {
-        year: lunarHour.getYearSixtyCycle().toString(),
-        month: lunarHour.getMonthSixtyCycle().toString(),
-        day: lunarDay.getSixtyCycle().toString(),
-        hour: lunarHour.getSixtyCycle().toString(),
+        year: eightChar.getYear().getName(),
+        month: eightChar.getMonth().getName(),
+        day: eightChar.getDay().getName(),
+        hour: eightChar.getHour().getName(),
         yearInChinese: lunarDayText.split('年')[0] + '年',
         monthInChinese: lunarDayText.split('年')[1].split('月')[0] + '月',
         dayInChinese: lunarDayText.split('月')[1],
-        hourInChinese: lunarHourText.slice(-2),
+        hourInChinese: lunarHour.getName(),
         // tyme4ts 闰月返回负数，规范为正数月序供起卦取模使用（闰月标志另行处理）
         monthNumber: Math.abs(lunarDay.getMonth()),
         dayNumber: lunarDay.getDay(),
       },
       ganzhi: {
-        year: lunarHour.getYearSixtyCycle().toString(),
-        month: lunarHour.getMonthSixtyCycle().toString(),
-        day: lunarDay.getSixtyCycle().toString(),
-        hour: lunarHour.getSixtyCycle().toString(),
+        year: eightChar.getYear().getName(),
+        month: eightChar.getMonth().getName(),
+        day: eightChar.getDay().getName(),
+        hour: eightChar.getHour().getName(),
       },
       eightChar: {
-        year: lunarHour.getYearSixtyCycle().toString(),
-        month: lunarHour.getMonthSixtyCycle().toString(),
-        day: lunarDay.getSixtyCycle().toString(),
-        hour: lunarHour.getSixtyCycle().toString(),
+        year: eightChar.getYear().getName(),
+        month: eightChar.getMonth().getName(),
+        day: eightChar.getDay().getName(),
+        hour: eightChar.getHour().getName(),
       },
       jieQi: jieQi.getName(),
     };

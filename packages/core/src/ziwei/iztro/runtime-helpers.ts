@@ -4,14 +4,37 @@ import type { Config } from 'iztro/lib/data/types';
 import { LunarDay, SolarDay } from 'tyme4ts';
 import type { ChartInput } from '../../types/chart';
 import { daysInSolarMonth } from '../../calendar/date-validation';
+import { getTimeIndexFromClock } from '../../calendar/dateUtils';
 import { TimeManager } from '../../calendar/timeManager';
+
+const VALID_GENDERS = ['男', '女'] as const;
+const VALID_ALGORITHMS = ['default', 'zhongzhou'] as const;
+const VALID_YEAR_DIVIDES = ['normal', 'exact'] as const;
+const VALID_HOROSCOPE_DIVIDES = ['normal', 'exact'] as const;
+const VALID_AGE_DIVIDES = ['normal', 'birthday'] as const;
+const VALID_DAY_DIVIDES = ['current', 'forward'] as const;
+
+function normalizeTextField(value: unknown, label: string, fallback = ''): string {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+  if (typeof value !== 'string') {
+    throw new Error(`${label}必须是文本。`);
+  }
+  return value.trim();
+}
 
 export function normalizeChartInput(input: ChartInput): ChartInput {
   return {
     ...input,
-    name: input.name?.trim() ?? '',
-    birthDate: input.birthDate.trim(),
+    name: normalizeTextField(input.name, '姓名'),
+    birthDate: normalizeTextField(input.birthDate, '出生日期'),
     fixLeap: input.fixLeap ?? true,
+    algorithm: input.algorithm ?? 'default',
+    yearDivide: input.yearDivide ?? 'normal',
+    horoscopeDivide: input.horoscopeDivide ?? 'normal',
+    ageDivide: input.ageDivide ?? 'normal',
+    dayDivide: input.dayDivide ?? 'forward',
   };
 }
 
@@ -25,20 +48,9 @@ export function buildIztroConfig(input: ChartInput): Config {
   };
 }
 
-function timeToIndex(hour: number) {
-  if (hour === 0) {
-    return 0;
-  }
-
-  if (hour === 23) {
-    return 12;
-  }
-
-  return Math.floor((hour + 1) / 2);
-}
-
 export async function buildAstrolabeFromInput(input: ChartInput): Promise<FunctionalAstrolabe> {
   const normalized = normalizeChartInput(input);
+  assertValidChartInput(normalized);
   const { astro } = await import('iztro');
 
   return astro.withOptions({
@@ -53,6 +65,56 @@ export async function buildAstrolabeFromInput(input: ChartInput): Promise<Functi
   }) as FunctionalAstrolabe;
 }
 
+function assertValidChartInput(input: ChartInput) {
+  if (input.isLeapMonth !== undefined && typeof input.isLeapMonth !== 'boolean') {
+    throw new Error('闰月标志必须是布尔值。');
+  }
+  if (typeof input.fixLeap !== 'boolean') {
+    throw new Error('闰月修正配置必须是布尔值。');
+  }
+  if (input.dateType !== 'solar' && input.dateType !== 'lunar') {
+    throw new Error('出生日期类型必须是公历或农历。');
+  }
+
+  assertOneOf(input.gender, VALID_GENDERS, '性别必须是男或女。');
+  assertOneOf(input.algorithm, VALID_ALGORITHMS, '紫微排盘算法必须是 default 或 zhongzhou。');
+  assertOneOf(input.yearDivide, VALID_YEAR_DIVIDES, '紫微年分界必须是 normal 或 exact。');
+  assertOneOf(
+    input.horoscopeDivide,
+    VALID_HOROSCOPE_DIVIDES,
+    '紫微行运分界必须是 normal 或 exact。',
+  );
+  assertOneOf(input.ageDivide, VALID_AGE_DIVIDES, '紫微年龄分界必须是 normal 或 birthday。');
+  assertOneOf(input.dayDivide, VALID_DAY_DIVIDES, '紫微日期分界必须是 current 或 forward。');
+
+  if (
+    !Number.isInteger(input.birthTimeIndex) ||
+    input.birthTimeIndex < 0 ||
+    input.birthTimeIndex > 12
+  ) {
+    throw new Error('出生时辰需在 0-12 之间。');
+  }
+
+  const { year, month, day } = parseBirthDateKey(input.birthDate);
+  if (input.dateType === 'solar') {
+    const maxDay = daysInSolarMonth(year, month);
+    if (day > maxDay) {
+      throw new Error(`日期需在 1-${maxDay} 之间。`);
+    }
+    return;
+  }
+
+  if (day > 30) {
+    throw new Error('农历日期需在 1-30 之间。');
+  }
+
+  try {
+    LunarDay.fromYmd(year, input.isLeapMonth ? -Math.abs(month) : month, day);
+  } catch {
+    throw new Error('农历日期不存在，请检查月份、日期和闰月设置。');
+  }
+}
+
 export function formatLocalDate(date: Date): string {
   const parts = TimeManager.getWallClockParts(date);
   return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
@@ -63,9 +125,14 @@ export function getDefaultHoroscopeContext(now = new Date()) {
     throw new Error('当前时间不是有效日期。');
   }
   const parts = TimeManager.getWallClockParts(now);
+  const hourIndex = getTimeIndexFromClock(parts.hour, parts.minute);
+  if (hourIndex < 0) {
+    throw new Error('当前时间无法换算为有效时辰。');
+  }
+
   return {
     dateStr: formatLocalDate(now),
-    hourIndex: timeToIndex(parts.hour),
+    hourIndex,
   };
 }
 
@@ -74,6 +141,7 @@ export function buildHoroscope(
   dateStr: string,
   hourIndex: number,
 ): FunctionalHoroscope {
+  assertValidHoroscopeInput(dateStr, hourIndex);
   return astrolabe.horoscope(dateStr, hourIndex) as FunctionalHoroscope;
 }
 
@@ -87,27 +155,21 @@ export function shiftLocalDate(
     throw new Error('日期位移量必须是整数。');
   }
 
-  let date: Date;
-
-  // 注意：以下使用本地时区构造 Date(year, month-1, day)，在 DST 跳过午夜的时区可能
-  // 返回前一日 23:00 或次日 01:00。中国大陆 1992 年后无 DST，主要部署场景不触发。
-  // 如需支持有 DST 的时区，应改用 UTC 构造或 TimeManager.getWallClockParts。
   if (unit === 'year') {
     const targetYear = year + amount;
     const targetDay = Math.min(day, daysInGregorianMonth(targetYear, month));
-    date = new Date(targetYear, month - 1, targetDay);
+    return formatSolarDateKey(targetYear, month, targetDay);
   } else if (unit === 'month') {
     const totalMonthIndex = year * 12 + (month - 1) + amount;
     const targetYear = Math.floor(totalMonthIndex / 12);
-    const targetMonth = (totalMonthIndex % 12) + 1;
+    const targetMonth = (((totalMonthIndex % 12) + 12) % 12) + 1;
     const targetDay = Math.min(day, daysInGregorianMonth(targetYear, targetMonth));
-    date = new Date(targetYear, targetMonth - 1, targetDay);
-  } else {
-    date = new Date(year, month - 1, day);
-    date.setDate(date.getDate() + amount);
+    return formatSolarDateKey(targetYear, targetMonth, targetDay);
   }
 
-  return formatLocalDate(date);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + amount);
+  return formatSolarDateKey(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
 }
 
 /**
@@ -134,7 +196,7 @@ export function shiftLunarYear(dateStr: string, amount: number): string {
     for (const targetDay of [lunarBirth.getDay(), 29]) {
       try {
         const solar = LunarDay.fromYmd(targetYear, targetMonth, targetDay).getSolarDay();
-        return formatLocalDate(new Date(solar.getYear(), solar.getMonth() - 1, solar.getDay()));
+        return formatSolarDateKey(solar.getYear(), solar.getMonth(), solar.getDay());
       } catch {
         // 目标年无此闰月或该月无三十日，按候选顺序回退
       }
@@ -144,7 +206,10 @@ export function shiftLunarYear(dateStr: string, amount: number): string {
   throw new Error('无法按农历年位移出生日期。');
 }
 
-function parseSolarDateKey(dateStr: string): { year: number; month: number; day: number } {
+function parseSolarDateKey(dateStr: unknown): { year: number; month: number; day: number } {
+  if (typeof dateStr !== 'string') {
+    throw new Error('日期格式需为 YYYY-MM-DD。');
+  }
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr.trim());
   if (!match) {
     throw new Error('日期格式需为 YYYY-MM-DD。');
@@ -171,6 +236,49 @@ function parseSolarDateKey(dateStr: string): { year: number; month: number; day:
   return { year, month, day };
 }
 
+function assertOneOf<T extends readonly string[]>(
+  value: unknown,
+  allowedValues: T,
+  message: string,
+): asserts value is T[number] {
+  if (typeof value !== 'string' || !allowedValues.includes(value)) {
+    throw new Error(message);
+  }
+}
+
+function assertValidHoroscopeInput(dateStr: unknown, hourIndex: number) {
+  if (typeof dateStr !== 'string') {
+    throw new Error('行运日期格式需为 YYYY-MM-DD。');
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr.trim());
+  if (!match) {
+    throw new Error('行运日期格式需为 YYYY-MM-DD。');
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!Number.isInteger(year) || year < 1900) {
+    throw new Error('行运日期年份不能早于 1900。');
+  }
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    throw new Error('行运日期月份需在 1-12 之间。');
+  }
+
+  const maxDay = daysInGregorianMonth(year, month);
+  if (!Number.isInteger(day) || day < 1 || day > maxDay) {
+    throw new Error(`行运日期需在 1-${maxDay} 之间。`);
+  }
+
+  if (!Number.isInteger(hourIndex) || hourIndex < 0 || hourIndex > 12) {
+    throw new Error('行运时辰需在 0-12 之间。');
+  }
+}
+
+function formatSolarDateKey(year: number, month: number, day: number) {
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 function daysInGregorianMonth(year: number, month: number) {
   if (!Number.isInteger(year)) {
     throw new Error('年份必须是整数。');
@@ -180,4 +288,29 @@ function daysInGregorianMonth(year: number, month: number) {
   }
 
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+function parseBirthDateKey(dateStr: unknown): { year: number; month: number; day: number } {
+  if (typeof dateStr !== 'string') {
+    throw new Error('出生日期格式需为 YYYY-MM-DD。');
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr.trim());
+  if (!match) {
+    throw new Error('出生日期格式需为 YYYY-MM-DD。');
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!Number.isInteger(year) || year < 1900 || year > 2100) {
+    throw new Error('出生年份需在 1900-2100 之间。');
+  }
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    throw new Error('出生月份需在 1-12 之间。');
+  }
+  if (!Number.isInteger(day) || day < 1) {
+    throw new Error('出生日期不能小于 1。');
+  }
+
+  return { year, month, day };
 }

@@ -14,11 +14,7 @@ interface FormatBaziOptions {
 }
 
 export type PromptChartScene =
-  | 'general'
-  | 'fortune'
-  | 'compatibility'
-  | 'comprehensive'
-  | 'concise';
+  'general' | 'fortune' | 'compatibility' | 'comprehensive' | 'concise';
 
 function formatSignedScore(value: number): string {
   const rounded = Number(value.toFixed(1));

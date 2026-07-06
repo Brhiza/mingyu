@@ -3,7 +3,7 @@ import type { KongWangProfile } from '../types/analysis';
 
 export function analyzeKongWangProfile(
   pillars: Array<{ gan: string; zhi: string }>,
-  dayMasterStem: string,
+  _dayMasterStem: string,
 ): KongWangProfile {
   const pillarNames = ['year', 'month', 'day', 'hour'];
   const dayGan = pillars[2].gan;

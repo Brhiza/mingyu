@@ -24,7 +24,7 @@
  *   该宫之星为值符，该宫之门为值使。
  */
 
-import { SolarDay } from 'tyme4ts';
+import { SolarDay, SolarTime } from 'tyme4ts';
 import { tiangan, jiazi, qimen } from '../../../../divination/divination-data';
 import { sanQiLiuYi } from './_constants';
 
@@ -116,6 +116,11 @@ function dayDiff(from: TymeSolarDay, to: TymeSolarDay): number {
   return Math.round(Number(to.getJulianDay()) - Number(from.getJulianDay()));
 }
 
+function getQimenGanZhiDay(currentTime: ReturnType<typeof SolarTime.fromYmdHms>): TymeSolarDay {
+  const solarDay = currentTime.getSolarDay();
+  return currentTime.getHour() >= 23 ? solarDay.next(1) : solarDay;
+}
+
 function getXunShouBranch(ganZhi: string): string {
   const gan = ganZhi.charAt(0);
   const zhi = ganZhi.charAt(1);
@@ -188,7 +193,14 @@ function getDoorByXunShouPalace(palace: number): string {
  * @throws 当无法获取节气信息或查找局数规则失败时
  */
 export function getQimenJuShu(timeInfo: {
-  solar?: { year: number; month: number; day: number };
+  solar?: {
+    year: number;
+    month: number;
+    day: number;
+    hour?: number;
+    minute?: number;
+    second?: number;
+  };
   jieQi: string;
   ganzhi: { day: string };
 }): {
@@ -199,10 +211,18 @@ export function getQimenJuShu(timeInfo: {
 } {
   // ── 拆补法（优先） ──
   if (timeInfo.solar) {
-    const today = SolarDay.fromYmd(timeInfo.solar.year, timeInfo.solar.month, timeInfo.solar.day);
+    const currentTime = SolarTime.fromYmdHms(
+      timeInfo.solar.year,
+      timeInfo.solar.month,
+      timeInfo.solar.day,
+      timeInfo.solar.hour ?? 12,
+      timeInfo.solar.minute ?? 0,
+      timeInfo.solar.second ?? 0,
+    );
+    const today = getQimenGanZhiDay(currentTime);
 
-    // 获取当日所属节气
-    const term = today.getTerm();
+    // 获取当前时刻所属节气，不能只按日期取节气，否则交节当天会提前换局。
+    const term = currentTime.getTerm();
     if (!term) {
       throw new Error(
         `无法获取 ${timeInfo.solar.year}年${timeInfo.solar.month}月${timeInfo.solar.day}日 的节气信息。`,
@@ -424,7 +444,10 @@ export function getZhiFuZhiShi(
  *
  * @throws 当干支无法识别时
  */
-export function getZhiFuZhiShiByGanZhi(ganZhi: string, layout?: QimenLayoutContext): {
+export function getZhiFuZhiShiByGanZhi(
+  ganZhi: string,
+  layout?: QimenLayoutContext,
+): {
   zhiFu: string;
   zhiShi: string;
   xunShouPalace: number;
@@ -464,6 +487,10 @@ export function getZhiFuZhiShiByGanZhi(ganZhi: string, layout?: QimenLayoutConte
  *   getDunJiaStem('乙丑') // => '乙'（非六甲时返回时干本身）
  */
 export function getDunJiaStem(hourGanZhi: string): string {
+  if (!jiazi.includes(hourGanZhi)) {
+    throw new Error(`无法识别干支 "${hourGanZhi}" 的遁甲天干。`);
+  }
+
   // 非六甲时：时干不为"甲"，返回时干本身
   if (!hourGanZhi.startsWith('甲')) {
     return hourGanZhi.charAt(0);
@@ -479,5 +506,9 @@ export function getDunJiaStem(hourGanZhi: string): string {
     甲寅: '癸',
   };
 
-  return dunJiaMap[hourGanZhi] || '戊';
+  const dunStem = dunJiaMap[hourGanZhi];
+  if (!dunStem) {
+    throw new Error(`无法识别六甲干支 "${hourGanZhi}" 的遁甲天干。`);
+  }
+  return dunStem;
 }

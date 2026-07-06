@@ -72,7 +72,68 @@ function normalizeSolarDateText(value: string) {
   return `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
 }
 
+const ZIWEI_PALACE_COUNT = 12;
+
+function assertValidAstrolabePalaces(
+  palaces: IztroPalace[] | undefined,
+): asserts palaces is IztroPalace[] {
+  if (!Array.isArray(palaces) || palaces.length !== ZIWEI_PALACE_COUNT) {
+    throw new Error('紫微排盘必须包含完整 12 个宫位。');
+  }
+
+  const seenIndexes = new Set<number>();
+  let mingPalaceCount = 0;
+
+  palaces.forEach((palace, position) => {
+    if (
+      !Number.isInteger(palace?.index) ||
+      palace.index < 0 ||
+      palace.index >= ZIWEI_PALACE_COUNT
+    ) {
+      throw new Error(`紫微第 ${position + 1} 个宫位索引无效。`);
+    }
+    if (seenIndexes.has(palace.index)) {
+      throw new Error(`紫微宫位索引 ${palace.index} 重复。`);
+    }
+    seenIndexes.add(palace.index);
+
+    if (typeof palace.name !== 'string' || !palace.name.trim()) {
+      throw new Error(`紫微第 ${position + 1} 个宫位名称缺失。`);
+    }
+    if (palace.name === '命宫') {
+      mingPalaceCount += 1;
+    }
+    if (typeof palace.heavenlyStem !== 'string' || !palace.heavenlyStem.trim()) {
+      throw new Error(`紫微${palace.name}天干缺失。`);
+    }
+    if (typeof palace.earthlyBranch !== 'string' || !palace.earthlyBranch.trim()) {
+      throw new Error(`紫微${palace.name}地支缺失。`);
+    }
+    if (!Array.isArray(palace.majorStars)) {
+      throw new Error(`紫微${palace.name}主星数据无效。`);
+    }
+    if (!Array.isArray(palace.minorStars)) {
+      throw new Error(`紫微${palace.name}辅星数据无效。`);
+    }
+    if (!Array.isArray(palace.adjectiveStars)) {
+      throw new Error(`紫微${palace.name}杂曜数据无效。`);
+    }
+    if (typeof palace.mutagedPlaces !== 'function') {
+      throw new Error(`紫微${palace.name}四化飞宫数据无效。`);
+    }
+    if (typeof palace.selfMutaged !== 'function') {
+      throw new Error(`紫微${palace.name}自化数据无效。`);
+    }
+  });
+
+  if (mingPalaceCount !== 1) {
+    throw new Error('紫微排盘必须且只能包含一个命宫。');
+  }
+}
+
 export function buildBasicInfo(astrolabe: IztroAstrolabe): BasicInfo {
+  assertValidAstrolabePalaces(astrolabe.palaces);
+
   return {
     gender: astrolabe.gender,
     solar_date: normalizeSolarDateText(astrolabe.solarDate),
@@ -206,6 +267,8 @@ export function buildPalaceFacts(params: {
   hiddenPalaces?: HiddenPalaces;
 }): PalaceFact[] {
   const { astrolabe, horoscope, currentScopeItem, hiddenPalaces } = params;
+  assertValidAstrolabePalaces(astrolabe.palaces);
+
   const activeScopeMutagenMap = mapScopeMutagenMap(
     currentScopeItem?.mutagen ?? [],
     astrolabe.palaces,
@@ -276,4 +339,5 @@ export {
   buildMutagedPlaces,
   buildSelfMutagens,
   buildSummaryTags,
+  assertValidAstrolabePalaces,
 };

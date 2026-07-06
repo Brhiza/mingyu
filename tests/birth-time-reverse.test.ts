@@ -12,6 +12,7 @@ import {
   buildThreePillarsProfile,
   buildUnknownTimeBaziPrompt,
 } from '../src/lib/birth-time-reverse';
+import { buildThreePillarsProfile as buildCoreThreePillarsProfile } from '@core/birth-time-reverse';
 import { BirthTimeReversePage } from '../src/pages/BirthTimeReversePage';
 import {
   buildResultSearch,
@@ -128,6 +129,19 @@ test('反推时辰提示词保持 section 结构，并要求先互动再判断',
   assert.doesNotMatch(prompt, /为什么问这个/);
 });
 
+test('反推时辰页面入口应复用核心三柱实现，避免算法双份漂移', () => {
+  const input = {
+    gender: 'female',
+    dateType: 'solar',
+    year: '2024',
+    month: '2',
+    day: '4',
+    isLeapMonth: false,
+  } as const;
+
+  assert.deepEqual(buildThreePillarsProfile(input), buildCoreThreePillarsProfile(input));
+});
+
 test('反推时辰提示词不会输出未填写或说不清的占位信息', () => {
   const profile = buildThreePillarsProfile({
     gender: 'female',
@@ -183,8 +197,44 @@ test('反推时辰在没有补充线索时不应假定存在已补充资料', ()
   assert.doesNotMatch(prompt, /控制在 4 到 6 个问题/);
 });
 
+test('反推时辰三柱应提示晚子时和交节日边界，不能把中午三柱当成全天确定值', () => {
+  const regularProfile = buildThreePillarsProfile({
+    gender: 'male',
+    dateType: 'solar',
+    year: '1994',
+    month: '10',
+    day: '23',
+    isLeapMonth: false,
+  });
+  const termProfile = buildThreePillarsProfile({
+    gender: 'female',
+    dateType: 'solar',
+    year: '2024',
+    month: '2',
+    day: '4',
+    isLeapMonth: false,
+  });
+
+  assert.match(regularProfile.promptText, /23:00-24:00/);
+  assert.match(regularProfile.promptText, /日柱可能进入次日/);
+  assert.doesNotMatch(regularProfile.promptText, /此日存在节气交接/);
+  assert.match(termProfile.promptText, /此日存在节气交接/);
+  assert.match(termProfile.promptText, /交节前后需分开校验/);
+});
+
 test('反推时辰三柱生成应先拒绝无效出生日期', () => {
   const invalidCases: Array<[Parameters<typeof buildThreePillarsProfile>[0], RegExp]> = [
+    [
+      {
+        gender: 'male',
+        dateType: 'solar',
+        year: 1994 as never,
+        month: '10',
+        day: '23',
+        isLeapMonth: false,
+      },
+      /出生年份必须是整数/,
+    ],
     [
       {
         gender: 'male',
@@ -223,6 +273,45 @@ test('反推时辰三柱生成应先拒绝无效出生日期', () => {
   for (const [input, messagePattern] of invalidCases) {
     assert.throws(() => buildThreePillarsProfile(input), messagePattern);
   }
+});
+
+test('反推时辰三柱生成应拒绝非法性别、日历类型和闰月标志', () => {
+  assert.throws(
+    () =>
+      buildThreePillarsProfile({
+        gender: 'other' as never,
+        dateType: 'solar',
+        year: '1994',
+        month: '10',
+        day: '23',
+        isLeapMonth: false,
+      }),
+    /性别无效/,
+  );
+  assert.throws(
+    () =>
+      buildThreePillarsProfile({
+        gender: 'male',
+        dateType: 'gregorian' as never,
+        year: '1994',
+        month: '10',
+        day: '23',
+        isLeapMonth: false,
+      }),
+    /日历类型无效/,
+  );
+  assert.throws(
+    () =>
+      buildThreePillarsProfile({
+        gender: 'female',
+        dateType: 'lunar',
+        year: '1998',
+        month: '8',
+        day: '15',
+        isLeapMonth: 'false' as never,
+      }),
+    /isLeapMonth必须是布尔值/,
+  );
 });
 
 test('未知时辰自定义基础提示词会明确只按三柱作保守判断，且不强塞问题框架', () => {

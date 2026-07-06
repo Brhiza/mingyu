@@ -184,6 +184,153 @@ test('AI 代理应拒绝过大的请求体', async () => {
   assert.equal(body.error.code, 'REQUEST_BODY_TOO_LARGE');
 });
 
+test('AI 代理应允许单条 prompt 超过 20000 字符并完整转发', async (t) => {
+  const originalFetch = globalThis.fetch;
+  const longPrompt = '测'.repeat(25000);
+  let upstreamBody = '';
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = (async (_input, init) => {
+    upstreamBody = typeof init?.body === 'string' ? init.body : '';
+    return new Response('data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: [DONE]\n\n', {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream; charset=utf-8' },
+    });
+  }) as typeof fetch;
+
+  const response = await handleAiAnalyze(
+    new Request('https://example.com/api/v1/ai/analyze', {
+      method: 'POST',
+      body: JSON.stringify({
+        prompt: longPrompt,
+        aiConfig: { mode: 'builtin' },
+      }),
+    }),
+    {
+      AI_API_KEY: 'test-key',
+      AI_BASE_URL: 'https://example.com/v1',
+      AI_MODEL: 'free/cc',
+      AI_BUILTIN_ENABLED: 'true',
+    },
+  );
+
+  const text = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(text, /"content":"ok"/);
+
+  const body = JSON.parse(upstreamBody) as { messages: Array<{ role: string; content: string }> };
+  assert.equal(body.messages[1]?.role, 'user');
+  assert.equal(body.messages[1]?.content.length, longPrompt.length);
+  assert.equal(body.messages[1]?.content, longPrompt);
+});
+
+test('AI 代理应允许多轮消息中单条内容超过 20000 字符并完整转发', async (t) => {
+  const originalFetch = globalThis.fetch;
+  const longMessage = '测'.repeat(25000);
+  let upstreamBody = '';
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = (async (_input, init) => {
+    upstreamBody = typeof init?.body === 'string' ? init.body : '';
+    return new Response('data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: [DONE]\n\n', {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream; charset=utf-8' },
+    });
+  }) as typeof fetch;
+
+  const response = await handleAiAnalyze(
+    new Request('https://example.com/api/v1/ai/analyze', {
+      method: 'POST',
+      body: JSON.stringify({
+        messages: [
+          { role: 'user', content: '正常问题' },
+          { role: 'assistant', content: '正常回答' },
+          { role: 'user', content: longMessage },
+        ],
+        aiConfig: { mode: 'builtin' },
+      }),
+    }),
+    {
+      AI_API_KEY: 'test-key',
+      AI_BASE_URL: 'https://example.com/v1',
+      AI_MODEL: 'free/cc',
+      AI_BUILTIN_ENABLED: 'true',
+    },
+  );
+
+  const text = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(text, /"content":"ok"/);
+
+  const body = JSON.parse(upstreamBody) as { messages: Array<{ role: string; content: string }> };
+  assert.equal(body.messages[3]?.role, 'user');
+  assert.equal(body.messages[3]?.content.length, longMessage.length);
+  assert.equal(body.messages[3]?.content, longMessage);
+});
+
+test('AI 代理仍应拒绝总内容超过 50000 字符', async (t) => {
+  const originalFetch = globalThis.fetch;
+  let upstreamCalled = false;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = (async () => {
+    upstreamCalled = true;
+    throw new Error('总内容超限时不应调用上游');
+  }) as typeof fetch;
+
+  const response = await handleAiAnalyze(
+    new Request('https://example.com/api/v1/ai/analyze', {
+      method: 'POST',
+      body: JSON.stringify({
+        prompt: 'a'.repeat(50001),
+        aiConfig: { mode: 'builtin' },
+      }),
+    }),
+    {
+      AI_API_KEY: 'test-key',
+      AI_BASE_URL: 'https://example.com/v1',
+      AI_MODEL: 'free/cc',
+      AI_BUILTIN_ENABLED: 'true',
+    },
+  );
+
+  const body = await response.json();
+  assert.equal(response.status, 400);
+  assert.equal(body.error.code, 'PROMPT_TOO_LONG');
+  assert.equal(upstreamCalled, false);
+});
+
+test('AI 代理应拒绝过多消息，不应静默截断上下文', async () => {
+  const response = await handleAiAnalyze(
+    new Request('https://example.com/api/v1/ai/analyze', {
+      method: 'POST',
+      body: JSON.stringify({
+        messages: Array.from({ length: 31 }, (_, index) => ({
+          role: 'user',
+          content: `第 ${index + 1} 条`,
+        })),
+        aiConfig: { mode: 'builtin' },
+      }),
+    }),
+    {
+      AI_API_KEY: 'test-key',
+      AI_BASE_URL: 'https://example.com/v1',
+      AI_MODEL: 'free/cc',
+      AI_BUILTIN_ENABLED: 'true',
+    },
+  );
+
+  const body = await response.json();
+  assert.equal(response.status, 400);
+  assert.equal(body.error.code, 'TOO_MANY_MESSAGES');
+});
+
 test('自定义 AI 应拒绝非 HTTPS、本机和内网接口地址', async () => {
   const unsafeBaseUrls = [
     'http://api.openai.com/v1',
@@ -355,6 +502,41 @@ test('AI 解析连续遇到上游错误时返回明确错误码', async (t) => {
   assert.equal(body.error.upstreamCode, 'bad_response_status_code');
   assert.equal(body.error.attempts, 3);
   assert.match(body.error.message, /已自动重试 2 次仍未成功/);
+});
+
+test('AI 解析连接上游超时时返回 504 而不是泛化为 502', async (t) => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = (async () => {
+    calls += 1;
+    throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+  }) as typeof fetch;
+
+  const response = await handleAiAnalyze(
+    new Request('https://example.com/api/v1/ai/analyze', {
+      method: 'POST',
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: '测试' }],
+        aiConfig: { mode: 'builtin' },
+      }),
+    }),
+    {
+      AI_API_KEY: 'test-key',
+      AI_BASE_URL: 'https://example.com/v1',
+      AI_MODEL: 'free/cc',
+      AI_BUILTIN_ENABLED: 'true',
+      AI_DEFAULT_ENABLED: 'false',
+    },
+  );
+
+  const body = await response.json();
+  assert.equal(calls, 1);
+  assert.equal(response.status, 504);
+  assert.equal(body.error.code, 'AI_UPSTREAM_TIMEOUT');
 });
 
 test('AI 流式响应中断时返回明确错误码', async (t) => {

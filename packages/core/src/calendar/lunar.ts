@@ -2,7 +2,9 @@
  * 农历工具类
  * 基于tyme4ts库实现农历、干支等传统历法功能
  */
-import { SolarDay } from 'tyme4ts';
+import { SixtyCycle, SolarDay, SolarTime } from 'tyme4ts';
+
+type NamedTymeValue = { getName(): string };
 
 /**
  * 干支信息接口
@@ -65,56 +67,6 @@ export class LunarUtil {
     return this.getTimeInfo(now);
   }
 
-  /**
-   * 计算时辰的公共方法，避免代码重复
-   */
-  private static calculateHourIndex(currentHour: number): number {
-    // 时辰划分标准：
-    // 子时: 23:00-01:00 (23:00-24:00为夜子时，00:00-01:00为早子时)
-    // 丑时: 01:00-03:00
-    // 寅时: 03:00-05:00
-    // 卯时: 05:00-07:00
-    // 辰时: 07:00-09:00
-    // 巳时: 09:00-11:00
-    // 午时: 11:00-13:00
-    // 未时: 13:00-15:00
-    // 申时: 15:00-17:00
-    // 酉时: 17:00-19:00
-    // 戌时: 19:00-21:00
-    // 亥时: 21:00-23:00
-
-    if (currentHour >= 23) {
-      return 12; // 晚子时（夜子时，23:00-24:00），对应 tyme4ts hours 数组末位
-    } else if (currentHour < 1) {
-      return 0; // 早子时（00:00-01:00）
-    } else if (currentHour >= 1 && currentHour < 3) {
-      return 1; // 丑时
-    } else if (currentHour >= 3 && currentHour < 5) {
-      return 2; // 寅时
-    } else if (currentHour >= 5 && currentHour < 7) {
-      return 3; // 卯时
-    } else if (currentHour >= 7 && currentHour < 9) {
-      return 4; // 辰时
-    } else if (currentHour >= 9 && currentHour < 11) {
-      return 5; // 巳时
-    } else if (currentHour >= 11 && currentHour < 13) {
-      return 6; // 午时
-    } else if (currentHour >= 13 && currentHour < 15) {
-      return 7; // 未时
-    } else if (currentHour >= 15 && currentHour < 17) {
-      return 8; // 申时
-    } else if (currentHour >= 17 && currentHour < 19) {
-      return 9; // 酉时
-    } else if (currentHour >= 19 && currentHour < 21) {
-      return 10; // 戌时
-    } else if (currentHour >= 21 && currentHour < 23) {
-      return 11; // 亥时
-    }
-
-    // 默认返回子时（理论上不会执行到这里）
-    return 0;
-  }
-
   private static assertValidDate(date: Date): void {
     if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
       throw new Error('时间不是有效日期。');
@@ -133,23 +85,48 @@ export class LunarUtil {
     }
   }
 
+  private static parseLunarDayText(lunarText: string): {
+    yearInChinese: string;
+    monthInChinese: string;
+    dayInChinese: string;
+  } {
+    const normalized = lunarText.replace(/^农历/, '');
+    const [yearPart, rest] = normalized.split('年');
+    if (!yearPart || !rest) {
+      throw new Error(`无法解析农历日期文本：${lunarText}`);
+    }
+    const [monthPart, dayPart] = rest.split('月');
+    if (!monthPart || !dayPart) {
+      throw new Error(`无法解析农历日期文本：${lunarText}`);
+    }
+
+    return {
+      yearInChinese: `${yearPart}年`,
+      monthInChinese: `${monthPart}月`,
+      dayInChinese: dayPart,
+    };
+  }
+
   /**
    * 获取指定时间的完整信息
    */
   static getTimeInfo(date: Date): TimeInfo {
     this.assertValidDate(date);
     try {
-      const solar = SolarDay.fromYmd(date.getFullYear(), date.getMonth() + 1, date.getDate());
-      const lunar = solar.getLunarDay();
-      const jieQi = solar.getTerm();
-
-      // 获取当前时辰
-      const currentHour = date.getHours();
-      const hours = lunar.getHours();
-      const hourIndex = this.calculateHourIndex(currentHour);
-
-      // 从 tyme4ts 返回的时辰数组中获取对应索引的时辰
-      const currentLunarHour = hours[hourIndex] || hours[0];
+      const solarTime = SolarTime.fromYmdHms(
+        date.getFullYear(),
+        date.getMonth() + 1,
+        date.getDate(),
+        date.getHours(),
+        date.getMinutes(),
+        date.getSeconds(),
+      );
+      const solar = solarTime.getSolarDay();
+      const lunarHour = solarTime.getLunarHour();
+      const lunar = lunarHour.getLunarDay();
+      const eightChar = lunarHour.getEightChar();
+      const jieQi = solarTime.getTerm();
+      const lunarText = this.parseLunarDayText(lunar.toString());
 
       return {
         solar: {
@@ -160,29 +137,29 @@ export class LunarUtil {
           minute: date.getMinutes(),
         },
         lunar: {
-          year: lunar.getYearSixtyCycle().toString(),
-          month: lunar.getMonthSixtyCycle().toString(),
-          day: lunar.getSixtyCycle().toString(),
-          hour: currentLunarHour.getSixtyCycle().toString(),
-          yearInChinese: lunar.toString().split('年')[0],
-          monthInChinese: lunar.toString().split('年')[1].split('月')[0] + '月',
-          dayInChinese: lunar.toString().split('月')[1],
-          hourInChinese: currentLunarHour.toString().slice(-2),
+          year: eightChar.getYear().getName(),
+          month: eightChar.getMonth().getName(),
+          day: eightChar.getDay().getName(),
+          hour: eightChar.getHour().getName(),
+          yearInChinese: lunarText.yearInChinese,
+          monthInChinese: lunarText.monthInChinese,
+          dayInChinese: lunarText.dayInChinese,
+          hourInChinese: lunarHour.getName(),
           // 添加数字格式的月日（tyme4ts 闰月返回负数，规范为正数月序，闰月标志另行处理）
           monthNumber: Math.abs(lunar.getMonth()),
           dayNumber: lunar.getDay(),
         },
         ganzhi: {
-          year: lunar.getYearSixtyCycle().toString(),
-          month: lunar.getMonthSixtyCycle().toString(),
-          day: lunar.getSixtyCycle().toString(),
-          hour: currentLunarHour.getSixtyCycle().toString(),
+          year: eightChar.getYear().getName(),
+          month: eightChar.getMonth().getName(),
+          day: eightChar.getDay().getName(),
+          hour: eightChar.getHour().getName(),
         },
         eightChar: {
-          year: lunar.getYearSixtyCycle().toString(),
-          month: lunar.getMonthSixtyCycle().toString(),
-          day: lunar.getSixtyCycle().toString(),
-          hour: currentLunarHour.getSixtyCycle().toString(),
+          year: eightChar.getYear().getName(),
+          month: eightChar.getMonth().getName(),
+          day: eightChar.getDay().getName(),
+          hour: eightChar.getHour().getName(),
         },
         jieQi: jieQi.getName(),
       };
@@ -199,26 +176,21 @@ export class LunarUtil {
     const targetDate = date || new Date();
     this.assertValidDate(targetDate);
     try {
-      const solar = SolarDay.fromYmd(
+      const solarTime = SolarTime.fromYmdHms(
         targetDate.getFullYear(),
         targetDate.getMonth() + 1,
         targetDate.getDate(),
+        targetDate.getHours(),
+        targetDate.getMinutes(),
+        targetDate.getSeconds(),
       );
-      const lunar = solar.getLunarDay();
-
-      // 获取当前时辰
-      const currentHour = targetDate.getHours();
-      const hours = lunar.getHours();
-      const hourIndex = this.calculateHourIndex(currentHour);
-
-      // 从 tyme4ts 返回的时辰数组中获取对应索引的时辰
-      const currentLunarHour = hours[hourIndex] || hours[0];
+      const eightChar = solarTime.getLunarHour().getEightChar();
 
       return {
-        year: lunar.getYearSixtyCycle().toString(),
-        month: lunar.getMonthSixtyCycle().toString(),
-        day: lunar.getSixtyCycle().toString(),
-        hour: currentLunarHour.getSixtyCycle().toString(),
+        year: eightChar.getYear().getName(),
+        month: eightChar.getMonth().getName(),
+        day: eightChar.getDay().getName(),
+        hour: eightChar.getHour().getName(),
       };
     } catch (error) {
       console.error('tyme4ts库调用失败:', error);
@@ -233,30 +205,28 @@ export class LunarUtil {
     const targetDate = date || new Date();
     this.assertValidDate(targetDate);
     try {
-      const solar = SolarDay.fromYmd(
+      const solarTime = SolarTime.fromYmdHms(
         targetDate.getFullYear(),
         targetDate.getMonth() + 1,
         targetDate.getDate(),
+        targetDate.getHours(),
+        targetDate.getMinutes(),
+        targetDate.getSeconds(),
       );
-      const lunar = solar.getLunarDay();
-
-      // 获取当前时辰
-      const currentHour = targetDate.getHours();
-      const hours = lunar.getHours();
-      const hourIndex = this.calculateHourIndex(currentHour);
-
-      // 从 tyme4ts 返回的时辰数组中获取对应索引的时辰
-      const currentLunarHour = hours[hourIndex] || hours[0];
+      const lunarHour = solarTime.getLunarHour();
+      const lunar = lunarHour.getLunarDay();
+      const eightChar = lunarHour.getEightChar();
+      const lunarText = this.parseLunarDayText(lunar.toString());
 
       return {
-        year: lunar.getYearSixtyCycle().toString(),
-        month: lunar.getMonthSixtyCycle().toString(),
-        day: lunar.getSixtyCycle().toString(),
-        hour: currentLunarHour.getSixtyCycle().toString(),
-        yearInChinese: lunar.toString().split('年')[0],
-        monthInChinese: lunar.toString().split('年')[1].split('月')[0] + '月',
-        dayInChinese: lunar.toString().split('月')[1],
-        hourInChinese: currentLunarHour.toString().slice(-2),
+        year: eightChar.getYear().getName(),
+        month: eightChar.getMonth().getName(),
+        day: eightChar.getDay().getName(),
+        hour: eightChar.getHour().getName(),
+        yearInChinese: lunarText.yearInChinese,
+        monthInChinese: lunarText.monthInChinese,
+        dayInChinese: lunarText.dayInChinese,
+        hourInChinese: lunarHour.getName(),
         // 添加数字格式的月日（tyme4ts 闰月返回负数，此处规范为正数月序，闰月标志另行处理）
         monthNumber: Math.abs(lunar.getMonth()),
         dayNumber: lunar.getDay(),
@@ -271,81 +241,13 @@ export class LunarUtil {
    * 获取空亡地支
    */
   static getVoidBranches(dayGanZhi: string): string[] {
-    const voidMap: Record<string, string[]> = {
-      // 甲子旬
-      甲子: ['戌', '亥'],
-      乙丑: ['戌', '亥'],
-      丙寅: ['戌', '亥'],
-      丁卯: ['戌', '亥'],
-      戊辰: ['戌', '亥'],
-      己巳: ['戌', '亥'],
-      庚午: ['戌', '亥'],
-      辛未: ['戌', '亥'],
-      壬申: ['戌', '亥'],
-      癸酉: ['戌', '亥'],
-
-      // 甲戌旬
-      甲戌: ['申', '酉'],
-      乙亥: ['申', '酉'],
-      丙子: ['申', '酉'],
-      丁丑: ['申', '酉'],
-      戊寅: ['申', '酉'],
-      己卯: ['申', '酉'],
-      庚辰: ['申', '酉'],
-      辛巳: ['申', '酉'],
-      壬午: ['申', '酉'],
-      癸未: ['申', '酉'],
-
-      // 甲申旬
-      甲申: ['午', '未'],
-      乙酉: ['午', '未'],
-      丙戌: ['午', '未'],
-      丁亥: ['午', '未'],
-      戊子: ['午', '未'],
-      己丑: ['午', '未'],
-      庚寅: ['午', '未'],
-      辛卯: ['午', '未'],
-      壬辰: ['午', '未'],
-      癸巳: ['午', '未'],
-
-      // 甲午旬
-      甲午: ['辰', '巳'],
-      乙未: ['辰', '巳'],
-      丙申: ['辰', '巳'],
-      丁酉: ['辰', '巳'],
-      戊戌: ['辰', '巳'],
-      己亥: ['辰', '巳'],
-      庚子: ['辰', '巳'],
-      辛丑: ['辰', '巳'],
-      壬寅: ['辰', '巳'],
-      癸卯: ['辰', '巳'],
-
-      // 甲辰旬
-      甲辰: ['寅', '卯'],
-      乙巳: ['寅', '卯'],
-      丙午: ['寅', '卯'],
-      丁未: ['寅', '卯'],
-      戊申: ['寅', '卯'],
-      己酉: ['寅', '卯'],
-      庚戌: ['寅', '卯'],
-      辛亥: ['寅', '卯'],
-      壬子: ['寅', '卯'],
-      癸丑: ['寅', '卯'],
-
-      // 甲寅旬
-      甲寅: ['子', '丑'],
-      乙卯: ['子', '丑'],
-      丙辰: ['子', '丑'],
-      丁巳: ['子', '丑'],
-      戊午: ['子', '丑'],
-      己未: ['子', '丑'],
-      庚申: ['子', '丑'],
-      辛酉: ['子', '丑'],
-      壬戌: ['子', '丑'],
-      癸亥: ['子', '丑'],
-    };
-
-    return voidMap[dayGanZhi] || [];
+    try {
+      return SixtyCycle.fromName(dayGanZhi)
+        .getExtraEarthBranches()
+        .map((item: NamedTymeValue) => item.getName());
+    } catch (error) {
+      throw new Error(`无法识别日柱干支 "${dayGanZhi}" 的旬空。`, { cause: error });
+    }
   }
 
   /**
@@ -365,7 +267,11 @@ export class LunarUtil {
       癸: '玄武',
     };
 
-    return startMap[dayGan] || '青龙';
+    const start = startMap[dayGan];
+    if (!start) {
+      throw new Error(`无法识别日干 "${dayGan}" 的六神起法。`);
+    }
+    return start;
   }
 
   /**
@@ -397,26 +303,15 @@ export class LunarUtil {
     this.assertSolarMonth(month);
     const daysInMonth = new Date(year, month, 0).getDate();
     const result = [];
-    let firstError: unknown = null;
     for (let day = 1; day <= daysInMonth; day++) {
-      try {
-        const solar = SolarDay.fromYmd(year, month, day);
-        const lunar = solar.getLunarDay();
-        const lunarDateString = lunar.toString();
-        const lunarMonth = lunarDateString.split('年')[1].split('月')[0] + '月';
-        const lunarDay = lunarDateString.split('月')[1];
-        result.push({
-          date: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
-          ganZhi: lunar.getSixtyCycle().toString(),
-          lunarDate: `${lunarMonth}${lunarDay}`,
-        });
-      } catch (error) {
-        if (!firstError) firstError = error;
-        console.error(`Error calculating GanZhi for ${year}-${month}-${day}:`, error);
-      }
-    }
-    if (result.length === 0 && firstError) {
-      throw firstError;
+      const solar = SolarDay.fromYmd(year, month, day);
+      const lunar = solar.getLunarDay();
+      const lunarText = this.parseLunarDayText(lunar.toString());
+      result.push({
+        date: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+        ganZhi: lunar.getSixtyCycle().toString(),
+        lunarDate: `${lunarText.monthInChinese}${lunarText.dayInChinese}`,
+      });
     }
     return result;
   }
@@ -427,23 +322,14 @@ export class LunarUtil {
   static getGanZhiForYear(year: number): { month: number; ganZhi: string }[] {
     this.assertSolarYear(year);
     const result = [];
-    let firstError: unknown = null;
     for (let month = 1; month <= 12; month++) {
-      try {
-        // 使用该月15号作为代表日来获取月干支
-        const solar = SolarDay.fromYmd(year, month, 15);
-        const lunar = solar.getLunarDay();
-        result.push({
-          month: month,
-          ganZhi: lunar.getMonthSixtyCycle().toString(),
-        });
-      } catch (error) {
-        if (!firstError) firstError = error;
-        console.error(`Error calculating GanZhi for month ${year}-${month}:`, error);
-      }
-    }
-    if (result.length === 0 && firstError) {
-      throw firstError;
+      // 使用该月 15 日午时作为公历月代表点，月柱来源统一走 EightChar。
+      const solarTime = SolarTime.fromYmdHms(year, month, 15, 12, 0, 0);
+      const eightChar = solarTime.getLunarHour().getEightChar();
+      result.push({
+        month: month,
+        ganZhi: eightChar.getMonth().getName(),
+      });
     }
     return result;
   }

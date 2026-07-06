@@ -42,7 +42,9 @@ function resolveESMPath(importPath, sourceFileDir) {
   }
 
   // Fallback: just append .js
-  console.warn(`  ⚠  Cannot resolve: ${importPath} from ${sourceFileDir} — appending .js as fallback`);
+  console.warn(
+    `  ⚠  Cannot resolve: ${importPath} from ${sourceFileDir} — appending .js as fallback`,
+  );
   return importPath + '.js';
 }
 
@@ -69,36 +71,40 @@ let fixedCount = 0;
 //   import '<relative-path>'
 //   import "<relative-path>"
 // where relative-path starts with ./ or ../
-const IMPORT_PATTERN = /(from\s+['"])(\.\.?\/[^'"]+)(['"])|((?:^|\n)\s*import\s+['"])(\.\.?\/[^'"]+)(['"])/g;
+const IMPORT_PATTERN =
+  /(from\s+['"])(\.\.?\/[^'"]+)(['"])|((?:^|\n)\s*import\s+['"])(\.\.?\/[^'"]+)(['"])/g;
 
 for (const filePath of files) {
   const sourceFileDir = dirname(filePath);
   const content = readFileSync(filePath, 'utf-8');
   let modified = false;
 
-  const newContent = content.replace(IMPORT_PATTERN, (match, fromQuote, fromPath, fromEnd, importPre, importPath, importEnd) => {
-    const rawPath = fromPath || importPath || '';
+  const newContent = content.replace(
+    IMPORT_PATTERN,
+    (match, fromQuote, fromPath, fromEnd, importPre, importPath, importEnd) => {
+      const rawPath = fromPath || importPath || '';
 
-    if (!rawPath || hasExtension(rawPath)) {
-      return match; // already has extension, skip
-    }
+      if (!rawPath || hasExtension(rawPath)) {
+        return match; // already has extension, skip
+      }
 
-    const resolved = resolveESMPath(rawPath, sourceFileDir);
-    if (resolved === rawPath) {
-      return match; // no change needed
-    }
+      const resolved = resolveESMPath(rawPath, sourceFileDir);
+      if (resolved === rawPath) {
+        return match; // no change needed
+      }
 
-    modified = true;
+      modified = true;
 
-    // Reconstruct the match using the correct quote
-    if (fromQuote) {
-      const quote = fromQuote.endsWith('"') ? '"' : "'";
-      return `${fromQuote}${resolved}${fromEnd}`;
-    } else {
-      const quote = importPre.endsWith('"') ? '"' : "'";
-      return `${importPre}${resolved}${importEnd}`;
-    }
-  });
+      // Reconstruct the match using the correct quote
+      if (fromQuote) {
+        const quote = fromQuote.endsWith('"') ? '"' : "'";
+        return `${fromQuote}${resolved}${fromEnd}`;
+      } else {
+        const quote = importPre.endsWith('"') ? '"' : "'";
+        return `${importPre}${resolved}${importEnd}`;
+      }
+    },
+  );
 
   if (modified) {
     writeFileSync(filePath, newContent, 'utf-8');

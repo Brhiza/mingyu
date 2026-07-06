@@ -3,7 +3,7 @@
  */
 
 import { BASIC_MAPPINGS } from '../baziDefinitions';
-import type { PatternAnalysis } from '../baziTypes';
+import { WUXING, type PatternAnalysis, type Wuxing } from '../baziTypes';
 
 interface DiseaseMedicineRule {
   id: string;
@@ -133,11 +133,34 @@ const TONGGUAN_RULES: TongguanRule[] = [
   },
 ];
 
+function assertWuxing(value: string, label: string): asserts value is Wuxing {
+  if (!(WUXING as readonly string[]).includes(value)) {
+    throw new Error(`${label}五行无效：${value}`);
+  }
+}
+
+function assertWuxingCounts(wuxingCounts: Record<string, number>): void {
+  Object.entries(wuxingCounts).forEach(([wuxing, count]) => {
+    assertWuxing(wuxing, '五行统计');
+    if (!Number.isFinite(count) || count < 0) {
+      throw new Error(`五行统计数值无效：${wuxing}=${count}`);
+    }
+  });
+}
+
+function assertWuxingList(values: string[], label: string): void {
+  values.forEach((value) => assertWuxing(value, label));
+}
+
 export function detectTongguanNeed(
   wuxingCounts: Record<string, number>,
   favorableWuxing: string[],
   unfavorableWuxing: string[],
 ): { need: boolean; conflict?: [string, string]; tongguan?: string; rule?: TongguanRule } {
+  assertWuxingCounts(wuxingCounts);
+  assertWuxingList(favorableWuxing, '喜用');
+  assertWuxingList(unfavorableWuxing, '忌用');
+
   for (const rule of TONGGUAN_RULES) {
     const [w1, w2] = rule.conflictWuxings;
     const favorableHasW1 = favorableWuxing.includes(w1);
@@ -148,10 +171,14 @@ export function detectTongguanNeed(
     const isConflict = (favorableHasW1 && unfavorableHasW2) || (favorableHasW2 && unfavorableHasW1);
 
     if (isConflict) {
-      const w1Strong = (wuxingCounts[w1] || 0) >= 25;
-      const w2Strong = (wuxingCounts[w2] || 0) >= 25;
+      const w1Count = wuxingCounts[w1] || 0;
+      const w2Count = wuxingCounts[w2] || 0;
+      const w1Strong = w1Count >= 25;
+      const w2Strong = w2Count >= 25;
+      const w1Contending = w1Count >= 20;
+      const w2Contending = w2Count >= 20;
 
-      if (w1Strong && w2Strong) {
+      if ((w1Strong && w2Contending) || (w2Strong && w1Contending)) {
         return { need: true, conflict: rule.conflictWuxings, tongguan: rule.tongguanWuxing, rule };
       }
     }
@@ -165,6 +192,8 @@ export function detectDiseaseMedicine(
   pattern: PatternAnalysis,
   _strengthStatus: string,
 ): { hasDisease: boolean; disease?: string; medicine?: string; rule?: DiseaseMedicineRule } {
+  assertWuxingCounts(wuxingCounts);
+
   for (const [wuxing, count] of Object.entries(wuxingCounts)) {
     if (count >= 40) {
       const rule = DISEASE_MEDICINE_RULES.find((r) => r.id === 'disease-over-strong');
@@ -200,35 +229,40 @@ export function detectDiseaseMedicine(
 }
 
 function getOppositeWuxing(wuxing: string): string {
-  const opposites: Record<string, string> = {
+  assertWuxing(wuxing, '制化');
+  const opposites: Record<Wuxing, string> = {
     木: '金',
     金: '木',
     水: '火',
     火: '水',
     土: '木',
   };
-  return opposites[wuxing] || '待定';
+  return opposites[wuxing];
 }
 
 export function getDrainWuxing(wuxing: string): string {
-  const drainMap: Record<string, string> = {
+  assertWuxing(wuxing, '泄化');
+  const drainMap: Record<Wuxing, string> = {
     土: '金',
     火: '土',
     木: '火',
     金: '水',
     水: '木',
   };
-  return drainMap[wuxing] || '';
+  return drainMap[wuxing];
 }
 
 function getSupportiveWuxing(wuxing: string): string {
+  assertWuxing(wuxing, '生扶');
   const sheng = BASIC_MAPPINGS.WUXING_SHENG;
   const wuxingIndex = Object.values(sheng).indexOf(wuxing);
   if (wuxingIndex >= 0) {
     const keys = Object.keys(sheng);
-    return keys[wuxingIndex] || '';
+    const supportiveWuxing = keys[wuxingIndex] || '';
+    assertWuxing(supportiveWuxing, '生扶');
+    return supportiveWuxing;
   }
-  return '';
+  throw new Error(`生扶五行无效：${wuxing}`);
 }
 
 function getSeasonBalance(wuxingCounts: Record<string, number>): {

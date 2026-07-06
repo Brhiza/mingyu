@@ -1,6 +1,5 @@
 import { SolarTime, ChildLimit } from 'tyme4ts';
-import { BASIC_MAPPINGS } from './baziDefinitions';
-import { getTenGod, getTenGodForBranch } from './baziUtils';
+import { assertHeavenlyStem, getTenGod, getTenGodForBranch } from './baziUtils';
 import type { LuckInfo, LuckCycle, LiunianInfo, SolarDateTimeInfo, XiaoyunInfo } from './baziTypes';
 import { formatSolarDateTime, shiftSolarDateTimeYears, toSolarDateTimeInfo } from './luckTiming';
 
@@ -23,117 +22,113 @@ export class LuckCalculator {
     gender: LuckGender,
     dayMaster: string,
   ): LuckInfo {
-    try {
-      // 1. 计算童限 (起运前)
-      const childLimit = ChildLimit.fromSolarTime(solarTime, gender);
-      const startAge = childLimit.getYearCount(); // 起运岁数
-      const startMonth = childLimit.getMonthCount();
-      const startDay = childLimit.getDayCount();
-      const startHour = childLimit.getHourCount();
-      const startMinute = childLimit.getMinuteCount();
+    assertHeavenlyStem(dayMaster, '日主');
 
-      // 精确的起运时间 (公历)
-      const limitSolarTime = childLimit.getEndTime();
-      const birthSolarTime = toSolarDateTimeInfo(solarTime);
-      const firstCycleStartTime = toSolarDateTimeInfo(limitSolarTime);
+    // 1. 计算童限 (起运前)
+    const childLimit = ChildLimit.fromSolarTime(solarTime, gender);
+    const startAge = childLimit.getYearCount(); // 起运岁数
+    const startMonth = childLimit.getMonthCount();
+    const startDay = childLimit.getDayCount();
+    const startHour = childLimit.getHourCount();
+    const startMinute = childLimit.getMinuteCount();
 
-      const startInfoText = this.getStartInfoText(
-        startAge,
-        startMonth,
-        startDay,
-        startHour,
-        startMinute,
+    // 精确的起运时间 (公历)
+    const limitSolarTime = childLimit.getEndTime();
+    const birthSolarTime = toSolarDateTimeInfo(solarTime);
+    const firstCycleStartTime = toSolarDateTimeInfo(limitSolarTime);
+
+    const startInfoText = this.getStartInfoText(
+      startAge,
+      startMonth,
+      startDay,
+      startHour,
+      startMinute,
+    );
+    const startFortune = childLimit.getStartFortune();
+
+    // 2. 获取大运列表 (DecadeFortune)
+    // tyme4ts 的 ChildLimit 提供了获取第一步大运的方法 getStartDecadeFortune()
+    // 后续大运可以通过 next() 方法获取
+    const decadeFortunes: Array<ReturnType<typeof childLimit.getStartDecadeFortune>> = [];
+    let currentDecade = childLimit.getStartDecadeFortune();
+
+    // 获取 12 步大运
+    for (let i = 0; i < 12; i++) {
+      decadeFortunes.push(currentDecade);
+      currentDecade = currentDecade.next(1);
+    }
+
+    const cycles: LuckCycle[] = [];
+    const birthYear = solarTime.getYear();
+
+    // 3. 处理起运前的童限年份
+    if (startAge >= 1 || this.shouldIncludeBoundaryYear(firstCycleStartTime)) {
+      const preDayunYears = this.calculateLiunianForCycle(
+        birthYear,
+        birthYear,
+        dayMaster,
+        firstCycleStartTime,
+        startFortune,
       );
-      const startFortune = childLimit.getStartFortune();
 
-      // 2. 获取大运列表 (DecadeFortune)
-      // tyme4ts 的 ChildLimit 提供了获取第一步大运的方法 getStartDecadeFortune()
-      // 后续大运可以通过 next() 方法获取
-      const decadeFortunes: Array<ReturnType<typeof childLimit.getStartDecadeFortune>> = [];
-      let currentDecade = childLimit.getStartDecadeFortune();
-
-      // 获取 12 步大运
-      for (let i = 0; i < 12; i++) {
-        decadeFortunes.push(currentDecade);
-        currentDecade = currentDecade.next(1);
+      if (preDayunYears.length > 0) {
+        cycles.push({
+          age: 1,
+          year: birthYear,
+          ganZhi: '小运', // 童限期统称
+          isXiaoyun: true,
+          type: '小运',
+          startSolarTime: birthSolarTime,
+          endSolarTime: firstCycleStartTime,
+          years: preDayunYears,
+        });
       }
+    }
 
-      const cycles: LuckCycle[] = [];
-      const birthYear = solarTime.getYear();
+    // 4. 处理大运
+    decadeFortunes.forEach((df, index) => {
+      // 大运起始年份需要根据推算：出生年 + 起运岁数 + 10 * index
+      // 注意：DecadeFortune.getStartAge() 返回的是岁数
+      const startAgeDaYun = df.getStartAge();
+      const cycleStartTime = shiftSolarDateTimeYears(firstCycleStartTime, index * 10);
+      const cycleEndTime = shiftSolarDateTimeYears(firstCycleStartTime, (index + 1) * 10);
+      const startYear = cycleStartTime.year;
 
-      // 3. 处理起运前的童限年份
-      if (startAge >= 1 || this.shouldIncludeBoundaryYear(firstCycleStartTime)) {
-        const preDayunYears = this.calculateLiunianForCycle(
-          birthYear,
+      const ganZhi = df.getName();
+
+      cycles.push({
+        age: startAgeDaYun,
+        year: startYear,
+        ganZhi,
+        isXiaoyun: false,
+        type: '大运',
+        startSolarTime: cycleStartTime,
+        endSolarTime: cycleEndTime,
+        years: [], // 稍后填充
+      });
+    });
+
+    // 5. 填充大运流年
+    cycles.forEach((cycle) => {
+      if (!cycle.isXiaoyun) {
+        cycle.years = this.calculateLiunianForCycle(
+          cycle.year, // 大运开始年份
           birthYear,
           dayMaster,
-          firstCycleStartTime,
+          cycle.endSolarTime,
           startFortune,
         );
-
-        if (preDayunYears.length > 0) {
-          cycles.push({
-            age: 1,
-            year: birthYear,
-            ganZhi: '小运', // 童限期统称
-            isXiaoyun: true,
-            type: '小运',
-            startSolarTime: birthSolarTime,
-            endSolarTime: firstCycleStartTime,
-            years: preDayunYears,
-          });
-        }
       }
+    });
+    this.attachResolvedYears(cycles);
 
-      // 4. 处理大运
-      decadeFortunes.forEach((df, index) => {
-        // 大运起始年份需要根据推算：出生年 + 起运岁数 + 10 * index
-        // 注意：DecadeFortune.getStartAge() 返回的是岁数
-        const startAgeDaYun = df.getStartAge();
-        const cycleStartTime = shiftSolarDateTimeYears(firstCycleStartTime, index * 10);
-        const cycleEndTime = shiftSolarDateTimeYears(firstCycleStartTime, (index + 1) * 10);
-        const startYear = cycleStartTime.year;
+    const handoverInfoText = this.getHandoverInfo(firstCycleStartTime);
 
-        const ganZhi = df.getName();
-
-        cycles.push({
-          age: startAgeDaYun,
-          year: startYear,
-          ganZhi,
-          isXiaoyun: false,
-          type: '大运',
-          startSolarTime: cycleStartTime,
-          endSolarTime: cycleEndTime,
-          years: [], // 稍后填充
-        });
-      });
-
-      // 5. 填充大运流年
-      cycles.forEach((cycle) => {
-        if (!cycle.isXiaoyun) {
-          cycle.years = this.calculateLiunianForCycle(
-            cycle.year, // 大运开始年份
-            birthYear,
-            dayMaster,
-            cycle.endSolarTime,
-            startFortune,
-          );
-        }
-      });
-      this.attachResolvedYears(cycles);
-
-      const handoverInfoText = this.getHandoverInfo(firstCycleStartTime);
-
-      return {
-        startInfo: startInfoText,
-        handoverInfo: handoverInfoText,
-        cycles,
-      };
-    } catch (error) {
-      // 记录原始错误以便排查，但仍返回降级结果避免整个计算链路崩溃
-      console.error('LuckCalculator.calculate 失败:', error);
-      return { startInfo: '计算失败', handoverInfo: '计算失败', cycles: [] };
-    }
+    return {
+      startInfo: startInfoText,
+      handoverInfo: handoverInfoText,
+      cycles,
+    };
   }
 
   /**
@@ -200,28 +195,16 @@ export class LuckCalculator {
    * 计算流年
    */
   private calculateLiunian(year: number, dayMaster: string) {
-    try {
-      // 使用年中(6月)计算该年干支，避免年初年末边界问题
-      const solarTime = SolarTime.fromYmdHms(year, 6, 1, 0, 0, 0);
-      const yearPillar = solarTime.getLunarHour().getEightChar().getYear();
-      const gan = yearPillar.getHeavenStem().getName();
-      const zhi = yearPillar.getEarthBranch().getName();
-      return {
-        ganZhi: `${gan}${zhi}`,
-        tenGod: getTenGod(gan, dayMaster),
-        tenGodZhi: getTenGodForBranch(zhi, dayMaster),
-      };
-    } catch (_error) {
-      const ganIndex = (year - 4) % 10;
-      const zhiIndex = (year - 4) % 12;
-      const gan = BASIC_MAPPINGS.HEAVENLY_STEMS[ganIndex];
-      const zhi = BASIC_MAPPINGS.EARTHLY_BRANCHES[zhiIndex];
-      return {
-        ganZhi: `${gan}${zhi}`,
-        tenGod: getTenGod(gan, dayMaster),
-        tenGodZhi: getTenGodForBranch(zhi, dayMaster),
-      };
-    }
+    // 使用年中(6月)计算该年干支，避免年初年末边界问题
+    const solarTime = SolarTime.fromYmdHms(year, 6, 1, 0, 0, 0);
+    const yearPillar = solarTime.getLunarHour().getEightChar().getYear();
+    const gan = yearPillar.getHeavenStem().getName();
+    const zhi = yearPillar.getEarthBranch().getName();
+    return {
+      ganZhi: `${gan}${zhi}`,
+      tenGod: getTenGod(gan, dayMaster),
+      tenGodZhi: getTenGodForBranch(zhi, dayMaster),
+    };
   }
 
   /**

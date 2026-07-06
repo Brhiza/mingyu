@@ -1,7 +1,11 @@
 /**
  * @file Ziwei (紫微斗数) iztro integration barrel
  */
-export { buildAstrolabeFromInput, buildHoroscope, getDefaultHoroscopeContext } from './runtime-helpers';
+export {
+  buildAstrolabeFromInput,
+  buildHoroscope,
+  getDefaultHoroscopeContext,
+} from './runtime-helpers';
 export { shiftLocalDate, shiftLunarYear } from './runtime-helpers';
 export type { DecadalTimelineOption } from './decadal';
 export {

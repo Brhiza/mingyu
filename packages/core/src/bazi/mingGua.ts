@@ -14,7 +14,10 @@
  */
 import type { MingGuaProfile } from '../types/analysis';
 
-const MING_GUA_TABLE: Record<number, { gua: string; star: string; element: string; group: '东四命' | '西四命' }> = {
+const MING_GUA_TABLE: Record<
+  number,
+  { gua: string; star: string; element: string; group: '东四命' | '西四命' }
+> = {
   1: { gua: '坎', star: '一白贪狼', element: '水', group: '东四命' },
   2: { gua: '坤', star: '二黑巨门', element: '土', group: '西四命' },
   3: { gua: '震', star: '三碧禄存', element: '木', group: '东四命' },

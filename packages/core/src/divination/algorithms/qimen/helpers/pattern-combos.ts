@@ -22,6 +22,7 @@ import {
   supportiveGods,
   tiangan,
 } from './_constants';
+import { LIUCHONG_MAP } from '../../_shared/wuxing';
 
 export interface QimenPatternCombo {
   key: string;
@@ -80,7 +81,8 @@ type DoorPalaceHostGuestEntry = {
   advice: '利客' | '利主' | '势均';
 };
 
-type HostGuestRelation = StarPalaceHostGuestEntry['relation'] | DoorPalaceHostGuestEntry['relation'];
+type HostGuestRelation =
+  StarPalaceHostGuestEntry['relation'] | DoorPalaceHostGuestEntry['relation'];
 
 type DoorSeasonQiState = '旺' | '相' | '休' | '囚' | '废';
 
@@ -168,26 +170,17 @@ function getPalace(jiuGongGe: QimenJiuGongGe[], palace?: number): QimenJiuGongGe
   return jiuGongGe.find((item) => item.gong === palace);
 }
 
-function findStarPalace(
-  jiuGongGe: QimenJiuGongGe[],
-  star?: string,
-): QimenJiuGongGe | undefined {
+function findStarPalace(jiuGongGe: QimenJiuGongGe[], star?: string): QimenJiuGongGe | undefined {
   if (!star) return undefined;
   return jiuGongGe.find((item) => item.tianPan.star === star);
 }
 
-function findDoorPalace(
-  jiuGongGe: QimenJiuGongGe[],
-  door?: string,
-): QimenJiuGongGe | undefined {
+function findDoorPalace(jiuGongGe: QimenJiuGongGe[], door?: string): QimenJiuGongGe | undefined {
   if (!door) return undefined;
   return jiuGongGe.find((item) => item.renPan.door === door);
 }
 
-function findGodPalace(
-  jiuGongGe: QimenJiuGongGe[],
-  god: string,
-): QimenJiuGongGe | undefined {
+function findGodPalace(jiuGongGe: QimenJiuGongGe[], god: string): QimenJiuGongGe | undefined {
   return jiuGongGe.find((item) => item.shenPan.god === god);
 }
 
@@ -212,21 +205,6 @@ function getDoorSeasonQiState(
   return undefined;
 }
 
-const branchOppositeMap: Record<string, string> = {
-  子: '午',
-  丑: '未',
-  寅: '申',
-  卯: '酉',
-  辰: '戌',
-  巳: '亥',
-  午: '子',
-  未: '丑',
-  申: '寅',
-  酉: '卯',
-  戌: '辰',
-  亥: '巳',
-};
-
 const palaceOppositeMap: Record<number, number> = {
   1: 9,
   2: 8,
@@ -249,33 +227,35 @@ const yinStars = new Set(['天英', '天芮', '天柱', '天心']);
 const zhiFuOpenPalaces = new Set([1, 8, 3, 4]);
 const zhiFuClosedPalaces = new Set([9, 2, 7, 6]);
 
-const xingDeBySolarTerm: Record<string, { baseTerm: string; deBranch: string; xingBranch: string }> =
-  {
-    冬至: { baseTerm: '冬至', deBranch: '卯', xingBranch: '酉' },
-    小寒: { baseTerm: '冬至', deBranch: '卯', xingBranch: '酉' },
-    大寒: { baseTerm: '冬至', deBranch: '卯', xingBranch: '酉' },
-    立春: { baseTerm: '立春', deBranch: '辰', xingBranch: '戌' },
-    雨水: { baseTerm: '立春', deBranch: '辰', xingBranch: '戌' },
-    惊蛰: { baseTerm: '立春', deBranch: '辰', xingBranch: '戌' },
-    春分: { baseTerm: '春分', deBranch: '午', xingBranch: '子' },
-    清明: { baseTerm: '春分', deBranch: '午', xingBranch: '子' },
-    谷雨: { baseTerm: '春分', deBranch: '午', xingBranch: '子' },
-    立夏: { baseTerm: '立夏', deBranch: '未', xingBranch: '丑' },
-    小满: { baseTerm: '立夏', deBranch: '未', xingBranch: '丑' },
-    芒种: { baseTerm: '立夏', deBranch: '未', xingBranch: '丑' },
-    夏至: { baseTerm: '夏至', deBranch: '酉', xingBranch: '卯' },
-    小暑: { baseTerm: '夏至', deBranch: '酉', xingBranch: '卯' },
-    大暑: { baseTerm: '夏至', deBranch: '酉', xingBranch: '卯' },
-    立秋: { baseTerm: '立秋', deBranch: '戌', xingBranch: '辰' },
-    处暑: { baseTerm: '立秋', deBranch: '戌', xingBranch: '辰' },
-    白露: { baseTerm: '立秋', deBranch: '戌', xingBranch: '辰' },
-    秋分: { baseTerm: '秋分', deBranch: '子', xingBranch: '午' },
-    寒露: { baseTerm: '秋分', deBranch: '子', xingBranch: '午' },
-    霜降: { baseTerm: '秋分', deBranch: '子', xingBranch: '午' },
-    立冬: { baseTerm: '立冬', deBranch: '丑', xingBranch: '未' },
-    小雪: { baseTerm: '立冬', deBranch: '丑', xingBranch: '未' },
-    大雪: { baseTerm: '立冬', deBranch: '丑', xingBranch: '未' },
-  };
+const xingDeBySolarTerm: Record<
+  string,
+  { baseTerm: string; deBranch: string; xingBranch: string }
+> = {
+  冬至: { baseTerm: '冬至', deBranch: '卯', xingBranch: '酉' },
+  小寒: { baseTerm: '冬至', deBranch: '卯', xingBranch: '酉' },
+  大寒: { baseTerm: '冬至', deBranch: '卯', xingBranch: '酉' },
+  立春: { baseTerm: '立春', deBranch: '辰', xingBranch: '戌' },
+  雨水: { baseTerm: '立春', deBranch: '辰', xingBranch: '戌' },
+  惊蛰: { baseTerm: '立春', deBranch: '辰', xingBranch: '戌' },
+  春分: { baseTerm: '春分', deBranch: '午', xingBranch: '子' },
+  清明: { baseTerm: '春分', deBranch: '午', xingBranch: '子' },
+  谷雨: { baseTerm: '春分', deBranch: '午', xingBranch: '子' },
+  立夏: { baseTerm: '立夏', deBranch: '未', xingBranch: '丑' },
+  小满: { baseTerm: '立夏', deBranch: '未', xingBranch: '丑' },
+  芒种: { baseTerm: '立夏', deBranch: '未', xingBranch: '丑' },
+  夏至: { baseTerm: '夏至', deBranch: '酉', xingBranch: '卯' },
+  小暑: { baseTerm: '夏至', deBranch: '酉', xingBranch: '卯' },
+  大暑: { baseTerm: '夏至', deBranch: '酉', xingBranch: '卯' },
+  立秋: { baseTerm: '立秋', deBranch: '戌', xingBranch: '辰' },
+  处暑: { baseTerm: '立秋', deBranch: '戌', xingBranch: '辰' },
+  白露: { baseTerm: '立秋', deBranch: '戌', xingBranch: '辰' },
+  秋分: { baseTerm: '秋分', deBranch: '子', xingBranch: '午' },
+  寒露: { baseTerm: '秋分', deBranch: '子', xingBranch: '午' },
+  霜降: { baseTerm: '秋分', deBranch: '子', xingBranch: '午' },
+  立冬: { baseTerm: '立冬', deBranch: '丑', xingBranch: '未' },
+  小雪: { baseTerm: '立冬', deBranch: '丑', xingBranch: '未' },
+  大雪: { baseTerm: '立冬', deBranch: '丑', xingBranch: '未' },
+};
 
 const sanJiaByXun: Record<string, '孟甲' | '仲甲' | '季甲'> = {
   甲寅: '孟甲',
@@ -632,9 +612,7 @@ function getEarthPrivateDoorLabels(
   if (!branches.includes(dayBranch)) return undefined;
   const nobleType = yangNobleDayBranches.has(dayBranch) ? '阳贵' : '阴贵';
   const nobleBranch =
-    nobleType === '阳贵'
-      ? yangNobleBranchByDayStem[dayStem]
-      : yinNobleBranchByDayStem[dayStem];
+    nobleType === '阳贵' ? yangNobleBranchByDayStem[dayStem] : yinNobleBranchByDayStem[dayStem];
   const nobleGround = getMonthGeneralGroundBranch(monthBranch, hourBranch, nobleBranch);
   const nobleGroundIndex = nobleGround ? branches.indexOf(nobleGround.branch) : -1;
   const nobleGroundPalace = nobleGround
@@ -702,10 +680,7 @@ function getMengZhongJiRoute(
   return undefined;
 }
 
-function getDiSiHuLabels(
-  jiuGongGe: QimenJiuGongGe[],
-  hourBranch?: string,
-): string[] | undefined {
+function getDiSiHuLabels(jiuGongGe: QimenJiuGongGe[], hourBranch?: string): string[] | undefined {
   if (!hourBranch) return undefined;
   const hourIndex = branches.indexOf(hourBranch);
   if (hourIndex === -1) return undefined;
@@ -884,11 +859,7 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
 
   const baihuBad = patterns.find((pattern) => {
     if (pattern.name !== '白虎猖狂') return false;
-    return hasDoorGodCombo(
-      getPalace(ctx.jiuGongGe, pattern.palace),
-      difficultDoors,
-      difficultGods,
-    );
+    return hasDoorGodCombo(getPalace(ctx.jiuGongGe, pattern.palace), difficultDoors, difficultGods);
   });
   if (baihuBad) {
     const palace = getPalace(ctx.jiuGongGe, baihuBad.palace);
@@ -903,9 +874,7 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
     });
   }
 
-  const baihuPatterns = patterns.filter(
-    (pattern) => pattern.name === '白虎猖狂' && pattern.palace,
-  );
+  const baihuPatterns = patterns.filter((pattern) => pattern.name === '白虎猖狂' && pattern.palace);
   for (const pattern of baihuPatterns) {
     const palace = getPalace(ctx.jiuGongGe, pattern.palace);
     const door = palace?.renPan.door;
@@ -1200,11 +1169,7 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
         score: 0,
         summary: `${palace.name}螣蛇夭矫，古法急迁甲子戊、甲戌己两土宫；本盘取天盘戊所在${wuPalace.name}、天盘己所在${jiPalace.name}，以土制癸水，偏避兵迁营参考，不作通用吉凶评分。`,
         palace: palace.gong,
-        sources: [
-          '螣蛇夭矫',
-          `甲子戊：天盘戊${wuPalace.name}`,
-          `甲戌己：天盘己${jiPalace.name}`,
-        ],
+        sources: ['螣蛇夭矫', `甲子戊：天盘戊${wuPalace.name}`, `甲戌己：天盘己${jiPalace.name}`],
       });
     }
   }
@@ -1226,9 +1191,7 @@ function pushXingDeKaiHeCombo(ctx: PatternComboContext, out: QimenPatternCombo[]
   const hourLabel = hourGanZhi ? `${hourGanZhi}时` : `${ctx.hourBranch}时`;
   const state = getXingDeOpenCloseState(ctx.hourBranch, xingDe, polarity);
   const sanJiaText =
-    hourGanZhi && xunShouGanZhi && sanJia
-      ? `${hourGanZhi}属${xunShouGanZhi}旬（${sanJia}），`
-      : '';
+    hourGanZhi && xunShouGanZhi && sanJia ? `${hourGanZhi}属${xunShouGanZhi}旬（${sanJia}），` : '';
 
   out.push({
     key: `combo:xingDeKaiHe:${ctx.solarTerm}:${ctx.hourBranch}:${ctx.zhiFu}`,
@@ -1249,9 +1212,7 @@ function pushXingDeKaiHeCombo(ctx: PatternComboContext, out: QimenPatternCombo[]
   });
 }
 
-function getStarPalaceHostGuestEntries(
-  jiuGongGe: QimenJiuGongGe[],
-): StarPalaceHostGuestEntry[] {
+function getStarPalaceHostGuestEntries(jiuGongGe: QimenJiuGongGe[]): StarPalaceHostGuestEntry[] {
   const entries: StarPalaceHostGuestEntry[] = [];
 
   for (const palace of jiuGongGe) {
@@ -1328,10 +1289,7 @@ function getStarPalaceHostGuestEntries(
   return entries;
 }
 
-function pushStarPalaceHostGuestCombo(
-  ctx: PatternComboContext,
-  out: QimenPatternCombo[],
-): void {
+function pushStarPalaceHostGuestCombo(ctx: PatternComboContext, out: QimenPatternCombo[]): void {
   const entries = getStarPalaceHostGuestEntries(ctx.jiuGongGe);
   if (!entries.length) return;
 
@@ -1353,9 +1311,7 @@ function pushStarPalaceHostGuestCombo(
   });
 }
 
-function getDoorPalaceHostGuestEntries(
-  jiuGongGe: QimenJiuGongGe[],
-): DoorPalaceHostGuestEntry[] {
+function getDoorPalaceHostGuestEntries(jiuGongGe: QimenJiuGongGe[]): DoorPalaceHostGuestEntry[] {
   const entries: DoorPalaceHostGuestEntry[] = [];
 
   for (const palace of jiuGongGe) {
@@ -1432,10 +1388,7 @@ function getDoorPalaceHostGuestEntries(
   return entries;
 }
 
-function pushDoorPalaceHostGuestCombo(
-  ctx: PatternComboContext,
-  out: QimenPatternCombo[],
-): void {
+function pushDoorPalaceHostGuestCombo(ctx: PatternComboContext, out: QimenPatternCombo[]): void {
   const entries = getDoorPalaceHostGuestEntries(ctx.jiuGongGe);
   if (!entries.length) return;
 
@@ -1503,9 +1456,7 @@ function pushStarDoorHostGuestInjuryCombo(
   );
 
   out.push({
-    key: `combo:starDoorHostGuestInjury:${injuryEntries
-      .map((entry) => entry.gong)
-      .join(':')}`,
+    key: `combo:starDoorHostGuestInjury:${injuryEntries.map((entry) => entry.gong).join(':')}`,
     name: '星门主客互伤',
     tone: 'mixed',
     score: 0,
@@ -1535,19 +1486,16 @@ function pushDoorSeasonQiCombo(ctx: PatternComboContext, out: QimenPatternCombo[
   if (!entries.length) return;
 
   out.push({
-    key: `combo:doorSeasonQi:${ctx.monthBranch}:${entries
-      .map((entry) => entry.gong)
-      .join(':')}`,
+    key: `combo:doorSeasonQi:${ctx.monthBranch}:${entries.map((entry) => entry.gong).join(':')}`,
     name: '八门余气',
     tone: 'mixed',
     score: 0,
     summary: `${ctx.monthBranch}月属${monthElement}，八门余气为：${entries
       .map((entry) => entry.text)
-      .join('；')}。合“当时者为旺，我生者为相，我克者为休，克我者为囚，生我者为废”；偏用门旺衰和兵事进退参考，不作通用吉凶评分。`,
-    sources: [
-      `${ctx.monthBranch}月属${monthElement}`,
-      ...entries.map((entry) => entry.text),
-    ],
+      .join(
+        '；',
+      )}。合“当时者为旺，我生者为相，我克者为休，克我者为囚，生我者为废”；偏用门旺衰和兵事进退参考，不作通用吉凶评分。`,
+    sources: [`${ctx.monthBranch}月属${monthElement}`, ...entries.map((entry) => entry.text)],
   });
 }
 
@@ -1612,7 +1560,9 @@ function pushStemPressureCombo(ctx: PatternComboContext, out: QimenPatternCombo[
     score: 0,
     summary: `奇仪临受克之宫：${entries
       .map((entry) => entry.text)
-      .join('；')}。合“甲乙金宫、丙丁坎内、戊己惧杜伤、庚辛离上、壬癸生死方”的十干迫制口径；需再合旺衰强弱判断，只作命宫、奇仪受制证据参考，不作通用吉凶评分。`,
+      .join(
+        '；',
+      )}。合“甲乙金宫、丙丁坎内、戊己惧杜伤、庚辛离上、壬癸生死方”的十干迫制口径；需再合旺衰强弱判断，只作命宫、奇仪受制证据参考，不作通用吉凶评分。`,
     palace: entries.length === 1 ? entries[0].gong : undefined,
     sources: entries.map((entry) => entry.text),
   });
@@ -1678,10 +1628,7 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       score: 0,
       summary: `值符星${ctx.zhiFu}落${tianYiPalace.name}为天乙宫，兵事宜居其方、击其对冲${tianYiOppositePalace.name}；此为坐击取向参考，不作通用吉凶评分。`,
       palace: tianYiPalace.gong,
-      sources: [
-        `天乙宫：${tianYiPalace.name}`,
-        `对冲：${tianYiOppositePalace.name}`,
-      ],
+      sources: [`天乙宫：${tianYiPalace.name}`, `对冲：${tianYiOppositePalace.name}`],
     });
   }
 
@@ -1746,7 +1693,7 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
   }
 
   const youDuBranch = ctx.dayStem ? youDuBranchByDayStem[ctx.dayStem] : undefined;
-  const luDuBranch = youDuBranch ? branchOppositeMap[youDuBranch] : undefined;
+  const luDuBranch = youDuBranch ? LIUCHONG_MAP[youDuBranch] : undefined;
   const youDuPalace = youDuBranch ? getPalaceByBranch(ctx.jiuGongGe, youDuBranch) : undefined;
   const luDuPalace = luDuBranch ? getPalaceByBranch(ctx.jiuGongGe, luDuBranch) : undefined;
 
@@ -1864,10 +1811,7 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       tone: 'mixed',
       score: 0,
       summary: `${ctx.monthBranch}月${ctx.hourBranch}时以月将${tianSanMen.monthGeneral}加时支，天三门为${tianSanMen.labels.join('、')}；以月建加时支，地四户为${diSiHuLabels.join('、')}；偏出行、避难与择方参考，遇三奇吉门更佳，不作通用吉凶评分。`,
-      sources: [
-        `天三门：${tianSanMen.labels.join('、')}`,
-        `地四户：${diSiHuLabels.join('、')}`,
-      ],
+      sources: [`天三门：${tianSanMen.labels.join('、')}`, `地四户：${diSiHuLabels.join('、')}`],
     });
   }
 
@@ -1895,11 +1839,7 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
     });
   }
 
-  const tingTingBaiJian = getTingTingBaiJianLabels(
-    ctx.jiuGongGe,
-    ctx.monthBranch,
-    ctx.hourBranch,
-  );
+  const tingTingBaiJian = getTingTingBaiJianLabels(ctx.jiuGongGe, ctx.monthBranch, ctx.hourBranch);
   if (ctx.monthBranch && ctx.hourBranch && tingTingBaiJian) {
     out.push({
       key: 'combo:tingTingBaiJian',
@@ -1985,9 +1925,7 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
         ? `${ctx.hourStem}时属五阳时，兵事利客、宜先举；用局重看天盘奇仪星门是否强盛，不作通用吉凶评分。`
         : `${ctx.hourStem}时属五阴时，兵事利主、宜后应；用局重看地盘奇仪星门是否强盛，不作通用吉凶评分。`,
       sources: [
-        isYangHour
-          ? `${ctx.hourStem}时为五阳时：利客先举`
-          : `${ctx.hourStem}时为五阴时：利主后应`,
+        isYangHour ? `${ctx.hourStem}时为五阳时：利客先举` : `${ctx.hourStem}时为五阴时：利主后应`,
       ],
     });
   }
@@ -2006,7 +1944,9 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
     });
   }
 
-  const daJiangJunBranch = ctx.yearBranch ? daJiangJunBranchByYearBranch[ctx.yearBranch] : undefined;
+  const daJiangJunBranch = ctx.yearBranch
+    ? daJiangJunBranchByYearBranch[ctx.yearBranch]
+    : undefined;
   const daJiangJunPalace = daJiangJunBranch
     ? getPalaceByBranch(ctx.jiuGongGe, daJiangJunBranch)
     : undefined;
@@ -2022,7 +1962,9 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
     });
   }
 
-  const taiSuiPalace = ctx.yearBranch ? getPalaceByBranch(ctx.jiuGongGe, ctx.yearBranch) : undefined;
+  const taiSuiPalace = ctx.yearBranch
+    ? getPalaceByBranch(ctx.jiuGongGe, ctx.yearBranch)
+    : undefined;
   if (ctx.yearBranch && taiSuiPalace) {
     out.push({
       key: 'combo:taiSuiDirection',
@@ -2107,9 +2049,7 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
     });
   }
 
-  const shiZhongHour = ctx.dayBranch
-    ? shiZhongJiangXingHourByDayBranch[ctx.dayBranch]
-    : undefined;
+  const shiZhongHour = ctx.dayBranch ? shiZhongJiangXingHourByDayBranch[ctx.dayBranch] : undefined;
   if (ctx.dayBranch && ctx.hourBranch && shiZhongHour === ctx.hourBranch) {
     out.push({
       key: 'combo:shiZhongJiangXing',
@@ -2122,7 +2062,7 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
   }
 
   const xiongBranch = ctx.monthBranch ? xiongBranchByMonthBranch[ctx.monthBranch] : undefined;
-  const ciBranch = xiongBranch ? branchOppositeMap[xiongBranch] : undefined;
+  const ciBranch = xiongBranch ? LIUCHONG_MAP[xiongBranch] : undefined;
   const xiongPalace = xiongBranch ? getPalaceByBranch(ctx.jiuGongGe, xiongBranch) : undefined;
   const ciPalace = ciBranch ? getPalaceByBranch(ctx.jiuGongGe, ciBranch) : undefined;
 

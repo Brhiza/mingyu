@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { SolarTime } from 'tyme4ts';
 import {
   DEFAULT_REVERSE_BIRTH_TIME_FORM_DATA,
   buildReverseBirthTimePrompt,
@@ -19,6 +20,16 @@ test('提示词当前时间应同时给出公历、农历、干支历与节气',
       '当前节气：冬至',
     ].join('\n'),
   );
+});
+
+test('提示词当前时间在晚子时应按 EightChar 输出换日后的日柱', () => {
+  const date = new Date(1998, 7, 13, 23, 30, 0);
+  const eightChar = SolarTime.fromYmdHms(1998, 8, 13, 23, 30, 0).getLunarHour().getEightChar();
+  const expectedGanzhiLine = `干支历：${eightChar.getYear().getName()}年 ${eightChar
+    .getMonth()
+    .getName()}月 ${eightChar.getDay().getName()}日 ${eightChar.getHour().getName()}时`;
+
+  assert.match(formatPromptCurrentTime(date), new RegExp(expectedGanzhiLine));
 });
 
 test('反推时辰提示词会输出统一的当前时间证据', () => {

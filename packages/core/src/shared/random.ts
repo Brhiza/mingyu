@@ -6,6 +6,9 @@ export interface RandomOptions {
 }
 
 function hashSeed(seed: string | number): number {
+  if (typeof seed === 'number' && !Number.isFinite(seed)) {
+    throw new Error('随机种子必须是有限数字或文本。');
+  }
   const text = String(seed);
   let hash = 2166136261;
   for (let i = 0; i < text.length; i++) {
@@ -27,10 +30,16 @@ export function createSeededRandom(seed: string | number): RandomSource {
 }
 
 export function createRandomSource(options?: RandomOptions): RandomSource {
-  if (options?.rng) {
+  if (options?.rng !== undefined) {
+    if (typeof options.rng !== 'function') {
+      throw new Error('自定义随机源必须是函数。');
+    }
     return options.rng;
   }
   if (options?.seed !== undefined) {
+    if (typeof options.seed !== 'string' && typeof options.seed !== 'number') {
+      throw new Error('随机种子必须是有限数字或文本。');
+    }
     return createSeededRandom(options.seed);
   }
   return Math.random;
@@ -38,18 +47,15 @@ export function createRandomSource(options?: RandomOptions): RandomSource {
 
 export function randomFloat(rng: RandomSource): number {
   const value = rng();
-  if (!Number.isFinite(value) || value <= 0) {
-    return 0;
-  }
-  if (value >= 1) {
-    return 0.999999999999;
+  if (!Number.isFinite(value) || value < 0 || value >= 1) {
+    throw new Error('随机源必须返回大于等于 0 且小于 1 的数字');
   }
   return value;
 }
 
 export function randomInt(maxExclusive: number, rng: RandomSource): number {
-  if (!Number.isInteger(maxExclusive) || maxExclusive <= 0) {
-    throw new Error('随机整数范围必须是正整数');
+  if (!Number.isSafeInteger(maxExclusive) || maxExclusive <= 0) {
+    throw new Error('随机整数范围必须是安全范围内的正整数');
   }
   return Math.floor(randomFloat(rng) * maxExclusive);
 }

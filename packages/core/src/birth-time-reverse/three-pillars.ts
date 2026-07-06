@@ -1,11 +1,14 @@
 import { LunarHour, SolarTime } from 'tyme4ts';
 import {
+  assertBaziGender,
   getGanYinYang,
   getTenGod,
   getTenGodForBranch,
   getWuxing,
 } from '../bazi/baziUtils';
 import { getBirthDateValidationMessage } from '../calendar/date-validation';
+
+type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 
 export type BirthBaseInput = {
   gender: 'male' | 'female';
@@ -33,6 +36,7 @@ export type ThreePillarsProfile = {
   solarDateLabel: string;
   lunarDateLabel: string;
   zodiac: string;
+  timeBoundaryNotes: string[];
   dayMaster: {
     gan: string;
     element: string;
@@ -47,7 +51,10 @@ export type ThreePillarsProfile = {
   promptText: string;
 };
 
-function readBirthInteger(value: string, label: string) {
+function readBirthInteger(value: unknown, label: string) {
+  if (typeof value !== 'string') {
+    throw new Error(`${label}必须是整数。`);
+  }
   const text = value.trim();
   if (!text) {
     throw new Error('请先填写完整的出生年月日。');
@@ -58,10 +65,25 @@ function readBirthInteger(value: string, label: string) {
   return Number(text);
 }
 
+function assertDateType(value: string): asserts value is 'solar' | 'lunar' {
+  if (value !== 'solar' && value !== 'lunar') {
+    throw new Error(`日历类型无效：${value}`);
+  }
+}
+
+function assertBoolean(value: boolean, label: string): void {
+  if (typeof value !== 'boolean') {
+    throw new Error(`${label}必须是布尔值。`);
+  }
+}
+
 function createBaseTime(input: BirthBaseInput) {
   const year = readBirthInteger(input.year, '出生年份');
   const month = readBirthInteger(input.month, '出生月份');
   const day = readBirthInteger(input.day, '出生日期');
+
+  assertDateType(input.dateType);
+  assertBoolean(input.isLeapMonth, 'isLeapMonth');
 
   if (year < 1900 || year > 2100) {
     throw new Error('出生年份需在 1900-2100 之间。');
@@ -141,7 +163,49 @@ function formatWuxingCount(wuxingCount: Record<string, number>) {
     .join('  ');
 }
 
+function getPillarsAtSolarHour(solarTime: SolarTimeInstance, hour: number, minute = 0, second = 0) {
+  const eightChar = SolarTime.fromYmdHms(
+    solarTime.getYear(),
+    solarTime.getMonth(),
+    solarTime.getDay(),
+    hour,
+    minute,
+    second,
+  )
+    .getLunarHour()
+    .getEightChar();
+
+  return {
+    year: eightChar.getYear().getName(),
+    month: eightChar.getMonth().getName(),
+    day: eightChar.getDay().getName(),
+  };
+}
+
+function buildTimeBoundaryNotes(solarTime: SolarTimeInstance) {
+  const notes = [
+    '因出生时辰未知，当前三柱以出生日期当天12:00计算；若实际出生在23:00-24:00，按子初换日口径日柱可能进入次日，反推时辰时必须单独验证。',
+  ];
+  const startPillars = getPillarsAtSolarHour(solarTime, 0, 0, 0);
+  const noonPillars = getPillarsAtSolarHour(solarTime, 12, 0, 0);
+  const endPillars = getPillarsAtSolarHour(solarTime, 23, 59, 59);
+
+  if (
+    startPillars.year !== noonPillars.year ||
+    endPillars.year !== noonPillars.year ||
+    startPillars.month !== noonPillars.month ||
+    endPillars.month !== noonPillars.month
+  ) {
+    notes.push(
+      '此日存在节气交接，年柱或月柱会随具体出生时刻改变；当前显示为12:00对应三柱，交节前后需分开校验。',
+    );
+  }
+
+  return notes;
+}
+
 export function buildThreePillarsProfile(input: BirthBaseInput): ThreePillarsProfile {
+  assertBaziGender(input.gender);
   const { solarTime, lunarHour } = createBaseTime(input);
   const eightChar = lunarHour.getEightChar();
   const yearPillar = eightChar.getYear();
@@ -189,6 +253,7 @@ export function buildThreePillarsProfile(input: BirthBaseInput): ThreePillarsPro
       .getEarthBranch()
       .getZodiac()
       .getName(),
+    timeBoundaryNotes: buildTimeBoundaryNotes(solarTime),
     dayMaster: {
       gan: dayMasterGan,
       element: getWuxing(dayMasterGan),
@@ -213,6 +278,9 @@ export function formatThreePillarsForPrompt(profile: ThreePillarsProfile) {
     `时辰：未知（待反推）`,
     `生肖：${profile.zodiac}`,
     `日主：${profile.dayMaster.gan} ${profile.dayMaster.element}（${profile.dayMaster.yinYang}）`,
+    ...(profile.timeBoundaryNotes.length > 0
+      ? ['', '【时间边界】', ...profile.timeBoundaryNotes.map((note) => `- ${note}`)]
+      : []),
     '',
     '【三柱】',
     `年柱：${profile.pillars.year.ganZhi} | 天干十神：${profile.pillars.year.tenGod} | 地支十神：${profile.pillars.year.branchTenGod} | 五行：${profile.pillars.year.ganWuxing}/${profile.pillars.year.zhiWuxing}`,

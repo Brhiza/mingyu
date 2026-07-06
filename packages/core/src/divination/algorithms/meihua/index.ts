@@ -129,19 +129,20 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   // 1. 获取占卜时间的农历及干支信息
   const { ganzhi, timeInfo, timestamp } = getDivinationTime(customDate);
   const { lunar } = timeInfo;
-  const method = settings?.method || 'time';
+  const method = settings?.method ?? 'time';
 
   const methodResult: MeihuaMethodResult = (() => {
     switch (method) {
       case 'number':
-        return resolveNumberMethod(settings?.number || 0, ganzhi.hour.slice(-1));
+        return resolveNumberMethod(settings?.number ?? 0, ganzhi.hour.slice(-1));
       case 'random':
         return resolveRandomMethod(settings);
       case 'timeTrigram':
         return resolveTimeTrigramMethod(ganzhi, lunar);
       case 'time':
-      default:
         return resolveTimeMethod(ganzhi, lunar);
+      default:
+        throw new Error(`未知的梅花易数起卦方式: ${method}`);
     }
   })();
 

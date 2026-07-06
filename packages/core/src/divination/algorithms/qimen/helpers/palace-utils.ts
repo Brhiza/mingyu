@@ -1,4 +1,10 @@
+import { jiazi } from '../../../../divination/divination-data';
+
 export function getDunJiaStem(hourGanZhi: string): string {
+  if (!jiazi.includes(hourGanZhi)) {
+    throw new Error(`无法识别干支 "${hourGanZhi}" 的遁甲天干。`);
+  }
+
   if (!hourGanZhi.startsWith('甲')) {
     return hourGanZhi.charAt(0);
   }
@@ -12,7 +18,11 @@ export function getDunJiaStem(hourGanZhi: string): string {
     甲寅: '癸',
   };
 
-  return dunJiaMap[hourGanZhi] || '戊';
+  const dunStem = dunJiaMap[hourGanZhi];
+  if (!dunStem) {
+    throw new Error(`无法识别六甲干支 "${hourGanZhi}" 的遁甲天干。`);
+  }
+  return dunStem;
 }
 
 export function getOppositePalace(palace: number): number | null {
@@ -42,5 +52,9 @@ export function getDoorElement(door: string): string {
     开门: '金',
   };
 
-  return doorElementMap[door] || '';
+  const element = doorElementMap[door];
+  if (!element) {
+    throw new Error(`八门 "${door}" 无法识别。`);
+  }
+  return element;
 }

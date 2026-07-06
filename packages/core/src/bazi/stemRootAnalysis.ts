@@ -16,21 +16,9 @@ import type {
   ExposedStemItem,
   ExposedStemProfile,
 } from '../types/analysis';
-
-const HIDDEN_STEMS: Record<string, string[]> = {
-  子: ['癸'],
-  丑: ['己', '癸', '辛'],
-  寅: ['甲', '丙', '戊'],
-  卯: ['乙'],
-  辰: ['戊', '乙', '癸'],
-  巳: ['丙', '庚', '戊'],
-  午: ['丁', '己'],
-  未: ['己', '丁', '乙'],
-  申: ['庚', '壬', '戊'],
-  酉: ['辛'],
-  戌: ['戊', '辛', '丁'],
-  亥: ['壬', '甲'],
-};
+import { HIDDEN_STEMS } from './baziMappingsData';
+import { WUXING } from './baziTypes';
+import { assertEarthlyBranch, assertHeavenlyStem } from './baziUtils';
 
 const STEM_ELEMENT: Record<string, string> = {
   甲: '木',
@@ -55,24 +43,62 @@ function roundScore(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+function assertPillarInputs(pillars: Array<{ gan: string; zhi: string }>): void {
+  if (pillars.length !== 4) {
+    throw new Error(`四柱数量无效：${pillars.length}`);
+  }
+
+  pillars.forEach((pillar, index) => {
+    assertHeavenlyStem(pillar.gan, `第${index + 1}柱天干`);
+    assertEarthlyBranch(pillar.zhi, `第${index + 1}柱地支`);
+  });
+}
+
+function resolveWuxing(getWuxing: (s: string) => string, value: string, label: string): string {
+  const wuxing = getWuxing(value);
+  if (!(WUXING as readonly string[]).includes(wuxing)) {
+    throw new Error(`${label}五行无效：${wuxing}`);
+  }
+  return wuxing;
+}
+
+function resolveTenGod(
+  getTenGod: (g: string, d: string) => string,
+  stem: string,
+  dayMaster: string,
+): string {
+  const tenGod = getTenGod(stem, dayMaster);
+  if (!tenGod || tenGod === '未知') {
+    throw new Error(`十神数据缺失：${dayMaster}/${stem}`);
+  }
+  return tenGod;
+}
+
 export function analyzeStemRootProfile(
   pillars: Array<{ gan: string; zhi: string }>,
   dayMaster: string,
   getWuxing: (s: string) => string,
   getTenGod: (g: string, d: string) => string,
 ): StemRootProfile {
+  assertPillarInputs(pillars);
+  assertHeavenlyStem(dayMaster, '日主');
+
   const pillarNames = ['year', 'month', 'day', 'hour'];
   const items: VisibleStemRootItem[] = [];
 
   pillars.forEach((p, idx) => {
     const visibleStem = p.gan;
-    const visibleElement = STEM_ELEMENT[visibleStem] || getWuxing(visibleStem);
+    const visibleElement =
+      STEM_ELEMENT[visibleStem] || resolveWuxing(getWuxing, visibleStem, '透干');
     let hasSameStem = false;
     let hasSameElement = false;
     let rootScore = 0;
 
     pillars.forEach((rootPillar) => {
-      const stems = HIDDEN_STEMS[rootPillar.zhi] || [];
+      const stems = HIDDEN_STEMS[rootPillar.zhi];
+      if (!stems) {
+        throw new Error(`藏干数据缺失：${rootPillar.zhi}`);
+      }
       stems.forEach((stem, index) => {
         const isSameStem = stem === visibleStem;
         const isSameElement = STEM_ELEMENT[stem] === visibleElement && stem !== visibleStem;
@@ -95,7 +121,7 @@ export function analyzeStemRootProfile(
     items.push({
       pillar: pillarNames[idx],
       stem: visibleStem,
-      tenGod: getTenGod(visibleStem, dayMaster),
+      tenGod: resolveTenGod(getTenGod, visibleStem, dayMaster),
       rootScore: roundScore(rootScore),
       status,
       summary:
@@ -132,25 +158,30 @@ export function analyzeExposedStemProfile(
   commanderStem?: string,
   monthBranch?: string,
 ): ExposedStemProfile {
+  assertPillarInputs(pillars);
+  assertHeavenlyStem(dayMaster, '日主');
+  if (commanderStem) assertHeavenlyStem(commanderStem, '司令天干');
+  if (monthBranch) assertEarthlyBranch(monthBranch, '月支');
+
   const pillarNames = ['year', 'month', 'day', 'hour'];
   const monthStems = monthBranch ? HIDDEN_STEMS[monthBranch] || [] : [];
   const items: ExposedStemItem[] = [];
 
   pillars.forEach((p, idx) => {
-    const stemElement = STEM_ELEMENT[p.gan] || getWuxing(p.gan);
+    const stemElement = STEM_ELEMENT[p.gan] || resolveWuxing(getWuxing, p.gan, '透干');
     let commandStatus = '不得月令';
     if (commanderStem && p.gan === commanderStem) {
       commandStatus = '司令透出';
     } else if (monthStems.includes(p.gan)) {
       commandStatus = '月令藏干透出';
-    } else if (monthBranch && getWuxing(monthBranch) === stemElement) {
+    } else if (monthBranch && resolveWuxing(getWuxing, monthBranch, '月支') === stemElement) {
       commandStatus = '得月令同气';
     }
 
     items.push({
       pillar: pillarNames[idx],
       stem: p.gan,
-      tenGod: getTenGod(p.gan, dayMaster),
+      tenGod: resolveTenGod(getTenGod, p.gan, dayMaster),
       seasonStatus: '平',
       commandStatus,
       rootStatus: '待定',

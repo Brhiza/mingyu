@@ -4,6 +4,7 @@ import {
   getRepresentativeStemByWuxing,
 } from './baziFormationUtils';
 import type { PatternAnalysis, Pillars } from './baziTypes';
+import { assertHeavenlyStem, assertPillars } from './baziUtils';
 
 type GetTenGodFn = (gan: string, dayMaster: string) => string;
 type PillarPosition = 'year' | 'month' | 'hour';
@@ -293,6 +294,10 @@ export function determinePattern(
   getTenGod: GetTenGodFn,
   monthCommander?: string,
 ): PatternAnalysis {
+  assertPillars(pillars);
+  if (monthCommander) {
+    assertHeavenlyStem(monthCommander, '月令司权天干');
+  }
   const monthBranch = pillars.month.zhi;
   const dayMaster = pillars.day.gan;
   const monthStems = HIDDEN_STEMS[monthBranch] || [];

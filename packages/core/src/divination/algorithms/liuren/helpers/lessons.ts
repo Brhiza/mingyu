@@ -18,6 +18,9 @@ import {
   isBranchKe,
   isElementKe,
   DAY_STEM_RESIDENCE_MAP,
+  DIZHI,
+  TIANGAN,
+  TIANJIANG,
 } from './plate';
 
 const YANG_STEMS = new Set(['甲', '丙', '戊', '庚', '壬']);
@@ -55,6 +58,94 @@ interface KeCandidate {
   lesson: LiurenLesson;
   type: '下贼上' | '上克下';
   index?: number;
+}
+
+function isStem(value: string) {
+  return TIANGAN.includes(value as (typeof TIANGAN)[number]);
+}
+
+function isBranch(value: string) {
+  return DIZHI.includes(value as (typeof DIZHI)[number]);
+}
+
+function assertStem(value: string | undefined, label: string): asserts value is string {
+  if (!value || !isStem(value)) {
+    throw new Error(`${label}必须是有效天干。`);
+  }
+}
+
+function assertBranch(value: string | undefined, label: string): asserts value is string {
+  if (!value || !isBranch(value)) {
+    throw new Error(`${label}必须是有效地支。`);
+  }
+}
+
+function assertStemOrBranch(value: string | undefined, label: string): asserts value is string {
+  if (!value || (!isStem(value) && !isBranch(value))) {
+    throw new Error(`${label}必须是有效天干或地支。`);
+  }
+}
+
+function assertValidHeavenlyPlate(plate: LiurenPlateItem[]): void {
+  if (!Array.isArray(plate) || plate.length !== 12) {
+    throw new Error('天盘必须包含完整 12 个地支。');
+  }
+
+  const upperSet = new Set<string>();
+  const underSet = new Set<string>();
+  plate.forEach((item, index) => {
+    if (!item || typeof item !== 'object') {
+      throw new Error(`天盘第 ${index + 1} 项必须是对象。`);
+    }
+    assertBranch(item.branch, `天盘第 ${index + 1} 项上神`);
+    assertBranch(item.under, `天盘第 ${index + 1} 项地盘`);
+    if (!TIANJIANG.includes(item.god as (typeof TIANJIANG)[number])) {
+      throw new Error(`天盘第 ${index + 1} 项天将必须是有效十二天将。`);
+    }
+    upperSet.add(item.branch);
+    underSet.add(item.under);
+  });
+
+  if (upperSet.size !== 12 || underSet.size !== 12) {
+    throw new Error('天盘上下地支必须各自完整且不重复。');
+  }
+}
+
+function assertValidResolveTransmissionInput(
+  lessons: LiurenLesson[],
+  context: ResolveTransmissionContext,
+): void {
+  if (!Array.isArray(lessons) || lessons.length !== 4) {
+    throw new Error('resolveInitialTransmission 调用时必须传入完整四课。');
+  }
+  if (!context || typeof context !== 'object') {
+    throw new Error('resolveInitialTransmission 调用时缺少上下文。');
+  }
+
+  assertStem(context.dayStem, '日干');
+  assertBranch(context.dayBranch, '日支');
+  assertBranch(context.dayStemResidence, '日干寄宫');
+  if (context.hourStem !== undefined) {
+    assertStem(context.hourStem, '时干');
+  }
+  if (context.hourBranch !== undefined) {
+    assertBranch(context.hourBranch, '时支');
+  }
+  assertValidHeavenlyPlate(context.heavenlyPlate);
+
+  lessons.forEach((lesson, index) => {
+    if (!lesson || typeof lesson !== 'object') {
+      throw new Error(`第 ${index + 1} 课必须是对象。`);
+    }
+    assertBranch(lesson.upper, `第 ${index + 1} 课上神`);
+    assertStemOrBranch(lesson.lower, `第 ${index + 1} 课下位`);
+    if (!TIANJIANG.includes(lesson.god as (typeof TIANJIANG)[number])) {
+      throw new Error(`第 ${index + 1} 课天将必须是有效十二天将。`);
+    }
+    if (typeof lesson.relation !== 'string' || !lesson.relation.trim()) {
+      throw new Error(`第 ${index + 1} 课关系不能为空。`);
+    }
+  });
 }
 
 export function buildLessonNote(relation: string, xunKong: string[], upper: string, lower: string) {
@@ -197,13 +288,12 @@ function getHarmDepth(candidate: KeCandidate, context: ResolveTransmissionContex
 }
 
 function pickByHarmDepth(candidates: KeCandidate[], context: ResolveTransmissionContext) {
-  const ranked = candidates
-    .map((candidate, index) => ({
-      candidate,
-      index,
-      depth: getHarmDepth(candidate, context),
-      under: getUnderByUpper(context.heavenlyPlate, candidate.lesson.upper),
-    }));
+  const ranked = candidates.map((candidate, index) => ({
+    candidate,
+    index,
+    depth: getHarmDepth(candidate, context),
+    under: getUnderByUpper(context.heavenlyPlate, candidate.lesson.upper),
+  }));
   const meng = ranked
     .filter((item) => MENG_BRANCHES.has(item.under))
     .sort((a, b) => b.depth - a.depth || a.index - b.index)[0];
@@ -509,9 +599,7 @@ export function resolveInitialTransmission(
   lessons: LiurenLesson[],
   context: ResolveTransmissionContext,
 ) {
-  if (lessons.length === 0) {
-    throw new Error('resolveInitialTransmission 调用时 lessons 为空。');
-  }
+  assertValidResolveTransmissionInput(lessons, context);
 
   if (isFuyinPlate(context.heavenlyPlate)) {
     return resolveFuyinTransmission(lessons, context);

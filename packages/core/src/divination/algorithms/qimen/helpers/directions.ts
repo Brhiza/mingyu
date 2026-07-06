@@ -92,9 +92,7 @@ const STAR_SCORES: Record<string, number> = {
   天柱: -1,
 };
 
-function hasSanQiWithAuspiciousDoor(
-  palace: Pick<PalaceScoreInput, 'tianPan' | 'renPan'>,
-): boolean {
+function hasSanQiWithAuspiciousDoor(palace: Pick<PalaceScoreInput, 'tianPan' | 'renPan'>): boolean {
   return sanQiStems.includes(palace.tianPan.stem) && auspiciousDoors.includes(palace.renPan.door);
 }
 

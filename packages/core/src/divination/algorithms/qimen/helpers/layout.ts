@@ -57,6 +57,12 @@ const starHomePalace: Record<string, number> = {
  */
 export type QimenMethod = 'zhuanpan' | 'feipan';
 
+function assertQimenMethod(method: QimenMethod): void {
+  if (method !== 'zhuanpan' && method !== 'feipan') {
+    throw new Error(`未知的奇门排盘方法: ${String(method)}`);
+  }
+}
+
 function advanceNinePalace(startPalace: number, steps: number, isYangDun: boolean): number {
   if (!Number.isInteger(startPalace) || startPalace < 1 || startPalace > 9) {
     throw new Error(`无效九宫编号 "${startPalace}"。`);
@@ -152,6 +158,7 @@ export function arrangeJiuGongGe(
   ganzhi: { hour: string },
   method: QimenMethod = 'zhuanpan',
 ): QimenJiuGongGe[] {
+  assertQimenMethod(method);
   // ──────────────────────────────────────────────
   // 第一步：初始化九宫
   // ──────────────────────────────────────────────

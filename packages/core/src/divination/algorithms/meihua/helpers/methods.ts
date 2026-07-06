@@ -15,14 +15,39 @@ type DivinationTime = ReturnType<typeof getDivinationTime>;
 type DivinationGanzhi = DivinationTime['ganzhi'];
 type DivinationLunar = DivinationTime['timeInfo']['lunar'];
 
+function getLunarYearBranch(lunar: DivinationLunar) {
+  const lunarYearText = lunar.yearInChinese.replace(/^农历/, '');
+  const yearBranch = lunarYearText.charAt(1);
+  if (!dizhi.includes(yearBranch)) {
+    throw new Error(`梅花易数无法识别农历年支 "${lunar.yearInChinese}"。`);
+  }
+  return yearBranch;
+}
+
+function assertIntegerRange(value: number, label: string, min: number, max: number): void {
+  if (!Number.isInteger(value) || value < min || value > max) {
+    throw new Error(`${label}必须是 ${min}-${max} 之间的整数。`);
+  }
+}
+
+function getHourBranch(ganzhi: DivinationGanzhi): string {
+  const timeZhi = ganzhi.hour.substring(1, 2);
+  if (!dizhi.includes(timeZhi)) {
+    throw new Error(`梅花易数无法识别时支 "${ganzhi.hour}"。`);
+  }
+  return timeZhi;
+}
+
 export function resolveTimeMethod(
   ganzhi: DivinationGanzhi,
   lunar: DivinationLunar,
 ): MeihuaMethodResult {
-  const yearZhi = ganzhi.year.substring(1, 2);
+  const yearZhi = getLunarYearBranch(lunar);
   const month = lunar.monthNumber;
   const day = lunar.dayNumber;
-  const timeZhi = ganzhi.hour.substring(1, 2);
+  assertIntegerRange(month, '农历月份', 1, 12);
+  assertIntegerRange(day, '农历日期', 1, 30);
+  const timeZhi = getHourBranch(ganzhi);
   const yearZhiIndex = dizhi.indexOf(yearZhi) + 1;
   const timeZhiIndex = dizhi.indexOf(timeZhi) + 1;
   const upperTrigramIndex = (yearZhiIndex + month + day) % 8 || 8;
@@ -69,8 +94,8 @@ export function resolveTimeTrigramMethod(
 }
 
 export function resolveNumberMethod(number: number, timeBranch: string): MeihuaMethodResult {
-  if (!Number.isInteger(number) || number <= 0) {
-    throw new Error('数字起卦必须提供正整数');
+  if (!Number.isSafeInteger(number) || number <= 0) {
+    throw new Error('数字起卦必须提供安全范围内的正整数');
   }
   const timeZhiIndex = dizhi.indexOf(timeBranch) + 1;
   if (timeZhiIndex <= 0) {

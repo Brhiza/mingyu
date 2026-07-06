@@ -1,5 +1,5 @@
 import { BASIC_MAPPINGS } from './baziDefinitions';
-import type { PatternAnalysis, UsefulGodAnalysis } from './baziTypes';
+import { WUXING, type PatternAnalysis, type UsefulGodAnalysis, type Wuxing } from './baziTypes';
 import {
   applyClimateAdjustment,
   applyTherapeuticPriority,
@@ -11,6 +11,7 @@ import {
 } from './baziTherapeuticStrategy';
 import { BASE_USEFUL_GOD_RULES, type UsefulGodWuxingBundle } from './baziUsefulGodRules';
 import { matchFirstRule, type HiddenStemSource, type VisibleStemSource } from './baziRuleMatcher';
+import { assertEarthlyBranch, assertHeavenlyStem } from './baziUtils';
 import {
   CLIMATE_RULES,
   STRENGTH_HINT_RULES,
@@ -68,6 +69,43 @@ interface UsefulGodClimateContext {
   hiddenStemSources?: HiddenStemSource[];
   formationWuxings?: string[];
   wuxingCounts?: Record<string, number>;
+}
+
+function assertWuxing(value: string, label: string): asserts value is Wuxing {
+  if (!(WUXING as readonly string[]).includes(value)) {
+    throw new Error(`${label}五行无效：${value}`);
+  }
+}
+
+function assertWuxingList(values: string[] | undefined, label: string): void {
+  values?.forEach((value) => assertWuxing(value, label));
+}
+
+function assertUsefulGodClimateContext(context?: UsefulGodClimateContext): void {
+  if (!context) {
+    return;
+  }
+
+  if (context.yearStem) assertHeavenlyStem(context.yearStem, '年干');
+  if (context.hourBranch) assertEarthlyBranch(context.hourBranch, '时支');
+
+  context.visibleStems?.forEach((stem) => assertHeavenlyStem(stem, '明透天干'));
+  context.visibleStemSources?.forEach((source) =>
+    assertHeavenlyStem(source.stem, `${source.pillar}柱明透天干`),
+  );
+  context.hiddenStems?.forEach((stem) => assertHeavenlyStem(stem, '藏干'));
+  context.hiddenStemSources?.forEach((source) => {
+    assertEarthlyBranch(source.branch, `${source.pillar}柱地支`);
+    source.stems.forEach((stem) => assertHeavenlyStem(stem, `${source.pillar}柱藏干`));
+  });
+
+  assertWuxingList(context.formationWuxings, '成局');
+  Object.entries(context.wuxingCounts || {}).forEach(([wuxing, count]) => {
+    assertWuxing(wuxing, '五行统计');
+    if (!Number.isFinite(count) || count < 0) {
+      throw new Error(`五行统计数值无效：${wuxing}=${count}`);
+    }
+  });
 }
 
 function resolveBaseUsefulGodRule(strengthStatus: string, pattern: PatternAnalysis) {
@@ -300,6 +338,12 @@ export function determineUsefulGod(
   strategyTrace: string[];
   primaryReason: string;
 } {
+  assertWuxing(dmWuxing, '日主');
+  if (monthBranch) assertEarthlyBranch(monthBranch, '月支');
+  if (monthCommander) assertHeavenlyStem(monthCommander, '月令司权天干');
+  if (dayMasterStem) assertHeavenlyStem(dayMasterStem, '日主天干');
+  assertUsefulGodClimateContext(climateContext);
+
   const isPatternSpecial = pattern.isSpecial;
   const baseState = buildBaseDecisionState(strengthStatus, pattern, dmWuxing);
   const yearStem = climateContext?.yearStem;

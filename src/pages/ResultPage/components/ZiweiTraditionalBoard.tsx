@@ -1,7 +1,7 @@
 import type { AnalysisPayloadV1 } from '@/types/analysis';
 import { uniqueNonEmptyStrings } from '@/lib/array-utils';
 import { ZIWEI_GRID_ORDER } from '../ResultPage.constants';
-import { joinStarNames } from '../ResultPage.helpers';
+import { getZiweiDisplaySurroundedPalaces, joinStarNames } from '../ResultPage.helpers';
 import { ChartStarLine } from './ChartStar';
 
 export function ZiweiTraditionalBoard(props: {
@@ -16,9 +16,9 @@ export function ZiweiTraditionalBoard(props: {
     payload.palaces.find((item) => item.index === selectedPalaceIndex) ?? payload.palaces[0];
   const palaceMap = new Map(payload.palaces.map((item) => [item.index, item]));
   const oppositePalace = palaceMap.get(selectedPalace.opposite_palace_index)?.name ?? '暂无';
-  const surrounded = selectedPalace.surrounded_palace_indexes
-    .map((index) => palaceMap.get(index)?.name ?? `宫位${index}`)
-    .join('、');
+  const surroundedPalaces = getZiweiDisplaySurroundedPalaces(payload, selectedPalace);
+  const surroundedIndexSet = new Set(surroundedPalaces.map((palace) => palace.index));
+  const surrounded = surroundedPalaces.map((palace) => palace.name).join('、') || '暂无';
   const centerFocusTags = uniqueNonEmptyStrings(selectedPalace.scope_hits).slice(0, 2);
   const centerSummaryTags =
     centerFocusTags.length === 0
@@ -135,7 +135,7 @@ export function ZiweiTraditionalBoard(props: {
             if (!palace) return null;
             const isActive = palace.index === selectedPalaceIndex;
             const isOpposite = palace.index === selectedPalace.opposite_palace_index;
-            const isSurrounded = selectedPalace.surrounded_palace_indexes.includes(palace.index);
+            const isSurrounded = surroundedIndexSet.has(palace.index);
             const footerBadges = uniqueNonEmptyStrings([
               palace.dynamic_scope_name ?? palace.scope_hits[0],
               palace.summary_tags[0],

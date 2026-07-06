@@ -11,9 +11,11 @@ import type {
   UsefulGodAnalysis,
   Wuxing,
 } from './baziTypes';
+import { WUXING } from './baziTypes';
 import type { FormationAnalysis, SeasonalStatusAnalysis } from './baziStrengthAnalyzer';
 import { collectCompleteBranchFormations } from './baziFormationUtils';
 import type { HiddenStemSource, VisibleStemSource } from './baziRuleMatcher';
+import { assertHeavenlyStem, assertPillars } from './baziUtils';
 
 export interface BaziAnalysisPipelineDeps {
   getWuxing: (ganOrZhi: string) => Wuxing;
@@ -96,6 +98,38 @@ interface BaziAnalysisPipelineState {
   usefulGod: UsefulGodAnalysis & { favorableWuxing: string[]; unfavorableWuxing: string[] };
 }
 
+const PILLAR_KEYS = ['year', 'month', 'day', 'hour'] as const;
+
+function assertValidWuxing(value: string, label: string): asserts value is Wuxing {
+  if (!(WUXING as readonly string[]).includes(value)) {
+    throw new Error(`${label}五行无效：${value}`);
+  }
+}
+
+function assertHiddenStems(hiddenStems: HiddenStems): void {
+  if (!hiddenStems) {
+    throw new Error('藏干缺失');
+  }
+
+  for (const key of PILLAR_KEYS) {
+    const stems = hiddenStems[key];
+    if (!Array.isArray(stems)) {
+      throw new Error(`藏干缺少${key}`);
+    }
+
+    stems.filter(Boolean).forEach((stem) => assertHeavenlyStem(stem, `${key}柱藏干`));
+  }
+}
+
+function assertAnalysisInput(input: BaziAnalysisPipelineInput): void {
+  assertPillars(input.pillars);
+  assertHiddenStems(input.hiddenStems);
+
+  if (input.monthCommander) {
+    assertHeavenlyStem(input.monthCommander, '月令司权天干');
+  }
+}
+
 function buildVisibleStems(pillars: Pillars): string[] {
   return [pillars.year.gan, pillars.month.gan, pillars.day.gan, pillars.hour.gan].filter(Boolean);
 }
@@ -151,8 +185,9 @@ function buildWuxingCounts(
     pillars.hour.zhi,
   ];
 
-  observedValues.forEach((value) => {
+  observedValues.forEach((value, index) => {
     const wuxing = getWuxing(value);
+    assertValidWuxing(wuxing, `第${index + 1}个四柱字符`);
     counts[wuxing] = (counts[wuxing] || 0) + 1;
   });
 
@@ -163,10 +198,13 @@ function buildPipelineState(
   input: BaziAnalysisPipelineInput,
   deps: BaziAnalysisPipelineDeps,
 ): BaziAnalysisPipelineState {
+  assertAnalysisInput(input);
+
   const { pillars, hiddenStems, monthCommander, seasonInfo } = input;
   const dayMaster = pillars.day.gan;
   const monthBranch = pillars.month.zhi;
   const dayMasterElement = deps.getWuxing(dayMaster) as string;
+  assertValidWuxing(dayMasterElement, '日主');
   const visibleStems = buildVisibleStems(pillars);
   const visibleStemSources = buildVisibleStemSources(pillars);
   const hiddenStemValues = buildHiddenStemValues(hiddenStems);

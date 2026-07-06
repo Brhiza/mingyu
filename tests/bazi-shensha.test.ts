@@ -8,6 +8,49 @@ function createCalculators(options?: ConstructorParameters<typeof CoreShenShaCal
   return [new ShenShaCalculator(options), new CoreShenShaCalculator(options)];
 }
 
+test('神煞计算应先拒绝不完整四柱、非法干支和非法性别', () => {
+  for (const calculator of createCalculators()) {
+    assert.throws(
+      () =>
+        calculator.calculateAllShenSha(
+          [
+            ['甲', '子'],
+            ['丙', '寅'],
+            ['庚', '午'],
+          ] as Parameters<typeof calculator.calculateAllShenSha>[0],
+          'male',
+        ),
+      /完整四柱/,
+    );
+    assert.throws(
+      () =>
+        calculator.calculateAllShenSha(
+          [
+            ['甲', '子'],
+            ['丙', '寅'],
+            ['庚', '午'],
+            ['丁', '猫'],
+          ],
+          'male',
+        ),
+      /第 4 柱地支无效/,
+    );
+    assert.throws(
+      () =>
+        calculator.calculateAllShenSha(
+          [
+            ['甲', '子'],
+            ['丙', '寅'],
+            ['庚', '午'],
+            ['丁', '卯'],
+          ],
+          'unknown',
+        ),
+      /性别无效/,
+    );
+  }
+});
+
 test('天德合在落地支的月份也应能正确命中', () => {
   const calculator = new ShenShaCalculator();
   const result = calculator.calculateAllShenSha(
@@ -488,10 +531,30 @@ test('暗金的煞与金神大杀应按年支分组补出古籍星名', () => {
 test('破军应按年支三合组取位', () => {
   for (const calculator of createCalculators()) {
     const cases: [string, string][][] = [
-      [['甲', '申'], ['乙', '亥'], ['丙', '子'], ['丁', '丑']],
-      [['甲', '亥'], ['乙', '寅'], ['丙', '子'], ['丁', '丑']],
-      [['甲', '寅'], ['乙', '巳'], ['丙', '子'], ['丁', '丑']],
-      [['甲', '巳'], ['乙', '申'], ['丙', '子'], ['丁', '丑']],
+      [
+        ['甲', '申'],
+        ['乙', '亥'],
+        ['丙', '子'],
+        ['丁', '丑'],
+      ],
+      [
+        ['甲', '亥'],
+        ['乙', '寅'],
+        ['丙', '子'],
+        ['丁', '丑'],
+      ],
+      [
+        ['甲', '寅'],
+        ['乙', '巳'],
+        ['丙', '子'],
+        ['丁', '丑'],
+      ],
+      [
+        ['甲', '巳'],
+        ['乙', '申'],
+        ['丙', '子'],
+        ['丁', '丑'],
+      ],
     ];
 
     for (const pillars of cases) {
@@ -1690,10 +1753,7 @@ test('红艳煞应按三命通会定例取乙午戊子壬巳', () => {
         'female',
       );
 
-      assert.ok(
-        hitResult.hour.includes('红艳煞'),
-        `${item.stem}日应以${item.hitBranch}为红艳煞`,
-      );
+      assert.ok(hitResult.hour.includes('红艳煞'), `${item.stem}日应以${item.hitBranch}为红艳煞`);
       assert.ok(
         !missResult.hour.includes('红艳煞'),
         `${item.stem}日不应以${item.oldWrongBranch}为红艳煞`,
@@ -2602,12 +2662,7 @@ test('五行精纪青龙杀良会杀应按年支三合组固定干支取用', ()
   for (const calculator of createCalculators()) {
     const hits = cases.map(({ yearBranch, qingLong, liangHui }) => {
       const result = calculator.calculateAllShenSha(
-        [
-          ['甲', yearBranch],
-          qingLong,
-          liangHui,
-          ['戊', '午'],
-        ],
+        [['甲', yearBranch], qingLong, liangHui, ['戊', '午']],
         'male',
       );
 

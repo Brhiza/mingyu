@@ -138,5 +138,9 @@ export function getCardKeywords(cardName: string): string {
     钱币国王: '富裕,成功,安全',
   };
 
-  return keywordsMap[cardName] || '神秘,指引,启示';
+  const keywords = keywordsMap[cardName];
+  if (!keywords) {
+    throw new Error(`未知的塔罗牌名: ${cardName}`);
+  }
+  return keywords;
 }

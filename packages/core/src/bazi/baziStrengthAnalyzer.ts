@@ -9,6 +9,8 @@ import type {
   SupportAnalysis,
   Wuxing,
 } from './baziTypes';
+import { WUXING } from './baziTypes';
+import { assertEarthlyBranch, assertHeavenlyStem, assertPillars } from './baziUtils';
 
 export interface SeasonalStatusAnalysis {
   status: string;
@@ -33,6 +35,44 @@ export interface FormationAnalysis {
 
 type GetWuxingFn = (ganOrZhi: string) => Wuxing;
 type GetSeasonStatusFn = (zhi: string) => Record<string, string>;
+
+const PILLAR_KEYS = ['year', 'month', 'day', 'hour'] as const;
+
+function assertValidWuxing(value: string, label: string): asserts value is Wuxing {
+  if (!(WUXING as readonly string[]).includes(value)) {
+    throw new Error(`${label}五行无效：${value}`);
+  }
+}
+
+function resolveWuxing(getWuxing: GetWuxingFn, value: string, label: string): Wuxing {
+  const wuxing = getWuxing(value);
+  assertValidWuxing(wuxing, label);
+  return wuxing;
+}
+
+function assertHiddenStems(hiddenStems: HiddenStems): void {
+  if (!hiddenStems) {
+    throw new Error('藏干缺失');
+  }
+
+  for (const key of PILLAR_KEYS) {
+    const stems = hiddenStems[key];
+    if (!Array.isArray(stems)) {
+      throw new Error(`藏干缺少${key}`);
+    }
+
+    stems.filter(Boolean).forEach((stem) => assertHeavenlyStem(stem, `${key}柱藏干`));
+  }
+}
+
+function assertStrengthPillars(dayMaster: string, pillars: Pillars): void {
+  assertHeavenlyStem(dayMaster, '日主');
+  assertPillars(pillars);
+
+  if (dayMaster !== pillars.day.gan) {
+    throw new Error(`日主与日柱天干不一致：${dayMaster}/${pillars.day.gan}`);
+  }
+}
 
 function resolveCommanderEffect(
   dayMasterWuxing: Wuxing,
@@ -67,12 +107,15 @@ export function analyzeRoot(
   hiddenStems: HiddenStems,
   getWuxing: GetWuxingFn,
 ): RootAnalysis {
+  assertStrengthPillars(dayMaster, pillars);
+  assertHiddenStems(hiddenStems);
+
   const roots: { position: string; branch: string; strength: number }[] = [];
   let totalStrength = 0;
-  const dayMasterWuxing = getWuxing(dayMaster);
+  const dayMasterWuxing = resolveWuxing(getWuxing, dayMaster, '日主');
 
   Object.entries(pillars).forEach(([position, pillar]) => {
-    const branchWuxing = getWuxing(pillar.zhi);
+    const branchWuxing = resolveWuxing(getWuxing, pillar.zhi, `${position}柱地支`);
     const hasMainQiRoot = branchWuxing === dayMasterWuxing;
     if (branchWuxing === dayMasterWuxing) {
       roots.push({ position, branch: pillar.zhi, strength: 2 });
@@ -82,7 +125,7 @@ export function analyzeRoot(
       if (hasMainQiRoot && index === 0) {
         return;
       }
-      if (getWuxing(stem) === dayMasterWuxing) {
+      if (resolveWuxing(getWuxing, stem, `${position}柱藏干`) === dayMasterWuxing) {
         roots.push({ position, branch: `${pillar.zhi}(${stem})`, strength: 1 });
         totalStrength += 1;
       }
@@ -103,16 +146,19 @@ export function analyzeSupport(
   hiddenStems: HiddenStems,
   getWuxing: GetWuxingFn,
 ): SupportAnalysis {
+  assertStrengthPillars(dayMaster, pillars);
+  assertHiddenStems(hiddenStems);
+
   const supporters: { position: string; stem: string; strength: number }[] = [];
   let totalStrength = 0;
-  const dayMasterWuxing = getWuxing(dayMaster);
+  const dayMasterWuxing = resolveWuxing(getWuxing, dayMaster, '日主');
   const generatingElement = Object.entries(BASIC_MAPPINGS.WUXING_SHENG).find(
     ([, target]) => target === dayMasterWuxing,
   )?.[0] as Wuxing | undefined;
 
   Object.entries(pillars).forEach(([position, pillar]) => {
     if (position !== 'day') {
-      const stemWuxing = getWuxing(pillar.gan);
+      const stemWuxing = resolveWuxing(getWuxing, pillar.gan, `${position}柱天干`);
       const isCompanion = stemWuxing === dayMasterWuxing;
       const isResource = generatingElement ? stemWuxing === generatingElement : false;
 
@@ -122,22 +168,26 @@ export function analyzeSupport(
       }
     }
 
-    if (generatingElement && getWuxing(pillar.zhi) === generatingElement) {
+    if (
+      generatingElement &&
+      resolveWuxing(getWuxing, pillar.zhi, `${position}柱地支`) === generatingElement
+    ) {
       supporters.push({ position, stem: pillar.zhi, strength: 1 });
       totalStrength += 1;
     }
 
-    const branchWuxing = getWuxing(pillar.zhi);
+    const branchWuxing = resolveWuxing(getWuxing, pillar.zhi, `${position}柱地支`);
     hiddenStems[position as keyof HiddenStems].forEach((stem, index) => {
+      const hiddenWuxing = resolveWuxing(getWuxing, stem, `${position}柱藏干`);
       if (
         index === 0 &&
         generatingElement &&
         branchWuxing === generatingElement &&
-        getWuxing(stem) === generatingElement
+        hiddenWuxing === generatingElement
       ) {
         return;
       }
-      if (!generatingElement || getWuxing(stem) !== generatingElement) {
+      if (!generatingElement || hiddenWuxing !== generatingElement) {
         return;
       }
 
@@ -159,9 +209,12 @@ export function analyzeConstraint(
   hiddenStems: HiddenStems,
   getWuxing: GetWuxingFn,
 ): ConstraintAnalysis {
+  assertStrengthPillars(dayMaster, pillars);
+  assertHiddenStems(hiddenStems);
+
   const constraints: { position: string; stem: string; strength: number }[] = [];
   let totalStrength = 0;
-  const dayMasterWuxing = getWuxing(dayMaster);
+  const dayMasterWuxing = resolveWuxing(getWuxing, dayMaster, '日主');
   const generatedElement = BASIC_MAPPINGS.WUXING_SHENG[dayMasterWuxing];
   const wealthElement = BASIC_MAPPINGS.WUXING_KE[dayMasterWuxing];
   const officerElement = Object.entries(BASIC_MAPPINGS.WUXING_KE).find(
@@ -199,21 +252,21 @@ export function analyzeConstraint(
 
   Object.entries(pillars).forEach(([position, pillar]) => {
     if (position !== 'day') {
-      const stemWuxing = getWuxing(pillar.gan);
+      const stemWuxing = resolveWuxing(getWuxing, pillar.gan, `${position}柱天干`);
       const stemStrength = resolveConstraintStrength(stemWuxing, 1, 1.2);
       if (stemStrength > 0) {
         addConstraint(position, pillar.gan, stemStrength);
       }
     }
 
-    const branchWuxing = getWuxing(pillar.zhi);
+    const branchWuxing = resolveWuxing(getWuxing, pillar.zhi, `${position}柱地支`);
     const branchStrength = resolveConstraintStrength(branchWuxing, 1, 1.2);
     if (branchStrength > 0) {
       addConstraint(position, pillar.zhi, branchStrength);
     }
 
     hiddenStems[position as keyof HiddenStems].forEach((stem, index) => {
-      const hiddenWuxing = getWuxing(stem);
+      const hiddenWuxing = resolveWuxing(getWuxing, stem, `${position}柱藏干`);
       if (index === 0 && branchStrength > 0 && hiddenWuxing === branchWuxing) {
         return;
       }
@@ -238,9 +291,16 @@ export function analyzeSeasonalStatus(
   getWuxing: GetWuxingFn,
   monthCommander?: string,
 ): SeasonalStatusAnalysis {
+  assertHeavenlyStem(dayMaster, '日主');
+  assertEarthlyBranch(monthBranch, '月支');
+  if (monthCommander) assertHeavenlyStem(monthCommander, '月令司权天干');
+
   const season = getSeasonStatus(monthBranch);
-  const dayMasterWuxing = getWuxing(dayMaster);
+  const dayMasterWuxing = resolveWuxing(getWuxing, dayMaster, '日主');
   const seasonStatus = season[dayMasterWuxing as string];
+  if (!seasonStatus) {
+    throw new Error(`月令旺衰数据缺失：${monthBranch}/${dayMasterWuxing}`);
+  }
   const scoreMap: Record<string, number> = {
     旺: 4,
     相: 2,
@@ -250,13 +310,15 @@ export function analyzeSeasonalStatus(
   };
 
   const baseScore = scoreMap[seasonStatus] ?? 0;
-  const commanderWuxing = monthCommander ? getWuxing(monthCommander) : undefined;
+  const commanderWuxing = monthCommander
+    ? resolveWuxing(getWuxing, monthCommander, '月令司权天干')
+    : undefined;
   const commander = commanderWuxing
     ? resolveCommanderEffect(dayMasterWuxing, commanderWuxing)
     : { commanderScore: 0, commanderEffect: '中性' as const };
 
   return {
-    status: seasonStatus || '未知',
+    status: seasonStatus,
     score: Number((baseScore + (commander.commanderScore ?? 0)).toFixed(1)),
     baseScore,
     commanderStem: monthCommander,
@@ -271,7 +333,9 @@ export function analyzeFormation(
   pillars: Pillars,
   getWuxing: GetWuxingFn,
 ): FormationAnalysis {
-  const dayMasterWuxing = getWuxing(dayMaster);
+  assertStrengthPillars(dayMaster, pillars);
+
+  const dayMasterWuxing = resolveWuxing(getWuxing, dayMaster, '日主');
   const generatedElement = BASIC_MAPPINGS.WUXING_SHENG[dayMasterWuxing];
   const wealthElement = BASIC_MAPPINGS.WUXING_KE[dayMasterWuxing];
   const officerElement = Object.entries(BASIC_MAPPINGS.WUXING_KE).find(
@@ -351,7 +415,9 @@ export function analyzeDayMasterStrength(
   const seasonalBaseScore = seasonalStatus.baseScore ?? seasonalStatus.score;
   const commanderScore = seasonalStatus.commanderScore ?? 0;
   const seasonalTotalScore =
-    seasonalStatus.baseScore === undefined ? seasonalStatus.score : seasonalBaseScore + commanderScore;
+    seasonalStatus.baseScore === undefined
+      ? seasonalStatus.score
+      : seasonalBaseScore + commanderScore;
   const score = Number(
     (
       seasonalTotalScore +

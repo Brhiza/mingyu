@@ -1,3 +1,5 @@
+import { getBirthDateValidationMessage } from './date-validation';
+
 export type ValidationResult = { ok: true } | { ok: false; field: string; message: string };
 
 const MIN_YEAR = 1900;
@@ -71,11 +73,19 @@ export function validateBirthInput(
   }
 
   if (fields.dateType === 'lunar') {
-    if (!Number.isInteger(dayNum) || dayNum < 1 || dayNum > 30) {
+    const validationMessage = getBirthDateValidationMessage({
+      year: yearNum,
+      month: monthNum,
+      day: dayNum,
+      dateType: 'lunar',
+      isLeapMonth: fields.isLeapMonth,
+    });
+
+    if (validationMessage) {
       return {
         ok: false,
         field: 'day',
-        message: `${personLabel}农历日期需在 1-30 之间`,
+        message: `${personLabel}${validationMessage.replace(/。$/, '')}`,
       };
     }
   } else {

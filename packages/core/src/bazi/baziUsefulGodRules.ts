@@ -1,8 +1,5 @@
 export type UsefulGodWuxingBundle =
-  | 'resource_companion_output'
-  | 'wealth_officer'
-  | 'output_wealth_officer'
-  | 'resource_companion';
+  'resource_companion_output' | 'wealth_officer' | 'output_wealth_officer' | 'resource_companion';
 
 export interface BaseUsefulGodRule {
   id: string;

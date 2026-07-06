@@ -24,6 +24,10 @@ test('星盘底层算法应拒绝无效出生日期和时间', () => {
     /星盘需要填写有效的出生年份/,
   );
   assert.throws(
+    () => generateAstrolabe({ ...validInput, year: 1995 as never }),
+    /星盘需要填写有效的出生年份/,
+  );
+  assert.throws(
     () => generateAstrolabe({ ...validInput, hour: ' ' }),
     /星盘需要填写有效的出生小时/,
   );
@@ -52,6 +56,10 @@ test('星盘底层算法应拒绝越界经纬度和时区', () => {
   assert.throws(
     () => generateAstrolabe({ ...validInput, timezone: '15' }),
     /时区需在 -12 到 14 之间/,
+  );
+  assert.throws(
+    () => generateAstrolabe({ ...validInput, locationName: 123 as never }),
+    /星盘文本字段必须是字符串/,
   );
 });
 

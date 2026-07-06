@@ -1,19 +1,7 @@
 import type { IztroPalace, IztroStar } from '../../../../types/iztro';
+import { LIUHE_MAP } from '../../../../divination/algorithms/_shared';
 
-export const LIU_HE_BRANCH: Record<string, string> = {
-  子: '丑',
-  丑: '子',
-  寅: '亥',
-  亥: '寅',
-  卯: '戌',
-  戌: '卯',
-  辰: '酉',
-  酉: '辰',
-  巳: '申',
-  申: '巳',
-  午: '未',
-  未: '午',
-};
+export const LIU_HE_BRANCH: Record<string, string> = LIUHE_MAP;
 
 export function findPalaceByIndex(palaces: IztroPalace[], index?: number): IztroPalace | undefined {
   if (index === undefined) return undefined;

@@ -8,6 +8,7 @@
  */
 import { ChildLimit, Gender, SolarTime } from 'tyme4ts';
 import type { XiaoYunItem, XiaoYunProfile, LuckDirectionProfile } from '../types/analysis';
+import { assertBaziGender, assertHeavenlyStem } from './baziUtils';
 
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 type LuckGender = Parameters<typeof ChildLimit.fromSolarTime>[1];
@@ -24,15 +25,14 @@ const STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '�
  * @param yearStem 年柱天干
  * @returns 大运方向
  */
-export function buildLuckDirectionProfile(
-  gender: string,
-  yearStem: string,
-): LuckDirectionProfile {
+export function buildLuckDirectionProfile(gender: string, yearStem: string): LuckDirectionProfile {
+  assertBaziGender(gender);
+  assertHeavenlyStem(yearStem, '年干');
+
   const isMale = gender === 'male';
   const idx = STEMS.indexOf(yearStem);
-  const isYang = idx !== -1 && idx % 2 === 0;
-  const direction: '顺行' | '逆行' =
-    isMale === isYang ? '顺行' : '逆行';
+  const isYang = idx % 2 === 0;
+  const direction: '顺行' | '逆行' = isMale === isYang ? '顺行' : '逆行';
   const rule = isMale
     ? isYang
       ? '阳男大运顺行'
@@ -62,6 +62,9 @@ export function calculateXiaoYunProfile(
   dayMasterGan: string,
   getTenGod: (gan: string, dayMaster: string) => string,
 ): XiaoYunProfile {
+  assertBaziGender(gender);
+  assertHeavenlyStem(dayMasterGan, '日主');
+
   const childLimit = ChildLimit.fromSolarTime(
     solarTime,
     (gender === 'male' ? Gender.MAN : Gender.WOMAN) as LuckGender,

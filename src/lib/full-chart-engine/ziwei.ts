@@ -137,34 +137,43 @@ export async function calculateZiweiChartForScopes(
 }
 
 function buildLightweightPublicPalaces(astrolabe: IztroAstrolabe): PalaceFact[] {
-  return astrolabe.palaces.map((palace) => ({
-    index: palace.index,
-    name: palace.name,
-    is_body_palace: palace.isBodyPalace,
-    is_original_palace: palace.isOriginalPalace,
-    heavenly_stem: palace.heavenlyStem,
-    earthly_branch: palace.earthlyBranch,
-    major_stars: palace.majorStars.map((star) => mapStarFact(star, [])),
-    minor_stars: palace.minorStars.map((star) => mapStarFact(star, [])),
-    other_stars: palace.adjectiveStars.map((star) => mapStarFact(star, [])),
-    scope_stars: [],
-    changsheng12: palace.changsheng12,
-    boshi12: palace.boshi12,
-    base_jiangqian12: palace.jiangqian12,
-    base_suiqian12: palace.suiqian12,
-    decadal_range: palace.decadal.range,
-    ages: palace.ages,
-    scope_hits: [],
-    empty_state: palace.isEmpty(),
-    opposite_palace_index: (palace.index + 6) % 12,
-    surrounded_palace_indexes: [palace.index],
-    summary_tags: [
-      palace.name === '命宫' ? '命宫' : '',
-      palace.isBodyPalace ? '身宫' : '',
-      palace.isOriginalPalace ? '来因宫' : '',
-      palace.isEmpty() ? '空宫' : '',
-    ].filter(Boolean),
-  }));
+  return astrolabe.palaces.map((palace) => {
+    const surrounded = astrolabe.surroundedPalaces(palace.name);
+
+    return {
+      index: palace.index,
+      name: palace.name,
+      is_body_palace: palace.isBodyPalace,
+      is_original_palace: palace.isOriginalPalace,
+      heavenly_stem: palace.heavenlyStem,
+      earthly_branch: palace.earthlyBranch,
+      major_stars: palace.majorStars.map((star) => mapStarFact(star, [])),
+      minor_stars: palace.minorStars.map((star) => mapStarFact(star, [])),
+      other_stars: palace.adjectiveStars.map((star) => mapStarFact(star, [])),
+      scope_stars: [],
+      changsheng12: palace.changsheng12,
+      boshi12: palace.boshi12,
+      base_jiangqian12: palace.jiangqian12,
+      base_suiqian12: palace.suiqian12,
+      decadal_range: palace.decadal.range,
+      ages: palace.ages,
+      scope_hits: [],
+      empty_state: palace.isEmpty(),
+      opposite_palace_index: surrounded.opposite.index,
+      surrounded_palace_indexes: [
+        surrounded.target.index,
+        surrounded.opposite.index,
+        surrounded.wealth.index,
+        surrounded.career.index,
+      ],
+      summary_tags: [
+        palace.name === '命宫' ? '命宫' : '',
+        palace.isBodyPalace ? '身宫' : '',
+        palace.isOriginalPalace ? '来因宫' : '',
+        palace.isEmpty() ? '空宫' : '',
+      ].filter(Boolean),
+    };
+  });
 }
 
 function buildLightweightPublicPayload(params: {
@@ -291,13 +300,13 @@ export function buildZiweiChartInput(input: {
     dateType: input.useTrueSolarTime ? 'solar' : input.dateType,
     birthDate,
     birthTimeIndex: trueSolarBirth?.birthTimeIndex ?? birthTimeIndex,
-    isLeapMonth: input.isLeapMonth,
+    isLeapMonth: input.useTrueSolarTime ? false : input.isLeapMonth,
     fixLeap: true,
     algorithm: 'default',
     yearDivide: 'normal',
     horoscopeDivide: 'normal',
     ageDivide: 'normal',
-    dayDivide: 'current',
+    dayDivide: 'forward',
   };
 }
 

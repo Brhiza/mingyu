@@ -3,21 +3,7 @@ import type {
   LiurenData,
   LiurenTransmission,
 } from '../../../../types/divination';
-
-const LIUCHONG_MAP: Record<string, string> = {
-  子: '午',
-  丑: '未',
-  寅: '申',
-  卯: '酉',
-  辰: '戌',
-  巳: '亥',
-  午: '子',
-  未: '丑',
-  申: '寅',
-  酉: '卯',
-  戌: '辰',
-  亥: '巳',
-};
+import { LIUCHONG_MAP } from '../../_shared';
 
 export function buildTransmissionNote(stage: LiurenTransmission['stage'], relation: string) {
   const stagePrefixMap: Record<LiurenTransmission['stage'], string> = {

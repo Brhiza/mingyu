@@ -11,3 +11,7 @@ test('雷诺曼大桌牌阵应抽取完整 36 张牌', () => {
   assert.equal(result.cards[0].position, '位置1（全桌解读）');
   assert.equal(result.cards[35].position, '位置36（全桌解读）');
 });
+
+test('雷诺曼未知牌阵应明确报错，不应静默退回单牌', () => {
+  assert.throws(() => drawLenormandSpread('unknown' as never), /未知的雷诺曼牌阵类型/);
+});

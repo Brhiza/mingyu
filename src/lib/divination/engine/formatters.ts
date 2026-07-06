@@ -18,6 +18,7 @@ import type {
 import { LunarUtil, getDivinationTime } from 'mingyu-core/calendar';
 import { resolveSsgwStoryContent } from '../ssgw-content';
 import { createQimenPriorityPalaces } from '@core/divination/algorithms/qimen';
+import { LIUCHONG_MAP, LIUHE_MAP, isKe, isSheng } from '@core/divination/algorithms/_shared';
 import { normalizePromptEvidenceItems } from '@core/prompt-evidence/format';
 import type { PromptEvidenceItem } from '@core/prompt-evidence/types';
 import type { DivinationMethodId } from '@core/divination/config';
@@ -181,15 +182,22 @@ function normalizePromptCompareText(text: string) {
   return text.replace(/[：:，,；;。、\s]/g, '');
 }
 
-const EARTHLY_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
-
 function getGanzhiBranch(value?: string) {
   return value ? value.slice(-1) : '';
 }
 
-function getOppositeBranch(branch: string) {
-  const index = EARTHLY_BRANCHES.indexOf(branch);
-  return index >= 0 ? EARTHLY_BRANCHES[(index + 6) % EARTHLY_BRANCHES.length] : '';
+const WUXING_ELEMENTS = ['木', '火', '土', '金', '水'] as const;
+
+function findGeneratingElement(target: string) {
+  return WUXING_ELEMENTS.find((element) => isSheng(element, target)) || '';
+}
+
+function findGeneratedElement(source: string) {
+  return WUXING_ELEMENTS.find((element) => isSheng(source, element)) || '';
+}
+
+function findControllingElement(target: string) {
+  return WUXING_ELEMENTS.find((element) => isKe(element, target)) || '';
 }
 
 type LiuyaoUsefulGodCandidate = {
@@ -280,8 +288,8 @@ function createLiuyaoUsefulGodCandidates(data: LiuyaoData): LiuyaoUsefulGodCandi
 function createLiuyaoMonthDayEvidence(data: LiuyaoData) {
   const monthBranch = getGanzhiBranch(data.ganzhi.month);
   const dayBranch = getGanzhiBranch(data.ganzhi.day);
-  const monthClash = getOppositeBranch(monthBranch);
-  const dayClash = getOppositeBranch(dayBranch);
+  const monthClash = LIUCHONG_MAP[monthBranch] || '';
+  const dayClash = LIUCHONG_MAP[dayBranch] || '';
   const describeBranchHit = (label: string, branch: string, clashBranch: string) => {
     const sameYaos = data.yaosDetail
       .filter((item) => item.najiaDizhi === branch)
@@ -306,21 +314,6 @@ function createLiuyaoMonthDayEvidence(data: LiuyaoData) {
 function createLiuyaoUsefulGodScoreEvidenceItems(data: LiuyaoData): PromptEvidenceItem[] {
   const monthBranch = getGanzhiBranch(data.ganzhi.month);
   const dayBranch = getGanzhiBranch(data.ganzhi.day);
-  // 六合关系（《增删卜易》：用神爻与月建或日辰六合为暗助）
-  const LIU_HE: Record<string, string> = {
-    子: '丑',
-    丑: '子',
-    寅: '亥',
-    亥: '寅',
-    卯: '戌',
-    戌: '卯',
-    辰: '酉',
-    酉: '辰',
-    巳: '申',
-    申: '巳',
-    午: '未',
-    未: '午',
-  };
   const candidates = createLiuyaoUsefulGodCandidates(data).slice(0, 3);
   const movingYaos = data.yaosDetail.filter((item) => item.isChanging).map(formatLiuyaoYaoBrief);
   const worldYao = data.yaosDetail.find((item) => item.isWorld);
@@ -348,12 +341,8 @@ function createLiuyaoUsefulGodScoreEvidenceItems(data: LiuyaoData): PromptEviden
       primary.seasonState === '相' ? '月令相地有力' : '',
       primary.najiaDizhi === monthBranch ? '得月建同支触发' : '',
       primary.najiaDizhi === dayBranch ? '得日辰同支触发' : '',
-      LIU_HE && primary.najiaDizhi && LIU_HE[primary.najiaDizhi] === monthBranch
-        ? '得月建六合暗助'
-        : '',
-      LIU_HE && primary.najiaDizhi && LIU_HE[primary.najiaDizhi] === dayBranch
-        ? '得日辰六合暗助'
-        : '',
+      primary.najiaDizhi && LIUHE_MAP[primary.najiaDizhi] === monthBranch ? '得月建六合暗助' : '',
+      primary.najiaDizhi && LIUHE_MAP[primary.najiaDizhi] === dayBranch ? '得日辰六合暗助' : '',
       primary.changeRelation === '回头生' ? '变爻回头生，愈动愈有力' : '',
       primary.changedYao ? `变出${primary.changedYao.liuqin}${primary.changedYao.dizhi}` : '',
     ].filter(Boolean);
@@ -402,8 +391,8 @@ function createLiuyaoUsefulGodScoreEvidenceItems(data: LiuyaoData): PromptEviden
     if (primary.changedYao?.isVoid) weight -= 10;
     if (primary.najiaDizhi === monthBranch) weight += 10;
     if (primary.najiaDizhi === dayBranch) weight += 10;
-    if (LIU_HE[primary.najiaDizhi] === monthBranch) weight += 8;
-    if (LIU_HE[primary.najiaDizhi] === dayBranch) weight += 8;
+    if (LIUHE_MAP[primary.najiaDizhi] === monthBranch) weight += 8;
+    if (LIUHE_MAP[primary.najiaDizhi] === dayBranch) weight += 8;
     weight -= index * 5;
 
     const level: PromptEvidenceItem['level'] =
@@ -438,13 +427,9 @@ function createLiuyaoRelationGodEvidence(data: LiuyaoData) {
     return '资料不足，需先定用神后再分原神、忌神、仇神';
   }
 
-  const sourceElement =
-    Object.entries(WUXING_GENERATES).find(([, generated]) => generated === primary.wuxing)?.[0] ||
-    '';
-  const jiElement =
-    Object.entries(WUXING_CONTROLS).find(([, controlled]) => controlled === primary.wuxing)?.[0] ||
-    '';
-  const chouElement = WUXING_CONTROLS[primary.wuxing] || '';
+  const sourceElement = findGeneratingElement(primary.wuxing);
+  const jiElement = findControllingElement(primary.wuxing);
+  const chouElement = findGeneratedElement(primary.wuxing);
   const describeElementYaos = (label: string, element: string) => {
     const yaos = data.yaosDetail
       .filter((item) => item.wuxing === element)
@@ -662,22 +647,6 @@ function createXiaoliurenReviewWindowEvidence(data: XiaoliurenData) {
   ].join('；');
 }
 
-const WUXING_GENERATES: Record<string, string> = {
-  木: '火',
-  火: '土',
-  土: '金',
-  金: '水',
-  水: '木',
-};
-
-const WUXING_CONTROLS: Record<string, string> = {
-  木: '土',
-  土: '水',
-  水: '火',
-  火: '金',
-  金: '木',
-};
-
 function describeWuxingRelation(source: string, target: string) {
   if (!source || !target) {
     return '五行关系未明';
@@ -685,16 +654,16 @@ function describeWuxingRelation(source: string, target: string) {
   if (source === target) {
     return `${source}${target}比和`;
   }
-  if (WUXING_GENERATES[source] === target) {
+  if (isSheng(source, target)) {
     return `${source}生${target}`;
   }
-  if (WUXING_GENERATES[target] === source) {
+  if (isSheng(target, source)) {
     return `${target}生${source}`;
   }
-  if (WUXING_CONTROLS[source] === target) {
+  if (isKe(source, target)) {
     return `${source}克${target}`;
   }
-  if (WUXING_CONTROLS[target] === source) {
+  if (isKe(target, source)) {
     return `${target}克${source}`;
   }
   return `${source}与${target}关系待复核`;
