@@ -659,8 +659,10 @@ test('公开 API 应支持八字紫微合参提示词', async () => {
   assert.match(body.data.prompt, /【八字排盘信息】/);
   assert.match(body.data.prompt, /【紫微盘面信息】/);
   assert.match(body.data.prompt, /【任务】/);
+  assert.match(body.data.prompt, /结论总览/);
   assert.match(body.data.prompt, /八字主线/);
   assert.match(body.data.prompt, /紫微校验/);
+  assert.match(body.data.prompt, /应期触发/);
   assert.match(body.data.prompt, /我现在适合换工作还是继续等待/);
   assertPromptIsPortableTaskText(body.data.prompt);
 });

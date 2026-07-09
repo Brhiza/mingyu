@@ -77,6 +77,46 @@
 | `POST /ai/analyze`                   | AI 解读，返回 SSE 流式响应                                                     |
 | `POST /ai/models`                    | 获取当前 AI 配置可用的模型列表                                                 |
 
+## Agent 调用选择指南
+
+面向自动化代理时，优先使用 `/prompt` 一站式接口，让接口直接返回可交给 AI 解读的 `data.prompt`，不要先取完整排盘再自行拼装提示词。只有需要做表格展示、二次计算或缓存结构化数据时，才调用 `/calculate` 或 `/divination/{method}`。
+
+默认优先级：
+
+1. 用户提供了完整出生信息，并询问人生、事业、财运、婚恋、亲子、健康、迁居、学习、考试、合作、近期趋势或某一年某阶段走势时，优先用 `POST /bazi-ziwei/prompt`。八字负责定命局主线、喜忌和岁运，紫微负责校验宫位、四化、三方四正和运限，通常比单独八字或单独紫微更稳。
+2. 用户只提供出生年月日时，但问题只要求单一体系，或明确要求“只看八字”“只看紫微”时，再分别用 `POST /bazi/prompt` 或 `POST /ziwei/prompt`。
+3. 用户问“这件事现在能不能做、要不要推进、对方态度、短期成败、近期应期”这类即时问题，优先用时间类占卜提示词：六爻、奇门、梅花、小六壬、大六壬。
+4. 用户要从一段日期里挑日子，优先用 `POST /divination/almanac/prompt`；日期超过 31 天或参与人很多时分页调用。
+5. 用户提供西方占星所需的出生时间、地点、经纬度或明确要求星盘时，用 `POST /divination/astrolabe/prompt`。
+6. 用户只想要轻量灵感、心理牌面或不提供出生信息时，可用塔罗、雷诺曼、灵签等提示词接口。
+
+常见问题到推荐接口：
+
+| 用户问题类型                         | 首选接口                                  | 推荐参数                                                                                  | 说明                                                   |
+| ------------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 整体人生、长期事业、财运、婚恋       | `POST /bazi-ziwei/prompt`                 | `baziPromptTopic`、`ziweiPromptTopic` 按主题填写，`promptScope: "full"` 或 `"origin"`      | 有完整出生信息时优先合参；想看完整阶段时用 `full`     |
+| 今年、某一年、当前阶段运势           | `POST /bazi-ziwei/prompt`                 | `promptScope: "yearly"`，主题填事业、财运、感情等                                          | 八字看岁运触发，紫微看流年落宫与四化                  |
+| 换工作、创业、合伙、投资合作         | `POST /bazi-ziwei/prompt`                 | `job-change`、`startup-partnership`、`investment-partnership`，按问题选择主题              | 这类问题兼具长期结构和当前触发，优先合参              |
+| 只看八字格局、用神、流年流月         | `POST /bazi/prompt`                       | `promptTopic`，`baziFortuneScope: "full"`、`"year"`、`"month"` 或 `"day"`                  | 明确要求八字时使用                                    |
+| 只看紫微宫位、四化、某年某月运限     | `POST /ziwei/prompt`                      | `promptTopic`，`promptScope: "full"`、`"yearly"`、`"monthly"`、`"daily"` 或 `"hourly"`    | 明确要求紫微时使用                                    |
+| 当前事项能否推进、短期成败           | `POST /divination/liuyao/prompt`          | `question`，必要时传 `customDate`                                                         | 六爻适合一事一问、取用和应期                          |
+| 项目推进、方向选择、谈判出行、方位   | `POST /divination/qimen/prompt`           | `question`，可选 `qimenMethod: "zhuanpan"` 或 `"feipan"`，必要时传 `customDate`           | 奇门适合时空局势、路径、方位和行动窗口                |
+| 临时小事、快速判断                   | `POST /divination/xiaoliuren/prompt`      | `question`，可选 `xiaoliurenMethod` 和 `xiaoliurenNumber`                                  | 小六壬适合短平快，不适合长期命运                      |
+| 以数字或时间起卦的象意判断           | `POST /divination/meihua/prompt`          | `question`，可选 `method`、`number` 或 `customDate`                                        | 梅花适合象意、触发点和过程结果                        |
+| 更传统复杂的一事一课                 | `POST /divination/liuren/prompt`          | `question`，可选 `liurenTemplate` 和 `customDate`                                          | 大六壬适合较严肃的事项推演                            |
+| 结婚、搬家、开业、签约、出行、安葬   | `POST /divination/almanac/prompt`         | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`                   | 只在候选日期范围内择优，不应让 AI 推荐范围外日期      |
+| 星盘本命、行运、流年流月             | `POST /divination/astrolabe/prompt`       | 出生时间地点，经纬度，`astrolabeTopic`，`astrolabeScope: "full"` 或指定范围               | 需要经纬度和时区，资料不足时应先补齐                  |
+| 牌面灵感、关系牌阵、选择牌阵         | `POST /divination/tarot/prompt` 或雷诺曼  | `spreadType`、`question`                                                                  | 适合轻量启发，不作为长期命盘判断                      |
+| 求签                                 | `POST /divination/ssgw/prompt`            | `question`                                                                                | 有三连阴杯等拒签情况时，应如实返回，不强行解释        |
+
+参数选择建议：
+
+- `responseMode` 默认用 `summary`；只转交提示词给 AI 时用 `prompt-only`；确实需要完整结构化排盘时再用 `full`。
+- 八字紫微合参、八字、紫微、星盘要做完整长期分析时，优先选择完整输出版：八字用 `baziFortuneScope: "full"`，紫微和合参用 `promptScope: "full"`，星盘用 `astrolabeScope: "full"`。
+- 只问某一年、某月、某日时，优先选择对应范围，避免把短期问题做成泛泛终身解读。
+- `promptMode` 默认用 `framework`，这样返回的提示词结构更完整；只有用户明确要自由问答或自己已经写好完整问题时，才用 `custom`。
+- 出生时辰未知时，不要自行补时辰；八字只能保守使用已知信息，紫微和八字紫微合参应等用户补足时辰后再调用。
+
 ## 请求示例
 
 `/calculate` 和 `/divination/{method}` 接口只返回排盘、卦盘、牌阵或灵签数据。需要可直接发送给 AI 的提示词时，使用对应的 `/prompt` 一站式接口。

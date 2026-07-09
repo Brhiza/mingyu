@@ -44,6 +44,46 @@ description: 通过 aov.cc 公开 API 调用命理、占卜和一站式提示词
 
 `/prompt` 默认不返回完整排盘，避免响应和下游 AI 消息过大。需要完整排盘时传 `responseMode: "full"`；只要提示词时传 `responseMode: "prompt-only"`。八字、紫微、奇门和黄历排盘可传 `detailMode: "compact"` 获取轻量结构。黄历大范围或多参与人应使用 `page/pageSize` 拆成多次请求。
 
+## 调用选择指南
+
+优先调用一站式 `/prompt` 接口，直接使用返回的 `data.prompt`。不要把多个排盘结果手动拼成提示词，除非用户明确要求原始数据或你需要做结构化展示。
+
+默认决策：
+
+- 有完整出生信息，且用户问人生、事业、财运、婚恋、亲子、健康、迁居、学习、考试、合作、近期趋势、某年某阶段走势：优先调用 `POST /bazi-ziwei/prompt`。这是深度解读的首选方案，用八字定主线，用紫微校验宫位、四化和运限。
+- 用户明确只要八字：调用 `POST /bazi/prompt`。长期或完整阶段分析用 `baziFortuneScope: "full"`；指定年份、月份、日期时用对应范围。
+- 用户明确只要紫微：调用 `POST /ziwei/prompt`。长期或完整阶段分析用 `promptScope: "full"`；指定年份、月份、日期时用 `yearly`、`monthly`、`daily` 或 `hourly`。
+- 用户问一件事现在能不能成、要不要推进、对方态度、短期应期：优先用六爻 `POST /divination/liuyao/prompt`；涉及方位、项目路径、谈判、出行和时空窗口时优先用奇门 `POST /divination/qimen/prompt`。
+- 用户要从日期范围里挑日子：调用 `POST /divination/almanac/prompt`，日期多或参与人多时分页。
+- 用户明确要西方星盘，或提供出生地点、经纬度和时区：调用 `POST /divination/astrolabe/prompt`。
+- 用户没有出生信息，只想要轻量启发、牌阵或签文：调用塔罗、雷诺曼或三山国王灵签提示词接口。
+
+问题到接口速查：
+
+| 问题类型                       | 首选接口                              | 关键参数                                                                                 |
+| ------------------------------ | ------------------------------------- | ---------------------------------------------------------------------------------------- |
+| 整体人生、长期事业、财运、婚恋 | `POST /bazi-ziwei/prompt`             | `baziPromptTopic`、`ziweiPromptTopic`、`promptScope: "full"` 或 `"origin"`               |
+| 今年运势、当前阶段、某年趋势   | `POST /bazi-ziwei/prompt`             | `promptScope: "yearly"`，主题按事业、财运、感情等选择                                    |
+| 换工作、创业、合伙、投资       | `POST /bazi-ziwei/prompt`             | `job-change`、`startup-partnership`、`investment-partnership`                             |
+| 八字格局、用神、大运流年       | `POST /bazi/prompt`                   | `promptTopic`、`baziFortuneScope`                                                        |
+| 紫微宫位、四化、运限           | `POST /ziwei/prompt`                  | `promptTopic`、`promptScope`                                                             |
+| 一事一问、短期成败、应期       | `POST /divination/liuyao/prompt`      | `question`、可选 `customDate`                                                            |
+| 项目推进、方向、方位、谈判     | `POST /divination/qimen/prompt`       | `question`、可选 `qimenMethod`、`customDate`                                             |
+| 临时小事快速判断               | `POST /divination/xiaoliuren/prompt`  | `question`、可选 `xiaoliurenMethod`、`xiaoliurenNumber`                                  |
+| 时间或数字象意判断             | `POST /divination/meihua/prompt`      | `question`、可选 `method`、`number`、`customDate`                                        |
+| 传统复杂事项推演               | `POST /divination/liuren/prompt`      | `question`、可选 `liurenTemplate`、`customDate`                                          |
+| 结婚、搬家、开业、签约、安葬   | `POST /divination/almanac/prompt`     | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`                 |
+| 星盘本命和行运                 | `POST /divination/astrolabe/prompt`   | 出生时间地点、经纬度、`astrolabeTopic`、`astrolabeScope`                                 |
+| 牌阵启发                       | `POST /divination/tarot/prompt`       | `spreadType`、`question`                                                                 |
+| 雷诺曼关系或选择牌阵           | `POST /divination/lenormand/prompt`   | `spreadType`、`question`                                                                 |
+| 求签                           | `POST /divination/ssgw/prompt`        | `question`                                                                               |
+
+参数默认建议：
+
+- `responseMode` 通常保持默认；只需要提示词时用 `prompt-only`；需要完整排盘时才用 `full`。
+- `promptMode` 通常保持 `framework`，这样提示词更完整；只有用户已写好完整自由问题时才用 `custom`。
+- 出生时辰未知时，不要自行补时辰。八字可以保守分析，紫微和八字紫微合参应先让用户补足时辰。
+
 ## 常用接口
 
 - `GET /health`：健康检查。
