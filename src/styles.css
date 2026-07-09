@@ -1913,11 +1913,15 @@ select {
 }
 
 .input-page-shell {
+  --input-bottom-tools-height: 0px;
+  --input-bottom-tools-gap: max(28px, env(safe-area-inset-bottom, 0px) + 20px);
   padding-top: 12px;
 }
 
 .input-page-shell.has-floating-tutorial-entry {
-  padding-bottom: 132px;
+  padding-bottom: calc(
+    var(--input-bottom-tools-height, 104px) + var(--input-bottom-tools-gap, 28px)
+  );
 }
 
 .input-page-main-content {
@@ -5631,7 +5635,7 @@ div.form-actions.page-submit-actions {
   }
 
   .input-page-shell {
-    padding: 10px 6px 132px;
+    padding: 10px 6px 16px;
   }
 
   .tutorial-entry-button {
@@ -5709,11 +5713,11 @@ div.form-actions.page-submit-actions {
   }
 
   .input-page-shell.has-floating-tutorial-entry {
-    padding-bottom: 132px;
+    padding-bottom: calc(
+      var(--input-bottom-tools-height, 112px) + var(--input-bottom-tools-gap, 28px)
+    );
   }
 
-  .input-page-bottom-tools,
-  .input-page-bottom-tools.is-inline,
   .input-page-bottom-tools.is-floating {
     position: fixed;
     left: 50%;
@@ -5722,6 +5726,13 @@ div.form-actions.page-submit-actions {
     bottom: max(8px, env(safe-area-inset-bottom, 0px) + 8px);
     z-index: 20;
     pointer-events: none;
+  }
+
+  .input-page-bottom-tools.is-inline {
+    position: static;
+    transform: none;
+    width: 100%;
+    pointer-events: auto;
   }
 
   .donation-entry-button {
@@ -6412,6 +6423,12 @@ div.form-actions.page-submit-actions {
 
   .page-shell {
     padding: 10px 6px 16px;
+  }
+
+  .input-page-shell.has-floating-tutorial-entry {
+    padding-bottom: calc(
+      var(--input-bottom-tools-height, 112px) + var(--input-bottom-tools-gap, 28px)
+    );
   }
 
   .result-summary-grid,
