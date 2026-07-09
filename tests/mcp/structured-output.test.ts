@@ -67,6 +67,22 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
     /【问题】/,
   ],
   [
+    'bazi_ziwei_prompt',
+    {
+      gender: 'female',
+      dateType: 'solar',
+      year: 1992,
+      month: 8,
+      day: 21,
+      timeIndex: 4,
+      question: '我现在适合换工作还是继续等待？',
+      baziPromptTopic: 'job-change',
+      ziweiPromptTopic: 'job-change',
+      promptScope: 'yearly',
+    },
+    /【八字排盘信息】/,
+  ],
+  [
     'liuyao_prompt',
     { customDate: '2025-01-01T08:00:00+08:00', question: '今年事业如何？' },
     /【占卜信息】/,
@@ -76,6 +92,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
 const promptToolNames = [
   'bazi_prompt',
   'ziwei_prompt',
+  'bazi_ziwei_prompt',
   'liuyao_prompt',
   'meihua_prompt',
   'xiaoliuren_prompt',
@@ -110,7 +127,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 24);
+    assert.equal(tools.length, 25);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
@@ -271,7 +288,7 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
     assert.equal(ziweiFrameworkResult.isError, undefined, 'ziwei_prompt framework 不应返回错误');
     const ziweiFrameworkPrompt = String(ziweiFrameworkResult.structuredContent?.prompt);
     assert.match(ziweiFrameworkPrompt, /分析主题：人生解析/);
-    assert.match(ziweiFrameworkPrompt, /用户没有选择具体主题时按通用紫微口径处理/);
+    assert.match(ziweiFrameworkPrompt, /若【问题】未限定具体主题，按通用紫微口径处理/);
     assert.match(ziweiFrameworkPrompt, /【重点宫位资料】/);
     assert.doesNotMatch(ziweiFrameworkPrompt, /自由问答先判断问题落在哪些宫位/);
     assertPromptIsPortableTaskText(ziweiFrameworkPrompt);

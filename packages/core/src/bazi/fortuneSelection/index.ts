@@ -142,9 +142,9 @@ function buildFortuneEvidenceLines(params: {
   const items: PromptEvidenceItem[] = [
     {
       level: '主证',
-      title: '用户已选择年限运限',
+      title: '指定年限运限',
       detail: `${params.scopeLabel}，所属大运为${params.cycleLabel}（${params.cycleGanZhi}）。`,
-      source: '年限选择器',
+      source: '岁运资料',
       weight: 100,
       tags: [params.scope],
     },
@@ -155,7 +155,7 @@ function buildFortuneEvidenceLines(params: {
       level: '辅证',
       title: '上层岁运背景',
       detail: params.parentText,
-      source: '年限选择器',
+      source: '岁运资料',
       weight: 86,
     });
   }
@@ -185,7 +185,7 @@ function buildFortuneEvidenceLines(params: {
       level: '应期',
       title: '应期边界',
       detail: params.timingText,
-      source: '年限选择器',
+      source: '岁运资料',
       weight: 64,
     });
   }
@@ -207,7 +207,10 @@ export function normalizeFortuneSelection(
   result: BaziChartResult,
   selection: BaziFortuneSelectionValue,
 ): BaziFortuneSelectionValue {
-  if (selection.scope === 'natal' || !result.luckInfo.cycles.length) {
+  if (selection.scope === 'natal' || selection.scope === 'full' || !result.luckInfo.cycles.length) {
+    if (selection.scope === 'full' && result.luckInfo.cycles.length) {
+      return { scope: 'full' };
+    }
     return { scope: 'natal' };
   }
 
@@ -272,7 +275,7 @@ export function buildFortuneSelectionContext(
   selection: BaziFortuneSelectionValue,
 ): FortuneSelectionContext | null {
   const normalized = normalizeFortuneSelection(result, selection);
-  if (normalized.scope === 'natal') {
+  if (normalized.scope === 'natal' || normalized.scope === 'full') {
     return null;
   }
 
@@ -339,7 +342,8 @@ export function buildFortuneSelectionContext(
           selectedTenGod: cycleTenGod,
           triggerSummary: cycleTriggerSummary,
           timingText: `${cycle.year}年起，约${cycle.age}岁交运；只作为十年阶段主题与强弱背景。`,
-          limitText: '大运不能替代流年给出精确年份；需要用户继续选择流年后才能断年度触发。',
+          limitText:
+            '大运不能替代流年给出精确年份；未给出具体流年时，只能判断十年阶段，不展开年度触发。',
         }),
         breakdownTitle: '该大运包含的流年',
         breakdownLines: breakdown.map((item) => formatYearBreakdownLine(result, item)),
@@ -400,7 +404,7 @@ export function buildFortuneSelectionContext(
           triggerSummary: yearTriggerSummary,
           parentText: `所属大运：${cycleLabel}（${cycle.ganZhi}），年度判断必须承接该十年阶段。`,
           timingText: `${yearItem.year}年（${yearItem.age}岁）为年度触发；流月列表只作月份窗口参考。`,
-          limitText: '未选择具体流月或流日时，不得把某月某日硬断成唯一应期。',
+          limitText: '未给出具体流月或流日时，不得把某月某日硬断成唯一应期。',
         }),
         breakdownTitle: '该流年包含的流月',
         breakdownLines: monthLines,
@@ -492,7 +496,7 @@ export function buildFortuneSelectionContext(
           parentText: `所属大运：${cycleLabel}（${cycle.ganZhi}）；所属流年：${yearItem.year}年${yearItem.ganZhi}。`,
           timingText: `${monthInfo.startDate}至${monthInfo.endDate}，以节气月为准；${monthInfo.startTermName || ''} ${monthInfo.startDateTime || ''} 起，${monthInfo.endTermName || ''} ${monthInfo.endDateTime || ''} 交下节。`,
           limitText:
-            '流月只细化年度主题，不能推翻本命、大运与流年主线；未选择流日时不硬给具体日期。',
+            '流月只细化年度主题，不能推翻本命、大运与流年主线；未给出流日时不硬给具体日期。',
         }),
         breakdownTitle: '该流月包含的流日',
         breakdownLines: dayLines,

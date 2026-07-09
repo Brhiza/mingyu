@@ -64,7 +64,7 @@ export interface FortuneSelectionContext {
 }
 
 export interface BaziFortuneSelectionValue {
-  scope: 'natal' | 'dayun' | 'year' | 'month' | 'day';
+  scope: 'natal' | 'full' | 'dayun' | 'year' | 'month' | 'day';
   cycleIndex?: number;
   year?: number;
   month?: number;

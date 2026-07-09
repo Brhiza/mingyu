@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildBaziZiweiEnhancedPrompt,
+  buildAstrolabeFullScopePromptText,
   buildCompatibilityPromptWithUnknownTime,
   getZiweiDisplaySurroundedPalaces,
   buildZiweiMonthAnchorDate,
@@ -9,6 +10,8 @@ import {
   findZiweiDecadalIndexByDate,
   findZiweiMonthOptionDate,
   findZiweiYearOptionDate,
+  formatBaziFullFortuneText,
+  formatZiweiFullScopeText,
   formatZiweiPromptScopeSummary,
   mapBaziFortuneToZiweiScope,
   parseOptionalNumber,
@@ -157,6 +160,10 @@ test('八字年限可映射为统一的紫微范围', () => {
     scope: 'origin',
     dateStr: '',
   });
+  assert.deepEqual(mapBaziFortuneToZiweiScope({ scope: 'full' }), {
+    scope: 'full',
+    dateStr: '',
+  });
   assert.deepEqual(mapBaziFortuneToZiweiScope({ scope: 'dayun', year: 2028 }), {
     scope: 'decadal',
     dateStr: '2028-07-01',
@@ -257,10 +264,10 @@ test('单人增强提示词会保留 section 结构并强调双体系交叉校�
   });
 
   assert.match(prompt, /【当前时间】/);
-  assert.match(prompt, /【已选分析对象】\n八字分析对象：当前大运\n紫微分析范围：流年 · 2028-01-01/);
+  assert.match(prompt, /【分析对象】\n八字分析对象：当前大运\n紫微分析范围：流年 · 2028-01-01/);
   assert.match(prompt, /【八字排盘信息】/);
   assert.match(prompt, /【紫微盘面信息】/);
-  assert.match(prompt, /【问题范围】\n用户选择：事业/);
+  assert.match(prompt, /【问题范围】\n事业/);
   assert.match(prompt, /【问题】\n请重点分析我的事业方向和当前突破口。/);
   assert.match(
     prompt,
@@ -272,6 +279,106 @@ test('单人增强提示词会保留 section 结构并强调双体系交叉校�
     prompt,
     /【输出要求】\n先直接回答【问题】，再按“八字主线”“紫微校验”“综合结论与建议”展开/,
   );
+});
+
+test('八字紫微合参提示词可写入完整大运流年资料', () => {
+  const baziPerson = buildPersonFromInput({
+    gender: 'male',
+    dateType: 'solar',
+    year: '1990',
+    month: '5',
+    day: '15',
+    timeIndex: 1,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+    birthHour: '',
+    birthMinute: '',
+    birthPlace: '',
+    birthLongitude: '',
+  });
+  const baziResult = calculateFullBaziChart(baziPerson);
+  const fullFortuneText = formatBaziFullFortuneText(baziResult);
+
+  const prompt = buildBaziZiweiEnhancedPrompt({
+    baziResult,
+    baziText: `八字基础资料\n\n【命限资料】\n${fullFortuneText}`,
+    ziweiText: '紫微基础资料',
+    question: '整体事业阶段怎么判断？',
+    baziFortuneSummary: '八字分析对象：本命盘与完整大运流年',
+  });
+
+  assert.match(prompt, /【分析对象】\n八字分析对象：本命盘与完整大运流年/);
+  assert.match(prompt, /【八字排盘信息】[\s\S]*【命限资料】/);
+  assert.match(prompt, /完整大运流年：/);
+  assert.match(prompt, /\d+\. .+：\d{4}年起，约\d+岁交运/);
+  assert.match(prompt, /  - \d{4}年（\d+岁）.+/);
+});
+
+test('紫微完整输出版会整理本命与各层运限资料', async () => {
+  const ziweiRuntime = await calculateFullZiweiChart(
+    buildZiweiChartInput({
+      name: '本人',
+      gender: 'male',
+      dateType: 'solar',
+      year: '1990',
+      month: '5',
+      day: '15',
+      timeIndex: 1,
+      isLeapMonth: false,
+      useTrueSolarTime: false,
+    }),
+  );
+
+  const text = formatZiweiFullScopeText(ziweiRuntime.payloadByScope);
+
+  assert.match(text, /完整紫微运限资料：/);
+  assert.match(text, /本命：分析对象：/);
+  assert.match(text, /大限：分析对象：/);
+  assert.match(text, /流年：分析对象：/);
+  assert.match(text, /流月：分析对象：/);
+  assert.match(text, /流日：分析对象：/);
+  assert.match(text, /当前四化：/);
+  assert.match(text, /运限命中：/);
+});
+
+test('星盘完整输出版会整理本命与行运资料', () => {
+  const text = buildAstrolabeFullScopePromptText({
+    natal: {
+      scope: 'natal',
+      dateStr: '',
+      displayText: '仅使用本命信息',
+      displayLabel: '本命盘',
+      promptText: '分析对象：本命盘。',
+    },
+    yearly: {
+      scope: 'yearly',
+      dateStr: '2028',
+      displayText: '流年 · 2028',
+      displayLabel: '流年2028',
+      promptText: '分析对象：流年2028。',
+    },
+    monthly: {
+      scope: 'monthly',
+      dateStr: '2028-06',
+      displayText: '流月 · 2028-06',
+      displayLabel: '流月2028-06',
+      promptText: '分析对象：流月2028-06。',
+    },
+    daily: {
+      scope: 'daily',
+      dateStr: '2028-06-12',
+      displayText: '流日 · 2028-06-12',
+      displayLabel: '流日2028-06-12',
+      promptText: '分析对象：流日2028-06-12。',
+    },
+  });
+
+  assert.match(text, /分析对象：本命盘与完整行运资料。/);
+  assert.match(text, /完整星盘行运资料：/);
+  assert.match(text, /分析对象：本命盘。/);
+  assert.match(text, /分析对象：流年2028。/);
+  assert.match(text, /分析对象：流月2028-06。/);
+  assert.match(text, /分析对象：流日2028-06-12。/);
 });
 
 test('问题灵感草稿应与自定义草稿分开存储，避免互相覆盖', () => {

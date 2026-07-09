@@ -99,7 +99,7 @@ export function formatSupplementaryInfoSection(
     lines.push(
       method === 'almanac'
         ? `择日补充：${supplementaryInfo.userSupplement.trim()}`
-        : `用户补充：${supplementaryInfo.userSupplement.trim()}`,
+        : `补充信息：${supplementaryInfo.userSupplement.trim()}`,
     );
   }
 
@@ -324,7 +324,7 @@ function createLiuyaoUsefulGodScoreEvidenceItems(data: LiuyaoData): PromptEviden
       return {
         level: '限制',
         title: candidate.label,
-        detail: `${candidate.relative}本卦未见，需看伏神、变爻或用户补充后再取，不可硬当主证`,
+        detail: `${candidate.relative}本卦未见，需看伏神、变爻或补充信息后再取，不可硬当主证`,
         source: '六爻取用评分',
         weight: 30 - index,
         tags: [candidate.relative],
@@ -643,7 +643,7 @@ function createXiaoliurenReviewWindowEvidence(data: XiaoliurenData) {
     `先观察起因${data.sequence.start.name}是否已出现`,
     `再看过程${data.sequence.process.name}对应卡点是否显化`,
     `最后用结果${data.sequence.result.name}验证短期走向`,
-    '若用户给出目标期限，以目标期限内复盘为准；未给期限时只给短期近事观察，不换算绝对日期',
+    '若【问题】给出目标期限，以目标期限内复盘为准；未给期限时只给短期近事观察，不换算绝对日期',
   ].join('；');
 }
 
@@ -1259,7 +1259,7 @@ function formatTarotInfo(data: TarotData) {
     '占法：塔罗',
     '时间干支：以【当前时间】为准',
     `核心结构：牌阵${data.spreadName}；共${data.cards.length}张牌`,
-    '断牌口径：按用户选择的牌阵、牌位、牌名和正逆位解读；未选择专项牌阵时按通用断牌。',
+    '断牌口径：按当前牌阵、牌位、牌名和正逆位解读；牌阵未限定专项时按通用断牌。',
     '现实边界：塔罗只能给当下倾向、心理动力、互动节奏和行动建议；未给期限时不把牌义硬换成绝对日期',
     '牌位明细：',
     ...cardLines,
@@ -1294,7 +1294,7 @@ function formatSsgwInfo(data: SsgwData) {
     '占法：三山国王灵签',
     `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
     `核心结构：第${data.number}签；签题《${data.title}》`,
-    '断签口径：按用户问题、签诗原文、典故和签文条目解读；未给具体事项时走通用解签。',
+    '断签口径：按【问题】、签诗原文、典故和签文条目解读；未给具体事项时走通用解签。',
     ritualLog,
     `签诗：${data.poem}`,
     canonicalStory ? `典故：${canonicalStory}` : '',
@@ -1454,7 +1454,7 @@ function formatAlmanacInfo(data: AlmanacData) {
     const risk = item.cautions.length ? item.cautions.join('、') : '未见明显忌项';
     const participant = item.participantNotes.length
       ? item.participantNotes.join('；')
-      : '未填写参与人八字';
+      : '未给出参与人八字';
     return `${item.date}（${item.score}分）：${good}；${risk}；${participant}`;
   };
   const selectionEvidenceItems = createAlmanacSelectionEvidenceItems(
@@ -1468,8 +1468,8 @@ function formatAlmanacInfo(data: AlmanacData) {
   const tabooEvidence = formatAlmanacEvidenceItems(tabooEvidenceItems);
   const topicScopeEvidence =
     data.topic === 'custom'
-      ? '未选择固定事项，按通用黄历取舍；用户补充的具体事项只作现实背景'
-      : `用户选择事项：${data.topicLabel}；按已选事项和候选日期证据处理`;
+      ? '事项未限定，按通用黄历取舍；补充的具体事项只作现实背景'
+      : `事项范围：${data.topicLabel}；按该事项和候选日期证据处理`;
   const participantFitEvidence = data.participants.length
     ? data.participants
         .map((participant) => {
@@ -1483,13 +1483,13 @@ function formatAlmanacInfo(data: AlmanacData) {
           return `${participant.name}：日主${participant.dayMaster}${participant.dayMasterElement}，喜用${participant.usefulGods.join('、') || '未标注'}，忌神${participant.avoidGods.join('、') || '未标注'}；${relatedNotes.join('；') || '候选日期未见直接参与人刑冲破害提醒'}`;
         })
         .join('；')
-    : '未填写参与人八字，不能编造个人适配，只按通用黄历规则判断';
+    : '未给出参与人八字，不能编造个人适配，只按通用黄历规则判断';
   const tabooDowngradeEvidence = tabooEvidence.length
     ? `${tabooEvidence.join('；')}；命中明显禁忌、参与人刑冲破害或低分强风险时，即使总分靠前也必须降为备选或慎用`
-    : '未见强禁忌命中；仍需检查用户现实限制，不能只按分数定案';
+    : '未见强禁忌命中；仍需检查现实限制，不能只按分数定案';
   const realityConstraintEvidence = [
     '现实刚性约束包括场地、证件、人员到场、交通、预算、天气和办理窗口',
-    '已提供资料未给现实时不得编造；若用户补充现实条件与黄历分数冲突，应说明为什么现实约束压过分数',
+    '已提供资料未给现实时不得编造；若补充现实条件与黄历分数冲突，应说明为什么现实约束压过分数',
   ].join('；');
   const availableWindowEvidence = [
     `只允许在${data.startDate}至${data.endDate}范围内排序`,
@@ -1505,7 +1505,7 @@ function formatAlmanacInfo(data: AlmanacData) {
     '占法：黄历择日',
     `核心结构：择日事项：${data.topicLabel}；候选日期：${data.startDate} 至 ${data.endDate}；先按黄历宜忌、神煞、冲煞与参与人刑冲破害做初筛`,
     bestDay
-      ? `初筛结论：当前排序第一为${bestDay.date}，评分${bestDay.score}；仍需结合用户现实约束复核，不可只按分数机械决定`
+      ? `初筛结论：当前排序第一为${bestDay.date}，评分${bestDay.score}；仍需结合现实约束复核，不可只按分数机械决定`
       : '初筛结论：暂无候选日期',
     '择日抓手：先排除直接冲犯和忌项明显命中的日期，再比较宜项、吉神、执日、星宿与参与人日主喜忌。',
     `事项口径：${topicScopeEvidence}`,
@@ -1515,9 +1515,7 @@ function formatAlmanacInfo(data: AlmanacData) {
     selectionEvidence.length ? `取舍证据：${selectionEvidence.join('；')}` : '',
     `现实约束：${realityConstraintEvidence}`,
     `可用时段边界：${availableWindowEvidence}`,
-    participantLines.length
-      ? '参与人八字参考：'
-      : '参与人八字参考：未填写，AI 只能按通用黄历规则判断',
+    participantLines.length ? '参与人八字参考：' : '参与人八字参考：未给出，只能按通用黄历规则判断',
     ...participantLines,
     '候选日期明细：',
     ...dayLines,
@@ -1537,7 +1535,7 @@ function formatLenormandInfo(data: LenormandData) {
     '占法：雷诺曼',
     '时间干支：以【当前时间】为准',
     `核心结构：牌阵${data.spreadName}；共${data.cards.length}张牌`,
-    '断牌口径：按用户选择的牌阵、牌位、牌名和牌义解读；单牌或未选专项时按通用断牌。',
+    '断牌口径：按当前牌阵、牌位、牌名和牌义解读；单牌或未限定专项时按通用断牌。',
     combinationLines.length ? '组合说明：' : '',
     ...combinationLines,
     '牌位明细：',

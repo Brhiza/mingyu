@@ -4,10 +4,17 @@ import { getBirthDateValidationMessage } from '@/lib/date-validation';
 
 export type ResultTabKey = 'bazi' | 'ziwei' | 'astrolabe' | 'prompt';
 export type PromptSourceKey = 'bazi' | 'ziwei' | 'bazi-ziwei' | 'astrolabe';
-export type BaziFortuneScope = 'natal' | 'dayun' | 'year' | 'month' | 'day';
+export type BaziFortuneScope = 'natal' | 'full' | 'dayun' | 'year' | 'month' | 'day';
 export type { AstrolabePromptTopic };
-export type ZiweiScopeMode = 'origin' | 'decadal' | 'yearly' | 'monthly' | 'daily' | 'hourly';
-export type AstrolabeScopeMode = 'natal' | 'yearly' | 'monthly' | 'daily';
+export type ZiweiScopeMode =
+  | 'origin'
+  | 'full'
+  | 'decadal'
+  | 'yearly'
+  | 'monthly'
+  | 'daily'
+  | 'hourly';
+export type AstrolabeScopeMode = 'natal' | 'full' | 'yearly' | 'monthly' | 'daily';
 export type AnalysisMode = 'single' | 'compatibility';
 export type ChartType = 'bazi' | 'ziwei' | 'astrolabe';
 
@@ -67,7 +74,14 @@ export type QueryPromptState = {
   astrolabeScopeDate: string;
 };
 
-const BAZI_FORTUNE_SCOPES: readonly BaziFortuneScope[] = ['natal', 'dayun', 'year', 'month', 'day'];
+const BAZI_FORTUNE_SCOPES: readonly BaziFortuneScope[] = [
+  'natal',
+  'full',
+  'dayun',
+  'year',
+  'month',
+  'day',
+];
 
 const ZIWEI_PROMPT_TOPICS = [
   'destiny',
@@ -98,6 +112,7 @@ const ZIWEI_PROMPT_TOPICS = [
 
 const ZIWEI_PROMPT_SCOPES: readonly ZiweiScopeMode[] = [
   'origin',
+  'full',
   'decadal',
   'yearly',
   'monthly',
@@ -107,6 +122,7 @@ const ZIWEI_PROMPT_SCOPES: readonly ZiweiScopeMode[] = [
 
 const ASTROLABE_PROMPT_SCOPES: readonly AstrolabeScopeMode[] = [
   'natal',
+  'full',
   'yearly',
   'monthly',
   'daily',
@@ -590,7 +606,7 @@ function daysInScopeMonth(year: number, month: number) {
 }
 
 function normalizeZiweiScopeDate(scope: ZiweiScopeMode, dateStr: string) {
-  if (scope === 'origin' || !dateStr) {
+  if (scope === 'origin' || scope === 'full' || !dateStr) {
     return '';
   }
 
@@ -598,7 +614,7 @@ function normalizeZiweiScopeDate(scope: ZiweiScopeMode, dateStr: string) {
 }
 
 function normalizeAstrolabeScopeDate(scope: AstrolabeScopeMode, dateStr: string) {
-  if (scope === 'natal' || !dateStr) {
+  if (scope === 'natal' || scope === 'full' || !dateStr) {
     return '';
   }
 
@@ -633,7 +649,7 @@ function normalizePromptState(prompt: QueryPromptState): QueryPromptState {
     normalized.astrolabeScopeDate,
   );
 
-  if (normalized.baziFortuneScope === 'natal') {
+  if (normalized.baziFortuneScope === 'natal' || normalized.baziFortuneScope === 'full') {
     normalized.baziFortuneCycleIndex = '';
     normalized.baziFortuneYear = '';
     normalized.baziFortuneMonth = '';

@@ -34,11 +34,14 @@ import type {
 import { PROMPT_DRAFT_STORAGE_PREFIX } from './ResultPage.constants';
 import {
   buildBaziZiweiEnhancedPrompt,
+  buildAstrolabeFullScopePromptText,
   buildEnhancedZiweiPromptPack,
   buildBaziFortuneSelectionValue,
   buildCombinedPromptText,
   buildCompatibilityPromptWithUnknownTime,
   formatZiweiPromptScopeSummary,
+  formatBaziFullFortuneText,
+  formatZiweiFullScopeText,
   getBaziShortcutActions,
   getZiweiShortcutActions,
   mapBaziFortuneToZiweiScope,
@@ -387,6 +390,18 @@ export function ResultPage() {
       ),
     [astrolabeCalculation.data, promptState.astrolabeScope, promptState.astrolabeScopeDate],
   );
+  const astrolabeFullScopeContext = useMemo(() => {
+    if (!astrolabeCalculation.data || promptState.astrolabeScope !== 'full') {
+      return null;
+    }
+
+    return buildAstrolabeFullScopePromptText({
+      natal: buildAstrolabeScopeContext(astrolabeCalculation.data, 'natal', ''),
+      yearly: buildAstrolabeScopeContext(astrolabeCalculation.data, 'yearly', ''),
+      monthly: buildAstrolabeScopeContext(astrolabeCalculation.data, 'monthly', ''),
+      daily: buildAstrolabeScopeContext(astrolabeCalculation.data, 'daily', ''),
+    });
+  }, [astrolabeCalculation.data, promptState.astrolabeScope]);
 
   const activeBaziQuestionScopeLabel = useMemo(() => {
     if (activeBaziShortcutMode === '自定义' || activeBaziShortcutMode === '问题灵感') {
@@ -451,7 +466,10 @@ export function ResultPage() {
       baziResult,
       baziFortuneContext,
       activeBaziQuestionScopeLabel,
-      { isCustomQuestion: activeBaziShortcutMode === '自定义' },
+      {
+        isCustomQuestion: activeBaziShortcutMode === '自定义',
+        fortuneScope: promptState.baziFortuneScope,
+      },
     );
     return buildCombinedPromptText(system, user);
   }
@@ -476,14 +494,27 @@ export function ResultPage() {
       });
     }
     if (!currentZiweiPayload) return '';
-    return buildCombinedZiweiPrompt(currentZiweiPayload, promptState.ziweiTopic, question, {
+    const basePrompt = buildCombinedZiweiPrompt(currentZiweiPayload, promptState.ziweiTopic, question, {
       isCustomQuestion: activeZiweiShortcutMode === '自定义',
     });
+    if (promptState.ziweiScope !== 'full' || !activeZiweiPayloadByScope) {
+      return basePrompt;
+    }
+
+    const fullScopeText = formatZiweiFullScopeText(activeZiweiPayloadByScope);
+    return fullScopeText
+      ? basePrompt.replace(
+          '【问题】',
+          `【完整运限资料】\n${fullScopeText}\n\n【问题】`,
+        )
+      : basePrompt;
   }
 
   const ziweiScopeSummaryText =
-    promptState.ziweiScope === 'origin'
-      ? '仅使用本命信息'
+    promptState.ziweiScope === 'full'
+      ? '本命盘与完整运限资料'
+      : promptState.ziweiScope === 'origin'
+      ? '本命盘与大运概览'
       : formatZiweiPromptScopeSummary(
           promptState.ziweiScope,
           promptState.ziweiScopeDate,
@@ -513,8 +544,20 @@ export function ResultPage() {
       return '';
     }
 
-    return formatBaziForPrompt(baziResult, null, 'general');
-  }, [baziResult, primaryHasUnknownTime, promptState.promptSource, promptState.tab]);
+    const baseText = formatBaziForPrompt(baziResult, null, 'general');
+    const fullFortuneText =
+      promptState.baziFortuneScope === 'full' ? formatBaziFullFortuneText(baziResult) : '';
+
+    return [baseText, fullFortuneText ? `【命限资料】\n${fullFortuneText}` : '']
+      .filter(Boolean)
+      .join('\n\n');
+  }, [
+    baziResult,
+    primaryHasUnknownTime,
+    promptState.baziFortuneScope,
+    promptState.promptSource,
+    promptState.tab,
+  ]);
 
   function computeEnhancedPromptText(question: string, finalQuestion: string): string {
     if (promptState.tab !== 'prompt' || inputState.analysisMode !== 'single') return '';
@@ -524,12 +567,23 @@ export function ResultPage() {
     return buildBaziZiweiEnhancedPrompt({
       baziResult,
       baziText: enhancedBaziPromptPack,
-      ziweiText: enhancedZiweiPromptPack,
+      ziweiText:
+        promptState.ziweiScope === 'full' && activeZiweiPayloadByScope
+          ? [
+              enhancedZiweiPromptPack,
+              `【完整运限资料】\n${formatZiweiFullScopeText(activeZiweiPayloadByScope)}`,
+            ]
+              .filter(Boolean)
+              .join('\n\n')
+          : enhancedZiweiPromptPack,
       question: finalQuestion || question,
       questionScopeLabel: activeBaziQuestionScopeLabel,
-      baziFortuneSummary: baziFortuneContext
-        ? `八字分析对象：${baziFortuneContext.displayText}`
-        : '',
+      baziFortuneSummary:
+        promptState.baziFortuneScope === 'full'
+          ? '八字分析对象：本命盘与完整大运流年'
+          : baziFortuneContext
+            ? `八字分析对象：${baziFortuneContext.displayText}`
+            : '',
       ziweiScopeSummary:
         promptState.ziweiScope === 'origin' ? '' : `紫微分析范围：${ziweiScopeSummaryText}`,
       isCustomQuestion: activeBaziShortcutMode === '自定义',
@@ -574,6 +628,7 @@ export function ResultPage() {
       primaryThreePillarsState.profile,
       promptEngine,
       promptState.baziPresetId,
+      promptState.baziFortuneScope,
       promptState.promptSource,
       promptState.tab,
       selectedBaziPreset,
@@ -615,6 +670,7 @@ export function ResultPage() {
       primaryThreePillarsState.profile,
       promptEngine,
       promptState.baziPresetId,
+      promptState.baziFortuneScope,
       promptState.promptSource,
       promptState.tab,
       selectedBaziPreset,
@@ -628,6 +684,7 @@ export function ResultPage() {
         : '',
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
+      activeZiweiPayloadByScope,
       currentZiweiPayload,
       activeZiweiShortcutMode,
       effectiveZiweiQuickQuestion,
@@ -635,6 +692,7 @@ export function ResultPage() {
       partnerZiweiPayload,
       promptState.promptSource,
       promptState.tab,
+      promptState.ziweiScope,
       promptState.ziweiTopic,
     ],
   );
@@ -652,6 +710,7 @@ export function ResultPage() {
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
+      activeZiweiPayloadByScope,
       currentZiweiPayload,
       activeZiweiShortcutMode,
       deferredZiweiQuickQuestion,
@@ -661,6 +720,7 @@ export function ResultPage() {
       partnerZiweiPayload,
       promptState.promptSource,
       promptState.tab,
+      promptState.ziweiScope,
       promptState.ziweiTopic,
     ],
   );
@@ -682,11 +742,12 @@ export function ResultPage() {
       {
         isCustomQuestion: activeAstrolabeShortcutMode === '自定义',
         astrolabeTopic: promptState.astrolabeTopic,
-        astrolabeScopeText: astrolabeScopeContext.promptText,
+        astrolabeScopeText: astrolabeFullScopeContext ?? astrolabeScopeContext.promptText,
       },
     );
   }, [
     activeAstrolabeShortcutMode,
+    astrolabeFullScopeContext,
     astrolabeScopeContext.promptText,
     astrolabeCalculation.data,
     effectiveAstrolabeQuickQuestion,
@@ -715,11 +776,12 @@ export function ResultPage() {
       {
         isCustomQuestion: activeAstrolabeShortcutMode === '自定义',
         astrolabeTopic: promptState.astrolabeTopic,
-        astrolabeScopeText: astrolabeScopeContext.promptText,
+        astrolabeScopeText: astrolabeFullScopeContext ?? astrolabeScopeContext.promptText,
       },
     );
   }, [
     activeAstrolabeShortcutMode,
+    astrolabeFullScopeContext,
     astrolabeScopeContext.promptText,
     astrolabeCalculation.data,
     deferredAstrolabeQuestion,
@@ -738,6 +800,7 @@ export function ResultPage() {
     [
       activeBaziQuestionScopeLabel,
       activeBaziShortcutMode,
+      activeZiweiPayloadByScope,
       baziFortuneContext,
       baziResult,
       enhancedBaziPromptPack,
@@ -746,6 +809,7 @@ export function ResultPage() {
       finalBaziQuestion,
       inputState.analysisMode,
       primaryHasUnknownTime,
+      promptState.baziFortuneScope,
       promptState.promptSource,
       promptState.tab,
       promptState.ziweiScope,
@@ -771,6 +835,7 @@ export function ResultPage() {
     [
       activeBaziQuestionScopeLabel,
       activeBaziShortcutMode,
+      activeZiweiPayloadByScope,
       baziFortuneContext,
       baziResult,
       deferredBaziQuickQuestion,
@@ -782,6 +847,7 @@ export function ResultPage() {
       inputState.analysisMode,
       latestEnhancedPromptText,
       primaryHasUnknownTime,
+      promptState.baziFortuneScope,
       promptState.promptSource,
       promptState.tab,
       promptState.ziweiScope,
@@ -806,8 +872,14 @@ export function ResultPage() {
 
   const [inspirationText, setInspirationText] = useState('');
   const isBaziFortuneSummaryLoading = shouldLoadBaziPromptModules && !baziFortuneSelectionModule;
-  const baziFortuneSummaryText = baziFortuneContext?.displayText ?? '仅使用本命信息';
-  const astrolabeScopeSummaryText = astrolabeScopeContext.displayText;
+  const baziFortuneSummaryText =
+    promptState.baziFortuneScope === 'full'
+      ? '本命盘与完整大运流年'
+      : (baziFortuneContext?.displayText ?? '本命盘与大运概览');
+  const astrolabeScopeSummaryText =
+    promptState.astrolabeScope === 'full'
+      ? '本命盘与完整行运资料'
+      : astrolabeScopeContext.displayText;
 
   const latestActivePromptText =
     promptState.promptSource === 'astrolabe'
@@ -976,10 +1048,10 @@ export function ResultPage() {
                   </div>
                 ) : null}
                 {inputState.analysisMode === 'compatibility' &&
-                currentZiweiPayload &&
-                partnerZiweiPayload ? (
+                !hasUnknownBirthTime &&
+                !ziweiError ? (
                   <div className="result-dual-layout">
-                    {ziweiRuntime && primaryZiweiInput ? (
+                    {ziweiRuntime && primaryZiweiInput && currentZiweiPayload ? (
                       <ZiweiBoard
                         title="第一人紫微"
                         name={inputState.name || '第一人'}
@@ -990,7 +1062,7 @@ export function ResultPage() {
                     ) : (
                       <ZiweiBoardSkeleton title="第一人紫微" name={inputState.name || '第一人'} />
                     )}
-                    {partnerZiweiRuntime && partnerZiweiInput ? (
+                    {partnerZiweiRuntime && partnerZiweiInput && partnerZiweiPayload ? (
                       <ZiweiBoard
                         title="第二人紫微"
                         name={inputState.partnerName || '第二人'}
@@ -1006,8 +1078,10 @@ export function ResultPage() {
                     )}
                   </div>
                 ) : null}
-                {inputState.analysisMode !== 'compatibility' && currentZiweiPayload ? (
-                  ziweiRuntime && primaryZiweiInput ? (
+                {inputState.analysisMode !== 'compatibility' &&
+                !hasUnknownBirthTime &&
+                !ziweiError ? (
+                  ziweiRuntime && primaryZiweiInput && currentZiweiPayload ? (
                     <ZiweiBoard
                       title="紫微总览"
                       name={inputState.name || '当前命盘'}
@@ -1586,10 +1660,11 @@ export function ResultPage() {
             selection={baziFortuneSelection}
             onClose={() => setIsBaziFortuneModalOpen(false)}
             onApply={(next) => {
+              const isGeneralScope = next.scope === 'natal' || next.scope === 'full';
               const nextPromptState: Partial<QueryPromptState> = {
                 baziFortuneScope: next.scope,
-                baziFortuneCycleIndex: next.scope === 'natal' ? '' : String(next.cycleIndex ?? ''),
-                baziFortuneYear: next.scope === 'natal' ? '' : String(next.year ?? ''),
+                baziFortuneCycleIndex: isGeneralScope ? '' : String(next.cycleIndex ?? ''),
+                baziFortuneYear: isGeneralScope ? '' : String(next.year ?? ''),
                 baziFortuneMonth:
                   next.scope === 'month' || next.scope === 'day' ? String(next.month ?? '') : '',
                 baziFortuneDay: next.scope === 'day' ? String(next.day ?? '') : '',

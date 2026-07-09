@@ -75,16 +75,26 @@ function formatPromptLuckOverview(baziResult: BaziChartResult): string {
 
   const cycles = baziResult.luckInfo.cycles;
   const now = new Date();
+  const currentYear = now.getFullYear();
   const currentLuck = getLuckCycleForDate(cycles, now);
 
   const lines = [`起运: ${baziResult.luckInfo.startInfo}`];
+  const cycleOverview = cycles.slice(0, 13).map((cycle, index) => {
+    const years = cycle.years ?? [];
+    const firstYear = years[0]?.year;
+    const lastYear = years[years.length - 1]?.year;
+    const yearRange = firstYear && lastYear ? `，含${firstYear}-${lastYear}年流年` : '';
+    const cycleLabel = cycle.isXiaoyun ? `${cycle.ganZhi}童运` : `${cycle.ganZhi}${cycle.type}`;
+    return `${index + 1}. ${cycleLabel}: ${cycle.year}年起，约${cycle.age}岁交运${yearRange}`;
+  });
+
+  if (cycleOverview.length) {
+    lines.push('大运总览:');
+    lines.push(...cycleOverview);
+  }
 
   if (!currentLuck) {
-    const preview = cycles
-      .slice(0, 3)
-      .map((cycle) => `${cycle.ganZhi}(${cycle.age}岁)`)
-      .join(' -> ');
-    lines.push(`运程摘要: ${preview}`);
+    lines.push('当前阶段: 未匹配到当前大运，只能参考大运总览作长期阶段背景。');
     return lines.join('\n');
   }
 
@@ -114,6 +124,12 @@ function formatPromptLuckOverview(baziResult: BaziChartResult): string {
   ].filter(Boolean);
 
   lines.push(...relatedCycles);
+  const nearYears = currentLuck.years
+    .filter((year) => Math.abs(year.year - currentYear) <= 2)
+    .map((year) => `${year.year}年${year.ganZhi}(${year.age}岁，${year.tenGod}/${year.tenGodZhi})`);
+  if (nearYears.length) {
+    lines.push(`近年流年: ${nearYears.join(' -> ')}`);
+  }
   return lines.join('\n');
 }
 
@@ -149,7 +165,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   result += `基本信息: ${isMale ? '乾造' : '坤造'} | ${solarDate.year}年${solarDate.month}月${solarDate.day}日 ${timeInfo.name}\n`;
   result += `出生历法: 阳历${solarDate.year}年${solarDate.month}月${solarDate.day}日 | 农历${formatLunarDate(baziResult)} | 生肖:${baziResult.zodiac}\n`;
   if (baziResult.timing?.enabled) {
-    result += `真太阳时: ${baziResult.timing.correctedTime.year}年${baziResult.timing.correctedTime.month}月${baziResult.timing.correctedTime.day}日 ${String(baziResult.timing.correctedTime.hour).padStart(2, '0')}:${String(baziResult.timing.correctedTime.minute).padStart(2, '0')} | 出生地:${baziResult.timing.birthPlace || '未填写'} | 经度:${baziResult.timing.birthLongitude}\n`;
+    result += `真太阳时: ${baziResult.timing.correctedTime.year}年${baziResult.timing.correctedTime.month}月${baziResult.timing.correctedTime.day}日 ${String(baziResult.timing.correctedTime.hour).padStart(2, '0')}:${String(baziResult.timing.correctedTime.minute).padStart(2, '0')} | 出生地:${baziResult.timing.birthPlace || '未给出'} | 经度:${baziResult.timing.birthLongitude}\n`;
     if (baziResult.timing.dstCorrectionMinutes) {
       result += `夏令时校正: ${baziResult.timing.dstCorrectionMinutes} 分钟（中国夏令时 1986-1991）\n`;
     }

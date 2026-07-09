@@ -2,9 +2,11 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import type { Person } from '@core/bazi/baziTypes';
+import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import {
   BAZI_PROMPT_TOPICS,
+  BAZI_FORTUNE_SCOPES,
   BAZI_SCHOOLS,
   PROMPT_MODES,
   buildBaziPromptForResult,
@@ -24,7 +26,7 @@ import {
   readMcpNumberLikeInRange,
 } from './input-helpers.js';
 
-const baziSchema = z.object({
+export const baziSchema = z.object({
   gender: z.enum(['male', 'female']).describe('性别：male 为男，female 为女'),
   year: z.number().describe('出生年'),
   month: z.number().describe('出生月'),
@@ -36,19 +38,10 @@ const baziSchema = z.object({
   dateType: z.enum(['solar', 'lunar']).describe('日期类型：solar 为阳历，lunar 为农历'),
   isLeapMonth: z.boolean().optional().describe('是否为闰月（仅农历有效）'),
   useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时校正'),
-  birthHour: z
-    .number()
-    .optional()
-    .describe('精准出生小时，启用真太阳时时必填'),
-  birthMinute: z
-    .number()
-    .optional()
-    .describe('精准出生分钟，启用真太阳时时必填'),
+  birthHour: z.number().optional().describe('精准出生小时，启用真太阳时时必填'),
+  birthMinute: z.number().optional().describe('精准出生分钟，启用真太阳时时必填'),
   birthPlace: z.string().optional().describe('出生地名称，启用真太阳时时可选'),
-  birthLongitude: z
-    .number()
-    .optional()
-    .describe('出生地经度，启用真太阳时时必填'),
+  birthLongitude: z.number().optional().describe('出生地经度，启用真太阳时时必填'),
 });
 
 const baziPromptSchema = baziSchema.extend({
@@ -69,9 +62,17 @@ const baziPromptSchema = baziSchema.extend({
     .describe(
       '八字流派：traditional=传统派（子平正法、格局调候）, mangpai=盲派（十神象法、年限分段）, xinpai=新派（调候流通）。不传则不附加流派指引',
     ),
+  baziFortuneScope: z
+    .enum(BAZI_FORTUNE_SCOPES)
+    .optional()
+    .describe('八字命限范围：natal=本命, full=完整输出版, dayun=大运, year=流年, month=流月, day=流日'),
+  baziFortuneCycleIndex: z.number().optional().describe('大运序号，从 0 开始'),
+  baziFortuneYear: z.number().optional().describe('指定流年年份'),
+  baziFortuneMonth: z.number().optional().describe('指定流月序号'),
+  baziFortuneDay: z.number().optional().describe('指定流日序号'),
 });
 
-function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
+export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
   const useTrueSolarTime = args.useTrueSolarTime ?? false;
   assertMcpBirthDate({
     year: args.year,
@@ -168,6 +169,32 @@ export function registerBaziTool(server: McpServer) {
       try {
         const person = buildBaziPerson(args);
         const result = baziCalculator.calculateBazi(person);
+        const fortuneSelectionContext = buildFortuneSelectionContext(result, {
+          scope: args.baziFortuneScope ?? 'natal',
+          cycleIndex:
+            args.baziFortuneScope &&
+            args.baziFortuneScope !== 'natal' &&
+            args.baziFortuneScope !== 'full'
+              ? readMcpIntegerLikeInRange(
+                  args.baziFortuneCycleIndex ?? 0,
+                  'baziFortuneCycleIndex',
+                  0,
+                  99,
+                )
+              : undefined,
+          year:
+            args.baziFortuneYear === undefined
+              ? undefined
+              : readMcpIntegerLikeInRange(args.baziFortuneYear, 'baziFortuneYear', 1900, 2200),
+          month:
+            args.baziFortuneMonth === undefined
+              ? undefined
+              : readMcpIntegerLikeInRange(args.baziFortuneMonth, 'baziFortuneMonth', 1, 12),
+          day:
+            args.baziFortuneDay === undefined
+              ? undefined
+              : readMcpIntegerLikeInRange(args.baziFortuneDay, 'baziFortuneDay', 1, 31),
+        });
         return createStructuredToolResult({
           result,
           prompt: buildBaziPromptForResult({
@@ -175,6 +202,8 @@ export function registerBaziTool(server: McpServer) {
             question: args.question,
             topic: (args.promptTopic ?? 'general') as BaziPromptTopic,
             mode: (args.promptMode ?? 'framework') as PromptMode,
+            fortuneSelectionContext,
+            fortuneScope: args.baziFortuneScope ?? 'natal',
             school: args.school as BaziSchool | undefined,
           }),
         });

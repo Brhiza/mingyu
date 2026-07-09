@@ -318,7 +318,7 @@ export function buildScopeHitSummary(payload: AnalysisPayloadV1) {
       level: '主证',
       title: '所选运限落宫',
       detail: focusLine,
-      source: '紫微运限选择器',
+      source: '运限落宫',
       weight: 100,
     },
   ];
@@ -328,7 +328,7 @@ export function buildScopeHitSummary(payload: AnalysisPayloadV1) {
       level: '主证',
       title: '运限命中宫位',
       detail: landingLines.slice(0, 6).join('；'),
-      source: '当前运限 scope_hits',
+      source: '运限命中',
       weight: 88,
     });
   }
@@ -338,7 +338,7 @@ export function buildScopeHitSummary(payload: AnalysisPayloadV1) {
       level: '主证',
       title: '当前运限四化飞入',
       detail: mutagenLines.slice(0, 8).join('；'),
-      source: '当前运限 mutagen_map',
+      source: '运限四化',
       weight: 82,
     });
   }
@@ -347,7 +347,7 @@ export function buildScopeHitSummary(payload: AnalysisPayloadV1) {
     {
       level: '应期',
       title: '应期层级',
-      detail: `${scopeLabel}只负责${payload.active_scope.label || scopeLabel}这一层级的触发；下层未选择时，只能给条件窗口，不给绝对日期。`,
+      detail: `${scopeLabel}只负责${payload.active_scope.label || scopeLabel}这一层级的触发；下层资料未提供时，只能给条件窗口，不给绝对日期。`,
       source: '解读方法',
       weight: 42,
     },

@@ -1,4 +1,4 @@
-export type BaziFortuneScope = 'natal' | 'dayun' | 'year' | 'month' | 'day';
+export type BaziFortuneScope = 'natal' | 'full' | 'dayun' | 'year' | 'month' | 'day';
 
 export type FortuneModalRow = 'dayun' | 'year' | 'month' | 'day';
 export type FortuneModalParentRow = Exclude<FortuneModalRow, 'dayun'>;
@@ -21,7 +21,7 @@ export function isFortuneModalDetailOptionActive(
   draftScope: BaziFortuneScope,
 ) {
   if (row === 'dayun') {
-    return draftScope !== 'natal';
+    return draftScope !== 'natal' && draftScope !== 'full';
   }
   if (row === 'year') {
     return draftScope === 'year' || draftScope === 'month' || draftScope === 'day';

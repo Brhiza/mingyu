@@ -4,6 +4,7 @@ import { handlePublicApiRequest, isPublicApiRequestPath } from '../src/lib/publi
 import { onRequest as handleWellKnownApiRequest } from '../functions/.well-known/[[path]]';
 import { buildZiweiChartInput, calculateFullZiweiChart } from '../src/lib/full-chart-engine/ziwei';
 import {
+  buildBaziZiweiPromptForResults,
   buildBaziPromptForResult,
   buildZiweiPromptForRuntime,
   type BaziPromptTopic,
@@ -79,6 +80,7 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.equal(body.data.openapiUrl, 'https://aov.cc/api/v1/openapi.json');
   assert.equal(body.data.skillUrl, 'https://aov.cc/skills/aov-mingyu-api/SKILL.md');
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi/calculate'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/bazi-ziwei/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/almanac'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/xiaoliuren/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/lenormand/prompt'));
@@ -124,6 +126,7 @@ test('公开 API well-known 元数据应跟随当前访问域名', async () => {
   assert.equal(body.baseUrl, 'https://example.pages.dev/api/v1');
   assert.equal(body.openapiUrl, 'https://example.pages.dev/api/v1/openapi.json');
   assert.equal(body.skillUrl, 'https://example.pages.dev/skills/aov-mingyu-api/SKILL.md');
+  assert.ok(body.endpoints.includes('POST /api/v1/bazi-ziwei/prompt'));
   assert.ok(body.endpoints.includes('POST /api/v1/ai/analyze'));
 });
 
@@ -167,6 +170,7 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     /摘要/,
   );
   assert.ok(body.data.paths['/divination/almanac']);
+  assert.ok(body.data.paths['/bazi-ziwei/prompt']);
   assert.ok(body.data.paths['/divination/xiaoliuren']);
   assert.ok(body.data.paths['/divination/lenormand']);
   assert.ok(body.data.paths['/divination/astrolabe']);
@@ -304,9 +308,18 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     assert.match(baziTopicSchema, new RegExp(topic), `八字 promptTopic 应包含 ${topic}`);
   }
   assert.ok(body.data.components.schemas.ZiweiRequest.properties.promptScope);
+  assert.ok(body.data.components.schemas.BaziZiweiPromptRequest);
+  assert.deepEqual(
+    body.data.components.schemas.BaziZiweiPromptRequest.allOf[1].properties.baziPromptTopic.enum,
+    body.data.components.schemas.BaziPromptRequest.allOf[1].properties.promptTopic.enum,
+  );
+  assert.deepEqual(
+    body.data.components.schemas.BaziZiweiPromptRequest.allOf[1].properties.ziweiPromptTopic.enum,
+    body.data.components.schemas.ZiweiPromptRequest.allOf[1].properties.promptTopic.enum,
+  );
   assert.match(
     body.data.components.schemas.ZiweiRequest.properties.promptScope.description,
-    /避免一次性生成全部运限/,
+    /full 会返回本命、大限、流年、流月、流日、流时/,
   );
   assert.equal(
     body.data.components.schemas.BaziRequest.properties.shenShaVariants.$ref,
@@ -619,6 +632,82 @@ test('公开 API 提示词接口支持只返回提示词，避免下游重复传
   assert.match(qimen.body.data.prompt, /【占卜信息】/);
 });
 
+test('公开 API 应支持八字紫微合参提示词', async () => {
+  const { response, body } = await callApi('bazi-ziwei/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: '测试',
+      gender: 'female',
+      year: 1992,
+      month: 8,
+      day: 21,
+      timeIndex: 4,
+      dateType: 'solar',
+      question: '我现在适合换工作还是继续等待？',
+      baziPromptTopic: 'job-change',
+      ziweiPromptTopic: 'job-change',
+      promptScope: 'yearly',
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.data.result, undefined);
+  assert.equal(body.data.resultSummary.bazi.gender, 'female');
+  assert.equal(body.data.resultSummary.ziwei.scopeNames.includes('yearly'), true);
+  assert.match(body.data.prompt, /【八字排盘信息】/);
+  assert.match(body.data.prompt, /【紫微盘面信息】/);
+  assert.match(body.data.prompt, /【任务】/);
+  assert.match(body.data.prompt, /八字主线/);
+  assert.match(body.data.prompt, /紫微校验/);
+  assert.match(body.data.prompt, /我现在适合换工作还是继续等待/);
+  assertPromptIsPortableTaskText(body.data.prompt);
+});
+
+test('八字紫微合参提示词自定义模式不额外拼接任务框架', async () => {
+  const person = {
+    gender: 'male' as const,
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 1,
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  };
+  const baziResult = baziCalculator.calculateBazi(person);
+  const ziweiResult = await calculateFullZiweiChart(
+    buildZiweiChartInput({
+      name: '测试',
+      gender: 'male',
+      dateType: 'solar',
+      year: '1990',
+      month: '5',
+      day: '15',
+      timeIndex: 1,
+      isLeapMonth: false,
+      useTrueSolarTime: false,
+    }),
+  );
+
+  const prompt = buildBaziZiweiPromptForResults({
+    baziResult,
+    ziweiResult,
+    question: '只看今年是否适合跳槽。',
+    baziTopic: 'job-change',
+    ziweiTopic: 'job-change',
+    ziweiScope: 'yearly',
+    mode: 'custom',
+  });
+
+  assert.match(prompt, /【八字排盘信息】/);
+  assert.match(prompt, /【紫微盘面信息】/);
+  assert.match(prompt, /【问题】\n只看今年是否适合跳槽。/);
+  assert.doesNotMatch(prompt, /【任务】/);
+  assert.doesNotMatch(prompt, /【输出要求】/);
+});
+
 test('公开 API 八字空问题应返回 400，保持 question 必填契约', async () => {
   const { response, body } = await callApi('bazi/prompt', {
     method: 'POST',
@@ -661,7 +750,7 @@ test('八字公开 API prompt builder 空问题走通用问题，不复用本地
   assert.match(prompt, /【问题】\n请先做整体解读。/);
   assert.match(
     prompt,
-    /【任务】\n用户选择的主题范围是“事业”。请围绕【问题】和该主题范围直接判断重点；未填写具体问题时按通用八字口径先做整体分析，再结合该主题提示重点。/,
+    /【任务】\n主题范围：事业。请围绕【问题】和该主题范围直接判断重点；若【问题】未限定具体事项，按通用八字口径先做整体分析，再结合该主题提示重点。/,
   );
   assert.doesNotMatch(prompt, /【问题】\n判断命局更适合守成/);
   assert.doesNotMatch(prompt, /【任务】\n判断命局更适合守成/);
@@ -697,10 +786,35 @@ test('八字公开 API 不同主题只切换范围，空问题仍使用通用任
     assert.match(prompt, /【问题】\n请先做整体解读。/, `${topic} 应使用通用默认问题`);
     assert.match(
       prompt,
-      /【任务】\n用户选择的主题范围是“[^”]+”。请围绕【问题】和该主题范围直接判断重点；未填写具体问题时按通用八字口径先做整体分析，再结合该主题提示重点。/,
+      /【任务】\n主题范围：[^。]+。请围绕【问题】和该主题范围直接判断重点；若【问题】未限定具体事项，按通用八字口径先做整体分析，再结合该主题提示重点。/,
       `${topic} 应只把主题作为范围`,
     );
   }
+});
+
+test('八字公开 API 提示词支持完整输出版命限范围', () => {
+  const result = baziCalculator.calculateBazi({
+    gender: 'male',
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 1,
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+
+  const prompt = buildBaziPromptForResult({
+    result,
+    question: '整体事业阶段怎么判断？',
+    topic: 'career',
+    fortuneScope: 'full',
+  });
+
+  assert.match(prompt, /【分析对象】\n分析对象：本命盘与完整大运流年/);
+  assert.match(prompt, /【命限资料】/);
+  assert.match(prompt, /完整大运流年：/);
+  assert.doesNotMatch(prompt, /详细命限资料|资料量|聚焦当前分析对象/);
 });
 
 test('公开 API 八字自定义提示词不强塞专项框架', async () => {
@@ -786,6 +900,41 @@ test('公开 API 紫微提示词接口只生成所需范围，避免线上函数
   assertPromptIsPortableTaskText(prompt);
 });
 
+test('公开 API 紫微提示词支持完整输出版范围', async () => {
+  const { response, body } = await callApi('ziwei/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: '测试',
+      gender: 'female',
+      dateType: 'solar',
+      year: '1992',
+      month: '8',
+      day: '21',
+      timeIndex: 4,
+      question: '整体人生和近期重点怎么看？',
+      promptTopic: 'life',
+      promptScope: 'full',
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.deepEqual(body.data.resultSummary.scopeNames, [
+    'origin',
+    'decadal',
+    'yearly',
+    'monthly',
+    'daily',
+    'hourly',
+  ]);
+  assert.match(body.data.prompt, /分析范围：完整输出/);
+  assert.match(body.data.prompt, /【完整运限资料】/);
+  assert.match(body.data.prompt, /完整紫微运限资料：/);
+  assert.match(body.data.prompt, /流时：分析对象：/);
+  assertPromptIsPortableTaskText(body.data.prompt);
+});
+
 test('公开 API 紫微空问题应返回 400，保持 question 必填契约', async () => {
   const { response, body } = await callApi('ziwei/prompt', {
     method: 'POST',
@@ -833,7 +982,7 @@ test('紫微公开 API prompt builder 空问题走通用问题，主题只作为
 
   assert.match(prompt, /分析主题：事业财运/);
   assert.match(prompt, /【问题】\n请先做整体解读。/);
-  assert.match(prompt, /用户选择主题时只把主题作为回答范围，不补充本地预设模板/);
+  assert.match(prompt, /若【问题】已限定主题，只把主题作为回答范围，不额外套用固定题目/);
 });
 
 test('紫微公开 API 工作变动主题只切换范围，不补固定问题', async () => {
@@ -860,8 +1009,8 @@ test('紫微公开 API 工作变动主题只切换范围，不补固定问题', 
 
   assert.match(prompt, /分析主题：工作变动/);
   assert.match(prompt, /【问题】\n请先做整体解读。/);
-  assert.match(prompt, /用户选择主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/);
-  assert.match(prompt, /用户选择主题时只把主题作为回答范围，不补充本地预设模板/);
+  assert.match(prompt, /主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/);
+  assert.match(prompt, /若【问题】已限定主题，只把主题作为回答范围，不额外套用固定题目/);
   assert.doesNotMatch(prompt, /重点参考宫位：官禄宫、迁移宫、财帛宫、命宫/);
 });
 
@@ -887,7 +1036,7 @@ test('公开 API 紫微未指定方向时应默认走综合框架而不是自由
   assert.match(body.data.prompt, /分析主题：人生解析/);
   assert.match(
     body.data.prompt,
-    /用户未选择主题时按通用口径处理，用户选择主题时只把主题作为问题范围/,
+    /若【问题】未限定主题，按通用口径处理；若【问题】已限定主题，只把主题作为问题范围/,
   );
   assert.match(body.data.prompt, /【重点宫位】/);
   assert.match(body.data.prompt, /【输出要求】/);
@@ -1472,6 +1621,40 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
     body.data.birth.trueSolarDateTime,
     `${corrected.year}-${String(corrected.month).padStart(2, '0')}-${String(corrected.day).padStart(2, '0')} ${String(corrected.hour).padStart(2, '0')}:${String(corrected.minute).padStart(2, '0')}`,
   );
+});
+
+test('公开 API 星盘提示词支持完整输出版行运资料', async () => {
+  const { response, body } = await callApi('divination/astrolabe/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: '本人',
+      gender: '女',
+      year: 1995,
+      month: 5,
+      day: 20,
+      hour: 12,
+      minute: 30,
+      latitude: 39.9042,
+      longitude: 116.4074,
+      timezone: 8,
+      locationName: '北京',
+      question: '整体人生和近期重点怎么看？',
+      astrolabeTopic: 'life',
+      astrolabeScope: 'full',
+      responseMode: 'prompt-only',
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.match(body.data.prompt, /【分析对象】/);
+  assert.match(body.data.prompt, /完整星盘行运资料：/);
+  assert.match(body.data.prompt, /分析对象：本命盘与完整行运资料。/);
+  assert.match(body.data.prompt, /分析对象：流年\d{4}。/);
+  assert.match(body.data.prompt, /分析对象：流月\d{4}-\d{2}。/);
+  assert.match(body.data.prompt, /分析对象：流日\d{4}-\d{2}-\d{2}。/);
+  assertPromptIsPortableTaskText(body.data.prompt);
 });
 
 test('公开 API 黄历择日提示词不强制填写问题', async () => {

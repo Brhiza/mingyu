@@ -1,6 +1,10 @@
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import type { ShenShaVariantConfig } from '@core/bazi/baziShenSha';
 import type { BaziChartResult, Person } from '@core/bazi/baziTypes';
+import {
+  buildFortuneSelectionContext,
+  type BaziFortuneSelectionValue,
+} from '@core/bazi/fortuneSelection';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import {
   buildZiweiChartInput,
@@ -22,6 +26,7 @@ import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
+import { buildAstrolabeScopeContext } from '../astrolabe-scope';
 import {
   DEFAULT_MAX_REQUEST_BODY_BYTES,
   readLimitedRequestText,
@@ -32,6 +37,7 @@ import type {
   AlmanacData,
   AlmanacParticipantInput,
   AlmanacTopic,
+  AstrolabeData,
   AstrolabeBirthInput,
   DivinationData,
   LenormandSpreadType,
@@ -43,16 +49,20 @@ import type {
 } from '../../types/divination';
 import { drawSingleCard, drawSpreadCards, getCardKeywords } from 'mingyu-core/divination/tarot';
 import type { DivinationMethodId } from '@core/divination/config';
+import type { ScopeType } from '../../types/analysis';
 import {
   BAZI_PROMPT_TOPICS,
+  BAZI_FORTUNE_SCOPES,
   BAZI_SCHOOLS,
   PROMPT_MODES,
   ZIWEI_PROMPT_SCOPES,
   ZIWEI_PROMPT_TOPICS,
   ZIWEI_SCHOOLS,
+  buildBaziZiweiPromptForResults,
   buildBaziPromptForResult,
   buildPublicZiweiPromptForRuntime,
   buildSerializableZiweiResult,
+  getZiweiPromptCalculationScopes,
   type BaziPromptTopic,
   type BaziSchool,
   type PromptMode,
@@ -115,6 +125,7 @@ const MAX_COMPACT_QIMEN_PATTERN_COMBOS = 10;
 const MAX_COMPACT_QIMEN_PALACE_INSIGHTS = 9;
 const PROMPT_RESPONSE_MODES = ['summary', 'full', 'prompt-only'] as const;
 const DETAIL_MODES = ['full', 'compact'] as const;
+const ASTROLABE_PROMPT_SCOPES = ['natal', 'full', 'yearly', 'monthly', 'daily'] as const;
 
 type RouteContext = {
   request: Request;
@@ -263,6 +274,15 @@ const DIVINATION_REQUEST_PROPERTIES = {
   locationName: { type: 'string' },
   useTrueSolarTime: { type: 'boolean' },
   astrolabeTopic: { enum: [...ASTROLABE_PROMPT_TOPICS] },
+  astrolabeScope: {
+    enum: [...ASTROLABE_PROMPT_SCOPES],
+    description:
+      '星盘分析范围：natal=本命, full=完整输出版, yearly=流年, monthly=流月, daily=流日。不传时默认本命；传 astrolabeScopeText 时以自定义文本为准。',
+  },
+  astrolabeScopeDate: {
+    type: 'string',
+    description: '星盘行运日期；yearly 用年份，monthly 用 年-月，daily 用 年-月-日。',
+  },
   astrolabeScopeText: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
   promptMode: { enum: [...PROMPT_MODES] },
   supplementaryInfo: { type: 'object' },
@@ -346,6 +366,15 @@ export function getPublicApiOpenApiDocument(
           summary: '紫微斗数排盘并生成 AI 解读提示词',
           requestBody: openApiJsonRequestBody('#/components/schemas/ZiweiPromptRequest'),
           responses: { '200': { description: '紫微命盘数据和结构化提示词' } },
+        },
+      },
+      '/bazi-ziwei/prompt': {
+        post: {
+          summary: '八字紫微合参并生成 AI 解读提示词',
+          description:
+            '同一份出生信息同时计算八字和紫微斗数，并生成合参提示词。适合需要先用八字定主线、再用紫微校验宫位与运限的深度分析。',
+          requestBody: openApiJsonRequestBody('#/components/schemas/BaziZiweiPromptRequest'),
+          responses: { '200': { description: '八字、紫微轻量摘要和合参结构化提示词' } },
         },
       },
       '/divination/liuyao': {
@@ -571,6 +600,29 @@ export function getPublicApiOpenApiDocument(
                 },
                 promptTopic: { enum: [...BAZI_PROMPT_TOPICS] },
                 promptMode: { enum: [...PROMPT_MODES] },
+                baziFortuneScope: {
+                  enum: [...BAZI_FORTUNE_SCOPES],
+                  description:
+                    '八字命限范围：natal=本命, full=完整输出版, dayun=大运, year=流年, month=流月, day=流日。',
+                },
+                baziFortuneCycleIndex: {
+                  type: 'integer',
+                  minimum: 0,
+                  description: '大运序号，从 0 开始；选择大运、流年、流月或流日时可传。',
+                },
+                baziFortuneYear: { type: 'integer', description: '指定流年年份。' },
+                baziFortuneMonth: {
+                  type: 'integer',
+                  minimum: 1,
+                  maximum: 12,
+                  description: '指定流月序号。',
+                },
+                baziFortuneDay: {
+                  type: 'integer',
+                  minimum: 1,
+                  maximum: 31,
+                  description: '指定流日序号。',
+                },
                 responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
                 school: {
                   enum: [...BAZI_SCHOOLS],
@@ -595,7 +647,7 @@ export function getPublicApiOpenApiDocument(
             promptScope: {
               enum: [...ZIWEI_PROMPT_SCOPES],
               description:
-                '可选。公开 API 默认只返回本命范围；传入后会额外返回指定分析范围，避免一次性生成全部运限导致接口超时。',
+                '可选。默认只返回本命范围；传入后会额外返回指定分析范围；full 会返回本命、大限、流年、流月、流日、流时。',
             },
             isLeapMonth: { type: 'boolean' },
             useTrueSolarTime: { type: 'boolean' },
@@ -624,6 +676,41 @@ export function getPublicApiOpenApiDocument(
                   enum: [...ZIWEI_SCHOOLS],
                   description:
                     '紫微流派指引：sanhe=三合派（三方四正、星曜庙旺）, feixing=飞星派（四化飞星链路）, sihua=四化派（生年四化主线）。不传则不附加流派指引。',
+                },
+              },
+            },
+          ],
+        },
+        BaziZiweiPromptRequest: {
+          allOf: [
+            { $ref: '#/components/schemas/BaziRequest' },
+            {
+              type: 'object',
+              required: ['question'],
+              properties: {
+                name: { type: 'string' },
+                question: {
+                  type: 'string',
+                  maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH,
+                },
+                baziPromptTopic: {
+                  enum: [...BAZI_PROMPT_TOPICS],
+                  description: '八字侧分析主题；不传时使用 general。',
+                },
+                ziweiPromptTopic: {
+                  enum: [...ZIWEI_PROMPT_TOPICS],
+                  description: '紫微侧分析主题；不传时使用 life。',
+                },
+                promptScope: { enum: [...ZIWEI_PROMPT_SCOPES] },
+                promptMode: { enum: [...PROMPT_MODES] },
+                responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+                baziSchool: {
+                  enum: [...BAZI_SCHOOLS],
+                  description: '八字侧流派指引；不传则不附加。',
+                },
+                ziweiSchool: {
+                  enum: [...ZIWEI_SCHOOLS],
+                  description: '紫微侧流派指引；不传则不附加。',
                 },
               },
             },
@@ -710,6 +797,8 @@ async function route(context: RouteContext) {
       return calculateZiwei(await readJson(context.request));
     case 'ziwei/prompt':
       return buildZiweiPrompt(await readJson(context.request));
+    case 'bazi-ziwei/prompt':
+      return buildBaziZiweiPrompt(await readJson(context.request));
     case 'divination/liuyao':
       return calculateLiuyao(await readJson(context.request, true));
     case 'divination/liuyao/prompt':
@@ -832,8 +921,33 @@ function readShenShaVariants(input: JsonRecord): Partial<ShenShaVariantConfig> |
   return variants;
 }
 
+function buildBaziFortuneContextFromInput(result: BaziChartResult, input: JsonRecord) {
+  const scope = readEnum(input, 'baziFortuneScope', BAZI_FORTUNE_SCOPES, 'natal');
+  const readOptionalInteger = (key: string, min: number, max: number) =>
+    input[key] === undefined ? undefined : readInteger(input, key, min, max);
+  const selection: BaziFortuneSelectionValue = {
+    scope,
+    cycleIndex:
+      scope === 'natal' || scope === 'full'
+        ? undefined
+        : readInteger(input, 'baziFortuneCycleIndex', 0, 99, 0),
+    year:
+      scope === 'year' || scope === 'month' || scope === 'day'
+        ? readOptionalInteger('baziFortuneYear', 1900, 2200)
+        : undefined,
+    month:
+      scope === 'month' || scope === 'day'
+        ? readOptionalInteger('baziFortuneMonth', 1, 12)
+        : undefined,
+    day: scope === 'day' ? readOptionalInteger('baziFortuneDay', 1, 31) : undefined,
+  };
+
+  return buildFortuneSelectionContext(result, selection);
+}
+
 function buildBaziPrompt(input: JsonRecord) {
   const result = calculateBazi(input);
+  const fortuneScope = readEnum(input, 'baziFortuneScope', BAZI_FORTUNE_SCOPES, 'natal');
   const schoolValue = input.school;
   const school =
     typeof schoolValue === 'string' && (BAZI_SCHOOLS as readonly string[]).includes(schoolValue)
@@ -844,6 +958,8 @@ function buildBaziPrompt(input: JsonRecord) {
     question: readRequiredString(input, 'question'),
     topic: readEnum(input, 'promptTopic', BAZI_PROMPT_TOPICS, 'general') as BaziPromptTopic,
     mode: readEnum(input, 'promptMode', PROMPT_MODES, 'framework') as PromptMode,
+    fortuneSelectionContext: buildBaziFortuneContextFromInput(result, input),
+    fortuneScope,
     school,
   });
 
@@ -855,7 +971,7 @@ function buildBaziPrompt(input: JsonRecord) {
   });
 }
 
-async function calculateZiweiRuntime(input: JsonRecord, scopes: ZiweiPromptScope[] = ['origin']) {
+async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['origin']) {
   const birthDate = readBirthDate(input, { asString: true });
   const { dateType } = birthDate;
   const useTrueSolarTime = readBoolean(input, 'useTrueSolarTime', false);
@@ -887,19 +1003,21 @@ async function calculateZiweiRuntime(input: JsonRecord, scopes: ZiweiPromptScope
       birthMinute: timeInput.birthMinute,
       birthLongitude: timeInput.birthLongitude,
     }),
-    Array.from(new Set(['origin' as const, ...scopes])),
+    Array.from(new Set(['origin' as ScopeType, ...scopes])),
   );
 }
 
 async function calculateZiwei(input: JsonRecord) {
   const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, 'origin') as ZiweiPromptScope;
-  const result = buildSerializableZiweiResult(await calculateZiweiRuntime(input, [scope]));
+  const result = buildSerializableZiweiResult(
+    await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope)),
+  );
   return readDetailMode(input) === 'compact' ? buildCompactZiweiResult(result) : result;
 }
 
 async function buildZiweiPrompt(input: JsonRecord) {
   const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, 'origin') as ZiweiPromptScope;
-  const result = await calculateZiweiRuntime(input, [scope]);
+  const result = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope));
   const promptTopic =
     input.promptTopic === undefined
       ? undefined
@@ -925,6 +1043,61 @@ async function buildZiweiPrompt(input: JsonRecord) {
     prompt,
     fullResult: serializableResult,
     resultSummary: buildCompactZiweiResult(serializableResult),
+  });
+}
+
+async function buildBaziZiweiPrompt(input: JsonRecord) {
+  const baziResult = calculateBazi(input);
+  const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, 'origin') as ZiweiPromptScope;
+  const ziweiResult = await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope));
+  const baziTopic = readEnum(
+    input,
+    'baziPromptTopic',
+    BAZI_PROMPT_TOPICS,
+    'general',
+  ) as BaziPromptTopic;
+  const ziweiTopic =
+    input.ziweiPromptTopic === undefined
+      ? undefined
+      : (readEnum(input, 'ziweiPromptTopic', ZIWEI_PROMPT_TOPICS) as ZiweiPromptTopic);
+  const mode = readEnum(input, 'promptMode', PROMPT_MODES, 'framework') as PromptMode;
+  const baziSchoolValue = input.baziSchool;
+  const baziSchool =
+    typeof baziSchoolValue === 'string' &&
+    (BAZI_SCHOOLS as readonly string[]).includes(baziSchoolValue)
+      ? (baziSchoolValue as BaziSchool)
+      : undefined;
+  const ziweiSchoolValue = input.ziweiSchool;
+  const ziweiSchool =
+    typeof ziweiSchoolValue === 'string' &&
+    (ZIWEI_SCHOOLS as readonly string[]).includes(ziweiSchoolValue)
+      ? (ziweiSchoolValue as ZiweiSchool)
+      : undefined;
+  const serializableZiweiResult = buildSerializableZiweiResult(ziweiResult);
+  const prompt = buildBaziZiweiPromptForResults({
+    baziResult,
+    ziweiResult,
+    question: readRequiredString(input, 'question'),
+    baziTopic,
+    ziweiTopic,
+    ziweiScope: scope,
+    mode,
+    baziSchool,
+    ziweiSchool,
+  });
+  const fullResult = {
+    bazi: baziResult,
+    ziwei: serializableZiweiResult,
+  };
+
+  return buildPromptApiResult({
+    responseMode: readPromptResponseMode(input),
+    prompt,
+    fullResult,
+    resultSummary: {
+      bazi: buildCompactBaziResult(baziResult),
+      ziwei: buildCompactZiweiResult(serializableZiweiResult),
+    },
   });
 }
 
@@ -1107,6 +1280,40 @@ function calculateAstrolabe(input: JsonRecord) {
   return generateAstrolabe(astrolabeInput);
 }
 
+function buildAstrolabeFullScopePromptText(data: AstrolabeData) {
+  const contexts = [
+    buildAstrolabeScopeContext(data, 'natal', ''),
+    buildAstrolabeScopeContext(data, 'yearly', ''),
+    buildAstrolabeScopeContext(data, 'monthly', ''),
+    buildAstrolabeScopeContext(data, 'daily', ''),
+  ];
+  const lines = contexts
+    .map((context) => context.promptText)
+    .filter(Boolean)
+    .map((line, index) => `${index + 1}. ${line}`);
+
+  return ['分析对象：本命盘与完整行运资料。', '完整星盘行运资料：', ...lines].join('\n');
+}
+
+function buildAstrolabePromptScopeText(input: JsonRecord, data: AstrolabeData) {
+  const customText = readString(input, 'astrolabeScopeText', '').trim();
+  if (customText) return customText;
+
+  const scope = readEnum(
+    input,
+    'astrolabeScope',
+    ASTROLABE_PROMPT_SCOPES,
+    'natal',
+  ) as (typeof ASTROLABE_PROMPT_SCOPES)[number];
+
+  if (scope === 'full') {
+    return buildAstrolabeFullScopePromptText(data);
+  }
+
+  const dateStr = readString(input, 'astrolabeScopeDate', '');
+  return buildAstrolabeScopeContext(data, scope, dateStr).promptText;
+}
+
 function buildDivinationPromptResult(
   method: Exclude<DivinationMethodId, 'random'>,
   input: JsonRecord,
@@ -1200,7 +1407,9 @@ function buildDivinationPromptText(
         ? readEnum(input, 'astrolabeTopic', ASTROLABE_PROMPT_TOPICS, 'life')
         : undefined,
     astrolabeScopeText:
-      method === 'astrolabe' ? readString(input, 'astrolabeScopeText', '') : undefined,
+      method === 'astrolabe'
+        ? buildAstrolabePromptScopeText(input, data as AstrolabeData)
+        : undefined,
   });
 }
 

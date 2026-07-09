@@ -92,6 +92,7 @@ test('地址栏非法出生日期和真太阳时字段应清空', () => {
 
 test('结果页默认应直接打开提示词页', () => {
   assert.equal(defaultPromptState.tab, 'prompt');
+  assert.equal(defaultPromptState.baziFortuneScope, 'natal');
 });
 
 test('结果页默认紫微提示词状态应与自定义模式一致', () => {
@@ -171,6 +172,22 @@ test('紫微提示词指定年限日期会写入并从地址栏恢复', () => {
   const parsed = parsePromptState(new URLSearchParams(search));
   assert.equal(parsed.ziweiScope, 'yearly');
   assert.equal(parsed.ziweiScopeDate, '2028-06-01');
+});
+
+test('紫微提示词完整输出版会写入并清空日期', () => {
+  const search = buildResultSearch(defaultInputState, {
+    ...defaultPromptState,
+    promptSource: 'ziwei',
+    ziweiScope: 'full',
+    ziweiScopeDate: '2028-06-01',
+  });
+
+  assert.match(search, /zs=full/);
+  assert.doesNotMatch(search, /zsd=2028-06-01/);
+
+  const parsed = parsePromptState(new URLSearchParams(search));
+  assert.equal(parsed.ziweiScope, 'full');
+  assert.equal(parsed.ziweiScopeDate, '');
 });
 
 test('紫微提示词范围日期非法时应清空日期参数', () => {
@@ -345,6 +362,19 @@ test('结果页地址回写八字本命范围时不应重新写回更细的运�
   });
 });
 
+test('结果页地址会保留八字完整输出版命限范围', () => {
+  const search = buildResultSearch(defaultInputState, {
+    ...defaultPromptState,
+    baziFortuneScope: 'full',
+  });
+
+  assert.match(search, /bfs=full/);
+  const parsed = parsePromptState(new URLSearchParams(search));
+  assert.equal(parsed.baziFortuneScope, 'full');
+  assert.equal(parsed.baziFortuneCycleIndex, '');
+  assert.equal(parsed.baziFortuneYear, '');
+});
+
 test('星盘结果页参数会跟随真太阳时和出生地信息一起写入并从地址栏恢复', () => {
   const search = buildResultSearch(
     {
@@ -417,6 +447,22 @@ test('星盘提示词指定年限日期会写入并从地址栏恢复', () => {
   const parsed = parsePromptState(new URLSearchParams(search));
   assert.equal(parsed.astrolabeScope, 'monthly');
   assert.equal(parsed.astrolabeScopeDate, '2028-06');
+});
+
+test('星盘提示词完整输出版会写入并清空日期', () => {
+  const search = buildResultSearch(defaultInputState, {
+    ...defaultPromptState,
+    promptSource: 'astrolabe',
+    astrolabeScope: 'full',
+    astrolabeScopeDate: '2028-06',
+  });
+
+  assert.match(search, /as=full/);
+  assert.doesNotMatch(search, /asd=2028-06/);
+
+  const parsed = parsePromptState(new URLSearchParams(search));
+  assert.equal(parsed.astrolabeScope, 'full');
+  assert.equal(parsed.astrolabeScopeDate, '');
 });
 
 test('星盘提示词范围日期应按范围校验并清空非法日期', () => {

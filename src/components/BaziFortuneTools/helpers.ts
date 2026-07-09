@@ -3,6 +3,7 @@ import type { BaziChartResult } from '@core/bazi/baziTypes';
 
 export const baziFortuneScopeLabelMap: Record<BaziFortuneScope, string> = {
   natal: '本命',
+  full: '完整输出',
   dayun: '大运',
   year: '流年',
   month: '流月',

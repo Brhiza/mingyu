@@ -1,11 +1,12 @@
 import type { DecadalTimelineOption } from '@core/ziwei/iztro';
 import { formatPromptCurrentTime } from '@/lib/prompt-time';
-import type { QueryPromptState, ZiweiScopeMode } from '@/lib/query-state';
+import type { AstrolabeScopeMode, QueryPromptState, ZiweiScopeMode } from '@/lib/query-state';
 import type { AstrolabePromptTopic } from '@/lib/astrolabe-prompts';
 import { buildPortablePromptPack, type PromptContext } from '@/lib/ziwei-prompts';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
 import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
-import type { AnalysisPayloadV1 } from '@/types/analysis';
+import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
+import type { AstrolabeScopeContext } from '@/lib/astrolabe-scope';
 import type { PalaceFact } from '@/types/analysis';
 import type { BaziChartResult } from '@core/bazi/baziTypes';
 import type { BaziFortuneSelectionValue } from '@core/bazi/fortuneSelection';
@@ -217,16 +218,14 @@ export function buildBaziZiweiEnhancedPrompt(params: {
     '- 只基于提供的八字排盘、紫微盘面和问题作答。',
     '- 先用八字判断长期底色、用神喜忌、结构强弱和当前触发，再用紫微校验对应宫位、四化、三方四正和运限呼应。',
     '- 两套体系结论一致时可以增强结论；出现分歧时必须指出哪一侧证据更强、另一侧对应的条件与待核验点。',
-    '- 不得编造资料包没有给出的新盘面事实；允许基于资料包做传统命理推理，但必须标明来自八字原局、岁运、紫微宫位、四化、运限或现实补充信息。',
-    '- 年份、月份、日期或年龄只有写入【已选分析对象】或对应资料包后，才可作为当前年限运限依据。',
+    '- 不得编造已提供资料没有给出的新盘面事实；允许基于已提供资料做传统命理推理，但必须标明来自八字原局、岁运、紫微宫位、四化、运限或现实补充信息。',
+    '- 年份、月份、日期或年龄只有出现在【分析对象】或已提供资料中，才可作为当前年限运限依据。',
     '- 不要平均复述两套盘面资料，优先提炼最能回答【问题】的核心证据。',
     '- 使用简体中文，不写空话；证据不足处直接说明。',
     '',
     `【当前时间】\n${formatPromptCurrentTime()}`,
-    sourceLabels.length > 0 ? `【已选分析对象】\n${sourceLabels.join('\n')}` : '',
-    questionScopeLabel && questionScopeLabel !== '通用'
-      ? `【问题范围】\n用户选择：${questionScopeLabel}`
-      : '',
+    sourceLabels.length > 0 ? `【分析对象】\n${sourceLabels.join('\n')}` : '',
+    questionScopeLabel && questionScopeLabel !== '通用' ? `【问题范围】\n${questionScopeLabel}` : '',
     `【八字排盘信息】\n${baziText}`,
     `【紫微盘面信息】\n${params.ziweiText}`,
     `【问题】\n${normalizedQuestion}`,
@@ -234,13 +233,116 @@ export function buildBaziZiweiEnhancedPrompt(params: {
       ? []
       : [
           `【断盘要点】\n${buildBaziQuestionGuidanceSection(Boolean(params.baziFortuneSummary))}`,
-          '【解读范围】\n如果【已选分析对象】已写入八字年限或紫微范围，必须优先围绕该对象分析；如果问题中的时间与已选分析对象不一致，开头先提醒不一致，再以已写入对象为准；应期判断必须说明来自本命底色、阶段运限、年度触发、月度窗口还是日时短期触发。',
+          '【解读范围】\n如果【分析对象】已经给出八字年限或紫微范围，必须优先围绕该对象分析；如果【问题】中的时间与分析对象不一致，开头先提醒不一致，再以分析对象为准；应期判断必须说明来自本命底色、阶段运限、年度触发、月度窗口还是日时短期触发。',
           '【任务】\n先用八字判断命局主线、结构强弱、喜忌取用与当前触发，再用紫微校验对应宫位主轴、四化牵动、三方四正和运限落点，最后整合成一致结论、冲突点与现实建议。',
           '【输出要求】\n先直接回答【问题】，再按“八字主线”“紫微校验”“综合结论与建议”展开；每部分都要写明主证、辅证、反证或限制、触发条件与建议；若两套体系存在冲突，单列“冲突点与待核验项”。',
         ]),
   ]
     .filter(Boolean)
     .join('\n\n');
+}
+
+export function formatBaziFullFortuneText(result: BaziChartResult) {
+  if (!result.luckInfo?.cycles?.length) {
+    return '';
+  }
+
+  return [
+    '完整大运流年：',
+    ...result.luckInfo.cycles.flatMap((cycle, cycleIndex) => {
+      const cycleType = cycle.isXiaoyun ? '童运' : cycle.type;
+      return [
+        `${cycleIndex + 1}. ${cycle.ganZhi}${cycleType}：${cycle.year}年起，约${cycle.age}岁交运`,
+        ...cycle.years.map((year) => `  - ${year.year}年（${year.age}岁）${year.ganZhi}`),
+      ];
+    }),
+  ].join('\n');
+}
+
+function formatZiweiMutagenMap(payload: AnalysisPayloadV1) {
+  const items = payload.active_scope.mutagen_map
+    .map((item) =>
+      [item.star ? `${item.star}化${item.mutagen}` : `化${item.mutagen}`, item.palace_name]
+        .filter(Boolean)
+        .join('入'),
+    )
+    .filter(Boolean);
+
+  return items.length ? items.join('；') : '未标出当前四化';
+}
+
+function formatZiweiScopeHits(payload: AnalysisPayloadV1) {
+  const hits = payload.palaces
+    .flatMap((palace) =>
+      palace.scope_hits.map((hit) =>
+        [
+          hit,
+          `本命${palace.name}宫`,
+          palace.dynamic_scope_name ? `动态宫名${palace.dynamic_scope_name}` : '',
+          palace.major_stars.length
+            ? `主星${palace.major_stars.map((star) => star.name).join('、')}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join('，'),
+      ),
+    )
+    .filter(Boolean);
+
+  return hits.length ? hits.slice(0, 8).join('；') : '未标出明显运限落宫';
+}
+
+export function formatZiweiFullScopeText(
+  payloadByScope: Partial<Record<ScopeType, AnalysisPayloadV1>>,
+) {
+  const scopeOrder: ScopeType[] = ['origin', 'decadal', 'yearly', 'monthly', 'daily', 'hourly'];
+  const lines = scopeOrder
+    .map((scope) => {
+      const payload = payloadByScope[scope];
+      if (!payload) return '';
+      const scopeLabel = ziweiScopeLabelMap[scope as ZiweiScopeMode] || payload.active_scope.label;
+      const activePalace = payload.palaces.find(
+        (palace) => palace.index === payload.active_scope.palace_index,
+      );
+      const palaceText = activePalace ? `当前落宫：本命${activePalace.name}宫。` : '';
+      const dateText = payload.active_scope.solar_date
+        ? `参考日期：${payload.active_scope.solar_date}。`
+        : '';
+      const ageText = payload.active_scope.nominal_age
+        ? `虚岁：${payload.active_scope.nominal_age}。`
+        : '';
+      const scopeDetails =
+        scope === 'origin'
+          ? ''
+          : [
+              `当前四化：${formatZiweiMutagenMap(payload)}。`,
+              `运限命中：${formatZiweiScopeHits(payload)}。`,
+            ].join('');
+
+      return `${scopeLabel}：分析对象：${payload.active_scope.label || scopeLabel}。${dateText}${ageText}${palaceText}${scopeDetails}`;
+    })
+    .filter(Boolean);
+
+  return lines.length
+    ? ['完整紫微运限资料：', ...lines.map((line, index) => `${index + 1}. ${line}`)].join('\n')
+    : '';
+}
+
+export function buildAstrolabeFullScopePromptText(
+  contexts: Partial<Record<AstrolabeScopeMode, AstrolabeScopeContext>>,
+) {
+  const lines = [
+    contexts.natal?.promptText,
+    contexts.yearly?.promptText,
+    contexts.monthly?.promptText,
+    contexts.daily?.promptText,
+  ]
+    .filter(Boolean)
+    .map((line, index) => `${index + 1}. ${line}`);
+
+  return lines.length
+    ? ['分析对象：本命盘与完整行运资料。', '完整星盘行运资料：', ...lines].join('\n')
+    : '';
 }
 
 export function buildCompatibilityPromptWithUnknownTime(params: {
@@ -371,6 +473,8 @@ export function mapBaziFortuneToZiweiScope(params: {
   switch (params.scope) {
     case 'natal':
       return { scope: 'origin' as const, dateStr: '' };
+    case 'full':
+      return { scope: 'full' as const, dateStr: '' };
     case 'dayun':
       return {
         scope: 'decadal' as const,

@@ -3,6 +3,8 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import type { AstrolabeBirthInput } from 'mingyu-core/types';
 import { ASTROLABE_PROMPT_TOPICS } from '../../../src/lib/astrolabe-prompts.js';
+import { buildAstrolabeScopeContext } from '../../../src/lib/astrolabe-scope.js';
+import type { AstrolabeData } from '../../../src/types/divination.js';
 import { resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
@@ -31,13 +33,25 @@ const astrolabeSchema = z.object({
   useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时校正'),
 });
 
+const astrolabePromptScopes = ['natal', 'full', 'yearly', 'monthly', 'daily'] as const;
+
 const astrolabePromptSchema = extendPromptSchema(
   astrolabeSchema.extend({
     astrolabeTopic: z.enum(ASTROLABE_PROMPT_TOPICS).optional().describe('星盘提示词主题'),
+    astrolabeScope: z
+      .enum(astrolabePromptScopes)
+      .optional()
+      .describe(
+        '星盘分析范围：natal=本命, full=完整输出版, yearly=流年, monthly=流月, daily=流日',
+      ),
+    astrolabeScopeDate: z
+      .string()
+      .optional()
+      .describe('星盘行运日期；yearly 用年份，monthly 用 年-月，daily 用 年-月-日'),
     astrolabeScopeText: z
       .string()
       .optional()
-      .describe('星盘分析对象文本，例如本命、流年、流月或流日范围与行运证据'),
+      .describe('星盘分析对象文本，例如本命、流年、流月或流日范围与行运证据；传入后优先使用'),
   }),
   '用户希望围绕星盘解读的问题',
 );
@@ -73,6 +87,36 @@ function buildAstrolabeInput(args: z.infer<typeof astrolabeSchema>): AstrolabeBi
 
 function buildAstrolabeResult(args: z.infer<typeof astrolabeSchema>) {
   return generateAstrolabe(buildAstrolabeInput(args));
+}
+
+function buildAstrolabeFullScopePromptText(data: AstrolabeData) {
+  const contexts = [
+    buildAstrolabeScopeContext(data, 'natal', ''),
+    buildAstrolabeScopeContext(data, 'yearly', ''),
+    buildAstrolabeScopeContext(data, 'monthly', ''),
+    buildAstrolabeScopeContext(data, 'daily', ''),
+  ];
+  const lines = contexts
+    .map((context) => context.promptText)
+    .filter(Boolean)
+    .map((line, index) => `${index + 1}. ${line}`);
+
+  return ['分析对象：本命盘与完整行运资料。', '完整星盘行运资料：', ...lines].join('\n');
+}
+
+function buildAstrolabePromptScopeText(
+  args: z.infer<typeof astrolabePromptSchema>,
+  result: AstrolabeData,
+) {
+  const customText = args.astrolabeScopeText?.trim();
+  if (customText) return customText;
+
+  const scope = args.astrolabeScope ?? 'natal';
+  if (scope === 'full') {
+    return buildAstrolabeFullScopePromptText(result);
+  }
+
+  return buildAstrolabeScopeContext(result, scope, args.astrolabeScopeDate ?? '').promptText;
 }
 
 export function registerAstrolabeTool(server: McpServer) {
@@ -111,7 +155,7 @@ export function registerAstrolabeTool(server: McpServer) {
           result,
           prompt: buildCommonDivinationPrompt('astrolabe', args.question, result, args.promptMode, {
             astrolabeTopic: args.astrolabeTopic,
-            astrolabeScopeText: args.astrolabeScopeText,
+            astrolabeScopeText: buildAstrolabePromptScopeText(args, result),
           }),
         });
       } catch (error) {
