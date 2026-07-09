@@ -1,4 +1,12 @@
-import { lazy, Suspense, useEffect, useRef, useState, useTransition } from 'react';
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type CSSProperties,
+} from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { PrivacyHint } from '@/components/PrivacyHint';
@@ -41,6 +49,7 @@ export function InputPage() {
   const mainContentRef = useRef<HTMLDivElement | null>(null);
   const tutorialEntryRef = useRef<HTMLDivElement | null>(null);
   const [tutorialEntryPinned, setTutorialEntryPinned] = useState(false);
+  const [bottomToolsHeight, setBottomToolsHeight] = useState(0);
 
   const birthPlace = useBirthPlace({ form, setForm });
 
@@ -154,6 +163,9 @@ export function InputPage() {
       }
       const mainContentHeight = mainContentNode.getBoundingClientRect().height;
       const tutorialEntryHeight = tutorialEntryNode.getBoundingClientRect().height;
+      setBottomToolsHeight((current) =>
+        current === Math.ceil(tutorialEntryHeight) ? current : Math.ceil(tutorialEntryHeight),
+      );
       const shouldPin = mainContentHeight + tutorialEntryHeight + 56 <= window.innerHeight;
       setTutorialEntryPinned((current) => (current === shouldPin ? current : shouldPin));
     }
@@ -397,6 +409,7 @@ export function InputPage() {
   return (
     <div
       className={`page-shell input-page-shell ${tutorialEntryPinned ? 'has-floating-tutorial-entry' : ''}`}
+      style={{ '--input-bottom-tools-height': `${bottomToolsHeight}px` } as CSSProperties}
     >
       <div className="bazi-view-container">
         <div className="input-page-main-content" ref={mainContentRef}>
