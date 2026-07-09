@@ -117,8 +117,11 @@ export function BaziFortuneModal(props: {
   const isMonthDetailActive = isFortuneModalDetailOptionActive('month', draftScope);
   const isDayOverallActive = isFortuneModalParentOptionActive('day', draftScope);
   const isDayDetailActive = isFortuneModalDetailOptionActive('day', draftScope);
-  const summaryText = draftContext?.displayText ?? '仅使用本命信息，不附加任何大运流年流月流日。';
-  const showYearRow = draftScope !== 'natal';
+  const summaryText =
+    draftScope === 'full'
+      ? '本命盘与完整大运流年'
+      : (draftContext?.displayText ?? '本命盘与大运概览，不指定具体流年流月流日。');
+  const showYearRow = draftScope !== 'natal' && draftScope !== 'full';
   const showMonthRow = draftScope === 'year' || draftScope === 'month' || draftScope === 'day';
   const showDayRow = draftScope === 'month' || draftScope === 'day';
 
@@ -356,6 +359,15 @@ export function BaziFortuneModal(props: {
               }}
             >
               仅用本命
+            </button>
+            <button
+              type="button"
+              className="modal-btn modal-btn-secondary"
+              onClick={() => {
+                setDraftScope('full');
+              }}
+            >
+              完整输出版
             </button>
           </div>
           <div className="modal-actions-right">

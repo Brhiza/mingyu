@@ -19,6 +19,7 @@ export const PUBLIC_API_ENDPOINTS = [
   'POST /api/v1/bazi/prompt',
   'POST /api/v1/ziwei/calculate',
   'POST /api/v1/ziwei/prompt',
+  'POST /api/v1/bazi-ziwei/prompt',
   'POST /api/v1/divination/liuyao',
   'POST /api/v1/divination/liuyao/prompt',
   'POST /api/v1/divination/meihua',

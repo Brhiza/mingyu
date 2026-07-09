@@ -12,6 +12,7 @@ import {
   ZIWEI_SCHOOLS,
   buildSerializableZiweiResult,
   buildZiweiPromptForRuntime,
+  getZiweiPromptCalculationScopes,
   type PromptMode,
   type ZiweiPromptScope,
   type ZiweiPromptTopic,
@@ -29,7 +30,7 @@ import {
   readMcpNumberLikeInRange,
 } from './input-helpers.js';
 
-const ziweiSchema = z.object({
+export const ziweiSchema = z.object({
   name: z.string().optional().describe('姓名（可选）'),
   gender: z.enum(['male', 'female']).describe('性别：male 为男，female 为女'),
   dateType: z.enum(['solar', 'lunar']).describe('日期类型：solar 为阳历，lunar 为农历'),
@@ -47,7 +48,7 @@ const ziweiSchema = z.object({
     .enum(ZIWEI_PROMPT_SCOPES)
     .optional()
     .describe(
-      '运限范围：origin=本命（默认）, decadal=大限, yearly=流年, monthly=流月, daily=流日, hourly=流时, age=年龄。默认只返回 origin 范围，避免响应过大；传入后会返回 origin + 指定范围。',
+      '运限范围：origin=本命（默认）, full=完整输出版, decadal=大限, yearly=流年, monthly=流月, daily=流日, hourly=流时, age=年龄。默认只返回 origin 范围；full 会返回本命、大限、流年、流月、流日、流时。',
     ),
   isLeapMonth: z.boolean().optional().describe('是否为闰月（仅农历有效）'),
   useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时校正'),
@@ -76,7 +77,7 @@ const ziweiPromptSchema = ziweiSchema.extend({
     ),
 });
 
-function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
+export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
   const useTrueSolarTime = args.useTrueSolarTime ?? false;
   assertMcpBirthDate({
     year: args.year,
@@ -121,7 +122,7 @@ export function registerZiweiTool(server: McpServer) {
     'ziwei_calculate',
     {
       description:
-        '紫微斗数排盘：根据出生信息计算紫微命盘。默认只返回 origin（本命）范围；通过 promptScope 可指定额外的运限范围（decadal/yearly/monthly/daily/hourly/age），避免响应过大',
+        '紫微斗数排盘：根据出生信息计算紫微命盘。默认只返回 origin（本命）范围；通过 promptScope 可指定额外的运限范围（full/decadal/yearly/monthly/daily/hourly/age）',
       inputSchema: ziweiSchema.shape,
       outputSchema: ziweiOutputSchema,
     },
@@ -129,7 +130,9 @@ export function registerZiweiTool(server: McpServer) {
       try {
         const input = buildMcpZiweiChartInput(args);
         const scope = (args.promptScope ?? 'origin') as ZiweiPromptScope;
-        const scopes: ScopeType[] = Array.from(new Set(['origin' as ScopeType, scope as ScopeType]));
+        const scopes: ScopeType[] = Array.from(
+          new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
+        );
         const result = await calculateZiweiChartForScopes(input, scopes);
         return createStructuredToolResult(buildSerializableZiweiResult(result));
       } catch (error) {
@@ -142,7 +145,7 @@ export function registerZiweiTool(server: McpServer) {
     'ziwei_prompt',
     {
       description:
-        '紫微斗数排盘并生成结构化 AI 解读提示词：一次调用返回命盘数据和可直接复制给 AI 的提示词。默认只返回 origin（本命）范围；通过 promptScope 可指定额外的运限范围（decadal/yearly/monthly/daily/hourly/age），避免响应过大',
+        '紫微斗数排盘并生成结构化 AI 解读提示词：一次调用返回命盘数据和可直接复制给 AI 的提示词。默认只返回 origin（本命）范围；通过 promptScope 可指定额外的运限范围（full/decadal/yearly/monthly/daily/hourly/age）',
       inputSchema: ziweiPromptSchema.shape,
       outputSchema: {
         result: z.unknown().describe('紫微命盘数据'),
@@ -153,7 +156,9 @@ export function registerZiweiTool(server: McpServer) {
       try {
         const input = buildMcpZiweiChartInput(args);
         const scope = (args.promptScope ?? 'origin') as ZiweiPromptScope;
-        const scopes: ScopeType[] = Array.from(new Set(['origin' as ScopeType, scope as ScopeType]));
+        const scopes: ScopeType[] = Array.from(
+          new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
+        );
         const result = await calculateZiweiChartForScopes(input, scopes);
         return createStructuredToolResult({
           result: buildSerializableZiweiResult(result),

@@ -38,8 +38,9 @@ description: 通过 aov.cc 公开 API 调用命理、占卜和一站式提示词
 
 1. 先读取 `GET /manifest` 或 `GET /openapi.json` 确认接口能力。
 2. 只需要结构化数据时，调用 `/calculate` 或 `/divination/{method}` 排盘接口。
-3. 需要 AI 解读提示词时，优先调用对应 `/prompt` 一站式接口，默认读取 `data.prompt` 和轻量摘要；八字、紫微为 `data.resultSummary`，占卜类为 `data.summary`。
-4. 向用户展示结果时，说明这是排盘和提示词数据，不替代医疗、法律、投资等专业建议。
+3. 需要 AI 解读提示词时，优先调用对应 `/prompt` 一站式接口，默认读取 `data.prompt` 和轻量摘要；八字、紫微和八字紫微合参为 `data.resultSummary`，占卜类为 `data.summary`。
+4. 同一人需要“先八字定主线、再紫微校验”的深度解读时，优先调用 `/bazi-ziwei/prompt`，不要分别调用八字和紫微后自行拼接提示词。
+5. 向用户展示结果时，说明这是排盘和提示词数据，不替代医疗、法律、投资等专业建议。
 
 `/prompt` 默认不返回完整排盘，避免响应和下游 AI 消息过大。需要完整排盘时传 `responseMode: "full"`；只要提示词时传 `responseMode: "prompt-only"`。八字、紫微、奇门和黄历排盘可传 `detailMode: "compact"` 获取轻量结构。黄历大范围或多参与人应使用 `page/pageSize` 拆成多次请求。
 
@@ -52,6 +53,7 @@ description: 通过 aov.cc 公开 API 调用命理、占卜和一站式提示词
 - `POST /bazi/prompt`：八字排盘并生成结构化 AI 解读提示词。
 - `POST /ziwei/calculate`：紫微斗数排盘。
 - `POST /ziwei/prompt`：紫微斗数排盘并生成结构化 AI 解读提示词。
+- `POST /bazi-ziwei/prompt`：同一出生信息同时生成八字和紫微排盘摘要，并返回八字紫微合参 AI 解读提示词。
 - `POST /divination/liuyao`：六爻起卦。
 - `POST /divination/liuyao/prompt`：六爻起卦并生成结构化 AI 解读提示词。
 - `POST /divination/meihua`：梅花易数起卦。
@@ -107,6 +109,14 @@ curl -X POST https://aov.cc/api/v1/bazi/prompt \
 curl -X POST https://aov.cc/api/v1/ziwei/prompt \
   -H "Content-Type: application/json" \
   -d '{"name":"测试","gender":"female","dateType":"solar","year":"1992","month":"8","day":"21","timeIndex":4,"question":"我的感情关系要注意什么？","promptTopic":"relationship","promptScope":"origin"}'
+```
+
+八字紫微合参提示词：
+
+```bash
+curl -X POST https://aov.cc/api/v1/bazi-ziwei/prompt \
+  -H "Content-Type: application/json" \
+  -d '{"name":"测试","gender":"female","dateType":"solar","year":1992,"month":8,"day":21,"timeIndex":4,"question":"我现在适合换工作还是继续等待？","baziPromptTopic":"job-change","ziweiPromptTopic":"job-change","promptScope":"yearly"}'
 ```
 
 塔罗抽牌：
@@ -239,12 +249,16 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 八字 `promptTopic` 支持以下主题：
 `general`（综合）、`recent`（近期）、`career`（事业）、`job-change`（跳槽）、`startup-partnership`（创业合作）、`investment-partnership`（投资合作）、`wealth`（财运）、`marriage`（婚恋）、`relationship-push`（感情推进）、`relationship-decision`（关系去留）、`reconciliation-decision`（复合判断）、`children`（子女）、`family`（家庭）、`home-move`（搬家置业）、`settle-relocate`（定居换城）、`social`（人际合作）、`emotion`（情绪心理）、`health`（健康）、`parents`（父母）、`study`（学业）、`study-advance`（考证进修）、`exam-landing`（考试上岸）、`growth`（成长方向）、`talent`（天赋特质）。
 
+八字 `/bazi/prompt` 可传 `baziFortuneScope` 指定命限范围：`natal`（本命）、`full`（完整输出版）、`dayun`（大运）、`year`（流年）、`month`（流月）、`day`（流日）。`full` 会写入完整大运与逐年流年，不需要再传具体年限参数。选择 `dayun`、`year`、`month`、`day` 时，可配套传入 `baziFortuneCycleIndex`、`baziFortuneYear`、`baziFortuneMonth`、`baziFortuneDay`。
+
 紫微 `promptTopic` 支持以下主题：
 `destiny`（命局）、`relationship`（感情）、`relationship-push`（感情推进）、`relationship-decision`（关系去留）、`career-wealth`（事业财运）、`job-change`（工作变动）、`startup-partnership`（创业合作）、`investment-partnership`（投资合作）、`recent`（近期趋势）、`family`（六亲家庭）、`home-move`（搬家置业）、`settle-relocate`（定居换城）、`social`（人际合作）、`emotion`（情绪心理）、`health`（健康养护）、`study`（学业成长）、`study-advance`（考证进修）、`exam-landing`（考试上岸）、`growth`（成长方向）、`talent`（天赋特质）、`reconciliation-decision`（复合判断）、`life`（人生解析）、`chat`（自由聊天）。
 
-紫微 `promptScope` 支持：`origin`（本命）、`decadal`（大限）、`yearly`（流年）、`monthly`（流月）、`daily`（流日）、`hourly`（流时）、`age`（年龄）。公开 API 返回轻量排盘资料，默认只返回 `origin`；请求传入 `promptScope` 时，会返回 `origin` 加指定范围，包含分析对象、落宫与四化信息。
+紫微 `promptScope` 支持：`origin`（本命）、`full`（完整输出版）、`decadal`（大限）、`yearly`（流年）、`monthly`（流月）、`daily`（流日）、`hourly`（流时）、`age`（年龄）。公开 API 默认只返回 `origin`；请求传入 `promptScope` 时，会返回 `origin` 加指定范围，包含分析对象、落宫与四化信息；`full` 会返回并写入本命、大限、流年、流月、流日、流时资料。
 
 紫微排盘结果以 `payloadByScope.origin.palaces` 为主结构；接口同时提供 `四化`、`fourMutagens`、`birthMutagens` 和 `gongList`，方便 agent 直接读取生年四化和十二宫星曜。
+
+八字紫微合参 `/bazi-ziwei/prompt` 使用同一份出生信息，支持 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope`、`promptMode`、`baziSchool`、`ziweiSchool`、`responseMode`。默认返回 `data.resultSummary.bazi`、`data.resultSummary.ziwei` 和 `data.prompt`；需要完整双盘时传 `responseMode: "full"`。
 
 `promptMode` 支持：`framework`（内置完整框架，默认）、`custom`（只围绕用户问题自由作答，不塞框架）。
 
@@ -275,7 +289,7 @@ Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用�
 - 黄历择日 `startDate`、`endDate`：日期范围字符串，一次最多 31 天。`participants`：参与者数组，每人包含 `id`、`name`、`gender`、`year`、`month`、`day`、`timeIndex`、`dateType`、`isLeapMonth`，一次最多 30 位；更多日期或参与人请拆成多次请求。
 - 黄历择日 `page`、`pageSize`：分页参数，`pageSize` 最大 31。不传分页时返回全部日期；传分页后只返回当前页并带 `pagination`。`page` 超过总页数会返回 400，请按 `pagination.totalPages` 继续请求。
 - 雷诺曼 `spreadType`：`single`（单牌）、`three`（三牌）、`five`（五牌十字阵）、`relationship`（关系）、`decision`（选择）、`nine`（九宫）、`element`（元素牌阵）、`grandTableau`（大桌牌阵）。
-- 星盘 `year`、`month`、`day`、`hour`、`minute`：出生时间。`latitude`、`longitude`：经纬度。`timezone`：时区偏移。`locationName`：地点名称。可传 `useTrueSolarTime` 启用真太阳时校正；提示词接口可传 `astrolabeTopic` 和 `astrolabeScopeText`，用于写入本命、流年、流月或流日分析对象。
+- 星盘 `year`、`month`、`day`、`hour`、`minute`：出生时间。`latitude`、`longitude`：经纬度。`timezone`：时区偏移。`locationName`：地点名称。可传 `useTrueSolarTime` 启用真太阳时校正；提示词接口可传 `astrolabeTopic`、`astrolabeScope`、`astrolabeScopeDate` 和 `astrolabeScopeText`。`astrolabeScope` 支持 `natal`、`full`、`yearly`、`monthly`、`daily`；`full` 会写入本命、当前流年、当前流月、当前流日行运资料；传入 `astrolabeScopeText` 时以自定义文本为准。
 
 AI 接口参数：
 

@@ -204,7 +204,9 @@ export function ZiweiScopeModal(props: {
     }
   })();
   const summaryText =
-    draftScope === 'origin'
+    draftScope === 'full'
+      ? '本命盘与完整大限流年流月流日流时。'
+      : draftScope === 'origin'
       ? '仅使用本命信息，不附加任何大限流年流月流日。'
       : formatZiweiPromptScopeSummary(draftScope, draftScopeDateStr, draftScopeDetailLabel);
   const isDecadalDetailActive = draftScope === 'decadal';
@@ -214,7 +216,7 @@ export function ZiweiScopeModal(props: {
   const isMonthDetailActive = draftScope === 'monthly';
   const isDayOverallActive = draftScope === 'monthly';
   const isDayDetailActive = draftScope === 'daily';
-  const showYearRow = draftScope !== 'origin';
+  const showYearRow = draftScope !== 'origin' && draftScope !== 'full';
   const showMonthRow = ['yearly', 'monthly', 'daily'].includes(draftScope);
   const showDayRow = ['monthly', 'daily'].includes(draftScope);
 
@@ -438,6 +440,13 @@ export function ZiweiScopeModal(props: {
             >
               仅用本命
             </button>
+            <button
+              type="button"
+              className="modal-btn modal-btn-secondary"
+              onClick={() => setDraftScope('full')}
+            >
+              完整输出版
+            </button>
           </div>
           <div className="modal-actions-right">
             <button type="button" className="modal-btn modal-btn-secondary" onClick={onClose}>
@@ -447,7 +456,7 @@ export function ZiweiScopeModal(props: {
               type="button"
               className="modal-btn modal-btn-primary"
               onClick={() => {
-                onApply(draftScope, draftScopeDateStr);
+                onApply(draftScope, draftScope === 'origin' || draftScope === 'full' ? '' : draftScopeDateStr);
                 onClose();
               }}
             >

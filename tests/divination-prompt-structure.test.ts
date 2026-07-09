@@ -920,7 +920,7 @@ test('择日资料包会先给禁忌筛查再给取舍证据', () => {
   );
 
   assert.match(prompt, /禁忌筛查：2026-06-02：风险黄历忌项触及搬家入宅；评分42偏低/);
-  assert.match(prompt, /事项口径：用户选择事项：搬家入宅；按已选事项和候选日期证据处理/);
+  assert.match(prompt, /事项口径：事项范围：搬家入宅；按该事项和候选日期证据处理/);
   assert.match(prompt, /岁支方位避太岁午正南、岁破子正北；可参考太阳未西南偏南、福德卯正东/);
   assert.doesNotMatch(prompt, /禁忌筛查：2026-06-01：参与人本人：未见直接刑冲破害提醒/);
   assert.doesNotMatch(prompt, /事项权重|优先匹配宜项|事项忌项命中/);
@@ -989,7 +989,7 @@ test('雷诺曼提示词应保留用户补充背景', () => {
   assert.match(prompt, /【补充信息】/);
   assert.match(prompt, /性别：男/);
   assert.match(prompt, /出生年份：1990/);
-  assert.match(prompt, new RegExp(`用户补充：${PROJECT_DECISION_SUPPLEMENT}`));
+  assert.match(prompt, new RegExp(`补充信息：${PROJECT_DECISION_SUPPLEMENT}`));
   assert.ok(
     findPromptSectionHeadingIndex(prompt, '【补充信息】') <
       findPromptSectionHeadingIndex(prompt, '【占卜信息】'),
@@ -1132,7 +1132,7 @@ test('六爻用户选择事业模板只保留范围，不改取用候选', () =>
   );
 
   assert.match(prompt, /断卦类型：事业工作/);
-  assert.match(prompt, /用户选择的断卦类型只作为问题范围/);
+  assert.match(prompt, /断卦类型只作为问题范围/);
   assert.match(prompt, /取用参考：通用断卦：先以世爻第1爻兄弟子水为我方主轴/);
   assert.match(prompt, /取用评分表：通用断卦：第1爻兄弟子水作取用主轴/);
   assert.doesNotMatch(
@@ -1152,7 +1152,7 @@ test('六爻提示词按用户选择的鬼神怪异模板收紧口径', () => {
 
   assert.match(prompt, /【断卦要点】/);
   assert.match(prompt, /断卦类型：鬼神怪异/);
-  assert.match(prompt, /用户选择的断卦类型只作为问题范围/);
+  assert.match(prompt, /断卦类型只作为问题范围/);
   assert.match(prompt, /取用参考：通用断卦：先以世爻第1爻兄弟子水为我方主轴/);
   assert.doesNotMatch(prompt, /官鬼与子孙制鬼|鬼神怪异：以官鬼为取用参考/);
   assert.doesNotMatch(prompt, /专项抓手/);
@@ -1169,7 +1169,7 @@ test('六爻未知专项模板应回落到通用断卦，避免输出 undefined'
   );
 
   assert.match(prompt, /断卦类型：通用断卦/);
-  assert.match(prompt, /用户选择的断卦类型只作为问题范围/);
+  assert.match(prompt, /断卦类型只作为问题范围/);
   assert.match(
     prompt,
     /取证顺序：先按世应、用神候选、动爻、变卦、空亡、伏神、月日建等卦内证据判断/,
@@ -1249,7 +1249,7 @@ test('大六壬提示词只保留断课要点，不再使用分析思路标题',
   assertLiurenPromptStructure(prompt);
   assert.match(prompt, /【断课要点】/);
   assert.match(prompt, /断课类型：事业断课/);
-  assert.match(prompt, /用户选择的断课类型只作为问题范围/);
+  assert.match(prompt, /断课类型只作为问题范围/);
   assert.match(prompt, /取证顺序：先按知一\/比用看发用亥乘贵人，再看三传推进/);
   assert.match(
     prompt,
@@ -1331,7 +1331,7 @@ test('大六壬未知专项模板应回落到通用断课，避免输出 undefin
   );
 
   assert.match(prompt, /断课类型：通用断课/);
-  assert.match(prompt, /用户选择的断课类型只作为问题范围/);
+  assert.match(prompt, /断课类型只作为问题范围/);
   assert.doesNotMatch(prompt, /关注重点：核心目标、现实阻力、下一步动作/);
   assert.doesNotMatch(prompt, /undefined|null/);
 });
@@ -1344,7 +1344,7 @@ test('塔罗提示词只保留用户牌阵和牌位明细', () => {
     createSupplementaryInfo(),
   );
 
-  assert.match(prompt, /断牌口径：按用户选择的牌阵、牌位、牌名和正逆位解读/);
+  assert.match(prompt, /断牌口径：按当前牌阵、牌位、牌名和正逆位解读/);
   assert.match(prompt, /现实边界：塔罗只能给当下倾向、心理动力、互动节奏和行动建议/);
   assert.match(prompt, /- 现状：恋人（正位）/);
   assert.match(prompt, /- 建议：战车（逆位）/);
@@ -1359,7 +1359,7 @@ test('灵签提示词保留签诗、典故和签文条目，不再输出事项�
     createSupplementaryInfo(),
   );
 
-  assert.match(prompt, /断签口径：按用户问题、签诗原文、典故和签文条目解读/);
+  assert.match(prompt, /断签口径：按【问题】、签诗原文、典故和签文条目解读/);
   assert.match(prompt, /签诗：前路迢迢莫强求，且看云开月自明。/);
   assert.match(prompt, /典故：刘备借荆州后多方周旋，需审时度势。/);
   assert.match(prompt, /签文条目：/);
@@ -1398,7 +1398,7 @@ test('雷诺曼提示词只保留牌阵、牌位和牌义', () => {
     createLenormandData(),
   );
 
-  assert.match(prompt, /断牌口径：按用户选择的牌阵、牌位、牌名和牌义解读/);
+  assert.match(prompt, /断牌口径：按当前牌阵、牌位、牌名和牌义解读/);
   assert.match(prompt, /- 现状：骑士；牌义：事情开始动起来。/);
   assert.match(prompt, /- 阻碍：山；牌义：进程会被卡住。/);
   assert.doesNotMatch(prompt, /核心牌|相邻组合|人物牌|事件链证据|组合权重|关键词/);
@@ -1412,7 +1412,7 @@ test('星盘提示词应直接给出太阳月亮上升和主要相位证据', ()
   );
 
   assert.match(prompt, /【星盘要点】/);
-  assert.match(prompt, /用户没有选择具体主题时按通用星盘口径处理/);
+  assert.match(prompt, /若【问题】未限定具体主题，按通用星盘口径处理/);
   assert.match(prompt, /主轴证据：太阳金牛座 29°；月亮处女座 08°；上升狮子座 12°/);
   assert.match(
     prompt,

@@ -47,7 +47,7 @@ export function useZiweiCalculations(
     ziweiScope: string;
     ziweiScopeDate: string;
   },
-  isZiweiTabMounted: boolean,
+  _isZiweiTabMounted: boolean,
   isPromptTabMounted: boolean,
   primaryHasUnknownTime: boolean,
   partnerHasUnknownTime: boolean,
@@ -110,9 +110,9 @@ export function useZiweiCalculations(
   const shouldLoadZiweiPromptPayload =
     isPromptTabMounted &&
     (promptState.promptSource === 'ziwei' || promptState.promptSource === 'bazi-ziwei');
-  const shouldWarmZiweiRuntime = isZiweiTabMounted && Boolean(primaryZiweiInput);
+  const shouldWarmZiweiRuntime = Boolean(primaryZiweiInput);
   const shouldWarmPartnerZiweiRuntime =
-    isZiweiTabMounted && inputState.analysisMode === 'compatibility' && Boolean(partnerZiweiInput);
+    inputState.analysisMode === 'compatibility' && Boolean(partnerZiweiInput);
   const primaryZiweiInputKey = useMemo(
     () => (primaryZiweiInput ? JSON.stringify(primaryZiweiInput) : ''),
     [primaryZiweiInput],
@@ -294,10 +294,12 @@ export function useZiweiCalculations(
     };
   }, [partnerZiweiInput, partnerZiweiInputKey, partnerZiweiRuntime, shouldWarmPartnerZiweiRuntime]);
 
-  const ziweiPromptScopeType = promptState.ziweiScope as ScopeType;
+  const ziweiPromptScopeType =
+    promptState.ziweiScope === 'full' ? 'origin' : (promptState.ziweiScope as ScopeType);
   const shouldUseCustomZiweiPromptPayload =
     promptState.tab === 'prompt' &&
     (promptState.promptSource === 'ziwei' || promptState.promptSource === 'bazi-ziwei') &&
+    promptState.ziweiScope !== 'full' &&
     Boolean(promptState.ziweiScopeDate);
 
   useEffect(() => {

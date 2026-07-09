@@ -330,6 +330,7 @@ export const ziweiCompatibilityShortcutActions = [
 
 export const ziweiScopeLabelMap: Record<ZiweiScopeMode, string> = {
   origin: '本命',
+  full: '完整输出',
   decadal: '大限',
   yearly: '流年',
   monthly: '流月',

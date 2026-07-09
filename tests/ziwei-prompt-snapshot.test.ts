@@ -13,8 +13,14 @@ import { assertPromptCurrentTimeHasGanzhiCalendar } from './prompt-assertions';
 import type { AnalysisPayloadV1, PalaceFact } from '../src/types/analysis';
 
 function assertNoEngineeringPromptText(prompt: string) {
-  assert.doesNotMatch(prompt, /当前项目|本地算法|技术限制|未计算|资料包|提示词规则/);
-  assert.doesNotMatch(prompt, /当前已写入|当前未写入|未写入/);
+  assert.doesNotMatch(
+    prompt,
+    /当前项目|本地|技术限制|未计算|资料包|提示词规则|系统提示词|在线\s*AI|工程/,
+  );
+  assert.doesNotMatch(prompt, /当前已写入|当前未写入|已写入|未写入/);
+  assert.doesNotMatch(prompt, /用户(?:未|没有|选择|所选|已选|填写|提供|补充|问题)/);
+  assert.doesNotMatch(prompt, /需要补充|请补充|再选择/);
+  assert.doesNotMatch(prompt, /预设|模板|接口|API|MCP|调试/);
 }
 
 function createPalace(index: number, name: string, stars: string[] = []): PalaceFact {
@@ -167,10 +173,7 @@ test('紫微提示词快照应输出解读目标，明确范围与边界', () =>
   const taskSection = snapshot.match(/【解读目标】([\s\S]*?)\n\n【本命资料】/)?.[1] || '';
 
   assert.match(snapshot, /【解读目标】/);
-  assert.match(
-    taskSection,
-    /解读目标：用户选择主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/,
-  );
+  assert.match(taskSection, /解读目标：主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/);
   assert.match(taskSection, /重点参考宫位：/);
   assert.match(taskSection, /严格边界：只基于已提供盘面、运限和问题作答；证据不足时直接说明。/);
   assert.doesNotMatch(taskSection, /报告标题：|解读主题：|报告类型：/);
@@ -192,10 +195,7 @@ test('紫微提示词快照不再回退到专题焦点话术', () => {
   });
   const taskSection = snapshot.match(/【解读目标】([\s\S]*?)\n\n【本命资料】/)?.[1] || '';
 
-  assert.match(
-    taskSection,
-    /解读目标：用户选择主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/,
-  );
+  assert.match(taskSection, /解读目标：主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/);
   assert.doesNotMatch(taskSection, /夫妻宫、命宫、福德宫、子女宫、迁移宫/);
   assert.doesNotMatch(taskSection, /焦点提示：/);
   assert.doesNotMatch(taskSection, /。、/);
@@ -226,10 +226,7 @@ test('紫微近期专题快照保留主题和通用目标', () => {
   const taskSection = snapshot.match(/【解读目标】([\s\S]*?)\n\n【本命资料】/)?.[1] || '';
 
   assert.match(snapshot, /分析主题：近期趋势/);
-  assert.match(
-    taskSection,
-    /解读目标：用户选择主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/,
-  );
+  assert.match(taskSection, /解读目标：主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/);
   assert.match(taskSection, /重点参考宫位：/);
   assert.doesNotMatch(taskSection, /焦点提示：/);
 });
@@ -369,7 +366,7 @@ test('紫微完整提示词应补充完整运限任务书', () => {
   assert.match(prompt, /【解读范围】/);
   assert.match(prompt, /【解读方法】/);
   assert.match(prompt, /【断盘要点】/);
-  assert.match(prompt, /当前已选流年：以该年年度触发、四化飞入、流年命宫落点和年度事件类别为主/);
+  assert.match(prompt, /当前指定流年：以该年年度触发、四化飞入、流年命宫落点和年度事件类别为主/);
   assert.match(prompt, /大限层：看十年阶段的主环境、角色变化、资源压力和机会方向/);
   assert.match(prompt, /流月层：看月内窗口、推进节奏和短期反复/);
   assert.match(prompt, /流日\/流时层：看当日或当时执行、沟通、出行、签约、冲突与避险/);

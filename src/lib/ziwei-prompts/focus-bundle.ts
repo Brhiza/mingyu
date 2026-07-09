@@ -77,8 +77,8 @@ export function buildFocusTaskBundle(
   return {
     focusSummary:
       reportContext.selected_topic === 'chat'
-        ? '按用户问题选择最相关宫位，未明确主题时按通用紫微证据处理。'
-        : '用户选择主题只作为问题范围；重点宫位由【问题】与盘面证据决定。',
+        ? '按【问题】选择最相关宫位；主题未明确时按通用紫微证据处理。'
+        : '主题只作为问题范围；重点宫位由【问题】与盘面证据决定。',
     focusPalaces: generalPalaces,
     avoid: buildCommonBoundary(),
   };

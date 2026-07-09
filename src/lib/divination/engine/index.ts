@@ -157,7 +157,7 @@ function buildDivinationTimingBoundaryText(method: Exclude<DivinationMethodId, '
       return [
         '小六壬应期先看结果宫定主趋势，再用起因宫与过程宫判断推进节奏、阻力和转机。',
         '大安偏稳，留连偏拖，速喜偏快，赤口偏冲突，小吉偏渐进，空亡偏落空；这些只能描述节奏倾向。',
-        '不得把六宫名称直接等同具体日期；若用户没有提供目标期限，只能给快慢、宜等宜动和触发条件。',
+        '不得把六宫名称直接等同具体日期；若【问题】没有限定目标期限，只能给快慢、宜等宜动和触发条件。',
       ].join('\n');
     case 'qimen':
       return [
@@ -180,7 +180,7 @@ function buildDivinationTimingBoundaryText(method: Exclude<DivinationMethodId, '
     case 'lenormand':
       return [
         '雷诺曼时间判断必须来自牌阵位置、牌位、牌义和提问范围。',
-        '日期只能在牌阵明确支持或用户限定范围内给出。',
+        '日期只能在牌阵明确支持或【问题】限定范围内给出。',
         '不得孤立牌义硬断日期；没有期限证据时，只能给事件先后顺序、推进节奏和可观察信号。',
       ].join('\n');
     case 'ssgw':

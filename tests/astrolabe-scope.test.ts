@@ -33,6 +33,16 @@ test('星盘本命分析对象只写入长期结构边界', () => {
   assert.doesNotMatch(context.promptText, /行运落宫提示：/);
 });
 
+test('星盘完整输出版显示完整行运资料摘要', () => {
+  const context = buildAstrolabeScopeContext(astrolabeData, 'full', '2028-06-01');
+
+  assert.equal(context.scope, 'full');
+  assert.equal(context.displayText, '本命盘与完整行运资料');
+  assert.equal(context.dateStr, '');
+  assert.match(context.promptText, /分析对象：本命盘与完整行运资料。/);
+  assert.match(context.promptText, /本命宫主星链条：第1宫/);
+});
+
 test('星盘流年分析对象会生成行运证据和展示文本', () => {
   const context = buildAstrolabeScopeContext(astrolabeData, 'yearly', '2028');
 

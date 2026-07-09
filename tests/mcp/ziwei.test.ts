@@ -76,13 +76,13 @@ test('紫微合盘主题只作为关系范围，不再注入固定问题与任�
   assert.match(cooperationPrompt, /【问题】\n请先做整体合盘解读。/);
   assert.match(
     cooperationPrompt,
-    /【任务】\n请综合双方盘面和用户所选关系范围，直接判断互动主轴、互补点、冲突点、触发机制与建议。/,
+    /【任务】\n请综合双方盘面和关系范围，直接判断互动主轴、互补点、冲突点、触发机制与建议。/,
   );
   assert.match(
     cooperationPrompt,
     /【输出要求】\n先直接回答【问题】，再展开最关键的 2 到 4 个重点；/,
   );
-  assert.match(cooperationPrompt, /用户选择主题时只把主题作为关系范围，不补充本地预设模板/);
+  assert.match(cooperationPrompt, /若【问题】已限定主题，只把主题作为关系范围，不额外套用固定题目/);
   assert.doesNotMatch(cooperationPrompt, /合作默契|合作分工|关系主基调/);
 
   const interactionPrompt = buildCombinedZiweiCompatibilityPrompt({
@@ -94,7 +94,7 @@ test('紫微合盘主题只作为关系范围，不再注入固定问题与任�
   assert.match(interactionPrompt, /【问题】\n请先做整体合盘解读。/);
   assert.match(
     interactionPrompt,
-    /【任务】\n请综合双方盘面和用户所选关系范围，直接判断互动主轴、互补点、冲突点、触发机制与建议。/,
+    /【任务】\n请综合双方盘面和关系范围，直接判断互动主轴、互补点、冲突点、触发机制与建议。/,
   );
   assert.doesNotMatch(interactionPrompt, /沟通盲点|整体关系匹配度/);
 });

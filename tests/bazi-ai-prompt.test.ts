@@ -11,8 +11,14 @@ import { identifyClassicPattern as identifyClassicPatternLocal } from '@core/baz
 import { generateEnhancedAnalysisSection } from '@core/bazi/baziPromptEnhancement';
 
 function assertNoEngineeringPromptText(prompt: string) {
-  assert.doesNotMatch(prompt, /当前项目|本地算法|技术限制|未计算|资料包|提示词规则/);
-  assert.doesNotMatch(prompt, /当前已写入|当前未写入|未写入/);
+  assert.doesNotMatch(
+    prompt,
+    /当前项目|本地|技术限制|未计算|资料包|提示词规则|系统提示词|在线\s*AI|工程/,
+  );
+  assert.doesNotMatch(prompt, /当前已写入|当前未写入|已写入|未写入/);
+  assert.doesNotMatch(prompt, /用户(?:未|没有|选择|所选|已选|填写|提供|补充|问题)/);
+  assert.doesNotMatch(prompt, /需要补充|请补充|再选择/);
+  assert.doesNotMatch(prompt, /预设|模板|接口|API|MCP|调试/);
 }
 
 type BaziInput = Parameters<typeof baziCalculator.calculateBazi>[0];
@@ -105,7 +111,7 @@ test('八字单盘空问题补通用问题，分类不再塞本地固定问题',
   assert.match(prompt.user, /【问题】\n请先做整体解读。/);
   assert.match(
     prompt.user,
-    /【任务】\n用户选择的主题范围是“事业”。请围绕【问题】和该主题范围直接判断重点；未填写具体问题时按通用八字口径先做整体分析，再结合该主题提示重点。/,
+    /【任务】\n主题范围：事业。请围绕【问题】和该主题范围直接判断重点；若【问题】未限定具体事项，按通用八字口径先做整体分析，再结合该主题提示重点。/,
   );
   assert.doesNotMatch(prompt.user, /【问题】\n判断命局更适合守成/);
   assert.doesNotMatch(prompt.user, /【任务】\n判断命局更适合守成/);
@@ -136,7 +142,7 @@ test('八字提示词写入年限选择后应补充完整岁运任务书', () =>
 
   assert.match(prompt.user, /【分析对象】/);
   assert.match(prompt.user, /【岁运重点】/);
-  assert.match(prompt.user, /已选对象：\d{4}年流年/);
+  assert.match(prompt.user, /分析对象：\d{4}年流年/);
   assert.match(prompt.user, /选择日期：\d{4}年/);
   assert.match(prompt.user, /上层岁运：/);
   assert.match(prompt.user, /所选干支：/);
@@ -147,13 +153,33 @@ test('八字提示词写入年限选择后应补充完整岁运任务书', () =>
   assert.match(prompt.user, /该流年包含的流月/);
   assert.match(prompt.user, /交下节/);
   assert.match(prompt.user, /【解读方法】/);
-  assert.match(prompt.user, /当前已选流年：回答以该年年度触发为主，必须承接所属大运背景/);
+  assert.match(prompt.user, /当前指定流年：回答以该年年度触发为主，必须承接所属大运背景/);
   assert.match(prompt.user, /大运层：看十年阶段的环境、身份、资源、压力和机会方向/);
   assert.match(prompt.user, /流月层：看月份窗口、推进节奏、临门一脚和短期反复/);
   assert.match(prompt.user, /流日层：看当日执行、沟通、签约、出行、冲突和避险/);
   assert.ok(prompt.user.indexOf('【分析对象】') < prompt.user.indexOf('【岁运重点】'));
   assert.ok(prompt.user.indexOf('【岁运重点】') < prompt.user.indexOf('【解读方法】'));
   assert.ok(prompt.user.indexOf('【解读方法】') < prompt.user.indexOf('【解读范围】'));
+});
+
+test('八字完整输出版会附加完整大运流年资料', () => {
+  const result = createBaziResult();
+
+  const prompt = buildPromptFromConfig(
+    '整体事业阶段怎么判断？',
+    { id: 'ai-job-change', prompt: '测试', scopeLabel: '换工作' },
+    result,
+    null,
+    '换工作',
+    { isCustomQuestion: false, fortuneScope: 'full' },
+  );
+
+  assert.match(prompt.user, /【分析对象】\n分析对象：本命盘与完整大运流年/);
+  assert.match(prompt.user, /【命限资料】/);
+  assert.match(prompt.user, /完整大运流年：/);
+  assert.match(prompt.user, /\d+\. .+：\d{4}年起，约\d+岁交运/);
+  assert.match(prompt.user, /  - \d{4}年（\d+岁）.+/);
+  assert.doesNotMatch(prompt.user, /详细命限资料|资料量|聚焦当前分析对象/);
 });
 
 test('八字流月提示词应突出所选日期范围且不输出证据调试字段', () => {
@@ -181,7 +207,7 @@ test('八字流月提示词应突出所选日期范围且不输出证据调试�
   );
   const fortuneSection = prompt.user.match(/【岁运重点】([\s\S]*?)\n\n【解读方法】/)?.[1] || '';
 
-  assert.match(fortuneSection, /已选对象：\d{4}年.+流月/);
+  assert.match(fortuneSection, /分析对象：\d{4}年.+流月/);
   assert.match(fortuneSection, /选择日期：\d{4}-\d{2}-\d{2} 至 \d{4}-\d{2}-\d{2}/);
   assert.match(fortuneSection, /节气月：/);
   assert.match(fortuneSection, /上层岁运：/);
@@ -211,8 +237,13 @@ test('八字提示词未选择年限时输出本命独立任务书且不输出�
 
   assert.match(prompt.user, /【分析对象】/);
   assert.match(prompt.user, /分析对象：本命盘/);
-  assert.match(prompt.user, /资料说明：本次没有提供具体大运、流年、流月、流日/);
-  assert.match(prompt.user, /本次只提供本命盘，没有提供具体大运、流年、流月、流日/);
+  assert.match(prompt.user, /大运总览:/);
+  assert.match(prompt.user, /\d+\. .+：?\d{4}年起，约\d+岁交运，含\d{4}-\d{4}年流年/);
+  assert.match(prompt.user, /当前大运:|当前阶段:/);
+  assert.match(prompt.user, /近年流年:/);
+  assert.match(prompt.user, /资料说明：本次未指定某个大运、流年、流月或流日为分析对象/);
+  assert.match(prompt.user, /可参考【排盘信息】中的大运总览、当前大运与近年流年作阶段背景/);
+  assert.match(prompt.user, /本次未指定某个大运、流年、流月或流日为分析对象/);
   assert.match(prompt.user, /问题.*具体年份、月份、日期或年龄/);
   assert.doesNotMatch(prompt.user, /【岁运重点】/);
   assert.doesNotMatch(prompt.user, /【解读方法】/);
@@ -865,7 +896,7 @@ test('合盘分类只作为关系范围，不再插入本地专项框架', () =>
   assert.doesNotMatch(careerPrompt.user, /【合盘分析思路】/);
   assert.match(
     careerPrompt.user,
-    /【任务】\n用户选择的关系范围是“合伙”。请先判断关系主轴，再说明相处模式、互补点、冲突点和建议。/,
+    /【任务】\n关系范围：合伙。请先判断关系主轴，再说明相处模式、互补点、冲突点和建议。/,
   );
   assert.match(
     careerPrompt.user,

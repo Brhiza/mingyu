@@ -3,6 +3,7 @@ import type { AstrolabeScopeMode } from '@/lib/query-state';
 
 const astrolabeScopeLabelMap: Record<AstrolabeScopeMode, string> = {
   natal: '本命',
+  full: '完整输出',
   yearly: '流年',
   monthly: '流月',
   daily: '流日',
@@ -142,7 +143,7 @@ export function AstrolabeScopeModal(props: {
     normalizedDraftDay,
   );
   const draftScopeDetailLabel =
-    draftScope === 'natal'
+    draftScope === 'natal' || draftScope === 'full'
       ? ''
       : draftScope === 'yearly'
         ? `${draftYear}年`
@@ -150,7 +151,9 @@ export function AstrolabeScopeModal(props: {
           ? `${draftYear}年${draftMonth}月`
           : `${draftYear}年${draftMonth}月${normalizedDraftDay}日`;
   const summaryText =
-    draftScope === 'natal'
+    draftScope === 'full'
+      ? '本命盘与完整流年流月流日行运。'
+      : draftScope === 'natal'
       ? '仅使用本命信息，不附加任何流年、流月或流日行运。'
       : `${astrolabeScopeLabelMap[draftScope]} ${draftScopeDetailLabel}，会写入对应行运相位证据。`;
   const quickActions: Array<{
@@ -329,6 +332,13 @@ export function AstrolabeScopeModal(props: {
             >
               仅用本命
             </button>
+            <button
+              type="button"
+              className="modal-btn modal-btn-secondary"
+              onClick={() => setDraftScope('full')}
+            >
+              完整输出版
+            </button>
           </div>
           <div className="modal-actions-right">
             <button type="button" className="modal-btn modal-btn-secondary" onClick={onClose}>
@@ -338,7 +348,10 @@ export function AstrolabeScopeModal(props: {
               type="button"
               className="modal-btn modal-btn-primary"
               onClick={() => {
-                onApply(draftScope, draftScope === 'natal' ? '' : draftScopeDateStr);
+                onApply(
+                  draftScope,
+                  draftScope === 'natal' || draftScope === 'full' ? '' : draftScopeDateStr,
+                );
                 onClose();
               }}
             >

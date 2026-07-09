@@ -21,6 +21,7 @@ export type AstrolabeScopeContext = {
 
 const SCOPE_LABEL_MAP: Record<AstrolabeScopeMode, string> = {
   natal: '本命',
+  full: '完整输出',
   yearly: '流年',
   monthly: '流月',
   daily: '流日',
@@ -416,7 +417,7 @@ function buildTransitHouseEvidence(
       });
 
     return lines.length
-      ? `行运落宫提示：${lines.join('；')}；落宫只说明被触发的生活领域，必须与行运相位、本命宫主星和用户问题互证。`
+      ? `行运落宫提示：${lines.join('；')}；落宫只说明被触发的生活领域，必须与行运相位、本命宫主星和【问题】互证。`
       : '行运落宫提示：未取得可用行运行星位置，不得编造行运落宫。';
   } catch {
     return '行运落宫提示：行运行星位置计算失败，不能使用行运落宫作证据。';
@@ -491,14 +492,14 @@ export function buildAstrolabeScopeContext(
   }
 
   const houseRulerChain = buildHouseRulerChainEvidence(data);
-  if (scope === 'natal') {
+  if (scope === 'natal' || scope === 'full') {
     return {
-      scope: 'natal',
+      scope,
       dateStr: '',
-      displayText: '仅使用本命信息',
-      displayLabel: '本命盘',
+      displayText: scope === 'full' ? '本命盘与完整行运资料' : '仅使用本命信息',
+      displayLabel: scope === 'full' ? '完整输出版' : '本命盘',
       promptText: [
-        '分析对象：本命盘。',
+        scope === 'full' ? '分析对象：本命盘与完整行运资料。' : '分析对象：本命盘。',
         houseRulerChain,
         '时间边界：只判断长期性格结构、人生主题、稳定倾向与可长期调整的模式；不得自行指定流年、流月、流日或具体应期。',
         ASTROLABE_EVIDENCE_SCOPE_NOTE,

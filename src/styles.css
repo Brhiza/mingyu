@@ -29,18 +29,22 @@
   --surface-muted: rgba(246, 240, 248, 0.96);
   --surface-muted-solid: #f6f0f8;
   --surface-overlay: rgba(255, 255, 255, 0.82);
-  --border-soft: rgba(196, 182, 211, 0.26);
-  --border-strong: rgba(180, 161, 199, 0.34);
+  --border-soft: rgba(196, 182, 211, 0.22);
+  --border-strong: rgba(180, 161, 199, 0.3);
   --border-contrast: rgba(203, 79, 151, 0.26);
-  --shadow-lg: 0 20px 60px rgba(75, 46, 88, 0.08);
-  --shadow-md: 0 18px 40px rgba(75, 46, 88, 0.06);
-  --shadow-card: 0 14px 40px rgba(75, 46, 88, 0.06);
+  --shadow-lg: 0 24px 70px rgba(75, 46, 88, 0.1);
+  --shadow-md: 0 16px 38px rgba(75, 46, 88, 0.07);
+  --shadow-card: 0 18px 50px rgba(75, 46, 88, 0.07);
   --shadow-sm: 0 1px 3px rgba(75, 46, 88, 0.16);
   --backdrop-scrim: rgba(39, 28, 50, 0.42);
+  --radius-page-card: 14px;
+  --radius-control: 10px;
+  --radius-compact: 8px;
+  --radius-pill: 999px;
   color: var(--text-primary);
   background:
-    radial-gradient(circle at top left, rgba(222, 90, 166, 0.14), transparent 34%),
-    radial-gradient(circle at top right, rgba(184, 167, 234, 0.2), transparent 32%),
+    radial-gradient(circle at top left, rgba(222, 90, 166, 0.09), transparent 34%),
+    radial-gradient(circle at top right, rgba(184, 167, 234, 0.14), transparent 32%),
     linear-gradient(180deg, var(--surface-page) 0%, var(--surface-page-end) 100%);
   font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
   line-height: 1.5;
@@ -159,7 +163,7 @@ body {
 .route-loading-skeleton {
   width: min(960px, 100%);
   padding: 28px;
-  border-radius: 28px;
+  border-radius: var(--radius-page-card);
   border: 1px solid var(--border-soft);
   background: var(--surface-overlay);
   box-shadow: var(--shadow-lg);
@@ -190,7 +194,7 @@ body {
 
 .route-loading-skeleton-card {
   height: 180px;
-  border-radius: 24px;
+  border-radius: var(--radius-page-card);
 }
 
 button,
@@ -217,7 +221,7 @@ select {
   max-width: 1200px;
   margin: 0 auto 24px;
   padding: 28px;
-  border-radius: 28px;
+  border-radius: var(--radius-page-card);
 }
 
 .eyebrow {
@@ -1909,16 +1913,16 @@ select {
 }
 
 .input-page-shell {
-  padding-top: 10px;
+  padding-top: 12px;
 }
 
 .input-page-shell.has-floating-tutorial-entry {
-  padding-bottom: 148px;
+  padding-bottom: 132px;
 }
 
 .input-page-main-content {
   display: grid;
-  gap: 0;
+  gap: 10px;
 }
 
 .input-panel {
@@ -2004,15 +2008,15 @@ select {
 }
 
 .top-ai-settings-icon-button {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--accent-soft-strong);
-  border-radius: 999px;
-  background: var(--surface-panel);
+  border-radius: var(--radius-control);
+  background: rgba(var(--surface-base-rgb), 0.86);
   color: var(--accent-deep);
   font-size: 18px;
   line-height: 1;
@@ -2025,7 +2029,7 @@ select {
 }
 
 .panel {
-  border-radius: 28px;
+  border-radius: var(--radius-page-card);
   padding: 24px;
   min-width: 0;
 }
@@ -2069,7 +2073,7 @@ select {
 .field-card select {
   width: 100%;
   border: 1px solid var(--border-strong);
-  border-radius: 16px;
+  border-radius: var(--radius-control);
   background: var(--surface-base);
   padding: 12px 14px;
   color: var(--text-strong);
@@ -2079,7 +2083,7 @@ select {
 .template-summary {
   margin-bottom: 18px;
   padding: 16px 18px;
-  border-radius: 20px;
+  border-radius: var(--radius-page-card);
   background: linear-gradient(135deg, var(--accent-soft-strong), var(--highlight-soft));
 }
 
@@ -2129,7 +2133,7 @@ select {
 
 .form-section-panel {
   padding: 14px;
-  border-radius: 20px;
+  border-radius: var(--radius-page-card);
   background: linear-gradient(180deg, var(--surface-elevated), var(--surface-soft));
   border: 1px solid var(--border-soft);
 }
@@ -2184,7 +2188,7 @@ select {
     var(--surface-elevated-strong)
   );
   color: var(--accent-deep);
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   padding: 10px 16px;
   cursor: pointer;
   min-width: 72px;
@@ -2227,7 +2231,7 @@ select {
 
 .time-hint-card {
   padding: 10px 12px;
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   background: var(--accent-soft);
   color: var(--accent-strong);
   font-size: 13px;
@@ -2292,7 +2296,7 @@ select {
 
 .copy-button {
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   padding: 12px 18px;
   background: var(--accent-strong);
   color: var(--surface-base);
@@ -2310,7 +2314,7 @@ select {
   min-height: 220px;
   overflow: auto;
   padding: 16px;
-  border-radius: 20px;
+  border-radius: var(--radius-page-card);
   background: var(--text-strong);
   color: var(--surface-muted-solid);
   white-space: pre-wrap;
@@ -3156,7 +3160,8 @@ select {
 }
 
 .bazi-view-container {
-  max-width: 760px;
+  width: min(1180px, 100%);
+  max-width: 1180px;
   margin: 0 auto;
 }
 
@@ -3187,14 +3192,16 @@ select {
 }
 
 .analysis-mode-strip {
-  margin-bottom: 8px;
+  margin-bottom: 2px;
   display: flex;
   justify-content: center;
 }
 
 .donation-entry-strip {
-  width: 100%;
-  margin: 0 0 12px;
+  width: min(220px, calc(100vw - 48px));
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
 }
 
 .analysis-mode-card {
@@ -3202,7 +3209,7 @@ select {
   gap: 6px;
   border: 1px solid var(--border-soft);
   background: linear-gradient(180deg, var(--surface-elevated), var(--surface-soft));
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   padding: 10px 12px;
 }
 
@@ -3213,11 +3220,11 @@ select {
 }
 
 .top-switch-control {
-  width: min(520px, 100%);
+  width: min(720px, 100%);
   margin: 0 auto;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .top-switch-control .segmented-control-react {
@@ -3232,15 +3239,15 @@ select {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  margin-top: 12px;
+  gap: 10px;
+  margin-top: 18px;
 }
 
 .input-page-bottom-tools.is-floating {
   left: 50%;
   transform: translateX(-50%);
-  width: min(calc(100vw - 24px), 760px);
-  bottom: max(12px, env(safe-area-inset-bottom, 0px) + 12px);
+  width: min(calc(100vw - 32px), 1180px);
+  bottom: max(14px, env(safe-area-inset-bottom, 0px) + 14px);
   z-index: 20;
   pointer-events: none;
 }
@@ -3252,22 +3259,22 @@ select {
 
 .donation-entry-button {
   width: 100%;
-  min-height: 92px;
+  min-height: 42px;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--accent-strong) 54%, #fff);
-  background: linear-gradient(135deg, var(--accent-strong), var(--secondary-strong));
+  gap: 2px;
+  border-radius: var(--radius-control);
+  border: 1px solid color-mix(in srgb, var(--accent-strong) 38%, #fff);
+  background: linear-gradient(135deg, #c64d98, #a681e0);
   color: #fff;
-  box-shadow: var(--shadow-md);
-  font-size: 18px;
+  box-shadow: 0 12px 28px rgba(124, 75, 133, 0.16);
+  font-size: 14px;
   font-weight: 700;
   text-decoration: none;
   letter-spacing: 0;
-  padding: 12px 20px;
+  padding: 6px 14px;
   pointer-events: auto;
   transition:
     transform 0.2s ease,
@@ -3287,12 +3294,12 @@ select {
 }
 
 .donation-entry-title {
-  font-size: 22px;
+  font-size: 14px;
   font-weight: 800;
 }
 
 .donation-entry-note {
-  font-size: 13px;
+  font-size: 10px;
   font-weight: 600;
   opacity: 0.88;
 }
@@ -3302,12 +3309,14 @@ select {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding: 14px 16px;
-  border-radius: 16px;
+  gap: 18px;
+  padding: 16px 20px;
+  border-radius: var(--radius-page-card);
   border: 1px solid var(--border-soft);
-  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-soft));
-  box-shadow: var(--shadow-sm);
+  background:
+    linear-gradient(180deg, rgba(var(--surface-base-rgb), 0.94), rgba(var(--surface-base-rgb), 0.88)),
+    var(--surface-soft);
+  box-shadow: var(--shadow-md);
   pointer-events: auto;
 }
 
@@ -3366,7 +3375,7 @@ select {
 
 .analysis-view {
   display: block;
-  min-height: 560px;
+  min-height: clamp(500px, 62vh, 720px);
 }
 
 .analysis-view > * {
@@ -3378,7 +3387,7 @@ select {
 .form-wrapper {
   width: 100%;
   display: grid;
-  gap: 8px;
+  gap: 14px;
 }
 
 .input-mode-loading {
@@ -3436,12 +3445,12 @@ select {
 .input-mode-loading-control,
 .input-mode-loading-field {
   height: 46px;
-  border-radius: 14px;
+  border-radius: var(--radius-control);
 }
 
 .input-mode-loading-chip {
   height: 46px;
-  border-radius: 16px;
+  border-radius: var(--radius-control);
 }
 
 .input-mode-loading-meta {
@@ -3451,32 +3460,34 @@ select {
 .input-mode-loading-action {
   width: 100%;
   min-height: 48px;
-  border-radius: 14px;
+  border-radius: var(--radius-control);
 }
 
 .person-section {
   border: 1px solid var(--border-soft);
-  background: linear-gradient(180deg, var(--surface-elevated-strong), var(--surface-soft));
-  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(var(--surface-base-rgb), 0.96), rgba(var(--surface-base-rgb), 0.9)),
+    var(--surface-soft);
+  border-radius: var(--radius-page-card);
   box-shadow: var(--shadow-card);
-  padding: 14px;
+  padding: 22px;
 }
 
 .person-section-head {
-  margin-bottom: 8px;
+  margin-bottom: 14px;
 }
 
 .person-section-head h2,
 .person-section-head h1 {
-  margin: 0 0 2px;
-  font-size: 18px;
+  margin: 0 0 4px;
+  font-size: 24px;
   line-height: 1.2;
   color: var(--accent-deep);
 }
 
 .person-section-head p {
   margin: 0;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.45;
   color: var(--text-muted);
 }
@@ -3484,7 +3495,7 @@ select {
 .person-info-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .divination-panel-shell {
@@ -3513,7 +3524,7 @@ select {
   gap: 4px;
   padding: 12px 10px;
   border: 1px solid var(--border-soft);
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   background: var(--surface-elevated);
   color: var(--text-primary);
   text-align: left;
@@ -3675,7 +3686,7 @@ select {
   min-width: 112px;
   min-height: 46px;
   justify-content: center;
-  border-radius: 16px;
+  border-radius: var(--radius-control);
   margin-left: auto;
 }
 
@@ -4209,13 +4220,13 @@ select {
 
 .form-row {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .form-row-flex {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 18px;
 }
 
 .form-row-flex.has-third-item {
@@ -4233,9 +4244,9 @@ select {
 }
 
 .form-item label {
-  margin-bottom: 6px;
-  font-size: 13px;
-  font-weight: 500;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 700;
   color: var(--text-strong);
 }
 
@@ -4243,15 +4254,11 @@ select {
   width: 100%;
   box-sizing: border-box;
   appearance: none;
-  min-height: 42px;
-  padding: 8px 10px;
+  min-height: 52px;
+  padding: 12px 16px;
   border: 1px solid var(--border-strong);
-  border-radius: 10px;
-  background: linear-gradient(
-    180deg,
-    var(--surface-elevated-strong),
-    var(--surface-elevated-strong)
-  );
+  border-radius: var(--radius-control);
+  background: rgba(var(--surface-base-rgb), 0.76);
   color: var(--text-strong);
   font-size: 16px;
   transition:
@@ -4266,7 +4273,10 @@ select {
 .form-input:focus {
   outline: none;
   border-color: var(--accent-strong);
-  box-shadow: 0 0 0 2px var(--accent-soft-strong);
+  background: var(--surface-elevated-strong);
+  box-shadow:
+    0 0 0 3px var(--accent-soft),
+    inset 0 1px 0 rgba(var(--surface-base-rgb), 0.75);
 }
 
 .checkbox-label {
@@ -4288,17 +4298,18 @@ select {
   position: relative;
   display: inline-flex;
   width: 100%;
-  border-radius: 10px;
-  background: var(--surface-soft);
-  padding: 2px;
-  min-height: 34px;
+  border-radius: var(--radius-control);
+  background: rgba(var(--surface-base-rgb), 0.44);
+  border: 1px solid var(--border-soft);
+  padding: 3px;
+  min-height: 42px;
 }
 
 .segmented-control-indicator {
   position: absolute;
-  top: 2px;
-  bottom: 2px;
-  border-radius: 8px;
+  top: 3px;
+  bottom: 3px;
+  border-radius: var(--radius-compact);
   background: var(--surface-base);
   box-shadow: var(--shadow-sm);
   transition:
@@ -4313,10 +4324,10 @@ select {
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
-  padding: 5px 8px;
+  padding: 8px 10px;
 }
 
 .segmented-control-item-react.active {
@@ -4361,7 +4372,7 @@ select {
 .birth-time-reverse-button {
   width: fit-content;
   border: 1px solid var(--border-contrast);
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   background: linear-gradient(180deg, var(--accent-soft), var(--secondary-soft));
   color: var(--accent-deep);
   padding: 8px 14px;
@@ -4388,9 +4399,9 @@ select {
 div.form-actions.page-submit-actions {
   display: grid;
   grid-auto-flow: row;
-  gap: 10px;
+  gap: 16px;
   width: 100%;
-  margin-top: 2px;
+  margin-top: 0;
   justify-content: center;
   justify-items: stretch;
 }
@@ -4398,23 +4409,24 @@ div.form-actions.page-submit-actions {
 .page-submit-actions .start-submit-button,
 .page-submit-actions .secondary-page-button {
   width: 100%;
-  min-height: 48px;
+  min-height: 56px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 24px;
-  font-size: 15px;
+  padding: 14px 24px;
+  font-size: 16px;
 }
 
 .secondary-page-button {
   border: none;
-  border-radius: 10px;
-  background: linear-gradient(180deg, var(--text-secondary), var(--text-primary));
+  border-radius: var(--radius-control);
+  background: linear-gradient(180deg, #665571, #44364f);
   color: var(--surface-base);
   padding: 10px 20px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 800;
   cursor: pointer;
+  box-shadow: 0 14px 26px rgba(68, 54, 79, 0.16);
 }
 
 .secondary-page-button:hover {
@@ -4423,14 +4435,14 @@ div.form-actions.page-submit-actions {
 
 .primary-button {
   border: none;
-  border-radius: 10px;
-  background: linear-gradient(180deg, var(--accent-strong), var(--accent-deep));
+  border-radius: var(--radius-control);
+  background: linear-gradient(180deg, var(--accent-strong), #a43c7f);
   color: var(--surface-base);
   padding: 10px 20px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 12px 24px var(--accent-soft-strong);
+  box-shadow: 0 14px 28px var(--accent-soft-strong);
 }
 
 .primary-button:hover {
@@ -4444,7 +4456,7 @@ div.form-actions.page-submit-actions {
 .history-section {
   border: 1px solid var(--border-soft);
   background: linear-gradient(180deg, var(--surface-elevated-strong), var(--surface-soft));
-  border-radius: 18px;
+  border-radius: var(--radius-page-card);
   box-shadow: var(--shadow-card);
   padding: 14px;
 }
@@ -4641,13 +4653,14 @@ div.form-actions.page-submit-actions {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 0 0 12px;
-  padding: 10px 14px;
-  border-radius: 12px;
+  width: min(760px, 100%);
+  margin: 0 auto 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--border-soft);
-  background: var(--surface-soft);
+  background: rgba(var(--surface-base-rgb), 0.68);
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -4658,9 +4671,9 @@ div.form-actions.page-submit-actions {
 .privacy-hint-close {
   flex-shrink: 0;
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-compact);
   border: 1px solid var(--border-soft);
-  background: transparent;
+  background: rgba(var(--surface-base-rgb), 0.52);
   color: var(--text-muted);
   font-size: 12px;
   cursor: pointer;
@@ -5417,7 +5430,7 @@ div.form-actions.page-submit-actions {
   .field-card textarea,
   .field-card select {
     padding: 9px 10px;
-    border-radius: 10px;
+    border-radius: var(--radius-control);
   }
 
   .quick-grid {
@@ -5618,7 +5631,7 @@ div.form-actions.page-submit-actions {
   }
 
   .input-page-shell {
-    padding: 8px 6px 16px;
+    padding: 10px 6px 132px;
   }
 
   .tutorial-entry-button {
@@ -5629,7 +5642,7 @@ div.form-actions.page-submit-actions {
   }
 
   .analysis-view {
-    min-height: max(520px, calc(100dvh - 150px));
+    min-height: max(520px, calc(100dvh - 148px));
   }
 
   .workspace-grid,
@@ -5646,8 +5659,8 @@ div.form-actions.page-submit-actions {
   }
 
   .person-section {
-    padding: 10px;
-    border-radius: 12px;
+    padding: 12px;
+    border-radius: var(--radius-page-card);
   }
 
   .input-mode-loading-methods {
@@ -5656,7 +5669,7 @@ div.form-actions.page-submit-actions {
 
   .input-mode-loading-textarea {
     height: 116px;
-    border-radius: 12px;
+    border-radius: var(--radius-control);
   }
 
   .input-mode-loading-controls {
@@ -5668,24 +5681,24 @@ div.form-actions.page-submit-actions {
     justify-self: end;
     width: 96px;
     height: 36px;
-    border-radius: 999px;
+    border-radius: var(--radius-control);
   }
 
   .input-mode-loading-control,
   .input-mode-loading-field,
   .input-mode-loading-action {
     min-height: 40px;
-    border-radius: 12px;
+    border-radius: var(--radius-control);
   }
 
   .analysis-mode-card {
     padding: 8px 10px;
-    border-radius: 10px;
+    border-radius: var(--radius-control);
   }
 
   .top-switch-control {
     width: 100%;
-    gap: 6px;
+    gap: 8px;
   }
 
   .top-ai-settings-icon-button {
@@ -5696,26 +5709,33 @@ div.form-actions.page-submit-actions {
   }
 
   .input-page-shell.has-floating-tutorial-entry {
-    padding-bottom: 158px;
+    padding-bottom: 132px;
   }
 
+  .input-page-bottom-tools,
+  .input-page-bottom-tools.is-inline,
   .input-page-bottom-tools.is-floating {
-    width: min(calc(100vw - 16px), 760px);
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(calc(100vw - 12px), 1180px);
     bottom: max(8px, env(safe-area-inset-bottom, 0px) + 8px);
+    z-index: 20;
+    pointer-events: none;
   }
 
   .donation-entry-button {
-    min-height: 82px;
-    border-radius: 12px;
-    padding: 10px 16px;
+    min-height: 38px;
+    border-radius: var(--radius-control);
+    padding: 5px 12px;
   }
 
   .donation-entry-title {
-    font-size: 20px;
+    font-size: 14px;
   }
 
   .donation-entry-note {
-    font-size: 12px;
+    font-size: 10px;
   }
 
   .tutorial-entry-card {
@@ -5723,7 +5743,7 @@ div.form-actions.page-submit-actions {
     align-items: flex-start;
     gap: 8px;
     padding: 12px;
-    border-radius: 12px;
+    border-radius: var(--radius-page-card);
   }
 
   .tutorial-entry-copy strong {
@@ -5766,7 +5786,7 @@ div.form-actions.page-submit-actions {
     min-height: 36px;
     padding: 7px 8px;
     font-size: 12px;
-    border-radius: 8px;
+    border-radius: var(--radius-compact);
   }
 
   .person-section-head {
@@ -5775,7 +5795,7 @@ div.form-actions.page-submit-actions {
 
   .person-section-head h2,
   .person-section-head h1 {
-    font-size: 18px;
+    font-size: 20px;
   }
 
   .person-section-head p {
@@ -5923,13 +5943,13 @@ div.form-actions.page-submit-actions {
   }
 
   .form-input {
-    min-height: 40px;
-    padding: 8px 9px;
+    min-height: 42px;
+    padding: 9px 11px;
     font-size: 16px;
   }
 
   .segmented-control-react {
-    min-height: 32px;
+    min-height: 36px;
   }
 
   .segmented-control-item-react {
@@ -5958,7 +5978,7 @@ div.form-actions.page-submit-actions {
 
   .primary-button {
     width: 100%;
-    min-height: 42px;
+    min-height: 48px;
     padding: 10px 16px;
   }
 
@@ -5970,19 +5990,19 @@ div.form-actions.page-submit-actions {
 
   .secondary-page-button {
     width: 100%;
-    min-height: 42px;
+    min-height: 48px;
     padding: 10px 16px;
     font-size: 14px;
   }
 
   .history-section {
     padding: 10px;
-    border-radius: 12px;
+    border-radius: var(--radius-page-card);
   }
 
   .history-page-section {
     padding: 10px;
-    border-radius: 12px;
+    border-radius: var(--radius-page-card);
   }
 
   .tutorial-page-section {
@@ -6098,7 +6118,7 @@ div.form-actions.page-submit-actions {
 
   .input-panel .form-section-panel {
     padding: 10px;
-    border-radius: 14px;
+    border-radius: var(--radius-page-card);
     gap: 8px;
   }
 
@@ -6111,7 +6131,7 @@ div.form-actions.page-submit-actions {
   .input-panel .field-card select,
   .input-panel .place-trigger {
     padding: 10px 12px;
-    border-radius: 12px;
+    border-radius: var(--radius-control);
     min-height: 42px;
   }
 
@@ -6161,7 +6181,7 @@ div.form-actions.page-submit-actions {
 
   .input-panel .time-hint-card {
     padding: 8px 10px;
-    border-radius: 12px;
+    border-radius: var(--radius-control);
     font-size: 12px;
   }
 
@@ -6387,7 +6407,7 @@ div.form-actions.page-submit-actions {
   }
 
   .input-page-bottom-tools.is-floating {
-    width: min(calc(100vw - 12px), 760px);
+    width: min(calc(100vw - 12px), 1180px);
   }
 
   .page-shell {
