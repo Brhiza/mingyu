@@ -99,7 +99,7 @@ export function formatSupplementaryInfoSection(
     lines.push(
       method === 'almanac'
         ? `择日补充：${supplementaryInfo.userSupplement.trim()}`
-        : `补充信息：${supplementaryInfo.userSupplement.trim()}`,
+        : `用户补充：${supplementaryInfo.userSupplement.trim()}`,
     );
   }
 
