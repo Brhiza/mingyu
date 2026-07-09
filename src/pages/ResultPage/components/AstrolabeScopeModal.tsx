@@ -154,8 +154,8 @@ export function AstrolabeScopeModal(props: {
     draftScope === 'full'
       ? '本命盘与完整流年流月流日行运。'
       : draftScope === 'natal'
-      ? '仅使用本命信息，不附加任何流年、流月或流日行运。'
-      : `${astrolabeScopeLabelMap[draftScope]} ${draftScopeDetailLabel}，会写入对应行运相位证据。`;
+        ? '仅使用本命信息，不附加任何流年、流月或流日行运。'
+        : `${astrolabeScopeLabelMap[draftScope]} ${draftScopeDetailLabel}，会写入对应行运相位证据。`;
   const quickActions: Array<{
     scope: Exclude<AstrolabeScopeMode, 'natal'>;
     label: string;

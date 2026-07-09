@@ -7,13 +7,7 @@ export type PromptSourceKey = 'bazi' | 'ziwei' | 'bazi-ziwei' | 'astrolabe';
 export type BaziFortuneScope = 'natal' | 'full' | 'dayun' | 'year' | 'month' | 'day';
 export type { AstrolabePromptTopic };
 export type ZiweiScopeMode =
-  | 'origin'
-  | 'full'
-  | 'decadal'
-  | 'yearly'
-  | 'monthly'
-  | 'daily'
-  | 'hourly';
+  'origin' | 'full' | 'decadal' | 'yearly' | 'monthly' | 'daily' | 'hourly';
 export type AstrolabeScopeMode = 'natal' | 'full' | 'yearly' | 'monthly' | 'daily';
 export type AnalysisMode = 'single' | 'compatibility';
 export type ChartType = 'bazi' | 'ziwei' | 'astrolabe';

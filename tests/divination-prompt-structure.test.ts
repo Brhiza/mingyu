@@ -989,7 +989,7 @@ test('雷诺曼提示词应保留用户补充背景', () => {
   assert.match(prompt, /【补充信息】/);
   assert.match(prompt, /性别：男/);
   assert.match(prompt, /出生年份：1990/);
-  assert.match(prompt, new RegExp(`补充信息：${PROJECT_DECISION_SUPPLEMENT}`));
+  assert.match(prompt, new RegExp(`用户补充：${PROJECT_DECISION_SUPPLEMENT}`));
   assert.ok(
     findPromptSectionHeadingIndex(prompt, '【补充信息】') <
       findPromptSectionHeadingIndex(prompt, '【占卜信息】'),

@@ -225,7 +225,9 @@ export function buildBaziZiweiEnhancedPrompt(params: {
     '',
     `【当前时间】\n${formatPromptCurrentTime()}`,
     sourceLabels.length > 0 ? `【分析对象】\n${sourceLabels.join('\n')}` : '',
-    questionScopeLabel && questionScopeLabel !== '通用' ? `【问题范围】\n${questionScopeLabel}` : '',
+    questionScopeLabel && questionScopeLabel !== '通用'
+      ? `【问题范围】\n${questionScopeLabel}`
+      : '',
     `【八字排盘信息】\n${baziText}`,
     `【紫微盘面信息】\n${params.ziweiText}`,
     `【问题】\n${normalizedQuestion}`,

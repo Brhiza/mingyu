@@ -207,8 +207,8 @@ export function ZiweiScopeModal(props: {
     draftScope === 'full'
       ? '本命盘与完整大限流年流月流日流时。'
       : draftScope === 'origin'
-      ? '仅使用本命信息，不附加任何大限流年流月流日。'
-      : formatZiweiPromptScopeSummary(draftScope, draftScopeDateStr, draftScopeDetailLabel);
+        ? '仅使用本命信息，不附加任何大限流年流月流日。'
+        : formatZiweiPromptScopeSummary(draftScope, draftScopeDateStr, draftScopeDetailLabel);
   const isDecadalDetailActive = draftScope === 'decadal';
   const isYearOverallActive = draftScope === 'decadal';
   const isYearDetailActive = draftScope === 'yearly';
@@ -456,7 +456,10 @@ export function ZiweiScopeModal(props: {
               type="button"
               className="modal-btn modal-btn-primary"
               onClick={() => {
-                onApply(draftScope, draftScope === 'origin' || draftScope === 'full' ? '' : draftScopeDateStr);
+                onApply(
+                  draftScope,
+                  draftScope === 'origin' || draftScope === 'full' ? '' : draftScopeDateStr,
+                );
                 onClose();
               }}
             >

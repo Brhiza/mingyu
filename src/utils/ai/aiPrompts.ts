@@ -259,7 +259,10 @@ function buildBaziFullAnalysisObjectSection(): string {
   ].join('\n');
 }
 
-function buildBaziScopePrioritySection(hasFortuneSelection: boolean, hasFullFortuneOutput = false): string {
+function buildBaziScopePrioritySection(
+  hasFortuneSelection: boolean,
+  hasFullFortuneOutput = false,
+): string {
   if (hasFullFortuneOutput) {
     return [
       '本次提供完整大运与逐年流年。',
@@ -425,7 +428,9 @@ export function buildPromptFromConfig(
     const fortuneSection = formatFortuneSelectionSection(fortuneSelectionContext, {
       includeBreakdown: promptConfig.id === 'ai-fortune-detail',
     });
-    const fullFortuneSection = hasFullFortuneOutput ? formatFullFortuneOutputSection(chartResult) : '';
+    const fullFortuneSection = hasFullFortuneOutput
+      ? formatFullFortuneOutputSection(chartResult)
+      : '';
     const fortuneEvidenceSection = formatFortuneEvidenceSection(fortuneSelectionContext);
     const fortuneAddon = buildFortunePromptAddon(promptConfig.id, fortuneSelectionContext);
     const task = [buildBaziTaskText(scopeLabel, promptConfig.prompt), fortuneAddon]
@@ -442,7 +447,9 @@ export function buildPromptFromConfig(
       user: joinPromptSections([
         buildPromptSection('当前时间', formatPromptCurrentTime()),
         buildPromptSection('排盘信息', [chartData, enhancedSection].filter(Boolean).join('\n')),
-        hasFullFortuneOutput ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection()) : '',
+        hasFullFortuneOutput
+          ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
+          : '',
         !isCustomQuestion && !fortuneSection && !hasFullFortuneOutput
           ? buildPromptSection('分析对象', buildBaziNatalAnalysisObjectSection())
           : '',
@@ -479,21 +486,28 @@ export function buildPromptFromConfig(
   const chartData = chartResult?.pillars
     ? formatBaziForPrompt(chartResult, selectedOption, 'general')
     : '命盘数据格式不支持。';
-  const fullFortuneSection = hasFullFortuneOutput ? formatFullFortuneOutputSection(chartResult) : '';
+  const fullFortuneSection = hasFullFortuneOutput
+    ? formatFullFortuneOutputSection(chartResult)
+    : '';
 
   return {
     system: SYSTEM_PROMPT,
     user: joinPromptSections([
       buildPromptSection('当前时间', formatPromptCurrentTime()),
       buildPromptSection('排盘信息', chartData),
-      hasFullFortuneOutput ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection()) : '',
+      hasFullFortuneOutput
+        ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
+        : '',
       !isCustomQuestion && !hasFullFortuneOutput
         ? buildPromptSection('分析对象', buildBaziNatalAnalysisObjectSection())
         : '',
       fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
       isCustomQuestion
         ? ''
-        : buildPromptSection('解读范围', buildBaziScopePrioritySection(false, hasFullFortuneOutput)),
+        : buildPromptSection(
+            '解读范围',
+            buildBaziScopePrioritySection(false, hasFullFortuneOutput),
+          ),
       buildPromptSection('问题', normalizedQuestion),
       isCustomQuestion
         ? ''

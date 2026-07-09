@@ -494,19 +494,21 @@ export function ResultPage() {
       });
     }
     if (!currentZiweiPayload) return '';
-    const basePrompt = buildCombinedZiweiPrompt(currentZiweiPayload, promptState.ziweiTopic, question, {
-      isCustomQuestion: activeZiweiShortcutMode === '自定义',
-    });
+    const basePrompt = buildCombinedZiweiPrompt(
+      currentZiweiPayload,
+      promptState.ziweiTopic,
+      question,
+      {
+        isCustomQuestion: activeZiweiShortcutMode === '自定义',
+      },
+    );
     if (promptState.ziweiScope !== 'full' || !activeZiweiPayloadByScope) {
       return basePrompt;
     }
 
     const fullScopeText = formatZiweiFullScopeText(activeZiweiPayloadByScope);
     return fullScopeText
-      ? basePrompt.replace(
-          '【问题】',
-          `【完整运限资料】\n${fullScopeText}\n\n【问题】`,
-        )
+      ? basePrompt.replace('【问题】', `【完整运限资料】\n${fullScopeText}\n\n【问题】`)
       : basePrompt;
   }
 
@@ -514,12 +516,12 @@ export function ResultPage() {
     promptState.ziweiScope === 'full'
       ? '本命盘与完整运限资料'
       : promptState.ziweiScope === 'origin'
-      ? '本命盘与大运概览'
-      : formatZiweiPromptScopeSummary(
-          promptState.ziweiScope,
-          promptState.ziweiScopeDate,
-          promptState.ziweiScopeDate ? currentZiweiPayload?.active_scope.label : undefined,
-        );
+        ? '本命盘与大运概览'
+        : formatZiweiPromptScopeSummary(
+            promptState.ziweiScope,
+            promptState.ziweiScopeDate,
+            promptState.ziweiScopeDate ? currentZiweiPayload?.active_scope.label : undefined,
+          );
 
   const enhancedZiweiPromptPack = useMemo(() => {
     if (
