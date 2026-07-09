@@ -33,6 +33,6 @@ export function buildLiurenTemplateText(template: LiurenTemplateType, data: Liur
     '断课类型只作为问题范围；未限定或通用时按通用断课处理，不额外套用固定事项。',
     getLiurenPatternHint(data.transmissionPattern),
     `取证顺序：先按${classicalRule?.rule || '取传法'}看发用${chu ? `${chu.branch}乘${chu.god}` : '初传'}，再看三传推进，四课看背景，课体神煞只作辅证。`,
-    '回答口径：先给结论，再列 2 到 4 条关键依据、触发条件和建议；不要复述完整课盘。',
+    '回答口径：先给结论，再按“课传主线、发用推进、四课背景、反证限制、应期条件、现实建议”说明；不要复述完整课盘。',
   ].join('\n');
 }

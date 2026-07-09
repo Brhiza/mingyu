@@ -32,6 +32,42 @@
 | `divine_astrolabe`  | 星盘生成     | 根据出生时间、经纬度和时区生成星体、宫位与相位数据                             |
 | `astrolabe_prompt`  | 星盘提示词   | 星盘生成并返回可直接用于 AI 解读的结构化提示词                                 |
 
+## 工具选择指南
+
+需要 AI 继续解读时，优先调用 `*_prompt` 工具；只需要结构化数据、表格展示或二次计算时，才调用 `*_calculate` 或 `divine_*` 工具。提示词工具返回结构统一为 `result` 和 `prompt`，通常直接把 `prompt` 交给当前 AI 继续作答即可。
+
+默认优先级：
+
+1. 用户提供完整出生信息，并询问人生、事业、财运、婚恋、亲子、健康、迁居、学习、考试、合作、近期趋势或某一年某阶段走势时，优先调用 `bazi_ziwei_prompt`。这是深度解读首选工具，用八字定主线，用紫微校验宫位、四化、三方四正和运限。
+2. 用户明确只看八字时，调用 `bazi_prompt`；长期或完整阶段分析优先传 `baziFortuneScope: "full"`。
+3. 用户明确只看紫微时，调用 `ziwei_prompt`；长期或完整阶段分析优先传 `promptScope: "full"`。
+4. 用户问单件事情当前能否推进、对方态度、短期成败或应期，优先调用 `liuyao_prompt`；涉及项目路径、方位、谈判、出行和时空窗口时，优先调用 `qimen_prompt`。
+5. 用户要从日期范围里选日子，调用 `almanac_prompt`；日期范围或参与人较多时使用分页参数。
+6. 用户明确要西方星盘，或提供出生地点、经纬度、时区时，调用 `astrolabe_prompt`。
+7. 用户没有出生信息，只想要轻量启发、牌阵或签文时，用 `tarot_prompt`、`lenormand_prompt` 或 `ssgw_prompt`。
+
+常见问题到工具：
+
+| 用户问题类型                     | 首选工具              | 推荐参数                                                                 |
+| -------------------------------- | --------------------- | ------------------------------------------------------------------------ |
+| 整体人生、长期事业、财运、婚恋   | `bazi_ziwei_prompt`   | `baziPromptTopic`、`ziweiPromptTopic`、`promptScope: "full"` 或 `origin` |
+| 今年运势、当前阶段、某年趋势     | `bazi_ziwei_prompt`   | `promptScope: "yearly"`，主题按事业、财运、感情等选择                    |
+| 换工作、创业、合伙、投资         | `bazi_ziwei_prompt`   | `job-change`、`startup-partnership`、`investment-partnership`             |
+| 八字格局、用神、大运流年         | `bazi_prompt`         | `promptTopic`、`baziFortuneScope`                                        |
+| 紫微宫位、四化、运限             | `ziwei_prompt`        | `promptTopic`、`promptScope`                                             |
+| 一事一问、短期成败、应期         | `liuyao_prompt`       | `question`、可选 `customDate`                                            |
+| 项目推进、方向、方位、谈判       | `qimen_prompt`        | `question`、可选 `qimenMethod`、`customDate`                             |
+| 临时小事快速判断                 | `xiaoliuren_prompt`   | `question`、可选 `xiaoliurenMethod`、`xiaoliurenNumber`                  |
+| 时间或数字象意判断               | `meihua_prompt`       | `question`、可选 `method`、`number`、`customDate`                        |
+| 传统复杂事项推演                 | `liuren_prompt`       | `question`、可选 `liurenTemplate`、`customDate`                          |
+| 结婚、搬家、开业、签约、安葬择日 | `almanac_prompt`      | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize` |
+| 星盘本命和行运                   | `astrolabe_prompt`    | 出生时间地点、经纬度、`astrolabeTopic`、`astrolabeScope`                 |
+| 牌阵启发                         | `tarot_prompt`        | `spreadType`、`question`                                                 |
+| 雷诺曼关系或选择牌阵             | `lenormand_prompt`    | `spreadType`、`question`                                                 |
+| 求签                             | `ssgw_prompt`         | `question`                                                               |
+
+出生时辰未知时，不要自行补时辰。八字可以保守分析；紫微和八字紫微合参需要时辰，优先请用户补足后再调用。
+
 ## 快速开始
 
 ### 1. 安装项目
@@ -93,7 +129,7 @@ npm run mcp
 - "用雷诺曼关系牌阵看看这段关系下一步怎么走"
 - "用星盘提示词工具，按北京出生经纬度看我的事业发展"
 
-只需要结构化数据时调用 `*_calculate` 或 `divine_*` 工具；需要完整 AI 解读提示词时调用 `*_prompt` 工具，返回结构统一为 `result` 和 `prompt`。
+只需要结构化数据时调用 `*_calculate` 或 `divine_*` 工具；需要完整 AI 解读提示词时调用 `*_prompt` 工具。
 
 ### 出生时间参数
 

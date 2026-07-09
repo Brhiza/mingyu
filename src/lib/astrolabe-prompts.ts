@@ -76,9 +76,9 @@ export function buildAstrolabeTopicGuidanceSection(_topic?: string) {
 }
 
 export function buildAstrolabeTopicTask(_topic?: string) {
-  return '请围绕【问题】最相关的星体、宫位、守护星和相位作答，提炼关键判断、盘面依据、现实边界与可执行建议。';
+  return '请围绕【问题】最相关的星体、宫位、守护星和相位作答，按本命结构、行运触发、反证限制和现实建议组织完整判断。';
 }
 
 export function buildAstrolabeTopicOutputRequirement(_topic?: string) {
-  return '先直接回答【问题】，再写清主要盘面证据、判断条件和现实建议；证据不足时直接说明。';
+  return '先直接回答【问题】，再按“结论总览、本命结构、行运触发、反证限制、现实建议”展开；每部分都要写清盘面证据、判断条件和现实建议；证据不足时直接说明。';
 }

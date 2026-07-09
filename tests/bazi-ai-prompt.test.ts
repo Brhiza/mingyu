@@ -900,7 +900,7 @@ test('合盘分类只作为关系范围，不再插入本地专项框架', () =>
   );
   assert.match(
     careerPrompt.user,
-    /【输出要求】\n先直接回答【问题】，再展开最关键的 2 到 4 个重点。/,
+    /【输出要求】\n先直接回答【问题】，再按“关系主轴、互补资源、冲突压力、触发条件、推进建议”展开。/,
   );
 
   const friendshipPrompt = getCompatibilityPrompt(
@@ -920,7 +920,7 @@ test('合盘分类只作为关系范围，不再插入本地专项框架', () =>
   assert.doesNotMatch(childrenPrompt.user, /【合盘分析思路】|【子女缘分】/);
   assert.match(
     childrenPrompt.user,
-    /【输出要求】\n先直接回答【问题】，再展开最关键的 2 到 4 个重点。/,
+    /【输出要求】\n先直接回答【问题】，再按“关系主轴、互补资源、冲突压力、触发条件、推进建议”展开。/,
   );
 
   const parentsPrompt = getCompatibilityPrompt('请分析双方父母情况。', result1, result2, 'parents');
