@@ -24,6 +24,8 @@ import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
+import { bazhai, zodiac, taiyi, tieban, qizheng } from 'mingyu-core';
+import { getGanZhiFromDate, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
 import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
 import { buildAstrolabeScopeContext } from '../astrolabe-scope';
@@ -463,6 +465,76 @@ export function getPublicApiOpenApiDocument(
           responses: { '200': { description: '占卜结果、统一摘要和结构化提示词' } },
         },
       },
+      '/metaphysics/bazhai/calculate': {
+        post: {
+          summary: '八宅风水排盘',
+          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          responses: { '200': { description: '八宅大游年盘与吉凶方位' } },
+        },
+      },
+      '/metaphysics/bazhai/prompt': {
+        post: {
+          summary: '八宅风水排盘并生成 AI 解读提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          responses: { '200': { description: '八宅盘与结构化提示词' } },
+        },
+      },
+      '/metaphysics/zodiac/calculate': {
+        post: {
+          summary: '生肖犯太岁与流年运程',
+          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          responses: { '200': { description: '犯太岁与运程等级' } },
+        },
+      },
+      '/metaphysics/zodiac/prompt': {
+        post: {
+          summary: '生肖犯太岁与流年运程并生成提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          responses: { '200': { description: '运程与提示词' } },
+        },
+      },
+      '/metaphysics/taiyi/calculate': {
+        post: {
+          summary: '太乙神数排盘',
+          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          responses: { '200': { description: '太乙式盘' } },
+        },
+      },
+      '/metaphysics/taiyi/prompt': {
+        post: {
+          summary: '太乙神数排盘并生成提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          responses: { '200': { description: '太乙盘与提示词' } },
+        },
+      },
+      '/metaphysics/tieban/calculate': {
+        post: {
+          summary: '铁板神数推算',
+          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          responses: { '200': { description: '铁板先天/后天卦与条文' } },
+        },
+      },
+      '/metaphysics/tieban/prompt': {
+        post: {
+          summary: '铁板神数推算并生成提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          responses: { '200': { description: '铁板条文与提示词' } },
+        },
+      },
+      '/metaphysics/qizheng/calculate': {
+        post: {
+          summary: '七政四余排盘',
+          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          responses: { '200': { description: '七政四余星盘' } },
+        },
+      },
+      '/metaphysics/qizheng/prompt': {
+        post: {
+          summary: '七政四余排盘并生成提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          responses: { '200': { description: '七政四余星盘与提示词' } },
+        },
+      },
       '/ai/analyze': {
         post: {
           summary: 'AI 解读（流式 SSE）',
@@ -584,6 +656,42 @@ export function getPublicApiOpenApiDocument(
             birthPlace: { type: 'string' },
             birthLongitude: { type: 'number', minimum: -180, maximum: 180 },
             shenShaVariants: { $ref: '#/components/schemas/ShenShaVariants' },
+            detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
+          },
+        },
+        MetaphysicsRequest: {
+          type: 'object',
+          description: '新增术数系统通用请求体。各系统仅使用其中相关字段，未用字段可省略。',
+          properties: {
+            birthYear: {
+              type: 'integer',
+              minimum: 1900,
+              maximum: 2100,
+              description: '出生公历年份（八宅推命卦）',
+            },
+            gender: { enum: ['male', 'female'], description: '性别（八宅/铁板）' },
+            mingGua: { type: 'string', description: '直接给定命卦（八宅）' },
+            sitMountain: { type: 'string', description: '坐山，如「子」（八宅）' },
+            zodiac: { type: 'string', description: '生肖或地支，如「鼠」或「子」（生肖运程）' },
+            year: {
+              type: 'integer',
+              minimum: 1900,
+              maximum: 2200,
+              description: '公元年（默认今年）',
+            },
+            yearGanZhi: { type: 'string', description: '直接给定流年干支，如「甲辰」（生肖运程）' },
+            scope: { enum: ['year', 'month', 'day', 'hour'], description: '太乙家数，默认 year' },
+            month: { type: 'integer', minimum: 1, maximum: 12 },
+            day: { type: 'integer', minimum: 1, maximum: 31 },
+            hour: { type: 'integer', minimum: 0, maximum: 23 },
+            minute: { type: 'integer', minimum: 0, maximum: 59 },
+            ganZhi: { type: 'string', description: '直接给定干支（太乙）' },
+            keOffset: { type: 'integer', minimum: -3, maximum: 3, description: '考刻校正（铁板）' },
+            latitude: { type: 'number', description: '纬度（七政四余）' },
+            longitude: { type: 'number', description: '经度（七政四余）' },
+            timezone: { type: 'number', description: '时区偏移（七政四余）' },
+            question: { type: 'string', description: '解读问题（prompt 端点）' },
+            promptMode: { type: 'string', description: '提示词模式（prompt 端点）' },
             detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
           },
         },
@@ -839,9 +947,216 @@ async function route(context: RouteContext) {
       return calculateAstrolabe(await readJson(context.request));
     case 'divination/astrolabe/prompt':
       return buildDivinationPromptResult('astrolabe', await readJson(context.request));
+    // 新增术数系统（地基层之上的新体系）
+    case 'metaphysics/bazhai/calculate':
+      return calculateBaZhaiApi(await readJson(context.request));
+    case 'metaphysics/bazhai/prompt':
+      return buildBaZhaiPrompt(await readJson(context.request));
+    case 'metaphysics/zodiac/calculate':
+      return calculateZodiacApi(await readJson(context.request));
+    case 'metaphysics/zodiac/prompt':
+      return buildZodiacPrompt(await readJson(context.request));
+    case 'metaphysics/taiyi/calculate':
+      return calculateTaiyiApi(await readJson(context.request));
+    case 'metaphysics/taiyi/prompt':
+      return buildTaiyiPrompt(await readJson(context.request));
+    case 'metaphysics/tieban/calculate':
+      return calculateTiebanApi(await readJson(context.request));
+    case 'metaphysics/tieban/prompt':
+      return buildTiebanPrompt(await readJson(context.request));
+    case 'metaphysics/qizheng/calculate':
+      return calculateQizhengApi(await readJson(context.request));
+    case 'metaphysics/qizheng/prompt':
+      return buildQizhengPrompt(await readJson(context.request));
     default:
       throw new ApiError(404, 'NOT_FOUND', '没有找到对应的 API 路径。');
   }
+}
+
+// ===== 新增术数系统 API =====
+
+function optInt(input: JsonRecord, key: string, min?: number, max?: number): number | undefined {
+  const v = input[key];
+  if (v === undefined) return undefined;
+  if (typeof v !== 'number' || !Number.isSafeInteger(v)) {
+    throw new ApiError(400, 'BAD_REQUEST', `${key} 必须是整数。`);
+  }
+  if (min !== undefined && v < min)
+    throw new ApiError(400, 'BAD_REQUEST', `${key} 不能小于 ${min}。`);
+  if (max !== undefined && v > max)
+    throw new ApiError(400, 'BAD_REQUEST', `${key} 不能大于 ${max}。`);
+  return v;
+}
+
+function optNumber(input: JsonRecord, key: string, min: number, max: number): number | undefined {
+  const value = input[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) {
+    throw new ApiError(400, 'BAD_REQUEST', `${key} 必须是 ${min} 至 ${max} 之间的数字。`);
+  }
+  return value;
+}
+
+function buildSolarDate(year: number, month: number, day: number, hour = 0, minute = 0): Date {
+  const date = new Date(year, month - 1, day, hour, minute, 0);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day ||
+    date.getHours() !== hour ||
+    date.getMinutes() !== minute
+  ) {
+    throw new ApiError(400, 'BAD_REQUEST', '日期或时间无效。');
+  }
+  return date;
+}
+
+function buildMetaphysicsPrompt(basePrompt: string, input: JsonRecord): string {
+  const question =
+    readString(input, 'question', '').trim() || '请综合解读本次排盘的重点、风险与行动建议。';
+  return [
+    basePrompt,
+    '',
+    '【问题】',
+    question,
+    '',
+    '【任务】',
+    '只依据上方排盘信息进行分析，先给结论，再说明依据、限制与建议。',
+    '',
+    '【输出要求】',
+    '使用简体中文；不要编造盘面没有提供的信息；资料不足时明确说明不确定性。',
+  ].join('\n');
+}
+
+function resolveZodiacBranch(z: unknown): string {
+  if (typeof z !== 'string' || !z)
+    throw new ApiError(400, 'BAD_REQUEST', 'zodiac 必须是生肖或地支。');
+  if ((EARTHLY_BRANCHES as readonly string[]).includes(z)) return z;
+  const idx = ZODIACS.findIndex((name) => name === z);
+  if (idx >= 0) return EARTHLY_BRANCHES[idx];
+  throw new ApiError(400, 'BAD_REQUEST', `无法识别的生肖/地支：${z}`);
+}
+
+function calculateBaZhaiApi(input: JsonRecord) {
+  const gender =
+    input.gender === 'female' ? 'female' : input.gender === 'male' ? 'male' : undefined;
+  const birthYear = optInt(input, 'birthYear', 1900, 2100);
+  const mingGua = readString(input, 'mingGua', '');
+  if (birthYear !== undefined && !gender) {
+    throw new ApiError(400, 'BAD_REQUEST', '使用 birthYear 推命卦时必须同时提供 gender。');
+  }
+  if (birthYear === undefined && !mingGua) {
+    throw new ApiError(400, 'BAD_REQUEST', '需提供 birthYear+gender 或直接给定 mingGua。');
+  }
+  const result = bazhai.analyzeBaZhai({
+    ...(birthYear !== undefined ? { birthYear, gender } : {}),
+    mingGua: mingGua || undefined,
+    sitMountain: readString(input, 'sitMountain', '') || undefined,
+  });
+  return result;
+}
+
+function buildBaZhaiPrompt(input: JsonRecord) {
+  const result = calculateBaZhaiApi(input);
+  return buildPromptApiResult({
+    responseMode: readPromptResponseMode(input),
+    prompt: buildMetaphysicsPrompt(result.prompt, input),
+    fullResult: result,
+  });
+}
+
+function calculateZodiacApi(input: JsonRecord) {
+  const zodiacBranch = resolveZodiacBranch(input.zodiac);
+  const yearGanZhi = readString(input, 'yearGanZhi', '');
+  const year = readInteger(input, 'year', 1900, 2200, new Date().getFullYear());
+  // 以"立春"为年界：取 2 月 10 日（必在立春之后）推算流年干支，避免 2/4 凌晨尚属上一干支年的误差
+  const gz = yearGanZhi || getGanZhiFromDate(new Date(year, 1, 10)).year;
+  return zodiac.getZodiacYearFortune(zodiacBranch, gz);
+}
+
+function buildZodiacPrompt(input: JsonRecord) {
+  const result = calculateZodiacApi(input);
+  return buildPromptApiResult({
+    responseMode: readPromptResponseMode(input),
+    prompt: buildMetaphysicsPrompt(result.prompt, input),
+    fullResult: result,
+  });
+}
+
+function calculateTaiyiApi(input: JsonRecord) {
+  const scope = readEnum(input, 'scope', ['year', 'month', 'day', 'hour'], 'year');
+  const year = readInteger(input, 'year', 1900, 2200, new Date().getFullYear());
+  const month = optInt(input, 'month', 1, 12);
+  const day = optInt(input, 'day', 1, 31);
+  const hour = optInt(input, 'hour', 0, 23);
+  const ganZhi = readString(input, 'ganZhi', '');
+  const date = ganZhi ? undefined : buildSolarDate(year, month ?? 2, day ?? 4, hour ?? 0);
+  return taiyi.generateTaiyi({ scope, year, ...(ganZhi ? { ganZhi } : { date }) });
+}
+
+function buildTaiyiPrompt(input: JsonRecord) {
+  const result = calculateTaiyiApi(input);
+  return buildPromptApiResult({
+    responseMode: readPromptResponseMode(input),
+    prompt: buildMetaphysicsPrompt(result.prompt, input),
+    fullResult: result,
+  });
+}
+
+function calculateTiebanApi(input: JsonRecord) {
+  const year = readInteger(input, 'year', 1900, 2200, new Date().getFullYear());
+  const month = optInt(input, 'month', 1, 12) ?? 1;
+  const day = optInt(input, 'day', 1, 31) ?? 1;
+  const hour = optInt(input, 'hour', 0, 23) ?? 0;
+  const minute = optInt(input, 'minute', 0, 59) ?? 0;
+  const gender = input.gender === 'female' ? 'female' : input.gender === 'male' ? 'male' : 'male';
+  const keOffset = optInt(input, 'keOffset', -3, 3);
+  return tieban.generateTieban({
+    date: buildSolarDate(year, month, day, hour, minute),
+    minute,
+    gender,
+    ...(keOffset !== undefined ? { keOffset } : {}),
+  });
+}
+
+function buildTiebanPrompt(input: JsonRecord) {
+  const result = calculateTiebanApi(input);
+  return buildPromptApiResult({
+    responseMode: readPromptResponseMode(input),
+    prompt: buildMetaphysicsPrompt(result.prompt, input),
+    fullResult: result,
+  });
+}
+
+function calculateQizhengApi(input: JsonRecord) {
+  const year = readInteger(input, 'year', 1900, 2200, new Date().getFullYear());
+  const month = optInt(input, 'month', 1, 12) ?? 1;
+  const day = optInt(input, 'day', 1, 31) ?? 1;
+  const hour = optInt(input, 'hour', 0, 23) ?? 12;
+  const minute = optInt(input, 'minute', 0, 59) ?? 0;
+  buildSolarDate(year, month, day, hour, minute);
+  const latitude = optNumber(input, 'latitude', -90, 90);
+  const longitude = optNumber(input, 'longitude', -180, 180);
+  const timezone = optNumber(input, 'timezone', -12, 14);
+  return qizheng.generateQizheng({
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    ...(latitude !== undefined ? { latitude } : {}),
+    ...(longitude !== undefined ? { longitude } : {}),
+    ...(timezone !== undefined ? { timezone } : {}),
+  });
+}
+
+function buildQizhengPrompt(input: JsonRecord) {
+  const result = calculateQizhengApi(input);
+  return buildPromptApiResult({
+    responseMode: readPromptResponseMode(input),
+    prompt: buildMetaphysicsPrompt(result.prompt, input),
+    fullResult: result,
+  });
 }
 
 function calculateBaziApi(input: JsonRecord) {

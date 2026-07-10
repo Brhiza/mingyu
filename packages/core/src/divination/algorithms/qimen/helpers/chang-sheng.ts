@@ -78,17 +78,15 @@ export type ChangShengStageName = (typeof CHANG_SHENG_STAGES)[number];
 /**
  * 五行长生起始地支
  *
- * 《五行大义·论五行所生》：
- *   「木长生在亥，火长生在寅，金长生在巳，水土长生在申」
- *
- * 注：土寄生于申，与水同，取五行各备四维之律。
+ * 火土同宫（土长生在寅，随丙火），与八字/奇门所用 tyme4ts 一致：
+ *   「木长生在亥，火长生在寅，金长生在巳，水长生在申，土长生在寅」
  */
 const WUXING_CHANGSHENG_START: Record<string, string> = {
   木: '亥',
   火: '寅',
   金: '巳',
   水: '申',
-  土: '申',
+  土: '寅',
 };
 
 /**

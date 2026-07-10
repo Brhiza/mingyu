@@ -153,7 +153,7 @@ export function ZiweiScopeModal(props: {
   const selectedDayItem =
     dayOptions.find((item) => item.dateStr === draftDayDateStr) ?? dayOptions[0];
   const quickActions: Array<{
-    scope: Exclude<ZiweiScopeMode, 'origin' | 'hourly'>;
+    scope: Exclude<ZiweiScopeMode, 'origin' | 'hourly' | 'full'>;
     label: string;
   }> = [
     { scope: 'decadal', label: '大限' },
@@ -161,7 +161,7 @@ export function ZiweiScopeModal(props: {
     { scope: 'monthly', label: '流月' },
     { scope: 'daily', label: '流日' },
   ];
-  const quickScopeDateMap: Record<Exclude<ZiweiScopeMode, 'origin' | 'hourly'>, string> = {
+  const quickScopeDateMap: Record<Exclude<ZiweiScopeMode, 'origin' | 'hourly' | 'full'>, string> = {
     decadal: payloadByScope.decadal.active_scope.solar_date,
     yearly: payloadByScope.yearly.active_scope.solar_date,
     monthly: payloadByScope.monthly.active_scope.solar_date,
@@ -220,7 +220,7 @@ export function ZiweiScopeModal(props: {
   const showMonthRow = ['yearly', 'monthly', 'daily'].includes(draftScope);
   const showDayRow = ['monthly', 'daily'].includes(draftScope);
 
-  function handleJumpToCurrent(scope: Exclude<ZiweiScopeMode, 'origin' | 'hourly'>) {
+  function handleJumpToCurrent(scope: Exclude<ZiweiScopeMode, 'origin' | 'hourly' | 'full'>) {
     const nextDateStr = quickScopeDateMap[scope] || defaultContext.dateStr;
     setDraftScope(scope);
     setDraftDecadalIndex(

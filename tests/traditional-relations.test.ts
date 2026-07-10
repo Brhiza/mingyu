@@ -489,13 +489,16 @@ test('八字墓库分析应按日主天干十二长生取墓位', () => {
   );
 });
 
-test('占法共享五行长生应与六爻奇门口径保持水土同长生在申', () => {
+test('占法共享五行长生统一土长生在寅（与八字/奇门/tyme4ts 一致）', () => {
+  // 木长生在亥、火长生在寅、金长生在巳、水长生在申（不变）
   assert.equal(getWuxingChangSheng('木'), '亥');
   assert.equal(getWuxingChangSheng('火'), '寅');
-  assert.equal(getWuxingChangSheng('土'), '申');
+  // 土统一为「土长生在寅」流派（火土同宫），与八字/奇门所用 tyme4ts 一致
+  assert.equal(getWuxingChangSheng('土'), '寅');
   assert.equal(getWuxingChangSheng('金'), '巳');
   assert.equal(getWuxingChangSheng('水'), '申');
   assert.throws(() => getWuxingChangSheng('风'), /五行无效/);
+  // 注：六爻(liuyao)为独立占法体系，其土长生在申不在本共享表范围内，不受影响
 });
 
 test('奇门十二长生应与 tyme4ts 十干十二运保持一致', () => {

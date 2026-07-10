@@ -34,6 +34,11 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
     'bazi_calculate',
     { gender: 'male', year: 1990, month: 5, day: 15, timeIndex: 1, dateType: 'solar' },
   ],
+  ['metaphysics_bazhai', { birthYear: 1990, gender: 'male' }],
+  ['metaphysics_zodiac', { zodiac: '鼠', year: 2024 }],
+  ['metaphysics_taiyi', { year: 2004, scope: 'year' }],
+  ['metaphysics_tieban', { year: 1984, month: 6, day: 15, hour: 10, gender: 'male' }],
+  ['metaphysics_qizheng', { year: 2024, month: 6, day: 15, hour: 12 }],
 ];
 
 const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
@@ -87,6 +92,11 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
     { customDate: '2025-01-01T08:00:00+08:00', question: '今年事业如何？' },
     /【占卜信息】/,
   ],
+  [
+    'bazhai_prompt',
+    { birthYear: 1990, gender: 'male', sitMountain: '子', question: '办公桌朝向怎么选？' },
+    /【问题】\n办公桌朝向怎么选？/,
+  ],
 ];
 
 const promptToolNames = [
@@ -103,6 +113,11 @@ const promptToolNames = [
   'almanac_prompt',
   'lenormand_prompt',
   'astrolabe_prompt',
+  'bazhai_prompt',
+  'zodiac_prompt',
+  'taiyi_prompt',
+  'tieban_prompt',
+  'qizheng_prompt',
 ];
 
 async function withMcpClient<T>(callback: (client: Client) => Promise<T>) {
@@ -127,7 +142,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 25);
+    assert.equal(tools.length, 35);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });

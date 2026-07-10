@@ -99,6 +99,42 @@
       "import": "./dist/calendar/index.js",
       "types": "./dist/calendar/index.d.ts"
     },
+    "./ganzhi": {
+      "import": "./dist/ganzhi/index.js",
+      "types": "./dist/ganzhi/index.d.ts"
+    },
+    "./wuxing": {
+      "import": "./dist/wuxing/index.js",
+      "types": "./dist/wuxing/index.d.ts"
+    },
+    "./direction": {
+      "import": "./dist/direction/index.js",
+      "types": "./dist/direction/index.d.ts"
+    },
+    "./shensha": {
+      "import": "./dist/shensha/index.js",
+      "types": "./dist/shensha/index.d.ts"
+    },
+    "./bazhai": {
+      "import": "./dist/ba_zhai/index.js",
+      "types": "./dist/ba_zhai/index.d.ts"
+    },
+    "./zodiac": {
+      "import": "./dist/zodiac/index.js",
+      "types": "./dist/zodiac/index.d.ts"
+    },
+    "./taiyi": {
+      "import": "./dist/taiyi/index.js",
+      "types": "./dist/taiyi/index.d.ts"
+    },
+    "./tieban": {
+      "import": "./dist/tie_ban/index.js",
+      "types": "./dist/tie_ban/index.d.ts"
+    },
+    "./qizheng": {
+      "import": "./dist/qi_zheng/index.js",
+      "types": "./dist/qi_zheng/index.d.ts"
+    },
     "./types": {
       "import": "./dist/types/index.js",
       "types": "./dist/types/index.d.ts"

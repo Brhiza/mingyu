@@ -44,38 +44,48 @@
 
 ## 接口列表
 
-| 接口                                 | 说明                                                                           |
-| ------------------------------------ | ------------------------------------------------------------------------------ |
-| `GET /health`                        | 健康检查                                                                       |
-| `GET /manifest`                      | 获取 API 元数据                                                                |
-| `GET /openapi.json`                  | 获取 OpenAPI 文档                                                              |
-| `POST /bazi/calculate`               | 八字排盘                                                                       |
-| `POST /bazi/prompt`                  | 八字排盘并生成 AI 解读提示词                                                   |
-| `POST /ziwei/calculate`              | 紫微斗数排盘                                                                   |
-| `POST /ziwei/prompt`                 | 紫微斗数排盘并生成 AI 解读提示词                                               |
-| `POST /bazi-ziwei/prompt`            | 八字紫微合参并生成 AI 解读提示词                                               |
-| `POST /divination/liuyao`            | 六爻起卦                                                                       |
-| `POST /divination/liuyao/prompt`     | 六爻起卦并生成 AI 解读提示词                                                   |
-| `POST /divination/meihua`            | 梅花易数起卦                                                                   |
-| `POST /divination/meihua/prompt`     | 梅花易数起卦并生成 AI 解读提示词                                               |
-| `POST /divination/xiaoliuren`        | 小六壬起课                                                                     |
-| `POST /divination/xiaoliuren/prompt` | 小六壬起课并生成 AI 解读提示词                                                 |
-| `POST /divination/qimen`             | 奇门遁甲排盘                                                                   |
-| `POST /divination/qimen/prompt`      | 奇门遁甲排盘并生成 AI 解读提示词                                               |
-| `POST /divination/liuren`            | 大六壬排盘                                                                     |
-| `POST /divination/liuren/prompt`     | 大六壬排盘并生成 AI 解读提示词                                                 |
-| `POST /divination/tarot`             | 塔罗抽牌                                                                       |
-| `POST /divination/tarot/prompt`      | 塔罗抽牌并生成 AI 解读提示词                                                   |
-| `POST /divination/ssgw`              | 三山国王灵签求签：模拟传统摇签、掷筊流程，圣杯确认后方出签；三连阴杯则拒绝起卦 |
-| `POST /divination/ssgw/prompt`       | 三山国王灵签求签并生成 AI 解读提示词                                           |
-| `POST /divination/almanac`           | 黄历择日                                                                       |
-| `POST /divination/almanac/prompt`    | 黄历择日并生成 AI 解读提示词                                                   |
-| `POST /divination/lenormand`         | 雷诺曼抽牌                                                                     |
-| `POST /divination/lenormand/prompt`  | 雷诺曼抽牌并生成 AI 解读提示词                                                 |
-| `POST /divination/astrolabe`         | 星盘生成                                                                       |
-| `POST /divination/astrolabe/prompt`  | 星盘生成并生成 AI 解读提示词                                                   |
-| `POST /ai/analyze`                   | AI 解读，返回 SSE 流式响应                                                     |
-| `POST /ai/models`                    | 获取当前 AI 配置可用的模型列表                                                 |
+| 接口                                  | 说明                                                                           |
+| ------------------------------------- | ------------------------------------------------------------------------------ |
+| `GET /health`                         | 健康检查                                                                       |
+| `GET /manifest`                       | 获取 API 元数据                                                                |
+| `GET /openapi.json`                   | 获取 OpenAPI 文档                                                              |
+| `POST /bazi/calculate`                | 八字排盘                                                                       |
+| `POST /bazi/prompt`                   | 八字排盘并生成 AI 解读提示词                                                   |
+| `POST /ziwei/calculate`               | 紫微斗数排盘                                                                   |
+| `POST /ziwei/prompt`                  | 紫微斗数排盘并生成 AI 解读提示词                                               |
+| `POST /bazi-ziwei/prompt`             | 八字紫微合参并生成 AI 解读提示词                                               |
+| `POST /divination/liuyao`             | 六爻起卦                                                                       |
+| `POST /divination/liuyao/prompt`      | 六爻起卦并生成 AI 解读提示词                                                   |
+| `POST /divination/meihua`             | 梅花易数起卦                                                                   |
+| `POST /divination/meihua/prompt`      | 梅花易数起卦并生成 AI 解读提示词                                               |
+| `POST /divination/xiaoliuren`         | 小六壬起课                                                                     |
+| `POST /divination/xiaoliuren/prompt`  | 小六壬起课并生成 AI 解读提示词                                                 |
+| `POST /divination/qimen`              | 奇门遁甲排盘                                                                   |
+| `POST /divination/qimen/prompt`       | 奇门遁甲排盘并生成 AI 解读提示词                                               |
+| `POST /divination/liuren`             | 大六壬排盘                                                                     |
+| `POST /divination/liuren/prompt`      | 大六壬排盘并生成 AI 解读提示词                                                 |
+| `POST /divination/tarot`              | 塔罗抽牌                                                                       |
+| `POST /divination/tarot/prompt`       | 塔罗抽牌并生成 AI 解读提示词                                                   |
+| `POST /divination/ssgw`               | 三山国王灵签求签：模拟传统摇签、掷筊流程，圣杯确认后方出签；三连阴杯则拒绝起卦 |
+| `POST /divination/ssgw/prompt`        | 三山国王灵签求签并生成 AI 解读提示词                                           |
+| `POST /divination/almanac`            | 黄历择日                                                                       |
+| `POST /divination/almanac/prompt`     | 黄历择日并生成 AI 解读提示词                                                   |
+| `POST /divination/lenormand`          | 雷诺曼抽牌                                                                     |
+| `POST /divination/lenormand/prompt`   | 雷诺曼抽牌并生成 AI 解读提示词                                                 |
+| `POST /divination/astrolabe`          | 星盘生成                                                                       |
+| `POST /divination/astrolabe/prompt`   | 星盘生成并生成 AI 解读提示词                                                   |
+| `POST /metaphysics/bazhai/calculate`  | 八宅命卦、宅卦与大游年方位                                                     |
+| `POST /metaphysics/bazhai/prompt`     | 八宅排盘并生成 AI 解读提示词                                                   |
+| `POST /metaphysics/zodiac/calculate`  | 生肖犯太岁与流年运程                                                           |
+| `POST /metaphysics/zodiac/prompt`     | 生肖流年排盘并生成 AI 解读提示词                                               |
+| `POST /metaphysics/taiyi/calculate`   | 太乙神数排盘                                                                   |
+| `POST /metaphysics/taiyi/prompt`      | 太乙神数排盘并生成 AI 解读提示词                                               |
+| `POST /metaphysics/tieban/calculate`  | 铁板神数先后天卦与公开条文                                                     |
+| `POST /metaphysics/tieban/prompt`     | 铁板神数排盘并生成 AI 解读提示词                                               |
+| `POST /metaphysics/qizheng/calculate` | 七政四余排盘                                                                   |
+| `POST /metaphysics/qizheng/prompt`    | 七政四余排盘并生成 AI 解读提示词                                               |
+| `POST /ai/analyze`                    | AI 解读，返回 SSE 流式响应                                                     |
+| `POST /ai/models`                     | 获取当前 AI 配置可用的模型列表                                                 |
 
 ## Agent 调用选择指南
 
@@ -89,25 +99,31 @@
 4. 用户要从一段日期里挑日子，优先用 `POST /divination/almanac/prompt`；日期超过 31 天或参与人很多时分页调用。
 5. 用户提供西方占星所需的出生时间、地点、经纬度或明确要求星盘时，用 `POST /divination/astrolabe/prompt`。
 6. 用户只想要轻量灵感、心理牌面或不提供出生信息时，可用塔罗、雷诺曼、灵签等提示词接口。
+7. 用户明确要求八宅、生肖犯太岁、太乙、铁板或七政四余时，使用对应的 `/metaphysics/{method}/prompt`；只需结构化排盘时改用 `/calculate`。
 
 常见问题到推荐接口：
 
-| 用户问题类型                         | 首选接口                                  | 推荐参数                                                                                  | 说明                                                   |
-| ------------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| 整体人生、长期事业、财运、婚恋       | `POST /bazi-ziwei/prompt`                 | `baziPromptTopic`、`ziweiPromptTopic` 按主题填写，`promptScope: "full"` 或 `"origin"`      | 有完整出生信息时优先合参；想看完整阶段时用 `full`     |
-| 今年、某一年、当前阶段运势           | `POST /bazi-ziwei/prompt`                 | `promptScope: "yearly"`，主题填事业、财运、感情等                                          | 八字看岁运触发，紫微看流年落宫与四化                  |
-| 换工作、创业、合伙、投资合作         | `POST /bazi-ziwei/prompt`                 | `job-change`、`startup-partnership`、`investment-partnership`，按问题选择主题              | 这类问题兼具长期结构和当前触发，优先合参              |
-| 只看八字格局、用神、流年流月         | `POST /bazi/prompt`                       | `promptTopic`，`baziFortuneScope: "full"`、`"year"`、`"month"` 或 `"day"`                  | 明确要求八字时使用                                    |
-| 只看紫微宫位、四化、某年某月运限     | `POST /ziwei/prompt`                      | `promptTopic`，`promptScope: "full"`、`"yearly"`、`"monthly"`、`"daily"` 或 `"hourly"`    | 明确要求紫微时使用                                    |
-| 当前事项能否推进、短期成败           | `POST /divination/liuyao/prompt`          | `question`，必要时传 `customDate`                                                         | 六爻适合一事一问、取用和应期                          |
-| 项目推进、方向选择、谈判出行、方位   | `POST /divination/qimen/prompt`           | `question`，可选 `qimenMethod: "zhuanpan"` 或 `"feipan"`，必要时传 `customDate`           | 奇门适合时空局势、路径、方位和行动窗口                |
-| 临时小事、快速判断                   | `POST /divination/xiaoliuren/prompt`      | `question`，可选 `xiaoliurenMethod` 和 `xiaoliurenNumber`                                  | 小六壬适合短平快，不适合长期命运                      |
-| 以数字或时间起卦的象意判断           | `POST /divination/meihua/prompt`          | `question`，可选 `method`、`number` 或 `customDate`                                        | 梅花适合象意、触发点和过程结果                        |
-| 更传统复杂的一事一课                 | `POST /divination/liuren/prompt`          | `question`，可选 `liurenTemplate` 和 `customDate`                                          | 大六壬适合较严肃的事项推演                            |
-| 结婚、搬家、开业、签约、出行、安葬   | `POST /divination/almanac/prompt`         | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`                   | 只在候选日期范围内择优，不应让 AI 推荐范围外日期      |
-| 星盘本命、行运、流年流月             | `POST /divination/astrolabe/prompt`       | 出生时间地点，经纬度，`astrolabeTopic`，`astrolabeScope: "full"` 或指定范围               | 需要经纬度和时区，资料不足时应先补齐                  |
-| 牌面灵感、关系牌阵、选择牌阵         | `POST /divination/tarot/prompt` 或雷诺曼  | `spreadType`、`question`                                                                  | 适合轻量启发，不作为长期命盘判断                      |
-| 求签                                 | `POST /divination/ssgw/prompt`            | `question`                                                                                | 有三连阴杯等拒签情况时，应如实返回，不强行解释        |
+| 用户问题类型                       | 首选接口                                 | 推荐参数                                                                               | 说明                                              |
+| ---------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| 整体人生、长期事业、财运、婚恋     | `POST /bazi-ziwei/prompt`                | `baziPromptTopic`、`ziweiPromptTopic` 按主题填写，`promptScope: "full"` 或 `"origin"`  | 有完整出生信息时优先合参；想看完整阶段时用 `full` |
+| 今年、某一年、当前阶段运势         | `POST /bazi-ziwei/prompt`                | `promptScope: "yearly"`，主题填事业、财运、感情等                                      | 八字看岁运触发，紫微看流年落宫与四化              |
+| 换工作、创业、合伙、投资合作       | `POST /bazi-ziwei/prompt`                | `job-change`、`startup-partnership`、`investment-partnership`，按问题选择主题          | 这类问题兼具长期结构和当前触发，优先合参          |
+| 只看八字格局、用神、流年流月       | `POST /bazi/prompt`                      | `promptTopic`，`baziFortuneScope: "full"`、`"year"`、`"month"` 或 `"day"`              | 明确要求八字时使用                                |
+| 只看紫微宫位、四化、某年某月运限   | `POST /ziwei/prompt`                     | `promptTopic`，`promptScope: "full"`、`"yearly"`、`"monthly"`、`"daily"` 或 `"hourly"` | 明确要求紫微时使用                                |
+| 当前事项能否推进、短期成败         | `POST /divination/liuyao/prompt`         | `question`，必要时传 `customDate`                                                      | 六爻适合一事一问、取用和应期                      |
+| 项目推进、方向选择、谈判出行、方位 | `POST /divination/qimen/prompt`          | `question`，可选 `qimenMethod: "zhuanpan"` 或 `"feipan"`，必要时传 `customDate`        | 奇门适合时空局势、路径、方位和行动窗口            |
+| 临时小事、快速判断                 | `POST /divination/xiaoliuren/prompt`     | `question`，可选 `xiaoliurenMethod` 和 `xiaoliurenNumber`                              | 小六壬适合短平快，不适合长期命运                  |
+| 以数字或时间起卦的象意判断         | `POST /divination/meihua/prompt`         | `question`，可选 `method`、`number` 或 `customDate`                                    | 梅花适合象意、触发点和过程结果                    |
+| 更传统复杂的一事一课               | `POST /divination/liuren/prompt`         | `question`，可选 `liurenTemplate` 和 `customDate`                                      | 大六壬适合较严肃的事项推演                        |
+| 结婚、搬家、开业、签约、出行、安葬 | `POST /divination/almanac/prompt`        | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`               | 只在候选日期范围内择优，不应让 AI 推荐范围外日期  |
+| 星盘本命、行运、流年流月           | `POST /divination/astrolabe/prompt`      | 出生时间地点，经纬度，`astrolabeTopic`，`astrolabeScope: "full"` 或指定范围            | 需要经纬度和时区，资料不足时应先补齐              |
+| 牌面灵感、关系牌阵、选择牌阵       | `POST /divination/tarot/prompt` 或雷诺曼 | `spreadType`、`question`                                                               | 适合轻量启发，不作为长期命盘判断                  |
+| 求签                               | `POST /divination/ssgw/prompt`           | `question`                                                                             | 有三连阴杯等拒签情况时，应如实返回，不强行解释    |
+| 住宅命卦、坐山吉凶                 | `POST /metaphysics/bazhai/prompt`        | `birthYear`、`gender`、可选 `sitMountain`                                              | 适合八宅命宅配合与方位参考                        |
+| 生肖犯太岁、流年贵人               | `POST /metaphysics/zodiac/prompt`        | `zodiac`、`year` 或 `yearGanZhi`                                                       | 生肖可传“鼠”或“子”                                |
+| 太乙神数                           | `POST /metaphysics/taiyi/prompt`         | `scope`、`year`，月日时家补充 `month/day/hour`                                         | 支持年、月、日、时家                              |
+| 铁板神数                           | `POST /metaphysics/tieban/prompt`        | 出生年月日时分、`gender`、可选 `keOffset`                                              | 完整一万二千条非公开，当前返回公开条文框架        |
+| 七政四余                           | `POST /metaphysics/qizheng/prompt`       | 出生年月日时分、经纬度、时区                                                           | 紫炁宿度使用公开可复现的近似口径                  |
 
 参数选择建议：
 
@@ -177,6 +193,18 @@ curl -X POST https://aov.cc/api/v1/bazi-ziwei/prompt \
 curl -X POST https://aov.cc/api/v1/divination/astrolabe/prompt \
   -H "Content-Type: application/json" \
   -d '{"name":"本人","gender":"女","year":1995,"month":5,"day":20,"hour":12,"minute":30,"latitude":39.9042,"longitude":116.4074,"timezone":8,"locationName":"北京","question":"整体人生和近期重点怎么看？","astrolabeTopic":"life","astrolabeScope":"full"}'
+```
+
+新增术数系统使用统一的 `/metaphysics/{method}/calculate` 与 `/prompt` 路径。例如八宅与七政四余：
+
+```bash
+curl -X POST https://aov.cc/api/v1/metaphysics/bazhai/prompt \
+  -H "Content-Type: application/json" \
+  -d '{"birthYear":1990,"gender":"male","sitMountain":"子","question":"住宅办公方位怎么安排？"}'
+
+curl -X POST https://aov.cc/api/v1/metaphysics/qizheng/prompt \
+  -H "Content-Type: application/json" \
+  -d '{"year":1995,"month":5,"day":20,"hour":12,"minute":30,"latitude":39.9042,"longitude":116.4074,"timezone":8,"question":"请重点看事业与迁移。"}'
 ```
 
 塔罗抽牌并生成提示词：

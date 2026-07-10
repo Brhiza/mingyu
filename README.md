@@ -10,7 +10,7 @@
 
 你可以在网页端快速完成排盘或占卜，时间类占卜支持使用当前时间或自定北京时间，并复制提示词给你常用的所有 AI 工具继续解读；对于移动端用户还可以使用分享功能快速跳转；也可以通过公开 API、MCP Server 或 skill，把命语的排盘与提示词能力接入自己的应用、工作流和智能体系统。
 
-项目目前覆盖八字排盘、紫微斗数、星盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗牌、雷诺曼、三山国王灵签、择日等场景，并尽量将结果拆分为机器可读的数据、用户可理解的摘要和适合大模型继续分析的提示词。
+项目目前覆盖八字排盘、紫微斗数、星盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗牌、雷诺曼、三山国王灵签、择日，以及八宅风水、生肖犯太岁、太乙神数、铁板神数、七政四余等场景，并尽量将结果拆分为机器可读的数据、用户可理解的摘要和适合大模型继续分析的提示词。
 
 线上体验：[https://aov.cc](https://aov.cc)
 
@@ -57,6 +57,17 @@ OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.jso
 - 塔罗牌：78 张塔罗牌，支持单牌、时间流、爱情、事业、选择等牌阵。
 - 雷诺曼：36 张雷诺曼牌，支持单牌、时间流、爱情、事业、选择等牌阵。
 - 三山国王灵签：92 签灵签，源自广东潮汕三山国王祖庙，包含签题、签诗、典故故事与分类解签，体系完备。
+
+</details>
+
+<details>
+<summary>传统术数</summary>
+
+- 八宅风水：按出生年与性别计算命卦，结合二十四山坐宅生成大游年四吉四凶方。
+- 生肖流年：按立春年界计算流年干支，输出值、冲、刑、害、破太岁及三合六合贵人。
+- 太乙神数：支持年家、月家、日家、时家，输出积年、阴阳遁、局数、太乙落宫、主客算与十六神盘。
+- 铁板神数：按四柱太玄数、考时定刻、先天卦与动爻生成后天卦，并提供公开条文框架。
+- 七政四余：输出七政、罗睺、计都、月孛、紫炁的宿度、十二宫、庙旺与神煞；紫炁和完整铁板条文受公开资料限制，结果会明确标注近似或公开示例范围。
 
 </details>
 
@@ -186,7 +197,11 @@ npm install mingyu-core
 import { baziCalculator } from 'mingyu-core/bazi';
 
 const result = baziCalculator.calculateBazi({
-  year: 1990, month: 1, day: 1, timeIndex: 5, gender: 'male',
+  year: 1990,
+  month: 1,
+  day: 1,
+  timeIndex: 5,
+  gender: 'male',
 });
 
 // 占卜算法
@@ -201,7 +216,7 @@ import { getDivinationTime, getVoidBranches } from 'mingyu-core/calendar';
 import type { BaziChartResult, QimenData, LiurenData } from 'mingyu-core/types';
 ```
 
-包覆盖能力：八字（含调候用神、格局、神煞、大运、命卦、小运、排盘边界预警、中国夏令时校正及透干根气、十神结构、合化评估等增强分析）、奇门遁甲（含节令背景、复合格局、方位应期）、六爻、大六壬、梅花易数、小六壬、紫微斗数、西洋占星、择日、雷诺曼、塔罗、三山国王灵签。
+包覆盖能力：八字（含调候用神、格局、神煞、大运、命卦、小运、排盘边界预警、中国夏令时校正及透干根气、十神结构、合化评估等增强分析）、奇门遁甲（含节令背景、复合格局、方位应期）、六爻、大六壬、梅花易数、小六壬、紫微斗数、西洋占星、择日、雷诺曼、塔罗、三山国王灵签，以及八宅、生肖流年、太乙、铁板、七政四余和干支、五行、方位、神煞公共模块。
 
 **⚠️ 免责：** 该包仅提供算法实现，所有结果仅供参考与学习娱乐，不构成任何命理预测或专业建议。
 
@@ -211,17 +226,17 @@ import type { BaziChartResult, QimenData, LiurenData } from 'mingyu-core/types';
 
 ## 技术栈
 
-| 类别 | 技术 |
-| --- | --- |
-| 前端 | React 19、TypeScript 5.9 |
-| 构建 | Vite 7 |
-| 路由 | React Router 7 |
-| 包管理 | pnpm workspace（应用层 + `mingyu-core` 算法包） |
-| 部署 | Cloudflare Pages、Pages Functions、Docker |
-| 历法与星盘 | `tyme4ts`、`iztro`、`celestine` |
-| 数据校验 | `zod` |
-| 测试 | Node.js 原生测试运行器 |
-| AI 集成 | MCP Server、OpenAPI、skill 文档 |
+| 类别       | 技术                                            |
+| ---------- | ----------------------------------------------- |
+| 前端       | React 19、TypeScript 5.9                        |
+| 构建       | Vite 7                                          |
+| 路由       | React Router 7                                  |
+| 包管理     | pnpm workspace（应用层 + `mingyu-core` 算法包） |
+| 部署       | Cloudflare Pages、Pages Functions、Docker       |
+| 历法与星盘 | `tyme4ts`、`iztro`、`celestine`                 |
+| 数据校验   | `zod`                                           |
+| 测试       | Node.js 原生测试运行器                          |
+| AI 集成    | MCP Server、OpenAPI、skill 文档                 |
 
 ## 项目结构
 
@@ -322,12 +337,12 @@ npx tsc --project mcp/tsconfig.json --noEmit
 
 Pages 构建设置：
 
-| 配置项 | 值 |
-| --- | --- |
-| Build command | `pnpm build` |
-| Build output directory | `dist` |
-| Root directory | 仓库根目录 |
-| Node.js version | 建议 `22` |
+| 配置项                 | 值           |
+| ---------------------- | ------------ |
+| Build command          | `pnpm build` |
+| Build output directory | `dist`       |
+| Root directory         | 仓库根目录   |
+| Node.js version        | 建议 `22`    |
 
 如果 Cloudflare 没有自动启用 pnpm，可在环境变量中添加：
 
@@ -444,21 +459,21 @@ VITE_ENABLE_DONATION_BOX=false
 
 服务端 AI 环境变量：
 
-| 变量 | 说明 |
-| --- | --- |
-| `AI_API_KEY` | 服务端调用模型的密钥 |
-| `AI_BASE_URL` | OpenAI 兼容接口地址，例如 `https://api.deepseek.com/v1` |
-| `AI_MODEL` | 默认模型名称 |
-| `AI_PROVIDER_NAME` | 前端显示的服务商名称，可自行命名 |
-| `AI_BUILTIN_ENABLED` | 设为 `true` 时，前端显示并允许使用服务端 AI |
+| 变量                 | 说明                                                                    |
+| -------------------- | ----------------------------------------------------------------------- |
+| `AI_API_KEY`         | 服务端调用模型的密钥                                                    |
+| `AI_BASE_URL`        | OpenAI 兼容接口地址，例如 `https://api.deepseek.com/v1`                 |
+| `AI_MODEL`           | 默认模型名称                                                            |
+| `AI_PROVIDER_NAME`   | 前端显示的服务商名称，可自行命名                                        |
+| `AI_BUILTIN_ENABLED` | 设为 `true` 时，前端显示并允许使用服务端 AI                             |
 | `AI_DEFAULT_ENABLED` | 设为 `true` 时，页面默认进入 AI 解读；设为 `false` 时默认仍是提示词模式 |
 
 只配置 `AI_API_KEY` 不会自动显示服务端 AI；必须同时设置 `AI_BUILTIN_ENABLED=true`。如果想提供公益内置 AI，但默认仍让用户复制提示词，可设置 `AI_BUILTIN_ENABLED=true`、`AI_DEFAULT_ENABLED=false`。用户仍可通过齿轮自行填写自己的接口。
 
 AI 代理会对上游临时错误自动重试 2 次。只重试网络异常、408、429 和 5xx；鉴权失败、模型名错误等确定性问题不会重试。常见错误码：
 
-| 错误码 | 含义 |
-| --- | --- |
+| 错误码                       | 含义                                       |
+| ---------------------------- | ------------------------------------------ |
 | `AI_UPSTREAM_UNSTABLE`       | 上游 AI 服务返回 5xx，通常是服务临时不稳定 |
 | `AI_UPSTREAM_RATE_LIMIT`     | 上游限流或额度受限                         |
 | `AI_UPSTREAM_TIMEOUT`        | 上游响应超时                               |
@@ -505,12 +520,12 @@ npm run contest:evaluate -- --format chat --url https://openrouter.ai/api/v1 --k
 
 支持的 `--format`：
 
-| 格式 | 说明 | URL 示例 |
-| --- | --- | --- |
-| `chat` | OpenAI Chat Completions 或兼容接口 | `https://api.openai.com/v1` |
-| `responses` | OpenAI Responses | `https://api.openai.com/v1` |
-| `claude` | Claude Messages | `https://api.anthropic.com/v1` |
-| `gemini` | Gemini generateContent | `https://generativelanguage.googleapis.com/v1beta` |
+| 格式        | 说明                               | URL 示例                                           |
+| ----------- | ---------------------------------- | -------------------------------------------------- |
+| `chat`      | OpenAI Chat Completions 或兼容接口 | `https://api.openai.com/v1`                        |
+| `responses` | OpenAI Responses                   | `https://api.openai.com/v1`                        |
+| `claude`    | Claude Messages                    | `https://api.anthropic.com/v1`                     |
+| `gemini`    | Gemini generateContent             | `https://generativelanguage.googleapis.com/v1beta` |
 
 不传 `--format` 时会自动识别；评测报告会保存到比赛资料目录下的 `评测结果/`。
 
