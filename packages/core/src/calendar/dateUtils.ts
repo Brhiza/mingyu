@@ -2,6 +2,40 @@
  * 日期时间工具函数
  */
 
+export { daysInSolarMonth as getDaysInMonth } from './date-validation';
+
+export interface ShichenPeriod {
+  index: number;
+  branch: string;
+  name: string;
+  range: string;
+  hour: number;
+}
+
+/** 十二时辰目录；子时按本项目排盘口径拆成早子时与晚子时。 */
+export const SHICHEN_PERIODS = [
+  { index: 0, branch: '子', name: '早子时', range: '00:00-01:00', hour: 0 },
+  { index: 1, branch: '丑', name: '丑时', range: '01:00-03:00', hour: 1 },
+  { index: 2, branch: '寅', name: '寅时', range: '03:00-05:00', hour: 3 },
+  { index: 3, branch: '卯', name: '卯时', range: '05:00-07:00', hour: 5 },
+  { index: 4, branch: '辰', name: '辰时', range: '07:00-09:00', hour: 7 },
+  { index: 5, branch: '巳', name: '巳时', range: '09:00-11:00', hour: 9 },
+  { index: 6, branch: '午', name: '午时', range: '11:00-13:00', hour: 11 },
+  { index: 7, branch: '未', name: '未时', range: '13:00-15:00', hour: 13 },
+  { index: 8, branch: '申', name: '申时', range: '15:00-17:00', hour: 15 },
+  { index: 9, branch: '酉', name: '酉时', range: '17:00-19:00', hour: 17 },
+  { index: 10, branch: '戌', name: '戌时', range: '19:00-21:00', hour: 19 },
+  { index: 11, branch: '亥', name: '亥时', range: '21:00-23:00', hour: 21 },
+  { index: 12, branch: '子', name: '晚子时', range: '23:00-24:00', hour: 23 },
+] as const satisfies readonly ShichenPeriod[];
+
+export function getShichenByIndex(index: number): ShichenPeriod | null {
+  if (!Number.isInteger(index) || index < 0 || index >= SHICHEN_PERIODS.length) {
+    return null;
+  }
+  return SHICHEN_PERIODS[index];
+}
+
 export function getTimeIndexFromClock(hour: number, minute = 0): number {
   if (
     !Number.isInteger(hour) ||
@@ -14,60 +48,12 @@ export function getTimeIndexFromClock(hour: number, minute = 0): number {
     return -1;
   }
 
+  if (hour === 24) return minute === 0 ? 12 : -1;
   if (hour === 23) return 12;
   if (hour === 0) return 0;
-  if (hour >= 1 && hour < 3) return 1;
-  if (hour >= 3 && hour < 5) return 2;
-  if (hour >= 5 && hour < 7) return 3;
-  if (hour >= 7 && hour < 9) return 4;
-  if (hour >= 9 && hour < 11) return 5;
-  if (hour >= 11 && hour < 13) return 6;
-  if (hour >= 13 && hour < 15) return 7;
-  if (hour >= 15 && hour < 17) return 8;
-  if (hour >= 17 && hour < 19) return 9;
-  if (hour >= 19 && hour < 21) return 10;
-  if (hour >= 21 && hour < 23) return 11;
-
-  if (hour === 24 && minute === 0) {
-    return 12;
-  }
-
-  return -1;
+  return Math.floor((hour + 1) / 2);
 }
 
-/**
- * 检查是否为闰年
- * @param year 年份
- * @returns 是否为闰年
- */
-function isLeapYear(year: number): boolean {
-  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-}
-
-function assertSolarYear(year: number): void {
-  if (!Number.isInteger(year) || year < 1900 || year > 2100) {
-    throw new Error('年份需在 1900-2100 之间。');
-  }
-}
-
-function assertSolarMonth(month: number): void {
-  if (!Number.isInteger(month) || month < 1 || month > 12) {
-    throw new Error('月份需在 1-12 之间。');
-  }
-}
-
-/**
- * 获取月份的天数
- * @param year 年份
- * @param month 月份 (1-12)
- * @returns 该月份的天数
- */
-export function getDaysInMonth(year: number, month: number): number {
-  assertSolarYear(year);
-  assertSolarMonth(month);
-  const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  if (month === 2 && isLeapYear(year)) {
-    return 29;
-  }
-  return daysInMonth[month - 1];
+export function getShichenFromClock(hour: number, minute = 0): ShichenPeriod | null {
+  return getShichenByIndex(getTimeIndexFromClock(hour, minute));
 }

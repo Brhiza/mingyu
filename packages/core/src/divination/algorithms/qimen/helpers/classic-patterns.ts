@@ -24,7 +24,7 @@ import {
   isGenerating,
   isControlling,
 } from './_constants';
-import { isKe } from '../../../../ganzhi';
+import { isKe, SIX_XUN_HEADS } from '../../../../ganzhi';
 import { getNamedStemPairPattern } from './stem-pair-patterns';
 import { getDunJiaStem } from './palace-utils';
 
@@ -1526,7 +1526,6 @@ function getRenTemporalDiLuoPatterns(
  */
 function getTianFuShiPattern(dayStem: string, hourGanZhi: string): ClassicPattern[] {
   const out: ClassicPattern[] = [];
-  const sixJiaHours = new Set(['甲子', '甲戌', '甲申', '甲午', '甲辰', '甲寅']);
   const wuHeHourStemByDayStem: Record<string, string> = {
     甲: '己',
     己: '甲',
@@ -1540,7 +1539,7 @@ function getTianFuShiPattern(dayStem: string, hourGanZhi: string): ClassicPatter
     癸: '戊',
   };
 
-  if (sixJiaHours.has(hourGanZhi)) {
+  if (SIX_XUN_HEADS.includes(hourGanZhi)) {
     out.push({
       key: 'pattern:tianFuShi',
       name: '天辅时',
@@ -1567,7 +1566,7 @@ function getTianFuShiPattern(dayStem: string, hourGanZhi: string): ClassicPatter
   };
   const matchedHour = tianFuShiMap[dayStem];
 
-  if (matchedHour && hourGanZhi === matchedHour && !sixJiaHours.has(hourGanZhi)) {
+  if (matchedHour && hourGanZhi === matchedHour && !SIX_XUN_HEADS.includes(hourGanZhi)) {
     out.push({
       key: 'pattern:tianFuShiVariant',
       name: '天辅时（别传）',

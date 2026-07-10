@@ -15,9 +15,9 @@ const qiZhengSchema = z.object({
   day: z.number().int().min(1).max(31).optional().describe('日'),
   hour: z.number().int().min(0).max(23).optional().describe('时'),
   minute: z.number().int().min(0).max(59).optional().describe('分'),
-  latitude: z.number().optional().describe('纬度（默认北京）'),
-  longitude: z.number().optional().describe('经度（默认北京）'),
-  timezone: z.number().optional().describe('时区偏移（默认 +8）'),
+  latitude: z.number().min(-90).max(90).optional().describe('纬度（默认北京）'),
+  longitude: z.number().min(-180).max(180).optional().describe('经度（默认北京）'),
+  timezone: z.number().min(-12).max(14).optional().describe('时区偏移（默认 +8）'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
 

@@ -1,6 +1,6 @@
-import { EARTHLY_BRANCHES } from '../ganzhi/data';
 import { daysInSolarMonth } from './date-validation';
-import { getTimeIndexFromClock } from './dateUtils';
+import { getShichenFromClock } from './dateUtils';
+import { checkChinaDst, type ChinaDstCheckResult } from './china-dst';
 
 export interface SolarDateTimeParts {
   year: number;
@@ -25,9 +25,13 @@ export interface TrueSolarTimeConversionInput {
   longitude: number;
   /** 当地标准时区，默认 UTC+8；支持小数时区。 */
   timezone?: number;
+  /** 是否按中国 1986-1991 历史规则自动还原夏令时，默认 false。 */
+  applyChinaDst?: boolean;
 }
 
 export interface TrueSolarTimeConversionResult extends TrueSolarTimeResult {
+  clockTime: SolarDateTimeParts;
+  clockDateTime: string;
   standardTime: SolarDateTimeParts;
   standardDateTime: string;
   correctedDateTime: string;
@@ -35,6 +39,10 @@ export interface TrueSolarTimeConversionResult extends TrueSolarTimeResult {
   timezone: number;
   standardMeridian: number;
   crossesDate: boolean;
+  chinaDst: ChinaDstCheckResult & {
+    requested: boolean;
+    applied: boolean;
+  };
   shichen: {
     index: number;
     branch: string;
@@ -90,6 +98,14 @@ function toDateTimeParts(date: Date): SolarDateTimeParts {
     minute: date.getUTCMinutes(),
     second: date.getUTCSeconds(),
   };
+}
+
+function shiftDateTime(value: SolarDateTimeParts, offsetMinutes: number): SolarDateTimeParts {
+  const date = new Date(
+    Date.UTC(value.year, value.month - 1, value.day, value.hour, value.minute, value.second),
+  );
+  date.setUTCMinutes(date.getUTCMinutes() + offsetMinutes);
+  return toDateTimeParts(date);
 }
 
 function pad(value: number): string {
@@ -178,33 +194,56 @@ export function calculateTrueSolarTime(
 export function convertTrueSolarTime(
   input: TrueSolarTimeConversionInput,
 ): TrueSolarTimeConversionResult {
-  const standardTime = parseLocalDateTime(input.localDateTime);
+  const clockTime = parseLocalDateTime(input.localDateTime);
   const timezone = input.timezone ?? 8;
   assertNumberInRange(timezone, 'timezone', -12, 14);
+  if (input.applyChinaDst !== undefined && typeof input.applyChinaDst !== 'boolean') {
+    throw new Error('applyChinaDst 必须是布尔值。');
+  }
+  const requestedChinaDst = input.applyChinaDst ?? false;
+  const chinaDstCheck = requestedChinaDst
+    ? checkChinaDst(
+        clockTime.year,
+        clockTime.month,
+        clockTime.day,
+        clockTime.hour,
+        clockTime.minute,
+      )
+    : { inDst: false, offsetMinutes: 0, ambiguous: false, nonexistent: false };
+  const chinaDstApplied = requestedChinaDst && chinaDstCheck.inDst;
+  const standardTime = chinaDstApplied
+    ? shiftDateTime(clockTime, chinaDstCheck.offsetMinutes)
+    : clockTime;
   const standardMeridian = timezone * 15;
   const result = calculateTrueSolarTime(standardTime, input.longitude, standardMeridian);
-  const timeIndex = getTimeIndexFromClock(result.correctedTime.hour, result.correctedTime.minute);
-  if (timeIndex < 0) {
+  const shichen = getShichenFromClock(result.correctedTime.hour, result.correctedTime.minute);
+  if (!shichen) {
     throw new Error('无法根据校正后的真太阳时确定时辰。');
   }
-  const branch = EARTHLY_BRANCHES[timeIndex % EARTHLY_BRANCHES.length];
 
   return {
     ...result,
+    clockTime,
+    clockDateTime: formatSolarDateTimeParts(clockTime),
     standardTime,
     standardDateTime: formatSolarDateTimeParts(standardTime),
     correctedDateTime: formatSolarDateTimeParts(result.correctedTime),
     longitude: input.longitude,
     timezone,
     standardMeridian,
+    chinaDst: {
+      ...chinaDstCheck,
+      requested: requestedChinaDst,
+      applied: chinaDstApplied,
+    },
     crossesDate:
-      standardTime.year !== result.correctedTime.year ||
-      standardTime.month !== result.correctedTime.month ||
-      standardTime.day !== result.correctedTime.day,
+      clockTime.year !== result.correctedTime.year ||
+      clockTime.month !== result.correctedTime.month ||
+      clockTime.day !== result.correctedTime.day,
     shichen: {
-      index: timeIndex,
-      branch,
-      name: timeIndex === 0 ? '早子时' : timeIndex === 12 ? '晚子时' : `${branch}时`,
+      index: shichen.index,
+      branch: shichen.branch,
+      name: shichen.name,
     },
   };
 }

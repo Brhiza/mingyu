@@ -18,6 +18,8 @@
  */
 import { calculateChart } from 'celestine';
 import { SevenStar, TwentyEightStar } from 'tyme4ts';
+import { daysInGregorianMonth } from '../calendar/date-validation';
+import { getShichenFromClock } from '../calendar/dateUtils';
 import { getGanZhiFromDate } from '../ganzhi';
 
 /** 二十八宿古距度（角宿起黄经 0；用于古距度宿度换算） */
@@ -238,7 +240,39 @@ function normalizeLongitude(value: number): number {
   return ((value % 360) + 360) % 360;
 }
 
+function assertIntegerRange(value: number, label: string, min: number, max: number): void {
+  if (!Number.isInteger(value) || value < min || value > max) {
+    throw new Error(`${label}需在 ${min}-${max} 之间。`);
+  }
+}
+
+function assertNumberRange(value: number, label: string, min: number, max: number): void {
+  if (!Number.isFinite(value) || value < min || value > max) {
+    throw new Error(`${label}需在 ${min} 到 ${max} 之间。`);
+  }
+}
+
+function validateQizhengInput(input: QizhengInput, includeLocation: boolean): void {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('七政四余参数必须是对象。');
+  }
+  assertIntegerRange(input.year, '年份', 1900, 2200);
+  assertIntegerRange(input.month, '月份', 1, 12);
+  const maxDay = daysInGregorianMonth(input.year, input.month);
+  if (!Number.isInteger(input.day) || input.day < 1 || input.day > maxDay) {
+    throw new Error(`日期需在 1-${maxDay} 之间。`);
+  }
+  assertIntegerRange(input.hour, '小时', 0, 23);
+  assertIntegerRange(input.minute ?? 0, '分钟', 0, 59);
+  assertNumberRange(input.timezone ?? 8, '时区', -12, 14);
+  if (includeLocation) {
+    assertNumberRange(input.latitude ?? 39.9, '纬度', -90, 90);
+    assertNumberRange(input.longitude ?? 116.4, '经度', -180, 180);
+  }
+}
+
 function getTargetUtcMs(input: QizhengInput): number {
+  validateQizhengInput(input, false);
   const localAsUtcMs = Date.UTC(
     input.year,
     input.month - 1,
@@ -270,6 +304,7 @@ export function calculateZiqiTropicalLongitude(input: QizhengInput): number {
  * 23.44° 是黄赤交角，不能作为岁差基数；2024 年累计岁差约 0.34°。
  */
 export function getPrecessionOffset(year: number): number {
+  if (!Number.isFinite(year)) throw new Error('岁差年份必须是有效数字。');
   const t = (year - 2000) / 100;
   const arcSeconds =
     5028.796195 * t + 1.1054348 * t ** 2 + 0.00007964 * t ** 3 - 0.000023857 * t ** 4;
@@ -395,6 +430,7 @@ function dignityOf(key: string, signIndex: number): string {
 
 /** 生成七政四余盘 */
 export function generateQizheng(input: QizhengInput): QizhengResult {
+  validateQizhengInput(input, true);
   const lat = input.latitude ?? 39.9;
   const lon = input.longitude ?? 116.4;
   const tz = input.timezone ?? 8;
@@ -462,19 +498,27 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
   const lilith = chart.lilith?.[0];
   const north = nodeMap.get('North Node');
   const south = nodeMap.get('South Node');
-  if (north) pushStar('罗睺(火余)', '四余', north.longitude);
-  if (south) pushStar('计都(土余)', '四余', south.longitude);
-  if (lilith) pushStar('月孛(水余)', '四余', lilith.longitude);
+  if (!north || !south || !lilith) {
+    throw new Error('七政四余星体数据不完整：缺少罗睺、计都或月孛。');
+  }
+  pushStar('罗睺(火余)', '四余', north.longitude);
+  pushStar('计都(土余)', '四余', south.longitude);
+  pushStar('月孛(水余)', '四余', lilith.longitude);
   const ziqi = calculateZiqiPosition(input);
   pushStar('紫炁(木余)', '四余', ziqi.tropicalLongitude);
 
   const sun = stars.find((s) => s.name === '太阳');
   const moon = stars.find((s) => s.name === '太阴');
-  const sunSign = sun ? sun.signIndex : 0;
-  const moonSign = moon ? moon.signIndex : 0;
+  if (!sun || !moon || stars.filter((star) => star.kind === '七政').length !== 7) {
+    throw new Error('七政星体数据不完整：必须包含日、月与五星。');
+  }
+  const sunSign = sun.signIndex;
+  const moonSign = moon.signIndex;
 
-  // 生时地支序（子0…亥11）：子时23-1，丑1-3，… 午11-13 → floor((hour+1)/2) % 12
-  const hourIdx = Math.floor((input.hour + 1) / 2) % 12; // 子0…亥11
+  // 生时地支序（子0…亥11）：复用公共十二时辰；晚子时索引 12 归并为子支序 0。
+  const shichen = getShichenFromClock(input.hour, input.minute ?? 0);
+  if (!shichen) throw new Error('七政四余无法根据输入时间确定时辰。');
+  const hourIdx = shichen.index % 12;
   const MAO = 3,
     YOU = 9; // 卯、酉
 

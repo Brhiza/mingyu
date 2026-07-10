@@ -20,9 +20,8 @@ import {
   isGenerating,
   starElements,
   supportiveGods,
-  tiangan,
 } from './_constants';
-import { LIUCHONG_MAP } from '../../../../ganzhi';
+import { getXunHead, isValidGanZhi, LIUCHONG_MAP } from '../../../../ganzhi';
 
 export interface QimenPatternCombo {
   key: string;
@@ -506,11 +505,7 @@ function getNamedBranchPalaceLabels(
 }
 
 function getXunShouGanZhi(ganZhi?: string): string | undefined {
-  if (!ganZhi) return undefined;
-  const stemIndex = tiangan.indexOf(ganZhi.charAt(0));
-  const branchIndex = branches.indexOf(ganZhi.charAt(1));
-  if (stemIndex === -1 || branchIndex === -1) return undefined;
-  return `甲${branches[(branchIndex - stemIndex + 12) % 12]}`;
+  return ganZhi && isValidGanZhi(ganZhi) ? getXunHead(ganZhi) : undefined;
 }
 
 function getStarPolarity(star?: string): '阳星' | '阴星' | undefined {

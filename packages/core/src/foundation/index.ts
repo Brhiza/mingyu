@@ -8,12 +8,14 @@ import {
   EARTHLY_BRANCHES,
   ZODIACS,
   SIXTY_CYCLE,
+  SIX_XUN_HEADS,
   CHANGSHENG_ORDER,
 } from '../ganzhi/data';
 import { describeGanZhi, getBranchRelations, getStemRelations } from '../ganzhi';
 import { WUXING, analyzeWuxing } from '../wuxing';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from '../direction';
 import { listShensha } from '../shensha';
+import { CHINA_DST_YEARS, SHICHEN_PERIODS } from '../calendar';
 
 export interface FoundationCapabilities {
   version: string;
@@ -23,10 +25,19 @@ export interface FoundationCapabilities {
     earthlyBranches: string[];
     zodiacs: string[];
     sixtyCycle: string[];
+    sixXunHeads: string[];
     changshengOrder: string[];
     wuxing: string[];
     bagua: string[];
     twentyFourMountains: string[];
+    shichenPeriods: Array<{
+      index: number;
+      branch: string;
+      name: string;
+      range: string;
+      hour: number;
+    }>;
+    chinaDstYears: number[];
   };
   commonShensha: { id: string; name: string; scope: string }[];
 }
@@ -35,16 +46,19 @@ export interface FoundationCapabilities {
 export function getFoundationCapabilities(): FoundationCapabilities {
   return {
     version: '1.0.0',
-    singleSourceModules: ['ganzhi', 'wuxing', 'direction', 'shensha'],
+    singleSourceModules: ['calendar', 'ganzhi', 'wuxing', 'direction', 'shensha'],
     constants: {
       heavenlyStems: [...HEAVENLY_STEMS],
       earthlyBranches: [...EARTHLY_BRANCHES],
       zodiacs: [...ZODIACS],
       sixtyCycle: [...SIXTY_CYCLE],
+      sixXunHeads: [...SIX_XUN_HEADS],
       changshengOrder: [...CHANGSHENG_ORDER],
       wuxing: [...WUXING],
       bagua: [...BAGUA],
       twentyFourMountains: [...TWENTY_FOUR_MOUNTAINS],
+      shichenPeriods: SHICHEN_PERIODS.map((period) => ({ ...period })),
+      chinaDstYears: [...CHINA_DST_YEARS],
     },
     commonShensha: listShensha('common').map(({ id, name, scope }) => ({ id, name, scope })),
   };

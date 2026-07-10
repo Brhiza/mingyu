@@ -26,6 +26,7 @@
 
 import { SolarDay, SolarTime } from 'tyme4ts';
 import { tiangan, jiazi, qimen } from '../../../../divination/divination-data';
+import { SIX_XUN_HEADS } from '../../../../ganzhi/data';
 import { sanQiLiuYi } from './_constants';
 
 const { dizhi, diPanPalaces, palaceStars, palaceDoorMap, jieQiJuShuMap } = qimen;
@@ -74,9 +75,6 @@ export interface QimenLayoutContext {
 // 内部辅助方法
 // ============================================================================
 
-/** 六甲符头日：甲子、甲戌、甲申、甲午、甲辰、甲寅（上元起点候选） */
-const FU_TOU = ['甲子', '甲戌', '甲申', '甲午', '甲辰', '甲寅'];
-
 /**
  * 取某 SolarDay 的六十甲子名（如 "甲子"）
  * @param sd 公历日
@@ -100,7 +98,7 @@ function findFuTou(
   // 最多搜索 70 天（远超节气跨度 15 天），确保能找到
   for (let i = 0; i < 70; i++) {
     const gz = getDayGanZhi(cur);
-    if (FU_TOU.includes(gz)) return { day: cur, ganzhi: gz };
+    if (SIX_XUN_HEADS.includes(gz)) return { day: cur, ganzhi: gz };
     cur = direction === 1 ? cur.next(1) : cur.next(-1);
   }
   return null;
@@ -339,8 +337,7 @@ export function checkSpecialHourConditions(
   // ── 1. 六甲时 ──
   // 甲子、甲戌、甲申、甲午、甲辰、甲寅
   // 《烟波钓叟歌》："六甲时分六仪名"
-  const liuJiaHours = ['甲子', '甲戌', '甲申', '甲午', '甲辰', '甲寅'];
-  if (liuJiaHours.includes(hourGanZhi)) {
+  if (SIX_XUN_HEADS.includes(hourGanZhi)) {
     result.isLiuJiaHour = true;
     result.description += '六甲时辰（甲时），甲遁于六仪之下；';
   }

@@ -12,6 +12,7 @@ import {
   EARTHLY_BRANCHES,
   HEAVENLY_STEMS,
   NAYIN_MAP,
+  SIX_XUN_HEADS,
   SIXTY_CYCLE,
 } from '../packages/core/src/ganzhi/data.ts';
 import { BRANCH_HIDDEN_STEMS } from '../packages/core/src/ganzhi/relations.ts';
@@ -32,6 +33,17 @@ test('六十甲子工具应返回完整序列与结构化关系', () => {
   assert.equal(cycle.length, 60);
   assert.equal(cycle[0], '甲子');
   assert.equal(cycle[59], '癸亥');
+  assert.deepEqual(core.foundation.getFoundationCapabilities().constants.sixXunHeads, [
+    '甲子',
+    '甲戌',
+    '甲申',
+    '甲午',
+    '甲辰',
+    '甲寅',
+  ]);
+  assert.equal(core.ganzhi.getXunHead('乙丑'), '甲子');
+  assert.equal(core.ganzhi.getXunHead('癸亥'), '甲寅');
+  assert.equal(SIX_XUN_HEADS.length, 6);
 
   const profile = core.foundation.describeGanZhi('甲子');
   assert.equal(profile.index, 0);
@@ -47,6 +59,12 @@ test('六十甲子工具应返回完整序列与结构化关系', () => {
   assert.deepEqual(core.foundation.getBranchRelations('寅').punishments, ['巳', '申']);
   assert.equal(core.foundation.getBranchRelations('寅').hiddenCombine, '丑');
   assert.equal(core.foundation.getFoundationCapabilities().constants.changshengOrder.length, 12);
+  assert.equal(core.foundation.getFoundationCapabilities().constants.shichenPeriods.length, 13);
+  assert.deepEqual(
+    core.foundation.getFoundationCapabilities().constants.chinaDstYears,
+    [1986, 1987, 1988, 1989, 1990, 1991],
+  );
+  assert.ok(core.foundation.getFoundationCapabilities().singleSourceModules.includes('calendar'));
 });
 
 test('统一五行分析应严格校验输入并支持藏干权重', () => {

@@ -5,22 +5,15 @@
  * It serves as a centralized "knowledge base" to be used across the application.
  */
 
-// 时辰信息
-export const TIME_MAP = [
-  { index: 0, name: '早子时', range: '00:00-01:00', hour: 0 },
-  { index: 1, name: '丑时', range: '01:00-03:00', hour: 1 },
-  { index: 2, name: '寅时', range: '03:00-05:00', hour: 3 },
-  { index: 3, name: '卯时', range: '05:00-07:00', hour: 5 },
-  { index: 4, name: '辰时', range: '07:00-09:00', hour: 7 },
-  { index: 5, name: '巳时', range: '09:00-11:00', hour: 9 },
-  { index: 6, name: '午时', range: '11:00-13:00', hour: 11 },
-  { index: 7, name: '未时', range: '13:00-15:00', hour: 13 },
-  { index: 8, name: '申时', range: '15:00-17:00', hour: 15 },
-  { index: 9, name: '酉时', range: '17:00-19:00', hour: 17 },
-  { index: 10, name: '戌时', range: '19:00-21:00', hour: 19 },
-  { index: 11, name: '亥时', range: '21:00-23:00', hour: 21 },
-  { index: 12, name: '晚子时', range: '23:00-24:00', hour: 23 },
-];
+import { SHICHEN_PERIODS } from '../calendar/dateUtils';
+
+// 兼容八字旧名，实际由公共日历时辰目录派生。
+export const TIME_MAP = SHICHEN_PERIODS.map(({ index, name, range, hour }) => ({
+  index,
+  name,
+  range,
+  hour,
+}));
 
 // 五行强弱计算权重
 export const WUXING_STRENGTH_SCORES = {

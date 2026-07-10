@@ -14,9 +14,10 @@ import type {
   XiaoliurenDivinationMethod,
   XiaoliurenPalaceDetail,
 } from '../../types/divination';
-import { getTimeIndexFromClock } from '../../calendar/dateUtils';
+import { getShichenByIndex, getTimeIndexFromClock } from '../../calendar/dateUtils';
 import { getDivinationTime } from '../../calendar/timeManager';
 import { getSeasonState } from '../../ganzhi';
+import { assertOptionalRecord } from '../../shared/validation';
 
 const XIAOLIUREN_PALACES = [
   {
@@ -138,27 +139,11 @@ function getPalaceByValue(value: number) {
 }
 
 function getHourLabel(hourIndex: number) {
-  const labels = [
-    '早子时',
-    '丑时',
-    '寅时',
-    '卯时',
-    '辰时',
-    '巳时',
-    '午时',
-    '未时',
-    '申时',
-    '酉时',
-    '戌时',
-    '亥时',
-    '晚子时',
-  ];
-
-  const label = labels[hourIndex];
-  if (!label) {
+  const shichen = getShichenByIndex(hourIndex);
+  if (!shichen) {
     throw new Error(`小六壬时辰索引无效：${hourIndex}`);
   }
-  return label;
+  return shichen.name;
 }
 
 function buildQuestionHint(primary: XiaoliurenPalaceDetail) {
@@ -204,6 +189,7 @@ export function generateXiaoliuren(params?: {
   number?: number;
   customDate?: Date;
 }): XiaoliurenData {
+  assertOptionalRecord(params, '小六壬起课参数');
   const method = params?.method ?? 'time';
   if (!Object.hasOwn(XIAOLIUREN_METHOD_LABEL_MAP, method)) {
     throw new Error(`未知的小六壬起课方式: ${method}`);

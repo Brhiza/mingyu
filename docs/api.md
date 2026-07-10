@@ -103,7 +103,7 @@
 
 | 用户问题类型                       | 首选接口                                 | 推荐参数                                                                               | 说明                                              |
 | ---------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| 换算真太阳时                     | `POST /calendar/true-solar-time`         | `localDateTime`、`longitude`，可选 `timezone`                                  | 默认 UTC+8，返回修正明细、跨日状态和对应时辰 |
+| 换算真太阳时                     | `POST /calendar/true-solar-time`         | `localDateTime`、`longitude`，可选 `timezone`、`applyChinaDst`                  | 默认 UTC+8，返回修正明细、跨日状态和对应时辰 |
 | 查六十甲子、纳音、藏干和合冲 | `POST /foundation/ganzhi`                | `ganZhi`，如“甲子”                                                              | 返回统一公共地基资料，不需重复实现          |
 | 统计天干地支五行分布             | `POST /foundation/wuxing`                | `items`、可选 `weightHidden`                                                   | 默认计入地支藏干权重                            |
 | 整体人生、长期事业、财运、婚恋     | `POST /bazi-ziwei/prompt`                | `baziPromptTopic`、`ziweiPromptTopic` 按主题填写，`promptScope: "full"` 或 `"origin"`  | 有完整出生信息时优先合参；想看完整阶段时用 `full` |
@@ -144,10 +144,10 @@
 ```bash
 curl -X POST https://aov.cc/api/v1/calendar/true-solar-time \
   -H "Content-Type: application/json" \
-  -d '{"localDateTime":"1990-05-15T10:30:00","longitude":116.4074,"timezone":8}'
+  -d '{"localDateTime":"1988-07-15T12:00:00","longitude":116.4074,"timezone":8,"applyChinaDst":true}'
 ```
 
-`localDateTime` 是当地钟表时间，不要附带 `Z` 或 `+08:00`。`timezone` 默认是 `8`；历史夏令时应先还原为标准时间。
+`localDateTime` 是当地钟表时间，不要附带 `Z` 或 `+08:00`。`timezone` 默认是 `8`；中国 1986–1991 年历史出生记录可传 `applyChinaDst: true` 自动还原夏令时，其他地区仍应按当地历史规则先还原为标准时间。
 
 六十甲子基础资料：
 

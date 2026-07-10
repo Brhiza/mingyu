@@ -48,6 +48,9 @@ export const SIXTY_CYCLE: readonly string[] = Array.from(
   (_, index) => `${HEAVENLY_STEMS[index % 10]}${EARTHLY_BRANCHES[index % 12]}`,
 );
 
+/** 六旬旬首（每旬第一个甲日/甲时）。 */
+export const SIX_XUN_HEADS: readonly string[] = SIXTY_CYCLE.filter((_, index) => index % 10 === 0);
+
 /** 天干五行 */
 export const STEM_WUXING: Record<string, string> = {
   甲: '木',
