@@ -764,7 +764,7 @@ async function main() {
   const samples = await buildSamples();
   assertRequiredSampleFields(samples);
   assertSamplePromptsAreClean(samples);
-  const outputDir = resolve('docs', 'prompt-audit');
+  const outputDir = resolve('.local', 'reports', 'prompt-audit');
   mkdirSync(outputDir, { recursive: true });
 
   const samplePath = resolve(outputDir, '2026-05-19-全部提示词真实生成样本.md');
