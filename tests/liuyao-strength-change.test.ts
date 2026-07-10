@@ -13,9 +13,17 @@ import type { LiuyaoYaoDetail } from 'mingyu-core/types';
 // 2025-01-01 农历为丙子月（子月：水旺木相金休土囚火死）、丙寅日（日支寅）
 // 该日期的卦象固定，用于回归月令旺衰、暗动、回头生克冲的字段输出。
 const SAMPLE_DATE = new Date('2025-01-01T08:00:00+08:00');
+const SHAN_HUO_BI_YAOS = [7, 8, 7, 8, 8, 7] as const;
+const XUN_WEI_FENG_YAOS = [7, 7, 8, 7, 7, 8] as const;
+const FENG_SHUI_HUAN_YAOS = [8, 7, 8, 7, 7, 8] as const;
+const KAN_WEI_SHUI_YAOS = [8, 7, 8, 8, 7, 8] as const;
+
+function generateSampleLiuyao(yaos: readonly number[] = SHAN_HUO_BI_YAOS) {
+  return generateLiuyao(SAMPLE_DATE, { yaos });
+}
 
 test('六爻：各爻输出月令旺相休囚死状态', () => {
-  const data = generateLiuyao(SAMPLE_DATE);
+  const data = generateSampleLiuyao();
   const monthBranch = data.ganzhi.month.slice(1);
   assert.equal(monthBranch, '子', '样本日期应为子月');
 
@@ -37,7 +45,7 @@ test('六爻：各爻输出月令旺相休囚死状态', () => {
 });
 
 test('六爻：爻内三刑汇总应按共享三刑口径识别两支互见', () => {
-  const data = generateLiuyao(SAMPLE_DATE);
+  const data = generateSampleLiuyao();
 
   assert.equal(data.originalName, '山火贲');
   assert.deepEqual(
@@ -52,7 +60,7 @@ test('六爻：爻内三刑汇总应按共享三刑口径识别两支互见', ()
 });
 
 test('六爻：静爻被日冲且旺相标记为暗动，休囚标记为日破', () => {
-  const data = generateLiuyao(SAMPLE_DATE);
+  const data = generateSampleLiuyao();
   const dayBranch = data.ganzhi.day.slice(1);
 
   // 暗动与日破互斥：暗动要求静爻(非动)且被日冲且旺相
@@ -71,19 +79,20 @@ test('六爻：静爻被日冲且旺相标记为暗动，休囚标记为日破',
   void dayBranch;
 });
 
-test('六爻：动爻变爻输出回头生克冲化空比和关系', () => {
-  const data = generateLiuyao(SAMPLE_DATE);
+test('六爻：动爻变爻应完整输出回头、化泄、化耗等五行关系', () => {
+  const data = generateSampleLiuyao([9, 6, 9, 6, 9, 6]);
   const changingYaos = data.yaosDetail.filter((y) => y.isChanging);
 
   for (const yao of changingYaos as LiuyaoYaoDetail[]) {
-    // 动爻有变爻时应有 changeRelation（回头生/回头克/回头冲/化空/比和之一）
     if (yao.changedYao) {
       assert.ok(
         yao.changeRelation,
         `第${yao.position}爻动变应输出 changeRelation，实际 ${yao.changeRelation}`,
       );
       assert.ok(
-        ['回头生', '回头克', '回头冲', '化空', '比和'].includes(yao.changeRelation!),
+        ['回头生', '回头克', '回头冲', '化空', '比和', '化泄', '化耗'].includes(
+          yao.changeRelation!,
+        ),
         `第${yao.position}爻 changeRelation 值非法：${yao.changeRelation}`,
       );
     }
@@ -139,7 +148,9 @@ test('六爻：整卦六合六冲应按初四二五三上爻支成组判断', ()
     transition: '六合变六冲',
   });
 
-  const data = generateLiuyao(new Date('2025-01-01T01:00:00+08:00'));
+  const data = generateLiuyao(new Date('2025-01-01T01:00:00+08:00'), {
+    yaos: XUN_WEI_FENG_YAOS,
+  });
   assert.equal(data.originalName, '巽为风');
   assert.equal(data.hexagramRelations?.original, '六冲卦');
 });
@@ -183,7 +194,7 @@ test('六爻：反吟伏吟应按卦变和纳甲地支判断', () => {
   const staticHexagram = getLiuyaoFanFuRelations('乾为天', '乾为天', false);
   assert.deepEqual(staticHexagram.labels, []);
 
-  const data = generateLiuyao(SAMPLE_DATE);
+  const data = generateSampleLiuyao();
   assert.ok(data.fanfuRelations);
   assert.ok(Array.isArray(data.fanfuRelations.labels));
 });
@@ -195,13 +206,17 @@ test('六爻：八宫卦位应输出首卦一世游魂归魂等卦序', () => {
   assert.equal(getLiuyaoPalaceStage('火地晋'), '游魂');
   assert.equal(getLiuyaoPalaceStage('火天大有'), '归魂');
 
-  const data = generateLiuyao(new Date('2025-01-01T16:00:00+08:00'));
+  const data = generateLiuyao(new Date('2025-01-01T16:00:00+08:00'), {
+    yaos: FENG_SHUI_HUAN_YAOS,
+  });
   assert.equal(data.originalName, '风水涣');
   assert.equal(data.palaceStage, '五世');
 });
 
 test('六爻：三合局应区分日辰与月建的实际参与', () => {
-  const data = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'));
+  const data = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
+    yaos: KAN_WEI_SHUI_YAOS,
+  });
 
   assert.equal(data.ganzhi.month.slice(1), '子');
   assert.equal(data.ganzhi.day.slice(1), '午');
@@ -217,17 +232,29 @@ test('六爻：三合局应区分日辰与月建的实际参与', () => {
 });
 
 test('六爻：月卦身应按阳世起子、阴世起午逐爻顺数', () => {
-  const yangShi = generateLiuyao(new Date('2025-01-01T16:00:00+08:00'));
+  const yangShi = generateLiuyao(new Date('2025-01-01T16:00:00+08:00'), {
+    yaos: FENG_SHUI_HUAN_YAOS,
+  });
   assert.equal(yangShi.originalName, '风水涣');
   assert.equal(yangShi.worldAndResponse.indexOf('世') + 1, 5);
   assert.equal(yangShi.yaosDetail[4].yaoType, '阳');
   assert.equal(yangShi.guaShen?.branch, '辰');
   assert.equal(yangShi.guaShen?.position, 2);
 
-  const yinShi = generateLiuyao(new Date('2025-01-01T01:00:00+08:00'));
+  const yinShi = generateLiuyao(new Date('2025-01-01T01:00:00+08:00'), {
+    yaos: XUN_WEI_FENG_YAOS,
+  });
   assert.equal(yinShi.originalName, '巽为风');
   assert.equal(yinShi.worldAndResponse.indexOf('世') + 1, 6);
   assert.equal(yinShi.yaosDetail[5].yaoType, '阴');
   assert.equal(yinShi.guaShen?.branch, '亥');
   assert.equal(yinShi.guaShen?.position, 2);
+});
+
+test('六爻：手工三钱法爻值应严格校验长度与取值', () => {
+  assert.throws(() => generateLiuyao(SAMPLE_DATE, { yaos: [7, 8, 7] }), /必须恰好包含 6 爻/);
+  assert.throws(
+    () => generateLiuyao(SAMPLE_DATE, { yaos: [7, 8, 7, 8, 8, 5] }),
+    /只能是 6、7、8、9/,
+  );
 });

@@ -106,7 +106,7 @@ export interface LiuyaoYaoDetail extends BaseYaoDetail {
   isHiddenMove?: boolean;
   seasonState?: '旺' | '相' | '休' | '囚' | '死' | '平';
   changeDirection?: '化进神' | '化退神' | null;
-  changeRelation?: '回头生' | '回头克' | '回头冲' | '化空' | '比和' | null;
+  changeRelation?: '回头生' | '回头克' | '回头冲' | '化空' | '比和' | '化泄' | '化耗' | null;
   changedYao?: {
     dizhi: string;
     wuxing: string;

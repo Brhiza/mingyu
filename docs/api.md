@@ -119,7 +119,7 @@
 | 求签                               | `POST /divination/ssgw/prompt`           | `question`                                                                             | 有三连阴杯等拒签情况时，应如实返回，不强行解释    |
 | 住宅命卦、坐山吉凶                 | `POST /metaphysics/bazhai/prompt`        | `birthYear`、`gender`、可选 `sitMountain`                                              | 适合八宅命宅配合与方位参考                        |
 | 生肖犯太岁、流年贵人               | `POST /metaphysics/zodiac/prompt`        | `zodiac`、`year` 或 `yearGanZhi`                                                       | 生肖可传“鼠”或“子”                                |
-| 太乙神数                           | `POST /metaphysics/taiyi/prompt`         | `scope`、`year`，月日时家补充 `month/day/hour`                                         | 支持年、月、日、时家                              |
+| 太乙神数                           | `POST /metaphysics/taiyi/prompt`         | `year`，可选 `scope: "year"` 与相符的 `ganZhi`                                         | 当前只开放逐局核对的年家七十二局                  |
 | 七政四余                           | `POST /metaphysics/qizheng/prompt`       | 出生年月日时分、经纬度、时区                                                           | 紫炁采用《七政算内篇》单一古法均速模型            |
 
 参数选择建议：

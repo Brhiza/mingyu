@@ -159,12 +159,14 @@ function checkSanheWithTrigger(
 
 /**
  * 回头生克冲：动爻变出之爻对动爻本身的关系。
- * - 回头生：变爻生动爻（如寅动化卯，水动化木）
- * - 回头克：变爻克动爻
+ * - 回头生：变爻生动爻，如木爻动化水爻
+ * - 回头克：变爻克动爻，如木爻动化金爻
  * - 回头冲：变爻冲动爻（六冲）
  * - 化空：变爻落旬空
  * - 化进/化退：同五行递进退（由 getLiuyaoChangeDirection 判定）
  * - 比和：同五行同比和
+ * - 化泄：动爻生变爻，本爻之气外泄
+ * - 化耗：动爻克变爻，本爻用力而耗
  */
 function getChangeRelation(
   originalWuxing: string,
@@ -172,14 +174,16 @@ function getChangeRelation(
   originalBranch: string,
   changedBranch: string,
   changedIsVoid: boolean,
-): '回头生' | '回头克' | '回头冲' | '化空' | '比和' | null {
+): '回头生' | '回头克' | '回头冲' | '化空' | '比和' | '化泄' | '化耗' | null {
   if (!originalWuxing || !changedWuxing) return null;
   if (changedIsVoid) return '化空';
   if (isLiuchong(originalBranch, changedBranch)) return '回头冲';
   if (isSheng(changedWuxing, originalWuxing)) return '回头生';
   if (isKe(changedWuxing, originalWuxing)) return '回头克';
   if (originalWuxing === changedWuxing) return '比和';
-  return null;
+  if (isSheng(originalWuxing, changedWuxing)) return '化泄';
+  if (isKe(originalWuxing, changedWuxing)) return '化耗';
+  throw new Error(`动变五行关系无法判定：${originalWuxing}→${changedWuxing}`);
 }
 
 /**
@@ -727,6 +731,7 @@ function getSpecialPattern(
  * 返回完整的六爻卦盘，包含主卦、变卦、互卦、世应、纳甲、六亲、六神等信息。
  *
  * @param customDate 自定义起卦时间（可选），若不提供则使用当前时间。
+ * @param options 可选手工三钱法爻值，用于复现真实投掷或固定卦例。
  * @returns 完整的六爻卦盘数据对象 LiuyaoData。
  *
  * @example
@@ -735,10 +740,27 @@ function getSpecialPattern(
  * // result 包含 mainHexagram、changedHexagram、yaos（六爻详情）等字段
  * ```
  */
-export function generateLiuyao(customDate?: Date) {
+export interface LiuyaoGenerationOptions {
+  /** 可选手工三钱法爻值，按初爻到上爻传入 6、7、8、9。 */
+  yaos?: readonly number[];
+}
+
+function resolveRawYaos(timestamp: number, options?: LiuyaoGenerationOptions): number[] {
+  if (options?.yaos === undefined) return generateYaosByTime(timestamp, 6);
+  if (options.yaos.length !== 6) {
+    throw new Error('六爻手工爻值必须恰好包含 6 爻。');
+  }
+  const yaos = [...options.yaos];
+  if (!yaos.every((value) => Number.isInteger(value) && value >= 6 && value <= 9)) {
+    throw new Error('六爻手工爻值只能是 6、7、8、9。');
+  }
+  return yaos;
+}
+
+export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOptions) {
   // 1. 获取占卜时间的干支信息
   const { ganzhi, timestamp } = getDivinationTime(customDate);
-  const rawYaos = generateYaosByTime(timestamp, 6);
+  const rawYaos = resolveRawYaos(timestamp, options);
 
   const mainYaos = rawYaos.map((yao) => (yao === 7 || yao === 9 ? '阳' : '阴'));
   const changedYaos = rawYaos.map((yao, index) => {

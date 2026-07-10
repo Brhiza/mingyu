@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { bazhai } from 'mingyu-core';
+import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
 import { resultOutputSchema, promptOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
@@ -12,8 +13,16 @@ import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
 const baZhaiSchema = z.object({
   birthYear: z.number().int().min(1900).max(2100).optional().describe('出生公历年份（用于推命卦）'),
   gender: z.enum(['male', 'female']).optional().describe('性别'),
-  mingGua: z.string().optional().describe('直接给定命卦（坎坤震巽乾兑艮离）'),
-  sitMountain: z.string().optional().describe('坐山（二十四山，如「子」），用于推宅卦'),
+  mingGua: z
+    .string()
+    .refine((value) => BAGUA.includes(value), 'mingGua 必须是有效八卦')
+    .optional()
+    .describe('直接给定命卦（坎坤震巽乾兑艮离）'),
+  sitMountain: z
+    .string()
+    .refine((value) => TWENTY_FOUR_MOUNTAINS.includes(value), 'sitMountain 必须是有效二十四山')
+    .optional()
+    .describe('坐山（二十四山，如「子」），用于推宅卦'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
 

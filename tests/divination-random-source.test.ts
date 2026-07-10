@@ -58,6 +58,26 @@ test('时间起卦随机工具应拒绝非法范围和数量，避免返回空�
   );
 });
 
+test('时间三钱法应能稳定产生老阴老阳，分布接近 1:3:3:1', () => {
+  const counts: Record<number, number> = { 6: 0, 7: 0, 8: 0, 9: 0 };
+  const start = Date.UTC(2026, 0, 1);
+  const samples = 8192;
+
+  for (let index = 0; index < samples; index += 1) {
+    const yao = TimeManager.generateYaosByTime(start + index * 1000, 1)[0];
+    counts[yao] += 1;
+  }
+
+  assert.ok(counts[6] > samples * 0.09 && counts[6] < samples * 0.16, JSON.stringify(counts));
+  assert.ok(counts[7] > samples * 0.33 && counts[7] < samples * 0.42, JSON.stringify(counts));
+  assert.ok(counts[8] > samples * 0.33 && counts[8] < samples * 0.42, JSON.stringify(counts));
+  assert.ok(counts[9] > samples * 0.09 && counts[9] < samples * 0.16, JSON.stringify(counts));
+  assert.deepEqual(
+    TimeManager.generateYaosByTime(DATE.getTime(), 6),
+    TimeManager.generateYaosByTime(DATE.getTime(), 6),
+  );
+});
+
 test('自定义随机源必须返回合法区间，避免抽取结果被坏输入静默污染', () => {
   assert.throws(() => createRandomSource({ rng: 0.5 as never }), /自定义随机源必须是函数/);
   assert.throws(

@@ -156,6 +156,7 @@ export function getBranchYinYang(branch: string): '阳' | '阴' {
 
 /** 干支阴阳（以天干阴阳为准） */
 export function getGanZhiYinYang(ganZhi: string): '阳' | '阴' {
+  assertValidGanZhi(ganZhi);
   return getStemYinYang(ganZhi[0]);
 }
 
@@ -182,9 +183,21 @@ export function diffGanZhi(from: string, to: string): number {
 
 /** 六十甲子序号（0-59），甲子为 0 */
 export function getSixtyCycleIndex(ganZhi: string): number {
+  assertValidGanZhi(ganZhi);
   const s = getStemIndex(ganZhi[0]);
   const b = getBranchIndex(ganZhi[1]);
   return (((s * 6 - b * 5) % 60) + 60) % 60;
+}
+
+/** 是否为真实存在的六十甲子组合，而非仅由合法天干和地支随意拼接。 */
+export function isValidGanZhi(ganZhi: string): boolean {
+  return typeof ganZhi === 'string' && ganZhi.length === 2 && NAYIN_MAP[ganZhi] !== undefined;
+}
+
+function assertValidGanZhi(ganZhi: string): void {
+  if (!isValidGanZhi(ganZhi)) {
+    throw new Error(`干支组合无效：${ganZhi}`);
+  }
 }
 
 /** 纳音（如「海中金」，委托 tyme4ts，与《纳音歌》一致） */
@@ -198,12 +211,18 @@ export function getNayin(ganZhi: string): string {
   }
 }
 
-/** 纳音五行（取纳音名首字对应五行） */
+/** 纳音五行（纳音名称均以五行字结尾，如海中金、炉中火） */
 export function getNayinWuxing(ganZhi: string): string {
   const na = getNayin(ganZhi);
-  const first = na[0];
-  if (first === '金' || first === '木' || first === '水' || first === '火' || first === '土') {
-    return first;
+  const element = na[na.length - 1];
+  if (
+    element === '金' ||
+    element === '木' ||
+    element === '水' ||
+    element === '火' ||
+    element === '土'
+  ) {
+    return element;
   }
   throw new Error(`纳音五行无法判定：${na}`);
 }
@@ -299,6 +318,7 @@ export const ganzhi = {
   getStemIndex,
   getBranchIndex,
   diffGanZhi,
+  isValidGanZhi,
   getNayin,
   getNayinWuxing,
   getChangShengState,

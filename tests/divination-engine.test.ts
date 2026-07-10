@@ -3532,7 +3532,7 @@ test('六爻提示词应同时写出日辰和月建参与的三合局', async ()
       method: 'liuyao',
       divinationTimeMode: 'custom',
       customDivinationDate: '2025-01-01',
-      customDivinationTime: '00:00',
+      customDivinationTime: '00:21',
     }),
   );
   const data = session.data as ReturnType<typeof generateLiuyao>;

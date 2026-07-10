@@ -13,7 +13,9 @@ import {
   isLiupo,
   isSanxing,
   isLiuhe,
-  isCompleteSanhe,
+  isValidGanZhi,
+  getBranchIndex,
+  BRANCH_SANHE,
   ZODIACS,
   EARTHLY_BRANCHES,
 } from '../ganzhi';
@@ -90,6 +92,16 @@ export interface TaiSuiConflict {
 
 /** 生肖是否犯太岁（年支视角） */
 export function getTaiSuiConflicts(zodiacBranch: string, yearBranch: string): TaiSuiConflict[] {
+  try {
+    getBranchIndex(zodiacBranch);
+  } catch {
+    throw new Error(`生肖地支无效：${zodiacBranch}`);
+  }
+  try {
+    getBranchIndex(yearBranch);
+  } catch {
+    throw new Error(`流年地支无效：${yearBranch}`);
+  }
   const out: TaiSuiConflict[] = [];
   if (zodiacBranch === yearBranch) {
     out.push({ type: '值太岁', with: yearBranch, desc: '本命年，值太岁当头，宜静不宜动。' });
@@ -111,6 +123,9 @@ export function getTaiSuiConflicts(zodiacBranch: string, yearBranch: string): Ta
 
 /** 流年值年太岁 */
 export function getYearTaiSui(yearGanZhi: string): { yearBranch: string; star: string } {
+  if (!isValidGanZhi(yearGanZhi)) {
+    throw new Error(`流年干支无效：${yearGanZhi}`);
+  }
   const star = TAI_SUI_STARS[yearGanZhi];
   if (!star) throw new Error(`太岁星君数据缺失：${yearGanZhi}`);
   return { yearBranch: yearGanZhi[1], star };
@@ -152,6 +167,9 @@ function judgeLevel(conflicts: TaiSuiConflict[], relation: string): FortuneLevel
 
 /** 生肖流年运程 */
 export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): ZodiacYearFortune {
+  if (!isValidGanZhi(yearGanZhi)) {
+    throw new Error(`流年干支无效：${yearGanZhi}`);
+  }
   const yearBranch = yearGanZhi[1];
   const zodiacIdx = EARTHLY_BRANCHES.indexOf(zodiacBranch as (typeof EARTHLY_BRANCHES)[number]);
   if (zodiacIdx < 0) throw new Error(`生肖地支无效：${zodiacBranch}`);
@@ -161,8 +179,8 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
   let noble: string | null = null;
   if (isLiuhe(zodiacBranch, yearBranch)) noble = '六合贵人';
   else {
-    const group = isCompleteSanhe([zodiacBranch, yearBranch]);
-    if (group) noble = `三合贵人（${group}）`;
+    const sanhe = BRANCH_SANHE[zodiacBranch];
+    if (sanhe?.partners.includes(yearBranch)) noble = `三合贵人（${sanhe.group}）`;
   }
   const level = judgeLevel(conflicts, relation);
   const prompt = [
