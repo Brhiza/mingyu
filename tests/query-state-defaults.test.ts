@@ -465,6 +465,39 @@ test('星盘提示词完整输出版会写入并清空日期', () => {
   assert.equal(parsed.astrolabeScopeDate, '');
 });
 
+test('七政四余和八宅提示词来源可从地址栏恢复', () => {
+  const qizhengSearch = buildResultSearch(defaultInputState, {
+    ...defaultPromptState,
+    tab: 'prompt',
+    promptSource: 'qizheng',
+  });
+  assert.match(qizhengSearch, /ps=qizheng/);
+  assert.equal(parsePromptState(new URLSearchParams(qizhengSearch)).promptSource, 'qizheng');
+
+  const bazhaiSearch = buildResultSearch(defaultInputState, {
+    ...defaultPromptState,
+    tab: 'prompt',
+    promptSource: 'bazhai',
+    bazhaiFacingDegree: '12.5',
+  });
+  assert.match(bazhaiSearch, /ps=bazhai/);
+  assert.match(bazhaiSearch, /bhd=12.5/);
+  const parsed = parsePromptState(new URLSearchParams(bazhaiSearch));
+  assert.equal(parsed.promptSource, 'bazhai');
+  assert.equal(parsed.bazhaiFacingDegree, '12.5');
+});
+
+test('八宅入户方向缓存应拒绝越界度数', () => {
+  assert.equal(
+    parsePromptState(new URLSearchParams({ bazhaiFacingDegree: '361' })).bazhaiFacingDegree,
+    '',
+  );
+  assert.equal(
+    parsePromptState(new URLSearchParams({ bazhaiFacingDegree: '-1' })).bazhaiFacingDegree,
+    '',
+  );
+});
+
 test('星盘提示词范围日期应按范围校验并清空非法日期', () => {
   assert.equal(
     parsePromptState(new URLSearchParams({ astrolabeScope: 'yearly', astrolabeScopeDate: '2028' }))

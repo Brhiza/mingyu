@@ -3318,7 +3318,11 @@ select {
   border-radius: var(--radius-page-card);
   border: 1px solid var(--border-soft);
   background:
-    linear-gradient(180deg, rgba(var(--surface-base-rgb), 0.94), rgba(var(--surface-base-rgb), 0.88)),
+    linear-gradient(
+      180deg,
+      rgba(var(--surface-base-rgb), 0.94),
+      rgba(var(--surface-base-rgb), 0.88)
+    ),
     var(--surface-soft);
   box-shadow: var(--shadow-md);
   pointer-events: auto;
@@ -3539,7 +3543,11 @@ select {
 .person-section {
   border: 1px solid var(--border-soft);
   background:
-    linear-gradient(180deg, rgba(var(--surface-base-rgb), 0.96), rgba(var(--surface-base-rgb), 0.9)),
+    linear-gradient(
+      180deg,
+      rgba(var(--surface-base-rgb), 0.96),
+      rgba(var(--surface-base-rgb), 0.9)
+    ),
     var(--surface-soft);
   border-radius: var(--radius-page-card);
   box-shadow: var(--shadow-card);
@@ -4136,6 +4144,179 @@ select {
   border-radius: 20px;
   border: 1px solid var(--border-soft);
   background: linear-gradient(180deg, var(--surface-base), var(--surface-soft));
+}
+
+.qizheng-chart-svg,
+.bazhai-compass-svg {
+  width: min(430px, 100%);
+  aspect-ratio: 1;
+  justify-self: center;
+  padding: 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border-soft);
+  background: radial-gradient(circle at center, var(--surface-base), var(--surface-soft));
+}
+
+.qizheng-ring,
+.bazhai-ring {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 1.2;
+}
+
+.qizheng-ring-core,
+.bazhai-ring-core {
+  fill: color-mix(in srgb, var(--accent-soft) 35%, transparent);
+}
+
+.qizheng-sector-line,
+.bazhai-sector-line {
+  stroke: var(--border-soft);
+  stroke-width: 1;
+}
+
+.qizheng-palace-label,
+.bazhai-direction-label {
+  fill: var(--text-secondary);
+  font-size: 9px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.qizheng-star-dot {
+  stroke: var(--surface-base);
+  stroke-width: 2;
+}
+
+.qizheng-star-label {
+  fill: white;
+  font-size: 10px;
+  font-weight: 800;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.qizheng-retrograde-label {
+  fill: var(--danger-text);
+  font-size: 8px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.qizheng-aspect-line {
+  stroke: var(--accent-strong);
+  stroke-width: 1.2;
+}
+
+.qizheng-aspect-四正,
+.qizheng-aspect-对照 {
+  stroke: var(--danger-text);
+  stroke-dasharray: 4 3;
+}
+
+.qizheng-core-title,
+.bazhai-core-title {
+  fill: var(--text-strong);
+  font-size: 12px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+.qizheng-core-subtitle,
+.bazhai-core-subtitle {
+  fill: var(--text-secondary);
+  font-size: 10px;
+  text-anchor: middle;
+}
+
+.qizheng-star-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.qizheng-star-item {
+  display: grid;
+  gap: 2px;
+  padding: 9px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+
+.qizheng-star-name {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.qizheng-star-item strong {
+  color: var(--text-strong);
+  font-size: 12px;
+}
+
+.qizheng-star-item small {
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.qizheng-detail-grid,
+.bazhai-result-grid,
+.bazhai-board-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.bazhai-board-layout {
+  grid-template-columns: minmax(260px, 430px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.bazhai-board-legend {
+  display: grid;
+  gap: 12px;
+}
+
+.bazhai-direction-label.is-lucky {
+  fill: var(--success-text);
+  font-weight: 800;
+}
+
+.bazhai-direction-label.is-unlucky {
+  fill: var(--danger-text);
+}
+
+.bazhai-facing-arrow {
+  fill: var(--accent-strong);
+}
+
+.bazhai-facing-line {
+  stroke: var(--accent-strong);
+  stroke-width: 3;
+}
+
+.bazhai-advice,
+.bazhai-boundary-note {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.bazhai-boundary-note {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .qizheng-detail-grid,
+  .bazhai-result-grid,
+  .bazhai-board-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .qizheng-star-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .astrolabe-board-layout {

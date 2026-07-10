@@ -3,7 +3,7 @@ import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { getBirthDateValidationMessage } from '@/lib/date-validation';
 
 export type ResultTabKey = 'bazi' | 'ziwei' | 'astrolabe' | 'qizheng' | 'bazhai' | 'prompt';
-export type PromptSourceKey = 'bazi' | 'ziwei' | 'bazi-ziwei' | 'astrolabe';
+export type PromptSourceKey = 'bazi' | 'ziwei' | 'bazi-ziwei' | 'astrolabe' | 'qizheng' | 'bazhai';
 export type BaziFortuneScope = 'natal' | 'full' | 'dayun' | 'year' | 'month' | 'day';
 export type { AstrolabePromptTopic };
 export type ZiweiScopeMode =
@@ -66,6 +66,7 @@ export type QueryPromptState = {
   astrolabeQuickQuestion: string;
   astrolabeScope: AstrolabeScopeMode;
   astrolabeScopeDate: string;
+  bazhaiFacingDegree: string;
 };
 
 const BAZI_FORTUNE_SCOPES: readonly BaziFortuneScope[] = [
@@ -179,6 +180,7 @@ export const defaultPromptState: QueryPromptState = {
   astrolabeQuickQuestion: '',
   astrolabeScope: 'natal',
   astrolabeScopeDate: '',
+  bazhaiFacingDegree: '',
 };
 
 const INPUT_PARAM_KEYS: Record<keyof QueryInputState, string> = {
@@ -235,6 +237,7 @@ const PROMPT_PARAM_KEYS: Record<keyof QueryPromptState, string> = {
   astrolabeQuickQuestion: 'aq',
   astrolabeScope: 'as',
   astrolabeScopeDate: 'asd',
+  bazhaiFacingDegree: 'bhd',
 };
 
 const PARAM_KEY_ALIASES: Record<string, string> = {
@@ -420,6 +423,12 @@ function appendPromptStateParams(params: URLSearchParams, prompt: QueryPromptSta
     'astrolabeScopeDate',
     prompt.astrolabeScopeDate,
     defaultPromptState.astrolabeScopeDate,
+  );
+  setCompactParam(
+    params,
+    'bazhaiFacingDegree',
+    prompt.bazhaiFacingDegree,
+    defaultPromptState.bazhaiFacingDegree,
   );
 }
 
@@ -775,7 +784,9 @@ export function parsePromptState(params: URLSearchParams): QueryPromptState {
   const promptSource: PromptSourceKey =
     rawPromptSource === 'ziwei' ||
     rawPromptSource === 'bazi-ziwei' ||
-    rawPromptSource === 'astrolabe'
+    rawPromptSource === 'astrolabe' ||
+    rawPromptSource === 'qizheng' ||
+    rawPromptSource === 'bazhai'
       ? rawPromptSource
       : 'bazi';
 
@@ -825,6 +836,11 @@ export function parsePromptState(params: URLSearchParams): QueryPromptState {
       params,
       'astrolabeScopeDate',
       defaultPromptState.astrolabeScopeDate,
+    ),
+    bazhaiFacingDegree: parseDecimalText(
+      getString(params, 'bazhaiFacingDegree', defaultPromptState.bazhaiFacingDegree),
+      0,
+      360,
     ),
   });
 }

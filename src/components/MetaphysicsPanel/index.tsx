@@ -1,14 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { analyzeBaZhai } from '@core/ba_zhai';
-import { getSitFacingFromFacingDegree, type SitFacingPosition } from '@core/direction';
-import { generateQizheng } from '@core/qi_zheng';
-import { buildMetaphysicsPrompt } from '@/lib/metaphysics-prompt';
+import { useEffect, useMemo, useState } from 'react';
+import type { BaZhaiResult } from '@core/ba_zhai';
+import {
+  calculateBazhaiBaseChart,
+  calculateBazhaiChart,
+  resolveBazhaiDoorDirection,
+  type BazhaiMeasurement,
+} from '@/lib/bazhai-chart';
 
-export type ChartExtensionMethod = 'bazhai' | 'qizheng';
+export type { BazhaiMeasurement } from '@/lib/bazhai-chart';
 
 interface MetaphysicsPanelProps {
-  method: ChartExtensionMethod;
-  birthData?: {
+  method: 'bazhai';
+  birthData: {
     year: number;
     month: number;
     day: number;
@@ -20,481 +23,334 @@ interface MetaphysicsPanelProps {
     timezone?: number;
   };
   embedded?: boolean;
+  initialFacingDegree?: string;
+  onDirectionDegreeChange?: (value: string) => void;
+  onResultChange?: (result: BaZhaiResult, measurement: BazhaiMeasurement | null) => void;
 }
 
-const currentDate = new Date();
+const DIRECTIONS = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
 
-function readInteger(value: string, label: string, min: number, max: number) {
-  const number = Number(value);
-  if (!Number.isInteger(number) || number < min || number > max) {
-    throw new Error(`${label}应填写 ${min} 至 ${max} 之间的整数。`);
-  }
-  return number;
+function BaZhaiCompass({
+  result,
+  measurement,
+}: {
+  result: BaZhaiResult;
+  measurement: BazhaiMeasurement | null;
+}) {
+  const palaces = result.housePalace ?? result.mingPalace;
+  const palaceByDirection = new Map(palaces.map((item) => [item.direction, item]));
+  return (
+    <svg
+      className="bazhai-compass-svg"
+      viewBox="0 0 400 400"
+      role="img"
+      aria-label="八宅八方专业盘面"
+    >
+      <circle cx="200" cy="200" r="184" className="bazhai-ring" />
+      <circle cx="200" cy="200" r="128" className="bazhai-ring" />
+      <circle cx="200" cy="200" r="67" className="bazhai-ring bazhai-ring-core" />
+      {DIRECTIONS.map((direction, index) => {
+        const angle = ((index * 45 - 90) * Math.PI) / 180;
+        const x = 200 + Math.cos(angle) * 153;
+        const y = 200 + Math.sin(angle) * 153;
+        const palace = palaceByDirection.get(direction);
+        const boundaryAngle = ((index * 45 - 22.5 - 90) * Math.PI) / 180;
+        return (
+          <g key={direction}>
+            <line
+              x1="200"
+              y1="200"
+              x2={200 + Math.cos(boundaryAngle) * 184}
+              y2={200 + Math.sin(boundaryAngle) * 184}
+              className="bazhai-sector-line"
+            />
+            <text
+              x={x}
+              y={y}
+              className={`bazhai-direction-label ${palace?.luck === '吉' ? 'is-lucky' : 'is-unlucky'}`}
+            >
+              <tspan>{direction}</tspan>
+              <tspan x={x} dy="15">
+                {palace?.label ?? '—'}
+              </tspan>
+              <tspan x={x} dy="13">
+                {palace?.gua ?? ''}宫
+              </tspan>
+            </text>
+          </g>
+        );
+      })}
+      {measurement ? (
+        <g transform={`rotate(${measurement.measuredDegree - 90} 200 200)`}>
+          <path d="M 200 20 L 192 42 L 208 42 Z" className="bazhai-facing-arrow" />
+          <line x1="200" y1="42" x2="200" y2="72" className="bazhai-facing-line" />
+        </g>
+      ) : null}
+      <text x="200" y="184" className="bazhai-core-title">
+        {result.houseGua ? `${result.houseGua}宅` : `${result.mingGua}命`}
+      </text>
+      <text x="200" y="205" className="bazhai-core-subtitle">
+        {measurement
+          ? `${measurement.sitMountain}山${measurement.facingMountain}向`
+          : result.mingGroup}
+      </text>
+      <text x="200" y="224" className="bazhai-core-subtitle">
+        {measurement ? `命卦 ${result.mingGua}` : '个人八方盘'}
+      </text>
+    </svg>
+  );
 }
 
-function readNumber(value: string, label: string, min: number, max: number) {
-  const number = Number(value);
-  if (!value.trim() || !Number.isFinite(number) || number < min || number > max) {
-    throw new Error(`${label}应填写 ${min} 至 ${max} 之间的数字。`);
-  }
-  return number;
-}
-
-function createSolarDate(year: number, month: number, day: number, hour: number, minute: number) {
-  const date = new Date(year, month - 1, day, hour, minute, 0);
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day ||
-    date.getHours() !== hour ||
-    date.getMinutes() !== minute
-  ) {
-    throw new Error('日期或时间无效，请检查后重试。');
-  }
-  return date;
-}
-
-function readDirectionPreview(value: string): {
-  position: SitFacingPosition | null;
-  error: string;
-} {
-  if (!value.trim()) {
-    return { position: null, error: '请填写房屋朝向度数。' };
-  }
-
-  try {
-    return {
-      position: getSitFacingFromFacingDegree(readNumber(value, '房屋朝向度数', 0, 360)),
-      error: '',
-    };
-  } catch (error) {
-    return {
-      position: null,
-      error: error instanceof Error ? error.message : '房屋朝向度数无效。',
-    };
-  }
-}
-
-export function MetaphysicsPanel({ method, birthData, embedded = false }: MetaphysicsPanelProps) {
-  const [question, setQuestion] = useState('');
-  const [currentSituation, setCurrentSituation] = useState('');
-  const [currentState, setCurrentState] = useState('');
-  const [knownFacts, setKnownFacts] = useState('');
-  const [desiredOutcome, setDesiredOutcome] = useState('');
-  const [constraints, setConstraints] = useState('');
-  const [birthYear, setBirthYear] = useState(String(birthData?.year ?? 1990));
-  const [birthMonth, setBirthMonth] = useState(String(birthData?.month ?? 6));
-  const [birthDay, setBirthDay] = useState(String(birthData?.day ?? 15));
-  const [gender, setGender] = useState<'male' | 'female'>(birthData?.gender ?? 'male');
-  const [facingDegree, setFacingDegree] = useState('180');
-  const [year, setYear] = useState(String(birthData?.year ?? currentDate.getFullYear()));
-  const [month, setMonth] = useState(String(birthData?.month ?? currentDate.getMonth() + 1));
-  const [day, setDay] = useState(String(birthData?.day ?? currentDate.getDate()));
-  const [hour, setHour] = useState(String(birthData?.hour ?? currentDate.getHours()));
-  const [minute, setMinute] = useState(String(birthData?.minute ?? currentDate.getMinutes()));
-  const [latitude, setLatitude] = useState(String(birthData?.latitude ?? 39.9042));
-  const [longitude, setLongitude] = useState(String(birthData?.longitude ?? 116.4074));
-  const [timezone, setTimezone] = useState(String(birthData?.timezone ?? 8));
-  const [result, setResult] = useState<Record<string, unknown> | null>(null);
-  const [prompt, setPrompt] = useState('');
+export function MetaphysicsPanel({
+  birthData,
+  initialFacingDegree = '',
+  onDirectionDegreeChange,
+  onResultChange,
+}: MetaphysicsPanelProps) {
+  const baseResult = useMemo(() => calculateBazhaiBaseChart(birthData), [birthData]);
+  const [facingDegree, setFacingDegree] = useState(initialFacingDegree);
+  const [result, setResult] = useState<BaZhaiResult>(baseResult);
+  const [measurement, setMeasurement] = useState<BazhaiMeasurement | null>(null);
   const [error, setError] = useState('');
-  const [copyText, setCopyText] = useState('复制提示词');
-  const didAutoGenerate = useRef(false);
 
-  const directionPreview = useMemo(() => readDirectionPreview(facingDegree), [facingDegree]);
-
+  const directionPreview = useMemo(() => {
+    if (!facingDegree.trim()) return { position: null, error: '' };
+    const degree = Number(facingDegree);
+    try {
+      return { position: resolveBazhaiDoorDirection(degree), error: '' };
+    } catch (currentError) {
+      return {
+        position: null,
+        error: currentError instanceof Error ? currentError.message : '角度无效。',
+      };
+    }
+  }, [facingDegree]);
   const boundaryMessage = useMemo(() => {
     const facing = directionPreview.position?.facing;
     if (!facing?.isBoundary || !facing.boundaryMountains) return '';
-    return `当前度数正好位于${facing.boundaryMountains[0]}向与${facing.boundaryMountains[1]}向的分界线，请重新测量并填写稍偏离分界线的实际度数。`;
+    return `当前度数位于${facing.boundaryMountains[0]}向与${facing.boundaryMountains[1]}向的分界线，请重新测量并填写稍偏离分界线的度数。`;
   }, [directionPreview]);
 
-  const resultText = useMemo(() => {
-    if (!result) return '';
-    const display = { ...result };
-    delete display.prompt;
-    return JSON.stringify(display, null, 2);
-  }, [result]);
-
-  function generate() {
-    setError('');
-    setResult(null);
-    setPrompt('');
-    setCopyText('复制提示词');
-
-    try {
-      let nextResult: Record<string, unknown> & { prompt: string };
-      let measurement = '';
-
-      if (method === 'bazhai') {
-        if (!directionPreview.position) {
-          throw new Error(directionPreview.error);
-        }
-        if (directionPreview.position.facing.isBoundary) {
-          throw new Error(boundaryMessage);
-        }
-
-        const { facing, sit, label } = directionPreview.position;
-        measurement = `测量方式：站在屋内面向大门外。房屋朝向 ${facing.degree}° 为${facing.mountain}向；相反方向的坐山 ${sit.degree}° 为${sit.mountain}山，换算结果为${label}。`;
-        const bazhaiResult = analyzeBaZhai({
-          birthYear: readInteger(birthYear, '出生年份', 1900, 2100),
-          birthMonth: readInteger(birthMonth, '出生月份', 1, 12),
-          birthDay: readInteger(birthDay, '出生日期', 1, 31),
-          gender,
-          sitMountain: sit.mountain,
-        }) as unknown as Record<string, unknown> & { prompt: string };
-        nextResult = {
-          ...bazhaiResult,
-          directionMeasurement: {
-            method: '站在屋内面向大门外测量朝向',
-            facingDegree: facing.degree,
-            facingMountain: facing.mountain,
-            sitDegree: sit.degree,
-            sitMountain: sit.mountain,
-            label,
-          },
-        };
-      } else {
-        const targetYear = readInteger(year, '年份', 1900, 2200);
-        const targetMonth = readInteger(month, '月份', 1, 12);
-        const targetDay = readInteger(day, '日期', 1, 31);
-        const targetHour = readInteger(hour, '小时', 0, 23);
-        const targetMinute = readInteger(minute, '分钟', 0, 59);
-        createSolarDate(targetYear, targetMonth, targetDay, targetHour, targetMinute);
-
-        nextResult = generateQizheng({
-          year: targetYear,
-          month: targetMonth,
-          day: targetDay,
-          hour: targetHour,
-          minute: targetMinute,
-          latitude: readNumber(latitude, '纬度', -90, 90),
-          longitude: readNumber(longitude, '经度', -180, 180),
-          timezone: readNumber(timezone, '时区', -12, 14),
-        }) as unknown as Record<string, unknown> & { prompt: string };
-      }
-
-      setResult(nextResult);
-      setPrompt(
-        buildMetaphysicsPrompt(nextResult.prompt, question, {
-          measurement,
-          context: { currentSituation, currentState, knownFacts, desiredOutcome, constraints },
-        }),
-      );
-    } catch (currentError) {
-      setError(currentError instanceof Error ? currentError.message : '生成失败，请检查输入。');
-    }
-  }
-
   useEffect(() => {
-    if (!embedded || method !== 'qizheng' || !birthData || didAutoGenerate.current) return;
-    didAutoGenerate.current = true;
-    generate();
-    // 复用结果页已经校验过的出生资料，只在首次进入七政四余页时自动生成。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [birthData, embedded, method]);
-
-  async function copyPrompt() {
-    if (!prompt) return;
-    try {
-      await navigator.clipboard.writeText(prompt);
-      setCopyText('已复制');
-    } catch {
-      setCopyText('复制失败');
+    if (!facingDegree.trim()) {
+      setResult(baseResult);
+      setMeasurement(null);
+      setError('');
+      onResultChange?.(baseResult, null);
+      return;
     }
-  }
-
-  const title = method === 'bazhai' ? '八宅排盘' : '七政四余排盘';
-  const description =
-    method === 'bazhai'
-      ? '输入容易测量的房屋朝向度数，系统会自动换算坐山和二十四山。'
-      : '按出生时间、地点与时区生成七政四余、十二宫与神煞。';
+    if (directionPreview.error || boundaryMessage) {
+      setError(directionPreview.error || boundaryMessage);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      try {
+        const next = calculateBazhaiChart(birthData, Number(facingDegree));
+        setResult(next.result);
+        setMeasurement(next.measurement);
+        setError('');
+        onResultChange?.(next.result, next.measurement);
+      } catch (currentError) {
+        setError(currentError instanceof Error ? currentError.message : '住宅角度换算失败。');
+      }
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [
+    baseResult,
+    birthData,
+    boundaryMessage,
+    directionPreview.error,
+    facingDegree,
+    onResultChange,
+  ]);
 
   return (
     <div className="metaphysics-panel-shell">
-      <section className="person-section divination-form-card">
-        <div className="person-section-head">
-          <h2>{title}</h2>
-          <p>{description}</p>
+      <section className="result-showcase-card bazhai-showcase-card">
+        <div className="result-showcase-head">
+          <div>
+            <p className="result-section-kicker">八宅结果</p>
+            <h2>{measurement?.label ?? '个人八宅方位'}</h2>
+          </div>
+          <div className="result-chip-row">
+            <span className="result-chip">命卦 {result.mingGua}</span>
+            {result.houseGua ? (
+              <span className="result-chip">宅卦 {result.houseGua}</span>
+            ) : (
+              <span className="result-chip">待补住宅角度</span>
+            )}
+          </div>
         </div>
-
-        <div className="person-info-form">
-          {method === 'bazhai' ? (
-            <>
-              {!birthData ? (
-                <div className="form-row">
-                  <div className="form-item">
-                    <label htmlFor="metaphysics-birth-year">出生年份</label>
-                    <input
-                      id="metaphysics-birth-year"
-                      className="form-input"
-                      inputMode="numeric"
-                      value={birthYear}
-                      onChange={(event) => setBirthYear(event.target.value.replace(/[^\d]/g, ''))}
-                    />
-                  </div>
-                  <div className="form-item">
-                    <label htmlFor="metaphysics-gender">性别</label>
-                    <select
-                      id="metaphysics-gender"
-                      className="form-input"
-                      value={gender}
-                      onChange={(event) => setGender(event.target.value as 'male' | 'female')}
-                    >
-                      <option value="male">男</option>
-                      <option value="female">女</option>
-                    </select>
-                  </div>
-                  <div className="form-item">
-                    <label htmlFor="metaphysics-birth-month">出生月份</label>
-                    <input
-                      id="metaphysics-birth-month"
-                      className="form-input"
-                      inputMode="numeric"
-                      value={birthMonth}
-                      onChange={(event) => setBirthMonth(event.target.value.replace(/[^\d]/g, ''))}
-                    />
-                  </div>
-                  <div className="form-item">
-                    <label htmlFor="metaphysics-birth-day">出生日期</label>
-                    <input
-                      id="metaphysics-birth-day"
-                      className="form-input"
-                      inputMode="numeric"
-                      value={birthDay}
-                      onChange={(event) => setBirthDay(event.target.value.replace(/[^\d]/g, ''))}
-                    />
-                    <span className="birth-time-hint">
-                      用完整日期判断是否在立春前，避免命卦差一年。
-                    </span>
-                  </div>
+        <div className="result-summary-grid">
+          <div className="result-stat-card result-stat-card-accent">
+            <span>命卦</span>
+            <strong>{result.mingGua}</strong>
+            <small>{result.mingGroup}</small>
+          </div>
+          <div className="result-stat-card">
+            <span>宅卦</span>
+            <strong>{result.houseGua ?? '待补充'}</strong>
+            <small>{result.houseGroup ?? '填写角度后自动生成'}</small>
+          </div>
+          <div className="result-stat-card">
+            <span>命宅关系</span>
+            <strong>{measurement ? result.match : '待合参'}</strong>
+            <small>{measurement ? '结合实际动线取舍' : '个人八方信息已生成'}</small>
+          </div>
+          <div className="result-stat-card">
+            <span>住宅坐向</span>
+            <strong>
+              {measurement
+                ? `${measurement.sitMountain}山${measurement.facingMountain}向`
+                : '尚未测量'}
+            </strong>
+            <small>
+              {measurement ? `入户读数 ${measurement.measuredDegree}°` : '可在下方补充'}
+            </small>
+          </div>
+        </div>
+        <div className="bazhai-board-layout">
+          <div className="result-side-card astrolabe-chart-shell">
+            <div className="result-side-head">
+              <h3>{measurement ? '命宅八方盘' : '个人八方盘'}</h3>
+              <p>
+                {measurement
+                  ? '宅卦八方游年已生成，箭头指向从大门进入屋内的实测方向。'
+                  : '先按命卦显示个人四吉四凶方；补充住宅角度后自动切换为命宅合参。'}
+              </p>
+            </div>
+            <BaZhaiCompass result={result} measurement={measurement} />
+          </div>
+          <div className="bazhai-board-legend">
+            <div className="result-side-card">
+              <div className="result-side-head">
+                <h3>盘面说明</h3>
+              </div>
+              <div className="result-meta-lines">
+                <div>
+                  <span>出生资料</span>
+                  <strong>
+                    {birthData.year} 年 {birthData.month} 月 {birthData.day} 日 ·{' '}
+                    {birthData.gender === 'male' ? '男' : '女'}
+                  </strong>
+                </div>
+                <div>
+                  <span>命卦分组</span>
+                  <strong>
+                    {result.mingGua}命 · {result.mingGroup}
+                  </strong>
+                </div>
+                {measurement ? (
+                  <>
+                    <div>
+                      <span>大门朝向屋内</span>
+                      <strong>{measurement.measuredDegree}°</strong>
+                    </div>
+                    <div>
+                      <span>传统坐向</span>
+                      <strong>
+                        {measurement.sitDegree}° {measurement.sitMountain}山 ·{' '}
+                        {measurement.facingDegree}° {measurement.facingMountain}向
+                      </strong>
+                    </div>
+                    <div>
+                      <span>命宅配合</span>
+                      <strong>{result.match}</strong>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            </div>
+            <div className="result-side-card bazhai-direction-card">
+              <div className="result-side-head">
+                <h3>补充住宅角度</h3>
+                <p>可选；填写后自动保存并生成宅卦。</p>
+              </div>
+              <label className="form-item" htmlFor="metaphysics-facing-degree">
+                <span>从大门面向屋内的度数</span>
+                <input
+                  id="metaphysics-facing-degree"
+                  className="form-input"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  max="360"
+                  step="0.1"
+                  value={facingDegree}
+                  placeholder="例如：0"
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setFacingDegree(value);
+                    onDirectionDegreeChange?.(value);
+                  }}
+                />
+                <small className="birth-time-hint">
+                  站在大门处面向屋内，用手机指南针连续测三次，填写接近的平均度数。
+                </small>
+              </label>
+              {error ? (
+                <div className="form-error-text">{error}</div>
+              ) : directionPreview.position ? (
+                <div className="metaphysics-direction-preview">
+                  <strong>{directionPreview.position.label}</strong>
+                  <span>
+                    坐山 {directionPreview.position.sit.degree}°{' '}
+                    {directionPreview.position.sit.mountain}山；传统朝向{' '}
+                    {directionPreview.position.facing.degree}°{' '}
+                    {directionPreview.position.facing.mountain}向。
+                  </span>
                 </div>
               ) : (
-                <div className="metaphysics-direction-preview" role="status">
-                  <strong>出生资料已沿用排盘输入</strong>
-                  <span>
-                    {birthYear} 年 {birthMonth} 月 {birthDay} 日，{gender === 'male' ? '男' : '女'}
-                    。
-                  </span>
+                <div className="metaphysics-direction-preview">
+                  <span>不填写也可查看个人命卦八方信息。</span>
                 </div>
               )}
-
-              <div className="form-row">
-                <div className="form-item">
-                  <label htmlFor="metaphysics-facing-degree">房屋朝向度数</label>
-                  <input
-                    id="metaphysics-facing-degree"
-                    className="form-input"
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    max="360"
-                    step="0.1"
-                    value={facingDegree}
-                    onChange={(event) => setFacingDegree(event.target.value)}
-                  />
-                  <span className="birth-time-hint">
-                    打开手机指南针，站在房屋中心附近面向大门外，远离冰箱、铁门等金属物，连续测三次并填写接近的平均度数。
-                  </span>
-                </div>
-              </div>
-
-              <div
-                className={`metaphysics-direction-preview ${boundaryMessage ? 'is-warning' : ''}`}
-                role={boundaryMessage || directionPreview.error ? 'alert' : 'status'}
-              >
-                {boundaryMessage ? (
-                  <strong>{boundaryMessage}</strong>
-                ) : directionPreview.position ? (
-                  <>
-                    <strong>{directionPreview.position.label}</strong>
-                    <span>
-                      朝向 {directionPreview.position.facing.degree}° 为
-                      {directionPreview.position.facing.mountain}向；坐山{' '}
-                      {directionPreview.position.sit.degree}° 为
-                      {directionPreview.position.sit.mountain}山。
-                    </span>
-                  </>
-                ) : (
-                  <span>{directionPreview.error}</span>
-                )}
-              </div>
-            </>
-          ) : birthData ? (
-            <div className="metaphysics-direction-preview" role="status">
-              <strong>已复用排盘出生资料并自动生成</strong>
-              <span>
-                {year} 年 {month} 月 {day} 日 {hour}:{minute.padStart(2, '0')}，经度 {longitude}
-                °，纬度 {latitude}°。
-              </span>
-            </div>
-          ) : (
-            <>
-              <div className="form-row metaphysics-date-row">
-                <div className="form-item">
-                  <label htmlFor="metaphysics-year">年份</label>
-                  <input
-                    id="metaphysics-year"
-                    className="form-input"
-                    inputMode="numeric"
-                    value={year}
-                    onChange={(event) => setYear(event.target.value.replace(/[^\d]/g, ''))}
-                  />
-                </div>
-                <div className="form-item">
-                  <label htmlFor="metaphysics-month">月份</label>
-                  <input
-                    id="metaphysics-month"
-                    className="form-input"
-                    inputMode="numeric"
-                    value={month}
-                    onChange={(event) => setMonth(event.target.value.replace(/[^\d]/g, ''))}
-                  />
-                </div>
-                <div className="form-item">
-                  <label htmlFor="metaphysics-day">日期</label>
-                  <input
-                    id="metaphysics-day"
-                    className="form-input"
-                    inputMode="numeric"
-                    value={day}
-                    onChange={(event) => setDay(event.target.value.replace(/[^\d]/g, ''))}
-                  />
-                </div>
-                <div className="form-item">
-                  <label htmlFor="metaphysics-hour">小时</label>
-                  <input
-                    id="metaphysics-hour"
-                    className="form-input"
-                    inputMode="numeric"
-                    value={hour}
-                    onChange={(event) => setHour(event.target.value.replace(/[^\d]/g, ''))}
-                  />
-                </div>
-                <div className="form-item">
-                  <label htmlFor="metaphysics-minute">分钟</label>
-                  <input
-                    id="metaphysics-minute"
-                    className="form-input"
-                    inputMode="numeric"
-                    value={minute}
-                    onChange={(event) => setMinute(event.target.value.replace(/[^\d]/g, ''))}
-                  />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-item">
-                  <label htmlFor="metaphysics-latitude">纬度</label>
-                  <input
-                    id="metaphysics-latitude"
-                    className="form-input"
-                    value={latitude}
-                    onChange={(event) => setLatitude(event.target.value)}
-                  />
-                </div>
-                <div className="form-item">
-                  <label htmlFor="metaphysics-longitude">经度</label>
-                  <input
-                    id="metaphysics-longitude"
-                    className="form-input"
-                    value={longitude}
-                    onChange={(event) => setLongitude(event.target.value)}
-                  />
-                </div>
-                <div className="form-item">
-                  <label htmlFor="metaphysics-timezone">时区</label>
-                  <input
-                    id="metaphysics-timezone"
-                    className="form-input"
-                    value={timezone}
-                    onChange={(event) => setTimezone(event.target.value)}
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          <div className="form-row">
-            <div className="form-item metaphysics-question-field">
-              <label htmlFor="metaphysics-question">希望 AI 重点解读的问题（可选）</label>
-              <textarea
-                id="metaphysics-question"
-                rows={3}
-                className="form-input divination-textarea"
-                value={question}
-                placeholder="例如：请重点看今年适合主动推进什么，哪些风险需要回避？"
-                onChange={(event) => setQuestion(event.target.value)}
-              />
             </div>
           </div>
-          <details className="form-item divination-context-fields">
-            <summary>补充现实信息（可选，填写越具体越利于解读）</summary>
-            <div className="form-row">
-              {[
-                ['当前情况', currentSituation, setCurrentSituation, '正在发生什么、有哪些选择'],
-                ['当前状态', currentState, setCurrentState, '目前的进度、情绪或资源状态'],
-                ['已知事实', knownFacts, setKnownFacts, '已经确认的人、事、时间和结果'],
-                ['期望结果', desiredOutcome, setDesiredOutcome, '最希望实现的结果'],
-                ['现实限制', constraints, setConstraints, '时间、预算、地点或责任限制'],
-              ].map(([label, value, setter, placeholder]) => (
-                <div className="form-item" key={label as string}>
-                  <label>{label as string}</label>
-                  <textarea
-                    rows={2}
-                    className="form-input divination-textarea"
-                    value={value as string}
-                    placeholder={placeholder as string}
-                    onChange={(event) =>
-                      (setter as React.Dispatch<React.SetStateAction<string>>)(event.target.value)
-                    }
-                  />
-                </div>
+        </div>
+        <div className="bazhai-result-grid">
+          <div className="result-side-card">
+            <div className="result-side-head">
+              <h3>四吉方</h3>
+              <p>{measurement ? '当前宅卦可优先利用的方向。' : '个人命卦可优先利用的方向。'}</p>
+            </div>
+            <div className="result-tag-cloud">
+              {result.luckyDirections.map((item) => (
+                <span
+                  className="result-soft-tag result-soft-tag-strong"
+                  key={`${item.direction}-${item.label}`}
+                >
+                  {item.direction} · {item.label}
+                </span>
               ))}
             </div>
-          </details>
+          </div>
+          <div className="result-side-card">
+            <div className="result-side-head">
+              <h3>四凶方</h3>
+              <p>布置时需要谨慎权衡的方向。</p>
+            </div>
+            <div className="result-tag-cloud">
+              {result.unluckyDirections.map((item) => (
+                <span className="result-soft-tag" key={`${item.direction}-${item.label}`}>
+                  {item.direction} · {item.label}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
-
-        {error ? <div className="form-error-text global-form-error">{error}</div> : null}
-
-        <div className="form-actions page-submit-actions metaphysics-submit-actions">
-          <button
-            className="primary-button start-submit-button"
-            type="button"
-            onClick={generate}
-            disabled={method === 'bazhai' && Boolean(boundaryMessage)}
-          >
-            开始排盘
-          </button>
+        <div className="result-side-card">
+          <div className="result-side-head">
+            <h3>{measurement ? '命宅建议' : '基础说明'}</h3>
+          </div>
+          <p className="bazhai-advice">
+            {measurement
+              ? result.matchAdvice
+              : '当前先按个人命卦八宫查看方位取舍；补充住宅角度后，会进一步结合宅卦判断命宅是否相合。'}
+          </p>
+          <p className="bazhai-boundary-note">{result.birthYearBoundaryNote}</p>
         </div>
       </section>
-
-      {result ? (
-        <div className="workspace-grid divination-output-grid metaphysics-output-grid">
-          <section className="panel divination-result-panel">
-            <div className="panel-head">
-              <div>
-                <h2>排盘结果</h2>
-                <p>以下数据由本地算法生成，不会上传出生信息。</p>
-              </div>
-            </div>
-            <pre className="result-pre">{resultText}</pre>
-          </section>
-
-          <section className="panel panel-output divination-result-panel">
-            <div className="panel-head divination-prompt-head">
-              <div>
-                <h2>解读提示词</h2>
-                <p>复制整段后，可发送到常用 AI 继续分析。</p>
-              </div>
-              <button className="copy-button secondary-button" type="button" onClick={copyPrompt}>
-                {copyText}
-              </button>
-            </div>
-            <pre className="result-pre">{prompt}</pre>
-          </section>
-        </div>
-      ) : null}
     </div>
   );
 }
