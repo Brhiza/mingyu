@@ -8,7 +8,7 @@ import {
   XIAOLIUREN_METHOD_OPTIONS,
 } from '../divination/config';
 
-export const MINGYU_CORE_VERSION = '0.1.18';
+export const MINGYU_CORE_VERSION = '0.1.19';
 export const MINGYU_SCHEMA_VERSION = '1.0.0';
 
 export type CapabilityInputType =
