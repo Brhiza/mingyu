@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { zodiac } from 'mingyu-core';
-import { getGanZhiFromDate, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
+import { getGanZhiFromDate, isValidGanZhi, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
 import { resultOutputSchema, promptOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
@@ -13,7 +13,11 @@ import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
 const zodiacSchema = z.object({
   zodiac: z.string().describe('生肖或地支，如「鼠」或「子」'),
   year: z.number().int().min(1900).max(2200).optional().describe('公元年（默认今年）'),
-  yearGanZhi: z.string().optional().describe('直接给定流年干支，如「甲辰」'),
+  yearGanZhi: z
+    .string()
+    .refine(isValidGanZhi, 'yearGanZhi 必须是有效的六十甲子')
+    .optional()
+    .describe('直接给定流年干支，如「甲辰」'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
 

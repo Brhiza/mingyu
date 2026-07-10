@@ -35,7 +35,7 @@
 | `bazhai_prompt`       | 八宅提示词   | 八宅排盘并返回可直接用于 AI 解读的提示词                                       |
 | `metaphysics_zodiac`  | 生肖流年     | 返回犯太岁、贵人、五行关系和运程等级                                           |
 | `zodiac_prompt`       | 生肖提示词   | 生肖流年排盘并返回可直接用于 AI 解读的提示词                                   |
-| `metaphysics_taiyi`   | 太乙排盘     | 返回积年、局数、太乙落宫、主客算和十六神盘                                     |
+| `metaphysics_taiyi`   | 年家太乙     | 按七十二局立成表返回积年、太乙、文昌、始击、主客算和十六神盘                   |
 | `taiyi_prompt`        | 太乙提示词   | 太乙排盘并返回可直接用于 AI 解读的提示词                                       |
 | `metaphysics_qizheng` | 七政四余     | 返回七政四余宿度、紫炁模型参数、十二宫、庙旺和神煞                             |
 | `qizheng_prompt`      | 七政提示词   | 七政四余排盘并返回可直接用于 AI 解读的提示词                                   |

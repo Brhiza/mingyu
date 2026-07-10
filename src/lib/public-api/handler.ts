@@ -25,7 +25,8 @@ import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { bazhai, zodiac, taiyi, qizheng } from 'mingyu-core';
-import { getGanZhiFromDate, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
+import { getGanZhiFromDate, isValidGanZhi, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
+import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
 import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
 import { buildAstrolabeScopeContext } from '../astrolabe-scope';
@@ -666,12 +667,12 @@ export function getPublicApiOpenApiDocument(
               description: '公元年（默认今年）',
             },
             yearGanZhi: { type: 'string', description: '直接给定流年干支，如「甲辰」（生肖运程）' },
-            scope: { enum: ['year', 'month', 'day', 'hour'], description: '太乙家数，默认 year' },
+            scope: { enum: ['year'], description: '太乙家数；当前仅支持 year' },
             month: { type: 'integer', minimum: 1, maximum: 12 },
             day: { type: 'integer', minimum: 1, maximum: 31 },
             hour: { type: 'integer', minimum: 0, maximum: 23 },
             minute: { type: 'integer', minimum: 0, maximum: 59 },
-            ganZhi: { type: 'string', description: '直接给定干支（太乙）' },
+            ganZhi: { type: 'string', description: '可选年干支，必须与公元年一致（太乙）' },
             latitude: { type: 'number', description: '纬度（七政四余）' },
             longitude: { type: 'number', description: '经度（七政四余）' },
             timezone: { type: 'number', description: '时区偏移（七政四余）' },
@@ -1023,16 +1024,23 @@ function calculateBaZhaiApi(input: JsonRecord) {
     input.gender === 'female' ? 'female' : input.gender === 'male' ? 'male' : undefined;
   const birthYear = optInt(input, 'birthYear', 1900, 2100);
   const mingGua = readString(input, 'mingGua', '');
+  const sitMountain = readString(input, 'sitMountain', '');
   if (birthYear !== undefined && !gender) {
     throw new ApiError(400, 'BAD_REQUEST', '使用 birthYear 推命卦时必须同时提供 gender。');
   }
   if (birthYear === undefined && !mingGua) {
     throw new ApiError(400, 'BAD_REQUEST', '需提供 birthYear+gender 或直接给定 mingGua。');
   }
+  if (mingGua && !BAGUA.includes(mingGua)) {
+    throw new ApiError(400, 'BAD_REQUEST', `mingGua 必须是八卦之一：${BAGUA.join('、')}。`);
+  }
+  if (sitMountain && !TWENTY_FOUR_MOUNTAINS.includes(sitMountain)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'sitMountain 必须是有效的二十四山。');
+  }
   const result = bazhai.analyzeBaZhai({
     ...(birthYear !== undefined ? { birthYear, gender } : {}),
     mingGua: mingGua || undefined,
-    sitMountain: readString(input, 'sitMountain', '') || undefined,
+    sitMountain: sitMountain || undefined,
   });
   return result;
 }
@@ -1049,6 +1057,9 @@ function buildBaZhaiPrompt(input: JsonRecord) {
 function calculateZodiacApi(input: JsonRecord) {
   const zodiacBranch = resolveZodiacBranch(input.zodiac);
   const yearGanZhi = readString(input, 'yearGanZhi', '');
+  if (yearGanZhi && !isValidGanZhi(yearGanZhi)) {
+    throw new ApiError(400, 'BAD_REQUEST', `yearGanZhi 不是有效的六十甲子：${yearGanZhi}。`);
+  }
   const year = readInteger(input, 'year', 1900, 2200, new Date().getFullYear());
   // 以"立春"为年界：取 2 月 10 日（必在立春之后）推算流年干支，避免 2/4 凌晨尚属上一干支年的误差
   const gz = yearGanZhi || getGanZhiFromDate(new Date(year, 1, 10)).year;
@@ -1065,14 +1076,21 @@ function buildZodiacPrompt(input: JsonRecord) {
 }
 
 function calculateTaiyiApi(input: JsonRecord) {
-  const scope = readEnum(input, 'scope', ['year', 'month', 'day', 'hour'], 'year');
+  const scope = readEnum(input, 'scope', ['year'], 'year');
   const year = readInteger(input, 'year', 1900, 2200, new Date().getFullYear());
-  const month = optInt(input, 'month', 1, 12);
-  const day = optInt(input, 'day', 1, 31);
-  const hour = optInt(input, 'hour', 0, 23);
   const ganZhi = readString(input, 'ganZhi', '');
-  const date = ganZhi ? undefined : buildSolarDate(year, month ?? 2, day ?? 4, hour ?? 0);
-  return taiyi.generateTaiyi({ scope, year, ...(ganZhi ? { ganZhi } : { date }) });
+  if (ganZhi && !isValidGanZhi(ganZhi)) {
+    throw new ApiError(400, 'BAD_REQUEST', `ganZhi 不是有效的六十甲子：${ganZhi}。`);
+  }
+  try {
+    return taiyi.generateTaiyi({ scope, year, ...(ganZhi ? { ganZhi } : {}) });
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '太乙参数无效。',
+    );
+  }
 }
 
 function buildTaiyiPrompt(input: JsonRecord) {

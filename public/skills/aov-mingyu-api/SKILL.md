@@ -117,7 +117,7 @@ description: 通过 aov.cc 公开 API 调用命理、占卜和一站式提示词
 - `POST /divination/astrolabe/prompt`：星盘生成并生成结构化 AI 解读提示词。
 - `POST /metaphysics/bazhai/calculate`、`POST /metaphysics/bazhai/prompt`：八宅排盘与提示词。
 - `POST /metaphysics/zodiac/calculate`、`POST /metaphysics/zodiac/prompt`：生肖犯太岁与流年提示词。
-- `POST /metaphysics/taiyi/calculate`、`POST /metaphysics/taiyi/prompt`：太乙神数排盘与提示词。
+- `POST /metaphysics/taiyi/calculate`、`POST /metaphysics/taiyi/prompt`：年家太乙七十二局排盘与提示词；当前不提供未完整复原的月、日、时家。
 - `POST /metaphysics/qizheng/calculate`、`POST /metaphysics/qizheng/prompt`：七政四余排盘与提示词，紫炁采用《七政算内篇》古法均速模型。
 - `POST /ai/analyze`：AI 解读，返回 SSE 流式响应。
 - `POST /ai/models`：获取当前 AI 配置可用的模型列表。

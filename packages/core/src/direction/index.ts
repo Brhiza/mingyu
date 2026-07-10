@@ -181,6 +181,9 @@ export function getBaZhaiPalace(baseGua: string): BaZhaiPalace[] {
 
 /** 命卦所属东四/西四 */
 export function getEastWestGroup(gua: string): '东四命' | '西四命' {
+  if (!BAGUA.includes(gua)) {
+    throw new Error(`八卦无效：${gua}`);
+  }
   return ['坎', '离', '震', '巽'].includes(gua) ? '东四命' : '西四命';
 }
 

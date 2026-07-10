@@ -15,7 +15,7 @@ const METHOD_OPTIONS: Array<{
 }> = [
   { value: 'bazhai', label: '八宅', description: '按命卦与坐山查看四吉四凶方。' },
   { value: 'zodiac', label: '生肖', description: '查看流年犯太岁、贵人与运程等级。' },
-  { value: 'taiyi', label: '太乙', description: '生成太乙局数、主客算与十六神盘。' },
+  { value: 'taiyi', label: '太乙', description: '生成年家太乙七十二局、主客算与十六神盘。' },
   { value: 'qizheng', label: '七政四余', description: '生成七政四余、十二宫与神煞。' },
 ];
 
@@ -79,7 +79,6 @@ export function MetaphysicsPanel() {
   const [day, setDay] = useState('1');
   const [hour, setHour] = useState('12');
   const [minute, setMinute] = useState('0');
-  const [scope, setScope] = useState<'year' | 'month' | 'day' | 'hour'>('year');
   const [latitude, setLatitude] = useState('39.9042');
   const [longitude, setLongitude] = useState('116.4074');
   const [timezone, setTimezone] = useState('8');
@@ -117,32 +116,30 @@ export function MetaphysicsPanel() {
           string,
           unknown
         > & { prompt: string };
+      } else if (method === 'taiyi') {
+        const targetYear = readInteger(year, '年份', 1900, 2200);
+        nextResult = generateTaiyi({
+          scope: 'year',
+          year: targetYear,
+        }) as unknown as Record<string, unknown> & { prompt: string };
       } else {
         const targetYear = readInteger(year, '年份', 1900, 2200);
         const targetMonth = readInteger(month, '月份', 1, 12);
         const targetDay = readInteger(day, '日期', 1, 31);
         const targetHour = readInteger(hour, '小时', 0, 23);
         const targetMinute = readInteger(minute, '分钟', 0, 59);
-        const date = createSolarDate(targetYear, targetMonth, targetDay, targetHour, targetMinute);
+        createSolarDate(targetYear, targetMonth, targetDay, targetHour, targetMinute);
 
-        if (method === 'taiyi') {
-          nextResult = generateTaiyi({
-            scope,
-            year: targetYear,
-            date,
-          }) as unknown as Record<string, unknown> & { prompt: string };
-        } else {
-          nextResult = generateQizheng({
-            year: targetYear,
-            month: targetMonth,
-            day: targetDay,
-            hour: targetHour,
-            minute: targetMinute,
-            latitude: readNumber(latitude, '纬度', -90, 90),
-            longitude: readNumber(longitude, '经度', -180, 180),
-            timezone: readNumber(timezone, '时区', -12, 14),
-          }) as unknown as Record<string, unknown> & { prompt: string };
-        }
+        nextResult = generateQizheng({
+          year: targetYear,
+          month: targetMonth,
+          day: targetDay,
+          hour: targetHour,
+          minute: targetMinute,
+          latitude: readNumber(latitude, '纬度', -90, 90),
+          longitude: readNumber(longitude, '经度', -180, 180),
+          timezone: readNumber(timezone, '时区', -12, 14),
+        }) as unknown as Record<string, unknown> & { prompt: string };
       }
 
       setResult(nextResult);
@@ -162,7 +159,7 @@ export function MetaphysicsPanel() {
     }
   }
 
-  const showDateFields = method === 'taiyi' || method === 'qizheng';
+  const showDateFields = method === 'qizheng';
 
   return (
     <div className="metaphysics-panel-shell">
@@ -322,18 +319,14 @@ export function MetaphysicsPanel() {
           {method === 'taiyi' ? (
             <div className="form-row">
               <div className="form-item">
-                <label htmlFor="metaphysics-scope">太乙家数</label>
-                <select
-                  id="metaphysics-scope"
+                <label htmlFor="metaphysics-taiyi-year">年家年份</label>
+                <input
+                  id="metaphysics-taiyi-year"
                   className="form-input"
-                  value={scope}
-                  onChange={(event) => setScope(event.target.value as typeof scope)}
-                >
-                  <option value="year">年家</option>
-                  <option value="month">月家</option>
-                  <option value="day">日家</option>
-                  <option value="hour">时家</option>
-                </select>
+                  inputMode="numeric"
+                  value={year}
+                  onChange={(event) => setYear(event.target.value.replace(/[^\d]/g, ''))}
+                />
               </div>
             </div>
           ) : null}

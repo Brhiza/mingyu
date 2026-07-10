@@ -138,13 +138,8 @@ export class TimeManager {
   static getSeededRandom(timestamp: number, range: number = 1): number {
     this.assertFiniteNumber(timestamp, '随机种子时间戳');
     this.assertPositiveInteger(range, '随机范围');
-    // 使用简单但确定性的伪随机算法
-    const seed = timestamp % 2147483647;
-    const a = 1664525;
-    const c = 1013904223;
-    const m = 2147483647;
-    const result = (a * seed + c) % m;
-    return ((result % range) + range) % range;
+    const rng = createRandomSource({ seed: `时间随机:${timestamp}` });
+    return randomInt(range, rng);
   }
 
   /**
@@ -156,14 +151,11 @@ export class TimeManager {
   static generateYaosByTime(timestamp: number, count: number = 6): number[] {
     this.assertFiniteNumber(timestamp, '起卦时间戳');
     this.assertPositiveInteger(count, '爻象数量');
+    const rng = createRandomSource({ seed: `时间起卦:${timestamp}` });
     const yaos: number[] = [];
     for (let i = 0; i < count; i++) {
-      // 按三钱法逐币起爻，保持时间起卦的确定性。
-      yaos.push(
-        this.generateYaoByCoinMethod((coinIndex) =>
-          this.getSeededRandom(timestamp + i * 1000 + coinIndex * 97, 2),
-        ),
-      );
+      // 同一时间戳建立一个稳定随机流，再依次抽取三枚铜钱，避免逐币线性种子造成比特相关。
+      yaos.push(this.generateYaoByCoinMethod(() => randomInt(2, rng)));
     }
     return yaos;
   }

@@ -103,18 +103,65 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.ok(r.prompt.includes('生肖流年运程'));
 });
 
-test('taiyi: 三式补齐（年家，依古籍72局表校订）', () => {
+test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）', () => {
   // 公元2004（甲申）：积年 10153917+2004=10155921，入纪元 321，局33 阳遁
-  // 太乙落三宫、文昌(客目)二宫、始击(主目)八宫 —— 与《太乙金镜式经》72局表第33局吻合
+  // 第33局：太乙艮、文昌午、始击艮；主算24、客算3。
   const r = core.taiyi.generateTaiyi({ year: 2004, scope: 'year' });
+  assert.equal(r.ganZhi, '甲申');
   assert.equal(r.accumulatedYears, 10155921);
+  assert.equal(r.entryYears, 321);
+  assert.equal(r.yuan, 5);
+  assert.equal(r.ji, 6);
   assert.equal(r.bureau, 33);
   assert.equal(r.yinYang, '阳遁');
+  assert.equal(r.taiyiPosition, '艮');
   assert.equal(r.taiyiPalace, 3);
+  assert.equal(r.taiyiGua, '艮');
+  assert.equal(r.wenChangPosition, '午');
   assert.equal(r.wenChangPalace, 2);
-  assert.equal(r.shiJiPalace, 8);
-  assert.equal(r.sixteenGods.length, 12);
+  assert.equal(r.shiJiPosition, '艮');
+  assert.equal(r.shiJiPalace, 3);
+  assert.equal(r.lordCount, 24);
+  assert.equal(r.guestCount, 3);
+  assert.ok(r.judgments.some((item) => item.startsWith('掩：')));
+  assert.equal(r.sixteenGods.length, 16);
+  assert.equal(r.model.id, 'taiyi-tongzong-annual-72-table');
   assert.ok(r.prompt.includes('太乙神数'));
+  assert.throws(
+    () => core.taiyi.generateTaiyi({ year: 2004, scope: 'month' as never }),
+    /当前仅支持.*年家太乙/,
+  );
+});
+
+test('taiyi: 年家 72 局应完整覆盖且宫卦名不与字位混用', () => {
+  const palaces = new Map<number, string>();
+  const bureaus = new Set<number>();
+
+  for (let year = 1950; year < 2022; year += 1) {
+    const result = core.taiyi.generateTaiyi({ year });
+    bureaus.add(result.bureau);
+    palaces.set(result.taiyiPalace, result.taiyiGua);
+  }
+
+  assert.equal(bureaus.size, 72);
+  assert.deepEqual(Object.fromEntries([...palaces].sort(([left], [right]) => left - right)), {
+    1: '乾',
+    2: '离',
+    3: '艮',
+    4: '震',
+    6: '兑',
+    7: '坤',
+    8: '坎',
+    9: '巽',
+  });
+});
+
+test('taiyi: 核心年份边界不应把公元 1-99 年当成 1901-1999 年', () => {
+  const earlyYear = core.taiyi.generateTaiyi({ year: 1 });
+  const modernYear = core.taiyi.generateTaiyi({ year: 1901 });
+
+  assert.notEqual(earlyYear.ganZhi, modernYear.ganZhi);
+  assert.equal(earlyYear.accumulatedYears, 10153918);
 });
 
 test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {

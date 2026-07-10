@@ -2025,9 +2025,33 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
   );
 });
 
+test('公开 API 太乙应返回年家七十二局立成结果', async () => {
+  const { response, body } = await callApi('metaphysics/taiyi/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ year: 2004, scope: 'year' }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.data.ganZhi, '甲申');
+  assert.equal(body.data.bureau, 33);
+  assert.equal(body.data.taiyiPosition, '艮');
+  assert.equal(body.data.wenChangPosition, '午');
+  assert.equal(body.data.shiJiPosition, '艮');
+  assert.equal(body.data.lordCount, 24);
+  assert.equal(body.data.guestCount, 3);
+  assert.equal(body.data.sixteenGods.length, 16);
+  assert.equal(body.data.model.id, 'taiyi-tongzong-annual-72-table');
+});
+
 test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async () => {
   const cases = [
     ['metaphysics/bazhai/calculate', { birthYear: 1990 }],
+    ['metaphysics/bazhai/calculate', { mingGua: '未知卦' }],
+    ['metaphysics/bazhai/calculate', { mingGua: '坎', sitMountain: '未知山' }],
+    ['metaphysics/zodiac/calculate', { zodiac: '猴', yearGanZhi: '甲丑' }],
+    ['metaphysics/taiyi/calculate', { year: 2004, scope: 'month' }],
     ['metaphysics/qizheng/calculate', { year: 2026, month: 1, day: 1, hour: 12, latitude: 120 }],
   ] as const;
 

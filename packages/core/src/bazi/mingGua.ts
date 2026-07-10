@@ -44,6 +44,12 @@ function normalizeMingGuaNumber(value: number): number {
  * @returns 命卦信息
  */
 export function calculateMingGua(birthYear: number, gender: string): MingGuaProfile {
+  if (!Number.isSafeInteger(birthYear) || birthYear < 1 || birthYear > 9999) {
+    throw new Error('出生年份必须是有效整数（1-9999）。');
+  }
+  if (gender !== 'male' && gender !== 'female') {
+    throw new Error('性别必须是 male 或 female。');
+  }
   const remainder = positiveModulo(birthYear, 9);
   const rawNumber =
     gender === 'male'
@@ -51,7 +57,10 @@ export function calculateMingGua(birthYear: number, gender: string): MingGuaProf
       : normalizeMingGuaNumber(4 + remainder);
   // 五黄入中无卦：男寄坤二，女寄艮八
   const number = rawNumber === 5 ? (gender === 'male' ? 2 : 8) : rawNumber;
-  const config = MING_GUA_TABLE[number] || MING_GUA_TABLE[1];
+  const config = MING_GUA_TABLE[number];
+  if (!config) {
+    throw new Error(`命卦数无法映射：${number}`);
+  }
 
   return {
     number,
