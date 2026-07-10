@@ -25,6 +25,8 @@ import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
 import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
 import { buildDivinationPrompt } from '@/lib/divination/engine';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import { generateQizheng, type QizhengResult } from '@core/qi_zheng';
+import type { BaZhaiResult } from '@core/ba_zhai';
 import type { AstrolabeData } from '@/types/divination';
 import type {
   BaziFortuneSelectionModule,
@@ -56,6 +58,7 @@ import {
   ZiweiBoardSkeleton,
 } from './components/skeletons';
 import { AstrolabeBoard } from './components/AstrolabeBoard';
+import { QizhengBoard } from './components/QizhengBoard';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import { BaziChartBoard } from './components/BaziChartBoard';
 import { ThreePillarsBoard } from './components/ThreePillarsBoard';
@@ -71,9 +74,15 @@ import { AiChatPanel } from '@/components/AiChatPanel';
 import { useAiSettings } from '@/hooks/useAiSettings';
 import { buildAiRequestConfig } from '@/lib/ai/settings';
 import {
+  buildMetaphysicsPrompt,
   insertPromptRealWorldContext,
   type PromptRealWorldContext,
 } from '@/lib/metaphysics-prompt';
+import {
+  calculateBazhaiBaseChart,
+  calculateBazhaiChart,
+  type BazhaiMeasurement,
+} from '@/lib/bazhai-chart';
 import { PromptContextFields } from '@/components/PromptContextFields';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 
@@ -90,6 +99,9 @@ const LazyMetaphysicsPanel = lazy(async () => {
 export function ResultPage() {
   const navigate = useNavigate();
   const [promptContext, setPromptContext] = useState<PromptRealWorldContext>({});
+  const [metaphysicsQuestionDraft, setMetaphysicsQuestionDraft] = useState('');
+  const [bazhaiResult, setBazhaiResult] = useState<BaZhaiResult | null>(null);
+  const [bazhaiMeasurement, setBazhaiMeasurement] = useState<BazhaiMeasurement | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const inputSearch = useMemo(() => buildInputSearch(searchParams), [searchParams]);
   const inputState = useMemo(
@@ -106,6 +118,8 @@ export function ResultPage() {
     Boolean(inputState.birthLongitude) &&
     Boolean(inputState.birthLatitude);
   const isAstrolabePromptSource = promptState.promptSource === 'astrolabe';
+  const isQizhengPromptSource = promptState.promptSource === 'qizheng';
+  const isBazhaiPromptSource = promptState.promptSource === 'bazhai';
   const baziDraftStorageKey = useMemo(
     () => `${PROMPT_DRAFT_STORAGE_PREFIX}:bazi:${inputSearch}`,
     [inputSearch],
@@ -276,6 +290,47 @@ export function ResultPage() {
 
   useEffect(() => {
     if (
+      (promptState.promptSource === 'qizheng' && !hasAstrolabeChart) ||
+      (promptState.promptSource === 'bazhai' && inputState.analysisMode !== 'single')
+    ) {
+      updatePromptState({ promptSource: 'bazi' });
+    }
+  }, [hasAstrolabeChart, inputState.analysisMode, promptState.promptSource, updatePromptState]);
+
+  useEffect(() => {
+    if (!sharedBirthData || bazhaiResult) return;
+    try {
+      if (promptState.bazhaiFacingDegree) {
+        const next = calculateBazhaiChart(sharedBirthData, Number(promptState.bazhaiFacingDegree));
+        setBazhaiResult(next.result);
+        setBazhaiMeasurement(next.measurement);
+      } else {
+        setBazhaiResult(calculateBazhaiBaseChart(sharedBirthData));
+        setBazhaiMeasurement(null);
+      }
+    } catch {
+      // URL 中的旧值或人工修改值无法生成时，八宅页仍允许用户重新测量。
+    }
+  }, [bazhaiResult, promptState.bazhaiFacingDegree, sharedBirthData]);
+
+  const handleBazhaiResultChange = useCallback(
+    (nextResult: BaZhaiResult, nextMeasurement: BazhaiMeasurement | null) => {
+      setBazhaiResult(nextResult);
+      setBazhaiMeasurement(nextMeasurement);
+    },
+    [],
+  );
+  const handleBazhaiDirectionDegreeChange = useCallback(
+    (value: string) => {
+      if (value !== promptState.bazhaiFacingDegree) {
+        updatePromptState({ bazhaiFacingDegree: value });
+      }
+    },
+    [promptState.bazhaiFacingDegree, updatePromptState],
+  );
+
+  useEffect(() => {
+    if (
       (shouldLoadBaziPromptModules ? promptEngine : true) &&
       (shouldLoadBaziPromptModules || isBaziFortuneModalOpen ? baziFortuneSelectionModule : true)
     ) {
@@ -419,6 +474,32 @@ export function ResultPage() {
     inputState.year,
     shouldCalculateAstrolabe,
   ]);
+  const shouldCalculateQizheng =
+    hasAstrolabeChart &&
+    (mountedTabs.qizheng || (promptState.tab === 'prompt' && isQizhengPromptSource));
+  const qizhengCalculation = useMemo<{ data: QizhengResult | null; error: string }>(() => {
+    if (!shouldCalculateQizheng || !sharedBirthData) return { data: null, error: '' };
+    try {
+      return {
+        data: generateQizheng({
+          year: sharedBirthData.year,
+          month: sharedBirthData.month,
+          day: sharedBirthData.day,
+          hour: sharedBirthData.hour,
+          minute: sharedBirthData.minute,
+          latitude: sharedBirthData.latitude,
+          longitude: sharedBirthData.longitude,
+          timezone: sharedBirthData.timezone,
+        }),
+        error: '',
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : '七政四余排盘生成失败。',
+      };
+    }
+  }, [sharedBirthData, shouldCalculateQizheng]);
   const astrolabeScopeContext = useMemo(
     () =>
       buildAstrolabeScopeContext(
@@ -831,6 +912,35 @@ export function ResultPage() {
     promptState.promptSource,
     promptState.tab,
   ]);
+  const qizhengPromptText = useMemo(() => {
+    if (
+      promptState.tab !== 'prompt' ||
+      promptState.promptSource !== 'qizheng' ||
+      !qizhengCalculation.data
+    ) {
+      return '';
+    }
+    return buildMetaphysicsPrompt(qizhengCalculation.data.prompt, metaphysicsQuestionDraft);
+  }, [
+    metaphysicsQuestionDraft,
+    promptState.promptSource,
+    promptState.tab,
+    qizhengCalculation.data,
+  ]);
+  const bazhaiPromptText = useMemo(() => {
+    if (promptState.tab !== 'prompt' || promptState.promptSource !== 'bazhai' || !bazhaiResult) {
+      return '';
+    }
+    return buildMetaphysicsPrompt(bazhaiResult.prompt, metaphysicsQuestionDraft, {
+      measurement: bazhaiMeasurement?.promptText,
+    });
+  }, [
+    bazhaiMeasurement,
+    bazhaiResult,
+    metaphysicsQuestionDraft,
+    promptState.promptSource,
+    promptState.tab,
+  ]);
   const latestEnhancedPromptText = useMemo(
     () =>
       promptState.promptSource === 'bazi-ziwei'
@@ -896,13 +1006,17 @@ export function ResultPage() {
   );
 
   const basePreviewActivePromptText =
-    promptState.promptSource === 'astrolabe'
-      ? previewAstrolabePromptText
-      : promptState.promptSource === 'bazi-ziwei'
-        ? previewEnhancedPromptText
-        : promptState.promptSource === 'bazi'
-          ? previewBaziPromptText
-          : previewZiweiPromptText;
+    promptState.promptSource === 'qizheng'
+      ? qizhengPromptText
+      : promptState.promptSource === 'bazhai'
+        ? bazhaiPromptText
+        : promptState.promptSource === 'astrolabe'
+          ? previewAstrolabePromptText
+          : promptState.promptSource === 'bazi-ziwei'
+            ? previewEnhancedPromptText
+            : promptState.promptSource === 'bazi'
+              ? previewBaziPromptText
+              : previewZiweiPromptText;
   const previewActivePromptText = insertPromptRealWorldContext(
     basePreviewActivePromptText,
     promptContext,
@@ -926,13 +1040,17 @@ export function ResultPage() {
       : astrolabeScopeContext.displayText;
 
   const baseLatestActivePromptText =
-    promptState.promptSource === 'astrolabe'
-      ? latestAstrolabePromptText
-      : promptState.promptSource === 'bazi-ziwei'
-        ? latestEnhancedPromptText
-        : promptState.promptSource === 'bazi'
-          ? latestBaziPromptText
-          : latestZiweiPromptText;
+    promptState.promptSource === 'qizheng'
+      ? qizhengPromptText
+      : promptState.promptSource === 'bazhai'
+        ? bazhaiPromptText
+        : promptState.promptSource === 'astrolabe'
+          ? latestAstrolabePromptText
+          : promptState.promptSource === 'bazi-ziwei'
+            ? latestEnhancedPromptText
+            : promptState.promptSource === 'bazi'
+              ? latestBaziPromptText
+              : latestZiweiPromptText;
   const latestActivePromptText = insertPromptRealWorldContext(
     baseLatestActivePromptText,
     promptContext,
@@ -980,6 +1098,24 @@ export function ResultPage() {
       : promptState.promptSource === 'ziwei'
         ? activeZiweiShortcutMode
         : activeAstrolabeShortcutMode;
+  const metaphysicsPromptQuestionField =
+    isQizhengPromptSource || isBazhaiPromptSource ? (
+      <label className="field-card metaphysics-prompt-question-field">
+        <div className="field-header">
+          <span>希望重点解读的问题（可选）</span>
+        </div>
+        <textarea
+          rows={4}
+          value={metaphysicsQuestionDraft}
+          onChange={(event) => setMetaphysicsQuestionDraft(event.target.value)}
+          placeholder={
+            isBazhaiPromptSource
+              ? '例如：卧室、书房和大门分别怎样安排更合适？'
+              : '例如：请重点分析事业方向、关系模式和近期应注意的风险。'
+          }
+        />
+      </label>
+    ) : null;
 
   return (
     <div className="page-shell">
@@ -1191,11 +1327,17 @@ export function ResultPage() {
           aria-hidden={promptState.tab !== 'qizheng'}
         >
           {hasAstrolabeChart && mountedTabs.qizheng ? (
-            sharedBirthData ? (
-              <Suspense fallback={<InlineSkeleton />}>
-                <LazyMetaphysicsPanel method="qizheng" birthData={sharedBirthData} embedded />
-              </Suspense>
-            ) : null
+            qizhengCalculation.error ? (
+              <p className="error-text">{qizhengCalculation.error}</p>
+            ) : qizhengCalculation.data ? (
+              <QizhengBoard
+                title="七政四余本命盘"
+                name={inputState.name || '本人'}
+                data={qizhengCalculation.data}
+              />
+            ) : (
+              <InlineSkeleton />
+            )
           ) : null}
         </div>
 
@@ -1205,7 +1347,14 @@ export function ResultPage() {
         >
           {mountedTabs.bazhai && sharedBirthData ? (
             <Suspense fallback={<InlineSkeleton />}>
-              <LazyMetaphysicsPanel method="bazhai" birthData={sharedBirthData} embedded />
+              <LazyMetaphysicsPanel
+                method="bazhai"
+                birthData={sharedBirthData}
+                embedded
+                initialFacingDegree={promptState.bazhaiFacingDegree}
+                onDirectionDegreeChange={handleBazhaiDirectionDegreeChange}
+                onResultChange={handleBazhaiResultChange}
+              />
             </Suspense>
           ) : null}
         </div>
@@ -1229,16 +1378,18 @@ export function ResultPage() {
                         {isAiMobileSettingsOpen ? '收起设置' : '展开设置'}
                       </button>
 
-                      <button
-                        type="button"
-                        className={`ai-mobile-shortcut-btn ${isAiShortcutPopoverOpen ? 'is-active' : ''}`}
-                        onClick={() => setIsAiShortcutPopoverOpen((value) => !value)}
-                        title="快捷问题"
-                      >
-                        ✨ 快捷
-                      </button>
+                      {aiMobileShortcutActions.length > 0 ? (
+                        <button
+                          type="button"
+                          className={`ai-mobile-shortcut-btn ${isAiShortcutPopoverOpen ? 'is-active' : ''}`}
+                          onClick={() => setIsAiShortcutPopoverOpen((value) => !value)}
+                          title="快捷问题"
+                        >
+                          ✨ 快捷
+                        </button>
+                      ) : null}
 
-                      {isAiShortcutPopoverOpen ? (
+                      {isAiShortcutPopoverOpen && aiMobileShortcutActions.length > 0 ? (
                         <div className="ai-mobile-shortcut-popover">
                           <div className="ai-mobile-shortcut-popover-inner">
                             <PromptShortcutPanel
@@ -1279,6 +1430,8 @@ export function ResultPage() {
                             </option>
                           ) : null}
                           {hasAstrolabeChart ? <option value="astrolabe">星盘</option> : null}
+                          {hasAstrolabeChart ? <option value="qizheng">七政四余</option> : null}
+                          {bazhaiResult ? <option value="bazhai">八宅</option> : null}
                         </select>
 
                         {(promptState.promptSource === 'bazi' ||
@@ -1353,6 +1506,7 @@ export function ResultPage() {
                     </div>
                     <div className="field-list">
                       <PromptContextFields value={promptContext} onChange={setPromptContext} />
+                      {metaphysicsPromptQuestionField}
                       <div className="prompt-compact-grid">
                         <label className="field-card">
                           <div className="field-header">
@@ -1378,6 +1532,10 @@ export function ResultPage() {
                               </option>
                             ) : null}
                             {hasAstrolabeChart ? <option value="astrolabe">基于星盘</option> : null}
+                            {hasAstrolabeChart ? (
+                              <option value="qizheng">基于七政四余</option>
+                            ) : null}
+                            {bazhaiResult ? <option value="bazhai">基于八宅</option> : null}
                           </select>
                         </label>
 
@@ -1531,15 +1689,14 @@ export function ResultPage() {
                     <div>
                       <h2 className="prompt-settings-title">提示词设置</h2>
                       <p>
-                        {hasAstrolabeChart
-                          ? '选择星盘解读重点，生成可复制给 AI 的提示词。'
-                          : '选择基于八字、紫微或八字+紫微的已选分析对象，再用快捷按钮生成问题。'}
+                        选择已生成的排盘作为解读依据，再补充问题和现实情况，即可生成完整提示词。
                       </p>
                     </div>
                   </div>
 
                   <div className="field-list">
                     <PromptContextFields value={promptContext} onChange={setPromptContext} />
+                    {metaphysicsPromptQuestionField}
                     <>
                       <div className="prompt-compact-grid">
                         <label className="field-card">
@@ -1566,6 +1723,10 @@ export function ResultPage() {
                               </option>
                             ) : null}
                             {hasAstrolabeChart ? <option value="astrolabe">基于星盘</option> : null}
+                            {hasAstrolabeChart ? (
+                              <option value="qizheng">基于七政四余</option>
+                            ) : null}
+                            {bazhaiResult ? <option value="bazhai">基于八宅</option> : null}
                           </select>
                         </label>
 
