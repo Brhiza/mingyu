@@ -1,4 +1,3 @@
-import { BIRTH_TIME_OPTIONS } from '../birth-time';
 import { formatPromptCurrentTime } from '../prompt-time';
 import { buildBaziQuestionGuidanceSection } from '../../utils/ai/baziPromptGuidance';
 import {
@@ -42,8 +41,21 @@ function buildTextSummary(formData: ReverseBirthTimeFormData) {
     .join('\n');
 }
 
-function buildBirthTimeOptionText() {
-  return BIRTH_TIME_OPTIONS.map((item) => `- ${item.label}（${item.range}）`).join('\n');
+function buildBirthTimeOptionText(profile: ThreePillarsProfile) {
+  return profile.candidateHours
+    .map((candidate) => {
+      const hidden = candidate.hiddenStems
+        .map((stem, index) => `${stem}(${candidate.hiddenTenGods[index]})`)
+        .join('、');
+      const relations = candidate.branchRelations.length
+        ? candidate.branchRelations.join('、')
+        : '与年月日支未见直接合冲刑害破';
+      const wuxing = Object.entries(candidate.wuxingCount)
+        .map(([element, count]) => `${element}${count}`)
+        .join('、');
+      return `- ${candidate.label}（${candidate.range}）：四柱 ${candidate.pillars.year} ${candidate.pillars.month} ${candidate.pillars.day} ${candidate.pillars.hour}；时干${candidate.hourStemTenGod}，时支${candidate.hourBranchTenGod}；时支藏干${hidden}；${relations}；八字表层五行${wuxing}`;
+    })
+    .join('\n');
 }
 
 function buildKnownClueText(selectSummary: string, textSummary: string) {
@@ -120,7 +132,7 @@ export function buildReverseBirthTimePrompt(params: {
     '',
     `【当前时间】\n${formatPromptCurrentTime()}`,
     `【已知出生信息】\n${params.profile.promptText}`,
-    `【候选时辰】\n${buildBirthTimeOptionText()}`,
+    `【候选时辰】\n以下为 13 个时段的四柱、十神、藏干、合冲和五行对照：\n${buildBirthTimeOptionText(params.profile)}`,
     `【已知线索】\n${knownClueText}`,
     '【线索权重】\n请把每条可用线索标成高、中、低或待确认；高权重线索必须能明显提高或降低某些候选时辰，低权重线索只能作为辅证。',
     '【排除理由】\n输出时必须逐条说明哪些候选时辰被降低权重、哪些暂不排除，以及理由来源；不得只写结论，不得因为单一外貌、性格或感情线索直接排除一个时辰。',

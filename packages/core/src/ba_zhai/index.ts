@@ -5,6 +5,8 @@
  * @古籍依据 《八宅明镜》《阳宅十书》
  */
 import { calculateMingGua } from '../bazi/mingGua';
+import { daysInGregorianMonth } from '../calendar/date-validation';
+import { getGanZhiFromDate } from '../ganzhi';
 import {
   getHouseTrigram,
   getEightMansion,
@@ -16,6 +18,9 @@ import {
 export interface BaZhaiInput {
   /** 出生公历年份（用于推命卦；已按立春换年处理） */
   birthYear?: number;
+  /** 出生公历月日，用于准确处理立春换年。 */
+  birthMonth?: number;
+  birthDay?: number;
   /** 性别 */
   gender?: 'male' | 'female';
   /** 也可直接给定命卦（坎坤震巽乾兑艮离） */
@@ -26,6 +31,8 @@ export interface BaZhaiInput {
 
 export interface BaZhaiResult {
   mingGua: string;
+  effectiveBirthYear: number | null;
+  birthYearBoundaryNote: string;
   mingGroup: '东四命' | '西四命';
   houseGua: string | null;
   houseGroup: '东四命' | '西四命' | null;
@@ -41,10 +48,59 @@ export interface BaZhaiResult {
   prompt: string;
 }
 
-function resolveMingGua(input: BaZhaiInput): string {
-  if (input.mingGua) return input.mingGua;
+function resolveEffectiveBirthYear(input: BaZhaiInput): {
+  year: number;
+  note: string;
+} {
+  if (!Number.isSafeInteger(input.birthYear) || input.birthYear! < 1 || input.birthYear! > 9999) {
+    throw new Error('出生年份必须是 1-9999 之间的整数。');
+  }
+  const year = input.birthYear!;
+  const hasMonth = input.birthMonth !== undefined;
+  const hasDay = input.birthDay !== undefined;
+  if (hasMonth !== hasDay) throw new Error('八宅立春换年需同时提供出生月和出生日。');
+  if (!hasMonth || !hasDay) {
+    return {
+      year,
+      note: '只提供了出生年份；若出生在当年立春前，命卦应按上一年复核。',
+    };
+  }
+  const month = input.birthMonth!;
+  const day = input.birthDay!;
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    throw new Error('出生月份需在 1-12 之间。');
+  }
+  const maxDay = daysInGregorianMonth(year, month);
+  if (!Number.isInteger(day) || day < 1 || day > maxDay) {
+    throw new Error(`出生日期需在 1-${maxDay} 之间。`);
+  }
+  const birthGanZhiYear = getGanZhiFromDate(new Date(year, month - 1, day, 12, 0, 0)).year;
+  const currentGanZhiYear = getGanZhiFromDate(new Date(year, 6, 1, 12, 0, 0)).year;
+  const effectiveYear = birthGanZhiYear === currentGanZhiYear ? year : year - 1;
+  return {
+    year: effectiveYear,
+    note:
+      effectiveYear === year
+        ? `出生日期已过 ${year} 年立春，命卦按 ${year} 年计算。`
+        : `出生日期在 ${year} 年立春前，命卦按 ${effectiveYear} 年计算。`,
+  };
+}
+
+function resolveMingGua(input: BaZhaiInput): {
+  gua: string;
+  effectiveBirthYear: number | null;
+  note: string;
+} {
+  if (input.mingGua) {
+    return { gua: input.mingGua, effectiveBirthYear: null, note: '本次直接使用已给定的命卦。' };
+  }
   if (input.birthYear != null && input.gender) {
-    return calculateMingGua(input.birthYear, input.gender).gua;
+    const resolved = resolveEffectiveBirthYear(input);
+    return {
+      gua: calculateMingGua(resolved.year, input.gender).gua,
+      effectiveBirthYear: resolved.year,
+      note: resolved.note,
+    };
   }
   throw new Error('需提供 birthYear+gender 或直接给定 mingGua。');
 }
@@ -53,6 +109,7 @@ function buildPrompt(r: Omit<BaZhaiResult, 'prompt'>): string {
   const lines: string[] = [];
   lines.push('【八宅风水排盘】');
   lines.push(`命卦：${r.mingGua}（${r.mingGroup}）`);
+  lines.push(`立春年界：${r.birthYearBoundaryNote}`);
   if (r.houseGua) {
     lines.push(`宅卦：${r.houseGua}（${r.houseGroup}）`);
     lines.push(`命宅配合：${r.match}。${r.matchAdvice}`);
@@ -92,7 +149,8 @@ function buildPrompt(r: Omit<BaZhaiResult, 'prompt'>): string {
 
 /** 八宅风水分析 */
 export function analyzeBaZhai(input: BaZhaiInput): BaZhaiResult {
-  const mingGua = resolveMingGua(input);
+  const resolvedMingGua = resolveMingGua(input);
+  const mingGua = resolvedMingGua.gua;
   const mingGroup = getEastWestGroup(mingGua);
   const mingMansion = getEightMansion(mingGua);
   const mingPalace = mingMansion.lucky
@@ -120,6 +178,8 @@ export function analyzeBaZhai(input: BaZhaiInput): BaZhaiResult {
 
   const result: Omit<BaZhaiResult, 'prompt'> = {
     mingGua,
+    effectiveBirthYear: resolvedMingGua.effectiveBirthYear,
+    birthYearBoundaryNote: resolvedMingGua.note,
     mingGroup,
     houseGua,
     houseGroup,

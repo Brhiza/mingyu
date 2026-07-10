@@ -276,3 +276,22 @@ test('黄历择日：核心算法应限制参与人数量，避免绕过 API 放
     /一次最多分析 30 位参与人/,
   );
 });
+
+test('黄历择日：每个候选日应给出完整时辰并排除诸事不宜的首选时辰', () => {
+  const result = generateAlmanacSelection({
+    topic: 'contract',
+    startDate: '2026-06-01',
+    endDate: '2026-06-03',
+  });
+
+  for (const day of result.days) {
+    assert.equal(day.hours?.length, 13, `${day.date} 应包含早晚子时在内的 13 个时段`);
+    assert.ok((day.bestHours?.length ?? 0) > 0, `${day.date} 应给出首选时辰`);
+    for (const hour of day.bestHours ?? []) {
+      assert.doesNotMatch(
+        [...hour.recommends, ...hour.avoids, ...hour.cautions].join('；'),
+        /诸事不宜/,
+      );
+    }
+  }
+});

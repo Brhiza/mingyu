@@ -42,6 +42,8 @@ function isTimeBasedDivinationDraft(draft: DivinationDraft) {
     return true;
   }
 
+  if (draft.method === 'taiyi' && (draft.taiyiScope ?? 'year') !== 'year') return true;
+
   return false;
 }
 
@@ -770,22 +772,41 @@ export function DivinationForm({
             <div className="divination-extra-panel">
               <div className="form-row">
                 <div className="form-item">
-                  <label htmlFor="taiyi-year-input">要观察的年份</label>
-                  <input
-                    id="taiyi-year-input"
-                    type="text"
-                    inputMode="numeric"
+                  <label htmlFor="taiyi-scope-select">太乙计式</label>
+                  <select
+                    id="taiyi-scope-select"
                     className="form-input"
-                    placeholder="例如 2026"
-                    value={draft.taiyiYear}
+                    value={draft.taiyiScope ?? 'year'}
                     onChange={(event) =>
-                      updateDraft('taiyiYear', event.target.value.replace(/[^\d]/g, ''))
+                      updateDraft('taiyiScope', event.target.value as DivinationDraft['taiyiScope'])
                     }
-                  />
-                  <div className="birth-time-hint">
-                    当前只提供已完整校核的年家太乙，用于观察该年的整体气运、动静与时宜。
-                  </div>
+                  >
+                    <option value="year">年计</option>
+                    <option value="month">月计</option>
+                    <option value="day">日计</option>
+                    <option value="hour">时计</option>
+                    <option value="minute">分计</option>
+                  </select>
                 </div>
+                {(draft.taiyiScope ?? 'year') === 'year' ? (
+                  <div className="form-item">
+                    <label htmlFor="taiyi-year-input">要观察的年份</label>
+                    <input
+                      id="taiyi-year-input"
+                      type="text"
+                      inputMode="numeric"
+                      className="form-input"
+                      placeholder="例如 2026"
+                      value={draft.taiyiYear}
+                      onChange={(event) =>
+                        updateDraft('taiyiYear', event.target.value.replace(/[^\d]/g, ''))
+                      }
+                    />
+                  </div>
+                ) : null}
+              </div>
+              <div className="birth-time-hint">
+                年计看年度，月计看月度，日计看当天，时计看时辰，分计细化到当前分钟；各计式按自己的积数与阴阳遁起局。
               </div>
             </div>
           ) : null}

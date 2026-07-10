@@ -2,7 +2,7 @@ import type { LiurenData, LiurenTransmission } from '../../../types/divination';
 import { getDivinationTime } from '../../../calendar/timeManager';
 import { getVoidBranches } from '../../../calendar/lunar';
 import { SolarTerm, SolarTime } from 'tyme4ts';
-import { getYiMa, getTaoHua } from '../../../ganzhi';
+import { getBranchWuxing, getSeasonState, getYiMa, getTaoHua } from '../../../ganzhi';
 import {
   buildHeavenlyPlate,
   DIZHI,
@@ -316,6 +316,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     const plateItem = getPlateItemByBranch(heavenlyPlate, branch);
     const previousBranch = index === 0 ? fourLessons[0].lower : transmissionBranches[index - 1];
     const relation = describeRelation(branch, previousBranch);
+    const wuxing = getBranchWuxing(branch);
 
     return {
       stage: transmissionStages[index],
@@ -323,6 +324,10 @@ export function generateLiuren(customDate?: Date): LiurenData {
       god: plateItem.god,
       relation,
       note: buildTransmissionNote(transmissionStages[index], relation),
+      wuxing,
+      seasonState: getSeasonState(wuxing, ganzhi.month.charAt(1)),
+      isVoid: xunKong.includes(branch),
+      dayRelation: describeRelation(branch, dayBranch),
     };
   }) satisfies LiurenTransmission[];
   const classicalRules = resolveLiurenClassicalRules(initialResult.rule);
@@ -355,6 +360,40 @@ export function generateLiuren(customDate?: Date): LiurenData {
     ganzhi.day.charAt(1),
     ganzhi.day.charAt(0),
   );
+  const firstTransmission = threeTransmissions[0];
+  const focusEvidence: NonNullable<LiurenData['focusEvidence']> = [
+    {
+      target: `初传${firstTransmission.branch}乘${firstTransmission.god}`,
+      role: '发用主轴',
+      weight: 100,
+      evidence: [
+        `${initialResult.rule}取为初传`,
+        `月令${firstTransmission.seasonState}`,
+        firstTransmission.dayRelation || '与日支关系平',
+      ],
+      limitations: firstTransmission.isVoid ? ['初传空亡，主证需待填实'] : [],
+    },
+    {
+      target: `日干${dayStem}寄${dayStemResidence}`,
+      role: '我方与求测者',
+      weight: 80,
+      evidence: ['日干寄宫为我方定位', `一课${fourLessons[0].upper}临${fourLessons[0].lower}`],
+      limitations: [],
+    },
+    {
+      target: `日支${dayBranch}`,
+      role: '所占之事与对方环境',
+      weight: 70,
+      evidence: [`三课${fourLessons[2].upper}临${fourLessons[2].lower}`, '需与发用和三传同看'],
+      limitations: ['具体类神仍须按问题主题从明列盘面中选取'],
+    },
+  ];
+  const timingEvidence = [
+    `一级发用：先看初传${firstTransmission.branch}${firstTransmission.isVoid ? '空亡，待出空或冲实' : '不空，可直接作为起始信号'}`,
+    `二级三传：${threeTransmissions.map((item) => `${item.stage}${item.branch}（月令${item.seasonState}${item.isVoid ? '、空' : ''}）`).join('→')}`,
+    `三级日月：以日支${dayBranch}、月支${ganzhi.month.charAt(1)}对初传和类神的同支、冲合与旺衰作为触发条件`,
+    '未给出目标期限时，只判断先后、快慢和触发条件，不硬换成唯一日期',
+  ];
 
   // 为每个天将附加属性
   const tianJiangProps = threeTransmissions.reduce<
@@ -415,5 +454,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     guaTi,
     shenShaSummary,
     tianJiangProps,
+    focusEvidence,
+    timingEvidence,
   };
 }

@@ -53,6 +53,9 @@ test('星盘流年分析对象会生成行运证据和展示文本', () => {
   assert.match(context.promptText, /本命宫主星链条：第1宫/);
   assert.match(context.promptText, /行运证据：/);
   assert.match(context.promptText, /行运落宫提示：/);
+  assert.match(context.promptText, /太阳返照证据：/);
+  assert.match(context.promptText, /次限证据（一岁一日）：/);
+  assert.match(context.promptText, /太阳弧证据：/);
   assert.match(context.promptText, /落本命第\d+宫/);
   assert.doesNotMatch(context.promptText, /不包含太阳返照、次限推进、太阳弧/);
   assert.doesNotMatch(context.promptText, /未计算|技术限制|当前项目/);

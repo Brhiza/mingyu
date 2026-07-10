@@ -43,6 +43,23 @@ const FUYIN_PLATE = DIZHI.map((under) => ({
   god: '贵人',
 })) satisfies LiurenPlateItem[];
 
+test('大六壬应输出分层取用与应期证据', () => {
+  const result = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
+
+  assert.deepEqual(
+    result.focusEvidence?.map((item) => item.weight),
+    [100, 80, 70],
+  );
+  assert.match(result.focusEvidence?.[0]?.role ?? '', /发用主轴/);
+  assert.equal(result.timingEvidence?.length, 4);
+  assert.match(result.timingEvidence?.join('；') ?? '', /一级发用.*二级三传.*三级日月/);
+  for (const transmission of result.threeTransmissions) {
+    assert.ok(transmission.wuxing);
+    assert.ok(transmission.seasonState);
+    assert.equal(typeof transmission.isVoid, 'boolean');
+  }
+});
+
 function getUpperByUnder(
   plate: Array<{ branch: string; under: string; god: string }>,
   under: string,

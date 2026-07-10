@@ -288,6 +288,8 @@ export interface BaziChartResult {
   timeInfo: TimeInfo;
   /** 四柱（年柱/月柱/日柱/时柱） */
   pillars: Pillars;
+  /** 四柱之间可直接复核的伏吟、反吟、合冲刑害破、三合三会关系 */
+  pillarRelations: import('./baziPromptEnhancement').BaziPillarRelations;
   /** 日主（出生日的天干，代表命主自身） */
   dayMaster: DayMaster;
   /** 生肖 */

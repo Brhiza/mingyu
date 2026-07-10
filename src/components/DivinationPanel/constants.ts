@@ -59,6 +59,7 @@ export const defaultDraft: DivinationDraft = {
   astrolabeLongitude: '116.4074',
   astrolabeTimezone: '8',
   taiyiYear: String(new Date().getFullYear()),
+  taiyiScope: 'year',
 };
 
 export const methodLabelMap = Object.fromEntries(

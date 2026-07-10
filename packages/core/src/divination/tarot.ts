@@ -144,3 +144,61 @@ export function getCardKeywords(cardName: string): string {
   }
   return keywords;
 }
+
+const MAJOR_REVERSED_MEANINGS: Record<string, string> = {
+  愚者: '冲动冒险、准备不足，或因害怕未知而不敢开始',
+  魔术师: '能力没有用在正确方向，或存在夸大、操控和执行不足',
+  女祭司: '忽略直觉、信息被隐藏，或过度封闭在内心',
+  女皇: '给予过度、依赖照顾，或创造和成长暂时受阻',
+  皇帝: '控制过度、规则僵化，或缺少稳定边界',
+  教皇: '盲从传统、权威失效，或需要找到自己的价值标准',
+  恋人: '价值观不一、关系失衡，或在重要选择上摇摆',
+  战车: '方向不一、控制失灵，或因过度用力而失去节奏',
+  力量: '自信不足、情绪失控，或把勇气变成硬撑',
+  隐士: '过度孤立、回避现实，或还没找到真正答案',
+  命运之轮: '转机延迟、反复踩入旧循环，或抗拒必要变化',
+  正义: '判断失衡、回避责任，或公平结果尚未落定',
+  倒吊人: '无意义拖延、拒绝换角度，或付出与收获不对等',
+  死神: '不愿结束、卡在过渡期，或转变进行得不彻底',
+  节制: '节奏失衡、过度折中，或双方暂时无法调和',
+  恶魔: '看见束缚却难以脱身，或开始意识到需要戒断依赖',
+  塔: '危机被拖延、内部结构已不稳，或仍在回避必要的打破',
+  星星: '信心不足、期望脱离现实，或需要重建长期希望',
+  月亮: '恐惧和猜疑加重，或隐藏信息正在慢慢显现',
+  太阳: '快乐被遮挡、过度乐观，或成功比预期更晚到来',
+  审判: '回避复盘、自我怀疑，或重要决定还没有做出',
+  世界: '临门一步尚未完成，或需要补齐遗漏才能收尾',
+};
+
+function getTarotElement(cardName: string): string {
+  if (cardName.startsWith('权杖')) return '火（行动、动力、创造）';
+  if (cardName.startsWith('圣杯')) return '水（感受、关系、直觉）';
+  if (cardName.startsWith('宝剑')) return '风（思考、沟通、决断）';
+  if (cardName.startsWith('钱币')) return '土（资源、工作、现实）';
+  return '大阿卡纳（核心课题与阶段转折）';
+}
+
+function getTarotArchetype(cardName: string): string {
+  if (cardName.endsWith('王牌')) return '起点、种子与新机会';
+  if (cardName.endsWith('侍者')) return '学习、消息与初步尝试';
+  if (cardName.endsWith('骑士')) return '推进方式、行动节奏与过程';
+  if (cardName.endsWith('王后')) return '内在掌握、成熟表达与照顾';
+  if (cardName.endsWith('国王')) return '外在掌握、责任与决策';
+  const numberMatch = cardName.match(/[二三四五六七八九十]$/);
+  return numberMatch ? `数字${numberMatch[0]}的发展阶段` : '大阿卡纳的人生主轴';
+}
+
+export function getCardEvidence(cardName: string) {
+  const keywords = getCardKeywords(cardName).split(',');
+  const uprightMeaning = `正位强调${keywords.join('、')}，表示这些能量正在直接发挥作用。`;
+  const reversedMeaning = MAJOR_REVERSED_MEANINGS[cardName]
+    ? `逆位重点：${MAJOR_REVERSED_MEANINGS[cardName]}。`
+    : `逆位表示${keywords.join('、')}相关能量可能受阻、过度、内化或方向偏离，需结合当前牌位判断。`;
+  return {
+    keywords,
+    uprightMeaning,
+    reversedMeaning,
+    element: getTarotElement(cardName),
+    archetype: getTarotArchetype(cardName),
+  };
+}

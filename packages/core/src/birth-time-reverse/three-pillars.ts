@@ -7,6 +7,8 @@ import {
   getWuxing,
 } from '../bazi/baziUtils';
 import { getBirthDateValidationMessage } from '../calendar/date-validation';
+import { SHICHEN_PERIODS } from '../calendar/dateUtils';
+import { getBranchRelations } from '../ganzhi';
 
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 
@@ -20,7 +22,7 @@ export type BirthBaseInput = {
 };
 
 export type ThreePillarDetail = {
-  label: '年柱' | '月柱' | '日柱';
+  label: '年柱' | '月柱' | '日柱' | '时柱';
   gan: string;
   zhi: string;
   ganZhi: string;
@@ -48,7 +50,27 @@ export type ThreePillarsProfile = {
     day: ThreePillarDetail;
   };
   wuxingCount: Record<string, number>;
+  candidateHours: CandidateHourProfile[];
   promptText: string;
+};
+
+export type CandidateHourProfile = {
+  index: number;
+  label: string;
+  range: string;
+  solarDateTime: string;
+  pillars: {
+    year: string;
+    month: string;
+    day: string;
+    hour: string;
+  };
+  hourStemTenGod: string;
+  hourBranchTenGod: string;
+  hiddenStems: string[];
+  hiddenTenGods: string[];
+  branchRelations: string[];
+  wuxingCount: Record<string, number>;
 };
 
 function readBirthInteger(value: unknown, label: string) {
@@ -163,6 +185,78 @@ function formatWuxingCount(wuxingCount: Record<string, number>) {
     .join('  ');
 }
 
+function describeHourBranchRelations(hourBranch: string, pillars: string[]) {
+  const relation = getBranchRelations(hourBranch);
+  const labels = ['年支', '月支', '日支'];
+  const results: string[] = [];
+  pillars.forEach((pillar, index) => {
+    const branch = pillar[1];
+    if (branch === relation.combine) results.push(`与${labels[index]}${branch}六合`);
+    if (branch === relation.clash) results.push(`与${labels[index]}${branch}六冲`);
+    if (branch === relation.harm) results.push(`与${labels[index]}${branch}相害`);
+    if (branch === relation.break) results.push(`与${labels[index]}${branch}相破`);
+    if (relation.punishments.includes(branch)) results.push(`与${labels[index]}${branch}相刑`);
+    if (relation.sanhe.partners.includes(branch)) {
+      results.push(`与${labels[index]}${branch}同属${relation.sanhe.group}三合局`);
+    }
+  });
+  return [...new Set(results)];
+}
+
+function buildCandidateHours(solarTime: SolarTimeInstance): CandidateHourProfile[] {
+  return SHICHEN_PERIODS.map((period) => {
+    const candidateSolar = SolarTime.fromYmdHms(
+      solarTime.getYear(),
+      solarTime.getMonth(),
+      solarTime.getDay(),
+      period.hour,
+      0,
+      0,
+    );
+    const eightChar = candidateSolar.getLunarHour().getEightChar();
+    const pillars = {
+      year: eightChar.getYear().getName(),
+      month: eightChar.getMonth().getName(),
+      day: eightChar.getDay().getName(),
+      hour: eightChar.getHour().getName(),
+    };
+    const dayMaster = pillars.day[0];
+    const hourStem = pillars.hour[0];
+    const hourBranch = pillars.hour[1];
+    const hiddenStems = getBranchRelations(hourBranch).hiddenStems;
+    const allPillars = Object.values(pillars).map((ganZhi, index) =>
+      buildPillarDetail(
+        index === 0 ? '年柱' : index === 1 ? '月柱' : index === 2 ? '日柱' : '时柱',
+        ganZhi[0],
+        ganZhi[1],
+        dayMaster,
+      ),
+    );
+    const count: Record<string, number> = { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 };
+    allPillars.forEach((pillar) => {
+      count[pillar.ganWuxing] += 1;
+      count[pillar.zhiWuxing] += 1;
+    });
+    return {
+      index: period.index,
+      label: period.name,
+      range: period.range,
+      solarDateTime: `${candidateSolar.getYear()}-${String(candidateSolar.getMonth()).padStart(2, '0')}-${String(candidateSolar.getDay()).padStart(2, '0')} ${String(period.hour).padStart(2, '0')}:00`,
+      pillars,
+      hourStemTenGod: getTenGod(hourStem, dayMaster),
+      hourBranchTenGod: getTenGodForBranch(hourBranch, dayMaster),
+      hiddenStems,
+      hiddenTenGods: hiddenStems.map((stem) => getTenGod(stem, dayMaster)),
+      branchRelations: describeHourBranchRelations(hourBranch, [
+        pillars.year,
+        pillars.month,
+        pillars.day,
+      ]),
+      wuxingCount: count,
+    };
+  });
+}
+
 function getPillarsAtSolarHour(solarTime: SolarTimeInstance, hour: number, minute = 0, second = 0) {
   const eightChar = SolarTime.fromYmdHms(
     solarTime.getYear(),
@@ -261,6 +355,7 @@ export function buildThreePillarsProfile(input: BirthBaseInput): ThreePillarsPro
     },
     pillars,
     wuxingCount,
+    candidateHours: buildCandidateHours(solarTime),
     promptText: '',
   };
 

@@ -3554,7 +3554,7 @@ test('前端占卜草稿可把自定北京时间传给按时间起卦的方法',
   assert.match(session.prompt, /2025年1月1日 8时30分/);
 });
 
-test('太乙神数作为占卜方法应生成完整年家盘与年度边界提示', async () => {
+test('太乙神数作为占卜方法应生成完整年计盘与时间层级提示', async () => {
   const session = await generateDivinationSession(
     buildDraft({
       method: 'taiyi',
@@ -3567,10 +3567,10 @@ test('太乙神数作为占卜方法应生成完整年家盘与年度边界提�
   assert.equal(session.method, 'taiyi');
   assert.equal(data.scope, 'year');
   assert.equal(data.bureau, 33);
-  assert.match(session.prompt, /占法：太乙神数（年家）/);
+  assert.match(session.prompt, /占法：太乙神数（年计）/);
   assert.match(session.prompt, /阳遁第33局/);
-  assert.match(session.prompt, /太乙神数按年家七十二局判断/);
-  assert.match(session.prompt, /应期只给年度层级的趋势和条件建议/);
+  assert.match(session.prompt, /太乙神数按所选年计、月计、日计、时计或分计判断/);
+  assert.match(session.prompt, /时间判断应与所选计式的尺度一致/);
   assert.doesNotMatch(session.prompt, /尚未计算|月计、日计或时计/);
   assert.match(
     session.prompt,
@@ -3582,7 +3582,30 @@ test('太乙神数占卜入口应拒绝空年份和超出网页支持范围的�
   for (const value of ['', '1899', '2201']) {
     await assert.rejects(
       () => generateDivinationSession(buildDraft({ method: 'taiyi', taiyiYear: value })),
-      /太乙年家年份/,
+      /太乙年计年份/,
+    );
+  }
+});
+
+test('太乙神数占卜入口应支持月日时分四种按时间起局', async () => {
+  for (const scope of ['month', 'day', 'hour', 'minute'] as const) {
+    const session = await generateDivinationSession(
+      buildDraft({
+        method: 'taiyi',
+        taiyiScope: scope,
+        divinationTimeMode: 'custom',
+        customDivinationDate: '2026-07-11',
+        customDivinationTime: '14:35',
+        question: '当前应当主动推进还是暂时稳守？',
+      }),
+    );
+    const data = session.data as TaiyiResult;
+    assert.equal(data.scope, scope);
+    assert.match(
+      session.prompt,
+      new RegExp(
+        `占法：太乙神数（${{ month: '月计', day: '日计', hour: '时计', minute: '分计' }[scope]}）`,
+      ),
     );
   }
 });

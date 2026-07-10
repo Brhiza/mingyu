@@ -549,6 +549,10 @@ export interface LiurenTransmission {
   god: string;
   relation: string;
   note: string;
+  wuxing?: string;
+  seasonState?: '旺' | '相' | '休' | '囚' | '死';
+  isVoid?: boolean;
+  dayRelation?: string;
 }
 
 export interface LiurenClassicalRule {
@@ -620,6 +624,14 @@ export interface LiurenData {
       bodyPart?: string;
     }
   >;
+  focusEvidence?: Array<{
+    target: string;
+    role: string;
+    weight: number;
+    evidence: string[];
+    limitations: string[];
+  }>;
+  timingEvidence?: string[];
 }
 
 export interface TarotData {
@@ -631,6 +643,10 @@ export interface TarotData {
     position: string;
     reversed: boolean;
     keywords: string[];
+    uprightMeaning?: string;
+    reversedMeaning?: string;
+    element?: string;
+    archetype?: string;
   }[];
   timestamp: number;
 }
@@ -736,6 +752,22 @@ export interface AlmanacDayCandidate {
   highlights: string[];
   cautions: string[];
   participantNotes: string[];
+  hours?: AlmanacHourCandidate[];
+  bestHours?: AlmanacHourCandidate[];
+}
+
+export interface AlmanacHourCandidate {
+  name: string;
+  range: string;
+  ganzhi: string;
+  branch: string;
+  twelveStar: string;
+  recommends: string[];
+  avoids: string[];
+  score: number;
+  highlights: string[];
+  cautions: string[];
+  participantNotes: string[];
 }
 
 export interface AlmanacData {
@@ -760,12 +792,17 @@ export interface LenormandData {
     position: string;
     keywords: string[];
     meaning: string;
+    house?: string;
+    row?: number;
+    column?: number;
   }[];
   combinations?: Array<{
     card1: string;
     card2: string;
     meaning: string;
+    source?: '固定组合' | '相邻牌义合读';
   }>;
+  layoutEvidence?: string[];
   timestamp: number;
 }
 
@@ -830,7 +867,7 @@ export interface AstrolabeData {
   timestamp: number;
 }
 
-export type TaiyiScope = 'year';
+export type TaiyiScope = 'year' | 'month' | 'day' | 'hour' | 'minute';
 
 export interface TaiyiModelInfo {
   id: string;
@@ -843,11 +880,15 @@ export interface TaiyiModelInfo {
 export interface TaiyiResult {
   scope: TaiyiScope;
   ganZhi: string;
+  dateTime: string;
+  accumulatedValue: number;
+  accumulatedLabel: '积年' | '积月' | '积日' | '积时' | '积分';
+  /** @deprecated 年家兼容字段；其他计式与 accumulatedValue 相同。 */
   accumulatedYears: number;
   entryYears: number;
   yuan: number;
   ji: number;
-  yinYang: '阳遁';
+  yinYang: '阳遁' | '阴遁';
   bureau: number;
   taiyiPosition: string;
   taiyiPalace: number;
@@ -861,6 +902,13 @@ export interface TaiyiResult {
   jiShenPalace: number;
   lordCount: number;
   guestCount: number;
+  setCount: number;
+  lordGeneral: number;
+  lordAssistant: number;
+  guestGeneral: number;
+  guestAssistant: number;
+  setGeneral: number;
+  setAssistant: number;
   sixteenGods: { branch: string; god: string }[];
   judgments: string[];
   model: TaiyiModelInfo;

@@ -98,11 +98,15 @@ function getKongWangEvidence(chartResult: BaziChartResult): string[] {
   ).map((pillar) => PILLAR_LABELS[pillar]);
 }
 
-function analyzePillarRelations(chartResult: BaziChartResult): {
+export interface BaziPillarRelations {
   fuxin: string[];
   fanyin: string[];
   xingChong: string[];
-} {
+}
+
+export function analyzePillarRelations(
+  chartResult: Pick<BaziChartResult, 'pillars'>,
+): BaziPillarRelations {
   const fuxin = new Set<string>();
   const fanyin = new Set<string>();
   const xingChong = new Set<string>();

@@ -11,6 +11,7 @@ import type {
   SupplementaryInfo,
   TarotSpreadType,
   TaiyiResult,
+  TaiyiScope,
   XiaoliurenDivinationMethod,
 } from '../../../types/divination';
 import type { DivinationMethodId } from '@core/divination/config';
@@ -92,8 +93,8 @@ function buildDivinationEvidenceTerms(method: Exclude<DivinationMethodId, 'rando
       };
     case 'taiyi':
       return {
-        facts: '年家局数、太乙宫位、文昌、始击、计神、主客算、十六神或立成判断',
-        timing: '所选年份、年家局数、主客算、宫位关系或问题限定范围',
+        facts: '所选计式、积数、阴阳遁、局数、太乙宫位、文昌、始击、计神、主客定算、将参或十六神',
+        timing: '所选年计、月计、日计、时计或分计的时间层级、局数、主客定算与宫位关系',
       };
     case 'tarot':
       return {
@@ -180,9 +181,9 @@ function buildDivinationTimingBoundaryText(method: Exclude<DivinationMethodId, '
       ].join('\n');
     case 'taiyi':
       return [
-        '太乙神数按年家七十二局判断所选年份的年度趋势、动静、攻守与时宜。',
-        '必须以局数、太乙、文昌、始击、计神与主客算为依据。',
-        '应期只给年度层级的趋势和条件建议，不指定具体月份或日期。',
+        '太乙神数按所选年计、月计、日计、时计或分计判断对应时间层级的趋势、动静、攻守与时宜。',
+        '必须以积数、阴阳遁、局数、太乙、文昌、始击、计神、主客定算与将参为依据。',
+        '时间判断应与所选计式的尺度一致，并写明触发条件和可观察信号。',
       ].join('\n');
     case 'tarot':
       return [
@@ -251,6 +252,7 @@ export type DivinationDraft = {
   astrolabeTimezone: string;
   astrolabeTopic?: AstrolabePromptTopic;
   taiyiYear: string;
+  taiyiScope?: TaiyiScope;
 };
 
 export type DivinationSession = {
@@ -511,8 +513,10 @@ function validateDraft(draft: DivinationDraft) {
   }
 
   if (draft.method === 'taiyi') {
-    const year = readIntegerText(draft.taiyiYear, '太乙年家年份');
-    assertNumberRange(year, '太乙年家年份', 1900, 2200);
+    if ((draft.taiyiScope ?? 'year') === 'year') {
+      const year = readIntegerText(draft.taiyiYear, '太乙年计年份');
+      assertNumberRange(year, '太乙年计年份', 1900, 2200);
+    }
   }
 
   if (draft.method === 'almanac') {
@@ -621,7 +625,7 @@ function isTimeBasedDivinationMethod(method: Exclude<DivinationMethodId, 'random
     return true;
   }
 
-  if (method === 'meihua' || method === 'xiaoliuren') {
+  if (method === 'meihua' || method === 'xiaoliuren' || method === 'taiyi') {
     return true;
   }
 
@@ -796,9 +800,12 @@ export async function generateDivinationSession(
     }
     case 'taiyi': {
       const module = await import('mingyu-core/taiyi');
+      const scope = draft.taiyiScope ?? 'year';
       data = module.generateTaiyi({
-        scope: 'year',
-        year: readIntegerText(draft.taiyiYear, '太乙年家年份'),
+        scope,
+        ...(scope === 'year'
+          ? { year: readIntegerText(draft.taiyiYear, '太乙年计年份') }
+          : { date: customDate ?? new Date() }),
       }) as TaiyiResult;
       break;
     }
@@ -806,6 +813,7 @@ export async function generateDivinationSession(
       const module = await import('mingyu-core/divination/tarot');
       if (draft.tarotSpread === 'single') {
         const result = module.drawSingleCard();
+        const evidence = module.getCardEvidence(result.card.name);
         data = {
           spreadType: 'single',
           spreadName: '单牌指引',
@@ -815,7 +823,7 @@ export async function generateDivinationSession(
               name: result.card.name,
               position: result.position,
               reversed: result.isReversed,
-              keywords: module.getCardKeywords(result.card.name).split(','),
+              ...evidence,
             },
           ],
           timestamp: result.timestamp,
@@ -825,13 +833,16 @@ export async function generateDivinationSession(
         data = {
           spreadType: draft.tarotSpread,
           spreadName: module.tarotSpreads[draft.tarotSpread].name,
-          cards: result.cards.map((item) => ({
-            id: item.card.number,
-            name: item.card.name,
-            position: item.position,
-            reversed: item.isReversed,
-            keywords: module.getCardKeywords(item.card.name).split(','),
-          })),
+          cards: result.cards.map((item) => {
+            const evidence = module.getCardEvidence(item.card.name);
+            return {
+              id: item.card.number,
+              name: item.card.name,
+              position: item.position,
+              reversed: item.isReversed,
+              ...evidence,
+            };
+          }),
           timestamp: result.timestamp,
         };
       }
