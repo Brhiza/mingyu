@@ -81,6 +81,7 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.equal(body.data.skillUrl, 'https://aov.cc/skills/aov-mingyu-api/SKILL.md');
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi/calculate'));
   assert.ok(body.data.endpoints.includes('GET /api/v1/foundation/capabilities'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/true-solar-time'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/ganzhi'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/wuxing'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi-ziwei/prompt'));
@@ -333,6 +334,37 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     'day',
     'day-and-year',
   ]);
+});
+
+test('公开 API 应提供便捷真太阳时换算接口', async () => {
+  const { response, body } = await callApi('calendar/true-solar-time', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      localDateTime: '1990-05-15T10:30:20',
+      longitude: '116.4074',
+    }),
+  });
+  assert.equal(response.status, 200);
+  assert.equal(body.data.standardDateTime, '1990-05-15T10:30:20');
+  assert.equal(body.data.timezone, 8);
+  assert.equal(body.data.standardMeridian, 120);
+  assert.equal(body.data.shichen.name, '巳时');
+  assert.equal(typeof body.data.totalCorrectionMinutes, 'number');
+
+  for (const payload of [
+    { localDateTime: '1990-05-15T10:30:20+08:00', longitude: 116.4074 },
+    { localDateTime: '1990-02-30T10:30', longitude: 116.4074 },
+    { localDateTime: '1990-05-15T10:30', longitude: 181 },
+    { localDateTime: '1990-05-15T10:30', longitude: 116.4074, timezone: 15 },
+  ]) {
+    const invalid = await callApi('calendar/true-solar-time', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    assert.equal(invalid.response.status, 400);
+  }
 });
 
 test('公开 API 应提供公共地基能力、六十甲子与五行接口', async () => {

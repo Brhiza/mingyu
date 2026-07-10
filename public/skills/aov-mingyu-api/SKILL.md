@@ -1,6 +1,6 @@
 ---
 name: aov-mingyu-api
-description: 通过 aov.cc 公开 API 调用命理、占卜和一站式提示词能力。用于需要八字排盘、紫微斗数排盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗、三山国王灵签、黄历择日、雷诺曼、星盘、八宅、生肖犯太岁、太乙神数、七政四余，或直接返回可交给 AI 解读的完整提示词的任务。
+description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜和一站式提示词能力。用于需要真太阳时、八字排盘、紫微斗数排盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗、三山国王灵签、黄历择日、雷诺曼、星盘、八宅、生肖犯太岁、太乙神数、七政四余，或直接返回可交给 AI 解读的完整提示词的任务。
 ---
 
 # AOV 命理与占卜 API
@@ -90,6 +90,7 @@ description: 通过 aov.cc 公开 API 调用命理、占卜和一站式提示词
 - `GET /health`：健康检查。
 - `GET /manifest`：API 元数据、OpenAPI 地址和 skill 地址。
 - `GET /openapi.json`：完整 OpenAPI JSON。
+- `POST /calendar/true-solar-time`：把当地钟表时间换算为真太阳时，返回修正明细、跨日状态和对应时辰。
 - `GET /foundation/capabilities`：公共地基能力、常量与可复用模块目录。
 - `POST /foundation/ganzhi`：查询六十甲子的纳音、藏干、五行和合冲刑害破。
 - `POST /foundation/wuxing`：统计天干地支五行分布，可选计入藏干权重。
