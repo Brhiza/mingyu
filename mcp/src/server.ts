@@ -19,6 +19,7 @@ import { registerZodiacTool } from './tools/zodiac.js';
 import { registerTaiyiTool } from './tools/taiyi.js';
 import { registerQizhengTool } from './tools/qi_zheng.js';
 import { registerFoundationTools } from './tools/foundation.js';
+import { registerCalendarTools } from './tools/calendar.js';
 
 const server = new McpServer(
   {
@@ -30,7 +31,7 @@ const server = new McpServer(
       tools: {},
     },
     instructions:
-      '命语 MCP Server：提供八字排盘、紫微斗数、八字紫微合参、六爻、梅花易数、小六壬、奇门遁甲、大六壬、塔罗牌、雷诺曼、灵签、黄历择日、星盘等命理占卜工具。AI 可调用排盘工具获取结构化数据，也可调用一站式提示词工具直接获得排盘结果和结构化 AI 解读提示词。',
+      '命语 MCP Server：提供真太阳时换算、八字排盘、紫微斗数、八字紫微合参、六爻、梅花易数、小六壬、奇门遁甲、大六壬、塔罗牌、雷诺曼、灵签、黄历择日、星盘等命理占卜工具。AI 可调用基础工具和排盘工具获取结构化数据，也可调用一站式提示词工具直接获得排盘结果和结构化 AI 解读提示词。',
   },
 );
 
@@ -52,6 +53,7 @@ registerZodiacTool(server);
 registerTaiyiTool(server);
 registerQizhengTool(server);
 registerFoundationTools(server);
+registerCalendarTools(server);
 
 const transport = new StdioServerTransport();
 

@@ -5,7 +5,7 @@ import {
   buildFortuneSelectionContext,
   type BaziFortuneSelectionValue,
 } from '@core/bazi/fortuneSelection';
-import { getTimeIndexFromClock } from 'mingyu-core/calendar';
+import { convertTrueSolarTime, getTimeIndexFromClock } from 'mingyu-core/calendar';
 import {
   buildZiweiChartInput,
   calculatePublicZiweiChartForScopes,
@@ -322,7 +322,7 @@ export function getPublicApiOpenApiDocument(
       title: 'AOV 命理与占卜公开 API',
       version: API_VERSION,
       description:
-        '提供六十甲子、五行等公共地基能力，以及八字、紫微斗数、六爻、梅花易数、小六壬、奇门遁甲、大六壬、塔罗、三山国王灵签、黄历择日、雷诺曼、星盘和提示词生成能力。',
+        '提供真太阳时换算、六十甲子、五行等公共地基能力，以及八字、紫微斗数、六爻、梅花易数、小六壬、奇门遁甲、大六壬、塔罗、三山国王灵签、黄历择日、雷诺曼、星盘和提示词生成能力。',
     },
     servers: [{ url: `${runtime.origin}/api/${API_VERSION}` }],
     paths: {
@@ -348,6 +348,17 @@ export function getPublicApiOpenApiDocument(
         get: {
           summary: '获取公共地基能力目录',
           responses: { '200': { description: '天干地支、六十甲子、五行、八卦等可复用常量与能力' } },
+        },
+      },
+      '/calendar/true-solar-time': {
+        post: {
+          summary: '将当地钟表时间换算为真太阳时',
+          requestBody: openApiJsonRequestBody('#/components/schemas/TrueSolarTimeRequest'),
+          responses: {
+            '200': {
+              description: '校正时间、经度修正、均时差、总修正量、跨日状态与对应时辰',
+            },
+          },
         },
       },
       '/foundation/ganzhi': {
@@ -621,6 +632,33 @@ export function getPublicApiOpenApiDocument(
     },
     components: {
       schemas: {
+        TrueSolarTimeRequest: {
+          type: 'object',
+          required: ['localDateTime', 'longitude'],
+          properties: {
+            localDateTime: {
+              type: 'string',
+              example: '1990-05-15T10:30:00',
+              description:
+                '当地钟表时间，格式为 YYYY-MM-DDTHH:mm 或 YYYY-MM-DDTHH:mm:ss，不要附带 Z 或时区偏移；夏令时需先还原为标准时间',
+            },
+            longitude: {
+              type: 'number',
+              minimum: -180,
+              maximum: 180,
+              example: 116.4074,
+              description: '当地经度，东经为正、西经为负',
+            },
+            timezone: {
+              type: 'number',
+              minimum: -12,
+              maximum: 14,
+              default: 8,
+              example: 8,
+              description: '当地标准时区，默认 UTC+8，支持 5.5 等小数时区',
+            },
+          },
+        },
         FoundationGanZhiRequest: {
           type: 'object',
           required: ['ganZhi'],
@@ -928,6 +966,8 @@ async function route(context: RouteContext) {
   }
 
   switch (path) {
+    case 'calendar/true-solar-time':
+      return calculateTrueSolarTimeApi(await readJson(context.request));
     case 'foundation/ganzhi':
       return calculateFoundationGanZhi(await readJson(context.request));
     case 'foundation/wuxing':
@@ -1001,6 +1041,21 @@ async function route(context: RouteContext) {
       return buildQizhengPrompt(await readJson(context.request));
     default:
       throw new ApiError(404, 'NOT_FOUND', '没有找到对应的 API 路径。');
+  }
+}
+
+function calculateTrueSolarTimeApi(input: JsonRecord) {
+  const localDateTime = readRequiredString(input, 'localDateTime');
+  const longitude = readNumberLike(input, 'longitude', -180, 180);
+  const timezone = input.timezone === undefined ? 8 : readNumberLike(input, 'timezone', -12, 14);
+  try {
+    return convertTrueSolarTime({ localDateTime, longitude, timezone });
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '真太阳时参数无效。',
+    );
   }
 }
 

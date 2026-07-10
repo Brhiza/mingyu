@@ -63,7 +63,19 @@ export type {
 export { matchesRule } from './baziRuleMatcher/index';
 export { determinePattern } from './baziPatternStrategy';
 export { determineUsefulGod } from './baziUsefulGodStrategy';
-export { calculateTrueSolarTime } from './trueSolarTime';
+export {
+  calculateEquationOfTimeMinutes,
+  calculateTrueSolarTime,
+  convertTrueSolarTime,
+  formatSolarDateTimeParts,
+  parseLocalDateTime,
+} from './trueSolarTime';
+export type {
+  SolarDateTimeParts,
+  TrueSolarTimeConversionInput,
+  TrueSolarTimeConversionResult,
+  TrueSolarTimeResult,
+} from './trueSolarTime';
 export { checkChinaDst, isDateInChinaDstRange } from './chinaDst';
 export type { ChinaDstCheckResult } from './chinaDst';
 export {

@@ -12,6 +12,10 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ['foundation_capabilities', {}],
   ['foundation_ganzhi', { ganZhi: '甲子' }],
   ['foundation_wuxing', { items: ['甲', '子', '丙', '午'], weightHidden: true }],
+  [
+    'calendar_true_solar_time',
+    { localDateTime: '1990-05-15T10:30:00', longitude: 116.4074, timezone: 8 },
+  ],
   ['divine_qimen', {}],
   [
     'divine_almanac',
@@ -143,7 +147,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 36);
+    assert.equal(tools.length, 37);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
@@ -178,6 +182,26 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
       const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
       assert.deepEqual(JSON.parse(text), result.structuredContent);
     }
+  });
+});
+
+test('MCP 真太阳时工具应返回换算资料并拒绝带时区后缀的钟表时间', async () => {
+  await withMcpClient(async (client) => {
+    const success = await client.callTool({
+      name: 'calendar_true_solar_time',
+      arguments: { localDateTime: '1990-05-15T10:30:20', longitude: 116.4074 },
+    });
+    assert.equal(success.isError, undefined);
+    assert.equal(success.structuredContent?.result.standardMeridian, 120);
+    assert.equal(success.structuredContent?.result.shichen.name, '巳时');
+
+    const invalid = await client.callTool({
+      name: 'calendar_true_solar_time',
+      arguments: { localDateTime: '1990-05-15T10:30:20+08:00', longitude: 116.4074 },
+    });
+    assert.equal(invalid.isError, true);
+    const text = invalid.content[0]?.type === 'text' ? invalid.content[0].text : '';
+    assert.match(text, /不要附带时区偏移/);
   });
 });
 

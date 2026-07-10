@@ -16,6 +16,7 @@ export const PUBLIC_API_ENDPOINTS = [
   'GET /api/v1/openapi.json',
   'GET /api/v1/foundation/capabilities',
   'GET /.well-known/aov-mingyu-api.json',
+  'POST /api/v1/calendar/true-solar-time',
   'POST /api/v1/foundation/ganzhi',
   'POST /api/v1/foundation/wuxing',
   'POST /api/v1/bazi/calculate',

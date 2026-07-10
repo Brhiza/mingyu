@@ -205,6 +205,7 @@ const xiaoliuren = generateXiaoliuren({ method: 'time' });
 
 ```typescript
 import {
+  calendar,
   foundation,
   ganzhi,
   wuxing,
@@ -231,6 +232,13 @@ const qizhengChart = qizheng.generateQizheng({
 
 console.log(ganzhi.getNayin('甲子'));
 console.log(wuxing.tallyWuxing(['甲', '子', '丙', '午']));
+console.log(
+  calendar.convertTrueSolarTime({
+    localDateTime: '1990-05-15T10:30:00',
+    longitude: 116.4074,
+    timezone: 8,
+  }),
+);
 console.log(foundation.describeGanZhi('甲子'));
 console.log(foundation.analyzeWuxing(['甲', '子', '丙', '午']));
 console.log(direction.getEightMansion('坎'));
