@@ -4,7 +4,7 @@ import {
   EARTHLY_BRANCHES,
   HEAVENLY_STEMS,
 } from '../../../../bazi/baziMappingsData';
-import { BRANCH_WUXING, getBranchIndex, isKe, isSheng } from '../../_shared';
+import { BRANCH_WUXING, getBranchIndex, isKe, isSheng } from '../../../../ganzhi';
 
 export const DIZHI = EARTHLY_BRANCHES;
 export const TIANGAN = HEAVENLY_STEMS;

@@ -24,7 +24,7 @@ import {
   isGenerating,
   isControlling,
 } from './_constants';
-import { isKe } from '../../_shared';
+import { isKe } from '../../../../ganzhi';
 import { getNamedStemPairPattern } from './stem-pair-patterns';
 import { getDunJiaStem } from './palace-utils';
 

@@ -26,8 +26,9 @@
 
 import { starElements } from './_constants';
 import { isGenerating, isControlling } from './_constants';
+import { WUXING } from '../../../../wuxing';
 
-const WUXING_ELEMENTS = new Set(['木', '火', '土', '金', '水']);
+const WUXING_ELEMENTS = new Set<string>(WUXING);
 
 // ============================================================================
 // 1. 九星原宫映射

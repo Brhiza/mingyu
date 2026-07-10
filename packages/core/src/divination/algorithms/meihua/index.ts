@@ -17,7 +17,7 @@ import type { MeihuaData, MeihuaSettings } from '../../../types/divination';
 import { trigramsByIndex } from '../../../divination/hexagram-data';
 import { MeihuaHelpers } from '../../../divination/divination-helpers';
 import { getDivinationTime } from '../../../calendar/timeManager';
-import { getSeasonState, isSheng, isKe } from '../_shared';
+import { getSeasonState, isSheng, isKe } from '../../../ganzhi';
 import { findHexagramByTrigrams, resolveTiYongByMovingYao } from './helpers/hexagram';
 import {
   resolveTimeTrigramMethod,

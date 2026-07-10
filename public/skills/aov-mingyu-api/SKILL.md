@@ -90,6 +90,9 @@ description: 通过 aov.cc 公开 API 调用命理、占卜和一站式提示词
 - `GET /health`：健康检查。
 - `GET /manifest`：API 元数据、OpenAPI 地址和 skill 地址。
 - `GET /openapi.json`：完整 OpenAPI JSON。
+- `GET /foundation/capabilities`：公共地基能力、常量与可复用模块目录。
+- `POST /foundation/ganzhi`：查询六十甲子的纳音、藏干、五行和合冲刑害破。
+- `POST /foundation/wuxing`：统计天干地支五行分布，可选计入藏干权重。
 - `POST /bazi/calculate`：八字排盘。
 - `POST /bazi/prompt`：八字排盘并生成结构化 AI 解读提示词。
 - `POST /ziwei/calculate`：紫微斗数排盘。

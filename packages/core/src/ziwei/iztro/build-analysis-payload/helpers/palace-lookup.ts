@@ -1,5 +1,5 @@
 import type { IztroPalace, IztroStar } from '../../../../types/iztro';
-import { LIUHE_MAP } from '../../../../divination/algorithms/_shared';
+import { LIUHE_MAP } from '../../../../ganzhi';
 
 export const LIU_HE_BRANCH: Record<string, string> = LIUHE_MAP;
 

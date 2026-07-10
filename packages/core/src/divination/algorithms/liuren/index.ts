@@ -2,7 +2,7 @@ import type { LiurenData, LiurenTransmission } from '../../../types/divination';
 import { getDivinationTime } from '../../../calendar/timeManager';
 import { getVoidBranches } from '../../../calendar/lunar';
 import { SolarTerm, SolarTime } from 'tyme4ts';
-import { getYiMa, getTaoHua } from '../_shared';
+import { getYiMa, getTaoHua } from '../../../ganzhi';
 import {
   buildHeavenlyPlate,
   DIZHI,
@@ -55,7 +55,7 @@ function buildShenShaSummary(
 
   // ===== 日支取神煞 =====
 
-  // 驿马（复用 _shared getYiMa）：申子辰在寅、亥卯未在巳、寅午戌在申、巳酉丑在亥
+  // 驿马（复用公共干支 getYiMa）：申子辰在寅、亥卯未在巳、寅午戌在申、巳酉丑在亥
   const horse = getYiMa(dayBranch);
   if (horse) items.push(`驿马在${horse}`);
 
@@ -95,7 +95,7 @@ function buildShenShaSummary(
   const wangShen = wangShenMap[dayBranch];
   if (wangShen) items.push(`亡神在${wangShen}`);
 
-  // 桃花/咸池（复用 _shared getTaoHua）：
+  // 桃花/咸池（复用公共干支 getTaoHua）：
   const peach = getTaoHua(dayBranch);
   if (peach) items.push(`桃花在${peach}`);
 

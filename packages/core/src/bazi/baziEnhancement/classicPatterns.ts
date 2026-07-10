@@ -12,6 +12,7 @@
 
 import type { BaziChartResult } from '../baziTypes';
 import { checkCondition } from '../baziConditionMatchers';
+import { HEAVENLY_STEMS } from '../../ganzhi/data';
 
 interface ClassicPattern {
   id: string;
@@ -52,7 +53,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     name: '建禄格',
     description: '日干与月支同气，如甲木生寅月。建禄自旺，不祖则兄，主辛苦创业。',
     conditions: {
-      dayStems: ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'],
+      dayStems: [...HEAVENLY_STEMS],
       monthBranch: ['寅', '卯', '巳', '午', '申', '酉', '亥', '子'],
       exactMonthBranchMap: {
         甲: '寅',
@@ -285,7 +286,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     description:
       '日干禄神逢刑冲而得用。如甲日见寅被申冲，反得申中庚金为官。刑冲得禄，因祸得福。忌禄神被合住失效。',
     conditions: {
-      dayStems: ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'],
+      dayStems: [...HEAVENLY_STEMS],
       otherConditions: ['禄神逢冲'],
     },
     favorableWuxing: ['官', '杀'],
@@ -436,7 +437,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     description:
       '甲申、乙酉、丙子、丁亥、戊午、己巳、庚辰、辛卯、壬寅、癸丑十位日柱。福德入命，主一生福禄厚重。忌刑冲破害。',
     conditions: {
-      dayStems: ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'],
+      dayStems: [...HEAVENLY_STEMS],
       anyConditions: [
         '日柱为甲申',
         '日柱为乙酉',
@@ -460,7 +461,7 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     description:
       '四柱中有两子、两午，或子午各二。子午为坎离水火，子午双包主阴阳调和、水火既济。忌丑未破局。主人聪明智慧。',
     conditions: {
-      dayStems: ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'],
+      dayStems: [...HEAVENLY_STEMS],
       anyConditions: ['地支有两子', '地支有两午', '子午各二'],
     },
     favorableWuxing: ['水', '火'],

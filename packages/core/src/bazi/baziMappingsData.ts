@@ -3,41 +3,42 @@
  */
 
 import type { CommanderEntry } from './baziTypes';
+import {
+  HEAVENLY_STEMS,
+  EARTHLY_BRANCHES,
+  ZODIACS,
+  SIXTY_CYCLE,
+  STEM_WUXING as STEM_WUXING_BY_NAME,
+  STEM_YINYANG as STEM_YINYANG_BY_NAME,
+  NAYIN_MAP,
+} from '../ganzhi/data';
+import {
+  ANHE_MAP,
+  BRANCH_HIDDEN_STEMS,
+  BRANCH_SANHE,
+  BRANCH_SANXING,
+  BRANCH_WUXING as BRANCH_WUXING_BY_NAME,
+  KE_MAP,
+  LIUHAI_MAP,
+  LIUCHONG_MAP,
+  LIUHE_MAP,
+  LIUPO_MAP,
+  SANHE_GROUPS,
+  SANHUI_GROUPS,
+  SHENG_MAP,
+  TIAN_GAN_CHONG,
+  TIAN_GAN_HE,
+} from '../ganzhi/relations';
 
 type RelationMap = { [key: string]: string };
 type MultiRelationMap = { [key: string]: string[] };
 
-const HEAVENLY_STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'] as const;
-const EARTHLY_BRANCHES = [
-  '子',
-  '丑',
-  '寅',
-  '卯',
-  '辰',
-  '巳',
-  '午',
-  '未',
-  '申',
-  '酉',
-  '戌',
-  '亥',
-] as const;
-const ZODIACS = ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'] as const;
-
-export { HEAVENLY_STEMS, EARTHLY_BRANCHES, ZODIACS };
-
-export const SIXTY_CYCLE = (() => {
-  const cycle = [];
-  for (let i = 0; i < 60; i++) {
-    cycle.push(HEAVENLY_STEMS[i % 10] + EARTHLY_BRANCHES[i % 12]);
-  }
-  return cycle;
-})();
+export { HEAVENLY_STEMS, EARTHLY_BRANCHES, ZODIACS, SIXTY_CYCLE, NAYIN_MAP };
 
 export const BASIC_MAPPINGS: {
   HEAVENLY_STEMS: typeof HEAVENLY_STEMS;
   EARTHLY_BRANCHES: typeof EARTHLY_BRANCHES;
-  SIXTY_CYCLE: string[];
+  SIXTY_CYCLE: readonly string[];
   STEM_WUXING: string[];
   BRANCH_WUXING: string[];
   STEM_YINYANG: string[];
@@ -57,140 +58,31 @@ export const BASIC_MAPPINGS: {
   HEAVENLY_STEMS,
   EARTHLY_BRANCHES,
   SIXTY_CYCLE,
-  STEM_WUXING: ['木', '木', '火', '火', '土', '土', '金', '金', '水', '水'],
-  BRANCH_WUXING: ['水', '土', '木', '木', '土', '火', '火', '土', '金', '金', '土', '水'],
-  STEM_YINYANG: ['阳', '阴', '阳', '阴', '阳', '阴', '阳', '阴', '阳', '阴'],
-  WUXING_SHENG: { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' },
-  WUXING_KE: { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' },
-  TIAN_GAN_WU_HE: {
-    甲: '己',
-    己: '甲',
-    乙: '庚',
-    庚: '乙',
-    丙: '辛',
-    辛: '丙',
-    丁: '壬',
-    壬: '丁',
-    戊: '癸',
-    癸: '戊',
-  },
-  TIAN_GAN_CHONG: {
-    甲: '庚',
-    庚: '甲',
-    乙: '辛',
-    辛: '乙',
-    丙: '壬',
-    壬: '丙',
-    丁: '癸',
-    癸: '丁',
-  },
-  DI_ZHI_LIU_HE: {
-    子: '丑',
-    丑: '子',
-    寅: '亥',
-    亥: '寅',
-    卯: '戌',
-    戌: '卯',
-    辰: '酉',
-    酉: '辰',
-    巳: '申',
-    申: '巳',
-    午: '未',
-    未: '午',
-  },
-  DI_ZHI_SAN_HE: {
-    申: ['子', '辰'],
-    子: ['申', '辰'],
-    辰: ['申', '子'],
-    亥: ['卯', '未'],
-    卯: ['亥', '未'],
-    未: ['亥', '卯'],
-    寅: ['午', '戌'],
-    午: ['寅', '戌'],
-    戌: ['寅', '午'],
-    巳: ['酉', '丑'],
-    酉: ['巳', '丑'],
-    丑: ['巳', '酉'],
-  },
-  DI_ZHI_CHONG: {
-    子: '午',
-    午: '子',
-    丑: '未',
-    未: '丑',
-    寅: '申',
-    申: '寅',
-    卯: '酉',
-    酉: '卯',
-    辰: '戌',
-    戌: '辰',
-    巳: '亥',
-    亥: '巳',
-  },
-  DI_ZHI_SAN_HUI: {
-    寅卯辰: ['寅', '卯', '辰'],
-    巳午未: ['巳', '午', '未'],
-    申酉戌: ['申', '酉', '戌'],
-    亥子丑: ['亥', '子', '丑'],
-  },
-  DI_ZHI_AN_HE: { 寅: '丑', 丑: '寅', 卯: '申', 申: '卯', 午: '亥', 亥: '午' },
-  DI_ZHI_XING: {
-    子: ['卯'],
-    卯: ['子'],
-    寅: ['巳', '申'],
-    巳: ['申', '寅'],
-    申: ['寅', '巳'],
-    丑: ['戌', '未'],
-    戌: ['未', '丑'],
-    未: ['丑', '戌'],
-    辰: ['辰'],
-    午: ['午'],
-    酉: ['酉'],
-    亥: ['亥'],
-  },
-  DI_ZHI_HAI: {
-    子: '未',
-    未: '子',
-    丑: '午',
-    午: '丑',
-    寅: '巳',
-    巳: '寅',
-    卯: '辰',
-    辰: '卯',
-    申: '亥',
-    亥: '申',
-    酉: '戌',
-    戌: '酉',
-  },
-  DI_ZHI_PO: {
-    子: '酉',
-    酉: '子',
-    丑: '辰',
-    辰: '丑',
-    寅: '亥',
-    亥: '寅',
-    卯: '午',
-    午: '卯',
-    巳: '申',
-    申: '巳',
-    未: '戌',
-    戌: '未',
-  },
+  STEM_WUXING: HEAVENLY_STEMS.map((stem) => STEM_WUXING_BY_NAME[stem]),
+  BRANCH_WUXING: EARTHLY_BRANCHES.map((branch) => BRANCH_WUXING_BY_NAME[branch]),
+  STEM_YINYANG: HEAVENLY_STEMS.map((stem) => STEM_YINYANG_BY_NAME[stem]),
+  WUXING_SHENG: SHENG_MAP,
+  WUXING_KE: KE_MAP,
+  TIAN_GAN_WU_HE: Object.fromEntries(
+    Object.entries(TIAN_GAN_HE).map(([stem, relation]) => [stem, relation.partner]),
+  ),
+  TIAN_GAN_CHONG,
+  DI_ZHI_LIU_HE: LIUHE_MAP,
+  DI_ZHI_SAN_HE: Object.fromEntries(
+    Object.entries(BRANCH_SANHE).map(([branch, relation]) => [branch, relation.partners]),
+  ),
+  DI_ZHI_CHONG: LIUCHONG_MAP,
+  DI_ZHI_SAN_HUI: Object.fromEntries(
+    Object.values(SANHUI_GROUPS).map((members) => [members.join(''), members]),
+  ),
+  DI_ZHI_AN_HE: ANHE_MAP,
+  DI_ZHI_XING: BRANCH_SANXING,
+  DI_ZHI_HAI: LIUHAI_MAP,
+  DI_ZHI_PO: LIUPO_MAP,
 };
 
-export const HIDDEN_STEMS: Record<string, string[]> = {
-  子: ['癸'],
-  丑: ['己', '癸', '辛'],
-  寅: ['甲', '丙', '戊'],
-  卯: ['乙'],
-  辰: ['戊', '乙', '癸'],
-  巳: ['丙', '庚', '戊'],
-  午: ['丁', '己'],
-  未: ['己', '丁', '乙'],
-  申: ['庚', '壬', '戊'],
-  酉: ['辛'],
-  戌: ['戊', '辛', '丁'],
-  亥: ['壬', '甲'],
-};
+/** 兼容八字旧名，实际与公共地支藏干表为同一真相源。 */
+export const HIDDEN_STEMS = BRANCH_HIDDEN_STEMS;
 
 export const MONTH_COMMANDER: Record<string, CommanderEntry[]> = {
   寅: [
@@ -250,69 +142,6 @@ export const MONTH_COMMANDER: Record<string, CommanderEntry[]> = {
     ['辛', 3],
     ['己', 18],
   ],
-};
-
-export const NAYIN_MAP: Record<string, string> = {
-  甲子: '海中金',
-  乙丑: '海中金',
-  丙寅: '炉中火',
-  丁卯: '炉中火',
-  戊辰: '大林木',
-  己巳: '大林木',
-  庚午: '路旁土',
-  辛未: '路旁土',
-  壬申: '剑锋金',
-  癸酉: '剑锋金',
-  甲戌: '山头火',
-  乙亥: '山头火',
-  丙子: '涧下水',
-  丁丑: '涧下水',
-  戊寅: '城头土',
-  己卯: '城头土',
-  庚辰: '白蜡金',
-  辛巳: '白蜡金',
-  壬午: '杨柳木',
-  癸未: '杨柳木',
-  甲申: '泉中水',
-  乙酉: '泉中水',
-  丙戌: '屋上土',
-  丁亥: '屋上土',
-  戊子: '霹雳火',
-  己丑: '霹雳火',
-  庚寅: '松柏木',
-  辛卯: '松柏木',
-  壬辰: '长流水',
-  癸巳: '长流水',
-  甲午: '沙中金',
-  乙未: '沙中金',
-  丙申: '山下火',
-  丁酉: '山下火',
-  戊戌: '平地木',
-  己亥: '平地木',
-  庚子: '壁上土',
-  辛丑: '壁上土',
-  壬寅: '金箔金',
-  癸卯: '金箔金',
-  甲辰: '覆灯火',
-  乙巳: '覆灯火',
-  丙午: '天河水',
-  丁未: '天河水',
-  戊申: '大驿土',
-  己酉: '大驿土',
-  庚戌: '钗钏金',
-  辛亥: '钗钏金',
-  壬子: '桑柘木',
-  癸丑: '桑柘木',
-  甲寅: '大溪水',
-  乙卯: '大溪水',
-  丙辰: '沙中土',
-  丁巳: '沙中土',
-  戊午: '天上火',
-  己未: '天上火',
-  庚申: '石榴木',
-  辛酉: '石榴木',
-  壬戌: '大海水',
-  癸亥: '大海水',
 };
 
 export const TWELVE_STAGES_MAP: Record<string, Record<string, string>> = {
@@ -486,22 +315,16 @@ export const REN_BRANCH_MAP: Record<string, string> = Object.fromEntries(
  * 三合局定义（按局名→三支列表格式）
  * 与 BASIC_MAPPINGS.DI_ZHI_SAN_HE 互补：那边是每支→另两支，这边是局名→三支
  */
-export const SAN_HE_MAP: Record<string, string[]> = {
-  申子辰: ['申', '子', '辰'], // 水局
-  亥卯未: ['亥', '卯', '未'], // 木局
-  寅午戌: ['寅', '午', '戌'], // 火局
-  巳酉丑: ['巳', '酉', '丑'], // 金局
-};
+export const SAN_HE_MAP: Record<string, string[]> = Object.fromEntries(
+  Object.values(SANHE_GROUPS).map((members) => [members.join(''), members]),
+);
 
 /**
  * 三会局定义（与 BASIC_MAPPINGS.DI_ZHI_SAN_HUI 数据一致，独立导出便于直接引用）
  */
-export const SAN_HUI_MAP: Record<string, string[]> = {
-  寅卯辰: ['寅', '卯', '辰'], // 木局
-  巳午未: ['巳', '午', '未'], // 火局
-  申酉戌: ['申', '酉', '戌'], // 金局
-  亥子丑: ['亥', '子', '丑'], // 水局
-};
+export const SAN_HUI_MAP: Record<string, string[]> = Object.fromEntries(
+  Object.values(SANHUI_GROUPS).map((members) => [members.join(''), members]),
+);
 
 /**
  * 辰戌丑未四库全

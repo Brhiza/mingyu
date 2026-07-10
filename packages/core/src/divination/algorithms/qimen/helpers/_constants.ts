@@ -18,15 +18,16 @@
  * 三凶门（伤、死、惊）对应黑道，主损耗
  */
 
-import { isSheng, isKe } from '../../_shared';
+import { isSheng, isKe } from '../../../../ganzhi';
+import { EARTHLY_BRANCHES, HEAVENLY_STEMS } from '../../../../ganzhi/data';
 
 // ============================================================================
-// 1. 五行生克基础（委托 _shared 模块，避免重复数据）
+// 1. 五行生克基础（委托公共干支模块，避免重复数据）
 // ============================================================================
 
 /**
- * 五行相生表（由函数 isGenerating 委托 _shared isSheng）
- * @deprecated 请直接使用 _shared isSheng
+ * 五行相生表（由函数 isGenerating 委托公共 isSheng）
+ * @deprecated 请直接使用公共干支模块的 isSheng
  */
 export const elementGenerates: Record<string, string> = {
   木: '火',
@@ -37,8 +38,8 @@ export const elementGenerates: Record<string, string> = {
 };
 
 /**
- * 五行相克表（由函数 isControlling 委托 _shared isKe）
- * @deprecated 请直接使用 _shared isKe
+ * 五行相克表（由函数 isControlling 委托公共 isKe）
+ * @deprecated 请直接使用公共干支模块的 isKe
  */
 export const elementControls: Record<string, string> = {
   木: '土',
@@ -244,10 +245,10 @@ export const STEM_TOMB_MAP: Record<string, { branch: string; palace: number }> =
 // ============================================================================
 
 /** 地支列表（十二支顺序） */
-export const branches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+export const branches: string[] = [...EARTHLY_BRANCHES];
 
 /** 天干列表（十干顺序） */
-export const tiangan = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+export const tiangan: string[] = [...HEAVENLY_STEMS];
 
 /** 地支序号（子=0, 丑=1, ..., 亥=11） */
 export const branchIndex: Record<string, number> = {

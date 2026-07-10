@@ -15,7 +15,7 @@
 
 import type { QimenJiuGongGe } from '../../../../types/divination';
 import { qimen } from '../../../../divination/divination-data';
-import { isKe } from '../../_shared';
+import { isKe } from '../../../../ganzhi';
 import { getDoorElement, getOppositePalace } from './palace-utils';
 import { STEM_TOMB_MAP } from './_constants';
 

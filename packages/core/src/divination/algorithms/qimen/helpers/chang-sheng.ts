@@ -16,6 +16,7 @@
  */
 
 import { EarthBranch, HeavenStem } from 'tyme4ts';
+import { CHANGSHENG_ORDER, WUXING_CHANGSHENG_START } from '../../../../ganzhi/data';
 import { stemElements, branchIndex, palaceStars } from './_constants';
 import { getDunJiaStem } from './palace-utils';
 import type { QimenJiuGongGe } from '../../../../types/divination';
@@ -57,37 +58,10 @@ export interface ChangShengStage {
  *  衰者，物始衰；病者，物病；死者，物死；墓者，物藏；
  *  绝者，物绝；胎者，物萌芽；养者，物养成。」
  */
-export const CHANG_SHENG_STAGES = [
-  '长生',
-  '沐浴',
-  '冠带',
-  '临官',
-  '帝旺',
-  '衰',
-  '病',
-  '死',
-  '墓',
-  '绝',
-  '胎',
-  '养',
-] as const;
+export const CHANG_SHENG_STAGES = CHANGSHENG_ORDER;
 
 /** 十二长生阶段字面量类型 */
 export type ChangShengStageName = (typeof CHANG_SHENG_STAGES)[number];
-
-/**
- * 五行长生起始地支
- *
- * 火土同宫（土长生在寅，随丙火），与八字/奇门所用 tyme4ts 一致：
- *   「木长生在亥，火长生在寅，金长生在巳，水长生在申，土长生在寅」
- */
-const WUXING_CHANGSHENG_START: Record<string, string> = {
-  木: '亥',
-  火: '寅',
-  金: '巳',
-  水: '申',
-  土: '寅',
-};
 
 /**
  * 宫位主要地支
@@ -116,7 +90,7 @@ const PALACE_MAIN_BRANCH: Record<number, string> = {
 };
 
 /** 十二长生完整序列（可枚举，用于外部遍历） */
-const TWELVE_STAGES_LIST: readonly string[] = CHANG_SHENG_STAGES as unknown as string[];
+const TWELVE_STAGES_LIST: readonly string[] = CHANG_SHENG_STAGES;
 
 // ============================================================================
 // 3. 评分系数

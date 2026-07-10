@@ -1,7 +1,8 @@
 import { SolarDay, SolarTime } from 'tyme4ts';
 import { baziCalculator } from '../../bazi/baziCalculator';
 import { getBirthDateValidationMessage } from '../../calendar/date-validation';
-import { getOppositeBranch, getSanxingType, isLiuhai, isLiupo, isSanxing } from './_shared';
+import { EARTHLY_BRANCHES } from '../../ganzhi/data';
+import { getOppositeBranch, getSanxingType, isLiuhai, isLiupo, isSanxing } from '../../ganzhi';
 import type {
   AlmanacAnnualDirectionGod,
   AlmanacData,
@@ -57,7 +58,6 @@ function assertAlmanacTopic(topic: AlmanacTopic): void {
 }
 
 const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-const EARTH_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
 const MAX_ALMANAC_PARTICIPANTS = 30;
 type ParticipantBranchConflictType = '冲' | '刑' | '害' | '破';
 
@@ -428,11 +428,11 @@ function getNineStarDetail(name: string) {
 }
 
 function getAnnualDirectionGods(yearBranch: string): AlmanacAnnualDirectionGod[] {
-  const startIndex = EARTH_BRANCHES.indexOf(yearBranch);
+  const startIndex = (EARTHLY_BRANCHES as readonly string[]).indexOf(yearBranch);
   if (startIndex < 0) return [];
 
   return ANNUAL_DIRECTION_GOD_SEQUENCE.map((item, index) => {
-    const branch = EARTH_BRANCHES[(startIndex + index) % EARTH_BRANCHES.length];
+    const branch = EARTHLY_BRANCHES[(startIndex + index) % EARTHLY_BRANCHES.length];
     return {
       ...item,
       branch,
@@ -705,7 +705,7 @@ function scoreDay(params: {
   };
 }
 
-// 地支刑冲破害判断已委托 _shared 模块。
+// 地支刑冲破害判断已委托公共干支模块。
 
 function buildDayCandidate(
   date: Date,

@@ -4,9 +4,10 @@
  */
 
 import type { MeihuaData } from '../types/divination';
-import { isKe, isSheng } from './algorithms/_shared';
+import { isKe, isSheng } from '../ganzhi';
+import { WUXING } from '../wuxing';
 
-const WUXING_ELEMENTS = new Set(['木', '火', '土', '金', '水']);
+const WUXING_ELEMENTS = new Set<string>(WUXING);
 
 function assertWuxing(value: string, label: string): void {
   if (!WUXING_ELEMENTS.has(value)) {

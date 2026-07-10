@@ -7,7 +7,7 @@
  *     （按《钦定协纪辨方书》等实现的权威历法库），保证与经典一致且单一真相源。
  *   - 十二长生统一「土长生在寅」流派（火土同宫，与八字/奇门所用 tyme4ts 一致）：
  *     委托 tyme4ts HeavenStem.getTerrain(branch) 取得权威长生状态；本地表仅作异常回退。
- *   - 刑、破、三合、三会、驿马、桃花、旬空 —— tyme4ts 未提供，保留本库/ _shared 实现。
+ *   - 刑、破、三合、三会、驿马、桃花、旬空 —— tyme4ts 未提供，由公共 relations 模块实现。
  *
  * 对外函数签名与返回形状保持不变，已接入 API/MCP 的模块无需改动。
  */
@@ -26,6 +26,8 @@ import {
   SANHE_GROUPS,
   SANHUI_GROUPS,
   BRANCH_SANHE,
+  BRANCH_SANXING,
+  ANHE_MAP,
   BRANCH_HIDDEN_STEMS,
   getHiddenMainStem,
   getHiddenMediumStem,
@@ -35,6 +37,7 @@ import {
   isKe,
   isLiupo,
   isSanxing,
+  getSanxingType,
   isCompleteSanhe,
   isCompleteSanhui,
   getTianGanHeWuxing,
@@ -42,11 +45,13 @@ import {
   getTaoHua,
   getWuxingChangSheng,
   SanxingType,
-} from '../divination/algorithms/_shared/wuxing';
+  SANXING_MAP,
+} from './relations';
 import {
   HEAVENLY_STEMS,
   EARTHLY_BRANCHES,
   ZODIACS,
+  SIXTY_CYCLE,
   STEM_WUXING,
   STEM_YINYANG,
   BRANCH_YINYANG,
@@ -74,6 +79,9 @@ export {
   SANHE_GROUPS,
   SANHUI_GROUPS,
   BRANCH_SANHE,
+  BRANCH_SANXING,
+  ANHE_MAP,
+  SANXING_MAP,
   BRANCH_HIDDEN_STEMS,
   getHiddenMainStem,
   getHiddenMediumStem,
@@ -83,6 +91,7 @@ export {
   isKe,
   isLiupo,
   isSanxing,
+  getSanxingType,
   isCompleteSanhe,
   isCompleteSanhui,
   getTianGanHeWuxing,
@@ -91,6 +100,108 @@ export {
   getWuxingChangSheng,
   SanxingType,
 };
+
+export interface StemRelationProfile {
+  name: string;
+  index: number;
+  wuxing: string;
+  yinYang: '阳' | '阴';
+  combine: string;
+  combineWuxing: string;
+  clash?: string;
+}
+
+export interface BranchRelationProfile {
+  name: string;
+  index: number;
+  zodiac: string;
+  wuxing: string;
+  yinYang: '阳' | '阴';
+  hiddenStems: string[];
+  combine: string;
+  combineWuxing: string;
+  clash: string;
+  harm: string;
+  break: string;
+  hiddenCombine?: string;
+  punishment: string;
+  punishments: string[];
+  punishmentType?: string;
+  sanhe: { group: string; partners: string[] };
+  sanhui?: { group: string; members: string[] };
+}
+
+export interface GanZhiProfile {
+  ganZhi: string;
+  index: number;
+  yinYang: '阳' | '阴';
+  nayin: string;
+  nayinWuxing: string;
+  stem: StemRelationProfile;
+  branch: BranchRelationProfile;
+}
+
+/** 返回六十甲子副本，避免调用方改写公共序列。 */
+export function getSixtyCycle(): string[] {
+  return [...SIXTY_CYCLE];
+}
+
+/** 天干基础属性与合冲关系。 */
+export function getStemRelations(stem: string): StemRelationProfile {
+  const index = getStemIndex(stem);
+  const combine = TIAN_GAN_HE[stem];
+  if (!combine) throw new Error(`天干五合数据缺失：${stem}`);
+  return {
+    name: stem,
+    index,
+    wuxing: getStemWuxing(stem),
+    yinYang: getStemYinYang(stem),
+    combine: combine.partner,
+    combineWuxing: combine.wuxing,
+    clash: TIAN_GAN_CHONG[stem],
+  };
+}
+
+/** 地支基础属性、藏干与合冲刑害破关系。 */
+export function getBranchRelations(branch: string): BranchRelationProfile {
+  const index = getBranchIndex(branch);
+  const sanhe = BRANCH_SANHE[branch];
+  if (!sanhe) throw new Error(`地支三合数据缺失：${branch}`);
+  const sanhui = Object.entries(SANHUI_GROUPS).find(([, members]) => members.includes(branch));
+  return {
+    name: branch,
+    index,
+    zodiac: getZodiac(branch),
+    wuxing: getBranchWuxing(branch),
+    yinYang: getBranchYinYang(branch),
+    hiddenStems: [...(BRANCH_HIDDEN_STEMS[branch] ?? [])],
+    combine: LIUHE_MAP[branch],
+    combineWuxing: LIUHE_WUXING[branch],
+    clash: LIUCHONG_MAP[branch],
+    harm: LIUHAI_MAP[branch],
+    break: LIUPO_MAP[branch],
+    hiddenCombine: ANHE_MAP[branch],
+    punishment: SANXING_MAP[branch],
+    punishments: [...(BRANCH_SANXING[branch] ?? [])],
+    punishmentType: getSanxingType(branch) ?? undefined,
+    sanhe: { group: sanhe.group, partners: [...sanhe.partners] },
+    sanhui: sanhui ? { group: sanhui[0], members: [...sanhui[1]] } : undefined,
+  };
+}
+
+/** 生成单个六十甲子的完整可复用资料。 */
+export function describeGanZhi(ganZhi: string): GanZhiProfile {
+  assertValidGanZhi(ganZhi);
+  return {
+    ganZhi,
+    index: getSixtyCycleIndex(ganZhi),
+    yinYang: getGanZhiYinYang(ganZhi),
+    nayin: getNayin(ganZhi),
+    nayinWuxing: getNayinWuxing(ganZhi),
+    stem: getStemRelations(ganZhi[0]),
+    branch: getBranchRelations(ganZhi[1]),
+  };
+}
 
 /** 干支纪时结果 */
 export interface GanZhiDate {
@@ -309,6 +420,7 @@ export const ganzhi = {
   HEAVENLY_STEMS,
   EARTHLY_BRANCHES,
   ZODIACS,
+  SIXTY_CYCLE,
   getLunarHourFromDate,
   getGanZhiFromDate,
   getStemWuxing,
@@ -317,6 +429,8 @@ export const ganzhi = {
   getGanZhiYinYang,
   getStemIndex,
   getBranchIndex,
+  getSixtyCycle,
+  getSixtyCycleIndex,
   diffGanZhi,
   isValidGanZhi,
   getNayin,
@@ -330,4 +444,7 @@ export const ganzhi = {
   isTianGanHe,
   getOppositeBranch,
   getTenStar,
+  getStemRelations,
+  getBranchRelations,
+  describeGanZhi,
 };

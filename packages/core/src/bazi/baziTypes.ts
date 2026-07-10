@@ -5,9 +5,11 @@
 
 import type { ShenShaVariantConfig } from './baziShenSha/variants';
 import type { MingGuaProfile } from '../types/analysis';
+import { WUXING } from '../wuxing';
+import type { Wuxing } from '../wuxing';
 
-export const WUXING = ['木', '火', '土', '金', '水'] as const;
-export type Wuxing = (typeof WUXING)[number];
+export { WUXING };
+export type { Wuxing };
 
 export type CommanderEntry = [string, number];
 

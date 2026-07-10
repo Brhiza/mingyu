@@ -18,7 +18,8 @@ import type {
 import { LunarUtil, getDivinationTime } from 'mingyu-core/calendar';
 import { resolveSsgwStoryContent } from '../ssgw-content';
 import { createQimenPriorityPalaces } from '@core/divination/algorithms/qimen';
-import { LIUCHONG_MAP, LIUHE_MAP, isKe, isSheng } from '@core/divination/algorithms/_shared';
+import { LIUCHONG_MAP, LIUHE_MAP, isKe, isSheng } from '@core/ganzhi';
+import { WUXING } from '@core/wuxing';
 import { normalizePromptEvidenceItems } from '@core/prompt-evidence/format';
 import type { PromptEvidenceItem } from '@core/prompt-evidence/types';
 import type { DivinationMethodId } from '@core/divination/config';
@@ -186,18 +187,16 @@ function getGanzhiBranch(value?: string) {
   return value ? value.slice(-1) : '';
 }
 
-const WUXING_ELEMENTS = ['木', '火', '土', '金', '水'] as const;
-
 function findGeneratingElement(target: string) {
-  return WUXING_ELEMENTS.find((element) => isSheng(element, target)) || '';
+  return WUXING.find((element) => isSheng(element, target)) || '';
 }
 
 function findGeneratedElement(source: string) {
-  return WUXING_ELEMENTS.find((element) => isSheng(source, element)) || '';
+  return WUXING.find((element) => isSheng(source, element)) || '';
 }
 
 function findControllingElement(target: string) {
-  return WUXING_ELEMENTS.find((element) => isKe(element, target)) || '';
+  return WUXING.find((element) => isKe(element, target)) || '';
 }
 
 type LiuyaoUsefulGodCandidate = {

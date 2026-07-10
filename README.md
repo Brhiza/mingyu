@@ -46,6 +46,16 @@ OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.jso
 </details>
 
 <details>
+<summary>公共地基工具</summary>
+
+- 干支：十天干、十二地支、六十甲子、纳音、藏干、阴阳五行、合冲刑害破、三合三会统一真相源。
+- 五行：统一生克、月令旺相休囚死和天干地支权重统计，可选计入藏干。
+- 八字、六爻、奇门、六壬等旧模块统一复用公共地基，旧导入路径仅保留兼容转发。
+- 核心包提供 `mingyu-core/foundation`，线上提供 `/foundation/capabilities`、`/foundation/ganzhi`、`/foundation/wuxing`。
+
+</details>
+
+<details>
 <summary>占卜术数</summary>
 
 - 六爻：京房八宫法排盘，包含纳甲、六亲、六神、世应、动变、空亡、日破、月破、化进神、化退神、六亲持世等信息。

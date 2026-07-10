@@ -42,6 +42,12 @@ export const ZODIACS = [
   '猪',
 ] as const;
 
+/** 六十甲子（甲子起，癸亥止）。 */
+export const SIXTY_CYCLE: readonly string[] = Array.from(
+  { length: 60 },
+  (_, index) => `${HEAVENLY_STEMS[index % 10]}${EARTHLY_BRANCHES[index % 12]}`,
+);
+
 /** 天干五行 */
 export const STEM_WUXING: Record<string, string> = {
   甲: '木',

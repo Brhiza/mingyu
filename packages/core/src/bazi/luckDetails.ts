@@ -9,12 +9,11 @@
 import { ChildLimit, Gender, SolarTime } from 'tyme4ts';
 import type { XiaoYunItem, XiaoYunProfile, LuckDirectionProfile } from '../types/analysis';
 import { assertBaziGender, assertHeavenlyStem } from './baziUtils';
+import { HEAVENLY_STEMS } from '../ganzhi/data';
 
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 type LuckGender = Parameters<typeof ChildLimit.fromSolarTime>[1];
 type FortuneInstance = ReturnType<ReturnType<typeof ChildLimit.fromSolarTime>['getStartFortune']>;
-
-const STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
 
 /**
  * 计算大运顺逆方向
@@ -30,7 +29,7 @@ export function buildLuckDirectionProfile(gender: string, yearStem: string): Luc
   assertHeavenlyStem(yearStem, '年干');
 
   const isMale = gender === 'male';
-  const idx = STEMS.indexOf(yearStem);
+  const idx = HEAVENLY_STEMS.indexOf(yearStem as (typeof HEAVENLY_STEMS)[number]);
   const isYang = idx % 2 === 0;
   const direction: '顺行' | '逆行' = isMale === isYang ? '顺行' : '逆行';
   const rule = isMale

@@ -103,6 +103,8 @@
 
 | 用户问题类型                       | 首选接口                                 | 推荐参数                                                                               | 说明                                              |
 | ---------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| 查六十甲子、纳音、藏干和合冲 | `POST /foundation/ganzhi`                | `ganZhi`，如“甲子”                                                              | 返回统一公共地基资料，不需重复实现          |
+| 统计天干地支五行分布             | `POST /foundation/wuxing`                | `items`、可选 `weightHidden`                                                   | 默认计入地支藏干权重                            |
 | 整体人生、长期事业、财运、婚恋     | `POST /bazi-ziwei/prompt`                | `baziPromptTopic`、`ziweiPromptTopic` 按主题填写，`promptScope: "full"` 或 `"origin"`  | 有完整出生信息时优先合参；想看完整阶段时用 `full` |
 | 今年、某一年、当前阶段运势         | `POST /bazi-ziwei/prompt`                | `promptScope: "yearly"`，主题填事业、财运、感情等                                      | 八字看岁运触发，紫微看流年落宫与四化              |
 | 换工作、创业、合伙、投资合作       | `POST /bazi-ziwei/prompt`                | `job-change`、`startup-partnership`、`investment-partnership`，按问题选择主题          | 这类问题兼具长期结构和当前触发，优先合参          |
@@ -135,6 +137,22 @@
 `/calculate` 和 `/divination/{method}` 接口只返回排盘、卦盘、牌阵或灵签数据。需要可直接发送给 AI 的提示词时，使用对应的 `/prompt` 一站式接口。
 
 为降低大排盘、长提示词和代理转发失败风险，`/prompt` 默认只返回 `data.prompt` 加轻量摘要：八字、紫微使用 `data.resultSummary`，占卜类使用 `data.summary`。如确实需要同一次响应带完整排盘，传 `responseMode: "full"`；只要提示词时传 `responseMode: "prompt-only"`。大体量数据建议拆成多次请求，或先调用排盘接口用 `detailMode: "compact"` 按需取轻量字段。
+
+六十甲子基础资料：
+
+```bash
+curl -X POST https://aov.cc/api/v1/foundation/ganzhi \
+  -H "Content-Type: application/json" \
+  -d '{"ganZhi":"甲子"}'
+```
+
+五行分布：
+
+```bash
+curl -X POST https://aov.cc/api/v1/foundation/wuxing \
+  -H "Content-Type: application/json" \
+  -d '{"items":["甲","子","丙","午"],"weightHidden":true}'
+```
 
 八字排盘并生成提示词：
 
