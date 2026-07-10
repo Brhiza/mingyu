@@ -126,7 +126,7 @@ function getXunShouBranch(ganZhi: string): string {
   const zhi = ganZhi.charAt(1);
 
   const ganIndex = tenStems.indexOf(gan);
-  const zhiIndex = dizhi.indexOf(zhi);
+  const zhiIndex = (dizhi as readonly string[]).indexOf(zhi);
 
   if (ganIndex === -1 || zhiIndex === -1) {
     throw new Error(`无法识别干支 "${ganZhi}"。`);

@@ -10,6 +10,7 @@
  * 而非沉默地二选一。
  */
 import { SolarTerm } from 'tyme4ts';
+import { EARTHLY_BRANCHES } from '../ganzhi/data';
 
 /** 边界预警阈值（分钟） */
 export const BOUNDARY_THRESHOLD_MINUTES = 3;
@@ -39,8 +40,6 @@ export interface BoundaryCheckInput {
   second?: number;
 }
 
-const TIME_BRANCH_NAMES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
-
 function toUtcMs(t: BoundaryCheckInput): number {
   return Date.UTC(t.year, t.month - 1, t.day, t.hour, t.minute, t.second ?? 0);
 }
@@ -51,9 +50,9 @@ function formatMinutes(value: number): string {
 }
 
 /** 奇数整点 hour 对应"其后开始的时辰"名（如 3 点 → 寅时） */
-function branchNameStartingAtHour(oddHour: number): string {
+function branchNameStartingAtHour(oddHour: number): (typeof EARTHLY_BRANCHES)[number] {
   const index = (Math.floor((oddHour + 1) / 2) + 12) % 12;
-  return TIME_BRANCH_NAMES[index];
+  return EARTHLY_BRANCHES[index];
 }
 
 /**
@@ -122,7 +121,8 @@ export function checkShichenBoundary(t: BoundaryCheckInput): string[] {
   const nearestBoundaryMinute = phase <= 60 ? minuteOfDay - phase : minuteOfDay + (120 - phase);
   const boundaryHour = ((Math.round(nearestBoundaryMinute / 60) % 24) + 24) % 24;
   const nextBranch = branchNameStartingAtHour(boundaryHour);
-  const prevBranch = TIME_BRANCH_NAMES[(TIME_BRANCH_NAMES.indexOf(nextBranch) + 11) % 12];
+  const prevBranch =
+    EARTHLY_BRANCHES[(EARTHLY_BRANCHES.indexOf(nextBranch) + EARTHLY_BRANCHES.length - 1) % 12];
 
   warnings.push(
     `出生时刻距 ${String(boundaryHour).padStart(2, '0')}:00 时辰边界仅约 ${formatMinutes(distance)} 分钟，` +

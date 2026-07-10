@@ -115,6 +115,10 @@
       "import": "./dist/shensha/index.js",
       "types": "./dist/shensha/index.d.ts"
     },
+    "./foundation": {
+      "import": "./dist/foundation/index.js",
+      "types": "./dist/foundation/index.d.ts"
+    },
     "./bazhai": {
       "import": "./dist/ba_zhai/index.js",
       "types": "./dist/ba_zhai/index.d.ts"

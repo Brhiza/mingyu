@@ -16,7 +16,7 @@ import type {
 } from '../../types/divination';
 import { getTimeIndexFromClock } from '../../calendar/dateUtils';
 import { getDivinationTime } from '../../calendar/timeManager';
-import { getSeasonState } from './_shared';
+import { getSeasonState } from '../../ganzhi';
 
 const XIAOLIUREN_PALACES = [
   {

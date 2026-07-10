@@ -14,8 +14,12 @@ import {
   STEM_ORDER,
   BRANCH_ORDER,
   BRANCH_HIDDEN_STEMS,
-} from '../divination/algorithms/_shared/wuxing';
+  WUXING,
+} from '../ganzhi/relations';
 import { STEM_WUXING } from '../ganzhi/data';
+
+export { WUXING } from '../ganzhi/relations';
+export type { Wuxing } from '../ganzhi/relations';
 
 /** 五行相生：a 生 b？委托 tyme4ts Element */
 export function isSheng(a: string, b: string): boolean {
@@ -29,8 +33,6 @@ export function isKe(a: string, b: string): boolean {
 
 export { BRANCH_WUXING, MONTH_LING_WUXING, getSeasonState, getBranchWuxing };
 
-const WUXING_LIST = ['木', '火', '土', '金', '水'] as const;
-
 /**
  * 统计一组干支的五行分布
  * @param items 天干或地支数组（混合亦可）
@@ -38,7 +40,7 @@ const WUXING_LIST = ['木', '火', '土', '金', '水'] as const;
  * @returns 各五行加权计数
  */
 export function tallyWuxing(
-  items: string[],
+  items: readonly string[],
   options: { weightHidden?: boolean } = {},
 ): Record<string, number> {
   const result: Record<string, number> = { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 };
@@ -74,13 +76,17 @@ export interface WuxingStrengthProfile {
 }
 
 /** 生成五行强弱画像（仅统计，不含日主旺衰判定） */
-export function getWuxingStrengthProfile(items: string[]): WuxingStrengthProfile {
+export function getWuxingStrengthProfile(items: readonly string[]): WuxingStrengthProfile {
   const counts = tallyWuxing(items, { weightHidden: true });
-  let dominant: string = WUXING_LIST[0];
-  let weakest: string = WUXING_LIST[0];
+  return buildStrengthProfile(counts);
+}
+
+function buildStrengthProfile(counts: Record<string, number>): WuxingStrengthProfile {
+  let dominant: string = WUXING[0];
+  let weakest: string = WUXING[0];
   let max = -Infinity;
   let min = Infinity;
-  for (const w of WUXING_LIST) {
+  for (const w of WUXING) {
     if (counts[w] > max) {
       max = counts[w];
       dominant = w;
@@ -90,8 +96,30 @@ export function getWuxingStrengthProfile(items: string[]): WuxingStrengthProfile
       weakest = w;
     }
   }
-  const lacking = WUXING_LIST.filter((w) => counts[w] === 0);
+  const lacking = WUXING.filter((w) => counts[w] === 0);
   return { counts, dominant, weakest, lacking };
+}
+
+export interface WuxingAnalysis extends WuxingStrengthProfile {
+  items: string[];
+  weightHidden: boolean;
+}
+
+/** 严格校验输入后生成可直接给 API/MCP 使用的五行分布结果。 */
+export function analyzeWuxing(
+  items: readonly string[],
+  options: { weightHidden?: boolean } = {},
+): WuxingAnalysis {
+  if (items.length === 0) throw new Error('五行分析至少需要一个天干或地支。');
+  const invalid = items.find(
+    (item) =>
+      !STEM_ORDER.includes(item as (typeof STEM_ORDER)[number]) &&
+      !BRANCH_ORDER.includes(item as (typeof BRANCH_ORDER)[number]),
+  );
+  if (invalid) throw new Error(`五行分析输入无效：${invalid}`);
+  const weightHidden = options.weightHidden ?? true;
+  const counts = tallyWuxing(items, { weightHidden });
+  return { items: [...items], weightHidden, ...buildStrengthProfile(counts) };
 }
 
 export const wuxing = {
@@ -101,4 +129,5 @@ export const wuxing = {
   getBranchWuxing,
   tallyWuxing,
   getWuxingStrengthProfile,
+  analyzeWuxing,
 };

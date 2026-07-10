@@ -18,6 +18,7 @@
 
 import { doorElements, starElements, isGenerating, isControlling } from './_constants';
 import type { QimenJiuGongGe } from '../../../../types/divination';
+import { WUXING } from '../../../../wuxing';
 
 // ============================================================================
 // 1. 八神五行映射
@@ -44,7 +45,7 @@ const godElements: Record<string, string> = {
   九天: '金',
 };
 
-const WUXING_ELEMENTS = new Set(['木', '火', '土', '金', '水']);
+const WUXING_ELEMENTS = new Set<string>(WUXING);
 
 function assertKnownElement(
   value: string,

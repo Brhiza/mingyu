@@ -27,7 +27,7 @@ import {
   getTianGanHeWuxing,
   isSanxing,
   isTianGanHe,
-} from '../../_shared/wuxing';
+} from '../../../../ganzhi';
 import type { BaseGanZhi } from '../../../../types/divination';
 
 // ============================================================================

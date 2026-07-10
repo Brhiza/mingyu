@@ -80,6 +80,9 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.equal(body.data.openapiUrl, 'https://aov.cc/api/v1/openapi.json');
   assert.equal(body.data.skillUrl, 'https://aov.cc/skills/aov-mingyu-api/SKILL.md');
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi/calculate'));
+  assert.ok(body.data.endpoints.includes('GET /api/v1/foundation/capabilities'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/ganzhi'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/wuxing'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi-ziwei/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/almanac'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/xiaoliuren/prompt'));
@@ -330,6 +333,47 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     'day',
     'day-and-year',
   ]);
+});
+
+test('公开 API 应提供公共地基能力、六十甲子与五行接口', async () => {
+  const capabilities = await callApi('foundation/capabilities');
+  assert.equal(capabilities.response.status, 200);
+  assert.equal(capabilities.body.data.constants.sixtyCycle.length, 60);
+  assert.equal(capabilities.body.data.constants.sixtyCycle[0], '甲子');
+
+  const ganZhi = await callApi('foundation/ganzhi', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ganZhi: '甲子' }),
+  });
+  assert.equal(ganZhi.response.status, 200);
+  assert.equal(ganZhi.body.data.nayin, '海中金');
+  assert.equal(ganZhi.body.data.branch.clash, '午');
+
+  const wuxing = await callApi('foundation/wuxing', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items: ['甲', '子', '丙', '午'], weightHidden: true }),
+  });
+  assert.equal(wuxing.response.status, 200);
+  assert.equal(wuxing.body.data.weightHidden, true);
+  assert.ok(wuxing.body.data.counts.火 > 0);
+
+  for (const payload of [{ ganZhi: '甲丑' }, { ganZhi: '' }]) {
+    const invalid = await callApi('foundation/ganzhi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    assert.equal(invalid.response.status, 400);
+  }
+
+  const invalidWuxing = await callApi('foundation/wuxing', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items: ['甲子'] }),
+  });
+  assert.equal(invalidWuxing.response.status, 400);
 });
 
 test('公开 API 应支持八字排盘', async () => {

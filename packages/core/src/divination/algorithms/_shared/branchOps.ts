@@ -1,4 +1,4 @@
-import { EARTHLY_BRANCHES, HEAVENLY_STEMS } from '../../../bazi/baziMappingsData';
+import { EARTHLY_BRANCHES, HEAVENLY_STEMS } from '../../../ganzhi/data';
 
 export function getBranchIndex(branch: string): number {
   return EARTHLY_BRANCHES.indexOf(branch as (typeof EARTHLY_BRANCHES)[number]);

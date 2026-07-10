@@ -10,7 +10,7 @@
  */
 
 import { palaceBranches } from './_constants';
-import { LIUCHONG_MAP } from '../../_shared';
+import { LIUCHONG_MAP } from '../../../../ganzhi';
 
 // ============================================================================
 // 常量

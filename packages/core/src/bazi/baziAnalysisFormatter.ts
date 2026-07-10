@@ -1,6 +1,7 @@
 import type { BaziChartResult } from './baziTypes';
 import { getCurrentTimeDescription } from './calendarTool';
 import { getLuckCycleForDate } from './luckTiming';
+import { WUXING } from '../wuxing';
 
 interface FormatBaziOptions {
   includeRules?: boolean;
@@ -49,8 +50,7 @@ function formatWuxingSeasonStatus(baziResult: BaziChartResult): string {
   const status = baziResult.wuxingSeasonStatus;
   if (!status || !Object.keys(status).length) return '';
 
-  return ['木', '火', '土', '金', '水']
-    .map((wuxing) => (status[wuxing] ? `${wuxing}${status[wuxing]}` : ''))
+  return WUXING.map((wuxing) => (status[wuxing] ? `${wuxing}${status[wuxing]}` : ''))
     .filter(Boolean)
     .join(' ');
 }

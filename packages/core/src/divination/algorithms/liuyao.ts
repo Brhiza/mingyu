@@ -34,7 +34,9 @@ import {
   isLiuchong,
   BRANCH_ORDER,
   BRANCH_WUXING,
-} from './_shared';
+  CHANGSHENG_ORDER,
+  SANHE_GROUPS,
+} from '../../ganzhi';
 
 /**
  * 五行入墓支（《卜筮正宗》卷三《墓库章》、《增删卜易·入墓》定例）：
@@ -81,21 +83,7 @@ function getShiErGong(wuxing: string, branch: string): string {
     throw new Error(`六爻十二长生无法识别地支 "${branch}"。`);
   }
   const offset = (((branchIndex - startIndex) % 12) + 12) % 12;
-  const SHI_ER_GONG = [
-    '长生',
-    '沐浴',
-    '冠带',
-    '临官',
-    '帝旺',
-    '衰',
-    '病',
-    '死',
-    '墓',
-    '绝',
-    '胎',
-    '养',
-  ];
-  const stage = SHI_ER_GONG[offset];
+  const stage = CHANGSHENG_ORDER[offset];
   if (!stage) {
     throw new Error(`六爻十二长生无法定位 ${wuxing} 在 ${branch} 支的状态。`);
   }
@@ -119,13 +107,6 @@ function isRiMu(branch: string, dayBranch: string): boolean {
   const wuxing = BRANCH_WUXING[branch];
   return WUXING_RUMU[wuxing] === dayBranch;
 }
-
-const SANHE_GROUPS: Record<string, string[]> = {
-  水局: ['申', '子', '辰'],
-  木局: ['亥', '卯', '未'],
-  火局: ['寅', '午', '戌'],
-  金局: ['巳', '酉', '丑'],
-};
 
 /**
  * 检测月建/日辰对爻的三合局触发（《卜筮正宗》卷三《三合局章》）：

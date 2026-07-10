@@ -22,7 +22,7 @@ import {
   supportiveGods,
   tiangan,
 } from './_constants';
-import { LIUCHONG_MAP } from '../../_shared/wuxing';
+import { LIUCHONG_MAP } from '../../../../ganzhi';
 
 export interface QimenPatternCombo {
   key: string;

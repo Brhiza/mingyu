@@ -8,7 +8,7 @@ import {
   SANXING_MAP,
   getYiMa,
   TIAN_GAN_HE,
-} from '../../_shared';
+} from '../../../../ganzhi';
 import {
   describeRelation,
   getGanZhiWuxing,
@@ -27,7 +27,7 @@ const YANG_STEMS = new Set(['甲', '丙', '戊', '庚', '壬']);
 const YANG_BRANCHES = new Set(['子', '寅', '辰', '午', '申', '戌']);
 const BAZHUAN_DAYS = new Set(['甲寅', '庚申', '丁未', '己未']);
 const STEM_RESIDENCE_MAP = DAY_STEM_RESIDENCE_MAP;
-// POST_HORSE_MAP / LIUCHONG_MAP / SANXING_MAP / STEM_HE_MAP 已复用 _shared 数据
+// POST_HORSE_MAP / LIUCHONG_MAP / SANXING_MAP / STEM_HE_MAP 已复用公共干支数据
 const MENG_BRANCHES = new Set(['寅', '巳', '申', '亥']);
 const ZHONG_BRANCHES = new Set(['子', '卯', '午', '酉']);
 const JI_BRANCHES = new Set(['辰', '戌', '丑', '未']);

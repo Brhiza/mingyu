@@ -4,7 +4,7 @@
  * 所有数据均经过严格考证，以确保其符合古籍记载之法理。
  */
 
-import { EARTHLY_BRANCHES, HEAVENLY_STEMS, SIXTY_CYCLE } from '../bazi/baziMappingsData';
+import { EARTHLY_BRANCHES, HEAVENLY_STEMS, SIXTY_CYCLE } from '../ganzhi/data';
 
 // 地支
 export const dizhi: readonly string[] = EARTHLY_BRANCHES;
@@ -160,7 +160,7 @@ export const hexagramNaJia: { [key: string]: string[] } = {
 };
 
 export const qimen = {
-  dizhi: ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'],
+  dizhi: [...EARTHLY_BRANCHES],
   diPanPalaces: {
     子: 1,
     丑: 8,

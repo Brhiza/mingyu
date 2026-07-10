@@ -27,6 +27,7 @@ export * as ganzhi from './ganzhi/index';
 export * as wuxing from './wuxing/index';
 export * as direction from './direction/index';
 export * as shensha from './shensha/index';
+export * as foundation from './foundation/index';
 
 // 新增术数系统
 export * as bazhai from './ba_zhai/index';

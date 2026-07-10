@@ -1,30 +1,29 @@
 import type { RelationStructureItem, RelationStructureProfile } from '../types/analysis';
 import {
+  BRANCH_ORDER,
   LIUHAI_MAP,
   LIUHE_MAP,
   LIUCHONG_MAP,
   LIUPO_MAP,
+  SANHE_GROUPS,
+  SANHUI_GROUPS,
   isSanxing,
-} from '../divination/algorithms/_shared/wuxing';
-
-const BRANCH_ORDER = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+} from '../ganzhi/relations';
 
 function getTripleCombination(b1: string, b2: string, b3: string): string | null {
   const s = new Set([b1, b2, b3]);
   if (s.size !== 3) return null;
-  if (['亥', '卯', '未'].every((b) => s.has(b))) return '木';
-  if (['寅', '午', '戌'].every((b) => s.has(b))) return '火';
-  if (['巳', '酉', '丑'].every((b) => s.has(b))) return '金';
-  if (['申', '子', '辰'].every((b) => s.has(b))) return '水';
+  for (const [group, members] of Object.entries(SANHE_GROUPS)) {
+    if (members.every((branch) => s.has(branch))) return group.replace('局', '');
+  }
   return null;
 }
 function getTripleGathering(b1: string, b2: string, b3: string): string | null {
   const s = new Set([b1, b2, b3]);
   if (s.size !== 3) return null;
-  if (['寅', '卯', '辰'].every((b) => s.has(b))) return '木';
-  if (['巳', '午', '未'].every((b) => s.has(b))) return '火';
-  if (['申', '酉', '戌'].every((b) => s.has(b))) return '金';
-  if (['亥', '子', '丑'].every((b) => s.has(b))) return '水';
+  for (const [group, members] of Object.entries(SANHUI_GROUPS)) {
+    if (members.every((branch) => s.has(branch))) return group.slice(-1);
+  }
   return null;
 }
 function getHalfCombination(b1: string, b2: string): { element: string; type: string } | null {

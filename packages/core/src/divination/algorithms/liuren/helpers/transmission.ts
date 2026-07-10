@@ -3,7 +3,7 @@ import type {
   LiurenData,
   LiurenTransmission,
 } from '../../../../types/divination';
-import { LIUCHONG_MAP } from '../../_shared';
+import { LIUCHONG_MAP } from '../../../../ganzhi';
 
 export function buildTransmissionNote(stage: LiurenTransmission['stage'], relation: string) {
   const stagePrefixMap: Record<LiurenTransmission['stage'], string> = {

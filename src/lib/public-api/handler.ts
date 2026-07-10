@@ -27,6 +27,7 @@ import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { bazhai, zodiac, taiyi, qizheng } from 'mingyu-core';
 import { getGanZhiFromDate, isValidGanZhi, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
+import { analyzeWuxing, describeGanZhi, getFoundationCapabilities } from 'mingyu-core/foundation';
 import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
 import { buildAstrolabeScopeContext } from '../astrolabe-scope';
@@ -321,7 +322,7 @@ export function getPublicApiOpenApiDocument(
       title: 'AOV 命理与占卜公开 API',
       version: API_VERSION,
       description:
-        '提供八字、紫微斗数、六爻、梅花易数、小六壬、奇门遁甲、大六壬、塔罗、三山国王灵签、黄历择日、雷诺曼、星盘和提示词生成能力。',
+        '提供六十甲子、五行等公共地基能力，以及八字、紫微斗数、六爻、梅花易数、小六壬、奇门遁甲、大六壬、塔罗、三山国王灵签、黄历择日、雷诺曼、星盘和提示词生成能力。',
     },
     servers: [{ url: `${runtime.origin}/api/${API_VERSION}` }],
     paths: {
@@ -341,6 +342,26 @@ export function getPublicApiOpenApiDocument(
         get: {
           summary: '获取 OpenAPI 文档',
           responses: { '200': { description: 'OpenAPI JSON' } },
+        },
+      },
+      '/foundation/capabilities': {
+        get: {
+          summary: '获取公共地基能力目录',
+          responses: { '200': { description: '天干地支、六十甲子、五行、八卦等可复用常量与能力' } },
+        },
+      },
+      '/foundation/ganzhi': {
+        post: {
+          summary: '查询六十甲子完整基础资料',
+          requestBody: openApiJsonRequestBody('#/components/schemas/FoundationGanZhiRequest'),
+          responses: { '200': { description: '干支序号、纳音、五行、阴阳、藏干与合冲刑害破' } },
+        },
+      },
+      '/foundation/wuxing': {
+        post: {
+          summary: '统一五行分布分析',
+          requestBody: openApiJsonRequestBody('#/components/schemas/FoundationWuxingRequest'),
+          responses: { '200': { description: '五行计数、最强、最弱与缺失五行' } },
         },
       },
       '/bazi/calculate': {
@@ -600,6 +621,27 @@ export function getPublicApiOpenApiDocument(
     },
     components: {
       schemas: {
+        FoundationGanZhiRequest: {
+          type: 'object',
+          required: ['ganZhi'],
+          properties: {
+            ganZhi: { type: 'string', description: '真实六十甲子，如“甲子”“甲辰”' },
+          },
+        },
+        FoundationWuxingRequest: {
+          type: 'object',
+          required: ['items'],
+          properties: {
+            items: {
+              type: 'array',
+              minItems: 1,
+              maxItems: 32,
+              items: { type: 'string' },
+              description: '天干或地支数组，如 [“甲”,“子”,“丙”,“午”]',
+            },
+            weightHidden: { type: 'boolean', description: '是否对地支藏干加权，默认 true' },
+          },
+        },
         ShenShaVariants: {
           type: 'object',
           description:
@@ -876,6 +918,9 @@ async function route(context: RouteContext) {
     if (path === 'openapi.json') {
       return getPublicApiOpenApiDocument(context.runtime);
     }
+    if (path === 'foundation/capabilities') {
+      return getFoundationCapabilities();
+    }
   }
 
   if (context.request.method !== 'POST') {
@@ -883,6 +928,10 @@ async function route(context: RouteContext) {
   }
 
   switch (path) {
+    case 'foundation/ganzhi':
+      return calculateFoundationGanZhi(await readJson(context.request));
+    case 'foundation/wuxing':
+      return calculateFoundationWuxing(await readJson(context.request));
     case 'bazi/calculate':
       return calculateBaziApi(await readJson(context.request));
     case 'bazi/prompt':
@@ -952,6 +1001,41 @@ async function route(context: RouteContext) {
       return buildQizhengPrompt(await readJson(context.request));
     default:
       throw new ApiError(404, 'NOT_FOUND', '没有找到对应的 API 路径。');
+  }
+}
+
+function calculateFoundationGanZhi(input: JsonRecord) {
+  const ganZhi = readString(input, 'ganZhi', '');
+  if (!ganZhi) throw new ApiError(400, 'BAD_REQUEST', 'ganZhi 必填。');
+  try {
+    return describeGanZhi(ganZhi);
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '干支参数无效。',
+    );
+  }
+}
+
+function calculateFoundationWuxing(input: JsonRecord) {
+  if (!Array.isArray(input.items) || input.items.length < 1 || input.items.length > 32) {
+    throw new ApiError(400, 'BAD_REQUEST', 'items 必须是包含 1-32 个天干或地支的数组。');
+  }
+  if (!input.items.every((item) => typeof item === 'string')) {
+    throw new ApiError(400, 'BAD_REQUEST', 'items 中每一项都必须是字符串。');
+  }
+  if (input.weightHidden !== undefined && typeof input.weightHidden !== 'boolean') {
+    throw new ApiError(400, 'BAD_REQUEST', 'weightHidden 必须是布尔值。');
+  }
+  try {
+    return analyzeWuxing(input.items, { weightHidden: input.weightHidden as boolean | undefined });
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '五行分析参数无效。',
+    );
   }
 }
 

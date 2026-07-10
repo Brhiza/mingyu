@@ -18,6 +18,7 @@ import { registerBaZhaiTool } from './tools/ba_zhai.js';
 import { registerZodiacTool } from './tools/zodiac.js';
 import { registerTaiyiTool } from './tools/taiyi.js';
 import { registerQizhengTool } from './tools/qi_zheng.js';
+import { registerFoundationTools } from './tools/foundation.js';
 
 const server = new McpServer(
   {
@@ -50,6 +51,7 @@ registerBaZhaiTool(server);
 registerZodiacTool(server);
 registerTaiyiTool(server);
 registerQizhengTool(server);
+registerFoundationTools(server);
 
 const transport = new StdioServerTransport();
 

@@ -16,6 +16,7 @@
 
 import type { PalaceFact, PatternFact, StarFact } from '../../types/analysis';
 import { LIU_HE_BRANCH } from './build-analysis-payload/helpers/palace-lookup';
+import { EARTHLY_BRANCHES } from '../../ganzhi/data';
 
 type PatternRule = {
   id: string;
@@ -209,7 +210,6 @@ function getNeighborPalaces(
   };
 }
 
-const BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
 const DAYTIME_BRANCHES = new Set(['卯', '辰', '巳', '午', '未', '申']);
 const FOUR_MALEFICS = ['擎羊', '陀罗', '火星', '铃星'];
 const VOID_STARS = ['空亡', '旬空', '天空', '截空', '截路', '截路空亡'];
@@ -266,7 +266,7 @@ function hasBirthJiOrTianXing(palace: PalaceFact): boolean {
 
 function extractBranchFromText(value?: string): string | undefined {
   if (!value) return undefined;
-  return BRANCHES.find((branch) => value.includes(branch));
+  return EARTHLY_BRANCHES.find((branch) => value.includes(branch));
 }
 
 function extractStartHour(value?: string): number | undefined {

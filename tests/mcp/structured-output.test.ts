@@ -9,6 +9,9 @@ import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { assertPromptIsPortableTaskText } from '../prompt-assertions';
 
 const toolCalls: Array<[string, Record<string, unknown>]> = [
+  ['foundation_capabilities', {}],
+  ['foundation_ganzhi', { ganZhi: '甲子' }],
+  ['foundation_wuxing', { items: ['甲', '子', '丙', '午'], weightHidden: true }],
   ['divine_qimen', {}],
   [
     'divine_almanac',
@@ -140,7 +143,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 33);
+    assert.equal(tools.length, 36);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
