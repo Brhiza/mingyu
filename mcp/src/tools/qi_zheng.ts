@@ -26,7 +26,7 @@ export function registerQizhengTool(server: McpServer) {
     'metaphysics_qizheng',
     {
       description:
-        '七政四余（果老星宗）：以日月五星为七政、罗睺计都月孛紫炁为四余，立命身宫、排十二宫、二十八宿宿度与庙旺神煞',
+        '七政四余（果老星宗）：计算日月五星、罗睺、计都、月孛及《七政算内篇》古法紫炁，立命身宫、排十二宫、二十八宿宿度与庙旺神煞',
       inputSchema: qiZhengSchema.shape,
       outputSchema: resultOutputSchema,
     },

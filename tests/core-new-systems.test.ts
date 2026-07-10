@@ -117,30 +117,43 @@ test('taiyi: 三式补齐（年家，依古籍72局表校订）', () => {
   assert.ok(r.prompt.includes('太乙神数'));
 });
 
-test('tieban: 铁板神数（太玄数 + 先天卦，依太玄配数诀与先天数成卦）', () => {
-  // 甲子乙丑丙寅丁卯：太玄 9+9+8+8+7+7+6+6=60；先天卦 离(日丙寅7+4=11%8=3)艮(时丁卯2+5=7%8=7)=离艮，卦序23，动爻(7+4+2+5)%6=6
-  const r = core.tieban.generateTieban({
-    pillars: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-    gender: 'male',
-  });
-  assert.equal(r.taiXuan, 60);
-  assert.equal(r.xianTianGua, '离艮');
-  assert.equal(r.guaIndex, 23);
-  assert.equal(r.movingYao, 6);
-  assert.equal(r.houTianGua, '震艮');
-  assert.equal(r.clauses.length, 18);
-  assert.equal(r.clauses[0].code, '1000');
-  assert.ok(r.clauses[0].text.includes('父命属鼠'));
-  assert.ok(r.prompt.includes('铁板神数'));
-});
-
-test('qizheng: 七政四余（命宫/身宫/庙旺，依果老星宗安命法）', () => {
+test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   // 2024-06-15 12:00 北京：太阳约在寅宫，午时生 → 命宫亥(11)、命主木（亥→木）；七政7、四余4
   const r = core.qizheng.generateQizheng({ year: 2024, month: 6, day: 15, hour: 12 });
   const qi = r.stars.filter((s) => s.kind === '七政');
   const yu = r.stars.filter((s) => s.kind === '四余');
   assert.equal(qi.length, 7);
   assert.equal(yu.length, 4);
+  assert.equal(
+    r.stars.some((star) => star.name.includes('紫炁')),
+    true,
+  );
+  assert.equal(r.ziqiModel.id, 'qizhengsuan-naepyeon-mean-motion');
+  assert.equal(r.ziqiModel.direction, '顺行');
+  assert.equal(r.ziqiModel.periodDays, 10227.1792);
+  assert.equal(r.ziqiModel.sources.filter((source) => source.usage === '采用').length, 4);
+  assert.equal(r.ziqiModel.sources.filter((source) => source.usage === '未采用').length, 2);
+  assert.ok(
+    Math.abs(
+      core.qizheng.calculateZiqiTropicalLongitude({
+        year: 1995,
+        month: 12,
+        day: 31,
+        hour: 8,
+        timezone: 8,
+      }) - 237.038993,
+    ) < 1e-9,
+  );
+  assert.ok(
+    Math.abs(
+      r.ziqi.tropicalLongitude -
+        r.stars.find((star) => star.name.includes('紫炁'))!.tropicalLongitude,
+    ) < 1e-9,
+  );
+  assert.ok(r.ziqi.cycleProgress >= 0 && r.ziqi.cycleProgress < 1);
+  assert.ok(
+    r.ziqi.daysSinceZeroLongitude >= 0 && r.ziqi.daysSinceZeroLongitude < r.ziqiModel.periodDays,
+  );
   assert.equal(r.mingGong, 11);
   assert.equal(r.mingZhu, '木');
   assert.ok(r.stars.every((star) => star.sevenStar.length === 1));
@@ -148,6 +161,9 @@ test('qizheng: 七政四余（命宫/身宫/庙旺，依果老星宗安命法）
   assert.equal(r.shensha.find((item) => item.name === '孤辰')?.value, '巳');
   assert.equal(r.shensha.find((item) => item.name === '寡宿')?.value, '丑');
   assert.ok(r.prompt.includes('七政四余'));
+  assert.ok(r.prompt.includes('《七政算内篇》紫炁古法均速'));
+  assert.ok(r.prompt.includes('紫炁位置：顺行'));
+  assert.ok(r.prompt.includes('不得替换成月孛对冲'));
 });
 
 test('ganzhi: tyme4ts 权威后端（纳音/干支五行/合冲害/十神）', () => {

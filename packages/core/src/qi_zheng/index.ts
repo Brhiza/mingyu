@@ -10,10 +10,11 @@
  *   - 庙旺：七政于十二宫之庙、旺、乐、陷。
  *   - 神煞：天乙贵人（日干）、驿马/劫煞/咸池/华盖/孤辰/寡宿（年支）。
  *
- * 说明：紫炁（木余）之学各派略有异同，本实现依「罗睺逆行九十度」之常法推算，并明确标注，
- * 精确宿度须对照《果老星宗》原表校订；余曜罗計孛取月交点与真莉莉丝（celestine）。
+ * 紫炁采用单一《七政算内篇》古法均速模型：周积 10227.1792 日，日行三分五十七秒一四二九，
+ * 历元按 PlanetCalendar 对《七政算内篇》至元十八年立元数据的现代复原值换算。
+ * 罗计孛取月交点与真莉莉丝（celestine）。
  *
- * 古籍依据：《果老星宗》《御定五星精义》《星学大成》。
+ * 古籍依据：《果老星宗》《御定五星精义》《星学大成》《七政算内篇》《古今律历考》《革象新书》《高丽史》。
  */
 import { calculateChart } from 'celestine';
 import { SevenStar, TwentyEightStar } from 'tyme4ts';
@@ -78,6 +79,7 @@ const DIGNITY: Record<string, { miao: number[]; wang: number[]; le: number[]; xi
 export interface QizhengStar {
   name: string;
   kind: '七政' | '四余';
+  tropicalLongitude: number; // 回归黄经 0-360
   longitude: number; // 恒星黄经 0-360
   xiu: string;
   sevenStar: string;
@@ -106,7 +108,161 @@ export interface QizhengResult {
   mingZhu: string;
   twelvePalaces: { palace: string; signIndex: number }[];
   shensha: { name: string; value: string }[];
+  ziqiModel: ZiqiModelInfo;
+  ziqi: ZiqiPosition;
   prompt: string;
+}
+
+export interface ZiqiSource {
+  title: string;
+  url: string;
+  category: '古籍原文' | '古籍校勘' | '开源复原' | '开源对照';
+  usage: '采用' | '校勘说明' | '未采用';
+  evidence: string;
+}
+
+export interface ZiqiModelInfo {
+  id: string;
+  name: string;
+  direction: '顺行';
+  cycleYears: number;
+  periodDays: number;
+  dailyMotionDegrees: number;
+  classicalDegreeRate: string;
+  classicalDailyMotion: string;
+  classicalEpoch: string;
+  classicalWinterSolsticeOffsetDays: number;
+  modernEpochUtc: string;
+  modernEpochTropicalLongitude: number;
+  formula: string;
+  coordinate: string;
+  precision: string;
+  sources: ZiqiSource[];
+}
+
+export interface ZiqiPosition {
+  tropicalLongitude: number;
+  siderealLongitude: number;
+  direction: '顺行';
+  dailyMotionDegrees: number;
+  cycleProgress: number;
+  daysSinceZeroLongitude: number;
+  daysUntilZeroLongitude: number;
+}
+
+const ZIQI_PERIOD_DAYS = 10227.1792;
+const ZIQI_DAILY_MOTION = 360 / ZIQI_PERIOD_DAYS;
+const ZIQI_MODERN_EPOCH_UTC_MS = Date.UTC(1995, 11, 31, 0, 0, 0);
+const ZIQI_MODERN_EPOCH_LONGITUDE = 237.038993;
+
+/**
+ * 紫炁唯一采用的古法模型。
+ *
+ * 《七政算内篇》载「顺行二十八年一周天」、周积 10227.1792 日、至后策 1256.5224 日；
+ * PlanetCalendar 将该立元数据复原为 1995-12-31 09:00 韩国标准时（即 00:00 UTC）
+ * 回归黄经 237.038993°，日行 0.0352003219030327°。
+ */
+export const ZIQI_MODEL_INFO: ZiqiModelInfo = {
+  id: 'qizhengsuan-naepyeon-mean-motion',
+  name: '《七政算内篇》紫炁古法均速',
+  direction: '顺行',
+  cycleYears: 28,
+  periodDays: ZIQI_PERIOD_DAYS,
+  dailyMotionDegrees: ZIQI_DAILY_MOTION,
+  classicalDegreeRate: '二十八日一度',
+  classicalDailyMotion: '三分五十七秒一四二九',
+  classicalEpoch: '大元至元十八年立元前天正冬至（1280年冬至）',
+  classicalWinterSolsticeOffsetDays: 1256.5224,
+  modernEpochUtc: '1995-12-31T00:00:00.000Z',
+  modernEpochTropicalLongitude: ZIQI_MODERN_EPOCH_LONGITUDE,
+  formula: '回归黄经 = 归一化(237.038993° + 距1995-12-31T00:00:00Z日数 × 360° / 10227.1792日)',
+  coordinate: '先算回归黄经均速值，再按项目统一岁差换算为恒星黄经与二十八宿宿度',
+  precision:
+    '可按输入分钟稳定复现古法均速值；误差边界来自古法均速假设、历元现代复原和宿度坐标，不宣称现代天体测量的角秒精度',
+  sources: [
+    {
+      title: '《七政算内篇》四余星第七·紫气',
+      url: 'https://zh.wikisource.org/wiki/朝鮮王朝實錄/世宗實錄/七政算內外篇',
+      category: '古籍原文',
+      usage: '采用',
+      evidence: '顺行二十八年一周天；至后策1256.5224日；周积10227.1792日；二十八日一度',
+    },
+    {
+      title: '《古今律历考》卷五十八',
+      url: 'https://zh.wikisource.org/wiki/古今律厯考_(四庫全書本)/卷58',
+      category: '古籍校勘',
+      usage: '校勘说明',
+      evidence:
+        '复载周积10227.1792日，并指出末位收舍会造成约0.0308日的周积差；本模型为保持《七政算内篇》同源立成，仍采用原载周积',
+    },
+    {
+      title: '《革象新书》卷三',
+      url: 'https://zh.wikisource.org/wiki/革象新書_(四庫全書本)/卷3',
+      category: '古籍原文',
+      usage: '采用',
+      evidence: '紫气每日所行均平、起于闰法、约二十八年周天，并明确与月孛分列推算',
+    },
+    {
+      title: '《高丽史》卷五十二',
+      url: 'https://zh.wikisource.org/wiki/高麗史/卷五十二',
+      category: '古籍原文',
+      usage: '采用',
+      evidence: '紫气每日顺行三分五十七秒，约二十八日一度',
+    },
+    {
+      title: 'PlanetCalendar',
+      url: 'https://github.com/fftkrr/PlanetCalendar/blob/3a9f317c0e6c16294c9feb0da4f233d12dd7a29e/cal_calculation.c',
+      category: '开源复原',
+      usage: '采用',
+      evidence: 'MIT开源实现，依据《七政算内篇》复原现代历元237.038993°与日行度',
+    },
+    {
+      title: 'MOIRA Chinese Astrology',
+      url: 'https://github.com/BahnAstro/MOIRA_chinese_astrology/blob/6507fae6aa3c7297d55f7a549f703b3dd9d5706d/moira_extra_files/moira_s.prop',
+      category: '开源对照',
+      usage: '未采用',
+      evidence:
+        '同用10227.1792日周期，但1975年历元与《七政算内篇》现代复原相差约99.11°，且未给出古籍推导，因此不并入计算',
+    },
+    {
+      title: 'FINASTRO',
+      url: 'https://github.com/BahnAstro/FINASTRO/blob/842d27a2bb814870c00068d99fd7da6fc4e2f0db/alldata31.py',
+      category: '开源对照',
+      usage: '未采用',
+      evidence: '沿用MOIRA的1975年历元，仅作为同周期实现的交叉检索记录，不作为本项目参数来源',
+    },
+  ],
+};
+
+function normalizeLongitude(value: number): number {
+  return ((value % 360) + 360) % 360;
+}
+
+function getTargetUtcMs(input: QizhengInput): number {
+  const localAsUtcMs = Date.UTC(
+    input.year,
+    input.month - 1,
+    input.day,
+    input.hour,
+    input.minute ?? 0,
+    0,
+  );
+  return localAsUtcMs - (input.timezone ?? 8) * 60 * 60 * 1000;
+}
+
+function getDecimalYear(utcMs: number): number {
+  const date = new Date(utcMs);
+  const year = date.getUTCFullYear();
+  const start = Date.UTC(year, 0, 1);
+  const end = Date.UTC(year + 1, 0, 1);
+  return year + (utcMs - start) / (end - start);
+}
+
+/** 依《七政算内篇》单一古法模型计算紫炁回归黄经。 */
+export function calculateZiqiTropicalLongitude(input: QizhengInput): number {
+  const targetUtcMs = getTargetUtcMs(input);
+  const elapsedDays = (targetUtcMs - ZIQI_MODERN_EPOCH_UTC_MS) / 86_400_000;
+  return normalizeLongitude(ZIQI_MODERN_EPOCH_LONGITUDE + elapsedDays * ZIQI_DAILY_MOTION);
 }
 
 /**
@@ -122,7 +278,24 @@ export function getPrecessionOffset(year: number): number {
 
 /** 回归黄经 → 恒星黄经（减岁差） */
 function toSidereal(tropical: number, year: number): number {
-  return (((tropical - getPrecessionOffset(year)) % 360) + 360) % 360;
+  return normalizeLongitude(tropical - getPrecessionOffset(year));
+}
+
+/** 返回紫炁的完整可审计位置数据；项目中不存在第二套紫炁计算模型。 */
+export function calculateZiqiPosition(input: QizhengInput): ZiqiPosition {
+  const targetUtcMs = getTargetUtcMs(input);
+  const tropicalLongitude = calculateZiqiTropicalLongitude(input);
+  const siderealLongitude = toSidereal(tropicalLongitude, getDecimalYear(targetUtcMs));
+  const daysSinceZeroLongitude = tropicalLongitude / ZIQI_DAILY_MOTION;
+  return {
+    tropicalLongitude,
+    siderealLongitude,
+    direction: ZIQI_MODEL_INFO.direction,
+    dailyMotionDegrees: ZIQI_DAILY_MOTION,
+    cycleProgress: tropicalLongitude / 360,
+    daysSinceZeroLongitude,
+    daysUntilZeroLongitude: (ZIQI_PERIOD_DAYS - daysSinceZeroLongitude) % ZIQI_PERIOD_DAYS,
+  };
 }
 
 function longitudeToXiu(L: number): { xiu: string; xiuDegree: number } {
@@ -250,6 +423,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
   );
 
   const stars: QizhengStar[] = [];
+  const targetDecimalYear = getDecimalYear(getTargetUtcMs(input));
   const pushStar = (
     name: string,
     kind: '七政' | '四余',
@@ -257,7 +431,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     key?: string,
     retrograde = false,
   ): void => {
-    const L = toSidereal(tropical, input.year);
+    const L = toSidereal(tropical, targetDecimalYear);
     const { xiu, xiuDegree } = longitudeToXiu(L);
     const sevenStar = TwentyEightStar.fromName(xiu).getSevenStar().getName();
     const signIndex = Math.floor(L / 30);
@@ -265,6 +439,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     stars.push({
       name,
       kind,
+      tropicalLongitude: normalizeLongitude(tropical),
       longitude: L,
       xiu,
       sevenStar,
@@ -282,24 +457,16 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     pushStar(m.label, '七政', p.longitude, m.key, p.isRetrograde ?? false);
   }
 
-  // 四余：罗睺=北交，计都=南交，月孛=真莉莉丝，紫炁=月孛对冲（近地点/远地点相差180°）
-  // 古籍依据：《星学大成》《果老星宗》"紫气者，月孛之对冲也"；易德轩《罗睺计都紫气月孛精确计算公式》考：
-  //   月孛为月球远地点(Apogee)、紫炁为月球近地点(Perigee)，二者分居椭圆长轴两端，黄经恒相差180°。
-  //   故紫炁 = 月孛黄经 + 180°（用 celestine 真莉莉丝，比均值公式更准；无莉莉丝时退用罗睺逆行90°近似）。
+  // 四余：罗睺=北交，计都=南交，月孛=真莉莉丝；紫炁依《七政算内篇》古法均速独立推算。
   const nodeMap = new Map(chart.nodes.map((n) => [n.name, n]));
   const lilith = chart.lilith?.[0];
   const north = nodeMap.get('North Node');
   const south = nodeMap.get('South Node');
   if (north) pushStar('罗睺(火余)', '四余', north.longitude);
   if (south) pushStar('计都(土余)', '四余', south.longitude);
-  if (lilith) {
-    pushStar('月孛(水余)', '四余', lilith.longitude);
-    // 紫炁(木余) = 月孛(水余) + 180°（近地点对冲远地点）
-    pushStar('紫炁(木余)', '四余', (lilith.longitude + 180) % 360);
-  } else if (north) {
-    // 后备近似：紫炁 ≈ 罗睺逆行90°（仅当无莉莉丝数据时使用）
-    pushStar('紫炁(木余)', '四余', (north.longitude + 270) % 360);
-  }
+  if (lilith) pushStar('月孛(水余)', '四余', lilith.longitude);
+  const ziqi = calculateZiqiPosition(input);
+  pushStar('紫炁(木余)', '四余', ziqi.tropicalLongitude);
 
   const sun = stars.find((s) => s.name === '太阳');
   const moon = stars.find((s) => s.name === '太阴');
@@ -345,6 +512,8 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
   const prompt = [
     `【七政四余 · 果老星宗】`,
     `七政：太阳、太阴、水、金、火、木、土；四余：罗睺、计都、月孛、紫炁。`,
+    `紫炁模型：${ZIQI_MODEL_INFO.name}；周期${ZIQI_MODEL_INFO.periodDays}日，日行${ZIQI_MODEL_INFO.dailyMotionDegrees.toFixed(12)}°；${ZIQI_MODEL_INFO.precision}。`,
+    `紫炁位置：顺行，回归黄经${ziqi.tropicalLongitude.toFixed(6)}°，恒星黄经${ziqi.siderealLongitude.toFixed(6)}°，本周天进度${(ziqi.cycleProgress * 100).toFixed(4)}%。`,
     ...stars.map(
       (s) =>
         `${s.kind} ${s.name}：恒星黄经${s.longitude.toFixed(1)}°，在${s.xiu}宿${s.xiuDegree.toFixed(
@@ -354,10 +523,26 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     `命宫在${TWELVE_PALACES[0]}（黄道第 ${mingGong + 1} 宫），命主${mingZhu}；身宫在第 ${shenGong + 1} 宫。`,
     `神煞：天乙贵人${shensha[0].value}、驿马${shensha[1].value}、劫煞${shensha[2].value}、咸池${shensha[3].value}、华盖${shensha[4].value}、孤辰${shensha[5].value}、寡宿${shensha[6].value}。`,
     '',
-    '请依《果老星宗》星学，论命主强弱、七政庙旺、四余吊照、十二宫所主与神煞吉凶。',
+    '请依《果老星宗》星学，论命主强弱、七政庙旺、四余吊照、十二宫所主与神煞吉凶；紫炁仅使用上列《七政算内篇》模型，不得替换成月孛对冲或月球近地点。',
   ].join('\n');
 
-  return { stars, mingGong, shenGong, mingZhu, twelvePalaces, shensha, prompt };
+  return {
+    stars,
+    mingGong,
+    shenGong,
+    mingZhu,
+    twelvePalaces,
+    shensha,
+    ziqiModel: ZIQI_MODEL_INFO,
+    ziqi,
+    prompt,
+  };
 }
 
-export const qizheng = { generateQizheng, getPrecessionOffset };
+export const qizheng = {
+  generateQizheng,
+  getPrecessionOffset,
+  calculateZiqiTropicalLongitude,
+  calculateZiqiPosition,
+  ZIQI_MODEL_INFO,
+};

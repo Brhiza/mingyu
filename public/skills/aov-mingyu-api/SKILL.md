@@ -1,6 +1,6 @@
 ---
 name: aov-mingyu-api
-description: 通过 aov.cc 公开 API 调用命理、占卜和一站式提示词能力。用于需要八字排盘、紫微斗数排盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗、三山国王灵签、黄历择日、雷诺曼、星盘、八宅、生肖犯太岁、太乙神数、铁板神数、七政四余，或直接返回可交给 AI 解读的完整提示词的任务。
+description: 通过 aov.cc 公开 API 调用命理、占卜和一站式提示词能力。用于需要八字排盘、紫微斗数排盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗、三山国王灵签、黄历择日、雷诺曼、星盘、八宅、生肖犯太岁、太乙神数、七政四余，或直接返回可交给 AI 解读的完整提示词的任务。
 ---
 
 # AOV 命理与占卜 API
@@ -57,7 +57,7 @@ description: 通过 aov.cc 公开 API 调用命理、占卜和一站式提示词
 - 用户要从日期范围里挑日子：调用 `POST /divination/almanac/prompt`，日期多或参与人多时分页。
 - 用户明确要西方星盘，或提供出生地点、经纬度和时区：调用 `POST /divination/astrolabe/prompt`。
 - 用户没有出生信息，只想要轻量启发、牌阵或签文：调用塔罗、雷诺曼或三山国王灵签提示词接口。
-- 用户明确要求八宅、生肖犯太岁、太乙、铁板或七政四余：调用对应的 `POST /metaphysics/{method}/prompt`；只要结构化排盘时改用 `/calculate`。
+- 用户明确要求八宅、生肖犯太岁、太乙或七政四余：调用对应的 `POST /metaphysics/{method}/prompt`；只要结构化排盘时改用 `/calculate`。
 
 问题到接口速查：
 
@@ -118,8 +118,7 @@ description: 通过 aov.cc 公开 API 调用命理、占卜和一站式提示词
 - `POST /metaphysics/bazhai/calculate`、`POST /metaphysics/bazhai/prompt`：八宅排盘与提示词。
 - `POST /metaphysics/zodiac/calculate`、`POST /metaphysics/zodiac/prompt`：生肖犯太岁与流年提示词。
 - `POST /metaphysics/taiyi/calculate`、`POST /metaphysics/taiyi/prompt`：太乙神数排盘与提示词。
-- `POST /metaphysics/tieban/calculate`、`POST /metaphysics/tieban/prompt`：铁板神数排盘与提示词。
-- `POST /metaphysics/qizheng/calculate`、`POST /metaphysics/qizheng/prompt`：七政四余排盘与提示词。
+- `POST /metaphysics/qizheng/calculate`、`POST /metaphysics/qizheng/prompt`：七政四余排盘与提示词，紫炁采用《七政算内篇》古法均速模型。
 - `POST /ai/analyze`：AI 解读，返回 SSE 流式响应。
 - `POST /ai/models`：获取当前 AI 配置可用的模型列表。
 

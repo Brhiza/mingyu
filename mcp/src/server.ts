@@ -17,7 +17,6 @@ import { registerAstrolabeTool } from './tools/astrolabe.js';
 import { registerBaZhaiTool } from './tools/ba_zhai.js';
 import { registerZodiacTool } from './tools/zodiac.js';
 import { registerTaiyiTool } from './tools/taiyi.js';
-import { registerTiebanTool } from './tools/tie_ban.js';
 import { registerQizhengTool } from './tools/qi_zheng.js';
 
 const server = new McpServer(
@@ -50,7 +49,6 @@ registerAstrolabeTool(server);
 registerBaZhaiTool(server);
 registerZodiacTool(server);
 registerTaiyiTool(server);
-registerTiebanTool(server);
 registerQizhengTool(server);
 
 const transport = new StdioServerTransport();
