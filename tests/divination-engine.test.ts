@@ -6,7 +6,7 @@ import {
   TAROT_SPREAD_INSPIRATION_QUESTIONS,
   resolveDivinationInspiredDraftPatch,
 } from '../src/lib/divination/inspiration';
-import type { QimenJiuGongGe } from '../packages/core/src/types/divination';
+import type { QimenJiuGongGe, TaiyiResult } from '../packages/core/src/types/divination';
 import { STEM_TOMB_MAP } from '../packages/core/src/divination/algorithms/qimen/helpers/_constants';
 import {
   getClassicPatterns,
@@ -68,6 +68,7 @@ function buildDraft(overrides: Partial<DivinationDraftInput>): DivinationDraftIn
     astrolabeLatitude: '39.9042',
     astrolabeLongitude: '116.4074',
     astrolabeTimezone: '8',
+    taiyiYear: '2004',
     ...overrides,
   };
 }
@@ -3531,6 +3532,38 @@ test('前端占卜草稿可把自定北京时间传给按时间起卦的方法',
   assert.equal(session.method, 'qimen');
   assert.equal(session.data.timestamp, new Date('2025-01-01T08:30:00+08:00').getTime());
   assert.match(session.prompt, /2025年1月1日 8时30分/);
+});
+
+test('太乙神数作为占卜方法应生成完整年家盘与年度边界提示', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'taiyi',
+      taiyiYear: '2004',
+      question: '这一年更适合主动推进还是稳守？',
+    }),
+  );
+
+  const data = session.data as TaiyiResult;
+  assert.equal(session.method, 'taiyi');
+  assert.equal(data.scope, 'year');
+  assert.equal(data.bureau, 33);
+  assert.match(session.prompt, /占法：太乙神数（年家）/);
+  assert.match(session.prompt, /阳遁第33局/);
+  assert.match(session.prompt, /当前只提供年家七十二局/);
+  assert.match(session.prompt, /不得扩写成尚未计算的月计、日计或时计/);
+  assert.match(
+    session.prompt,
+    /【当前时间】[\s\S]*【占卜信息】[\s\S]*【问题】[\s\S]*【任务】[\s\S]*【输出要求】/,
+  );
+});
+
+test('太乙神数占卜入口应拒绝空年份和超出网页支持范围的年份', async () => {
+  for (const value of ['', '1899', '2201']) {
+    await assert.rejects(
+      () => generateDivinationSession(buildDraft({ method: 'taiyi', taiyiYear: value })),
+      /太乙年家年份/,
+    );
+  }
 });
 
 test('六爻提示词应同时写出日辰和月建参与的三合局', async () => {

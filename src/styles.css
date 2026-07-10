@@ -3400,6 +3400,38 @@ select {
   gap: 14px;
 }
 
+.chart-method-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.metaphysics-direction-preview {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-contrast);
+  border-radius: var(--radius-control);
+  background: var(--accent-surface);
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.metaphysics-direction-preview strong {
+  color: var(--text-strong);
+  font-size: 15px;
+}
+
+.metaphysics-direction-preview.is-warning {
+  border-color: rgba(185, 28, 28, 0.4);
+  background: rgba(185, 28, 28, 0.08);
+}
+
+.metaphysics-direction-preview.is-warning strong {
+  color: #b91c1c;
+  font-size: 13px;
+}
+
 .metaphysics-date-row {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
@@ -3416,10 +3448,14 @@ select {
   max-height: 620px;
 }
 
+.metaphysics-submit-actions .start-submit-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 @media (max-width: 720px) {
-  .divination-method-grid.metaphysics-method-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .chart-method-grid {
+    grid-template-columns: 1fr;
   }
 
   .metaphysics-date-row {

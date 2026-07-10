@@ -61,6 +61,71 @@ export const TWENTY_FOUR_MOUNTAINS: string[] = [
   '壬',
 ];
 
+export interface CompassMountainPosition {
+  /** 归一化后的罗盘度数；360° 归入 0°。 */
+  degree: number;
+  mountain: string;
+  index: number;
+  centerDegree: number;
+  startDegree: number;
+  endDegree: number;
+  isBoundary: boolean;
+  boundaryMountains?: [string, string];
+}
+
+export interface SitFacingPosition {
+  facing: CompassMountainPosition;
+  sit: CompassMountainPosition;
+  label: string;
+}
+
+function normalizeCompassDegree(degree: number): number {
+  if (!Number.isFinite(degree) || degree < 0 || degree > 360) {
+    throw new Error('罗盘度数需在 0 到 360 之间。');
+  }
+  return degree === 360 ? 0 : degree;
+}
+
+/**
+ * 按每山 15°、子山中心 0° 的罗盘口径，把度数换算为二十四山。
+ * 分界线仍返回相邻山位，但会以 isBoundary 标记，调用方不应静默采用。
+ */
+export function getMountainFromDegree(degree: number): CompassMountainPosition {
+  const normalized = normalizeCompassDegree(degree);
+  const index = Math.floor(((normalized + 7.5) % 360) / 15);
+  const mountain = TWENTY_FOUR_MOUNTAINS[index];
+  const centerDegree = index * 15;
+  const boundaryRemainder = (((normalized - 7.5) % 15) + 15) % 15;
+  const isBoundary =
+    boundaryRemainder < Number.EPSILON * 16 ||
+    Math.abs(boundaryRemainder - 15) < Number.EPSILON * 16;
+  const previousIndex = (index + TWENTY_FOUR_MOUNTAINS.length - 1) % TWENTY_FOUR_MOUNTAINS.length;
+
+  return {
+    degree: normalized,
+    mountain,
+    index,
+    centerDegree,
+    startDegree: (centerDegree - 7.5 + 360) % 360,
+    endDegree: (centerDegree + 7.5) % 360,
+    isBoundary,
+    ...(isBoundary
+      ? { boundaryMountains: [TWENTY_FOUR_MOUNTAINS[previousIndex], mountain] as [string, string] }
+      : {}),
+  };
+}
+
+/** 输入房屋朝向度数，自动换算相反方向的坐山。 */
+export function getSitFacingFromFacingDegree(facingDegree: number): SitFacingPosition {
+  const facing = getMountainFromDegree(facingDegree);
+  const sit = getMountainFromDegree((facing.degree + 180) % 360);
+  return {
+    facing,
+    sit,
+    label: `${sit.mountain}山${facing.mountain}向`,
+  };
+}
+
 /**
  * tyme4ts 的 `Zone` 表示二十八宿四象（东、北、西、南），并不包含二十四山。
  * 这里公开权威名称供星宿/方位模块复用；二十四山仍保留罗盘专用表，避免错误替换。
@@ -221,6 +286,8 @@ export const direction = {
   NINE_STARS,
   MOUNTAIN_TO_BAGUA,
   getNineStarProfile,
+  getMountainFromDegree,
+  getSitFacingFromFacingDegree,
   getHouseTrigram,
   getHouseTrigramFromSitFacing,
   getBaZhaiPalace,

@@ -27,7 +27,8 @@ import { getFieldKey, getPersonValue, type SELF_FIELD_MAP } from './InputPage.fi
 import { AiSettingsModal } from '@/components/AiSettingsModal';
 import { useAiSettings } from '@/hooks/useAiSettings';
 
-type InputEntryMode = 'single' | 'compatibility' | 'divination' | 'almanac' | 'metaphysics';
+type InputEntryMode = 'single' | 'compatibility' | 'divination' | 'almanac';
+type ChartEntryMethod = 'birth' | 'bazhai' | 'qizheng';
 
 const DONATION_URL = 'https://lk.sydf.cc/';
 const isDonationBoxEnabled = import.meta.env.VITE_ENABLE_DONATION_BOX === 'true';
@@ -48,6 +49,7 @@ export function InputPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [form, setForm] = useState<QueryInputState>(defaultInputState);
   const [entryMode, setEntryMode] = useState<InputEntryMode>('single');
+  const [chartMethod, setChartMethod] = useState<ChartEntryMethod>('birth');
   const [error, setError] = useState('');
   const [aiSettings, setAiSettings] = useAiSettings();
   const [isAiSettingsModalOpen, setIsAiSettingsModalOpen] = useState(false);
@@ -66,16 +68,15 @@ export function InputPage() {
           ? 'divination'
           : searchParams.get('mode') === 'almanac'
             ? 'almanac'
-            : searchParams.get('mode') === 'metaphysics'
-              ? 'metaphysics'
-              : 'single';
+            : 'single';
     setEntryMode(nextEntryMode);
 
-    if (
-      nextEntryMode === 'divination' ||
-      nextEntryMode === 'almanac' ||
-      nextEntryMode === 'metaphysics'
-    ) {
+    const chart = searchParams.get('chart');
+    setChartMethod(
+      nextEntryMode === 'single' && (chart === 'bazhai' || chart === 'qizheng') ? chart : 'birth',
+    );
+
+    if (nextEntryMode === 'divination' || nextEntryMode === 'almanac') {
       return;
     }
 
@@ -384,6 +385,23 @@ export function InputPage() {
 
     const nextSearchParams = new URLSearchParams(searchParams);
     nextSearchParams.set('mode', value);
+    if (value !== 'single') {
+      nextSearchParams.delete('chart');
+    }
+    setSearchParams(nextSearchParams, { replace: true });
+  }
+
+  function updateChartMethod(value: ChartEntryMethod) {
+    setChartMethod(value);
+    setError('');
+
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.set('mode', 'single');
+    if (value === 'birth') {
+      nextSearchParams.delete('chart');
+    } else {
+      nextSearchParams.set('chart', value);
+    }
     setSearchParams(nextSearchParams, { replace: true });
   }
 
@@ -430,11 +448,10 @@ export function InputPage() {
               <SegmentedControl
                 value={entryMode}
                 options={[
-                  { label: '个人', value: 'single' as const },
+                  { label: '排盘', value: 'single' as const },
                   { label: '合盘', value: 'compatibility' as const },
                   { label: '占卜', value: 'divination' as const },
                   { label: '择日', value: 'almanac' as const },
-                  { label: '术数', value: 'metaphysics' as const },
                 ]}
                 onChange={updateEntryMode}
               />
@@ -451,11 +468,7 @@ export function InputPage() {
           </div>
 
           <div className="analysis-view">
-            {entryMode === 'metaphysics' ? (
-              <Suspense fallback={divinationPanelFallback}>
-                <LazyMetaphysicsPanel />
-              </Suspense>
-            ) : entryMode === 'divination' || entryMode === 'almanac' ? (
+            {entryMode === 'divination' || entryMode === 'almanac' ? (
               <Suspense fallback={divinationPanelFallback}>
                 <LazyDivinationPanel
                   initialMethod={entryMode === 'almanac' ? 'almanac' : undefined}
@@ -464,63 +477,105 @@ export function InputPage() {
               </Suspense>
             ) : (
               <div className="form-wrapper">
-                <PersonForm
-                  role="self"
-                  form={form}
-                  updatePersonField={updatePersonField}
-                  updateNumericField={updateNumericField}
-                  updateBirthTime={updateBirthTime}
-                  openBirthPlaceModal={birthPlace.openBirthPlaceModal}
-                  openBirthTimeReversePage={openBirthTimeReversePage}
-                  historyHint={
-                    form.analysisMode === 'single'
-                      ? '填写一份个人信息，自动生成八字、紫微；勾选真太阳时后会同时生成星盘。'
-                      : undefined
-                  }
-                />
-                {entryMode === 'compatibility' ? (
-                  <PersonForm
-                    role="partner"
-                    form={form}
-                    updatePersonField={updatePersonField}
-                    updateNumericField={updateNumericField}
-                    updateBirthTime={updateBirthTime}
-                    openBirthPlaceModal={birthPlace.openBirthPlaceModal}
-                    openBirthTimeReversePage={openBirthTimeReversePage}
-                  />
+                {entryMode === 'single' ? (
+                  <div className="chart-method-grid" aria-label="选择排盘类型">
+                    {[
+                      {
+                        value: 'birth' as const,
+                        label: '八字 / 紫微',
+                        description: '一次填写，生成八字、紫微，并可选星盘。',
+                      },
+                      {
+                        value: 'bazhai' as const,
+                        label: '八宅',
+                        description: '输入朝向度数，自动换算坐山与吉凶方。',
+                      },
+                      {
+                        value: 'qizheng' as const,
+                        label: '七政四余',
+                        description: '生成七政四余、十二宫与神煞。',
+                      },
+                    ].map((item) => (
+                      <button
+                        key={item.value}
+                        type="button"
+                        className={`divination-method-btn ${chartMethod === item.value ? 'is-active' : ''}`}
+                        onClick={() => updateChartMethod(item.value)}
+                      >
+                        <strong>{item.label}</strong>
+                        <span>{item.description}</span>
+                      </button>
+                    ))}
+                  </div>
                 ) : null}
 
-                {error ? <div className="form-error-text global-form-error">{error}</div> : null}
+                {entryMode === 'single' && chartMethod !== 'birth' ? (
+                  <Suspense fallback={divinationPanelFallback}>
+                    <LazyMetaphysicsPanel key={chartMethod} method={chartMethod} />
+                  </Suspense>
+                ) : (
+                  <>
+                    <PersonForm
+                      role="self"
+                      form={form}
+                      updatePersonField={updatePersonField}
+                      updateNumericField={updateNumericField}
+                      updateBirthTime={updateBirthTime}
+                      openBirthPlaceModal={birthPlace.openBirthPlaceModal}
+                      openBirthTimeReversePage={openBirthTimeReversePage}
+                      historyHint={
+                        form.analysisMode === 'single'
+                          ? '填写一份个人信息，自动生成八字、紫微；勾选真太阳时后会同时生成星盘。'
+                          : undefined
+                      }
+                    />
+                    {entryMode === 'compatibility' ? (
+                      <PersonForm
+                        role="partner"
+                        form={form}
+                        updatePersonField={updatePersonField}
+                        updateNumericField={updateNumericField}
+                        updateBirthTime={updateBirthTime}
+                        openBirthPlaceModal={birthPlace.openBirthPlaceModal}
+                        openBirthTimeReversePage={openBirthTimeReversePage}
+                      />
+                    ) : null}
 
-                <div
-                  className="form-actions page-submit-actions"
-                  style={{
-                    width: '100%',
-                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                    justifyItems: 'stretch',
-                  }}
-                >
-                  <button
-                    className="secondary-page-button"
-                    type="button"
-                    style={{ width: '100%' }}
-                    onClick={() =>
-                      navigate(
-                        `/records?tab=${entryMode === 'compatibility' ? 'compatibility' : 'personal'}`,
-                      )
-                    }
-                  >
-                    历史记录
-                  </button>
-                  <button
-                    className="primary-button start-submit-button"
-                    type="button"
-                    onClick={handleSubmit}
-                    style={{ width: '100%' }}
-                  >
-                    开始排盘
-                  </button>
-                </div>
+                    {error ? (
+                      <div className="form-error-text global-form-error">{error}</div>
+                    ) : null}
+
+                    <div
+                      className="form-actions page-submit-actions"
+                      style={{
+                        width: '100%',
+                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                        justifyItems: 'stretch',
+                      }}
+                    >
+                      <button
+                        className="secondary-page-button"
+                        type="button"
+                        style={{ width: '100%' }}
+                        onClick={() =>
+                          navigate(
+                            `/records?tab=${entryMode === 'compatibility' ? 'compatibility' : 'personal'}`,
+                          )
+                        }
+                      >
+                        历史记录
+                      </button>
+                      <button
+                        className="primary-button start-submit-button"
+                        type="button"
+                        onClick={handleSubmit}
+                        style={{ width: '100%' }}
+                      >
+                        开始排盘
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>

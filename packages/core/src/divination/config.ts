@@ -23,6 +23,7 @@ export type DivinationMethodId =
       | 'almanac'
       | 'lenormand'
       | 'astrolabe'
+      | 'taiyi'
     >;
 
 export const DIVINATION_METHOD_OPTIONS: Array<{
@@ -54,6 +55,11 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
     value: 'liuren',
     label: '大六壬',
     description: '适合看事情如何演变、卡点在哪以及该先处理什么。',
+  },
+  {
+    value: 'taiyi',
+    label: '太乙神数',
+    description: '以年家七十二局观察年度气运、动静、攻守与时宜。',
   },
   {
     value: 'xiaoliuren',

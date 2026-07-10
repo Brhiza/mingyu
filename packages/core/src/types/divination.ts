@@ -15,7 +15,8 @@ export type DivinationType =
   | 'ssgw'
   | 'almanac'
   | 'lenormand'
-  | 'astrolabe';
+  | 'astrolabe'
+  | 'taiyi';
 
 export type MeihuaDivinationMethod = 'time' | 'number' | 'random' | 'timeTrigram';
 
@@ -829,6 +830,43 @@ export interface AstrolabeData {
   timestamp: number;
 }
 
+export type TaiyiScope = 'year';
+
+export interface TaiyiModelInfo {
+  id: string;
+  name: string;
+  supportedScopes: TaiyiScope[];
+  precision: string;
+  sources: { title: string; url: string; evidence: string }[];
+}
+
+export interface TaiyiResult {
+  scope: TaiyiScope;
+  ganZhi: string;
+  accumulatedYears: number;
+  entryYears: number;
+  yuan: number;
+  ji: number;
+  yinYang: '阳遁';
+  bureau: number;
+  taiyiPosition: string;
+  taiyiPalace: number;
+  taiyiGua: string;
+  taiyiDir: string;
+  wenChangPosition: string;
+  wenChangPalace: number;
+  shiJiPosition: string;
+  shiJiPalace: number;
+  jiShenPosition: string;
+  jiShenPalace: number;
+  lordCount: number;
+  guestCount: number;
+  sixteenGods: { branch: string; god: string }[];
+  judgments: string[];
+  model: TaiyiModelInfo;
+  prompt: string;
+}
+
 export interface SsgwRitualThrow {
   result: '圣杯' | '笑杯' | '阴杯';
 }
@@ -860,7 +898,8 @@ export type DivinationData =
   | SsgwData
   | AlmanacData
   | LenormandData
-  | AstrolabeData;
+  | AstrolabeData
+  | TaiyiResult;
 
 export interface SupplementaryInfo {
   gender?: '男' | '女';

@@ -4,7 +4,7 @@ import { PageTopbar } from '@/components/PageTopbar';
 const workflowSteps = [
   {
     title: '选模式并填写',
-    description: '个人看单人，合盘看两人，占卜看问题。',
+    description: '排盘看个人命盘或住宅，合盘看两人，占卜看问题，择日选时间。',
   },
   {
     title: '先看提示词',
@@ -18,9 +18,9 @@ const workflowSteps = [
 
 const modeGuides = [
   {
-    title: '个人模式',
-    description: '看单人的盘和提示词。',
-    bullets: ['填写一个人的出生信息', '可切换八字、紫微、提示词', '常用于事业、财运、婚恋、健康'],
+    title: '排盘模式',
+    description: '查看个人命盘、住宅八宅或七政四余。',
+    bullets: ['八字 / 紫微填写出生信息', '八宅填写房屋朝向度数', '七政四余填写出生时间和地点'],
   },
   {
     title: '合盘模式',
@@ -30,7 +30,12 @@ const modeGuides = [
   {
     title: '占卜模式',
     description: '围绕一个问题快速起卦。',
-    bullets: ['先把问题写具体', '可选随机、六爻、梅花、塔罗等方式', '结果页也能一键复制提示词'],
+    bullets: ['先把问题写具体', '可选六爻、梅花、太乙、塔罗等方式', '结果页也能一键复制提示词'],
+  },
+  {
+    title: '择日模式',
+    description: '从日期范围内筛选更合适的行动日。',
+    bullets: ['选择要办的事项', '填写候选日期范围', '可补充参与人的出生信息'],
   },
 ] as const;
 
@@ -87,7 +92,7 @@ export function TutorialPage() {
           </div>
 
           <div className="tutorial-section-heading">
-            <h3>三种模式怎么选</h3>
+            <h3>四种模式怎么选</h3>
           </div>
 
           <div className="tutorial-mode-grid">

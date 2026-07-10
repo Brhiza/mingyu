@@ -10,6 +10,7 @@ import type {
   LiurenTemplateType,
   SupplementaryInfo,
   TarotSpreadType,
+  TaiyiResult,
   XiaoliurenDivinationMethod,
 } from '../../../types/divination';
 import type { DivinationMethodId } from '@core/divination/config';
@@ -43,6 +44,7 @@ const CONCRETE_DIVINATION_METHODS: Array<Exclude<DivinationMethodId, 'random'>> 
   'xiaoliuren',
   'qimen',
   'liuren',
+  'taiyi',
   'tarot',
   'ssgw',
   'lenormand',
@@ -87,6 +89,11 @@ function buildDivinationEvidenceTerms(method: Exclude<DivinationMethodId, 'rando
       return {
         facts: '四课、三传、发用、天将、课体、神煞、空亡或类神取用',
         timing: '发用、三传推进、空亡出空、明确神煞、类神状态或问题限定范围',
+      };
+    case 'taiyi':
+      return {
+        facts: '年家局数、太乙宫位、文昌、始击、计神、主客算、十六神或立成判断',
+        timing: '所选年份、年家局数、主客算、宫位关系或问题限定范围',
       };
     case 'tarot':
       return {
@@ -171,6 +178,12 @@ function buildDivinationTimingBoundaryText(method: Exclude<DivinationMethodId, '
         '初传看发端，中传看过程，末传看归结；三传能承接时才可给推进链路和阶段窗口。',
         '神煞只作辅证，不能压过三传主线；资料不足时只能给触发条件，不得随口指定日期。',
       ].join('\n');
+    case 'taiyi':
+      return [
+        '太乙神数当前只提供年家七十二局，时间判断只能落在所选年份的年度趋势、动静、攻守与时宜。',
+        '必须以局数、太乙、文昌、始击、计神与主客算为依据，不得扩写成尚未计算的月计、日计或时计。',
+        '若问题要求具体月份或日期，只能说明年家盘无法支持该精度，并给年度层级的条件建议。',
+      ].join('\n');
     case 'tarot':
       return [
         '塔罗时间判断只能来自牌阵位置、牌面节奏、正逆位状态和提问本身限定的时间范围。',
@@ -232,6 +245,7 @@ export type DivinationDraft = {
   astrolabeLongitude: string;
   astrolabeTimezone: string;
   astrolabeTopic?: AstrolabePromptTopic;
+  taiyiYear: string;
 };
 
 export type DivinationSession = {
@@ -479,6 +493,11 @@ function validateDraft(draft: DivinationDraft) {
 
   if (draft.method === 'xiaoliuren' && draft.xiaoliurenMethod === 'number') {
     readPositiveIntegerText(draft.xiaoliurenNumber, '小六壬数字起课');
+  }
+
+  if (draft.method === 'taiyi') {
+    const year = readIntegerText(draft.taiyiYear, '太乙年家年份');
+    assertNumberRange(year, '太乙年家年份', 1900, 2200);
   }
 
   if (draft.method === 'almanac') {
@@ -758,6 +777,14 @@ export async function generateDivinationSession(
     case 'liuren': {
       const module = await import('mingyu-core/divination/liuren');
       data = module.generateLiuren(customDate);
+      break;
+    }
+    case 'taiyi': {
+      const module = await import('mingyu-core/taiyi');
+      data = module.generateTaiyi({
+        scope: 'year',
+        year: readIntegerText(draft.taiyiYear, '太乙年家年份'),
+      }) as TaiyiResult;
       break;
     }
     case 'tarot': {
