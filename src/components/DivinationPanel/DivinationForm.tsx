@@ -790,6 +790,33 @@ export function DivinationForm({
             </div>
           ) : null}
 
+          <details className="form-item divination-context-fields">
+            <summary>补充现实信息（可选，填写越具体越利于解读）</summary>
+            <div className="form-row">
+              {[
+                ['currentSituation', '当前情况', '例如：正在考虑换工作，已经拿到一个新机会。'],
+                ['currentState', '当前状态', '例如：时间紧、压力较大，但仍有一定选择空间。'],
+                ['knownFacts', '已知事实', '例如：对方已明确报价，合同尚未签署。'],
+                ['desiredOutcome', '期望结果', '例如：希望兼顾收入提升与长期稳定。'],
+                ['constraints', '现实限制', '例如：三个月内不能搬家，预算上限为两万元。'],
+              ].map(([key, label, placeholder]) => (
+                <div className="form-item" key={key}>
+                  <label htmlFor={`divination-${key}`}>{label}</label>
+                  <textarea
+                    id={`divination-${key}`}
+                    rows={2}
+                    value={(draft[key as keyof DivinationDraft] as string | undefined) ?? ''}
+                    className="form-input divination-textarea"
+                    placeholder={placeholder}
+                    onChange={(event) =>
+                      updateDraft(key as keyof DivinationDraft, event.target.value as never)
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </details>
+
           {draft.method === 'almanac' ? (
             <div className="divination-extra-panel">
               <div className="form-row-flex">

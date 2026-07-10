@@ -1,6 +1,6 @@
-import type { SsgwSign } from './types';
+import type { RawSsgwSign } from './types';
 
-export const SIGNS_FULL: SsgwSign[] = [
+export const SIGNS_FULL: RawSsgwSign[] = [
   {
     id: 1,
     title: '第一签 · 明月千山，太平丰年（大吉）',

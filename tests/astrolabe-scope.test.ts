@@ -28,8 +28,8 @@ test('星盘本命分析对象只写入长期结构边界', () => {
   assert.match(context.promptText, /本命宫主星链条：第1宫/);
   assert.match(context.promptText, /宫主星链条只用于定位议题落点/);
   assert.match(context.promptText, /不得自行指定流年、流月、流日或具体应期/);
-  assert.match(context.promptText, /资料范围：本任务书提供本命盘结构、本命宫主星链条/);
-  assert.match(context.promptText, /不包含太阳返照、次限推进、太阳弧/);
+  assert.match(context.promptText, /资料范围：以本命盘结构、本命宫主星链条/);
+  assert.doesNotMatch(context.promptText, /不包含太阳返照、次限推进、太阳弧/);
   assert.doesNotMatch(context.promptText, /行运落宫提示：/);
 });
 
@@ -54,7 +54,7 @@ test('星盘流年分析对象会生成行运证据和展示文本', () => {
   assert.match(context.promptText, /行运证据：/);
   assert.match(context.promptText, /行运落宫提示：/);
   assert.match(context.promptText, /落本命第\d+宫/);
-  assert.match(context.promptText, /不包含太阳返照、次限推进、太阳弧/);
+  assert.doesNotMatch(context.promptText, /不包含太阳返照、次限推进、太阳弧/);
   assert.doesNotMatch(context.promptText, /未计算|技术限制|当前项目/);
   assert.match(context.promptText, /时间边界：本命盘只定长期结构/);
 });

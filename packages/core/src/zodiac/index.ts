@@ -183,15 +183,23 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
     if (sanhe?.partners.includes(yearBranch)) noble = `三合贵人（${sanhe.group}）`;
   }
   const level = judgeLevel(conflicts, relation);
+  const yearStemWuxing = getStemWuxing(yearGanZhi[0]);
+  const yearBranchWuxing = getBranchWuxing(yearBranch);
+  const zodiacWuxing = getBranchWuxing(zodiacBranch);
   const prompt = [
     `【生肖流年运程】`,
     `${zodiac}（${zodiacBranch}）遇${yearGanZhi}年（${TAI_SUI_STARS[yearGanZhi] ?? ''}太岁）。`,
+    `五行来源：流年年干${yearGanZhi[0]}属${yearStemWuxing}，流年地支${yearBranch}属${yearBranchWuxing}；生肖地支${zodiacBranch}属${zodiacWuxing}；年干与生肖五行据此得到“${relation}”，年支则用于值、冲、刑、害、破及三合六合判断。`,
     `干支关系：${relation}。`,
     noble ? `贵人：${noble}。` : '贵人：无明显三合六合贵人。',
-    conflicts.length ? `犯太岁：${conflicts.map((c) => c.type).join('、')}。` : '本年不犯太岁。',
+    conflicts.length
+      ? `犯太岁明细：${conflicts.map((conflict) => `${conflict.type}（${conflict.desc}）`).join('；')}`
+      : '犯太岁明细：本年未命中值、冲、刑、害、破太岁。',
     `综合定级：${level}。`,
+    `证据层级：生肖与流年地支的值、冲、刑、害、破为主要关系证据；年干五行与三合六合为辅助证据；“${level}”只是本次生肖层的简化定级，不等于完整个人运势。`,
+    '证据边界：本次只作生肖与流年关系层的趋势参考；不得仅凭犯太岁名称断定必然事件，也不得把化解建议写成保证结果。',
     '',
-    '请结合生肖五行与流年干支，给出事业、财运、感情、健康的趋势提示与化解建议。',
+    '请结合上述生肖五行与流年关系，给出事业、财运、感情、健康的趋势提示；每项均需指出所依据的关系、可能的反证和现实可执行建议，并明确这只是生肖层参考。',
   ].join('\n');
 
   return {

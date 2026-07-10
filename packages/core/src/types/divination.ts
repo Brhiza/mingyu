@@ -905,6 +905,11 @@ export interface SupplementaryInfo {
   gender?: '男' | '女';
   birthYear?: number;
   userSupplement?: string;
+  currentSituation?: string;
+  currentState?: string;
+  knownFacts?: string;
+  desiredOutcome?: string;
+  constraints?: string;
   interpretationStyle?: '入门' | '专业';
   outputLength?: '精简' | '详细' | '超详细';
   dayPillar?: {

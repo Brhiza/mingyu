@@ -1,6 +1,6 @@
-import type { SsgwSign } from './types';
+import type { RawSsgwSign } from './types';
 
-export const SIGNS_01: SsgwSign[] = [
+export const SIGNS_01: RawSsgwSign[] = [
   {
     id: 1,
     title: '第一签 唐天子游凤凰山（上上签）',

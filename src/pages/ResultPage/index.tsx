@@ -70,6 +70,11 @@ import { usePromptShortcuts } from './hooks/usePromptShortcuts';
 import { AiChatPanel } from '@/components/AiChatPanel';
 import { useAiSettings } from '@/hooks/useAiSettings';
 import { buildAiRequestConfig } from '@/lib/ai/settings';
+import {
+  insertPromptRealWorldContext,
+  type PromptRealWorldContext,
+} from '@/lib/metaphysics-prompt';
+import { PromptContextFields } from '@/components/PromptContextFields';
 
 const LazyBaziFortuneModal = lazy(async () => {
   const module = await import('@/components/BaziFortuneTools/BaziFortuneModal');
@@ -78,6 +83,7 @@ const LazyBaziFortuneModal = lazy(async () => {
 
 export function ResultPage() {
   const navigate = useNavigate();
+  const [promptContext, setPromptContext] = useState<PromptRealWorldContext>({});
   const [searchParams, setSearchParams] = useSearchParams();
   const inputSearch = useMemo(() => buildInputSearch(searchParams), [searchParams]);
   const inputState = useMemo(
@@ -857,7 +863,7 @@ export function ResultPage() {
     ],
   );
 
-  const previewActivePromptText =
+  const basePreviewActivePromptText =
     promptState.promptSource === 'astrolabe'
       ? previewAstrolabePromptText
       : promptState.promptSource === 'bazi-ziwei'
@@ -865,6 +871,10 @@ export function ResultPage() {
         : promptState.promptSource === 'bazi'
           ? previewBaziPromptText
           : previewZiweiPromptText;
+  const previewActivePromptText = insertPromptRealWorldContext(
+    basePreviewActivePromptText,
+    promptContext,
+  );
 
   const aiContextPrompt = useMemo(() => {
     if (promptState.tab !== 'prompt') return '';
@@ -883,7 +893,7 @@ export function ResultPage() {
       ? '本命盘与完整行运资料'
       : astrolabeScopeContext.displayText;
 
-  const latestActivePromptText =
+  const baseLatestActivePromptText =
     promptState.promptSource === 'astrolabe'
       ? latestAstrolabePromptText
       : promptState.promptSource === 'bazi-ziwei'
@@ -891,6 +901,10 @@ export function ResultPage() {
         : promptState.promptSource === 'bazi'
           ? latestBaziPromptText
           : latestZiweiPromptText;
+  const latestActivePromptText = insertPromptRealWorldContext(
+    baseLatestActivePromptText,
+    promptContext,
+  );
   const { copyState, shareState, handleCopy, handleShare } =
     usePromptCopyShare(latestActivePromptText);
   const showShareButton = shouldShowPromptShareButton({
@@ -1264,6 +1278,7 @@ export function ResultPage() {
                       </div>
                     </div>
                     <div className="field-list">
+                      <PromptContextFields value={promptContext} onChange={setPromptContext} />
                       <div className="prompt-compact-grid">
                         <label className="field-card">
                           <div className="field-header">
@@ -1450,6 +1465,7 @@ export function ResultPage() {
                   </div>
 
                   <div className="field-list">
+                    <PromptContextFields value={promptContext} onChange={setPromptContext} />
                     <>
                       <div className="prompt-compact-grid">
                         <label className="field-card">

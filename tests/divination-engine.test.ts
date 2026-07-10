@@ -33,11 +33,31 @@ import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
+import { SSGW_INTERPRETATION_FIELDS, SSGW_SIGNS } from '../packages/core/src/divination/ssgw-data';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateQimen, resolveZhiShiLandingPalace } from 'mingyu-core/divination/qimen';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 type DivinationDraftInput = Parameters<typeof generateDivinationSession>[0];
+
+test('三山国王九十二签应逐签具备八类完整解读', () => {
+  assert.equal(SSGW_SIGNS.length, 92);
+  assert.deepEqual(
+    SSGW_SIGNS.map((sign) => sign.id),
+    Array.from({ length: 92 }, (_, index) => index + 1),
+  );
+  SSGW_SIGNS.forEach((sign) => {
+    SSGW_INTERPRETATION_FIELDS.forEach((field) => {
+      assert.ok(sign.details[field]?.trim(), `第${sign.id}签缺少${field}`);
+    });
+    assert.match(sign.details.核心寓意, /[\u4e00-\u9fff]/, `第${sign.id}签核心寓意无效`);
+  });
+
+  SSGW_INTERPRETATION_FIELDS.forEach((field) => {
+    const values = SSGW_SIGNS.map((sign) => sign.details[field].trim());
+    assert.equal(new Set(values).size, 92, `${field}存在重复套话，应按每支签诗单独编写`);
+  });
+});
 
 function buildDraft(overrides: Partial<DivinationDraftInput>): DivinationDraftInput {
   return {
@@ -3549,8 +3569,9 @@ test('太乙神数作为占卜方法应生成完整年家盘与年度边界提�
   assert.equal(data.bureau, 33);
   assert.match(session.prompt, /占法：太乙神数（年家）/);
   assert.match(session.prompt, /阳遁第33局/);
-  assert.match(session.prompt, /当前只提供年家七十二局/);
-  assert.match(session.prompt, /不得扩写成尚未计算的月计、日计或时计/);
+  assert.match(session.prompt, /太乙神数按年家七十二局判断/);
+  assert.match(session.prompt, /应期只给年度层级的趋势和条件建议/);
+  assert.doesNotMatch(session.prompt, /尚未计算|月计、日计或时计/);
   assert.match(
     session.prompt,
     /【当前时间】[\s\S]*【占卜信息】[\s\S]*【问题】[\s\S]*【任务】[\s\S]*【输出要求】/,

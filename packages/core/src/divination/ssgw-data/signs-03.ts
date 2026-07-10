@@ -1,6 +1,6 @@
-import type { SsgwSign } from './types';
+import type { RawSsgwSign } from './types';
 
-export const SIGNS_03: SsgwSign[] = [
+export const SIGNS_03: RawSsgwSign[] = [
   {
     id: 41,
     title: '第四十一签 杨令公五台问卦（中下签）',

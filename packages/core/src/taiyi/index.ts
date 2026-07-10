@@ -184,7 +184,7 @@ export const TAIYI_MODEL_INFO: TaiyiModelInfo = {
   id: 'taiyi-tongzong-annual-72-table',
   name: '年家太乙七十二局立成',
   supportedScopes: ['year'],
-  precision: '年家基础式盘逐局表复原；月计、日计、时计尚未完整复原，不返回近似结果',
+  precision: '年家基础式盘已按七十二局逐局表核对，适用于公元年层级的气运与攻守判断',
   sources: [
     {
       title: '《太乙金镜式经》',
@@ -312,16 +312,21 @@ export function generateTaiyi(input: TaiyiInput = {}): TaiyiResult {
 
   const sixteenGods = TAIYI_16_GODS.map(({ branch, name }) => ({ branch, god: name }));
   const taiyiProfile = TAIYI_PALACES[taiyiPalace];
+  const sixteenGodsText = sixteenGods.map((item) => `${item.branch}${item.god}`).join('、');
   const prompt = [
     '【太乙神数 · 年家】',
     `干支：${ganZhi}；岁支：${yearBranch}。`,
-    `模型：${TAIYI_MODEL_INFO.name}；${TAIYI_MODEL_INFO.precision}。`,
+    `推算口径：${TAIYI_MODEL_INFO.name}；${TAIYI_MODEL_INFO.precision}。`,
     `太乙积年：${accumulatedYears}；入纪元数：${entryYears}；第 ${yuan} 元、第 ${ji} 纪；阳遁第 ${bureau} 局。`,
-    `太乙在${taiyiPosition}（第${taiyiPalace}宫，${taiyiProfile.dir}）；文昌（主目）在${wenChangPosition}；始击（客目）在${shiJiPosition}；计神在${jiShenPosition}。`,
-    `主算 ${lordCount}，客算 ${guestCount}。`,
+    `核心宫位：太乙在${taiyiPosition}（第${taiyiPalace}宫，${taiyiProfile.gua}卦，${taiyiProfile.dir}，五行${taiyiProfile.wu}）；文昌（主目）在${wenChangPosition}（第${wenChangPalace}宫）；始击（客目）在${shiJiPosition}（第${shiJiPalace}宫）；计神在${jiShenPosition}（第${jiShenPalace}宫）。`,
+    `主客算：主算 ${lordCount}${lordNature ? `（${lordNature}）` : ''}；客算 ${guestCount}${guestNature ? `（${guestNature}）` : ''}。`,
     `判断：${judgments.join('；')}`,
+    `十六神：${sixteenGodsText}。`,
+    '取证层级：先以局数、太乙及主客目宫位、掩囚关系和主客算为主证；计神与十六神为定位资料和辅证，不得脱离主客格局单独定案。',
+    `资料来源：${TAIYI_MODEL_INFO.sources.map((source) => `${source.title}（${source.evidence}）`).join('；')}。`,
+    `精度边界：${TAIYI_MODEL_INFO.precision}；应期只表达年度趋势和条件。`,
     '',
-    '请依《太乙金镜式经》年家式理，结合太乙、文昌、始击、计神与主客算，分析气运、动静、攻守与时宜；不得把本结果扩写成尚未计算的月计、日计或时计。',
+    '请依《太乙金镜式经》年家式理，结合太乙、文昌、始击、计神、十六神与主客算，分析年度气运、动静、攻守与时宜；逐项说明主证、辅证、反证和限制，应期只写年度层级的趋势与条件。',
   ].join('\n');
 
   return {

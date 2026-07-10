@@ -19,12 +19,17 @@ import { buildAstrolabeScopeContext } from '../src/lib/astrolabe-scope';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { drawSpreadCards, getCardKeywords } from 'mingyu-core/divination/tarot';
 import { baziCalculator } from '@core/bazi/baziCalculator';
+import { analyzeBaZhai } from '@core/ba_zhai';
+import { getZodiacYearFortune } from '@core/zodiac';
+import { generateTaiyi } from '@core/taiyi';
+import { generateQizheng } from '@core/qi_zheng';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import {
   DEFAULT_REVERSE_BIRTH_TIME_FORM_DATA,
   buildReverseBirthTimePrompt,
   buildThreePillarsProfile,
 } from '../src/lib/birth-time-reverse';
+import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
 
 type PromptSample = {
   name: string;
@@ -45,10 +50,10 @@ const CUSTOM_DATE = '2026-05-19T10:30:00+08:00';
 const CONTEST_SOURCE = 'docs/2025第十六届全球算命师比赛/00_原题目.md；本脚本未读取“正确答案.md”。';
 const COMMON_PROJECT_QUESTION = '我现在应该继续推进这个项目，还是先调整策略再行动？';
 const COMMON_PROJECT_SUPPLEMENT = '正在做一个需要投入时间和资金的新项目，想判断行动节奏。';
-const COMMON_PROJECT_SUPPLEMENT_FIELD = `用户补充：${COMMON_PROJECT_SUPPLEMENT}`;
+const COMMON_PROJECT_SUPPLEMENT_FIELD = `现实背景：${COMMON_PROJECT_SUPPLEMENT}`;
 
 function buildCommonProjectInputSummary(extra: string) {
-  return `问题：${COMMON_PROJECT_QUESTION}；${extra}；补充：男，1990年生；用户补充：${COMMON_PROJECT_SUPPLEMENT}`;
+  return `问题：${COMMON_PROJECT_QUESTION}；${extra}；补充：男，1990年生；现实背景：${COMMON_PROJECT_SUPPLEMENT}`;
 }
 
 function withCommonProjectSupplementRequired(fields: string[]) {
@@ -76,13 +81,7 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '星盘',
-    requiredFields: [
-      '【分析对象】',
-      '行运证据',
-      '资料范围',
-      '不包含太阳返照、次限推进、太阳弧',
-      '时间边界',
-    ],
+    requiredFields: ['【分析对象】', '行运证据', '资料范围', '时间边界'],
   },
   {
     sampleName: '六爻',
@@ -94,11 +93,7 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '梅花易数',
-    requiredFields: withCommonProjectSupplementRequired([
-      '体用评分',
-      '互变阶段',
-      '应期优先级',
-    ]),
+    requiredFields: withCommonProjectSupplementRequired(['体用评分', '互变阶段', '应期优先级']),
   },
   {
     sampleName: '奇门遁甲',
@@ -123,19 +118,41 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '小六壬',
-    requiredFields: withCommonProjectSupplementRequired(['取象提示', '行动建议等级', '复盘窗口']),
+    requiredFields: withCommonProjectSupplementRequired([
+      '五行推进证据',
+      '关键词',
+      '行动建议等级',
+      '复盘窗口',
+      '证据边界',
+    ]),
   },
   {
     sampleName: '塔罗牌',
-    requiredFields: withCommonProjectSupplementRequired(['断牌口径', '牌位明细', '现实边界']),
+    requiredFields: withCommonProjectSupplementRequired([
+      '判断主轴',
+      '关键词',
+      '证据边界',
+      '现实边界',
+    ]),
   },
   {
     sampleName: '雷诺曼',
-    requiredFields: withCommonProjectSupplementRequired(['断牌口径', '牌位明细']),
+    requiredFields: withCommonProjectSupplementRequired(['牌序主轴', '关键词', '现实边界']),
   },
   {
     sampleName: '三山国王灵签',
-    requiredFields: withCommonProjectSupplementRequired(['断签口径', '签诗：', '签文条目']),
+    requiredFields: withCommonProjectSupplementRequired([
+      '断签口径',
+      '签诗：',
+      '核心寓意',
+      '事业',
+      '财运',
+      '感情',
+      '学业',
+      '健康',
+      '行动建议',
+      '风险提醒',
+    ]),
   },
   {
     sampleName: '择日',
@@ -147,6 +164,22 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '现实约束',
       '可用时段边界',
     ],
+  },
+  {
+    sampleName: '八宅风水',
+    requiredFields: ['【当前时间】', '命卦八宫明细', '宅卦八宫明细', '取证层级', '证据边界'],
+  },
+  {
+    sampleName: '生肖流年',
+    requiredFields: ['【当前时间】', '五行来源', '犯太岁明细', '证据层级', '证据边界'],
+  },
+  {
+    sampleName: '太乙神数',
+    requiredFields: ['【当前时间】', '核心宫位', '主客算', '十六神', '取证层级', '精度边界'],
+  },
+  {
+    sampleName: '七政四余',
+    requiredFields: ['【当前时间】', '出生时空', '十二宫映射', '取证层级', '坐标与精度边界'],
   },
 ];
 
@@ -215,7 +248,19 @@ function buildPromptMarkdown(samples: PromptSample[]) {
     '',
     `生成时间：${AUDIT_DATE_TEXT}`,
     '',
-    '说明：本文件由项目本地函数真实生成，覆盖八字排盘、反推时辰、紫微斗数、星盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗牌、雷诺曼、三山国王灵签、择日。八字、紫微斗数、星盘测试资料取自比赛原题公开出生信息，未读取正确答案文件。',
+    '说明：本文件由项目本地函数真实生成，覆盖八字排盘、反推时辰、紫微斗数、星盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗牌、雷诺曼、三山国王灵签、择日、八宅风水、生肖流年、太乙神数、七政四余。八字、紫微斗数、星盘测试资料取自比赛原题公开出生信息，未读取正确答案文件。',
+    '',
+    '## 审计原则',
+    '',
+    '使用场景：以下提示词会由用户直接复制到外部在线 AI 中解读，外部 AI 不知道本仓库、页面、接口、内部实现或生成过程。',
+    '',
+    '硬性要求：每份提示词必须像用户手动写成的完整任务书，独立包含当前时间、盘面资料、问题、任务、证据要求、输出要求和必要边界；提示词正文不得出现本项目、算法返回、本模块、接口、代码、调试、系统提示词等工程语境。',
+    '',
+    '理由：工程语境会让外部 AI 误以为需要理解或评价软件实现，也可能使它依赖并不存在的上下文，导致偏离盘面和用户问题。改用“本盘”“上方资料”“推算口径”“资料边界”等自然表达，能让解读只围绕已提供事实展开。',
+    '',
+    '完整性标准：不以字数作为通过条件；已有信息充分的体系不机械加长，较短体系应优先补入真实可用的结构化资料、主证、辅证、反证或限制、精度边界和现实边界，不得编造排盘未提供的内容。',
+    '',
+    '缺项处理：现有排盘能力可以直接得出的信息，应先写入任务书再交给外部 AI；确实无法生成的内容不在提示词正文罗列缺项清单，改用“只解读本命结构”“应期只到流年层级”等正向范围表达。提示词只负责提供完整任务与依据，不替外部 AI 规定可使用的能力。',
     '',
   ];
 
@@ -279,6 +324,16 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
     { label: 'report_key', pattern: /\breport_key\b/ },
     { label: 'selected_topic', pattern: /\bselected_topic\b/ },
     { label: 'scope_type', pattern: /\bscope_type\b/ },
+    {
+      label: '工程语境',
+      pattern:
+        /本项目|当前项目|项目统一|本地(?:算法|系统|实现|程序|代码)|算法(?:结果|返回|生成|实际)|本模块|当前数据|实际返回|未计算|资料包|提示词规则|系统提示词|在线\s*AI|工程|接口|\bAPI\b|\bMCP\b|调试|用户补充：/,
+    },
+    {
+      label: '外部补充或缺项清单',
+      pattern:
+        /本次没有提供|当前资料没有|未提供|不包含|尚不支持|暂不支持|资料不足|需要补充|请补充|补充资料/,
+    },
   ];
 
   samples.forEach((sample) => {
@@ -288,8 +343,15 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
     }
 
     forbiddenPatterns.forEach(({ label, pattern }) => {
-      if (pattern.test(sample.prompt)) {
-        leakedMessages.push(`${sample.name} 出现异常占位或工程字段：${label}`);
+      const matched = sample.prompt.match(pattern);
+      if (matched) {
+        const matchedLine = sample.prompt
+          .split('\n')
+          .find((line) => line.includes(matched[0]))
+          ?.trim();
+        leakedMessages.push(
+          `${sample.name} 出现异常占位或工程字段：${label}（命中“${matched[0]}”${matchedLine ? `；所在行“${matchedLine}”` : ''}）`,
+        );
       }
     });
   });
@@ -414,7 +476,7 @@ async function buildSamples(): Promise<PromptSample[]> {
       userSupplement: COMMON_PROJECT_SUPPLEMENT,
     };
 
-    const liuyaoData = generateLiuyao(auditDate);
+    const liuyaoData = withSeed(20260518, () => generateLiuyao(auditDate));
     const liuyaoPrompt = buildDivinationPrompt('liuyao', commonQuestion, liuyaoData, commonInfo, {
       liuyaoTemplate: 'shiye',
     });
@@ -506,6 +568,47 @@ async function buildSamples(): Promise<PromptSample[]> {
       almanacData,
     );
 
+    const bazhaiData = analyzeBaZhai({
+      birthYear: 1990,
+      gender: 'male',
+      sitMountain: '子',
+    });
+    const bazhaiPrompt = buildMetaphysicsPrompt(
+      bazhaiData.prompt,
+      '住宅的大门、卧室和书房应该怎样安排方位？',
+      { currentTime: fixedNow },
+    );
+
+    const zodiacData = getZodiacYearFortune('午', '甲辰');
+    const zodiacPrompt = buildMetaphysicsPrompt(
+      zodiacData.prompt,
+      '属马的人在甲辰年应该重点留意哪些方面？',
+      { currentTime: fixedNow },
+    );
+
+    const taiyiData = generateTaiyi({ year: 2004, scope: 'year' });
+    const taiyiPrompt = buildMetaphysicsPrompt(
+      taiyiData.prompt,
+      '请分析这一年的整体气运、攻守与行动时宜。',
+      { currentTime: fixedNow },
+    );
+
+    const qizhengData = generateQizheng({
+      year: 2024,
+      month: 6,
+      day: 15,
+      hour: 12,
+      minute: 30,
+      latitude: 39.9042,
+      longitude: 116.4074,
+      timezone: 8,
+    });
+    const qizhengPrompt = buildMetaphysicsPrompt(
+      qizhengData.prompt,
+      '请分析命主的核心结构、优势、限制和适合的发展方向。',
+      { currentTime: fixedNow },
+    );
+
     return [
       {
         name: '八字排盘',
@@ -550,7 +653,7 @@ async function buildSamples(): Promise<PromptSample[]> {
       },
       {
         name: '六爻',
-        source: '项目算法真实起卦；固定时间 2026-05-19T10:30:00+08:00。',
+        source: '项目算法真实起卦；固定时间 2026-05-19T10:30:00+08:00；固定随机种子 20260518。',
         inputSummary: buildCommonProjectInputSummary('模板：事业断卦'),
         prompt: liuyaoPrompt,
         notes: [],
@@ -610,6 +713,35 @@ async function buildSamples(): Promise<PromptSample[]> {
         inputSummary: '事项：签署项目合作合同；参与人：项目负责人，男，1990年5月15日午时，公历。',
         prompt: almanacPrompt,
         notes: [],
+      },
+      {
+        name: '八宅风水',
+        source: '项目八宅大游年算法真实生成；命卦和宅卦均输出完整八宫。',
+        inputSummary: '男，1990年生；坐山为子山；问题为住宅大门、卧室和书房方位安排。',
+        prompt: bazhaiPrompt,
+        notes: ['本样本只有坐山和命卦资料，未假定具体户型、门窗、灶厕或外部形峦。'],
+      },
+      {
+        name: '生肖流年',
+        source: '项目生肖流年算法真实生成；复用干支五行及值、冲、刑、害、破关系。',
+        inputSummary: '生肖午马；流年甲辰；问题为年度重点注意事项。',
+        prompt: zodiacPrompt,
+        notes: ['生肖样本只代表出生年支层级，不包含完整四柱和大运。'],
+      },
+      {
+        name: '太乙神数',
+        source: '项目年家太乙七十二局立成真实生成；公元 2004 年。',
+        inputSummary: '公元 2004 年，年家太乙；问题为整体气运、攻守与行动时宜。',
+        prompt: taiyiPrompt,
+        notes: ['当前只支持已校核的年家盘，不包含月计、日计和时计。'],
+      },
+      {
+        name: '七政四余',
+        source: '项目七政四余算法真实生成；紫炁仅使用《七政算内篇》古法均速模型。',
+        inputSummary:
+          '2024年6月15日 12:30，北京经纬度，UTC+8；问题为核心结构、优势、限制和发展方向。',
+        prompt: qizhengPrompt,
+        notes: ['当前样本只审计本命结构、长期倾向和紫炁古法均速口径。'],
       },
     ];
   });

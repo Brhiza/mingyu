@@ -46,8 +46,7 @@ function buildTaskBookAnalysisObject(payload: AnalysisPayloadV1) {
       分析对象: '本命盘',
       参考日期: payload.active_scope.solar_date,
       解读范围: '只判断命盘长期结构、宫位主轴、星曜组合、四化底色、格局层次与人生长期倾向。',
-      资料说明:
-        '本次没有提供大限、流年、流月、流日或流时；问题涉及具体年份、月份、日期或年龄时，只能给本命倾向，不展开具体应期窗口。',
+      应期范围: '只给长期趋势和触发条件，不指定具体年份、月份、日期或年龄。',
     };
   }
 
@@ -66,7 +65,7 @@ function buildTaskBookAnalysisObject(payload: AnalysisPayloadV1) {
           )
         : undefined,
     解读范围:
-      '以上面提供的分析对象为主，先承接本命底色，再判断当前运限如何触发；未提供下级运限时，不指定更细的月日时应期。',
+      '以上面提供的分析对象为主，先承接本命底色，再判断当前运限如何触发；应期只到当前分析对象的时间层级。',
   };
 }
 

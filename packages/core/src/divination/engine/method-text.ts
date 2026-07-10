@@ -81,7 +81,7 @@ export function buildMethodRequirementText(method: Exclude<DivinationMethodId, '
     case 'astrolabe':
       return '- 不要泛泛讲星座性格，必须把星体、宫位、相位和【问题】连起来。';
     case 'taiyi':
-      return '- 只按已校核的年家七十二局解读，不得扩写成尚未计算的月计、日计或时计。';
+      return '- 只按已校核的年家七十二局解读年度气运、动静、攻守与时宜。';
     default:
       return '';
   }

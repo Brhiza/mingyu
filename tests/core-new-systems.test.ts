@@ -92,6 +92,9 @@ test('bazhai: 命宅配合', () => {
   assert.equal(r.houseGua, '坎');
   assert.equal(r.match, '相合');
   assert.ok(r.prompt.includes('八宅风水'));
+  assert.ok(r.prompt.includes('命卦八宫明细'));
+  assert.ok(r.prompt.includes('宅卦八宫明细'));
+  assert.ok(r.prompt.includes('证据边界'));
 });
 
 test('zodiac: 犯太岁与流年运程', () => {
@@ -101,6 +104,9 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.equal(r.zodiac, '马');
   assert.ok(['大吉', '吉', '平', '凶', '大凶'].includes(r.level));
   assert.ok(r.prompt.includes('生肖流年运程'));
+  assert.ok(r.prompt.includes('五行来源'));
+  assert.ok(r.prompt.includes('犯太岁明细'));
+  assert.ok(r.prompt.includes('只是生肖层参考'));
 });
 
 test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）', () => {
@@ -127,6 +133,9 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.equal(r.sixteenGods.length, 16);
   assert.equal(r.model.id, 'taiyi-tongzong-annual-72-table');
   assert.ok(r.prompt.includes('太乙神数'));
+  assert.ok(r.prompt.includes('十六神'));
+  assert.ok(r.prompt.includes('核心宫位'));
+  assert.ok(r.prompt.includes('精度边界'));
   assert.throws(
     () => core.taiyi.generateTaiyi({ year: 2004, scope: 'month' as never }),
     /当前仅支持.*年家太乙/,
@@ -211,6 +220,9 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.ok(r.prompt.includes('七政四余'));
   assert.ok(r.prompt.includes('《七政算内篇》紫炁古法均速'));
   assert.ok(r.prompt.includes('紫炁位置：顺行'));
+  assert.ok(r.prompt.includes('出生时空'));
+  assert.ok(r.prompt.includes('十二宫映射'));
+  assert.ok(r.prompt.includes('坐标与精度边界'));
   assert.ok(r.prompt.includes('不得替换成月孛对冲'));
 });
 
