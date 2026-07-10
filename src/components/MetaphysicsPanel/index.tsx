@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { analyzeBaZhai } from '@core/ba_zhai';
 import { getSitFacingFromFacingDegree, type SitFacingPosition } from '@core/direction';
 import { generateQizheng } from '@core/qi_zheng';
@@ -8,6 +8,18 @@ export type ChartExtensionMethod = 'bazhai' | 'qizheng';
 
 interface MetaphysicsPanelProps {
   method: ChartExtensionMethod;
+  birthData?: {
+    year: number;
+    month: number;
+    day: number;
+    hour: number;
+    minute: number;
+    gender: 'male' | 'female';
+    latitude?: number;
+    longitude?: number;
+    timezone?: number;
+  };
+  embedded?: boolean;
 }
 
 const currentDate = new Date();
@@ -63,28 +75,31 @@ function readDirectionPreview(value: string): {
   }
 }
 
-export function MetaphysicsPanel({ method }: MetaphysicsPanelProps) {
+export function MetaphysicsPanel({ method, birthData, embedded = false }: MetaphysicsPanelProps) {
   const [question, setQuestion] = useState('');
   const [currentSituation, setCurrentSituation] = useState('');
   const [currentState, setCurrentState] = useState('');
   const [knownFacts, setKnownFacts] = useState('');
   const [desiredOutcome, setDesiredOutcome] = useState('');
   const [constraints, setConstraints] = useState('');
-  const [birthYear, setBirthYear] = useState('1990');
-  const [gender, setGender] = useState<'male' | 'female'>('male');
+  const [birthYear, setBirthYear] = useState(String(birthData?.year ?? 1990));
+  const [birthMonth, setBirthMonth] = useState(String(birthData?.month ?? 6));
+  const [birthDay, setBirthDay] = useState(String(birthData?.day ?? 15));
+  const [gender, setGender] = useState<'male' | 'female'>(birthData?.gender ?? 'male');
   const [facingDegree, setFacingDegree] = useState('180');
-  const [year, setYear] = useState(String(currentDate.getFullYear()));
-  const [month, setMonth] = useState(String(currentDate.getMonth() + 1));
-  const [day, setDay] = useState(String(currentDate.getDate()));
-  const [hour, setHour] = useState(String(currentDate.getHours()));
-  const [minute, setMinute] = useState(String(currentDate.getMinutes()));
-  const [latitude, setLatitude] = useState('39.9042');
-  const [longitude, setLongitude] = useState('116.4074');
-  const [timezone, setTimezone] = useState('8');
+  const [year, setYear] = useState(String(birthData?.year ?? currentDate.getFullYear()));
+  const [month, setMonth] = useState(String(birthData?.month ?? currentDate.getMonth() + 1));
+  const [day, setDay] = useState(String(birthData?.day ?? currentDate.getDate()));
+  const [hour, setHour] = useState(String(birthData?.hour ?? currentDate.getHours()));
+  const [minute, setMinute] = useState(String(birthData?.minute ?? currentDate.getMinutes()));
+  const [latitude, setLatitude] = useState(String(birthData?.latitude ?? 39.9042));
+  const [longitude, setLongitude] = useState(String(birthData?.longitude ?? 116.4074));
+  const [timezone, setTimezone] = useState(String(birthData?.timezone ?? 8));
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [prompt, setPrompt] = useState('');
   const [error, setError] = useState('');
   const [copyText, setCopyText] = useState('复制提示词');
+  const didAutoGenerate = useRef(false);
 
   const directionPreview = useMemo(() => readDirectionPreview(facingDegree), [facingDegree]);
 
@@ -123,6 +138,8 @@ export function MetaphysicsPanel({ method }: MetaphysicsPanelProps) {
         measurement = `测量方式：站在屋内面向大门外。房屋朝向 ${facing.degree}° 为${facing.mountain}向；相反方向的坐山 ${sit.degree}° 为${sit.mountain}山，换算结果为${label}。`;
         const bazhaiResult = analyzeBaZhai({
           birthYear: readInteger(birthYear, '出生年份', 1900, 2100),
+          birthMonth: readInteger(birthMonth, '出生月份', 1, 12),
+          birthDay: readInteger(birthDay, '出生日期', 1, 31),
           gender,
           sitMountain: sit.mountain,
         }) as unknown as Record<string, unknown> & { prompt: string };
@@ -169,6 +186,14 @@ export function MetaphysicsPanel({ method }: MetaphysicsPanelProps) {
     }
   }
 
+  useEffect(() => {
+    if (!embedded || method !== 'qizheng' || !birthData || didAutoGenerate.current) return;
+    didAutoGenerate.current = true;
+    generate();
+    // 复用结果页已经校验过的出生资料，只在首次进入七政四余页时自动生成。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [birthData, embedded, method]);
+
   async function copyPrompt() {
     if (!prompt) return;
     try {
@@ -196,29 +221,65 @@ export function MetaphysicsPanel({ method }: MetaphysicsPanelProps) {
         <div className="person-info-form">
           {method === 'bazhai' ? (
             <>
+              {!birthData ? (
+                <div className="form-row">
+                  <div className="form-item">
+                    <label htmlFor="metaphysics-birth-year">出生年份</label>
+                    <input
+                      id="metaphysics-birth-year"
+                      className="form-input"
+                      inputMode="numeric"
+                      value={birthYear}
+                      onChange={(event) => setBirthYear(event.target.value.replace(/[^\d]/g, ''))}
+                    />
+                  </div>
+                  <div className="form-item">
+                    <label htmlFor="metaphysics-gender">性别</label>
+                    <select
+                      id="metaphysics-gender"
+                      className="form-input"
+                      value={gender}
+                      onChange={(event) => setGender(event.target.value as 'male' | 'female')}
+                    >
+                      <option value="male">男</option>
+                      <option value="female">女</option>
+                    </select>
+                  </div>
+                  <div className="form-item">
+                    <label htmlFor="metaphysics-birth-month">出生月份</label>
+                    <input
+                      id="metaphysics-birth-month"
+                      className="form-input"
+                      inputMode="numeric"
+                      value={birthMonth}
+                      onChange={(event) => setBirthMonth(event.target.value.replace(/[^\d]/g, ''))}
+                    />
+                  </div>
+                  <div className="form-item">
+                    <label htmlFor="metaphysics-birth-day">出生日期</label>
+                    <input
+                      id="metaphysics-birth-day"
+                      className="form-input"
+                      inputMode="numeric"
+                      value={birthDay}
+                      onChange={(event) => setBirthDay(event.target.value.replace(/[^\d]/g, ''))}
+                    />
+                    <span className="birth-time-hint">
+                      用完整日期判断是否在立春前，避免命卦差一年。
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="metaphysics-direction-preview" role="status">
+                  <strong>出生资料已沿用排盘输入</strong>
+                  <span>
+                    {birthYear} 年 {birthMonth} 月 {birthDay} 日，{gender === 'male' ? '男' : '女'}
+                    。
+                  </span>
+                </div>
+              )}
+
               <div className="form-row">
-                <div className="form-item">
-                  <label htmlFor="metaphysics-birth-year">出生年份</label>
-                  <input
-                    id="metaphysics-birth-year"
-                    className="form-input"
-                    inputMode="numeric"
-                    value={birthYear}
-                    onChange={(event) => setBirthYear(event.target.value.replace(/[^\d]/g, ''))}
-                  />
-                </div>
-                <div className="form-item">
-                  <label htmlFor="metaphysics-gender">性别</label>
-                  <select
-                    id="metaphysics-gender"
-                    className="form-input"
-                    value={gender}
-                    onChange={(event) => setGender(event.target.value as 'male' | 'female')}
-                  >
-                    <option value="male">男</option>
-                    <option value="female">女</option>
-                  </select>
-                </div>
                 <div className="form-item">
                   <label htmlFor="metaphysics-facing-degree">房屋朝向度数</label>
                   <input
@@ -233,7 +294,7 @@ export function MetaphysicsPanel({ method }: MetaphysicsPanelProps) {
                     onChange={(event) => setFacingDegree(event.target.value)}
                   />
                   <span className="birth-time-hint">
-                    站在屋内面向大门外，填写手机指南针显示的 0° 至 360°。
+                    打开手机指南针，站在房屋中心附近面向大门外，远离冰箱、铁门等金属物，连续测三次并填写接近的平均度数。
                   </span>
                 </div>
               </div>
@@ -259,6 +320,14 @@ export function MetaphysicsPanel({ method }: MetaphysicsPanelProps) {
                 )}
               </div>
             </>
+          ) : birthData ? (
+            <div className="metaphysics-direction-preview" role="status">
+              <strong>已复用排盘出生资料并自动生成</strong>
+              <span>
+                {year} 年 {month} 月 {day} 日 {hour}:{minute.padStart(2, '0')}，经度 {longitude}
+                °，纬度 {latitude}°。
+              </span>
+            </div>
           ) : (
             <>
               <div className="form-row metaphysics-date-row">

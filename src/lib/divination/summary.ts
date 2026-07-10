@@ -492,10 +492,17 @@ export function getDivinationSummaryBlocks(
     }
     case 'taiyi': {
       const taiyi = data as TaiyiResult;
+      const scopeLabel = {
+        year: '年计',
+        month: '月计',
+        day: '日计',
+        hour: '时计',
+        minute: '分计',
+      }[taiyi.scope];
       return {
-        title: '太乙神数年家结果',
+        title: `太乙神数${scopeLabel}结果`,
         tags: [
-          `${taiyi.ganZhi}年`,
+          `${taiyi.ganZhi}·${scopeLabel}`,
           `${taiyi.yinYang}第${taiyi.bureau}局`,
           `太乙在${taiyi.taiyiPosition}`,
         ],
@@ -504,7 +511,7 @@ export function getDivinationSummaryBlocks(
             `太乙${taiyi.taiyiPosition}；文昌${taiyi.wenChangPosition}；始击${taiyi.shiJiPosition}`,
           ),
           `元纪：第${taiyi.yuan}元、第${taiyi.ji}纪`,
-          `主客算：主算${taiyi.lordCount}，客算${taiyi.guestCount}`,
+          `主客定算：主算${taiyi.lordCount}，客算${taiyi.guestCount}，定算${taiyi.setCount}`,
           `计神：${taiyi.jiShenPosition}`,
           `判断：${taiyi.judgments.join('；')}`,
           `精度：${taiyi.model.precision}`,

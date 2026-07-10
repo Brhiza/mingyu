@@ -92,6 +92,16 @@ export interface QizhengStar {
   dignity?: string; // 庙/旺/乐/陷/平（七政）；四余为 —
 }
 
+export interface QizhengAspect {
+  star1: string;
+  star2: string;
+  type: '同宫' | '六合' | '四正' | '三方' | '对照';
+  exactAngle: number;
+  actualAngle: number;
+  orb: number;
+  strength: number;
+}
+
 export interface QizhengInput {
   year: number;
   month: number;
@@ -105,6 +115,7 @@ export interface QizhengInput {
 
 export interface QizhengResult {
   stars: QizhengStar[];
+  aspects: QizhengAspect[];
   mingGong: number;
   shenGong: number;
   mingZhu: string;
@@ -113,6 +124,45 @@ export interface QizhengResult {
   ziqiModel: ZiqiModelInfo;
   ziqi: ZiqiPosition;
   prompt: string;
+}
+
+const QIZHENG_ASPECTS: ReadonlyArray<{
+  type: QizhengAspect['type'];
+  angle: number;
+  orb: number;
+}> = [
+  { type: '同宫', angle: 0, orb: 8 },
+  { type: '六合', angle: 60, orb: 4 },
+  { type: '四正', angle: 90, orb: 6 },
+  { type: '三方', angle: 120, orb: 6 },
+  { type: '对照', angle: 180, orb: 8 },
+];
+
+function buildQizhengAspects(stars: QizhengStar[]): QizhengAspect[] {
+  const aspects: QizhengAspect[] = [];
+  for (let first = 0; first < stars.length - 1; first += 1) {
+    for (let second = first + 1; second < stars.length; second += 1) {
+      const raw = Math.abs(stars[first].longitude - stars[second].longitude);
+      const actualAngle = raw > 180 ? 360 - raw : raw;
+      const matched = QIZHENG_ASPECTS.map((aspect) => ({
+        ...aspect,
+        deviation: Math.abs(actualAngle - aspect.angle),
+      }))
+        .filter((aspect) => aspect.deviation <= aspect.orb)
+        .sort((a, b) => a.deviation / a.orb - b.deviation / b.orb)[0];
+      if (!matched) continue;
+      aspects.push({
+        star1: stars[first].name,
+        star2: stars[second].name,
+        type: matched.type,
+        exactAngle: matched.angle,
+        actualAngle: Number(actualAngle.toFixed(4)),
+        orb: Number(matched.deviation.toFixed(4)),
+        strength: Math.max(0, Math.round((1 - matched.deviation / matched.orb) * 100)),
+      });
+    }
+  }
+  return aspects.sort((a, b) => b.strength - a.strength || a.orb - b.orb);
 }
 
 export interface ZiqiSource {
@@ -535,6 +585,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
   for (const s of stars) s.palace = palaceBySign.get(s.signIndex) ?? '—';
 
   const mingZhu = MING_ZHU[mingGong] ?? '—';
+  const aspects = buildQizhengAspects(stars);
 
   // 神煞（年支 + 日干）
   const dateGanZhi = getGanZhiFromDate(
@@ -565,10 +616,20 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
           1,
         )}度，落${s.palace}${s.dignity ? '（' + s.dignity + '）' : ''}${s.retrograde ? '（逆）' : ''}`,
     ),
+    `七政四余吊照：${
+      aspects.length
+        ? aspects
+            .map(
+              (aspect) =>
+                `${aspect.star1}与${aspect.star2}${aspect.type}（实际夹角${aspect.actualAngle.toFixed(2)}°，容许度偏差${aspect.orb.toFixed(2)}°，强度${aspect.strength}%）`,
+            )
+            .join('；')
+        : '未见容许度内的主要同宫、六合、四正、三方或对照'
+    }。`,
     `命宫在${TWELVE_PALACES[0]}（黄道第 ${mingGong + 1} 宫），命主${mingZhu}；身宫在第 ${shenGong + 1} 宫。`,
     `十二宫映射：${twelvePalaces.map((item) => `${item.palace}=黄道第${item.signIndex + 1}宫`).join('；')}。`,
     `神煞：天乙贵人${shensha[0].value}、驿马${shensha[1].value}、劫煞${shensha[2].value}、咸池${shensha[3].value}、华盖${shensha[4].value}、孤辰${shensha[5].value}、寡宿${shensha[6].value}。`,
-    '取证层级：七政四余的宿度、落宫、庙旺和命身宫为主证；神煞只能作为辅证；出现相互矛盾时须说明各证据适用范围，不得以单一星曜或神煞定案。',
+    '取证层级：七政四余的宿度、落宫、庙旺、命身宫与已计算的吊照关系为主证；神煞只能作为辅证；出现相互矛盾时须说明各证据适用范围，不得以单一星曜或神煞定案。',
     `坐标与精度边界：星体同时保留回归黄经和岁差换算后的恒星黄经；宿度按上方二十八宿古度口径换算。${ZIQI_MODEL_INFO.precision}。本次只解读本命结构与长期倾向，不判断具体应期。`,
     '',
     '请依《果老星宗》星学，论命主强弱、七政庙旺、四余吊照、十二宫所主与神煞吉凶；结论需列出主证、辅证、反证与精度限制。紫炁仅使用上列《七政算内篇》模型，不得替换成月孛对冲或月球近地点。',
@@ -576,6 +637,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
 
   return {
     stars,
+    aspects,
     mingGong,
     shenGong,
     mingZhu,

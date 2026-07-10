@@ -89,8 +89,11 @@ test('反推时辰提示词保持 section 结构，并要求先互动再判断',
   assert.match(prompt, /时辰：未知/);
   assert.match(prompt, /【已知线索】/);
   assert.doesNotMatch(prompt, /【补充线索】/);
-  assert.match(prompt, /- 早子时（0:00-1:00）/);
-  assert.match(prompt, /- 晚子时（23:00-24:00）/);
+  assert.equal(profile.candidateHours.length, 13);
+  assert.match(prompt, /- 早子时（00:00-01:00）：四柱/);
+  assert.match(prompt, /- 晚子时（23:00-24:00）：四柱/);
+  assert.match(prompt, /时支藏干/);
+  assert.match(prompt, /八字表层五行/);
   assert.match(prompt, /候选时辰初盘/);
   assert.match(prompt, /已知线索初判/);
   assert.match(prompt, /线索权重/);

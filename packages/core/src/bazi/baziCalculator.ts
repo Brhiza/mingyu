@@ -49,6 +49,7 @@ import {
 import { getTimeIndexFromClock } from '../calendar/dateUtils';
 import { getBirthDateValidationMessage } from '../calendar/date-validation';
 import { calculateMingGua } from './mingGua';
+import { analyzePillarRelations } from './baziPromptEnhancement';
 
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 type LunarHourInstance = ReturnType<SolarTimeInstance['getLunarHour']>;
@@ -383,6 +384,7 @@ export class BaziCalculator {
       },
       timeInfo: finalTimeInfo,
       pillars,
+      pillarRelations: { fuxin: [], fanyin: [], xingChong: [] },
       warnings,
       dayMaster: {
         gan: dayMasterGan,
@@ -463,6 +465,7 @@ export class BaziCalculator {
     const finalResult: InternalBaziChartResult = {
       ...coreResult,
       ...extendedResult,
+      pillarRelations: analyzePillarRelations(coreResult),
     };
 
     delete finalResult.solarTime;

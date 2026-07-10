@@ -220,6 +220,10 @@ import {
 const house = bazhai.analyzeBaZhai({ birthYear: 1990, gender: 'male', sitMountain: '子' });
 const zodiacYear = zodiac.getZodiacYearFortune('午', '甲辰');
 const taiyiChart = taiyi.generateTaiyi({ year: 2004, scope: 'year' });
+const taiyiHourChart = taiyi.generateTaiyi({
+  scope: 'hour',
+  date: new Date('2026-07-11T14:35:00+08:00'),
+});
 const qizhengChart = qizheng.generateQizheng({
   year: 2024,
   month: 6,

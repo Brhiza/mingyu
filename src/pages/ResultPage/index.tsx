@@ -75,10 +75,16 @@ import {
   type PromptRealWorldContext,
 } from '@/lib/metaphysics-prompt';
 import { PromptContextFields } from '@/components/PromptContextFields';
+import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 
 const LazyBaziFortuneModal = lazy(async () => {
   const module = await import('@/components/BaziFortuneTools/BaziFortuneModal');
   return { default: module.BaziFortuneModal };
+});
+
+const LazyMetaphysicsPanel = lazy(async () => {
+  const module = await import('@/components/MetaphysicsPanel');
+  return { default: module.MetaphysicsPanel };
 });
 
 export function ResultPage() {
@@ -138,6 +144,8 @@ export function ResultPage() {
     bazi: promptState.tab === 'bazi',
     ziwei: promptState.tab === 'ziwei',
     astrolabe: promptState.tab === 'astrolabe',
+    qizheng: promptState.tab === 'qizheng',
+    bazhai: promptState.tab === 'bazhai',
     prompt: promptState.tab === 'prompt',
   }));
   const {
@@ -150,6 +158,30 @@ export function ResultPage() {
     partnerHasUnknownTime,
     hasUnknownBirthTime,
   } = useBaziCalculations(inputState);
+  const sharedBirthData = useMemo(() => {
+    if (inputState.analysisMode !== 'single' || !baziResult) return null;
+    const selectedHour =
+      inputState.birthHour !== ''
+        ? Number(inputState.birthHour)
+        : inputState.timeIndex !== ''
+          ? BIRTH_TIME_OPTIONS[Number(inputState.timeIndex)]?.hour
+          : undefined;
+    return {
+      ...(inputState.dateType === 'solar'
+        ? {
+            year: Number(inputState.year),
+            month: Number(inputState.month),
+            day: Number(inputState.day),
+          }
+        : baziResult.solarDate),
+      hour: selectedHour ?? 12,
+      minute: inputState.birthMinute === '' ? 0 : Number(inputState.birthMinute),
+      gender: inputState.gender,
+      latitude: inputState.birthLatitude ? Number(inputState.birthLatitude) : undefined,
+      longitude: inputState.birthLongitude ? Number(inputState.birthLongitude) : undefined,
+      timezone: 8,
+    };
+  }, [baziResult, inputState]);
   const {
     ziweiRuntime,
     partnerZiweiRuntime,
@@ -985,6 +1017,24 @@ export function ResultPage() {
             星盘
           </button>
         ) : null}
+        {hasAstrolabeChart ? (
+          <button
+            type="button"
+            className={`tab-chip ${promptState.tab === 'qizheng' ? 'is-active' : ''}`}
+            onClick={() => switchTab('qizheng')}
+          >
+            七政四余
+          </button>
+        ) : null}
+        {inputState.analysisMode === 'single' ? (
+          <button
+            type="button"
+            className={`tab-chip ${promptState.tab === 'bazhai' ? 'is-active' : ''}`}
+            onClick={() => switchTab('bazhai')}
+          >
+            八宅
+          </button>
+        ) : null}
         <button
           type="button"
           className={`tab-chip ${promptState.tab === 'prompt' ? 'is-active' : ''}`}
@@ -1133,6 +1183,30 @@ export function ResultPage() {
                 ) : null}
               </section>
             </div>
+          ) : null}
+        </div>
+
+        <div
+          className={`result-tab-pane ${promptState.tab === 'qizheng' ? 'is-active' : 'is-inactive'}`}
+          aria-hidden={promptState.tab !== 'qizheng'}
+        >
+          {hasAstrolabeChart && mountedTabs.qizheng ? (
+            sharedBirthData ? (
+              <Suspense fallback={<InlineSkeleton />}>
+                <LazyMetaphysicsPanel method="qizheng" birthData={sharedBirthData} embedded />
+              </Suspense>
+            ) : null
+          ) : null}
+        </div>
+
+        <div
+          className={`result-tab-pane ${promptState.tab === 'bazhai' ? 'is-active' : 'is-inactive'}`}
+          aria-hidden={promptState.tab !== 'bazhai'}
+        >
+          {mountedTabs.bazhai && sharedBirthData ? (
+            <Suspense fallback={<InlineSkeleton />}>
+              <LazyMetaphysicsPanel method="bazhai" birthData={sharedBirthData} embedded />
+            </Suspense>
           ) : null}
         </div>
 

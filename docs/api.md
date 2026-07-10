@@ -103,9 +103,9 @@
 
 | 用户问题类型                       | 首选接口                                 | 推荐参数                                                                               | 说明                                              |
 | ---------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| 换算真太阳时                     | `POST /calendar/true-solar-time`         | `localDateTime`、`longitude`，可选 `timezone`、`applyChinaDst`                  | 默认 UTC+8，返回修正明细、跨日状态和对应时辰 |
-| 查六十甲子、纳音、藏干和合冲 | `POST /foundation/ganzhi`                | `ganZhi`，如“甲子”                                                              | 返回统一公共地基资料，不需重复实现          |
-| 统计天干地支五行分布             | `POST /foundation/wuxing`                | `items`、可选 `weightHidden`                                                   | 默认计入地支藏干权重                            |
+| 换算真太阳时                       | `POST /calendar/true-solar-time`         | `localDateTime`、`longitude`，可选 `timezone`、`applyChinaDst`                         | 默认 UTC+8，返回修正明细、跨日状态和对应时辰      |
+| 查六十甲子、纳音、藏干和合冲       | `POST /foundation/ganzhi`                | `ganZhi`，如“甲子”                                                                     | 返回统一公共地基资料，不需重复实现                |
+| 统计天干地支五行分布               | `POST /foundation/wuxing`                | `items`、可选 `weightHidden`                                                           | 默认计入地支藏干权重                              |
 | 整体人生、长期事业、财运、婚恋     | `POST /bazi-ziwei/prompt`                | `baziPromptTopic`、`ziweiPromptTopic` 按主题填写，`promptScope: "full"` 或 `"origin"`  | 有完整出生信息时优先合参；想看完整阶段时用 `full` |
 | 今年、某一年、当前阶段运势         | `POST /bazi-ziwei/prompt`                | `promptScope: "yearly"`，主题填事业、财运、感情等                                      | 八字看岁运触发，紫微看流年落宫与四化              |
 | 换工作、创业、合伙、投资合作       | `POST /bazi-ziwei/prompt`                | `job-change`、`startup-partnership`、`investment-partnership`，按问题选择主题          | 这类问题兼具长期结构和当前触发，优先合参          |
@@ -122,7 +122,7 @@
 | 求签                               | `POST /divination/ssgw/prompt`           | `question`                                                                             | 有三连阴杯等拒签情况时，应如实返回，不强行解释    |
 | 住宅命卦、坐山吉凶                 | `POST /metaphysics/bazhai/prompt`        | `birthYear`、`gender`、可选 `sitMountain`                                              | 适合八宅命宅配合与方位参考                        |
 | 生肖犯太岁、流年贵人               | `POST /metaphysics/zodiac/prompt`        | `zodiac`、`year` 或 `yearGanZhi`                                                       | 生肖可传“鼠”或“子”                                |
-| 太乙神数                           | `POST /metaphysics/taiyi/prompt`         | `year`，可选 `scope: "year"` 与相符的 `ganZhi`                                         | 当前只开放逐局核对的年家七十二局                  |
+| 太乙神数                           | `POST /metaphysics/taiyi/prompt`         | `scope` 可选年、月、日、时、分；年计传 `year`，其余计式传完整年月日时分                | 五计各用独立积数，时计与分计按规则定阴阳遁        |
 | 七政四余                           | `POST /metaphysics/qizheng/prompt`       | 出生年月日时分、经纬度、时区                                                           | 紫炁采用《七政算内篇》单一古法均速模型            |
 
 参数选择建议：

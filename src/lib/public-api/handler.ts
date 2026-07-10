@@ -742,6 +742,18 @@ export function getPublicApiOpenApiDocument(
               maximum: 2100,
               description: '出生公历年份（八宅推命卦）',
             },
+            birthMonth: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 12,
+              description: '出生公历月份（八宅立春换年）',
+            },
+            birthDay: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 31,
+              description: '出生公历日期（八宅立春换年）',
+            },
             gender: { enum: ['male', 'female'], description: '性别（八宅）' },
             mingGua: { type: 'string', description: '直接给定命卦（八宅）' },
             sitMountain: { type: 'string', description: '坐山，如「子」（八宅）' },
@@ -753,12 +765,15 @@ export function getPublicApiOpenApiDocument(
               description: '公元年（默认今年）',
             },
             yearGanZhi: { type: 'string', description: '直接给定流年干支，如「甲辰」（生肖运程）' },
-            scope: { enum: ['year'], description: '太乙家数；当前仅支持 year' },
+            scope: {
+              enum: ['year', 'month', 'day', 'hour', 'minute'],
+              description: '太乙计式：年计、月计、日计、时计或分计',
+            },
             month: { type: 'integer', minimum: 1, maximum: 12 },
             day: { type: 'integer', minimum: 1, maximum: 31 },
             hour: { type: 'integer', minimum: 0, maximum: 23 },
             minute: { type: 'integer', minimum: 0, maximum: 59 },
-            ganZhi: { type: 'string', description: '可选年干支，必须与公元年一致（太乙）' },
+            ganZhi: { type: 'string', description: '可选本计干支，必须与所给日期一致（太乙）' },
             latitude: {
               type: 'number',
               minimum: -90,
@@ -1173,6 +1188,8 @@ function calculateBaZhaiApi(input: JsonRecord) {
   const gender =
     input.gender === 'female' ? 'female' : input.gender === 'male' ? 'male' : undefined;
   const birthYear = optInt(input, 'birthYear', 1900, 2100);
+  const birthMonth = optInt(input, 'birthMonth', 1, 12);
+  const birthDay = optInt(input, 'birthDay', 1, 31);
   const mingGua = readString(input, 'mingGua', '');
   const sitMountain = readString(input, 'sitMountain', '');
   if (birthYear !== undefined && !gender) {
@@ -1188,7 +1205,7 @@ function calculateBaZhaiApi(input: JsonRecord) {
     throw new ApiError(400, 'BAD_REQUEST', 'sitMountain 必须是有效的二十四山。');
   }
   const result = bazhai.analyzeBaZhai({
-    ...(birthYear !== undefined ? { birthYear, gender } : {}),
+    ...(birthYear !== undefined ? { birthYear, gender, birthMonth, birthDay } : {}),
     mingGua: mingGua || undefined,
     sitMountain: sitMountain || undefined,
   });
@@ -1226,14 +1243,29 @@ function buildZodiacPrompt(input: JsonRecord) {
 }
 
 function calculateTaiyiApi(input: JsonRecord) {
-  const scope = readEnum(input, 'scope', ['year'], 'year');
+  const scope = readEnum(input, 'scope', ['year', 'month', 'day', 'hour', 'minute'], 'year');
   const year = readInteger(input, 'year', 1900, 2200, new Date().getFullYear());
   const ganZhi = readString(input, 'ganZhi', '');
   if (ganZhi && !isValidGanZhi(ganZhi)) {
     throw new ApiError(400, 'BAD_REQUEST', `ganZhi 不是有效的六十甲子：${ganZhi}。`);
   }
   try {
-    return taiyi.generateTaiyi({ scope, year, ...(ganZhi ? { ganZhi } : {}) });
+    let date: Date | undefined;
+    if (scope !== 'year') {
+      const month = readInteger(input, 'month', 1, 12);
+      const day = readInteger(input, 'day', 1, 31);
+      const hour = readInteger(input, 'hour', 0, 23, 12);
+      const minute = readInteger(input, 'minute', 0, 59, 0);
+      date = new Date(year, month - 1, day, hour, minute, 0);
+      if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+        throw new Error('太乙日期无效。');
+      }
+    }
+    return taiyi.generateTaiyi({
+      scope,
+      ...(scope === 'year' ? { year } : { date }),
+      ...(ganZhi ? { ganZhi } : {}),
+    });
   } catch (error) {
     throw new ApiError(
       400,

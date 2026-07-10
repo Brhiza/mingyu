@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import * as core from '../packages/core/src/index.ts';
+import { getCardEvidence } from '../packages/core/src/divination/tarot.ts';
 
 test('ganzhi: 纳音/十二长生/六十甲子序号', () => {
   assert.equal(core.ganzhi.getNayin('甲子'), '海中金');
@@ -97,16 +98,58 @@ test('bazhai: 命宅配合', () => {
   assert.ok(r.prompt.includes('证据边界'));
 });
 
+test('bazhai: 完整出生日期应按立春边界调整命卦年份', () => {
+  const before = core.bazhai.analyzeBaZhai({
+    birthYear: 1990,
+    birthMonth: 2,
+    birthDay: 3,
+    gender: 'male',
+  });
+  const after = core.bazhai.analyzeBaZhai({
+    birthYear: 1990,
+    birthMonth: 2,
+    birthDay: 10,
+    gender: 'male',
+  });
+
+  assert.equal(before.effectiveBirthYear, 1989);
+  assert.equal(after.effectiveBirthYear, 1990);
+  assert.match(before.birthYearBoundaryNote, /立春前/);
+  assert.match(after.birthYearBoundaryNote, /立春/);
+  assert.notEqual(before.mingGua, after.mingGua);
+});
+
 test('zodiac: 犯太岁与流年运程', () => {
   const conflicts = core.zodiac.getTaiSuiConflicts('午', '子');
   assert.ok(conflicts.some((c) => c.type === '冲太岁'));
   const r = core.zodiac.getZodiacYearFortune('午', '甲辰');
   assert.equal(r.zodiac, '马');
   assert.ok(['大吉', '吉', '平', '凶', '大凶'].includes(r.level));
-  assert.ok(r.prompt.includes('生肖流年运程'));
+  assert.equal(r.evidenceGrade, '轻量');
+  assert.equal(r.confidence, '低');
+  assert.ok(r.prompt.includes('生肖与流年关系简析'));
   assert.ok(r.prompt.includes('五行来源'));
   assert.ok(r.prompt.includes('犯太岁明细'));
-  assert.ok(r.prompt.includes('只是生肖层参考'));
+  assert.ok(r.prompt.includes('只作生肖与流年关系层的趋势参考'));
+  assert.doesNotMatch(r.prompt, /完整的事业、财运、感情或健康断语/);
+});
+
+test('zodiac: 冲太岁只作轻量风险关系，不直接判为大凶', () => {
+  const result = core.zodiac.getZodiacYearFortune('午', '庚子');
+  assert.ok(result.conflicts.some((item) => item.type === '冲太岁'));
+  assert.notEqual(result.level, '大凶');
+  assert.equal(result.confidence, '低');
+});
+
+test('tarot: 逐牌证据应区分正逆位、元素与牌阶', () => {
+  const major = getCardEvidence('魔术师');
+  const minor = getCardEvidence('权杖骑士');
+
+  assert.match(major.uprightMeaning, /正位强调/);
+  assert.match(major.reversedMeaning, /逆位重点/);
+  assert.match(minor.reversedMeaning, /受阻、过度、内化或方向偏离/);
+  assert.match(minor.element, /火/);
+  assert.match(minor.archetype, /行动节奏/);
 });
 
 test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）', () => {
@@ -129,17 +172,51 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.equal(r.shiJiPalace, 3);
   assert.equal(r.lordCount, 24);
   assert.equal(r.guestCount, 3);
+  assert.equal(r.setCount, 15);
+  assert.equal(r.lordGeneral, 4);
+  assert.equal(r.lordAssistant, 2);
+  assert.equal(r.guestGeneral, 3);
+  assert.equal(r.guestAssistant, 9);
+  assert.equal(r.setGeneral, 5);
+  assert.equal(r.setAssistant, 5);
   assert.ok(r.judgments.some((item) => item.startsWith('掩：')));
   assert.equal(r.sixteenGods.length, 16);
-  assert.equal(r.model.id, 'taiyi-tongzong-annual-72-table');
+  assert.equal(r.model.id, 'taiyi-tongzong-five-calculations-72-table');
   assert.ok(r.prompt.includes('太乙神数'));
   assert.ok(r.prompt.includes('十六神'));
+  assert.ok(r.prompt.includes('主客定算'));
+  assert.ok(r.prompt.includes('将参'));
   assert.ok(r.prompt.includes('核心宫位'));
-  assert.ok(r.prompt.includes('精度边界'));
-  assert.throws(
-    () => core.taiyi.generateTaiyi({ year: 2004, scope: 'month' as never }),
-    /当前仅支持.*年家太乙/,
+  assert.ok(r.prompt.includes('观察层级'));
+  assert.throws(() => core.taiyi.generateTaiyi({ year: 2004, scope: 'month' }), /完整日期和时间/);
+});
+
+test('taiyi: 年月日时分五计应使用各自积数和阴阳遁规则', () => {
+  const date = new Date(2026, 6, 11, 14, 35, 0);
+  const scopes = ['month', 'day', 'hour', 'minute'] as const;
+  const results = scopes.map((scope) => core.taiyi.generateTaiyi({ scope, date }));
+
+  assert.deepEqual(
+    results.map((item) => item.scope),
+    scopes,
   );
+  assert.deepEqual(
+    results.map((item) => item.accumulatedLabel),
+    ['积月', '积日', '积时', '积分'],
+  );
+  assert.equal(new Set(results.map((item) => item.accumulatedValue)).size, 4);
+  assert.equal(results[0].yinYang, '阳遁');
+  assert.equal(results[1].yinYang, '阳遁');
+  assert.equal(results[2].yinYang, '阴遁');
+  results.forEach((result) => {
+    assert.ok(result.bureau >= 1 && result.bureau <= 72);
+    assert.ok(
+      result.prompt.includes(
+        `太乙神数 · ${{ month: '月计', day: '日计', hour: '时计', minute: '分计' }[result.scope]}`,
+      ),
+    );
+    assert.equal(result.model.supportedScopes.length, 5);
+  });
 });
 
 test('taiyi: 年家 72 局应完整覆盖且宫卦名不与字位混用', () => {
@@ -214,6 +291,8 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.equal(r.mingGong, 11);
   assert.equal(r.mingZhu, '木');
   assert.ok(r.stars.every((star) => star.sevenStar.length === 1));
+  assert.ok(r.aspects.length > 0);
+  assert.ok(r.aspects.every((aspect) => aspect.orb >= 0 && aspect.strength >= 0));
   assert.ok(Math.abs(core.qizheng.getPrecessionOffset(2024) - 0.3353) < 0.001);
   assert.equal(r.shensha.find((item) => item.name === '孤辰')?.value, '巳');
   assert.equal(r.shensha.find((item) => item.name === '寡宿')?.value, '丑');
@@ -222,6 +301,7 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.ok(r.prompt.includes('紫炁位置：顺行'));
   assert.ok(r.prompt.includes('出生时空'));
   assert.ok(r.prompt.includes('十二宫映射'));
+  assert.ok(r.prompt.includes('七政四余吊照'));
   assert.ok(r.prompt.includes('坐标与精度边界'));
   assert.ok(r.prompt.includes('不得替换成月孛对冲'));
 });

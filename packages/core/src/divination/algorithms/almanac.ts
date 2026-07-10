@@ -1,12 +1,22 @@
-import { SolarDay, SolarTime } from 'tyme4ts';
+import { SolarDay, SolarTime, type LunarDay } from 'tyme4ts';
 import { baziCalculator } from '../../bazi/baziCalculator';
 import { getBirthDateValidationMessage } from '../../calendar/date-validation';
+import { SHICHEN_PERIODS } from '../../calendar/dateUtils';
 import { EARTHLY_BRANCHES } from '../../ganzhi/data';
-import { getOppositeBranch, getSanxingType, isLiuhai, isLiupo, isSanxing } from '../../ganzhi';
+import {
+  getBranchWuxing,
+  getOppositeBranch,
+  getSanxingType,
+  getStemWuxing,
+  isLiuhai,
+  isLiupo,
+  isSanxing,
+} from '../../ganzhi';
 import type {
   AlmanacAnnualDirectionGod,
   AlmanacData,
   AlmanacDayCandidate,
+  AlmanacHourCandidate,
   AlmanacParticipantInput,
   AlmanacParticipantProfile,
   AlmanacTopic,
@@ -59,6 +69,7 @@ function assertAlmanacTopic(topic: AlmanacTopic): void {
 
 const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
 const MAX_ALMANAC_PARTICIPANTS = 30;
+const AUSPICIOUS_HOUR_STARS = new Set(['青龙', '明堂', '金匮', '天德', '玉堂', '司命']);
 type ParticipantBranchConflictType = '冲' | '刑' | '害' | '破';
 
 const BRANCH_DIRECTIONS: Record<string, string> = {
@@ -618,6 +629,7 @@ function getParticipantBranchConflictSummary(
 
 function scoreDay(params: {
   topic: AlmanacTopic;
+  dayStem: string;
   dayBranch: string;
   dayDuty: string;
   recommends: string[];
@@ -689,12 +701,38 @@ function scoreDay(params: {
     if (branchConflict.text) {
       score -= branchConflict.penalty;
       participantNotes.push(`${participant.name}：${branchConflict.text}`);
-      return;
     }
 
-    participantNotes.push(
-      `${participant.name}：日主${participant.dayMaster}${participant.dayMasterElement}，生肖${participant.zodiac}，未见直接刑冲破害提醒`,
-    );
+    const usefulGods = [...new Set(participant.usefulGods)].filter(Boolean);
+    const avoidGods = [...new Set(participant.avoidGods)].filter(Boolean);
+    const candidateElements = [getStemWuxing(params.dayStem), getBranchWuxing(params.dayBranch)];
+    const usefulHits = [...new Set(candidateElements.filter((item) => usefulGods.includes(item)))];
+    const avoidHits = [...new Set(candidateElements.filter((item) => avoidGods.includes(item)))];
+    const usefulGodEvidenceAvailable =
+      usefulGods.length > 0 && usefulGods.length <= 3 && avoidGods.length > 0;
+
+    if (usefulGodEvidenceAvailable) {
+      if (usefulHits.length) {
+        score += usefulHits.length * 4;
+        participantNotes.push(
+          `${participant.name}：候选日干支五行命中喜用${usefulHits.join('、')}，可作辅助加分`,
+        );
+      }
+      if (avoidHits.length) {
+        score -= avoidHits.length * 5;
+        participantNotes.push(
+          `${participant.name}：候选日干支五行触及忌神${avoidHits.join('、')}，需谨慎`,
+        );
+      }
+    } else {
+      participantNotes.push(`${participant.name}：八字喜忌结论过于分散，本次不用喜忌五行加减分`);
+    }
+
+    if (!branchConflict.text) {
+      participantNotes.push(
+        `${participant.name}：日主${participant.dayMaster}${participant.dayMasterElement}，生肖${participant.zodiac}，未见候选日与年支、日支直接刑冲破害`,
+      );
+    }
   });
 
   return {
@@ -703,6 +741,67 @@ function scoreDay(params: {
     cautions,
     participantNotes,
   };
+}
+
+function buildHourCandidates(
+  lunarDay: LunarDay,
+  topic: AlmanacTopic,
+  participants: AlmanacParticipantProfile[],
+): AlmanacHourCandidate[] {
+  const recommendKeywords = TOPIC_RECOMMEND_KEYWORDS[topic];
+  const avoidKeywords = TOPIC_AVOID_KEYWORDS[topic];
+  return lunarDay.getHours().map((hour, index) => {
+    const ganzhi = hour.getSixtyCycle().getName();
+    const branch = ganzhi[1];
+    const twelveStar = hour.getTwelveStar().getName();
+    const recommends = normalizeTaboos(hour.getRecommends());
+    const avoids = normalizeTaboos(hour.getAvoids());
+    const highlights: string[] = [];
+    const cautions: string[] = [];
+    const participantNotes: string[] = [];
+    let score = 50;
+    if (AUSPICIOUS_HOUR_STARS.has(twelveStar)) {
+      score += 15;
+      highlights.push(`${twelveStar}黄道时`);
+    } else {
+      score -= 8;
+      cautions.push(`${twelveStar}时须结合时辰宜忌慎用`);
+    }
+    if (hasAnyKeyword(recommends, recommendKeywords)) {
+      score += 20;
+      highlights.push(`时辰宜项命中${ALMANAC_TOPIC_LABELS[topic]}`);
+    }
+    if (avoids.includes('诸事不宜')) {
+      score -= 40;
+      cautions.push('时辰明列诸事不宜');
+    } else if (hasAnyKeyword(avoids, avoidKeywords)) {
+      score -= 25;
+      cautions.push(`时辰忌项触及${ALMANAC_TOPIC_LABELS[topic]}`);
+    }
+    participants.forEach((participant) => {
+      const conflict = getParticipantBranchConflictSummary(branch, participant);
+      if (conflict.text) {
+        score -= Math.ceil(conflict.penalty / 2);
+        participantNotes.push(
+          `${participant.name}：时支${conflict.text.replace('候选日地支', '')}`,
+        );
+      }
+    });
+    const period = SHICHEN_PERIODS[index] ?? SHICHEN_PERIODS[index % 12];
+    return {
+      name: index === 12 ? '晚子时' : period.name,
+      range: period.range,
+      ganzhi,
+      branch,
+      twelveStar,
+      recommends,
+      avoids,
+      score: Math.max(0, Math.min(100, score)),
+      highlights,
+      cautions,
+      participantNotes,
+    };
+  });
 }
 
 // 地支刑冲破害判断已委托公共干支模块。
@@ -723,6 +822,7 @@ function buildDayCandidate(
   const dayDuty = lunarDay.getDuty().getName();
   const scoring = scoreDay({
     topic,
+    dayStem: dayCycle.getHeavenStem().getName(),
     dayBranch: dayBranch.getName(),
     dayDuty,
     recommends,
@@ -734,6 +834,11 @@ function buildDayCandidate(
   // 彭祖百忌完整：天干+地支
   const dayStemName = dayCycle.getHeavenStem().getName();
   const dayZhiName = dayCycle.getEarthBranch().getName();
+  const hours = buildHourCandidates(lunarDay, topic, participants);
+  const bestHours = [...hours]
+    .filter((hour) => hour.score >= 55 && !hour.avoids.includes('诸事不宜'))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
 
   return {
     date: formatDate(date),
@@ -764,6 +869,8 @@ function buildDayCandidate(
     highlights: scoring.highlights,
     cautions: scoring.cautions,
     participantNotes: scoring.participantNotes,
+    hours,
+    bestHours,
   };
 }
 

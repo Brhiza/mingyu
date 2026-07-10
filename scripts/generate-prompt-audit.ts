@@ -175,7 +175,15 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '太乙神数',
-    requiredFields: ['【当前时间】', '核心宫位', '主客算', '十六神', '取证层级', '精度边界'],
+    requiredFields: [
+      '【当前时间】',
+      '核心宫位',
+      '主客定算',
+      '将参',
+      '十六神',
+      '取证层级',
+      '观察层级',
+    ],
   },
   {
     sampleName: '七政四余',
@@ -570,6 +578,8 @@ async function buildSamples(): Promise<PromptSample[]> {
 
     const bazhaiData = analyzeBaZhai({
       birthYear: 1990,
+      birthMonth: 6,
+      birthDay: 15,
       gender: 'male',
       sitMountain: '子',
     });
@@ -586,10 +596,10 @@ async function buildSamples(): Promise<PromptSample[]> {
       { currentTime: fixedNow },
     );
 
-    const taiyiData = generateTaiyi({ year: 2004, scope: 'year' });
+    const taiyiData = generateTaiyi({ date: fixedNow, scope: 'hour' });
     const taiyiPrompt = buildMetaphysicsPrompt(
       taiyiData.prompt,
-      '请分析这一年的整体气运、攻守与行动时宜。',
+      '请分析当前时段更适合主动推进还是稳守，以及应观察什么信号。',
       { currentTime: fixedNow },
     );
 
@@ -648,7 +658,7 @@ async function buildSamples(): Promise<PromptSample[]> {
         prompt: astrolabePrompt,
         notes: [
           '星盘样本通过项目年限选择逻辑写入流年分析对象和行运相位证据。',
-          '当前已生成行运到本命相位，暂未生成太阳返照、次限或太阳弧。',
+          '当前已生成行运到本命相位、太阳返照近似时刻、次限推进与太阳弧证据。',
         ],
       },
       {
@@ -717,7 +727,7 @@ async function buildSamples(): Promise<PromptSample[]> {
       {
         name: '八宅风水',
         source: '项目八宅大游年算法真实生成；命卦和宅卦均输出完整八宫。',
-        inputSummary: '男，1990年生；坐山为子山；问题为住宅大门、卧室和书房方位安排。',
+        inputSummary: '男，1990年6月15日生；坐山为子山；问题为住宅大门、卧室和书房方位安排。',
         prompt: bazhaiPrompt,
         notes: ['本样本只有坐山和命卦资料，未假定具体户型、门窗、灶厕或外部形峦。'],
       },
@@ -730,10 +740,13 @@ async function buildSamples(): Promise<PromptSample[]> {
       },
       {
         name: '太乙神数',
-        source: '项目年家太乙七十二局立成真实生成；公元 2004 年。',
-        inputSummary: '公元 2004 年，年家太乙；问题为整体气运、攻守与行动时宜。',
+        source: '项目太乙五计七十二局立成真实生成；固定时间 2026-05-19T10:30:00+08:00，展示时计。',
+        inputSummary: '2026年5月19日10:30，太乙时计；问题为当前时段的攻守与行动时宜。',
         prompt: taiyiPrompt,
-        notes: ['当前只支持已校核的年家盘，不包含月计、日计和时计。'],
+        notes: [
+          '太乙已支持年计、月计、日计、时计、分计；五种计式分别使用对应积数和阴阳遁规则。',
+          '本样本选用时计，便于审计冬至、夏至分阴阳遁及阴遁立成表是否进入提示词。',
+        ],
       },
       {
         name: '七政四余',

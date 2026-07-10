@@ -206,7 +206,10 @@ const SPREADS: Record<LenormandSpreadType, { name: string; positions: string[] }
   },
   grandTableau: {
     name: '大桌牌阵',
-    positions: Array.from({ length: 36 }, (_, i) => `位置${i + 1}（全桌解读）`),
+    positions: Array.from(
+      { length: 36 },
+      (_, i) => `第${i + 1}宫（${LENORMAND_CARDS[i]?.name ?? '未知'}宫）`,
+    ),
   },
 };
 
@@ -283,23 +286,70 @@ export function drawLenormandSpread(
   const rng = createRandomSource(options);
   const cards = shuffleCards(rng)
     .slice(0, spread.positions.length)
-    .map((card, index) => ({
-      ...card,
-      position: spread.positions[index],
-    }));
+    .map((card, index) => {
+      const columns = spreadType === 'grandTableau' ? 9 : spreadType === 'nine' ? 3 : 0;
+      return {
+        ...card,
+        position: spread.positions[index],
+        house: spreadType === 'grandTableau' ? LENORMAND_CARDS[index]?.name : undefined,
+        row: columns ? Math.floor(index / columns) + 1 : undefined,
+        column: columns ? (index % columns) + 1 : undefined,
+      };
+    });
 
   // 两牌组合分析（仅当至少有2张牌时）
-  const combinations: Array<{ card1: string; card2: string; meaning: string }> = [];
+  const combinations: NonNullable<LenormandData['combinations']> = [];
   for (let i = 0; i < cards.length - 1; i++) {
     const comboKey = `${cards[i].name}+${cards[i + 1].name}`;
     const reverseComboKey = `${cards[i + 1].name}+${cards[i].name}`;
-    const meaning = CARD_COMBINATIONS[comboKey] || CARD_COMBINATIONS[reverseComboKey] || null;
-    if (meaning) {
-      combinations.push({
-        card1: cards[i].name,
-        card2: cards[i + 1].name,
-        meaning,
+    const fixedMeaning = CARD_COMBINATIONS[comboKey] || CARD_COMBINATIONS[reverseComboKey] || null;
+    combinations.push({
+      card1: cards[i].name,
+      card2: cards[i + 1].name,
+      meaning:
+        fixedMeaning ??
+        `${cards[i].name}的“${cards[i].keywords.slice(0, 2).join('、')}”与${cards[i + 1].name}的“${cards[i + 1].keywords.slice(0, 2).join('、')}”前后相接，先按${cards[i].meaning}，再看${cards[i + 1].meaning}`,
+      source: fixedMeaning ? '固定组合' : '相邻牌义合读',
+    });
+  }
+
+  const layoutEvidence: string[] = [];
+  if (spreadType === 'nine') {
+    const center = cards[4];
+    layoutEvidence.push(
+      `中心牌${center.name}是九宫主轴；上排为背景与思考，中排为当下，下排为落地走向`,
+    );
+    layoutEvidence.push(
+      `横向：${cards
+        .slice(3, 6)
+        .map((card) => card.name)
+        .join('→')}；纵向：${[cards[1], cards[4], cards[7]].map((card) => card.name).join('→')}`,
+    );
+    layoutEvidence.push(
+      `对角线：${[cards[0], cards[4], cards[8]].map((card) => card.name).join('→')}；${[cards[2], cards[4], cards[6]].map((card) => card.name).join('→')}`,
+    );
+  }
+  if (spreadType === 'grandTableau') {
+    const keyCards = ['男士', '女士'];
+    keyCards.forEach((name) => {
+      const index = cards.findIndex((card) => card.name === name);
+      if (index < 0) return;
+      const card = cards[index];
+      const neighbors = cards.filter((candidate) => {
+        if (!candidate.row || !candidate.column || !card.row || !card.column) return false;
+        const rowDistance = Math.abs(candidate.row - card.row);
+        const columnDistance = Math.abs(candidate.column - card.column);
+        return rowDistance <= 1 && columnDistance <= 1 && rowDistance + columnDistance > 0;
       });
+      layoutEvidence.push(
+        `${name}落第${index + 1}宫（${card.house}宫，第${card.row}排第${card.column}列）；近身牌${neighbors.map((item) => item.name).join('、')}`,
+      );
+    });
+    const houseMatches = cards.filter((card) => card.house === card.name);
+    if (houseMatches.length) {
+      layoutEvidence.push(
+        `归宫牌：${houseMatches.map((card) => `${card.name}回到本宫`).join('、')}`,
+      );
     }
   }
 
@@ -308,6 +358,7 @@ export function drawLenormandSpread(
     spreadName: spread.name,
     cards,
     combinations,
+    layoutEvidence,
     timestamp: Date.now(),
   };
 }

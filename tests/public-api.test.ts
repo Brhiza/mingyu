@@ -2127,7 +2127,7 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
   );
 });
 
-test('公开 API 太乙应返回年家七十二局立成结果', async () => {
+test('公开 API 太乙应返回年计七十二局立成结果', async () => {
   const { response, body } = await callApi('metaphysics/taiyi/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -2144,7 +2144,20 @@ test('公开 API 太乙应返回年家七十二局立成结果', async () => {
   assert.equal(body.data.lordCount, 24);
   assert.equal(body.data.guestCount, 3);
   assert.equal(body.data.sixteenGods.length, 16);
-  assert.equal(body.data.model.id, 'taiyi-tongzong-annual-72-table');
+  assert.equal(body.data.model.id, 'taiyi-tongzong-five-calculations-72-table');
+});
+
+test('公开 API 太乙应支持月日时分四种计式', async () => {
+  for (const scope of ['month', 'day', 'hour', 'minute']) {
+    const { response, body } = await callApi('metaphysics/taiyi/calculate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scope, year: 2026, month: 7, day: 11, hour: 14, minute: 35 }),
+    });
+    assert.equal(response.status, 200, scope);
+    assert.equal(body.data.scope, scope);
+    assert.ok(body.data.accumulatedValue > 0);
+  }
 });
 
 test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async () => {

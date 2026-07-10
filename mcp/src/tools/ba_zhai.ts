@@ -12,6 +12,8 @@ import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
 
 const baZhaiSchema = z.object({
   birthYear: z.number().int().min(1900).max(2100).optional().describe('出生公历年份（用于推命卦）'),
+  birthMonth: z.number().int().min(1).max(12).optional().describe('出生公历月份（用于立春换年）'),
+  birthDay: z.number().int().min(1).max(31).optional().describe('出生公历日期（用于立春换年）'),
   gender: z.enum(['male', 'female']).optional().describe('性别'),
   mingGua: z
     .string()
@@ -39,6 +41,8 @@ export function registerBaZhaiTool(server: McpServer) {
       try {
         const result = bazhai.analyzeBaZhai({
           birthYear: args.birthYear,
+          birthMonth: args.birthMonth,
+          birthDay: args.birthDay,
           gender: args.gender,
           mingGua: args.mingGua,
           sitMountain: args.sitMountain,
@@ -61,6 +65,8 @@ export function registerBaZhaiTool(server: McpServer) {
       try {
         const result = bazhai.analyzeBaZhai({
           birthYear: args.birthYear,
+          birthMonth: args.birthMonth,
+          birthDay: args.birthDay,
           gender: args.gender,
           mingGua: args.mingGua,
           sitMountain: args.sitMountain,

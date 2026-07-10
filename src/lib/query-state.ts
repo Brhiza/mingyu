@@ -2,7 +2,7 @@ import { ASTROLABE_PROMPT_TOPICS, type AstrolabePromptTopic } from '@/lib/astrol
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { getBirthDateValidationMessage } from '@/lib/date-validation';
 
-export type ResultTabKey = 'bazi' | 'ziwei' | 'astrolabe' | 'prompt';
+export type ResultTabKey = 'bazi' | 'ziwei' | 'astrolabe' | 'qizheng' | 'bazhai' | 'prompt';
 export type PromptSourceKey = 'bazi' | 'ziwei' | 'bazi-ziwei' | 'astrolabe';
 export type BaziFortuneScope = 'natal' | 'full' | 'dayun' | 'year' | 'month' | 'day';
 export type { AstrolabePromptTopic };
@@ -763,7 +763,12 @@ export function buildInputSearch(params: URLSearchParams) {
 export function parsePromptState(params: URLSearchParams): QueryPromptState {
   const rawTab = getString(params, 'tab', defaultPromptState.tab);
   const tab: ResultTabKey =
-    rawTab === 'bazi' || rawTab === 'ziwei' || rawTab === 'astrolabe' || rawTab === 'prompt'
+    rawTab === 'bazi' ||
+    rawTab === 'ziwei' ||
+    rawTab === 'astrolabe' ||
+    rawTab === 'qizheng' ||
+    rawTab === 'bazhai' ||
+    rawTab === 'prompt'
       ? rawTab
       : defaultPromptState.tab;
   const rawPromptSource = getString(params, 'promptSource', defaultPromptState.promptSource);
