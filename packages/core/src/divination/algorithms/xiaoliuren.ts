@@ -18,6 +18,8 @@ import { getShichenByIndex, getTimeIndexFromClock } from '../../calendar/dateUti
 import { getDivinationTime } from '../../calendar/timeManager';
 import { getSeasonState } from '../../ganzhi';
 import { assertOptionalRecord } from '../../shared/validation';
+import type { RandomOptions } from '../../shared/random';
+import { createRandomSource, randomInt } from '../../shared/random';
 
 const XIAOLIUREN_PALACES = [
   {
@@ -184,11 +186,13 @@ function buildQuestionHint(primary: XiaoliurenPalaceDetail) {
  * const result = generateXiaoliuren({ method: 'number', number: 123 });
  * ```
  */
-export function generateXiaoliuren(params?: {
-  method?: XiaoliurenDivinationMethod;
-  number?: number;
-  customDate?: Date;
-}): XiaoliurenData {
+export function generateXiaoliuren(
+  params?: {
+    method?: XiaoliurenDivinationMethod;
+    number?: number;
+    customDate?: Date;
+  } & RandomOptions,
+): XiaoliurenData {
   assertOptionalRecord(params, '小六壬起课参数');
   const method = params?.method ?? 'time';
   if (!Object.hasOwn(XIAOLIUREN_METHOD_LABEL_MAP, method)) {
@@ -216,7 +220,7 @@ export function generateXiaoliuren(params?: {
     processSeed = inputNumber + lunarDay - 1;
     resultSeed = inputNumber + lunarDay + hourNumber - 2;
   } else if (method === 'random') {
-    const base = normalizeModulo(timestamp, 6) + 1;
+    const base = randomInt(6, createRandomSource(params)) + 1;
     startSeed = base;
     processSeed = base + lunarDay - 1;
     resultSeed = base + lunarDay + hourNumber - 2;

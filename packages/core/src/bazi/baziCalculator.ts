@@ -1,7 +1,7 @@
 import { SolarTime, Gender, LunarHour } from 'tyme4ts';
 import { TIME_MAP } from './baziDefinitions';
-import { calculateTrueSolarTime } from './trueSolarTime';
-import { checkChinaDst, isDateInChinaDstRange } from '../calendar/china-dst';
+import { resolveTrueSolarBirthTime } from '../calendar/true-solar-time';
+import { isDateInChinaDstRange } from '../calendar/china-dst';
 import { collectBoundaryWarnings } from './paipanWarnings';
 import { ShenShaCalculator } from './baziShenSha';
 import { BaziAnalyzer } from './baziAnalysis';
@@ -236,55 +236,37 @@ export class BaziCalculator {
         second: solarTime.getSecond(),
       };
 
-      // 中国夏令时（1986-1991）：钟表时间快 1 小时，先回拨再做真太阳时校正
-      let dstCorrectionMinutes = 0;
-      let dstInput = standardTime;
-      if (applyChinaDst) {
-        const dst = checkChinaDst(
-          standardTime.year,
-          standardTime.month,
-          standardTime.day,
-          standardTime.hour,
-          standardTime.minute,
+      const trueSolarResult = resolveTrueSolarBirthTime({
+        dateType: isLunarEnabled ? 'lunar' : 'solar',
+        year,
+        month,
+        day,
+        hour: baseHour,
+        minute: baseMinute,
+        second: 0,
+        isLeapMonth: isLeapMonthEnabled,
+        longitude: birthLongitude!,
+        timezone: 8,
+        applyChinaDst,
+      });
+      const dstCorrectionMinutes = trueSolarResult.chinaDst.applied
+        ? trueSolarResult.chinaDst.offsetMinutes
+        : 0;
+      if (trueSolarResult.chinaDst.applied) {
+        warnings.push(
+          '出生时刻处于中国夏令时期间（1986-1991），钟表时间比北京标准时间快 1 小时，已自动回拨 60 分钟后排盘。如所记时间已折算为标准时间，请设置 applyChinaDst: false。',
         );
-        if (dst.inDst) {
-          dstCorrectionMinutes = dst.offsetMinutes;
-          const shifted = new Date(
-            Date.UTC(
-              standardTime.year,
-              standardTime.month - 1,
-              standardTime.day,
-              standardTime.hour,
-              standardTime.minute,
-              standardTime.second,
-            ) +
-              dstCorrectionMinutes * 60000,
-          );
-          dstInput = {
-            year: shifted.getUTCFullYear(),
-            month: shifted.getUTCMonth() + 1,
-            day: shifted.getUTCDate(),
-            hour: shifted.getUTCHours(),
-            minute: shifted.getUTCMinutes(),
-            second: shifted.getUTCSeconds(),
-          };
+        if (trueSolarResult.chinaDst.ambiguous) {
           warnings.push(
-            '出生时刻处于中国夏令时期间（1986-1991），钟表时间比北京标准时间快 1 小时，已自动回拨 60 分钟后排盘。如所记时间已折算为标准时间，请设置 applyChinaDst: false。',
+            '出生时刻落在夏令时结束日 01:00-02:00 的重复时段，该钟表时刻当天出现两次，无法唯一判定，建议按夏令时/标准时两种口径分别参详。',
           );
-          if (dst.ambiguous) {
-            warnings.push(
-              '出生时刻落在夏令时结束日 01:00-02:00 的重复时段，该钟表时刻当天出现两次，无法唯一判定，建议按夏令时/标准时两种口径分别参详。',
-            );
-          }
-          if (dst.nonexistent) {
-            warnings.push(
-              '出生时刻落在夏令时开始日 02:00-03:00 的跳变时段，该钟表时刻当天并不存在，出生记录可能有误，请核实。',
-            );
-          }
+        }
+        if (trueSolarResult.chinaDst.nonexistent) {
+          warnings.push(
+            '出生时刻落在夏令时开始日 02:00-03:00 的跳变时段，该钟表时刻当天并不存在，出生记录可能有误，请核实。',
+          );
         }
       }
-
-      const trueSolarResult = calculateTrueSolarTime(dstInput, birthLongitude!);
 
       solarTime = SolarTime.fromYmdHms(
         trueSolarResult.correctedTime.year,

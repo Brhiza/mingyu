@@ -5,7 +5,11 @@ import {
   buildFortuneSelectionContext,
   type BaziFortuneSelectionValue,
 } from '@core/bazi/fortuneSelection';
-import { convertTrueSolarTime, getTimeIndexFromClock } from 'mingyu-core/calendar';
+import {
+  convertTrueSolarTime,
+  getTimeIndexFromClock,
+  resolveTrueSolarBirthTime,
+} from 'mingyu-core/calendar';
 import {
   buildZiweiChartInput,
   calculatePublicZiweiChartForScopes,
@@ -362,6 +366,17 @@ export function getPublicApiOpenApiDocument(
           },
         },
       },
+      '/calendar/true-solar-birth': {
+        post: {
+          summary: '统一换算公历或农历出生真太阳时',
+          requestBody: openApiJsonRequestBody('#/components/schemas/TrueSolarBirthRequest'),
+          responses: {
+            '200': {
+              description: '公历钟表时间、标准时间、真太阳时、跨日、时辰索引与夏令时资料',
+            },
+          },
+        },
+      },
       '/foundation/ganzhi': {
         post: {
           summary: '查询六十甲子完整基础资料',
@@ -665,6 +680,23 @@ export function getPublicApiOpenApiDocument(
             },
           },
         },
+        TrueSolarBirthRequest: {
+          type: 'object',
+          required: ['dateType', 'year', 'month', 'day', 'hour', 'minute', 'longitude'],
+          properties: {
+            dateType: { enum: ['solar', 'lunar'], description: '公历或农历' },
+            year: { type: 'integer', minimum: 1900, maximum: 2100 },
+            month: { type: 'integer', minimum: 1, maximum: 12 },
+            day: { type: 'integer', minimum: 1, maximum: 31 },
+            hour: { type: 'integer', minimum: 0, maximum: 23 },
+            minute: { type: 'integer', minimum: 0, maximum: 59 },
+            second: { type: 'integer', minimum: 0, maximum: 59, default: 0 },
+            isLeapMonth: { type: 'boolean', default: false, description: '农历是否为闰月' },
+            longitude: { type: 'number', minimum: -180, maximum: 180 },
+            timezone: { type: 'number', minimum: -12, maximum: 14, default: 8 },
+            applyChinaDst: { type: 'boolean', default: false },
+          },
+        },
         FoundationGanZhiRequest: {
           type: 'object',
           required: ['ganZhi'],
@@ -757,6 +789,12 @@ export function getPublicApiOpenApiDocument(
             gender: { enum: ['male', 'female'], description: '性别（八宅）' },
             mingGua: { type: 'string', description: '直接给定命卦（八宅）' },
             sitMountain: { type: 'string', description: '坐山，如「子」（八宅）' },
+            doorToInteriorDegree: {
+              type: 'number',
+              minimum: 0,
+              maximum: 360,
+              description: '站在大门处面向屋内的指南针读数；与 sitMountain 二选一（八宅）',
+            },
             zodiac: { type: 'string', description: '生肖或地支，如「鼠」或「子」（生肖运程）' },
             year: {
               type: 'integer',
@@ -1004,6 +1042,8 @@ async function route(context: RouteContext) {
   switch (path) {
     case 'calendar/true-solar-time':
       return calculateTrueSolarTimeApi(await readJson(context.request));
+    case 'calendar/true-solar-birth':
+      return calculateTrueSolarBirthApi(await readJson(context.request));
     case 'foundation/ganzhi':
       return calculateFoundationGanZhi(await readJson(context.request));
     case 'foundation/wuxing':
@@ -1092,6 +1132,31 @@ function calculateTrueSolarTimeApi(input: JsonRecord) {
       400,
       'BAD_REQUEST',
       error instanceof Error ? error.message : '真太阳时参数无效。',
+    );
+  }
+}
+
+function calculateTrueSolarBirthApi(input: JsonRecord) {
+  try {
+    return resolveTrueSolarBirthTime({
+      dateType: readEnum(input, 'dateType', ['solar', 'lunar'] as const),
+      year: readIntegerLike(input, 'year', 1900, 2100),
+      month: readIntegerLike(input, 'month', 1, 12),
+      day: readIntegerLike(input, 'day', 1, 31),
+      hour: readIntegerLike(input, 'hour', 0, 23),
+      minute: readIntegerLike(input, 'minute', 0, 59),
+      second: input.second === undefined ? 0 : readIntegerLike(input, 'second', 0, 59),
+      isLeapMonth: readBoolean(input, 'isLeapMonth', false),
+      longitude: readNumberLike(input, 'longitude', -180, 180),
+      timezone: input.timezone === undefined ? 8 : readNumberLike(input, 'timezone', -12, 14),
+      applyChinaDst: readBoolean(input, 'applyChinaDst', false),
+    });
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '出生真太阳时参数无效。',
     );
   }
 }
@@ -1192,6 +1257,7 @@ function calculateBaZhaiApi(input: JsonRecord) {
   const birthDay = optInt(input, 'birthDay', 1, 31);
   const mingGua = readString(input, 'mingGua', '');
   const sitMountain = readString(input, 'sitMountain', '');
+  const doorToInteriorDegree = optNumber(input, 'doorToInteriorDegree', 0, 360);
   if (birthYear !== undefined && !gender) {
     throw new ApiError(400, 'BAD_REQUEST', '使用 birthYear 推命卦时必须同时提供 gender。');
   }
@@ -1204,19 +1270,36 @@ function calculateBaZhaiApi(input: JsonRecord) {
   if (sitMountain && !TWENTY_FOUR_MOUNTAINS.includes(sitMountain)) {
     throw new ApiError(400, 'BAD_REQUEST', 'sitMountain 必须是有效的二十四山。');
   }
-  const result = bazhai.analyzeBaZhai({
+  if (sitMountain && doorToInteriorDegree !== undefined) {
+    throw new ApiError(400, 'BAD_REQUEST', 'sitMountain 与 doorToInteriorDegree 只能提供一个。');
+  }
+  const baseInput: {
+    birthYear?: number;
+    birthMonth?: number;
+    birthDay?: number;
+    gender?: 'male' | 'female';
+    mingGua?: string;
+  } = {
     ...(birthYear !== undefined ? { birthYear, gender, birthMonth, birthDay } : {}),
     mingGua: mingGua || undefined,
-    sitMountain: sitMountain || undefined,
-  });
-  return result;
+  };
+  return doorToInteriorDegree !== undefined
+    ? bazhai.analyzeBaZhaiByDoorDegree({ ...baseInput, doorToInteriorDegree })
+    : bazhai.analyzeBaZhai({ ...baseInput, sitMountain: sitMountain || undefined });
 }
 
 function buildBaZhaiPrompt(input: JsonRecord) {
   const result = calculateBaZhaiApi(input);
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
-    prompt: buildMetaphysicsPrompt(result.prompt, input),
+    prompt: buildSharedMetaphysicsPrompt(
+      result.prompt,
+      readString(input, 'question', '').trim() || '请综合解读本次排盘的重点、风险与行动建议。',
+      {
+        measurement: (result as { directionMeasurement?: { promptText: string } })
+          .directionMeasurement?.promptText,
+      },
+    ),
     fullResult: result,
   });
 }

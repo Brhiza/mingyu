@@ -6,7 +6,7 @@ import type {
   AstrolabePoint,
 } from '../../types/divination';
 import { daysInSolarMonth } from '../../calendar/date-validation';
-import { calculateTrueSolarTime } from '../../bazi/trueSolarTime';
+import { resolveTrueSolarBirthTime } from '../../calendar/true-solar-time';
 
 const PLANET_LABELS: Record<string, string> = {
   Sun: '太阳',
@@ -236,7 +236,16 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
   assertNumberRange(longitude, '出生地经度', -180, 180);
   assertNumberRange(timezone, '时区', -12, 14);
   const trueSolarResult = input.useTrueSolarTime
-    ? calculateTrueSolarTime(standardBirth, longitude)
+    ? resolveTrueSolarBirthTime({
+        dateType: 'solar',
+        year: standardBirth.year,
+        month: standardBirth.month,
+        day: standardBirth.day,
+        hour: standardBirth.hour,
+        minute: standardBirth.minute,
+        longitude,
+        timezone,
+      })
     : null;
   const birth = trueSolarResult?.correctedTime ?? standardBirth;
   const locationName = readOptionalText(input.locationName, '');
