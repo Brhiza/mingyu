@@ -555,8 +555,9 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
 
   const prompt = [
     `【七政四余 · 果老星宗】`,
+    `出生时空：${input.year}年${input.month}月${input.day}日 ${String(input.hour).padStart(2, '0')}:${String(input.minute ?? 0).padStart(2, '0')}，纬度${lat}°，经度${lon}°，UTC${tz >= 0 ? '+' : ''}${tz}。`,
     `七政：太阳、太阴、水、金、火、木、土；四余：罗睺、计都、月孛、紫炁。`,
-    `紫炁模型：${ZIQI_MODEL_INFO.name}；周期${ZIQI_MODEL_INFO.periodDays}日，日行${ZIQI_MODEL_INFO.dailyMotionDegrees.toFixed(12)}°；${ZIQI_MODEL_INFO.precision}。`,
+    `紫炁推算口径：${ZIQI_MODEL_INFO.name}；周期${ZIQI_MODEL_INFO.periodDays}日，日行${ZIQI_MODEL_INFO.dailyMotionDegrees.toFixed(12)}°；${ZIQI_MODEL_INFO.precision}。`,
     `紫炁位置：顺行，回归黄经${ziqi.tropicalLongitude.toFixed(6)}°，恒星黄经${ziqi.siderealLongitude.toFixed(6)}°，本周天进度${(ziqi.cycleProgress * 100).toFixed(4)}%。`,
     ...stars.map(
       (s) =>
@@ -565,9 +566,12 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
         )}度，落${s.palace}${s.dignity ? '（' + s.dignity + '）' : ''}${s.retrograde ? '（逆）' : ''}`,
     ),
     `命宫在${TWELVE_PALACES[0]}（黄道第 ${mingGong + 1} 宫），命主${mingZhu}；身宫在第 ${shenGong + 1} 宫。`,
+    `十二宫映射：${twelvePalaces.map((item) => `${item.palace}=黄道第${item.signIndex + 1}宫`).join('；')}。`,
     `神煞：天乙贵人${shensha[0].value}、驿马${shensha[1].value}、劫煞${shensha[2].value}、咸池${shensha[3].value}、华盖${shensha[4].value}、孤辰${shensha[5].value}、寡宿${shensha[6].value}。`,
+    '取证层级：七政四余的宿度、落宫、庙旺和命身宫为主证；神煞只能作为辅证；出现相互矛盾时须说明各证据适用范围，不得以单一星曜或神煞定案。',
+    `坐标与精度边界：星体同时保留回归黄经和岁差换算后的恒星黄经；宿度按上方二十八宿古度口径换算。${ZIQI_MODEL_INFO.precision}。本次只解读本命结构与长期倾向，不判断具体应期。`,
     '',
-    '请依《果老星宗》星学，论命主强弱、七政庙旺、四余吊照、十二宫所主与神煞吉凶；紫炁仅使用上列《七政算内篇》模型，不得替换成月孛对冲或月球近地点。',
+    '请依《果老星宗》星学，论命主强弱、七政庙旺、四余吊照、十二宫所主与神煞吉凶；结论需列出主证、辅证、反证与精度限制。紫炁仅使用上列《七政算内篇》模型，不得替换成月孛对冲或月球近地点。',
   ].join('\n');
 
   return {

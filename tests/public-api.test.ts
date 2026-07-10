@@ -2092,9 +2092,12 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
   assert.match(body.data.prompt, /【八宅风水排盘】/);
+  assert.match(body.data.prompt, /【当前时间】/);
   assert.match(body.data.prompt, /【问题】\n住宅办公方位怎么安排？/);
   assert.match(body.data.prompt, /【任务】/);
   assert.match(body.data.prompt, /【输出要求】/);
+  assert.match(body.data.prompt, /主证、辅证、反证或限制/);
+  assert.match(body.data.prompt, /每个关键结论都要紧跟对应盘面依据/);
 });
 
 test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完整位置元数据', async () => {

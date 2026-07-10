@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { analyzeBaZhai } from '@core/ba_zhai';
 import { getSitFacingFromFacingDegree, type SitFacingPosition } from '@core/direction';
 import { generateQizheng } from '@core/qi_zheng';
+import { buildMetaphysicsPrompt } from '@/lib/metaphysics-prompt';
 
 export type ChartExtensionMethod = 'bazhai' | 'qizheng';
 
@@ -41,23 +42,6 @@ function createSolarDate(year: number, month: number, day: number, hour: number,
   return date;
 }
 
-function buildPrompt(prompt: string, question: string, measurement?: string) {
-  const normalizedQuestion = question.trim() || '请综合解读本次排盘的重点、风险与行动建议。';
-  return [
-    prompt,
-    ...(measurement ? ['', '【测量换算】', measurement] : []),
-    '',
-    '【问题】',
-    normalizedQuestion,
-    '',
-    '【任务】',
-    '只依据上方排盘信息进行分析，先给结论，再说明依据、限制与建议。',
-    '',
-    '【输出要求】',
-    '使用简体中文；不要编造盘面没有提供的信息；资料不足时明确说明不确定性。',
-  ].join('\n');
-}
-
 function readDirectionPreview(value: string): {
   position: SitFacingPosition | null;
   error: string;
@@ -81,6 +65,11 @@ function readDirectionPreview(value: string): {
 
 export function MetaphysicsPanel({ method }: MetaphysicsPanelProps) {
   const [question, setQuestion] = useState('');
+  const [currentSituation, setCurrentSituation] = useState('');
+  const [currentState, setCurrentState] = useState('');
+  const [knownFacts, setKnownFacts] = useState('');
+  const [desiredOutcome, setDesiredOutcome] = useState('');
+  const [constraints, setConstraints] = useState('');
   const [birthYear, setBirthYear] = useState('1990');
   const [gender, setGender] = useState<'male' | 'female'>('male');
   const [facingDegree, setFacingDegree] = useState('180');
@@ -169,7 +158,12 @@ export function MetaphysicsPanel({ method }: MetaphysicsPanelProps) {
       }
 
       setResult(nextResult);
-      setPrompt(buildPrompt(nextResult.prompt, question, measurement));
+      setPrompt(
+        buildMetaphysicsPrompt(nextResult.prompt, question, {
+          measurement,
+          context: { currentSituation, currentState, knownFacts, desiredOutcome, constraints },
+        }),
+      );
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : '生成失败，请检查输入。');
     }
@@ -365,6 +359,31 @@ export function MetaphysicsPanel({ method }: MetaphysicsPanelProps) {
               />
             </div>
           </div>
+          <details className="form-item divination-context-fields">
+            <summary>补充现实信息（可选，填写越具体越利于解读）</summary>
+            <div className="form-row">
+              {[
+                ['当前情况', currentSituation, setCurrentSituation, '正在发生什么、有哪些选择'],
+                ['当前状态', currentState, setCurrentState, '目前的进度、情绪或资源状态'],
+                ['已知事实', knownFacts, setKnownFacts, '已经确认的人、事、时间和结果'],
+                ['期望结果', desiredOutcome, setDesiredOutcome, '最希望实现的结果'],
+                ['现实限制', constraints, setConstraints, '时间、预算、地点或责任限制'],
+              ].map(([label, value, setter, placeholder]) => (
+                <div className="form-item" key={label as string}>
+                  <label>{label as string}</label>
+                  <textarea
+                    rows={2}
+                    className="form-input divination-textarea"
+                    value={value as string}
+                    placeholder={placeholder as string}
+                    onChange={(event) =>
+                      (setter as React.Dispatch<React.SetStateAction<string>>)(event.target.value)
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </details>
         </div>
 
         {error ? <div className="form-error-text global-form-error">{error}</div> : null}

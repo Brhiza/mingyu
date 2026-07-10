@@ -106,9 +106,19 @@ export function formatSupplementaryInfoSection(
     lines.push(
       method === 'almanac'
         ? `择日补充：${supplementaryInfo.userSupplement.trim()}`
-        : `用户补充：${supplementaryInfo.userSupplement.trim()}`,
+        : `现实背景：${supplementaryInfo.userSupplement.trim()}`,
     );
   }
+  const contextFields = [
+    ['当前情况', supplementaryInfo.currentSituation],
+    ['当前状态', supplementaryInfo.currentState],
+    ['已知事实', supplementaryInfo.knownFacts],
+    ['期望结果', supplementaryInfo.desiredOutcome],
+    ['现实限制', supplementaryInfo.constraints],
+  ] as const;
+  contextFields.forEach(([label, value]) => {
+    if (value?.trim()) lines.push(`${label}：${value.trim()}`);
+  });
 
   if (lines.length === 0) {
     return '';
@@ -875,6 +885,28 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
   const reviewEvidence = createXiaoliurenReviewEvidence(data);
   const actionLevelEvidence = createXiaoliurenActionLevelEvidence(data);
   const reviewWindowEvidence = createXiaoliurenReviewWindowEvidence(data);
+  const palaceLines = (
+    [
+      ['起因', sequence.start, data.seasonStates?.start],
+      ['过程', sequence.process, data.seasonStates?.process],
+      ['结果', sequence.result, data.seasonStates?.result],
+    ] as const
+  ).map(([stage, palace, seasonState]) =>
+    [
+      `- ${stage}：${palace.name}（五行${palace.element || '未提供'}${palace.yinYang ? `，${palace.yinYang}` : ''}）`,
+      `关键词${palace.keywords?.join('、') || '未提供'}`,
+      `倾向${palace.tendency}`,
+      `宫位含义${palace.meaning}`,
+      seasonState ? `月令${seasonState}` : '',
+      palace.fortune ? `吉凶${palace.fortune}` : '',
+      palace.direction ? `方位${palace.direction}` : '',
+      palace.shenSha ? `神煞${palace.shenSha}` : '',
+      palace.timing ? `应期属性${palace.timing}` : '',
+      `建议${palace.advice}`,
+    ]
+      .filter(Boolean)
+      .join('；'),
+  );
 
   return [
     '占法：小六壬',
@@ -883,6 +915,9 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
     `关键提示：起课方式${data.methodLabel}；主判断${data.primary.name}；倾向${data.tendency}${data.fortune ? `；${data.fortune}` : ''}`,
     '断课抓手：先看结果宫位定主判断，再看起因与过程宫位解释事情为何如此、会如何推进。',
     `主轴证据：起因${sequence.start.name}；过程${sequence.process.name}；结果${sequence.result.name}`,
+    data.wuxingRelations
+      ? `五行推进证据：起因到过程${data.wuxingRelations.startToProcess}；过程到结果${data.wuxingRelations.processToResult}；${data.wuxingRelations.description}`
+      : '',
     `辅助证据：起因提示${sequence.start.meaning}；过程提示${sequence.process.meaning}；结果提示${sequence.result.meaning}`,
     data.seasonStates
       ? `月令旺衰：起因${data.seasonStates.start}，过程${data.seasonStates.process}，结果${data.seasonStates.result}`
@@ -894,11 +929,10 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
     `复盘信号：${reviewEvidence}`,
     `行动建议等级：${actionLevelEvidence}`,
     `复盘窗口：${reviewWindowEvidence}`,
+    '证据边界：结果宫与三段推进为主证，月令旺衰与五行为辅证，方位、神煞和应期属性不得单独决定吉凶或硬换成绝对日期。',
     '结构明细：',
     `- 起课方式：${data.methodLabel}`,
-    `- 起因：${sequence.start.name}；宫位含义：${sequence.start.meaning}；建议：${sequence.start.advice}`,
-    `- 过程：${sequence.process.name}；宫位含义：${sequence.process.meaning}；建议：${sequence.process.advice}`,
-    `- 结果：${sequence.result.name}；宫位含义：${sequence.result.meaning}；建议：${sequence.result.advice}`,
+    ...palaceLines,
   ]
     .filter(Boolean)
     .join('\n');
@@ -1257,7 +1291,8 @@ function formatLiurenInfo(data: LiurenData) {
 
 function formatTarotInfo(data: TarotData) {
   const cardLines = data.cards.map(
-    (card) => `- ${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}`,
+    (card) =>
+      `- ${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}；关键词：${card.keywords.join('、') || '未提供'}`,
   );
 
   return [
@@ -1265,7 +1300,9 @@ function formatTarotInfo(data: TarotData) {
     '时间干支：以【当前时间】为准',
     `核心结构：牌阵${data.spreadName}；共${data.cards.length}张牌`,
     '断牌口径：按当前牌阵、牌位、牌名和正逆位解读；牌阵未限定专项时按通用断牌。',
-    '现实边界：塔罗只能给当下倾向、心理动力、互动节奏和行动建议；未给期限时不把牌义硬换成绝对日期',
+    `判断主轴：按“${data.cards.map((card) => card.position).join(' → ')}”的牌位顺序组织现状、变化与建议；每张牌必须同时结合牌位、关键词和正逆位取证。`,
+    '证据边界：牌位与牌面为主证，关键词用于限定可解释范围；正逆位必须结合牌位和整组牌势判断，不套用孤立的固定断语。',
+    '现实边界：塔罗只能给当下倾向、心理动力、互动节奏和行动建议；未给期限时不把牌义硬换成绝对日期，也不替代医疗、法律或财务事实。',
     '牌位明细：',
     ...cardLines,
   ]
@@ -1289,17 +1326,31 @@ function formatSsgwInfo(data: SsgwData) {
   const ritualLog = data.ritual?.throws?.length
     ? `掷筊记录：${data.ritual.throws.map((t) => t.result).join(' → ')}${data.ritual.reason ? `（${data.ritual.reason}）` : ''}`
     : '';
+  const interpretationFields = [
+    '核心寓意',
+    '事业',
+    '财运',
+    '感情',
+    '学业',
+    '健康',
+    '行动建议',
+    '风险提醒',
+  ];
+  const preferredFields = data.details
+    ? ['吉凶', ...interpretationFields].filter((key) => data.details?.[key]?.trim())
+    : [];
   const detailLines = data.details
-    ? Object.entries(data.details)
-        .filter(([key]) => key !== '典故')
-        .map(([key, value]) => `- ${key}：${value}`)
+    ? (preferredFields.length > 1
+        ? preferredFields
+        : Object.keys(data.details).filter((key) => key !== '典故')
+      ).map((key) => `- ${key}：${data.details![key]}`)
     : [];
 
   return [
     '占法：三山国王灵签',
     `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
     `核心结构：第${data.number}签；签题《${data.title}》`,
-    '断签口径：按【问题】、签诗原文、典故和签文条目解读；未给具体事项时走通用解签。',
+    '断签口径：按【问题】、签诗原文、典故和八类签意解读，先抓核心寓意，再对应现实事项。',
     ritualLog,
     `签诗：${data.poem}`,
     canonicalStory ? `典故：${canonicalStory}` : '',
@@ -1498,7 +1549,7 @@ function formatAlmanacInfo(data: AlmanacData) {
   ].join('；');
   const availableWindowEvidence = [
     `只允许在${data.startDate}至${data.endDate}范围内排序`,
-    '当前资料没有逐时辰吉凶时，不得推荐具体吉时',
+    '本次按日期层级排序，不指定具体吉时',
     bestDay
       ? `首选窗口先看${bestDay.date}，备选看${backupDays.map((item) => item.date).join('、') || '暂无'}`
       : '',
@@ -1531,7 +1582,8 @@ function formatAlmanacInfo(data: AlmanacData) {
 
 function formatLenormandInfo(data: LenormandData) {
   const cardLines = data.cards.map(
-    (card) => `- ${card.position}：${card.name}${card.meaning ? `；牌义：${card.meaning}` : ''}`,
+    (card) =>
+      `- ${card.position}：${card.name}；关键词：${card.keywords.join('、') || '未提供'}${card.meaning ? `；牌义：${card.meaning}` : ''}`,
   );
   const combinationLines =
     data.combinations?.map((item) => `- ${item.card1}+${item.card2}：${item.meaning}`) ?? [];
@@ -1541,8 +1593,11 @@ function formatLenormandInfo(data: LenormandData) {
     '时间干支：以【当前时间】为准',
     `核心结构：牌阵${data.spreadName}；共${data.cards.length}张牌`,
     '断牌口径：按当前牌阵、牌位、牌名和牌义解读；单牌或未限定专项时按通用断牌。',
-    combinationLines.length ? '组合说明：' : '',
-    ...combinationLines,
+    `牌序主轴：按“${data.cards.map((card) => card.position).join(' → ')}”读取事件推进；先看各牌牌位和关键词，再看相邻牌能否构成上方已经列出的组合。`,
+    ...(combinationLines.length
+      ? ['组合证据：以下固定组合均已列在牌面资料中，只能据此取证。', ...combinationLines]
+      : []),
+    '现实边界：雷诺曼只描述当前事件线索、关系和行动条件；不得把单牌或单一组合写成必然结果，也不得替代可核验的现实资料。',
     '牌位明细：',
     ...cardLines,
   ]

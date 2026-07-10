@@ -1,6 +1,6 @@
-import type { SsgwSign } from './types';
+import type { RawSsgwSign } from './types';
 
-export const SIGNS_02: SsgwSign[] = [
+export const SIGNS_02: RawSsgwSign[] = [
   {
     id: 21,
     title: '第二十一签 吕蒙正金花捷报一世部君两世娘（下下签）',

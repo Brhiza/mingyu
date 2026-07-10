@@ -291,6 +291,6 @@ export function formatThreePillarsForPrompt(profile: ThreePillarsProfile) {
     formatWuxingCount(profile.wuxingCount),
     '',
     '【说明】',
-    '当前只保留年柱、月柱、日柱，不包含时柱；凡是强依赖时柱的判断都只能先做保守推测。',
+    '当前排盘依据为年柱、月柱、日柱；凡是强依赖候选时柱的判断都先作保守比较。',
   ].join('\n');
 }

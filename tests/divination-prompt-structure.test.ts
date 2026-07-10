@@ -448,31 +448,55 @@ function createData(method: FixtureMethod): DivinationData {
           start: {
             name: '留连',
             index: 1,
+            element: '土',
             meaning: '事情容易拖延反复，推进时会被旧问题牵扯。',
             keywords: ['拖延', '牵扯', '反复'],
             tendency: '易反复',
             advice: '不要急着定论，先清理卡点与未处理事项。',
+            direction: '四角',
+            shenSha: '螣蛇',
+            yinYang: '阴',
+            fortune: '平（偏凶）',
+            timing: '代表2-8日内反复拖延',
           },
           process: {
             name: '赤口',
             index: 3,
+            element: '金',
             meaning: '容易出现争执、误会、口舌或情绪冲撞。',
             keywords: ['争执', '误会', '情绪'],
             tendency: '易争执',
             advice: '少硬碰硬，先控情绪和表达，再谈结果。',
+            direction: '西',
+            shenSha: '白虎',
+            yinYang: '阳',
+            fortune: '凶',
+            timing: '代表4-7日或1-2周内出现争执',
           },
           result: {
             name: '小吉',
             index: 4,
+            element: '水',
             meaning: '事情整体可成，常有助力，但更适合渐进推进。',
             keywords: ['助力', '可成', '渐进'],
             tendency: '有助力',
             advice: '可以推进，但要一步一步拿结果，不宜贪快。',
+            direction: '北',
+            shenSha: '玄武',
+            yinYang: '阴',
+            fortune: '吉',
+            timing: '代表1-4周内有贵人助力',
           },
+        },
+        wuxingRelations: {
+          startToProcess: '所生',
+          processToResult: '所生',
+          description: '起因生过程，事态自然推进；过程生结果，越做越顺',
         },
         primary: {
           name: '小吉',
           index: 4,
+          element: '水',
           meaning: '事情整体可成，常有助力，但更适合渐进推进。',
           keywords: ['助力', '可成', '渐进'],
           tendency: '有助力',
@@ -992,7 +1016,7 @@ test('雷诺曼提示词应保留用户补充背景', () => {
   assert.match(prompt, /【补充信息】/);
   assert.match(prompt, /性别：男/);
   assert.match(prompt, /出生年份：1990/);
-  assert.match(prompt, new RegExp(`用户补充：${PROJECT_DECISION_SUPPLEMENT}`));
+  assert.match(prompt, new RegExp(`现实背景：${PROJECT_DECISION_SUPPLEMENT}`));
   assert.ok(
     findPromptSectionHeadingIndex(prompt, '【补充信息】') <
       findPromptSectionHeadingIndex(prompt, '【占卜信息】'),
@@ -1108,7 +1132,7 @@ test('六爻提示词会给出断卦抓手，先看取用世应动变', () => {
     /月日触发：月建丑：未直接同支入爻；日辰寅：同支第2爻子孙寅木，冲第5爻父母申金/,
   );
   assert.match(prompt, /应期候选：动变触发：第1爻兄弟子水动/);
-  assert.match(prompt, /不得编造已提供资料没有给出的卦名、六亲、六神、世应、用神、动变/);
+  assert.match(prompt, /只使用上方明确列出的卦名、六亲、六神、世应、用神、动变/);
   assert.doesNotMatch(prompt, /课传|盘局|牌阵|签诗|牌位/);
 });
 
@@ -1214,16 +1238,17 @@ test('小六壬提示词会给出三段过程、主判断和现实建议抓手',
     /断课抓手：先看结果宫位定主判断，再看起因与过程宫位解释事情为何如此、会如何推进。/,
   );
   assert.match(prompt, /主轴证据：起因留连；过程赤口；结果小吉/);
+  assert.match(prompt, /五行推进证据：起因到过程/);
+  assert.match(prompt, /关键词/);
   assert.match(prompt, /取象提示：当前整体偏可成，适合稳步推进，慢慢拿结果。/);
   assert.match(prompt, /应期候选：起因留连：偏拖延反复，常需先清旧账或等阻滞松动/);
   assert.match(prompt, /主判断小吉：有助力，只适合短期复盘，不作长期命运定论/);
   assert.match(prompt, /行动建议等级：稳步推进：有助力但不宜贪快，先拿小结果/);
   assert.match(prompt, /- 起课方式：数字起课/);
-  assert.match(
-    prompt,
-    /- 结果：小吉；宫位含义：事情整体可成，常有助力，但更适合渐进推进。；建议：可以推进，但要一步一步拿结果，不宜贪快。/,
-  );
-  assert.doesNotMatch(prompt, /- 结果：小吉，关键词/);
+  assert.match(prompt, /- 结果：小吉（五行.*）；关键词.*；倾向有助力/);
+  assert.match(prompt, /宫位含义事情整体可成，常有助力，但更适合渐进推进。/);
+  assert.match(prompt, /建议可以推进，但要一步一步拿结果，不宜贪快。/);
+  assert.match(prompt, /方位、神煞和应期属性不得单独决定吉凶/);
 });
 
 test('梅花、小六壬、奇门不再输出隐藏专项分析思路', () => {
@@ -1339,7 +1364,7 @@ test('大六壬未知专项模板应回落到通用断课，避免输出 undefin
   assert.doesNotMatch(prompt, /undefined|null/);
 });
 
-test('塔罗提示词只保留用户牌阵和牌位明细', () => {
+test('塔罗提示词保留牌阵、牌位、关键词与证据边界', () => {
   const prompt = buildDivinationPrompt(
     'tarot',
     '这件事接下来该怎么推进？',
@@ -1349,12 +1374,14 @@ test('塔罗提示词只保留用户牌阵和牌位明细', () => {
 
   assert.match(prompt, /断牌口径：按当前牌阵、牌位、牌名和正逆位解读/);
   assert.match(prompt, /现实边界：塔罗只能给当下倾向、心理动力、互动节奏和行动建议/);
-  assert.match(prompt, /- 现状：恋人（正位）/);
-  assert.match(prompt, /- 建议：战车（逆位）/);
-  assert.doesNotMatch(prompt, /关键词|牌组层级|宫廷人物|叙事权重|元素数字/);
+  assert.match(prompt, /判断主轴：/);
+  assert.match(prompt, /- 现状：恋人（正位）；关键词：/);
+  assert.match(prompt, /- 建议：战车（逆位）；关键词：/);
+  assert.match(prompt, /正逆位必须结合牌位和整组牌势判断，不套用孤立的固定断语/);
+  assert.doesNotMatch(prompt, /牌组层级|宫廷人物|叙事权重|元素数字/);
 });
 
-test('灵签提示词保留签诗、典故和签文条目，不再输出事项映射', () => {
+test('灵签提示词保留签诗、典故和现有签文条目', () => {
   const prompt = buildDivinationPrompt(
     'ssgw',
     '这件事接下来该怎么推进？',
@@ -1362,7 +1389,7 @@ test('灵签提示词保留签诗、典故和签文条目，不再输出事项�
     createSupplementaryInfo(),
   );
 
-  assert.match(prompt, /断签口径：按【问题】、签诗原文、典故和签文条目解读/);
+  assert.match(prompt, /断签口径：按【问题】、签诗原文、典故和八类签意解读/);
   assert.match(prompt, /签诗：前路迢迢莫强求，且看云开月自明。/);
   assert.match(prompt, /典故：刘备借荆州后多方周旋，需审时度势。/);
   assert.match(prompt, /签文条目：/);
@@ -1394,7 +1421,7 @@ test('灵签提示词会去重重复典故，避免 story 与 details.典故 双
   assert.doesNotMatch(prompt, /辅助证据|^- 典故：/m);
 });
 
-test('雷诺曼提示词只保留牌阵、牌位和牌义', () => {
+test('雷诺曼提示词保留牌序、关键词、牌义与组合边界', () => {
   const prompt = buildDivinationPrompt(
     'lenormand',
     '这件事接下来该怎么推进？',
@@ -1402,9 +1429,12 @@ test('雷诺曼提示词只保留牌阵、牌位和牌义', () => {
   );
 
   assert.match(prompt, /断牌口径：按当前牌阵、牌位、牌名和牌义解读/);
-  assert.match(prompt, /- 现状：骑士；牌义：事情开始动起来。/);
-  assert.match(prompt, /- 阻碍：山；牌义：进程会被卡住。/);
-  assert.doesNotMatch(prompt, /核心牌|相邻组合|人物牌|事件链证据|组合权重|关键词/);
+  assert.match(prompt, /牌序主轴：/);
+  assert.match(prompt, /- 现状：骑士；关键词：.*；牌义：事情开始动起来。/);
+  assert.match(prompt, /- 阻碍：山；关键词：.*；牌义：进程会被卡住。/);
+  assert.doesNotMatch(prompt, /组合证据：/);
+  assert.match(prompt, /不得把单牌或单一组合写成必然结果/);
+  assert.doesNotMatch(prompt, /核心牌|人物牌|事件链证据|组合权重/);
 });
 
 test('星盘提示词应直接给出太阳月亮上升和主要相位证据', () => {
@@ -1421,8 +1451,9 @@ test('星盘提示词应直接给出太阳月亮上升和主要相位证据', ()
     prompt,
     /辅助证据：主要相位太阳△月亮（三分，强度86%）；太阳合水星（合相，强度74%）；逆行无；格局土象偏强/,
   );
-  assert.match(prompt, /不得编造已提供资料没有给出的星体、宫位、角点、相位、格局或行运范围/);
-  assert.match(prompt, /没有【分析对象】行运证据时，不得写成具体流年、流月或流日触发/);
+  assert.match(prompt, /只使用上方明确列出的星体、宫位、角点、相位、格局和行运范围/);
+  assert.match(prompt, /本次按本命盘长期结构作答，只分析长期倾向/);
+  assert.match(prompt, /星盘回答只按本命结构说明长期倾向/);
   assert.doesNotMatch(prompt, /卦象|课传|盘局|牌阵|签诗|牌位/);
 });
 

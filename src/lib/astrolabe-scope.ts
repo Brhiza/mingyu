@@ -121,7 +121,7 @@ const TRANSITING_BODIES = [
 ];
 
 const ASTROLABE_EVIDENCE_SCOPE_NOTE =
-  '资料范围：本任务书提供本命盘结构、本命宫主星链条，以及所选流年、流月或流日的主要行运相位和行运落本命宫位；不包含太阳返照、次限推进、太阳弧、返照宫位、主限或法达资料，因此不得把这些项目当作判断依据。';
+  '资料范围：以本命盘结构、本命宫主星链条，以及所选流年、流月或流日的主要行运相位和行运落本命宫位为判断依据。';
 
 function parseDateParts(dateStr: string) {
   const matched = /^(\d{4})(?:-(\d{1,2}))?(?:-(\d{1,2}))?$/.exec(dateStr.trim());

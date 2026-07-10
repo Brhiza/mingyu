@@ -15,7 +15,7 @@ import type { AnalysisPayloadV1, PalaceFact } from '../src/types/analysis';
 function assertNoEngineeringPromptText(prompt: string) {
   assert.doesNotMatch(
     prompt,
-    /当前项目|本地|技术限制|未计算|资料包|提示词规则|系统提示词|在线\s*AI|工程/,
+    /本项目|当前项目|项目统一|本地|技术限制|未计算|资料包|提示词规则|系统提示词|在线\s*AI|工程|算法(?:结果|返回|生成|实际)|本模块|当前数据|实际返回|用户补充：/,
   );
   assert.doesNotMatch(prompt, /当前已写入|当前未写入|已写入|未写入/);
   assert.doesNotMatch(prompt, /用户(?:未|没有|选择|所选|已选|填写|提供|补充|问题)/);
@@ -381,7 +381,8 @@ test('紫微本命完整提示词应输出本命分析对象且不输出空运�
 
   assert.match(prompt, /【分析对象】/);
   assert.match(prompt, /分析对象：本命盘/);
-  assert.match(prompt, /资料说明：本次没有提供大限、流年、流月、流日或流时/);
+  assert.match(prompt, /应期范围：只给长期趋势和触发条件/);
+  assert.doesNotMatch(prompt, /本次没有提供大限、流年、流月、流日或流时/);
   assert.match(prompt, /【解读范围】/);
   assert.match(prompt, /本次只提供本命盘/);
   assert.match(prompt, /【解读方法】/);
