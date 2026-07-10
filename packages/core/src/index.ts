@@ -28,6 +28,8 @@ export * as wuxing from './wuxing/index';
 export * as direction from './direction/index';
 export * as shensha from './shensha/index';
 export * as foundation from './foundation/index';
+export * as profile from './profile/index';
+export * as capabilities from './capabilities/index';
 
 // 新增术数系统
 export * as bazhai from './ba_zhai/index';
@@ -37,6 +39,9 @@ export * as qizheng from './qi_zheng/index';
 
 // 全局配置
 export { configure } from './calendar/timeManager';
+export { getCapabilities, getSystemCapability } from './capabilities/index';
+export * from './profile/index';
+export type * from './capabilities/index';
 
 // Re-export shared types
 export type * from './types/index';

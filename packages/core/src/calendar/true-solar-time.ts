@@ -1,4 +1,5 @@
-import { daysInSolarMonth } from './date-validation';
+import { LunarHour, SolarTime } from 'tyme4ts';
+import { daysInSolarMonth, getBirthDateValidationMessage } from './date-validation';
 import { getShichenFromClock } from './dateUtils';
 import { checkChinaDst, type ChinaDstCheckResult } from './china-dst';
 
@@ -48,6 +49,30 @@ export interface TrueSolarTimeConversionResult extends TrueSolarTimeResult {
     branch: string;
     name: string;
   };
+}
+
+export interface TrueSolarBirthTimeInput {
+  dateType: 'solar' | 'lunar';
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second?: number;
+  isLeapMonth?: boolean;
+  longitude: number;
+  timezone?: number;
+  applyChinaDst?: boolean;
+}
+
+export interface TrueSolarBirthTimeResult extends TrueSolarTimeConversionResult {
+  inputDateType: 'solar' | 'lunar';
+  isLeapMonth: boolean;
+  /** 农历输入先转换为公历；公历输入保持原值。 */
+  solarClockTime: SolarDateTimeParts;
+  solarClockDateTime: string;
+  /** 与项目早子、晚子拆分口径一致的 0-12 时辰索引。 */
+  timeIndex: number;
 }
 
 const LOCAL_DATE_TIME_PATTERN = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/;
@@ -245,5 +270,64 @@ export function convertTrueSolarTime(
       branch: shichen.branch,
       name: shichen.name,
     },
+  };
+}
+
+/**
+ * 面向各类排盘的统一出生真太阳时入口。
+ * 统一处理公历/农历、闰月、时区、中国历史夏令时、跨日与时辰索引。
+ */
+export function resolveTrueSolarBirthTime(
+  input: TrueSolarBirthTimeInput,
+): TrueSolarBirthTimeResult {
+  if (input.dateType !== 'solar' && input.dateType !== 'lunar') {
+    throw new Error('dateType 必须是 solar 或 lunar。');
+  }
+  if (input.isLeapMonth !== undefined && typeof input.isLeapMonth !== 'boolean') {
+    throw new Error('isLeapMonth 必须是布尔值。');
+  }
+  const second = input.second ?? 0;
+  validateTimePart(input.hour, input.minute, second);
+  const dateMessage = getBirthDateValidationMessage({
+    year: input.year,
+    month: input.month,
+    day: input.day,
+    dateType: input.dateType,
+    isLeapMonth: input.isLeapMonth,
+  });
+  if (dateMessage) throw new Error(dateMessage);
+
+  const solarTime =
+    input.dateType === 'lunar'
+      ? LunarHour.fromYmdHms(
+          input.year,
+          input.isLeapMonth ? -Math.abs(input.month) : input.month,
+          input.day,
+          input.hour,
+          input.minute,
+          second,
+        ).getSolarTime()
+      : SolarTime.fromYmdHms(input.year, input.month, input.day, input.hour, input.minute, second);
+  const solarClockTime: SolarDateTimeParts = {
+    year: solarTime.getYear(),
+    month: solarTime.getMonth(),
+    day: solarTime.getDay(),
+    hour: solarTime.getHour(),
+    minute: solarTime.getMinute(),
+    second: solarTime.getSecond(),
+  };
+  const converted = convertTrueSolarTime({
+    localDateTime: formatSolarDateTimeParts(solarClockTime),
+    longitude: input.longitude,
+    timezone: input.timezone,
+    applyChinaDst: input.applyChinaDst,
+  });
+  return {
+    ...converted,
+    inputDateType: input.dateType,
+    isLeapMonth: input.isLeapMonth ?? false,
+    solarClockTime,
+    solarClockDateTime: formatSolarDateTimeParts(solarClockTime),
+    timeIndex: converted.shichen.index,
   };
 }

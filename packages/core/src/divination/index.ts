@@ -10,10 +10,12 @@ export * as almanac from './algorithms/almanac';
 export * as ssgw from './algorithms/ssgw';
 export * as lenormand from './algorithms/lenormand';
 export * as astrolabe from './algorithms/astrolabe';
+export * as astrolabeScope from './astrolabe-scope';
 
 export * from './config';
 export * from './engine/liuyao-template';
 export * from './engine/liuren-template';
 export * from './engine/method-text';
+export * from './astrolabe-scope';
 
 export type * from '../types/index';

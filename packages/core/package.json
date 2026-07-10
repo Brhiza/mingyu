@@ -51,6 +51,10 @@
       "import": "./dist/divination/algorithms/astrolabe.js",
       "types": "./dist/divination/algorithms/astrolabe.d.ts"
     },
+    "./divination/astrolabe-scope": {
+      "import": "./dist/divination/astrolabe-scope.js",
+      "types": "./dist/divination/astrolabe-scope.d.ts"
+    },
     "./divination/config": {
       "import": "./dist/divination/config.js",
       "types": "./dist/divination/config.d.ts"
@@ -91,6 +95,10 @@
       "import": "./dist/ziwei/iztro/index.js",
       "types": "./dist/ziwei/iztro/index.d.ts"
     },
+    "./ziwei/true-solar-input": {
+      "import": "./dist/ziwei/true-solar-input.js",
+      "types": "./dist/ziwei/true-solar-input.d.ts"
+    },
     "./birth-time-reverse": {
       "import": "./dist/birth-time-reverse/index.js",
       "types": "./dist/birth-time-reverse/index.d.ts"
@@ -118,6 +126,14 @@
     "./foundation": {
       "import": "./dist/foundation/index.js",
       "types": "./dist/foundation/index.d.ts"
+    },
+    "./profile": {
+      "import": "./dist/profile/index.js",
+      "types": "./dist/profile/index.d.ts"
+    },
+    "./capabilities": {
+      "import": "./dist/capabilities/index.js",
+      "types": "./dist/capabilities/index.d.ts"
     },
     "./bazhai": {
       "import": "./dist/ba_zhai/index.js",

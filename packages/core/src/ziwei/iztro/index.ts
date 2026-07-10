@@ -20,3 +20,8 @@ export { mapStarFact } from './build-analysis-payload/helpers/mappers';
 export { getCurrentScopeItem } from './build-analysis-payload/helpers/scope';
 export { detectPatterns } from './pattern-detection';
 export { buildEvidencePool } from './build-evidence-pool';
+export {
+  resolveZiweiTrueSolarBirth,
+  type ZiweiTrueSolarBirth,
+  type ZiweiTrueSolarInput,
+} from '../true-solar-input';

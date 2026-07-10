@@ -98,6 +98,43 @@ test('bazhai: 命宅配合', () => {
   assert.ok(r.prompt.includes('证据边界'));
 });
 
+test('bazhai: 从大门面向屋内的度数可直接生成传统坐向与完整八宅结果', () => {
+  const r = core.bazhai.analyzeBaZhaiByDoorDegree({
+    birthYear: 1990,
+    birthMonth: 6,
+    birthDay: 15,
+    gender: 'male',
+    doorToInteriorDegree: 0,
+  });
+  assert.equal(r.directionMeasurement.measuredDegree, 0);
+  assert.equal(r.directionMeasurement.sitDegree, 0);
+  assert.equal(r.directionMeasurement.sitMountain, '子');
+  assert.equal(r.directionMeasurement.facingDegree, 180);
+  assert.equal(r.directionMeasurement.facingMountain, '午');
+  assert.equal(r.directionMeasurement.label, '子山午向');
+  assert.equal(r.houseGua, '坎');
+  assert.equal(r.match, '相合');
+  assert.match(r.directionMeasurement.promptText, /站在大门处面向屋内/);
+});
+
+test('bazhai: 入户度数便捷入口应拒绝越界、非有限值与二十四山分界线', () => {
+  for (const degree of [-1, 361, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.throws(
+      () => core.bazhai.getBaZhaiSitFacingFromDoorDegree(degree),
+      /0-360 之间的有限数字/,
+    );
+  }
+  assert.throws(
+    () =>
+      core.bazhai.analyzeBaZhaiByDoorDegree({
+        birthYear: 1990,
+        gender: 'male',
+        doorToInteriorDegree: 7.5,
+      }),
+    /分界线/,
+  );
+});
+
 test('bazhai: 完整出生日期应按立春边界调整命卦年份', () => {
   const before = core.bazhai.analyzeBaZhai({
     birthYear: 1990,

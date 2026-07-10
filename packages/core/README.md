@@ -51,6 +51,41 @@ yarn add mingyu-core
 
 ---
 
+## 统一出生档案与能力发现
+
+应用可以只维护一份 `BirthProfile`，再按需要转换为八字、星盘或择日的既有输入。未知时辰会被明确标记，不会静默代入中午、子时等占位值：
+
+```ts
+import { normalizeBirthProfile, getCapabilities } from 'mingyu-core';
+
+const profile = {
+  gender: 'female',
+  calendarType: 'solar',
+  year: 1990,
+  month: 5,
+  day: 15,
+  unknownTime: true,
+} as const;
+
+const normalized = normalizeBirthProfile(profile);
+// normalized.hasKnownTime === false
+// normalized.diagnostics[0].code === 'UNKNOWN_BIRTH_TIME'
+
+const capabilities = getCapabilities();
+// 可用于生成算法入口、输入项和依赖提示
+```
+
+也可按子路径引入：
+
+```ts
+import { normalizeBirthProfile } from 'mingyu-core/profile';
+import { getCapabilities } from 'mingyu-core/capabilities';
+```
+
+`getCapabilities()` 返回可序列化副本，包含各系统支持的起法、输入、输出、随机种子、真太阳时、未知时辰、批量计算和可选依赖状态。能力清单只描述核心包真实提供的能力，不把页面、本地报告或历史记录算作核心能力。
+
+---
+
 ## 模块总览
 
 | 模块                   | 子路径                                                                                                                                        | 说明                                                                                                 |
@@ -66,6 +101,8 @@ yarn add mingyu-core
 | **雷诺曼 Lenormand**   | `mingyu-core/divination/lenormand`                                                                                                            | 36 张牌、8 种牌阵、牌义组合                                                                          |
 | **西洋占星 Astrolabe** | `mingyu-core/divination/astrolabe`                                                                                                            | 本命盘、Placidus 宫位、行星、凯龙/四小行星/交点/莉莉丝/福点等扩展点、相位与行运                      |
 | **历法 Calendar**      | `mingyu-core/calendar`                                                                                                                        | 农历、干支、节气、空亡、真太阳时                                                                     |
+| **出生档案 Profile**   | `mingyu-core/profile`                                                                                                                         | 统一公农历、闰月、时辰、地点与真太阳时输入，并提供既有算法适配器                                     |
+| **能力发现**           | `mingyu-core/capabilities`                                                                                                                    | 查询算法输入、输出、起法、依赖、随机复现和未知时辰支持状态                                           |
 | **类型 Types**         | `mingyu-core/types`                                                                                                                           | 所有共享类型定义                                                                                     |
 | **占法配置 Config**    | `mingyu-core/divination/config`                                                                                                               | 占法列表、起盘方式和前端共享配置                                                                     |
 | **占法提示文本**       | `mingyu-core/divination/engine/method-text`、`mingyu-core/divination/engine/liuyao-template`、`mingyu-core/divination/engine/liuren-template` | 占法方法说明与六爻、大六壬问题范围提示                                                               |
@@ -218,6 +255,55 @@ import {
 } from 'mingyu-core';
 
 const house = bazhai.analyzeBaZhai({ birthYear: 1990, gender: 'male', sitMountain: '子' });
+const houseByDoorDegree = bazhai.analyzeBaZhaiByDoorDegree({
+  birthYear: 1990,
+  birthMonth: 6,
+  birthDay: 15,
+  gender: 'male',
+  // 站在大门处面向屋内时的指南针读数；无需自行反转 180° 或换算二十四山
+  doorToInteriorDegree: 0,
+});
+console.log(houseByDoorDegree.directionMeasurement); // 子山午向、坐向度数与测量说明
+import { resolveZiweiTrueSolarBirth } from 'mingyu-core/ziwei/true-solar-input';
+const ziweiTrueSolarBirth = resolveZiweiTrueSolarBirth({
+  dateType: 'solar',
+  year: '1990',
+  month: '6',
+  day: '15',
+  isLeapMonth: false,
+  birthHour: '0',
+  birthMinute: '10',
+  birthLongitude: '116.4074',
+});
+console.log(ziweiTrueSolarBirth); // 校正后的公历日期与紫微时辰索引
+const sharedTrueSolarBirth = calendar.resolveTrueSolarBirthTime({
+  dateType: 'lunar',
+  year: 1990,
+  month: 5,
+  day: 23,
+  hour: 12,
+  minute: 0,
+  longitude: 116.4074,
+  timezone: 8,
+  applyChinaDst: true,
+});
+console.log(sharedTrueSolarBirth.correctedDateTime, sharedTrueSolarBirth.timeIndex);
+import { buildAstrolabeScopeContext } from 'mingyu-core/divination/astrolabe-scope';
+import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+const natalAstrolabe = generateAstrolabe({
+  name: '本人',
+  gender: '男',
+  year: '1990',
+  month: '6',
+  day: '15',
+  hour: '12',
+  minute: '0',
+  latitude: '39.9',
+  longitude: '116.4',
+  timezone: '8',
+});
+const yearlyAstrolabe = buildAstrolabeScopeContext(natalAstrolabe, 'yearly', '2028');
+console.log(yearlyAstrolabe.displayText, yearlyAstrolabe.promptText);
 const zodiacYear = zodiac.getZodiacYearFortune('午', '甲辰');
 const taiyiChart = taiyi.generateTaiyi({ year: 2004, scope: 'year' });
 const taiyiHourChart = taiyi.generateTaiyi({
@@ -324,6 +410,16 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `drawRandomSign(date?, options?)`                                    | 三山国王灵签；`options.seed` 可复现                        |
 | `drawLenormandSpread(spreadType?, options?)`                         | 雷诺曼牌阵；`options.seed` 可复现                          |
 | `generateAstrolabe(input)`                                           | 西洋星盘                                                   |
+| `buildAstrolabeScopeContext(data, scope, date?)`                     | 星盘本命、流年、流月、流日行运与证据资料                   |
+
+### 历法与术数便捷入口
+
+| 导出                                                       | 说明                                                       |
+| ---------------------------------------------------------- | ---------------------------------------------------------- |
+| `calendar.resolveTrueSolarBirthTime(input)`                | 公历/农历出生真太阳时、夏令时、跨日和时辰索引统一换算      |
+| `bazhai.analyzeBaZhaiByDoorDegree(input)`                  | 按“从大门面向屋内”的实测度数生成完整八宅结果              |
+| `bazhai.getBaZhaiSitFacingFromDoorDegree(degree)`          | 将入户实测度数换算成传统坐山、朝向与二十四山               |
+| `resolveZiweiTrueSolarBirth(input)`                        | 紫微出生资料真太阳时日期与时辰索引适配                     |
 
 ### 类型（`mingyu-core/types`）
 

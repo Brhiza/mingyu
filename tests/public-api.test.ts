@@ -82,6 +82,7 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi/calculate'));
   assert.ok(body.data.endpoints.includes('GET /api/v1/foundation/capabilities'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/true-solar-time'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/true-solar-birth'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/ganzhi'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/wuxing'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi-ziwei/prompt'));
@@ -379,6 +380,28 @@ test('公开 API 应提供便捷真太阳时换算接口', async () => {
     });
     assert.equal(invalid.response.status, 400);
   }
+});
+
+test('公开 API 应提供统一公历农历出生真太阳时接口', async () => {
+  const { response, body } = await callApi('calendar/true-solar-birth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      dateType: 'lunar',
+      year: 1990,
+      month: 5,
+      day: 23,
+      hour: 12,
+      minute: 0,
+      longitude: 116.4074,
+      timezone: 8,
+    }),
+  });
+  assert.equal(response.status, 200);
+  assert.equal(body.data.inputDateType, 'lunar');
+  assert.match(body.data.solarClockDateTime, /^1990-\d{2}-\d{2}T12:00:00$/);
+  assert.equal(typeof body.data.timeIndex, 'number');
+  assert.equal(typeof body.data.correctedDateTime, 'string');
 });
 
 test('公开 API 应提供公共地基能力、六十甲子与五行接口', async () => {
@@ -2084,7 +2107,7 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
     body: JSON.stringify({
       birthYear: 1990,
       gender: 'male',
-      sitMountain: '子',
+      doorToInteriorDegree: 0,
       question: '住宅办公方位怎么安排？',
     }),
   });
@@ -2092,6 +2115,8 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
   assert.match(body.data.prompt, /【八宅风水排盘】/);
+  assert.match(body.data.prompt, /【测量换算】/);
+  assert.match(body.data.prompt, /站在大门处面向屋内/);
   assert.match(body.data.prompt, /【当前时间】/);
   assert.match(body.data.prompt, /【问题】\n住宅办公方位怎么安排？/);
   assert.match(body.data.prompt, /【任务】/);

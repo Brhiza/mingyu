@@ -16,6 +16,19 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
     'calendar_true_solar_time',
     { localDateTime: '1990-05-15T10:30:00', longitude: 116.4074, timezone: 8 },
   ],
+  [
+    'calendar_true_solar_birth',
+    {
+      dateType: 'solar',
+      year: 1990,
+      month: 5,
+      day: 15,
+      hour: 10,
+      minute: 30,
+      longitude: 116.4074,
+      timezone: 8,
+    },
+  ],
   ['divine_qimen', {}],
   [
     'divine_almanac',
@@ -41,7 +54,7 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
     'bazi_calculate',
     { gender: 'male', year: 1990, month: 5, day: 15, timeIndex: 1, dateType: 'solar' },
   ],
-  ['metaphysics_bazhai', { birthYear: 1990, gender: 'male' }],
+  ['metaphysics_bazhai', { birthYear: 1990, gender: 'male', doorToInteriorDegree: 0 }],
   ['metaphysics_zodiac', { zodiac: '鼠', year: 2024 }],
   ['metaphysics_taiyi', { year: 2004, scope: 'year' }],
   ['metaphysics_qizheng', { year: 2024, month: 6, day: 15, hour: 12 }],
@@ -100,7 +113,12 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
   ],
   [
     'bazhai_prompt',
-    { birthYear: 1990, gender: 'male', sitMountain: '子', question: '办公桌朝向怎么选？' },
+    {
+      birthYear: 1990,
+      gender: 'male',
+      doorToInteriorDegree: 0,
+      question: '办公桌朝向怎么选？',
+    },
     /【问题】\n办公桌朝向怎么选？/,
   ],
 ];
@@ -147,7 +165,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 37);
+    assert.equal(tools.length, 38);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
@@ -214,6 +232,28 @@ test('MCP 真太阳时工具应返回换算资料并拒绝带时区后缀的钟�
     assert.equal(invalid.isError, true);
     const text = invalid.content[0]?.type === 'text' ? invalid.content[0].text : '';
     assert.match(text, /不要附带时区偏移/);
+  });
+});
+
+test('MCP 统一出生真太阳时工具应支持农历与跨日资料', async () => {
+  await withMcpClient(async (client) => {
+    const result = await client.callTool({
+      name: 'calendar_true_solar_birth',
+      arguments: {
+        dateType: 'lunar',
+        year: 1990,
+        month: 5,
+        day: 23,
+        hour: 12,
+        minute: 0,
+        longitude: 116.4074,
+        timezone: 8,
+      },
+    });
+    assert.equal(result.isError, undefined);
+    assert.equal(result.structuredContent?.result.inputDateType, 'lunar');
+    assert.equal(typeof result.structuredContent?.result.solarClockDateTime, 'string');
+    assert.equal(typeof result.structuredContent?.result.timeIndex, 'number');
   });
 });
 

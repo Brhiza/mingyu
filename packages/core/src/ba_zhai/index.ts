@@ -12,7 +12,9 @@ import {
   getEightMansion,
   getEastWestGroup,
   getBaZhaiPalace,
+  getSitFacingFromFacingDegree,
   type BaZhaiPalace,
+  type SitFacingPosition,
 } from '../direction';
 
 export interface BaZhaiInput {
@@ -46,6 +48,44 @@ export interface BaZhaiResult {
   luckyDirections: BaZhaiPalace[];
   unluckyDirections: BaZhaiPalace[];
   prompt: string;
+}
+
+/** 从大门处面向屋内测量的八宅便捷入参。 */
+export interface BaZhaiDoorDegreeInput extends Omit<BaZhaiInput, 'sitMountain'> {
+  /** 站在大门处面向屋内时的指南针读数，正北为 0°，顺时针增加。 */
+  doorToInteriorDegree: number;
+}
+
+/** 入户测量读数换算成传统坐山朝向后的完整资料。 */
+export interface BaZhaiDoorMeasurement {
+  method: '站在大门处面向屋内测量';
+  measuredDegree: number;
+  facingDegree: number;
+  facingMountain: string;
+  sitDegree: number;
+  sitMountain: string;
+  label: string;
+  promptText: string;
+}
+
+export interface BaZhaiDoorDegreeResult extends BaZhaiResult {
+  directionMeasurement: BaZhaiDoorMeasurement;
+}
+
+/**
+ * 将“从大门面向屋内”的指南针读数换算为八宅传统坐山朝向。
+ * 例如读数 0° 表示从大门向屋内看正北，对应子山午向。
+ */
+export function getBaZhaiSitFacingFromDoorDegree(doorToInteriorDegree: number): SitFacingPosition {
+  if (
+    typeof doorToInteriorDegree !== 'number' ||
+    !Number.isFinite(doorToInteriorDegree) ||
+    doorToInteriorDegree < 0 ||
+    doorToInteriorDegree > 360
+  ) {
+    throw new Error('大门朝向屋内的度数必须是 0-360 之间的有限数字。');
+  }
+  return getSitFacingFromFacingDegree((doorToInteriorDegree + 180) % 360);
 }
 
 function resolveEffectiveBirthYear(input: BaZhaiInput): {
@@ -194,4 +234,35 @@ export function analyzeBaZhai(input: BaZhaiInput): BaZhaiResult {
   return { ...result, prompt: buildPrompt(result) };
 }
 
-export const bazhai = { analyzeBaZhai };
+/**
+ * 直接使用“从大门面向屋内”的指南针读数生成完整八宅结果。
+ * 调用方无需自行换算相反方向或二十四山。
+ */
+export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiDoorDegreeResult {
+  const { doorToInteriorDegree, ...birthInput } = input;
+  const { facing, sit, label } = getBaZhaiSitFacingFromDoorDegree(doorToInteriorDegree);
+  if (facing.isBoundary) {
+    const boundary = facing.boundaryMountains?.join('向与') ?? '两个二十四山';
+    throw new Error(`当前度数正好位于${boundary}向的分界线，请重新测量。`);
+  }
+  const result = analyzeBaZhai({ ...birthInput, sitMountain: sit.mountain });
+  return {
+    ...result,
+    directionMeasurement: {
+      method: '站在大门处面向屋内测量',
+      measuredDegree: doorToInteriorDegree,
+      facingDegree: facing.degree,
+      facingMountain: facing.mountain,
+      sitDegree: sit.degree,
+      sitMountain: sit.mountain,
+      label,
+      promptText: `测量方式：站在大门处面向屋内，指南针读数为 ${doorToInteriorDegree}°。换算后住宅坐山 ${sit.degree}° 为${sit.mountain}山，传统朝向 ${facing.degree}° 为${facing.mountain}向，结果为${label}。`,
+    },
+  };
+}
+
+export const bazhai = {
+  analyzeBaZhai,
+  analyzeBaZhaiByDoorDegree,
+  getBaZhaiSitFacingFromDoorDegree,
+};

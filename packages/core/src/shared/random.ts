@@ -4,6 +4,9 @@ export type RandomSource = () => number;
 
 export interface RandomOptions {
   seed?: string | number;
+  /** 自定义随机源的推荐字段名。 */
+  random?: RandomSource;
+  /** @deprecated 请改用 random；为兼容既有调用暂时保留。 */
   rng?: RandomSource;
 }
 
@@ -33,11 +36,15 @@ export function createSeededRandom(seed: string | number): RandomSource {
 
 export function createRandomSource(options?: RandomOptions): RandomSource {
   assertOptionalRecord(options, '随机选项');
-  if (options?.rng !== undefined) {
-    if (typeof options.rng !== 'function') {
+  if (options?.random !== undefined && options.rng !== undefined) {
+    throw new Error('random 与 rng 不能同时提供。');
+  }
+  const customRandom = options?.random ?? options?.rng;
+  if (customRandom !== undefined) {
+    if (typeof customRandom !== 'function') {
       throw new Error('自定义随机源必须是函数。');
     }
-    return options.rng;
+    return customRandom;
   }
   if (options?.seed !== undefined) {
     if (typeof options.seed !== 'string' && typeof options.seed !== 'number') {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveZiweiTrueSolarBirth } from '../src/lib/ziwei/true-solar-input';
+import { resolveZiweiTrueSolarBirth } from 'mingyu-core/ziwei/true-solar-input';
 import { buildZiweiChartInput } from '../src/lib/full-chart-engine/ziwei';
 import { calculateEquationOfTimeMinutes, calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';

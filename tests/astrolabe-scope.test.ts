@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildAstrolabeScopeContext } from '../src/lib/astrolabe-scope';
+import { buildAstrolabeScopeContext } from 'mingyu-core/divination/astrolabe-scope';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import type { AstrolabeData } from 'mingyu-core/types';
 

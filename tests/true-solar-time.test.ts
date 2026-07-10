@@ -6,6 +6,7 @@ import {
   checkChinaDst,
   convertTrueSolarTime,
   parseLocalDateTime,
+  resolveTrueSolarBirthTime,
 } from 'mingyu-core/calendar';
 import { calculateTrueSolarTime as legacyCalculateTrueSolarTime } from '../packages/core/src/bazi/trueSolarTime.ts';
 import { checkChinaDst as legacyCheckChinaDst } from '../packages/core/src/bazi/chinaDst.ts';
@@ -87,4 +88,52 @@ test('真太阳时便捷入口应拒绝含时区后缀、非法日期和越界�
       }),
     /timezone需在/,
   );
+});
+
+test('统一出生真太阳时入口应处理公历、农历、跨日和时辰索引', () => {
+  const solar = resolveTrueSolarBirthTime({
+    dateType: 'solar',
+    year: 2020,
+    month: 8,
+    day: 1,
+    hour: 0,
+    minute: 40,
+    longitude: 75.99,
+    timezone: 8,
+  });
+  assert.equal(solar.inputDateType, 'solar');
+  assert.equal(solar.crossesDate, true);
+  assert.equal(solar.correctedTime.day, 31);
+  assert.equal(solar.timeIndex, solar.shichen.index);
+
+  const lunar = resolveTrueSolarBirthTime({
+    dateType: 'lunar',
+    year: 1990,
+    month: 5,
+    day: 23,
+    hour: 12,
+    minute: 0,
+    longitude: 116.4074,
+    timezone: 8,
+  });
+  assert.equal(lunar.inputDateType, 'lunar');
+  assert.notEqual(lunar.solarClockTime.month, 5);
+  assert.match(lunar.solarClockDateTime, /^1990-\d{2}-\d{2}T12:00:00$/);
+  assert.ok(lunar.timeIndex >= 0 && lunar.timeIndex <= 12);
+});
+
+test('统一出生真太阳时入口应集中处理中国历史夏令时', () => {
+  const result = resolveTrueSolarBirthTime({
+    dateType: 'solar',
+    year: 1988,
+    month: 7,
+    day: 15,
+    hour: 12,
+    minute: 0,
+    longitude: 116.4074,
+    timezone: 8,
+    applyChinaDst: true,
+  });
+  assert.equal(result.chinaDst.applied, true);
+  assert.equal(result.standardDateTime, '1988-07-15T11:00:00');
 });

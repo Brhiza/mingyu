@@ -25,8 +25,33 @@ const baZhaiSchema = z.object({
     .refine((value) => TWENTY_FOUR_MOUNTAINS.includes(value), 'sitMountain 必须是有效二十四山')
     .optional()
     .describe('坐山（二十四山，如「子」），用于推宅卦'),
+  doorToInteriorDegree: z
+    .number()
+    .min(0)
+    .max(360)
+    .optional()
+    .describe('站在大门处面向屋内的指南针读数；与 sitMountain 二选一'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
+
+function calculateBaZhai(args: z.infer<typeof baZhaiSchema>) {
+  if (args.sitMountain && args.doorToInteriorDegree !== undefined) {
+    throw new Error('sitMountain 与 doorToInteriorDegree 只能提供一个。');
+  }
+  const baseInput = {
+    birthYear: args.birthYear,
+    birthMonth: args.birthMonth,
+    birthDay: args.birthDay,
+    gender: args.gender,
+    mingGua: args.mingGua,
+  };
+  return args.doorToInteriorDegree !== undefined
+    ? bazhai.analyzeBaZhaiByDoorDegree({
+        ...baseInput,
+        doorToInteriorDegree: args.doorToInteriorDegree,
+      })
+    : bazhai.analyzeBaZhai({ ...baseInput, sitMountain: args.sitMountain });
+}
 
 export function registerBaZhaiTool(server: McpServer) {
   server.registerTool(
@@ -39,14 +64,7 @@ export function registerBaZhaiTool(server: McpServer) {
     },
     async (args) => {
       try {
-        const result = bazhai.analyzeBaZhai({
-          birthYear: args.birthYear,
-          birthMonth: args.birthMonth,
-          birthDay: args.birthDay,
-          gender: args.gender,
-          mingGua: args.mingGua,
-          sitMountain: args.sitMountain,
-        });
+        const result = calculateBaZhai(args);
         return createStructuredToolResult({ result });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '八宅排盘失败'));
@@ -63,17 +81,13 @@ export function registerBaZhaiTool(server: McpServer) {
     },
     async (args) => {
       try {
-        const result = bazhai.analyzeBaZhai({
-          birthYear: args.birthYear,
-          birthMonth: args.birthMonth,
-          birthDay: args.birthDay,
-          gender: args.gender,
-          mingGua: args.mingGua,
-          sitMountain: args.sitMountain,
-        });
+        const result = calculateBaZhai(args);
         return createStructuredToolResult({
           result,
-          prompt: buildMetaphysicsPrompt(result.prompt, args.question),
+          prompt: buildMetaphysicsPrompt(result.prompt, args.question, {
+            measurement: (result as { directionMeasurement?: { promptText: string } })
+              .directionMeasurement?.promptText,
+          }),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成八宅提示词失败'));
