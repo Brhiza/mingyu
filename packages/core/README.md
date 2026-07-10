@@ -76,6 +76,7 @@ yarn add mingyu-core
 | **占卜辅助工具**       | `mingyu-core/divination/divination-helpers`                                                                                                   | 占卜通用格式与计算工具                                                                               |
 | **反推未知时辰**       | `mingyu-core/birth-time-reverse`                                                                                                              | 根据命盘特征反推时辰                                                                                 |
 | **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | iztro 封装、35 格局检测、证据池、大限时间线                                                          |
+| **七政四余 Qizheng**   | `mingyu-core/qizheng`                                                                                                                         | 七政、四余、二十八宿与十二宫；紫炁采用《七政算内篇》单一古法均速模型                                 |
 
 ---
 
@@ -203,25 +204,11 @@ const xiaoliuren = generateXiaoliuren({ method: 'time' });
 ### 公共地基与新增术数
 
 ```typescript
-import {
-  ganzhi,
-  wuxing,
-  direction,
-  shensha,
-  bazhai,
-  zodiac,
-  taiyi,
-  tieban,
-  qizheng,
-} from 'mingyu-core';
+import { ganzhi, wuxing, direction, shensha, bazhai, zodiac, taiyi, qizheng } from 'mingyu-core';
 
 const house = bazhai.analyzeBaZhai({ birthYear: 1990, gender: 'male', sitMountain: '子' });
 const zodiacYear = zodiac.getZodiacYearFortune('午', '甲辰');
 const taiyiChart = taiyi.generateTaiyi({ year: 2004, scope: 'year' });
-const tiebanChart = tieban.generateTieban({
-  pillars: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-  gender: 'male',
-});
 const qizhengChart = qizheng.generateQizheng({
   year: 2024,
   month: 6,
@@ -236,6 +223,8 @@ console.log(ganzhi.getNayin('甲子'));
 console.log(wuxing.tallyWuxing(['甲', '子', '丙', '午']));
 console.log(direction.getEightMansion('坎'));
 console.log(shensha.getHuangliShensha(2026, 7, 10));
+console.log(qizhengChart.ziqi); // 紫炁回归/恒星黄经、顺行速度与周天进度
+console.log(qizhengChart.ziqiModel.sources); // 古籍、开源复原及未采用对照来源
 ```
 
 ### 八字增强分析（从 vibebazi 整合）

@@ -24,7 +24,7 @@ import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
-import { bazhai, zodiac, taiyi, tieban, qizheng } from 'mingyu-core';
+import { bazhai, zodiac, taiyi, qizheng } from 'mingyu-core';
 import { getGanZhiFromDate, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
 import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
@@ -507,32 +507,18 @@ export function getPublicApiOpenApiDocument(
           responses: { '200': { description: '太乙盘与提示词' } },
         },
       },
-      '/metaphysics/tieban/calculate': {
-        post: {
-          summary: '铁板神数推算',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
-          responses: { '200': { description: '铁板先天/后天卦与条文' } },
-        },
-      },
-      '/metaphysics/tieban/prompt': {
-        post: {
-          summary: '铁板神数推算并生成提示词',
-          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
-          responses: { '200': { description: '铁板条文与提示词' } },
-        },
-      },
       '/metaphysics/qizheng/calculate': {
         post: {
           summary: '七政四余排盘',
           requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
-          responses: { '200': { description: '七政四余星盘' } },
+          responses: { '200': { description: '七政四余、紫炁模型与十二宫星盘' } },
         },
       },
       '/metaphysics/qizheng/prompt': {
         post: {
           summary: '七政四余排盘并生成提示词',
           requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
-          responses: { '200': { description: '七政四余星盘与提示词' } },
+          responses: { '200': { description: '七政四余星盘、紫炁模型与提示词' } },
         },
       },
       '/ai/analyze': {
@@ -669,7 +655,7 @@ export function getPublicApiOpenApiDocument(
               maximum: 2100,
               description: '出生公历年份（八宅推命卦）',
             },
-            gender: { enum: ['male', 'female'], description: '性别（八宅/铁板）' },
+            gender: { enum: ['male', 'female'], description: '性别（八宅）' },
             mingGua: { type: 'string', description: '直接给定命卦（八宅）' },
             sitMountain: { type: 'string', description: '坐山，如「子」（八宅）' },
             zodiac: { type: 'string', description: '生肖或地支，如「鼠」或「子」（生肖运程）' },
@@ -686,7 +672,6 @@ export function getPublicApiOpenApiDocument(
             hour: { type: 'integer', minimum: 0, maximum: 23 },
             minute: { type: 'integer', minimum: 0, maximum: 59 },
             ganZhi: { type: 'string', description: '直接给定干支（太乙）' },
-            keOffset: { type: 'integer', minimum: -3, maximum: 3, description: '考刻校正（铁板）' },
             latitude: { type: 'number', description: '纬度（七政四余）' },
             longitude: { type: 'number', description: '经度（七政四余）' },
             timezone: { type: 'number', description: '时区偏移（七政四余）' },
@@ -960,10 +945,6 @@ async function route(context: RouteContext) {
       return calculateTaiyiApi(await readJson(context.request));
     case 'metaphysics/taiyi/prompt':
       return buildTaiyiPrompt(await readJson(context.request));
-    case 'metaphysics/tieban/calculate':
-      return calculateTiebanApi(await readJson(context.request));
-    case 'metaphysics/tieban/prompt':
-      return buildTiebanPrompt(await readJson(context.request));
     case 'metaphysics/qizheng/calculate':
       return calculateQizhengApi(await readJson(context.request));
     case 'metaphysics/qizheng/prompt':
@@ -1096,31 +1077,6 @@ function calculateTaiyiApi(input: JsonRecord) {
 
 function buildTaiyiPrompt(input: JsonRecord) {
   const result = calculateTaiyiApi(input);
-  return buildPromptApiResult({
-    responseMode: readPromptResponseMode(input),
-    prompt: buildMetaphysicsPrompt(result.prompt, input),
-    fullResult: result,
-  });
-}
-
-function calculateTiebanApi(input: JsonRecord) {
-  const year = readInteger(input, 'year', 1900, 2200, new Date().getFullYear());
-  const month = optInt(input, 'month', 1, 12) ?? 1;
-  const day = optInt(input, 'day', 1, 31) ?? 1;
-  const hour = optInt(input, 'hour', 0, 23) ?? 0;
-  const minute = optInt(input, 'minute', 0, 59) ?? 0;
-  const gender = input.gender === 'female' ? 'female' : input.gender === 'male' ? 'male' : 'male';
-  const keOffset = optInt(input, 'keOffset', -3, 3);
-  return tieban.generateTieban({
-    date: buildSolarDate(year, month, day, hour, minute),
-    minute,
-    gender,
-    ...(keOffset !== undefined ? { keOffset } : {}),
-  });
-}
-
-function buildTiebanPrompt(input: JsonRecord) {
-  const result = calculateTiebanApi(input);
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
     prompt: buildMetaphysicsPrompt(result.prompt, input),

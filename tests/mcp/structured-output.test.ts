@@ -37,7 +37,6 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ['metaphysics_bazhai', { birthYear: 1990, gender: 'male' }],
   ['metaphysics_zodiac', { zodiac: '鼠', year: 2024 }],
   ['metaphysics_taiyi', { year: 2004, scope: 'year' }],
-  ['metaphysics_tieban', { year: 1984, month: 6, day: 15, hour: 10, gender: 'male' }],
   ['metaphysics_qizheng', { year: 2024, month: 6, day: 15, hour: 12 }],
 ];
 
@@ -116,7 +115,6 @@ const promptToolNames = [
   'bazhai_prompt',
   'zodiac_prompt',
   'taiyi_prompt',
-  'tieban_prompt',
   'qizheng_prompt',
 ];
 
@@ -142,7 +140,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 35);
+    assert.equal(tools.length, 33);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });

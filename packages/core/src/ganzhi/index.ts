@@ -173,7 +173,7 @@ export function getBranchIndex(branch: string): number {
   return idx;
 }
 
-/** 两干支相差的序数差（用于太乙、铁板等推算） */
+/** 两干支相差的序数差（用于太乙等推算） */
 export function diffGanZhi(from: string, to: string): number {
   const a = getSixtyCycleIndex(from);
   const b = getSixtyCycleIndex(to);

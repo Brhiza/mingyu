@@ -4,10 +4,9 @@ import { getGanZhiFromDate, EARTHLY_BRANCHES, ZODIACS } from '@core/ganzhi';
 import { TWENTY_FOUR_MOUNTAINS } from '@core/direction';
 import { getZodiacYearFortune } from '@core/zodiac';
 import { generateTaiyi } from '@core/taiyi';
-import { generateTieban } from '@core/tie_ban';
 import { generateQizheng } from '@core/qi_zheng';
 
-type MetaphysicsMethod = 'bazhai' | 'zodiac' | 'taiyi' | 'tieban' | 'qizheng';
+type MetaphysicsMethod = 'bazhai' | 'zodiac' | 'taiyi' | 'qizheng';
 
 const METHOD_OPTIONS: Array<{
   value: MetaphysicsMethod;
@@ -17,7 +16,6 @@ const METHOD_OPTIONS: Array<{
   { value: 'bazhai', label: '八宅', description: '按命卦与坐山查看四吉四凶方。' },
   { value: 'zodiac', label: '生肖', description: '查看流年犯太岁、贵人与运程等级。' },
   { value: 'taiyi', label: '太乙', description: '生成太乙局数、主客算与十六神盘。' },
-  { value: 'tieban', label: '铁板', description: '按出生时刻生成先后天卦与公开条文。' },
   { value: 'qizheng', label: '七政四余', description: '生成七政四余、十二宫与神煞。' },
 ];
 
@@ -82,7 +80,6 @@ export function MetaphysicsPanel() {
   const [hour, setHour] = useState('12');
   const [minute, setMinute] = useState('0');
   const [scope, setScope] = useState<'year' | 'month' | 'day' | 'hour'>('year');
-  const [keOffset, setKeOffset] = useState('0');
   const [latitude, setLatitude] = useState('39.9042');
   const [longitude, setLongitude] = useState('116.4074');
   const [timezone, setTimezone] = useState('8');
@@ -134,13 +131,6 @@ export function MetaphysicsPanel() {
             year: targetYear,
             date,
           }) as unknown as Record<string, unknown> & { prompt: string };
-        } else if (method === 'tieban') {
-          nextResult = generateTieban({
-            date,
-            minute: targetMinute,
-            gender,
-            keOffset: readInteger(keOffset, '考刻校正', -3, 3),
-          }) as unknown as Record<string, unknown> & { prompt: string };
         } else {
           nextResult = generateQizheng({
             year: targetYear,
@@ -172,14 +162,14 @@ export function MetaphysicsPanel() {
     }
   }
 
-  const showDateFields = method === 'taiyi' || method === 'tieban' || method === 'qizheng';
+  const showDateFields = method === 'taiyi' || method === 'qizheng';
 
   return (
     <div className="metaphysics-panel-shell">
       <section className="person-section divination-form-card">
         <div className="person-section-head">
           <h2>传统术数</h2>
-          <p>五个新增系统已可直接在网页排盘，并生成可复制给 AI 的结构化提示词。</p>
+          <p>四个可核验系统可直接在网页排盘，并生成可复制给 AI 的结构化提示词。</p>
         </div>
 
         <div className="divination-method-grid metaphysics-method-grid">
@@ -344,33 +334,6 @@ export function MetaphysicsPanel() {
                   <option value="day">日家</option>
                   <option value="hour">时家</option>
                 </select>
-              </div>
-            </div>
-          ) : null}
-
-          {method === 'tieban' ? (
-            <div className="form-row">
-              <div className="form-item">
-                <label htmlFor="metaphysics-tieban-gender">性别</label>
-                <select
-                  id="metaphysics-tieban-gender"
-                  className="form-input"
-                  value={gender}
-                  onChange={(event) => setGender(event.target.value as 'male' | 'female')}
-                >
-                  <option value="male">男</option>
-                  <option value="female">女</option>
-                </select>
-              </div>
-              <div className="form-item">
-                <label htmlFor="metaphysics-ke-offset">考刻校正（-3 至 3）</label>
-                <input
-                  id="metaphysics-ke-offset"
-                  className="form-input"
-                  inputMode="numeric"
-                  value={keOffset}
-                  onChange={(event) => setKeOffset(event.target.value.replace(/[^\d-]/g, ''))}
-                />
               </div>
             </div>
           ) : null}

@@ -1998,10 +1998,36 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
   assert.match(body.data.prompt, /【输出要求】/);
 });
 
+test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完整位置元数据', async () => {
+  const { response, body } = await callApi('metaphysics/qizheng/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      year: 1995,
+      month: 12,
+      day: 31,
+      hour: 8,
+      timezone: 8,
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.data.ziqiModel.id, 'qizhengsuan-naepyeon-mean-motion');
+  assert.equal(body.data.ziqiModel.direction, '顺行');
+  assert.equal(body.data.ziqiModel.periodDays, 10227.1792);
+  assert.ok(Math.abs(body.data.ziqi.tropicalLongitude - 237.038993) < 1e-9);
+  assert.equal(body.data.stars.filter((star: { kind: string }) => star.kind === '四余').length, 4);
+  assert.equal(
+    body.data.ziqiModel.sources.filter((source: { usage: string }) => source.usage === '未采用')
+      .length,
+    2,
+  );
+});
+
 test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async () => {
   const cases = [
     ['metaphysics/bazhai/calculate', { birthYear: 1990 }],
-    ['metaphysics/tieban/calculate', { year: 2026, month: 2, day: 30 }],
     ['metaphysics/qizheng/calculate', { year: 2026, month: 1, day: 1, hour: 12, latitude: 120 }],
   ] as const;
 
@@ -2014,6 +2040,17 @@ test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async 
     assert.equal(response.status, 400, path);
     assert.equal(body.error.code, 'BAD_REQUEST', path);
   }
+});
+
+test('公开 API 不应继续暴露已移除的铁板神数端点', async () => {
+  const { response, body } = await callApi('metaphysics/tieban/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ year: 2026, month: 1, day: 1, hour: 12 }),
+  });
+
+  assert.equal(response.status, 404);
+  assert.equal(body.error.code, 'NOT_FOUND');
 });
 
 test('公开 API 未知异常不应向调用方暴露内部错误细节', async () => {

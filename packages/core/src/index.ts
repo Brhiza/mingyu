@@ -32,7 +32,6 @@ export * as shensha from './shensha/index';
 export * as bazhai from './ba_zhai/index';
 export * as zodiac from './zodiac/index';
 export * as taiyi from './taiyi/index';
-export * as tieban from './tie_ban/index';
 export * as qizheng from './qi_zheng/index';
 
 // 全局配置

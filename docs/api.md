@@ -80,8 +80,6 @@
 | `POST /metaphysics/zodiac/prompt`     | 生肖流年排盘并生成 AI 解读提示词                                               |
 | `POST /metaphysics/taiyi/calculate`   | 太乙神数排盘                                                                   |
 | `POST /metaphysics/taiyi/prompt`      | 太乙神数排盘并生成 AI 解读提示词                                               |
-| `POST /metaphysics/tieban/calculate`  | 铁板神数先后天卦与公开条文                                                     |
-| `POST /metaphysics/tieban/prompt`     | 铁板神数排盘并生成 AI 解读提示词                                               |
 | `POST /metaphysics/qizheng/calculate` | 七政四余排盘                                                                   |
 | `POST /metaphysics/qizheng/prompt`    | 七政四余排盘并生成 AI 解读提示词                                               |
 | `POST /ai/analyze`                    | AI 解读，返回 SSE 流式响应                                                     |
@@ -99,7 +97,7 @@
 4. 用户要从一段日期里挑日子，优先用 `POST /divination/almanac/prompt`；日期超过 31 天或参与人很多时分页调用。
 5. 用户提供西方占星所需的出生时间、地点、经纬度或明确要求星盘时，用 `POST /divination/astrolabe/prompt`。
 6. 用户只想要轻量灵感、心理牌面或不提供出生信息时，可用塔罗、雷诺曼、灵签等提示词接口。
-7. 用户明确要求八宅、生肖犯太岁、太乙、铁板或七政四余时，使用对应的 `/metaphysics/{method}/prompt`；只需结构化排盘时改用 `/calculate`。
+7. 用户明确要求八宅、生肖犯太岁、太乙或七政四余时，使用对应的 `/metaphysics/{method}/prompt`；只需结构化排盘时改用 `/calculate`。
 
 常见问题到推荐接口：
 
@@ -122,8 +120,7 @@
 | 住宅命卦、坐山吉凶                 | `POST /metaphysics/bazhai/prompt`        | `birthYear`、`gender`、可选 `sitMountain`                                              | 适合八宅命宅配合与方位参考                        |
 | 生肖犯太岁、流年贵人               | `POST /metaphysics/zodiac/prompt`        | `zodiac`、`year` 或 `yearGanZhi`                                                       | 生肖可传“鼠”或“子”                                |
 | 太乙神数                           | `POST /metaphysics/taiyi/prompt`         | `scope`、`year`，月日时家补充 `month/day/hour`                                         | 支持年、月、日、时家                              |
-| 铁板神数                           | `POST /metaphysics/tieban/prompt`        | 出生年月日时分、`gender`、可选 `keOffset`                                              | 完整一万二千条非公开，当前返回公开条文框架        |
-| 七政四余                           | `POST /metaphysics/qizheng/prompt`       | 出生年月日时分、经纬度、时区                                                           | 紫炁宿度使用公开可复现的近似口径                  |
+| 七政四余                           | `POST /metaphysics/qizheng/prompt`       | 出生年月日时分、经纬度、时区                                                           | 紫炁采用《七政算内篇》单一古法均速模型            |
 
 参数选择建议：
 
