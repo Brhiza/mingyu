@@ -1,0 +1,80 @@
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { qizheng } from 'mingyu-core';
+import { resultOutputSchema, promptOutputSchema } from '../schemas.js';
+import {
+  createErrorToolResult,
+  createStructuredToolResult,
+  getErrorMessage,
+} from '../tool-results.js';
+import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
+
+const qiZhengSchema = z.object({
+  year: z.number().int().min(1900).max(2200).optional().describe('公元年（默认今年）'),
+  month: z.number().int().min(1).max(12).optional().describe('月'),
+  day: z.number().int().min(1).max(31).optional().describe('日'),
+  hour: z.number().int().min(0).max(23).optional().describe('时'),
+  minute: z.number().int().min(0).max(59).optional().describe('分'),
+  latitude: z.number().optional().describe('纬度（默认北京）'),
+  longitude: z.number().optional().describe('经度（默认北京）'),
+  timezone: z.number().optional().describe('时区偏移（默认 +8）'),
+  question: z.string().optional().describe('希望 AI 重点解读的问题'),
+});
+
+export function registerQizhengTool(server: McpServer) {
+  server.registerTool(
+    'metaphysics_qizheng',
+    {
+      description:
+        '七政四余（果老星宗）：以日月五星为七政、罗睺计都月孛紫炁为四余，立命身宫、排十二宫、二十八宿宿度与庙旺神煞',
+      inputSchema: qiZhengSchema.shape,
+      outputSchema: resultOutputSchema,
+    },
+    async (args) => {
+      try {
+        const result = qizheng.generateQizheng({
+          year: args.year ?? new Date().getFullYear(),
+          month: args.month ?? 1,
+          day: args.day ?? 1,
+          hour: args.hour ?? 12,
+          minute: args.minute ?? 0,
+          ...(args.latitude !== undefined ? { latitude: args.latitude } : {}),
+          ...(args.longitude !== undefined ? { longitude: args.longitude } : {}),
+          ...(args.timezone !== undefined ? { timezone: args.timezone } : {}),
+        });
+        return createStructuredToolResult({ result });
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '七政四余排盘失败'));
+      }
+    },
+  );
+
+  server.registerTool(
+    'qizheng_prompt',
+    {
+      description: '七政四余排盘并生成结构化 AI 解读提示词',
+      inputSchema: qiZhengSchema.shape,
+      outputSchema: promptOutputSchema,
+    },
+    async (args) => {
+      try {
+        const result = qizheng.generateQizheng({
+          year: args.year ?? new Date().getFullYear(),
+          month: args.month ?? 1,
+          day: args.day ?? 1,
+          hour: args.hour ?? 12,
+          minute: args.minute ?? 0,
+          ...(args.latitude !== undefined ? { latitude: args.latitude } : {}),
+          ...(args.longitude !== undefined ? { longitude: args.longitude } : {}),
+          ...(args.timezone !== undefined ? { timezone: args.timezone } : {}),
+        });
+        return createStructuredToolResult({
+          result,
+          prompt: buildMetaphysicsPrompt(result.prompt, args.question),
+        });
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '生成七政四余提示词失败'));
+      }
+    },
+  );
+}

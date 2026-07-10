@@ -1978,6 +1978,44 @@ test('公开 API 黄历日期参数错误应返回 400 而不是内部错误', a
   }
 });
 
+test('公开 API 新增术数提示词应包含用户问题和统一章节', async () => {
+  const { response, body } = await callApi('metaphysics/bazhai/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      birthYear: 1990,
+      gender: 'male',
+      sitMountain: '子',
+      question: '住宅办公方位怎么安排？',
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.match(body.data.prompt, /【八宅风水排盘】/);
+  assert.match(body.data.prompt, /【问题】\n住宅办公方位怎么安排？/);
+  assert.match(body.data.prompt, /【任务】/);
+  assert.match(body.data.prompt, /【输出要求】/);
+});
+
+test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async () => {
+  const cases = [
+    ['metaphysics/bazhai/calculate', { birthYear: 1990 }],
+    ['metaphysics/tieban/calculate', { year: 2026, month: 2, day: 30 }],
+    ['metaphysics/qizheng/calculate', { year: 2026, month: 1, day: 1, hour: 12, latitude: 120 }],
+  ] as const;
+
+  for (const [path, payload] of cases) {
+    const { response, body } = await callApi(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    assert.equal(response.status, 400, path);
+    assert.equal(body.error.code, 'BAD_REQUEST', path);
+  }
+});
+
 test('公开 API 未知异常不应向调用方暴露内部错误细节', async () => {
   const originalCalculateBazi = baziCalculator.calculateBazi.bind(baziCalculator);
   const originalConsoleError = console.error;

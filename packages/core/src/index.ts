@@ -22,6 +22,19 @@ export * as bazi from './bazi/index';
 export * as calendar from './calendar/index';
 export * as divination from './divination/index';
 
+// 底层能力（可复用、可继续拓展）
+export * as ganzhi from './ganzhi/index';
+export * as wuxing from './wuxing/index';
+export * as direction from './direction/index';
+export * as shensha from './shensha/index';
+
+// 新增术数系统
+export * as bazhai from './ba_zhai/index';
+export * as zodiac from './zodiac/index';
+export * as taiyi from './taiyi/index';
+export * as tieban from './tie_ban/index';
+export * as qizheng from './qi_zheng/index';
+
 // 全局配置
 export { configure } from './calendar/timeManager';
 

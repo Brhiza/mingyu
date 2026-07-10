@@ -14,6 +14,11 @@ import { registerSsgwTool } from './tools/ssgw.js';
 import { registerAlmanacTool } from './tools/almanac.js';
 import { registerLenormandTool } from './tools/lenormand.js';
 import { registerAstrolabeTool } from './tools/astrolabe.js';
+import { registerBaZhaiTool } from './tools/ba_zhai.js';
+import { registerZodiacTool } from './tools/zodiac.js';
+import { registerTaiyiTool } from './tools/taiyi.js';
+import { registerTiebanTool } from './tools/tie_ban.js';
+import { registerQizhengTool } from './tools/qi_zheng.js';
 
 const server = new McpServer(
   {
@@ -42,6 +47,11 @@ registerSsgwTool(server);
 registerAlmanacTool(server);
 registerLenormandTool(server);
 registerAstrolabeTool(server);
+registerBaZhaiTool(server);
+registerZodiacTool(server);
+registerTaiyiTool(server);
+registerTiebanTool(server);
+registerQizhengTool(server);
 
 const transport = new StdioServerTransport();
 

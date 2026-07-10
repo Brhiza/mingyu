@@ -27,7 +27,7 @@ import { getFieldKey, getPersonValue, type SELF_FIELD_MAP } from './InputPage.fi
 import { AiSettingsModal } from '@/components/AiSettingsModal';
 import { useAiSettings } from '@/hooks/useAiSettings';
 
-type InputEntryMode = 'single' | 'compatibility' | 'divination' | 'almanac';
+type InputEntryMode = 'single' | 'compatibility' | 'divination' | 'almanac' | 'metaphysics';
 
 const DONATION_URL = 'https://lk.sydf.cc/';
 const isDonationBoxEnabled = import.meta.env.VITE_ENABLE_DONATION_BOX === 'true';
@@ -35,6 +35,11 @@ const isDonationBoxEnabled = import.meta.env.VITE_ENABLE_DONATION_BOX === 'true'
 const LazyDivinationPanel = lazy(async () => {
   const module = await import('@/components/DivinationPanel');
   return { default: module.DivinationPanel };
+});
+
+const LazyMetaphysicsPanel = lazy(async () => {
+  const module = await import('@/components/MetaphysicsPanel');
+  return { default: module.MetaphysicsPanel };
 });
 
 export function InputPage() {
@@ -61,10 +66,16 @@ export function InputPage() {
           ? 'divination'
           : searchParams.get('mode') === 'almanac'
             ? 'almanac'
-            : 'single';
+            : searchParams.get('mode') === 'metaphysics'
+              ? 'metaphysics'
+              : 'single';
     setEntryMode(nextEntryMode);
 
-    if (nextEntryMode === 'divination' || nextEntryMode === 'almanac') {
+    if (
+      nextEntryMode === 'divination' ||
+      nextEntryMode === 'almanac' ||
+      nextEntryMode === 'metaphysics'
+    ) {
       return;
     }
 
@@ -367,7 +378,7 @@ export function InputPage() {
   function updateEntryMode(value: InputEntryMode) {
     setEntryMode(value);
 
-    if (value !== 'divination' && value !== 'almanac') {
+    if (value === 'single' || value === 'compatibility') {
       updateField('analysisMode', value);
     }
 
@@ -423,6 +434,7 @@ export function InputPage() {
                   { label: '合盘', value: 'compatibility' as const },
                   { label: '占卜', value: 'divination' as const },
                   { label: '择日', value: 'almanac' as const },
+                  { label: '术数', value: 'metaphysics' as const },
                 ]}
                 onChange={updateEntryMode}
               />
@@ -439,7 +451,11 @@ export function InputPage() {
           </div>
 
           <div className="analysis-view">
-            {entryMode === 'divination' || entryMode === 'almanac' ? (
+            {entryMode === 'metaphysics' ? (
+              <Suspense fallback={divinationPanelFallback}>
+                <LazyMetaphysicsPanel />
+              </Suspense>
+            ) : entryMode === 'divination' || entryMode === 'almanac' ? (
               <Suspense fallback={divinationPanelFallback}>
                 <LazyDivinationPanel
                   initialMethod={entryMode === 'almanac' ? 'almanac' : undefined}
@@ -530,7 +546,7 @@ export function InputPage() {
           <div className="tutorial-entry-card">
             <div className="tutorial-entry-copy">
               <strong>第一次使用？先看教程</strong>
-              <p>里面会说明三种模式分别怎么用，以及从录入到查看结果的完整步骤。</p>
+              <p>里面会说明不同模式分别怎么用，以及从录入到查看结果的完整步骤。</p>
             </div>
             <div className="tutorial-entry-actions">
               <button

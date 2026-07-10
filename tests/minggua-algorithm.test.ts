@@ -5,6 +5,14 @@ import { baziCalculator } from '@core/bazi/baziCalculator';
 import { calculateMingGua } from '../packages/core/src/bazi/mingGua';
 
 test('八宅命卦公式应按年命数计算并处理五黄寄宫', () => {
+  assert.deepEqual(calculateMingGua(2000, 'male'), {
+    number: 9,
+    gua: '离',
+    star: '九紫右弼',
+    element: '火',
+    eastWest: '东四命',
+  });
+
   assert.deepEqual(calculateMingGua(2023, 'male'), {
     number: 4,
     gua: '巽',
