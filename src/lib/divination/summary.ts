@@ -11,6 +11,7 @@ import type {
   LiuyaoData,
   MeihuaData,
   TarotData,
+  TaiyiResult,
   XiaoliurenData,
 } from '../../types/divination';
 import { resolveSsgwStoryContent } from './ssgw-content';
@@ -487,6 +488,27 @@ export function getDivinationSummaryBlocks(
               .join('、') || '无'
           }`,
         ].filter(Boolean),
+      };
+    }
+    case 'taiyi': {
+      const taiyi = data as TaiyiResult;
+      return {
+        title: '太乙神数年家结果',
+        tags: [
+          `${taiyi.ganZhi}年`,
+          `${taiyi.yinYang}第${taiyi.bureau}局`,
+          `太乙在${taiyi.taiyiPosition}`,
+        ],
+        lines: [
+          wrapMainEvidence(
+            `太乙${taiyi.taiyiPosition}；文昌${taiyi.wenChangPosition}；始击${taiyi.shiJiPosition}`,
+          ),
+          `元纪：第${taiyi.yuan}元、第${taiyi.ji}纪`,
+          `主客算：主算${taiyi.lordCount}，客算${taiyi.guestCount}`,
+          `计神：${taiyi.jiShenPosition}`,
+          `判断：${taiyi.judgments.join('；')}`,
+          `精度：${taiyi.model.precision}`,
+        ],
       };
     }
     default:

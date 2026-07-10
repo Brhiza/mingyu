@@ -12,6 +12,7 @@ import type {
   SsgwData,
   SupplementaryInfo,
   TarotData,
+  TaiyiResult,
   XiaoliurenData,
   XiaoliurenPalaceDetail,
 } from '../../../types/divination';
@@ -25,7 +26,12 @@ import type { PromptEvidenceItem } from '@core/prompt-evidence/types';
 import type { DivinationMethodId } from '@core/divination/config';
 
 function resolveDivinationTimestamp(data?: DivinationData): number | null {
-  if (!data || typeof data.timestamp !== 'number' || !Number.isFinite(data.timestamp)) {
+  if (
+    !data ||
+    !('timestamp' in data) ||
+    typeof data.timestamp !== 'number' ||
+    !Number.isFinite(data.timestamp)
+  ) {
     return null;
   }
 
@@ -1584,6 +1590,19 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
     .join('\n');
 }
 
+export function formatTaiyiInfo(data: TaiyiResult) {
+  return [
+    '占法：太乙神数（年家）',
+    `年份干支：${data.ganZhi}；第${data.yuan}元、第${data.ji}纪；${data.yinYang}第${data.bureau}局`,
+    `太乙：${data.taiyiPosition}（第${data.taiyiPalace}宫，${data.taiyiGua}卦，${data.taiyiDir}）`,
+    `文昌（主目）：${data.wenChangPosition}；始击（客目）：${data.shiJiPosition}；计神：${data.jiShenPosition}`,
+    `主算：${data.lordCount}；客算：${data.guestCount}`,
+    `判断：${data.judgments.join('；')}`,
+    `模型：${data.model.name}；${data.model.precision}`,
+    `十六神：${data.sixteenGods.map((item) => `${item.branch}${item.god}`).join('、')}`,
+  ].join('\n');
+}
+
 export function formatDivinationInfo(
   method: Exclude<DivinationMethodId, 'random'>,
   data: DivinationData,
@@ -1611,6 +1630,8 @@ export function formatDivinationInfo(
       return formatLenormandInfo(data as LenormandData);
     case 'astrolabe':
       return formatAstrolabeInfo(data as AstrolabeData);
+    case 'taiyi':
+      return formatTaiyiInfo(data as TaiyiResult);
     default:
       return '占卜信息暂不可用';
   }

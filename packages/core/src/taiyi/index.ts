@@ -13,6 +13,9 @@
  * 公元年份起局，无法成立，因此在完整复原前不再暴露。
  */
 import { getGanZhiFromDate, isValidGanZhi } from '../ganzhi';
+import type { TaiyiModelInfo, TaiyiResult, TaiyiScope } from '../types/divination';
+
+export type { TaiyiModelInfo, TaiyiResult, TaiyiScope } from '../types/divination';
 
 /** 太乙统宗年家积年基数。 */
 export const TAIYI_BASE_YEARS = 10153917;
@@ -170,21 +173,11 @@ export const TAIYI_16_GODS: { name: string; branch: string }[] = [
   { name: '大义', branch: '亥' },
 ];
 
-export type TaiyiScope = 'year';
-
 export interface TaiyiInput {
   date?: Date;
   ganZhi?: string;
   scope?: TaiyiScope;
   year?: number;
-}
-
-export interface TaiyiModelInfo {
-  id: string;
-  name: string;
-  supportedScopes: TaiyiScope[];
-  precision: string;
-  sources: { title: string; url: string; evidence: string }[];
 }
 
 export const TAIYI_MODEL_INFO: TaiyiModelInfo = {
@@ -205,33 +198,6 @@ export const TAIYI_MODEL_INFO: TaiyiModelInfo = {
     },
   ],
 };
-
-export interface TaiyiResult {
-  scope: TaiyiScope;
-  ganZhi: string;
-  accumulatedYears: number;
-  entryYears: number;
-  yuan: number;
-  ji: number;
-  yinYang: '阳遁';
-  bureau: number;
-  taiyiPosition: string;
-  taiyiPalace: number;
-  taiyiGua: string;
-  taiyiDir: string;
-  wenChangPosition: string;
-  wenChangPalace: number;
-  shiJiPosition: string;
-  shiJiPalace: number;
-  jiShenPosition: string;
-  jiShenPalace: number;
-  lordCount: number;
-  guestCount: number;
-  sixteenGods: { branch: string; god: string }[];
-  judgments: string[];
-  model: TaiyiModelInfo;
-  prompt: string;
-}
 
 function positiveOneBased(value: number, cycle: number): number {
   const remainder = ((value % cycle) + cycle) % cycle;

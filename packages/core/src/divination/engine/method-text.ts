@@ -22,6 +22,8 @@ export function buildRoleText(method: Exclude<DivinationMethodId, 'random'>) {
       return '你是资深雷诺曼牌解读师，熟悉牌阵、牌位、牌名、牌义与行动建议。';
     case 'astrolabe':
       return '你是资深星盘解读师，熟悉太阳、月亮、上升、星体落宫、元素模式与主要相位。';
+    case 'taiyi':
+      return '你是资深太乙神数分析师，熟悉年家七十二局、太乙、文昌、始击、计神与主客算。';
     default:
       return '你是资深占卜分析师。';
   }
@@ -49,6 +51,8 @@ export function buildTaskText(method: Exclude<DivinationMethodId, 'random'>) {
       return '请围绕牌阵、牌位、牌名、牌义和行动建议判断，直接回答问题。';
     case 'astrolabe':
       return '请围绕太阳、月亮、上升、星体落宫、元素模式和主要相位判断，直接回答问题，并给出现实建议。';
+    case 'taiyi':
+      return '请围绕年家局数、太乙、文昌、始击、计神与主客算判断年度气运、动静、攻守与时宜，直接回答问题。';
     default:
       return '请结合占卜信息直接回答问题，并给出明确建议。';
   }
@@ -76,6 +80,8 @@ export function buildMethodRequirementText(method: Exclude<DivinationMethodId, '
       return '- 优先依据牌阵、牌位、牌名和牌义组织判断；证据不足时直接说明，不额外套用固定内容。';
     case 'astrolabe':
       return '- 不要泛泛讲星座性格，必须把星体、宫位、相位和【问题】连起来。';
+    case 'taiyi':
+      return '- 只按已校核的年家七十二局解读，不得扩写成尚未计算的月计、日计或时计。';
     default:
       return '';
   }
@@ -103,6 +109,8 @@ export function buildMethodOutputRequirementText(method: Exclude<DivinationMetho
       return '每个重点都要交代牌位、牌名、牌义和下一步动作。';
     case 'astrolabe':
       return '每个重点都要交代对应星体/宫位/相位依据，避免只写心理鸡汤。';
+    case 'taiyi':
+      return '每个重点都要交代对应局数、宫位、主客算或判断依据，并明确这是年度层级趋势。';
     default:
       return '';
   }

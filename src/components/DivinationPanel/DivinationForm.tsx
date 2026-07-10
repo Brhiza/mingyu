@@ -766,6 +766,30 @@ export function DivinationForm({
             </div>
           ) : null}
 
+          {draft.method === 'taiyi' ? (
+            <div className="divination-extra-panel">
+              <div className="form-row">
+                <div className="form-item">
+                  <label htmlFor="taiyi-year-input">要观察的年份</label>
+                  <input
+                    id="taiyi-year-input"
+                    type="text"
+                    inputMode="numeric"
+                    className="form-input"
+                    placeholder="例如 2026"
+                    value={draft.taiyiYear}
+                    onChange={(event) =>
+                      updateDraft('taiyiYear', event.target.value.replace(/[^\d]/g, ''))
+                    }
+                  />
+                  <div className="birth-time-hint">
+                    当前只提供已完整校核的年家太乙，用于观察该年的整体气运、动静与时宜。
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           {draft.method === 'almanac' ? (
             <div className="divination-extra-panel">
               <div className="form-row-flex">

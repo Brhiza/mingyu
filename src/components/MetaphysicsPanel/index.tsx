@@ -1,25 +1,15 @@
 import { useMemo, useState } from 'react';
 import { analyzeBaZhai } from '@core/ba_zhai';
-import { getGanZhiFromDate, EARTHLY_BRANCHES, ZODIACS } from '@core/ganzhi';
-import { TWENTY_FOUR_MOUNTAINS } from '@core/direction';
-import { getZodiacYearFortune } from '@core/zodiac';
-import { generateTaiyi } from '@core/taiyi';
+import { getSitFacingFromFacingDegree, type SitFacingPosition } from '@core/direction';
 import { generateQizheng } from '@core/qi_zheng';
 
-type MetaphysicsMethod = 'bazhai' | 'zodiac' | 'taiyi' | 'qizheng';
+export type ChartExtensionMethod = 'bazhai' | 'qizheng';
 
-const METHOD_OPTIONS: Array<{
-  value: MetaphysicsMethod;
-  label: string;
-  description: string;
-}> = [
-  { value: 'bazhai', label: '八宅', description: '按命卦与坐山查看四吉四凶方。' },
-  { value: 'zodiac', label: '生肖', description: '查看流年犯太岁、贵人与运程等级。' },
-  { value: 'taiyi', label: '太乙', description: '生成年家太乙七十二局、主客算与十六神盘。' },
-  { value: 'qizheng', label: '七政四余', description: '生成七政四余、十二宫与神煞。' },
-];
+interface MetaphysicsPanelProps {
+  method: ChartExtensionMethod;
+}
 
-const currentYear = new Date().getFullYear();
+const currentDate = new Date();
 
 function readInteger(value: string, label: string, min: number, max: number) {
   const number = Number(value);
@@ -31,7 +21,7 @@ function readInteger(value: string, label: string, min: number, max: number) {
 
 function readNumber(value: string, label: string, min: number, max: number) {
   const number = Number(value);
-  if (!Number.isFinite(number) || number < min || number > max) {
+  if (!value.trim() || !Number.isFinite(number) || number < min || number > max) {
     throw new Error(`${label}应填写 ${min} 至 ${max} 之间的数字。`);
   }
   return number;
@@ -51,10 +41,11 @@ function createSolarDate(year: number, month: number, day: number, hour: number,
   return date;
 }
 
-function buildPrompt(prompt: string, question: string) {
+function buildPrompt(prompt: string, question: string, measurement?: string) {
   const normalizedQuestion = question.trim() || '请综合解读本次排盘的重点、风险与行动建议。';
   return [
     prompt,
+    ...(measurement ? ['', '【测量换算】', measurement] : []),
     '',
     '【问题】',
     normalizedQuestion,
@@ -67,18 +58,37 @@ function buildPrompt(prompt: string, question: string) {
   ].join('\n');
 }
 
-export function MetaphysicsPanel() {
-  const [method, setMethod] = useState<MetaphysicsMethod>('bazhai');
+function readDirectionPreview(value: string): {
+  position: SitFacingPosition | null;
+  error: string;
+} {
+  if (!value.trim()) {
+    return { position: null, error: '请填写房屋朝向度数。' };
+  }
+
+  try {
+    return {
+      position: getSitFacingFromFacingDegree(readNumber(value, '房屋朝向度数', 0, 360)),
+      error: '',
+    };
+  } catch (error) {
+    return {
+      position: null,
+      error: error instanceof Error ? error.message : '房屋朝向度数无效。',
+    };
+  }
+}
+
+export function MetaphysicsPanel({ method }: MetaphysicsPanelProps) {
   const [question, setQuestion] = useState('');
   const [birthYear, setBirthYear] = useState('1990');
   const [gender, setGender] = useState<'male' | 'female'>('male');
-  const [sitMountain, setSitMountain] = useState('子');
-  const [zodiacBranch, setZodiacBranch] = useState('子');
-  const [year, setYear] = useState(String(currentYear));
-  const [month, setMonth] = useState('1');
-  const [day, setDay] = useState('1');
-  const [hour, setHour] = useState('12');
-  const [minute, setMinute] = useState('0');
+  const [facingDegree, setFacingDegree] = useState('180');
+  const [year, setYear] = useState(String(currentDate.getFullYear()));
+  const [month, setMonth] = useState(String(currentDate.getMonth() + 1));
+  const [day, setDay] = useState(String(currentDate.getDate()));
+  const [hour, setHour] = useState(String(currentDate.getHours()));
+  const [minute, setMinute] = useState(String(currentDate.getMinutes()));
   const [latitude, setLatitude] = useState('39.9042');
   const [longitude, setLongitude] = useState('116.4074');
   const [timezone, setTimezone] = useState('8');
@@ -86,6 +96,14 @@ export function MetaphysicsPanel() {
   const [prompt, setPrompt] = useState('');
   const [error, setError] = useState('');
   const [copyText, setCopyText] = useState('复制提示词');
+
+  const directionPreview = useMemo(() => readDirectionPreview(facingDegree), [facingDegree]);
+
+  const boundaryMessage = useMemo(() => {
+    const facing = directionPreview.position?.facing;
+    if (!facing?.isBoundary || !facing.boundaryMountains) return '';
+    return `当前度数正好位于${facing.boundaryMountains[0]}向与${facing.boundaryMountains[1]}向的分界线，请重新测量并填写稍偏离分界线的实际度数。`;
+  }, [directionPreview]);
 
   const resultText = useMemo(() => {
     if (!result) return '';
@@ -102,26 +120,34 @@ export function MetaphysicsPanel() {
 
     try {
       let nextResult: Record<string, unknown> & { prompt: string };
+      let measurement = '';
 
       if (method === 'bazhai') {
-        nextResult = analyzeBaZhai({
+        if (!directionPreview.position) {
+          throw new Error(directionPreview.error);
+        }
+        if (directionPreview.position.facing.isBoundary) {
+          throw new Error(boundaryMessage);
+        }
+
+        const { facing, sit, label } = directionPreview.position;
+        measurement = `测量方式：站在屋内面向大门外。房屋朝向 ${facing.degree}° 为${facing.mountain}向；相反方向的坐山 ${sit.degree}° 为${sit.mountain}山，换算结果为${label}。`;
+        const bazhaiResult = analyzeBaZhai({
           birthYear: readInteger(birthYear, '出生年份', 1900, 2100),
           gender,
-          sitMountain,
+          sitMountain: sit.mountain,
         }) as unknown as Record<string, unknown> & { prompt: string };
-      } else if (method === 'zodiac') {
-        const targetYear = readInteger(year, '流年', 1900, 2200);
-        const yearGanZhi = getGanZhiFromDate(new Date(targetYear, 1, 10, 12)).year;
-        nextResult = getZodiacYearFortune(zodiacBranch, yearGanZhi) as unknown as Record<
-          string,
-          unknown
-        > & { prompt: string };
-      } else if (method === 'taiyi') {
-        const targetYear = readInteger(year, '年份', 1900, 2200);
-        nextResult = generateTaiyi({
-          scope: 'year',
-          year: targetYear,
-        }) as unknown as Record<string, unknown> & { prompt: string };
+        nextResult = {
+          ...bazhaiResult,
+          directionMeasurement: {
+            method: '站在屋内面向大门外测量朝向',
+            facingDegree: facing.degree,
+            facingMountain: facing.mountain,
+            sitDegree: sit.degree,
+            sitMountain: sit.mountain,
+            label,
+          },
+        };
       } else {
         const targetYear = readInteger(year, '年份', 1900, 2200);
         const targetMonth = readInteger(month, '月份', 1, 12);
@@ -143,7 +169,7 @@ export function MetaphysicsPanel() {
       }
 
       setResult(nextResult);
-      setPrompt(buildPrompt(nextResult.prompt, question));
+      setPrompt(buildPrompt(nextResult.prompt, question, measurement));
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : '生成失败，请检查输入。');
     }
@@ -159,209 +185,172 @@ export function MetaphysicsPanel() {
     }
   }
 
-  const showDateFields = method === 'qizheng';
+  const title = method === 'bazhai' ? '八宅排盘' : '七政四余排盘';
+  const description =
+    method === 'bazhai'
+      ? '输入容易测量的房屋朝向度数，系统会自动换算坐山和二十四山。'
+      : '按出生时间、地点与时区生成七政四余、十二宫与神煞。';
 
   return (
     <div className="metaphysics-panel-shell">
       <section className="person-section divination-form-card">
         <div className="person-section-head">
-          <h2>传统术数</h2>
-          <p>四个可核验系统可直接在网页排盘，并生成可复制给 AI 的结构化提示词。</p>
-        </div>
-
-        <div className="divination-method-grid metaphysics-method-grid">
-          {METHOD_OPTIONS.map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              className={`divination-method-btn ${method === item.value ? 'is-active' : ''}`}
-              onClick={() => {
-                setMethod(item.value);
-                setResult(null);
-                setPrompt('');
-                setError('');
-              }}
-            >
-              <strong>{item.label}</strong>
-              <span>{item.description}</span>
-            </button>
-          ))}
+          <h2>{title}</h2>
+          <p>{description}</p>
         </div>
 
         <div className="person-info-form">
           {method === 'bazhai' ? (
-            <div className="form-row">
-              <div className="form-item">
-                <label htmlFor="metaphysics-birth-year">出生年份</label>
-                <input
-                  id="metaphysics-birth-year"
-                  className="form-input"
-                  inputMode="numeric"
-                  value={birthYear}
-                  onChange={(event) => setBirthYear(event.target.value.replace(/[^\d]/g, ''))}
-                />
+            <>
+              <div className="form-row">
+                <div className="form-item">
+                  <label htmlFor="metaphysics-birth-year">出生年份</label>
+                  <input
+                    id="metaphysics-birth-year"
+                    className="form-input"
+                    inputMode="numeric"
+                    value={birthYear}
+                    onChange={(event) => setBirthYear(event.target.value.replace(/[^\d]/g, ''))}
+                  />
+                </div>
+                <div className="form-item">
+                  <label htmlFor="metaphysics-gender">性别</label>
+                  <select
+                    id="metaphysics-gender"
+                    className="form-input"
+                    value={gender}
+                    onChange={(event) => setGender(event.target.value as 'male' | 'female')}
+                  >
+                    <option value="male">男</option>
+                    <option value="female">女</option>
+                  </select>
+                </div>
+                <div className="form-item">
+                  <label htmlFor="metaphysics-facing-degree">房屋朝向度数</label>
+                  <input
+                    id="metaphysics-facing-degree"
+                    className="form-input"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    max="360"
+                    step="0.1"
+                    value={facingDegree}
+                    onChange={(event) => setFacingDegree(event.target.value)}
+                  />
+                  <span className="birth-time-hint">
+                    站在屋内面向大门外，填写手机指南针显示的 0° 至 360°。
+                  </span>
+                </div>
               </div>
-              <div className="form-item">
-                <label htmlFor="metaphysics-gender">性别</label>
-                <select
-                  id="metaphysics-gender"
-                  className="form-input"
-                  value={gender}
-                  onChange={(event) => setGender(event.target.value as 'male' | 'female')}
-                >
-                  <option value="male">男</option>
-                  <option value="female">女</option>
-                </select>
-              </div>
-              <div className="form-item">
-                <label htmlFor="metaphysics-mountain">住宅坐山</label>
-                <select
-                  id="metaphysics-mountain"
-                  className="form-input"
-                  value={sitMountain}
-                  onChange={(event) => setSitMountain(event.target.value)}
-                >
-                  {TWENTY_FOUR_MOUNTAINS.map((mountain) => (
-                    <option key={mountain} value={mountain}>
-                      {mountain}山
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          ) : null}
 
-          {method === 'zodiac' ? (
-            <div className="form-row">
-              <div className="form-item">
-                <label htmlFor="metaphysics-zodiac">生肖</label>
-                <select
-                  id="metaphysics-zodiac"
-                  className="form-input"
-                  value={zodiacBranch}
-                  onChange={(event) => setZodiacBranch(event.target.value)}
-                >
-                  {EARTHLY_BRANCHES.map((branch, index) => (
-                    <option key={branch} value={branch}>
-                      {ZODIACS[index]}（{branch}）
-                    </option>
-                  ))}
-                </select>
+              <div
+                className={`metaphysics-direction-preview ${boundaryMessage ? 'is-warning' : ''}`}
+                role={boundaryMessage || directionPreview.error ? 'alert' : 'status'}
+              >
+                {boundaryMessage ? (
+                  <strong>{boundaryMessage}</strong>
+                ) : directionPreview.position ? (
+                  <>
+                    <strong>{directionPreview.position.label}</strong>
+                    <span>
+                      朝向 {directionPreview.position.facing.degree}° 为
+                      {directionPreview.position.facing.mountain}向；坐山{' '}
+                      {directionPreview.position.sit.degree}° 为
+                      {directionPreview.position.sit.mountain}山。
+                    </span>
+                  </>
+                ) : (
+                  <span>{directionPreview.error}</span>
+                )}
               </div>
-              <div className="form-item">
-                <label htmlFor="metaphysics-zodiac-year">流年</label>
-                <input
-                  id="metaphysics-zodiac-year"
-                  className="form-input"
-                  inputMode="numeric"
-                  value={year}
-                  onChange={(event) => setYear(event.target.value.replace(/[^\d]/g, ''))}
-                />
+            </>
+          ) : (
+            <>
+              <div className="form-row metaphysics-date-row">
+                <div className="form-item">
+                  <label htmlFor="metaphysics-year">年份</label>
+                  <input
+                    id="metaphysics-year"
+                    className="form-input"
+                    inputMode="numeric"
+                    value={year}
+                    onChange={(event) => setYear(event.target.value.replace(/[^\d]/g, ''))}
+                  />
+                </div>
+                <div className="form-item">
+                  <label htmlFor="metaphysics-month">月份</label>
+                  <input
+                    id="metaphysics-month"
+                    className="form-input"
+                    inputMode="numeric"
+                    value={month}
+                    onChange={(event) => setMonth(event.target.value.replace(/[^\d]/g, ''))}
+                  />
+                </div>
+                <div className="form-item">
+                  <label htmlFor="metaphysics-day">日期</label>
+                  <input
+                    id="metaphysics-day"
+                    className="form-input"
+                    inputMode="numeric"
+                    value={day}
+                    onChange={(event) => setDay(event.target.value.replace(/[^\d]/g, ''))}
+                  />
+                </div>
+                <div className="form-item">
+                  <label htmlFor="metaphysics-hour">小时</label>
+                  <input
+                    id="metaphysics-hour"
+                    className="form-input"
+                    inputMode="numeric"
+                    value={hour}
+                    onChange={(event) => setHour(event.target.value.replace(/[^\d]/g, ''))}
+                  />
+                </div>
+                <div className="form-item">
+                  <label htmlFor="metaphysics-minute">分钟</label>
+                  <input
+                    id="metaphysics-minute"
+                    className="form-input"
+                    inputMode="numeric"
+                    value={minute}
+                    onChange={(event) => setMinute(event.target.value.replace(/[^\d]/g, ''))}
+                  />
+                </div>
               </div>
-            </div>
-          ) : null}
 
-          {showDateFields ? (
-            <div className="form-row metaphysics-date-row">
-              <div className="form-item">
-                <label htmlFor="metaphysics-year">年份</label>
-                <input
-                  id="metaphysics-year"
-                  className="form-input"
-                  inputMode="numeric"
-                  value={year}
-                  onChange={(event) => setYear(event.target.value.replace(/[^\d]/g, ''))}
-                />
+              <div className="form-row">
+                <div className="form-item">
+                  <label htmlFor="metaphysics-latitude">纬度</label>
+                  <input
+                    id="metaphysics-latitude"
+                    className="form-input"
+                    value={latitude}
+                    onChange={(event) => setLatitude(event.target.value)}
+                  />
+                </div>
+                <div className="form-item">
+                  <label htmlFor="metaphysics-longitude">经度</label>
+                  <input
+                    id="metaphysics-longitude"
+                    className="form-input"
+                    value={longitude}
+                    onChange={(event) => setLongitude(event.target.value)}
+                  />
+                </div>
+                <div className="form-item">
+                  <label htmlFor="metaphysics-timezone">时区</label>
+                  <input
+                    id="metaphysics-timezone"
+                    className="form-input"
+                    value={timezone}
+                    onChange={(event) => setTimezone(event.target.value)}
+                  />
+                </div>
               </div>
-              <div className="form-item">
-                <label htmlFor="metaphysics-month">月份</label>
-                <input
-                  id="metaphysics-month"
-                  className="form-input"
-                  inputMode="numeric"
-                  value={month}
-                  onChange={(event) => setMonth(event.target.value.replace(/[^\d]/g, ''))}
-                />
-              </div>
-              <div className="form-item">
-                <label htmlFor="metaphysics-day">日期</label>
-                <input
-                  id="metaphysics-day"
-                  className="form-input"
-                  inputMode="numeric"
-                  value={day}
-                  onChange={(event) => setDay(event.target.value.replace(/[^\d]/g, ''))}
-                />
-              </div>
-              <div className="form-item">
-                <label htmlFor="metaphysics-hour">小时</label>
-                <input
-                  id="metaphysics-hour"
-                  className="form-input"
-                  inputMode="numeric"
-                  value={hour}
-                  onChange={(event) => setHour(event.target.value.replace(/[^\d]/g, ''))}
-                />
-              </div>
-              <div className="form-item">
-                <label htmlFor="metaphysics-minute">分钟</label>
-                <input
-                  id="metaphysics-minute"
-                  className="form-input"
-                  inputMode="numeric"
-                  value={minute}
-                  onChange={(event) => setMinute(event.target.value.replace(/[^\d]/g, ''))}
-                />
-              </div>
-            </div>
-          ) : null}
-
-          {method === 'taiyi' ? (
-            <div className="form-row">
-              <div className="form-item">
-                <label htmlFor="metaphysics-taiyi-year">年家年份</label>
-                <input
-                  id="metaphysics-taiyi-year"
-                  className="form-input"
-                  inputMode="numeric"
-                  value={year}
-                  onChange={(event) => setYear(event.target.value.replace(/[^\d]/g, ''))}
-                />
-              </div>
-            </div>
-          ) : null}
-
-          {method === 'qizheng' ? (
-            <div className="form-row">
-              <div className="form-item">
-                <label htmlFor="metaphysics-latitude">纬度</label>
-                <input
-                  id="metaphysics-latitude"
-                  className="form-input"
-                  value={latitude}
-                  onChange={(event) => setLatitude(event.target.value)}
-                />
-              </div>
-              <div className="form-item">
-                <label htmlFor="metaphysics-longitude">经度</label>
-                <input
-                  id="metaphysics-longitude"
-                  className="form-input"
-                  value={longitude}
-                  onChange={(event) => setLongitude(event.target.value)}
-                />
-              </div>
-              <div className="form-item">
-                <label htmlFor="metaphysics-timezone">时区</label>
-                <input
-                  id="metaphysics-timezone"
-                  className="form-input"
-                  value={timezone}
-                  onChange={(event) => setTimezone(event.target.value)}
-                />
-              </div>
-            </div>
-          ) : null}
+            </>
+          )}
 
           <div className="form-row">
             <div className="form-item metaphysics-question-field">
@@ -381,7 +370,12 @@ export function MetaphysicsPanel() {
         {error ? <div className="form-error-text global-form-error">{error}</div> : null}
 
         <div className="form-actions page-submit-actions metaphysics-submit-actions">
-          <button className="primary-button start-submit-button" type="button" onClick={generate}>
+          <button
+            className="primary-button start-submit-button"
+            type="button"
+            onClick={generate}
+            disabled={method === 'bazhai' && Boolean(boundaryMessage)}
+          >
             开始排盘
           </button>
         </div>
