@@ -90,7 +90,7 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 - `GET /health`：健康检查。
 - `GET /manifest`：API 元数据、OpenAPI 地址和 skill 地址。
 - `GET /openapi.json`：完整 OpenAPI JSON。
-- `POST /calendar/true-solar-time`：把当地钟表时间换算为真太阳时，返回修正明细、跨日状态和对应时辰。
+- `POST /calendar/true-solar-time`：把当地钟表时间换算为真太阳时，返回修正明细、跨日状态和对应时辰；可用 `applyChinaDst` 校正中国 1986–1991 历史夏令时。
 - `GET /foundation/capabilities`：公共地基能力、常量与可复用模块目录。
 - `POST /foundation/ganzhi`：查询六十甲子的纳音、藏干、五行和合冲刑害破。
 - `POST /foundation/wuxing`：统计天干地支五行分布，可选计入藏干权重。

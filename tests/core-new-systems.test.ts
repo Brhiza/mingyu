@@ -171,6 +171,7 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   const yu = r.stars.filter((s) => s.kind === '四余');
   assert.equal(qi.length, 7);
   assert.equal(yu.length, 4);
+  assert.equal(new Set(r.stars.map((star) => star.name)).size, 11);
   assert.equal(
     r.stars.some((star) => star.name.includes('紫炁')),
     true,
@@ -211,6 +212,29 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.ok(r.prompt.includes('《七政算内篇》紫炁古法均速'));
   assert.ok(r.prompt.includes('紫炁位置：顺行'));
   assert.ok(r.prompt.includes('不得替换成月孛对冲'));
+});
+
+test('qizheng: 核心入口应拒绝不存在日期、越界时间坐标和非有限数字', () => {
+  const valid = { year: 2024, month: 6, day: 15, hour: 12 };
+  assert.throws(() => core.qizheng.generateQizheng({ ...valid, day: 31 }), /日期需在 1-30 之间/);
+  assert.throws(() => core.qizheng.generateQizheng({ ...valid, hour: 24 }), /小时需在 0-23 之间/);
+  assert.throws(
+    () => core.qizheng.generateQizheng({ ...valid, latitude: Number.NaN }),
+    /纬度需在 -90 到 90 之间/,
+  );
+  assert.throws(
+    () => core.qizheng.generateQizheng({ ...valid, longitude: 181 }),
+    /经度需在 -180 到 180 之间/,
+  );
+  assert.throws(
+    () => core.qizheng.generateQizheng({ ...valid, timezone: 15 }),
+    /时区需在 -12 到 14 之间/,
+  );
+  assert.throws(
+    () => core.qizheng.calculateZiqiTropicalLongitude({ ...valid, minute: Number.NaN }),
+    /分钟需在 0-59 之间/,
+  );
+  assert.throws(() => core.qizheng.getPrecessionOffset(Number.NaN), /岁差年份必须是有效数字/);
 });
 
 test('ganzhi: tyme4ts 权威后端（纳音/干支五行/合冲害/十神）', () => {

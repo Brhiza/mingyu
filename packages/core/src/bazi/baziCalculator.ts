@@ -1,7 +1,7 @@
 import { SolarTime, Gender, LunarHour } from 'tyme4ts';
 import { TIME_MAP } from './baziDefinitions';
 import { calculateTrueSolarTime } from './trueSolarTime';
-import { checkChinaDst, isDateInChinaDstRange } from './chinaDst';
+import { checkChinaDst, isDateInChinaDstRange } from '../calendar/china-dst';
 import { collectBoundaryWarnings } from './paipanWarnings';
 import { ShenShaCalculator } from './baziShenSha';
 import { BaziAnalyzer } from './baziAnalysis';

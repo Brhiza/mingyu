@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 
 import {
   calculateTrueSolarTime,
+  checkChinaDst,
   convertTrueSolarTime,
   parseLocalDateTime,
 } from 'mingyu-core/calendar';
 import { calculateTrueSolarTime as legacyCalculateTrueSolarTime } from '../packages/core/src/bazi/trueSolarTime.ts';
+import { checkChinaDst as legacyCheckChinaDst } from '../packages/core/src/bazi/chinaDst.ts';
 
 test('真太阳时公共入口应复用旧八字算法并返回便捷资料', () => {
   const result = convertTrueSolarTime({
@@ -31,6 +33,26 @@ test('真太阳时公共入口应复用旧八字算法并返回便捷资料', ()
   assert.equal(result.standardMeridian, 120);
   assert.equal(result.crossesDate, false);
   assert.equal(result.shichen.name, '巳时');
+  assert.deepEqual(legacyCheckChinaDst(1988, 7, 15, 12), checkChinaDst(1988, 7, 15, 12));
+});
+
+test('真太阳时便捷入口应可选自动还原中国历史夏令时', () => {
+  const withoutDst = convertTrueSolarTime({
+    localDateTime: '1988-07-15T12:00',
+    longitude: 116.4074,
+  });
+  const withDst = convertTrueSolarTime({
+    localDateTime: '1988-07-15T12:00',
+    longitude: 116.4074,
+    applyChinaDst: true,
+  });
+
+  assert.equal(withoutDst.standardDateTime, '1988-07-15T12:00:00');
+  assert.equal(withoutDst.chinaDst.requested, false);
+  assert.equal(withDst.clockDateTime, '1988-07-15T12:00:00');
+  assert.equal(withDst.standardDateTime, '1988-07-15T11:00:00');
+  assert.equal(withDst.chinaDst.applied, true);
+  assert.equal(withDst.chinaDst.offsetMinutes, -60);
 });
 
 test('真太阳时便捷入口应识别跨日并支持全球时区', () => {

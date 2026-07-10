@@ -18,6 +18,7 @@ import { trigramsByIndex } from '../../../divination/hexagram-data';
 import { MeihuaHelpers } from '../../../divination/divination-helpers';
 import { getDivinationTime } from '../../../calendar/timeManager';
 import { getSeasonState, isSheng, isKe } from '../../../ganzhi';
+import { assertOptionalRecord } from '../../../shared/validation';
 import { findHexagramByTrigrams, resolveTiYongByMovingYao } from './helpers/hexagram';
 import {
   resolveTimeTrigramMethod,
@@ -126,6 +127,7 @@ function estimateYingQi(params: {
  * ```
  */
 export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): MeihuaData {
+  assertOptionalRecord(settings, '梅花易数起卦设置');
   // 1. 获取占卜时间的农历及干支信息
   const { ganzhi, timeInfo, timestamp } = getDivinationTime(customDate);
   const { lunar } = timeInfo;

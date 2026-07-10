@@ -26,13 +26,13 @@
 
 import { jiazi, qimen, tiangan } from '../../../../divination/divination-data';
 import { getDunJiaStem } from './palace-utils';
+import { sanQiLiuYi } from './_constants';
 import type { QimenJiuGongGe } from '../../../../types/divination';
 
 // ─── 数据源 ───
 
 const { palaceStars, palaceDoors, yangGods, yinGods, ninePositions } = qimen;
 
-const sanQiLiuYi = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙'];
 const luoShuDoorPath = [1, 8, 3, 4, 9, 2, 7, 6];
 const feipanStarOrder = ['天蓬', '天任', '天冲', '天辅', '天英', '天芮', '天柱', '天心', '天禽'];
 const feipanStarPath = [1, 8, 3, 4, 5, 9, 2, 7, 6];

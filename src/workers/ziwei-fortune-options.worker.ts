@@ -1,4 +1,5 @@
 import { buildAstrolabeFromInput, buildHoroscope, shiftLunarYear } from '@core/ziwei/iztro';
+import { getDaysInMonth } from 'mingyu-core/calendar';
 import type { ChartInput } from '@/types/chart';
 
 type DecadalOptionInput = {
@@ -58,10 +59,6 @@ type ZiweiFortuneOptionsResponse =
 function getDateParts(dateStr: string) {
   const [year, month, day] = dateStr.split('-').map(Number);
   return { year, month, day };
-}
-
-function getDaysInMonth(year: number, month: number) {
-  return new Date(year, month, 0).getDate();
 }
 
 function formatMonthDayLabel(dateStr: string) {

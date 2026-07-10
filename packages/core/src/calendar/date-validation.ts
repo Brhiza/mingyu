@@ -58,7 +58,22 @@ export function daysInSolarMonth(year: number, month: number) {
     throw new Error('月份需在 1-12 之间。');
   }
 
-  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return daysInGregorianMonth(year, month);
+}
+
+/** 公历月份天数基础能力；供需要更宽年份范围的历法算法复用。 */
+export function daysInGregorianMonth(year: number, month: number) {
+  if (!Number.isInteger(year) || year < 1 || year > 9999) {
+    throw new Error('公历年份需在 1-9999 之间。');
+  }
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    throw new Error('月份需在 1-12 之间。');
+  }
+  if (month === 2) {
+    const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+    return isLeapYear ? 29 : 28;
+  }
+  return [4, 6, 9, 11].includes(month) ? 30 : 31;
 }
 
 export function getBirthDateValidationMessage(params: {

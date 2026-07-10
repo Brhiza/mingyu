@@ -657,6 +657,11 @@ export function getPublicApiOpenApiDocument(
               example: 8,
               description: '当地标准时区，默认 UTC+8，支持 5.5 等小数时区',
             },
+            applyChinaDst: {
+              type: 'boolean',
+              default: false,
+              description: '是否按中国 1986-1991 历史规则自动还原夏令时',
+            },
           },
         },
         FoundationGanZhiRequest: {
@@ -753,9 +758,24 @@ export function getPublicApiOpenApiDocument(
             hour: { type: 'integer', minimum: 0, maximum: 23 },
             minute: { type: 'integer', minimum: 0, maximum: 59 },
             ganZhi: { type: 'string', description: '可选年干支，必须与公元年一致（太乙）' },
-            latitude: { type: 'number', description: '纬度（七政四余）' },
-            longitude: { type: 'number', description: '经度（七政四余）' },
-            timezone: { type: 'number', description: '时区偏移（七政四余）' },
+            latitude: {
+              type: 'number',
+              minimum: -90,
+              maximum: 90,
+              description: '纬度（七政四余）',
+            },
+            longitude: {
+              type: 'number',
+              minimum: -180,
+              maximum: 180,
+              description: '经度（七政四余）',
+            },
+            timezone: {
+              type: 'number',
+              minimum: -12,
+              maximum: 14,
+              description: '时区偏移（七政四余）',
+            },
             question: { type: 'string', description: '解读问题（prompt 端点）' },
             promptMode: { type: 'string', description: '提示词模式（prompt 端点）' },
             detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
@@ -1048,8 +1068,9 @@ function calculateTrueSolarTimeApi(input: JsonRecord) {
   const localDateTime = readRequiredString(input, 'localDateTime');
   const longitude = readNumberLike(input, 'longitude', -180, 180);
   const timezone = input.timezone === undefined ? 8 : readNumberLike(input, 'timezone', -12, 14);
+  const applyChinaDst = readBoolean(input, 'applyChinaDst', false);
   try {
-    return convertTrueSolarTime({ localDateTime, longitude, timezone });
+    return convertTrueSolarTime({ localDateTime, longitude, timezone, applyChinaDst });
   } catch (error) {
     throw new ApiError(
       400,

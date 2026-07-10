@@ -23,6 +23,7 @@ import {
   palaceHexagrams,
 } from '../../divination/divination-data';
 import { generateYaosByTime, getDivinationTime } from '../../calendar/timeManager';
+import { assertOptionalRecord } from '../../shared/validation';
 import {
   isSheng,
   isKe,
@@ -727,6 +728,7 @@ export interface LiuyaoGenerationOptions {
 }
 
 function resolveRawYaos(timestamp: number, options?: LiuyaoGenerationOptions): number[] {
+  assertOptionalRecord(options, '六爻起卦设置');
   if (options?.yaos === undefined) return generateYaosByTime(timestamp, 6);
   if (options.yaos.length !== 6) {
     throw new Error('六爻手工爻值必须恰好包含 6 爻。');

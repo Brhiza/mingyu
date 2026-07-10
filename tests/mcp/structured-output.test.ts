@@ -195,6 +195,18 @@ test('MCP 真太阳时工具应返回换算资料并拒绝带时区后缀的钟�
     assert.equal(success.structuredContent?.result.standardMeridian, 120);
     assert.equal(success.structuredContent?.result.shichen.name, '巳时');
 
+    const chinaDst = await client.callTool({
+      name: 'calendar_true_solar_time',
+      arguments: {
+        localDateTime: '1988-07-15T12:00:00',
+        longitude: 116.4074,
+        applyChinaDst: true,
+      },
+    });
+    assert.equal(chinaDst.isError, undefined);
+    assert.equal(chinaDst.structuredContent?.result.standardDateTime, '1988-07-15T11:00:00');
+    assert.equal(chinaDst.structuredContent?.result.chinaDst.applied, true);
+
     const invalid = await client.callTool({
       name: 'calendar_true_solar_time',
       arguments: { localDateTime: '1990-05-15T10:30:20+08:00', longitude: 116.4074 },
@@ -628,6 +640,28 @@ test('MCP 八字与紫微工具应拒绝不存在的出生日期', async () => {
         messagePattern,
         `${name} 应返回明确的出生日期错误`,
       );
+    }
+  });
+});
+
+test('MCP 七政四余应拒绝不存在日期和越界坐标时区', async () => {
+  await withMcpClient(async (client) => {
+    const invalidCalls: Array<[Record<string, unknown>, RegExp | null]> = [
+      [{ year: 2024, month: 6, day: 31, hour: 12 }, /日期需在 1-30 之间/],
+      [{ year: 2024, month: 6, day: 15, hour: 12, latitude: 91 }, null],
+      [{ year: 2024, month: 6, day: 15, hour: 12, longitude: 181 }, null],
+      [{ year: 2024, month: 6, day: 15, hour: 12, timezone: 15 }, null],
+    ];
+
+    for (const [args, messagePattern] of invalidCalls) {
+      const result = await client.callTool({ name: 'metaphysics_qizheng', arguments: args });
+      assert.equal(result.isError, true, 'metaphysics_qizheng 应拒绝越界参数');
+      if (messagePattern) {
+        assert.match(
+          String((result.structuredContent as { error?: string } | undefined)?.error),
+          messagePattern,
+        );
+      }
     }
   });
 });

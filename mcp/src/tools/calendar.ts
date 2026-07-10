@@ -14,6 +14,10 @@ const trueSolarTimeSchema = z.object({
     .describe('当地钟表时间，如 1990-05-15T10:30:00；不要附带 Z 或 +08:00 等时区后缀'),
   longitude: z.number().min(-180).max(180).describe('当地经度，东经为正、西经为负'),
   timezone: z.number().min(-12).max(14).optional().describe('当地标准时区，默认 UTC+8'),
+  applyChinaDst: z
+    .boolean()
+    .optional()
+    .describe('是否按中国 1986-1991 历史规则自动还原夏令时，默认 false'),
 });
 
 export function registerCalendarTools(server: McpServer) {

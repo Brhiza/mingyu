@@ -1,3 +1,5 @@
+import { assertOptionalRecord } from './validation';
+
 export type RandomSource = () => number;
 
 export interface RandomOptions {
@@ -30,6 +32,7 @@ export function createSeededRandom(seed: string | number): RandomSource {
 }
 
 export function createRandomSource(options?: RandomOptions): RandomSource {
+  assertOptionalRecord(options, '随机选项');
   if (options?.rng !== undefined) {
     if (typeof options.rng !== 'function') {
       throw new Error('自定义随机源必须是函数。');

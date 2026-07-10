@@ -30,6 +30,9 @@ import {
 import { arrangeJiuGongGe } from '../packages/core/src/divination/algorithms/qimen/helpers/layout';
 import { estimateYingQi } from '../packages/core/src/divination/algorithms/qimen/helpers/ying-qi';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
+import { generateLiuren } from 'mingyu-core/divination/liuren';
+import { generateMeihua } from 'mingyu-core/divination/meihua';
+import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateQimen, resolveZhiShiLandingPalace } from 'mingyu-core/divination/qimen';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
@@ -3500,7 +3503,11 @@ test('时间型占卜算法应拒绝无效自定义时间对象', () => {
   const invalidDate = new Date(Number.NaN);
 
   assert.throws(() => generateLiuyao(invalidDate), /自定义时间不是有效日期/);
+  assert.throws(() => generateMeihua(invalidDate), /自定义时间不是有效日期/);
   assert.throws(() => generateQimen(invalidDate), /自定义时间不是有效日期/);
+  assert.throws(() => generateLiuren(invalidDate), /自定义时间不是有效日期/);
+  assert.throws(() => generateXiaoliuren({ customDate: invalidDate }), /自定义时间不是有效日期/);
+  assert.throws(() => drawRandomSign(invalidDate), /自定义时间不是有效日期/);
 });
 
 test('占卜时间格式化遇到无法转换为 Date 的时间戳时应回退当前时间', () => {

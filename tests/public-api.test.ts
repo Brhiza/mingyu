@@ -352,11 +352,25 @@ test('公开 API 应提供便捷真太阳时换算接口', async () => {
   assert.equal(body.data.shichen.name, '巳时');
   assert.equal(typeof body.data.totalCorrectionMinutes, 'number');
 
+  const chinaDst = await callApi('calendar/true-solar-time', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      localDateTime: '1988-07-15T12:00',
+      longitude: 116.4074,
+      applyChinaDst: true,
+    }),
+  });
+  assert.equal(chinaDst.response.status, 200);
+  assert.equal(chinaDst.body.data.standardDateTime, '1988-07-15T11:00:00');
+  assert.equal(chinaDst.body.data.chinaDst.applied, true);
+
   for (const payload of [
     { localDateTime: '1990-05-15T10:30:20+08:00', longitude: 116.4074 },
     { localDateTime: '1990-02-30T10:30', longitude: 116.4074 },
     { localDateTime: '1990-05-15T10:30', longitude: 181 },
     { localDateTime: '1990-05-15T10:30', longitude: 116.4074, timezone: 15 },
+    { localDateTime: '1990-05-15T10:30', longitude: 116.4074, applyChinaDst: 'yes' },
   ]) {
     const invalid = await callApi('calendar/true-solar-time', {
       method: 'POST',
@@ -372,6 +386,15 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   assert.equal(capabilities.response.status, 200);
   assert.equal(capabilities.body.data.constants.sixtyCycle.length, 60);
   assert.equal(capabilities.body.data.constants.sixtyCycle[0], '甲子');
+  assert.deepEqual(capabilities.body.data.constants.sixXunHeads, [
+    '甲子',
+    '甲戌',
+    '甲申',
+    '甲午',
+    '甲辰',
+    '甲寅',
+  ]);
+  assert.equal(capabilities.body.data.constants.shichenPeriods.length, 13);
 
   const ganZhi = await callApi('foundation/ganzhi', {
     method: 'POST',
@@ -2128,7 +2151,9 @@ test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async 
     ['metaphysics/bazhai/calculate', { mingGua: '坎', sitMountain: '未知山' }],
     ['metaphysics/zodiac/calculate', { zodiac: '猴', yearGanZhi: '甲丑' }],
     ['metaphysics/taiyi/calculate', { year: 2004, scope: 'month' }],
+    ['metaphysics/qizheng/calculate', { year: 2026, month: 2, day: 30, hour: 12 }],
     ['metaphysics/qizheng/calculate', { year: 2026, month: 1, day: 1, hour: 12, latitude: 120 }],
+    ['metaphysics/qizheng/calculate', { year: 2026, month: 1, day: 1, hour: 12, timezone: 15 }],
   ] as const;
 
   for (const [path, payload] of cases) {

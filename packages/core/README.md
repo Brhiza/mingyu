@@ -234,12 +234,14 @@ console.log(ganzhi.getNayin('甲子'));
 console.log(wuxing.tallyWuxing(['甲', '子', '丙', '午']));
 console.log(
   calendar.convertTrueSolarTime({
-    localDateTime: '1990-05-15T10:30:00',
+    localDateTime: '1988-07-15T12:00:00',
     longitude: 116.4074,
     timezone: 8,
+    applyChinaDst: true,
   }),
 );
 console.log(foundation.describeGanZhi('甲子'));
+console.log(ganzhi.getXunHead('乙丑')); // 甲子
 console.log(foundation.analyzeWuxing(['甲', '子', '丙', '午']));
 console.log(direction.getEightMansion('坎'));
 console.log(shensha.getHuangliShensha(2026, 7, 10));

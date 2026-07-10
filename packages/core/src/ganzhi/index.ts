@@ -52,6 +52,7 @@ import {
   EARTHLY_BRANCHES,
   ZODIACS,
   SIXTY_CYCLE,
+  SIX_XUN_HEADS,
   STEM_WUXING,
   STEM_YINYANG,
   BRANCH_YINYANG,
@@ -300,6 +301,14 @@ export function getSixtyCycleIndex(ganZhi: string): number {
   return (((s * 6 - b * 5) % 60) + 60) % 60;
 }
 
+/** 获取指定干支所属旬的旬首，如乙丑属于甲子旬。 */
+export function getXunHead(ganZhi: string): string {
+  const index = getSixtyCycleIndex(ganZhi);
+  const xunHead = SIX_XUN_HEADS[Math.floor(index / 10)];
+  if (!xunHead) throw new Error(`旬首数据缺失：${ganZhi}`);
+  return xunHead;
+}
+
 /** 是否为真实存在的六十甲子组合，而非仅由合法天干和地支随意拼接。 */
 export function isValidGanZhi(ganZhi: string): boolean {
   return typeof ganZhi === 'string' && ganZhi.length === 2 && NAYIN_MAP[ganZhi] !== undefined;
@@ -421,6 +430,7 @@ export const ganzhi = {
   EARTHLY_BRANCHES,
   ZODIACS,
   SIXTY_CYCLE,
+  SIX_XUN_HEADS,
   getLunarHourFromDate,
   getGanZhiFromDate,
   getStemWuxing,
@@ -431,6 +441,7 @@ export const ganzhi = {
   getBranchIndex,
   getSixtyCycle,
   getSixtyCycleIndex,
+  getXunHead,
   diffGanZhi,
   isValidGanZhi,
   getNayin,
