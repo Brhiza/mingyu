@@ -21,6 +21,17 @@ export { getCurrentScopeItem } from './build-analysis-payload/helpers/scope';
 export { detectPatterns } from './pattern-detection';
 export { buildEvidencePool } from './build-evidence-pool';
 export {
+  buildScopeFocusPalaces,
+  collectMutagenStars,
+  dedupePalaces,
+  getAllStars,
+  getBodyPalace,
+  getOppositePalace,
+  getPalaceByIndex,
+  getPalaceByName,
+  getSurroundedPalaces,
+} from './palace-helpers';
+export {
   resolveZiweiTrueSolarBirth,
   type ZiweiTrueSolarBirth,
   type ZiweiTrueSolarInput,

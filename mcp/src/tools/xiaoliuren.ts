@@ -9,8 +9,14 @@ import {
 } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
 import { readMcpCustomDate, readMcpPositiveInteger } from './input-helpers.js';
+import {
+  assertMcpNoRandomOptions,
+  randomOptionShape,
+  readMcpRandomOptions,
+} from './random-options.js';
 
 const xiaoliurenSchema = z.object({
+  ...randomOptionShape,
   xiaoliurenMethod: z
     .enum(['time', 'number', 'random'])
     .optional()
@@ -29,12 +35,16 @@ const xiaoliurenPromptSchema = extendPromptSchema(
 
 function buildXiaoliurenInput(args: z.infer<typeof xiaoliurenSchema>) {
   const method = args.xiaoliurenMethod || 'time';
+  if (method !== 'random') {
+    assertMcpNoRandomOptions(args, '小六壬仅随机起课接受 seed 或 replay。');
+  }
   return {
     method,
     ...(method === 'number'
       ? { number: readMcpPositiveInteger(args.xiaoliurenNumber, 'xiaoliurenNumber') }
       : {}),
     customDate: readMcpCustomDate(args.customDate),
+    ...(method === 'random' ? readMcpRandomOptions(args) : {}),
   };
 }
 

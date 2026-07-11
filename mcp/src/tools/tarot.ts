@@ -8,8 +8,10 @@ import {
 } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
 import { buildTarotSpread } from './divination-common.js';
+import { randomOptionShape, readMcpRandomOptions } from './random-options.js';
 
 const tarotSchema = z.object({
+  ...randomOptionShape,
   spreadType: z
     .enum([
       'single',
@@ -41,7 +43,7 @@ export function registerTarotTool(server: McpServer) {
     },
     async (args) => {
       try {
-        const result = buildTarotSpread(args.spreadType || 'single');
+        const result = buildTarotSpread(args.spreadType || 'single', readMcpRandomOptions(args));
         return createStructuredToolResult({ result });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '抽牌失败'));
@@ -62,7 +64,7 @@ export function registerTarotTool(server: McpServer) {
     },
     async (args) => {
       try {
-        const result = buildTarotSpread(args.spreadType || 'single');
+        const result = buildTarotSpread(args.spreadType || 'single', readMcpRandomOptions(args));
         return createStructuredToolResult({
           result,
           prompt: buildCommonDivinationPrompt('tarot', args.question, result, args.promptMode),

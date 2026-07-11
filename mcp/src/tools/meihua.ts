@@ -10,8 +10,14 @@ import {
 } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
 import { readMcpCustomDate, readMcpPositiveInteger } from './input-helpers.js';
+import {
+  assertMcpNoRandomOptions,
+  randomOptionShape,
+  readMcpRandomOptions,
+} from './random-options.js';
 
 const meihuaSchema = z.object({
+  ...randomOptionShape,
   method: z
     .enum(['time', 'number', 'random', 'timeTrigram'])
     .optional()
@@ -29,9 +35,13 @@ const meihuaPromptSchema = extendPromptSchema(meihuaSchema, '用户希望围绕�
 
 function buildMeihuaSettings(args: z.infer<typeof meihuaSchema>): MeihuaSettings {
   const method = args.method || 'time';
+  if (method !== 'random') {
+    assertMcpNoRandomOptions(args, '梅花易数仅随机起卦接受 seed 或 replay。');
+  }
   return {
     method,
     ...(method === 'number' ? { number: readMcpPositiveInteger(args.number, 'number') } : {}),
+    ...(method === 'random' ? readMcpRandomOptions(args) : {}),
   };
 }
 

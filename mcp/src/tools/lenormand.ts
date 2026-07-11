@@ -9,8 +9,10 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
+import { randomOptionShape, readMcpRandomOptions } from './random-options.js';
 
 const lenormandSchema = z.object({
+  ...randomOptionShape,
   spreadType: z
     .enum([
       'single',
@@ -34,7 +36,10 @@ const lenormandPromptSchema = extendPromptSchema(
 );
 
 function buildLenormandResult(args: z.infer<typeof lenormandSchema>) {
-  return drawLenormandSpread((args.spreadType ?? 'single') as LenormandSpreadType);
+  return drawLenormandSpread(
+    (args.spreadType ?? 'single') as LenormandSpreadType,
+    readMcpRandomOptions(args),
+  );
 }
 
 export function registerLenormandTool(server: McpServer) {

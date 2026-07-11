@@ -9,8 +9,19 @@ import {
 } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
 import { readMcpCustomDate } from './input-helpers.js';
+import { randomOptionShape, readMcpRandomOptions } from './random-options.js';
 
 const liuyaoSchema = z.object({
+  ...randomOptionShape,
+  method: z
+    .enum(['time', 'manual', 'coins'])
+    .optional()
+    .describe('起卦方式：time=时间，manual=手工爻值，coins=模拟三钱投掷'),
+  yaos: z
+    .array(z.number().int().min(6).max(9))
+    .length(6)
+    .optional()
+    .describe('手工六爻值，按初爻至上爻传入 6、7、8、9'),
   customDate: z
     .string()
     .optional()
@@ -25,6 +36,14 @@ const liuyaoSchema = z.object({
 
 const liuyaoPromptSchema = extendPromptSchema(liuyaoSchema, '用户希望围绕卦盘解读的问题');
 
+function buildLiuyaoResult(args: z.infer<typeof liuyaoSchema>) {
+  return generateLiuyao(readMcpCustomDate(args.customDate), {
+    method: args.method,
+    yaos: args.yaos,
+    ...readMcpRandomOptions(args),
+  });
+}
+
 export function registerLiuyaoTool(server: McpServer) {
   server.registerTool(
     'divine_liuyao',
@@ -36,7 +55,7 @@ export function registerLiuyaoTool(server: McpServer) {
     },
     async (args) => {
       try {
-        const result = generateLiuyao(readMcpCustomDate(args.customDate));
+        const result = buildLiuyaoResult(args);
         return createStructuredToolResult({ result });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '起卦失败'));
@@ -57,7 +76,7 @@ export function registerLiuyaoTool(server: McpServer) {
     },
     async (args) => {
       try {
-        const result = generateLiuyao(readMcpCustomDate(args.customDate));
+        const result = buildLiuyaoResult(args);
         return createStructuredToolResult({
           result,
           prompt: buildCommonDivinationPrompt('liuyao', args.question, result, args.promptMode, {

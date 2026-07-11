@@ -7,9 +7,9 @@ import {
   TAROT_SPREAD_OPTIONS,
   XIAOLIUREN_METHOD_OPTIONS,
 } from '../divination/config';
+import { MINGYU_CORE_VERSION, MINGYU_SCHEMA_VERSION } from '../shared/version';
 
-export const MINGYU_CORE_VERSION = '0.1.19';
-export const MINGYU_SCHEMA_VERSION = '1.0.0';
+export { MINGYU_CORE_VERSION, MINGYU_SCHEMA_VERSION } from '../shared/version';
 
 export type CapabilityInputType =
   'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'select' | 'array' | 'object';
@@ -40,6 +40,7 @@ export interface SystemCapability {
   supports: {
     seed: boolean;
     customRandomSource: boolean;
+    replay?: boolean;
     trueSolarTime: boolean;
     unknownBirthTime: 'full' | 'degraded' | 'unsupported';
     batch: boolean;
@@ -73,6 +74,7 @@ const questionInput: CapabilityInput = {
 const randomSupports = {
   seed: true,
   customRandomSource: true,
+  replay: true,
   trueSolarTime: false,
   unknownBirthTime: 'full' as const,
   batch: false,
@@ -194,6 +196,7 @@ const systems: SystemCapability[] = [
     methods: options([
       { value: 'time', label: '时间起卦' },
       { value: 'manual', label: '手工六爻' },
+      { value: 'coins', label: '模拟三钱投掷' },
     ]),
     defaultMethod: 'time',
     inputs: [
@@ -215,8 +218,9 @@ const systems: SystemCapability[] = [
     ],
     outputs: ['主卦', '变卦', '互卦', '动爻', '纳甲', '六亲', '六神', '旬空', '反吟伏吟'],
     supports: {
-      seed: false,
-      customRandomSource: false,
+      seed: true,
+      customRandomSource: true,
+      replay: true,
       trueSolarTime: false,
       unknownBirthTime: 'full',
       batch: false,

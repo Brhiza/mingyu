@@ -878,3 +878,38 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     assertPromptIsPortableTaskText(liurenPrompt);
   });
 });
+
+test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
+  await withMcpClient(async (client) => {
+    const first = await client.callTool({
+      name: 'divine_liuyao',
+      arguments: {
+        customDate: '2025-01-01T08:00:00+08:00',
+        method: 'coins',
+        seed: 'MCP 固定样例',
+      },
+    });
+    assert.equal(first.isError, undefined);
+    type LiuyaoReplayResult = {
+      generation: { method: string; coinThrows: unknown[] };
+      yaoArray: number[];
+      meta: { resultId: string; random: { samples: number[] } };
+    };
+    const firstResult = (first.structuredContent as { result: LiuyaoReplayResult }).result;
+    assert.equal(firstResult.generation.method, 'coins');
+    assert.equal(firstResult.generation.coinThrows.length, 6);
+
+    const replay = await client.callTool({
+      name: 'divine_liuyao',
+      arguments: {
+        customDate: '2025-01-01T08:00:00+08:00',
+        method: 'coins',
+        replay: firstResult.meta.random.samples,
+      },
+    });
+    assert.equal(replay.isError, undefined);
+    const replayResult = (replay.structuredContent as { result: LiuyaoReplayResult }).result;
+    assert.deepEqual(replayResult.yaoArray, firstResult.yaoArray);
+    assert.equal(replayResult.meta.resultId, firstResult.meta.resultId);
+  });
+});

@@ -83,7 +83,7 @@ test('能力清单可序列化且返回副本', () => {
   const first = getCapabilities();
   const second = getCapabilities();
   assert.equal(first.package, 'mingyu-core');
-  assert.equal(first.version, '0.1.19');
+  assert.equal(first.version, '0.1.20');
   assert.ok(first.systems.length >= 10);
   assert.doesNotThrow(() => JSON.stringify(first));
 
@@ -91,6 +91,10 @@ test('能力清单可序列化且返回副本', () => {
   assert.notEqual(second.systems[0]!.name, '已修改');
   assert.equal(getSystemCapability('bazhai')?.inputs[1]?.id, 'doorToInteriorDegree');
   assert.equal(getSystemCapability('bazi')?.supports.unknownBirthTime, 'unsupported');
+  const liuyao = getSystemCapability('liuyao');
+  assert.equal(liuyao?.supports.seed, true);
+  assert.equal(liuyao?.supports.replay, true);
+  assert.ok(liuyao?.methods?.some((item) => item.value === 'coins'));
   const packageJson = JSON.parse(
     readFileSync(new URL('../packages/core/package.json', import.meta.url), 'utf8'),
   ) as { version: string };

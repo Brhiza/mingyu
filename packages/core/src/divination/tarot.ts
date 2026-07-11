@@ -1,6 +1,7 @@
 import { tarotCards, tarotSpreads } from './tarot-data';
 import type { RandomOptions } from '../shared/random';
-import { createRandomSource, randomFloat, randomInt, type RandomSource } from '../shared/random';
+import { createRandomContext, randomFloat, randomInt, type RandomSource } from '../shared/random';
+import { attachResultMeta } from '../shared/result';
 
 export { tarotSpreads } from './tarot-data';
 
@@ -14,17 +15,27 @@ function shuffleCards(rng: RandomSource) {
 }
 
 export function drawSingleCard(options?: RandomOptions) {
-  const rng = createRandomSource(options);
+  const context = createRandomContext(options);
+  const rng = context.random;
   const shuffled = shuffleCards(rng);
   const card = shuffled[0];
   const isReversed = randomFloat(rng) < 0.5;
+  const timestamp = Date.now();
 
-  return {
-    card: card,
-    isReversed: isReversed,
-    position: '当前指引',
-    timestamp: Date.now(),
-  };
+  return attachResultMeta(
+    {
+      card,
+      isReversed,
+      position: '当前指引',
+      timestamp,
+    },
+    {
+      algorithm: 'tarot.single',
+      input: { spreadType: 'single' },
+      calculatedAt: timestamp,
+      random: context.getTrace(),
+    },
+  );
 }
 
 export function drawSpreadCards(spreadType: keyof typeof tarotSpreads, options?: RandomOptions) {
@@ -33,7 +44,8 @@ export function drawSpreadCards(spreadType: keyof typeof tarotSpreads, options?:
     throw new Error(`未知的牌阵类型: ${spreadType}`);
   }
 
-  const rng = createRandomSource(options);
+  const context = createRandomContext(options);
+  const rng = context.random;
   const shuffled = shuffleCards(rng);
   const cards = [];
 
@@ -48,12 +60,21 @@ export function drawSpreadCards(spreadType: keyof typeof tarotSpreads, options?:
     });
   }
 
-  return {
-    spreadType,
-    spreadName: spread.name,
-    cards: cards,
-    timestamp: Date.now(),
-  };
+  const timestamp = Date.now();
+  return attachResultMeta(
+    {
+      spreadType,
+      spreadName: spread.name,
+      cards,
+      timestamp,
+    },
+    {
+      algorithm: 'tarot.spread',
+      input: { spreadType },
+      calculatedAt: timestamp,
+      random: context.getTrace(),
+    },
+  );
 }
 
 export function getCardKeywords(cardName: string): string {

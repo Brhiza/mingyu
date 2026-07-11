@@ -2,7 +2,8 @@ import type { SsgwData } from '../../types/divination';
 import { SSGW_SIGNS } from '../../divination/ssgw-data';
 import { getDivinationTime } from '../../calendar/timeManager';
 import type { RandomOptions } from '../../shared/random';
-import { createRandomSource, randomInt } from '../../shared/random';
+import { createRandomContext, randomInt } from '../../shared/random';
+import { attachResultMeta } from '../../shared/result';
 
 /**
  * @file 灵签抽签算法（神算鬼谋）
@@ -49,12 +50,20 @@ export function drawRandomSign(
   const randomOptions =
     customDateOrOptions instanceof Date ? options : (customDateOrOptions ?? options);
   const { ganzhi, timestamp } = getDivinationTime(customDate);
-  const rng = createRandomSource(randomOptions);
-  const randomIndex = randomInt(ssgwSigns.length, rng);
+  const context = createRandomContext(randomOptions);
+  const randomIndex = randomInt(ssgwSigns.length, context.random);
   const sign = ssgwSigns[randomIndex];
-  return {
-    ...sign,
-    timestamp,
-    ganzhi,
-  };
+  return attachResultMeta(
+    {
+      ...sign,
+      timestamp,
+      ganzhi,
+    },
+    {
+      algorithm: 'ssgw.draw',
+      input: { timestamp },
+      calculatedAt: timestamp,
+      random: context.getTrace(),
+    },
+  );
 }

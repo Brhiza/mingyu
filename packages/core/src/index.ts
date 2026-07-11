@@ -30,6 +30,8 @@ export * as shensha from './shensha/index';
 export * as foundation from './foundation/index';
 export * as profile from './profile/index';
 export * as capabilities from './capabilities/index';
+export * as result from './shared/result';
+export * as random from './shared/random';
 
 // 新增术数系统
 export * as bazhai from './ba_zhai/index';
@@ -42,6 +44,7 @@ export { configure } from './calendar/timeManager';
 export { getCapabilities, getSystemCapability } from './capabilities/index';
 export * from './profile/index';
 export type * from './capabilities/index';
+export * from './shared/result';
 
 // Re-export shared types
 export type * from './types/index';

@@ -27,6 +27,8 @@ import {
   resolveTimeMethod,
   type MeihuaMethodResult,
 } from './helpers/methods';
+import { attachResultMeta } from '../../../shared/result';
+import { hasRandomOptions } from '../../../shared/random';
 
 const trigrams = trigramsByIndex;
 
@@ -132,6 +134,9 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   const { ganzhi, timeInfo, timestamp } = getDivinationTime(customDate);
   const { lunar } = timeInfo;
   const method = settings?.method ?? 'time';
+  if (method !== 'random' && hasRandomOptions(settings)) {
+    throw new Error('梅花易数仅随机起卦接受 seed、replay 或自定义随机源。');
+  }
 
   const methodResult: MeihuaMethodResult = (() => {
     switch (method) {
@@ -148,7 +153,8 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
     }
   })();
 
-  const { upperTrigramIndex, lowerTrigramIndex, movingYaoIndex, calculation } = methodResult;
+  const { upperTrigramIndex, lowerTrigramIndex, movingYaoIndex, calculation, randomTrace } =
+    methodResult;
 
   // 3. 确定主卦、互卦、变卦
   const upperTrigram = trigrams[upperTrigramIndex];
@@ -241,117 +247,125 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
       ? (seasonByJieQi as '春' | '夏' | '秋' | '冬')
       : MeihuaHelpers.getSeasonByMonth(lunar.monthNumber);
 
-  return {
-    originalName: mainHexagram.name,
-    changedName: changingHexagram?.name || '',
-    interName: interHexagram?.name || '',
+  return attachResultMeta(
+    {
+      originalName: mainHexagram.name,
+      changedName: changingHexagram?.name || '',
+      interName: interHexagram?.name || '',
 
-    // 核心体用关系
-    tiGua: { name: tiGua.name, element: tiGua.element, nature: tiGua.nature },
-    yongGua: { name: yongGua.name, element: yongGua.element, nature: yongGua.nature },
-    changedTiGua: changedTiYong
-      ? {
-          name: changedTiYong.tiGua.name,
-          element: changedTiYong.tiGua.element,
-          nature: changedTiYong.tiGua.nature,
-        }
-      : null,
-    changedYongGua: changedTiYong
-      ? {
-          name: changedTiYong.yongGua.name,
-          element: changedTiYong.yongGua.element,
-          nature: changedTiYong.yongGua.nature,
-        }
-      : null,
+      // 核心体用关系
+      tiGua: { name: tiGua.name, element: tiGua.element, nature: tiGua.nature },
+      yongGua: { name: yongGua.name, element: yongGua.element, nature: yongGua.nature },
+      changedTiGua: changedTiYong
+        ? {
+            name: changedTiYong.tiGua.name,
+            element: changedTiYong.tiGua.element,
+            nature: changedTiYong.tiGua.nature,
+          }
+        : null,
+      changedYongGua: changedTiYong
+        ? {
+            name: changedTiYong.yongGua.name,
+            element: changedTiYong.yongGua.element,
+            nature: changedTiYong.yongGua.nature,
+          }
+        : null,
 
-    // 卦象详情
-    mainHexagram: {
-      name: mainHexagram.name,
-      symbol: mainHexagram.symbol,
-      upper: upperTrigram.name,
-      lower: lowerTrigram.name,
-      description: mainHexagram.description,
-      yaoCi: mainHexagram.yaoCi,
-      movingYaoCi: mainHexagram.yaoCi?.[movingYaoIndex - 1] || '',
-    },
-    changedHexagram: changingHexagram
-      ? {
-          name: changingHexagram.name,
-          symbol: changingHexagram.symbol,
-          upper: changedUpperResult?.trigram?.name || '',
-          lower: changedLowerResult?.trigram?.name || '',
-          description: changingHexagram.description,
-          yaoCi: changingHexagram.yaoCi,
-        }
-      : null,
-    interHexagram: interHexagram
-      ? {
-          name: interHexagram.name,
-          symbol: interHexagram.symbol,
-          upper: interUpperResult?.trigram?.name || '',
-          lower: interLowerResult?.trigram?.name || '',
-          description: interHexagram.description,
-          yaoCi: interHexagram.yaoCi,
-        }
-      : null,
+      // 卦象详情
+      mainHexagram: {
+        name: mainHexagram.name,
+        symbol: mainHexagram.symbol,
+        upper: upperTrigram.name,
+        lower: lowerTrigram.name,
+        description: mainHexagram.description,
+        yaoCi: mainHexagram.yaoCi,
+        movingYaoCi: mainHexagram.yaoCi?.[movingYaoIndex - 1] || '',
+      },
+      changedHexagram: changingHexagram
+        ? {
+            name: changingHexagram.name,
+            symbol: changingHexagram.symbol,
+            upper: changedUpperResult?.trigram?.name || '',
+            lower: changedLowerResult?.trigram?.name || '',
+            description: changingHexagram.description,
+            yaoCi: changingHexagram.yaoCi,
+          }
+        : null,
+      interHexagram: interHexagram
+        ? {
+            name: interHexagram.name,
+            symbol: interHexagram.symbol,
+            upper: interUpperResult?.trigram?.name || '',
+            lower: interLowerResult?.trigram?.name || '',
+            description: interHexagram.description,
+            yaoCi: interHexagram.yaoCi,
+          }
+        : null,
 
-    // 动爻信息
-    movingYao: {
-      position: movingYaoIndex,
-      description: `第${movingYaoIndex}爻动`,
-      yaoName: ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][movingYaoIndex - 1] || '未知',
-    },
+      // 动爻信息
+      movingYao: {
+        position: movingYaoIndex,
+        description: `第${movingYaoIndex}爻动`,
+        yaoName: ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][movingYaoIndex - 1] || '未知',
+      },
 
-    analysis: {
-      season,
-      tiYongRelation: MeihuaHelpers.getElementRelation(yongGua.element, tiGua.element),
-      tiSeasonState,
-      yongSeasonState,
-      // 传统梅花互卦体用定法（《梅花易数》原旨）：
-      // 原动爻在下卦（1/2/3爻）→互卦的下卦为互体、上卦为互用；
-      // 原动爻在上卦（4/5/6爻）→互卦的上卦为互体、下卦为互用。
-      // 以互用对互体论生克，反映事态发展过程中的关键关系。
-      inter1Relation:
-        interLowerResult && interUpperResult
-          ? MeihuaHelpers.getElementRelation(
-              movingYaoIndex <= 3
-                ? interUpperResult.trigram.element
-                : interLowerResult.trigram.element,
-              movingYaoIndex <= 3
-                ? interLowerResult.trigram.element
-                : interUpperResult.trigram.element,
-            )
+      analysis: {
+        season,
+        tiYongRelation: MeihuaHelpers.getElementRelation(yongGua.element, tiGua.element),
+        tiSeasonState,
+        yongSeasonState,
+        // 传统梅花互卦体用定法（《梅花易数》原旨）：
+        // 原动爻在下卦（1/2/3爻）→互卦的下卦为互体、上卦为互用；
+        // 原动爻在上卦（4/5/6爻）→互卦的上卦为互体、下卦为互用。
+        // 以互用对互体论生克，反映事态发展过程中的关键关系。
+        inter1Relation:
+          interLowerResult && interUpperResult
+            ? MeihuaHelpers.getElementRelation(
+                movingYaoIndex <= 3
+                  ? interUpperResult.trigram.element
+                  : interLowerResult.trigram.element,
+                movingYaoIndex <= 3
+                  ? interLowerResult.trigram.element
+                  : interUpperResult.trigram.element,
+              )
+            : '无',
+        // 另一互卦经卦对原体卦的辅助关系（非正统，仅作参考）
+        inter2Relation: interUpperResult
+          ? MeihuaHelpers.getElementRelation(interUpperResult.trigram.element, tiGua.element)
           : '无',
-      // 另一互卦经卦对原体卦的辅助关系（非正统，仅作参考）
-      inter2Relation: interUpperResult
-        ? MeihuaHelpers.getElementRelation(interUpperResult.trigram.element, tiGua.element)
-        : '无',
-      changedRelation: changedTiYong
-        ? MeihuaHelpers.getElementRelation(
-            changedTiYong.yongGua.element,
-            changedTiYong.tiGua.element,
-          )
-        : '无变卦',
-      changedTiYongRelation: changedTiYong
-        ? MeihuaHelpers.getElementRelation(
-            changedTiYong.yongGua.element,
-            changedTiYong.tiGua.element,
-          )
-        : '无变卦',
-      tiYongRaw: getTiYongRelation(yongGua.element, tiGua.element),
-      yingQi: estimateYingQi({
-        movingYaoIndex,
-        upperTrigramIndex,
-        lowerTrigramIndex,
-        tiElement: tiGua.element,
-        yongElement: yongGua.element,
-        seasonState: tiSeasonState,
-      }),
-    },
+        changedRelation: changedTiYong
+          ? MeihuaHelpers.getElementRelation(
+              changedTiYong.yongGua.element,
+              changedTiYong.tiGua.element,
+            )
+          : '无变卦',
+        changedTiYongRelation: changedTiYong
+          ? MeihuaHelpers.getElementRelation(
+              changedTiYong.yongGua.element,
+              changedTiYong.tiGua.element,
+            )
+          : '无变卦',
+        tiYongRaw: getTiYongRelation(yongGua.element, tiGua.element),
+        yingQi: estimateYingQi({
+          movingYaoIndex,
+          upperTrigramIndex,
+          lowerTrigramIndex,
+          tiElement: tiGua.element,
+          yongElement: yongGua.element,
+          seasonState: tiSeasonState,
+        }),
+      },
 
-    ganzhi,
-    timestamp,
-    yaosDetail,
-    calculation,
-  };
+      ganzhi,
+      timestamp,
+      yaosDetail,
+      calculation,
+    },
+    {
+      algorithm: 'meihua',
+      input: { method, number: settings?.number, timestamp },
+      calculatedAt: timestamp,
+      random: randomTrace,
+    },
+  );
 }
