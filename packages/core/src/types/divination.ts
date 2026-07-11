@@ -1,6 +1,8 @@
 import type { RandomOptions } from '../shared/random';
+import type { CoreResultMeta } from '../shared/result';
 
 export type { RandomOptions, RandomSource } from '../shared/random';
+export type { CoreResultMeta } from '../shared/result';
 
 export type SixGod = '青龙' | '朱雀' | '勾陈' | '螣蛇' | '白虎' | '玄武';
 
@@ -46,6 +48,7 @@ export interface XiaoliurenPalaceDetail {
 }
 
 export interface XiaoliurenData {
+  meta?: CoreResultMeta;
   method: XiaoliurenDivinationMethod;
   methodLabel: string;
   timestamp: number;
@@ -181,6 +184,7 @@ export interface MeihuaYaoDetail extends BaseYaoDetail {
 }
 
 export interface BaseHexagramData {
+  meta?: CoreResultMeta;
   originalName: string;
   changedName?: string;
   interName?: string;
@@ -189,6 +193,14 @@ export interface BaseHexagramData {
 }
 
 export interface LiuyaoData extends BaseHexagramData {
+  /** 起卦来源与三钱投掷轨迹。 */
+  generation?: {
+    method: 'time' | 'manual' | 'coins';
+    coinThrows?: Array<{
+      coins: [2 | 3, 2 | 3, 2 | 3];
+      total: 6 | 7 | 8 | 9;
+    }>;
+  };
   /** 原始摇卦数字数组（6/7/8/9 分别代表老阴/少阳/少阴/老阳） */
   yaoArray: number[];
   /** 动爻详情：位置、是否变化、变化类型 */
@@ -635,6 +647,7 @@ export interface LiurenData {
 }
 
 export interface TarotData {
+  meta?: CoreResultMeta;
   spreadType: string;
   spreadName: string;
   cards: {
@@ -784,6 +797,7 @@ export type LenormandSpreadType =
   'single' | 'three' | 'five' | 'relationship' | 'decision' | 'nine' | 'element' | 'grandTableau';
 
 export interface LenormandData {
+  meta?: CoreResultMeta;
   spreadType: LenormandSpreadType;
   spreadName: string;
   cards: {
@@ -926,6 +940,7 @@ export interface SsgwRitual {
 }
 
 export interface SsgwData {
+  meta?: CoreResultMeta;
   number: number;
   title: string;
   poem: string;

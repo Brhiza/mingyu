@@ -1,6 +1,7 @@
 import type { LenormandData, LenormandSpreadType } from '../../types/divination';
 import type { RandomOptions, RandomSource } from '../../shared/random';
-import { createRandomSource, randomInt } from '../../shared/random';
+import { createRandomContext, randomInt } from '../../shared/random';
+import { attachResultMeta } from '../../shared/result';
 
 const LENORMAND_CARDS = [
   { id: 1, name: '骑士', keywords: ['消息', '到来', '进展'], meaning: '消息抵达，事情开始移动。' },
@@ -283,7 +284,8 @@ export function drawLenormandSpread(
     throw new Error(`未知的雷诺曼牌阵类型: ${spreadType}`);
   }
 
-  const rng = createRandomSource(options);
+  const context = createRandomContext(options);
+  const rng = context.random;
   const cards = shuffleCards(rng)
     .slice(0, spread.positions.length)
     .map((card, index) => {
@@ -353,12 +355,21 @@ export function drawLenormandSpread(
     }
   }
 
-  return {
-    spreadType,
-    spreadName: spread.name,
-    cards,
-    combinations,
-    layoutEvidence,
-    timestamp: Date.now(),
-  };
+  const timestamp = Date.now();
+  return attachResultMeta(
+    {
+      spreadType,
+      spreadName: spread.name,
+      cards,
+      combinations,
+      layoutEvidence,
+      timestamp,
+    },
+    {
+      algorithm: 'lenormand.spread',
+      input: { spreadType },
+      calculatedAt: timestamp,
+      random: context.getTrace(),
+    },
+  );
 }

@@ -22,8 +22,11 @@ import {
   hexagramPalaceMap,
   palaceHexagrams,
 } from '../../divination/divination-data';
-import { generateYaosByTime, getDivinationTime } from '../../calendar/timeManager';
+import { getDivinationTime } from '../../calendar/timeManager';
 import { assertOptionalRecord } from '../../shared/validation';
+import type { RandomOptions, RandomTrace } from '../../shared/random';
+import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';
+import { attachResultMeta } from '../../shared/result';
 import {
   isSheng,
   isKe,
@@ -722,14 +725,66 @@ function getSpecialPattern(
  * // result 包含 mainHexagram、changedHexagram、yaos（六爻详情）等字段
  * ```
  */
-export interface LiuyaoGenerationOptions {
+export type LiuyaoGenerationMethod = 'time' | 'manual' | 'coins';
+
+export interface LiuyaoGenerationOptions extends RandomOptions {
+  /** 起卦方式；默认有 yaos 时为 manual，否则为 time。 */
+  method?: LiuyaoGenerationMethod;
   /** 可选手工三钱法爻值，按初爻到上爻传入 6、7、8、9。 */
   yaos?: readonly number[];
 }
 
-function resolveRawYaos(timestamp: number, options?: LiuyaoGenerationOptions): number[] {
+type LiuyaoGeneration = NonNullable<import('../../types/divination').LiuyaoData['generation']>;
+
+function generateCoinYaos(
+  method: 'time' | 'coins',
+  options: RandomOptions,
+): {
+  yaos: number[];
+  generation: LiuyaoGeneration;
+  randomTrace: RandomTrace;
+} {
+  const context = createRandomContext(options);
+  const coinThrows: NonNullable<LiuyaoGeneration['coinThrows']> = [];
+  const yaos: number[] = [];
+  for (let yaoIndex = 0; yaoIndex < 6; yaoIndex++) {
+    const coins = [0, 1, 2].map(() => (randomInt(2, context.random) === 0 ? 2 : 3)) as [
+      2 | 3,
+      2 | 3,
+      2 | 3,
+    ];
+    const total = coins.reduce<number>((sum, coin) => sum + coin, 0) as 6 | 7 | 8 | 9;
+    coinThrows.push({ coins, total });
+    yaos.push(total);
+  }
+  return {
+    yaos,
+    generation: { method, coinThrows },
+    randomTrace: context.getTrace(),
+  };
+}
+
+function resolveRawYaos(
+  timestamp: number,
+  options?: LiuyaoGenerationOptions,
+): { yaos: number[]; generation: LiuyaoGeneration; randomTrace?: RandomTrace } {
   assertOptionalRecord(options, '六爻起卦设置');
-  if (options?.yaos === undefined) return generateYaosByTime(timestamp, 6);
+  const method = options?.method ?? (options?.yaos !== undefined ? 'manual' : 'time');
+  if (!['time', 'manual', 'coins'].includes(method)) {
+    throw new Error(`未知的六爻起卦方式: ${method}`);
+  }
+  const usesRandomOptions = hasRandomOptions(options);
+  if (method === 'time') {
+    if (options?.yaos !== undefined) throw new Error('六爻时间起卦不能同时提供手工爻值。');
+    if (usesRandomOptions) throw new Error('六爻时间起卦不接受额外随机选项。');
+    return generateCoinYaos('time', { seed: `时间起卦:${timestamp}` });
+  }
+  if (method === 'coins') {
+    if (options?.yaos !== undefined) throw new Error('六爻模拟投掷不能同时提供手工爻值。');
+    return generateCoinYaos('coins', options ?? {});
+  }
+  if (usesRandomOptions) throw new Error('六爻手工起卦不接受随机选项。');
+  if (options?.yaos === undefined) throw new Error('六爻手工起卦必须提供六个爻值。');
   if (options.yaos.length !== 6) {
     throw new Error('六爻手工爻值必须恰好包含 6 爻。');
   }
@@ -737,13 +792,14 @@ function resolveRawYaos(timestamp: number, options?: LiuyaoGenerationOptions): n
   if (!yaos.every((value) => Number.isInteger(value) && value >= 6 && value <= 9)) {
     throw new Error('六爻手工爻值只能是 6、7、8、9。');
   }
-  return yaos;
+  return { yaos, generation: { method: 'manual' } };
 }
 
 export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOptions) {
   // 1. 获取占卜时间的干支信息
   const { ganzhi, timestamp } = getDivinationTime(customDate);
-  const rawYaos = resolveRawYaos(timestamp, options);
+  const resolvedGeneration = resolveRawYaos(timestamp, options);
+  const rawYaos = resolvedGeneration.yaos;
 
   const mainYaos = rawYaos.map((yao) => (yao === 7 || yao === 9 ? '阳' : '阴'));
   const changedYaos = rawYaos.map((yao, index) => {
@@ -936,35 +992,48 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
       }
     : null;
 
-  return {
-    originalName: mainHexagram.name,
-    changedName: changedHexagram.name,
-    interName: interHexagram.name,
-    yaoArray: rawYaos,
-    changingYaos: changingYaosResult,
-    sixGods: animals,
-    sixRelatives: yaosInfo.map((info) => info.liuqin),
-    najiaDizhi: yaosInfo.map((info) => info.dizhi),
-    wuxing: yaosInfo.map((info) => info.wuxing),
-    worldAndResponse: getWorldAndResponseArray(shiYing),
-    voidBranches: voids,
-    palace,
-    palaceStage,
-    ganzhi,
-    specialPattern,
-    specialAdvice,
-    isChaotic,
-    chaoticReason,
-    yaosDetail,
-    hiddenSpirits,
-    hexagramRelations,
-    fanfuRelations,
-    sanheWithDay,
-    sanheWithMonth,
-    sanxingInYaos,
-    guaShen,
-    timestamp,
-  };
+  return attachResultMeta(
+    {
+      originalName: mainHexagram.name,
+      changedName: changedHexagram.name,
+      interName: interHexagram.name,
+      yaoArray: rawYaos,
+      changingYaos: changingYaosResult,
+      sixGods: animals,
+      sixRelatives: yaosInfo.map((info) => info.liuqin),
+      najiaDizhi: yaosInfo.map((info) => info.dizhi),
+      wuxing: yaosInfo.map((info) => info.wuxing),
+      worldAndResponse: getWorldAndResponseArray(shiYing),
+      voidBranches: voids,
+      palace,
+      palaceStage,
+      ganzhi,
+      specialPattern,
+      specialAdvice,
+      isChaotic,
+      chaoticReason,
+      yaosDetail,
+      hiddenSpirits,
+      hexagramRelations,
+      fanfuRelations,
+      sanheWithDay,
+      sanheWithMonth,
+      sanxingInYaos,
+      guaShen,
+      generation: resolvedGeneration.generation,
+      timestamp,
+    },
+    {
+      algorithm: 'liuyao',
+      input: {
+        method: resolvedGeneration.generation.method,
+        timestamp,
+        yaos: resolvedGeneration.generation.method === 'manual' ? rawYaos : undefined,
+      },
+      calculatedAt: timestamp,
+      random: resolvedGeneration.randomTrace,
+    },
+  );
 }
 
 export { buildHiddenSpirits };

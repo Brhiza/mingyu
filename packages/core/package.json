@@ -1,6 +1,6 @@
 {
   "name": "mingyu-core",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "description": "Mingyu core algorithms: traditional Chinese metaphysics (八字Bazi, 紫微斗数Ziwei, 奇门遁甲Qimen, 六爻Liuyao, 六壬Liuren, 梅花易数Meihua, and more)",
   "type": "module",
   "main": "./dist/index.js",
@@ -134,6 +134,14 @@
     "./capabilities": {
       "import": "./dist/capabilities/index.js",
       "types": "./dist/capabilities/index.d.ts"
+    },
+    "./result": {
+      "import": "./dist/shared/result.js",
+      "types": "./dist/shared/result.d.ts"
+    },
+    "./random": {
+      "import": "./dist/shared/random.js",
+      "types": "./dist/shared/random.d.ts"
     },
     "./bazhai": {
       "import": "./dist/ba_zhai/index.js",

@@ -1,20 +1,13 @@
-import { getBirthDateValidationMessage } from './date-validation';
+import {
+  daysInSolarMonth,
+  getBirthDateValidationMessage,
+  isValidClockTime,
+} from './date-validation';
 
 export type ValidationResult = { ok: true } | { ok: false; field: string; message: string };
 
 const MIN_YEAR = 1900;
 const MAX_YEAR = 2100;
-
-function daysInMonth(year: number, month: number): number {
-  if (month === 2) {
-    const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-    return isLeap ? 29 : 28;
-  }
-  if (month === 4 || month === 6 || month === 9 || month === 11) {
-    return 30;
-  }
-  return 31;
-}
 
 export function clampNumericField(
   key: 'year' | 'month' | 'day' | 'birthHour' | 'birthMinute',
@@ -89,7 +82,7 @@ export function validateBirthInput(
       };
     }
   } else {
-    const maxDay = daysInMonth(yearNum, monthNum);
+    const maxDay = daysInSolarMonth(yearNum, monthNum);
     if (!Number.isInteger(dayNum) || dayNum < 1 || dayNum > maxDay) {
       return {
         ok: false,
@@ -143,12 +136,5 @@ export function validateBirthInput(
 }
 
 export function isValidHourMinute(hour: number, minute: number): boolean {
-  return (
-    Number.isInteger(hour) &&
-    Number.isInteger(minute) &&
-    hour >= 0 &&
-    hour <= 23 &&
-    minute >= 0 &&
-    minute <= 59
-  );
+  return isValidClockTime(hour, minute);
 }

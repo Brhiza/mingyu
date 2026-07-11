@@ -1,0 +1,207 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  MINGYU_SCHEMA_VERSION,
+  MingyuCoreError,
+  createResultMeta,
+  hashStableValue,
+  serializeCoreResult,
+  stableStringify,
+} from 'mingyu-core/result';
+import { createRandomContext } from 'mingyu-core/random';
+import { normalizeBirthProfile, BirthProfileError } from 'mingyu-core/profile';
+import { drawSpreadCards } from '../packages/core/src/divination/tarot';
+import { drawLenormandSpread } from '../packages/core/src/divination/algorithms/lenormand';
+import { drawRandomSign } from '../packages/core/src/divination/algorithms/ssgw';
+import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index';
+import { generateXiaoliuren } from '../packages/core/src/divination/algorithms/xiaoliuren';
+import { generateLiuyao } from '../packages/core/src/divination/algorithms/liuyao';
+import { TimeManager } from '../packages/core/src/calendar/timeManager';
+
+const DATE = new Date('2026-07-11T08:00:00+08:00');
+
+test('稳定序列化不受对象键顺序影响并拒绝不可安全存储的数据', () => {
+  const first = { b: 2, a: { d: 4, c: 3 }, omitted: undefined };
+  const second = { a: { c: 3, d: 4 }, b: 2 };
+  assert.equal(stableStringify(first), stableStringify(second));
+  assert.equal(hashStableValue(first), hashStableValue(second));
+  assert.equal(
+    serializeCoreResult({ date: new Date('2026-01-01T00:00:00Z') }),
+    '{"date":"2026-01-01T00:00:00.000Z"}',
+  );
+  assert.throws(() => stableStringify({ value: Number.NaN }), /不支持 NaN/);
+  assert.throws(() => stableStringify({ value: () => 1 }), /不支持 function/);
+  assert.throws(() => stableStringify(undefined), /顶层 undefined/);
+  assert.throws(() => stableStringify(new Map([['key', 'value']])), /只支持普通对象/);
+
+  const circular: Record<string, unknown> = {};
+  circular.self = circular;
+  assert.throws(() => stableStringify(circular), /循环引用/);
+});
+
+test('结果身份在相同输入下保持稳定，计算时间不参与身份', () => {
+  assert.equal(MINGYU_SCHEMA_VERSION, '1.0.0');
+  const first = createResultMeta({
+    algorithm: 'test.algorithm',
+    input: { b: 2, a: 1 },
+    calculatedAt: '2026-01-01T00:00:00Z',
+  });
+  const second = createResultMeta({
+    algorithm: 'test.algorithm',
+    input: { a: 1, b: 2 },
+    calculatedAt: '2026-07-11T00:00:00Z',
+  });
+
+  assert.equal(first.inputHash, second.inputHash);
+  assert.equal(first.resultId, second.resultId);
+  assert.notEqual(first.calculatedAt, second.calculatedAt);
+  assert.match(first.resultId, /^test\.algorithm:[0-9a-f]{16}$/);
+  assert.throws(
+    () => createResultMeta(undefined as never),
+    (error: unknown) =>
+      error instanceof MingyuCoreError && error.code === 'RESULT_META_OPTIONS_INVALID',
+  );
+  assert.throws(
+    () =>
+      createResultMeta({
+        algorithm: 'test.algorithm',
+        input: {},
+        random: { mode: 'replay', samples: [1] },
+      }),
+    (error: unknown) =>
+      error instanceof MingyuCoreError && error.code === 'RANDOM_TRACE_SAMPLE_INVALID',
+  );
+});
+
+test('统一错误可结构化输出，出生档案错误继续保持兼容类型', () => {
+  let caught: unknown;
+  try {
+    const profile = normalizeBirthProfile({
+      gender: 'female',
+      calendarType: 'solar',
+      year: 1990,
+      month: 5,
+      day: 15,
+      unknownTime: true,
+    });
+    if (!profile.hasKnownTime) {
+      throw new BirthProfileError({
+        code: 'TIME_REQUIRED',
+        level: 'error',
+        field: 'hour',
+        message: '需要时辰。',
+      });
+    }
+  } catch (error) {
+    caught = error;
+  }
+  assert.ok(caught instanceof BirthProfileError);
+  assert.ok(caught instanceof MingyuCoreError);
+  assert.deepEqual(caught.toJSON(), {
+    name: 'BirthProfileError',
+    code: 'TIME_REQUIRED',
+    category: 'validation',
+    message: '需要时辰。',
+    field: 'hour',
+    recoverable: true,
+    diagnostics: [{ code: 'TIME_REQUIRED', level: 'error', field: 'hour', message: '需要时辰。' }],
+    context: undefined,
+  });
+});
+
+test('随机上下文支持种子记录和原始样本重放', () => {
+  const seeded = createRandomContext({ seed: '固定种子' });
+  const values = [seeded.random(), seeded.random(), seeded.random()];
+  const trace = seeded.getTrace();
+  assert.equal(trace.mode, 'seeded');
+  assert.equal(trace.seed, '固定种子');
+  assert.deepEqual(trace.samples, values);
+
+  const replay = createRandomContext({ replay: trace.samples });
+  assert.deepEqual([replay.random(), replay.random(), replay.random()], values);
+  assert.equal(replay.getTrace().mode, 'replay');
+  assert.throws(
+    () => replay.random(),
+    (error: unknown) =>
+      error instanceof MingyuCoreError && error.code === 'RANDOM_REPLAY_EXHAUSTED',
+  );
+  assert.throws(() => createRandomContext({ seed: 1, replay: [0.5] }), /只能提供一种/);
+});
+
+test('塔罗、雷诺曼、灵签、梅花和小六壬可由结果元数据完整重放', () => {
+  const tarot = drawSpreadCards('three', { seed: '塔罗样例' });
+  const tarotReplay = drawSpreadCards('three', { replay: tarot.meta.random?.samples });
+  assert.deepEqual(tarotReplay.cards, tarot.cards);
+  assert.equal(tarotReplay.meta.resultId, tarot.meta.resultId);
+
+  const lenormand = drawLenormandSpread('nine', { seed: '雷诺曼样例' });
+  const lenormandReplay = drawLenormandSpread('nine', {
+    replay: lenormand.meta?.random?.samples,
+  });
+  assert.deepEqual(lenormandReplay.cards, lenormand.cards);
+  assert.equal(lenormandReplay.meta?.resultId, lenormand.meta?.resultId);
+
+  const sign = drawRandomSign(DATE, { seed: '灵签样例' });
+  const signReplay = drawRandomSign(DATE, { replay: sign.meta?.random?.samples });
+  assert.equal(signReplay.number, sign.number);
+  assert.equal(signReplay.meta?.resultId, sign.meta?.resultId);
+
+  const meihua = generateMeihua(DATE, { method: 'random', seed: '梅花样例' });
+  const meihuaReplay = generateMeihua(DATE, {
+    method: 'random',
+    replay: meihua.meta?.random?.samples,
+  });
+  assert.deepEqual(meihuaReplay.calculation, meihua.calculation);
+  assert.equal(meihuaReplay.meta?.resultId, meihua.meta?.resultId);
+
+  const xiaoliuren = generateXiaoliuren({
+    method: 'random',
+    customDate: DATE,
+    seed: '小六壬样例',
+  });
+  const xiaoliurenReplay = generateXiaoliuren({
+    method: 'random',
+    customDate: DATE,
+    replay: xiaoliuren.meta?.random?.samples,
+  });
+  assert.deepEqual(xiaoliurenReplay.sequence, xiaoliuren.sequence);
+  assert.equal(xiaoliurenReplay.meta?.resultId, xiaoliuren.meta?.resultId);
+});
+
+test('六爻保留时间、手工和模拟三钱三种来源及逐币轨迹', () => {
+  const time = generateLiuyao(DATE);
+  assert.equal(time.generation.method, 'time');
+  assert.equal(time.generation.coinThrows?.length, 6);
+  assert.deepEqual(time.yaoArray, TimeManager.generateYaosByTime(DATE.getTime(), 6));
+
+  const manualYaos = [7, 8, 9, 6, 7, 8] as const;
+  const manual = generateLiuyao(DATE, { method: 'manual', yaos: manualYaos });
+  assert.deepEqual(manual.yaoArray, manualYaos);
+  assert.equal(manual.generation.method, 'manual');
+  assert.equal(manual.meta.random, undefined);
+
+  const coins = generateLiuyao(DATE, { method: 'coins', seed: '三钱样例' });
+  const replay = generateLiuyao(DATE, {
+    method: 'coins',
+    replay: coins.meta.random?.samples,
+  });
+  assert.deepEqual(replay.yaoArray, coins.yaoArray);
+  assert.deepEqual(replay.generation.coinThrows, coins.generation.coinThrows);
+  assert.equal(replay.meta.resultId, coins.meta.resultId);
+  assert.equal(coins.generation.coinThrows?.flatMap((item) => item.coins).length, 18);
+
+  assert.throws(() => generateLiuyao(DATE, { method: 'manual' }), /必须提供六个爻值/);
+  assert.throws(
+    () => generateLiuyao(DATE, { method: 'coins', yaos: manualYaos }),
+    /不能同时提供手工爻值/,
+  );
+});
+
+test('非随机起法不得静默忽略随机设置', () => {
+  assert.throws(() => generateMeihua(DATE, { method: 'time', seed: '不应忽略' }), /仅随机起卦接受/);
+  assert.throws(
+    () => generateXiaoliuren({ method: 'number', number: 3, replay: [0.5] }),
+    /仅随机起课接受/,
+  );
+});

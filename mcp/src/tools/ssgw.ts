@@ -8,8 +8,9 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
+import { randomOptionShape, readMcpRandomOptions } from './random-options.js';
 
-const ssgwSchema = z.object({});
+const ssgwSchema = z.object({ ...randomOptionShape });
 
 const ssgwPromptSchema = extendPromptSchema(ssgwSchema, '用户希望围绕灵签解读的问题');
 
@@ -22,9 +23,9 @@ export function registerSsgwTool(server: McpServer) {
       inputSchema: ssgwSchema.shape,
       outputSchema: resultOutputSchema,
     },
-    async (_args) => {
+    async (args) => {
       try {
-        const result = drawRandomSign();
+        const result = drawRandomSign(readMcpRandomOptions(args));
         return createStructuredToolResult({ result });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '求签失败'));
@@ -45,7 +46,7 @@ export function registerSsgwTool(server: McpServer) {
     },
     async (args) => {
       try {
-        const result = drawRandomSign();
+        const result = drawRandomSign(readMcpRandomOptions(args));
         return createStructuredToolResult({
           result,
           prompt: buildCommonDivinationPrompt('ssgw', args.question, result, args.promptMode),

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { drawSingleCard, drawSpreadCards, getCardKeywords } from 'mingyu-core/divination/tarot';
+import type { RandomOptions } from 'mingyu-core/types';
 import type { tarotSpreads } from 'mingyu-core/divination/tarot';
 import { PROMPT_MODES } from '../../../src/lib/public-api/prompt-builders.js';
 import type { PromptMode } from '../../../src/lib/public-api/prompt-builders.js';
@@ -63,9 +64,9 @@ export function buildCommonDivinationPrompt(
   });
 }
 
-export function buildTarotSpread(spreadType: TarotSpreadKey) {
+export function buildTarotSpread(spreadType: TarotSpreadKey, options?: RandomOptions) {
   if (spreadType === 'single') {
-    const draw = drawSingleCard();
+    const draw = drawSingleCard(options);
     return {
       spreadType: 'single',
       spreadName: '单牌指引',
@@ -79,10 +80,11 @@ export function buildTarotSpread(spreadType: TarotSpreadKey) {
         },
       ],
       timestamp: draw.timestamp,
+      meta: draw.meta,
     };
   }
 
-  const draw = drawSpreadCards(spreadType);
+  const draw = drawSpreadCards(spreadType, options);
   return {
     spreadType: draw.spreadType,
     spreadName: draw.spreadName,
@@ -94,5 +96,6 @@ export function buildTarotSpread(spreadType: TarotSpreadKey) {
       keywords: getCardKeywords(item.card.name).split(','),
     })),
     timestamp: draw.timestamp,
+    meta: draw.meta,
   };
 }

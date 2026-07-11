@@ -1468,6 +1468,44 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
   assert.equal(body.data.spreadType, 'single');
   assert.equal(body.data.cards.length, 1);
   assert.equal(typeof body.data.cards[0].name, 'string');
+  assert.equal(body.data.meta.algorithm, 'tarot.single');
+});
+
+test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', async () => {
+  const input = {
+    customDate: '2025-01-01T08:00:00+08:00',
+    liuyaoMethod: 'coins',
+    seed: '公开接口固定样例',
+  };
+  const first = await callApi('divination/liuyao', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  assert.equal(first.response.status, 200);
+  assert.equal(first.body.data.generation.method, 'coins');
+  assert.equal(first.body.data.generation.coinThrows.length, 6);
+
+  const replay = await callApi('divination/liuyao', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      customDate: input.customDate,
+      liuyaoMethod: 'coins',
+      replay: first.body.data.meta.random.samples,
+    }),
+  });
+  assert.equal(replay.response.status, 200);
+  assert.deepEqual(replay.body.data.yaoArray, first.body.data.yaoArray);
+  assert.equal(replay.body.data.meta.resultId, first.body.data.meta.resultId);
+
+  const conflict = await callApi('divination/liuyao', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...input, replay: [0.5] }),
+  });
+  assert.equal(conflict.response.status, 400);
+  assert.match(conflict.body.error.message, /seed 与 replay 只能提供一个/);
 });
 
 test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async () => {
@@ -1507,6 +1545,14 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
     feipanStars,
   );
   assert.notDeepEqual(feipanStars, zhuanpanStars);
+
+  const unsupportedRandom = await callApi('divination/qimen', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customDate, seed: '不应被静默忽略' }),
+  });
+  assert.equal(unsupportedRandom.response.status, 400);
+  assert.match(unsupportedRandom.body.error.message, /确定性排盘/);
 
   const feipanPrompt = await callApi('divination/qimen/prompt', {
     method: 'POST',

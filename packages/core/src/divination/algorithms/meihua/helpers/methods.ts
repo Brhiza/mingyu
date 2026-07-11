@@ -1,14 +1,15 @@
 import type { MeihuaCalculation } from '../../../../types/divination';
 import { dizhi } from '../../../../divination/divination-data';
 import { getDivinationTime } from '../../../../calendar/timeManager';
-import type { RandomOptions } from '../../../../shared/random';
-import { createRandomSource, randomInt } from '../../../../shared/random';
+import type { RandomOptions, RandomTrace } from '../../../../shared/random';
+import { createRandomContext, randomInt } from '../../../../shared/random';
 
 export interface MeihuaMethodResult {
   upperTrigramIndex: number;
   lowerTrigramIndex: number;
   movingYaoIndex: number;
   calculation: MeihuaCalculation;
+  randomTrace?: RandomTrace;
 }
 
 type DivinationTime = ReturnType<typeof getDivinationTime>;
@@ -126,7 +127,8 @@ export function resolveNumberMethod(number: number, timeBranch: string): MeihuaM
 }
 
 export function resolveRandomMethod(options?: RandomOptions): MeihuaMethodResult {
-  const rng = createRandomSource(options);
+  const context = createRandomContext(options);
+  const rng = context.random;
   const upperTrigramIndex = randomInt(8, rng) + 1;
   const lowerTrigramIndex = randomInt(8, rng) + 1;
   const movingYaoIndex = randomInt(6, rng) + 1;
@@ -135,6 +137,7 @@ export function resolveRandomMethod(options?: RandomOptions): MeihuaMethodResult
     upperTrigramIndex,
     lowerTrigramIndex,
     movingYaoIndex,
+    randomTrace: context.getTrace(),
     calculation: {
       method: '随机起卦法',
       methodKey: 'random',

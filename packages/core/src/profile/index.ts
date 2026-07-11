@@ -2,6 +2,7 @@ import { resolveTrueSolarBirthTime, type SolarDateTimeParts } from '../calendar/
 import { getTimeIndexFromClock } from '../calendar/dateUtils';
 import type { Person } from '../bazi/baziTypes';
 import type { AlmanacParticipantInput, AstrolabeBirthInput } from '../types/divination';
+import { MingyuCoreError, type CoreDiagnostic } from '../shared/result';
 
 export type BirthGender = 'male' | 'female' | 'unspecified';
 export type BirthCalendarType = 'solar' | 'lunar';
@@ -45,12 +46,7 @@ export type BirthProfileDiagnosticCode =
   | 'GENDER_REQUIRED'
   | 'TIME_REQUIRED';
 
-export interface BirthProfileDiagnostic {
-  code: BirthProfileDiagnosticCode;
-  level: 'info' | 'warning' | 'error';
-  field?: string;
-  message: string;
-}
+export type BirthProfileDiagnostic = CoreDiagnostic<BirthProfileDiagnosticCode>;
 
 export interface NormalizedBirthProfile {
   profile: BirthProfile;
@@ -62,15 +58,17 @@ export interface NormalizedBirthProfile {
   diagnostics: BirthProfileDiagnostic[];
 }
 
-export class BirthProfileError extends Error {
-  readonly code: BirthProfileDiagnosticCode;
-  readonly field?: string;
-
+export class BirthProfileError extends MingyuCoreError<BirthProfileDiagnosticCode> {
   constructor(diagnostic: BirthProfileDiagnostic) {
-    super(diagnostic.message);
+    super({
+      code: diagnostic.code,
+      category: diagnostic.code.includes('REQUIRED') ? 'validation' : 'boundary',
+      message: diagnostic.message,
+      field: diagnostic.field,
+      recoverable: diagnostic.recoverable ?? true,
+      diagnostics: [diagnostic],
+    });
     this.name = 'BirthProfileError';
-    this.code = diagnostic.code;
-    this.field = diagnostic.field;
   }
 }
 

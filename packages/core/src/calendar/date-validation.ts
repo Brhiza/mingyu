@@ -76,6 +76,21 @@ export function daysInGregorianMonth(year: number, month: number) {
   return [4, 6, 9, 11].includes(month) ? 30 : 31;
 }
 
+/** 校验 24 小时制时分秒，适合表单、排盘和 API 共用。 */
+export function isValidClockTime(hour: number, minute: number, second: number = 0): boolean {
+  return (
+    Number.isInteger(hour) &&
+    Number.isInteger(minute) &&
+    Number.isInteger(second) &&
+    hour >= 0 &&
+    hour <= 23 &&
+    minute >= 0 &&
+    minute <= 59 &&
+    second >= 0 &&
+    second <= 59
+  );
+}
+
 export function getBirthDateValidationMessage(params: {
   year: number;
   month: number;

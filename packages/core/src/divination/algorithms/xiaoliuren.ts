@@ -19,7 +19,13 @@ import { getDivinationTime } from '../../calendar/timeManager';
 import { getSeasonState } from '../../ganzhi';
 import { assertOptionalRecord } from '../../shared/validation';
 import type { RandomOptions } from '../../shared/random';
-import { createRandomSource, randomInt } from '../../shared/random';
+import {
+  createRandomContext,
+  hasRandomOptions,
+  randomInt,
+  type RandomTrace,
+} from '../../shared/random';
+import { attachResultMeta } from '../../shared/result';
 
 const XIAOLIUREN_PALACES = [
   {
@@ -198,6 +204,9 @@ export function generateXiaoliuren(
   if (!Object.hasOwn(XIAOLIUREN_METHOD_LABEL_MAP, method)) {
     throw new Error(`未知的小六壬起课方式: ${method}`);
   }
+  if (method !== 'random' && hasRandomOptions(params)) {
+    throw new Error('小六壬仅随机起课接受 seed、replay 或自定义随机源。');
+  }
 
   const { ganzhi, timeInfo, timestamp } = getDivinationTime(params?.customDate);
   const lunarMonth = timeInfo.lunar.monthNumber;
@@ -210,6 +219,7 @@ export function generateXiaoliuren(
   let startSeed = lunarMonth;
   let processSeed = lunarMonth + lunarDay - 1;
   let resultSeed = lunarMonth + lunarDay + hourNumber - 2;
+  let randomTrace: RandomTrace | undefined;
 
   if (method === 'number') {
     const inputNumber = params?.number;
@@ -220,7 +230,9 @@ export function generateXiaoliuren(
     processSeed = inputNumber + lunarDay - 1;
     resultSeed = inputNumber + lunarDay + hourNumber - 2;
   } else if (method === 'random') {
-    const base = randomInt(6, createRandomSource(params)) + 1;
+    const context = createRandomContext(params);
+    const base = randomInt(6, context.random) + 1;
+    randomTrace = context.getTrace();
     startSeed = base;
     processSeed = base + lunarDay - 1;
     resultSeed = base + lunarDay + hourNumber - 2;
@@ -287,30 +299,37 @@ export function generateXiaoliuren(
     空亡: '应期不定，建议重新评估后再定时间',
   };
 
-  return {
-    method,
-    methodLabel: XIAOLIUREN_METHOD_LABEL_MAP[method],
-    timestamp,
-    lunarMonth,
-    lunarDay,
-    hourIndex,
-    hourLabel: getHourLabel(hourIndex),
-    sequence: {
-      start,
-      process,
-      result,
+  return attachResultMeta(
+    {
+      method,
+      methodLabel: XIAOLIUREN_METHOD_LABEL_MAP[method],
+      timestamp,
+      lunarMonth,
+      lunarDay,
+      hourIndex,
+      hourLabel: getHourLabel(hourIndex),
+      sequence: {
+        start,
+        process,
+        result,
+      },
+      wuxingRelations,
+      primary: result,
+      tendency: result.tendency,
+      questionHint: buildQuestionHint(result),
+      seasonStates,
+      yingQi: yingQiEstimates[result.name] || '应期视具体问题而定',
+      direction: result.direction,
+      shenSha: result.shenSha,
+      fortune: result.fortune,
+      timing: result.timing,
+      bodyPart: result.bodyPart,
     },
-    wuxingRelations,
-    primary: result,
-    tendency: result.tendency,
-    questionHint: buildQuestionHint(result),
-    // 新增字段
-    seasonStates,
-    yingQi: yingQiEstimates[result.name] || '应期视具体问题而定',
-    direction: result.direction,
-    shenSha: result.shenSha,
-    fortune: result.fortune,
-    timing: result.timing,
-    bodyPart: result.bodyPart,
-  };
+    {
+      algorithm: 'xiaoliuren',
+      input: { method, number: params?.number, timestamp },
+      calculatedAt: timestamp,
+      random: randomTrace,
+    },
+  );
 }

@@ -19,7 +19,7 @@ import {
   getBirthDateValidationMessage,
   isValidIsoDateTime,
 } from '../date-validation';
-import { generateLiuyao } from 'mingyu-core/divination/liuyao';
+import { generateLiuyao, type LiuyaoGenerationOptions } from 'mingyu-core/divination/liuyao';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateQimen } from 'mingyu-core/divination/qimen';
@@ -53,6 +53,7 @@ import type {
   LiuyaoTemplateType,
   LiurenTemplateType,
   MeihuaSettings,
+  RandomOptions,
   SupplementaryInfo,
   XiaoliurenDivinationMethod,
 } from '../../types/divination';
@@ -204,6 +205,27 @@ const DIVINATION_REQUEST_PROPERTIES = {
     format: 'date-time',
     description:
       '时间类占卜的自定义起卦或排盘时间，支持六爻、梅花易数、小六壬、奇门遁甲、大六壬；不传则使用当前时间。',
+  },
+  seed: {
+    oneOf: [{ type: 'string' }, { type: 'number' }],
+    description: '随机种子；仅随机起法、抽牌和抽签使用，相同种子与相同输入可复现。',
+  },
+  replay: {
+    type: 'array',
+    maxItems: 256,
+    items: { type: 'number', minimum: 0, exclusiveMaximum: 1 },
+    description: '从结果 meta.random.samples 保存的随机样本，用于完整重放。',
+  },
+  liuyaoMethod: {
+    enum: ['time', 'manual', 'coins'],
+    description: '六爻起卦方式：时间起卦、手工爻值或模拟三钱投掷。',
+  },
+  yaos: {
+    type: 'array',
+    minItems: 6,
+    maxItems: 6,
+    items: { type: 'integer', minimum: 6, maximum: 9 },
+    description: '手工六爻值，按初爻至上爻传入 6、7、8、9。',
   },
   qimenMethod: {
     enum: ['zhuanpan', 'feipan'],
@@ -1656,10 +1678,22 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
 }
 
 function calculateLiuyao(input: JsonRecord) {
-  return generateLiuyao(readCustomDate(input));
+  const method = readOptionalEnum(input, 'liuyaoMethod', ['time', 'manual', 'coins'] as const);
+  const yaos = readOptionalIntegerArray(input, 'yaos', 6, 6, 9);
+  const randomOptions = readRandomOptions(input);
+  const options: LiuyaoGenerationOptions | undefined =
+    method || yaos || randomOptions
+      ? {
+          method,
+          yaos,
+          ...randomOptions,
+        }
+      : undefined;
+  return generateLiuyao(readCustomDate(input), options);
 }
 
 function calculateQimen(input: JsonRecord) {
+  assertNoRandomOptions(input, '奇门遁甲是确定性排盘，不接受 seed 或 replay。');
   const method = readEnum(input, 'qimenMethod', ['zhuanpan', 'feipan'], 'zhuanpan');
   return generateQimen(readCustomDate(input), method as 'zhuanpan' | 'feipan');
 }
@@ -1674,12 +1708,15 @@ function calculateMeihua(input: JsonRecord) {
   const settings: MeihuaSettings = {
     method,
     ...(method === 'number' ? { number: readInteger(input, 'number', 1) } : {}),
+    ...(method === 'random' ? readRandomOptions(input) : {}),
   };
+  if (method !== 'random') assertNoRandomOptions(input, '梅花易数仅随机起卦接受 seed 或 replay。');
 
   return generateMeihua(readCustomDate(input), settings);
 }
 
 function calculateLiuren(input: JsonRecord) {
+  assertNoRandomOptions(input, '大六壬是确定性排盘，不接受 seed 或 replay。');
   const template = readEnum(
     input,
     'liurenTemplate',
@@ -1699,14 +1736,19 @@ function calculateXiaoliuren(input: JsonRecord) {
     ['time', 'number', 'random'],
     'time',
   ) as XiaoliurenDivinationMethod;
+  if (method !== 'random') {
+    assertNoRandomOptions(input, '小六壬仅随机起课接受 seed 或 replay。');
+  }
   return generateXiaoliuren({
     method,
     ...(method === 'number' ? { number: readInteger(input, 'xiaoliurenNumber', 1) } : {}),
     customDate: readCustomDate(input),
+    ...(method === 'random' ? readRandomOptions(input) : {}),
   });
 }
 
 function calculateTarot(input: JsonRecord) {
+  const randomOptions = readRandomOptions(input);
   const spreadType = readEnum(
     input,
     'spreadType',
@@ -1725,7 +1767,7 @@ function calculateTarot(input: JsonRecord) {
     'single',
   );
   if (spreadType === 'single') {
-    const drawResult = drawSingleCard();
+    const drawResult = drawSingleCard(randomOptions);
     const output = {
       spreadType: 'single',
       spreadName: '单牌指引',
@@ -1739,11 +1781,12 @@ function calculateTarot(input: JsonRecord) {
         },
       ],
       timestamp: drawResult.timestamp,
+      meta: drawResult.meta,
     };
     return output;
   }
 
-  const result = drawSpreadCards(spreadType);
+  const result = drawSpreadCards(spreadType, randomOptions);
   const output = {
     spreadType: result.spreadType,
     spreadName: result.spreadName,
@@ -1755,12 +1798,13 @@ function calculateTarot(input: JsonRecord) {
       keywords: getCardKeywords(item.card.name).split(','),
     })),
     timestamp: result.timestamp,
+    meta: result.meta,
   };
   return output;
 }
 
 function calculateSsgw(input: JsonRecord) {
-  const result = drawRandomSign(readCustomDate(input));
+  const result = drawRandomSign(readCustomDate(input), readRandomOptions(input));
   // 三连阴杯拒绝起卦，返回结构化提示而非签文
   if (result.ritual?.rejected) {
     return {
@@ -1768,12 +1812,14 @@ function calculateSsgw(input: JsonRecord) {
       message: result.ritual.reason,
       ritual: result.ritual,
       details: result.details,
+      meta: result.meta,
     };
   }
   return result;
 }
 
 function calculateAlmanac(input: JsonRecord) {
+  assertNoRandomOptions(input, '黄历择日是确定性计算，不接受 seed 或 replay。');
   const { startDate, endDate } = readAlmanacDateRange(input);
   return generateAlmanacSelection({
     topic: readEnum(
@@ -1812,10 +1858,12 @@ function calculateLenormand(input: JsonRecord) {
       ['single', 'three', 'five', 'relationship', 'decision', 'nine', 'element', 'grandTableau'],
       'single',
     ) as LenormandSpreadType,
+    readRandomOptions(input),
   );
 }
 
 function calculateAstrolabe(input: JsonRecord) {
+  assertNoRandomOptions(input, '星盘是确定性排盘，不接受 seed 或 replay。');
   const birthDate = readBirthDate(input, { dateType: 'solar' });
   const astrolabeInput: AstrolabeBirthInput = {
     name: readString(input, 'name', ''),
@@ -1898,7 +1946,7 @@ function calculateDivinationData(
 ): DivinationData {
   switch (method) {
     case 'liuyao':
-      return generateLiuyao(readCustomDate(input));
+      return calculateLiuyao(input);
     case 'meihua':
       return calculateMeihua(input);
     case 'xiaoliuren':
@@ -1910,7 +1958,7 @@ function calculateDivinationData(
     case 'tarot':
       return calculateTarot(input);
     case 'ssgw':
-      return drawRandomSign(readCustomDate(input));
+      return calculateSsgw(input) as DivinationData;
     case 'almanac':
       return calculateAlmanac(input);
     case 'lenormand':
@@ -2377,6 +2425,71 @@ function readOptionalEnum<const T extends readonly string[]>(
     return value;
   }
   throw new ApiError(400, 'BAD_REQUEST', `${key} 必须是以下值之一：${values.join('、')}。`);
+}
+
+function readOptionalIntegerArray(
+  input: JsonRecord,
+  key: string,
+  expectedLength: number,
+  min: number,
+  max: number,
+): number[] | undefined {
+  const value = input[key];
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length !== expectedLength) {
+    throw new ApiError(400, 'BAD_REQUEST', `${key} 必须恰好包含 ${expectedLength} 个整数。`);
+  }
+  return value.map((item, index) => {
+    if (!Number.isSafeInteger(item) || item < min || item > max) {
+      throw new ApiError(400, 'BAD_REQUEST', `${key}[${index}] 必须是 ${min}-${max} 之间的整数。`);
+    }
+    return item;
+  });
+}
+
+function readRandomOptions(input: JsonRecord): RandomOptions | undefined {
+  const seedValue = input.seed;
+  let seed: string | number | undefined;
+  if (seedValue !== undefined) {
+    if (typeof seedValue === 'string') {
+      if (!seedValue || seedValue.length > 256) {
+        throw new ApiError(400, 'BAD_REQUEST', 'seed 必须是 1-256 个字符的文本或有限数字。');
+      }
+      seed = seedValue;
+    } else if (typeof seedValue === 'number' && Number.isFinite(seedValue)) {
+      seed = seedValue;
+    } else {
+      throw new ApiError(400, 'BAD_REQUEST', 'seed 必须是文本或有限数字。');
+    }
+  }
+
+  const replayValue = input.replay;
+  let replay: number[] | undefined;
+  if (replayValue !== undefined) {
+    if (!Array.isArray(replayValue) || replayValue.length === 0 || replayValue.length > 256) {
+      throw new ApiError(400, 'BAD_REQUEST', 'replay 必须是包含 1-256 个随机样本的数组。');
+    }
+    replay = replayValue.map((item, index) => {
+      if (typeof item !== 'number' || !Number.isFinite(item) || item < 0 || item >= 1) {
+        throw new ApiError(
+          400,
+          'BAD_REQUEST',
+          `replay[${index}] 必须是大于等于 0 且小于 1 的数字。`,
+        );
+      }
+      return item;
+    });
+  }
+  if (seed !== undefined && replay !== undefined) {
+    throw new ApiError(400, 'BAD_REQUEST', 'seed 与 replay 只能提供一个。');
+  }
+  return seed !== undefined || replay !== undefined ? { seed, replay } : undefined;
+}
+
+function assertNoRandomOptions(input: JsonRecord, message: string): void {
+  if (input.seed !== undefined || input.replay !== undefined) {
+    throw new ApiError(400, 'BAD_REQUEST', message);
+  }
 }
 
 function readDateOnly(input: JsonRecord, key: string) {
