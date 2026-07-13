@@ -36,3 +36,10 @@ export {
   type ZiweiTrueSolarBirth,
   type ZiweiTrueSolarInput,
 } from '../true-solar-input';
+export { analyzeZiweiCompatibility } from './compatibility-evidence';
+export type {
+  ZiweiCompatibilityEvidenceResult,
+  ZiweiCompatibilityOptions,
+  ZiweiCrossMutagenPlacement,
+  ZiweiPalaceOverlay,
+} from './compatibility-evidence';

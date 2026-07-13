@@ -1,0 +1,137 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { analyzeZiweiCompatibility } from '../packages/core/src/ziwei/iztro/compatibility-evidence';
+import type {
+  AnalysisPayloadV1,
+  MutagenName,
+  PalaceFact,
+} from '../packages/core/src/types/analysis';
+
+const PALACES = [
+  '命宫',
+  '兄弟',
+  '夫妻',
+  '子女',
+  '财帛',
+  '疾厄',
+  '迁移',
+  '交友',
+  '官禄',
+  '田宅',
+  '福德',
+  '父母',
+];
+const BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+
+function createPalace(
+  index: number,
+  offset: number,
+  star?: { name: string; mutagen?: MutagenName },
+): PalaceFact {
+  return {
+    index,
+    name: PALACES[index],
+    is_body_palace: index === 10,
+    is_original_palace: false,
+    heavenly_stem: '甲',
+    earthly_branch: BRANCHES[(index + offset) % 12],
+    major_stars: star ? [{ name: star.name, kind: 'major', birth_mutagen: star.mutagen }] : [],
+    minor_stars: [],
+    other_stars: [],
+    scope_stars: [],
+    changsheng12: '长生',
+    boshi12: '博士',
+    base_jiangqian12: '岁建',
+    base_suiqian12: '将星',
+    decadal_range: [1, 10],
+    ages: [],
+    scope_hits: [],
+    empty_state: !star,
+    opposite_palace_index: (index + 6) % 12,
+    surrounded_palace_indexes: [index, (index + 4) % 12, (index + 6) % 12, (index + 8) % 12],
+    summary_tags: [],
+  };
+}
+
+function createPayload(offset: number, mutagen: MutagenName): AnalysisPayloadV1 {
+  return {
+    payload_version: 'analysis_payload_v1',
+    language: 'zh-CN',
+    basic_info: {
+      gender: '男',
+      solar_date: '1990-05-15',
+      lunar_date: '庚午年四月廿一',
+      chinese_date: '庚午年四月廿一',
+      birth_time_label: '丑时',
+      birth_time_range: '01:00-03:00',
+      zodiac: '马',
+      sign: '金牛座',
+      five_elements_class: '水二局',
+      soul: '破军',
+      body: '天相',
+      soul_palace_branch: BRANCHES[offset],
+      body_palace_branch: BRANCHES[(10 + offset) % 12],
+    },
+    active_scope: {
+      scope: 'origin',
+      label: '本命',
+      solar_date: '2026-07-14',
+      lunar_date: '丙午年六月',
+      nominal_age: 37,
+      mutagen_map: [],
+    },
+    palaces: PALACES.map((_, index) =>
+      createPalace(
+        index,
+        offset,
+        index === 0 ? { name: '紫微', mutagen } : index === 4 ? { name: '天府' } : undefined,
+      ),
+    ),
+    evidence_pool: [],
+    patterns: [],
+  };
+}
+
+test('紫微双盘应按地支映射双方关键宫位', () => {
+  const result = analyzeZiweiCompatibility(createPayload(0, '禄'), createPayload(2, '忌'));
+  const overlay = result.palaceOverlays.find(
+    (item) => item.sourcePerson === 'person1' && item.sourcePalace === '命宫',
+  );
+
+  assert.ok(overlay);
+  assert.equal(overlay.earthlyBranch, '子');
+  assert.equal(overlay.targetPalace, '福德（身宫同宫）');
+});
+
+test('紫微双盘应生成生年四化来源到对方落宫链路', () => {
+  const result = analyzeZiweiCompatibility(createPayload(0, '禄'), createPayload(2, '忌'));
+  const placement = result.crossMutagenPlacements.find(
+    (item) => item.sourcePerson === 'person1' && item.star === '紫微',
+  );
+
+  assert.ok(placement);
+  assert.equal(placement.mutagen, '禄');
+  assert.equal(placement.sourcePalace, '命宫');
+  assert.equal(placement.targetPalace, '命宫');
+});
+
+test('紫微双盘提示词应包含主证、限制且不输出匹配总分', () => {
+  const result = analyzeZiweiCompatibility(createPayload(0, '禄'), createPayload(2, '忌'), {
+    person1Name: '甲方',
+    person2Name: '乙方',
+  });
+
+  assert.match(result.promptText, /【紫微双盘结构化证据】/);
+  assert.match(result.promptText, /甲方.*乙方/);
+  assert.match(result.promptText, /【主证】/);
+  assert.match(result.promptText, /【限制】紫微双盘证据边界/);
+  assert.match(result.promptText, /不输出匹配总分/);
+  assert.doesNotMatch(result.promptText, /匹配(?:分数|率|百分比)/);
+});
+
+test('紫微双盘应拒绝缺少完整十二宫的资料', () => {
+  const first = createPayload(0, '禄');
+  const second = createPayload(2, '忌');
+  second.palaces.pop();
+  assert.throws(() => analyzeZiweiCompatibility(first, second), /完整十二宫资料/);
+});

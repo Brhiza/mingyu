@@ -134,7 +134,16 @@ const systems: SystemCapability[] = [
     name: '紫微斗数',
     category: 'chart',
     inputs: [birthProfileInput],
-    outputs: ['十二宫', '星曜', '四化', '大限', '流年', '结构化证据'],
+    outputs: [
+      '十二宫',
+      '星曜',
+      '四化',
+      '大限',
+      '流年',
+      '结构化证据',
+      '双盘宫位叠盘',
+      '双盘生年四化落点',
+    ],
     supports: {
       seed: false,
       customRandomSource: false,

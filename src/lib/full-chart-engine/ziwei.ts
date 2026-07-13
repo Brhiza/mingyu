@@ -12,6 +12,7 @@ import {
   getCurrentScopeItem,
   getDefaultHoroscopeContext,
   mapStarFact,
+  analyzeZiweiCompatibility,
 } from '@core/ziwei/iztro';
 import {
   getZiweiCompatibilityDefaultQuestion,
@@ -604,6 +605,10 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
   });
   const primaryEmbeddedPack = demoteEmbeddedPromptSections(primaryPack);
   const partnerEmbeddedPack = demoteEmbeddedPromptSections(partnerPack);
+  const compatibilityEvidence = analyzeZiweiCompatibility(
+    params.primaryPayload,
+    params.partnerPayload,
+  ).promptText;
   const compatibilityTopic = params.topic || 'chat';
   const compatibilityRules = [
     '- 先围绕【问题】判断双方互动主轴，再按“互动主轴、互补点、冲突点、触发机制、建议边界”分层展开。',
@@ -627,6 +632,8 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
     '',
     '【第二人盘面】',
     partnerEmbeddedPack,
+    '',
+    compatibilityEvidence,
     '',
     `【问题】\n${params.question.trim() || compatibilityQuestion}`,
     ...(isCustomQuestion

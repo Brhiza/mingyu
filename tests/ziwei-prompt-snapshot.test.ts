@@ -401,6 +401,9 @@ test('紫微合盘内嵌盘面资料不应重复使用顶层 section 标题', ()
     question: '我们适合长期合作吗？',
   });
 
+  assert.match(prompt, /【紫微双盘结构化证据】/);
+  assert.match(prompt, /【限制】紫微双盘证据边界/);
+
   assert.equal((prompt.match(/^【第一人盘面】$/gm) ?? []).length, 1);
   assert.equal((prompt.match(/^【第二人盘面】$/gm) ?? []).length, 1);
   assert.doesNotMatch(prompt, /^【分析背景】$/m);
