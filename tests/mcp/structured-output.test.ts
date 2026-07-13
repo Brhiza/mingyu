@@ -1166,6 +1166,31 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
   });
 });
 
+test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () => {
+  await withMcpClient(async (client) => {
+    const result = await client.callTool({
+      name: 'qimen_prompt',
+      arguments: {
+        customDate: '2025-01-01T08:00:00+08:00',
+        question: '我现在要不要推进这个项目？',
+      },
+    });
+    assert.equal(result.isError, undefined, 'qimen_prompt 不应返回错误');
+    const prompt = String(result.structuredContent?.prompt);
+    const chart = (
+      result.structuredContent as {
+        result: { evidenceAnalysis: { candidates: unknown[]; relations: unknown[] } };
+      }
+    ).result;
+    assert.ok(chart.evidenceAnalysis.candidates.length > 0);
+    assert.ok(Array.isArray(chart.evidenceAnalysis.relations));
+    assert.match(prompt, /【奇门用神宫与宫间作用结构化证据】/);
+    assert.match(prompt, /不等于已经按具体问题选定用神/);
+    assert.doesNotMatch(prompt, /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|应期范围\d/);
+    assertPromptIsPortableTaskText(prompt);
+  });
+});
+
 test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
   await withMcpClient(async (client) => {
     const first = await client.callTool({

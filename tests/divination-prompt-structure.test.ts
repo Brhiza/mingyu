@@ -1063,13 +1063,12 @@ test('奇门提示词会输出盘面优先宫位', () => {
 
   assert.match(prompt, /核心结构：阳遁3局；值符天蓬；值使休门/);
   assert.match(prompt, /主轴证据：值符天蓬落坎一宫；值使休门落坎一宫；时干丁见于离九宫/);
-  assert.match(prompt, /用神宫候选：离九宫（36分，凶格:太白入荧、干关系:太白入荧）/);
-  assert.match(
-    prompt,
-    /用神宫证据：离九宫：门景门、星天英、神九天、天盘丙、地盘丁；格局太白入荧；干关系太白入荧/,
-  );
-  assert.match(prompt, /反证宫离九宫、坎一宫：逢空、马星或格局标签命中时先降权复核/);
-  assert.match(prompt, /时间窗口：逢空坎一宫、艮八宫先待填实/);
+  assert.match(prompt, /【奇门用神宫与宫间作用结构化证据】/);
+  assert.match(prompt, /离九宫用神宫候选/);
+  assert.match(prompt, /门景门、星天英、神九天、天盘丙、地盘丁/);
+  assert.match(prompt, /太白入荧/);
+  assert.match(prompt, /逢空宫位坎一宫、艮八宫须先观察填实或现实条件落实/);
+  assert.doesNotMatch(prompt, /主宫评分：|辅宫评分：|评分-?\d+|（-?\d+分|应期范围\d/);
   assert.match(prompt, /辅助证据：旬空子空落坎一宫、丑空落艮八宫；马星卯时驿马在巳，落巽四宫/);
   assert.doesNotMatch(prompt, /问事参考/);
   assert.doesNotMatch(prompt, /卦象|课传|牌阵|签诗|牌位/);
@@ -1111,7 +1110,8 @@ test('奇门提示词不再根据问题词表输出问事参考', () => {
 
   assert.doesNotMatch(prompt, /问事参考/);
   assert.doesNotMatch(prompt, /事业参考|首看开门|兼看生门/);
-  assert.match(prompt, /用神宫候选：坎一宫（24分，有利:适合谋划与沟通）/);
+  assert.match(prompt, /坎一宫用神宫候选/);
+  assert.match(prompt, /候选来源值符落宫、值使落宫、盘面洞察/);
 });
 
 test('六爻提示词会给出断卦抓手，先看取用世应动变', () => {

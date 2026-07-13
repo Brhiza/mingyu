@@ -207,7 +207,16 @@ const systems: SystemCapability[] = [
       { id: 'date', label: '起局时间', type: 'datetime', required: false },
       questionInput,
     ],
-    outputs: ['九宫', '值符值使', '格局', '旺衰', '宫位关系', '方位', '应期'],
+    outputs: [
+      '九宫',
+      '值符值使',
+      '用神宫候选',
+      '门星神干证据',
+      '空亡与格局反证',
+      '宫位关系',
+      '方位条件',
+      '时间触发条件',
+    ],
     supports: {
       seed: false,
       customRandomSource: false,

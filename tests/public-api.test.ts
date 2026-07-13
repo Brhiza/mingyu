@@ -1694,6 +1694,15 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
   });
   assert.equal(defaultResult.response.status, 200);
   assert.equal(defaultResult.body.ok, true);
+  assert.ok(defaultResult.body.data.evidenceAnalysis.candidates.length > 0);
+  assert.match(
+    defaultResult.body.data.evidenceAnalysis.promptText,
+    /【奇门用神宫与宫间作用结构化证据】/,
+  );
+  assert.doesNotMatch(
+    defaultResult.body.data.evidenceAnalysis.promptText,
+    /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|成功率[：=]?\d/,
+  );
   assert.deepEqual(
     defaultResult.body.data.jiuGongGe.map(
       (gong: { tianPan: { star: string } }) => gong.tianPan.star,

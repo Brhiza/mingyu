@@ -8,7 +8,6 @@ import type {
   LiuyaoData,
   MeihuaData,
   QimenData,
-  QimenJiuGongGe,
   SsgwData,
   SupplementaryInfo,
   TarotData,
@@ -18,8 +17,8 @@ import type {
 } from '../../../types/divination';
 import { LunarUtil, getDivinationTime } from 'mingyu-core/calendar';
 import { resolveSsgwStoryContent } from '../ssgw-content';
-import { createQimenPriorityPalaces } from '@core/divination/algorithms/qimen';
-import { LIUCHONG_MAP, isKe, isSheng } from '@core/ganzhi';
+import { analyzeQimenEvidence } from '@core/divination/algorithms/qimen';
+import { LIUCHONG_MAP } from '@core/ganzhi';
 import { normalizePromptEvidenceItems } from '@core/prompt-evidence/format';
 import type { PromptEvidenceItem } from '@core/prompt-evidence/types';
 import type { DivinationMethodId } from '@core/divination/config';
@@ -195,10 +194,6 @@ function formatLiuyaoFanFuRelation(data: LiuyaoData) {
     .join('；');
 
   return details || relations.labels.join('；');
-}
-
-function normalizePromptCompareText(text: string) {
-  return text.replace(/[：:，,；;。、\s]/g, '');
 }
 
 function getGanzhiBranch(value?: string) {
@@ -398,28 +393,6 @@ function createXiaoliurenReviewWindowEvidence(data: XiaoliurenData) {
     `最后用结果${data.sequence.result.name}验证短期走向`,
     '若【问题】给出目标期限，以目标期限内复盘为准；未给期限时只给短期近事观察，不换算绝对日期',
   ].join('；');
-}
-
-function describeWuxingRelation(source: string, target: string) {
-  if (!source || !target) {
-    return '五行关系未明';
-  }
-  if (source === target) {
-    return `${source}${target}比和`;
-  }
-  if (isSheng(source, target)) {
-    return `${source}生${target}`;
-  }
-  if (isSheng(target, source)) {
-    return `${target}生${source}`;
-  }
-  if (isKe(source, target)) {
-    return `${source}克${target}`;
-  }
-  if (isKe(target, source)) {
-    return `${target}克${source}`;
-  }
-  return `${source}与${target}关系待复核`;
 }
 
 function formatLiuyaoInfo(
@@ -668,6 +641,7 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
 }
 
 function formatQimenInfo(data: QimenData) {
+  const evidenceAnalysis = analyzeQimenEvidence(data);
   const zhiFuPalace = data.jiuGongGe.find((item) => item.tianPan.star === data.zhiFu);
   const zhiShiPalace = data.jiuGongGe.find((item) => item.renPan.door === data.zhiShi);
   const hourStem = data.ganzhi.hour.charAt(0);
@@ -696,7 +670,7 @@ function formatQimenInfo(data: QimenData) {
         .slice(0, 4)
         .map(
           (item) =>
-            `${item.name}（${item.type === 'good' ? '吉' : item.type === 'bad' ? '凶' : '平'}，评分${item.score}）：${item.summary}`,
+            `${item.name}（${item.type === 'good' ? '有利标签' : item.type === 'bad' ? '风险标签' : '中性标签'}）：${item.summary}`,
         )
         .join('；')
     : '';
@@ -717,7 +691,7 @@ function formatQimenInfo(data: QimenData) {
         )
         .join('；')
     : '';
-  // 方向吉凶建议——由算法按用神落宫评分的结构化方位数据
+  // 方位建议只保留方向、用途和依据，不向提示词暴露内部排序分数。
   const directionSummary = data.directions?.goodDirections?.length
     ? `吉方${data.directions.goodDirections
         .slice(0, 3)
@@ -752,145 +726,18 @@ function formatQimenInfo(data: QimenData) {
         .map((item) => {
           const tone =
             item.tone === 'super-good' ? '强吉' : item.tone === 'super-bad' ? '强凶' : '混杂';
-          return `${item.name}（${tone}，${item.score}）：${item.summary}`;
+          return `${item.name}（${tone}）：${item.summary}`;
         })
         .join('；')
     : '';
-  const palaceSummary =
-    data.palaceInsights?.map((item) => `${item.name}${item.level}，${item.summary}`).join('；') ||
-    '';
-  const priorityPalaces = createQimenPriorityPalaces(data).slice(0, 3);
   const specialConditionsText = data.specialConditions?.description?.trim();
-  const priorityPalaceText = priorityPalaces
-    .map((item) => `${item.name}（${item.score}分，${item.reasons.join('、')}）`)
-    .join('；');
-  const priorityPalaceEvidence = priorityPalaces
-    .map((item) => {
-      const gong = data.jiuGongGe.find((palace) => palace.gong === item.gong);
-      const voidHit = data.voidPalaces?.some((voidPalace) => voidPalace.palace === item.gong);
-      const horseHit = data.horseStar?.palace === item.gong;
-      const patternHit = data.classicPatterns
-        ?.filter((pattern) => pattern.palaces.includes(item.gong))
-        .map((pattern) => pattern.name);
-      const stemRelationHit = data.stemRelations
-        ?.filter((relation) => relation.gong === item.gong && relation.pattern)
-        .map((relation) => relation.pattern);
-      const directionHit = [
-        ...(data.directions?.goodDirections ?? [])
-          .filter((direction) => direction.gong === item.gong)
-          .map((direction) => `吉方${direction.direction}`),
-        ...(data.directions?.avoidDirections ?? [])
-          .filter((direction) => direction.gong === item.gong)
-          .map((direction) => `避方${direction.direction}`),
-      ];
-      const parts = [
-        gong
-          ? `门${gong.renPan.door}、星${gong.tianPan.star}、神${gong.shenPan.god}、天盘${gong.tianPan.stem}、地盘${gong.diPan.stem}`
-          : '',
-        voidHit ? '逢空，落地偏虚或需待填实' : '',
-        horseHit ? '逢马星，主移动、变动或外部推动' : '',
-        patternHit?.length ? `格局${patternHit.join('、')}` : '',
-        stemRelationHit?.length ? `干关系${stemRelationHit.join('、')}` : '',
-        directionHit.length ? directionHit.join('、') : '',
-      ].filter(Boolean);
-      return `${item.name}：${parts.join('；')}`;
-    })
-    .join('；');
-  const relationPalaces = [
-    ...priorityPalaces,
-    ...[zhiFuPalace, zhiShiPalace, ...hourStemPalaces]
-      .filter((palace): palace is QimenJiuGongGe => Boolean(palace))
-      .map((palace) => ({
-        name: palace.name,
-        gong: palace.gong,
-        score: 0,
-        reasons: ['值符值使或时干落宫'],
-      })),
-  ].filter(
-    (item, index, array) => array.findIndex((candidate) => candidate.gong === item.gong) === index,
-  );
-  const mainRelationPalace = relationPalaces[0];
-  const auxiliaryRelationPalaces = relationPalaces.slice(1, 3);
-  const adversePalaces = relationPalaces.filter((item) => {
-    const voidHit = data.voidPalaces?.some((voidPalace) => voidPalace.palace === item.gong);
-    const badPatternHit = data.classicPatterns?.some(
-      (pattern) => pattern.type === 'bad' && pattern.palaces.includes(item.gong),
-    );
-    const avoidDirectionHit = data.directions?.avoidDirections.some(
-      (direction) => direction.gong === item.gong,
-    );
-    return voidHit || badPatternHit || avoidDirectionHit;
-  });
-  const palaceRelationEvidence = mainRelationPalace
-    ? [
-        `主宫${mainRelationPalace.name}：${mainRelationPalace.reasons.join('、')}`,
-        ...auxiliaryRelationPalaces.map((item) => {
-          const mainPalace = data.jiuGongGe.find(
-            (palace) => palace.gong === mainRelationPalace.gong,
-          );
-          const currentPalace = data.jiuGongGe.find((palace) => palace.gong === item.gong);
-          const relation =
-            mainPalace && currentPalace
-              ? describeWuxingRelation(mainPalace.element, currentPalace.element)
-              : '宫间五行待复核';
-          return `辅宫${item.name}：${relation}，${item.reasons.join('、')}`;
-        }),
-        adversePalaces.length
-          ? `反证宫${adversePalaces.map((item) => item.name).join('、')}：逢空、马星或格局标签命中时先降权复核`
-          : '反证宫：未见明显空亡或格局反证命中',
-        '宫间关系只用于排序主宫、辅宫和反证宫，不可替代门星神干的具体组合判断',
-      ].join('；')
-    : '';
-  const mainPalaceScoreText = mainRelationPalace
-    ? `${mainRelationPalace.name}（${mainRelationPalace.score}分）：${mainRelationPalace.reasons.join('、')}；分数只用于取用排序，仍需回看门星神干`
-    : '未定位主宫，先以值符、值使、时干和值事宫复核';
-  const auxiliaryPalaceScoreText = auxiliaryRelationPalaces.length
-    ? auxiliaryRelationPalaces
-        .map((item) => `${item.name}（${item.score}分）：${item.reasons.join('、')}`)
-        .join('；')
-    : '未定位明确辅宫，辅助证据以值符值使、时干、空亡和马星为准';
-  const adversePalaceText = adversePalaces.length
-    ? `${adversePalaces.map((item) => item.name).join('、')}：命中空亡、马星或格局标签时，相关结论必须降权复核`
-    : '未见明显反证宫；仍需检查空亡、门迫、击刑、伏吟反吟和问题用神是否冲突';
-  const directionStrategyText = priorityPalaces.length
-    ? priorityPalaces
-        .map((item, index) => {
-          const palace = data.jiuGongGe.find((gong) => gong.gong === item.gong);
-          const role = index === 0 ? '主方位' : '辅方位';
-          return `${role}${palace?.direction || '未知'}（${item.name}）：按${item.reasons.join('、')}取象`;
-        })
-        .join('；')
-    : '方位未由盘面重点触发，只能按值符值使、时干落宫和现实可行方向取舍';
-  const timeWindowText = [
-    data.yingQi
-      ? `应期范围${data.yingQi.minDays}-${data.yingQi.maxDays}日，节奏${data.yingQi.rhythm}（依据：${data.yingQi.sources.join('、')}）`
-      : data.voidPalaces?.length
-        ? `逢空${data.voidPalaces.map((item) => item.name).join('、')}先待填实`
-        : '',
-    data.horseStar ? `马星落${data.horseStar.name}，主移动、变动或外部推动` : '',
-    specialConditionsText ? `特殊时辰${specialConditionsText}` : '',
-    '未给目标期限时，只能给宜动、宜守、宜等和触发条件，不换算绝对日期',
-  ]
-    .filter(Boolean)
-    .join('；');
-  const normalizedPalaceSummary = normalizePromptCompareText(palaceSummary);
-  const dedupedPalaceSummary = palaceSummary
-    ? priorityPalaces.some(
-        (item) =>
-          normalizedPalaceSummary.includes(normalizePromptCompareText(item.name)) &&
-          item.reasons.some((reason) =>
-            normalizedPalaceSummary.includes(normalizePromptCompareText(reason)),
-          ),
-      )
-      ? ''
-      : palaceSummary
-    : '';
+  const primaryCandidate = evidenceAnalysis.candidates[0];
   const focusParts = [
     `值符${data.zhiFu}`,
     `值使${data.zhiShi}`,
     `${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局`,
     data.patternTags?.length ? `格局${data.patternTags.join('、')}` : '',
-    priorityPalaces[0] ? `先看${priorityPalaces[0].name}` : '',
+    primaryCandidate ? `先看${primaryCandidate.name}` : '',
   ].filter(Boolean);
 
   return [
@@ -902,14 +749,7 @@ function formatQimenInfo(data: QimenData) {
     ganzhiInteractionSummary ? `四柱互动：${ganzhiInteractionSummary}` : '',
     `起局抓手：${focusParts.join('；')}`,
     `主轴证据：值符${data.zhiFu}${zhiFuPalace ? `落${zhiFuPalace.name}` : '落宫未定位'}；值使${data.zhiShi}${zhiShiPalace ? `落${zhiShiPalace.name}` : '落宫未定位'}；时干${hourStem}${hourStemPalaces.length ? `见于${hourStemPalaces.map((item) => item.name).join('、')}` : '落宫未定位'}`,
-    `用神宫候选：${priorityPalaceText || '未由盘面重点定位优先宫，先以值符值使、时干和值事宫为主'}`,
-    priorityPalaceEvidence ? `用神宫证据：${priorityPalaceEvidence}` : '',
-    `主宫评分：${mainPalaceScoreText}`,
-    `辅宫评分：${auxiliaryPalaceScoreText}`,
-    `反证宫：${adversePalaceText}`,
-    palaceRelationEvidence ? `宫间关系：${palaceRelationEvidence}` : '',
-    `方位策略：${directionStrategyText}`,
-    `时间窗口：${timeWindowText}`,
+    evidenceAnalysis.promptText,
     `辅助证据：旬空${voidText}；马星${horseText}`,
     specialConditionsText ? `特殊时辰：${specialConditionsText}` : '',
     patternSummary ? `判断依据：${patternSummary}` : '',
@@ -917,7 +757,6 @@ function formatQimenInfo(data: QimenData) {
     patternComboSummary ? `复合格局：${patternComboSummary}` : '',
     stemRelationSummary ? `天地盘干：${stemRelationSummary}` : '',
     directionSummary ? `方位吉凶：${directionSummary}` : '',
-    dedupedPalaceSummary ? `补充提示：${dedupedPalaceSummary}` : '',
     '结构明细：',
     palaceLines,
   ]

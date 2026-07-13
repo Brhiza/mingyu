@@ -428,23 +428,24 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 
 ### 占卜（`mingyu-core/divination/*`）
 
-| 导出                                                                 | 说明                                                       |
-| -------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `generateLiuyao(date?, options?)`                                    | 六爻时间、手工或模拟三钱起卦，并保留投掷轨迹               |
-| `analyzeLiuyaoEvidence(data, options?)`                              | 六爻用神候选、原神忌神仇神和逐爻支持/反证结构化证据        |
-| `generateMeihua(date?, settings?)`                                   | 梅花易数起卦                                               |
-| `analyzeMeihuaEvidence(data)`                                        | 主卦、互卦、变卦逐阶段体用、旺衰与支持/限制证据            |
-| `generateQimen(date?, method?, scope?)`                              | 奇门遁甲排盘，返回节令背景、经典格局、复合格局、方位和应期 |
-| `createQimenPriorityPalaces(data)`                                   | 根据宫位洞察、经典格局、干关系和方位生成奇门重点宫位候选   |
-| `generateLiuren(date?)`                                              | 大六壬排盘                                                 |
-| `analyzeLiurenEvidence(data)`                                        | 四课取传、初传发用、三传旺衰空亡及反证限制                 |
-| `generateXiaoliuren(params?)`                                        | 小六壬起课                                                 |
-| `generateAlmanacSelection(params)`                                   | 黄历择日                                                   |
-| `drawSingleCard(options?)` / `drawSpreadCards(spreadType, options?)` | 塔罗抽牌；支持 `seed` 和 `replay` 完整复现                 |
-| `drawRandomSign(date?, options?)`                                    | 三山国王灵签；支持 `seed` 和 `replay` 完整复现             |
-| `drawLenormandSpread(spreadType?, options?)`                         | 雷诺曼牌阵；支持 `seed` 和 `replay` 完整复现               |
-| `generateAstrolabe(input)`                                           | 西洋星盘                                                   |
-| `buildAstrolabeScopeContext(data, scope, date?)`                     | 星盘本命、流年、流月、流日行运与证据资料                   |
+| 导出                                                                 | 说明                                                |
+| -------------------------------------------------------------------- | --------------------------------------------------- |
+| `generateLiuyao(date?, options?)`                                    | 六爻时间、手工或模拟三钱起卦，并保留投掷轨迹        |
+| `analyzeLiuyaoEvidence(data, options?)`                              | 六爻用神候选、原神忌神仇神和逐爻支持/反证结构化证据 |
+| `generateMeihua(date?, settings?)`                                   | 梅花易数起卦                                        |
+| `analyzeMeihuaEvidence(data)`                                        | 主卦、互卦、变卦逐阶段体用、旺衰与支持/限制证据     |
+| `generateQimen(date?, method?, scope?)`                              | 奇门遁甲排盘，并内置用神宫与宫间作用结构化证据      |
+| `analyzeQimenEvidence(data)`                                         | 值符值使、日时干候选宫及门星神干、反证和触发条件    |
+| `createQimenPriorityPalaces(data)`                                   | 兼容旧版内部排序的奇门重点宫位候选                  |
+| `generateLiuren(date?)`                                              | 大六壬排盘                                          |
+| `analyzeLiurenEvidence(data)`                                        | 四课取传、初传发用、三传旺衰空亡及反证限制          |
+| `generateXiaoliuren(params?)`                                        | 小六壬起课                                          |
+| `generateAlmanacSelection(params)`                                   | 黄历择日                                            |
+| `drawSingleCard(options?)` / `drawSpreadCards(spreadType, options?)` | 塔罗抽牌；支持 `seed` 和 `replay` 完整复现          |
+| `drawRandomSign(date?, options?)`                                    | 三山国王灵签；支持 `seed` 和 `replay` 完整复现      |
+| `drawLenormandSpread(spreadType?, options?)`                         | 雷诺曼牌阵；支持 `seed` 和 `replay` 完整复现        |
+| `generateAstrolabe(input)`                                           | 西洋星盘                                            |
+| `buildAstrolabeScopeContext(data, scope, date?)`                     | 星盘本命、流年、流月、流日行运与证据资料            |
 
 ### 历法与术数便捷入口
 

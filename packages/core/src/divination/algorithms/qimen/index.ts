@@ -42,9 +42,16 @@ import { buildDirectionAdvice } from './helpers/directions';
 import { estimateYingQi } from './helpers/ying-qi';
 import { buildSeasonality } from './helpers/seasonality';
 import { detectQimenPatternCombos } from './helpers/pattern-combos';
+import { analyzeQimenEvidence } from '../../qimen-evidence';
 
 export { createQimenPriorityPalaces } from './helpers/guidance';
 export type { QimenPriorityPalace } from './helpers/guidance';
+export { analyzeQimenEvidence } from '../../qimen-evidence';
+export type {
+  QimenEvidenceAnalysis,
+  QimenPalaceEvidence,
+  QimenPalaceRelationEvidence,
+} from '../../qimen-evidence';
 
 // ============================================================================
 // 内部工具函数
@@ -404,7 +411,7 @@ export function generateQimen(
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 15：返回完整 QimenData
   // ──────────────────────────────────────────────────────────────────────────
-  return {
+  const result: QimenData = {
     scope,
     timeInfo: {
       solarTerm: jushuResult.jieQi || jieQi,
@@ -431,6 +438,8 @@ export function generateQimen(
     yingQi,
     timestamp,
   };
+  result.evidenceAnalysis = analyzeQimenEvidence(result);
+  return result;
 }
 
 // ============================================================================
