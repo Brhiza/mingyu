@@ -239,6 +239,16 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
     /【占卜信息】/,
   ],
   [
+    'xiaoliuren_prompt',
+    { customDate: '2025-01-01T08:00:00+08:00', question: '这件事接下来如何推进？' },
+    /应期触发条件：[\s\S]*不换算固定日数[\s\S]*【问题】\n这件事接下来如何推进？/,
+  ],
+  [
+    'qimen_prompt',
+    { customDate: '2025-01-01T06:00:00+08:00', question: '这件事何时出现转机？' },
+    /触发条件：[\s\S]*不对应固定日数[\s\S]*【问题】\n这件事何时出现转机？/,
+  ],
+  [
     'bazhai_prompt',
     {
       birthYear: 1990,

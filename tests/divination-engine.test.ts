@@ -347,6 +347,21 @@ test('奇门应期马星只应在命中值符或值使宫时加快', () => {
   assert.ok(active.yingQi?.description.includes('马星冲动'));
 });
 
+test('奇门应期只输出相对节奏与触发条件，不机械换算天数或百分比', () => {
+  const data = generateQimen(new Date('2025-01-01T06:00:00+08:00'));
+  const yingQi = data.yingQi;
+
+  assert.ok(yingQi);
+  assert.equal(yingQi.minDays, undefined);
+  assert.equal(yingQi.maxDays, undefined);
+  assert.ok(yingQi.triggerConditions.length > 0);
+  assert.ok(yingQi.limitations.some((item) => item.includes('不对应固定日数')));
+  assert.doesNotMatch(
+    [yingQi.description, ...yingQi.sources].join('\n'),
+    /应期约\s*\d|加快约\s*\d+%|延迟约\s*\d+%|基线\s*\d/,
+  );
+});
+
 test('奇门算法会输出节令背景与复合格局结构', () => {
   const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'));
 

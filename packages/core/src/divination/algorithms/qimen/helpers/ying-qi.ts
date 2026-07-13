@@ -1,12 +1,12 @@
 /**
  * @file 应期判断（《奇门遁甲大全》应期章、《奇门旨归》）
- * @description 综合多种方法估算应期时间：
+ * @description 综合多种盘内条件判断应期节奏与触发条件：
  *   1. 用神落宫 → 按阴阳遁内外宫取远近基线
  *   2. 值符落宫数 → 辅助基线
  *   3. 值使落宫数 → 辅助基线
  *   4. 庚格定应期：阳日看庚下（地盘庚），阴日看庚上（天盘庚），地支逢冲为应
  *   5. 马星加快、用神落空则待填实/冲实、伏吟延迟、反吟加快
- *   6. 吉格加快、凶格延迟
+ *   6. 格局只作快慢辅助，不机械换算固定天数
  */
 
 import { palaceBranches } from './_constants';
@@ -58,14 +58,18 @@ function getPalaceDistanceLabel(distance: PalaceDistance, isYangDun?: boolean): 
 // ============================================================================
 
 export interface YingQiEstimate {
-  /** 最短应期（日） */
-  minDays: number;
-  /** 最长应期（日） */
-  maxDays: number;
+  /** 旧版固定天数下界；不再生成，仅保留类型兼容 */
+  minDays?: number;
+  /** 旧版固定天数上界；不再生成，仅保留类型兼容 */
+  maxDays?: number;
   /** 应期节奏 */
   rhythm: '快' | '中' | '慢';
   /** 判断依据列表 */
   sources: string[];
+  /** 可以据盘复核的触发条件 */
+  triggerConditions: string[];
+  /** 不确定性与解释边界 */
+  limitations: string[];
   /** 综合描述 */
   description: string;
 }
@@ -138,26 +142,22 @@ export function estimateYingQi(
 
   const baseGong = useShenPalace || options?.zhiFuLandingPalace || 5;
   const baseDistance = getPalaceDistance(baseGong, options?.isYangDun);
-  let baseDays: number;
-  let rhythm: '快' | '中' | '慢';
+  let fastSignals = 0;
+  let slowSignals = 0;
 
   if (baseDistance === 'inner') {
-    baseDays = 7;
-    rhythm = '快';
+    fastSignals += 1;
     sources.push(
-      `用神落${baseGong}宫（${getPalaceDistanceLabel(baseDistance, options?.isYangDun)}速应），基线 1-15 日`,
+      `用神落${baseGong}宫（${getPalaceDistanceLabel(baseDistance, options?.isYangDun)}速应取象），盘内远近取象偏近`,
     );
   } else if (baseDistance === 'middle') {
-    baseDays = 30;
-    rhythm = '中';
     sources.push(
-      `用神落${baseGong}宫（${getPalaceDistanceLabel(baseDistance, options?.isYangDun)}渐近），基线 15-60 日`,
+      `用神落${baseGong}宫（${getPalaceDistanceLabel(baseDistance, options?.isYangDun)}），盘内远近取象居中`,
     );
   } else {
-    baseDays = 120;
-    rhythm = '慢';
+    slowSignals += 1;
     sources.push(
-      `用神落${baseGong}宫（${getPalaceDistanceLabel(baseDistance, options?.isYangDun)}迟应），基线 60 日以上`,
+      `用神落${baseGong}宫（${getPalaceDistanceLabel(baseDistance, options?.isYangDun)}迟应取象），盘内远近取象偏远`,
     );
   }
 
@@ -170,12 +170,12 @@ export function estimateYingQi(
     const fuGong = options.zhiFuLandingPalace;
     const fuDistance = getPalaceDistance(fuGong, options.isYangDun);
     if (fuDistance === 'inner') {
-      baseDays *= 0.85;
+      fastSignals += 1;
       sources.push(
         `值符落${fuGong}宫（${getPalaceDistanceLabel(fuDistance, options.isYangDun)}），应期偏快`,
       );
     } else if (fuDistance === 'outer') {
-      baseDays *= 1.15;
+      slowSignals += 1;
       sources.push(
         `值符落${fuGong}宫（${getPalaceDistanceLabel(fuDistance, options.isYangDun)}），应期偏缓`,
       );
@@ -194,12 +194,12 @@ export function estimateYingQi(
     const shiGong = options.zhiShiLandingPalace;
     const shiDistance = getPalaceDistance(shiGong, options.isYangDun);
     if (shiDistance === 'inner') {
-      baseDays *= 0.9;
+      fastSignals += 1;
       sources.push(
         `值使落${shiGong}宫（${getPalaceDistanceLabel(shiDistance, options.isYangDun)}），应期略快`,
       );
     } else if (shiDistance === 'outer') {
-      baseDays *= 1.1;
+      slowSignals += 1;
       sources.push(
         `值使落${shiGong}宫（${getPalaceDistanceLabel(shiDistance, options.isYangDun)}），应期略迟`,
       );
@@ -275,13 +275,11 @@ export function estimateYingQi(
   // ==========================================================================
 
   if (options?.isFuyin) {
-    baseDays *= 1.5;
-    rhythm = '慢';
-    sources.push('伏吟局，事势迟滞，应期延长约 50%');
+    slowSignals += 2;
+    sources.push('伏吟局，事势迟滞，需等待重复推动或外部条件改变');
   }
   if (options?.isFanyin) {
-    baseDays *= 0.7;
-    if (rhythm !== '快') rhythm = '中';
+    fastSignals += 1;
     sources.push('反吟局，事势反复，应期虽快但不稳定，需防变数');
   }
 
@@ -290,8 +288,8 @@ export function estimateYingQi(
   // ==========================================================================
 
   if (options?.hasHorse) {
-    baseDays *= 0.7;
-    sources.push('驿马发动，应期加快约 30%');
+    fastSignals += 1;
+    sources.push('驿马发动，出现行动、迁移、消息流转时更容易触发进展');
   }
 
   // ==========================================================================
@@ -299,7 +297,7 @@ export function estimateYingQi(
   // ==========================================================================
 
   if (options?.hasVoid) {
-    baseDays *= 1.3;
+    slowSignals += 2;
     sources.push('空亡入局，需填实或冲实之月日方应，应期偏迟');
 
     if (options?.voidBranches && options.voidBranches.length > 0) {
@@ -316,22 +314,22 @@ export function estimateYingQi(
   // ==========================================================================
   // 8. 经典格局调整
   // ==========================================================================
-  // 吉格（score > 0）→ 加快 30%
-  // 凶格（score < 0）→ 延迟 50%
-  // 吉凶参半 → 保持中平
+  // 格局只作为支持或限制信号，不按内部 score 换算百分比或天数。
 
   if (options?.classicPatterns && options.classicPatterns.length > 0) {
     const goodCount = options.classicPatterns.filter((p) => p.score > 0).length;
     const badCount = options.classicPatterns.filter((p) => p.score < 0).length;
 
     if (goodCount > 0 && badCount === 0) {
-      baseDays *= 0.7;
-      sources.push(`吉格为主（${goodCount}吉），应期加快约 30%`);
+      fastSignals += 1;
+      sources.push(`支持格局较集中（${goodCount}项），条件具备时较易推进`);
     } else if (badCount > 0 && goodCount === 0) {
-      baseDays *= 1.5;
-      sources.push(`凶格为主（${badCount}凶），应期延迟约 50%`);
+      slowSignals += 1;
+      sources.push(`限制格局较集中（${badCount}项），需先处理阻滞条件`);
     } else if (goodCount > 0 && badCount > 0) {
-      sources.push(`吉凶参半（${goodCount}吉 ${badCount}凶），应期中平`);
+      sources.push(
+        `支持与限制并见（支持${goodCount}项、限制${badCount}项），快慢取决于哪类条件先落实`,
+      );
     }
 
     // 高影响力格局单独说明
@@ -347,38 +345,28 @@ export function estimateYingQi(
   }
 
   // ==========================================================================
-  // 9. 最终计算
+  // 9. 汇总节奏
   // ==========================================================================
 
-  // 限制到合理范围：至少 1 日，最多 360 日
-  baseDays = Math.max(1, Math.min(360, Math.round(baseDays)));
-
-  let minDays: number;
-  let maxDays: number;
-
-  if (rhythm === '快') {
-    // 快：1-15 日基线
-    minDays = Math.max(1, Math.round(baseDays * 0.5));
-    maxDays = Math.min(15, Math.round(baseDays * 1.5));
-  } else if (rhythm === '中') {
-    // 中：15-60 日基线
-    minDays = Math.max(3, Math.round(baseDays * 0.6));
-    maxDays = Math.min(90, Math.round(baseDays * 1.5));
-  } else {
-    // 慢：60 日以上基线
-    minDays = Math.max(15, Math.round(baseDays * 0.7));
-    maxDays = Math.min(360, Math.round(baseDays * 1.5));
-  }
-
-  // 确保合理
-  minDays = Math.max(1, Math.min(minDays, maxDays));
-  maxDays = Math.max(minDays, maxDays);
+  const rhythm: '快' | '中' | '慢' =
+    slowSignals >= fastSignals + 2 ? '慢' : fastSignals >= slowSignals + 2 ? '快' : '中';
 
   // ==========================================================================
   // 10. 综合描述
   // ==========================================================================
 
-  const parts: string[] = [`应期约 ${minDays}-${maxDays} 日（${rhythm}）。`];
+  const matchedTriggerConditions = sources.filter((source) =>
+    /逢|填实|冲实|行动|迁移|消息流转|条件具备|处理阻滞/.test(source),
+  );
+  const triggerConditions = matchedTriggerConditions.length
+    ? matchedTriggerConditions
+    : ['结合问题期限，观察用神宫所代表的人事是否出现可核验的实际进展'];
+  const limitations = [
+    '快、中、慢只表示盘内相对节奏，不对应固定日数、月数或公历日期',
+    '庚格、空亡、马星等只给候选触发条件，必须结合问题期限和现实事件核验',
+    '未按具体问题选定用神时，本结果只能作为值符落宫的通用参考',
+  ];
+  const parts: string[] = [`盘内应期节奏为${rhythm}，不机械换算固定天数。`];
 
   if (options?.hasHorse) {
     parts.push('马星冲动，应期较快，宜主动把握时机。');
@@ -401,5 +389,5 @@ export function estimateYingQi(
 
   const description = parts.join('');
 
-  return { minDays, maxDays, rhythm, sources, description };
+  return { rhythm, sources, triggerConditions, limitations, description };
 }

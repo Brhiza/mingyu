@@ -72,3 +72,19 @@ test('小六壬：数字起课应拒绝超出安全整数范围的数字', () =>
     /安全范围内的正整数/,
   );
 });
+
+test('小六壬：应期只给盘内节奏、触发条件和限制，不机械换算日期', () => {
+  const result = generateXiaoliuren({
+    method: 'time',
+    customDate: new Date('2025-01-01T08:00:00+08:00'),
+  });
+
+  assert.ok(result.timingEvidence);
+  assert.ok(result.timingEvidence.primaryBasis.length >= 3);
+  assert.ok(result.timingEvidence.triggerConditions.length > 0);
+  assert.ok(result.timingEvidence.limitations.some((item) => item.includes('不换算固定日数')));
+  assert.doesNotMatch(
+    [result.yingQi, result.timing, result.sequence.start.timing].filter(Boolean).join('\n'),
+    /\d+\s*[-—至]\s*\d+\s*(?:日|周|月)|\d+日内|\d+周内/,
+  );
+});

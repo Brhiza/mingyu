@@ -319,7 +319,16 @@ const systems: SystemCapability[] = [
       },
       questionInput,
     ],
-    outputs: ['起因宫', '过程宫', '结果宫', '五行关系', '旺衰', '应期', '方位'],
+    outputs: [
+      '起因宫',
+      '过程宫',
+      '结果宫',
+      '五行关系',
+      '旺衰',
+      '相对应期节奏',
+      '应期触发条件与限制',
+      '方位',
+    ],
     supports: randomSupports,
   },
   {

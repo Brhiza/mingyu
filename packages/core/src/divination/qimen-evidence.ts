@@ -184,6 +184,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
     : [];
   const counterEvidence = unique(candidates.flatMap((item) => item.constraints));
   const timingConditions = unique([
+    ...(data.yingQi?.triggerConditions ?? []),
     ...(data.voidPalaces?.length
       ? [
           `逢空宫位${unique(data.voidPalaces.map((item) => item.name)).join('、')}须先观察填实或现实条件落实`,
@@ -198,7 +199,8 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
     ...(data.patternTags?.some((item) => item.includes('反吟'))
       ? ['反吟只提示变化或反复信号，须由现实事件复核']
       : []),
-    '未给目标期限时不把宫数、局数或内部应期范围换算成唯一日期',
+    ...(data.yingQi?.limitations ?? []),
+    '未给目标期限时不把宫数、局数或盘内快慢换算成唯一日期',
   ]);
   const directionConditions = candidates
     .slice(0, 4)

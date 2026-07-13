@@ -26,7 +26,7 @@ test('奇门证据应明确候选不等于已按问题选定用神', () => {
 
   assert.match(evidence.promptText, /均为盘面候选/);
   assert.match(evidence.promptText, /不等于已经按具体问题选定用神/);
-  assert.match(evidence.promptText, /未给目标期限时不把宫数、局数或内部应期范围换算成唯一日期/);
+  assert.match(evidence.promptText, /未给目标期限时不把宫数、局数或盘内快慢换算成唯一日期/);
   assert.match(evidence.promptText, /方位仅在现实路线、安全和事项用神均匹配时采用/);
 });
 

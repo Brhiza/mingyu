@@ -627,6 +627,15 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
     data.shenSha ? `神煞参考：${data.shenSha}` : '',
     `取象提示：${data.questionHint}`,
     data.yingQi ? `应期参考：${data.yingQi}` : `应期候选：${timingEvidence}`,
+    data.timingEvidence?.primaryBasis?.length
+      ? `应期主证：${data.timingEvidence.primaryBasis.join('；')}`
+      : '',
+    data.timingEvidence?.triggerConditions?.length
+      ? `应期触发条件：${data.timingEvidence.triggerConditions.join('；')}`
+      : '',
+    data.timingEvidence?.limitations?.length
+      ? `应期限制：${data.timingEvidence.limitations.join('；')}`
+      : '',
     `复盘信号：${reviewEvidence}`,
     `行动建议等级：${actionLevelEvidence}`,
     `复盘窗口：${reviewWindowEvidence}`,

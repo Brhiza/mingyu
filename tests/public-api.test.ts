@@ -1909,6 +1909,32 @@ test('公开 API customDate 不应接受非 ISO 或会被 JS 自动进位的无�
   }
 });
 
+test('公开 API 奇门与小六壬应期应返回条件证据，不返回伪精确天数', async () => {
+  const qimen = await callApi('divination/qimen', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customDate: '2025-01-01T06:00:00+08:00' }),
+  });
+  assert.equal(qimen.response.status, 200);
+  assert.equal(qimen.body.data.yingQi.minDays, undefined);
+  assert.equal(qimen.body.data.yingQi.maxDays, undefined);
+  assert.ok(qimen.body.data.yingQi.triggerConditions.length > 0);
+  assert.doesNotMatch(JSON.stringify(qimen.body.data.yingQi), /加快约\d+%|延迟约\d+%/);
+
+  const xiaoliuren = await callApi('divination/xiaoliuren', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customDate: '2025-01-01T08:00:00+08:00' }),
+  });
+  assert.equal(xiaoliuren.response.status, 200);
+  assert.ok(xiaoliuren.body.data.timingEvidence.primaryBasis.length > 0);
+  assert.ok(xiaoliuren.body.data.timingEvidence.triggerConditions.length > 0);
+  assert.doesNotMatch(
+    `${xiaoliuren.body.data.yingQi}\n${xiaoliuren.body.data.timing}`,
+    /\d+\s*[-—至]\s*\d+\s*(?:日|周|月)|\d+日内|\d+周内/,
+  );
+});
+
 test('公开 API 数字起卦起课应拒绝超出安全整数范围的数字', async () => {
   const unsafeInteger = Number.MAX_SAFE_INTEGER + 1;
   const cases: Array<[string, Record<string, unknown>, string]> = [

@@ -457,7 +457,7 @@ function createData(method: FixtureMethod): DivinationData {
             shenSha: '螣蛇',
             yinYang: '阴',
             fortune: '平（偏凶）',
-            timing: '代表2-8日内反复拖延',
+            timing: '节奏反复，待牵扯事项清理后再观察进展',
           },
           process: {
             name: '赤口',
@@ -471,7 +471,7 @@ function createData(method: FixtureMethod): DivinationData {
             shenSha: '白虎',
             yinYang: '阳',
             fortune: '凶',
-            timing: '代表4-7日或1-2周内出现争执',
+            timing: '争执触发性强，以沟通冲突或立场摊牌为观察点',
           },
           result: {
             name: '小吉',
@@ -485,7 +485,7 @@ function createData(method: FixtureMethod): DivinationData {
             shenSha: '玄武',
             yinYang: '阴',
             fortune: '吉',
-            timing: '代表1-4周内有贵人助力',
+            timing: '节奏渐进，以协助、资源或中间人出现为触发',
           },
         },
         wuxingRelations: {

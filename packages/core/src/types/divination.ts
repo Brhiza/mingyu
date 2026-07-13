@@ -75,6 +75,12 @@ export interface XiaoliurenData {
     result: string;
   };
   yingQi?: string;
+  timingEvidence?: {
+    rhythm: '偏快' | '平稳' | '偏缓' | '反复' | '不定';
+    primaryBasis: string[];
+    triggerConditions: string[];
+    limitations: string[];
+  };
   direction?: string;
   shenSha?: string;
   fortune?: string;
@@ -534,12 +540,14 @@ export interface QimenData {
       reasons: string[];
     }>;
   };
-  /** 应期估算（最快/最慢天数、节奏） */
+  /** 应期证据（相对节奏、触发条件与限制；不机械换算固定天数） */
   yingQi?: {
-    minDays: number;
-    maxDays: number;
+    minDays?: number;
+    maxDays?: number;
     rhythm: '快' | '中' | '慢';
     sources: string[];
+    triggerConditions: string[];
+    limitations: string[];
     description: string;
   };
   /** Unix 时间戳（毫秒） */

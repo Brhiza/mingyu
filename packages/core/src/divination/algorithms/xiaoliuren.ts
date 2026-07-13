@@ -7,7 +7,7 @@
  * 1. 以月、日、时辰三数逐宫顺数定三宫（起因→过程→结果）。
  * 2. 六宫五行生克断吉凶：大安(木)→留连(土)→速喜(火)→赤口(金)→小吉(水)→空亡(土)
  * 3. 起因生过程→顺遂，过程生结果→渐入佳境；克则反之。
- * 4. 按月令定各宫旺衰休囚，影响事态力度和应期。
+ * 4. 按月令定各宫旺衰休囚，作为快慢和条件是否成熟的辅助证据。
  */
 import type {
   XiaoliurenData,
@@ -43,7 +43,7 @@ const XIAOLIUREN_PALACES = [
     seasonProsper: '春（寅卯月）最旺',
     bodyPart: '足',
     fortune: '吉',
-    timing: '代表1-7日内平稳发展',
+    timing: '节奏平稳，宜观察基础条件是否持续稳定',
   },
   {
     name: '留连',
@@ -60,7 +60,7 @@ const XIAOLIUREN_PALACES = [
     seasonProsper: '季（辰戌丑未月）最旺',
     bodyPart: '股',
     fortune: '平（偏凶）',
-    timing: '代表2-8日内反复拖延',
+    timing: '节奏反复，待牵扯事项清理后再观察进展',
   },
   {
     name: '速喜',
@@ -77,7 +77,7 @@ const XIAOLIUREN_PALACES = [
     seasonProsper: '夏（巳午月）最旺',
     bodyPart: '目',
     fortune: '吉',
-    timing: '代表3-9日内消息到来',
+    timing: '节奏偏快，以消息、回复或机会出现为触发',
   },
   {
     name: '赤口',
@@ -94,7 +94,7 @@ const XIAOLIUREN_PALACES = [
     seasonProsper: '秋（申酉月）最旺',
     bodyPart: '口舌',
     fortune: '凶',
-    timing: '代表4-7日或1-2周内出现争执',
+    timing: '争执触发性强，以沟通冲突或立场摊牌为观察点',
   },
   {
     name: '小吉',
@@ -111,7 +111,7 @@ const XIAOLIUREN_PALACES = [
     seasonProsper: '冬（亥子月）最旺',
     bodyPart: '耳',
     fortune: '吉',
-    timing: '代表1-4周内有贵人助力',
+    timing: '节奏渐进，以协助、资源或中间人出现为触发',
   },
   {
     name: '空亡',
@@ -289,14 +289,38 @@ export function generateXiaoliuren(
     result: monthBranch ? getSeasonState(result.element, monthBranch) : '平',
   };
 
-  // 应期估算
-  const yingQiEstimates: Record<string, string> = {
-    大安: '1-7日内或有初步消息，春季应期更快',
-    留连: '2-8日内或1-2月内，需等待转机，夏秋间或可解',
-    速喜: '3-9日内消息即至，夏季应期更快',
-    赤口: '4-7日内注意争执，秋季尤验',
-    小吉: '1-4周内可见助力，冬季应期更佳',
-    空亡: '应期不定，建议重新评估后再定时间',
+  const timingProfiles: Record<
+    string,
+    {
+      rhythm: '偏快' | '平稳' | '偏缓' | '反复' | '不定';
+      trigger: string;
+    }
+  > = {
+    大安: { rhythm: '平稳', trigger: '基础条件稳定、资源到位或立场明确后推进' },
+    留连: { rhythm: '反复', trigger: '旧问题、手续或牵扯事项得到清理后再推进' },
+    速喜: { rhythm: '偏快', trigger: '消息、回复、邀约或明确机会出现时及时核验' },
+    赤口: { rhythm: '反复', trigger: '沟通冲突、误解澄清或立场摊牌时出现转折' },
+    小吉: { rhythm: '平稳', trigger: '协助者、资源、中间人或小步成果出现后渐进' },
+    空亡: { rhythm: '不定', trigger: '先核实目标、信息和承诺是否真实，再重新判断时机' },
+  };
+  const timingProfile = timingProfiles[result.name] ?? {
+    rhythm: '不定' as const,
+    trigger: '结合具体问题和现实进展重新判断',
+  };
+  const resultSeasonState = seasonStates.result;
+  const timingEvidence = {
+    rhythm: timingProfile.rhythm,
+    primaryBasis: [
+      `结果宫为${result.name}，宫义节奏为${timingProfile.rhythm}`,
+      `过程至结果五行关系为${processToResult}：${wuxingRelations.description}`,
+      `结果宫${result.element}在${monthBranch || '未知月支'}月为${resultSeasonState}，只作条件成熟度辅助`,
+    ],
+    triggerConditions: [timingProfile.trigger],
+    limitations: [
+      '六宫次序、宫数和传统数目只用于起课与取象，不换算固定日数、周数或公历日期',
+      '月令旺衰只表示相对条件，不等于某季节必然发生',
+      '未给现实期限和可观察事件时，只判断快慢、反复与触发条件',
+    ],
   };
 
   return attachResultMeta(
@@ -318,7 +342,8 @@ export function generateXiaoliuren(
       tendency: result.tendency,
       questionHint: buildQuestionHint(result),
       seasonStates,
-      yingQi: yingQiEstimates[result.name] || '应期视具体问题而定',
+      yingQi: `盘内节奏${timingEvidence.rhythm}；观察条件：${timingEvidence.triggerConditions.join('；')}。不机械换算固定日期。`,
+      timingEvidence,
       direction: result.direction,
       shenSha: result.shenSha,
       fortune: result.fortune,
