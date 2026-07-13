@@ -2172,6 +2172,38 @@ test('公开 API 占卜自定义提示词不强塞任务和输出要求', async 
   assert.doesNotMatch(body.data.prompt, /【输出要求】/);
 });
 
+test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', async () => {
+  const chart = await callApi('divination/meihua', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      method: 'number',
+      number: 123,
+      customDate: '2025-01-01T08:00:00+08:00',
+    }),
+  });
+  assert.equal(chart.response.status, 200);
+  assert.deepEqual(
+    chart.body.data.evidenceAnalysis.stages.map((item: { stage: string }) => item.stage),
+    ['origin', 'process', 'result'],
+  );
+  assert.match(chart.body.data.evidenceAnalysis.promptText, /【梅花体用阶段推进结构化证据】/);
+
+  const prompt = await callApi('divination/meihua/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      method: 'number',
+      number: 123,
+      customDate: '2025-01-01T08:00:00+08:00',
+      question: '这件事应如何推进？',
+    }),
+  });
+  assert.equal(prompt.response.status, 200);
+  assert.match(prompt.body.data.prompt, /【梅花体用阶段推进结构化证据】/);
+  assert.doesNotMatch(prompt.body.data.prompt, /体用评分：|类象权重：|\d+日内|\d+月左右/);
+});
+
 test('公开 API 六爻与大六壬提示词接口保留用户模板范围', async () => {
   const liuyao = await callApi('divination/liuyao/prompt', {
     method: 'POST',

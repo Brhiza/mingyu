@@ -1222,6 +1222,9 @@ test('梅花提示词会给出体用主轴、过程结果与起卦细节', () =>
   );
   assert.match(prompt, /辅助证据：四时春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
   assert.match(prompt, /应期候选：动爻第3爻：可作阶段、层位或触发点，不可单独换算绝对日期/);
+  assert.match(prompt, /【梅花体用阶段推进结构化证据】/);
+  assert.match(prompt, /梅花推进链解释边界/);
+  assert.doesNotMatch(prompt, /体用评分：|类象权重：|\d+日内|\d+月左右/);
   assert.match(prompt, /第3爻.*动.*属体/);
 });
 

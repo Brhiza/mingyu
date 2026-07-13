@@ -56,11 +56,13 @@ test('梅花：爻位详情应从初爻往上排列并准确标出动爻', () =>
   );
 });
 
-test('梅花：用生体应期描述不应带多余标点', () => {
+test('梅花：用生体应期描述应保留验证条件且不带多余标点', () => {
   const data = generateMeihua(SAMPLE_DATE, { method: 'number', number: 1 });
 
   assert.equal(data.analysis.tiYongRaw, '用生体');
-  assert.ok(data.analysis.yingQi?.includes('用生体，事有助力，应期顺势'));
+  assert.ok(
+    data.analysis.yingQi?.includes('用生体，外部条件对体卦有生扶，可观察助力实际出现时的进展'),
+  );
   assert.ok(data.analysis.yingQi?.every((item) => !item.includes('顺势）')));
 });
 

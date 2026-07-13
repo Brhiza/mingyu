@@ -287,6 +287,8 @@ export interface MeihuaCalculation {
 }
 
 export interface MeihuaData extends BaseHexagramData {
+  /** 主卦、互卦、变卦逐阶段体用关系与支持/限制证据。 */
+  evidenceAnalysis?: import('../divination/meihua-evidence').MeihuaEvidenceAnalysis;
   /** 体卦（代表问卦者） */
   tiGua: {
     name: string;

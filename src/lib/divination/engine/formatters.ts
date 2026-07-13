@@ -24,6 +24,7 @@ import { normalizePromptEvidenceItems } from '@core/prompt-evidence/format';
 import type { PromptEvidenceItem } from '@core/prompt-evidence/types';
 import type { DivinationMethodId } from '@core/divination/config';
 import { analyzeLiuyaoEvidence } from '@core/divination/algorithms/liuyao';
+import { analyzeMeihuaEvidence } from '@core/divination/algorithms/meihua';
 
 function resolveDivinationTimestamp(data?: DivinationData): number | null {
   if (
@@ -304,33 +305,6 @@ function createMeihuaTimingEvidence(data: MeihuaData) {
     .join('；');
 }
 
-function createMeihuaScoringEvidence(data: MeihuaData) {
-  const changedText =
-    data.changedTiGua && data.changedYongGua
-      ? `变后体${data.changedTiGua.name}${data.changedTiGua.element}、用${data.changedYongGua.name}${data.changedYongGua.element}，按${data.analysis.changedTiYongRelation}复核`
-      : '未见变后体用资料，结果只按变卦与动爻复核';
-
-  return [
-    `体用${data.analysis.tiYongRelation}为基础分`,
-    `四时${data.analysis.season}季体${data.analysis.tiSeasonState}、用${data.analysis.yongSeasonState}调整强弱`,
-    `动爻第${data.movingYao.position}爻提示触发层位`,
-    changedText,
-    '评分只用于排序主证、辅证和反证，不作机械数值断语',
-  ].join('；');
-}
-
-function createMeihuaStageEvidence(data: MeihuaData) {
-  const processHexagram = data.interHexagram?.name || data.interName || '无';
-  const resultHexagram = data.changedHexagram?.name || data.changedName || '无';
-
-  return [
-    `起因看主卦${data.originalName}与体用${data.analysis.tiYongRelation}`,
-    `过程看互卦${processHexagram}，互卦体用${data.analysis.inter1Relation}、互上辅助${data.analysis.inter2Relation}`,
-    `结果看变卦${resultHexagram}与${data.analysis.changedRelation}`,
-    '起因、过程、结果必须分层说明，不能只按卦名泛讲',
-  ].join('；');
-}
-
 function createMeihuaTimingPriorityEvidence(data: MeihuaData) {
   const calculation = data.calculation;
   const numberText =
@@ -588,8 +562,7 @@ function formatMeihuaInfo(data: MeihuaData) {
       : '';
   const timingEvidence = createMeihuaTimingEvidence(data);
   const symbolEvidence = createMeihuaSymbolEvidence(data);
-  const scoringEvidence = createMeihuaScoringEvidence(data);
-  const stageEvidence = createMeihuaStageEvidence(data);
+  const evidenceAnalysis = analyzeMeihuaEvidence(data);
   const timingPriorityEvidence = createMeihuaTimingPriorityEvidence(data);
   const yaoLines = [...data.yaosDetail]
     .sort((a, b) => b.position - a.position)
@@ -605,11 +578,6 @@ function formatMeihuaInfo(data: MeihuaData) {
         .map((item) => `第${item.position}爻爻辞：${data.mainHexagram!.yaoCi![item.position - 1]}`)
     : [];
 
-  // 应期数组输出（结构化 yingQi 优先于手写）
-  const yingQiText = data.analysis.yingQi?.length
-    ? `应期参考：${data.analysis.yingQi.slice(0, 3).join('；')}`
-    : null;
-
   return [
     '占法：梅花易数',
     `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
@@ -618,14 +586,13 @@ function formatMeihuaInfo(data: MeihuaData) {
     ...(movingYaoCiLines.length > 1 ? movingYaoCiLines : []),
     '断卦抓手：先定体用，再看互卦过程、变卦结果与四时旺衰',
     `主轴证据：体卦${data.tiGua.name}（${data.tiGua.element}）；用卦${data.yongGua.name}（${data.yongGua.element}）；动爻第${data.movingYao.position}爻；体用关系${data.analysis.tiYongRelation}`,
-    `体用评分：${scoringEvidence}`,
     `过程证据：互卦${processHexagram}；互卦体用${data.analysis.inter1Relation}；互上辅助${data.analysis.inter2Relation}`,
     `结果证据：变卦${resultHexagram}${changedTiYongText}；结果关系${data.analysis.changedRelation}`,
-    `互变阶段：${stageEvidence}`,
+    evidenceAnalysis.promptText,
     `辅助证据：四时${data.analysis.season}季，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}；起卦法${methodLabel}${typeof calculation?.number === 'number' ? `；起卦数字${calculation.number}` : ''}`,
-    yingQiText || `应期候选：${timingEvidence}`,
+    `应期候选：${timingEvidence}`,
     `应期优先级：${timingPriorityEvidence}`,
-    `类象权重：${symbolEvidence}`,
+    `类象边界：${symbolEvidence}`,
     '结构明细：',
     `- 四时旺衰：${data.analysis.season}季，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}`,
     `- 体用关系：${data.analysis.tiYongRelation}`,

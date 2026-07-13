@@ -1000,6 +1000,42 @@ test('MCP 梅花工具应拒绝未知起卦方式', async () => {
   });
 });
 
+test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async () => {
+  await withMcpClient(async (client) => {
+    const chart = await client.callTool({
+      name: 'divine_meihua',
+      arguments: {
+        method: 'number',
+        number: 123,
+        customDate: '2025-01-01T08:00:00+08:00',
+      },
+    });
+    const result = (
+      chart.structuredContent as {
+        result: { evidenceAnalysis: { stages: Array<{ stage: string }>; promptText: string } };
+      }
+    ).result;
+    assert.deepEqual(
+      result.evidenceAnalysis.stages.map((item) => item.stage),
+      ['origin', 'process', 'result'],
+    );
+    assert.match(result.evidenceAnalysis.promptText, /【梅花体用阶段推进结构化证据】/);
+
+    const prompt = await client.callTool({
+      name: 'meihua_prompt',
+      arguments: {
+        method: 'number',
+        number: 123,
+        customDate: '2025-01-01T08:00:00+08:00',
+        question: '这件事应如何推进？',
+      },
+    });
+    const promptText = String(prompt.structuredContent?.prompt);
+    assert.match(promptText, /【梅花体用阶段推进结构化证据】/);
+    assert.doesNotMatch(promptText, /体用评分：|类象权重：|\d+日内|\d+月左右/);
+  });
+});
+
 test('MCP 时间型占卜工具应拒绝无效 customDate', async () => {
   await withMcpClient(async (client) => {
     const invalidDateCalls: Array<[string, Record<string, unknown>]> = [

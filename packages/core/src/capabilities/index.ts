@@ -282,7 +282,16 @@ const systems: SystemCapability[] = [
       },
       questionInput,
     ],
-    outputs: ['主卦', '互卦', '变卦', '体用', '动爻', '五行关系'],
+    outputs: [
+      '主卦',
+      '互卦',
+      '变卦',
+      '体用',
+      '动爻',
+      '五行关系',
+      '主互变体用推进链',
+      '逐阶段月令支持与限制',
+    ],
     supports: randomSupports,
   },
   {
