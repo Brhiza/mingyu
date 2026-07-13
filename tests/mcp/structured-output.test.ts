@@ -54,6 +54,29 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
     'bazi_calculate',
     { gender: 'male', year: 1990, month: 5, day: 15, timeIndex: 1, dateType: 'solar' },
   ],
+  [
+    'bazi_compatibility',
+    {
+      person1: {
+        name: '甲方',
+        gender: 'female',
+        year: 1988,
+        month: 1,
+        day: 1,
+        timeIndex: 0,
+        dateType: 'solar',
+      },
+      person2: {
+        name: '乙方',
+        gender: 'male',
+        year: 1990,
+        month: 6,
+        day: 15,
+        timeIndex: 5,
+        dateType: 'solar',
+      },
+    },
+  ],
   ['metaphysics_bazhai', { birthYear: 1990, gender: 'male', doorToInteriorDegree: 0 }],
   ['metaphysics_zodiac', { zodiac: '鼠', year: 2024 }],
   ['metaphysics_taiyi', { year: 2004, scope: 'year' }],
@@ -90,6 +113,32 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
 ];
 
 const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
+  [
+    'bazi_compatibility_prompt',
+    {
+      person1: {
+        name: '甲方',
+        gender: 'female',
+        year: 1988,
+        month: 1,
+        day: 1,
+        timeIndex: 0,
+        dateType: 'solar',
+      },
+      person2: {
+        name: '乙方',
+        gender: 'male',
+        year: 1990,
+        month: 6,
+        day: 15,
+        timeIndex: 5,
+        dateType: 'solar',
+      },
+      question: '请分析双方长期合作关系。',
+      compatType: 'career',
+    },
+    /【八字双盘结构化证据】/,
+  ],
   [
     'bazi_prompt',
     {
@@ -154,6 +203,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
 
 const promptToolNames = [
   'bazi_prompt',
+  'bazi_compatibility_prompt',
   'ziwei_prompt',
   'bazi_ziwei_prompt',
   'liuyao_prompt',
@@ -195,7 +245,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 40);
+    assert.equal(tools.length, 42);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });

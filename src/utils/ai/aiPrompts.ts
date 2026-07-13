@@ -556,7 +556,7 @@ export function getCompatibilityPrompt(
   baziResult1: BaziChartResult | null,
   baziResult2: BaziChartResult | null,
   compatType?: CompatType,
-  options: { isCustomQuestion?: boolean } = {},
+  options: { isCustomQuestion?: boolean; person1Name?: string; person2Name?: string } = {},
 ): { system: string; user: string } {
   const isCustomQuestion = Boolean(options.isCustomQuestion);
   const data1 = baziResult1
@@ -567,7 +567,10 @@ export function getCompatibilityPrompt(
     : '无法获取第二人命盘数据。';
   const compatibilityEvidence =
     baziResult1 && baziResult2
-      ? analyzeBaziCompatibility(baziResult1, baziResult2).promptText
+      ? analyzeBaziCompatibility(baziResult1, baziResult2, {
+          person1Name: options.person1Name,
+          person2Name: options.person2Name,
+        }).promptText
       : '双方命盘不完整，暂无法生成双盘交叉证据。';
 
   return {

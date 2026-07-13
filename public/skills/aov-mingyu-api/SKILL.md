@@ -97,6 +97,8 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 - `POST /foundation/wuxing`：统计天干地支五行分布，可选计入藏干权重。
 - `POST /bazi/calculate`：八字排盘。
 - `POST /bazi/prompt`：八字排盘并生成结构化 AI 解读提示词。
+- `POST /bazi/compatibility`：八字双盘日主、日支、四柱交叉关系、双向十神、喜忌覆盖与证据计算。
+- `POST /bazi/compatibility/prompt`：八字双盘计算并生成完整结构化证据提示词。
 - `POST /ziwei/calculate`：紫微斗数排盘。
 - `POST /ziwei/prompt`：紫微斗数排盘并生成结构化 AI 解读提示词。
 - `POST /bazi-ziwei/prompt`：同一出生信息同时生成八字和紫微排盘摘要，并返回八字紫微合参 AI 解读提示词。

@@ -1,4 +1,5 @@
 import { baziCalculator } from '@core/bazi/baziCalculator';
+import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
 import type { ShenShaVariantConfig } from '@core/bazi/baziShenSha';
 import type { BaziChartResult, Person } from '@core/bazi/baziTypes';
 import {
@@ -37,6 +38,7 @@ import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
 import { buildAstrolabeScopeContext } from '../astrolabe-scope';
 import { buildAstrolabeSynastryPrompt } from '../astrolabe-synastry-prompt';
+import { getCompatibilityPrompt, type CompatType } from '../../utils/ai/aiPrompts';
 import {
   DEFAULT_MAX_REQUEST_BODY_BYTES,
   readLimitedRequestText,
@@ -427,6 +429,22 @@ export function getPublicApiOpenApiDocument(
           summary: '八字排盘并生成 AI 解读提示词',
           requestBody: openApiJsonRequestBody('#/components/schemas/BaziPromptRequest'),
           responses: { '200': { description: '八字命盘数据和结构化提示词' } },
+        },
+      },
+      '/bazi/compatibility': {
+        post: {
+          summary: '八字双盘结构化证据计算',
+          requestBody: openApiJsonRequestBody('#/components/schemas/BaziCompatibilityRequest'),
+          responses: {
+            '200': { description: '双方命盘、跨盘干支关系、双向十神、喜忌覆盖与证据包' },
+          },
+        },
+      },
+      '/bazi/compatibility/prompt': {
+        post: {
+          summary: '八字双盘计算并生成 AI 解读提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/BaziCompatibilityRequest'),
+          responses: { '200': { description: '八字双盘结构化结果与完整证据提示词' } },
         },
       },
       '/ziwei/calculate': {
@@ -919,6 +937,23 @@ export function getPublicApiOpenApiDocument(
             },
           ],
         },
+        BaziCompatibilityRequest: {
+          type: 'object',
+          required: ['person1', 'person2'],
+          properties: {
+            person1: { $ref: '#/components/schemas/BaziRequest' },
+            person2: { $ref: '#/components/schemas/BaziRequest' },
+            person1Name: { type: 'string', description: '第一人称呼；仅用于证据来源标注。' },
+            person2Name: { type: 'string', description: '第二人称呼；仅用于证据来源标注。' },
+            question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+            compatType: {
+              enum: ['marriage', 'career', 'friendship', 'children', 'parents', 'siblings'],
+              description: '关系范围；只影响任务范围，不改变双盘事实计算。',
+            },
+            promptMode: { enum: [...PROMPT_MODES] },
+            responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+          },
+        },
         ZiweiRequest: {
           type: 'object',
           required: ['gender', 'dateType', 'year', 'month', 'day'],
@@ -1119,6 +1154,10 @@ async function route(context: RouteContext) {
       return calculateBaziApi(await readJson(context.request));
     case 'bazi/prompt':
       return buildBaziPrompt(await readJson(context.request));
+    case 'bazi/compatibility':
+      return calculateBaziCompatibilityApi(await readJson(context.request));
+    case 'bazi/compatibility/prompt':
+      return buildBaziCompatibilityPromptApi(await readJson(context.request));
     case 'ziwei/calculate':
       return calculateZiwei(await readJson(context.request));
     case 'ziwei/prompt':
@@ -1593,6 +1632,61 @@ function buildBaziPrompt(input: JsonRecord) {
     prompt,
     fullResult: result,
     resultSummary: buildCompactBaziResult(result),
+  });
+}
+
+const BAZI_COMPATIBILITY_TYPES = [
+  'marriage',
+  'career',
+  'friendship',
+  'children',
+  'parents',
+  'siblings',
+] as const;
+
+function readBaziCompatibilityCharts(input: JsonRecord) {
+  if (!isRecord(input.person1) || !isRecord(input.person2)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'person1 和 person2 必须是完整的八字出生资料。');
+  }
+  const chart1 = calculateBazi(input.person1);
+  const chart2 = calculateBazi(input.person2);
+  return { chart1, chart2 };
+}
+
+function calculateBaziCompatibilityApi(input: JsonRecord) {
+  assertNoRandomOptions(input, '八字双盘是确定性计算，不接受 seed 或 replay。');
+  const { chart1, chart2 } = readBaziCompatibilityCharts(input);
+  const compatibility = analyzeBaziCompatibility(chart1, chart2, {
+    person1Name: readString(input, 'person1Name', ''),
+    person2Name: readString(input, 'person2Name', ''),
+  });
+  return { charts: { person1: chart1, person2: chart2 }, compatibility };
+}
+
+function buildBaziCompatibilityPromptApi(input: JsonRecord) {
+  const result = calculateBaziCompatibilityApi(input);
+  const promptParts = getCompatibilityPrompt(
+    readString(input, 'question', ''),
+    result.charts.person1,
+    result.charts.person2,
+    readEnum(input, 'compatType', BAZI_COMPATIBILITY_TYPES, 'marriage') as CompatType,
+    {
+      isCustomQuestion: readEnum(input, 'promptMode', PROMPT_MODES, 'framework') === 'custom',
+      person1Name: readString(input, 'person1Name', ''),
+      person2Name: readString(input, 'person2Name', ''),
+    },
+  );
+  const prompt = [`【角色与总则】\n${promptParts.system}`, promptParts.user].join('\n\n');
+  return buildPromptApiResult({
+    responseMode: readPromptResponseMode(input),
+    prompt,
+    fullResult: result,
+    resultSummary: {
+      people: result.compatibility.people,
+      dayMasterRelation: result.compatibility.dayMasterRelation,
+      spousePalaceRelations: result.compatibility.spousePalaceRelations,
+      evidence: result.compatibility.evidence,
+    },
   });
 }
 

@@ -51,6 +51,8 @@
 | `GET /openapi.json`                   | 获取 OpenAPI 文档                                                              |
 | `POST /bazi/calculate`                | 八字排盘                                                                       |
 | `POST /bazi/prompt`                   | 八字排盘并生成 AI 解读提示词                                                   |
+| `POST /bazi/compatibility`            | 八字双盘交叉关系、十神、喜忌覆盖与证据计算                                     |
+| `POST /bazi/compatibility/prompt`     | 八字双盘计算并生成结构化证据提示词                                             |
 | `POST /ziwei/calculate`               | 紫微斗数排盘                                                                   |
 | `POST /ziwei/prompt`                  | 紫微斗数排盘并生成 AI 解读提示词                                               |
 | `POST /bazi-ziwei/prompt`             | 八字紫微合参并生成 AI 解读提示词                                               |
@@ -175,6 +177,8 @@ curl -X POST https://aov.cc/api/v1/bazi/prompt \
   -H "Content-Type: application/json" \
   -d '{"gender":"male","year":1990,"month":5,"day":15,"timeIndex":1,"dateType":"solar","question":"我适合创业还是上班？","promptTopic":"career"}'
 ```
+
+八字双盘接口使用 `person1`、`person2` 包裹两份八字出生资料。结果会逐项返回双方日主五行与十神、日支关系、四柱交叉合冲刑害破、跨盘三合三会候选、双向十神映射和喜忌五行覆盖。五合、三合、三会只记录候选关系，不直接判定成化，也不生成匹配总分。
 
 八字神煞争议口径默认使用主流算法；如需兼容其他系统，可通过 `shenShaVariants` 指定：
 

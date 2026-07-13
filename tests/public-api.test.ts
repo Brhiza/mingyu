@@ -80,6 +80,8 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.equal(body.data.openapiUrl, 'https://aov.cc/api/v1/openapi.json');
   assert.equal(body.data.skillUrl, 'https://aov.cc/skills/aov-mingyu-api/SKILL.md');
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi/calculate'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/bazi/compatibility'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/bazi/compatibility/prompt'));
   assert.ok(body.data.endpoints.includes('GET /api/v1/foundation/capabilities'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/true-solar-time'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/true-solar-birth'));
@@ -93,6 +95,56 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.ok(body.data.endpoints.includes('POST /api/v1/ai/analyze'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/ai/models'));
   assert.ok(body.data.endpoints.includes('GET /.well-known/aov-mingyu-api.json'));
+});
+
+test('公开 API 八字双盘应返回交叉证据与完整提示词', async () => {
+  const person1 = {
+    gender: 'female',
+    year: 1988,
+    month: 1,
+    day: 1,
+    timeIndex: 0,
+    dateType: 'solar',
+  };
+  const person2 = {
+    gender: 'male',
+    year: 1990,
+    month: 6,
+    day: 15,
+    timeIndex: 5,
+    dateType: 'solar',
+  };
+  const calculation = await callApi('bazi/compatibility', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ person1, person2, person1Name: '甲方', person2Name: '乙方' }),
+  });
+
+  assert.equal(calculation.response.status, 200);
+  assert.equal(calculation.body.data.compatibility.people.person1, '甲方');
+  assert.ok(calculation.body.data.compatibility.tenGodMappings.length === 8);
+  assert.match(calculation.body.data.compatibility.promptText, /【八字双盘结构化证据】/);
+
+  const prompted = await callApi('bazi/compatibility/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      person1,
+      person2,
+      question: '请分析双方是否适合长期合作。',
+      compatType: 'career',
+      person1Name: '甲方',
+      person2Name: '乙方',
+      responseMode: 'full',
+    }),
+  });
+
+  assert.equal(prompted.response.status, 200);
+  assert.match(prompted.body.data.prompt, /【角色与总则】/);
+  assert.match(prompted.body.data.prompt, /【八字双盘结构化证据】/);
+  assert.match(prompted.body.data.prompt, /请分析双方是否适合长期合作/);
+  assert.match(prompted.body.data.prompt, /甲方.*乙方/);
+  assertPromptIsPortableTaskText(prompted.body.data.prompt);
 });
 
 test('公开 API 元数据应跟随当前访问域名', async () => {
