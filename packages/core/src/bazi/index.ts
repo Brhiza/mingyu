@@ -115,6 +115,14 @@ export {
 export type { HarmonyPillarInput } from './harmonyTransform';
 export { getLifeStage } from './baziValues';
 export { analyzeBaziCompatibility } from './compatibilityEvidence';
+export { analyzeFortuneTriggers } from './fortuneTriggerEvidence';
+export type {
+  FortuneLayerType,
+  FortuneTriggerEvidenceResult,
+  FortuneTriggerLayer,
+  FortuneTriggerRelation,
+  FortuneTriggerRelationType,
+} from './fortuneTriggerEvidence';
 export type {
   BaziCompatibilityEvidenceResult,
   BaziCompatibilityOptions,

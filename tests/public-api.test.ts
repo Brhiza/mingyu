@@ -995,6 +995,33 @@ test('八字公开 API 提示词支持完整输出版命限范围', () => {
   assert.doesNotMatch(prompt, /详细命限资料|资料量|聚焦当前分析对象/);
 });
 
+test('公开 API 八字年限提示词返回逐层岁运触发结构化证据', async () => {
+  const { response, body } = await callApi('bazi/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      gender: 'male',
+      year: 1990,
+      month: 5,
+      day: 15,
+      timeIndex: 1,
+      dateType: 'solar',
+      question: '这一年的事业触发有哪些？',
+      promptTopic: 'career',
+      baziFortuneScope: 'year',
+      baziFortuneCycleIndex: 1,
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  const triggerEvidence = body.data.resultSummary.fortuneSelection.promptPayload.triggerEvidence;
+  assert.ok(triggerEvidence.layers.some((item: { type: string }) => item.type === 'dayun'));
+  assert.ok(triggerEvidence.layers.some((item: { type: string }) => item.type === 'year'));
+  assert.ok(triggerEvidence.relations.length > 0);
+  assert.match(body.data.prompt, /【八字岁运触发结构化证据】/);
+  assert.match(body.data.prompt, /岁运触发解释边界/);
+});
+
 test('公开 API 八字自定义提示词不强塞专项框架', async () => {
   const { response, body } = await callApi('bazi/prompt', {
     method: 'POST',

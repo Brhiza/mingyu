@@ -228,7 +228,7 @@ function formatFullFortuneOutputSection(result: BaziChartResult | null): string 
 function formatFortuneEvidenceSection(ctx: FortuneSelectionContext | null | undefined): string {
   if (!ctx) return '';
 
-  return [
+  const summary = [
     `分析对象：${buildFortuneSelectedObjectText(ctx)}`,
     buildFortuneTimingText(ctx),
     buildFortuneHierarchyText(ctx),
@@ -238,6 +238,8 @@ function formatFortuneEvidenceSection(ctx: FortuneSelectionContext | null | unde
   ]
     .filter(Boolean)
     .join('\n');
+  const triggerEvidence = ctx.promptPayload.triggerEvidence?.promptText;
+  return [summary, triggerEvidence].filter(Boolean).join('\n\n');
 }
 
 function buildBaziNatalAnalysisObjectSection(): string {

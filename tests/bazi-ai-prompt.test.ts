@@ -150,7 +150,9 @@ test('八字提示词写入年限选择后应补充完整岁运任务书', () =>
   assert.match(prompt.user, /所选干支：/);
   assert.match(prompt.user, /主要触发：/);
   assert.match(prompt.user, /解读范围：重点判断这一年的年度触发/);
-  assert.doesNotMatch(prompt.user, /【主证】|【辅证】|【限制】|来源：|标签：/);
+  assert.match(prompt.user, /【八字岁运触发结构化证据】/);
+  assert.match(prompt.user, /【主证】|【辅证】/);
+  assert.match(prompt.user, /【限制】岁运触发解释边界/);
   assert.match(prompt.user, /所属大运包含的流年/);
   assert.match(prompt.user, /该流年包含的流月/);
   assert.match(prompt.user, /交下节/);
@@ -184,7 +186,7 @@ test('八字完整输出版会附加完整大运流年资料', () => {
   assert.doesNotMatch(prompt.user, /详细命限资料|资料量|聚焦当前分析对象/);
 });
 
-test('八字流月提示词应突出所选日期范围且不输出证据调试字段', () => {
+test('八字流月提示词应突出所选日期范围并输出结构化触发证据', () => {
   const result = createBaziResult();
   const fortuneContext = buildFortuneSelectionContext(result, {
     scope: 'month',
@@ -217,7 +219,10 @@ test('八字流月提示词应突出所选日期范围且不输出证据调试�
   assert.match(prompt.user, /所属流年包含的流月/);
   assert.match(prompt.user, /该流月包含的流日/);
   assert.match(prompt.user, /\d{4}-\d{2}-\d{2} .+｜十神/);
-  assert.doesNotMatch(fortuneSection, /【主证】|来源：|标签：|断事层级限制/);
+  assert.match(fortuneSection, /【八字岁运触发结构化证据】/);
+  assert.match(fortuneSection, /来源：/);
+  assert.match(fortuneSection, /岁运触发解释边界/);
+  assert.doesNotMatch(fortuneSection, /断事层级限制/);
 });
 
 test('八字提示词未选择年限时输出本命独立任务书且不输出岁运重点', () => {

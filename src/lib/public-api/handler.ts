@@ -1655,6 +1655,7 @@ function buildBaziFortuneContextFromInput(result: BaziChartResult, input: JsonRe
 function buildBaziPrompt(input: JsonRecord) {
   const result = calculateBazi(input);
   const fortuneScope = readEnum(input, 'baziFortuneScope', BAZI_FORTUNE_SCOPES, 'natal');
+  const fortuneSelectionContext = buildBaziFortuneContextFromInput(result, input);
   const schoolValue = input.school;
   const school =
     typeof schoolValue === 'string' && (BAZI_SCHOOLS as readonly string[]).includes(schoolValue)
@@ -1665,7 +1666,7 @@ function buildBaziPrompt(input: JsonRecord) {
     question: readRequiredString(input, 'question'),
     topic: readEnum(input, 'promptTopic', BAZI_PROMPT_TOPICS, 'general') as BaziPromptTopic,
     mode: readEnum(input, 'promptMode', PROMPT_MODES, 'framework') as PromptMode,
-    fortuneSelectionContext: buildBaziFortuneContextFromInput(result, input),
+    fortuneSelectionContext,
     fortuneScope,
     school,
   });
@@ -1673,8 +1674,14 @@ function buildBaziPrompt(input: JsonRecord) {
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
     prompt,
-    fullResult: result,
-    resultSummary: buildCompactBaziResult(result),
+    fullResult: {
+      ...result,
+      ...(fortuneSelectionContext ? { fortuneSelection: fortuneSelectionContext } : {}),
+    },
+    resultSummary: {
+      ...buildCompactBaziResult(result),
+      ...(fortuneSelectionContext ? { fortuneSelection: fortuneSelectionContext } : {}),
+    },
   });
 }
 

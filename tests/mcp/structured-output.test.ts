@@ -406,6 +406,33 @@ test('MCP 一站式提示词工具应同时返回结果和 prompt', async () => 
   });
 });
 
+test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
+  await withMcpClient(async (client) => {
+    const response = await client.callTool({
+      name: 'bazi_prompt',
+      arguments: {
+        gender: 'male',
+        year: 1990,
+        month: 5,
+        day: 15,
+        timeIndex: 1,
+        dateType: 'solar',
+        question: '这一年的事业触发有哪些？',
+        promptTopic: 'career',
+        baziFortuneScope: 'year',
+        baziFortuneCycleIndex: 1,
+      },
+    });
+
+    assert.equal(response.isError, undefined);
+    const result = response.structuredContent?.result as {
+      fortuneSelection?: { promptPayload?: { triggerEvidence?: { relations?: unknown[] } } };
+    };
+    assert.ok(result.fortuneSelection?.promptPayload?.triggerEvidence?.relations?.length);
+    assert.match(String(response.structuredContent?.prompt), /【八字岁运触发结构化证据】/);
+  });
+});
+
 test('MCP 黄历择日提示词应允许省略问题', async () => {
   await withMcpClient(async (client) => {
     const result = await client.callTool({

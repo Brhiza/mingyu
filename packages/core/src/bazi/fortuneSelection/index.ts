@@ -1,9 +1,14 @@
 import { getMonthDaysInfo, getYearInfo } from '../calendarTool';
 import { BASIC_MAPPINGS } from '../baziMappingsData';
 import type { BaziChartResult } from '../baziTypes';
-import { getTenGod, getTenGodForBranch } from '../baziUtils';
+import { getTenGod, getTenGodForBranch, isGanZhiPair } from '../baziUtils';
 import { formatPromptEvidenceBundle } from '../../prompt-evidence/format';
 import type { PromptEvidenceItem } from '../../prompt-evidence/types';
+import {
+  analyzeFortuneTriggers,
+  type FortuneTriggerEvidenceResult,
+  type FortuneTriggerLayer,
+} from '../fortuneTriggerEvidence';
 import { getDayHourBreakdown } from './helpers/breakdown';
 import {
   formatCycleLabel,
@@ -138,6 +143,7 @@ function buildFortuneEvidenceLines(params: {
   timingText?: string;
   parentText?: string;
   limitText: string;
+  triggerEvidence: FortuneTriggerEvidenceResult;
 }) {
   const items: PromptEvidenceItem[] = [
     {
@@ -198,9 +204,26 @@ function buildFortuneEvidenceLines(params: {
     weight: 20,
   });
 
-  return formatPromptEvidenceBundle({
-    items,
-  });
+  return [...formatPromptEvidenceBundle({ items }), '', params.triggerEvidence.promptText];
+}
+
+function fortuneLayer(
+  id: string,
+  type: FortuneTriggerLayer['type'],
+  label: string,
+  ganZhi: string,
+  timeRange?: string,
+): FortuneTriggerLayer {
+  return { id, type, label, ganZhi, timeRange };
+}
+
+function analyzeSelectionTriggers(result: BaziChartResult, layers: FortuneTriggerLayer[]) {
+  return analyzeFortuneTriggers(
+    result,
+    layers.filter(
+      (layer) => layer.ganZhi.length === 2 && isGanZhiPair(layer.ganZhi[0], layer.ganZhi[1]),
+    ),
+  );
 }
 
 export function normalizeFortuneSelection(
@@ -313,6 +336,9 @@ export function buildFortuneSelectionContext(
     }));
     const cycleTenGod = formatGanZhiTenGod(result, cycle.ganZhi);
     const cycleTriggerSummary = buildGanZhiTriggerSummary(result, cycle.ganZhi, '大运');
+    const triggerEvidence = analyzeSelectionTriggers(result, [
+      fortuneLayer('dayun', 'dayun', cycleLabel, cycle.ganZhi, `${cycle.year}年起`),
+    ]);
 
     return {
       ...baseContext,
@@ -344,7 +370,9 @@ export function buildFortuneSelectionContext(
           timingText: `${cycle.year}年起，约${cycle.age}岁交运；只作为十年阶段主题与强弱背景。`,
           limitText:
             '大运不能替代流年给出精确年份；未给出具体流年时，只能判断十年阶段，不展开年度触发。',
+          triggerEvidence,
         }),
+        triggerEvidence,
         breakdownTitle: '该大运包含的流年',
         breakdownLines: breakdown.map((item) => formatYearBreakdownLine(result, item)),
         detailGroups: [
@@ -377,6 +405,10 @@ export function buildFortuneSelectionContext(
     const monthLines = breakdown.map((item) => formatMonthBreakdownLine(result, item));
     const yearTenGod = formatGanZhiTenGod(result, yearItem.ganZhi);
     const yearTriggerSummary = buildGanZhiTriggerSummary(result, yearItem.ganZhi, '流年');
+    const triggerEvidence = analyzeSelectionTriggers(result, [
+      fortuneLayer('dayun', 'dayun', cycleLabel, cycle.ganZhi, `${cycle.year}年起`),
+      fortuneLayer('year', 'year', `${yearItem.year}年流年`, yearItem.ganZhi, `${yearItem.year}年`),
+    ]);
 
     return {
       ...baseContext,
@@ -405,7 +437,9 @@ export function buildFortuneSelectionContext(
           parentText: `所属大运：${cycleLabel}（${cycle.ganZhi}），年度判断必须承接该十年阶段。`,
           timingText: `${yearItem.year}年（${yearItem.age}岁）为年度触发；流月列表只作月份窗口参考。`,
           limitText: '未给出具体流月或流日时，不得把某月某日硬断成唯一应期。',
+          triggerEvidence,
         }),
+        triggerEvidence,
         breakdownTitle: '该流年包含的流月',
         breakdownLines: monthLines,
         detailGroups: [
@@ -450,6 +484,17 @@ export function buildFortuneSelectionContext(
     const dayLines = breakdown.map((item) => formatDayBreakdownLine(result, item));
     const monthTenGod = formatGanZhiTenGod(result, monthInfo.ganZhi);
     const monthTriggerSummary = buildGanZhiTriggerSummary(result, monthInfo.ganZhi, '流月');
+    const triggerEvidence = analyzeSelectionTriggers(result, [
+      fortuneLayer('dayun', 'dayun', cycleLabel, cycle.ganZhi, `${cycle.year}年起`),
+      fortuneLayer('year', 'year', `${yearItem.year}年流年`, yearItem.ganZhi),
+      fortuneLayer(
+        'month',
+        'month',
+        `${yearItem.year}年${monthInfo.month}流月`,
+        monthInfo.ganZhi,
+        `${monthInfo.startDate}至${monthInfo.endDate}`,
+      ),
+    ]);
 
     return {
       ...baseContext,
@@ -497,7 +542,9 @@ export function buildFortuneSelectionContext(
           timingText: `${monthInfo.startDate}至${monthInfo.endDate}，以节气月为准；${monthInfo.startTermName || ''} ${monthInfo.startDateTime || ''} 起，${monthInfo.endTermName || ''} ${monthInfo.endDateTime || ''} 交下节。`,
           limitText:
             '流月只细化年度主题，不能推翻本命、大运与流年主线；未给出流日时不硬给具体日期。',
+          triggerEvidence,
         }),
+        triggerEvidence,
         breakdownTitle: '该流月包含的流日',
         breakdownLines: dayLines,
         detailGroups: [
@@ -526,6 +573,12 @@ export function buildFortuneSelectionContext(
   const ziChuEnd = `${actualDate} 22:59`;
   const dayTenGod = formatGanZhiTenGod(result, dayInfo.ganZhi);
   const dayTriggerSummary = buildGanZhiTriggerSummary(result, dayInfo.ganZhi, '流日');
+  const triggerEvidence = analyzeSelectionTriggers(result, [
+    fortuneLayer('dayun', 'dayun', cycleLabel, cycle.ganZhi, `${cycle.year}年起`),
+    fortuneLayer('year', 'year', `${yearItem.year}年流年`, yearItem.ganZhi),
+    fortuneLayer('month', 'month', `${yearItem.year}年${monthInfo.month}流月`, monthInfo.ganZhi),
+    fortuneLayer('day', 'day', `${actualDate}流日`, dayInfo.ganZhi, actualDate),
+  ]);
   const monthDayLines = dayInfoList.map((item) =>
     formatDayBreakdownLine(result, {
       date: item.solarDate,
@@ -577,7 +630,9 @@ export function buildFortuneSelectionContext(
         parentText: `所属大运：${cycleLabel}（${cycle.ganZhi}）；所属流年：${yearItem.year}年${yearItem.ganZhi}；所属流月：${monthInfo.month}${monthInfo.ganZhi}。`,
         timingText: `按子初换日：${ziChuStart}至${ziChuEnd}；流时列表只作当日内短时触发参考。`,
         limitText: '流日只判断当日执行、沟通、避险和即时触发，不得改写长期命局或整年趋势。',
+        triggerEvidence,
       }),
+      triggerEvidence,
       breakdownTitle: '该流日包含的流时',
       breakdownLines: hourLines,
       detailGroups: [

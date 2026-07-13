@@ -86,6 +86,8 @@ test('选择大运时会附带该大运下的全部流年', () => {
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【主证】大运干支与十神/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【应期】应期边界/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【限制】断事层级限制/);
+  assert.ok(context.promptPayload.triggerEvidence);
+  assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【八字岁运触发结构化证据】/);
 });
 
 test('选择流年时会附带该流年下的全部流月', () => {
@@ -117,6 +119,11 @@ test('选择流年时会附带该流年下的全部流月', () => {
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【辅证】上层岁运背景/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【主证】流年干支与十神/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /未给出具体流月或流日/);
+  assert.ok(
+    context.promptPayload.triggerEvidence?.relations.some(
+      (item) => item.source.type === 'year' && item.target.type === 'dayun',
+    ),
+  );
 });
 
 test('节令月会使用实际交节日期范围，而不是直接套用公历月份', () => {

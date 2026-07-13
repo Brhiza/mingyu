@@ -227,7 +227,10 @@ export function registerBaziTool(server: McpServer) {
               : readMcpIntegerLikeInRange(args.baziFortuneDay, 'baziFortuneDay', 1, 31),
         });
         return createStructuredToolResult({
-          result,
+          result: {
+            ...result,
+            ...(fortuneSelectionContext ? { fortuneSelection: fortuneSelectionContext } : {}),
+          },
           prompt: buildBaziPromptForResult({
             result,
             question: args.question,
