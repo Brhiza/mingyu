@@ -23,6 +23,21 @@ export type AstrolabeScopeContext = {
   promptText: string;
 };
 
+export type SolarReturnEvidence = {
+  status: 'exact' | 'approximate' | 'unavailable';
+  targetYear: number;
+  dateTime?: string;
+  timezone: number;
+  residualDegrees?: number;
+  searchWindowHours: number;
+  coarseStepHours: number;
+  refinementToleranceMinutes: number;
+  refinementIterations: number;
+  aspects: string[];
+  source: string;
+  limitations: string[];
+};
+
 const SCOPE_LABEL_MAP: Record<AstrolabeScopeMode, string> = {
   natal: '本命',
   full: '完整输出',
@@ -315,6 +330,10 @@ function longitudeDistance(first: number, second: number) {
   return raw > 180 ? 360 - raw : raw;
 }
 
+function signedLongitudeDifference(first: number, second: number) {
+  return ((normalizeLongitude(first) - normalizeLongitude(second) + 540) % 360) - 180;
+}
+
 function resolveAdvancedAspect(first: number, second: number) {
   const distance = longitudeDistance(first, second);
   return ADVANCED_ASPECTS.map((aspect) => ({
@@ -440,45 +459,152 @@ function buildSolarArcEvidence(data: AstrolabeData, targetYear: number) {
   }
 }
 
-function buildSolarReturnEvidence(data: AstrolabeData, targetYear: number) {
+function datePartsFromWallClockTimestamp(timestamp: number) {
+  const date = new Date(timestamp);
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+    hour: date.getUTCHours(),
+    minute: date.getUTCMinutes(),
+  };
+}
+
+function formatWallClockDateTime(timestamp: number) {
+  const date = datePartsFromWallClockTimestamp(timestamp);
+  return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')} ${String(date.hour).padStart(2, '0')}:${String(date.minute).padStart(2, '0')}`;
+}
+
+export function calculateSolarReturnEvidence(
+  data: AstrolabeData,
+  targetYear: number,
+): SolarReturnEvidence {
   const birth = parseBirthDateTime(data);
   const natalSun = data.planets.find((planet) => planet.name === 'Sun');
-  if (!birth || !natalSun) return '太阳返照证据：出生时间或本命太阳资料不足。';
+  const baseEvidence = {
+    targetYear,
+    timezone: data.birth.timezone,
+    searchWindowHours: 48,
+    coarseStepHours: 2,
+    refinementToleranceMinutes: 1,
+    refinementIterations: 0,
+    aspects: [],
+    source: 'celestine 太阳黄经；先以 2 小时步长定位过零区间，再以二分法细化返照时刻',
+  };
+  if (!birth || !natalSun) {
+    return {
+      ...baseEvidence,
+      status: 'unavailable',
+      limitations: ['出生时间或本命太阳经度资料不足，无法计算太阳返照。'],
+    };
+  }
   const maxDay = daysInAstrolabeScopeMonth(targetYear, birth.month);
   const centerDay = Math.min(birth.day, maxDay);
-  let best:
-    | {
-        date: { year: number; month: number; day: number; hour: number; minute: number };
-        deviation: number;
-      }
-    | undefined;
+  const centerTimestamp = Date.UTC(
+    targetYear,
+    birth.month - 1,
+    centerDay,
+    birth.hour,
+    birth.minute,
+  );
   try {
+    let previous: { timestamp: number; difference: number } | undefined;
+    let bracket: { left: number; right: number; leftDifference: number } | undefined;
+    let best: { timestamp: number; difference: number } | undefined;
     for (let offsetHours = -48; offsetHours <= 48; offsetHours += 2) {
-      const candidate = new Date(
-        Date.UTC(targetYear, birth.month - 1, centerDay, birth.hour) + offsetHours * 3600000,
+      const timestamp = centerTimestamp + offsetHours * 3600000;
+      const sun = calculateScopePlanets(data, datePartsFromWallClockTimestamp(timestamp)).find(
+        (planet) => planet.name === 'Sun',
       );
-      const date = {
-        year: candidate.getUTCFullYear(),
-        month: candidate.getUTCMonth() + 1,
-        day: candidate.getUTCDate(),
-        hour: candidate.getUTCHours(),
-        minute: 0,
-      };
-      const sun = calculateScopePlanets(data, date).find((planet) => planet.name === 'Sun');
       if (!sun) continue;
-      const deviation = longitudeDistance(sun.longitude, natalSun.longitude);
-      if (!best || deviation < best.deviation) best = { date, deviation };
+      const difference = signedLongitudeDifference(sun.longitude, natalSun.longitude);
+      if (!best || Math.abs(difference) < Math.abs(best.difference)) {
+        best = { timestamp, difference };
+      }
+      if (
+        previous &&
+        (previous.difference === 0 || difference === 0 || previous.difference * difference < 0)
+      ) {
+        bracket = {
+          left: previous.timestamp,
+          right: timestamp,
+          leftDifference: previous.difference,
+        };
+        break;
+      }
+      previous = { timestamp, difference };
     }
-    if (!best) return '太阳返照证据：未找到可用的返照时刻。';
-    const returnPlanets = calculateScopePlanets(data, best.date).filter((planet) =>
+    if (!best) {
+      return {
+        ...baseEvidence,
+        status: 'unavailable',
+        limitations: ['搜索窗口内未取得可用太阳位置。'],
+      };
+    }
+
+    let finalTimestamp = best.timestamp;
+    let iterations = 0;
+    if (bracket) {
+      let { left, right, leftDifference } = bracket;
+      while (right - left > 60000 && iterations < 32) {
+        const middle = Math.round((left + right) / 2);
+        const sun = calculateScopePlanets(data, datePartsFromWallClockTimestamp(middle)).find(
+          (planet) => planet.name === 'Sun',
+        );
+        if (!sun) break;
+        const middleDifference = signedLongitudeDifference(sun.longitude, natalSun.longitude);
+        if (leftDifference * middleDifference <= 0) {
+          right = middle;
+        } else {
+          left = middle;
+          leftDifference = middleDifference;
+        }
+        iterations += 1;
+      }
+      finalTimestamp = Math.round((left + right) / 2 / 60000) * 60000;
+    }
+    const finalDate = datePartsFromWallClockTimestamp(finalTimestamp);
+    const returnPlanets = calculateScopePlanets(data, finalDate).filter((planet) =>
       ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn'].includes(planet.name),
     );
+    const returnSun = returnPlanets.find((planet) => planet.name === 'Sun');
+    const residualDegrees = returnSun
+      ? longitudeDistance(returnSun.longitude, natalSun.longitude)
+      : Math.abs(best.difference);
     const aspects = formatCrossAspects(returnPlanets, buildNatalPoints(data), 8);
-    const timeText = `${best.date.year}-${String(best.date.month).padStart(2, '0')}-${String(best.date.day).padStart(2, '0')} ${String(best.date.hour).padStart(2, '0')}:00`;
-    return `太阳返照证据：返照时刻约${timeText}（太阳经度偏差${best.deviation.toFixed(3)}°）；${aspects.join('；') || '未见容许度内的主要返照对本命触发'}。`;
+    return {
+      ...baseEvidence,
+      status: bracket ? 'exact' : 'approximate',
+      dateTime: formatWallClockDateTime(finalTimestamp),
+      residualDegrees: Number(residualDegrees.toFixed(6)),
+      refinementIterations: iterations,
+      aspects,
+      limitations: bracket
+        ? [
+            '返照时刻按出生地固定时区的当地钟表时间表达。',
+            '分钟级细化只说明数值搜索收敛范围，不代表底层星历达到观测级精度。',
+          ]
+        : ['未找到太阳黄经过零区间，仅返回搜索窗口内最接近的 2 小时取样点。'],
+    };
   } catch {
-    return '太阳返照证据：计算失败，不作为本次判断依据。';
+    return {
+      ...baseEvidence,
+      status: 'unavailable',
+      limitations: ['太阳返照计算失败，不作为本次判断依据。'],
+    };
   }
+}
+
+function buildSolarReturnEvidence(data: AstrolabeData, targetYear: number) {
+  const evidence = calculateSolarReturnEvidence(data, targetYear);
+  if (evidence.status === 'unavailable' || !evidence.dateTime) {
+    return `太阳返照证据：${evidence.limitations.join('；')}`;
+  }
+  const precision =
+    evidence.status === 'exact'
+      ? `粗搜步长${evidence.coarseStepHours}小时、二分细化至${evidence.refinementToleranceMinutes}分钟内，共${evidence.refinementIterations}次迭代`
+      : `仅取得${evidence.coarseStepHours}小时步长的近似取样点`;
+  return `太阳返照证据：返照当地钟表时刻${evidence.dateTime}（UTC${evidence.timezone >= 0 ? '+' : ''}${evidence.timezone}，太阳黄经残差${evidence.residualDegrees?.toFixed(4)}°）；搜索方法：${precision}；来源：${evidence.source}；精度边界：${evidence.limitations.join('；')}；${evidence.aspects.join('；') || '未见容许度内的主要返照对本命触发'}。`;
 }
 
 function isLongitudeInHouse(longitude: number, cusp: number, nextCusp: number) {

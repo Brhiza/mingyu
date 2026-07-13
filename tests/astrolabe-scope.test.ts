@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildAstrolabeScopeContext } from 'mingyu-core/divination/astrolabe-scope';
+import {
+  buildAstrolabeScopeContext,
+  calculateSolarReturnEvidence,
+} from 'mingyu-core/divination/astrolabe-scope';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import type { AstrolabeData } from 'mingyu-core/types';
 
@@ -54,12 +57,28 @@ test('星盘流年分析对象会生成行运证据和展示文本', () => {
   assert.match(context.promptText, /行运证据：/);
   assert.match(context.promptText, /行运落宫提示：/);
   assert.match(context.promptText, /太阳返照证据：/);
+  assert.match(context.promptText, /搜索方法：粗搜步长2小时、二分细化至1分钟内/);
+  assert.match(context.promptText, /太阳黄经残差\d+\.\d{4}°/);
+  assert.match(context.promptText, /不代表底层星历达到观测级精度/);
   assert.match(context.promptText, /次限证据（一岁一日）：/);
   assert.match(context.promptText, /太阳弧证据：/);
   assert.match(context.promptText, /落本命第\d+宫/);
   assert.doesNotMatch(context.promptText, /不包含太阳返照、次限推进、太阳弧/);
   assert.doesNotMatch(context.promptText, /未计算|技术限制|当前项目/);
   assert.match(context.promptText, /时间边界：本命盘只定长期结构/);
+});
+
+test('太阳返照应返回可复核的求根过程和精度边界', () => {
+  const evidence = calculateSolarReturnEvidence(astrolabeData, 2028);
+
+  assert.equal(evidence.status, 'exact');
+  assert.match(evidence.dateTime ?? '', /^2028-05-\d{2} \d{2}:\d{2}$/);
+  assert.ok((evidence.residualDegrees ?? 1) < 0.001);
+  assert.equal(evidence.coarseStepHours, 2);
+  assert.equal(evidence.refinementToleranceMinutes, 1);
+  assert.ok(evidence.refinementIterations > 0);
+  assert.match(evidence.source, /二分法/);
+  assert.ok(evidence.limitations.some((item) => item.includes('观测级精度')));
 });
 
 test('星盘流月与流日沿用同一选择器语义并写明应期层级', () => {
