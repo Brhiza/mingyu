@@ -1106,6 +1106,51 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
   });
 });
 
+test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', async () => {
+  await withMcpClient(async (client) => {
+    const chart = await client.callTool({
+      name: 'divine_xiaoliuren',
+      arguments: {
+        xiaoliurenMethod: 'number',
+        xiaoliurenNumber: 18,
+        customDate: '2025-01-01T08:00:00+08:00',
+      },
+    });
+    const result = (
+      chart.structuredContent as {
+        result: {
+          evidenceAnalysis: {
+            stages: Array<{ stage: string }>;
+            transitions: string[];
+            counterEvidence: string[];
+          };
+        };
+      }
+    ).result;
+    assert.deepEqual(
+      result.evidenceAnalysis.stages.map((item) => item.stage),
+      ['起因', '过程', '结果'],
+    );
+    assert.equal(result.evidenceAnalysis.transitions.length, 2);
+    assert.ok(Array.isArray(result.evidenceAnalysis.counterEvidence));
+
+    const promptResult = await client.callTool({
+      name: 'xiaoliuren_prompt',
+      arguments: {
+        xiaoliurenMethod: 'number',
+        xiaoliurenNumber: 18,
+        customDate: '2025-01-01T08:00:00+08:00',
+        question: '这件事应如何推进？',
+      },
+    });
+    const prompt = String(promptResult.structuredContent?.prompt);
+    assert.match(prompt, /【小六壬三宫推进结构化证据】/);
+    assert.match(prompt, /现实事件复核/);
+    assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|吉凶总分(?:为|：)|\d+日内|\d+周内/);
+    assertPromptIsPortableTaskText(prompt);
+  });
+});
+
 test('MCP 时间型占卜工具应拒绝无效 customDate', async () => {
   await withMcpClient(async (client) => {
     const invalidDateCalls: Array<[string, Record<string, unknown>]> = [

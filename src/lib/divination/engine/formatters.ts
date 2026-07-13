@@ -24,6 +24,7 @@ import type { DivinationMethodId } from '@core/divination/config';
 import { analyzeLiuyaoEvidence } from '@core/divination/algorithms/liuyao';
 import { analyzeMeihuaEvidence } from '@core/divination/algorithms/meihua';
 import { analyzeLiurenEvidence } from '@core/divination/algorithms/liuren';
+import { analyzeXiaoliurenEvidence } from '@core/divination/algorithms/xiaoliuren';
 
 function resolveDivinationTimestamp(data?: DivinationData): number | null {
   if (
@@ -582,6 +583,7 @@ function formatMeihuaInfo(data: MeihuaData) {
 
 function formatXiaoliurenInfo(data: XiaoliurenData) {
   const sequence = data.sequence;
+  const evidenceAnalysis = data.evidenceAnalysis ?? analyzeXiaoliurenEvidence(data);
   const timingEvidence = createXiaoliurenTimingEvidence(data);
   const reviewEvidence = createXiaoliurenReviewEvidence(data);
   const actionLevelEvidence = createXiaoliurenActionLevelEvidence(data);
@@ -619,6 +621,7 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
     data.wuxingRelations
       ? `五行推进证据：起因到过程${data.wuxingRelations.startToProcess}；过程到结果${data.wuxingRelations.processToResult}；${data.wuxingRelations.description}`
       : '',
+    evidenceAnalysis.promptText,
     `辅助证据：起因提示${sequence.start.meaning}；过程提示${sequence.process.meaning}；结果提示${sequence.result.meaning}`,
     data.seasonStates
       ? `月令旺衰：起因${data.seasonStates.start}，过程${data.seasonStates.process}，结果${data.seasonStates.result}`

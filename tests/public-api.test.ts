@@ -1963,6 +1963,12 @@ test('公开 API 奇门与小六壬应期应返回条件证据，不返回伪精
   assert.equal(xiaoliuren.response.status, 200);
   assert.ok(xiaoliuren.body.data.timingEvidence.primaryBasis.length > 0);
   assert.ok(xiaoliuren.body.data.timingEvidence.triggerConditions.length > 0);
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.evidence.title, '小六壬三宫推进结构化证据');
+  assert.deepEqual(
+    xiaoliuren.body.data.evidenceAnalysis.stages.map((item: { stage: string }) => item.stage),
+    ['起因', '过程', '结果'],
+  );
+  assert.ok(xiaoliuren.body.data.evidenceAnalysis.transitions.length === 2);
   assert.doesNotMatch(
     `${xiaoliuren.body.data.yingQi}\n${xiaoliuren.body.data.timing}`,
     /\d+\s*[-—至]\s*\d+\s*(?:日|周|月)|\d+日内|\d+周内/,

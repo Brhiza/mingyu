@@ -89,6 +89,7 @@ export interface XiaoliurenData {
   fortune?: string;
   timing?: string;
   bodyPart?: string;
+  evidenceAnalysis?: import('../divination/xiaoliuren-evidence').XiaoliurenEvidenceAnalysis;
 }
 
 export interface BaseGanZhi {

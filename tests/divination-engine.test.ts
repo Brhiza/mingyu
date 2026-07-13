@@ -3875,6 +3875,10 @@ test('小六壬支持时间起课与数字起课，并生成适合复制给 AI �
   assert.match(timeSession.prompt, /起因/);
   assert.match(timeSession.prompt, /过程/);
   assert.match(timeSession.prompt, /结果/);
+  assert.match(timeSession.prompt, /【小六壬三宫推进结构化证据】/);
+  assert.match(timeSession.prompt, /计算链：/);
+  assert.match(timeSession.prompt, /现实事件复核/);
+  assert.match(timeSession.prompt, /规则来源：.*传统掌诀体系/);
 
   const numberSession = await generateDivinationSession(
     buildDraft({
@@ -3889,6 +3893,7 @@ test('小六壬支持时间起课与数字起课，并生成适合复制给 AI �
 
   assert.equal(numberSession.method, 'xiaoliuren');
   assert.match(numberSession.prompt, /起课方式数字起课/);
+  assert.match(numberSession.prompt, /时间、数字与随机起课只改变起课输入/);
 });
 
 test('小六壬数字起课底层算法缺少数字时应明确失败', () => {

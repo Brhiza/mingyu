@@ -343,6 +343,7 @@ const systems: SystemCapability[] = [
       '相对应期节奏',
       '应期触发条件与限制',
       '方位',
+      '结构化证据',
     ],
     supports: randomSupports,
   },

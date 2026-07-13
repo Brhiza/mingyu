@@ -26,6 +26,10 @@ import {
   type RandomTrace,
 } from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
+import { analyzeXiaoliurenEvidence } from '../xiaoliuren-evidence';
+
+export { analyzeXiaoliurenEvidence } from '../xiaoliuren-evidence';
+export type { XiaoliurenEvidenceAnalysis } from '../xiaoliuren-evidence';
 
 const XIAOLIUREN_PALACES = [
   {
@@ -323,38 +327,38 @@ export function generateXiaoliuren(
     ],
   };
 
-  return attachResultMeta(
-    {
-      method,
-      methodLabel: XIAOLIUREN_METHOD_LABEL_MAP[method],
-      timestamp,
-      lunarMonth,
-      lunarDay,
-      hourIndex,
-      hourLabel: getHourLabel(hourIndex),
-      sequence: {
-        start,
-        process,
-        result,
-      },
-      wuxingRelations,
-      primary: result,
-      tendency: result.tendency,
-      questionHint: buildQuestionHint(result),
-      seasonStates,
-      yingQi: `盘内节奏${timingEvidence.rhythm}；观察条件：${timingEvidence.triggerConditions.join('；')}。不机械换算固定日期。`,
-      timingEvidence,
-      direction: result.direction,
-      shenSha: result.shenSha,
-      fortune: result.fortune,
-      timing: result.timing,
-      bodyPart: result.bodyPart,
+  const dataResult: XiaoliurenData = {
+    method,
+    methodLabel: XIAOLIUREN_METHOD_LABEL_MAP[method],
+    timestamp,
+    lunarMonth,
+    lunarDay,
+    hourIndex,
+    hourLabel: getHourLabel(hourIndex),
+    sequence: {
+      start,
+      process,
+      result,
     },
-    {
-      algorithm: 'xiaoliuren',
-      input: { method, number: params?.number, timestamp },
-      calculatedAt: timestamp,
-      random: randomTrace,
-    },
-  );
+    wuxingRelations,
+    primary: result,
+    tendency: result.tendency,
+    questionHint: buildQuestionHint(result),
+    seasonStates,
+    yingQi: `盘内节奏${timingEvidence.rhythm}；观察条件：${timingEvidence.triggerConditions.join('；')}。不机械换算固定日期。`,
+    timingEvidence,
+    direction: result.direction,
+    shenSha: result.shenSha,
+    fortune: result.fortune,
+    timing: result.timing,
+    bodyPart: result.bodyPart,
+  };
+  dataResult.evidenceAnalysis = analyzeXiaoliurenEvidence(dataResult);
+
+  return attachResultMeta(dataResult, {
+    algorithm: 'xiaoliuren',
+    input: { method, number: params?.number, timestamp },
+    calculatedAt: timestamp,
+    random: randomTrace,
+  });
 }
