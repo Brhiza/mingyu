@@ -528,22 +528,32 @@ export function buildFortuneSelectionContext(
           monthTriggerSummary,
           `日期范围：${monthInfo.startDate} 至 ${monthInfo.endDate}`,
           `交节时刻：${monthInfo.startTermName || ''} ${monthInfo.startDateTime || ''} 起，${monthInfo.endTermName || ''} ${monthInfo.endDateTime || ''} 交下节`,
+          ...(monthInfo.startTermEvidence
+            ? [`起始交节核验：${monthInfo.startTermEvidence.promptText}`]
+            : []),
+          ...(monthInfo.endTermEvidence
+            ? [`结束交节核验：${monthInfo.endTermEvidence.promptText}`]
+            : []),
         ],
-        evidenceLines: buildFortuneEvidenceLines({
-          scope: 'month',
-          scopeLabel: `${yearItem.year}年${monthInfo.month}流月`,
-          cycleLabel,
-          cycleGanZhi: cycle.ganZhi,
-          selectedTitle: '流月干支与十神',
-          selectedGanZhi: monthInfo.ganZhi,
-          selectedTenGod: monthTenGod,
-          triggerSummary: monthTriggerSummary,
-          parentText: `所属大运：${cycleLabel}（${cycle.ganZhi}）；所属流年：${yearItem.year}年${yearItem.ganZhi}。`,
-          timingText: `${monthInfo.startDate}至${monthInfo.endDate}，以节气月为准；${monthInfo.startTermName || ''} ${monthInfo.startDateTime || ''} 起，${monthInfo.endTermName || ''} ${monthInfo.endDateTime || ''} 交下节。`,
-          limitText:
-            '流月只细化年度主题，不能推翻本命、大运与流年主线；未给出流日时不硬给具体日期。',
-          triggerEvidence,
-        }),
+        evidenceLines: [
+          ...buildFortuneEvidenceLines({
+            scope: 'month',
+            scopeLabel: `${yearItem.year}年${monthInfo.month}流月`,
+            cycleLabel,
+            cycleGanZhi: cycle.ganZhi,
+            selectedTitle: '流月干支与十神',
+            selectedGanZhi: monthInfo.ganZhi,
+            selectedTenGod: monthTenGod,
+            triggerSummary: monthTriggerSummary,
+            parentText: `所属大运：${cycleLabel}（${cycle.ganZhi}）；所属流年：${yearItem.year}年${yearItem.ganZhi}。`,
+            timingText: `${monthInfo.startDate}至${monthInfo.endDate}，以节气月为准；${monthInfo.startTermName || ''} ${monthInfo.startDateTime || ''} 起，${monthInfo.endTermName || ''} ${monthInfo.endDateTime || ''} 交下节。`,
+            limitText:
+              '流月只细化年度主题，不能推翻本命、大运与流年主线；未给出流日时不硬给具体日期。',
+            triggerEvidence,
+          }),
+          ...(monthInfo.startTermEvidence ? [monthInfo.startTermEvidence.promptText] : []),
+          ...(monthInfo.endTermEvidence ? [monthInfo.endTermEvidence.promptText] : []),
+        ],
         triggerEvidence,
         breakdownTitle: '该流月包含的流日',
         breakdownLines: dayLines,

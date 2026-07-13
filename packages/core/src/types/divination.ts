@@ -1,5 +1,6 @@
 import type { RandomOptions } from '../shared/random';
 import type { CoreResultMeta } from '../shared/result';
+import type { SolarTermEvidence } from '../calendar/solar-term-evidence';
 
 export type { RandomOptions, RandomSource } from '../shared/random';
 export type { CoreResultMeta } from '../shared/result';
@@ -426,6 +427,7 @@ export interface QimenSeasonalityInfo {
     jieQi: string;
     phase: '上元' | '中元' | '下元';
     phaseIndex: number;
+    solarTermEvidence: SolarTermEvidence;
   };
   dayStem: string;
   dayElement: string;

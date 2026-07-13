@@ -16,6 +16,11 @@
  */
 
 import { SolarDay, SolarTime } from 'tyme4ts';
+import {
+  findSolarTermEvidence,
+  type SolarTermEvidence,
+  type SolarTermName,
+} from '../../../../calendar/solar-term-evidence';
 import { stemElements, isGenerating, isControlling } from './_constants';
 import {
   LIUHE_MAP,
@@ -119,6 +124,8 @@ export interface JieQiPhaseResult {
   phase: '上元' | '中元' | '下元';
   /** 数字索引：0 → 上元，1 → 中元，2 → 下元 */
   phaseIndex: number;
+  /** 当前节气的历表边界、太阳视黄经核验和精度限制 */
+  solarTermEvidence: SolarTermEvidence;
 }
 
 /**
@@ -147,8 +154,13 @@ export function getJieQiPhaseByDate(date: Date): JieQiPhaseResult {
   );
   const phaseIndex = Math.min(2, Math.floor(diff / 5));
   const phase = (['上元', '中元', '下元'] as const)[phaseIndex];
+  const termYear =
+    jieQi === '冬至' && termStartTime.getMonth() === 12
+      ? termStartTime.getYear() + 1
+      : termStartTime.getYear();
+  const solarTermEvidence = findSolarTermEvidence(jieQi as SolarTermName, termYear);
 
-  return { jieQi, phase, phaseIndex };
+  return { jieQi, phase, phaseIndex, solarTermEvidence };
 }
 
 // ============================================================================

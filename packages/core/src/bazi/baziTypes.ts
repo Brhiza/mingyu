@@ -5,6 +5,7 @@
 
 import type { ShenShaVariantConfig } from './baziShenSha/variants';
 import type { MingGuaProfile } from '../types/analysis';
+import type { SolarTermEvidence } from '../calendar/solar-term-evidence';
 import { WUXING } from '../wuxing';
 import type { Wuxing } from '../wuxing';
 
@@ -173,6 +174,8 @@ export interface SeasonInfo {
   daysToNext: number | undefined;
   currentSeason: string;
   jieqiList: { name: string; date: string }[];
+  previousTermEvidence?: SolarTermEvidence;
+  nextTermEvidence?: SolarTermEvidence;
 }
 
 export interface RootAnalysis {

@@ -177,6 +177,12 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   if (baziResult.monthCommander) result += `月令司权: ${baziResult.monthCommander}\n`;
   const birthSeason = formatBirthSeason(baziResult);
   if (birthSeason) result += `节令: ${birthSeason}\n`;
+  if (baziResult.seasonInfo.previousTermEvidence) {
+    result += `前一节气证据: ${baziResult.seasonInfo.previousTermEvidence.promptText}\n`;
+  }
+  if (baziResult.seasonInfo.nextTermEvidence) {
+    result += `下一节气证据: ${baziResult.seasonInfo.nextTermEvidence.promptText}\n`;
+  }
   const wuxingSeasonStatus = formatWuxingSeasonStatus(baziResult);
   if (wuxingSeasonStatus) result += `月令旺相: ${wuxingSeasonStatus}\n`;
 
