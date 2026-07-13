@@ -59,6 +59,9 @@ test('星盘流年分析对象会生成行运证据和展示文本', () => {
   assert.match(context.promptText, /太阳返照证据：/);
   assert.match(context.promptText, /搜索方法：粗搜步长2小时、二分细化至1分钟内/);
   assert.match(context.promptText, /太阳黄经残差\d+\.\d{4}°/);
+  assert.match(context.promptText, /天文时间尺度：当地钟表时间/);
+  assert.match(context.promptText, /JD\(UTC\)=/);
+  assert.match(context.promptText, /ΔT≈/);
   assert.match(context.promptText, /不代表底层星历达到观测级精度/);
   assert.match(context.promptText, /次限证据（一岁一日）：/);
   assert.match(context.promptText, /太阳弧证据：/);
@@ -78,6 +81,8 @@ test('太阳返照应返回可复核的求根过程和精度边界', () => {
   assert.equal(evidence.refinementToleranceMinutes, 1);
   assert.ok(evidence.refinementIterations > 0);
   assert.match(evidence.source, /二分法/);
+  assert.equal(evidence.timeScale?.utcDateTime.endsWith('Z'), true);
+  assert.ok((evidence.timeScale?.julianDayTtApprox ?? 0) > 2400000);
   assert.ok(evidence.limitations.some((item) => item.includes('观测级精度')));
 });
 

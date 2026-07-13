@@ -390,6 +390,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 星盘需要 `year`、`month`、`day`、`hour`、`minute`、`latitude`、`longitude`、`timezone`，可传 `useTrueSolarTime` 启用真太阳时校正。提示词接口可使用 `astrolabeTopic`、`astrolabeScope`、`astrolabeScopeDate` 和 `astrolabeScopeText`；`astrolabeScope` 支持 `natal`、`full`、`yearly`、`monthly`、`daily`，其中 `full` 会写入本命、当前流年、当前流月、当前流日行运资料；传入 `astrolabeScopeText` 时以自定义文本为准。
 - 星盘本命与行运相位会输出距精确角偏差、紧密等级和归一化容许度位置；归一化位置只用于相位分层，不代表事件概率或吉凶比例。
 - 流年星盘中的太阳返照先在出生日期附近按 2 小时步长寻找太阳黄经过零区间，再用二分法细化至 1 分钟范围；提示词会同时写出当地钟表时刻、固定时区、黄经残差、迭代次数、星历来源和精度边界，不以显示到分钟宣称观测级精度。
+- 太阳返照和七政四余的计算上下文会附带统一天文时间尺度证据，包括 UTC、`JD(UTC)`、`UT1≈UTC` 假设、Espenak-Meeus 分段多项式 ΔT、近似 `JD(TT)`、模型等级和限制。当前 `timezone` 仍视为调用方已经确认的法定偏移，不自动根据地点推断历史时区。
 - 西占双盘使用 `person1`、`person2` 包裹双方星盘参数。排盘结果包含主要跨盘相位、实际夹角、精确角、偏差、允许容许度、容许度位置、紧密等级和跨盘落宫；旧 `strength` 字段仅为兼容保留，不等于关系概率、匹配率或吉凶比例。
 - `/ai/analyze` 请求体支持 `{ "prompt": "..." }` 单轮解析，或 `{ "messages": [{ "role": "user", "content": "..." }] }` 多轮追问；可选 `aiConfig` 指定 `builtin` 或 `custom` 模式。成功时返回 `text/event-stream`，每条增量以 `data: {"content":"..."}` 形式输出。当前接口会拒绝过大的请求体，单次解析消息总内容最多 50000 字符，多轮消息最多 30 条；超限会直接返回 400，调用方应拆分请求。
 - `/ai/models` 请求体支持 `{ "aiConfig": { "mode": "builtin" } }` 或自定义 OpenAI 兼容配置，返回 `{ "ok": true, "models": ["模型 ID"] }`。

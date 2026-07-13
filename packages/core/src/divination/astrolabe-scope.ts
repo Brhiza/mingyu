@@ -11,6 +11,10 @@ import {
 export type AstrolabeScopeMode = 'natal' | 'full' | 'yearly' | 'monthly' | 'daily';
 import type { AstrolabeData, AstrolabePoint } from '../types/divination';
 import {
+  buildAstronomicalTimeEvidence,
+  type AstronomicalTimeEvidence,
+} from '../calendar/astronomical-time';
+import {
   classifyAspectClosenessFromStrength,
   normalizedOrbRatioFromStrength,
 } from './astrolabe-aspect-evidence';
@@ -36,6 +40,7 @@ export type SolarReturnEvidence = {
   aspects: string[];
   source: string;
   limitations: string[];
+  timeScale?: AstronomicalTimeEvidence;
 };
 
 const SCOPE_LABEL_MAP: Record<AstrolabeScopeMode, string> = {
@@ -572,6 +577,11 @@ export function calculateSolarReturnEvidence(
       ? longitudeDistance(returnSun.longitude, natalSun.longitude)
       : Math.abs(best.difference);
     const aspects = formatCrossAspects(returnPlanets, buildNatalPoints(data), 8);
+    const timeScale = buildAstronomicalTimeEvidence({
+      ...finalDate,
+      second: 0,
+      timezone: data.birth.timezone,
+    });
     return {
       ...baseEvidence,
       status: bracket ? 'exact' : 'approximate',
@@ -579,6 +589,7 @@ export function calculateSolarReturnEvidence(
       residualDegrees: Number(residualDegrees.toFixed(6)),
       refinementIterations: iterations,
       aspects,
+      timeScale,
       limitations: bracket
         ? [
             '返照时刻按出生地固定时区的当地钟表时间表达。',
@@ -604,7 +615,7 @@ function buildSolarReturnEvidence(data: AstrolabeData, targetYear: number) {
     evidence.status === 'exact'
       ? `粗搜步长${evidence.coarseStepHours}小时、二分细化至${evidence.refinementToleranceMinutes}分钟内，共${evidence.refinementIterations}次迭代`
       : `仅取得${evidence.coarseStepHours}小时步长的近似取样点`;
-  return `太阳返照证据：返照当地钟表时刻${evidence.dateTime}（UTC${evidence.timezone >= 0 ? '+' : ''}${evidence.timezone}，太阳黄经残差${evidence.residualDegrees?.toFixed(4)}°）；搜索方法：${precision}；来源：${evidence.source}；精度边界：${evidence.limitations.join('；')}；${evidence.aspects.join('；') || '未见容许度内的主要返照对本命触发'}。`;
+  return `太阳返照证据：返照当地钟表时刻${evidence.dateTime}（UTC${evidence.timezone >= 0 ? '+' : ''}${evidence.timezone}，太阳黄经残差${evidence.residualDegrees?.toFixed(4)}°）；${evidence.timeScale?.promptText || ''}；搜索方法：${precision}；来源：${evidence.source}；精度边界：${evidence.limitations.join('；')}；${evidence.aspects.join('；') || '未见容许度内的主要返照对本命触发'}。`;
 }
 
 function isLongitudeInHouse(longitude: number, cusp: number, nextCusp: number) {

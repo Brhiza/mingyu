@@ -20,6 +20,10 @@ import { calculateChart } from 'celestine';
 import { SevenStar, TwentyEightStar } from 'tyme4ts';
 import { daysInGregorianMonth } from '../calendar/date-validation';
 import { getShichenFromClock } from '../calendar/dateUtils';
+import {
+  buildAstronomicalTimeEvidence,
+  type AstronomicalTimeEvidence,
+} from '../calendar/astronomical-time';
 import { getGanZhiFromDate } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
@@ -131,6 +135,7 @@ export interface QizhengCalculationContext {
   longitude: number;
   locationSource: '用户提供' | '默认北京坐标' | '部分坐标使用默认值';
   timezoneSource: '用户提供' | '默认东八区';
+  astronomicalTime: AstronomicalTimeEvidence;
   coordinatePipeline: string[];
 }
 
@@ -581,6 +586,15 @@ function buildCalculationContext(
   const utcMs = getTargetUtcMs(input);
   const hasLatitude = input.latitude !== undefined;
   const hasLongitude = input.longitude !== undefined;
+  const astronomicalTime = buildAstronomicalTimeEvidence({
+    year: input.year,
+    month: input.month,
+    day: input.day,
+    hour: input.hour,
+    minute: input.minute ?? 0,
+    second: 0,
+    timezone,
+  });
   return {
     localDateTime: `${input.year}-${String(input.month).padStart(2, '0')}-${String(input.day).padStart(2, '0')}T${String(input.hour).padStart(2, '0')}:${String(input.minute ?? 0).padStart(2, '0')}:00`,
     utcDateTime: new Date(utcMs).toISOString(),
@@ -594,8 +608,10 @@ function buildCalculationContext(
           ? '默认北京坐标'
           : '部分坐标使用默认值',
     timezoneSource: input.timezone === undefined ? '默认东八区' : '用户提供',
+    astronomicalTime,
     coordinatePipeline: [
       '民用时间结合时区换算UTC时刻',
+      '统一记录JD(UTC)、UT1≈UTC假设、ΔT估算与近似JD(TT)',
       'celestine计算七政、真交点和真莉莉丝的回归黄经',
       '紫炁按《七政算内篇》独立古法均速模型计算回归黄经',
       '回归黄经减IAU 2006近似岁差得到项目恒星黄经',
@@ -627,6 +643,7 @@ function buildQizhengEvidence(
     `${locationSourceText}；${timezoneSourceText}，地点或时区并非明确输入时，不得宣称宫位结果已按真实出生地校准`,
     '七政、罗计与月孛来自现代天文计算；紫炁来自传统均速模型，两者不得按相同精度比较',
     '恒星黄经采用项目岁差近似，宿度再按古距度比例换算；显示小数只是可复算结果，不代表观测精度',
+    ...context.astronomicalTime.limitations,
     '相位仅表示进入当前容许度，不输出成功率、吉凶百分比或综合总分',
     '神煞只作辅证，不能覆盖星体位置、宿度、落宫和吊照结构',
   ];
@@ -813,6 +830,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     `七政：太阳、太阴、水、金、火、木、土；四余：罗睺、计都、月孛、紫炁。`,
     `紫炁推算口径：${ZIQI_MODEL_INFO.name}；周期${ZIQI_MODEL_INFO.periodDays}日，日行${ZIQI_MODEL_INFO.dailyMotionDegrees.toFixed(12)}°；${ZIQI_MODEL_INFO.precision}。`,
     `计算上下文：当地民用时间${calculationContext.localDateTime}，对应UTC ${calculationContext.utcDateTime}；地点来源${calculationContext.locationSource === '用户提供' ? '输入明确' : calculationContext.locationSource}，时区来源${calculationContext.timezoneSource === '用户提供' ? '输入明确' : calculationContext.timezoneSource}。`,
+    calculationContext.astronomicalTime.promptText,
     `位置来源：${QIZHENG_POSITION_SOURCES.map((source) => `${source.objects.join('、')}取自${source.provider}（${source.precisionClass}）`).join('；')}。`,
     `紫炁位置：顺行，回归黄经${ziqi.tropicalLongitude.toFixed(3)}°，项目恒星黄经${ziqi.siderealLongitude.toFixed(3)}°。`,
     ...stars.map(

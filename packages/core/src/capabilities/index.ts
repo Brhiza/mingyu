@@ -90,7 +90,16 @@ const systems: SystemCapability[] = [
     name: '出生真太阳时',
     category: 'calendar',
     inputs: [birthProfileInput],
-    outputs: ['标准时间', '真太阳时', '经度修正', '均时差', '跨日状态', '时辰索引'],
+    outputs: [
+      '标准时间',
+      '真太阳时',
+      '经度修正',
+      '均时差',
+      '跨日状态',
+      '时辰索引',
+      'UTC与儒略日时间尺度证据',
+      'ΔT与近似TT儒略日',
+    ],
     supports: {
       seed: false,
       customRandomSource: false,

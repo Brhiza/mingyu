@@ -57,6 +57,7 @@ OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.jso
 - 八字、六爻、奇门、六壬等旧模块统一复用公共地基，旧导入路径仅保留兼容转发。
 - 核心包提供 `mingyu-core/foundation`，线上提供 `/foundation/capabilities`、`/foundation/ganzhi`、`/foundation/wuxing`。
 - 真太阳时统一提升到 `mingyu-core/calendar`，线上提供 `/calendar/true-solar-time` 便捷换算接口。
+- `mingyu-core/calendar` 还提供统一天文时间尺度证据，可把当地钟表时间换算为 UTC、`JD(UTC)`、近似 `JD(UT)` 与 `JD(TT)`，同时返回 ΔT 模型、估算等级、固定时区假设和精度限制；太阳返照与七政四余已接入该证据。
 - 十二时辰目录、月份天数和中国 1986–1991 历史夏令时也统一由公共日历层提供。
 
 </details>

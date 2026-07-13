@@ -356,6 +356,10 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.equal(r.stars.find((star) => star.name.includes('紫炁'))?.precisionClass, '传统均速模型');
   assert.equal(r.calculationContext.locationSource, '默认北京坐标');
   assert.equal(r.calculationContext.timezoneSource, '默认东八区');
+  assert.match(r.calculationContext.astronomicalTime.utcDateTime, /Z$/);
+  assert.ok(r.calculationContext.astronomicalTime.julianDayUtc > 2400000);
+  assert.match(r.prompt, /天文时间尺度：/);
+  assert.match(r.prompt, /JD\(TT\)/);
   assert.match(r.evidenceAnalysis.promptText, /【七政四余计算来源与证据分层】/);
   assert.match(r.evidenceAnalysis.promptText, /现代天文计算/);
   assert.match(r.evidenceAnalysis.promptText, /传统均速模型/);

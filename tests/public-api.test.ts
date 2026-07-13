@@ -2553,6 +2553,8 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
   assert.equal(body.data.positionSources.length, 4);
   assert.equal(body.data.calculationContext.locationSource, '默认北京坐标');
   assert.equal(body.data.calculationContext.timezoneSource, '用户提供');
+  assert.match(body.data.calculationContext.astronomicalTime.utcDateTime, /Z$/);
+  assert.ok(body.data.calculationContext.astronomicalTime.julianDayTtApprox > 2400000);
   assert.equal(
     body.data.stars.find((star: { name: string }) => star.name.includes('紫炁')).precisionClass,
     '传统均速模型',
