@@ -27,6 +27,7 @@ import { generateLiuren } from 'mingyu-core/divination/liuren';
 import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { bazhai, zodiac, taiyi, qizheng } from 'mingyu-core';
 import { getGanZhiFromDate, isValidGanZhi, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
@@ -35,6 +36,7 @@ import { analyzeWuxing, describeGanZhi, getFoundationCapabilities } from 'mingyu
 import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
 import { buildAstrolabeScopeContext } from '../astrolabe-scope';
+import { buildAstrolabeSynastryPrompt } from '../astrolabe-synastry-prompt';
 import {
   DEFAULT_MAX_REQUEST_BODY_BYTES,
   readLimitedRequestText,
@@ -520,6 +522,20 @@ export function getPublicApiOpenApiDocument(
           responses: { '200': { description: '星盘结果' } },
         },
       },
+      '/divination/astrolabe/synastry': {
+        post: {
+          summary: '西洋占星双盘关系计算',
+          requestBody: openApiJsonRequestBody('#/components/schemas/AstrolabeSynastryRequest'),
+          responses: { '200': { description: '双方本命盘、跨盘相位、跨盘落宫与证据包' } },
+        },
+      },
+      '/divination/astrolabe/synastry/prompt': {
+        post: {
+          summary: '西洋占星双盘计算并生成 AI 解读提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/AstrolabeSynastryRequest'),
+          responses: { '200': { description: '西占双盘结果与结构化证据提示词' } },
+        },
+      },
       '/divination/{method}/prompt': {
         post: {
           summary: '起卦、抽牌或求签并生成 AI 解读提示词',
@@ -994,6 +1010,35 @@ export function getPublicApiOpenApiDocument(
           type: 'object',
           properties: DIVINATION_REQUEST_PROPERTIES,
         },
+        AstrolabeBirthRequest: {
+          type: 'object',
+          required: ['year', 'month', 'day', 'hour', 'minute', 'latitude', 'longitude', 'timezone'],
+          properties: {
+            name: { type: 'string' },
+            gender: { enum: ['男', '女', ''] },
+            year: { type: 'integer', minimum: 1900, maximum: 2100 },
+            month: { type: 'integer', minimum: 1, maximum: 12 },
+            day: { type: 'integer', minimum: 1, maximum: 31 },
+            hour: { type: 'integer', minimum: 0, maximum: 23 },
+            minute: { type: 'integer', minimum: 0, maximum: 59 },
+            latitude: { type: 'number', minimum: -90, maximum: 90 },
+            longitude: { type: 'number', minimum: -180, maximum: 180 },
+            timezone: { type: 'number', minimum: -12, maximum: 14 },
+            locationName: { type: 'string' },
+            useTrueSolarTime: { type: 'boolean' },
+          },
+        },
+        AstrolabeSynastryRequest: {
+          type: 'object',
+          required: ['person1', 'person2'],
+          properties: {
+            person1: { $ref: '#/components/schemas/AstrolabeBirthRequest' },
+            person2: { $ref: '#/components/schemas/AstrolabeBirthRequest' },
+            question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+            promptMode: { enum: [...PROMPT_MODES] },
+            responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+          },
+        },
       },
     },
   };
@@ -1120,6 +1165,10 @@ async function route(context: RouteContext) {
       return calculateAstrolabe(await readJson(context.request));
     case 'divination/astrolabe/prompt':
       return buildDivinationPromptResult('astrolabe', await readJson(context.request));
+    case 'divination/astrolabe/synastry':
+      return calculateAstrolabeSynastryApi(await readJson(context.request));
+    case 'divination/astrolabe/synastry/prompt':
+      return buildAstrolabeSynastryPromptApi(await readJson(context.request));
     // 新增术数系统（地基层之上的新体系）
     case 'metaphysics/bazhai/calculate':
       return calculateBaZhaiApi(await readJson(context.request));
@@ -1880,6 +1929,44 @@ function calculateAstrolabe(input: JsonRecord) {
     useTrueSolarTime: readBoolean(input, 'useTrueSolarTime', false),
   };
   return generateAstrolabe(astrolabeInput);
+}
+
+function readAstrolabeSynastryCharts(input: JsonRecord) {
+  if (!isRecord(input.person1) || !isRecord(input.person2)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'person1 和 person2 必须是完整的星盘出生资料。');
+  }
+  const chart1 = calculateAstrolabe(input.person1);
+  const chart2 = calculateAstrolabe(input.person2);
+  return { chart1, chart2 };
+}
+
+function calculateAstrolabeSynastryApi(input: JsonRecord) {
+  assertNoRandomOptions(input, '西占双盘是确定性计算，不接受 seed 或 replay。');
+  const { chart1, chart2 } = readAstrolabeSynastryCharts(input);
+  const synastry = analyzeAstrolabeSynastry(chart1, chart2);
+  return { charts: { person1: chart1, person2: chart2 }, synastry };
+}
+
+function buildAstrolabeSynastryPromptApi(input: JsonRecord) {
+  const result = calculateAstrolabeSynastryApi(input);
+  const prompt = buildAstrolabeSynastryPrompt({
+    chart1: result.charts.person1,
+    chart2: result.charts.person2,
+    synastry: result.synastry,
+    question: readString(input, 'question', ''),
+    promptMode: readEnum(input, 'promptMode', PROMPT_MODES, 'framework'),
+  });
+  return buildPromptApiResult({
+    responseMode: readPromptResponseMode(input),
+    prompt,
+    summary: result.synastry.summary,
+    fullResult: result,
+    resultSummary: {
+      people: result.synastry.people,
+      summary: result.synastry.summary,
+      evidence: result.synastry.evidence,
+    },
+  });
 }
 
 function buildAstrolabeFullScopePromptText(data: AstrolabeData) {

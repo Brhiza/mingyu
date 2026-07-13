@@ -1,6 +1,6 @@
 ---
 name: aov-mingyu-api
-description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜和一站式提示词能力。用于需要真太阳时、八字排盘、紫微斗数排盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗、三山国王灵签、黄历择日、雷诺曼、星盘、八宅、生肖犯太岁、太乙神数、七政四余，或直接返回可交给 AI 解读的完整提示词的任务。
+description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜和一站式提示词能力。用于需要真太阳时、八字排盘、紫微斗数排盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗、三山国王灵签、黄历择日、雷诺曼、星盘、西占双盘、八宅、生肖犯太岁、太乙神数、七政四余，或直接返回可交给 AI 解读的完整提示词的任务。
 ---
 
 # AOV 命理与占卜 API
@@ -55,7 +55,7 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 - 用户明确只要紫微：调用 `POST /ziwei/prompt`。长期或完整阶段分析用 `promptScope: "full"`；指定年份、月份、日期时用 `yearly`、`monthly`、`daily` 或 `hourly`。
 - 用户问一件事现在能不能成、要不要推进、对方态度、短期应期：优先用六爻 `POST /divination/liuyao/prompt`；涉及方位、项目路径、谈判、出行和时空窗口时优先用奇门 `POST /divination/qimen/prompt`。
 - 用户要从日期范围里挑日子：调用 `POST /divination/almanac/prompt`，日期多或参与人多时分页。
-- 用户明确要西方星盘，或提供出生地点、经纬度和时区：调用 `POST /divination/astrolabe/prompt`。
+- 用户提供一人的西方星盘资料：调用 `POST /divination/astrolabe/prompt`；提供双方完整资料并询问关系：调用 `POST /divination/astrolabe/synastry/prompt`。
 - 用户没有出生信息，只想要轻量启发、牌阵或签文：调用塔罗、雷诺曼或三山国王灵签提示词接口。
 - 用户明确要求八宅、生肖犯太岁、太乙或七政四余：调用对应的 `POST /metaphysics/{method}/prompt`；只要结构化排盘时改用 `/calculate`。
 
@@ -75,6 +75,7 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 | 传统复杂事项推演               | `POST /divination/liuren/prompt`     | `question`、可选 `liurenTemplate`、`customDate`                            |
 | 结婚、搬家、开业、签约、安葬   | `POST /divination/almanac/prompt`    | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`   |
 | 星盘本命和行运                 | `POST /divination/astrolabe/prompt`  | 出生时间地点、经纬度、`astrolabeTopic`、`astrolabeScope`                   |
+| 西占双方关系、合作或婚恋互动   | `POST /divination/astrolabe/synastry/prompt` | `person1`、`person2` 分别提供完整出生时间、经纬度和时区          |
 | 牌阵启发                       | `POST /divination/tarot/prompt`      | `spreadType`、`question`                                                   |
 | 雷诺曼关系或选择牌阵           | `POST /divination/lenormand/prompt`  | `spreadType`、`question`                                                   |
 | 求签                           | `POST /divination/ssgw/prompt`       | `question`                                                                 |
@@ -119,6 +120,8 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 - `POST /divination/lenormand/prompt`：雷诺曼抽牌并生成结构化 AI 解读提示词。
 - `POST /divination/astrolabe`：星盘生成。
 - `POST /divination/astrolabe/prompt`：星盘生成并生成结构化 AI 解读提示词。
+- `POST /divination/astrolabe/synastry`：西占双盘相位、角距、容许度、落宫与证据计算。
+- `POST /divination/astrolabe/synastry/prompt`：西占双盘计算并生成结构化证据提示词。
 - `POST /metaphysics/bazhai/calculate`、`POST /metaphysics/bazhai/prompt`：八宅排盘与提示词。
 - `POST /metaphysics/zodiac/calculate`、`POST /metaphysics/zodiac/prompt`：生肖犯太岁与流年提示词。
 - `POST /metaphysics/taiyi/calculate`、`POST /metaphysics/taiyi/prompt`：年家太乙七十二局排盘与提示词；当前不提供未完整复原的月、日、时家。
@@ -264,6 +267,14 @@ curl -X POST https://aov.cc/api/v1/divination/almanac/prompt \
 curl -X POST https://aov.cc/api/v1/divination/astrolabe \
   -H "Content-Type: application/json" \
   -d '{"name":"本人","gender":"女","year":1995,"month":5,"day":20,"hour":12,"minute":30,"latitude":39.9042,"longitude":116.4074,"timezone":8,"locationName":"北京"}'
+```
+
+西占双盘提示词：
+
+```bash
+curl -X POST https://aov.cc/api/v1/divination/astrolabe/synastry/prompt \
+  -H "Content-Type: application/json" \
+  -d '{"person1":{"name":"甲","gender":"女","year":1995,"month":5,"day":20,"hour":12,"minute":30,"latitude":39.9042,"longitude":116.4074,"timezone":8},"person2":{"name":"乙","gender":"男","year":1992,"month":8,"day":21,"hour":8,"minute":15,"latitude":31.2304,"longitude":121.4737,"timezone":8},"question":"我们长期合作时最需要注意什么？","responseMode":"prompt-only"}'
 ```
 
 AI 流式解读：

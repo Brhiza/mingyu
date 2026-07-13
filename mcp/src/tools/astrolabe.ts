@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry';
 import type { AstrolabeBirthInput } from 'mingyu-core/types';
 import { ASTROLABE_PROMPT_TOPICS } from '../../../src/lib/astrolabe-prompts.js';
 import { buildAstrolabeScopeContext } from '../../../src/lib/astrolabe-scope.js';
+import { buildAstrolabeSynastryPrompt } from '../../../src/lib/astrolabe-synastry-prompt.js';
 import type { AstrolabeData } from '../../../src/types/divination.js';
 import { resultOutputSchema } from '../schemas.js';
 import {
@@ -11,7 +13,11 @@ import {
   createStructuredToolResult,
   getErrorMessage,
 } from '../tool-results.js';
-import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
+import {
+  buildCommonDivinationPrompt,
+  extendOptionalQuestionPromptSchema,
+  extendPromptSchema,
+} from './divination-common.js';
 import {
   assertMcpSolarBirthDate,
   readMcpIntegerLikeInRange,
@@ -41,9 +47,7 @@ const astrolabePromptSchema = extendPromptSchema(
     astrolabeScope: z
       .enum(astrolabePromptScopes)
       .optional()
-      .describe(
-        '星盘分析范围：natal=本命, full=完整输出版, yearly=流年, monthly=流月, daily=流日',
-      ),
+      .describe('星盘分析范围：natal=本命, full=完整输出版, yearly=流年, monthly=流月, daily=流日'),
     astrolabeScopeDate: z
       .string()
       .optional()
@@ -54,6 +58,16 @@ const astrolabePromptSchema = extendPromptSchema(
       .describe('星盘分析对象文本，例如本命、流年、流月或流日范围与行运证据；传入后优先使用'),
   }),
   '用户希望围绕星盘解读的问题',
+);
+
+const astrolabeSynastrySchema = z.object({
+  person1: astrolabeSchema.describe('第一人的出生资料'),
+  person2: astrolabeSchema.describe('第二人的出生资料'),
+});
+
+const astrolabeSynastryPromptSchema = extendOptionalQuestionPromptSchema(
+  astrolabeSynastrySchema,
+  '用户希望围绕双方关系解读的问题；省略时先做整体互动分析',
 );
 
 function buildAstrolabeInput(args: z.infer<typeof astrolabeSchema>): AstrolabeBirthInput {
@@ -87,6 +101,15 @@ function buildAstrolabeInput(args: z.infer<typeof astrolabeSchema>): AstrolabeBi
 
 function buildAstrolabeResult(args: z.infer<typeof astrolabeSchema>) {
   return generateAstrolabe(buildAstrolabeInput(args));
+}
+
+function buildAstrolabeSynastryResult(args: z.infer<typeof astrolabeSynastrySchema>) {
+  const chart1 = buildAstrolabeResult(args.person1);
+  const chart2 = buildAstrolabeResult(args.person2);
+  return {
+    charts: { person1: chart1, person2: chart2 },
+    synastry: analyzeAstrolabeSynastry(chart1, chart2),
+  };
 }
 
 function buildAstrolabeFullScopePromptText(data: AstrolabeData) {
@@ -160,6 +183,53 @@ export function registerAstrolabeTool(server: McpServer) {
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成星盘提示词失败'));
+      }
+    },
+  );
+
+  server.registerTool(
+    'astrolabe_synastry',
+    {
+      description:
+        '西洋占星双盘关系计算：返回双方本命盘、主要跨盘相位、精确角距、容许度、跨盘落宫与结构化证据',
+      inputSchema: astrolabeSynastrySchema.shape,
+      outputSchema: resultOutputSchema,
+    },
+    async (args) => {
+      try {
+        return createStructuredToolResult({ result: buildAstrolabeSynastryResult(args) });
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '西占双盘计算失败'));
+      }
+    },
+  );
+
+  server.registerTool(
+    'astrolabe_synastry_prompt',
+    {
+      description:
+        '西洋占星双盘计算并生成结构化 AI 解读提示词：返回双方本命盘、跨盘证据和可直接使用的完整任务书',
+      inputSchema: astrolabeSynastryPromptSchema.shape,
+      outputSchema: {
+        result: z.unknown().describe('双方本命盘与西占双盘结构化结果'),
+        prompt: z.string().describe('可直接用于 AI 解读的双盘证据提示词'),
+      },
+    },
+    async (args) => {
+      try {
+        const result = buildAstrolabeSynastryResult(args);
+        return createStructuredToolResult({
+          result,
+          prompt: buildAstrolabeSynastryPrompt({
+            chart1: result.charts.person1,
+            chart2: result.charts.person2,
+            synastry: result.synastry,
+            question: args.question,
+            promptMode: args.promptMode,
+          }),
+        });
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '生成西占双盘提示词失败'));
       }
     },
   );

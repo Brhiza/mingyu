@@ -74,6 +74,8 @@
 | `POST /divination/lenormand/prompt`   | 雷诺曼抽牌并生成 AI 解读提示词                                                 |
 | `POST /divination/astrolabe`          | 星盘生成                                                                       |
 | `POST /divination/astrolabe/prompt`   | 星盘生成并生成 AI 解读提示词                                                   |
+| `POST /divination/astrolabe/synastry` | 西占双盘相位、落宫与证据计算                                                   |
+| `POST /divination/astrolabe/synastry/prompt` | 西占双盘计算并生成证据提示词                                            |
 | `POST /metaphysics/bazhai/calculate`  | 八宅命卦、宅卦与大游年方位                                                     |
 | `POST /metaphysics/bazhai/prompt`     | 八宅排盘并生成 AI 解读提示词                                                   |
 | `POST /metaphysics/zodiac/calculate`  | 生肖犯太岁与流年运程                                                           |
@@ -95,7 +97,7 @@
 2. 用户只提供出生年月日时，但问题只要求单一体系，或明确要求“只看八字”“只看紫微”时，再分别用 `POST /bazi/prompt` 或 `POST /ziwei/prompt`。
 3. 用户问“这件事现在能不能做、要不要推进、对方态度、短期成败、近期应期”这类即时问题，优先用时间类占卜提示词：六爻、奇门、梅花、小六壬、大六壬。
 4. 用户要从一段日期里挑日子，优先用 `POST /divination/almanac/prompt`；日期超过 31 天或参与人很多时分页调用。
-5. 用户提供西方占星所需的出生时间、地点、经纬度或明确要求星盘时，用 `POST /divination/astrolabe/prompt`。
+5. 用户提供一人的西方占星出生资料时，用 `POST /divination/astrolabe/prompt`；提供双方完整出生资料并询问关系时，用 `POST /divination/astrolabe/synastry/prompt`。
 6. 用户只想要轻量灵感、心理牌面或不提供出生信息时，可用塔罗、雷诺曼、灵签等提示词接口。
 7. 用户明确要求八宅、生肖犯太岁、太乙或七政四余时，使用对应的 `/metaphysics/{method}/prompt`；只需结构化排盘时改用 `/calculate`。
 
@@ -118,6 +120,7 @@
 | 更传统复杂的一事一课               | `POST /divination/liuren/prompt`         | `question`，可选 `liurenTemplate` 和 `customDate`                                      | 大六壬适合较严肃的事项推演                        |
 | 结婚、搬家、开业、签约、出行、安葬 | `POST /divination/almanac/prompt`        | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`               | 只在候选日期范围内择优，不应让 AI 推荐范围外日期  |
 | 星盘本命、行运、流年流月           | `POST /divination/astrolabe/prompt`      | 出生时间地点，经纬度，`astrolabeTopic`，`astrolabeScope: "full"` 或指定范围            | 需要经纬度和时区，资料不足时应先补齐              |
+| 西占双方关系、合作或婚恋互动       | `POST /divination/astrolabe/synastry/prompt` | `person1`、`person2` 分别提供完整出生时间、经纬度和时区                             | 返回跨盘相位、容许度、落宫和解释边界，不给虚假匹配分 |
 | 牌面灵感、关系牌阵、选择牌阵       | `POST /divination/tarot/prompt` 或雷诺曼 | `spreadType`、`question`                                                               | 适合轻量启发，不作为长期命盘判断                  |
 | 求签                               | `POST /divination/ssgw/prompt`           | `question`                                                                             | 有三连阴杯等拒签情况时，应如实返回，不强行解释    |
 | 住宅命卦、坐山吉凶                 | `POST /metaphysics/bazhai/prompt`        | `birthYear`、`gender`、可选 `sitMountain`                                              | 适合八宅命宅配合与方位参考                        |
@@ -219,6 +222,14 @@ curl -X POST https://aov.cc/api/v1/bazi-ziwei/prompt \
 curl -X POST https://aov.cc/api/v1/divination/astrolabe/prompt \
   -H "Content-Type: application/json" \
   -d '{"name":"本人","gender":"女","year":1995,"month":5,"day":20,"hour":12,"minute":30,"latitude":39.9042,"longitude":116.4074,"timezone":8,"locationName":"北京","question":"整体人生和近期重点怎么看？","astrolabeTopic":"life","astrolabeScope":"full"}'
+```
+
+西占双盘接口要求 `person1`、`person2` 分别提供一份完整星盘出生资料，提示词会写入双方本命盘、跨盘相位的实际夹角与容许度、双方落宫和证据边界：
+
+```bash
+curl -X POST https://aov.cc/api/v1/divination/astrolabe/synastry/prompt \
+  -H "Content-Type: application/json" \
+  -d '{"person1":{"name":"甲","gender":"女","year":1995,"month":5,"day":20,"hour":12,"minute":30,"latitude":39.9042,"longitude":116.4074,"timezone":8},"person2":{"name":"乙","gender":"男","year":1992,"month":8,"day":21,"hour":8,"minute":15,"latitude":31.2304,"longitude":121.4737,"timezone":8},"question":"我们长期合作时最需要注意什么？","responseMode":"prompt-only"}'
 ```
 
 新增术数系统使用统一的 `/metaphysics/{method}/calculate` 与 `/prompt` 路径。例如八宅与七政四余：
@@ -354,6 +365,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 黄历择日支持 `page` 和 `pageSize` 分页，`pageSize` 最大 31。不传分页时保持旧行为返回全部日期；传分页后只返回当前页日期，并带 `pagination`。`page` 超过总页数会返回 400，请调用方按 `pagination.totalPages` 继续请求。
 - 雷诺曼 `spreadType` 支持 `single`、`three`、`five`、`relationship`、`decision`、`nine`、`element`、`grandTableau`，不传时使用 `single`。
 - 星盘需要 `year`、`month`、`day`、`hour`、`minute`、`latitude`、`longitude`、`timezone`，可传 `useTrueSolarTime` 启用真太阳时校正。提示词接口可使用 `astrolabeTopic`、`astrolabeScope`、`astrolabeScopeDate` 和 `astrolabeScopeText`；`astrolabeScope` 支持 `natal`、`full`、`yearly`、`monthly`、`daily`，其中 `full` 会写入本命、当前流年、当前流月、当前流日行运资料；传入 `astrolabeScopeText` 时以自定义文本为准。
+- 西占双盘使用 `person1`、`person2` 包裹双方星盘参数。排盘结果包含主要跨盘相位、实际夹角、容许度、相对强度和跨盘落宫；这些字段是盘面证据，不等于关系结果或匹配总分。
 - `/ai/analyze` 请求体支持 `{ "prompt": "..." }` 单轮解析，或 `{ "messages": [{ "role": "user", "content": "..." }] }` 多轮追问；可选 `aiConfig` 指定 `builtin` 或 `custom` 模式。成功时返回 `text/event-stream`，每条增量以 `data: {"content":"..."}` 形式输出。当前接口会拒绝过大的请求体，单次解析消息总内容最多 50000 字符，多轮消息最多 30 条；超限会直接返回 400，调用方应拆分请求。
 - `/ai/models` 请求体支持 `{ "aiConfig": { "mode": "builtin" } }` 或自定义 OpenAI 兼容配置，返回 `{ "ok": true, "models": ["模型 ID"] }`。
 

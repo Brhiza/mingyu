@@ -223,12 +223,13 @@ export function analyzeAstrolabeSynastry(
   }
   const selectedNames = new Set(options.pointNames ?? DEFAULT_POINT_NAMES);
   const aspects = calculateAspects(chart1, chart2, options);
-  const houseOverlays = options.includeHouseOverlays === false
-    ? []
-    : [
-        ...calculateOverlays(chart1, chart2, selectedNames),
-        ...calculateOverlays(chart2, chart1, selectedNames),
-      ];
+  const houseOverlays =
+    options.includeHouseOverlays === false
+      ? []
+      : [
+          ...calculateOverlays(chart1, chart2, selectedNames),
+          ...calculateOverlays(chart2, chart1, selectedNames),
+        ];
   const evidence = createEvidence(aspects, houseOverlays);
   const evidenceLines = formatPromptEvidenceBundle(evidence);
 

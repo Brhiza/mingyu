@@ -35,6 +35,8 @@
 | `lenormand_prompt`         | 雷诺曼提示词 | 雷诺曼抽牌并返回可直接用于 AI 解读的结构化提示词                               |
 | `divine_astrolabe`         | 星盘生成     | 根据出生时间、经纬度和时区生成星体、宫位与相位数据                             |
 | `astrolabe_prompt`         | 星盘提示词   | 星盘生成并返回可直接用于 AI 解读的结构化提示词                                 |
+| `astrolabe_synastry`       | 西占双盘     | 返回双方本命盘、跨盘相位、精确角距、容许度、跨盘落宫与证据包                   |
+| `astrolabe_synastry_prompt` | 双盘提示词  | 西占双盘计算并返回可直接用于 AI 解读的证据任务书                               |
 | `metaphysics_bazhai`       | 八宅排盘     | 返回命卦、宅卦、东西四命和大游年方位                                           |
 | `bazhai_prompt`            | 八宅提示词   | 八宅排盘并返回可直接用于 AI 解读的提示词                                       |
 | `metaphysics_zodiac`       | 生肖流年     | 返回犯太岁、贵人、五行关系和运程等级                                           |
@@ -55,7 +57,7 @@
 3. 用户明确只看紫微时，调用 `ziwei_prompt`；长期或完整阶段分析优先传 `promptScope: "full"`。
 4. 用户问单件事情当前能否推进、对方态度、短期成败或应期，优先调用 `liuyao_prompt`；涉及项目路径、方位、谈判、出行和时空窗口时，优先调用 `qimen_prompt`。
 5. 用户要从日期范围里选日子，调用 `almanac_prompt`；日期范围或参与人较多时使用分页参数。
-6. 用户明确要西方星盘，或提供出生地点、经纬度、时区时，调用 `astrolabe_prompt`。
+6. 用户提供一人的西方占星资料时调用 `astrolabe_prompt`；提供双方完整资料并询问关系时调用 `astrolabe_synastry_prompt`。
 7. 用户没有出生信息，只想要轻量启发、牌阵或签文时，用 `tarot_prompt`、`lenormand_prompt` 或 `ssgw_prompt`。
 8. 用户明确要求八宅、生肖犯太岁、太乙或七政四余时，使用对应的 `*_prompt` 工具；只要原始排盘则使用 `metaphysics_*`。
 
@@ -75,6 +77,7 @@
 | 传统复杂事项推演                 | `liuren_prompt`     | `question`、可选 `liurenTemplate`、`customDate`                          |
 | 结婚、搬家、开业、签约、安葬择日 | `almanac_prompt`    | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize` |
 | 星盘本命和行运                   | `astrolabe_prompt`  | 出生时间地点、经纬度、`astrolabeTopic`、`astrolabeScope`                 |
+| 西占双方关系、合作或婚恋互动     | `astrolabe_synastry_prompt` | `person1`、`person2` 分别提供完整出生时间、经纬度和时区            |
 | 牌阵启发                         | `tarot_prompt`      | `spreadType`、`question`                                                 |
 | 雷诺曼关系或选择牌阵             | `lenormand_prompt`  | `spreadType`、`question`                                                 |
 | 求签                             | `ssgw_prompt`       | `question`                                                               |
@@ -194,6 +197,8 @@ npm run mcp
 ### 星盘参数
 
 星盘工具需要提供 `year`、`month`、`day`、`hour`、`minute`、`latitude`、`longitude`、`timezone`。`gender` 使用 `男`、`女` 或空字符串，`locationName` 可选；可传 `useTrueSolarTime` 启用真太阳时校正。提示词工具可额外提供 `astrolabeTopic`、`astrolabeScope`、`astrolabeScopeDate` 和 `astrolabeScopeText`。`astrolabeScope` 支持 `natal`、`full`、`yearly`、`monthly`、`daily`；`full` 会写入本命、当前流年、当前流月、当前流日行运资料；传入 `astrolabeScopeText` 时以自定义文本为准。
+
+西占双盘工具使用 `person1`、`person2` 分别传入上述星盘参数。结果中的跨盘相位、实际夹角、容许度和落宫属于可复核盘面事实；提示词明确禁止把单一相位写成必然结果，也不输出缺乏统一依据的匹配总分。
 
 ## 在其他 MCP 客户端中使用
 

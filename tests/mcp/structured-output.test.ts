@@ -58,6 +58,35 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ['metaphysics_zodiac', { zodiac: '鼠', year: 2024 }],
   ['metaphysics_taiyi', { year: 2004, scope: 'year' }],
   ['metaphysics_qizheng', { year: 2024, month: 6, day: 15, hour: 12 }],
+  [
+    'astrolabe_synastry',
+    {
+      person1: {
+        name: '甲',
+        gender: '女',
+        year: 1995,
+        month: 5,
+        day: 20,
+        hour: 12,
+        minute: 30,
+        latitude: 39.9042,
+        longitude: 116.4074,
+        timezone: 8,
+      },
+      person2: {
+        name: '乙',
+        gender: '男',
+        year: 1992,
+        month: 8,
+        day: 21,
+        hour: 8,
+        minute: 15,
+        latitude: 31.2304,
+        longitude: 121.4737,
+        timezone: 8,
+      },
+    },
+  ],
 ];
 
 const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
@@ -137,6 +166,7 @@ const promptToolNames = [
   'almanac_prompt',
   'lenormand_prompt',
   'astrolabe_prompt',
+  'astrolabe_synastry_prompt',
   'bazhai_prompt',
   'zodiac_prompt',
   'taiyi_prompt',
@@ -165,7 +195,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 38);
+    assert.equal(tools.length, 40);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
@@ -325,6 +355,50 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
       prompt,
       /【分析对象】已经给出本命、流年、流月或流日范围时，必须以该范围作为本次回答主范围/,
     );
+    assertPromptIsPortableTaskText(prompt);
+  });
+});
+
+test('MCP 西占双盘提示词应返回跨盘证据和完整任务书', async () => {
+  await withMcpClient(async (client) => {
+    const result = await client.callTool({
+      name: 'astrolabe_synastry_prompt',
+      arguments: {
+        person1: {
+          name: '甲',
+          gender: '女',
+          year: 1995,
+          month: 5,
+          day: 20,
+          hour: 12,
+          minute: 30,
+          latitude: 39.9042,
+          longitude: 116.4074,
+          timezone: 8,
+        },
+        person2: {
+          name: '乙',
+          gender: '男',
+          year: 1992,
+          month: 8,
+          day: 21,
+          hour: 8,
+          minute: 15,
+          latitude: 31.2304,
+          longitude: 121.4737,
+          timezone: 8,
+        },
+        question: '我们的长期合作关系有哪些互补和张力？',
+      },
+    });
+
+    assert.equal(result.isError, undefined);
+    assert.ok(result.structuredContent?.result);
+    const prompt = String(result.structuredContent?.prompt);
+    assert.match(prompt, /【第一人本命盘】/);
+    assert.match(prompt, /【西占双盘结构化证据】/);
+    assert.match(prompt, /容许度/);
+    assert.match(prompt, /反证限制/);
     assertPromptIsPortableTaskText(prompt);
   });
 });

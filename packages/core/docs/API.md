@@ -299,6 +299,12 @@
 
 **返回 `AstrolabeData`：** 十大行星、四轴（上升/天顶/下降/天底）、Placidus 十二宫、凯龙、四小行星、南北交、莉莉丝、福点/精神点、Top 12 相位（合/六合/刑/拱/冲/半六合/半刑/五分相等）、四元素三形态总结、逆行星。依赖 `celestine`。
 
+### `analyzeAstrolabeSynastry(chart1, chart2, options?)`
+
+导入：`import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry'`
+
+接收两份 `AstrolabeData`，返回双方主要跨盘相位、实际夹角、可配置容许度、相对强度、双方星体落入对方宫位、结构化证据包与明确计算口径。静态本命双盘不推断入相或出相，也不生成缺乏统一依据的关系匹配总分。
+
 ---
 
 ## 紫微斗数 Ziwei

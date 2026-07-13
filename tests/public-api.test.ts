@@ -1827,6 +1827,92 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
   assertPromptIsPortableTaskText(body.data.prompt);
 });
 
+test('公开 API 西占双盘应返回跨盘相位、落宫和结构化证据', async () => {
+  const { response, body } = await callApi('divination/astrolabe/synastry', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      person1: {
+        name: '甲',
+        gender: '女',
+        year: 1995,
+        month: 5,
+        day: 20,
+        hour: 12,
+        minute: 30,
+        latitude: 39.9042,
+        longitude: 116.4074,
+        timezone: 8,
+      },
+      person2: {
+        name: '乙',
+        gender: '男',
+        year: 1992,
+        month: 8,
+        day: 21,
+        hour: 8,
+        minute: 15,
+        latitude: 31.2304,
+        longitude: 121.4737,
+        timezone: 8,
+      },
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.deepEqual(body.data.synastry.people, ['甲', '乙']);
+  assert.ok(body.data.synastry.aspects.length > 0);
+  assert.ok(body.data.synastry.houseOverlays.length > 0);
+  assert.ok(
+    body.data.synastry.evidence.items.some((item: { level: string }) => item.level === '限制'),
+  );
+});
+
+test('公开 API 西占双盘提示词应携带双方本命盘与可复核证据', async () => {
+  const { response, body } = await callApi('divination/astrolabe/synastry/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      person1: {
+        name: '甲',
+        gender: '女',
+        year: 1995,
+        month: 5,
+        day: 20,
+        hour: 12,
+        minute: 30,
+        latitude: 39.9042,
+        longitude: 116.4074,
+        timezone: 8,
+      },
+      person2: {
+        name: '乙',
+        gender: '男',
+        year: 1992,
+        month: 8,
+        day: 21,
+        hour: 8,
+        minute: 15,
+        latitude: 31.2304,
+        longitude: 121.4737,
+        timezone: 8,
+      },
+      question: '我们在长期合作中最需要注意什么？',
+      responseMode: 'prompt-only',
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.match(body.data.prompt, /【第一人本命盘】/);
+  assert.match(body.data.prompt, /【第二人本命盘】/);
+  assert.match(body.data.prompt, /【西占双盘结构化证据】/);
+  assert.match(body.data.prompt, /实际夹角 \d+\.\d{2}°，偏差 \d+\.\d{2}°/);
+  assert.match(body.data.prompt, /不得输出缺乏统一依据的关系匹配总分/);
+  assertPromptIsPortableTaskText(body.data.prompt);
+});
+
 test('公开 API 黄历择日提示词不强制填写问题', async () => {
   const { response, body } = await callApi('divination/almanac/prompt', {
     method: 'POST',
