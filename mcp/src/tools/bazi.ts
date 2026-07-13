@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
+import { analyzeBirthTimeSensitivity } from '@core/bazi/birthTimeSensitivity';
 import type { Person } from '@core/bazi/baziTypes';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
@@ -45,6 +46,10 @@ export const baziSchema = z.object({
   birthMinute: z.number().optional().describe('精准出生分钟，启用真太阳时时必填'),
   birthPlace: z.string().optional().describe('出生地名称，启用真太阳时时可选'),
   birthLongitude: z.number().optional().describe('出生地经度，启用真太阳时时必填'),
+  birthTimeUncertaintyMinutes: z
+    .number()
+    .optional()
+    .describe('出生钟表时间可能存在的前后误差分钟数，范围 1-120'),
 });
 
 const baziCompatibilityTypes = [
@@ -189,6 +194,32 @@ export function registerBaziTool(server: McpServer) {
   );
 
   server.registerTool(
+    'bazi_time_sensitivity',
+    {
+      description:
+        '八字出生时间敏感性分析：在出生记录误差范围前后重排候选盘，返回变化柱位、稳定柱位与结构化证据',
+      inputSchema: baziSchema.shape,
+      outputSchema: resultOutputSchema,
+    },
+    async (args) => {
+      try {
+        const person = buildBaziPerson(args);
+        const result = analyzeBirthTimeSensitivity(person, {
+          uncertaintyMinutes: readMcpIntegerLikeInRange(
+            args.birthTimeUncertaintyMinutes ?? 5,
+            'birthTimeUncertaintyMinutes',
+            1,
+            120,
+          ),
+        });
+        return createStructuredToolResult({ result });
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '出生时间敏感性分析失败'));
+      }
+    },
+  );
+
+  server.registerTool(
     'bazi_prompt',
     {
       description:
@@ -226,20 +257,33 @@ export function registerBaziTool(server: McpServer) {
               ? undefined
               : readMcpIntegerLikeInRange(args.baziFortuneDay, 'baziFortuneDay', 1, 31),
         });
+        const timeSensitivity =
+          args.birthTimeUncertaintyMinutes === undefined
+            ? undefined
+            : analyzeBirthTimeSensitivity(person, {
+                uncertaintyMinutes: readMcpIntegerLikeInRange(
+                  args.birthTimeUncertaintyMinutes,
+                  'birthTimeUncertaintyMinutes',
+                  1,
+                  120,
+                ),
+              });
+        const basePrompt = buildBaziPromptForResult({
+          result,
+          question: args.question,
+          topic: (args.promptTopic ?? 'general') as BaziPromptTopic,
+          mode: (args.promptMode ?? 'framework') as PromptMode,
+          fortuneSelectionContext,
+          fortuneScope: args.baziFortuneScope ?? 'natal',
+          school: args.school as BaziSchool | undefined,
+        });
         return createStructuredToolResult({
           result: {
             ...result,
             ...(fortuneSelectionContext ? { fortuneSelection: fortuneSelectionContext } : {}),
+            ...(timeSensitivity ? { timeSensitivity } : {}),
           },
-          prompt: buildBaziPromptForResult({
-            result,
-            question: args.question,
-            topic: (args.promptTopic ?? 'general') as BaziPromptTopic,
-            mode: (args.promptMode ?? 'framework') as PromptMode,
-            fortuneSelectionContext,
-            fortuneScope: args.baziFortuneScope ?? 'natal',
-            school: args.school as BaziSchool | undefined,
-          }),
+          prompt: [basePrompt, timeSensitivity?.promptText].filter(Boolean).join('\n\n'),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成八字提示词失败'));

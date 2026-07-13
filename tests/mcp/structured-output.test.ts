@@ -295,7 +295,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 44);
+    assert.equal(tools.length, 45);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
@@ -304,6 +304,7 @@ test('MCP 工具列表应声明输出结构', async () => {
     assert.ok(ziweiTool?.outputSchema?.properties?.payloadByScope);
     assert.ok(tools.find((tool) => tool.name === 'ziwei_compatibility'));
     assert.ok(tools.find((tool) => tool.name === 'ziwei_compatibility_prompt'));
+    assert.ok(tools.find((tool) => tool.name === 'bazi_time_sensitivity'));
 
     assert.equal(
       tools.some((tool) => tool.name === 'build_divination_prompt'),
@@ -430,6 +431,41 @@ test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
     };
     assert.ok(result.fortuneSelection?.promptPayload?.triggerEvidence?.relations?.length);
     assert.match(String(response.structuredContent?.prompt), /【八字岁运触发结构化证据】/);
+  });
+});
+
+test('MCP 八字出生时间敏感性工具与提示词应返回候选盘证据', async () => {
+  await withMcpClient(async (client) => {
+    const input = {
+      gender: 'male' as const,
+      year: 1990,
+      month: 5,
+      day: 15,
+      dateType: 'solar' as const,
+      useTrueSolarTime: true,
+      birthHour: 4,
+      birthMinute: 0,
+      birthLongitude: 120,
+      birthTimeUncertaintyMinutes: 5,
+    };
+    const evidence = await client.callTool({
+      name: 'bazi_time_sensitivity',
+      arguments: input,
+    });
+    assert.equal(evidence.isError, undefined);
+    const result = evidence.structuredContent?.result as {
+      changedPillars?: string[];
+      samples?: unknown[];
+    };
+    assert.ok(result.changedPillars?.includes('hour'));
+    assert.equal(result.samples?.length, 3);
+
+    const prompt = await client.callTool({
+      name: 'bazi_prompt',
+      arguments: { ...input, question: '出生时间误差会影响哪些结论？' },
+    });
+    assert.equal(prompt.isError, undefined);
+    assert.match(String(prompt.structuredContent?.prompt), /【八字出生时间敏感性结构化证据】/);
   });
 });
 

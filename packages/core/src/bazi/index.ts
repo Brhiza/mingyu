@@ -116,6 +116,14 @@ export type { HarmonyPillarInput } from './harmonyTransform';
 export { getLifeStage } from './baziValues';
 export { analyzeBaziCompatibility } from './compatibilityEvidence';
 export { analyzeFortuneTriggers } from './fortuneTriggerEvidence';
+export { analyzeBirthTimeSensitivity } from './birthTimeSensitivity';
+export type {
+  BaziPillarKey,
+  BirthTimeSensitivityChange,
+  BirthTimeSensitivityOptions,
+  BirthTimeSensitivityResult,
+  BirthTimeSensitivitySample,
+} from './birthTimeSensitivity';
 export type {
   FortuneLayerType,
   FortuneTriggerEvidenceResult,
