@@ -589,6 +589,8 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
   topic: string;
   question: string;
   isCustomQuestion?: boolean;
+  primaryName?: string;
+  partnerName?: string;
 }) {
   const isCustomQuestion = Boolean(params.isCustomQuestion);
   const primaryContext = createZiweiReportContext(params.primaryPayload, params.topic);
@@ -608,7 +610,13 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
   const compatibilityEvidence = analyzeZiweiCompatibility(
     params.primaryPayload,
     params.partnerPayload,
+    {
+      person1Name: params.primaryName,
+      person2Name: params.partnerName,
+    },
   ).promptText;
+  const primaryName = params.primaryName?.trim() || '第一人';
+  const partnerName = params.partnerName?.trim() || '第二人';
   const compatibilityTopic = params.topic || 'chat';
   const compatibilityRules = [
     '- 先围绕【问题】判断双方互动主轴，再按“互动主轴、互补点、冲突点、触发机制、建议边界”分层展开。',
@@ -627,10 +635,10 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
     '- 不要整段复述双方原始盘面信息。',
     '',
     `【当前时间】\n${formatPromptCurrentTime()}`,
-    '【第一人盘面】',
+    `【${primaryName}盘面】`,
     primaryEmbeddedPack,
     '',
-    '【第二人盘面】',
+    `【${partnerName}盘面】`,
     partnerEmbeddedPack,
     '',
     compatibilityEvidence,

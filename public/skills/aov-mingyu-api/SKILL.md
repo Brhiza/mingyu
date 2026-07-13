@@ -53,6 +53,7 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 - 有完整出生信息，且用户问人生、事业、财运、婚恋、亲子、健康、迁居、学习、考试、合作、近期趋势、某年某阶段走势：优先调用 `POST /bazi-ziwei/prompt`。这是深度解读的首选方案，用八字定主线，用紫微校验宫位、四化和运限。
 - 用户明确只要八字：调用 `POST /bazi/prompt`。长期或完整阶段分析用 `baziFortuneScope: "full"`；指定年份、月份、日期时用对应范围。
 - 用户明确只要紫微：调用 `POST /ziwei/prompt`。长期或完整阶段分析用 `promptScope: "full"`；指定年份、月份、日期时用 `yearly`、`monthly`、`daily` 或 `hourly`。
+- 用户要求紫微合盘或双方宫位、四化互动证据：调用 `POST /ziwei/compatibility/prompt`；只要结构化数据时调用 `POST /ziwei/compatibility`。
 - 用户问一件事现在能不能成、要不要推进、对方态度、短期应期：优先用六爻 `POST /divination/liuyao/prompt`；涉及方位、项目路径、谈判、出行和时空窗口时优先用奇门 `POST /divination/qimen/prompt`。
 - 用户要从日期范围里挑日子：调用 `POST /divination/almanac/prompt`，日期多或参与人多时分页。
 - 用户提供一人的西方星盘资料：调用 `POST /divination/astrolabe/prompt`；提供双方完整资料并询问关系：调用 `POST /divination/astrolabe/synastry/prompt`。
@@ -61,24 +62,24 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 
 问题到接口速查：
 
-| 问题类型                       | 首选接口                             | 关键参数                                                                   |
-| ------------------------------ | ------------------------------------ | -------------------------------------------------------------------------- |
-| 整体人生、长期事业、财运、婚恋 | `POST /bazi-ziwei/prompt`            | `baziPromptTopic`、`ziweiPromptTopic`、`promptScope: "full"` 或 `"origin"` |
-| 今年运势、当前阶段、某年趋势   | `POST /bazi-ziwei/prompt`            | `promptScope: "yearly"`，主题按事业、财运、感情等选择                      |
-| 换工作、创业、合伙、投资       | `POST /bazi-ziwei/prompt`            | `job-change`、`startup-partnership`、`investment-partnership`              |
-| 八字格局、用神、大运流年       | `POST /bazi/prompt`                  | `promptTopic`、`baziFortuneScope`                                          |
-| 紫微宫位、四化、运限           | `POST /ziwei/prompt`                 | `promptTopic`、`promptScope`                                               |
-| 一事一问、短期成败、应期       | `POST /divination/liuyao/prompt`     | `question`、可选 `customDate`                                              |
-| 项目推进、方向、方位、谈判     | `POST /divination/qimen/prompt`      | `question`、可选 `qimenMethod`、`customDate`                               |
-| 临时小事快速判断               | `POST /divination/xiaoliuren/prompt` | `question`、可选 `xiaoliurenMethod`、`xiaoliurenNumber`                    |
-| 时间或数字象意判断             | `POST /divination/meihua/prompt`     | `question`、可选 `method`、`number`、`customDate`                          |
-| 传统复杂事项推演               | `POST /divination/liuren/prompt`     | `question`、可选 `liurenTemplate`、`customDate`                            |
-| 结婚、搬家、开业、签约、安葬   | `POST /divination/almanac/prompt`    | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`   |
-| 星盘本命和行运                 | `POST /divination/astrolabe/prompt`  | 出生时间地点、经纬度、`astrolabeTopic`、`astrolabeScope`                   |
-| 西占双方关系、合作或婚恋互动   | `POST /divination/astrolabe/synastry/prompt` | `person1`、`person2` 分别提供完整出生时间、经纬度和时区          |
-| 牌阵启发                       | `POST /divination/tarot/prompt`      | `spreadType`、`question`                                                   |
-| 雷诺曼关系或选择牌阵           | `POST /divination/lenormand/prompt`  | `spreadType`、`question`                                                   |
-| 求签                           | `POST /divination/ssgw/prompt`       | `question`                                                                 |
+| 问题类型                       | 首选接口                                     | 关键参数                                                                   |
+| ------------------------------ | -------------------------------------------- | -------------------------------------------------------------------------- |
+| 整体人生、长期事业、财运、婚恋 | `POST /bazi-ziwei/prompt`                    | `baziPromptTopic`、`ziweiPromptTopic`、`promptScope: "full"` 或 `"origin"` |
+| 今年运势、当前阶段、某年趋势   | `POST /bazi-ziwei/prompt`                    | `promptScope: "yearly"`，主题按事业、财运、感情等选择                      |
+| 换工作、创业、合伙、投资       | `POST /bazi-ziwei/prompt`                    | `job-change`、`startup-partnership`、`investment-partnership`              |
+| 八字格局、用神、大运流年       | `POST /bazi/prompt`                          | `promptTopic`、`baziFortuneScope`                                          |
+| 紫微宫位、四化、运限           | `POST /ziwei/prompt`                         | `promptTopic`、`promptScope`                                               |
+| 一事一问、短期成败、应期       | `POST /divination/liuyao/prompt`             | `question`、可选 `customDate`                                              |
+| 项目推进、方向、方位、谈判     | `POST /divination/qimen/prompt`              | `question`、可选 `qimenMethod`、`customDate`                               |
+| 临时小事快速判断               | `POST /divination/xiaoliuren/prompt`         | `question`、可选 `xiaoliurenMethod`、`xiaoliurenNumber`                    |
+| 时间或数字象意判断             | `POST /divination/meihua/prompt`             | `question`、可选 `method`、`number`、`customDate`                          |
+| 传统复杂事项推演               | `POST /divination/liuren/prompt`             | `question`、可选 `liurenTemplate`、`customDate`                            |
+| 结婚、搬家、开业、签约、安葬   | `POST /divination/almanac/prompt`            | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`   |
+| 星盘本命和行运                 | `POST /divination/astrolabe/prompt`          | 出生时间地点、经纬度、`astrolabeTopic`、`astrolabeScope`                   |
+| 西占双方关系、合作或婚恋互动   | `POST /divination/astrolabe/synastry/prompt` | `person1`、`person2` 分别提供完整出生时间、经纬度和时区                    |
+| 牌阵启发                       | `POST /divination/tarot/prompt`              | `spreadType`、`question`                                                   |
+| 雷诺曼关系或选择牌阵           | `POST /divination/lenormand/prompt`          | `spreadType`、`question`                                                   |
+| 求签                           | `POST /divination/ssgw/prompt`               | `question`                                                                 |
 
 参数默认建议：
 
@@ -101,6 +102,8 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 - `POST /bazi/compatibility/prompt`：八字双盘计算并生成完整结构化证据提示词。
 - `POST /ziwei/calculate`：紫微斗数排盘。
 - `POST /ziwei/prompt`：紫微斗数排盘并生成结构化 AI 解读提示词。
+- `POST /ziwei/compatibility`：紫微双盘关键宫位叠盘、生年四化跨盘落宫与证据计算。
+- `POST /ziwei/compatibility/prompt`：紫微双盘计算并生成完整结构化证据提示词。
 - `POST /bazi-ziwei/prompt`：同一出生信息同时生成八字和紫微排盘摘要，并返回八字紫微合参 AI 解读提示词。
 - `POST /divination/liuyao`：六爻起卦。
 - `POST /divination/liuyao/prompt`：六爻起卦并生成结构化 AI 解读提示词。

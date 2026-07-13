@@ -1,5 +1,6 @@
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
+import { analyzeZiweiCompatibility } from '@core/ziwei/iztro';
 import type { ShenShaVariantConfig } from '@core/bazi/baziShenSha';
 import type { BaziChartResult, Person } from '@core/bazi/baziTypes';
 import {
@@ -12,6 +13,7 @@ import {
   resolveTrueSolarBirthTime,
 } from 'mingyu-core/calendar';
 import {
+  buildCombinedZiweiCompatibilityPrompt,
   buildZiweiChartInput,
   calculatePublicZiweiChartForScopes,
 } from '../full-chart-engine/ziwei';
@@ -459,6 +461,20 @@ export function getPublicApiOpenApiDocument(
           summary: '紫微斗数排盘并生成 AI 解读提示词',
           requestBody: openApiJsonRequestBody('#/components/schemas/ZiweiPromptRequest'),
           responses: { '200': { description: '紫微命盘数据和结构化提示词' } },
+        },
+      },
+      '/ziwei/compatibility': {
+        post: {
+          summary: '紫微双盘宫位与四化结构化证据计算',
+          requestBody: openApiJsonRequestBody('#/components/schemas/ZiweiCompatibilityRequest'),
+          responses: { '200': { description: '双方本命盘、宫位叠盘、跨盘生年四化落宫与证据包' } },
+        },
+      },
+      '/ziwei/compatibility/prompt': {
+        post: {
+          summary: '紫微双盘计算并生成 AI 解读提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/ZiweiCompatibilityRequest'),
+          responses: { '200': { description: '紫微双盘结构化结果与完整证据提示词' } },
         },
       },
       '/bazi-ziwei/prompt': {
@@ -1002,6 +1018,29 @@ export function getPublicApiOpenApiDocument(
             },
           ],
         },
+        ZiweiCompatibilityRequest: {
+          type: 'object',
+          required: ['person1', 'person2'],
+          properties: {
+            person1: { $ref: '#/components/schemas/ZiweiRequest' },
+            person2: { $ref: '#/components/schemas/ZiweiRequest' },
+            person1Name: {
+              type: 'string',
+              description: '第一人称呼；未传时优先使用 person1.name。',
+            },
+            person2Name: {
+              type: 'string',
+              description: '第二人称呼；未传时优先使用 person2.name。',
+            },
+            question: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
+            promptTopic: {
+              enum: [...ZIWEI_PROMPT_TOPICS],
+              description: '关系分析主题；只影响提示词任务范围。',
+            },
+            promptMode: { enum: [...PROMPT_MODES] },
+            responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
+          },
+        },
         BaziZiweiPromptRequest: {
           allOf: [
             { $ref: '#/components/schemas/BaziRequest' },
@@ -1162,6 +1201,10 @@ async function route(context: RouteContext) {
       return calculateZiwei(await readJson(context.request));
     case 'ziwei/prompt':
       return buildZiweiPrompt(await readJson(context.request));
+    case 'ziwei/compatibility':
+      return calculateZiweiCompatibilityApi(await readJson(context.request));
+    case 'ziwei/compatibility/prompt':
+      return buildZiweiCompatibilityPromptApi(await readJson(context.request));
     case 'bazi-ziwei/prompt':
       return buildBaziZiweiPrompt(await readJson(context.request));
     case 'divination/liuyao':
@@ -1762,6 +1805,76 @@ async function buildZiweiPrompt(input: JsonRecord) {
     prompt,
     fullResult: serializableResult,
     resultSummary: buildCompactZiweiResult(serializableResult),
+  });
+}
+
+async function readZiweiCompatibilityCharts(input: JsonRecord) {
+  if (!isRecord(input.person1) || !isRecord(input.person2)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'person1 和 person2 必须是完整的紫微出生资料。');
+  }
+  const [person1, person2] = await Promise.all([
+    calculateZiweiRuntime(input.person1, ['origin']),
+    calculateZiweiRuntime(input.person2, ['origin']),
+  ]);
+  const person1Name =
+    readString(input, 'person1Name', '') || readString(input.person1, 'name', '') || '第一人';
+  const person2Name =
+    readString(input, 'person2Name', '') || readString(input.person2, 'name', '') || '第二人';
+  return { person1, person2, person1Name, person2Name };
+}
+
+async function calculateZiweiCompatibilityApi(input: JsonRecord) {
+  assertNoRandomOptions(input, '紫微双盘是确定性计算，不接受 seed 或 replay。');
+  const charts = await readZiweiCompatibilityCharts(input);
+  const compatibility = analyzeZiweiCompatibility(
+    charts.person1.payloadByScope.origin,
+    charts.person2.payloadByScope.origin,
+    { person1Name: charts.person1Name, person2Name: charts.person2Name },
+  );
+  return {
+    charts: {
+      person1: buildSerializableZiweiResult(charts.person1),
+      person2: buildSerializableZiweiResult(charts.person2),
+    },
+    compatibility,
+  };
+}
+
+async function buildZiweiCompatibilityPromptApi(input: JsonRecord) {
+  assertNoRandomOptions(input, '紫微双盘是确定性计算，不接受 seed 或 replay。');
+  const charts = await readZiweiCompatibilityCharts(input);
+  const compatibility = analyzeZiweiCompatibility(
+    charts.person1.payloadByScope.origin,
+    charts.person2.payloadByScope.origin,
+    { person1Name: charts.person1Name, person2Name: charts.person2Name },
+  );
+  const topic = readEnum(input, 'promptTopic', ZIWEI_PROMPT_TOPICS, 'relationship');
+  const prompt = buildCombinedZiweiCompatibilityPrompt({
+    primaryPayload: charts.person1.payloadByScope.origin,
+    partnerPayload: charts.person2.payloadByScope.origin,
+    primaryName: charts.person1Name,
+    partnerName: charts.person2Name,
+    topic,
+    question: readString(input, 'question', ''),
+    isCustomQuestion: readEnum(input, 'promptMode', PROMPT_MODES, 'framework') === 'custom',
+  });
+  const fullResult = {
+    charts: {
+      person1: buildSerializableZiweiResult(charts.person1),
+      person2: buildSerializableZiweiResult(charts.person2),
+    },
+    compatibility,
+  };
+  return buildPromptApiResult({
+    responseMode: readPromptResponseMode(input),
+    prompt,
+    fullResult,
+    resultSummary: {
+      people: compatibility.people,
+      palaceOverlays: compatibility.palaceOverlays,
+      crossMutagenPlacements: compatibility.crossMutagenPlacements,
+      evidence: compatibility.evidence,
+    },
   });
 }
 

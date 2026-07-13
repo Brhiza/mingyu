@@ -82,6 +82,8 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi/calculate'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi/compatibility'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi/compatibility/prompt'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/ziwei/compatibility'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/ziwei/compatibility/prompt'));
   assert.ok(body.data.endpoints.includes('GET /api/v1/foundation/capabilities'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/true-solar-time'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/true-solar-birth'));
@@ -1045,6 +1047,60 @@ test('公开 API 紫微提示词接口默认返回轻量摘要和提示词', asy
   assert.match(prompt, /【问题】/);
   assert.match(prompt, /我的感情关系要注意什么/);
   assertPromptIsPortableTaskText(prompt);
+});
+
+test('公开 API 紫微双盘返回宫位叠盘、四化证据并保留双方称呼', async () => {
+  const person1 = {
+    name: '甲方',
+    gender: 'female',
+    dateType: 'solar',
+    year: '1992',
+    month: '8',
+    day: '21',
+    timeIndex: 4,
+  };
+  const person2 = {
+    name: '乙方',
+    gender: 'male',
+    dateType: 'solar',
+    year: '1990',
+    month: '5',
+    day: '15',
+    timeIndex: 1,
+  };
+  const calculation = await callApi('ziwei/compatibility', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ person1, person2 }),
+  });
+
+  assert.equal(calculation.response.status, 200);
+  assert.deepEqual(calculation.body.data.compatibility.people, {
+    person1: '甲方',
+    person2: '乙方',
+  });
+  assert.ok(calculation.body.data.compatibility.palaceOverlays.length > 0);
+  assert.ok(calculation.body.data.compatibility.evidence.items.length > 0);
+  assert.equal(calculation.body.data.charts.person1.scopeNames[0], 'origin');
+
+  const prompted = await callApi('ziwei/compatibility/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      person1,
+      person2,
+      question: '双方长期合作关系应注意什么？',
+      promptTopic: 'career-wealth',
+    }),
+  });
+
+  assert.equal(prompted.response.status, 200);
+  assert.equal(prompted.body.data.result, undefined);
+  assert.equal(prompted.body.data.resultSummary.people.person1, '甲方');
+  assert.match(prompted.body.data.prompt, /【甲方盘面】/);
+  assert.match(prompted.body.data.prompt, /【紫微双盘结构化证据】/);
+  assert.match(prompted.body.data.prompt, /双方长期合作关系应注意什么/);
+  assert.doesNotMatch(prompted.body.data.prompt, /匹配总分：/);
 });
 
 test('公开 API 紫微提示词接口只生成所需范围，避免线上函数超时', async () => {

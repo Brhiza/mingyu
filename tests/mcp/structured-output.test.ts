@@ -77,6 +77,29 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
       },
     },
   ],
+  [
+    'ziwei_compatibility',
+    {
+      person1: {
+        name: '甲方',
+        gender: 'female',
+        dateType: 'solar',
+        year: '1992',
+        month: '8',
+        day: '21',
+        timeIndex: 4,
+      },
+      person2: {
+        name: '乙方',
+        gender: 'male',
+        dateType: 'solar',
+        year: '1990',
+        month: '5',
+        day: '15',
+        timeIndex: 1,
+      },
+    },
+  ],
   ['metaphysics_bazhai', { birthYear: 1990, gender: 'male', doorToInteriorDegree: 0 }],
   ['metaphysics_zodiac', { zodiac: '鼠', year: 2024 }],
   ['metaphysics_taiyi', { year: 2004, scope: 'year' }],
@@ -169,6 +192,32 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
     /【问题】/,
   ],
   [
+    'ziwei_compatibility_prompt',
+    {
+      person1: {
+        name: '甲方',
+        gender: 'female',
+        dateType: 'solar',
+        year: '1992',
+        month: '8',
+        day: '21',
+        timeIndex: 4,
+      },
+      person2: {
+        name: '乙方',
+        gender: 'male',
+        dateType: 'solar',
+        year: '1990',
+        month: '5',
+        day: '15',
+        timeIndex: 1,
+      },
+      question: '双方长期合作关系应注意什么？',
+      promptTopic: 'career-wealth',
+    },
+    /【紫微双盘结构化证据】/,
+  ],
+  [
     'bazi_ziwei_prompt',
     {
       gender: 'female',
@@ -205,6 +254,7 @@ const promptToolNames = [
   'bazi_prompt',
   'bazi_compatibility_prompt',
   'ziwei_prompt',
+  'ziwei_compatibility_prompt',
   'bazi_ziwei_prompt',
   'liuyao_prompt',
   'meihua_prompt',
@@ -245,13 +295,15 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 42);
+    assert.equal(tools.length, 44);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
 
     const ziweiTool = tools.find((tool) => tool.name === 'ziwei_calculate');
     assert.ok(ziweiTool?.outputSchema?.properties?.payloadByScope);
+    assert.ok(tools.find((tool) => tool.name === 'ziwei_compatibility'));
+    assert.ok(tools.find((tool) => tool.name === 'ziwei_compatibility_prompt'));
 
     assert.equal(
       tools.some((tool) => tool.name === 'build_divination_prompt'),

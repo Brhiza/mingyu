@@ -2,9 +2,11 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ScopeType } from '../../../src/types/analysis.js';
 import {
+  buildCombinedZiweiCompatibilityPrompt,
   buildZiweiChartInput,
   calculateZiweiChartForScopes,
 } from '../../../src/lib/full-chart-engine/ziwei.js';
+import { analyzeZiweiCompatibility } from 'mingyu-core/ziwei/iztro';
 import {
   PROMPT_MODES,
   ZIWEI_PROMPT_SCOPES,
@@ -75,6 +77,20 @@ const ziweiPromptSchema = ziweiSchema.extend({
     .describe(
       '紫微流派：sanhe=三合派（三方四正、星曜庙旺）, feixing=飞星派（四化飞星链路）, sihua=四化派（生年四化主线）。不传则不附加流派指引',
     ),
+});
+
+const ziweiCompatibilitySchema = z.object({
+  person1: ziweiSchema.omit({ promptScope: true }),
+  person2: ziweiSchema.omit({ promptScope: true }),
+});
+
+const ziweiCompatibilityPromptSchema = ziweiCompatibilitySchema.extend({
+  question: z.string().optional().describe('希望围绕双方关系解读的问题'),
+  promptTopic: z.enum(ZIWEI_PROMPT_TOPICS).optional().describe('关系分析主题'),
+  promptMode: z
+    .enum(PROMPT_MODES)
+    .optional()
+    .describe('framework=内置关系框架，custom=只围绕用户问题作答'),
 });
 
 export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
@@ -173,6 +189,88 @@ export function registerZiweiTool(server: McpServer) {
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成紫微提示词失败'));
+      }
+    },
+  );
+
+  server.registerTool(
+    'ziwei_compatibility',
+    {
+      description:
+        '紫微双盘结构化证据计算：返回双方本命盘、关键宫位叠盘、跨盘生年四化落宫和解释边界，不输出匹配总分',
+      inputSchema: ziweiCompatibilitySchema.shape,
+      outputSchema: {
+        charts: z.unknown().describe('双方紫微本命盘'),
+        compatibility: z.unknown().describe('宫位叠盘、四化交叉落宫与结构化证据'),
+      },
+    },
+    async (args) => {
+      try {
+        const [person1, person2] = await Promise.all([
+          calculateZiweiChartForScopes(buildMcpZiweiChartInput(args.person1), ['origin']),
+          calculateZiweiChartForScopes(buildMcpZiweiChartInput(args.person2), ['origin']),
+        ]);
+        const compatibility = analyzeZiweiCompatibility(
+          person1.payloadByScope.origin,
+          person2.payloadByScope.origin,
+          { person1Name: args.person1.name, person2Name: args.person2.name },
+        );
+        return createStructuredToolResult({
+          charts: {
+            person1: buildSerializableZiweiResult(person1),
+            person2: buildSerializableZiweiResult(person2),
+          },
+          compatibility,
+        });
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '紫微双盘计算失败'));
+      }
+    },
+  );
+
+  server.registerTool(
+    'ziwei_compatibility_prompt',
+    {
+      description:
+        '紫微双盘计算并生成结构化 AI 提示词：保留宫位叠盘、跨盘四化证据、方法说明和解释限制',
+      inputSchema: ziweiCompatibilityPromptSchema.shape,
+      outputSchema: {
+        result: z.unknown().describe('双方命盘与双盘结构化证据'),
+        prompt: z.string().describe('可直接用于 AI 解读的完整证据提示词'),
+      },
+    },
+    async (args) => {
+      try {
+        const [person1, person2] = await Promise.all([
+          calculateZiweiChartForScopes(buildMcpZiweiChartInput(args.person1), ['origin']),
+          calculateZiweiChartForScopes(buildMcpZiweiChartInput(args.person2), ['origin']),
+        ]);
+        const compatibility = analyzeZiweiCompatibility(
+          person1.payloadByScope.origin,
+          person2.payloadByScope.origin,
+          { person1Name: args.person1.name, person2Name: args.person2.name },
+        );
+        const result = {
+          charts: {
+            person1: buildSerializableZiweiResult(person1),
+            person2: buildSerializableZiweiResult(person2),
+          },
+          compatibility,
+        };
+        return createStructuredToolResult({
+          result,
+          prompt: buildCombinedZiweiCompatibilityPrompt({
+            primaryPayload: person1.payloadByScope.origin,
+            partnerPayload: person2.payloadByScope.origin,
+            primaryName: args.person1.name,
+            partnerName: args.person2.name,
+            topic: args.promptTopic ?? 'relationship',
+            question: args.question ?? '',
+            isCustomQuestion: args.promptMode === 'custom',
+          }),
+        });
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '生成紫微双盘提示词失败'));
       }
     },
   );
