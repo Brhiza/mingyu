@@ -349,8 +349,18 @@ select {
 }
 
 .page-shell-ai-workspace .page-topbar-wide,
+.page-shell-ai-workspace .tab-strip,
+.page-shell-ai-workspace .result-tab-stage.is-ai-wide,
+.page-shell-ai-workspace .workspace-grid-ai {
+  width: 100%;
+  max-width: none;
+  margin-right: 0;
+  margin-left: 0;
+}
+
 .page-shell-ai-workspace .tab-strip {
-  max-width: 1520px;
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .result-tab-pane {
