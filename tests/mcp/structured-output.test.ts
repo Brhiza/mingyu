@@ -482,8 +482,17 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
 
     assert.equal(result.isError, undefined, 'almanac_prompt 不填 question 不应返回错误');
     assert.ok(result.structuredContent?.result, 'almanac_prompt 应返回 result');
+    const chart = (
+      result.structuredContent as {
+        result: { evidenceAnalysis: { candidates: unknown[]; cautionDates: string[] } };
+      }
+    ).result;
+    assert.ok(chart.evidenceAnalysis.candidates.length > 0);
+    assert.ok(Array.isArray(chart.evidenceAnalysis.cautionDates));
     const prompt = String(result.structuredContent?.prompt);
     assert.match(prompt, /【占卜信息】/);
+    assert.match(prompt, /【黄历择日透明约束与候选证据】/);
+    assert.doesNotMatch(prompt, /评分[：=]?\d|（\d+分|成功率[：=]?\d/);
     assertPromptIsPortableTaskText(prompt);
   });
 });

@@ -3693,9 +3693,10 @@ test('黄历择日会结合可选事项、日期范围和多位出生信息生�
   assert.match(session.prompt, /占法：黄历择日/);
   assert.match(session.prompt, /择日事项：搬家入宅/);
   assert.match(session.prompt, /候选日期：2026-06-01 至 2026-06-05/);
-  assert.match(session.prompt, /取舍证据：首选/);
+  assert.match(session.prompt, /【黄历择日透明约束与候选证据】/);
+  assert.match(session.prompt, /候选分组：/);
   assert.match(session.prompt, /慎用/);
-  assert.match(session.prompt, /只在候选日期范围内排序/);
+  assert.match(session.prompt, /传统硬限制：只比较/);
   assert.match(session.prompt, /参与人八字参考：/);
   assert.match(session.prompt, /本人：男/);
   assert.ok('days' in session.data && session.data.days.length === 5);

@@ -207,7 +207,7 @@ function buildDivinationTimingBoundaryText(method: Exclude<DivinationMethodId, '
       return [
         '择日结论只能在候选日期范围内产生，并按日期层级排序，不指定具体吉时。',
         '首选、备选、慎用必须说明黄历宜忌、冲煞、神煞、星宿、执日、参与人八字适配和现实约束。',
-        '若候选日期整体都不理想，只能在范围内给相对较优和避险条件；现实刚性约束可以压过黄历分数，但必须说明取舍。',
+        '若候选日期整体都不理想，只能在范围内给相对较优和避险条件；现实刚性约束可以压过传统排序，但必须说明取舍。',
       ].join('\n');
     case 'astrolabe':
       return '';
@@ -356,7 +356,7 @@ export function buildDivinationPrompt(
   const outputRequirementText = isAlmanac
     ? [
         '先直接给出首选日期、备选日期与慎用日期，再按“取舍证据、现实限制、参与人适配、执行建议”展开；每部分都要写明择日依据、适用条件与现实建议。',
-        '每个筛选重点都要区分主证、辅证、反证或限制；若现实约束压过黄历分数，必须说明取舍。',
+        '每个筛选重点都要区分主证、辅证、反证或限制；若现实约束压过传统排序，必须说明取舍。',
         '证据不能支持绝对判断时，使用倾向、条件和适用边界表达。',
         '最后补充可执行清单：优先日期、避开的条件、当天最需要注意的动作。',
         buildMethodOutputRequirementText(method),

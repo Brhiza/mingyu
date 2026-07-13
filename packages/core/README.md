@@ -116,7 +116,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **奇门遁甲 Qimen**     | `mingyu-core/divination/qimen`                                                                                                                | 转盘法、拆补定局、经典格局、节令背景、复合格局、方位应期                                             |
 | **大六壬 Liuren**      | `mingyu-core/divination/liuren`                                                                                                               | 月将、贵人、九宗门取传、三传、天将、神煞及四课取传与三传推进证据                                     |
 | **小六壬 Xiaoliuren**  | `mingyu-core/divination/xiaoliuren`                                                                                                           | 六宫掌诀、五行生克、月令旺衰                                                                         |
-| **择日 Almanac**       | `mingyu-core/divination/almanac`                                                                                                              | 黄历择日、神煞评分、二十八宿、彭祖百忌                                                               |
+| **择日 Almanac**       | `mingyu-core/divination/almanac`                                                                                                              | 黄历宜忌、参与人冲突、候选时辰、透明约束证据、二十八宿与彭祖百忌                                     |
 | **灵签 SSGW**          | `mingyu-core/divination/ssgw`                                                                                                                 | 三山国王 92 签随机抽签                                                                               |
 | **雷诺曼 Lenormand**   | `mingyu-core/divination/lenormand`                                                                                                            | 36 张牌、8 种牌阵、牌义组合                                                                          |
 | **西洋占星 Astrolabe** | `mingyu-core/divination/astrolabe`                                                                                                            | 本命盘、Placidus 宫位、行星、凯龙/四小行星/交点/莉莉丝/福点等扩展点、相位与行运                      |
@@ -440,7 +440,8 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `generateLiuren(date?)`                                              | 大六壬排盘                                          |
 | `analyzeLiurenEvidence(data)`                                        | 四课取传、初传发用、三传旺衰空亡及反证限制          |
 | `generateXiaoliuren(params?)`                                        | 小六壬起课                                          |
-| `generateAlmanacSelection(params)`                                   | 黄历择日                                            |
+| `generateAlmanacSelection(params)`                                   | 黄历择日，并内置透明约束与候选证据                  |
+| `analyzeAlmanacEvidence(data)`                                       | 日期分组、事项宜忌、参与人冲突、时辰与现实约束证据  |
 | `drawSingleCard(options?)` / `drawSpreadCards(spreadType, options?)` | 塔罗抽牌；支持 `seed` 和 `replay` 完整复现          |
 | `drawRandomSign(date?, options?)`                                    | 三山国王灵签；支持 `seed` 和 `replay` 完整复现      |
 | `drawLenormandSpread(spreadType?, options?)`                         | 雷诺曼牌阵；支持 `seed` 和 `replay` 完整复现        |

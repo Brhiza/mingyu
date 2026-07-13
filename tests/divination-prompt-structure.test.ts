@@ -935,7 +935,7 @@ test('自定义占卜问题不强塞应期判断方法', () => {
   assert.doesNotMatch(prompt, /【应期判断方法】/);
 });
 
-test('择日资料包会先给禁忌筛查再给取舍证据', () => {
+test('择日资料包会先按硬限制分组，再输出支持与反证', () => {
   const prompt = buildDivinationPrompt(
     'almanac',
     '',
@@ -943,16 +943,16 @@ test('择日资料包会先给禁忌筛查再给取舍证据', () => {
     createSupplementaryInfo(),
   );
 
-  assert.match(prompt, /禁忌筛查：2026-06-02：风险黄历忌项触及搬家入宅；评分42偏低/);
+  assert.match(prompt, /【黄历择日透明约束与候选证据】/);
+  assert.match(prompt, /2026-06-02慎用候选/);
+  assert.match(prompt, /限制黄历忌项触及搬家入宅/);
   assert.match(prompt, /事项口径：事项范围：搬家入宅；按该事项和候选日期证据处理/);
   assert.match(prompt, /岁支方位避太岁午正南、岁破子正北；可参考太阳未西南偏南、福德卯正东/);
-  assert.doesNotMatch(prompt, /禁忌筛查：2026-06-01：参与人本人：未见直接刑冲破害提醒/);
-  assert.doesNotMatch(prompt, /事项权重|优先匹配宜项|事项忌项命中/);
-  assert.match(prompt, /先排禁忌，再看评分，高分日期若命中明显禁忌或参与人刑冲破害必须降级/);
-  assert.match(prompt, /禁忌降级：2026-06-02：风险黄历忌项触及搬家入宅；评分42偏低/);
-  assert.match(prompt, /取舍证据：首选2026-06-01/);
+  assert.match(prompt, /命中当前事项明确忌项、诸事不宜或参与人直接刑冲破害时列为慎用候选/);
+  assert.match(prompt, /候选分组：可用2026-06-01；有条件暂无；慎用2026-06-02/);
+  assert.doesNotMatch(prompt, /事项权重|优先匹配宜项|事项忌项命中|评分42|高分日期/);
   assert.match(prompt, /可用时段边界：只允许在2026-06-01至2026-06-03范围内排序/);
-  assert.ok(prompt.indexOf('禁忌筛查：') < prompt.indexOf('取舍证据：'));
+  assert.ok(prompt.indexOf('传统硬限制：') < prompt.indexOf('候选分组：'));
 });
 
 test('择日提示词应保留用户补充诉求但不强制输出问题 section', () => {

@@ -411,7 +411,15 @@ const systems: SystemCapability[] = [
       { id: 'endDate', label: '结束日期', type: 'date', required: true },
       { id: 'participants', label: '参与人', type: 'array', required: false },
     ],
-    outputs: ['候选日', '避开日', '候选时辰', '参与人关系', '评分依据'],
+    outputs: [
+      '可用候选',
+      '条件候选',
+      '慎用候选',
+      '事项宜忌证据',
+      '参与人冲突',
+      '候选时辰条件',
+      '传统与现实约束',
+    ],
     supports: {
       seed: false,
       customRandomSource: false,

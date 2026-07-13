@@ -21,6 +21,7 @@ import type {
   AlmanacParticipantProfile,
   AlmanacTopic,
 } from '../../types/divination';
+import { analyzeAlmanacEvidence } from '../almanac-evidence';
 
 export const ALMANAC_TOPIC_LABELS: Record<AlmanacTopic, string> = {
   move: '搬家入宅',
@@ -922,7 +923,7 @@ export function generateAlmanacSelection(params: {
     return buildDayCandidate(current, params.topic, participants);
   }).sort((a, b) => b.score - a.score);
 
-  return {
+  const result: AlmanacData = {
     topic: params.topic,
     topicLabel: ALMANAC_TOPIC_LABELS[params.topic],
     startDate: params.startDate,
@@ -931,4 +932,14 @@ export function generateAlmanacSelection(params: {
     participants,
     timestamp: Date.now(),
   };
+  result.evidenceAnalysis = analyzeAlmanacEvidence(result);
+  return result;
 }
+
+export { analyzeAlmanacEvidence } from '../almanac-evidence';
+export type {
+  AlmanacCandidateEvidence,
+  AlmanacCandidateStatus,
+  AlmanacEvidenceAnalysis,
+  AlmanacHourEvidence,
+} from '../almanac-evidence';

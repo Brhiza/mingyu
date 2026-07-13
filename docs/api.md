@@ -385,6 +385,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 奇门遁甲 `qimenMethod` 支持 `zhuanpan`（转盘法，默认）、`feipan`（飞盘法）。排盘结果包含 `seasonality`（节令背景）和 `patternCombos`（复合格局）。
 - 黄历择日 `topic` 支持 `marriage`、`move`、`opening`、`contract`、`travel`、`medical`、`study`、`burial`、`renovation`、`custom`，不传时使用 `custom`，并使用 `startDate`、`endDate` 和可选 `participants`。日期范围一次最多 31 天，`participants` 一次最多 30 位；更大范围或更多参与人请拆成多次请求。
 - 黄历择日支持 `page` 和 `pageSize` 分页，`pageSize` 最大 31。不传分页时保持旧行为返回全部日期；传分页后只返回当前页日期，并带 `pagination`。`page` 超过总页数会返回 400，请调用方按 `pagination.totalPages` 继续请求。
+- 黄历择日结果的 `evidenceAnalysis` 会把当前返回范围内的日期分成可用、条件和慎用候选，逐日列出事项宜忌、建除神煞、参与人刑冲破害、方向限制、可用时辰与现实约束。分页时证据会按当前页重新计算；提示词不展示内部评分，也不把排序解释成成功率。
 - 雷诺曼 `spreadType` 支持 `single`、`three`、`five`、`relationship`、`decision`、`nine`、`element`、`grandTableau`，不传时使用 `single`。
 - 星盘需要 `year`、`month`、`day`、`hour`、`minute`、`latitude`、`longitude`、`timezone`，可传 `useTrueSolarTime` 启用真太阳时校正。提示词接口可使用 `astrolabeTopic`、`astrolabeScope`、`astrolabeScopeDate` 和 `astrolabeScopeText`；`astrolabeScope` 支持 `natal`、`full`、`yearly`、`monthly`、`daily`，其中 `full` 会写入本命、当前流年、当前流月、当前流日行运资料；传入 `astrolabeScopeText` 时以自定义文本为准。
 - 西占双盘使用 `person1`、`person2` 包裹双方星盘参数。排盘结果包含主要跨盘相位、实际夹角、容许度、相对强度和跨盘落宫；这些字段是盘面证据，不等于关系结果或匹配总分。

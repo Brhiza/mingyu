@@ -18,9 +18,8 @@ import type {
 import { LunarUtil, getDivinationTime } from 'mingyu-core/calendar';
 import { resolveSsgwStoryContent } from '../ssgw-content';
 import { analyzeQimenEvidence } from '@core/divination/algorithms/qimen';
+import { analyzeAlmanacEvidence } from '@core/divination/algorithms/almanac';
 import { LIUCHONG_MAP } from '@core/ganzhi';
-import { normalizePromptEvidenceItems } from '@core/prompt-evidence/format';
-import type { PromptEvidenceItem } from '@core/prompt-evidence/types';
 import type { DivinationMethodId } from '@core/divination/config';
 import { analyzeLiuyaoEvidence } from '@core/divination/algorithms/liuyao';
 import { analyzeMeihuaEvidence } from '@core/divination/algorithms/meihua';
@@ -933,86 +932,6 @@ function formatSsgwInfo(data: SsgwData) {
     .join('\n');
 }
 
-function formatAlmanacEvidenceItems(items: PromptEvidenceItem[]) {
-  return normalizePromptEvidenceItems(items).map((item) =>
-    item.detail ? `${item.title}：${item.detail}` : item.title,
-  );
-}
-
-function createAlmanacTabooEvidenceItems(days: AlmanacDayCandidate[]): PromptEvidenceItem[] {
-  const items = days
-    .map((item, index): PromptEvidenceItem | null => {
-      const cautionText = item.cautions.length ? item.cautions.join('、') : '';
-      const participantText = item.participantNotes.filter(
-        (note) => /冲|刑|害|破|忌|不宜|避/.test(note) && !/未见|未冲|不冲|无明显/.test(note),
-      );
-      const scoreRisk = item.score < 60 ? `评分${item.score}偏低` : '';
-      const risks = [
-        cautionText ? `风险${cautionText}` : '',
-        participantText.length ? `参与人${participantText.join('；')}` : '',
-        scoreRisk,
-      ].filter(Boolean);
-
-      if (!risks.length) {
-        return null;
-      }
-
-      return {
-        level: '反证',
-        title: item.date,
-        detail: risks.join('；'),
-        source: '择日禁忌筛查',
-        weight: 100 - index,
-        tags: [`评分${item.score}`],
-      };
-    })
-    .filter((item): item is PromptEvidenceItem => Boolean(item));
-
-  return items.slice(0, 4);
-}
-
-function createAlmanacSelectionEvidenceItems(
-  bestDay: AlmanacDayCandidate | undefined,
-  backupDays: AlmanacDayCandidate[],
-  cautionDays: AlmanacDayCandidate[],
-  formatDayReason: (item: AlmanacDayCandidate) => string,
-): PromptEvidenceItem[] {
-  const items: Array<PromptEvidenceItem | null> = [
-    bestDay
-      ? {
-          level: '主证',
-          title: `首选${formatDayReason(bestDay)}`,
-          source: '择日取舍证据',
-          weight: 100,
-        }
-      : null,
-    backupDays.length
-      ? {
-          level: '辅证',
-          title: `备选${backupDays.map(formatDayReason).join('；')}`,
-          source: '择日取舍证据',
-          weight: 80,
-        }
-      : null,
-    cautionDays.length
-      ? {
-          level: '反证',
-          title: `慎用${cautionDays.map(formatDayReason).join('；')}`,
-          source: '择日取舍证据',
-          weight: 60,
-        }
-      : null,
-    {
-      level: '限制',
-      title: '只在候选日期范围内排序；若现实约束与分数冲突，必须说明取舍',
-      source: '择日取舍证据',
-      weight: 10,
-    },
-  ];
-
-  return items.filter((item): item is PromptEvidenceItem => Boolean(item));
-}
-
 function formatAlmanacAnnualDirectionGods(item: AlmanacDayCandidate) {
   const gods = item.annualDirectionGods ?? [];
   if (!gods.length) return '';
@@ -1044,13 +963,14 @@ function formatAlmanacAnnualDirectionGods(item: AlmanacDayCandidate) {
 }
 
 function formatAlmanacInfo(data: AlmanacData) {
+  const evidenceAnalysis = analyzeAlmanacEvidence(data);
   const topDays = data.days.slice(0, 8);
   const participantLines = data.participants.map((item) => {
     const usefulEvidenceAvailable =
       item.usefulGods.length > 0 && item.usefulGods.length <= 3 && item.avoidGods.length > 0;
     const useful = usefulEvidenceAvailable
       ? `喜用参考${item.usefulGods.join('、')}，忌神参考${item.avoidGods.join('、')}`
-      : '喜忌结论过于分散，不用于本次加减分';
+      : '喜忌结论过于分散，不用于本次候选判断';
     return `- ${item.name}：${item.gender || '性别未填'}，公历${item.solarDate}，农历${item.lunarDate}，生肖${item.zodiac}，日主${item.dayMaster}${item.dayMasterElement}，四柱${item.pillars.year}年 ${item.pillars.month}月 ${item.pillars.day}日 ${item.pillars.hour}时，${useful}`;
   });
   const dayLines = topDays.map((item, index) => {
@@ -1067,43 +987,25 @@ function formatAlmanacInfo(data: AlmanacData) {
       `忌${item.avoids.slice(0, 8).join('、') || '无'}`,
       godText,
       annualDirectionGodsText,
-      item.highlights.length ? `加分${item.highlights.join('、')}` : '',
+      item.highlights.length ? `支持${item.highlights.join('、')}` : '',
       item.cautions.length ? `风险${item.cautions.join('、')}` : '',
       item.participantNotes.length ? `参与人${item.participantNotes.join('；')}` : '',
       item.bestHours?.length
         ? `建议时辰${item.bestHours
             .map(
               (hour) =>
-                `${hour.name}${hour.range}（${hour.ganzhi}、${hour.twelveStar}，${hour.score}分；${hour.highlights.join('、') || '无明显加分'}${hour.cautions.length ? `；风险${hour.cautions.join('、')}` : ''}）`,
+                `${hour.name}${hour.range}（${hour.ganzhi}、${hour.twelveStar}；${hour.highlights.join('、') || '未见独立增强证据'}${hour.cautions.length ? `；风险${hour.cautions.join('、')}` : ''}）`,
             )
             .join('、')}`
         : '未筛出证据足够的建议时辰',
     ].filter(Boolean);
-    return `- 第${index + 1}候选：${item.date} ${item.weekday}，${item.lunarDate}，${item.ganzhi.year}年 ${item.ganzhi.month}月 ${item.ganzhi.day}日，评分${item.score}；${item.dayOfficer}执日，十二神${item.twelveStar}，二十八宿${item.twentyEightStar}${starDetail}，九星${item.nineStar}${nineStarDetail}，${item.clash}；${evidence.join('；')}`;
+    const status = evidenceAnalysis.candidates.find(
+      (candidate) => candidate.date === item.date,
+    )?.status;
+    return `- 第${index + 1}候选：${item.date} ${item.weekday}${status ? `，${status}` : ''}，${item.lunarDate}，${item.ganzhi.year}年 ${item.ganzhi.month}月 ${item.ganzhi.day}日；${item.dayOfficer}执日，十二神${item.twelveStar}，二十八宿${item.twentyEightStar}${starDetail}，九星${item.nineStar}${nineStarDetail}，${item.clash}；${evidence.join('；')}`;
   });
   const bestDay = topDays[0];
   const backupDays = topDays.slice(1, 3);
-  const cautionDays = [...topDays]
-    .filter((item) => item.cautions.length > 0 || item.score < 60)
-    .sort((a, b) => a.score - b.score)
-    .slice(0, 2);
-  const formatDayReason = (item: AlmanacDayCandidate) => {
-    const good = item.highlights.length ? item.highlights.join('、') : '未见明显宜项';
-    const risk = item.cautions.length ? item.cautions.join('、') : '未见明显忌项';
-    const participant = item.participantNotes.length
-      ? item.participantNotes.join('；')
-      : '未给出参与人八字';
-    return `${item.date}（${item.score}分）：${good}；${risk}；${participant}`;
-  };
-  const selectionEvidenceItems = createAlmanacSelectionEvidenceItems(
-    bestDay,
-    backupDays,
-    cautionDays,
-    formatDayReason,
-  );
-  const selectionEvidence = formatAlmanacEvidenceItems(selectionEvidenceItems);
-  const tabooEvidenceItems = createAlmanacTabooEvidenceItems(topDays);
-  const tabooEvidence = formatAlmanacEvidenceItems(tabooEvidenceItems);
   const topicScopeEvidence =
     data.topic === 'custom'
       ? '事项未限定，按通用黄历取舍；补充的具体事项只作现实背景'
@@ -1124,17 +1026,14 @@ function formatAlmanacInfo(data: AlmanacData) {
             participant.avoidGods.length > 0;
           const usefulText = usefulEvidenceAvailable
             ? `喜用${participant.usefulGods.join('、')}，忌神${participant.avoidGods.join('、')}`
-            : '喜忌结论分散，不用于加减分';
+            : '喜忌结论分散，不用于候选判断';
           return `${participant.name}：日主${participant.dayMaster}${participant.dayMasterElement}，${usefulText}；${relatedNotes.join('；') || '候选日期未见直接参与人刑冲破害提醒'}`;
         })
         .join('；')
     : '未给出参与人八字，不能编造个人适配，只按通用黄历规则判断';
-  const tabooDowngradeEvidence = tabooEvidence.length
-    ? `${tabooEvidence.join('；')}；命中明显禁忌、参与人刑冲破害或低分强风险时，即使总分靠前也必须降为备选或慎用`
-    : '未见强禁忌命中；仍需检查现实限制，不能只按分数定案';
   const realityConstraintEvidence = [
     '现实刚性约束包括场地、证件、人员到场、交通、预算、天气和办理窗口',
-    '已提供资料未给现实时不得编造；若补充现实条件与黄历分数冲突，应说明为什么现实约束压过分数',
+    '已提供资料未给现实时不得编造；若补充现实条件与传统排序冲突，应说明为什么现实约束优先',
   ].join('；');
   const availableWindowEvidence = [
     `只允许在${data.startDate}至${data.endDate}范围内排序`,
@@ -1152,14 +1051,12 @@ function formatAlmanacInfo(data: AlmanacData) {
     '占法：黄历择日',
     `核心结构：择日事项：${data.topicLabel}；候选日期：${data.startDate} 至 ${data.endDate}；先按黄历宜忌、神煞、冲煞与参与人刑冲破害做初筛`,
     bestDay
-      ? `初筛结论：当前排序第一为${bestDay.date}，评分${bestDay.score}；仍需结合现实约束复核，不可只按分数机械决定`
+      ? `初筛结论：当前首列候选为${bestDay.date}；仍须结合证据分组与现实约束复核`
       : '初筛结论：暂无候选日期',
     '择日抓手：先排除直接冲犯和忌项明显命中的日期，再比较宜项、吉神、执日、星宿与参与人日主喜忌。',
     `事项口径：${topicScopeEvidence}`,
     `参与人适配：${participantFitEvidence}`,
-    `禁忌筛查：${tabooEvidence.length ? tabooEvidence.join('；') : '候选日期未见明显禁忌、参与人刑冲破害或低分强风险；仍需按现实约束复核'}；先排禁忌，再看评分，高分日期若命中明显禁忌或参与人刑冲破害必须降级`,
-    `禁忌降级：${tabooDowngradeEvidence}`,
-    selectionEvidence.length ? `取舍证据：${selectionEvidence.join('；')}` : '',
+    evidenceAnalysis.promptText,
     `现实约束：${realityConstraintEvidence}`,
     `可用时段边界：${availableWindowEvidence}`,
     participantLines.length ? '参与人八字参考：' : '参与人八字参考：未给出，只能按通用黄历规则判断',

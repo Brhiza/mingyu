@@ -28,7 +28,7 @@ import { generateMeihua } from 'mingyu-core/divination/meihua';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
-import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
+import { analyzeAlmanacEvidence, generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry';
@@ -2612,7 +2612,10 @@ function readAlmanacPageSelection(result: AlmanacData, input: JsonRecord) {
 
 function shapeAlmanacPromptData(result: AlmanacData, input: JsonRecord): AlmanacData {
   const { shouldPaginate, selectedDays } = readAlmanacPageSelection(result, input);
-  return shouldPaginate ? { ...result, days: selectedDays } : result;
+  if (!shouldPaginate) return result;
+  const shaped = { ...result, days: selectedDays };
+  shaped.evidenceAnalysis = analyzeAlmanacEvidence(shaped);
+  return shaped;
 }
 
 function shapeAlmanacResult(result: AlmanacData, input: JsonRecord): AlmanacApiResult {
@@ -2623,6 +2626,7 @@ function shapeAlmanacResult(result: AlmanacData, input: JsonRecord): AlmanacApiR
   return {
     ...result,
     days,
+    evidenceAnalysis: analyzeAlmanacEvidence({ ...result, days: selectedDays }),
     ...(shouldPaginate ? { pagination } : {}),
   };
 }

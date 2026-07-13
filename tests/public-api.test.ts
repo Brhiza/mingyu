@@ -2107,6 +2107,8 @@ test('公开 API 黄历择日提示词不强制填写问题', async () => {
   assert.equal(body.ok, true);
   assert.match(body.data.prompt, /【占卜信息】/);
   assert.match(body.data.prompt, /【任务】/);
+  assert.match(body.data.prompt, /【黄历择日透明约束与候选证据】/);
+  assert.doesNotMatch(body.data.prompt, /评分[：=]?\d|（\d+分|成功率[：=]?\d/);
   assert.doesNotMatch(body.data.prompt, /【问题】/);
   assert.match(body.data.prompt, /先直接给出首选日期、备选日期与慎用日期/);
   assert.doesNotMatch(body.data.prompt, /先直接回答【问题】/);
@@ -2154,6 +2156,12 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
   assert.equal(body.ok, true);
   assert.equal(body.data.result.days.length, 5);
   assert.equal(body.data.result.pagination.page, 2);
+  assert.equal(body.data.result.evidenceAnalysis.candidates.length, 5);
+  assert.deepEqual(
+    body.data.result.evidenceAnalysis.candidates.map((item: { date: string }) => item.date),
+    body.data.result.days.map((item: { date: string }) => item.date),
+  );
+  assert.match(body.data.result.evidenceAnalysis.promptText, /【黄历择日透明约束与候选证据】/);
   assert.match(body.data.prompt, /候选日期：2026-06-01 至 2026-06-30/);
   assert.equal((body.data.prompt.match(/第\d+候选：/g) ?? []).length, 5);
   body.data.result.days.forEach((day: { date: string }) => {
