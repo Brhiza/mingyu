@@ -881,6 +881,56 @@ export interface AstrolabeData {
   timestamp: number;
 }
 
+export type AstrolabeSynastryAspectType = '合相' | '六合' | '刑相' | '拱相' | '冲相';
+
+export interface AstrolabeSynastryAspect {
+  person1: string;
+  person2: string;
+  point1: string;
+  point2: string;
+  type: AstrolabeSynastryAspectType;
+  symbol: string;
+  exactAngle: number;
+  actualAngle: number;
+  orb: number;
+  allowedOrb: number;
+  strength: number;
+  tendency: '和谐' | '紧张' | '中性';
+  tags: string[];
+}
+
+export interface AstrolabeHouseOverlay {
+  owner: string;
+  visitor: string;
+  point: string;
+  house: number;
+  longitude: number;
+  houseStart: number;
+  houseEnd: number;
+}
+
+export interface AstrolabeSynastryData {
+  people: [string, string];
+  aspects: AstrolabeSynastryAspect[];
+  houseOverlays: AstrolabeHouseOverlay[];
+  summary: {
+    totalAspects: number;
+    harmonious: number;
+    tense: number;
+    neutral: number;
+    strongAspects: number;
+    closestAspects: AstrolabeSynastryAspect[];
+  };
+  evidence: import('../prompt-evidence/types').PromptEvidenceBundle;
+  promptText: string;
+  methodology: {
+    aspectAngles: Record<AstrolabeSynastryAspectType, number>;
+    defaultOrbs: Record<AstrolabeSynastryAspectType, number>;
+    notes: string[];
+  };
+  timestamp: number;
+}
+
 export type TaiyiScope = 'year' | 'month' | 'day' | 'hour' | 'minute';
 
 export interface TaiyiModelInfo {

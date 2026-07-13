@@ -32,6 +32,7 @@ export * as profile from './profile/index';
 export * as capabilities from './capabilities/index';
 export * as result from './shared/result';
 export * as random from './shared/random';
+export * as promptEvidence from './prompt-evidence/index';
 
 // 新增术数系统
 export * as bazhai from './ba_zhai/index';

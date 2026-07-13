@@ -55,6 +55,14 @@
       "import": "./dist/divination/astrolabe-scope.js",
       "types": "./dist/divination/astrolabe-scope.d.ts"
     },
+    "./divination/astrolabe-synastry": {
+      "import": "./dist/divination/astrolabe-synastry.js",
+      "types": "./dist/divination/astrolabe-synastry.d.ts"
+    },
+    "./prompt-evidence": {
+      "import": "./dist/prompt-evidence/index.js",
+      "types": "./dist/prompt-evidence/index.d.ts"
+    },
     "./divination/config": {
       "import": "./dist/divination/config.js",
       "types": "./dist/divination/config.d.ts"
