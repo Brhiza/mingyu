@@ -2,8 +2,12 @@ import { tarotCards, tarotSpreads } from './tarot-data';
 import type { RandomOptions } from '../shared/random';
 import { createRandomContext, randomFloat, randomInt, type RandomSource } from '../shared/random';
 import { attachResultMeta } from '../shared/result';
+import type { TarotData, TarotSpreadType } from '../types/divination';
+import { analyzeTarotEvidence } from './tarot-evidence';
 
 export { tarotSpreads } from './tarot-data';
+export { analyzeTarotEvidence } from './tarot-evidence';
+export type { TarotEvidenceAnalysis } from './tarot-evidence';
 
 function shuffleCards(rng: RandomSource) {
   const shuffled = [...tarotCards];
@@ -222,4 +226,47 @@ export function getCardEvidence(cardName: string) {
     element: getTarotElement(cardName),
     archetype: getTarotArchetype(cardName),
   };
+}
+
+export function drawTarotSpread(
+  spreadType: TarotSpreadType = 'single',
+  options?: RandomOptions,
+): TarotData {
+  if (spreadType === 'single') {
+    const draw = drawSingleCard(options);
+    const data: TarotData = {
+      spreadType,
+      spreadName: '单牌指引',
+      cards: [
+        {
+          id: draw.card.number,
+          name: draw.card.name,
+          position: draw.position,
+          reversed: draw.isReversed,
+          ...getCardEvidence(draw.card.name),
+        },
+      ],
+      timestamp: draw.timestamp,
+      meta: draw.meta,
+    };
+    data.evidenceAnalysis = analyzeTarotEvidence(data);
+    return data;
+  }
+
+  const draw = drawSpreadCards(spreadType, options);
+  const data: TarotData = {
+    spreadType,
+    spreadName: draw.spreadName,
+    cards: draw.cards.map((item) => ({
+      id: item.card.number,
+      name: item.card.name,
+      position: item.position,
+      reversed: item.isReversed,
+      ...getCardEvidence(item.card.name),
+    })),
+    timestamp: draw.timestamp,
+    meta: draw.meta,
+  };
+  data.evidenceAnalysis = analyzeTarotEvidence(data);
+  return data;
 }

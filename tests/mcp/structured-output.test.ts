@@ -696,6 +696,47 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
   });
 });
 
+test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', async () => {
+  await withMcpClient(async (client) => {
+    const tarot = await client.callTool({
+      name: 'divine_tarot',
+      arguments: { spreadType: 'three', seed: 'MCP塔罗证据样例' },
+    });
+    const tarotData = tarot.structuredContent?.result as Record<string, any>;
+    assert.equal(tarot.isError, undefined);
+    assert.equal(tarotData.evidenceAnalysis.cards.length, 3);
+
+    const tarotPromptResult = await client.callTool({
+      name: 'tarot_prompt',
+      arguments: { spreadType: 'three', seed: 'MCP塔罗证据样例', question: '如何推进？' },
+    });
+    const tarotPrompt = String(tarotPromptResult.structuredContent?.prompt);
+    assert.match(tarotPrompt, /【塔罗牌位与牌面结构化证据】/);
+    assertPromptIsPortableTaskText(tarotPrompt);
+
+    const lenormand = await client.callTool({
+      name: 'divine_lenormand',
+      arguments: { spreadType: 'nine', seed: 'MCP雷诺曼证据样例' },
+    });
+    const lenormandData = lenormand.structuredContent?.result as Record<string, any>;
+    assert.equal(lenormand.isError, undefined);
+    assert.ok(Array.isArray(lenormandData.evidenceAnalysis.fixedCombinations));
+    assert.ok(Array.isArray(lenormandData.evidenceAnalysis.adjacentReadings));
+
+    const lenormandPromptResult = await client.callTool({
+      name: 'lenormand_prompt',
+      arguments: { spreadType: 'nine', seed: 'MCP雷诺曼证据样例', question: '有哪些线索？' },
+    });
+    const lenormandPrompt = String(lenormandPromptResult.structuredContent?.prompt);
+    assert.match(lenormandPrompt, /【雷诺曼牌序组合与布局结构化证据】/);
+    assert.doesNotMatch(
+      `${tarotPrompt}\n${lenormandPrompt}`,
+      /成功率为\d|成功率提升至|吉凶总分[：=]\d/,
+    );
+    assertPromptIsPortableTaskText(lenormandPrompt);
+  });
+});
+
 test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
   await withMcpClient(async (client) => {
     const baziPerson = {

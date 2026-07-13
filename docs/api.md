@@ -68,14 +68,14 @@
 | `POST /divination/qimen/prompt`              | 奇门遁甲排盘并生成 AI 解读提示词                                               |
 | `POST /divination/liuren`                    | 大六壬排盘                                                                     |
 | `POST /divination/liuren/prompt`             | 大六壬排盘并生成 AI 解读提示词                                                 |
-| `POST /divination/tarot`                     | 塔罗抽牌                                                                       |
-| `POST /divination/tarot/prompt`              | 塔罗抽牌并生成 AI 解读提示词                                                   |
+| `POST /divination/tarot`                     | 塔罗抽牌，返回牌位、正逆位、牌序与结构化证据                                   |
+| `POST /divination/tarot/prompt`              | 塔罗抽牌并生成含解释边界的 AI 解读提示词                                       |
 | `POST /divination/ssgw`                      | 三山国王灵签求签：模拟传统摇签、掷筊流程，圣杯确认后方出签；三连阴杯则拒绝起卦 |
 | `POST /divination/ssgw/prompt`               | 三山国王灵签求签并生成 AI 解读提示词                                           |
 | `POST /divination/almanac`                   | 黄历择日                                                                       |
 | `POST /divination/almanac/prompt`            | 黄历择日并生成 AI 解读提示词                                                   |
-| `POST /divination/lenormand`                 | 雷诺曼抽牌                                                                     |
-| `POST /divination/lenormand/prompt`          | 雷诺曼抽牌并生成 AI 解读提示词                                                 |
+| `POST /divination/lenormand`                 | 雷诺曼抽牌，分层返回固定组合、相邻合读与布局证据                               |
+| `POST /divination/lenormand/prompt`          | 雷诺曼抽牌并生成含证据缺口和解释边界的 AI 提示词                               |
 | `POST /divination/astrolabe`                 | 星盘生成                                                                       |
 | `POST /divination/astrolabe/prompt`          | 星盘生成并生成 AI 解读提示词                                                   |
 | `POST /divination/astrolabe/synastry`        | 西占双盘相位、落宫与证据计算                                                   |

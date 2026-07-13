@@ -685,6 +685,7 @@ export interface TarotData {
     archetype?: string;
   }[];
   timestamp: number;
+  evidenceAnalysis?: import('../divination/tarot-evidence').TarotEvidenceAnalysis;
 }
 
 export type TarotSpreadType =
@@ -845,6 +846,7 @@ export interface LenormandData {
   }>;
   layoutEvidence?: string[];
   timestamp: number;
+  evidenceAnalysis?: import('../divination/lenormand-evidence').LenormandEvidenceAnalysis;
 }
 
 export interface AstrolabeBirthInput {

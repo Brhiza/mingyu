@@ -3626,6 +3626,21 @@ test('太乙神数占卜入口应支持月日时分四种按时间起局', async
   }
 });
 
+test('塔罗与雷诺曼提示词应包含可回退生成的结构化证据', async () => {
+  const tarotSession = await generateDivinationSession(
+    buildDraft({ method: 'tarot', tarotSpread: 'three', question: '接下来应如何推进？' }),
+  );
+  assert.match(tarotSession.prompt, /【塔罗牌位与牌面结构化证据】/);
+  assert.doesNotMatch(tarotSession.prompt, /成功率为\d|吉凶总分[：=]\d|能量分数[：=]\d/);
+
+  const lenormandSession = await generateDivinationSession(
+    buildDraft({ method: 'lenormand', lenormandSpread: 'nine', question: '事情有哪些线索？' }),
+  );
+  assert.match(lenormandSession.prompt, /【雷诺曼牌序组合与布局结构化证据】/);
+  assert.match(lenormandSession.prompt, /固定组合仅指项目词典中明确登记的牌对/);
+  assert.doesNotMatch(lenormandSession.prompt, /成功率为\d|成功率提升至|吉凶总分[：=]\d/);
+});
+
 test('六爻提示词应同时写出日辰和月建参与的三合局', async () => {
   const session = await generateDivinationSession(
     buildDraft({

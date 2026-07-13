@@ -2,6 +2,10 @@ import type { LenormandData, LenormandSpreadType } from '../../types/divination'
 import type { RandomOptions, RandomSource } from '../../shared/random';
 import { createRandomContext, randomInt } from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
+import { analyzeLenormandEvidence } from '../lenormand-evidence';
+
+export { analyzeLenormandEvidence } from '../lenormand-evidence';
+export type { LenormandEvidenceAnalysis } from '../lenormand-evidence';
 
 const LENORMAND_CARDS = [
   { id: 1, name: '骑士', keywords: ['消息', '到来', '进展'], meaning: '消息抵达，事情开始移动。' },
@@ -164,7 +168,7 @@ const LENORMAND_CARDS = [
     keywords: ['成熟', '平和', '伦理'],
     meaning: '需要成熟处理，重视体面与长期安稳。',
   },
-  { id: 31, name: '太阳', keywords: ['成功', '清晰', '能量'], meaning: '局势转明，成功率提升。' },
+  { id: 31, name: '太阳', keywords: ['成功', '清晰', '能量'], meaning: '局势转明，推进条件增强。' },
   {
     id: 32,
     name: '月亮',
@@ -356,20 +360,19 @@ export function drawLenormandSpread(
   }
 
   const timestamp = Date.now();
-  return attachResultMeta(
-    {
-      spreadType,
-      spreadName: spread.name,
-      cards,
-      combinations,
-      layoutEvidence,
-      timestamp,
-    },
-    {
-      algorithm: 'lenormand.spread',
-      input: { spreadType },
-      calculatedAt: timestamp,
-      random: context.getTrace(),
-    },
-  );
+  const result: LenormandData = {
+    spreadType,
+    spreadName: spread.name,
+    cards,
+    combinations,
+    layoutEvidence,
+    timestamp,
+  };
+  result.evidenceAnalysis = analyzeLenormandEvidence(result);
+  return attachResultMeta(result, {
+    algorithm: 'lenormand.spread',
+    input: { spreadType },
+    calculatedAt: timestamp,
+    random: context.getTrace(),
+  });
 }

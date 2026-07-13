@@ -1670,6 +1670,25 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
   assert.equal(body.data.cards.length, 1);
   assert.equal(typeof body.data.cards[0].name, 'string');
   assert.equal(body.data.meta.algorithm, 'tarot.single');
+  assert.equal(body.data.evidenceAnalysis.cards.length, 1);
+  assert.equal(body.data.evidenceAnalysis.evidence.title, '塔罗牌位与牌面结构化证据');
+  assert.doesNotMatch(JSON.stringify(body.data), /成功率为\d|吉凶总分[：=]\d|能量分数[：=]\d/);
+});
+
+test('公开 API 雷诺曼接口应分层返回组合与布局证据', async () => {
+  const { response, body } = await callApi('divination/lenormand', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ spreadType: 'nine', seed: '雷诺曼结构化证据样例' }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.ok(Array.isArray(body.data.evidenceAnalysis.fixedCombinations));
+  assert.ok(Array.isArray(body.data.evidenceAnalysis.adjacentReadings));
+  assert.ok(body.data.evidenceAnalysis.layoutFacts.length > 0);
+  assert.equal(body.data.evidenceAnalysis.evidence.title, '雷诺曼牌序组合与布局结构化证据');
+  assert.doesNotMatch(JSON.stringify(body.data), /成功率提升至|吉凶总分[：=]\d/);
 });
 
 test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', async () => {

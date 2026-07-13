@@ -388,7 +388,7 @@ const systems: SystemCapability[] = [
       },
       questionInput,
     ],
-    outputs: ['抽牌顺序', '牌位', '正逆位', '关键词'],
+    outputs: ['抽牌顺序', '牌位', '正逆位', '关键词', '结构化证据'],
     supports: randomSupports,
   },
   {
@@ -407,7 +407,7 @@ const systems: SystemCapability[] = [
       },
       questionInput,
     ],
-    outputs: ['抽牌顺序', '牌位', '相邻组合', '布局证据'],
+    outputs: ['抽牌顺序', '牌位', '固定组合与相邻合读分层', '布局证据', '结构化证据'],
     supports: randomSupports,
   },
   {

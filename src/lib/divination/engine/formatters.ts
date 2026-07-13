@@ -25,6 +25,8 @@ import { analyzeLiuyaoEvidence } from '@core/divination/algorithms/liuyao';
 import { analyzeMeihuaEvidence } from '@core/divination/algorithms/meihua';
 import { analyzeLiurenEvidence } from '@core/divination/algorithms/liuren';
 import { analyzeXiaoliurenEvidence } from '@core/divination/algorithms/xiaoliuren';
+import { analyzeTarotEvidence } from '@core/divination/tarot';
+import { analyzeLenormandEvidence } from '@core/divination/algorithms/lenormand';
 
 function resolveDivinationTimestamp(data?: DivinationData): number | null {
   if (
@@ -879,6 +881,7 @@ function formatLiurenInfo(data: LiurenData) {
 }
 
 function formatTarotInfo(data: TarotData) {
+  const evidenceAnalysis = data.evidenceAnalysis ?? analyzeTarotEvidence(data);
   const cardLines = data.cards.map(
     (card) =>
       `- ${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}；关键词：${card.keywords.join('、') || '未提供'}${card.element ? `；元素主题：${card.element}` : ''}${card.archetype ? `；牌阶主题：${card.archetype}` : ''}${card.reversed && card.reversedMeaning ? `；${card.reversedMeaning}` : !card.reversed && card.uprightMeaning ? `；${card.uprightMeaning}` : ''}`,
@@ -892,6 +895,7 @@ function formatTarotInfo(data: TarotData) {
     `判断主轴：按“${data.cards.map((card) => card.position).join(' → ')}”的牌位顺序组织现状、变化与建议；每张牌必须同时结合牌位、关键词和正逆位取证。`,
     '证据边界：牌位与牌面为主证，关键词用于限定可解释范围；正逆位必须结合牌位和整组牌势判断，不套用孤立的固定断语。',
     '现实边界：塔罗只能给当下倾向、心理动力、互动节奏和行动建议；未给期限时不把牌义硬换成绝对日期，也不替代医疗、法律或财务事实。',
+    evidenceAnalysis.promptText,
     '牌位明细：',
     ...cardLines,
   ]
@@ -1088,6 +1092,7 @@ function formatAlmanacInfo(data: AlmanacData) {
 }
 
 function formatLenormandInfo(data: LenormandData) {
+  const evidenceAnalysis = data.evidenceAnalysis ?? analyzeLenormandEvidence(data);
   const cardLines = data.cards.map(
     (card) =>
       `- ${card.position}：${card.name}；关键词：${card.keywords.join('、') || '未提供'}${card.meaning ? `；牌义：${card.meaning}` : ''}`,
@@ -1114,6 +1119,7 @@ function formatLenormandInfo(data: LenormandData) {
       ? ['牌阵结构证据：', ...data.layoutEvidence.map((item) => `- ${item}`)]
       : []),
     '现实边界：雷诺曼只描述当前事件线索、关系和行动条件；不得把单牌或单一组合写成必然结果，也不得替代可核验的现实资料。',
+    evidenceAnalysis.promptText,
     '牌位明细：',
     ...cardLines,
   ]

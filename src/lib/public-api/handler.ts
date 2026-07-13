@@ -65,7 +65,7 @@ import type {
   SupplementaryInfo,
   XiaoliurenDivinationMethod,
 } from '../../types/divination';
-import { drawSingleCard, drawSpreadCards, getCardKeywords } from 'mingyu-core/divination/tarot';
+import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import type { DivinationMethodId } from '@core/divination/config';
 import type { ScopeType } from '../../types/analysis';
 import {
@@ -2162,41 +2162,7 @@ function calculateTarot(input: JsonRecord) {
     ],
     'single',
   );
-  if (spreadType === 'single') {
-    const drawResult = drawSingleCard(randomOptions);
-    const output = {
-      spreadType: 'single',
-      spreadName: '单牌指引',
-      cards: [
-        {
-          id: drawResult.card.number,
-          name: drawResult.card.name,
-          position: drawResult.position,
-          reversed: drawResult.isReversed,
-          keywords: getCardKeywords(drawResult.card.name).split(','),
-        },
-      ],
-      timestamp: drawResult.timestamp,
-      meta: drawResult.meta,
-    };
-    return output;
-  }
-
-  const result = drawSpreadCards(spreadType, randomOptions);
-  const output = {
-    spreadType: result.spreadType,
-    spreadName: result.spreadName,
-    cards: result.cards.map((item) => ({
-      id: item.card.number,
-      name: item.card.name,
-      position: item.position,
-      reversed: item.isReversed,
-      keywords: getCardKeywords(item.card.name).split(','),
-    })),
-    timestamp: result.timestamp,
-    meta: result.meta,
-  };
-  return output;
+  return drawTarotSpread(spreadType, randomOptions);
 }
 
 function calculateSsgw(input: JsonRecord) {

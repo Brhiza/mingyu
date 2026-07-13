@@ -812,41 +812,7 @@ export async function generateDivinationSession(
     }
     case 'tarot': {
       const module = await import('mingyu-core/divination/tarot');
-      if (draft.tarotSpread === 'single') {
-        const result = module.drawSingleCard();
-        const evidence = module.getCardEvidence(result.card.name);
-        data = {
-          spreadType: 'single',
-          spreadName: '单牌指引',
-          cards: [
-            {
-              id: result.card.number,
-              name: result.card.name,
-              position: result.position,
-              reversed: result.isReversed,
-              ...evidence,
-            },
-          ],
-          timestamp: result.timestamp,
-        };
-      } else {
-        const result = module.drawSpreadCards(draft.tarotSpread);
-        data = {
-          spreadType: draft.tarotSpread,
-          spreadName: module.tarotSpreads[draft.tarotSpread].name,
-          cards: result.cards.map((item) => {
-            const evidence = module.getCardEvidence(item.card.name);
-            return {
-              id: item.card.number,
-              name: item.card.name,
-              position: item.position,
-              reversed: item.isReversed,
-              ...evidence,
-            };
-          }),
-          timestamp: result.timestamp,
-        };
-      }
+      data = module.drawTarotSpread(draft.tarotSpread);
       break;
     }
     case 'ssgw': {
