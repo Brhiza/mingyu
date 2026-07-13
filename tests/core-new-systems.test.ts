@@ -330,6 +330,11 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.ok(r.stars.every((star) => star.sevenStar.length === 1));
   assert.ok(r.aspects.length > 0);
   assert.ok(r.aspects.every((aspect) => aspect.orb >= 0 && aspect.strength >= 0));
+  assert.ok(
+    r.aspects
+      .filter((aspect) => aspect.star1.includes('紫炁') || aspect.star2.includes('紫炁'))
+      .every((aspect) => aspect.precisionClass === '混合模型'),
+  );
   assert.ok(Math.abs(core.qizheng.getPrecessionOffset(2024) - 0.3353) < 0.001);
   assert.equal(r.shensha.find((item) => item.name === '孤辰')?.value, '巳');
   assert.equal(r.shensha.find((item) => item.name === '寡宿')?.value, '丑');
@@ -341,6 +346,44 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.ok(r.prompt.includes('七政四余吊照'));
   assert.ok(r.prompt.includes('坐标与精度边界'));
   assert.ok(r.prompt.includes('不得替换成月孛对冲'));
+  assert.equal(r.positionSources.length, 4);
+  assert.equal(r.stars.find((star) => star.name === '太阳')?.sourceId, 'celestine-planets');
+  assert.equal(r.stars.find((star) => star.name.includes('罗睺'))?.sourceId, 'celestine-true-node');
+  assert.equal(
+    r.stars.find((star) => star.name.includes('月孛'))?.sourceId,
+    'celestine-true-lilith',
+  );
+  assert.equal(r.stars.find((star) => star.name.includes('紫炁'))?.precisionClass, '传统均速模型');
+  assert.equal(r.calculationContext.locationSource, '默认北京坐标');
+  assert.equal(r.calculationContext.timezoneSource, '默认东八区');
+  assert.match(r.evidenceAnalysis.promptText, /【七政四余计算来源与证据分层】/);
+  assert.match(r.evidenceAnalysis.promptText, /现代天文计算/);
+  assert.match(r.evidenceAnalysis.promptText, /传统均速模型/);
+  assert.doesNotMatch(r.prompt, /强度\d+%|成功率[：=]?\d|吉凶总分[：=]?\d/);
+});
+
+test('qizheng: 用户地点与默认地点必须在计算上下文中明确区分', () => {
+  const supplied = core.qizheng.generateQizheng({
+    year: 2024,
+    month: 6,
+    day: 15,
+    hour: 12,
+    latitude: 31.23,
+    longitude: 121.47,
+    timezone: 8,
+  });
+  assert.equal(supplied.calculationContext.locationSource, '用户提供');
+  assert.equal(supplied.calculationContext.timezoneSource, '用户提供');
+
+  const partial = core.qizheng.generateQizheng({
+    year: 2024,
+    month: 6,
+    day: 15,
+    hour: 12,
+    latitude: 31.23,
+  });
+  assert.equal(partial.calculationContext.locationSource, '部分坐标使用默认值');
+  assert.match(partial.evidenceAnalysis.limitations.join('\n'), /部分坐标使用默认值/);
 });
 
 test('qizheng: 核心入口应拒绝不存在日期、越界时间坐标和非有限数字', () => {

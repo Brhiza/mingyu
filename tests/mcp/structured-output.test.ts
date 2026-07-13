@@ -251,6 +251,20 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
     },
     /稳定性为宅卦不稳定[\s\S]*【问题】\n办公桌朝向怎么选？/,
   ],
+  [
+    'qizheng_prompt',
+    {
+      year: 2024,
+      month: 6,
+      day: 15,
+      hour: 12,
+      latitude: 31.23,
+      longitude: 121.47,
+      timezone: 8,
+      question: '请分析本命结构。',
+    },
+    /【七政四余计算来源与证据分层】[\s\S]*混合模型[\s\S]*【问题】\n请分析本命结构。/,
+  ],
 ];
 
 const promptToolNames = [

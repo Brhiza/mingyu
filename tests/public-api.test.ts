@@ -2520,11 +2520,45 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
   assert.equal(body.data.ziqiModel.periodDays, 10227.1792);
   assert.ok(Math.abs(body.data.ziqi.tropicalLongitude - 237.038993) < 1e-9);
   assert.equal(body.data.stars.filter((star: { kind: string }) => star.kind === '四余').length, 4);
+  assert.equal(body.data.positionSources.length, 4);
+  assert.equal(body.data.calculationContext.locationSource, '默认北京坐标');
+  assert.equal(body.data.calculationContext.timezoneSource, '用户提供');
+  assert.equal(
+    body.data.stars.find((star: { name: string }) => star.name.includes('紫炁')).precisionClass,
+    '传统均速模型',
+  );
+  assert.match(body.data.evidenceAnalysis.promptText, /【七政四余计算来源与证据分层】/);
+  assert.doesNotMatch(body.data.prompt, /强度\d+%/);
   assert.equal(
     body.data.ziqiModel.sources.filter((source: { usage: string }) => source.usage === '未采用')
       .length,
     2,
   );
+});
+
+test('公开 API 七政四余提示词应展示逐星来源、混合模型和输入边界', async () => {
+  const { response, body } = await callApi('metaphysics/qizheng/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      year: 2024,
+      month: 6,
+      day: 15,
+      hour: 12,
+      question: '请分析本命结构。',
+      responseMode: 'full',
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.match(body.data.prompt, /【七政四余计算来源与证据分层】/);
+  assert.match(body.data.prompt, /地点来源默认北京坐标/);
+  assert.match(body.data.prompt, /现代天文计算/);
+  assert.match(body.data.prompt, /传统均速模型/);
+  assert.match(body.data.prompt, /混合模型/);
+  assert.doesNotMatch(body.data.prompt, /强度\d+%/);
+  assert.equal(body.data.result.calculationContext.locationSource, '默认北京坐标');
 });
 
 test('公开 API 太乙应返回年计七十二局立成结果', async () => {
