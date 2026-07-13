@@ -757,6 +757,10 @@ function formatQimenInfo(data: QimenData) {
     data.seasonality?.jieQiPhase.solarTermEvidence
       ? data.seasonality.jieQiPhase.solarTermEvidence.promptText
       : '',
+    data.seasonality?.moonPhaseEvidence ? data.seasonality.moonPhaseEvidence.promptText : '',
+    data.seasonality && !data.seasonality.lunarPhaseConsistency
+      ? `月相口径提示：历法八相为${data.seasonality.lunarPhaseDetail}，日月黄经八分法为${data.seasonality.moonPhaseEvidence.eightPhaseName}；临界时刻应优先查看相位角与前后朔弦望时刻，不强行合并名称。`
+      : '',
     ganzhiInteractionSummary ? `四柱互动：${ganzhiInteractionSummary}` : '',
     `起局抓手：${focusParts.join('；')}`,
     `主轴证据：值符${data.zhiFu}${zhiFuPalace ? `落${zhiFuPalace.name}` : '落宫未定位'}；值使${data.zhiShi}${zhiShiPalace ? `落${zhiShiPalace.name}` : '落宫未定位'}；时干${hourStem}${hourStemPalaces.length ? `见于${hourStemPalaces.map((item) => item.name).join('、')}` : '落宫未定位'}`,

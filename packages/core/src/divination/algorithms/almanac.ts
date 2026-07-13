@@ -2,6 +2,7 @@ import { SolarDay, SolarTime, type LunarDay } from 'tyme4ts';
 import { baziCalculator } from '../../bazi/baziCalculator';
 import { getBirthDateValidationMessage } from '../../calendar/date-validation';
 import { SHICHEN_PERIODS } from '../../calendar/dateUtils';
+import { calculateMoonPhaseEvidence } from '../../calendar/moon-phase-evidence';
 import { EARTHLY_BRANCHES } from '../../ganzhi/data';
 import {
   getBranchWuxing,
@@ -812,6 +813,11 @@ function buildDayCandidate(
   topic: AlmanacTopic,
   participants: AlmanacParticipantProfile[],
 ): AlmanacDayCandidate {
+  // 黄历当前没有地点和时区入参，因此用中国标准时间正午作为整日月相的统一参照点。
+  // 这项天文事实不参与传统宜忌评分，避免时区假设被包装成择日结论。
+  const moonPhaseEvidence = calculateMoonPhaseEvidence(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 4),
+  );
   const solarDay = SolarDay.fromYmd(date.getFullYear(), date.getMonth() + 1, date.getDate());
   const lunarDay = solarDay.getLunarDay();
   const noonEightChar = getNoonEightChar(date);
@@ -843,6 +849,7 @@ function buildDayCandidate(
 
   return {
     date: formatDate(date),
+    moonPhaseEvidence,
     weekday: WEEKDAYS[date.getDay()],
     lunarDate: lunarDay.toString(),
     ganzhi: {

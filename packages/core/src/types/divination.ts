@@ -1,6 +1,7 @@
 import type { RandomOptions } from '../shared/random';
 import type { CoreResultMeta } from '../shared/result';
 import type { SolarTermEvidence } from '../calendar/solar-term-evidence';
+import type { MoonPhaseEvidence } from '../calendar/moon-phase-evidence';
 
 export type { RandomOptions, RandomSource } from '../shared/random';
 export type { CoreResultMeta } from '../shared/result';
@@ -435,6 +436,8 @@ export interface QimenSeasonalityInfo {
   seasonRelationDescription: string;
   lunarPhase: '新月' | '上弦' | '满月' | '下弦';
   lunarPhaseDetail: string;
+  moonPhaseEvidence: MoonPhaseEvidence;
+  lunarPhaseConsistency: boolean;
   dayOfficer: string;
   dayOfficerFortuneLabel: '吉' | '凶' | '平';
   dayOfficerAdvice: string;
@@ -749,6 +752,8 @@ export interface AlmanacAnnualDirectionGod {
 
 export interface AlmanacDayCandidate {
   date: string;
+  /** 以该民用日期中国标准时间12:00为统一参照的月相事实，不参与传统宜忌评分。 */
+  moonPhaseEvidence?: MoonPhaseEvidence;
   weekday: string;
   lunarDate: string;
   ganzhi: {

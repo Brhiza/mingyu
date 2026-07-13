@@ -12,6 +12,9 @@ test('黄历择日：tyme4ts 返回九星短名时也应补出九星详情', () 
 
   assert.ok(result.days.length > 0);
   for (const day of result.days) {
+    assert.ok(day.moonPhaseEvidence);
+    assert.ok(day.moonPhaseEvidence.phaseAngleDegrees >= 0);
+    assert.ok(day.moonPhaseEvidence.phaseAngleDegrees < 360);
     assert.ok(day.nineStar, `${day.date} 应有九星名称`);
     assert.ok(day.nineStarDetail, `${day.date} 的九星 ${day.nineStar} 应有详情`);
     assert.match(day.nineStarDetail.meaning, new RegExp(`^${day.nineStar}`));

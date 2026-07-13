@@ -1,4 +1,5 @@
 import type { AlmanacData, AlmanacDayCandidate, AlmanacHourCandidate } from '../types/divination';
+import { calculateMoonPhaseEvidence } from '../calendar/moon-phase-evidence';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 
@@ -16,6 +17,7 @@ export interface AlmanacHourEvidence {
 export interface AlmanacCandidateEvidence {
   date: string;
   status: AlmanacCandidateStatus;
+  astronomicalFacts: string[];
   topicMatches: string[];
   traditionalSupport: string[];
   traditionalConstraints: string[];
@@ -68,6 +70,8 @@ function buildHourEvidence(hour: AlmanacHourCandidate): AlmanacHourEvidence {
 }
 
 function buildCandidateEvidence(day: AlmanacDayCandidate): AlmanacCandidateEvidence {
+  const moonPhaseEvidence =
+    day.moonPhaseEvidence ?? calculateMoonPhaseEvidence(Date.parse(`${day.date}T04:00:00Z`));
   const participantConflicts = unique(day.participantNotes.filter(isConflictNote));
   const participantSupport = unique(day.participantNotes.filter((item) => !isConflictNote(item)));
   const traditionalConstraints = unique(day.cautions);
@@ -93,6 +97,10 @@ function buildCandidateEvidence(day: AlmanacDayCandidate): AlmanacCandidateEvide
   return {
     date: day.date,
     status,
+    astronomicalFacts: [
+      `中国标准时间12:00参照月相为${moonPhaseEvidence.eightPhaseName}（${moonPhaseEvidence.waxing ? '盈' : '亏'}），日月黄经差${moonPhaseEvidence.phaseAngleDegrees.toFixed(2)}°，照明约${moonPhaseEvidence.illuminationPercent.toFixed(1)}%`,
+      `前一四正相位${moonPhaseEvidence.previousPrincipalPhase.name} ${moonPhaseEvidence.previousPrincipalPhase.utcDateTime}，下一四正相位${moonPhaseEvidence.nextPrincipalPhase.name} ${moonPhaseEvidence.nextPrincipalPhase.utcDateTime}`,
+    ],
     topicMatches,
     traditionalSupport,
     traditionalConstraints,
@@ -121,7 +129,7 @@ function formatCandidate(item: AlmanacCandidateEvidence) {
   const hours = item.usableHours.length
     ? item.usableHours.map((hour) => `${hour.name}${hour.range}`).join('、')
     : '未筛出无明显冲突时辰';
-  return `${item.status}；支持${support.join('、') || '未见独立增强证据'}；限制${constraints.join('、') || '未见明确传统禁忌或参与人冲突'}；时段${hours}`;
+  return `${item.status}；支持${support.join('、') || '未见独立增强证据'}；限制${constraints.join('、') || '未见明确传统禁忌或参与人冲突'}；天文背景${item.astronomicalFacts.join('；')}；时段${hours}`;
 }
 
 export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalysis {
@@ -145,6 +153,7 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
     '场地、证件、人员到场、交通、预算、天气、办理窗口与安全要求优先于传统排序',
     '现实条件未提供时只列待核验项，不假设其已经满足',
     '传统规则互相冲突时并列展示支持与限制，不合成为成功率或吉凶总分',
+    '月相只作为中国标准时间正午的天文背景，不参与候选排序；其他时区或临近朔弦望时刻应按实际地点时间另算',
   ];
   const visibleCandidates = candidates.slice(0, 8);
   const items: PromptEvidenceItem[] = [
@@ -157,7 +166,8 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
             : '辅证',
       title: `${item.date}${item.status}`,
       detail: formatCandidate(item),
-      source: '事项宜忌、建除、神煞、参与人刑冲破害与时辰条件逐项核验',
+      source:
+        '事项宜忌、建除、神煞、参与人刑冲破害与时辰条件逐项核验；月相取中国标准时间正午的celestine日月黄经',
       weight: 100 - index,
       tags: [item.status, data.topicLabel],
     })),
@@ -190,6 +200,7 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
     methodology: [
       '先按日期范围和事项限定建立候选集。',
       '再逐日核验事项宜忌、建除神煞、参与人刑冲破害和可用时辰。',
+      '同时附加中国标准时间正午的日月黄经月相事实，但不据此自动增减传统候选等级。',
       '明确忌项或直接冲突进入慎用组，其他限制进入条件组，不以总分覆盖反证。',
       '最后叠加现实刚性约束；不输出吉凶总分、成功率或必然结论。',
     ],

@@ -24,6 +24,10 @@ import {
   buildAstronomicalTimeEvidence,
   type AstronomicalTimeEvidence,
 } from '../calendar/astronomical-time';
+import {
+  calculateMoonPhaseEvidence,
+  type MoonPhaseEvidence,
+} from '../calendar/moon-phase-evidence';
 import { getGanZhiFromDate } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
@@ -136,6 +140,7 @@ export interface QizhengCalculationContext {
   locationSource: '用户提供' | '默认北京坐标' | '部分坐标使用默认值';
   timezoneSource: 'IANA历史时区' | '用户提供' | '默认东八区';
   astronomicalTime: AstronomicalTimeEvidence;
+  moonPhase: MoonPhaseEvidence;
   coordinatePipeline: string[];
 }
 
@@ -594,6 +599,7 @@ function buildCalculationContext(
 ): QizhengCalculationContext {
   const hasLatitude = input.latitude !== undefined;
   const hasLongitude = input.longitude !== undefined;
+  const moonPhase = calculateMoonPhaseEvidence(astronomicalTime.unixMilliseconds);
   return {
     localDateTime: `${input.year}-${String(input.month).padStart(2, '0')}-${String(input.day).padStart(2, '0')}T${String(input.hour).padStart(2, '0')}:${String(input.minute ?? 0).padStart(2, '0')}:00`,
     utcDateTime: new Date(astronomicalTime.unixMilliseconds).toISOString(),
@@ -612,6 +618,7 @@ function buildCalculationContext(
         ? '默认东八区'
         : '用户提供',
     astronomicalTime,
+    moonPhase,
     coordinatePipeline: [
       '民用时间结合时区换算UTC时刻',
       '统一记录JD(UTC)、UT1≈UTC假设、ΔT估算与近似JD(TT)',
@@ -651,6 +658,7 @@ function buildQizhengEvidence(
     '七政、罗计与月孛来自现代天文计算；紫炁来自传统均速模型，两者不得按相同精度比较',
     '恒星黄经采用项目岁差近似，宿度再按古距度比例换算；显示小数只是可复算结果，不代表观测精度',
     ...context.astronomicalTime.limitations,
+    ...context.moonPhase.limitations,
     '相位仅表示进入当前容许度，不输出成功率、吉凶百分比或综合总分',
     '神煞只作辅证，不能覆盖星体位置、宿度、落宫和吊照结构',
   ];
@@ -693,6 +701,7 @@ function buildQizhengEvidence(
       '逐星保留计算来源，区分现代天文位置与传统紫炁均速模型。',
       '再换算项目恒星黄经、古距度宿度、十二宫和庙旺。',
       '吊照只按实际夹角和容许度分级，不换算为吉凶百分比。',
+      '月相只保留日月黄经差、照明近似和前后朔弦望时刻，不把月相直接解释为吉凶。',
       '最终把输入缺省、模型差异和坐标近似作为强制限制证据。',
     ],
   };
@@ -839,6 +848,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     `紫炁推算口径：${ZIQI_MODEL_INFO.name}；周期${ZIQI_MODEL_INFO.periodDays}日，日行${ZIQI_MODEL_INFO.dailyMotionDegrees.toFixed(12)}°；${ZIQI_MODEL_INFO.precision}。`,
     `计算上下文：当地民用时间${calculationContext.localDateTime}，对应UTC ${calculationContext.utcDateTime}；地点来源${calculationContext.locationSource === '用户提供' ? '输入明确' : calculationContext.locationSource}，时区来源${calculationContext.timezoneSource === '用户提供' ? '输入明确' : calculationContext.timezoneSource}。`,
     calculationContext.astronomicalTime.promptText,
+    calculationContext.moonPhase.promptText,
     `位置来源：${QIZHENG_POSITION_SOURCES.map((source) => `${source.objects.join('、')}取自${source.provider}（${source.precisionClass}）`).join('；')}。`,
     `紫炁位置：顺行，回归黄经${ziqi.tropicalLongitude.toFixed(3)}°，项目恒星黄经${ziqi.siderealLongitude.toFixed(3)}°。`,
     ...stars.map(

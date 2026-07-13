@@ -358,7 +358,10 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.equal(r.calculationContext.timezoneSource, '默认东八区');
   assert.match(r.calculationContext.astronomicalTime.utcDateTime, /Z$/);
   assert.ok(r.calculationContext.astronomicalTime.julianDayUtc > 2400000);
+  assert.ok(r.calculationContext.moonPhase.phaseAngleDegrees >= 0);
+  assert.ok(r.calculationContext.moonPhase.phaseAngleDegrees < 360);
   assert.match(r.prompt, /天文时间尺度：/);
+  assert.match(r.prompt, /月相证据：/);
   assert.match(r.prompt, /JD\(TT\)/);
   assert.match(r.evidenceAnalysis.promptText, /【七政四余计算来源与证据分层】/);
   assert.match(r.evidenceAnalysis.promptText, /现代天文计算/);

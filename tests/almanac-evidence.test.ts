@@ -15,6 +15,9 @@ test('黄历择日应内置透明约束与候选证据', () => {
   assert.match(evidence.promptText, /【黄历择日透明约束与候选证据】/);
   assert.match(evidence.promptText, /传统硬限制：/);
   assert.match(evidence.promptText, /候选分组：/);
+  assert.match(evidence.promptText, /中国标准时间12:00参照月相/);
+  assert.match(evidence.promptText, /月相只作为中国标准时间正午的天文背景，不参与候选排序/);
+  assert.ok(evidence.candidates.every((candidate) => candidate.astronomicalFacts.length === 2));
   assert.doesNotMatch(evidence.promptText, /评分[：=]?\d|\d+分|成功率[：=]?\d|匹配率[：=]?\d/);
 });
 

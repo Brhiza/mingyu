@@ -21,6 +21,10 @@ import {
   type SolarTermEvidence,
   type SolarTermName,
 } from '../../../../calendar/solar-term-evidence';
+import {
+  calculateMoonPhaseEvidence,
+  type MoonPhaseEvidence,
+} from '../../../../calendar/moon-phase-evidence';
 import { stemElements, isGenerating, isControlling } from './_constants';
 import {
   LIUHE_MAP,
@@ -335,6 +339,10 @@ export interface SeasonalityInfo {
   lunarPhase: LunarPhase;
   /** 月相详细名称（来自 tyme4ts 的八相名，如蛾眉月、盈凸月等） */
   lunarPhaseDetail: string;
+  /** 日月黄经差、照明比例及前后朔弦望时刻 */
+  moonPhaseEvidence: MoonPhaseEvidence;
+  /** 历法八相名称与天文相位八分法是否一致 */
+  lunarPhaseConsistency: boolean;
 
   /** 十二建除（建/除/满/平/定/执/破/危/成/收/开/闭） */
   dayOfficer: string;
@@ -403,6 +411,8 @@ export function buildSeasonality(ganzhi: BaseGanZhi, jieQi: string, date: Date):
   const phaseIndex = tymePhase.getIndex();
   const lunarPhase = MOON_PHASE_MAP[phaseIndex] ?? '新月';
   const lunarPhaseDetail = tymePhase.getName();
+  const moonPhaseEvidence = calculateMoonPhaseEvidence(date.getTime());
+  const lunarPhaseConsistency = lunarPhaseDetail === moonPhaseEvidence.eightPhaseName;
 
   // ── 4. 建除十二神 ──
   const duty = solarDay.getLunarDay().getDuty();
@@ -427,6 +437,8 @@ export function buildSeasonality(ganzhi: BaseGanZhi, jieQi: string, date: Date):
 
     lunarPhase,
     lunarPhaseDetail,
+    moonPhaseEvidence,
+    lunarPhaseConsistency,
 
     dayOfficer,
     dayOfficerFortuneLabel: officerInfo.fortune,

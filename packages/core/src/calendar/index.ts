@@ -10,3 +10,4 @@ export * from './china-dst';
 export * from './astronomical-time';
 export * from './historical-timezone';
 export * from './solar-term-evidence';
+export * from './moon-phase-evidence';
