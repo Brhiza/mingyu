@@ -108,8 +108,19 @@ function AiChatPanelImpl({
   historyKey,
   aiConfig,
 }: AiChatPanelProps) {
-  const { turns, streamingContent, status, error, hasStarted, analyze, ask, restore, reset } =
-    useAiChat(aiConfig);
+  const {
+    turns,
+    streamingContent,
+    status,
+    error,
+    hasStarted,
+    analyze,
+    ask,
+    restore,
+    retry,
+    canRetry,
+    reset,
+  } = useAiChat(aiConfig);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -122,6 +133,10 @@ function AiChatPanelImpl({
   const storageKey = useMemo(
     () => getAiChatStorageKey(historyKey || `${resetKey || ''}\n${contextPrompt}`),
     [historyKey, resetKey, contextPrompt],
+  );
+  const activeSession = useMemo(
+    () => historySessions.find((session) => session.id === activeSessionId),
+    [historySessions, activeSessionId],
   );
   const directSendIdRef = useRef('');
   const autoStartKeyRef = useRef<string | undefined>(undefined);
@@ -323,6 +338,12 @@ function AiChatPanelImpl({
     [handleSend],
   );
 
+  const handleRetry = useCallback(() => {
+    if (!canRetry || isBusy) return;
+    shouldAutoScrollRef.current = true;
+    retry();
+  }, [canRetry, isBusy, retry]);
+
   function handleNewChat() {
     if (isBusy) return;
     shouldAutoScrollRef.current = true;
@@ -373,9 +394,11 @@ function AiChatPanelImpl({
           <p>
             {!isContextReady
               ? '正在生成排盘数据，请稍候…'
-              : hasStarted
-                ? '可以继续追问，历史对话会自动保存。'
-                : '在下方输入问题开始 AI 解析。'}
+              : status === 'error'
+                ? '本次回复失败，你的问题已保留，可直接重新生成。'
+                : hasStarted
+                  ? '可以继续追问，历史对话会自动保存。'
+                  : '在下方输入问题开始 AI 解析。'}
           </p>
         </div>
         <div className="action-row compact-actions ai-chat-head-actions">
@@ -446,10 +469,8 @@ function AiChatPanelImpl({
       {/* 消息区域 */}
       <div className="ai-chat-container">
         <div className="ai-chat-messages" ref={scrollRef} onScroll={handleMessagesScroll}>
-          {error && !streamingContent ? (
-            <div className="ai-analysis-error">
-              <p>解析失败：{error}</p>
-            </div>
+          {activeSession?.initialQuestion ? (
+            <ChatMessageItem turn={{ role: 'user', content: activeSession.initialQuestion }} />
           ) : null}
 
           {turns.map((turn, index) => (
@@ -495,6 +516,20 @@ function AiChatPanelImpl({
 
         {/* 底部输入区 */}
         <div className="ai-chat-input-area">
+          {error ? (
+            <div className="ai-chat-error-notice" role="alert" aria-live="assertive">
+              <div className="ai-chat-error-content">
+                <strong>AI 回复失败</strong>
+                <span>{error}</span>
+                <small>你的问题已保留，不需要重新输入。</small>
+              </div>
+              {canRetry ? (
+                <button type="button" className="ai-chat-retry-btn" onClick={handleRetry}>
+                  重新生成
+                </button>
+              ) : null}
+            </div>
+          ) : null}
           <div className="ai-chat-input-row">
             <textarea
               ref={inputRef}

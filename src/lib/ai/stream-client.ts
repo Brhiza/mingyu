@@ -48,7 +48,12 @@ export async function streamAiChat(messages: ChatMessage[], options: StreamOptio
       onDone();
       return;
     }
-    onError(err instanceof Error ? err.message : '网络请求异常');
+    const message = err instanceof Error ? err.message : '';
+    onError(
+      err instanceof TypeError || /failed to fetch|network error/i.test(message)
+        ? '网络连接失败，请检查网络后重试。'
+        : message || '网络请求异常，请稍后重试。',
+    );
   }
 }
 
@@ -101,6 +106,15 @@ async function consumeSseStream(response: Response, { onChunk, onDone, onError }
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let receivedContent = false;
+
+  const finish = () => {
+    if (!receivedContent) {
+      onError('AI 未返回任何内容，请重新生成。');
+      return;
+    }
+    onDone();
+  };
 
   while (true) {
     const { done, value } = await reader.read();
@@ -119,7 +133,7 @@ async function consumeSseStream(response: Response, { onChunk, onDone, onError }
       const data = line.slice(5).trim();
       if (!data) continue;
       if (data === '[DONE]') {
-        onDone();
+        finish();
         return;
       }
 
@@ -130,6 +144,7 @@ async function consumeSseStream(response: Response, { onChunk, onDone, onError }
           return;
         }
         if (typeof parsed.content === 'string' && parsed.content) {
+          receivedContent ||= parsed.content.trim().length > 0;
           onChunk(parsed.content);
         }
       } catch {
@@ -152,6 +167,7 @@ async function consumeSseStream(response: Response, { onChunk, onDone, onError }
             return;
           }
           if (typeof parsed.content === 'string' && parsed.content) {
+            receivedContent ||= parsed.content.trim().length > 0;
             onChunk(parsed.content);
           }
         } catch {
@@ -161,7 +177,7 @@ async function consumeSseStream(response: Response, { onChunk, onDone, onError }
     }
   }
 
-  onDone();
+  finish();
 }
 
 function formatAiErrorMessage(data: unknown, fallback: string): string {

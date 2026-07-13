@@ -24,6 +24,10 @@ export interface UseAiChat {
   ask: (question: string) => void;
   /** 恢复已保存的对话 */
   restore: (turns: ChatTurn[], initialPrompt?: string) => void;
+  /** 重新发送上一次失败的请求 */
+  retry: () => void;
+  /** 当前是否可以重试 */
+  canRetry: boolean;
   /** 重置整个对话 */
   reset: () => void;
   /** 取消当前请求 */
@@ -36,10 +40,12 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
   const [status, setStatus] = useState<AiChatStatus>('idle');
   const [error, setError] = useState('');
   const [hasStarted, setHasStarted] = useState(false);
+  const [canRetry, setCanRetry] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const streamingRef = useRef('');
   const turnsRef = useRef<ChatTurn[]>([]);
   const initialPromptRef = useRef('');
+  const lastRequestRef = useRef<ChatMessage[]>([]);
 
   // 保持 turnsRef 与 turns 同步，供 ask 回调读取最新值
   useEffect(() => {
@@ -60,11 +66,13 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
     streamingRef.current = '';
     turnsRef.current = [];
     initialPromptRef.current = '';
+    lastRequestRef.current = [];
     setTurns([]);
     setStreamingContent('');
     setStatus('idle');
     setError('');
     setHasStarted(false);
+    setCanRetry(false);
   }, []);
 
   const restore = useCallback((nextTurns: ChatTurn[], initialPrompt = '') => {
@@ -73,17 +81,22 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
     streamingRef.current = '';
     turnsRef.current = nextTurns;
     initialPromptRef.current = initialPrompt;
+    lastRequestRef.current = initialPrompt
+      ? [{ role: 'user', content: initialPrompt }, ...nextTurns]
+      : [...nextTurns];
     setTurns(nextTurns);
     setStreamingContent('');
     setStatus(nextTurns.length ? 'done' : 'idle');
     setError('');
     setHasStarted(nextTurns.length > 0);
+    setCanRetry(false);
   }, []);
 
   const cancel = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
     setStatus('idle');
+    setCanRetry(false);
   }, []);
 
   const startStream = useCallback(
@@ -91,11 +104,13 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
+      lastRequestRef.current = [...messages];
 
       setStatus('loading');
       streamingRef.current = '';
       setStreamingContent('');
       setError('');
+      setCanRetry(false);
 
       streamAiChat(messages, {
         signal: controller.signal,
@@ -122,6 +137,7 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
             setTurns(nextTurns);
           }
           setStatus('done');
+          setCanRetry(false);
           abortRef.current = null;
         },
         onError: (message) => {
@@ -129,6 +145,7 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
           if (abortRef.current !== controller) return;
           setStatus('error');
           setError(message);
+          setCanRetry(true);
           streamingRef.current = '';
           setStreamingContent('');
           abortRef.current = null;
@@ -167,6 +184,11 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
     [startStream],
   );
 
+  const retry = useCallback(() => {
+    if (!lastRequestRef.current.length) return;
+    startStream([...lastRequestRef.current]);
+  }, [startStream]);
+
   return {
     turns,
     streamingContent,
@@ -176,6 +198,8 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
     analyze,
     ask,
     restore,
+    retry,
+    canRetry,
     reset,
     cancel,
   };

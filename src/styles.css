@@ -7162,16 +7162,6 @@ div.form-actions.page-submit-actions {
   }
 }
 
-/* 错误提示 */
-.ai-analysis-error {
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: rgba(220, 80, 80, 0.08);
-  border: 1px solid rgba(220, 80, 80, 0.2);
-  color: #c44;
-  font-size: 13px;
-}
-
 /* 骨架屏 */
 .ai-analysis-placeholder {
   display: grid;
@@ -7358,6 +7348,57 @@ div.form-actions.page-submit-actions {
   border-top: 1px solid var(--border-soft);
   padding: 10px 0 4px;
   flex-shrink: 0;
+}
+
+.ai-chat-error-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 11px 12px;
+  border: 1px solid rgba(196, 68, 68, 0.3);
+  border-radius: 12px;
+  background: rgba(220, 80, 80, 0.08);
+  color: #a93636;
+}
+
+.ai-chat-error-content {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ai-chat-error-content strong {
+  font-size: 13px;
+}
+
+.ai-chat-error-content span {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ai-chat-error-content small {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.ai-chat-retry-btn {
+  flex-shrink: 0;
+  padding: 7px 10px;
+  border: 1px solid rgba(196, 68, 68, 0.35);
+  border-radius: 9px;
+  background: var(--surface-base);
+  color: #a93636;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ai-chat-retry-btn:hover {
+  border-color: #a93636;
+  background: rgba(220, 80, 80, 0.06);
 }
 
 .ai-chat-input-row {
@@ -7716,6 +7757,16 @@ div.form-actions.page-submit-actions {
 
   .ai-chat-history-list {
     max-height: 200px;
+  }
+
+  .ai-chat-error-notice {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ai-chat-retry-btn {
+    width: 100%;
   }
 
   /* 占卜页移动端：聊天卡片撑满 */
