@@ -114,3 +114,13 @@ export {
 } from './harmonyTransform';
 export type { HarmonyPillarInput } from './harmonyTransform';
 export { getLifeStage } from './baziValues';
+export { analyzeBaziCompatibility } from './compatibilityEvidence';
+export type {
+  BaziCompatibilityEvidenceResult,
+  BaziCompatibilityOptions,
+  BaziCrossBranchCombination,
+  BaziCrossPillarRelation,
+  BaziDayMasterRelation,
+  BaziTenGodMapping,
+  BaziUsefulGodCoverage,
+} from './compatibilityEvidence';

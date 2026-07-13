@@ -72,6 +72,8 @@ test('八字合盘系统提示词应使用专门的双盘规则，不混入单�
   assert.match(prompt.system, /允许基于双方已提供资料做传统八字推理/);
   assert.doesNotMatch(prompt.system, /说清核心用神、辅助喜用与主忌/);
   assert.equal((prompt.system.match(/信息不足时说明证据不足/g) || []).length, 1);
+  assert.match(prompt.user, /【八字双盘结构化证据】/);
+  assert.match(prompt.user, /【限制】八字合盘证据边界/);
 });
 
 test('八字输出提示词应是可复制给在线 AI 的独立任务书，不暴露工程提示词', () => {

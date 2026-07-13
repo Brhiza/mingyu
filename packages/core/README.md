@@ -143,6 +143,8 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 
 ### 八字排盘
 
+除单盘排盘与分析外，`mingyu-core/bazi` 提供 `analyzeBaziCompatibility(chart1, chart2)`，用于生成可复核的八字双盘交叉证据，包括双方日主五行与十神、日支关系、四柱天干地支关系、跨盘三合三会组合、双向十神映射和喜忌五行覆盖。结果同时提供通用证据包与可直接嵌入任务书的 `promptText`，不生成匹配总分，也不把五合、三合或三会候选直接视为成化。
+
 ```typescript
 import { baziCalculator } from 'mingyu-core/bazi';
 import type { BaziChartResult } from 'mingyu-core/types';

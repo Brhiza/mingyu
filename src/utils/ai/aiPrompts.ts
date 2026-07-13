@@ -7,6 +7,7 @@ import {
 } from '../../lib/prompt-default-questions';
 import { formatPromptCurrentTime } from '../../lib/prompt-time';
 import { generateEnhancedAnalysisSection } from '@core/bazi/baziPromptEnhancement';
+import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
 import { buildBaziQuestionGuidanceSection } from './baziPromptGuidance';
 
 export interface AIPromptOption {
@@ -564,6 +565,10 @@ export function getCompatibilityPrompt(
   const data2 = baziResult2
     ? demoteEmbeddedPromptSections(formatBaziForPrompt(baziResult2, null, 'compatibility'))
     : '无法获取第二人命盘数据。';
+  const compatibilityEvidence =
+    baziResult1 && baziResult2
+      ? analyzeBaziCompatibility(baziResult1, baziResult2).promptText
+      : '双方命盘不完整，暂无法生成双盘交叉证据。';
 
   return {
     system: COMPATIBILITY_SYSTEM_PROMPT,
@@ -571,6 +576,7 @@ export function getCompatibilityPrompt(
       buildPromptSection('当前时间', formatPromptCurrentTime()),
       buildPromptSection('第一人排盘信息', data1),
       buildPromptSection('第二人排盘信息', data2),
+      compatibilityEvidence,
       buildPromptSection(
         '问题',
         questionText.trim() || getBaziCompatibilityDefaultQuestion(compatType),

@@ -115,6 +115,10 @@ const systems: SystemCapability[] = [
       '流年',
       '神煞',
       '刑冲合害',
+      '双盘日主与十神映射',
+      '双盘合冲刑害破',
+      '双盘喜忌覆盖',
+      '双盘结构化证据',
     ],
     supports: {
       seed: false,
