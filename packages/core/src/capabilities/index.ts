@@ -514,7 +514,7 @@ const systems: SystemCapability[] = [
         ]),
       },
     ],
-    outputs: ['七十二局', '阴阳遁', '太乙', '文昌', '始击', '主客定算', '十六神'],
+    outputs: ['七十二局', '阴阳遁', '太乙', '文昌', '始击', '主客定算', '十六神', '结构化证据'],
     supports: {
       seed: false,
       customRandomSource: false,

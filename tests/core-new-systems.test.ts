@@ -225,6 +225,14 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.ok(r.prompt.includes('将参'));
   assert.ok(r.prompt.includes('核心宫位'));
   assert.ok(r.prompt.includes('观察层级'));
+  assert.match(r.evidenceAnalysis.promptText, /【太乙五计七十二局结构化证据】/);
+  assert.ok(r.evidenceAnalysis.primaryFacts.some((item) => item.startsWith('掩成立')));
+  assert.ok(r.evidenceAnalysis.counterEvidence.some((item) => item.startsWith('未见囚')));
+  assert.match(r.evidenceAnalysis.promptText, /传统规则模型/);
+  assert.doesNotMatch(
+    r.evidenceAnalysis.promptText,
+    /\d+(?:\.\d+)?%|成功率(?:为|：)|匹配率(?:为|：)|吉凶总分(?:为|：)/,
+  );
   assert.throws(() => core.taiyi.generateTaiyi({ year: 2004, scope: 'month' }), /完整日期和时间/);
 });
 
@@ -253,7 +261,34 @@ test('taiyi: 年月日时分五计应使用各自积数和阴阳遁规则', () =
       ),
     );
     assert.equal(result.model.supportedScopes.length, 5);
+    assert.match(
+      result.evidenceAnalysis.calculationChain[0],
+      new RegExp(
+        `${
+          {
+            month: '月计',
+            day: '日计',
+            hour: '时计',
+            minute: '分计',
+          }[result.scope]
+        }以`,
+      ),
+    );
+    assert.ok(result.evidenceAnalysis.limitations.some((item) => item.includes('不可互相替代')));
   });
+});
+
+test('taiyi: 未见掩囚时应明确输出反证而非省略', () => {
+  const result = Array.from({ length: 72 }, (_, offset) =>
+    core.taiyi.generateTaiyi({ year: 1950 + offset }),
+  ).find(
+    (item) => item.shiJiPalace !== item.taiyiPalace && item.wenChangPalace !== item.taiyiPalace,
+  );
+
+  assert.ok(result);
+  assert.ok(result.evidenceAnalysis.counterEvidence.some((item) => item.startsWith('未见掩')));
+  assert.ok(result.evidenceAnalysis.counterEvidence.some((item) => item.startsWith('未见囚')));
+  assert.match(result.evidenceAnalysis.promptText, /反证核验：未见掩/);
 });
 
 test('taiyi: 年家 72 局应完整覆盖且宫卦名不与字位混用', () => {

@@ -1014,6 +1014,7 @@ export interface TaiyiResult {
   sixteenGods: { branch: string; god: string }[];
   judgments: string[];
   model: TaiyiModelInfo;
+  evidenceAnalysis: import('../taiyi/evidence').TaiyiEvidenceAnalysis;
   prompt: string;
 }
 

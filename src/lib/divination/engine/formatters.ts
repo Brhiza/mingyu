@@ -1182,6 +1182,7 @@ export function formatTaiyiInfo(data: TaiyiResult) {
     `判断：${data.judgments.join('；')}`,
     `模型：${data.model.name}；${data.model.precision}`,
     `十六神：${data.sixteenGods.map((item) => `${item.branch}${item.god}`).join('、')}`,
+    data.evidenceAnalysis?.promptText || '',
   ].join('\n');
 }
 

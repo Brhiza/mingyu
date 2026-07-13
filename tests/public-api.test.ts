@@ -2645,6 +2645,8 @@ test('公开 API 太乙应返回年计七十二局立成结果', async () => {
   assert.equal(body.data.guestCount, 3);
   assert.equal(body.data.sixteenGods.length, 16);
   assert.equal(body.data.model.id, 'taiyi-tongzong-five-calculations-72-table');
+  assert.equal(body.data.evidenceAnalysis.evidence.title, '太乙五计七十二局结构化证据');
+  assert.match(body.data.evidenceAnalysis.promptText, /未见囚/);
 });
 
 test('公开 API 太乙应支持月日时分四种计式', async () => {

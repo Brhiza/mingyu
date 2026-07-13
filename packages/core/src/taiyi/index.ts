@@ -14,8 +14,10 @@
 import { SolarTime } from 'tyme4ts';
 import { getGanZhiFromDate, getSixtyCycle, isValidGanZhi } from '../ganzhi';
 import type { TaiyiModelInfo, TaiyiResult, TaiyiScope } from '../types/divination';
+import { buildTaiyiEvidence } from './evidence';
 
 export type { TaiyiModelInfo, TaiyiResult, TaiyiScope } from '../types/divination';
+export type { TaiyiEvidenceAnalysis } from './evidence';
 
 /** 太乙统宗年家积年基数。 */
 export const TAIYI_BASE_YEARS = 10153917;
@@ -562,6 +564,37 @@ export function generateTaiyi(input: TaiyiInput = {}): TaiyiResult {
   const sixteenGodsText = sixteenGods.map((item) => `${item.branch}${item.god}`).join('、');
   const scopeInfo = SCOPE_LABELS[scope];
   const dateTime = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  const evidenceAnalysis = buildTaiyiEvidence({
+    scope,
+    dateTime,
+    ganZhi,
+    accumulatedLabel: scopeInfo.accumulated,
+    accumulatedValue,
+    entryYears,
+    yuan,
+    ji,
+    yinYang,
+    bureau,
+    taiyiPosition,
+    taiyiPalace,
+    wenChangPosition,
+    wenChangPalace,
+    shiJiPosition,
+    shiJiPalace,
+    jiShenPosition,
+    jiShenPalace,
+    lordCount,
+    guestCount,
+    setCount,
+    lordGeneral,
+    lordAssistant,
+    guestGeneral,
+    guestAssistant,
+    setGeneral,
+    setAssistant,
+    sixteenGods,
+    model: TAIYI_MODEL_INFO,
+  });
   const prompt = [
     `【太乙神数 · ${scopeInfo.title}】`,
     `起局时间：${dateTime}；本计干支：${ganZhi}。`,
@@ -575,6 +608,7 @@ export function generateTaiyi(input: TaiyiInput = {}): TaiyiResult {
     '取证层级：先以局数、太乙及主客目宫位、掩囚关系、主客定算和将参宫位为主证；计神与十六神为定位资料和辅证，不得脱离主客格局单独定案。',
     `资料来源：${TAIYI_MODEL_INFO.sources.map((source) => `${source.title}（${source.evidence}）`).join('；')}。`,
     `观察层级：以${scopeInfo.title}对应的时间尺度分析趋势、条件与行动时宜。`,
+    evidenceAnalysis.promptText,
     '',
     `请依《太乙金镜式经》${scopeInfo.title}式理，结合太乙、文昌、始击、计神、十六神、主客定算与主客定将参，分析${scopeInfo.title}范围内的气运、动静、攻守与时宜；逐项说明主证、辅证、反证或限制，以及可以观察的触发条件。`,
   ].join('\n');
@@ -613,6 +647,7 @@ export function generateTaiyi(input: TaiyiInput = {}): TaiyiResult {
     sixteenGods,
     judgments,
     model: TAIYI_MODEL_INFO,
+    evidenceAnalysis,
     prompt,
   };
 }
@@ -622,4 +657,5 @@ export const taiyi = {
   TAIYI_16_GODS,
   TAIYI_BASE_YEARS,
   TAIYI_MODEL_INFO,
+  buildTaiyiEvidence,
 };

@@ -1261,6 +1261,39 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
   });
 });
 
+test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
+  await withMcpClient(async (client) => {
+    const result = await client.callTool({
+      name: 'taiyi_prompt',
+      arguments: {
+        year: 2004,
+        scope: 'year',
+        question: '请分析这一年适合采取什么行动。',
+      },
+    });
+    assert.equal(result.isError, undefined, 'taiyi_prompt 不应返回错误');
+    const prompt = String(result.structuredContent?.prompt);
+    const chart = (
+      result.structuredContent as {
+        result: {
+          evidenceAnalysis: {
+            calculationChain: unknown[];
+            primaryFacts: unknown[];
+            counterEvidence: string[];
+          };
+        };
+      }
+    ).result;
+    assert.ok(chart.evidenceAnalysis.calculationChain.length >= 5);
+    assert.ok(chart.evidenceAnalysis.primaryFacts.length >= 4);
+    assert.ok(chart.evidenceAnalysis.counterEvidence.some((item) => item.startsWith('未见囚')));
+    assert.match(prompt, /【太乙五计七十二局结构化证据】/);
+    assert.match(prompt, /传统规则模型/);
+    assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|匹配率(?:为|：)|吉凶总分(?:为|：)/);
+    assertPromptIsPortableTaskText(prompt);
+  });
+});
+
 test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
   await withMcpClient(async (client) => {
     const first = await client.callTool({

@@ -3583,6 +3583,7 @@ test('太乙神数作为占卜方法应生成完整年计盘与时间层级提�
   assert.equal(data.scope, 'year');
   assert.equal(data.bureau, 33);
   assert.match(session.prompt, /占法：太乙神数（年计）/);
+  assert.match(session.prompt, /【太乙五计七十二局结构化证据】/);
   assert.match(session.prompt, /阳遁第33局/);
   assert.match(session.prompt, /太乙神数按所选年计、月计、日计、时计或分计判断/);
   assert.match(session.prompt, /时间判断应与所选计式的尺度一致/);
