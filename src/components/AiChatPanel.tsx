@@ -419,15 +419,85 @@ function AiChatPanelImpl({
           </p>
         </div>
         <div className="action-row compact-actions ai-chat-head-actions">
-          <button
-            className="copy-button secondary-button"
-            type="button"
-            onClick={() => setIsHistoryOpen((open) => !open)}
-            aria-expanded={isHistoryOpen}
-            disabled={isBusy}
-          >
-            历史{historySessions.length ? ` ${historySessions.length}` : ''}
-          </button>
+          <div className="ai-chat-history-anchor">
+            <button
+              className="copy-button secondary-button"
+              type="button"
+              onClick={() => setIsHistoryOpen((open) => !open)}
+              aria-expanded={isHistoryOpen}
+              disabled={isBusy}
+            >
+              历史{historySessions.length ? ` ${historySessions.length}` : ''}
+            </button>
+            {isHistoryOpen ? (
+              <div className="ai-chat-history-shell">
+                <button
+                  className="ai-chat-history-backdrop"
+                  type="button"
+                  onClick={() => setIsHistoryOpen(false)}
+                  aria-label="关闭历史对话"
+                />
+                <aside
+                  className="ai-chat-history-panel"
+                  role="dialog"
+                  aria-labelledby="ai-chat-history-title"
+                >
+                  <div className="ai-chat-history-head">
+                    <div>
+                      <strong id="ai-chat-history-title">历史对话</strong>
+                      <span>最多保留 20 条</span>
+                    </div>
+                    <button
+                      className="ai-chat-history-close"
+                      type="button"
+                      onClick={() => setIsHistoryOpen(false)}
+                      aria-label="关闭历史对话"
+                      title="关闭"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  {historySessions.length ? (
+                    <div className="ai-chat-history-list">
+                      {historySessions.map((session) => (
+                        <div
+                          className={`ai-chat-history-item${session.id === activeSessionId ? ' is-active' : ''}`}
+                          key={session.id}
+                        >
+                          <button
+                            className="ai-chat-history-main"
+                            type="button"
+                            onClick={() => handleSelectSession(session)}
+                          >
+                            <strong>{session.title}</strong>
+                            <span>
+                              {formatHistoryTime(session.updatedAt)}
+                              {session.turns.length
+                                ? ` · ${session.turns.length} 条消息`
+                                : ' · 待完成'}
+                            </span>
+                          </button>
+                          <button
+                            className="ai-chat-history-delete"
+                            type="button"
+                            onClick={(event) => handleDeleteSession(event, session.id)}
+                            aria-label={`删除对话：${session.title}`}
+                            title="删除对话"
+                          >
+                            删除
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="ai-chat-history-empty">
+                      暂无历史对话，完成一次解析后会自动保存。
+                    </div>
+                  )}
+                </aside>
+              </div>
+            ) : null}
+          </div>
           {hasStarted || activeSessionId ? (
             <button
               className="copy-button secondary-button"
@@ -441,75 +511,7 @@ function AiChatPanelImpl({
         </div>
       </div>
 
-      <div className={`ai-chat-body${isHistoryOpen ? ' has-history' : ''}`}>
-        {isHistoryOpen ? (
-          <div className="ai-chat-history-shell">
-            <button
-              className="ai-chat-history-backdrop"
-              type="button"
-              onClick={() => setIsHistoryOpen(false)}
-              aria-label="关闭历史对话"
-            />
-            <aside
-              className="ai-chat-history-panel"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="ai-chat-history-title"
-            >
-              <div className="ai-chat-history-head">
-                <div>
-                  <strong id="ai-chat-history-title">历史对话</strong>
-                  <span>最多保留 20 条</span>
-                </div>
-                <button
-                  className="ai-chat-history-close"
-                  type="button"
-                  onClick={() => setIsHistoryOpen(false)}
-                  aria-label="关闭历史对话"
-                  title="关闭"
-                >
-                  ×
-                </button>
-              </div>
-              {historySessions.length ? (
-                <div className="ai-chat-history-list">
-                  {historySessions.map((session) => (
-                    <div
-                      className={`ai-chat-history-item${session.id === activeSessionId ? ' is-active' : ''}`}
-                      key={session.id}
-                    >
-                      <button
-                        className="ai-chat-history-main"
-                        type="button"
-                        onClick={() => handleSelectSession(session)}
-                      >
-                        <strong>{session.title}</strong>
-                        <span>
-                          {formatHistoryTime(session.updatedAt)}
-                          {session.turns.length ? ` · ${session.turns.length} 条消息` : ' · 待完成'}
-                        </span>
-                      </button>
-                      <button
-                        className="ai-chat-history-delete"
-                        type="button"
-                        onClick={(event) => handleDeleteSession(event, session.id)}
-                        aria-label={`删除对话：${session.title}`}
-                        title="删除对话"
-                      >
-                        删除
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="ai-chat-history-empty">
-                  暂无历史对话，完成一次解析后会自动保存。
-                </div>
-              )}
-            </aside>
-          </div>
-        ) : null}
-
+      <div className="ai-chat-body">
         {/* 消息区域 */}
         <div className="ai-chat-container">
           <div className="ai-chat-messages" ref={scrollRef} onScroll={handleMessagesScroll}>

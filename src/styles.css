@@ -271,14 +271,10 @@ select {
   min-width: 0;
 }
 
-/* AI 模式左右栏相同最低高度（避免加载后视觉撑开） */
+/* AI 模式左右卡片等高，并随桌面视口高度弹性伸展 */
 .workspace-grid-ai > section.panel {
-  min-height: 320px;
-}
-
-.workspace-grid-ai > .panel-ai-chat {
-  min-height: 560px;
-  height: min(calc(100dvh - 150px), 860px);
+  min-height: 600px;
+  height: calc(100dvh - 150px);
 }
 
 .divination-ai-card .panel-ai-chat {
@@ -349,6 +345,11 @@ select {
 }
 
 .result-tab-stage.is-ai-wide {
+  max-width: 1520px;
+}
+
+.page-shell-ai-workspace .page-topbar-wide,
+.page-shell-ai-workspace .tab-strip {
   max-width: 1520px;
 }
 
@@ -2006,6 +2007,69 @@ select {
   box-shadow: 0 10px 20px var(--accent-soft-strong);
 }
 
+@media (min-width: 901px) and (min-height: 521px) {
+  .page-shell-ai-workspace {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .page-shell-ai-workspace .page-topbar {
+    flex-shrink: 0;
+    min-height: 44px;
+    margin-bottom: 18px;
+  }
+
+  .page-shell-ai-workspace .page-topbar-back {
+    height: 38px;
+    font-size: 16px;
+  }
+
+  .page-shell-ai-workspace .page-topbar-title {
+    font-size: 21px;
+  }
+
+  .page-shell-ai-workspace .tab-strip {
+    flex-shrink: 0;
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+
+  .page-shell-ai-workspace .tab-chip {
+    padding: 11px 22px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .page-shell-ai-workspace .result-tab-pane.is-active,
+  .page-shell-ai-workspace .workspace-grid-ai {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .page-shell-ai-workspace .result-tab-stage {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+  }
+
+  .page-shell-ai-workspace .result-tab-pane.is-inactive {
+    display: none;
+  }
+
+  .page-shell-ai-workspace .workspace-grid-ai > section.panel {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .page-shell-ai-workspace .workspace-grid-ai > section.panel:not(.panel-ai-chat) {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
 .ai-settings-chip {
   margin-left: auto;
 }
@@ -2576,6 +2640,18 @@ select {
 
 .place-trigger span {
   color: var(--text-primary);
+}
+
+.prompt-scope-trigger {
+  min-width: 0;
+}
+
+.prompt-scope-trigger span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .inline-skeleton {
@@ -5223,7 +5299,7 @@ div.form-actions.page-submit-actions {
     grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
   }
 
-  .workspace-grid-ai > .panel-ai-chat {
+  .workspace-grid-ai > section.panel {
     min-height: 500px;
     height: min(calc(100dvh - 128px), 760px);
   }
@@ -7224,6 +7300,11 @@ div.form-actions.page-submit-actions {
   flex-wrap: nowrap;
 }
 
+.ai-chat-history-anchor {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .ai-chat-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -7232,31 +7313,47 @@ div.form-actions.page-submit-actions {
   min-height: 0;
 }
 
-.ai-chat-body.has-history {
-  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
-  gap: 14px;
-}
-
 .ai-chat-history-shell {
-  min-width: 0;
-  min-height: 0;
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(340px, calc(100vw - 48px));
+  max-height: min(520px, calc(100dvh - 180px));
+  pointer-events: none;
 }
 
 .ai-chat-history-backdrop {
-  display: none;
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: default;
+  pointer-events: auto;
 }
 
 .ai-chat-history-panel {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
+  max-height: inherit;
   padding: 12px;
   border: 1px solid var(--border-soft);
   border-radius: 14px;
-  background: var(--surface-soft);
-  height: 100%;
+  background: var(--surface-panel);
+  box-shadow: var(--shadow-lg);
   min-height: 0;
   overflow: hidden;
+  pointer-events: auto;
 }
 
 .ai-chat-history-head {
@@ -7814,18 +7911,16 @@ div.form-actions.page-submit-actions {
     font-size: 12px;
   }
 
-  .ai-chat-body.has-history {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-  }
-
   .ai-chat-history-shell {
     position: fixed;
     z-index: 1200;
     inset: 0;
     display: grid;
     place-items: center;
+    width: auto;
+    max-height: none;
     padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+    pointer-events: auto;
   }
 
   .ai-chat-history-backdrop {

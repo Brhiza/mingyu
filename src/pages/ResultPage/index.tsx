@@ -96,6 +96,15 @@ const LazyMetaphysicsPanel = lazy(async () => {
   return { default: module.MetaphysicsPanel };
 });
 
+function compactScopeSummary(value: string) {
+  if (value.startsWith('本命盘与完整大运流年')) return '完整大运流年';
+  if (value.startsWith('本命盘与大运概览')) return '本命与大运';
+  if (value.startsWith('本命盘与完整运限资料')) return '完整运限资料';
+  if (value.startsWith('本命盘与完整行运资料')) return '完整行运资料';
+  if (value.startsWith('本命盘与行运概览')) return '本命与行运';
+  return value;
+}
+
 export function ResultPage() {
   const navigate = useNavigate();
   const [promptContext, setPromptContext] = useState<PromptRealWorldContext>({});
@@ -149,6 +158,7 @@ export function ResultPage() {
       viewportWidth: viewportSize.width,
       viewportHeight: viewportSize.height,
     });
+  const isDesktopAiWorkspace = isAiEnabled && !isMobileAi && promptState.tab === 'prompt';
   const [isAiShortcutPopoverOpen, setIsAiShortcutPopoverOpen] = useState(false);
   const [isAiMobileSettingsOpen, setIsAiMobileSettingsOpen] = useState(true);
   const [promptEngine, setPromptEngine] = useState<PromptEngineModule | null>(null);
@@ -1038,6 +1048,9 @@ export function ResultPage() {
     promptState.astrolabeScope === 'full'
       ? '本命盘与完整行运资料'
       : astrolabeScopeContext.displayText;
+  const baziFortuneButtonText = compactScopeSummary(baziFortuneSummaryText);
+  const ziweiScopeButtonText = compactScopeSummary(ziweiScopeSummaryText);
+  const astrolabeScopeButtonText = compactScopeSummary(astrolabeScopeSummaryText);
 
   const baseLatestActivePromptText =
     promptState.promptSource === 'qizheng'
@@ -1118,7 +1131,7 @@ export function ResultPage() {
     ) : null;
 
   return (
-    <div className="page-shell">
+    <div className={`page-shell${isDesktopAiWorkspace ? ' page-shell-ai-workspace' : ''}`}>
       <PageTopbar
         title="排盘结果"
         wide
@@ -1180,11 +1193,7 @@ export function ResultPage() {
         </button>
       </div>
 
-      <div
-        className={`result-tab-stage${
-          promptState.tab === 'prompt' && isAiEnabled && !isMobileAi ? ' is-ai-wide' : ''
-        }`}
-      >
+      <div className={`result-tab-stage${isDesktopAiWorkspace ? ' is-ai-wide' : ''}`}>
         <div
           className={`result-tab-pane ${promptState.tab === 'bazi' ? 'is-active' : 'is-inactive'}`}
           aria-hidden={promptState.tab !== 'bazi'}
@@ -1447,7 +1456,7 @@ export function ResultPage() {
                             className="ai-mobile-scope-btn"
                             onClick={() => setIsBaziFortuneModalOpen(true)}
                           >
-                            {isBaziFortuneSummaryLoading ? '年限…' : baziFortuneSummaryText}
+                            {isBaziFortuneSummaryLoading ? '年限…' : baziFortuneButtonText}
                           </button>
                         ) : null}
 
@@ -1460,7 +1469,7 @@ export function ResultPage() {
                           >
                             {!primaryZiweiInput || !activeZiweiPayloadByScope
                               ? '年限…'
-                              : ziweiScopeSummaryText}
+                              : ziweiScopeButtonText}
                           </button>
                         ) : null}
 
@@ -1471,7 +1480,7 @@ export function ResultPage() {
                             onClick={() => setIsAstrolabeScopeModalOpen(true)}
                             disabled={!astrolabeCalculation.data}
                           >
-                            {!astrolabeCalculation.data ? '年限…' : astrolabeScopeSummaryText}
+                            {!astrolabeCalculation.data ? '年限…' : astrolabeScopeButtonText}
                           </button>
                         ) : null}
                       </div>
@@ -1553,13 +1562,13 @@ export function ResultPage() {
                             </div>
                             <button
                               type="button"
-                              className="place-trigger"
+                              className="place-trigger prompt-scope-trigger"
                               onClick={() => setIsBaziFortuneModalOpen(true)}
                             >
                               {isBaziFortuneSummaryLoading ? (
                                 <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
                               ) : (
-                                <span>{baziFortuneSummaryText}</span>
+                                <span>{baziFortuneButtonText}</span>
                               )}
                             </button>
                           </div>
@@ -1572,14 +1581,14 @@ export function ResultPage() {
                             </div>
                             <button
                               type="button"
-                              className="place-trigger"
+                              className="place-trigger prompt-scope-trigger"
                               onClick={() => setIsZiweiScopeModalOpen(true)}
                               disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
                             >
                               {!primaryZiweiInput || !activeZiweiPayloadByScope ? (
                                 <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
                               ) : (
-                                <span>{ziweiScopeSummaryText}</span>
+                                <span>{ziweiScopeButtonText}</span>
                               )}
                             </button>
                           </div>
@@ -1592,14 +1601,14 @@ export function ResultPage() {
                             </div>
                             <button
                               type="button"
-                              className="place-trigger"
+                              className="place-trigger prompt-scope-trigger"
                               onClick={() => setIsAstrolabeScopeModalOpen(true)}
                               disabled={!astrolabeCalculation.data}
                             >
                               {!astrolabeCalculation.data ? (
                                 <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
                               ) : (
-                                <span>{astrolabeScopeSummaryText}</span>
+                                <span>{astrolabeScopeButtonText}</span>
                               )}
                             </button>
                           </div>
@@ -1744,13 +1753,13 @@ export function ResultPage() {
                             </div>
                             <button
                               type="button"
-                              className="place-trigger"
+                              className="place-trigger prompt-scope-trigger"
                               onClick={() => setIsBaziFortuneModalOpen(true)}
                             >
                               {isBaziFortuneSummaryLoading ? (
                                 <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
                               ) : (
-                                <span>{baziFortuneSummaryText}</span>
+                                <span>{baziFortuneButtonText}</span>
                               )}
                             </button>
                           </div>
@@ -1763,14 +1772,14 @@ export function ResultPage() {
                             </div>
                             <button
                               type="button"
-                              className="place-trigger"
+                              className="place-trigger prompt-scope-trigger"
                               onClick={() => setIsZiweiScopeModalOpen(true)}
                               disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
                             >
                               {!primaryZiweiInput || !activeZiweiPayloadByScope ? (
                                 <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
                               ) : (
-                                <span>{ziweiScopeSummaryText}</span>
+                                <span>{ziweiScopeButtonText}</span>
                               )}
                             </button>
                           </div>
@@ -1783,14 +1792,14 @@ export function ResultPage() {
                             </div>
                             <button
                               type="button"
-                              className="place-trigger"
+                              className="place-trigger prompt-scope-trigger"
                               onClick={() => setIsAstrolabeScopeModalOpen(true)}
                               disabled={!astrolabeCalculation.data}
                             >
                               {!astrolabeCalculation.data ? (
                                 <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
                               ) : (
-                                <span>{astrolabeScopeSummaryText}</span>
+                                <span>{astrolabeScopeButtonText}</span>
                               )}
                             </button>
                           </div>
