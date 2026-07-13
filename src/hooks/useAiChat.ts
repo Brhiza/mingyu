@@ -23,7 +23,7 @@ export interface UseAiChat {
   /** 发送追问消息 */
   ask: (question: string) => void;
   /** 恢复已保存的对话 */
-  restore: (turns: ChatTurn[]) => void;
+  restore: (turns: ChatTurn[], initialPrompt?: string) => void;
   /** 重置整个对话 */
   reset: () => void;
   /** 取消当前请求 */
@@ -39,6 +39,7 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
   const abortRef = useRef<AbortController | null>(null);
   const streamingRef = useRef('');
   const turnsRef = useRef<ChatTurn[]>([]);
+  const initialPromptRef = useRef('');
 
   // 保持 turnsRef 与 turns 同步，供 ask 回调读取最新值
   useEffect(() => {
@@ -58,6 +59,7 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
     abortRef.current = null;
     streamingRef.current = '';
     turnsRef.current = [];
+    initialPromptRef.current = '';
     setTurns([]);
     setStreamingContent('');
     setStatus('idle');
@@ -65,11 +67,12 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
     setHasStarted(false);
   }, []);
 
-  const restore = useCallback((nextTurns: ChatTurn[]) => {
+  const restore = useCallback((nextTurns: ChatTurn[], initialPrompt = '') => {
     abortRef.current?.abort();
     abortRef.current = null;
     streamingRef.current = '';
     turnsRef.current = nextTurns;
+    initialPromptRef.current = initialPrompt;
     setTurns(nextTurns);
     setStreamingContent('');
     setStatus(nextTurns.length ? 'done' : 'idle');
@@ -111,7 +114,12 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
           streamingRef.current = '';
           setStreamingContent('');
           if (finalContent) {
-            setTurns((prev) => [...prev, { role: 'assistant', content: finalContent }]);
+            const nextTurns = [
+              ...turnsRef.current,
+              { role: 'assistant' as const, content: finalContent },
+            ];
+            turnsRef.current = nextTurns;
+            setTurns(nextTurns);
           }
           setStatus('done');
           abortRef.current = null;
@@ -133,6 +141,7 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
   const analyze = useCallback(
     (prompt: string) => {
       if (!prompt.trim()) return;
+      initialPromptRef.current = prompt;
       turnsRef.current = [];
       setTurns([]);
       setHasStarted(true);
@@ -150,7 +159,10 @@ export function useAiChat(aiConfig?: AiRequestConfig): UseAiChat {
       const nextTurns = [...turnsRef.current, { role: 'user' as const, content: trimmed }];
       turnsRef.current = nextTurns;
       setTurns(nextTurns);
-      startStream(nextTurns);
+      const requestTurns: ChatMessage[] = initialPromptRef.current
+        ? [{ role: 'user', content: initialPromptRef.current }, ...nextTurns]
+        : nextTurns;
+      startStream(requestTurns);
     },
     [startStream],
   );

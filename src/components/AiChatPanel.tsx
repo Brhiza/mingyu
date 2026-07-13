@@ -2,8 +2,17 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { marked } from '@/lib/marked-init';
 import { useAiChat } from '@/hooks/useAiChat';
 import type { ChatTurn } from '@/hooks/useAiChat';
+import {
+  buildAiChatInitialPrompt,
+  createAiChatSessionId,
+  createAiChatTitle,
+  extractPromptQuestion,
+  loadAiChatHistory,
+  saveAiChatHistory,
+  upsertAiChatSession,
+} from '@/lib/ai/chat-history';
+import type { AiChatPromptMode, AiChatSession } from '@/lib/ai/chat-history';
 import type { AiRequestConfig } from '@/lib/ai/settings';
-import { safeStorage } from '@/lib/safe-storage';
 
 interface AiChatPanelProps {
   /** AI 上下文提示（排盘数据 + 设置摘要，不含用户问题） */
@@ -29,11 +38,7 @@ interface AiChatPanelProps {
 
 const PLACEHOLDER = '输入你想询问的问题…';
 const AI_CHAT_HISTORY_STORAGE_PREFIX = 'mingyu:ai-chat-history:v1:';
-
-type SavedAiChatHistory = {
-  turns: ChatTurn[];
-  updatedAt: string;
-};
+const AUTO_SCROLL_BOTTOM_THRESHOLD = 48;
 
 function renderMarkdown(content: string): string {
   if (!content) return '';
@@ -59,35 +64,14 @@ function getAiChatStorageKey(value: string) {
   return `${AI_CHAT_HISTORY_STORAGE_PREFIX}${hashText(trimmed)}:${trimmed.length}`;
 }
 
-function normalizeSavedTurns(value: unknown): ChatTurn[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter(
-    (item): item is ChatTurn =>
-      item &&
-      typeof item === 'object' &&
-      ((item as ChatTurn).role === 'user' || (item as ChatTurn).role === 'assistant') &&
-      typeof (item as ChatTurn).content === 'string' &&
-      (item as ChatTurn).content.length > 0,
-  );
-}
-
-function readAiChatHistory(storageKey: string): SavedAiChatHistory | null {
-  if (!storageKey) return null;
-  const saved = safeStorage.getJSON<Partial<SavedAiChatHistory> | null>(storageKey, null);
-  const turns = normalizeSavedTurns(saved?.turns);
-  if (!turns.length) return null;
-  return {
-    turns,
-    updatedAt: typeof saved?.updatedAt === 'string' ? saved.updatedAt : '',
-  };
-}
-
-function writeAiChatHistory(storageKey: string, turns: ChatTurn[]) {
-  if (!storageKey || !turns.length) return;
-  safeStorage.setJSON<SavedAiChatHistory>(storageKey, {
-    turns,
-    updatedAt: new Date().toISOString(),
-  });
+function formatHistoryTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  }
+  return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
 }
 
 function ChatMessageItem({ turn }: { turn: ChatTurn }) {
@@ -127,8 +111,12 @@ function AiChatPanelImpl({
   const { turns, streamingContent, status, error, hasStarted, analyze, ask, restore, reset } =
     useAiChat(aiConfig);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const shouldAutoScrollRef = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [inputValue, setInputValue] = useState('');
+  const [historySessions, setHistorySessions] = useState<AiChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState('');
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const isBusy = status === 'loading' || status === 'streaming';
   const isContextReady = contextPrompt.trim().length > 0;
   const storageKey = useMemo(
@@ -138,29 +126,97 @@ function AiChatPanelImpl({
   const directSendIdRef = useRef('');
   const autoStartKeyRef = useRef<string | undefined>(undefined);
   const autoStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const historySessionsRef = useRef<AiChatSession[]>([]);
+  const activeSessionIdRef = useRef('');
 
-  // 当上下文变化时，优先恢复已保存的 AI 对话；没有历史才重置。
+  const applyHistoryState = useCallback(
+    (sessions: AiChatSession[], nextActiveSessionId: string, persist = true) => {
+      historySessionsRef.current = sessions;
+      activeSessionIdRef.current = nextActiveSessionId;
+      setHistorySessions(sessions);
+      setActiveSessionId(nextActiveSessionId);
+      if (persist) {
+        saveAiChatHistory(storageKey, {
+          sessions,
+          activeSessionId: nextActiveSessionId,
+        });
+      }
+    },
+    [storageKey],
+  );
+
+  const startNewSession = useCallback(
+    (options: {
+      prompt: string;
+      titleSource: string;
+      initialQuestion?: string;
+      promptMode: AiChatPromptMode;
+    }) => {
+      const now = new Date().toISOString();
+      const session: AiChatSession = {
+        id: createAiChatSessionId(),
+        title: createAiChatTitle(options.titleSource, '自动解析'),
+        initialQuestion: options.initialQuestion?.trim() ?? '',
+        promptMode: options.promptMode,
+        turns: [],
+        createdAt: now,
+        updatedAt: now,
+      };
+      const nextSessions = upsertAiChatSession(historySessionsRef.current, session);
+      applyHistoryState(nextSessions, session.id);
+      shouldAutoScrollRef.current = true;
+      setIsHistoryOpen(false);
+      reset();
+      setInputValue('');
+      analyze(options.prompt);
+    },
+    [analyze, applyHistoryState, reset],
+  );
+
+  // 当上下文变化时，恢复上次使用的会话，并自动兼容旧版单条历史。
   useEffect(() => {
-    const saved = readAiChatHistory(storageKey);
+    const saved = loadAiChatHistory(storageKey);
     const key = autoStartKey ?? autoStart;
+    const activeSession = saved.sessions.find((session) => session.id === saved.activeSessionId);
+    shouldAutoScrollRef.current = true;
+    historySessionsRef.current = saved.sessions;
+    activeSessionIdRef.current = activeSession?.id ?? '';
+    setHistorySessions(saved.sessions);
+    setActiveSessionId(activeSession?.id ?? '');
+    setIsHistoryOpen(false);
 
-    if (saved) {
-      restore(saved.turns);
+    if (activeSession) {
+      restore(activeSession.turns, buildAiChatInitialPrompt(contextPrompt, activeSession));
       autoStartKeyRef.current = key;
     } else {
       reset();
       autoStartKeyRef.current = undefined;
     }
 
+    if (saved.sessions.length) {
+      saveAiChatHistory(storageKey, saved);
+    }
+
     directSendIdRef.current = '';
     setInputValue('');
-  }, [storageKey, autoStart, autoStartKey, restore, reset]);
+  }, [storageKey, contextPrompt, autoStart, autoStartKey, restore, reset]);
 
-  // AI 回复完成后保存历史；加载中不覆盖已有完整记录。
+  // AI 回复完成或出错后，更新当前会话，不覆盖其他历史。
   useEffect(() => {
-    if (!hasStarted || !turns.length || status === 'loading' || status === 'streaming') return;
-    writeAiChatHistory(storageKey, turns);
-  }, [hasStarted, turns, status, storageKey]);
+    if (!hasStarted || (status !== 'done' && status !== 'error')) return;
+    const sessionId = activeSessionIdRef.current;
+    const currentSession = historySessionsRef.current.find((session) => session.id === sessionId);
+    if (!currentSession || currentSession.turns === turns) return;
+    const updatedSession: AiChatSession = {
+      ...currentSession,
+      turns,
+      updatedAt: new Date().toISOString(),
+    };
+    applyHistoryState(
+      upsertAiChatSession(historySessionsRef.current, updatedSession),
+      updatedSession.id,
+    );
+  }, [applyHistoryState, hasStarted, turns, status]);
 
   // 接收外部设置的输入文本（如从灵感选取，填入后用户手动发送）
   useEffect(() => {
@@ -171,19 +227,19 @@ function AiChatPanelImpl({
     }
   }, [externalInput, onExternalInputConsumed]);
 
-  // 接收直接发送指令（快捷按钮 → 立即重置并发送，不经过输入框）
+  // 接收直接发送指令（快捷按钮 → 新建会话并立即发送）
   useEffect(() => {
     if (!directSend || !directSend.text.trim() || directSend.id === directSendIdRef.current) return;
     directSendIdRef.current = directSend.id;
     const text = directSend.text.trim();
     if (!text || !isContextReady) return;
-    // reset 会 abort 当前请求并清空对话
-    safeStorage.remove(storageKey);
-    reset();
-    setInputValue('');
-    // React 18 批处理：即使 reset 和 analyze 在同一帧调用，最终状态正确
-    analyze(contextPrompt + '\n\n' + text);
-  }, [directSend, isContextReady, contextPrompt, storageKey, analyze, reset]);
+    startNewSession({
+      prompt: contextPrompt + '\n\n' + text,
+      titleSource: text,
+      initialQuestion: text,
+      promptMode: 'context-question',
+    });
+  }, [directSend, isContextReady, contextPrompt, startNewSession]);
 
   // 自动发送首轮（占卜页：session.prompt 已含完整问题，无需用户输入）
   useEffect(() => {
@@ -197,9 +253,13 @@ function AiChatPanelImpl({
       autoStartTimerRef.current = null;
       if (key === autoStartKeyRef.current) return;
       autoStartKeyRef.current = key;
-      reset();
-      setInputValue('');
-      analyze(autoStart.trim());
+      const question = extractPromptQuestion(autoStart);
+      startNewSession({
+        prompt: autoStart.trim(),
+        titleSource: question,
+        initialQuestion: question,
+        promptMode: 'context',
+      });
     }, 0);
     return () => {
       if (autoStartTimerRef.current) {
@@ -207,15 +267,22 @@ function AiChatPanelImpl({
         autoStartTimerRef.current = null;
       }
     };
-  }, [autoStart, autoStartKey, analyze, reset]);
+  }, [autoStart, autoStartKey, startNewSession]);
 
-  // 自动滚动到底部
+  // 仅在用户仍停留在底部时跟随流式内容；上滑阅读后暂停自动滚动。
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) {
+    if (el && shouldAutoScrollRef.current) {
       el.scrollTop = el.scrollHeight;
     }
   }, [turns, streamingContent, status]);
+
+  const handleMessagesScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    shouldAutoScrollRef.current = distanceFromBottom <= AUTO_SCROLL_BOTTOM_THRESHOLD;
+  }, []);
 
   // 自动调整输入框高度
   useEffect(() => {
@@ -230,17 +297,21 @@ function AiChatPanelImpl({
     const text = inputValue.trim();
     if (!text || isBusy || !isContextReady) return;
 
+    shouldAutoScrollRef.current = true;
     setInputValue('');
 
     if (!hasStarted) {
-      // 首次发送：context + 用户问题
-      const fullPrompt = contextPrompt + '\n\n' + text;
-      analyze(fullPrompt);
+      startNewSession({
+        prompt: contextPrompt + '\n\n' + text,
+        titleSource: text,
+        initialQuestion: text,
+        promptMode: 'context-question',
+      });
     } else {
       // 追问
       ask(text);
     }
-  }, [inputValue, isBusy, isContextReady, hasStarted, contextPrompt, analyze, ask]);
+  }, [inputValue, isBusy, isContextReady, hasStarted, contextPrompt, startNewSession, ask]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -252,13 +323,46 @@ function AiChatPanelImpl({
     [handleSend],
   );
 
-  function handleReset() {
-    safeStorage.remove(storageKey);
+  function handleNewChat() {
+    if (isBusy) return;
+    shouldAutoScrollRef.current = true;
+    applyHistoryState(historySessionsRef.current, '');
     reset();
     setInputValue('');
-    if (inputRef.current) {
-      inputRef.current.focus();
+    setIsHistoryOpen(false);
+    inputRef.current?.focus();
+  }
+
+  function handleSelectSession(session: AiChatSession) {
+    if (isBusy || session.id === activeSessionIdRef.current) {
+      setIsHistoryOpen(false);
+      return;
     }
+    shouldAutoScrollRef.current = true;
+    applyHistoryState(historySessionsRef.current, session.id);
+    restore(session.turns, buildAiChatInitialPrompt(contextPrompt, session));
+    setInputValue('');
+    setIsHistoryOpen(false);
+  }
+
+  function handleDeleteSession(event: React.MouseEvent, sessionId: string) {
+    event.stopPropagation();
+    if (isBusy) return;
+    const nextSessions = historySessionsRef.current.filter((session) => session.id !== sessionId);
+    if (sessionId !== activeSessionIdRef.current) {
+      applyHistoryState(nextSessions, activeSessionIdRef.current);
+      return;
+    }
+
+    const nextActiveSession = nextSessions[0];
+    applyHistoryState(nextSessions, nextActiveSession?.id ?? '');
+    shouldAutoScrollRef.current = true;
+    if (nextActiveSession) {
+      restore(nextActiveSession.turns, buildAiChatInitialPrompt(contextPrompt, nextActiveSession));
+    } else {
+      reset();
+    }
+    setInputValue('');
   }
 
   return (
@@ -270,27 +374,78 @@ function AiChatPanelImpl({
             {!isContextReady
               ? '正在生成排盘数据，请稍候…'
               : hasStarted
-                ? '可以继续追问，或点击重置开始新对话。'
+                ? '可以继续追问，历史对话会自动保存。'
                 : '在下方输入问题开始 AI 解析。'}
           </p>
         </div>
-        {hasStarted ? (
-          <div className="action-row compact-actions">
+        <div className="action-row compact-actions ai-chat-head-actions">
+          <button
+            className="copy-button secondary-button"
+            type="button"
+            onClick={() => setIsHistoryOpen((open) => !open)}
+            aria-expanded={isHistoryOpen}
+            disabled={isBusy}
+          >
+            历史{historySessions.length ? ` ${historySessions.length}` : ''}
+          </button>
+          {hasStarted || activeSessionId ? (
             <button
               className="copy-button secondary-button"
               type="button"
-              onClick={handleReset}
+              onClick={handleNewChat}
               disabled={isBusy}
             >
-              重置
+              新对话
             </button>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
+
+      {isHistoryOpen ? (
+        <div className="ai-chat-history-panel">
+          <div className="ai-chat-history-head">
+            <strong>历史对话</strong>
+            <span>最多保留 20 条</span>
+          </div>
+          {historySessions.length ? (
+            <div className="ai-chat-history-list">
+              {historySessions.map((session) => (
+                <div
+                  className={`ai-chat-history-item${session.id === activeSessionId ? ' is-active' : ''}`}
+                  key={session.id}
+                >
+                  <button
+                    className="ai-chat-history-main"
+                    type="button"
+                    onClick={() => handleSelectSession(session)}
+                  >
+                    <strong>{session.title}</strong>
+                    <span>
+                      {formatHistoryTime(session.updatedAt)}
+                      {session.turns.length ? ` · ${session.turns.length} 条消息` : ' · 待完成'}
+                    </span>
+                  </button>
+                  <button
+                    className="ai-chat-history-delete"
+                    type="button"
+                    onClick={(event) => handleDeleteSession(event, session.id)}
+                    aria-label={`删除对话：${session.title}`}
+                    title="删除对话"
+                  >
+                    删除
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="ai-chat-history-empty">暂无历史对话，完成一次解析后会自动保存。</div>
+          )}
+        </div>
+      ) : null}
 
       {/* 消息区域 */}
       <div className="ai-chat-container">
-        <div className="ai-chat-messages" ref={scrollRef}>
+        <div className="ai-chat-messages" ref={scrollRef} onScroll={handleMessagesScroll}>
           {error && !streamingContent ? (
             <div className="ai-analysis-error">
               <p>解析失败：{error}</p>

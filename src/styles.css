@@ -7226,6 +7226,112 @@ div.form-actions.page-submit-actions {
   min-height: 420px;
 }
 
+.ai-chat-head-actions {
+  flex-wrap: nowrap;
+}
+
+.ai-chat-history-panel {
+  display: grid;
+  gap: 10px;
+  margin: -6px 0 16px;
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.ai-chat-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ai-chat-history-head strong {
+  color: var(--text-strong);
+  font-size: 14px;
+}
+
+.ai-chat-history-head span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.ai-chat-history-list {
+  display: grid;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.ai-chat-history-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--surface-base);
+}
+
+.ai-chat-history-item.is-active {
+  border-color: var(--accent-soft-strong);
+  background: var(--accent-soft);
+}
+
+.ai-chat-history-main {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ai-chat-history-main strong,
+.ai-chat-history-main span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-chat-history-main strong {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.ai-chat-history-main span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.ai-chat-history-delete {
+  flex-shrink: 0;
+  margin-right: 8px;
+  padding: 5px 7px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.ai-chat-history-delete:hover {
+  background: rgba(185, 28, 28, 0.08);
+  color: #b91c1c;
+}
+
+.ai-chat-history-empty {
+  padding: 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
 .ai-chat-container {
   display: flex;
   flex-direction: column;
@@ -7590,6 +7696,28 @@ div.form-actions.page-submit-actions {
 
 /* 移动端对话面板适配 */
 @media (max-width: 640px), (max-width: 900px) and (max-height: 520px) {
+  .panel-ai-chat .panel-head {
+    gap: 10px;
+  }
+
+  .ai-chat-head-actions {
+    gap: 4px;
+  }
+
+  .ai-chat-head-actions .copy-button {
+    padding: 7px 9px;
+    font-size: 12px;
+  }
+
+  .ai-chat-history-panel {
+    margin-top: -8px;
+    padding: 10px;
+  }
+
+  .ai-chat-history-list {
+    max-height: 200px;
+  }
+
   /* 占卜页移动端：聊天卡片撑满 */
   .divination-ai-card .panel-ai-chat {
     min-height: min(calc(100dvh - 280px), 560px);
