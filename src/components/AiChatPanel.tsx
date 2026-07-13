@@ -308,6 +308,23 @@ function AiChatPanelImpl({
     }
   }, [inputValue]);
 
+  useEffect(() => {
+    if (!isHistoryOpen) return;
+    const shouldLockPageScroll = window.matchMedia(
+      '(max-width: 640px), (max-width: 900px) and (max-height: 520px)',
+    ).matches;
+    const previousBodyOverflow = document.body.style.overflow;
+    if (shouldLockPageScroll) document.body.style.overflow = 'hidden';
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsHistoryOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (shouldLockPageScroll) document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [isHistoryOpen]);
+
   const handleSend = useCallback(() => {
     const text = inputValue.trim();
     if (!text || isBusy || !isContextReady) return;
@@ -424,159 +441,187 @@ function AiChatPanelImpl({
         </div>
       </div>
 
-      {isHistoryOpen ? (
-        <div className="ai-chat-history-panel">
-          <div className="ai-chat-history-head">
-            <strong>历史对话</strong>
-            <span>最多保留 20 条</span>
-          </div>
-          {historySessions.length ? (
-            <div className="ai-chat-history-list">
-              {historySessions.map((session) => (
-                <div
-                  className={`ai-chat-history-item${session.id === activeSessionId ? ' is-active' : ''}`}
-                  key={session.id}
-                >
-                  <button
-                    className="ai-chat-history-main"
-                    type="button"
-                    onClick={() => handleSelectSession(session)}
-                  >
-                    <strong>{session.title}</strong>
-                    <span>
-                      {formatHistoryTime(session.updatedAt)}
-                      {session.turns.length ? ` · ${session.turns.length} 条消息` : ' · 待完成'}
-                    </span>
-                  </button>
-                  <button
-                    className="ai-chat-history-delete"
-                    type="button"
-                    onClick={(event) => handleDeleteSession(event, session.id)}
-                    aria-label={`删除对话：${session.title}`}
-                    title="删除对话"
-                  >
-                    删除
-                  </button>
+      <div className={`ai-chat-body${isHistoryOpen ? ' has-history' : ''}`}>
+        {isHistoryOpen ? (
+          <div className="ai-chat-history-shell">
+            <button
+              className="ai-chat-history-backdrop"
+              type="button"
+              onClick={() => setIsHistoryOpen(false)}
+              aria-label="关闭历史对话"
+            />
+            <aside
+              className="ai-chat-history-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="ai-chat-history-title"
+            >
+              <div className="ai-chat-history-head">
+                <div>
+                  <strong id="ai-chat-history-title">历史对话</strong>
+                  <span>最多保留 20 条</span>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="ai-chat-history-empty">暂无历史对话，完成一次解析后会自动保存。</div>
-          )}
-        </div>
-      ) : null}
+                <button
+                  className="ai-chat-history-close"
+                  type="button"
+                  onClick={() => setIsHistoryOpen(false)}
+                  aria-label="关闭历史对话"
+                  title="关闭"
+                >
+                  ×
+                </button>
+              </div>
+              {historySessions.length ? (
+                <div className="ai-chat-history-list">
+                  {historySessions.map((session) => (
+                    <div
+                      className={`ai-chat-history-item${session.id === activeSessionId ? ' is-active' : ''}`}
+                      key={session.id}
+                    >
+                      <button
+                        className="ai-chat-history-main"
+                        type="button"
+                        onClick={() => handleSelectSession(session)}
+                      >
+                        <strong>{session.title}</strong>
+                        <span>
+                          {formatHistoryTime(session.updatedAt)}
+                          {session.turns.length ? ` · ${session.turns.length} 条消息` : ' · 待完成'}
+                        </span>
+                      </button>
+                      <button
+                        className="ai-chat-history-delete"
+                        type="button"
+                        onClick={(event) => handleDeleteSession(event, session.id)}
+                        aria-label={`删除对话：${session.title}`}
+                        title="删除对话"
+                      >
+                        删除
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="ai-chat-history-empty">
+                  暂无历史对话，完成一次解析后会自动保存。
+                </div>
+              )}
+            </aside>
+          </div>
+        ) : null}
 
-      {/* 消息区域 */}
-      <div className="ai-chat-container">
-        <div className="ai-chat-messages" ref={scrollRef} onScroll={handleMessagesScroll}>
-          {activeSession?.initialQuestion ? (
-            <ChatMessageItem turn={{ role: 'user', content: activeSession.initialQuestion }} />
-          ) : null}
+        {/* 消息区域 */}
+        <div className="ai-chat-container">
+          <div className="ai-chat-messages" ref={scrollRef} onScroll={handleMessagesScroll}>
+            {activeSession?.initialQuestion ? (
+              <ChatMessageItem turn={{ role: 'user', content: activeSession.initialQuestion }} />
+            ) : null}
 
-          {turns.map((turn, index) => (
-            <ChatMessageItem key={index} turn={turn} />
-          ))}
+            {turns.map((turn, index) => (
+              <ChatMessageItem key={index} turn={turn} />
+            ))}
 
-          {/* 流式生成中的助手消息 */}
-          {streamingContent ? (
-            <div className="ai-chat-msg ai-chat-msg-assistant">
-              <div className="ai-chat-msg-avatar">AI</div>
-              <div
-                className="ai-chat-msg-bubble markdown-body"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(streamingContent) }}
+            {/* 流式生成中的助手消息 */}
+            {streamingContent ? (
+              <div className="ai-chat-msg ai-chat-msg-assistant">
+                <div className="ai-chat-msg-avatar">AI</div>
+                <div
+                  className="ai-chat-msg-bubble markdown-body"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(streamingContent) }}
+                />
+                <span className="ai-analysis-cursor" aria-hidden="true">
+                  ▋
+                </span>
+              </div>
+            ) : null}
+
+            {/* loading 状态骨架屏 */}
+            {status === 'loading' && !streamingContent ? (
+              <div className="ai-chat-msg ai-chat-msg-assistant">
+                <div className="ai-chat-msg-avatar">AI</div>
+                <div className="ai-chat-thinking" role="status" aria-live="polite">
+                  <span className="ai-chat-thinking-dot" />
+                  <span className="ai-chat-thinking-dot" />
+                  <span className="ai-chat-thinking-dot" />
+                  <span className="ai-chat-thinking-text">AI 正在思考</span>
+                </div>
+              </div>
+            ) : null}
+
+            {!hasStarted && !streamingContent && !error && isContextReady ? (
+              <div className="ai-chat-empty">
+                <div className="ai-chat-empty-inner">
+                  <div className="ai-chat-empty-icon">💬</div>
+                  <p>在下方输入你想了解的问题，AI 将基于排盘数据给出解读。</p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          {/* 底部输入区 */}
+          <div className="ai-chat-input-area">
+            {error ? (
+              <div className="ai-chat-error-notice" role="alert" aria-live="assertive">
+                <div className="ai-chat-error-content">
+                  <strong>AI 回复失败</strong>
+                  <span>{error}</span>
+                  <small>你的问题已保留，不需要重新输入。</small>
+                </div>
+                {canRetry ? (
+                  <button type="button" className="ai-chat-retry-btn" onClick={handleRetry}>
+                    重新生成
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="ai-chat-input-row">
+              <textarea
+                ref={inputRef}
+                className="ai-chat-input"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={PLACEHOLDER}
+                rows={1}
+                disabled={!isContextReady}
               />
-              <span className="ai-analysis-cursor" aria-hidden="true">
-                ▋
-              </span>
-            </div>
-          ) : null}
-
-          {/* loading 状态骨架屏 */}
-          {status === 'loading' && !streamingContent ? (
-            <div className="ai-chat-msg ai-chat-msg-assistant">
-              <div className="ai-chat-msg-avatar">AI</div>
-              <div className="ai-chat-thinking" role="status" aria-live="polite">
-                <span className="ai-chat-thinking-dot" />
-                <span className="ai-chat-thinking-dot" />
-                <span className="ai-chat-thinking-dot" />
-                <span className="ai-chat-thinking-text">AI 正在思考</span>
-              </div>
-            </div>
-          ) : null}
-
-          {!hasStarted && !streamingContent && !error && isContextReady ? (
-            <div className="ai-chat-empty">
-              <div className="ai-chat-empty-inner">
-                <div className="ai-chat-empty-icon">💬</div>
-                <p>在下方输入你想了解的问题，AI 将基于排盘数据给出解读。</p>
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        {/* 底部输入区 */}
-        <div className="ai-chat-input-area">
-          {error ? (
-            <div className="ai-chat-error-notice" role="alert" aria-live="assertive">
-              <div className="ai-chat-error-content">
-                <strong>AI 回复失败</strong>
-                <span>{error}</span>
-                <small>你的问题已保留，不需要重新输入。</small>
-              </div>
-              {canRetry ? (
-                <button type="button" className="ai-chat-retry-btn" onClick={handleRetry}>
-                  重新生成
+              {onOpenInspiration ? (
+                <button
+                  className="ai-chat-inspire-btn"
+                  type="button"
+                  onClick={onOpenInspiration}
+                  title="问题灵感"
+                >
+                  ✨
                 </button>
               ) : null}
-            </div>
-          ) : null}
-          <div className="ai-chat-input-row">
-            <textarea
-              ref={inputRef}
-              className="ai-chat-input"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={PLACEHOLDER}
-              rows={1}
-              disabled={!isContextReady}
-            />
-            {onOpenInspiration ? (
               <button
-                className="ai-chat-inspire-btn"
+                className="ai-chat-send-btn"
                 type="button"
-                onClick={onOpenInspiration}
-                title="问题灵感"
+                onClick={handleSend}
+                disabled={isBusy || !inputValue.trim() || !isContextReady}
               >
-                ✨
+                {isBusy ? (
+                  <span className="ai-analysis-spinner-wrap">
+                    <span className="ai-analysis-spinner" />
+                  </span>
+                ) : (
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="22" y1="2" x2="11" y2="13" />
+                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                  </svg>
+                )}
               </button>
-            ) : null}
-            <button
-              className="ai-chat-send-btn"
-              type="button"
-              onClick={handleSend}
-              disabled={isBusy || !inputValue.trim() || !isContextReady}
-            >
-              {isBusy ? (
-                <span className="ai-analysis-spinner-wrap">
-                  <span className="ai-analysis-spinner" />
-                </span>
-              ) : (
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="22" y1="2" x2="11" y2="13" />
-                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                </svg>
-              )}
-            </button>
+            </div>
           </div>
         </div>
       </div>

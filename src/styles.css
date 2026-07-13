@@ -258,13 +258,13 @@ select {
   min-width: 0;
 }
 
-/* AI 解析页：左侧栏 360px 固定，右侧填满 */
+/* AI 解析页：大屏优先把空间留给对话和历史侧栏 */
 .workspace-grid-ai {
-  max-width: 1200px;
+  max-width: 1520px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 20px;
 }
 
 .workspace-grid-ai > * {
@@ -346,6 +346,10 @@ select {
   max-width: 1200px;
   margin: 0 auto;
   display: grid;
+}
+
+.result-tab-stage.is-ai-wide {
+  max-width: 1520px;
 }
 
 .result-tab-pane {
@@ -7220,14 +7224,39 @@ div.form-actions.page-submit-actions {
   flex-wrap: nowrap;
 }
 
-.ai-chat-history-panel {
+.ai-chat-body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ai-chat-body.has-history {
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.ai-chat-history-shell {
+  min-width: 0;
+  min-height: 0;
+}
+
+.ai-chat-history-backdrop {
+  display: none;
+}
+
+.ai-chat-history-panel {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
-  margin: -6px 0 16px;
   padding: 12px;
   border: 1px solid var(--border-soft);
   border-radius: 14px;
   background: var(--surface-soft);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .ai-chat-history-head {
@@ -7235,6 +7264,12 @@ div.form-actions.page-submit-actions {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.ai-chat-history-head > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 
 .ai-chat-history-head strong {
@@ -7247,11 +7282,36 @@ div.form-actions.page-submit-actions {
   font-size: 12px;
 }
 
+.ai-chat-history-close {
+  display: grid;
+  place-items: center;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ai-chat-history-close:hover {
+  border-color: var(--border-soft);
+  background: var(--surface-base);
+  color: var(--text-strong);
+}
+
 .ai-chat-history-list {
   display: grid;
+  align-content: start;
+  flex: 1;
   gap: 6px;
-  max-height: 240px;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .ai-chat-history-item {
@@ -7316,7 +7376,11 @@ div.form-actions.page-submit-actions {
 }
 
 .ai-chat-history-empty {
-  padding: 12px;
+  display: grid;
+  place-items: center;
+  flex: 1;
+  min-height: 140px;
+  padding: 18px 12px;
   color: var(--text-muted);
   font-size: 13px;
   text-align: center;
@@ -7750,13 +7814,43 @@ div.form-actions.page-submit-actions {
     font-size: 12px;
   }
 
-  .ai-chat-history-panel {
-    margin-top: -8px;
-    padding: 10px;
+  .ai-chat-body.has-history {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
   }
 
-  .ai-chat-history-list {
-    max-height: 200px;
+  .ai-chat-history-shell {
+    position: fixed;
+    z-index: 1200;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  }
+
+  .ai-chat-history-backdrop {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: rgba(20, 16, 12, 0.42);
+    backdrop-filter: blur(3px);
+    cursor: default;
+  }
+
+  .ai-chat-history-panel {
+    position: relative;
+    z-index: 1;
+    width: min(100%, 520px);
+    height: min(82dvh, 680px);
+    padding: 14px;
+    border-radius: 18px;
+    background: var(--surface-panel);
+    box-shadow: var(--shadow-lg);
   }
 
   .ai-chat-error-notice {
@@ -7939,5 +8033,20 @@ div.form-actions.page-submit-actions {
   .ai-chat-inspire-btn {
     width: 34px;
     height: 34px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ai-chat-history-shell {
+    padding: 0;
+  }
+
+  .ai-chat-history-panel {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    padding: max(16px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom));
+    border: 0;
+    border-radius: 0;
   }
 }

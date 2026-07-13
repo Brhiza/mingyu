@@ -1180,7 +1180,11 @@ export function ResultPage() {
         </button>
       </div>
 
-      <div className="result-tab-stage">
+      <div
+        className={`result-tab-stage${
+          promptState.tab === 'prompt' && isAiEnabled && !isMobileAi ? ' is-ai-wide' : ''
+        }`}
+      >
         <div
           className={`result-tab-pane ${promptState.tab === 'bazi' ? 'is-active' : 'is-inactive'}`}
           aria-hidden={promptState.tab !== 'bazi'}
