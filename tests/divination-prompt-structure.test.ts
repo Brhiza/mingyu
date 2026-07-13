@@ -1123,10 +1123,11 @@ test('六爻提示词会给出断卦抓手，先看取用世应动变', () => {
   );
 
   assert.match(prompt, /断卦抓手：/);
-  assert.match(prompt, /取用参考：/);
   assert.match(prompt, /主轴证据：世爻第1爻兄弟子水；应爻第6爻兄弟戌土；动变/);
-  assert.match(prompt, /取用评分表：通用断卦：第1爻兄弟子水作取用主轴/);
-  assert.match(prompt, /原神忌神仇神：以通用断卦第1爻兄弟子水为取用基准/);
+  assert.match(prompt, /【六爻用神作用链结构化证据】/);
+  assert.match(prompt, /【主证】通用主轴/);
+  assert.match(prompt, /作用链：用神水/);
+  assert.doesNotMatch(prompt, /取用评分表|权重\d/);
   assert.match(
     prompt,
     /月日触发：月建丑：未直接同支入爻；日辰寅：同支第2爻子孙寅木，冲第5爻父母申金/,
@@ -1144,12 +1145,12 @@ test('六爻提示词不再按问题词表补充取用参考', () => {
     createSupplementaryInfo(),
   );
 
-  assert.match(prompt, /取用参考：通用断卦：先以世爻第1爻兄弟子水为我方主轴/);
+  assert.doesNotMatch(prompt, /取用参考：/);
   assert.doesNotMatch(prompt, /事业职位|事业工作：以官鬼为取用参考/);
-  assert.match(prompt, /取用评分表：通用断卦：第1爻兄弟子水作取用主轴/);
+  assert.match(prompt, /【主证】通用主轴/);
 });
 
-test('六爻用户选择事业模板只保留范围，不改取用候选', () => {
+test('六爻用户选择事业模板会结构化官鬼与父母候选', () => {
   const prompt = buildDivinationPrompt(
     'liuyao',
     '这次换工作有没有机会升职？',
@@ -1160,12 +1161,10 @@ test('六爻用户选择事业模板只保留范围，不改取用候选', () =>
 
   assert.match(prompt, /断卦类型：事业工作/);
   assert.match(prompt, /断卦类型只作为问题范围/);
-  assert.match(prompt, /取用参考：通用断卦：先以世爻第1爻兄弟子水为我方主轴/);
-  assert.match(prompt, /取用评分表：通用断卦：第1爻兄弟子水作取用主轴/);
-  assert.doesNotMatch(
-    prompt,
-    /事业工作：以官鬼为取用参考|取用评分表：事业工作|以事业工作第4爻官鬼午火为取用基准/,
-  );
+  assert.doesNotMatch(prompt, /取用参考：/);
+  assert.match(prompt, /【主证】事业用神/);
+  assert.match(prompt, /官鬼为主要事项候选/);
+  assert.match(prompt, /【辅证】文书辅证/);
 });
 
 test('六爻提示词按用户选择的鬼神怪异模板收紧口径', () => {
@@ -1180,8 +1179,10 @@ test('六爻提示词按用户选择的鬼神怪异模板收紧口径', () => {
   assert.match(prompt, /【断卦要点】/);
   assert.match(prompt, /断卦类型：鬼神怪异/);
   assert.match(prompt, /断卦类型只作为问题范围/);
-  assert.match(prompt, /取用参考：通用断卦：先以世爻第1爻兄弟子水为我方主轴/);
-  assert.doesNotMatch(prompt, /官鬼与子孙制鬼|鬼神怪异：以官鬼为取用参考/);
+  assert.doesNotMatch(prompt, /取用参考：/);
+  assert.match(prompt, /【主证】怪异事项候选/);
+  assert.match(prompt, /不能据此证明超自然原因/);
+  assert.match(prompt, /不得仅凭官鬼、白虎、螣蛇/);
   assert.doesNotMatch(prompt, /专项抓手/);
   assert.match(prompt, /证据不足时只能说“未见明显鬼神主证”或“更偏情绪\/环境因素”/);
 });

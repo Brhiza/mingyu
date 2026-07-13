@@ -1097,7 +1097,9 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     const liuyaoPrompt = String(liuyaoResult.structuredContent?.prompt);
     assert.match(liuyaoPrompt, /【断卦要点】/);
     assert.match(liuyaoPrompt, /断卦类型：鬼神怪异/);
-    assert.doesNotMatch(liuyaoPrompt, /鬼神怪异：以官鬼为取用参考|官鬼与子孙制鬼/);
+    assert.match(liuyaoPrompt, /【六爻用神作用链结构化证据】/);
+    assert.match(liuyaoPrompt, /【主证】怪异事项候选/);
+    assert.match(liuyaoPrompt, /不能据此证明超自然原因/);
     assertPromptIsPortableTaskText(liuyaoPrompt);
 
     const liurenResult = await client.callTool({
@@ -1132,11 +1134,14 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
     type LiuyaoReplayResult = {
       generation: { method: string; coinThrows: unknown[] };
       yaoArray: number[];
+      evidenceAnalysis: { candidates: unknown[]; promptText: string };
       meta: { resultId: string; random: { samples: number[] } };
     };
     const firstResult = (first.structuredContent as { result: LiuyaoReplayResult }).result;
     assert.equal(firstResult.generation.method, 'coins');
     assert.equal(firstResult.generation.coinThrows.length, 6);
+    assert.ok(firstResult.evidenceAnalysis.candidates.length > 0);
+    assert.match(firstResult.evidenceAnalysis.promptText, /【六爻用神作用链结构化证据】/);
 
     const replay = await client.callTool({
       name: 'divine_liuyao',

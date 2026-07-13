@@ -377,6 +377,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 小六壬 `xiaoliurenMethod` 支持 `time`、`number`、`random`，数字起课时使用 `xiaoliurenNumber`。
 - 塔罗 `spreadType` 支持 `single`、`three`、`love`、`career`、`decision`、`celtic`、`chakra`、`year`、`mindBodySpirit`、`horseshoe`。
 - 六爻 `liuyaoTemplate` 支持 `general`、`ganqing`、`shiye`、`caifu`、`guaishen`。
+- 六爻排盘结果的 `evidenceAnalysis` 返回用神候选、本卦与伏神爻位、原神忌神仇神作用链、月日和动变支持、空破墓退反证及触发条件。提示词会按 `liuyaoTemplate` 重新选择对应主题候选；候选不等于已定用神，也不输出吉凶总分或成功率。
 - 大六壬 `liurenTemplate` 支持 `general`、`ganqing`、`shiye`、`caifu`。
 - 奇门遁甲 `qimenMethod` 支持 `zhuanpan`（转盘法，默认）、`feipan`（飞盘法）。排盘结果包含 `seasonality`（节令背景）和 `patternCombos`（复合格局）。
 - 黄历择日 `topic` 支持 `marriage`、`move`、`opening`、`contract`、`travel`、`medical`、`study`、`burial`、`renovation`、`custom`，不传时使用 `custom`，并使用 `startDate`、`endDate` 和可选 `participants`。日期范围一次最多 31 天，`participants` 一次最多 30 位；更大范围或更多参与人请拆成多次请求。

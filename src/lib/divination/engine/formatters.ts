@@ -19,11 +19,11 @@ import type {
 import { LunarUtil, getDivinationTime } from 'mingyu-core/calendar';
 import { resolveSsgwStoryContent } from '../ssgw-content';
 import { createQimenPriorityPalaces } from '@core/divination/algorithms/qimen';
-import { LIUCHONG_MAP, LIUHE_MAP, isKe, isSheng } from '@core/ganzhi';
-import { WUXING } from '@core/wuxing';
+import { LIUCHONG_MAP, isKe, isSheng } from '@core/ganzhi';
 import { normalizePromptEvidenceItems } from '@core/prompt-evidence/format';
 import type { PromptEvidenceItem } from '@core/prompt-evidence/types';
 import type { DivinationMethodId } from '@core/divination/config';
+import { analyzeLiuyaoEvidence } from '@core/divination/algorithms/liuyao';
 
 function resolveDivinationTimestamp(data?: DivinationData): number | null {
   if (
@@ -203,103 +203,6 @@ function getGanzhiBranch(value?: string) {
   return value ? value.slice(-1) : '';
 }
 
-function findGeneratingElement(target: string) {
-  return WUXING.find((element) => isSheng(element, target)) || '';
-}
-
-function findGeneratedElement(source: string) {
-  return WUXING.find((element) => isSheng(source, element)) || '';
-}
-
-function findControllingElement(target: string) {
-  return WUXING.find((element) => isKe(element, target)) || '';
-}
-
-type LiuyaoUsefulGodCandidate = {
-  label: string;
-  relative: string;
-  note: string;
-  position?: number;
-};
-
-function findLiuyaoCandidateYaos(data: LiuyaoData, candidate: LiuyaoUsefulGodCandidate) {
-  if (typeof candidate.position === 'number') {
-    return data.yaosDetail.filter((item) => item.position === candidate.position);
-  }
-  return data.yaosDetail.filter((item) => item.sixRelative === candidate.relative);
-}
-
-function createLiuyaoUsefulGodHints(data: LiuyaoData) {
-  const candidates = createLiuyaoUsefulGodCandidates(data);
-  return candidates.map((candidate) => {
-    const matchedYaos = findLiuyaoCandidateYaos(data, candidate);
-    const yaoText = matchedYaos.length
-      ? matchedYaos.map(formatLiuyaoYaoBrief).join('、')
-      : '本卦未见';
-    if (candidate.label === '通用断卦') {
-      return `${candidate.label}：${candidate.note}`;
-    }
-    return `${candidate.label}：以${candidate.relative}为取用参考，${candidate.note}；盘中${yaoText}`;
-  });
-}
-
-function createLiuyaoUsefulGodCandidates(data: LiuyaoData): LiuyaoUsefulGodCandidate[] {
-  const candidates: LiuyaoUsefulGodCandidate[] = [];
-  const worldYao = data.yaosDetail.find((item) => item.isWorld);
-  const responseYao = data.yaosDetail.find((item) => item.isResponse);
-
-  const addCandidate = (label: string, relative: string, note: string, position?: number) => {
-    const existing = candidates.some(
-      (item) => item.label === label && item.relative === relative && item.position === position,
-    );
-    if (!existing) {
-      candidates.push({ label, relative, note, position });
-    }
-  };
-
-  if (worldYao) {
-    addCandidate(
-      '通用断卦',
-      worldYao.sixRelative,
-      `先以世爻${formatLiuyaoYaoBrief(worldYao)}为我方主轴，再看应爻、动爻、月日与空亡`,
-      worldYao.position,
-    );
-  }
-  if (responseYao) {
-    addCandidate(
-      '应爻辅轴',
-      responseYao.sixRelative,
-      `应爻${formatLiuyaoYaoBrief(responseYao)}代表对方或外部条件，需与世爻同看`,
-      responseYao.position,
-    );
-  }
-  data.yaosDetail
-    .filter((item) => item.isChanging)
-    .slice(0, 2)
-    .forEach((item) => {
-      addCandidate(
-        `动爻触发第${item.position}爻`,
-        item.sixRelative,
-        '动爻可作事件变化触发点，需与世应和月日同看',
-        item.position,
-      );
-    });
-
-  if (candidates.length === 0) {
-    const fallbackRelative = worldYao?.sixRelative || data.yaosDetail[0]?.sixRelative || '世应';
-    addCandidate(
-      '通用断卦',
-      fallbackRelative,
-      worldYao
-        ? `先以世爻${formatLiuyaoYaoBrief(worldYao)}为我方主轴，再结合应爻、动爻与月日取用`
-        : '先以世应、动爻、六亲旺衰与月日取用',
-      worldYao?.position,
-    );
-  }
-
-  return candidates;
-}
-
 function createLiuyaoMonthDayEvidence(data: LiuyaoData) {
   const monthBranch = getGanzhiBranch(data.ganzhi.month);
   const dayBranch = getGanzhiBranch(data.ganzhi.day);
@@ -323,146 +226,6 @@ function createLiuyaoMonthDayEvidence(data: LiuyaoData) {
     describeBranchHit('月建', monthBranch, monthClash),
     describeBranchHit('日辰', dayBranch, dayClash),
     '月日证据只作旺衰与触发校验，不能脱离用神、世应和动变单独下结论',
-  ].join('；');
-}
-
-function createLiuyaoUsefulGodScoreEvidenceItems(data: LiuyaoData): PromptEvidenceItem[] {
-  const monthBranch = getGanzhiBranch(data.ganzhi.month);
-  const dayBranch = getGanzhiBranch(data.ganzhi.day);
-  const candidates = createLiuyaoUsefulGodCandidates(data).slice(0, 3);
-  const movingYaos = data.yaosDetail.filter((item) => item.isChanging).map(formatLiuyaoYaoBrief);
-  const worldYao = data.yaosDetail.find((item) => item.isWorld);
-  const responseYao = data.yaosDetail.find((item) => item.isResponse);
-  const evidenceItems = candidates.map((candidate, index): PromptEvidenceItem => {
-    const matchedYaos = findLiuyaoCandidateYaos(data, candidate);
-    if (matchedYaos.length === 0) {
-      return {
-        level: '限制',
-        title: candidate.label,
-        detail: `${candidate.relative}本卦未见，需看伏神、变爻或补充信息后再取，不可硬当主证`,
-        source: '六爻取用评分',
-        weight: 30 - index,
-        tags: [candidate.relative],
-      };
-    }
-
-    const primary = matchedYaos[0];
-    const support = [
-      primary.isWorld ? '临世，和求测者自身强相关' : '',
-      primary.isResponse ? '临应，和对方、外部条件强相关' : '',
-      primary.isChanging ? '发动，可作事件变化主证' : '',
-      primary.isHiddenMove ? '暗动，旺相被日冲暗中发动' : '',
-      primary.seasonState === '旺' ? '月令旺相有力' : '',
-      primary.seasonState === '相' ? '月令相地有力' : '',
-      primary.najiaDizhi === monthBranch ? '得月建同支触发' : '',
-      primary.najiaDizhi === dayBranch ? '得日辰同支触发' : '',
-      primary.najiaDizhi && LIUHE_MAP[primary.najiaDizhi] === monthBranch ? '得月建六合暗助' : '',
-      primary.najiaDizhi && LIUHE_MAP[primary.najiaDizhi] === dayBranch ? '得日辰六合暗助' : '',
-      primary.changeRelation === '回头生' ? '变爻回头生，愈动愈有力' : '',
-      primary.changedYao ? `变出${primary.changedYao.liuqin}${primary.changedYao.dizhi}` : '',
-    ].filter(Boolean);
-    const limits = [
-      primary.isVoid ? '本爻空亡' : '',
-      primary.changedYao?.isVoid ? '变爻空亡' : '',
-      primary.seasonState === '休' || primary.seasonState === '囚' || primary.seasonState === '死'
-        ? `月令${primary.seasonState}，有力不足`
-        : '',
-      primary.changeRelation === '回头克' ? '变爻回头克，动而受制' : '',
-      primary.changeRelation === '回头冲' ? '变爻回头冲，动而不稳' : '',
-      !primary.isChanging && movingYaos.length > 0
-        ? `非动爻，需参动爻${movingYaos.join('、')}`
-        : '',
-      !primary.isWorld && !primary.isResponse && (worldYao || responseYao)
-        ? `需回扣${worldYao ? `世爻${formatLiuyaoYaoBrief(worldYao)}` : ''}${worldYao && responseYao ? '与' : ''}${responseYao ? `应爻${formatLiuyaoYaoBrief(responseYao)}` : ''}`
-        : '',
-    ].filter(Boolean);
-
-    // 六爻用神评分权重体系（按《增删卜易》《卜筮正宗》用神有力七法）
-    // 世应：临世最强、临应次之
-    // 动变：发动为变化主证，暗动为暗中发动，化进强于化退
-    // 月令：旺相有力，休囚死无力；日辰同支为触发
-    // 回头生克：回头生→吉兆增强，回头克→大凶减分，回头冲→不稳
-    // 空亡：本爻空→悬而不实，变爻空→变不落实
-    let weight = 50;
-    if (primary.isWorld) weight += 20;
-    if (primary.isResponse) weight += 15;
-    if (primary.isChanging) weight += 25;
-    if (primary.isHiddenMove) weight += 15;
-    if (primary.seasonState === '旺') weight += 15;
-    if (primary.seasonState === '相') weight += 10;
-    if (
-      primary.seasonState === '休' ||
-      primary.seasonState === '囚' ||
-      primary.seasonState === '死'
-    )
-      weight -= 15;
-    if (primary.changeRelation === '回头生') weight += 20;
-    if (primary.changeRelation === '回头克') weight -= 20;
-    if (primary.changeRelation === '回头冲') weight -= 15;
-    if (primary.changeRelation === '化空') weight -= 10;
-    if (primary.changeDirection === '化进神') weight += 10;
-    if (primary.changeDirection === '化退神') weight -= 10;
-    if (primary.isVoid) weight -= 20;
-    if (primary.changedYao?.isVoid) weight -= 10;
-    if (primary.najiaDizhi === monthBranch) weight += 10;
-    if (primary.najiaDizhi === dayBranch) weight += 10;
-    if (LIUHE_MAP[primary.najiaDizhi] === monthBranch) weight += 8;
-    if (LIUHE_MAP[primary.najiaDizhi] === dayBranch) weight += 8;
-    weight -= index * 5;
-
-    const level: PromptEvidenceItem['level'] =
-      weight >= 55 ? '主证' : weight >= 30 ? '辅证' : '限制';
-    return {
-      level,
-      title: candidate.label,
-      detail: `${formatLiuyaoYaoBrief(primary)}作取用主轴（第${index + 1}顺位，权重${weight}）；主证${support.join('、') || '待世应、动变、月日继续确认'}；反证/限制${limits.join('、') || '未见明显空亡或脱节'}`,
-      source: '六爻取用评分',
-      weight,
-      tags: [candidate.relative],
-    };
-  });
-
-  return evidenceItems;
-}
-
-function formatLiuyaoUsefulGodScoreEvidence(items: PromptEvidenceItem[]) {
-  return [
-    ...items.map((item) => `${item.title}：${item.detail}`),
-    '评分口径：取用先按世应、动爻、月日与空亡定候选，再看是否临世应、是否发动或暗动、月令旺相休囚死、是否得月日触发、回头生克；空亡、伏藏、月令休囚死、回头克冲或非动爻均降权',
-  ].join('；');
-}
-
-function createLiuyaoRelationGodEvidence(data: LiuyaoData) {
-  const candidate = createLiuyaoUsefulGodCandidates(data)[0];
-  const matchedYaos = candidate ? findLiuyaoCandidateYaos(data, candidate) : [];
-  const primary =
-    matchedYaos[0] || data.yaosDetail.find((item) => item.isWorld) || data.yaosDetail[0];
-
-  if (!candidate || !primary) {
-    return '资料不足，需先定用神后再分原神、忌神、仇神';
-  }
-
-  const sourceElement = findGeneratingElement(primary.wuxing);
-  const jiElement = findControllingElement(primary.wuxing);
-  const chouElement = findGeneratedElement(primary.wuxing);
-  const describeElementYaos = (label: string, element: string) => {
-    const yaos = data.yaosDetail
-      .filter((item) => item.wuxing === element)
-      .map(
-        (item) =>
-          `${formatLiuyaoYaoBrief(item)}${item.isChanging ? '动' : ''}${item.isVoid ? '空' : ''}`,
-      );
-    return `${label}${element || '未知'}：${
-      yaos.length ? yaos.join('、') : '本卦未见，需从伏神、变爻或月日触发复核'
-    }`;
-  };
-
-  return [
-    `以${candidate.label}${formatLiuyaoYaoBrief(primary)}为取用基准`,
-    describeElementYaos('原神', sourceElement),
-    describeElementYaos('忌神', jiElement),
-    describeElementYaos('仇神', chouElement),
-    '原神能生用神可升权，忌神或仇神旺动贴世应时必须列为反证',
   ].join('；');
 }
 
@@ -684,7 +447,10 @@ function describeWuxingRelation(source: string, target: string) {
   return `${source}与${target}关系待复核`;
 }
 
-function formatLiuyaoInfo(data: LiuyaoData) {
+function formatLiuyaoInfo(
+  data: LiuyaoData,
+  topic: 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen' = 'general',
+) {
   const movingYaos = data.changingYaos?.length
     ? data.changingYaos
         .map((item) => `第${item.position}爻${item.type ? `（${item.type}）` : ''}`)
@@ -692,7 +458,6 @@ function formatLiuyaoInfo(data: LiuyaoData) {
     : '无动爻';
   const worldYao = data.yaosDetail.find((item) => item.isWorld);
   const responseYao = data.yaosDetail.find((item) => item.isResponse);
-  const usefulGodHints = createLiuyaoUsefulGodHints(data);
   const changingLines = data.yaosDetail
     .filter((item) => item.isChanging)
     .map((item) => {
@@ -722,9 +487,7 @@ function formatLiuyaoInfo(data: LiuyaoData) {
     : '本卦六亲齐备或本宫首卦无可伏之神';
   const hexagramRelationText = formatLiuyaoHexagramRelation(data);
   const fanfuRelationText = formatLiuyaoFanFuRelation(data);
-  const usefulGodScoreEvidenceItems = createLiuyaoUsefulGodScoreEvidenceItems(data);
-  const usefulGodScoreEvidence = formatLiuyaoUsefulGodScoreEvidence(usefulGodScoreEvidenceItems);
-  const relationGodEvidence = createLiuyaoRelationGodEvidence(data);
+  const structuredEvidence = analyzeLiuyaoEvidence(data, { topic }).promptText;
   const monthDayEvidence = createLiuyaoMonthDayEvidence(data);
   const timingEvidence = createLiuyaoTimingEvidence(data);
   const timingPriorityEvidence = createLiuyaoTimingPriorityEvidence(data);
@@ -796,10 +559,8 @@ function formatLiuyaoInfo(data: LiuyaoData) {
       ? `六亲持世：${worldYao.sixRelative}持世，${worldYao.sixRelative === '父母' ? '主辛苦、劳累、文书、消息' : worldYao.sixRelative === '官鬼' ? '主压力、忧虑、疾病、官非' : worldYao.sixRelative === '妻财' ? '主财运、妻子、情感' : worldYao.sixRelative === '子孙' ? '主平安、解忧、医药' : '主竞争、破财、朋友'}`
       : '',
     `断卦抓手：${focusParts.join('；')}`,
-    `取用参考：${usefulGodHints.join('；')}`,
     `主轴证据：${worldYao ? `世爻${formatLiuyaoYaoBrief(worldYao)}` : '世爻未知'}；${responseYao ? `应爻${formatLiuyaoYaoBrief(responseYao)}` : '应爻未知'}；${changingLines.length ? `动变${changingLines.join('、')}` : '无动变，以静卦世应用神为主'}`,
-    `取用评分表：${usefulGodScoreEvidence}`,
-    `原神忌神仇神：${relationGodEvidence}`,
+    structuredEvidence,
     `辅助证据：${voidYaoText.length ? `空亡爻位${voidYaoText.join('、')}` : `空亡${data.voidBranches?.join('、') || '无'}未直接落到本卦爻位`}；伏神${hiddenSpiritText}`,
     `月日触发：${monthDayEvidence}`,
     `应期候选：${timingEvidence}`,
@@ -1707,10 +1468,11 @@ export function formatDivinationInfo(
   data: DivinationData,
   _question: string,
   _supplementaryInfo?: SupplementaryInfo,
+  options?: { liuyaoTemplate?: 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen' },
 ) {
   switch (method) {
     case 'liuyao':
-      return formatLiuyaoInfo(data as LiuyaoData);
+      return formatLiuyaoInfo(data as LiuyaoData, options?.liuyaoTemplate);
     case 'meihua':
       return formatMeihuaInfo(data as MeihuaData);
     case 'xiaoliuren':

@@ -193,6 +193,8 @@ export interface BaseHexagramData {
 }
 
 export interface LiuyaoData extends BaseHexagramData {
+  /** 用神候选、原神忌神仇神与逐爻支持/反证结构。 */
+  evidenceAnalysis?: import('../divination/liuyao-evidence').LiuyaoEvidenceAnalysis;
   /** 起卦来源与三钱投掷轨迹。 */
   generation?: {
     method: 'time' | 'manual' | 'coins';

@@ -1652,6 +1652,9 @@ test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', asy
   assert.equal(first.response.status, 200);
   assert.equal(first.body.data.generation.method, 'coins');
   assert.equal(first.body.data.generation.coinThrows.length, 6);
+  assert.ok(first.body.data.evidenceAnalysis.candidates.length > 0);
+  assert.match(first.body.data.evidenceAnalysis.promptText, /【六爻用神作用链结构化证据】/);
+  assert.doesNotMatch(first.body.data.evidenceAnalysis.promptText, /权重[：=]?\d/);
 
   const replay = await callApi('divination/liuyao', {
     method: 'POST',

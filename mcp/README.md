@@ -21,7 +21,7 @@
 | `ziwei_compatibility_prompt` | 双盘提示词   | 紫微双盘计算并返回可直接用于 AI 解读的完整证据任务书                           |
 | `bazi_ziwei_prompt`          | 八字紫微合参 | 同一出生信息同时返回八字、紫微数据和合参解读提示词                             |
 | `divine_liuyao`              | 六爻起卦     | 基于当前时间或自定义时间生成完整六爻卦象                                       |
-| `liuyao_prompt`              | 六爻提示词   | 六爻起卦并返回可直接用于 AI 解读的结构化提示词                                 |
+| `liuyao_prompt`              | 六爻提示词   | 六爻起卦并返回用神作用链、逐爻证据及可直接用于 AI 解读的结构化提示词           |
 | `divine_meihua`              | 梅花易数起卦 | 支持时间/数字/随机三种起卦方式，兼容旧 timeTrigram 参数                        |
 | `meihua_prompt`              | 梅花提示词   | 梅花易数起卦并返回可直接用于 AI 解读的结构化提示词                             |
 | `divine_xiaoliuren`          | 小六壬起课   | 支持时间/数字/随机三种起课方式，返回三段宫位与行动倾向                         |

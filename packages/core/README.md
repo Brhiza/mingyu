@@ -111,7 +111,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | **八字 Bazi**          | `mingyu-core/bazi`                                                                                                                            | 四柱排盘、神煞、调候用神、格局、大运、五行强度，含透干根气、十神结构、合化评估、命卦、小运等增强分析 |
 | **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | 十二宫、星曜、四化、运限、证据池，以及双盘宫位叠盘与生年四化跨盘落点                               |
-| **六爻 Liuyao**        | `mingyu-core/divination/liuyao`                                                                                                               | 京房八宫法、纳甲、世应、六亲六神、月破日破、化进退神                                                 |
+| **六爻 Liuyao**        | `mingyu-core/divination/liuyao`                                                                                                               | 京房八宫法、纳甲、世应、六亲六神、月破日破、化进退神、用神作用链与逐爻证据                           |
 | **梅花易数 Meihua**    | `mingyu-core/divination/meihua`                                                                                                               | 时间/数字/随机起卦，timeTrigram 旧参数按时间起卦兼容、体用生克                                       |
 | **奇门遁甲 Qimen**     | `mingyu-core/divination/qimen`                                                                                                                | 转盘法、拆补定局、经典格局、节令背景、复合格局、方位应期                                             |
 | **大六壬 Liuren**      | `mingyu-core/divination/liuren`                                                                                                               | 月将、贵人、九宗门取传、三传、天将、神煞                                                             |
@@ -431,6 +431,7 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | 导出                                                                 | 说明                                                       |
 | -------------------------------------------------------------------- | ---------------------------------------------------------- |
 | `generateLiuyao(date?, options?)`                                    | 六爻时间、手工或模拟三钱起卦，并保留投掷轨迹               |
+| `analyzeLiuyaoEvidence(data, options?)`                               | 六爻用神候选、原神忌神仇神和逐爻支持/反证结构化证据        |
 | `generateMeihua(date?, settings?)`                                   | 梅花易数起卦                                               |
 | `generateQimen(date?, method?, scope?)`                              | 奇门遁甲排盘，返回节令背景、经典格局、复合格局、方位和应期 |
 | `createQimenPriorityPalaces(data)`                                   | 根据宫位洞察、经典格局、干关系和方位生成奇门重点宫位候选   |

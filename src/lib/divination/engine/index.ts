@@ -301,6 +301,7 @@ export function buildDivinationPrompt(
     data,
     normalizedQuestion,
     effectiveSupplementaryInfo,
+    { liuyaoTemplate },
   );
   const isAstrolabe = method === 'astrolabe';
   const evidenceTerms = buildDivinationEvidenceTerms(method);

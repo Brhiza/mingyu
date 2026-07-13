@@ -27,6 +27,8 @@ import { assertOptionalRecord } from '../../shared/validation';
 import type { RandomOptions, RandomTrace } from '../../shared/random';
 import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
+import { analyzeLiuyaoEvidence } from '../liuyao-evidence';
+import type { LiuyaoData } from '../../types/divination';
 import {
   isSheng,
   isKe,
@@ -992,48 +994,58 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
       }
     : null;
 
-  return attachResultMeta(
-    {
-      originalName: mainHexagram.name,
-      changedName: changedHexagram.name,
-      interName: interHexagram.name,
-      yaoArray: rawYaos,
-      changingYaos: changingYaosResult,
-      sixGods: animals,
-      sixRelatives: yaosInfo.map((info) => info.liuqin),
-      najiaDizhi: yaosInfo.map((info) => info.dizhi),
-      wuxing: yaosInfo.map((info) => info.wuxing),
-      worldAndResponse: getWorldAndResponseArray(shiYing),
-      voidBranches: voids,
-      palace,
-      palaceStage,
-      ganzhi,
-      specialPattern,
-      specialAdvice,
-      isChaotic,
-      chaoticReason,
-      yaosDetail,
-      hiddenSpirits,
-      hexagramRelations,
-      fanfuRelations,
-      sanheWithDay,
-      sanheWithMonth,
-      sanxingInYaos,
-      guaShen,
-      generation: resolvedGeneration.generation,
+  const result: LiuyaoData = {
+    originalName: mainHexagram.name,
+    changedName: changedHexagram.name,
+    interName: interHexagram.name,
+    yaoArray: rawYaos,
+    changingYaos: changingYaosResult,
+    sixGods: animals,
+    sixRelatives: yaosInfo.map((info) => info.liuqin),
+    najiaDizhi: yaosInfo.map((info) => info.dizhi),
+    wuxing: yaosInfo.map((info) => info.wuxing),
+    worldAndResponse: getWorldAndResponseArray(shiYing),
+    voidBranches: voids,
+    palace,
+    palaceStage,
+    ganzhi,
+    specialPattern,
+    specialAdvice,
+    isChaotic,
+    chaoticReason,
+    yaosDetail,
+    hiddenSpirits,
+    hexagramRelations,
+    fanfuRelations,
+    sanheWithDay,
+    sanheWithMonth,
+    sanxingInYaos,
+    guaShen,
+    generation: resolvedGeneration.generation,
+    timestamp,
+  };
+  result.evidenceAnalysis = analyzeLiuyaoEvidence(result);
+
+  return attachResultMeta(result, {
+    algorithm: 'liuyao',
+    input: {
+      method: resolvedGeneration.generation.method,
       timestamp,
+      yaos: resolvedGeneration.generation.method === 'manual' ? rawYaos : undefined,
     },
-    {
-      algorithm: 'liuyao',
-      input: {
-        method: resolvedGeneration.generation.method,
-        timestamp,
-        yaos: resolvedGeneration.generation.method === 'manual' ? rawYaos : undefined,
-      },
-      calculatedAt: timestamp,
-      random: resolvedGeneration.randomTrace,
-    },
-  );
+    calculatedAt: timestamp,
+    random: resolvedGeneration.randomTrace,
+  });
 }
 
 export { buildHiddenSpirits };
+export { analyzeLiuyaoEvidence } from '../liuyao-evidence';
+export type {
+  LiuyaoEvidenceAnalysis,
+  LiuyaoEvidenceOptions,
+  LiuyaoEvidenceTopic,
+  LiuyaoGodChainItem,
+  LiuyaoGodRole,
+  LiuyaoUsefulGodCandidate,
+  LiuyaoYaoReference,
+} from '../liuyao-evidence';
