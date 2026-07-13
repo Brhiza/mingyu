@@ -24,6 +24,7 @@ import {
   getPatternTag,
   getTransmissionPattern,
 } from './helpers/transmission';
+import { analyzeLiurenEvidence } from '../../liuren-evidence';
 
 const MONTH_LEADER_BY_ZHONGQI: Record<string, string> = {
   雨水: '亥',
@@ -365,7 +366,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     {
       target: `初传${firstTransmission.branch}乘${firstTransmission.god}`,
       role: '发用主轴',
-      weight: 100,
+      level: '主证',
       evidence: [
         `${initialResult.rule}取为初传`,
         `月令${firstTransmission.seasonState}`,
@@ -376,14 +377,14 @@ export function generateLiuren(customDate?: Date): LiurenData {
     {
       target: `日干${dayStem}寄${dayStemResidence}`,
       role: '我方与求测者',
-      weight: 80,
+      level: '辅证',
       evidence: ['日干寄宫为我方定位', `一课${fourLessons[0].upper}临${fourLessons[0].lower}`],
       limitations: [],
     },
     {
       target: `日支${dayBranch}`,
       role: '所占之事与对方环境',
-      weight: 70,
+      level: '辅证',
       evidence: [`三课${fourLessons[2].upper}临${fourLessons[2].lower}`, '需与发用和三传同看'],
       limitations: ['具体类神仍须按问题主题从明列盘面中选取'],
     },
@@ -429,7 +430,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     return acc;
   }, {});
 
-  return {
+  const result: LiurenData = {
     ganzhi,
     timestamp,
     dayNight,
@@ -457,4 +458,13 @@ export function generateLiuren(customDate?: Date): LiurenData {
     focusEvidence,
     timingEvidence,
   };
+  result.evidenceAnalysis = analyzeLiurenEvidence(result);
+  return result;
 }
+
+export { analyzeLiurenEvidence } from '../../liuren-evidence';
+export type {
+  LiurenEvidenceAnalysis,
+  LiurenLessonEvidence,
+  LiurenTransmissionEvidence,
+} from '../../liuren-evidence';

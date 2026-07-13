@@ -320,7 +320,16 @@ const systems: SystemCapability[] = [
     methods: options(LIUREN_TEMPLATE_OPTIONS),
     defaultMethod: 'general',
     inputs: [{ id: 'date', label: '起课时间', type: 'datetime', required: false }, questionInput],
-    outputs: ['天地盘', '四课', '三传', '天将', '课体', '神煞'],
+    outputs: [
+      '天地盘',
+      '四课',
+      '三传',
+      '天将',
+      '课体',
+      '神煞',
+      '四课取传依据与初传发用',
+      '三传推进支持与反证限制',
+    ],
     supports: {
       seed: false,
       customRandomSource: false,

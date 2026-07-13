@@ -1150,6 +1150,16 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     const liurenPrompt = String(liurenResult.structuredContent?.prompt);
     assert.match(liurenPrompt, /【断课要点】/);
     assert.match(liurenPrompt, /断课类型：事业断课/);
+    assert.match(liurenPrompt, /【大六壬四课取传与三传推进结构化证据】/);
+    assert.match(liurenPrompt, /四课取传与初传发用/);
+    assert.doesNotMatch(liurenPrompt, /取用候选：.*权重\d|吉凶总分[：=]?\d/);
+    const liurenData = (
+      liurenResult.structuredContent as {
+        result: { evidenceAnalysis: { lessons: unknown[]; transmissions: unknown[] } };
+      }
+    ).result;
+    assert.equal(liurenData.evidenceAnalysis.lessons.length, 4);
+    assert.equal(liurenData.evidenceAnalysis.transmissions.length, 3);
     assert.doesNotMatch(liurenPrompt, /【分析思路】/);
     assert.doesNotMatch(liurenPrompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
     assertPromptIsPortableTaskText(liurenPrompt);

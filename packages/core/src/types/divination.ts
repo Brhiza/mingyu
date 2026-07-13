@@ -579,6 +579,8 @@ export interface LiurenClassicalRule {
 }
 
 export interface LiurenData {
+  /** 四课取传、三传推进、旺衰空亡及反证限制。 */
+  evidenceAnalysis?: import('../divination/liuren-evidence').LiurenEvidenceAnalysis;
   /** 四柱干支（年/月/日/时） */
   ganzhi: BaseGanZhi;
   /** Unix 时间戳（毫秒） */
@@ -643,7 +645,7 @@ export interface LiurenData {
   focusEvidence?: Array<{
     target: string;
     role: string;
-    weight: number;
+    level: '主证' | '辅证';
     evidence: string[];
     limitations: string[];
   }>;

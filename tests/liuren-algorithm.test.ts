@@ -47,8 +47,8 @@ test('大六壬应输出分层取用与应期证据', () => {
   const result = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
 
   assert.deepEqual(
-    result.focusEvidence?.map((item) => item.weight),
-    [100, 80, 70],
+    result.focusEvidence?.map((item) => item.level),
+    ['主证', '辅证', '辅证'],
   );
   assert.match(result.focusEvidence?.[0]?.role ?? '', /发用主轴/);
   assert.equal(result.timingEvidence?.length, 4);

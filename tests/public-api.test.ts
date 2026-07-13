@@ -2235,8 +2235,19 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
   assert.equal(liuren.body.ok, true);
   assert.match(liuren.body.data.prompt, /【断课要点】/);
   assert.match(liuren.body.data.prompt, /断课类型：事业断课/);
+  assert.match(liuren.body.data.prompt, /【大六壬四课取传与三传推进结构化证据】/);
+  assert.doesNotMatch(liuren.body.data.prompt, /取用候选：.*权重\d|吉凶总分[：=]?\d/);
   assert.doesNotMatch(liuren.body.data.prompt, /【分析思路】/);
   assert.doesNotMatch(liuren.body.data.prompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
+
+  const liurenChart = await callApi('divination/liuren', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customDate: '2025-01-01T08:00:00+08:00' }),
+  });
+  assert.equal(liurenChart.response.status, 200);
+  assert.equal(liurenChart.body.data.evidenceAnalysis.lessons.length, 4);
+  assert.equal(liurenChart.body.data.evidenceAnalysis.transmissions.length, 3);
 });
 
 test('公开 API 参数错误应返回统一错误结构', async () => {

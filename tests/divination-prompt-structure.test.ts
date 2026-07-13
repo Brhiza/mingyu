@@ -1346,7 +1346,7 @@ test('大六壬提示词会吸收课体与神煞补充信息', () => {
     createSupplementaryInfo(),
   );
 
-  assert.match(prompt, /课体：龙德卦、连珠卦/);
+  assert.match(prompt, /课体标签：龙德卦、连珠卦/);
   assert.match(prompt, /神煞：/);
   assert.doesNotMatch(prompt, /辅证：/);
   assert.doesNotMatch(prompt, /课体补充：龙德卦、连珠卦/);

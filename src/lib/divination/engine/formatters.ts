@@ -25,6 +25,7 @@ import type { PromptEvidenceItem } from '@core/prompt-evidence/types';
 import type { DivinationMethodId } from '@core/divination/config';
 import { analyzeLiuyaoEvidence } from '@core/divination/algorithms/liuyao';
 import { analyzeMeihuaEvidence } from '@core/divination/algorithms/meihua';
+import { analyzeLiurenEvidence } from '@core/divination/algorithms/liuren';
 
 function resolveDivinationTimestamp(data?: DivinationData): number | null {
   if (
@@ -967,7 +968,7 @@ function formatLiurenInfo(data: LiurenData) {
     : '';
   const guaTiText = data.guaTi?.length ? data.guaTi.join('、') : '';
   const guaTiSection = guaTiText
-    ? `课体：${guaTiText}——${guaTiText.includes('伏吟') ? '伏吟主静、主迟、主闷局，宜守待时机' : guaTiText.includes('反吟') || guaTiText.includes('返吟') ? '反吟主动、主反复、主事有反复，宜先稳住再动' : guaTiText.includes('元首') ? '元首课上克下，主事从上层或外部推动' : guaTiText.includes('重审') ? '重审课下贼上，主事须反复确认、先阻后成' : guaTiText.includes('涉害') ? '涉害课主阻力深、纠缠久，宜耐心周旋' : guaTiText.includes('遥克') ? '遥克课主远事、间接牵动，宜看远程资源' : guaTiText.includes('昴星') ? '昴星课主动在女、暗处或非常规路径' : guaTiText.includes('别责') ? '别责课主事出非常规，需另辟蹊径' : '课体为大局底色，可作旁证'}`
+    ? `课体标签：${guaTiText}；只表示盘面结构类别，须与四课取传、三传、旺衰和空亡互证，不单独作吉凶结论`
     : '';
   const tianJiangContext = data.threeTransmissions
     .map((t) => {
@@ -993,14 +994,7 @@ function formatLiurenInfo(data: LiurenData) {
         return parts.join('；');
       })()
     : '';
-  const focusEvidenceText = data.focusEvidence?.length
-    ? data.focusEvidence
-        .map(
-          (item) =>
-            `${item.role}：${item.target}（权重${item.weight}）；主证${item.evidence.join('、')}${item.limitations.length ? `；限制${item.limitations.join('、')}` : ''}`,
-        )
-        .join('；')
-    : '';
+  const evidenceAnalysis = analyzeLiurenEvidence(data);
 
   return [
     '占法：大六壬',
@@ -1016,7 +1010,7 @@ function formatLiurenInfo(data: LiurenData) {
     transmissionText ? `三传：${transmissionText}` : '',
     tianJiangSection,
     shenShaCategorized ? `神煞：${shenShaCategorized}` : '',
-    focusEvidenceText ? `取用候选：${focusEvidenceText}` : '',
+    evidenceAnalysis.promptText,
     data.timingEvidence?.length ? `应期优先级：${data.timingEvidence.join('；')}` : '',
     data.xunKong?.length
       ? `旬空：${data.xunKong.join('、')}${voidHits.length ? `，命中${voidHits.join('、')}主虚而不实，待填实再看` : ''}`
