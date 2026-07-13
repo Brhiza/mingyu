@@ -8,3 +8,4 @@ export * from './date-validation';
 export * from './true-solar-time';
 export * from './china-dst';
 export * from './astronomical-time';
+export * from './historical-timezone';

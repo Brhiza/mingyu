@@ -1,0 +1,149 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { buildAstronomicalTimeEvidence, resolveHistoricalTimezone } from 'mingyu-core/calendar';
+import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import { generateQizheng } from 'mingyu-core/qizheng';
+
+test('IANA 历史时区应识别中国 1990 年夏令时', () => {
+  const evidence = resolveHistoricalTimezone({
+    year: 1990,
+    month: 7,
+    day: 1,
+    hour: 12,
+    minute: 0,
+    second: 0,
+    timeZoneId: 'Asia/Shanghai',
+  });
+
+  assert.equal(evidence.status, 'unique');
+  assert.equal(evidence.resolvedOffsetHours, 9);
+  assert.equal(evidence.selectedUtcDateTime, '1990-07-01T03:00:00.000Z');
+});
+
+test('IANA 历史时区应识别普通唯一时刻与固定偏移冲突', () => {
+  const current = resolveHistoricalTimezone({
+    year: 2026,
+    month: 7,
+    day: 14,
+    hour: 12,
+    minute: 0,
+    second: 0,
+    timeZoneId: 'Asia/Shanghai',
+  });
+  assert.equal(current.resolvedOffsetHours, 8);
+
+  const historical = resolveHistoricalTimezone({
+    year: 1990,
+    month: 7,
+    day: 1,
+    hour: 12,
+    minute: 0,
+    second: 0,
+    timeZoneId: 'Asia/Shanghai',
+    fixedOffsetHours: 8,
+  });
+  assert.equal(historical.offsetConflict, true);
+  assert.match(historical.diagnostics.join('；'), /UTC\+8.*UTC\+9/);
+});
+
+test('IANA 历史时区应保留纽约秋季回拨的两个候选时刻', () => {
+  const evidence = resolveHistoricalTimezone({
+    year: 2024,
+    month: 11,
+    day: 3,
+    hour: 1,
+    minute: 30,
+    second: 0,
+    timeZoneId: 'America/New_York',
+  });
+
+  assert.equal(evidence.status, 'ambiguous');
+  assert.deepEqual(evidence.possibleOffsetsHours, [-4, -5]);
+  assert.deepEqual(evidence.possibleUtcDateTimes, [
+    '2024-11-03T05:30:00.000Z',
+    '2024-11-03T06:30:00.000Z',
+  ]);
+});
+
+test('IANA 历史时区应拒绝春季跳时与无效时区', () => {
+  assert.throws(
+    () =>
+      resolveHistoricalTimezone({
+        year: 2024,
+        month: 3,
+        day: 10,
+        hour: 2,
+        minute: 30,
+        second: 0,
+        timeZoneId: 'America/New_York',
+      }),
+    /不存在.*夏令时跳时/,
+  );
+  assert.throws(
+    () =>
+      resolveHistoricalTimezone({
+        year: 2026,
+        month: 1,
+        day: 1,
+        hour: 0,
+        minute: 0,
+        second: 0,
+        timeZoneId: 'Invalid\/Zone',
+      }),
+    /无法识别 IANA 时区/,
+  );
+});
+
+test('天文时间尺度应直接采用 IANA 解析出的历史偏移', () => {
+  const evidence = buildAstronomicalTimeEvidence({
+    year: 1990,
+    month: 7,
+    day: 1,
+    hour: 12,
+    timeZoneId: 'Asia/Shanghai',
+  });
+
+  assert.equal(evidence.timezone, 9);
+  assert.equal(evidence.utcDateTime, '1990-07-01 03:00:00Z');
+  assert.equal(evidence.timezoneEvidence?.resolvedOffsetHours, 9);
+  assert.match(evidence.promptText, /IANA|历史时区/);
+});
+
+test('七政四余星历计算应采用 IANA 历史偏移而非默认东八区', () => {
+  const result = generateQizheng({
+    year: 1990,
+    month: 7,
+    day: 1,
+    hour: 12,
+    latitude: 31.23,
+    longitude: 121.47,
+    timeZoneId: 'Asia/Shanghai',
+  });
+
+  assert.equal(result.calculationContext.timezone, 9);
+  assert.equal(result.calculationContext.utcDateTime, '1990-07-01T03:00:00.000Z');
+  assert.equal(result.calculationContext.timezoneSource, 'IANA历史时区');
+  assert.equal(result.calculationContext.astronomicalTime.timezoneEvidence?.offsetConflict, false);
+});
+
+test('西占本命盘应采用 IANA 历史偏移并保留诊断', () => {
+  const result = generateAstrolabe({
+    name: '测试',
+    gender: '男',
+    year: '1990',
+    month: '7',
+    day: '1',
+    hour: '12',
+    minute: '0',
+    latitude: '31.23',
+    longitude: '121.47',
+    timezone: '8',
+    timeZoneId: 'Asia/Shanghai',
+  });
+
+  assert.equal(result.birth.timezone, 9);
+  assert.equal(result.birth.timeZoneId, 'Asia/Shanghai');
+  assert.equal(result.birth.timezoneStatus, 'unique');
+  assert.match(result.birth.timezoneDiagnostics?.join('；') ?? '', /UTC\+8.*UTC\+9/);
+});

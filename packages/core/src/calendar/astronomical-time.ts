@@ -4,6 +4,7 @@
  */
 
 import { daysInGregorianMonth } from './date-validation';
+import { resolveHistoricalTimezone, type HistoricalTimezoneEvidence } from './historical-timezone';
 
 export interface AstronomicalTimeInput {
   year: number;
@@ -12,12 +13,15 @@ export interface AstronomicalTimeInput {
   hour?: number;
   minute?: number;
   second?: number;
-  timezone: number;
+  timezone?: number;
+  timeZoneId?: string;
 }
 
 export interface AstronomicalTimeEvidence {
   localDateTime: string;
   timezone: number;
+  timeZoneId?: string;
+  timezoneEvidence?: HistoricalTimezoneEvidence;
   utcDateTime: string;
   unixMilliseconds: number;
   julianDayUtc: number;
@@ -112,12 +116,32 @@ export function buildAstronomicalTimeEvidence(
   assertIntegerInRange(hour, 0, 23, '小时');
   assertIntegerInRange(minute, 0, 59, '分钟');
   assertIntegerInRange(second, 0, 59, '秒');
-  if (!Number.isFinite(input.timezone) || input.timezone < -14 || input.timezone > 14) {
+  if (
+    input.timezone !== undefined &&
+    (!Number.isFinite(input.timezone) || input.timezone < -14 || input.timezone > 14)
+  ) {
     throw new Error('时区需在 UTC-14 到 UTC+14 之间。');
+  }
+  if (input.timezone === undefined && !input.timeZoneId) {
+    throw new Error('timezone 与 timeZoneId 至少需要提供一项。');
   }
 
   const localTimestamp = Date.UTC(input.year, input.month - 1, input.day, hour, minute, second);
-  const utcTimestamp = localTimestamp - input.timezone * 3600000;
+  const timezoneEvidence = input.timeZoneId
+    ? resolveHistoricalTimezone({
+        year: input.year,
+        month: input.month,
+        day: input.day,
+        hour,
+        minute,
+        second,
+        timeZoneId: input.timeZoneId,
+        fixedOffsetHours: input.timezone,
+      })
+    : undefined;
+  const timezone = timezoneEvidence?.resolvedOffsetHours ?? input.timezone!;
+  const utcTimestamp =
+    timezoneEvidence?.selectedUtcTimestamp ?? localTimestamp - timezone * 3600000;
   const utcDate = new Date(utcTimestamp);
   const decimalYear = decimalYearFromUtc(utcDate);
   const deltaTSeconds = estimateDeltaTSeconds(decimalYear);
@@ -145,7 +169,9 @@ export function buildAstronomicalTimeEvidence(
   });
   const utcDateTime = `${formatDateTime(utcParts)}Z`;
   const assumptions = [
-    '输入 timezone 视为该时刻已经确认的法定 UTC 偏移，不自动推断地点历史时区。',
+    timezoneEvidence
+      ? `IANA 时区 ${timezoneEvidence.timeZoneId} 解析出历史偏移 UTC${timezone >= 0 ? '+' : ''}${timezone}。`
+      : '输入 timezone 视为该时刻已经确认的法定 UTC 偏移，不自动推断地点历史时区。',
     '缺少实时 DUT1 数据时使用 UT1≈UTC，误差上限通常小于 0.9 秒。',
   ];
   const limitations = [
@@ -156,7 +182,9 @@ export function buildAstronomicalTimeEvidence(
 
   return {
     localDateTime,
-    timezone: input.timezone,
+    timezone,
+    timeZoneId: input.timeZoneId,
+    timezoneEvidence,
     utcDateTime,
     unixMilliseconds: utcTimestamp,
     julianDayUtc: Number(julianDayUtc.toFixed(9)),
@@ -169,6 +197,6 @@ export function buildAstronomicalTimeEvidence(
     assumptions,
     limitations,
     source,
-    promptText: `天文时间尺度：当地钟表时间${localDateTime}（UTC${input.timezone >= 0 ? '+' : ''}${input.timezone}）→ UTC ${utcDateTime}；JD(UTC)=${julianDayUtc.toFixed(6)}，在 UT1≈UTC 假设下 JD(UT)≈${julianDayUtApprox.toFixed(6)}；ΔT≈${deltaTSeconds.toFixed(3)}秒，JD(TT)≈${julianDayTtApprox.toFixed(6)}。模型等级：${precisionLevel}。来源：${source}。限制：${[...assumptions, ...limitations].join('；')}`,
+    promptText: `天文时间尺度：当地钟表时间${localDateTime}（${input.timeZoneId ? `${input.timeZoneId}，` : ''}UTC${timezone >= 0 ? '+' : ''}${timezone}）→ UTC ${utcDateTime}；JD(UTC)=${julianDayUtc.toFixed(6)}，在 UT1≈UTC 假设下 JD(UT)≈${julianDayUtApprox.toFixed(6)}；ΔT≈${deltaTSeconds.toFixed(3)}秒，JD(TT)≈${julianDayTtApprox.toFixed(6)}。模型等级：${precisionLevel}。${timezoneEvidence ? `历史时区诊断：${timezoneEvidence.diagnostics.join('；')}。` : ''}来源：${source}。限制：${[...assumptions, ...limitations].join('；')}`,
   };
 }

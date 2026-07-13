@@ -18,6 +18,10 @@ const qiZhengSchema = z.object({
   latitude: z.number().min(-90).max(90).optional().describe('纬度（默认北京）'),
   longitude: z.number().min(-180).max(180).optional().describe('经度（默认北京）'),
   timezone: z.number().min(-12).max(14).optional().describe('时区偏移（默认 +8）'),
+  timeZoneId: z
+    .string()
+    .optional()
+    .describe('IANA 历史时区，例如 Asia/Shanghai；提供后会自动解析当年的夏令时'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
 
@@ -41,6 +45,7 @@ export function registerQizhengTool(server: McpServer) {
           ...(args.latitude !== undefined ? { latitude: args.latitude } : {}),
           ...(args.longitude !== undefined ? { longitude: args.longitude } : {}),
           ...(args.timezone !== undefined ? { timezone: args.timezone } : {}),
+          ...(args.timeZoneId ? { timeZoneId: args.timeZoneId } : {}),
         });
         return createStructuredToolResult({ result });
       } catch (error) {
@@ -67,6 +72,7 @@ export function registerQizhengTool(server: McpServer) {
           ...(args.latitude !== undefined ? { latitude: args.latitude } : {}),
           ...(args.longitude !== undefined ? { longitude: args.longitude } : {}),
           ...(args.timezone !== undefined ? { timezone: args.timezone } : {}),
+          ...(args.timeZoneId ? { timeZoneId: args.timeZoneId } : {}),
         });
         return createStructuredToolResult({
           result,

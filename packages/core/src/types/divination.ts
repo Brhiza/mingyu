@@ -848,7 +848,8 @@ export interface AstrolabeBirthInput {
   minute: string;
   latitude: string;
   longitude: string;
-  timezone: string;
+  timezone?: string;
+  timeZoneId?: string;
   locationName?: string;
   useTrueSolarTime?: boolean;
 }
@@ -885,6 +886,9 @@ export interface AstrolabeData {
     dateTime: string;
     location: string;
     timezone: number;
+    timeZoneId?: string;
+    timezoneStatus?: 'unique' | 'ambiguous';
+    timezoneDiagnostics?: string[];
     standardDateTime?: string;
     trueSolarDateTime?: string;
     isTrueSolarTime?: boolean;

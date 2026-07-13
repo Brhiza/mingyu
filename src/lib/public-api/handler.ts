@@ -309,6 +309,7 @@ const DIVINATION_REQUEST_PROPERTIES = {
   latitude: { type: 'number', minimum: -90, maximum: 90 },
   longitude: { type: 'number', minimum: -180, maximum: 180 },
   timezone: { type: 'number', minimum: -12, maximum: 14 },
+  timeZoneId: { type: 'string', example: 'Asia/Shanghai' },
   locationName: { type: 'string' },
   useTrueSolarTime: { type: 'boolean' },
   astrolabeTopic: { enum: [...ASTROLABE_PROMPT_TOPICS] },
@@ -1118,7 +1119,7 @@ export function getPublicApiOpenApiDocument(
         },
         AstrolabeBirthRequest: {
           type: 'object',
-          required: ['year', 'month', 'day', 'hour', 'minute', 'latitude', 'longitude', 'timezone'],
+          required: ['year', 'month', 'day', 'hour', 'minute', 'latitude', 'longitude'],
           properties: {
             name: { type: 'string' },
             gender: { enum: ['男', '女', ''] },
@@ -1130,6 +1131,11 @@ export function getPublicApiOpenApiDocument(
             latitude: { type: 'number', minimum: -90, maximum: 90 },
             longitude: { type: 'number', minimum: -180, maximum: 180 },
             timezone: { type: 'number', minimum: -12, maximum: 14 },
+            timeZoneId: {
+              type: 'string',
+              example: 'Asia/Shanghai',
+              description: 'IANA 历史时区；推荐用于历史日期和实行夏令时的地区',
+            },
             locationName: { type: 'string' },
             useTrueSolarTime: { type: 'boolean' },
           },
@@ -1576,6 +1582,8 @@ function calculateQizhengApi(input: JsonRecord) {
   const latitude = optNumber(input, 'latitude', -90, 90);
   const longitude = optNumber(input, 'longitude', -180, 180);
   const timezone = optNumber(input, 'timezone', -12, 14);
+  const timeZoneId =
+    input.timeZoneId === undefined ? undefined : readString(input, 'timeZoneId', '');
   return qizheng.generateQizheng({
     year,
     month,
@@ -1585,6 +1593,7 @@ function calculateQizhengApi(input: JsonRecord) {
     ...(latitude !== undefined ? { latitude } : {}),
     ...(longitude !== undefined ? { longitude } : {}),
     ...(timezone !== undefined ? { timezone } : {}),
+    ...(timeZoneId ? { timeZoneId } : {}),
   });
 }
 
@@ -2192,6 +2201,12 @@ function calculateLenormand(input: JsonRecord) {
 function calculateAstrolabe(input: JsonRecord) {
   assertNoRandomOptions(input, '星盘是确定性排盘，不接受 seed 或 replay。');
   const birthDate = readBirthDate(input, { dateType: 'solar' });
+  const timezone = optNumber(input, 'timezone', -12, 14);
+  const timeZoneId =
+    input.timeZoneId === undefined ? undefined : readString(input, 'timeZoneId', '');
+  if (timezone === undefined && !timeZoneId) {
+    throw new ApiError(400, 'BAD_REQUEST', 'timezone 与 timeZoneId 至少需要提供一项。');
+  }
   const astrolabeInput: AstrolabeBirthInput = {
     name: readString(input, 'name', ''),
     gender: readEnum(input, 'gender', ['男', '女', ''], ''),
@@ -2202,7 +2217,8 @@ function calculateAstrolabe(input: JsonRecord) {
     minute: String(readInteger(input, 'minute', 0, 59)),
     latitude: String(readNumber(input, 'latitude', -90, 90)),
     longitude: String(readNumber(input, 'longitude', -180, 180)),
-    timezone: String(readNumber(input, 'timezone', -12, 14)),
+    ...(timezone !== undefined ? { timezone: String(timezone) } : {}),
+    ...(timeZoneId ? { timeZoneId } : {}),
     locationName: readString(input, 'locationName', ''),
     useTrueSolarTime: readBoolean(input, 'useTrueSolarTime', false),
   };

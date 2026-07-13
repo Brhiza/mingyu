@@ -6,6 +6,7 @@ import type {
   AstrolabePoint,
 } from '../../types/divination';
 import { daysInSolarMonth } from '../../calendar/date-validation';
+import { resolveHistoricalTimezone } from '../../calendar/historical-timezone';
 import { resolveTrueSolarBirthTime } from '../../calendar/true-solar-time';
 import {
   classifyAspectClosenessFromStrength,
@@ -239,7 +240,20 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
   const standardBirth = localTimestamp(input);
   const latitude = requireNumber(input.latitude, '出生地纬度');
   const longitude = requireNumber(input.longitude, '出生地经度');
-  const timezone = requireNumber(input.timezone, '时区');
+  if (input.timezone === undefined && !input.timeZoneId) {
+    throw new Error('时区或 IANA 时区名至少需要提供一项。');
+  }
+  const fixedTimezone =
+    input.timezone === undefined ? undefined : requireNumber(input.timezone, '时区');
+  const timezoneEvidence = input.timeZoneId
+    ? resolveHistoricalTimezone({
+        ...standardBirth,
+        second: 0,
+        timeZoneId: input.timeZoneId,
+        fixedOffsetHours: fixedTimezone,
+      })
+    : undefined;
+  const timezone = timezoneEvidence?.resolvedOffsetHours ?? fixedTimezone!;
   assertNumberRange(latitude, '出生地纬度', -90, 90);
   assertNumberRange(longitude, '出生地经度', -180, 180);
   assertNumberRange(timezone, '时区', -12, 14);
@@ -313,6 +327,9 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
           ? `${locationName}（${latitude.toFixed(4)}, ${longitude.toFixed(4)}）`
           : `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
       timezone,
+      timeZoneId: input.timeZoneId,
+      timezoneStatus: timezoneEvidence?.status,
+      timezoneDiagnostics: timezoneEvidence?.diagnostics,
       standardDateTime: formatDateTime(standardBirth),
       trueSolarDateTime: trueSolarResult
         ? formatDateTime(trueSolarResult.correctedTime)

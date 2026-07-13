@@ -178,6 +178,7 @@ const systems: SystemCapability[] = [
       '本命与行运作用域',
       '返照',
       '太阳返照求根过程与黄经残差',
+      'IANA历史时区与夏令时诊断',
       '次限',
       '太阳弧',
       '双盘相位',
@@ -540,6 +541,7 @@ const systems: SystemCapability[] = [
       '神煞',
       '相位容许度',
       '计算上下文',
+      'IANA历史时区与夏令时诊断',
       '精度边界',
     ],
     supports: {

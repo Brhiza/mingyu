@@ -14,6 +14,7 @@ import {
   buildAstronomicalTimeEvidence,
   type AstronomicalTimeEvidence,
 } from '../calendar/astronomical-time';
+import { resolveHistoricalTimezone } from '../calendar/historical-timezone';
 import {
   classifyAspectClosenessFromStrength,
   normalizedOrbRatioFromStrength,
@@ -367,11 +368,19 @@ function calculateScopePlanets(
   date: { year: number; month: number; day: number; hour: number; minute: number },
 ) {
   const coordinates = parseBirthCoordinates(data);
+  const timezone = data.birth.timeZoneId
+    ? resolveHistoricalTimezone({
+        ...date,
+        second: 0,
+        timeZoneId: data.birth.timeZoneId,
+        fixedOffsetHours: data.birth.timezone,
+      }).resolvedOffsetHours
+    : data.birth.timezone;
   return calculatePlanets(
     {
       ...date,
       second: 0,
-      timezone: data.birth.timezone,
+      timezone,
       latitude: coordinates.latitude,
       longitude: coordinates.longitude,
     },
@@ -581,6 +590,7 @@ export function calculateSolarReturnEvidence(
       ...finalDate,
       second: 0,
       timezone: data.birth.timezone,
+      timeZoneId: data.birth.timeZoneId,
     });
     return {
       ...baseEvidence,

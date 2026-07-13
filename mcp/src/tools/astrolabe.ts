@@ -34,7 +34,11 @@ const astrolabeSchema = z.object({
   minute: z.number().describe('出生分钟'),
   latitude: z.number().describe('出生地纬度'),
   longitude: z.number().describe('出生地经度'),
-  timezone: z.number().describe('时区偏移，例如中国大陆为 8'),
+  timezone: z.number().optional().describe('固定时区偏移，例如中国大陆通常为 8'),
+  timeZoneId: z
+    .string()
+    .optional()
+    .describe('IANA 历史时区，例如 Asia/Shanghai；推荐用于历史出生时间和夏令时地区'),
   locationName: z.string().optional().describe('出生地点名称'),
   useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时校正'),
 });
@@ -81,7 +85,13 @@ function buildAstrolabeInput(args: z.infer<typeof astrolabeSchema>): AstrolabeBi
   const minute = readMcpIntegerLikeInRange(args.minute, 'minute', 0, 59);
   const latitude = readMcpNumberLikeInRange(args.latitude, 'latitude', -90, 90);
   const longitude = readMcpNumberLikeInRange(args.longitude, 'longitude', -180, 180);
-  const timezone = readMcpNumberLikeInRange(args.timezone, 'timezone', -12, 14);
+  if (args.timezone === undefined && !args.timeZoneId) {
+    throw new Error('timezone 与 timeZoneId 至少需要提供一项。');
+  }
+  const timezone =
+    args.timezone === undefined
+      ? undefined
+      : readMcpNumberLikeInRange(args.timezone, 'timezone', -12, 14);
 
   return {
     name: args.name ?? '',
@@ -93,7 +103,8 @@ function buildAstrolabeInput(args: z.infer<typeof astrolabeSchema>): AstrolabeBi
     minute: String(minute),
     latitude: String(latitude),
     longitude: String(longitude),
-    timezone: String(timezone),
+    ...(timezone !== undefined ? { timezone: String(timezone) } : {}),
+    ...(args.timeZoneId ? { timeZoneId: args.timeZoneId } : {}),
     locationName: args.locationName ?? '',
     useTrueSolarTime: args.useTrueSolarTime ?? false,
   };

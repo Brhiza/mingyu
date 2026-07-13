@@ -134,7 +134,7 @@ export interface QizhengCalculationContext {
   latitude: number;
   longitude: number;
   locationSource: '用户提供' | '默认北京坐标' | '部分坐标使用默认值';
-  timezoneSource: '用户提供' | '默认东八区';
+  timezoneSource: 'IANA历史时区' | '用户提供' | '默认东八区';
   astronomicalTime: AstronomicalTimeEvidence;
   coordinatePipeline: string[];
 }
@@ -157,6 +157,7 @@ export interface QizhengInput {
   latitude?: number;
   longitude?: number;
   timezone?: number;
+  timeZoneId?: string;
 }
 
 export interface QizhengResult {
@@ -413,7 +414,10 @@ function validateQizhengInput(input: QizhengInput, includeLocation: boolean): vo
   }
   assertIntegerRange(input.hour, '小时', 0, 23);
   assertIntegerRange(input.minute ?? 0, '分钟', 0, 59);
-  assertNumberRange(input.timezone ?? 8, '时区', -12, 14);
+  if (input.timezone !== undefined) assertNumberRange(input.timezone, '时区', -12, 14);
+  if (input.timeZoneId !== undefined && !input.timeZoneId.trim()) {
+    throw new Error('IANA 时区名不能为空。');
+  }
   if (includeLocation) {
     assertNumberRange(input.latitude ?? 39.9, '纬度', -90, 90);
     assertNumberRange(input.longitude ?? 116.4, '经度', -180, 180);
@@ -422,15 +426,20 @@ function validateQizhengInput(input: QizhengInput, includeLocation: boolean): vo
 
 function getTargetUtcMs(input: QizhengInput): number {
   validateQizhengInput(input, false);
-  const localAsUtcMs = Date.UTC(
-    input.year,
-    input.month - 1,
-    input.day,
-    input.hour,
-    input.minute ?? 0,
-    0,
-  );
-  return localAsUtcMs - (input.timezone ?? 8) * 60 * 60 * 1000;
+  return buildQizhengAstronomicalTime(input).unixMilliseconds;
+}
+
+function buildQizhengAstronomicalTime(input: QizhengInput): AstronomicalTimeEvidence {
+  return buildAstronomicalTimeEvidence({
+    year: input.year,
+    month: input.month,
+    day: input.day,
+    hour: input.hour,
+    minute: input.minute ?? 0,
+    second: 0,
+    timezone: input.timezone ?? (input.timeZoneId ? undefined : 8),
+    timeZoneId: input.timeZoneId,
+  });
 }
 
 function getDecimalYear(utcMs: number): number {
@@ -581,24 +590,14 @@ function buildCalculationContext(
   input: QizhengInput,
   latitude: number,
   longitude: number,
-  timezone: number,
+  astronomicalTime: AstronomicalTimeEvidence,
 ): QizhengCalculationContext {
-  const utcMs = getTargetUtcMs(input);
   const hasLatitude = input.latitude !== undefined;
   const hasLongitude = input.longitude !== undefined;
-  const astronomicalTime = buildAstronomicalTimeEvidence({
-    year: input.year,
-    month: input.month,
-    day: input.day,
-    hour: input.hour,
-    minute: input.minute ?? 0,
-    second: 0,
-    timezone,
-  });
   return {
     localDateTime: `${input.year}-${String(input.month).padStart(2, '0')}-${String(input.day).padStart(2, '0')}T${String(input.hour).padStart(2, '0')}:${String(input.minute ?? 0).padStart(2, '0')}:00`,
-    utcDateTime: new Date(utcMs).toISOString(),
-    timezone,
+    utcDateTime: new Date(astronomicalTime.unixMilliseconds).toISOString(),
+    timezone: astronomicalTime.timezone,
     latitude,
     longitude,
     locationSource:
@@ -607,7 +606,11 @@ function buildCalculationContext(
         : !hasLatitude && !hasLongitude
           ? '默认北京坐标'
           : '部分坐标使用默认值',
-    timezoneSource: input.timezone === undefined ? '默认东八区' : '用户提供',
+    timezoneSource: input.timeZoneId
+      ? 'IANA历史时区'
+      : input.timezone === undefined
+        ? '默认东八区'
+        : '用户提供',
     astronomicalTime,
     coordinatePipeline: [
       '民用时间结合时区换算UTC时刻',
@@ -628,7 +631,11 @@ function buildQizhengEvidence(
   const locationSourceText =
     context.locationSource === '用户提供' ? '地点输入明确' : context.locationSource;
   const timezoneSourceText =
-    context.timezoneSource === '用户提供' ? '时区输入明确' : context.timezoneSource;
+    context.timezoneSource === '用户提供'
+      ? '时区输入明确'
+      : context.timezoneSource === 'IANA历史时区'
+        ? 'IANA历史时区已解析'
+        : context.timezoneSource;
   const primaryFacts = stars.map(
     (star) =>
       `${star.name}据${star.sourceLabel}得${star.precisionClass}位置，落${star.palace}、${star.xiu}宿${star.dignity && star.dignity !== '—' ? `、状态${star.dignity}` : ''}`,
@@ -696,8 +703,9 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
   validateQizhengInput(input, true);
   const lat = input.latitude ?? 39.9;
   const lon = input.longitude ?? 116.4;
-  const tz = input.timezone ?? 8;
-  const calculationContext = buildCalculationContext(input, lat, lon, tz);
+  const astronomicalTime = buildQizhengAstronomicalTime(input);
+  const tz = astronomicalTime.timezone;
+  const calculationContext = buildCalculationContext(input, lat, lon, astronomicalTime);
   const chart = calculateChart(
     {
       year: input.year,
