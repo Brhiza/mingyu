@@ -28,6 +28,10 @@ import {
   calculateMoonPhaseEvidence,
   type MoonPhaseEvidence,
 } from '../calendar/moon-phase-evidence';
+import {
+  calculateSolarIlluminationEvidence,
+  type SolarIlluminationEvidence,
+} from '../calendar/solar-illumination-evidence';
 import { getGanZhiFromDate } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
@@ -141,6 +145,7 @@ export interface QizhengCalculationContext {
   timezoneSource: 'IANA历史时区' | '用户提供' | '默认东八区';
   astronomicalTime: AstronomicalTimeEvidence;
   moonPhase: MoonPhaseEvidence;
+  solarIllumination: SolarIlluminationEvidence;
   coordinatePipeline: string[];
 }
 
@@ -600,6 +605,18 @@ function buildCalculationContext(
   const hasLatitude = input.latitude !== undefined;
   const hasLongitude = input.longitude !== undefined;
   const moonPhase = calculateMoonPhaseEvidence(astronomicalTime.unixMilliseconds);
+  const solarIllumination = calculateSolarIlluminationEvidence({
+    year: input.year,
+    month: input.month,
+    day: input.day,
+    hour: input.hour,
+    minute: input.minute ?? 0,
+    second: 0,
+    latitude,
+    longitude,
+    timezone: astronomicalTime.timezone,
+    timeZoneId: input.timeZoneId,
+  });
   return {
     localDateTime: `${input.year}-${String(input.month).padStart(2, '0')}-${String(input.day).padStart(2, '0')}T${String(input.hour).padStart(2, '0')}:${String(input.minute ?? 0).padStart(2, '0')}:00`,
     utcDateTime: new Date(astronomicalTime.unixMilliseconds).toISOString(),
@@ -619,6 +636,7 @@ function buildCalculationContext(
         : '用户提供',
     astronomicalTime,
     moonPhase,
+    solarIllumination,
     coordinatePipeline: [
       '民用时间结合时区换算UTC时刻',
       '统一记录JD(UTC)、UT1≈UTC假设、ΔT估算与近似JD(TT)',
@@ -659,6 +677,7 @@ function buildQizhengEvidence(
     '恒星黄经采用项目岁差近似，宿度再按古距度比例换算；显示小数只是可复算结果，不代表观测精度',
     ...context.astronomicalTime.limitations,
     ...context.moonPhase.limitations,
+    ...context.solarIllumination.limitations,
     '相位仅表示进入当前容许度，不输出成功率、吉凶百分比或综合总分',
     '神煞只作辅证，不能覆盖星体位置、宿度、落宫和吊照结构',
   ];
@@ -702,6 +721,7 @@ function buildQizhengEvidence(
       '再换算项目恒星黄经、古距度宿度、十二宫和庙旺。',
       '吊照只按实际夹角和容许度分级，不换算为吉凶百分比。',
       '月相只保留日月黄经差、照明近似和前后朔弦望时刻，不把月相直接解释为吉凶。',
+      '太阳高度与日出日落只作为地点相关的天文光照背景，不直接生成庙旺或吉凶结论。',
       '最终把输入缺省、模型差异和坐标近似作为强制限制证据。',
     ],
   };
@@ -849,6 +869,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     `计算上下文：当地民用时间${calculationContext.localDateTime}，对应UTC ${calculationContext.utcDateTime}；地点来源${calculationContext.locationSource === '用户提供' ? '输入明确' : calculationContext.locationSource}，时区来源${calculationContext.timezoneSource === '用户提供' ? '输入明确' : calculationContext.timezoneSource}。`,
     calculationContext.astronomicalTime.promptText,
     calculationContext.moonPhase.promptText,
+    calculationContext.solarIllumination.promptText,
     `位置来源：${QIZHENG_POSITION_SOURCES.map((source) => `${source.objects.join('、')}取自${source.provider}（${source.precisionClass}）`).join('；')}。`,
     `紫炁位置：顺行，回归黄经${ziqi.tropicalLongitude.toFixed(3)}°，项目恒星黄经${ziqi.siderealLongitude.toFixed(3)}°。`,
     ...stars.map(

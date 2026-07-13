@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { convertTrueSolarTime, resolveTrueSolarBirthTime } from 'mingyu-core/calendar';
+import {
+  calculateSolarIlluminationEvidence,
+  convertTrueSolarTime,
+  resolveTrueSolarBirthTime,
+} from 'mingyu-core/calendar';
 import { resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
@@ -34,6 +38,23 @@ const trueSolarBirthSchema = z.object({
   applyChinaDst: z.boolean().optional().describe('是否自动还原中国历史夏令时'),
 });
 
+const solarIlluminationSchema = z
+  .object({
+    year: z.number().int().min(1900).max(2200),
+    month: z.number().int().min(1).max(12),
+    day: z.number().int().min(1).max(31),
+    hour: z.number().int().min(0).max(23).optional().describe('参考当地小时，默认12'),
+    minute: z.number().int().min(0).max(59).optional().describe('参考当地分钟，默认0'),
+    second: z.number().int().min(0).max(59).optional().describe('参考当地秒，默认0'),
+    latitude: z.number().min(-90).max(90).describe('纬度，北纬为正'),
+    longitude: z.number().min(-180).max(180).describe('经度，东经为正'),
+    timezone: z.number().min(-14).max(14).optional().describe('法定UTC偏移'),
+    timeZoneId: z.string().min(1).optional().describe('IANA历史时区，如 Asia/Shanghai'),
+  })
+  .refine((value) => value.timezone !== undefined || Boolean(value.timeZoneId), {
+    message: 'timezone 与 timeZoneId 至少需要提供一项',
+  });
+
 export function registerCalendarTools(server: McpServer) {
   server.registerTool(
     'calendar_true_solar_time',
@@ -65,6 +86,31 @@ export function registerCalendarTools(server: McpServer) {
         return createStructuredToolResult({ result: resolveTrueSolarBirthTime(args) });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '出生真太阳时换算失败'));
+      }
+    },
+  );
+
+  server.registerTool(
+    'calendar_solar_illumination',
+    {
+      description:
+        '按日期、地点和历史时区计算太阳高度、方位、视太阳正午、日出日落及民用/航海/天文曙暮光结构化证据',
+      inputSchema: solarIlluminationSchema.shape,
+      outputSchema: resultOutputSchema,
+    },
+    async (args) => {
+      try {
+        const parsed = solarIlluminationSchema.parse(args);
+        return createStructuredToolResult({
+          result: calculateSolarIlluminationEvidence({
+            ...parsed,
+            hour: parsed.hour ?? 12,
+            minute: parsed.minute ?? 0,
+            second: parsed.second ?? 0,
+          }),
+        });
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '太阳光照证据计算失败'));
       }
     },
   );

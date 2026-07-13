@@ -458,6 +458,40 @@ test('公开 API 应提供统一公历农历出生真太阳时接口', async () 
   assert.equal(typeof body.data.correctedDateTime, 'string');
 });
 
+test('公开 API 应提供太阳高度、日出日落与曙暮光证据接口', async () => {
+  const { response, body } = await callApi('calendar/solar-illumination', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      year: 2024,
+      month: 6,
+      day: 21,
+      hour: 12,
+      latitude: 39.9042,
+      longitude: 116.4074,
+      timezone: 8,
+    }),
+  });
+  assert.equal(response.status, 200);
+  assert.equal(body.data.sunriseSunset.status, '正常交点');
+  assert.match(body.data.sunriseSunset.morningLocalDateTime, /2024-06-21 04:4\d:/);
+  assert.match(body.data.promptText, /太阳光照证据：/);
+
+  const invalid = await callApi('calendar/solar-illumination', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      year: 2024,
+      month: 6,
+      day: 21,
+      latitude: 39.9042,
+      longitude: 116.4074,
+    }),
+  });
+  assert.equal(invalid.response.status, 400);
+  assert.match(invalid.body.error.message, /timezone 与 timeZoneId 至少需要提供一项/);
+});
+
 test('公开 API 应提供公共地基能力、六十甲子与五行接口', async () => {
   const capabilities = await callApi('foundation/capabilities');
   assert.equal(capabilities.response.status, 200);

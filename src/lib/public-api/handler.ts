@@ -9,6 +9,7 @@ import {
   type BaziFortuneSelectionValue,
 } from '@core/bazi/fortuneSelection';
 import {
+  calculateSolarIlluminationEvidence,
   convertTrueSolarTime,
   getTimeIndexFromClock,
   resolveTrueSolarBirthTime,
@@ -407,6 +408,15 @@ export function getPublicApiOpenApiDocument(
           },
         },
       },
+      '/calendar/solar-illumination': {
+        post: {
+          summary: '计算太阳高度、日出日落和曙暮光证据',
+          requestBody: openApiJsonRequestBody('#/components/schemas/SolarIlluminationRequest'),
+          responses: {
+            '200': { description: '太阳高度、方位、视太阳正午及四类地平交点证据' },
+          },
+        },
+      },
       '/foundation/ganzhi': {
         post: {
           summary: '查询六十甲子完整基础资料',
@@ -778,6 +788,23 @@ export function getPublicApiOpenApiDocument(
             longitude: { type: 'number', minimum: -180, maximum: 180 },
             timezone: { type: 'number', minimum: -12, maximum: 14, default: 8 },
             applyChinaDst: { type: 'boolean', default: false },
+          },
+        },
+        SolarIlluminationRequest: {
+          type: 'object',
+          required: ['year', 'month', 'day', 'latitude', 'longitude'],
+          description: 'timezone 与 timeZoneId 至少提供一项；推荐历史日期使用 IANA 时区。',
+          properties: {
+            year: { type: 'integer', minimum: 1900, maximum: 2200 },
+            month: { type: 'integer', minimum: 1, maximum: 12 },
+            day: { type: 'integer', minimum: 1, maximum: 31 },
+            hour: { type: 'integer', minimum: 0, maximum: 23, default: 12 },
+            minute: { type: 'integer', minimum: 0, maximum: 59, default: 0 },
+            second: { type: 'integer', minimum: 0, maximum: 59, default: 0 },
+            latitude: { type: 'number', minimum: -90, maximum: 90 },
+            longitude: { type: 'number', minimum: -180, maximum: 180 },
+            timezone: { type: 'number', minimum: -14, maximum: 14 },
+            timeZoneId: { type: 'string', example: 'Asia/Shanghai' },
           },
         },
         FoundationGanZhiRequest: {
@@ -1223,6 +1250,8 @@ async function route(context: RouteContext) {
       return calculateTrueSolarTimeApi(await readJson(context.request));
     case 'calendar/true-solar-birth':
       return calculateTrueSolarBirthApi(await readJson(context.request));
+    case 'calendar/solar-illumination':
+      return calculateSolarIlluminationApi(await readJson(context.request));
     case 'foundation/ganzhi':
       return calculateFoundationGanZhi(await readJson(context.request));
     case 'foundation/wuxing':
@@ -1350,6 +1379,37 @@ function calculateTrueSolarBirthApi(input: JsonRecord) {
       400,
       'BAD_REQUEST',
       error instanceof Error ? error.message : '出生真太阳时参数无效。',
+    );
+  }
+}
+
+function calculateSolarIlluminationApi(input: JsonRecord) {
+  try {
+    const timezone =
+      input.timezone === undefined ? undefined : readNumberLike(input, 'timezone', -14, 14);
+    const timeZoneId =
+      input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId');
+    if (timezone === undefined && !timeZoneId) {
+      throw new ApiError(400, 'BAD_REQUEST', 'timezone 与 timeZoneId 至少需要提供一项。');
+    }
+    return calculateSolarIlluminationEvidence({
+      year: readIntegerLike(input, 'year', 1900, 2200),
+      month: readIntegerLike(input, 'month', 1, 12),
+      day: readIntegerLike(input, 'day', 1, 31),
+      hour: input.hour === undefined ? 12 : readIntegerLike(input, 'hour', 0, 23),
+      minute: input.minute === undefined ? 0 : readIntegerLike(input, 'minute', 0, 59),
+      second: input.second === undefined ? 0 : readIntegerLike(input, 'second', 0, 59),
+      latitude: readNumberLike(input, 'latitude', -90, 90),
+      longitude: readNumberLike(input, 'longitude', -180, 180),
+      timezone,
+      timeZoneId,
+    });
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '太阳光照参数无效。',
     );
   }
 }

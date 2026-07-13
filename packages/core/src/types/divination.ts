@@ -2,6 +2,7 @@ import type { RandomOptions } from '../shared/random';
 import type { CoreResultMeta } from '../shared/result';
 import type { SolarTermEvidence } from '../calendar/solar-term-evidence';
 import type { MoonPhaseEvidence } from '../calendar/moon-phase-evidence';
+import type { SolarIlluminationEvidence } from '../calendar/solar-illumination-evidence';
 
 export type { RandomOptions, RandomSource } from '../shared/random';
 export type { CoreResultMeta } from '../shared/result';
@@ -904,6 +905,7 @@ export interface AstrolabeData {
   angles: AstrolabePoint[];
   houses: AstrolabePoint[];
   aspects: AstrolabeAspect[];
+  solarIllumination?: SolarIlluminationEvidence;
   summary: {
     elements: Record<string, string[]>;
     modalities: Record<string, string[]>;

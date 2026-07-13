@@ -1152,6 +1152,7 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
     `关键提示：逆行星体${data.summary.retrograde.join('、') || '无'}；格局${data.summary.patterns.join('、') || '未见明显格局'}`,
     `主轴证据：太阳${sun?.formatted || '未知'}；月亮${moon?.formatted || '未知'}；上升${ascendant?.formatted || '未知'}`,
     `辅助证据：${aspectSummary ? `主要相位${aspectSummary}` : '主要相位未见强证据'}；逆行${data.summary.retrograde.join('、') || '无'}；格局${data.summary.patterns.join('、') || '未见明显格局'}`,
+    data.solarIllumination?.promptText || '',
     '星体位置：',
     ...planetLines,
     '四轴：',

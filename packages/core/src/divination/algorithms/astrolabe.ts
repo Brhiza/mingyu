@@ -7,6 +7,7 @@ import type {
 } from '../../types/divination';
 import { daysInSolarMonth } from '../../calendar/date-validation';
 import { resolveHistoricalTimezone } from '../../calendar/historical-timezone';
+import { calculateSolarIlluminationEvidence } from '../../calendar/solar-illumination-evidence';
 import { resolveTrueSolarBirthTime } from '../../calendar/true-solar-time';
 import {
   classifyAspectClosenessFromStrength,
@@ -271,6 +272,14 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     : null;
   const birth = trueSolarResult?.correctedTime ?? standardBirth;
   const locationName = readOptionalText(input.locationName, '');
+  const solarIllumination = calculateSolarIlluminationEvidence({
+    ...standardBirth,
+    second: 0,
+    latitude,
+    longitude,
+    timezone: fixedTimezone,
+    timeZoneId: input.timeZoneId,
+  });
 
   const chart = calculateChart(
     {
@@ -352,6 +361,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
       .sort((a, b) => b.strength - a.strength)
       .slice(0, 12)
       .map(mapAspect),
+    solarIllumination,
     summary: {
       elements: {
         火: chart.summary.elements.fire.map((item) => PLANET_LABELS[item] ?? item),

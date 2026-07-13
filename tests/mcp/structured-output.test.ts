@@ -29,6 +29,18 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
       timezone: 8,
     },
   ],
+  [
+    'calendar_solar_illumination',
+    {
+      year: 2024,
+      month: 6,
+      day: 21,
+      hour: 12,
+      latitude: 39.9042,
+      longitude: 116.4074,
+      timezone: 8,
+    },
+  ],
   ['divine_qimen', {}],
   [
     'divine_almanac',
@@ -322,7 +334,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 45);
+    assert.equal(tools.length, 46);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
@@ -332,6 +344,7 @@ test('MCP 工具列表应声明输出结构', async () => {
     assert.ok(tools.find((tool) => tool.name === 'ziwei_compatibility'));
     assert.ok(tools.find((tool) => tool.name === 'ziwei_compatibility_prompt'));
     assert.ok(tools.find((tool) => tool.name === 'bazi_time_sensitivity'));
+    assert.ok(tools.find((tool) => tool.name === 'calendar_solar_illumination'));
 
     assert.equal(
       tools.some((tool) => tool.name === 'build_divination_prompt'),
@@ -414,6 +427,26 @@ test('MCP 统一出生真太阳时工具应支持农历与跨日资料', async (
     assert.equal(result.structuredContent?.result.inputDateType, 'lunar');
     assert.equal(typeof result.structuredContent?.result.solarClockDateTime, 'string');
     assert.equal(typeof result.structuredContent?.result.timeIndex, 'number');
+  });
+});
+
+test('MCP 太阳光照工具应返回日出日落与曙暮光结构化证据', async () => {
+  await withMcpClient(async (client) => {
+    const result = await client.callTool({
+      name: 'calendar_solar_illumination',
+      arguments: {
+        year: 2024,
+        month: 6,
+        day: 21,
+        hour: 12,
+        latitude: 39.9042,
+        longitude: 116.4074,
+        timezone: 8,
+      },
+    });
+    assert.equal(result.isError, undefined);
+    assert.equal(result.structuredContent?.result.sunriseSunset.status, '正常交点');
+    assert.match(String(result.structuredContent?.result.promptText), /太阳光照证据：/);
   });
 });
 
