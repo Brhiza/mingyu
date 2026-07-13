@@ -243,10 +243,13 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
     {
       birthYear: 1990,
       gender: 'male',
-      doorToInteriorDegree: 0,
+      doorToInteriorDegree: 64,
+      northReference: 'magnetic',
+      magneticDeclinationDegrees: 1,
+      measurementUncertaintyDegrees: 3,
       question: '办公桌朝向怎么选？',
     },
-    /【问题】\n办公桌朝向怎么选？/,
+    /稳定性为宅卦不稳定[\s\S]*【问题】\n办公桌朝向怎么选？/,
   ],
 ];
 

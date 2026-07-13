@@ -883,6 +883,22 @@ export function getPublicApiOpenApiDocument(
               maximum: 360,
               description: '站在大门处面向屋内的指南针读数；与 sitMountain 二选一（八宅）',
             },
+            northReference: {
+              enum: ['unspecified', 'magnetic', 'true'],
+              description: '指南针读数基于未声明、磁北或真北（八宅）',
+            },
+            magneticDeclinationDegrees: {
+              type: 'number',
+              minimum: -30,
+              maximum: 30,
+              description: '当地磁偏角，东偏为正、西偏为负，仅用于磁北读数（八宅）',
+            },
+            measurementUncertaintyDegrees: {
+              type: 'number',
+              minimum: 0,
+              maximum: 45,
+              description: '方位测量可能误差，用于判断跨山向或跨宅卦边界（八宅）',
+            },
             zodiac: { type: 'string', description: '生肖或地支，如「鼠」或「子」（生肖运程）' },
             year: {
               type: 'integer',
@@ -1429,6 +1445,9 @@ function calculateBaZhaiApi(input: JsonRecord) {
   const mingGua = readString(input, 'mingGua', '');
   const sitMountain = readString(input, 'sitMountain', '');
   const doorToInteriorDegree = optNumber(input, 'doorToInteriorDegree', 0, 360);
+  const northReference = readString(input, 'northReference', '') || undefined;
+  const magneticDeclinationDegrees = optNumber(input, 'magneticDeclinationDegrees', -30, 30);
+  const measurementUncertaintyDegrees = optNumber(input, 'measurementUncertaintyDegrees', 0, 45);
   if (birthYear !== undefined && !gender) {
     throw new ApiError(400, 'BAD_REQUEST', '使用 birthYear 推命卦时必须同时提供 gender。');
   }
@@ -1444,6 +1463,9 @@ function calculateBaZhaiApi(input: JsonRecord) {
   if (sitMountain && doorToInteriorDegree !== undefined) {
     throw new ApiError(400, 'BAD_REQUEST', 'sitMountain 与 doorToInteriorDegree 只能提供一个。');
   }
+  if (northReference && !['unspecified', 'magnetic', 'true'].includes(northReference)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'northReference 只能是 unspecified、magnetic 或 true。');
+  }
   const baseInput: {
     birthYear?: number;
     birthMonth?: number;
@@ -1455,7 +1477,13 @@ function calculateBaZhaiApi(input: JsonRecord) {
     mingGua: mingGua || undefined,
   };
   return doorToInteriorDegree !== undefined
-    ? bazhai.analyzeBaZhaiByDoorDegree({ ...baseInput, doorToInteriorDegree })
+    ? bazhai.analyzeBaZhaiByDoorDegree({
+        ...baseInput,
+        doorToInteriorDegree,
+        northReference: northReference as 'unspecified' | 'magnetic' | 'true' | undefined,
+        magneticDeclinationDegrees,
+        measurementUncertaintyDegrees,
+      })
     : bazhai.analyzeBaZhai({ ...baseInput, sitMountain: sitMountain || undefined });
 }
 

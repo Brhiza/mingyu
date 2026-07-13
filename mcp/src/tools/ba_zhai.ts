@@ -31,6 +31,22 @@ const baZhaiSchema = z.object({
     .max(360)
     .optional()
     .describe('站在大门处面向屋内的指南针读数；与 sitMountain 二选一'),
+  northReference: z
+    .enum(['unspecified', 'magnetic', 'true'])
+    .optional()
+    .describe('指南针读数的北向基准；磁北读数需同时提供磁偏角'),
+  magneticDeclinationDegrees: z
+    .number()
+    .min(-30)
+    .max(30)
+    .optional()
+    .describe('当地磁偏角，东偏为正、西偏为负，仅用于磁北读数'),
+  measurementUncertaintyDegrees: z
+    .number()
+    .min(0)
+    .max(45)
+    .optional()
+    .describe('测量可能误差，用于判断是否跨越山向或宅卦边界'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
 
@@ -49,6 +65,9 @@ function calculateBaZhai(args: z.infer<typeof baZhaiSchema>) {
     ? bazhai.analyzeBaZhaiByDoorDegree({
         ...baseInput,
         doorToInteriorDegree: args.doorToInteriorDegree,
+        northReference: args.northReference,
+        magneticDeclinationDegrees: args.magneticDeclinationDegrees,
+        measurementUncertaintyDegrees: args.measurementUncertaintyDegrees,
       })
     : bazhai.analyzeBaZhai({ ...baseInput, sitMountain: args.sitMountain });
 }

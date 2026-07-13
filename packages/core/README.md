@@ -293,7 +293,11 @@ const houseByDoorDegree = bazhai.analyzeBaZhaiByDoorDegree({
   gender: 'male',
   // 站在大门处面向屋内时的指南针读数；无需自行反转 180° 或换算二十四山
   doorToInteriorDegree: 0,
+  northReference: 'magnetic',
+  magneticDeclinationDegrees: -2.5,
+  measurementUncertaintyDegrees: 3,
 });
+console.log(houseByDoorDegree.directionMeasurement.stability); // 稳定 / 山向边界敏感 / 宅卦不稳定
 console.log(houseByDoorDegree.directionMeasurement); // 子山午向、坐向度数与测量说明
 import { resolveZiweiTrueSolarBirth } from 'mingyu-core/ziwei/true-solar-input';
 const ziweiTrueSolarBirth = resolveZiweiTrueSolarBirth({
@@ -450,12 +454,12 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 
 ### 历法与术数便捷入口
 
-| 导出                                              | 说明                                                  |
-| ------------------------------------------------- | ----------------------------------------------------- |
-| `calendar.resolveTrueSolarBirthTime(input)`       | 公历/农历出生真太阳时、夏令时、跨日和时辰索引统一换算 |
-| `bazhai.analyzeBaZhaiByDoorDegree(input)`         | 按“从大门面向屋内”的实测度数生成完整八宅结果          |
-| `bazhai.getBaZhaiSitFacingFromDoorDegree(degree)` | 将入户实测度数换算成传统坐山、朝向与二十四山          |
-| `resolveZiweiTrueSolarBirth(input)`               | 紫微出生资料真太阳时日期与时辰索引适配                |
+| 导出                                              | 说明                                                             |
+| ------------------------------------------------- | ---------------------------------------------------------------- |
+| `calendar.resolveTrueSolarBirthTime(input)`       | 公历/农历出生真太阳时、夏令时、跨日和时辰索引统一换算            |
+| `bazhai.analyzeBaZhaiByDoorDegree(input)`         | 按入户实测度数、北向基准、磁偏角和测量误差生成八宅结果与候选坐向 |
+| `bazhai.getBaZhaiSitFacingFromDoorDegree(degree)` | 将入户实测度数换算成传统坐山、朝向与二十四山                     |
+| `resolveZiweiTrueSolarBirth(input)`               | 紫微出生资料真太阳时日期与时辰索引适配                           |
 
 ### 类型（`mingyu-core/types`）
 

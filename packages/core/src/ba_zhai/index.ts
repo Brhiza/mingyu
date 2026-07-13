@@ -54,12 +54,39 @@ export interface BaZhaiResult {
 export interface BaZhaiDoorDegreeInput extends Omit<BaZhaiInput, 'sitMountain'> {
   /** 站在大门处面向屋内时的指南针读数，正北为 0°，顺时针增加。 */
   doorToInteriorDegree: number;
+  /** 读数采用的北向基准；未声明时只按原始罗盘读数计算并提示核验。 */
+  northReference?: 'unspecified' | 'magnetic' | 'true';
+  /** 当读数基于磁北时使用，东偏为正、西偏为负。 */
+  magneticDeclinationDegrees?: number;
+  /** 测量可能误差，单位为度；用于判断是否跨越二十四山边界。 */
+  measurementUncertaintyDegrees?: number;
+}
+
+export type BaZhaiMeasurementStability = '稳定' | '山向边界敏感' | '宅卦不稳定';
+
+export interface BaZhaiDirectionCandidate {
+  sitMountain: string;
+  facingMountain: string;
+  label: string;
+  houseGua: string;
+  houseGroup: '东四命' | '西四命';
+  match: '相合' | '相冲';
+  housePalace: BaZhaiPalace[];
 }
 
 /** 入户测量读数换算成传统坐山朝向后的完整资料。 */
 export interface BaZhaiDoorMeasurement {
   method: '站在大门处面向屋内测量';
   measuredDegree: number;
+  northReference: 'unspecified' | 'magnetic' | 'true';
+  magneticDeclinationDegrees: number | null;
+  /** 换算至真北基准后的入户方向；未声明北向时等同原始读数。 */
+  trueNorthDegree: number;
+  measurementUncertaintyDegrees: number;
+  nearestBoundaryDistanceDegrees: number;
+  stability: BaZhaiMeasurementStability;
+  candidateDirections: BaZhaiDirectionCandidate[];
+  warnings: string[];
   facingDegree: number;
   facingMountain: string;
   sitDegree: number;
@@ -86,6 +113,90 @@ export function getBaZhaiSitFacingFromDoorDegree(doorToInteriorDegree: number): 
     throw new Error('大门朝向屋内的度数必须是 0-360 之间的有限数字。');
   }
   return getSitFacingFromFacingDegree((doorToInteriorDegree + 180) % 360);
+}
+
+function normalizeDegree(degree: number) {
+  return ((degree % 360) + 360) % 360;
+}
+
+function circularDistance(a: number, b: number) {
+  const diff = Math.abs(normalizeDegree(a) - normalizeDegree(b));
+  return Math.min(diff, 360 - diff);
+}
+
+function nearestMountainBoundaryDistance(degree: number) {
+  let minimum = 180;
+  for (let index = 0; index < 24; index += 1) {
+    minimum = Math.min(minimum, circularDistance(degree, 7.5 + index * 15));
+  }
+  return minimum;
+}
+
+function resolveDoorMeasurement(input: BaZhaiDoorDegreeInput) {
+  const reference = input.northReference ?? 'unspecified';
+  const declination = input.magneticDeclinationDegrees;
+  const uncertainty = input.measurementUncertaintyDegrees ?? 0;
+  if (!['unspecified', 'magnetic', 'true'].includes(reference)) {
+    throw new Error('northReference 只能是 unspecified、magnetic 或 true。');
+  }
+  if (!Number.isFinite(uncertainty) || uncertainty < 0 || uncertainty > 45) {
+    throw new Error('测量误差必须是 0-45 之间的有限数字。');
+  }
+  if (
+    declination !== undefined &&
+    (!Number.isFinite(declination) || declination < -30 || declination > 30)
+  ) {
+    throw new Error('磁偏角必须是 -30 至 30 之间的有限数字，东偏为正、西偏为负。');
+  }
+  if (reference === 'magnetic' && declination === undefined) {
+    throw new Error('读数采用磁北时必须提供当地磁偏角。');
+  }
+  if (reference !== 'magnetic' && declination !== undefined) {
+    throw new Error('只有 northReference 为 magnetic 时才应提供磁偏角。');
+  }
+  const trueNorthDegree = normalizeDegree(
+    input.doorToInteriorDegree + (reference === 'magnetic' ? declination! : 0),
+  );
+  const candidateDirections: Array<
+    Pick<BaZhaiDirectionCandidate, 'sitMountain' | 'facingMountain' | 'label' | 'houseGua'>
+  > = [];
+  for (let index = 0; index < 24; index += 1) {
+    const center = index * 15;
+    if (circularDistance(trueNorthDegree, center) > uncertainty + 7.5 + Number.EPSILON * 32) {
+      continue;
+    }
+    const position = getSitFacingFromFacingDegree(normalizeDegree(center + 180));
+    candidateDirections.push({
+      sitMountain: position.sit.mountain,
+      facingMountain: position.facing.mountain,
+      label: position.label,
+      houseGua: getHouseTrigram(position.sit.mountain),
+    });
+  }
+  const houseGuas = new Set(candidateDirections.map((item) => item.houseGua));
+  const stability: BaZhaiMeasurementStability =
+    houseGuas.size > 1 ? '宅卦不稳定' : candidateDirections.length > 1 ? '山向边界敏感' : '稳定';
+  const warnings = [
+    ...(reference === 'unspecified'
+      ? ['未声明读数基于磁北还是真北；若设备显示磁北，应补充当地磁偏角后复核']
+      : []),
+    ...(stability === '山向边界敏感'
+      ? ['测量误差范围跨越二十四山边界，但候选山向仍属于同一宅卦']
+      : []),
+    ...(stability === '宅卦不稳定'
+      ? ['测量误差范围跨越宅卦边界，不能只采用单一八宅盘，应重新测量或并列比较候选盘']
+      : []),
+  ];
+  return {
+    reference,
+    declination: declination ?? null,
+    uncertainty,
+    trueNorthDegree,
+    nearestBoundaryDistanceDegrees: nearestMountainBoundaryDistance(trueNorthDegree),
+    stability,
+    candidateDirections,
+    warnings,
+  };
 }
 
 function resolveEffectiveBirthYear(input: BaZhaiInput): {
@@ -239,24 +350,65 @@ export function analyzeBaZhai(input: BaZhaiInput): BaZhaiResult {
  * 调用方无需自行换算相反方向或二十四山。
  */
 export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiDoorDegreeResult {
-  const { doorToInteriorDegree, ...birthInput } = input;
-  const { facing, sit, label } = getBaZhaiSitFacingFromDoorDegree(doorToInteriorDegree);
-  if (facing.isBoundary) {
+  const {
+    doorToInteriorDegree,
+    northReference: _northReference,
+    magneticDeclinationDegrees: _magneticDeclinationDegrees,
+    measurementUncertaintyDegrees: _measurementUncertaintyDegrees,
+    ...birthInput
+  } = input;
+  const measurement = resolveDoorMeasurement(input);
+  const { facing, sit, label } = getBaZhaiSitFacingFromDoorDegree(measurement.trueNorthDegree);
+  if (facing.isBoundary && measurement.uncertainty === 0) {
     const boundary = facing.boundaryMountains?.join('向与') ?? '两个二十四山';
     throw new Error(`当前度数正好位于${boundary}向的分界线，请重新测量。`);
   }
   const result = analyzeBaZhai({ ...birthInput, sitMountain: sit.mountain });
+  const candidateDirections: BaZhaiDirectionCandidate[] = measurement.candidateDirections.map(
+    (item) => {
+      const houseGroup = getEastWestGroup(item.houseGua);
+      return {
+        ...item,
+        houseGroup,
+        match: houseGroup === result.mingGroup ? '相合' : '相冲',
+        housePalace: getBaZhaiPalace(item.houseGua),
+      };
+    },
+  );
   return {
     ...result,
     directionMeasurement: {
       method: '站在大门处面向屋内测量',
       measuredDegree: doorToInteriorDegree,
+      northReference: measurement.reference,
+      magneticDeclinationDegrees: measurement.declination,
+      trueNorthDegree: measurement.trueNorthDegree,
+      measurementUncertaintyDegrees: measurement.uncertainty,
+      nearestBoundaryDistanceDegrees: measurement.nearestBoundaryDistanceDegrees,
+      stability: measurement.stability,
+      candidateDirections,
+      warnings: measurement.warnings,
       facingDegree: facing.degree,
       facingMountain: facing.mountain,
       sitDegree: sit.degree,
       sitMountain: sit.mountain,
       label,
-      promptText: `测量方式：站在大门处面向屋内，指南针读数为 ${doorToInteriorDegree}°。换算后住宅坐山 ${sit.degree}° 为${sit.mountain}山，传统朝向 ${facing.degree}° 为${facing.mountain}向，结果为${label}。`,
+      promptText: [
+        `测量方式：站在大门处面向屋内，指南针读数为 ${doorToInteriorDegree}°；北向基准为${measurement.reference === 'magnetic' ? `磁北，磁偏角 ${measurement.declination}°（东偏为正）` : measurement.reference === 'true' ? '真北' : '未声明'}。`,
+        `真北口径入户方向为 ${measurement.trueNorthDegree}°，测量误差 ±${measurement.uncertainty}°，距最近二十四山边界 ${measurement.nearestBoundaryDistanceDegrees.toFixed(2)}°，稳定性为${measurement.stability}。`,
+        `中心读数换算后住宅坐山 ${sit.degree}° 为${sit.mountain}山，传统朝向 ${facing.degree}° 为${facing.mountain}向，结果为${label}。`,
+        `误差候选：${candidateDirections.map((item) => `${item.label}（${item.houseGua}宅、${item.houseGroup}、命宅${item.match}）`).join('、')}。`,
+        ...(measurement.stability === '宅卦不稳定'
+          ? candidateDirections.map(
+              (item) =>
+                `- 候选${item.label}：${item.houseGua}宅八宫为${item.housePalace.map((palace) => `${palace.direction}${palace.label}`).join('、')}`,
+            )
+          : []),
+        measurement.warnings.length ? `测量限制：${measurement.warnings.join('；')}。` : '',
+        '取证边界：中心读数只在测量稳定时作为单一宅卦主证；跨宅卦边界时必须并列候选盘，不得以中心值伪装成确定坐向。',
+      ]
+        .filter(Boolean)
+        .join('\n'),
     },
   };
 }

@@ -2469,7 +2469,11 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
     body: JSON.stringify({
       birthYear: 1990,
       gender: 'male',
-      doorToInteriorDegree: 0,
+      doorToInteriorDegree: 64,
+      northReference: 'magnetic',
+      magneticDeclinationDegrees: 1,
+      measurementUncertaintyDegrees: 3,
+      responseMode: 'full',
       question: '住宅办公方位怎么安排？',
     }),
   });
@@ -2479,6 +2483,15 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
   assert.match(body.data.prompt, /【八宅风水排盘】/);
   assert.match(body.data.prompt, /【测量换算】/);
   assert.match(body.data.prompt, /站在大门处面向屋内/);
+  assert.match(body.data.prompt, /真北口径入户方向为 65°/);
+  assert.match(body.data.prompt, /稳定性为宅卦不稳定/);
+  assert.match(
+    body.data.prompt,
+    /误差候选：寅山申向（艮宅、西四命、命宅相冲）、甲山庚向（震宅、东四命、命宅相合）/,
+  );
+  assert.match(body.data.prompt, /候选寅山申向：艮宅八宫/);
+  assert.match(body.data.prompt, /候选甲山庚向：震宅八宫/);
+  assert.equal(body.data.result.directionMeasurement.stability, '宅卦不稳定');
   assert.match(body.data.prompt, /【当前时间】/);
   assert.match(body.data.prompt, /【问题】\n住宅办公方位怎么安排？/);
   assert.match(body.data.prompt, /【任务】/);

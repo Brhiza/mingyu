@@ -14,6 +14,7 @@ import type {
   TaiyiResult,
   XiaoliurenData,
 } from '../../types/divination';
+import { analyzeAlmanacEvidence } from 'mingyu-core/divination/almanac';
 import { resolveSsgwStoryContent } from './ssgw-content';
 
 export interface DivinationSummaryBlocks {
@@ -426,7 +427,14 @@ export function getDivinationSummaryBlocks(
     }
     case 'almanac': {
       const almanac = data as AlmanacData;
-      const best = almanac.days[0];
+      const evidence = almanac.evidenceAnalysis ?? analyzeAlmanacEvidence(almanac);
+      const candidateByDate = new Map(evidence.candidates.map((item) => [item.date, item]));
+      const primaryDate =
+        evidence.preferredDates[0] ??
+        evidence.conditionalDates[0] ??
+        evidence.cautionDates[0] ??
+        almanac.days[0]?.date;
+      const primary = primaryDate ? candidateByDate.get(primaryDate) : undefined;
       return {
         title: '黄历择日结果',
         tags: [
@@ -435,13 +443,22 @@ export function getDivinationSummaryBlocks(
           `参与人：${almanac.participants.length || 0} 位`,
         ],
         lines: [
-          best ? wrapMainEvidence(`${best.date}，评分${best.score}`) : '',
-          ...(almanac.days
-            .slice(0, 5)
-            .map(
-              (item) =>
-                `${item.date}：${item.ganzhi.day}日，${item.dayOfficer}执，评分${item.score}，${item.clash}`,
-            ) ?? []),
+          primary
+            ? wrapMainEvidence(
+                `${primary.date}，${primary.status}，需结合所列支持、限制与现实条件取舍`,
+              )
+            : '',
+          ...(almanac.days.slice(0, 5).map((item) => {
+            const candidate = candidateByDate.get(item.date);
+            const constraints = candidate
+              ? [
+                  ...candidate.traditionalConstraints,
+                  ...candidate.participantConflicts,
+                  ...candidate.directionConstraints,
+                ]
+              : [];
+            return `${item.date}：${candidate?.status ?? '待核验候选'}，${item.ganzhi.day}日，${item.dayOfficer}执；${constraints.length ? `限制：${constraints.slice(0, 2).join('、')}` : `未见明确传统禁忌；${item.clash}`}`;
+          }) ?? []),
         ].filter(Boolean),
       };
     }
