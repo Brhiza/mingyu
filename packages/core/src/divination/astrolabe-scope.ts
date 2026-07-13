@@ -10,6 +10,10 @@ import {
 } from 'celestine';
 export type AstrolabeScopeMode = 'natal' | 'full' | 'yearly' | 'monthly' | 'daily';
 import type { AstrolabeData, AstrolabePoint } from '../types/divination';
+import {
+  classifyAspectClosenessFromStrength,
+  normalizedOrbRatioFromStrength,
+} from './astrolabe-aspect-evidence';
 
 export type AstrolabeScopeContext = {
   scope: AstrolabeScopeMode;
@@ -278,8 +282,10 @@ function formatTransitLine(transit: Transit) {
   const aspect = ASPECT_LABELS[transit.aspectType] ?? transit.aspectType;
   const phase = PHASE_LABELS[transit.phase] ?? transit.phase;
   const retrograde = transit.isRetrograde ? '，逆行' : '';
+  const closeness = classifyAspectClosenessFromStrength(transit.strength);
+  const normalizedOrbRatio = normalizedOrbRatioFromStrength(transit.strength);
 
-  return `${transitingBody}${transit.symbol}${natalPoint}（${aspect}，偏差${transit.deviation.toFixed(2)}°，强度${Math.round(transit.strength)}%，${phase}${retrograde}）`;
+  return `${transitingBody}${transit.symbol}${natalPoint}（${aspect}，偏差${transit.deviation.toFixed(2)}°，${closeness}等级，归一化容许度位置${normalizedOrbRatio.toFixed(2)}，${phase}${retrograde}）`;
 }
 
 function getNatalHouseCusps(data: AstrolabeData) {
@@ -642,10 +648,10 @@ function buildTransitEvidence(
       .map(formatTransitLine);
 
     if (transitLines.length === 0) {
-      return '行运证据：所选日期未检测到强度足够的主要行运相位；请以本命盘结构为主，只把该时间段当作弱触发背景。';
+      return '行运证据：所选日期未检测到进入当前筛选容许度的主要行运相位；请以本命盘结构为主，只把该时间段当作弱触发背景。';
     }
 
-    return `行运证据：${transitLines.join('；')}`;
+    return `行运证据：${transitLines.join('；')}。来源为 celestine 行运计算；归一化容许度位置只用于相位紧密分层，不代表事件概率或吉凶比例。`;
   } catch {
     return '行运证据：行运计算失败；请以本命盘结构为主，不要硬断具体年份。';
   }

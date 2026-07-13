@@ -47,11 +47,21 @@ test('西占双盘应按黄经最小夹角识别主要相位并保留计算口�
   assert.equal(conjunction?.type, '合相');
   assert.equal(conjunction?.actualAngle, 2);
   assert.equal(conjunction?.orb, 2);
+  assert.equal(conjunction?.allowedOrb, 8);
+  assert.equal(conjunction?.orbRatio, 0.25);
+  assert.equal(conjunction?.closeness, '紧密');
+  assert.match(conjunction?.source ?? '', /黄经最小夹角/);
   assert.equal(square?.type, '刑相');
   assert.equal(square?.orb, 0);
+  assert.equal(
+    result.summary.tightAspects,
+    result.aspects.filter((item) => item.closeness === '紧密').length,
+  );
   assert.equal(result.methodology.defaultOrbs.合相, 8);
+  assert.match(result.promptText, /允许容许度/);
   assert.match(result.promptText, /此处只记录跨盘相位事实，不单独推导关系吉凶/);
   assert.match(result.promptText, /不得把单一和谐相位写成必然适合/);
+  assert.doesNotMatch(result.promptText, /强度\d+%|匹配率\d+%/);
 });
 
 test('西占双盘应计算双方星体落入对方宫位', () => {

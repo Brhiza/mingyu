@@ -7,6 +7,10 @@ import type {
 } from '../../types/divination';
 import { daysInSolarMonth } from '../../calendar/date-validation';
 import { resolveTrueSolarBirthTime } from '../../calendar/true-solar-time';
+import {
+  classifyAspectClosenessFromStrength,
+  normalizedOrbRatioFromStrength,
+} from '../astrolabe-aspect-evidence';
 
 const PLANET_LABELS: Record<string, string> = {
   Sun: '太阳',
@@ -151,6 +155,7 @@ function mapAspect(aspect: {
   strength: number;
   isApplying: boolean | null;
 }): AstrolabeAspect {
+  const normalizedOrbRatio = normalizedOrbRatioFromStrength(aspect.strength);
   return {
     body1: PLANET_LABELS[aspect.body1] ?? aspect.body1,
     body2: PLANET_LABELS[aspect.body2] ?? aspect.body2,
@@ -158,6 +163,9 @@ function mapAspect(aspect: {
     symbol: aspect.symbol,
     orb: Number(aspect.deviation.toFixed(2)),
     strength: Math.round(aspect.strength),
+    closeness: classifyAspectClosenessFromStrength(aspect.strength),
+    normalizedOrbRatio,
+    source: 'celestine 本命相位计算；紧密等级按依赖库归一化容许度位置换算',
     applying: aspect.isApplying,
   };
 }

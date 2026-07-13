@@ -205,7 +205,7 @@ npm run mcp
 
 星盘工具需要提供 `year`、`month`、`day`、`hour`、`minute`、`latitude`、`longitude`、`timezone`。`gender` 使用 `男`、`女` 或空字符串，`locationName` 可选；可传 `useTrueSolarTime` 启用真太阳时校正。提示词工具可额外提供 `astrolabeTopic`、`astrolabeScope`、`astrolabeScopeDate` 和 `astrolabeScopeText`。`astrolabeScope` 支持 `natal`、`full`、`yearly`、`monthly`、`daily`；`full` 会写入本命、当前流年、当前流月、当前流日行运资料；传入 `astrolabeScopeText` 时以自定义文本为准。
 
-西占双盘工具使用 `person1`、`person2` 分别传入上述星盘参数。结果中的跨盘相位、实际夹角、容许度和落宫属于可复核盘面事实；提示词明确禁止把单一相位写成必然结果，也不输出缺乏统一依据的匹配总分。
+西占双盘工具使用 `person1`、`person2` 分别传入上述星盘参数。结果中的跨盘相位、实际夹角、精确角、偏差、允许容许度、紧密等级和落宫属于可复核盘面事实；旧 `strength` 字段只为兼容保留，提示词不把它展示成关系概率、匹配率或吉凶百分比，也禁止把单一相位写成必然结果。
 
 ## 在其他 MCP 客户端中使用
 

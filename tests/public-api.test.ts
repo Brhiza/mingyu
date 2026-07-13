@@ -2113,7 +2113,11 @@ test('公开 API 西占双盘提示词应携带双方本命盘与可复核证据
   assert.match(body.data.prompt, /【第一人本命盘】/);
   assert.match(body.data.prompt, /【第二人本命盘】/);
   assert.match(body.data.prompt, /【西占双盘结构化证据】/);
-  assert.match(body.data.prompt, /实际夹角 \d+\.\d{2}°，偏差 \d+\.\d{2}°/);
+  assert.match(
+    body.data.prompt,
+    /实际夹角 \d+\.\d{2}°，精确角 \d+°，偏差 \d+\.\d{2}°，允许容许度 \d+\.\d{2}°，属于(?:紧密|中等|宽松)等级/,
+  );
+  assert.doesNotMatch(body.data.prompt, /强度\d+%|匹配率\d+%/);
   assert.match(body.data.prompt, /不得输出缺乏统一依据的关系匹配总分/);
   assertPromptIsPortableTaskText(body.data.prompt);
 });

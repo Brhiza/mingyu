@@ -872,6 +872,9 @@ export interface AstrolabeAspect {
   symbol: string;
   orb: number;
   strength: number;
+  closeness?: '紧密' | '中等' | '宽松';
+  normalizedOrbRatio?: number;
+  source?: string;
   applying: boolean | null;
 }
 
@@ -913,6 +916,9 @@ export interface AstrolabeSynastryAspect {
   orb: number;
   allowedOrb: number;
   strength: number;
+  closeness: '紧密' | '中等' | '宽松';
+  orbRatio: number;
+  source: string;
   tendency: '和谐' | '紧张' | '中性';
   tags: string[];
 }
@@ -937,6 +943,7 @@ export interface AstrolabeSynastryData {
     tense: number;
     neutral: number;
     strongAspects: number;
+    tightAspects: number;
     closestAspects: AstrolabeSynastryAspect[];
   };
   evidence: import('../prompt-evidence/types').PromptEvidenceBundle;

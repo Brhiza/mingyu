@@ -8,6 +8,7 @@ import type {
   AstrolabeSynastryAspectType,
   AstrolabeSynastryData,
 } from '../types/divination';
+import { classifyAspectClosenessByRatio } from './astrolabe-aspect-evidence';
 
 const ASPECT_DEFINITIONS: Array<{
   type: AstrolabeSynastryAspectType;
@@ -100,6 +101,7 @@ function calculateAspects(
         }
         const orb = Math.abs(actualAngle - definition.angle);
         if (orb > allowedOrb) continue;
+        const orbRatio = Number((orb / allowedOrb).toFixed(4));
         results.push({
           person1: chart1.birth.name,
           person2: chart2.birth.name,
@@ -112,6 +114,9 @@ function calculateAspects(
           orb: Number(orb.toFixed(4)),
           allowedOrb,
           strength: Math.round(Math.max(0, 100 * (1 - orb / allowedOrb))),
+          closeness: classifyAspectClosenessByRatio(orbRatio),
+          orbRatio,
+          source: '双方本命盘黄经最小夹角与当前相位允许容许度',
           tendency: definition.tendency,
           tags: aspectTags(point1, point2),
         });
@@ -121,7 +126,7 @@ function calculateAspects(
   }
 
   return results
-    .sort((left, right) => right.strength - left.strength || left.orb - right.orb)
+    .sort((left, right) => left.orbRatio - right.orbRatio || left.orb - right.orb)
     .slice(0, options.maxAspects ?? 40);
 }
 
@@ -172,11 +177,11 @@ function createEvidence(
   overlays: AstrolabeHouseOverlay[],
 ): PromptEvidenceBundle {
   const aspectItems = aspects.slice(0, 16).map((aspect): PromptEvidenceItem => ({
-    level: aspect.strength >= 75 && aspect.tags.includes('核心点') ? '主证' : '辅证',
+    level: aspect.closeness === '紧密' && aspect.tags.includes('核心点') ? '主证' : '辅证',
     title: `${aspect.person1}${aspect.point1}${aspect.symbol}${aspect.person2}${aspect.point2}`,
-    detail: `${aspect.type}，实际夹角 ${aspect.actualAngle.toFixed(2)}°，偏差 ${aspect.orb.toFixed(2)}°，相对强度 ${aspect.strength}%；此处只记录跨盘相位事实，不单独推导关系吉凶。`,
-    source: '双方本命盘黄经与合盘容许度计算',
-    weight: aspect.strength,
+    detail: `${aspect.type}，实际夹角 ${aspect.actualAngle.toFixed(2)}°，精确角 ${aspect.exactAngle}°，偏差 ${aspect.orb.toFixed(2)}°，允许容许度 ${aspect.allowedOrb.toFixed(2)}°，属于${aspect.closeness}等级；此处只记录跨盘相位事实，不单独推导关系吉凶。`,
+    source: aspect.source,
+    weight: Math.round(100 - aspect.orbRatio * 30),
     tags: [...aspect.tags, aspect.tendency],
   }));
   const overlayItems = overlays
@@ -243,6 +248,7 @@ export function analyzeAstrolabeSynastry(
       tense: aspects.filter((item) => item.tendency === '紧张').length,
       neutral: aspects.filter((item) => item.tendency === '中性').length,
       strongAspects: aspects.filter((item) => item.strength >= 75).length,
+      tightAspects: aspects.filter((item) => item.closeness === '紧密').length,
       closestAspects: [...aspects].sort((left, right) => left.orb - right.orb).slice(0, 5),
     },
     evidence,
@@ -257,6 +263,7 @@ export function analyzeAstrolabeSynastry(
       notes: [
         '采用黄经最小夹角计算合、六合、刑、拱、冲五种主要跨盘相位。',
         '容许度为明确可配置参数，默认值随结果返回，便于复核不同占星口径。',
+        'closeness 与 orbRatio 描述偏差在允许容许度中的位置；strength 仅作为旧版兼容归一化值保留，不代表关系概率、匹配率或吉凶比例。',
         '静态本命双盘不推断入相或出相；该判断需要星体速度与具体时间上下文。',
         '跨盘落宫按宫头黄经区间计算，宫制沿用输入本命盘。',
       ],

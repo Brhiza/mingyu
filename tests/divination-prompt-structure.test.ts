@@ -1453,8 +1453,11 @@ test('星盘提示词应直接给出太阳月亮上升和主要相位证据', ()
   assert.match(prompt, /主轴证据：太阳金牛座 29°；月亮处女座 08°；上升狮子座 12°/);
   assert.match(
     prompt,
-    /辅助证据：主要相位太阳△月亮（三分，强度86%）；太阳合水星（合相，强度74%）；逆行无；格局土象偏强/,
+    /辅助证据：主要相位太阳△月亮（三分，紧密等级）；太阳合水星（合相，紧密等级）；逆行无；格局土象偏强/,
   );
+  assert.match(prompt, /距精确角偏差.*紧密等级，归一化容许度位置/);
+  assert.match(prompt, /归一化容许度位置不代表事件概率、匹配率、吉凶比例或必然结果/);
+  assert.doesNotMatch(prompt, /强度\d+%/);
   assert.match(prompt, /只使用上方明确列出的星体、宫位、角点、相位、格局和行运范围/);
   assert.match(prompt, /本次按本命盘长期结构作答，只分析长期倾向/);
   assert.match(prompt, /星盘回答只按本命结构说明长期倾向/);
@@ -1481,7 +1484,7 @@ test('星盘提示词写入年限选择后应包含分析对象与行运边界',
     {
       astrolabeTopic: 'job-change',
       astrolabeScopeText:
-        '分析对象：流年2028。\n行运证据：土星□太阳（刑相，偏差0.50°，强度92%，入相）。\n时间边界：本命盘只定长期结构；所选流年只作为当前阶段触发与应期参考。',
+        '分析对象：流年2028。\n行运证据：土星□太阳（刑相，偏差0.50°，紧密等级，归一化容许度位置0.08，入相）。\n时间边界：本命盘只定长期结构；所选流年只作为当前阶段触发与应期参考。',
     },
   );
 
@@ -1491,6 +1494,7 @@ test('星盘提示词写入年限选择后应包含分析对象与行运边界',
   assert.match(prompt, /本命盘只定长期结构；若【分析对象】提供流年、流月或流日/);
   assert.match(prompt, /流年：看年度主题、阶段转向和全年最容易被触发的议题/);
   assert.match(prompt, /星盘回答必须区分本命底色与行运触发/);
+  assert.doesNotMatch(prompt, /强度\d+%/);
   assert.doesNotMatch(prompt, /【应期判断方法】/);
   assert.ok(prompt.indexOf('【分析对象】') < prompt.indexOf('【占卜信息】'));
   assert.ok(prompt.indexOf('【行运时间尺度】') < prompt.indexOf('【占卜信息】'));

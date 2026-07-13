@@ -1117,17 +1117,24 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
       `- ${item.label}：${item.formatted}，第${item.house}宫${item.retrograde ? '，逆行' : ''}`,
   );
   const angleLines = data.angles.map((item) => `- ${item.label}：${item.formatted}`);
-  const aspectLines = data.aspects.map(
-    (item) =>
-      `- ${item.body1}${item.symbol}${item.body2}（${item.type}），容许度${item.orb}°，强度${item.strength}%${item.applying === null ? '' : item.applying ? '，入相' : '，出相'}`,
-  );
+  const describeAspectCloseness = (item: AstrolabeData['aspects'][number]) => {
+    if (item.closeness) return item.closeness;
+    const ratio = 1 - Math.max(0, Math.min(100, item.strength)) / 100;
+    return ratio <= 1 / 3 ? '紧密' : ratio <= 2 / 3 ? '中等' : '宽松';
+  };
+  const aspectLines = data.aspects.map((item) => {
+    const normalizedOrbRatio =
+      item.normalizedOrbRatio ?? 1 - Math.max(0, Math.min(100, item.strength)) / 100;
+    return `- ${item.body1}${item.symbol}${item.body2}（${item.type}），距精确角偏差${item.orb}°，${describeAspectCloseness(item)}等级，归一化容许度位置${normalizedOrbRatio.toFixed(2)}${item.applying === null ? '' : item.applying ? '，入相' : '，出相'}；来源${item.source || '本命星体黄经与依赖库相位计算'}`;
+  });
   const sun = data.planets.find((item) => item.name === 'Sun');
   const moon = data.planets.find((item) => item.name === 'Moon');
   const ascendant = data.angles.find((item) => item.name === 'Ascendant');
   const aspectSummary = data.aspects
     .slice(0, 3)
     .map(
-      (item) => `${item.body1}${item.symbol}${item.body2}（${item.type}，强度${item.strength}%）`,
+      (item) =>
+        `${item.body1}${item.symbol}${item.body2}（${item.type}，${describeAspectCloseness(item)}等级）`,
     )
     .join('；');
 
@@ -1143,7 +1150,8 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
     '四轴：',
     ...angleLines,
     '主要相位：',
-    ...(aspectLines.length ? aspectLines : ['- 未检测到强度足够的主要相位']),
+    ...(aspectLines.length ? aspectLines : ['- 未检测到进入当前筛选容许度的主要相位']),
+    '相位证据边界：偏差与紧密等级只描述几何关系；归一化容许度位置不代表事件概率、匹配率、吉凶比例或必然结果。',
     `元素分布：火${data.summary.elements.火.join('、') || '无'}；土${data.summary.elements.土.join('、') || '无'}；风${data.summary.elements.风.join('、') || '无'}；水${data.summary.elements.水.join('、') || '无'}`,
     `模式分布：开创${data.summary.modalities.开创.join('、') || '无'}；固定${data.summary.modalities.固定.join('、') || '无'}；变动${data.summary.modalities.变动.join('、') || '无'}`,
   ]

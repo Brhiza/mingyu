@@ -543,7 +543,7 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
         question: '请看我 2028 年事业机会。',
         astrolabeTopic: 'job-change',
         astrolabeScopeText:
-          '分析对象：流年2028。\n行运证据：土星□太阳（刑相，偏差0.50°，强度92%，入相）。',
+          '分析对象：流年2028。\n行运证据：土星□太阳（刑相，偏差0.50°，紧密等级，归一化容许度位置0.08，入相）。',
       },
     });
 
@@ -551,6 +551,7 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
     const prompt = String(result.structuredContent?.prompt);
     assert.match(prompt, /【分析对象】\n分析对象：流年2028。/);
     assert.match(prompt, /行运证据：土星□太阳/);
+    assert.doesNotMatch(prompt, /强度\d+%/);
     assert.match(prompt, /【行运时间尺度】/);
     assert.match(
       prompt,
