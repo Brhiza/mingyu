@@ -61,6 +61,13 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
       source: '相邻牌关键词与牌义按抽牌顺序合读',
       tags: ['相邻牌义合读', combo.card1, combo.card2],
     })),
+    ...layoutFacts.map((detail, index): PromptEvidenceItem => ({
+      level: '辅证',
+      title: `布局事实${index + 1}`,
+      detail,
+      source: '当前牌阵行列、中心、横纵对角线、宫位与牌间距离逐项计算',
+      tags: ['布局证据'],
+    })),
     ...counterEvidence.map((detail): PromptEvidenceItem => ({
       level: '反证',
       title: '当前证据缺口',

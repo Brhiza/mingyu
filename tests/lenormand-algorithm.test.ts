@@ -23,6 +23,11 @@ test('雷诺曼九宫应输出横纵与对角线结构证据', () => {
   assert.equal(result.combinations?.length, 8);
   assert.ok(result.layoutEvidence?.some((item) => item.includes('横向')));
   assert.ok(result.layoutEvidence?.some((item) => item.includes('对角线')));
+  const layoutItems = result.evidenceAnalysis?.evidence.items.filter((item) =>
+    item.tags?.includes('布局证据'),
+  );
+  assert.equal(layoutItems?.length, result.layoutEvidence?.length);
+  assert.ok(layoutItems?.every((item) => item.level === '辅证'));
 });
 
 test('雷诺曼未知牌阵应明确报错，不应静默退回单牌', () => {
