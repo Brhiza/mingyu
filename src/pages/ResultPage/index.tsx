@@ -19,7 +19,6 @@ import { shouldUsePhoneLayout } from '@/lib/responsive-layout';
 import { PageTopbar } from '@/components/PageTopbar';
 import { QuestionInspirationModal } from '@/components/QuestionInspirationModal';
 import { useViewportSize } from '@/hooks/useViewportWidth';
-import { buildUnknownTimeBaziPrompt } from '@/lib/birth-time-reverse';
 import { getBaziDefaultQuestion } from '@/lib/prompt-default-questions';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
 import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
@@ -40,7 +39,6 @@ import {
   buildEnhancedZiweiPromptPack,
   buildBaziFortuneSelectionValue,
   buildCombinedPromptText,
-  buildCompatibilityPromptWithUnknownTime,
   formatZiweiPromptScopeSummary,
   formatBaziFullFortuneText,
   formatZiweiFullScopeText,
@@ -61,7 +59,6 @@ import { AstrolabeBoard } from './components/AstrolabeBoard';
 import { QizhengBoard } from './components/QizhengBoard';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import { BaziChartBoard } from './components/BaziChartBoard';
-import { ThreePillarsBoard } from './components/ThreePillarsBoard';
 import { ZiweiBoard } from './components/ZiweiBoard';
 import { ZiweiScopeModal } from './components/ZiweiScopeModal';
 import { AstrolabeScopeModal } from './components/AstrolabeScopeModal';
@@ -172,16 +169,7 @@ export function ResultPage() {
     bazhai: promptState.tab === 'bazhai',
     prompt: promptState.tab === 'prompt',
   }));
-  const {
-    baziResult,
-    partnerBaziResult,
-    baziError,
-    primaryThreePillarsState,
-    partnerThreePillarsState,
-    primaryHasUnknownTime,
-    partnerHasUnknownTime,
-    hasUnknownBirthTime,
-  } = useBaziCalculations(inputState);
+  const { baziResult, partnerBaziResult, baziError } = useBaziCalculations(inputState);
   const sharedBirthData = useMemo(() => {
     if (inputState.analysisMode !== 'single' || !baziResult) return null;
     const selectedHour =
@@ -215,14 +203,7 @@ export function ResultPage() {
     activeZiweiPayloadByScope,
     currentZiweiPayload,
     partnerZiweiPayload,
-  } = useZiweiCalculations(
-    inputState,
-    promptState,
-    mountedTabs.ziwei,
-    mountedTabs.prompt,
-    primaryHasUnknownTime,
-    partnerHasUnknownTime,
-  );
+  } = useZiweiCalculations(inputState, promptState, mountedTabs.ziwei, mountedTabs.prompt);
   const updatePromptState = useCallback(
     (next: Partial<QueryPromptState>) => {
       const merged = {
@@ -274,19 +255,6 @@ export function ResultPage() {
       };
     });
   }, [promptState.tab]);
-
-  useEffect(() => {
-    if (
-      !hasUnknownBirthTime ||
-      (promptState.promptSource !== 'ziwei' && promptState.promptSource !== 'bazi-ziwei')
-    ) {
-      return;
-    }
-
-    updatePromptState({
-      promptSource: 'bazi',
-    });
-  }, [hasUnknownBirthTime, promptState.promptSource, updatePromptState]);
 
   useEffect(() => {
     if (inputState.analysisMode === 'single' || promptState.promptSource !== 'bazi-ziwei') {
@@ -542,30 +510,6 @@ export function ResultPage() {
   function computeBaziPromptText(question: string, finalQuestion: string): string {
     if (promptState.tab !== 'prompt') return '';
     if (inputState.analysisMode === 'compatibility') {
-      if (primaryHasUnknownTime || partnerHasUnknownTime) {
-        const firstText = primaryHasUnknownTime
-          ? primaryThreePillarsState.profile?.promptText || ''
-          : baziResult
-            ? formatBaziForPrompt(baziResult, null, 'compatibility')
-            : '';
-        const secondText = partnerHasUnknownTime
-          ? partnerThreePillarsState.profile?.promptText || ''
-          : partnerBaziResult
-            ? formatBaziForPrompt(partnerBaziResult, null, 'compatibility')
-            : '';
-
-        if (!firstText || !secondText) return '';
-
-        return buildCompatibilityPromptWithUnknownTime({
-          firstName: inputState.name || '第一人',
-          firstText,
-          secondName: inputState.partnerName || '第二人',
-          secondText,
-          question,
-          isCustomQuestion: activeBaziShortcutMode === '自定义',
-        });
-      }
-
       if (!promptEngine || !baziResult || !partnerBaziResult) return '';
       const compatibilityPrompt = promptEngine.getCompatibilityPrompt(
         question,
@@ -575,16 +519,6 @@ export function ResultPage() {
         { isCustomQuestion: activeBaziShortcutMode === '自定义' },
       );
       return buildCombinedPromptText(compatibilityPrompt.system, compatibilityPrompt.user);
-    }
-    if (primaryHasUnknownTime) {
-      if (!primaryThreePillarsState.profile) return '';
-      const isCustomQuestion = activeBaziShortcutMode === '自定义';
-      return buildUnknownTimeBaziPrompt(
-        primaryThreePillarsState.profile,
-        question,
-        activeBaziQuestionScopeLabel,
-        { isCustomQuestion },
-      );
     }
     if (!promptEngine || !baziResult || !baziFortuneSelectionModule || !selectedBaziPreset) {
       return '';
@@ -666,12 +600,7 @@ export function ResultPage() {
   }, [activeBaziShortcutMode, currentZiweiPayload, promptState.promptSource, promptState.tab]);
 
   const enhancedBaziPromptPack = useMemo(() => {
-    if (
-      promptState.tab !== 'prompt' ||
-      promptState.promptSource !== 'bazi-ziwei' ||
-      primaryHasUnknownTime ||
-      !baziResult
-    ) {
+    if (promptState.tab !== 'prompt' || promptState.promptSource !== 'bazi-ziwei' || !baziResult) {
       return '';
     }
 
@@ -682,18 +611,11 @@ export function ResultPage() {
     return [baseText, fullFortuneText ? `【命限资料】\n${fullFortuneText}` : '']
       .filter(Boolean)
       .join('\n\n');
-  }, [
-    baziResult,
-    primaryHasUnknownTime,
-    promptState.baziFortuneScope,
-    promptState.promptSource,
-    promptState.tab,
-  ]);
+  }, [baziResult, promptState.baziFortuneScope, promptState.promptSource, promptState.tab]);
 
   function computeEnhancedPromptText(question: string, finalQuestion: string): string {
     if (promptState.tab !== 'prompt' || inputState.analysisMode !== 'single') return '';
-    if (primaryHasUnknownTime || !baziResult || !enhancedZiweiPromptPack || !enhancedBaziPromptPack)
-      return '';
+    if (!baziResult || !enhancedZiweiPromptPack || !enhancedBaziPromptPack) return '';
 
     return buildBaziZiweiEnhancedPrompt({
       baziResult,
@@ -753,10 +675,6 @@ export function ResultPage() {
       inputState.name,
       inputState.partnerName,
       partnerBaziResult,
-      partnerHasUnknownTime,
-      partnerThreePillarsState.profile,
-      primaryHasUnknownTime,
-      primaryThreePillarsState.profile,
       promptEngine,
       promptState.baziPresetId,
       promptState.baziFortuneScope,
@@ -795,10 +713,6 @@ export function ResultPage() {
       inputState.partnerName,
       latestBaziPromptText,
       partnerBaziResult,
-      partnerHasUnknownTime,
-      partnerThreePillarsState.profile,
-      primaryHasUnknownTime,
-      primaryThreePillarsState.profile,
       promptEngine,
       promptState.baziPresetId,
       promptState.baziFortuneScope,
@@ -968,7 +882,6 @@ export function ResultPage() {
       enhancedZiweiPromptPack,
       finalBaziQuestion,
       inputState.analysisMode,
-      primaryHasUnknownTime,
       promptState.baziFortuneScope,
       promptState.promptSource,
       promptState.tab,
@@ -1006,7 +919,6 @@ export function ResultPage() {
       finalBaziQuestion,
       inputState.analysisMode,
       latestEnhancedPromptText,
-      primaryHasUnknownTime,
       promptState.baziFortuneScope,
       promptState.promptSource,
       promptState.tab,
@@ -1210,24 +1122,12 @@ export function ResultPage() {
                         name={inputState.name || '第一人'}
                         result={baziResult}
                       />
-                    ) : primaryThreePillarsState.profile ? (
-                      <ThreePillarsBoard
-                        title="第一人三柱"
-                        name={inputState.name || '第一人'}
-                        profile={primaryThreePillarsState.profile}
-                      />
                     ) : null}
                     {partnerBaziResult ? (
                       <BaziChartBoard
                         title="第二人八字"
                         name={inputState.partnerName || '第二人'}
                         result={partnerBaziResult}
-                      />
-                    ) : partnerThreePillarsState.profile ? (
-                      <ThreePillarsBoard
-                        title="第二人三柱"
-                        name={inputState.partnerName || '第二人'}
-                        profile={partnerThreePillarsState.profile}
                       />
                     ) : null}
                   </div>
@@ -1236,12 +1136,6 @@ export function ResultPage() {
                     title="八字总览"
                     name={inputState.name || '当前命盘'}
                     result={baziResult}
-                  />
-                ) : primaryThreePillarsState.profile ? (
-                  <ThreePillarsBoard
-                    title="三柱总览"
-                    name={inputState.name || '当前命盘'}
-                    profile={primaryThreePillarsState.profile}
                   />
                 ) : null}
               </section>
@@ -1257,14 +1151,7 @@ export function ResultPage() {
             <div className="single-panel-shell">
               <section className="panel result-panel result-panel-ziwei">
                 {ziweiError ? <p className="error-text">{ziweiError}</p> : null}
-                {hasUnknownBirthTime ? (
-                  <div className="prompt-send-tip">
-                    当前存在未知时辰。紫微排盘必须先确定出生时辰，请先使用“反推时辰”确认后再看紫微结果。
-                  </div>
-                ) : null}
-                {inputState.analysisMode === 'compatibility' &&
-                !hasUnknownBirthTime &&
-                !ziweiError ? (
+                {inputState.analysisMode === 'compatibility' && !ziweiError ? (
                   <div className="result-dual-layout">
                     {ziweiRuntime && primaryZiweiInput && currentZiweiPayload ? (
                       <ZiweiBoard
@@ -1293,9 +1180,7 @@ export function ResultPage() {
                     )}
                   </div>
                 ) : null}
-                {inputState.analysisMode !== 'compatibility' &&
-                !hasUnknownBirthTime &&
-                !ziweiError ? (
+                {inputState.analysisMode !== 'compatibility' && !ziweiError ? (
                   ziweiRuntime && primaryZiweiInput && currentZiweiPayload ? (
                     <ZiweiBoard
                       title="紫微总览"
@@ -1434,13 +1319,9 @@ export function ResultPage() {
                           }
                         >
                           <option value="bazi">八字</option>
-                          <option value="ziwei" disabled={hasUnknownBirthTime}>
-                            {hasUnknownBirthTime ? '紫微(未知时辰)' : '紫微'}
-                          </option>
+                          <option value="ziwei">紫微</option>
                           {inputState.analysisMode === 'single' ? (
-                            <option value="bazi-ziwei" disabled={hasUnknownBirthTime}>
-                              八字+紫微
-                            </option>
+                            <option value="bazi-ziwei">八字+紫微</option>
                           ) : null}
                           {hasAstrolabeChart ? <option value="astrolabe">星盘</option> : null}
                           {hasAstrolabeChart ? <option value="qizheng">七政四余</option> : null}
@@ -1449,8 +1330,7 @@ export function ResultPage() {
 
                         {(promptState.promptSource === 'bazi' ||
                           promptState.promptSource === 'bazi-ziwei') &&
-                        inputState.analysisMode === 'single' &&
-                        !primaryHasUnknownTime ? (
+                        inputState.analysisMode === 'single' ? (
                           <button
                             type="button"
                             className="ai-mobile-scope-btn"
@@ -1487,11 +1367,6 @@ export function ResultPage() {
                     ) : null}
                   </div>
 
-                  {hasUnknownBirthTime &&
-                  (promptState.promptSource === 'bazi' ||
-                    promptState.promptSource === 'bazi-ziwei') ? (
-                    <div className="ai-mobile-hint">未知时辰，已自动三柱保守解析。</div>
-                  ) : null}
                   {isAstrolabePromptSource && astrolabeCalculation.error ? (
                     <div className="ai-mobile-hint ai-mobile-hint-error">
                       {astrolabeCalculation.error}
@@ -1534,15 +1409,9 @@ export function ResultPage() {
                             }
                           >
                             <option value="bazi">基于八字</option>
-                            <option value="ziwei" disabled={hasUnknownBirthTime}>
-                              {hasUnknownBirthTime ? '基于紫微（未知时辰不可用）' : '基于紫微'}
-                            </option>
+                            <option value="ziwei">基于紫微</option>
                             {inputState.analysisMode === 'single' ? (
-                              <option value="bazi-ziwei" disabled={hasUnknownBirthTime}>
-                                {hasUnknownBirthTime
-                                  ? '基于八字+紫微（未知时辰不可用）'
-                                  : '基于八字+紫微'}
-                              </option>
+                              <option value="bazi-ziwei">基于八字+紫微</option>
                             ) : null}
                             {hasAstrolabeChart ? <option value="astrolabe">基于星盘</option> : null}
                             {hasAstrolabeChart ? (
@@ -1554,8 +1423,7 @@ export function ResultPage() {
 
                         {(promptState.promptSource === 'bazi' ||
                           promptState.promptSource === 'bazi-ziwei') &&
-                        inputState.analysisMode === 'single' &&
-                        !primaryHasUnknownTime ? (
+                        inputState.analysisMode === 'single' ? (
                           <div className="field-card">
                             <div className="field-header">
                               <span>年限选择</span>
@@ -1671,13 +1539,6 @@ export function ResultPage() {
                         />
                       ) : null}
 
-                      {hasUnknownBirthTime &&
-                      (promptState.promptSource === 'bazi' ||
-                        promptState.promptSource === 'bazi-ziwei') ? (
-                        <div className="prompt-send-tip">
-                          当前存在未知时辰，已自动改为三柱保守解析，不会假定时柱。
-                        </div>
-                      ) : null}
                       {isAstrolabePromptSource && astrolabeCalculation.error ? (
                         <p className="error-text">{astrolabeCalculation.error}</p>
                       ) : null}
@@ -1725,15 +1586,9 @@ export function ResultPage() {
                             }
                           >
                             <option value="bazi">基于八字</option>
-                            <option value="ziwei" disabled={hasUnknownBirthTime}>
-                              {hasUnknownBirthTime ? '基于紫微（未知时辰不可用）' : '基于紫微'}
-                            </option>
+                            <option value="ziwei">基于紫微</option>
                             {inputState.analysisMode === 'single' ? (
-                              <option value="bazi-ziwei" disabled={hasUnknownBirthTime}>
-                                {hasUnknownBirthTime
-                                  ? '基于八字+紫微（未知时辰不可用）'
-                                  : '基于八字+紫微'}
-                              </option>
+                              <option value="bazi-ziwei">基于八字+紫微</option>
                             ) : null}
                             {hasAstrolabeChart ? <option value="astrolabe">基于星盘</option> : null}
                             {hasAstrolabeChart ? (
@@ -1745,8 +1600,7 @@ export function ResultPage() {
 
                         {(promptState.promptSource === 'bazi' ||
                           promptState.promptSource === 'bazi-ziwei') &&
-                        inputState.analysisMode === 'single' &&
-                        !primaryHasUnknownTime ? (
+                        inputState.analysisMode === 'single' ? (
                           <div className="field-card">
                             <div className="field-header">
                               <span>年限选择</span>
@@ -1872,13 +1726,6 @@ export function ResultPage() {
                   </div>
                 </section>
 
-                {hasUnknownBirthTime &&
-                (promptState.promptSource === 'bazi' ||
-                  promptState.promptSource === 'bazi-ziwei') ? (
-                  <div className="prompt-send-tip">
-                    当前存在未知时辰，已自动改为三柱保守提示词，不会假定时柱。
-                  </div>
-                ) : null}
                 {isAstrolabePromptSource && astrolabeCalculation.error ? (
                   <p className="error-text">{astrolabeCalculation.error}</p>
                 ) : null}

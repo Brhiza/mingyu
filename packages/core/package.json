@@ -107,10 +107,6 @@
       "import": "./dist/ziwei/true-solar-input.js",
       "types": "./dist/ziwei/true-solar-input.d.ts"
     },
-    "./birth-time-reverse": {
-      "import": "./dist/birth-time-reverse/index.js",
-      "types": "./dist/birth-time-reverse/index.d.ts"
-    },
     "./calendar": {
       "import": "./dist/calendar/index.js",
       "types": "./dist/calendar/index.d.ts"

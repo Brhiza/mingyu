@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {
   buildBaziZiweiEnhancedPrompt,
   buildAstrolabeFullScopePromptText,
-  buildCompatibilityPromptWithUnknownTime,
   getZiweiDisplaySurroundedPalaces,
   buildZiweiMonthAnchorDate,
   findZiweiDayOptionDate,
@@ -426,42 +425,4 @@ test('问题灵感草稿应与自定义草稿分开存储，避免互相覆盖',
       });
     }
   }
-});
-
-test('未知时辰合盘提示词应保持中性任务口径，不预设为婚恋问题', () => {
-  const prompt = buildCompatibilityPromptWithUnknownTime({
-    firstName: '第一人',
-    firstText: '甲方三柱资料',
-    secondName: '第二人',
-    secondText: '乙方三柱资料',
-    question: '',
-  });
-
-  assert.match(prompt, /【问题】\n请先做整体合盘解读。/);
-  assert.match(prompt, /【第一人排盘信息】\n姓名：第一人\n甲方三柱资料/);
-  assert.match(prompt, /【第二人排盘信息】\n姓名：第二人\n乙方三柱资料/);
-  assert.match(prompt, /先直接回答【问题】，并区分当前能确认的主线与因时辰未知而待确认的部分/);
-  assert.match(prompt, /凡是明显依赖时柱、子女宫或更细时限的判断，都要标记为待确认/);
-  assert.match(prompt, /不得编造资料里没有给出的新盘面事实/);
-  assert.match(prompt, /允许基于三柱和已知资料做保守推理/);
-  assert.match(prompt, /先直接回答【问题】/);
-  assert.doesNotMatch(prompt, /关系主线/);
-  assert.doesNotMatch(prompt, /婚恋匹配角度/);
-});
-
-test('未知时辰合盘自定义问题不应额外拼接任务书', () => {
-  const prompt = buildCompatibilityPromptWithUnknownTime({
-    firstName: '第一人',
-    firstText: '甲方三柱资料',
-    secondName: '第二人',
-    secondText: '乙方三柱资料',
-    question: '我们现在更适合继续合作，还是先保持距离？',
-    isCustomQuestion: true,
-  });
-
-  assert.match(prompt, /【问题】\n我们现在更适合继续合作，还是先保持距离？/);
-  assert.match(prompt, /姓名：第一人/);
-  assert.match(prompt, /姓名：第二人/);
-  assert.doesNotMatch(prompt, /【任务】/);
-  assert.doesNotMatch(prompt, /【输出要求】/);
 });

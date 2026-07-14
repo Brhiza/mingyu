@@ -347,44 +347,6 @@ export function buildAstrolabeFullScopePromptText(
     : '';
 }
 
-export function buildCompatibilityPromptWithUnknownTime(params: {
-  firstName: string;
-  firstText: string;
-  secondName: string;
-  secondText: string;
-  question: string;
-  isCustomQuestion?: boolean;
-}) {
-  const isCustomQuestion = Boolean(params.isCustomQuestion);
-  return [
-    '你是资深八字命理师，当前合盘信息里至少有一方出生时辰未知，请只做保守分析。',
-    '【要求】',
-    '- 只基于提供的双方信息作答。',
-    '- 其中带“时辰未知”的一方只能按三柱理解，不得自行补足时柱。',
-    '- 不得编造资料里没有给出的新盘面事实；允许基于三柱和已知资料做保守推理，但必须标明证据来源。',
-    '- 凡是明显依赖时柱、子女宫或更细时限的判断，都要标记为待确认。',
-    ...(isCustomQuestion
-      ? []
-      : [
-          '- 先直接回答【问题】，并区分当前能确认的主线与因时辰未知而待确认的部分。',
-          '- 最后补充最值得继续核验的时辰线索。',
-        ]),
-    '',
-    `【当前时间】\n${formatPromptCurrentTime()}`,
-    `【第一人排盘信息】\n姓名：${params.firstName}\n${params.firstText}`,
-    '',
-    `【第二人排盘信息】\n姓名：${params.secondName}\n${params.secondText}`,
-    '',
-    `【问题】\n${params.question.trim() || '请先做整体合盘解读。'}`,
-    ...(isCustomQuestion
-      ? []
-      : [
-          '【任务】\n请结合双方已知信息，先做保守分析，并明确哪些部分需要等时辰确认后再细化。',
-          '【输出要求】\n先直接回答【问题】，再分成“可确认部分”“待确认部分”“建议继续核验的线索”“当前行动建议”四段；每段尽量写明对应依据、触发条件与建议；证据不足时直接说明；用简体中文。',
-        ]),
-  ].join('\n');
-}
-
 export function formatGender(value: string) {
   return value === 'male' ? '男' : value === 'female' ? '女' : value || '未知';
 }
