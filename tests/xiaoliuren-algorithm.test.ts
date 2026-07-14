@@ -81,6 +81,9 @@ test('小六壬：应期只给盘内节奏、触发条件和限制，不机械�
 
   assert.ok(result.timingEvidence);
   assert.ok(result.timingEvidence.primaryBasis.length >= 3);
+  assert.deepEqual(result.evidenceAnalysis?.timingBasis, result.timingEvidence.primaryBasis);
+  assert.match(result.evidenceAnalysis?.promptText ?? '', /盘内节奏依据/);
+  assert.match(result.evidenceAnalysis?.promptText ?? '', /传统辅证.*方位.*神煞/);
   assert.ok(result.timingEvidence.triggerConditions.length > 0);
   assert.ok(result.timingEvidence.limitations.some((item) => item.includes('不换算固定日数')));
   assert.doesNotMatch(

@@ -17,6 +17,7 @@ export interface XiaoliurenEvidenceAnalysis {
   stages: XiaoliurenStageEvidence[];
   transitions: string[];
   counterEvidence: string[];
+  timingBasis: string[];
   triggerConditions: string[];
   limitations: string[];
   evidence: PromptEvidenceBundle;
@@ -88,6 +89,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     '以结果宫为主要落点，月令旺衰、方位、神煞和传统应期属性只作辅助资料',
   ];
   const counterEvidence = unique(stages.flatMap((item) => item.constraints));
+  const timingBasis = unique(data.timingEvidence?.primaryBasis ?? []);
   const triggerConditions = unique([
     ...(data.timingEvidence?.triggerConditions ?? []),
     data.timingEvidence ? `盘内相对节奏为${data.timingEvidence.rhythm}` : '',
@@ -103,7 +105,18 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
   const items: PromptEvidenceItem[] = stages.map((item, index): PromptEvidenceItem => ({
     level: index === 2 ? '主证' : '辅证',
     title: `${item.stage}${item.palace.name}`,
-    detail: `${item.role}；五行${item.palace.element}，月令${item.seasonState}；宫义${item.palace.meaning}；支持${item.support.join('、') || '未见独立增强条件'}；限制${item.constraints.join('、') || '未见明确限制标签'}。`,
+    detail: `${item.role}；五行${item.palace.element}，月令${item.seasonState}；宫义${item.palace.meaning}；传统辅证${
+      [
+        item.palace.direction ? `方位${item.palace.direction}` : '',
+        item.palace.shenSha ? `神煞${item.palace.shenSha}` : '',
+        item.palace.yinYang ? `${item.palace.yinYang}宫` : '',
+        item.palace.number ? `数${item.palace.number}` : '',
+        item.palace.bodyPart ? `身体部位${item.palace.bodyPart}` : '',
+        item.palace.timing ? `传统应期${item.palace.timing}` : '',
+      ]
+        .filter(Boolean)
+        .join('、') || '未列'
+    }；支持${item.support.join('、') || '未见独立增强条件'}；限制${item.constraints.join('、') || '未见明确限制标签'}。`,
     source: '六宫顺数定位、三段课式与月令五行旺衰',
     tags: [item.stage, item.palace.name, item.palace.element],
   }));
@@ -115,6 +128,17 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
       source: '三宫五行生克逐段比较',
       tags: ['五行推进'],
     },
+    ...(timingBasis.length
+      ? [
+          {
+            level: '辅证' as const,
+            title: '盘内节奏依据',
+            detail: `${timingBasis.join('；')}；节奏标签${data.timingEvidence?.rhythm ?? '未定'}。`,
+            source: '结果宫、三宫推进与传统快慢属性逐项整理',
+            tags: ['节奏', data.timingEvidence?.rhythm ?? '未定'],
+          },
+        ]
+      : []),
     ...counterEvidence.map((detail): PromptEvidenceItem => ({
       level: '反证',
       title: detail.split('，')[0],
@@ -149,6 +173,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     stages,
     transitions,
     counterEvidence,
+    timingBasis,
     triggerConditions,
     limitations,
     evidence,
