@@ -17,6 +17,7 @@ export interface TarotCardEvidence {
 export interface TarotEvidenceAnalysis {
   sources: Array<{ title: string; evidence: string; role: '牌组结构' | '项目解释口径' }>;
   cards: TarotCardEvidence[];
+  drawFacts: string[];
   sequence: string[];
   recurringThemes: string[];
   randomFacts: string[];
@@ -63,6 +64,18 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
         : [],
     };
   });
+  const drawFacts = data.draw
+    ? [
+        `牌组规模：${data.draw.deckSize}张；洗牌方法：${data.draw.method}`,
+        `正逆位规则：${data.draw.orientationRule}`,
+        ...data.draw.order.map(
+          (item) =>
+            `第${item.index}张对应${item.position}：牌号${item.cardId} ${item.cardName}${item.orientation}`,
+        ),
+      ]
+    : [
+        `当前结果未附洗牌与抽取顺序，仅保留已确定牌面：${cards.map((card) => `${card.position}${card.name}${card.orientation}`).join('、')}`,
+      ];
   const sequence = cards.slice(1).map((card, index) => {
     const previous = cards[index];
     return `${previous.position}${previous.name}${previous.orientation} → ${card.position}${card.name}${card.orientation}`;
@@ -97,6 +110,13 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
     '未给现实期限时不得把牌号、张数或牌义换算为绝对日期',
   ];
   const items: PromptEvidenceItem[] = [
+    {
+      level: '辅证',
+      title: '洗牌、抽取顺序与正逆位事实',
+      detail: drawFacts.join('；'),
+      source: '78张牌组、Fisher-Yates洗牌、牌位顺序取牌与逐牌方向随机判定',
+      tags: ['抽牌来源', '洗牌', '正逆位', '可重放'],
+    },
     {
       level: '辅证',
       title: `牌阵结构：${data.spreadName}`,
@@ -168,6 +188,7 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
   return {
     sources,
     cards,
+    drawFacts,
     sequence,
     recurringThemes,
     randomFacts,

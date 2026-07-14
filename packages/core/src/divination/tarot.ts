@@ -9,6 +9,23 @@ export { tarotSpreads } from './tarot-data';
 export { analyzeTarotEvidence } from './tarot-evidence';
 export type { TarotEvidenceAnalysis } from './tarot-evidence';
 
+function buildDrawFacts(
+  cards: Array<{ id: number; name: string; position: string; reversed: boolean }>,
+): NonNullable<TarotData['draw']> {
+  return {
+    deckSize: tarotCards.length,
+    method: 'Fisher-Yates洗牌后依牌位顺序取顶牌',
+    orientationRule: '每张牌独立取随机数，小于0.5为逆位，否则为正位',
+    order: cards.map((card, index) => ({
+      index: index + 1,
+      position: card.position,
+      cardId: card.id,
+      cardName: card.name,
+      orientation: card.reversed ? '逆位' : '正位',
+    })),
+  };
+}
+
 function shuffleCards(rng: RandomSource) {
   const shuffled = [...tarotCards];
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -249,6 +266,7 @@ export function drawTarotSpread(
       timestamp: draw.timestamp,
       meta: draw.meta,
     };
+    data.draw = buildDrawFacts(data.cards);
     data.evidenceAnalysis = analyzeTarotEvidence(data);
     return data;
   }
@@ -267,6 +285,7 @@ export function drawTarotSpread(
     timestamp: draw.timestamp,
     meta: draw.meta,
   };
+  data.draw = buildDrawFacts(data.cards);
   data.evidenceAnalysis = analyzeTarotEvidence(data);
   return data;
 }

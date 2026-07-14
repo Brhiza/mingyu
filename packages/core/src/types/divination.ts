@@ -693,6 +693,18 @@ export interface TarotData {
     element?: string;
     archetype?: string;
   }[];
+  draw?: {
+    deckSize: number;
+    method: 'Fisher-Yates洗牌后依牌位顺序取顶牌';
+    orientationRule: '每张牌独立取随机数，小于0.5为逆位，否则为正位';
+    order: Array<{
+      index: number;
+      position: string;
+      cardId: number;
+      cardName: string;
+      orientation: '正位' | '逆位';
+    }>;
+  };
   timestamp: number;
   evidenceAnalysis?: import('../divination/tarot-evidence').TarotEvidenceAnalysis;
 }
