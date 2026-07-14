@@ -36,6 +36,7 @@ export interface TaiyiEvidenceInput {
 
 export interface TaiyiEvidenceAnalysis {
   calculationChain: string[];
+  calculationSteps: TaiyiCalculationStep[];
   primaryFacts: string[];
   supportingFacts: string[];
   counterEvidence: string[];
@@ -43,6 +44,14 @@ export interface TaiyiEvidenceAnalysis {
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
+}
+
+export interface TaiyiCalculationStep {
+  name: '入纪元数' | '元数' | '纪数' | '局数';
+  input: number;
+  operation: string;
+  result: number;
+  basis: string;
 }
 
 const SCOPE_LABELS: Record<TaiyiScope, string> = {
@@ -57,14 +66,57 @@ function palaceText(position: string, palace: number) {
   return `${position}（第${palace}宫）`;
 }
 
+function positiveOneBased(value: number, cycle: number) {
+  return ((value - 1) % cycle) + 1;
+}
+
 export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnalysis {
   const scopeLabel = SCOPE_LABELS[data.scope];
   const isCover = data.shiJiPalace === data.taiyiPalace;
   const isImprison = data.wenChangPalace === data.taiyiPalace;
+  const calculationSteps: TaiyiCalculationStep[] = [
+    {
+      name: '入纪元数',
+      input: data.accumulatedValue,
+      operation: `(${data.accumulatedValue} - 1) mod 360 + 1`,
+      result: data.entryYears,
+      basis: '积数按三百六十数循环，余零按三百六十计',
+    },
+    {
+      name: '元数',
+      input: data.entryYears,
+      operation: `ceil(${data.entryYears} / 72)`,
+      result: data.yuan,
+      basis: '入纪元数每七十二数为一元',
+    },
+    {
+      name: '纪数',
+      input: data.entryYears,
+      operation: `ceil(${data.entryYears} / 60)`,
+      result: data.ji,
+      basis: '入纪元数每六十数为一纪',
+    },
+    {
+      name: '局数',
+      input: data.accumulatedValue,
+      operation: `(${data.accumulatedValue} - 1) mod 72 + 1`,
+      result: data.bureau,
+      basis: '积数按七十二局循环，余零按第七十二局计',
+    },
+  ];
+  if (
+    positiveOneBased(data.accumulatedValue, 360) !== data.entryYears ||
+    Math.ceil(data.entryYears / 72) !== data.yuan ||
+    Math.ceil(data.entryYears / 60) !== data.ji ||
+    positiveOneBased(data.accumulatedValue, 72) !== data.bureau
+  ) {
+    throw new Error('太乙积数、入纪元数、元纪或局数计算链不一致。');
+  }
   const calculationChain = [
     `${scopeLabel}以${data.dateTime}及本计干支${data.ganZhi}作为时间输入`,
     `按${scopeLabel}独立规则得到${data.accumulatedLabel}${data.accumulatedValue}，折入纪元数${data.entryYears}`,
-    `积数除三百六十定位第${data.yuan}元、第${data.ji}纪，除七十二定位${data.yinYang}第${data.bureau}局`,
+    `积数按三百六十循环得到入纪元数${data.entryYears}，再分别按七十二数一元、六十数一纪定位第${data.yuan}元、第${data.ji}纪`,
+    `积数按七十二局循环定位${data.yinYang}第${data.bureau}局`,
     '按对应阴阳遁七十二局立成表读取太乙、文昌、始击及主客定算',
     '由主客定算余数定位主客定大将与参将，计神及十六神作为辅助定位资料',
   ];
@@ -148,12 +200,14 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     '【太乙五计七十二局结构化证据】',
     ...formatPromptEvidenceBundle(evidence),
     `计算链：${calculationChain.join(' → ')}。`,
+    `算式核验：${calculationSteps.map((step) => `${step.name}${step.operation}=${step.result}`).join('；')}。`,
     `反证核验：${counterEvidence.join('；') || '未见掩、囚或将参中宫等明确限制结构'}。`,
     `方法限制：${limitations.join('；')}。`,
   ].join('\n');
 
   return {
     calculationChain,
+    calculationSteps,
     primaryFacts,
     supportingFacts,
     counterEvidence,

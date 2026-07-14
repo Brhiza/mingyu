@@ -240,6 +240,11 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.ok(r.prompt.includes('核心宫位'));
   assert.ok(r.prompt.includes('观察层级'));
   assert.match(r.evidenceAnalysis.promptText, /【太乙五计七十二局结构化证据】/);
+  assert.deepEqual(
+    r.evidenceAnalysis.calculationSteps.map((step) => step.name),
+    ['入纪元数', '元数', '纪数', '局数'],
+  );
+  assert.match(r.evidenceAnalysis.promptText, /算式核验：.*入纪元数.*元数.*纪数.*局数/);
   assert.ok(r.evidenceAnalysis.primaryFacts.some((item) => item.startsWith('掩成立')));
   assert.ok(r.evidenceAnalysis.counterEvidence.some((item) => item.startsWith('未见囚')));
   assert.match(r.evidenceAnalysis.promptText, /传统规则模型/);
