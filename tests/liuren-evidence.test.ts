@@ -18,6 +18,14 @@ test('大六壬排盘应内置四课取传与三传推进结构化证据', () =>
   assert.equal(evidence.initialBranch, data.threeTransmissions[0].branch);
   assert.match(evidence.promptText, /【大六壬四课取传与三传推进结构化证据】/);
   assert.match(evidence.promptText, /四课取传与初传发用/);
+  assert.deepEqual(evidence.focusEvidence, data.focusEvidence);
+  assert.deepEqual(evidence.timingEvidence, data.timingEvidence);
+  assert.match(evidence.promptText, /应期触发证据/);
+  assert.ok(
+    (data.focusEvidence ?? []).every((focus) =>
+      evidence.evidence.items.some((item) => item.title === `${focus.target}${focus.role}`),
+    ),
+  );
   assert.doesNotMatch(evidence.promptText, /权重[：=]?\d|总分[：=]?\d|成功率[：=]?\d/);
 });
 

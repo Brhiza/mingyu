@@ -24,6 +24,8 @@ export interface LiurenEvidenceAnalysis {
   transitions: string[];
   counterEvidence: string[];
   timingConditions: string[];
+  focusEvidence: NonNullable<LiurenData['focusEvidence']>;
+  timingEvidence: string[];
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
@@ -100,6 +102,11 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
       ...transmissions.flatMap((item) => item.constraints),
     ]),
   );
+  const focusEvidence = data.focusEvidence ?? [];
+  const timingEvidence = (data.timingEvidence ?? []).filter((item) => {
+    if (!item.includes(`初传${initial.branch}`)) return true;
+    return transmissions[0].isVoid ? !item.includes('不空') : !item.includes('空亡');
+  });
   const timingConditions = [
     transmissions[0].isVoid
       ? `初传${initial.branch}空亡，先等待填实、冲实或现实条件落实再验`
@@ -107,6 +114,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     `三传顺序${transmissions.map((item) => `${item.stage}${item.branch}`).join(' → ')}只表示阶段推进`,
     `月支${data.ganzhi.month.slice(-1)}与日支${data.ganzhi.day.slice(-1)}用于核验旺衰、同支、冲合及空亡触发`,
     '未给期限时不换算唯一日期，不以神煞或课体单项指定应期',
+    ...timingEvidence,
   ];
 
   const classicalText = data.classicalRules?.length
@@ -129,6 +137,24 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
       source: '三传、天将、月令旺衰、旬空与日支关系核验',
       tags: [item.stage, item.branch],
     })),
+    ...focusEvidence.map((item): PromptEvidenceItem => ({
+      level: item.level,
+      title: `${item.target}${item.role}`,
+      detail: `依据${item.evidence.join('、') || '未列独立证据'}；限制${item.limitations.join('、') || '仍须结合实际问题选择类神'}`,
+      source: '盘面焦点对象、类神角色与课传证据逐项整理',
+      tags: ['类神焦点', item.target, item.role],
+    })),
+    ...(timingEvidence.length
+      ? [
+          {
+            level: '辅证' as const,
+            title: '应期触发证据',
+            detail: timingEvidence.join('；'),
+            source: '三传、空亡、月日关系与盘面时机条件',
+            tags: ['应期', '触发条件'],
+          },
+        ]
+      : []),
     {
       level: '限制',
       title: '大六壬课传解释边界',
@@ -154,6 +180,8 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     transitions,
     counterEvidence,
     timingConditions,
+    focusEvidence,
+    timingEvidence,
     evidence,
     promptText,
     methodology: [
