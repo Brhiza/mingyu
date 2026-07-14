@@ -415,9 +415,12 @@ const systems: SystemCapability[] = [
     name: '三山国王灵签',
     category: 'divination',
     inputs: [questionInput],
-    outputs: ['签号', '签诗', '典故', '传统解读', '分类解读'],
+    outputs: ['签号', '签诗原文', '典故辅证', '分类解读', '掷筊记录', '随机轨迹', '结构化证据'],
     supports: randomSupports,
-    notes: ['签文数据治理独立于通用接口，本能力清单不改变权威签文内容。'],
+    notes: [
+      '签文数据治理独立于通用接口，本能力清单不改变权威签文内容。',
+      '签诗为文本主证，典故为辅证；seed或replay只证明过程可重放，不证明预测有效性。',
+    ],
   },
   {
     id: 'almanac',

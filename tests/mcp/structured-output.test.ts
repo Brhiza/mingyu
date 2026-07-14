@@ -742,6 +742,35 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
   });
 });
 
+test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文', async () => {
+  await withMcpClient(async (client) => {
+    const confirmed = await client.callTool({
+      name: 'ssgw_prompt',
+      arguments: {
+        question: '这件事应该怎样核实现实条件？',
+        replay: [0.1, 0.1, 0.9],
+      },
+    });
+    assert.equal(confirmed.isError, undefined);
+    assert.equal(confirmed.structuredContent?.result.ritual.confirmed, true);
+    assert.match(String(confirmed.structuredContent?.prompt), /三山国王灵签文本与仪式结构化证据/);
+    assert.match(String(confirmed.structuredContent?.prompt), /不证明预测有效性/);
+
+    const rejected = await client.callTool({
+      name: 'ssgw_prompt',
+      arguments: {
+        question: '这件事应该怎样核实现实条件？',
+        replay: [0.1, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9],
+      },
+    });
+    assert.equal(rejected.isError, undefined);
+    assert.equal(rejected.structuredContent?.result.rejected, true);
+    assert.equal(rejected.structuredContent?.result.poem, undefined);
+    assert.doesNotMatch(String(rejected.structuredContent?.prompt), /签诗：/);
+    assert.match(String(rejected.structuredContent?.prompt), /本次没有形成可解释签文/);
+  });
+});
+
 test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
   await withMcpClient(async (client) => {
     const baziPerson = {

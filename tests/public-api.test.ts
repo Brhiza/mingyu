@@ -1691,6 +1691,29 @@ test('公开 API 雷诺曼接口应分层返回组合与布局证据', async () 
   assert.doesNotMatch(JSON.stringify(body.data), /成功率提升至|吉凶总分[：=]\d/);
 });
 
+test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏签文', async () => {
+  const confirmed = await callApi('divination/ssgw', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ replay: [0.1, 0.1, 0.9] }),
+  });
+  assert.equal(confirmed.response.status, 200);
+  assert.equal(confirmed.body.data.ritual.confirmed, true);
+  assert.match(confirmed.body.data.evidenceAnalysis.promptText, /签诗原文/);
+  assert.match(confirmed.body.data.evidenceAnalysis.promptText, /不证明预测有效性/);
+
+  const rejected = await callApi('divination/ssgw', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ replay: [0.1, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9] }),
+  });
+  assert.equal(rejected.response.status, 200);
+  assert.equal(rejected.body.data.rejected, true);
+  assert.equal(rejected.body.data.ritual.confirmed, false);
+  assert.equal(rejected.body.data.poem, undefined);
+  assert.match(rejected.body.data.message, /拒绝起签/);
+});
+
 test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', async () => {
   const input = {
     customDate: '2025-01-01T08:00:00+08:00',

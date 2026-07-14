@@ -17,6 +17,7 @@ import type {
 } from '../../../types/divination';
 import { LunarUtil, getDivinationTime } from 'mingyu-core/calendar';
 import { resolveSsgwStoryContent } from '../ssgw-content';
+import { analyzeSsgwEvidence } from 'mingyu-core/divination/ssgw';
 import { analyzeQimenEvidence } from '@core/divination/algorithms/qimen';
 import { analyzeAlmanacEvidence } from '@core/divination/algorithms/almanac';
 import { LIUCHONG_MAP } from '@core/ganzhi';
@@ -904,6 +905,7 @@ function formatTarotInfo(data: TarotData) {
 }
 
 function formatSsgwInfo(data: SsgwData) {
+  const evidenceAnalysis = data.evidenceAnalysis ?? analyzeSsgwEvidence(data);
   if (data.ritual?.rejected) {
     const throwLog = data.ritual.throws.map((t) => t.result).join(' → ');
     return (
@@ -911,7 +913,10 @@ function formatSsgwInfo(data: SsgwData) {
       `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}\n` +
       `掷筊记录：${throwLog}\n` +
       `结果：${data.ritual.reason}\n\n` +
-      '神明未应，本次不起卦。建议稍后再试，或反思所问是否妥当。'
+      '本次没有形成可解释签文，不根据已抽出的签号、签题或签诗生成结论。\n' +
+      `【仪式与证据边界】\n${evidenceAnalysis.ritualFacts.join('；')}。\n` +
+      `${evidenceAnalysis.randomFacts.join('；')}。\n` +
+      `【限制】${evidenceAnalysis.limitations.join('；')}`
     );
   }
 
@@ -944,12 +949,14 @@ function formatSsgwInfo(data: SsgwData) {
     `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
     `核心结构：第${data.number}签；签题《${data.title}》`,
     '断签口径：按【问题】、签诗原文、典故和八类签意解读，先抓核心寓意，再对应现实事项。',
+    '证据口径：签诗原文为主证，典故与分类条目为辅证；不得由签号或诗句数字推算绝对日期。',
     ritualLog,
     `签诗：${data.poem}`,
     canonicalStory ? `典故：${canonicalStory}` : '',
     extraStory ? `补充提示：${extraStory}` : '',
     detailLines.length ? '签文条目：' : '',
     ...detailLines,
+    evidenceAnalysis.promptText,
   ]
     .filter(Boolean)
     .join('\n');

@@ -406,6 +406,16 @@ export function getDivinationSummaryBlocks(
       };
     }
     case 'ssgw': {
+      if ('ritual' in data && data.ritual?.rejected) {
+        return {
+          title: '灵签仪式未确认',
+          tags: ['本次不起签'],
+          lines: [
+            `掷筊记录：${data.ritual.throws.map((item) => item.result).join(' → ')}`,
+            data.ritual.reason || '本次未获圣杯，不生成签文结论。',
+          ],
+        };
+      }
       const storyContent =
         'number' in data && 'title' in data && 'poem' in data
           ? resolveSsgwStoryContent(data)

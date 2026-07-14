@@ -1027,6 +1027,7 @@ export interface SsgwRitualThrow {
 
 export interface SsgwRitual {
   throws: SsgwRitualThrow[];
+  confirmed?: boolean;
   rejected?: boolean;
   reason?: string;
 }
@@ -1041,6 +1042,7 @@ export interface SsgwData {
   timestamp: number;
   ganzhi: BaseGanZhi;
   ritual?: SsgwRitual;
+  evidenceAnalysis?: import('../divination/ssgw-evidence').SsgwEvidenceAnalysis;
 }
 
 export type DivinationData =

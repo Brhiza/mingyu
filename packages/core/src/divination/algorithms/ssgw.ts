@@ -4,6 +4,10 @@ import { getDivinationTime } from '../../calendar/timeManager';
 import type { RandomOptions } from '../../shared/random';
 import { createRandomContext, randomInt } from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
+import { analyzeSsgwEvidence } from '../ssgw-evidence';
+
+export { analyzeSsgwEvidence } from '../ssgw-evidence';
+export type { SsgwEvidenceAnalysis } from '../ssgw-evidence';
 
 /**
  * @file 灵签抽签算法（神算鬼谋）
@@ -53,11 +57,35 @@ export function drawRandomSign(
   const context = createRandomContext(randomOptions);
   const randomIndex = randomInt(ssgwSigns.length, context.random);
   const sign = ssgwSigns[randomIndex];
-  return attachResultMeta(
+  const throws: NonNullable<SsgwData['ritual']>['throws'] = [];
+  let consecutiveYin = 0;
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const first = randomInt(2, context.random);
+    const second = randomInt(2, context.random);
+    const result = first !== second ? '圣杯' : first === 0 ? '笑杯' : '阴杯';
+    throws.push({ result });
+    if (result === '圣杯') break;
+    consecutiveYin = result === '阴杯' ? consecutiveYin + 1 : 0;
+    if (consecutiveYin >= 3) break;
+  }
+  const confirmed = throws.at(-1)?.result === '圣杯';
+  const rejected = !confirmed;
+  const ritual: NonNullable<SsgwData['ritual']> = {
+    throws,
+    confirmed,
+    rejected,
+    reason: confirmed
+      ? '已获圣杯，完成项目模拟求签流程。'
+      : consecutiveYin >= 3
+        ? '连续三次阴杯，按项目仪式规则拒绝起签。'
+        : '连续十二次未获圣杯，停止本次模拟求签，避免无界重试。',
+  };
+  const base = attachResultMeta(
     {
       ...sign,
       timestamp,
       ganzhi,
+      ritual,
     },
     {
       algorithm: 'ssgw.draw',
@@ -66,4 +94,5 @@ export function drawRandomSign(
       random: context.getTrace(),
     },
   );
+  return { ...base, evidenceAnalysis: analyzeSsgwEvidence(base) };
 }

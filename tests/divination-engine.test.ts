@@ -3546,6 +3546,30 @@ test('时间型占卜算法应拒绝无效自定义时间对象', () => {
   assert.throws(() => drawRandomSign(invalidDate), /自定义时间不是有效日期/);
 });
 
+test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊仪式', () => {
+  const confirmed = drawRandomSign(new Date('2025-01-01T00:00:00+08:00'), {
+    replay: [0.1, 0.1, 0.9],
+  });
+  assert.equal(confirmed.ritual?.confirmed, true);
+  assert.deepEqual(
+    confirmed.ritual?.throws.map((item) => item.result),
+    ['圣杯'],
+  );
+  assert.match(confirmed.evidenceAnalysis?.promptText || '', /签诗原文/);
+  assert.match(confirmed.evidenceAnalysis?.promptText || '', /典故/);
+  assert.match(confirmed.evidenceAnalysis?.promptText || '', /随机过程可以重放，不证明预测有效性/);
+
+  const rejected = drawRandomSign(new Date('2025-01-01T00:00:00+08:00'), {
+    replay: [0.1, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9],
+  });
+  assert.equal(rejected.ritual?.rejected, true);
+  assert.deepEqual(
+    rejected.ritual?.throws.map((item) => item.result),
+    ['阴杯', '阴杯', '阴杯'],
+  );
+  assert.match(rejected.ritual?.reason || '', /拒绝起签/);
+});
+
 test('占卜时间格式化遇到无法转换为 Date 的时间戳时应回退当前时间', () => {
   assert.doesNotThrow(() =>
     buildTimeInfoText({
