@@ -104,8 +104,20 @@ test('八字双盘证据应双向映射十神和喜忌覆盖', () => {
       (item) => item.observer === 'person1' && item.pillar === 'day' && item.stem === '辛',
     ),
   );
-  assert.deepEqual(result.usefulGodCoverage[0].favorable, [{ wuxing: '木' }, { wuxing: '火' }]);
-  assert.deepEqual(result.usefulGodCoverage[1].unfavorable, [{ wuxing: '火' }]);
+  assert.deepEqual(
+    result.usefulGodCoverage[0].favorable.map((item) => item.wuxing),
+    ['木', '火'],
+  );
+  assert.deepEqual(
+    result.usefulGodCoverage[1].unfavorable.map((item) => item.wuxing),
+    ['火'],
+  );
+  assert.ok(
+    result.usefulGodCoverage[0].favorable.every(
+      (item) => item.sources.length > 0 && item.sources.every((source) => source.pillar),
+    ),
+  );
+  assert.match(result.promptText, /喜用五行.*木（.*柱(?:天干|地支|藏干).*）/s);
 });
 
 test('八字双盘提示词应区分事实和限制且不输出匹配总分', () => {

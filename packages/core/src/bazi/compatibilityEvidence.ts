@@ -7,6 +7,7 @@ import {
   SANHUI_GROUPS,
   TIAN_GAN_CHONG,
   TIAN_GAN_HE,
+  BRANCH_HIDDEN_STEMS,
   isKe,
   isSanxing,
   isSheng,
@@ -79,9 +80,18 @@ export interface BaziTenGodMapping {
 export interface BaziUsefulGodCoverage {
   beneficiary: 'person1' | 'person2';
   provider: 'person1' | 'person2';
-  favorable: Array<{ wuxing: string }>;
-  unfavorable: Array<{ wuxing: string }>;
+  favorable: BaziUsefulGodCoverageItem[];
+  unfavorable: BaziUsefulGodCoverageItem[];
   unavailableReason?: string;
+}
+
+export interface BaziUsefulGodCoverageItem {
+  wuxing: string;
+  sources: Array<{
+    pillar: PillarKey;
+    layer: '天干' | '地支' | '藏干';
+    value: string;
+  }>;
 }
 
 export interface BaziCompatibilityEvidenceResult {
@@ -245,11 +255,31 @@ function calculateUsefulGodCoverage(
       unavailableReason: '命盘未提供结构化喜忌五行。',
     };
   }
-  const present = new Set(providerChart.wuxingStrength?.present ?? []);
+  const sourcesByWuxing = new Map<string, BaziUsefulGodCoverageItem['sources']>();
+  for (const pillar of PILLAR_KEYS) {
+    const value = providerChart.pillars[pillar];
+    for (const [layer, symbol] of [
+      ['天干', value.gan],
+      ['地支', value.zhi],
+    ] as const) {
+      const wuxing = asWuxing(symbol);
+      sourcesByWuxing.set(wuxing, [
+        ...(sourcesByWuxing.get(wuxing) ?? []),
+        { pillar, layer, value: symbol },
+      ]);
+    }
+    for (const hiddenStem of BRANCH_HIDDEN_STEMS[value.zhi] ?? []) {
+      const wuxing = asWuxing(hiddenStem);
+      sourcesByWuxing.set(wuxing, [
+        ...(sourcesByWuxing.get(wuxing) ?? []),
+        { pillar, layer: '藏干', value: hiddenStem },
+      ]);
+    }
+  }
   const match = (elements: string[] | undefined) =>
     [...new Set(elements ?? [])]
-      .filter((wuxing) => present.has(wuxing))
-      .map((wuxing) => ({ wuxing }));
+      .filter((wuxing) => sourcesByWuxing.has(wuxing))
+      .map((wuxing) => ({ wuxing, sources: sourcesByWuxing.get(wuxing) ?? [] }));
   return { beneficiary, provider, favorable: match(favorable), unfavorable: match(unfavorable) };
 }
 
@@ -310,8 +340,12 @@ function createEvidence(
           level: '辅证',
           title: `${provider}盘面包含${beneficiary}的喜用五行`,
           detail:
-            item.favorable.map((entry) => entry.wuxing).join('、') +
-            '；这里只确认盘面出现该五行，不比较伪精确强度，也不等同于必然互补。',
+            item.favorable
+              .map(
+                (entry) =>
+                  `${entry.wuxing}（${entry.sources.map((source) => `${PILLAR_LABELS[source.pillar]}${source.layer}${source.value}`).join('、')}）`,
+              )
+              .join('；') + '；这里只确认盘面出现该五行，不比较伪精确强度，也不等同于必然互补。',
           source: '受益方喜用五行与提供方五行出现结构交叉',
           tags: ['八字合盘', '喜用覆盖'],
         });
@@ -321,8 +355,12 @@ function createEvidence(
           level: '反证',
           title: `${provider}盘面也包含${beneficiary}的忌神五行`,
           detail:
-            item.unfavorable.map((entry) => entry.wuxing).join('、') +
-            '；这里只确认盘面出现该五行，需结合双方原局结构判断实际影响。',
+            item.unfavorable
+              .map(
+                (entry) =>
+                  `${entry.wuxing}（${entry.sources.map((source) => `${PILLAR_LABELS[source.pillar]}${source.layer}${source.value}`).join('、')}）`,
+              )
+              .join('；') + '；这里只确认盘面出现该五行，需结合双方原局结构判断实际影响。',
           source: '受益方忌神五行与提供方五行出现结构交叉',
           tags: ['八字合盘', '忌神覆盖'],
         });
@@ -399,7 +437,7 @@ export function analyzeBaziCompatibility(
         '逐项比较双方年、月、日、时四柱，记录天干五合与冲、地支同支及合冲刑害破。',
         '三合、三会仅在三个成员齐备且来源跨越双方时记录，不直接判定成局或合化。',
         '双向十神按各自日干分别映射对方四柱天干及地支本气。',
-        '喜忌覆盖沿用命盘已有喜忌五行与五行强度百分比，不另造权重或匹配总分。',
+        '喜忌覆盖沿用受益方命盘已有喜忌五行，并逐柱核验提供方天干、地支与藏干的五行来源；只记录是否出现，不另造权重、强度或匹配总分。',
       ],
     },
   };
