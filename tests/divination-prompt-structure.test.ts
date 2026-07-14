@@ -1128,6 +1128,10 @@ test('六爻提示词会给出断卦抓手，先看取用世应动变', () => {
   assert.match(prompt, /主轴证据：世爻第1爻兄弟子水；应爻第6爻兄弟戌土；动变/);
   assert.match(prompt, /【六爻用神作用链结构化证据】/);
   assert.match(prompt, /【主证】通用主轴/);
+  assert.match(prompt, /六亲持世盘面事实：第1爻兄弟持世/);
+  assert.match(prompt, /六亲传统类象映射（非事实结论）/);
+  assert.match(prompt, /不证明现实身份、疾病、官非、财运或关系结果/);
+  assert.doesNotMatch(prompt, /兄弟持世，主竞争、破财、朋友/);
   assert.match(prompt, /作用链：用神水/);
   assert.doesNotMatch(prompt, /取用评分表|权重\d/);
   assert.match(

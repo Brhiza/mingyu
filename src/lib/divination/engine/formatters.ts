@@ -25,7 +25,10 @@ import {
 import { analyzeAlmanacEvidence } from '@core/divination/algorithms/almanac';
 import { LIUCHONG_MAP } from '@core/ganzhi';
 import type { DivinationMethodId } from '@core/divination/config';
-import { analyzeLiuyaoEvidence } from '@core/divination/algorithms/liuyao';
+import {
+  analyzeLiuyaoEvidence,
+  conditionLiuyaoTraditionalText,
+} from '@core/divination/algorithms/liuyao';
 import { analyzeMeihuaEvidence } from '@core/divination/algorithms/meihua';
 import { analyzeLiurenEvidence } from '@core/divination/algorithms/liuren';
 import { analyzeXiaoliurenEvidence } from '@core/divination/algorithms/xiaoliuren';
@@ -441,7 +444,8 @@ function formatLiuyaoInfo(
     : '本卦六亲齐备或本宫首卦无可伏之神';
   const hexagramRelationText = formatLiuyaoHexagramRelation(data);
   const fanfuRelationText = formatLiuyaoFanFuRelation(data);
-  const structuredEvidence = analyzeLiuyaoEvidence(data, { topic }).promptText;
+  const evidenceAnalysis = analyzeLiuyaoEvidence(data, { topic });
+  const structuredEvidence = evidenceAnalysis.promptText;
   const monthDayEvidence = createLiuyaoMonthDayEvidence(data);
   const timingEvidence = createLiuyaoTimingEvidence(data);
   const timingPriorityEvidence = createLiuyaoTimingPriorityEvidence(data);
@@ -454,14 +458,17 @@ function formatLiuyaoInfo(
       : '',
   ].filter(Boolean);
   const sanheDetail = sanheParts.length
-    ? `三合局：${sanheParts.join('；')}；事势增强，应期可参考合局五行旺衰`
+    ? `三合局盘面事实：${sanheParts.join('；')}；传统上视为合局条件较集中，是否形成有效助力须结合合局五行旺衰、世应用神与现实进展复核`
     : null;
   const sanxingDetail = data.sanxingInYaos?.length
-    ? `三刑：${data.sanxingInYaos.map((s) => `${s.branches.join('、')}构成${s.type}`).join('；')}，主纠缠、对立或反复，先看刑中是否有救（合冲解刑）`
+    ? `三刑盘面事实：${data.sanxingInYaos.map((s) => `${s.branches.join('、')}构成${s.type}`).join('；')}；传统类象提示纠缠、对立或反复，但须先看合冲能否解刑并以现实资料复核`
     : null;
   const guaShenDetail = data.guaShen
-    ? `卦身（月卦）在${data.guaShen.branch}，${data.guaShen.sixRelative}临第${data.guaShen.position}爻，主此事有明确卦身为证，事体不虚`
+    ? `卦身盘面事实：月卦身在${data.guaShen.branch}，${data.guaShen.sixRelative}临第${data.guaShen.position}爻；传统上可作为事项线索，不证明事情真伪或结果`
     : null;
+  const worldSymbol = worldYao
+    ? evidenceAnalysis.traditionalSymbols.find((item) => item.relative === worldYao.sixRelative)
+    : undefined;
   const focusParts = [
     worldYao ? `世爻在第${worldYao.position}爻` : '世爻未知',
     responseYao ? `应爻在第${responseYao.position}爻` : '应爻未知',
@@ -510,7 +517,7 @@ function formatLiuyaoInfo(
     hexagramRelationText ? `整卦关系：${hexagramRelationText}` : '',
     fanfuRelationText ? `反伏关系：${fanfuRelationText}` : '',
     worldYao
-      ? `六亲持世：${worldYao.sixRelative}持世，${worldYao.sixRelative === '父母' ? '主辛苦、劳累、文书、消息' : worldYao.sixRelative === '官鬼' ? '主压力、忧虑、疾病、官非' : worldYao.sixRelative === '妻财' ? '主财运、妻子、情感' : worldYao.sixRelative === '子孙' ? '主平安、解忧、医药' : '主竞争、破财、朋友'}`
+      ? `六亲持世盘面事实：第${worldYao.position}爻${worldYao.sixRelative}持世${worldSymbol ? `；${worldSymbol.promptText}；边界：${worldSymbol.limitation}` : '；六亲类象须结合具体问题取用，不单独生成现实结论'}`
       : '',
     `断卦抓手：${focusParts.join('；')}`,
     `主轴证据：${worldYao ? `世爻${formatLiuyaoYaoBrief(worldYao)}` : '世爻未知'}；${responseYao ? `应爻${formatLiuyaoYaoBrief(responseYao)}` : '应爻未知'}；${changingLines.length ? `动变${changingLines.join('、')}` : '无动变，以静卦世应用神为主'}`,
@@ -519,7 +526,9 @@ function formatLiuyaoInfo(
     `月日触发：${monthDayEvidence}`,
     `应期候选：${timingEvidence}`,
     `应期优先级：${timingPriorityEvidence}`,
-    data.specialAdvice ? `补充提示：${data.specialAdvice}` : '',
+    data.specialAdvice
+      ? `补充提示（传统辅助、非事实结论）：${conditionLiuyaoTraditionalText(data.specialAdvice)}`
+      : '',
     sanheDetail || sanxingDetail || guaShenDetail ? '组合时机：' : '',
     sanheDetail ? sanheDetail : '',
     sanxingDetail ? sanxingDetail : '',

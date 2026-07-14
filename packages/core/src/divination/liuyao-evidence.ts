@@ -51,6 +51,15 @@ export interface LiuyaoGodChainItem {
   references: LiuyaoYaoReference[];
 }
 
+export interface LiuyaoTraditionalSymbolFact {
+  relative: string;
+  positions: number[];
+  originalText: string;
+  promptText: string;
+  source: '传统六亲类象表与当前六亲排布';
+  limitation: '六亲只提供随问题变化的事项候选，不证明现实身份、疾病、官非、财运或关系结果';
+}
+
 export interface LiuyaoEvidenceAnalysis {
   topic: LiuyaoEvidenceTopic;
   monthBranch: string;
@@ -58,6 +67,7 @@ export interface LiuyaoEvidenceAnalysis {
   candidates: LiuyaoUsefulGodCandidate[];
   selectedCandidate: LiuyaoUsefulGodCandidate | null;
   godChain: LiuyaoGodChainItem[];
+  traditionalSymbols: LiuyaoTraditionalSymbolFact[];
   generationFacts: string[];
   randomFacts: string[];
   timingConditions: string[];
@@ -68,6 +78,23 @@ export interface LiuyaoEvidenceAnalysis {
 }
 
 const ELEMENTS = ['木', '火', '土', '金', '水'];
+
+const TRADITIONAL_RELATIVE_IMAGES: Record<string, string> = {
+  父母: '传统常取文书、消息、单位、房屋、长辈、辛劳等类象',
+  兄弟: '传统常取同辈、竞争、合作分配、朋友、资源消耗等类象',
+  官鬼: '传统常取职责、职位、压力、忧虑、疾病、官非等类象',
+  妻财: '传统常取财物、交易、资源、伴侣或关系对象等类象',
+  子孙: '传统常取产出、子女、放松、解忧、医药、财源等类象',
+};
+
+export function conditionLiuyaoTraditionalText(text: string): string {
+  return text
+    .replace(/事势增强/g, '传统上视为合局条件较集中')
+    .replace(/事体不虚/g, '传统上可作为事项线索')
+    .replace(/主(?!(?:卦|轴|证|判|要|动|客))/g, '传统类象提示')
+    .replace(/必然/g, '可能')
+    .replace(/必定/g, '较可能');
+}
 
 function branchOf(ganzhi: string) {
   return ganzhi.slice(1, 2);
@@ -303,6 +330,21 @@ export function analyzeLiuyaoEvidence(
     relation,
     references: references.filter((item) => item.wuxing === wuxing),
   }));
+  const traditionalSymbols = Array.from(new Set(references.map((item) => item.sixRelative))).map(
+    (relative): LiuyaoTraditionalSymbolFact => {
+      const originalText = TRADITIONAL_RELATIVE_IMAGES[relative] ?? '传统类象未单列';
+      return {
+        relative,
+        positions: references
+          .filter((item) => item.sixRelative === relative)
+          .map((item) => item.position),
+        originalText,
+        promptText: `${originalText}；须先结合问题主题、求测者身份、世应、动变、月日旺衰与空破墓判断`,
+        source: '传统六亲类象表与当前六亲排布',
+        limitation: '六亲只提供随问题变化的事项候选，不证明现实身份、疾病、官非、财运或关系结果',
+      };
+    },
+  );
   const generationMethod = data.generation?.method;
   const methodLabel =
     generationMethod === 'coins'
@@ -357,6 +399,18 @@ export function analyzeLiuyaoEvidence(
   }));
   items.push(
     {
+      level: '辅证',
+      title: '六亲传统类象映射（非事实结论）',
+      detail: traditionalSymbols
+        .map(
+          (item) =>
+            `${item.relative}见于第${item.positions.join('、')}爻：${item.promptText}；边界：${item.limitation}`,
+        )
+        .join('；'),
+      source: '传统六亲类象表与当前六亲排布逐项映射',
+      tags: ['六亲类象', '条件化表达', '非事实结论'],
+    },
+    {
       level: generationMethod ? '辅证' : '反证',
       title: generationMethod ? `起卦来源：${methodLabel}` : '起卦来源缺失',
       detail: `${generationFacts.join('；')}；这些资料只说明卦象如何生成，不提高卦象证据等级`,
@@ -400,6 +454,7 @@ export function analyzeLiuyaoEvidence(
     candidates,
     selectedCandidate,
     godChain,
+    traditionalSymbols,
     generationFacts,
     randomFacts,
     timingConditions,
@@ -410,6 +465,7 @@ export function analyzeLiuyaoEvidence(
       '先由明确指定或问题主题提出用神候选，再在本卦与伏神中检索，不把候选当成已证实结论。',
       '逐爻保留世应、发动、暗动、月令、月日同支合冲、空破墓、回头生克和进退神证据。',
       '原神取生用神者，忌神取克用神者，仇神取生忌神并克原神者。',
+      '六亲类象保留传统原始范围，提示词只把它作为随问题变化的候选，不把单一持世六亲写成现实事件。',
       '只输出支持、反证、限制和触发条件，不生成吉凶总分或成功率。',
     ],
   };

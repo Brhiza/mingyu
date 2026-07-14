@@ -1038,13 +1038,14 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
 }
 
 export { buildHiddenSpirits };
-export { analyzeLiuyaoEvidence } from '../liuyao-evidence';
+export { analyzeLiuyaoEvidence, conditionLiuyaoTraditionalText } from '../liuyao-evidence';
 export type {
   LiuyaoEvidenceAnalysis,
   LiuyaoEvidenceOptions,
   LiuyaoEvidenceTopic,
   LiuyaoGodChainItem,
   LiuyaoGodRole,
+  LiuyaoTraditionalSymbolFact,
   LiuyaoUsefulGodCandidate,
   LiuyaoYaoReference,
 } from '../liuyao-evidence';

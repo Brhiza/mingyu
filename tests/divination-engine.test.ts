@@ -29,7 +29,11 @@ import {
 } from '../packages/core/src/divination/algorithms/qimen/helpers/jushu';
 import { arrangeJiuGongGe } from '../packages/core/src/divination/algorithms/qimen/helpers/layout';
 import { estimateYingQi } from '../packages/core/src/divination/algorithms/qimen/helpers/ying-qi';
-import { generateLiuyao } from 'mingyu-core/divination/liuyao';
+import {
+  analyzeLiuyaoEvidence,
+  conditionLiuyaoTraditionalText,
+  generateLiuyao,
+} from 'mingyu-core/divination/liuyao';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
 import { analyzeSsgwEvidence, drawRandomSign } from 'mingyu-core/divination/ssgw';
@@ -179,6 +183,32 @@ test('六爻算法会补出伏神结构，供提示词直接引用', () => {
         typeof item.position === 'number' &&
         item.underYao,
     ),
+  );
+});
+
+test('六爻证据应把六亲类象与现实结论分离', () => {
+  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'));
+  const analysis = analyzeLiuyaoEvidence(data);
+  const symbolItem = analysis.evidence.items.find(
+    (item) => item.title === '六亲传统类象映射（非事实结论）',
+  );
+
+  assert.ok(analysis.traditionalSymbols.length > 0);
+  assert.ok(
+    analysis.traditionalSymbols.every(
+      (item) =>
+        item.originalText &&
+        item.promptText &&
+        item.source === '传统六亲类象表与当前六亲排布' &&
+        item.limitation.includes('不证明现实身份'),
+    ),
+  );
+  assert.equal(symbolItem?.level, '辅证');
+  assert.match(symbolItem?.detail || '', /须先结合问题主题/);
+  assert.match(symbolItem?.detail || '', /不证明现实身份、疾病、官非、财运或关系结果/);
+  assert.equal(
+    conditionLiuyaoTraditionalText('官鬼持世，主压力、疾病与官非，事体不虚'),
+    '官鬼持世，传统类象提示压力、疾病与官非，传统上可作为事项线索',
   );
 });
 
