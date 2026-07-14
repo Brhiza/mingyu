@@ -16,6 +16,8 @@ export interface BirthTimeSensitivitySample {
   clockDateTime: string;
   correctedDateTime: string;
   timeIndex: number;
+  nearestTimeBoundary: string;
+  minutesToNearestTimeBoundary: number;
   pillars: Record<BaziPillarKey, string>;
   changedPillars: BaziPillarKey[];
 }
@@ -54,6 +56,25 @@ function pad(value: number) {
 
 function formatDateTime(date: Date) {
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:00`;
+}
+
+function resolveNearestTimeBoundary(hour: number, minute: number) {
+  const current = hour * 60 + minute;
+  const boundaries = Array.from({ length: 12 }, (_, index) => (23 + index * 120) % 1440);
+  let nearest = boundaries[0];
+  let distance = 1440;
+  boundaries.forEach((boundary) => {
+    const direct = Math.abs(current - boundary);
+    const circular = Math.min(direct, 1440 - direct);
+    if (circular < distance) {
+      distance = circular;
+      nearest = boundary;
+    }
+  });
+  return {
+    nearestTimeBoundary: `${pad(Math.floor(nearest / 60))}:${pad(nearest % 60)}`,
+    minutesToNearestTimeBoundary: distance,
+  };
 }
 
 function toSolarClockDate(person: Person): Date {
@@ -124,6 +145,9 @@ function calculateSample(
     birthMinute: clock.getUTCMinutes(),
   });
   const pillars = getPillarNames(chart);
+  const correctedHour = chart.timing?.correctedTime.hour ?? clock.getUTCHours();
+  const correctedMinute = chart.timing?.correctedTime.minute ?? clock.getUTCMinutes();
+  const boundary = resolveNearestTimeBoundary(correctedHour, correctedMinute);
   return {
     offsetMinutes,
     clockDateTime: formatDateTime(clock),
@@ -131,6 +155,7 @@ function calculateSample(
       ? `${chart.timing.correctedTime.year}-${pad(chart.timing.correctedTime.month)}-${pad(chart.timing.correctedTime.day)}T${pad(chart.timing.correctedTime.hour)}:${pad(chart.timing.correctedTime.minute)}:${pad(chart.timing.correctedTime.second)}`
       : formatDateTime(clock),
     timeIndex: chart.timeInfo.index,
+    ...boundary,
     pillars,
     changedPillars: baselinePillars
       ? PILLAR_KEYS.filter((key) => pillars[key] !== baselinePillars[key])
@@ -194,6 +219,14 @@ export function analyzeBirthTimeSensitivity(
       weight: 60,
     },
     {
+      level: baseline.minutesToNearestTimeBoundary <= uncertaintyMinutes ? '主证' : '辅证',
+      title: `基准真太阳时距最近时辰边界 ${baseline.minutesToNearestTimeBoundary} 分钟`,
+      detail: `最近边界为 ${baseline.nearestTimeBoundary}；该距离用于说明排盘对钟表记录误差的敏感程度，不是命理强弱或事件概率。`,
+      source: '校正后真太阳时与十二时辰交界时刻的分钟差',
+      weight: 70,
+      tags: ['出生时间', '时辰边界', '真太阳时'],
+    },
+    {
       level: '限制',
       title: '出生时间敏感性解释边界',
       detail:
@@ -212,7 +245,7 @@ export function analyzeBirthTimeSensitivity(
     '候选样本：',
     ...samples.map(
       (sample) =>
-        `${sample.offsetMinutes >= 0 ? '+' : ''}${sample.offsetMinutes} 分钟｜钟表时间 ${sample.clockDateTime}｜真太阳时 ${sample.correctedDateTime}｜四柱 ${PILLAR_KEYS.map((key) => sample.pillars[key]).join(' ')}`,
+        `${sample.offsetMinutes >= 0 ? '+' : ''}${sample.offsetMinutes} 分钟｜钟表时间 ${sample.clockDateTime}｜真太阳时 ${sample.correctedDateTime}｜最近时辰边界 ${sample.nearestTimeBoundary}（相距 ${sample.minutesToNearestTimeBoundary} 分钟）｜四柱 ${PILLAR_KEYS.map((key) => sample.pillars[key]).join(' ')}`,
     ),
   ].join('\n');
 
@@ -230,6 +263,7 @@ export function analyzeBirthTimeSensitivity(
       '以用户记录的当地钟表时间为基准，在误差范围两端分别重排。',
       '每个样本独立执行历史夏令时、经度与均时差校正，再比较年、月、日、时四柱。',
       '仅报告真实发生的柱位变化，不以距离边界的估计代替候选盘计算。',
+      '同时报告基准真太阳时到最近时辰边界的分钟距离，用于解释敏感来源。',
       '候选结构不直接表示吉凶，也不生成稳定度总分。',
     ],
   };

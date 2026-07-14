@@ -23,7 +23,11 @@ test('出生时间敏感性应通过候选盘识别时柱翻转', () => {
   assert.equal(result.isSensitive, true);
   assert.ok(result.changedPillars.includes('hour'));
   assert.equal(result.changes.find((item) => item.pillar === 'hour')?.candidates.length, 2);
+  assert.match(result.baseline.nearestTimeBoundary, /^\d{2}:\d{2}$/);
+  assert.ok(result.baseline.minutesToNearestTimeBoundary >= 0);
+  assert.ok(result.baseline.minutesToNearestTimeBoundary <= 60);
   assert.match(result.promptText, /【八字出生时间敏感性结构化证据】/);
+  assert.match(result.promptText, /最近时辰边界/);
   assert.match(result.promptText, /出生时间敏感性解释边界/);
 });
 
