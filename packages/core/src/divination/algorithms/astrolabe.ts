@@ -164,7 +164,6 @@ function mapAspect(aspect: {
     type: ASPECT_LABELS[aspect.type] ?? aspect.type,
     symbol: aspect.symbol,
     orb: Number(aspect.deviation.toFixed(2)),
-    strength: Math.round(aspect.strength),
     closeness: classifyAspectClosenessFromStrength(aspect.strength),
     normalizedOrbRatio,
     source: 'celestine 本命相位计算；紧密等级按依赖库归一化容许度位置换算',

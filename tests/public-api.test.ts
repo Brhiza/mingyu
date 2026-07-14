@@ -2102,6 +2102,10 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
   assert.equal(body.data.birth.isTrueSolarTime, true);
+  assert.ok(body.data.aspects.length > 0);
+  body.data.aspects.forEach((aspect: { strength?: number }) => {
+    assert.equal(aspect.strength, undefined);
+  });
   assert.equal(
     body.data.birth.trueSolarDateTime,
     `${corrected.year}-${String(corrected.month).padStart(2, '0')}-${String(corrected.day).padStart(2, '0')} ${String(corrected.hour).padStart(2, '0')}:${String(corrected.minute).padStart(2, '0')}`,
@@ -2178,6 +2182,10 @@ test('公开 API 西占双盘应返回跨盘相位、落宫和结构化证据', 
   assert.equal(body.ok, true);
   assert.deepEqual(body.data.synastry.people, ['甲', '乙']);
   assert.ok(body.data.synastry.aspects.length > 0);
+  body.data.synastry.aspects.forEach((aspect: { strength?: number }) => {
+    assert.equal(aspect.strength, undefined);
+  });
+  assert.equal(body.data.synastry.summary.strongAspects, undefined);
   assert.ok(body.data.synastry.houseOverlays.length > 0);
   assert.ok(
     body.data.synastry.evidence.items.some((item: { level: string }) => item.level === '限制'),

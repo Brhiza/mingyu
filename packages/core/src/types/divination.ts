@@ -877,7 +877,6 @@ export interface AstrolabeAspect {
   type: string;
   symbol: string;
   orb: number;
-  strength: number;
   closeness?: '紧密' | '中等' | '宽松';
   normalizedOrbRatio?: number;
   source?: string;
@@ -925,7 +924,6 @@ export interface AstrolabeSynastryAspect {
   actualAngle: number;
   orb: number;
   allowedOrb: number;
-  strength: number;
   closeness: '紧密' | '中等' | '宽松';
   orbRatio: number;
   source: string;
@@ -952,7 +950,6 @@ export interface AstrolabeSynastryData {
     harmonious: number;
     tense: number;
     neutral: number;
-    strongAspects: number;
     tightAspects: number;
     closestAspects: AstrolabeSynastryAspect[];
   };

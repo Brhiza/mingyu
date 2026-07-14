@@ -1146,12 +1146,11 @@ export function formatAstrolabeInfo(data: AstrolabeData) {
   const angleLines = data.angles.map((item) => `- ${item.label}：${item.formatted}`);
   const describeAspectCloseness = (item: AstrolabeData['aspects'][number]) => {
     if (item.closeness) return item.closeness;
-    const ratio = 1 - Math.max(0, Math.min(100, item.strength)) / 100;
+    const ratio = item.normalizedOrbRatio ?? 1;
     return ratio <= 1 / 3 ? '紧密' : ratio <= 2 / 3 ? '中等' : '宽松';
   };
   const aspectLines = data.aspects.map((item) => {
-    const normalizedOrbRatio =
-      item.normalizedOrbRatio ?? 1 - Math.max(0, Math.min(100, item.strength)) / 100;
+    const normalizedOrbRatio = item.normalizedOrbRatio ?? 1;
     return `- ${item.body1}${item.symbol}${item.body2}（${item.type}），距精确角偏差${item.orb}°，${describeAspectCloseness(item)}等级，归一化容许度位置${normalizedOrbRatio.toFixed(2)}${item.applying === null ? '' : item.applying ? '，入相' : '，出相'}；来源${item.source || '本命星体黄经与依赖库相位计算'}`;
   });
   const sun = data.planets.find((item) => item.name === 'Sun');
