@@ -688,7 +688,6 @@ function buildQizhengEvidence(
       title: `${star.name}位置与落宫`,
       detail: `${star.precisionClass}；回归黄经${star.tropicalLongitude.toFixed(3)}°，项目恒星黄经${star.longitude.toFixed(3)}°，${star.xiu}宿${star.xiuDegree.toFixed(2)}度，落${star.palace}${star.dignity && star.dignity !== '—' ? `，${star.dignity}` : ''}`,
       source: star.sourceLabel,
-      weight: star.kind === '七政' ? 100 : 80,
       tags: [star.kind, star.precisionClass, star.xiu, star.palace],
     })),
     ...aspects.slice(0, 12).map((aspect): PromptEvidenceItem => ({
@@ -696,7 +695,6 @@ function buildQizhengEvidence(
       title: `${aspect.star1}与${aspect.star2}${aspect.type}`,
       detail: `实际夹角${aspect.actualAngle.toFixed(2)}°，标准角${aspect.exactAngle}°，偏差${aspect.orb.toFixed(2)}°，容许度等级${aspect.closeness}，${aspect.precisionClass}${aspect.precisionClass === '混合模型' ? '，不得因角度接近而提升为现代天文同精度证据' : ''}`,
       source: aspect.source,
-      weight: 70,
       tags: ['吊照', aspect.type, aspect.closeness],
     })),
     {
@@ -704,7 +702,6 @@ function buildQizhengEvidence(
       title: '坐标、模型与解释边界',
       detail: limitations.join('；'),
       source: '输入完整性、模型来源和坐标换算链路审计',
-      weight: 120,
     },
   ];
   const evidence: PromptEvidenceBundle = { title: '七政四余计算来源与证据分层', items };

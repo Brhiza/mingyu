@@ -119,7 +119,6 @@ export function analyzeBaZhaiEvidence(
       title: '八宅传统模型与现场使用边界',
       detail: limitations.join('；'),
       source: '传统方位事实、测量事实与现代居住条件分离原则',
-      weight: 120,
       tags: ['现场复测', '现实条件优先'],
     },
   ];

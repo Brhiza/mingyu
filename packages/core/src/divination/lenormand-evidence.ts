@@ -44,7 +44,6 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
     title: `${card.position}：${card.name}`,
     detail: `关键词${card.keywords.join('、') || '未列'}；牌义${card.meaning}${card.house ? `；落${card.house}宫` : ''}${card.row && card.column ? `；第${card.row}排第${card.column}列` : ''}。`,
     source: '当前牌阵牌位、抽取牌面与命语36牌词典',
-    weight: cards.length - index,
     tags: [card.position, card.name, ...card.keywords.slice(0, 3)],
   }));
   items.push(
@@ -73,7 +72,6 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
       title: '雷诺曼牌面解释边界',
       detail: limitations.join('；'),
       source: '随机事实、象征材料与现实结论分离原则',
-      weight: 120,
       tags: ['象征解释', '现实复核'],
     },
   );

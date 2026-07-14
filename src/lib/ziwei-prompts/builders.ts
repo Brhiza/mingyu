@@ -319,7 +319,6 @@ export function buildScopeHitSummary(payload: AnalysisPayloadV1) {
       title: '所选运限落宫',
       detail: focusLine,
       source: '运限落宫',
-      weight: 100,
     },
   ];
 
@@ -329,7 +328,6 @@ export function buildScopeHitSummary(payload: AnalysisPayloadV1) {
       title: '运限命中宫位',
       detail: landingLines.slice(0, 6).join('；'),
       source: '运限命中',
-      weight: 88,
     });
   }
 
@@ -339,7 +337,6 @@ export function buildScopeHitSummary(payload: AnalysisPayloadV1) {
       title: '当前运限四化飞入',
       detail: mutagenLines.slice(0, 8).join('；'),
       source: '运限四化',
-      weight: 82,
     });
   }
 
@@ -349,14 +346,12 @@ export function buildScopeHitSummary(payload: AnalysisPayloadV1) {
       title: '应期层级',
       detail: `${scopeLabel}只负责${payload.active_scope.label || scopeLabel}这一层级的触发；下层资料未提供时，只能给条件窗口，不给绝对日期。`,
       source: '解读方法',
-      weight: 42,
     },
     {
       level: '限制',
       title: '本命与运限边界',
       detail: '本命宫位定长期底色，当前运限只说明阶段触发；不得把短期触发写成一生命定。',
       source: '解读边界',
-      weight: 20,
     },
   );
 

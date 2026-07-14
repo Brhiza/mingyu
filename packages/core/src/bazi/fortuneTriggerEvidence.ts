@@ -201,7 +201,6 @@ function buildEvidence(relations: FortuneTriggerRelation[]): PromptEvidenceBundl
     title: item.label,
     detail: `规则：${item.rule}。${item.interpretationLimit}`,
     source: `${item.source.label}与${item.target.label}干支逐项比对`,
-    weight: specialTypes.has(item.type) ? 82 : 66,
     tags: ['八字岁运', item.source.type, item.target.type, item.type],
   }));
   items.push({
@@ -210,7 +209,6 @@ function buildEvidence(relations: FortuneTriggerRelation[]): PromptEvidenceBundl
     detail:
       '合、冲、刑、害、破、伏吟、岁运并临与天克地冲只记录结构和时间层级；必须结合原局喜忌、十神、旺衰及现实问题解释，不代表必然吉凶或事件必然发生。',
     source: '结构化证据解释规则',
-    weight: -100,
     tags: ['解释边界'],
   });
   return { title: '八字岁运触发结构化证据', items };

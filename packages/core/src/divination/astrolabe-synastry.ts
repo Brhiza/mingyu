@@ -180,7 +180,6 @@ function createEvidence(
     title: `${aspect.person1}${aspect.point1}${aspect.symbol}${aspect.person2}${aspect.point2}`,
     detail: `${aspect.type}，实际夹角 ${aspect.actualAngle.toFixed(2)}°，精确角 ${aspect.exactAngle}°，偏差 ${aspect.orb.toFixed(2)}°，允许容许度 ${aspect.allowedOrb.toFixed(2)}°，属于${aspect.closeness}等级；此处只记录跨盘相位事实，不单独推导关系吉凶。`,
     source: aspect.source,
-    weight: Math.round(100 - aspect.orbRatio * 30),
     tags: [...aspect.tags, aspect.tendency],
   }));
   const overlayItems = overlays
@@ -191,7 +190,6 @@ function createEvidence(
       title: `${overlay.visitor}${overlay.point}落入${overlay.owner}第${overlay.house}宫`,
       detail: `按${overlay.owner}宫头黄经区间计算的跨盘落宫事实，需结合宫主星、相位和双方现实问题解释。`,
       source: '双方本命盘黄经与宫头区间计算',
-      weight: 45,
       tags: ['西占合盘', '跨盘落宫'],
     }));
   return {
@@ -205,7 +203,6 @@ function createEvidence(
         detail:
           '相位与落宫是可核验的盘面关系，不等于关系结果；不得把单一和谐相位写成必然适合，也不得把单一紧张相位写成必然分离。',
         source: '结构化证据解释规则',
-        weight: -100,
         tags: ['解释边界'],
       },
     ],

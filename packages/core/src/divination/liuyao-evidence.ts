@@ -300,7 +300,6 @@ export function analyzeLiuyaoEvidence(
       ? `${candidate.reason}；盘面${candidate.references.map(formatYao).join('、')}；支持${candidate.support.join('、') || '未见额外增强'}；限制${candidate.constraints.join('、') || '未见明显空破墓退'}`
       : `${candidate.reason}；${candidate.constraints.join('、')}`,
     source: '六爻世应、六亲、月日、动变、空伏逐项核验',
-    weight: candidates.length - index,
     tags: [candidate.relative ?? '爻位候选'],
   }));
   items.push({
@@ -309,7 +308,6 @@ export function analyzeLiuyaoEvidence(
     detail:
       '主题默认用神只是候选；实际问题语义、求测者身份与所问对象可能改变取用。不得按候选数量或支持项数量生成吉凶总分，也不得仅凭官鬼、白虎、螣蛇等单项证明疾病、灾祸或超自然原因。',
     source: '计算事实与解释结论分离原则',
-    weight: 100,
   });
   const evidence: PromptEvidenceBundle = { title: '六爻用神作用链结构化证据', items };
   const promptText = [

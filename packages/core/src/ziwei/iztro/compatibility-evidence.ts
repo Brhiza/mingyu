@@ -143,7 +143,6 @@ function createEvidence(
       title: `${personLabel(people, item.sourcePerson)}${item.sourcePalace}落在${personLabel(people, item.targetPerson)}${item.targetPalace}轴位`,
       detail: `双方该宫同处${item.earthlyBranch}支位置；这是十二宫地支对齐关系，用于确认互动落点，不单独表示吉凶或适配程度。`,
       source: '双方十二宫地支位置交叉映射',
-      weight: 88,
       tags: ['紫微合盘', '宫位叠盘', item.sourcePalace, item.targetPalace],
     })),
     ...mutagens.map((item): PromptEvidenceItem => ({
@@ -152,7 +151,6 @@ function createEvidence(
       title: `${personLabel(people, item.sourcePerson)}${item.star}生年化${item.mutagen}落入${personLabel(people, item.targetPerson)}${item.targetPalace}`,
       detail: `${item.star}在化星来源方位于${item.sourcePalace}，在对方盘位于${item.targetPalace}（${item.targetEarthlyBranch}）；只记录“化星来源—星曜—对方落宫”链路，化禄、权、科、忌均需结合宫位主轴、星曜状态和现实问题解释。`,
       source: '来源方生年四化星曜与对方同名星曜落宫交叉',
-      weight: item.mutagen === '忌' || item.mutagen === '禄' ? 78 : 72,
       tags: ['紫微合盘', '生年四化', `化${item.mutagen}`, item.targetPalace],
     })),
     ...overlays
@@ -162,7 +160,6 @@ function createEvidence(
         title: `${personLabel(people, item.sourcePerson)}${item.sourcePalace}对应${personLabel(people, item.targetPerson)}${item.targetPalace}`,
         detail: `双方宫位在${item.earthlyBranch}支重合，需与命身、夫妻、官禄、财帛、福德、迁移等主轴及四化链路共同解释。`,
         source: '双方十二宫地支位置交叉映射',
-        weight: 48,
         tags: ['紫微合盘', '宫位叠盘'],
       })),
     {
@@ -171,7 +168,6 @@ function createEvidence(
       detail:
         '宫位叠盘和生年四化跨盘落点是可复核的盘面关系，不等于现实关系结果；化禄不等于必然有利，化忌不等于必然不利，不输出匹配总分或必然断语。',
       source: '结构化证据解释规则',
-      weight: -100,
       tags: ['解释边界'],
     },
   ];

@@ -273,7 +273,6 @@ function createEvidence(
       title: `双方日主为${dayMaster.person1Gan}${dayMaster.person1Wuxing}与${dayMaster.person2Gan}${dayMaster.person2Wuxing}`,
       detail: `${people.person1}对${people.person2}为“${dayMaster.person1ToPerson2}”，${people.person2}对${people.person1}为“${dayMaster.person2ToPerson1}”；对方日干分别映射为${dayMaster.person2GanAsPerson1TenGod}与${dayMaster.person1GanAsPerson2TenGod}。这是五行和十神关系事实，不单独决定关系结果。`,
       source: '双方日干五行生克与双向十神计算',
-      weight: 90,
       tags: ['八字合盘', '日主关系', '双向十神'],
     },
     ...dayBranchRelations.map((relation): PromptEvidenceItem => ({
@@ -282,7 +281,6 @@ function createEvidence(
       detail:
         '日支关系可作为双方互动结构的重要盘面证据，但不能脱离全局强弱、喜忌和现实关系直接断吉凶。',
       source: '双方日柱地支关系计算',
-      weight: 88,
       tags: ['八字合盘', '日支', '夫妻宫', relation.type],
     })),
     ...relations
@@ -294,7 +292,6 @@ function createEvidence(
         title: `${sourceLabel(people.person1, relation.person1Pillar)}${relation.person1Value}与${sourceLabel(people.person2, relation.person2Pillar)}${relation.person2Value}构成${relation.type}`,
         detail: relation.note ?? '该条只记录跨盘干支关系，需结合柱位、命局强弱、喜忌和岁运解释。',
         source: '双方四柱逐项交叉计算',
-        weight: relation.person1Pillar === 'day' || relation.person2Pillar === 'day' ? 72 : 48,
         tags: ['八字合盘', '跨盘关系', relation.layer, relation.type],
       })),
     ...combinations.map((combination): PromptEvidenceItem => ({
@@ -302,7 +299,6 @@ function createEvidence(
       title: `两盘共同构成${combination.name}${combination.type}`,
       detail: `${combination.members.map((member) => `${member.branch}来自${member.sources.map((source) => sourceLabel(source.person === 'person1' ? people.person1 : people.person2, source.pillar)).join('、')}`).join('；')}。${combination.note}`,
       source: '双方八个地支联合枚举',
-      weight: 55,
       tags: ['八字合盘', combination.type, '组合候选'],
     })),
     ...coverage.flatMap((item): PromptEvidenceItem[] => {
@@ -317,7 +313,6 @@ function createEvidence(
             item.favorable.map((entry) => entry.wuxing).join('、') +
             '；这里只确认盘面出现该五行，不比较伪精确强度，也不等同于必然互补。',
           source: '受益方喜用五行与提供方五行出现结构交叉',
-          weight: 52,
           tags: ['八字合盘', '喜用覆盖'],
         });
       }
@@ -329,7 +324,6 @@ function createEvidence(
             item.unfavorable.map((entry) => entry.wuxing).join('、') +
             '；这里只确认盘面出现该五行，需结合双方原局结构判断实际影响。',
           source: '受益方忌神五行与提供方五行出现结构交叉',
-          weight: 50,
           tags: ['八字合盘', '忌神覆盖'],
         });
       }
@@ -341,7 +335,6 @@ function createEvidence(
       detail:
         '合、冲、刑、害、破、十神映射与喜忌覆盖均为可复核盘面关系，不等于现实关系结果；神煞不得作为主证，不输出匹配总分或必然断语。',
       source: '结构化证据解释规则',
-      weight: -100,
       tags: ['解释边界'],
     },
   ];

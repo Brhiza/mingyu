@@ -105,7 +105,6 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     title: `${item.stage}${item.palace.name}`,
     detail: `${item.role}；五行${item.palace.element}，月令${item.seasonState}；宫义${item.palace.meaning}；支持${item.support.join('、') || '未见独立增强条件'}；限制${item.constraints.join('、') || '未见明确限制标签'}。`,
     source: '六宫顺数定位、三段课式与月令五行旺衰',
-    weight: index === 2 ? 100 : 75 - index,
     tags: [item.stage, item.palace.name, item.palace.element],
   }));
   items.push(
@@ -114,7 +113,6 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
       title: '三宫五行推进',
       detail: `${transitions.join('；')}；综合描述：${data.wuxingRelations.description}。`,
       source: '三宫五行生克逐段比较',
-      weight: 90,
       tags: ['五行推进'],
     },
     ...counterEvidence.map((detail): PromptEvidenceItem => ({
@@ -122,14 +120,12 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
       title: detail.split('，')[0],
       detail,
       source: '宫位倾向、月令状态与现实条件核验',
-      weight: 80,
     })),
     {
       level: '限制',
       title: '小六壬解释边界',
       detail: limitations.join('；'),
       source: '计算事实与解释结论分离原则',
-      weight: 120,
       tags: ['传统模型', '证据边界'],
     },
   );

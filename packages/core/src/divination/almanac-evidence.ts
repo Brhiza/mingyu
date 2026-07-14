@@ -168,7 +168,6 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
       detail: formatCandidate(item),
       source:
         '事项宜忌、建除、神煞、参与人刑冲破害与时辰条件逐项核验；月相取中国标准时间正午的celestine日月黄经',
-      weight: 100 - index,
       tags: [item.status, data.topicLabel],
     })),
     {
@@ -177,7 +176,6 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
       detail:
         '候选顺序只表示当前规则集下的比较结果。不得展示内部评分作为吉凶强度，不得把高分解释成成功率，也不得在现实硬约束未知时宣称某日必然适合。',
       source: '计算事实与解释结论分离原则',
-      weight: 120,
     },
   ];
   const evidence: PromptEvidenceBundle = { title: '黄历择日透明约束与候选证据', items };

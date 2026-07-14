@@ -86,7 +86,6 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       title: `第${data.number}签《${data.title}》签诗原文`,
       detail: data.poem,
       source: '命语三山国王灵签数据集所用版本',
-      weight: 100,
       tags: ['签诗原文', `第${data.number}签`],
     },
     ...(data.story?.trim()
@@ -118,7 +117,6 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       title: '灵签文本与仪式证据边界',
       detail: limitations.join('；'),
       source: '传统象征材料、随机事实与现实结论分离原则',
-      weight: 120,
       tags: ['传统材料', '现实复核'],
     },
   ];

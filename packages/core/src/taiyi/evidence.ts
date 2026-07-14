@@ -103,7 +103,6 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
       title: `${scopeLabel}积数与七十二局`,
       detail: `${data.accumulatedLabel}${data.accumulatedValue}，入纪元数${data.entryYears}，第${data.yuan}元、第${data.ji}纪，${data.yinYang}第${data.bureau}局。`,
       source: sourceText,
-      weight: 100,
       tags: [scopeLabel, data.yinYang, `第${data.bureau}局`],
     },
     {
@@ -111,7 +110,6 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
       title: '太乙、主目与客目定位',
       detail: `${primaryFacts.slice(0, 2).join('；')}；${isCover ? '见掩结构' : '未见掩结构'}；${isImprison ? '见囚结构' : '未见囚结构'}。`,
       source: '七十二局太乙、文昌、始击位置立成表及同宫比较',
-      weight: 95,
       tags: ['太乙', '文昌', '始击', ...(isCover ? ['掩'] : []), ...(isImprison ? ['囚'] : [])],
     },
     {
@@ -119,7 +117,6 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
       title: '主客定算与将参',
       detail: `${primaryFacts[2]}；${primaryFacts[3]}。`,
       source: '七十二局主算、客算、定算立成表及将参定位规则',
-      weight: 90,
       tags: ['主算', '客算', '定算', '将参'],
     },
     {
@@ -127,7 +124,6 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
       title: '计神与十六神定位',
       detail: supportingFacts.join('；'),
       source: '计神逐支定位规则与十六神固定宫位表',
-      weight: 60,
       tags: ['计神', '十六神'],
     },
     ...counterEvidence.map((detail): PromptEvidenceItem => ({
@@ -135,14 +131,12 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
       title: detail.split('：')[0],
       detail,
       source: '盘面宫位与中宫条件逐项核验',
-      weight: 80,
     })),
     {
       level: '限制',
       title: '太乙五计解释边界',
       detail: limitations.join('；'),
       source: '计算事实与解释结论分离原则',
-      weight: 120,
       tags: ['传统模型', '证据边界'],
     },
   ];

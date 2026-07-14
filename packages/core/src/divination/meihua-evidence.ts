@@ -180,7 +180,6 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     title: `${stage.label}阶段`,
     detail: `${formatStage(stage)}；依据：${stage.basis}；支持：${stage.support.join('、') || '未见额外增强'}；限制：${stage.constraints.join('、') || '未见明显月令限制'}`,
     source: '梅花体用、互卦、变卦与月建旺衰逐阶段核验',
-    weight: stages.length - index,
     tags: [stage.stage, stage.relation],
   }));
   items.push({
@@ -189,7 +188,6 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     detail:
       '体用生克只描述卦内关系，不直接等于现实吉凶；互卦用于过程、变卦用于结果，卦名与爻辞只能结合问题作辅助取象。不得按阶段数量、旺衰或卦数生成总分、成功率和绝对应期。',
     source: '计算事实与解释结论分离原则',
-    weight: 100,
   });
   const evidence: PromptEvidenceBundle = { title: '梅花体用阶段推进结构化证据', items };
   const promptText = [

@@ -90,7 +90,6 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
     title: `${card.position}：${card.name}${card.orientation}`,
     detail: `关键词${card.keywords.join('、') || '未列'}；元素主题${card.element}；牌阶主题${card.archetype}；当前取义${card.activeMeaning}。`,
     source: '当前牌阵牌位、抽取牌面与命语逐牌词典',
-    weight: cards.length - index,
     tags: [card.position, card.name, card.orientation, normalizeElement(card.element)],
   }));
   items.push(
@@ -105,7 +104,6 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
       title: '塔罗牌面解释边界',
       detail: limitations.join('；'),
       source: '随机事实、象征材料与现实结论分离原则',
-      weight: 120,
       tags: ['象征解释', '现实复核'],
     },
   );

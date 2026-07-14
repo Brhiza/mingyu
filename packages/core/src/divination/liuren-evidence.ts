@@ -120,7 +120,6 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
       title: '四课取传与初传发用',
       detail: `四课${lessons.map((item) => `${item.name}${item.upper}临${item.lower}（${item.relation}）`).join('；')}；按${data.transmissionRule || '现有取传规则'}取初传${initial.branch}乘${initial.god}${initialSourceLessons.length ? `，对应${initialSourceLessons.join('、')}上神` : '，特殊取传未直接对应单一课上神'}；古籍依据：${classicalText}`,
       source: '四课、九宗门取传结果与经典规则逐项核验',
-      weight: 100,
       tags: ['四课', data.transmissionRule || '取传'],
     },
     ...transmissions.map((item, index): PromptEvidenceItem => ({
@@ -128,7 +127,6 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
       title: `${item.stage}${item.label}`,
       detail: `${formatTransmission(item)}；与前位关系${item.relation}；与日支关系${item.dayRelation || '未列'}；支持${item.support.join('、') || '未见额外增强'}；限制${item.constraints.join('、') || '未见明显空亡或月令限制'}`,
       source: '三传、天将、月令旺衰、旬空与日支关系核验',
-      weight: 80 - index,
       tags: [item.stage, item.branch],
     })),
     {
@@ -137,7 +135,6 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
       detail:
         '四课用于背景和取传依据，初传为发用主轴，中末传表示过程与落点；课体、天将和神煞只作辅助证据。未按具体问题选定类神时，不得把日支或任一神煞固定当作用神，也不得按证据数量生成吉凶总分或成功率。',
       source: '计算事实与解释结论分离原则',
-      weight: 120,
     },
   ];
   const evidence: PromptEvidenceBundle = { title: '大六壬四课取传与三传推进结构化证据', items };

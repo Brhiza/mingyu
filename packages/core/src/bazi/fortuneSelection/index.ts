@@ -151,7 +151,6 @@ function buildFortuneEvidenceLines(params: {
       title: '指定年限运限',
       detail: `${params.scopeLabel}，所属大运为${params.cycleLabel}（${params.cycleGanZhi}）。`,
       source: '岁运资料',
-      weight: 100,
       tags: [params.scope],
     },
   ];
@@ -162,7 +161,6 @@ function buildFortuneEvidenceLines(params: {
       title: '上层岁运背景',
       detail: params.parentText,
       source: '岁运资料',
-      weight: 86,
     });
   }
 
@@ -172,7 +170,6 @@ function buildFortuneEvidenceLines(params: {
       title: params.selectedTitle,
       detail: `${params.selectedGanZhi}；${params.selectedTenGod ?? '十神资料不足'}`,
       source: '排盘计算',
-      weight: 82,
     });
   }
 
@@ -182,7 +179,6 @@ function buildFortuneEvidenceLines(params: {
       title: '刑冲合害触发',
       detail: params.triggerSummary,
       source: '所选干支与原局四柱比对',
-      weight: params.triggerSummary.includes('未见明显') ? 58 : 78,
     });
   }
 
@@ -192,7 +188,6 @@ function buildFortuneEvidenceLines(params: {
       title: '应期边界',
       detail: params.timingText,
       source: '岁运资料',
-      weight: 64,
     });
   }
 
@@ -201,7 +196,6 @@ function buildFortuneEvidenceLines(params: {
     title: '断事层级限制',
     detail: params.limitText,
     source: '解读边界',
-    weight: 20,
   });
 
   return [...formatPromptEvidenceBundle({ items }), '', params.triggerEvidence.promptText];

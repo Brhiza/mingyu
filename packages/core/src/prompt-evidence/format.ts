@@ -40,16 +40,6 @@ function cleanTags(value: unknown) {
     .filter((tag): tag is string => Boolean(tag));
 }
 
-function cleanWeight(value: unknown) {
-  if (value === undefined || value === null) {
-    return undefined;
-  }
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new Error('证据权重必须是有效数字。');
-  }
-  return value;
-}
-
 function normalizePromptEvidenceItem(item: PromptEvidenceItem): PromptEvidenceItem {
   if (!item || typeof item !== 'object') {
     throw new Error('证据条目必须是对象。');
@@ -61,7 +51,6 @@ function normalizePromptEvidenceItem(item: PromptEvidenceItem): PromptEvidenceIt
     title: cleanOptionalText(item.title, '证据标题') ?? '',
     detail: cleanOptionalText(item.detail, '证据详情'),
     source: cleanOptionalText(item.source, '证据来源'),
-    weight: cleanWeight(item.weight),
     tags: cleanTags(item.tags),
   };
 }
@@ -81,12 +70,7 @@ export function normalizePromptEvidenceItems(items: PromptEvidenceItem[]): Promp
   return items
     .map(normalizePromptEvidenceItem)
     .filter((item) => item.title)
-    .sort(
-      (left, right) =>
-        (right.weight ?? 0) - (left.weight ?? 0) ||
-        LEVEL_ORDER[left.level] - LEVEL_ORDER[right.level] ||
-        left.title.localeCompare(right.title, 'zh-CN'),
-    )
+    .sort((left, right) => LEVEL_ORDER[left.level] - LEVEL_ORDER[right.level])
     .filter((item) => {
       const key = buildEvidenceKey(item);
       if (seen.has(key)) return false;

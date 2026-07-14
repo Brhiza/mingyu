@@ -214,7 +214,6 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
       title: `${item.name}用神宫候选`,
       detail: `候选来源${item.sources.join('、')}；门${item.palace.renPan.door}、星${item.palace.tianPan.star}、神${item.palace.shenPan.god}、天盘${item.palace.tianPan.stem}、地盘${item.palace.diPan.stem}；天地盘干${item.stemRelations.join('、') || '未见另列特殊关系'}；支持${item.support.join('、') || '未见独立增强证据'}；限制${item.constraints.join('、') || '未见空亡或明确风险标签'}`,
       source: '值符、值使、日干、时干及九宫门星神干逐项定位',
-      weight: 100 - index,
       tags: [item.name, ...item.sources],
     })),
     {
@@ -223,7 +222,6 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
       detail:
         '以上宫位均为盘面候选，不等于已经按具体问题选定用神。宫位排序不得替代门、星、神、天地盘干、旺衰、空亡、入墓、击刑和门迫的逐项判断；方位和时间只给条件，不输出吉凶总分、成功率或绝对日期。',
       source: '计算事实与解释结论分离原则',
-      weight: 120,
     },
   ];
   const evidence: PromptEvidenceBundle = { title: '奇门用神宫与宫间作用结构化证据', items };

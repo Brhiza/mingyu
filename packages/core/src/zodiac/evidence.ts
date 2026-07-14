@@ -111,7 +111,6 @@ export function analyzeZodiacEvidence(
       title: '生肖流年信息量与解释边界',
       detail: limitations.join('；'),
       source: '传统关系事实与个人现实结论分离原则',
-      weight: 120,
       tags: ['轻量模型', '现实复核'],
     },
   ];

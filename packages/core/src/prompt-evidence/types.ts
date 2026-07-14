@@ -5,7 +5,6 @@ export interface PromptEvidenceItem {
   title: string;
   detail?: string;
   source?: string;
-  weight?: number;
   tags?: string[];
 }
 
