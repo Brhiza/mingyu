@@ -246,12 +246,18 @@ export function buildEvidenceSummary(
   });
 
   return picked.map((item) => ({
+    证据等级: item.level || '辅证',
     判断线索: item.title,
     适用范围: mapScopeLabel(item.scope),
     关联宫位: item.palace_names.map((name) => formatPalaceName(name)),
     关联星曜: deriveEvidenceStars(payload, focusPalaces, item),
     关联四化: deriveEvidenceMutagens(payload, focusPalaces, item),
+    数据来源: item.source || '现有紫微结构化证据池',
+    计算依据: item.calculation || '按证据项登记的宫位、星曜与四化关联逐项核对',
     说明: item.description,
+    适用边界:
+      item.limitations?.join('；') ||
+      '仅作为传统紫微结构化线索，不直接证明现实事件、吉凶结果或发生概率',
   }));
 }
 

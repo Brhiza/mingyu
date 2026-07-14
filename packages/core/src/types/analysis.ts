@@ -121,6 +121,10 @@ export type EvidenceFact = {
   star_names: string[];
   mutagens: string[];
   description: string;
+  level?: '主证' | '辅证' | '反证';
+  source?: string;
+  calculation?: string;
+  limitations?: string[];
 };
 
 export type PatternFact = {

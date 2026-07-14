@@ -3,7 +3,10 @@ import type { IFunctionalHoroscope } from 'iztro/lib/astro/FunctionalHoroscope';
 import type { IFunctionalPalace } from 'iztro/lib/astro/FunctionalPalace';
 import type { EvidenceFact, MutagenName, PalaceFact, ScopeType } from '../../types/analysis';
 
-type EvidenceDraft = Omit<EvidenceFact, 'id'> & { priority: number };
+type EvidenceDraft = Omit<
+  EvidenceFact,
+  'id' | 'level' | 'source' | 'calculation' | 'limitations'
+> & { priority: number };
 
 const MUTAGEN_LIST: MutagenName[] = ['禄', '权', '科', '忌'];
 
@@ -140,7 +143,7 @@ function collectScopeStructureEvidence(params: {
       palace_names: [palace.name],
       star_names: [],
       mutagens: [],
-      description: `${scopeLabel}${stemBranch ? `干支为${stemBranch}，` : ''}当前落在本命${palace.name}，解读时应把该宫作为阶段触发点。`,
+      description: `${scopeLabel}${stemBranch ? `干支为${stemBranch}，` : ''}落宫索引为${item.index}，对应本命${palace.name}。`,
       priority: landingPriority[scope],
     });
 
@@ -166,8 +169,8 @@ function collectScopeStructureEvidence(params: {
         star_names: [starName],
         mutagens: [mutagen],
         description: targetPalace
-          ? `${scopeLabel}四化中的${starName}化${mutagen}落到本命${targetPalace.name}，需结合${palace.name}的运限落宫一起判断触发路径。`
-          : `${scopeLabel}四化中的${starName}化${mutagen}未能在本命宫位索引中定位，解读时只作为运限四化参考。`,
+          ? `${scopeLabel}四化序列中的${starName}对应化${mutagen}；该星在本命盘定位于${targetPalace.name}，运限本身落于${palace.name}。`
+          : `${scopeLabel}四化序列中的${starName}对应化${mutagen}，但该星未能在本命宫位索引中定位。`,
         priority: mutagen === '忌' ? 96 : mutagen === '禄' ? 94 : 91,
       });
     });
@@ -203,7 +206,7 @@ function collectPalaceEvidence(params: {
       palace_names: [palace.name],
       star_names: palace.major_stars.map((s) => s.name),
       mutagens: [],
-      description: `${palace.name}的主星组合会直接影响该宫位主题的解读重点。`,
+      description: `${palace.name}登记主星${palace.major_stars.map((star) => star.name).join('、')}。`,
       priority: palace.name === '命宫' ? 100 : 60,
     });
   }
@@ -218,7 +221,7 @@ function collectPalaceEvidence(params: {
       palace_names: [palace.name],
       star_names: [],
       mutagens: [],
-      description: `${palace.name}没有主星，解读时要结合对宫和三方四正。`,
+      description: `${palace.name}的主星列表为空；对宫及三方四正索引另行保留，供传统空宫合参。`,
       priority: 50,
     });
   }
@@ -316,7 +319,7 @@ function collectPalaceEvidence(params: {
       palace_names: [palace.name],
       star_names: [],
       mutagens: [mutagen],
-      description: `${palace.name}存在自化${mutagen}，会牵动该宫主题与对宫的能量流向。`,
+      description: `${palace.name}的自化列表包含化${mutagen}。`,
       priority: mutagen === '忌' ? 82 : 75,
     });
   });
@@ -340,8 +343,8 @@ function collectPalaceEvidence(params: {
         star_names: [],
         mutagens: [target.mutagen],
         description: isToSelf
-          ? `${palace.name}化${target.mutagen}回照自身，主该宫主题被自化${target.mutagen}牵动。`
-          : `${palace.name}的化${target.mutagen}飞入${target.palace_name}，主该方向与该宫主题产生连动。`,
+          ? `${palace.name}的化${target.mutagen}目标宫索引仍为${palace.index}，属于回入本宫。`
+          : `${palace.name}的化${target.mutagen}目标宫索引为${target.palace_index}，对应${target.palace_name}。`,
         priority: target.mutagen === '忌' ? 86 : target.mutagen === '禄' ? 84 : 78,
       });
     });
@@ -381,10 +384,33 @@ function finalizeEvidence(drafts: EvidenceDraft[]): EvidenceFact[] {
 
   return Array.from(map.values())
     .sort((a, b) => b.priority - a.priority)
-    .map(({ priority: _priority, ...item }, index) => ({
-      id: `E${index + 1}`,
-      ...item,
-    }));
+    .map(({ priority, ...item }, index) => {
+      const isScope = item.type.startsWith('scope_') || item.type === 'palace_scope_mutagen';
+      const isMutagen = item.type.includes('mutagen') || item.type.includes('mutaged');
+      const source = isScope
+        ? 'iztro 运限排盘结果、当前运限落宫与四化序列'
+        : 'iztro 本命盘宫位、星曜、四化与三方四正结构，经命语标准化';
+      const calculation = isScope
+        ? '按运限层级读取落宫索引和四化星名，再以本命十二宫星曜索引定位目标宫位'
+        : isMutagen
+          ? '按宫位星曜四化标记、自化列表、飞化目标索引及三方四正宫位逐项匹配'
+          : '按十二宫索引读取主星、空宫状态及关联宫位，不使用吉凶总分';
+      const limitations = [
+        '仅证明当前排盘数据中存在相应宫位、星曜或四化关系，不直接证明现实事件与吉凶结果',
+        isScope
+          ? '运限关系只对应所选时间层级，不得外推为终身结论或伪精确日期'
+          : '紫微宫星与四化属于传统术数结构，缺少现代统计因果验证',
+      ];
+
+      return {
+        id: `E${index + 1}`,
+        ...item,
+        level: priority >= 80 ? '主证' : '辅证',
+        source,
+        calculation,
+        limitations,
+      };
+    });
 }
 
 export function buildEvidencePool(params: {

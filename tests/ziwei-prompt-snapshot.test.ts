@@ -510,7 +510,13 @@ test('紫微证据池应输出大限流年流月流日落宫与运限四化飞�
   assert.match(titles, /流年（丙午流年）天同化禄入财帛/);
   assert.match(titles, /流年（丙午流年）文昌化科入官禄/);
   assert.match(descriptions, /流年（丙午流年）干支为丙午/);
-  assert.match(descriptions, /结合财帛的运限落宫一起判断触发路径/);
+  assert.match(descriptions, /运限本身落于财帛/);
+  assert.ok(evidence.every((item) => item.level === '主证' || item.level === '辅证'));
+  assert.ok(evidence.every((item) => item.source?.includes('iztro')));
+  assert.ok(evidence.every((item) => item.calculation));
+  assert.ok(
+    evidence.every((item) => item.limitations?.some((text) => text.includes('不直接证明'))),
+  );
   assert.ok(evidence.every((item) => !('priority' in item)));
 });
 
@@ -573,6 +579,10 @@ test('紫微关键判断线索在原始资料缺少关联星曜与关联四化�
 
   assert.deepEqual(summary[0]?.关联星曜, ['天机', '太阴', '文昌']);
   assert.deepEqual(summary[0]?.关联四化, ['禄', '科', '忌']);
+  assert.equal(summary[0]?.证据等级, '辅证');
+  assert.equal(summary[0]?.数据来源, '现有紫微结构化证据池');
+  assert.match(summary[0]?.计算依据 || '', /逐项核对/);
+  assert.match(summary[0]?.适用边界 || '', /不直接证明现实事件/);
 });
 
 test('紫微本命提示词不应混入大限流年流月流日运限结构', () => {
