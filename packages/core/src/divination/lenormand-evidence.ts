@@ -7,6 +7,7 @@ export interface LenormandEvidenceAnalysis {
   sequence: string[];
   fixedCombinations: NonNullable<LenormandData['combinations']>;
   adjacentReadings: NonNullable<LenormandData['combinations']>;
+  drawFacts: string[];
   layoutFacts: string[];
   randomFacts: string[];
   counterEvidence: string[];
@@ -25,6 +26,15 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
   });
   const fixedCombinations = (data.combinations ?? []).filter((item) => item.source === '固定组合');
   const adjacentReadings = (data.combinations ?? []).filter((item) => item.source !== '固定组合');
+  const drawFacts = data.draw
+    ? [
+        `牌组规模：${data.draw.deckSize}张；洗牌与取牌方法：${data.draw.method}`,
+        ...data.draw.order.map(
+          (item) =>
+            `第${item.index}张对应${item.position}：牌号${item.cardId} ${item.cardName}${item.house ? `，落${item.house}宫` : ''}${item.row && item.column ? `，第${item.row}排第${item.column}列` : ''}`,
+        ),
+      ]
+    : ['当前结果未附洗牌方法与抽取顺序，仅保留已确定牌面，不能反推完整抽牌来源链'];
   const layoutFacts = data.layoutEvidence ?? [];
   const trace = data.meta?.random;
   const randomFacts = trace
@@ -56,6 +66,15 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
       detail: `牌阵类型${data.spreadType}；共${cards.length}张；牌位依次为${cards.map((card) => card.position).join('、')}`,
       source: '当前牌阵配置与命语牌阵位置定义',
       tags: ['牌阵结构', data.spreadType, `${cards.length}张`],
+    },
+    {
+      level: data.draw ? '辅证' : '反证',
+      title: data.draw ? '洗牌与抽取顺序事实' : '抽牌来源链缺失',
+      detail: drawFacts.join('；'),
+      source: data.draw
+        ? '36张雷诺曼牌组、Fisher-Yates洗牌与牌位顺序取牌'
+        : '旧版雷诺曼结果兼容检查',
+      tags: ['抽牌来源', data.draw ? '洗牌' : '来源缺失', data.draw ? '可重放' : '不可反推'],
     },
     ...cards.map((card, index): PromptEvidenceItem => ({
       level: index === Math.floor(cards.length / 2) || cards.length === 1 ? '主证' : '辅证',
@@ -125,6 +144,7 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
     ...formatPromptEvidenceBundle(evidence),
     `牌序关系：${sequence.join('；') || '单牌牌阵，无相邻推进关系'}。`,
     `固定组合：${fixedCombinations.map((item) => `${item.card1}+${item.card2}：${item.meaning}`).join('；') || '未命中已登记固定组合'}。`,
+    `抽牌来源：${drawFacts.join('；')}。`,
     `布局事实：${layoutFacts.join('；') || '当前牌阵无额外九宫或大桌布局事实'}。`,
     `反证限制：${counterEvidence.join('；') || '已列组合与布局仍须结合牌位和现实资料复核'}。`,
   ].join('\n');
@@ -133,6 +153,7 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
     sequence,
     fixedCombinations,
     adjacentReadings,
+    drawFacts,
     layoutFacts,
     randomFacts,
     counterEvidence,
@@ -141,6 +162,7 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
     promptText,
     methodology: [
       '先按牌阵固定牌位和抽牌顺序，再逐张读取牌名、关键词与基础牌义。',
+      '抽牌来源单独保存牌组规模、Fisher-Yates洗牌方法、抽取序号与牌位落点，供结构化核验。',
       '固定组合与普通相邻合读分层保存，未命中固定组合时明确保留证据缺口。',
       '九宫和大桌仅增加可复核的空间关系，不把位置直接换算成吉凶或日期。',
       '所有象征解释均须回到用户问题和现实资料复核。',

@@ -360,10 +360,24 @@ export function drawLenormandSpread(
   }
 
   const timestamp = Date.now();
+  const draw: NonNullable<LenormandData['draw']> = {
+    deckSize: LENORMAND_CARDS.length,
+    method: 'Fisher-Yates洗牌后依牌位顺序取顶牌',
+    order: cards.map((card, index) => ({
+      index: index + 1,
+      position: card.position,
+      cardId: card.id,
+      cardName: card.name,
+      house: card.house,
+      row: card.row,
+      column: card.column,
+    })),
+  };
   const result = attachResultMeta(
     {
       spreadType,
       spreadName: spread.name,
+      draw,
       cards,
       combinations,
       layoutEvidence,

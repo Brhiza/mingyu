@@ -847,6 +847,19 @@ export interface LenormandData {
   meta?: CoreResultMeta;
   spreadType: LenormandSpreadType;
   spreadName: string;
+  draw?: {
+    deckSize: number;
+    method: 'Fisher-Yates洗牌后依牌位顺序取顶牌';
+    order: Array<{
+      index: number;
+      position: string;
+      cardId: number;
+      cardName: string;
+      house?: string;
+      row?: number;
+      column?: number;
+    }>;
+  };
   cards: {
     id: number;
     name: string;
