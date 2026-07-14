@@ -1405,6 +1405,20 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
   });
 });
 
+test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级', async () => {
+  await withMcpClient(async (client) => {
+    const result = await client.callTool({
+      name: 'metaphysics_zodiac',
+      arguments: { zodiac: '马', yearGanZhi: '庚子' },
+    });
+    assert.equal(result.isError, undefined, 'metaphysics_zodiac 不应返回错误');
+    const chart = (result.structuredContent as { result: Record<string, unknown> }).result;
+    assert.equal(chart.interpretationBoundary, '仅限生肖与流年关系');
+    assert.equal(chart.level, undefined);
+    assert.equal(chart.confidence, undefined);
+  });
+});
+
 test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
   await withMcpClient(async (client) => {
     const result = await client.callTool({

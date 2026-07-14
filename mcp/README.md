@@ -43,7 +43,7 @@
 | `astrolabe_synastry_prompt`  | 双盘提示词   | 西占双盘计算并返回可直接用于 AI 解读的证据任务书                               |
 | `metaphysics_bazhai`         | 八宅排盘     | 返回命卦、宅卦、大游年方位、磁北/真北换算、测量误差与候选坐向                  |
 | `bazhai_prompt`              | 八宅提示词   | 八宅排盘并返回含测量稳定性和证据边界的 AI 解读提示词                           |
-| `metaphysics_zodiac`         | 生肖流年     | 返回犯太岁、贵人、五行关系和运程等级                                           |
+| `metaphysics_zodiac`         | 生肖流年     | 返回犯太岁、三合六合、五行关系和解释边界                                       |
 | `zodiac_prompt`              | 生肖提示词   | 生肖流年排盘并返回可直接用于 AI 解读的提示词                                   |
 | `metaphysics_taiyi`          | 太乙五计     | 按年、月、日、时、分五计的积数和阴阳遁返回七十二局式盘                         |
 | `taiyi_prompt`               | 太乙提示词   | 太乙排盘并返回可直接用于 AI 解读的提示词                                       |

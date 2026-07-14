@@ -1,6 +1,6 @@
 /**
  * @file 生肖犯太岁 / 流年运程
- * @description 由年支推算值/冲/刑/害/破太岁，并结合流年干支五行、三合六合贵人给出运程等级。
+ * @description 由年支推算值/冲/刑/害/破太岁，并逐项返回流年干支五行、三合六合关系与解释边界。
  * 复用 ganzhi 的干支关系函数。生肖按立春为年界（调用方传入立春校正后的年柱）。
  */
 import {
@@ -155,8 +155,6 @@ export function getYearTaiSui(yearGanZhi: string): { yearBranch: string; star: s
   return { yearBranch: yearGanZhi[1], star };
 }
 
-export type FortuneLevel = '大吉' | '吉' | '平' | '凶' | '大凶';
-
 export interface ZodiacYearFortune {
   zodiacBranch: string;
   zodiac: string;
@@ -167,7 +165,6 @@ export interface ZodiacYearFortune {
   /** 三合/六合贵人 */
   noble: string | null;
   conflicts: TaiSuiConflict[];
-  level: FortuneLevel;
   evidenceGrade: '轻量';
   interpretationBoundary: '仅限生肖与流年关系';
   favorableRelations: string[];
@@ -183,15 +180,6 @@ function relationText(yearStemWuxing: string, zodiacWuxing: string): string {
   if (isKe(yearStemWuxing, zodiacWuxing)) return '年干五行克生肖地支本气';
   if (isKe(zodiacWuxing, yearStemWuxing)) return '生肖地支本气克年干五行';
   return '年干五行与生肖地支本气同类';
-}
-
-function judgeLevel(conflicts: TaiSuiConflict[], relation: string): FortuneLevel {
-  const severe = conflicts.some((c) => c.type === '值太岁' || c.type === '冲太岁');
-  const mild = conflicts.length > 0;
-  if (severe) return '凶';
-  if (mild) return '平';
-  if (relation.includes('年干五行生生肖')) return '吉';
-  return '平';
 }
 
 /** 生肖流年运程 */
@@ -211,7 +199,6 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
     const sanhe = BRANCH_SANHE[zodiacBranch];
     if (sanhe?.partners.includes(yearBranch)) noble = `三合贵人（${sanhe.group}）`;
   }
-  const level = judgeLevel(conflicts, relation);
   const favorableRelations = [
     noble ? noble : '',
     relation.includes('年干五行生生肖') ? relation : '',
@@ -237,7 +224,6 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
     relation,
     noble,
     conflicts,
-    level,
     evidenceGrade: '轻量' as const,
     interpretationBoundary: '仅限生肖与流年关系' as const,
     favorableRelations,

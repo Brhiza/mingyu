@@ -2640,6 +2640,7 @@ test('公开 API 生肖流年应返回关系矩阵证据而不使用综合吉凶
   assert.equal(calculate.response.status, 200);
   assert.equal(calculate.body.data.interpretationBoundary, '仅限生肖与流年关系');
   assert.ok(!('confidence' in calculate.body.data));
+  assert.ok(!('level' in calculate.body.data));
   assert.equal(calculate.body.data.evidenceAnalysis.evidence.title, '生肖流年关系矩阵结构化证据');
   assert.ok(
     calculate.body.data.evidenceAnalysis.primaryEvidence.some(

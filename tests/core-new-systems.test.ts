@@ -166,7 +166,7 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.ok(conflicts.some((c) => c.type === '冲太岁'));
   const r = core.zodiac.getZodiacYearFortune('午', '甲辰');
   assert.equal(r.zodiac, '马');
-  assert.ok(['大吉', '吉', '平', '凶', '大凶'].includes(r.level));
+  assert.ok(!('level' in r));
   assert.equal(r.evidenceGrade, '轻量');
   assert.equal(r.interpretationBoundary, '仅限生肖与流年关系');
   assert.ok(!('confidence' in r));
@@ -183,11 +183,11 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.doesNotMatch(r.prompt, /完整的事业、财运、感情或健康断语/);
 });
 
-test('zodiac: 冲太岁只作轻量风险关系，不直接判为大凶', () => {
+test('zodiac: 冲太岁只作轻量风险关系，不生成综合吉凶等级', () => {
   const result = core.zodiac.getZodiacYearFortune('午', '庚子');
   assert.ok(result.conflicts.some((item) => item.type === '冲太岁'));
   assert.ok(result.evidenceAnalysis.primaryEvidence.some((item) => item.relation === '冲太岁'));
-  assert.notEqual(result.level, '大凶');
+  assert.ok(!('level' in result));
   assert.equal(result.interpretationBoundary, '仅限生肖与流年关系');
   assert.ok(!('confidence' in result));
 });

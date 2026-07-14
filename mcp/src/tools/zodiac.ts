@@ -33,7 +33,7 @@ export function registerZodiacTool(server: McpServer) {
     'metaphysics_zodiac',
     {
       description:
-        '生肖犯太岁与流年运程：由年支推算值/冲/刑/害/破太岁，并结合流年干支五行、三合六合贵人给出运程等级',
+        '生肖流年关系：由年支逐项推算值/冲/刑/害/破、流年干支五行与三合六合关系，并返回证据和解释边界',
       inputSchema: zodiacSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -54,7 +54,7 @@ export function registerZodiacTool(server: McpServer) {
   server.registerTool(
     'zodiac_prompt',
     {
-      description: '生肖犯太岁与流年运程，并生成结构化 AI 解读提示词',
+      description: '生肖流年逐项关系证据，并生成结构化 AI 解读提示词',
       inputSchema: zodiacSchema.shape,
       outputSchema: promptOutputSchema,
     },
