@@ -653,6 +653,14 @@ function buildQizhengEvidence(
   stars: QizhengStar[],
   aspects: QizhengAspect[],
   context: QizhengCalculationContext,
+  structure: {
+    mingGong: number;
+    shenGong: number;
+    mingZhu: string;
+    shensha: { name: string; value: string }[];
+    ziqi: ZiqiPosition;
+    ziqiModel: ZiqiModelInfo;
+  },
 ): QizhengEvidenceAnalysis {
   const locationSourceText =
     context.locationSource === '用户提供' ? '地点输入明确' : context.locationSource;
@@ -666,12 +674,21 @@ function buildQizhengEvidence(
     (star) =>
       `${star.name}据${star.sourceLabel}得${star.precisionClass}位置，落${star.palace}、${star.xiu}宿${star.dignity && star.dignity !== '—' ? `、状态${star.dignity}` : ''}`,
   );
+  primaryFacts.push(
+    `命宫落黄道第${structure.mingGong + 1}宫，身宫落黄道第${structure.shenGong + 1}宫，命主${structure.mingZhu}`,
+  );
   const supportingFacts = aspects
     .slice(0, 12)
     .map(
       (aspect) =>
         `${aspect.star1}与${aspect.star2}${aspect.type}，实际夹角${aspect.actualAngle.toFixed(2)}°，距精确角偏差${aspect.orb.toFixed(2)}°，属于${aspect.closeness}容许度、${aspect.precisionClass}证据`,
     );
+  supportingFacts.push(
+    `紫炁顺行回归黄经${structure.ziqi.tropicalLongitude.toFixed(3)}°、项目恒星黄经${structure.ziqi.siderealLongitude.toFixed(3)}°，采用${structure.ziqiModel.name}`,
+  );
+  supportingFacts.push(
+    `神煞定位：${structure.shensha.map((item) => `${item.name}${item.value}`).join('、')}`,
+  );
   const limitations = [
     `${locationSourceText}；${timezoneSourceText}，地点或时区并非明确输入时，不得宣称宫位结果已按真实出生地校准`,
     '七政、罗计与月孛来自现代天文计算；紫炁来自传统均速模型，两者不得按相同精度比较',
@@ -697,6 +714,20 @@ function buildQizhengEvidence(
       source: aspect.source,
       tags: ['吊照', aspect.type, aspect.closeness],
     })),
+    {
+      level: '主证',
+      title: '命宫、身宫与命主定位',
+      detail: primaryFacts.at(-1) ?? '未生成命身宫定位',
+      source: '生时地支与太阳、太阴宫位安命安身规则',
+      tags: ['命宫', '身宫', '命主'],
+    },
+    {
+      level: '辅证',
+      title: '紫炁与神煞定位',
+      detail: supportingFacts.slice(-2).join('；'),
+      source: '紫炁均速模型与年支、日干神煞规则',
+      tags: ['紫炁', '神煞'],
+    },
     {
       level: '限制',
       title: '坐标、模型与解释边界',
@@ -857,7 +888,14 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     { name: '孤辰', value: ys.gu },
     { name: '寡宿', value: ys.gua },
   ];
-  const evidenceAnalysis = buildQizhengEvidence(stars, aspects, calculationContext);
+  const evidenceAnalysis = buildQizhengEvidence(stars, aspects, calculationContext, {
+    mingGong,
+    shenGong,
+    mingZhu,
+    shensha,
+    ziqi,
+    ziqiModel: ZIQI_MODEL_INFO,
+  });
 
   const prompt = [
     `【七政四余 · 果老星宗】`,

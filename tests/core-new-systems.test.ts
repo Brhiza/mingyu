@@ -433,6 +433,10 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.match(r.evidenceAnalysis.promptText, /【七政四余计算来源与证据分层】/);
   assert.match(r.evidenceAnalysis.promptText, /现代天文计算/);
   assert.match(r.evidenceAnalysis.promptText, /传统均速模型/);
+  assert.match(r.evidenceAnalysis.promptText, /命宫、身宫与命主定位/);
+  assert.match(r.evidenceAnalysis.promptText, /紫炁与神煞定位/);
+  assert.ok(r.evidenceAnalysis.primaryFacts.some((item) => item.includes('命宫落黄道第')));
+  assert.ok(r.evidenceAnalysis.supportingFacts.some((item) => item.startsWith('神煞定位：')));
   assert.doesNotMatch(r.prompt, /强度\d+%|成功率[：=]?\d|吉凶总分[：=]?\d/);
 });
 
