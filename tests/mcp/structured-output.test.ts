@@ -2417,8 +2417,33 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
       generation: { method: string; coinThrows: unknown[] };
       yaoArray: number[];
       evidenceAnalysis: {
-        candidates: unknown[];
-        lineFacts: Array<{ sources: string[]; limitation: string }>;
+        candidates: Array<{
+          key: string;
+          status: string;
+          sourceStatus: string;
+          referenceKeys: string[];
+          promptText: string;
+          sources: string[];
+          limitation: string;
+        }>;
+        selectionFact: { status: string; selectedCandidateKey: string | null };
+        lineCoverageFact: { status: string; actualPositions: number[] };
+        lineFacts: Array<{ status: string; sources: string[]; limitation: string }>;
+        counterEvidenceFacts: Array<{
+          key: string;
+          status: string;
+          ownerCandidateKey: string;
+          sources: string[];
+          limitation: string;
+        }>;
+        counterSummaryFact: { factKeys: string[] };
+        timingFacts: Array<{
+          key: string;
+          promptText: string;
+          sources: string[];
+          limitation: string;
+        }>;
+        timingSummaryFact: { factKeys: string[] };
         hiddenSpiritFacts: unknown[];
         generationFact: {
           status: string;
@@ -2436,6 +2461,12 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
     assert.equal(firstResult.generation.method, 'coins');
     assert.equal(firstResult.generation.coinThrows.length, 6);
     assert.ok(firstResult.evidenceAnalysis.candidates.length > 0);
+    assert.equal(firstResult.evidenceAnalysis.selectionFact.status, '已选定候选');
+    assert.equal(firstResult.evidenceAnalysis.lineCoverageFact.status, '完整');
+    assert.deepEqual(
+      firstResult.evidenceAnalysis.lineCoverageFact.actualPositions,
+      [1, 2, 3, 4, 5, 6],
+    );
     assert.equal(firstResult.evidenceAnalysis.lineFacts.length, 6);
     assert.equal(firstResult.evidenceAnalysis.generationFact.status, '可核验');
     assert.equal(firstResult.evidenceAnalysis.generationFact.method, 'coins');
@@ -2448,11 +2479,54 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
     );
     assert.ok(
       firstResult.evidenceAnalysis.lineFacts.every(
-        (item) => item.sources.length >= 3 && item.limitation.includes('不单独证明现实吉凶'),
+        (item) =>
+          item.status === '已计算' &&
+          item.sources.length >= 3 &&
+          item.limitation.includes('不单独证明现实吉凶'),
+      ),
+    );
+    assert.ok(
+      firstResult.evidenceAnalysis.candidates.every(
+        (item) =>
+          item.key.startsWith('liuyao:candidate:') &&
+          item.status &&
+          item.sourceStatus &&
+          item.referenceKeys.length >= 0 &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('候选不等于已证明现实事项'),
+      ),
+    );
+    assert.equal(
+      firstResult.evidenceAnalysis.counterSummaryFact.factKeys.length,
+      firstResult.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.ok(
+      firstResult.evidenceAnalysis.counterEvidenceFacts.every(
+        (item) =>
+          item.key.startsWith('liuyao:counter:') &&
+          item.status === '已触发' &&
+          item.ownerCandidateKey &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得把单项反证直接写成现实失败'),
+      ),
+    );
+    assert.equal(
+      firstResult.evidenceAnalysis.timingSummaryFact.factKeys.length,
+      firstResult.evidenceAnalysis.timingFacts.length,
+    );
+    assert.ok(
+      firstResult.evidenceAnalysis.timingFacts.every(
+        (item) =>
+          item.key.startsWith('liuyao:timing:') &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得把爻位'),
       ),
     );
     assert.match(firstResult.evidenceAnalysis.promptText, /【六爻用神作用链结构化证据】/);
     assert.match(firstResult.evidenceAnalysis.promptText, /六爻逐爻计算事实/);
+    assertPromptIsPortableTaskText(firstResult.evidenceAnalysis.promptText);
 
     const replay = await client.callTool({
       name: 'divine_liuyao',

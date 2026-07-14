@@ -1040,14 +1040,22 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
 export { buildHiddenSpirits };
 export { analyzeLiuyaoEvidence, conditionLiuyaoTraditionalText } from '../liuyao-evidence';
 export type {
+  LiuyaoCounterEvidenceFact,
+  LiuyaoCounterSummaryFact,
   LiuyaoEvidenceAnalysis,
   LiuyaoEvidenceOptions,
   LiuyaoEvidenceTopic,
   LiuyaoGodChainItem,
   LiuyaoGodRole,
+  LiuyaoHexagramStructureFact,
+  LiuyaoHiddenSpiritCoverageFact,
   LiuyaoHiddenSpiritFact,
+  LiuyaoLineCoverageFact,
   LiuyaoLineFact,
+  LiuyaoTimingFact,
+  LiuyaoTimingSummaryFact,
   LiuyaoTraditionalSymbolFact,
   LiuyaoUsefulGodCandidate,
+  LiuyaoUsefulGodSelectionFact,
   LiuyaoYaoReference,
 } from '../liuyao-evidence';

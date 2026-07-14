@@ -18,7 +18,10 @@ export interface LiuyaoEvidenceOptions {
 }
 
 export interface LiuyaoYaoReference {
+  key: string;
+  factKey: string;
   source: '本卦' | '伏神';
+  status: '已匹配';
   position: number;
   sixRelative: string;
   branch: string;
@@ -40,33 +43,50 @@ export interface LiuyaoYaoReference {
 }
 
 export interface LiuyaoUsefulGodCandidate {
+  key: string;
+  status: '已匹配' | '未匹配';
+  sourceStatus: '用户指定' | '主题默认' | '盘面补齐';
   label: string;
   relative?: string;
   position?: number;
   reason: string;
   references: LiuyaoYaoReference[];
+  referenceKeys: string[];
   support: string[];
   constraints: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '用神候选只记录由明确指定、问题主题或世应动爻提出的取用范围及其盘面匹配；候选不等于已证明现实事项，也不得按候选顺序、数量或匹配数量换算吉凶分与成功率';
 }
 
 export interface LiuyaoGodChainItem {
+  key: string;
   role: LiuyaoGodRole;
+  status: '盘中有对应' | '盘中未见';
   wuxing: string;
   relation: string;
   references: LiuyaoYaoReference[];
+  referenceKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '原神、忌神与仇神只按已选候选五行的生克链定义，并记录盘中是否有对应爻；盘中有无对应不直接证明现实助力、阻碍、吉凶或结果';
 }
 
 export interface LiuyaoTraditionalSymbolFact {
+  key: string;
+  status: '已映射';
   relative: string;
   positions: number[];
   originalText: string;
   promptText: string;
   source: '传统六亲类象表与当前六亲排布';
+  sources: string[];
   limitation: '六亲只提供随问题变化的事项候选，不证明现实身份、疾病、官非、财运或关系结果';
 }
 
 export interface LiuyaoLineFact {
   key: string;
+  status: '已计算';
   position: number;
   rawValue: number;
   yaoType: LiuyaoYaoDetail['yaoType'];
@@ -113,6 +133,7 @@ export interface LiuyaoLineFact {
 
 export interface LiuyaoHiddenSpiritFact {
   key: string;
+  status: '已计算';
   position: number;
   sixRelative: string;
   najia: {
@@ -142,6 +163,91 @@ export interface LiuyaoGenerationFact {
   limitation: '起卦来源只说明卦象如何生成以及六个爻值如何录入或生成，不提高卦象证据等级，也不证明预测有效性或现实结果';
 }
 
+export interface LiuyaoLineCoverageFact {
+  key: 'liuyao:line-coverage';
+  status: '完整' | '缺少爻位' | '爻位异常';
+  expectedPositions: number[];
+  actualPositions: number[];
+  missingPositions: number[];
+  duplicatePositions: number[];
+  invalidPositions: number[];
+  lineFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '六爻覆盖状态只说明当前结果能否完整核验初爻至上爻；缺少、重复或越界爻位时不得反推纳甲、六亲、六神、世应、空破墓或动变内容';
+}
+
+export interface LiuyaoHiddenSpiritCoverageFact {
+  key: 'liuyao:hidden-spirit-coverage';
+  status: '有伏神' | '无伏神' | '字段缺失';
+  hiddenSpiritFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '伏神覆盖状态只说明当前结果是否明确保存伏神数组以及是否检出伏神；字段缺失时不得把无记录解释为无伏神，也不得反推伏神位置与六亲';
+}
+
+export interface LiuyaoUsefulGodSelectionFact {
+  key: 'liuyao:useful-god-selection';
+  status: '已选定候选' | '缺少可用候选';
+  topic: LiuyaoEvidenceTopic;
+  requestedRelative: string | null;
+  selectedCandidateKey: string | null;
+  candidateKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '用神选择状态只说明当前候选是否在本卦或伏神中找到匹配；缺少匹配时不得硬取用神，已有匹配也仍须结合具体问题语义、求测者身份与现实资料复核';
+}
+
+export interface LiuyaoCounterEvidenceFact {
+  key: string;
+  ownerCandidateKey: string;
+  candidateLabel: string;
+  status: '已触发';
+  detail: string;
+  referenceKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '反证事实只表示候选用神命中空亡、月破、日破、休囚死、入墓、回头克冲、化空、化退或未匹配等限制；不得把单项反证直接写成现实失败、灾祸或必然结果';
+}
+
+export interface LiuyaoCounterSummaryFact {
+  key: 'liuyao:counter-summary';
+  status: '有明确反证' | '未见明确反证';
+  factKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '反证汇总只说明当前候选核验是否发现明确限制；未见明确反证不代表现实风险为零，也不得按反证数量换算吉凶分或成功率';
+}
+
+export interface LiuyaoTimingFact {
+  key: string;
+  type: '动爻触发' | '空亡填实' | '伏神透出' | '反吟伏吟节奏' | '静卦边界' | '期限边界';
+  sourceStatus: '由盘面生成' | '统一边界';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '六爻应期事实只提供动爻、出空冲实、伏神透出与静卦复核等触发条件；未给期限时不得把爻位、支序或卦数换算唯一日期，也不证明事件必然发生';
+}
+
+export interface LiuyaoHexagramStructureFact {
+  key: string;
+  kind: '整卦六合六冲' | '反吟伏吟' | '特殊卦象' | '日辰三合' | '月建三合';
+  status: '已计算';
+  originalText: string;
+  promptText: string;
+  sources: string[];
+  limitation: '整卦六合六冲、反吟伏吟、特殊卦象与日月三合只描述已计算的卦内结构；不得直接写成现实和合、冲散、反复、成功、失败或固定应期';
+}
+
+export interface LiuyaoTimingSummaryFact {
+  key: 'liuyao:timing-summary';
+  status: '已提供触发条件' | '仅有边界';
+  factKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '应期汇总只说明当前盘面保存了哪些触发与边界条件；不得按条件数量、爻位或地支序换算固定天数、绝对日期或事件概率';
+}
+
 export interface LiuyaoEvidenceAnalysis {
   topic: LiuyaoEvidenceTopic;
   monthBranch: string;
@@ -150,13 +256,21 @@ export interface LiuyaoEvidenceAnalysis {
   selectedCandidate: LiuyaoUsefulGodCandidate | null;
   godChain: LiuyaoGodChainItem[];
   traditionalSymbols: LiuyaoTraditionalSymbolFact[];
+  structureFacts: LiuyaoHexagramStructureFact[];
+  lineCoverageFact: LiuyaoLineCoverageFact;
   lineFacts: LiuyaoLineFact[];
+  hiddenSpiritCoverageFact: LiuyaoHiddenSpiritCoverageFact;
   hiddenSpiritFacts: LiuyaoHiddenSpiritFact[];
+  selectionFact: LiuyaoUsefulGodSelectionFact;
   generationFact: LiuyaoGenerationFact;
   generationFacts: string[];
   randomFact: RandomTraceFact;
   randomFacts: string[];
+  timingFacts: LiuyaoTimingFact[];
+  timingSummaryFact: LiuyaoTimingSummaryFact;
   timingConditions: string[];
+  counterEvidenceFacts: LiuyaoCounterEvidenceFact[];
+  counterSummaryFact: LiuyaoCounterSummaryFact;
   counterEvidence: string[];
   evidence: PromptEvidenceBundle;
   promptText: string;
@@ -172,6 +286,26 @@ const HIDDEN_SPIRIT_FACT_LIMITATION =
   '伏神结构只证明本卦六亲排布中存在伏藏关系；透出、受制或得助仍须结合飞神、月日、动变与现实进展复核' as const;
 const GENERATION_FACT_LIMITATION =
   '起卦来源只说明卦象如何生成以及六个爻值如何录入或生成，不提高卦象证据等级，也不证明预测有效性或现实结果' as const;
+const CANDIDATE_FACT_LIMITATION =
+  '用神候选只记录由明确指定、问题主题或世应动爻提出的取用范围及其盘面匹配；候选不等于已证明现实事项，也不得按候选顺序、数量或匹配数量换算吉凶分与成功率' as const;
+const GOD_CHAIN_FACT_LIMITATION =
+  '原神、忌神与仇神只按已选候选五行的生克链定义，并记录盘中是否有对应爻；盘中有无对应不直接证明现实助力、阻碍、吉凶或结果' as const;
+const LINE_COVERAGE_FACT_LIMITATION =
+  '六爻覆盖状态只说明当前结果能否完整核验初爻至上爻；缺少、重复或越界爻位时不得反推纳甲、六亲、六神、世应、空破墓或动变内容' as const;
+const HIDDEN_SPIRIT_COVERAGE_FACT_LIMITATION =
+  '伏神覆盖状态只说明当前结果是否明确保存伏神数组以及是否检出伏神；字段缺失时不得把无记录解释为无伏神，也不得反推伏神位置与六亲' as const;
+const SELECTION_FACT_LIMITATION =
+  '用神选择状态只说明当前候选是否在本卦或伏神中找到匹配；缺少匹配时不得硬取用神，已有匹配也仍须结合具体问题语义、求测者身份与现实资料复核' as const;
+const COUNTER_FACT_LIMITATION =
+  '反证事实只表示候选用神命中空亡、月破、日破、休囚死、入墓、回头克冲、化空、化退或未匹配等限制；不得把单项反证直接写成现实失败、灾祸或必然结果' as const;
+const COUNTER_SUMMARY_LIMITATION =
+  '反证汇总只说明当前候选核验是否发现明确限制；未见明确反证不代表现实风险为零，也不得按反证数量换算吉凶分或成功率' as const;
+const TIMING_FACT_LIMITATION =
+  '六爻应期事实只提供动爻、出空冲实、伏神透出与静卦复核等触发条件；未给期限时不得把爻位、支序或卦数换算唯一日期，也不证明事件必然发生' as const;
+const TIMING_SUMMARY_LIMITATION =
+  '应期汇总只说明当前盘面保存了哪些触发与边界条件；不得按条件数量、爻位或地支序换算固定天数、绝对日期或事件概率' as const;
+const HEXAGRAM_STRUCTURE_FACT_LIMITATION =
+  '整卦六合六冲、反吟伏吟、特殊卦象与日月三合只描述已计算的卦内结构；不得直接写成现实和合、冲散、反复、成功、失败或固定应期' as const;
 
 const TRADITIONAL_RELATIVE_IMAGES: Record<string, string> = {
   父母: '传统常取文书、消息、单位、房屋、长辈、辛劳等类象',
@@ -280,7 +414,10 @@ function buildVisibleReference(
     yao.changeDirection === '化退神' ? '化退神' : '',
   ].filter(Boolean);
   return {
+    key: `liuyao:reference:line:${yao.position}`,
+    factKey: `本卦:第${yao.position}爻`,
     source: '本卦',
+    status: '已匹配',
     position: yao.position,
     sixRelative: yao.sixRelative,
     branch: yao.najiaDizhi,
@@ -308,7 +445,10 @@ function buildVisibleReference(
 
 function buildHiddenReference(spirit: LiuyaoHiddenSpirit): LiuyaoYaoReference {
   return {
+    key: `liuyao:reference:hidden:${spirit.position}:${spirit.sixRelative}`,
+    factKey: `伏神:第${spirit.position}爻:${spirit.sixRelative}`,
     source: '伏神',
+    status: '已匹配',
     position: spirit.position,
     sixRelative: spirit.sixRelative,
     branch: spirit.najiaDizhi,
@@ -390,6 +530,7 @@ function buildLineFacts(
       .join('；');
     return {
       key: `本卦:第${yao.position}爻`,
+      status: '已计算',
       position: yao.position,
       rawValue: yao.rawValue,
       yaoType: yao.yaoType,
@@ -432,6 +573,7 @@ function buildHiddenSpiritFacts(data: LiuyaoData): LiuyaoHiddenSpiritFact[] {
     const reference = buildHiddenReference(spirit);
     return {
       key: `伏神:第${spirit.position}爻:${spirit.sixRelative}`,
+      status: '已计算',
       position: spirit.position,
       sixRelative: spirit.sixRelative,
       najia: { branch: spirit.najiaDizhi, wuxing: spirit.wuxing },
@@ -444,6 +586,137 @@ function buildHiddenSpiritFacts(data: LiuyaoData): LiuyaoHiddenSpiritFact[] {
       limitation: HIDDEN_SPIRIT_FACT_LIMITATION,
     };
   });
+}
+
+function buildLineCoverageFact(lineFacts: LiuyaoLineFact[]): LiuyaoLineCoverageFact {
+  const expectedPositions = [1, 2, 3, 4, 5, 6];
+  const rawPositions = lineFacts.map((item) => item.position);
+  const actualPositions = [...new Set(rawPositions)].sort((left, right) => left - right);
+  const missingPositions = expectedPositions.filter(
+    (position) => !actualPositions.includes(position),
+  );
+  const duplicatePositions = actualPositions.filter(
+    (position) => rawPositions.filter((item) => item === position).length > 1,
+  );
+  const invalidPositions = actualPositions.filter(
+    (position) => !Number.isInteger(position) || position < 1 || position > 6,
+  );
+  const status: LiuyaoLineCoverageFact['status'] =
+    duplicatePositions.length || invalidPositions.length
+      ? '爻位异常'
+      : missingPositions.length
+        ? '缺少爻位'
+        : '完整';
+  return {
+    key: 'liuyao:line-coverage',
+    status,
+    expectedPositions,
+    actualPositions,
+    missingPositions,
+    duplicatePositions,
+    invalidPositions,
+    lineFactKeys: lineFacts.map((item) => item.key),
+    promptText:
+      status === '完整'
+        ? '六爻资料完整覆盖初爻至上爻，可逐爻核验'
+        : status === '缺少爻位'
+          ? `六爻资料缺少第${missingPositions.join('、')}爻，不得补造缺失爻内容`
+          : `六爻位置异常：重复${duplicatePositions.join('、') || '无'}；越界${invalidPositions.join('、') || '无'}`,
+    sources: ['当前逐爻详情的位置、数量与唯一性核验'],
+    limitation: LINE_COVERAGE_FACT_LIMITATION,
+  };
+}
+
+function buildHiddenSpiritCoverageFact(
+  data: LiuyaoData,
+  hiddenSpiritFacts: LiuyaoHiddenSpiritFact[],
+): LiuyaoHiddenSpiritCoverageFact {
+  const status: LiuyaoHiddenSpiritCoverageFact['status'] = Array.isArray(data.hiddenSpirits)
+    ? hiddenSpiritFacts.length
+      ? '有伏神'
+      : '无伏神'
+    : '字段缺失';
+  return {
+    key: 'liuyao:hidden-spirit-coverage',
+    status,
+    hiddenSpiritFactKeys: hiddenSpiritFacts.map((item) => item.key),
+    promptText:
+      status === '有伏神'
+        ? `当前记录${hiddenSpiritFacts.length}条伏神与飞神配对事实`
+        : status === '无伏神'
+          ? '当前结果明确记录伏神数组为空，不补造伏神'
+          : '旧结果未提供伏神字段，不能据此断定无伏神，也不得反推伏神位置',
+    sources: ['当前伏神字段存在性与伏神事实数量核验'],
+    limitation: HIDDEN_SPIRIT_COVERAGE_FACT_LIMITATION,
+  };
+}
+
+function buildHexagramStructureFacts(data: LiuyaoData): LiuyaoHexagramStructureFact[] {
+  const facts: LiuyaoHexagramStructureFact[] = [];
+  const add = (
+    key: string,
+    kind: LiuyaoHexagramStructureFact['kind'],
+    originalText: string,
+    sources: string[],
+  ) => {
+    if (!originalText.trim()) return;
+    facts.push({
+      key,
+      kind,
+      status: '已计算',
+      originalText,
+      promptText: conditionLiuyaoTraditionalText(originalText),
+      sources,
+      limitation: HEXAGRAM_STRUCTURE_FACT_LIMITATION,
+    });
+  };
+  if (data.hexagramRelations) {
+    add(
+      'liuyao:structure:hexagram-relation',
+      '整卦六合六冲',
+      [
+        data.hexagramRelations.original ? `主卦${data.hexagramRelations.original}` : '',
+        data.hexagramRelations.changed ? `变卦${data.hexagramRelations.changed}` : '',
+        data.hexagramRelations.transition ?? '',
+      ]
+        .filter(Boolean)
+        .join('；'),
+      ['主卦与变卦六支六合、六冲完整性核验'],
+    );
+  }
+  [...(data.fanfuRelations?.fanyin ?? []), ...(data.fanfuRelations?.fuyin ?? [])].forEach(
+    (item, index) =>
+      add(
+        `liuyao:structure:fanfu:${index + 1}:${item.kind}:${item.scope}`,
+        '反吟伏吟',
+        `${item.label}：${item.description}`,
+        ['主卦与变卦内外卦纳甲地支反吟伏吟核验'],
+      ),
+  );
+  if (data.specialPattern) {
+    add(
+      `liuyao:structure:special:${data.specialPattern}`,
+      '特殊卦象',
+      `${data.specialPattern}${data.specialAdvice ? `：${data.specialAdvice}` : ''}`,
+      ['六爻动静数量、乾坤用爻与特殊卦象核验'],
+    );
+  }
+  if (data.isChaotic || data.chaoticReason) {
+    add('liuyao:structure:chaotic', '特殊卦象', data.chaoticReason || '当前卦象标记为乱动结构', [
+      '动爻数量与乱动条件核验',
+    ]);
+  }
+  if (data.sanheWithDay) {
+    add('liuyao:structure:sanhe-day', '日辰三合', data.sanheWithDay.description, [
+      '当前动爻、变爻与日支三合成员完整性核验',
+    ]);
+  }
+  if (data.sanheWithMonth) {
+    add('liuyao:structure:sanhe-month', '月建三合', data.sanheWithMonth.description, [
+      '当前动爻、变爻与月支三合成员完整性核验',
+    ]);
+  }
+  return facts;
 }
 
 function findGeneratingElement(target: string) {
@@ -554,22 +827,53 @@ export function analyzeLiuyaoEvidence(
   const references = allReferences(data, monthBranch, dayBranch);
   const lineFacts = buildLineFacts(data, monthBranch, dayBranch);
   const hiddenSpiritFacts = buildHiddenSpiritFacts(data);
-  const candidates = candidateSpecs(data, options).map((spec): LiuyaoUsefulGodCandidate => {
+  const lineCoverageFact = buildLineCoverageFact(lineFacts);
+  const hiddenSpiritCoverageFact = buildHiddenSpiritCoverageFact(data, hiddenSpiritFacts);
+  const candidateSourceStatus: LiuyaoUsefulGodCandidate['sourceStatus'] = options.usefulGodRelative
+    ? '用户指定'
+    : topic === 'general'
+      ? '盘面补齐'
+      : '主题默认';
+  const candidates = candidateSpecs(data, options).map((spec, index): LiuyaoUsefulGodCandidate => {
     const matched = references.filter((reference) =>
       spec.position
         ? reference.position === spec.position && reference.source === '本卦'
         : reference.sixRelative === spec.relative,
     );
+    const constraints = matched.length
+      ? Array.from(new Set(matched.flatMap((item) => item.constraints)))
+      : [`${spec.relative ?? '指定爻位'}未在本卦或伏神中找到，不能硬取为主证`];
+    const support = Array.from(new Set(matched.flatMap((item) => item.support)));
     return {
+      key: `liuyao:candidate:${index + 1}:${spec.label}`,
+      status: matched.length ? '已匹配' : '未匹配',
+      sourceStatus: candidateSourceStatus,
       ...spec,
       references: matched,
-      support: Array.from(new Set(matched.flatMap((item) => item.support))),
-      constraints: matched.length
-        ? Array.from(new Set(matched.flatMap((item) => item.constraints)))
-        : [`${spec.relative ?? '指定爻位'}未在本卦或伏神中找到，不能硬取为主证`],
+      referenceKeys: matched.map((item) => item.key),
+      support,
+      constraints,
+      promptText: matched.length
+        ? `${spec.label}由${candidateSourceStatus}提出：${spec.reason}；匹配${matched.map(formatYao).join('、')}；支持${support.join('、') || '未见额外增强'}；限制${constraints.join('、') || '未见明显空破墓退'}`
+        : `${spec.label}由${candidateSourceStatus}提出：${spec.reason}；${constraints.join('、')}`,
+      sources: ['当前问题取用范围', '本卦与伏神六亲、爻位及五行逐项匹配'],
+      limitation: CANDIDATE_FACT_LIMITATION,
     };
   });
   const selectedCandidate = candidates[0]?.references.length ? candidates[0] : null;
+  const selectionFact: LiuyaoUsefulGodSelectionFact = {
+    key: 'liuyao:useful-god-selection',
+    status: selectedCandidate ? '已选定候选' : '缺少可用候选',
+    topic,
+    requestedRelative: options.usefulGodRelative ?? null,
+    selectedCandidateKey: selectedCandidate?.key ?? null,
+    candidateKeys: candidates.map((item) => item.key),
+    promptText: selectedCandidate
+      ? `当前首个可用候选为${selectedCandidate.label}；盘面匹配${selectedCandidate.references.map(formatYao).join('、')}`
+      : '当前候选均未在本卦或伏神中找到匹配，不能强定用神、原神、忌神与仇神',
+    sources: ['候选顺序、匹配状态与逐爻引用核验'],
+    limitation: SELECTION_FACT_LIMITATION,
+  };
   const usefulElement = selectedCandidate?.references[0]?.wuxing ?? '';
   const sourceElement = usefulElement ? findGeneratingElement(usefulElement) : '';
   const tabooElement = usefulElement ? findControllingElement(usefulElement) : '';
@@ -582,16 +886,27 @@ export function analyzeLiuyaoEvidence(
         ['仇神', enemyElement, `${enemyElement}生${tabooElement}并克${sourceElement}`],
       ]
     : [];
-  const godChain = chainSpecs.map(([role, wuxing, relation]) => ({
-    role,
-    wuxing,
-    relation,
-    references: references.filter((item) => item.wuxing === wuxing),
-  }));
+  const godChain = chainSpecs.map(([role, wuxing, relation]): LiuyaoGodChainItem => {
+    const matched = references.filter((item) => item.wuxing === wuxing);
+    return {
+      key: `liuyao:god-chain:${role}`,
+      role,
+      status: matched.length ? '盘中有对应' : '盘中未见',
+      wuxing,
+      relation,
+      references: matched,
+      referenceKeys: matched.map((item) => item.key),
+      promptText: `${role}${wuxing}：${relation}；${matched.length ? `盘中对应${matched.map(formatYao).join('、')}` : '盘中未见对应爻'}`,
+      sources: ['当前选定候选五行', '五行生克公共关系', '本卦与伏神逐爻五行'],
+      limitation: GOD_CHAIN_FACT_LIMITATION,
+    };
+  });
   const traditionalSymbols = Array.from(new Set(references.map((item) => item.sixRelative))).map(
     (relative): LiuyaoTraditionalSymbolFact => {
       const originalText = TRADITIONAL_RELATIVE_IMAGES[relative] ?? '传统类象未单列';
       return {
+        key: `liuyao:traditional-symbol:${relative}`,
+        status: '已映射',
         relative,
         positions: references
           .filter((item) => item.sixRelative === relative)
@@ -599,10 +914,12 @@ export function analyzeLiuyaoEvidence(
         originalText,
         promptText: `${originalText}；须先结合问题主题、求测者身份、世应、动变、月日旺衰与空破墓判断`,
         source: '传统六亲类象表与当前六亲排布',
+        sources: ['传统六亲类象表', '当前本卦与伏神六亲排布'],
         limitation: '六亲只提供随问题变化的事项候选，不证明现实身份、疾病、官非、财运或关系结果',
       };
     },
   );
+  const structureFacts = buildHexagramStructureFacts(data);
   const generationFact = buildGenerationFact(data);
   const generationMethod = data.generation?.method;
   const methodLabel = generationFact.methodLabel;
@@ -624,37 +941,153 @@ export function analyzeLiuyaoEvidence(
     sources: ['六爻起卦方式记录', '逐次随机投币样本与重放元数据'],
   });
   const randomFacts = formatLegacyRandomFacts(randomFact);
-  const timingConditions = [
-    ...data.yaosDetail
-      .filter((item) => item.isChanging)
-      .map(
-        (item) =>
-          `第${item.position}爻${item.sixRelative}${item.najiaDizhi}发动${item.changedYao ? `化${item.changedYao.liuqin}${item.changedYao.dizhi}` : ''}`,
-      ),
-    ...(data.voidBranches?.length
-      ? [`空亡${data.voidBranches.join('、')}须待出空、冲实或透出再验`]
-      : []),
-    ...(data.hiddenSpirits?.length ? ['伏神须待透出、飞神受冲或得月日生扶再验'] : []),
-  ];
-  const counterEvidence = Array.from(
-    new Set(candidates.flatMap((candidate) => candidate.constraints)),
+  const timingFacts: LiuyaoTimingFact[] = [];
+  lineFacts
+    .filter((item) => item.activity === '明动')
+    .forEach((item) =>
+      timingFacts.push({
+        key: `liuyao:timing:changing-line:${item.position}`,
+        type: '动爻触发',
+        sourceStatus: '由盘面生成',
+        ownerFactKeys: [item.key],
+        promptText: `第${item.position}爻${item.sixRelative}${item.najia.branch}发动${item.changedYao ? `化${item.changedYao.sixRelative}${item.changedYao.branch}` : ''}`,
+        sources: ['当前逐爻明动与变爻事实'],
+        limitation: TIMING_FACT_LIMITATION,
+      }),
+    );
+  if (data.voidBranches?.length) {
+    timingFacts.push({
+      key: 'liuyao:timing:void',
+      type: '空亡填实',
+      sourceStatus: '由盘面生成',
+      ownerFactKeys: [
+        ...lineFacts.filter((item) => item.isVoid).map((item) => item.key),
+        ...hiddenSpiritFacts.filter((item) => item.isVoid).map((item) => item.key),
+      ],
+      promptText: `空亡${data.voidBranches.join('、')}须待出空、冲实或透出再验`,
+      sources: ['日柱旬空地支', '本卦与伏神空亡标记'],
+      limitation: TIMING_FACT_LIMITATION,
+    });
+  }
+  if (hiddenSpiritFacts.length) {
+    timingFacts.push({
+      key: 'liuyao:timing:hidden-spirit',
+      type: '伏神透出',
+      sourceStatus: '由盘面生成',
+      ownerFactKeys: hiddenSpiritFacts.map((item) => item.key),
+      promptText: '伏神须待透出、飞神受冲或得月日生扶再验',
+      sources: ['伏神与飞神配对事实', '伏神透出及得助触发口径'],
+      limitation: TIMING_FACT_LIMITATION,
+    });
+  }
+  const fanfuFacts = structureFacts.filter((item) => item.kind === '反吟伏吟');
+  if (fanfuFacts.length) {
+    timingFacts.push({
+      key: 'liuyao:timing:fanfu',
+      type: '反吟伏吟节奏',
+      sourceStatus: '由盘面生成',
+      ownerFactKeys: fanfuFacts.map((item) => item.key),
+      promptText: `反吟伏吟只提示反复、停滞或原地重复的传统节奏，须由现实进展复核`,
+      sources: ['当前反吟伏吟结构事实'],
+      limitation: TIMING_FACT_LIMITATION,
+    });
+  }
+  if (!lineFacts.some((item) => item.activity === '明动')) {
+    timingFacts.push({
+      key: 'liuyao:timing:static',
+      type: '静卦边界',
+      sourceStatus: '由盘面生成',
+      ownerFactKeys: lineFacts.map((item) => item.key),
+      promptText: '静卦先看世应用神与月日旺衰，不补造动爻触发或绝对日期',
+      sources: ['当前六爻动静状态'],
+      limitation: TIMING_FACT_LIMITATION,
+    });
+  }
+  timingFacts.push({
+    key: 'liuyao:timing:deadline-boundary',
+    type: '期限边界',
+    sourceStatus: '统一边界',
+    ownerFactKeys: [],
+    promptText: '未给现实期限时，不把爻位、地支序、卦数或旬空机械换算成唯一日期',
+    sources: ['盘内触发条件与现实日期分离原则'],
+    limitation: TIMING_FACT_LIMITATION,
+  });
+  const timingConditions = timingFacts.map((item) => item.promptText);
+  const timingSummaryFact: LiuyaoTimingSummaryFact = {
+    key: 'liuyao:timing-summary',
+    status: timingFacts.some((item) => !['静卦边界', '期限边界'].includes(item.type))
+      ? '已提供触发条件'
+      : '仅有边界',
+    factKeys: timingFacts.map((item) => item.key),
+    promptText: `应期状态：已记录${timingFacts.length}项触发与边界条件，未给期限时不换算唯一日期`,
+    sources: ['逐项应期事实汇总'],
+    limitation: TIMING_SUMMARY_LIMITATION,
+  };
+  const counterEvidenceFacts: LiuyaoCounterEvidenceFact[] = candidates.flatMap(
+    (candidate, candidateIndex) =>
+      candidate.constraints.map((detail, index) => ({
+        key: `liuyao:counter:${candidateIndex + 1}:${index + 1}`,
+        ownerCandidateKey: candidate.key,
+        candidateLabel: candidate.label,
+        status: '已触发' as const,
+        detail,
+        referenceKeys: candidate.referenceKeys,
+        promptText: `${candidate.label}限制：${detail}`,
+        sources: ['当前用神候选匹配结果', '对应本卦或伏神支持与限制字段'],
+        limitation: COUNTER_FACT_LIMITATION,
+      })),
   );
+  const counterEvidence = Array.from(new Set(counterEvidenceFacts.map((item) => item.detail)));
+  const counterSummaryFact: LiuyaoCounterSummaryFact = {
+    key: 'liuyao:counter-summary',
+    status: counterEvidenceFacts.length ? '有明确反证' : '未见明确反证',
+    factKeys: counterEvidenceFacts.map((item) => item.key),
+    promptText: counterEvidenceFacts.length
+      ? `当前${counterEvidenceFacts.length}项候选限制已逐项记录，须与支持证据同时核验`
+      : '当前候选未见明确空破墓退限制，但仍须核实现实风险',
+    sources: ['候选 constraints 字段逐项汇总'],
+    limitation: COUNTER_SUMMARY_LIMITATION,
+  };
   const items: PromptEvidenceItem[] = candidates.map((candidate, index) => ({
     level: candidate.references.length ? (index === 0 ? '主证' : '辅证') : '限制',
     title: candidate.label,
-    detail: candidate.references.length
-      ? `${candidate.reason}；盘面${candidate.references.map(formatYao).join('、')}；支持${candidate.support.join('、') || '未见额外增强'}；限制${candidate.constraints.join('、') || '未见明显空破墓退'}`
-      : `${candidate.reason}；${candidate.constraints.join('、')}`,
-    source: '六爻世应、六亲、月日、动变、空伏逐项核验',
-    tags: [candidate.relative ?? '爻位候选'],
+    detail: `${candidate.promptText}；边界：${candidate.limitation}`,
+    source: candidate.sources.join('、'),
+    tags: [candidate.relative ?? '爻位候选', candidate.status, candidate.sourceStatus],
   }));
   items.push(
     {
-      level: '主证',
+      level: selectionFact.status === '已选定候选' ? '主证' : '反证',
+      title: '用神候选选择状态',
+      detail: `${selectionFact.promptText}；边界：${selectionFact.limitation}`,
+      source: selectionFact.sources.join('、'),
+      tags: ['用神选择', selectionFact.status, topic],
+    },
+    {
+      level: lineCoverageFact.status === '完整' ? '辅证' : '反证',
+      title: '六爻资料覆盖状态',
+      detail: `${lineCoverageFact.promptText}；边界：${lineCoverageFact.limitation}`,
+      source: lineCoverageFact.sources.join('、'),
+      tags: ['六爻覆盖', lineCoverageFact.status],
+    },
+    {
+      level: lineCoverageFact.status === '完整' ? '主证' : '反证',
       title: '六爻逐爻计算事实',
       detail: `${lineFacts.map((item) => item.promptText).join('；')}；统一边界：${LINE_FACT_LIMITATION}`,
       source: '京房八宫纳甲、安世应、月日旺衰、旬空与动变规则逐爻计算',
       tags: ['逐爻事实', '纳甲', '世应', '月日', '动变'],
+    },
+    {
+      level:
+        hiddenSpiritCoverageFact.status === '字段缺失'
+          ? '反证'
+          : hiddenSpiritCoverageFact.status === '有伏神'
+            ? '辅证'
+            : '限制',
+      title: '伏神资料覆盖状态',
+      detail: `${hiddenSpiritCoverageFact.promptText}；边界：${hiddenSpiritCoverageFact.limitation}`,
+      source: hiddenSpiritCoverageFact.sources.join('、'),
+      tags: ['伏神覆盖', hiddenSpiritCoverageFact.status],
     },
     ...(hiddenSpiritFacts.length
       ? [
@@ -679,6 +1112,24 @@ export function analyzeLiuyaoEvidence(
       source: '传统六亲类象表与当前六亲排布逐项映射',
       tags: ['六亲类象', '条件化表达', '非事实结论'],
     },
+    ...structureFacts.map((fact): PromptEvidenceItem => ({
+      level: fact.kind === '日辰三合' || fact.kind === '月建三合' ? '辅证' : '限制',
+      title: `${fact.kind}结构事实`,
+      detail: `${fact.promptText}；边界：${fact.limitation}`,
+      source: fact.sources.join('、'),
+      tags: ['卦内结构', fact.kind],
+    })),
+    ...(godChain.length
+      ? [
+          {
+            level: '辅证' as const,
+            title: '用神原神忌神仇神五行作用链',
+            detail: `${godChain.map((item) => item.promptText).join('；')}；统一边界：${GOD_CHAIN_FACT_LIMITATION}`,
+            source: '当前选定候选五行、五行生克关系与逐爻五行匹配',
+            tags: ['五行作用链', ...godChain.map((item) => item.role)],
+          },
+        ]
+      : []),
     {
       level: generationFact.status === '可核验' ? '辅证' : '反证',
       title: generationFact.status === '可核验' ? `起卦来源：${methodLabel}` : '起卦来源缺失',
@@ -698,6 +1149,20 @@ export function analyzeLiuyaoEvidence(
         ]
       : []),
     {
+      level: counterSummaryFact.status === '有明确反证' ? '反证' : '辅证',
+      title: '候选反证覆盖状态',
+      detail: `${counterSummaryFact.promptText}；边界：${counterSummaryFact.limitation}`,
+      source: counterSummaryFact.sources.join('、'),
+      tags: ['反证汇总', counterSummaryFact.status],
+    },
+    {
+      level: '应期',
+      title: '六爻触发与应期边界',
+      detail: `${timingSummaryFact.promptText}；${timingFacts.map((item) => item.promptText).join('；')}；统一边界：${timingSummaryFact.limitation}`,
+      source: Array.from(new Set(timingFacts.flatMap((item) => item.sources))).join('、'),
+      tags: ['应期', '触发条件', '不换算固定日期'],
+    },
+    {
       level: '限制',
       title: '六爻取用与作用链解释边界',
       detail:
@@ -710,11 +1175,9 @@ export function analyzeLiuyaoEvidence(
     '【六爻用神作用链结构化证据】',
     ...formatPromptEvidenceBundle(evidence),
     godChain.length
-      ? `作用链：${godChain.map((item) => `${item.role}${item.wuxing}（${item.relation}；${item.references.map(formatYao).join('、') || '盘中未见'}）`).join('；')}`
+      ? `作用链：${godChain.map((item) => item.promptText).join('；')}`
       : '作用链：当前没有可用候选，不能强定原神、忌神与仇神。',
-    timingConditions.length
-      ? `触发条件：${timingConditions.join('；')}`
-      : '触发条件：静卦先看世应用神与月日，不补造绝对日期。',
+    `触发条件：${timingConditions.join('；')}`,
   ].join('\n');
   return {
     topic,
@@ -724,13 +1187,21 @@ export function analyzeLiuyaoEvidence(
     selectedCandidate,
     godChain,
     traditionalSymbols,
+    structureFacts,
+    lineCoverageFact,
     lineFacts,
+    hiddenSpiritCoverageFact,
     hiddenSpiritFacts,
+    selectionFact,
     generationFact,
     generationFacts,
     randomFact,
     randomFacts,
+    timingFacts,
+    timingSummaryFact,
     timingConditions,
+    counterEvidenceFacts,
+    counterSummaryFact,
     counterEvidence,
     evidence,
     promptText,
