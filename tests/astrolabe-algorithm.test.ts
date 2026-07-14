@@ -120,6 +120,9 @@ test('星盘应返回可复用的位置、相位、计算链与限制证据', ()
   assert.ok(evidence.illuminationFacts.some((item) => item.includes('太阳高度')));
   assert.ok(evidence.supportingFacts.length > 0);
   assert.ok(evidence.limitations.some((item) => item.includes('不代表事件概率')));
+  assert.ok(evidence.methodology.some((item) => item.includes('输入精度边界')));
+  assert.ok(evidence.methodology.some((item) => item.includes('不生成候选出生时间')));
+  assert.ok(evidence.methodology.every((item) => !item.includes('输入敏感性')));
   assert.match(evidence.promptText, /【西方星盘位置与相位结构化证据】/);
   assert.match(evidence.promptText, /完整星体与计算点位置/);
   assert.match(evidence.promptText, /实际夹角.*精确角.*允许容许度.*距精确角偏差/);
