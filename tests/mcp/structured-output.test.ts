@@ -751,6 +751,17 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     const tarotData = tarot.structuredContent?.result as Record<string, any>;
     assert.equal(tarot.isError, undefined);
     assert.equal(tarotData.evidenceAnalysis.cards.length, 3);
+    assert.equal(tarotData.evidenceAnalysis.traditionalFacts.length, 3);
+    assert.ok(
+      tarotData.evidenceAnalysis.traditionalFacts.every(
+        (item: Record<string, unknown>) =>
+          item.originalText &&
+          item.promptText &&
+          Array.isArray(item.sources) &&
+          item.sources.length > 0 &&
+          String(item.limitation).includes('不证明现实事件'),
+      ),
+    );
 
     const tarotPromptResult = await client.callTool({
       name: 'tarot_prompt',
@@ -758,6 +769,8 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     });
     const tarotPrompt = String(tarotPromptResult.structuredContent?.prompt);
     assert.match(tarotPrompt, /【塔罗牌位与牌面结构化证据】/);
+    assert.match(tarotPrompt, /条件化牌义|传统牌义/);
+    assert.doesNotMatch(tarotPrompt, /表示这些能量正在直接发挥作用|信息被隐藏/);
     assertPromptIsPortableTaskText(tarotPrompt);
 
     const lenormand = await client.callTool({

@@ -921,11 +921,13 @@ function formatLiurenInfo(data: LiurenData) {
 }
 
 function formatTarotInfo(data: TarotData) {
-  const evidenceAnalysis = data.evidenceAnalysis ?? analyzeTarotEvidence(data);
-  const cardLines = data.cards.map(
-    (card) =>
-      `- ${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}；关键词：${card.keywords.join('、') || '未提供'}${card.element ? `；元素主题：${card.element}` : ''}${card.archetype ? `；牌阶主题：${card.archetype}` : ''}${card.reversed && card.reversedMeaning ? `；${card.reversedMeaning}` : !card.reversed && card.uprightMeaning ? `；${card.uprightMeaning}` : ''}`,
-  );
+  const evidenceAnalysis = data.evidenceAnalysis?.traditionalFacts
+    ? data.evidenceAnalysis
+    : analyzeTarotEvidence(data);
+  const cardLines = data.cards.map((card, index) => {
+    const fact = evidenceAnalysis.traditionalFacts.find((item) => item.index === index + 1);
+    return `- ${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}；关键词：${card.keywords.join('、') || '未提供'}${card.element ? `；元素主题：${card.element}` : ''}${card.archetype ? `；牌阶主题：${card.archetype}` : ''}${fact ? `；条件化牌义：${fact.promptText}；边界：${fact.limitation}` : ''}`;
+  });
 
   return [
     '占法：塔罗',

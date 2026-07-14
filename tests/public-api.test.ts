@@ -1650,6 +1650,17 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
   assert.equal(body.data.meta.algorithm, 'tarot.single');
   assert.equal(body.data.evidenceAnalysis.cards.length, 1);
   assert.equal(body.data.evidenceAnalysis.evidence.title, '塔罗牌位与牌面结构化证据');
+  assert.equal(body.data.evidenceAnalysis.traditionalFacts.length, 1);
+  assert.ok(
+    body.data.evidenceAnalysis.traditionalFacts.every(
+      (item: Record<string, unknown>) =>
+        item.originalText &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        item.sources.length > 0 &&
+        String(item.limitation).includes('不证明现实事件'),
+    ),
+  );
   assert.doesNotMatch(JSON.stringify(body.data), /成功率为\d|吉凶总分[：=]\d|能量分数[：=]\d/);
 });
 

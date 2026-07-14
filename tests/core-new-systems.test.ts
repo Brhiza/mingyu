@@ -1,7 +1,13 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import * as core from '../packages/core/src/index.ts';
-import { getCardEvidence } from '../packages/core/src/divination/tarot.ts';
+import {
+  analyzeTarotEvidence,
+  conditionTarotTraditionalText,
+  drawTarotSpread,
+  getCardEvidence,
+} from '../packages/core/src/divination/tarot.ts';
+import { tarotCards } from '../packages/core/src/divination/tarot-data.ts';
 
 test('ganzhi: 纳音/十二长生/六十甲子序号', () => {
   assert.equal(core.ganzhi.getNayin('甲子'), '海中金');
@@ -205,6 +211,57 @@ test('tarot: 逐牌证据应区分正逆位、元素与牌阶', () => {
   assert.match(minor.reversedMeaning, /受阻、过度、内化或方向偏离/);
   assert.match(minor.element, /火/);
   assert.match(minor.archetype, /行动节奏/);
+});
+
+test('tarot: 全部牌义应保留原文并生成条件化解释事实', () => {
+  const facts = tarotCards.flatMap((card, index) => {
+    const cardEvidence = getCardEvidence(card.name);
+    return [false, true].flatMap((reversed) => {
+      const data = drawTarotSpread('single', { seed: `牌义证据-${index}-${reversed}` });
+      data.cards = [
+        {
+          id: card.number,
+          name: card.name,
+          position: '当前指引',
+          reversed,
+          ...cardEvidence,
+        },
+      ];
+      return analyzeTarotEvidence(data).traditionalFacts;
+    });
+  });
+
+  assert.equal(facts.length, tarotCards.length * 2);
+  assert.deepEqual(new Set(facts.map((item) => item.orientation)), new Set(['正位', '逆位']));
+  assert.ok(
+    facts.every(
+      (item) =>
+        item.originalText &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不证明现实事件'),
+    ),
+  );
+  assert.ok(facts.some((item) => /表示这些能量正在直接发挥作用/.test(item.originalText)));
+  assert.ok(facts.some((item) => /成功比预期更晚到来/.test(item.originalText)));
+  assert.doesNotMatch(
+    facts.map((item) => item.promptText).join('\n'),
+    /表示这些能量正在直接发挥作用|成功比预期更晚到来|信息被隐藏|一定|必然/,
+  );
+});
+
+test('tarot: 条件化牌义不得把象征解释写成现实事实', () => {
+  const promptText = [
+    '正位强调成功、喜悦、活力，表示这些能量正在直接发挥作用。',
+    '逆位重点：信息被隐藏，或成功比预期更晚到来。',
+  ]
+    .map(conditionTarotTraditionalText)
+    .join('；');
+
+  assert.match(promptText, /正位传统牌义侧重/);
+  assert.match(promptText, /逆位传统牌义提示可留意/);
+  assert.match(promptText, /须结合牌位.*现实资料核实/);
+  assert.doesNotMatch(promptText, /表示这些能量正在直接发挥作用|信息被隐藏|成功比预期更晚到来/);
 });
 
 test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）', () => {

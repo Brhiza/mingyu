@@ -6,8 +6,8 @@ import type { TarotData, TarotSpreadType } from '../types/divination';
 import { analyzeTarotEvidence } from './tarot-evidence';
 
 export { tarotSpreads } from './tarot-data';
-export { analyzeTarotEvidence } from './tarot-evidence';
-export type { TarotEvidenceAnalysis } from './tarot-evidence';
+export { analyzeTarotEvidence, conditionTarotTraditionalText } from './tarot-evidence';
+export type { TarotEvidenceAnalysis, TarotTraditionalFact } from './tarot-evidence';
 
 function buildDrawFacts(
   cards: Array<{ id: number; name: string; position: string; reversed: boolean }>,

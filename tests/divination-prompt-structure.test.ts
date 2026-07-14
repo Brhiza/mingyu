@@ -1395,8 +1395,13 @@ test('塔罗提示词保留牌阵、牌位、关键词与证据边界', () => {
   assert.match(prompt, /判断主轴：/);
   assert.match(prompt, /- 现状：恋人（正位）；关键词：/);
   assert.match(prompt, /- 建议：战车（逆位）；关键词：/);
+  assert.match(prompt, /条件化牌义：正位传统牌义(?:侧重|提示可留意)/);
+  assert.match(prompt, /逆位传统牌义提示可留意/);
   assert.match(prompt, /正逆位必须结合牌位和整组牌势判断，不套用孤立的固定断语/);
-  assert.doesNotMatch(prompt, /牌组层级|宫廷人物|叙事权重|元素数字/);
+  assert.doesNotMatch(
+    prompt,
+    /牌组层级|宫廷人物|叙事权重|元素数字|表示这些能量正在直接发挥作用|信息被隐藏/,
+  );
 });
 
 test('灵签提示词保留签诗、典故和现有签文条目', () => {
