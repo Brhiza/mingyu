@@ -16,12 +16,29 @@ export interface SsgwDrawFact {
   limitation: '签池大小、随机索引和签号对应关系只证明本次抽签过程及结果一致；不证明签文有效性、神意来源、现实事件或预测结果';
 }
 
+export interface SsgwSignFact {
+  key: 'ssgw:sign-text';
+  status: '完整' | '签诗为空';
+  number: number;
+  title: string;
+  poem: string;
+  promptText: string;
+  sources: string[];
+  limitation: '签号、签题和签诗只证明当前采用资料版本中的文本对应关系；不证明神意来源、预测有效性、现实事件或唯一解释';
+}
+
 export interface SsgwRitualThrowFact {
   attempt: number;
   firstFace: '阳面' | '阴面' | null;
   secondFace: '阳面' | '阴面' | null;
   result: '圣杯' | '笑杯' | '阴杯';
   promptText: string;
+}
+
+export interface SsgwRitualThrowEvidenceFact extends SsgwRitualThrowFact {
+  key: string;
+  sources: string[];
+  limitation: '单次掷筊事实只记录两枚筊杯的阴阳面及其对应结果；不证明神意来源、现实吉凶、事件概率或预测有效性';
 }
 
 export interface SsgwRitualFact {
@@ -33,7 +50,7 @@ export interface SsgwRitualFact {
   reason?: string;
   promptText: string;
   sources: string[];
-  limitation: '掷筊记录只证明项目模拟仪式的执行顺序和确认状态；圣杯、笑杯或阴杯不证明疾病、法律、财务、隐私、未来事件、神意来源或预测有效性';
+  limitation: '掷筊记录只证明模拟仪式的执行顺序和确认状态；圣杯、笑杯或阴杯不证明疾病、法律、财务、隐私、未来事件、神意来源或预测有效性';
 }
 
 export interface SsgwRandomFact {
@@ -48,6 +65,50 @@ export interface SsgwRandomFact {
   limitation: '随机模式、种子和原始样本只用于复现抽签与掷筊过程；不表示可信度、神意或预测有效性，也不表示事件概率或结果保证';
 }
 
+export interface SsgwInterpretationFact {
+  key: string;
+  status: '已收录';
+  field: string;
+  text: string;
+  originalText: string;
+  promptText: string;
+  role: '核心分类' | '补充条目';
+  source: '传统分类释义资料';
+  sources: string[];
+  limitation: '仅作象征类比，不是事实结论或结果保证';
+}
+
+export interface SsgwMissingFieldFact {
+  key: string;
+  field: string;
+  status: '缺失';
+  promptText: string;
+  sources: string[];
+  limitation: '字段缺失只表示当前资料版本未提供该分类释义；不得依据其他字段反推、补造或宣称该领域已有结论';
+}
+
+export interface SsgwCoverageFact {
+  key: 'ssgw:interpretation-coverage';
+  status: '完整' | '存在缺口';
+  expectedFields: string[];
+  availableFieldKeys: string[];
+  missingFieldKeys: string[];
+  storyStatus: '已提供' | '缺少';
+  promptText: string;
+  sources: string[];
+  limitation: '资料覆盖状态只说明签诗、典故和分类释义是否齐备；完整不代表解释正确，缺失时也不得从签号、签诗或其他分类反推缺失内容';
+}
+
+export interface SsgwSourceFact {
+  key: string;
+  status: '已声明';
+  title: string;
+  evidence: string;
+  role: '传统签本' | '整理资料' | '随机协议';
+  promptText: string;
+  limitation: '来源声明只标明文本、分类释义或随机记录的出处层级；不等于现代实证验证、神意证明或现实结果保证';
+}
+
 export interface SsgwEvidenceAnalysis {
   signText: {
     number: number;
@@ -56,23 +117,25 @@ export interface SsgwEvidenceAnalysis {
   };
   story?: string;
   promptStory?: string;
-  interpretations: Array<{
-    field: string;
-    text: string;
-    originalText: string;
-    promptText: string;
-    role: '核心分类' | '补充条目';
-    source: '项目整理的传统分类释义';
-    limitation: '仅作象征类比，不是事实结论或结果保证';
-  }>;
+  signFact: SsgwSignFact;
+  interpretations: SsgwInterpretationFact[];
+  interpretationFacts: SsgwInterpretationFact[];
   missingFields: string[];
+  missingFieldFacts: SsgwMissingFieldFact[];
+  coverageFact: SsgwCoverageFact;
   drawFact: SsgwDrawFact;
   ritualFact: SsgwRitualFact;
+  ritualThrowFacts: SsgwRitualThrowEvidenceFact[];
   randomFact: SsgwRandomFact;
   drawFacts: string[];
   ritualFacts: string[];
   randomFacts: string[];
-  sources: Array<{ title: string; evidence: string; role: '传统签本' | '项目资料' | '公共算法' }>;
+  sourceFacts: SsgwSourceFact[];
+  sources: Array<{
+    title: string;
+    evidence: string;
+    role: '传统签本' | '整理资料' | '随机协议';
+  }>;
   counterEvidence: string[];
   limitations: string[];
   evidence: PromptEvidenceBundle;
@@ -83,11 +146,32 @@ export interface SsgwEvidenceAnalysis {
 const DRAW_FACT_LIMITATION =
   '签池大小、随机索引和签号对应关系只证明本次抽签过程及结果一致；不证明签文有效性、神意来源、现实事件或预测结果' as const;
 
+const SIGN_FACT_LIMITATION =
+  '签号、签题和签诗只证明当前采用资料版本中的文本对应关系；不证明神意来源、预测有效性、现实事件或唯一解释' as const;
+
 const RITUAL_FACT_LIMITATION =
-  '掷筊记录只证明项目模拟仪式的执行顺序和确认状态；圣杯、笑杯或阴杯不证明疾病、法律、财务、隐私、未来事件、神意来源或预测有效性' as const;
+  '掷筊记录只证明模拟仪式的执行顺序和确认状态；圣杯、笑杯或阴杯不证明疾病、法律、财务、隐私、未来事件、神意来源或预测有效性' as const;
+
+const RITUAL_THROW_FACT_LIMITATION =
+  '单次掷筊事实只记录两枚筊杯的阴阳面及其对应结果；不证明神意来源、现实吉凶、事件概率或预测有效性' as const;
 
 const RANDOM_FACT_LIMITATION =
   '随机模式、种子和原始样本只用于复现抽签与掷筊过程；不表示可信度、神意或预测有效性，也不表示事件概率或结果保证' as const;
+
+const MISSING_FIELD_FACT_LIMITATION =
+  '字段缺失只表示当前资料版本未提供该分类释义；不得依据其他字段反推、补造或宣称该领域已有结论' as const;
+
+const COVERAGE_FACT_LIMITATION =
+  '资料覆盖状态只说明签诗、典故和分类释义是否齐备；完整不代表解释正确，缺失时也不得从签号、签诗或其他分类反推缺失内容' as const;
+
+const SOURCE_FACT_LIMITATION =
+  '来源声明只标明文本、分类释义或随机记录的出处层级；不等于现代实证验证、神意证明或现实结果保证' as const;
+
+function conditionSsgwRitualReason(reason?: string) {
+  return reason
+    ?.replace(/完成项目模拟求签流程/g, '完成本次模拟求签流程')
+    .replace(/按项目仪式规则/g, '按本次模拟流程');
+}
 
 export function conditionSsgwInterpretation(text: string): string {
   return text
@@ -109,6 +193,18 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
   const details = data.details ?? {};
   const story = data.story?.trim() || details['典故']?.trim() || undefined;
   const promptStory = story ? conditionSsgwInterpretation(story) : undefined;
+  const signFact: SsgwSignFact = {
+    key: 'ssgw:sign-text',
+    status: data.poem.trim() ? '完整' : '签诗为空',
+    number: data.number,
+    title: data.title,
+    poem: data.poem,
+    promptText: data.poem.trim()
+      ? `第${data.number}签《${data.title}》已记录签诗原文`
+      : `第${data.number}签《${data.title}》未提供签诗原文，不得补造签诗`,
+    sources: ['当前采用的三山国王九十二签资料版本'],
+    limitation: SIGN_FACT_LIMITATION,
+  };
   const interpretations = Object.entries(details)
     .filter(([field, text]) => field !== '典故' && text?.trim())
     .map(([field, text]) => ({
@@ -119,10 +215,32 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       role: SSGW_INTERPRETATION_FIELDS.includes(field as never)
         ? ('核心分类' as const)
         : ('补充条目' as const),
-      source: '项目整理的传统分类释义' as const,
+      key: `ssgw:interpretation:${field}`,
+      status: '已收录' as const,
+      source: '传统分类释义资料' as const,
+      sources: ['当前采用的分类释义资料', `第${data.number}签《${data.title}》${field}字段`],
       limitation: '仅作象征类比，不是事实结论或结果保证' as const,
     }));
   const missingFields = SSGW_INTERPRETATION_FIELDS.filter((field) => !details[field]?.trim());
+  const missingFieldFacts: SsgwMissingFieldFact[] = missingFields.map((field) => ({
+    key: `ssgw:missing-interpretation:${field}`,
+    field,
+    status: '缺失',
+    promptText: `当前资料未提供“${field}”分类释义，不得由其他字段反推`,
+    sources: ['当前签文分类字段完整性核验'],
+    limitation: MISSING_FIELD_FACT_LIMITATION,
+  }));
+  const coverageFact: SsgwCoverageFact = {
+    key: 'ssgw:interpretation-coverage',
+    status: signFact.status !== '完整' || missingFields.length || !story ? '存在缺口' : '完整',
+    expectedFields: [...SSGW_INTERPRETATION_FIELDS],
+    availableFieldKeys: interpretations.map((item) => item.key),
+    missingFieldKeys: missingFieldFacts.map((item) => item.key),
+    storyStatus: story ? '已提供' : '缺少',
+    promptText: `资料覆盖：签诗${signFact.status === '完整' ? '已提供' : '缺少'}；典故${story ? '已提供' : '缺少'}；分类释义${missingFields.length ? `缺少${missingFields.join('、')}` : '完整'}`,
+    sources: ['签诗、典故与八类分类字段逐项核验'],
+    limitation: COVERAGE_FACT_LIMITATION,
+  };
   const drawFact: SsgwDrawFact = data.draw
     ? {
         key: '抽签:签池索引',
@@ -133,7 +251,7 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
         resultNumber: data.number,
         resultTitle: data.title,
         promptText: `签池共${data.draw.poolSize}签，随机索引${data.draw.selectedIndex}（从0起）对应第${data.draw.selectedNumber}签；结果核验为第${data.number}签《${data.title}》`,
-        sources: ['三山国王九十二签签池', '命语统一随机整数抽取与签号索引'],
+        sources: ['三山国王九十二签签池', '统一随机整数抽取与签号索引记录'],
         limitation: DRAW_FACT_LIMITATION,
       }
     : {
@@ -162,6 +280,13 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       result: item.result,
       promptText: `第${index + 1}次${item.firstFace && item.secondFace ? `${item.firstFace}+${item.secondFace}=` : ''}${item.result}`,
     })) ?? [];
+  const ritualThrowFacts: SsgwRitualThrowEvidenceFact[] = ritualThrows.map((item) => ({
+    ...item,
+    key: `ssgw:ritual-throw:${item.attempt}`,
+    sources: ['逐次阴阳面记录', '圣杯、笑杯与阴杯判定规则'],
+    limitation: RITUAL_THROW_FACT_LIMITATION,
+  }));
+  const ritualReason = conditionSsgwRitualReason(data.ritual?.reason);
   const ritualFact: SsgwRitualFact = data.ritual
     ? {
         key: '仪式:掷筊确认',
@@ -169,9 +294,9 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
         confirmed: Boolean(data.ritual.confirmed),
         rejected: Boolean(data.ritual.rejected),
         throws: ritualThrows,
-        reason: data.ritual.reason,
-        promptText: `掷筊顺序：${ritualThrows.map((item) => item.promptText).join(' → ') || '没有掷筊记录'}；仪式状态：${data.ritual.confirmed ? '已出现圣杯，签文按项目模拟流程确认' : `未获圣杯${data.ritual.reason ? `；${data.ritual.reason}` : ''}`}`,
-        sources: ['命语三山国王灵签模拟掷筊流程', '逐次阴阳面与圣杯、笑杯、阴杯判定记录'],
+        reason: ritualReason,
+        promptText: `掷筊顺序：${ritualThrows.map((item) => item.promptText).join(' → ') || '没有掷筊记录'}；仪式状态：${data.ritual.confirmed ? '已出现圣杯，签文按本次模拟流程确认' : `未获圣杯${ritualReason ? `；${ritualReason}` : ''}`}`,
+        sources: ['三山国王灵签模拟掷筊流程', '逐次阴阳面与圣杯、笑杯、阴杯判定记录'],
         limitation: RITUAL_FACT_LIMITATION,
       }
     : {
@@ -195,8 +320,8 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
             .join(' → ') || '没有掷筊记录'
         }`,
         data.ritual.confirmed
-          ? '仪式状态：已出现圣杯，签文按项目模拟流程确认'
-          : `仪式状态：未获圣杯${data.ritual.reason ? `；${data.ritual.reason}` : ''}`,
+          ? '仪式状态：已出现圣杯，签文按本次模拟流程确认'
+          : `仪式状态：未获圣杯${ritualReason ? `；${ritualReason}` : ''}`,
       ]
     : ['仪式状态：旧结果或外部数据未提供掷筊记录，不得补写圣杯确认'];
   const trace = data.meta?.random;
@@ -208,8 +333,8 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
         ...(trace.seed !== undefined ? { seed: trace.seed } : {}),
         samples: [...trace.samples],
         sampleCount: trace.samples.length,
-        promptText: `随机模式：${trace.mode}；原始随机样本数：${trace.samples.length}；随机种子保留在结构化结果中，不写入自然语言提示词；原始随机样本仅保留在结构化结果中`,
-        sources: ['命语统一随机轨迹协议', '抽签与掷筊共用随机源的原始样本记录'],
+        promptText: `随机模式：${trace.mode}；原始随机样本数：${trace.samples.length}；随机种子与原始样本仅保存在机器可读记录中，不在本段提示词展开`,
+        sources: ['统一随机轨迹协议', '抽签与掷筊共用随机源的原始样本记录'],
         limitation: RANDOM_FACT_LIMITATION,
       }
     : {
@@ -229,25 +354,43 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
         trace.seed !== undefined ? `随机种子：${String(trace.seed)}` : '',
       ].filter(Boolean)
     : ['当前结果未附随机轨迹，无法验证抽签与掷筊的重放过程'];
-  const sources: SsgwEvidenceAnalysis['sources'] = [
+  const sourceFacts: SsgwSourceFact[] = [
     {
+      key: 'ssgw:source:traditional-signbook',
+      status: '已声明',
       title: '三山国王祖庙九十二签体系',
       evidence: '签号、签题、签诗及求签仪式的传统材料框架',
       role: '传统签本',
+      promptText: '传统签本来源：三山国王祖庙九十二签体系，提供签号、签题、签诗及仪式材料框架',
+      limitation: SOURCE_FACT_LIMITATION,
     },
     {
-      title: '命语三山国王灵签数据集',
+      key: 'ssgw:source:compiled-material',
+      status: '已声明',
+      title: '当前采用的九十二签资料版本',
       evidence: '所用资料版本收录的签诗、典故与八类分类解读',
-      role: '项目资料',
+      role: '整理资料',
+      promptText: '整理资料来源：当前采用的九十二签资料版本，收录签诗、典故与八类分类解读',
+      limitation: SOURCE_FACT_LIMITATION,
     },
     {
-      title: '命语统一随机轨迹协议',
+      key: 'ssgw:source:random-trace',
+      status: '已声明',
+      title: '可重放随机轨迹记录',
       evidence: '抽签和掷筊使用同一随机源，保留seed或replay所需的原始样本',
-      role: '公共算法',
+      role: '随机协议',
+      promptText: '随机记录来源：抽签和掷筊使用同一随机源，并保留重放所需的原始样本',
+      limitation: SOURCE_FACT_LIMITATION,
     },
   ];
+  const sources: SsgwEvidenceAnalysis['sources'] = sourceFacts.map(({ title, evidence, role }) => ({
+    title,
+    evidence,
+    role,
+  }));
   const counterEvidence = [
-    missingFields.length ? `缺少分类字段：${missingFields.join('、')}` : '',
+    signFact.status === '完整' ? '' : signFact.promptText,
+    ...missingFieldFacts.map((item) => item.promptText),
     story ? '' : '当前资料没有典故，不得自行补造人物或事件',
   ].filter(Boolean);
   const limitations = [
@@ -270,7 +413,7 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       level: '主证',
       title: `第${data.number}签《${data.title}》签诗原文`,
       detail: data.poem,
-      source: '命语三山国王灵签数据集所用版本',
+      source: '当前采用的三山国王九十二签资料版本',
       tags: ['签诗原文', `第${data.number}签`],
     },
     ...(promptStory
@@ -279,7 +422,7 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
             level: '辅证' as const,
             title: '签附典故',
             detail: `${promptStory}；边界：仅作传统类比背景，不是事实结论或结果保证`,
-            source: '命语当前签文数据收录典故',
+            source: '当前采用的签文资料所收录典故',
             tags: ['典故类比'],
           },
         ]
@@ -288,9 +431,16 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       level: item.field === '核心寓意' ? '主证' : '辅证',
       title: `${item.field}传统分类释义（非事实结论）`,
       detail: `${item.promptText}；边界：${item.limitation}`,
-      source: '命语整理的分类解释资料',
+      source: item.sources.join('；'),
       tags: [item.role, item.field, '条件化表达'],
     })),
+    {
+      level: coverageFact.status === '完整' ? '辅证' : '反证',
+      title: '签文资料覆盖状态',
+      detail: `${coverageFact.promptText}；边界：${coverageFact.limitation}`,
+      source: coverageFact.sources.join('；'),
+      tags: ['资料覆盖', coverageFact.status],
+    },
     {
       level: data.ritual?.confirmed ? '辅证' : '反证',
       title: data.ritual?.confirmed ? '模拟求签仪式完成记录' : '模拟求签仪式未完成',
@@ -338,20 +488,26 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     `仪式事实：${ritualFact.promptText}。`,
     `抽签事实：${drawFact.promptText}。`,
     `随机事实：${randomFact.promptText}。`,
-    `资料来源：${sources.map((item) => `${item.title}（${item.role}：${item.evidence}）`).join('；')}。`,
+    `资料来源：${sourceFacts.map((item) => item.promptText).join('；')}。`,
   ].join('\n');
   return {
     signText: { number: data.number, title: data.title, poem: data.poem },
     story,
     promptStory,
+    signFact,
     interpretations,
+    interpretationFacts: interpretations,
     missingFields,
+    missingFieldFacts,
+    coverageFact,
     drawFact,
     ritualFact,
+    ritualThrowFacts,
     randomFact,
     drawFacts,
     ritualFacts,
     randomFacts,
+    sourceFacts,
     sources,
     counterEvidence,
     limitations,

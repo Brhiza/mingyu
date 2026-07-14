@@ -1754,14 +1754,45 @@ test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏
   assert.equal(confirmed.response.status, 200);
   assert.equal(confirmed.body.data.ritual.confirmed, true);
   assert.equal(confirmed.body.data.evidenceAnalysis.drawFact.status, '可核验');
+  assert.equal(confirmed.body.data.evidenceAnalysis.signFact.status, '完整');
+  assert.equal(
+    confirmed.body.data.evidenceAnalysis.coverageFact.key,
+    'ssgw:interpretation-coverage',
+  );
+  assert.ok(
+    confirmed.body.data.evidenceAnalysis.interpretationFacts.every(
+      (item: Record<string, unknown>) => item.key && item.status === '已收录' && item.promptText,
+    ),
+  );
   assert.equal(confirmed.body.data.evidenceAnalysis.ritualFact.status, '已确认');
   assert.equal(confirmed.body.data.evidenceAnalysis.ritualFact.throws.length, 1);
+  assert.equal(confirmed.body.data.evidenceAnalysis.ritualThrowFacts[0].key, 'ssgw:ritual-throw:1');
   assert.equal(confirmed.body.data.evidenceAnalysis.randomFact.status, '可重放');
   assert.equal(confirmed.body.data.evidenceAnalysis.randomFact.sampleCount, 3);
   assert.ok(confirmed.body.data.evidenceAnalysis.randomFact.sources.length >= 2);
   assert.match(confirmed.body.data.evidenceAnalysis.randomFact.limitation, /不表示可信度/);
   assert.match(confirmed.body.data.evidenceAnalysis.promptText, /签诗原文/);
   assert.match(confirmed.body.data.evidenceAnalysis.promptText, /不证明预测有效性/);
+  assert.doesNotMatch(
+    confirmed.body.data.evidenceAnalysis.promptText,
+    /项目模拟|项目资料|按项目仪式规则|命语|本项目|项目统一|工程|算法结果/,
+  );
+
+  const prompt = await callApi('divination/ssgw/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      question: '这件事应该怎样核实现实条件？',
+      replay: [0.1, 0.1, 0.9],
+    }),
+  });
+  assert.equal(prompt.response.status, 200);
+  assert.match(prompt.body.data.prompt, /三山国王灵签文本与仪式结构化证据/);
+  assert.doesNotMatch(
+    prompt.body.data.prompt,
+    /项目模拟|项目资料|按项目仪式规则|命语|本项目|项目统一|工程|算法结果/,
+  );
+  assertPromptIsPortableTaskText(prompt.body.data.prompt);
 
   const rejected = await callApi('divination/ssgw', {
     method: 'POST',
@@ -1772,7 +1803,28 @@ test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏
   assert.equal(rejected.body.data.rejected, true);
   assert.equal(rejected.body.data.ritual.confirmed, false);
   assert.equal(rejected.body.data.poem, undefined);
+  assert.equal(rejected.body.data.number, undefined);
+  assert.equal(rejected.body.data.title, undefined);
+  assert.equal(rejected.body.data.story, undefined);
+  assert.equal(rejected.body.data.details, undefined);
+  assert.equal(rejected.body.data.evidenceAnalysis, undefined);
   assert.match(rejected.body.data.message, /拒绝起签/);
+
+  const rejectedPrompt = await callApi('divination/ssgw/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      question: '这件事应该怎样核实现实条件？',
+      replay: [0.1, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9],
+      responseMode: 'full',
+    }),
+  });
+  assert.equal(rejectedPrompt.response.status, 200);
+  assert.equal(rejectedPrompt.body.data.result.rejected, true);
+  assert.equal(rejectedPrompt.body.data.result.poem, undefined);
+  assert.equal(rejectedPrompt.body.data.result.details, undefined);
+  assert.doesNotMatch(rejectedPrompt.body.data.prompt, /签诗：/);
+  assert.match(rejectedPrompt.body.data.prompt, /本次没有形成可解释签文/);
 });
 
 test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', async () => {

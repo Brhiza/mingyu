@@ -7,13 +7,25 @@ import { attachResultMeta } from '../../shared/result';
 import { analyzeSsgwEvidence } from '../ssgw-evidence';
 
 export { analyzeSsgwEvidence, conditionSsgwInterpretation } from '../ssgw-evidence';
-export type { SsgwEvidenceAnalysis } from '../ssgw-evidence';
+export type {
+  SsgwCoverageFact,
+  SsgwDrawFact,
+  SsgwEvidenceAnalysis,
+  SsgwInterpretationFact,
+  SsgwMissingFieldFact,
+  SsgwRandomFact,
+  SsgwRitualFact,
+  SsgwRitualThrowEvidenceFact,
+  SsgwRitualThrowFact,
+  SsgwSignFact,
+  SsgwSourceFact,
+} from '../ssgw-evidence';
 
 /**
  * @file 灵签抽签算法（神算鬼谋）
  * @description 从签文中随机抽取一条作为占卜结果，配合签诗、典故进行解读。
  * @注意 此文件实现的是**随机抽签求签**功能，并非大六壬「金口诀」算法。
- *        金口诀（大六壬金口诀）的完整排盘与断课在项目中另有实现。
+ *        金口诀（大六壬金口诀）的完整排盘与断课由其他模块实现。
  *        本文件名沿用历史命名，功能定位为灵签/神签抽签系统。
  */
 
@@ -79,9 +91,9 @@ export function drawRandomSign(
     confirmed,
     rejected,
     reason: confirmed
-      ? '已获圣杯，完成项目模拟求签流程。'
+      ? '已获圣杯，完成本次模拟求签流程。'
       : consecutiveYin >= 3
-        ? '连续三次阴杯，按项目仪式规则拒绝起签。'
+        ? '连续三次阴杯，按本次模拟流程拒绝起签。'
         : '连续十二次未获圣杯，停止本次模拟求签，避免无界重试。',
   };
   const base = attachResultMeta(

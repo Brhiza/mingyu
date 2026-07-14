@@ -3775,6 +3775,14 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
   assert.equal(confirmed.draw?.poolSize, 92);
   assert.equal(confirmed.draw?.selectedNumber, confirmed.number);
   assert.equal(confirmed.evidenceAnalysis?.drawFact.status, '可核验');
+  assert.equal(confirmed.evidenceAnalysis?.signFact.status, '完整');
+  assert.equal(confirmed.evidenceAnalysis?.signFact.number, confirmed.number);
+  assert.equal(confirmed.evidenceAnalysis?.coverageFact.key, 'ssgw:interpretation-coverage');
+  assert.ok(
+    confirmed.evidenceAnalysis?.interpretationFacts.every(
+      (item) => item.key && item.status === '已收录' && item.sources.length > 0,
+    ),
+  );
   assert.equal(confirmed.evidenceAnalysis?.drawFact.poolSize, 92);
   assert.match(confirmed.evidenceAnalysis?.drawFact.promptText || '', /随机索引/);
   assert.match(confirmed.evidenceAnalysis?.drawFact.limitation || '', /不证明签文有效性/);
@@ -3787,6 +3795,8 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
     result: '圣杯',
     promptText: '第1次阳面+阴面=圣杯',
   });
+  assert.equal(confirmed.evidenceAnalysis?.ritualThrowFacts[0]?.key, 'ssgw:ritual-throw:1');
+  assert.ok((confirmed.evidenceAnalysis?.ritualThrowFacts[0]?.sources.length ?? 0) > 0);
   assert.match(confirmed.evidenceAnalysis?.ritualFact.limitation || '', /不证明疾病/);
   assert.equal(confirmed.evidenceAnalysis?.randomFact.status, '可重放');
   assert.equal(confirmed.evidenceAnalysis?.randomFact.mode, 'replay');
@@ -3801,6 +3811,15 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
     ),
   );
   assert.match(confirmed.evidenceAnalysis?.promptText || '', /随机过程可以重放，不证明预测有效性/);
+  assert.doesNotMatch(
+    confirmed.evidenceAnalysis?.promptText || '',
+    /项目模拟|项目资料|按项目仪式规则|命语|本项目|项目统一|工程|算法结果/,
+  );
+  assert.ok(
+    confirmed.evidenceAnalysis?.sourceFacts.every(
+      (item) => item.key && item.status === '已声明' && item.promptText && item.limitation,
+    ),
+  );
   const confirmedItems = confirmed.evidenceAnalysis?.evidence.items ?? [];
   const confirmedRitual = confirmedItems.find((item) => item.title === '模拟求签仪式完成记录');
   const confirmedRandom = confirmedItems.find((item) => item.title === '随机过程重放记录');
@@ -3808,7 +3827,7 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
   assert.notEqual(confirmedRitual?.level, '主证');
   assert.match(confirmedRitual?.detail || '', /已出现圣杯/);
   assert.equal(confirmedRandom?.level, '辅证');
-  assert.match(confirmedRandom?.detail || '', /随机种子保留在结构化结果中/);
+  assert.match(confirmedRandom?.detail || '', /随机种子与原始样本仅保存在机器可读记录中/);
   assert.match(confirmedRandom?.detail || '', /不表示可信度、神意或预测有效性/);
 
   const seeded = drawRandomSign(new Date('2025-01-01T00:00:00+08:00'), {
@@ -3860,6 +3879,29 @@ test('三山国王灵签分类释义应保留原文并对提示词绝对断语�
   assert.match(analysis.interpretations[2].promptText, /容易两败俱伤/);
   assert.doesNotMatch(analysis.promptText, /必定成功|必然失败|必然两败俱伤/);
   assert.match(analysis.promptText, /非事实结论/);
+  assert.equal(analysis.coverageFact.status, '存在缺口');
+  assert.deepEqual(
+    analysis.missingFieldFacts.map((item) => item.field),
+    ['财运', '学业', '健康', '行动建议', '风险提醒'],
+  );
+  assert.ok(
+    analysis.missingFieldFacts.every(
+      (item) => item.key && item.status === '缺失' && item.sources.length > 0,
+    ),
+  );
+
+  const emptyPoemAnalysis = analyzeSsgwEvidence({
+    number: 1,
+    title: '缺失签诗测试',
+    poem: '',
+    story: '测试典故',
+    details: Object.fromEntries(SSGW_INTERPRETATION_FIELDS.map((field) => [field, '测试释义'])),
+    timestamp: Date.now(),
+    ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
+  });
+  assert.equal(emptyPoemAnalysis.signFact.status, '签诗为空');
+  assert.equal(emptyPoemAnalysis.coverageFact.status, '存在缺口');
+  assert.ok(emptyPoemAnalysis.counterEvidence.some((item) => item.includes('不得补造签诗')));
 });
 
 test('占卜时间格式化遇到无法转换为 Date 的时间戳时应回退当前时间', () => {

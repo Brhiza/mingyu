@@ -2133,19 +2133,24 @@ function calculateTarot(input: JsonRecord) {
   return drawTarotSpread(spreadType, randomOptions);
 }
 
-function calculateSsgw(input: JsonRecord) {
-  const result = drawRandomSign(readCustomDate(input), readRandomOptions(input));
-  // 三连阴杯拒绝起卦，返回结构化提示而非签文
+function drawSsgw(input: JsonRecord) {
+  return drawRandomSign(readCustomDate(input), readRandomOptions(input));
+}
+
+function shapePublicSsgwResult(result: ReturnType<typeof drawRandomSign>) {
   if (result.ritual?.rejected) {
     return {
       rejected: true,
       message: result.ritual.reason,
       ritual: result.ritual,
-      details: result.details,
       meta: result.meta,
     };
   }
   return result;
+}
+
+function calculateSsgw(input: JsonRecord) {
+  return shapePublicSsgwResult(drawSsgw(input));
 }
 
 function calculateAlmanac(input: JsonRecord) {
@@ -2303,7 +2308,11 @@ function buildDivinationPromptResult(
   const promptData =
     method === 'almanac' ? shapeAlmanacPromptData(rawData as AlmanacData, input) : rawData;
   const fullResult =
-    method === 'almanac' ? shapeAlmanacResult(rawData as AlmanacData, input) : rawData;
+    method === 'almanac'
+      ? shapeAlmanacResult(rawData as AlmanacData, input)
+      : method === 'ssgw'
+        ? shapePublicSsgwResult(rawData as ReturnType<typeof drawRandomSign>)
+        : rawData;
   const summary = getDivinationSummaryBlocks(method, promptData);
   const prompt = buildDivinationPromptText(method, question, promptData, input);
 
@@ -2333,7 +2342,7 @@ function calculateDivinationData(
     case 'tarot':
       return calculateTarot(input);
     case 'ssgw':
-      return calculateSsgw(input) as DivinationData;
+      return drawSsgw(input);
     case 'almanac':
       return calculateAlmanac(input);
     case 'lenormand':
