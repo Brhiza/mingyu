@@ -139,7 +139,9 @@ const systems: SystemCapability[] = [
       birthTimeRequired: true,
       batch: false,
     },
-    notes: ['当前排盘需要完整出生时间；输入不完整时会在计算前拒绝。'],
+    notes: [
+      '未启用真太阳时时可直接使用明确的时辰索引；启用真太阳时时需提供完整小时、分钟和出生地。输入为空或非法时会在计算前拒绝。',
+    ],
   },
   {
     id: 'ziwei',
