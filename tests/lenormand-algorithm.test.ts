@@ -3,8 +3,12 @@ import assert from 'node:assert/strict';
 
 import {
   analyzeLenormandEvidence,
+  conditionLenormandTraditionalText,
   drawLenormandSpread,
+  LENORMAND_CARDS,
+  LENORMAND_FIXED_COMBINATIONS,
 } from '../packages/core/src/divination/algorithms/lenormand.ts';
+import type { LenormandData } from '../packages/core/src/types/divination.ts';
 
 test('雷诺曼大桌牌阵应抽取完整 36 张牌', () => {
   const result = drawLenormandSpread('grandTableau');
@@ -24,6 +28,26 @@ test('雷诺曼大桌牌阵应抽取完整 36 张牌', () => {
   assert.ok(result.combinations?.every((item) => item.source));
   assert.ok(result.layoutEvidence?.some((item) => item.includes('男士落第')));
   assert.ok(result.layoutEvidence?.some((item) => item.includes('女士落第')));
+  assert.equal(
+    result.evidenceAnalysis?.structuredLayoutFacts.filter((item) => item.kind === '大桌宫位')
+      .length,
+    36,
+  );
+  assert.equal(
+    result.evidenceAnalysis?.structuredLayoutFacts.filter((item) => item.kind === '人物牌近身')
+      .length,
+    2,
+  );
+  assert.ok(
+    result.evidenceAnalysis?.structuredLayoutFacts.every(
+      (item) => item.source && item.limitation.includes('不自动证明吉凶'),
+    ),
+  );
+  const promptLayoutItems = result.evidenceAnalysis?.evidence.items.filter((item) =>
+    item.tags?.includes('布局证据'),
+  );
+  assert.ok(promptLayoutItems?.every((item) => !item.tags?.includes('大桌宫位')));
+  assert.match(result.evidenceAnalysis?.promptText || '', /逐牌宫位落点见对应牌面条目/);
 });
 
 test('雷诺曼九宫应输出横纵与对角线结构证据', () => {
@@ -48,8 +72,14 @@ test('雷诺曼九宫应输出横纵与对角线结构证据', () => {
   const layoutItems = result.evidenceAnalysis?.evidence.items.filter((item) =>
     item.tags?.includes('布局证据'),
   );
-  assert.equal(layoutItems?.length, result.layoutEvidence?.length);
+  assert.equal(layoutItems?.length, 9);
   assert.ok(layoutItems?.every((item) => item.level === '辅证'));
+  assert.equal(result.evidenceAnalysis?.structuredLayoutFacts.length, 9);
+  assert.equal(
+    result.evidenceAnalysis?.structuredLayoutFacts.filter((item) => item.kind === '九宫路径')
+      .length,
+    8,
+  );
   const structureItem = result.evidenceAnalysis?.evidence.items.find((item) =>
     item.title.startsWith('牌阵结构：'),
   );
@@ -75,6 +105,93 @@ test('雷诺曼九宫应输出横纵与对角线结构证据', () => {
   );
   assert.doesNotMatch(result.evidenceAnalysis?.promptText || '', /随机种子：20260711/);
   assert.doesNotMatch(result.evidenceAnalysis?.promptText || '', /成功率|吉凶总分|score/i);
+});
+
+test('雷诺曼全部单牌应保留原文并生成关键词核验范围', () => {
+  const facts = LENORMAND_CARDS.flatMap((card) => {
+    const data: LenormandData = {
+      spreadType: 'single',
+      spreadName: '单牌线索',
+      cards: [{ ...card, position: '核心线索' }],
+      timestamp: 0,
+    };
+    return analyzeLenormandEvidence(data).traditionalFacts;
+  });
+
+  assert.equal(facts.length, 36);
+  assert.ok(
+    facts.every(
+      (item) =>
+        item.kind === '单牌牌义' &&
+        item.originalText &&
+        item.promptText &&
+        item.verificationTargets.length > 0 &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不证明现实事件'),
+    ),
+  );
+  assert.ok(facts.some((item) => /隐藏动机|家庭添丁|问题有解/.test(item.originalText)));
+  assert.doesNotMatch(
+    facts.map((item) => item.promptText).join('\n'),
+    /隐藏动机|家庭添丁|问题有解|会提供支持|不能强行续命/,
+  );
+});
+
+test('雷诺曼全部固定组合应保留原文并生成条件化核验事实', () => {
+  const facts = Object.entries(LENORMAND_FIXED_COMBINATIONS).flatMap(([pair, meaning], index) => {
+    const [firstName, secondName] = pair.split('+');
+    const first = LENORMAND_CARDS.find((card) => card.name === firstName);
+    const second = LENORMAND_CARDS.find((card) => card.name === secondName);
+    assert.ok(first && second, `${pair} 应引用有效牌名`);
+    const data: LenormandData = {
+      spreadType: 'three',
+      spreadName: '组合审计',
+      cards: [
+        { ...first, position: '前牌' },
+        { ...second, position: '后牌' },
+      ],
+      combinations: [{ card1: first.name, card2: second.name, meaning, source: '固定组合' }],
+      timestamp: index,
+    };
+    return analyzeLenormandEvidence(data).traditionalFacts.filter(
+      (item) => item.kind === '固定组合',
+    );
+  });
+
+  assert.equal(facts.length, Object.keys(LENORMAND_FIXED_COMBINATIONS).length);
+  assert.ok(
+    facts.every(
+      (item) =>
+        item.originalText &&
+        item.promptText &&
+        item.verificationTargets.length > 0 &&
+        item.sources.length > 0 &&
+        item.limitation.includes('感情承诺'),
+    ),
+  );
+  assert.ok(facts.some((item) => /婚约|家庭添丁|获利|欺骗/.test(item.originalText)));
+  assert.doesNotMatch(
+    facts.map((item) => item.promptText).join('\n'),
+    /感情的承诺或婚约|家庭添丁|通过网络\/远程获利|隐藏在迷雾中的欺骗/,
+  );
+});
+
+test('雷诺曼条件化函数应区分固定组合与普通相邻合读', () => {
+  const fixed = conditionLenormandTraditionalText('家庭添丁', {
+    kind: '固定组合',
+    cardNames: ['孩子', '房子'],
+    keywords: ['新开始', '家庭'],
+  });
+  const adjacent = conditionLenormandTraditionalText('先看房子，再看孩子', {
+    kind: '相邻合读',
+    cardNames: ['房子', '孩子'],
+    keywords: ['家庭', '新开始'],
+  });
+
+  assert.match(fixed, /家庭成员变化或生育议题/);
+  assert.match(fixed, /不得直接认定婚约、生育、收益、欺骗/);
+  assert.match(adjacent, /这不是传统固定组合/);
+  assert.doesNotMatch(adjacent, /先看房子，再看孩子/);
 });
 
 test('雷诺曼旧数据缺少抽牌来源时应明确保留证据缺口', () => {

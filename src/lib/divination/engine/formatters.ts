@@ -1157,36 +1157,19 @@ function formatAlmanacInfo(data: AlmanacData) {
 }
 
 function formatLenormandInfo(data: LenormandData) {
-  const evidenceAnalysis = data.evidenceAnalysis ?? analyzeLenormandEvidence(data);
-  const cardLines = data.cards.map(
-    (card) =>
-      `- ${card.position}：${card.name}；关键词：${card.keywords.join('、') || '未提供'}${card.meaning ? `；牌义：${card.meaning}` : ''}`,
-  );
-  const combinationLines =
-    data.combinations?.map(
-      (item) =>
-        `- ${item.card1}+${item.card2}：${item.meaning}${item.source ? `（${item.source}）` : ''}`,
-    ) ?? [];
-
+  const evidenceAnalysis =
+    data.evidenceAnalysis?.traditionalFacts && data.evidenceAnalysis.structuredLayoutFacts
+      ? data.evidenceAnalysis
+      : analyzeLenormandEvidence(data);
   return [
     '占法：雷诺曼',
     '时间干支：以【当前时间】为准',
     `核心结构：牌阵${data.spreadName}；共${data.cards.length}张牌`,
     '断牌口径：按当前牌阵、牌位、牌名和牌义解读；单牌或未限定专项时按通用断牌。',
     `牌序主轴：按“${data.cards.map((card) => card.position).join(' → ')}”读取事件推进；先看各牌牌位和关键词，再看相邻牌能否构成上方已经列出的组合。`,
-    ...(combinationLines.length
-      ? [
-          '组合证据：优先使用标注为“固定组合”的条目；“相邻牌义合读”只表示牌序衔接，不得冒充传统固定组合。',
-          ...combinationLines,
-        ]
-      : []),
-    ...(data.layoutEvidence?.length
-      ? ['牌阵结构证据：', ...data.layoutEvidence.map((item) => `- ${item}`)]
-      : []),
+    '组合证据：优先使用标注为“固定组合”的条目；“相邻合读”只表示牌序衔接，不得冒充传统固定组合。',
     '现实边界：雷诺曼只描述当前事件线索、关系和行动条件；不得把单牌或单一组合写成必然结果，也不得替代可核验的现实资料。',
     evidenceAnalysis.promptText,
-    '牌位明细：',
-    ...cardLines,
   ]
     .filter(Boolean)
     .join('\n');

@@ -781,6 +781,20 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     assert.equal(lenormand.isError, undefined);
     assert.ok(Array.isArray(lenormandData.evidenceAnalysis.fixedCombinations));
     assert.ok(Array.isArray(lenormandData.evidenceAnalysis.adjacentReadings));
+    assert.ok(lenormandData.evidenceAnalysis.traditionalFacts.length >= 9);
+    assert.equal(lenormandData.evidenceAnalysis.structuredLayoutFacts.length, 9);
+    assert.ok(
+      lenormandData.evidenceAnalysis.traditionalFacts.every(
+        (item: Record<string, unknown>) =>
+          item.originalText &&
+          item.promptText &&
+          Array.isArray(item.verificationTargets) &&
+          item.verificationTargets.length > 0 &&
+          Array.isArray(item.sources) &&
+          item.sources.length > 0 &&
+          String(item.limitation).includes('不证明现实事件'),
+      ),
+    );
 
     const lenormandPromptResult = await client.callTool({
       name: 'lenormand_prompt',
@@ -788,6 +802,11 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     });
     const lenormandPrompt = String(lenormandPromptResult.structuredContent?.prompt);
     assert.match(lenormandPrompt, /【雷诺曼牌序组合与布局结构化证据】/);
+    assert.match(lenormandPrompt, /条件化牌义|传统单牌|相邻牌/);
+    assert.doesNotMatch(
+      lenormandPrompt,
+      /感情的承诺或婚约|家庭添丁|通过网络\/远程获利|隐藏在迷雾中的欺骗/,
+    );
     assert.doesNotMatch(
       `${tarotPrompt}\n${lenormandPrompt}`,
       /成功率为\d|成功率提升至|吉凶总分[：=]\d/,

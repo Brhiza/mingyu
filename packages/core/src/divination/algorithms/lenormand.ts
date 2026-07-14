@@ -4,10 +4,14 @@ import { createRandomContext, randomInt } from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
 import { analyzeLenormandEvidence } from '../lenormand-evidence';
 
-export { analyzeLenormandEvidence } from '../lenormand-evidence';
-export type { LenormandEvidenceAnalysis } from '../lenormand-evidence';
+export { analyzeLenormandEvidence, conditionLenormandTraditionalText } from '../lenormand-evidence';
+export type {
+  LenormandEvidenceAnalysis,
+  LenormandLayoutFact,
+  LenormandTraditionalFact,
+} from '../lenormand-evidence';
 
-const LENORMAND_CARDS = [
+export const LENORMAND_CARDS = [
   { id: 1, name: '骑士', keywords: ['消息', '到来', '进展'], meaning: '消息抵达，事情开始移动。' },
   {
     id: 2,
@@ -231,7 +235,7 @@ function shuffleCards(rng: RandomSource) {
  * 雷诺曼牌组两牌组合含义（为配对解读提供传统关键词）
  * 如 "太阳+鱼" = 财运好、"鞭子+鼠" = 消耗性争执
  */
-const CARD_COMBINATIONS: Record<string, string> = {
+export const LENORMAND_FIXED_COMBINATIONS: Record<string, string> = {
   '骑士+心': '消息带来感情进展',
   '心+戒指': '感情的承诺或婚约',
   '心+花束': '被人喜欢或表白',
@@ -308,7 +312,10 @@ export function drawLenormandSpread(
   for (let i = 0; i < cards.length - 1; i++) {
     const comboKey = `${cards[i].name}+${cards[i + 1].name}`;
     const reverseComboKey = `${cards[i + 1].name}+${cards[i].name}`;
-    const fixedMeaning = CARD_COMBINATIONS[comboKey] || CARD_COMBINATIONS[reverseComboKey] || null;
+    const fixedMeaning =
+      LENORMAND_FIXED_COMBINATIONS[comboKey] ||
+      LENORMAND_FIXED_COMBINATIONS[reverseComboKey] ||
+      null;
     combinations.push({
       card1: cards[i].name,
       card2: cards[i + 1].name,

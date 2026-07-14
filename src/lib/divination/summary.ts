@@ -16,6 +16,10 @@ import type {
 } from '../../types/divination';
 import { analyzeAlmanacEvidence } from 'mingyu-core/divination/almanac';
 import {
+  analyzeLenormandEvidence,
+  conditionLenormandTraditionalText,
+} from 'mingyu-core/divination/lenormand';
+import {
   analyzeXiaoliurenEvidence,
   conditionXiaoliurenTraditionalText,
 } from 'mingyu-core/divination/xiaoliuren';
@@ -488,6 +492,11 @@ export function getDivinationSummaryBlocks(
     }
     case 'lenormand': {
       const lenormand = data as LenormandData;
+      const evidence =
+        lenormand.evidenceAnalysis?.traditionalFacts &&
+        lenormand.evidenceAnalysis.structuredLayoutFacts
+          ? lenormand.evidenceAnalysis
+          : analyzeLenormandEvidence(lenormand);
       return {
         title: '雷诺曼抽牌结果',
         tags: [`牌阵：${lenormand.spreadName}`, `张数：${lenormand.cards.length} 张`],
@@ -498,10 +507,12 @@ export function getDivinationSummaryBlocks(
               .map((card) => `${card.position}${card.name}`)
               .join('；'),
           ),
-          ...lenormand.cards.map(
-            (card) =>
-              `${card.position}：${card.name}${card.meaning ? `，牌义 ${card.meaning}` : ''}`,
-          ),
+          ...lenormand.cards.map((card) => {
+            const fact = evidence.traditionalFacts.find(
+              (item) => item.kind === '单牌牌义' && item.positions.includes(card.position),
+            );
+            return `${card.position}：${card.name}，${fact?.promptText ?? conditionLenormandTraditionalText(card.meaning, { cardNames: [card.name], keywords: card.keywords })}`;
+          }),
         ].filter(Boolean),
       };
     }

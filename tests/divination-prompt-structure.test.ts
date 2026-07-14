@@ -1453,11 +1453,14 @@ test('雷诺曼提示词保留牌序、关键词、牌义与组合边界', () =>
 
   assert.match(prompt, /断牌口径：按当前牌阵、牌位、牌名和牌义解读/);
   assert.match(prompt, /牌序主轴：/);
-  assert.match(prompt, /- 现状：骑士；关键词：.*；牌义：事情开始动起来。/);
-  assert.match(prompt, /- 阻碍：山；关键词：.*；牌义：进程会被卡住。/);
-  assert.doesNotMatch(prompt, /组合证据：/);
+  assert.match(prompt, /现状：骑士.*条件化牌义传统单牌骑士/s);
+  assert.match(prompt, /阻碍：山.*条件化牌义传统单牌山/s);
+  assert.match(prompt, /组合证据：优先使用标注为“固定组合”的条目/);
   assert.match(prompt, /不得把单牌或单一组合写成必然结果/);
-  assert.doesNotMatch(prompt, /核心牌|人物牌|事件链证据|组合权重/);
+  assert.doesNotMatch(
+    prompt,
+    /核心牌|人物牌|事件链证据|组合权重|事情开始动起来|进程会被卡住|后续有机会转明/,
+  );
 });
 
 test('星盘提示词应直接给出太阳月亮上升和主要相位证据', () => {

@@ -1676,6 +1676,29 @@ test('公开 API 雷诺曼接口应分层返回组合与布局证据', async () 
   assert.ok(Array.isArray(body.data.evidenceAnalysis.fixedCombinations));
   assert.ok(Array.isArray(body.data.evidenceAnalysis.adjacentReadings));
   assert.ok(body.data.evidenceAnalysis.layoutFacts.length > 0);
+  assert.ok(body.data.evidenceAnalysis.traditionalFacts.length >= body.data.cards.length);
+  assert.ok(
+    body.data.evidenceAnalysis.traditionalFacts.every(
+      (item: Record<string, unknown>) =>
+        item.originalText &&
+        item.promptText &&
+        Array.isArray(item.verificationTargets) &&
+        item.verificationTargets.length > 0 &&
+        Array.isArray(item.sources) &&
+        item.sources.length > 0 &&
+        String(item.limitation).includes('不证明现实事件'),
+    ),
+  );
+  assert.equal(body.data.evidenceAnalysis.structuredLayoutFacts.length, 9);
+  assert.ok(
+    body.data.evidenceAnalysis.structuredLayoutFacts.every(
+      (item: Record<string, unknown>) =>
+        item.factText &&
+        item.promptText &&
+        item.source &&
+        String(item.limitation).includes('不自动证明吉凶'),
+    ),
+  );
   assert.equal(body.data.evidenceAnalysis.evidence.title, '雷诺曼牌序组合与布局结构化证据');
   assert.doesNotMatch(JSON.stringify(body.data), /成功率提升至|吉凶总分[：=]\d/);
 });
