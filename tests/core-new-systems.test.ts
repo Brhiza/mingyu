@@ -379,7 +379,10 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.ok(
     r.aspects.every(
       (aspect) =>
-        aspect.orb >= 0 && aspect.orbRatio >= 0 && aspect.orbRatio <= 1 && aspect.strength >= 0,
+        aspect.orb >= 0 &&
+        aspect.orbRatio >= 0 &&
+        aspect.orbRatio <= 1 &&
+        aspect.strength === undefined,
     ),
   );
   assert.ok(

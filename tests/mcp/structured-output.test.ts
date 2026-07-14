@@ -374,6 +374,14 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         false,
         `${name} 不应通过旧排盘工具返回提示词`,
       );
+      if (name === 'metaphysics_qizheng') {
+        const chart = (
+          result.structuredContent as { result?: { aspects?: Array<{ strength?: number }> } }
+        ).result;
+        for (const aspect of chart?.aspects ?? []) {
+          assert.equal(aspect.strength, undefined);
+        }
+      }
 
       const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
       assert.deepEqual(JSON.parse(text), result.structuredContent);

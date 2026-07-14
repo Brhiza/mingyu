@@ -2719,6 +2719,9 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
   );
   assert.match(body.data.evidenceAnalysis.promptText, /【七政四余计算来源与证据分层】/);
   assert.doesNotMatch(body.data.prompt, /强度\d+%/);
+  body.data.aspects.forEach((aspect: { strength?: number }) => {
+    assert.equal(aspect.strength, undefined);
+  });
   assert.equal(
     body.data.ziqiModel.sources.filter((source: { usage: string }) => source.usage === '未采用')
       .length,
@@ -2748,6 +2751,9 @@ test('公开 API 七政四余提示词应展示逐星来源、混合模型和输
   assert.match(body.data.prompt, /传统均速模型/);
   assert.match(body.data.prompt, /混合模型/);
   assert.doesNotMatch(body.data.prompt, /强度\d+%/);
+  body.data.result.aspects.forEach((aspect: { strength?: number }) => {
+    assert.equal(aspect.strength, undefined);
+  });
   assert.equal(body.data.result.calculationContext.locationSource, '默认北京坐标');
 });
 

@@ -118,8 +118,6 @@ export interface QizhengAspect {
   orb: number;
   /** 偏差占当前相位容许度的比例，0为精确相位，1为容许度边界。 */
   orbRatio: number;
-  /** @deprecated 旧版归一化字段，仅为兼容保留，不代表吉凶、概率或强度百分比。 */
-  strength: number;
   closeness: '紧密' | '中等' | '宽松';
   precisionClass: '同层现代天文' | '混合模型';
   source: string;
@@ -223,7 +221,6 @@ function buildQizhengAspects(stars: QizhengStar[]): QizhengAspect[] {
         actualAngle: Number(actualAngle.toFixed(4)),
         orb: Number(matched.deviation.toFixed(4)),
         orbRatio: Number(ratio.toFixed(4)),
-        strength: Math.max(0, Math.round((1 - ratio) * 100)),
         closeness: ratio <= 1 / 3 ? '紧密' : ratio <= 2 / 3 ? '中等' : '宽松',
         precisionClass:
           stars[first].precisionClass === '现代天文计算' &&
