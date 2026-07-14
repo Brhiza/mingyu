@@ -944,6 +944,13 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
     });
     assert.equal(confirmed.isError, undefined);
     assert.equal(confirmed.structuredContent?.result.ritual.confirmed, true);
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.drawFact.status, '可核验');
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.ritualFact.status, '已确认');
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.randomFact.sampleCount, 3);
+    assert.match(
+      String(confirmed.structuredContent?.result.evidenceAnalysis.randomFact.limitation),
+      /不表示可信度/,
+    );
     assert.match(String(confirmed.structuredContent?.prompt), /三山国王灵签文本与仪式结构化证据/);
     assert.match(String(confirmed.structuredContent?.prompt), /不证明预测有效性/);
 

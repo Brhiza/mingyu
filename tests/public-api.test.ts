@@ -1732,6 +1732,13 @@ test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏
   });
   assert.equal(confirmed.response.status, 200);
   assert.equal(confirmed.body.data.ritual.confirmed, true);
+  assert.equal(confirmed.body.data.evidenceAnalysis.drawFact.status, '可核验');
+  assert.equal(confirmed.body.data.evidenceAnalysis.ritualFact.status, '已确认');
+  assert.equal(confirmed.body.data.evidenceAnalysis.ritualFact.throws.length, 1);
+  assert.equal(confirmed.body.data.evidenceAnalysis.randomFact.status, '可重放');
+  assert.equal(confirmed.body.data.evidenceAnalysis.randomFact.sampleCount, 3);
+  assert.ok(confirmed.body.data.evidenceAnalysis.randomFact.sources.length >= 2);
+  assert.match(confirmed.body.data.evidenceAnalysis.randomFact.limitation, /不表示可信度/);
   assert.match(confirmed.body.data.evidenceAnalysis.promptText, /签诗原文/);
   assert.match(confirmed.body.data.evidenceAnalysis.promptText, /不证明预测有效性/);
 

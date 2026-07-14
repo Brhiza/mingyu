@@ -3729,6 +3729,24 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
   );
   assert.equal(confirmed.draw?.poolSize, 92);
   assert.equal(confirmed.draw?.selectedNumber, confirmed.number);
+  assert.equal(confirmed.evidenceAnalysis?.drawFact.status, '可核验');
+  assert.equal(confirmed.evidenceAnalysis?.drawFact.poolSize, 92);
+  assert.match(confirmed.evidenceAnalysis?.drawFact.promptText || '', /随机索引/);
+  assert.match(confirmed.evidenceAnalysis?.drawFact.limitation || '', /不证明签文有效性/);
+  assert.equal(confirmed.evidenceAnalysis?.ritualFact.status, '已确认');
+  assert.equal(confirmed.evidenceAnalysis?.ritualFact.throws.length, 1);
+  assert.deepEqual(confirmed.evidenceAnalysis?.ritualFact.throws[0], {
+    attempt: 1,
+    firstFace: '阳面',
+    secondFace: '阴面',
+    result: '圣杯',
+    promptText: '第1次阳面+阴面=圣杯',
+  });
+  assert.match(confirmed.evidenceAnalysis?.ritualFact.limitation || '', /不证明疾病/);
+  assert.equal(confirmed.evidenceAnalysis?.randomFact.status, '可重放');
+  assert.equal(confirmed.evidenceAnalysis?.randomFact.mode, 'replay');
+  assert.equal(confirmed.evidenceAnalysis?.randomFact.sampleCount, 3);
+  assert.deepEqual(confirmed.evidenceAnalysis?.randomFact.samples, [0.1, 0.1, 0.9]);
   assert.ok(confirmed.evidenceAnalysis?.drawFacts.some((item) => item.includes('随机索引')));
   assert.match(confirmed.evidenceAnalysis?.promptText || '', /签诗原文/);
   assert.match(confirmed.evidenceAnalysis?.promptText || '', /典故/);
@@ -3754,6 +3772,8 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
   assert.ok(
     seeded.evidenceAnalysis?.randomFacts.some((item) => item.includes('随机种子：灵签证据样例')),
   );
+  assert.equal(seeded.evidenceAnalysis?.randomFact.seed, '灵签证据样例');
+  assert.doesNotMatch(seeded.evidenceAnalysis?.randomFact.promptText || '', /灵签证据样例/);
   assert.doesNotMatch(seeded.evidenceAnalysis?.promptText || '', /灵签证据样例/);
 
   const rejected = drawRandomSign(new Date('2025-01-01T00:00:00+08:00'), {
@@ -3765,6 +3785,8 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
     ['阴杯', '阴杯', '阴杯'],
   );
   assert.match(rejected.ritual?.reason || '', /拒绝起签/);
+  assert.equal(rejected.evidenceAnalysis?.ritualFact.status, '未确认');
+  assert.equal(rejected.evidenceAnalysis?.ritualFact.throws.length, 3);
   const rejectedRitual = rejected.evidenceAnalysis?.evidence.items.find(
     (item) => item.title === '模拟求签仪式未完成',
   );

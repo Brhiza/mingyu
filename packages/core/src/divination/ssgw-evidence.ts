@@ -3,6 +3,51 @@ import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidenc
 import type { SsgwData } from '../types/divination';
 import { SSGW_INTERPRETATION_FIELDS } from './ssgw-data';
 
+export interface SsgwDrawFact {
+  key: '抽签:签池索引';
+  status: '可核验' | '缺少索引';
+  poolSize: number | null;
+  selectedIndex: number | null;
+  selectedNumber: number;
+  resultNumber: number;
+  resultTitle: string;
+  promptText: string;
+  sources: string[];
+  limitation: '签池大小、随机索引和签号对应关系只证明本次抽签过程及结果一致；不证明签文有效性、神意来源、现实事件或预测结果';
+}
+
+export interface SsgwRitualThrowFact {
+  attempt: number;
+  firstFace: '阳面' | '阴面' | null;
+  secondFace: '阳面' | '阴面' | null;
+  result: '圣杯' | '笑杯' | '阴杯';
+  promptText: string;
+}
+
+export interface SsgwRitualFact {
+  key: '仪式:掷筊确认';
+  status: '已确认' | '未确认' | '缺少记录';
+  confirmed: boolean | null;
+  rejected: boolean | null;
+  throws: SsgwRitualThrowFact[];
+  reason?: string;
+  promptText: string;
+  sources: string[];
+  limitation: '掷筊记录只证明项目模拟仪式的执行顺序和确认状态；圣杯、笑杯或阴杯不证明疾病、法律、财务、隐私、未来事件、神意来源或预测有效性';
+}
+
+export interface SsgwRandomFact {
+  key: '随机:重放轨迹';
+  status: '可重放' | '缺少轨迹';
+  mode: 'system' | 'seeded' | 'custom' | 'replay' | null;
+  seed?: string | number;
+  samples: number[];
+  sampleCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '随机模式、种子和原始样本只用于复现抽签与掷筊过程；不表示可信度、神意或预测有效性，也不表示事件概率或结果保证';
+}
+
 export interface SsgwEvidenceAnalysis {
   signText: {
     number: number;
@@ -21,6 +66,9 @@ export interface SsgwEvidenceAnalysis {
     limitation: '仅作象征类比，不是事实结论或结果保证';
   }>;
   missingFields: string[];
+  drawFact: SsgwDrawFact;
+  ritualFact: SsgwRitualFact;
+  randomFact: SsgwRandomFact;
   drawFacts: string[];
   ritualFacts: string[];
   randomFacts: string[];
@@ -31,6 +79,15 @@ export interface SsgwEvidenceAnalysis {
   promptText: string;
   methodology: string[];
 }
+
+const DRAW_FACT_LIMITATION =
+  '签池大小、随机索引和签号对应关系只证明本次抽签过程及结果一致；不证明签文有效性、神意来源、现实事件或预测结果' as const;
+
+const RITUAL_FACT_LIMITATION =
+  '掷筊记录只证明项目模拟仪式的执行顺序和确认状态；圣杯、笑杯或阴杯不证明疾病、法律、财务、隐私、未来事件、神意来源或预测有效性' as const;
+
+const RANDOM_FACT_LIMITATION =
+  '随机模式、种子和原始样本只用于复现抽签与掷筊过程；不表示可信度、神意或预测有效性，也不表示事件概率或结果保证' as const;
 
 export function conditionSsgwInterpretation(text: string): string {
   return text
@@ -66,12 +123,67 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       limitation: '仅作象征类比，不是事实结论或结果保证' as const,
     }));
   const missingFields = SSGW_INTERPRETATION_FIELDS.filter((field) => !details[field]?.trim());
+  const drawFact: SsgwDrawFact = data.draw
+    ? {
+        key: '抽签:签池索引',
+        status: '可核验',
+        poolSize: data.draw.poolSize,
+        selectedIndex: data.draw.selectedIndex,
+        selectedNumber: data.draw.selectedNumber,
+        resultNumber: data.number,
+        resultTitle: data.title,
+        promptText: `签池共${data.draw.poolSize}签，随机索引${data.draw.selectedIndex}（从0起）对应第${data.draw.selectedNumber}签；结果核验为第${data.number}签《${data.title}》`,
+        sources: ['三山国王九十二签签池', '命语统一随机整数抽取与签号索引'],
+        limitation: DRAW_FACT_LIMITATION,
+      }
+    : {
+        key: '抽签:签池索引',
+        status: '缺少索引',
+        poolSize: null,
+        selectedIndex: null,
+        selectedNumber: data.number,
+        resultNumber: data.number,
+        resultTitle: data.title,
+        promptText: `当前结果未附签池索引过程，仅保留已确定的第${data.number}签《${data.title}》`,
+        sources: ['当前已确定签号与签题'],
+        limitation: DRAW_FACT_LIMITATION,
+      };
   const drawFacts = data.draw
     ? [
         `签池共${data.draw.poolSize}签，随机索引${data.draw.selectedIndex}（从0起）对应第${data.draw.selectedNumber}签`,
         `抽签结果核验：第${data.number}签《${data.title}》`,
       ]
     : [`当前结果未附签池索引过程，仅保留已确定的第${data.number}签《${data.title}》`];
+  const ritualThrows: SsgwRitualThrowFact[] =
+    data.ritual?.throws.map((item, index) => ({
+      attempt: index + 1,
+      firstFace: item.firstFace ?? null,
+      secondFace: item.secondFace ?? null,
+      result: item.result,
+      promptText: `第${index + 1}次${item.firstFace && item.secondFace ? `${item.firstFace}+${item.secondFace}=` : ''}${item.result}`,
+    })) ?? [];
+  const ritualFact: SsgwRitualFact = data.ritual
+    ? {
+        key: '仪式:掷筊确认',
+        status: data.ritual.confirmed ? '已确认' : '未确认',
+        confirmed: Boolean(data.ritual.confirmed),
+        rejected: Boolean(data.ritual.rejected),
+        throws: ritualThrows,
+        reason: data.ritual.reason,
+        promptText: `掷筊顺序：${ritualThrows.map((item) => item.promptText).join(' → ') || '没有掷筊记录'}；仪式状态：${data.ritual.confirmed ? '已出现圣杯，签文按项目模拟流程确认' : `未获圣杯${data.ritual.reason ? `；${data.ritual.reason}` : ''}`}`,
+        sources: ['命语三山国王灵签模拟掷筊流程', '逐次阴阳面与圣杯、笑杯、阴杯判定记录'],
+        limitation: RITUAL_FACT_LIMITATION,
+      }
+    : {
+        key: '仪式:掷筊确认',
+        status: '缺少记录',
+        confirmed: null,
+        rejected: null,
+        throws: [],
+        promptText: '仪式状态：旧结果或外部数据未提供掷筊记录，不得补写圣杯确认',
+        sources: ['当前结果字段完整性核验'],
+        limitation: RITUAL_FACT_LIMITATION,
+      };
   const ritualFacts = data.ritual
     ? [
         `掷筊顺序：${
@@ -88,6 +200,28 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       ]
     : ['仪式状态：旧结果或外部数据未提供掷筊记录，不得补写圣杯确认'];
   const trace = data.meta?.random;
+  const randomFact: SsgwRandomFact = trace
+    ? {
+        key: '随机:重放轨迹',
+        status: '可重放',
+        mode: trace.mode,
+        ...(trace.seed !== undefined ? { seed: trace.seed } : {}),
+        samples: [...trace.samples],
+        sampleCount: trace.samples.length,
+        promptText: `随机模式：${trace.mode}；原始随机样本数：${trace.samples.length}；随机种子保留在结构化结果中，不写入自然语言提示词；原始随机样本仅保留在结构化结果中`,
+        sources: ['命语统一随机轨迹协议', '抽签与掷筊共用随机源的原始样本记录'],
+        limitation: RANDOM_FACT_LIMITATION,
+      }
+    : {
+        key: '随机:重放轨迹',
+        status: '缺少轨迹',
+        mode: null,
+        samples: [],
+        sampleCount: 0,
+        promptText: '当前结果未附随机轨迹，无法验证抽签与掷筊的重放过程',
+        sources: ['当前结果随机元数据完整性核验'],
+        limitation: RANDOM_FACT_LIMITATION,
+      };
   const randomFacts = trace
     ? [
         `随机模式：${trace.mode}`,
@@ -95,7 +229,6 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
         trace.seed !== undefined ? `随机种子：${String(trace.seed)}` : '',
       ].filter(Boolean)
     : ['当前结果未附随机轨迹，无法验证抽签与掷筊的重放过程'];
-  const promptRandomFacts = randomFacts.filter((item) => !item.startsWith('随机种子：'));
   const sources: SsgwEvidenceAnalysis['sources'] = [
     {
       title: '三山国王祖庙九十二签体系',
@@ -129,8 +262,8 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     {
       level: '辅证',
       title: '签池抽取索引事实',
-      detail: drawFacts.join('；'),
-      source: '三山国王九十二签签池与命语统一随机抽取过程',
+      detail: `${drawFact.promptText}；边界：${drawFact.limitation}`,
+      source: drawFact.sources.join('；'),
       tags: ['签池', '抽签索引', '可重放'],
     },
     {
@@ -161,15 +294,15 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     {
       level: data.ritual?.confirmed ? '辅证' : '反证',
       title: data.ritual?.confirmed ? '模拟求签仪式完成记录' : '模拟求签仪式未完成',
-      detail: ritualFacts.join('；'),
-      source: '命语三山国王灵签模拟仪式流程记录',
+      detail: `${ritualFact.promptText}；边界：${ritualFact.limitation}`,
+      source: ritualFact.sources.join('；'),
       tags: ['仪式流程', data.ritual?.confirmed ? '已确认' : '未确认', '不代表现实结论'],
     },
     {
       level: trace ? '辅证' : '反证',
       title: trace ? '随机过程重放记录' : '随机轨迹缺失',
-      detail: `${promptRandomFacts.join('；')}；随机种子保留在结构化结果中，不写入自然语言提示词；该记录只用于核验抽签过程能否重放，不表示可信度、神意或预测有效性`,
-      source: '命语统一随机轨迹协议',
+      detail: `${randomFact.promptText}；边界：${randomFact.limitation}`,
+      source: randomFact.sources.join('；'),
       tags: ['随机轨迹', trace ? '可重放' : '不可核验', '不代表预测有效性'],
     },
     ...counterEvidence.map((detail): PromptEvidenceItem => ({
@@ -202,9 +335,9 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
   const promptText = [
     '【三山国王灵签文本与仪式结构化证据】',
     ...formatPromptEvidenceBundle(promptEvidence),
-    `仪式事实：${ritualFacts.join('；')}。`,
-    `抽签事实：${drawFacts.join('；')}。`,
-    `随机事实：${promptRandomFacts.join('；')}；随机种子仅保留在结构化结果中。`,
+    `仪式事实：${ritualFact.promptText}。`,
+    `抽签事实：${drawFact.promptText}。`,
+    `随机事实：${randomFact.promptText}。`,
     `资料来源：${sources.map((item) => `${item.title}（${item.role}：${item.evidence}）`).join('；')}。`,
   ].join('\n');
   return {
@@ -213,6 +346,9 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     promptStory,
     interpretations,
     missingFields,
+    drawFact,
+    ritualFact,
+    randomFact,
     drawFacts,
     ritualFacts,
     randomFacts,
