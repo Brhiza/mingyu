@@ -99,8 +99,13 @@ test('紫微双盘应按地支映射双方关键宫位', () => {
   );
 
   assert.ok(overlay);
+  assert.match(overlay.key, /^宫位叠盘:person1:/);
   assert.equal(overlay.earthlyBranch, '子');
   assert.equal(overlay.targetPalace, '福德（身宫同宫）');
+  assert.ok(overlay.sources.length >= 2);
+  assert.match(overlay.calculation, /按相同地支定位/);
+  assert.match(overlay.promptText, /同处子支轴位/);
+  assert.match(overlay.limitation, /不单独证明关系吉凶/);
 });
 
 test('紫微双盘应生成生年四化来源到对方落宫链路', () => {
@@ -110,9 +115,14 @@ test('紫微双盘应生成生年四化来源到对方落宫链路', () => {
   );
 
   assert.ok(placement);
+  assert.match(placement.key, /^跨盘四化:person1:紫微:化禄:/);
   assert.equal(placement.mutagen, '禄');
   assert.equal(placement.sourcePalace, '命宫');
   assert.equal(placement.targetPalace, '命宫');
+  assert.ok(placement.sources.length >= 2);
+  assert.match(placement.calculation, /同名紫微/);
+  assert.match(placement.promptText, /生年化禄/);
+  assert.match(placement.limitation, /不直接等于关系吉凶/);
 });
 
 test('紫微双盘提示词应包含主证、限制且不输出匹配总分', () => {
@@ -125,6 +135,8 @@ test('紫微双盘提示词应包含主证、限制且不输出匹配总分', ()
   assert.match(result.promptText, /甲方.*乙方/);
   assert.match(result.promptText, /【主证】/);
   assert.match(result.promptText, /【限制】紫微双盘证据边界/);
+  assert.match(result.promptText, /同处.*支轴位.*边界：宫位叠盘只证明/);
+  assert.match(result.promptText, /生年化[禄忌].*边界：跨盘四化只证明/);
   assert.match(result.promptText, /不输出匹配总分/);
   assert.doesNotMatch(result.promptText, /匹配(?:分数|率|百分比)/);
 });

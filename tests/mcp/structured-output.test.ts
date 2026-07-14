@@ -433,6 +433,40 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
           ),
         );
       }
+      if (name === 'ziwei_compatibility') {
+        const compatibility = (
+          result.structuredContent as {
+            compatibility?: {
+              palaceOverlays?: Array<{
+                key: string;
+                sources: string[];
+                limitation: string;
+              }>;
+              crossMutagenPlacements?: Array<{
+                key: string;
+                sources: string[];
+                limitation: string;
+              }>;
+            };
+          }
+        ).compatibility;
+        assert.ok(
+          compatibility?.palaceOverlays?.every(
+            (item) =>
+              item.key.startsWith('宫位叠盘:') &&
+              item.sources.length >= 2 &&
+              item.limitation.includes('不单独证明关系吉凶'),
+          ),
+        );
+        assert.ok(
+          compatibility?.crossMutagenPlacements?.every(
+            (item) =>
+              item.key.startsWith('跨盘四化:') &&
+              item.sources.length >= 2 &&
+              item.limitation.includes('不直接等于关系吉凶'),
+          ),
+        );
+      }
 
       const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
       assert.deepEqual(JSON.parse(text), result.structuredContent);

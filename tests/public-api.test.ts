@@ -1141,6 +1141,26 @@ test('公开 API 紫微双盘返回宫位叠盘、四化证据并保留双方称
     person2: '乙方',
   });
   assert.ok(calculation.body.data.compatibility.palaceOverlays.length > 0);
+  assert.ok(
+    calculation.body.data.compatibility.palaceOverlays.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('宫位叠盘:') &&
+        Array.isArray(item.sources) &&
+        item.sources.length >= 2 &&
+        String(item.calculation).length > 0 &&
+        String(item.limitation).includes('不单独证明关系吉凶'),
+    ),
+  );
+  assert.ok(
+    calculation.body.data.compatibility.crossMutagenPlacements.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('跨盘四化:') &&
+        Array.isArray(item.sources) &&
+        item.sources.length >= 2 &&
+        String(item.promptText).length > 0 &&
+        String(item.limitation).includes('不直接等于关系吉凶'),
+    ),
+  );
   assert.ok(calculation.body.data.compatibility.evidence.items.length > 0);
   assert.equal(calculation.body.data.charts.person1.scopeNames[0], 'origin');
 
@@ -1160,6 +1180,7 @@ test('公开 API 紫微双盘返回宫位叠盘、四化证据并保留双方称
   assert.equal(prompted.body.data.resultSummary.people.person1, '甲方');
   assert.match(prompted.body.data.prompt, /【甲方盘面】/);
   assert.match(prompted.body.data.prompt, /【紫微双盘结构化证据】/);
+  assert.match(prompted.body.data.prompt, /同处.*支轴位.*边界：宫位叠盘只证明/s);
   assert.match(prompted.body.data.prompt, /双方长期合作关系应注意什么/);
   assert.doesNotMatch(prompted.body.data.prompt, /匹配总分：/);
 });

@@ -10,6 +10,7 @@ export interface ZiweiCompatibilityOptions {
 }
 
 export interface ZiweiPalaceOverlay {
+  key: string;
   sourcePerson: 'person1' | 'person2';
   targetPerson: 'person1' | 'person2';
   sourcePalace: string;
@@ -17,9 +18,14 @@ export interface ZiweiPalaceOverlay {
   targetPalace: string;
   sourceMajorStars: string[];
   targetMajorStars: string[];
+  sources: string[];
+  calculation: string;
+  promptText: string;
+  limitation: '宫位叠盘只证明双方宫位位于同一地支轴位；不单独证明关系吉凶、适配程度、他人意图、现实事件或长期结果';
 }
 
 export interface ZiweiCrossMutagenPlacement {
+  key: string;
   sourcePerson: 'person1' | 'person2';
   targetPerson: 'person1' | 'person2';
   star: string;
@@ -27,6 +33,10 @@ export interface ZiweiCrossMutagenPlacement {
   sourcePalace: string;
   targetPalace: string;
   targetEarthlyBranch: string;
+  sources: string[];
+  calculation: string;
+  promptText: string;
+  limitation: '跨盘四化只证明一方生年四化星曜与对方同名星曜落宫之间的定位链路；化禄、权、科、忌均不直接等于关系吉凶、事件结果、匹配程度或应期';
 }
 
 export interface ZiweiCompatibilityEvidenceResult {
@@ -37,6 +47,12 @@ export interface ZiweiCompatibilityEvidenceResult {
   promptText: string;
   methodology: { notes: string[] };
 }
+
+const PALACE_OVERLAY_LIMITATION =
+  '宫位叠盘只证明双方宫位位于同一地支轴位；不单独证明关系吉凶、适配程度、他人意图、现实事件或长期结果' as const;
+
+const CROSS_MUTAGEN_LIMITATION =
+  '跨盘四化只证明一方生年四化星曜与对方同名星曜落宫之间的定位链路；化禄、权、科、忌均不直接等于关系吉凶、事件结果、匹配程度或应期' as const;
 
 function allStars(palace: PalaceFact): StarFact[] {
   return [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars];
@@ -68,20 +84,28 @@ function calculateOverlays(
   targetPerson: 'person1' | 'person2',
   source: AnalysisPayloadV1,
   target: AnalysisPayloadV1,
+  people: ZiweiCompatibilityEvidenceResult['people'],
 ) {
   const targetByBranch = new Map(target.palaces.map((palace) => [palace.earthly_branch, palace]));
   return keyPalaces(source).flatMap((sourcePalace): ZiweiPalaceOverlay[] => {
     const targetPalace = targetByBranch.get(sourcePalace.earthly_branch);
     if (!targetPalace) return [];
+    const sourcePalaceName = palaceDisplayName(sourcePalace);
+    const targetPalaceName = palaceDisplayName(targetPalace);
     return [
       {
+        key: `宫位叠盘:${sourcePerson}:${sourcePalace.index}:${sourcePalace.earthly_branch}:${targetPerson}:${targetPalace.index}`,
         sourcePerson,
         targetPerson,
-        sourcePalace: palaceDisplayName(sourcePalace),
+        sourcePalace: sourcePalaceName,
         earthlyBranch: sourcePalace.earthly_branch,
-        targetPalace: palaceDisplayName(targetPalace),
+        targetPalace: targetPalaceName,
         sourceMajorStars: sourcePalace.major_stars.map((star) => star.name),
         targetMajorStars: targetPalace.major_stars.map((star) => star.name),
+        sources: ['双方 analysis_payload_v1 十二宫地支索引', '命语紫微双盘同支宫位映射规则'],
+        calculation: `读取${people[sourcePerson]}${sourcePalaceName}的地支${sourcePalace.earthly_branch}，在${people[targetPerson]}十二宫中按相同地支定位到${targetPalaceName}`,
+        promptText: `${people[sourcePerson]}${sourcePalaceName}与${people[targetPerson]}${targetPalaceName}同处${sourcePalace.earthly_branch}支轴位；来源宫主星${sourcePalace.major_stars.map((star) => star.name).join('、') || '无主星'}，目标宫主星${targetPalace.major_stars.map((star) => star.name).join('、') || '无主星'}`,
+        limitation: PALACE_OVERLAY_LIMITATION,
       },
     ];
   });
@@ -92,6 +116,7 @@ function calculateCrossMutagens(
   targetPerson: 'person1' | 'person2',
   source: AnalysisPayloadV1,
   target: AnalysisPayloadV1,
+  people: ZiweiCompatibilityEvidenceResult['people'],
 ) {
   const targetStars = new Map<string, PalaceFact>();
   target.palaces.forEach((palace) => {
@@ -105,14 +130,21 @@ function calculateCrossMutagens(
       if (!star.birth_mutagen) return;
       const targetPalace = targetStars.get(star.name);
       if (!targetPalace) return;
+      const sourcePalaceName = palaceDisplayName(sourcePalace);
+      const targetPalaceName = palaceDisplayName(targetPalace);
       placements.push({
+        key: `跨盘四化:${sourcePerson}:${star.name}:化${star.birth_mutagen}:${targetPerson}:${targetPalace.index}`,
         sourcePerson,
         targetPerson,
         star: star.name,
         mutagen: star.birth_mutagen,
-        sourcePalace: palaceDisplayName(sourcePalace),
-        targetPalace: palaceDisplayName(targetPalace),
+        sourcePalace: sourcePalaceName,
+        targetPalace: targetPalaceName,
         targetEarthlyBranch: targetPalace.earthly_branch,
+        sources: ['来源方 analysis_payload_v1 生年四化星曜标记', '目标方十二宫同名星曜落宫索引'],
+        calculation: `读取${people[sourcePerson]}${sourcePalaceName}的${star.name}生年化${star.birth_mutagen}标记，再于${people[targetPerson]}十二宫星曜索引中定位同名${star.name}到${targetPalaceName}（${targetPalace.earthly_branch}）`,
+        promptText: `${people[sourcePerson]}${sourcePalaceName}的${star.name}生年化${star.birth_mutagen}，同名${star.name}在${people[targetPerson]}盘定位于${targetPalaceName}（${targetPalace.earthly_branch}）`,
+        limitation: CROSS_MUTAGEN_LIMITATION,
       });
     });
   });
@@ -141,16 +173,16 @@ function createEvidence(
     ...importantOverlays.map((item): PromptEvidenceItem => ({
       level: '主证',
       title: `${personLabel(people, item.sourcePerson)}${item.sourcePalace}落在${personLabel(people, item.targetPerson)}${item.targetPalace}轴位`,
-      detail: `双方该宫同处${item.earthlyBranch}支位置；这是十二宫地支对齐关系，用于确认互动落点，不单独表示吉凶或适配程度。`,
-      source: '双方十二宫地支位置交叉映射',
+      detail: `${item.promptText}；边界：${item.limitation}`,
+      source: `${item.sources.join('；')}；计算：${item.calculation}`,
       tags: ['紫微合盘', '宫位叠盘', item.sourcePalace, item.targetPalace],
     })),
     ...mutagens.map((item): PromptEvidenceItem => ({
       level:
         item.sourcePalace.includes('命宫') || item.targetPalace.includes('命宫') ? '主证' : '辅证',
       title: `${personLabel(people, item.sourcePerson)}${item.star}生年化${item.mutagen}落入${personLabel(people, item.targetPerson)}${item.targetPalace}`,
-      detail: `${item.star}在化星来源方位于${item.sourcePalace}，在对方盘位于${item.targetPalace}（${item.targetEarthlyBranch}）；只记录“化星来源—星曜—对方落宫”链路，化禄、权、科、忌均需结合宫位主轴、星曜状态和现实问题解释。`,
-      source: '来源方生年四化星曜与对方同名星曜落宫交叉',
+      detail: `${item.promptText}；边界：${item.limitation}`,
+      source: `${item.sources.join('；')}；计算：${item.calculation}`,
       tags: ['紫微合盘', '生年四化', `化${item.mutagen}`, item.targetPalace],
     })),
     ...overlays
@@ -158,8 +190,8 @@ function createEvidence(
       .map((item): PromptEvidenceItem => ({
         level: '辅证',
         title: `${personLabel(people, item.sourcePerson)}${item.sourcePalace}对应${personLabel(people, item.targetPerson)}${item.targetPalace}`,
-        detail: `双方宫位在${item.earthlyBranch}支重合，需与命身、夫妻、官禄、财帛、福德、迁移等主轴及四化链路共同解释。`,
-        source: '双方十二宫地支位置交叉映射',
+        detail: `${item.promptText}；边界：${item.limitation}`,
+        source: `${item.sources.join('；')}；计算：${item.calculation}`,
         tags: ['紫微合盘', '宫位叠盘'],
       })),
     {
@@ -190,12 +222,12 @@ export function analyzeZiweiCompatibility(
     person2: options.person2Name?.trim() || '第二人',
   };
   const palaceOverlays = [
-    ...calculateOverlays('person1', 'person2', payload1, payload2),
-    ...calculateOverlays('person2', 'person1', payload2, payload1),
+    ...calculateOverlays('person1', 'person2', payload1, payload2, people),
+    ...calculateOverlays('person2', 'person1', payload2, payload1, people),
   ];
   const crossMutagenPlacements = [
-    ...calculateCrossMutagens('person1', 'person2', payload1, payload2),
-    ...calculateCrossMutagens('person2', 'person1', payload2, payload1),
+    ...calculateCrossMutagens('person1', 'person2', payload1, payload2, people),
+    ...calculateCrossMutagens('person2', 'person1', payload2, payload1, people),
   ];
   const evidence = createEvidence(people, palaceOverlays, crossMutagenPlacements);
   return {
