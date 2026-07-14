@@ -46,11 +46,12 @@ import { analyzeQimenEvidence } from '../../qimen-evidence';
 
 export { createQimenPriorityPalaces } from './helpers/guidance';
 export type { QimenPriorityPalace } from './helpers/guidance';
-export { analyzeQimenEvidence } from '../../qimen-evidence';
+export { analyzeQimenEvidence, conditionQimenTraditionalText } from '../../qimen-evidence';
 export type {
   QimenEvidenceAnalysis,
   QimenPalaceEvidence,
   QimenPalaceRelationEvidence,
+  QimenPatternEvidenceFact,
 } from '../../qimen-evidence';
 
 // ============================================================================

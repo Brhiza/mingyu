@@ -27,17 +27,100 @@ export interface QimenPalaceRelationEvidence {
   meaning: string;
 }
 
+export interface QimenPatternEvidenceFact {
+  key: string;
+  name: string;
+  kind: '基础格局' | '经典格局' | '复合格局';
+  traditionalTone: '有利' | '风险' | '中性' | '混合';
+  originalText: string;
+  promptText: string;
+  palaces: number[];
+  sources: string[];
+  limitation: '传统格局命中只证明盘面满足项目规则，不是现实结果、吉凶分或事件概率';
+}
+
 export interface QimenEvidenceAnalysis {
   calculationFacts: string[];
   ruleSources: string[];
   candidates: QimenPalaceEvidence[];
   relations: QimenPalaceRelationEvidence[];
+  patternFacts: QimenPatternEvidenceFact[];
   counterEvidence: string[];
   timingConditions: string[];
   directionConditions: string[];
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
+}
+
+export function conditionQimenTraditionalText(text: string): string {
+  return text
+    .replace(/凶期百日而后或有舒情/g, '古籍另有具体日数说法，但不得据此输出固定日期')
+    .replace(/百事吉昌/g, '传统象意偏向有利')
+    .replace(/百事称心/g, '传统象意偏向顺遂')
+    .replace(/百事顺遂/g, '传统象意偏向顺遂')
+    .replace(/百事可为/g, '传统象意提示可具备推进条件')
+    .replace(/凡百遂心/g, '传统象意偏向顺遂')
+    .replace(/万事破伤/g, '传统象意提示多重阻碍')
+    .replace(/万事皆屯/g, '传统象意提示事务易有停滞')
+    .replace(/谋为成功/g, '谋事较有推进条件')
+    .replace(/事成/g, '事情较有推进条件')
+    .replace(/必然会/g, '可能会')
+    .replace(/必然/g, '往往')
+    .replace(/必定/g, '较可能')
+    .replace(/大吉/g, '传统有利分类')
+    .replace(/大凶/g, '传统风险分类')
+    .replace(/(^|[，；。])主(?!(?:动|客|轴|证|判|要))/g, '$1传统象意提示')
+    .replace(/古法主(?!(?:动|客))/g, '古法象意提示');
+}
+
+function buildPatternFacts(data: QimenData): QimenPatternEvidenceFact[] {
+  const limitation = '传统格局命中只证明盘面满足项目规则，不是现实结果、吉凶分或事件概率' as const;
+  const basicFacts = (data.patternDetails ?? []).map((item, index) => ({
+    key: `basic:${index}:${item.tag}`,
+    name: item.tag,
+    kind: '基础格局' as const,
+    traditionalTone: /迫|刑|墓|空|凶|反吟/.test(item.tag) ? ('风险' as const) : ('中性' as const),
+    originalText: item.summary,
+    promptText: conditionQimenTraditionalText(item.summary),
+    palaces: [],
+    sources: ['命语奇门基础格局标签与盘面规则命中结果'],
+    limitation,
+  }));
+  const classicFacts = (data.classicPatterns ?? []).map((item, index) => ({
+    key: `classic:${index}:${item.name}:${item.palaces.join('-')}`,
+    name: item.name,
+    kind: '经典格局' as const,
+    traditionalTone:
+      item.type === 'good'
+        ? ('有利' as const)
+        : item.type === 'bad'
+          ? ('风险' as const)
+          : ('中性' as const),
+    originalText: item.summary,
+    promptText: conditionQimenTraditionalText(item.summary),
+    palaces: item.palaces,
+    sources: ['命语奇门经典格局规则命中结果'],
+    limitation,
+  }));
+  const comboFacts = (data.patternCombos ?? []).map((item) => ({
+    key: item.key,
+    name: item.name,
+    kind: '复合格局' as const,
+    traditionalTone:
+      item.tone === 'super-good'
+        ? ('有利' as const)
+        : item.tone === 'super-bad'
+          ? ('风险' as const)
+          : ('混合' as const),
+    originalText: item.summary,
+    promptText: conditionQimenTraditionalText(item.summary),
+    palaces: item.palace ? [item.palace] : [],
+    sources: item.sources,
+    limitation,
+  }));
+
+  return [...basicFacts, ...classicFacts, ...comboFacts];
 }
 
 const GENERATING: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
@@ -126,17 +209,15 @@ function buildPalaceEvidence(
   data: QimenData,
   palace: QimenJiuGongGe,
   sources: QimenCandidateSource[],
+  patternFacts: QimenPatternEvidenceFact[],
 ): QimenPalaceEvidence {
   const isVoid = Boolean(data.voidPalaces?.some((item) => item.palace === palace.gong));
   const hasHorse = data.horseStar?.palace === palace.gong;
-  const patterns = unique([
-    ...(data.classicPatterns ?? [])
+  const patterns = unique(
+    patternFacts
       .filter((item) => item.palaces.includes(palace.gong))
-      .map((item) => `${item.name}：${item.summary}`),
-    ...(data.patternCombos ?? [])
-      .filter((item) => item.palace === palace.gong)
-      .map((item) => `${item.name}：${item.summary}`),
-  ]);
+      .map((item) => `${item.name}：${item.promptText}`),
+  );
   const stemRelations = unique(
     (data.stemRelations ?? [])
       .filter((item) => item.gong === palace.gong)
@@ -147,15 +228,21 @@ function buildPalaceEvidence(
   );
   const insights = (data.palaceInsights ?? []).filter((item) => item.gong === palace.gong);
   const support = unique([
-    ...insights.filter((item) => item.level === '有利').map((item) => item.summary),
+    ...insights
+      .filter((item) => item.level === '有利')
+      .map((item) => conditionQimenTraditionalText(item.summary)),
     ...patterns.filter((item) => !/凶|迫|刑|墓|逃|猖狂|投江|夭矫|入荧|大格|小格/.test(item)),
     hasHorse ? '马星同宫，具移动、变动或外部推动信号' : '',
   ]);
   const constraints = unique([
     isVoid ? '宫位逢空，相关信息可能尚未落实，须等待现实条件或填实信号复核' : '',
-    ...insights.filter((item) => item.level === '风险').map((item) => item.summary),
+    ...insights
+      .filter((item) => item.level === '风险')
+      .map((item) => conditionQimenTraditionalText(item.summary)),
     ...patterns.filter((item) => /凶|迫|刑|墓|逃|猖狂|投江|夭矫|入荧|大格|小格/.test(item)),
-    ...(data.specialConditions?.description ? [data.specialConditions.description] : []),
+    ...(data.specialConditions?.description
+      ? [conditionQimenTraditionalText(data.specialConditions.description)]
+      : []),
   ]);
   return {
     gong: palace.gong,
@@ -178,6 +265,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
     throw new Error('奇门证据分析至少需要一个宫位数据。');
   }
   const sourceMap = collectCandidateSources(data);
+  const patternFacts = buildPatternFacts(data);
   const scope = data.scope ?? 'hour';
   const scopeLabel = SCOPE_LABELS[scope];
   const activeGanZhi = getActiveGanZhi(data);
@@ -207,7 +295,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
   const candidates = Array.from(sourceMap.entries())
     .map(([gong, sources]) => {
       const palace = data.jiuGongGe.find((item) => item.gong === gong);
-      return palace ? buildPalaceEvidence(data, palace, sources) : null;
+      return palace ? buildPalaceEvidence(data, palace, sources, patternFacts) : null;
     })
     .filter((item): item is QimenPalaceEvidence => Boolean(item))
     .sort((left, right) => {
@@ -248,15 +336,17 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
       (item) =>
         `${item.direction}${item.name}来自${item.sources.join('、')}；方位仅在现实路线、安全和事项用神均匹配时采用`,
     );
-  const patternItems: PromptEvidenceItem[] = (data.patternCombos ?? []).map(
-    (pattern): PromptEvidenceItem => ({
-      level: pattern.tone === 'super-bad' ? '反证' : '辅证',
-      title: `复合格局：${pattern.name}`,
-      detail: `${pattern.summary}；组成来源：${pattern.sources.join('、') || '未列明'}`,
-      source: '复合格局规则命中链',
-      tags: ['复合格局', pattern.tone, ...(pattern.palace ? [`${pattern.palace}宫`] : [])],
-    }),
-  );
+  const patternItems: PromptEvidenceItem[] = patternFacts.map((pattern): PromptEvidenceItem => ({
+    level: pattern.traditionalTone === '风险' ? '反证' : '辅证',
+    title: `${pattern.kind}：${pattern.name}`,
+    detail: `${pattern.promptText}；传统分类：${pattern.traditionalTone}；命中宫位：${pattern.palaces.join('、') || '跨宫或全局'}；组成来源：${pattern.sources.join('、') || '未列明'}；边界：${pattern.limitation}`,
+    source: `${pattern.kind}规则命中链；原始传统文字保留在结构化 patternFacts.originalText`,
+    tags: [
+      pattern.kind,
+      pattern.traditionalTone,
+      ...pattern.palaces.map((palace) => `${palace}宫`),
+    ],
+  }));
   const relationItems: PromptEvidenceItem[] = relations.map((item) => ({
     level: '辅证',
     title: `${item.from}与${item.to}宫间作用`,
@@ -301,7 +391,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
           {
             level: '辅证' as const,
             title: '节令与四柱背景事实',
-            detail: `${data.seasonality.currentJieQi}${data.seasonality.jieQiPhase.phase}；季节五行${data.seasonality.seasonalElement}；日干${data.seasonality.dayStem}属${data.seasonality.dayElement}，${data.seasonality.seasonRelationDescription}；月相${data.seasonality.lunarPhase}（${data.seasonality.lunarPhaseDetail}）；建除${data.seasonality.dayOfficer}（${data.seasonality.dayOfficerFortuneLabel}）；四柱互动${data.seasonality.ganzhiInteractions.map((item) => item.description).join('、') || '未检出明确合冲刑害'}`,
+            detail: `${data.seasonality.currentJieQi}${data.seasonality.jieQiPhase.phase}；季节五行${data.seasonality.seasonalElement}；日干${data.seasonality.dayStem}属${data.seasonality.dayElement}，${conditionQimenTraditionalText(data.seasonality.seasonRelationDescription)}；月相${data.seasonality.lunarPhase}（${data.seasonality.lunarPhaseDetail}）；建除${data.seasonality.dayOfficer}（${data.seasonality.dayOfficerFortuneLabel}）；四柱互动${data.seasonality.ganzhiInteractions.map((item) => conditionQimenTraditionalText(item.description)).join('、') || '未检出明确合冲刑害'}`,
             source: '节气历表、月相证据、建除规则与四柱关系逐项计算',
             tags: ['节令', '月相', '建除', '四柱互动'],
           },
@@ -340,6 +430,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
     ruleSources,
     candidates,
     relations,
+    patternFacts,
     counterEvidence,
     timingConditions,
     directionConditions,
@@ -349,6 +440,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
       '先定位值符、值使、日干和时干落宫，再补充盘面洞察与经典格局候选。',
       '逐宫保留门、星、神、天地盘干、空亡、马星、格局、支持与限制。',
       '定局、值符值使、复合格局来源、宫间作用、应期和方位条件全部进入统一证据条目。',
+      '传统格局原文保留在结构化结果中，提示词只读取条件化副本并注明传统分类与现代实证边界。',
       '候选宫之间只陈述可复核的五行生克关系，不用数字分数代替判断。',
       '未按问题选定用神时明确保留候选性质，不输出吉凶总分、成功率或绝对日期。',
     ],

@@ -18,7 +18,10 @@ import type {
 import { LunarUtil, getDivinationTime } from 'mingyu-core/calendar';
 import { resolveSsgwStoryContent } from '../ssgw-content';
 import { analyzeSsgwEvidence, conditionSsgwInterpretation } from 'mingyu-core/divination/ssgw';
-import { analyzeQimenEvidence } from '@core/divination/algorithms/qimen';
+import {
+  analyzeQimenEvidence,
+  conditionQimenTraditionalText,
+} from '@core/divination/algorithms/qimen';
 import { analyzeAlmanacEvidence } from '@core/divination/algorithms/almanac';
 import { LIUCHONG_MAP } from '@core/ganzhi';
 import type { DivinationMethodId } from '@core/divination/config';
@@ -676,15 +679,22 @@ function formatQimenInfo(data: QimenData) {
         `- ${item.name}（${item.direction}，五行${item.element}）：天盘${item.tianPan.stem}${item.tianPan.star}，地盘${item.diPan.stem}，人盘${item.renPan.door}，神盘${item.shenPan.god}`,
     )
     .join('\n');
-  const patternSummary =
-    data.patternDetails?.map((item) => `${item.tag}：${item.summary}`).join('；') || '';
+  const basicPatternFacts = evidenceAnalysis.patternFacts.filter(
+    (item) => item.kind === '基础格局',
+  );
+  const patternSummary = basicPatternFacts
+    .map((item) => `${item.name}（传统分类、非事实结论）：${item.promptText}`)
+    .join('；');
   // 经典格局（九遁、三奇得使等）—— 比一般格局标签更优先的判断依据
-  const classicPatternSummary = data.classicPatterns?.length
-    ? data.classicPatterns
+  const classicPatternFacts = evidenceAnalysis.patternFacts.filter(
+    (item) => item.kind === '经典格局',
+  );
+  const classicPatternSummary = classicPatternFacts.length
+    ? classicPatternFacts
         .slice(0, 4)
         .map(
           (item) =>
-            `${item.name}（${item.type === 'good' ? '有利标签' : item.type === 'bad' ? '风险标签' : '中性标签'}）：${item.summary}`,
+            `${item.name}（传统${item.traditionalTone}分类、非事实结论）：${item.promptText}`,
         )
         .join('；')
     : '';
@@ -734,21 +744,26 @@ function formatQimenInfo(data: QimenData) {
         .map((item) => `${item.type}${item.values.join('、')}`)
         .join('；')
     : '';
-  const patternComboSummary = data.patternCombos?.length
-    ? data.patternCombos
+  const comboPatternFacts = evidenceAnalysis.patternFacts.filter(
+    (item) => item.kind === '复合格局',
+  );
+  const patternComboSummary = comboPatternFacts.length
+    ? comboPatternFacts
         .slice(0, 4)
         .map((item) => {
           const tone =
-            item.tone === 'super-good'
+            item.traditionalTone === '有利'
               ? '支持条件集中'
-              : item.tone === 'super-bad'
+              : item.traditionalTone === '风险'
                 ? '限制条件集中'
                 : '支持与限制并见';
-          return `${item.name}（${tone}）：${item.summary}`;
+          return `${item.name}（${tone}、非事实结论）：${item.promptText}`;
         })
         .join('；')
     : '';
-  const specialConditionsText = data.specialConditions?.description?.trim();
+  const specialConditionsText = data.specialConditions?.description?.trim()
+    ? conditionQimenTraditionalText(data.specialConditions.description.trim())
+    : '';
   const primaryCandidate = evidenceAnalysis.candidates[0];
   const focusParts = [
     `值符${data.zhiFu}`,

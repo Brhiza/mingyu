@@ -35,7 +35,11 @@ import { generateMeihua } from 'mingyu-core/divination/meihua';
 import { analyzeSsgwEvidence, drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { SSGW_INTERPRETATION_FIELDS, SSGW_SIGNS } from '../packages/core/src/divination/ssgw-data';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
-import { generateQimen, resolveZhiShiLandingPalace } from 'mingyu-core/divination/qimen';
+import {
+  conditionQimenTraditionalText,
+  generateQimen,
+  resolveZhiShiLandingPalace,
+} from 'mingyu-core/divination/qimen';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 type DivinationDraftInput = Parameters<typeof generateDivinationSession>[0];
@@ -428,6 +432,17 @@ test('奇门定局、值符值使、宫间作用与触发条件应进入统一�
   assert.ok(analysis.calculationFacts.some((item) => item.includes(data.timeInfo.solarTerm)));
   assert.ok(analysis.calculationFacts.some((item) => item.includes(data.timeInfo.epoch)));
   assert.ok(analysis.ruleSources.some((item) => item.includes('旬首值符值使规则')));
+  assert.equal(
+    analysis.patternFacts.length,
+    (data.patternDetails?.length ?? 0) +
+      (data.classicPatterns?.length ?? 0) +
+      (data.patternCombos?.length ?? 0),
+  );
+  assert.ok(
+    analysis.patternFacts.every(
+      (item) => item.originalText && item.promptText && item.limitation.includes('不是现实结果'),
+    ),
+  );
 
   const setupItem = items.find((item) => item.title === '定局计算事实');
   assert.equal(setupItem?.level, '辅证');
@@ -450,6 +465,30 @@ test('奇门定局、值符值使、宫间作用与触发条件应进入统一�
     JSON.stringify(analysis.evidence),
     /"score"\s*:|成功率[：=]?\s*\d|吉凶总分[：=]?\s*\d/,
   );
+});
+
+test('奇门传统格局应保留原文并为提示词生成条件化副本', () => {
+  const original = '乙加地盘癸为日入天网，主官事破财，万事破伤；凶期百日而后或有舒情。';
+  const conditioned = conditionQimenTraditionalText(original);
+
+  assert.match(original, /主官事破财|万事破伤|凶期百日/);
+  assert.match(conditioned, /传统象意提示官事破财/);
+  assert.match(conditioned, /传统象意提示多重阻碍/);
+  assert.match(conditioned, /不得据此输出固定日期/);
+  assert.doesNotMatch(conditioned, /万事破伤|凶期百日|本项目|当前项目|工程|算法结果/);
+
+  for (const heavenStem of '甲乙丙丁戊己庚辛壬癸') {
+    for (const earthStem of '甲乙丙丁戊己庚辛壬癸') {
+      const pattern = getStemPairPattern(heavenStem, earthStem);
+      if (!pattern) continue;
+      const promptText = conditionQimenTraditionalText(pattern.summary);
+      assert.doesNotMatch(
+        promptText,
+        /百事(?:吉昌|称心|顺遂|可为)|万事(?:破伤|皆屯)|凶期百日|(^|[，；。])主(?!(?:动|客|轴|证|判|要))|大吉|大凶/,
+        `${heavenStem}加${earthStem}的条件化文本仍含绝对传统断语`,
+      );
+    }
+  }
 });
 
 test('奇门复合格局应按同宫门神叠加识别', () => {
