@@ -16,6 +16,10 @@ export interface LiurenTransmissionEvidence extends LiurenTransmission {
 }
 
 export interface LiurenEvidenceAnalysis {
+  calculationFacts: string[];
+  plateFacts: string[];
+  patternEvidence: string[];
+  shenShaEvidence: string[];
   rule: string;
   initialBranch: string;
   initialSourceLessons: string[];
@@ -72,6 +76,20 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
   }
   const initial = data.threeTransmissions[0];
   const xunKong = data.xunKong ?? [];
+  const calculationFacts = [
+    `四柱干支：年${data.ganzhi.year}、月${data.ganzhi.month}、日${data.ganzhi.day}、时${data.ganzhi.hour}`,
+    `月将加时：月将${data.monthLeader}加占时${data.divinationBranch}`,
+    `贵人定位：${data.dayNight ?? '昼夜未列'}，日干贵人${data.noblemanBranch ?? '未列'}${data.noblemanGroundBranch ? `临地盘${data.noblemanGroundBranch}` : ''}`,
+    `日干寄宫：${data.ganzhi.day.charAt(0)}寄${data.dayStemResidence ?? '未列'}`,
+    `日柱旬空：${xunKong.join('、') || '未列'}`,
+  ];
+  const plateFacts = data.heavenlyPlate.map(
+    (item) => `地盘${item.under}上见天盘${item.branch}乘${item.god}`,
+  );
+  const patternEvidence = Array.from(
+    new Set([...(data.patternTags ?? []), ...(data.guaTi ?? [])].filter(Boolean)),
+  );
+  const shenShaEvidence = Array.from(new Set((data.shenShaSummary ?? []).filter(Boolean)));
   const lessons = data.fourLessons.map((lesson, index): LiurenLessonEvidence => ({
     ...lesson,
     index: index + 1,
@@ -124,19 +142,104 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     : '未附经典规则说明';
   const items: PromptEvidenceItem[] = [
     {
+      level: '辅证',
+      title: '月将加时与贵人起盘事实',
+      detail: calculationFacts.join('；'),
+      source: '占时四柱、月将加时、昼夜贵人与日干寄宫逐项计算',
+      tags: ['月将', '占时', '贵人', '日干寄宫', '旬空'],
+    },
+    {
+      level: '辅证',
+      title: '天地盘十二支与天将定位',
+      detail: plateFacts.join('；'),
+      source: '月将加占时生成天地盘，再按贵人顺逆布十二天将',
+      tags: ['天地盘', '十二天将'],
+    },
+    {
       level: '主证',
       title: '四课取传与初传发用',
       detail: `四课${lessons.map((item) => `${item.name}${item.upper}临${item.lower}（${item.relation}）`).join('；')}；按${data.transmissionRule || '现有取传规则'}取初传${initial.branch}乘${initial.god}${initialSourceLessons.length ? `，对应${initialSourceLessons.join('、')}上神` : '，特殊取传未直接对应单一课上神'}；古籍依据：${classicalText}`,
       source: '四课、九宗门取传结果与经典规则逐项核验',
       tags: ['四课', data.transmissionRule || '取传'],
     },
+    ...lessons.map((item): PromptEvidenceItem => ({
+      level: item.isInitialSource ? '主证' : '辅证',
+      title: `${item.name}上下神关系`,
+      detail: `${item.upper}临${item.lower}，乘${item.god}，关系${item.relation}；课注${item.note || '未列'}；限制${item.constraints.join('、') || '未见旬空或直接克制'}`,
+      source: '日干寄宫、日支与天地盘逐课推导',
+      tags: ['四课', item.name, ...(item.isInitialSource ? ['初传来源'] : [])],
+    })),
     ...transmissions.map((item, index): PromptEvidenceItem => ({
       level: index === 0 ? '主证' : '辅证',
       title: `${item.stage}${item.label}`,
-      detail: `${formatTransmission(item)}；与前位关系${item.relation}；与日支关系${item.dayRelation || '未列'}；支持${item.support.join('、') || '未见额外增强'}；限制${item.constraints.join('、') || '未见明显空亡或月令限制'}`,
+      detail: `${formatTransmission(item)}；与前位关系${item.relation}；与日支关系${item.dayRelation || '未列'}；传注${item.note || '未列'}；支持${item.support.join('、') || '未见额外增强'}；限制${item.constraints.join('、') || '未见明显空亡或月令限制'}`,
       source: '三传、天将、月令旺衰、旬空与日支关系核验',
       tags: [item.stage, item.branch],
     })),
+    ...transitions.map((detail, index): PromptEvidenceItem => ({
+      level: '辅证',
+      title: `${index === 0 ? '初传至中传' : '中传至末传'}推进关系`,
+      detail,
+      source: '三传先后次序与相邻地支关系',
+      tags: ['三传推进', index === 0 ? '过程' : '落点'],
+    })),
+    ...(data.transmissionDetail
+      ? [
+          {
+            level: '辅证' as const,
+            title: '取传规则与三传模式说明',
+            detail: data.transmissionDetail,
+            source: '九宗门取传结果、三传结构与经典规则合并说明',
+            tags: [
+              '取传规则',
+              data.transmissionRule || '未命名',
+              data.transmissionPattern || '未分类',
+            ],
+          },
+        ]
+      : []),
+    ...(patternEvidence.length
+      ? [
+          {
+            level: '辅证' as const,
+            title: '课体与三传结构标签',
+            detail: patternEvidence.join('；'),
+            source: '发用、三传结构、空亡与经典课体规则逐项命中',
+            tags: ['课体', '结构标签'],
+          },
+        ]
+      : []),
+    ...(data.classicalRules ?? []).map((item): PromptEvidenceItem => ({
+      level: '辅证',
+      title: `经典规则：${item.rule}`,
+      detail: `${item.category}；${item.summary}`,
+      source: item.source,
+      tags: ['经典规则', item.rule, item.category],
+    })),
+    ...(shenShaEvidence.length
+      ? [
+          {
+            level: '辅证' as const,
+            title: '神煞定位事实',
+            detail: `${shenShaEvidence.join('；')}。神煞仅作辅助定位，不覆盖四课取传与三传主线。`,
+            source: '年支、月支、日支与日干神煞规则逐项定位',
+            tags: ['神煞', '辅助证据'],
+          },
+        ]
+      : []),
+    ...transmissions.flatMap((item): PromptEvidenceItem[] => {
+      const props = data.tianJiangProps?.[item.god];
+      if (!props) return [];
+      return [
+        {
+          level: '辅证',
+          title: `${item.stage}${item.god}天将属性`,
+          detail: `${props.wuxing}${props.yinYang}，类别${props.category}${props.description ? `；${props.description}` : ''}${props.color ? `；色${props.color}` : ''}${props.terrain ? `；地形${props.terrain}` : ''}${props.bodyPart ? `；身体部位${props.bodyPart}` : ''}`,
+          source: '大六壬十二天将属性表；属性只限定象义范围',
+          tags: ['天将属性', item.stage, item.god],
+        },
+      ];
+    }),
     ...focusEvidence.map((item): PromptEvidenceItem => ({
       level: item.level,
       title: `${item.target}${item.role}`,
@@ -147,7 +250,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     ...(timingEvidence.length
       ? [
           {
-            level: '辅证' as const,
+            level: '应期' as const,
             title: '应期触发证据',
             detail: timingEvidence.join('；'),
             source: '三传、空亡、月日关系与盘面时机条件',
@@ -155,6 +258,13 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
           },
         ]
       : []),
+    ...counterEvidence.map((detail, index): PromptEvidenceItem => ({
+      level: '反证',
+      title: `课传限制核验${index + 1}`,
+      detail,
+      source: '四课、三传、旬空、月令与日支关系逐项核验',
+      tags: ['反证', '课传限制'],
+    })),
     {
       level: '限制',
       title: '大六壬课传解释边界',
@@ -172,6 +282,10 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     `触发条件：${timingConditions.join('；')}`,
   ].join('\n');
   return {
+    calculationFacts,
+    plateFacts,
+    patternEvidence,
+    shenShaEvidence,
     rule: data.transmissionRule || '',
     initialBranch: initial.branch,
     initialSourceLessons,
@@ -187,6 +301,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     methodology: [
       '先核验四课上下关系，再按已计算的九宗门规则确认初传发用。',
       '初传、中传、末传分别作为起点、过程、落点，逐传保留天将、旺衰、旬空和日支关系。',
+      '月将加时、昼夜贵人、天地盘、日干寄宫、课体、神煞与天将属性均保留为结构化辅证。',
       '课体与神煞只作辅助标签，不覆盖发用和三传主线。',
       '未按问题选择类神时保留限制，不生成吉凶总分、成功率或绝对日期。',
     ],

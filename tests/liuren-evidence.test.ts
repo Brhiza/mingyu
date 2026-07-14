@@ -49,3 +49,35 @@ test('大六壬证据应保留类神未选定限制，不把日支或神煞固�
   assert.match(evidence.promptText, /不得把日支或任一神煞固定当作用神/);
   assert.match(evidence.promptText, /未给期限时不换算唯一日期/);
 });
+
+test('大六壬起盘链、天地盘、课体神煞与天将属性应进入统一证据条目', () => {
+  const data = generateLiuren(fixedDate);
+  const evidence = data.evidenceAnalysis;
+  const items = evidence?.evidence.items ?? [];
+
+  assert.ok(evidence);
+  assert.ok(evidence.calculationFacts.some((item) => item.includes(`月将${data.monthLeader}`)));
+  assert.ok(
+    evidence.calculationFacts.some(
+      (item) => item.includes(data.dayNight ?? '') && item.includes(data.noblemanBranch ?? ''),
+    ),
+  );
+  assert.equal(evidence.plateFacts.length, 12);
+  assert.ok(evidence.plateFacts.every((item) => /地盘.上见天盘.乘/.test(item)));
+  assert.deepEqual(new Set(evidence.patternEvidence), new Set(data.patternTags));
+  assert.deepEqual(evidence.shenShaEvidence, data.shenShaSummary);
+
+  assert.ok(items.some((item) => item.title === '月将加时与贵人起盘事实'));
+  assert.ok(items.some((item) => item.title === '天地盘十二支与天将定位'));
+  assert.equal(items.filter((item) => item.tags?.includes('四课')).length >= 5, true);
+  assert.equal(items.filter((item) => item.tags?.includes('三传推进')).length, 2);
+  assert.ok(items.some((item) => item.title === '课体与三传结构标签'));
+  assert.ok(items.some((item) => item.title === '神煞定位事实'));
+  assert.ok(items.some((item) => item.tags?.includes('天将属性')));
+  assert.ok(items.some((item) => item.level === '应期' && item.title === '应期触发证据'));
+  assert.ok(evidence.counterEvidence.length === 0 || items.some((item) => item.level === '反证'));
+  assert.doesNotMatch(
+    JSON.stringify(evidence.evidence),
+    /"score"\s*:|成功率[：=]?\s*\d|吉凶总分[：=]?\s*\d/,
+  );
+});
