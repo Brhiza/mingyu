@@ -1,46 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createElement } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { MemoryRouter } from 'react-router-dom';
 import {
   DEFAULT_REVERSE_BIRTH_TIME_FORM_DATA,
   REVERSE_BIRTH_TIME_SELECT_FIELDS,
   REVERSE_BIRTH_TIME_TEXT_FIELDS,
-  UNKNOWN_TIME_INDEX,
   buildReverseBirthTimePrompt,
   buildThreePillarsProfile,
   buildUnknownTimeBaziPrompt,
 } from '../src/lib/birth-time-reverse';
 import { buildThreePillarsProfile as buildCoreThreePillarsProfile } from '@core/birth-time-reverse';
-import { BirthTimeReversePage } from '../src/pages/BirthTimeReversePage';
-import {
-  buildResultSearch,
-  defaultInputState,
-  defaultPromptState,
-  parseInputState,
-} from '../src/lib/query-state';
-
-test('未知时辰索引会被查询参数正确保留', () => {
-  const inputState = parseInputState(new URLSearchParams('timeIndex=-1&partnerTimeIndex=-1'));
-
-  assert.equal(inputState.timeIndex, UNKNOWN_TIME_INDEX);
-  assert.equal(inputState.partnerTimeIndex, UNKNOWN_TIME_INDEX);
-
-  const search = buildResultSearch(
-    {
-      ...defaultInputState,
-      timeIndex: UNKNOWN_TIME_INDEX,
-      partnerTimeIndex: UNKNOWN_TIME_INDEX,
-    },
-    defaultPromptState,
-  );
-
-  assert.match(search, /ti=-1/);
-  assert.match(search, /pti=-1/);
-  assert.doesNotMatch(search, /timeIndex=-1/);
-  assert.doesNotMatch(search, /partnerTimeIndex=-1/);
-});
 
 test('反推时辰提示词保持 section 结构，并要求先互动再判断', () => {
   const profile = buildThreePillarsProfile({
@@ -361,31 +329,6 @@ test('未知时辰内置快捷提示词只把分类作为问题范围', () => {
   assert.match(prompt, /我适合换工作吗？/);
   assert.doesNotMatch(prompt, /问题研判框架/);
   assert.doesNotMatch(prompt, /婚恋问题优先看配偶星/);
-});
-
-function renderBirthTimeReversePage(initialEntry: string) {
-  return renderToStaticMarkup(
-    createElement(
-      MemoryRouter,
-      { initialEntries: [initialEntry] },
-      createElement(BirthTimeReversePage),
-    ),
-  );
-}
-
-test('反推时辰页面会按真实路由参数显示可用与不可用状态', () => {
-  const unavailableHtml = renderBirthTimeReversePage(
-    '/birth-time-reverse?a=compatibility&y=1994&m=10&d=23',
-  );
-  const availableHtml = renderBirthTimeReversePage('/birth-time-reverse?y=1994&m=10&d=23');
-
-  assert.match(unavailableHtml, /反推时辰提示词仅支持个人模式使用/);
-  assert.match(availableHtml, /所有选项都可以留空，只填你确定的部分即可/);
-  assert.match(availableHtml, /点击复制后，发送到你常用的在线 AI 软件继续提问/);
-  assert.match(availableHtml, /<select/);
-  assert.match(availableHtml, /<input/);
-  assert.match(availableHtml, /<textarea/);
-  assert.match(availableHtml, /【候选时辰】/);
 });
 
 test('反推时辰字段选项会进入真实提示词且不保留旧字段名', () => {

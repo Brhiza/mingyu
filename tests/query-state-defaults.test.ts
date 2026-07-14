@@ -5,7 +5,6 @@ import {
   buildResultSearch,
   defaultInputState,
   defaultPromptState,
-  UNKNOWN_TIME_INDEX,
   parseInputState,
   parsePromptState,
 } from '../src/lib/query-state';
@@ -648,7 +647,7 @@ test('短参数链接可以完整恢复输入与提示词状态', () => {
   assert.equal(parsedInput.name, '张三');
   assert.equal(parsedInput.gender, 'female');
   assert.equal(parsedInput.dateType, 'lunar');
-  assert.equal(parsedInput.timeIndex, UNKNOWN_TIME_INDEX);
+  assert.equal(parsedInput.timeIndex, '');
   assert.equal(parsedInput.isLeapMonth, true);
   assert.equal(parsedInput.partnerName, '李四');
   assert.equal(parsedInput.partnerTimeIndex, 6);

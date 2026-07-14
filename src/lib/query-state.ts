@@ -123,7 +123,6 @@ const ASTROLABE_PROMPT_SCOPES: readonly AstrolabeScopeMode[] = [
   'daily',
 ];
 
-export const UNKNOWN_TIME_INDEX = -1;
 const MAX_TIME_INDEX = BIRTH_TIME_OPTIONS.length - 1;
 
 export const defaultInputState: QueryInputState = {
@@ -447,10 +446,7 @@ function parseTimeIndex(value: string) {
   }
 
   const parsed = Number(value);
-  return Number.isInteger(parsed) &&
-    (parsed === UNKNOWN_TIME_INDEX || (parsed >= 0 && parsed <= MAX_TIME_INDEX))
-    ? parsed
-    : '';
+  return Number.isInteger(parsed) && parsed >= 0 && parsed <= MAX_TIME_INDEX ? parsed : '';
 }
 
 function parseIntegerText(value: string, min: number, max: number) {

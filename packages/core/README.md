@@ -134,7 +134,6 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **塔罗 Tarot**         | `mingyu-core/divination/tarot`                                                                                                                | 塔罗抽牌、牌阵、关键字                                                                                 |
 | **塔罗牌数据**         | `mingyu-core/divination/tarot-data`                                                                                                           | 塔罗牌定义与牌阵配置                                                                                   |
 | **占卜辅助工具**       | `mingyu-core/divination/divination-helpers`                                                                                                   | 占卜通用格式与计算工具                                                                                 |
-| **反推未知时辰**       | `mingyu-core/birth-time-reverse`                                                                                                              | 根据命盘特征反推时辰                                                                                   |
 | **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | iztro 封装、35 格局检测、证据池、大限时间线                                                            |
 | **七政四余 Qizheng**   | `mingyu-core/qizheng`                                                                                                                         | 七政、四余、二十八宿与十二宫；逐星保留来源、坐标链路和精度等级，紫炁采用《七政算内篇》单一古法均速模型 |
 

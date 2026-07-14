@@ -588,27 +588,6 @@ const systems: SystemCapability[] = [
     optionalDependencies: ['celestine'],
     notes: ['现有七政四余输入尚未拆分天体计算时刻与传统真太阳时宫位口径，因此不宣称支持真太阳时。'],
   },
-  {
-    id: 'birthTimeReverse',
-    name: '出生时辰反推',
-    category: 'chart',
-    inputs: [
-      {
-        ...birthProfileInput,
-        description: '只需出生年月日和性别，时辰应标记为未知。',
-      },
-      { id: 'evidence', label: '人生事实', type: 'object', required: false },
-    ],
-    outputs: ['年月日三柱', '十二时辰候选', '候选四柱差异', '时柱十神', '地支关系'],
-    supports: {
-      seed: false,
-      customRandomSource: false,
-      trueSolarTime: false,
-      unknownBirthTime: 'full',
-      batch: true,
-    },
-    notes: ['核心负责生成十二时辰候选；基于人生事实的筛选与解释仍需调用方完成。'],
-  },
 ];
 
 /** 返回可安全序列化的能力清单，供网站、App、API 或 MCP 自动生成入口。 */

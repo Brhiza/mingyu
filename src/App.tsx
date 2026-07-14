@@ -22,11 +22,6 @@ const TutorialPage = lazy(async () => {
   return { default: module.TutorialPage };
 });
 
-const BirthTimeReversePage = lazy(async () => {
-  const module = await import('./pages/BirthTimeReversePage');
-  return { default: module.BirthTimeReversePage };
-});
-
 export default function App() {
   return (
     <Suspense
@@ -48,7 +43,6 @@ export default function App() {
       <ErrorBoundary>
         <Routes>
           <Route path="/" element={<InputPage />} />
-          <Route path="/birth-time-reverse" element={<BirthTimeReversePage />} />
           <Route path="/tutorial" element={<TutorialPage />} />
           <Route path="/records" element={<RecordsPage />} />
           <Route path="/result" element={<ResultPage />} />
