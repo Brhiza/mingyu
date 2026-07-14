@@ -24,6 +24,14 @@ export interface LiuyaoYaoReference {
   isVoid: boolean;
   support: string[];
   constraints: string[];
+  changedYao?: {
+    sixRelative: string;
+    branch: string;
+    wuxing: string;
+    isVoid: boolean;
+    relation: LiuyaoYaoDetail['changeRelation'];
+    direction: LiuyaoYaoDetail['changeDirection'];
+  };
 }
 
 export interface LiuyaoUsefulGodCandidate {
@@ -64,7 +72,10 @@ function branchOf(ganzhi: string) {
 }
 
 function formatYao(reference: LiuyaoYaoReference) {
-  return `${reference.source}${reference.position}爻${reference.sixRelative}${reference.branch}${reference.wuxing}`;
+  const changed = reference.changedYao
+    ? `→${reference.changedYao.sixRelative}${reference.changedYao.branch}${reference.changedYao.wuxing}${reference.changedYao.relation ? `（${reference.changedYao.relation}）` : ''}${reference.changedYao.direction ? `（${reference.changedYao.direction}）` : ''}${reference.changedYao.isVoid ? '（变爻空亡）' : ''}`
+    : '';
+  return `${reference.source}${reference.position}爻${reference.sixRelative}${reference.branch}${reference.wuxing}${changed}`;
 }
 
 function buildVisibleReference(
@@ -111,6 +122,18 @@ function buildVisibleReference(
     isVoid: yao.isVoid,
     support,
     constraints,
+    ...(yao.changedYao
+      ? {
+          changedYao: {
+            sixRelative: yao.changedYao.liuqin,
+            branch: yao.changedYao.dizhi,
+            wuxing: yao.changedYao.wuxing,
+            isVoid: yao.changedYao.isVoid,
+            relation: yao.changeRelation,
+            direction: yao.changeDirection,
+          },
+        }
+      : {}),
   };
 }
 

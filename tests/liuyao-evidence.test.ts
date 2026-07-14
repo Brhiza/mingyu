@@ -15,6 +15,11 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
   assert.ok(evidence.selectedCandidate);
   assert.match(evidence.promptText, /【六爻用神作用链结构化证据】/);
   assert.match(evidence.promptText, /六爻取用与作用链解释边界/);
+  const changingReference = evidence.candidates
+    .flatMap((candidate) => candidate.references)
+    .find((reference) => reference.isChanging);
+  assert.ok(changingReference?.changedYao);
+  assert.match(evidence.promptText, /→.*（回头|化进|化退|变爻空亡）/);
   assert.doesNotMatch(evidence.promptText, /权重[：=]?\d|总分[：=]?\d|成功率[：=]?\d/);
 });
 
