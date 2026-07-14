@@ -79,3 +79,17 @@ test('星盘底层算法应保留扩展计算点，不再只返回十大星体',
   assert.ok(labels.includes('福点'));
   assert.ok(labels.includes('精神点'));
 });
+
+test('星盘应返回可复用的位置、相位、计算链与限制证据', () => {
+  const result = generateAstrolabe(validInput);
+  const evidence = result.evidenceAnalysis;
+
+  assert.ok(evidence);
+  assert.equal(evidence.evidence.title, '西方星盘位置与相位结构化证据');
+  assert.ok(evidence.calculationChain.some((item) => item.includes('Placidus')));
+  assert.ok(evidence.primaryFacts.some((item) => item.includes('太阳')));
+  assert.ok(evidence.supportingFacts.length > 0);
+  assert.ok(evidence.limitations.some((item) => item.includes('不代表事件概率')));
+  assert.match(evidence.promptText, /【西方星盘位置与相位结构化证据】/);
+  assert.doesNotMatch(evidence.promptText, /成功率|吉凶总分|能量分数[：=]\d/);
+});

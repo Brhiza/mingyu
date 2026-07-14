@@ -2074,6 +2074,11 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
   assert.equal(body.ok, true);
   assert.equal(body.data.birth.isTrueSolarTime, true);
   assert.ok(body.data.aspects.length > 0);
+  assert.equal(body.data.evidenceAnalysis.evidence.title, '西方星盘位置与相位结构化证据');
+  assert.ok(body.data.evidenceAnalysis.calculationChain.length >= 5);
+  assert.ok(
+    body.data.evidenceAnalysis.limitations.some((item: string) => item.includes('不代表事件概率')),
+  );
   body.data.aspects.forEach((aspect: { strength?: number }) => {
     assert.equal(aspect.strength, undefined);
   });

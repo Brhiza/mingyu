@@ -13,6 +13,9 @@ import {
   classifyAspectClosenessFromStrength,
   normalizedOrbRatioFromStrength,
 } from '../astrolabe-aspect-evidence';
+import { analyzeAstrolabeEvidence } from '../astrolabe-evidence';
+
+export { analyzeAstrolabeEvidence } from '../astrolabe-evidence';
 
 const PLANET_LABELS: Record<string, string> = {
   Sun: '太阳',
@@ -325,7 +328,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     mapPlanet,
   );
 
-  return {
+  const result: AstrolabeData = {
     birth: {
       name: readOptionalText(input.name, '未命名'),
       gender: input.gender,
@@ -378,4 +381,6 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     },
     timestamp: Date.now(),
   };
+  result.evidenceAnalysis = analyzeAstrolabeEvidence(result);
+  return result;
 }

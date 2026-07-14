@@ -576,12 +576,20 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
 
     assert.equal(result.isError, undefined, 'astrolabe_prompt 不应返回错误');
     const chart = (
-      result.structuredContent as { result?: { aspects?: Array<{ strength?: number }> } }
+      result.structuredContent as {
+        result?: {
+          aspects?: Array<{ strength?: number }>;
+          evidenceAnalysis?: { evidence?: { title?: string }; calculationChain?: string[] };
+        };
+      }
     ).result;
     for (const aspect of chart?.aspects ?? []) {
       assert.equal(aspect.strength, undefined);
     }
+    assert.equal(chart?.evidenceAnalysis?.evidence?.title, '西方星盘位置与相位结构化证据');
+    assert.ok((chart?.evidenceAnalysis?.calculationChain?.length ?? 0) >= 5);
     const prompt = String(result.structuredContent?.prompt);
+    assert.match(prompt, /【西方星盘位置与相位结构化证据】/);
     assert.match(prompt, /【分析对象】\n分析对象：流年2028。/);
     assert.match(prompt, /行运证据：土星□太阳/);
     assert.doesNotMatch(prompt, /强度\d+%/);
