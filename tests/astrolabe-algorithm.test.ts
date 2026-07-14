@@ -88,8 +88,17 @@ test('星盘应返回可复用的位置、相位、计算链与限制证据', ()
   assert.equal(evidence.evidence.title, '西方星盘位置与相位结构化证据');
   assert.ok(evidence.calculationChain.some((item) => item.includes('Placidus')));
   assert.ok(evidence.primaryFacts.some((item) => item.includes('太阳')));
+  assert.equal(evidence.planetFacts.length, result.planets.length);
+  assert.equal(evidence.angleFacts.length, 4);
+  assert.equal(evidence.houseFacts.length, 12);
+  assert.ok(evidence.distributionFacts.some((item) => item.includes('逆行点')));
+  assert.ok(evidence.illuminationFacts.some((item) => item.includes('太阳高度')));
   assert.ok(evidence.supportingFacts.length > 0);
   assert.ok(evidence.limitations.some((item) => item.includes('不代表事件概率')));
   assert.match(evidence.promptText, /【西方星盘位置与相位结构化证据】/);
+  assert.match(evidence.promptText, /完整星体与计算点位置/);
+  assert.match(evidence.promptText, /十二宫宫头/);
+  assert.match(evidence.promptText, /元素模式与逆行分布/);
+  assert.match(evidence.promptText, /出生地点太阳光照背景/);
   assert.doesNotMatch(evidence.promptText, /成功率|吉凶总分|能量分数[：=]\d/);
 });

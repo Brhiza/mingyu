@@ -5,12 +5,21 @@ import type { AstrolabeData } from '../types/divination';
 export interface AstrolabeEvidenceAnalysis {
   calculationChain: string[];
   primaryFacts: string[];
+  planetFacts: string[];
+  angleFacts: string[];
+  houseFacts: string[];
+  distributionFacts: string[];
+  illuminationFacts: string[];
   supportingFacts: string[];
   counterEvidence: string[];
   limitations: string[];
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
+}
+
+function formatPointFact(item: AstrolabeData['planets'][number]) {
+  return `${item.label}${item.formatted}，黄经${item.longitude.toFixed(3)}°${item.house ? `，第${item.house}宫` : ''}${item.retrograde ? '，逆行' : ''}`;
 }
 
 export function analyzeAstrolabeEvidence(
@@ -35,6 +44,28 @@ export function analyzeAstrolabeEvidence(
   const primaryFacts = primaryPoints.map(
     (item) => `${item.label}${item.formatted}${item.house ? `，落第${item.house}宫` : ''}`,
   );
+  const planetFacts = data.planets.map(formatPointFact);
+  const angleFacts = data.angles.map(formatPointFact);
+  const houseFacts = data.houses.map(
+    (item) => `${item.label}宫头${item.formatted}，黄经${item.longitude.toFixed(3)}°`,
+  );
+  const distributionFacts = [
+    ...Object.entries(data.summary.elements).map(
+      ([element, points]) => `${element}元素：${points.join('、') || '无'}`,
+    ),
+    ...Object.entries(data.summary.modalities).map(
+      ([modality, points]) => `${modality}模式：${points.join('、') || '无'}`,
+    ),
+    `逆行点：${data.summary.retrograde.join('、') || '无'}`,
+    `依赖库盘面格局：${data.summary.patterns.join('、') || '无'}`,
+  ];
+  const illuminationFacts = data.solarIllumination
+    ? [
+        `出生时刻太阳高度${data.solarIllumination.solarAltitudeDegrees.toFixed(3)}°、方位角${data.solarIllumination.solarAzimuthDegrees.toFixed(3)}°、赤纬${data.solarIllumination.solarDeclinationDegrees.toFixed(3)}°`,
+        `均时差${data.solarIllumination.equationOfTimeMinutes.toFixed(3)}分钟，视太阳正午${data.solarIllumination.apparentSolarNoonLocalDateTime}`,
+        `光照算法：${data.solarIllumination.method}；来源：${data.solarIllumination.source}`,
+      ]
+    : [];
   const supportingFacts = data.aspects.map(
     (item) =>
       `${item.body1}${item.symbol}${item.body2}（${item.type}），偏差${item.orb}°，${item.closeness ?? '未分级'}${item.applying === null ? '' : item.applying ? '，入相' : '，出相'}`,
@@ -61,6 +92,27 @@ export function analyzeAstrolabeEvidence(
       source: 'celestine 黄道位置、四轴与 Placidus 宫位计算',
       tags: [item.label, item.sign, item.house ? `第${item.house}宫` : '四轴'],
     })),
+    {
+      level: '辅证',
+      title: '完整星体与计算点位置',
+      detail: planetFacts.join('；'),
+      source: 'celestine 星体、交点、小行星、莉莉丝与阿拉伯点黄经及落宫计算',
+      tags: ['完整位置', '黄经', '落宫', '逆行'],
+    },
+    {
+      level: '辅证',
+      title: '四轴位置',
+      detail: angleFacts.join('；'),
+      source: 'celestine 地平与子午圈四轴计算',
+      tags: ['上升', '天顶', '下降', '天底'],
+    },
+    {
+      level: '辅证',
+      title: '十二宫宫头',
+      detail: houseFacts.join('；'),
+      source: 'celestine Placidus 十二宫宫头计算',
+      tags: ['Placidus', '十二宫', '宫头'],
+    },
     ...data.aspects.map((item): PromptEvidenceItem => ({
       level: '辅证',
       title: `${item.body1}与${item.body2}${item.type}`,
@@ -68,6 +120,24 @@ export function analyzeAstrolabeEvidence(
       source: item.source ?? 'celestine 本命相位计算',
       tags: [item.type, item.closeness ?? '未分级'],
     })),
+    {
+      level: '辅证',
+      title: '元素模式与逆行分布',
+      detail: distributionFacts.join('；'),
+      source: 'celestine 盘面元素、模式、逆行与格局汇总',
+      tags: ['元素', '模式', '逆行', '盘面格局'],
+    },
+    ...(illuminationFacts.length
+      ? [
+          {
+            level: '辅证' as const,
+            title: '出生地点太阳光照背景',
+            detail: illuminationFacts.join('；'),
+            source: '命语太阳高度、方位、赤纬与均时差公共算法',
+            tags: ['天文背景', '太阳高度', '均时差'],
+          },
+        ]
+      : []),
     ...counterEvidence.map((detail): PromptEvidenceItem => ({
       level: '反证',
       title: detail,
@@ -93,6 +163,11 @@ export function analyzeAstrolabeEvidence(
   return {
     calculationChain,
     primaryFacts,
+    planetFacts,
+    angleFacts,
+    houseFacts,
+    distributionFacts,
+    illuminationFacts,
     supportingFacts,
     counterEvidence,
     limitations,
