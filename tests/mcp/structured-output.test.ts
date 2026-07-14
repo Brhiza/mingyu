@@ -1657,6 +1657,21 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
           evidenceAnalysis: {
             lessons: unknown[];
             transmissions: unknown[];
+            calculationFact: {
+              monthLeader: string;
+              sources: string[];
+              limitation: string;
+            };
+            plateFact: { status: string; actualCount: number; limitation: string };
+            platePositionFacts: Array<{
+              key: string;
+              earthBranch: string;
+              heavenBranch: string;
+              god: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
             traditionalFacts: Array<{
               kind: string;
               originalText: string;
@@ -1670,6 +1685,24 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     ).result;
     assert.equal(liurenData.evidenceAnalysis.lessons.length, 4);
     assert.equal(liurenData.evidenceAnalysis.transmissions.length, 3);
+    assert.ok(liurenData.evidenceAnalysis.calculationFact.monthLeader);
+    assert.ok(liurenData.evidenceAnalysis.calculationFact.sources.length >= 3);
+    assert.match(liurenData.evidenceAnalysis.calculationFact.limitation, /不单独证明现实事件/);
+    assert.equal(liurenData.evidenceAnalysis.plateFact.status, '完整');
+    assert.equal(liurenData.evidenceAnalysis.plateFact.actualCount, 12);
+    assert.equal(liurenData.evidenceAnalysis.platePositionFacts.length, 12);
+    assert.ok(
+      liurenData.evidenceAnalysis.platePositionFacts.every(
+        (item) =>
+          item.key &&
+          item.earthBranch &&
+          item.heavenBranch &&
+          item.god &&
+          item.promptText &&
+          item.sources.length >= 2 &&
+          item.limitation.includes('只证明月将加时'),
+      ),
+    );
     assert.ok(liurenData.evidenceAnalysis.traditionalFacts.length > 0);
     assert.ok(
       liurenData.evidenceAnalysis.traditionalFacts.every(

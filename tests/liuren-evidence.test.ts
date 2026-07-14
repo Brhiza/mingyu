@@ -67,8 +67,34 @@ test('大六壬起盘链、天地盘、课体神煞与天将属性应进入统�
       (item) => item.includes(data.dayNight ?? '') && item.includes(data.noblemanBranch ?? ''),
     ),
   );
+  assert.equal(evidence.calculationFact.monthLeader, data.monthLeader);
+  assert.equal(evidence.calculationFact.divinationBranch, data.divinationBranch);
+  assert.equal(evidence.calculationFact.noblemanBranch, data.noblemanBranch);
+  assert.equal(evidence.calculationFact.noblemanGroundBranch, data.noblemanGroundBranch);
+  assert.deepEqual(evidence.calculationFact.xunKong, data.xunKong);
+  assert.ok(evidence.calculationFact.sources.length >= 3);
+  assert.match(evidence.calculationFact.limitation, /不单独证明现实事件/);
   assert.equal(evidence.plateFacts.length, 12);
   assert.ok(evidence.plateFacts.every((item) => /地盘.上见天盘.乘/.test(item)));
+  assert.equal(evidence.platePositionFacts.length, 12);
+  assert.equal(new Set(evidence.platePositionFacts.map((item) => item.key)).size, 12);
+  assert.ok(
+    evidence.platePositionFacts.every(
+      (item, index) =>
+        item.index === index + 1 &&
+        item.earthBranch === data.heavenlyPlate[index].under &&
+        item.heavenBranch === data.heavenlyPlate[index].branch &&
+        item.god === data.heavenlyPlate[index].god &&
+        item.promptText.includes(`地盘${item.earthBranch}上见天盘${item.heavenBranch}`) &&
+        item.sources.length >= 2 &&
+        item.limitation.includes('只证明月将加时'),
+    ),
+  );
+  assert.equal(evidence.platePositionFacts.filter((item) => item.isNobleman).length, 1);
+  assert.equal(evidence.platePositionFacts.filter((item) => item.isNoblemanGround).length, 1);
+  assert.equal(evidence.plateFact.status, '完整');
+  assert.equal(evidence.plateFact.actualCount, 12);
+  assert.equal(evidence.plateFact.positionKeys.length, 12);
   assert.deepEqual(new Set(evidence.patternEvidence), new Set(data.patternTags));
   assert.deepEqual(evidence.shenShaEvidence, data.shenShaSummary);
 
@@ -84,6 +110,23 @@ test('大六壬起盘链、天地盘、课体神煞与天将属性应进入统�
   assert.doesNotMatch(
     JSON.stringify(evidence.evidence),
     /"score"\s*:|成功率[：=]?\s*\d|吉凶总分[：=]?\s*\d/,
+  );
+});
+
+test('大六壬旧结果缺少天地盘时应明确标为证据缺口，不反推逐位事实', () => {
+  const data = generateLiuren(fixedDate);
+  data.heavenlyPlate = data.heavenlyPlate.slice(0, 11);
+
+  const evidence = analyzeLiurenEvidence(data);
+  assert.equal(evidence.plateFact.status, '缺少');
+  assert.equal(evidence.plateFact.expectedCount, 12);
+  assert.equal(evidence.plateFact.actualCount, 11);
+  assert.match(evidence.plateFact.promptText, /仅保留11\/12位/);
+  assert.match(evidence.plateFact.limitation, /不得反推或补造/);
+  assert.ok(
+    evidence.evidence.items.some(
+      (item) => item.level === '反证' && item.title === '天地盘定位资料缺失',
+    ),
   );
 });
 

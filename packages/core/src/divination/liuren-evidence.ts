@@ -27,8 +27,51 @@ export interface LiurenTraditionalFact {
   limitation: '传统规则或类象只用于限定解释方向，不证明现实事件、身份、疾病、死亡、犯罪、婚姻、法律责任或财务结果';
 }
 
+export interface LiurenCalculationFact {
+  key: string;
+  ganzhi: LiurenData['ganzhi'];
+  monthLeader: string;
+  divinationBranch: string;
+  dayNight: LiurenData['dayNight'] | '未列';
+  noblemanBranch?: string;
+  noblemanGroundBranch?: string;
+  dayStem: string;
+  dayStemResidence?: string;
+  xunKong: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '起盘参数只记录占时四柱、月将加时、昼夜贵人、日干寄宫与旬空的计算输入和结果，不单独证明现实事件、吉凶或应期';
+}
+
+export interface LiurenPlateFact {
+  key: string;
+  index: number;
+  earthBranch: string;
+  heavenBranch: string;
+  god: string;
+  isNobleman: boolean;
+  isNoblemanGround: boolean;
+  promptText: string;
+  sources: string[];
+  limitation: '天地盘逐位字段只证明月将加时与十二天将排布后的对应关系，不单独证明现实吉凶、人物身份、事件或方位结果';
+}
+
+export interface LiurenPlateCoverageFact {
+  key: string;
+  status: '完整' | '缺少';
+  expectedCount: 12;
+  actualCount: number;
+  positionKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '天地盘覆盖状态只说明当前结果能否完整核验十二位对应；缺少逐位资料时不得反推或补造天盘支、地盘支与天将';
+}
+
 export interface LiurenEvidenceAnalysis {
+  calculationFact: LiurenCalculationFact;
   calculationFacts: string[];
+  plateFact: LiurenPlateCoverageFact;
+  platePositionFacts: LiurenPlateFact[];
   plateFacts: string[];
   patternEvidence: string[];
   shenShaEvidence: string[];
@@ -50,6 +93,12 @@ export interface LiurenEvidenceAnalysis {
 
 const TRADITIONAL_FACT_LIMITATION =
   '传统规则或类象只用于限定解释方向，不证明现实事件、身份、疾病、死亡、犯罪、婚姻、法律责任或财务结果' as const;
+const CALCULATION_FACT_LIMITATION =
+  '起盘参数只记录占时四柱、月将加时、昼夜贵人、日干寄宫与旬空的计算输入和结果，不单独证明现实事件、吉凶或应期' as const;
+const PLATE_FACT_LIMITATION =
+  '天地盘逐位字段只证明月将加时与十二天将排布后的对应关系，不单独证明现实吉凶、人物身份、事件或方位结果' as const;
+const PLATE_COVERAGE_LIMITATION =
+  '天地盘覆盖状态只说明当前结果能否完整核验十二位对应；缺少逐位资料时不得反推或补造天盘支、地盘支与天将' as const;
 
 export function conditionLiurenTraditionalText(text: string): string {
   return text
@@ -183,21 +232,79 @@ function formatTransmission(item: LiurenTransmissionEvidence) {
   return `${item.stage}${item.branch}乘${item.god}（${item.wuxing || '五行未列'}、月令${item.seasonState || '未定'}${item.isVoid ? '、空亡' : ''}）`;
 }
 
+function buildCalculationFact(data: LiurenData, xunKong: string[]): LiurenCalculationFact {
+  const dayStem = data.ganzhi.day.charAt(0);
+  return {
+    key: `liuren:calculation:${data.timestamp}`,
+    ganzhi: { ...data.ganzhi },
+    monthLeader: data.monthLeader,
+    divinationBranch: data.divinationBranch,
+    dayNight: data.dayNight ?? '未列',
+    noblemanBranch: data.noblemanBranch,
+    noblemanGroundBranch: data.noblemanGroundBranch,
+    dayStem,
+    dayStemResidence: data.dayStemResidence,
+    xunKong: [...xunKong],
+    promptText: `四柱干支为年${data.ganzhi.year}、月${data.ganzhi.month}、日${data.ganzhi.day}、时${data.ganzhi.hour}；月将${data.monthLeader}加占时${data.divinationBranch}；${data.dayNight ?? '昼夜未列'}，日干贵人${data.noblemanBranch ?? '未列'}${data.noblemanGroundBranch ? `临地盘${data.noblemanGroundBranch}` : ''}；日干${dayStem}寄${data.dayStemResidence ?? '未列'}；日柱旬空${xunKong.join('、') || '未列'}`,
+    sources: [
+      '占时四柱与月将中气切换计算',
+      '月将加时天地盘规则',
+      '昼夜贵人、日干寄宫与日柱旬空规则',
+    ],
+    limitation: CALCULATION_FACT_LIMITATION,
+  };
+}
+
+function buildPlatePositionFacts(data: LiurenData): LiurenPlateFact[] {
+  return data.heavenlyPlate.map((item, index) => ({
+    key: `liuren:plate:${item.under}:${item.branch}:${item.god}`,
+    index: index + 1,
+    earthBranch: item.under,
+    heavenBranch: item.branch,
+    god: item.god,
+    isNobleman: item.branch === data.noblemanBranch,
+    isNoblemanGround: item.under === data.noblemanGroundBranch,
+    promptText: `第${index + 1}位地盘${item.under}上见天盘${item.branch}乘${item.god}${item.branch === data.noblemanBranch ? '，此天盘支为日干贵人' : ''}${item.under === data.noblemanGroundBranch ? '，贵人临此地盘' : ''}`,
+    sources: ['月将加占时生成天地盘十二支对应', '贵人临地盘定天将顺逆并布十二天将'],
+    limitation: PLATE_FACT_LIMITATION,
+  }));
+}
+
+function buildPlateCoverageFact(positions: LiurenPlateFact[]): LiurenPlateCoverageFact {
+  const status = positions.length === 12 ? '完整' : '缺少';
+  return {
+    key: 'liuren:plate:coverage',
+    status,
+    expectedCount: 12,
+    actualCount: positions.length,
+    positionKeys: positions.map((item) => item.key),
+    promptText:
+      status === '完整'
+        ? '天地盘十二位与十二天将资料完整，可逐位核验月将加时和贵人顺逆排布。'
+        : `当前结果仅保留${positions.length}/12位天地盘资料，无法完整核验月将加时和十二天将排布；不得反推或补造缺失位置。`,
+    sources: ['当前大六壬结果的天地盘逐位记录', '十二地支与十二天将完整性检查'],
+    limitation: PLATE_COVERAGE_LIMITATION,
+  };
+}
+
 export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis {
   if (data.fourLessons.length !== 4 || data.threeTransmissions.length !== 3) {
     throw new Error('大六壬证据分析需要完整四课与三传。');
   }
   const initial = data.threeTransmissions[0];
   const xunKong = data.xunKong ?? [];
+  const calculationFact = buildCalculationFact(data, xunKong);
   const calculationFacts = [
-    `四柱干支：年${data.ganzhi.year}、月${data.ganzhi.month}、日${data.ganzhi.day}、时${data.ganzhi.hour}`,
-    `月将加时：月将${data.monthLeader}加占时${data.divinationBranch}`,
-    `贵人定位：${data.dayNight ?? '昼夜未列'}，日干贵人${data.noblemanBranch ?? '未列'}${data.noblemanGroundBranch ? `临地盘${data.noblemanGroundBranch}` : ''}`,
-    `日干寄宫：${data.ganzhi.day.charAt(0)}寄${data.dayStemResidence ?? '未列'}`,
-    `日柱旬空：${xunKong.join('、') || '未列'}`,
+    `四柱干支：年${calculationFact.ganzhi.year}、月${calculationFact.ganzhi.month}、日${calculationFact.ganzhi.day}、时${calculationFact.ganzhi.hour}`,
+    `月将加时：月将${calculationFact.monthLeader}加占时${calculationFact.divinationBranch}`,
+    `贵人定位：${calculationFact.dayNight}，日干贵人${calculationFact.noblemanBranch ?? '未列'}${calculationFact.noblemanGroundBranch ? `临地盘${calculationFact.noblemanGroundBranch}` : ''}`,
+    `日干寄宫：${calculationFact.dayStem}寄${calculationFact.dayStemResidence ?? '未列'}`,
+    `日柱旬空：${calculationFact.xunKong.join('、') || '未列'}`,
   ];
-  const plateFacts = data.heavenlyPlate.map(
-    (item) => `地盘${item.under}上见天盘${item.branch}乘${item.god}`,
+  const platePositionFacts = buildPlatePositionFacts(data);
+  const plateFact = buildPlateCoverageFact(platePositionFacts);
+  const plateFacts = platePositionFacts.map(
+    (item) => `地盘${item.earthBranch}上见天盘${item.heavenBranch}乘${item.god}`,
   );
   const patternEvidence = Array.from(
     new Set([...(data.patternTags ?? []), ...(data.guaTi ?? [])].filter(Boolean)),
@@ -259,16 +366,18 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     {
       level: '辅证',
       title: '月将加时与贵人起盘事实',
-      detail: calculationFacts.join('；'),
-      source: '占时四柱、月将加时、昼夜贵人与日干寄宫逐项计算',
+      detail: `${calculationFact.promptText}；边界：${calculationFact.limitation}`,
+      source: calculationFact.sources.join('、'),
       tags: ['月将', '占时', '贵人', '日干寄宫', '旬空'],
     },
     {
-      level: '辅证',
-      title: '天地盘十二支与天将定位',
-      detail: plateFacts.join('；'),
-      source: '月将加占时生成天地盘，再按贵人顺逆布十二天将',
-      tags: ['天地盘', '十二天将'],
+      level: plateFact.status === '完整' ? '辅证' : '反证',
+      title: plateFact.status === '完整' ? '天地盘十二支与天将定位' : '天地盘定位资料缺失',
+      detail: `${plateFact.promptText}${platePositionFacts.length ? `；已保存位置：${platePositionFacts.map((item) => item.promptText).join('；')}` : ''}；逐位边界：${PLATE_FACT_LIMITATION}；覆盖边界：${plateFact.limitation}`,
+      source: Array.from(
+        new Set([...plateFact.sources, ...platePositionFacts.flatMap((item) => item.sources)]),
+      ).join('、'),
+      tags: ['天地盘', '十二天将', plateFact.status],
     },
     {
       level: '主证',
@@ -401,7 +510,10 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     `触发条件：${timingConditions.join('；')}`,
   ].join('\n');
   return {
+    calculationFact,
     calculationFacts,
+    plateFact,
+    platePositionFacts,
     plateFacts,
     patternEvidence,
     shenShaEvidence,

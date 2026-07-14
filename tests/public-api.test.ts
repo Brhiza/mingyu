@@ -2648,6 +2648,27 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
   assert.equal(liurenChart.response.status, 200);
   assert.equal(liurenChart.body.data.evidenceAnalysis.lessons.length, 4);
   assert.equal(liurenChart.body.data.evidenceAnalysis.transmissions.length, 3);
+  assert.equal(
+    liurenChart.body.data.evidenceAnalysis.calculationFact.monthLeader,
+    liurenChart.body.data.monthLeader,
+  );
+  assert.ok(liurenChart.body.data.evidenceAnalysis.calculationFact.sources.length >= 3);
+  assert.equal(liurenChart.body.data.evidenceAnalysis.plateFact.status, '完整');
+  assert.equal(liurenChart.body.data.evidenceAnalysis.plateFact.actualCount, 12);
+  assert.equal(liurenChart.body.data.evidenceAnalysis.platePositionFacts.length, 12);
+  assert.ok(
+    liurenChart.body.data.evidenceAnalysis.platePositionFacts.every(
+      (item: Record<string, unknown>) =>
+        item.key &&
+        item.earthBranch &&
+        item.heavenBranch &&
+        item.god &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        item.sources.length >= 2 &&
+        String(item.limitation).includes('只证明月将加时'),
+    ),
+  );
   const traditionalFacts = liurenChart.body.data.evidenceAnalysis.traditionalFacts as Array<{
     kind: string;
     originalText: string;
