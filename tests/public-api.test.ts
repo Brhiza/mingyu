@@ -2020,6 +2020,39 @@ test('公开 API 奇门与小六壬应期应返回条件证据，不返回伪精
     ['起因', '过程', '结果'],
   );
   assert.ok(xiaoliuren.body.data.evidenceAnalysis.transitions.length === 2);
+  const xiaoliurenFacts = xiaoliuren.body.data.evidenceAnalysis.traditionalFacts as Array<{
+    kind: string;
+    originalText: string;
+    promptText: string;
+    sources: string[];
+    limitation: string;
+  }>;
+  assert.ok(xiaoliurenFacts.length > 0);
+  assert.ok(
+    xiaoliurenFacts.every(
+      (item) =>
+        item.originalText &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不证明现实中'),
+    ),
+  );
+  const xiaoliurenPrompt = await callApi('divination/xiaoliuren/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      xiaoliurenMethod: 'number',
+      xiaoliurenNumber: 18,
+      customDate: '2025-01-01T08:00:00+08:00',
+      question: '这件事应如何推进？',
+    }),
+  });
+  assert.equal(xiaoliurenPrompt.response.status, 200);
+  assert.match(xiaoliurenPrompt.body.data.prompt, /【小六壬三宫推进结构化证据】/);
+  assert.doesNotMatch(
+    xiaoliurenPrompt.body.data.prompt,
+    /事情整体可成|容易白忙一场|当前整体偏可成|凶（大凶）|吉凶凶|吉凶吉/,
+  );
   assert.doesNotMatch(
     `${xiaoliuren.body.data.yingQi}\n${xiaoliuren.body.data.timing}`,
     /\d+\s*[-—至]\s*\d+\s*(?:日|周|月)|\d+日内|\d+周内/,

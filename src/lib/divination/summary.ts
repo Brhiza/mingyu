@@ -15,6 +15,10 @@ import type {
   XiaoliurenData,
 } from '../../types/divination';
 import { analyzeAlmanacEvidence } from 'mingyu-core/divination/almanac';
+import {
+  analyzeXiaoliurenEvidence,
+  conditionXiaoliurenTraditionalText,
+} from 'mingyu-core/divination/xiaoliuren';
 import { resolveSsgwStoryContent } from './ssgw-content';
 
 export interface DivinationSummaryBlocks {
@@ -321,6 +325,10 @@ export function getDivinationSummaryBlocks(
     }
     case 'xiaoliuren': {
       const xiaoliuren = data as XiaoliurenData;
+      const evidence = xiaoliuren.evidenceAnalysis ?? analyzeXiaoliurenEvidence(xiaoliuren);
+      const meaning = (palace: XiaoliurenData['primary']['name']) =>
+        evidence.traditionalFacts.find((item) => item.palace === palace && item.kind === '宫位解释')
+          ?.promptText;
       return {
         title: '小六壬起课结果',
         tags: [
@@ -332,10 +340,10 @@ export function getDivinationSummaryBlocks(
           wrapMainEvidence(
             `起因${xiaoliuren.sequence.start.name}；过程${xiaoliuren.sequence.process.name}；结果${xiaoliuren.sequence.result.name}`,
           ),
-          `起因：${xiaoliuren.sequence.start.meaning}`,
-          `过程：${xiaoliuren.sequence.process.meaning}`,
-          `结果：${xiaoliuren.sequence.result.meaning}`,
-          `提醒：${xiaoliuren.questionHint}`,
+          `起因：${meaning(xiaoliuren.sequence.start.name) ?? conditionXiaoliurenTraditionalText(xiaoliuren.sequence.start.meaning)}`,
+          `过程：${meaning(xiaoliuren.sequence.process.name) ?? conditionXiaoliurenTraditionalText(xiaoliuren.sequence.process.meaning)}`,
+          `结果：${meaning(xiaoliuren.sequence.result.name) ?? conditionXiaoliurenTraditionalText(xiaoliuren.sequence.result.meaning)}`,
+          `提醒（传统宫义、非事实结论）：${conditionXiaoliurenTraditionalText(xiaoliuren.questionHint)}`,
         ].filter(Boolean),
       };
     }

@@ -1,7 +1,11 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 
-import { generateXiaoliuren } from '../packages/core/src/divination/algorithms/xiaoliuren.ts';
+import {
+  analyzeXiaoliurenEvidence,
+  conditionXiaoliurenTraditionalText,
+  generateXiaoliuren,
+} from '../packages/core/src/divination/algorithms/xiaoliuren.ts';
 
 const SAMPLE_DATE = new Date('2025-01-01T08:00:00+08:00');
 
@@ -136,4 +140,63 @@ test('小六壬：仅随机起课应把重放轨迹接入统一证据', () => {
   assert.ok(
     !timeResult.evidenceAnalysis?.evidence.items.some((item) => item.tags?.includes('随机起课')),
   );
+});
+
+test('小六壬：六宫传统资料应保留原文并生成条件化事实', () => {
+  const results = Array.from({ length: 6 }, (_, index) =>
+    generateXiaoliuren({ method: 'number', number: index + 1, customDate: SAMPLE_DATE }),
+  );
+  const facts = results.flatMap((result) => result.evidenceAnalysis?.traditionalFacts ?? []);
+
+  assert.deepEqual(
+    new Set(facts.map((item) => item.palace)),
+    new Set(['大安', '留连', '速喜', '赤口', '小吉', '空亡']),
+  );
+  assert.deepEqual(new Set(facts.map((item) => item.kind)), new Set(['宫位解释', '传统属性']));
+  assert.ok(
+    facts.every(
+      (item) =>
+        item.originalText &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不证明现实中'),
+    ),
+  );
+  assert.ok(facts.some((item) => /事情整体可成/.test(item.originalText)));
+  assert.ok(facts.some((item) => /凶（大凶）/.test(item.originalText)));
+  assert.ok(
+    facts
+      .filter((item) => item.kind === '宫位解释')
+      .every((item) => item.promptText.startsWith('传统宫义提示')),
+  );
+  assert.doesNotMatch(
+    facts.map((item) => item.promptText).join('\n'),
+    /事情整体可成|容易白忙一场|当前容易落空或判断失真|凶（大凶）/,
+  );
+});
+
+test('小六壬：传统宫义与吉凶属性不得直接当作现实结果或健康判断', () => {
+  const promptText = [
+    '事情整体可成，常有助力，但更适合渐进推进。',
+    '当前信息虚、时机虚或目标虚，容易白忙一场。',
+    '当前容易落空或判断失真，宜先核实再投入。',
+    '凶（大凶）',
+  ]
+    .map(conditionXiaoliurenTraditionalText)
+    .join('；');
+
+  assert.match(promptText, /传统宫义提示具备推进线索/);
+  assert.match(promptText, /传统宫义提示信息、时机或目标可能尚未落实，投入可能暂未形成有效结果/);
+  assert.match(promptText, /传统宫义提示线索可能尚未落实或判断依据不足/);
+  assert.match(promptText, /传统高风险分类/);
+  assert.doesNotMatch(promptText, /事情整体可成|白忙一场|判断失真|大凶/);
+});
+
+test('小六壬：旧数据缺少证据分析时应重新生成安全传统事实', () => {
+  const data = generateXiaoliuren({ method: 'number', number: 5, customDate: SAMPLE_DATE });
+  data.evidenceAnalysis = undefined;
+  const evidence = analyzeXiaoliurenEvidence(data);
+
+  assert.ok(evidence.traditionalFacts.length > 0);
+  assert.doesNotMatch(evidence.promptText, /事情整体可成|白忙一场|凶（大凶）/);
 });

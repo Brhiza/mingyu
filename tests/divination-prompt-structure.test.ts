@@ -1250,15 +1250,19 @@ test('小六壬提示词会给出三段过程、主判断和现实建议抓手',
   assert.match(prompt, /主轴证据：起因留连；过程赤口；结果小吉/);
   assert.match(prompt, /五行推进证据：起因到过程/);
   assert.match(prompt, /关键词/);
-  assert.match(prompt, /取象提示：当前整体偏可成，适合稳步推进，慢慢拿结果。/);
+  assert.match(
+    prompt,
+    /取象提示（传统宫义、非事实结论）：传统宫义提示可关注渐进推进条件，适合稳步推进，慢慢拿结果。/,
+  );
   assert.match(prompt, /应期候选：起因留连：偏拖延反复，常需先清旧账或等阻滞松动/);
-  assert.match(prompt, /主判断小吉：有助力，只适合短期复盘，不作长期命运定论/);
+  assert.match(prompt, /结果宫小吉：宫位倾向有助力，只适合短期复盘，不作长期命运定论/);
   assert.match(prompt, /行动建议等级：稳步推进：有助力但不宜贪快，先拿小结果/);
   assert.match(prompt, /- 起课方式：数字起课/);
   assert.match(prompt, /- 结果：小吉（五行.*）；关键词.*；倾向有助力/);
-  assert.match(prompt, /宫位含义事情整体可成，常有助力，但更适合渐进推进。/);
+  assert.match(prompt, /条件化宫义传统宫义提示具备推进线索，常有助力，但更适合渐进推进。/);
   assert.match(prompt, /建议可以推进，但要一步一步拿结果，不宜贪快。/);
   assert.match(prompt, /方位、神煞和应期属性不得单独决定吉凶/);
+  assert.doesNotMatch(prompt, /吉凶凶|吉凶吉|凶（大凶）|事情整体可成|容易白忙一场/);
 });
 
 test('梅花、小六壬、奇门不再输出隐藏专项分析思路', () => {

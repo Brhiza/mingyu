@@ -28,8 +28,11 @@ import {
 import { attachResultMeta } from '../../shared/result';
 import { analyzeXiaoliurenEvidence } from '../xiaoliuren-evidence';
 
-export { analyzeXiaoliurenEvidence } from '../xiaoliuren-evidence';
-export type { XiaoliurenEvidenceAnalysis } from '../xiaoliuren-evidence';
+export {
+  analyzeXiaoliurenEvidence,
+  conditionXiaoliurenTraditionalText,
+} from '../xiaoliuren-evidence';
+export type { XiaoliurenEvidenceAnalysis, XiaoliurenTraditionalFact } from '../xiaoliuren-evidence';
 
 const XIAOLIUREN_PALACES = [
   {

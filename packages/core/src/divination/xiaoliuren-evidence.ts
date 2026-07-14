@@ -11,8 +11,19 @@ export interface XiaoliurenStageEvidence {
   constraints: string[];
 }
 
+export interface XiaoliurenTraditionalFact {
+  key: string;
+  palace: XiaoliurenPalaceDetail['name'];
+  stages: Array<'起因' | '过程' | '结果'>;
+  kind: '宫位解释' | '传统属性';
+  originalText: string;
+  promptText: string;
+  sources: string[];
+  limitation: '六宫宫义与传统属性只用于当前课式的近事情境分类，不证明现实中的结果、疾病、身体问题、方位吉凶或固定应期';
+}
+
 export interface XiaoliurenEvidenceAnalysis {
-  sources: Array<{ title: string; evidence: string; role: '传统规则来源' | '公共算法来源' }>;
+  sources: Array<{ title: string; evidence: string; role: '传统规则来源' | '历法计算来源' }>;
   calculationFacts: string[];
   calculationChain: string[];
   stages: XiaoliurenStageEvidence[];
@@ -22,6 +33,7 @@ export interface XiaoliurenEvidenceAnalysis {
   timingBasis: string[];
   triggerConditions: string[];
   limitations: string[];
+  traditionalFacts: XiaoliurenTraditionalFact[];
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
@@ -29,9 +41,90 @@ export interface XiaoliurenEvidenceAnalysis {
 
 const SUPPORT_TENDENCIES = new Set(['宜推进', '有助力']);
 const CONSTRAINT_TENDENCIES = new Set(['宜等待', '易反复', '易争执', '易落空']);
+const TRADITIONAL_FACT_LIMITATION =
+  '六宫宫义与传统属性只用于当前课式的近事情境分类，不证明现实中的结果、疾病、身体问题、方位吉凶或固定应期' as const;
 
 function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+export function conditionXiaoliurenTraditionalText(text: string): string {
+  return text
+    .replace(/吉凶凶（大凶）/g, '传统分类高风险')
+    .replace(/吉凶平（偏凶）/g, '传统分类混合偏风险')
+    .replace(/吉凶凶/g, '传统分类风险')
+    .replace(/吉凶吉/g, '传统分类有利')
+    .replace(/身体部位/g, '传统身体类象')
+    .replace(/(^|；)方位/g, '$1传统方位')
+    .replace(/(^|；)神煞/g, '$1传统神煞标签')
+    .replace(/传统应期/g, '传统节奏属性')
+    .replace(/局势偏稳/g, '传统宫义提示局势偏稳')
+    .replace(/事情容易拖延反复/g, '传统宫义提示事情可能拖延反复')
+    .replace(/消息与进展来得较快/g, '传统宫义提示消息与进展可能较快出现')
+    .replace(
+      /容易出现争执、误会、口舌或情绪冲撞/g,
+      '传统宫义提示可能出现争执、误会、口舌或情绪冲撞',
+    )
+    .replace(/事情整体可成/g, '传统宫义提示具备推进线索')
+    .replace(
+      /当前信息虚、时机虚或目标虚，容易白忙一场/g,
+      '传统宫义提示信息、时机或目标可能尚未落实，投入可能暂未形成有效结果',
+    )
+    .replace(/当前容易落空或判断失真/g, '传统宫义提示线索可能尚未落实或判断依据不足')
+    .replace(/当前有较快起色/g, '传统宫义提示可留意较快出现的进展线索')
+    .replace(/当前整体偏可成/g, '传统宫义提示可关注渐进推进条件')
+    .replace(/凶（大凶）/g, '传统高风险分类')
+    .replace(/平（偏凶）/g, '传统混合偏风险分类')
+    .replace(/(^|[；，。])凶(?=$|[；，。])/g, '$1传统风险分类')
+    .replace(/(^|[；，。])吉(?=$|[；，。])/g, '$1传统有利分类')
+    .replace(/应期不定或落空，需重新评估/g, '传统节奏不定，须以目标、信息和承诺是否落实为复核条件')
+    .replace(/必然/g, '可能')
+    .replace(/必定/g, '较可能');
+}
+
+function buildTraditionalFacts(stages: XiaoliurenStageEvidence[]): XiaoliurenTraditionalFact[] {
+  const facts = new Map<string, XiaoliurenTraditionalFact>();
+  for (const stage of stages) {
+    const meaningKey = `${stage.palace.name}:meaning`;
+    const previousMeaning = facts.get(meaningKey);
+    facts.set(meaningKey, {
+      key: `palace:${stage.palace.name}:meaning`,
+      palace: stage.palace.name,
+      stages: [...(previousMeaning?.stages ?? []), stage.stage],
+      kind: '宫位解释',
+      originalText: stage.palace.meaning,
+      promptText: conditionXiaoliurenTraditionalText(stage.palace.meaning),
+      sources: ['《小六壬金口诀》《李淳风六壬时课》六宫取象'],
+      limitation: TRADITIONAL_FACT_LIMITATION,
+    });
+    const attributeKey = `${stage.palace.name}:attributes`;
+    const previousAttribute = facts.get(attributeKey);
+    const originalText = [
+      stage.palace.fortune ? `吉凶${stage.palace.fortune}` : '',
+      stage.palace.direction ? `方位${stage.palace.direction}` : '',
+      stage.palace.shenSha ? `神煞${stage.palace.shenSha}` : '',
+      stage.palace.yinYang ? `${stage.palace.yinYang}宫` : '',
+      stage.palace.number ? `传统宫数${stage.palace.number}` : '',
+      stage.palace.seasonProsper ? `传统旺季${stage.palace.seasonProsper}` : '',
+      stage.palace.bodyPart ? `身体部位${stage.palace.bodyPart}` : '',
+      stage.palace.timing ? `传统应期${stage.palace.timing}` : '',
+    ]
+      .filter(Boolean)
+      .join('；');
+    facts.set(attributeKey, {
+      key: `palace:${stage.palace.name}:attributes`,
+      palace: stage.palace.name,
+      stages: [...(previousAttribute?.stages ?? []), stage.stage],
+      kind: '传统属性',
+      originalText: originalText || '未列传统属性',
+      promptText: originalText
+        ? `${conditionXiaoliurenTraditionalText(originalText)}；身体部位仅为传统类象，不作健康判断；方位与应期须结合现实条件复核`
+        : '未列传统属性',
+      sources: ['小六壬六宫传统吉凶、方位、神煞、身体部位与应期属性表'],
+      limitation: TRADITIONAL_FACT_LIMITATION,
+    });
+  }
+  return Array.from(facts.values());
 }
 
 function buildStage(
@@ -69,9 +162,9 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
       role: '传统规则来源',
     },
     {
-      title: '命语公共干支与五行关系模块',
+      title: '公共干支与五行关系',
       evidence: '时辰序、月支及五行旺相休囚死关系的统一计算',
-      role: '公共算法来源',
+      role: '历法计算来源',
     },
   ];
   const stages = [
@@ -79,6 +172,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     buildStage('过程', data.sequence.process, data.seasonStates?.process ?? '未定'),
     buildStage('结果', data.sequence.result, data.seasonStates?.result ?? '未定'),
   ];
+  const traditionalFacts = buildTraditionalFacts(stages);
   const transitions = [
     `起因${data.sequence.start.name}${data.sequence.start.element} → 过程${data.sequence.process.name}${data.sequence.process.element}：${data.wuxingRelations.startToProcess}`,
     `过程${data.sequence.process.name}${data.sequence.process.element} → 结果${data.sequence.result.name}${data.sequence.result.element}：${data.wuxingRelations.processToResult}`,
@@ -139,18 +233,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     ...stages.map((item, index): PromptEvidenceItem => ({
       level: index === 2 ? '主证' : '辅证',
       title: `${item.stage}${item.palace.name}`,
-      detail: `${item.role}；五行${item.palace.element}，月令${item.seasonState}；宫义${item.palace.meaning}；传统辅证${
-        [
-          item.palace.direction ? `方位${item.palace.direction}` : '',
-          item.palace.shenSha ? `神煞${item.palace.shenSha}` : '',
-          item.palace.yinYang ? `${item.palace.yinYang}宫` : '',
-          item.palace.number ? `数${item.palace.number}` : '',
-          item.palace.bodyPart ? `身体部位${item.palace.bodyPart}` : '',
-          item.palace.timing ? `传统应期${item.palace.timing}` : '',
-        ]
-          .filter(Boolean)
-          .join('、') || '未列'
-      }；支持${item.support.join('、') || '未见独立增强条件'}；限制${item.constraints.join('、') || '未见明确限制标签'}。`,
+      detail: `${item.role}；五行${item.palace.element}，月令${item.seasonState}；宫义${traditionalFacts.find((fact) => fact.palace === item.palace.name && fact.kind === '宫位解释')?.promptText ?? conditionXiaoliurenTraditionalText(item.palace.meaning)}；传统辅证${traditionalFacts.find((fact) => fact.palace === item.palace.name && fact.kind === '传统属性')?.promptText ?? '未列'}；支持${item.support.join('、') || '未见独立增强条件'}；限制${item.constraints.join('、') || '未见明确限制标签'}；边界${TRADITIONAL_FACT_LIMITATION}。`,
       source: '六宫顺数定位、三段课式与月令五行旺衰',
       tags: [item.stage, item.palace.name, item.palace.element],
     })),
@@ -180,7 +263,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
             level: trace ? ('辅证' as const) : ('反证' as const),
             title: trace ? '随机起课重放记录' : '随机轨迹缺失',
             detail: `${promptRandomFacts.join('；')}；随机种子保留在结构化结果中，不写入自然语言提示词；该记录只用于核验起课过程能否重放，不表示可信度或预测有效性`,
-            source: '命语统一随机轨迹协议',
+            source: '随机起课样本与重放轨迹记录',
             tags: ['随机起课', trace ? '可重放' : '不可核验', '不代表预测有效性'],
           },
         ]
@@ -224,6 +307,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     timingBasis,
     triggerConditions,
     limitations,
+    traditionalFacts,
     evidence,
     promptText,
     methodology: [

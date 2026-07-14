@@ -1239,6 +1239,13 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
             stages: Array<{ stage: string }>;
             transitions: string[];
             counterEvidence: string[];
+            traditionalFacts: Array<{
+              kind: string;
+              originalText: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
           };
         };
       }
@@ -1249,6 +1256,16 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
     );
     assert.equal(result.evidenceAnalysis.transitions.length, 2);
     assert.ok(Array.isArray(result.evidenceAnalysis.counterEvidence));
+    assert.ok(result.evidenceAnalysis.traditionalFacts.length > 0);
+    assert.ok(
+      result.evidenceAnalysis.traditionalFacts.every(
+        (item) =>
+          item.originalText &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不证明现实中'),
+      ),
+    );
 
     const promptResult = await client.callTool({
       name: 'xiaoliuren_prompt',
@@ -1262,6 +1279,7 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
     const prompt = String(promptResult.structuredContent?.prompt);
     assert.match(prompt, /【小六壬三宫推进结构化证据】/);
     assert.match(prompt, /现实事件复核/);
+    assert.doesNotMatch(prompt, /事情整体可成|容易白忙一场|凶（大凶）/);
     assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|吉凶总分(?:为|：)|\d+日内|\d+周内/);
     assertPromptIsPortableTaskText(prompt);
   });

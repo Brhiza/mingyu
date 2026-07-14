@@ -36,7 +36,10 @@ import {
   analyzeLiurenEvidence,
   conditionLiurenTraditionalText,
 } from '@core/divination/algorithms/liuren';
-import { analyzeXiaoliurenEvidence } from '@core/divination/algorithms/xiaoliuren';
+import {
+  analyzeXiaoliurenEvidence,
+  conditionXiaoliurenTraditionalText,
+} from '@core/divination/algorithms/xiaoliuren';
 import { analyzeTarotEvidence } from '@core/divination/tarot';
 import { analyzeLenormandEvidence } from '@core/divination/algorithms/lenormand';
 
@@ -372,7 +375,7 @@ function createXiaoliurenTimingEvidence(data: XiaoliurenData) {
     `起因${sequence.start.name}：${timingMap[sequence.start.name]}`,
     `过程${sequence.process.name}：${timingMap[sequence.process.name]}`,
     `结果${sequence.result.name}：${timingMap[sequence.result.name]}`,
-    `主判断${data.primary.name}：${data.primary.tendency}，只适合短期复盘，不作长期命运定论`,
+    `结果宫${data.primary.name}：宫位倾向${data.primary.tendency}，只适合短期复盘，不作长期命运定论`,
   ].join('；');
 }
 
@@ -383,7 +386,7 @@ function createXiaoliurenReviewEvidence(data: XiaoliurenData) {
     `先核实起因${sequence.start.name}所示情境是否已出现`,
     `过程若符合${sequence.process.name}的宫位含义，说明卡点已显化`,
     `结果以${sequence.result.name}的宫位含义作为短期复盘指标`,
-    `主判断${data.primary.name}只给近事观察，不延伸为长期定局`,
+    `结果宫${data.primary.name}只给近事观察，不延伸为长期定局`,
   ].join('；');
 }
 
@@ -397,7 +400,7 @@ function createXiaoliurenActionLevelEvidence(data: XiaoliurenData) {
     易落空: '暂缓确认：条件未成形，先观察再决定',
   };
 
-  return `${levelMap[data.primary.tendency]}；主判断${data.primary.name}只给近事行动等级，不延伸为长期定局`;
+  return `${levelMap[data.primary.tendency]}；结果宫${data.primary.name}只给近事行动等级，不延伸为长期定局`;
 }
 
 function createXiaoliurenReviewWindowEvidence(data: XiaoliurenData) {
@@ -608,47 +611,49 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
   const reviewEvidence = createXiaoliurenReviewEvidence(data);
   const actionLevelEvidence = createXiaoliurenActionLevelEvidence(data);
   const reviewWindowEvidence = createXiaoliurenReviewWindowEvidence(data);
+  const traditionalFact = (palace: XiaoliurenPalaceDetail['name'], kind: '宫位解释' | '传统属性') =>
+    evidenceAnalysis.traditionalFacts.find((fact) => fact.palace === palace && fact.kind === kind);
   const palaceLines = (
     [
       ['起因', sequence.start, data.seasonStates?.start],
       ['过程', sequence.process, data.seasonStates?.process],
       ['结果', sequence.result, data.seasonStates?.result],
     ] as const
-  ).map(([stage, palace, seasonState]) =>
-    [
+  ).map(([stage, palace, seasonState]) => {
+    const meaningFact = traditionalFact(palace.name, '宫位解释');
+    const attributeFact = traditionalFact(palace.name, '传统属性');
+    return [
       `- ${stage}：${palace.name}（五行${palace.element || '未提供'}${palace.yinYang ? `，${palace.yinYang}` : ''}）`,
       `关键词${palace.keywords?.join('、') || '未提供'}`,
       `倾向${palace.tendency}`,
-      `宫位含义${palace.meaning}`,
+      `条件化宫义${meaningFact?.promptText ?? conditionXiaoliurenTraditionalText(palace.meaning)}`,
       seasonState ? `月令${seasonState}` : '',
-      palace.fortune ? `吉凶${palace.fortune}` : '',
-      palace.direction ? `方位${palace.direction}` : '',
-      palace.shenSha ? `神煞${palace.shenSha}` : '',
-      palace.timing ? `应期属性${palace.timing}` : '',
+      attributeFact ? `传统属性${attributeFact.promptText}` : '',
       `建议${palace.advice}`,
+      `边界${meaningFact?.limitation ?? '宫位取象只用于当前课式近事复核，不证明现实结果'}`,
     ]
       .filter(Boolean)
-      .join('；'),
-  );
+      .join('；');
+  });
 
   return [
     '占法：小六壬',
     `时间干支：以【当前时间】为准；农历${data.lunarMonth}月${data.lunarDay}日，${data.hourLabel}`,
     `核心结构：起因${sequence.start.name}；过程${sequence.process.name}；结果${sequence.result.name}`,
-    `关键提示：起课方式${data.methodLabel}；主判断${data.primary.name}；倾向${data.tendency}${data.fortune ? `；${data.fortune}` : ''}`,
+    `关键提示：起课方式${data.methodLabel}；结果宫${data.primary.name}；宫位倾向${data.tendency}${data.fortune ? `；${conditionXiaoliurenTraditionalText(data.fortune)}` : ''}`,
     '断课抓手：先看结果宫位定主判断，再看起因与过程宫位解释事情为何如此、会如何推进。',
     `主轴证据：起因${sequence.start.name}；过程${sequence.process.name}；结果${sequence.result.name}`,
     data.wuxingRelations
       ? `五行推进证据：起因到过程${data.wuxingRelations.startToProcess}；过程到结果${data.wuxingRelations.processToResult}；${data.wuxingRelations.description}`
       : '',
     evidenceAnalysis.promptText,
-    `辅助证据：起因提示${sequence.start.meaning}；过程提示${sequence.process.meaning}；结果提示${sequence.result.meaning}`,
+    `辅助证据：起因${traditionalFact(sequence.start.name, '宫位解释')?.promptText ?? conditionXiaoliurenTraditionalText(sequence.start.meaning)}；过程${traditionalFact(sequence.process.name, '宫位解释')?.promptText ?? conditionXiaoliurenTraditionalText(sequence.process.meaning)}；结果${traditionalFact(sequence.result.name, '宫位解释')?.promptText ?? conditionXiaoliurenTraditionalText(sequence.result.meaning)}`,
     data.seasonStates
       ? `月令旺衰：起因${data.seasonStates.start}，过程${data.seasonStates.process}，结果${data.seasonStates.result}`
       : '',
-    data.direction ? `方位参考：${data.direction}` : '',
-    data.shenSha ? `神煞参考：${data.shenSha}` : '',
-    `取象提示：${data.questionHint}`,
+    data.direction ? `传统方位类象：${data.direction}；不得单独作为现实行动方向` : '',
+    data.shenSha ? `传统神煞标签：${data.shenSha}；不得单独作为现实事件结论` : '',
+    `取象提示（传统宫义、非事实结论）：${conditionXiaoliurenTraditionalText(data.questionHint)}`,
     data.yingQi ? `应期参考：${data.yingQi}` : `应期候选：${timingEvidence}`,
     data.timingEvidence?.primaryBasis?.length
       ? `应期主证：${data.timingEvidence.primaryBasis.join('；')}`
