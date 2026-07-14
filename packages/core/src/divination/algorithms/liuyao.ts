@@ -1024,9 +1024,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     generation: resolvedGeneration.generation,
     timestamp,
   };
-  result.evidenceAnalysis = analyzeLiuyaoEvidence(result);
-
-  return attachResultMeta(result, {
+  const resultWithMeta = attachResultMeta(result, {
     algorithm: 'liuyao',
     input: {
       method: resolvedGeneration.generation.method,
@@ -1036,6 +1034,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     calculatedAt: timestamp,
     random: resolvedGeneration.randomTrace,
   });
+  return { ...resultWithMeta, evidenceAnalysis: analyzeLiuyaoEvidence(resultWithMeta) };
 }
 
 export { buildHiddenSpirits };

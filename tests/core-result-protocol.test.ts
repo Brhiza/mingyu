@@ -188,6 +188,22 @@ test('六爻保留时间、手工和模拟三钱三种来源及逐币轨迹', ()
   assert.deepEqual(replay.generation.coinThrows, coins.generation.coinThrows);
   assert.equal(replay.meta.resultId, coins.meta.resultId);
   assert.equal(coins.generation.coinThrows?.flatMap((item) => item.coins).length, 18);
+  const sourceItem = coins.evidenceAnalysis?.evidence.items.find(
+    (item) => item.title === '起卦来源：模拟三钱起卦',
+  );
+  const randomItem = coins.evidenceAnalysis?.evidence.items.find(
+    (item) => item.title === '六爻随机重放记录',
+  );
+  assert.equal(sourceItem?.level, '辅证');
+  assert.match(sourceItem?.detail || '', /第1爻计算样本/);
+  assert.match(sourceItem?.detail || '', /只说明卦象如何生成/);
+  assert.equal(randomItem?.level, '辅证');
+  assert.match(randomItem?.detail || '', /随机种子：三钱样例/);
+  assert.match(randomItem?.detail || '', /不表示可信度或预测有效性/);
+  assert.deepEqual(manual.evidenceAnalysis?.randomFacts, []);
+  assert.ok(
+    !manual.evidenceAnalysis?.evidence.items.some((item) => item.title === '六爻随机重放记录'),
+  );
 
   assert.throws(() => generateLiuyao(DATE, { method: 'manual' }), /必须提供六个爻值/);
   assert.throws(

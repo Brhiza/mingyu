@@ -58,6 +58,8 @@ export interface LiuyaoEvidenceAnalysis {
   candidates: LiuyaoUsefulGodCandidate[];
   selectedCandidate: LiuyaoUsefulGodCandidate | null;
   godChain: LiuyaoGodChainItem[];
+  generationFacts: string[];
+  randomFacts: string[];
   timingConditions: string[];
   counterEvidence: string[];
   evidence: PromptEvidenceBundle;
@@ -301,6 +303,34 @@ export function analyzeLiuyaoEvidence(
     relation,
     references: references.filter((item) => item.wuxing === wuxing),
   }));
+  const generationMethod = data.generation?.method;
+  const methodLabel =
+    generationMethod === 'coins'
+      ? '模拟三钱起卦'
+      : generationMethod === 'manual'
+        ? '手工录入六爻值'
+        : generationMethod === 'time'
+          ? '时间起卦'
+          : '旧结果未记录起卦方式';
+  const generationFacts = [
+    `起卦方式：${methodLabel}`,
+    ...(data.generation?.coinThrows ?? []).map(
+      (item, index) =>
+        `第${index + 1}爻计算样本：${item.coins.join('+')}=${item.total}（${item.total === 6 ? '老阴' : item.total === 7 ? '少阳' : item.total === 8 ? '少阴' : '老阳'}）`,
+    ),
+    generationMethod === 'manual' ? `手工爻值：${data.yaoArray.join('、')}` : '',
+  ].filter(Boolean);
+  const trace = data.meta?.random;
+  const expectsRandomTrace = generationMethod === 'coins' || generationMethod === 'time';
+  const randomFacts = expectsRandomTrace
+    ? trace
+      ? [
+          `随机模式：${trace.mode}`,
+          `原始随机样本数：${trace.samples.length}`,
+          trace.seed !== undefined ? `随机种子：${String(trace.seed)}` : '',
+        ].filter(Boolean)
+      : ['当前起卦结果未附随机轨迹，无法核验六爻生成过程的重放']
+    : [];
   const timingConditions = [
     ...data.yaosDetail
       .filter((item) => item.isChanging)
@@ -325,13 +355,33 @@ export function analyzeLiuyaoEvidence(
     source: '六爻世应、六亲、月日、动变、空伏逐项核验',
     tags: [candidate.relative ?? '爻位候选'],
   }));
-  items.push({
-    level: '限制',
-    title: '六爻取用与作用链解释边界',
-    detail:
-      '主题默认用神只是候选；实际问题语义、求测者身份与所问对象可能改变取用。不得按候选数量或支持项数量生成吉凶总分，也不得仅凭官鬼、白虎、螣蛇等单项证明疾病、灾祸或超自然原因。',
-    source: '计算事实与解释结论分离原则',
-  });
+  items.push(
+    {
+      level: generationMethod ? '辅证' : '反证',
+      title: generationMethod ? `起卦来源：${methodLabel}` : '起卦来源缺失',
+      detail: `${generationFacts.join('；')}；这些资料只说明卦象如何生成，不提高卦象证据等级`,
+      source: '六爻起卦参数与逐爻生成记录',
+      tags: ['起卦来源', generationMethod ?? '未记录'],
+    },
+    ...(expectsRandomTrace
+      ? [
+          {
+            level: trace ? ('辅证' as const) : ('反证' as const),
+            title: trace ? '六爻随机重放记录' : '随机轨迹缺失',
+            detail: `${randomFacts.join('；')}；该记录只用于核验起卦过程能否重放，不表示可信度或预测有效性`,
+            source: '命语统一随机轨迹协议',
+            tags: ['随机轨迹', trace ? '可重放' : '不可核验', '不代表预测有效性'],
+          },
+        ]
+      : []),
+    {
+      level: '限制',
+      title: '六爻取用与作用链解释边界',
+      detail:
+        '主题默认用神只是候选；实际问题语义、求测者身份与所问对象可能改变取用。不得按候选数量或支持项数量生成吉凶总分，也不得仅凭官鬼、白虎、螣蛇等单项证明疾病、灾祸或超自然原因。模拟三钱和随机重放只记录生成过程，不等同于现实投掷或预测有效性。',
+      source: '计算事实与解释结论分离原则',
+    },
+  );
   const evidence: PromptEvidenceBundle = { title: '六爻用神作用链结构化证据', items };
   const promptText = [
     '【六爻用神作用链结构化证据】',
@@ -350,6 +400,8 @@ export function analyzeLiuyaoEvidence(
     candidates,
     selectedCandidate,
     godChain,
+    generationFacts,
+    randomFacts,
     timingConditions,
     counterEvidence,
     evidence,
