@@ -238,6 +238,15 @@ test('六爻保留时间、手工和模拟三钱三种来源及逐币轨迹', ()
   assert.equal(randomItem?.level, '辅证');
   assert.doesNotMatch(randomItem?.detail || '', /三钱样例/);
   assert.match(randomItem?.detail || '', /不表示可信度或预测有效性/);
+  assert.equal(time.evidenceAnalysis?.generationFact.status, '可核验');
+  assert.equal(time.evidenceAnalysis?.generationFact.method, 'time');
+  assert.equal(time.evidenceAnalysis?.generationFact.recordedLineCount, 6);
+  assert.equal(coins.evidenceAnalysis?.generationFact.status, '可核验');
+  assert.equal(coins.evidenceAnalysis?.generationFact.coinThrows.length, 6);
+  assert.equal(manual.evidenceAnalysis?.generationFact.status, '可核验');
+  assert.deepEqual(manual.evidenceAnalysis?.generationFact.yaoValues, [...manualYaos]);
+  assert.equal(manual.evidenceAnalysis?.generationFact.coinThrows.length, 0);
+  assert.match(manual.evidenceAnalysis?.generationFact.limitation || '', /不证明预测有效性/);
   assert.equal(time.evidenceAnalysis?.randomFact.status, '可重放');
   assert.equal(time.evidenceAnalysis?.randomFact.sampleCount, 18);
   assert.equal(coins.evidenceAnalysis?.randomFact.status, '可重放');

@@ -3912,6 +3912,12 @@ test('塔罗与雷诺曼提示词应包含可回退生成的结构化证据', as
     tarotData.cards.map((item) => [item.position, item.name, item.reversed ? '逆位' : '正位']),
   );
   assert.ok(tarotData.evidenceAnalysis?.drawFacts.some((item) => item.includes('Fisher-Yates')));
+  assert.equal(tarotData.evidenceAnalysis?.drawFact.status, '可核验');
+  assert.equal(tarotData.evidenceAnalysis?.drawFact.deckSize, 78);
+  assert.equal(tarotData.evidenceAnalysis?.drawFact.order.length, 3);
+  assert.equal(tarotData.evidenceAnalysis?.drawFact.recordedCardCount, 3);
+  assert.ok((tarotData.evidenceAnalysis?.drawFact.sources.length ?? 0) >= 2);
+  assert.match(tarotData.evidenceAnalysis?.drawFact.limitation || '', /不表示牌义可信度/);
   assert.ok(tarotItems.some((item) => item.title === '洗牌、抽取顺序与正逆位事实'));
   assert.equal(tarotItems.find((item) => item.title.startsWith('牌阵结构：'))?.level, '辅证');
   assert.equal(tarotItems.find((item) => item.title === '牌位顺序推进')?.level, '辅证');

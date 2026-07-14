@@ -31,11 +31,25 @@ export interface LenormandLayoutFact {
   limitation: '布局位置是由牌阵顺序计算的事实；中心、路径、近身与归宫只定义传统读取范围，不自动证明吉凶、现实事件或时间';
 }
 
+export interface LenormandDrawFact {
+  key: string;
+  status: '可核验' | '来源链缺失';
+  deckSize?: number;
+  method?: string;
+  order: NonNullable<LenormandData['draw']>['order'];
+  expectedCardCount: number;
+  recordedCardCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '抽牌来源只记录洗牌、牌位顺序、宫位和行列落点；来源链完整不表示牌义可信度、预测有效性或现实结果';
+}
+
 export interface LenormandEvidenceAnalysis {
   cards: Array<LenormandData['cards'][number] & { index: number }>;
   sequence: string[];
   fixedCombinations: NonNullable<LenormandData['combinations']>;
   adjacentReadings: NonNullable<LenormandData['combinations']>;
+  drawFact: LenormandDrawFact;
   drawFacts: string[];
   layoutFacts: string[];
   randomFact: RandomTraceFact;
@@ -53,9 +67,31 @@ const TRADITIONAL_FACT_LIMITATION =
   '牌名、关键词、单牌牌义与组合牌义只作为当前牌阵的象征解释材料，不证明现实事件、他人意图、隐私、感情承诺、怀孕生育、疾病、法律事实、财务结果或唯一未来' as const;
 const LAYOUT_FACT_LIMITATION =
   '布局位置是由牌阵顺序计算的事实；中心、路径、近身与归宫只定义传统读取范围，不自动证明吉凶、现实事件或时间' as const;
+const DRAW_FACT_LIMITATION =
+  '抽牌来源只记录洗牌、牌位顺序、宫位和行列落点；来源链完整不表示牌义可信度、预测有效性或现实结果' as const;
 
 function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+function buildDrawFact(data: LenormandData): LenormandDrawFact {
+  const order = (data.draw?.order ?? []).map((item) => ({ ...item }));
+  const status =
+    data.draw && order.length === data.cards.length ? ('可核验' as const) : ('来源链缺失' as const);
+  return {
+    key: `draw:lenormand:${data.spreadType}`,
+    status,
+    deckSize: data.draw?.deckSize,
+    method: data.draw?.method,
+    order,
+    expectedCardCount: data.cards.length,
+    recordedCardCount: order.length,
+    promptText: data.draw
+      ? `牌组规模：${data.draw.deckSize}张；洗牌与取牌方法：${data.draw.method}；${order.map((item) => `第${item.index}张对应${item.position}：牌号${item.cardId} ${item.cardName}${item.house ? `，落${item.house}宫` : ''}${item.row && item.column ? `，第${item.row}排第${item.column}列` : ''}`).join('；')}${status === '来源链缺失' ? `；当前仅记录${order.length}/${data.cards.length}张抽取顺序，不能完整核验` : ''}`
+      : `当前结果未附洗牌方法与抽取顺序，仅保留${data.cards.length}张已确定牌面，不能反推完整抽牌来源链`,
+    sources: ['36张雷诺曼牌组与 Fisher-Yates 洗牌记录', '牌位顺序、宫位与行列落点记录'],
+    limitation: DRAW_FACT_LIMITATION,
+  };
 }
 
 export function conditionLenormandTraditionalText(
@@ -279,6 +315,7 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
   const adjacentReadings = (data.combinations ?? []).filter((item) => item.source !== '固定组合');
   const traditionalFacts = buildTraditionalFacts(cards, data.combinations ?? []);
   const structuredLayoutFacts = buildStructuredLayoutFacts(data, cards);
+  const drawFact = buildDrawFact(data);
   const drawFacts = data.draw
     ? [
         `牌组规模：${data.draw.deckSize}张；洗牌与取牌方法：${data.draw.method}`,
@@ -323,13 +360,11 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
       tags: ['牌阵结构', data.spreadType, `${cards.length}张`],
     },
     {
-      level: data.draw ? '辅证' : '反证',
-      title: data.draw ? '洗牌与抽取顺序事实' : '抽牌来源链缺失',
-      detail: drawFacts.join('；'),
-      source: data.draw
-        ? '36张雷诺曼牌组、Fisher-Yates洗牌与牌位顺序取牌'
-        : '旧版雷诺曼结果兼容检查',
-      tags: ['抽牌来源', data.draw ? '洗牌' : '来源缺失', data.draw ? '可重放' : '不可反推'],
+      level: drawFact.status === '可核验' ? '辅证' : '反证',
+      title: drawFact.status === '可核验' ? '洗牌与抽取顺序事实' : '抽牌来源链缺失',
+      detail: `${drawFact.promptText}；边界：${drawFact.limitation}`,
+      source: drawFact.sources.join('、'),
+      tags: ['抽牌来源', drawFact.status, drawFact.status === '可核验' ? '可重放' : '不可反推'],
     },
     ...cards.map((card, index): PromptEvidenceItem => {
       const fact = traditionalFacts.find(
@@ -418,6 +453,7 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
     sequence,
     fixedCombinations,
     adjacentReadings,
+    drawFact,
     drawFacts,
     layoutFacts,
     randomFact,

@@ -128,6 +128,20 @@ export interface LiuyaoHiddenSpiritFact {
   limitation: '伏神结构只证明本卦六亲排布中存在伏藏关系；透出、受制或得助仍须结合飞神、月日、动变与现实进展复核';
 }
 
+export interface LiuyaoGenerationFact {
+  key: string;
+  status: '可核验' | '来源链缺失';
+  method: NonNullable<LiuyaoData['generation']>['method'] | '未记录';
+  methodLabel: string;
+  yaoValues: number[];
+  coinThrows: NonNullable<NonNullable<LiuyaoData['generation']>['coinThrows']>;
+  expectedLineCount: 6;
+  recordedLineCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '起卦来源只说明卦象如何生成以及六个爻值如何录入或生成，不提高卦象证据等级，也不证明预测有效性或现实结果';
+}
+
 export interface LiuyaoEvidenceAnalysis {
   topic: LiuyaoEvidenceTopic;
   monthBranch: string;
@@ -138,6 +152,7 @@ export interface LiuyaoEvidenceAnalysis {
   traditionalSymbols: LiuyaoTraditionalSymbolFact[];
   lineFacts: LiuyaoLineFact[];
   hiddenSpiritFacts: LiuyaoHiddenSpiritFact[];
+  generationFact: LiuyaoGenerationFact;
   generationFacts: string[];
   randomFact: RandomTraceFact;
   randomFacts: string[];
@@ -155,6 +170,8 @@ const LINE_FACT_LIMITATION =
 
 const HIDDEN_SPIRIT_FACT_LIMITATION =
   '伏神结构只证明本卦六亲排布中存在伏藏关系；透出、受制或得助仍须结合飞神、月日、动变与现实进展复核' as const;
+const GENERATION_FACT_LIMITATION =
+  '起卦来源只说明卦象如何生成以及六个爻值如何录入或生成，不提高卦象证据等级，也不证明预测有效性或现实结果' as const;
 
 const TRADITIONAL_RELATIVE_IMAGES: Record<string, string> = {
   父母: '传统常取文书、消息、单位、房屋、长辈、辛劳等类象',
@@ -182,6 +199,52 @@ function formatYao(reference: LiuyaoYaoReference) {
     ? `→${reference.changedYao.sixRelative}${reference.changedYao.branch}${reference.changedYao.wuxing}${reference.changedYao.relation ? `（${reference.changedYao.relation}）` : ''}${reference.changedYao.direction ? `（${reference.changedYao.direction}）` : ''}${reference.changedYao.isVoid ? '（变爻空亡）' : ''}`
     : '';
   return `${reference.source}${reference.position}爻${reference.sixRelative}${reference.branch}${reference.wuxing}${changed}`;
+}
+
+function buildGenerationFact(data: LiuyaoData): LiuyaoGenerationFact {
+  const method = data.generation?.method ?? '未记录';
+  const methodLabel =
+    method === 'coins'
+      ? '模拟三钱起卦'
+      : method === 'manual'
+        ? '手工录入六爻值'
+        : method === 'time'
+          ? '时间起卦'
+          : '旧结果未记录起卦方式';
+  const coinThrows = (data.generation?.coinThrows ?? []).map((item) => ({
+    coins: [...item.coins] as [2 | 3, 2 | 3, 2 | 3],
+    total: item.total,
+  }));
+  const recordedLineCount = method === 'manual' ? data.yaoArray.length : coinThrows.length;
+  const status =
+    method !== '未记录' && recordedLineCount === 6 ? ('可核验' as const) : ('来源链缺失' as const);
+  const detail =
+    method === 'manual'
+      ? `手工爻值为${data.yaoArray.join('、') || '未列'}`
+      : coinThrows.length
+        ? coinThrows
+            .map(
+              (item, index) =>
+                `第${index + 1}爻计算样本${item.coins.join('+')}=${item.total}（${item.total === 6 ? '老阴' : item.total === 7 ? '少阳' : item.total === 8 ? '少阴' : '老阳'}）`,
+            )
+            .join('；')
+        : '未附逐爻生成记录';
+  return {
+    key: `generation:liuyao:${method}`,
+    status,
+    method,
+    methodLabel,
+    yaoValues: [...data.yaoArray],
+    coinThrows,
+    expectedLineCount: 6,
+    recordedLineCount,
+    promptText: `起卦方式为${methodLabel}；${detail}${status === '来源链缺失' ? `；当前仅记录${recordedLineCount}/6爻来源，不能完整核验起卦链` : ''}`,
+    sources: [
+      method === 'manual' ? '调用方手工录入的六个爻值' : '六爻逐爻三钱生成记录',
+      '六爻起卦方式与原始爻值结果',
+    ],
+    limitation: GENERATION_FACT_LIMITATION,
+  };
 }
 
 function buildVisibleReference(
@@ -540,18 +603,12 @@ export function analyzeLiuyaoEvidence(
       };
     },
   );
+  const generationFact = buildGenerationFact(data);
   const generationMethod = data.generation?.method;
-  const methodLabel =
-    generationMethod === 'coins'
-      ? '模拟三钱起卦'
-      : generationMethod === 'manual'
-        ? '手工录入六爻值'
-        : generationMethod === 'time'
-          ? '时间起卦'
-          : '旧结果未记录起卦方式';
+  const methodLabel = generationFact.methodLabel;
   const generationFacts = [
     `起卦方式：${methodLabel}`,
-    ...(data.generation?.coinThrows ?? []).map(
+    ...generationFact.coinThrows.map(
       (item, index) =>
         `第${index + 1}爻计算样本：${item.coins.join('+')}=${item.total}（${item.total === 6 ? '老阴' : item.total === 7 ? '少阳' : item.total === 8 ? '少阴' : '老阳'}）`,
     ),
@@ -623,11 +680,11 @@ export function analyzeLiuyaoEvidence(
       tags: ['六亲类象', '条件化表达', '非事实结论'],
     },
     {
-      level: generationMethod ? '辅证' : '反证',
-      title: generationMethod ? `起卦来源：${methodLabel}` : '起卦来源缺失',
-      detail: `${generationFacts.join('；')}；这些资料只说明卦象如何生成，不提高卦象证据等级`,
-      source: '六爻起卦参数与逐爻生成记录',
-      tags: ['起卦来源', generationMethod ?? '未记录'],
+      level: generationFact.status === '可核验' ? '辅证' : '反证',
+      title: generationFact.status === '可核验' ? `起卦来源：${methodLabel}` : '起卦来源缺失',
+      detail: `${generationFact.promptText}；边界：${generationFact.limitation}`,
+      source: generationFact.sources.join('、'),
+      tags: ['起卦来源', generationFact.method, generationFact.status],
     },
     ...(expectsRandomTrace
       ? [
@@ -669,6 +726,7 @@ export function analyzeLiuyaoEvidence(
     traditionalSymbols,
     lineFacts,
     hiddenSpiritFacts,
+    generationFact,
     generationFacts,
     randomFact,
     randomFacts,

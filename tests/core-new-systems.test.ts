@@ -276,6 +276,24 @@ test('tarot: 全部牌义应保留原文并生成条件化解释事实', () => {
   );
 });
 
+test('tarot: 旧结果缺少抽牌来源时应明确标记来源链缺失', () => {
+  const result = drawTarotSpread('single', { seed: '旧塔罗抽牌来源' });
+  const evidence = analyzeTarotEvidence({
+    ...result,
+    draw: undefined,
+    evidenceAnalysis: undefined,
+  });
+
+  assert.equal(evidence.drawFact.status, '来源链缺失');
+  assert.equal(evidence.drawFact.recordedCardCount, 0);
+  assert.match(evidence.drawFact.promptText, /不能反推完整抽牌来源链/);
+  assert.ok(
+    evidence.evidence.items.some(
+      (item) => item.level === '反证' && item.title === '抽牌来源链缺失',
+    ),
+  );
+});
+
 test('tarot: 条件化牌义不得把象征解释写成现实事实', () => {
   const promptText = [
     '正位强调成功、喜悦、活力，表示这些能量正在直接发挥作用。',

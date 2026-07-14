@@ -928,6 +928,10 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     const tarotData = tarot.structuredContent?.result as Record<string, any>;
     assert.equal(tarot.isError, undefined);
     assert.equal(tarotData.evidenceAnalysis.cards.length, 3);
+    assert.equal(tarotData.evidenceAnalysis.drawFact.status, '可核验');
+    assert.equal(tarotData.evidenceAnalysis.drawFact.deckSize, 78);
+    assert.equal(tarotData.evidenceAnalysis.drawFact.order.length, 3);
+    assert.ok(tarotData.evidenceAnalysis.drawFact.sources.length >= 2);
     assert.equal(tarotData.evidenceAnalysis.randomFact.status, '可重放');
     assert.equal(
       tarotData.evidenceAnalysis.randomFact.sampleCount,
@@ -964,6 +968,10 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     assert.equal(lenormand.isError, undefined);
     assert.ok(Array.isArray(lenormandData.evidenceAnalysis.fixedCombinations));
     assert.ok(Array.isArray(lenormandData.evidenceAnalysis.adjacentReadings));
+    assert.equal(lenormandData.evidenceAnalysis.drawFact.status, '可核验');
+    assert.equal(lenormandData.evidenceAnalysis.drawFact.deckSize, 36);
+    assert.equal(lenormandData.evidenceAnalysis.drawFact.order.length, 9);
+    assert.ok(lenormandData.evidenceAnalysis.drawFact.sources.length >= 2);
     assert.equal(lenormandData.evidenceAnalysis.randomFact.status, '可重放');
     assert.equal(lenormandData.evidenceAnalysis.randomFact.seed, 'MCP雷诺曼证据样例');
     assert.doesNotMatch(lenormandData.evidenceAnalysis.randomFact.promptText, /MCP雷诺曼证据样例/);
@@ -1894,6 +1902,13 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
         candidates: unknown[];
         lineFacts: Array<{ sources: string[]; limitation: string }>;
         hiddenSpiritFacts: unknown[];
+        generationFact: {
+          status: string;
+          method: string;
+          coinThrows: unknown[];
+          recordedLineCount: number;
+          sources: string[];
+        };
         promptText: string;
       };
       hiddenSpirits?: unknown[];
@@ -1904,6 +1919,11 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
     assert.equal(firstResult.generation.coinThrows.length, 6);
     assert.ok(firstResult.evidenceAnalysis.candidates.length > 0);
     assert.equal(firstResult.evidenceAnalysis.lineFacts.length, 6);
+    assert.equal(firstResult.evidenceAnalysis.generationFact.status, '可核验');
+    assert.equal(firstResult.evidenceAnalysis.generationFact.method, 'coins');
+    assert.equal(firstResult.evidenceAnalysis.generationFact.coinThrows.length, 6);
+    assert.equal(firstResult.evidenceAnalysis.generationFact.recordedLineCount, 6);
+    assert.ok(firstResult.evidenceAnalysis.generationFact.sources.length >= 2);
     assert.equal(
       firstResult.evidenceAnalysis.hiddenSpiritFacts.length,
       firstResult.hiddenSpirits?.length ?? 0,

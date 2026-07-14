@@ -33,9 +33,24 @@ export interface TarotTraditionalFact {
   limitation: '牌义、关键词、元素与牌阶只作为当前牌位的象征解释材料，不证明现实事件、他人意图、心理状态、疾病、法律事实、财务结果或唯一未来';
 }
 
+export interface TarotDrawFact {
+  key: string;
+  status: '可核验' | '来源链缺失';
+  deckSize?: number;
+  method?: string;
+  orientationRule?: string;
+  order: NonNullable<TarotData['draw']>['order'];
+  expectedCardCount: number;
+  recordedCardCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '抽牌来源只记录洗牌、牌位顺序与正逆位生成过程；来源链完整不表示牌义可信度、预测有效性或现实结果';
+}
+
 export interface TarotEvidenceAnalysis {
   sources: Array<{ title: string; evidence: string; role: '牌组结构' | '传统解释来源' }>;
   cards: TarotCardEvidence[];
+  drawFact: TarotDrawFact;
   drawFacts: string[];
   sequence: string[];
   recurringThemes: string[];
@@ -55,6 +70,29 @@ function normalizeElement(element?: string) {
 
 const TRADITIONAL_FACT_LIMITATION =
   '牌义、关键词、元素与牌阶只作为当前牌位的象征解释材料，不证明现实事件、他人意图、心理状态、疾病、法律事实、财务结果或唯一未来' as const;
+const DRAW_FACT_LIMITATION =
+  '抽牌来源只记录洗牌、牌位顺序与正逆位生成过程；来源链完整不表示牌义可信度、预测有效性或现实结果' as const;
+
+function buildDrawFact(data: TarotData): TarotDrawFact {
+  const order = (data.draw?.order ?? []).map((item) => ({ ...item }));
+  const status =
+    data.draw && order.length === data.cards.length ? ('可核验' as const) : ('来源链缺失' as const);
+  return {
+    key: `draw:tarot:${data.spreadType}`,
+    status,
+    deckSize: data.draw?.deckSize,
+    method: data.draw?.method,
+    orientationRule: data.draw?.orientationRule,
+    order,
+    expectedCardCount: data.cards.length,
+    recordedCardCount: order.length,
+    promptText: data.draw
+      ? `牌组规模：${data.draw.deckSize}张；洗牌方法：${data.draw.method}；正逆位规则：${data.draw.orientationRule}；${order.map((item) => `第${item.index}张对应${item.position}：牌号${item.cardId} ${item.cardName}${item.orientation}`).join('；')}${status === '来源链缺失' ? `；当前仅记录${order.length}/${data.cards.length}张抽取顺序，不能完整核验` : ''}`
+      : `当前结果未附洗牌与抽取顺序，仅保留${data.cards.length}张已确定牌面，不能反推完整抽牌来源链`,
+    sources: ['78张塔罗牌组与 Fisher-Yates 洗牌记录', '牌位顺序取牌与逐牌正逆位判定记录'],
+    limitation: DRAW_FACT_LIMITATION,
+  };
+}
 
 export function conditionTarotTraditionalText(text: string, orientation?: '正位' | '逆位'): string {
   const conditioned = text
@@ -126,6 +164,7 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
     sources: ['韦特系78张牌组结构', '当前逐牌关键词与正逆位解释资料'],
     limitation: TRADITIONAL_FACT_LIMITATION,
   }));
+  const drawFact = buildDrawFact(data);
   const drawFacts = data.draw
     ? [
         `牌组规模：${data.draw.deckSize}张；洗牌方法：${data.draw.method}`,
@@ -173,11 +212,11 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
   ];
   const items: PromptEvidenceItem[] = [
     {
-      level: '辅证',
-      title: '洗牌、抽取顺序与正逆位事实',
-      detail: drawFacts.join('；'),
-      source: '78张牌组、Fisher-Yates洗牌、牌位顺序取牌与逐牌方向随机判定',
-      tags: ['抽牌来源', '洗牌', '正逆位', '可重放'],
+      level: drawFact.status === '可核验' ? '辅证' : '反证',
+      title: drawFact.status === '可核验' ? '洗牌、抽取顺序与正逆位事实' : '抽牌来源链缺失',
+      detail: `${drawFact.promptText}；边界：${drawFact.limitation}`,
+      source: drawFact.sources.join('、'),
+      tags: ['抽牌来源', '洗牌', '正逆位', drawFact.status],
     },
     {
       level: '辅证',
@@ -250,6 +289,7 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
   return {
     sources,
     cards,
+    drawFact,
     drawFacts,
     sequence,
     recurringThemes,

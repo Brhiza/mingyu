@@ -99,6 +99,12 @@ test('雷诺曼九宫应输出横纵与对角线结构证据', () => {
   assert.match(drawItem?.detail || '', /牌组规模：36张/);
   assert.match(drawItem?.detail || '', /Fisher-Yates/);
   assert.match(result.evidenceAnalysis?.drawFacts.join('；') || '', /第1张对应/);
+  assert.equal(result.evidenceAnalysis?.drawFact.status, '可核验');
+  assert.equal(result.evidenceAnalysis?.drawFact.deckSize, 36);
+  assert.equal(result.evidenceAnalysis?.drawFact.order.length, result.cards.length);
+  assert.equal(result.evidenceAnalysis?.drawFact.recordedCardCount, result.cards.length);
+  assert.ok((result.evidenceAnalysis?.drawFact.sources.length ?? 0) >= 2);
+  assert.match(result.evidenceAnalysis?.drawFact.limitation || '', /不表示牌义可信度/);
   assert.match(randomItem?.detail || '', /不表示可信度或预测有效性/);
   assert.ok(
     result.evidenceAnalysis?.randomFacts.some((item) => item.includes('随机种子：20260711')),
@@ -209,6 +215,9 @@ test('雷诺曼旧数据缺少抽牌来源时应明确保留证据缺口', () =>
   assert.ok(analysis);
   const legacyAnalysis = analyzeLenormandEvidence(legacyData);
   const missingItem = legacyAnalysis.evidence.items.find((item) => item.title === '抽牌来源链缺失');
+  assert.equal(legacyAnalysis.drawFact.status, '来源链缺失');
+  assert.equal(legacyAnalysis.drawFact.recordedCardCount, 0);
+  assert.match(legacyAnalysis.drawFact.promptText, /不能反推完整抽牌来源链/);
   assert.equal(missingItem?.level, '反证');
   assert.match(missingItem?.detail || '', /不能反推完整抽牌来源链/);
 });

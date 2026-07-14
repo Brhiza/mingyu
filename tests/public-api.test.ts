@@ -1675,6 +1675,10 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
   assert.equal(body.data.meta.algorithm, 'tarot.single');
   assert.equal(body.data.evidenceAnalysis.cards.length, 1);
   assert.equal(body.data.evidenceAnalysis.evidence.title, '塔罗牌位与牌面结构化证据');
+  assert.equal(body.data.evidenceAnalysis.drawFact.status, '可核验');
+  assert.equal(body.data.evidenceAnalysis.drawFact.deckSize, 78);
+  assert.equal(body.data.evidenceAnalysis.drawFact.order.length, 1);
+  assert.ok(body.data.evidenceAnalysis.drawFact.sources.length >= 2);
   assert.equal(body.data.evidenceAnalysis.randomFact.status, '可重放');
   assert.equal(
     body.data.evidenceAnalysis.randomFact.sampleCount,
@@ -1708,6 +1712,10 @@ test('公开 API 雷诺曼接口应分层返回组合与布局证据', async () 
   assert.ok(Array.isArray(body.data.evidenceAnalysis.adjacentReadings));
   assert.ok(body.data.evidenceAnalysis.layoutFacts.length > 0);
   assert.ok(body.data.evidenceAnalysis.traditionalFacts.length >= body.data.cards.length);
+  assert.equal(body.data.evidenceAnalysis.drawFact.status, '可核验');
+  assert.equal(body.data.evidenceAnalysis.drawFact.deckSize, 36);
+  assert.equal(body.data.evidenceAnalysis.drawFact.order.length, body.data.cards.length);
+  assert.ok(body.data.evidenceAnalysis.drawFact.sources.length >= 2);
   assert.ok(
     body.data.evidenceAnalysis.traditionalFacts.every(
       (item: Record<string, unknown>) =>
@@ -1799,6 +1807,11 @@ test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', asy
   assert.match(first.body.data.evidenceAnalysis.promptText, /【六爻用神作用链结构化证据】/);
   assert.match(first.body.data.evidenceAnalysis.promptText, /六爻逐爻计算事实/);
   assert.doesNotMatch(first.body.data.evidenceAnalysis.promptText, /权重[：=]?\d/);
+  assert.equal(first.body.data.evidenceAnalysis.generationFact.status, '可核验');
+  assert.equal(first.body.data.evidenceAnalysis.generationFact.method, 'coins');
+  assert.equal(first.body.data.evidenceAnalysis.generationFact.coinThrows.length, 6);
+  assert.equal(first.body.data.evidenceAnalysis.generationFact.recordedLineCount, 6);
+  assert.ok(first.body.data.evidenceAnalysis.generationFact.sources.length >= 2);
   assert.equal(first.body.data.evidenceAnalysis.randomFact.status, '可重放');
   assert.equal(first.body.data.evidenceAnalysis.randomFact.seed, '公开接口固定样例');
   assert.equal(first.body.data.evidenceAnalysis.randomFact.sampleCount, 18);
