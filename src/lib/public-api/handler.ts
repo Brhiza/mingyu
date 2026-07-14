@@ -2551,11 +2551,11 @@ function buildCompactZiweiResult(result: ReturnType<typeof buildSerializableZiwe
 }
 
 function buildCompactQimenResult(result: ReturnType<typeof generateQimen>) {
-  const classicPatterns = takeTopScoredItems(
-    result.classicPatterns,
+  const classicPatterns = (result.classicPatterns ?? []).slice(
+    0,
     MAX_COMPACT_QIMEN_CLASSIC_PATTERNS,
   );
-  const patternCombos = takeTopScoredItems(result.patternCombos, MAX_COMPACT_QIMEN_PATTERN_COMBOS);
+  const patternCombos = (result.patternCombos ?? []).slice(0, MAX_COMPACT_QIMEN_PATTERN_COMBOS);
 
   return {
     scope: result.scope,
@@ -2621,12 +2621,6 @@ function buildCompactQimenResult(result: ReturnType<typeof generateQimen>) {
     yingQi: result.yingQi,
     timestamp: result.timestamp,
   };
-}
-
-function takeTopScoredItems<T extends { score: number }>(items: T[] | undefined, maxItems: number) {
-  return [...(items ?? [])]
-    .sort((a, b) => Math.abs(b.score) - Math.abs(a.score))
-    .slice(0, maxItems);
 }
 
 function compactAlmanacDay(day: AlmanacData['days'][number]) {

@@ -1845,6 +1845,22 @@ test('公开 API 奇门排盘支持轻量模式，便于调用方按需拆分请
   assert.equal(fullResult.response.status, 200);
   assert.equal(compactResult.response.status, 200);
   assert.equal(compactResult.body.ok, true);
+  assert.ok(
+    fullResult.body.data.classicPatterns.every(
+      (pattern: Record<string, unknown>) => pattern.score === undefined,
+    ),
+  );
+  assert.ok(
+    fullResult.body.data.patternCombos.every(
+      (combo: Record<string, unknown>) => combo.score === undefined,
+    ),
+  );
+  assert.ok(
+    [
+      ...(fullResult.body.data.directions?.goodDirections ?? []),
+      ...(fullResult.body.data.directions?.avoidDirections ?? []),
+    ].every((direction: Record<string, unknown>) => direction.score === undefined),
+  );
   assert.equal(compactResult.body.data.zhiFu, fullResult.body.data.zhiFu);
   assert.equal(compactResult.body.data.zhiShi, fullResult.body.data.zhiShi);
   assert.equal(compactResult.body.data.jiuGongGe.length, 9);

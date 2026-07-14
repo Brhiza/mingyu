@@ -126,13 +126,14 @@ function assertQimenScope(scope: QimenScope): void {
 function mapClassicPatterns(
   patterns: ClassicPattern[],
 ): Exclude<QimenData['classicPatterns'], undefined> {
-  return patterns.map((p) => ({
-    name: p.name,
-    type: p.tone,
-    score: p.score,
-    summary: p.summary,
-    palaces: p.palace ? [p.palace] : [],
-  }));
+  return [...patterns]
+    .sort((a, b) => Math.abs(b.score) - Math.abs(a.score))
+    .map((p) => ({
+      name: p.name,
+      type: p.tone,
+      summary: p.summary,
+      palaces: p.palace ? [p.palace] : [],
+    }));
 }
 
 /**
@@ -407,6 +408,11 @@ export function generateQimen(
     hourBranch,
     jiuGongGe,
   });
+  const publicPatternCombos = patternCombos.map(({ score: _score, ...combo }) => combo);
+  const publicDirections = {
+    goodDirections: directions.goodDirections.map(({ score: _score, ...item }) => item),
+    avoidDirections: directions.avoidDirections.map(({ score: _score, ...item }) => item),
+  };
 
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 15：返回完整 QimenData
@@ -433,8 +439,8 @@ export function generateQimen(
     jiuGongGe,
     classicPatterns,
     stemRelations,
-    patternCombos,
-    directions,
+    patternCombos: publicPatternCombos,
+    directions: publicDirections,
     yingQi,
     timestamp,
   };

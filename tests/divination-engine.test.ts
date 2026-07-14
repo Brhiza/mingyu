@@ -378,7 +378,7 @@ test('奇门算法会输出节令背景与复合格局结构', () => {
         combo.key &&
         combo.name &&
         ['super-good', 'super-bad', 'mixed'].includes(combo.tone) &&
-        typeof combo.score === 'number' &&
+        combo.score === undefined &&
         Array.isArray(combo.sources),
     ),
   );

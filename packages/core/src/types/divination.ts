@@ -450,7 +450,6 @@ export interface QimenPatternCombo {
   key: string;
   name: string;
   tone: 'super-good' | 'super-bad' | 'mixed';
-  score: number;
   summary: string;
   palace?: number;
   sources: string[];
@@ -514,7 +513,6 @@ export interface QimenData {
   classicPatterns?: Array<{
     name: string;
     type: 'good' | 'bad' | 'neutral';
-    score: number;
     summary: string;
     palaces: number[];
   }>;
@@ -534,7 +532,6 @@ export interface QimenData {
       gong: number;
       name: string;
       direction: string;
-      score: number;
       use: string;
       reasons: string[];
     }>;
@@ -542,7 +539,6 @@ export interface QimenData {
       gong: number;
       name: string;
       direction: string;
-      score: number;
       use: string;
       reasons: string[];
     }>;

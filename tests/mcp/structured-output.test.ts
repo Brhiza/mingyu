@@ -1369,11 +1369,26 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
     const prompt = String(result.structuredContent?.prompt);
     const chart = (
       result.structuredContent as {
-        result: { evidenceAnalysis: { candidates: unknown[]; relations: unknown[] } };
+        result: {
+          evidenceAnalysis: { candidates: unknown[]; relations: unknown[] };
+          classicPatterns: Array<Record<string, unknown>>;
+          patternCombos: Array<Record<string, unknown>>;
+          directions: {
+            goodDirections: Array<Record<string, unknown>>;
+            avoidDirections: Array<Record<string, unknown>>;
+          };
+        };
       }
     ).result;
     assert.ok(chart.evidenceAnalysis.candidates.length > 0);
     assert.ok(Array.isArray(chart.evidenceAnalysis.relations));
+    assert.ok(chart.classicPatterns.every((item) => item.score === undefined));
+    assert.ok(chart.patternCombos.every((item) => item.score === undefined));
+    assert.ok(
+      [...chart.directions.goodDirections, ...chart.directions.avoidDirections].every(
+        (item) => item.score === undefined,
+      ),
+    );
     assert.match(prompt, /【奇门用神宫与宫间作用结构化证据】/);
     assert.match(prompt, /不等于已经按具体问题选定用神/);
     assert.doesNotMatch(prompt, /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|应期范围\d/);
