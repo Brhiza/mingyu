@@ -488,6 +488,33 @@ const systems: SystemCapability[] = [
     },
   },
   {
+    id: 'zodiac',
+    name: '生肖流年',
+    category: 'chart',
+    inputs: [
+      { id: 'zodiac', label: '生肖或年支', type: 'text', required: true },
+      { id: 'year', label: '流年年份', type: 'number', required: false },
+      { id: 'yearGanZhi', label: '流年干支', type: 'text', required: false },
+    ],
+    outputs: [
+      '值冲刑害破关系',
+      '三合六合关系',
+      '年干五行辅助关系',
+      '计算链',
+      '主证辅证反证',
+      '信息量限制',
+      '结构化证据',
+    ],
+    supports: {
+      seed: false,
+      customRandomSource: false,
+      trueSolarTime: false,
+      unknownBirthTime: 'full',
+      batch: false,
+    },
+    notes: ['生肖流年是只使用出生年支的轻量关系模型，不替代完整八字或现实资料。'],
+  },
+  {
     id: 'taiyi',
     name: '太乙神数',
     category: 'divination',

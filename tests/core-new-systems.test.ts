@@ -167,6 +167,12 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.ok(r.prompt.includes('生肖与流年关系简析'));
   assert.ok(r.prompt.includes('五行来源'));
   assert.ok(r.prompt.includes('犯太岁明细'));
+  assert.equal(r.evidenceAnalysis.evidence.title, '生肖流年关系矩阵结构化证据');
+  assert.ok(r.evidenceAnalysis.calculationChain.length >= 4);
+  assert.ok(r.evidenceAnalysis.supportingEvidence.length > 0);
+  assert.match(r.prompt, /【生肖流年关系矩阵结构化证据】/);
+  assert.doesNotMatch(r.prompt, /综合定级：/);
+  assert.doesNotMatch(r.prompt, /印星|财星|官杀|接口兼容/);
   assert.ok(r.prompt.includes('只作生肖与流年关系层的趋势参考'));
   assert.doesNotMatch(r.prompt, /完整的事业、财运、感情或健康断语/);
 });
@@ -174,6 +180,7 @@ test('zodiac: 犯太岁与流年运程', () => {
 test('zodiac: 冲太岁只作轻量风险关系，不直接判为大凶', () => {
   const result = core.zodiac.getZodiacYearFortune('午', '庚子');
   assert.ok(result.conflicts.some((item) => item.type === '冲太岁'));
+  assert.ok(result.evidenceAnalysis.primaryEvidence.some((item) => item.relation === '冲太岁'));
   assert.notEqual(result.level, '大凶');
   assert.equal(result.confidence, '低');
 });

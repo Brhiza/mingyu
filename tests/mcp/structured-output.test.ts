@@ -274,6 +274,11 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
     /稳定性为宅卦不稳定[\s\S]*【问题】\n办公桌朝向怎么选？/,
   ],
   [
+    'zodiac_prompt',
+    { zodiac: '马', yearGanZhi: '庚子', question: '今年应注意什么？' },
+    /【生肖流年关系矩阵结构化证据】[\s\S]*生肖只取出生年支[\s\S]*【问题】\n今年应注意什么？/,
+  ],
+  [
     'qizheng_prompt',
     {
       year: 2024,

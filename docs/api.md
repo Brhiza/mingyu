@@ -82,8 +82,8 @@
 | `POST /divination/astrolabe/synastry/prompt` | 西占双盘计算并生成证据提示词                                                   |
 | `POST /metaphysics/bazhai/calculate`         | 八宅命卦、宅卦与大游年方位                                                     |
 | `POST /metaphysics/bazhai/prompt`            | 八宅排盘并生成 AI 解读提示词                                                   |
-| `POST /metaphysics/zodiac/calculate`         | 生肖犯太岁与流年运程                                                           |
-| `POST /metaphysics/zodiac/prompt`            | 生肖流年排盘并生成 AI 解读提示词                                               |
+| `POST /metaphysics/zodiac/calculate`         | 生肖与流年值冲刑害破、三合六合及结构化关系证据                                 |
+| `POST /metaphysics/zodiac/prompt`            | 生肖流年关系排盘并生成含信息量限制的 AI 解读提示词                             |
 | `POST /metaphysics/taiyi/calculate`          | 太乙神数排盘                                                                   |
 | `POST /metaphysics/taiyi/prompt`             | 太乙神数排盘并生成 AI 解读提示词                                               |
 | `POST /metaphysics/qizheng/calculate`        | 七政四余排盘                                                                   |

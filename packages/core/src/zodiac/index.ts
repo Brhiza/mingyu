@@ -19,6 +19,10 @@ import {
   ZODIACS,
   EARTHLY_BRANCHES,
 } from '../ganzhi';
+import { analyzeZodiacEvidence } from './evidence';
+
+export { analyzeZodiacEvidence } from './evidence';
+export type { ZodiacEvidenceAnalysis, ZodiacRelationEvidence } from './evidence';
 
 /** 六十甲子值年太岁星君 */
 export const TAI_SUI_STARS: Record<string, string> = {
@@ -169,15 +173,16 @@ export interface ZodiacYearFortune {
   favorableRelations: string[];
   riskRelations: string[];
   actionSignals: string[];
+  evidenceAnalysis: import('./evidence').ZodiacEvidenceAnalysis;
   prompt: string;
 }
 
 function relationText(yearStemWuxing: string, zodiacWuxing: string): string {
-  if (isSheng(yearStemWuxing, zodiacWuxing)) return '年干生扶生肖（印星得助）';
-  if (isSheng(zodiacWuxing, yearStemWuxing)) return '生肖生年干（泄气耗神）';
-  if (isKe(yearStemWuxing, zodiacWuxing)) return '年干克生肖（官杀压力）';
-  if (isKe(zodiacWuxing, yearStemWuxing)) return '生肖克年干（财星可得）';
-  return '比劫同气（帮扶竞争）';
+  if (isSheng(yearStemWuxing, zodiacWuxing)) return '年干五行生生肖地支本气';
+  if (isSheng(zodiacWuxing, yearStemWuxing)) return '生肖地支本气生年干五行';
+  if (isKe(yearStemWuxing, zodiacWuxing)) return '年干五行克生肖地支本气';
+  if (isKe(zodiacWuxing, yearStemWuxing)) return '生肖地支本气克年干五行';
+  return '年干五行与生肖地支本气同类';
 }
 
 function judgeLevel(conflicts: TaiSuiConflict[], relation: string): FortuneLevel {
@@ -185,8 +190,7 @@ function judgeLevel(conflicts: TaiSuiConflict[], relation: string): FortuneLevel
   const mild = conflicts.length > 0;
   if (severe) return '凶';
   if (mild) return '平';
-  if (relation.includes('印星') || relation.includes('财星')) return '吉';
-  if (relation.includes('比劫')) return '平';
+  if (relation.includes('年干五行生生肖')) return '吉';
   return '平';
 }
 
@@ -210,11 +214,11 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
   const level = judgeLevel(conflicts, relation);
   const favorableRelations = [
     noble ? noble : '',
-    relation.includes('印星') || relation.includes('财星') ? relation : '',
+    relation.includes('年干五行生生肖') ? relation : '',
   ].filter(Boolean);
   const riskRelations = [
     ...conflicts.map((conflict) => `${conflict.type}：${conflict.desc}`),
-    relation.includes('压力') || relation.includes('泄气') ? relation : '',
+    relation.includes('克生肖') || relation.includes('生肖地支本气生年干') ? relation : '',
   ].filter(Boolean);
   const actionSignals = [
     conflicts.some((item) => item.type === '冲太岁') ? '重大变动前预留备选方案' : '',
@@ -225,6 +229,22 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
   const yearStemWuxing = getStemWuxing(yearGanZhi[0]);
   const yearBranchWuxing = getBranchWuxing(yearBranch);
   const zodiacWuxing = getBranchWuxing(zodiacBranch);
+  const resultBase = {
+    zodiacBranch,
+    zodiac,
+    yearGanZhi,
+    yearBranch,
+    relation,
+    noble,
+    conflicts,
+    level,
+    evidenceGrade: '轻量' as const,
+    confidence: '低' as const,
+    favorableRelations,
+    riskRelations,
+    actionSignals,
+  };
+  const evidenceAnalysis = analyzeZodiacEvidence(resultBase);
   const prompt = [
     `【生肖与流年关系简析】`,
     `${zodiac}（${zodiacBranch}）遇${yearGanZhi}年（${TAI_SUI_STARS[yearGanZhi] ?? ''}太岁）。`,
@@ -234,30 +254,18 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
     conflicts.length
       ? `犯太岁明细：${conflicts.map((conflict) => `${conflict.type}（${conflict.desc}）`).join('；')}`
       : '犯太岁明细：本年未命中值、冲、刑、害、破太岁。',
-    `综合定级：${level}。`,
     `有利关系：${favorableRelations.join('；') || '未见三合六合或年干明显生扶'}。`,
     `风险关系：${riskRelations.join('；') || '未见值、冲、刑、害、破关系'}。`,
     `行动信号：${actionSignals.join('；') || '按实际计划稳步推进，不因生肖关系额外制造焦虑'}。`,
-    `证据层级：生肖与流年地支的值、冲、刑、害、破为主要关系证据；年干五行与三合六合为辅助证据；“${level}”只是本次生肖层的简化定级，不等于完整个人运势。`,
+    evidenceAnalysis.promptText,
     '证据边界：本次只作生肖与流年关系层的趋势参考；不得仅凭犯太岁名称断定必然事件，也不得把化解建议写成保证结果。',
     '',
     '请围绕上述生肖与流年地支关系，依次说明有利关系、风险关系、可观察的现实信号和稳妥行动建议。',
   ].join('\n');
 
   return {
-    zodiacBranch,
-    zodiac,
-    yearGanZhi,
-    yearBranch,
-    relation,
-    noble,
-    conflicts,
-    level,
-    evidenceGrade: '轻量',
-    confidence: '低',
-    favorableRelations,
-    riskRelations,
-    actionSignals,
+    ...resultBase,
+    evidenceAnalysis,
     prompt,
   };
 }

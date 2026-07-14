@@ -2589,6 +2589,31 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
   assert.match(body.data.prompt, /每个关键结论都要紧跟对应盘面依据/);
 });
 
+test('公开 API 生肖流年应返回关系矩阵证据而不使用综合吉凶定级', async () => {
+  const calculate = await callApi('metaphysics/zodiac/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ zodiac: '马', yearGanZhi: '庚子' }),
+  });
+  assert.equal(calculate.response.status, 200);
+  assert.equal(calculate.body.data.evidenceAnalysis.evidence.title, '生肖流年关系矩阵结构化证据');
+  assert.ok(
+    calculate.body.data.evidenceAnalysis.primaryEvidence.some(
+      (item: { relation: string }) => item.relation === '冲太岁',
+    ),
+  );
+
+  const prompt = await callApi('metaphysics/zodiac/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ zodiac: '马', yearGanZhi: '庚子', question: '今年应注意什么？' }),
+  });
+  assert.equal(prompt.response.status, 200);
+  assert.match(prompt.body.data.prompt, /【生肖流年关系矩阵结构化证据】/);
+  assert.match(prompt.body.data.prompt, /生肖只取出生年支/);
+  assert.doesNotMatch(prompt.body.data.prompt, /综合定级：|吉凶总分[：=]\d|成功率为\d/);
+});
+
 test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完整位置元数据', async () => {
   const { response, body } = await callApi('metaphysics/qizheng/calculate', {
     method: 'POST',
