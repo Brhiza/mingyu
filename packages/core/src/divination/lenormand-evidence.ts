@@ -8,6 +8,7 @@ export interface LenormandEvidenceAnalysis {
   fixedCombinations: NonNullable<LenormandData['combinations']>;
   adjacentReadings: NonNullable<LenormandData['combinations']>;
   layoutFacts: string[];
+  randomFacts: string[];
   counterEvidence: string[];
   limitations: string[];
   evidence: PromptEvidenceBundle;
@@ -25,6 +26,14 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
   const fixedCombinations = (data.combinations ?? []).filter((item) => item.source === '固定组合');
   const adjacentReadings = (data.combinations ?? []).filter((item) => item.source !== '固定组合');
   const layoutFacts = data.layoutEvidence ?? [];
+  const trace = data.meta?.random;
+  const randomFacts = trace
+    ? [
+        `随机模式：${trace.mode}`,
+        `原始随机样本数：${trace.samples.length}`,
+        trace.seed !== undefined ? `随机种子：${String(trace.seed)}` : '',
+      ].filter(Boolean)
+    : ['当前结果未附随机轨迹，无法核验洗牌与抽牌过程的重放'];
   const counterEvidence = [
     fixedCombinations.length
       ? ''
@@ -39,13 +48,40 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
     '单牌或单一组合不能证明他人意图、隐私、医疗、法律、财务事实或必然结果',
     '未给现实期限时不得把牌号、宫位或距离换算为唯一日期',
   ];
-  const items: PromptEvidenceItem[] = cards.map((card, index): PromptEvidenceItem => ({
-    level: index === Math.floor(cards.length / 2) || cards.length === 1 ? '主证' : '辅证',
-    title: `${card.position}：${card.name}`,
-    detail: `关键词${card.keywords.join('、') || '未列'}；牌义${card.meaning}${card.house ? `；落${card.house}宫` : ''}${card.row && card.column ? `；第${card.row}排第${card.column}列` : ''}。`,
-    source: '当前牌阵牌位、抽取牌面与命语36牌词典',
-    tags: [card.position, card.name, ...card.keywords.slice(0, 3)],
-  }));
+  const items: PromptEvidenceItem[] = [
+    {
+      level: '辅证',
+      title: `牌阵结构：${data.spreadName}`,
+      detail: `牌阵类型${data.spreadType}；共${cards.length}张；牌位依次为${cards.map((card) => card.position).join('、')}`,
+      source: '当前牌阵配置与命语牌阵位置定义',
+      tags: ['牌阵结构', data.spreadType, `${cards.length}张`],
+    },
+    ...cards.map((card, index): PromptEvidenceItem => ({
+      level: index === Math.floor(cards.length / 2) || cards.length === 1 ? '主证' : '辅证',
+      title: `${card.position}：${card.name}`,
+      detail: `关键词${card.keywords.join('、') || '未列'}；牌义${card.meaning}${card.house ? `；落${card.house}宫` : ''}${card.row && card.column ? `；第${card.row}排第${card.column}列` : ''}。`,
+      source: '当前牌阵牌位、抽取牌面与命语36牌词典',
+      tags: [card.position, card.name, ...card.keywords.slice(0, 3)],
+    })),
+    ...(sequence.length
+      ? [
+          {
+            level: '辅证' as const,
+            title: '牌位顺序推进',
+            detail: sequence.join('；'),
+            source: '当前牌阵的既定牌位顺序',
+            tags: ['牌序', '相邻关系'],
+          },
+        ]
+      : []),
+    {
+      level: trace ? '辅证' : '反证',
+      title: trace ? '随机过程重放记录' : '随机轨迹缺失',
+      detail: `${randomFacts.join('；')}；该记录只用于核验抽牌过程能否重放，不表示可信度或预测有效性`,
+      source: '命语统一随机轨迹协议',
+      tags: ['随机轨迹', trace ? '可重放' : '不可核验', '不代表预测有效性'],
+    },
+  ];
   items.push(
     ...fixedCombinations.map((combo): PromptEvidenceItem => ({
       level: '主证',
@@ -97,6 +133,7 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
     fixedCombinations,
     adjacentReadings,
     layoutFacts,
+    randomFacts,
     counterEvidence,
     limitations,
     evidence,

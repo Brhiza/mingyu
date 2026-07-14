@@ -28,6 +28,22 @@ test('雷诺曼九宫应输出横纵与对角线结构证据', () => {
   );
   assert.equal(layoutItems?.length, result.layoutEvidence?.length);
   assert.ok(layoutItems?.every((item) => item.level === '辅证'));
+  const structureItem = result.evidenceAnalysis?.evidence.items.find((item) =>
+    item.title.startsWith('牌阵结构：'),
+  );
+  const sequenceItem = result.evidenceAnalysis?.evidence.items.find(
+    (item) => item.title === '牌位顺序推进',
+  );
+  const randomItem = result.evidenceAnalysis?.evidence.items.find(
+    (item) => item.title === '随机过程重放记录',
+  );
+  assert.equal(structureItem?.level, '辅证');
+  assert.equal(sequenceItem?.level, '辅证');
+  assert.equal(randomItem?.level, '辅证');
+  assert.match(randomItem?.detail || '', /不表示可信度或预测有效性/);
+  assert.ok(
+    result.evidenceAnalysis?.randomFacts.some((item) => item.includes('随机种子：20260711')),
+  );
 });
 
 test('雷诺曼未知牌阵应明确报错，不应静默退回单牌', () => {

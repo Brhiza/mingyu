@@ -360,19 +360,21 @@ export function drawLenormandSpread(
   }
 
   const timestamp = Date.now();
-  const result: LenormandData = {
-    spreadType,
-    spreadName: spread.name,
-    cards,
-    combinations,
-    layoutEvidence,
-    timestamp,
-  };
-  result.evidenceAnalysis = analyzeLenormandEvidence(result);
-  return attachResultMeta(result, {
-    algorithm: 'lenormand.spread',
-    input: { spreadType },
-    calculatedAt: timestamp,
-    random: context.getTrace(),
-  });
+  const result = attachResultMeta(
+    {
+      spreadType,
+      spreadName: spread.name,
+      cards,
+      combinations,
+      layoutEvidence,
+      timestamp,
+    } satisfies LenormandData,
+    {
+      algorithm: 'lenormand.spread',
+      input: { spreadType },
+      calculatedAt: timestamp,
+      random: context.getTrace(),
+    },
+  );
+  return { ...result, evidenceAnalysis: analyzeLenormandEvidence(result) };
 }
