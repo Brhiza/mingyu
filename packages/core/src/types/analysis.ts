@@ -189,12 +189,11 @@ export interface TenGodDistributionItem {
   visibleCount: number;
   hiddenCount: number;
   totalCount: number;
-  score: number;
   status: string;
 }
 export interface TenGodStructureProfile {
   distributions: TenGodDistributionItem[];
-  familyDistributions: Array<{ family: string; totalCount: number; score: number; status: string }>;
+  familyDistributions: Array<{ family: string; totalCount: number; status: string }>;
   summary: string;
 }
 export interface TenGodFlowItem {

@@ -16,6 +16,14 @@ import type {
   TenGodFlowProfile,
 } from '../types/analysis';
 
+type ScoredTenGodDistributionItem = TenGodDistributionItem & { score: number };
+type ScoredFamilyDistribution = {
+  family: string;
+  totalCount: number;
+  score: number;
+  status: string;
+};
+
 const TEN_GODS = [
   '比肩',
   '劫财',
@@ -83,9 +91,9 @@ export function analyzeTenGodStructure(
   dayMaster: string,
   getTenGod: (g: string, d: string) => string,
 ): TenGodStructureProfile {
-  const distributionMap = new Map<string, TenGodDistributionItem>();
+  const distributionMap = new Map<string, ScoredTenGodDistributionItem>();
 
-  const ensure = (tenGod: string): TenGodDistributionItem => {
+  const ensure = (tenGod: string): ScoredTenGodDistributionItem => {
     let item = distributionMap.get(tenGod);
     if (!item) {
       item = {
@@ -146,19 +154,21 @@ export function analyzeTenGodStructure(
     fam.score += d.score;
     fam.visibleCount += d.visibleCount;
   });
-  const familyDistributions = TEN_GOD_FAMILY_ORDER.map((family) => {
-    const v = familyMap.get(family)!;
-    return {
-      family,
-      totalCount: v.totalCount,
-      score: roundScore(v.score),
-      status: resolveFamilyStatus(v),
-    };
-  });
+  const scoredFamilyDistributions: ScoredFamilyDistribution[] = TEN_GOD_FAMILY_ORDER.map(
+    (family) => {
+      const v = familyMap.get(family)!;
+      return {
+        family,
+        totalCount: v.totalCount,
+        score: roundScore(v.score),
+        status: resolveFamilyStatus(v),
+      };
+    },
+  );
 
   return {
-    distributions,
-    familyDistributions,
+    distributions: distributions.map(({ score: _score, ...item }) => item),
+    familyDistributions: scoredFamilyDistributions.map(({ score: _score, ...item }) => item),
     summary: '十神分布分析',
   };
 }

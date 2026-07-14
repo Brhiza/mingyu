@@ -9,6 +9,7 @@ import {
   analyzeSupport,
 } from '@core/bazi/baziStrengthAnalyzer';
 import { analyzeMonthQiProfile } from '@core/bazi/monthCommand';
+import { analyzeTenGodStructure } from '@core/bazi/tenGodAnalysis';
 import { getSeasonStatus, getWuxing } from '@core/bazi/baziUtils';
 import { SEASON_STATUS, WUXING_MONTH_WEIGHTS } from '@core/bazi/baziDefinitions';
 import type { Wuxing } from '@core/bazi/baziTypes';
@@ -67,6 +68,25 @@ test('月令气数应输出状态、规则权重构成和司令依据，不公�
 test('月令气数应拒绝非法月支和司令天干，不应降级成平气', () => {
   assert.throws(() => analyzeMonthQiProfile('不存在'), /月支无效/);
   assert.throws(() => analyzeMonthQiProfile('辰', '不存在'), /司令天干无效/);
+});
+
+test('十神结构应保留出现次数和状态，不公开启发式分值', () => {
+  const profile = analyzeTenGodStructure(
+    [
+      { gan: '甲', zhi: '子', hiddenStems: ['癸'] },
+      { gan: '丙', zhi: '寅', hiddenStems: ['甲', '丙', '戊'] },
+      { gan: '戊', zhi: '午', hiddenStems: ['丁', '己'] },
+      { gan: '庚', zhi: '申', hiddenStems: ['庚', '壬', '戊'] },
+    ],
+    '甲',
+    (stem, dayMaster) =>
+      stem === dayMaster ? '日主' : stem === '癸' ? '正印' : stem === '丙' ? '食神' : '正财',
+  );
+
+  assert.ok(profile.distributions.length > 0);
+  assert.ok(profile.distributions.every((item) => item.totalCount >= 0));
+  assert.ok(profile.distributions.every((item) => !('score' in item)));
+  assert.ok(profile.familyDistributions.every((item) => !('score' in item)));
 });
 
 test('五行月令展示权重应与旺相休囚死顺序一致', () => {
