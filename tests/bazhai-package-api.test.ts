@@ -55,6 +55,16 @@ test('八宅测量应换算磁北并识别跨宅卦边界的不稳定候选', ()
     result.directionMeasurement.candidateDirections.map((item) => item.match),
     ['相冲', '相合'],
   );
+  assert.deepEqual(
+    result.evidenceAnalysis.measurementCandidates.map((item) => item.sitMountain),
+    ['寅', '甲'],
+  );
+  assert.ok(
+    result.evidenceAnalysis.evidence.items.some(
+      (item) => item.title === '入户坐向测量宅卦不稳定' && item.level === '反证',
+    ),
+  );
+  assert.match(result.evidenceAnalysis.promptText, /候选明细.*寅山申向.*甲山庚向/s);
   assert.match(result.directionMeasurement.promptText, /磁偏角 1°/);
   assert.match(result.directionMeasurement.promptText, /不能只采用单一八宅盘|并列候选盘/);
   assert.ok(

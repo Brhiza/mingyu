@@ -18,6 +18,14 @@ export interface BaZhaiEvidenceAnalysis {
   alignedDirections: BaZhaiDirectionComparison[];
   conflictingDirections: BaZhaiDirectionComparison[];
   measurementFacts: string[];
+  measurementCandidates: Array<{
+    label: string;
+    sitMountain: string;
+    facingMountain: string;
+    houseGua: string;
+    houseGroup: '东四命' | '西四命';
+    match: '相合' | '相冲';
+  }>;
   counterEvidence: string[];
   limitations: string[];
   sources: Array<{ title: string; evidence: string; role: '传统规则来源' | '公共算法来源' }>;
@@ -61,6 +69,15 @@ export function analyzeBaZhaiEvidence(
         `稳定性为${measurement.stability}，候选坐向${measurement.candidateDirections.map((item) => item.label).join('、')}`,
       ]
     : [];
+  const measurementCandidates =
+    measurement?.candidateDirections.map((item) => ({
+      label: item.label,
+      sitMountain: item.sitMountain,
+      facingMountain: item.facingMountain,
+      houseGua: item.houseGua,
+      houseGroup: item.houseGroup,
+      match: item.match,
+    })) ?? [];
   const counterEvidence = [
     ...(!data.houseGua
       ? ['未提供住宅坐山或门向，只能输出命卦个人方位，不能判断宅卦和命宅配合']
@@ -101,6 +118,21 @@ export function analyzeBaZhaiEvidence(
     },
   ];
   const items: PromptEvidenceItem[] = [
+    ...(measurement
+      ? [
+          {
+            level: measurement.stability === '稳定' ? ('主证' as const) : ('反证' as const),
+            title: `入户坐向测量${measurement.stability}`,
+            detail: `${measurementFacts.join('；')}；北向基准${measurement.northReference === 'true' ? '真北' : measurement.northReference === 'magnetic' ? `磁北，磁偏角${measurement.magneticDeclinationDegrees ?? 0}°` : '未声明'}；候选明细${measurementCandidates.map((item) => `${item.label}、${item.houseGua}${item.houseGroup}、命宅${item.match}`).join('；')}`,
+            source: '入户实测角度、北向基准、磁偏角、测量误差与二十四山边界计算',
+            tags: [
+              '现场测量',
+              measurement.stability,
+              ...measurementCandidates.map((item) => item.label),
+            ],
+          },
+        ]
+      : []),
     ...directionComparisons.map((item): PromptEvidenceItem => ({
       level: item.relation === '同为吉方' ? '主证' : item.relation === '命宅异判' ? '反证' : '辅证',
       title: `${item.direction}${item.relation}`,
@@ -156,6 +188,7 @@ export function analyzeBaZhaiEvidence(
     alignedDirections,
     conflictingDirections,
     measurementFacts,
+    measurementCandidates,
     counterEvidence,
     limitations,
     sources,
