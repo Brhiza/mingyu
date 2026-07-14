@@ -1,6 +1,5 @@
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
-import { analyzeBirthTimeSensitivity } from '@core/bazi/birthTimeSensitivity';
 import { analyzeZiweiCompatibility } from '@core/ziwei/iztro';
 import type { ShenShaVariantConfig } from '@core/bazi/baziShenSha';
 import type { BaziChartResult, Person } from '@core/bazi/baziTypes';
@@ -445,15 +444,6 @@ export function getPublicApiOpenApiDocument(
           responses: { '200': { description: '八字命盘数据和结构化提示词' } },
         },
       },
-      '/bazi/time-sensitivity': {
-        post: {
-          summary: '八字出生时间敏感性结构化证据计算',
-          requestBody: openApiJsonRequestBody('#/components/schemas/BaziRequest'),
-          responses: {
-            '200': { description: '基准盘、前后误差候选盘、变化柱位与证据提示词' },
-          },
-        },
-      },
       '/bazi/compatibility': {
         post: {
           summary: '八字双盘结构化证据计算',
@@ -870,12 +860,6 @@ export function getPublicApiOpenApiDocument(
             birthMinute: { type: 'integer', minimum: 0, maximum: 59 },
             birthPlace: { type: 'string' },
             birthLongitude: { type: 'number', minimum: -180, maximum: 180 },
-            birthTimeUncertaintyMinutes: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 120,
-              description: '出生钟表时间可能存在的前后误差分钟数；用于生成候选盘敏感性证据。',
-            },
             shenShaVariants: { $ref: '#/components/schemas/ShenShaVariants' },
             detailMode: DIVINATION_REQUEST_PROPERTIES.detailMode,
           },
@@ -1260,8 +1244,6 @@ async function route(context: RouteContext) {
       return calculateBaziApi(await readJson(context.request));
     case 'bazi/prompt':
       return buildBaziPrompt(await readJson(context.request));
-    case 'bazi/time-sensitivity':
-      return calculateBaziTimeSensitivityApi(await readJson(context.request));
     case 'bazi/compatibility':
       return calculateBaziCompatibilityApi(await readJson(context.request));
     case 'bazi/compatibility/prompt':
@@ -1727,12 +1709,6 @@ function calculateBazi(input: JsonRecord) {
   return baziCalculator.calculateBazi(readBaziPerson(input));
 }
 
-function calculateBaziTimeSensitivityApi(input: JsonRecord) {
-  return analyzeBirthTimeSensitivity(readBaziPerson(input), {
-    uncertaintyMinutes: readInteger(input, 'birthTimeUncertaintyMinutes', 1, 120, 5),
-  });
-}
-
 function readShenShaVariants(input: JsonRecord): Partial<ShenShaVariantConfig> | undefined {
   const value = input.shenShaVariants;
   if (value === undefined) return undefined;
@@ -1778,12 +1754,6 @@ function buildBaziFortuneContextFromInput(result: BaziChartResult, input: JsonRe
 
 function buildBaziPrompt(input: JsonRecord) {
   const result = calculateBazi(input);
-  const timeSensitivity =
-    input.birthTimeUncertaintyMinutes === undefined
-      ? undefined
-      : analyzeBirthTimeSensitivity(readBaziPerson(input), {
-          uncertaintyMinutes: readInteger(input, 'birthTimeUncertaintyMinutes', 1, 120),
-        });
   const fortuneScope = readEnum(input, 'baziFortuneScope', BAZI_FORTUNE_SCOPES, 'natal');
   const fortuneSelectionContext = buildBaziFortuneContextFromInput(result, input);
   const schoolValue = input.school;
@@ -1800,7 +1770,7 @@ function buildBaziPrompt(input: JsonRecord) {
     fortuneScope,
     school,
   });
-  const prompt = [basePrompt, timeSensitivity?.promptText].filter(Boolean).join('\n\n');
+  const prompt = basePrompt;
 
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
@@ -1808,12 +1778,10 @@ function buildBaziPrompt(input: JsonRecord) {
     fullResult: {
       ...result,
       ...(fortuneSelectionContext ? { fortuneSelection: fortuneSelectionContext } : {}),
-      ...(timeSensitivity ? { timeSensitivity } : {}),
     },
     resultSummary: {
       ...buildCompactBaziResult(result),
       ...(fortuneSelectionContext ? { fortuneSelection: fortuneSelectionContext } : {}),
-      ...(timeSensitivity ? { timeSensitivity } : {}),
     },
   });
 }

@@ -1056,38 +1056,6 @@ test('公开 API 八字年限提示词返回逐层岁运触发结构化证据', 
   assert.match(body.data.prompt, /岁运触发解释边界/);
 });
 
-test('公开 API 返回八字出生时间敏感性候选盘与提示词证据', async () => {
-  const input = {
-    gender: 'male',
-    year: 1990,
-    month: 5,
-    day: 15,
-    dateType: 'solar',
-    useTrueSolarTime: true,
-    birthHour: 4,
-    birthMinute: 0,
-    birthLongitude: 120,
-    birthTimeUncertaintyMinutes: 5,
-  };
-  const sensitivityResponse = await callApi('bazi/time-sensitivity', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  assert.equal(sensitivityResponse.response.status, 200);
-  assert.equal(sensitivityResponse.body.data.samples.length, 3);
-  assert.ok(sensitivityResponse.body.data.changedPillars.includes('hour'));
-
-  const promptResponse = await callApi('bazi/prompt', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...input, question: '出生时间误差会影响哪些结论？' }),
-  });
-  assert.equal(promptResponse.response.status, 200);
-  assert.ok(promptResponse.body.data.resultSummary.timeSensitivity.isSensitive);
-  assert.match(promptResponse.body.data.prompt, /【八字出生时间敏感性结构化证据】/);
-});
-
 test('公开 API 八字自定义提示词不强塞专项框架', async () => {
   const { response, body } = await callApi('bazi/prompt', {
     method: 'POST',
