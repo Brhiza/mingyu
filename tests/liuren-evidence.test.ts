@@ -16,12 +16,110 @@ test('大六壬排盘应内置四课取传与三传推进结构化证据', () =>
   assert.ok(evidence);
   assert.equal(evidence.lessons.length, 4);
   assert.equal(evidence.transmissions.length, 3);
+  assert.equal(evidence.transmissionRuleFact.status, '已确定');
+  assert.equal(evidence.transmissionRuleFact.rule, data.transmissionRule);
+  assert.equal(evidence.transmissionRuleFact.initialBranch, data.threeTransmissions[0].branch);
+  assert.ok(evidence.transmissionRuleFact.initialSourceLessonKeys.length > 0);
+  assert.ok(evidence.transmissionRuleFact.sources.length >= 2);
+  assert.match(evidence.transmissionRuleFact.limitation, /不得按结果反推九宗门名称/);
+  assert.ok(
+    evidence.lessons.every(
+      (item) =>
+        item.key.startsWith('liuren:lesson:') &&
+        item.relationFacts.length > 0 &&
+        item.relationFacts.every(
+          (fact) =>
+            fact.ownerKey === item.key &&
+            fact.scope === '四课' &&
+            fact.promptText &&
+            fact.sources.length > 0 &&
+            fact.limitation.includes('不得直接解释为现实吉凶'),
+        ) &&
+        item.promptText &&
+        item.sources.length >= 2 &&
+        item.limitation.includes('不单独证明现实事件'),
+    ),
+  );
+  assert.ok(
+    evidence.transmissions.every(
+      (item) =>
+        item.key.startsWith('liuren:transmission:') &&
+        item.relationFacts.length === 4 &&
+        item.relationFacts.every(
+          (fact) =>
+            fact.ownerKey === item.key &&
+            fact.scope === '三传' &&
+            fact.promptText &&
+            fact.sources.length > 0,
+        ) &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('阶段顺序不证明现实事件必然'),
+    ),
+  );
   assert.deepEqual(
     evidence.transmissions.map((item) => item.label),
     ['起点', '过程', '落点'],
   );
   assert.equal(evidence.initialBranch, data.threeTransmissions[0].branch);
+  assert.equal(evidence.transitionFacts.length, 2);
+  assert.ok(
+    evidence.transitionFacts.every(
+      (item) =>
+        item.key.startsWith('liuren:transition:') &&
+        evidence.transmissions.some(
+          (transmission) => transmission.key === item.fromTransmissionKey,
+        ) &&
+        evidence.transmissions.some(
+          (transmission) => transmission.key === item.toTransmissionKey,
+        ) &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不证明现实事件必然推进'),
+    ),
+  );
+  assert.equal(evidence.counterSummaryFact.factKeys.length, evidence.counterEvidenceFacts.length);
+  assert.ok(
+    evidence.counterEvidenceFacts.every(
+      (item) =>
+        item.key.startsWith('liuren:counter:') &&
+        item.status === '已触发' &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不得把单项反证直接写成现实失败'),
+    ),
+  );
+  assert.equal(evidence.timingFacts.length, 4);
+  assert.deepEqual(
+    evidence.timingFacts.map((item) => item.type),
+    ['初传状态', '三传顺序', '月日触发', '期限边界'],
+  );
+  assert.ok(
+    evidence.timingFacts.every(
+      (item, index) =>
+        item.key.startsWith(`liuren:timing:${index + 1}:`) &&
+        item.sourceStatus === '原结果提供' &&
+        item.rawText &&
+        item.promptText &&
+        item.sources.length >= 2 &&
+        item.limitation.includes('不得换算唯一日期'),
+    ),
+  );
+  assert.equal(evidence.focusFacts.length, data.focusEvidence?.length);
+  assert.equal(evidence.focusSummaryFact.status, '已提供焦点');
+  assert.ok(
+    evidence.focusFacts.every(
+      (item) =>
+        item.key.startsWith('liuren:focus:') &&
+        item.sourceStatus === '原结果提供' &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不得把日支、天将或神煞固定当作用神'),
+    ),
+  );
   assert.match(evidence.promptText, /【大六壬四课取传与三传推进结构化证据】/);
+  assert.match(evidence.promptText, /取传规则事实：/);
+  assert.match(evidence.promptText, /类神焦点状态：/);
   assert.match(evidence.promptText, /四课取传与初传发用/);
   assert.deepEqual(evidence.focusEvidence, data.focusEvidence);
   assert.deepEqual(evidence.timingEvidence, data.timingEvidence);
@@ -43,8 +141,48 @@ test('大六壬证据应以旬空地支复核三传空亡，避免冗余字段�
   const evidence = analyzeLiurenEvidence(data);
 
   assert.equal(evidence.transmissions[0].isVoid, true);
+  assert.equal(
+    evidence.transmissions[0].relationFacts.find((item) => item.basis === '旬空')?.status,
+    '限制',
+  );
+  assert.ok(
+    evidence.counterEvidenceFacts.some(
+      (item) => item.ownerKey === evidence.transmissions[0].key && item.basis === '旬空',
+    ),
+  );
+  assert.match(evidence.timingFacts[0].promptText, new RegExp(`初传${initialBranch}空亡`));
   assert.match(evidence.promptText, new RegExp(`初传${initialBranch}空亡`));
   assert.doesNotMatch(evidence.promptText, new RegExp(`初传${initialBranch}不空`));
+});
+
+test('大六壬旧结果缺少取传名、应期与焦点时应明确标记来源缺口', () => {
+  const data = generateLiuren(fixedDate);
+  data.transmissionRule = undefined;
+  data.transmissionPattern = undefined;
+  data.transmissionDetail = undefined;
+  data.classicalRules = undefined;
+  data.timingEvidence = undefined;
+  data.focusEvidence = undefined;
+
+  const evidence = analyzeLiurenEvidence(data);
+
+  assert.equal(evidence.transmissionRuleFact.status, '缺少规则名');
+  assert.equal(evidence.transmissionRuleFact.rule, null);
+  assert.equal(evidence.transmissionRuleFact.pattern, null);
+  assert.equal(evidence.transmissionRuleFact.classicalRuleKeys.length, 0);
+  assert.match(evidence.transmissionRuleFact.promptText, /不得按三传结果反推九宗门名称/);
+  assert.deepEqual(evidence.timingEvidence, []);
+  assert.equal(evidence.timingFacts.length, 4);
+  assert.ok(
+    evidence.timingFacts.every(
+      (item) => item.sourceStatus === '由盘面补齐' && item.rawText === undefined,
+    ),
+  );
+  assert.equal(evidence.focusFacts.length, 0);
+  assert.equal(evidence.focusSummaryFact.status, '缺少焦点');
+  assert.match(evidence.focusSummaryFact.promptText, /不得自行把日支、天将或神煞固定当作用神/);
+  assert.match(evidence.promptText, /由盘面补齐/);
+  assert.match(evidence.promptText, /类神焦点资料缺失/);
 });
 
 test('大六壬证据应保留类神未选定限制，不把日支或神煞固定当作用神', () => {

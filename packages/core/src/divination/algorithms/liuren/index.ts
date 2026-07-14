@@ -464,8 +464,16 @@ export function generateLiuren(customDate?: Date): LiurenData {
 
 export { analyzeLiurenEvidence, conditionLiurenTraditionalText } from '../../liuren-evidence';
 export type {
+  LiurenCounterEvidenceFact,
+  LiurenCounterSummaryFact,
   LiurenEvidenceAnalysis,
+  LiurenFocusFact,
+  LiurenFocusSummaryFact,
   LiurenLessonEvidence,
+  LiurenRelationEvidenceFact,
+  LiurenTimingFact,
   LiurenTraditionalFact,
+  LiurenTransitionFact,
   LiurenTransmissionEvidence,
+  LiurenTransmissionRuleFact,
 } from '../../liuren-evidence';

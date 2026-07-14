@@ -1848,8 +1848,44 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
       liurenResult.structuredContent as {
         result: {
           evidenceAnalysis: {
-            lessons: unknown[];
-            transmissions: unknown[];
+            transmissionRuleFact: {
+              status: string;
+              rule: string;
+              initialSourceLessonKeys: string[];
+              sources: string[];
+              limitation: string;
+            };
+            lessons: Array<{
+              key: string;
+              relationFacts: Array<{ key: string; ownerKey: string; sources: string[] }>;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            transmissions: Array<{
+              key: string;
+              relationFacts: Array<{ key: string; ownerKey: string; sources: string[] }>;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            transitionFacts: Array<{
+              key: string;
+              fromTransmissionKey: string;
+              toTransmissionKey: string;
+              promptText: string;
+              sources: string[];
+            }>;
+            counterEvidenceFacts: Array<{ key: string; status: string; limitation: string }>;
+            counterSummaryFact: { factKeys: string[]; limitation: string };
+            timingFacts: Array<{
+              key: string;
+              sourceStatus: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            focusSummaryFact: { status: string; limitation: string };
             calculationFact: {
               monthLeader: string;
               sources: string[];
@@ -1878,6 +1914,75 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     ).result;
     assert.equal(liurenData.evidenceAnalysis.lessons.length, 4);
     assert.equal(liurenData.evidenceAnalysis.transmissions.length, 3);
+    assert.equal(liurenData.evidenceAnalysis.transmissionRuleFact.status, '已确定');
+    assert.ok(liurenData.evidenceAnalysis.transmissionRuleFact.rule);
+    assert.ok(liurenData.evidenceAnalysis.transmissionRuleFact.initialSourceLessonKeys.length > 0);
+    assert.ok(liurenData.evidenceAnalysis.transmissionRuleFact.sources.length >= 2);
+    assert.match(
+      liurenData.evidenceAnalysis.transmissionRuleFact.limitation,
+      /不得按结果反推九宗门名称/,
+    );
+    assert.ok(
+      liurenData.evidenceAnalysis.lessons.every(
+        (item) =>
+          item.key.startsWith('liuren:lesson:') &&
+          item.relationFacts.length > 0 &&
+          item.relationFacts.every(
+            (fact) => fact.ownerKey === item.key && fact.sources.length > 0,
+          ) &&
+          item.promptText &&
+          item.sources.length >= 2 &&
+          item.limitation.includes('不单独证明现实事件'),
+      ),
+    );
+    assert.ok(
+      liurenData.evidenceAnalysis.transmissions.every(
+        (item) =>
+          item.key.startsWith('liuren:transmission:') &&
+          item.relationFacts.length === 4 &&
+          item.relationFacts.every(
+            (fact) => fact.ownerKey === item.key && fact.sources.length > 0,
+          ) &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('阶段顺序不证明现实事件必然'),
+      ),
+    );
+    assert.equal(liurenData.evidenceAnalysis.transitionFacts.length, 2);
+    assert.ok(
+      liurenData.evidenceAnalysis.transitionFacts.every(
+        (item) =>
+          item.key.startsWith('liuren:transition:') &&
+          item.fromTransmissionKey &&
+          item.toTransmissionKey &&
+          item.promptText &&
+          item.sources.length > 0,
+      ),
+    );
+    assert.equal(
+      liurenData.evidenceAnalysis.counterSummaryFact.factKeys.length,
+      liurenData.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.ok(
+      liurenData.evidenceAnalysis.counterEvidenceFacts.every(
+        (item) =>
+          item.key.startsWith('liuren:counter:') &&
+          item.status === '已触发' &&
+          item.limitation.includes('不得把单项反证直接写成现实失败'),
+      ),
+    );
+    assert.equal(liurenData.evidenceAnalysis.timingFacts.length, 4);
+    assert.ok(
+      liurenData.evidenceAnalysis.timingFacts.every(
+        (item) =>
+          item.key.startsWith('liuren:timing:') &&
+          item.sourceStatus === '原结果提供' &&
+          item.promptText &&
+          item.sources.length >= 2 &&
+          item.limitation.includes('不得换算唯一日期'),
+      ),
+    );
+    assert.equal(liurenData.evidenceAnalysis.focusSummaryFact.status, '已提供焦点');
     assert.ok(liurenData.evidenceAnalysis.calculationFact.monthLeader);
     assert.ok(liurenData.evidenceAnalysis.calculationFact.sources.length >= 3);
     assert.match(liurenData.evidenceAnalysis.calculationFact.limitation, /不单独证明现实事件/);
@@ -1911,6 +2016,9 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
       new Set(['经典取传规则', '课体', '天将属性', '神煞']),
     );
     assert.doesNotMatch(liurenPrompt, /主婚姻|主官非|主疾病|主死丧|主虚而不实/);
+    assert.match(liurenPrompt, /取传规则事实：/);
+    assert.match(liurenPrompt, /类神焦点状态：/);
+    assert.match(liurenPrompt, /应期边界：未给期限时不换算唯一日期/);
     assert.doesNotMatch(liurenPrompt, /【分析思路】/);
     assert.doesNotMatch(liurenPrompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
     assertPromptIsPortableTaskText(liurenPrompt);

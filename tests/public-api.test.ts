@@ -2788,6 +2788,67 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
   assert.equal(liurenChart.response.status, 200);
   assert.equal(liurenChart.body.data.evidenceAnalysis.lessons.length, 4);
   assert.equal(liurenChart.body.data.evidenceAnalysis.transmissions.length, 3);
+  assert.equal(liurenChart.body.data.evidenceAnalysis.transmissionRuleFact.status, '已确定');
+  assert.equal(
+    liurenChart.body.data.evidenceAnalysis.transmissionRuleFact.rule,
+    liurenChart.body.data.transmissionRule,
+  );
+  assert.ok(
+    liurenChart.body.data.evidenceAnalysis.transmissionRuleFact.initialSourceLessonKeys.length > 0,
+  );
+  assert.ok(
+    liurenChart.body.data.evidenceAnalysis.lessons.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('liuren:lesson:') &&
+        Array.isArray(item.relationFacts) &&
+        item.relationFacts.length > 0 &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        item.sources.length >= 2 &&
+        String(item.limitation).includes('不单独证明现实事件'),
+    ),
+  );
+  assert.ok(
+    liurenChart.body.data.evidenceAnalysis.transmissions.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('liuren:transmission:') &&
+        Array.isArray(item.relationFacts) &&
+        item.relationFacts.length === 4 &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        item.sources.length > 0 &&
+        String(item.limitation).includes('阶段顺序不证明现实事件必然'),
+    ),
+  );
+  assert.equal(liurenChart.body.data.evidenceAnalysis.transitionFacts.length, 2);
+  assert.ok(
+    liurenChart.body.data.evidenceAnalysis.transitionFacts.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('liuren:transition:') &&
+        item.fromTransmissionKey &&
+        item.toTransmissionKey &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        item.sources.length > 0,
+    ),
+  );
+  assert.equal(liurenChart.body.data.evidenceAnalysis.timingFacts.length, 4);
+  assert.ok(
+    liurenChart.body.data.evidenceAnalysis.timingFacts.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('liuren:timing:') &&
+        item.sourceStatus === '原结果提供' &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        item.sources.length >= 2 &&
+        String(item.limitation).includes('不得换算唯一日期'),
+    ),
+  );
+  assert.equal(liurenChart.body.data.evidenceAnalysis.focusSummaryFact.status, '已提供焦点');
+  assert.equal(
+    liurenChart.body.data.evidenceAnalysis.counterSummaryFact.factKeys.length,
+    liurenChart.body.data.evidenceAnalysis.counterEvidenceFacts.length,
+  );
   assert.equal(
     liurenChart.body.data.evidenceAnalysis.calculationFact.monthLeader,
     liurenChart.body.data.monthLeader,
@@ -2830,6 +2891,9 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
   assert.ok(traditionalFacts.some((item) => item.kind === '课体'));
   assert.ok(traditionalFacts.some((item) => item.kind === '天将属性'));
   assert.ok(traditionalFacts.some((item) => item.kind === '神煞'));
+  assert.match(liuren.body.data.prompt, /取传规则事实：/);
+  assert.match(liuren.body.data.prompt, /类神焦点状态：/);
+  assert.match(liuren.body.data.prompt, /应期边界：未给期限时不换算唯一日期/);
   assert.doesNotMatch(liuren.body.data.prompt, /主婚姻|主官非|主疾病|主死丧|主虚而不实/);
 });
 
