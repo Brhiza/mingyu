@@ -69,7 +69,8 @@ const profile = {
 } as const;
 
 const normalized = normalizeBirthProfile(profile);
-// normalized.hasKnownTime === true
+// 校验通过后一定包含完整、可直接排盘的时间与时辰索引
+console.log(normalized.effectiveTime, normalized.timeIndex);
 
 const capabilities = getCapabilities();
 // 可用于生成算法入口、输入项和依赖提示
