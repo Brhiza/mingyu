@@ -4707,29 +4707,6 @@ select {
   color: var(--text-muted);
 }
 
-.birth-time-actions {
-  display: grid;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.birth-time-reverse-button {
-  width: fit-content;
-  border: 1px solid var(--border-contrast);
-  border-radius: var(--radius-control);
-  background: linear-gradient(180deg, var(--accent-soft), var(--secondary-soft));
-  color: var(--accent-deep);
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.birth-time-reverse-button:hover {
-  border-color: var(--accent-strong);
-  background: linear-gradient(180deg, var(--accent-surface), var(--accent-soft));
-}
-
 .form-error-text {
   font-size: 13px;
   color: #b91c1c;
