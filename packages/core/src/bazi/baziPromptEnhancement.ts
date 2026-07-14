@@ -300,7 +300,13 @@ function generateHarmonyTransformSection(chartResult: BaziChartResult): string {
   const strongestProfiles = profiles
     .sort((a, b) => {
       if (a.isTransformed !== b.isTransformed) return a.isTransformed ? -1 : 1;
-      return b.score - a.score;
+      const evidenceCount = (profile: (typeof profiles)[number]) =>
+        Number(profile.monthSupported) +
+        Number(profile.transformStemVisible) +
+        Number(profile.transformRooted) -
+        Number(profile.hasClashBreak) -
+        Number(profile.hasCompetition);
+      return evidenceCount(b) - evidenceCount(a);
     })
     .slice(0, 2);
   const evidence = strongestProfiles
@@ -327,6 +333,12 @@ export function generateEnhancedAnalysisSection(
   const sections: string[] = [];
 
   const wuxingCounts = chartResult.wuxingStrength?.percentages;
+  const wuxingEvidence = chartResult.wuxingStrength;
+  if (wuxingEvidence) {
+    sections.push(
+      `【五行结构证据】出现：${wuxingEvidence.present.join('、') || '无'}；按当前规则相对突出：${wuxingEvidence.dominantByRule.join('、') || '无'}；缺失：${wuxingEvidence.missing.join('、') || '无'}。${wuxingEvidence.ruleBasis.join('；')}`,
+    );
+  }
   if (wuxingCounts && chartResult.analysis?.mingGe) {
     const dm = detectDiseaseMedicine(
       wuxingCounts,

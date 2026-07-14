@@ -873,6 +873,9 @@ test('八字增强资料包不再按用户分类切换本地模板', () => {
 
   assert.equal(healthSection, generalSection);
   assert.equal(careerSection, generalSection);
+  assert.match(generalSection, /【五行结构证据】出现：/);
+  assert.match(generalSection, /按当前规则相对突出：/);
+  assert.match(generalSection, /月令旺衰权重用于比较规则输入，不代表概率、吉凶或现实结果/);
   assert.doesNotMatch(healthSection, /【寿元分析】/);
   assert.doesNotMatch(careerSection, /【限运分析】/);
 });
