@@ -152,6 +152,8 @@ export interface QizhengCalculationContext {
 }
 
 export interface QizhengEvidenceAnalysis {
+  calculationFact: QizhengCalculationFact;
+  positionSourceFacts: QizhengPositionSourceFact[];
   starFacts: QizhengStarFact[];
   aspectFacts: QizhengAspectFact[];
   primaryFacts: string[];
@@ -160,6 +162,58 @@ export interface QizhengEvidenceAnalysis {
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
+}
+
+export interface QizhengCalculationStep {
+  key: string;
+  stage:
+    | '民用时间转UTC'
+    | '天文时间尺度'
+    | '现代位置计算'
+    | '紫炁古法计算'
+    | '恒星黄经换算'
+    | '宿度与落宫'
+    | '吊照筛选';
+  status: '已计算';
+  inputs: Record<string, string | number | boolean>;
+  result: Record<string, string | number | boolean>;
+  promptText: string;
+  sources: string[];
+}
+
+export interface QizhengCalculationFact {
+  key: 'calculation:qizheng:chart';
+  status: '输入明确' | '含默认值';
+  defaults: string[];
+  context: {
+    localDateTime: string;
+    utcDateTime: string;
+    timezone: number;
+    latitude: number;
+    longitude: number;
+    locationSource: QizhengCalculationContext['locationSource'];
+    timezoneSource: QizhengCalculationContext['timezoneSource'];
+  };
+  steps: QizhengCalculationStep[];
+  promptText: string;
+  sources: string[];
+  limitation: '计算链只证明民用时间、时区、地点、天文时间尺度、位置模型和坐标换算如何形成当前七政四余盘；默认地点、近似时间尺度与传统均速模型不得提升为真实出生地或观测级精度，也不证明现实事件或吉凶结果';
+}
+
+export interface QizhengPositionSourceFact {
+  key: string;
+  sourceId: QizhengPositionSourceId;
+  status: '已采用';
+  objects: string[];
+  provider: string;
+  calculation: string;
+  coordinate: string;
+  precisionClass: QizhengPositionSource['precisionClass'];
+  adoptedSources: string[];
+  limitations: string[];
+  promptLimitations: string[];
+  promptText: string;
+  limitation: '位置来源事实只说明各星体采用的提供方、模型、坐标和精度层级；来源可追溯不等于结果达到观测级精度，也不证明占星解释、现实事件或吉凶结论';
 }
 
 export interface QizhengStarFact {
@@ -180,7 +234,7 @@ export interface QizhengStarFact {
   precisionClass: QizhengStar['precisionClass'];
   promptText: string;
   sources: string[];
-  limitation: '逐星位置是回归黄经、项目恒星黄经、古距度宿度与落宫的计算事实；现代天文计算和传统均速模型必须分层使用，不单独证明人格、现实事件、吉凶或应期';
+  limitation: '逐星位置是回归黄经、本次换算恒星黄经、古距度宿度与落宫的计算事实；现代天文计算和传统均速模型必须分层使用，不单独证明人格、现实事件、吉凶或应期';
 }
 
 export interface QizhengAspectFact {
@@ -197,14 +251,29 @@ export interface QizhengAspectFact {
   precisionClass: QizhengAspect['precisionClass'];
   promptText: string;
   sources: string[];
-  limitation: '吊照相位只描述两星项目恒星黄经在当前容许度内的几何关系；混合模型不得提升为现代天文同精度证据，也不代表吉凶比例、事件概率或必然结果';
+  limitation: '吊照相位只描述两星本次换算恒星黄经在当前容许度内的几何关系；混合模型不得提升为现代天文同精度证据，也不代表吉凶比例、事件概率或必然结果';
 }
 
 const STAR_FACT_LIMITATION =
-  '逐星位置是回归黄经、项目恒星黄经、古距度宿度与落宫的计算事实；现代天文计算和传统均速模型必须分层使用，不单独证明人格、现实事件、吉凶或应期' as const;
+  '逐星位置是回归黄经、本次换算恒星黄经、古距度宿度与落宫的计算事实；现代天文计算和传统均速模型必须分层使用，不单独证明人格、现实事件、吉凶或应期' as const;
 
 const ASPECT_FACT_LIMITATION =
-  '吊照相位只描述两星项目恒星黄经在当前容许度内的几何关系；混合模型不得提升为现代天文同精度证据，也不代表吉凶比例、事件概率或必然结果' as const;
+  '吊照相位只描述两星本次换算恒星黄经在当前容许度内的几何关系；混合模型不得提升为现代天文同精度证据，也不代表吉凶比例、事件概率或必然结果' as const;
+const CALCULATION_FACT_LIMITATION =
+  '计算链只证明民用时间、时区、地点、天文时间尺度、位置模型和坐标换算如何形成当前七政四余盘；默认地点、近似时间尺度与传统均速模型不得提升为真实出生地或观测级精度，也不证明现实事件或吉凶结果' as const;
+const POSITION_SOURCE_FACT_LIMITATION =
+  '位置来源事实只说明各星体采用的提供方、模型、坐标和精度层级；来源可追溯不等于结果达到观测级精度，也不证明占星解释、现实事件或吉凶结论' as const;
+
+function conditionQizhengPortableText(text: string): string {
+  return text
+    .replace(/项目恒星黄经/g, '本次换算恒星黄经')
+    .replace(/项目岁差/g, '当前岁差')
+    .replace(/本项目统一/g, '统一')
+    .replace(/项目统一/g, '统一')
+    .replace(/本项目调用依赖库结果/g, '位置计算调用依赖库结果')
+    .replace(/本项目/g, '当前计算')
+    .replace(/这是项目明确采用/g, '这是当前计算明确采用');
+}
 
 export interface QizhengInput {
   year: number;
@@ -345,7 +414,7 @@ export const ZIQI_MODEL_INFO: ZiqiModelInfo = {
   modernEpochUtc: '1995-12-31T00:00:00.000Z',
   modernEpochTropicalLongitude: ZIQI_MODERN_EPOCH_LONGITUDE,
   formula: '回归黄经 = 归一化(237.038993° + 距1995-12-31T00:00:00Z日数 × 360° / 10227.1792日)',
-  coordinate: '先算回归黄经均速值，再按项目统一岁差换算为恒星黄经与二十八宿宿度',
+  coordinate: '先算回归黄经均速值，再按统一岁差口径换算为恒星黄经与二十八宿宿度',
   precision:
     '可按输入分钟稳定复现古法均速值；误差边界来自古法均速假设、历元现代复原和宿度坐标，不宣称现代天体测量的角秒精度',
   sources: [
@@ -398,7 +467,7 @@ export const ZIQI_MODEL_INFO: ZiqiModelInfo = {
       url: 'https://github.com/BahnAstro/FINASTRO/blob/842d27a2bb814870c00068d99fd7da6fc4e2f0db/alldata31.py',
       category: '开源对照',
       usage: '未采用',
-      evidence: '沿用MOIRA的1975年历元，仅作为同周期实现的交叉检索记录，不作为本项目参数来源',
+      evidence: '沿用MOIRA的1975年历元，仅作为同周期实现的交叉检索记录，不作为当前模型参数来源',
     },
   ],
 };
@@ -409,10 +478,10 @@ export const QIZHENG_POSITION_SOURCES: QizhengPositionSource[] = [
     objects: ['太阳', '太阴', '辰星(水)', '太白(金)', '荧惑(火)', '岁星(木)', '镇星(土)'],
     provider: 'celestine.calculateChart',
     calculation: '按输入民用时间、时区和地点计算七政回归黄经及逆行状态',
-    coordinate: '回归黄经；随后由本项目统一换算恒星黄经和古距度宿度',
+    coordinate: '回归黄经；随后按统一口径换算恒星黄经和古距度宿度',
     precisionClass: '现代天文计算',
     limitations: [
-      '本项目调用依赖库结果，未独立复算底层星历',
+      '位置取自上述计算来源，未另用第二套底层星历独立复算',
       '不得仅凭页面显示小数位宣称达到观测级或JPL星历精度',
     ],
   },
@@ -423,7 +492,7 @@ export const QIZHENG_POSITION_SOURCES: QizhengPositionSource[] = [
     calculation: '罗睺取真北交点，计都取真南交点',
     coordinate: '回归黄经；随后统一换算恒星黄经和宿度',
     precisionClass: '现代天文计算',
-    limitations: ['这是项目明确采用的真交点口径，不与平均交点混用'],
+    limitations: ['这是当前计算明确采用的真交点口径，不与平均交点混用'],
   },
   {
     id: 'celestine-true-lilith',
@@ -432,7 +501,7 @@ export const QIZHENG_POSITION_SOURCES: QizhengPositionSource[] = [
     calculation: '月孛取真黑月莉莉丝位置',
     coordinate: '回归黄经；随后统一换算恒星黄经和宿度',
     precisionClass: '现代天文计算',
-    limitations: ['月孛存在平均远地点、真远地点等不同口径；本项目只采用真莉莉丝口径'],
+    limitations: ['月孛存在平均远地点、真远地点等不同口径；当前计算只采用真莉莉丝口径'],
   },
   {
     id: 'qizhengsuan-ziqi',
@@ -691,7 +760,7 @@ function buildCalculationContext(
       '统一记录JD(UTC)、UT1≈UTC假设、ΔT估算与近似JD(TT)',
       'celestine计算七政、真交点和真莉莉丝的回归黄经',
       '紫炁按《七政算内篇》独立古法均速模型计算回归黄经',
-      '回归黄经减IAU 2006近似岁差得到项目恒星黄经',
+      '回归黄经减IAU 2006近似岁差得到本次换算恒星黄经',
       '恒星黄经按二十八宿古距度总和等比例换算宿度',
     ],
   };
@@ -718,6 +787,148 @@ function buildQizhengEvidence(
       : context.timezoneSource === 'IANA历史时区'
         ? 'IANA历史时区已解析'
         : context.timezoneSource;
+  const defaults = [
+    context.locationSource === '用户提供' ? '' : `地点来源${context.locationSource}`,
+    context.timezoneSource === '用户提供' || context.timezoneSource === 'IANA历史时区'
+      ? ''
+      : `时区来源${context.timezoneSource}`,
+  ].filter(Boolean);
+  const calculationSteps: QizhengCalculationStep[] = [
+    {
+      key: 'qizheng:calculation:utc',
+      stage: '民用时间转UTC',
+      status: '已计算',
+      inputs: {
+        localDateTime: context.localDateTime,
+        timezone: context.timezone,
+        timezoneSource: context.timezoneSource,
+      },
+      result: { utcDateTime: context.utcDateTime },
+      promptText: `当地民用时间${context.localDateTime}按UTC${context.timezone >= 0 ? '+' : ''}${context.timezone}换算为${context.utcDateTime}`,
+      sources: ['历史时区或固定UTC偏移解析', '当前民用时间输入'],
+    },
+    {
+      key: 'qizheng:calculation:time-scales',
+      stage: '天文时间尺度',
+      status: '已计算',
+      inputs: { utcDateTime: context.utcDateTime },
+      result: {
+        julianDayUtc: context.astronomicalTime.julianDayUtc,
+        deltaTSeconds: context.astronomicalTime.deltaTSeconds,
+        julianDayTtApprox: context.astronomicalTime.julianDayTtApprox,
+        precisionLevel: context.astronomicalTime.precisionLevel,
+      },
+      promptText: `UTC时刻换算JD(UTC)${context.astronomicalTime.julianDayUtc.toFixed(6)}，采用ΔT${context.astronomicalTime.deltaTSeconds.toFixed(3)}秒得到近似JD(TT)${context.astronomicalTime.julianDayTtApprox.toFixed(6)}`,
+      sources: [context.astronomicalTime.source, context.astronomicalTime.deltaTModel],
+    },
+    {
+      key: 'qizheng:calculation:modern-positions',
+      stage: '现代位置计算',
+      status: '已计算',
+      inputs: {
+        utcDateTime: context.utcDateTime,
+        latitude: context.latitude,
+        longitude: context.longitude,
+      },
+      result: {
+        modernObjectCount: stars.filter((item) => item.precisionClass === '现代天文计算').length,
+      },
+      promptText: '由celestine计算七政、真交点和真莉莉丝的回归黄经及逆行状态',
+      sources: ['celestine.calculateChart', '真交点与真莉莉丝扩展计算'],
+    },
+    {
+      key: 'qizheng:calculation:ziqi',
+      stage: '紫炁古法计算',
+      status: '已计算',
+      inputs: {
+        utcDateTime: context.utcDateTime,
+        modelId: structure.ziqiModel.id,
+      },
+      result: {
+        tropicalLongitude: structure.ziqi.tropicalLongitude,
+        dailyMotionDegrees: structure.ziqi.dailyMotionDegrees,
+      },
+      promptText: `紫炁按${structure.ziqiModel.name}得到回归黄经${structure.ziqi.tropicalLongitude.toFixed(6)}°`,
+      sources: structure.ziqiModel.sources
+        .filter((item) => item.usage === '采用')
+        .map((item) => item.title),
+    },
+    {
+      key: 'qizheng:calculation:sidereal',
+      stage: '恒星黄经换算',
+      status: '已计算',
+      inputs: { objectCount: stars.length },
+      result: { siderealObjectCount: stars.length },
+      promptText: '各星回归黄经减IAU 2006近似岁差，得到本次恒星黄经',
+      sources: ['IAU 2006近似岁差换算'],
+    },
+    {
+      key: 'qizheng:calculation:xiu-palace',
+      stage: '宿度与落宫',
+      status: '已计算',
+      inputs: { siderealObjectCount: stars.length },
+      result: { starFactCount: stars.length, palaceCount: 12 },
+      promptText: '本次恒星黄经按二十八宿古距度比例换算宿度，并映射十二宫、命宫与身宫',
+      sources: ['二十八宿古距度表', '十二宫映射与安命安身规则'],
+    },
+    {
+      key: 'qizheng:calculation:aspects',
+      stage: '吊照筛选',
+      status: '已计算',
+      inputs: { starCount: stars.length },
+      result: { aspectCount: aspects.length },
+      promptText: `按本次恒星黄经最小夹角与吊照容许度筛出${aspects.length}组关系`,
+      sources: ['七政四余吊照角度与容许度表', '恒星黄经最小夹角计算'],
+    },
+  ];
+  const calculationFact: QizhengCalculationFact = {
+    key: 'calculation:qizheng:chart',
+    status: defaults.length ? '含默认值' : '输入明确',
+    defaults,
+    context: {
+      localDateTime: context.localDateTime,
+      utcDateTime: context.utcDateTime,
+      timezone: context.timezone,
+      latitude: context.latitude,
+      longitude: context.longitude,
+      locationSource: context.locationSource,
+      timezoneSource: context.timezoneSource,
+    },
+    steps: calculationSteps,
+    promptText: calculationSteps.map((item) => item.promptText).join(' → '),
+    sources: [
+      'UTC、JD与近似TT时间尺度换算',
+      'celestine现代位置计算',
+      structure.ziqiModel.name,
+      '岁差、二十八宿与十二宫换算',
+    ],
+    limitation: CALCULATION_FACT_LIMITATION,
+  };
+  const positionSourceFacts: QizhengPositionSourceFact[] = QIZHENG_POSITION_SOURCES.map(
+    (source) => {
+      const promptLimitations = source.limitations.map(conditionQizhengPortableText);
+      return {
+        key: `qizheng:position-source:${source.id}`,
+        sourceId: source.id,
+        status: '已采用',
+        objects: [...source.objects],
+        provider: source.provider,
+        calculation: source.calculation,
+        coordinate: source.coordinate,
+        precisionClass: source.precisionClass,
+        adoptedSources:
+          source.id === 'qizhengsuan-ziqi'
+            ? structure.ziqiModel.sources
+                .filter((item) => item.usage === '采用')
+                .map((item) => item.title)
+            : [source.provider],
+        limitations: [...source.limitations],
+        promptLimitations,
+        promptText: `${source.objects.join('、')}采用${source.provider}（${source.precisionClass}）：${conditionQizhengPortableText(source.calculation)}；坐标口径${conditionQizhengPortableText(source.coordinate)}`,
+        limitation: POSITION_SOURCE_FACT_LIMITATION,
+      };
+    },
+  );
   const starFacts: QizhengStarFact[] = stars.map((star) => ({
     key: `逐星:${star.name}`,
     name: star.name,
@@ -734,8 +945,8 @@ function buildQizhengEvidence(
     sourceId: star.sourceId,
     sourceLabel: star.sourceLabel,
     precisionClass: star.precisionClass,
-    promptText: `${star.name}（${star.kind}，${star.precisionClass}）：回归黄经${star.tropicalLongitude.toFixed(3)}°，项目恒星黄经${star.longitude.toFixed(3)}°，${star.xiu}宿${star.xiuDegree.toFixed(2)}度，落${star.palace}${star.dignity && star.dignity !== '—' ? `，状态${star.dignity}` : ''}${star.retrograde ? '，逆行' : ''}`,
-    sources: [star.sourceLabel, `位置源标识${star.sourceId}`, '项目岁差近似与二十八宿古距度换算'],
+    promptText: `${star.name}（${star.kind}，${star.precisionClass}）：回归黄经${star.tropicalLongitude.toFixed(3)}°，本次换算恒星黄经${star.longitude.toFixed(3)}°，${star.xiu}宿${star.xiuDegree.toFixed(2)}度，落${star.palace}${star.dignity && star.dignity !== '—' ? `，状态${star.dignity}` : ''}${star.retrograde ? '，逆行' : ''}`,
+    sources: [star.sourceLabel, `位置源标识${star.sourceId}`, '岁差近似与二十八宿古距度换算'],
     limitation: STAR_FACT_LIMITATION,
   }));
   const aspectFacts: QizhengAspectFact[] = aspects.map((aspect) => ({
@@ -751,7 +962,7 @@ function buildQizhengEvidence(
     closeness: aspect.closeness,
     precisionClass: aspect.precisionClass,
     promptText: `${aspect.star1}与${aspect.star2}${aspect.type}：实际夹角${aspect.actualAngle.toFixed(2)}°，精确角${aspect.exactAngle.toFixed(2)}°，允许容许度${aspect.allowedOrb.toFixed(2)}°，距精确角偏差${aspect.orb.toFixed(2)}°，归一化容许度位置${aspect.orbRatio.toFixed(2)}，${aspect.closeness}等级，${aspect.precisionClass}${aspect.precisionClass === '混合模型' ? '；不得因角度接近而提升为现代天文同精度证据' : ''}`,
-    sources: [aspect.source, '项目恒星黄经最小夹角与当前吊照容许度表'],
+    sources: [aspect.source, '本次换算恒星黄经最小夹角与当前吊照容许度表'],
     limitation: ASPECT_FACT_LIMITATION,
   }));
   const primaryFacts = starFacts.map(
@@ -763,7 +974,7 @@ function buildQizhengEvidence(
   );
   const supportingFacts = aspectFacts.slice(0, 12).map((aspect) => aspect.promptText);
   supportingFacts.push(
-    `紫炁顺行回归黄经${structure.ziqi.tropicalLongitude.toFixed(3)}°、项目恒星黄经${structure.ziqi.siderealLongitude.toFixed(3)}°，采用${structure.ziqiModel.name}`,
+    `紫炁顺行回归黄经${structure.ziqi.tropicalLongitude.toFixed(3)}°、本次换算恒星黄经${structure.ziqi.siderealLongitude.toFixed(3)}°，采用${structure.ziqiModel.name}`,
   );
   supportingFacts.push(
     `神煞定位：${structure.shensha.map((item) => `${item.name}${item.value}`).join('、')}`,
@@ -771,7 +982,7 @@ function buildQizhengEvidence(
   const limitations = [
     `${locationSourceText}；${timezoneSourceText}，地点或时区并非明确输入时，不得宣称宫位结果已按真实出生地校准`,
     '七政、罗计与月孛来自现代天文计算；紫炁来自传统均速模型，两者不得按相同精度比较',
-    '恒星黄经采用项目岁差近似，宿度再按古距度比例换算；显示小数只是可复算结果，不代表观测精度',
+    '恒星黄经采用当前岁差近似，宿度再按古距度比例换算；显示小数只是可复算结果，不代表观测精度',
     ...context.astronomicalTime.limitations,
     ...context.moonPhase.limitations,
     ...context.solarIllumination.limitations,
@@ -779,6 +990,20 @@ function buildQizhengEvidence(
     '神煞只作辅证，不能覆盖星体位置、宿度、落宫和吊照结构',
   ];
   const items: PromptEvidenceItem[] = [
+    {
+      level: calculationFact.status === '输入明确' ? '辅证' : '反证',
+      title: '七政四余输入与坐标计算链',
+      detail: `${calculationFact.promptText}；${calculationFact.defaults.length ? `默认项：${calculationFact.defaults.join('、')}；` : ''}边界：${calculationFact.limitation}`,
+      source: calculationFact.sources.join('、'),
+      tags: ['计算链', calculationFact.status],
+    },
+    ...positionSourceFacts.map((source): PromptEvidenceItem => ({
+      level: source.precisionClass === '现代天文计算' ? '辅证' : '限制',
+      title: `${source.objects.join('、')}位置来源`,
+      detail: `${source.promptText}；来源依据${source.adoptedSources.join('、')}；局限${source.promptLimitations.join('；')}；统一边界：${source.limitation}`,
+      source: `${source.key}；${source.adoptedSources.join('、')}`,
+      tags: [source.precisionClass, source.sourceId],
+    })),
     ...starFacts.map((star): PromptEvidenceItem => ({
       level: star.kind === '七政' ? '主证' : '辅证',
       title: `${star.name}位置与落宫`,
@@ -816,6 +1041,8 @@ function buildQizhengEvidence(
   ];
   const evidence: PromptEvidenceBundle = { title: '七政四余计算来源与证据分层', items };
   return {
+    calculationFact,
+    positionSourceFacts,
     starFacts,
     aspectFacts,
     primaryFacts,
@@ -828,7 +1055,7 @@ function buildQizhengEvidence(
     methodology: [
       '先固定民用时间、时区、地点和UTC计算时刻。',
       '逐星保留计算来源，区分现代天文位置与传统紫炁均速模型。',
-      '再换算项目恒星黄经、古距度宿度、十二宫和庙旺。',
+      '再换算本次恒星黄经、古距度宿度、十二宫和庙旺。',
       '吊照只按实际夹角和容许度分级，不换算为吉凶百分比。',
       '月相只保留日月黄经差、照明近似和前后朔弦望时刻，不把月相直接解释为吉凶。',
       '太阳高度与日出日落只作为地点相关的天文光照背景，不直接生成庙旺或吉凶结论。',
@@ -988,10 +1215,10 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     calculationContext.moonPhase.promptText,
     calculationContext.solarIllumination.promptText,
     `位置来源：${QIZHENG_POSITION_SOURCES.map((source) => `${source.objects.join('、')}取自${source.provider}（${source.precisionClass}）`).join('；')}。`,
-    `紫炁位置：顺行，回归黄经${ziqi.tropicalLongitude.toFixed(3)}°，项目恒星黄经${ziqi.siderealLongitude.toFixed(3)}°。`,
+    `紫炁位置：顺行，回归黄经${ziqi.tropicalLongitude.toFixed(3)}°，本次换算恒星黄经${ziqi.siderealLongitude.toFixed(3)}°。`,
     ...stars.map(
       (s) =>
-        `${s.kind} ${s.name}：回归黄经${s.tropicalLongitude.toFixed(3)}°，项目恒星黄经${s.longitude.toFixed(3)}°，在${s.xiu}宿${s.xiuDegree.toFixed(2)}度，落${s.palace}${s.dignity && s.dignity !== '—' ? '（' + s.dignity + '）' : ''}${s.retrograde ? '（逆）' : ''}；来源${s.sourceLabel}（${s.precisionClass}）`,
+        `${s.kind} ${s.name}：回归黄经${s.tropicalLongitude.toFixed(3)}°，本次换算恒星黄经${s.longitude.toFixed(3)}°，在${s.xiu}宿${s.xiuDegree.toFixed(2)}度，落${s.palace}${s.dignity && s.dignity !== '—' ? '（' + s.dignity + '）' : ''}${s.retrograde ? '（逆）' : ''}；来源${s.sourceLabel}（${s.precisionClass}）`,
     ),
     `七政四余吊照：${
       aspects.length

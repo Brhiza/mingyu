@@ -3134,6 +3134,34 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
     '传统均速模型',
   );
   assert.match(body.data.evidenceAnalysis.promptText, /【七政四余计算来源与证据分层】/);
+  assert.equal(body.data.evidenceAnalysis.calculationFact.status, '含默认值');
+  assert.equal(body.data.evidenceAnalysis.calculationFact.steps.length, 7);
+  assert.ok(
+    body.data.evidenceAnalysis.calculationFact.steps.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('qizheng:calculation:') &&
+        item.status === '已计算' &&
+        item.promptText &&
+        Array.isArray(item.sources),
+    ),
+  );
+  assert.equal(
+    body.data.evidenceAnalysis.positionSourceFacts.length,
+    body.data.positionSources.length,
+  );
+  assert.ok(
+    body.data.evidenceAnalysis.positionSourceFacts.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('qizheng:position-source:') &&
+        item.status === '已采用' &&
+        Array.isArray(item.adoptedSources) &&
+        item.adoptedSources.length > 0 &&
+        Array.isArray(item.promptLimitations) &&
+        item.promptLimitations.every((text: string) => !text.includes('本项目')) &&
+        String(item.limitation).includes('不等于结果达到观测级精度'),
+    ),
+  );
+  assert.doesNotMatch(body.data.evidenceAnalysis.promptText, /本项目|项目统一|项目恒星黄经|命语/);
   assert.equal(body.data.evidenceAnalysis.starFacts.length, body.data.stars.length);
   assert.equal(body.data.evidenceAnalysis.aspectFacts.length, body.data.aspects.length);
   assert.ok(

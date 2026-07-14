@@ -627,6 +627,31 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.match(r.prompt, /月相证据：/);
   assert.match(r.prompt, /JD\(TT\)/);
   assert.match(r.evidenceAnalysis.promptText, /【七政四余计算来源与证据分层】/);
+  assert.equal(r.evidenceAnalysis.calculationFact.status, '含默认值');
+  assert.equal(r.evidenceAnalysis.calculationFact.steps.length, 7);
+  assert.ok(r.evidenceAnalysis.calculationFact.defaults.some((item) => item.includes('默认北京')));
+  assert.ok(
+    r.evidenceAnalysis.calculationFact.steps.every(
+      (item) =>
+        item.key.startsWith('qizheng:calculation:') &&
+        item.status === '已计算' &&
+        item.promptText &&
+        item.sources.length > 0,
+    ),
+  );
+  assert.equal(r.evidenceAnalysis.positionSourceFacts.length, r.positionSources.length);
+  assert.ok(
+    r.evidenceAnalysis.positionSourceFacts.every(
+      (item) =>
+        item.key.startsWith('qizheng:position-source:') &&
+        item.status === '已采用' &&
+        item.objects.length > 0 &&
+        item.adoptedSources.length > 0 &&
+        item.promptLimitations.every((text) => !text.includes('本项目')) &&
+        item.promptText &&
+        item.limitation.includes('不等于结果达到观测级精度'),
+    ),
+  );
   assert.equal(r.evidenceAnalysis.starFacts.length, r.stars.length);
   assert.equal(r.evidenceAnalysis.aspectFacts.length, r.aspects.length);
   assert.ok(
@@ -650,6 +675,7 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   );
   assert.match(r.evidenceAnalysis.promptText, /现代天文计算/);
   assert.match(r.evidenceAnalysis.promptText, /传统均速模型/);
+  assert.doesNotMatch(r.evidenceAnalysis.promptText, /本项目|项目统一|项目恒星黄经|命语/);
   assert.match(
     r.evidenceAnalysis.promptText,
     /实际夹角.*精确角.*允许容许度.*距精确角偏差.*归一化容许度位置/,
@@ -673,6 +699,8 @@ test('qizheng: 用户地点与默认地点必须在计算上下文中明确区�
   });
   assert.equal(supplied.calculationContext.locationSource, '用户提供');
   assert.equal(supplied.calculationContext.timezoneSource, '用户提供');
+  assert.equal(supplied.evidenceAnalysis.calculationFact.status, '输入明确');
+  assert.deepEqual(supplied.evidenceAnalysis.calculationFact.defaults, []);
 
   const partial = core.qizheng.generateQizheng({
     year: 2024,
@@ -682,6 +710,12 @@ test('qizheng: 用户地点与默认地点必须在计算上下文中明确区�
     latitude: 31.23,
   });
   assert.equal(partial.calculationContext.locationSource, '部分坐标使用默认值');
+  assert.equal(partial.evidenceAnalysis.calculationFact.status, '含默认值');
+  assert.ok(
+    partial.evidenceAnalysis.calculationFact.defaults.some((item) =>
+      item.includes('部分坐标使用默认值'),
+    ),
+  );
   assert.match(partial.evidenceAnalysis.limitations.join('\n'), /部分坐标使用默认值/);
 });
 

@@ -390,6 +390,23 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
                 };
               };
               evidenceAnalysis?: {
+                calculationFact?: {
+                  status: string;
+                  defaults: string[];
+                  steps: Array<{
+                    key: string;
+                    status: string;
+                    promptText: string;
+                    sources: string[];
+                  }>;
+                };
+                positionSourceFacts?: Array<{
+                  key: string;
+                  status: string;
+                  adoptedSources: string[];
+                  promptLimitations: string[];
+                  limitation: string;
+                }>;
                 starFacts?: Array<{ sources: string[]; limitation: string }>;
                 aspectFacts?: Array<{ allowedOrb: number; limitation: string }>;
               };
@@ -402,6 +419,32 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         }
         assert.equal(chart?.evidenceAnalysis?.starFacts?.length, chart?.stars?.length);
         assert.equal(chart?.evidenceAnalysis?.aspectFacts?.length, chart?.aspects?.length);
+        assert.equal(chart?.evidenceAnalysis?.calculationFact?.status, '含默认值');
+        assert.equal(chart?.evidenceAnalysis?.calculationFact?.steps.length, 7);
+        assert.ok(
+          chart?.evidenceAnalysis?.calculationFact?.steps.every(
+            (item) =>
+              item.key.startsWith('qizheng:calculation:') &&
+              item.status === '已计算' &&
+              item.promptText &&
+              item.sources.length > 0,
+          ),
+        );
+        assert.equal(chart?.evidenceAnalysis?.positionSourceFacts?.length, 4);
+        assert.ok(
+          chart?.evidenceAnalysis?.positionSourceFacts?.every(
+            (item) =>
+              item.key.startsWith('qizheng:position-source:') &&
+              item.status === '已采用' &&
+              item.adoptedSources.length > 0 &&
+              item.promptLimitations.every((text) => !text.includes('本项目')) &&
+              item.limitation.includes('不等于结果达到观测级精度'),
+          ),
+        );
+        assert.doesNotMatch(
+          String(chart?.evidenceAnalysis?.promptText ?? ''),
+          /本项目|项目统一|项目恒星黄经|命语/,
+        );
         assert.match(
           chart?.calculationContext?.moonPhase?.previousPrincipalPhase?.key ?? '',
           /^四正月相:/,
