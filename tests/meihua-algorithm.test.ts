@@ -126,6 +126,11 @@ test('梅花：仅随机起卦应把重放轨迹接入统一证据', () => {
       item.includes('随机种子：梅花证据样例'),
     ),
   );
+  assert.equal(randomData.evidenceAnalysis?.randomFact.status, '可重放');
+  assert.equal(randomData.evidenceAnalysis?.randomFact.seed, '梅花证据样例');
+  assert.equal(randomData.evidenceAnalysis?.randomFact.sampleCount, 3);
+  assert.doesNotMatch(randomData.evidenceAnalysis?.randomFact.promptText || '', /梅花证据样例/);
+  assert.equal(numberData.evidenceAnalysis?.randomFact.status, '不适用');
   assert.deepEqual(numberData.evidenceAnalysis?.randomFacts, []);
   assert.ok(
     !numberData.evidenceAnalysis?.evidence.items.some((item) => item.tags?.includes('随机起卦')),

@@ -9,7 +9,7 @@ import {
   serializeCoreResult,
   stableStringify,
 } from 'mingyu-core/result';
-import { createRandomContext } from 'mingyu-core/random';
+import { buildRandomTraceFact, createRandomContext } from 'mingyu-core/random';
 import { normalizeBirthProfile, BirthProfileError } from 'mingyu-core/profile';
 import { drawSpreadCards } from '../packages/core/src/divination/tarot';
 import { drawLenormandSpread } from '../packages/core/src/divination/algorithms/lenormand';
@@ -127,6 +127,44 @@ test('随机上下文支持种子记录和原始样本重放', () => {
   assert.throws(() => createRandomContext({ seed: 1, replay: [0.5] }), /只能提供一种/);
 });
 
+test('随机轨迹事实应区分可重放、轨迹缺失和不适用', () => {
+  const replayable = buildRandomTraceFact({
+    key: 'random:test:seeded',
+    applicable: true,
+    trace: { mode: 'seeded', seed: '结构化样例', samples: [0.1, 0.2] },
+    processLabel: '测试生成过程',
+    sources: ['测试输入', '随机元数据'],
+  });
+  assert.equal(replayable.status, '可重放');
+  assert.equal(replayable.mode, 'seeded');
+  assert.equal(replayable.seed, '结构化样例');
+  assert.deepEqual(replayable.samples, [0.1, 0.2]);
+  assert.equal(replayable.sampleCount, 2);
+  assert.doesNotMatch(replayable.promptText, /结构化样例|0\.1|0\.2/);
+  assert.match(replayable.limitation, /不表示可信度或预测有效性/);
+
+  const missing = buildRandomTraceFact({
+    key: 'random:test:missing',
+    applicable: true,
+    processLabel: '测试生成过程',
+    sources: ['测试输入'],
+  });
+  assert.equal(missing.status, '缺少轨迹');
+  assert.equal(missing.mode, '未记录');
+  assert.equal(missing.sampleCount, 0);
+  assert.match(missing.promptText, /无法核验或重放/);
+
+  const notApplicable = buildRandomTraceFact({
+    key: 'random:test:manual',
+    applicable: false,
+    processLabel: '手工录入过程',
+    sources: ['手工输入'],
+  });
+  assert.equal(notApplicable.status, '不适用');
+  assert.equal(notApplicable.mode, '不适用');
+  assert.match(notApplicable.promptText, /不依赖随机抽样/);
+});
+
 test('塔罗、雷诺曼、灵签、梅花和小六壬可由结果元数据完整重放', () => {
   const tarot = drawSpreadCards('three', { seed: '塔罗样例' });
   const tarotReplay = drawSpreadCards('three', { replay: tarot.meta.random?.samples });
@@ -198,8 +236,15 @@ test('六爻保留时间、手工和模拟三钱三种来源及逐币轨迹', ()
   assert.match(sourceItem?.detail || '', /第1爻计算样本/);
   assert.match(sourceItem?.detail || '', /只说明卦象如何生成/);
   assert.equal(randomItem?.level, '辅证');
-  assert.match(randomItem?.detail || '', /随机种子：三钱样例/);
+  assert.doesNotMatch(randomItem?.detail || '', /三钱样例/);
   assert.match(randomItem?.detail || '', /不表示可信度或预测有效性/);
+  assert.equal(time.evidenceAnalysis?.randomFact.status, '可重放');
+  assert.equal(time.evidenceAnalysis?.randomFact.sampleCount, 18);
+  assert.equal(coins.evidenceAnalysis?.randomFact.status, '可重放');
+  assert.equal(coins.evidenceAnalysis?.randomFact.seed, '三钱样例');
+  assert.equal(coins.evidenceAnalysis?.randomFact.sampleCount, 18);
+  assert.doesNotMatch(coins.evidenceAnalysis?.randomFact.promptText || '', /三钱样例/);
+  assert.equal(manual.evidenceAnalysis?.randomFact.status, '不适用');
   assert.deepEqual(manual.evidenceAnalysis?.randomFacts, []);
   assert.ok(
     !manual.evidenceAnalysis?.evidence.items.some((item) => item.title === '六爻随机重放记录'),

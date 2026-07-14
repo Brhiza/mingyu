@@ -3918,6 +3918,12 @@ test('塔罗与雷诺曼提示词应包含可回退生成的结构化证据', as
   const tarotRandom = tarotItems.find((item) => item.title === '随机过程重放记录');
   assert.equal(tarotRandom?.level, '辅证');
   assert.match(tarotRandom?.detail || '', /不表示可信度或预测有效性/);
+  assert.equal(tarotData.evidenceAnalysis?.randomFact.status, '可重放');
+  assert.equal(
+    tarotData.evidenceAnalysis?.randomFact.sampleCount,
+    tarotData.meta?.random?.samples.length,
+  );
+  assert.ok((tarotData.evidenceAnalysis?.randomFact.sources.length ?? 0) >= 2);
   assert.ok(tarotData.evidenceAnalysis?.randomFacts.some((item) => item.includes('随机模式')));
 
   const lenormandSession = await generateDivinationSession(

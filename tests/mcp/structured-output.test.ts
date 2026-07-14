@@ -892,6 +892,12 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     const tarotData = tarot.structuredContent?.result as Record<string, any>;
     assert.equal(tarot.isError, undefined);
     assert.equal(tarotData.evidenceAnalysis.cards.length, 3);
+    assert.equal(tarotData.evidenceAnalysis.randomFact.status, '可重放');
+    assert.equal(
+      tarotData.evidenceAnalysis.randomFact.sampleCount,
+      tarotData.meta.random.samples.length,
+    );
+    assert.doesNotMatch(tarotData.evidenceAnalysis.randomFact.promptText, /MCP塔罗证据样例/);
     assert.equal(tarotData.evidenceAnalysis.traditionalFacts.length, 3);
     assert.ok(
       tarotData.evidenceAnalysis.traditionalFacts.every(
@@ -922,6 +928,9 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     assert.equal(lenormand.isError, undefined);
     assert.ok(Array.isArray(lenormandData.evidenceAnalysis.fixedCombinations));
     assert.ok(Array.isArray(lenormandData.evidenceAnalysis.adjacentReadings));
+    assert.equal(lenormandData.evidenceAnalysis.randomFact.status, '可重放');
+    assert.equal(lenormandData.evidenceAnalysis.randomFact.seed, 'MCP雷诺曼证据样例');
+    assert.doesNotMatch(lenormandData.evidenceAnalysis.randomFact.promptText, /MCP雷诺曼证据样例/);
     assert.ok(lenormandData.evidenceAnalysis.traditionalFacts.length >= 9);
     assert.equal(lenormandData.evidenceAnalysis.structuredLayoutFacts.length, 9);
     assert.ok(
@@ -1382,6 +1391,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
           evidenceAnalysis: {
             stages: Array<{ stage: string }>;
             promptText: string;
+            randomFact: { status: string };
             traditionalFacts: Array<Record<string, unknown>>;
           };
         };
@@ -1392,6 +1402,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       ['origin', 'process', 'result'],
     );
     assert.match(result.evidenceAnalysis.promptText, /【梅花体用阶段推进结构化证据】/);
+    assert.equal(result.evidenceAnalysis.randomFact.status, '不适用');
     assert.ok(result.evidenceAnalysis.traditionalFacts.length >= 21);
     assert.ok(
       result.evidenceAnalysis.traditionalFacts.every(
@@ -1439,6 +1450,7 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
             stages: Array<{ stage: string }>;
             transitions: string[];
             counterEvidence: string[];
+            randomFact: { status: string };
             traditionalFacts: Array<{
               kind: string;
               originalText: string;
@@ -1455,6 +1467,7 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
       ['起因', '过程', '结果'],
     );
     assert.equal(result.evidenceAnalysis.transitions.length, 2);
+    assert.equal(result.evidenceAnalysis.randomFact.status, '不适用');
     assert.ok(Array.isArray(result.evidenceAnalysis.counterEvidence));
     assert.ok(result.evidenceAnalysis.traditionalFacts.length > 0);
     assert.ok(

@@ -1,5 +1,10 @@
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
+import {
+  buildRandomTraceFact,
+  formatLegacyRandomFacts,
+  type RandomTraceFact,
+} from '../shared/random';
 import type { XiaoliurenData, XiaoliurenPalaceDetail } from '../types/divination';
 
 export interface XiaoliurenStageEvidence {
@@ -28,6 +33,7 @@ export interface XiaoliurenEvidenceAnalysis {
   calculationChain: string[];
   stages: XiaoliurenStageEvidence[];
   transitions: string[];
+  randomFact: RandomTraceFact;
   randomFacts: string[];
   counterEvidence: string[];
   timingBasis: string[];
@@ -199,16 +205,14 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
   const counterEvidence = unique(stages.flatMap((item) => item.constraints));
   const isRandomMethod = data.method === 'random';
   const trace = data.meta?.random;
-  const randomFacts = isRandomMethod
-    ? trace
-      ? [
-          `随机模式：${trace.mode}`,
-          `原始随机样本数：${trace.samples.length}`,
-          trace.seed !== undefined ? `随机种子：${String(trace.seed)}` : '',
-        ].filter(Boolean)
-      : ['随机起课结果未附随机轨迹，无法核验起课基数的重放过程']
-    : [];
-  const promptRandomFacts = randomFacts.filter((item) => !item.startsWith('随机种子：'));
+  const randomFact = buildRandomTraceFact({
+    key: `random:xiaoliuren:${data.method}`,
+    applicable: isRandomMethod,
+    trace,
+    processLabel: `${data.methodLabel}的起课基数生成过程`,
+    sources: ['小六壬起课方式与基数记录', '随机起课样本与重放元数据'],
+  });
+  const randomFacts = formatLegacyRandomFacts(randomFact);
   const timingBasis = unique(data.timingEvidence?.primaryBasis ?? []);
   const triggerConditions = unique([
     ...(data.timingEvidence?.triggerConditions ?? []),
@@ -260,11 +264,11 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     ...(isRandomMethod
       ? [
           {
-            level: trace ? ('辅证' as const) : ('反证' as const),
-            title: trace ? '随机起课重放记录' : '随机轨迹缺失',
-            detail: `${promptRandomFacts.join('；')}；随机种子保留在结构化结果中，不写入自然语言提示词；该记录只用于核验起课过程能否重放，不表示可信度或预测有效性`,
-            source: '随机起课样本与重放轨迹记录',
-            tags: ['随机起课', trace ? '可重放' : '不可核验', '不代表预测有效性'],
+            level: randomFact.status === '可重放' ? ('辅证' as const) : ('反证' as const),
+            title: randomFact.status === '可重放' ? '随机起课重放记录' : '随机轨迹缺失',
+            detail: `${randomFact.promptText}；边界：${randomFact.limitation}`,
+            source: randomFact.sources.join('、'),
+            tags: ['随机起课', randomFact.status, '不代表预测有效性'],
           },
         ]
       : []),
@@ -302,6 +306,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     calculationChain,
     stages,
     transitions,
+    randomFact,
     randomFacts,
     counterEvidence,
     timingBasis,

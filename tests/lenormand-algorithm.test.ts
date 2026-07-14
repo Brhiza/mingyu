@@ -103,6 +103,13 @@ test('雷诺曼九宫应输出横纵与对角线结构证据', () => {
   assert.ok(
     result.evidenceAnalysis?.randomFacts.some((item) => item.includes('随机种子：20260711')),
   );
+  assert.equal(result.evidenceAnalysis?.randomFact.status, '可重放');
+  assert.equal(result.evidenceAnalysis?.randomFact.seed, 20260711);
+  assert.equal(
+    result.evidenceAnalysis?.randomFact.sampleCount,
+    result.meta?.random?.samples.length,
+  );
+  assert.doesNotMatch(result.evidenceAnalysis?.randomFact.promptText || '', /20260711/);
   assert.doesNotMatch(result.evidenceAnalysis?.promptText || '', /随机种子：20260711/);
   assert.doesNotMatch(result.evidenceAnalysis?.promptText || '', /成功率|吉凶总分|score/i);
 });

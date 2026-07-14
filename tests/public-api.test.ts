@@ -1675,6 +1675,12 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
   assert.equal(body.data.meta.algorithm, 'tarot.single');
   assert.equal(body.data.evidenceAnalysis.cards.length, 1);
   assert.equal(body.data.evidenceAnalysis.evidence.title, '塔罗牌位与牌面结构化证据');
+  assert.equal(body.data.evidenceAnalysis.randomFact.status, '可重放');
+  assert.equal(
+    body.data.evidenceAnalysis.randomFact.sampleCount,
+    body.data.meta.random.samples.length,
+  );
+  assert.ok(body.data.evidenceAnalysis.randomFact.sources.length >= 2);
   assert.equal(body.data.evidenceAnalysis.traditionalFacts.length, 1);
   assert.ok(
     body.data.evidenceAnalysis.traditionalFacts.every(
@@ -1715,6 +1721,9 @@ test('公开 API 雷诺曼接口应分层返回组合与布局证据', async () 
     ),
   );
   assert.equal(body.data.evidenceAnalysis.structuredLayoutFacts.length, 9);
+  assert.equal(body.data.evidenceAnalysis.randomFact.status, '可重放');
+  assert.equal(body.data.evidenceAnalysis.randomFact.seed, '雷诺曼结构化证据样例');
+  assert.doesNotMatch(body.data.evidenceAnalysis.randomFact.promptText, /雷诺曼结构化证据样例/);
   assert.ok(
     body.data.evidenceAnalysis.structuredLayoutFacts.every(
       (item: Record<string, unknown>) =>
@@ -1790,6 +1799,10 @@ test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', asy
   assert.match(first.body.data.evidenceAnalysis.promptText, /【六爻用神作用链结构化证据】/);
   assert.match(first.body.data.evidenceAnalysis.promptText, /六爻逐爻计算事实/);
   assert.doesNotMatch(first.body.data.evidenceAnalysis.promptText, /权重[：=]?\d/);
+  assert.equal(first.body.data.evidenceAnalysis.randomFact.status, '可重放');
+  assert.equal(first.body.data.evidenceAnalysis.randomFact.seed, '公开接口固定样例');
+  assert.equal(first.body.data.evidenceAnalysis.randomFact.sampleCount, 18);
+  assert.doesNotMatch(first.body.data.evidenceAnalysis.randomFact.promptText, /公开接口固定样例/);
 
   const replay = await callApi('divination/liuyao', {
     method: 'POST',
@@ -2122,6 +2135,7 @@ test('公开 API 奇门与小六壬应期应返回条件证据，不返回伪精
     ['起因', '过程', '结果'],
   );
   assert.ok(xiaoliuren.body.data.evidenceAnalysis.transitions.length === 2);
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.randomFact.status, '不适用');
   const xiaoliurenFacts = xiaoliuren.body.data.evidenceAnalysis.traditionalFacts as Array<{
     kind: string;
     originalText: string;
@@ -2532,6 +2546,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     ['origin', 'process', 'result'],
   );
   assert.match(chart.body.data.evidenceAnalysis.promptText, /【梅花体用阶段推进结构化证据】/);
+  assert.equal(chart.body.data.evidenceAnalysis.randomFact.status, '不适用');
   assert.ok(chart.body.data.evidenceAnalysis.traditionalFacts.length >= 21);
   assert.ok(
     chart.body.data.evidenceAnalysis.traditionalFacts.every(

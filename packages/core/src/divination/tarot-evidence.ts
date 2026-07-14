@@ -1,5 +1,10 @@
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
+import {
+  buildRandomTraceFact,
+  formatLegacyRandomFacts,
+  type RandomTraceFact,
+} from '../shared/random';
 import type { TarotData } from '../types/divination';
 
 export interface TarotCardEvidence {
@@ -34,6 +39,7 @@ export interface TarotEvidenceAnalysis {
   drawFacts: string[];
   sequence: string[];
   recurringThemes: string[];
+  randomFact: RandomTraceFact;
   randomFacts: string[];
   counterEvidence: string[];
   limitations: string[];
@@ -146,14 +152,14 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
     .filter(([, count]) => count >= 2)
     .map(([theme, count]) => `${theme}主题出现${count}张，只表示牌面重复，不等于权重分数`);
   const trace = data.meta?.random;
-  const randomFacts = trace
-    ? [
-        `随机模式：${trace.mode}`,
-        `原始随机样本数：${trace.samples.length}`,
-        trace.seed !== undefined ? `随机种子：${String(trace.seed)}` : '',
-      ].filter(Boolean)
-    : ['当前结果未附随机轨迹，无法核验洗牌、抽牌和正逆位的重放过程'];
-  const promptRandomFacts = randomFacts.filter((item) => !item.startsWith('随机种子：'));
+  const randomFact = buildRandomTraceFact({
+    key: `random:tarot:${data.spreadType}`,
+    applicable: true,
+    trace,
+    processLabel: `${data.spreadName}的洗牌、抽牌与正逆位生成过程`,
+    sources: ['塔罗牌阵与抽牌顺序记录', '洗牌、抽牌、正逆位随机样本与重放元数据'],
+  });
+  const randomFacts = formatLegacyRandomFacts(randomFact);
   const counterEvidence = cards.flatMap((card) =>
     card.constraints.map((constraint) => `${card.position}${card.name}：${constraint}`),
   );
@@ -210,11 +216,11 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
         ]
       : []),
     {
-      level: trace ? '辅证' : '反证',
-      title: trace ? '随机过程重放记录' : '随机轨迹缺失',
-      detail: `${promptRandomFacts.join('；')}；随机种子保留在结构化结果中，不写入自然语言提示词；该记录只用于核验抽牌过程能否重放，不表示可信度或预测有效性`,
-      source: '随机抽牌样本与重放轨迹记录',
-      tags: ['随机轨迹', trace ? '可重放' : '不可核验', '不代表预测有效性'],
+      level: randomFact.status === '可重放' ? '辅证' : '反证',
+      title: randomFact.status === '可重放' ? '随机过程重放记录' : '随机轨迹缺失',
+      detail: `${randomFact.promptText}；边界：${randomFact.limitation}`,
+      source: randomFact.sources.join('、'),
+      tags: ['随机轨迹', randomFact.status, '不代表预测有效性'],
     },
   ];
   items.push(
@@ -247,6 +253,7 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
     drawFacts,
     sequence,
     recurringThemes,
+    randomFact,
     randomFacts,
     counterEvidence,
     limitations,

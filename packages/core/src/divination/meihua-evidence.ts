@@ -3,6 +3,11 @@ import { trigramsByIndex } from './hexagram-data';
 import { getSeasonState, isKe, isSheng } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
+import {
+  buildRandomTraceFact,
+  formatLegacyRandomFacts,
+  type RandomTraceFact,
+} from '../shared/random';
 
 export type MeihuaEvidenceStageKey = 'origin' | 'process' | 'result';
 
@@ -42,6 +47,7 @@ export interface MeihuaEvidenceAnalysis {
   stages: MeihuaStageEvidence[];
   transitions: string[];
   timingConditions: string[];
+  randomFact: RandomTraceFact;
   randomFacts: string[];
   counterEvidence: string[];
   traditionalFacts: MeihuaTraditionalFact[];
@@ -440,16 +446,14 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
   const counterEvidence = Array.from(new Set(stages.flatMap((item) => item.constraints)));
   const isRandomMethod = data.calculation?.methodKey === 'random';
   const trace = data.meta?.random;
-  const randomFacts = isRandomMethod
-    ? trace
-      ? [
-          `随机模式：${trace.mode}`,
-          `原始随机样本数：${trace.samples.length}`,
-          trace.seed !== undefined ? `随机种子：${String(trace.seed)}` : '',
-        ].filter(Boolean)
-      : ['随机起卦结果未附随机轨迹，无法核验上下卦与动爻的重放过程']
-    : [];
-  const promptRandomFacts = randomFacts.filter((item) => !item.startsWith('随机种子：'));
+  const randomFact = buildRandomTraceFact({
+    key: `random:meihua:${data.calculation?.methodKey ?? 'unknown'}`,
+    applicable: isRandomMethod,
+    trace,
+    processLabel: `${data.calculation?.method ?? '当前方式'}的上下卦与动爻生成过程`,
+    sources: ['梅花起卦方式与取数记录', '随机上下卦、动爻样本与重放元数据'],
+  });
+  const randomFacts = formatLegacyRandomFacts(randomFact);
   const items: PromptEvidenceItem[] = [
     {
       level: '辅证',
@@ -539,11 +543,11 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
   ];
   if (isRandomMethod) {
     items.push({
-      level: trace ? '辅证' : '反证',
-      title: trace ? '随机起卦重放记录' : '随机轨迹缺失',
-      detail: `${promptRandomFacts.join('；')}；随机种子保留在结构化结果中，不写入自然语言提示词；该记录只用于核验起卦过程能否重放，不表示可信度或预测有效性`,
-      source: '随机起卦样本与重放轨迹记录',
-      tags: ['随机起卦', trace ? '可重放' : '不可核验', '不代表预测有效性'],
+      level: randomFact.status === '可重放' ? '辅证' : '反证',
+      title: randomFact.status === '可重放' ? '随机起卦重放记录' : '随机轨迹缺失',
+      detail: `${randomFact.promptText}；边界：${randomFact.limitation}`,
+      source: randomFact.sources.join('、'),
+      tags: ['随机起卦', randomFact.status, '不代表预测有效性'],
     });
   }
   items.push({
@@ -569,6 +573,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     stages,
     transitions,
     timingConditions,
+    randomFact,
     randomFacts,
     counterEvidence,
     traditionalFacts,

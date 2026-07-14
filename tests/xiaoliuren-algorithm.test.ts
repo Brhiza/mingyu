@@ -136,6 +136,11 @@ test('小六壬：仅随机起课应把重放轨迹接入统一证据', () => {
       item.includes('随机种子：小六壬证据样例'),
     ),
   );
+  assert.equal(randomResult.evidenceAnalysis?.randomFact.status, '可重放');
+  assert.equal(randomResult.evidenceAnalysis?.randomFact.seed, '小六壬证据样例');
+  assert.equal(randomResult.evidenceAnalysis?.randomFact.sampleCount, 1);
+  assert.doesNotMatch(randomResult.evidenceAnalysis?.randomFact.promptText || '', /小六壬证据样例/);
+  assert.equal(timeResult.evidenceAnalysis?.randomFact.status, '不适用');
   assert.deepEqual(timeResult.evidenceAnalysis?.randomFacts, []);
   assert.ok(
     !timeResult.evidenceAnalysis?.evidence.items.some((item) => item.tags?.includes('随机起课')),

@@ -20,6 +20,71 @@ export interface RandomTrace {
   samples: number[];
 }
 
+export type RandomTraceFactStatus = '可重放' | '缺少轨迹' | '不适用';
+
+export interface RandomTraceFact {
+  key: string;
+  status: RandomTraceFactStatus;
+  mode: RandomMode | '未记录' | '不适用';
+  seed?: string | number;
+  samples: number[];
+  sampleCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: string;
+}
+
+export interface RandomTraceFactOptions {
+  key: string;
+  applicable: boolean;
+  trace?: RandomTrace;
+  processLabel: string;
+  sources: readonly string[];
+}
+
+export const RANDOM_TRACE_FACT_LIMITATION =
+  '随机轨迹只用于核验或重放生成过程，不表示可信度或预测有效性，也不证明任何现实结论。';
+
+/** 将各术数模块的随机记录统一转换为可公开序列化的结构化事实。 */
+export function buildRandomTraceFact(options: RandomTraceFactOptions): RandomTraceFact {
+  const trace = options.trace;
+  const hasReplayableTrace = options.applicable && Boolean(trace?.samples.length);
+  const status: RandomTraceFactStatus = !options.applicable
+    ? '不适用'
+    : hasReplayableTrace
+      ? '可重放'
+      : '缺少轨迹';
+  const samples = hasReplayableTrace && trace ? [...trace.samples] : [];
+  const promptText =
+    status === '不适用'
+      ? `${options.processLabel}不依赖随机抽样，随机轨迹不适用。`
+      : status === '缺少轨迹'
+        ? `${options.processLabel}属于随机过程，但当前结果未附足够的原始随机样本，无法核验或重放生成过程。`
+        : `${options.processLabel}采用${trace?.mode ?? '未记录'}随机模式，已记录${samples.length}个原始随机样本，可用于重放生成过程；随机种子保留在结构化结果中，种子值和原始样本不写入自然语言提示词。`;
+  return {
+    key: options.key,
+    status,
+    mode: status === '不适用' ? '不适用' : (trace?.mode ?? '未记录'),
+    ...(status === '可重放' && trace?.seed !== undefined ? { seed: trace.seed } : {}),
+    samples,
+    sampleCount: samples.length,
+    promptText,
+    sources: Array.from(new Set(options.sources.filter(Boolean))),
+    limitation: RANDOM_TRACE_FACT_LIMITATION,
+  };
+}
+
+/** 保留旧版 randomFacts 字符串数组，供既有调用方平滑迁移。 */
+export function formatLegacyRandomFacts(fact: RandomTraceFact): string[] {
+  if (fact.status === '不适用') return [];
+  if (fact.status === '缺少轨迹') return [fact.promptText];
+  return [
+    `随机模式：${fact.mode}`,
+    `原始随机样本数：${fact.sampleCount}`,
+    fact.seed !== undefined ? `随机种子：${String(fact.seed)}` : '',
+  ].filter(Boolean);
+}
+
 export interface RandomContext {
   random: RandomSource;
   getTrace(): RandomTrace;

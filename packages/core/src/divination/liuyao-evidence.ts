@@ -2,6 +2,11 @@ import type { LiuyaoData, LiuyaoHiddenSpirit, LiuyaoYaoDetail } from '../types/d
 import { isKe, isLiuhai, isLiuhe, isSanxing, isSheng } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
+import {
+  buildRandomTraceFact,
+  formatLegacyRandomFacts,
+  type RandomTraceFact,
+} from '../shared/random';
 
 export type LiuyaoEvidenceTopic = 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen';
 export type LiuyaoGodRole = '用神' | '原神' | '忌神' | '仇神';
@@ -134,6 +139,7 @@ export interface LiuyaoEvidenceAnalysis {
   lineFacts: LiuyaoLineFact[];
   hiddenSpiritFacts: LiuyaoHiddenSpiritFact[];
   generationFacts: string[];
+  randomFact: RandomTraceFact;
   randomFacts: string[];
   timingConditions: string[];
   counterEvidence: string[];
@@ -553,15 +559,14 @@ export function analyzeLiuyaoEvidence(
   ].filter(Boolean);
   const trace = data.meta?.random;
   const expectsRandomTrace = generationMethod === 'coins' || generationMethod === 'time';
-  const randomFacts = expectsRandomTrace
-    ? trace
-      ? [
-          `随机模式：${trace.mode}`,
-          `原始随机样本数：${trace.samples.length}`,
-          trace.seed !== undefined ? `随机种子：${String(trace.seed)}` : '',
-        ].filter(Boolean)
-      : ['当前起卦结果未附随机轨迹，无法核验六爻生成过程的重放']
-    : [];
+  const randomFact = buildRandomTraceFact({
+    key: `random:liuyao:${generationMethod ?? 'unknown'}`,
+    applicable: expectsRandomTrace,
+    trace,
+    processLabel: `${methodLabel}的六爻生成过程`,
+    sources: ['六爻起卦方式记录', '逐次随机投币样本与重放元数据'],
+  });
+  const randomFacts = formatLegacyRandomFacts(randomFact);
   const timingConditions = [
     ...data.yaosDetail
       .filter((item) => item.isChanging)
@@ -627,11 +632,11 @@ export function analyzeLiuyaoEvidence(
     ...(expectsRandomTrace
       ? [
           {
-            level: trace ? ('辅证' as const) : ('反证' as const),
-            title: trace ? '六爻随机重放记录' : '随机轨迹缺失',
-            detail: `${randomFacts.join('；')}；该记录只用于核验起卦过程能否重放，不表示可信度或预测有效性`,
-            source: '随机起卦样本与重放轨迹记录',
-            tags: ['随机轨迹', trace ? '可重放' : '不可核验', '不代表预测有效性'],
+            level: randomFact.status === '可重放' ? ('辅证' as const) : ('反证' as const),
+            title: randomFact.status === '可重放' ? '六爻随机重放记录' : '随机轨迹缺失',
+            detail: `${randomFact.promptText}；边界：${randomFact.limitation}`,
+            source: randomFact.sources.join('、'),
+            tags: ['随机轨迹', randomFact.status, '不代表预测有效性'],
           },
         ]
       : []),
@@ -665,6 +670,7 @@ export function analyzeLiuyaoEvidence(
     lineFacts,
     hiddenSpiritFacts,
     generationFacts,
+    randomFact,
     randomFacts,
     timingConditions,
     counterEvidence,
