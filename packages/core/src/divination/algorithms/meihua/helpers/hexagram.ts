@@ -6,6 +6,7 @@ const hexagrams = hexagramsData.map((hex) => ({
   symbol: hex.symbol,
   description: hex.description,
   yaoCi: hex.yaoCi,
+  yongCi: hex.yongCi,
 }));
 
 export function resolveTiYongByMovingYao<

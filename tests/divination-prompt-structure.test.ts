@@ -408,6 +408,8 @@ function createData(method: FixtureMethod): DivinationData {
           upper: '震',
           lower: '离',
           description: '先盛后谨',
+          yaoCi: ['初爻背景', '二爻背景', '三爻发动取象', '四爻背景', '五爻背景', '上爻背景'],
+          movingYaoCi: '三爻发动取象',
         },
         interHexagram: {
           name: '泽风大过',
@@ -1230,7 +1232,24 @@ test('梅花提示词会给出体用主轴、过程结果与起卦细节', () =>
   assert.match(prompt, /应期候选：动爻第3爻：可作阶段、层位或触发点，不可单独换算绝对日期/);
   assert.match(prompt, /【梅花体用阶段推进结构化证据】/);
   assert.match(prompt, /梅花推进链解释边界/);
+  assert.match(prompt, /主卦卦辞分类：.*(?:传统.*标签|未见明确吉凶或进退标签)/);
+  assert.match(prompt, /动爻传统辅助：.*当前爻位已发动/);
+  assert.match(prompt, /未发动，不展开爻辞解释/);
   assert.doesNotMatch(prompt, /体用评分：|类象权重：|\d+日内|\d+月左右/);
+  const meihua = createData('meihua') as MeihuaData;
+  assert.doesNotMatch(
+    prompt,
+    new RegExp(
+      [
+        meihua.mainHexagram.description,
+        meihua.interHexagram?.description,
+        meihua.changedHexagram?.description,
+        ...(meihua.mainHexagram.yaoCi ?? []),
+      ]
+        .filter(Boolean)
+        .join('|'),
+    ),
+  );
   assert.match(prompt, /第3爻.*动.*属体/);
 });
 

@@ -18,6 +18,21 @@ export interface MeihuaStageEvidence {
   basis: string;
 }
 
+export interface MeihuaTraditionalFact {
+  key: string;
+  stage: '主卦' | '互卦' | '变卦';
+  hexagram: string;
+  kind: '卦辞' | '爻辞' | '用辞';
+  yaoPosition?: number;
+  applicability: '当前卦辞辅助' | '当前动爻辅助' | '未发动背景' | '特殊用辞背景';
+  originalText: string;
+  promptText: string;
+  traditionalSignals: string[];
+  topicTags: string[];
+  sources: string[];
+  limitation: '卦辞与爻辞是《周易》传统取象原文，只用于当前主互变结构和动爻层位的辅助解释，不证明现实吉凶、婚育、疾病、伤亡、诉讼、财物得失、人物意图或固定时间结果';
+}
+
 export interface MeihuaEvidenceAnalysis {
   calculationFacts: string[];
   hexagramFacts: string[];
@@ -29,9 +44,152 @@ export interface MeihuaEvidenceAnalysis {
   timingConditions: string[];
   randomFacts: string[];
   counterEvidence: string[];
+  traditionalFacts: MeihuaTraditionalFact[];
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
+}
+
+const TRADITIONAL_FACT_LIMITATION =
+  '卦辞与爻辞是《周易》传统取象原文，只用于当前主互变结构和动爻层位的辅助解释，不证明现实吉凶、婚育、疾病、伤亡、诉讼、财物得失、人物意图或固定时间结果' as const;
+
+function unique(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function classifyTraditionalSignals(text: string): string[] {
+  const riskText = text.replace(/无咎|无悔|悔亡|无不利/g, '');
+  const signals = unique([
+    /吉|亨|利|无咎|悔亡|无悔|无不利/.test(text) ? '传统有利或通达标签' : '',
+    /凶|厉|吝|悔|咎|灾|不利|无攸利/.test(riskText) ? '传统风险或受限标签' : '',
+    /贞|永贞/.test(text) ? '守正与持续条件标签' : '',
+    /往|征|涉|行|进|退|出|入/.test(text) ? '行动与进退标签' : '',
+  ]);
+  return signals.length ? signals : ['未见明确吉凶或进退标签'];
+}
+
+function classifyTraditionalTopics(text: string): string[] {
+  const topics = unique([
+    /女|妇|婚|归妹|孕|夫|妻/.test(text) ? '关系与婚育类象' : '',
+    /死|疾|病|灾|伤|血|丧|亡/.test(text) ? '健康伤亡与损失类象' : '',
+    /讼|狱|刑|伐|师|寇|攻/.test(text) ? '争议、刑罚与攻守类象' : '',
+    /财|资|获|得|食|畜|货/.test(text) ? '资源与得失类象' : '',
+    /年|月|日|岁|旬|三年|八月/.test(text) ? '传统时间措辞' : '',
+    /王|君子|大人|小人|侯/.test(text) ? '身份与角色类象' : '',
+  ]);
+  return topics.length ? topics : ['通用处境类象'];
+}
+
+export function conditionMeihuaTraditionalText(
+  text: string,
+  context: {
+    stage: MeihuaTraditionalFact['stage'];
+    hexagram: string;
+    kind: MeihuaTraditionalFact['kind'];
+    yaoPosition?: number;
+    isMoving?: boolean;
+  },
+): Pick<MeihuaTraditionalFact, 'promptText' | 'traditionalSignals' | 'topicTags'> {
+  const traditionalSignals = classifyTraditionalSignals(text);
+  const topicTags = classifyTraditionalTopics(text);
+  const signalText = traditionalSignals.join('、') || '未见明确吉凶或进退标签';
+  const topicText = topicTags.join('、') || '通用处境类象';
+  const location =
+    context.kind === '卦辞'
+      ? `${context.stage}${context.hexagram}卦辞`
+      : context.kind === '用辞'
+        ? `${context.stage}${context.hexagram}特殊用辞`
+        : `${context.stage}${context.hexagram}第${context.yaoPosition ?? '?'}爻爻辞`;
+  const applicability =
+    context.kind === '卦辞'
+      ? '只作为该阶段卦象的传统分类辅助'
+      : context.kind === '用辞'
+        ? '当前算法采用单动爻机制，不满足六爻皆变的特殊用辞条件，因此不作为本次判断依据'
+        : context.stage === '主卦' && context.isMoving
+          ? '当前爻位已发动，可作为动爻层位的传统辅助'
+          : '当前爻位未发动，不作为独立判断依据';
+  return {
+    promptText: `${location}包含${signalText}，涉及${topicText}；${applicability}，须以体用生克、主互变推进和现实资料复核，不把古辞中的吉凶、人物、婚育、伤亡或时间措辞直接当作现实结论`,
+    traditionalSignals,
+    topicTags,
+  };
+}
+
+function buildTraditionalFacts(data: MeihuaData): MeihuaTraditionalFact[] {
+  const stages = [
+    ['主卦', data.mainHexagram],
+    ['互卦', data.interHexagram],
+    ['变卦', data.changedHexagram],
+  ] as const;
+  return stages.flatMap(([stage, hexagram]) => {
+    if (!hexagram) return [];
+    const description = conditionMeihuaTraditionalText(hexagram.description, {
+      stage,
+      hexagram: hexagram.name,
+      kind: '卦辞',
+    });
+    const guaFact: MeihuaTraditionalFact = {
+      key: `${stage}:${hexagram.name}:卦辞`,
+      stage,
+      hexagram: hexagram.name,
+      kind: '卦辞',
+      applicability: '当前卦辞辅助',
+      originalText: hexagram.description,
+      promptText: description.promptText,
+      traditionalSignals: description.traditionalSignals,
+      topicTags: description.topicTags,
+      sources: ['《周易》卦辞', '当前六十四卦原文资料'],
+      limitation: TRADITIONAL_FACT_LIMITATION,
+    };
+    const yaoFacts = (hexagram.yaoCi ?? []).map((originalText, index): MeihuaTraditionalFact => {
+      const yaoPosition = index + 1;
+      const isMoving = stage === '主卦' && yaoPosition === data.movingYao.position;
+      const conditioned = conditionMeihuaTraditionalText(originalText, {
+        stage,
+        hexagram: hexagram.name,
+        kind: '爻辞',
+        yaoPosition,
+        isMoving,
+      });
+      return {
+        key: `${stage}:${hexagram.name}:爻辞:${yaoPosition}`,
+        stage,
+        hexagram: hexagram.name,
+        kind: '爻辞',
+        yaoPosition,
+        applicability: isMoving ? '当前动爻辅助' : '未发动背景',
+        originalText,
+        promptText: conditioned.promptText,
+        traditionalSignals: conditioned.traditionalSignals,
+        topicTags: conditioned.topicTags,
+        sources: ['《周易》爻辞', '当前六十四卦逐爻原文资料'],
+        limitation: TRADITIONAL_FACT_LIMITATION,
+      };
+    });
+    const yongFact = hexagram.yongCi
+      ? (() => {
+          const conditioned = conditionMeihuaTraditionalText(hexagram.yongCi, {
+            stage,
+            hexagram: hexagram.name,
+            kind: '用辞',
+          });
+          return {
+            key: `${stage}:${hexagram.name}:用辞`,
+            stage,
+            hexagram: hexagram.name,
+            kind: '用辞',
+            applicability: '特殊用辞背景',
+            originalText: hexagram.yongCi,
+            promptText: conditioned.promptText,
+            traditionalSignals: conditioned.traditionalSignals,
+            topicTags: conditioned.topicTags,
+            sources: ['《周易》乾坤用九用六', '当前六十四卦特殊用辞资料'],
+            limitation: TRADITIONAL_FACT_LIMITATION,
+          } satisfies MeihuaTraditionalFact;
+        })()
+      : null;
+    return [guaFact, ...yaoFacts, ...(yongFact ? [yongFact] : [])];
+  });
 }
 
 const trigramByName = new Map(
@@ -195,18 +353,19 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
   const monthBranch = data.ganzhi.month.slice(-1);
   const calculationFacts = buildCalculationFacts(data);
   const hexagramFacts = [
-    `主卦${data.mainHexagram.name}${data.mainHexagram.symbol}，上${data.mainHexagram.upper}下${data.mainHexagram.lower}：${data.mainHexagram.description}`,
+    `主卦${data.mainHexagram.name}${data.mainHexagram.symbol}，上${data.mainHexagram.upper}下${data.mainHexagram.lower}`,
     ...(data.interHexagram
       ? [
-          `互卦${data.interHexagram.name}${data.interHexagram.symbol}，上${data.interHexagram.upper}下${data.interHexagram.lower}：${data.interHexagram.description}`,
+          `互卦${data.interHexagram.name}${data.interHexagram.symbol}，上${data.interHexagram.upper}下${data.interHexagram.lower}`,
         ]
       : []),
     ...(data.changedHexagram
       ? [
-          `变卦${data.changedHexagram.name}${data.changedHexagram.symbol}，上${data.changedHexagram.upper}下${data.changedHexagram.lower}：${data.changedHexagram.description}`,
+          `变卦${data.changedHexagram.name}${data.changedHexagram.symbol}，上${data.changedHexagram.upper}下${data.changedHexagram.lower}`,
         ]
       : []),
   ];
+  const traditionalFacts = buildTraditionalFacts(data);
   const yaoFacts = data.yaosDetail.map(
     (item) =>
       `第${item.position}爻为${item.yaoType}爻，属${item.tiYong}${item.isChanging ? '，本爻发动' : ''}`,
@@ -317,17 +476,27 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       source: '主卦自下而上六爻数据与动爻所在经卦',
       tags: ['六爻结构', '动爻', '体用'],
     },
-    ...(data.mainHexagram.movingYaoCi
+    ...(traditionalFacts.some((fact) => fact.applicability === '当前动爻辅助')
       ? [
           {
             level: '辅证' as const,
             title: `${data.movingYao.yaoName}爻辞`,
-            detail: data.mainHexagram.movingYaoCi,
-            source: '当前主卦逐爻辞数据；仅作动爻取象辅助',
+            detail: traditionalFacts.find((fact) => fact.applicability === '当前动爻辅助')
+              ?.promptText,
+            source: '《周易》当前主卦动爻原文及条件化解释',
             tags: ['动爻爻辞', data.movingYao.yaoName],
           },
         ]
       : []),
+    ...traditionalFacts
+      .filter((fact) => fact.kind === '卦辞')
+      .map((fact): PromptEvidenceItem => ({
+        level: fact.stage === '主卦' ? '辅证' : '限制',
+        title: `${fact.stage}${fact.hexagram}卦辞分类`,
+        detail: `${fact.promptText}；边界${fact.limitation}`,
+        source: fact.sources.join('、'),
+        tags: [fact.stage, '卦辞', ...fact.traditionalSignals, ...fact.topicTags],
+      })),
     ...stages.map((stage, index): PromptEvidenceItem => ({
       level: index === 0 ? '主证' : '辅证',
       title: `${stage.label}阶段`,
@@ -373,7 +542,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       level: trace ? '辅证' : '反证',
       title: trace ? '随机起卦重放记录' : '随机轨迹缺失',
       detail: `${promptRandomFacts.join('；')}；随机种子保留在结构化结果中，不写入自然语言提示词；该记录只用于核验起卦过程能否重放，不表示可信度或预测有效性`,
-      source: '命语统一随机轨迹协议',
+      source: '随机起卦样本与重放轨迹记录',
       tags: ['随机起卦', trace ? '可重放' : '不可核验', '不代表预测有效性'],
     });
   }
@@ -402,6 +571,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     timingConditions,
     randomFacts,
     counterEvidence,
+    traditionalFacts,
     evidence,
     promptText,
     methodology: [

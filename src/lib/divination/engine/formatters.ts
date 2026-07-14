@@ -559,28 +559,37 @@ function formatMeihuaInfo(data: MeihuaData) {
       : '';
   const timingEvidence = createMeihuaTimingEvidence(data);
   const symbolEvidence = createMeihuaSymbolEvidence(data);
-  const evidenceAnalysis = analyzeMeihuaEvidence(data);
+  const evidenceAnalysis = data.evidenceAnalysis?.traditionalFacts
+    ? data.evidenceAnalysis
+    : analyzeMeihuaEvidence(data);
   const timingPriorityEvidence = createMeihuaTimingPriorityEvidence(data);
   const yaoLines = [...data.yaosDetail]
     .sort((a, b) => b.position - a.position)
-    .map(
-      (item) =>
-        `- 第${item.position}爻（${data.movingYao.position === item.position ? '动' : '静'}，属${item.tiYong}）：${item.yaoType}爻${data.mainHexagram?.yaoCi?.[item.position - 1] ? `，爻辞"${data.mainHexagram.yaoCi[item.position - 1]}"` : ''}`,
-    );
-
-  // 动爻逐条输出爻辞（多动爻时更完整）
-  const movingYaoCiLines = data.mainHexagram?.yaoCi
-    ? data.yaosDetail
-        .filter((item) => item.isChanging)
-        .map((item) => `第${item.position}爻爻辞：${data.mainHexagram!.yaoCi![item.position - 1]}`)
-    : [];
+    .map((item) => {
+      const fact = evidenceAnalysis.traditionalFacts.find(
+        (candidate) =>
+          candidate.stage === '主卦' &&
+          candidate.kind === '爻辞' &&
+          candidate.yaoPosition === item.position,
+      );
+      return item.isChanging
+        ? `- 第${item.position}爻（动，属${item.tiYong}）：${item.yaoType}爻；${fact?.promptText ?? '未附可核验爻辞资料'}；边界：${fact?.limitation ?? '动爻传统解释须结合体用与现实资料复核'}`
+        : `- 第${item.position}爻（静，属${item.tiYong}）：${item.yaoType}爻；未发动，不展开爻辞解释`;
+    });
+  const descriptionFact = (stage: '主卦' | '互卦' | '变卦') =>
+    evidenceAnalysis.traditionalFacts.find((fact) => fact.stage === stage && fact.kind === '卦辞');
+  const movingYaoFact = evidenceAnalysis.traditionalFacts.find(
+    (fact) => fact.applicability === '当前动爻辅助',
+  );
 
   return [
     '占法：梅花易数',
     `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
-    `核心结构：主卦${data.originalName}${data.mainHexagram?.description ? `（${data.mainHexagram.description}）` : ''}；互卦${data.interName || '无'}${data.interHexagram?.description ? `（${data.interHexagram.description}）` : ''}；变卦${data.changedName || '无'}${data.changedHexagram?.description ? `（${data.changedHexagram.description}）` : ''}`,
-    data.mainHexagram?.movingYaoCi ? `动爻爻辞：${data.mainHexagram.movingYaoCi}` : '',
-    ...(movingYaoCiLines.length > 1 ? movingYaoCiLines : []),
+    `核心结构：主卦${data.originalName}；互卦${data.interName || '无'}；变卦${data.changedName || '无'}`,
+    descriptionFact('主卦') ? `主卦卦辞分类：${descriptionFact('主卦')?.promptText}` : '',
+    descriptionFact('互卦') ? `互卦卦辞分类：${descriptionFact('互卦')?.promptText}` : '',
+    descriptionFact('变卦') ? `变卦卦辞分类：${descriptionFact('变卦')?.promptText}` : '',
+    movingYaoFact ? `动爻传统辅助：${movingYaoFact.promptText}` : '',
     '断卦抓手：先定体用，再看互卦过程、变卦结果与四时旺衰',
     `主轴证据：体卦${data.tiGua.name}（${data.tiGua.element}）；用卦${data.yongGua.name}（${data.yongGua.element}）；动爻第${data.movingYao.position}爻；体用关系${data.analysis.tiYongRelation}`,
     `过程证据：互卦${processHexagram}；互卦体用${data.analysis.inter1Relation}；互上辅助${data.analysis.inter2Relation}`,

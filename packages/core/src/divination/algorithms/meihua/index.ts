@@ -274,6 +274,7 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
       description: mainHexagram.description,
       yaoCi: mainHexagram.yaoCi,
       movingYaoCi: mainHexagram.yaoCi?.[movingYaoIndex - 1] || '',
+      yongCi: mainHexagram.yongCi,
     },
     changedHexagram: changingHexagram
       ? {
@@ -283,6 +284,7 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
           lower: changedLowerResult?.trigram?.name || '',
           description: changingHexagram.description,
           yaoCi: changingHexagram.yaoCi,
+          yongCi: changingHexagram.yongCi,
         }
       : null,
     interHexagram: interHexagram
@@ -293,6 +295,7 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
           lower: interLowerResult?.trigram?.name || '',
           description: interHexagram.description,
           yaoCi: interHexagram.yaoCi,
+          yongCi: interHexagram.yongCi,
         }
       : null,
 
@@ -364,9 +367,10 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   return { ...resultWithMeta, evidenceAnalysis: analyzeMeihuaEvidence(resultWithMeta) };
 }
 
-export { analyzeMeihuaEvidence } from '../../meihua-evidence';
+export { analyzeMeihuaEvidence, conditionMeihuaTraditionalText } from '../../meihua-evidence';
 export type {
   MeihuaEvidenceAnalysis,
   MeihuaEvidenceStageKey,
   MeihuaStageEvidence,
+  MeihuaTraditionalFact,
 } from '../../meihua-evidence';

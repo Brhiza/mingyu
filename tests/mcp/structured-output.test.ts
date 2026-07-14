@@ -1230,7 +1230,13 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     });
     const result = (
       chart.structuredContent as {
-        result: { evidenceAnalysis: { stages: Array<{ stage: string }>; promptText: string } };
+        result: {
+          evidenceAnalysis: {
+            stages: Array<{ stage: string }>;
+            promptText: string;
+            traditionalFacts: Array<Record<string, unknown>>;
+          };
+        };
       }
     ).result;
     assert.deepEqual(
@@ -1238,6 +1244,19 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       ['origin', 'process', 'result'],
     );
     assert.match(result.evidenceAnalysis.promptText, /【梅花体用阶段推进结构化证据】/);
+    assert.ok(result.evidenceAnalysis.traditionalFacts.length >= 21);
+    assert.ok(
+      result.evidenceAnalysis.traditionalFacts.every(
+        (item) =>
+          item.originalText &&
+          item.promptText &&
+          Array.isArray(item.traditionalSignals) &&
+          Array.isArray(item.topicTags) &&
+          Array.isArray(item.sources) &&
+          item.sources.length > 0 &&
+          String(item.limitation).includes('不证明现实吉凶'),
+      ),
+    );
 
     const prompt = await client.callTool({
       name: 'meihua_prompt',
@@ -1250,6 +1269,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     });
     const promptText = String(prompt.structuredContent?.prompt);
     assert.match(promptText, /【梅花体用阶段推进结构化证据】/);
+    assert.doesNotMatch(promptText, /妇三岁不孕|焚如，死如|至于八月有凶/);
     assert.doesNotMatch(promptText, /体用评分：|类象权重：|\d+日内|\d+月左右/);
   });
 });

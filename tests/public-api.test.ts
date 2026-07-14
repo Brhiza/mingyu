@@ -2439,6 +2439,19 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     ['origin', 'process', 'result'],
   );
   assert.match(chart.body.data.evidenceAnalysis.promptText, /【梅花体用阶段推进结构化证据】/);
+  assert.ok(chart.body.data.evidenceAnalysis.traditionalFacts.length >= 21);
+  assert.ok(
+    chart.body.data.evidenceAnalysis.traditionalFacts.every(
+      (item: Record<string, unknown>) =>
+        item.originalText &&
+        item.promptText &&
+        Array.isArray(item.traditionalSignals) &&
+        Array.isArray(item.topicTags) &&
+        Array.isArray(item.sources) &&
+        item.sources.length > 0 &&
+        String(item.limitation).includes('不证明现实吉凶'),
+    ),
+  );
 
   const prompt = await callApi('divination/meihua/prompt', {
     method: 'POST',
@@ -2452,6 +2465,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   });
   assert.equal(prompt.response.status, 200);
   assert.match(prompt.body.data.prompt, /【梅花体用阶段推进结构化证据】/);
+  assert.doesNotMatch(prompt.body.data.prompt, /妇三岁不孕|焚如，死如|至于八月有凶/);
   assert.doesNotMatch(prompt.body.data.prompt, /体用评分：|类象权重：|\d+日内|\d+月左右/);
 });
 

@@ -364,6 +364,7 @@ export interface MeihuaData extends BaseHexagramData {
     description: string;
     yaoCi?: string[];
     movingYaoCi?: string;
+    yongCi?: string;
   };
   /** 互卦（代表过程） */
   interHexagram?: {
@@ -373,6 +374,7 @@ export interface MeihuaData extends BaseHexagramData {
     lower: string;
     description: string;
     yaoCi?: string[];
+    yongCi?: string;
   } | null;
   /** 变卦（代表结果） */
   changedHexagram?: {
@@ -382,6 +384,7 @@ export interface MeihuaData extends BaseHexagramData {
     lower: string;
     description: string;
     yaoCi?: string[];
+    yongCi?: string;
   } | null;
   /** 各爻详情 */
   yaosDetail: MeihuaYaoDetail[];
