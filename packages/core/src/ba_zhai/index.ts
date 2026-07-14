@@ -20,9 +20,13 @@ import { analyzeBaZhaiEvidence } from './evidence';
 
 export { analyzeBaZhaiEvidence } from './evidence';
 export type {
+  BaZhaiCalculationFact,
+  BaZhaiCalculationStep,
   BaZhaiDirectionComparison,
   BaZhaiDirectionFact,
   BaZhaiEvidenceAnalysis,
+  BaZhaiMeasurementCandidateFact,
+  BaZhaiMeasurementFact,
 } from './evidence';
 
 export interface BaZhaiInput {
@@ -40,6 +44,15 @@ export interface BaZhaiInput {
 }
 
 export interface BaZhaiResult {
+  calculationInput: {
+    mingGuaSource: '出生年与性别计算' | '直接给定';
+    birthYear?: number;
+    birthMonth?: number;
+    birthDay?: number;
+    gender?: 'male' | 'female';
+    directMingGua?: string;
+    sitMountain?: string;
+  };
   mingGua: string;
   effectiveBirthYear: number | null;
   birthYearBoundaryNote: string;
@@ -338,6 +351,15 @@ export function analyzeBaZhai(input: BaZhaiInput): BaZhaiResult {
   }
 
   const resultBase: Omit<BaZhaiResult, 'prompt' | 'evidenceAnalysis'> = {
+    calculationInput: {
+      mingGuaSource: input.mingGua ? '直接给定' : '出生年与性别计算',
+      ...(input.birthYear !== undefined ? { birthYear: input.birthYear } : {}),
+      ...(input.birthMonth !== undefined ? { birthMonth: input.birthMonth } : {}),
+      ...(input.birthDay !== undefined ? { birthDay: input.birthDay } : {}),
+      ...(input.gender ? { gender: input.gender } : {}),
+      ...(input.mingGua ? { directMingGua: input.mingGua } : {}),
+      ...(input.sitMountain ? { sitMountain: input.sitMountain } : {}),
+    },
     mingGua,
     effectiveBirthYear: resolvedMingGua.effectiveBirthYear,
     birthYearBoundaryNote: resolvedMingGua.note,

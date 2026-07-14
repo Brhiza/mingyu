@@ -429,6 +429,15 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
           result.structuredContent as {
             result?: {
               evidenceAnalysis?: {
+                calculationFact?: {
+                  status: string;
+                  steps: Array<{ key: string; promptText: string; sources: string[] }>;
+                };
+                measurementFact?: {
+                  status: string;
+                  referenceStatus: string;
+                  candidates: Array<{ key: string; limitation: string }>;
+                };
                 directionFacts?: Array<{
                   key: string;
                   sources: string[];
@@ -439,6 +448,22 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
             };
           }
         ).result;
+        assert.equal(chart?.evidenceAnalysis?.calculationFact?.status, '命宅完整');
+        assert.equal(chart?.evidenceAnalysis?.calculationFact?.steps.length, 5);
+        assert.ok(
+          chart?.evidenceAnalysis?.calculationFact?.steps.every(
+            (item) => item.key && item.promptText && item.sources.length > 0,
+          ),
+        );
+        assert.equal(chart?.evidenceAnalysis?.measurementFact?.status, '稳定');
+        assert.equal(chart?.evidenceAnalysis?.measurementFact?.referenceStatus, '未声明');
+        assert.ok(
+          chart?.evidenceAnalysis?.measurementFact?.candidates.every(
+            (item) =>
+              item.key.startsWith('measurement:bazhai:candidate:') &&
+              item.limitation.includes('不代表现场真实坐向'),
+          ),
+        );
         assert.equal(chart?.evidenceAnalysis?.directionFacts?.length, 8);
         assert.ok(
           chart?.evidenceAnalysis?.directionFacts?.every(

@@ -3009,6 +3009,22 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
   assert.match(body.data.prompt, /候选甲山庚向：震宅八宫/);
   assert.equal(body.data.result.directionMeasurement.stability, '宅卦不稳定');
   assert.equal(body.data.result.evidenceAnalysis.evidence.title, '八宅命宅方位与测量结构化证据');
+  assert.equal(body.data.result.evidenceAnalysis.calculationFact.status, '命宅完整');
+  assert.equal(body.data.result.evidenceAnalysis.calculationFact.steps.length, 5);
+  assert.equal(body.data.result.evidenceAnalysis.measurementFact.status, '宅卦不稳定');
+  assert.equal(body.data.result.evidenceAnalysis.measurementFact.referenceStatus, '已声明');
+  assert.equal(body.data.result.calculationInput.sitMountain, '寅');
+  assert.equal(body.data.result.evidenceAnalysis.measurementCandidateFacts.length, 2);
+  assert.ok(
+    body.data.result.evidenceAnalysis.measurementCandidateFacts.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('measurement:bazhai:candidate:') &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        item.sources.length >= 2 &&
+        String(item.limitation).includes('不代表现场真实坐向'),
+    ),
+  );
   assert.equal(body.data.result.evidenceAnalysis.directionFacts.length, 8);
   assert.ok(
     body.data.result.evidenceAnalysis.directionFacts.every(

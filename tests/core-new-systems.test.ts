@@ -103,6 +103,21 @@ test('bazhai: 命宅配合', () => {
   assert.ok(r.prompt.includes('宅卦八宫明细'));
   assert.ok(r.prompt.includes('证据边界'));
   assert.equal(r.evidenceAnalysis.evidence.title, '八宅命宅方位与测量结构化证据');
+  assert.equal(r.evidenceAnalysis.calculationFact.status, '命宅完整');
+  assert.equal(r.evidenceAnalysis.calculationFact.yearBoundaryStatus, '待复核');
+  assert.equal(r.evidenceAnalysis.calculationFact.steps[0].status, '待复核');
+  assert.equal(r.calculationInput.mingGuaSource, '出生年与性别计算');
+  assert.equal(r.calculationInput.gender, 'male');
+  assert.equal(r.calculationInput.sitMountain, '子');
+  assert.equal(r.evidenceAnalysis.calculationFact.steps[2].inputs.sitMountain, '子');
+  assert.equal(r.evidenceAnalysis.calculationFact.steps.length, 5);
+  assert.ok(
+    r.evidenceAnalysis.calculationFact.steps.every(
+      (item) => item.key && item.promptText && item.sources.length > 0,
+    ),
+  );
+  assert.equal(r.evidenceAnalysis.measurementFact.status, '未提供');
+  assert.equal(r.evidenceAnalysis.measurementFact.candidates.length, 0);
   assert.equal(r.evidenceAnalysis.directionFacts.length, 8);
   assert.equal(r.evidenceAnalysis.directionComparisons.length, 8);
   assert.ok(
@@ -138,6 +153,20 @@ test('bazhai: 从大门面向屋内的度数可直接生成传统坐向与完整
   assert.match(r.directionMeasurement.promptText, /站在大门处面向屋内/);
   assert.match(r.evidenceAnalysis.promptText, /测量事实：从大门面向屋内实测0°/);
   assert.equal(r.evidenceAnalysis.measurementFacts.length, 4);
+  assert.equal(r.evidenceAnalysis.measurementFact.status, '稳定');
+  assert.equal(r.evidenceAnalysis.measurementFact.referenceStatus, '未声明');
+  assert.equal(r.evidenceAnalysis.measurementFact.input?.measuredDegree, 0);
+  assert.equal(r.evidenceAnalysis.measurementFact.result?.label, '子山午向');
+  assert.equal(r.evidenceAnalysis.measurementCandidateFacts.length, 1);
+  assert.ok(
+    r.evidenceAnalysis.measurementCandidateFacts.every(
+      (item) =>
+        item.key.startsWith('measurement:bazhai:candidate:') &&
+        item.promptText &&
+        item.sources.length >= 2 &&
+        item.limitation.includes('不代表现场真实坐向'),
+    ),
+  );
 });
 
 test('bazhai: 入户度数便捷入口应拒绝越界、非有限值与二十四山分界线', () => {
@@ -177,6 +206,12 @@ test('bazhai: 完整出生日期应按立春边界调整命卦年份', () => {
   assert.match(before.birthYearBoundaryNote, /立春前/);
   assert.match(after.birthYearBoundaryNote, /立春/);
   assert.notEqual(before.mingGua, after.mingGua);
+
+  const direct = core.bazhai.analyzeBaZhai({ mingGua: '坎' });
+  assert.equal(direct.calculationInput.mingGuaSource, '直接给定');
+  assert.equal(direct.calculationInput.directMingGua, '坎');
+  assert.equal(direct.evidenceAnalysis.calculationFact.yearBoundaryStatus, '直接命卦');
+  assert.equal(direct.evidenceAnalysis.calculationFact.status, '命卦完整');
 });
 
 test('zodiac: 犯太岁与流年运程', () => {
