@@ -22,6 +22,13 @@ import type {
   AlmanacParticipantProfile,
   AlmanacTopic,
 } from '../../types/divination';
+
+type ScoredAlmanacHourCandidate = AlmanacHourCandidate & { score: number };
+type ScoredAlmanacDayCandidate = Omit<AlmanacDayCandidate, 'hours' | 'bestHours'> & {
+  score: number;
+  hours?: ScoredAlmanacHourCandidate[];
+  bestHours?: ScoredAlmanacHourCandidate[];
+};
 import { analyzeAlmanacEvidence } from '../almanac-evidence';
 
 export const ALMANAC_TOPIC_LABELS: Record<AlmanacTopic, string> = {
@@ -749,7 +756,7 @@ function buildHourCandidates(
   lunarDay: LunarDay,
   topic: AlmanacTopic,
   participants: AlmanacParticipantProfile[],
-): AlmanacHourCandidate[] {
+): ScoredAlmanacHourCandidate[] {
   const recommendKeywords = TOPIC_RECOMMEND_KEYWORDS[topic];
   const avoidKeywords = TOPIC_AVOID_KEYWORDS[topic];
   return lunarDay.getHours().map((hour, index) => {
@@ -812,7 +819,7 @@ function buildDayCandidate(
   date: Date,
   topic: AlmanacTopic,
   participants: AlmanacParticipantProfile[],
-): AlmanacDayCandidate {
+): ScoredAlmanacDayCandidate {
   // 黄历当前没有地点和时区入参，因此用中国标准时间正午作为整日月相的统一参照点。
   // 这项天文事实不参与传统宜忌评分，避免时区假设被包装成择日结论。
   const moonPhaseEvidence = calculateMoonPhaseEvidence(
@@ -930,7 +937,7 @@ export function generateAlmanacSelection(params: {
     return buildDayCandidate(current, params.topic, participants);
   }).sort((a, b) => b.score - a.score);
 
-  const result: AlmanacData = {
+  const scoredResult: Omit<AlmanacData, 'days'> & { days: ScoredAlmanacDayCandidate[] } = {
     topic: params.topic,
     topicLabel: ALMANAC_TOPIC_LABELS[params.topic],
     startDate: params.startDate,
@@ -939,8 +946,13 @@ export function generateAlmanacSelection(params: {
     participants,
     timestamp: Date.now(),
   };
-  result.evidenceAnalysis = analyzeAlmanacEvidence(result);
-  return result;
+  const evidenceAnalysis = analyzeAlmanacEvidence(scoredResult);
+  const publicDays = scoredResult.days.map(({ score: _dayScore, hours, bestHours, ...day }) => ({
+    ...day,
+    hours: hours?.map(({ score: _hourScore, ...hour }) => hour),
+    bestHours: bestHours?.map(({ score: _hourScore, ...hour }) => hour),
+  }));
+  return { ...scoredResult, days: publicDays, evidenceAnalysis };
 }
 
 export { analyzeAlmanacEvidence } from '../almanac-evidence';

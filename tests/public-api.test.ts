@@ -2276,6 +2276,12 @@ test('公开 API 黄历择日支持分页和轻量模式', async () => {
   assert.equal(body.data.pagination.total, 30);
   assert.equal(body.data.days[0].twentyEightStarDetail, undefined);
   assert.ok(body.data.days[0].date);
+  for (const day of body.data.days) {
+    assert.equal(day.score, undefined);
+    for (const hour of [...(day.hours ?? []), ...(day.bestHours ?? [])]) {
+      assert.equal(hour.score, undefined);
+    }
+  }
 });
 
 test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范围请求', async () => {
@@ -2297,6 +2303,12 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
   assert.equal(body.data.result.days.length, 5);
   assert.equal(body.data.result.pagination.page, 2);
   assert.equal(body.data.result.evidenceAnalysis.candidates.length, 5);
+  for (const day of body.data.result.days) {
+    assert.equal(day.score, undefined);
+    for (const hour of [...(day.hours ?? []), ...(day.bestHours ?? [])]) {
+      assert.equal(hour.score, undefined);
+    }
+  }
   assert.deepEqual(
     body.data.result.evidenceAnalysis.candidates.map((item: { date: string }) => item.date),
     body.data.result.days.map((item: { date: string }) => item.date),

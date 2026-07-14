@@ -783,7 +783,6 @@ export interface AlmanacDayCandidate {
   pengZuZhi?: string;
   clash: string;
   annualDirectionGods?: AlmanacAnnualDirectionGod[];
-  score: number;
   highlights: string[];
   cautions: string[];
   participantNotes: string[];
@@ -799,7 +798,6 @@ export interface AlmanacHourCandidate {
   twelveStar: string;
   recommends: string[];
   avoids: string[];
-  score: number;
   highlights: string[];
   cautions: string[];
   participantNotes: string[];

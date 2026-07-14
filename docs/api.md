@@ -386,7 +386,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 奇门遁甲 `qimenMethod` 支持 `zhuanpan`（转盘法，默认）、`feipan`（飞盘法）。排盘结果包含 `seasonality`（节令背景）和 `patternCombos`（复合格局）。
 - 黄历择日 `topic` 支持 `marriage`、`move`、`opening`、`contract`、`travel`、`medical`、`study`、`burial`、`renovation`、`custom`，不传时使用 `custom`，并使用 `startDate`、`endDate` 和可选 `participants`。日期范围一次最多 31 天，`participants` 一次最多 30 位；更大范围或更多参与人请拆成多次请求。
 - 黄历择日支持 `page` 和 `pageSize` 分页，`pageSize` 最大 31。不传分页时保持旧行为返回全部日期；传分页后只返回当前页日期，并带 `pagination`。`page` 超过总页数会返回 400，请调用方按 `pagination.totalPages` 继续请求。
-- 黄历择日结果的 `evidenceAnalysis` 会把当前返回范围内的日期分成可用、条件和慎用候选，逐日列出事项宜忌、建除神煞、参与人刑冲破害、方向限制、可用时辰与现实约束。分页时证据会按当前页重新计算；提示词不展示内部评分，也不把排序解释成成功率。
+- 黄历择日结果的 `evidenceAnalysis` 会把当前返回范围内的日期分成可用、条件和慎用候选，逐日列出事项宜忌、建除神煞、参与人刑冲破害、方向限制、可用时辰与现实约束。分页时证据会按当前页重新计算；核心结果、公开 API、MCP 与提示词均不返回内部日期或时辰排序分数，也不把排序解释成成功率。
 - 雷诺曼 `spreadType` 支持 `single`、`three`、`five`、`relationship`、`decision`、`nine`、`element`、`grandTableau`，不传时使用 `single`。
 - 星盘需要 `year`、`month`、`day`、`hour`、`minute`、`latitude`、`longitude`，并至少提供 `timezone` 或 `timeZoneId`。历史日期及实行夏令时的地区推荐使用 IANA 时区；秋季回拨的一时两刻会保留候选和警告，春季跳时中不存在的当地时刻会被拒绝。可传 `useTrueSolarTime` 启用真太阳时校正。
 - 星盘本命与行运相位会输出距精确角偏差、紧密等级和归一化容许度位置；归一化位置只用于相位分层，不代表事件概率或吉凶比例。

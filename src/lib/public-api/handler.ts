@@ -2632,7 +2632,6 @@ function compactAlmanacDay(day: AlmanacData['days'][number]) {
     zodiac: day.zodiac,
     dayOfficer: day.dayOfficer,
     clash: day.clash,
-    score: day.score,
     highlights: day.highlights,
     cautions: day.cautions,
     participantNotes: day.participantNotes,
