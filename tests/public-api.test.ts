@@ -2475,6 +2475,33 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
   assert.equal(body.data.result.days.length, 5);
   assert.equal(body.data.result.pagination.page, 2);
   assert.equal(body.data.result.evidenceAnalysis.candidates.length, 5);
+  const candidateFacts = body.data.result.evidenceAnalysis.candidates as Array<{
+    date: string;
+    calendarFact: { key: string; promptText: string; sources: string[]; limitation: string };
+    moonPhaseFact: {
+      previousPrincipalPhase: { sources: string[] };
+      nextPrincipalPhase: { calculation: string };
+    };
+    usableHours: Array<{ key: string; promptText: string; sources: string[]; limitation: string }>;
+  }>;
+  assert.ok(
+    candidateFacts.every(
+      (item) =>
+        item.calendarFact.key === `${item.date}:calendar` &&
+        item.calendarFact.promptText &&
+        item.calendarFact.sources.length >= 2 &&
+        item.calendarFact.limitation.includes('不单独证明现实吉凶') &&
+        item.moonPhaseFact.previousPrincipalPhase.sources.length >= 2 &&
+        item.moonPhaseFact.nextPrincipalPhase.calculation.includes('二分求根') &&
+        item.usableHours.every(
+          (hour) =>
+            hour.key.startsWith(`${item.date}:hour:`) &&
+            hour.promptText &&
+            hour.sources.length >= 2 &&
+            hour.limitation.includes('不证明该时辰必然成功'),
+        ),
+    ),
+  );
   const traditionalFacts = body.data.result.evidenceAnalysis.traditionalFacts as Array<{
     kind: string;
     originalText: string;
@@ -2499,7 +2526,7 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
     }
   }
   assert.deepEqual(
-    body.data.result.evidenceAnalysis.candidates.map((item: { date: string }) => item.date),
+    candidateFacts.map((item) => item.date),
     body.data.result.days.map((item: { date: string }) => item.date),
   );
   assert.match(body.data.result.evidenceAnalysis.promptText, /【黄历择日透明约束与候选证据】/);

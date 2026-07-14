@@ -22,6 +22,23 @@ test('黄历择日应内置透明约束与候选证据', () => {
   assert.match(evidence.promptText, /中国标准时间12:00参照月相/);
   assert.match(evidence.promptText, /月相只作为中国标准时间正午的天文背景，不参与候选排序/);
   assert.ok(evidence.candidates.every((candidate) => candidate.astronomicalFacts.length === 2));
+  assert.ok(
+    evidence.candidates.every(
+      (candidate) =>
+        candidate.calendarFact.key === `${candidate.date}:calendar` &&
+        candidate.calendarFact.promptText.includes('年柱') &&
+        candidate.calendarFact.sources.length >= 2 &&
+        candidate.calendarFact.limitation.includes('不单独证明现实吉凶'),
+    ),
+  );
+  assert.ok(
+    evidence.candidates.every(
+      (candidate) =>
+        candidate.moonPhaseFact.previousPrincipalPhase.sources.length >= 2 &&
+        candidate.moonPhaseFact.nextPrincipalPhase.calculation.includes('二分求根') &&
+        candidate.moonPhaseFact.limitations.length >= 3,
+    ),
+  );
   assert.doesNotMatch(evidence.promptText, /评分[：=]?\d|\d+分|成功率[：=]?\d|匹配率[：=]?\d/);
 });
 
@@ -41,7 +58,18 @@ test('择日证据应保留日课、宿曜、九星、百忌、方位神与逐�
   assert.ok(candidate.traditionalRuleFacts.some((item) => item.includes('彭祖百忌')));
   assert.ok(candidate.directionFacts.some((item) => item.includes('太岁')));
   assert.ok(candidate.usableHours.length > 0);
-  assert.ok(candidate.usableHours.every((item) => item.ganzhi && item.twelveStar));
+  assert.ok(
+    candidate.usableHours.every(
+      (item) =>
+        item.key.startsWith(`${candidate.date}:hour:`) &&
+        item.ganzhi &&
+        item.branch &&
+        item.twelveStar &&
+        item.promptText.includes(item.ganzhi) &&
+        item.sources.length >= 2 &&
+        item.limitation.includes('不证明该时辰必然成功'),
+    ),
+  );
   assert.match(result.evidenceAnalysis?.promptText ?? '', /原始宜项/);
   assert.match(result.evidenceAnalysis?.promptText ?? '', /逐时时课|时段/);
   assert.doesNotMatch(

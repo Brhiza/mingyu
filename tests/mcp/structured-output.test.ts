@@ -637,7 +637,25 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
             bestHours?: Array<{ score?: number }>;
           }>;
           evidenceAnalysis: {
-            candidates: unknown[];
+            candidates: Array<{
+              date: string;
+              calendarFact: {
+                key: string;
+                promptText: string;
+                sources: string[];
+                limitation: string;
+              };
+              moonPhaseFact: {
+                previousPrincipalPhase: { sources: string[] };
+                nextPrincipalPhase: { calculation: string };
+              };
+              usableHours: Array<{
+                key: string;
+                promptText: string;
+                sources: string[];
+                limitation: string;
+              }>;
+            }>;
             cautionDates: string[];
             traditionalFacts: Array<{
               kind: string;
@@ -652,6 +670,24 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
     ).result;
     assert.ok(chart.evidenceAnalysis.candidates.length > 0);
     assert.ok(Array.isArray(chart.evidenceAnalysis.cautionDates));
+    assert.ok(
+      chart.evidenceAnalysis.candidates.every(
+        (item) =>
+          item.calendarFact.key === `${item.date}:calendar` &&
+          item.calendarFact.promptText &&
+          item.calendarFact.sources.length >= 2 &&
+          item.calendarFact.limitation.includes('不单独证明现实吉凶') &&
+          item.moonPhaseFact.previousPrincipalPhase.sources.length >= 2 &&
+          item.moonPhaseFact.nextPrincipalPhase.calculation.includes('二分求根') &&
+          item.usableHours.every(
+            (hour) =>
+              hour.key.startsWith(`${item.date}:hour:`) &&
+              hour.promptText &&
+              hour.sources.length >= 2 &&
+              hour.limitation.includes('不证明该时辰必然成功'),
+          ),
+      ),
+    );
     assert.ok(chart.evidenceAnalysis.traditionalFacts.length > 0);
     assert.ok(
       chart.evidenceAnalysis.traditionalFacts.every(

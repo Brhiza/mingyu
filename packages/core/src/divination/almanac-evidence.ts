@@ -1,5 +1,8 @@
 import type { AlmanacData, AlmanacDayCandidate, AlmanacHourCandidate } from '../types/divination';
-import { calculateMoonPhaseEvidence } from '../calendar/moon-phase-evidence';
+import {
+  calculateMoonPhaseEvidence,
+  type MoonPhaseEvidence,
+} from '../calendar/moon-phase-evidence';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 
@@ -20,9 +23,11 @@ export interface AlmanacTraditionalFact {
 }
 
 export interface AlmanacHourEvidence {
+  key: string;
   name: string;
   range: string;
   ganzhi: string;
+  branch: string;
   twelveStar: string;
   status: AlmanacCandidateStatus;
   recommends: string[];
@@ -30,11 +35,31 @@ export interface AlmanacHourEvidence {
   support: string[];
   constraints: string[];
   participantSupport: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '逐时时课只用于当前候选日内比较事项宜忌、十二神与参与人冲突，不证明该时辰必然成功、吉利或适合所有人';
+}
+
+export interface AlmanacCalendarFact {
+  key: string;
+  date: string;
+  weekday: string;
+  lunarDate: string;
+  ganzhi: AlmanacDayCandidate['ganzhi'];
+  zodiac: string;
+  dayOfficer: string;
+  twelveStar: string;
+  clash: string;
+  promptText: string;
+  sources: string[];
+  limitation: '公历、农历、干支、建除、十二神与冲煞是当前候选日的历法和规则字段，只用于确定比较条件，不单独证明现实吉凶或事项结果';
 }
 
 export interface AlmanacCandidateEvidence {
   date: string;
   status: AlmanacCandidateStatus;
+  calendarFact: AlmanacCalendarFact;
+  moonPhaseFact: MoonPhaseEvidence;
   astronomicalFacts: string[];
   calendarFacts: string[];
   traditionalRuleFacts: string[];
@@ -69,6 +94,10 @@ function unique(values: string[]) {
 
 const TRADITIONAL_FACT_LIMITATION =
   '传统择日资料只用于当前事项的候选比较，不证明现实中的疾病、死亡、灾祸、官非、财损、婚姻或生育结果' as const;
+const CALENDAR_FACT_LIMITATION =
+  '公历、农历、干支、建除、十二神与冲煞是当前候选日的历法和规则字段，只用于确定比较条件，不单独证明现实吉凶或事项结果' as const;
+const HOUR_FACT_LIMITATION =
+  '逐时时课只用于当前候选日内比较事项宜忌、十二神与参与人冲突，不证明该时辰必然成功、吉利或适合所有人' as const;
 
 const PENGZU_PROMPT_PREFIXES: Array<[RegExp, string]> = [
   [/^甲不开仓/, '甲日传统上避开仓'],
@@ -203,7 +232,25 @@ function isConflictNote(note: string) {
   return /冲|刑|害|破|忌|不宜|避/.test(note) && !/未见|未冲|不冲|无明显/.test(note);
 }
 
-function buildHourEvidence(hour: AlmanacHourCandidate): AlmanacHourEvidence {
+function buildCalendarFact(day: AlmanacDayCandidate): AlmanacCalendarFact {
+  const promptText = `${day.weekday}，${day.lunarDate}；年柱${day.ganzhi.year}、月柱${day.ganzhi.month}、日柱${day.ganzhi.day}，生肖${day.zodiac}；建除值日${day.dayOfficer}，十二神${day.twelveStar}，冲煞${day.clash}`;
+  return {
+    key: `${day.date}:calendar`,
+    date: day.date,
+    weekday: day.weekday,
+    lunarDate: day.lunarDate,
+    ganzhi: { ...day.ganzhi },
+    zodiac: day.zodiac,
+    dayOfficer: day.dayOfficer,
+    twelveStar: day.twelveStar,
+    clash: day.clash,
+    promptText,
+    sources: ['tyme4ts 公历、农历与干支历换算', '建除值日、十二神、生肖与冲煞公共规则'],
+    limitation: CALENDAR_FACT_LIMITATION,
+  };
+}
+
+function buildHourEvidence(date: string, hour: AlmanacHourCandidate): AlmanacHourEvidence {
   const participantSupport = unique(hour.participantNotes.filter((item) => !isConflictNote(item)));
   const constraints = unique([
     ...hour.cautions,
@@ -211,21 +258,32 @@ function buildHourEvidence(hour: AlmanacHourCandidate): AlmanacHourEvidence {
     ...(hour.avoids.includes('诸事不宜') ? ['时辰明列诸事不宜'] : []),
   ]);
   const support = unique([...hour.highlights, ...participantSupport]);
+  const status: AlmanacCandidateStatus = constraints.some((item) =>
+    /诸事不宜|忌项触及|冲|刑|害|破/.test(item),
+  )
+    ? '慎用候选'
+    : constraints.length
+      ? '条件候选'
+      : '可用候选';
+  const recommends = unique(hour.recommends);
+  const avoids = unique(hour.avoids);
+  const promptText = `${hour.name}${hour.range}，${hour.ganzhi}（${hour.branch}支）、${hour.twelveStar}；${status}；宜${recommends.join('、') || '未列'}；忌${avoids.join('、') || '未列'}；支持${support.join('、') || '未见额外支持'}；限制${constraints.join('、') || '未见明确冲突'}`;
   return {
+    key: `${date}:hour:${hour.ganzhi}:${hour.name}`,
     name: hour.name,
     range: hour.range,
     ganzhi: hour.ganzhi,
+    branch: hour.branch,
     twelveStar: hour.twelveStar,
-    status: constraints.some((item) => /诸事不宜|忌项触及|冲|刑|害|破/.test(item))
-      ? '慎用候选'
-      : constraints.length
-        ? '条件候选'
-        : '可用候选',
-    recommends: unique(hour.recommends),
-    avoids: unique(hour.avoids),
+    status,
+    recommends,
+    avoids,
     support,
     constraints,
     participantSupport,
+    promptText,
+    sources: ['逐时时柱与十二神计算', '当前事项时辰宜忌与参与人刑冲破害核验'],
+    limitation: HOUR_FACT_LIMITATION,
   };
 }
 
@@ -234,6 +292,7 @@ function buildCandidateEvidence(day: AlmanacDayCandidate): AlmanacCandidateEvide
     day.moonPhaseEvidence ?? calculateMoonPhaseEvidence(Date.parse(`${day.date}T04:00:00Z`));
   const participantConflicts = unique(day.participantNotes.filter(isConflictNote));
   const participantSupport = unique(day.participantNotes.filter((item) => !isConflictNote(item)));
+  const calendarFact = buildCalendarFact(day);
   const traditionalConstraints = unique(day.cautions);
   const topicMatches = unique(day.highlights.filter((item) => /宜项命中|执日.*宜/.test(item)));
   const traditionalSupport = unique(day.highlights.filter((item) => !topicMatches.includes(item)));
@@ -253,20 +312,22 @@ function buildCandidateEvidence(day: AlmanacDayCandidate): AlmanacCandidateEvide
       ? '条件候选'
       : '可用候选';
   const usableHours = (day.hours ?? [])
-    .map(buildHourEvidence)
+    .map((hour) => buildHourEvidence(day.date, hour))
     .filter((item) => item.status !== '慎用候选')
     .slice(0, 4);
   return {
     date: day.date,
     status,
+    calendarFact,
+    moonPhaseFact: moonPhaseEvidence,
     astronomicalFacts: [
       `中国标准时间12:00参照月相为${moonPhaseEvidence.eightPhaseName}（${moonPhaseEvidence.waxing ? '盈' : '亏'}），日月黄经差${moonPhaseEvidence.phaseAngleDegrees.toFixed(2)}°，照明约${moonPhaseEvidence.illuminationPercent.toFixed(1)}%`,
       `前一四正相位${moonPhaseEvidence.previousPrincipalPhase.name} ${moonPhaseEvidence.previousPrincipalPhase.utcDateTime}，下一四正相位${moonPhaseEvidence.nextPrincipalPhase.name} ${moonPhaseEvidence.nextPrincipalPhase.utcDateTime}`,
     ],
     calendarFacts: [
       `${day.weekday}，${day.lunarDate}`,
-      `年柱${day.ganzhi.year}、月柱${day.ganzhi.month}、日柱${day.ganzhi.day}，生肖${day.zodiac}`,
-      `建除值日${day.dayOfficer}，十二神${day.twelveStar}，冲煞${day.clash}`,
+      `年柱${calendarFact.ganzhi.year}、月柱${calendarFact.ganzhi.month}、日柱${calendarFact.ganzhi.day}，生肖${calendarFact.zodiac}`,
+      `建除值日${calendarFact.dayOfficer}，十二神${calendarFact.twelveStar}，冲煞${calendarFact.clash}`,
     ],
     traditionalRuleFacts: [
       traditionalFacts.find((item) => item.kind === '二十八宿')
@@ -300,6 +361,10 @@ function buildCandidateEvidence(day: AlmanacDayCandidate): AlmanacCandidateEvide
   };
 }
 
+function formatMoonPhaseFact(fact: MoonPhaseEvidence) {
+  return `中国标准时间12:00参照月相为${fact.eightPhaseName}（${fact.waxing ? '盈' : '亏'}），日月黄经差${fact.phaseAngleDegrees.toFixed(2)}°，照明约${fact.illuminationPercent.toFixed(1)}%；前一四正相位${fact.previousPrincipalPhase.name} ${fact.previousPrincipalPhase.utcDateTime}，下一四正相位${fact.nextPrincipalPhase.name} ${fact.nextPrincipalPhase.utcDateTime}；来源${fact.source}；限制${fact.limitations.join('；')}`;
+}
+
 function formatCandidate(item: AlmanacCandidateEvidence) {
   const support = unique([
     ...item.topicMatches,
@@ -312,14 +377,9 @@ function formatCandidate(item: AlmanacCandidateEvidence) {
     ...item.directionConstraints,
   ]);
   const hours = item.usableHours.length
-    ? item.usableHours
-        .map(
-          (hour) =>
-            `${hour.name}${hour.range}（${hour.ganzhi}、${hour.twelveStar}；宜${hour.recommends.join('、') || '未列'}；忌${hour.avoids.join('、') || '未列'}；支持${hour.support.join('、') || '未见额外支持'}；限制${hour.constraints.join('、') || '未见明确冲突'}）`,
-        )
-        .join('、')
+    ? item.usableHours.map((hour) => `${hour.promptText}；边界${hour.limitation}`).join('、')
     : '未筛出无明显冲突时辰';
-  return `${item.status}；历法事实${item.calendarFacts.join('；')}；传统规则${item.traditionalRuleFacts.join('；')}；全年方位神${item.directionFacts.join('；') || '未列'}；支持${support.join('、') || '未见独立增强证据'}；限制${constraints.join('、') || '未见明确传统禁忌或参与人冲突'}；天文背景${item.astronomicalFacts.join('；')}；时段${hours}`;
+  return `${item.status}；历法事实${item.calendarFact.promptText}；历法边界${item.calendarFact.limitation}；传统规则${item.traditionalRuleFacts.join('；')}；全年方位神${item.directionFacts.join('；') || '未列'}；支持${support.join('、') || '未见独立增强证据'}；限制${constraints.join('、') || '未见明确传统禁忌或参与人冲突'}；天文背景${formatMoonPhaseFact(item.moonPhaseFact)}；时段${hours}`;
 }
 
 export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalysis {
@@ -357,8 +417,7 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
             : '辅证',
       title: `${item.date}${item.status}`,
       detail: formatCandidate(item),
-      source:
-        '干支历、建除、十二神、二十八宿、九星、彭祖百忌、冲煞、全年方位神、事项宜忌、参与人刑冲破害与逐时时课；月相取中国标准时间正午的celestine日月黄经',
+      source: `${item.calendarFact.sources.join('、')}；二十八宿、九星、彭祖百忌、全年方位神、事项宜忌、参与人刑冲破害；${item.usableHours[0]?.sources.join('、') ?? '逐时时课'}；月相取中国标准时间正午的celestine日月黄经`,
       tags: [item.status, data.topicLabel],
     })),
     {
