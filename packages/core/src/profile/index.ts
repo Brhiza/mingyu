@@ -28,10 +28,9 @@ export interface BirthProfile {
   year: number;
   month: number;
   day: number;
-  hour?: number;
-  minute?: number;
+  hour: number;
+  minute: number;
   second?: number;
-  unknownTime?: boolean;
   isLeapMonth?: boolean;
   location?: BirthProfileLocation;
   useTrueSolarTime?: boolean;
@@ -39,8 +38,6 @@ export interface BirthProfile {
 }
 
 export type BirthProfileDiagnosticCode =
-  | 'UNKNOWN_BIRTH_TIME'
-  | 'TIME_IGNORED_WHEN_UNKNOWN'
   | 'LOCATION_REQUIRED_FOR_TRUE_SOLAR_TIME'
   | 'LATITUDE_REQUIRED'
   | 'GENDER_REQUIRED'
@@ -111,39 +108,22 @@ function assertProfileShape(profile: BirthProfile): void {
 /**
  * 校验并统一出生档案的时间口径。
  *
- * 未知时辰不会被静默替换为中午或子时；调用方可根据 hasKnownTime 和
- * diagnostics 决定降级展示，必须依赖时辰的算法则使用下方适配函数明确报错。
+ * 出生小时和分钟是统一档案的必填事实；输入不完整时直接拒绝，不生成降级盘。
  */
 export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthProfile {
   assertProfileShape(profile);
   const diagnostics: BirthProfileDiagnostic[] = [];
-  const hasClockFields = profile.hour !== undefined || profile.minute !== undefined;
-  const hasCompleteClock = profile.hour !== undefined && profile.minute !== undefined;
-  const hasKnownTime = profile.unknownTime !== true && hasCompleteClock;
-
-  if (profile.unknownTime === true) {
-    diagnostics.push({
-      code: 'UNKNOWN_BIRTH_TIME',
-      level: 'warning',
-      field: 'unknownTime',
-      message: '出生时辰未知，仅可使用不依赖时柱或宫位起点的稳定结论。',
-    });
-    if (hasClockFields) {
-      diagnostics.push({
-        code: 'TIME_IGNORED_WHEN_UNKNOWN',
-        level: 'info',
-        field: 'hour',
-        message: '已标记未知时辰，传入的小时和分钟不会参与计算。',
-      });
-    }
-  } else if (!hasKnownTime) {
-    diagnostics.push({
+  if (profile.hour === undefined || profile.minute === undefined) {
+    throw new BirthProfileError({
       code: 'TIME_REQUIRED',
       level: 'error',
       field: 'hour',
-      message: '请提供出生小时和分钟，或明确设置 unknownTime: true。',
+      message: '请提供完整的出生小时和分钟。',
     });
   }
+  const { hour, minute } = profile;
+  assertIntegerInRange(hour, '出生小时', 0, 23);
+  assertIntegerInRange(minute, '出生分钟', 0, 59);
 
   if (profile.useTrueSolarTime && !profile.location) {
     diagnostics.push({
@@ -154,35 +134,6 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
     });
   }
 
-  if (!hasKnownTime) {
-    // 未知时辰也必须校验出生日期；用正午只做历法转换，不把该时间写入结果。
-    resolveTrueSolarBirthTime({
-      dateType: profile.calendarType,
-      year: profile.year,
-      month: profile.month,
-      day: profile.day,
-      hour: 12,
-      minute: 0,
-      isLeapMonth: profile.isLeapMonth,
-      longitude: 120,
-      timezone: 8,
-      applyChinaDst: false,
-    });
-    return {
-      profile: { ...profile, hour: undefined, minute: undefined, second: undefined },
-      hasKnownTime: false,
-      usedTrueSolarTime: false,
-      diagnostics,
-    };
-  }
-
-  const hour = profile.hour;
-  const minute = profile.minute;
-  if (hour === undefined || minute === undefined) {
-    throw new Error('出生时间状态异常。');
-  }
-  assertIntegerInRange(hour, '出生小时', 0, 23);
-  assertIntegerInRange(minute, '出生分钟', 0, 59);
   const second = profile.second ?? 0;
   assertIntegerInRange(second, '出生秒数', 0, 59);
 
@@ -257,7 +208,7 @@ function requireReady(
       code: 'TIME_REQUIRED',
       level: 'error',
       field: 'hour',
-      message: '此算法必须提供准确出生时辰，未知时辰不能使用占位值代替。',
+      message: '此算法必须提供完整、准确的出生小时和分钟。',
     });
   }
 }

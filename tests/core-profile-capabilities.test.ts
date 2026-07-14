@@ -12,23 +12,20 @@ import {
 import { getCapabilities, getSystemCapability } from '../packages/core/src/capabilities/index';
 import { generateXiaoliuren } from '../packages/core/src/divination/algorithms/xiaoliuren';
 
-test('统一出生档案不会用占位时辰替代未知时辰', () => {
+test('统一出生档案缺少时间时应在排盘前拒绝', () => {
   const profile = {
     gender: 'female' as const,
     calendarType: 'solar' as const,
     year: 1990,
     month: 5,
     day: 15,
-    unknownTime: true,
   };
-  const result = normalizeBirthProfile(profile);
-
-  assert.equal(result.hasKnownTime, false);
-  assert.equal(result.timeIndex, undefined);
-  assert.equal(result.diagnostics[0]?.code, 'UNKNOWN_BIRTH_TIME');
   assert.throws(
-    () => birthProfileToBaziPerson(profile),
-    (error: unknown) => error instanceof BirthProfileError && error.code === 'TIME_REQUIRED',
+    () => normalizeBirthProfile(profile as never),
+    (error: unknown) =>
+      error instanceof BirthProfileError &&
+      error.code === 'TIME_REQUIRED' &&
+      error.message === '请提供完整的出生小时和分钟。',
   );
 });
 
@@ -90,7 +87,7 @@ test('能力清单可序列化且返回副本', () => {
   first.systems[0]!.name = '已修改';
   assert.notEqual(second.systems[0]!.name, '已修改');
   assert.equal(getSystemCapability('bazhai')?.inputs[1]?.id, 'doorToInteriorDegree');
-  assert.equal(getSystemCapability('bazi')?.supports.unknownBirthTime, 'unsupported');
+  assert.equal(getSystemCapability('bazi')?.supports.birthTimeRequired, true);
   const liuyao = getSystemCapability('liuyao');
   assert.equal(liuyao?.supports.seed, true);
   assert.equal(liuyao?.supports.replay, true);

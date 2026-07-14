@@ -42,7 +42,7 @@ export interface SystemCapability {
     customRandomSource: boolean;
     replay?: boolean;
     trueSolarTime: boolean;
-    unknownBirthTime: 'full' | 'degraded' | 'unsupported';
+    birthTimeRequired: boolean;
     batch: boolean;
   };
   optionalDependencies?: string[];
@@ -61,7 +61,7 @@ const birthProfileInput: CapabilityInput = {
   label: '出生档案',
   type: 'object',
   required: true,
-  description: '推荐使用统一 BirthProfile；必须依赖时辰的算法不会用占位时辰替代未知时辰。',
+  description: '推荐使用统一 BirthProfile；出生小时和分钟必须完整提供。',
 };
 
 const questionInput: CapabilityInput = {
@@ -76,7 +76,7 @@ const randomSupports = {
   customRandomSource: true,
   replay: true,
   trueSolarTime: false,
-  unknownBirthTime: 'full' as const,
+  birthTimeRequired: false,
   batch: false,
 };
 
@@ -104,7 +104,7 @@ const systems: SystemCapability[] = [
       seed: false,
       customRandomSource: false,
       trueSolarTime: true,
-      unknownBirthTime: 'unsupported',
+      birthTimeRequired: true,
       batch: false,
     },
   },
@@ -136,10 +136,10 @@ const systems: SystemCapability[] = [
       seed: false,
       customRandomSource: false,
       trueSolarTime: true,
-      unknownBirthTime: 'unsupported',
+      birthTimeRequired: true,
       batch: false,
     },
-    notes: ['当前排盘需要时辰；统一档案会明确返回未知时辰诊断，不会自动代入占位时辰。'],
+    notes: ['当前排盘需要完整出生时间；输入不完整时会在计算前拒绝。'],
   },
   {
     id: 'ziwei',
@@ -160,7 +160,7 @@ const systems: SystemCapability[] = [
       seed: false,
       customRandomSource: false,
       trueSolarTime: true,
-      unknownBirthTime: 'unsupported',
+      birthTimeRequired: true,
       batch: false,
     },
     optionalDependencies: ['iztro'],
@@ -190,7 +190,7 @@ const systems: SystemCapability[] = [
       seed: false,
       customRandomSource: false,
       trueSolarTime: true,
-      unknownBirthTime: 'unsupported',
+      birthTimeRequired: true,
       batch: false,
     },
     optionalDependencies: ['celestine'],
@@ -235,7 +235,7 @@ const systems: SystemCapability[] = [
       seed: false,
       customRandomSource: false,
       trueSolarTime: false,
-      unknownBirthTime: 'full',
+      birthTimeRequired: false,
       batch: false,
     },
   },
@@ -284,7 +284,7 @@ const systems: SystemCapability[] = [
       customRandomSource: true,
       replay: true,
       trueSolarTime: false,
-      unknownBirthTime: 'full',
+      birthTimeRequired: false,
       batch: false,
     },
     notes: ['现实投掷建议直接传入六次爻值，可完整复现。'],
@@ -367,7 +367,7 @@ const systems: SystemCapability[] = [
       seed: false,
       customRandomSource: false,
       trueSolarTime: false,
-      unknownBirthTime: 'full',
+      birthTimeRequired: false,
       batch: false,
     },
   },
@@ -451,7 +451,7 @@ const systems: SystemCapability[] = [
       seed: false,
       customRandomSource: false,
       trueSolarTime: false,
-      unknownBirthTime: 'unsupported',
+      birthTimeRequired: true,
       batch: true,
     },
   },
@@ -487,7 +487,7 @@ const systems: SystemCapability[] = [
       seed: false,
       customRandomSource: false,
       trueSolarTime: false,
-      unknownBirthTime: 'full',
+      birthTimeRequired: false,
       batch: false,
     },
   },
@@ -513,7 +513,7 @@ const systems: SystemCapability[] = [
       seed: false,
       customRandomSource: false,
       trueSolarTime: false,
-      unknownBirthTime: 'full',
+      birthTimeRequired: false,
       batch: false,
     },
     notes: ['生肖流年是只使用出生年支的轻量关系模型，不替代完整八字或现实资料。'],
@@ -551,7 +551,7 @@ const systems: SystemCapability[] = [
       seed: false,
       customRandomSource: false,
       trueSolarTime: false,
-      unknownBirthTime: 'full',
+      birthTimeRequired: false,
       batch: false,
     },
   },
@@ -582,7 +582,7 @@ const systems: SystemCapability[] = [
       seed: false,
       customRandomSource: false,
       trueSolarTime: false,
-      unknownBirthTime: 'unsupported',
+      birthTimeRequired: true,
       batch: false,
     },
     optionalDependencies: ['celestine'],

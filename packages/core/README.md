@@ -53,7 +53,7 @@ yarn add mingyu-core
 
 ## 统一出生档案与能力发现
 
-应用可以只维护一份 `BirthProfile`，再按需要转换为八字、星盘或择日的既有输入。未知时辰会被明确标记，不会静默代入中午、子时等占位值：
+应用可以只维护一份 `BirthProfile`，再按需要转换为八字、星盘或择日的既有输入。出生小时和分钟必须完整提供；输入不完整时会在排盘前拒绝：
 
 ```ts
 import { normalizeBirthProfile, getCapabilities } from 'mingyu-core';
@@ -64,12 +64,12 @@ const profile = {
   year: 1990,
   month: 5,
   day: 15,
-  unknownTime: true,
+  hour: 14,
+  minute: 30,
 } as const;
 
 const normalized = normalizeBirthProfile(profile);
-// normalized.hasKnownTime === false
-// normalized.diagnostics[0].code === 'UNKNOWN_BIRTH_TIME'
+// normalized.hasKnownTime === true
 
 const capabilities = getCapabilities();
 // 可用于生成算法入口、输入项和依赖提示
@@ -82,7 +82,7 @@ import { normalizeBirthProfile } from 'mingyu-core/profile';
 import { getCapabilities } from 'mingyu-core/capabilities';
 ```
 
-`getCapabilities()` 返回可序列化副本，包含各系统支持的起法、输入、输出、随机种子、随机轨迹重放、真太阳时、未知时辰、批量计算和可选依赖状态。能力清单只描述核心包真实提供的能力，不把页面、本地报告或历史记录算作核心能力。
+`getCapabilities()` 返回可序列化副本，包含各系统支持的起法、输入、输出、随机种子、随机轨迹重放、真太阳时、是否要求完整出生时间、批量计算和可选依赖状态。能力清单只描述核心包真实提供的能力，不把页面、本地报告或历史记录算作核心能力。
 
 ## 可选结果元数据与随机重放
 
@@ -123,7 +123,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **西占双盘 Synastry**  | `mingyu-core/divination/astrolabe-synastry`                                                                                                   | 双方主要跨盘相位、实际夹角、精确角、可配置容许度、紧密等级、跨盘落宫与结构化证据                       |
 | **历法 Calendar**      | `mingyu-core/calendar`                                                                                                                        | 农历、干支、节气黄经核验、朔弦望月相、太阳高度与曙暮光、真太阳时及 UTC/UT/TT 时间尺度证据              |
 | **出生档案 Profile**   | `mingyu-core/profile`                                                                                                                         | 统一公农历、闰月、时辰、地点与真太阳时输入，并提供既有算法适配器                                       |
-| **能力发现**           | `mingyu-core/capabilities`                                                                                                                    | 查询算法输入、输出、起法、依赖、随机复现和未知时辰支持状态                                             |
+| **能力发现**           | `mingyu-core/capabilities`                                                                                                                    | 查询算法输入、输出、起法、依赖、随机复现和出生时间要求                                                 |
 | **结果协议 Result**    | `mingyu-core/result`                                                                                                                          | 稳定序列化、结果身份、结构版本与统一诊断                                                               |
 | **随机能力 Random**    | `mingyu-core/random`                                                                                                                          | 种子、自定义随机源、原始样本记录与完整重放                                                             |
 | **类型 Types**         | `mingyu-core/types`                                                                                                                           | 所有共享类型定义                                                                                       |

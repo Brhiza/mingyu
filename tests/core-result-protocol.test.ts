@@ -83,16 +83,7 @@ test('统一错误可结构化输出，出生档案错误继续保持兼容类�
       year: 1990,
       month: 5,
       day: 15,
-      unknownTime: true,
-    });
-    if (!profile.hasKnownTime) {
-      throw new BirthProfileError({
-        code: 'TIME_REQUIRED',
-        level: 'error',
-        field: 'hour',
-        message: '需要时辰。',
-      });
-    }
+    } as never);
   } catch (error) {
     caught = error;
   }
@@ -102,10 +93,17 @@ test('统一错误可结构化输出，出生档案错误继续保持兼容类�
     name: 'BirthProfileError',
     code: 'TIME_REQUIRED',
     category: 'validation',
-    message: '需要时辰。',
+    message: '请提供完整的出生小时和分钟。',
     field: 'hour',
     recoverable: true,
-    diagnostics: [{ code: 'TIME_REQUIRED', level: 'error', field: 'hour', message: '需要时辰。' }],
+    diagnostics: [
+      {
+        code: 'TIME_REQUIRED',
+        level: 'error',
+        field: 'hour',
+        message: '请提供完整的出生小时和分钟。',
+      },
+    ],
     context: undefined,
   });
 });
