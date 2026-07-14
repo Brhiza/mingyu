@@ -25,6 +25,33 @@ test('黄历择日应内置透明约束与候选证据', () => {
   assert.ok(
     evidence.candidates.every(
       (candidate) =>
+        candidate.rawTabooFact.key === `${candidate.date}:raw-taboo` &&
+        candidate.rawTabooFact.status !== '均未列' &&
+        candidate.godFacts.length > 0 &&
+        candidate.godFacts.every(
+          (item) =>
+            item.key.startsWith(`${candidate.date}:god:`) &&
+            item.status === '已读取' &&
+            item.sources.length >= 2,
+        ) &&
+        candidate.topicMatchFacts.length >= 4 &&
+        candidate.topicMatchFacts.every(
+          (item) =>
+            item.key.startsWith(`${candidate.date}:topic:`) &&
+            Array.isArray(item.inputItems) &&
+            item.sources.length >= 2 &&
+            item.limitation.includes('不证明事项必然成功'),
+        ) &&
+        candidate.decisionFact.key === `${candidate.date}:decision` &&
+        candidate.decisionFact.status === candidate.status &&
+        candidate.decisionFact.steps.length === 7 &&
+        candidate.decisionFact.steps.at(-1)?.result === candidate.status &&
+        candidate.decisionFact.limitation.includes('不公开内部排序分值'),
+    ),
+  );
+  assert.ok(
+    evidence.candidates.every(
+      (candidate) =>
         candidate.calendarFact.key === `${candidate.date}:calendar` &&
         candidate.calendarFact.promptText.includes('年柱') &&
         candidate.calendarFact.sources.length >= 2 &&
@@ -67,6 +94,9 @@ test('择日证据应保留日课、宿曜、九星、百忌、方位神与逐�
         item.twelveStar &&
         item.promptText.includes(item.ganzhi) &&
         item.sources.length >= 2 &&
+        item.rawTabooFact.key.startsWith(item.key) &&
+        item.topicMatchFacts.length === 3 &&
+        item.topicMatchFacts.every((fact) => fact.scope === '时辰') &&
         item.limitation.includes('不证明该时辰必然成功'),
     ),
   );
@@ -109,6 +139,94 @@ test('择日证据在缺少参与人时不得编造个人适配', () => {
   assert.match(evidence.promptText, /没有参与人资料时不得编造个人适配结论/);
   assert.match(evidence.promptText, /现实条件未提供时只列待核验项/);
   assert.match(evidence.promptText, /不合成为成功率或吉凶总分/);
+});
+
+test('择日参与人支持与冲突应保留逐项结构化依据', () => {
+  const result = generateAlmanacSelection({
+    topic: 'marriage',
+    startDate: '2026-06-01',
+    endDate: '2026-06-12',
+    participants: [
+      {
+        id: 'person-1',
+        name: '甲方',
+        gender: '男',
+        year: '1990',
+        month: '1',
+        day: '1',
+        timeIndex: '6',
+        dateType: 'solar',
+      },
+    ],
+  });
+
+  const facts = result.evidenceAnalysis?.candidates.flatMap(
+    (candidate) => candidate.participantRelationFacts,
+  );
+  assert.ok(facts && facts.length > 0);
+  assert.ok(
+    facts.every(
+      (item) =>
+        item.key.includes(':participant:person-1:') &&
+        item.participantName === '甲方' &&
+        item.candidateValue &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不证明个人结果'),
+    ),
+  );
+  assert.ok(facts.some((item) => item.basis === '年支' || item.basis === '日支'));
+  assert.ok(facts.some((item) => item.basis === '喜用五行' || item.status === '未采用'));
+  const directConflictCandidates = result.evidenceAnalysis?.candidates.filter((candidate) =>
+    candidate.participantRelationFacts.some(
+      (item) =>
+        item.relation === '冲' ||
+        item.relation === '刑' ||
+        item.relation === '害' ||
+        item.relation === '破',
+    ),
+  );
+  assert.ok(directConflictCandidates && directConflictCandidates.length > 0);
+  assert.ok(
+    directConflictCandidates.every(
+      (candidate) =>
+        candidate.status === '慎用候选' &&
+        candidate.decisionFact.steps.find((step) => step.stage === '参与人关系')?.status ===
+          '触发慎用',
+    ),
+  );
+  assert.doesNotMatch(JSON.stringify(facts), /"score"\s*:/);
+});
+
+test('旧黄历字符串结果应生成兼容事实且不反推缺失参数', () => {
+  const result = generateAlmanacSelection({
+    topic: 'contract',
+    startDate: '2026-06-01',
+    endDate: '2026-06-01',
+  });
+  const day = result.days[0];
+  day.topicMatchFacts = undefined;
+  day.godFacts = undefined;
+  day.participantRelationFacts = undefined;
+  for (const hour of day.hours ?? []) {
+    hour.topicMatchFacts = undefined;
+    hour.participantRelationFacts = undefined;
+  }
+
+  const evidence = analyzeAlmanacEvidence(result);
+  const candidate = evidence.candidates[0];
+  assert.ok(candidate.topicMatchFacts.every((item) => item.key.includes(':legacy-topic:')));
+  assert.ok(candidate.godFacts.every((item) => item.key.includes(':legacy-god:')));
+  assert.ok(
+    candidate.topicMatchFacts.every((item) =>
+      item.sources.some((source) => source.includes('未保存原始关键词匹配参数')),
+    ),
+  );
+  assert.ok(
+    candidate.usableHours.every((hour) =>
+      hour.topicMatchFacts.every((item) => item.key.includes(':legacy-topic:')),
+    ),
+  );
 });
 
 test('择日传统资料应保留原文并为提示词生成条件化事实', () => {

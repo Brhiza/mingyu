@@ -2555,11 +2555,34 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
   const candidateFacts = body.data.result.evidenceAnalysis.candidates as Array<{
     date: string;
     calendarFact: { key: string; promptText: string; sources: string[]; limitation: string };
+    rawTabooFact: { key: string; status: string; recommends: string[]; avoids: string[] };
+    godFacts: Array<{ key: string; status: string; classification: string; sources: string[] }>;
+    topicMatchFacts: Array<{
+      key: string;
+      status: string;
+      matchedItems: string[];
+      sources: string[];
+      limitation: string;
+    }>;
+    participantRelationFacts: Array<{ key: string }>;
+    decisionFact: {
+      key: string;
+      status: string;
+      steps: Array<{ key: string; stage: string; result: string; sources: string[] }>;
+      limitation: string;
+    };
     moonPhaseFact: {
       previousPrincipalPhase: { sources: string[] };
       nextPrincipalPhase: { calculation: string };
     };
-    usableHours: Array<{ key: string; promptText: string; sources: string[]; limitation: string }>;
+    usableHours: Array<{
+      key: string;
+      promptText: string;
+      sources: string[];
+      limitation: string;
+      rawTabooFact: { key: string; status: string };
+      topicMatchFacts: Array<{ key: string; scope: string; sources: string[] }>;
+    }>;
   }>;
   assert.ok(
     candidateFacts.every(
@@ -2568,6 +2591,27 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
         item.calendarFact.promptText &&
         item.calendarFact.sources.length >= 2 &&
         item.calendarFact.limitation.includes('不单独证明现实吉凶') &&
+        item.rawTabooFact.key === `${item.date}:raw-taboo` &&
+        item.rawTabooFact.status !== '均未列' &&
+        item.godFacts.length > 0 &&
+        item.godFacts.every(
+          (fact) =>
+            fact.key.startsWith(`${item.date}:god:`) &&
+            fact.status === '已读取' &&
+            fact.sources.length >= 2,
+        ) &&
+        item.topicMatchFacts.length >= 4 &&
+        item.topicMatchFacts.every(
+          (fact) =>
+            fact.key.startsWith(`${item.date}:topic:`) &&
+            fact.sources.length >= 2 &&
+            fact.limitation.includes('不证明事项必然成功'),
+        ) &&
+        item.participantRelationFacts.length === 0 &&
+        item.decisionFact.key === `${item.date}:decision` &&
+        item.decisionFact.steps.length === 7 &&
+        item.decisionFact.steps.at(-1)?.result === item.decisionFact.status &&
+        item.decisionFact.limitation.includes('不公开内部排序分值') &&
         item.moonPhaseFact.previousPrincipalPhase.sources.length >= 2 &&
         item.moonPhaseFact.nextPrincipalPhase.calculation.includes('二分求根') &&
         item.usableHours.every(
@@ -2575,6 +2619,11 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
             hour.key.startsWith(`${item.date}:hour:`) &&
             hour.promptText &&
             hour.sources.length >= 2 &&
+            hour.rawTabooFact.key.startsWith(hour.key) &&
+            hour.topicMatchFacts.length === 3 &&
+            hour.topicMatchFacts.every(
+              (fact) => fact.key.startsWith(hour.key) && fact.scope === '时辰',
+            ) &&
             hour.limitation.includes('不证明该时辰必然成功'),
         ),
     ),
@@ -2607,6 +2656,7 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
     body.data.result.days.map((item: { date: string }) => item.date),
   );
   assert.match(body.data.result.evidenceAnalysis.promptText, /【黄历择日透明约束与候选证据】/);
+  assert.match(body.data.result.evidenceAnalysis.promptText, /状态形成链/);
   assert.match(body.data.prompt, /候选日期：2026-06-01 至 2026-06-30/);
   assert.equal((body.data.prompt.match(/第\d+候选：/g) ?? []).length, 5);
   body.data.result.days.forEach((day: { date: string }) => {

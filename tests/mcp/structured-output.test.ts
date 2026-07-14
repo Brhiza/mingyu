@@ -713,6 +713,16 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
                 sources: string[];
                 limitation: string;
               };
+              rawTabooFact: { key: string; status: string };
+              godFacts: Array<{ key: string; status: string; sources: string[] }>;
+              topicMatchFacts: Array<{ key: string; sources: string[]; limitation: string }>;
+              participantRelationFacts: Array<{ key: string }>;
+              decisionFact: {
+                key: string;
+                status: string;
+                steps: Array<{ key: string; result: string }>;
+                limitation: string;
+              };
               moonPhaseFact: {
                 previousPrincipalPhase: { sources: string[] };
                 nextPrincipalPhase: { calculation: string };
@@ -722,6 +732,8 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
                 promptText: string;
                 sources: string[];
                 limitation: string;
+                rawTabooFact: { key: string };
+                topicMatchFacts: Array<{ key: string; scope: string }>;
               }>;
             }>;
             cautionDates: string[];
@@ -745,6 +757,27 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
           item.calendarFact.promptText &&
           item.calendarFact.sources.length >= 2 &&
           item.calendarFact.limitation.includes('不单独证明现实吉凶') &&
+          item.rawTabooFact.key === `${item.date}:raw-taboo` &&
+          item.rawTabooFact.status !== '均未列' &&
+          item.godFacts.length > 0 &&
+          item.godFacts.every(
+            (fact) =>
+              fact.key.startsWith(`${item.date}:god:`) &&
+              fact.status === '已读取' &&
+              fact.sources.length >= 2,
+          ) &&
+          item.topicMatchFacts.length >= 4 &&
+          item.topicMatchFacts.every(
+            (fact) =>
+              fact.key.startsWith(`${item.date}:topic:`) &&
+              fact.sources.length >= 2 &&
+              fact.limitation.includes('不证明事项必然成功'),
+          ) &&
+          item.participantRelationFacts.length === 0 &&
+          item.decisionFact.key === `${item.date}:decision` &&
+          item.decisionFact.steps.length === 7 &&
+          item.decisionFact.steps.at(-1)?.result === item.decisionFact.status &&
+          item.decisionFact.limitation.includes('不公开内部排序分值') &&
           item.moonPhaseFact.previousPrincipalPhase.sources.length >= 2 &&
           item.moonPhaseFact.nextPrincipalPhase.calculation.includes('二分求根') &&
           item.usableHours.every(
@@ -752,6 +785,11 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
               hour.key.startsWith(`${item.date}:hour:`) &&
               hour.promptText &&
               hour.sources.length >= 2 &&
+              hour.rawTabooFact.key.startsWith(hour.key) &&
+              hour.topicMatchFacts.length === 3 &&
+              hour.topicMatchFacts.every(
+                (fact) => fact.key.startsWith(hour.key) && fact.scope === '时辰',
+              ) &&
               hour.limitation.includes('不证明该时辰必然成功'),
           ),
       ),
@@ -775,6 +813,7 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
     const prompt = String(result.structuredContent?.prompt);
     assert.match(prompt, /【占卜信息】/);
     assert.match(prompt, /【黄历择日透明约束与候选证据】/);
+    assert.match(prompt, /状态形成链/);
     assert.doesNotMatch(prompt, /评分[：=]?\d|（\d+分|成功率[：=]?\d/);
     assert.doesNotMatch(
       prompt,

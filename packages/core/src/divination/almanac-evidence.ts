@@ -1,4 +1,12 @@
-import type { AlmanacData, AlmanacDayCandidate, AlmanacHourCandidate } from '../types/divination';
+import type {
+  AlmanacData,
+  AlmanacDayCandidate,
+  AlmanacGodFact,
+  AlmanacHourCandidate,
+  AlmanacParticipantRelationFact,
+  AlmanacTopic,
+  AlmanacTopicMatchFact,
+} from '../types/divination';
 import {
   calculateMoonPhaseEvidence,
   type MoonPhaseEvidence,
@@ -7,6 +15,41 @@ import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 
 export type AlmanacCandidateStatus = '可用候选' | '条件候选' | '慎用候选';
+
+export interface AlmanacRawTabooFact {
+  key: string;
+  scope: '候选日' | '时辰';
+  status: '宜忌均列' | '仅列宜项' | '仅列忌项' | '均未列';
+  recommends: string[];
+  avoids: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '原始宜忌只保留历书列项及其是否命中当前事项；未列不等于适宜，列出也不等于现实事项必然成功或失败';
+}
+
+export interface AlmanacDecisionStep {
+  key: string;
+  stage: '原始宜忌' | '事项命中' | '值日神煞' | '参与人关系' | '传统限制' | '可用时辰' | '候选分组';
+  status: '通过' | '有支持' | '有限制' | '触发慎用' | '未提供';
+  factKeys: string[];
+  inputs: string[];
+  result: string;
+  promptText: string;
+  sources: string[];
+}
+
+export interface AlmanacCandidateDecisionFact {
+  key: string;
+  date: string;
+  status: AlmanacCandidateStatus;
+  steps: AlmanacDecisionStep[];
+  supportingFactKeys: string[];
+  limitingFactKeys: string[];
+  strongConstraintTexts: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '候选状态只按明确事项忌项、传统限制、参与人关系和可用时辰分组；不公开内部排序分值，不把候选等级解释为成功率或现实吉凶保证';
+}
 
 export interface AlmanacTraditionalFact {
   key: string;
@@ -35,6 +78,9 @@ export interface AlmanacHourEvidence {
   support: string[];
   constraints: string[];
   participantSupport: string[];
+  rawTabooFact: AlmanacRawTabooFact;
+  topicMatchFacts: AlmanacTopicMatchFact[];
+  participantRelationFacts: AlmanacParticipantRelationFact[];
   promptText: string;
   sources: string[];
   limitation: '逐时时课只用于当前候选日内比较事项宜忌、十二神与参与人冲突，不证明该时辰必然成功、吉利或适合所有人';
@@ -59,6 +105,11 @@ export interface AlmanacCandidateEvidence {
   date: string;
   status: AlmanacCandidateStatus;
   calendarFact: AlmanacCalendarFact;
+  rawTabooFact: AlmanacRawTabooFact;
+  godFacts: AlmanacGodFact[];
+  topicMatchFacts: AlmanacTopicMatchFact[];
+  participantRelationFacts: AlmanacParticipantRelationFact[];
+  decisionFact: AlmanacCandidateDecisionFact;
   moonPhaseFact: MoonPhaseEvidence;
   astronomicalFacts: string[];
   calendarFacts: string[];
@@ -98,6 +149,10 @@ const CALENDAR_FACT_LIMITATION =
   '公历、农历、干支、建除、十二神与冲煞是当前候选日的历法和规则字段，只用于确定比较条件，不单独证明现实吉凶或事项结果' as const;
 const HOUR_FACT_LIMITATION =
   '逐时时课只用于当前候选日内比较事项宜忌、十二神与参与人冲突，不证明该时辰必然成功、吉利或适合所有人' as const;
+const RAW_TABOO_FACT_LIMITATION =
+  '原始宜忌只保留历书列项及其是否命中当前事项；未列不等于适宜，列出也不等于现实事项必然成功或失败' as const;
+const DECISION_FACT_LIMITATION =
+  '候选状态只按明确事项忌项、传统限制、参与人关系和可用时辰分组；不公开内部排序分值，不把候选等级解释为成功率或现实吉凶保证' as const;
 
 const PENGZU_PROMPT_PREFIXES: Array<[RegExp, string]> = [
   [/^甲不开仓/, '甲日传统上避开仓'],
@@ -250,7 +305,136 @@ function buildCalendarFact(day: AlmanacDayCandidate): AlmanacCalendarFact {
   };
 }
 
-function buildHourEvidence(date: string, hour: AlmanacHourCandidate): AlmanacHourEvidence {
+function buildRawTabooFact(params: {
+  keyPrefix: string;
+  scope: AlmanacRawTabooFact['scope'];
+  recommends: string[];
+  avoids: string[];
+  sources: string[];
+}): AlmanacRawTabooFact {
+  const recommends = unique(params.recommends);
+  const avoids = unique(params.avoids);
+  const status = recommends.length
+    ? avoids.length
+      ? '宜忌均列'
+      : '仅列宜项'
+    : avoids.length
+      ? '仅列忌项'
+      : '均未列';
+  return {
+    key: `${params.keyPrefix}:raw-taboo`,
+    scope: params.scope,
+    status,
+    recommends,
+    avoids,
+    promptText: `原始宜项${recommends.join('、') || '未列'}；原始忌项${avoids.join('、') || '未列'}`,
+    sources: params.sources,
+    limitation: RAW_TABOO_FACT_LIMITATION,
+  };
+}
+
+function buildCompatibleTopicMatchFacts(params: {
+  keyPrefix: string;
+  scope: AlmanacTopicMatchFact['scope'];
+  topic: AlmanacTopic;
+  topicLabel: string;
+  highlights: string[];
+  cautions: string[];
+}): AlmanacTopicMatchFact[] {
+  const support = params.highlights.filter((item) => /宜项命中|执日.*宜/.test(item));
+  const limits = params.cautions.filter((item) => /忌项触及|执日/.test(item));
+  return [
+    ...support.map((text, index): AlmanacTopicMatchFact => ({
+      key: `${params.keyPrefix}:legacy-topic:support:${index}`,
+      scope: params.scope,
+      topic: params.topic,
+      topicLabel: params.topicLabel,
+      sourceType: text.includes('执日') ? '建除值日' : '原始宜项',
+      status: '支持',
+      inputItems: [text],
+      keywords: [],
+      matchedItems: [text],
+      promptText: text,
+      sources: ['兼容旧结果中的支持说明；未保存原始关键词匹配参数'],
+      limitation:
+        '事项命中事实只说明旧结果已记录的支持说明；缺少原始关键词时不反推具体命中项，不证明事项必然成功',
+    })),
+    ...limits.map((text, index): AlmanacTopicMatchFact => ({
+      key: `${params.keyPrefix}:legacy-topic:limit:${index}`,
+      scope: params.scope,
+      topic: params.topic,
+      topicLabel: params.topicLabel,
+      sourceType: text.includes('执日') ? '建除值日' : '原始忌项',
+      status: '限制',
+      inputItems: [text],
+      keywords: [],
+      matchedItems: [text],
+      promptText: text,
+      sources: ['兼容旧结果中的限制说明；未保存原始关键词匹配参数'],
+      limitation:
+        '事项命中事实只说明旧结果已记录的限制说明；缺少原始关键词时不反推具体命中项，不证明事项必然失败',
+    })),
+  ];
+}
+
+function buildCompatibleGodFacts(day: AlmanacDayCandidate): AlmanacGodFact[] {
+  return day.gods.map((name, index) => {
+    const support = day.highlights.some((item) => item.includes(name));
+    const constraint = day.cautions.some((item) => item.includes(name));
+    const classification = support ? '吉神' : constraint ? '凶神' : '未分级';
+    return {
+      key: `${day.date}:legacy-god:${index}:${name}`,
+      name,
+      classification,
+      status: '已读取',
+      promptText: `${name}列为${classification}`,
+      sources: ['兼容旧结果中的值日神煞与支持、限制说明'],
+      limitation:
+        '旧结果未保存独立神煞分类参数时，只按已有支持或限制说明归类；未分级不等于吉凶中性，也不证明现实结果',
+    };
+  });
+}
+
+function buildCompatibleParticipantFacts(params: {
+  keyPrefix: string;
+  scope: AlmanacParticipantRelationFact['scope'];
+  candidateValue: string;
+  notes: string[];
+}): AlmanacParticipantRelationFact[] {
+  return params.notes.map((note, index) => {
+    const participantName = note.split('：')[0] || `参与人${index + 1}`;
+    const isUnused = /不用|未采用/.test(note);
+    const isLimit = isConflictNote(note);
+    const relationMatch = note.match(/[冲刑害破]/)?.[0] as '冲' | '刑' | '害' | '破' | undefined;
+    const relation = isUnused
+      ? '未采用'
+      : (relationMatch ??
+        (isLimit ? '命中' : /未见.*刑冲破害/.test(note) ? '未见直接冲突' : '命中'));
+    return {
+      key: `${params.keyPrefix}:legacy-participant:${index}`,
+      participantId: `legacy:${participantName}`,
+      participantName,
+      scope: params.scope,
+      basis: '整体',
+      candidateValue: params.candidateValue,
+      participantValues: [],
+      relation,
+      status: isUnused ? '未采用' : isLimit ? '限制' : /支持/.test(note) ? '支持' : '中性',
+      detail: note,
+      promptText: note,
+      sources: ['兼容旧结果中的参与人说明；未保存逐项关系参数'],
+      limitation:
+        '旧结果缺少参与人逐项关系参数时只保留原说明，不反推年支、日支或喜忌五行命中细节，也不证明个人结果',
+    };
+  });
+}
+
+function buildHourEvidence(
+  date: string,
+  hour: AlmanacHourCandidate,
+  topic: AlmanacTopic,
+  topicLabel: string,
+): AlmanacHourEvidence {
   const participantSupport = unique(hour.participantNotes.filter((item) => !isConflictNote(item)));
   const constraints = unique([
     ...hour.cautions,
@@ -267,9 +451,35 @@ function buildHourEvidence(date: string, hour: AlmanacHourCandidate): AlmanacHou
       : '可用候选';
   const recommends = unique(hour.recommends);
   const avoids = unique(hour.avoids);
+  const keyPrefix = `${date}:hour:${hour.ganzhi}:${hour.name}`;
+  const rawTabooFact = buildRawTabooFact({
+    keyPrefix,
+    scope: '时辰',
+    recommends,
+    avoids,
+    sources: ['tyme4ts 逐时宜忌'],
+  });
+  const topicMatchFacts =
+    hour.topicMatchFacts?.map((item) => ({ ...item })) ??
+    buildCompatibleTopicMatchFacts({
+      keyPrefix,
+      scope: '时辰',
+      topic,
+      topicLabel,
+      highlights: hour.highlights,
+      cautions: hour.cautions,
+    });
+  const participantRelationFacts =
+    hour.participantRelationFacts?.map((item) => ({ ...item })) ??
+    buildCompatibleParticipantFacts({
+      keyPrefix,
+      scope: '时辰',
+      candidateValue: hour.branch,
+      notes: hour.participantNotes,
+    });
   const promptText = `${hour.name}${hour.range}，${hour.ganzhi}（${hour.branch}支）、${hour.twelveStar}；${status}；宜${recommends.join('、') || '未列'}；忌${avoids.join('、') || '未列'}；支持${support.join('、') || '未见额外支持'}；限制${constraints.join('、') || '未见明确冲突'}`;
   return {
-    key: `${date}:hour:${hour.ganzhi}:${hour.name}`,
+    key: keyPrefix,
     name: hour.name,
     range: hour.range,
     ganzhi: hour.ganzhi,
@@ -281,18 +491,226 @@ function buildHourEvidence(date: string, hour: AlmanacHourCandidate): AlmanacHou
     support,
     constraints,
     participantSupport,
+    rawTabooFact,
+    topicMatchFacts,
+    participantRelationFacts,
     promptText,
     sources: ['逐时时柱与十二神计算', '当前事项时辰宜忌与参与人刑冲破害核验'],
     limitation: HOUR_FACT_LIMITATION,
   };
 }
 
-function buildCandidateEvidence(day: AlmanacDayCandidate): AlmanacCandidateEvidence {
+function buildCandidateDecisionFact(params: {
+  date: string;
+  status: AlmanacCandidateStatus;
+  rawTabooFact: AlmanacRawTabooFact;
+  godFacts: AlmanacGodFact[];
+  topicMatchFacts: AlmanacTopicMatchFact[];
+  participantRelationFacts: AlmanacParticipantRelationFact[];
+  traditionalConstraints: string[];
+  strongConstraintTexts: string[];
+  usableHours: AlmanacHourEvidence[];
+}): AlmanacCandidateDecisionFact {
+  const supportingFactKeys = [
+    ...params.topicMatchFacts.filter((item) => item.status === '支持').map((item) => item.key),
+    ...params.godFacts.filter((item) => item.classification === '吉神').map((item) => item.key),
+    ...params.participantRelationFacts
+      .filter((item) => item.status === '支持')
+      .map((item) => item.key),
+  ];
+  const limitingFactKeys = [
+    ...params.topicMatchFacts.filter((item) => item.status === '限制').map((item) => item.key),
+    ...params.godFacts.filter((item) => item.classification === '凶神').map((item) => item.key),
+    ...params.participantRelationFacts
+      .filter((item) => item.status === '限制')
+      .map((item) => item.key),
+  ];
+  const topicLimitCount = params.topicMatchFacts.filter((item) => item.status === '限制').length;
+  const topicSupportCount = params.topicMatchFacts.filter((item) => item.status === '支持').length;
+  const participantLimitCount = params.participantRelationFacts.filter(
+    (item) => item.status === '限制',
+  ).length;
+  const strongParticipantFacts = params.participantRelationFacts.filter(
+    (item) =>
+      item.status === '限制' &&
+      (item.relation === '冲' ||
+        item.relation === '刑' ||
+        item.relation === '害' ||
+        item.relation === '破'),
+  );
+  const steps: AlmanacDecisionStep[] = [
+    {
+      key: `${params.date}:decision:raw-taboo`,
+      stage: '原始宜忌',
+      status: params.rawTabooFact.status === '均未列' ? '未提供' : '通过',
+      factKeys: [params.rawTabooFact.key],
+      inputs: [...params.rawTabooFact.recommends, ...params.rawTabooFact.avoids],
+      result: params.rawTabooFact.status,
+      promptText: params.rawTabooFact.promptText,
+      sources: [...params.rawTabooFact.sources],
+    },
+    {
+      key: `${params.date}:decision:topic`,
+      stage: '事项命中',
+      status: topicLimitCount
+        ? params.strongConstraintTexts.some((item) => /黄历忌项触及|诸事不宜/.test(item))
+          ? '触发慎用'
+          : '有限制'
+        : topicSupportCount
+          ? '有支持'
+          : params.topicMatchFacts.length
+            ? '通过'
+            : '未提供',
+      factKeys: params.topicMatchFacts.map((item) => item.key),
+      inputs: params.topicMatchFacts.flatMap((item) => item.matchedItems),
+      result: `支持${topicSupportCount}项，限制${topicLimitCount}项`,
+      promptText:
+        params.topicMatchFacts.map((item) => item.promptText).join('；') || '未保存事项命中事实',
+      sources: unique(params.topicMatchFacts.flatMap((item) => item.sources)),
+    },
+    {
+      key: `${params.date}:decision:gods`,
+      stage: '值日神煞',
+      status: params.godFacts.some((item) => item.classification === '凶神')
+        ? '有限制'
+        : params.godFacts.some((item) => item.classification === '吉神')
+          ? '有支持'
+          : params.godFacts.length
+            ? '通过'
+            : '未提供',
+      factKeys: params.godFacts.map((item) => item.key),
+      inputs: params.godFacts.map((item) => item.name),
+      result: `吉神${params.godFacts.filter((item) => item.classification === '吉神').length}项，凶神${params.godFacts.filter((item) => item.classification === '凶神').length}项，未分级${params.godFacts.filter((item) => item.classification === '未分级').length}项`,
+      promptText: params.godFacts.map((item) => item.promptText).join('；') || '未列值日神煞',
+      sources: unique(params.godFacts.flatMap((item) => item.sources)),
+    },
+    {
+      key: `${params.date}:decision:participants`,
+      stage: '参与人关系',
+      status: participantLimitCount
+        ? strongParticipantFacts.length
+          ? '触发慎用'
+          : '有限制'
+        : params.participantRelationFacts.some((item) => item.status === '支持')
+          ? '有支持'
+          : params.participantRelationFacts.length
+            ? '通过'
+            : '未提供',
+      factKeys: params.participantRelationFacts.map((item) => item.key),
+      inputs: params.participantRelationFacts.map((item) => item.candidateValue),
+      result: `支持${params.participantRelationFacts.filter((item) => item.status === '支持').length}项，限制${participantLimitCount}项，未采用${params.participantRelationFacts.filter((item) => item.status === '未采用').length}项`,
+      promptText:
+        params.participantRelationFacts.map((item) => item.promptText).join('；') ||
+        '未提供参与人资料，不生成个人适配结论',
+      sources: unique(params.participantRelationFacts.flatMap((item) => item.sources)),
+    },
+    {
+      key: `${params.date}:decision:traditional-constraints`,
+      stage: '传统限制',
+      status: params.strongConstraintTexts.length
+        ? '触发慎用'
+        : params.traditionalConstraints.length
+          ? '有限制'
+          : '通过',
+      factKeys: [],
+      inputs: [...params.traditionalConstraints],
+      result: params.strongConstraintTexts.length
+        ? `强限制${params.strongConstraintTexts.length}项`
+        : params.traditionalConstraints.length
+          ? `一般限制${params.traditionalConstraints.length}项`
+          : '未见明确传统限制',
+      promptText:
+        params.traditionalConstraints.join('；') || '未见明确传统限制，不据此保证现实适宜',
+      sources: ['当日事项忌项、建除值日、神煞与传统规则核验'],
+    },
+    {
+      key: `${params.date}:decision:hours`,
+      stage: '可用时辰',
+      status: params.usableHours.length ? '通过' : '有限制',
+      factKeys: params.usableHours.map((item) => item.key),
+      inputs: params.usableHours.map((item) => `${item.name}${item.range}`),
+      result: params.usableHours.length
+        ? `保留${params.usableHours.length}个无强冲突时辰`
+        : '未筛出无强冲突时辰',
+      promptText: params.usableHours.length
+        ? `可用时辰：${params.usableHours.map((item) => `${item.name}${item.range}`).join('、')}`
+        : '未筛出无明显冲突的时辰，不硬指定吉时',
+      sources: ['逐时时柱、十二神、事项宜忌与参与人关系核验'],
+    },
+    {
+      key: `${params.date}:decision:status`,
+      stage: '候选分组',
+      status:
+        params.status === '慎用候选'
+          ? '触发慎用'
+          : params.status === '条件候选'
+            ? '有限制'
+            : supportingFactKeys.length
+              ? '有支持'
+              : '通过',
+      factKeys: [...supportingFactKeys, ...limitingFactKeys],
+      inputs: [...params.strongConstraintTexts, ...params.traditionalConstraints],
+      result: params.status,
+      promptText: params.strongConstraintTexts.length
+        ? `存在强限制，归入${params.status}`
+        : limitingFactKeys.length || params.traditionalConstraints.length
+          ? `存在一般限制，归入${params.status}`
+          : `未见明确限制，归入${params.status}`,
+      sources: ['黄历候选分组规则'],
+    },
+  ];
+  return {
+    key: `${params.date}:decision`,
+    date: params.date,
+    status: params.status,
+    steps,
+    supportingFactKeys: unique(supportingFactKeys),
+    limitingFactKeys: unique(limitingFactKeys),
+    strongConstraintTexts: unique(params.strongConstraintTexts),
+    promptText: steps
+      .map((item) => `${item.stage === '候选分组' ? '最终状态' : item.stage}：${item.result}`)
+      .join(' → '),
+    sources: unique(steps.flatMap((item) => item.sources)),
+    limitation: DECISION_FACT_LIMITATION,
+  };
+}
+
+function buildCandidateEvidence(
+  day: AlmanacDayCandidate,
+  topic: AlmanacTopic,
+  topicLabel: string,
+): AlmanacCandidateEvidence {
   const moonPhaseEvidence =
     day.moonPhaseEvidence ?? calculateMoonPhaseEvidence(Date.parse(`${day.date}T04:00:00Z`));
   const participantConflicts = unique(day.participantNotes.filter(isConflictNote));
   const participantSupport = unique(day.participantNotes.filter((item) => !isConflictNote(item)));
   const calendarFact = buildCalendarFact(day);
+  const rawTabooFact = buildRawTabooFact({
+    keyPrefix: day.date,
+    scope: '候选日',
+    recommends: day.recommends,
+    avoids: day.avoids,
+    sources: ['tyme4ts 当日宜忌'],
+  });
+  const godFacts = day.godFacts?.map((item) => ({ ...item })) ?? buildCompatibleGodFacts(day);
+  const topicMatchFacts =
+    day.topicMatchFacts?.map((item) => ({ ...item })) ??
+    buildCompatibleTopicMatchFacts({
+      keyPrefix: day.date,
+      scope: '候选日',
+      topic,
+      topicLabel,
+      highlights: day.highlights,
+      cautions: day.cautions,
+    });
+  const participantRelationFacts =
+    day.participantRelationFacts?.map((item) => ({ ...item })) ??
+    buildCompatibleParticipantFacts({
+      keyPrefix: day.date,
+      scope: '候选日',
+      candidateValue: day.ganzhi.day.slice(-1),
+      notes: day.participantNotes,
+    });
   const traditionalConstraints = unique(day.cautions);
   const topicMatches = unique(day.highlights.filter((item) => /宜项命中|执日.*宜/.test(item)));
   const traditionalSupport = unique(day.highlights.filter((item) => !topicMatches.includes(item)));
@@ -303,22 +721,39 @@ function buildCandidateEvidence(day: AlmanacDayCandidate): AlmanacCandidateEvide
   const directionFacts = traditionalFacts
     .filter((item) => item.kind === '全年方位神')
     .map((item) => item.promptText);
-  const strongConstraint = [...traditionalConstraints, ...participantConflicts].some((item) =>
-    /黄历忌项触及|诸事不宜|六冲|相刑|相害|相破|岁破/.test(item),
-  );
-  const status: AlmanacCandidateStatus = strongConstraint
+  const strongConstraintTexts = unique([
+    ...traditionalConstraints.filter((item) => /黄历忌项触及|诸事不宜|岁破/.test(item)),
+    ...participantConflicts,
+  ]);
+  const status: AlmanacCandidateStatus = strongConstraintTexts.length
     ? '慎用候选'
     : traditionalConstraints.length || participantConflicts.length
       ? '条件候选'
       : '可用候选';
   const usableHours = (day.hours ?? [])
-    .map((hour) => buildHourEvidence(day.date, hour))
+    .map((hour) => buildHourEvidence(day.date, hour, topic, topicLabel))
     .filter((item) => item.status !== '慎用候选')
     .slice(0, 4);
+  const decisionFact = buildCandidateDecisionFact({
+    date: day.date,
+    status,
+    rawTabooFact,
+    godFacts,
+    topicMatchFacts,
+    participantRelationFacts,
+    traditionalConstraints,
+    strongConstraintTexts,
+    usableHours,
+  });
   return {
     date: day.date,
     status,
     calendarFact,
+    rawTabooFact,
+    godFacts,
+    topicMatchFacts,
+    participantRelationFacts,
+    decisionFact,
     moonPhaseFact: moonPhaseEvidence,
     astronomicalFacts: [
       `中国标准时间12:00参照月相为${moonPhaseEvidence.eightPhaseName}（${moonPhaseEvidence.waxing ? '盈' : '亏'}），日月黄经差${moonPhaseEvidence.phaseAngleDegrees.toFixed(2)}°，照明约${moonPhaseEvidence.illuminationPercent.toFixed(1)}%`,
@@ -379,11 +814,25 @@ function formatCandidate(item: AlmanacCandidateEvidence) {
   const hours = item.usableHours.length
     ? item.usableHours.map((hour) => `${hour.promptText}；边界${hour.limitation}`).join('、')
     : '未筛出无明显冲突时辰';
-  return `${item.status}；历法事实${item.calendarFact.promptText}；历法边界${item.calendarFact.limitation}；传统规则${item.traditionalRuleFacts.join('；')}；全年方位神${item.directionFacts.join('；') || '未列'}；支持${support.join('、') || '未见独立增强证据'}；限制${constraints.join('、') || '未见明确传统禁忌或参与人冲突'}；天文背景${formatMoonPhaseFact(item.moonPhaseFact)}；时段${hours}`;
+  const topicFacts = item.topicMatchFacts
+    .filter((fact) => fact.status === '支持' || fact.status === '限制')
+    .map((fact) => fact.promptText)
+    .join('；');
+  const godFacts = item.godFacts
+    .filter((fact) => fact.classification !== '未分级')
+    .map((fact) => fact.promptText)
+    .join('；');
+  const participantFacts = item.participantRelationFacts
+    .filter((fact) => fact.status === '支持' || fact.status === '限制' || fact.status === '未采用')
+    .map((fact) => fact.promptText)
+    .join('；');
+  return `${item.status}；历法事实${item.calendarFact.promptText}；历法边界${item.calendarFact.limitation}；${item.rawTabooFact.promptText}；事项命中${topicFacts || '未见明确支持或限制'}；值日神煞${godFacts || '未见已分级神煞'}；参与人关系${participantFacts || '未提供或未见额外关系'}；状态形成链${item.decisionFact.promptText}；传统规则${item.traditionalRuleFacts.join('；')}；全年方位神${item.directionFacts.join('；') || '未列'}；支持${support.join('、') || '未见独立增强证据'}；限制${constraints.join('、') || '未见明确传统禁忌或参与人冲突'}；天文背景${formatMoonPhaseFact(item.moonPhaseFact)}；时段${hours}`;
 }
 
 export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalysis {
-  const candidates = data.days.map(buildCandidateEvidence);
+  const candidates = data.days.map((day) =>
+    buildCandidateEvidence(day, data.topic, data.topicLabel),
+  );
   const traditionalFacts = candidates.flatMap((item) => item.traditionalFacts);
   const preferredDates = candidates
     .filter((item) => item.status === '可用候选')

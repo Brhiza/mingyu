@@ -779,6 +779,49 @@ export interface AlmanacAnnualDirectionGod {
   meaning: string;
 }
 
+export type AlmanacRuleFactStatus = '支持' | '限制' | '中性' | '未采用';
+
+export interface AlmanacTopicMatchFact {
+  key: string;
+  scope: '候选日' | '时辰';
+  topic: AlmanacTopic;
+  topicLabel: string;
+  sourceType: '原始宜项' | '原始忌项' | '建除值日' | '十二神';
+  status: AlmanacRuleFactStatus;
+  inputItems: string[];
+  keywords: string[];
+  matchedItems: string[];
+  promptText: string;
+  sources: string[];
+  limitation: string;
+}
+
+export interface AlmanacGodFact {
+  key: string;
+  name: string;
+  classification: '吉神' | '凶神' | '未分级';
+  status: '已读取';
+  promptText: string;
+  sources: string[];
+  limitation: string;
+}
+
+export interface AlmanacParticipantRelationFact {
+  key: string;
+  participantId: string;
+  participantName: string;
+  scope: '候选日' | '时辰';
+  basis: '年支' | '日支' | '喜用五行' | '忌神五行' | '整体';
+  candidateValue: string;
+  participantValues: string[];
+  relation: '冲' | '刑' | '害' | '破' | '命中' | '未命中' | '未见直接冲突' | '未采用';
+  status: AlmanacRuleFactStatus;
+  detail?: string;
+  promptText: string;
+  sources: string[];
+  limitation: string;
+}
+
 export interface AlmanacDayCandidate {
   date: string;
   /** 以该民用日期中国标准时间12:00为统一参照的月相事实，不参与传统宜忌评分。 */
@@ -816,6 +859,9 @@ export interface AlmanacDayCandidate {
   highlights: string[];
   cautions: string[];
   participantNotes: string[];
+  topicMatchFacts?: AlmanacTopicMatchFact[];
+  godFacts?: AlmanacGodFact[];
+  participantRelationFacts?: AlmanacParticipantRelationFact[];
   hours?: AlmanacHourCandidate[];
   bestHours?: AlmanacHourCandidate[];
 }
@@ -831,6 +877,8 @@ export interface AlmanacHourCandidate {
   highlights: string[];
   cautions: string[];
   participantNotes: string[];
+  topicMatchFacts?: AlmanacTopicMatchFact[];
+  participantRelationFacts?: AlmanacParticipantRelationFact[];
 }
 
 export interface AlmanacData {
