@@ -1,6 +1,7 @@
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { TaiSuiConflict, ZodiacYearFortune } from './index';
+import { getBranchWuxing, getStemWuxing } from '../ganzhi';
 
 export interface ZodiacRelationEvidence {
   category: '流年同支' | '地支冲突' | '地支助缘' | '年干五行';
@@ -8,6 +9,8 @@ export interface ZodiacRelationEvidence {
   source: string;
   role: '主证' | '辅证';
   detail: string;
+  operands: Array<{ label: string; value: string; wuxing?: string }>;
+  rule: string;
 }
 
 export interface ZodiacEvidenceAnalysis {
@@ -23,13 +26,21 @@ export interface ZodiacEvidenceAnalysis {
   methodology: string[];
 }
 
-function conflictEvidence(conflict: TaiSuiConflict): ZodiacRelationEvidence {
+function conflictEvidence(conflict: TaiSuiConflict, zodiacBranch: string): ZodiacRelationEvidence {
   return {
     category: conflict.type === '值太岁' ? '流年同支' : '地支冲突',
     relation: conflict.type,
     source: '生肖年支与流年年支的同支、六冲、相刑、六害、六破关系',
     role: '主证',
     detail: conflict.desc,
+    operands: [
+      { label: '生肖年支', value: zodiacBranch, wuxing: getBranchWuxing(zodiacBranch) },
+      { label: '流年年支', value: conflict.with, wuxing: getBranchWuxing(conflict.with) },
+    ],
+    rule:
+      conflict.type === '值太岁'
+        ? '两支相同'
+        : `十二地支${conflict.type.replace('太岁', '')}固定关系表命中`,
   };
 }
 
@@ -37,7 +48,7 @@ export function analyzeZodiacEvidence(
   data: Omit<ZodiacYearFortune, 'evidenceAnalysis' | 'prompt'>,
 ): ZodiacEvidenceAnalysis {
   const relations: ZodiacRelationEvidence[] = [
-    ...data.conflicts.map(conflictEvidence),
+    ...data.conflicts.map((conflict) => conflictEvidence(conflict, data.zodiacBranch)),
     ...(data.noble
       ? [
           {
@@ -46,6 +57,19 @@ export function analyzeZodiacEvidence(
             source: '生肖年支与流年年支的六合或三合关系',
             role: '辅证' as const,
             detail: '只表示传统关系表中的相合条件，不证明现实中必然出现贵人。',
+            operands: [
+              {
+                label: '生肖年支',
+                value: data.zodiacBranch,
+                wuxing: getBranchWuxing(data.zodiacBranch),
+              },
+              {
+                label: '流年年支',
+                value: data.yearBranch,
+                wuxing: getBranchWuxing(data.yearBranch),
+              },
+            ],
+            rule: data.noble.startsWith('六合') ? '十二地支六合表命中' : '十二地支三合组命中',
           },
         ]
       : []),
@@ -55,6 +79,15 @@ export function analyzeZodiacEvidence(
       source: '流年天干五行与生肖地支本气五行的生克关系',
       role: '辅证',
       detail: '年干五行只作生肖层补充，不等同完整八字十神。',
+      operands: [
+        { label: '流年年干', value: data.yearGanZhi[0], wuxing: getStemWuxing(data.yearGanZhi[0]) },
+        {
+          label: '生肖年支本气',
+          value: data.zodiacBranch,
+          wuxing: getBranchWuxing(data.zodiacBranch),
+        },
+      ],
+      rule: '五行同类、生克关系逐项判断',
     },
   ];
   const primaryEvidence = relations.filter((item) => item.role === '主证');
@@ -90,14 +123,14 @@ export function analyzeZodiacEvidence(
       level: '主证',
       title: item.relation,
       detail: item.detail,
-      source: item.source,
+      source: `${item.source}；${item.operands.map((operand) => `${operand.label}${operand.value}${operand.wuxing ? `属${operand.wuxing}` : ''}`).join('与')}；规则${item.rule}`,
       tags: [item.category, item.relation],
     })),
     ...supportingEvidence.map((item): PromptEvidenceItem => ({
       level: '辅证',
       title: item.relation,
       detail: item.detail,
-      source: item.source,
+      source: `${item.source}；${item.operands.map((operand) => `${operand.label}${operand.value}${operand.wuxing ? `属${operand.wuxing}` : ''}`).join('与')}；规则${item.rule}`,
       tags: [item.category, item.relation],
     })),
     ...counterEvidence.map((detail): PromptEvidenceItem => ({

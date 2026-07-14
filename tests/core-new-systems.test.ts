@@ -176,6 +176,10 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.equal(r.evidenceAnalysis.evidence.title, '生肖流年关系矩阵结构化证据');
   assert.ok(r.evidenceAnalysis.calculationChain.length >= 4);
   assert.ok(r.evidenceAnalysis.supportingEvidence.length > 0);
+  assert.ok(
+    r.evidenceAnalysis.relations.every((item) => item.operands.length >= 2 && item.rule.length > 0),
+  );
+  assert.match(r.evidenceAnalysis.promptText, /流年年干甲[\s\S]*生肖年支本气午/);
   assert.match(r.prompt, /【生肖流年关系矩阵结构化证据】/);
   assert.doesNotMatch(r.prompt, /综合定级：/);
   assert.doesNotMatch(r.prompt, /印星|财星|官杀|接口兼容/);
