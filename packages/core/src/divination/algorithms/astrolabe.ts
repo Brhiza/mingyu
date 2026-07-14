@@ -15,6 +15,9 @@ import { analyzeAstrolabeEvidence } from '../astrolabe-evidence';
 export { analyzeAstrolabeEvidence } from '../astrolabe-evidence';
 export type {
   AstrolabeAspectFact,
+  AstrolabeCalculationFact,
+  AstrolabeCalculationStep,
+  AstrolabeDistributionFact,
   AstrolabeEvidenceAnalysis,
   AstrolabePositionFact,
 } from '../astrolabe-evidence';

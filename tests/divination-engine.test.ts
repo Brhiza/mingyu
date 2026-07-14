@@ -475,6 +475,38 @@ test('奇门定局、值符值使、宫间作用与触发条件应进入统一�
   assert.ok(analysis.calculationFacts.some((item) => item.includes(data.timeInfo.solarTerm)));
   assert.ok(analysis.calculationFacts.some((item) => item.includes(data.timeInfo.epoch)));
   assert.ok(analysis.ruleSources.some((item) => item.includes('旬首值符值使规则')));
+  assert.equal(analysis.calculationEvidenceFacts.length, 5);
+  assert.deepEqual(
+    analysis.calculationEvidenceFacts.map((item) => item.stage),
+    ['排盘范围', '定局', '值符定位', '值使定位', '四柱背景'],
+  );
+  assert.ok(
+    analysis.calculationEvidenceFacts.every(
+      (item) =>
+        item.key.startsWith('qimen:calculation:') &&
+        item.status === '已确定' &&
+        item.promptText &&
+        item.sourceKeys.length > 0 &&
+        item.limitation.includes('不证明现实吉凶'),
+    ),
+  );
+  assert.equal(analysis.ruleSourceFacts.length, 4);
+  assert.ok(
+    analysis.ruleSourceFacts.every(
+      (item) =>
+        item.key.startsWith('rule:qimen:') &&
+        item.rule &&
+        item.appliesTo.length > 0 &&
+        item.sources.length > 0 &&
+        item.promptText &&
+        item.limitation.includes('不等于现代实证验证'),
+    ),
+  );
+  assert.ok(
+    analysis.calculationEvidenceFacts.every((item) =>
+      item.sourceKeys.every((key) => analysis.ruleSourceFacts.some((source) => source.key === key)),
+    ),
+  );
   assert.equal(
     analysis.patternFacts.length,
     (data.patternDetails?.length ?? 0) +
@@ -1834,6 +1866,19 @@ test('奇门默认使用转盘法，飞盘法九星完整且可区分', () => {
   const zhuanpanData = generateQimen(date, 'zhuanpan');
   const feipanData = generateQimen(date, 'feipan');
 
+  assert.equal(defaultData.method, 'zhuanpan');
+  assert.equal(zhuanpanData.method, 'zhuanpan');
+  assert.equal(feipanData.method, 'feipan');
+  assert.ok(
+    zhuanpanData.evidenceAnalysis?.ruleSourceFacts.some((item) =>
+      item.promptText.includes('转盘法九宫规则'),
+    ),
+  );
+  assert.ok(
+    feipanData.evidenceAnalysis?.ruleSourceFacts.some((item) =>
+      item.promptText.includes('飞盘法九宫规则'),
+    ),
+  );
   assert.deepEqual(defaultData.jiuGongGe, zhuanpanData.jiuGongGe);
   assert.deepEqual(defaultData.patternTags, zhuanpanData.patternTags);
 

@@ -483,6 +483,8 @@ export type QimenScope = 'hour' | 'day' | 'month' | 'year';
 export interface QimenData {
   /** 用神宫候选、宫内组合、宫间作用、反证与触发条件。 */
   evidenceAnalysis?: import('../divination/qimen-evidence').QimenEvidenceAnalysis;
+  /** 九宫排布方法：zhuanpan=转盘法，feipan=飞盘法。旧结果未记录时按转盘法兼容。 */
+  method?: 'zhuanpan' | 'feipan';
   /** 排盘级别：hour=时家, day=日家, month=月家, year=年家 */
   scope?: QimenScope;
   /** 九宫格完整数据（1-9宫） */

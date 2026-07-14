@@ -1855,7 +1855,31 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
   });
   assert.equal(defaultResult.response.status, 200);
   assert.equal(defaultResult.body.ok, true);
+  assert.equal(defaultResult.body.data.method, 'zhuanpan');
   assert.ok(defaultResult.body.data.evidenceAnalysis.candidates.length > 0);
+  assert.equal(defaultResult.body.data.evidenceAnalysis.calculationEvidenceFacts.length, 5);
+  assert.equal(defaultResult.body.data.evidenceAnalysis.ruleSourceFacts.length, 4);
+  assert.ok(
+    defaultResult.body.data.evidenceAnalysis.calculationEvidenceFacts.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('qimen:calculation:') &&
+        item.status === '已确定' &&
+        item.promptText &&
+        Array.isArray(item.sourceKeys) &&
+        String(item.limitation).includes('不证明现实吉凶'),
+    ),
+  );
+  assert.ok(
+    defaultResult.body.data.evidenceAnalysis.ruleSourceFacts.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('rule:qimen:') &&
+        item.rule &&
+        Array.isArray(item.sources) &&
+        item.sources.length > 0 &&
+        item.promptText &&
+        String(item.limitation).includes('不等于现代实证验证'),
+    ),
+  );
   assert.equal(
     defaultResult.body.data.evidenceAnalysis.palaceFacts.length,
     defaultResult.body.data.jiuGongGe.length,
@@ -1899,6 +1923,12 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
   });
   assert.equal(feipanResult.response.status, 200);
   assert.equal(feipanResult.body.ok, true);
+  assert.equal(feipanResult.body.data.method, 'feipan');
+  assert.ok(
+    feipanResult.body.data.evidenceAnalysis.ruleSourceFacts.some((item: { promptText: string }) =>
+      item.promptText.includes('飞盘法九宫规则'),
+    ),
+  );
   assert.deepEqual(
     feipanResult.body.data.jiuGongGe.map(
       (gong: { tianPan: { star: string } }) => gong.tianPan.star,
@@ -2260,12 +2290,33 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
   assert.equal(body.data.birth.isTrueSolarTime, true);
   assert.ok(body.data.aspects.length > 0);
   assert.equal(body.data.evidenceAnalysis.evidence.title, '西方星盘位置与相位结构化证据');
+  assert.equal(body.data.evidenceAnalysis.calculationFact.status, '完整');
+  assert.equal(body.data.evidenceAnalysis.calculationFact.steps.length, 5);
+  assert.ok(
+    body.data.evidenceAnalysis.calculationFact.steps.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('astrolabe:calculation:') &&
+        item.stage &&
+        item.promptText &&
+        Array.isArray(item.sources),
+    ),
+  );
   assert.ok(body.data.evidenceAnalysis.calculationChain.length >= 5);
   assert.equal(
     body.data.evidenceAnalysis.positionFacts.length,
     body.data.planets.length + body.data.angles.length + body.data.houses.length,
   );
   assert.equal(body.data.evidenceAnalysis.aspectFacts.length, body.data.aspects.length);
+  assert.ok(
+    body.data.evidenceAnalysis.distributionEvidenceFacts.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('distribution:') &&
+        typeof item.count === 'number' &&
+        Array.isArray(item.members) &&
+        item.promptText &&
+        String(item.limitation).includes('不代表能量分数'),
+    ),
+  );
   assert.ok(
     body.data.evidenceAnalysis.aspectFacts.every(
       (item: Record<string, unknown>) =>

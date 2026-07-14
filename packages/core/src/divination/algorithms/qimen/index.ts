@@ -1,8 +1,8 @@
 /**
  * @file 奇门遁甲排盘算法（主入口）
- * @description 基于转盘法，实现时家/日家/月家/年家奇门完整排盘，
+ * @description 基于转盘法或飞盘法，实现时家/日家/月家/年家奇门完整排盘，
  * 含定局、布盘、格局识别、方位建议、应期判断。
- * @流派 转盘奇门（拆补法定局）
+ * @流派 转盘奇门为默认口径，飞盘奇门为可选口径（拆补法定局）
  * @古籍依据 《烟波钓叟歌》《遁甲演义》《奇门遁甲秘籍大全》
  *
  * @核心流程
@@ -48,11 +48,13 @@ export { createQimenPriorityPalaces } from './helpers/guidance';
 export type { QimenPriorityPalace } from './helpers/guidance';
 export { analyzeQimenEvidence, conditionQimenTraditionalText } from '../../qimen-evidence';
 export type {
+  QimenCalculationEvidenceFact,
   QimenEvidenceAnalysis,
   QimenPalaceEvidence,
   QimenPalaceFact,
   QimenPalaceRelationEvidence,
   QimenPatternEvidenceFact,
+  QimenRuleSourceFact,
 } from '../../qimen-evidence';
 
 // ============================================================================
@@ -169,7 +171,7 @@ function mapStemRelations(
  * 支持时家（hour）、日家（day）、月家（month）、年家（year）四种级别。
  * 默认时家奇门（精确到时辰），使用拆补法定局。
  *
- * 遵循拆补法定局、转盘法排盘，完整输出九宫四盘（天地人神）、
+ * 遵循拆补法定局，并按所选转盘法或飞盘法完整输出九宫四盘（天地人神）、
  * 格局标签、经典格局（九遁、三奇、门迫、击刑、入墓等）、
  * 宫位洞察、方位吉凶指引和应期估算。
  *
@@ -186,7 +188,7 @@ function mapStemRelations(
  * 3. **寻值符值使（旬首法）**：《歌》"直符直使各有时，时干直符时支使"
  *    - 由对应级别干支的旬首定位值符星和值使门
  *
- * 4. **排九宫格（转盘法）**：《歌》"星随符转，门随地转，八神随遁顺逆"
+ * 4. **排九宫格（转盘法或飞盘法）**：按所选方法排列九星、八门、八神与天地盘干
  *    - 布地盘三奇六仪 -> 定值符值使落宫 -> 排天盘九星 -> 排人盘八门 -> 排神盘八神
  *
  * 5. **辅助数据**：空亡地支配对、驿马定位
@@ -253,7 +255,7 @@ export function generateQimen(
   // ── 后续步骤 4-12 与 scope 无关，共用同一套排盘逻辑 ──
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 步骤 4：排九宫格（转盘法）
+  // 步骤 4：按所选转盘法或飞盘法排九宫格
   // ──────────────────────────────────────────────────────────────────────────
   const jiuGongGe = arrangeJiuGongGe(
     isYangDun,
@@ -420,6 +422,7 @@ export function generateQimen(
   // 步骤 15：返回完整 QimenData
   // ──────────────────────────────────────────────────────────────────────────
   const result: QimenData = {
+    method,
     scope,
     timeInfo: {
       solarTerm: jushuResult.jieQi || jieQi,

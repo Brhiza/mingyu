@@ -86,6 +86,18 @@ test('星盘应返回可复用的位置、相位、计算链与限制证据', ()
 
   assert.ok(evidence);
   assert.equal(evidence.evidence.title, '西方星盘位置与相位结构化证据');
+  assert.equal(evidence.calculationFact.status, '完整');
+  assert.equal(evidence.calculationFact.steps.length, 5);
+  assert.deepEqual(
+    evidence.calculationFact.steps.map((item) => item.stage),
+    ['输入固定', '时间处理', '盘面计算', '相位筛选', '分布汇总'],
+  );
+  assert.ok(
+    evidence.calculationFact.steps.every(
+      (item) => item.key && item.promptText && item.sources.length > 0,
+    ),
+  );
+  assert.match(evidence.calculationFact.limitation, /不证明占星解释有效性/);
   assert.ok(evidence.calculationChain.some((item) => item.includes('Placidus')));
   assert.ok(evidence.primaryFacts.some((item) => item.includes('太阳')));
   assert.equal(
@@ -116,6 +128,20 @@ test('星盘应返回可复用的位置、相位、计算链与限制证据', ()
   assert.equal(evidence.planetFacts.length, result.planets.length);
   assert.equal(evidence.angleFacts.length, 4);
   assert.equal(evidence.houseFacts.length, 12);
+  assert.equal(
+    evidence.distributionEvidenceFacts.length,
+    Object.keys(result.summary.elements).length + Object.keys(result.summary.modalities).length + 2,
+  );
+  assert.ok(
+    evidence.distributionEvidenceFacts.every(
+      (item) =>
+        item.key.startsWith('distribution:') &&
+        item.count === item.members.length &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不代表能量分数'),
+    ),
+  );
   assert.ok(evidence.distributionFacts.some((item) => item.includes('逆行点')));
   assert.ok(evidence.illuminationFacts.some((item) => item.includes('太阳高度')));
   assert.ok(evidence.supportingFacts.length > 0);
@@ -144,6 +170,9 @@ test('旧星盘缺少相位几何量时不得反推伪精确字段', () => {
   }
 
   const evidence = analyzeAstrolabeEvidence(legacy);
+  assert.equal(evidence.calculationFact.status, '部分');
+  assert.ok(evidence.calculationFact.missing.includes('完整相位几何量'));
+  assert.equal(evidence.calculationFact.steps[3].status, '缺少记录');
   assert.ok(
     evidence.aspectFacts.every(
       (item) =>
@@ -153,4 +182,11 @@ test('旧星盘缺少相位几何量时不得反推伪精确字段', () => {
         item.promptText.includes('旧结果未记录实际夹角、精确角或允许容许度'),
     ),
   );
+  legacy.birth.isTrueSolarTime = true;
+  delete legacy.birth.trueSolarDateTime;
+  const incompleteTimeEvidence = analyzeAstrolabeEvidence(legacy);
+  assert.equal(incompleteTimeEvidence.calculationFact.status, '部分');
+  assert.ok(incompleteTimeEvidence.calculationFact.missing.includes('真太阳时校正结果'));
+  assert.ok(incompleteTimeEvidence.calculationFact.missing.includes('完整相位几何量'));
+  assert.equal(incompleteTimeEvidence.calculationFact.steps[1].status, '缺少记录');
 });

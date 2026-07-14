@@ -68,8 +68,31 @@ export interface QimenPatternEvidenceFact {
   limitation: '传统格局命中只证明盘面满足项目规则，不是现实结果、吉凶分或事件概率';
 }
 
+export interface QimenCalculationEvidenceFact {
+  key: string;
+  stage: '排盘范围' | '定局' | '值符定位' | '值使定位' | '四柱背景';
+  status: '已确定' | '落宫缺失';
+  inputs: Record<string, string | number | boolean>;
+  result: Record<string, string | number | boolean>;
+  promptText: string;
+  sourceKeys: string[];
+  limitation: '定局与定位字段只证明排盘范围、主动干支、节气三元、阴阳遁局数和值符值使如何形成当前盘面，不证明现实吉凶、事件结果、人物意图、方位安全或固定应期';
+}
+
+export interface QimenRuleSourceFact {
+  key: string;
+  category: '定局规则' | '值符值使规则' | '九宫排布规则' | '五行关系规则';
+  rule: string;
+  appliesTo: string[];
+  sources: string[];
+  promptText: string;
+  limitation: '规则来源只标明当前结构化字段采用的传统模型与项目计算路径，不等于现代实证验证、现实因果关系、吉凶保证或结果概率';
+}
+
 export interface QimenEvidenceAnalysis {
+  calculationEvidenceFacts: QimenCalculationEvidenceFact[];
   calculationFacts: string[];
+  ruleSourceFacts: QimenRuleSourceFact[];
   ruleSources: string[];
   palaceFacts: QimenPalaceFact[];
   candidates: QimenPalaceEvidence[];
@@ -85,6 +108,10 @@ export interface QimenEvidenceAnalysis {
 
 const PALACE_FACT_LIMITATION =
   '逐宫字段是奇门九宫门、星、神、天地盘干、空亡、马星与规则命中的计算事实，只限定候选宫取证条件，不单独证明现实吉凶、事件结果、人物意图、方位安全或固定应期' as const;
+const CALCULATION_FACT_LIMITATION =
+  '定局与定位字段只证明排盘范围、主动干支、节气三元、阴阳遁局数和值符值使如何形成当前盘面，不证明现实吉凶、事件结果、人物意图、方位安全或固定应期' as const;
+const RULE_SOURCE_LIMITATION =
+  '规则来源只标明当前结构化字段采用的传统模型与项目计算路径，不等于现代实证验证、现实因果关系、吉凶保证或结果概率' as const;
 
 export function conditionQimenTraditionalText(text: string): string {
   return text
@@ -367,22 +394,125 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
     .map((palace) => buildPalaceFact(data, palace, sourceMap.get(palace.gong) ?? [], patternFacts));
   const scope = data.scope ?? 'hour';
   const scopeLabel = SCOPE_LABELS[scope];
+  const layoutMethod = data.method ?? 'zhuanpan';
+  const layoutMethodLabel = layoutMethod === 'feipan' ? '飞盘法' : '转盘法';
   const activeGanZhi = getActiveGanZhi(data);
   const zhiFuPalace = data.jiuGongGe.find((item) => item.tianPan.star === data.zhiFu);
   const zhiShiPalace = data.jiuGongGe.find((item) => item.renPan.door === data.zhiShi);
-  const calculationFacts = unique([
-    `排盘范围：${scopeLabel}，以${activeGanZhi}作为本盘主动干支`,
-    `定局结果：${data.timeInfo.solarTerm}${data.timeInfo.epoch}，${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局`,
-    `值符定位：${data.zhiFu}${zhiFuPalace ? `落${zhiFuPalace.name}` : '落宫未检出'}`,
-    `值使定位：${data.zhiShi}${zhiShiPalace ? `落${zhiShiPalace.name}` : '落宫未检出'}`,
-    `四柱干支：年${data.ganzhi.year}、月${data.ganzhi.month}、日${data.ganzhi.day}、时${data.ganzhi.hour}`,
-  ]);
-  const ruleSources = unique([
-    `${scopeLabel}定局规则：节气、三元与主动干支共同确定阴阳遁和局数`,
-    '旬首值符值使规则：由主动干支、遁局和旬首体系定位值符星与值使门',
-    '转盘九宫规则：门、星、神及天地盘干按同一局盘排列后逐宫核验',
-    '五行生克规则：候选宫之间只按宫五行陈述比和、生、克关系',
-  ]);
+  const ruleSourceFacts: QimenRuleSourceFact[] = [
+    {
+      key: 'rule:qimen:setup',
+      category: '定局规则',
+      rule: '节气、三元与主动干支共同确定阴阳遁和局数',
+      appliesTo: ['排盘范围', '定局'],
+      sources: ['《烟波钓叟歌》阴阳二遁与一气三元口径', '命语奇门分层级定局计算入口'],
+      promptText: `${scopeLabel}定局规则：节气、三元与主动干支共同确定阴阳遁和局数`,
+      limitation: RULE_SOURCE_LIMITATION,
+    },
+    {
+      key: 'rule:qimen:leaders',
+      category: '值符值使规则',
+      rule: '由主动干支、遁局和旬首体系定位值符星与值使门',
+      appliesTo: ['值符定位', '值使定位'],
+      sources: ['《烟波钓叟歌》直符直使与时干时支口径', '命语旬首、值符与值使定位算法'],
+      promptText: '旬首值符值使规则：由主动干支、遁局和旬首体系定位值符星与值使门',
+      limitation: RULE_SOURCE_LIMITATION,
+    },
+    {
+      key: 'rule:qimen:layout',
+      category: '九宫排布规则',
+      rule: `${layoutMethodLabel}排列门、星、神及天地盘干后逐宫核验`,
+      appliesTo: ['九宫事实', '空亡与马星', '格局命中'],
+      sources:
+        layoutMethod === 'feipan'
+          ? ['洛书九宫飞布路径与飞盘争议口径', '命语飞盘九星、八门、八神与天地盘干排布算法']
+          : ['《烟波钓叟歌》星随符转、门随地转口径', '命语转盘九宫门星神干排布算法'],
+      promptText: `${layoutMethodLabel}九宫规则：门、星、神及天地盘干按当前方法排列后逐宫核验`,
+      limitation: RULE_SOURCE_LIMITATION,
+    },
+    {
+      key: 'rule:qimen:relations',
+      category: '五行关系规则',
+      rule: '候选宫之间只按宫五行陈述比和、生、克关系',
+      appliesTo: ['候选宫关系'],
+      sources: ['五行生克公共关系', '当前候选宫五行字段'],
+      promptText: '五行生克规则：候选宫之间只按宫五行陈述比和、生、克关系',
+      limitation: RULE_SOURCE_LIMITATION,
+    },
+  ];
+  const calculationEvidenceFacts: QimenCalculationEvidenceFact[] = [
+    {
+      key: 'qimen:calculation:scope',
+      stage: '排盘范围',
+      status: '已确定',
+      inputs: { scope, activeGanZhi, layoutMethod },
+      result: { scopeLabel, activeGanZhi, layoutMethodLabel },
+      promptText: `排盘范围：${scopeLabel}，采用${layoutMethodLabel}，以${activeGanZhi}作为本盘主动干支`,
+      sourceKeys: ['rule:qimen:setup'],
+      limitation: CALCULATION_FACT_LIMITATION,
+    },
+    {
+      key: 'qimen:calculation:setup',
+      stage: '定局',
+      status: '已确定',
+      inputs: {
+        solarTerm: data.timeInfo.solarTerm,
+        epoch: data.timeInfo.epoch,
+        activeGanZhi,
+      },
+      result: { isYangDun: data.isYangDun, juShu: data.juShu },
+      promptText: `定局结果：${data.timeInfo.solarTerm}${data.timeInfo.epoch}，${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局`,
+      sourceKeys: ['rule:qimen:setup'],
+      limitation: CALCULATION_FACT_LIMITATION,
+    },
+    {
+      key: 'qimen:calculation:zhifu',
+      stage: '值符定位',
+      status: zhiFuPalace ? '已确定' : '落宫缺失',
+      inputs: { activeGanZhi, zhiFu: data.zhiFu },
+      result: {
+        zhiFu: data.zhiFu,
+        ...(zhiFuPalace
+          ? { palace: zhiFuPalace.gong, palaceName: zhiFuPalace.name }
+          : { palaceName: '落宫未检出' }),
+      },
+      promptText: `值符定位：${data.zhiFu}${zhiFuPalace ? `落${zhiFuPalace.name}` : '落宫未检出'}`,
+      sourceKeys: ['rule:qimen:leaders', 'rule:qimen:layout'],
+      limitation: CALCULATION_FACT_LIMITATION,
+    },
+    {
+      key: 'qimen:calculation:zhishi',
+      stage: '值使定位',
+      status: zhiShiPalace ? '已确定' : '落宫缺失',
+      inputs: { activeGanZhi, zhiShi: data.zhiShi },
+      result: {
+        zhiShi: data.zhiShi,
+        ...(zhiShiPalace
+          ? { palace: zhiShiPalace.gong, palaceName: zhiShiPalace.name }
+          : { palaceName: '落宫未检出' }),
+      },
+      promptText: `值使定位：${data.zhiShi}${zhiShiPalace ? `落${zhiShiPalace.name}` : '落宫未检出'}`,
+      sourceKeys: ['rule:qimen:leaders', 'rule:qimen:layout'],
+      limitation: CALCULATION_FACT_LIMITATION,
+    },
+    {
+      key: 'qimen:calculation:ganzhi',
+      stage: '四柱背景',
+      status: '已确定',
+      inputs: {},
+      result: {
+        year: data.ganzhi.year,
+        month: data.ganzhi.month,
+        day: data.ganzhi.day,
+        hour: data.ganzhi.hour,
+      },
+      promptText: `四柱干支：年${data.ganzhi.year}、月${data.ganzhi.month}、日${data.ganzhi.day}、时${data.ganzhi.hour}`,
+      sourceKeys: ['rule:qimen:setup'],
+      limitation: CALCULATION_FACT_LIMITATION,
+    },
+  ];
+  const calculationFacts = unique(calculationEvidenceFacts.map((item) => item.promptText));
+  const ruleSources = unique(ruleSourceFacts.map((item) => item.promptText));
   const sourcePriority: QimenCandidateSource[] = [
     '值符落宫',
     '值使落宫',
@@ -462,17 +592,20 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
   }));
   const items: PromptEvidenceItem[] = [
     {
-      level: '辅证',
+      level: calculationEvidenceFacts.some((item) => item.status === '落宫缺失') ? '反证' : '辅证',
       title: '定局计算事实',
-      detail: calculationFacts.join('；'),
-      source: ruleSources.slice(0, 2).join('；'),
-      tags: [scopeLabel, data.isYangDun ? '阳遁' : '阴遁', `${data.juShu}局`],
+      detail: `${calculationEvidenceFacts.map((item) => item.promptText).join('；')}；统一边界：${CALCULATION_FACT_LIMITATION}`,
+      source: ruleSourceFacts
+        .slice(0, 2)
+        .map((item) => `${item.key} ${item.sources.join('、')}；${item.promptText}`)
+        .join('；'),
+      tags: [scopeLabel, layoutMethodLabel, data.isYangDun ? '阳遁' : '阴遁', `${data.juShu}局`],
     },
     {
       level: '主证',
       title: '值符值使定位事实',
-      detail: `${calculationFacts[2]}；${calculationFacts[3]}。这是盘面中心定位事实，不自动等同于事项吉凶。`,
-      source: ruleSources[1],
+      detail: `${calculationEvidenceFacts[2].promptText}；${calculationEvidenceFacts[3].promptText}。这是盘面中心定位事实，不自动等同于事项吉凶。`,
+      source: `${ruleSourceFacts[1].key} ${ruleSourceFacts[1].sources.join('、')}；${ruleSourceFacts[1].promptText}`,
       tags: ['值符', '值使', data.zhiFu, data.zhiShi],
     },
     {
@@ -532,7 +665,9 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
     `触发条件：${timingConditions.join('；')}`,
   ].join('\n');
   return {
+    calculationEvidenceFacts,
     calculationFacts,
+    ruleSourceFacts,
     ruleSources,
     palaceFacts,
     candidates,

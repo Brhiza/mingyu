@@ -754,8 +754,23 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
           }>;
           evidenceAnalysis?: {
             evidence?: { title?: string };
+            calculationFact?: {
+              status: string;
+              steps: Array<{
+                key: string;
+                stage: string;
+                promptText: string;
+                sources: string[];
+              }>;
+            };
             calculationChain?: string[];
             positionFacts?: unknown[];
+            distributionEvidenceFacts?: Array<{
+              key: string;
+              count: number;
+              members: string[];
+              limitation: string;
+            }>;
             aspectFacts?: Array<{
               actualAngle?: number;
               exactAngle?: number;
@@ -773,12 +788,27 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
       assert.equal(typeof aspect.allowedOrb, 'number');
     }
     assert.equal(chart?.evidenceAnalysis?.evidence?.title, '西方星盘位置与相位结构化证据');
+    assert.equal(chart?.evidenceAnalysis?.calculationFact?.status, '完整');
+    assert.equal(chart?.evidenceAnalysis?.calculationFact?.steps.length, 5);
+    assert.ok(
+      chart?.evidenceAnalysis?.calculationFact?.steps.every(
+        (item) => item.key && item.stage && item.promptText && item.sources.length > 0,
+      ),
+    );
     assert.ok((chart?.evidenceAnalysis?.calculationChain?.length ?? 0) >= 5);
     assert.equal(
       chart?.evidenceAnalysis?.positionFacts?.length,
       (chart?.planets?.length ?? 0) + (chart?.angles?.length ?? 0) + (chart?.houses?.length ?? 0),
     );
     assert.equal(chart?.evidenceAnalysis?.aspectFacts?.length, chart?.aspects?.length);
+    assert.ok(
+      chart?.evidenceAnalysis?.distributionEvidenceFacts?.every(
+        (item) =>
+          item.key.startsWith('distribution:') &&
+          item.count === item.members.length &&
+          item.limitation.includes('不代表能量分数'),
+      ),
+    );
     assert.ok(
       chart?.evidenceAnalysis?.aspectFacts?.every(
         (item) =>
@@ -1794,8 +1824,22 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
     const chart = (
       result.structuredContent as {
         result: {
+          method: string;
           jiuGongGe: unknown[];
           evidenceAnalysis: {
+            calculationEvidenceFacts: Array<{
+              key: string;
+              status: string;
+              sourceKeys: string[];
+              limitation: string;
+            }>;
+            ruleSourceFacts: Array<{
+              key: string;
+              rule: string;
+              sources: string[];
+              promptText: string;
+              limitation: string;
+            }>;
             candidates: Array<{ palaceFactKey: string }>;
             relations: unknown[];
             palaceFacts: Array<{
@@ -1813,6 +1857,32 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
         };
       }
     ).result;
+    assert.equal(chart.method, 'zhuanpan');
+    assert.equal(chart.evidenceAnalysis.calculationEvidenceFacts.length, 5);
+    assert.equal(chart.evidenceAnalysis.ruleSourceFacts.length, 4);
+    assert.ok(
+      chart.evidenceAnalysis.calculationEvidenceFacts.every(
+        (item) =>
+          item.key.startsWith('qimen:calculation:') &&
+          item.status === '已确定' &&
+          item.sourceKeys.length > 0 &&
+          item.limitation.includes('不证明现实吉凶'),
+      ),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.ruleSourceFacts.every(
+        (item) =>
+          item.key.startsWith('rule:qimen:') &&
+          item.rule &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不等于现代实证验证'),
+      ),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.ruleSourceFacts.some((item) =>
+        item.promptText.includes('转盘法九宫规则'),
+      ),
+    );
     assert.ok(chart.evidenceAnalysis.candidates.length > 0);
     assert.ok(Array.isArray(chart.evidenceAnalysis.relations));
     assert.equal(chart.evidenceAnalysis.palaceFacts.length, chart.jiuGongGe.length);
