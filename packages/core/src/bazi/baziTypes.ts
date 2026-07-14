@@ -204,16 +204,17 @@ export interface ConstraintAnalysis {
 }
 
 export interface DayMasterStrengthAnalysis {
-  score: number;
   status: string;
   details: {
-    seasonalScore: number;
-    commanderScore?: number;
     timely: boolean;
-    formationStrength: number;
-    rootStrength: number;
-    supportStrength: number;
-    constraintStrength: number;
+    seasonalEffect: '支持' | '中性' | '削弱';
+    commanderEffect: '助身' | '生身' | '泄身' | '耗身' | '克身' | '中性';
+    formationEffect: '支持' | '中性' | '削弱';
+    hasRoot: boolean;
+    hasStrongRoot: boolean;
+    hasSupport: boolean;
+    hasConstraint: boolean;
+    ruleBasis: string[];
   };
 }
 

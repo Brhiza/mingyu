@@ -422,15 +422,17 @@ export class BaziCalculator {
       },
       analysis: {
         dayMasterStrength: {
-          score: 0,
           status: '未知',
           details: {
-            seasonalScore: 0,
             timely: false,
-            formationStrength: 0,
-            rootStrength: 0,
-            supportStrength: 0,
-            constraintStrength: 0,
+            seasonalEffect: '中性',
+            commanderEffect: '中性',
+            formationEffect: '中性',
+            hasRoot: false,
+            hasStrongRoot: false,
+            hasSupport: false,
+            hasConstraint: false,
+            ruleBasis: [],
           },
         },
         mingGe: { pattern: '未知', isSpecial: false },

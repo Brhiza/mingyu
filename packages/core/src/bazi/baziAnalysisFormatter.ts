@@ -17,12 +17,6 @@ interface FormatBaziOptions {
 export type PromptChartScene =
   'general' | 'fortune' | 'compatibility' | 'comprehensive' | 'concise';
 
-function describeStrengthFactor(value: number, positive: string, absent: string): string {
-  if (value > 0) return positive;
-  if (value < 0) return '形成制约';
-  return absent;
-}
-
 function joinOrFallback(values: string[] | undefined, fallback = '暂无'): string {
   return values && values.length > 0 ? values.join('、') : fallback;
 }
@@ -204,7 +198,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   const analysis = baziResult.analysis;
   const strengthDetails = analysis.dayMasterStrength.details;
   result += `旺衰: ${analysis.dayMasterStrength.status}\n`;
-  result += `旺衰依据: 月令${describeStrengthFactor(strengthDetails.seasonalScore, '形成支持', '未形成明显支持')} | 司令${describeStrengthFactor(strengthDetails.commanderScore ?? 0, '形成支持', '未额外增减')} | 成局${describeStrengthFactor(strengthDetails.formationStrength, '形成支持', '未形成')} | 通根${describeStrengthFactor(strengthDetails.rootStrength, '有根', '无根')} | 帮扶${describeStrengthFactor(strengthDetails.supportStrength, '可见', '不明显')} | 克泄耗${strengthDetails.constraintStrength > 0 ? '可见' : '不明显'}\n`;
+  result += `旺衰依据: 月令${strengthDetails.seasonalEffect} | 司令${strengthDetails.commanderEffect} | 成局${strengthDetails.formationEffect} | 通根${strengthDetails.hasRoot ? '有根' : '无根'} | 帮扶${strengthDetails.hasSupport ? '可见' : '不明显'} | 克泄耗${strengthDetails.hasConstraint ? '可见' : '不明显'}\n`;
   result += `格局: ${analysis.mingGe.pattern}\n`;
   if (analysis.mingGe.basis) {
     result += `格局依据: ${analysis.mingGe.basis}\n`;

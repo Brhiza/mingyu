@@ -450,16 +450,25 @@ export function analyzeDayMasterStrength(
   }
 
   return {
-    score,
     status,
     details: {
-      seasonalScore: seasonalBaseScore,
-      commanderScore,
       timely: seasonalStatus.isTimely,
-      formationStrength: formationAnalysis.totalStrength,
-      rootStrength: rootAnalysis.totalStrength,
-      supportStrength: supportAnalysis.totalStrength,
-      constraintStrength: constraintAnalysis.totalStrength,
+      seasonalEffect: seasonalBaseScore > 0 ? '支持' : seasonalBaseScore < 0 ? '削弱' : '中性',
+      commanderEffect: seasonalStatus.commanderEffect ?? '中性',
+      formationEffect:
+        formationAnalysis.totalStrength > 0
+          ? '支持'
+          : formationAnalysis.totalStrength < 0
+            ? '削弱'
+            : '中性',
+      hasRoot: rootAnalysis.hasRoot,
+      hasStrongRoot: rootAnalysis.strongRoot,
+      hasSupport: supportAnalysis.hasSupport,
+      hasConstraint: constraintAnalysis.hasConstraint,
+      ruleBasis: [
+        '综合月令、司令、成局、通根、帮扶与克泄耗条件判定旺衰状态',
+        '内部权重仅用于规则分类，不作为概率、吉凶分或现实结果公开',
+      ],
     },
   };
 }

@@ -49,7 +49,7 @@ test('回归:日支坐印计入帮扶(甲子日,upstream #27)', () => {
     gender: 'male',
   });
   // 帮扶 = 年甲(比)+月乙(劫)+月支亥(印)+日支子(印) = 4
-  assert.equal(r.analysis.dayMasterStrength.details.supportStrength, 4);
+  assert.equal(r.analysis.dayMasterStrength.details.hasSupport, true);
 });
 
 test('立春边界:2024-02-04 16:27 立春,前后年柱月柱翻转', () => {

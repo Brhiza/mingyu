@@ -40,8 +40,19 @@ test('月令司令天干应进入日主旺衰评分，避免辰戌丑未只按�
 
   assert.equal(seasonalStatus.status, '囚');
   assert.ok((seasonalStatus.commanderScore ?? 0) > 0);
-  assert.equal(result.details.seasonalScore, -2);
-  assert.ok((result.details.commanderScore ?? 0) > 0);
+  assert.equal(result.details.seasonalEffect, '削弱');
+  assert.equal(result.details.commanderEffect, '助身');
+  assert.ok(!('score' in result));
+  assert.ok(
+    [
+      'seasonalScore',
+      'commanderScore',
+      'formationStrength',
+      'rootStrength',
+      'supportStrength',
+      'constraintStrength',
+    ].every((field) => !(field in result.details)),
+  );
 });
 
 test('月令气数应输出状态、规则权重构成和司令依据，不公开内部评分', () => {
@@ -122,8 +133,8 @@ test('无根失令但仍有帮扶时，不应直接判为极弱', () => {
   );
 
   assert.equal(result.status, '身弱');
-  assert.equal(result.score, 1);
-  assert.equal(result.details.supportStrength, 1);
+  assert.equal(result.details.hasSupport, true);
+  assert.ok(!('score' in result));
 });
 
 test('无根失令且无帮扶时，仍应判为极弱', () => {
@@ -136,7 +147,7 @@ test('无根失令且无帮扶时，仍应判为极弱', () => {
   );
 
   assert.equal(result.status, '极弱');
-  assert.equal(result.score, 0);
+  assert.ok(!('score' in result));
 });
 
 test('印星落在地支主气或藏干时，也应计入帮扶，但不应把主气与同支本气重复计分', () => {
@@ -270,7 +281,7 @@ test('极强判断不能无视克泄耗重压', () => {
   );
 
   assert.notEqual(result.status, '极强');
-  assert.ok(result.details.constraintStrength > 0);
+  assert.equal(result.details.hasConstraint, true);
 });
 
 test('三合三会成局时，旺衰评分应额外计入成局助势，而不是只按单个地支零散计数', () => {
@@ -369,7 +380,7 @@ test('克泄耗一方三合成局时，旺衰评分也应计入成局破势，�
   );
 
   assert.ok(formation.totalStrength < 0);
-  assert.ok(result.details.formationStrength < 0);
+  assert.equal(result.details.formationEffect, '削弱');
   assert.equal(result.status, '极弱');
 });
 
