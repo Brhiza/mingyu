@@ -2950,7 +2950,21 @@ test('公开 API 太乙应返回年计七十二局立成结果', async () => {
   assert.equal(body.data.sixteenGods.length, 16);
   assert.equal(body.data.model.id, 'taiyi-tongzong-five-calculations-72-table');
   assert.equal(body.data.evidenceAnalysis.evidence.title, '太乙五计七十二局结构化证据');
+  assert.equal(body.data.evidenceAnalysis.positionFacts.length, 4);
+  assert.equal(body.data.evidenceAnalysis.forceFacts.length, 3);
+  assert.equal(body.data.evidenceAnalysis.sixteenGodFacts.length, 16);
+  assert.equal(body.data.evidenceAnalysis.conditionFacts.length, 4);
+  assert.ok(
+    body.data.evidenceAnalysis.forceFacts.every(
+      (item: Record<string, unknown>) =>
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        item.sources.length >= 2 &&
+        String(item.limitation).includes('不直接证明现实胜负'),
+    ),
+  );
   assert.match(body.data.evidenceAnalysis.promptText, /未见囚/);
+  assert.doesNotMatch(body.data.evidenceAnalysis.promptText, /宜先守后动|不宜轻进/);
 });
 
 test('公开 API 太乙应支持月日时分四种计式', async () => {

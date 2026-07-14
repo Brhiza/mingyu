@@ -305,10 +305,39 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
     r.evidenceAnalysis.calculationSteps.map((step) => step.name),
     ['入纪元数', '元数', '纪数', '局数'],
   );
+  assert.equal(r.evidenceAnalysis.positionFacts.length, 4);
+  assert.equal(r.evidenceAnalysis.forceFacts.length, 3);
+  assert.equal(r.evidenceAnalysis.sixteenGodFacts.length, 16);
+  assert.equal(r.evidenceAnalysis.conditionFacts.length, 4);
+  assert.deepEqual(
+    r.evidenceAnalysis.forceFacts.map((item) => item.side),
+    ['主', '客', '定'],
+  );
+  assert.ok(
+    r.evidenceAnalysis.positionFacts.every(
+      (item) => item.sources.length >= 2 && item.limitation.includes('不单独证明现实吉凶'),
+    ),
+  );
+  assert.ok(
+    r.evidenceAnalysis.forceFacts.every(
+      (item) =>
+        item.promptText &&
+        item.sources.length >= 2 &&
+        item.limitation.includes('不直接证明现实胜负'),
+    ),
+  );
+  assert.ok(
+    r.evidenceAnalysis.sixteenGodFacts.every(
+      (item) => item.promptText && item.limitation.includes('不得单独生成现实结论'),
+    ),
+  );
+  assert.ok(r.evidenceAnalysis.conditionFacts.some((item) => item.kind === '掩' && item.matched));
+  assert.ok(r.evidenceAnalysis.conditionFacts.some((item) => item.kind === '囚' && !item.matched));
   assert.match(r.evidenceAnalysis.promptText, /算式核验：.*入纪元数.*元数.*纪数.*局数/);
   assert.ok(r.evidenceAnalysis.primaryFacts.some((item) => item.startsWith('掩成立')));
   assert.ok(r.evidenceAnalysis.counterEvidence.some((item) => item.startsWith('未见囚')));
   assert.match(r.evidenceAnalysis.promptText, /传统规则模型/);
+  assert.doesNotMatch(r.evidenceAnalysis.promptText, /宜先守后动|不宜轻进/);
   assert.doesNotMatch(
     r.evidenceAnalysis.promptText,
     /\d+(?:\.\d+)?%|成功率(?:为|：)|匹配率(?:为|：)|吉凶总分(?:为|：)/,

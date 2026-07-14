@@ -17,7 +17,13 @@ import type { TaiyiModelInfo, TaiyiResult, TaiyiScope } from '../types/divinatio
 import { buildTaiyiEvidence } from './evidence';
 
 export type { TaiyiModelInfo, TaiyiResult, TaiyiScope } from '../types/divination';
-export type { TaiyiEvidenceAnalysis } from './evidence';
+export type {
+  TaiyiConditionFact,
+  TaiyiEvidenceAnalysis,
+  TaiyiForceFact,
+  TaiyiPositionFact,
+  TaiyiSixteenGodFact,
+} from './evidence';
 
 /** 太乙统宗年家积年基数。 */
 export const TAIYI_BASE_YEARS = 10153917;
@@ -543,8 +549,10 @@ export function generateTaiyi(input: TaiyiInput = {}): TaiyiResult {
   const ji = Math.ceil(entryYears / 60);
 
   const judgments: string[] = [];
-  if (shiJiPalace === taiyiPalace) judgments.push('掩：始击与太乙同宫，客目掩太乙。');
-  if (wenChangPalace === taiyiPalace) judgments.push('囚：文昌与太乙同宫，主目囚太乙。');
+  if (shiJiPalace === taiyiPalace)
+    judgments.push('掩：始击与太乙同宫，传统称客目掩太乙；只表示位置条件成立。');
+  if (wenChangPalace === taiyiPalace)
+    judgments.push('囚：文昌与太乙同宫，传统称主目囚太乙；只表示位置条件成立。');
   const lordNature = countNature(lordCount);
   const guestNature = countNature(guestCount);
   const setNature = countNature(setCount);
@@ -552,10 +560,14 @@ export function generateTaiyi(input: TaiyiInput = {}): TaiyiResult {
   if (guestNature) judgments.push(`客算 ${guestCount} 为${guestNature}。`);
   if (setNature) judgments.push(`定算 ${setCount} 为${setNature}。`);
   if (lordGeneral === 5 || lordAssistant === 5) {
-    judgments.push('主大将或主参将居中宫，主方行动受限，宜先守后动。');
+    judgments.push(
+      '主大将或主参将居中宫，传统提示主方行动条件可能受限；须结合现实资料，不直接断宜守或成败。',
+    );
   }
   if (guestGeneral === 5 || guestAssistant === 5) {
-    judgments.push('客大将或客参将居中宫，客方行动受限，不宜轻进。');
+    judgments.push(
+      '客大将或客参将居中宫，传统提示客方行动条件可能受限；须结合现实资料，不直接断宜守或成败。',
+    );
   }
   if (judgments.length === 0) judgments.push('本局未见主目、客目与太乙同位。');
 
@@ -586,6 +598,11 @@ export function generateTaiyi(input: TaiyiInput = {}): TaiyiResult {
     lordCount,
     guestCount,
     setCount,
+    countNatures: {
+      lord: lordNature,
+      guest: guestNature,
+      set: setNature,
+    },
     lordGeneral,
     lordAssistant,
     guestGeneral,

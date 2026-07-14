@@ -1625,15 +1625,36 @@ test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
             calculationChain: unknown[];
             primaryFacts: unknown[];
             counterEvidence: string[];
+            positionFacts: unknown[];
+            forceFacts: Array<{
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            sixteenGodFacts: unknown[];
+            conditionFacts: unknown[];
           };
         };
       }
     ).result;
     assert.ok(chart.evidenceAnalysis.calculationChain.length >= 5);
     assert.ok(chart.evidenceAnalysis.primaryFacts.length >= 4);
+    assert.equal(chart.evidenceAnalysis.positionFacts.length, 4);
+    assert.equal(chart.evidenceAnalysis.forceFacts.length, 3);
+    assert.equal(chart.evidenceAnalysis.sixteenGodFacts.length, 16);
+    assert.equal(chart.evidenceAnalysis.conditionFacts.length, 4);
+    assert.ok(
+      chart.evidenceAnalysis.forceFacts.every(
+        (item) =>
+          item.promptText &&
+          item.sources.length >= 2 &&
+          item.limitation.includes('不直接证明现实胜负'),
+      ),
+    );
     assert.ok(chart.evidenceAnalysis.counterEvidence.some((item) => item.startsWith('未见囚')));
     assert.match(prompt, /【太乙五计七十二局结构化证据】/);
     assert.match(prompt, /传统规则模型/);
+    assert.doesNotMatch(prompt, /宜先守后动|不宜轻进/);
     assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|匹配率(?:为|：)|吉凶总分(?:为|：)/);
     assertPromptIsPortableTaskText(prompt);
   });
