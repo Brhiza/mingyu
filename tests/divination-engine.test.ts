@@ -194,6 +194,13 @@ test('六爻证据应把六亲类象与现实结论分离', () => {
   );
 
   assert.ok(analysis.traditionalSymbols.length > 0);
+  assert.equal(analysis.lineFacts.length, 6);
+  assert.equal(analysis.hiddenSpiritFacts.length, data.hiddenSpirits?.length ?? 0);
+  assert.ok(
+    analysis.lineFacts.every(
+      (item) => item.sources.length > 0 && item.limitation.includes('不单独证明现实吉凶'),
+    ),
+  );
   assert.ok(
     analysis.traditionalSymbols.every(
       (item) =>

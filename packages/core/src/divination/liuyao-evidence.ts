@@ -1,5 +1,5 @@
 import type { LiuyaoData, LiuyaoHiddenSpirit, LiuyaoYaoDetail } from '../types/divination';
-import { isKe, isLiuhe, isSheng } from '../ganzhi';
+import { isKe, isLiuhai, isLiuhe, isSanxing, isSheng } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 
@@ -60,6 +60,69 @@ export interface LiuyaoTraditionalSymbolFact {
   limitation: '六亲只提供随问题变化的事项候选，不证明现实身份、疾病、官非、财运或关系结果';
 }
 
+export interface LiuyaoLineFact {
+  key: string;
+  position: number;
+  rawValue: number;
+  yaoType: LiuyaoYaoDetail['yaoType'];
+  changeType: string;
+  sixGod: string;
+  sixRelative: string;
+  najia: {
+    branch: string;
+    wuxing: string;
+  };
+  roles: Array<'世爻' | '应爻'>;
+  activity: '静爻' | '明动' | '暗动';
+  monthState: {
+    branch: string;
+    seasonState?: LiuyaoYaoDetail['seasonState'];
+    relations: string[];
+  };
+  dayState: {
+    branch: string;
+    relations: string[];
+  };
+  traditionalRelations: {
+    twelveStage?: string;
+    sanxingType?: string;
+    liuhePartner?: string;
+    isLiuhai: boolean;
+    isRuMu: boolean;
+  };
+  isVoid: boolean;
+  support: string[];
+  constraints: string[];
+  changedYao?: {
+    sixRelative: string;
+    branch: string;
+    wuxing: string;
+    isVoid: boolean;
+    relation: LiuyaoYaoDetail['changeRelation'];
+    direction: LiuyaoYaoDetail['changeDirection'];
+  };
+  promptText: string;
+  sources: string[];
+  limitation: '逐爻字段是纳甲、世应、月日旺衰与动变规则的计算事实，只限定六爻取证条件，不单独证明现实吉凶、事件、身份、疾病、官非、关系或财务结果';
+}
+
+export interface LiuyaoHiddenSpiritFact {
+  key: string;
+  position: number;
+  sixRelative: string;
+  najia: {
+    branch: string;
+    wuxing: string;
+  };
+  isVoid: boolean;
+  coveringLine: LiuyaoHiddenSpirit['underYao'];
+  support: string[];
+  constraints: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '伏神结构只证明本卦六亲排布中存在伏藏关系；透出、受制或得助仍须结合飞神、月日、动变与现实进展复核';
+}
+
 export interface LiuyaoEvidenceAnalysis {
   topic: LiuyaoEvidenceTopic;
   monthBranch: string;
@@ -68,6 +131,8 @@ export interface LiuyaoEvidenceAnalysis {
   selectedCandidate: LiuyaoUsefulGodCandidate | null;
   godChain: LiuyaoGodChainItem[];
   traditionalSymbols: LiuyaoTraditionalSymbolFact[];
+  lineFacts: LiuyaoLineFact[];
+  hiddenSpiritFacts: LiuyaoHiddenSpiritFact[];
   generationFacts: string[];
   randomFacts: string[];
   timingConditions: string[];
@@ -78,6 +143,12 @@ export interface LiuyaoEvidenceAnalysis {
 }
 
 const ELEMENTS = ['木', '火', '土', '金', '水'];
+
+const LINE_FACT_LIMITATION =
+  '逐爻字段是纳甲、世应、月日旺衰与动变规则的计算事实，只限定六爻取证条件，不单独证明现实吉凶、事件、身份、疾病、官非、关系或财务结果' as const;
+
+const HIDDEN_SPIRIT_FACT_LIMITATION =
+  '伏神结构只证明本卦六亲排布中存在伏藏关系；透出、受制或得助仍须结合飞神、月日、动变与现实进展复核' as const;
 
 const TRADITIONAL_RELATIVE_IMAGES: Record<string, string> = {
   父母: '传统常取文书、消息、单位、房屋、长辈、辛劳等类象',
@@ -190,6 +261,122 @@ function allReferences(data: LiuyaoData, monthBranch: string, dayBranch: string)
   ];
 }
 
+function buildLineFacts(
+  data: LiuyaoData,
+  monthBranch: string,
+  dayBranch: string,
+): LiuyaoLineFact[] {
+  return data.yaosDetail.map((yao) => {
+    const reference = buildVisibleReference(yao, monthBranch, dayBranch);
+    const roles: LiuyaoLineFact['roles'] = [
+      ...(yao.isWorld ? (['世爻'] as const) : []),
+      ...(yao.isResponse ? (['应爻'] as const) : []),
+    ];
+    const monthRelations = [
+      yao.najiaDizhi === monthBranch ? '值月建' : '',
+      isLiuhe(yao.najiaDizhi, monthBranch) ? '合月建' : '',
+      yao.isMonthBreak ? '月破' : '',
+      yao.isYueMu ? '入月墓' : '',
+      isLiuhai(yao.najiaDizhi, monthBranch) ? '与月建相害' : '',
+      isSanxing(yao.najiaDizhi, monthBranch) ? '与月建成刑' : '',
+    ].filter(Boolean);
+    const dayRelations = [
+      yao.najiaDizhi === dayBranch ? '值日辰' : '',
+      isLiuhe(yao.najiaDizhi, dayBranch) ? '合日辰' : '',
+      yao.isHiddenMove ? '日冲暗动' : yao.isDayBreak ? '日冲成破' : '',
+      yao.isRiMu ? '入日墓' : '',
+      isLiuhai(yao.najiaDizhi, dayBranch) ? '与日辰相害' : '',
+      isSanxing(yao.najiaDizhi, dayBranch) ? '与日辰成刑' : '',
+    ].filter(Boolean);
+    const activity: LiuyaoLineFact['activity'] = yao.isChanging
+      ? '明动'
+      : yao.isHiddenMove
+        ? '暗动'
+        : '静爻';
+    const changedYao = yao.changedYao
+      ? {
+          sixRelative: yao.changedYao.liuqin,
+          branch: yao.changedYao.dizhi,
+          wuxing: yao.changedYao.wuxing,
+          isVoid: yao.changedYao.isVoid,
+          relation: yao.changeRelation,
+          direction: yao.changeDirection,
+        }
+      : undefined;
+    const promptText = [
+      `第${yao.position}爻${yao.sixRelative}${yao.najiaDizhi}${yao.wuxing}`,
+      `六神${yao.sixGod}`,
+      roles.length ? roles.join('、') : '',
+      activity,
+      yao.seasonState ? `月令${yao.seasonState}` : '',
+      monthRelations.join('、'),
+      dayRelations.join('、'),
+      yao.isVoid ? '本爻空亡' : '',
+      yao.shiErGong ? `十二宫${yao.shiErGong}` : '',
+      changedYao
+        ? `化${changedYao.sixRelative}${changedYao.branch}${changedYao.wuxing}${changedYao.direction ? `、${changedYao.direction}` : ''}${changedYao.relation ? `、${changedYao.relation}` : ''}${changedYao.isVoid ? '、变爻空亡' : ''}`
+        : '',
+    ]
+      .filter(Boolean)
+      .join('；');
+    return {
+      key: `本卦:第${yao.position}爻`,
+      position: yao.position,
+      rawValue: yao.rawValue,
+      yaoType: yao.yaoType,
+      changeType: yao.changeType,
+      sixGod: yao.sixGod,
+      sixRelative: yao.sixRelative,
+      najia: { branch: yao.najiaDizhi, wuxing: yao.wuxing },
+      roles,
+      activity,
+      monthState: {
+        branch: monthBranch,
+        seasonState: yao.seasonState,
+        relations: monthRelations,
+      },
+      dayState: { branch: dayBranch, relations: dayRelations },
+      traditionalRelations: {
+        twelveStage: yao.shiErGong,
+        sanxingType: yao.isSanxing ? yao.sanxingType : undefined,
+        liuhePartner: yao.isLiuhe ? yao.liuhePartner : undefined,
+        isLiuhai: Boolean(yao.isLiuhai),
+        isRuMu: Boolean(yao.isRuMu),
+      },
+      isVoid: yao.isVoid,
+      support: reference.support,
+      constraints: reference.constraints,
+      ...(changedYao ? { changedYao } : {}),
+      promptText,
+      sources: [
+        '京房八宫纳甲与六亲排布',
+        '日干起六神与八宫安世应',
+        '起卦月建、日辰、旬空与动变计算',
+      ],
+      limitation: LINE_FACT_LIMITATION,
+    };
+  });
+}
+
+function buildHiddenSpiritFacts(data: LiuyaoData): LiuyaoHiddenSpiritFact[] {
+  return (data.hiddenSpirits ?? []).map((spirit) => {
+    const reference = buildHiddenReference(spirit);
+    return {
+      key: `伏神:第${spirit.position}爻:${spirit.sixRelative}`,
+      position: spirit.position,
+      sixRelative: spirit.sixRelative,
+      najia: { branch: spirit.najiaDizhi, wuxing: spirit.wuxing },
+      isVoid: spirit.isVoid,
+      coveringLine: spirit.underYao,
+      support: reference.support,
+      constraints: reference.constraints,
+      promptText: `第${spirit.position}爻伏神${spirit.sixRelative}${spirit.najiaDizhi}${spirit.wuxing}，飞神${spirit.underYao.sixRelative}${spirit.underYao.najiaDizhi}${spirit.underYao.wuxing}覆盖${spirit.isVoid ? '，伏神空亡' : ''}`,
+      sources: ['本宫首卦六亲全集与当前本卦六亲差集', '当前爻位飞伏配对与旬空计算'],
+      limitation: HIDDEN_SPIRIT_FACT_LIMITATION,
+    };
+  });
+}
+
 function findGeneratingElement(target: string) {
   return ELEMENTS.find((element) => isSheng(element, target)) ?? '';
 }
@@ -296,6 +483,8 @@ export function analyzeLiuyaoEvidence(
   const monthBranch = branchOf(data.ganzhi.month);
   const dayBranch = branchOf(data.ganzhi.day);
   const references = allReferences(data, monthBranch, dayBranch);
+  const lineFacts = buildLineFacts(data, monthBranch, dayBranch);
+  const hiddenSpiritFacts = buildHiddenSpiritFacts(data);
   const candidates = candidateSpecs(data, options).map((spec): LiuyaoUsefulGodCandidate => {
     const matched = references.filter((reference) =>
       spec.position
@@ -399,6 +588,24 @@ export function analyzeLiuyaoEvidence(
   }));
   items.push(
     {
+      level: '主证',
+      title: '六爻逐爻计算事实',
+      detail: `${lineFacts.map((item) => item.promptText).join('；')}；统一边界：${LINE_FACT_LIMITATION}`,
+      source: '京房八宫纳甲、安世应、月日旺衰、旬空与动变规则逐爻计算',
+      tags: ['逐爻事实', '纳甲', '世应', '月日', '动变'],
+    },
+    ...(hiddenSpiritFacts.length
+      ? [
+          {
+            level: '辅证' as const,
+            title: '伏神与飞神配对事实',
+            detail: `${hiddenSpiritFacts.map((item) => item.promptText).join('；')}；统一边界：${HIDDEN_SPIRIT_FACT_LIMITATION}`,
+            source: '本宫首卦六亲全集、当前六亲差集与飞伏配对',
+            tags: ['伏神', '飞神', '伏藏条件'],
+          },
+        ]
+      : []),
+    {
       level: '辅证',
       title: '六亲传统类象映射（非事实结论）',
       detail: traditionalSymbols
@@ -423,7 +630,7 @@ export function analyzeLiuyaoEvidence(
             level: trace ? ('辅证' as const) : ('反证' as const),
             title: trace ? '六爻随机重放记录' : '随机轨迹缺失',
             detail: `${randomFacts.join('；')}；该记录只用于核验起卦过程能否重放，不表示可信度或预测有效性`,
-            source: '命语统一随机轨迹协议',
+            source: '随机起卦样本与重放轨迹记录',
             tags: ['随机轨迹', trace ? '可重放' : '不可核验', '不代表预测有效性'],
           },
         ]
@@ -455,6 +662,8 @@ export function analyzeLiuyaoEvidence(
     selectedCandidate,
     godChain,
     traditionalSymbols,
+    lineFacts,
+    hiddenSpiritFacts,
     generationFacts,
     randomFacts,
     timingConditions,

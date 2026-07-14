@@ -489,33 +489,6 @@ function formatLiuyaoInfo(
     worldYao ? `六亲持世：${worldYao.sixRelative}` : '',
     data.guaShen ? `卦身在${data.guaShen.branch}` : '',
   ].filter(Boolean);
-  const yaoLines = [...data.yaosDetail]
-    .sort((a, b) => b.position - a.position)
-    .map((item) => {
-      const flags = [
-        item.isWorld ? '世' : '',
-        item.isResponse ? '应' : '',
-        item.isVoid ? '空' : '',
-        item.isDayBreak ? (item.isHiddenMove ? '暗动' : '日破') : '',
-        item.isMonthBreak ? '月破' : '',
-        item.seasonState ? `月令${item.seasonState}` : '',
-        item.isChanging ? `动变${item.changeType}` : '',
-        item.shiErGong ? item.shiErGong : '',
-      ].filter(Boolean);
-      const shenshaFlags = [
-        item.isSanxing && item.sanxingType ? `${item.sanxingType}` : '',
-        item.isLiuhe ? `六合${item.liuhePartner || ''}` : '',
-        item.isLiuhai ? '六害' : '',
-        item.isRuMu ? '入墓' : '',
-      ]
-        .filter(Boolean)
-        .join('、');
-      const changedYaoText = item.changedYao
-        ? `；变爻${item.changedYao.dizhi}${item.changedYao.wuxing}，六亲${item.changedYao.liuqin}${item.changedYao.isVoid ? '，变爻空亡' : ''}${item.changeDirection ? `，${item.changeDirection}` : ''}${item.changeRelation ? `，${item.changeRelation}` : ''}`
-        : '';
-      return `- 第${item.position}爻：${item.yaoType}爻，六亲${item.sixRelative}，六神${item.sixGod}，纳甲${item.najiaDizhi}${item.wuxing}${flags.length ? `，${flags.join(' / ')}` : ''}${shenshaFlags ? `（${shenshaFlags}）` : ''}${changedYaoText}`;
-    });
-
   return [
     '占法：六爻',
     `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
@@ -541,8 +514,6 @@ function formatLiuyaoInfo(
     sanheDetail ? sanheDetail : '',
     sanxingDetail ? sanxingDetail : '',
     guaShenDetail ? guaShenDetail : '',
-    '结构明细：',
-    ...yaoLines,
   ]
     .filter(Boolean)
     .join('\n');

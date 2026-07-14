@@ -1045,6 +1045,8 @@ export type {
   LiuyaoEvidenceTopic,
   LiuyaoGodChainItem,
   LiuyaoGodRole,
+  LiuyaoHiddenSpiritFact,
+  LiuyaoLineFact,
   LiuyaoTraditionalSymbolFact,
   LiuyaoUsefulGodCandidate,
   LiuyaoYaoReference,

@@ -1596,14 +1596,31 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
     type LiuyaoReplayResult = {
       generation: { method: string; coinThrows: unknown[] };
       yaoArray: number[];
-      evidenceAnalysis: { candidates: unknown[]; promptText: string };
+      evidenceAnalysis: {
+        candidates: unknown[];
+        lineFacts: Array<{ sources: string[]; limitation: string }>;
+        hiddenSpiritFacts: unknown[];
+        promptText: string;
+      };
+      hiddenSpirits?: unknown[];
       meta: { resultId: string; random: { samples: number[] } };
     };
     const firstResult = (first.structuredContent as { result: LiuyaoReplayResult }).result;
     assert.equal(firstResult.generation.method, 'coins');
     assert.equal(firstResult.generation.coinThrows.length, 6);
     assert.ok(firstResult.evidenceAnalysis.candidates.length > 0);
+    assert.equal(firstResult.evidenceAnalysis.lineFacts.length, 6);
+    assert.equal(
+      firstResult.evidenceAnalysis.hiddenSpiritFacts.length,
+      firstResult.hiddenSpirits?.length ?? 0,
+    );
+    assert.ok(
+      firstResult.evidenceAnalysis.lineFacts.every(
+        (item) => item.sources.length >= 3 && item.limitation.includes('不单独证明现实吉凶'),
+      ),
+    );
     assert.match(firstResult.evidenceAnalysis.promptText, /【六爻用神作用链结构化证据】/);
+    assert.match(firstResult.evidenceAnalysis.promptText, /六爻逐爻计算事实/);
 
     const replay = await client.callTool({
       name: 'divine_liuyao',

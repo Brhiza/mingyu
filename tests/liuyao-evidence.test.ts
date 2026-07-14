@@ -13,12 +13,37 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
   assert.ok(evidence);
   assert.ok(evidence.candidates.length > 0);
   assert.ok(evidence.selectedCandidate);
+  assert.equal(evidence.lineFacts.length, 6);
+  assert.equal(evidence.hiddenSpiritFacts.length, data.hiddenSpirits?.length ?? 0);
+  assert.deepEqual(
+    evidence.lineFacts.map((item) => item.position),
+    [1, 2, 3, 4, 5, 6],
+  );
+  assert.ok(
+    evidence.lineFacts.every(
+      (item) =>
+        item.rawValue >= 6 &&
+        item.rawValue <= 9 &&
+        item.sixGod &&
+        item.sixRelative &&
+        item.najia.branch &&
+        item.najia.wuxing &&
+        item.monthState.branch &&
+        item.dayState.branch &&
+        item.promptText &&
+        item.sources.length >= 3 &&
+        item.limitation.includes('不单独证明现实吉凶'),
+    ),
+  );
   assert.match(evidence.promptText, /【六爻用神作用链结构化证据】/);
+  assert.match(evidence.promptText, /六爻逐爻计算事实/);
   assert.match(evidence.promptText, /六爻取用与作用链解释边界/);
   const changingReference = evidence.candidates
     .flatMap((candidate) => candidate.references)
     .find((reference) => reference.isChanging);
   assert.ok(changingReference?.changedYao);
+  const changingFact = evidence.lineFacts.find((item) => item.activity === '明动');
+  assert.ok(changingFact?.changedYao);
   assert.match(evidence.promptText, /→.*（回头|化进|化退|变爻空亡）/);
   assert.doesNotMatch(evidence.promptText, /权重[：=]?\d|总分[：=]?\d|成功率[：=]?\d/);
 });
