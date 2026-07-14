@@ -355,14 +355,13 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
     yaosDetail,
     calculation,
   };
-  result.evidenceAnalysis = analyzeMeihuaEvidence(result);
-
-  return attachResultMeta(result, {
+  const resultWithMeta = attachResultMeta(result, {
     algorithm: 'meihua',
     input: { method, number: settings?.number, timestamp },
     calculatedAt: timestamp,
     random: randomTrace,
   });
+  return { ...resultWithMeta, evidenceAnalysis: analyzeMeihuaEvidence(resultWithMeta) };
 }
 
 export { analyzeMeihuaEvidence } from '../../meihua-evidence';

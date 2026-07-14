@@ -110,6 +110,22 @@ test('梅花：未知起卦方式应明确报错，不应静默退回时间卦',
   );
 });
 
+test('梅花：仅随机起卦应把重放轨迹接入统一证据', () => {
+  const randomData = generateMeihua(SAMPLE_DATE, { method: 'random', seed: '梅花证据样例' });
+  const numberData = generateMeihua(SAMPLE_DATE, { method: 'number', number: 123 });
+  const randomItem = randomData.evidenceAnalysis?.evidence.items.find(
+    (item) => item.title === '随机起卦重放记录',
+  );
+
+  assert.equal(randomItem?.level, '辅证');
+  assert.match(randomItem?.detail || '', /随机种子：梅花证据样例/);
+  assert.match(randomItem?.detail || '', /不表示可信度或预测有效性/);
+  assert.deepEqual(numberData.evidenceAnalysis?.randomFacts, []);
+  assert.ok(
+    !numberData.evidenceAnalysis?.evidence.items.some((item) => item.tags?.includes('随机起卦')),
+  );
+});
+
 test('梅花：数字起卦应拒绝超出安全整数范围的数字', () => {
   assert.throws(
     () => generateMeihua(SAMPLE_DATE, { method: 'number', number: Number.MAX_SAFE_INTEGER + 1 }),

@@ -91,3 +91,23 @@ test('小六壬：应期只给盘内节奏、触发条件和限制，不机械�
     /\d+\s*[-—至]\s*\d+\s*(?:日|周|月)|\d+日内|\d+周内/,
   );
 });
+
+test('小六壬：仅随机起课应把重放轨迹接入统一证据', () => {
+  const randomResult = generateXiaoliuren({
+    method: 'random',
+    seed: '小六壬证据样例',
+    customDate: SAMPLE_DATE,
+  });
+  const timeResult = generateXiaoliuren({ method: 'time', customDate: SAMPLE_DATE });
+  const randomItem = randomResult.evidenceAnalysis?.evidence.items.find(
+    (item) => item.title === '随机起课重放记录',
+  );
+
+  assert.equal(randomItem?.level, '辅证');
+  assert.match(randomItem?.detail || '', /随机种子：小六壬证据样例/);
+  assert.match(randomItem?.detail || '', /不表示可信度或预测有效性/);
+  assert.deepEqual(timeResult.evidenceAnalysis?.randomFacts, []);
+  assert.ok(
+    !timeResult.evidenceAnalysis?.evidence.items.some((item) => item.tags?.includes('随机起课')),
+  );
+});

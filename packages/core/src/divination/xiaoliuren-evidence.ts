@@ -16,6 +16,7 @@ export interface XiaoliurenEvidenceAnalysis {
   calculationChain: string[];
   stages: XiaoliurenStageEvidence[];
   transitions: string[];
+  randomFacts: string[];
   counterEvidence: string[];
   timingBasis: string[];
   triggerConditions: string[];
@@ -89,6 +90,17 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     '以结果宫为主要落点，月令旺衰、方位、神煞和传统应期属性只作辅助资料',
   ];
   const counterEvidence = unique(stages.flatMap((item) => item.constraints));
+  const isRandomMethod = data.method === 'random';
+  const trace = data.meta?.random;
+  const randomFacts = isRandomMethod
+    ? trace
+      ? [
+          `随机模式：${trace.mode}`,
+          `原始随机样本数：${trace.samples.length}`,
+          trace.seed !== undefined ? `随机种子：${String(trace.seed)}` : '',
+        ].filter(Boolean)
+      : ['随机起课结果未附随机轨迹，无法核验起课基数的重放过程']
+    : [];
   const timingBasis = unique(data.timingEvidence?.primaryBasis ?? []);
   const triggerConditions = unique([
     ...(data.timingEvidence?.triggerConditions ?? []),
@@ -139,6 +151,17 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
           },
         ]
       : []),
+    ...(isRandomMethod
+      ? [
+          {
+            level: trace ? ('辅证' as const) : ('反证' as const),
+            title: trace ? '随机起课重放记录' : '随机轨迹缺失',
+            detail: `${randomFacts.join('；')}；该记录只用于核验起课过程能否重放，不表示可信度或预测有效性`,
+            source: '命语统一随机轨迹协议',
+            tags: ['随机起课', trace ? '可重放' : '不可核验', '不代表预测有效性'],
+          },
+        ]
+      : []),
     ...counterEvidence.map((detail): PromptEvidenceItem => ({
       level: '反证',
       title: detail.split('，')[0],
@@ -172,6 +195,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     calculationChain,
     stages,
     transitions,
+    randomFacts,
     counterEvidence,
     timingBasis,
     triggerConditions,

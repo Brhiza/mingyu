@@ -353,12 +353,11 @@ export function generateXiaoliuren(
     timing: result.timing,
     bodyPart: result.bodyPart,
   };
-  dataResult.evidenceAnalysis = analyzeXiaoliurenEvidence(dataResult);
-
-  return attachResultMeta(dataResult, {
+  const resultWithMeta = attachResultMeta(dataResult, {
     algorithm: 'xiaoliuren',
     input: { method, number: params?.number, timestamp },
     calculatedAt: timestamp,
     random: randomTrace,
   });
+  return { ...resultWithMeta, evidenceAnalysis: analyzeXiaoliurenEvidence(resultWithMeta) };
 }

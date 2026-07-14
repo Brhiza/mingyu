@@ -24,6 +24,7 @@ export interface MeihuaEvidenceAnalysis {
   stages: MeihuaStageEvidence[];
   transitions: string[];
   timingConditions: string[];
+  randomFacts: string[];
   counterEvidence: string[];
   evidence: PromptEvidenceBundle;
   promptText: string;
@@ -175,6 +176,17 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     '动爻、卦数与旺衰不能据此换算绝对日期',
   ];
   const counterEvidence = Array.from(new Set(stages.flatMap((item) => item.constraints)));
+  const isRandomMethod = data.calculation?.methodKey === 'random';
+  const trace = data.meta?.random;
+  const randomFacts = isRandomMethod
+    ? trace
+      ? [
+          `随机模式：${trace.mode}`,
+          `原始随机样本数：${trace.samples.length}`,
+          trace.seed !== undefined ? `随机种子：${String(trace.seed)}` : '',
+        ].filter(Boolean)
+      : ['随机起卦结果未附随机轨迹，无法核验上下卦与动爻的重放过程']
+    : [];
   const items: PromptEvidenceItem[] = stages.map((stage, index) => ({
     level: index === 0 ? '主证' : '辅证',
     title: `${stage.label}阶段`,
@@ -182,6 +194,15 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     source: '梅花体用、互卦、变卦与月建旺衰逐阶段核验',
     tags: [stage.stage, stage.relation],
   }));
+  if (isRandomMethod) {
+    items.push({
+      level: trace ? '辅证' : '反证',
+      title: trace ? '随机起卦重放记录' : '随机轨迹缺失',
+      detail: `${randomFacts.join('；')}；该记录只用于核验起卦过程能否重放，不表示可信度或预测有效性`,
+      source: '命语统一随机轨迹协议',
+      tags: ['随机起卦', trace ? '可重放' : '不可核验', '不代表预测有效性'],
+    });
+  }
   items.push({
     level: '限制',
     title: '梅花推进链解释边界',
@@ -202,6 +223,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     stages,
     transitions,
     timingConditions,
+    randomFacts,
     counterEvidence,
     evidence,
     promptText,
