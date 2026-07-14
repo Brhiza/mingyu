@@ -32,7 +32,7 @@ import { estimateYingQi } from '../packages/core/src/divination/algorithms/qimen
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
-import { drawRandomSign } from 'mingyu-core/divination/ssgw';
+import { analyzeSsgwEvidence, drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { SSGW_INTERPRETATION_FIELDS, SSGW_SIGNS } from '../packages/core/src/divination/ssgw-data';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateQimen, resolveZhiShiLandingPalace } from 'mingyu-core/divination/qimen';
@@ -56,6 +56,24 @@ test('三山国王九十二签应逐签具备八类完整解读', () => {
   SSGW_INTERPRETATION_FIELDS.forEach((field) => {
     const values = SSGW_SIGNS.map((sign) => sign.details[field].trim());
     assert.equal(new Set(values).size, 92, `${field}存在重复套话，应按每支签诗单独编写`);
+  });
+});
+
+test('三山国王九十二签进入证据提示词时不应保留绝对结果保证', () => {
+  const forbidden = /必然(?:会|是|失败|走向|两败俱伤)|必定成功|必能|必败|必然后悔/;
+
+  SSGW_SIGNS.forEach((sign) => {
+    const analysis = analyzeSsgwEvidence({
+      number: sign.id,
+      title: sign.title,
+      poem: sign.qianwen,
+      story: sign.story,
+      details: sign.details,
+      timestamp: Date.now(),
+      ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
+    });
+    assert.doesNotMatch(analysis.promptText, forbidden, `第${sign.id}签提示词仍含绝对结果保证`);
+    assert.ok(analysis.interpretations.every((item) => !forbidden.test(item.promptText)));
   });
 });
 
@@ -3632,6 +3650,11 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
   assert.ok(confirmed.evidenceAnalysis?.drawFacts.some((item) => item.includes('随机索引')));
   assert.match(confirmed.evidenceAnalysis?.promptText || '', /签诗原文/);
   assert.match(confirmed.evidenceAnalysis?.promptText || '', /典故/);
+  assert.ok(
+    confirmed.evidenceAnalysis?.interpretations.every(
+      (item) => item.originalText && item.promptText && item.limitation.includes('不是事实结论'),
+    ),
+  );
   assert.match(confirmed.evidenceAnalysis?.promptText || '', /随机过程可以重放，不证明预测有效性/);
   const confirmedItems = confirmed.evidenceAnalysis?.evidence.items ?? [];
   const confirmedRitual = confirmedItems.find((item) => item.title === '模拟求签仪式完成记录');
@@ -3665,6 +3688,29 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
   );
   assert.equal(rejectedRitual?.level, '反证');
   assert.match(rejectedRitual?.detail || '', /未获圣杯/);
+});
+
+test('三山国王灵签分类释义应保留原文并对提示词绝对断语作条件化处理', () => {
+  const analysis = analyzeSsgwEvidence({
+    number: 1,
+    title: '条件化测试',
+    poem: '测试签诗原文',
+    details: {
+      核心寓意: '所求之事必定成功，无需多虑。',
+      事业: '明知风险仍投入，结果必然失败。',
+      感情: '互不相让必然两败俱伤。',
+    },
+    timestamp: Date.now(),
+    ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
+  });
+
+  assert.match(analysis.interpretations[0].originalText, /必定成功/);
+  assert.equal(analysis.interpretations[0].text, analysis.interpretations[0].originalText);
+  assert.match(analysis.interpretations[0].promptText, /较有机会成功/);
+  assert.match(analysis.interpretations[1].promptText, /失败风险很高/);
+  assert.match(analysis.interpretations[2].promptText, /容易两败俱伤/);
+  assert.doesNotMatch(analysis.promptText, /必定成功|必然失败|必然两败俱伤/);
+  assert.match(analysis.promptText, /非事实结论/);
 });
 
 test('占卜时间格式化遇到无法转换为 Date 的时间戳时应回退当前时间', () => {

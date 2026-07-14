@@ -1397,9 +1397,9 @@ test('灵签提示词保留签诗、典故和现有签文条目', () => {
 
   assert.match(prompt, /断签口径：按【问题】、签诗原文、典故和八类签意解读/);
   assert.match(prompt, /签诗：前路迢迢莫强求，且看云开月自明。/);
-  assert.match(prompt, /典故：刘备借荆州后多方周旋，需审时度势。/);
-  assert.match(prompt, /签文条目：/);
-  assert.match(prompt, /- 解签：宜守正待时，不可躁进。/);
+  assert.match(prompt, /典故（传统类比、非事实结论）：刘备借荆州后多方周旋，需审时度势。/);
+  assert.match(prompt, /签文条目（条件化传统释义）：/);
+  assert.match(prompt, /- 解签（传统辅助、非事实结论）：宜守正待时，不可躁进。/);
   assert.doesNotMatch(prompt, /吉凶层级|宜忌条件|事项映射|现实映射|典故映射/);
 });
 
@@ -1423,7 +1423,7 @@ test('灵签提示词会去重重复典故，避免 story 与 details.典故 双
   );
 
   assert.equal((prompt.match(/韩信受胯下之辱，先忍后成大业。/g) ?? []).length, 1);
-  assert.match(prompt, /典故：韩信受胯下之辱，先忍后成大业。/);
+  assert.match(prompt, /典故（传统类比、非事实结论）：韩信受胯下之辱，先忍后成大业。/);
   assert.doesNotMatch(prompt, /辅助证据|^- 典故：/m);
 });
 

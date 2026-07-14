@@ -17,7 +17,7 @@ import type {
 } from '../../../types/divination';
 import { LunarUtil, getDivinationTime } from 'mingyu-core/calendar';
 import { resolveSsgwStoryContent } from '../ssgw-content';
-import { analyzeSsgwEvidence } from 'mingyu-core/divination/ssgw';
+import { analyzeSsgwEvidence, conditionSsgwInterpretation } from 'mingyu-core/divination/ssgw';
 import { analyzeQimenEvidence } from '@core/divination/algorithms/qimen';
 import { analyzeAlmanacEvidence } from '@core/divination/algorithms/almanac';
 import { LIUCHONG_MAP } from '@core/ganzhi';
@@ -925,6 +925,10 @@ function formatSsgwInfo(data: SsgwData) {
   }
 
   const { canonicalStory, extraStory } = resolveSsgwStoryContent(data);
+  const promptCanonicalStory = canonicalStory
+    ? conditionSsgwInterpretation(canonicalStory)
+    : evidenceAnalysis.promptStory;
+  const promptExtraStory = extraStory ? conditionSsgwInterpretation(extraStory) : '';
   const ritualLog = data.ritual?.throws?.length
     ? `掷筊记录：${data.ritual.throws.map((t) => t.result).join(' → ')}${data.ritual.reason ? `（${data.ritual.reason}）` : ''}`
     : '';
@@ -938,15 +942,19 @@ function formatSsgwInfo(data: SsgwData) {
     '行动建议',
     '风险提醒',
   ];
-  const preferredFields = data.details
-    ? ['吉凶', ...interpretationFields].filter((key) => data.details?.[key]?.trim())
-    : [];
-  const detailLines = data.details
-    ? (preferredFields.length > 1
-        ? preferredFields
-        : Object.keys(data.details).filter((key) => key !== '典故')
-      ).map((key) => `- ${key}：${data.details![key]}`)
-    : [];
+  const preferredFields = ['吉凶', ...interpretationFields].filter((key) =>
+    evidenceAnalysis.interpretations.some((item) => item.field === key),
+  );
+  const selectedInterpretations =
+    preferredFields.length > 1
+      ? preferredFields
+          .map((field) => evidenceAnalysis.interpretations.find((item) => item.field === field))
+          .filter((item): item is NonNullable<typeof item> => Boolean(item))
+      : evidenceAnalysis.interpretations;
+  const detailLines = selectedInterpretations.map(
+    (item) =>
+      `- ${item.field}（传统辅助、非事实结论）：${item.promptText || conditionSsgwInterpretation(item.originalText || item.text)}`,
+  );
 
   return [
     '占法：三山国王灵签',
@@ -956,9 +964,9 @@ function formatSsgwInfo(data: SsgwData) {
     '证据口径：签诗原文为主证，典故与分类条目为辅证；不得由签号或诗句数字推算绝对日期。',
     ritualLog,
     `签诗：${data.poem}`,
-    canonicalStory ? `典故：${canonicalStory}` : '',
-    extraStory ? `补充提示：${extraStory}` : '',
-    detailLines.length ? '签文条目：' : '',
+    promptCanonicalStory ? `典故（传统类比、非事实结论）：${promptCanonicalStory}` : '',
+    promptExtraStory ? `补充提示（条件化表达）：${promptExtraStory}` : '',
+    detailLines.length ? '签文条目（条件化传统释义）：' : '',
     ...detailLines,
     evidenceAnalysis.promptText,
   ]

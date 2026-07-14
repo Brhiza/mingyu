@@ -6,7 +6,7 @@ import { createRandomContext, randomInt } from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
 import { analyzeSsgwEvidence } from '../ssgw-evidence';
 
-export { analyzeSsgwEvidence } from '../ssgw-evidence';
+export { analyzeSsgwEvidence, conditionSsgwInterpretation } from '../ssgw-evidence';
 export type { SsgwEvidenceAnalysis } from '../ssgw-evidence';
 
 /**

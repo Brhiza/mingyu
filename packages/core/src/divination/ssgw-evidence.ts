@@ -10,7 +10,16 @@ export interface SsgwEvidenceAnalysis {
     poem: string;
   };
   story?: string;
-  interpretations: Array<{ field: string; text: string; role: '核心分类' | '补充条目' }>;
+  promptStory?: string;
+  interpretations: Array<{
+    field: string;
+    text: string;
+    originalText: string;
+    promptText: string;
+    role: '核心分类' | '补充条目';
+    source: '项目整理的传统分类释义';
+    limitation: '仅作象征类比，不是事实结论或结果保证';
+  }>;
   missingFields: string[];
   drawFacts: string[];
   ritualFacts: string[];
@@ -23,16 +32,38 @@ export interface SsgwEvidenceAnalysis {
   methodology: string[];
 }
 
+export function conditionSsgwInterpretation(text: string): string {
+  return text
+    .replace(/成功是必然的结果/g, '传统象意偏向成功，但结果仍取决于现实条件')
+    .replace(/结果必然失败/g, '失败风险很高')
+    .replace(/必然两败俱伤/g, '容易两败俱伤')
+    .replace(/必然会/g, '很可能会')
+    .replace(/必然是/g, '容易形成')
+    .replace(/必然走向/g, '可能走向')
+    .replace(/必然失败/g, '失败风险很高')
+    .replace(/必然后悔/g, '后悔风险很高')
+    .replace(/必定成功/g, '较有机会成功')
+    .replace(/必能/g, '较有机会')
+    .replace(/必败/g, '失败风险很高')
+    .replace(/必然/g, '往往');
+}
+
 export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
   const details = data.details ?? {};
+  const story = data.story?.trim() || details['典故']?.trim() || undefined;
+  const promptStory = story ? conditionSsgwInterpretation(story) : undefined;
   const interpretations = Object.entries(details)
     .filter(([field, text]) => field !== '典故' && text?.trim())
     .map(([field, text]) => ({
       field,
       text: text.trim(),
+      originalText: text.trim(),
+      promptText: conditionSsgwInterpretation(text.trim()),
       role: SSGW_INTERPRETATION_FIELDS.includes(field as never)
         ? ('核心分类' as const)
         : ('补充条目' as const),
+      source: '项目整理的传统分类释义' as const,
+      limitation: '仅作象征类比，不是事实结论或结果保证' as const,
     }));
   const missingFields = SSGW_INTERPRETATION_FIELDS.filter((field) => !details[field]?.trim());
   const drawFacts = data.draw
@@ -84,7 +115,7 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
   ];
   const counterEvidence = [
     missingFields.length ? `缺少分类字段：${missingFields.join('、')}` : '',
-    data.story?.trim() || details['典故']?.trim() ? '' : '当前资料没有典故，不得自行补造人物或事件',
+    story ? '' : '当前资料没有典故，不得自行补造人物或事件',
   ].filter(Boolean);
   const limitations = [
     '签诗、典故、分类解读与掷筊仪式属于传统象征材料，不是现代统计或因果证据',
@@ -109,12 +140,12 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       source: '命语三山国王灵签数据集所用版本',
       tags: ['签诗原文', `第${data.number}签`],
     },
-    ...(data.story?.trim()
+    ...(promptStory
       ? [
           {
             level: '辅证' as const,
             title: '签附典故',
-            detail: data.story.trim(),
+            detail: `${promptStory}；边界：仅作传统类比背景，不是事实结论或结果保证`,
             source: '命语当前签文数据收录典故',
             tags: ['典故类比'],
           },
@@ -122,10 +153,10 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       : []),
     ...interpretations.map((item): PromptEvidenceItem => ({
       level: item.field === '核心寓意' ? '主证' : '辅证',
-      title: `${item.field}分类解读`,
-      detail: item.text,
+      title: `${item.field}传统分类释义（非事实结论）`,
+      detail: `${item.promptText}；边界：${item.limitation}`,
       source: '命语整理的分类解释资料',
-      tags: [item.role, item.field],
+      tags: [item.role, item.field, '条件化表达'],
     })),
     {
       level: data.ritual?.confirmed ? '辅证' : '反证',
@@ -178,7 +209,8 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
   ].join('\n');
   return {
     signText: { number: data.number, title: data.title, poem: data.poem },
-    story: data.story?.trim() || undefined,
+    story,
+    promptStory,
     interpretations,
     missingFields,
     drawFacts,
@@ -192,6 +224,7 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     methodology: [
       '先核对签号、签题和签诗原文，再读取典故与分类字段。',
       '签诗作为文本主证，典故与分类解读只作分层辅助，不互相替代。',
+      '分类释义保留原始资料文本，同时另生成条件化提示词文本，避免把传统断语包装成结果保证。',
       '独立记录抽签随机轨迹和掷筊仪式状态；未获圣杯时停止签文解释。',
       '所有象征解释均须回到用户问题和现实资料复核。',
     ],
