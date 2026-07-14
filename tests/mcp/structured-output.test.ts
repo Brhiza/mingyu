@@ -379,11 +379,33 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
       );
       if (name === 'metaphysics_qizheng') {
         const chart = (
-          result.structuredContent as { result?: { aspects?: Array<{ strength?: number }> } }
+          result.structuredContent as {
+            result?: {
+              stars?: unknown[];
+              aspects?: Array<{ strength?: number; allowedOrb?: number }>;
+              evidenceAnalysis?: {
+                starFacts?: Array<{ sources: string[]; limitation: string }>;
+                aspectFacts?: Array<{ allowedOrb: number; limitation: string }>;
+              };
+            };
+          }
         ).result;
         for (const aspect of chart?.aspects ?? []) {
           assert.equal(aspect.strength, undefined);
+          assert.equal(typeof aspect.allowedOrb, 'number');
         }
+        assert.equal(chart?.evidenceAnalysis?.starFacts?.length, chart?.stars?.length);
+        assert.equal(chart?.evidenceAnalysis?.aspectFacts?.length, chart?.aspects?.length);
+        assert.ok(
+          chart?.evidenceAnalysis?.starFacts?.every(
+            (item) => item.sources.length >= 3 && item.limitation.includes('必须分层使用'),
+          ),
+        );
+        assert.ok(
+          chart?.evidenceAnalysis?.aspectFacts?.every(
+            (item) => item.allowedOrb > 0 && item.limitation.includes('混合模型不得提升为现代天文'),
+          ),
+        );
       }
 
       const text = result.content[0]?.type === 'text' ? result.content[0].text : '';

@@ -116,6 +116,7 @@ export interface QizhengAspect {
   exactAngle: number;
   actualAngle: number;
   orb: number;
+  allowedOrb: number;
   /** 偏差占当前相位容许度的比例，0为精确相位，1为容许度边界。 */
   orbRatio: number;
   closeness: '紧密' | '中等' | '宽松';
@@ -151,6 +152,8 @@ export interface QizhengCalculationContext {
 }
 
 export interface QizhengEvidenceAnalysis {
+  starFacts: QizhengStarFact[];
+  aspectFacts: QizhengAspectFact[];
   primaryFacts: string[];
   supportingFacts: string[];
   limitations: string[];
@@ -158,6 +161,50 @@ export interface QizhengEvidenceAnalysis {
   promptText: string;
   methodology: string[];
 }
+
+export interface QizhengStarFact {
+  key: string;
+  name: string;
+  kind: QizhengStar['kind'];
+  tropicalLongitude: number;
+  siderealLongitude: number;
+  xiu: string;
+  sevenStar: string;
+  xiuDegree: number;
+  signIndex: number;
+  palace: string;
+  retrograde: boolean;
+  dignity?: string;
+  sourceId: QizhengPositionSourceId;
+  sourceLabel: string;
+  precisionClass: QizhengStar['precisionClass'];
+  promptText: string;
+  sources: string[];
+  limitation: '逐星位置是回归黄经、项目恒星黄经、古距度宿度与落宫的计算事实；现代天文计算和传统均速模型必须分层使用，不单独证明人格、现实事件、吉凶或应期';
+}
+
+export interface QizhengAspectFact {
+  key: string;
+  star1: string;
+  star2: string;
+  type: QizhengAspect['type'];
+  exactAngle: number;
+  actualAngle: number;
+  orb: number;
+  allowedOrb: number;
+  orbRatio: number;
+  closeness: QizhengAspect['closeness'];
+  precisionClass: QizhengAspect['precisionClass'];
+  promptText: string;
+  sources: string[];
+  limitation: '吊照相位只描述两星项目恒星黄经在当前容许度内的几何关系；混合模型不得提升为现代天文同精度证据，也不代表吉凶比例、事件概率或必然结果';
+}
+
+const STAR_FACT_LIMITATION =
+  '逐星位置是回归黄经、项目恒星黄经、古距度宿度与落宫的计算事实；现代天文计算和传统均速模型必须分层使用，不单独证明人格、现实事件、吉凶或应期' as const;
+
+const ASPECT_FACT_LIMITATION =
+  '吊照相位只描述两星项目恒星黄经在当前容许度内的几何关系；混合模型不得提升为现代天文同精度证据，也不代表吉凶比例、事件概率或必然结果' as const;
 
 export interface QizhengInput {
   year: number;
@@ -220,6 +267,7 @@ function buildQizhengAspects(stars: QizhengStar[]): QizhengAspect[] {
         exactAngle: matched.angle,
         actualAngle: Number(actualAngle.toFixed(4)),
         orb: Number(matched.deviation.toFixed(4)),
+        allowedOrb: matched.orb,
         orbRatio: Number(ratio.toFixed(4)),
         closeness: ratio <= 1 / 3 ? '紧密' : ratio <= 2 / 3 ? '中等' : '宽松',
         precisionClass:
@@ -670,19 +718,50 @@ function buildQizhengEvidence(
       : context.timezoneSource === 'IANA历史时区'
         ? 'IANA历史时区已解析'
         : context.timezoneSource;
-  const primaryFacts = stars.map(
-    (star) =>
-      `${star.name}据${star.sourceLabel}得${star.precisionClass}位置，落${star.palace}、${star.xiu}宿${star.dignity && star.dignity !== '—' ? `、状态${star.dignity}` : ''}`,
+  const starFacts: QizhengStarFact[] = stars.map((star) => ({
+    key: `逐星:${star.name}`,
+    name: star.name,
+    kind: star.kind,
+    tropicalLongitude: star.tropicalLongitude,
+    siderealLongitude: star.longitude,
+    xiu: star.xiu,
+    sevenStar: star.sevenStar,
+    xiuDegree: star.xiuDegree,
+    signIndex: star.signIndex,
+    palace: star.palace,
+    retrograde: star.retrograde,
+    dignity: star.dignity,
+    sourceId: star.sourceId,
+    sourceLabel: star.sourceLabel,
+    precisionClass: star.precisionClass,
+    promptText: `${star.name}（${star.kind}，${star.precisionClass}）：回归黄经${star.tropicalLongitude.toFixed(3)}°，项目恒星黄经${star.longitude.toFixed(3)}°，${star.xiu}宿${star.xiuDegree.toFixed(2)}度，落${star.palace}${star.dignity && star.dignity !== '—' ? `，状态${star.dignity}` : ''}${star.retrograde ? '，逆行' : ''}`,
+    sources: [star.sourceLabel, `位置源标识${star.sourceId}`, '项目岁差近似与二十八宿古距度换算'],
+    limitation: STAR_FACT_LIMITATION,
+  }));
+  const aspectFacts: QizhengAspectFact[] = aspects.map((aspect) => ({
+    key: `吊照:${aspect.star1}:${aspect.type}:${aspect.star2}`,
+    star1: aspect.star1,
+    star2: aspect.star2,
+    type: aspect.type,
+    exactAngle: aspect.exactAngle,
+    actualAngle: aspect.actualAngle,
+    orb: aspect.orb,
+    allowedOrb: aspect.allowedOrb,
+    orbRatio: aspect.orbRatio,
+    closeness: aspect.closeness,
+    precisionClass: aspect.precisionClass,
+    promptText: `${aspect.star1}与${aspect.star2}${aspect.type}：实际夹角${aspect.actualAngle.toFixed(2)}°，精确角${aspect.exactAngle.toFixed(2)}°，允许容许度${aspect.allowedOrb.toFixed(2)}°，距精确角偏差${aspect.orb.toFixed(2)}°，归一化容许度位置${aspect.orbRatio.toFixed(2)}，${aspect.closeness}等级，${aspect.precisionClass}${aspect.precisionClass === '混合模型' ? '；不得因角度接近而提升为现代天文同精度证据' : ''}`,
+    sources: [aspect.source, '项目恒星黄经最小夹角与当前吊照容许度表'],
+    limitation: ASPECT_FACT_LIMITATION,
+  }));
+  const primaryFacts = starFacts.map(
+    (fact) =>
+      `${fact.name}据${fact.sourceLabel}得${fact.precisionClass}位置，落${fact.palace}、${fact.xiu}宿${fact.dignity && fact.dignity !== '—' ? `、状态${fact.dignity}` : ''}`,
   );
   primaryFacts.push(
     `命宫落黄道第${structure.mingGong + 1}宫，身宫落黄道第${structure.shenGong + 1}宫，命主${structure.mingZhu}`,
   );
-  const supportingFacts = aspects
-    .slice(0, 12)
-    .map(
-      (aspect) =>
-        `${aspect.star1}与${aspect.star2}${aspect.type}，实际夹角${aspect.actualAngle.toFixed(2)}°，距精确角偏差${aspect.orb.toFixed(2)}°，属于${aspect.closeness}容许度、${aspect.precisionClass}证据`,
-    );
+  const supportingFacts = aspectFacts.slice(0, 12).map((aspect) => aspect.promptText);
   supportingFacts.push(
     `紫炁顺行回归黄经${structure.ziqi.tropicalLongitude.toFixed(3)}°、项目恒星黄经${structure.ziqi.siderealLongitude.toFixed(3)}°，采用${structure.ziqiModel.name}`,
   );
@@ -700,18 +779,18 @@ function buildQizhengEvidence(
     '神煞只作辅证，不能覆盖星体位置、宿度、落宫和吊照结构',
   ];
   const items: PromptEvidenceItem[] = [
-    ...stars.map((star): PromptEvidenceItem => ({
+    ...starFacts.map((star): PromptEvidenceItem => ({
       level: star.kind === '七政' ? '主证' : '辅证',
       title: `${star.name}位置与落宫`,
-      detail: `${star.precisionClass}；回归黄经${star.tropicalLongitude.toFixed(3)}°，项目恒星黄经${star.longitude.toFixed(3)}°，${star.xiu}宿${star.xiuDegree.toFixed(2)}度，落${star.palace}${star.dignity && star.dignity !== '—' ? `，${star.dignity}` : ''}`,
-      source: star.sourceLabel,
+      detail: `${star.promptText}；边界：${star.limitation}`,
+      source: star.sources.join('；'),
       tags: [star.kind, star.precisionClass, star.xiu, star.palace],
     })),
-    ...aspects.slice(0, 12).map((aspect): PromptEvidenceItem => ({
+    ...aspectFacts.slice(0, 12).map((aspect): PromptEvidenceItem => ({
       level: '辅证',
       title: `${aspect.star1}与${aspect.star2}${aspect.type}`,
-      detail: `实际夹角${aspect.actualAngle.toFixed(2)}°，标准角${aspect.exactAngle}°，偏差${aspect.orb.toFixed(2)}°，容许度等级${aspect.closeness}，${aspect.precisionClass}${aspect.precisionClass === '混合模型' ? '，不得因角度接近而提升为现代天文同精度证据' : ''}`,
-      source: aspect.source,
+      detail: `${aspect.promptText}；边界：${aspect.limitation}`,
+      source: aspect.sources.join('；'),
       tags: ['吊照', aspect.type, aspect.closeness],
     })),
     {
@@ -737,6 +816,8 @@ function buildQizhengEvidence(
   ];
   const evidence: PromptEvidenceBundle = { title: '七政四余计算来源与证据分层', items };
   return {
+    starFacts,
+    aspectFacts,
     primaryFacts,
     supportingFacts,
     limitations,

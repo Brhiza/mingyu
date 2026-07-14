@@ -477,6 +477,8 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
     r.aspects.every(
       (aspect) =>
         aspect.orb >= 0 &&
+        aspect.allowedOrb > 0 &&
+        aspect.orb <= aspect.allowedOrb &&
         aspect.orbRatio >= 0 &&
         aspect.orbRatio <= 1 &&
         aspect.strength === undefined,
@@ -521,8 +523,33 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.match(r.prompt, /月相证据：/);
   assert.match(r.prompt, /JD\(TT\)/);
   assert.match(r.evidenceAnalysis.promptText, /【七政四余计算来源与证据分层】/);
+  assert.equal(r.evidenceAnalysis.starFacts.length, r.stars.length);
+  assert.equal(r.evidenceAnalysis.aspectFacts.length, r.aspects.length);
+  assert.ok(
+    r.evidenceAnalysis.starFacts.every(
+      (item) =>
+        item.sourceId &&
+        item.sources.length >= 3 &&
+        item.promptText &&
+        item.limitation.includes('现代天文计算和传统均速模型必须分层使用'),
+    ),
+  );
+  assert.ok(
+    r.evidenceAnalysis.aspectFacts.every(
+      (item) =>
+        item.allowedOrb > 0 &&
+        item.orb <= item.allowedOrb &&
+        item.sources.length >= 2 &&
+        item.promptText.includes('允许容许度') &&
+        item.limitation.includes('混合模型不得提升为现代天文同精度证据'),
+    ),
+  );
   assert.match(r.evidenceAnalysis.promptText, /现代天文计算/);
   assert.match(r.evidenceAnalysis.promptText, /传统均速模型/);
+  assert.match(
+    r.evidenceAnalysis.promptText,
+    /实际夹角.*精确角.*允许容许度.*距精确角偏差.*归一化容许度位置/,
+  );
   assert.match(r.evidenceAnalysis.promptText, /命宫、身宫与命主定位/);
   assert.match(r.evidenceAnalysis.promptText, /紫炁与神煞定位/);
   assert.ok(r.evidenceAnalysis.primaryFacts.some((item) => item.includes('命宫落黄道第')));

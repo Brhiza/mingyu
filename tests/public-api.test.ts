@@ -2892,9 +2892,30 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
     '传统均速模型',
   );
   assert.match(body.data.evidenceAnalysis.promptText, /【七政四余计算来源与证据分层】/);
+  assert.equal(body.data.evidenceAnalysis.starFacts.length, body.data.stars.length);
+  assert.equal(body.data.evidenceAnalysis.aspectFacts.length, body.data.aspects.length);
+  assert.ok(
+    body.data.evidenceAnalysis.starFacts.every(
+      (item: Record<string, unknown>) =>
+        item.sourceId &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        item.sources.length >= 3 &&
+        String(item.limitation).includes('必须分层使用'),
+    ),
+  );
+  assert.ok(
+    body.data.evidenceAnalysis.aspectFacts.every(
+      (item: Record<string, unknown>) =>
+        typeof item.allowedOrb === 'number' &&
+        item.promptText &&
+        String(item.limitation).includes('混合模型不得提升'),
+    ),
+  );
   assert.doesNotMatch(body.data.prompt, /强度\d+%/);
-  body.data.aspects.forEach((aspect: { strength?: number }) => {
+  body.data.aspects.forEach((aspect: { strength?: number; allowedOrb?: number }) => {
     assert.equal(aspect.strength, undefined);
+    assert.equal(typeof aspect.allowedOrb, 'number');
   });
   assert.equal(
     body.data.ziqiModel.sources.filter((source: { usage: string }) => source.usage === '未采用')
