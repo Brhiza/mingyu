@@ -48,7 +48,8 @@ const promptUsageTips = [
 const commonQuestions = [
   {
     question: '不知道准确出生时间怎么办？',
-    answer: '请先核实出生记录；无法确认时不应凭大概时间排盘。',
+    answer:
+      '知道明确时辰时，可关闭真太阳时并直接选择时辰排盘；只有使用真太阳时才需要精准时分和出生地。连时辰也无法确认时，不应凭大概时间排盘。',
   },
   {
     question: '什么时候用真太阳时？',

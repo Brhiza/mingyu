@@ -191,7 +191,7 @@ export const PersonForm = memo(function PersonForm({
                   updatePersonField(role, 'useTrueSolarTime', event.target.checked)
                 }
               />
-              <span>使用真太阳时</span>
+              <span>使用真太阳时（需精准时分和出生地）</span>
             </label>
           </div>
         )}
@@ -256,6 +256,9 @@ export const PersonForm = memo(function PersonForm({
                   </option>
                 ))}
               </select>
+              <div className="birth-time-hint">
+                普通排盘可直接按明确时辰生成完整时柱，无需精确到分钟。
+              </div>
             </div>
           </div>
         )}
