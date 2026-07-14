@@ -6,7 +6,7 @@ import {
   TAROT_SPREAD_INSPIRATION_QUESTIONS,
   resolveDivinationInspiredDraftPatch,
 } from '../src/lib/divination/inspiration';
-import type { QimenJiuGongGe, TaiyiResult } from '../packages/core/src/types/divination';
+import type { QimenJiuGongGe, TaiyiResult, TarotData } from '../packages/core/src/types/divination';
 import { STEM_TOMB_MAP } from '../packages/core/src/divination/algorithms/qimen/helpers/_constants';
 import {
   getClassicPatterns,
@@ -3702,6 +3702,14 @@ test('塔罗与雷诺曼提示词应包含可回退生成的结构化证据', as
   );
   assert.match(tarotSession.prompt, /【塔罗牌位与牌面结构化证据】/);
   assert.doesNotMatch(tarotSession.prompt, /成功率为\d|吉凶总分[：=]\d|能量分数[：=]\d/);
+  const tarotData = tarotSession.data as TarotData;
+  const tarotItems = tarotData.evidenceAnalysis?.evidence.items ?? [];
+  assert.equal(tarotItems.find((item) => item.title.startsWith('牌阵结构：'))?.level, '辅证');
+  assert.equal(tarotItems.find((item) => item.title === '牌位顺序推进')?.level, '辅证');
+  const tarotRandom = tarotItems.find((item) => item.title === '随机过程重放记录');
+  assert.equal(tarotRandom?.level, '辅证');
+  assert.match(tarotRandom?.detail || '', /不表示可信度或预测有效性/);
+  assert.ok(tarotData.evidenceAnalysis?.randomFacts.some((item) => item.includes('随机模式')));
 
   const lenormandSession = await generateDivinationSession(
     buildDraft({ method: 'lenormand', lenormandSpread: 'nine', question: '事情有哪些线索？' }),

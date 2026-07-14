@@ -19,6 +19,7 @@ export interface TarotEvidenceAnalysis {
   cards: TarotCardEvidence[];
   sequence: string[];
   recurringThemes: string[];
+  randomFacts: string[];
   counterEvidence: string[];
   limitations: string[];
   evidence: PromptEvidenceBundle;
@@ -69,11 +70,20 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
   const themeCounts = new Map<string, number>();
   cards.forEach((card) => {
     const element = normalizeElement(card.element);
+    if (element === '元素未列') return;
     themeCounts.set(element, (themeCounts.get(element) ?? 0) + 1);
   });
   const recurringThemes = Array.from(themeCounts.entries())
     .filter(([, count]) => count >= 2)
     .map(([theme, count]) => `${theme}主题出现${count}张，只表示牌面重复，不等于权重分数`);
+  const trace = data.meta?.random;
+  const randomFacts = trace
+    ? [
+        `随机模式：${trace.mode}`,
+        `原始随机样本数：${trace.samples.length}`,
+        trace.seed !== undefined ? `随机种子：${String(trace.seed)}` : '',
+      ].filter(Boolean)
+    : ['当前结果未附随机轨迹，无法核验洗牌、抽牌和正逆位的重放过程'];
   const counterEvidence = cards.flatMap((card) =>
     card.constraints.map((constraint) => `${card.position}${card.name}：${constraint}`),
   );
@@ -85,13 +95,51 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
     '牌面不能证明他人隐私、医疗诊断、法律事实、投资回报或唯一未来结果',
     '未给现实期限时不得把牌号、张数或牌义换算为绝对日期',
   ];
-  const items: PromptEvidenceItem[] = cards.map((card, index): PromptEvidenceItem => ({
-    level: index === cards.length - 1 || cards.length === 1 ? '主证' : '辅证',
-    title: `${card.position}：${card.name}${card.orientation}`,
-    detail: `关键词${card.keywords.join('、') || '未列'}；元素主题${card.element}；牌阶主题${card.archetype}；当前取义${card.activeMeaning}。`,
-    source: '当前牌阵牌位、抽取牌面与命语逐牌词典',
-    tags: [card.position, card.name, card.orientation, normalizeElement(card.element)],
-  }));
+  const items: PromptEvidenceItem[] = [
+    {
+      level: '辅证',
+      title: `牌阵结构：${data.spreadName}`,
+      detail: `牌阵类型${data.spreadType}；共${cards.length}张；牌位依次为${cards.map((card) => card.position).join('、')}`,
+      source: '当前牌阵配置与命语牌阵位置定义',
+      tags: ['牌阵结构', data.spreadType, `${cards.length}张`],
+    },
+    ...cards.map((card, index): PromptEvidenceItem => ({
+      level: index === cards.length - 1 || cards.length === 1 ? '主证' : '辅证',
+      title: `${card.position}：${card.name}${card.orientation}`,
+      detail: `关键词${card.keywords.join('、') || '未列'}；元素主题${card.element}；牌阶主题${card.archetype}；当前取义${card.activeMeaning}。`,
+      source: '当前牌阵牌位、抽取牌面与命语逐牌词典',
+      tags: [card.position, card.name, card.orientation, normalizeElement(card.element)],
+    })),
+    ...(sequence.length
+      ? [
+          {
+            level: '辅证' as const,
+            title: '牌位顺序推进',
+            detail: sequence.join('；'),
+            source: '当前牌阵的既定牌位顺序',
+            tags: ['牌序', '阶段关系'],
+          },
+        ]
+      : []),
+    ...(recurringThemes.length
+      ? [
+          {
+            level: '辅证' as const,
+            title: '重复元素构成',
+            detail: recurringThemes.join('；'),
+            source: '当前牌面元素标签逐张计数',
+            tags: ['构成描述', '不计权重'],
+          },
+        ]
+      : []),
+    {
+      level: trace ? '辅证' : '反证',
+      title: trace ? '随机过程重放记录' : '随机轨迹缺失',
+      detail: `${randomFacts.join('；')}；该记录只用于核验抽牌过程能否重放，不表示可信度或预测有效性`,
+      source: '命语统一随机轨迹协议',
+      tags: ['随机轨迹', trace ? '可重放' : '不可核验', '不代表预测有效性'],
+    },
+  ];
   items.push(
     ...counterEvidence.map((detail): PromptEvidenceItem => ({
       level: '反证',
@@ -121,6 +169,7 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
     cards,
     sequence,
     recurringThemes,
+    randomFacts,
     counterEvidence,
     limitations,
     evidence,
