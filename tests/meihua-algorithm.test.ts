@@ -118,8 +118,14 @@ test('梅花：仅随机起卦应把重放轨迹接入统一证据', () => {
   );
 
   assert.equal(randomItem?.level, '辅证');
-  assert.match(randomItem?.detail || '', /随机种子：梅花证据样例/);
+  assert.doesNotMatch(randomItem?.detail || '', /梅花证据样例/);
+  assert.match(randomItem?.detail || '', /随机种子保留在结构化结果中/);
   assert.match(randomItem?.detail || '', /不表示可信度或预测有效性/);
+  assert.ok(
+    randomData.evidenceAnalysis?.randomFacts.some((item) =>
+      item.includes('随机种子：梅花证据样例'),
+    ),
+  );
   assert.deepEqual(numberData.evidenceAnalysis?.randomFacts, []);
   assert.ok(
     !numberData.evidenceAnalysis?.evidence.items.some((item) => item.tags?.includes('随机起卦')),

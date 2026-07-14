@@ -19,6 +19,9 @@ export interface MeihuaStageEvidence {
 }
 
 export interface MeihuaEvidenceAnalysis {
+  calculationFacts: string[];
+  hexagramFacts: string[];
+  yaoFacts: string[];
   monthBranch: string;
   movingYao: number;
   stages: MeihuaStageEvidence[];
@@ -104,11 +107,110 @@ function formatStage(stage: MeihuaStageEvidence) {
   return `${stage.label}${stage.hexagram}：体卦${stage.ti.name}${stage.ti.element}（月令${stage.ti.seasonState}），用卦${stage.yong.name}${stage.yong.element}（月令${stage.yong.seasonState}），关系${stage.relation}`;
 }
 
+function hasFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function hasText(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function appendResolvedResultFacts(facts: string[], data: MeihuaData) {
+  facts.push(
+    `已确定起卦结果：上卦${data.mainHexagram.upper}、下卦${data.mainHexagram.lower}、动爻第${data.movingYao.position}爻`,
+  );
+}
+
+function buildCalculationFacts(data: MeihuaData): string[] {
+  const calculation = data.calculation;
+  if (!calculation) return ['起卦计算过程未附，无法复核上下卦与动爻索引来源'];
+  const facts = [`起卦方式：${calculation.method}`];
+  if (calculation.methodKey === 'time' || calculation.methodKey === 'timeTrigram') {
+    const hasCompleteTimeInputs =
+      hasText(calculation.yearZhi) &&
+      hasFiniteNumber(calculation.yearZhiIndex) &&
+      hasFiniteNumber(calculation.month) &&
+      hasFiniteNumber(calculation.day) &&
+      hasText(calculation.timeZhi) &&
+      hasFiniteNumber(calculation.timeZhiIndex) &&
+      hasFiniteNumber(calculation.upperTrigramIndex) &&
+      hasFiniteNumber(calculation.lowerTrigramIndex) &&
+      hasFiniteNumber(calculation.movingYaoIndex);
+    if (hasCompleteTimeInputs) {
+      facts.push(
+        `时间取数：农历年支${calculation.yearZhi}序${calculation.yearZhiIndex}、月数${calculation.month}、日数${calculation.day}、时支${calculation.timeZhi}序${calculation.timeZhiIndex}`,
+        `上卦=(${calculation.yearZhiIndex}+${calculation.month}+${calculation.day})除8取余为${calculation.upperTrigramIndex}`,
+        `下卦=(${calculation.yearZhiIndex}+${calculation.month}+${calculation.day}+${calculation.timeZhiIndex})除8取余为${calculation.lowerTrigramIndex}`,
+        `动爻=(${calculation.yearZhiIndex}+${calculation.month}+${calculation.day}+${calculation.timeZhiIndex})除6取余为${calculation.movingYaoIndex}`,
+      );
+    } else {
+      facts.push('当前结果未附完整时间取数中间参数，仅保留已确定卦象与动爻结果');
+      appendResolvedResultFacts(facts, data);
+    }
+  } else if (calculation.methodKey === 'number') {
+    if (hasFiniteNumber(calculation.number)) facts.push(`输入数字：${calculation.number}`);
+    const hasCompleteNumberInputs =
+      hasFiniteNumber(calculation.number) &&
+      hasText(calculation.timeZhi) &&
+      hasFiniteNumber(calculation.timeZhiIndex) &&
+      hasFiniteNumber(calculation.totalWithTime) &&
+      hasFiniteNumber(calculation.upperTrigramIndex) &&
+      hasFiniteNumber(calculation.lowerTrigramIndex) &&
+      hasFiniteNumber(calculation.movingYaoIndex);
+    if (hasCompleteNumberInputs) {
+      facts.push(
+        `数字取数：输入${calculation.number}，时支${calculation.timeZhi}序${calculation.timeZhiIndex}，合计${calculation.totalWithTime}`,
+        `上卦=${calculation.number}除8取余为${calculation.upperTrigramIndex}`,
+        `下卦=${calculation.totalWithTime}除8取余为${calculation.lowerTrigramIndex}`,
+        `动爻=${calculation.totalWithTime}除6取余为${calculation.movingYaoIndex}`,
+      );
+    } else {
+      facts.push('当前结果未附完整数字取数中间参数，仅保留已确定卦象与动爻结果');
+      appendResolvedResultFacts(facts, data);
+    }
+  } else if (calculation.methodKey === 'random') {
+    if (
+      hasFiniteNumber(calculation.upperTrigramIndex) &&
+      hasFiniteNumber(calculation.lowerTrigramIndex) &&
+      hasFiniteNumber(calculation.movingYaoIndex)
+    ) {
+      facts.push(
+        `随机取数结果：上卦索引${calculation.upperTrigramIndex}、下卦索引${calculation.lowerTrigramIndex}、动爻${calculation.movingYaoIndex}`,
+      );
+    } else {
+      facts.push('当前结果未附完整随机取数索引，仅保留已确定卦象与动爻结果');
+      appendResolvedResultFacts(facts, data);
+    }
+  }
+  if (hasText(calculation.compatibilityNote)) {
+    facts.push(`兼容口径：${calculation.compatibilityNote}`);
+  }
+  return facts;
+}
+
 export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis {
   if (!data?.tiGua || !data?.yongGua || !data?.movingYao) {
     throw new Error('梅花体用推进证据缺少完整体用或动爻资料。');
   }
   const monthBranch = data.ganzhi.month.slice(-1);
+  const calculationFacts = buildCalculationFacts(data);
+  const hexagramFacts = [
+    `主卦${data.mainHexagram.name}${data.mainHexagram.symbol}，上${data.mainHexagram.upper}下${data.mainHexagram.lower}：${data.mainHexagram.description}`,
+    ...(data.interHexagram
+      ? [
+          `互卦${data.interHexagram.name}${data.interHexagram.symbol}，上${data.interHexagram.upper}下${data.interHexagram.lower}：${data.interHexagram.description}`,
+        ]
+      : []),
+    ...(data.changedHexagram
+      ? [
+          `变卦${data.changedHexagram.name}${data.changedHexagram.symbol}，上${data.changedHexagram.upper}下${data.changedHexagram.lower}：${data.changedHexagram.description}`,
+        ]
+      : []),
+  ];
+  const yaoFacts = data.yaosDetail.map(
+    (item) =>
+      `第${item.position}爻为${item.yaoType}爻，属${item.tiYong}${item.isChanging ? '，本爻发动' : ''}`,
+  );
   const stages: MeihuaStageEvidence[] = [
     createStage({
       stage: 'origin',
@@ -174,6 +276,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       ? '体卦有休囚死阶段时，需等待现实阻力缓解或外部条件改变再验'
       : '体卦各阶段未见明显休囚死，仍须等待现实事件验证',
     '动爻、卦数与旺衰不能据此换算绝对日期',
+    ...(data.analysis.yingQi ?? []),
   ];
   const counterEvidence = Array.from(new Set(stages.flatMap((item) => item.constraints)));
   const isRandomMethod = data.calculation?.methodKey === 'random';
@@ -187,18 +290,89 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
         ].filter(Boolean)
       : ['随机起卦结果未附随机轨迹，无法核验上下卦与动爻的重放过程']
     : [];
-  const items: PromptEvidenceItem[] = stages.map((stage, index) => ({
-    level: index === 0 ? '主证' : '辅证',
-    title: `${stage.label}阶段`,
-    detail: `${formatStage(stage)}；依据：${stage.basis}；支持：${stage.support.join('、') || '未见额外增强'}；限制：${stage.constraints.join('、') || '未见明显月令限制'}`,
-    source: '梅花体用、互卦、变卦与月建旺衰逐阶段核验',
-    tags: [stage.stage, stage.relation],
-  }));
+  const promptRandomFacts = randomFacts.filter((item) => !item.startsWith('随机种子：'));
+  const items: PromptEvidenceItem[] = [
+    {
+      level: '辅证',
+      title: '起卦方式与取数算式',
+      detail: calculationFacts.join('；'),
+      source: '当前起卦方式的输入值、取余规则与输出索引',
+      tags: ['起卦算式', data.calculation?.methodKey ?? '来源未列'],
+    },
+    {
+      level: '主证',
+      title: '主互变卦象事实',
+      detail: hexagramFacts.join('；'),
+      source: '上下卦索引、六爻序列、互卦取二三四与三四五爻、动爻阴阳翻转',
+      tags: [
+        '主卦',
+        ...(data.interHexagram ? ['互卦'] : []),
+        ...(data.changedHexagram ? ['变卦'] : []),
+      ],
+    },
+    {
+      level: '辅证',
+      title: '六爻阴阳与体用归属',
+      detail: yaoFacts.join('；'),
+      source: '主卦自下而上六爻数据与动爻所在经卦',
+      tags: ['六爻结构', '动爻', '体用'],
+    },
+    ...(data.mainHexagram.movingYaoCi
+      ? [
+          {
+            level: '辅证' as const,
+            title: `${data.movingYao.yaoName}爻辞`,
+            detail: data.mainHexagram.movingYaoCi,
+            source: '当前主卦逐爻辞数据；仅作动爻取象辅助',
+            tags: ['动爻爻辞', data.movingYao.yaoName],
+          },
+        ]
+      : []),
+    ...stages.map((stage, index): PromptEvidenceItem => ({
+      level: index === 0 ? '主证' : '辅证',
+      title: `${stage.label}阶段`,
+      detail: `${formatStage(stage)}；依据：${stage.basis}；支持：${stage.support.join('、') || '未见额外增强'}；限制：${stage.constraints.join('、') || '未见明显月令限制'}`,
+      source: '梅花体用、互卦、变卦与月建旺衰逐阶段核验',
+      tags: [stage.stage, stage.relation],
+    })),
+    ...transitions.map((detail, index): PromptEvidenceItem => ({
+      level: '辅证',
+      title: `${index === 0 ? '起因至过程' : '过程至结果'}体用转变`,
+      detail,
+      source: '主卦、互卦、变卦阶段体用关系比较',
+      tags: ['阶段推进', index === 0 ? '过程' : '结果'],
+    })),
+    ...(data.analysis.inter2Relation && data.analysis.inter2Relation !== '无'
+      ? [
+          {
+            level: '辅证' as const,
+            title: '互卦对原体辅助关系',
+            detail: `辅助关系为${data.analysis.inter2Relation}；该关系不是主互卦体用主线，只作为补充取象。`,
+            source: '互卦上卦与原体卦五行关系',
+            tags: ['互卦辅助', '非主线'],
+          },
+        ]
+      : []),
+    {
+      level: '应期',
+      title: '变化触发与应期条件',
+      detail: timingConditions.join('；'),
+      source: '动爻层位、月建旺衰、体用生克与现实触发条件',
+      tags: ['应期', '触发条件', '不换算绝对日期'],
+    },
+    ...counterEvidence.map((detail, index): PromptEvidenceItem => ({
+      level: '反证',
+      title: `体用限制核验${index + 1}`,
+      detail,
+      source: '逐阶段体用生克与月令旺衰核验',
+      tags: ['反证', '体用限制'],
+    })),
+  ];
   if (isRandomMethod) {
     items.push({
       level: trace ? '辅证' : '反证',
       title: trace ? '随机起卦重放记录' : '随机轨迹缺失',
-      detail: `${randomFacts.join('；')}；该记录只用于核验起卦过程能否重放，不表示可信度或预测有效性`,
+      detail: `${promptRandomFacts.join('；')}；随机种子保留在结构化结果中，不写入自然语言提示词；该记录只用于核验起卦过程能否重放，不表示可信度或预测有效性`,
       source: '命语统一随机轨迹协议',
       tags: ['随机起卦', trace ? '可重放' : '不可核验', '不代表预测有效性'],
     });
@@ -218,6 +392,9 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     `触发条件：${timingConditions.join('；')}`,
   ].join('\n');
   return {
+    calculationFacts,
+    hexagramFacts,
+    yaoFacts,
     monthBranch,
     movingYao: data.movingYao.position,
     stages,
@@ -229,6 +406,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     promptText,
     methodology: [
       '主卦定起因与当前体用，互卦定过程，变卦定变化后的结果关系。',
+      '起卦输入、取余算式、六爻阴阳、互卦构造和动爻翻转均作为可复核计算事实保留。',
       '每个阶段分别计算体用生克和月建旺衰，不把某一阶段扩大为全局结论。',
       '动爻只标记变化层位与触发顺序，卦数只保留原始计算资料，不机械换算绝对日期。',
       '只输出支持、反证、限制和触发条件，不生成吉凶总分或成功率。',
