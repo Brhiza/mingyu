@@ -161,7 +161,6 @@ export interface VisibleStemRootItem {
   pillar: string;
   stem: string;
   tenGod: string;
-  rootScore: number;
   status: '有本根' | '有同气根' | '无根';
   summary: string;
 }
@@ -177,7 +176,6 @@ export interface ExposedStemItem {
   seasonStatus: string;
   commandStatus: string;
   rootStatus: string;
-  rootScore: number;
   summary: string;
 }
 export interface ExposedStemProfile {
