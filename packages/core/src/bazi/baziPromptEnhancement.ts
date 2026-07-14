@@ -9,8 +9,6 @@ import {
   identifyClassicPattern,
   getPeachBlossomDetail,
   generateAnalysisDimensionHints,
-  detectDiseaseMedicine,
-  detectTongguanNeed,
 } from './baziEnhancement';
 import { assessAllHarmonyTransforms } from './harmonyTransform';
 
@@ -23,38 +21,6 @@ const PILLAR_LABELS: Record<PillarKey, string> = {
   day: '日柱',
   hour: '时柱',
 };
-
-function extractWuxingTokens(text: string | undefined): string[] {
-  if (!text) return [];
-  return Array.from(new Set(text.match(/[木火土金水]/g) || []));
-}
-
-function extractMedicineWuxingCandidates(medicine: string): string[] {
-  const directionalMatches = Array.from(
-    medicine.matchAll(/([木火土金水])(?:克|泄|调|润|暖|通)/g),
-    (match) => match[1],
-  );
-  if (directionalMatches.length > 0) {
-    return Array.from(new Set(directionalMatches));
-  }
-  return extractWuxingTokens(medicine);
-}
-
-function shouldIncludeDiseaseMedicineSection(
-  medicine: string,
-  unfavorableWuxing: string[],
-): boolean {
-  const medicineWuxings = extractMedicineWuxingCandidates(medicine);
-  if (!medicineWuxings.length) return true;
-
-  return !medicineWuxings.some((wuxing) => unfavorableWuxing.includes(wuxing));
-}
-
-function shouldIncludeTongguanSection(tongguan: string, unfavorableWuxing: string[]): boolean {
-  const tongguanWuxings = extractWuxingTokens(tongguan);
-  if (!tongguanWuxings.length) return true;
-  return !tongguanWuxings.some((wuxing) => unfavorableWuxing.includes(wuxing));
-}
 
 function stripSectionTitle(text: string): string {
   return text.replace(/^【[^】]+】/, '').trim();
@@ -332,43 +298,12 @@ export function generateEnhancedAnalysisSection(
 ): string {
   const sections: string[] = [];
 
-  const wuxingCounts = chartResult.wuxingStrength?.percentages;
   const wuxingEvidence = chartResult.wuxingStrength;
   if (wuxingEvidence) {
     sections.push(
       `【五行结构证据】出现：${wuxingEvidence.present.join('、') || '无'}；按当前规则相对突出：${wuxingEvidence.dominantByRule.join('、') || '无'}；缺失：${wuxingEvidence.missing.join('、') || '无'}。${wuxingEvidence.ruleBasis.join('；')}`,
     );
   }
-  if (wuxingCounts && chartResult.analysis?.mingGe) {
-    const dm = detectDiseaseMedicine(
-      wuxingCounts,
-      chartResult.analysis.mingGe,
-      chartResult.analysis.dayMasterStrength.status,
-    );
-    const unfavorableWuxing = chartResult.analysis?.usefulGod?.unfavorableWuxing || [];
-    if (
-      dm.hasDisease &&
-      dm.medicine &&
-      shouldIncludeDiseaseMedicineSection(dm.medicine, unfavorableWuxing)
-    ) {
-      sections.push(`【病药法】病:${dm.disease} | 药:${dm.medicine}`);
-    }
-  }
-
-  const favorableWuxing = chartResult.analysis?.usefulGod?.favorableWuxing || [];
-  const unfavorableWuxing = chartResult.analysis?.usefulGod?.unfavorableWuxing || [];
-  if (wuxingCounts && favorableWuxing.length > 0) {
-    const tg = detectTongguanNeed(wuxingCounts, favorableWuxing, unfavorableWuxing);
-    if (
-      tg.need &&
-      tg.conflict &&
-      tg.tongguan &&
-      shouldIncludeTongguanSection(tg.tongguan, unfavorableWuxing)
-    ) {
-      sections.push(`【通关法】${tg.conflict[0]}与${tg.conflict[1]}相战，以${tg.tongguan}通关调和`);
-    }
-  }
-
   const classicSection = generateClassicPatternSection(chartResult);
   if (classicSection) sections.push(classicSection);
 

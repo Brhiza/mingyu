@@ -71,10 +71,6 @@ export interface HiddenStems {
 }
 
 export interface WuxingStrengthDetails {
-  /** 内部规则权重，仅供兼容旧计算链；不代表概率或现实强弱。 */
-  scores: Record<string, number>;
-  /** 归一化规则构成，仅供兼容旧展示；不代表概率或吉凶比例。 */
-  percentages: Record<string, number>;
   missing: string[];
   present: string[];
   dominantByRule: string[];

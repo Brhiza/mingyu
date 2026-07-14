@@ -393,8 +393,6 @@ export class BaziCalculator {
       hiddenStems: { year: [], month: [], day: [], hour: [] },
       hiddenTenGods: {},
       wuxingStrength: {
-        percentages: { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 },
-        scores: { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 },
         missing: [],
         present: [],
         dominantByRule: [],

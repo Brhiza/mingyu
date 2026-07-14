@@ -79,8 +79,8 @@ export interface BaziTenGodMapping {
 export interface BaziUsefulGodCoverage {
   beneficiary: 'person1' | 'person2';
   provider: 'person1' | 'person2';
-  favorable: Array<{ wuxing: string; providerPercentage: number }>;
-  unfavorable: Array<{ wuxing: string; providerPercentage: number }>;
+  favorable: Array<{ wuxing: string }>;
+  unfavorable: Array<{ wuxing: string }>;
   unavailableReason?: string;
 }
 
@@ -245,11 +245,11 @@ function calculateUsefulGodCoverage(
       unavailableReason: '命盘未提供结构化喜忌五行。',
     };
   }
-  const percentages = providerChart.wuxingStrength?.percentages ?? {};
+  const present = new Set(providerChart.wuxingStrength?.present ?? []);
   const match = (elements: string[] | undefined) =>
     [...new Set(elements ?? [])]
-      .map((wuxing) => ({ wuxing, providerPercentage: Number(percentages[wuxing] ?? 0) }))
-      .filter((item) => item.providerPercentage > 0);
+      .filter((wuxing) => present.has(wuxing))
+      .map((wuxing) => ({ wuxing }));
   return { beneficiary, provider, favorable: match(favorable), unfavorable: match(unfavorable) };
 }
 
@@ -314,10 +314,9 @@ function createEvidence(
           level: '辅证',
           title: `${provider}盘面包含${beneficiary}的喜用五行`,
           detail:
-            item.favorable
-              .map((entry) => `${entry.wuxing}${entry.providerPercentage.toFixed(1)}%`)
-              .join('、') + '；这里只确认五行覆盖，不等同于必然互补。',
-          source: '受益方喜用五行与提供方五行强度交叉',
+            item.favorable.map((entry) => entry.wuxing).join('、') +
+            '；这里只确认盘面出现该五行，不比较伪精确强度，也不等同于必然互补。',
+          source: '受益方喜用五行与提供方五行出现结构交叉',
           weight: 52,
           tags: ['八字合盘', '喜用覆盖'],
         });
@@ -327,10 +326,9 @@ function createEvidence(
           level: '反证',
           title: `${provider}盘面也包含${beneficiary}的忌神五行`,
           detail:
-            item.unfavorable
-              .map((entry) => `${entry.wuxing}${entry.providerPercentage.toFixed(1)}%`)
-              .join('、') + '；需结合双方原局强弱判断实际影响。',
-          source: '受益方忌神五行与提供方五行强度交叉',
+            item.unfavorable.map((entry) => entry.wuxing).join('、') +
+            '；这里只确认盘面出现该五行，需结合双方原局结构判断实际影响。',
+          source: '受益方忌神五行与提供方五行出现结构交叉',
           weight: 50,
           tags: ['八字合盘', '忌神覆盖'],
         });

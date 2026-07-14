@@ -26,9 +26,6 @@ export class WuxingCalculator {
       }
     }
 
-    const totalStrength = Object.values(weightedStrength).reduce((sum, val) => sum + val, 0);
-    const percentages = this._calculatePercentages(weightedStrength, totalStrength);
-
     const missingElements = Object.entries(rawStrength)
       .filter(([, score]) => score === 0)
       .map(([wuxing]) => wuxing);
@@ -40,8 +37,6 @@ export class WuxingCalculator {
     const commanderElement = monthCommander ? getWuxingUtil(monthCommander) : undefined;
 
     return {
-      scores: weightedStrength,
-      percentages,
       missing: missingElements,
       present,
       dominantByRule,
@@ -91,34 +86,5 @@ export class WuxingCalculator {
       );
     }
     return weightedStrength;
-  }
-
-  private _calculatePercentages(
-    weightedStrength: Record<string, number>,
-    totalStrength: number,
-  ): Record<string, number> {
-    const percentages: Record<string, number> = { 金: 0, 木: 0, 水: 0, 火: 0, 土: 0 };
-    if (totalStrength === 0) {
-      return percentages;
-    }
-
-    // 按比例计算并保留一位小数，避免 Math.round 取整后将误差集中到末项
-    let accumulated = 0;
-    const keys = Object.keys(weightedStrength);
-    const rawPcts: Array<{ key: string; pct: number }> = keys.map((key) => ({
-      key,
-      pct: Math.round(((weightedStrength[key] || 0) / totalStrength) * 1000) / 10,
-    }));
-    // 按原始比例降序，末项补差时偏小项承受误差更不明显
-    rawPcts.sort((a, b) => b.pct - a.pct);
-
-    for (let i = 0; i < rawPcts.length - 1; i++) {
-      const pct = Math.round(rawPcts[i].pct);
-      percentages[rawPcts[i].key] = pct;
-      accumulated += pct;
-    }
-    percentages[rawPcts[rawPcts.length - 1].key] = Math.max(0, 100 - accumulated);
-
-    return percentages;
   }
 }

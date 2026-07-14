@@ -279,7 +279,7 @@ test('八字合盘内嵌命盘资料不应重复使用顶层 section 标题', ()
   assert.match(prompt.user, /四柱：\n/);
 });
 
-test('八字提示词在病药结论与正式主忌一致时应保留病药法片段（不冲突不隐藏）', () => {
+test('八字提示词不应由五行百分比阈值自动生成病药结论', () => {
   const result = baziCalculator.calculateBazi({
     year: 1995,
     month: 5,
@@ -301,11 +301,11 @@ test('八字提示词在病药结论与正式主忌一致时应保留病药法�
   );
 
   assert.match(prompt.user, /主忌火/);
-  // 病药法与主忌不冲突（药=水 克 病=火=主忌火），应保留
-  assert.match(prompt.user, /【病药法】/);
+  assert.match(prompt.user, /【五行结构证据】/);
+  assert.doesNotMatch(prompt.user, /【病药法】/);
 });
 
-test('八字提示词在病药结论与正式喜忌一致时仍可保留病药法片段', () => {
+test('八字提示词不应把五行构成阈值包装为过强过弱病药断语', () => {
   const result = baziCalculator.calculateBazi({
     year: 1988,
     month: 1,
@@ -327,7 +327,7 @@ test('八字提示词在病药结论与正式喜忌一致时仍可保留病药�
   );
 
   assert.match(prompt.user, /喜忌五行: 火、水、土、金 \| 木/);
-  assert.match(prompt.user, /【病药法】病:金过弱为病 \| 药:土/);
+  assert.doesNotMatch(prompt.user, /【病药法】|过弱为病|过旺为病/);
 });
 
 test('八字提示词中的经典格局片段不应再单列独立喜忌，避免与正式主线冲突', () => {
@@ -613,7 +613,7 @@ test('八字提示词在通关结论落入正式主忌时应隐藏通关法片�
   assert.doesNotMatch(prompt.user, /【通关法】/);
 });
 
-test('八字提示词在通关结论不与正式主忌冲突时仍可保留通关法片段', () => {
+test('八字提示词不应由五行百分比阈值自动生成通关结论', () => {
   const result = baziCalculator.calculateBazi({
     year: 1988,
     month: 1,
@@ -635,7 +635,7 @@ test('八字提示词在通关结论不与正式主忌冲突时仍可保留通�
   );
 
   assert.match(prompt.user, /主忌土\+次水/);
-  assert.match(prompt.user, /【通关法】水与火相战，以木通关调和/);
+  assert.doesNotMatch(prompt.user, /【通关法】/);
 });
 
 test('柱位出现桃花时即使全局神煞没有桃花也应生成桃花详解', () => {

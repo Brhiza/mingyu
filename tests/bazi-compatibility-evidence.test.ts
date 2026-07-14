@@ -21,14 +21,16 @@ function withPillars(
   pillars: Pillars,
   dayMaster: { gan: string; element: string; yinYang: string },
   useful: { favorableWuxing: string[]; unfavorableWuxing: string[] },
-  percentages: Record<string, number>,
+  composition: Record<string, number>,
 ) {
   const chart = structuredClone(createChart());
   chart.pillars = pillars;
   chart.dayMaster = dayMaster;
   chart.analysis.usefulGod.favorableWuxing = useful.favorableWuxing;
   chart.analysis.usefulGod.unfavorableWuxing = useful.unfavorableWuxing;
-  chart.wuxingStrength.percentages = percentages;
+  chart.wuxingStrength.present = Object.entries(composition)
+    .filter(([, value]) => value > 0)
+    .map(([wuxing]) => wuxing);
   return chart;
 }
 
@@ -102,13 +104,8 @@ test('八字双盘证据应双向映射十神和喜忌覆盖', () => {
       (item) => item.observer === 'person1' && item.pillar === 'day' && item.stem === '辛',
     ),
   );
-  assert.deepEqual(result.usefulGodCoverage[0].favorable, [
-    { wuxing: '木', providerPercentage: 18 },
-    { wuxing: '火', providerPercentage: 12 },
-  ]);
-  assert.deepEqual(result.usefulGodCoverage[1].unfavorable, [
-    { wuxing: '火', providerPercentage: 25 },
-  ]);
+  assert.deepEqual(result.usefulGodCoverage[0].favorable, [{ wuxing: '木' }, { wuxing: '火' }]);
+  assert.deepEqual(result.usefulGodCoverage[1].unfavorable, [{ wuxing: '火' }]);
 });
 
 test('八字双盘提示词应区分事实和限制且不输出匹配总分', () => {

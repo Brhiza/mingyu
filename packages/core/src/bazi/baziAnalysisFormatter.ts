@@ -295,13 +295,9 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     result += `全局传统旁证: ${globalShenShaExplain}\n`;
   }
 
-  if (includeWuxing && baziResult.wuxingStrength?.percentages) {
+  if (includeWuxing && baziResult.wuxingStrength) {
     result += '\n【五行】\n';
-    result += '加权构成占比（用于比较命盘五行分布，不代表吉凶概率或现实结果）：\n';
-    const wuxingMap = baziResult.wuxingStrength.percentages;
-    result += Object.entries(wuxingMap)
-      .map(([key, value]) => `${key}:${value}%`)
-      .join('  ');
+    result += `出现:${baziResult.wuxingStrength.present.join('、') || '无'} | 规则下相对突出:${baziResult.wuxingStrength.dominantByRule.join('、') || '无'}`;
     if (baziResult.wuxingStrength.missing?.length) {
       result += ` | 缺失:${baziResult.wuxingStrength.missing.join(',')}`;
     }

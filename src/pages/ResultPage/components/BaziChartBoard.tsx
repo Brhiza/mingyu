@@ -198,18 +198,13 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
             <div className="result-side-head">
               <h3>五行分布</h3>
             </div>
-            <div className="wuxing-bars">
-              {Object.entries(result.wuxingStrength.percentages).map(([key, value]) => (
-                <div className="wuxing-bar-row" key={key}>
-                  <span className="wuxing-bar-label">{key}</span>
-                  <div className="wuxing-bar-track">
-                    <div className="wuxing-bar-fill" style={{ width: `${value}%` }} />
-                  </div>
-                  <strong>{value}%</strong>
-                </div>
-              ))}
-            </div>
             <div className="result-tag-cloud">
+              {result.wuxingStrength.present.map((item) => (
+                <span className="result-soft-tag" key={item}>
+                  见 {item}
+                  {result.wuxingStrength.dominantByRule.includes(item) ? '（规则下相对突出）' : ''}
+                </span>
+              ))}
               {missingElements.map((item) => (
                 <span className="result-soft-tag" key={item}>
                   缺 {item}
