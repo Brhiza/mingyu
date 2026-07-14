@@ -47,10 +47,9 @@ export type BirthProfileDiagnostic = CoreDiagnostic<BirthProfileDiagnosticCode>;
 
 export interface NormalizedBirthProfile {
   profile: BirthProfile;
-  hasKnownTime: boolean;
-  solarClockTime?: SolarDateTimeParts;
-  effectiveTime?: SolarDateTimeParts;
-  timeIndex?: number;
+  solarClockTime: SolarDateTimeParts;
+  effectiveTime: SolarDateTimeParts;
+  timeIndex: number;
   usedTrueSolarTime: boolean;
   diagnostics: BirthProfileDiagnostic[];
 }
@@ -153,7 +152,6 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
     });
     return {
       profile,
-      hasKnownTime: true,
       solarClockTime: resolved.solarClockTime,
       effectiveTime: resolved.correctedTime,
       timeIndex: resolved.timeIndex,
@@ -179,7 +177,6 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
   });
   return {
     profile,
-    hasKnownTime: true,
     solarClockTime: resolved.solarClockTime,
     effectiveTime: resolved.solarClockTime,
     timeIndex: getTimeIndexFromClock(resolved.solarClockTime.hour, resolved.solarClockTime.minute),
@@ -198,19 +195,6 @@ function requireReady(
 } {
   const blocking = extraDiagnostic ?? result.diagnostics.find((item) => item.level === 'error');
   if (blocking) throw new BirthProfileError(blocking);
-  if (
-    !result.hasKnownTime ||
-    !result.solarClockTime ||
-    !result.effectiveTime ||
-    result.timeIndex === undefined
-  ) {
-    throw new BirthProfileError({
-      code: 'TIME_REQUIRED',
-      level: 'error',
-      field: 'hour',
-      message: '此算法必须提供完整、准确的出生小时和分钟。',
-    });
-  }
 }
 
 /** 将统一档案转换为八字既有输入。 */

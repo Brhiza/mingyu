@@ -1,13 +1,11 @@
 /**
  * @file 排盘边界预警
  * @description
- * 当出生时刻贴近"换柱边界"时，排盘结果存在翻转风险：
+ * 当出生时刻贴近"换柱边界"时，说明当前结果采用的计算口径：
  * 1. 节气交接（换月柱，立春同时换年柱）——底层节气常数表存在 ±20 秒级偏差，
- *    出生时间记录本身也常有数分钟误差；
  * 2. 时辰边界（奇数整点换时柱）——真太阳时均时差为近似公式（±1~2 分钟）；
- * 3. 23:00 换日线——早晚子时流派之争，日柱归属两可。
- * 距边界 ±BOUNDARY_THRESHOLD_MINUTES 分钟内时输出预警并给出两种候选，
- * 而非沉默地二选一。
+ * 3. 23:00 换日线——说明本引擎采用的换日流派。
+ * 输入必须先通过完整性校验；这里不生成候选盘或敏感性结果。
  */
 import { SolarTerm } from 'tyme4ts';
 import { EARTHLY_BRANCHES } from '../ganzhi/data';
@@ -96,7 +94,7 @@ export function checkJieqiBoundary(t: BoundaryCheckInput): string[] {
     const extra = best.name === '立春' ? '年柱与月柱' : '月柱';
     warnings.push(
       `出生时刻距「${best.name}」交节仅约 ${formatMinutes(best.diffMinutes)} 分钟（交节${side}）。` +
-        `节气历表存在秒级偏差、出生时间记录亦常有误差，${extra}存在交节前后两种可能，建议按两种盘分别参详。`,
+        `本次${extra}已按项目节气历表和输入时刻确定；该提示仅记录历表精度边界，不生成候选盘。`,
     );
   }
   return warnings;
@@ -126,12 +124,12 @@ export function checkShichenBoundary(t: BoundaryCheckInput): string[] {
 
   warnings.push(
     `出生时刻距 ${String(boundaryHour).padStart(2, '0')}:00 时辰边界仅约 ${formatMinutes(distance)} 分钟，` +
-      `时柱存在「${prevBranch}时/${nextBranch}时」两种可能（真太阳时均时差近似亦有 ±1~2 分钟误差），建议按两种时柱分别参详。`,
+      `本次已按校正后时刻确定为「${phase <= 60 ? nextBranch : prevBranch}时」；真太阳时均时差采用近似公式，该提示不生成候选时柱。`,
   );
 
   if (boundaryHour === 23) {
     warnings.push(
-      '出生时刻贴近 23:00 换日线：晚子时的日柱归属存在「换日（本引擎采用）/不换日」两派之争，日柱亦可能不同，请知悉流派差异。',
+      '出生时刻贴近 23:00 换日线：本引擎采用晚子时换日口径；其他流派可能采用不同规则，此处不生成候选盘。',
     );
   }
   return warnings;

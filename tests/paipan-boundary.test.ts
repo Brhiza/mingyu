@@ -195,7 +195,7 @@ test('夏令时区间函数:边界与非夏令时年份', () => {
   assert.equal(isDateInChinaDstRange(1990, 6, 1), true);
 });
 
-test('边界预警:距立春 1 分钟内提示年柱月柱两可', () => {
+test('边界预警:距立春 1 分钟内说明已采用结果且不生成候选盘', () => {
   // 2024 立春 = 2024-02-04 16:27:07
   const warnings = checkJieqiBoundary({
     year: 2024,
@@ -207,9 +207,10 @@ test('边界预警:距立春 1 分钟内提示年柱月柱两可', () => {
   assert.equal(warnings.length, 1);
   assert.ok(warnings[0].includes('立春'));
   assert.ok(warnings[0].includes('年柱'));
+  assert.ok(warnings[0].includes('不生成候选盘'));
 });
 
-test('边界预警:距时辰边界 1 分钟内提示时柱两可', () => {
+test('边界预警:距时辰边界 1 分钟内说明已采用时柱', () => {
   const warnings = checkShichenBoundary({
     year: 2024,
     month: 6,
@@ -219,7 +220,7 @@ test('边界预警:距时辰边界 1 分钟内提示时柱两可', () => {
   });
   assert.equal(warnings.length, 1);
   assert.ok(warnings[0].includes('未时'));
-  assert.ok(warnings[0].includes('申时'));
+  assert.ok(warnings[0].includes('不生成候选时柱'));
 });
 
 test('边界预警:23:00 换日线额外提示流派差异', () => {

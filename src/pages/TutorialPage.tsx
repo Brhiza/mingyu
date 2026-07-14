@@ -48,11 +48,11 @@ const promptUsageTips = [
 const commonQuestions = [
   {
     question: '不知道准确出生时间怎么办？',
-    answer: '先用大概时辰即可，不要强行开启真太阳时。',
+    answer: '请先核实出生记录；无法确认时不应凭大概时间排盘。',
   },
   {
     question: '什么时候用真太阳时？',
-    answer: '知道准确出生时间，并愿意补充出生地时再开启。',
+    answer: '出生时间和出生地资料完整时可开启。',
   },
   {
     question: '之前做过的内容能不能再看？',
