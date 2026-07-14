@@ -15,6 +15,18 @@ export interface LiurenTransmissionEvidence extends LiurenTransmission {
   constraints: string[];
 }
 
+export interface LiurenTraditionalFact {
+  key: string;
+  kind: '经典取传规则' | '课体' | '天将属性' | '神煞';
+  name: string;
+  originalText: string;
+  promptText: string;
+  sources: string[];
+  stages?: string[];
+  branches?: string[];
+  limitation: '传统规则或类象只用于限定解释方向，不证明现实事件、身份、疾病、死亡、犯罪、婚姻、法律责任或财务结果';
+}
+
 export interface LiurenEvidenceAnalysis {
   calculationFacts: string[];
   plateFacts: string[];
@@ -30,9 +42,110 @@ export interface LiurenEvidenceAnalysis {
   timingConditions: string[];
   focusEvidence: NonNullable<LiurenData['focusEvidence']>;
   timingEvidence: string[];
+  traditionalFacts: LiurenTraditionalFact[];
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
+}
+
+const TRADITIONAL_FACT_LIMITATION =
+  '传统规则或类象只用于限定解释方向，不证明现实事件、身份、疾病、死亡、犯罪、婚姻、法律责任或财务结果' as const;
+
+export function conditionLiurenTraditionalText(text: string): string {
+  return text
+    .replace(
+      /凶丧之神，主疾病、死丧、血光、刀兵、破财/g,
+      '传统属性归为风险类，传统类象涉及健康、损伤、安全与财物风险等议题',
+    )
+    .replace(
+      /争斗纠纷之神，主官非、土地、契约、争执/g,
+      '传统属性归为纠纷类，传统类象涉及法律、土地、契约与争议等议题',
+    )
+    .replace(
+      /盗贼隐秘之神，主失窃、欺骗、隐私、阴私/g,
+      '传统属性归为隐秘类，传统类象涉及财物安全、信息真实性、隐私与隐情等议题',
+    )
+    .replace(
+      /和合之神，主婚姻、合作、合同、中介、子息/g,
+      '传统属性归为和合类，传统类象涉及婚恋、合作、合同、中介与子女等议题',
+    )
+    .replace(
+      /恩泽之神，主婚姻、恩宠、庇护、女性、长辈/g,
+      '传统属性归为恩泽类，传统类象涉及婚恋、支持、照护、女性与长辈等议题',
+    )
+    .replace(
+      /财喜之神，主升迁、钱财、喜事、贵人、仁德/g,
+      '传统属性归为财喜类，传统类象涉及职位、财物、喜庆、助力与仁德等议题',
+    )
+    .replace(
+      /虚诈孤独之神，主空亡、欺骗、孤寡、无成/g,
+      '传统属性归为虚空类，传统类象涉及落空、信息真实性、疏离与推进受阻等议题',
+    )
+    .replace(/主反复动荡/g, '传统类象涉及反复与变动')
+    .replace(/主伏而不动/g, '传统类象涉及停滞与不动')
+    .replace(/事情会逐步推进/g, '传统解释可从逐步推进角度核验')
+    .replace(/结果更利于/g, '传统上可关注')
+    .replace(/必然/g, '可能')
+    .replace(/必定/g, '较可能')
+    .replace(/主(?!(?:轴|证|线|要|客|动))/g, '传统类象涉及');
+}
+
+function buildTraditionalFacts(
+  data: LiurenData,
+  patternEvidence: string[],
+): LiurenTraditionalFact[] {
+  const classicalFacts = (data.classicalRules ?? []).map((item, index): LiurenTraditionalFact => ({
+    key: `classical:${index}:${item.rule}`,
+    kind: '经典取传规则',
+    name: item.rule,
+    originalText: item.summary,
+    promptText: conditionLiurenTraditionalText(item.summary),
+    sources: [item.source],
+    limitation: TRADITIONAL_FACT_LIMITATION,
+  }));
+  const patternFacts = patternEvidence.map((name, index): LiurenTraditionalFact => ({
+    key: `pattern:${index}:${name}`,
+    kind: '课体',
+    name,
+    originalText: name,
+    promptText: `盘面命中“${name}”结构标签；该标签须与四课取传、三传、旺衰和空亡互证`,
+    sources: ['发用、三传结构、空亡与课体规则逐项命中'],
+    limitation: TRADITIONAL_FACT_LIMITATION,
+  }));
+  const tianJiangFacts = Array.from(
+    data.threeTransmissions
+      .reduce((facts, transmission) => {
+        const props = data.tianJiangProps?.[transmission.god];
+        if (!props) return facts;
+        const previous = facts.get(transmission.god);
+        const originalText = props.description || `${props.category}类`;
+        facts.set(transmission.god, {
+          key: `tianjiang:${transmission.god}`,
+          kind: '天将属性',
+          name: transmission.god,
+          originalText,
+          promptText: `${props.wuxing}${props.yinYang}，传统分类为${props.category}；${conditionLiurenTraditionalText(originalText)}`,
+          sources: ['《大六壬大全》卷六《天将总论》及《大六壬指南》首卷天将章'],
+          stages: [...(previous?.stages ?? []), transmission.stage],
+          branches: [...(previous?.branches ?? []), transmission.branch],
+          limitation: TRADITIONAL_FACT_LIMITATION,
+        });
+        return facts;
+      }, new Map<string, LiurenTraditionalFact>())
+      .values(),
+  );
+  const shenShaFacts = (data.shenShaSummary ?? []).map((text, index): LiurenTraditionalFact => ({
+    key: `shensha:${index}:${text}`,
+    kind: '神煞',
+    name: text.replace(/在[子丑寅卯辰巳午未申酉戌亥]$/, ''),
+    originalText: text,
+    promptText: `盘面按年支、月支、日支或日干规则定位到“${conditionLiurenTraditionalText(text)}”`,
+    sources: ['年支、月支、日支与日干神煞规则逐项定位'],
+    branches: text.match(/[子丑寅卯辰巳午未申酉戌亥]$/)?.[0] ? [text.slice(-1)] : undefined,
+    limitation: TRADITIONAL_FACT_LIMITATION,
+  }));
+
+  return [...classicalFacts, ...patternFacts, ...tianJiangFacts, ...shenShaFacts];
 }
 
 function lessonConstraints(lesson: LiurenLesson, xunKong: string[]) {
@@ -90,6 +203,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     new Set([...(data.patternTags ?? []), ...(data.guaTi ?? [])].filter(Boolean)),
   );
   const shenShaEvidence = Array.from(new Set((data.shenShaSummary ?? []).filter(Boolean)));
+  const traditionalFacts = buildTraditionalFacts(data, patternEvidence);
   const lessons = data.fourLessons.map((lesson, index): LiurenLessonEvidence => ({
     ...lesson,
     index: index + 1,
@@ -136,8 +250,9 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
   ];
 
   const classicalText = data.classicalRules?.length
-    ? data.classicalRules
-        .map((item) => `${item.source}《${item.rule}》：${item.summary}`)
+    ? traditionalFacts
+        .filter((item) => item.kind === '经典取传规则')
+        .map((item) => `${item.sources.join('、')}《${item.name}》：${item.promptText}`)
         .join('；')
     : '未附经典规则说明';
   const items: PromptEvidenceItem[] = [
@@ -165,14 +280,14 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     ...lessons.map((item): PromptEvidenceItem => ({
       level: item.isInitialSource ? '主证' : '辅证',
       title: `${item.name}上下神关系`,
-      detail: `${item.upper}临${item.lower}，乘${item.god}，关系${item.relation}；课注${item.note || '未列'}；限制${item.constraints.join('、') || '未见旬空或直接克制'}`,
+      detail: `${item.upper}临${item.lower}，乘${item.god}，关系${item.relation}；课注${conditionLiurenTraditionalText(item.note || '未列')}；限制${item.constraints.join('、') || '未见旬空或直接克制'}`,
       source: '日干寄宫、日支与天地盘逐课推导',
       tags: ['四课', item.name, ...(item.isInitialSource ? ['初传来源'] : [])],
     })),
     ...transmissions.map((item, index): PromptEvidenceItem => ({
       level: index === 0 ? '主证' : '辅证',
       title: `${item.stage}${item.label}`,
-      detail: `${formatTransmission(item)}；与前位关系${item.relation}；与日支关系${item.dayRelation || '未列'}；传注${item.note || '未列'}；支持${item.support.join('、') || '未见额外增强'}；限制${item.constraints.join('、') || '未见明显空亡或月令限制'}`,
+      detail: `${formatTransmission(item)}；与前位关系${item.relation}；与日支关系${item.dayRelation || '未列'}；传注${conditionLiurenTraditionalText(item.note || '未列')}；支持${item.support.join('、') || '未见额外增强'}；限制${item.constraints.join('、') || '未见明显空亡或月令限制'}`,
       source: '三传、天将、月令旺衰、旬空与日支关系核验',
       tags: [item.stage, item.branch],
     })),
@@ -188,7 +303,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
           {
             level: '辅证' as const,
             title: '取传规则与三传模式说明',
-            detail: data.transmissionDetail,
+            detail: conditionLiurenTraditionalText(data.transmissionDetail),
             source: '九宗门取传结果、三传结构与经典规则合并说明',
             tags: [
               '取传规则',
@@ -203,43 +318,47 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
           {
             level: '辅证' as const,
             title: '课体与三传结构标签',
-            detail: patternEvidence.join('；'),
+            detail: traditionalFacts
+              .filter((item) => item.kind === '课体')
+              .map((item) => `${item.promptText}；边界：${item.limitation}`)
+              .join('；'),
             source: '发用、三传结构、空亡与经典课体规则逐项命中',
             tags: ['课体', '结构标签'],
           },
         ]
       : []),
-    ...(data.classicalRules ?? []).map((item): PromptEvidenceItem => ({
-      level: '辅证',
-      title: `经典规则：${item.rule}`,
-      detail: `${item.category}；${item.summary}`,
-      source: item.source,
-      tags: ['经典规则', item.rule, item.category],
-    })),
+    ...traditionalFacts
+      .filter((item) => item.kind === '经典取传规则')
+      .map((item): PromptEvidenceItem => ({
+        level: '辅证',
+        title: `经典规则：${item.name}`,
+        detail: `${item.promptText}；边界：${item.limitation}`,
+        source: `${item.sources.join('、')}；原始传统文义仅供资料核对，解读采用条件化表述`,
+        tags: ['经典规则', item.name],
+      })),
     ...(shenShaEvidence.length
       ? [
           {
             level: '辅证' as const,
             title: '神煞定位事实',
-            detail: `${shenShaEvidence.join('；')}。神煞仅作辅助定位，不覆盖四课取传与三传主线。`,
+            detail: `${traditionalFacts
+              .filter((item) => item.kind === '神煞')
+              .map((item) => `${item.promptText}；边界：${item.limitation}`)
+              .join('；')}。神煞仅作辅助定位，不覆盖四课取传与三传主线。`,
             source: '年支、月支、日支与日干神煞规则逐项定位',
             tags: ['神煞', '辅助证据'],
           },
         ]
       : []),
-    ...transmissions.flatMap((item): PromptEvidenceItem[] => {
-      const props = data.tianJiangProps?.[item.god];
-      if (!props) return [];
-      return [
-        {
-          level: '辅证',
-          title: `${item.stage}${item.god}天将属性`,
-          detail: `${props.wuxing}${props.yinYang}，类别${props.category}${props.description ? `；${props.description}` : ''}${props.color ? `；色${props.color}` : ''}${props.terrain ? `；地形${props.terrain}` : ''}${props.bodyPart ? `；身体部位${props.bodyPart}` : ''}`,
-          source: '大六壬十二天将属性表；属性只限定象义范围',
-          tags: ['天将属性', item.stage, item.god],
-        },
-      ];
-    }),
+    ...traditionalFacts
+      .filter((item) => item.kind === '天将属性')
+      .map((item): PromptEvidenceItem => ({
+        level: '辅证',
+        title: `${item.stages?.join('、') || ''}${item.name}天将属性`,
+        detail: `${item.promptText}；入传位置${item.stages?.join('、') || '未列'}，地支${item.branches?.join('、') || '未列'}；边界：${item.limitation}`,
+        source: `${item.sources.join('、')}；原始传统文义仅供资料核对，解读采用条件化表述`,
+        tags: ['天将属性', ...(item.stages ?? []), item.name],
+      })),
     ...focusEvidence.map((item): PromptEvidenceItem => ({
       level: item.level,
       title: `${item.target}${item.role}`,
@@ -296,6 +415,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     timingConditions,
     focusEvidence,
     timingEvidence,
+    traditionalFacts,
     evidence,
     promptText,
     methodology: [

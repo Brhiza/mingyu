@@ -2411,6 +2411,28 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
   assert.equal(liurenChart.response.status, 200);
   assert.equal(liurenChart.body.data.evidenceAnalysis.lessons.length, 4);
   assert.equal(liurenChart.body.data.evidenceAnalysis.transmissions.length, 3);
+  const traditionalFacts = liurenChart.body.data.evidenceAnalysis.traditionalFacts as Array<{
+    kind: string;
+    originalText: string;
+    promptText: string;
+    sources: string[];
+    limitation: string;
+  }>;
+  assert.ok(traditionalFacts.length > 0);
+  assert.ok(
+    traditionalFacts.every(
+      (item) =>
+        item.originalText &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不证明现实事件'),
+    ),
+  );
+  assert.ok(traditionalFacts.some((item) => item.kind === '经典取传规则'));
+  assert.ok(traditionalFacts.some((item) => item.kind === '课体'));
+  assert.ok(traditionalFacts.some((item) => item.kind === '天将属性'));
+  assert.ok(traditionalFacts.some((item) => item.kind === '神煞'));
+  assert.doesNotMatch(liuren.body.data.prompt, /主婚姻|主官非|主疾病|主死丧|主虚而不实/);
 });
 
 test('公开 API 参数错误应返回统一错误结构', async () => {

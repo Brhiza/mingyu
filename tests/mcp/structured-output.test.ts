@@ -1362,11 +1362,38 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     assert.doesNotMatch(liurenPrompt, /取用候选：.*权重\d|吉凶总分[：=]?\d/);
     const liurenData = (
       liurenResult.structuredContent as {
-        result: { evidenceAnalysis: { lessons: unknown[]; transmissions: unknown[] } };
+        result: {
+          evidenceAnalysis: {
+            lessons: unknown[];
+            transmissions: unknown[];
+            traditionalFacts: Array<{
+              kind: string;
+              originalText: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+          };
+        };
       }
     ).result;
     assert.equal(liurenData.evidenceAnalysis.lessons.length, 4);
     assert.equal(liurenData.evidenceAnalysis.transmissions.length, 3);
+    assert.ok(liurenData.evidenceAnalysis.traditionalFacts.length > 0);
+    assert.ok(
+      liurenData.evidenceAnalysis.traditionalFacts.every(
+        (item) =>
+          item.originalText &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不证明现实事件'),
+      ),
+    );
+    assert.deepEqual(
+      new Set(liurenData.evidenceAnalysis.traditionalFacts.map((item) => item.kind)),
+      new Set(['经典取传规则', '课体', '天将属性', '神煞']),
+    );
+    assert.doesNotMatch(liurenPrompt, /主婚姻|主官非|主疾病|主死丧|主虚而不实/);
     assert.doesNotMatch(liurenPrompt, /【分析思路】/);
     assert.doesNotMatch(liurenPrompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
     assertPromptIsPortableTaskText(liurenPrompt);

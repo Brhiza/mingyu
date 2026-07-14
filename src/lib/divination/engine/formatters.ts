@@ -30,7 +30,10 @@ import {
   conditionLiuyaoTraditionalText,
 } from '@core/divination/algorithms/liuyao';
 import { analyzeMeihuaEvidence } from '@core/divination/algorithms/meihua';
-import { analyzeLiurenEvidence } from '@core/divination/algorithms/liuren';
+import {
+  analyzeLiurenEvidence,
+  conditionLiurenTraditionalText,
+} from '@core/divination/algorithms/liuren';
 import { analyzeXiaoliurenEvidence } from '@core/divination/algorithms/xiaoliuren';
 import { analyzeTarotEvidence } from '@core/divination/tarot';
 import { analyzeLenormandEvidence } from '@core/divination/algorithms/lenormand';
@@ -814,19 +817,25 @@ function formatQimenInfo(data: QimenData) {
 }
 
 function formatLiurenInfo(data: LiurenData) {
+  const evidenceAnalysis = analyzeLiurenEvidence(data);
+  const traditionalFacts = evidenceAnalysis.traditionalFacts;
   const firstTransmission = data.threeTransmissions[0];
   const lastTransmission = data.threeTransmissions[2];
   const lessonText = data.fourLessons
     .map((item) => `${item.name}${item.upper}临${item.lower}乘${item.god}，${item.relation}`)
     .join('；');
   const transmissionText = data.threeTransmissions
-    .map((item) => `${item.stage}${item.branch}乘${item.god}，${item.relation}，${item.note}`)
+    .map(
+      (item) =>
+        `${item.stage}${item.branch}乘${item.god}，${item.relation}，${conditionLiurenTraditionalText(item.note)}`,
+    )
     .join('；');
   const voidHits = data.threeTransmissions
     .filter((item) => data.xunKong?.includes(item.branch))
     .map((item) => `${item.stage}${item.branch}`);
   const summaryText = [data.lessonSummary, data.transmissionSummary, data.transmissionDetail]
     .filter(Boolean)
+    .map((item) => conditionLiurenTraditionalText(item || ''))
     .join('；');
   const mainLineText = [
     data.transmissionRule ? `取传${data.transmissionRule}` : '',
@@ -851,38 +860,29 @@ function formatLiurenInfo(data: LiurenData) {
   const heavenlyPlateText = data.heavenlyPlate
     .map((item) => `${item.under}上${item.branch}乘${item.god}`)
     .join('；');
-  const classicalRuleText = data.classicalRules?.length
-    ? data.classicalRules.map((item) => `${item.source}：${item.rule}，${item.summary}`).join('；')
+  const classicalRuleText = traditionalFacts.some((item) => item.kind === '经典取传规则')
+    ? traditionalFacts
+        .filter((item) => item.kind === '经典取传规则')
+        .map((item) => `${item.sources.join('、')}：${item.name}，${item.promptText}`)
+        .join('；')
     : '';
   const guaTiText = data.guaTi?.length ? data.guaTi.join('、') : '';
   const guaTiSection = guaTiText
     ? `课体标签：${guaTiText}；只表示盘面结构类别，须与四课取传、三传、旺衰和空亡互证，不单独作吉凶结论`
     : '';
-  const tianJiangContext = data.threeTransmissions
-    .map((t) => {
-      const attr = data.tianJiangProps?.[t.god];
-      if (!attr) return null;
-      return `${t.stage}${t.god}：${attr.wuxing}${attr.yinYang}，${attr.category}，${attr.description?.slice(0, 20) || ''}`;
-    })
-    .filter(Boolean);
+  const tianJiangContext = traditionalFacts
+    .filter((item) => item.kind === '天将属性')
+    .map(
+      (item) =>
+        `${item.stages?.join('、') || ''}${item.name}：${item.promptText}；边界：${item.limitation}`,
+    );
   const tianJiangSection = tianJiangContext?.length
     ? `天将属性：${tianJiangContext.join('；')}`
     : '';
-  const shenShaCategorized = data.shenShaSummary?.length
-    ? (() => {
-        const yearSha = data.shenShaSummary.filter((s) => s.includes('年'));
-        const monthSha = data.shenShaSummary.filter((s) => s.includes('德') || s.includes('马'));
-        const daySha = data.shenShaSummary.filter(
-          (s) => !s.includes('年') && !s.includes('德') && !s.includes('马'),
-        );
-        const parts = [];
-        if (yearSha.length) parts.push(`年支${yearSha.join('、')}`);
-        if (monthSha.length) parts.push(`月支${monthSha.join('、')}`);
-        if (daySha.length) parts.push(`日干${daySha.join('、')}`);
-        return parts.join('；');
-      })()
-    : '';
-  const evidenceAnalysis = analyzeLiurenEvidence(data);
+  const shenShaCategorized = traditionalFacts
+    .filter((item) => item.kind === '神煞')
+    .map((item) => `${item.promptText}；边界：${item.limitation}`)
+    .join('；');
 
   return [
     '占法：大六壬',
@@ -899,9 +899,13 @@ function formatLiurenInfo(data: LiurenData) {
     tianJiangSection,
     shenShaCategorized ? `神煞：${shenShaCategorized}` : '',
     evidenceAnalysis.promptText,
-    data.timingEvidence?.length ? `应期优先级：${data.timingEvidence.join('；')}` : '',
+    evidenceAnalysis.timingEvidence.length
+      ? `应期优先级：${evidenceAnalysis.timingEvidence
+          .map(conditionLiurenTraditionalText)
+          .join('；')}`
+      : '',
     data.xunKong?.length
-      ? `旬空：${data.xunKong.join('、')}${voidHits.length ? `，命中${voidHits.join('、')}主虚而不实，待填实再看` : ''}`
+      ? `旬空：${data.xunKong.join('、')}${voidHits.length ? `，命中${voidHits.join('、')}；传统上提示该阶段线索尚未落实，须待填实并结合现实进展复核` : ''}`
       : '',
     summaryText ? `简要提示：${summaryText}` : '',
   ]

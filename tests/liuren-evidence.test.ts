@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { analyzeLiurenEvidence, generateLiuren } from 'mingyu-core/divination/liuren';
+import {
+  analyzeLiurenEvidence,
+  conditionLiurenTraditionalText,
+  generateLiuren,
+} from 'mingyu-core/divination/liuren';
+import { TIANJIANG_ATTRIBUTES } from '../packages/core/src/divination/algorithms/liuren/helpers/plate';
 
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
 
@@ -80,4 +85,48 @@ test('大六壬起盘链、天地盘、课体神煞与天将属性应进入统�
     JSON.stringify(evidence.evidence),
     /"score"\s*:|成功率[：=]?\s*\d|吉凶总分[：=]?\s*\d/,
   );
+});
+
+test('大六壬传统事实应保留原文并为提示词生成条件化副本', () => {
+  const data = generateLiuren(fixedDate);
+  const evidence = data.evidenceAnalysis;
+
+  assert.ok(evidence);
+  assert.ok(evidence.traditionalFacts.some((item) => item.kind === '经典取传规则'));
+  assert.ok(evidence.traditionalFacts.some((item) => item.kind === '课体'));
+  assert.ok(evidence.traditionalFacts.some((item) => item.kind === '天将属性'));
+  assert.ok(evidence.traditionalFacts.some((item) => item.kind === '神煞'));
+  assert.ok(
+    evidence.traditionalFacts.every(
+      (item) =>
+        item.originalText &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不证明现实事件'),
+    ),
+  );
+  assert.doesNotMatch(
+    evidence.promptText,
+    /traditionalFacts|本项目|当前项目|工程|算法结果|主婚姻|主官非|主疾病|主死丧/,
+  );
+});
+
+test('十二天将传统属性进入提示词时不得直接证明疾病、死亡、犯罪或婚姻结果', () => {
+  const originalTexts = Object.values(TIANJIANG_ATTRIBUTES).map((item) => item.description);
+  const promptTexts = originalTexts.map(conditionLiurenTraditionalText);
+
+  assert.ok(originalTexts.some((item) => /主婚姻/.test(item)));
+  assert.ok(originalTexts.some((item) => /主官非/.test(item)));
+  assert.ok(originalTexts.some((item) => /主疾病、死丧/.test(item)));
+  assert.ok(originalTexts.some((item) => /主失窃、欺骗/.test(item)));
+  promptTexts.forEach((text) => {
+    assert.doesNotMatch(text, /主婚姻|主官非|主疾病|主死丧|主失窃|主欺骗|必然|必定/);
+  });
+
+  const dangerousText = conditionLiurenTraditionalText(
+    '白虎为凶丧之神，主疾病、死丧、血光、刀兵、破财；六合主婚姻；勾陈主官非。',
+  );
+  assert.match(dangerousText, /传统类象涉及健康、损伤、安全与财物风险等议题/);
+  assert.match(dangerousText, /六合传统类象涉及婚姻/);
+  assert.match(dangerousText, /勾陈传统类象涉及官非/);
 });
