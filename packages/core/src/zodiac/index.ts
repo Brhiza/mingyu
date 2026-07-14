@@ -169,7 +169,7 @@ export interface ZodiacYearFortune {
   conflicts: TaiSuiConflict[];
   level: FortuneLevel;
   evidenceGrade: '轻量';
-  confidence: '低';
+  interpretationBoundary: '仅限生肖与流年关系';
   favorableRelations: string[];
   riskRelations: string[];
   actionSignals: string[];
@@ -239,7 +239,7 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
     conflicts,
     level,
     evidenceGrade: '轻量' as const,
-    confidence: '低' as const,
+    interpretationBoundary: '仅限生肖与流年关系' as const,
     favorableRelations,
     riskRelations,
     actionSignals,

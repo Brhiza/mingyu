@@ -148,7 +148,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 
 `analyzeFortuneTriggers(chart, activeLayers)` 提供统一岁运触发证据：逐层比较原局四柱、大运、流年、流月、流日或流时的同干、五合、相冲、同支、六合、六冲、刑、害、破，并单列岁运并临与天克地冲。返回值保留双方层级、时间范围、规则来源、解释限制和 `promptText`，不从单条关系直接推断吉凶事件。
 
-`analyzeBirthTimeSensitivity(person, { uncertaintyMinutes })` 会以精准出生钟表时间为基准，在误差范围前后分别执行夏令时、经度、均时差校正并重排候选盘，返回稳定柱位、变化柱位、候选四柱和 `promptText`。它只描述输入误差造成的排盘敏感性，不选择“更好”的命盘，也不生成稳定度总分。
+八字排盘只接受满足精度要求的出生时间。真太阳时、历史夏令时和节气边界校正属于确定性计算链；输入不满足要求时应在进入排盘前拒绝，不基于模糊范围继续计算。
 
 ```typescript
 import { baziCalculator } from 'mingyu-core/bazi';

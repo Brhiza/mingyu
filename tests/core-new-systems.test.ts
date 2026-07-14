@@ -168,7 +168,8 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.equal(r.zodiac, '马');
   assert.ok(['大吉', '吉', '平', '凶', '大凶'].includes(r.level));
   assert.equal(r.evidenceGrade, '轻量');
-  assert.equal(r.confidence, '低');
+  assert.equal(r.interpretationBoundary, '仅限生肖与流年关系');
+  assert.ok(!('confidence' in r));
   assert.ok(r.prompt.includes('生肖与流年关系简析'));
   assert.ok(r.prompt.includes('五行来源'));
   assert.ok(r.prompt.includes('犯太岁明细'));
@@ -187,7 +188,8 @@ test('zodiac: 冲太岁只作轻量风险关系，不直接判为大凶', () => 
   assert.ok(result.conflicts.some((item) => item.type === '冲太岁'));
   assert.ok(result.evidenceAnalysis.primaryEvidence.some((item) => item.relation === '冲太岁'));
   assert.notEqual(result.level, '大凶');
-  assert.equal(result.confidence, '低');
+  assert.equal(result.interpretationBoundary, '仅限生肖与流年关系');
+  assert.ok(!('confidence' in result));
 });
 
 test('tarot: 逐牌证据应区分正逆位、元素与牌阶', () => {

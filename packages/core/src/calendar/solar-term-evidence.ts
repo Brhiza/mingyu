@@ -153,7 +153,7 @@ export function calculateSolarTermEvidence(year: number, index: number): SolarTe
     '节气定义采用太阳视运动每隔 15° 的回归黄经；太阳视黄经采用 Meeus/NOAA 低阶公式，tyme4ts 提供独立历表初值';
   const limitations = [
     'Meeus/NOAA 低阶太阳公式适合民用历法级节气核验，但二分到 1 秒只表示数值求根区间，不等于观测级一秒精度。',
-    '未接入实时 UT1、完整章动项或 JPL 高精度星历；项目保留与 tyme4ts 历表的差值，临界出生时间仍应按候选盘处理。',
+    '未接入实时 UT1、完整章动项或 JPL 高精度星历；项目保留与 tyme4ts 历表的差值。出生时间无法满足排盘精度要求时应拒绝进入排盘流程，不生成候选盘。',
   ];
 
   return {
