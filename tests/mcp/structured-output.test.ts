@@ -1647,10 +1647,32 @@ test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级'
       arguments: { zodiac: '马', yearGanZhi: '庚子' },
     });
     assert.equal(result.isError, undefined, 'metaphysics_zodiac 不应返回错误');
-    const chart = (result.structuredContent as { result: Record<string, unknown> }).result;
+    const chart = (
+      result.structuredContent as {
+        result: Record<string, unknown> & {
+          evidenceAnalysis: {
+            relations: Array<{
+              key: string;
+              sources: string[];
+              promptText: string;
+              limitation: string;
+            }>;
+          };
+        };
+      }
+    ).result;
     assert.equal(chart.interpretationBoundary, '仅限生肖与流年关系');
     assert.equal(chart.level, undefined);
     assert.equal(chart.confidence, undefined);
+    assert.ok(
+      chart.evidenceAnalysis.relations.every(
+        (item) =>
+          item.key.startsWith('关系:') &&
+          item.sources.length >= 2 &&
+          item.promptText.length > 0 &&
+          item.limitation.includes('不证明现实事件'),
+      ),
+    );
   });
 });
 

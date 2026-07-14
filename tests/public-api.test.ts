@@ -2862,6 +2862,16 @@ test('公开 API 生肖流年应返回关系矩阵证据而不使用综合吉凶
       (item: { relation: string }) => item.relation === '冲太岁',
     ),
   );
+  assert.ok(
+    calculate.body.data.evidenceAnalysis.relations.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('关系:') &&
+        Array.isArray(item.sources) &&
+        item.sources.length >= 2 &&
+        String(item.promptText).length > 0 &&
+        String(item.limitation).includes('不证明现实事件'),
+    ),
+  );
 
   const prompt = await callApi('metaphysics/zodiac/prompt', {
     method: 'POST',
@@ -2870,6 +2880,7 @@ test('公开 API 生肖流年应返回关系矩阵证据而不使用综合吉凶
   });
   assert.equal(prompt.response.status, 200);
   assert.match(prompt.body.data.prompt, /【生肖流年关系矩阵结构化证据】/);
+  assert.match(prompt.body.data.prompt, /逐项核验.*现实复核提示：.*边界：/s);
   assert.match(prompt.body.data.prompt, /生肖只取出生年支/);
   assert.doesNotMatch(prompt.body.data.prompt, /综合定级：|吉凶总分[：=]\d|成功率为\d/);
 });

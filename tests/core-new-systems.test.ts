@@ -195,8 +195,17 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.ok(r.evidenceAnalysis.calculationChain.length >= 4);
   assert.ok(r.evidenceAnalysis.supportingEvidence.length > 0);
   assert.ok(
-    r.evidenceAnalysis.relations.every((item) => item.operands.length >= 2 && item.rule.length > 0),
+    r.evidenceAnalysis.relations.every(
+      (item) =>
+        item.key.startsWith('关系:') &&
+        item.operands.length >= 2 &&
+        item.rule.length > 0 &&
+        item.sources.length >= 2 &&
+        item.promptText.length > 0 &&
+        item.limitation.includes('不证明现实事件'),
+    ),
   );
+  assert.match(r.evidenceAnalysis.promptText, /现实复核提示：.*边界：/);
   assert.match(r.evidenceAnalysis.promptText, /流年年干甲[\s\S]*生肖年支本气午/);
   assert.match(r.prompt, /【生肖流年关系矩阵结构化证据】/);
   assert.doesNotMatch(r.prompt, /综合定级：/);
@@ -209,6 +218,11 @@ test('zodiac: 冲太岁只作轻量风险关系，不生成综合吉凶等级', 
   const result = core.zodiac.getZodiacYearFortune('午', '庚子');
   assert.ok(result.conflicts.some((item) => item.type === '冲太岁'));
   assert.ok(result.evidenceAnalysis.primaryEvidence.some((item) => item.relation === '冲太岁'));
+  assert.ok(
+    result.evidenceAnalysis.primaryEvidence.every(
+      (item) => item.promptText.includes('逐项核验') && item.sources.length >= 2,
+    ),
+  );
   assert.ok(!('level' in result));
   assert.equal(result.interpretationBoundary, '仅限生肖与流年关系');
   assert.ok(!('confidence' in result));
