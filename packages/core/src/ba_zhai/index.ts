@@ -16,6 +16,10 @@ import {
   type BaZhaiPalace,
   type SitFacingPosition,
 } from '../direction';
+import { analyzeBaZhaiEvidence } from './evidence';
+
+export { analyzeBaZhaiEvidence } from './evidence';
+export type { BaZhaiDirectionComparison, BaZhaiEvidenceAnalysis } from './evidence';
 
 export interface BaZhaiInput {
   /** 出生公历年份（用于推命卦；已按立春换年处理） */
@@ -47,6 +51,7 @@ export interface BaZhaiResult {
   matchAdvice: string;
   luckyDirections: BaZhaiPalace[];
   unluckyDirections: BaZhaiPalace[];
+  evidenceAnalysis: import('./evidence').BaZhaiEvidenceAnalysis;
   prompt: string;
 }
 
@@ -291,6 +296,7 @@ function buildPrompt(r: Omit<BaZhaiResult, 'prompt'>): string {
   lines.push(
     '证据边界：只按命卦、宅卦与八宅大游年方位判断理气取舍；现场安全、实际动线与居住需求优先于单一方位吉凶。',
   );
+  lines.push(r.evidenceAnalysis.promptText);
   lines.push('');
   lines.push(
     '请结合命卦、宅卦和八宫明细，分析住宅大门、卧室、厨房、书房宜取的吉方及应回避的凶方；结论须区分主证、辅证和适用边界，只围绕上方明确列出的方位事实作答。',
@@ -327,7 +333,7 @@ export function analyzeBaZhai(input: BaZhaiInput): BaZhaiResult {
     }
   }
 
-  const result: Omit<BaZhaiResult, 'prompt'> = {
+  const resultBase: Omit<BaZhaiResult, 'prompt' | 'evidenceAnalysis'> = {
     mingGua,
     effectiveBirthYear: resolvedMingGua.effectiveBirthYear,
     birthYearBoundaryNote: resolvedMingGua.note,
@@ -341,7 +347,8 @@ export function analyzeBaZhai(input: BaZhaiInput): BaZhaiResult {
     luckyDirections: mingMansion.lucky,
     unluckyDirections: mingMansion.unlucky,
   };
-
+  const evidenceAnalysis = analyzeBaZhaiEvidence(resultBase);
+  const result: Omit<BaZhaiResult, 'prompt'> = { ...resultBase, evidenceAnalysis };
   return { ...result, prompt: buildPrompt(result) };
 }
 
@@ -375,41 +382,46 @@ export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiD
       };
     },
   );
+  const directionMeasurement: BaZhaiDoorMeasurement = {
+    method: '站在大门处面向屋内测量',
+    measuredDegree: doorToInteriorDegree,
+    northReference: measurement.reference,
+    magneticDeclinationDegrees: measurement.declination,
+    trueNorthDegree: measurement.trueNorthDegree,
+    measurementUncertaintyDegrees: measurement.uncertainty,
+    nearestBoundaryDistanceDegrees: measurement.nearestBoundaryDistanceDegrees,
+    stability: measurement.stability,
+    candidateDirections,
+    warnings: measurement.warnings,
+    facingDegree: facing.degree,
+    facingMountain: facing.mountain,
+    sitDegree: sit.degree,
+    sitMountain: sit.mountain,
+    label,
+    promptText: [
+      `测量方式：站在大门处面向屋内，指南针读数为 ${doorToInteriorDegree}°；北向基准为${measurement.reference === 'magnetic' ? `磁北，磁偏角 ${measurement.declination}°（东偏为正）` : measurement.reference === 'true' ? '真北' : '未声明'}。`,
+      `真北口径入户方向为 ${measurement.trueNorthDegree}°，测量误差 ±${measurement.uncertainty}°，距最近二十四山边界 ${measurement.nearestBoundaryDistanceDegrees.toFixed(2)}°，稳定性为${measurement.stability}。`,
+      `中心读数换算后住宅坐山 ${sit.degree}° 为${sit.mountain}山，传统朝向 ${facing.degree}° 为${facing.mountain}向，结果为${label}。`,
+      `误差候选：${candidateDirections.map((item) => `${item.label}（${item.houseGua}宅、${item.houseGroup}、命宅${item.match}）`).join('、')}。`,
+      ...(measurement.stability === '宅卦不稳定'
+        ? candidateDirections.map(
+            (item) =>
+              `- 候选${item.label}：${item.houseGua}宅八宫为${item.housePalace.map((palace) => `${palace.direction}${palace.label}`).join('、')}`,
+          )
+        : []),
+      measurement.warnings.length ? `测量限制：${measurement.warnings.join('；')}。` : '',
+      '取证边界：中心读数只在测量稳定时作为单一宅卦主证；跨宅卦边界时必须并列候选盘，不得以中心值伪装成确定坐向。',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  };
+  const { prompt: _prompt, evidenceAnalysis: _evidenceAnalysis, ...resultFacts } = result;
+  const evidenceAnalysis = analyzeBaZhaiEvidence(resultFacts, directionMeasurement);
   return {
     ...result,
-    directionMeasurement: {
-      method: '站在大门处面向屋内测量',
-      measuredDegree: doorToInteriorDegree,
-      northReference: measurement.reference,
-      magneticDeclinationDegrees: measurement.declination,
-      trueNorthDegree: measurement.trueNorthDegree,
-      measurementUncertaintyDegrees: measurement.uncertainty,
-      nearestBoundaryDistanceDegrees: measurement.nearestBoundaryDistanceDegrees,
-      stability: measurement.stability,
-      candidateDirections,
-      warnings: measurement.warnings,
-      facingDegree: facing.degree,
-      facingMountain: facing.mountain,
-      sitDegree: sit.degree,
-      sitMountain: sit.mountain,
-      label,
-      promptText: [
-        `测量方式：站在大门处面向屋内，指南针读数为 ${doorToInteriorDegree}°；北向基准为${measurement.reference === 'magnetic' ? `磁北，磁偏角 ${measurement.declination}°（东偏为正）` : measurement.reference === 'true' ? '真北' : '未声明'}。`,
-        `真北口径入户方向为 ${measurement.trueNorthDegree}°，测量误差 ±${measurement.uncertainty}°，距最近二十四山边界 ${measurement.nearestBoundaryDistanceDegrees.toFixed(2)}°，稳定性为${measurement.stability}。`,
-        `中心读数换算后住宅坐山 ${sit.degree}° 为${sit.mountain}山，传统朝向 ${facing.degree}° 为${facing.mountain}向，结果为${label}。`,
-        `误差候选：${candidateDirections.map((item) => `${item.label}（${item.houseGua}宅、${item.houseGroup}、命宅${item.match}）`).join('、')}。`,
-        ...(measurement.stability === '宅卦不稳定'
-          ? candidateDirections.map(
-              (item) =>
-                `- 候选${item.label}：${item.houseGua}宅八宫为${item.housePalace.map((palace) => `${palace.direction}${palace.label}`).join('、')}`,
-            )
-          : []),
-        measurement.warnings.length ? `测量限制：${measurement.warnings.join('；')}。` : '',
-        '取证边界：中心读数只在测量稳定时作为单一宅卦主证；跨宅卦边界时必须并列候选盘，不得以中心值伪装成确定坐向。',
-      ]
-        .filter(Boolean)
-        .join('\n'),
-    },
+    evidenceAnalysis,
+    prompt: result.prompt.replace(result.evidenceAnalysis.promptText, evidenceAnalysis.promptText),
+    directionMeasurement,
   };
 }
 

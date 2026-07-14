@@ -478,6 +478,8 @@ const systems: SystemCapability[] = [
       '测量误差',
       '候选坐向',
       '边界稳定性',
+      '命宅逐方重合与异判',
+      '结构化证据',
     ],
     supports: {
       seed: false,

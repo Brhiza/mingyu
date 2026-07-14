@@ -20,6 +20,8 @@ test('mingyu-core/bazhai 应公开入户度数便捷接口和完整类型结果'
   assert.equal(result.directionMeasurement.method, '站在大门处面向屋内测量');
   assert.equal(result.directionMeasurement.stability, '稳定');
   assert.equal(result.directionMeasurement.candidateDirections.length, 1);
+  assert.equal(result.evidenceAnalysis.evidence.title, '八宅命宅方位与测量结构化证据');
+  assert.match(result.evidenceAnalysis.promptText, /测量误差±0°/);
   assert.ok(result.housePalace);
   assert.equal(result.housePalace?.length, 8);
 });
@@ -55,6 +57,11 @@ test('八宅测量应换算磁北并识别跨宅卦边界的不稳定候选', ()
   );
   assert.match(result.directionMeasurement.promptText, /磁偏角 1°/);
   assert.match(result.directionMeasurement.promptText, /不能只采用单一八宅盘|并列候选盘/);
+  assert.ok(
+    result.evidenceAnalysis.counterEvidence.some((item) =>
+      item.includes('中心读数不能作为唯一宅卦主证'),
+    ),
+  );
 });
 
 test('八宅磁北读数缺少磁偏角时应拒绝生成伪精确坐向', () => {

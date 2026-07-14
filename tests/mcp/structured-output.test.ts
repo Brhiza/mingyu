@@ -271,7 +271,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       measurementUncertaintyDegrees: 3,
       question: '办公桌朝向怎么选？',
     },
-    /稳定性为宅卦不稳定[\s\S]*【问题】\n办公桌朝向怎么选？/,
+    /【八宅命宅方位与测量结构化证据】[\s\S]*中心读数不能作为唯一宅卦主证[\s\S]*稳定性为宅卦不稳定[\s\S]*【问题】\n办公桌朝向怎么选？/,
   ],
   [
     'zodiac_prompt',

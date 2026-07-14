@@ -96,6 +96,9 @@ test('bazhai: 命宅配合', () => {
   assert.ok(r.prompt.includes('命卦八宫明细'));
   assert.ok(r.prompt.includes('宅卦八宫明细'));
   assert.ok(r.prompt.includes('证据边界'));
+  assert.equal(r.evidenceAnalysis.evidence.title, '八宅命宅方位与测量结构化证据');
+  assert.equal(r.evidenceAnalysis.directionComparisons.length, 8);
+  assert.match(r.prompt, /【八宅命宅方位与测量结构化证据】/);
 });
 
 test('bazhai: 从大门面向屋内的度数可直接生成传统坐向与完整八宅结果', () => {
@@ -115,6 +118,8 @@ test('bazhai: 从大门面向屋内的度数可直接生成传统坐向与完整
   assert.equal(r.houseGua, '坎');
   assert.equal(r.match, '相合');
   assert.match(r.directionMeasurement.promptText, /站在大门处面向屋内/);
+  assert.match(r.evidenceAnalysis.promptText, /测量事实：从大门面向屋内实测0°/);
+  assert.equal(r.evidenceAnalysis.measurementFacts.length, 4);
 });
 
 test('bazhai: 入户度数便捷入口应拒绝越界、非有限值与二十四山分界线', () => {
