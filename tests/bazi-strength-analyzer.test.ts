@@ -43,15 +43,25 @@ test('月令司令天干应进入日主旺衰评分，避免辰戌丑未只按�
   assert.ok((result.details.commanderScore ?? 0) > 0);
 });
 
-test('月令气数应输出实际分数和占比，并把司令五行列入主导气', () => {
+test('月令气数应输出状态、规则权重构成和司令依据，不公开内部评分', () => {
   const profile = analyzeMonthQiProfile('辰', '乙');
   const wood = profile.items.find((item) => item.element === '木');
 
-  assert.ok(profile.items.some((item) => item.score !== 0 && item.percent > 0));
+  assert.ok(
+    profile.items.some(
+      (item) =>
+        item.weightSharePercent > 0 &&
+        item.ruleBasis.length > 0 &&
+        item.score === undefined &&
+        item.percent === undefined,
+    ),
+  );
   assert.ok(profile.leadingElements.includes('土'));
   assert.ok(profile.leadingElements.includes('木'));
   assert.ok((wood?.count ?? 0) >= 2);
+  assert.equal(wood?.commanderApplied, true);
   assert.match(wood?.summary ?? '', /乙司令/);
+  assert.match(wood?.summary ?? '', /不代表概率、吉凶或现实结果/);
 });
 
 test('月令气数应拒绝非法月支和司令天干，不应降级成平气', () => {

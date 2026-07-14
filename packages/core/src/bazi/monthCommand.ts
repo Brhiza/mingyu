@@ -3,14 +3,6 @@ import { WUXING, type Wuxing } from './baziTypes';
 import { assertEarthlyBranch, assertHeavenlyStem } from './baziUtils';
 import type { MonthQiElementItem, MonthQiProfile } from '../types/analysis';
 
-const STATUS_SCORE: Record<string, number> = {
-  旺: 4,
-  相: 2,
-  休: 0,
-  囚: -2,
-  死: -4,
-};
-
 const STATUS_WEIGHT: Record<string, number> = {
   旺: 40,
   相: 26,
@@ -45,11 +37,6 @@ function getMonthLeadingElement(monthBranch: string): Wuxing {
   return (wangElement as Wuxing | undefined) ?? getBranchWuxing(monthBranch);
 }
 
-function formatSignedScore(value: number): string {
-  const rounded = Number(value.toFixed(1));
-  return `${rounded >= 0 ? '+' : ''}${rounded}`;
-}
-
 export function analyzeMonthQiProfile(monthBranch: string, commanderStem?: string): MonthQiProfile {
   assertEarthlyBranch(monthBranch, '月支');
   if (commanderStem) {
@@ -66,14 +53,12 @@ export function analyzeMonthQiProfile(monthBranch: string, commanderStem?: strin
   const rawItems = WUXING.map((element) => {
     const seasonStatus = season[element] ?? '平';
     const commanderBonus = commanderWuxing === element ? 1.5 : 0;
-    const score = Number(((STATUS_SCORE[seasonStatus] ?? 0) + commanderBonus).toFixed(1));
     const weight = (STATUS_WEIGHT[seasonStatus] ?? 12) + (commanderBonus > 0 ? 12 : 0);
     const count = (season[element] ? 1 : 0) + (commanderBonus > 0 ? 1 : 0);
 
     return {
       element,
       seasonStatus,
-      score,
       weight,
       count,
     };
@@ -88,12 +73,16 @@ export function analyzeMonthQiProfile(monthBranch: string, commanderStem?: strin
     return {
       element: item.element,
       seasonStatus: item.seasonStatus,
-      score: item.score,
-      percent,
+      weightSharePercent: percent,
       count: item.count,
-      summary: `${item.element}于${monthBranch}月${item.seasonStatus}，分数${formatSignedScore(
-        item.score,
-      )}，气数约${percent}%${commanderText}`,
+      commanderApplied: commanderWuxing === item.element,
+      ruleBasis: [
+        `${monthBranch}月状态：${item.seasonStatus}`,
+        ...(commanderWuxing === item.element && commanderStem
+          ? [`${commanderStem}司令五行：${item.element}`]
+          : []),
+      ],
+      summary: `${item.element}于${monthBranch}月为${item.seasonStatus}，规则权重构成约${percent}%${commanderText}；该占比仅用于比较本月五行规则输入，不代表概率、吉凶或现实结果`,
     };
   });
 
