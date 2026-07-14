@@ -2069,15 +2069,66 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
             }>;
             ruleSourceFacts: Array<{
               key: string;
+              status: string;
               rule: string;
               sources: string[];
               promptText: string;
               limitation: string;
             }>;
+            palaceCoverageFact: {
+              status: string;
+              actualGongs: number[];
+              missingGongs: number[];
+            };
             candidates: Array<{ palaceFactKey: string }>;
-            relations: unknown[];
+            relations: Array<{
+              key: string;
+              fromPalaceFactKey: string;
+              toPalaceFactKey: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            counterEvidenceFacts: Array<{
+              key: string;
+              status: string;
+              ownerPalaceFactKey: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            counterSummaryFact: { factKeys: string[] };
+            timingFacts: Array<{
+              key: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            timingSummaryFact: { factKeys: string[] };
+            directionFacts: Array<{
+              key: string;
+              palaceFactKey: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            patternFacts: Array<{ key: string; status: string }>;
             palaceFacts: Array<{
               key: string;
+              status: string;
+              patternFactKeys: string[];
+              stemRelationFacts: Array<{
+                ownerPalaceFactKey: string;
+                status: string;
+                sources: string[];
+                limitation: string;
+              }>;
+              insights: Array<{
+                ownerPalaceFactKey: string;
+                status: string;
+                originalText: string;
+                promptText: string;
+                sources: string[];
+              }>;
               sources: string[];
               limitation: string;
             }>;
@@ -2094,6 +2145,11 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
     assert.equal(chart.method, 'zhuanpan');
     assert.equal(chart.evidenceAnalysis.calculationEvidenceFacts.length, 5);
     assert.equal(chart.evidenceAnalysis.ruleSourceFacts.length, 4);
+    assert.equal(chart.evidenceAnalysis.palaceCoverageFact.status, '完整');
+    assert.deepEqual(
+      chart.evidenceAnalysis.palaceCoverageFact.actualGongs,
+      [1, 2, 3, 4, 5, 6, 7, 8, 9],
+    );
     assert.ok(
       chart.evidenceAnalysis.calculationEvidenceFacts.every(
         (item) =>
@@ -2107,6 +2163,7 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
       chart.evidenceAnalysis.ruleSourceFacts.every(
         (item) =>
           item.key.startsWith('rule:qimen:') &&
+          item.status === '已声明' &&
           item.rule &&
           item.sources.length > 0 &&
           item.limitation.includes('不等于现代实证验证'),
@@ -2118,11 +2175,83 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
       ),
     );
     assert.ok(chart.evidenceAnalysis.candidates.length > 0);
-    assert.ok(Array.isArray(chart.evidenceAnalysis.relations));
+    assert.equal(
+      chart.evidenceAnalysis.relations.length,
+      Math.max(0, chart.evidenceAnalysis.candidates.length - 1),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.relations.every(
+        (item) =>
+          item.key.startsWith('qimen:relation:') &&
+          item.fromPalaceFactKey &&
+          item.toPalaceFactKey &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不证明现实中的支持'),
+      ),
+    );
+    assert.equal(
+      chart.evidenceAnalysis.counterSummaryFact.factKeys.length,
+      chart.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.ok(
+      chart.evidenceAnalysis.counterEvidenceFacts.every(
+        (item) =>
+          item.key.startsWith('qimen:counter:') &&
+          item.status === '已触发' &&
+          item.ownerPalaceFactKey &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得把单项限制直接写成现实失败'),
+      ),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.timingFacts.every(
+        (item) =>
+          item.key.startsWith('qimen:timing:') &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得换算唯一日期'),
+      ),
+    );
+    assert.equal(
+      chart.evidenceAnalysis.timingSummaryFact.factKeys.length,
+      chart.evidenceAnalysis.timingFacts.length,
+    );
+    assert.ok(
+      chart.evidenceAnalysis.directionFacts.every(
+        (item) =>
+          item.key.startsWith('qimen:direction:') &&
+          item.palaceFactKey &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('必须核实现实路线'),
+      ),
+    );
     assert.equal(chart.evidenceAnalysis.palaceFacts.length, chart.jiuGongGe.length);
     assert.ok(
       chart.evidenceAnalysis.palaceFacts.every(
-        (item) => item.sources.length >= 3 && item.limitation.includes('不单独证明现实吉凶'),
+        (item) =>
+          item.status === '已计算' &&
+          item.patternFactKeys.every((key) =>
+            chart.evidenceAnalysis.patternFacts.some((fact) => fact.key === key),
+          ) &&
+          item.stemRelationFacts.every(
+            (fact) =>
+              fact.ownerPalaceFactKey === item.key &&
+              fact.status === '已计算' &&
+              fact.sources.length > 0 &&
+              fact.limitation.includes('不单独证明现实吉凶'),
+          ) &&
+          item.insights.every(
+            (fact) =>
+              fact.ownerPalaceFactKey === item.key &&
+              fact.status === '已命中' &&
+              fact.originalText &&
+              fact.promptText &&
+              fact.sources.length > 0,
+          ) &&
+          item.sources.length >= 3 &&
+          item.limitation.includes('不单独证明现实吉凶'),
       ),
     );
     assert.ok(
@@ -2142,6 +2271,7 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
     assert.match(prompt, /不等于已经按具体问题选定用神/);
     assert.doesNotMatch(prompt, /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|应期范围\d/);
     assert.doesNotMatch(prompt, /大吉格|大凶格|显著加快|显著延迟/);
+    assert.doesNotMatch(prompt, /项目以|项目规则|项目计算|命语|本项目|项目统一|工程|算法结果/);
     assertPromptIsPortableTaskText(prompt);
   });
 });

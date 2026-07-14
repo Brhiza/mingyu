@@ -1911,6 +1911,11 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
   assert.ok(defaultResult.body.data.evidenceAnalysis.candidates.length > 0);
   assert.equal(defaultResult.body.data.evidenceAnalysis.calculationEvidenceFacts.length, 5);
   assert.equal(defaultResult.body.data.evidenceAnalysis.ruleSourceFacts.length, 4);
+  assert.equal(defaultResult.body.data.evidenceAnalysis.palaceCoverageFact.status, '完整');
+  assert.deepEqual(
+    defaultResult.body.data.evidenceAnalysis.palaceCoverageFact.actualGongs,
+    [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  );
   assert.ok(
     defaultResult.body.data.evidenceAnalysis.calculationEvidenceFacts.every(
       (item: Record<string, unknown>) =>
@@ -1925,6 +1930,7 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
     defaultResult.body.data.evidenceAnalysis.ruleSourceFacts.every(
       (item: Record<string, unknown>) =>
         String(item.key).startsWith('rule:qimen:') &&
+        item.status === '已声明' &&
         item.rule &&
         Array.isArray(item.sources) &&
         item.sources.length > 0 &&
@@ -1939,9 +1945,13 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
   assert.ok(
     defaultResult.body.data.evidenceAnalysis.palaceFacts.every(
       (item: Record<string, unknown>) =>
+        item.status === '已计算' &&
         item.promptText &&
         Array.isArray(item.sources) &&
         item.sources.length >= 3 &&
+        Array.isArray(item.patternFactKeys) &&
+        Array.isArray(item.stemRelationFacts) &&
+        Array.isArray(item.insights) &&
         String(item.limitation).includes('不单独证明现实吉凶'),
     ),
   );
@@ -1952,6 +1962,58 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
       ),
     ),
   );
+  assert.equal(
+    defaultResult.body.data.evidenceAnalysis.relations.length,
+    Math.max(0, defaultResult.body.data.evidenceAnalysis.candidates.length - 1),
+  );
+  assert.ok(
+    defaultResult.body.data.evidenceAnalysis.relations.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('qimen:relation:') &&
+        item.fromPalaceFactKey &&
+        item.toPalaceFactKey &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        String(item.limitation).includes('不证明现实中的支持'),
+    ),
+  );
+  assert.equal(
+    defaultResult.body.data.evidenceAnalysis.counterSummaryFact.factKeys.length,
+    defaultResult.body.data.evidenceAnalysis.counterEvidenceFacts.length,
+  );
+  assert.ok(
+    defaultResult.body.data.evidenceAnalysis.counterEvidenceFacts.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('qimen:counter:') &&
+        item.status === '已触发' &&
+        item.ownerPalaceFactKey &&
+        Array.isArray(item.sources) &&
+        String(item.limitation).includes('不得把单项限制直接写成现实失败'),
+    ),
+  );
+  assert.ok(
+    defaultResult.body.data.evidenceAnalysis.timingFacts.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('qimen:timing:') &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        String(item.limitation).includes('不得换算唯一日期'),
+    ),
+  );
+  assert.equal(
+    defaultResult.body.data.evidenceAnalysis.timingSummaryFact.factKeys.length,
+    defaultResult.body.data.evidenceAnalysis.timingFacts.length,
+  );
+  assert.ok(
+    defaultResult.body.data.evidenceAnalysis.directionFacts.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('qimen:direction:') &&
+        item.palaceFactKey &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        String(item.limitation).includes('必须核实现实路线'),
+    ),
+  );
   assert.match(
     defaultResult.body.data.evidenceAnalysis.promptText,
     /【奇门用神宫与宫间作用结构化证据】/,
@@ -1959,8 +2021,9 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
   assert.match(defaultResult.body.data.evidenceAnalysis.promptText, /奇门九宫逐宫计算事实/);
   assert.doesNotMatch(
     defaultResult.body.data.evidenceAnalysis.promptText,
-    /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|成功率[：=]?\d/,
+    /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|成功率[：=]?\d|项目以|项目规则|项目计算|命语|本项目|项目统一|工程|算法结果/,
   );
+  assertPromptIsPortableTaskText(defaultResult.body.data.evidenceAnalysis.promptText);
   assert.deepEqual(
     defaultResult.body.data.jiuGongGe.map(
       (gong: { tianPan: { star: string } }) => gong.tianPan.star,

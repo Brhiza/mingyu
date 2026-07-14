@@ -49,12 +49,21 @@ export type { QimenPriorityPalace } from './helpers/guidance';
 export { analyzeQimenEvidence, conditionQimenTraditionalText } from '../../qimen-evidence';
 export type {
   QimenCalculationEvidenceFact,
+  QimenCounterEvidenceFact,
+  QimenCounterSummaryFact,
+  QimenDirectionFact,
+  QimenDirectionSummaryFact,
   QimenEvidenceAnalysis,
   QimenPalaceEvidence,
   QimenPalaceFact,
+  QimenPalaceCoverageFact,
+  QimenPalaceInsightFact,
   QimenPalaceRelationEvidence,
   QimenPatternEvidenceFact,
   QimenRuleSourceFact,
+  QimenStemRelationFact,
+  QimenTimingFact,
+  QimenTimingSummaryFact,
 } from '../../qimen-evidence';
 
 // ============================================================================

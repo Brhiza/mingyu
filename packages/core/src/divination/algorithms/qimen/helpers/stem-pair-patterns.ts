@@ -192,7 +192,7 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
     name: '青龙出地',
     type: 'good',
     score: 4,
-    summary: '六甲加甲为青龙出地；项目以甲子戊代甲，故戊加地盘戊按此格论，主喜信财至。',
+    summary: '六甲加甲为青龙出地；排盘时以甲子戊代甲，故戊加地盘戊按此格论，主喜信财至。',
     interpretation:
       '青龙出地取甲木青龙从本位显现之象。甲在奇门中遁藏于六仪，甲子遁于戊，' +
       '所以实际排盘遇到戊加戊时，按六甲加甲的传统克应处理。此格利消息、财物、' +
@@ -391,7 +391,7 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
     name: '阴中返阳',
     type: 'bad',
     score: -3,
-    summary: '乙加地盘甲为阴中返阳；项目以甲子戊代甲，故乙加地盘戊按此格论。',
+    summary: '乙加地盘甲为阴中返阳；排盘时以甲子戊代甲，故乙加地盘戊按此格论。',
     interpretation:
       '阴中返阳取乙日奇临甲子戊青龙之象。甲在奇门中遁藏于六仪，甲子遁于戊，' +
       '所以实际排盘遇到乙加戊时，按六乙加甲的传统克应处理。此格不是普通乙木克戊土，' +
@@ -476,7 +476,7 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
     name: '龙困遭伤',
     type: 'bad',
     score: -4,
-    summary: '辛加地盘甲为龙困遭伤；项目以甲子戊代甲，故辛加地盘戊按此格论。',
+    summary: '辛加地盘甲为龙困遭伤；排盘时以甲子戊代甲，故辛加地盘戊按此格论。',
     interpretation:
       '龙困遭伤取辛白虎临甲青龙之象。甲为青龙、财源与生发，辛为阴金白虎，' +
       '金克木而青龙受困，主财事、官事或人情关系中有牵制损伤。门星顺合时尚可缓解，' +
@@ -752,7 +752,7 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
     name: '罗网青龙',
     type: 'neutral',
     score: 1,
-    summary: '癸加地盘甲为罗网青龙；项目以甲子戊代甲，故癸加地盘戊按此格论。',
+    summary: '癸加地盘甲为罗网青龙；排盘时以甲子戊代甲，故癸加地盘戊按此格论。',
     interpretation:
       '罗网青龙取癸天网临甲青龙之象。甲主财喜、姻亲和生发，癸主罗网、隐忧与规则，' +
       '财喜虽有来源，但需经由约束、手续或贵人牵线才能落地。星门不合时，' +
@@ -862,7 +862,7 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
     name: '蛇化为龙',
     type: 'good',
     score: 2,
-    summary: '壬加地盘甲为蛇化为龙；项目以甲子戊代甲，故壬加地盘戊按此格论。',
+    summary: '壬加地盘甲为蛇化为龙；排盘时以甲子戊代甲，故壬加地盘戊按此格论。',
     interpretation:
       '蛇化为龙取壬螣蛇临甲青龙之象。壬主隐伏、流动和机变，甲主青龙、生发和财喜，' +
       '阴柔、幕后、女性或隐性资源用事较有喜庆。阳主动求则容易有始无终，' +
@@ -1026,7 +1026,7 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
     name: '刑青龙格',
     type: 'neutral',
     score: 1,
-    summary: '庚加地盘甲为刑青龙格；项目以甲子戊代甲，故庚加地盘戊按此格论。',
+    summary: '庚加地盘甲为刑青龙格；排盘时以甲子戊代甲，故庚加地盘戊按此格论。',
     interpretation:
       '刑青龙格取庚太白临甲青龙之象。甲在奇门中遁藏于六仪，甲子遁于戊，' +
       '所以实际排盘遇到庚加戊时，按庚加甲的传统克应处理。古籍言其“财利多荣”，' +

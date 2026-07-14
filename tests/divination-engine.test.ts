@@ -40,6 +40,7 @@ import { analyzeSsgwEvidence, drawRandomSign } from 'mingyu-core/divination/ssgw
 import { SSGW_INTERPRETATION_FIELDS, SSGW_SIGNS } from '../packages/core/src/divination/ssgw-data';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import {
+  analyzeQimenEvidence,
   conditionQimenTraditionalText,
   generateQimen,
   resolveZhiShiLandingPalace,
@@ -464,10 +465,34 @@ test('奇门定局、值符值使、宫间作用与触发条件应进入统一�
   const items = analysis?.evidence.items ?? [];
 
   assert.ok(analysis);
+  assert.equal(analysis.palaceCoverageFact.status, '完整');
+  assert.deepEqual(analysis.palaceCoverageFact.actualGongs, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  assert.deepEqual(analysis.palaceCoverageFact.missingGongs, []);
   assert.equal(analysis.palaceFacts.length, data.jiuGongGe.length);
   assert.ok(
     analysis.palaceFacts.every(
-      (item) => item.sources.length > 0 && item.limitation.includes('不单独证明现实吉凶'),
+      (item) =>
+        item.status === '已计算' &&
+        item.sources.length > 0 &&
+        item.patternFactKeys.every((key) =>
+          analysis.patternFacts.some((fact) => fact.key === key),
+        ) &&
+        item.stemRelationFacts.every(
+          (fact) =>
+            fact.ownerPalaceFactKey === item.key &&
+            fact.status === '已计算' &&
+            fact.sources.length > 0 &&
+            fact.limitation.includes('不单独证明现实吉凶'),
+        ) &&
+        item.insights.every(
+          (fact) =>
+            fact.ownerPalaceFactKey === item.key &&
+            fact.status === '已命中' &&
+            fact.originalText &&
+            fact.promptText &&
+            fact.sources.length > 0,
+        ) &&
+        item.limitation.includes('不单独证明现实吉凶'),
     ),
   );
   assert.ok(analysis.calculationFacts.some((item) => /阴遁|阳遁/.test(item)));
@@ -495,6 +520,7 @@ test('奇门定局、值符值使、宫间作用与触发条件应进入统一�
     analysis.ruleSourceFacts.every(
       (item) =>
         item.key.startsWith('rule:qimen:') &&
+        item.status === '已声明' &&
         item.rule &&
         item.appliesTo.length > 0 &&
         item.sources.length > 0 &&
@@ -515,8 +541,61 @@ test('奇门定局、值符值使、宫间作用与触发条件应进入统一�
   );
   assert.ok(
     analysis.patternFacts.every(
-      (item) => item.originalText && item.promptText && item.limitation.includes('不是现实结果'),
+      (item) =>
+        item.status === '已命中' &&
+        item.originalText &&
+        item.promptText &&
+        item.limitation.includes('不是现实结果'),
     ),
+  );
+  assert.equal(analysis.relations.length, Math.max(0, analysis.candidates.length - 1));
+  assert.ok(
+    analysis.relations.every(
+      (item) =>
+        item.key.startsWith('qimen:relation:') &&
+        analysis.palaceFacts.some((fact) => fact.key === item.fromPalaceFactKey) &&
+        analysis.palaceFacts.some((fact) => fact.key === item.toPalaceFactKey) &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不证明现实中的支持'),
+    ),
+  );
+  assert.equal(analysis.counterSummaryFact.factKeys.length, analysis.counterEvidenceFacts.length);
+  assert.ok(
+    analysis.counterEvidenceFacts.every(
+      (item) =>
+        item.key.startsWith('qimen:counter:') &&
+        item.status === '已触发' &&
+        analysis.palaceFacts.some((fact) => fact.key === item.ownerPalaceFactKey) &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不得把单项限制直接写成现实失败'),
+    ),
+  );
+  assert.ok(analysis.timingFacts.length > 0);
+  assert.ok(
+    analysis.timingFacts.every(
+      (item) =>
+        item.key.startsWith('qimen:timing:') &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不得换算唯一日期'),
+    ),
+  );
+  assert.equal(analysis.timingSummaryFact.factKeys.length, analysis.timingFacts.length);
+  assert.ok(analysis.directionFacts.length > 0);
+  assert.ok(
+    analysis.directionFacts.every(
+      (item) =>
+        item.key.startsWith('qimen:direction:') &&
+        analysis.palaceFacts.some((fact) => fact.key === item.palaceFactKey) &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('必须核实现实路线'),
+    ),
+  );
+  assert.equal(
+    analysis.directionSummaryFact.candidateFactKeys.length,
+    Math.min(4, analysis.candidates.length),
   );
 
   const setupItem = items.find((item) => item.title === '定局计算事实');
@@ -540,6 +619,20 @@ test('奇门定局、值符值使、宫间作用与触发条件应进入统一�
     JSON.stringify(analysis.evidence),
     /"score"\s*:|成功率[：=]?\s*\d|吉凶总分[：=]?\s*\d/,
   );
+  assert.doesNotMatch(
+    analysis.promptText,
+    /项目以|项目规则|项目计算|命语|本项目|项目统一|工程|算法结果/,
+  );
+  assertPromptIsPortableTaskText(analysis.promptText);
+
+  const incomplete = analyzeQimenEvidence({
+    ...data,
+    jiuGongGe: data.jiuGongGe.filter((item) => item.gong !== 5),
+    evidenceAnalysis: undefined,
+  });
+  assert.equal(incomplete.palaceCoverageFact.status, '缺少宫位');
+  assert.deepEqual(incomplete.palaceCoverageFact.missingGongs, [5]);
+  assert.match(incomplete.palaceCoverageFact.promptText, /不得补造缺失宫位内容/);
 });
 
 test('奇门传统格局应保留原文并为提示词生成条件化副本', () => {
@@ -4023,7 +4116,7 @@ test('塔罗与雷诺曼提示词应包含可回退生成的结构化证据', as
     buildDraft({ method: 'lenormand', lenormandSpread: 'nine', question: '事情有哪些线索？' }),
   );
   assert.match(lenormandSession.prompt, /【雷诺曼牌序组合与布局结构化证据】/);
-  assert.match(lenormandSession.prompt, /固定组合仅指项目词典中明确登记的牌对/);
+  assert.match(lenormandSession.prompt, /固定组合仅指当前采用的固定牌对资料中明确登记的组合/);
   assert.doesNotMatch(lenormandSession.prompt, /成功率为\d|成功率提升至|吉凶总分[：=]\d/);
 });
 
