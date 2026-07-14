@@ -3591,6 +3591,14 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
   assert.match(confirmed.evidenceAnalysis?.promptText || '', /签诗原文/);
   assert.match(confirmed.evidenceAnalysis?.promptText || '', /典故/);
   assert.match(confirmed.evidenceAnalysis?.promptText || '', /随机过程可以重放，不证明预测有效性/);
+  const confirmedItems = confirmed.evidenceAnalysis?.evidence.items ?? [];
+  const confirmedRitual = confirmedItems.find((item) => item.title === '模拟求签仪式完成记录');
+  const confirmedRandom = confirmedItems.find((item) => item.title === '随机过程重放记录');
+  assert.equal(confirmedRitual?.level, '辅证');
+  assert.notEqual(confirmedRitual?.level, '主证');
+  assert.match(confirmedRitual?.detail || '', /已出现圣杯/);
+  assert.equal(confirmedRandom?.level, '辅证');
+  assert.match(confirmedRandom?.detail || '', /不表示可信度、神意或预测有效性/);
 
   const rejected = drawRandomSign(new Date('2025-01-01T00:00:00+08:00'), {
     replay: [0.1, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9],
@@ -3601,6 +3609,11 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
     ['阴杯', '阴杯', '阴杯'],
   );
   assert.match(rejected.ritual?.reason || '', /拒绝起签/);
+  const rejectedRitual = rejected.evidenceAnalysis?.evidence.items.find(
+    (item) => item.title === '模拟求签仪式未完成',
+  );
+  assert.equal(rejectedRitual?.level, '反证');
+  assert.match(rejectedRitual?.detail || '', /未获圣杯/);
 });
 
 test('占卜时间格式化遇到无法转换为 Date 的时间戳时应回退当前时间', () => {

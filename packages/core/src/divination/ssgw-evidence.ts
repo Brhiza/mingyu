@@ -70,7 +70,6 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
   const counterEvidence = [
     missingFields.length ? `缺少分类字段：${missingFields.join('、')}` : '',
     data.story?.trim() || details['典故']?.trim() ? '' : '当前资料没有典故，不得自行补造人物或事件',
-    data.ritual && !data.ritual.confirmed ? '没有圣杯确认，按所用仪式规则不得生成签文结论' : '',
   ].filter(Boolean);
   const limitations = [
     '签诗、典故、分类解读与掷筊仪式属于传统象征材料，不是现代统计或因果证据',
@@ -106,6 +105,20 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       source: '命语整理的分类解释资料',
       tags: [item.role, item.field],
     })),
+    {
+      level: data.ritual?.confirmed ? '辅证' : '反证',
+      title: data.ritual?.confirmed ? '模拟求签仪式完成记录' : '模拟求签仪式未完成',
+      detail: ritualFacts.join('；'),
+      source: '命语三山国王灵签模拟仪式流程记录',
+      tags: ['仪式流程', data.ritual?.confirmed ? '已确认' : '未确认', '不代表现实结论'],
+    },
+    {
+      level: trace ? '辅证' : '反证',
+      title: trace ? '随机过程重放记录' : '随机轨迹缺失',
+      detail: `${randomFacts.join('；')}；该记录只用于核验抽签过程能否重放，不表示可信度、神意或预测有效性`,
+      source: '命语统一随机轨迹协议',
+      tags: ['随机轨迹', trace ? '可重放' : '不可核验', '不代表预测有效性'],
+    },
     ...counterEvidence.map((detail): PromptEvidenceItem => ({
       level: '反证',
       title: '当前资料或仪式缺口',
