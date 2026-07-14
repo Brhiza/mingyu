@@ -1991,7 +1991,10 @@ test('公开 API 奇门与小六壬应期应返回条件证据，不返回伪精
   assert.equal(qimen.body.data.yingQi.minDays, undefined);
   assert.equal(qimen.body.data.yingQi.maxDays, undefined);
   assert.ok(qimen.body.data.yingQi.triggerConditions.length > 0);
-  assert.doesNotMatch(JSON.stringify(qimen.body.data.yingQi), /加快约\d+%|延迟约\d+%/);
+  assert.doesNotMatch(
+    JSON.stringify(qimen.body.data.yingQi),
+    /加快约\d+%|延迟约\d+%|大吉格|大凶格|显著加快|显著延迟/,
+  );
 
   const xiaoliuren = await callApi('divination/xiaoliuren', {
     method: 'POST',

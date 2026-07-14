@@ -362,6 +362,21 @@ test('奇门应期只输出相对节奏与触发条件，不机械换算天数�
   );
 });
 
+test('奇门应期按格局类别列出支持与限制，不读取内部评分强弱', () => {
+  const yingQi = estimateYingQi([], 5, {
+    classicPatterns: [
+      { name: '青龙返首', tone: 'good' },
+      { name: '白虎猖狂', tone: 'bad' },
+      { name: '一般格局', tone: 'neutral' },
+    ],
+  });
+  const text = yingQi.sources.join('\n');
+  assert.match(text, /支持与限制并见/);
+  assert.match(text, /支持格局：青龙返首/);
+  assert.match(text, /限制格局：白虎猖狂/);
+  assert.doesNotMatch(text, /大吉格|大凶格|显著加快|显著延迟|评分|分值/);
+});
+
 test('奇门算法会输出节令背景与复合格局结构', () => {
   const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'));
 

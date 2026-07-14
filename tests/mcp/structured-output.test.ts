@@ -1401,6 +1401,7 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
     assert.match(prompt, /【奇门用神宫与宫间作用结构化证据】/);
     assert.match(prompt, /不等于已经按具体问题选定用神/);
     assert.doesNotMatch(prompt, /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|应期范围\d/);
+    assert.doesNotMatch(prompt, /大吉格|大凶格|显著加快|显著延迟/);
     assertPromptIsPortableTaskText(prompt);
   });
 });

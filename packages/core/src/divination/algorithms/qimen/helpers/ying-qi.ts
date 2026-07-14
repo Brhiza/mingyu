@@ -96,7 +96,7 @@ export interface YingQiEstimate {
  *   zhiFuLandingPalace: 1,
  *   zhiShiLandingPalace: 8,
  *   dayGanZhi: '甲子',
- *   classicPatterns: [{ name: '青龙返首', score: 8 }],
+ *   classicPatterns: [{ name: '青龙返首', tone: 'good' }],
  *   voidBranches: ['寅', '卯'],
  * });
  * ```
@@ -126,7 +126,7 @@ export function estimateYingQi(
     /** 旧字段兼容：历史上误传时干支，新调用请使用 dayGanZhi */
     hourGanZhi?: string;
     /** 经典格局列表 */
-    classicPatterns?: Array<{ name: string; score: number }>;
+    classicPatterns?: Array<{ name: string; tone: 'good' | 'bad' | 'neutral' }>;
     /** 命中用神落宫的空亡地支列表（用于细化说明填实时间） */
     voidBranches?: string[];
     /** 是否阳遁；用于按冬至/夏至后内外宫判断应期远近 */
@@ -314,11 +314,13 @@ export function estimateYingQi(
   // ==========================================================================
   // 8. 经典格局调整
   // ==========================================================================
-  // 格局只作为支持或限制信号，不按内部 score 换算百分比或天数。
+  // 格局只按传统类别作为支持或限制信号，不读取内部排序分，也不换算应期程度。
 
   if (options?.classicPatterns && options.classicPatterns.length > 0) {
-    const goodCount = options.classicPatterns.filter((p) => p.score > 0).length;
-    const badCount = options.classicPatterns.filter((p) => p.score < 0).length;
+    const goodPatterns = options.classicPatterns.filter((pattern) => pattern.tone === 'good');
+    const badPatterns = options.classicPatterns.filter((pattern) => pattern.tone === 'bad');
+    const goodCount = goodPatterns.length;
+    const badCount = badPatterns.length;
 
     if (goodCount > 0 && badCount === 0) {
       fastSignals += 1;
@@ -331,16 +333,11 @@ export function estimateYingQi(
         `支持与限制并见（支持${goodCount}项、限制${badCount}项），快慢取决于哪类条件先落实`,
       );
     }
-
-    // 高影响力格局单独说明
-    for (const pat of options.classicPatterns) {
-      if (Math.abs(pat.score) >= 8) {
-        if (pat.score > 0) {
-          sources.push(`${pat.name}大吉格，应期显著加快`);
-        } else {
-          sources.push(`${pat.name}大凶格，应期显著延迟`);
-        }
-      }
+    if (goodPatterns.length > 0) {
+      sources.push(`支持格局：${goodPatterns.map((pattern) => pattern.name).join('、')}`);
+    }
+    if (badPatterns.length > 0) {
+      sources.push(`限制格局：${badPatterns.map((pattern) => pattern.name).join('、')}`);
     }
   }
 
