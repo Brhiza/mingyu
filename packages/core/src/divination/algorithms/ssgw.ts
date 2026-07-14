@@ -63,7 +63,11 @@ export function drawRandomSign(
     const first = randomInt(2, context.random);
     const second = randomInt(2, context.random);
     const result = first !== second ? '圣杯' : first === 0 ? '笑杯' : '阴杯';
-    throws.push({ result });
+    throws.push({
+      result,
+      firstFace: first === 0 ? '阳面' : '阴面',
+      secondFace: second === 0 ? '阳面' : '阴面',
+    });
     if (result === '圣杯') break;
     consecutiveYin = result === '阴杯' ? consecutiveYin + 1 : 0;
     if (consecutiveYin >= 3) break;
@@ -85,6 +89,11 @@ export function drawRandomSign(
       ...sign,
       timestamp,
       ganzhi,
+      draw: {
+        poolSize: ssgwSigns.length,
+        selectedIndex: randomIndex,
+        selectedNumber: sign.number,
+      },
       ritual,
     },
     {

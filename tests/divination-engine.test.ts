@@ -3623,6 +3623,13 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
     confirmed.ritual?.throws.map((item) => item.result),
     ['圣杯'],
   );
+  assert.deepEqual(
+    confirmed.ritual?.throws.map((item) => [item.firstFace, item.secondFace]),
+    [['阳面', '阴面']],
+  );
+  assert.equal(confirmed.draw?.poolSize, 92);
+  assert.equal(confirmed.draw?.selectedNumber, confirmed.number);
+  assert.ok(confirmed.evidenceAnalysis?.drawFacts.some((item) => item.includes('随机索引')));
   assert.match(confirmed.evidenceAnalysis?.promptText || '', /签诗原文/);
   assert.match(confirmed.evidenceAnalysis?.promptText || '', /典故/);
   assert.match(confirmed.evidenceAnalysis?.promptText || '', /随机过程可以重放，不证明预测有效性/);
@@ -3633,7 +3640,16 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
   assert.notEqual(confirmedRitual?.level, '主证');
   assert.match(confirmedRitual?.detail || '', /已出现圣杯/);
   assert.equal(confirmedRandom?.level, '辅证');
+  assert.match(confirmedRandom?.detail || '', /随机种子保留在结构化结果中/);
   assert.match(confirmedRandom?.detail || '', /不表示可信度、神意或预测有效性/);
+
+  const seeded = drawRandomSign(new Date('2025-01-01T00:00:00+08:00'), {
+    seed: '灵签证据样例',
+  });
+  assert.ok(
+    seeded.evidenceAnalysis?.randomFacts.some((item) => item.includes('随机种子：灵签证据样例')),
+  );
+  assert.doesNotMatch(seeded.evidenceAnalysis?.promptText || '', /灵签证据样例/);
 
   const rejected = drawRandomSign(new Date('2025-01-01T00:00:00+08:00'), {
     replay: [0.1, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9],

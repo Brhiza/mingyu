@@ -1029,6 +1029,8 @@ export interface TaiyiResult {
 
 export interface SsgwRitualThrow {
   result: '圣杯' | '笑杯' | '阴杯';
+  firstFace?: '阳面' | '阴面';
+  secondFace?: '阳面' | '阴面';
 }
 
 export interface SsgwRitual {
@@ -1047,6 +1049,11 @@ export interface SsgwData {
   details?: { [key: string]: string };
   timestamp: number;
   ganzhi: BaseGanZhi;
+  draw?: {
+    poolSize: number;
+    selectedIndex: number;
+    selectedNumber: number;
+  };
   ritual?: SsgwRitual;
   evidenceAnalysis?: import('../divination/ssgw-evidence').SsgwEvidenceAnalysis;
 }

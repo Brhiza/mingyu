@@ -12,6 +12,7 @@ export interface SsgwEvidenceAnalysis {
   story?: string;
   interpretations: Array<{ field: string; text: string; role: '核心分类' | '补充条目' }>;
   missingFields: string[];
+  drawFacts: string[];
   ritualFacts: string[];
   randomFacts: string[];
   sources: Array<{ title: string; evidence: string; role: '传统签本' | '项目资料' | '公共算法' }>;
@@ -34,9 +35,22 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
         : ('补充条目' as const),
     }));
   const missingFields = SSGW_INTERPRETATION_FIELDS.filter((field) => !details[field]?.trim());
+  const drawFacts = data.draw
+    ? [
+        `签池共${data.draw.poolSize}签，随机索引${data.draw.selectedIndex}（从0起）对应第${data.draw.selectedNumber}签`,
+        `抽签结果核验：第${data.number}签《${data.title}》`,
+      ]
+    : [`当前结果未附签池索引过程，仅保留已确定的第${data.number}签《${data.title}》`];
   const ritualFacts = data.ritual
     ? [
-        `掷筊顺序：${data.ritual.throws.map((item) => item.result).join(' → ') || '没有掷筊记录'}`,
+        `掷筊顺序：${
+          data.ritual.throws
+            .map(
+              (item, index) =>
+                `第${index + 1}次${item.firstFace && item.secondFace ? `${item.firstFace}+${item.secondFace}=` : ''}${item.result}`,
+            )
+            .join(' → ') || '没有掷筊记录'
+        }`,
         data.ritual.confirmed
           ? '仪式状态：已出现圣杯，签文按项目模拟流程确认'
           : `仪式状态：未获圣杯${data.ritual.reason ? `；${data.ritual.reason}` : ''}`,
@@ -50,6 +64,7 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
         trace.seed !== undefined ? `随机种子：${String(trace.seed)}` : '',
       ].filter(Boolean)
     : ['当前结果未附随机轨迹，无法验证抽签与掷筊的重放过程'];
+  const promptRandomFacts = randomFacts.filter((item) => !item.startsWith('随机种子：'));
   const sources: SsgwEvidenceAnalysis['sources'] = [
     {
       title: '三山国王祖庙九十二签体系',
@@ -80,6 +95,13 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     '不同庙本可能存在签序、题名和字句差异，引用时应注明所用签文资料版本',
   ];
   const items: PromptEvidenceItem[] = [
+    {
+      level: '辅证',
+      title: '签池抽取索引事实',
+      detail: drawFacts.join('；'),
+      source: '三山国王九十二签签池与命语统一随机抽取过程',
+      tags: ['签池', '抽签索引', '可重放'],
+    },
     {
       level: '主证',
       title: `第${data.number}签《${data.title}》签诗原文`,
@@ -115,7 +137,7 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     {
       level: trace ? '辅证' : '反证',
       title: trace ? '随机过程重放记录' : '随机轨迹缺失',
-      detail: `${randomFacts.join('；')}；该记录只用于核验抽签过程能否重放，不表示可信度、神意或预测有效性`,
+      detail: `${promptRandomFacts.join('；')}；随机种子保留在结构化结果中，不写入自然语言提示词；该记录只用于核验抽签过程能否重放，不表示可信度、神意或预测有效性`,
       source: '命语统一随机轨迹协议',
       tags: ['随机轨迹', trace ? '可重放' : '不可核验', '不代表预测有效性'],
     },
@@ -150,7 +172,8 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     '【三山国王灵签文本与仪式结构化证据】',
     ...formatPromptEvidenceBundle(promptEvidence),
     `仪式事实：${ritualFacts.join('；')}。`,
-    `随机事实：${randomFacts.join('；')}。`,
+    `抽签事实：${drawFacts.join('；')}。`,
+    `随机事实：${promptRandomFacts.join('；')}；随机种子仅保留在结构化结果中。`,
     `资料来源：${sources.map((item) => `${item.title}（${item.role}：${item.evidence}）`).join('；')}。`,
   ].join('\n');
   return {
@@ -158,6 +181,7 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     story: data.story?.trim() || undefined,
     interpretations,
     missingFields,
+    drawFacts,
     ritualFacts,
     randomFacts,
     sources,
