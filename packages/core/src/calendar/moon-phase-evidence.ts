@@ -29,13 +29,26 @@ export type PrincipalMoonPhaseName = (typeof PRINCIPAL_PHASES)[number]['name'];
 export type EightMoonPhaseName = (typeof EIGHT_PHASE_NAMES)[number];
 
 export interface PrincipalMoonPhaseEvent {
+  key: string;
   name: PrincipalMoonPhaseName;
   targetAngleDegrees: number;
   utcTimestamp: number;
   utcDateTime: string;
   residualDegrees: number;
   refinementIterations: number;
+  promptText: string;
+  sources: string[];
+  calculation: string;
+  limitation: '四正月相事件是日月地心黄经差对目标角度的数值求根结果；1秒求根区间不等于观测级精度，也不证明月食可见性、现实事件、吉凶或固定应期';
 }
+
+const PRINCIPAL_PHASE_SOURCES = [
+  'celestine 日月地心黄经',
+  '平均朔望月29.530588861日初值与二分求根',
+] as const;
+
+const PRINCIPAL_PHASE_LIMITATION =
+  '四正月相事件是日月地心黄经差对目标角度的数值求根结果；1秒求根区间不等于观测级精度，也不证明月食可见性、现实事件、吉凶或固定应期' as const;
 
 export interface MoonPhaseEvidence {
   utcTimestamp: number;
@@ -111,13 +124,20 @@ function refinePhaseEvent(
   const residualDegrees = Math.abs(
     signedDifference(positionsAt(utcTimestamp).phaseAngle, phase.angle),
   );
+  const utcDateTime = new Date(utcTimestamp).toISOString();
+  const calculation = `以平均朔望月估计${phase.name}初值${new Date(estimatedTimestamp).toISOString()}，在前后各2日窗口内对日月地心黄经差=${phase.angle}°执行二分求根，迭代${refinementIterations}次后区间小于等于1秒`;
   return {
+    key: `四正月相:${phase.name}:${utcTimestamp}`,
     name: phase.name,
     targetAngleDegrees: phase.angle,
     utcTimestamp,
-    utcDateTime: new Date(utcTimestamp).toISOString(),
+    utcDateTime,
     residualDegrees: Number(residualDegrees.toFixed(8)),
     refinementIterations,
+    promptText: `${phase.name}事件：UTC ${utcDateTime}，目标日月黄经差${phase.angle}°，求根残差${residualDegrees.toFixed(8)}°，迭代${refinementIterations}次`,
+    sources: [...PRINCIPAL_PHASE_SOURCES],
+    calculation,
+    limitation: PRINCIPAL_PHASE_LIMITATION,
   };
 }
 
@@ -191,6 +211,6 @@ export function calculateMoonPhaseEvidence(utcTimestamp: number): MoonPhaseEvide
     method,
     source,
     limitations,
-    promptText: `月相证据：UTC ${utcDateTime} 日月黄经差${phaseAngleDegrees.toFixed(3)}°，最小距角${elongationDegrees.toFixed(3)}°，${eightPhaseName}、${waxing ? '盈' : '亏'}，照明约${(illuminationFraction * 100).toFixed(1)}%，近似月龄${approximateMoonAgeDays.toFixed(2)}日；前一四正相位为${events.previous.name} ${events.previous.utcDateTime}，下一四正相位为${events.next.name} ${events.next.utcDateTime}。方法：${method}。来源：${source}。限制：${limitations.join('；')}`,
+    promptText: `月相证据：UTC ${utcDateTime} 日月黄经差${phaseAngleDegrees.toFixed(3)}°，最小距角${elongationDegrees.toFixed(3)}°，${eightPhaseName}、${waxing ? '盈' : '亏'}，照明约${(illuminationFraction * 100).toFixed(1)}%，近似月龄${approximateMoonAgeDays.toFixed(2)}日；前一四正相位：${events.previous.promptText}；下一四正相位：${events.next.promptText}；四正事件统一边界：${PRINCIPAL_PHASE_LIMITATION}。方法：${method}。来源：${source}。限制：${limitations.join('；')}`,
   };
 }

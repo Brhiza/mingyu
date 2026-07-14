@@ -21,7 +21,23 @@ test('北京夏至应给出可复核的日出日落、太阳高度与曙暮光',
   assert.match(evidence.sunriseSunset.morningLocalDateTime ?? '', /2024-06-21 04:4\d:/);
   assert.match(evidence.sunriseSunset.eveningLocalDateTime ?? '', /2024-06-21 19:4\d:/);
   assert.match(evidence.civilTwilight.morningLocalDateTime ?? '', /2024-06-21 04:1\d:/);
+  assert.ok(
+    [
+      evidence.sunriseSunset,
+      evidence.civilTwilight,
+      evidence.nauticalTwilight,
+      evidence.astronomicalTwilight,
+    ].every(
+      (item) =>
+        item.key.startsWith('光照交点:') &&
+        item.promptText.includes('阈值') &&
+        item.sources.length >= 2 &&
+        item.calculation.includes('求时角交点') &&
+        item.limitation.includes('不代表实际可见性'),
+    ),
+  );
   assert.match(evidence.promptText, /真北起顺时针/);
+  assert.match(evidence.promptText, /日出\/日落：太阳高度-0\.833°阈值/);
   assert.match(evidence.promptText, /不宣称达到观测级或导航级精度/);
 });
 
@@ -47,8 +63,10 @@ test('高纬冬夏应明确表达极夜无日出和极昼无日落', () => {
 
   assert.equal(winter.sunriseSunset.status, '全天低于阈值');
   assert.equal(winter.sunriseSunset.morningUtcDateTime, null);
+  assert.match(winter.sunriseSunset.calculation, /余弦时角大于1/);
   assert.equal(summer.sunriseSunset.status, '全天高于阈值');
   assert.equal(summer.civilTwilight.status, '全天高于阈值');
+  assert.match(summer.sunriseSunset.calculation, /余弦时角小于-1/);
 });
 
 test('太阳光照证据应复用IANA历史时区并拒绝非法坐标', () => {

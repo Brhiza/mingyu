@@ -13,6 +13,11 @@ test('月相证据应识别2024年4月日食附近的朔并保留精度限制', 
   assert.ok(evidence.elongationDegrees < 0.1);
   assert.ok(evidence.illuminationPercent < 0.01);
   assert.equal(evidence.nextPrincipalPhase.name, '朔');
+  assert.match(evidence.nextPrincipalPhase.key, /^四正月相:朔:/);
+  assert.ok(evidence.nextPrincipalPhase.sources.length >= 2);
+  assert.match(evidence.nextPrincipalPhase.calculation, /二分求根/);
+  assert.match(evidence.nextPrincipalPhase.promptText, /目标日月黄经差0°/);
+  assert.match(evidence.nextPrincipalPhase.limitation, /不等于观测级精度/);
   assert.ok(
     Math.abs(evidence.nextPrincipalPhase.utcTimestamp - Date.parse('2024-04-08T18:22:28Z')) <
       2 * MINUTE,
@@ -45,6 +50,15 @@ test('一般日期的月相证据应由前后四正相位稳定包围', () => {
   assert.ok(evidence.nextPrincipalPhase.utcTimestamp > timestamp);
   assert.ok(evidence.previousPrincipalPhase.residualDegrees < 0.001);
   assert.ok(evidence.nextPrincipalPhase.residualDegrees < 0.001);
+  assert.ok(
+    [evidence.previousPrincipalPhase, evidence.nextPrincipalPhase].every(
+      (item) =>
+        item.key.startsWith('四正月相:') &&
+        item.sources.length >= 2 &&
+        item.promptText.includes('求根残差') &&
+        item.limitation.includes('不证明月食可见性'),
+    ),
+  );
   assert.ok(evidence.approximateMoonAgeDays > 0);
   assert.ok(evidence.approximateMoonAgeDays < 29.530588861);
 });

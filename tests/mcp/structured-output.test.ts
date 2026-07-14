@@ -383,6 +383,12 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
             result?: {
               stars?: unknown[];
               aspects?: Array<{ strength?: number; allowedOrb?: number }>;
+              calculationContext?: {
+                moonPhase?: {
+                  previousPrincipalPhase?: { key: string; sources: string[] };
+                  nextPrincipalPhase?: { limitation: string };
+                };
+              };
               evidenceAnalysis?: {
                 starFacts?: Array<{ sources: string[]; limitation: string }>;
                 aspectFacts?: Array<{ allowedOrb: number; limitation: string }>;
@@ -396,6 +402,17 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         }
         assert.equal(chart?.evidenceAnalysis?.starFacts?.length, chart?.stars?.length);
         assert.equal(chart?.evidenceAnalysis?.aspectFacts?.length, chart?.aspects?.length);
+        assert.match(
+          chart?.calculationContext?.moonPhase?.previousPrincipalPhase?.key ?? '',
+          /^四正月相:/,
+        );
+        assert.ok(
+          (chart?.calculationContext?.moonPhase?.previousPrincipalPhase?.sources.length ?? 0) >= 2,
+        );
+        assert.match(
+          chart?.calculationContext?.moonPhase?.nextPrincipalPhase?.limitation ?? '',
+          /不等于观测级精度/,
+        );
         assert.ok(
           chart?.evidenceAnalysis?.starFacts?.every(
             (item) => item.sources.length >= 3 && item.limitation.includes('必须分层使用'),
@@ -544,6 +561,12 @@ test('MCP 太阳光照工具应返回日出日落与曙暮光结构化证据', a
     });
     assert.equal(result.isError, undefined);
     assert.equal(result.structuredContent?.result.sunriseSunset.status, '正常交点');
+    assert.match(String(result.structuredContent?.result.sunriseSunset.key), /^光照交点:/);
+    assert.ok(result.structuredContent?.result.sunriseSunset.sources.length >= 2);
+    assert.match(
+      String(result.structuredContent?.result.sunriseSunset.limitation),
+      /不代表实际可见性/,
+    );
     assert.match(String(result.structuredContent?.result.promptText), /太阳光照证据：/);
   });
 });

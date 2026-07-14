@@ -9,6 +9,7 @@ const DAY_MS = 86_400_000;
 export type SolarCrossingStatus = '正常交点' | '全天高于阈值' | '全天低于阈值';
 
 export interface SolarCrossingEvidence {
+  key: string;
   name: string;
   solarAltitudeDegrees: number;
   status: SolarCrossingStatus;
@@ -16,7 +17,19 @@ export interface SolarCrossingEvidence {
   eveningUtcDateTime: string | null;
   morningLocalDateTime: string | null;
   eveningLocalDateTime: string | null;
+  promptText: string;
+  sources: string[];
+  calculation: string;
+  limitation: '太阳高度阈值交点只描述低阶太阳模型在理想地平线条件下的几何时刻或全天状态；不代表实际可见性、天气、遮挡、建筑采光效果、吉凶或事件结果';
 }
+
+const CROSSING_SOURCES = [
+  'NOAA Solar Calculator 太阳赤纬、时间方程与时角公式',
+  'Meeus《Astronomical Algorithms》低阶太阳模型',
+] as const;
+
+const CROSSING_LIMITATION =
+  '太阳高度阈值交点只描述低阶太阳模型在理想地平线条件下的几何时刻或全天状态；不代表实际可见性、天气、遮挡、建筑采光效果、吉凶或事件结果' as const;
 
 export interface SolarIlluminationInput extends AstronomicalTimeInput {
   latitude: number;
@@ -101,6 +114,8 @@ function crossingEvidence(
   equationOfTimeMinutes: number,
   declinationRadians: number,
 ): SolarCrossingEvidence {
+  const key = `光照交点:${name}`;
+  const calculation = `以太阳中心高度${altitudeDegrees}°为阈值，结合纬度${latitude}°、经度${longitude}°、时区UTC${timezone >= 0 ? '+' : ''}${timezone}、时间方程${equationOfTimeMinutes.toFixed(4)}分钟与太阳赤纬${radiansToDegrees(declinationRadians).toFixed(6)}°求时角交点`;
   const latitudeRadians = degreesToRadians(latitude);
   const zenithRadians = degreesToRadians(90 - altitudeDegrees);
   const cosineHourAngle =
@@ -108,6 +123,7 @@ function crossingEvidence(
     Math.tan(latitudeRadians) * Math.tan(declinationRadians);
   if (cosineHourAngle > 1) {
     return {
+      key,
       name,
       solarAltitudeDegrees: altitudeDegrees,
       status: '全天低于阈值',
@@ -115,10 +131,15 @@ function crossingEvidence(
       eveningUtcDateTime: null,
       morningLocalDateTime: null,
       eveningLocalDateTime: null,
+      promptText: `${name}：太阳高度${altitudeDegrees}°阈值在该民用日期全天无交点，状态为全天低于阈值`,
+      sources: [...CROSSING_SOURCES],
+      calculation: `${calculation}；余弦时角大于1，判定全天低于阈值`,
+      limitation: CROSSING_LIMITATION,
     };
   }
   if (cosineHourAngle < -1) {
     return {
+      key,
       name,
       solarAltitudeDegrees: altitudeDegrees,
       status: '全天高于阈值',
@@ -126,6 +147,10 @@ function crossingEvidence(
       eveningUtcDateTime: null,
       morningLocalDateTime: null,
       eveningLocalDateTime: null,
+      promptText: `${name}：太阳高度${altitudeDegrees}°阈值在该民用日期全天无交点，状态为全天高于阈值`,
+      sources: [...CROSSING_SOURCES],
+      calculation: `${calculation}；余弦时角小于-1，判定全天高于阈值`,
+      limitation: CROSSING_LIMITATION,
     };
   }
   const hourAngleDegrees = radiansToDegrees(Math.acos(cosineHourAngle));
@@ -134,21 +159,28 @@ function crossingEvidence(
   const eveningMinutes = solarNoonMinutes + 4 * hourAngleDegrees;
   const morningTimestamp = localMidnightUtcTimestamp + morningMinutes * 60_000;
   const eveningTimestamp = localMidnightUtcTimestamp + eveningMinutes * 60_000;
+  const morningUtcDateTime = new Date(morningTimestamp).toISOString();
+  const eveningUtcDateTime = new Date(eveningTimestamp).toISOString();
+  const morningLocalDateTime = formatLocalTimestamp(morningTimestamp, timezone);
+  const eveningLocalDateTime = formatLocalTimestamp(eveningTimestamp, timezone);
   return {
+    key,
     name,
     solarAltitudeDegrees: altitudeDegrees,
     status: '正常交点',
-    morningUtcDateTime: new Date(morningTimestamp).toISOString(),
-    eveningUtcDateTime: new Date(eveningTimestamp).toISOString(),
-    morningLocalDateTime: formatLocalTimestamp(morningTimestamp, timezone),
-    eveningLocalDateTime: formatLocalTimestamp(eveningTimestamp, timezone),
+    morningUtcDateTime,
+    eveningUtcDateTime,
+    morningLocalDateTime,
+    eveningLocalDateTime,
+    promptText: `${name}：太阳高度${altitudeDegrees}°阈值的当地上午交点为${morningLocalDateTime}、下午交点为${eveningLocalDateTime}`,
+    sources: [...CROSSING_SOURCES],
+    calculation: `${calculation}；余弦时角位于[-1,1]，解得上午与下午两个交点`,
+    limitation: CROSSING_LIMITATION,
   };
 }
 
 function formatCrossing(event: SolarCrossingEvidence) {
-  return event.status === '正常交点'
-    ? `${event.name}${event.morningLocalDateTime} / ${event.eveningLocalDateTime}`
-    : `${event.name}${event.status}`;
+  return `${event.promptText}；边界：${event.limitation}`;
 }
 
 export function calculateSolarIlluminationEvidence(
