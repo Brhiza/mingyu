@@ -121,7 +121,6 @@ export type EvidenceFact = {
   star_names: string[];
   mutagens: string[];
   description: string;
-  priority: number;
 };
 
 export type PatternFact = {
@@ -132,7 +131,6 @@ export type PatternFact = {
   palace_indexes: number[];
   palace_names: string[];
   star_names: string[];
-  priority: number;
 };
 
 export interface DayRootItem {

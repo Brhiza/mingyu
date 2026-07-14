@@ -108,7 +108,6 @@ function createPayload(): AnalysisPayloadV1 {
         palace_indexes: [0],
         palace_names: ['命宫'],
         star_names: ['紫微', '天府'],
-        priority: 92,
       },
     ],
   };
@@ -512,6 +511,7 @@ test('紫微证据池应输出大限流年流月流日落宫与运限四化飞�
   assert.match(titles, /流年（丙午流年）文昌化科入官禄/);
   assert.match(descriptions, /流年（丙午流年）干支为丙午/);
   assert.match(descriptions, /结合财帛的运限落宫一起判断触发路径/);
+  assert.ok(evidence.every((item) => !('priority' in item)));
 });
 
 test('紫微关键判断线索在原始资料缺少关联星曜与关联四化时应自动补全', () => {
@@ -558,7 +558,6 @@ test('紫微关键判断线索在原始资料缺少关联星曜与关联四化�
       star_names: [],
       mutagens: [],
       description: '命宫在当前阶段受四化牵动。',
-      priority: 95,
     },
   ];
 

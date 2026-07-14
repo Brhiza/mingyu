@@ -3,7 +3,7 @@ import type { IFunctionalHoroscope } from 'iztro/lib/astro/FunctionalHoroscope';
 import type { IFunctionalPalace } from 'iztro/lib/astro/FunctionalPalace';
 import type { EvidenceFact, MutagenName, PalaceFact, ScopeType } from '../../types/analysis';
 
-type EvidenceDraft = Omit<EvidenceFact, 'id'>;
+type EvidenceDraft = Omit<EvidenceFact, 'id'> & { priority: number };
 
 const MUTAGEN_LIST: MutagenName[] = ['禄', '权', '科', '忌'];
 
@@ -381,7 +381,7 @@ function finalizeEvidence(drafts: EvidenceDraft[]): EvidenceFact[] {
 
   return Array.from(map.values())
     .sort((a, b) => b.priority - a.priority)
-    .map((item, index) => ({
+    .map(({ priority: _priority, ...item }, index) => ({
       id: `E${index + 1}`,
       ...item,
     }));

@@ -20,10 +20,6 @@ function dedupeAndTrim(values: string[] | undefined, limit: number) {
   return Array.from(new Set(values.map((item) => item.trim()).filter(Boolean))).slice(0, limit);
 }
 
-function sortByPriority<T extends { priority?: number }>(items: T[]) {
-  return [...items].sort((left, right) => (right.priority ?? 0) - (left.priority ?? 0));
-}
-
 function buildPromptTaskSummary(params: {
   focusSummary: string;
   focusPalaces: string[];
@@ -97,15 +93,13 @@ function buildTaskBookBasicInfo(payload: AnalysisPayloadV1) {
 }
 
 function buildPatternSummary(payload: AnalysisPayloadV1) {
-  return sortByPriority(payload.patterns ?? [])
-    .slice(0, 4)
-    .map((item) => ({
-      格局: item.name,
-      性质: item.kind === 'auspicious' ? '吉格' : item.kind === 'inauspicious' ? '凶格' : '中性',
-      关联宫位: item.palace_names.map((name) => formatPalaceName(name)),
-      关联星曜: item.star_names,
-      说明: item.description,
-    }));
+  return (payload.patterns ?? []).slice(0, 4).map((item) => ({
+    格局: item.name,
+    性质: item.kind === 'auspicious' ? '吉格' : item.kind === 'inauspicious' ? '凶格' : '中性',
+    关联宫位: item.palace_names.map((name) => formatPalaceName(name)),
+    关联星曜: item.star_names,
+    说明: item.description,
+  }));
 }
 
 export function buildPromptContextSnapshot(params: {

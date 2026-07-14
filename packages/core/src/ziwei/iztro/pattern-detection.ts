@@ -40,6 +40,8 @@ type DetectResult = {
   stars: string[];
 };
 
+type PatternDraft = PatternFact & { priority: number };
+
 function normalizePalaceName(name: string): string {
   return name.endsWith('宫') ? name.slice(0, -1) : name;
 }
@@ -1989,7 +1991,7 @@ export function detectPatterns(params: {
     birthTimeLabel,
     birthTimeRange,
   };
-  const patterns: PatternFact[] = [];
+  const patterns: PatternDraft[] = [];
 
   PATTERN_RULES.forEach((rule, index) => {
     const matched = rule.detect(context);
@@ -2007,5 +2009,7 @@ export function detectPatterns(params: {
     });
   });
 
-  return patterns.sort((left, right) => right.priority - left.priority);
+  return patterns
+    .sort((left, right) => right.priority - left.priority)
+    .map(({ priority: _priority, ...pattern }) => pattern);
 }

@@ -1396,6 +1396,16 @@ test('公开 API 紫微排盘接口支持按需返回指定范围', async () => 
   assert.deepEqual(body.data.scopeNames, ['origin', 'monthly']);
   assert.equal(body.data.payloadByScope.monthly.active_scope.scope, 'monthly');
   assert.equal(body.data.payloadByScope.yearly, undefined);
+  assert.ok(
+    body.data.payloadByScope.monthly.evidence_pool.every(
+      (item: Record<string, unknown>) => !('priority' in item),
+    ),
+  );
+  assert.ok(
+    body.data.payloadByScope.monthly.patterns.every(
+      (item: Record<string, unknown>) => !('priority' in item),
+    ),
+  );
 });
 
 test('公开 API 紫微排盘支持轻量模式，减少默认响应体积', async () => {

@@ -231,9 +231,7 @@ export function buildEvidenceSummary(
       item.palace_names.some((name) => focusNames.has(normalizePalaceName(name))) ||
       (reportContext.selected_topic === 'risk' && item.mutagens.includes('忌')),
   );
-  const evidencePool = (matchedEvidence.length > 0 ? matchedEvidence : fallbackList).sort(
-    (left, right) => right.priority - left.priority,
-  );
+  const evidencePool = matchedEvidence.length > 0 ? matchedEvidence : fallbackList;
 
   const picked: typeof evidencePool = [];
   const seen = new Set<string>();
