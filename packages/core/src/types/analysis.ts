@@ -141,11 +141,9 @@ export interface DayRootItem {
   stem: string;
   tenGod: string;
   strength: '本气' | '中气' | '余气';
-  score: number;
 }
 export interface DayRootProfile {
   status: '有根' | '弱根' | '无根';
-  score: number;
   items: DayRootItem[];
   summary: string;
 }
@@ -155,7 +153,6 @@ export interface StemRootItem {
   stem: string;
   tenGod: string;
   strength: '本气' | '中气' | '余气';
-  score: number;
 }
 export interface VisibleStemRootItem {
   pillar: string;
