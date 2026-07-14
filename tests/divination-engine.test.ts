@@ -464,6 +464,12 @@ test('奇门定局、值符值使、宫间作用与触发条件应进入统一�
   const items = analysis?.evidence.items ?? [];
 
   assert.ok(analysis);
+  assert.equal(analysis.palaceFacts.length, data.jiuGongGe.length);
+  assert.ok(
+    analysis.palaceFacts.every(
+      (item) => item.sources.length > 0 && item.limitation.includes('不单独证明现实吉凶'),
+    ),
+  );
   assert.ok(analysis.calculationFacts.some((item) => /阴遁|阳遁/.test(item)));
   assert.ok(analysis.calculationFacts.some((item) => item.includes(`${data.juShu}局`)));
   assert.ok(analysis.calculationFacts.some((item) => item.includes(data.timeInfo.solarTerm)));

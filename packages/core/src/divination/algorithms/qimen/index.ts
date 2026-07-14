@@ -50,6 +50,7 @@ export { analyzeQimenEvidence, conditionQimenTraditionalText } from '../../qimen
 export type {
   QimenEvidenceAnalysis,
   QimenPalaceEvidence,
+  QimenPalaceFact,
   QimenPalaceRelationEvidence,
   QimenPatternEvidenceFact,
 } from '../../qimen-evidence';

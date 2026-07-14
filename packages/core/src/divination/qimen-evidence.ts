@@ -7,6 +7,7 @@ export type QimenCandidateSource =
 
 export interface QimenPalaceEvidence {
   gong: number;
+  palaceFactKey: string;
   name: string;
   direction: string;
   element: string;
@@ -18,6 +19,34 @@ export interface QimenPalaceEvidence {
   constraints: string[];
   isVoid: boolean;
   hasHorse: boolean;
+}
+
+export interface QimenPalaceFact {
+  key: string;
+  gong: number;
+  name: string;
+  direction: string;
+  element: string;
+  tianPan: QimenJiuGongGe['tianPan'];
+  diPan: QimenJiuGongGe['diPan'];
+  renPan: QimenJiuGongGe['renPan'];
+  shenPan: QimenJiuGongGe['shenPan'];
+  candidateSources: QimenCandidateSource[];
+  isVoid: boolean;
+  voidBranches: string[];
+  hasHorse: boolean;
+  horseSourceBranch?: string;
+  patterns: string[];
+  stemRelations: string[];
+  insights: Array<{
+    level: '有利' | '风险' | '关注';
+    promptText: string;
+  }>;
+  support: string[];
+  constraints: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '逐宫字段是奇门九宫门、星、神、天地盘干、空亡、马星与规则命中的计算事实，只限定候选宫取证条件，不单独证明现实吉凶、事件结果、人物意图、方位安全或固定应期';
 }
 
 export interface QimenPalaceRelationEvidence {
@@ -42,6 +71,7 @@ export interface QimenPatternEvidenceFact {
 export interface QimenEvidenceAnalysis {
   calculationFacts: string[];
   ruleSources: string[];
+  palaceFacts: QimenPalaceFact[];
   candidates: QimenPalaceEvidence[];
   relations: QimenPalaceRelationEvidence[];
   patternFacts: QimenPatternEvidenceFact[];
@@ -52,6 +82,9 @@ export interface QimenEvidenceAnalysis {
   promptText: string;
   methodology: string[];
 }
+
+const PALACE_FACT_LIMITATION =
+  '逐宫字段是奇门九宫门、星、神、天地盘干、空亡、马星与规则命中的计算事实，只限定候选宫取证条件，不单独证明现实吉凶、事件结果、人物意图、方位安全或固定应期' as const;
 
 export function conditionQimenTraditionalText(text: string): string {
   return text
@@ -246,6 +279,7 @@ function buildPalaceEvidence(
   ]);
   return {
     gong: palace.gong,
+    palaceFactKey: `九宫:${palace.gong}:${palace.name}`,
     name: palace.name,
     direction: palace.direction,
     element: palace.element,
@@ -260,12 +294,77 @@ function buildPalaceEvidence(
   };
 }
 
+function buildPalaceFact(
+  data: QimenData,
+  palace: QimenJiuGongGe,
+  candidateSources: QimenCandidateSource[],
+  patternFacts: QimenPatternEvidenceFact[],
+): QimenPalaceFact {
+  const evidence = buildPalaceEvidence(data, palace, candidateSources, patternFacts);
+  const globalSpecialCondition = data.specialConditions?.description
+    ? conditionQimenTraditionalText(data.specialConditions.description)
+    : '';
+  const voidBranches = unique(
+    (data.voidPalaces ?? [])
+      .filter((item) => item.palace === palace.gong)
+      .map((item) => item.branch),
+  );
+  const insights = (data.palaceInsights ?? [])
+    .filter((item) => item.gong === palace.gong)
+    .map((item) => ({
+      level: item.level,
+      promptText: conditionQimenTraditionalText(item.summary),
+    }));
+  const promptText = [
+    `${palace.name}（${palace.direction}，五行${palace.element}）：天盘${palace.tianPan.stem || '无干'}${palace.tianPan.star || '无星'}，地盘${palace.diPan.stem || '无干'}，人盘${palace.renPan.door || '无门'}，神盘${palace.shenPan.god || '无神'}`,
+    `组件索引门${palace.renPan.door || '无门'}、星${palace.tianPan.star || '无星'}、神${palace.shenPan.god || '无神'}、天盘${palace.tianPan.stem || '无干'}、地盘${palace.diPan.stem || '无干'}`,
+    evidence.stemRelations.length ? `天地盘干${evidence.stemRelations.join('、')}` : '',
+    evidence.patterns.length ? `规则命中${evidence.patterns.join('、')}` : '',
+    evidence.isVoid ? `空亡${voidBranches.join('、') || '命中但地支未列'}` : '',
+    evidence.hasHorse ? `马星同宫（来源支${data.horseStar?.sourceBranch || '未列'}）` : '',
+    candidateSources.length ? `候选来源${candidateSources.join('、')}` : '未列为当前候选宫',
+  ]
+    .filter(Boolean)
+    .join('；');
+  return {
+    key: `九宫:${palace.gong}:${palace.name}`,
+    gong: palace.gong,
+    name: palace.name,
+    direction: palace.direction,
+    element: palace.element,
+    tianPan: palace.tianPan,
+    diPan: palace.diPan,
+    renPan: palace.renPan,
+    shenPan: palace.shenPan,
+    candidateSources,
+    isVoid: evidence.isVoid,
+    voidBranches,
+    hasHorse: evidence.hasHorse,
+    horseSourceBranch: evidence.hasHorse ? data.horseStar?.sourceBranch : undefined,
+    patterns: evidence.patterns,
+    stemRelations: evidence.stemRelations,
+    insights,
+    support: evidence.support,
+    constraints: evidence.constraints.filter((item) => item !== globalSpecialCondition),
+    promptText,
+    sources: [
+      '奇门遁局九宫门、星、神与天地盘干排布',
+      '当前旬空落宫、驿马落宫与天地盘干关系计算',
+      '基础格局、经典格局、复合格局与宫位洞察规则命中',
+    ],
+    limitation: PALACE_FACT_LIMITATION,
+  };
+}
+
 export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
   if (!data.jiuGongGe.length) {
     throw new Error('奇门证据分析至少需要一个宫位数据。');
   }
   const sourceMap = collectCandidateSources(data);
   const patternFacts = buildPatternFacts(data);
+  const palaceFacts = [...data.jiuGongGe]
+    .sort((left, right) => left.gong - right.gong)
+    .map((palace) => buildPalaceFact(data, palace, sourceMap.get(palace.gong) ?? [], patternFacts));
   const scope = data.scope ?? 'hour';
   const scopeLabel = SCOPE_LABELS[scope];
   const activeGanZhi = getActiveGanZhi(data);
@@ -376,11 +475,18 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
       source: ruleSources[1],
       tags: ['值符', '值使', data.zhiFu, data.zhiShi],
     },
+    {
+      level: '主证',
+      title: '奇门九宫逐宫计算事实',
+      detail: `${palaceFacts.map((item) => item.promptText).join('；')}；统一边界：${PALACE_FACT_LIMITATION}`,
+      source: '奇门遁局九宫排布、旬空驿马、天地盘干与格局规则逐宫映射',
+      tags: ['九宫事实', '门星神干', '空亡', '马星', '规则命中'],
+    },
     ...candidates.slice(0, 6).map((item, index): PromptEvidenceItem => ({
       level: index === 0 ? '主证' : '辅证',
       title: `${item.name}用神宫候选`,
-      detail: `候选来源${item.sources.join('、')}；门${item.palace.renPan.door}、星${item.palace.tianPan.star}、神${item.palace.shenPan.god}、天盘${item.palace.tianPan.stem}、地盘${item.palace.diPan.stem}；天地盘干${item.stemRelations.join('、') || '未见另列特殊关系'}；格局${item.patterns.join('、') || '未见另列格局'}；支持${item.support.join('、') || '未见独立增强证据'}；限制${item.constraints.join('、') || '未见空亡或明确风险标签'}`,
-      source: '值符、值使、日干、时干及九宫门星神干逐项定位',
+      detail: `引用逐宫事实${item.palaceFactKey}；候选来源${item.sources.join('、')}；支持${item.support.join('、') || '未见独立增强证据'}；限制${item.constraints.join('、') || '未见空亡或明确风险标签'}`,
+      source: '值符、值使、日干、时干、盘面洞察与经典格局候选定位',
       tags: [item.name, ...item.sources],
     })),
     ...patternItems,
@@ -428,6 +534,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
   return {
     calculationFacts,
     ruleSources,
+    palaceFacts,
     candidates,
     relations,
     patternFacts,

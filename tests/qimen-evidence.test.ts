@@ -10,10 +10,33 @@ test('奇门排盘应内置用神宫与宫间作用结构化证据', () => {
 
   assert.ok(evidence);
   assert.equal(data.jiuGongGe.length, 9);
+  assert.equal(evidence.palaceFacts.length, 9);
+  assert.deepEqual(
+    evidence.palaceFacts.map((item) => item.gong),
+    [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  );
+  assert.ok(
+    evidence.palaceFacts.every(
+      (item) =>
+        item.tianPan &&
+        item.diPan &&
+        item.renPan &&
+        item.shenPan &&
+        item.promptText &&
+        item.sources.length >= 3 &&
+        item.limitation.includes('不单独证明现实吉凶'),
+    ),
+  );
   assert.ok(evidence.candidates.length > 0);
+  assert.ok(
+    evidence.candidates.every((item) =>
+      evidence.palaceFacts.some((fact) => fact.key === item.palaceFactKey),
+    ),
+  );
   assert.ok(evidence.candidates.some((item) => item.sources.includes('值符落宫')));
   assert.ok(evidence.candidates.some((item) => item.sources.includes('值使落宫')));
   assert.match(evidence.promptText, /【奇门用神宫与宫间作用结构化证据】/);
+  assert.match(evidence.promptText, /奇门九宫逐宫计算事实/);
   assert.match(evidence.promptText, /门.+、星.+、神.+、天盘.+、地盘/);
   assert.doesNotMatch(
     evidence.promptText,

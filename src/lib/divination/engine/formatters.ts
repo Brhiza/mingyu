@@ -658,7 +658,9 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
 }
 
 function formatQimenInfo(data: QimenData) {
-  const evidenceAnalysis = analyzeQimenEvidence(data);
+  const evidenceAnalysis = data.evidenceAnalysis?.palaceFacts
+    ? data.evidenceAnalysis
+    : analyzeQimenEvidence(data);
   const zhiFuPalace = data.jiuGongGe.find((item) => item.tianPan.star === data.zhiFu);
   const zhiShiPalace = data.jiuGongGe.find((item) => item.renPan.door === data.zhiShi);
   const hourStem = data.ganzhi.hour.charAt(0);
@@ -673,12 +675,6 @@ function formatQimenInfo(data: QimenData) {
   const horseText = data.horseStar
     ? `${data.horseStar.sourceBranch}时驿马在${data.horseStar.branch}，落${data.horseStar.name}`
     : '未定位';
-  const palaceLines = data.jiuGongGe
-    .map(
-      (item) =>
-        `- ${item.name}（${item.direction}，五行${item.element}）：天盘${item.tianPan.stem}${item.tianPan.star}，地盘${item.diPan.stem}，人盘${item.renPan.door}，神盘${item.shenPan.god}`,
-    )
-    .join('\n');
   const basicPatternFacts = evidenceAnalysis.patternFacts.filter(
     (item) => item.kind === '基础格局',
   );
@@ -797,8 +793,6 @@ function formatQimenInfo(data: QimenData) {
     patternComboSummary ? `复合格局：${patternComboSummary}` : '',
     stemRelationSummary ? `天地盘干：${stemRelationSummary}` : '',
     directionSummary ? `方位吉凶：${directionSummary}` : '',
-    '结构明细：',
-    palaceLines,
   ]
     .filter(Boolean)
     .join('\n');

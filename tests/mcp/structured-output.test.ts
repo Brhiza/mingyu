@@ -1544,7 +1544,16 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
     const chart = (
       result.structuredContent as {
         result: {
-          evidenceAnalysis: { candidates: unknown[]; relations: unknown[] };
+          jiuGongGe: unknown[];
+          evidenceAnalysis: {
+            candidates: Array<{ palaceFactKey: string }>;
+            relations: unknown[];
+            palaceFacts: Array<{
+              key: string;
+              sources: string[];
+              limitation: string;
+            }>;
+          };
           classicPatterns: Array<Record<string, unknown>>;
           patternCombos: Array<Record<string, unknown>>;
           directions: {
@@ -1556,6 +1565,17 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
     ).result;
     assert.ok(chart.evidenceAnalysis.candidates.length > 0);
     assert.ok(Array.isArray(chart.evidenceAnalysis.relations));
+    assert.equal(chart.evidenceAnalysis.palaceFacts.length, chart.jiuGongGe.length);
+    assert.ok(
+      chart.evidenceAnalysis.palaceFacts.every(
+        (item) => item.sources.length >= 3 && item.limitation.includes('不单独证明现实吉凶'),
+      ),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.candidates.every((item) =>
+        chart.evidenceAnalysis.palaceFacts.some((fact) => fact.key === item.palaceFactKey),
+      ),
+    );
     assert.ok(chart.classicPatterns.every((item) => item.score === undefined));
     assert.ok(chart.patternCombos.every((item) => item.score === undefined));
     assert.ok(
@@ -1564,6 +1584,7 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
       ),
     );
     assert.match(prompt, /【奇门用神宫与宫间作用结构化证据】/);
+    assert.match(prompt, /奇门九宫逐宫计算事实/);
     assert.match(prompt, /不等于已经按具体问题选定用神/);
     assert.doesNotMatch(prompt, /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|应期范围\d/);
     assert.doesNotMatch(prompt, /大吉格|大凶格|显著加快|显著延迟/);
