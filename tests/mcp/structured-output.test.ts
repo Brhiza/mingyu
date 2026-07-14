@@ -1435,6 +1435,17 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
           evidenceAnalysis: {
             stages: Array<{ stage: string }>;
             promptText: string;
+            calculationFact: {
+              status: string;
+              methodKey: string;
+              steps: Array<{
+                key: string;
+                target: string;
+                expression: string;
+                result?: number;
+                promptText: string;
+              }>;
+            };
             randomFact: { status: string };
             traditionalFacts: Array<Record<string, unknown>>;
           };
@@ -1446,6 +1457,19 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       ['origin', 'process', 'result'],
     );
     assert.match(result.evidenceAnalysis.promptText, /【梅花体用阶段推进结构化证据】/);
+    assert.equal(result.evidenceAnalysis.calculationFact.status, '完整');
+    assert.equal(result.evidenceAnalysis.calculationFact.methodKey, 'number');
+    assert.equal(result.evidenceAnalysis.calculationFact.steps.length, 3);
+    assert.ok(
+      result.evidenceAnalysis.calculationFact.steps.every(
+        (item) =>
+          item.key &&
+          item.target &&
+          item.expression &&
+          typeof item.result === 'number' &&
+          item.promptText,
+      ),
+    );
     assert.equal(result.evidenceAnalysis.randomFact.status, '不适用');
     assert.ok(result.evidenceAnalysis.traditionalFacts.length >= 21);
     assert.ok(
@@ -1494,6 +1518,17 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
             stages: Array<{ stage: string }>;
             transitions: string[];
             counterEvidence: string[];
+            calculationFact: {
+              status: string;
+              steps: Array<{
+                key: string;
+                stage: string;
+                expression: string;
+                modulo: number;
+                palaceIndex: number;
+                promptText: string;
+              }>;
+            };
             randomFact: { status: string };
             traditionalFacts: Array<{
               kind: string;
@@ -1511,6 +1546,19 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
       ['起因', '过程', '结果'],
     );
     assert.equal(result.evidenceAnalysis.transitions.length, 2);
+    assert.equal(result.evidenceAnalysis.calculationFact.status, '完整');
+    assert.equal(result.evidenceAnalysis.calculationFact.steps.length, 3);
+    assert.ok(
+      result.evidenceAnalysis.calculationFact.steps.every(
+        (item) =>
+          item.key &&
+          item.stage &&
+          item.expression &&
+          item.modulo === 6 &&
+          typeof item.palaceIndex === 'number' &&
+          item.promptText,
+      ),
+    );
     assert.equal(result.evidenceAnalysis.randomFact.status, '不适用');
     assert.ok(Array.isArray(result.evidenceAnalysis.counterEvidence));
     assert.ok(result.evidenceAnalysis.traditionalFacts.length > 0);

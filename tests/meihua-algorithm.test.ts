@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 
 import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index.ts';
+import { analyzeMeihuaEvidence } from '../packages/core/src/divination/meihua-evidence.ts';
 import {
   findHexagramByTrigrams,
   resolveTiYongByMovingYao,
@@ -25,6 +26,20 @@ test('梅花：变卦应按初爻到上爻的传统爻位计算', () => {
   assert.equal(data.calculation.timeZhi, '辰');
   assert.equal(data.calculation.timeZhiIndex, 5);
   assert.equal(data.calculation.totalWithTime, 128);
+  assert.equal(data.evidenceAnalysis?.calculationFact.status, '完整');
+  assert.equal(data.evidenceAnalysis?.calculationFact.methodKey, 'number');
+  assert.equal(data.evidenceAnalysis?.calculationFact.inputs.number, 123);
+  assert.equal(data.evidenceAnalysis?.calculationFact.steps.length, 3);
+  assert.deepEqual(
+    data.evidenceAnalysis?.calculationFact.steps.map((item) => item.target),
+    ['上卦', '下卦', '动爻'],
+  );
+  assert.ok(
+    data.evidenceAnalysis?.calculationFact.steps.every(
+      (item) => item.promptText && typeof item.result === 'number',
+    ),
+  );
+  assert.match(data.evidenceAnalysis?.calculationFact.limitation || '', /不证明卦象预测有效性/);
 });
 
 test('梅花：互卦应取二三四爻为下互、三四五爻为上互', () => {
@@ -84,6 +99,12 @@ test('梅花：timeTrigram 兼容入口应回到年月日时起卦', () => {
     ],
   );
   assert.match(String(compatData.calculation.compatibilityNote), /年月日时起卦法/);
+  assert.equal(compatData.evidenceAnalysis?.calculationFact.status, '完整');
+  assert.equal(compatData.evidenceAnalysis?.calculationFact.methodKey, 'timeTrigram');
+  assert.match(
+    compatData.evidenceAnalysis?.calculationFact.compatibilityNote || '',
+    /历史兼容入口/,
+  );
 });
 
 test('梅花：年月日时起卦应以农历年支入数，不应在立春后春节前提前换年', () => {
@@ -130,10 +151,34 @@ test('梅花：仅随机起卦应把重放轨迹接入统一证据', () => {
   assert.equal(randomData.evidenceAnalysis?.randomFact.seed, '梅花证据样例');
   assert.equal(randomData.evidenceAnalysis?.randomFact.sampleCount, 3);
   assert.doesNotMatch(randomData.evidenceAnalysis?.randomFact.promptText || '', /梅花证据样例/);
+  assert.equal(randomData.evidenceAnalysis?.calculationFact.status, '完整');
+  assert.equal(randomData.evidenceAnalysis?.calculationFact.steps.length, 3);
+  assert.ok(
+    randomData.evidenceAnalysis?.calculationFact.steps.every((item) =>
+      item.expression.startsWith('随机整数'),
+    ),
+  );
   assert.equal(numberData.evidenceAnalysis?.randomFact.status, '不适用');
   assert.deepEqual(numberData.evidenceAnalysis?.randomFacts, []);
   assert.ok(
     !numberData.evidenceAnalysis?.evidence.items.some((item) => item.tags?.includes('随机起卦')),
+  );
+});
+
+test('梅花：旧结果缺少取数中间参数时应保留已定卦象并标记证据缺口', () => {
+  const data = generateMeihua(SAMPLE_DATE, { method: 'number', number: 123 });
+  data.calculation = undefined;
+  data.evidenceAnalysis = undefined;
+
+  const rebuilt = analyzeMeihuaEvidence(data);
+  assert.equal(rebuilt.calculationFact.status, '缺少中间参数');
+  assert.equal(rebuilt.calculationFact.steps.length, 0);
+  assert.equal(rebuilt.calculationFact.resolvedResult.upperTrigram, data.mainHexagram.upper);
+  assert.match(rebuilt.calculationFact.promptText, /计算过程未附/);
+  assert.ok(
+    rebuilt.evidence.items.some(
+      (item) => item.level === '反证' && item.title === '起卦方式与取数算式',
+    ),
   );
 });
 

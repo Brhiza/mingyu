@@ -2148,6 +2148,19 @@ test('公开 API 奇门与小六壬应期应返回条件证据，不返回伪精
     ['起因', '过程', '结果'],
   );
   assert.ok(xiaoliuren.body.data.evidenceAnalysis.transitions.length === 2);
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.calculationFact.status, '完整');
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.calculationFact.steps.length, 3);
+  assert.ok(
+    xiaoliuren.body.data.evidenceAnalysis.calculationFact.steps.every(
+      (item: Record<string, unknown>) =>
+        item.key &&
+        item.stage &&
+        item.expression &&
+        item.modulo === 6 &&
+        typeof item.palaceIndex === 'number' &&
+        item.promptText,
+    ),
+  );
   assert.equal(xiaoliuren.body.data.evidenceAnalysis.randomFact.status, '不适用');
   const xiaoliurenFacts = xiaoliuren.body.data.evidenceAnalysis.traditionalFacts as Array<{
     kind: string;
@@ -2586,6 +2599,19 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     ['origin', 'process', 'result'],
   );
   assert.match(chart.body.data.evidenceAnalysis.promptText, /【梅花体用阶段推进结构化证据】/);
+  assert.equal(chart.body.data.evidenceAnalysis.calculationFact.status, '完整');
+  assert.equal(chart.body.data.evidenceAnalysis.calculationFact.methodKey, 'number');
+  assert.equal(chart.body.data.evidenceAnalysis.calculationFact.steps.length, 3);
+  assert.ok(
+    chart.body.data.evidenceAnalysis.calculationFact.steps.every(
+      (item: Record<string, unknown>) =>
+        item.key &&
+        item.target &&
+        item.expression &&
+        typeof item.result === 'number' &&
+        item.promptText,
+    ),
+  );
   assert.equal(chart.body.data.evidenceAnalysis.randomFact.status, '不适用');
   assert.ok(chart.body.data.evidenceAnalysis.traditionalFacts.length >= 21);
   assert.ok(

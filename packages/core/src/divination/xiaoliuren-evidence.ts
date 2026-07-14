@@ -27,8 +27,35 @@ export interface XiaoliurenTraditionalFact {
   limitation: '六宫宫义与传统属性只用于当前课式的近事情境分类，不证明现实中的结果、疾病、身体问题、方位吉凶或固定应期';
 }
 
+export interface XiaoliurenCalculationStep {
+  key: string;
+  stage: '起因' | '过程' | '结果';
+  expression: string;
+  seed: number;
+  modulo: 6;
+  palaceIndex: number;
+  palace: string;
+  promptText: string;
+}
+
+export interface XiaoliurenCalculationFact {
+  key: string;
+  status: '完整' | '缺少中间参数';
+  method: XiaoliurenData['method'];
+  methodLabel: string;
+  inputBase?: number;
+  inputBaseSource?: string;
+  lunarDay: number;
+  hourNumber?: number;
+  steps: XiaoliurenCalculationStep[];
+  promptText: string;
+  sources: string[];
+  limitation: '逐宫顺数只证明起课基数、农历日数和时辰数如何定位起因、过程、结果三宫，不证明宫义预测有效性、现实吉凶或固定应期';
+}
+
 export interface XiaoliurenEvidenceAnalysis {
   sources: Array<{ title: string; evidence: string; role: '传统规则来源' | '历法计算来源' }>;
+  calculationFact: XiaoliurenCalculationFact;
   calculationFacts: string[];
   calculationChain: string[];
   stages: XiaoliurenStageEvidence[];
@@ -49,6 +76,8 @@ const SUPPORT_TENDENCIES = new Set(['宜推进', '有助力']);
 const CONSTRAINT_TENDENCIES = new Set(['宜等待', '易反复', '易争执', '易落空']);
 const TRADITIONAL_FACT_LIMITATION =
   '六宫宫义与传统属性只用于当前课式的近事情境分类，不证明现实中的结果、疾病、身体问题、方位吉凶或固定应期' as const;
+const CALCULATION_FACT_LIMITATION =
+  '逐宫顺数只证明起课基数、农历日数和时辰数如何定位起因、过程、结果三宫，不证明宫义预测有效性、现实吉凶或固定应期' as const;
 
 function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
@@ -160,6 +189,61 @@ function buildStage(
   return { stage, palace, seasonState, role, support, constraints };
 }
 
+function buildXiaoliurenCalculationFact(data: XiaoliurenData): XiaoliurenCalculationFact {
+  const calculation = data.calculation;
+  const steps: XiaoliurenCalculationStep[] = calculation
+    ? [
+        {
+          key: 'xiaoliuren:calculation:start',
+          stage: '起因',
+          expression: `${calculation.startSeed}-1`,
+          seed: calculation.startSeed,
+          modulo: 6,
+          palaceIndex: calculation.startPalaceIndex,
+          palace: data.sequence.start.name,
+          promptText: `起因宫：基数${calculation.startSeed}，减1后按6取余为${calculation.startPalaceIndex}，落${data.sequence.start.name}`,
+        },
+        {
+          key: 'xiaoliuren:calculation:process',
+          stage: '过程',
+          expression: `${calculation.inputBase}+${calculation.lunarDay}-1`,
+          seed: calculation.processSeed,
+          modulo: 6,
+          palaceIndex: calculation.processPalaceIndex,
+          palace: data.sequence.process.name,
+          promptText: `过程宫：${calculation.inputBase}+农历日数${calculation.lunarDay}-1=${calculation.processSeed}，减1后按6取余为${calculation.processPalaceIndex}，落${data.sequence.process.name}`,
+        },
+        {
+          key: 'xiaoliuren:calculation:result',
+          stage: '结果',
+          expression: `${calculation.inputBase}+${calculation.lunarDay}+${calculation.hourNumber}-2`,
+          seed: calculation.resultSeed,
+          modulo: 6,
+          palaceIndex: calculation.resultPalaceIndex,
+          palace: data.sequence.result.name,
+          promptText: `结果宫：${calculation.inputBase}+农历日数${calculation.lunarDay}+时辰数${calculation.hourNumber}-2=${calculation.resultSeed}，减1后按6取余为${calculation.resultPalaceIndex}，落${data.sequence.result.name}`,
+        },
+      ]
+    : [];
+  const promptText = calculation
+    ? `起课方式：${data.methodLabel}；起课基数取${calculation.inputBaseSource}${calculation.inputBase}；时辰换算：${data.hourLabel}对应传统时辰数${calculation.hourNumber}（子1至亥12）；${steps.map((item) => item.promptText).join('；')}`
+    : `${data.methodLabel}确定起课基数；当前结果未附逐宫顺数中间参数，仅保留已确定三宫${data.sequence.start.name}、${data.sequence.process.name}、${data.sequence.result.name}`;
+  return {
+    key: `calculation:xiaoliuren:${data.method}`,
+    status: calculation ? '完整' : '缺少中间参数',
+    method: data.method,
+    methodLabel: data.methodLabel,
+    inputBase: calculation?.inputBase,
+    inputBaseSource: calculation?.inputBaseSource,
+    lunarDay: data.lunarDay,
+    hourNumber: calculation?.hourNumber,
+    steps,
+    promptText,
+    sources: ['起课方式、农历日数与传统时辰数', '大安至空亡六宫循环取余规则'],
+    limitation: CALCULATION_FACT_LIMITATION,
+  };
+}
+
 export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvidenceAnalysis {
   const sources: XiaoliurenEvidenceAnalysis['sources'] = [
     {
@@ -183,6 +267,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     `起因${data.sequence.start.name}${data.sequence.start.element} → 过程${data.sequence.process.name}${data.sequence.process.element}：${data.wuxingRelations.startToProcess}`,
     `过程${data.sequence.process.name}${data.sequence.process.element} → 结果${data.sequence.result.name}${data.sequence.result.element}：${data.wuxingRelations.processToResult}`,
   ];
+  const calculationFact = buildXiaoliurenCalculationFact(data);
   const calculationFacts = data.calculation
     ? [
         `起课方式：${data.methodLabel}；起课基数取${data.calculation.inputBaseSource}${data.calculation.inputBase}`,
@@ -228,11 +313,11 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
   ]);
   const items: PromptEvidenceItem[] = [
     {
-      level: '主证',
+      level: calculationFact.status === '完整' ? '主证' : '反证',
       title: '起课输入与逐宫顺数',
-      detail: calculationFacts.join('；'),
-      source: '起课输入、农历日数、传统时辰数与六宫循环取余',
-      tags: ['起课算式', data.method],
+      detail: `${calculationFact.promptText}；边界：${calculationFact.limitation}`,
+      source: calculationFact.sources.join('、'),
+      tags: ['起课算式', data.method, calculationFact.status],
     },
     ...stages.map((item, index): PromptEvidenceItem => ({
       level: index === 2 ? '主证' : '辅证',
@@ -302,6 +387,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
 
   return {
     sources,
+    calculationFact,
     calculationFacts,
     calculationChain,
     stages,

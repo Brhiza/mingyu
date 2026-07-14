@@ -57,6 +57,21 @@ test('小六壬：起课基数、逐宫顺数和六宫归一结果应进入结�
   assert.equal(calculation.startPalaceIndex, data.sequence.start.index);
   assert.equal(calculation.processPalaceIndex, data.sequence.process.index);
   assert.equal(calculation.resultPalaceIndex, data.sequence.result.index);
+  assert.equal(evidence?.calculationFact.status, '完整');
+  assert.equal(evidence?.calculationFact.inputBase, 5);
+  assert.equal(evidence?.calculationFact.inputBaseSource, '用户数字');
+  assert.equal(evidence?.calculationFact.steps.length, 3);
+  assert.deepEqual(
+    evidence?.calculationFact.steps.map((item) => item.stage),
+    ['起因', '过程', '结果'],
+  );
+  assert.ok(
+    evidence?.calculationFact.steps.every(
+      (item) =>
+        item.modulo === 6 && item.promptText && item.palaceIndex >= 0 && item.palaceIndex < 6,
+    ),
+  );
+  assert.match(evidence?.calculationFact.limitation || '', /不证明宫义预测有效性/);
   assert.ok(evidence?.calculationFacts.some((item) => item.includes('起课基数取用户数字5')));
   assert.ok(evidence?.calculationFacts.some((item) => item.includes('减1后按6取余')));
   assert.ok(evidence?.evidence.items.some((item) => item.title === '起课输入与逐宫顺数'));
@@ -199,9 +214,13 @@ test('小六壬：传统宫义与吉凶属性不得直接当作现实结果或�
 
 test('小六壬：旧数据缺少证据分析时应重新生成安全传统事实', () => {
   const data = generateXiaoliuren({ method: 'number', number: 5, customDate: SAMPLE_DATE });
+  data.calculation = undefined;
   data.evidenceAnalysis = undefined;
   const evidence = analyzeXiaoliurenEvidence(data);
 
+  assert.equal(evidence.calculationFact.status, '缺少中间参数');
+  assert.equal(evidence.calculationFact.steps.length, 0);
+  assert.match(evidence.calculationFact.promptText, /未附逐宫顺数中间参数/);
   assert.ok(evidence.traditionalFacts.length > 0);
   assert.doesNotMatch(evidence.promptText, /事情整体可成|白忙一场|凶（大凶）/);
 });
