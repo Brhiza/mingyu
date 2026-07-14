@@ -32,11 +32,27 @@ export class WuxingCalculator {
     const missingElements = Object.entries(rawStrength)
       .filter(([, score]) => score === 0)
       .map(([wuxing]) => wuxing);
+    const present = Object.keys(rawStrength).filter((wuxing) => !missingElements.includes(wuxing));
+    const maxStrength = Math.max(...Object.values(weightedStrength));
+    const dominantByRule = Object.entries(weightedStrength)
+      .filter(([, value]) => value === maxStrength && maxStrength > 0)
+      .map(([wuxing]) => wuxing);
+    const commanderElement = monthCommander ? getWuxingUtil(monthCommander) : undefined;
 
     return {
       scores: weightedStrength,
       percentages,
       missing: missingElements,
+      present,
+      dominantByRule,
+      commanderElement: commanderElement === '未知' ? undefined : commanderElement,
+      ruleBasis: [
+        '天干与地支藏干按项目五行规则计入结构来源',
+        '月令旺衰权重用于比较规则输入，不代表概率、吉凶或现实结果',
+        monthCommander
+          ? '司令天干仅作为项目内部规则加权条件'
+          : '未提供司令天干，未应用司令附加条件',
+      ],
     };
   }
 
