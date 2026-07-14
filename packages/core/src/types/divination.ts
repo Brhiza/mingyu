@@ -917,9 +917,17 @@ export interface AstrolabeAspect {
   body2: string;
   type: string;
   symbol: string;
+  /** 相位类型的标准精确角。旧结果可能缺少。 */
+  exactAngle?: number;
+  /** 两计算点黄经的实际最小夹角。旧结果可能缺少。 */
+  actualAngle?: number;
   orb: number;
+  /** 本次相位筛选采用的允许容许度。旧结果可能缺少。 */
+  allowedOrb?: number;
   closeness?: '紧密' | '中等' | '宽松';
   normalizedOrbRatio?: number;
+  /** 是否为跨星座相位。旧结果可能缺少。 */
+  isOutOfSign?: boolean;
   source?: string;
   applying: boolean | null;
 }

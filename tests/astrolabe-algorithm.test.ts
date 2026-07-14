@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
-import type { AstrolabeBirthInput } from 'mingyu-core/types';
+import { analyzeAstrolabeEvidence, generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import type { AstrolabeBirthInput, AstrolabeData } from 'mingyu-core/types';
 
 const validInput: AstrolabeBirthInput = {
   name: '本人',
@@ -88,6 +88,31 @@ test('星盘应返回可复用的位置、相位、计算链与限制证据', ()
   assert.equal(evidence.evidence.title, '西方星盘位置与相位结构化证据');
   assert.ok(evidence.calculationChain.some((item) => item.includes('Placidus')));
   assert.ok(evidence.primaryFacts.some((item) => item.includes('太阳')));
+  assert.equal(
+    evidence.positionFacts.length,
+    result.planets.length + result.angles.length + result.houses.length,
+  );
+  assert.equal(evidence.aspectFacts.length, result.aspects.length);
+  assert.ok(
+    evidence.positionFacts.every(
+      (item) =>
+        item.promptText && item.sources.length >= 2 && item.limitation.includes('不单独证明人格'),
+    ),
+  );
+  assert.ok(
+    evidence.aspectFacts.every(
+      (item) =>
+        typeof item.actualAngle === 'number' &&
+        typeof item.exactAngle === 'number' &&
+        typeof item.allowedOrb === 'number' &&
+        item.allowedOrb > 0 &&
+        item.orb <= item.allowedOrb &&
+        item.normalizedOrbRatio >= 0 &&
+        item.normalizedOrbRatio <= 1 &&
+        item.promptText.includes('实际夹角') &&
+        item.limitation.includes('不代表事件概率'),
+    ),
+  );
   assert.equal(evidence.planetFacts.length, result.planets.length);
   assert.equal(evidence.angleFacts.length, 4);
   assert.equal(evidence.houseFacts.length, 12);
@@ -97,8 +122,32 @@ test('星盘应返回可复用的位置、相位、计算链与限制证据', ()
   assert.ok(evidence.limitations.some((item) => item.includes('不代表事件概率')));
   assert.match(evidence.promptText, /【西方星盘位置与相位结构化证据】/);
   assert.match(evidence.promptText, /完整星体与计算点位置/);
+  assert.match(evidence.promptText, /实际夹角.*精确角.*允许容许度.*距精确角偏差/);
   assert.match(evidence.promptText, /十二宫宫头/);
   assert.match(evidence.promptText, /元素模式与逆行分布/);
   assert.match(evidence.promptText, /出生地点太阳光照背景/);
   assert.doesNotMatch(evidence.promptText, /成功率|吉凶总分|能量分数[：=]\d/);
+});
+
+test('旧星盘缺少相位几何量时不得反推伪精确字段', () => {
+  const result = generateAstrolabe(validInput);
+  const legacy = structuredClone(result) as AstrolabeData;
+  delete legacy.evidenceAnalysis;
+  for (const aspect of legacy.aspects) {
+    delete aspect.actualAngle;
+    delete aspect.exactAngle;
+    delete aspect.allowedOrb;
+    delete aspect.isOutOfSign;
+  }
+
+  const evidence = analyzeAstrolabeEvidence(legacy);
+  assert.ok(
+    evidence.aspectFacts.every(
+      (item) =>
+        item.actualAngle === undefined &&
+        item.exactAngle === undefined &&
+        item.allowedOrb === undefined &&
+        item.promptText.includes('旧结果未记录实际夹角、精确角或允许容许度'),
+    ),
+  );
 });

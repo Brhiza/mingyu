@@ -2,9 +2,47 @@ import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { AstrolabeData } from '../types/divination';
 
+export interface AstrolabePositionFact {
+  key: string;
+  kind: '星体与计算点' | '四轴' | '宫头';
+  name: string;
+  label: string;
+  longitude: number;
+  sign: string;
+  degree: number;
+  minute: number;
+  house?: number;
+  retrograde: boolean;
+  formatted: string;
+  promptText: string;
+  sources: string[];
+  limitation: '位置字段是黄经、星座、宫位与四轴的计算事实，只限定占星解释所依据的盘面位置，不单独证明人格、心理状态、现实事件或命运结果';
+}
+
+export interface AstrolabeAspectFact {
+  key: string;
+  body1: string;
+  body2: string;
+  type: string;
+  symbol: string;
+  exactAngle?: number;
+  actualAngle?: number;
+  orb: number;
+  allowedOrb?: number;
+  normalizedOrbRatio: number;
+  closeness: '紧密' | '中等' | '宽松';
+  phase: '入相' | '出相' | '未判定';
+  isOutOfSign?: boolean;
+  promptText: string;
+  source: string;
+  limitation: '相位字段只描述两计算点在设定容许度内的几何关系；紧密等级、入相出相和跨星座状态不代表事件概率、匹配率、吉凶比例或必然结果';
+}
+
 export interface AstrolabeEvidenceAnalysis {
   calculationChain: string[];
   primaryFacts: string[];
+  positionFacts: AstrolabePositionFact[];
+  aspectFacts: AstrolabeAspectFact[];
   planetFacts: string[];
   angleFacts: string[];
   houseFacts: string[];
@@ -18,8 +56,73 @@ export interface AstrolabeEvidenceAnalysis {
   methodology: string[];
 }
 
-function formatPointFact(item: AstrolabeData['planets'][number]) {
-  return `${item.label}${item.formatted}，黄经${item.longitude.toFixed(3)}°${item.house ? `，第${item.house}宫` : ''}${item.retrograde ? '，逆行' : ''}`;
+const POSITION_FACT_LIMITATION =
+  '位置字段是黄经、星座、宫位与四轴的计算事实，只限定占星解释所依据的盘面位置，不单独证明人格、心理状态、现实事件或命运结果' as const;
+
+const ASPECT_FACT_LIMITATION =
+  '相位字段只描述两计算点在设定容许度内的几何关系；紧密等级、入相出相和跨星座状态不代表事件概率、匹配率、吉凶比例或必然结果' as const;
+
+function classifyCloseness(ratio: number): AstrolabeAspectFact['closeness'] {
+  if (ratio <= 1 / 3) return '紧密';
+  if (ratio <= 2 / 3) return '中等';
+  return '宽松';
+}
+
+function buildPositionFact(
+  item: AstrolabeData['planets'][number],
+  kind: AstrolabePositionFact['kind'],
+): AstrolabePositionFact {
+  const house = kind === '四轴' ? undefined : item.house || undefined;
+  const promptText = `${item.label}${item.formatted}，黄经${item.longitude.toFixed(3)}°${house ? `，第${house}宫` : kind === '四轴' ? '，四轴点' : ''}${item.retrograde ? '，逆行' : ''}`;
+  return {
+    key: `${kind}:${item.name}`,
+    kind,
+    name: item.name,
+    label: item.label,
+    longitude: item.longitude,
+    sign: item.sign,
+    degree: item.degree,
+    minute: item.minute,
+    ...(house ? { house } : {}),
+    retrograde: Boolean(item.retrograde),
+    formatted: item.formatted,
+    promptText,
+    sources: [
+      kind === '宫头' ? 'celestine Placidus 十二宫宫头计算' : 'celestine 黄道位置计算',
+      kind === '四轴' ? '出生地点、时间与地平子午圈四轴计算' : '出生时间、地点与黄经落宫计算',
+    ],
+    limitation: POSITION_FACT_LIMITATION,
+  };
+}
+
+function buildAspectFact(item: AstrolabeData['aspects'][number]): AstrolabeAspectFact {
+  const normalizedOrbRatio =
+    item.normalizedOrbRatio ??
+    (item.allowedOrb && item.allowedOrb > 0 ? Number((item.orb / item.allowedOrb).toFixed(4)) : 1);
+  const closeness = item.closeness ?? classifyCloseness(normalizedOrbRatio);
+  const phase = item.applying === null ? '未判定' : item.applying ? '入相' : '出相';
+  const geometry =
+    item.actualAngle !== undefined && item.exactAngle !== undefined && item.allowedOrb !== undefined
+      ? `实际夹角${item.actualAngle.toFixed(2)}°，精确角${item.exactAngle.toFixed(2)}°，允许容许度${item.allowedOrb.toFixed(2)}°，距精确角偏差${item.orb.toFixed(2)}°`
+      : `旧结果未记录实际夹角、精确角或允许容许度，仅保留距精确角偏差${item.orb.toFixed(2)}°`;
+  return {
+    key: `${item.body1}:${item.type}:${item.body2}`,
+    body1: item.body1,
+    body2: item.body2,
+    type: item.type,
+    symbol: item.symbol,
+    exactAngle: item.exactAngle,
+    actualAngle: item.actualAngle,
+    orb: item.orb,
+    allowedOrb: item.allowedOrb,
+    normalizedOrbRatio,
+    closeness,
+    phase,
+    isOutOfSign: item.isOutOfSign,
+    promptText: `${item.body1}${item.symbol}${item.body2}（${item.type}）：${geometry}，${closeness}等级，归一化容许度位置${normalizedOrbRatio.toFixed(2)}，${phase}${item.isOutOfSign ? '，跨星座相位' : ''}`,
+    source: item.source ?? 'celestine 本命相位计算',
+    limitation: ASPECT_FACT_LIMITATION,
+  };
 }
 
 export function analyzeAstrolabeEvidence(
@@ -32,6 +135,12 @@ export function analyzeAstrolabeEvidence(
   const primaryPoints = [sun, moon, ascendant, midheaven].filter(
     (item): item is NonNullable<typeof item> => Boolean(item),
   );
+  const positionFacts = [
+    ...data.planets.map((item) => buildPositionFact(item, '星体与计算点')),
+    ...data.angles.map((item) => buildPositionFact(item, '四轴')),
+    ...data.houses.map((item) => buildPositionFact(item, '宫头')),
+  ];
+  const aspectFacts = data.aspects.map(buildAspectFact);
   const calculationChain = [
     `固定出生民用时间${data.birth.standardDateTime ?? data.birth.dateTime}、地点${data.birth.location}与UTC${data.birth.timezone >= 0 ? '+' : ''}${data.birth.timezone}`,
     data.birth.isTrueSolarTime
@@ -44,11 +153,15 @@ export function analyzeAstrolabeEvidence(
   const primaryFacts = primaryPoints.map(
     (item) => `${item.label}${item.formatted}${item.house ? `，落第${item.house}宫` : ''}`,
   );
-  const planetFacts = data.planets.map(formatPointFact);
-  const angleFacts = data.angles.map(formatPointFact);
-  const houseFacts = data.houses.map(
-    (item) => `${item.label}宫头${item.formatted}，黄经${item.longitude.toFixed(3)}°`,
-  );
+  const planetFacts = positionFacts
+    .filter((item) => item.kind === '星体与计算点')
+    .map((item) => item.promptText);
+  const angleFacts = positionFacts
+    .filter((item) => item.kind === '四轴')
+    .map((item) => item.promptText);
+  const houseFacts = positionFacts
+    .filter((item) => item.kind === '宫头')
+    .map((item) => item.promptText);
   const distributionFacts = [
     ...Object.entries(data.summary.elements).map(
       ([element, points]) => `${element}元素：${points.join('、') || '无'}`,
@@ -66,10 +179,7 @@ export function analyzeAstrolabeEvidence(
         `光照算法：${data.solarIllumination.method}；来源：${data.solarIllumination.source}`,
       ]
     : [];
-  const supportingFacts = data.aspects.map(
-    (item) =>
-      `${item.body1}${item.symbol}${item.body2}（${item.type}），偏差${item.orb}°，${item.closeness ?? '未分级'}${item.applying === null ? '' : item.applying ? '，入相' : '，出相'}`,
-  );
+  const supportingFacts = aspectFacts.map((item) => item.promptText);
   const counterEvidence = [
     data.aspects.length === 0 ? '当前筛选范围内未见主要相位' : '',
     data.summary.retrograde.length === 0 ? '未见逆行星体' : '',
@@ -79,6 +189,7 @@ export function analyzeAstrolabeEvidence(
     ...(data.birth.timezoneDiagnostics ?? []),
     '星体、宫位与相位是几何和规则计算结果，不等于现实事件、人格诊断或命运必然性',
     '相位紧密等级只描述容许度内的位置，不代表事件概率、匹配率、吉凶比例或作用强度百分比',
+    '归一化容许度位置不代表事件概率、匹配率、吉凶比例或必然结果',
     '结果只保留筛选后排序靠前的十二组相位；未列出不等于两点之间不存在其他角度关系',
     '元素、模式、逆行数量只描述盘面构成，不生成能量分数或综合吉凶等级',
     'Placidus 宫位和出生时刻高度相关，地点、时区或时间输入错误会直接改变四轴与落宫',
@@ -113,12 +224,12 @@ export function analyzeAstrolabeEvidence(
       source: 'celestine Placidus 十二宫宫头计算',
       tags: ['Placidus', '十二宫', '宫头'],
     },
-    ...data.aspects.map((item): PromptEvidenceItem => ({
+    ...aspectFacts.map((item): PromptEvidenceItem => ({
       level: '辅证',
       title: `${item.body1}与${item.body2}${item.type}`,
-      detail: `距精确角偏差${item.orb}°，${item.closeness ?? '未分级'}${item.applying === null ? '' : item.applying ? '，入相' : '，出相'}`,
-      source: item.source ?? 'celestine 本命相位计算',
-      tags: [item.type, item.closeness ?? '未分级'],
+      detail: `${item.promptText}；边界：${item.limitation}`,
+      source: item.source,
+      tags: [item.type, item.closeness, item.phase, item.isOutOfSign ? '跨星座' : '同星座条件'],
     })),
     {
       level: '辅证',
@@ -163,6 +274,8 @@ export function analyzeAstrolabeEvidence(
   return {
     calculationChain,
     primaryFacts,
+    positionFacts,
+    aspectFacts,
     planetFacts,
     angleFacts,
     houseFacts,

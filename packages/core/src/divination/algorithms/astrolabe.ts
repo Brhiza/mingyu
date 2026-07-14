@@ -9,13 +9,15 @@ import { daysInSolarMonth } from '../../calendar/date-validation';
 import { resolveHistoricalTimezone } from '../../calendar/historical-timezone';
 import { calculateSolarIlluminationEvidence } from '../../calendar/solar-illumination-evidence';
 import { resolveTrueSolarBirthTime } from '../../calendar/true-solar-time';
-import {
-  classifyAspectClosenessFromStrength,
-  normalizedOrbRatioFromStrength,
-} from '../astrolabe-aspect-evidence';
+import { classifyAspectClosenessByRatio } from '../astrolabe-aspect-evidence';
 import { analyzeAstrolabeEvidence } from '../astrolabe-evidence';
 
 export { analyzeAstrolabeEvidence } from '../astrolabe-evidence';
+export type {
+  AstrolabeAspectFact,
+  AstrolabeEvidenceAnalysis,
+  AstrolabePositionFact,
+} from '../astrolabe-evidence';
 
 const PLANET_LABELS: Record<string, string> = {
   Sun: '太阳',
@@ -156,20 +158,28 @@ function mapAspect(aspect: {
   body2: string;
   type: string;
   symbol: string;
+  angle: number;
+  separation: number;
   deviation: number;
+  orb: number;
   strength: number;
   isApplying: boolean | null;
+  isOutOfSign: boolean;
 }): AstrolabeAspect {
-  const normalizedOrbRatio = normalizedOrbRatioFromStrength(aspect.strength);
+  const normalizedOrbRatio = Number((aspect.deviation / aspect.orb).toFixed(4));
   return {
     body1: PLANET_LABELS[aspect.body1] ?? aspect.body1,
     body2: PLANET_LABELS[aspect.body2] ?? aspect.body2,
     type: ASPECT_LABELS[aspect.type] ?? aspect.type,
     symbol: aspect.symbol,
+    exactAngle: Number(aspect.angle.toFixed(4)),
+    actualAngle: Number(aspect.separation.toFixed(4)),
     orb: Number(aspect.deviation.toFixed(2)),
-    closeness: classifyAspectClosenessFromStrength(aspect.strength),
+    allowedOrb: Number(aspect.orb.toFixed(4)),
+    closeness: classifyAspectClosenessByRatio(normalizedOrbRatio),
     normalizedOrbRatio,
-    source: 'celestine 本命相位计算；紧密等级按依赖库归一化容许度位置换算',
+    isOutOfSign: aspect.isOutOfSign,
+    source: 'celestine 本命相位计算；紧密等级按偏差占本次允许容许度的比例换算',
     applying: aspect.isApplying,
   };
 }

@@ -2168,12 +2168,37 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
   assert.ok(body.data.aspects.length > 0);
   assert.equal(body.data.evidenceAnalysis.evidence.title, '西方星盘位置与相位结构化证据');
   assert.ok(body.data.evidenceAnalysis.calculationChain.length >= 5);
+  assert.equal(
+    body.data.evidenceAnalysis.positionFacts.length,
+    body.data.planets.length + body.data.angles.length + body.data.houses.length,
+  );
+  assert.equal(body.data.evidenceAnalysis.aspectFacts.length, body.data.aspects.length);
+  assert.ok(
+    body.data.evidenceAnalysis.aspectFacts.every(
+      (item: Record<string, unknown>) =>
+        typeof item.actualAngle === 'number' &&
+        typeof item.exactAngle === 'number' &&
+        typeof item.allowedOrb === 'number' &&
+        item.promptText &&
+        String(item.limitation).includes('不代表事件概率'),
+    ),
+  );
   assert.ok(
     body.data.evidenceAnalysis.limitations.some((item: string) => item.includes('不代表事件概率')),
   );
-  body.data.aspects.forEach((aspect: { strength?: number }) => {
-    assert.equal(aspect.strength, undefined);
-  });
+  body.data.aspects.forEach(
+    (aspect: {
+      strength?: number;
+      actualAngle?: number;
+      exactAngle?: number;
+      allowedOrb?: number;
+    }) => {
+      assert.equal(aspect.strength, undefined);
+      assert.equal(typeof aspect.actualAngle, 'number');
+      assert.equal(typeof aspect.exactAngle, 'number');
+      assert.equal(typeof aspect.allowedOrb, 'number');
+    },
+  );
   assert.equal(
     body.data.birth.trueSolarDateTime,
     `${corrected.year}-${String(corrected.month).padStart(2, '0')}-${String(corrected.day).padStart(2, '0')} ${String(corrected.hour).padStart(2, '0')}:${String(corrected.minute).padStart(2, '0')}`,

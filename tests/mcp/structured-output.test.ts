@@ -602,18 +602,54 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
     const chart = (
       result.structuredContent as {
         result?: {
-          aspects?: Array<{ strength?: number }>;
-          evidenceAnalysis?: { evidence?: { title?: string }; calculationChain?: string[] };
+          planets?: unknown[];
+          angles?: unknown[];
+          houses?: unknown[];
+          aspects?: Array<{
+            strength?: number;
+            actualAngle?: number;
+            exactAngle?: number;
+            allowedOrb?: number;
+          }>;
+          evidenceAnalysis?: {
+            evidence?: { title?: string };
+            calculationChain?: string[];
+            positionFacts?: unknown[];
+            aspectFacts?: Array<{
+              actualAngle?: number;
+              exactAngle?: number;
+              allowedOrb?: number;
+              limitation?: string;
+            }>;
+          };
         };
       }
     ).result;
     for (const aspect of chart?.aspects ?? []) {
       assert.equal(aspect.strength, undefined);
+      assert.equal(typeof aspect.actualAngle, 'number');
+      assert.equal(typeof aspect.exactAngle, 'number');
+      assert.equal(typeof aspect.allowedOrb, 'number');
     }
     assert.equal(chart?.evidenceAnalysis?.evidence?.title, '西方星盘位置与相位结构化证据');
     assert.ok((chart?.evidenceAnalysis?.calculationChain?.length ?? 0) >= 5);
+    assert.equal(
+      chart?.evidenceAnalysis?.positionFacts?.length,
+      (chart?.planets?.length ?? 0) + (chart?.angles?.length ?? 0) + (chart?.houses?.length ?? 0),
+    );
+    assert.equal(chart?.evidenceAnalysis?.aspectFacts?.length, chart?.aspects?.length);
+    assert.ok(
+      chart?.evidenceAnalysis?.aspectFacts?.every(
+        (item) =>
+          typeof item.actualAngle === 'number' &&
+          typeof item.exactAngle === 'number' &&
+          typeof item.allowedOrb === 'number' &&
+          item.limitation?.includes('不代表事件概率'),
+      ),
+    );
     const prompt = String(result.structuredContent?.prompt);
     assert.match(prompt, /【西方星盘位置与相位结构化证据】/);
+    assert.match(prompt, /实际夹角.*精确角.*允许容许度.*距精确角偏差/);
     assert.match(prompt, /【分析对象】\n分析对象：流年2028。/);
     assert.match(prompt, /行运证据：土星□太阳/);
     assert.doesNotMatch(prompt, /强度\d+%/);
