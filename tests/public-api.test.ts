@@ -2243,6 +2243,10 @@ test('公开 API 黄历择日提示词不强制填写问题', async () => {
   assert.match(body.data.prompt, /【任务】/);
   assert.match(body.data.prompt, /【黄历择日透明约束与候选证据】/);
   assert.doesNotMatch(body.data.prompt, /评分[：=]?\d|（\d+分|成功率[：=]?\d/);
+  assert.doesNotMatch(
+    body.data.prompt,
+    /主疾病|主死丧|主灾病死亡|主哭泣死亡|必见灾殃|毒气入肠|大凶|辅助加分/,
+  );
   assert.doesNotMatch(body.data.prompt, /【问题】/);
   assert.match(body.data.prompt, /先直接给出首选日期、备选日期与慎用日期/);
   assert.doesNotMatch(body.data.prompt, /先直接回答【问题】/);
@@ -2297,6 +2301,23 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
   assert.equal(body.data.result.days.length, 5);
   assert.equal(body.data.result.pagination.page, 2);
   assert.equal(body.data.result.evidenceAnalysis.candidates.length, 5);
+  const traditionalFacts = body.data.result.evidenceAnalysis.traditionalFacts as Array<{
+    kind: string;
+    originalText: string;
+    promptText: string;
+    sources: string[];
+    limitation: string;
+  }>;
+  assert.ok(traditionalFacts.length > 0);
+  assert.ok(
+    traditionalFacts.every(
+      (item) =>
+        item.originalText &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不证明现实中'),
+    ),
+  );
   for (const day of body.data.result.days) {
     assert.equal(day.score, undefined);
     for (const hour of [...(day.hours ?? []), ...(day.bestHours ?? [])]) {

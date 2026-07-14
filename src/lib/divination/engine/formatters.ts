@@ -1,5 +1,4 @@
 import type {
-  AlmanacDayCandidate,
   AlmanacData,
   AstrolabeData,
   DivinationData,
@@ -22,7 +21,10 @@ import {
   analyzeQimenEvidence,
   conditionQimenTraditionalText,
 } from '@core/divination/algorithms/qimen';
-import { analyzeAlmanacEvidence } from '@core/divination/algorithms/almanac';
+import {
+  analyzeAlmanacEvidence,
+  conditionAlmanacTraditionalText,
+} from '@core/divination/algorithms/almanac';
 import { LIUCHONG_MAP } from '@core/ganzhi';
 import type { DivinationMethodId } from '@core/divination/config';
 import {
@@ -1002,8 +1004,10 @@ function formatSsgwInfo(data: SsgwData) {
     .join('\n');
 }
 
-function formatAlmanacAnnualDirectionGods(item: AlmanacDayCandidate) {
-  const gods = item.annualDirectionGods ?? [];
+function formatAlmanacAnnualDirectionGods(
+  candidate: ReturnType<typeof analyzeAlmanacEvidence>['candidates'][number] | undefined,
+) {
+  const gods = candidate?.traditionalFacts.filter((fact) => fact.kind === '全年方位神') ?? [];
   if (!gods.length) return '';
 
   const importantBadGods = new Set([
@@ -1018,11 +1022,11 @@ function formatAlmanacAnnualDirectionGods(item: AlmanacDayCandidate) {
   ]);
   const helpfulGods = new Set(['太阳', '太阴', '龙德', '福德']);
   const importantBad = gods
-    .filter((god) => importantBadGods.has(god.god))
-    .map((god) => `${god.god}${god.branch}${god.direction}`);
+    .filter((god) => importantBadGods.has(god.name))
+    .map((god) => `${god.name}${god.branch}${god.direction}`);
   const helpful = gods
-    .filter((god) => helpfulGods.has(god.god))
-    .map((god) => `${god.god}${god.branch}${god.direction}`);
+    .filter((god) => helpfulGods.has(god.name))
+    .map((god) => `${god.name}${god.branch}${god.direction}`);
 
   return [
     importantBad.length ? `岁支方位避${importantBad.join('、')}` : '',
@@ -1044,14 +1048,23 @@ function formatAlmanacInfo(data: AlmanacData) {
     return `- ${item.name}：${item.gender || '性别未填'}，公历${item.solarDate}，农历${item.lunarDate}，生肖${item.zodiac}，日主${item.dayMaster}${item.dayMasterElement}，四柱${item.pillars.year}年 ${item.pillars.month}月 ${item.pillars.day}日 ${item.pillars.hour}时，${useful}`;
   });
   const dayLines = topDays.map((item, index) => {
-    const starDetail = item.twentyEightStarDetail
-      ? `（${item.twentyEightStarDetail.wuxing}，${item.twentyEightStarDetail.fortune}，${item.twentyEightStarDetail.meaning}）`
-      : '';
-    const nineStarDetail = item.nineStarDetail
-      ? `（${item.nineStarDetail.wuxing}，${item.nineStarDetail.fortune}，${item.nineStarDetail.meaning}）`
-      : '';
+    const candidate = evidenceAnalysis.candidates.find(
+      (candidateItem) => candidateItem.date === item.date,
+    );
+    const starFact = candidate?.traditionalFacts.find((fact) => fact.kind === '二十八宿');
+    const nineStarFact = candidate?.traditionalFacts.find((fact) => fact.kind === '九星');
+    const starDetail = starFact
+      ? `（${starFact.promptText}；边界：${starFact.limitation}）`
+      : item.twentyEightStarDetail
+        ? `（${conditionAlmanacTraditionalText(item.twentyEightStarDetail.meaning)}）`
+        : '';
+    const nineStarDetail = nineStarFact
+      ? `（${nineStarFact.promptText}；边界：${nineStarFact.limitation}）`
+      : item.nineStarDetail
+        ? `（${conditionAlmanacTraditionalText(item.nineStarDetail.meaning)}）`
+        : '';
     const godText = item.gods.length ? `吉神${item.gods.join('、')}` : '';
-    const annualDirectionGodsText = formatAlmanacAnnualDirectionGods(item);
+    const annualDirectionGodsText = formatAlmanacAnnualDirectionGods(candidate);
     const evidence = [
       `宜${item.recommends.slice(0, 8).join('、') || '无'}`,
       `忌${item.avoids.slice(0, 8).join('、') || '无'}`,
@@ -1069,9 +1082,7 @@ function formatAlmanacInfo(data: AlmanacData) {
             .join('、')}`
         : '未筛出证据足够的建议时辰',
     ].filter(Boolean);
-    const status = evidenceAnalysis.candidates.find(
-      (candidate) => candidate.date === item.date,
-    )?.status;
+    const status = candidate?.status;
     return `- 第${index + 1}候选：${item.date} ${item.weekday}${status ? `，${status}` : ''}，${item.lunarDate}，${item.ganzhi.year}年 ${item.ganzhi.month}月 ${item.ganzhi.day}日；${item.dayOfficer}执日，十二神${item.twelveStar}，二十八宿${item.twentyEightStar}${starDetail}，九星${item.nineStar}${nineStarDetail}，${item.clash}；${evidence.join('；')}`;
   });
   const bestDay = topDays[0];

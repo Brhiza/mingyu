@@ -531,12 +531,32 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
             hours?: Array<{ score?: number }>;
             bestHours?: Array<{ score?: number }>;
           }>;
-          evidenceAnalysis: { candidates: unknown[]; cautionDates: string[] };
+          evidenceAnalysis: {
+            candidates: unknown[];
+            cautionDates: string[];
+            traditionalFacts: Array<{
+              kind: string;
+              originalText: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+          };
         };
       }
     ).result;
     assert.ok(chart.evidenceAnalysis.candidates.length > 0);
     assert.ok(Array.isArray(chart.evidenceAnalysis.cautionDates));
+    assert.ok(chart.evidenceAnalysis.traditionalFacts.length > 0);
+    assert.ok(
+      chart.evidenceAnalysis.traditionalFacts.every(
+        (item) =>
+          item.originalText &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不证明现实中'),
+      ),
+    );
     for (const day of chart.days) {
       assert.equal(day.score, undefined);
       for (const hour of [...(day.hours ?? []), ...(day.bestHours ?? [])]) {
@@ -547,6 +567,10 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
     assert.match(prompt, /【占卜信息】/);
     assert.match(prompt, /【黄历择日透明约束与候选证据】/);
     assert.doesNotMatch(prompt, /评分[：=]?\d|（\d+分|成功率[：=]?\d/);
+    assert.doesNotMatch(
+      prompt,
+      /主疾病|主死丧|主灾病死亡|主哭泣死亡|必见灾殃|毒气入肠|大凶|辅助加分/,
+    );
     assertPromptIsPortableTaskText(prompt);
   });
 });

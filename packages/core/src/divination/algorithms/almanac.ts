@@ -683,7 +683,7 @@ function scoreDay(params: {
   const bigInauspicious = SHENSHA_INAUSPICIOUS.filter((name) => params.gods.includes(name));
   if (bigAuspicious.length >= 2) {
     score += 6;
-    highlights.push('吉神信息较多，可作为辅助加分');
+    highlights.push('吉神信息较多，可作为辅助支持');
   }
   for (const name of bigAuspicious) {
     if (name === '天赦') {
@@ -724,7 +724,7 @@ function scoreDay(params: {
       if (usefulHits.length) {
         score += usefulHits.length * 4;
         participantNotes.push(
-          `${participant.name}：候选日干支五行命中喜用${usefulHits.join('、')}，可作辅助加分`,
+          `${participant.name}：候选日干支五行命中喜用${usefulHits.join('、')}，可作辅助支持`,
         );
       }
       if (avoidHits.length) {
@@ -955,10 +955,11 @@ export function generateAlmanacSelection(params: {
   return { ...scoredResult, days: publicDays, evidenceAnalysis };
 }
 
-export { analyzeAlmanacEvidence } from '../almanac-evidence';
+export { analyzeAlmanacEvidence, conditionAlmanacTraditionalText } from '../almanac-evidence';
 export type {
   AlmanacCandidateEvidence,
   AlmanacCandidateStatus,
   AlmanacEvidenceAnalysis,
   AlmanacHourEvidence,
+  AlmanacTraditionalFact,
 } from '../almanac-evidence';

@@ -5,6 +5,20 @@ import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidenc
 
 export type AlmanacCandidateStatus = '可用候选' | '条件候选' | '慎用候选';
 
+export interface AlmanacTraditionalFact {
+  key: string;
+  date: string;
+  kind: '二十八宿' | '九星' | '全年方位神' | '彭祖百忌';
+  name: string;
+  originalText: string;
+  promptText: string;
+  sources: string[];
+  fortune?: string;
+  branch?: string;
+  direction?: string;
+  limitation: '传统择日资料只用于当前事项的候选比较，不证明现实中的疾病、死亡、灾祸、官非、财损、婚姻或生育结果';
+}
+
 export interface AlmanacHourEvidence {
   name: string;
   range: string;
@@ -32,6 +46,7 @@ export interface AlmanacCandidateEvidence {
   participantConflicts: string[];
   directionConstraints: string[];
   usableHours: AlmanacHourEvidence[];
+  traditionalFacts: AlmanacTraditionalFact[];
   limitations: string[];
 }
 
@@ -42,6 +57,7 @@ export interface AlmanacEvidenceAnalysis {
   cautionDates: string[];
   hardConstraints: string[];
   realityConstraints: string[];
+  traditionalFacts: AlmanacTraditionalFact[];
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
@@ -49,6 +65,138 @@ export interface AlmanacEvidenceAnalysis {
 
 function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+const TRADITIONAL_FACT_LIMITATION =
+  '传统择日资料只用于当前事项的候选比较，不证明现实中的疾病、死亡、灾祸、官非、财损、婚姻或生育结果' as const;
+
+const PENGZU_PROMPT_PREFIXES: Array<[RegExp, string]> = [
+  [/^甲不开仓/, '甲日传统上避开仓'],
+  [/^乙不栽植/, '乙日传统上避栽植'],
+  [/^丙不修灶/, '丙日传统上避修灶'],
+  [/^丁不剃头/, '丁日传统上避剃头'],
+  [/^戊不受田/, '戊日传统上避受田'],
+  [/^己不破券/, '己日传统上避破券'],
+  [/^庚不经络/, '庚日传统上避经络织作'],
+  [/^辛不合酱/, '辛日传统上避合酱'],
+  [/^壬不[汲泱]水/, '壬日传统上避汲水'],
+  [/^癸不词讼/, '癸日传统上避词讼'],
+  [/^子不问卜/, '子日传统上避问卜'],
+  [/^丑不冠带/, '丑日传统上避冠带'],
+  [/^寅不祭祀/, '寅日传统上避祭祀'],
+  [/^卯不穿井/, '卯日传统上避穿井'],
+  [/^辰不哭泣/, '辰日传统上避哭泣'],
+  [/^巳不远行/, '巳日传统上避远行'],
+  [/^午不苫盖/, '午日传统上避苫盖'],
+  [/^未不服药/, '未日传统上避服药'],
+  [/^申不安床/, '申日传统上避安床'],
+  [/^酉不宴客/, '酉日传统上避宴客'],
+  [/^戌不吃狗/, '戌日传统上避食犬'],
+  [/^亥不嫁娶/, '亥日传统上避嫁娶'],
+];
+
+export function conditionAlmanacTraditionalText(text: string): string {
+  const pengZuPrompt = PENGZU_PROMPT_PREFIXES.find(([pattern]) => pattern.test(text))?.[1];
+  if (pengZuPrompt) {
+    return `${pengZuPrompt}；后半句属于传统警语，不作为现实后果保证`;
+  }
+
+  return text
+    .replace(/犯太岁防宅长大凶/g, '传统方位规则将太岁方列为修造等事项的回避条件')
+    .replace(/修太阳能制诸煞(?:，移床此方主添丁)?/g, '传统方位规则将太阳方列为修造、移床的参考方位')
+    .replace(/犯丧门主死丧哭泣/g, '传统方位规则将丧门方列为涉及丧葬类象的回避条件')
+    .replace(/修太阴主生女，散病患/g, '传统方位规则将太阴方列为修造参考，不据此判断生育或健康结果')
+    .replace(/犯官符主口舌官讼/g, '传统方位规则将官符方列为涉及争议与法律事项的回避条件')
+    .replace(/犯死符主灾病死亡/g, '传统方位规则将死符方列为涉及健康与安全类象的回避条件')
+    .replace(/犯岁破忧宅母/g, '传统方位规则将岁破方列为修造等事项的回避条件')
+    .replace(/修龙德能散瘟疫官讼/g, '传统方位规则将龙德方列为修造参考，不据此判断健康或法律结果')
+    .replace(/犯白虎主哭泣死亡及小儿凶/g, '传统方位规则将白虎方列为涉及健康与安全类象的回避条件')
+    .replace(/修福德主添丁生子/g, '传统方位规则将福德方列为修造参考，不据此判断生育结果')
+    .replace(/犯吊客主丧服/g, '传统方位规则将吊客方列为涉及丧葬类象的回避条件')
+    .replace(/犯病符主疾病/g, '传统方位规则将病符方列为涉及健康类象的回避条件')
+    .replace(/百事不宜，诸事不吉/g, '传统分类列为广泛避忌，仍须按当前事项逐项核验')
+    .replace(/百事吉/g, '传统分类偏有利')
+    .replace(/诸事吉/g, '传统分类偏有利')
+    .replace(/诸事可为/g, '传统分类提示可作为候选')
+    .replace(/大凶/g, '传统高风险分类')
+    .replace(/主疾病、破财、是非/g, '传统类象涉及健康、财物与争议议题')
+    .replace(/主是非、争斗、官非/g, '传统类象涉及争议、冲突与法律议题')
+    .replace(/主凶灾、病患/g, '传统类象涉及健康与安全风险议题')
+    .replace(/主破财、口舌、盗贼/g, '传统类象涉及财物、沟通与安全议题')
+    .replace(/主官贵、文运、财禄/g, '传统类象涉及职位、学业与财务议题')
+    .replace(/主文昌、考试、名声/g, '传统类象涉及学业、考试与声誉议题')
+    .replace(/主财禄、武职、贵气/g, '传统类象涉及财务、职务与助力议题')
+    .replace(/主财运、田宅、吉庆/g, '传统类象涉及财务、房产与喜庆议题')
+    .replace(/主喜事、婚姻、文书/g, '传统类象涉及喜庆、婚恋与文书议题')
+    .replace(/必然/g, '可能')
+    .replace(/必定/g, '较可能');
+}
+
+function buildTraditionalFacts(day: AlmanacDayCandidate): AlmanacTraditionalFact[] {
+  const facts: AlmanacTraditionalFact[] = [];
+  if (day.twentyEightStarDetail) {
+    facts.push({
+      key: `${day.date}:twenty-eight-star:${day.twentyEightStar}`,
+      date: day.date,
+      kind: '二十八宿',
+      name: day.twentyEightStar,
+      originalText: day.twentyEightStarDetail.meaning,
+      promptText: `${day.twentyEightStar}宿五行${day.twentyEightStarDetail.wuxing}，传统属性${day.twentyEightStarDetail.fortune}；${conditionAlmanacTraditionalText(day.twentyEightStarDetail.meaning)}`,
+      sources: ['《象吉通书》卷一二十八宿值日、清代《择日全纪》'],
+      fortune: day.twentyEightStarDetail.fortune,
+      limitation: TRADITIONAL_FACT_LIMITATION,
+    });
+  }
+  if (day.nineStarDetail) {
+    facts.push({
+      key: `${day.date}:nine-star:${day.nineStar}`,
+      date: day.date,
+      kind: '九星',
+      name: day.nineStar,
+      originalText: day.nineStarDetail.meaning,
+      promptText: `${day.nineStar}五行${day.nineStarDetail.wuxing}，传统属性${day.nineStarDetail.fortune}；${conditionAlmanacTraditionalText(day.nineStarDetail.meaning)}`,
+      sources: ['传统紫白九星值日表'],
+      fortune: day.nineStarDetail.fortune,
+      limitation: TRADITIONAL_FACT_LIMITATION,
+    });
+  }
+  (day.annualDirectionGods ?? []).forEach((item) => {
+    facts.push({
+      key: `${day.date}:direction-god:${item.god}:${item.branch}`,
+      date: day.date,
+      kind: '全年方位神',
+      name: item.god,
+      originalText: item.meaning,
+      promptText: `${item.god}在${item.branch}${item.direction}，传统属性${item.fortune}；${conditionAlmanacTraditionalText(item.meaning)}`,
+      sources: ['岁支起太岁顺排十二神方位表'],
+      fortune: item.fortune,
+      branch: item.branch,
+      direction: item.direction,
+      limitation: TRADITIONAL_FACT_LIMITATION,
+    });
+  });
+  const separatedPengZu = unique([day.pengZuGan ?? '', day.pengZuZhi ?? '']);
+  const pengZuTexts = separatedPengZu.length
+    ? separatedPengZu
+    : unique(
+        day.pengZu
+          .split(/\s+/)
+          .filter((text) => /^[甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥]不/.test(text)),
+      );
+  pengZuTexts.forEach((text, index) => {
+    if (!text) return;
+    facts.push({
+      key: `${day.date}:pengzu:${index}:${text.slice(0, 1)}`,
+      date: day.date,
+      kind: '彭祖百忌',
+      name: text.slice(0, 1),
+      originalText: text,
+      promptText: conditionAlmanacTraditionalText(text),
+      sources: ['彭祖百忌日干日支表'],
+      limitation: TRADITIONAL_FACT_LIMITATION,
+    });
+  });
+  return facts;
 }
 
 function isConflictNote(note: string) {
@@ -89,16 +237,13 @@ function buildCandidateEvidence(day: AlmanacDayCandidate): AlmanacCandidateEvide
   const traditionalConstraints = unique(day.cautions);
   const topicMatches = unique(day.highlights.filter((item) => /宜项命中|执日.*宜/.test(item)));
   const traditionalSupport = unique(day.highlights.filter((item) => !topicMatches.includes(item)));
-  const directionConstraints = unique(
-    (day.annualDirectionGods ?? [])
-      .filter((item) => item.fortune === '凶')
-      .map((item) => `${item.god}在${item.branch}${item.direction}：${item.meaning}`),
-  );
-  const directionFacts = unique(
-    (day.annualDirectionGods ?? []).map(
-      (item) => `${item.god}在${item.branch}${item.direction}（${item.fortune}）：${item.meaning}`,
-    ),
-  );
+  const traditionalFacts = buildTraditionalFacts(day);
+  const directionConstraints = traditionalFacts
+    .filter((item) => item.kind === '全年方位神' && item.fortune === '凶')
+    .map((item) => item.promptText);
+  const directionFacts = traditionalFacts
+    .filter((item) => item.kind === '全年方位神')
+    .map((item) => item.promptText);
   const strongConstraint = [...traditionalConstraints, ...participantConflicts].some((item) =>
     /黄历忌项触及|诸事不宜|六冲|相刑|相害|相破|岁破/.test(item),
   );
@@ -124,11 +269,20 @@ function buildCandidateEvidence(day: AlmanacDayCandidate): AlmanacCandidateEvide
       `建除值日${day.dayOfficer}，十二神${day.twelveStar}，冲煞${day.clash}`,
     ],
     traditionalRuleFacts: [
-      `二十八宿${day.twentyEightStar}${day.twentyEightStarDetail ? `（五行${day.twentyEightStarDetail.wuxing}、传统属性${day.twentyEightStarDetail.fortune}：${day.twentyEightStarDetail.meaning}）` : '（未附详情）'}`,
-      `九星${day.nineStar}${day.nineStarDetail ? `（五行${day.nineStarDetail.wuxing}、传统属性${day.nineStarDetail.fortune}：${day.nineStarDetail.meaning}）` : '（未附详情）'}`,
+      traditionalFacts.find((item) => item.kind === '二十八宿')
+        ? `二十八宿：${traditionalFacts.find((item) => item.kind === '二十八宿')?.promptText}`
+        : `二十八宿${day.twentyEightStar}（未附详情）`,
+      traditionalFacts.find((item) => item.kind === '九星')
+        ? `九星：${traditionalFacts.find((item) => item.kind === '九星')?.promptText}`
+        : `九星${day.nineStar}（未附详情）`,
       `值日神煞：${day.gods.join('、') || '未列'}`,
       `原始宜项：${day.recommends.join('、') || '未列'}；原始忌项：${day.avoids.join('、') || '未列'}`,
-      `彭祖百忌：${unique([day.pengZu, day.pengZuGan ?? '', day.pengZuZhi ?? '']).join('；') || '未列'}`,
+      `彭祖百忌：${
+        traditionalFacts
+          .filter((item) => item.kind === '彭祖百忌')
+          .map((item) => item.promptText)
+          .join('；') || '未列'
+      }`,
     ],
     directionFacts,
     topicMatches,
@@ -138,6 +292,7 @@ function buildCandidateEvidence(day: AlmanacDayCandidate): AlmanacCandidateEvide
     participantConflicts,
     directionConstraints,
     usableHours,
+    traditionalFacts,
     limitations: [
       '黄历规则只用于候选范围内的传统择日比较，不替代场地、证件、人员、交通、天气与安全条件',
       ...(usableHours.length ? [] : ['未筛出无明显冲突的时辰，不硬指定吉时']),
@@ -169,6 +324,7 @@ function formatCandidate(item: AlmanacCandidateEvidence) {
 
 export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalysis {
   const candidates = data.days.map(buildCandidateEvidence);
+  const traditionalFacts = candidates.flatMap((item) => item.traditionalFacts);
   const preferredDates = candidates
     .filter((item) => item.status === '可用候选')
     .map((item) => item.date);
@@ -228,6 +384,7 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
     cautionDates,
     hardConstraints,
     realityConstraints,
+    traditionalFacts,
     evidence,
     promptText,
     methodology: [
