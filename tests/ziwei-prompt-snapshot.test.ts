@@ -140,6 +140,9 @@ test('紫微提示词快照应输出已检测出的命盘格局', () => {
   assert.match(snapshot, /【命盘格局】/);
   assert.match(snapshot, /紫府同宫/);
   assert.match(snapshot, /紫微与天府同坐命宫/);
+  assert.match(snapshot, /传统分类_非综合吉凶/);
+  assert.match(snapshot, /传统释义_非事实结论/);
+  assert.match(snapshot, /适用边界：传统格局只作为术数分类参考/);
   assert.doesNotMatch(snapshot, /星座|金牛座/);
   assert.match(snapshot, /【十二宫资料】/);
 });

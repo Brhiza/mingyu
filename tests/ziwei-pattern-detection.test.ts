@@ -73,7 +73,13 @@ test('紫微格局检测应拒绝不完整或结构错误的宫位数据', () =>
 
 test('紫微格局：按实际地支和昼夜判断月朗天门和日照雷门，不依赖宫位数字索引', () => {
   const yueLang = detectPatterns({ palaces: createPalaces('亥', [star('太阴')]) });
-  assert.ok(yueLang.some((item) => item.name === '月朗天门'));
+  const yueLangPattern = yueLang.find((item) => item.name === '月朗天门');
+  assert.ok(yueLangPattern);
+  assert.ok(yueLangPattern.matched_conditions?.some((item) => item.includes('实际命中宫位')));
+  assert.match(yueLangPattern.source || '', /紫微格局规则表/);
+  assert.match(yueLangPattern.calculation || '', /逐项执行格局规则/);
+  assert.ok(yueLangPattern.limitations?.some((item) => item.includes('不证明传统释义必然发生')));
+  assert.doesNotMatch(yueLangPattern.description, /主清贵|主富贵|主灾/);
 
   const wrongYueLang = detectPatterns({ palaces: createPalaces('丑', [star('太阴')]) });
   assert.equal(

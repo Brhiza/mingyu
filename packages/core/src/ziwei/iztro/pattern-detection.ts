@@ -42,6 +42,21 @@ type DetectResult = {
 
 type PatternDraft = PatternFact & { priority: number };
 
+function splitPatternDescription(description: string): {
+  condition: string;
+  traditionalInterpretation?: string;
+} {
+  const markerIndex = description.search(/[，；。]主/);
+  if (markerIndex < 0) {
+    return { condition: description.replace(/[。；]+$/, '') };
+  }
+
+  return {
+    condition: description.slice(0, markerIndex).replace(/[，；。]+$/, ''),
+    traditionalInterpretation: description.slice(markerIndex + 1).trim(),
+  };
+}
+
 function normalizePalaceName(name: string): string {
   return name.endsWith('宫') ? name.slice(0, -1) : name;
 }
@@ -1996,16 +2011,31 @@ export function detectPatterns(params: {
   PATTERN_RULES.forEach((rule, index) => {
     const matched = rule.detect(context);
     if (!matched) return;
+    const { condition, traditionalInterpretation } = splitPatternDescription(rule.description);
+    const palaceNames = matched.palaces.map((palace) => palace.name);
 
     patterns.push({
       id: `P${index + 1}`,
       name: rule.name,
       kind: rule.kind,
-      description: rule.description,
+      description: condition,
       priority: rule.priority,
       palace_indexes: matched.palaces.map((palace) => palace.index),
-      palace_names: matched.palaces.map((palace) => palace.name),
+      palace_names: palaceNames,
       star_names: matched.stars,
+      matched_conditions: [
+        `规则条件：${condition}`,
+        `实际命中宫位：${palaceNames.join('、') || '未登记独立宫位'}`,
+        `实际命中星曜：${matched.stars.join('、') || '该规则按宫位、地支或空亡等条件命中'}`,
+      ],
+      traditional_interpretation: traditionalInterpretation,
+      source: '命语紫微格局规则表；传统口径汇总自《紫微斗数全书》《紫微斗数全集》等',
+      calculation: `逐项执行格局规则 ${rule.id}，按命宫、地支、星曜、亮度、四化、三方四正、对宫及夹宫条件返回命中结果`,
+      limitations: [
+        '格局名称及吉格、凶格、中性分类属于传统术数分类，不是综合吉凶评分',
+        '规则命中只证明当前盘面满足项目登记条件，不证明传统释义必然发生',
+        '传统格局缺少现代统计因果验证，不得转写为成功率、灾祸概率或绝对人生结论',
+      ],
     });
   });
 

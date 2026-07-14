@@ -135,6 +135,11 @@ export type PatternFact = {
   palace_indexes: number[];
   palace_names: string[];
   star_names: string[];
+  matched_conditions?: string[];
+  traditional_interpretation?: string;
+  source?: string;
+  calculation?: string;
+  limitations?: string[];
 };
 
 export interface DayRootItem {

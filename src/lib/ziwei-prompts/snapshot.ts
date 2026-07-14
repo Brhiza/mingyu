@@ -93,13 +93,32 @@ function buildTaskBookBasicInfo(payload: AnalysisPayloadV1) {
 }
 
 function buildPatternSummary(payload: AnalysisPayloadV1) {
-  return (payload.patterns ?? []).slice(0, 4).map((item) => ({
-    格局: item.name,
-    性质: item.kind === 'auspicious' ? '吉格' : item.kind === 'inauspicious' ? '凶格' : '中性',
-    关联宫位: item.palace_names.map((name) => formatPalaceName(name)),
-    关联星曜: item.star_names,
-    说明: item.description,
-  }));
+  return (payload.patterns ?? []).slice(0, 4).map((item) => {
+    const markerIndex = item.description.search(/[，；。]主/);
+    const legacyCondition =
+      markerIndex >= 0 ? item.description.slice(0, markerIndex) : item.description;
+    const legacyInterpretation =
+      markerIndex >= 0 ? item.description.slice(markerIndex + 1).trim() : undefined;
+
+    return {
+      传统格局: item.name,
+      传统分类_非综合吉凶:
+        item.kind === 'auspicious' ? '吉格' : item.kind === 'inauspicious' ? '凶格' : '中性',
+      命中条件: item.matched_conditions ?? [
+        `规则条件：${legacyCondition}`,
+        `实际命中宫位：${item.palace_names.join('、') || '未登记独立宫位'}`,
+        `实际命中星曜：${item.star_names.join('、') || '未登记独立星曜'}`,
+      ],
+      关联宫位: item.palace_names.map((name) => formatPalaceName(name)),
+      关联星曜: item.star_names,
+      规则来源: item.source || '现有紫微格局规则表',
+      计算依据: item.calculation || '按格局登记条件与当前宫位星曜逐项匹配',
+      传统释义_非事实结论: item.traditional_interpretation || legacyInterpretation,
+      适用边界:
+        item.limitations?.join('；') ||
+        '传统格局只作为术数分类参考，不是综合吉凶评分，也不证明现实事件必然发生',
+    };
+  });
 }
 
 export function buildPromptContextSnapshot(params: {
