@@ -5,7 +5,7 @@ import { baziCalculator } from '@core/bazi/baziCalculator';
 import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
 import { analyzeShenShaWithTenGod } from '@core/bazi/baziShenSha/helpers/tenGodAnalysis';
 
-test('核心判断依据会输出旺衰拆分与十神归类，避免把归类误写成具体十神', () => {
+test('核心判断依据会输出旺衰条件与十神归类，不把内部权重外显为吉凶分', () => {
   const result = baziCalculator.calculateBazi({
     year: 1995,
     month: 8,
@@ -20,10 +20,8 @@ test('核心判断依据会输出旺衰拆分与十神归类，避免把归类�
   const text = formatBaziForPrompt(result);
 
   assert.match(text, /【核心判断依据】/);
-  assert.match(
-    text,
-    /旺衰拆分: 月令:[+-]?\d+(?:\.\d+)? \| 司令:[+-]?\d+(?:\.\d+)? \| 成局:[+-]?\d+(?:\.\d+)? \| 通根:[+-]?\d+(?:\.\d+)? \| 帮扶:[+-]?\d+(?:\.\d+)? \| 克泄耗:[+-]?\d+(?:\.\d+)?/,
-  );
+  assert.match(text, /旺衰依据: 月令.+ \| 司令.+ \| 成局.+ \| 通根.+ \| 帮扶.+ \| 克泄耗.+/);
+  assert.doesNotMatch(text, /旺衰[^\n]*得分|旺衰拆分:[^\n]*[+-]?\d/);
   assert.match(text, /格局依据: /);
   assert.match(text, /用神: 主用/);
   assert.match(text, /主忌/);
@@ -34,6 +32,7 @@ test('核心判断依据会输出旺衰拆分与十神归类，避免把归类�
   assert.match(text, /忌(比劫|食伤|财星|官杀|印星)/);
   assert.doesNotMatch(text, /十神归类: 喜(正印|偏印|正官|七杀|正财|偏财|食神|伤官|比肩|劫财) /);
   assert.doesNotMatch(text, /忌(正印|偏印|正官|七杀|正财|偏财|食神|伤官|比肩|劫财)\n/);
+  assert.match(text, /加权构成占比（用于比较命盘五行分布，不代表吉凶概率或现实结果）/);
 });
 
 test('八字提示词资料包应输出已计算出的传统节令与柱位证据', () => {

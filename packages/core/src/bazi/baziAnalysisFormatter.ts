@@ -17,9 +17,10 @@ interface FormatBaziOptions {
 export type PromptChartScene =
   'general' | 'fortune' | 'compatibility' | 'comprehensive' | 'concise';
 
-function formatSignedScore(value: number): string {
-  const rounded = Number(value.toFixed(1));
-  return `${rounded >= 0 ? '+' : ''}${rounded}`;
+function describeStrengthFactor(value: number, positive: string, absent: string): string {
+  if (value > 0) return positive;
+  if (value < 0) return '形成制约';
+  return absent;
 }
 
 function joinOrFallback(values: string[] | undefined, fallback = '暂无'): string {
@@ -201,8 +202,9 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
 
   result += '\n【核心判断依据】\n';
   const analysis = baziResult.analysis;
-  result += `旺衰: ${analysis.dayMasterStrength.status}（得分:${analysis.dayMasterStrength.score}）\n`;
-  result += `旺衰拆分: 月令:${formatSignedScore(analysis.dayMasterStrength.details.seasonalScore)} | 司令:${formatSignedScore(analysis.dayMasterStrength.details.commanderScore ?? 0)} | 成局:${formatSignedScore(analysis.dayMasterStrength.details.formationStrength)} | 通根:${formatSignedScore(analysis.dayMasterStrength.details.rootStrength)} | 帮扶:${formatSignedScore(analysis.dayMasterStrength.details.supportStrength)} | 克泄耗:${formatSignedScore(-analysis.dayMasterStrength.details.constraintStrength)}\n`;
+  const strengthDetails = analysis.dayMasterStrength.details;
+  result += `旺衰: ${analysis.dayMasterStrength.status}\n`;
+  result += `旺衰依据: 月令${describeStrengthFactor(strengthDetails.seasonalScore, '形成支持', '未形成明显支持')} | 司令${describeStrengthFactor(strengthDetails.commanderScore ?? 0, '形成支持', '未额外增减')} | 成局${describeStrengthFactor(strengthDetails.formationStrength, '形成支持', '未形成')} | 通根${describeStrengthFactor(strengthDetails.rootStrength, '有根', '无根')} | 帮扶${describeStrengthFactor(strengthDetails.supportStrength, '可见', '不明显')} | 克泄耗${strengthDetails.constraintStrength > 0 ? '可见' : '不明显'}\n`;
   result += `格局: ${analysis.mingGe.pattern}\n`;
   if (analysis.mingGe.basis) {
     result += `格局依据: ${analysis.mingGe.basis}\n`;
@@ -301,6 +303,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
 
   if (includeWuxing && baziResult.wuxingStrength?.percentages) {
     result += '\n【五行】\n';
+    result += '加权构成占比（用于比较命盘五行分布，不代表吉凶概率或现实结果）：\n';
     const wuxingMap = baziResult.wuxingStrength.percentages;
     result += Object.entries(wuxingMap)
       .map(([key, value]) => `${key}:${value}%`)
