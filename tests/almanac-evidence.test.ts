@@ -21,6 +21,31 @@ test('黄历择日应内置透明约束与候选证据', () => {
   assert.doesNotMatch(evidence.promptText, /评分[：=]?\d|\d+分|成功率[：=]?\d|匹配率[：=]?\d/);
 });
 
+test('择日证据应保留日课、宿曜、九星、百忌、方位神与逐时时课来源', () => {
+  const result = generateAlmanacSelection({
+    topic: 'travel',
+    startDate: '2025-01-01',
+    endDate: '2025-01-03',
+  });
+  const candidate = result.evidenceAnalysis?.candidates[0];
+
+  assert.ok(candidate);
+  assert.ok(candidate.calendarFacts.some((item) => item.includes('年柱')));
+  assert.ok(candidate.calendarFacts.some((item) => item.includes('建除值日')));
+  assert.ok(candidate.traditionalRuleFacts.some((item) => item.includes('二十八宿')));
+  assert.ok(candidate.traditionalRuleFacts.some((item) => item.includes('九星')));
+  assert.ok(candidate.traditionalRuleFacts.some((item) => item.includes('彭祖百忌')));
+  assert.ok(candidate.directionFacts.some((item) => item.includes('太岁')));
+  assert.ok(candidate.usableHours.length > 0);
+  assert.ok(candidate.usableHours.every((item) => item.ganzhi && item.twelveStar));
+  assert.match(result.evidenceAnalysis?.promptText ?? '', /原始宜项/);
+  assert.match(result.evidenceAnalysis?.promptText ?? '', /逐时时课|时段/);
+  assert.doesNotMatch(
+    JSON.stringify(result.evidenceAnalysis?.evidence),
+    /"score"\s*:|成功率[：=]?\s*\d|吉凶总分[：=]?\s*\d/,
+  );
+});
+
 test('择日证据应让明确事项忌项覆盖内部排序', () => {
   const data = generateAlmanacSelection({
     topic: 'move',

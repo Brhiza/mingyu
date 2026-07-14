@@ -9,15 +9,22 @@ export interface AlmanacHourEvidence {
   name: string;
   range: string;
   ganzhi: string;
+  twelveStar: string;
   status: AlmanacCandidateStatus;
+  recommends: string[];
+  avoids: string[];
   support: string[];
   constraints: string[];
+  participantSupport: string[];
 }
 
 export interface AlmanacCandidateEvidence {
   date: string;
   status: AlmanacCandidateStatus;
   astronomicalFacts: string[];
+  calendarFacts: string[];
+  traditionalRuleFacts: string[];
+  directionFacts: string[];
   topicMatches: string[];
   traditionalSupport: string[];
   traditionalConstraints: string[];
@@ -49,23 +56,28 @@ function isConflictNote(note: string) {
 }
 
 function buildHourEvidence(hour: AlmanacHourCandidate): AlmanacHourEvidence {
+  const participantSupport = unique(hour.participantNotes.filter((item) => !isConflictNote(item)));
   const constraints = unique([
     ...hour.cautions,
     ...hour.participantNotes.filter(isConflictNote),
     ...(hour.avoids.includes('诸事不宜') ? ['时辰明列诸事不宜'] : []),
   ]);
-  const support = unique(hour.highlights);
+  const support = unique([...hour.highlights, ...participantSupport]);
   return {
     name: hour.name,
     range: hour.range,
     ganzhi: hour.ganzhi,
+    twelveStar: hour.twelveStar,
     status: constraints.some((item) => /诸事不宜|忌项触及|冲|刑|害|破/.test(item))
       ? '慎用候选'
       : constraints.length
         ? '条件候选'
         : '可用候选',
+    recommends: unique(hour.recommends),
+    avoids: unique(hour.avoids),
     support,
     constraints,
+    participantSupport,
   };
 }
 
@@ -81,6 +93,11 @@ function buildCandidateEvidence(day: AlmanacDayCandidate): AlmanacCandidateEvide
     (day.annualDirectionGods ?? [])
       .filter((item) => item.fortune === '凶')
       .map((item) => `${item.god}在${item.branch}${item.direction}：${item.meaning}`),
+  );
+  const directionFacts = unique(
+    (day.annualDirectionGods ?? []).map(
+      (item) => `${item.god}在${item.branch}${item.direction}（${item.fortune}）：${item.meaning}`,
+    ),
   );
   const strongConstraint = [...traditionalConstraints, ...participantConflicts].some((item) =>
     /黄历忌项触及|诸事不宜|六冲|相刑|相害|相破|岁破/.test(item),
@@ -101,6 +118,19 @@ function buildCandidateEvidence(day: AlmanacDayCandidate): AlmanacCandidateEvide
       `中国标准时间12:00参照月相为${moonPhaseEvidence.eightPhaseName}（${moonPhaseEvidence.waxing ? '盈' : '亏'}），日月黄经差${moonPhaseEvidence.phaseAngleDegrees.toFixed(2)}°，照明约${moonPhaseEvidence.illuminationPercent.toFixed(1)}%`,
       `前一四正相位${moonPhaseEvidence.previousPrincipalPhase.name} ${moonPhaseEvidence.previousPrincipalPhase.utcDateTime}，下一四正相位${moonPhaseEvidence.nextPrincipalPhase.name} ${moonPhaseEvidence.nextPrincipalPhase.utcDateTime}`,
     ],
+    calendarFacts: [
+      `${day.weekday}，${day.lunarDate}`,
+      `年柱${day.ganzhi.year}、月柱${day.ganzhi.month}、日柱${day.ganzhi.day}，生肖${day.zodiac}`,
+      `建除值日${day.dayOfficer}，十二神${day.twelveStar}，冲煞${day.clash}`,
+    ],
+    traditionalRuleFacts: [
+      `二十八宿${day.twentyEightStar}${day.twentyEightStarDetail ? `（五行${day.twentyEightStarDetail.wuxing}、传统属性${day.twentyEightStarDetail.fortune}：${day.twentyEightStarDetail.meaning}）` : '（未附详情）'}`,
+      `九星${day.nineStar}${day.nineStarDetail ? `（五行${day.nineStarDetail.wuxing}、传统属性${day.nineStarDetail.fortune}：${day.nineStarDetail.meaning}）` : '（未附详情）'}`,
+      `值日神煞：${day.gods.join('、') || '未列'}`,
+      `原始宜项：${day.recommends.join('、') || '未列'}；原始忌项：${day.avoids.join('、') || '未列'}`,
+      `彭祖百忌：${unique([day.pengZu, day.pengZuGan ?? '', day.pengZuZhi ?? '']).join('；') || '未列'}`,
+    ],
+    directionFacts,
     topicMatches,
     traditionalSupport,
     traditionalConstraints,
@@ -127,9 +157,14 @@ function formatCandidate(item: AlmanacCandidateEvidence) {
     ...item.directionConstraints,
   ]);
   const hours = item.usableHours.length
-    ? item.usableHours.map((hour) => `${hour.name}${hour.range}`).join('、')
+    ? item.usableHours
+        .map(
+          (hour) =>
+            `${hour.name}${hour.range}（${hour.ganzhi}、${hour.twelveStar}；宜${hour.recommends.join('、') || '未列'}；忌${hour.avoids.join('、') || '未列'}；支持${hour.support.join('、') || '未见额外支持'}；限制${hour.constraints.join('、') || '未见明确冲突'}）`,
+        )
+        .join('、')
     : '未筛出无明显冲突时辰';
-  return `${item.status}；支持${support.join('、') || '未见独立增强证据'}；限制${constraints.join('、') || '未见明确传统禁忌或参与人冲突'}；天文背景${item.astronomicalFacts.join('；')}；时段${hours}`;
+  return `${item.status}；历法事实${item.calendarFacts.join('；')}；传统规则${item.traditionalRuleFacts.join('；')}；全年方位神${item.directionFacts.join('；') || '未列'}；支持${support.join('、') || '未见独立增强证据'}；限制${constraints.join('、') || '未见明确传统禁忌或参与人冲突'}；天文背景${item.astronomicalFacts.join('；')}；时段${hours}`;
 }
 
 export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalysis {
@@ -167,7 +202,7 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
       title: `${item.date}${item.status}`,
       detail: formatCandidate(item),
       source:
-        '事项宜忌、建除、神煞、参与人刑冲破害与时辰条件逐项核验；月相取中国标准时间正午的celestine日月黄经',
+        '干支历、建除、十二神、二十八宿、九星、彭祖百忌、冲煞、全年方位神、事项宜忌、参与人刑冲破害与逐时时课；月相取中国标准时间正午的celestine日月黄经',
       tags: [item.status, data.topicLabel],
     })),
     {
