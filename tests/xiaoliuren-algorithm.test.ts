@@ -42,6 +42,26 @@ test('小六壬：有效时间应输出明确时辰标签，不应出现未知�
   assert.notEqual(data.hourLabel, '未知时辰');
 });
 
+test('小六壬：起课基数、逐宫顺数和六宫归一结果应进入结构化证据', () => {
+  const data = generateXiaoliuren({ method: 'number', number: 5, customDate: SAMPLE_DATE });
+  const calculation = data.calculation;
+  const evidence = data.evidenceAnalysis;
+
+  assert.ok(calculation);
+  assert.equal(calculation.inputBase, 5);
+  assert.equal(calculation.inputBaseSource, '用户数字');
+  assert.equal(calculation.startPalaceIndex, data.sequence.start.index);
+  assert.equal(calculation.processPalaceIndex, data.sequence.process.index);
+  assert.equal(calculation.resultPalaceIndex, data.sequence.result.index);
+  assert.ok(evidence?.calculationFacts.some((item) => item.includes('起课基数取用户数字5')));
+  assert.ok(evidence?.calculationFacts.some((item) => item.includes('减1后按6取余')));
+  assert.ok(evidence?.evidence.items.some((item) => item.title === '起课输入与逐宫顺数'));
+  assert.doesNotMatch(
+    JSON.stringify(evidence?.evidence),
+    /"score"\s*:|成功率[：=]?\s*\d|吉凶总分[：=]?\s*\d/,
+  );
+});
+
 test('小六壬：过程生结果时应输出越做越顺，不应写成过程被结果泄气', () => {
   const data = generateXiaoliuren({ method: 'number', number: 5, customDate: SAMPLE_DATE });
 
@@ -104,8 +124,14 @@ test('小六壬：仅随机起课应把重放轨迹接入统一证据', () => {
   );
 
   assert.equal(randomItem?.level, '辅证');
-  assert.match(randomItem?.detail || '', /随机种子：小六壬证据样例/);
+  assert.doesNotMatch(randomItem?.detail || '', /小六壬证据样例/);
+  assert.match(randomItem?.detail || '', /随机种子保留在结构化结果中/);
   assert.match(randomItem?.detail || '', /不表示可信度或预测有效性/);
+  assert.ok(
+    randomResult.evidenceAnalysis?.randomFacts.some((item) =>
+      item.includes('随机种子：小六壬证据样例'),
+    ),
+  );
   assert.deepEqual(timeResult.evidenceAnalysis?.randomFacts, []);
   assert.ok(
     !timeResult.evidenceAnalysis?.evidence.items.some((item) => item.tags?.includes('随机起课')),

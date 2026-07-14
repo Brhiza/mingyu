@@ -59,6 +59,19 @@ export interface XiaoliurenData {
   lunarDay: number;
   hourIndex: number;
   hourLabel: string;
+  /** 起课输入、逐宫顺数与六宫归一的可复核计算过程。 */
+  calculation?: {
+    inputBase: number;
+    inputBaseSource: '农历月数' | '用户数字' | '随机取数';
+    lunarDay: number;
+    hourNumber: number;
+    startSeed: number;
+    processSeed: number;
+    resultSeed: number;
+    startPalaceIndex: number;
+    processPalaceIndex: number;
+    resultPalaceIndex: number;
+  };
   sequence: {
     start: XiaoliurenPalaceDetail;
     process: XiaoliurenPalaceDetail;

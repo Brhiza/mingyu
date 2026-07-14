@@ -13,6 +13,7 @@ export interface XiaoliurenStageEvidence {
 
 export interface XiaoliurenEvidenceAnalysis {
   sources: Array<{ title: string; evidence: string; role: '传统规则来源' | '公共算法来源' }>;
+  calculationFacts: string[];
   calculationChain: string[];
   stages: XiaoliurenStageEvidence[];
   transitions: string[];
@@ -82,8 +83,20 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     `起因${data.sequence.start.name}${data.sequence.start.element} → 过程${data.sequence.process.name}${data.sequence.process.element}：${data.wuxingRelations.startToProcess}`,
     `过程${data.sequence.process.name}${data.sequence.process.element} → 结果${data.sequence.result.name}${data.sequence.result.element}：${data.wuxingRelations.processToResult}`,
   ];
+  const calculationFacts = data.calculation
+    ? [
+        `起课方式：${data.methodLabel}；起课基数取${data.calculation.inputBaseSource}${data.calculation.inputBase}`,
+        `时辰换算：${data.hourLabel}对应传统时辰数${data.calculation.hourNumber}（子1至亥12）`,
+        `起因宫：基数${data.calculation.startSeed}，减1后按6取余为${data.calculation.startPalaceIndex}，落${data.sequence.start.name}`,
+        `过程宫：${data.calculation.inputBase}+农历日数${data.calculation.lunarDay}-1=${data.calculation.processSeed}，减1后按6取余为${data.calculation.processPalaceIndex}，落${data.sequence.process.name}`,
+        `结果宫：${data.calculation.inputBase}+农历日数${data.calculation.lunarDay}+时辰数${data.calculation.hourNumber}-2=${data.calculation.resultSeed}，减1后按6取余为${data.calculation.resultPalaceIndex}，落${data.sequence.result.name}`,
+      ]
+    : [
+        `${data.methodLabel}确定起课基数；当前课式记录农历${data.lunarMonth}月${data.lunarDay}日、${data.hourLabel}`,
+        `当前结果未附逐宫顺数中间参数，仅保留已确定三宫${data.sequence.start.name}、${data.sequence.process.name}、${data.sequence.result.name}`,
+      ];
   const calculationChain = [
-    `${data.methodLabel}确定起课基数；当前课式记录农历${data.lunarMonth}月${data.lunarDay}日、${data.hourLabel}`,
+    ...calculationFacts,
     '按六宫顺序分别定位起因、过程与结果三宫',
     `三宫定位为${data.sequence.start.name} → ${data.sequence.process.name} → ${data.sequence.result.name}`,
     `比较起因至过程、过程至结果的五行关系：${data.wuxingRelations.startToProcess}、${data.wuxingRelations.processToResult}`,
@@ -101,6 +114,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
         ].filter(Boolean)
       : ['随机起课结果未附随机轨迹，无法核验起课基数的重放过程']
     : [];
+  const promptRandomFacts = randomFacts.filter((item) => !item.startsWith('随机种子：'));
   const timingBasis = unique(data.timingEvidence?.primaryBasis ?? []);
   const triggerConditions = unique([
     ...(data.timingEvidence?.triggerConditions ?? []),
@@ -114,24 +128,33 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     '结果宫是当前课式主轴，不得跳过起因与过程直接套用固定吉凶断语',
     '方位、身体部位、传统吉凶标签和神煞不得单独证明现实事件，也不得换算成功率或唯一日期',
   ]);
-  const items: PromptEvidenceItem[] = stages.map((item, index): PromptEvidenceItem => ({
-    level: index === 2 ? '主证' : '辅证',
-    title: `${item.stage}${item.palace.name}`,
-    detail: `${item.role}；五行${item.palace.element}，月令${item.seasonState}；宫义${item.palace.meaning}；传统辅证${
-      [
-        item.palace.direction ? `方位${item.palace.direction}` : '',
-        item.palace.shenSha ? `神煞${item.palace.shenSha}` : '',
-        item.palace.yinYang ? `${item.palace.yinYang}宫` : '',
-        item.palace.number ? `数${item.palace.number}` : '',
-        item.palace.bodyPart ? `身体部位${item.palace.bodyPart}` : '',
-        item.palace.timing ? `传统应期${item.palace.timing}` : '',
-      ]
-        .filter(Boolean)
-        .join('、') || '未列'
-    }；支持${item.support.join('、') || '未见独立增强条件'}；限制${item.constraints.join('、') || '未见明确限制标签'}。`,
-    source: '六宫顺数定位、三段课式与月令五行旺衰',
-    tags: [item.stage, item.palace.name, item.palace.element],
-  }));
+  const items: PromptEvidenceItem[] = [
+    {
+      level: '主证',
+      title: '起课输入与逐宫顺数',
+      detail: calculationFacts.join('；'),
+      source: '起课输入、农历日数、传统时辰数与六宫循环取余',
+      tags: ['起课算式', data.method],
+    },
+    ...stages.map((item, index): PromptEvidenceItem => ({
+      level: index === 2 ? '主证' : '辅证',
+      title: `${item.stage}${item.palace.name}`,
+      detail: `${item.role}；五行${item.palace.element}，月令${item.seasonState}；宫义${item.palace.meaning}；传统辅证${
+        [
+          item.palace.direction ? `方位${item.palace.direction}` : '',
+          item.palace.shenSha ? `神煞${item.palace.shenSha}` : '',
+          item.palace.yinYang ? `${item.palace.yinYang}宫` : '',
+          item.palace.number ? `数${item.palace.number}` : '',
+          item.palace.bodyPart ? `身体部位${item.palace.bodyPart}` : '',
+          item.palace.timing ? `传统应期${item.palace.timing}` : '',
+        ]
+          .filter(Boolean)
+          .join('、') || '未列'
+      }；支持${item.support.join('、') || '未见独立增强条件'}；限制${item.constraints.join('、') || '未见明确限制标签'}。`,
+      source: '六宫顺数定位、三段课式与月令五行旺衰',
+      tags: [item.stage, item.palace.name, item.palace.element],
+    })),
+  ];
   items.push(
     {
       level: '主证',
@@ -156,7 +179,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
           {
             level: trace ? ('辅证' as const) : ('反证' as const),
             title: trace ? '随机起课重放记录' : '随机轨迹缺失',
-            detail: `${randomFacts.join('；')}；该记录只用于核验起课过程能否重放，不表示可信度或预测有效性`,
+            detail: `${promptRandomFacts.join('；')}；随机种子保留在结构化结果中，不写入自然语言提示词；该记录只用于核验起课过程能否重放，不表示可信度或预测有效性`,
             source: '命语统一随机轨迹协议',
             tags: ['随机起课', trace ? '可重放' : '不可核验', '不代表预测有效性'],
           },
@@ -192,6 +215,7 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
 
   return {
     sources,
+    calculationFacts,
     calculationChain,
     stages,
     transitions,

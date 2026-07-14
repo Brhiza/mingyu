@@ -223,6 +223,8 @@ export function generateXiaoliuren(
   let startSeed = lunarMonth;
   let processSeed = lunarMonth + lunarDay - 1;
   let resultSeed = lunarMonth + lunarDay + hourNumber - 2;
+  let inputBase = lunarMonth;
+  let inputBaseSource: NonNullable<XiaoliurenData['calculation']>['inputBaseSource'] = '农历月数';
   let randomTrace: RandomTrace | undefined;
 
   if (method === 'number') {
@@ -230,6 +232,8 @@ export function generateXiaoliuren(
     if (typeof inputNumber !== 'number' || !Number.isSafeInteger(inputNumber) || inputNumber <= 0) {
       throw new Error('小六壬数字起课必须提供安全范围内的正整数');
     }
+    inputBase = inputNumber;
+    inputBaseSource = '用户数字';
     startSeed = inputNumber;
     processSeed = inputNumber + lunarDay - 1;
     resultSeed = inputNumber + lunarDay + hourNumber - 2;
@@ -237,6 +241,8 @@ export function generateXiaoliuren(
     const context = createRandomContext(params);
     const base = randomInt(6, context.random) + 1;
     randomTrace = context.getTrace();
+    inputBase = base;
+    inputBaseSource = '随机取数';
     startSeed = base;
     processSeed = base + lunarDay - 1;
     resultSeed = base + lunarDay + hourNumber - 2;
@@ -335,6 +341,18 @@ export function generateXiaoliuren(
     lunarDay,
     hourIndex,
     hourLabel: getHourLabel(hourIndex),
+    calculation: {
+      inputBase,
+      inputBaseSource,
+      lunarDay,
+      hourNumber,
+      startSeed,
+      processSeed,
+      resultSeed,
+      startPalaceIndex: start.index,
+      processPalaceIndex: process.index,
+      resultPalaceIndex: result.index,
+    },
     sequence: {
       start,
       process,
