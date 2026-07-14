@@ -24,11 +24,6 @@ import { getZodiacYearFortune } from '@core/zodiac';
 import { generateTaiyi } from '@core/taiyi';
 import { generateQizheng } from '@core/qi_zheng';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
-import {
-  DEFAULT_REVERSE_BIRTH_TIME_FORM_DATA,
-  buildReverseBirthTimePrompt,
-  buildThreePillarsProfile,
-} from '../src/lib/birth-time-reverse';
 import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
 
 type PromptSample = {
@@ -66,16 +61,6 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
     requiredFields: ['【分析对象】', '【岁运重点】', '【解读方法】'],
   },
   {
-    sampleName: '反推时辰',
-    requiredFields: [
-      '【候选时辰】',
-      '【已知线索】',
-      '【线索权重】',
-      '【排除理由】',
-      '【下一轮追问】',
-    ],
-  },
-  {
     sampleName: '紫微斗数',
     requiredFields: ['【分析对象】', '【本命资料】', '【解读方法】'],
   },
@@ -85,25 +70,15 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '六爻',
-    requiredFields: withCommonProjectSupplementRequired([
-      '取用评分表',
-      '原神忌神仇神',
-      '应期优先级',
-    ]),
+    requiredFields: withCommonProjectSupplementRequired(['主轴证据', '应期优先级']),
   },
   {
     sampleName: '梅花易数',
-    requiredFields: withCommonProjectSupplementRequired(['体用评分', '互变阶段', '应期优先级']),
+    requiredFields: withCommonProjectSupplementRequired(['体用关系', '应期优先级']),
   },
   {
     sampleName: '奇门遁甲',
-    requiredFields: withCommonProjectSupplementRequired([
-      '主宫评分',
-      '辅宫评分',
-      '反证宫',
-      '方位策略',
-      '时间窗口',
-    ]),
+    requiredFields: withCommonProjectSupplementRequired(['主证', '反证', '时间窗口']),
   },
   {
     sampleName: '大六壬',
@@ -160,7 +135,6 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '择日补充：计划在六月上旬签署项目合作合同，希望兼顾推进效率、资金安全和双方合作稳定。',
       '事项口径',
       '参与人适配',
-      '禁忌降级',
       '现实约束',
       '可用时段边界',
     ],
@@ -171,7 +145,7 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '生肖流年',
-    requiredFields: ['【当前时间】', '五行来源', '犯太岁明细', '证据层级', '证据边界'],
+    requiredFields: ['【当前时间】', '五行来源', '犯太岁明细', '证据边界'],
   },
   {
     sampleName: '太乙神数',
@@ -256,7 +230,7 @@ function buildPromptMarkdown(samples: PromptSample[]) {
     '',
     `生成时间：${AUDIT_DATE_TEXT}`,
     '',
-    '说明：本文件由项目本地函数真实生成，覆盖八字排盘、反推时辰、紫微斗数、星盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗牌、雷诺曼、三山国王灵签、择日、八宅风水、生肖流年、太乙神数、七政四余。八字、紫微斗数、星盘测试资料取自比赛原题公开出生信息，未读取正确答案文件。',
+    '说明：本文件由项目本地函数真实生成，覆盖八字排盘、紫微斗数、星盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗牌、雷诺曼、三山国王灵签、择日、八宅风水、生肖流年、太乙神数、七政四余。八字、紫微斗数、星盘测试资料取自比赛原题公开出生信息，未读取正确答案文件。',
     '',
     '## 审计原则',
     '',
@@ -340,7 +314,7 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
     {
       label: '外部补充或缺项清单',
       pattern:
-        /本次没有提供|当前资料没有|未提供|不包含|尚不支持|暂不支持|资料不足|需要补充|请补充|补充资料/,
+        /本次没有提供|当前资料没有|不包含|尚不支持|暂不支持|资料不足|需要补充|请补充|补充资料/,
     },
   ];
 
@@ -400,32 +374,6 @@ async function buildSamples(): Promise<PromptSample[]> {
       fortuneSelectionContext: baziFortuneContext,
       question:
         '请根据命例一作答：Q1 出生家境如何？Q2 婚姻如何？Q3 年轻时何种工作？Q4 1980年发生何事？Q5 1993年发生何事？每题从 A/B/C/D 中给出最可能选项，并说明依据。',
-    });
-
-    const reverseBirthTimeProfile = buildThreePillarsProfile({
-      gender: 'male',
-      dateType: 'solar',
-      year: '1994',
-      month: '10',
-      day: '23',
-      isLeapMonth: false,
-    });
-    const reverseBirthTimePrompt = buildReverseBirthTimePrompt({
-      profile: reverseBirthTimeProfile,
-      formData: {
-        ...DEFAULT_REVERSE_BIRTH_TIME_FORM_DATA,
-        bodyBuild: '匀称平稳',
-        personalityStyle: '慢热谨慎',
-        caregiverPattern: '更多由母亲照顾',
-        educationLevel: '重点本科或名校路径',
-        relationshipTiming: '恋爱偏晚',
-        parentsMarriageNotes: '父母关系稳定',
-        siblingNotes: '独生',
-        workSystemNotes: '大公司工作几年后创业',
-        careerTypeNotes: '技术岗后期带团队',
-        keyYearsNotes: '2012 搬家，2020 换城市。',
-        extraClueNotes: '小时候和母亲更亲，毕业后前两份工作都做不久，后来才慢慢稳定。',
-      },
     });
 
     const ziweiRuntime = await calculateFullZiweiChart(
@@ -630,17 +578,6 @@ async function buildSamples(): Promise<PromptSample[]> {
           baziFortuneContext
             ? '八字样本通过项目年限选择逻辑写入流年分析对象，用于展示岁运解读方法。'
             : '未能找到对应流年上下文时退回本命范围。',
-        ],
-      },
-      {
-        name: '反推时辰',
-        source: '项目反推时辰提示词真实生成；固定当前时间 2026-05-19T10:30:00+08:00。',
-        inputSummary:
-          '男命，公历 1994年10月23日，时辰未知；已补充体型、性格、家庭、学历、感情、工作和关键年份线索。',
-        prompt: reverseBirthTimePrompt,
-        notes: [
-          '本样本只使用三柱和用户补充线索，不假定时柱。',
-          '反推时辰提示词要求先输出候选、线索权重、排除理由和下一轮追问。',
         ],
       },
       {
