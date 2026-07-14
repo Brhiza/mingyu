@@ -102,14 +102,14 @@ function getMonthSupport(monthBranch: string, element: Wuxing): number {
   return scoreMap[status || ''] ?? 0;
 }
 
-function buildMonthSupportEvidence(monthBranch: string, element: Wuxing, score: number): string {
+function buildMonthSupportEvidence(monthBranch: string, element: Wuxing, _score: number): string {
   assertEarthlyBranch(monthBranch, '月支');
   assertWuxing(element, '化神');
   const status = SEASON_STATUS[monthBranch]?.[element];
   if (!status) {
     throw new Error(`月令旺衰数据缺失：${monthBranch}/${element}`);
   }
-  return `月令${monthBranch}对${element}为${status}，月令支持${score}分`;
+  return `月令${monthBranch}对化神${element}为${status}`;
 }
 
 function getControllingElement(element: Wuxing): Wuxing | undefined {
@@ -131,7 +131,7 @@ function getStemRootScore(element: Wuxing, pillars: NormalizedHarmonyPillar[]): 
 
 function buildRootEvidence(
   element: Wuxing,
-  score: number,
+  _score: number,
   pillars: NormalizedHarmonyPillar[],
 ): string {
   const stems = ELEMENT_STEMS[element];
@@ -139,9 +139,7 @@ function buildRootEvidence(
     pillar.hiddenStems.some((hiddenStem) => stems.includes(hiddenStem)),
   ).length;
 
-  return rootCount > 0
-    ? `化神${element}在${rootCount}支有根，根气${score}分`
-    : `化神${element}无根，根气0分`;
+  return rootCount > 0 ? `化神${element}在${rootCount}支有根` : `化神${element}无根`;
 }
 
 function resolveLevel(score: number): HarmonyTransformLevel {
@@ -220,8 +218,8 @@ export function assessStemHarmonyTransform(
   const stemScore = transformStemPillar ? 20 : 0;
   evidence.push(
     transformStemPillar
-      ? `化神${rule.stem}透出于${transformStemPillar.label}，透干20分`
-      : `化神${rule.stem}未透干，透干0分`,
+      ? `化神${rule.stem}透出于${transformStemPillar.label}`
+      : `化神${rule.stem}未透干`,
   );
 
   const rootScore = getStemRootScore(rule.element, pillars);
@@ -235,14 +233,14 @@ export function assessStemHarmonyTransform(
     pillars.some((pillar) => pillar.gan === clash1 && ![pillar1, pillar2].includes(pillar.label))
   ) {
     clashPenalty -= 15;
-    evidence.push(`${stem1}被${clash1}相冲，冲破-15分`);
+    evidence.push(`${stem1}被${clash1}相冲，构成冲破条件`);
   }
   if (
     clash2 &&
     pillars.some((pillar) => pillar.gan === clash2 && ![pillar1, pillar2].includes(pillar.label))
   ) {
     clashPenalty -= 15;
-    evidence.push(`${stem2}被${clash2}相冲，冲破-15分`);
+    evidence.push(`${stem2}被${clash2}相冲，构成冲破条件`);
   }
 
   const controllingElement = getControllingElement(rule.element);
@@ -253,8 +251,8 @@ export function assessStemHarmonyTransform(
   const purityScore = hasControl ? 5 : 20;
   evidence.push(
     hasControl
-      ? `有${controllingElement}克制化神${rule.element}，清杂5分`
-      : `无明显克制化神，清杂20分`,
+      ? `有${controllingElement}克制化神${rule.element}`
+      : `无明显五行克制化神${rule.element}`,
   );
 
   let competitionPenalty = 0;
@@ -270,11 +268,11 @@ export function assessStemHarmonyTransform(
   );
   if (hasCompetitionWithStem1) {
     competitionPenalty -= 10;
-    evidence.push(`有其他天干争合${stem1}，争合-10分`);
+    evidence.push(`有其他天干争合${stem1}`);
   }
   if (hasCompetitionWithStem2) {
     competitionPenalty -= 10;
-    evidence.push(`有其他天干争合${stem2}，争合-10分`);
+    evidence.push(`有其他天干争合${stem2}`);
   }
 
   const score = clampScore(
@@ -331,12 +329,12 @@ export function assessBranchHarmonyTransform(
   const stemScore = transformStemVisible ? 20 : 0;
   evidence.push(
     transformStemVisible
-      ? `化神${rule.element}透出于${transformStemVisible.label}，透干20分`
-      : `化神${rule.element}未透干，透干0分`,
+      ? `化神${rule.element}透出于${transformStemVisible.label}`
+      : `化神${rule.element}未透干`,
   );
 
   const rootScore = 15;
-  evidence.push('六合地支本身带根，根气15分');
+  evidence.push('六合地支本身带有化神根气');
 
   let clashPenalty = 0;
   const clash1 = BASIC_MAPPINGS.DI_ZHI_CHONG[branch1];
@@ -346,14 +344,14 @@ export function assessBranchHarmonyTransform(
     pillars.some((pillar) => pillar.zhi === clash1 && ![pillar1, pillar2].includes(pillar.label))
   ) {
     clashPenalty -= 15;
-    evidence.push(`${branch1}被${clash1}相冲，冲破-15分`);
+    evidence.push(`${branch1}被${clash1}相冲，构成冲破条件`);
   }
   if (
     clash2 &&
     pillars.some((pillar) => pillar.zhi === clash2 && ![pillar1, pillar2].includes(pillar.label))
   ) {
     clashPenalty -= 15;
-    evidence.push(`${branch2}被${clash2}相冲，冲破-15分`);
+    evidence.push(`${branch2}被${clash2}相冲，构成冲破条件`);
   }
 
   const controllingElement = getControllingElement(rule.element);
@@ -362,8 +360,8 @@ export function assessBranchHarmonyTransform(
   const purityScore = hasControl ? 5 : 20;
   evidence.push(
     hasControl
-      ? `有${controllingElement}克制化神${rule.element}，清杂5分`
-      : `无明显克制化神，清杂20分`,
+      ? `有${controllingElement}克制化神${rule.element}`
+      : `无明显五行克制化神${rule.element}`,
   );
 
   const competitionPenalty = 0;
@@ -438,13 +436,20 @@ export function assessAllHarmonyTransforms(
 }
 
 export function formatHarmonyTransformProfile(profile: HarmonyTransformProfile): string[] {
+  const conditions = [
+    `月令条件：${profile.evidence.find((item) => item.startsWith('月令')) ?? '未记录'}`,
+    `化神透干：${profile.stemScore > 0 ? '有' : '无'}`,
+    `化神根气：${profile.rootScore > 0 ? '有' : '无'}`,
+    `冲破：${profile.clashPenalty < 0 ? '有' : '无'}`,
+    `争合：${profile.competitionPenalty < 0 ? '有' : '无'}`,
+  ];
   return [
     `【${profile.type}】${profile.participants.join('与')}化${profile.transformElement}${
       profile.transformStem ? `（化神${profile.transformStem}）` : ''
     }`,
-    `合化程度：${profile.level}（${profile.score}分）`,
+    `合化程度：${profile.level}`,
     `合化方向：${profile.direction}`,
-    `评分明细：月令${profile.monthSupport}分，透干${profile.stemScore}分，根气${profile.rootScore}分，冲破${profile.clashPenalty}分，清杂${profile.purityScore}分，争合${profile.competitionPenalty}分`,
+    `条件明细：${conditions.join('；')}`,
     `评估依据：${profile.evidence.join('；')}`,
     `后续影响：${profile.consequences.join('；')}`,
   ];

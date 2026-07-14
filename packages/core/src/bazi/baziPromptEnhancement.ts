@@ -305,21 +305,14 @@ function generateHarmonyTransformSection(chartResult: BaziChartResult): string {
     .slice(0, 2);
   const evidence = strongestProfiles
     .map((profile) => {
-      const scoreParts = [
-        `月令${profile.monthSupport}`,
-        `透干${profile.stemScore}`,
-        `根气${profile.rootScore}`,
-        profile.clashPenalty ? `冲破${profile.clashPenalty}` : '',
-        profile.competitionPenalty ? `争合${profile.competitionPenalty}` : '',
-      ].filter(Boolean);
-      return `${profile.type}${profile.participants.join('与')}化${profile.transformElement}：${profile.level}${profile.score}分，方向${profile.direction}（${scoreParts.join('、')}）`;
+      return `${profile.type}${profile.participants.join('与')}化${profile.transformElement}：${profile.level}，方向${profile.direction}（${profile.evidence.join('、')}）`;
     })
     .join('；');
 
   return buildEvidenceDrivenHintSection(
     '合化程度',
     `命盘见合化候选：${evidence}`,
-    '【合化程度】合化评分只用于复核“合而能否化”的强弱，不替代日主旺衰、格局调候和正式喜忌。80分以下不得直接按成化处理，80分以上也要回扣月令、透干、根气、清杂、冲破和岁运触发。',
+    '【合化程度】等级是按月令、透干、根气、清杂、冲破与争合条件形成的传统规则分类，不是概率或吉凶分。必须逐项引用条件，并结合日主旺衰、格局调候、正式喜忌和岁运触发复核，不得仅凭等级直接断定成化。',
   );
 }
 

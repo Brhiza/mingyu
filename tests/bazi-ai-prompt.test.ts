@@ -849,8 +849,9 @@ test('八字提示词会节选合化评分，避免把合化候选直接当成�
   );
 
   assert.match(prompt.user, /【合化程度】命盘见合化候选：/);
-  assert.match(prompt.user, /天干五合年柱丁与月柱壬化木：合而不化50分，方向合绊/);
-  assert.match(prompt.user, /80分以下不得直接按成化处理/);
+  assert.match(prompt.user, /天干五合年柱丁与月柱壬化木：合而不化，方向合绊/);
+  assert.match(prompt.user, /传统规则分类，不是概率或吉凶分/);
+  assert.doesNotMatch(prompt.user, /合化候选：[^\n]*\d+分|【合化程度】合化评分|80分以下/);
   assert.doesNotMatch(prompt.user, /原组合可按化神木参与后续结构判断/);
 });
 

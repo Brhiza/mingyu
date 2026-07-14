@@ -1855,6 +1855,16 @@ test('公开 API 奇门排盘支持轻量模式，便于调用方按需拆分请
     compactResult.body.data.patternComboTotal >= compactResult.body.data.patternCombos.length,
   );
   assert.equal(compactResult.body.data.patternCombos[0]?.sources, undefined);
+  assert.ok(
+    compactResult.body.data.patternCombos.every(
+      (combo: Record<string, unknown>) => combo.score === undefined,
+    ),
+  );
+  assert.ok(
+    compactResult.body.data.classicPatterns.every(
+      (pattern: Record<string, unknown>) => pattern.score === undefined,
+    ),
+  );
   assert.ok(Array.isArray(compactResult.body.data.palaceInsights));
   assert.ok(compactResult.body.data.palaceInsights.length <= 9);
   assert.ok(

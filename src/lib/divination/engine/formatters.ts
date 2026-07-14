@@ -739,7 +739,11 @@ function formatQimenInfo(data: QimenData) {
         .slice(0, 4)
         .map((item) => {
           const tone =
-            item.tone === 'super-good' ? '强吉' : item.tone === 'super-bad' ? '强凶' : '混杂';
+            item.tone === 'super-good'
+              ? '支持条件集中'
+              : item.tone === 'super-bad'
+                ? '限制条件集中'
+                : '支持与限制并见';
           return `${item.name}（${tone}）：${item.summary}`;
         })
         .join('；')

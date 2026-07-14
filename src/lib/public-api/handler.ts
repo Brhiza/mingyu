@@ -2588,7 +2588,6 @@ function buildCompactQimenResult(result: ReturnType<typeof generateQimen>) {
     classicPatterns: classicPatterns.map((pattern) => ({
       name: pattern.name,
       type: pattern.type,
-      score: pattern.score,
       summary: pattern.summary,
       palaces: pattern.palaces,
     })),
@@ -2598,7 +2597,6 @@ function buildCompactQimenResult(result: ReturnType<typeof generateQimen>) {
       key: combo.key,
       name: combo.name,
       tone: combo.tone,
-      score: combo.score,
       summary: combo.summary,
       palace: combo.palace,
     })),
