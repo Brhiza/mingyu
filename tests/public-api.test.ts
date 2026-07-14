@@ -2861,7 +2861,61 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     chart.body.data.evidenceAnalysis.stages.map((item: { stage: string }) => item.stage),
     ['origin', 'process', 'result'],
   );
+  assert.equal(chart.body.data.evidenceAnalysis.stageCoverageFact.status, '完整');
+  assert.equal(chart.body.data.evidenceAnalysis.yaoCoverageFact.status, '完整');
+  assert.equal(chart.body.data.evidenceAnalysis.hexagramStructureFacts.length, 3);
+  assert.equal(chart.body.data.evidenceAnalysis.yaoStructureFacts.length, 6);
+  assert.ok(
+    chart.body.data.evidenceAnalysis.stages.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('meihua:stage:') &&
+        item.status === '已计算' &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        String(item.limitation).includes('不得直接解释为现实起因'),
+    ),
+  );
+  assert.equal(chart.body.data.evidenceAnalysis.transitionFacts.length, 2);
+  assert.ok(
+    chart.body.data.evidenceAnalysis.transitionFacts.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('meihua:transition:') &&
+        item.status === '连续' &&
+        item.fromStageKey &&
+        item.toStageKey &&
+        Array.isArray(item.sources) &&
+        String(item.limitation).includes('现实事件必然按同样顺序'),
+    ),
+  );
+  assert.equal(
+    chart.body.data.evidenceAnalysis.timingSummaryFact.factKeys.length,
+    chart.body.data.evidenceAnalysis.timingFacts.length,
+  );
+  assert.ok(
+    chart.body.data.evidenceAnalysis.timingFacts.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('meihua:timing:') &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        String(item.limitation).includes('不得把爻位'),
+    ),
+  );
+  assert.equal(
+    chart.body.data.evidenceAnalysis.counterSummaryFact.factKeys.length,
+    chart.body.data.evidenceAnalysis.counterEvidenceFacts.length,
+  );
+  assert.ok(
+    chart.body.data.evidenceAnalysis.counterEvidenceFacts.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('meihua:counter:') &&
+        item.status === '已触发' &&
+        item.ownerStageKey &&
+        Array.isArray(item.sources) &&
+        String(item.limitation).includes('不得把单项反证直接写成现实失败'),
+    ),
+  );
   assert.match(chart.body.data.evidenceAnalysis.promptText, /【梅花体用阶段推进结构化证据】/);
+  assertPromptIsPortableTaskText(chart.body.data.evidenceAnalysis.promptText);
   assert.equal(chart.body.data.evidenceAnalysis.calculationFact.status, '完整');
   assert.equal(chart.body.data.evidenceAnalysis.calculationFact.methodKey, 'number');
   assert.equal(chart.body.data.evidenceAnalysis.calculationFact.steps.length, 3);
@@ -2880,6 +2934,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.ok(
     chart.body.data.evidenceAnalysis.traditionalFacts.every(
       (item: Record<string, unknown>) =>
+        item.status === '已映射' &&
         item.originalText &&
         item.promptText &&
         Array.isArray(item.traditionalSignals) &&

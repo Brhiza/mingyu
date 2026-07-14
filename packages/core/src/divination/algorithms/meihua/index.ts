@@ -369,8 +369,17 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
 
 export { analyzeMeihuaEvidence, conditionMeihuaTraditionalText } from '../../meihua-evidence';
 export type {
+  MeihuaCounterEvidenceFact,
+  MeihuaCounterSummaryFact,
   MeihuaEvidenceAnalysis,
   MeihuaEvidenceStageKey,
+  MeihuaHexagramFact,
   MeihuaStageEvidence,
+  MeihuaStageCoverageFact,
+  MeihuaTimingFact,
+  MeihuaTimingSummaryFact,
   MeihuaTraditionalFact,
+  MeihuaTransitionFact,
+  MeihuaYaoCoverageFact,
+  MeihuaYaoFact,
 } from '../../meihua-evidence';

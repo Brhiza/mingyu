@@ -6,6 +6,7 @@ import {
   generateMeihua,
 } from 'mingyu-core/divination/meihua';
 import { hexagramsData } from '../packages/core/src/divination/hexagram-data.ts';
+import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const fixedDate = new Date('2025-01-01T08:00:00+08:00');
 
@@ -18,9 +19,27 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     evidence.stages.map((item) => item.stage),
     ['origin', 'process', 'result'],
   );
+  assert.equal(evidence.stageCoverageFact.status, '完整');
+  assert.deepEqual(evidence.stageCoverageFact.actualStages, ['origin', 'process', 'result']);
+  assert.equal(evidence.hexagramStructureFacts.length, 3);
+  assert.equal(evidence.yaoCoverageFact.status, '完整');
+  assert.equal(evidence.yaoStructureFacts.length, 6);
+  assert.deepEqual(evidence.yaoCoverageFact.changingPositions, [data.movingYao.position]);
+  assert.ok(
+    evidence.stages.every(
+      (item) =>
+        item.key.startsWith('meihua:stage:') &&
+        item.status === '已计算' &&
+        item.hexagramFactKey?.startsWith('meihua:hexagram:') &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不得直接解释为现实起因'),
+    ),
+  );
   assert.match(evidence.promptText, /【梅花体用阶段推进结构化证据】/);
   assert.match(evidence.promptText, /起因.*→.*过程.*；.*过程.*→.*结果/);
   assert.doesNotMatch(evidence.promptText, /权重[：=]?\d|总分[：=]?\d|成功率[：=]?\d/);
+  assertPromptIsPortableTaskText(evidence.promptText);
 });
 
 test('梅花互卦过程体用应按原动爻所在上下卦确定', () => {
@@ -59,11 +78,49 @@ test('梅花起卦算式、六爻结构、卦象来源和已有应期条件应�
 
   assert.ok(items.some((item) => item.title === '起卦方式与取数算式'));
   assert.ok(items.some((item) => item.title === '主互变卦象事实'));
+  assert.ok(items.some((item) => item.title === '主互变阶段覆盖状态'));
+  assert.ok(items.some((item) => item.title === '六爻资料覆盖状态'));
   assert.ok(items.some((item) => item.title === '六爻阴阳与体用归属'));
   assert.ok(items.some((item) => item.tags?.includes('动爻爻辞')));
   assert.equal(items.filter((item) => item.tags?.includes('阶段推进')).length, 2);
   assert.ok(items.some((item) => item.title === '互卦对原体辅助关系'));
   assert.ok(items.some((item) => item.level === '应期' && item.title.includes('触发')));
+  assert.equal(evidence.transitionFacts.length, 2);
+  assert.ok(
+    evidence.transitionFacts.every(
+      (item) =>
+        item.key.startsWith('meihua:transition:') &&
+        item.status === '连续' &&
+        evidence.stages.some((stage) => stage.key === item.fromStageKey) &&
+        evidence.stages.some((stage) => stage.key === item.toStageKey) &&
+        item.sources.length > 0 &&
+        item.limitation.includes('现实事件必然按同样顺序'),
+    ),
+  );
+  assert.equal(evidence.timingSummaryFact.factKeys.length, evidence.timingFacts.length);
+  assert.ok(
+    evidence.timingFacts.every(
+      (item) =>
+        item.key.startsWith('meihua:timing:') &&
+        item.order > 0 &&
+        item.ownerFactKeys.length > 0 &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不得把爻位'),
+    ),
+  );
+  assert.equal(evidence.counterSummaryFact.factKeys.length, evidence.counterEvidenceFacts.length);
+  assert.ok(
+    evidence.counterEvidenceFacts.every(
+      (item) =>
+        item.key.startsWith('meihua:counter:') &&
+        item.status === '已触发' &&
+        evidence.stages.some((stage) => stage.key === item.ownerStageKey) &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不得把单项反证直接写成现实失败'),
+    ),
+  );
   assert.ok(
     (data.analysis.yingQi ?? []).every((condition) =>
       items.some((item) => item.level === '应期' && item.detail?.includes(condition)),
@@ -74,6 +131,70 @@ test('梅花起卦算式、六爻结构、卦象来源和已有应期条件应�
     JSON.stringify(evidence.evidence),
     /"score"\s*:|成功率[：=]?\s*\d|吉凶总分[：=]?\s*\d/,
   );
+});
+
+test('梅花旧结果缺少逐爻或互卦阶段时应明确标记缺口且不得反推', () => {
+  const data = generateMeihua(fixedDate, { method: 'number', number: 123 });
+  const rebuilt = analyzeMeihuaEvidence({
+    ...data,
+    yaosDetail: data.yaosDetail.slice(0, 5),
+    interHexagram: null,
+    evidenceAnalysis: undefined,
+  });
+
+  assert.equal(rebuilt.yaoCoverageFact.status, '缺少爻位');
+  assert.deepEqual(rebuilt.yaoCoverageFact.missingPositions, [6]);
+  assert.equal(rebuilt.stageCoverageFact.status, '阶段缺失');
+  assert.deepEqual(rebuilt.stageCoverageFact.missingStages, ['process']);
+  assert.equal(rebuilt.transitionFacts.length, 1);
+  assert.equal(rebuilt.transitionFacts[0].status, '跨阶段缺口');
+  assert.match(rebuilt.transitionFacts[0].promptText, /不补造过程/);
+  assert.match(rebuilt.promptText, /不得反推缺失阶段体用关系/);
+
+  const incompleteResult = analyzeMeihuaEvidence({
+    ...data,
+    changedHexagram: null,
+    evidenceAnalysis: undefined,
+  });
+  const resultStage = incompleteResult.stages.find((item) => item.stage === 'result');
+  assert.equal(incompleteResult.stageCoverageFact.status, '阶段资料不完整');
+  assert.deepEqual(incompleteResult.stageCoverageFact.incompleteStages, ['result']);
+  assert.equal(resultStage?.status, '卦象资料缺失');
+  assert.equal(resultStage?.hexagramFactKey, null);
+  assert.match(resultStage?.promptText ?? '', /不得补造卦名、卦符或上下经卦/);
+
+  const duplicateYao = analyzeMeihuaEvidence({
+    ...data,
+    yaosDetail: [...data.yaosDetail, { ...data.yaosDetail[0] }],
+    evidenceAnalysis: undefined,
+  });
+  assert.equal(duplicateYao.yaoCoverageFact.status, '爻位异常');
+  assert.deepEqual(duplicateYao.yaoCoverageFact.duplicatePositions, [1]);
+  assert.equal(
+    new Set(duplicateYao.yaoStructureFacts.map((item) => item.key)).size,
+    duplicateYao.yaoStructureFacts.length,
+  );
+});
+
+test('梅花四种起卦入口都应生成完整可移植的对象化证据', () => {
+  const cases = [
+    generateMeihua(fixedDate, { method: 'time' }),
+    generateMeihua(fixedDate, { method: 'timeTrigram' }),
+    generateMeihua(fixedDate, { method: 'number', number: 123 }),
+    generateMeihua(fixedDate, { method: 'random', seed: '四种入口核验' }),
+  ];
+
+  for (const data of cases) {
+    const evidence = data.evidenceAnalysis;
+    assert.ok(evidence);
+    assert.equal(evidence.calculationFact.status, '完整');
+    assert.equal(evidence.stageCoverageFact.status, '完整');
+    assert.equal(evidence.yaoCoverageFact.status, '完整');
+    assert.equal(evidence.transitionFacts.length, 2);
+    assert.equal(evidence.timingSummaryFact.status, '已提供触发条件');
+    assert.equal(evidence.counterSummaryFact.factKeys.length, evidence.counterEvidenceFacts.length);
+    assertPromptIsPortableTaskText(evidence.promptText);
+  }
 });
 
 test('梅花六十四卦卦辞爻辞与乾坤用辞应完整生成条件化事实', () => {
@@ -144,7 +265,12 @@ test('梅花排盘传统事实应只让当前动爻参与提示词', () => {
   assert.equal(inactiveFacts.length, 5);
   assert.equal(activeFacts[0].yaoPosition, data.movingYao.position);
   assert.ok(
-    facts.every((item) => item.sources.length > 0 && item.limitation.includes('不证明现实吉凶')),
+    facts.every(
+      (item) =>
+        item.status === '已映射' &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不证明现实吉凶'),
+    ),
   );
   assert.match(data.evidenceAnalysis?.promptText ?? '', /当前爻位已发动/);
   for (const fact of inactiveFacts) {

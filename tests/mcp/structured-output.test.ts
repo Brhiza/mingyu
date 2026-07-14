@@ -1589,7 +1589,41 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       chart.structuredContent as {
         result: {
           evidenceAnalysis: {
-            stages: Array<{ stage: string }>;
+            stages: Array<{
+              key: string;
+              status: string;
+              stage: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            stageCoverageFact: { status: string };
+            yaoCoverageFact: { status: string };
+            hexagramStructureFacts: unknown[];
+            yaoStructureFacts: unknown[];
+            transitionFacts: Array<{
+              key: string;
+              status: string;
+              fromStageKey: string;
+              toStageKey: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            timingFacts: Array<{
+              key: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            timingSummaryFact: { factKeys: string[] };
+            counterEvidenceFacts: Array<{
+              key: string;
+              status: string;
+              ownerStageKey: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            counterSummaryFact: { factKeys: string[] };
             promptText: string;
             calculationFact: {
               status: string;
@@ -1612,7 +1646,61 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       result.evidenceAnalysis.stages.map((item) => item.stage),
       ['origin', 'process', 'result'],
     );
+    assert.equal(result.evidenceAnalysis.stageCoverageFact.status, '完整');
+    assert.equal(result.evidenceAnalysis.yaoCoverageFact.status, '完整');
+    assert.equal(result.evidenceAnalysis.hexagramStructureFacts.length, 3);
+    assert.equal(result.evidenceAnalysis.yaoStructureFacts.length, 6);
+    assert.ok(
+      result.evidenceAnalysis.stages.every(
+        (item) =>
+          item.key.startsWith('meihua:stage:') &&
+          item.status === '已计算' &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得直接解释为现实起因'),
+      ),
+    );
+    assert.equal(result.evidenceAnalysis.transitionFacts.length, 2);
+    assert.ok(
+      result.evidenceAnalysis.transitionFacts.every(
+        (item) =>
+          item.key.startsWith('meihua:transition:') &&
+          item.status === '连续' &&
+          item.fromStageKey &&
+          item.toStageKey &&
+          item.sources.length > 0 &&
+          item.limitation.includes('现实事件必然按同样顺序'),
+      ),
+    );
+    assert.equal(
+      result.evidenceAnalysis.timingSummaryFact.factKeys.length,
+      result.evidenceAnalysis.timingFacts.length,
+    );
+    assert.ok(
+      result.evidenceAnalysis.timingFacts.every(
+        (item) =>
+          item.key.startsWith('meihua:timing:') &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得把爻位'),
+      ),
+    );
+    assert.equal(
+      result.evidenceAnalysis.counterSummaryFact.factKeys.length,
+      result.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.ok(
+      result.evidenceAnalysis.counterEvidenceFacts.every(
+        (item) =>
+          item.key.startsWith('meihua:counter:') &&
+          item.status === '已触发' &&
+          item.ownerStageKey &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得把单项反证直接写成现实失败'),
+      ),
+    );
     assert.match(result.evidenceAnalysis.promptText, /【梅花体用阶段推进结构化证据】/);
+    assertPromptIsPortableTaskText(result.evidenceAnalysis.promptText);
     assert.equal(result.evidenceAnalysis.calculationFact.status, '完整');
     assert.equal(result.evidenceAnalysis.calculationFact.methodKey, 'number');
     assert.equal(result.evidenceAnalysis.calculationFact.steps.length, 3);
@@ -1631,6 +1719,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.ok(
       result.evidenceAnalysis.traditionalFacts.every(
         (item) =>
+          item.status === '已映射' &&
           item.originalText &&
           item.promptText &&
           Array.isArray(item.traditionalSignals) &&
