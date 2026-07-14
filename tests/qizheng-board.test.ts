@@ -25,6 +25,8 @@ test('七政四余盘应展示专业盘面且不输出原始数据和提示词',
   assert.match(html, /主要吊照/);
   assert.match(html, /紫炁位置/);
   assert.match(html, /七政四余十二宫圆盘/);
+  assert.match(html, /偏差\s*[\d.]+°/);
+  assert.doesNotMatch(html, /强度|\d+%\s*·\s*容许/);
   assert.doesNotMatch(html, /<pre/);
   assert.doesNotMatch(html, /提示词正文/);
 });

@@ -96,6 +96,22 @@ test('奇门门星神关系：未知门星神应明确报错，不应当成比�
   );
 });
 
+test('奇门门星神关系应返回逐项关系与计数，不展示综合评分', () => {
+  const result = analyzePalaceRelations({
+    renPan: { door: '休门' },
+    tianPan: { star: '天蓬', stem: '戊' },
+    shenPan: { god: '值符' },
+  });
+
+  assert.deepEqual(
+    [result.doorStar.relation, result.doorGod.relation, result.starGod.relation],
+    ['比和', '相克', '相克'],
+  );
+  assert.deepEqual(result.relationCounts, { supporting: 1, controlling: 2 });
+  assert.doesNotMatch(result.description, /综合评分|\d+\s*\/\s*3/);
+  assert.match(result.description, /不能压缩成单一吉凶结论/);
+});
+
 test('奇门九星旺衰：未知星或非法宫位应明确报错，不应默认休囚', () => {
   assert.equal(evaluateSingleStar('天蓬', 1, '水').state, '旺');
   assert.throws(() => evaluateSingleStar('假星', 1, '水'), /九星 "假星" 无法识别/);

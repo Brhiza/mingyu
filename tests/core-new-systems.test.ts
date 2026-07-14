@@ -376,7 +376,17 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.equal(r.mingZhu, '木');
   assert.ok(r.stars.every((star) => star.sevenStar.length === 1));
   assert.ok(r.aspects.length > 0);
-  assert.ok(r.aspects.every((aspect) => aspect.orb >= 0 && aspect.strength >= 0));
+  assert.ok(
+    r.aspects.every(
+      (aspect) =>
+        aspect.orb >= 0 && aspect.orbRatio >= 0 && aspect.orbRatio <= 1 && aspect.strength >= 0,
+    ),
+  );
+  assert.ok(
+    r.aspects.every(
+      (aspect, index) => index === 0 || r.aspects[index - 1].orbRatio <= aspect.orbRatio,
+    ),
+  );
   assert.ok(
     r.aspects
       .filter((aspect) => aspect.star1.includes('紫炁') || aspect.star2.includes('紫炁'))

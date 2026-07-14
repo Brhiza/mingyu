@@ -1634,7 +1634,7 @@ const testCases: Array<{
     },
   },
   {
-    name: '辛日辰月壬甲两透时，应按富贵必然处理，不应仍停留在泛化春金调候',
+    name: '辛日辰月壬甲两透时，应保留古法富贵格候选，不应仍停留在泛化春金调候',
     args: [
       '身强',
       { pattern: '偏印格', isSpecial: false },
@@ -1649,7 +1649,7 @@ const testCases: Array<{
     ],
     expected: {
       favorableFirst: '水',
-      traceIncludes: ['取用层次:先壬后甲', '成格层次:壬甲两透，富贵必然'],
+      traceIncludes: ['取用层次:先壬后甲', '传统成格原文:壬甲两透，古法视为富贵格候选'],
       ruleHas: 'chen-month-xin-ren-jia-all',
     },
   },

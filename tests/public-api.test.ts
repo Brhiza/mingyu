@@ -1866,8 +1866,10 @@ test('公开 API 奇门排盘支持轻量模式，便于调用方按需拆分请
     ...(compactResult.body.data.directions?.goodDirections ?? []),
     ...(compactResult.body.data.directions?.avoidDirections ?? []),
   ];
-  if (compactDirections.length > 0) {
-    assert.equal(compactDirections[0].reasons, undefined);
+  for (const direction of compactDirections) {
+    assert.equal(direction.score, undefined);
+    assert.ok(Array.isArray(direction.reasons));
+    assert.ok(direction.reasons.length > 0);
   }
 });
 

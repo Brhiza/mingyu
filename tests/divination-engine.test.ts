@@ -3302,6 +3302,24 @@ test('奇门方位建议不应把负分宫位输出为吉方', () => {
   assert.ok(directions.avoidDirections[0]?.reasons.includes('白虎'));
 });
 
+test('奇门避方没有明确难门、难神或空亡时不应凭内部排序生成', () => {
+  const neutralPalace = buildQimenPalace(3, '戊', {
+    renPan: { door: '杜门' },
+    tianPan: { star: '天冲', stem: '戊' },
+    shenPan: { god: '' },
+  });
+  const anotherNeutralPalace = buildQimenPalace(4, '己', {
+    renPan: { door: '杜门' },
+    tianPan: { star: '天英', stem: '己' },
+    shenPan: { god: '' },
+  });
+
+  const directions = buildDirectionAdvice([neutralPalace, anotherNeutralPalace]);
+
+  assert.deepEqual(directions.goodDirections, []);
+  assert.deepEqual(directions.avoidDirections, []);
+});
+
 test('奇门宝鉴三奇得使应按值使吉门加三奇判定', () => {
   const zhiShiPalace = buildQimenPalace(1, '乙', {
     renPan: { door: '休门' },

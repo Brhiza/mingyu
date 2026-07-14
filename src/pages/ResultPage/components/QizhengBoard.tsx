@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import React, { memo } from 'react';
 import type { QizhengAspect, QizhengResult, QizhengStar } from '@core/qi_zheng';
 
 const EARTHLY_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
@@ -42,6 +42,12 @@ function aspectLine(aspect: QizhengAspect, stars: QizhengStar[]) {
   const start = starPoint(first);
   const end = starPoint(second);
   return { start, end };
+}
+
+function aspectOpacity(aspect: QizhengAspect) {
+  if (aspect.closeness === '紧密') return 0.72;
+  if (aspect.closeness === '中等') return 0.5;
+  return 0.32;
 }
 
 function QizhengChart({ data }: { data: QizhengResult }) {
@@ -88,7 +94,7 @@ function QizhengChart({ data }: { data: QizhengResult }) {
             x2={line.end.x}
             y2={line.end.y}
             className={`qizheng-aspect-line qizheng-aspect-${aspect.type}`}
-            style={{ opacity: 0.18 + aspect.strength / 180 }}
+            style={{ opacity: aspectOpacity(aspect) }}
           />
         ) : null;
       })}
@@ -212,7 +218,7 @@ export const QizhengBoard = memo(function QizhengBoard({
           <div className="result-side-card">
             <div className="result-side-head">
               <h3>主要吊照</h3>
-              <p>按关系强度由高到低排列。</p>
+              <p>按距精确相位的容许度位置排列。</p>
             </div>
             <div className="astrolabe-aspect-list">
               {strongestAspects.map((aspect) => (
@@ -224,7 +230,7 @@ export const QizhengBoard = memo(function QizhengBoard({
                     {aspect.star1}－{aspect.star2}
                   </strong>
                   <span>
-                    {aspect.type} · {aspect.strength}% · 容许 {aspect.orb.toFixed(2)}°
+                    {aspect.type} · {aspect.closeness} · 偏差 {aspect.orb.toFixed(2)}°
                   </span>
                 </div>
               ))}

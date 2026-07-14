@@ -2608,15 +2608,15 @@ function buildCompactQimenResult(result: ReturnType<typeof generateQimen>) {
             gong: item.gong,
             name: item.name,
             direction: item.direction,
-            score: item.score,
             use: item.use,
+            reasons: item.reasons,
           })),
           avoidDirections: result.directions.avoidDirections.map((item) => ({
             gong: item.gong,
             name: item.name,
             direction: item.direction,
-            score: item.score,
             use: item.use,
+            reasons: item.reasons,
           })),
         }
       : undefined,

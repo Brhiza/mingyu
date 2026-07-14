@@ -149,7 +149,9 @@ export interface PalaceRelationsResult {
   starGod: PairRelation;
   /** 整体和谐等级 */
   harmony: '和谐' | '有拉扯' | '冲突';
-  /** 综合评分（-3 ~ +3，越高越和谐） */
+  /** 三组可复核关系的分类计数。 */
+  relationCounts: { supporting: number; controlling: number };
+  /** @deprecated 仅为兼容旧调用保留；解释与提示词不得展示为吉凶强度。 */
   score: number;
   /** 整体关系的中文描述 */
   description: string;
@@ -283,20 +285,13 @@ export function analyzePalaceRelations(
     description: buildPairDescription(star, starElem, god, godElem, starGodRel),
   };
 
-  // 计算综合评分：比和 +1，相生 +1，相克 -1（范围 -3 ~ +3）
+  // 仅用三组关系的分类计数确定描述标签；score 只为旧调用兼容保留。
   const relations = [doorStarRel, doorGodRel, starGodRel];
-  let score = 0;
-  for (const rel of relations) {
-    switch (rel) {
-      case '比和':
-      case '相生':
-        score += 1;
-        break;
-      case '相克':
-        score -= 1;
-        break;
-    }
-  }
+  const relationCounts = {
+    supporting: relations.filter((relation) => relation !== '相克').length,
+    controlling: relations.filter((relation) => relation === '相克').length,
+  };
+  const score = relationCounts.supporting - relationCounts.controlling;
 
   // 判定和谐等级
   let harmony: '和谐' | '有拉扯' | '冲突';
@@ -317,11 +312,10 @@ export function analyzePalaceRelations(
     starElem,
     godElem,
     harmony,
-    score,
     relations,
   );
 
-  return { doorStar, doorGod, starGod, harmony, score, description };
+  return { doorStar, doorGod, starGod, harmony, relationCounts, score, description };
 }
 
 /**
@@ -335,31 +329,29 @@ function buildOverallDescription(
   starElem: string,
   godElem: string,
   harmony: '和谐' | '有拉扯' | '冲突',
-  score: number,
   relations: Array<'比和' | '相生' | '相克'>,
 ): string {
   const pairLabels = ['门星', '门神', '星神'];
   const relationText = relations.map((rel, i) => `${pairLabels[i]}${rel}`).join('，');
-  const scoreText = `综合评分 ${score}/3`;
 
   switch (harmony) {
     case '和谐':
       return (
         `该宫门（${door}·${doorElem}）星（${star}·${starElem}）神（${god}·${godElem}）` +
-        `关系总体和谐（${relationText}，${scoreText}），宫位内部能量协同，` +
-        `利于在此方位推进事项。`
+        `关系中生助或比和占多数（${relationText}）。这只描述门星神五行结构，` +
+        `是否适合推进仍须结合用神、格局、空亡及现实条件。`
       );
     case '冲突':
       return (
         `该宫门（${door}·${doorElem}）星（${star}·${starElem}）神（${god}·${godElem}）` +
-        `之间多有克制（${relationText}，${scoreText}），宫位内部矛盾突出，` +
-        `易生阻碍或反复，宜谨慎行事。`
+        `关系中相克占多数（${relationText}）。这表示宫内牵制项较多，` +
+        `不得脱离用神、格局和现实条件直接判为凶方。`
       );
     case '有拉扯':
       return (
         `该宫门（${door}·${doorElem}）星（${star}·${starElem}）神（${god}·${godElem}）` +
-        `关系有生有克（${relationText}，${scoreText}），宫位能量存在拉扯，` +
-        `需结合具体用神判断吉凶。`
+        `关系生克并见（${relationText}），支持与牵制须分别保留，` +
+        `不能压缩成单一吉凶结论。`
       );
   }
 }
