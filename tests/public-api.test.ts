@@ -3058,6 +3058,18 @@ test('公开 API 生肖流年应返回关系矩阵证据而不使用综合吉凶
   assert.ok(!('confidence' in calculate.body.data));
   assert.ok(!('level' in calculate.body.data));
   assert.equal(calculate.body.data.evidenceAnalysis.evidence.title, '生肖流年关系矩阵结构化证据');
+  assert.equal(calculate.body.data.evidenceAnalysis.calculationSteps.length, 4);
+  assert.ok(
+    calculate.body.data.evidenceAnalysis.calculationSteps.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('zodiac:calculation:') &&
+        item.status === '已计算' &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        item.sources.length >= 2 &&
+        String(item.limitation).includes('不证明个人现实事件'),
+    ),
+  );
   assert.ok(
     calculate.body.data.evidenceAnalysis.primaryEvidence.some(
       (item: { relation: string }) => item.relation === '冲太岁',
@@ -3201,6 +3213,18 @@ test('公开 API 太乙应返回年计七十二局立成结果', async () => {
   assert.equal(body.data.sixteenGods.length, 16);
   assert.equal(body.data.model.id, 'taiyi-tongzong-five-calculations-72-table');
   assert.equal(body.data.evidenceAnalysis.evidence.title, '太乙五计七十二局结构化证据');
+  assert.equal(body.data.evidenceAnalysis.calculationSteps.length, 4);
+  assert.ok(
+    body.data.evidenceAnalysis.calculationSteps.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('taiyi:calculation:') &&
+        item.status === '已核验' &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        item.sources.length >= 2 &&
+        String(item.limitation).includes('不证明传统解释有效性'),
+    ),
+  );
   assert.equal(body.data.evidenceAnalysis.positionFacts.length, 4);
   assert.equal(body.data.evidenceAnalysis.forceFacts.length, 3);
   assert.equal(body.data.evidenceAnalysis.sixteenGodFacts.length, 16);

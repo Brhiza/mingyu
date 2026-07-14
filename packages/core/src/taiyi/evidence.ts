@@ -100,11 +100,16 @@ export interface TaiyiConditionFact {
 }
 
 export interface TaiyiCalculationStep {
+  key: string;
   name: '入纪元数' | '元数' | '纪数' | '局数';
+  status: '已核验';
   input: number;
   operation: string;
   result: number;
   basis: string;
+  promptText: string;
+  sources: string[];
+  limitation: '积数算式只证明本计积数如何折算入纪元数、元数、纪数与七十二局，不证明传统解释有效性、现实胜负、吉凶比例、人物强弱或固定应期';
 }
 
 const POSITION_FACT_LIMITATION =
@@ -118,6 +123,8 @@ const SIXTEEN_GOD_FACT_LIMITATION =
 
 const CONDITION_FACT_LIMITATION =
   '掩、囚与将参中宫只证明盘面满足对应位置条件；传统动静或攻守解释须结合所问事项与现实资料，不代表必然结果' as const;
+const CALCULATION_STEP_LIMITATION =
+  '积数算式只证明本计积数如何折算入纪元数、元数、纪数与七十二局，不证明传统解释有效性、现实胜负、吉凶比例、人物强弱或固定应期' as const;
 
 const SCOPE_LABELS: Record<TaiyiScope, string> = {
   year: '年计',
@@ -244,32 +251,52 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
   const conditionFacts = buildConditionFacts(data);
   const calculationSteps: TaiyiCalculationStep[] = [
     {
+      key: 'taiyi:calculation:entry',
       name: '入纪元数',
+      status: '已核验',
       input: data.accumulatedValue,
       operation: `(${data.accumulatedValue} - 1) mod 360 + 1`,
       result: data.entryYears,
       basis: '积数按三百六十数循环，余零按三百六十计',
+      promptText: `入纪元数：${data.accumulatedValue}按三百六十循环得${data.entryYears}`,
+      sources: [`${scopeLabel}${data.accumulatedLabel}规则`, '太乙三百六十数入纪循环规则'],
+      limitation: CALCULATION_STEP_LIMITATION,
     },
     {
+      key: 'taiyi:calculation:yuan',
       name: '元数',
+      status: '已核验',
       input: data.entryYears,
       operation: `ceil(${data.entryYears} / 72)`,
       result: data.yuan,
       basis: '入纪元数每七十二数为一元',
+      promptText: `元数：入纪元数${data.entryYears}每七十二数一元，得第${data.yuan}元`,
+      sources: ['太乙七十二数一元规则', data.model.name],
+      limitation: CALCULATION_STEP_LIMITATION,
     },
     {
+      key: 'taiyi:calculation:ji',
       name: '纪数',
+      status: '已核验',
       input: data.entryYears,
       operation: `ceil(${data.entryYears} / 60)`,
       result: data.ji,
       basis: '入纪元数每六十数为一纪',
+      promptText: `纪数：入纪元数${data.entryYears}每六十数一纪，得第${data.ji}纪`,
+      sources: ['太乙六十数一纪规则', data.model.name],
+      limitation: CALCULATION_STEP_LIMITATION,
     },
     {
+      key: 'taiyi:calculation:bureau',
       name: '局数',
+      status: '已核验',
       input: data.accumulatedValue,
       operation: `(${data.accumulatedValue} - 1) mod 72 + 1`,
       result: data.bureau,
       basis: '积数按七十二局循环，余零按第七十二局计',
+      promptText: `局数：${data.accumulatedValue}按七十二局循环得${data.yinYang}第${data.bureau}局`,
+      sources: [`${scopeLabel}${data.accumulatedLabel}与阴阳遁规则`, '太乙七十二局循环规则'],
+      limitation: CALCULATION_STEP_LIMITATION,
     },
   ];
   if (
@@ -318,8 +345,8 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     {
       level: '主证',
       title: `${scopeLabel}积数与七十二局`,
-      detail: `${data.accumulatedLabel}${data.accumulatedValue}，入纪元数${data.entryYears}，第${data.yuan}元、第${data.ji}纪，${data.yinYang}第${data.bureau}局。`,
-      source: sourceText,
+      detail: `${calculationSteps.map((item) => item.promptText).join('；')}；统一边界：${CALCULATION_STEP_LIMITATION}`,
+      source: `${sourceText}；${Array.from(new Set(calculationSteps.flatMap((item) => item.sources))).join('、')}`,
       tags: [scopeLabel, data.yinYang, `第${data.bureau}局`],
     },
     {
@@ -366,7 +393,7 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     '【太乙五计七十二局结构化证据】',
     ...formatPromptEvidenceBundle(evidence),
     `计算链：${calculationChain.join(' → ')}。`,
-    `算式核验：${calculationSteps.map((step) => `${step.name}${step.operation}=${step.result}`).join('；')}。`,
+    `算式核验：${calculationSteps.map((step) => `${step.key} ${step.name}${step.operation}=${step.result}`).join('；')}。`,
     `反证核验：${counterEvidence.join('；') || '未见掩、囚或将参中宫等明确限制结构'}。`,
     `方法限制：${limitations.join('；')}。`,
   ].join('\n');

@@ -1948,6 +1948,13 @@ test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级'
       result.structuredContent as {
         result: Record<string, unknown> & {
           evidenceAnalysis: {
+            calculationSteps: Array<{
+              key: string;
+              status: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
             relations: Array<{
               key: string;
               sources: string[];
@@ -1961,6 +1968,17 @@ test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级'
     assert.equal(chart.interpretationBoundary, '仅限生肖与流年关系');
     assert.equal(chart.level, undefined);
     assert.equal(chart.confidence, undefined);
+    assert.equal(chart.evidenceAnalysis.calculationSteps.length, 4);
+    assert.ok(
+      chart.evidenceAnalysis.calculationSteps.every(
+        (item) =>
+          item.key.startsWith('zodiac:calculation:') &&
+          item.status === '已计算' &&
+          item.promptText &&
+          item.sources.length >= 2 &&
+          item.limitation.includes('不证明个人现实事件'),
+      ),
+    );
     assert.ok(
       chart.evidenceAnalysis.relations.every(
         (item) =>
@@ -1990,6 +2008,13 @@ test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
         result: {
           evidenceAnalysis: {
             calculationChain: unknown[];
+            calculationSteps: Array<{
+              key: string;
+              status: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
             primaryFacts: unknown[];
             counterEvidence: string[];
             positionFacts: unknown[];
@@ -2005,6 +2030,17 @@ test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
       }
     ).result;
     assert.ok(chart.evidenceAnalysis.calculationChain.length >= 5);
+    assert.equal(chart.evidenceAnalysis.calculationSteps.length, 4);
+    assert.ok(
+      chart.evidenceAnalysis.calculationSteps.every(
+        (item) =>
+          item.key.startsWith('taiyi:calculation:') &&
+          item.status === '已核验' &&
+          item.promptText &&
+          item.sources.length >= 2 &&
+          item.limitation.includes('不证明传统解释有效性'),
+      ),
+    );
     assert.ok(chart.evidenceAnalysis.primaryFacts.length >= 4);
     assert.equal(chart.evidenceAnalysis.positionFacts.length, 4);
     assert.equal(chart.evidenceAnalysis.forceFacts.length, 3);

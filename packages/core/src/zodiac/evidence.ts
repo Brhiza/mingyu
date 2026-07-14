@@ -17,7 +17,19 @@ export interface ZodiacRelationEvidence {
   limitation: '生肖年支与流年干支关系只证明传统关系表或五行生克条件命中；不证明现实事件、个人命运、他人行为、吉凶概率、固定应期或化解效果';
 }
 
+export interface ZodiacCalculationStep {
+  key: string;
+  stage: '生肖年支' | '流年拆分' | '地支关系核验' | '年干五行辅助';
+  status: '已计算';
+  inputs: Record<string, string | number>;
+  result: Record<string, string | number>;
+  promptText: string;
+  sources: string[];
+  limitation: '生肖计算链只证明生肖、流年干支、固定地支关系与五行辅助关系如何形成当前轻量结果，不证明个人现实事件、完整命理结构、吉凶概率、固定应期或化解效果';
+}
+
 export interface ZodiacEvidenceAnalysis {
+  calculationSteps: ZodiacCalculationStep[];
   calculationChain: string[];
   relations: ZodiacRelationEvidence[];
   primaryEvidence: ZodiacRelationEvidence[];
@@ -32,6 +44,8 @@ export interface ZodiacEvidenceAnalysis {
 
 const RELATION_FACT_LIMITATION =
   '生肖年支与流年干支关系只证明传统关系表或五行生克条件命中；不证明现实事件、个人命运、他人行为、吉凶概率、固定应期或化解效果' as const;
+const CALCULATION_STEP_LIMITATION =
+  '生肖计算链只证明生肖、流年干支、固定地支关系与五行辅助关系如何形成当前轻量结果，不证明个人现实事件、完整命理结构、吉凶概率、固定应期或化解效果' as const;
 
 function conflictEvidence(conflict: TaiSuiConflict, zodiacBranch: string): ZodiacRelationEvidence {
   const rule =
@@ -112,6 +126,58 @@ export function analyzeZodiacEvidence(
   ];
   const primaryEvidence = relations.filter((item) => item.role === '主证');
   const supportingEvidence = relations.filter((item) => item.role === '辅证');
+  const calculationSteps: ZodiacCalculationStep[] = [
+    {
+      key: 'zodiac:calculation:branch',
+      stage: '生肖年支',
+      status: '已计算',
+      inputs: { zodiac: data.zodiac },
+      result: { zodiacBranch: data.zodiacBranch },
+      promptText: `生肖${data.zodiac}换算为年支${data.zodiacBranch}`,
+      sources: ['十二生肖与十二地支固定映射', '命语生肖公共数据'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'zodiac:calculation:year',
+      stage: '流年拆分',
+      status: '已计算',
+      inputs: { yearGanZhi: data.yearGanZhi },
+      result: { yearStem: data.yearGanZhi[0], yearBranch: data.yearBranch },
+      promptText: `流年${data.yearGanZhi}拆分为年干${data.yearGanZhi[0]}与年支${data.yearBranch}`,
+      sources: ['六十甲子干支结构', '命语干支合法性与拆分能力'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'zodiac:calculation:branch-relations',
+      stage: '地支关系核验',
+      status: '已计算',
+      inputs: { zodiacBranch: data.zodiacBranch, yearBranch: data.yearBranch },
+      result: {
+        conflictCount: data.conflicts.length,
+        nobleRelation: data.noble ?? '未命中',
+      },
+      promptText: `生肖年支${data.zodiacBranch}与流年年支${data.yearBranch}逐项核验同支、六冲、相刑、六害、六破、六合与三合`,
+      sources: ['十二地支固定关系表', '命语干支关系公共算法'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'zodiac:calculation:stem-element',
+      stage: '年干五行辅助',
+      status: '已计算',
+      inputs: {
+        yearStem: data.yearGanZhi[0],
+        zodiacBranch: data.zodiacBranch,
+      },
+      result: {
+        yearStemWuxing: getStemWuxing(data.yearGanZhi[0]),
+        zodiacBranchWuxing: getBranchWuxing(data.zodiacBranch),
+        relation: data.relation,
+      },
+      promptText: `流年年干${data.yearGanZhi[0]}五行与生肖年支${data.zodiacBranch}本气五行单独作为辅助关系`,
+      sources: ['天干五行与地支本气五行映射', '命语五行生克公共算法'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+  ];
   const counterEvidence = [
     ...(data.conflicts.length === 0
       ? ['本年未命中值、冲、刑、害、破关系，不应为了形成结论而补造“犯太岁”']
@@ -139,6 +205,13 @@ export function analyzeZodiacEvidence(
     },
   ];
   const items: PromptEvidenceItem[] = [
+    {
+      level: '辅证',
+      title: '生肖流年输入与计算链事实',
+      detail: `${calculationSteps.map((item) => item.promptText).join('；')}；统一边界：${CALCULATION_STEP_LIMITATION}`,
+      source: Array.from(new Set(calculationSteps.flatMap((item) => item.sources))).join('、'),
+      tags: ['计算链', data.zodiac, data.yearGanZhi],
+    },
     ...primaryEvidence.map((item): PromptEvidenceItem => ({
       level: '主证',
       title: item.relation,
@@ -168,12 +241,7 @@ export function analyzeZodiacEvidence(
     },
   ];
   const evidence: PromptEvidenceBundle = { title: '生肖流年关系矩阵结构化证据', items };
-  const calculationChain = [
-    `生肖${data.zodiac}换算为年支${data.zodiacBranch}`,
-    `流年${data.yearGanZhi}拆分为年干${data.yearGanZhi[0]}与年支${data.yearBranch}`,
-    '年支逐项核验同支、六冲、相刑、六害、六破、六合与三合',
-    '年干五行与生肖地支本气五行单独作为辅助关系',
-  ];
+  const calculationChain = calculationSteps.map((item) => item.promptText);
   const promptText = [
     '【生肖流年关系矩阵结构化证据】',
     ...formatPromptEvidenceBundle(evidence),
@@ -184,6 +252,7 @@ export function analyzeZodiacEvidence(
     `规则来源：${sources.map((item) => `${item.title}（${item.role}：${item.evidence}）`).join('；')}。`,
   ].join('\n');
   return {
+    calculationSteps,
     calculationChain,
     relations,
     primaryEvidence,

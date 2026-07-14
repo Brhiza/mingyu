@@ -22,7 +22,11 @@ import {
 import { analyzeZodiacEvidence } from './evidence';
 
 export { analyzeZodiacEvidence } from './evidence';
-export type { ZodiacEvidenceAnalysis, ZodiacRelationEvidence } from './evidence';
+export type {
+  ZodiacCalculationStep,
+  ZodiacEvidenceAnalysis,
+  ZodiacRelationEvidence,
+} from './evidence';
 
 /** 六十甲子值年太岁星君 */
 export const TAI_SUI_STARS: Record<string, string> = {

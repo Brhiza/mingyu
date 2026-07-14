@@ -227,6 +227,21 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.ok(r.prompt.includes('五行来源'));
   assert.ok(r.prompt.includes('犯太岁明细'));
   assert.equal(r.evidenceAnalysis.evidence.title, '生肖流年关系矩阵结构化证据');
+  assert.equal(r.evidenceAnalysis.calculationSteps.length, 4);
+  assert.deepEqual(
+    r.evidenceAnalysis.calculationSteps.map((item) => item.stage),
+    ['生肖年支', '流年拆分', '地支关系核验', '年干五行辅助'],
+  );
+  assert.ok(
+    r.evidenceAnalysis.calculationSteps.every(
+      (item) =>
+        item.key.startsWith('zodiac:calculation:') &&
+        item.status === '已计算' &&
+        item.promptText &&
+        item.sources.length >= 2 &&
+        item.limitation.includes('不证明个人现实事件'),
+    ),
+  );
   assert.ok(r.evidenceAnalysis.calculationChain.length >= 4);
   assert.ok(r.evidenceAnalysis.supportingEvidence.length > 0);
   assert.ok(
@@ -383,6 +398,16 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.deepEqual(
     r.evidenceAnalysis.calculationSteps.map((step) => step.name),
     ['入纪元数', '元数', '纪数', '局数'],
+  );
+  assert.ok(
+    r.evidenceAnalysis.calculationSteps.every(
+      (step) =>
+        step.key.startsWith('taiyi:calculation:') &&
+        step.status === '已核验' &&
+        step.promptText &&
+        step.sources.length >= 2 &&
+        step.limitation.includes('不证明传统解释有效性'),
+    ),
   );
   assert.equal(r.evidenceAnalysis.positionFacts.length, 4);
   assert.equal(r.evidenceAnalysis.forceFacts.length, 3);
