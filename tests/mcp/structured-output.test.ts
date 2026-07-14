@@ -407,6 +407,32 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
           ),
         );
       }
+      if (name === 'metaphysics_bazhai') {
+        const chart = (
+          result.structuredContent as {
+            result?: {
+              evidenceAnalysis?: {
+                directionFacts?: Array<{
+                  key: string;
+                  sources: string[];
+                  calculation: string;
+                  limitation: string;
+                }>;
+              };
+            };
+          }
+        ).result;
+        assert.equal(chart?.evidenceAnalysis?.directionFacts?.length, 8);
+        assert.ok(
+          chart?.evidenceAnalysis?.directionFacts?.every(
+            (item) =>
+              item.key.startsWith('方位:') &&
+              item.sources.length >= 2 &&
+              item.calculation.includes('查大游年表') &&
+              item.limitation.includes('不证明房间适用性'),
+          ),
+        );
+      }
 
       const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
       assert.deepEqual(JSON.parse(text), result.structuredContent);

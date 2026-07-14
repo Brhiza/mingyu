@@ -21,6 +21,15 @@ test('mingyu-core/bazhai 应公开入户度数便捷接口和完整类型结果'
   assert.equal(result.directionMeasurement.stability, '稳定');
   assert.equal(result.directionMeasurement.candidateDirections.length, 1);
   assert.equal(result.evidenceAnalysis.evidence.title, '八宅命宅方位与测量结构化证据');
+  assert.equal(result.evidenceAnalysis.directionFacts.length, 8);
+  assert.ok(
+    result.evidenceAnalysis.directionFacts.every(
+      (item) =>
+        item.sources.length >= 2 &&
+        item.calculation.includes('查大游年表') &&
+        item.limitation.includes('不证明房间适用性'),
+    ),
+  );
   assert.match(result.evidenceAnalysis.promptText, /测量误差±0°/);
   assert.ok(result.housePalace);
   assert.equal(result.housePalace?.length, 8);

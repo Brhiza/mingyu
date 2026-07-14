@@ -12,8 +12,20 @@ export interface BaZhaiDirectionComparison {
   relation: '同为吉方' | '同为凶方' | '命宅异判' | '仅命卦资料';
 }
 
+export interface BaZhaiDirectionFact extends BaZhaiDirectionComparison {
+  key: string;
+  gua: string;
+  mingGua: string;
+  houseGua: string | null;
+  sources: string[];
+  calculation: string;
+  promptText: string;
+  limitation: '大游年吉凶只表示命卦或宅卦在目标宫位的传统空间分类；单一方位标签或命宅重合不证明房间适用性、健康效果、财富变化、事件结果或调整方案有效';
+}
+
 export interface BaZhaiEvidenceAnalysis {
   calculationChain: string[];
+  directionFacts: BaZhaiDirectionFact[];
   directionComparisons: BaZhaiDirectionComparison[];
   alignedDirections: BaZhaiDirectionComparison[];
   conflictingDirections: BaZhaiDirectionComparison[];
@@ -34,11 +46,14 @@ export interface BaZhaiEvidenceAnalysis {
   methodology: string[];
 }
 
+const DIRECTION_FACT_LIMITATION =
+  '大游年吉凶只表示命卦或宅卦在目标宫位的传统空间分类；单一方位标签或命宅重合不证明房间适用性、健康效果、财富变化、事件结果或调整方案有效' as const;
+
 export function analyzeBaZhaiEvidence(
   data: Omit<BaZhaiResult, 'prompt' | 'evidenceAnalysis'>,
   measurement?: BaZhaiDoorMeasurement,
 ): BaZhaiEvidenceAnalysis {
-  const directionComparisons = data.mingPalace.map((mingPalace): BaZhaiDirectionComparison => {
+  const directionFacts = data.mingPalace.map((mingPalace): BaZhaiDirectionFact => {
     const housePalace = data.housePalace?.find((item) => item.gua === mingPalace.gua) ?? null;
     const relation = !housePalace
       ? '仅命卦资料'
@@ -48,15 +63,34 @@ export function analyzeBaZhaiEvidence(
           : '同为凶方'
         : '命宅异判';
     return {
+      key: `方位:${mingPalace.gua}`,
+      gua: mingPalace.gua,
       direction: mingPalace.direction,
       degree: mingPalace.degree,
+      mingGua: data.mingGua,
       mingLabel: mingPalace.label,
       mingLuck: mingPalace.luck,
+      houseGua: data.houseGua,
       houseLabel: housePalace?.label ?? null,
       houseLuck: housePalace?.luck ?? null,
       relation,
+      sources: ['《八宅明镜》《阳宅十书》命卦与宅卦大游年八宫表', '命语后天八卦方位与中心度数表'],
+      calculation: `以命卦${data.mingGua}查大游年表的${mingPalace.gua}宫得${mingPalace.label}${housePalace && data.houseGua ? `；以宅卦${data.houseGua}查同一${mingPalace.gua}宫得${housePalace.label}；比较两者传统吉凶分类得${relation}` : '；本次未提供宅卦，不执行命宅逐方比较'}`,
+      promptText: `${mingPalace.direction}（${mingPalace.gua}宫，中心${mingPalace.degree}°）：命卦${data.mingGua}查表为${mingPalace.label}（传统${mingPalace.luck}方分类）${housePalace && data.houseGua ? `；宅卦${data.houseGua}查表为${housePalace.label}（传统${housePalace.luck}方分类）；逐方关系为${relation}` : '；未提供宅卦资料，仅保留命卦层事实'}`,
+      limitation: DIRECTION_FACT_LIMITATION,
     };
   });
+  const directionComparisons: BaZhaiDirectionComparison[] = directionFacts.map(
+    ({ direction, degree, mingLabel, mingLuck, houseLabel, houseLuck, relation }) => ({
+      direction,
+      degree,
+      mingLabel,
+      mingLuck,
+      houseLabel,
+      houseLuck,
+      relation,
+    }),
+  );
   const alignedDirections = directionComparisons.filter(
     (item) => item.relation === '同为吉方' || item.relation === '同为凶方',
   );
@@ -133,11 +167,11 @@ export function analyzeBaZhaiEvidence(
           },
         ]
       : []),
-    ...directionComparisons.map((item): PromptEvidenceItem => ({
+    ...directionFacts.map((item): PromptEvidenceItem => ({
       level: item.relation === '同为吉方' ? '主证' : item.relation === '命宅异判' ? '反证' : '辅证',
       title: `${item.direction}${item.relation}`,
-      detail: `命卦为${item.mingLabel}（${item.mingLuck}）${item.houseLabel ? `；宅卦为${item.houseLabel}（${item.houseLuck}）` : '；未提供宅卦资料'}。`,
-      source: '命卦与宅卦大游年八宫逐方比对',
+      detail: `${item.promptText}；边界：${item.limitation}`,
+      source: `${item.sources.join('；')}；计算：${item.calculation}`,
       tags: [item.direction, item.mingLabel, item.houseLabel ?? '无宅卦', item.relation],
     })),
     ...counterEvidence.map((detail): PromptEvidenceItem => ({
@@ -184,6 +218,7 @@ export function analyzeBaZhaiEvidence(
   ].join('\n');
   return {
     calculationChain,
+    directionFacts,
     directionComparisons,
     alignedDirections,
     conflictingDirections,

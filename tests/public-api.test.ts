@@ -2824,7 +2824,19 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
   assert.match(body.data.prompt, /候选甲山庚向：震宅八宫/);
   assert.equal(body.data.result.directionMeasurement.stability, '宅卦不稳定');
   assert.equal(body.data.result.evidenceAnalysis.evidence.title, '八宅命宅方位与测量结构化证据');
+  assert.equal(body.data.result.evidenceAnalysis.directionFacts.length, 8);
+  assert.ok(
+    body.data.result.evidenceAnalysis.directionFacts.every(
+      (item: Record<string, unknown>) =>
+        item.key &&
+        Array.isArray(item.sources) &&
+        item.sources.length >= 2 &&
+        String(item.calculation).includes('查大游年表') &&
+        String(item.limitation).includes('不证明房间适用性'),
+    ),
+  );
   assert.match(body.data.prompt, /【八宅命宅方位与测量结构化证据】/);
+  assert.match(body.data.prompt, /中心\d+°.*传统[吉凶]方分类/);
   assert.match(body.data.prompt, /中心读数不能作为唯一宅卦主证/);
   assert.match(body.data.prompt, /【当前时间】/);
   assert.match(body.data.prompt, /【问题】\n住宅办公方位怎么安排？/);

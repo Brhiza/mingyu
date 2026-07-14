@@ -103,7 +103,19 @@ test('bazhai: 命宅配合', () => {
   assert.ok(r.prompt.includes('宅卦八宫明细'));
   assert.ok(r.prompt.includes('证据边界'));
   assert.equal(r.evidenceAnalysis.evidence.title, '八宅命宅方位与测量结构化证据');
+  assert.equal(r.evidenceAnalysis.directionFacts.length, 8);
   assert.equal(r.evidenceAnalysis.directionComparisons.length, 8);
+  assert.ok(
+    r.evidenceAnalysis.directionFacts.every(
+      (item) =>
+        item.key === `方位:${item.gua}` &&
+        item.sources.length >= 2 &&
+        item.calculation.includes('查大游年表') &&
+        item.promptText.includes('传统') &&
+        item.limitation.includes('不证明房间适用性'),
+    ),
+  );
+  assert.match(r.evidenceAnalysis.promptText, /北（坎宫，中心0°）.*逐方关系为同为吉方/);
   assert.match(r.prompt, /【八宅命宅方位与测量结构化证据】/);
 });
 

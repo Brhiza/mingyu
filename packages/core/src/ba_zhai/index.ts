@@ -19,7 +19,11 @@ import {
 import { analyzeBaZhaiEvidence } from './evidence';
 
 export { analyzeBaZhaiEvidence } from './evidence';
-export type { BaZhaiDirectionComparison, BaZhaiEvidenceAnalysis } from './evidence';
+export type {
+  BaZhaiDirectionComparison,
+  BaZhaiDirectionFact,
+  BaZhaiEvidenceAnalysis,
+} from './evidence';
 
 export interface BaZhaiInput {
   /** 出生公历年份（用于推命卦；已按立春换年处理） */
