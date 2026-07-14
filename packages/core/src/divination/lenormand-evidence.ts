@@ -34,6 +34,7 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
         trace.seed !== undefined ? `随机种子：${String(trace.seed)}` : '',
       ].filter(Boolean)
     : ['当前结果未附随机轨迹，无法核验洗牌与抽牌过程的重放'];
+  const promptRandomFacts = randomFacts.filter((item) => !item.startsWith('随机种子：'));
   const counterEvidence = [
     fixedCombinations.length
       ? ''
@@ -77,7 +78,7 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
     {
       level: trace ? '辅证' : '反证',
       title: trace ? '随机过程重放记录' : '随机轨迹缺失',
-      detail: `${randomFacts.join('；')}；该记录只用于核验抽牌过程能否重放，不表示可信度或预测有效性`,
+      detail: `${promptRandomFacts.join('；')}；随机种子保留在结构化结果中，不写入自然语言提示词；该记录只用于核验抽牌过程能否重放，不表示可信度或预测有效性`,
       source: '命语统一随机轨迹协议',
       tags: ['随机轨迹', trace ? '可重放' : '不可核验', '不代表预测有效性'],
     },

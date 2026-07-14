@@ -399,6 +399,41 @@ test('奇门算法会输出节令背景与复合格局结构', () => {
   );
 });
 
+test('奇门定局、值符值使、宫间作用与触发条件应进入统一证据条目', () => {
+  const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'));
+  const analysis = data.evidenceAnalysis;
+  const items = analysis?.evidence.items ?? [];
+
+  assert.ok(analysis);
+  assert.ok(analysis.calculationFacts.some((item) => /阴遁|阳遁/.test(item)));
+  assert.ok(analysis.calculationFacts.some((item) => item.includes(`${data.juShu}局`)));
+  assert.ok(analysis.calculationFacts.some((item) => item.includes(data.timeInfo.solarTerm)));
+  assert.ok(analysis.calculationFacts.some((item) => item.includes(data.timeInfo.epoch)));
+  assert.ok(analysis.ruleSources.some((item) => item.includes('旬首值符值使规则')));
+
+  const setupItem = items.find((item) => item.title === '定局计算事实');
+  assert.equal(setupItem?.level, '辅证');
+  assert.match(setupItem?.detail ?? '', /时家奇门.*(阴遁|阳遁)\d局/s);
+
+  const leadersItem = items.find((item) => item.title === '值符值使定位事实');
+  assert.equal(leadersItem?.level, '主证');
+  assert.match(leadersItem?.detail ?? '', new RegExp(`${data.zhiFu}落`));
+  assert.match(leadersItem?.detail ?? '', new RegExp(`${data.zhiShi}落`));
+
+  assert.ok(items.some((item) => item.tags?.includes('宫间关系')));
+  assert.ok(items.some((item) => item.level === '应期' && item.title.includes('触发')));
+  assert.ok(items.some((item) => item.level === '辅证' && item.title.includes('方位')));
+  assert.ok(items.some((item) => item.title === '节令与四柱背景事实'));
+  assert.ok(
+    (data.patternCombos?.length ?? 0) === 0 ||
+      items.some((item) => item.tags?.includes('复合格局') && item.detail?.includes('组成来源')),
+  );
+  assert.doesNotMatch(
+    JSON.stringify(analysis.evidence),
+    /"score"\s*:|成功率[：=]?\s*\d|吉凶总分[：=]?\s*\d/,
+  );
+});
+
 test('奇门复合格局应按同宫门神叠加识别', () => {
   const baihuPattern = buildClassicPattern({
     key: 'pattern:baihu:2',

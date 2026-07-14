@@ -28,6 +28,8 @@ export interface QimenPalaceRelationEvidence {
 }
 
 export interface QimenEvidenceAnalysis {
+  calculationFacts: string[];
+  ruleSources: string[];
   candidates: QimenPalaceEvidence[];
   relations: QimenPalaceRelationEvidence[];
   counterEvidence: string[];
@@ -77,6 +79,26 @@ function describeRelation(from: QimenJiuGongGe, to: QimenJiuGongGe) {
 
 function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+const SCOPE_LABELS = {
+  hour: '时家奇门',
+  day: '日家奇门',
+  month: '月家奇门',
+  year: '年家奇门',
+} as const;
+
+function getActiveGanZhi(data: QimenData): string {
+  switch (data.scope) {
+    case 'year':
+      return data.ganzhi.year;
+    case 'month':
+      return data.ganzhi.month;
+    case 'day':
+      return data.ganzhi.day;
+    default:
+      return data.ganzhi.hour;
+  }
 }
 
 function collectCandidateSources(data: QimenData) {
@@ -156,6 +178,24 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
     throw new Error('奇门证据分析至少需要一个宫位数据。');
   }
   const sourceMap = collectCandidateSources(data);
+  const scope = data.scope ?? 'hour';
+  const scopeLabel = SCOPE_LABELS[scope];
+  const activeGanZhi = getActiveGanZhi(data);
+  const zhiFuPalace = data.jiuGongGe.find((item) => item.tianPan.star === data.zhiFu);
+  const zhiShiPalace = data.jiuGongGe.find((item) => item.renPan.door === data.zhiShi);
+  const calculationFacts = unique([
+    `排盘范围：${scopeLabel}，以${activeGanZhi}作为本盘主动干支`,
+    `定局结果：${data.timeInfo.solarTerm}${data.timeInfo.epoch}，${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局`,
+    `值符定位：${data.zhiFu}${zhiFuPalace ? `落${zhiFuPalace.name}` : '落宫未检出'}`,
+    `值使定位：${data.zhiShi}${zhiShiPalace ? `落${zhiShiPalace.name}` : '落宫未检出'}`,
+    `四柱干支：年${data.ganzhi.year}、月${data.ganzhi.month}、日${data.ganzhi.day}、时${data.ganzhi.hour}`,
+  ]);
+  const ruleSources = unique([
+    `${scopeLabel}定局规则：节气、三元与主动干支共同确定阴阳遁和局数`,
+    '旬首值符值使规则：由主动干支、遁局和旬首体系定位值符星与值使门',
+    '转盘九宫规则：门、星、神及天地盘干按同一局盘排列后逐宫核验',
+    '五行生克规则：候选宫之间只按宫五行陈述比和、生、克关系',
+  ]);
   const sourcePriority: QimenCandidateSource[] = [
     '值符落宫',
     '值使落宫',
@@ -208,14 +248,79 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
       (item) =>
         `${item.direction}${item.name}来自${item.sources.join('、')}；方位仅在现实路线、安全和事项用神均匹配时采用`,
     );
+  const patternItems: PromptEvidenceItem[] = (data.patternCombos ?? []).map(
+    (pattern): PromptEvidenceItem => ({
+      level: pattern.tone === 'super-bad' ? '反证' : '辅证',
+      title: `复合格局：${pattern.name}`,
+      detail: `${pattern.summary}；组成来源：${pattern.sources.join('、') || '未列明'}`,
+      source: '复合格局规则命中链',
+      tags: ['复合格局', pattern.tone, ...(pattern.palace ? [`${pattern.palace}宫`] : [])],
+    }),
+  );
+  const relationItems: PromptEvidenceItem[] = relations.map((item) => ({
+    level: '辅证',
+    title: `${item.from}与${item.to}宫间作用`,
+    detail: `${item.relation}；${item.meaning}`,
+    source: '候选宫五行生克关系',
+    tags: ['宫间关系', item.relation, item.from, item.to],
+  }));
+  const counterItems: PromptEvidenceItem[] = counterEvidence.map((detail, index) => ({
+    level: '反证',
+    title: `奇门限制核验${index + 1}`,
+    detail,
+    source: '空亡、特殊条件、风险洞察与格局限制逐项汇总',
+    tags: ['反证', '风险限制'],
+  }));
   const items: PromptEvidenceItem[] = [
+    {
+      level: '辅证',
+      title: '定局计算事实',
+      detail: calculationFacts.join('；'),
+      source: ruleSources.slice(0, 2).join('；'),
+      tags: [scopeLabel, data.isYangDun ? '阳遁' : '阴遁', `${data.juShu}局`],
+    },
+    {
+      level: '主证',
+      title: '值符值使定位事实',
+      detail: `${calculationFacts[2]}；${calculationFacts[3]}。这是盘面中心定位事实，不自动等同于事项吉凶。`,
+      source: ruleSources[1],
+      tags: ['值符', '值使', data.zhiFu, data.zhiShi],
+    },
     ...candidates.slice(0, 6).map((item, index): PromptEvidenceItem => ({
       level: index === 0 ? '主证' : '辅证',
       title: `${item.name}用神宫候选`,
-      detail: `候选来源${item.sources.join('、')}；门${item.palace.renPan.door}、星${item.palace.tianPan.star}、神${item.palace.shenPan.god}、天盘${item.palace.tianPan.stem}、地盘${item.palace.diPan.stem}；天地盘干${item.stemRelations.join('、') || '未见另列特殊关系'}；支持${item.support.join('、') || '未见独立增强证据'}；限制${item.constraints.join('、') || '未见空亡或明确风险标签'}`,
+      detail: `候选来源${item.sources.join('、')}；门${item.palace.renPan.door}、星${item.palace.tianPan.star}、神${item.palace.shenPan.god}、天盘${item.palace.tianPan.stem}、地盘${item.palace.diPan.stem}；天地盘干${item.stemRelations.join('、') || '未见另列特殊关系'}；格局${item.patterns.join('、') || '未见另列格局'}；支持${item.support.join('、') || '未见独立增强证据'}；限制${item.constraints.join('、') || '未见空亡或明确风险标签'}`,
       source: '值符、值使、日干、时干及九宫门星神干逐项定位',
       tags: [item.name, ...item.sources],
     })),
+    ...patternItems,
+    ...relationItems,
+    ...counterItems,
+    ...(data.seasonality
+      ? [
+          {
+            level: '辅证' as const,
+            title: '节令与四柱背景事实',
+            detail: `${data.seasonality.currentJieQi}${data.seasonality.jieQiPhase.phase}；季节五行${data.seasonality.seasonalElement}；日干${data.seasonality.dayStem}属${data.seasonality.dayElement}，${data.seasonality.seasonRelationDescription}；月相${data.seasonality.lunarPhase}（${data.seasonality.lunarPhaseDetail}）；建除${data.seasonality.dayOfficer}（${data.seasonality.dayOfficerFortuneLabel}）；四柱互动${data.seasonality.ganzhiInteractions.map((item) => item.description).join('、') || '未检出明确合冲刑害'}`,
+            source: '节气历表、月相证据、建除规则与四柱关系逐项计算',
+            tags: ['节令', '月相', '建除', '四柱互动'],
+          },
+        ]
+      : []),
+    {
+      level: '应期',
+      title: '应期触发与验证条件',
+      detail: timingConditions.join('；'),
+      source: `盘内相对节奏${data.yingQi ? `为${data.yingQi.rhythm}` : '未单列'}；仅保留触发条件和限制`,
+      tags: ['应期', '触发条件', '不换算固定日期'],
+    },
+    {
+      level: '辅证',
+      title: '候选方位使用条件',
+      detail: directionConditions.join('；') || '未定位候选方位，须结合现实路线与安全条件',
+      source: '候选宫方位与来源映射',
+      tags: ['方位', '现实条件'],
+    },
     {
       level: '限制',
       title: '奇门用神与方位解释边界',
@@ -228,12 +333,11 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
   const promptText = [
     '【奇门用神宫与宫间作用结构化证据】',
     ...formatPromptEvidenceBundle(evidence),
-    `宫间关系：${relations.map((item) => `${item.from}→${item.to}为${item.relation}，${item.meaning}`).join('；') || '候选宫不足，暂不比较宫间生克'}`,
-    `反证限制：${counterEvidence.join('；') || '未见明确空亡或风险标签，仍须按问题选定用神'}`,
     `触发条件：${timingConditions.join('；')}`,
-    `方位条件：${directionConditions.join('；') || '未定位候选方位，须结合现实路线与安全条件'}`,
   ].join('\n');
   return {
+    calculationFacts,
+    ruleSources,
     candidates,
     relations,
     counterEvidence,
@@ -244,6 +348,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
     methodology: [
       '先定位值符、值使、日干和时干落宫，再补充盘面洞察与经典格局候选。',
       '逐宫保留门、星、神、天地盘干、空亡、马星、格局、支持与限制。',
+      '定局、值符值使、复合格局来源、宫间作用、应期和方位条件全部进入统一证据条目。',
       '候选宫之间只陈述可复核的五行生克关系，不用数字分数代替判断。',
       '未按问题选定用神时明确保留候选性质，不输出吉凶总分、成功率或绝对日期。',
     ],
