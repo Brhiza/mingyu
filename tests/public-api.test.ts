@@ -3110,6 +3110,24 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
   assert.equal(body.ok, true);
   assert.equal(body.data.result.days.length, 5);
   assert.equal(body.data.result.pagination.page, 2);
+  assert.equal(body.data.result.evidenceAnalysis.key, 'almanac:evidence');
+  assert.equal(body.data.result.evidenceAnalysis.status, '已计算');
+  assert.equal(body.data.result.evidenceAnalysis.calculationSteps.length, 7);
+  assert.equal(
+    body.data.result.evidenceAnalysis.calculationChain.length,
+    body.data.result.evidenceAnalysis.calculationSteps.length,
+  );
+  const almanacCalculationStepKeys = new Set(
+    body.data.result.evidenceAnalysis.calculationSteps.map((item: { key: string }) => item.key),
+  );
+  assert.ok(
+    body.data.result.evidenceAnalysis.calculationSteps.every(
+      (item: { dependsOnStepKeys: string[]; sources: string[]; limitation: string }) =>
+        item.dependsOnStepKeys.every((key) => almanacCalculationStepKeys.has(key)) &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不证明现实吉凶'),
+    ),
+  );
   assert.equal(body.data.result.evidenceAnalysis.candidates.length, 5);
   const candidateFacts = body.data.result.evidenceAnalysis.candidates as Array<{
     date: string;
@@ -3204,6 +3222,46 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
         item.limitation.includes('不证明现实中'),
     ),
   );
+  assert.equal(body.data.result.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(
+    body.data.result.evidenceAnalysis.summaryFact.candidateCount,
+    body.data.result.evidenceAnalysis.candidates.length,
+  );
+  assert.equal(
+    body.data.result.evidenceAnalysis.summaryFact.traditionalFactCount,
+    body.data.result.evidenceAnalysis.traditionalFacts.length,
+  );
+  assert.equal(
+    body.data.result.evidenceAnalysis.summaryFact.counterEvidenceCount,
+    body.data.result.evidenceAnalysis.counterEvidenceFacts.length,
+  );
+  assert.equal(
+    body.data.result.evidenceAnalysis.counterSummaryFact.factKeys.length,
+    body.data.result.evidenceAnalysis.counterEvidenceFacts.length,
+  );
+  assert.equal(body.data.result.evidenceAnalysis.limitationFacts.length, 6);
+  assert.equal(
+    body.data.result.evidenceAnalysis.limitations.length,
+    body.data.result.evidenceAnalysis.limitationFacts.length,
+  );
+  const almanacFactKeys = new Set([
+    body.data.result.evidenceAnalysis.summaryFact.key,
+    ...body.data.result.evidenceAnalysis.summaryFact.factKeys,
+  ]);
+  assert.ok(
+    body.data.result.evidenceAnalysis.counterEvidenceFacts.every(
+      (item: { ownerFactKeys: string[] }) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => almanacFactKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    body.data.result.evidenceAnalysis.limitationFacts.every(
+      (item: { ownerFactKeys: string[] }) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => almanacFactKeys.has(key)),
+    ),
+  );
   for (const day of body.data.result.days) {
     assert.equal(day.score, undefined);
     for (const hour of [...(day.hours ?? []), ...(day.bestHours ?? [])]) {
@@ -3216,6 +3274,10 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
   );
   assert.match(body.data.result.evidenceAnalysis.promptText, /【黄历择日透明约束与候选证据】/);
   assert.match(body.data.result.evidenceAnalysis.promptText, /状态形成链/);
+  assert.match(
+    body.data.result.evidenceAnalysis.promptText,
+    /计算链：[\s\S]*反证汇总：[\s\S]*证据汇总：[\s\S]*解释限制：/,
+  );
   assert.match(body.data.prompt, /候选日期：2026-06-01 至 2026-06-30/);
   assert.equal((body.data.prompt.match(/第\d+候选：/g) ?? []).length, 5);
   body.data.result.days.forEach((day: { date: string }) => {

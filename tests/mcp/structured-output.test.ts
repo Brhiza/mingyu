@@ -978,6 +978,15 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
             bestHours?: Array<{ score?: number }>;
           }>;
           evidenceAnalysis: {
+            key: string;
+            status: string;
+            calculationSteps: Array<{
+              key: string;
+              dependsOnStepKeys: string[];
+              sources: string[];
+              limitation: string;
+            }>;
+            calculationChain: string[];
             candidates: Array<{
               date: string;
               calendarFact: {
@@ -1010,6 +1019,18 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
               }>;
             }>;
             cautionDates: string[];
+            counterEvidenceFacts: Array<{ ownerFactKeys: string[] }>;
+            counterSummaryFact: { factKeys: string[] };
+            limitations: string[];
+            limitationFacts: Array<{ ownerFactKeys: string[] }>;
+            summaryFact: {
+              key: string;
+              status: string;
+              factKeys: string[];
+              candidateCount: number;
+              traditionalFactCount: number;
+              counterEvidenceCount: number;
+            };
             traditionalFacts: Array<{
               kind: string;
               originalText: string;
@@ -1021,6 +1042,24 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
         };
       }
     ).result;
+    assert.equal(chart.evidenceAnalysis.key, 'almanac:evidence');
+    assert.equal(chart.evidenceAnalysis.status, '已计算');
+    assert.equal(chart.evidenceAnalysis.calculationSteps.length, 7);
+    assert.equal(
+      chart.evidenceAnalysis.calculationChain.length,
+      chart.evidenceAnalysis.calculationSteps.length,
+    );
+    const calculationStepKeys = new Set(
+      chart.evidenceAnalysis.calculationSteps.map((item) => item.key),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.calculationSteps.every(
+        (item) =>
+          item.dependsOnStepKeys.every((key) => calculationStepKeys.has(key)) &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不证明现实吉凶'),
+      ),
+    );
     assert.ok(chart.evidenceAnalysis.candidates.length > 0);
     assert.ok(Array.isArray(chart.evidenceAnalysis.cautionDates));
     assert.ok(
@@ -1077,6 +1116,44 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
           item.limitation.includes('不证明现实中'),
       ),
     );
+    assert.equal(chart.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.candidateCount,
+      chart.evidenceAnalysis.candidates.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.traditionalFactCount,
+      chart.evidenceAnalysis.traditionalFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      chart.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.counterSummaryFact.factKeys.length,
+      chart.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(chart.evidenceAnalysis.limitationFacts.length, 6);
+    assert.equal(
+      chart.evidenceAnalysis.limitations.length,
+      chart.evidenceAnalysis.limitationFacts.length,
+    );
+    const factKeys = new Set([
+      chart.evidenceAnalysis.summaryFact.key,
+      ...chart.evidenceAnalysis.summaryFact.factKeys,
+    ]);
+    assert.ok(
+      chart.evidenceAnalysis.counterEvidenceFacts.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+      ),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.limitationFacts.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+      ),
+    );
     for (const day of chart.days) {
       assert.equal(day.score, undefined);
       for (const hour of [...(day.hours ?? []), ...(day.bestHours ?? [])]) {
@@ -1087,6 +1164,7 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
     assert.match(prompt, /【占卜信息】/);
     assert.match(prompt, /【黄历择日透明约束与候选证据】/);
     assert.match(prompt, /状态形成链/);
+    assert.match(prompt, /黄历择日计算链[\s\S]*黄历择日证据汇总[\s\S]*择日证据边界/);
     assert.doesNotMatch(prompt, /评分[：=]?\d|（\d+分|成功率[：=]?\d/);
     assert.doesNotMatch(
       prompt,

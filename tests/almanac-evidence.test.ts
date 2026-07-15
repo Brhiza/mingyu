@@ -15,6 +15,19 @@ test('黄历择日应内置透明约束与候选证据', () => {
   const evidence = data.evidenceAnalysis;
 
   assert.ok(evidence);
+  assert.equal(evidence.key, 'almanac:evidence');
+  assert.equal(evidence.status, '已计算');
+  assert.equal(evidence.calculationSteps.length, 7);
+  assert.equal(evidence.calculationChain.length, evidence.calculationSteps.length);
+  const calculationStepKeys = new Set(evidence.calculationSteps.map((item) => item.key));
+  assert.ok(
+    evidence.calculationSteps.every(
+      (item) =>
+        item.dependsOnStepKeys.every((key) => calculationStepKeys.has(key)) &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不证明现实吉凶'),
+    ),
+  );
   assert.equal(evidence.candidates.length, data.days.length);
   assert.match(evidence.promptText, /【黄历择日透明约束与候选证据】/);
   assert.match(evidence.promptText, /传统硬限制：/);
@@ -66,7 +79,58 @@ test('黄历择日应内置透明约束与候选证据', () => {
         candidate.moonPhaseFact.limitations.length >= 3,
     ),
   );
+  assert.equal(evidence.summaryFact.status, '证据链完整');
+  assert.equal(evidence.summaryFact.candidateCount, evidence.candidates.length);
+  assert.equal(evidence.summaryFact.visibleCandidateCount, Math.min(evidence.candidates.length, 8));
+  assert.equal(evidence.summaryFact.preferredDateCount, evidence.preferredDates.length);
+  assert.equal(evidence.summaryFact.conditionalDateCount, evidence.conditionalDates.length);
+  assert.equal(evidence.summaryFact.cautionDateCount, evidence.cautionDates.length);
+  assert.equal(
+    evidence.summaryFact.usableHourFactCount,
+    evidence.candidates.reduce((total, item) => total + item.usableHours.length, 0),
+  );
+  assert.equal(evidence.summaryFact.traditionalFactCount, evidence.traditionalFacts.length);
+  assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
+  assert.equal(evidence.counterSummaryFact.factKeys.length, evidence.counterEvidenceFacts.length);
+  assert.equal(evidence.limitationFacts.length, 6);
+  assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
+  const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
+  assert.ok(
+    evidence.counterEvidenceFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    evidence.limitationFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.match(evidence.promptText, /计算链：[\s\S]*反证汇总：[\s\S]*证据汇总：[\s\S]*解释限制：/);
   assert.doesNotMatch(evidence.promptText, /评分[：=]?\d|\d+分|成功率[：=]?\d|匹配率[：=]?\d/);
+});
+
+test('黄历择日候选资料为空时应明确标记缺失，不生成伪最佳日期', () => {
+  const data = generateAlmanacSelection({
+    topic: 'move',
+    startDate: '2026-06-01',
+    endDate: '2026-06-03',
+  });
+  data.days = [];
+  data.evidenceAnalysis = undefined;
+
+  const evidence = analyzeAlmanacEvidence(data);
+
+  assert.equal(evidence.summaryFact.status, '候选资料缺失');
+  assert.equal(evidence.summaryFact.candidateCount, 0);
+  assert.equal(evidence.calculationSteps[0]?.status, '资料不足');
+  assert.equal(evidence.calculationSteps[6]?.status, '资料不足');
+  assert.equal(evidence.counterSummaryFact.status, '未见明确反证');
+  assert.deepEqual(evidence.preferredDates, []);
+  assert.deepEqual(evidence.conditionalDates, []);
+  assert.deepEqual(evidence.cautionDates, []);
+  assert.ok(evidence.limitationFacts.every((item) => item.ownerFactKeys.length > 0));
 });
 
 test('择日证据应保留日课、宿曜、九星、百忌、方位神与逐时时课来源', () => {

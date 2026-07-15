@@ -126,7 +126,83 @@ export interface AlmanacCandidateEvidence {
   limitations: string[];
 }
 
+export interface AlmanacEvidenceCalculationStep {
+  key: string;
+  stage:
+    | '候选范围核验'
+    | '逐日历法核验'
+    | '事项与神煞核验'
+    | '参与人与现实约束核验'
+    | '逐时时课核验'
+    | '候选分组核验'
+    | '证据汇总';
+  status: '已计算' | '资料不足';
+  inputs: Record<string, string | number | boolean | string[]>;
+  result: Record<string, string | number | boolean | string[]>;
+  dependsOnStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '计算步骤只证明候选范围、历法字段、事项宜忌、神煞、参与人关系、逐时时课与候选分组如何形成当前证据；不证明现实吉凶、成功率、个人结果或必然适宜';
+}
+
+export interface AlmanacCounterEvidenceFact {
+  key: string;
+  date: string;
+  type: '候选限制' | '强限制' | '无可用时辰';
+  status: '已触发';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '反证事实只表示当前候选存在事项忌项、传统限制、参与人冲突或无可用时辰；不得把单项反证直接写成现实失败、灾祸或必然不宜';
+}
+
+export interface AlmanacCounterSummaryFact {
+  key: 'almanac:counter-summary';
+  status: '有明确反证' | '未见明确反证';
+  factKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '反证汇总只说明候选范围内是否记录明确限制，不代表未见反证的日期现实风险为零，也不得按反证数量生成吉凶总分或失败概率';
+}
+
+export interface AlmanacSummaryFact {
+  key: 'almanac:evidence-summary';
+  status: '证据链完整' | '候选资料缺失';
+  factKeys: string[];
+  candidateCount: number;
+  visibleCandidateCount: number;
+  preferredDateCount: number;
+  conditionalDateCount: number;
+  cautionDateCount: number;
+  usableHourFactCount: number;
+  traditionalFactCount: number;
+  counterEvidenceCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '黄历择日证据汇总只统计候选日、分组、逐时时课、传统资料与反证的覆盖情况；不得按数量或候选等级生成吉凶总分、成功率、个人保证或唯一最佳日期';
+}
+
+export interface AlmanacLimitationFact {
+  key: string;
+  type:
+    | '候选范围与历法边界'
+    | '事项宜忌与神煞边界'
+    | '参与人适配边界'
+    | '逐时时课与分组边界'
+    | '天文与传统资料边界'
+    | '现实与高风险输出边界';
+  status: '适用';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束候选范围、历法、事项宜忌、神煞、参与人、逐时时课、月相与传统资料能够支持的解释范围，不得被反向当作现实吉凶、成功率、个人结果或必然适宜的证据';
+}
+
 export interface AlmanacEvidenceAnalysis {
+  key: 'almanac:evidence';
+  status: '已计算';
+  calculationSteps: AlmanacEvidenceCalculationStep[];
+  calculationChain: string[];
   candidates: AlmanacCandidateEvidence[];
   preferredDates: string[];
   conditionalDates: string[];
@@ -134,6 +210,11 @@ export interface AlmanacEvidenceAnalysis {
   hardConstraints: string[];
   realityConstraints: string[];
   traditionalFacts: AlmanacTraditionalFact[];
+  counterEvidenceFacts: AlmanacCounterEvidenceFact[];
+  counterSummaryFact: AlmanacCounterSummaryFact;
+  limitations: string[];
+  limitationFacts: AlmanacLimitationFact[];
+  summaryFact: AlmanacSummaryFact;
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
@@ -153,6 +234,16 @@ const RAW_TABOO_FACT_LIMITATION =
   '原始宜忌只保留历书列项及其是否命中当前事项；未列不等于适宜，列出也不等于现实事项必然成功或失败' as const;
 const DECISION_FACT_LIMITATION =
   '候选状态只按明确事项忌项、传统限制、参与人关系和可用时辰分组；不公开内部排序分值，不把候选等级解释为成功率或现实吉凶保证' as const;
+const CALCULATION_STEP_LIMITATION =
+  '计算步骤只证明候选范围、历法字段、事项宜忌、神煞、参与人关系、逐时时课与候选分组如何形成当前证据；不证明现实吉凶、成功率、个人结果或必然适宜' as const;
+const COUNTER_FACT_LIMITATION =
+  '反证事实只表示当前候选存在事项忌项、传统限制、参与人冲突或无可用时辰；不得把单项反证直接写成现实失败、灾祸或必然不宜' as const;
+const COUNTER_SUMMARY_LIMITATION =
+  '反证汇总只说明候选范围内是否记录明确限制，不代表未见反证的日期现实风险为零，也不得按反证数量生成吉凶总分或失败概率' as const;
+const SUMMARY_FACT_LIMITATION =
+  '黄历择日证据汇总只统计候选日、分组、逐时时课、传统资料与反证的覆盖情况；不得按数量或候选等级生成吉凶总分、成功率、个人保证或唯一最佳日期' as const;
+const LIMITATION_FACT_LIMITATION =
+  '限制事实用于约束候选范围、历法、事项宜忌、神煞、参与人、逐时时课、月相与传统资料能够支持的解释范围，不得被反向当作现实吉凶、成功率、个人结果或必然适宜的证据' as const;
 
 const PENGZU_PROMPT_PREFIXES: Array<[RegExp, string]> = [
   [/^甲不开仓/, '甲日传统上避开仓'],
@@ -829,6 +920,395 @@ function formatCandidate(item: AlmanacCandidateEvidence) {
   return `${item.status}；历法事实${item.calendarFact.promptText}；历法边界${item.calendarFact.limitation}；${item.rawTabooFact.promptText}；事项命中${topicFacts || '未见明确支持或限制'}；值日神煞${godFacts || '未见已分级神煞'}；参与人关系${participantFacts || '未提供或未见额外关系'}；状态形成链${item.decisionFact.promptText}；传统规则${item.traditionalRuleFacts.join('；')}；全年方位神${item.directionFacts.join('；') || '未列'}；支持${support.join('、') || '未见独立增强证据'}；限制${constraints.join('、') || '未见明确传统禁忌或参与人冲突'}；天文背景${formatMoonPhaseFact(item.moonPhaseFact)}；时段${hours}`;
 }
 
+function collectCandidateFactKeys(candidate: AlmanacCandidateEvidence): string[] {
+  return unique([
+    candidate.calendarFact.key,
+    candidate.rawTabooFact.key,
+    ...candidate.godFacts.map((item) => item.key),
+    ...candidate.topicMatchFacts.map((item) => item.key),
+    ...candidate.participantRelationFacts.map((item) => item.key),
+    candidate.decisionFact.key,
+    ...candidate.decisionFact.steps.map((item) => item.key),
+    candidate.moonPhaseFact.key,
+    ...candidate.moonPhaseFact.calculationSteps.map((item) => item.key),
+    candidate.moonPhaseFact.eventSummaryFact.key,
+    candidate.moonPhaseFact.previousPrincipalPhase.key,
+    candidate.moonPhaseFact.nextPrincipalPhase.key,
+    ...candidate.usableHours.flatMap((hour) => [
+      hour.key,
+      hour.rawTabooFact.key,
+      ...hour.topicMatchFacts.map((item) => item.key),
+      ...hour.participantRelationFacts.map((item) => item.key),
+    ]),
+    ...candidate.traditionalFacts.map((item) => item.key),
+  ]);
+}
+
+function buildCounterEvidenceFacts(
+  candidates: AlmanacCandidateEvidence[],
+): AlmanacCounterEvidenceFact[] {
+  return candidates.flatMap((candidate) => {
+    const facts: AlmanacCounterEvidenceFact[] = [];
+    const limitingTexts = unique([
+      ...candidate.traditionalConstraints,
+      ...candidate.participantConflicts,
+      ...candidate.topicMatchFacts
+        .filter((item) => item.status === '限制')
+        .map((item) => item.promptText),
+    ]);
+    if (candidate.decisionFact.strongConstraintTexts.length) {
+      facts.push({
+        key: `almanac:counter:${candidate.date}:strong`,
+        date: candidate.date,
+        type: '强限制',
+        status: '已触发',
+        ownerFactKeys: unique([
+          candidate.decisionFact.key,
+          ...candidate.decisionFact.limitingFactKeys,
+        ]),
+        promptText: `${candidate.date}存在强限制：${candidate.decisionFact.strongConstraintTexts.join('、')}，已归入${candidate.status}`,
+        sources: candidate.decisionFact.sources,
+        limitation: COUNTER_FACT_LIMITATION,
+      });
+    } else if (limitingTexts.length || candidate.decisionFact.limitingFactKeys.length) {
+      facts.push({
+        key: `almanac:counter:${candidate.date}:limits`,
+        date: candidate.date,
+        type: '候选限制',
+        status: '已触发',
+        ownerFactKeys: unique([
+          candidate.decisionFact.key,
+          ...candidate.decisionFact.limitingFactKeys,
+        ]),
+        promptText: `${candidate.date}存在一般限制：${limitingTexts.join('、') || '已记录限制事实'}，已归入${candidate.status}`,
+        sources: candidate.decisionFact.sources,
+        limitation: COUNTER_FACT_LIMITATION,
+      });
+    }
+    if (!candidate.usableHours.length) {
+      const hourStep = candidate.decisionFact.steps.find((item) => item.stage === '可用时辰');
+      facts.push({
+        key: `almanac:counter:${candidate.date}:hours`,
+        date: candidate.date,
+        type: '无可用时辰',
+        status: '已触发',
+        ownerFactKeys: unique([candidate.decisionFact.key, hourStep?.key ?? '']),
+        promptText: `${candidate.date}未筛出无明显冲突的时辰，不硬指定吉时`,
+        sources: hourStep?.sources ?? ['逐时时课筛选结果'],
+        limitation: COUNTER_FACT_LIMITATION,
+      });
+    }
+    return facts;
+  });
+}
+
+function buildSummaryFact(params: {
+  candidates: AlmanacCandidateEvidence[];
+  preferredDates: string[];
+  conditionalDates: string[];
+  cautionDates: string[];
+  traditionalFacts: AlmanacTraditionalFact[];
+  counterSummaryFact: AlmanacCounterSummaryFact;
+  counterEvidenceFacts: AlmanacCounterEvidenceFact[];
+}): AlmanacSummaryFact {
+  const candidateFactKeys = params.candidates.flatMap(collectCandidateFactKeys);
+  const status =
+    params.candidates.length &&
+    params.candidates.every((item) => item.decisionFact.steps.length === 7)
+      ? '证据链完整'
+      : '候选资料缺失';
+  return {
+    key: 'almanac:evidence-summary',
+    status,
+    factKeys: unique([
+      ...candidateFactKeys,
+      params.counterSummaryFact.key,
+      ...params.counterEvidenceFacts.map((item) => item.key),
+    ]),
+    candidateCount: params.candidates.length,
+    visibleCandidateCount: Math.min(params.candidates.length, 8),
+    preferredDateCount: params.preferredDates.length,
+    conditionalDateCount: params.conditionalDates.length,
+    cautionDateCount: params.cautionDates.length,
+    usableHourFactCount: params.candidates.reduce(
+      (total, item) => total + item.usableHours.length,
+      0,
+    ),
+    traditionalFactCount: params.traditionalFacts.length,
+    counterEvidenceCount: params.counterEvidenceFacts.length,
+    promptText: `证据链状态：${status}；候选日${params.candidates.length}项，其中可用${params.preferredDates.length}项、有条件${params.conditionalDates.length}项、慎用${params.cautionDates.length}项；保留可用时辰${params.candidates.reduce((total, item) => total + item.usableHours.length, 0)}项、传统资料${params.traditionalFacts.length}项、反证${params.counterEvidenceFacts.length}项`,
+    sources: ['全部候选日、历法、事项、神煞、参与人、逐时时课、传统资料与反证逐项汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
+}
+
+function buildCalculationSteps(params: {
+  data: AlmanacData;
+  candidates: AlmanacCandidateEvidence[];
+  preferredDates: string[];
+  conditionalDates: string[];
+  cautionDates: string[];
+  hardConstraints: string[];
+  realityConstraints: string[];
+  summaryFact: AlmanacSummaryFact;
+}): AlmanacEvidenceCalculationStep[] {
+  const candidateCount = params.candidates.length;
+  const topicFactCount = params.candidates.reduce(
+    (total, item) => total + item.topicMatchFacts.length,
+    0,
+  );
+  const godFactCount = params.candidates.reduce((total, item) => total + item.godFacts.length, 0);
+  const participantFactCount = params.candidates.reduce(
+    (total, item) => total + item.participantRelationFacts.length,
+    0,
+  );
+  const usableHourFactCount = params.candidates.reduce(
+    (total, item) => total + item.usableHours.length,
+    0,
+  );
+  return [
+    {
+      key: 'almanac:calculation:scope',
+      stage: '候选范围核验',
+      status: candidateCount ? '已计算' : '资料不足',
+      inputs: {
+        startDate: params.data.startDate,
+        endDate: params.data.endDate,
+        topic: params.data.topic,
+        topicLabel: params.data.topicLabel,
+      },
+      result: { candidateCount },
+      dependsOnStepKeys: [],
+      promptText: `限定${params.data.startDate}至${params.data.endDate}，按${params.data.topicLabel}建立${candidateCount}个候选日`,
+      sources: ['用户日期范围与事项类型', '黄历候选日生成结果'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'almanac:calculation:calendar',
+      stage: '逐日历法核验',
+      status:
+        candidateCount && params.candidates.every((item) => item.calendarFact && item.moonPhaseFact)
+          ? '已计算'
+          : '资料不足',
+      inputs: { candidateCount },
+      result: {
+        calendarFactCount: params.candidates.length,
+        moonPhaseFactCount: params.candidates.length,
+      },
+      dependsOnStepKeys: ['almanac:calculation:scope'],
+      promptText: `逐日保存公农历、干支、建除、十二神、冲煞与中国标准时间正午月相，共${candidateCount}日`,
+      sources: unique([
+        '逐日历法与月相资料完整性检查',
+        ...params.candidates.flatMap((item) => [
+          ...item.calendarFact.sources,
+          item.moonPhaseFact.source,
+        ]),
+      ]),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'almanac:calculation:topic-gods',
+      stage: '事项与神煞核验',
+      status: candidateCount ? '已计算' : '资料不足',
+      inputs: { candidateCount, topicLabel: params.data.topicLabel },
+      result: { topicFactCount, godFactCount },
+      dependsOnStepKeys: ['almanac:calculation:calendar'],
+      promptText: `逐日核验原始宜忌、当前事项命中与值日神煞，形成事项事实${topicFactCount}项、神煞事实${godFactCount}项`,
+      sources: unique([
+        '当前事项宜忌与值日神煞完整性检查',
+        ...params.candidates.flatMap((item) => [
+          ...item.rawTabooFact.sources,
+          ...item.topicMatchFacts.flatMap((fact) => fact.sources),
+          ...item.godFacts.flatMap((fact) => fact.sources),
+        ]),
+      ]),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'almanac:calculation:participants-reality',
+      stage: '参与人与现实约束核验',
+      status: candidateCount ? '已计算' : '资料不足',
+      inputs: { candidateCount, hardConstraints: params.hardConstraints },
+      result: {
+        participantFactCount,
+        realityConstraintCount: params.realityConstraints.length,
+      },
+      dependsOnStepKeys: ['almanac:calculation:topic-gods'],
+      promptText: participantFactCount
+        ? `已记录参与人逐项关系${participantFactCount}项，并保留${params.realityConstraints.length}项现实约束`
+        : `未提供参与人资料，不生成个人适配结论；保留${params.realityConstraints.length}项现实约束待核验`,
+      sources: unique([
+        ...params.candidates.flatMap((item) =>
+          item.participantRelationFacts.flatMap((fact) => fact.sources),
+        ),
+        '用户参与人资料与现实条件边界',
+      ]),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'almanac:calculation:hours',
+      stage: '逐时时课核验',
+      status: candidateCount ? '已计算' : '资料不足',
+      inputs: { candidateCount },
+      result: { usableHourFactCount },
+      dependsOnStepKeys: ['almanac:calculation:participants-reality'],
+      promptText: `逐日比较时柱、十二神、事项宜忌与参与人关系，保留${usableHourFactCount}个无强冲突时辰；未筛出时不硬指定吉时`,
+      sources: unique([
+        '逐时时柱、十二神、事项宜忌与参与人关系完整性检查',
+        ...params.candidates.flatMap((item) => item.usableHours.flatMap((hour) => hour.sources)),
+      ]),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'almanac:calculation:grouping',
+      stage: '候选分组核验',
+      status:
+        candidateCount && params.candidates.every((item) => item.decisionFact.steps.length === 7)
+          ? '已计算'
+          : '资料不足',
+      inputs: { candidateCount },
+      result: {
+        preferredDateCount: params.preferredDates.length,
+        conditionalDateCount: params.conditionalDates.length,
+        cautionDateCount: params.cautionDates.length,
+      },
+      dependsOnStepKeys: ['almanac:calculation:hours'],
+      promptText: `按明确忌项、传统限制、参与人冲突与可用时辰分组：可用${params.preferredDates.length}项、有条件${params.conditionalDates.length}项、慎用${params.cautionDates.length}项`,
+      sources: unique([
+        '候选日七步状态形成链完整性检查',
+        ...params.candidates.flatMap((item) => item.decisionFact.sources),
+      ]),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'almanac:calculation:summary',
+      stage: '证据汇总',
+      status: params.summaryFact.status === '证据链完整' ? '已计算' : '资料不足',
+      inputs: { factCount: params.summaryFact.factKeys.length },
+      result: {
+        summaryStatus: params.summaryFact.status,
+        candidateCount: params.summaryFact.candidateCount,
+        usableHourFactCount: params.summaryFact.usableHourFactCount,
+        traditionalFactCount: params.summaryFact.traditionalFactCount,
+        counterEvidenceCount: params.summaryFact.counterEvidenceCount,
+      },
+      dependsOnStepKeys: [
+        'almanac:calculation:scope',
+        'almanac:calculation:calendar',
+        'almanac:calculation:topic-gods',
+        'almanac:calculation:participants-reality',
+        'almanac:calculation:hours',
+        'almanac:calculation:grouping',
+      ],
+      promptText: params.summaryFact.promptText,
+      sources: params.summaryFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+  ];
+}
+
+function buildLimitationFacts(params: {
+  candidates: AlmanacCandidateEvidence[];
+  counterSummaryFact: AlmanacCounterSummaryFact;
+  counterEvidenceFacts: AlmanacCounterEvidenceFact[];
+  summaryFact: AlmanacSummaryFact;
+}): AlmanacLimitationFact[] {
+  const candidateDecisionKeys = params.candidates.map((item) => item.decisionFact.key);
+  const definitions: Array<
+    Pick<AlmanacLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
+  > = [
+    {
+      key: 'almanac:limitation:scope-calendar',
+      type: '候选范围与历法边界',
+      ownerFactKeys: unique([
+        params.summaryFact.key,
+        ...params.candidates.flatMap((item) => [item.calendarFact.key, item.moonPhaseFact.key]),
+      ]),
+      promptText:
+        '只比较用户给定日期范围和事项；公农历、干支、建除、十二神、冲煞与月相只确定候选的历法和天文背景，不单独证明现实吉凶或事项结果',
+      sources: ['候选范围、逐日历法事实与月相背景'],
+    },
+    {
+      key: 'almanac:limitation:topic-gods',
+      type: '事项宜忌与神煞边界',
+      ownerFactKeys: unique([
+        ...candidateDecisionKeys,
+        ...params.candidates.flatMap((item) => [
+          item.rawTabooFact.key,
+          ...item.topicMatchFacts.map((fact) => fact.key),
+          ...item.godFacts.map((fact) => fact.key),
+        ]),
+      ]),
+      promptText:
+        '原始宜忌只保留历书列项，事项命中和神煞分类只用于当前事项比较；未列不等于适宜，命中也不等于现实必然成功或失败',
+      sources: ['原始宜忌、事项关键词命中与值日神煞事实'],
+    },
+    {
+      key: 'almanac:limitation:participants',
+      type: '参与人适配边界',
+      ownerFactKeys: unique([
+        ...candidateDecisionKeys,
+        ...params.candidates.flatMap((item) =>
+          item.participantRelationFacts.map((fact) => fact.key),
+        ),
+      ]),
+      promptText:
+        '参与人关系只核验已提供资料中的年支、日支、喜用五行与候选日时关系；没有参与人资料时不得编造个人适配结论，已有关系也不证明个人现实结果',
+      sources: ['参与人出生资料与逐日逐时关系事实'],
+    },
+    {
+      key: 'almanac:limitation:hours-grouping',
+      type: '逐时时课与分组边界',
+      ownerFactKeys: unique([
+        ...candidateDecisionKeys,
+        ...params.candidates.flatMap((item) => [
+          ...item.decisionFact.steps.map((step) => step.key),
+          ...item.usableHours.flatMap((hour) => [
+            hour.key,
+            hour.rawTabooFact.key,
+            ...hour.topicMatchFacts.map((fact) => fact.key),
+            ...hour.participantRelationFacts.map((fact) => fact.key),
+          ]),
+        ]),
+      ]),
+      promptText:
+        '逐时时课只用于候选日内比较，候选状态只按明确忌项、传统限制、参与人关系和可用时辰分组；不公开内部排序分值，不把候选等级解释为成功率、现实吉凶保证或唯一最佳日期',
+      sources: ['逐时时课事实与七步候选状态形成链'],
+    },
+    {
+      key: 'almanac:limitation:astronomy-tradition',
+      type: '天文与传统资料边界',
+      ownerFactKeys: unique([
+        ...params.candidates.flatMap((item) => [
+          item.moonPhaseFact.key,
+          ...item.traditionalFacts.map((fact) => fact.key),
+        ]),
+      ]),
+      promptText:
+        '月相只作为中国标准时间正午的天文背景，不参与候选排序；二十八宿、九星、全年方位神和彭祖百忌属于传统比较资料，不证明疾病、死亡、灾祸、官非、财损、婚姻或生育结果',
+      sources: ['逐日月相、二十八宿、九星、全年方位神与彭祖百忌事实'],
+    },
+    {
+      key: 'almanac:limitation:reality-high-risk',
+      type: '现实与高风险输出边界',
+      ownerFactKeys: unique([
+        params.summaryFact.key,
+        params.counterSummaryFact.key,
+        ...params.counterEvidenceFacts.map((item) => item.key),
+      ]),
+      promptText:
+        '候选顺序只表示当前规则集下的比较结果；现实条件未提供时只列待核验项，场地、证件、人员、交通、预算、天气、办理窗口与安全要求优先；传统冲突不合成为成功率或吉凶总分，也不得宣称某日必然适合',
+      sources: ['证据汇总、反证汇总与现实刚性约束'],
+    },
+  ];
+  return definitions.map((item) => ({
+    ...item,
+    ownerFactKeys: item.ownerFactKeys.length ? item.ownerFactKeys : [params.summaryFact.key],
+    status: '适用',
+    limitation: LIMITATION_FACT_LIMITATION,
+  }));
+}
+
 export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalysis {
   const candidates = data.days.map((day) =>
     buildCandidateEvidence(day, data.topic, data.topicLabel),
@@ -855,8 +1335,57 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
     '传统规则互相冲突时并列展示支持与限制，不合成为成功率或吉凶总分',
     '月相只作为中国标准时间正午的天文背景，不参与候选排序；其他时区或临近朔弦望时刻应按实际地点时间另算',
   ];
+  const counterEvidenceFacts = buildCounterEvidenceFacts(candidates);
+  const counterSummaryFact: AlmanacCounterSummaryFact = {
+    key: 'almanac:counter-summary',
+    status: counterEvidenceFacts.length ? '有明确反证' : '未见明确反证',
+    factKeys: counterEvidenceFacts.map((item) => item.key),
+    promptText: counterEvidenceFacts.length
+      ? `候选范围内共记录${counterEvidenceFacts.length}项明确限制，须与可用条件并列展示`
+      : '候选范围内未见明确事项忌项、参与人冲突或无可用时辰记录；不代表现实风险为零',
+    sources: ['各候选日七步状态形成链与逐时时课筛选结果'],
+    limitation: COUNTER_SUMMARY_LIMITATION,
+  };
+  const summaryFact = buildSummaryFact({
+    candidates,
+    preferredDates,
+    conditionalDates,
+    cautionDates,
+    traditionalFacts,
+    counterSummaryFact,
+    counterEvidenceFacts,
+  });
+  const calculationSteps = buildCalculationSteps({
+    data,
+    candidates,
+    preferredDates,
+    conditionalDates,
+    cautionDates,
+    hardConstraints,
+    realityConstraints,
+    summaryFact,
+  });
+  summaryFact.factKeys = unique([
+    ...calculationSteps.map((item) => item.key),
+    ...summaryFact.factKeys,
+  ]);
+  const calculationChain = calculationSteps.map((item) => item.promptText);
+  const limitationFacts = buildLimitationFacts({
+    candidates,
+    counterSummaryFact,
+    counterEvidenceFacts,
+    summaryFact,
+  });
+  const limitations = limitationFacts.map((item) => item.promptText);
   const visibleCandidates = candidates.slice(0, 8);
   const items: PromptEvidenceItem[] = [
+    {
+      level: calculationSteps.some((item) => item.status === '资料不足') ? '反证' : '辅证',
+      title: '黄历择日计算链',
+      detail: `${calculationChain.join('；')}；统一边界：${CALCULATION_STEP_LIMITATION}`,
+      source: unique(calculationSteps.flatMap((item) => item.sources)).join('、'),
+      tags: ['计算链', summaryFact.status, data.topicLabel],
+    },
     ...visibleCandidates.map((item, index): PromptEvidenceItem => ({
       level:
         item.status === '慎用候选'
@@ -870,11 +1399,24 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
       tags: [item.status, data.topicLabel],
     })),
     {
+      level: counterSummaryFact.status === '有明确反证' ? '反证' : '辅证',
+      title: '黄历候选反证汇总',
+      detail: `${counterSummaryFact.promptText}；边界：${counterSummaryFact.limitation}`,
+      source: counterSummaryFact.sources.join('、'),
+      tags: ['反证汇总', counterSummaryFact.status],
+    },
+    {
+      level: '辅证',
+      title: `黄历择日证据汇总：${summaryFact.status}`,
+      detail: `${summaryFact.promptText}；边界：${summaryFact.limitation}`,
+      source: summaryFact.sources.join('、'),
+      tags: ['证据汇总', summaryFact.status],
+    },
+    {
       level: '限制',
       title: '择日证据边界',
-      detail:
-        '候选顺序只表示当前规则集下的比较结果。不得展示内部评分作为吉凶强度，不得把高分解释成成功率，也不得在现实硬约束未知时宣称某日必然适合。',
-      source: '计算事实与解释结论分离原则',
+      detail: `${limitations.join('；')}；统一边界：${LIMITATION_FACT_LIMITATION}`,
+      source: unique(limitationFacts.flatMap((item) => item.sources)).join('、'),
     },
   ];
   const evidence: PromptEvidenceBundle = { title: '黄历择日透明约束与候选证据', items };
@@ -884,8 +1426,16 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
     `传统硬限制：${hardConstraints.join('；')}`,
     `现实约束：${realityConstraints.join('；')}`,
     `候选分组：可用${preferredDates.join('、') || '暂无'}；有条件${conditionalDates.join('、') || '暂无'}；慎用${cautionDates.join('、') || '暂无'}`,
+    `计算链：${calculationChain.join(' → ')}`,
+    `反证汇总：${counterSummaryFact.promptText}；边界：${counterSummaryFact.limitation}`,
+    `证据汇总：${summaryFact.promptText}。`,
+    `解释限制：${limitations.join('；')}。`,
   ].join('\n');
   return {
+    key: 'almanac:evidence',
+    status: '已计算',
+    calculationSteps,
+    calculationChain,
     candidates,
     preferredDates,
     conditionalDates,
@@ -893,6 +1443,11 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
     hardConstraints,
     realityConstraints,
     traditionalFacts,
+    counterEvidenceFacts,
+    counterSummaryFact,
+    limitations,
+    limitationFacts,
+    summaryFact,
     evidence,
     promptText,
     methodology: [
