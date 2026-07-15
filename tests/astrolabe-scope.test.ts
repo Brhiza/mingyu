@@ -25,6 +25,55 @@ const astrolabeData = generateAstrolabe({
   locationName: '北京',
 });
 
+type AdvancedEvidence =
+  | ReturnType<typeof calculateSolarReturnEvidence>
+  | ReturnType<typeof calculateSecondaryProgressionEvidence>
+  | ReturnType<typeof calculateSolarArcEvidence>;
+
+function assertAdvancedEvidenceReferences(evidence: AdvancedEvidence) {
+  const stepKeys = new Set(evidence.calculationSteps.map((item) => item.key));
+  const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
+  assert.deepEqual(
+    evidence.calculationChain,
+    evidence.calculationSteps.map((item) => item.promptText),
+  );
+  assert.equal(evidence.summaryFact.calculationStepCount, evidence.calculationSteps.length);
+  assert.equal(evidence.summaryFact.aspectFactCount, evidence.aspectFacts.length);
+  assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
+  assert.ok(evidence.summaryFact.factKeys.includes(evidence.aspectSummaryFact.key));
+  assert.ok(evidence.aspectSummaryFact.factKeys.every((key) => factKeys.has(key)));
+  assert.ok(
+    evidence.aspectFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+        item.ownerStepKeys.every((key) => stepKeys.has(key)) &&
+        item.ownerFactKeys.join('|') === item.ownerStepKeys.join('|'),
+    ),
+  );
+  assert.ok(
+    evidence.limitationFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+        item.ownerStepKeys.every((key) => stepKeys.has(key)) &&
+        item.ownerFactKeys.join('|') === item.ownerStepKeys.join('|'),
+    ),
+  );
+  assert.ok(
+    [
+      ...evidence.calculationSteps,
+      ...evidence.aspectFacts,
+      evidence.aspectSummaryFact,
+      evidence.summaryFact,
+      ...evidence.limitationFacts,
+    ].every((item) => item.sources.length > 0 && item.limitation.length > 0),
+  );
+  assert.match(evidence.promptText, /计算链：/);
+  assert.match(evidence.promptText, /证据汇总：/);
+  assertPromptIsPortableTaskText(evidence.promptText);
+}
+
 test('星盘本命分析对象只写入长期结构边界', () => {
   const context = buildAstrolabeScopeContext(astrolabeData, 'natal', '2028-06-01');
 
@@ -97,12 +146,17 @@ test('太阳返照应返回可复核的求根过程和精度边界', () => {
   assert.equal(evidence.calculationSteps.length, 5);
   assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
   assert.equal(evidence.aspectSummaryFact.factKeys.length, evidence.aspectFacts.length);
-  assert.ok(
-    [...evidence.calculationSteps, ...evidence.aspectFacts, ...evidence.limitationFacts].every(
-      (item) => item.sources.length > 0 && item.limitation.length > 0,
-    ),
+  assert.equal(evidence.summaryFact.status, '证据链完整');
+  assert.ok(evidence.summaryFact.factKeys.includes(evidence.timeScale?.summaryFact.key ?? ''));
+  assert.deepEqual(
+    evidence.limitationFacts.map((item) => item.ownerStepKeys),
+    [
+      [evidence.calculationSteps[1].key, evidence.calculationSteps[2].key],
+      [evidence.calculationSteps[2].key],
+      [evidence.calculationSteps[4].key],
+    ],
   );
-  assertPromptIsPortableTaskText(evidence.promptText);
+  assertAdvancedEvidenceReferences(evidence);
 });
 
 test('次限与太阳弧应返回稳定键、计算链、相位事实和限制对象', () => {
@@ -113,15 +167,31 @@ test('次限与太阳弧应返回稳定键、计算链、相位事实和限制�
   assert.equal(secondary.status, 'calculated');
   assert.equal(secondary.calculationSteps.length, 4);
   assert.equal(secondary.limitations.length, secondary.limitationFacts.length);
-  assert.ok(secondary.aspectFacts.every((item) => item.ownerStepKeys.length > 0));
-  assertPromptIsPortableTaskText(secondary.promptText);
+  assert.equal(secondary.summaryFact.status, '证据链完整');
+  assert.deepEqual(
+    secondary.limitationFacts.map((item) => item.ownerStepKeys),
+    [
+      [secondary.calculationSteps[1].key],
+      [secondary.calculationSteps[2].key],
+      [secondary.calculationSteps[3].key],
+    ],
+  );
+  assertAdvancedEvidenceReferences(secondary);
 
   assert.equal(solarArc.key, 'solar-arc:2028');
   assert.equal(solarArc.status, 'calculated');
   assert.equal(solarArc.calculationSteps.length, 5);
   assert.equal(solarArc.limitations.length, solarArc.limitationFacts.length);
-  assert.ok(solarArc.aspectFacts.every((item) => item.ownerStepKeys.length > 0));
-  assertPromptIsPortableTaskText(solarArc.promptText);
+  assert.equal(solarArc.summaryFact.status, '证据链完整');
+  assert.deepEqual(
+    solarArc.limitationFacts.map((item) => item.ownerStepKeys),
+    [
+      [solarArc.calculationSteps[1].key],
+      [solarArc.calculationSteps[2].key, solarArc.calculationSteps[3].key],
+      [solarArc.calculationSteps[4].key],
+    ],
+  );
+  assertAdvancedEvidenceReferences(solarArc);
 
   assert.throws(
     () => calculateSecondaryProgressionEvidence(astrolabeData, 2201),
@@ -132,6 +202,34 @@ test('次限与太阳弧应返回稳定键、计算链、相位事实和限制�
     () => calculateSolarReturnEvidence(astrolabeData, 2028.5),
     /目标年份需在 1900-2200/,
   );
+});
+
+test('高级时限不可用与出生前目标年应返回可追溯的缺口或不适用证据', () => {
+  const incomplete = structuredClone(astrolabeData) as AstrolabeData;
+  incomplete.birth.standardDateTime = '';
+  incomplete.birth.dateTime = '';
+
+  const unavailableEvidence = [
+    calculateSolarReturnEvidence(incomplete, 2028),
+    calculateSecondaryProgressionEvidence(incomplete, 2028),
+    calculateSolarArcEvidence(incomplete, 2028),
+  ];
+  unavailableEvidence.forEach((evidence) => {
+    assert.equal(evidence.status, 'unavailable');
+    assert.equal(evidence.summaryFact.status, '证据链有缺口');
+    assertAdvancedEvidenceReferences(evidence);
+  });
+
+  const beforeBirthEvidence = [
+    calculateSolarReturnEvidence(astrolabeData, 1990),
+    calculateSecondaryProgressionEvidence(astrolabeData, 1990),
+    calculateSolarArcEvidence(astrolabeData, 1990),
+  ];
+  beforeBirthEvidence.forEach((evidence) => {
+    assert.equal(evidence.status, 'not-applicable');
+    assert.equal(evidence.summaryFact.status, '不适用');
+    assertAdvancedEvidenceReferences(evidence);
+  });
 });
 
 test('星盘流月与流日沿用同一选择器语义并写明应期层级', () => {

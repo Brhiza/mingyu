@@ -3335,6 +3335,24 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
     detailed.body.data.result.scopeEvidence.solarReturnEvidence.limitations.length,
     detailed.body.data.result.scopeEvidence.solarReturnEvidence.limitationFacts.length,
   );
+  for (const evidence of [
+    detailed.body.data.result.scopeEvidence.solarReturnEvidence,
+    detailed.body.data.result.scopeEvidence.secondaryProgressionEvidence,
+    detailed.body.data.result.scopeEvidence.solarArcEvidence,
+  ]) {
+    assert.equal(evidence.calculationChain.length, evidence.calculationSteps.length);
+    assert.equal(evidence.summaryFact.calculationStepCount, evidence.calculationSteps.length);
+    assert.equal(evidence.summaryFact.aspectFactCount, evidence.aspectFacts.length);
+    assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
+    const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
+    assert.ok(
+      [...evidence.aspectFacts, ...evidence.limitationFacts].every(
+        (item: { ownerFactKeys: string[] }) =>
+          item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+      ),
+    );
+    assert.match(evidence.promptText, /证据汇总：/);
+  }
 });
 
 test('公开 API 西占双盘应返回跨盘相位、落宫和结构化证据', async () => {

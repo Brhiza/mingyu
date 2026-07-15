@@ -59,6 +59,7 @@ export interface AstrolabeAdvancedAspectFact {
   allowedOrb: number;
   normalizedOrbRatio: number;
   closeness: '紧密' | '中等' | '宽松';
+  ownerFactKeys: string[];
   ownerStepKeys: string[];
   promptText: string;
   sources: string[];
@@ -79,15 +80,29 @@ export interface AstrolabeAdvancedLimitationFact {
   technique: AstrolabeAdvancedTechnique;
   type: '输入完整性' | '时间映射边界' | '数值精度边界' | '星历模型边界' | '解释边界';
   status: '适用';
+  ownerFactKeys: string[];
   ownerStepKeys: string[];
   promptText: string;
   sources: string[];
   limitation: '限制事实用于约束太阳返照、次限推进和太阳弧可以支持的时间与解释范围，不得被反向当作现实事件、吉凶或固定应期证据';
 }
 
+export interface AstrolabeAdvancedSummaryFact {
+  key: string;
+  technique: AstrolabeAdvancedTechnique;
+  status: '证据链完整' | '证据链含近似' | '不适用' | '证据链有缺口';
+  factKeys: string[];
+  calculationStepCount: number;
+  aspectFactCount: number;
+  limitationFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '高级时限证据汇总只统计时间映射、位置或推进弧计算、主要相位、近似状态与限制覆盖；不得按数量、偏差或状态生成预测成功率、吉凶分数、事件概率或固定应期';
+}
+
 export type SolarReturnEvidence = {
   key: string;
-  status: 'exact' | 'approximate' | 'unavailable';
+  status: 'exact' | 'approximate' | 'not-applicable' | 'unavailable';
   targetYear: number;
   dateTime?: string;
   timezone: number;
@@ -98,8 +113,10 @@ export type SolarReturnEvidence = {
   refinementIterations: number;
   aspects: string[];
   calculationSteps: AstrolabeAdvancedCalculationStep[];
+  calculationChain: string[];
   aspectFacts: AstrolabeAdvancedAspectFact[];
   aspectSummaryFact: AstrolabeAdvancedAspectSummaryFact;
+  summaryFact: AstrolabeAdvancedSummaryFact;
   source: string;
   limitations: string[];
   limitationFacts: AstrolabeAdvancedLimitationFact[];
@@ -115,8 +132,10 @@ export interface SecondaryProgressionEvidence {
   progressedDateTime?: string;
   aspects: string[];
   calculationSteps: AstrolabeAdvancedCalculationStep[];
+  calculationChain: string[];
   aspectFacts: AstrolabeAdvancedAspectFact[];
   aspectSummaryFact: AstrolabeAdvancedAspectSummaryFact;
+  summaryFact: AstrolabeAdvancedSummaryFact;
   source: string;
   limitations: string[];
   limitationFacts: AstrolabeAdvancedLimitationFact[];
@@ -132,8 +151,10 @@ export interface SolarArcEvidence {
   arcDegrees?: number;
   aspects: string[];
   calculationSteps: AstrolabeAdvancedCalculationStep[];
+  calculationChain: string[];
   aspectFacts: AstrolabeAdvancedAspectFact[];
   aspectSummaryFact: AstrolabeAdvancedAspectSummaryFact;
+  summaryFact: AstrolabeAdvancedSummaryFact;
   source: string;
   limitations: string[];
   limitationFacts: AstrolabeAdvancedLimitationFact[];
@@ -148,6 +169,8 @@ const ADVANCED_SUMMARY_LIMITATION =
   '高级时限相位汇总只说明当前筛选范围内是否列出主要几何相位；未见不等于没有其他弱相位，有相位也不等于现实事件必然发生' as const;
 const ADVANCED_LIMITATION_FACT_LIMITATION =
   '限制事实用于约束太阳返照、次限推进和太阳弧可以支持的时间与解释范围，不得被反向当作现实事件、吉凶或固定应期证据' as const;
+const ADVANCED_EVIDENCE_SUMMARY_LIMITATION =
+  '高级时限证据汇总只统计时间映射、位置或推进弧计算、主要相位、近似状态与限制覆盖；不得按数量、偏差或状态生成预测成功率、吉凶分数、事件概率或固定应期' as const;
 
 const SCOPE_LABEL_MAP: Record<AstrolabeScopeMode, string> = {
   natal: '本命',
@@ -541,6 +564,7 @@ function buildAdvancedAspectFacts(
             allowedOrb: aspect.orb,
             normalizedOrbRatio: Number(normalizedOrbRatio.toFixed(6)),
             closeness,
+            ownerFactKeys: [ownerStepKey],
             ownerStepKeys: [ownerStepKey],
             promptText: `${movingLabel}${aspect.name}${natalLabel}（实际夹角${aspect.actualAngle.toFixed(2)}°，精确角${aspect.angle}°，偏差${aspect.deviation.toFixed(2)}°，允许容许度${aspect.orb}°，${closeness}）`,
             sources: ['celestine 推进或返照位置', '主要相位精确角与容许度表'],
@@ -580,29 +604,75 @@ function buildAdvancedLimitationFacts(
   technique: AstrolabeAdvancedTechnique,
   limitations: string[],
   types: AstrolabeAdvancedLimitationFact['type'][],
-  ownerStepKeys: string[],
+  ownerStepKeys: string[] | string[][],
 ): AstrolabeAdvancedLimitationFact[] {
   const techniqueKey = advancedTechniqueKey(technique);
-  return limitations.map((promptText, index) => ({
-    key: `${techniqueKey}:limitation:${index + 1}`,
-    technique,
-    type: types[index] ?? '解释边界',
-    status: '适用',
-    ownerStepKeys,
-    promptText,
-    sources: [
-      types[index] === '输入完整性'
-        ? '出生资料与本命位置完整性核验'
-        : types[index] === '时间映射边界'
-          ? '高级时限时间映射规则'
-          : types[index] === '数值精度边界'
-            ? '数值搜索与取样精度说明'
-            : types[index] === '星历模型边界'
-              ? 'celestine 星历模型'
-              : '高级时限几何解释边界',
-    ],
-    limitation: ADVANCED_LIMITATION_FACT_LIMITATION,
-  }));
+  return limitations.map((promptText, index) => {
+    const keys = Array.isArray(ownerStepKeys[0])
+      ? ((ownerStepKeys as string[][])[index] ?? [])
+      : (ownerStepKeys as string[]);
+    return {
+      key: `${techniqueKey}:limitation:${index + 1}`,
+      technique,
+      type: types[index] ?? '解释边界',
+      status: '适用' as const,
+      ownerFactKeys: [...keys],
+      ownerStepKeys: [...keys],
+      promptText,
+      sources: [
+        types[index] === '输入完整性'
+          ? '出生资料与本命位置完整性核验'
+          : types[index] === '时间映射边界'
+            ? '高级时限时间映射规则'
+            : types[index] === '数值精度边界'
+              ? '数值搜索与取样精度说明'
+              : types[index] === '星历模型边界'
+                ? 'celestine 星历模型'
+                : '高级时限几何解释边界',
+      ],
+      limitation: ADVANCED_LIMITATION_FACT_LIMITATION,
+    };
+  });
+}
+
+function buildAdvancedEvidenceSummaryFact(args: {
+  technique: AstrolabeAdvancedTechnique;
+  evidenceStatus: SolarReturnEvidence['status'] | SecondaryProgressionEvidence['status'];
+  calculationSteps: AstrolabeAdvancedCalculationStep[];
+  aspectFacts: AstrolabeAdvancedAspectFact[];
+  aspectSummaryFact: AstrolabeAdvancedAspectSummaryFact;
+  limitationFacts: AstrolabeAdvancedLimitationFact[];
+  additionalFactKeys?: string[];
+}): AstrolabeAdvancedSummaryFact {
+  const techniqueKey = advancedTechniqueKey(args.technique);
+  const status: AstrolabeAdvancedSummaryFact['status'] =
+    args.evidenceStatus === 'exact' || args.evidenceStatus === 'calculated'
+      ? '证据链完整'
+      : args.evidenceStatus === 'approximate'
+        ? '证据链含近似'
+        : args.evidenceStatus === 'not-applicable'
+          ? '不适用'
+          : '证据链有缺口';
+  return {
+    key: `${techniqueKey}:evidence-summary`,
+    technique: args.technique,
+    status,
+    factKeys: Array.from(
+      new Set([
+        ...args.calculationSteps.map((item) => item.key),
+        ...args.aspectFacts.map((item) => item.key),
+        args.aspectSummaryFact.key,
+        ...args.limitationFacts.map((item) => item.key),
+        ...(args.additionalFactKeys ?? []),
+      ]),
+    ),
+    calculationStepCount: args.calculationSteps.length,
+    aspectFactCount: args.aspectFacts.length,
+    limitationFactCount: args.limitationFacts.length,
+    promptText: `${args.technique}证据状态为${status}；记录计算步骤${args.calculationSteps.length}项、主要相位${args.aspectFacts.length}项、限制${args.limitationFacts.length}项`,
+    sources: [`${args.technique}时间映射、位置计算、相位筛选与限制事实汇总`],
+    limitation: ADVANCED_EVIDENCE_SUMMARY_LIMITATION,
+  };
 }
 
 function assertAdvancedTargetYear(targetYear: number) {
@@ -637,23 +707,35 @@ export function calculateSecondaryProgressionEvidence(
       },
     ];
     const aspectFacts: AstrolabeAdvancedAspectFact[] = [];
+    const aspectSummaryFact = buildAdvancedAspectSummaryFact(technique, aspectFacts, true);
+    const limitationFacts = buildAdvancedLimitationFacts(
+      technique,
+      baseLimitations,
+      ['输入完整性'],
+      [calculationSteps[0].key],
+    );
+    const summaryFact = buildAdvancedEvidenceSummaryFact({
+      technique,
+      evidenceStatus: 'unavailable',
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact,
+      limitationFacts,
+    });
     return {
       key: `${techniqueKey}:${targetYear}`,
       status: 'unavailable',
       targetYear,
       aspects: [],
       calculationSteps,
+      calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
-      aspectSummaryFact: buildAdvancedAspectSummaryFact(technique, aspectFacts, true),
+      aspectSummaryFact,
+      summaryFact,
       source,
       limitations: baseLimitations,
-      limitationFacts: buildAdvancedLimitationFacts(
-        technique,
-        baseLimitations,
-        ['输入完整性'],
-        [calculationSteps[0].key],
-      ),
-      promptText: `次限证据：${baseLimitations[0]}`,
+      limitationFacts,
+      promptText: `次限证据：${baseLimitations[0]}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。相位汇总：${aspectSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。限制：${baseLimitations.join('；')}`,
     };
   }
   const age = targetYear - birth.year;
@@ -674,6 +756,21 @@ export function calculateSecondaryProgressionEvidence(
       },
     ];
     const aspectFacts: AstrolabeAdvancedAspectFact[] = [];
+    const aspectSummaryFact = buildAdvancedAspectSummaryFact(technique, aspectFacts, true);
+    const limitationFacts = buildAdvancedLimitationFacts(
+      technique,
+      limitations,
+      ['时间映射边界'],
+      [calculationSteps[0].key],
+    );
+    const summaryFact = buildAdvancedEvidenceSummaryFact({
+      technique,
+      evidenceStatus: 'not-applicable',
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact,
+      limitationFacts,
+    });
     return {
       key: `${techniqueKey}:${targetYear}`,
       status: 'not-applicable',
@@ -681,17 +778,14 @@ export function calculateSecondaryProgressionEvidence(
       age,
       aspects: [],
       calculationSteps,
+      calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
-      aspectSummaryFact: buildAdvancedAspectSummaryFact(technique, aspectFacts, true),
+      aspectSummaryFact,
+      summaryFact,
       source,
       limitations,
-      limitationFacts: buildAdvancedLimitationFacts(
-        technique,
-        limitations,
-        ['输入完整性'],
-        [calculationSteps[0].key],
-      ),
-      promptText: `次限证据：${limitations[0]}`,
+      limitationFacts,
+      promptText: `次限证据：${limitations[0]}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。相位汇总：${aspectSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。限制：${limitations.join('；')}`,
     };
   }
   const progressedDate = new Date(
@@ -776,8 +870,16 @@ export function calculateSecondaryProgressionEvidence(
       technique,
       limitations,
       ['时间映射边界', '星历模型边界', '解释边界'],
-      [dateStepKey, positionStepKey, aspectStepKey],
+      [[dateStepKey], [positionStepKey], [aspectStepKey]],
     );
+    const summaryFact = buildAdvancedEvidenceSummaryFact({
+      technique,
+      evidenceStatus: 'calculated',
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact,
+      limitationFacts,
+    });
     const aspects = aspectFacts.map((item) => item.promptText);
     return {
       key: `${techniqueKey}:${targetYear}`,
@@ -787,12 +889,14 @@ export function calculateSecondaryProgressionEvidence(
       progressedDateTime: progressedDate.toISOString(),
       aspects,
       calculationSteps,
+      calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
       aspectSummaryFact,
+      summaryFact,
       source,
       limitations,
       limitationFacts,
-      promptText: `次限证据（一岁一日）：目标年约${age}岁，推进盘取出生后第${age}日（${progressedDate.toISOString()}）；${aspects.join('；') || '未见容许度内的主要次限触发'}。汇总：${aspectSummaryFact.promptText}。来源：${source}。限制：${limitations.join('；')}`,
+      promptText: `次限证据（一岁一日）：目标年约${age}岁，推进盘取出生后第${age}日（${progressedDate.toISOString()}）；${aspects.join('；') || '未见容许度内的主要次限触发'}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。相位汇总：${aspectSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。来源：${source}。限制：${limitations.join('；')}`,
     };
   } catch {
     const limitations = ['次限计算失败，不作为本次判断依据。'];
@@ -811,6 +915,21 @@ export function calculateSecondaryProgressionEvidence(
       },
     ];
     const aspectFacts: AstrolabeAdvancedAspectFact[] = [];
+    const aspectSummaryFact = buildAdvancedAspectSummaryFact(technique, aspectFacts, true);
+    const limitationFacts = buildAdvancedLimitationFacts(
+      technique,
+      limitations,
+      ['星历模型边界'],
+      [calculationSteps[0].key],
+    );
+    const summaryFact = buildAdvancedEvidenceSummaryFact({
+      technique,
+      evidenceStatus: 'unavailable',
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact,
+      limitationFacts,
+    });
     return {
       key: `${techniqueKey}:${targetYear}`,
       status: 'unavailable',
@@ -818,17 +937,14 @@ export function calculateSecondaryProgressionEvidence(
       age,
       aspects: [],
       calculationSteps,
+      calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
-      aspectSummaryFact: buildAdvancedAspectSummaryFact(technique, aspectFacts, true),
+      aspectSummaryFact,
+      summaryFact,
       source,
       limitations,
-      limitationFacts: buildAdvancedLimitationFacts(
-        technique,
-        limitations,
-        ['星历模型边界'],
-        [calculationSteps[0].key],
-      ),
-      promptText: `次限证据：${limitations[0]}`,
+      limitationFacts,
+      promptText: `次限证据：${limitations[0]}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。相位汇总：${aspectSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。限制：${limitations.join('；')}`,
     };
   }
 }
@@ -860,23 +976,35 @@ export function calculateSolarArcEvidence(
       },
     ];
     const aspectFacts: AstrolabeAdvancedAspectFact[] = [];
+    const aspectSummaryFact = buildAdvancedAspectSummaryFact(technique, aspectFacts, true);
+    const limitationFacts = buildAdvancedLimitationFacts(
+      technique,
+      limitations,
+      ['输入完整性'],
+      [calculationSteps[0].key],
+    );
+    const summaryFact = buildAdvancedEvidenceSummaryFact({
+      technique,
+      evidenceStatus: 'unavailable',
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact,
+      limitationFacts,
+    });
     return {
       key: `${techniqueKey}:${targetYear}`,
       status: 'unavailable',
       targetYear,
       aspects: [],
       calculationSteps,
+      calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
-      aspectSummaryFact: buildAdvancedAspectSummaryFact(technique, aspectFacts, true),
+      aspectSummaryFact,
+      summaryFact,
       source,
       limitations,
-      limitationFacts: buildAdvancedLimitationFacts(
-        technique,
-        limitations,
-        ['输入完整性'],
-        [calculationSteps[0].key],
-      ),
-      promptText: `太阳弧证据：${limitations[0]}`,
+      limitationFacts,
+      promptText: `太阳弧证据：${limitations[0]}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。相位汇总：${aspectSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。限制：${limitations.join('；')}`,
     };
   }
   const age = targetYear - birth.year;
@@ -897,6 +1025,21 @@ export function calculateSolarArcEvidence(
       },
     ];
     const aspectFacts: AstrolabeAdvancedAspectFact[] = [];
+    const aspectSummaryFact = buildAdvancedAspectSummaryFact(technique, aspectFacts, true);
+    const limitationFacts = buildAdvancedLimitationFacts(
+      technique,
+      limitations,
+      ['时间映射边界'],
+      [calculationSteps[0].key],
+    );
+    const summaryFact = buildAdvancedEvidenceSummaryFact({
+      technique,
+      evidenceStatus: 'not-applicable',
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact,
+      limitationFacts,
+    });
     return {
       key: `${techniqueKey}:${targetYear}`,
       status: 'not-applicable',
@@ -904,17 +1047,14 @@ export function calculateSolarArcEvidence(
       age,
       aspects: [],
       calculationSteps,
+      calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
-      aspectSummaryFact: buildAdvancedAspectSummaryFact(technique, aspectFacts, true),
+      aspectSummaryFact,
+      summaryFact,
       source,
       limitations,
-      limitationFacts: buildAdvancedLimitationFacts(
-        technique,
-        limitations,
-        ['输入完整性'],
-        [calculationSteps[0].key],
-      ),
-      promptText: `太阳弧证据：${limitations[0]}`,
+      limitationFacts,
+      promptText: `太阳弧证据：${limitations[0]}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。相位汇总：${aspectSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。限制：${limitations.join('；')}`,
     };
   }
   const progressedDate = new Date(
@@ -1022,8 +1162,16 @@ export function calculateSolarArcEvidence(
       technique,
       limitations,
       ['时间映射边界', '星历模型边界', '解释边界'],
-      [dateStepKey, arcStepKey, aspectStepKey],
+      [[dateStepKey], [arcStepKey, directStepKey], [aspectStepKey]],
     );
+    const summaryFact = buildAdvancedEvidenceSummaryFact({
+      technique,
+      evidenceStatus: 'calculated',
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact,
+      limitationFacts,
+    });
     const aspects = aspectFacts.map((item) => item.promptText);
     return {
       key: `${techniqueKey}:${targetYear}`,
@@ -1034,12 +1182,14 @@ export function calculateSolarArcEvidence(
       arcDegrees: Number(arc.toFixed(6)),
       aspects,
       calculationSteps,
+      calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
       aspectSummaryFact,
+      summaryFact,
       source,
       limitations,
       limitationFacts,
-      promptText: `太阳弧证据：推进弧约${arc.toFixed(2)}°；${aspects.join('；') || '未见容许度内的主要太阳弧触发'}。汇总：${aspectSummaryFact.promptText}。来源：${source}。限制：${limitations.join('；')}`,
+      promptText: `太阳弧证据：推进弧约${arc.toFixed(2)}°；${aspects.join('；') || '未见容许度内的主要太阳弧触发'}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。相位汇总：${aspectSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。来源：${source}。限制：${limitations.join('；')}`,
     };
   } catch {
     const limitations = ['太阳弧计算失败，不作为本次判断依据。'];
@@ -1058,23 +1208,35 @@ export function calculateSolarArcEvidence(
       },
     ];
     const aspectFacts: AstrolabeAdvancedAspectFact[] = [];
+    const aspectSummaryFact = buildAdvancedAspectSummaryFact(technique, aspectFacts, true);
+    const limitationFacts = buildAdvancedLimitationFacts(
+      technique,
+      limitations,
+      ['星历模型边界'],
+      [calculationSteps[0].key],
+    );
+    const summaryFact = buildAdvancedEvidenceSummaryFact({
+      technique,
+      evidenceStatus: 'unavailable',
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact,
+      limitationFacts,
+    });
     return {
       key: `${techniqueKey}:${targetYear}`,
       status: 'unavailable',
       targetYear,
       aspects: [],
       calculationSteps,
+      calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
-      aspectSummaryFact: buildAdvancedAspectSummaryFact(technique, aspectFacts, true),
+      aspectSummaryFact,
+      summaryFact,
       source,
       limitations,
-      limitationFacts: buildAdvancedLimitationFacts(
-        technique,
-        limitations,
-        ['星历模型边界'],
-        [calculationSteps[0].key],
-      ),
-      promptText: `太阳弧证据：${limitations[0]}`,
+      limitationFacts,
+      promptText: `太阳弧证据：${limitations[0]}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。相位汇总：${aspectSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。限制：${limitations.join('；')}`,
     };
   }
 }
@@ -1118,6 +1280,13 @@ export function calculateSolarReturnEvidence(
     message: string,
     stage: AstrolabeAdvancedCalculationStep['stage'],
     sources: string[],
+    evidenceStatus: Extract<
+      SolarReturnEvidence['status'],
+      'not-applicable' | 'unavailable'
+    > = 'unavailable',
+    limitationType: AstrolabeAdvancedLimitationFact['type'] = stage === '输入核验'
+      ? '输入完整性'
+      : '星历模型边界',
   ): SolarReturnEvidence => {
     const calculationSteps: AstrolabeAdvancedCalculationStep[] = [
       {
@@ -1135,27 +1304,48 @@ export function calculateSolarReturnEvidence(
     ];
     const aspectFacts: AstrolabeAdvancedAspectFact[] = [];
     const limitations = [message];
-    return {
-      ...baseEvidence,
-      status: 'unavailable',
-      aspects: [],
+    const aspectSummaryFact = buildAdvancedAspectSummaryFact(technique, aspectFacts, true);
+    const limitationFacts = buildAdvancedLimitationFacts(
+      technique,
+      limitations,
+      [limitationType],
+      [calculationSteps[0].key],
+    );
+    const summaryFact = buildAdvancedEvidenceSummaryFact({
+      technique,
+      evidenceStatus,
       calculationSteps,
       aspectFacts,
-      aspectSummaryFact: buildAdvancedAspectSummaryFact(technique, aspectFacts, true),
+      aspectSummaryFact,
+      limitationFacts,
+    });
+    return {
+      ...baseEvidence,
+      status: evidenceStatus,
+      aspects: [],
+      calculationSteps,
+      calculationChain: calculationSteps.map((item) => item.promptText),
+      aspectFacts,
+      aspectSummaryFact,
+      summaryFact,
       limitations,
-      limitationFacts: buildAdvancedLimitationFacts(
-        technique,
-        limitations,
-        [stage === '输入核验' ? '输入完整性' : '星历模型边界'],
-        [calculationSteps[0].key],
-      ),
-      promptText: `太阳返照证据：${message}`,
+      limitationFacts,
+      promptText: `太阳返照证据：${message}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。相位汇总：${aspectSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。限制：${limitations.join('；')}`,
     };
   };
   if (!birth || !natalSun) {
     return unavailableEvidence('出生时间或本命太阳经度资料不足，无法计算太阳返照。', '输入核验', [
       '出生时间与本命太阳位置',
     ]);
+  }
+  if (targetYear < birth.year) {
+    return unavailableEvidence(
+      `目标年${targetYear}早于出生年${birth.year}，太阳返照不适用。`,
+      '输入核验',
+      ['出生年与目标年比较'],
+      'not-applicable',
+      '时间映射边界',
+    );
   }
   const maxDay = daysInAstrolabeScopeMonth(targetYear, birth.month);
   const centerDay = Math.min(birth.day, maxDay);
@@ -1342,8 +1532,19 @@ export function calculateSolarReturnEvidence(
       bracket
         ? ['时间映射边界', '数值精度边界', '解释边界']
         : ['数值精度边界', '星历模型边界', '解释边界'],
-      [coarseStepKey, refineStepKey, positionStepKey, aspectStepKey],
+      bracket
+        ? [[coarseStepKey, refineStepKey], [refineStepKey], [aspectStepKey]]
+        : [[coarseStepKey, refineStepKey], [positionStepKey], [aspectStepKey]],
     );
+    const summaryFact = buildAdvancedEvidenceSummaryFact({
+      technique,
+      evidenceStatus: bracket ? 'exact' : 'approximate',
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact,
+      limitationFacts,
+      additionalFactKeys: [timeScale.key, timeScale.summaryFact.key],
+    });
     const precision = bracket
       ? `粗搜步长${baseEvidence.coarseStepHours}小时、二分细化至${baseEvidence.refinementToleranceMinutes}分钟内，共${iterations}次迭代`
       : `仅取得${baseEvidence.coarseStepHours}小时步长的近似取样点`;
@@ -1356,12 +1557,14 @@ export function calculateSolarReturnEvidence(
       refinementIterations: iterations,
       aspects,
       calculationSteps,
+      calculationChain: calculationSteps.map((item) => item.promptText),
       aspectFacts,
       aspectSummaryFact,
+      summaryFact,
       timeScale,
       limitations,
       limitationFacts,
-      promptText: `太阳返照证据：返照当地钟表时刻${dateTime}（UTC${baseEvidence.timezone >= 0 ? '+' : ''}${baseEvidence.timezone}，太阳黄经残差${residualDegrees.toFixed(4)}°）；${timeScale.promptText}；计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}；搜索方法：${precision}；相位汇总：${aspectSummaryFact.promptText}；来源：${baseEvidence.source}；精度边界：${limitations.join('；')}；${aspects.join('；') || '未见容许度内的主要返照对本命触发'}。`,
+      promptText: `太阳返照证据：返照当地钟表时刻${dateTime}（UTC${baseEvidence.timezone >= 0 ? '+' : ''}${baseEvidence.timezone}，太阳黄经残差${residualDegrees.toFixed(4)}°）；${timeScale.promptText}；计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}；搜索方法：${precision}；相位汇总：${aspectSummaryFact.promptText}；证据汇总：${summaryFact.promptText}；来源：${baseEvidence.source}；精度边界：${limitations.join('；')}；${aspects.join('；') || '未见容许度内的主要返照对本命触发'}。`,
     };
   } catch {
     return unavailableEvidence('太阳返照计算失败，不作为本次判断依据。', '位置计算', [

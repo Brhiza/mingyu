@@ -1802,11 +1802,50 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
             scope: string;
             solarReturnEvidence?: {
               key: string;
-              limitationFacts: unknown[];
+              calculationSteps: unknown[];
+              calculationChain: string[];
+              aspectFacts: Array<{ ownerFactKeys: string[] }>;
+              summaryFact: {
+                key: string;
+                factKeys: string[];
+                calculationStepCount: number;
+                aspectFactCount: number;
+                limitationFactCount: number;
+              };
+              limitationFacts: Array<{ ownerFactKeys: string[] }>;
               limitations: string[];
+              promptText: string;
             };
-            secondaryProgressionEvidence?: { key: string };
-            solarArcEvidence?: { key: string };
+            secondaryProgressionEvidence?: {
+              key: string;
+              calculationSteps: unknown[];
+              calculationChain: string[];
+              aspectFacts: Array<{ ownerFactKeys: string[] }>;
+              summaryFact: {
+                key: string;
+                factKeys: string[];
+                calculationStepCount: number;
+                aspectFactCount: number;
+                limitationFactCount: number;
+              };
+              limitationFacts: Array<{ ownerFactKeys: string[] }>;
+              promptText: string;
+            };
+            solarArcEvidence?: {
+              key: string;
+              calculationSteps: unknown[];
+              calculationChain: string[];
+              aspectFacts: Array<{ ownerFactKeys: string[] }>;
+              summaryFact: {
+                key: string;
+                factKeys: string[];
+                calculationStepCount: number;
+                aspectFactCount: number;
+                limitationFactCount: number;
+              };
+              limitationFacts: Array<{ ownerFactKeys: string[] }>;
+              promptText: string;
+            };
           };
         };
       }
@@ -1819,6 +1858,25 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
       scopeEvidence?.solarReturnEvidence?.limitations.length,
       scopeEvidence?.solarReturnEvidence?.limitationFacts.length,
     );
+    for (const evidence of [
+      scopeEvidence?.solarReturnEvidence,
+      scopeEvidence?.secondaryProgressionEvidence,
+      scopeEvidence?.solarArcEvidence,
+    ]) {
+      assert.ok(evidence);
+      assert.equal(evidence.calculationChain.length, evidence.calculationSteps.length);
+      assert.equal(evidence.summaryFact.calculationStepCount, evidence.calculationSteps.length);
+      assert.equal(evidence.summaryFact.aspectFactCount, evidence.aspectFacts.length);
+      assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
+      const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
+      assert.ok(
+        [...evidence.aspectFacts, ...evidence.limitationFacts].every(
+          (item) =>
+            item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+        ),
+      );
+      assert.match(evidence.promptText, /证据汇总：/);
+    }
   });
 });
 
