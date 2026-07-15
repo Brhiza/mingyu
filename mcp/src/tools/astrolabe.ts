@@ -153,6 +153,29 @@ function buildAstrolabePromptScopeText(
   return buildAstrolabeScopeContext(result, scope, args.astrolabeScopeDate ?? '').promptText;
 }
 
+function buildAstrolabeScopeEvidence(
+  args: z.infer<typeof astrolabePromptSchema>,
+  result: AstrolabeData,
+) {
+  const customText = args.astrolabeScopeText?.trim();
+  if (customText) return { scope: 'custom' as const, promptText: customText };
+
+  const scope = args.astrolabeScope ?? 'natal';
+  if (scope === 'full') {
+    return {
+      scope: 'full' as const,
+      contexts: {
+        natal: buildAstrolabeScopeContext(result, 'natal', ''),
+        yearly: buildAstrolabeScopeContext(result, 'yearly', ''),
+        monthly: buildAstrolabeScopeContext(result, 'monthly', ''),
+        daily: buildAstrolabeScopeContext(result, 'daily', ''),
+      },
+    };
+  }
+
+  return buildAstrolabeScopeContext(result, scope, args.astrolabeScopeDate ?? '');
+}
+
 export function registerAstrolabeTool(server: McpServer) {
   server.registerTool(
     'divine_astrolabe',
@@ -186,7 +209,7 @@ export function registerAstrolabeTool(server: McpServer) {
       try {
         const result = buildAstrolabeResult(args);
         return createStructuredToolResult({
-          result,
+          result: { ...result, scopeEvidence: buildAstrolabeScopeEvidence(args, result) },
           prompt: buildCommonDivinationPrompt('astrolabe', args.question, result, args.promptMode, {
             astrolabeTopic: args.astrolabeTopic,
             astrolabeScopeText: buildAstrolabePromptScopeText(args, result),

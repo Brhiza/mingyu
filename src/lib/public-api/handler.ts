@@ -2296,6 +2296,33 @@ function buildAstrolabePromptScopeText(input: JsonRecord, data: AstrolabeData) {
   return buildAstrolabeScopeContext(data, scope, dateStr).promptText;
 }
 
+function buildAstrolabeScopeEvidence(input: JsonRecord, data: AstrolabeData) {
+  const customText = readString(input, 'astrolabeScopeText', '').trim();
+  if (customText) {
+    return { scope: 'custom' as const, promptText: customText };
+  }
+
+  const scope = readEnum(
+    input,
+    'astrolabeScope',
+    ASTROLABE_PROMPT_SCOPES,
+    'natal',
+  ) as (typeof ASTROLABE_PROMPT_SCOPES)[number];
+  if (scope === 'full') {
+    return {
+      scope: 'full' as const,
+      contexts: {
+        natal: buildAstrolabeScopeContext(data, 'natal', ''),
+        yearly: buildAstrolabeScopeContext(data, 'yearly', ''),
+        monthly: buildAstrolabeScopeContext(data, 'monthly', ''),
+        daily: buildAstrolabeScopeContext(data, 'daily', ''),
+      },
+    };
+  }
+
+  return buildAstrolabeScopeContext(data, scope, readString(input, 'astrolabeScopeDate', ''));
+}
+
 function buildDivinationPromptResult(
   method: Exclude<DivinationMethodId, 'random'>,
   input: JsonRecord,
@@ -2312,7 +2339,12 @@ function buildDivinationPromptResult(
       ? shapeAlmanacResult(rawData as AlmanacData, input)
       : method === 'ssgw'
         ? shapePublicSsgwResult(rawData as ReturnType<typeof drawRandomSign>)
-        : rawData;
+        : method === 'astrolabe'
+          ? {
+              ...(rawData as AstrolabeData),
+              scopeEvidence: buildAstrolabeScopeEvidence(input, rawData as AstrolabeData),
+            }
+          : rawData;
   const summary = getDivinationSummaryBlocks(method, promptData);
   const prompt = buildDivinationPromptText(method, question, promptData, input);
 

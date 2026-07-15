@@ -2698,6 +2698,42 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
   assert.match(body.data.prompt, /分析对象：流月\d{4}-\d{2}。/);
   assert.match(body.data.prompt, /分析对象：流日\d{4}-\d{2}-\d{2}。/);
   assertPromptIsPortableTaskText(body.data.prompt);
+
+  const detailed = await callApi('divination/astrolabe/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: '本人',
+      gender: '女',
+      year: 1995,
+      month: 5,
+      day: 20,
+      hour: 12,
+      minute: 30,
+      latitude: 39.9042,
+      longitude: 116.4074,
+      timezone: 8,
+      question: '请看2028年的阶段重点。',
+      astrolabeScope: 'yearly',
+      astrolabeScopeDate: '2028',
+      responseMode: 'full',
+    }),
+  });
+  assert.equal(detailed.response.status, 200);
+  assert.equal(detailed.body.data.result.scopeEvidence.scope, 'yearly');
+  assert.equal(
+    detailed.body.data.result.scopeEvidence.solarReturnEvidence.key,
+    'solar-return:2028',
+  );
+  assert.equal(
+    detailed.body.data.result.scopeEvidence.secondaryProgressionEvidence.key,
+    'secondary-progression:2028',
+  );
+  assert.equal(detailed.body.data.result.scopeEvidence.solarArcEvidence.key, 'solar-arc:2028');
+  assert.equal(
+    detailed.body.data.result.scopeEvidence.solarReturnEvidence.limitations.length,
+    detailed.body.data.result.scopeEvidence.solarReturnEvidence.limitationFacts.length,
+  );
 });
 
 test('公开 API 西占双盘应返回跨盘相位、落宫和结构化证据', async () => {

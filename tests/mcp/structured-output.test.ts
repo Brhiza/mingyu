@@ -1128,6 +1128,49 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
       /【分析对象】已经给出本命、流年、流月或流日范围时，必须以该范围作为本次回答主范围/,
     );
     assertPromptIsPortableTaskText(prompt);
+
+    const yearlyResult = await client.callTool({
+      name: 'astrolabe_prompt',
+      arguments: {
+        name: '本人',
+        gender: '女',
+        year: 1995,
+        month: 5,
+        day: 20,
+        hour: 12,
+        minute: 30,
+        latitude: 39.9042,
+        longitude: 116.4074,
+        timezone: 8,
+        question: '请看2028年的阶段重点。',
+        astrolabeScope: 'yearly',
+        astrolabeScopeDate: '2028',
+      },
+    });
+    const scopeEvidence = (
+      yearlyResult.structuredContent as {
+        result?: {
+          scopeEvidence?: {
+            scope: string;
+            solarReturnEvidence?: {
+              key: string;
+              limitationFacts: unknown[];
+              limitations: string[];
+            };
+            secondaryProgressionEvidence?: { key: string };
+            solarArcEvidence?: { key: string };
+          };
+        };
+      }
+    ).result?.scopeEvidence;
+    assert.equal(scopeEvidence?.scope, 'yearly');
+    assert.equal(scopeEvidence?.solarReturnEvidence?.key, 'solar-return:2028');
+    assert.equal(scopeEvidence?.secondaryProgressionEvidence?.key, 'secondary-progression:2028');
+    assert.equal(scopeEvidence?.solarArcEvidence?.key, 'solar-arc:2028');
+    assert.equal(
+      scopeEvidence?.solarReturnEvidence?.limitations.length,
+      scopeEvidence?.solarReturnEvidence?.limitationFacts.length,
+    );
   });
 });
 

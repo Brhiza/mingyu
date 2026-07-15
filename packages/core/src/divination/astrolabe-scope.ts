@@ -26,9 +26,67 @@ export type AstrolabeScopeContext = {
   displayText: string;
   displayLabel: string;
   promptText: string;
+  solarReturnEvidence?: SolarReturnEvidence;
+  secondaryProgressionEvidence?: SecondaryProgressionEvidence;
+  solarArcEvidence?: SolarArcEvidence;
 };
 
+export type AstrolabeAdvancedTechnique = '太阳返照' | '次限推进' | '太阳弧';
+
+export interface AstrolabeAdvancedCalculationStep {
+  key: string;
+  technique: AstrolabeAdvancedTechnique;
+  stage: '输入核验' | '时间映射' | '粗略搜索' | '数值细化' | '位置计算' | '推进弧计算' | '相位筛选';
+  status: '已计算' | '近似' | '不可用';
+  dependsOnStepKeys: string[];
+  inputs: Record<string, string | number | boolean>;
+  result: Record<string, string | number | boolean>;
+  promptText: string;
+  sources: string[];
+  limitation: '高级时限步骤只证明太阳返照、次限推进或太阳弧的时间映射、位置计算与相位筛选如何形成；不得把数值精度解释为事件必然性或预测成功率';
+}
+
+export interface AstrolabeAdvancedAspectFact {
+  key: string;
+  technique: AstrolabeAdvancedTechnique;
+  status: '命中容许度';
+  movingPoint: string;
+  natalPoint: string;
+  aspectName: string;
+  actualAngle: number;
+  exactAngle: number;
+  deviation: number;
+  allowedOrb: number;
+  normalizedOrbRatio: number;
+  closeness: '紧密' | '中等' | '宽松';
+  ownerStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '高级时限相位只描述推进点或返照点与本命点在设定容许度内的几何关系；偏差、紧密等级和数量不代表事件概率、吉凶比例或必然结果';
+}
+
+export interface AstrolabeAdvancedAspectSummaryFact {
+  key: string;
+  status: '有主要相位' | '未见主要相位' | '无法计算';
+  factKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '高级时限相位汇总只说明当前筛选范围内是否列出主要几何相位；未见不等于没有其他弱相位，有相位也不等于现实事件必然发生';
+}
+
+export interface AstrolabeAdvancedLimitationFact {
+  key: string;
+  technique: AstrolabeAdvancedTechnique;
+  type: '输入完整性' | '时间映射边界' | '数值精度边界' | '星历模型边界' | '解释边界';
+  status: '适用';
+  ownerStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束太阳返照、次限推进和太阳弧可以支持的时间与解释范围，不得被反向当作现实事件、吉凶或固定应期证据';
+}
+
 export type SolarReturnEvidence = {
+  key: string;
   status: 'exact' | 'approximate' | 'unavailable';
   targetYear: number;
   dateTime?: string;
@@ -39,10 +97,57 @@ export type SolarReturnEvidence = {
   refinementToleranceMinutes: number;
   refinementIterations: number;
   aspects: string[];
+  calculationSteps: AstrolabeAdvancedCalculationStep[];
+  aspectFacts: AstrolabeAdvancedAspectFact[];
+  aspectSummaryFact: AstrolabeAdvancedAspectSummaryFact;
   source: string;
   limitations: string[];
+  limitationFacts: AstrolabeAdvancedLimitationFact[];
   timeScale?: AstronomicalTimeEvidence;
+  promptText: string;
 };
+
+export interface SecondaryProgressionEvidence {
+  key: string;
+  status: 'calculated' | 'not-applicable' | 'unavailable';
+  targetYear: number;
+  age?: number;
+  progressedDateTime?: string;
+  aspects: string[];
+  calculationSteps: AstrolabeAdvancedCalculationStep[];
+  aspectFacts: AstrolabeAdvancedAspectFact[];
+  aspectSummaryFact: AstrolabeAdvancedAspectSummaryFact;
+  source: string;
+  limitations: string[];
+  limitationFacts: AstrolabeAdvancedLimitationFact[];
+  promptText: string;
+}
+
+export interface SolarArcEvidence {
+  key: string;
+  status: 'calculated' | 'not-applicable' | 'unavailable';
+  targetYear: number;
+  age?: number;
+  progressedDateTime?: string;
+  arcDegrees?: number;
+  aspects: string[];
+  calculationSteps: AstrolabeAdvancedCalculationStep[];
+  aspectFacts: AstrolabeAdvancedAspectFact[];
+  aspectSummaryFact: AstrolabeAdvancedAspectSummaryFact;
+  source: string;
+  limitations: string[];
+  limitationFacts: AstrolabeAdvancedLimitationFact[];
+  promptText: string;
+}
+
+const ADVANCED_STEP_LIMITATION =
+  '高级时限步骤只证明太阳返照、次限推进或太阳弧的时间映射、位置计算与相位筛选如何形成；不得把数值精度解释为事件必然性或预测成功率' as const;
+const ADVANCED_ASPECT_LIMITATION =
+  '高级时限相位只描述推进点或返照点与本命点在设定容许度内的几何关系；偏差、紧密等级和数量不代表事件概率、吉凶比例或必然结果' as const;
+const ADVANCED_SUMMARY_LIMITATION =
+  '高级时限相位汇总只说明当前筛选范围内是否列出主要几何相位；未见不等于没有其他弱相位，有相位也不等于现实事件必然发生' as const;
+const ADVANCED_LIMITATION_FACT_LIMITATION =
+  '限制事实用于约束太阳返照、次限推进和太阳弧可以支持的时间与解释范围，不得被反向当作现实事件、吉凶或固定应期证据' as const;
 
 const SCOPE_LABEL_MAP: Record<AstrolabeScopeMode, string> = {
   natal: '本命',
@@ -344,6 +449,7 @@ function resolveAdvancedAspect(first: number, second: number) {
   const distance = longitudeDistance(first, second);
   return ADVANCED_ASPECTS.map((aspect) => ({
     ...aspect,
+    actualAngle: distance,
     deviation: Math.abs(distance - aspect.angle),
   }))
     .filter((aspect) => aspect.deviation <= aspect.orb)
@@ -395,34 +501,199 @@ function calculateScopePlanets(
   );
 }
 
-function formatCrossAspects(
+function advancedTechniqueKey(technique: AstrolabeAdvancedTechnique) {
+  return technique === '太阳返照'
+    ? 'solar-return'
+    : technique === '次限推进'
+      ? 'secondary-progression'
+      : 'solar-arc';
+}
+
+function buildAdvancedAspectFacts(
+  technique: AstrolabeAdvancedTechnique,
   moving: Array<{ name: string; longitude: number }>,
   natal: Array<{ name: string; longitude: number }>,
+  ownerStepKey: string,
   limit = 8,
-) {
+): AstrolabeAdvancedAspectFact[] {
+  const techniqueKey = advancedTechniqueKey(technique);
   return moving
     .flatMap((movingPoint) =>
       natal.flatMap((natalPoint) => {
         const aspect = resolveAdvancedAspect(movingPoint.longitude, natalPoint.longitude);
         if (!aspect) return [];
+        const normalizedOrbRatio = Math.min(1, aspect.deviation / aspect.orb);
+        const closeness: AstrolabeAdvancedAspectFact['closeness'] =
+          normalizedOrbRatio <= 0.35 ? '紧密' : normalizedOrbRatio <= 0.7 ? '中等' : '宽松';
+        const movingLabel = CELESTIAL_BODY_LABELS[movingPoint.name] ?? movingPoint.name;
+        const natalLabel = NATAL_POINT_NAME_MAP[natalPoint.name] ?? natalPoint.name;
         return [
           {
-            text: `${CELESTIAL_BODY_LABELS[movingPoint.name] ?? movingPoint.name}${aspect.name}${NATAL_POINT_NAME_MAP[natalPoint.name] ?? natalPoint.name}（偏差${aspect.deviation.toFixed(2)}°）`,
-            deviation: aspect.deviation,
+            key: `${techniqueKey}:aspect:${movingPoint.name}:${natalPoint.name}:${aspect.name}`,
+            technique,
+            status: '命中容许度' as const,
+            movingPoint: movingLabel,
+            natalPoint: natalLabel,
+            aspectName: aspect.name,
+            actualAngle: Number(aspect.actualAngle.toFixed(6)),
+            exactAngle: aspect.angle,
+            deviation: Number(aspect.deviation.toFixed(6)),
+            allowedOrb: aspect.orb,
+            normalizedOrbRatio: Number(normalizedOrbRatio.toFixed(6)),
+            closeness,
+            ownerStepKeys: [ownerStepKey],
+            promptText: `${movingLabel}${aspect.name}${natalLabel}（实际夹角${aspect.actualAngle.toFixed(2)}°，精确角${aspect.angle}°，偏差${aspect.deviation.toFixed(2)}°，允许容许度${aspect.orb}°，${closeness}）`,
+            sources: ['celestine 推进或返照位置', '主要相位精确角与容许度表'],
+            limitation: ADVANCED_ASPECT_LIMITATION,
           },
         ];
       }),
     )
     .sort((a, b) => a.deviation - b.deviation)
     .slice(0, limit)
-    .map((item) => item.text);
+    .map((item) => item);
 }
 
-function buildSecondaryProgressionEvidence(data: AstrolabeData, targetYear: number) {
+function buildAdvancedAspectSummaryFact(
+  technique: AstrolabeAdvancedTechnique,
+  aspectFacts: AstrolabeAdvancedAspectFact[],
+  unavailable = false,
+): AstrolabeAdvancedAspectSummaryFact {
+  const techniqueKey = advancedTechniqueKey(technique);
+  const status = unavailable ? '无法计算' : aspectFacts.length ? '有主要相位' : '未见主要相位';
+  return {
+    key: `${techniqueKey}:aspect-summary`,
+    status,
+    factKeys: aspectFacts.map((item) => item.key),
+    promptText:
+      status === '无法计算'
+        ? `${technique}缺少可用位置，无法筛选主要相位`
+        : status === '有主要相位'
+          ? `${technique}在当前容许度内列出${aspectFacts.length}组主要相位`
+          : `${technique}在当前筛选容许度内未见主要相位`,
+    sources: ['高级时限相位事实汇总'],
+    limitation: ADVANCED_SUMMARY_LIMITATION,
+  };
+}
+
+function buildAdvancedLimitationFacts(
+  technique: AstrolabeAdvancedTechnique,
+  limitations: string[],
+  types: AstrolabeAdvancedLimitationFact['type'][],
+  ownerStepKeys: string[],
+): AstrolabeAdvancedLimitationFact[] {
+  const techniqueKey = advancedTechniqueKey(technique);
+  return limitations.map((promptText, index) => ({
+    key: `${techniqueKey}:limitation:${index + 1}`,
+    technique,
+    type: types[index] ?? '解释边界',
+    status: '适用',
+    ownerStepKeys,
+    promptText,
+    sources: [
+      types[index] === '输入完整性'
+        ? '出生资料与本命位置完整性核验'
+        : types[index] === '时间映射边界'
+          ? '高级时限时间映射规则'
+          : types[index] === '数值精度边界'
+            ? '数值搜索与取样精度说明'
+            : types[index] === '星历模型边界'
+              ? 'celestine 星历模型'
+              : '高级时限几何解释边界',
+    ],
+    limitation: ADVANCED_LIMITATION_FACT_LIMITATION,
+  }));
+}
+
+function assertAdvancedTargetYear(targetYear: number) {
+  if (!Number.isInteger(targetYear) || targetYear < 1900 || targetYear > 2200) {
+    throw new Error('高级时限目标年份需在 1900-2200 之间。');
+  }
+}
+
+export function calculateSecondaryProgressionEvidence(
+  data: AstrolabeData,
+  targetYear: number,
+): SecondaryProgressionEvidence {
+  assertAdvancedTargetYear(targetYear);
+  const technique: AstrolabeAdvancedTechnique = '次限推进';
+  const techniqueKey = advancedTechniqueKey(technique);
   const birth = parseBirthDateTime(data);
-  if (!birth) return '次限证据：出生时间资料不足，无法计算。';
+  const source = '次限一岁一日时间映射；celestine 推进位置与主要相位容许度表';
+  const baseLimitations = ['出生时间或本命点资料不足时不生成次限相位。'];
+  if (!birth) {
+    const calculationSteps: AstrolabeAdvancedCalculationStep[] = [
+      {
+        key: `${techniqueKey}:calculation:input`,
+        technique,
+        stage: '输入核验',
+        status: '不可用',
+        dependsOnStepKeys: [],
+        inputs: { targetYear },
+        result: { available: false },
+        promptText: '出生时间资料不足，无法建立次限输入',
+        sources: ['出生时间记录'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+    ];
+    const aspectFacts: AstrolabeAdvancedAspectFact[] = [];
+    return {
+      key: `${techniqueKey}:${targetYear}`,
+      status: 'unavailable',
+      targetYear,
+      aspects: [],
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact: buildAdvancedAspectSummaryFact(technique, aspectFacts, true),
+      source,
+      limitations: baseLimitations,
+      limitationFacts: buildAdvancedLimitationFacts(
+        technique,
+        baseLimitations,
+        ['输入完整性'],
+        [calculationSteps[0].key],
+      ),
+      promptText: `次限证据：${baseLimitations[0]}`,
+    };
+  }
   const age = targetYear - birth.year;
-  if (age < 0) return '次限证据：目标年早于出生年，不适用。';
+  if (age < 0) {
+    const limitations = ['目标年早于出生年，次限一岁一日映射不适用。'];
+    const calculationSteps: AstrolabeAdvancedCalculationStep[] = [
+      {
+        key: `${techniqueKey}:calculation:input`,
+        technique,
+        stage: '输入核验',
+        status: '不可用',
+        dependsOnStepKeys: [],
+        inputs: { targetYear, birthYear: birth.year },
+        result: { applicable: false },
+        promptText: `目标年${targetYear}早于出生年${birth.year}，次限不适用`,
+        sources: ['出生年与目标年比较'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+    ];
+    const aspectFacts: AstrolabeAdvancedAspectFact[] = [];
+    return {
+      key: `${techniqueKey}:${targetYear}`,
+      status: 'not-applicable',
+      targetYear,
+      age,
+      aspects: [],
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact: buildAdvancedAspectSummaryFact(technique, aspectFacts, true),
+      source,
+      limitations,
+      limitationFacts: buildAdvancedLimitationFacts(
+        technique,
+        limitations,
+        ['输入完整性'],
+        [calculationSteps[0].key],
+      ),
+      promptText: `次限证据：${limitations[0]}`,
+    };
+  }
   const progressedDate = new Date(
     Date.UTC(birth.year, birth.month - 1, birth.day, birth.hour, birth.minute) + age * 86400000,
   );
@@ -434,18 +705,218 @@ function buildSecondaryProgressionEvidence(data: AstrolabeData, targetYear: numb
       hour: progressedDate.getUTCHours(),
       minute: progressedDate.getUTCMinutes(),
     }).filter((planet) => ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars'].includes(planet.name));
-    const aspects = formatCrossAspects(progressed, buildNatalPoints(data));
-    return `次限证据（一岁一日）：目标年约${age}岁，推进盘取出生后第${age}日；${aspects.join('；') || '未见容许度内的主要次限触发'}。`;
+    const inputStepKey = `${techniqueKey}:calculation:input`;
+    const dateStepKey = `${techniqueKey}:calculation:progressed-date`;
+    const positionStepKey = `${techniqueKey}:calculation:positions`;
+    const aspectStepKey = `${techniqueKey}:calculation:aspects`;
+    const calculationSteps: AstrolabeAdvancedCalculationStep[] = [
+      {
+        key: inputStepKey,
+        technique,
+        stage: '输入核验',
+        status: '已计算',
+        dependsOnStepKeys: [],
+        inputs: { birthYear: birth.year, targetYear },
+        result: { age },
+        promptText: `固定出生年${birth.year}与目标年${targetYear}，年龄差约${age}岁`,
+        sources: ['出生时间与目标年份'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+      {
+        key: dateStepKey,
+        technique,
+        stage: '时间映射',
+        status: '已计算',
+        dependsOnStepKeys: [inputStepKey],
+        inputs: { age, rule: '一岁一日' },
+        result: { progressedDateTime: progressedDate.toISOString() },
+        promptText: `按一岁一日规则取出生后第${age}日作为次限日期${progressedDate.toISOString()}`,
+        sources: ['次限一岁一日传统时间映射'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+      {
+        key: positionStepKey,
+        technique,
+        stage: '位置计算',
+        status: '已计算',
+        dependsOnStepKeys: [dateStepKey],
+        inputs: { progressedDateTime: progressedDate.toISOString() },
+        result: { selectedPlanetCount: progressed.length },
+        promptText: `计算次限日期的太阳、月亮、水星、金星与火星位置，共${progressed.length}个点`,
+        sources: ['celestine 推进位置计算'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+      {
+        key: aspectStepKey,
+        technique,
+        stage: '相位筛选',
+        status: '已计算',
+        dependsOnStepKeys: [positionStepKey],
+        inputs: { selectedPlanetCount: progressed.length },
+        result: { selectedAspectCount: 0 },
+        promptText: '按主要相位精确角与容许度筛选次限对本命相位',
+        sources: ['次限与本命点几何相位核验'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+    ];
+    const aspectFacts = buildAdvancedAspectFacts(
+      technique,
+      progressed,
+      buildNatalPoints(data),
+      aspectStepKey,
+    );
+    calculationSteps[3].result.selectedAspectCount = aspectFacts.length;
+    const limitations = [
+      '一岁一日是传统时间映射，用于阶段性象征参考，不等于现实事件按天等比例发生。',
+      '次限位置与相位受出生时间、时区和底层星历模型影响，不宣称达到观测级预测精度。',
+      '次限相位只提供当前阶段触发线索，不代表事件概率、吉凶比例或固定应期。',
+    ];
+    const aspectSummaryFact = buildAdvancedAspectSummaryFact(technique, aspectFacts);
+    const limitationFacts = buildAdvancedLimitationFacts(
+      technique,
+      limitations,
+      ['时间映射边界', '星历模型边界', '解释边界'],
+      [dateStepKey, positionStepKey, aspectStepKey],
+    );
+    const aspects = aspectFacts.map((item) => item.promptText);
+    return {
+      key: `${techniqueKey}:${targetYear}`,
+      status: 'calculated',
+      targetYear,
+      age,
+      progressedDateTime: progressedDate.toISOString(),
+      aspects,
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact,
+      source,
+      limitations,
+      limitationFacts,
+      promptText: `次限证据（一岁一日）：目标年约${age}岁，推进盘取出生后第${age}日（${progressedDate.toISOString()}）；${aspects.join('；') || '未见容许度内的主要次限触发'}。汇总：${aspectSummaryFact.promptText}。来源：${source}。限制：${limitations.join('；')}`,
+    };
   } catch {
-    return '次限证据：计算失败，不作为本次判断依据。';
+    const limitations = ['次限计算失败，不作为本次判断依据。'];
+    const calculationSteps: AstrolabeAdvancedCalculationStep[] = [
+      {
+        key: `${techniqueKey}:calculation:failed`,
+        technique,
+        stage: '位置计算',
+        status: '不可用',
+        dependsOnStepKeys: [],
+        inputs: { targetYear },
+        result: { available: false },
+        promptText: limitations[0],
+        sources: ['次限位置计算过程'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+    ];
+    const aspectFacts: AstrolabeAdvancedAspectFact[] = [];
+    return {
+      key: `${techniqueKey}:${targetYear}`,
+      status: 'unavailable',
+      targetYear,
+      age,
+      aspects: [],
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact: buildAdvancedAspectSummaryFact(technique, aspectFacts, true),
+      source,
+      limitations,
+      limitationFacts: buildAdvancedLimitationFacts(
+        technique,
+        limitations,
+        ['星历模型边界'],
+        [calculationSteps[0].key],
+      ),
+      promptText: `次限证据：${limitations[0]}`,
+    };
   }
 }
 
-function buildSolarArcEvidence(data: AstrolabeData, targetYear: number) {
+export function calculateSolarArcEvidence(
+  data: AstrolabeData,
+  targetYear: number,
+): SolarArcEvidence {
+  assertAdvancedTargetYear(targetYear);
+  const technique: AstrolabeAdvancedTechnique = '太阳弧';
+  const techniqueKey = advancedTechniqueKey(technique);
   const birth = parseBirthDateTime(data);
   const natalSun = data.planets.find((planet) => planet.name === 'Sun');
-  if (!birth || !natalSun) return '太阳弧证据：出生时间或本命太阳资料不足。';
+  const source = '太阳弧按推进太阳与本命太阳差值平移；celestine 位置与主要相位容许度表';
+  if (!birth || !natalSun) {
+    const limitations = ['出生时间或本命太阳资料不足，无法计算太阳弧。'];
+    const calculationSteps: AstrolabeAdvancedCalculationStep[] = [
+      {
+        key: `${techniqueKey}:calculation:input`,
+        technique,
+        stage: '输入核验',
+        status: '不可用',
+        dependsOnStepKeys: [],
+        inputs: { targetYear },
+        result: { available: false },
+        promptText: limitations[0],
+        sources: ['出生时间与本命太阳位置'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+    ];
+    const aspectFacts: AstrolabeAdvancedAspectFact[] = [];
+    return {
+      key: `${techniqueKey}:${targetYear}`,
+      status: 'unavailable',
+      targetYear,
+      aspects: [],
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact: buildAdvancedAspectSummaryFact(technique, aspectFacts, true),
+      source,
+      limitations,
+      limitationFacts: buildAdvancedLimitationFacts(
+        technique,
+        limitations,
+        ['输入完整性'],
+        [calculationSteps[0].key],
+      ),
+      promptText: `太阳弧证据：${limitations[0]}`,
+    };
+  }
   const age = targetYear - birth.year;
+  if (age < 0) {
+    const limitations = ['目标年早于出生年，太阳弧不适用。'];
+    const calculationSteps: AstrolabeAdvancedCalculationStep[] = [
+      {
+        key: `${techniqueKey}:calculation:input`,
+        technique,
+        stage: '输入核验',
+        status: '不可用',
+        dependsOnStepKeys: [],
+        inputs: { targetYear, birthYear: birth.year },
+        result: { applicable: false },
+        promptText: limitations[0],
+        sources: ['出生年与目标年比较'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+    ];
+    const aspectFacts: AstrolabeAdvancedAspectFact[] = [];
+    return {
+      key: `${techniqueKey}:${targetYear}`,
+      status: 'not-applicable',
+      targetYear,
+      age,
+      aspects: [],
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact: buildAdvancedAspectSummaryFact(technique, aspectFacts, true),
+      source,
+      limitations,
+      limitationFacts: buildAdvancedLimitationFacts(
+        technique,
+        limitations,
+        ['输入完整性'],
+        [calculationSteps[0].key],
+      ),
+      promptText: `太阳弧证据：${limitations[0]}`,
+    };
+  }
   const progressedDate = new Date(
     Date.UTC(birth.year, birth.month - 1, birth.day, birth.hour, birth.minute) +
       Math.max(0, age) * 86400000,
@@ -458,7 +929,7 @@ function buildSolarArcEvidence(data: AstrolabeData, targetYear: number) {
       hour: progressedDate.getUTCHours(),
       minute: progressedDate.getUTCMinutes(),
     }).find((planet) => planet.name === 'Sun');
-    if (!progressedSun) return '太阳弧证据：未取得推进太阳位置。';
+    if (!progressedSun) throw new Error('未取得推进太阳位置。');
     const arc = normalizeLongitude(progressedSun.longitude - natalSun.longitude);
     const directed = [...data.planets, ...data.angles]
       .filter((point) => ['Sun', 'Moon', 'Ascendant', 'Midheaven'].includes(point.name))
@@ -466,10 +937,145 @@ function buildSolarArcEvidence(data: AstrolabeData, targetYear: number) {
         name: `太阳弧${NATAL_POINT_NAME_MAP[point.name] ?? point.name}`,
         longitude: normalizeLongitude(point.longitude + arc),
       }));
-    const aspects = formatCrossAspects(directed, buildNatalPoints(data), 6);
-    return `太阳弧证据：推进弧约${arc.toFixed(2)}°；${aspects.join('；') || '未见容许度内的主要太阳弧触发'}。`;
+    const inputStepKey = `${techniqueKey}:calculation:input`;
+    const dateStepKey = `${techniqueKey}:calculation:progressed-date`;
+    const arcStepKey = `${techniqueKey}:calculation:arc`;
+    const directStepKey = `${techniqueKey}:calculation:directed-points`;
+    const aspectStepKey = `${techniqueKey}:calculation:aspects`;
+    const calculationSteps: AstrolabeAdvancedCalculationStep[] = [
+      {
+        key: inputStepKey,
+        technique,
+        stage: '输入核验',
+        status: '已计算',
+        dependsOnStepKeys: [],
+        inputs: { birthYear: birth.year, targetYear },
+        result: { age },
+        promptText: `固定出生年${birth.year}与目标年${targetYear}，年龄差约${age}岁`,
+        sources: ['出生时间与目标年份'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+      {
+        key: dateStepKey,
+        technique,
+        stage: '时间映射',
+        status: '已计算',
+        dependsOnStepKeys: [inputStepKey],
+        inputs: { age, rule: '一岁一日' },
+        result: { progressedDateTime: progressedDate.toISOString() },
+        promptText: `按一岁一日规则取得太阳弧推进日期${progressedDate.toISOString()}`,
+        sources: ['太阳弧一岁一日时间映射'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+      {
+        key: arcStepKey,
+        technique,
+        stage: '推进弧计算',
+        status: '已计算',
+        dependsOnStepKeys: [dateStepKey],
+        inputs: { progressedDateTime: progressedDate.toISOString() },
+        result: { arcDegrees: Number(arc.toFixed(6)) },
+        promptText: `由推进太阳与本命太阳经度差取得太阳弧${arc.toFixed(2)}°`,
+        sources: ['celestine 推进太阳位置', '本命太阳黄经'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+      {
+        key: directStepKey,
+        technique,
+        stage: '位置计算',
+        status: '已计算',
+        dependsOnStepKeys: [arcStepKey],
+        inputs: { arcDegrees: Number(arc.toFixed(6)) },
+        result: { directedPointCount: directed.length },
+        promptText: `将太阳弧${arc.toFixed(2)}°平移至${directed.length}个选定本命点`,
+        sources: ['太阳弧点位平移规则'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+      {
+        key: aspectStepKey,
+        technique,
+        stage: '相位筛选',
+        status: '已计算',
+        dependsOnStepKeys: [directStepKey],
+        inputs: { directedPointCount: directed.length },
+        result: { selectedAspectCount: 0 },
+        promptText: '按主要相位精确角与容许度筛选太阳弧对本命点相位',
+        sources: ['太阳弧与本命点几何相位核验'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+    ];
+    const aspectFacts = buildAdvancedAspectFacts(
+      technique,
+      directed,
+      buildNatalPoints(data),
+      aspectStepKey,
+      6,
+    );
+    calculationSteps[4].result.selectedAspectCount = aspectFacts.length;
+    const limitations = [
+      '太阳弧把推进太阳与本命太阳的经度差平移到选定本命点，属于传统象征性时间技术。',
+      '推进日期、太阳黄经和相位结果受出生时间、时区与底层星历模型影响，不宣称达到观测级预测精度。',
+      '太阳弧相位只提供阶段性触发线索，不代表事件概率、吉凶比例或固定应期。',
+    ];
+    const aspectSummaryFact = buildAdvancedAspectSummaryFact(technique, aspectFacts);
+    const limitationFacts = buildAdvancedLimitationFacts(
+      technique,
+      limitations,
+      ['时间映射边界', '星历模型边界', '解释边界'],
+      [dateStepKey, arcStepKey, aspectStepKey],
+    );
+    const aspects = aspectFacts.map((item) => item.promptText);
+    return {
+      key: `${techniqueKey}:${targetYear}`,
+      status: 'calculated',
+      targetYear,
+      age,
+      progressedDateTime: progressedDate.toISOString(),
+      arcDegrees: Number(arc.toFixed(6)),
+      aspects,
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact,
+      source,
+      limitations,
+      limitationFacts,
+      promptText: `太阳弧证据：推进弧约${arc.toFixed(2)}°；${aspects.join('；') || '未见容许度内的主要太阳弧触发'}。汇总：${aspectSummaryFact.promptText}。来源：${source}。限制：${limitations.join('；')}`,
+    };
   } catch {
-    return '太阳弧证据：计算失败，不作为本次判断依据。';
+    const limitations = ['太阳弧计算失败，不作为本次判断依据。'];
+    const calculationSteps: AstrolabeAdvancedCalculationStep[] = [
+      {
+        key: `${techniqueKey}:calculation:failed`,
+        technique,
+        stage: '位置计算',
+        status: '不可用',
+        dependsOnStepKeys: [],
+        inputs: { targetYear },
+        result: { available: false },
+        promptText: limitations[0],
+        sources: ['太阳弧位置计算过程'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+    ];
+    const aspectFacts: AstrolabeAdvancedAspectFact[] = [];
+    return {
+      key: `${techniqueKey}:${targetYear}`,
+      status: 'unavailable',
+      targetYear,
+      aspects: [],
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact: buildAdvancedAspectSummaryFact(technique, aspectFacts, true),
+      source,
+      limitations,
+      limitationFacts: buildAdvancedLimitationFacts(
+        technique,
+        limitations,
+        ['星历模型边界'],
+        [calculationSteps[0].key],
+      ),
+      promptText: `太阳弧证据：${limitations[0]}`,
+    };
   }
 }
 
@@ -493,24 +1099,63 @@ export function calculateSolarReturnEvidence(
   data: AstrolabeData,
   targetYear: number,
 ): SolarReturnEvidence {
+  assertAdvancedTargetYear(targetYear);
+  const technique: AstrolabeAdvancedTechnique = '太阳返照';
+  const techniqueKey = advancedTechniqueKey(technique);
   const birth = parseBirthDateTime(data);
   const natalSun = data.planets.find((planet) => planet.name === 'Sun');
   const baseEvidence = {
+    key: `${techniqueKey}:${targetYear}`,
     targetYear,
     timezone: data.birth.timezone,
     searchWindowHours: 48,
     coarseStepHours: 2,
     refinementToleranceMinutes: 1,
     refinementIterations: 0,
-    aspects: [],
     source: 'celestine 太阳黄经；先以 2 小时步长定位过零区间，再以二分法细化返照时刻',
   };
-  if (!birth || !natalSun) {
+  const unavailableEvidence = (
+    message: string,
+    stage: AstrolabeAdvancedCalculationStep['stage'],
+    sources: string[],
+  ): SolarReturnEvidence => {
+    const calculationSteps: AstrolabeAdvancedCalculationStep[] = [
+      {
+        key: `${techniqueKey}:calculation:unavailable`,
+        technique,
+        stage,
+        status: '不可用',
+        dependsOnStepKeys: [],
+        inputs: { targetYear },
+        result: { available: false },
+        promptText: message,
+        sources,
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+    ];
+    const aspectFacts: AstrolabeAdvancedAspectFact[] = [];
+    const limitations = [message];
     return {
       ...baseEvidence,
       status: 'unavailable',
-      limitations: ['出生时间或本命太阳经度资料不足，无法计算太阳返照。'],
+      aspects: [],
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact: buildAdvancedAspectSummaryFact(technique, aspectFacts, true),
+      limitations,
+      limitationFacts: buildAdvancedLimitationFacts(
+        technique,
+        limitations,
+        [stage === '输入核验' ? '输入完整性' : '星历模型边界'],
+        [calculationSteps[0].key],
+      ),
+      promptText: `太阳返照证据：${message}`,
     };
+  };
+  if (!birth || !natalSun) {
+    return unavailableEvidence('出生时间或本命太阳经度资料不足，无法计算太阳返照。', '输入核验', [
+      '出生时间与本命太阳位置',
+    ]);
   }
   const maxDay = daysInAstrolabeScopeMonth(targetYear, birth.month);
   const centerDay = Math.min(birth.day, maxDay);
@@ -549,11 +1194,9 @@ export function calculateSolarReturnEvidence(
       previous = { timestamp, difference };
     }
     if (!best) {
-      return {
-        ...baseEvidence,
-        status: 'unavailable',
-        limitations: ['搜索窗口内未取得可用太阳位置。'],
-      };
+      return unavailableEvidence('搜索窗口内未取得可用太阳位置。', '粗略搜索', [
+        'celestine 太阳位置搜索',
+      ]);
     }
 
     let finalTimestamp = best.timestamp;
@@ -585,47 +1228,146 @@ export function calculateSolarReturnEvidence(
     const residualDegrees = returnSun
       ? longitudeDistance(returnSun.longitude, natalSun.longitude)
       : Math.abs(best.difference);
-    const aspects = formatCrossAspects(returnPlanets, buildNatalPoints(data), 8);
+    const inputStepKey = `${techniqueKey}:calculation:input`;
+    const coarseStepKey = `${techniqueKey}:calculation:coarse-search`;
+    const refineStepKey = `${techniqueKey}:calculation:refinement`;
+    const positionStepKey = `${techniqueKey}:calculation:return-positions`;
+    const aspectStepKey = `${techniqueKey}:calculation:aspects`;
+    const calculationSteps: AstrolabeAdvancedCalculationStep[] = [
+      {
+        key: inputStepKey,
+        technique,
+        stage: '输入核验',
+        status: '已计算',
+        dependsOnStepKeys: [],
+        inputs: { targetYear, natalSunLongitude: natalSun.longitude },
+        result: { centerDateTime: formatWallClockDateTime(centerTimestamp) },
+        promptText: `以本命太阳黄经${natalSun.longitude.toFixed(6)}°和目标年${targetYear}生日附近时刻为返照搜索输入`,
+        sources: ['本命太阳黄经', '出生日期与目标年份'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+      {
+        key: coarseStepKey,
+        technique,
+        stage: '粗略搜索',
+        status: bracket ? '已计算' : '近似',
+        dependsOnStepKeys: [inputStepKey],
+        inputs: { searchWindowHours: 48, coarseStepHours: 2 },
+        result: {
+          bracketFound: Boolean(bracket),
+          bestSampleDateTime: formatWallClockDateTime(best.timestamp),
+          bestSampleDifferenceDegrees: Number(best.difference.toFixed(6)),
+        },
+        promptText: bracket
+          ? '在生日附近前后48小时按2小时步长找到太阳黄经过零区间'
+          : '前后48小时粗搜未找到过零区间，保留最接近的2小时取样点',
+        sources: ['celestine 太阳黄经粗略搜索'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+      {
+        key: refineStepKey,
+        technique,
+        stage: '数值细化',
+        status: bracket ? '已计算' : '近似',
+        dependsOnStepKeys: [coarseStepKey],
+        inputs: { refinementToleranceMinutes: 1 },
+        result: {
+          refinementIterations: iterations,
+          finalDateTime: formatWallClockDateTime(finalTimestamp),
+        },
+        promptText: bracket
+          ? `对过零区间二分${iterations}次，细化到1分钟内`
+          : '没有过零区间，不执行二分细化',
+        sources: ['太阳黄经差二分求根'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+      {
+        key: positionStepKey,
+        technique,
+        stage: '位置计算',
+        status: bracket ? '已计算' : '近似',
+        dependsOnStepKeys: [refineStepKey],
+        inputs: { returnDateTime: formatWallClockDateTime(finalTimestamp) },
+        result: {
+          returnPlanetCount: returnPlanets.length,
+          residualDegrees: Number(residualDegrees.toFixed(6)),
+        },
+        promptText: `计算返照时刻七颗主要星体位置，太阳黄经残差${residualDegrees.toFixed(6)}°`,
+        sources: ['celestine 返照星体位置'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+      {
+        key: aspectStepKey,
+        technique,
+        stage: '相位筛选',
+        status: bracket ? '已计算' : '近似',
+        dependsOnStepKeys: [positionStepKey],
+        inputs: { returnPlanetCount: returnPlanets.length },
+        result: { selectedAspectCount: 0 },
+        promptText: '按主要相位精确角与容许度筛选返照星体对本命点相位',
+        sources: ['返照星体与本命点几何相位核验'],
+        limitation: ADVANCED_STEP_LIMITATION,
+      },
+    ];
+    const aspectFacts = buildAdvancedAspectFacts(
+      technique,
+      returnPlanets,
+      buildNatalPoints(data),
+      aspectStepKey,
+      8,
+    );
+    calculationSteps[4].result.selectedAspectCount = aspectFacts.length;
+    const aspects = aspectFacts.map((item) => item.promptText);
     const timeScale = buildAstronomicalTimeEvidence({
       ...finalDate,
       second: 0,
       timezone: data.birth.timezone,
       timeZoneId: data.birth.timeZoneId,
     });
+    const limitations = bracket
+      ? [
+          '返照时刻按出生地历史时区或明确固定偏移的当地钟表时间表达。',
+          '分钟级细化只说明数值搜索收敛范围，不代表底层星历达到观测级精度。',
+          '返照相位只提供目标年的阶段性触发线索，不代表事件概率、吉凶比例或固定应期。',
+        ]
+      : [
+          '未找到太阳黄经过零区间，仅返回搜索窗口内最接近的 2 小时取样点。',
+          '近似取样点和太阳黄经残差受底层星历模型影响，不宣称达到观测级预测精度。',
+          '返照相位只提供目标年的阶段性触发线索，不代表事件概率、吉凶比例或固定应期。',
+        ];
+    const aspectSummaryFact = buildAdvancedAspectSummaryFact(technique, aspectFacts);
+    const limitationFacts = buildAdvancedLimitationFacts(
+      technique,
+      limitations,
+      bracket
+        ? ['时间映射边界', '数值精度边界', '解释边界']
+        : ['数值精度边界', '星历模型边界', '解释边界'],
+      [coarseStepKey, refineStepKey, positionStepKey, aspectStepKey],
+    );
+    const precision = bracket
+      ? `粗搜步长${baseEvidence.coarseStepHours}小时、二分细化至${baseEvidence.refinementToleranceMinutes}分钟内，共${iterations}次迭代`
+      : `仅取得${baseEvidence.coarseStepHours}小时步长的近似取样点`;
+    const dateTime = formatWallClockDateTime(finalTimestamp);
     return {
       ...baseEvidence,
       status: bracket ? 'exact' : 'approximate',
-      dateTime: formatWallClockDateTime(finalTimestamp),
+      dateTime,
       residualDegrees: Number(residualDegrees.toFixed(6)),
       refinementIterations: iterations,
       aspects,
+      calculationSteps,
+      aspectFacts,
+      aspectSummaryFact,
       timeScale,
-      limitations: bracket
-        ? [
-            '返照时刻按出生地固定时区的当地钟表时间表达。',
-            '分钟级细化只说明数值搜索收敛范围，不代表底层星历达到观测级精度。',
-          ]
-        : ['未找到太阳黄经过零区间，仅返回搜索窗口内最接近的 2 小时取样点。'],
+      limitations,
+      limitationFacts,
+      promptText: `太阳返照证据：返照当地钟表时刻${dateTime}（UTC${baseEvidence.timezone >= 0 ? '+' : ''}${baseEvidence.timezone}，太阳黄经残差${residualDegrees.toFixed(4)}°）；${timeScale.promptText}；计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}；搜索方法：${precision}；相位汇总：${aspectSummaryFact.promptText}；来源：${baseEvidence.source}；精度边界：${limitations.join('；')}；${aspects.join('；') || '未见容许度内的主要返照对本命触发'}。`,
     };
   } catch {
-    return {
-      ...baseEvidence,
-      status: 'unavailable',
-      limitations: ['太阳返照计算失败，不作为本次判断依据。'],
-    };
+    return unavailableEvidence('太阳返照计算失败，不作为本次判断依据。', '位置计算', [
+      '太阳返照位置计算过程',
+    ]);
   }
-}
-
-function buildSolarReturnEvidence(data: AstrolabeData, targetYear: number) {
-  const evidence = calculateSolarReturnEvidence(data, targetYear);
-  if (evidence.status === 'unavailable' || !evidence.dateTime) {
-    return `太阳返照证据：${evidence.limitations.join('；')}`;
-  }
-  const precision =
-    evidence.status === 'exact'
-      ? `粗搜步长${evidence.coarseStepHours}小时、二分细化至${evidence.refinementToleranceMinutes}分钟内，共${evidence.refinementIterations}次迭代`
-      : `仅取得${evidence.coarseStepHours}小时步长的近似取样点`;
-  return `太阳返照证据：返照当地钟表时刻${evidence.dateTime}（UTC${evidence.timezone >= 0 ? '+' : ''}${evidence.timezone}，太阳黄经残差${evidence.residualDegrees?.toFixed(4)}°）；${evidence.timeScale?.promptText || ''}；搜索方法：${precision}；来源：${evidence.source}；精度边界：${evidence.limitations.join('；')}；${evidence.aspects.join('；') || '未见容许度内的主要返照对本命触发'}。`;
 }
 
 function isLongitudeInHouse(longitude: number, cusp: number, nextCusp: number) {
@@ -846,14 +1588,17 @@ export function buildAstrolabeScopeContext(
   const anchorDate = formatAnchorDate(target);
   const transitEvidence = buildTransitEvidence(data, target);
   const transitHouseEvidence = buildTransitHouseEvidence(data, scope, target);
-  const advancedYearlyEvidence =
-    scope === 'yearly'
-      ? [
-          buildSolarReturnEvidence(data, target.year),
-          buildSecondaryProgressionEvidence(data, target.year),
-          buildSolarArcEvidence(data, target.year),
-        ]
-      : [];
+  const solarReturnEvidence =
+    scope === 'yearly' ? calculateSolarReturnEvidence(data, target.year) : undefined;
+  const secondaryProgressionEvidence =
+    scope === 'yearly' ? calculateSecondaryProgressionEvidence(data, target.year) : undefined;
+  const solarArcEvidence =
+    scope === 'yearly' ? calculateSolarArcEvidence(data, target.year) : undefined;
+  const advancedYearlyEvidence = [
+    solarReturnEvidence?.promptText,
+    secondaryProgressionEvidence?.promptText,
+    solarArcEvidence?.promptText,
+  ].filter((item): item is string => Boolean(item));
 
   return {
     scope,
@@ -870,6 +1615,9 @@ export function buildAstrolabeScopeContext(
       ASTROLABE_EVIDENCE_SCOPE_NOTE,
       '时间边界：本命盘只定长期结构；所选流年、流月或流日只作为当前阶段触发与应期参考。回答时必须先围绕这个分析对象作答，不能把没有行运证据支持的年份、月份或日期硬说成确定应期。',
     ].join('\n'),
+    solarReturnEvidence,
+    secondaryProgressionEvidence,
+    solarArcEvidence,
   };
 }
 
