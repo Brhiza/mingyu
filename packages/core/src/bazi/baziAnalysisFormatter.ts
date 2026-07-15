@@ -167,6 +167,9 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   }
   if (baziResult.warnings?.length) {
     result += `【排盘预警】\n${baziResult.warnings.map((w) => `⚠ ${w}`).join('\n')}\n`;
+    if (baziResult.warningSummaryFact) {
+      result += `【排盘边界证据】\n${baziResult.warningSummaryFact.promptText}\n${baziResult.warningFacts.map((fact) => `${fact.type}（${fact.status}）：${fact.promptText}；来源：${fact.sources.join('、')}；限制：${fact.limitation}`).join('\n')}\n`;
+    }
   }
   result += `日元本命: ${dayMaster.gan}${dayMaster.element} (${dayMaster.yinYang})\n`;
   if (baziResult.monthCommander) result += `月令司权: ${baziResult.monthCommander}\n`;

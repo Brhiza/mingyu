@@ -4,14 +4,20 @@
  * 当出生时刻贴近"换柱边界"时，说明当前结果采用的计算口径：
  * 1. 节气交接（换月柱，立春同时换年柱）——底层节气常数表存在 ±20 秒级偏差，
  * 2. 时辰边界（奇数整点换时柱）——真太阳时均时差为近似公式（±1~2 分钟）；
- * 3. 23:00 换日线——说明本引擎采用的换日流派。
+ * 3. 23:00 换日线——说明本次采用的换日流派。
  * 输入必须先通过完整性校验；这里不生成候选盘或敏感性结果。
  */
 import { SolarTerm } from 'tyme4ts';
 import { EARTHLY_BRANCHES } from '../ganzhi/data';
+import type { BaziWarningFact, BaziWarningSummaryFact } from './baziTypes';
 
 /** 边界预警阈值（分钟） */
 export const BOUNDARY_THRESHOLD_MINUTES = 3;
+
+const WARNING_LIMITATION =
+  '边界预警只记录当前输入下已采用的时间口径和需复核事项；不生成候选时柱、敏感性结果或现实事件结论' as const;
+const SUMMARY_LIMITATION =
+  '预警汇总只说明排盘边界是否需要留意，不改变已经按输入确定的时柱，也不生成候选盘' as const;
 
 /** 十二"节"（换月柱的交接点；"气"不换柱，不预警） */
 const JIE_NAMES = new Set([
@@ -94,7 +100,7 @@ export function checkJieqiBoundary(t: BoundaryCheckInput): string[] {
     const extra = best.name === '立春' ? '年柱与月柱' : '月柱';
     warnings.push(
       `出生时刻距「${best.name}」交节仅约 ${formatMinutes(best.diffMinutes)} 分钟（交节${side}）。` +
-        `本次${extra}已按项目节气历表和输入时刻确定；该提示仅记录历表精度边界，不生成候选盘。`,
+        `本次${extra}已按采用的节气历表和输入时刻确定；该提示仅记录历表精度边界，不生成候选盘。`,
     );
   }
   return warnings;
@@ -129,7 +135,7 @@ export function checkShichenBoundary(t: BoundaryCheckInput): string[] {
 
   if (boundaryHour === 23) {
     warnings.push(
-      '出生时刻贴近 23:00 换日线：本引擎采用晚子时换日口径；其他流派可能采用不同规则，此处不生成候选盘。',
+      '出生时刻贴近 23:00 换日线：本次采用晚子时换日口径；其他传统流派可能采用不同规则，此处不生成候选盘。',
     );
   }
   return warnings;
@@ -140,4 +146,78 @@ export function checkShichenBoundary(t: BoundaryCheckInput): string[] {
  */
 export function collectBoundaryWarnings(t: BoundaryCheckInput): string[] {
   return [...checkJieqiBoundary(t), ...checkShichenBoundary(t)];
+}
+
+function classifyWarning(text: string): BaziWarningFact['type'] {
+  if (text.includes('节气') || text.includes('交节')) return '节气交接边界';
+  if (text.includes('23:00') || text.includes('换日')) return '换日流派边界';
+  if (text.includes('时辰边界') || text.includes('候选时柱') || text.includes('时柱')) {
+    return '时辰边界';
+  }
+  if (text.includes('夏令时')) return '历史夏令时边界';
+  return '输入时间边界';
+}
+
+function classifyWarningStatus(
+  text: string,
+  type: BaziWarningFact['type'],
+): BaziWarningFact['status'] {
+  if (
+    text.includes('可能有误') ||
+    text.includes('可能需') ||
+    text.includes('建议') ||
+    text.includes('重复') ||
+    text.includes('不存在') ||
+    text.includes('流派')
+  ) {
+    return '需核验原始记录';
+  }
+  return type === '历史夏令时边界' && text.includes('已自动回拨') ? '已校正' : '已确定当前口径';
+}
+
+export function buildBaziWarningEvidence(warnings: string[]): {
+  warningFacts: BaziWarningFact[];
+  warningSummaryFact: BaziWarningSummaryFact;
+} {
+  const warningFacts = warnings.map((promptText, index) => {
+    const type = classifyWarning(promptText);
+    const status = classifyWarningStatus(promptText, type);
+    return {
+      key: `bazi:warning:${index + 1}:${type}`,
+      type,
+      status,
+      referenceKeys:
+        type === '历史夏令时边界'
+          ? ['bazi:timing:china-dst']
+          : type === '节气交接边界'
+            ? ['bazi:calendar:solar-term']
+            : type === '时辰边界'
+              ? ['bazi:calendar:shichen']
+              : ['bazi:time:boundary'],
+      promptText,
+      sources:
+        type === '节气交接边界'
+          ? ['节气历表与出生时刻比较']
+          : type === '历史夏令时边界'
+            ? ['中国历史夏令时规则与校正结果']
+            : type === '时辰边界'
+              ? ['时辰边界规则与校正后时刻']
+              : ['出生时间口径说明'],
+      limitation: WARNING_LIMITATION,
+    } satisfies BaziWarningFact;
+  });
+  const needsReview = warningFacts.some((item) => item.status === '需核验原始记录');
+  const warningSummaryFact: BaziWarningSummaryFact = {
+    key: 'bazi:warning-summary',
+    status: needsReview ? '存在需核验事项' : warningFacts.length ? '存在边界提示' : '无预警',
+    factKeys: warningFacts.map((item) => item.key),
+    promptText: needsReview
+      ? `共记录${warningFacts.length}条边界预警，其中存在需要结合原始记录核验的事项`
+      : warningFacts.length
+        ? `共记录${warningFacts.length}条边界预警；本次仍按已确认输入确定当前时柱`
+        : '未见节气、时辰、换日或历史夏令时边界预警',
+    sources: ['八字时间边界预警汇总'],
+    limitation: SUMMARY_LIMITATION,
+  };
+  return { warningFacts, warningSummaryFact };
 }

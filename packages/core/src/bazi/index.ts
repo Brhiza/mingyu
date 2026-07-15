@@ -21,6 +21,8 @@ export type {
   Pillars,
   BaziChartResult,
   BaziAnalysisResult,
+  BaziWarningFact,
+  BaziWarningSummaryFact,
   Wuxing,
 } from './baziTypes';
 export {
@@ -85,6 +87,7 @@ export {
   BOUNDARY_THRESHOLD_MINUTES,
 } from './paipanWarnings';
 export type { BoundaryCheckInput } from './paipanWarnings';
+export { buildBaziWarningEvidence } from './paipanWarnings';
 export { LuckCalculator } from './LuckCalculator';
 export {
   formatSolarDateTime,

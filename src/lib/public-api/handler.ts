@@ -2514,6 +2514,8 @@ function buildCompactBaziResult(result: BaziChartResult) {
     },
     currentLiunian,
     warnings: result.warnings,
+    warningFacts: result.warningFacts,
+    warningSummaryFact: result.warningSummaryFact,
   };
 }
 

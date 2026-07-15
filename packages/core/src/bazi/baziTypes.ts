@@ -78,6 +78,25 @@ export interface WuxingStrengthDetails {
   commanderElement?: string;
 }
 
+export interface BaziWarningFact {
+  key: string;
+  type: '节气交接边界' | '时辰边界' | '换日流派边界' | '历史夏令时边界' | '输入时间边界';
+  status: '已确定当前口径' | '已校正' | '需核验原始记录';
+  referenceKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '边界预警只记录当前输入下已采用的时间口径和需复核事项；不生成候选时柱、敏感性结果或现实事件结论';
+}
+
+export interface BaziWarningSummaryFact {
+  key: 'bazi:warning-summary';
+  status: '无预警' | '存在边界提示' | '存在需核验事项';
+  factKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '预警汇总只说明排盘边界是否需要留意，不改变已经按输入确定的时柱，也不生成候选盘';
+}
+
 export interface LiunianInfo {
   year: number;
   age: number;
@@ -355,4 +374,6 @@ export interface BaziChartResult {
    * 或落于中国夏令时期间等可能翻柱的情形。无预警时为空数组。
    */
   warnings: string[];
+  warningFacts: BaziWarningFact[];
+  warningSummaryFact: BaziWarningSummaryFact;
 }

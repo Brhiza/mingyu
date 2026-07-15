@@ -1558,6 +1558,8 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
         correctedTime?: { hour?: number; minute?: number };
         dstCorrectionMinutes?: number;
       };
+      warningFacts?: Array<{ key: string; sources: string[]; referenceKeys: string[] }>;
+      warningSummaryFact?: { status: string; factKeys: string[] };
     };
     assert.equal(baziChart.timing?.correctedTime?.hour, baziExpected.timing?.correctedTime.hour);
     assert.equal(
@@ -1565,6 +1567,16 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
       baziExpected.timing?.correctedTime.minute,
     );
     assert.equal(baziChart.timing?.dstCorrectionMinutes, baziExpected.timing?.dstCorrectionMinutes);
+    assert.equal(baziChart.warningFacts?.length, baziExpected.warningFacts.length);
+    assert.equal(baziChart.warningSummaryFact?.status, baziExpected.warningSummaryFact.status);
+    assert.ok(
+      baziChart.warningFacts?.every(
+        (fact) =>
+          fact.key.startsWith('bazi:warning:') &&
+          fact.sources.length > 0 &&
+          fact.referenceKeys.length > 0,
+      ),
+    );
 
     const ziweiCorrected = calculateTrueSolarTime(
       {

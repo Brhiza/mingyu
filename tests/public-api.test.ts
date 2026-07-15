@@ -577,6 +577,8 @@ test('公开 API 应支持八字排盘', async () => {
   assert.equal(body.ok, true);
   assert.equal(body.data.pillars.day.ganZhi.length, 2);
   assert.equal(body.data.gender, 'male');
+  assert.equal(body.data.warningFacts.length, body.data.warnings.length);
+  assert.equal(body.data.warningSummaryFact.status, '存在需核验事项');
 });
 
 test('公开 API 八字神煞默认使用主流口径', async () => {

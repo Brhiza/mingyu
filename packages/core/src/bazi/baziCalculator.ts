@@ -2,7 +2,7 @@ import { SolarTime, Gender, LunarHour } from 'tyme4ts';
 import { TIME_MAP } from './baziDefinitions';
 import { resolveTrueSolarBirthTime } from '../calendar/true-solar-time';
 import { isDateInChinaDstRange } from '../calendar/china-dst';
-import { collectBoundaryWarnings } from './paipanWarnings';
+import { buildBaziWarningEvidence, collectBoundaryWarnings } from './paipanWarnings';
 import { ShenShaCalculator } from './baziShenSha';
 import { BaziAnalyzer } from './baziAnalysis';
 import { LuckCalculator } from './LuckCalculator';
@@ -254,7 +254,7 @@ export class BaziCalculator {
         : 0;
       if (trueSolarResult.chinaDst.applied) {
         warnings.push(
-          '出生时刻处于中国夏令时期间（1986-1991），钟表时间比北京标准时间快 1 小时，已自动回拨 60 分钟后排盘。如所记时间已折算为标准时间，请设置 applyChinaDst: false。',
+          '出生时刻处于中国夏令时期间（1986-1991），钟表时间比北京标准时间快 1 小时，已自动回拨 60 分钟后排盘。如所记时间已折算为标准时间，请关闭自动夏令时校正选项。',
         );
         if (trueSolarResult.chinaDst.ambiguous) {
           warnings.push(
@@ -311,6 +311,7 @@ export class BaziCalculator {
     }
 
     const eightChar = lunarHour.getEightChar();
+    const { warningFacts, warningSummaryFact } = buildBaziWarningEvidence(warnings);
 
     const yearColumn = eightChar.getYear();
     const monthColumn = eightChar.getMonth();
@@ -368,6 +369,8 @@ export class BaziCalculator {
       pillars,
       pillarRelations: { fuxin: [], fanyin: [], xingChong: [] },
       warnings,
+      warningFacts,
+      warningSummaryFact,
       dayMaster: {
         gan: dayMasterGan,
         element: getWuxingUtil(dayMasterGan),
