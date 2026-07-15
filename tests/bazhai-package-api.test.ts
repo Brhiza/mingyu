@@ -14,6 +14,7 @@ test('mingyu-core/bazhai 应公开入户度数便捷接口和完整类型结果'
     birthDay: 15,
     gender: 'male',
     doorToInteriorDegree: 90,
+    northReference: 'true',
   });
   assert.equal(result.directionMeasurement.sitMountain, '卯');
   assert.equal(result.directionMeasurement.facingMountain, '酉');
@@ -21,6 +22,8 @@ test('mingyu-core/bazhai 应公开入户度数便捷接口和完整类型结果'
   assert.equal(result.directionMeasurement.stability, '稳定');
   assert.equal(result.directionMeasurement.candidateDirections.length, 1);
   assert.equal(result.evidenceAnalysis.evidence.title, '八宅命宅方位与测量结构化证据');
+  assert.equal(result.evidenceAnalysis.key, 'bazhai:evidence');
+  assert.equal(result.evidenceAnalysis.status, '已计算');
   assert.equal(result.evidenceAnalysis.directionFacts.length, 8);
   assert.ok(
     result.evidenceAnalysis.directionFacts.every(
@@ -33,16 +36,59 @@ test('mingyu-core/bazhai 应公开入户度数便捷接口和完整类型结果'
     ),
   );
   assert.match(result.evidenceAnalysis.promptText, /测量误差±0°/);
-  assert.equal(result.evidenceAnalysis.counterSummaryFact.status, '存在需保留反证');
+  assert.equal(result.evidenceAnalysis.counterSummaryFact.status, '未见额外反证');
   assert.equal(
     result.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '命卦年界')?.status,
     '已核定',
   );
   assert.equal(
     result.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '北向基准')?.status,
-    '未声明',
+    '已覆盖',
   );
   assert.equal(result.evidenceAnalysis.limitationFacts.length, 6);
+  assert.equal(result.evidenceAnalysis.summaryFact.key, 'bazhai:evidence-summary');
+  assert.equal(result.evidenceAnalysis.summaryFact.status, '命宅链完整');
+  assert.equal(
+    result.evidenceAnalysis.summaryFact.directionFactCount,
+    result.evidenceAnalysis.directionFacts.length,
+  );
+  assert.equal(
+    result.evidenceAnalysis.summaryFact.alignedDirectionCount,
+    result.evidenceAnalysis.alignedDirections.length,
+  );
+  assert.equal(
+    result.evidenceAnalysis.summaryFact.conflictingDirectionCount,
+    result.evidenceAnalysis.conflictingDirections.length,
+  );
+  assert.equal(
+    result.evidenceAnalysis.summaryFact.measurementCandidateCount,
+    result.evidenceAnalysis.measurementCandidateFacts.length,
+  );
+  assert.equal(
+    result.evidenceAnalysis.summaryFact.counterEvidenceCount,
+    result.evidenceAnalysis.counterEvidenceFacts.length,
+  );
+  assert.equal(
+    result.evidenceAnalysis.summaryFact.limitationFactCount,
+    result.evidenceAnalysis.limitationFacts.length,
+  );
+  const factKeys = new Set([
+    result.evidenceAnalysis.summaryFact.key,
+    ...result.evidenceAnalysis.summaryFact.factKeys,
+  ]);
+  assert.ok(
+    result.evidenceAnalysis.counterEvidenceFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    result.evidenceAnalysis.limitationFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.match(result.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制：/);
   assert.ok(result.housePalace);
   assert.equal(result.housePalace?.length, 8);
 });
@@ -105,6 +151,7 @@ test('八宅测量应换算磁北并识别跨宅卦边界的不稳定候选', ()
   );
   assert.equal(result.evidenceAnalysis.counterSummaryFact.status, '存在需保留反证');
   assert.ok(result.evidenceAnalysis.counterSummaryFact.factKeys.length >= 2);
+  assert.equal(result.evidenceAnalysis.summaryFact.status, '证据链有缺口');
 });
 
 test('八宅磁北读数缺少磁偏角时应拒绝生成伪精确坐向', () => {

@@ -176,7 +176,24 @@ export interface AstrolabeLimitationFact {
   limitation: '限制事实用于约束星盘位置、相位、分布、输入和光照资料可以支持的解释范围，不得被反向当作人格、事件或命运证据';
 }
 
+export interface AstrolabeSummaryFact {
+  key: 'astrolabe:evidence-summary';
+  status: '证据链完整' | '证据链有缺口';
+  factKeys: string[];
+  primaryFactCount: number;
+  positionFactCount: number;
+  aspectFactCount: number;
+  distributionFactCount: number;
+  counterEvidenceCount: number;
+  limitationFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '星盘证据汇总只统计输入、时间、位置、相位、核心点、分布、光照、反证与限制覆盖；不得按数量生成性格强度、吉凶等级、匹配率、事件概率、时间保证或命运结论';
+}
+
 export interface AstrolabeEvidenceAnalysis {
+  key: 'astrolabe:evidence';
+  status: '已计算';
   calculationFact: AstrolabeCalculationFact;
   calculationChain: string[];
   timezoneFact?: HistoricalTimezoneEvidence;
@@ -198,6 +215,7 @@ export interface AstrolabeEvidenceAnalysis {
   counterSummaryFact: AstrolabeCounterSummaryFact;
   limitations: string[];
   limitationFacts: AstrolabeLimitationFact[];
+  summaryFact: AstrolabeSummaryFact;
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
@@ -226,6 +244,8 @@ const COUNTER_SUMMARY_LIMITATION =
   '反证汇总只说明当前筛选范围和依赖库输出的资料覆盖情况；不得据数量生成概率、匹配率、吉凶比例或强度分' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束星盘位置、相位、分布、输入和光照资料可以支持的解释范围，不得被反向当作人格、事件或命运证据' as const;
+const SUMMARY_FACT_LIMITATION =
+  '星盘证据汇总只统计输入、时间、位置、相位、核心点、分布、光照、反证与限制覆盖；不得按数量生成性格强度、吉凶等级、匹配率、事件概率、时间保证或命运结论' as const;
 const ASPECT_BODY_ALIASES: Record<string, string> = {
   'True North Node': '北交点',
   'Mean North Node': '北交点',
@@ -644,7 +664,9 @@ function buildCounterEvidenceFacts(
       key: 'astrolabe:counter:aspects',
       type: '主要相位',
       status: aspectFacts.length ? '有可用证据' : '未见',
-      ownerFactKeys: aspectFacts.map((fact) => fact.key),
+      ownerFactKeys: aspectFacts.length
+        ? aspectFacts.map((fact) => fact.key)
+        : ['astrolabe:calculation:aspects'],
       promptText: aspectFacts.length
         ? `当前筛选范围内列出${aspectFacts.length}组主要相位`
         : '当前筛选范围内未见主要相位',
@@ -657,7 +679,7 @@ function buildCounterEvidenceFacts(
       status: retrogradeFact?.count ? '有可用证据' : '未见',
       ownerFactKeys: retrogradeFact
         ? [retrogradeFact.key, ...retrogradeFact.memberPositionFactKeys]
-        : [],
+        : ['distribution:retrograde'],
       promptText: retrogradeFact?.count
         ? `盘面列出${retrogradeFact.count}个逆行点`
         : '未见逆行星体',
@@ -668,7 +690,7 @@ function buildCounterEvidenceFacts(
       key: 'astrolabe:counter:patterns',
       type: '盘面格局',
       status: patternFact?.count ? '有可用证据' : '未见',
-      ownerFactKeys: patternFact ? [patternFact.key] : [],
+      ownerFactKeys: patternFact ? [patternFact.key] : ['distribution:patterns'],
       promptText: patternFact?.count
         ? `依赖库列出${patternFact.count}项盘面格局`
         : '未见依赖库标记的主要盘面格局',
@@ -725,7 +747,9 @@ function buildLimitationFacts(
       key,
       type,
       status: '适用',
-      ownerFactKeys,
+      ownerFactKeys: Array.from(
+        new Set(ownerFactKeys.length ? ownerFactKeys : [calculationFact.key]),
+      ),
       promptText,
       sources,
       limitation: LIMITATION_FACT_LIMITATION,
@@ -791,6 +815,69 @@ function buildLimitationFacts(
   return facts;
 }
 
+function buildSummaryFact(args: {
+  calculationFact: AstrolabeCalculationFact;
+  timezoneFact?: HistoricalTimezoneEvidence;
+  primaryCoverageFact: AstrolabePrimaryCoverageFact;
+  primaryPointFacts: AstrolabePrimaryFact[];
+  positionFacts: AstrolabePositionFact[];
+  aspectFacts: AstrolabeAspectFact[];
+  distributionFacts: AstrolabeDistributionFact[];
+  illuminationFact: AstrolabeIlluminationFact;
+  counterEvidenceFacts: AstrolabeCounterEvidenceFact[];
+  counterSummaryFact: AstrolabeCounterSummaryFact;
+  limitationFacts: AstrolabeLimitationFact[];
+}): AstrolabeSummaryFact {
+  const status =
+    args.calculationFact.status === '完整' &&
+    (!args.timezoneFact ||
+      (args.timezoneFact.status === 'unique' && !args.timezoneFact.offsetConflict)) &&
+    args.primaryCoverageFact.status === '完整' &&
+    args.positionFacts.length > 0 &&
+    args.aspectFacts.every((item) => item.status === '几何完整') &&
+    args.illuminationFact.status === '可用'
+      ? '证据链完整'
+      : '证据链有缺口';
+  return {
+    key: 'astrolabe:evidence-summary',
+    status,
+    factKeys: Array.from(
+      new Set([
+        args.calculationFact.key,
+        ...args.calculationFact.steps.map((item) => item.key),
+        ...(args.timezoneFact
+          ? [
+              args.timezoneFact.key,
+              ...args.timezoneFact.calculationSteps.map((item) => item.key),
+              ...args.timezoneFact.diagnosticFacts.map((item) => item.key),
+              args.timezoneFact.diagnosticSummaryFact.key,
+              ...args.timezoneFact.limitationFacts.map((item) => item.key),
+            ]
+          : []),
+        args.primaryCoverageFact.key,
+        ...args.primaryPointFacts.map((item) => item.key),
+        ...args.positionFacts.map((item) => item.key),
+        ...args.aspectFacts.map((item) => item.key),
+        ...args.distributionFacts.map((item) => item.key),
+        args.illuminationFact.key,
+        ...args.illuminationFact.crossingFactKeys,
+        ...args.counterEvidenceFacts.map((item) => item.key),
+        args.counterSummaryFact.key,
+        ...args.limitationFacts.map((item) => item.key),
+      ]),
+    ),
+    primaryFactCount: args.primaryPointFacts.length,
+    positionFactCount: args.positionFacts.length,
+    aspectFactCount: args.aspectFacts.length,
+    distributionFactCount: args.distributionFacts.length,
+    counterEvidenceCount: args.counterEvidenceFacts.length,
+    limitationFactCount: args.limitationFacts.length,
+    promptText: `证据链状态：${status}；核心位置${args.primaryPointFacts.length}项、位置${args.positionFacts.length}项、相位${args.aspectFacts.length}项、分布${args.distributionFacts.length}项、反证${args.counterEvidenceFacts.length}项、限制${args.limitationFacts.length}项`,
+    sources: ['星盘输入、时间、位置、相位、核心点、分布、光照、反证与限制事实逐项汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
+}
+
 export function analyzeAstrolabeEvidence(
   data: Omit<AstrolabeData, 'evidenceAnalysis'>,
 ): AstrolabeEvidenceAnalysis {
@@ -844,6 +931,19 @@ export function analyzeAstrolabeEvidence(
     illuminationFact,
   );
   const limitations = limitationFacts.map((fact) => fact.promptText);
+  const summaryFact = buildSummaryFact({
+    calculationFact,
+    timezoneFact,
+    primaryCoverageFact,
+    primaryPointFacts,
+    positionFacts,
+    aspectFacts,
+    distributionFacts: distributionEvidenceFacts,
+    illuminationFact,
+    counterEvidenceFacts,
+    counterSummaryFact,
+    limitationFacts,
+  });
   const items: PromptEvidenceItem[] = [
     {
       level: calculationFact.status === '完整' ? '辅证' : '反证',
@@ -942,6 +1042,13 @@ export function analyzeAstrolabeEvidence(
       tags: ['反证汇总', counterSummaryFact.status],
     },
     {
+      level: summaryFact.status === '证据链完整' ? '辅证' : '反证',
+      title: `星盘证据汇总：${summaryFact.status}`,
+      detail: `${summaryFact.promptText}；边界：${summaryFact.limitation}`,
+      source: summaryFact.sources.join('、'),
+      tags: ['证据汇总', summaryFact.status],
+    },
+    {
       level: '限制',
       title: '星盘输入、模型与解释边界',
       detail: `${limitationFacts.map((fact) => fact.promptText).join('；')}；边界：${LIMITATION_FACT_LIMITATION}`,
@@ -954,10 +1061,13 @@ export function analyzeAstrolabeEvidence(
     ...formatPromptEvidenceBundle(evidence),
     `计算链：${calculationChain.join(' → ')}。`,
     `反证核验：${counterSummaryFact.promptText}。`,
-    `方法限制：${limitations.join('；')}。`,
+    `证据汇总：${summaryFact.promptText}。`,
+    `解释限制（方法限制）：${limitations.join('；')}。`,
   ].join('\n');
 
   return {
+    key: 'astrolabe:evidence',
+    status: '已计算',
     calculationFact,
     calculationChain,
     timezoneFact,
@@ -979,6 +1089,7 @@ export function analyzeAstrolabeEvidence(
     counterSummaryFact,
     limitations,
     limitationFacts,
+    summaryFact,
     evidence,
     promptText,
     methodology: [

@@ -271,7 +271,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       measurementUncertaintyDegrees: 3,
       question: '办公桌朝向怎么选？',
     },
-    /【八宅命宅方位与测量结构化证据】[\s\S]*中心读数不能作为唯一宅卦主证[\s\S]*稳定性为宅卦不稳定[\s\S]*【问题】\n办公桌朝向怎么选？/,
+    /【八宅命宅方位与测量结构化证据】[\s\S]*中心读数不能作为唯一宅卦主证[\s\S]*证据汇总[\s\S]*解释限制[\s\S]*稳定性为宅卦不稳定[\s\S]*【问题】\n办公桌朝向怎么选？/,
   ],
   [
     'zodiac_prompt',
@@ -408,6 +408,8 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
                 };
               };
               evidenceAnalysis?: {
+                key?: string;
+                status?: string;
                 calculationFact?: {
                   status: string;
                   defaults: string[];
@@ -555,6 +557,15 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
                   ownerFactKeys: string[];
                 }>;
                 counterSummaryFact?: { status: string; factKeys: string[] };
+                summaryFact?: {
+                  key: string;
+                  status: string;
+                  factKeys: string[];
+                  directionFactCount: number;
+                  measurementCandidateCount: number;
+                  counterEvidenceCount: number;
+                  limitationFactCount: number;
+                };
                 limitations?: string[];
                 limitationFacts?: Array<{
                   key: string;
@@ -567,6 +578,8 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
             };
           }
         ).result;
+        assert.equal(chart?.evidenceAnalysis?.key, 'bazhai:evidence');
+        assert.equal(chart?.evidenceAnalysis?.status, '已计算');
         assert.equal(chart?.evidenceAnalysis?.calculationFact?.status, '命宅完整');
         assert.equal(chart?.evidenceAnalysis?.calculationFact?.steps.length, 5);
         assert.ok(
@@ -617,6 +630,30 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         );
         assert.equal(chart?.evidenceAnalysis?.counterSummaryFact?.status, '存在需保留反证');
         assert.equal(chart?.evidenceAnalysis?.limitationFacts?.length, 6);
+        assert.equal(chart?.evidenceAnalysis?.summaryFact?.key, 'bazhai:evidence-summary');
+        assert.equal(chart?.evidenceAnalysis?.summaryFact?.status, '证据链有缺口');
+        assert.equal(chart?.evidenceAnalysis?.summaryFact?.directionFactCount, 8);
+        assert.equal(chart?.evidenceAnalysis?.summaryFact?.measurementCandidateCount, 1);
+        assert.equal(chart?.evidenceAnalysis?.summaryFact?.counterEvidenceCount, 6);
+        assert.equal(chart?.evidenceAnalysis?.summaryFact?.limitationFactCount, 6);
+        const bazhaiFactKeys = new Set([
+          chart?.evidenceAnalysis?.summaryFact?.key,
+          ...(chart?.evidenceAnalysis?.summaryFact?.factKeys ?? []),
+        ]);
+        assert.ok(
+          chart?.evidenceAnalysis?.counterEvidenceFacts?.every(
+            (item) =>
+              item.ownerFactKeys.length > 0 &&
+              item.ownerFactKeys.every((key) => bazhaiFactKeys.has(key)),
+          ),
+        );
+        assert.ok(
+          chart?.evidenceAnalysis?.limitationFacts?.every(
+            (item) =>
+              item.ownerFactKeys.length > 0 &&
+              item.ownerFactKeys.every((key) => bazhaiFactKeys.has(key)),
+          ),
+        );
         assert.equal(
           chart?.evidenceAnalysis?.limitations?.length,
           chart?.evidenceAnalysis?.limitationFacts?.length,
@@ -1224,6 +1261,8 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
             allowedOrb?: number;
           }>;
           evidenceAnalysis?: {
+            key?: string;
+            status?: string;
             evidence?: { title?: string };
             timezoneFact?: { key: string; diagnosticSummaryFact: { status: string } };
             calculationFact?: {
@@ -1248,6 +1287,17 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
               ownerFactKeys: string[];
             }>;
             counterSummaryFact?: { status: string; factKeys: string[] };
+            summaryFact?: {
+              key: string;
+              status: string;
+              factKeys: string[];
+              primaryFactCount: number;
+              positionFactCount: number;
+              aspectFactCount: number;
+              distributionFactCount: number;
+              counterEvidenceCount: number;
+              limitationFactCount: number;
+            };
             limitations?: string[];
             limitationFacts?: Array<{ key: string; type: string; ownerFactKeys: string[] }>;
             distributionEvidenceFacts?: Array<{
@@ -1277,6 +1327,8 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
       assert.equal(typeof aspect.allowedOrb, 'number');
     }
     assert.equal(chart?.evidenceAnalysis?.evidence?.title, '西方星盘位置与相位结构化证据');
+    assert.equal(chart?.evidenceAnalysis?.key, 'astrolabe:evidence');
+    assert.equal(chart?.evidenceAnalysis?.status, '已计算');
     assert.equal(chart?.birth?.timezoneEvidence?.status, 'unique');
     assert.equal(chart?.birth?.timezoneEvidence?.calculationSteps.length, 4);
     assert.equal(chart?.birth?.timezoneEvidence?.diagnosticFacts.length, 2);
@@ -1342,9 +1394,55 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
       chart?.evidenceAnalysis?.limitationFacts?.length,
       chart?.evidenceAnalysis?.limitations?.length,
     );
+    assert.equal(chart?.evidenceAnalysis?.summaryFact?.key, 'astrolabe:evidence-summary');
+    assert.equal(chart?.evidenceAnalysis?.summaryFact?.status, '证据链完整');
+    assert.equal(
+      chart?.evidenceAnalysis?.summaryFact?.primaryFactCount,
+      chart?.evidenceAnalysis?.primaryPointFacts?.length,
+    );
+    assert.equal(
+      chart?.evidenceAnalysis?.summaryFact?.positionFactCount,
+      chart?.evidenceAnalysis?.positionFacts?.length,
+    );
+    assert.equal(
+      chart?.evidenceAnalysis?.summaryFact?.aspectFactCount,
+      chart?.evidenceAnalysis?.aspectFacts?.length,
+    );
+    assert.equal(
+      chart?.evidenceAnalysis?.summaryFact?.distributionFactCount,
+      chart?.evidenceAnalysis?.distributionEvidenceFacts?.length,
+    );
+    assert.equal(
+      chart?.evidenceAnalysis?.summaryFact?.counterEvidenceCount,
+      chart?.evidenceAnalysis?.counterEvidenceFacts?.length,
+    );
+    assert.equal(
+      chart?.evidenceAnalysis?.summaryFact?.limitationFactCount,
+      chart?.evidenceAnalysis?.limitationFacts?.length,
+    );
+    const astrolabeFactKeys = new Set([
+      chart?.evidenceAnalysis?.summaryFact?.key,
+      ...(chart?.evidenceAnalysis?.summaryFact?.factKeys ?? []),
+    ]);
+    assert.ok(
+      chart?.evidenceAnalysis?.counterEvidenceFacts?.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every((key) => astrolabeFactKeys.has(key)),
+      ),
+    );
+    assert.ok(
+      chart?.evidenceAnalysis?.limitationFacts?.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every((key) => astrolabeFactKeys.has(key)),
+      ),
+    );
     const prompt = String(result.structuredContent?.prompt);
     assert.match(prompt, /【西方星盘位置与相位结构化证据】/);
     assert.match(prompt, /实际夹角.*精确角.*允许容许度.*距精确角偏差/);
+    assert.match(prompt, /证据汇总/);
+    assert.match(prompt, /解释限制（方法限制）/);
     assert.match(prompt, /【分析对象】\n分析对象：流年2028。/);
     assert.match(prompt, /行运证据：土星□太阳/);
     assert.doesNotMatch(prompt, /强度\d+%/);

@@ -86,6 +86,8 @@ test('星盘应返回可复用的位置、相位、计算链与限制证据', ()
   const evidence = result.evidenceAnalysis;
 
   assert.ok(evidence);
+  assert.equal(evidence.key, 'astrolabe:evidence');
+  assert.equal(evidence.status, '已计算');
   assert.equal(evidence.evidence.title, '西方星盘位置与相位结构化证据');
   assert.equal(evidence.calculationFact.status, '完整');
   assert.equal(evidence.calculationFact.steps.length, 5);
@@ -176,9 +178,33 @@ test('星盘应返回可复用的位置、相位、计算链与限制证据', ()
   assert.ok(evidence.limitations.some((item) => item.includes('不代表事件概率')));
   assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
   assert.ok(evidence.limitationFacts.length >= 7);
+  assert.equal(evidence.summaryFact.key, 'astrolabe:evidence-summary');
+  assert.equal(evidence.summaryFact.status, '证据链完整');
+  assert.equal(evidence.summaryFact.primaryFactCount, evidence.primaryPointFacts.length);
+  assert.equal(evidence.summaryFact.positionFactCount, evidence.positionFacts.length);
+  assert.equal(evidence.summaryFact.aspectFactCount, evidence.aspectFacts.length);
+  assert.equal(
+    evidence.summaryFact.distributionFactCount,
+    evidence.distributionEvidenceFacts.length,
+  );
+  assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
+  assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
+  const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
+  assert.ok(
+    evidence.counterEvidenceFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
   assert.ok(
     evidence.limitationFacts.every(
-      (item) => item.key && item.status === '适用' && item.sources.length > 0 && item.promptText,
+      (item) =>
+        item.key &&
+        item.status === '适用' &&
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+        item.sources.length > 0 &&
+        item.promptText,
     ),
   );
   assert.ok(evidence.methodology.some((item) => item.includes('输入精度边界')));
@@ -190,6 +216,7 @@ test('星盘应返回可复用的位置、相位、计算链与限制证据', ()
   assert.match(evidence.promptText, /十二宫宫头/);
   assert.match(evidence.promptText, /元素模式与逆行分布/);
   assert.match(evidence.promptText, /出生地点太阳光照背景/);
+  assert.match(evidence.promptText, /证据汇总：[\s\S]*解释限制（方法限制）：/);
   assert.doesNotMatch(evidence.promptText, /成功率|吉凶总分|能量分数[：=]\d/);
   assert.doesNotMatch(evidence.promptText, /命语|当前结果|工程|接口|API|MCP/);
   assertPromptIsPortableTaskText(evidence.promptText);
@@ -208,6 +235,7 @@ test('旧星盘缺少相位几何量时不得反推伪精确字段', () => {
 
   const evidence = analyzeAstrolabeEvidence(legacy);
   assert.equal(evidence.calculationFact.status, '部分');
+  assert.equal(evidence.summaryFact.status, '证据链有缺口');
   assert.ok(evidence.calculationFact.missing.includes('完整相位几何量'));
   assert.equal(evidence.calculationFact.steps[3].status, '缺少记录');
   assert.ok(
@@ -224,6 +252,7 @@ test('旧星盘缺少相位几何量时不得反推伪精确字段', () => {
   delete legacy.birth.trueSolarDateTime;
   const incompleteTimeEvidence = analyzeAstrolabeEvidence(legacy);
   assert.equal(incompleteTimeEvidence.calculationFact.status, '部分');
+  assert.equal(incompleteTimeEvidence.summaryFact.status, '证据链有缺口');
   assert.ok(incompleteTimeEvidence.calculationFact.missing.includes('真太阳时校正结果'));
   assert.ok(incompleteTimeEvidence.calculationFact.missing.includes('完整相位几何量'));
   assert.equal(incompleteTimeEvidence.calculationFact.steps[1].status, '缺少记录');
@@ -238,6 +267,7 @@ test('星盘核心位置缺失时应给出覆盖事实且不得补造位置', ()
   const evidence = analyzeAstrolabeEvidence(partial);
 
   assert.equal(evidence.primaryCoverageFact.status, '部分');
+  assert.equal(evidence.summaryFact.status, '证据链有缺口');
   assert.deepEqual(evidence.primaryCoverageFact.missingRoles, ['太阳', '上升']);
   assert.equal(evidence.primaryPointFacts.length, 2);
   assert.ok(
@@ -261,6 +291,7 @@ test('星盘缺少太阳光照资料时应保留缺失对象而不反推天文�
   const evidence = analyzeAstrolabeEvidence(legacy);
 
   assert.equal(evidence.illuminationFact.status, '缺失');
+  assert.equal(evidence.summaryFact.status, '证据链有缺口');
   assert.deepEqual(evidence.illuminationFact.crossingFactKeys, []);
   assert.deepEqual(evidence.illuminationFacts, []);
   assert.match(evidence.illuminationFact.promptText, /不能补造太阳高度、方位、赤纬、均时差/);
@@ -315,6 +346,22 @@ test('星盘时区诊断应转为带来源和计算步骤引用的限制事实',
   ]);
   assert.ok(timezoneFact.sources.length > 0);
   assert.equal(evidence.limitations[0], diagnosed.birth.timezoneDiagnostics[0]);
+
+  const ambiguous = generateAstrolabe({
+    ...validInput,
+    year: '2024',
+    month: '11',
+    day: '3',
+    hour: '1',
+    minute: '30',
+    latitude: '40.7128',
+    longitude: '-74.006',
+    timezone: '-4',
+    timeZoneId: 'America/New_York',
+    locationName: '纽约',
+  });
+  assert.equal(ambiguous.birth.timezoneEvidence?.status, 'ambiguous');
+  assert.equal(ambiguous.evidenceAnalysis?.summaryFact.status, '证据链有缺口');
 });
 
 test('星盘北交点相位应统一名称并兼容旧节点别名引用', () => {

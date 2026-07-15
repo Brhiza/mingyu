@@ -2981,6 +2981,8 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
   );
   assertPromptIsPortableTaskText(body.data.birth.timezoneEvidence.promptText);
   assert.equal(body.data.evidenceAnalysis.timezoneFact.key, body.data.birth.timezoneEvidence.key);
+  assert.equal(body.data.evidenceAnalysis.key, 'astrolabe:evidence');
+  assert.equal(body.data.evidenceAnalysis.status, '已计算');
   assert.match(body.data.evidenceAnalysis.promptText, /历史时区映射与诊断/);
   assert.ok(body.data.aspects.length > 0);
   assert.equal(body.data.evidenceAnalysis.evidence.title, '西方星盘位置与相位结构化证据');
@@ -3043,6 +3045,51 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
   assert.ok(
     body.data.evidenceAnalysis.limitations.some((item: string) => item.includes('不代表事件概率')),
   );
+  assert.equal(body.data.evidenceAnalysis.summaryFact.key, 'astrolabe:evidence-summary');
+  assert.equal(body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.primaryFactCount,
+    body.data.evidenceAnalysis.primaryPointFacts.length,
+  );
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.positionFactCount,
+    body.data.evidenceAnalysis.positionFacts.length,
+  );
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.aspectFactCount,
+    body.data.evidenceAnalysis.aspectFacts.length,
+  );
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.distributionFactCount,
+    body.data.evidenceAnalysis.distributionEvidenceFacts.length,
+  );
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.counterEvidenceCount,
+    body.data.evidenceAnalysis.counterEvidenceFacts.length,
+  );
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.limitationFactCount,
+    body.data.evidenceAnalysis.limitationFacts.length,
+  );
+  const astrolabeFactKeys = new Set([
+    body.data.evidenceAnalysis.summaryFact.key,
+    ...body.data.evidenceAnalysis.summaryFact.factKeys,
+  ]);
+  assert.ok(
+    body.data.evidenceAnalysis.counterEvidenceFacts.every(
+      (item: Record<string, any>) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key: string) => astrolabeFactKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    body.data.evidenceAnalysis.limitationFacts.every(
+      (item: Record<string, any>) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key: string) => astrolabeFactKeys.has(key)),
+    ),
+  );
+  assert.match(body.data.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制（方法限制）：/);
   body.data.aspects.forEach(
     (aspect: {
       strength?: number;
@@ -4124,6 +4171,8 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
   assert.match(body.data.prompt, /候选甲山庚向：震宅八宫/);
   assert.equal(body.data.result.directionMeasurement.stability, '宅卦不稳定');
   assert.equal(body.data.result.evidenceAnalysis.evidence.title, '八宅命宅方位与测量结构化证据');
+  assert.equal(body.data.result.evidenceAnalysis.key, 'bazhai:evidence');
+  assert.equal(body.data.result.evidenceAnalysis.status, '已计算');
   assert.equal(body.data.result.evidenceAnalysis.calculationFact.status, '命宅完整');
   assert.equal(body.data.result.evidenceAnalysis.calculationFact.steps.length, 5);
   assert.ok(
@@ -4185,6 +4234,50 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
   );
   assert.equal(body.data.result.evidenceAnalysis.counterSummaryFact.status, '存在需保留反证');
   assert.equal(body.data.result.evidenceAnalysis.limitationFacts.length, 6);
+  assert.equal(body.data.result.evidenceAnalysis.summaryFact.key, 'bazhai:evidence-summary');
+  assert.equal(body.data.result.evidenceAnalysis.summaryFact.status, '证据链有缺口');
+  assert.equal(
+    body.data.result.evidenceAnalysis.summaryFact.directionFactCount,
+    body.data.result.evidenceAnalysis.directionFacts.length,
+  );
+  assert.equal(
+    body.data.result.evidenceAnalysis.summaryFact.alignedDirectionCount,
+    body.data.result.evidenceAnalysis.alignedDirections.length,
+  );
+  assert.equal(
+    body.data.result.evidenceAnalysis.summaryFact.conflictingDirectionCount,
+    body.data.result.evidenceAnalysis.conflictingDirections.length,
+  );
+  assert.equal(
+    body.data.result.evidenceAnalysis.summaryFact.measurementCandidateCount,
+    body.data.result.evidenceAnalysis.measurementCandidateFacts.length,
+  );
+  assert.equal(
+    body.data.result.evidenceAnalysis.summaryFact.counterEvidenceCount,
+    body.data.result.evidenceAnalysis.counterEvidenceFacts.length,
+  );
+  assert.equal(
+    body.data.result.evidenceAnalysis.summaryFact.limitationFactCount,
+    body.data.result.evidenceAnalysis.limitationFacts.length,
+  );
+  const bazhaiFactKeys = new Set([
+    body.data.result.evidenceAnalysis.summaryFact.key,
+    ...body.data.result.evidenceAnalysis.summaryFact.factKeys,
+  ]);
+  assert.ok(
+    body.data.result.evidenceAnalysis.counterEvidenceFacts.every(
+      (item: Record<string, any>) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key: string) => bazhaiFactKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    body.data.result.evidenceAnalysis.limitationFacts.every(
+      (item: Record<string, any>) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key: string) => bazhaiFactKeys.has(key)),
+    ),
+  );
   assert.equal(
     body.data.result.evidenceAnalysis.limitations.length,
     body.data.result.evidenceAnalysis.limitationFacts.length,
@@ -4195,6 +4288,8 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
   );
   assertPromptIsPortableTaskText(body.data.result.evidenceAnalysis.promptText);
   assert.match(body.data.prompt, /【八宅命宅方位与测量结构化证据】/);
+  assert.match(body.data.prompt, /证据汇总/);
+  assert.match(body.data.prompt, /解释限制/);
   assert.match(body.data.prompt, /中心\d+°.*传统[吉凶]方分类/);
   assert.match(body.data.prompt, /中心读数不能作为唯一宅卦主证/);
   assert.match(body.data.prompt, /【当前时间】/);

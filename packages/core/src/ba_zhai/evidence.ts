@@ -144,7 +144,24 @@ export interface BaZhaiLimitationFact {
   limitation: '限制事实用于约束八宅传统分类与现场测量可支持的解释范围，不得被反向当作住宅效果、健康变化、财富结果或调整有效性的证据';
 }
 
+export interface BaZhaiSummaryFact {
+  key: 'bazhai:evidence-summary';
+  status: '命卦链完整' | '命宅链完整' | '证据链有缺口';
+  factKeys: string[];
+  directionFactCount: number;
+  alignedDirectionCount: number;
+  conflictingDirectionCount: number;
+  measurementCandidateCount: number;
+  counterEvidenceCount: number;
+  limitationFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '八宅证据汇总只统计命卦年界、命卦宅卦、八宫逐方、测量候选、反证与限制覆盖；不得按数量生成住宅吉凶总分、可信度、健康概率、财富增幅或调整效果保证';
+}
+
 export interface BaZhaiEvidenceAnalysis {
+  key: 'bazhai:evidence';
+  status: '已计算';
   calculationFact: BaZhaiCalculationFact;
   calculationChain: string[];
   directionFacts: BaZhaiDirectionFact[];
@@ -167,6 +184,7 @@ export interface BaZhaiEvidenceAnalysis {
   counterSummaryFact: BaZhaiCounterSummaryFact;
   limitations: string[];
   limitationFacts: BaZhaiLimitationFact[];
+  summaryFact: BaZhaiSummaryFact;
   sources: Array<{ title: string; evidence: string; role: '传统规则来源' | '公共算法来源' }>;
   evidence: PromptEvidenceBundle;
   promptText: string;
@@ -189,6 +207,8 @@ const COUNTER_SUMMARY_LIMITATION =
   '反证汇总只用于防止把缺失资料、异判或边界敏感静默忽略；不得据反证数量生成吉凶分、可信度或调整结论' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束八宅传统分类与现场测量可支持的解释范围，不得被反向当作住宅效果、健康变化、财富结果或调整有效性的证据' as const;
+const SUMMARY_FACT_LIMITATION =
+  '八宅证据汇总只统计命卦年界、命卦宅卦、八宫逐方、测量候选、反证与限制覆盖；不得按数量生成住宅吉凶总分、可信度、健康概率、财富增幅或调整效果保证' as const;
 
 function buildCalculationFact(
   data: Omit<BaZhaiResult, 'prompt' | 'evidenceAnalysis'>,
@@ -579,6 +599,56 @@ function buildLimitationFacts(
   }));
 }
 
+function buildSummaryFact(args: {
+  calculationFact: BaZhaiCalculationFact;
+  directionFacts: BaZhaiDirectionFact[];
+  alignedDirections: BaZhaiDirectionComparison[];
+  conflictingDirections: BaZhaiDirectionComparison[];
+  measurementFact: BaZhaiMeasurementFact;
+  measurementCandidateFacts: BaZhaiMeasurementCandidateFact[];
+  counterEvidenceFacts: BaZhaiCounterEvidenceFact[];
+  counterSummaryFact: BaZhaiCounterSummaryFact;
+  limitationFacts: BaZhaiLimitationFact[];
+}): BaZhaiSummaryFact {
+  const hasHouse = args.calculationFact.status === '命宅完整';
+  const measurementComplete =
+    args.measurementFact.status === '未提供' ||
+    (args.measurementFact.referenceStatus === '已声明' &&
+      args.measurementCandidateFacts.length > 0);
+  const structurallyComplete =
+    args.calculationFact.yearBoundaryStatus !== '待复核' &&
+    args.calculationFact.steps.length === 5 &&
+    args.directionFacts.length === 8 &&
+    args.directionFacts.every((item) => item.status === '已计算') &&
+    measurementComplete;
+  const status = structurallyComplete ? (hasHouse ? '命宅链完整' : '命卦链完整') : '证据链有缺口';
+  return {
+    key: 'bazhai:evidence-summary',
+    status,
+    factKeys: Array.from(
+      new Set([
+        args.calculationFact.key,
+        ...args.calculationFact.steps.map((item) => item.key),
+        ...args.directionFacts.map((item) => item.key),
+        args.measurementFact.key,
+        ...args.measurementCandidateFacts.map((item) => item.key),
+        ...args.counterEvidenceFacts.map((item) => item.key),
+        args.counterSummaryFact.key,
+        ...args.limitationFacts.map((item) => item.key),
+      ]),
+    ),
+    directionFactCount: args.directionFacts.length,
+    alignedDirectionCount: args.alignedDirections.length,
+    conflictingDirectionCount: args.conflictingDirections.length,
+    measurementCandidateCount: args.measurementCandidateFacts.length,
+    counterEvidenceCount: args.counterEvidenceFacts.length,
+    limitationFactCount: args.limitationFacts.length,
+    promptText: `证据链状态：${status}；逐方事实${args.directionFacts.length}项、同类方向${args.alignedDirections.length}项、命宅异判${args.conflictingDirections.length}项、测量候选${args.measurementCandidateFacts.length}项、反证${args.counterEvidenceFacts.length}项、限制${args.limitationFacts.length}项`,
+    sources: ['命卦年界、命卦宅卦、八宫逐方、测量候选、反证与限制事实逐项汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
+}
+
 export function analyzeBaZhaiEvidence(
   data: Omit<BaZhaiResult, 'prompt' | 'evidenceAnalysis'>,
   measurement?: BaZhaiDoorMeasurement,
@@ -662,6 +732,17 @@ export function analyzeBaZhaiEvidence(
     .map((item) => item.promptText);
   const limitationFacts = buildLimitationFacts(calculationFact, directionFacts, measurementFact);
   const limitations = limitationFacts.map((item) => item.promptText);
+  const summaryFact = buildSummaryFact({
+    calculationFact,
+    directionFacts,
+    alignedDirections,
+    conflictingDirections,
+    measurementFact,
+    measurementCandidateFacts,
+    counterEvidenceFacts,
+    counterSummaryFact,
+    limitationFacts,
+  });
   const sources: BaZhaiEvidenceAnalysis['sources'] = [
     {
       title: '《八宅明镜》《阳宅十书》传统规则',
@@ -719,6 +800,13 @@ export function analyzeBaZhaiEvidence(
       tags: ['反证汇总', counterSummaryFact.status],
     },
     {
+      level: summaryFact.status === '证据链有缺口' ? '反证' : '辅证',
+      title: `八宅证据汇总：${summaryFact.status}`,
+      detail: `${summaryFact.promptText}；边界：${summaryFact.limitation}`,
+      source: summaryFact.sources.join('、'),
+      tags: ['证据汇总', summaryFact.status],
+    },
+    {
       level: '限制',
       title: '八宅传统模型与现场使用边界',
       detail: `${limitations.join('；')}；边界：${LIMITATION_FACT_LIMITATION}`,
@@ -741,9 +829,13 @@ export function analyzeBaZhaiEvidence(
     }。`,
     `命宅异判：${conflictingDirections.map((item) => `${item.direction}命卦${item.mingLabel}${item.mingLuck}、宅卦${item.houseLabel}${item.houseLuck}`).join('；') || '未见或未提供宅卦'}。`,
     `反证汇总：${counterSummaryFact.promptText}。`,
+    `证据汇总：${summaryFact.promptText}。`,
+    `解释限制：${limitations.join('；')}。`,
     `规则来源：${sources.map((item) => `${item.title}（${item.role}：${item.evidence}）`).join('；')}。`,
   ].join('\n');
   return {
+    key: 'bazhai:evidence',
+    status: '已计算',
     calculationFact,
     calculationChain,
     directionFacts,
@@ -759,6 +851,7 @@ export function analyzeBaZhaiEvidence(
     counterSummaryFact,
     limitations,
     limitationFacts,
+    summaryFact,
     sources,
     evidence,
     promptText,
