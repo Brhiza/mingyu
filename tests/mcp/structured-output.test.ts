@@ -868,20 +868,37 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
                 stage: string;
                 promptText: string;
                 sources: string[];
+                dependsOnStepKeys: string[];
+                limitation: string;
               }>;
             };
             calculationChain?: string[];
+            primaryCoverageFact?: { status: string; positionFactKeys: string[] };
+            primaryPointFacts?: Array<{ key: string; positionFactKey: string }>;
             positionFacts?: unknown[];
+            illuminationFact?: { status: string; crossingFactKeys: string[] };
+            counterEvidenceFacts?: Array<{
+              type: string;
+              status: string;
+              ownerFactKeys: string[];
+            }>;
+            counterSummaryFact?: { status: string; factKeys: string[] };
+            limitations?: string[];
+            limitationFacts?: Array<{ key: string; type: string; ownerFactKeys: string[] }>;
             distributionEvidenceFacts?: Array<{
               key: string;
               count: number;
               members: string[];
+              memberPositionFactKeys: string[];
               limitation: string;
             }>;
             aspectFacts?: Array<{
               actualAngle?: number;
               exactAngle?: number;
               allowedOrb?: number;
+              status?: string;
+              positionFactKeys?: string[];
+              sources?: string[];
               limitation?: string;
             }>;
           };
@@ -899,9 +916,18 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
     assert.equal(chart?.evidenceAnalysis?.calculationFact?.steps.length, 5);
     assert.ok(
       chart?.evidenceAnalysis?.calculationFact?.steps.every(
-        (item) => item.key && item.stage && item.promptText && item.sources.length > 0,
+        (item) =>
+          item.key &&
+          item.stage &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          Array.isArray(item.dependsOnStepKeys) &&
+          item.limitation.includes('单个计算步骤'),
       ),
     );
+    assert.equal(chart?.evidenceAnalysis?.primaryCoverageFact?.status, '完整');
+    assert.equal(chart?.evidenceAnalysis?.primaryPointFacts?.length, 4);
+    assert.equal(chart?.evidenceAnalysis?.primaryCoverageFact?.positionFactKeys.length, 4);
     assert.ok((chart?.evidenceAnalysis?.calculationChain?.length ?? 0) >= 5);
     assert.equal(
       chart?.evidenceAnalysis?.positionFacts?.length,
@@ -913,6 +939,7 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
         (item) =>
           item.key.startsWith('distribution:') &&
           item.count === item.members.length &&
+          Array.isArray(item.memberPositionFactKeys) &&
           item.limitation.includes('不代表能量分数'),
       ),
     );
@@ -922,8 +949,23 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
           typeof item.actualAngle === 'number' &&
           typeof item.exactAngle === 'number' &&
           typeof item.allowedOrb === 'number' &&
+          (item.status === '几何完整' || item.status === '旧记录缺几何量') &&
+          Array.isArray(item.positionFactKeys) &&
+          Array.isArray(item.sources) &&
           item.limitation?.includes('不代表事件概率'),
       ),
+    );
+    assert.equal(chart?.evidenceAnalysis?.illuminationFact?.status, '可用');
+    assert.equal(chart?.evidenceAnalysis?.illuminationFact?.crossingFactKeys.length, 4);
+    assert.equal(chart?.evidenceAnalysis?.counterEvidenceFacts?.length, 3);
+    assert.ok(
+      ['有未见项', '全部有可列资料'].includes(
+        chart?.evidenceAnalysis?.counterSummaryFact?.status ?? '',
+      ),
+    );
+    assert.equal(
+      chart?.evidenceAnalysis?.limitationFacts?.length,
+      chart?.evidenceAnalysis?.limitations?.length,
     );
     const prompt = String(result.structuredContent?.prompt);
     assert.match(prompt, /【西方星盘位置与相位结构化证据】/);

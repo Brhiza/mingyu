@@ -2559,9 +2559,14 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
         String(item.key).startsWith('astrolabe:calculation:') &&
         item.stage &&
         item.promptText &&
-        Array.isArray(item.sources),
+        Array.isArray(item.sources) &&
+        Array.isArray(item.dependsOnStepKeys) &&
+        String(item.limitation).includes('单个计算步骤'),
     ),
   );
+  assert.equal(body.data.evidenceAnalysis.primaryCoverageFact.status, '完整');
+  assert.equal(body.data.evidenceAnalysis.primaryPointFacts.length, 4);
+  assert.equal(body.data.evidenceAnalysis.primaryCoverageFact.positionFactKeys.length, 4);
   assert.ok(body.data.evidenceAnalysis.calculationChain.length >= 5);
   assert.equal(
     body.data.evidenceAnalysis.positionFacts.length,
@@ -2574,6 +2579,7 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
         String(item.key).startsWith('distribution:') &&
         typeof item.count === 'number' &&
         Array.isArray(item.members) &&
+        Array.isArray(item.memberPositionFactKeys) &&
         item.promptText &&
         String(item.limitation).includes('不代表能量分数'),
     ),
@@ -2581,12 +2587,25 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
   assert.ok(
     body.data.evidenceAnalysis.aspectFacts.every(
       (item: Record<string, unknown>) =>
+        (item.status === '几何完整' || item.status === '旧记录缺几何量') &&
+        Array.isArray(item.positionFactKeys) &&
+        Array.isArray(item.sources) &&
         typeof item.actualAngle === 'number' &&
         typeof item.exactAngle === 'number' &&
         typeof item.allowedOrb === 'number' &&
         item.promptText &&
         String(item.limitation).includes('不代表事件概率'),
     ),
+  );
+  assert.equal(body.data.evidenceAnalysis.illuminationFact.status, '可用');
+  assert.equal(body.data.evidenceAnalysis.illuminationFact.crossingFactKeys.length, 4);
+  assert.equal(body.data.evidenceAnalysis.counterEvidenceFacts.length, 3);
+  assert.ok(
+    ['有未见项', '全部有可列资料'].includes(body.data.evidenceAnalysis.counterSummaryFact.status),
+  );
+  assert.equal(
+    body.data.evidenceAnalysis.limitations.length,
+    body.data.evidenceAnalysis.limitationFacts.length,
   );
   assert.ok(
     body.data.evidenceAnalysis.limitations.some((item: string) => item.includes('不代表事件概率')),

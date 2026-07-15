@@ -17,9 +17,15 @@ export type {
   AstrolabeAspectFact,
   AstrolabeCalculationFact,
   AstrolabeCalculationStep,
+  AstrolabeCounterEvidenceFact,
+  AstrolabeCounterSummaryFact,
   AstrolabeDistributionFact,
   AstrolabeEvidenceAnalysis,
+  AstrolabeIlluminationFact,
+  AstrolabeLimitationFact,
   AstrolabePositionFact,
+  AstrolabePrimaryCoverageFact,
+  AstrolabePrimaryFact,
 } from '../astrolabe-evidence';
 
 const PLANET_LABELS: Record<string, string> = {
@@ -39,7 +45,11 @@ const PLANET_LABELS: Record<string, string> = {
   Juno: '婚神星',
   Vesta: '灶神星',
   'North Node': '北交点',
+  'True North Node': '北交点',
+  'Mean North Node': '北交点',
   'South Node': '南交点',
+  'True South Node': '南交点',
+  'Mean South Node': '南交点',
   'True Lilith': '莉莉丝',
   'Mean Lilith': '莉莉丝',
   'Part of Fortune': '福点',
