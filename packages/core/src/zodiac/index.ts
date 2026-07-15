@@ -24,7 +24,10 @@ import { analyzeZodiacEvidence } from './evidence';
 export { analyzeZodiacEvidence } from './evidence';
 export type {
   ZodiacCalculationStep,
+  ZodiacCounterEvidenceFact,
+  ZodiacCounterSummaryFact,
   ZodiacEvidenceAnalysis,
+  ZodiacLimitationFact,
   ZodiacRelationEvidence,
 } from './evidence';
 

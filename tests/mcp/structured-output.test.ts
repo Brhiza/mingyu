@@ -2557,14 +2557,30 @@ test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级'
               status: string;
               promptText: string;
               sources: string[];
+              dependsOnStepKeys: string[];
               limitation: string;
             }>;
             relations: Array<{
               key: string;
+              status: string;
               sources: string[];
               promptText: string;
               limitation: string;
             }>;
+            counterEvidenceFacts: Array<{
+              type: string;
+              status: string;
+              ownerRelationKeys: string[];
+            }>;
+            counterSummaryFact: { status: string; factKeys: string[] };
+            limitations: string[];
+            limitationFacts: Array<{
+              key: string;
+              status: string;
+              ownerFactKeys: string[];
+              sources: string[];
+            }>;
+            promptText: string;
           };
         };
       }
@@ -2578,6 +2594,7 @@ test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级'
         (item) =>
           item.key.startsWith('zodiac:calculation:') &&
           item.status === '已计算' &&
+          Array.isArray(item.dependsOnStepKeys) &&
           item.promptText &&
           item.sources.length >= 2 &&
           item.limitation.includes('不证明个人现实事件'),
@@ -2587,11 +2604,29 @@ test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级'
       chart.evidenceAnalysis.relations.every(
         (item) =>
           item.key.startsWith('关系:') &&
+          item.status === '已命中' &&
           item.sources.length >= 2 &&
           item.promptText.length > 0 &&
           item.limitation.includes('不证明现实事件'),
       ),
     );
+    assert.equal(chart.evidenceAnalysis.counterEvidenceFacts.length, 3);
+    assert.equal(
+      chart.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '太岁关系覆盖')
+        ?.status,
+      '有可用证据',
+    );
+    assert.equal(chart.evidenceAnalysis.counterSummaryFact.status, '有未命中关系');
+    assert.equal(chart.evidenceAnalysis.limitationFacts.length, 5);
+    assert.equal(
+      chart.evidenceAnalysis.limitations.length,
+      chart.evidenceAnalysis.limitationFacts.length,
+    );
+    assert.doesNotMatch(
+      chart.evidenceAnalysis.promptText,
+      /命语|本项目|项目统一|工程|接口|API|MCP/,
+    );
+    assertPromptIsPortableTaskText(chart.evidenceAnalysis.promptText);
   });
 });
 

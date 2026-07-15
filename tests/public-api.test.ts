@@ -3513,6 +3513,7 @@ test('公开 API 生肖流年应返回关系矩阵证据而不使用综合吉凶
       (item: Record<string, unknown>) =>
         String(item.key).startsWith('zodiac:calculation:') &&
         item.status === '已计算' &&
+        Array.isArray(item.dependsOnStepKeys) &&
         item.promptText &&
         Array.isArray(item.sources) &&
         item.sources.length >= 2 &&
@@ -3528,12 +3529,31 @@ test('公开 API 生肖流年应返回关系矩阵证据而不使用综合吉凶
     calculate.body.data.evidenceAnalysis.relations.every(
       (item: Record<string, unknown>) =>
         String(item.key).startsWith('关系:') &&
+        item.status === '已命中' &&
         Array.isArray(item.sources) &&
         item.sources.length >= 2 &&
         String(item.promptText).length > 0 &&
         String(item.limitation).includes('不证明现实事件'),
     ),
   );
+  assert.equal(calculate.body.data.evidenceAnalysis.counterEvidenceFacts.length, 3);
+  assert.equal(
+    calculate.body.data.evidenceAnalysis.counterEvidenceFacts.find(
+      (item: { type: string }) => item.type === '太岁关系覆盖',
+    ).status,
+    '有可用证据',
+  );
+  assert.equal(calculate.body.data.evidenceAnalysis.counterSummaryFact.status, '有未命中关系');
+  assert.equal(calculate.body.data.evidenceAnalysis.limitationFacts.length, 5);
+  assert.equal(
+    calculate.body.data.evidenceAnalysis.limitations.length,
+    calculate.body.data.evidenceAnalysis.limitationFacts.length,
+  );
+  assert.doesNotMatch(
+    calculate.body.data.evidenceAnalysis.promptText,
+    /命语|本项目|项目统一|工程|接口|API|MCP/,
+  );
+  assertPromptIsPortableTaskText(calculate.body.data.evidenceAnalysis.promptText);
 
   const prompt = await callApi('metaphysics/zodiac/prompt', {
     method: 'POST',

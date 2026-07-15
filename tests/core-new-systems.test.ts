@@ -8,6 +8,7 @@ import {
   getCardEvidence,
 } from '../packages/core/src/divination/tarot.ts';
 import { tarotCards } from '../packages/core/src/divination/tarot-data.ts';
+import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 test('ganzhi: 纳音/十二长生/六十甲子序号', () => {
   assert.equal(core.ganzhi.getNayin('甲子'), '海中金');
@@ -237,6 +238,7 @@ test('zodiac: 犯太岁与流年运程', () => {
       (item) =>
         item.key.startsWith('zodiac:calculation:') &&
         item.status === '已计算' &&
+        Array.isArray(item.dependsOnStepKeys) &&
         item.promptText &&
         item.sources.length >= 2 &&
         item.limitation.includes('不证明个人现实事件'),
@@ -248,11 +250,34 @@ test('zodiac: 犯太岁与流年运程', () => {
     r.evidenceAnalysis.relations.every(
       (item) =>
         item.key.startsWith('关系:') &&
+        item.status === '已命中' &&
         item.operands.length >= 2 &&
         item.rule.length > 0 &&
         item.sources.length >= 2 &&
         item.promptText.length > 0 &&
         item.limitation.includes('不证明现实事件'),
+    ),
+  );
+  assert.deepEqual(
+    r.evidenceAnalysis.counterEvidenceFacts.map((item) => [item.type, item.status]),
+    [
+      ['太岁关系覆盖', '未命中'],
+      ['三合六合覆盖', '未命中'],
+      ['生肖信息量', '固有限制'],
+    ],
+  );
+  assert.equal(r.evidenceAnalysis.counterSummaryFact.status, '有未命中关系');
+  assert.equal(r.evidenceAnalysis.counterSummaryFact.factKeys.length, 2);
+  assert.equal(r.evidenceAnalysis.counterEvidence.length, 3);
+  assert.equal(r.evidenceAnalysis.limitationFacts.length, 5);
+  assert.equal(r.evidenceAnalysis.limitations.length, r.evidenceAnalysis.limitationFacts.length);
+  assert.ok(
+    r.evidenceAnalysis.limitationFacts.every(
+      (item) =>
+        item.key.startsWith('zodiac:limitation:') &&
+        item.status === '适用' &&
+        item.ownerFactKeys.length > 0 &&
+        item.sources.length > 0,
     ),
   );
   assert.match(r.evidenceAnalysis.promptText, /现实复核提示：.*边界：/);
@@ -262,12 +287,19 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.doesNotMatch(r.prompt, /印星|财星|官杀|接口兼容/);
   assert.ok(r.prompt.includes('只作生肖与流年关系层的趋势参考'));
   assert.doesNotMatch(r.prompt, /完整的事业、财运、感情或健康断语/);
+  assert.doesNotMatch(r.evidenceAnalysis.promptText, /命语|本项目|项目统一|工程|接口|API|MCP/);
+  assertPromptIsPortableTaskText(r.evidenceAnalysis.promptText);
 });
 
 test('zodiac: 冲太岁只作轻量风险关系，不生成综合吉凶等级', () => {
   const result = core.zodiac.getZodiacYearFortune('午', '庚子');
   assert.ok(result.conflicts.some((item) => item.type === '冲太岁'));
   assert.ok(result.evidenceAnalysis.primaryEvidence.some((item) => item.relation === '冲太岁'));
+  assert.equal(
+    result.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '太岁关系覆盖')
+      ?.status,
+    '有可用证据',
+  );
   assert.ok(
     result.evidenceAnalysis.primaryEvidence.every(
       (item) => item.promptText.includes('逐项核验') && item.sources.length >= 2,

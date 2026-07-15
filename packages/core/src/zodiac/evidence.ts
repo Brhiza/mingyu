@@ -5,6 +5,7 @@ import { getBranchWuxing, getStemWuxing } from '../ganzhi';
 
 export interface ZodiacRelationEvidence {
   key: string;
+  status: '已命中';
   category: '流年同支' | '地支冲突' | '地支助缘' | '年干五行';
   relation: string;
   source: string;
@@ -23,9 +24,39 @@ export interface ZodiacCalculationStep {
   status: '已计算';
   inputs: Record<string, string | number>;
   result: Record<string, string | number>;
+  dependsOnStepKeys: string[];
   promptText: string;
   sources: string[];
   limitation: '生肖计算链只证明生肖、流年干支、固定地支关系与五行辅助关系如何形成当前轻量结果，不证明个人现实事件、完整命理结构、吉凶概率、固定应期或化解效果';
+}
+
+export interface ZodiacCounterEvidenceFact {
+  key: string;
+  type: '太岁关系覆盖' | '三合六合覆盖' | '生肖信息量';
+  status: '有可用证据' | '未命中' | '固有限制';
+  ownerRelationKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '反证事实只记录值、冲、刑、害、破、六合、三合是否命中以及生肖模型固有的信息量限制；未命中不代表现实有利或不利，命中也不证明事件结果';
+}
+
+export interface ZodiacCounterSummaryFact {
+  key: 'zodiac:counter-summary';
+  status: '有未命中关系' | '关系均有命中';
+  factKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '反证汇总只说明传统关系表的命中覆盖情况；不得据命中数量生成吉凶总分、成功率、灾祸概率、固定应期或化解效果';
+}
+
+export interface ZodiacLimitationFact {
+  key: string;
+  type: '信息量边界' | '关系表边界' | '五行辅助边界' | '高风险输出边界' | '现实建议边界';
+  status: '适用';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束生肖年支、流年干支关系和五行辅助可以支持的解释范围，不得被反向当作个人事件、吉凶概率或化解有效性的证据';
 }
 
 export interface ZodiacEvidenceAnalysis {
@@ -35,7 +66,10 @@ export interface ZodiacEvidenceAnalysis {
   primaryEvidence: ZodiacRelationEvidence[];
   supportingEvidence: ZodiacRelationEvidence[];
   counterEvidence: string[];
+  counterEvidenceFacts: ZodiacCounterEvidenceFact[];
+  counterSummaryFact: ZodiacCounterSummaryFact;
   limitations: string[];
+  limitationFacts: ZodiacLimitationFact[];
   sources: Array<{ title: string; evidence: string; role: '传统关系表' | '公共算法' }>;
   evidence: PromptEvidenceBundle;
   promptText: string;
@@ -46,6 +80,12 @@ const RELATION_FACT_LIMITATION =
   '生肖年支与流年干支关系只证明传统关系表或五行生克条件命中；不证明现实事件、个人命运、他人行为、吉凶概率、固定应期或化解效果' as const;
 const CALCULATION_STEP_LIMITATION =
   '生肖计算链只证明生肖、流年干支、固定地支关系与五行辅助关系如何形成当前轻量结果，不证明个人现实事件、完整命理结构、吉凶概率、固定应期或化解效果' as const;
+const COUNTER_FACT_LIMITATION =
+  '反证事实只记录值、冲、刑、害、破、六合、三合是否命中以及生肖模型固有的信息量限制；未命中不代表现实有利或不利，命中也不证明事件结果' as const;
+const COUNTER_SUMMARY_LIMITATION =
+  '反证汇总只说明传统关系表的命中覆盖情况；不得据命中数量生成吉凶总分、成功率、灾祸概率、固定应期或化解效果' as const;
+const LIMITATION_FACT_LIMITATION =
+  '限制事实用于约束生肖年支、流年干支关系和五行辅助可以支持的解释范围，不得被反向当作个人事件、吉凶概率或化解有效性的证据' as const;
 
 function conflictEvidence(conflict: TaiSuiConflict, zodiacBranch: string): ZodiacRelationEvidence {
   const rule =
@@ -54,10 +94,11 @@ function conflictEvidence(conflict: TaiSuiConflict, zodiacBranch: string): Zodia
       : `十二地支${conflict.type.replace('太岁', '')}固定关系表命中`;
   return {
     key: `关系:${conflict.type}:${zodiacBranch}:${conflict.with}`,
+    status: '已命中',
     category: conflict.type === '值太岁' ? '流年同支' : '地支冲突',
     relation: conflict.type,
     source: '生肖年支与流年年支的同支、六冲、相刑、六害、六破关系',
-    sources: ['十二地支同支、六冲、相刑、六害与六破固定关系表', '命语干支关系公共算法'],
+    sources: ['十二地支同支、六冲、相刑、六害与六破固定关系表', '干支关系公共规则'],
     role: '主证',
     detail: conflict.desc,
     operands: [
@@ -70,6 +111,128 @@ function conflictEvidence(conflict: TaiSuiConflict, zodiacBranch: string): Zodia
   };
 }
 
+function buildCounterEvidenceFacts(
+  relations: ZodiacRelationEvidence[],
+): ZodiacCounterEvidenceFact[] {
+  const conflictRelations = relations.filter(
+    (relation) => relation.category === '流年同支' || relation.category === '地支冲突',
+  );
+  const nobleRelations = relations.filter((relation) => relation.category === '地支助缘');
+  return [
+    {
+      key: 'zodiac:counter:tai-sui-relations',
+      type: '太岁关系覆盖',
+      status: conflictRelations.length ? '有可用证据' : '未命中',
+      ownerRelationKeys: conflictRelations.map((relation) => relation.key),
+      promptText: conflictRelations.length
+        ? `命中${conflictRelations.length}项值、冲、刑、害或破关系，并保留逐项关系事实`
+        : '本年未命中值、冲、刑、害、破关系，不应为了形成结论而补造“犯太岁”',
+      sources: ['生肖年支与流年年支的同支、六冲、相刑、六害和六破逐项核验'],
+      limitation: COUNTER_FACT_LIMITATION,
+    },
+    {
+      key: 'zodiac:counter:noble-relations',
+      type: '三合六合覆盖',
+      status: nobleRelations.length ? '有可用证据' : '未命中',
+      ownerRelationKeys: nobleRelations.map((relation) => relation.key),
+      promptText: nobleRelations.length
+        ? `命中${nobleRelations.length}项六合或三合关系，并保留逐项关系事实`
+        : '本年未命中六合或三合关系，不应泛称有“生肖贵人”',
+      sources: ['生肖年支与流年年支的六合、三合逐项核验'],
+      limitation: COUNTER_FACT_LIMITATION,
+    },
+    {
+      key: 'zodiac:counter:information-scope',
+      type: '生肖信息量',
+      status: '固有限制',
+      ownerRelationKeys: relations.map((relation) => relation.key),
+      promptText: '生肖只取出生年支，同生肖者仍可能因出生月、日、时和现实条件不同而表现完全不同',
+      sources: ['生肖模型只使用出生年支的输入范围'],
+      limitation: COUNTER_FACT_LIMITATION,
+    },
+  ];
+}
+
+function buildCounterSummaryFact(
+  counterEvidenceFacts: ZodiacCounterEvidenceFact[],
+): ZodiacCounterSummaryFact {
+  const unmatched = counterEvidenceFacts.filter((fact) => fact.status === '未命中');
+  return {
+    key: 'zodiac:counter-summary',
+    status: unmatched.length ? '有未命中关系' : '关系均有命中',
+    factKeys: unmatched.map((fact) => fact.key),
+    promptText: unmatched.length
+      ? `未命中${unmatched.map((fact) => fact.type).join('、')}；未命中不代表现实有利或不利，只按已有关系事实解释`
+      : '值冲刑害破与三合六合均有可列关系；不得据命中数量生成吉凶或概率结论',
+    sources: ['太岁关系覆盖与三合六合覆盖逐项汇总'],
+    limitation: COUNTER_SUMMARY_LIMITATION,
+  };
+}
+
+function buildLimitationFacts(
+  calculationSteps: ZodiacCalculationStep[],
+  relations: ZodiacRelationEvidence[],
+): ZodiacLimitationFact[] {
+  const definitions: Array<
+    Pick<ZodiacLimitationFact, 'key' | 'type' | 'promptText' | 'ownerFactKeys' | 'sources'>
+  > = [
+    {
+      key: 'zodiac:limitation:information-scope',
+      type: '信息量边界',
+      promptText: '生肖流年只使用一个出生年支，信息量远低于完整四柱，不得替代八字或现实资料',
+      ownerFactKeys: ['zodiac:calculation:branch', ...relations.map((relation) => relation.key)],
+      sources: ['生肖模型输入范围与完整四柱信息范围对照'],
+    },
+    {
+      key: 'zodiac:limitation:relation-tables',
+      type: '关系表边界',
+      promptText: '值、冲、刑、害、破和三合六合是传统关系分类，不是现代统计概率或事件因果证明',
+      ownerFactKeys: [
+        'zodiac:calculation:branch-relations',
+        ...relations
+          .filter((relation) => relation.category !== '年干五行')
+          .map((relation) => relation.key),
+      ],
+      sources: ['十二地支固定关系表'],
+    },
+    {
+      key: 'zodiac:limitation:stem-element',
+      type: '五行辅助边界',
+      promptText: '年干与生肖地支的五行关系不是严格的个人十神关系，不得直接套用个人十神结论',
+      ownerFactKeys: [
+        'zodiac:calculation:stem-element',
+        ...relations
+          .filter((relation) => relation.category === '年干五行')
+          .map((relation) => relation.key),
+      ],
+      sources: ['流年年干与生肖年支本气五行辅助关系'],
+    },
+    {
+      key: 'zodiac:limitation:high-risk-output',
+      type: '高风险输出边界',
+      promptText: '不得输出吉凶总分、成功率、灾祸概率、固定应期或保证有效的化解方案',
+      ownerFactKeys: [
+        ...calculationSteps.map((step) => step.key),
+        ...relations.map((relation) => relation.key),
+      ],
+      sources: ['传统关系事实与现实结果分离原则'],
+    },
+    {
+      key: 'zodiac:limitation:reality-check',
+      type: '现实建议边界',
+      promptText:
+        '现实建议必须落到合同、健康、出行、财务和沟通等可核验条件，不得仅凭“犯太岁”制造恐惧',
+      ownerFactKeys: relations.map((relation) => relation.key),
+      sources: ['现实建议可核验性要求'],
+    },
+  ];
+  return definitions.map((definition) => ({
+    ...definition,
+    status: '适用',
+    limitation: LIMITATION_FACT_LIMITATION,
+  }));
+}
+
 export function analyzeZodiacEvidence(
   data: Omit<ZodiacYearFortune, 'evidenceAnalysis' | 'prompt'>,
 ): ZodiacEvidenceAnalysis {
@@ -79,10 +242,11 @@ export function analyzeZodiacEvidence(
       ? [
           {
             key: `关系:${data.noble}:${data.zodiacBranch}:${data.yearBranch}`,
+            status: '已命中' as const,
             category: '地支助缘' as const,
             relation: data.noble,
             source: '生肖年支与流年年支的六合或三合关系',
-            sources: ['十二地支六合与三合固定关系表', '命语干支关系公共算法'],
+            sources: ['十二地支六合与三合固定关系表', '干支关系公共规则'],
             role: '辅证' as const,
             detail: '只表示传统关系表中的相合条件，不证明现实中必然出现贵人。',
             operands: [
@@ -105,10 +269,11 @@ export function analyzeZodiacEvidence(
       : []),
     {
       key: `关系:年干五行:${data.yearGanZhi[0]}:${data.zodiacBranch}`,
+      status: '已命中',
       category: '年干五行',
       relation: data.relation,
       source: '流年天干五行与生肖地支本气五行的生克关系',
-      sources: ['天干五行与地支本气五行映射表', '命语五行生克公共算法'],
+      sources: ['天干五行与地支本气五行映射表', '五行生克公共规则'],
       role: '辅证',
       detail: '年干五行只作生肖层补充，不等同完整八字十神。',
       operands: [
@@ -133,8 +298,9 @@ export function analyzeZodiacEvidence(
       status: '已计算',
       inputs: { zodiac: data.zodiac },
       result: { zodiacBranch: data.zodiacBranch },
+      dependsOnStepKeys: [],
       promptText: `生肖${data.zodiac}换算为年支${data.zodiacBranch}`,
-      sources: ['十二生肖与十二地支固定映射', '命语生肖公共数据'],
+      sources: ['十二生肖与十二地支固定映射', '生肖地支公共数据'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
@@ -143,8 +309,9 @@ export function analyzeZodiacEvidence(
       status: '已计算',
       inputs: { yearGanZhi: data.yearGanZhi },
       result: { yearStem: data.yearGanZhi[0], yearBranch: data.yearBranch },
+      dependsOnStepKeys: [],
       promptText: `流年${data.yearGanZhi}拆分为年干${data.yearGanZhi[0]}与年支${data.yearBranch}`,
-      sources: ['六十甲子干支结构', '命语干支合法性与拆分能力'],
+      sources: ['六十甲子干支结构', '干支合法性与拆分规则'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
@@ -156,8 +323,9 @@ export function analyzeZodiacEvidence(
         conflictCount: data.conflicts.length,
         nobleRelation: data.noble ?? '未命中',
       },
+      dependsOnStepKeys: ['zodiac:calculation:branch', 'zodiac:calculation:year'],
       promptText: `生肖年支${data.zodiacBranch}与流年年支${data.yearBranch}逐项核验同支、六冲、相刑、六害、六破、六合与三合`,
-      sources: ['十二地支固定关系表', '命语干支关系公共算法'],
+      sources: ['十二地支固定关系表', '干支关系公共规则'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
@@ -173,25 +341,19 @@ export function analyzeZodiacEvidence(
         zodiacBranchWuxing: getBranchWuxing(data.zodiacBranch),
         relation: data.relation,
       },
+      dependsOnStepKeys: ['zodiac:calculation:branch', 'zodiac:calculation:year'],
       promptText: `流年年干${data.yearGanZhi[0]}五行与生肖年支${data.zodiacBranch}本气五行单独作为辅助关系`,
-      sources: ['天干五行与地支本气五行映射', '命语五行生克公共算法'],
+      sources: ['天干五行与地支本气五行映射', '五行生克公共规则'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
   ];
-  const counterEvidence = [
-    ...(data.conflicts.length === 0
-      ? ['本年未命中值、冲、刑、害、破关系，不应为了形成结论而补造“犯太岁”']
-      : []),
-    ...(!data.noble ? ['本年未命中六合或三合关系，不应泛称有“生肖贵人”'] : []),
-    '生肖只取出生年支，同生肖者仍可能因出生月、日、时和现实条件不同而表现完全不同',
-  ];
-  const limitations = [
-    '生肖流年只使用一个出生年支，信息量远低于完整四柱，不得替代八字或现实资料',
-    '值、冲、刑、害、破和三合六合是传统关系分类，不是现代统计概率或事件因果证明',
-    '年干与生肖地支的五行关系不是严格的个人十神关系，不得直接套用个人十神结论',
-    '不得输出吉凶总分、成功率、灾祸概率、固定应期或保证有效的化解方案',
-    '现实建议必须落到合同、健康、出行、财务和沟通等可核验条件，不得仅凭“犯太岁”制造恐惧',
-  ];
+  const counterEvidenceFacts = buildCounterEvidenceFacts(relations);
+  const counterSummaryFact = buildCounterSummaryFact(counterEvidenceFacts);
+  const counterEvidence = counterEvidenceFacts
+    .filter((fact) => fact.status !== '有可用证据')
+    .map((fact) => fact.promptText);
+  const limitationFacts = buildLimitationFacts(calculationSteps, relations);
+  const limitations = limitationFacts.map((fact) => fact.promptText);
   const sources: ZodiacEvidenceAnalysis['sources'] = [
     {
       title: '十二地支关系表',
@@ -199,7 +361,7 @@ export function analyzeZodiacEvidence(
       role: '传统关系表',
     },
     {
-      title: '命语干支与五行公共模块',
+      title: '干支与五行公共规则',
       evidence: '六十甲子合法性、天干地支五行及地支关系函数',
       role: '公共算法',
     },
@@ -226,17 +388,27 @@ export function analyzeZodiacEvidence(
       source: `${item.sources.join('；')}；计算：${item.operands.map((operand) => `${operand.label}${operand.value}${operand.wuxing ? `属${operand.wuxing}` : ''}`).join('与')}；规则${item.rule}`,
       tags: [item.category, item.relation],
     })),
-    ...counterEvidence.map((detail): PromptEvidenceItem => ({
+    ...counterEvidenceFacts
+      .filter((fact) => fact.status !== '有可用证据')
+      .map((fact): PromptEvidenceItem => ({
+        level: '反证',
+        title: '生肖层证据缺口',
+        detail: `${fact.promptText}；边界：${fact.limitation}`,
+        source: fact.sources.join('、'),
+        tags: ['反证', fact.type, fact.status],
+      })),
+    {
       level: '反证',
-      title: '生肖层证据缺口',
-      detail,
-      source: '当前生肖年支与流年干支逐项核验',
-    })),
+      title: `关系覆盖汇总：${counterSummaryFact.status}`,
+      detail: `${counterSummaryFact.promptText}；边界：${counterSummaryFact.limitation}`,
+      source: counterSummaryFact.sources.join('、'),
+      tags: ['反证汇总', counterSummaryFact.status],
+    },
     {
       level: '限制',
       title: '生肖流年信息量与解释边界',
-      detail: limitations.join('；'),
-      source: '传统关系事实与个人现实结论分离原则',
+      detail: `${limitationFacts.map((fact) => fact.promptText).join('；')}；边界：${LIMITATION_FACT_LIMITATION}`,
+      source: Array.from(new Set(limitationFacts.flatMap((fact) => fact.sources))).join('、'),
       tags: ['轻量模型', '现实复核'],
     },
   ];
@@ -248,7 +420,7 @@ export function analyzeZodiacEvidence(
     `计算链：${calculationChain.join(' → ')}。`,
     `有利关系：${data.favorableRelations.join('；') || '未命中三合六合或明确年干辅助关系'}。`,
     `风险关系：${data.riskRelations.join('；') || '未命中值、冲、刑、害、破关系'}。`,
-    `反证限制：${counterEvidence.join('；')}。`,
+    `反证限制：${counterSummaryFact.promptText}。`,
     `规则来源：${sources.map((item) => `${item.title}（${item.role}：${item.evidence}）`).join('；')}。`,
   ].join('\n');
   return {
@@ -258,7 +430,10 @@ export function analyzeZodiacEvidence(
     primaryEvidence,
     supportingEvidence,
     counterEvidence,
+    counterEvidenceFacts,
+    counterSummaryFact,
     limitations,
+    limitationFacts,
     sources,
     evidence,
     promptText,
