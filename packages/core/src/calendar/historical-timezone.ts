@@ -52,6 +52,18 @@ export interface HistoricalTimezoneDiagnosticSummaryFact {
   limitation: '诊断汇总只整合当地时刻映射与固定偏移核验，不证明原始钟表记录、地点或时区标注必然正确';
 }
 
+export interface HistoricalTimezoneSummaryFact {
+  key: 'historical-timezone:evidence-summary';
+  status: HistoricalTimezoneDiagnosticSummaryFact['status'];
+  factKeys: string[];
+  calculationStepCount: number;
+  diagnosticFactCount: number;
+  limitationFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '历史时区证据汇总只统计 IANA 规则加载、候选偏移、当地时刻映射、固定偏移核验、诊断与限制覆盖；不得按映射状态生成可信度百分比，也不证明原始钟表记录、出生地或时区标注必然正确';
+}
+
 export interface HistoricalTimezoneLimitationFact {
   key: string;
   type: '数据库版本边界' | '回拨选择边界' | '固定偏移边界';
@@ -80,6 +92,7 @@ export interface HistoricalTimezoneEvidence {
   calculationChain: string[];
   diagnosticFacts: HistoricalTimezoneDiagnosticFact[];
   diagnosticSummaryFact: HistoricalTimezoneDiagnosticSummaryFact;
+  summaryFact: HistoricalTimezoneSummaryFact;
   limitations: string[];
   limitationFacts: HistoricalTimezoneLimitationFact[];
   source: string;
@@ -94,6 +107,8 @@ const DIAGNOSTIC_SUMMARY_LIMITATION =
   '诊断汇总只整合当地时刻映射与固定偏移核验，不证明原始钟表记录、地点或时区标注必然正确' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束历史时区换算可支持的结论范围，不得被反向当作出生记录真实性、事件结果或观测精度证据' as const;
+const SUMMARY_FACT_LIMITATION =
+  '历史时区证据汇总只统计 IANA 规则加载、候选偏移、当地时刻映射、固定偏移核验、诊断与限制覆盖；不得按映射状态生成可信度百分比，也不证明原始钟表记录、出生地或时区标注必然正确' as const;
 
 type WallClockParts = Omit<HistoricalTimezoneInput, 'timeZoneId' | 'fixedOffsetHours'>;
 
@@ -364,6 +379,22 @@ export function resolveHistoricalTimezone(
       limitation: LIMITATION_FACT_LIMITATION,
     },
   ];
+  const summaryFact: HistoricalTimezoneSummaryFact = {
+    key: 'historical-timezone:evidence-summary',
+    status: summaryStatus,
+    factKeys: [
+      ...calculationSteps.map((item) => item.key),
+      ...diagnosticFacts.map((item) => item.key),
+      diagnosticSummaryFact.key,
+      ...limitationFacts.map((item) => item.key),
+    ],
+    calculationStepCount: calculationSteps.length,
+    diagnosticFactCount: diagnosticFacts.length,
+    limitationFactCount: limitationFacts.length,
+    promptText: `历史时区证据状态为${summaryStatus}；记录计算步骤${calculationSteps.length}项、诊断事实${diagnosticFacts.length}项、限制${limitationFacts.length}项`,
+    sources: ['IANA 历史时区计算链、当地时刻映射、偏移核验、诊断与限制事实汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
 
   return {
     key: `historical-timezone:${timeZoneId}:${wallClockDateTime}`,
@@ -382,9 +413,10 @@ export function resolveHistoricalTimezone(
     calculationChain: calculationSteps.map((item) => item.promptText),
     diagnosticFacts,
     diagnosticSummaryFact,
+    summaryFact,
     limitations,
     limitationFacts,
     source,
-    promptText: `历史时区证据：${timeZoneId} 的当地钟表时间${wallClockDateTime}映射为 UTC ${toIso(selected.timestamp)}，历史偏移 UTC${selected.offset >= 0 ? '+' : ''}${selected.offset}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。诊断汇总：${diagnosticSummaryFact.promptText}。来源：${source}。限制：${limitations.join('；')}`,
+    promptText: `历史时区证据：${timeZoneId} 的当地钟表时间${wallClockDateTime}映射为 UTC ${toIso(selected.timestamp)}，历史偏移 UTC${selected.offset >= 0 ? '+' : ''}${selected.offset}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。诊断汇总：${diagnosticSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。来源：${source}。限制：${limitations.join('；')}`,
   };
 }

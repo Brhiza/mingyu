@@ -3109,6 +3109,22 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
   );
   assert.equal(body.data.birth.timezoneEvidence.diagnosticSummaryFact.status, '唯一且无冲突');
   assert.equal(
+    body.data.birth.timezoneEvidence.summaryFact.status,
+    body.data.birth.timezoneEvidence.diagnosticSummaryFact.status,
+  );
+  assert.equal(
+    body.data.birth.timezoneEvidence.summaryFact.calculationStepCount,
+    body.data.birth.timezoneEvidence.calculationSteps.length,
+  );
+  assert.equal(
+    body.data.birth.timezoneEvidence.summaryFact.diagnosticFactCount,
+    body.data.birth.timezoneEvidence.diagnosticFacts.length,
+  );
+  assert.equal(
+    body.data.birth.timezoneEvidence.summaryFact.limitationFactCount,
+    body.data.birth.timezoneEvidence.limitationFacts.length,
+  );
+  assert.equal(
     body.data.birth.timezoneEvidence.limitations.length,
     body.data.birth.timezoneEvidence.limitationFacts.length,
   );
@@ -3184,6 +3200,11 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
   );
   assert.equal(body.data.evidenceAnalysis.summaryFact.key, 'astrolabe:evidence-summary');
   assert.equal(body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.ok(
+    body.data.evidenceAnalysis.summaryFact.factKeys.includes(
+      body.data.birth.timezoneEvidence.summaryFact.key,
+    ),
+  );
   assert.equal(
     body.data.evidenceAnalysis.summaryFact.primaryFactCount,
     body.data.evidenceAnalysis.primaryPointFacts.length,

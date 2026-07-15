@@ -8,6 +8,7 @@ import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 function assertEvidenceReferences(evidence: ReturnType<typeof resolveHistoricalTimezone>) {
   const factKeys = new Set([
+    evidence.summaryFact.key,
     ...evidence.calculationSteps.map((item) => item.key),
     ...evidence.diagnosticFacts.map((item) => item.key),
     evidence.diagnosticSummaryFact.key,
@@ -63,12 +64,23 @@ test('IANA 历史时区应识别中国 1990 年夏令时', () => {
     evidence.diagnosticFacts.map((item) => item.key),
   );
   assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
+  assert.equal(evidence.summaryFact.status, evidence.diagnosticSummaryFact.status);
+  assert.equal(evidence.summaryFact.calculationStepCount, evidence.calculationSteps.length);
+  assert.equal(evidence.summaryFact.diagnosticFactCount, evidence.diagnosticFacts.length);
+  assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
+  assert.deepEqual(evidence.summaryFact.factKeys, [
+    ...evidence.calculationSteps.map((item) => item.key),
+    ...evidence.diagnosticFacts.map((item) => item.key),
+    evidence.diagnosticSummaryFact.key,
+    ...evidence.limitationFacts.map((item) => item.key),
+  ]);
   assertEvidenceReferences(evidence);
   assert.ok(
     [
       ...evidence.calculationSteps,
       ...evidence.diagnosticFacts,
       evidence.diagnosticSummaryFact,
+      evidence.summaryFact,
       ...evidence.limitationFacts,
     ].every((item) => item.sources.length > 0 && item.limitation.length > 0),
   );
@@ -102,6 +114,7 @@ test('IANA 历史时区应识别普通唯一时刻与固定偏移冲突', () => 
   assert.equal(historical.calculationSteps[3].status, '存在冲突');
   assert.equal(historical.diagnosticFacts[1].status, '存在冲突');
   assert.equal(historical.diagnosticSummaryFact.status, '唯一但偏移冲突');
+  assert.equal(historical.summaryFact.status, '唯一但偏移冲突');
 });
 
 test('IANA 历史时区应保留纽约秋季回拨的两个候选时刻', () => {
@@ -124,6 +137,7 @@ test('IANA 历史时区应保留纽约秋季回拨的两个候选时刻', () => 
   assert.equal(evidence.calculationSteps[2].status, '存在歧义');
   assert.equal(evidence.diagnosticFacts[0].status, '存在回拨歧义');
   assert.equal(evidence.diagnosticSummaryFact.status, '存在回拨歧义且未核验固定偏移');
+  assert.equal(evidence.summaryFact.status, '存在回拨歧义且未核验固定偏移');
   assert.equal(evidence.diagnosticSummaryFact.factKeys.length, 2);
   assertEvidenceReferences(evidence);
 });
@@ -169,6 +183,9 @@ test('天文时间尺度应直接采用 IANA 解析出的历史偏移', () => {
   assert.equal(evidence.timezone, 9);
   assert.equal(evidence.utcDateTime, '1990-07-01 03:00:00Z');
   assert.equal(evidence.timezoneEvidence?.resolvedOffsetHours, 9);
+  assert.ok(
+    evidence.summaryFact.factKeys.includes(evidence.timezoneEvidence?.summaryFact.key ?? ''),
+  );
   assert.match(evidence.promptText, /IANA|历史时区/);
 });
 

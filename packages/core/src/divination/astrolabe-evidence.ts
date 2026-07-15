@@ -852,6 +852,7 @@ function buildSummaryFact(args: {
               ...args.timezoneFact.calculationSteps.map((item) => item.key),
               ...args.timezoneFact.diagnosticFacts.map((item) => item.key),
               args.timezoneFact.diagnosticSummaryFact.key,
+              args.timezoneFact.summaryFact.key,
               ...args.timezoneFact.limitationFacts.map((item) => item.key),
             ]
           : []),

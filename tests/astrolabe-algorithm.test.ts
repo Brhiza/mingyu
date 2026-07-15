@@ -363,6 +363,11 @@ test('星盘时区诊断应转为带来源和计算步骤引用的限制事实',
   });
   assert.equal(ambiguous.birth.timezoneEvidence?.status, 'ambiguous');
   assert.equal(ambiguous.evidenceAnalysis?.summaryFact.status, '证据链有缺口');
+  assert.ok(
+    ambiguous.evidenceAnalysis?.summaryFact.factKeys.includes(
+      ambiguous.birth.timezoneEvidence?.summaryFact.key ?? '',
+    ),
+  );
 });
 
 test('星盘北交点相位应统一名称并兼容旧节点别名引用', () => {

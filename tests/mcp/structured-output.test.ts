@@ -1535,6 +1535,13 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
               calculationChain: string[];
               diagnosticFacts: unknown[];
               diagnosticSummaryFact: { status: string; factKeys: string[] };
+              summaryFact: {
+                key: string;
+                status: string;
+                calculationStepCount: number;
+                diagnosticFactCount: number;
+                limitationFactCount: number;
+              };
               limitations: string[];
               limitationFacts: unknown[];
               promptText: string;
@@ -1632,6 +1639,16 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
     assert.equal(chart?.birth?.timezoneEvidence?.diagnosticFacts.length, 2);
     assert.equal(chart?.birth?.timezoneEvidence?.diagnosticSummaryFact.status, '唯一且无冲突');
     assert.equal(
+      chart?.birth?.timezoneEvidence?.summaryFact.status,
+      chart?.birth?.timezoneEvidence?.diagnosticSummaryFact.status,
+    );
+    assert.equal(chart?.birth?.timezoneEvidence?.summaryFact.calculationStepCount, 4);
+    assert.equal(chart?.birth?.timezoneEvidence?.summaryFact.diagnosticFactCount, 2);
+    assert.equal(
+      chart?.birth?.timezoneEvidence?.summaryFact.limitationFactCount,
+      chart?.birth?.timezoneEvidence?.limitationFacts.length,
+    );
+    assert.equal(
       chart?.birth?.timezoneEvidence?.limitations.length,
       chart?.birth?.timezoneEvidence?.limitationFacts.length,
     );
@@ -1698,6 +1715,11 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
     );
     assert.equal(chart?.evidenceAnalysis?.summaryFact?.key, 'astrolabe:evidence-summary');
     assert.equal(chart?.evidenceAnalysis?.summaryFact?.status, '证据链完整');
+    assert.ok(
+      chart?.evidenceAnalysis?.summaryFact?.factKeys.includes(
+        chart?.birth?.timezoneEvidence?.summaryFact.key ?? '',
+      ),
+    );
     assert.equal(
       chart?.evidenceAnalysis?.summaryFact?.primaryFactCount,
       chart?.evidenceAnalysis?.primaryPointFacts?.length,

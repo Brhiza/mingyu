@@ -428,7 +428,9 @@ export function buildAstronomicalTimeEvidence(
       ...counterEvidenceFacts.map((item) => item.key),
       counterSummaryFact.key,
       ...limitationFacts.map((item) => item.key),
-      ...(timezoneEvidence ? [timezoneEvidence.diagnosticSummaryFact.key] : []),
+      ...(timezoneEvidence
+        ? [timezoneEvidence.diagnosticSummaryFact.key, timezoneEvidence.summaryFact.key]
+        : []),
     ],
     calculationStepCount: calculationSteps.length,
     assumptionFactCount: assumptionFacts.length,

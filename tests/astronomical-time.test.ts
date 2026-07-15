@@ -137,6 +137,12 @@ test('天文时间汇总应保留历史时区歧义和固定偏移冲突', () =>
 
   assert.equal(ambiguous.summaryFact.status, '含历史时区歧义');
   assert.equal(conflict.summaryFact.status, '含固定偏移冲突');
+  assert.ok(
+    ambiguous.summaryFact.factKeys.includes(ambiguous.timezoneEvidence?.summaryFact.key ?? ''),
+  );
+  assert.ok(
+    conflict.summaryFact.factKeys.includes(conflict.timezoneEvidence?.summaryFact.key ?? ''),
+  );
   assertEvidenceReferences(ambiguous);
   assertEvidenceReferences(conflict);
   assert.match(ambiguous.promptText, /证据汇总：天文时间证据状态为含历史时区歧义/);
