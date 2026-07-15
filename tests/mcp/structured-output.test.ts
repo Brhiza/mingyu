@@ -1855,6 +1855,28 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
     });
     assert.equal(confirmed.isError, undefined);
     assert.equal(confirmed.structuredContent?.result.ritual.confirmed, true);
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.key, 'ssgw:evidence');
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.status, '已计算');
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.calculationSteps.length, 8);
+    const ssgwStepKeys = new Set(
+      confirmed.structuredContent?.result.evidenceAnalysis.calculationSteps.map(
+        (item: Record<string, unknown>) => item.key,
+      ),
+    );
+    assert.ok(
+      confirmed.structuredContent?.result.evidenceAnalysis.calculationSteps.every(
+        (item: Record<string, any>) =>
+          item.status === '已计算' &&
+          item.promptText &&
+          Array.isArray(item.sources) &&
+          item.sources.length > 0 &&
+          item.dependsOnStepKeys.every((key: string) => ssgwStepKeys.has(key)),
+      ),
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.calculationChain.length,
+      confirmed.structuredContent?.result.evidenceAnalysis.calculationSteps.length,
+    );
     assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.drawFact.status, '可核验');
     assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.signFact.status, '完整');
     assert.equal(
@@ -1886,6 +1908,9 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
     );
     assert.match(String(confirmed.structuredContent?.prompt), /三山国王灵签文本与仪式结构化证据/);
     assert.match(String(confirmed.structuredContent?.prompt), /不证明预测有效性/);
+    assert.match(String(confirmed.structuredContent?.prompt), /计算链/);
+    assert.match(String(confirmed.structuredContent?.prompt), /证据汇总/);
+    assert.match(String(confirmed.structuredContent?.prompt), /解释限制|解释边界/);
     assert.equal(
       confirmed.structuredContent?.result.evidenceAnalysis.counterEvidenceFacts.length,
       6,
@@ -1899,6 +1924,48 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
       0,
     );
     assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.limitationFacts.length, 6);
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.key,
+      'ssgw:evidence-summary',
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.status,
+      '证据链完整',
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.interpretationFactCount,
+      confirmed.structuredContent?.result.evidenceAnalysis.interpretationFacts.length,
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.missingFieldFactCount,
+      confirmed.structuredContent?.result.evidenceAnalysis.missingFieldFacts.length,
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.ritualThrowFactCount,
+      confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts.length,
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      confirmed.structuredContent?.result.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.sourceFactCount,
+      confirmed.structuredContent?.result.evidenceAnalysis.sourceFacts.length,
+    );
+    assert.ok(
+      confirmed.structuredContent?.result.evidenceAnalysis.limitationFacts.every(
+        (item: Record<string, any>) =>
+          Array.isArray(item.ownerFactKeys) &&
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every(
+            (key: string) =>
+              key === confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.key ||
+              confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.factKeys.includes(
+                key,
+              ),
+          ),
+      ),
+    );
     assert.equal(
       confirmed.structuredContent?.result.evidenceAnalysis.limitations.length,
       confirmed.structuredContent?.result.evidenceAnalysis.limitationFacts.length,

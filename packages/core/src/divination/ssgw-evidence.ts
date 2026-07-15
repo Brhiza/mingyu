@@ -156,7 +156,45 @@ export interface SsgwLimitationFact {
   limitation: '限制事实用于约束灵签文本、分类释义、掷筊和随机轨迹可以支持的解释范围，不得被反向当作神意、现实结果或概率证据';
 }
 
+export interface SsgwEvidenceCalculationStep {
+  key: string;
+  stage:
+    | '随机来源核验'
+    | '抽签索引核验'
+    | '签文文本核验'
+    | '分类资料覆盖核验'
+    | '掷筊记录核验'
+    | '仪式确认核验'
+    | '反证核验'
+    | '证据汇总';
+  status: '已计算' | '资料不足';
+  inputs: Record<string, string | number | boolean | string[]>;
+  result: Record<string, string | number | boolean | string[]>;
+  dependsOnStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '计算步骤只证明随机轨迹、抽签索引、签文文本、分类资料覆盖和掷筊确认如何形成当前证据；不证明神意来源、预测有效性、现实吉凶、事件概率或唯一未来';
+}
+
+export interface SsgwSummaryFact {
+  key: 'ssgw:evidence-summary';
+  status: '证据链完整' | '证据链有缺口';
+  factKeys: string[];
+  interpretationFactCount: number;
+  missingFieldFactCount: number;
+  ritualThrowFactCount: number;
+  counterEvidenceCount: number;
+  sourceFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '灵签证据汇总只统计签诗、分类释义、抽签索引、掷筊、随机轨迹、来源与反证覆盖；不得按数量生成吉凶等级、可信度、成功率、神意判断、时间保证或唯一未来';
+}
+
 export interface SsgwEvidenceAnalysis {
+  key: 'ssgw:evidence';
+  status: '已计算';
+  calculationSteps: SsgwEvidenceCalculationStep[];
+  calculationChain: string[];
   signText: {
     number: number;
     title: string;
@@ -188,6 +226,7 @@ export interface SsgwEvidenceAnalysis {
   counterSummaryFact: SsgwCounterSummaryFact;
   limitations: string[];
   limitationFacts: SsgwLimitationFact[];
+  summaryFact: SsgwSummaryFact;
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
@@ -222,6 +261,10 @@ const COUNTER_SUMMARY_LIMITATION =
   '反证汇总只用于防止静默补齐签诗、典故、分类释义、仪式或随机轨迹缺口；不得据缺口数量生成吉凶分、概率或结果保证' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束灵签文本、分类释义、掷筊和随机轨迹可以支持的解释范围，不得被反向当作神意、现实结果或概率证据' as const;
+const CALCULATION_STEP_LIMITATION =
+  '计算步骤只证明随机轨迹、抽签索引、签文文本、分类资料覆盖和掷筊确认如何形成当前证据；不证明神意来源、预测有效性、现实吉凶、事件概率或唯一未来' as const;
+const SUMMARY_FACT_LIMITATION =
+  '灵签证据汇总只统计签诗、分类释义、抽签索引、掷筊、随机轨迹、来源与反证覆盖；不得按数量生成吉凶等级、可信度、成功率、神意判断、时间保证或唯一未来' as const;
 
 function conditionSsgwRitualReason(reason?: string) {
   return reason
@@ -337,6 +380,214 @@ function buildCounterSummaryFact(
   };
 }
 
+function buildSummaryFact(args: {
+  signFact: SsgwSignFact;
+  interpretations: SsgwInterpretationFact[];
+  missingFieldFacts: SsgwMissingFieldFact[];
+  coverageFact: SsgwCoverageFact;
+  drawFact: SsgwDrawFact;
+  ritualFact: SsgwRitualFact;
+  ritualThrowFacts: SsgwRitualThrowEvidenceFact[];
+  randomFact: SsgwRandomFact;
+  sourceFacts: SsgwSourceFact[];
+  counterEvidenceFacts: SsgwCounterEvidenceFact[];
+  counterSummaryFact: SsgwCounterSummaryFact;
+}): SsgwSummaryFact {
+  const status =
+    args.signFact.status === '完整' &&
+    args.coverageFact.status === '完整' &&
+    args.drawFact.status === '可核验' &&
+    args.ritualFact.status === '已确认' &&
+    args.ritualThrowFacts.length > 0 &&
+    args.randomFact.status === '可重放' &&
+    args.counterSummaryFact.status === '未见额外反证'
+      ? '证据链完整'
+      : '证据链有缺口';
+  return {
+    key: 'ssgw:evidence-summary',
+    status,
+    factKeys: Array.from(
+      new Set([
+        args.signFact.key,
+        ...args.interpretations.map((item) => item.key),
+        ...args.missingFieldFacts.map((item) => item.key),
+        args.coverageFact.key,
+        args.drawFact.key,
+        args.ritualFact.key,
+        ...args.ritualThrowFacts.map((item) => item.key),
+        args.randomFact.key,
+        ...args.sourceFacts.map((item) => item.key),
+        ...args.counterEvidenceFacts.map((item) => item.key),
+        args.counterSummaryFact.key,
+      ]),
+    ),
+    interpretationFactCount: args.interpretations.length,
+    missingFieldFactCount: args.missingFieldFacts.length,
+    ritualThrowFactCount: args.ritualThrowFacts.length,
+    counterEvidenceCount: args.counterEvidenceFacts.length,
+    sourceFactCount: args.sourceFacts.length,
+    promptText: `证据链状态：${status}；分类释义${args.interpretations.length}项、缺失字段${args.missingFieldFacts.length}项、掷筊记录${args.ritualThrowFacts.length}项、反证核验${args.counterEvidenceFacts.length}项、来源声明${args.sourceFacts.length}项`,
+    sources: ['签诗、分类释义、抽签索引、掷筊、随机轨迹、来源与反证事实逐项汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
+}
+
+function buildCalculationSteps(args: {
+  signFact: SsgwSignFact;
+  interpretations: SsgwInterpretationFact[];
+  missingFieldFacts: SsgwMissingFieldFact[];
+  coverageFact: SsgwCoverageFact;
+  drawFact: SsgwDrawFact;
+  ritualFact: SsgwRitualFact;
+  ritualThrowFacts: SsgwRitualThrowEvidenceFact[];
+  randomFact: SsgwRandomFact;
+  counterEvidenceFacts: SsgwCounterEvidenceFact[];
+  counterSummaryFact: SsgwCounterSummaryFact;
+  summaryFact: SsgwSummaryFact;
+}): SsgwEvidenceCalculationStep[] {
+  return [
+    {
+      key: 'ssgw:calculation:random',
+      stage: '随机来源核验',
+      status: args.randomFact.status === '可重放' ? '已计算' : '资料不足',
+      inputs: { randomMode: args.randomFact.mode ?? '缺少轨迹' },
+      result: {
+        randomStatus: args.randomFact.status,
+        sampleCount: args.randomFact.sampleCount,
+      },
+      dependsOnStepKeys: [],
+      promptText: args.randomFact.promptText,
+      sources: args.randomFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'ssgw:calculation:draw-index',
+      stage: '抽签索引核验',
+      status: args.drawFact.status === '可核验' ? '已计算' : '资料不足',
+      inputs: {
+        poolSize: args.drawFact.poolSize ?? '缺少索引',
+        selectedIndex: args.drawFact.selectedIndex ?? '缺少索引',
+      },
+      result: {
+        drawStatus: args.drawFact.status,
+        selectedNumber: args.drawFact.selectedNumber,
+        resultNumber: args.drawFact.resultNumber,
+      },
+      dependsOnStepKeys: ['ssgw:calculation:random'],
+      promptText: args.drawFact.promptText,
+      sources: args.drawFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'ssgw:calculation:sign-text',
+      stage: '签文文本核验',
+      status: args.signFact.status === '完整' ? '已计算' : '资料不足',
+      inputs: { signNumber: args.signFact.number, signTitle: args.signFact.title },
+      result: {
+        signStatus: args.signFact.status,
+        poemProvided: Boolean(args.signFact.poem.trim()),
+      },
+      dependsOnStepKeys: ['ssgw:calculation:draw-index'],
+      promptText: args.signFact.promptText,
+      sources: args.signFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'ssgw:calculation:coverage',
+      stage: '分类资料覆盖核验',
+      status: args.coverageFact.status === '完整' ? '已计算' : '资料不足',
+      inputs: { expectedFieldCount: args.coverageFact.expectedFields.length },
+      result: {
+        coverageStatus: args.coverageFact.status,
+        interpretationFactCount: args.interpretations.length,
+        missingFieldCount: args.missingFieldFacts.length,
+        storyStatus: args.coverageFact.storyStatus,
+      },
+      dependsOnStepKeys: ['ssgw:calculation:sign-text'],
+      promptText: args.coverageFact.promptText,
+      sources: args.coverageFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'ssgw:calculation:ritual-throws',
+      stage: '掷筊记录核验',
+      status: args.ritualThrowFacts.length ? '已计算' : '资料不足',
+      inputs: { ritualStatus: args.ritualFact.status },
+      result: {
+        throwCount: args.ritualThrowFacts.length,
+        throwResults: args.ritualThrowFacts.map((item) => item.result),
+      },
+      dependsOnStepKeys: ['ssgw:calculation:random'],
+      promptText: args.ritualThrowFacts.length
+        ? `已记录${args.ritualThrowFacts.length}次掷筊：${args.ritualThrowFacts.map((item) => item.promptText).join(' → ')}`
+        : '现有资料没有逐次掷筊记录，不得补写阴阳面或杯象',
+      sources: args.ritualThrowFacts.length
+        ? Array.from(new Set(args.ritualThrowFacts.flatMap((item) => item.sources)))
+        : args.ritualFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'ssgw:calculation:ritual-confirmation',
+      stage: '仪式确认核验',
+      status: args.ritualFact.status === '已确认' ? '已计算' : '资料不足',
+      inputs: { throwCount: args.ritualThrowFacts.length },
+      result: {
+        ritualStatus: args.ritualFact.status,
+        confirmed: args.ritualFact.confirmed ?? false,
+        rejected: args.ritualFact.rejected ?? false,
+      },
+      dependsOnStepKeys: ['ssgw:calculation:ritual-throws'],
+      promptText: args.ritualFact.promptText,
+      sources: args.ritualFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'ssgw:calculation:counter',
+      stage: '反证核验',
+      status: '已计算',
+      inputs: { counterFactCount: args.counterEvidenceFacts.length },
+      result: {
+        counterStatus: args.counterSummaryFact.status,
+        issueCount: args.counterEvidenceFacts.filter(isCounterIssue).length,
+      },
+      dependsOnStepKeys: [
+        'ssgw:calculation:draw-index',
+        'ssgw:calculation:sign-text',
+        'ssgw:calculation:coverage',
+        'ssgw:calculation:ritual-confirmation',
+      ],
+      promptText: args.counterSummaryFact.promptText,
+      sources: args.counterSummaryFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'ssgw:calculation:summary',
+      stage: '证据汇总',
+      status: args.summaryFact.status === '证据链完整' ? '已计算' : '资料不足',
+      inputs: { factCount: args.summaryFact.factKeys.length },
+      result: {
+        summaryStatus: args.summaryFact.status,
+        interpretationFactCount: args.summaryFact.interpretationFactCount,
+        missingFieldFactCount: args.summaryFact.missingFieldFactCount,
+        ritualThrowFactCount: args.summaryFact.ritualThrowFactCount,
+        counterEvidenceCount: args.summaryFact.counterEvidenceCount,
+      },
+      dependsOnStepKeys: [
+        'ssgw:calculation:random',
+        'ssgw:calculation:draw-index',
+        'ssgw:calculation:sign-text',
+        'ssgw:calculation:coverage',
+        'ssgw:calculation:ritual-throws',
+        'ssgw:calculation:ritual-confirmation',
+        'ssgw:calculation:counter',
+      ],
+      promptText: args.summaryFact.promptText,
+      sources: args.summaryFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+  ];
+}
+
 function buildLimitationFacts(args: {
   signFact: SsgwSignFact;
   coverageFact: SsgwCoverageFact;
@@ -345,7 +596,11 @@ function buildLimitationFacts(args: {
   ritualThrowFacts: SsgwRitualThrowEvidenceFact[];
   randomFact: SsgwRandomFact;
   interpretations: SsgwInterpretationFact[];
+  missingFieldFacts: SsgwMissingFieldFact[];
   sourceFacts: SsgwSourceFact[];
+  counterEvidenceFacts: SsgwCounterEvidenceFact[];
+  counterSummaryFact: SsgwCounterSummaryFact;
+  summaryFact: SsgwSummaryFact;
 }): SsgwLimitationFact[] {
   const allFactKeys = [
     args.signFact.key,
@@ -355,7 +610,11 @@ function buildLimitationFacts(args: {
     args.randomFact.key,
     ...args.ritualThrowFacts.map((item) => item.key),
     ...args.interpretations.map((item) => item.key),
+    ...args.missingFieldFacts.map((item) => item.key),
     ...args.sourceFacts.map((item) => item.key),
+    ...args.counterEvidenceFacts.map((item) => item.key),
+    args.counterSummaryFact.key,
+    args.summaryFact.key,
   ];
   const definitions: Array<
     Pick<SsgwLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
@@ -391,7 +650,7 @@ function buildLimitationFacts(args: {
     {
       key: 'ssgw:limitation:high-risk-output',
       type: '高风险输出边界',
-      ownerFactKeys: allFactKeys,
+      ownerFactKeys: [args.summaryFact.key, args.counterSummaryFact.key],
       promptText:
         '不得由签号、诗句数字或典故年代换算绝对日期、成功率、灾祸概率或保证有效的化解方案',
       sources: ['传统文本与现实结果分离原则'],
@@ -633,6 +892,36 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     randomFact,
   });
   const counterSummaryFact = buildCounterSummaryFact(counterEvidenceFacts);
+  const summaryFact = buildSummaryFact({
+    signFact,
+    interpretations,
+    missingFieldFacts,
+    coverageFact,
+    drawFact,
+    ritualFact,
+    ritualThrowFacts,
+    randomFact,
+    sourceFacts,
+    counterEvidenceFacts,
+    counterSummaryFact,
+  });
+  const calculationSteps = buildCalculationSteps({
+    signFact,
+    interpretations,
+    missingFieldFacts,
+    coverageFact,
+    drawFact,
+    ritualFact,
+    ritualThrowFacts,
+    randomFact,
+    counterEvidenceFacts,
+    counterSummaryFact,
+    summaryFact,
+  });
+  summaryFact.factKeys = Array.from(
+    new Set([...calculationSteps.map((item) => item.key), ...summaryFact.factKeys]),
+  );
+  const calculationChain = calculationSteps.map((item) => item.promptText);
   const limitationFacts = buildLimitationFacts({
     signFact,
     coverageFact,
@@ -641,10 +930,21 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     ritualThrowFacts,
     randomFact,
     interpretations,
+    missingFieldFacts,
     sourceFacts,
+    counterEvidenceFacts,
+    counterSummaryFact,
+    summaryFact,
   });
   const limitations = limitationFacts.map((item) => item.promptText);
   const items: PromptEvidenceItem[] = [
+    {
+      level: calculationSteps.some((item) => item.status === '资料不足') ? '反证' : '辅证',
+      title: '灵签抽取、签文与仪式计算链',
+      detail: `${calculationChain.join('；')}；统一边界：${CALCULATION_STEP_LIMITATION}`,
+      source: Array.from(new Set(calculationSteps.flatMap((item) => item.sources))).join('、'),
+      tags: ['计算链', summaryFact.status],
+    },
     {
       level: '辅证',
       title: '签池抽取索引事实',
@@ -712,6 +1012,13 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       tags: ['反证汇总', counterSummaryFact.status],
     },
     {
+      level: summaryFact.status === '证据链完整' ? '辅证' : '反证',
+      title: `灵签证据汇总：${summaryFact.status}`,
+      detail: `${summaryFact.promptText}；边界：${summaryFact.limitation}`,
+      source: summaryFact.sources.join('、'),
+      tags: ['证据汇总', summaryFact.status],
+    },
+    {
       level: '限制',
       title: '灵签文本与仪式证据边界',
       detail: `${limitations.join('；')}；边界：${LIMITATION_FACT_LIMITATION}`,
@@ -739,9 +1046,16 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     `抽签事实：${drawFact.promptText}。`,
     `随机事实：${randomFact.promptText}。`,
     `反证汇总：${counterSummaryFact.promptText}。`,
+    `计算链：${calculationChain.join(' → ')}。`,
+    `证据汇总：${summaryFact.promptText}。`,
+    `解释限制：${limitations.join('；')}。`,
     `资料来源：${sourceFacts.map((item) => item.promptText).join('；')}。`,
   ].join('\n');
   return {
+    key: 'ssgw:evidence',
+    status: '已计算',
+    calculationSteps,
+    calculationChain,
     signText: { number: data.number, title: data.title, poem: data.poem },
     story,
     promptStory,
@@ -765,6 +1079,7 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     counterSummaryFact,
     limitations,
     limitationFacts,
+    summaryFact,
     evidence,
     promptText,
     methodology: [

@@ -3869,6 +3869,25 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
   );
   assert.equal(confirmed.draw?.poolSize, 92);
   assert.equal(confirmed.draw?.selectedNumber, confirmed.number);
+  assert.equal(confirmed.evidenceAnalysis?.key, 'ssgw:evidence');
+  assert.equal(confirmed.evidenceAnalysis?.status, '已计算');
+  assert.equal(confirmed.evidenceAnalysis?.calculationSteps.length, 8);
+  assert.equal(
+    confirmed.evidenceAnalysis?.calculationChain.length,
+    confirmed.evidenceAnalysis?.calculationSteps.length,
+  );
+  const calculationStepKeys = new Set(
+    confirmed.evidenceAnalysis?.calculationSteps.map((item) => item.key),
+  );
+  assert.ok(
+    confirmed.evidenceAnalysis?.calculationSteps.every(
+      (item) =>
+        item.status === '已计算' &&
+        item.dependsOnStepKeys.every((key) => calculationStepKeys.has(key)) &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不证明神意来源'),
+    ),
+  );
   assert.equal(confirmed.evidenceAnalysis?.drawFact.status, '可核验');
   assert.equal(confirmed.evidenceAnalysis?.signFact.status, '完整');
   assert.equal(confirmed.evidenceAnalysis?.signFact.number, confirmed.number);
@@ -3922,6 +3941,38 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
   assert.equal(confirmed.evidenceAnalysis?.counterSummaryFact.status, '未见额外反证');
   assert.equal(confirmed.evidenceAnalysis?.counterSummaryFact.factKeys.length, 0);
   assert.equal(confirmed.evidenceAnalysis?.limitationFacts.length, 6);
+  assert.equal(confirmed.evidenceAnalysis?.summaryFact.key, 'ssgw:evidence-summary');
+  assert.equal(confirmed.evidenceAnalysis?.summaryFact.status, '证据链完整');
+  assert.equal(
+    confirmed.evidenceAnalysis?.summaryFact.interpretationFactCount,
+    confirmed.evidenceAnalysis?.interpretationFacts.length,
+  );
+  assert.equal(
+    confirmed.evidenceAnalysis?.summaryFact.missingFieldFactCount,
+    confirmed.evidenceAnalysis?.missingFieldFacts.length,
+  );
+  assert.equal(
+    confirmed.evidenceAnalysis?.summaryFact.ritualThrowFactCount,
+    confirmed.evidenceAnalysis?.ritualThrowFacts.length,
+  );
+  assert.equal(
+    confirmed.evidenceAnalysis?.summaryFact.counterEvidenceCount,
+    confirmed.evidenceAnalysis?.counterEvidenceFacts.length,
+  );
+  assert.equal(
+    confirmed.evidenceAnalysis?.summaryFact.sourceFactCount,
+    confirmed.evidenceAnalysis?.sourceFacts.length,
+  );
+  const factKeys = new Set([
+    confirmed.evidenceAnalysis?.summaryFact.key,
+    ...(confirmed.evidenceAnalysis?.summaryFact.factKeys ?? []),
+  ]);
+  assert.ok(
+    confirmed.evidenceAnalysis?.limitationFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
   assert.equal(
     confirmed.evidenceAnalysis?.limitations.length,
     confirmed.evidenceAnalysis?.limitationFacts.length,
@@ -3929,6 +3980,10 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
   assert.doesNotMatch(
     confirmed.evidenceAnalysis?.promptText || '',
     /项目模拟|项目资料|按项目仪式规则|命语|本项目|项目统一|工程|算法结果/,
+  );
+  assert.match(
+    confirmed.evidenceAnalysis?.promptText || '',
+    /计算链：[\s\S]*证据汇总：[\s\S]*解释限制：/,
   );
   assertPromptIsPortableTaskText(confirmed.evidenceAnalysis?.promptText || '');
   assert.ok(
@@ -3972,6 +4027,9 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
   assert.match(rejected.ritual?.reason || '', /拒绝起签/);
   assert.equal(rejected.evidenceAnalysis?.ritualFact.status, '未确认');
   assert.equal(rejected.evidenceAnalysis?.ritualFact.throws.length, 3);
+  assert.equal(rejected.evidenceAnalysis?.summaryFact.status, '证据链有缺口');
+  assert.equal(rejected.evidenceAnalysis?.calculationSteps[5]?.status, '资料不足');
+  assert.equal(rejected.evidenceAnalysis?.calculationSteps[7]?.status, '资料不足');
   const rejectedRitual = rejected.evidenceAnalysis?.evidence.items.find(
     (item) => item.title === '模拟求签仪式未完成',
   );
@@ -4013,6 +4071,12 @@ test('三山国王灵签分类释义应保留原文并对提示词绝对断语�
   assert.equal(analysis.counterEvidenceFacts.length, 6);
   assert.equal(analysis.counterSummaryFact.status, '存在需保留反证');
   assert.equal(analysis.counterSummaryFact.factKeys.length, 5);
+  assert.equal(analysis.summaryFact.status, '证据链有缺口');
+  assert.equal(analysis.calculationSteps[1]?.status, '资料不足');
+  assert.equal(analysis.calculationSteps[3]?.status, '资料不足');
+  assert.equal(analysis.calculationSteps[4]?.status, '资料不足');
+  assert.equal(analysis.calculationSteps[5]?.status, '资料不足');
+  assert.equal(analysis.calculationSteps[7]?.status, '资料不足');
   assert.equal(analysis.limitationFacts.length, 6);
   assert.equal(analysis.limitations.length, analysis.limitationFacts.length);
 
@@ -4027,6 +4091,9 @@ test('三山国王灵签分类释义应保留原文并对提示词绝对断语�
   });
   assert.equal(emptyPoemAnalysis.signFact.status, '签诗为空');
   assert.equal(emptyPoemAnalysis.coverageFact.status, '存在缺口');
+  assert.equal(emptyPoemAnalysis.summaryFact.status, '证据链有缺口');
+  assert.equal(emptyPoemAnalysis.calculationSteps[2]?.status, '资料不足');
+  assert.equal(emptyPoemAnalysis.calculationSteps[7]?.status, '资料不足');
   assert.ok(emptyPoemAnalysis.counterEvidence.some((item) => item.includes('不得补造签诗')));
 });
 

@@ -2058,6 +2058,28 @@ test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏
   });
   assert.equal(confirmed.response.status, 200);
   assert.equal(confirmed.body.data.ritual.confirmed, true);
+  assert.equal(confirmed.body.data.evidenceAnalysis.key, 'ssgw:evidence');
+  assert.equal(confirmed.body.data.evidenceAnalysis.status, '已计算');
+  assert.equal(confirmed.body.data.evidenceAnalysis.calculationSteps.length, 8);
+  const ssgwStepKeys = new Set(
+    confirmed.body.data.evidenceAnalysis.calculationSteps.map(
+      (item: Record<string, unknown>) => item.key,
+    ),
+  );
+  assert.ok(
+    confirmed.body.data.evidenceAnalysis.calculationSteps.every(
+      (item: Record<string, any>) =>
+        item.status === '已计算' &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        item.sources.length > 0 &&
+        item.dependsOnStepKeys.every((key: string) => ssgwStepKeys.has(key)),
+    ),
+  );
+  assert.equal(
+    confirmed.body.data.evidenceAnalysis.calculationChain.length,
+    confirmed.body.data.evidenceAnalysis.calculationSteps.length,
+  );
   assert.equal(confirmed.body.data.evidenceAnalysis.drawFact.status, '可核验');
   assert.equal(confirmed.body.data.evidenceAnalysis.signFact.status, '完整');
   assert.equal(
@@ -2087,6 +2109,40 @@ test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏
   assert.equal(confirmed.body.data.evidenceAnalysis.counterSummaryFact.status, '未见额外反证');
   assert.equal(confirmed.body.data.evidenceAnalysis.counterSummaryFact.factKeys.length, 0);
   assert.equal(confirmed.body.data.evidenceAnalysis.limitationFacts.length, 6);
+  assert.equal(confirmed.body.data.evidenceAnalysis.summaryFact.key, 'ssgw:evidence-summary');
+  assert.equal(confirmed.body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(
+    confirmed.body.data.evidenceAnalysis.summaryFact.interpretationFactCount,
+    confirmed.body.data.evidenceAnalysis.interpretationFacts.length,
+  );
+  assert.equal(
+    confirmed.body.data.evidenceAnalysis.summaryFact.missingFieldFactCount,
+    confirmed.body.data.evidenceAnalysis.missingFieldFacts.length,
+  );
+  assert.equal(
+    confirmed.body.data.evidenceAnalysis.summaryFact.ritualThrowFactCount,
+    confirmed.body.data.evidenceAnalysis.ritualThrowFacts.length,
+  );
+  assert.equal(
+    confirmed.body.data.evidenceAnalysis.summaryFact.counterEvidenceCount,
+    confirmed.body.data.evidenceAnalysis.counterEvidenceFacts.length,
+  );
+  assert.equal(
+    confirmed.body.data.evidenceAnalysis.summaryFact.sourceFactCount,
+    confirmed.body.data.evidenceAnalysis.sourceFacts.length,
+  );
+  assert.ok(
+    confirmed.body.data.evidenceAnalysis.limitationFacts.every(
+      (item: Record<string, any>) =>
+        Array.isArray(item.ownerFactKeys) &&
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every(
+          (key: string) =>
+            key === confirmed.body.data.evidenceAnalysis.summaryFact.key ||
+            confirmed.body.data.evidenceAnalysis.summaryFact.factKeys.includes(key),
+        ),
+    ),
+  );
   assert.equal(
     confirmed.body.data.evidenceAnalysis.limitations.length,
     confirmed.body.data.evidenceAnalysis.limitationFacts.length,
@@ -2106,6 +2162,9 @@ test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏
   });
   assert.equal(prompt.response.status, 200);
   assert.match(prompt.body.data.prompt, /三山国王灵签文本与仪式结构化证据/);
+  assert.match(prompt.body.data.prompt, /计算链/);
+  assert.match(prompt.body.data.prompt, /证据汇总/);
+  assert.match(prompt.body.data.prompt, /解释限制|解释边界/);
   assert.doesNotMatch(
     prompt.body.data.prompt,
     /项目模拟|项目资料|按项目仪式规则|命语|本项目|项目统一|工程|算法结果/,
