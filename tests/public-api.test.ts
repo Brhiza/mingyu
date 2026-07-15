@@ -2849,16 +2849,36 @@ test('公开 API 西占双盘应返回跨盘相位、落宫和结构化证据', 
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
-  assert.deepEqual(body.data.synastry.people, ['甲', '乙']);
-  assert.ok(body.data.synastry.aspects.length > 0);
-  body.data.synastry.aspects.forEach((aspect: { strength?: number }) => {
-    assert.equal(aspect.strength, undefined);
-  });
-  assert.equal(body.data.synastry.summary.strongAspects, undefined);
-  assert.ok(body.data.synastry.houseOverlays.length > 0);
-  assert.ok(
-    body.data.synastry.evidence.items.some((item: { level: string }) => item.level === '限制'),
+  const synastry = body.data.synastry;
+  assert.equal(synastry.key, 'astrolabe:synastry:evidence');
+  assert.equal(synastry.status, '已计算');
+  assert.deepEqual(synastry.people, ['甲', '乙']);
+  assert.equal(synastry.calculationSteps.length, 7);
+  assert.ok(synastry.aspects.length > 0);
+  synastry.aspects.forEach(
+    (aspect: { key: string; status: string; calculationStepKey: string; strength?: number }) => {
+      assert.match(aspect.key, /^astrolabe:synastry:aspect:/);
+      assert.equal(aspect.status, '已命中');
+      assert.equal(aspect.calculationStepKey, 'astrolabe:synastry:calculation:aspect-filter');
+      assert.equal(aspect.strength, undefined);
+    },
   );
+  assert.equal(synastry.summary.strongAspects, undefined);
+  assert.ok(synastry.houseOverlays.length > 0);
+  synastry.houseOverlays.forEach(
+    (overlay: { key: string; status: string; calculationStepKey: string }) => {
+      assert.match(overlay.key, /^astrolabe:synastry:house-overlay:/);
+      assert.equal(overlay.status, '已定位');
+      assert.equal(overlay.calculationStepKey, 'astrolabe:synastry:calculation:house-overlays');
+    },
+  );
+  assert.equal(synastry.summaryFact.returnedAspectCount, synastry.aspects.length);
+  assert.equal(synastry.summaryFact.houseOverlayCount, synastry.houseOverlays.length);
+  assert.equal(synastry.counterEvidenceFacts.length, 4);
+  assert.equal(synastry.limitationFacts.length, 6);
+  assert.doesNotMatch(synastry.promptText, /本项目|项目统一|工程|接口|API|MCP|astrolabe:synastry:/);
+  assertPromptIsPortableTaskText(synastry.promptText);
+  assert.ok(synastry.evidence.items.some((item: { level: string }) => item.level === '限制'));
 });
 
 test('公开 API 西占双盘提示词应携带双方本命盘与可复核证据', async () => {
@@ -2891,21 +2911,28 @@ test('公开 API 西占双盘提示词应携带双方本命盘与可复核证据
         timezone: 8,
       },
       question: '我们在长期合作中最需要注意什么？',
-      responseMode: 'prompt-only',
+      responseMode: 'summary',
     }),
   });
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
+  assert.equal(body.data.resultSummary.key, 'astrolabe:synastry:evidence');
+  assert.equal(body.data.resultSummary.status, '已计算');
+  assert.equal(body.data.resultSummary.calculationSteps.length, 7);
+  assert.equal(body.data.resultSummary.counterEvidenceFacts.length, 4);
+  assert.equal(body.data.resultSummary.limitationFacts.length, 6);
+  assert.ok(body.data.resultSummary.summaryFact.returnedAspectCount > 0);
   assert.match(body.data.prompt, /【第一人本命盘】/);
   assert.match(body.data.prompt, /【第二人本命盘】/);
   assert.match(body.data.prompt, /【西占双盘结构化证据】/);
   assert.match(
     body.data.prompt,
-    /实际夹角 \d+\.\d{2}°，精确角 \d+°，偏差 \d+\.\d{2}°，允许容许度 \d+\.\d{2}°，属于(?:紧密|中等|宽松)等级/,
+    /实际夹角\d+\.\d{4}°，距(?:合相|六合|刑相|拱相|冲相)精确角\d+°偏差\d+\.\d{4}°，进入允许容许度\d+(?:\.\d+)?°，属于(?:紧密|中等|宽松)等级/,
   );
   assert.doesNotMatch(body.data.prompt, /强度\d+%|匹配率\d+%/);
   assert.match(body.data.prompt, /不得输出缺乏统一依据的关系匹配总分/);
+  assert.doesNotMatch(body.data.prompt, /本项目|项目统一|工程|接口|API|MCP|astrolabe:synastry:/);
   assertPromptIsPortableTaskText(body.data.prompt);
 });
 

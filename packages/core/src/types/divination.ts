@@ -1017,8 +1017,12 @@ export interface AstrolabeData {
 export type AstrolabeSynastryAspectType = '合相' | '六合' | '刑相' | '拱相' | '冲相';
 
 export interface AstrolabeSynastryAspect {
+  key: string;
+  status: '已命中';
   person1: string;
   person2: string;
+  point1Name: string;
+  point2Name: string;
   point1: string;
   point2: string;
   type: AstrolabeSynastryAspectType;
@@ -1030,22 +1034,108 @@ export interface AstrolabeSynastryAspect {
   closeness: '紧密' | '中等' | '宽松';
   orbRatio: number;
   source: string;
+  sourcePointKey: string;
+  targetPointKey: string;
+  calculationStepKey: 'astrolabe:synastry:calculation:aspect-filter';
+  promptText: string;
+  sources: string[];
+  limitation: '跨盘相位只证明双方计算点黄经最小夹角进入所设相位角与容许度范围；和谐或紧张标签不等于现实关系好坏、匹配程度、事件结果或发生概率';
   tendency: '和谐' | '紧张' | '中性';
   tags: string[];
 }
 
 export interface AstrolabeHouseOverlay {
+  key: string;
+  status: '已定位';
+  ownerPerson: 'person1' | 'person2';
+  visitorPerson: 'person1' | 'person2';
   owner: string;
   visitor: string;
+  pointName: string;
   point: string;
   house: number;
   longitude: number;
   houseStart: number;
   houseEnd: number;
+  ownerChartKey: string;
+  visitorPointKey: string;
+  calculationStepKey: 'astrolabe:synastry:calculation:house-overlays';
+  promptText: string;
+  sources: string[];
+  limitation: '跨盘落宫只证明访客计算点黄经位于宫主本命盘某一宫头区间；不证明现实事件、关系角色、他人意图、匹配程度或固定应期';
+}
+
+export interface AstrolabeSynastryCalculationStep {
+  key: string;
+  stage:
+    | '双盘输入校验'
+    | '计算点筛选'
+    | '跨盘角距计算'
+    | '相位容许度筛选'
+    | '宫头区间校验'
+    | '跨盘落宫定位'
+    | '证据汇总';
+  status: '已计算';
+  inputs: Record<string, string | number | boolean | string[]>;
+  result: Record<string, string | number | boolean | string[]>;
+  dependsOnStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '计算步骤只证明双方本命计算点、黄经、容许度与宫头区间经过固定几何规则形成当前相位和落宫事实，不证明现实关系、匹配程度、事件概率或固定应期';
+}
+
+export interface AstrolabeSynastryCounterEvidenceFact {
+  key: string;
+  type: '主要相位覆盖' | '跨盘落宫覆盖' | '关系类型覆盖' | '静态应期边界';
+  status:
+    '有可用证据' | '未命中' | '已关闭' | '资料不足' | '存在多类关系' | '单一类型' | '固有限制';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '反证事实只记录主要相位、跨盘落宫、关系类型与静态应期的覆盖情况；未命中不等于关系有利或不利，命中也不证明现实结果';
+}
+
+export interface AstrolabeSynastrySummaryFact {
+  key: 'astrolabe:synastry:evidence-summary';
+  status: '相位与落宫均有证据' | '仅见相位证据' | '仅见落宫证据' | '未见已列交叉事实';
+  factKeys: string[];
+  selectedPointCount1: number;
+  selectedPointCount2: number;
+  evaluatedPairCount: number;
+  matchedAspectCount: number;
+  returnedAspectCount: number;
+  truncatedAspectCount: number;
+  houseOverlayCount: number;
+  coreHouseOverlayCount: number;
+  aspectTypeCounts: Partial<Record<AstrolabeSynastryAspectType, number>>;
+  tendencyCounts: Record<'和谐' | '紧张' | '中性', number>;
+  promptText: string;
+  sources: string[];
+  limitation: '双盘证据汇总只统计几何相位、容许度筛选与落宫定位事实，不得按数量生成匹配分、成功率、关系概率、吉凶结论或唯一应期';
+}
+
+export interface AstrolabeSynastryLimitationFact {
+  key: string;
+  type:
+    | '相位几何边界'
+    | '容许度与截断边界'
+    | '落宫资料边界'
+    | '关系类型边界'
+    | '静态应期边界'
+    | '高风险输出边界';
+  status: '适用';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束跨盘相位与落宫能够支持的解释范围，不得被反向当作现实关系结果、他人意图、吉凶概率或保证有效建议的证据';
 }
 
 export interface AstrolabeSynastryData {
+  key: 'astrolabe:synastry:evidence';
+  status: '已计算';
   people: [string, string];
+  calculationSteps: AstrolabeSynastryCalculationStep[];
+  calculationChain: string[];
   aspects: AstrolabeSynastryAspect[];
   houseOverlays: AstrolabeHouseOverlay[];
   summary: {
@@ -1056,6 +1146,11 @@ export interface AstrolabeSynastryData {
     tightAspects: number;
     closestAspects: AstrolabeSynastryAspect[];
   };
+  counterEvidence: string[];
+  counterEvidenceFacts: AstrolabeSynastryCounterEvidenceFact[];
+  summaryFact: AstrolabeSynastrySummaryFact;
+  limitations: string[];
+  limitationFacts: AstrolabeSynastryLimitationFact[];
   evidence: import('../prompt-evidence/types').PromptEvidenceBundle;
   promptText: string;
   methodology: {

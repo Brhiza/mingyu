@@ -1361,21 +1361,61 @@ test('MCP 西占双盘提示词应返回跨盘证据和完整任务书', async (
       result.structuredContent as {
         result?: {
           synastry?: {
-            aspects?: Array<{ strength?: number }>;
+            key?: string;
+            status?: string;
+            calculationSteps?: Array<{ key: string }>;
+            aspects?: Array<{
+              key: string;
+              status: string;
+              calculationStepKey: string;
+              strength?: number;
+            }>;
+            houseOverlays?: Array<{ key: string; status: string; calculationStepKey: string }>;
             summary?: { strongAspects?: number };
+            counterEvidenceFacts?: unknown[];
+            summaryFact?: { returnedAspectCount: number; houseOverlayCount: number };
+            limitationFacts?: unknown[];
+            promptText?: string;
           };
         };
       }
     ).result;
+    assert.equal(chart?.synastry?.key, 'astrolabe:synastry:evidence');
+    assert.equal(chart?.synastry?.status, '已计算');
+    assert.equal(chart?.synastry?.calculationSteps?.length, 7);
     for (const aspect of chart?.synastry?.aspects ?? []) {
+      assert.match(aspect.key, /^astrolabe:synastry:aspect:/);
+      assert.equal(aspect.status, '已命中');
+      assert.equal(aspect.calculationStepKey, 'astrolabe:synastry:calculation:aspect-filter');
       assert.equal(aspect.strength, undefined);
     }
+    for (const overlay of chart?.synastry?.houseOverlays ?? []) {
+      assert.match(overlay.key, /^astrolabe:synastry:house-overlay:/);
+      assert.equal(overlay.status, '已定位');
+      assert.equal(overlay.calculationStepKey, 'astrolabe:synastry:calculation:house-overlays');
+    }
     assert.equal(chart?.synastry?.summary?.strongAspects, undefined);
+    assert.equal(chart?.synastry?.counterEvidenceFacts?.length, 4);
+    assert.equal(chart?.synastry?.limitationFacts?.length, 6);
+    assert.equal(
+      chart?.synastry?.summaryFact?.returnedAspectCount,
+      chart?.synastry?.aspects?.length,
+    );
+    assert.equal(
+      chart?.synastry?.summaryFact?.houseOverlayCount,
+      chart?.synastry?.houseOverlays?.length,
+    );
+    assert.doesNotMatch(
+      chart?.synastry?.promptText ?? '',
+      /本项目|项目统一|工程|接口|API|MCP|astrolabe:synastry:/,
+    );
+    assertPromptIsPortableTaskText(chart?.synastry?.promptText ?? '');
     const prompt = String(result.structuredContent?.prompt);
     assert.match(prompt, /【第一人本命盘】/);
     assert.match(prompt, /【西占双盘结构化证据】/);
     assert.match(prompt, /容许度/);
     assert.match(prompt, /反证限制/);
+    assert.doesNotMatch(prompt, /本项目|项目统一|工程|接口|API|MCP|astrolabe:synastry:/);
     assertPromptIsPortableTaskText(prompt);
   });
 });

@@ -2261,8 +2261,14 @@ function buildAstrolabeSynastryPromptApi(input: JsonRecord) {
     summary: result.synastry.summary,
     fullResult: result,
     resultSummary: {
+      key: result.synastry.key,
+      status: result.synastry.status,
       people: result.synastry.people,
+      calculationSteps: result.synastry.calculationSteps,
       summary: result.synastry.summary,
+      counterEvidenceFacts: result.synastry.counterEvidenceFacts,
+      summaryFact: result.synastry.summaryFact,
+      limitationFacts: result.synastry.limitationFacts,
       evidence: result.synastry.evidence,
     },
   });
