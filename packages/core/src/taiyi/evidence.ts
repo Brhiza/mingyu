@@ -40,6 +40,8 @@ export interface TaiyiEvidenceInput {
 }
 
 export interface TaiyiEvidenceAnalysis {
+  key: 'taiyi:evidence';
+  status: '已计算';
   calculationChain: string[];
   calculationSteps: TaiyiCalculationStep[];
   positionFacts: TaiyiPositionFact[];
@@ -53,6 +55,7 @@ export interface TaiyiEvidenceAnalysis {
   counterSummaryFact: TaiyiCounterSummaryFact;
   limitations: string[];
   limitationFacts: TaiyiLimitationFact[];
+  summaryFact: TaiyiSummaryFact;
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
@@ -129,6 +132,7 @@ export interface TaiyiCounterEvidenceFact {
   type: '掩' | '囚' | '主将参中宫' | '客将参中宫';
   status: '已命中' | '未命中';
   ownerConditionKey: string;
+  ownerFactKeys: string[];
   promptText: string;
   sources: string[];
   limitation: '反证事实只记录掩、囚与主客将参中宫条件是否命中；未命中不代表现实有利，命中也不证明攻守、胜负或固定应期';
@@ -153,6 +157,21 @@ export interface TaiyiLimitationFact {
   limitation: '限制事实用于约束太乙五计、七十二局、主客定算和十六神可以支持的解释范围，不得被反向当作现实结果或概率证据';
 }
 
+export interface TaiyiSummaryFact {
+  key: 'taiyi:evidence-summary';
+  status: '证据链完整' | '证据链有缺口';
+  factKeys: string[];
+  positionFactCount: number;
+  forceFactCount: number;
+  sixteenGodFactCount: number;
+  conditionFactCount: number;
+  counterEvidenceCount: number;
+  limitationFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '太乙证据汇总只统计积数计算、核心定位、主客定算、十六神、条件、反证与限制覆盖；不得按数量生成吉凶总分、成功率、人物强弱、攻守胜负或固定应期';
+}
+
 const POSITION_FACT_LIMITATION =
   '核心定位字段是七十二局立成与计神规则的计算事实，只限定太乙盘面取证位置，不单独证明现实吉凶、攻守结果、人物处境或固定应期' as const;
 
@@ -172,6 +191,8 @@ const COUNTER_SUMMARY_LIMITATION =
   '反证汇总只说明传统条件覆盖情况；不得据命中数量生成吉凶总分、成功率、人物强弱或固定应期' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束太乙五计、七十二局、主客定算和十六神可以支持的解释范围，不得被反向当作现实结果或概率证据' as const;
+const SUMMARY_FACT_LIMITATION =
+  '太乙证据汇总只统计积数计算、核心定位、主客定算、十六神、条件、反证与限制覆盖；不得按数量生成吉凶总分、成功率、人物强弱、攻守胜负或固定应期' as const;
 
 const SCOPE_LABELS: Record<TaiyiScope, string> = {
   year: '年计',
@@ -304,6 +325,7 @@ function buildCounterEvidenceFacts(
     type: condition.kind,
     status: condition.status,
     ownerConditionKey: condition.key,
+    ownerFactKeys: [condition.key],
     promptText: condition.matched
       ? `${condition.kind}条件已命中：${condition.promptText}`
       : `未见${condition.kind}：${condition.promptText}`,
@@ -386,6 +408,51 @@ function buildLimitationFacts(
     status: '适用',
     limitation: LIMITATION_FACT_LIMITATION,
   }));
+}
+
+function buildSummaryFact(args: {
+  calculationSteps: TaiyiCalculationStep[];
+  positionFacts: TaiyiPositionFact[];
+  forceFacts: TaiyiForceFact[];
+  sixteenGodFacts: TaiyiSixteenGodFact[];
+  conditionFacts: TaiyiConditionFact[];
+  counterEvidenceFacts: TaiyiCounterEvidenceFact[];
+  counterSummaryFact: TaiyiCounterSummaryFact;
+  limitationFacts: TaiyiLimitationFact[];
+}): TaiyiSummaryFact {
+  const status =
+    args.calculationSteps.length === 4 &&
+    args.positionFacts.length === 4 &&
+    args.forceFacts.length === 3 &&
+    args.sixteenGodFacts.length === 16 &&
+    args.conditionFacts.length === 4
+      ? '证据链完整'
+      : '证据链有缺口';
+  return {
+    key: 'taiyi:evidence-summary',
+    status,
+    factKeys: Array.from(
+      new Set([
+        ...args.calculationSteps.map((item) => item.key),
+        ...args.positionFacts.map((item) => item.key),
+        ...args.forceFacts.map((item) => item.key),
+        ...args.sixteenGodFacts.map((item) => item.key),
+        ...args.conditionFacts.map((item) => item.key),
+        ...args.counterEvidenceFacts.map((item) => item.key),
+        args.counterSummaryFact.key,
+        ...args.limitationFacts.map((item) => item.key),
+      ]),
+    ),
+    positionFactCount: args.positionFacts.length,
+    forceFactCount: args.forceFacts.length,
+    sixteenGodFactCount: args.sixteenGodFacts.length,
+    conditionFactCount: args.conditionFacts.length,
+    counterEvidenceCount: args.counterEvidenceFacts.length,
+    limitationFactCount: args.limitationFacts.length,
+    promptText: `证据链状态：${status}；核心定位${args.positionFacts.length}项、主客定算${args.forceFacts.length}项、十六神${args.sixteenGodFacts.length}项、条件${args.conditionFacts.length}项、反证${args.counterEvidenceFacts.length}项、限制${args.limitationFacts.length}项`,
+    sources: ['太乙积数计算、核心定位、主客定算、十六神、条件、反证与限制事实逐项汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
 }
 
 export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnalysis {
@@ -492,6 +559,16 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     sixteenGodFacts,
   );
   const limitations = limitationFacts.map((item) => item.promptText);
+  const summaryFact = buildSummaryFact({
+    calculationSteps,
+    positionFacts,
+    forceFacts,
+    sixteenGodFacts,
+    conditionFacts,
+    counterEvidenceFacts,
+    counterSummaryFact,
+    limitationFacts,
+  });
   const sourceText = data.model.sources
     .map((source) => `${source.title}：${source.evidence}`)
     .join('；');
@@ -539,6 +616,13 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
       tags: ['反证汇总', counterSummaryFact.status],
     },
     {
+      level: summaryFact.status === '证据链完整' ? '辅证' : '反证',
+      title: `太乙证据汇总：${summaryFact.status}`,
+      detail: `${summaryFact.promptText}；边界：${summaryFact.limitation}`,
+      source: summaryFact.sources.join('、'),
+      tags: ['证据汇总', summaryFact.status],
+    },
+    {
       level: '限制',
       title: '太乙五计解释边界',
       detail: `${limitations.join('；')}；边界：${LIMITATION_FACT_LIMITATION}`,
@@ -556,10 +640,13 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     `计算链：${calculationChain.join(' → ')}。`,
     `算式核验：${calculationSteps.map((step) => `${step.key} ${step.name}${step.operation}=${step.result}`).join('；')}。`,
     `反证核验：${counterSummaryFact.promptText}。`,
-    `方法限制：${limitations.join('；')}。`,
+    `证据汇总：${summaryFact.promptText}。`,
+    `解释限制（方法限制）：${limitations.join('；')}。`,
   ].join('\n');
 
   return {
+    key: 'taiyi:evidence',
+    status: '已计算',
     calculationChain,
     calculationSteps,
     positionFacts,
@@ -573,6 +660,7 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     counterSummaryFact,
     limitations,
     limitationFacts,
+    summaryFact,
     evidence,
     promptText,
     methodology: [

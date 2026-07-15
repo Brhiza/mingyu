@@ -4310,6 +4310,8 @@ test('公开 API 生肖流年应返回关系矩阵证据而不使用综合吉凶
   assert.equal(calculate.body.data.interpretationBoundary, '仅限生肖与流年关系');
   assert.ok(!('confidence' in calculate.body.data));
   assert.ok(!('level' in calculate.body.data));
+  assert.equal(calculate.body.data.evidenceAnalysis.key, 'zodiac:evidence');
+  assert.equal(calculate.body.data.evidenceAnalysis.status, '已计算');
   assert.equal(calculate.body.data.evidenceAnalysis.evidence.title, '生肖流年关系矩阵结构化证据');
   assert.equal(calculate.body.data.evidenceAnalysis.calculationSteps.length, 4);
   assert.ok(
@@ -4349,6 +4351,46 @@ test('公开 API 生肖流年应返回关系矩阵证据而不使用综合吉凶
   );
   assert.equal(calculate.body.data.evidenceAnalysis.counterSummaryFact.status, '有未命中关系');
   assert.equal(calculate.body.data.evidenceAnalysis.limitationFacts.length, 5);
+  assert.equal(calculate.body.data.evidenceAnalysis.summaryFact.key, 'zodiac:evidence-summary');
+  assert.equal(calculate.body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(
+    calculate.body.data.evidenceAnalysis.summaryFact.relationFactCount,
+    calculate.body.data.evidenceAnalysis.relations.length,
+  );
+  assert.equal(
+    calculate.body.data.evidenceAnalysis.summaryFact.primaryEvidenceCount,
+    calculate.body.data.evidenceAnalysis.primaryEvidence.length,
+  );
+  assert.equal(
+    calculate.body.data.evidenceAnalysis.summaryFact.supportingEvidenceCount,
+    calculate.body.data.evidenceAnalysis.supportingEvidence.length,
+  );
+  assert.equal(
+    calculate.body.data.evidenceAnalysis.summaryFact.counterEvidenceCount,
+    calculate.body.data.evidenceAnalysis.counterEvidenceFacts.length,
+  );
+  assert.equal(
+    calculate.body.data.evidenceAnalysis.summaryFact.limitationFactCount,
+    calculate.body.data.evidenceAnalysis.limitationFacts.length,
+  );
+  const zodiacFactKeys = new Set([
+    calculate.body.data.evidenceAnalysis.summaryFact.key,
+    ...calculate.body.data.evidenceAnalysis.summaryFact.factKeys,
+  ]);
+  assert.ok(
+    calculate.body.data.evidenceAnalysis.counterEvidenceFacts.every(
+      (item: Record<string, any>) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key: string) => zodiacFactKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    calculate.body.data.evidenceAnalysis.limitationFacts.every(
+      (item: Record<string, any>) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key: string) => zodiacFactKeys.has(key)),
+    ),
+  );
   assert.equal(
     calculate.body.data.evidenceAnalysis.limitations.length,
     calculate.body.data.evidenceAnalysis.limitationFacts.length,
@@ -4368,6 +4410,8 @@ test('公开 API 生肖流年应返回关系矩阵证据而不使用综合吉凶
   assert.match(prompt.body.data.prompt, /【生肖流年关系矩阵结构化证据】/);
   assert.match(prompt.body.data.prompt, /逐项核验.*现实复核提示：.*边界：/s);
   assert.match(prompt.body.data.prompt, /生肖只取出生年支/);
+  assert.match(prompt.body.data.prompt, /证据汇总/);
+  assert.match(prompt.body.data.prompt, /解释限制/);
   assert.doesNotMatch(prompt.body.data.prompt, /综合定级：|吉凶总分[：=]\d|成功率为\d/);
 });
 
@@ -4429,15 +4473,24 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
     '传统均速模型',
   );
   assert.match(body.data.evidenceAnalysis.promptText, /【七政四余计算来源与证据分层】/);
+  assert.equal(body.data.evidenceAnalysis.key, 'qizheng:evidence');
+  assert.equal(body.data.evidenceAnalysis.status, '已计算');
   assert.equal(body.data.evidenceAnalysis.calculationFact.status, '含默认值');
   assert.equal(body.data.evidenceAnalysis.calculationFact.steps.length, 7);
+  assert.equal(body.data.evidenceAnalysis.calculationChain.length, 7);
+  const qizhengStepKeys = new Set(
+    body.data.evidenceAnalysis.calculationFact.steps.map((item: { key: string }) => item.key),
+  );
   assert.ok(
     body.data.evidenceAnalysis.calculationFact.steps.every(
       (item: Record<string, unknown>) =>
         String(item.key).startsWith('qizheng:calculation:') &&
         item.status === '已计算' &&
+        Array.isArray(item.dependsOnStepKeys) &&
+        item.dependsOnStepKeys.every((key: string) => qizhengStepKeys.has(key)) &&
         item.promptText &&
-        Array.isArray(item.sources),
+        Array.isArray(item.sources) &&
+        String(item.limitation).includes('不得把步骤完整度解释为观测级精度'),
     ),
   );
   assert.equal(
@@ -4459,6 +4512,50 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
   assert.doesNotMatch(body.data.evidenceAnalysis.promptText, /本项目|项目统一|项目恒星黄经|命语/);
   assert.equal(body.data.evidenceAnalysis.starFacts.length, body.data.stars.length);
   assert.equal(body.data.evidenceAnalysis.aspectFacts.length, body.data.aspects.length);
+  assert.equal(body.data.evidenceAnalysis.counterEvidenceFacts.length, 3);
+  assert.equal(body.data.evidenceAnalysis.counterSummaryFact.status, '存在需保留反证');
+  assert.equal(body.data.evidenceAnalysis.counterSummaryFact.factKeys.length, 2);
+  assert.equal(body.data.evidenceAnalysis.summaryFact.key, 'qizheng:evidence-summary');
+  assert.equal(body.data.evidenceAnalysis.summaryFact.status, '证据链有缺口');
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.positionSourceFactCount,
+    body.data.evidenceAnalysis.positionSourceFacts.length,
+  );
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.starFactCount,
+    body.data.evidenceAnalysis.starFacts.length,
+  );
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.aspectFactCount,
+    body.data.evidenceAnalysis.aspectFacts.length,
+  );
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.counterEvidenceCount,
+    body.data.evidenceAnalysis.counterEvidenceFacts.length,
+  );
+  assert.equal(body.data.evidenceAnalysis.limitationFacts.length, 7);
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.limitationFactCount,
+    body.data.evidenceAnalysis.limitationFacts.length,
+  );
+  const qizhengFactKeys = new Set([
+    body.data.evidenceAnalysis.summaryFact.key,
+    ...body.data.evidenceAnalysis.summaryFact.factKeys,
+  ]);
+  assert.ok(
+    body.data.evidenceAnalysis.counterEvidenceFacts.every(
+      (item: Record<string, any>) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key: string) => qizhengFactKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    body.data.evidenceAnalysis.limitationFacts.every(
+      (item: Record<string, any>) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key: string) => qizhengFactKeys.has(key)),
+    ),
+  );
   assert.ok(
     body.data.evidenceAnalysis.starFacts.every(
       (item: Record<string, unknown>) =>
@@ -4469,6 +4566,7 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
         String(item.limitation).includes('必须分层使用'),
     ),
   );
+  assert.match(body.data.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制：/);
   assert.ok(
     body.data.evidenceAnalysis.aspectFacts.every(
       (item: Record<string, unknown>) =>
@@ -4535,6 +4633,8 @@ test('公开 API 太乙应返回年计七十二局立成结果', async () => {
   assert.equal(body.data.guestCount, 3);
   assert.equal(body.data.sixteenGods.length, 16);
   assert.equal(body.data.model.id, 'taiyi-tongzong-five-calculations-72-table');
+  assert.equal(body.data.evidenceAnalysis.key, 'taiyi:evidence');
+  assert.equal(body.data.evidenceAnalysis.status, '已计算');
   assert.equal(body.data.evidenceAnalysis.evidence.title, '太乙五计七十二局结构化证据');
   assert.equal(body.data.evidenceAnalysis.calculationSteps.length, 4);
   assert.ok(
@@ -4557,6 +4657,50 @@ test('公开 API 太乙应返回年计七十二局立成结果', async () => {
   assert.equal(body.data.evidenceAnalysis.counterSummaryFact.status, '存在未命中条件');
   assert.equal(body.data.evidenceAnalysis.counterSummaryFact.factKeys.length, 3);
   assert.equal(body.data.evidenceAnalysis.limitationFacts.length, 5);
+  assert.equal(body.data.evidenceAnalysis.summaryFact.key, 'taiyi:evidence-summary');
+  assert.equal(body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.positionFactCount,
+    body.data.evidenceAnalysis.positionFacts.length,
+  );
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.forceFactCount,
+    body.data.evidenceAnalysis.forceFacts.length,
+  );
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.sixteenGodFactCount,
+    body.data.evidenceAnalysis.sixteenGodFacts.length,
+  );
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.conditionFactCount,
+    body.data.evidenceAnalysis.conditionFacts.length,
+  );
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.counterEvidenceCount,
+    body.data.evidenceAnalysis.counterEvidenceFacts.length,
+  );
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.limitationFactCount,
+    body.data.evidenceAnalysis.limitationFacts.length,
+  );
+  const taiyiFactKeys = new Set([
+    body.data.evidenceAnalysis.summaryFact.key,
+    ...body.data.evidenceAnalysis.summaryFact.factKeys,
+  ]);
+  assert.ok(
+    body.data.evidenceAnalysis.counterEvidenceFacts.every(
+      (item: Record<string, any>) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key: string) => taiyiFactKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    body.data.evidenceAnalysis.limitationFacts.every(
+      (item: Record<string, any>) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key: string) => taiyiFactKeys.has(key)),
+    ),
+  );
   assert.equal(
     body.data.evidenceAnalysis.limitations.length,
     body.data.evidenceAnalysis.limitationFacts.length,
@@ -4573,6 +4717,7 @@ test('公开 API 太乙应返回年计七十二局立成结果', async () => {
     ),
   );
   assert.match(body.data.evidenceAnalysis.promptText, /未见囚/);
+  assert.match(body.data.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制（方法限制）：/);
   assert.doesNotMatch(body.data.evidenceAnalysis.promptText, /宜先守后动|不宜轻进/);
   assert.doesNotMatch(
     body.data.evidenceAnalysis.promptText,

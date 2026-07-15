@@ -290,7 +290,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       timezone: 8,
       question: '请分析本命结构。',
     },
-    /【七政四余计算来源与证据分层】[\s\S]*混合模型[\s\S]*【问题】\n请分析本命结构。/,
+    /【七政四余计算来源与证据分层】[\s\S]*混合模型[\s\S]*证据汇总[\s\S]*解释限制[\s\S]*【问题】\n请分析本命结构。/,
   ],
 ];
 
@@ -418,8 +418,11 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
                     status: string;
                     promptText: string;
                     sources: string[];
+                    dependsOnStepKeys: string[];
+                    limitation: string;
                   }>;
                 };
+                calculationChain?: string[];
                 positionSourceFacts?: Array<{
                   key: string;
                   status: string;
@@ -429,6 +432,27 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
                 }>;
                 starFacts?: Array<{ sources: string[]; limitation: string }>;
                 aspectFacts?: Array<{ allowedOrb: number; limitation: string }>;
+                counterEvidenceFacts?: Array<{
+                  type: string;
+                  status: string;
+                  ownerFactKeys: string[];
+                }>;
+                counterSummaryFact?: { status: string; factKeys: string[] };
+                limitationFacts?: Array<{
+                  ownerFactKeys: string[];
+                  sources: string[];
+                }>;
+                summaryFact?: {
+                  key: string;
+                  status: string;
+                  factKeys: string[];
+                  positionSourceFactCount: number;
+                  starFactCount: number;
+                  aspectFactCount: number;
+                  counterEvidenceCount: number;
+                  limitationFactCount: number;
+                };
+                promptText?: string;
               };
             };
           }
@@ -439,15 +463,23 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         }
         assert.equal(chart?.evidenceAnalysis?.starFacts?.length, chart?.stars?.length);
         assert.equal(chart?.evidenceAnalysis?.aspectFacts?.length, chart?.aspects?.length);
+        assert.equal(chart?.evidenceAnalysis?.key, 'qizheng:evidence');
+        assert.equal(chart?.evidenceAnalysis?.status, '已计算');
         assert.equal(chart?.evidenceAnalysis?.calculationFact?.status, '含默认值');
         assert.equal(chart?.evidenceAnalysis?.calculationFact?.steps.length, 7);
+        assert.equal(chart?.evidenceAnalysis?.calculationChain?.length, 7);
+        const qizhengStepKeys = new Set(
+          chart?.evidenceAnalysis?.calculationFact?.steps.map((item) => item.key),
+        );
         assert.ok(
           chart?.evidenceAnalysis?.calculationFact?.steps.every(
             (item) =>
               item.key.startsWith('qizheng:calculation:') &&
               item.status === '已计算' &&
+              item.dependsOnStepKeys.every((key) => qizhengStepKeys.has(key)) &&
               item.promptText &&
-              item.sources.length > 0,
+              item.sources.length > 0 &&
+              item.limitation.includes('不得把步骤完整度解释为观测级精度'),
           ),
         );
         assert.equal(chart?.evidenceAnalysis?.positionSourceFacts?.length, 4);
@@ -515,6 +547,51 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
             (item) => item.allowedOrb > 0 && item.limitation.includes('混合模型不得提升为现代天文'),
           ),
         );
+        assert.equal(chart?.evidenceAnalysis?.counterEvidenceFacts?.length, 3);
+        assert.equal(chart?.evidenceAnalysis?.counterSummaryFact?.status, '存在需保留反证');
+        assert.equal(chart?.evidenceAnalysis?.counterSummaryFact?.factKeys.length, 2);
+        assert.equal(chart?.evidenceAnalysis?.summaryFact?.key, 'qizheng:evidence-summary');
+        assert.equal(chart?.evidenceAnalysis?.summaryFact?.status, '证据链有缺口');
+        assert.equal(
+          chart?.evidenceAnalysis?.summaryFact?.positionSourceFactCount,
+          chart?.evidenceAnalysis?.positionSourceFacts?.length,
+        );
+        assert.equal(
+          chart?.evidenceAnalysis?.summaryFact?.starFactCount,
+          chart?.evidenceAnalysis?.starFacts?.length,
+        );
+        assert.equal(
+          chart?.evidenceAnalysis?.summaryFact?.aspectFactCount,
+          chart?.evidenceAnalysis?.aspectFacts?.length,
+        );
+        assert.equal(
+          chart?.evidenceAnalysis?.summaryFact?.counterEvidenceCount,
+          chart?.evidenceAnalysis?.counterEvidenceFacts?.length,
+        );
+        assert.equal(chart?.evidenceAnalysis?.limitationFacts?.length, 7);
+        assert.equal(
+          chart?.evidenceAnalysis?.summaryFact?.limitationFactCount,
+          chart?.evidenceAnalysis?.limitationFacts?.length,
+        );
+        const qizhengFactKeys = new Set([
+          chart?.evidenceAnalysis?.summaryFact?.key,
+          ...(chart?.evidenceAnalysis?.summaryFact?.factKeys ?? []),
+        ]);
+        assert.ok(
+          chart?.evidenceAnalysis?.counterEvidenceFacts?.every(
+            (item) =>
+              item.ownerFactKeys.length > 0 &&
+              item.ownerFactKeys.every((key) => qizhengFactKeys.has(key)),
+          ),
+        );
+        assert.ok(
+          chart?.evidenceAnalysis?.limitationFacts?.every(
+            (item) =>
+              item.ownerFactKeys.length > 0 &&
+              item.ownerFactKeys.every((key) => qizhengFactKeys.has(key)),
+          ),
+        );
+        assert.match(chart?.evidenceAnalysis?.promptText ?? '', /证据汇总：[\s\S]*解释限制：/);
       }
       if (name === 'metaphysics_bazhai') {
         const chart = (
@@ -1015,6 +1092,8 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
             bestHours?: Array<{ score?: number }>;
           }>;
           evidenceAnalysis: {
+            key: string;
+            status: string;
             key: string;
             status: string;
             calculationSteps: Array<{
@@ -3680,8 +3759,19 @@ test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级'
               type: string;
               status: string;
               ownerRelationKeys: string[];
+              ownerFactKeys: string[];
             }>;
             counterSummaryFact: { status: string; factKeys: string[] };
+            summaryFact: {
+              key: string;
+              status: string;
+              factKeys: string[];
+              relationFactCount: number;
+              primaryEvidenceCount: number;
+              supportingEvidenceCount: number;
+              counterEvidenceCount: number;
+              limitationFactCount: number;
+            };
             limitations: string[];
             limitationFacts: Array<{
               key: string;
@@ -3695,6 +3785,8 @@ test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级'
       }
     ).result;
     assert.equal(chart.interpretationBoundary, '仅限生肖与流年关系');
+    assert.equal(chart.evidenceAnalysis.key, 'zodiac:evidence');
+    assert.equal(chart.evidenceAnalysis.status, '已计算');
     assert.equal(chart.level, undefined);
     assert.equal(chart.confidence, undefined);
     assert.equal(chart.evidenceAnalysis.calculationSteps.length, 4);
@@ -3727,6 +3819,38 @@ test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级'
     );
     assert.equal(chart.evidenceAnalysis.counterSummaryFact.status, '有未命中关系');
     assert.equal(chart.evidenceAnalysis.limitationFacts.length, 5);
+    assert.equal(chart.evidenceAnalysis.summaryFact.key, 'zodiac:evidence-summary');
+    assert.equal(chart.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.relationFactCount,
+      chart.evidenceAnalysis.relations.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      chart.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.limitationFactCount,
+      chart.evidenceAnalysis.limitationFacts.length,
+    );
+    const zodiacFactKeys = new Set([
+      chart.evidenceAnalysis.summaryFact.key,
+      ...chart.evidenceAnalysis.summaryFact.factKeys,
+    ]);
+    assert.ok(
+      chart.evidenceAnalysis.counterEvidenceFacts.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every((key) => zodiacFactKeys.has(key)),
+      ),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.limitationFacts.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every((key) => zodiacFactKeys.has(key)),
+      ),
+    );
     assert.equal(
       chart.evidenceAnalysis.limitations.length,
       chart.evidenceAnalysis.limitationFacts.length,
@@ -3735,6 +3859,7 @@ test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级'
       chart.evidenceAnalysis.promptText,
       /命语|本项目|项目统一|工程|接口|API|MCP/,
     );
+    assert.match(chart.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制：/);
     assertPromptIsPortableTaskText(chart.evidenceAnalysis.promptText);
   });
 });
@@ -3755,6 +3880,8 @@ test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
       result.structuredContent as {
         result: {
           evidenceAnalysis: {
+            key: string;
+            status: string;
             calculationChain: unknown[];
             calculationSteps: Array<{
               key: string;
@@ -3770,9 +3897,21 @@ test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
               type: string;
               status: string;
               ownerConditionKey: string;
+              ownerFactKeys: string[];
               sources: string[];
             }>;
             counterSummaryFact: { status: string; factKeys: string[] };
+            summaryFact: {
+              key: string;
+              status: string;
+              factKeys: string[];
+              positionFactCount: number;
+              forceFactCount: number;
+              sixteenGodFactCount: number;
+              conditionFactCount: number;
+              counterEvidenceCount: number;
+              limitationFactCount: number;
+            };
             limitations: string[];
             limitationFacts: Array<{
               key: string;
@@ -3794,6 +3933,8 @@ test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
         };
       }
     ).result;
+    assert.equal(chart.evidenceAnalysis.key, 'taiyi:evidence');
+    assert.equal(chart.evidenceAnalysis.status, '已计算');
     assert.ok(chart.evidenceAnalysis.calculationChain.length >= 5);
     assert.equal(chart.evidenceAnalysis.calculationSteps.length, 4);
     assert.ok(
@@ -3816,6 +3957,50 @@ test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
     assert.equal(chart.evidenceAnalysis.counterSummaryFact.status, '存在未命中条件');
     assert.equal(chart.evidenceAnalysis.counterSummaryFact.factKeys.length, 3);
     assert.equal(chart.evidenceAnalysis.limitationFacts.length, 5);
+    assert.equal(chart.evidenceAnalysis.summaryFact.key, 'taiyi:evidence-summary');
+    assert.equal(chart.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.positionFactCount,
+      chart.evidenceAnalysis.positionFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.forceFactCount,
+      chart.evidenceAnalysis.forceFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.sixteenGodFactCount,
+      chart.evidenceAnalysis.sixteenGodFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.conditionFactCount,
+      chart.evidenceAnalysis.conditionFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      chart.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.limitationFactCount,
+      chart.evidenceAnalysis.limitationFacts.length,
+    );
+    const taiyiFactKeys = new Set([
+      chart.evidenceAnalysis.summaryFact.key,
+      ...chart.evidenceAnalysis.summaryFact.factKeys,
+    ]);
+    assert.ok(
+      chart.evidenceAnalysis.counterEvidenceFacts.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every((key) => taiyiFactKeys.has(key)),
+      ),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.limitationFacts.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every((key) => taiyiFactKeys.has(key)),
+      ),
+    );
     assert.equal(
       chart.evidenceAnalysis.limitations.length,
       chart.evidenceAnalysis.limitationFacts.length,
@@ -3833,6 +4018,8 @@ test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
     assert.ok(chart.evidenceAnalysis.counterEvidence.some((item) => item.startsWith('未见囚')));
     assert.match(prompt, /【太乙五计七十二局结构化证据】/);
     assert.match(prompt, /传统规则模型/);
+    assert.match(prompt, /证据汇总/);
+    assert.match(prompt, /解释限制（方法限制）/);
     assert.doesNotMatch(prompt, /宜先守后动|不宜轻进/);
     assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|匹配率(?:为|：)|吉凶总分(?:为|：)/);
     assert.doesNotMatch(prompt, /命语|本项目|项目统一|当前结果|工程|接口|API|MCP/);

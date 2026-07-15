@@ -35,6 +35,7 @@ export interface ZodiacCounterEvidenceFact {
   type: '太岁关系覆盖' | '三合六合覆盖' | '生肖信息量';
   status: '有可用证据' | '未命中' | '固有限制';
   ownerRelationKeys: string[];
+  ownerFactKeys: string[];
   promptText: string;
   sources: string[];
   limitation: '反证事实只记录值、冲、刑、害、破、六合、三合是否命中以及生肖模型固有的信息量限制；未命中不代表现实有利或不利，命中也不证明事件结果';
@@ -60,6 +61,8 @@ export interface ZodiacLimitationFact {
 }
 
 export interface ZodiacEvidenceAnalysis {
+  key: 'zodiac:evidence';
+  status: '已计算';
   calculationSteps: ZodiacCalculationStep[];
   calculationChain: string[];
   relations: ZodiacRelationEvidence[];
@@ -70,10 +73,25 @@ export interface ZodiacEvidenceAnalysis {
   counterSummaryFact: ZodiacCounterSummaryFact;
   limitations: string[];
   limitationFacts: ZodiacLimitationFact[];
+  summaryFact: ZodiacSummaryFact;
   sources: Array<{ title: string; evidence: string; role: '传统关系表' | '公共算法' }>;
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
+}
+
+export interface ZodiacSummaryFact {
+  key: 'zodiac:evidence-summary';
+  status: '证据链完整' | '证据链有缺口';
+  factKeys: string[];
+  relationFactCount: number;
+  primaryEvidenceCount: number;
+  supportingEvidenceCount: number;
+  counterEvidenceCount: number;
+  limitationFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '生肖证据汇总只统计生肖年支、流年干支、关系表、五行辅助、反证与限制覆盖；不得按数量生成个人吉凶等级、成功率、灾祸概率、固定应期或化解效果保证';
 }
 
 const RELATION_FACT_LIMITATION =
@@ -86,6 +104,8 @@ const COUNTER_SUMMARY_LIMITATION =
   '反证汇总只说明传统关系表的命中覆盖情况；不得据命中数量生成吉凶总分、成功率、灾祸概率、固定应期或化解效果' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束生肖年支、流年干支关系和五行辅助可以支持的解释范围，不得被反向当作个人事件、吉凶概率或化解有效性的证据' as const;
+const SUMMARY_FACT_LIMITATION =
+  '生肖证据汇总只统计生肖年支、流年干支、关系表、五行辅助、反证与限制覆盖；不得按数量生成个人吉凶等级、成功率、灾祸概率、固定应期或化解效果保证' as const;
 
 function conflictEvidence(conflict: TaiSuiConflict, zodiacBranch: string): ZodiacRelationEvidence {
   const rule =
@@ -124,6 +144,9 @@ function buildCounterEvidenceFacts(
       type: '太岁关系覆盖',
       status: conflictRelations.length ? '有可用证据' : '未命中',
       ownerRelationKeys: conflictRelations.map((relation) => relation.key),
+      ownerFactKeys: conflictRelations.length
+        ? conflictRelations.map((relation) => relation.key)
+        : ['zodiac:calculation:branch-relations'],
       promptText: conflictRelations.length
         ? `命中${conflictRelations.length}项值、冲、刑、害或破关系，并保留逐项关系事实`
         : '本年未命中值、冲、刑、害、破关系，不应为了形成结论而补造“犯太岁”',
@@ -135,6 +158,9 @@ function buildCounterEvidenceFacts(
       type: '三合六合覆盖',
       status: nobleRelations.length ? '有可用证据' : '未命中',
       ownerRelationKeys: nobleRelations.map((relation) => relation.key),
+      ownerFactKeys: nobleRelations.length
+        ? nobleRelations.map((relation) => relation.key)
+        : ['zodiac:calculation:branch-relations'],
       promptText: nobleRelations.length
         ? `命中${nobleRelations.length}项六合或三合关系，并保留逐项关系事实`
         : '本年未命中六合或三合关系，不应泛称有“生肖贵人”',
@@ -146,6 +172,7 @@ function buildCounterEvidenceFacts(
       type: '生肖信息量',
       status: '固有限制',
       ownerRelationKeys: relations.map((relation) => relation.key),
+      ownerFactKeys: ['zodiac:calculation:branch', ...relations.map((relation) => relation.key)],
       promptText: '生肖只取出生年支，同生肖者仍可能因出生月、日、时和现实条件不同而表现完全不同',
       sources: ['生肖模型只使用出生年支的输入范围'],
       limitation: COUNTER_FACT_LIMITATION,
@@ -231,6 +258,45 @@ function buildLimitationFacts(
     status: '适用',
     limitation: LIMITATION_FACT_LIMITATION,
   }));
+}
+
+function buildSummaryFact(args: {
+  calculationSteps: ZodiacCalculationStep[];
+  relations: ZodiacRelationEvidence[];
+  primaryEvidence: ZodiacRelationEvidence[];
+  supportingEvidence: ZodiacRelationEvidence[];
+  counterEvidenceFacts: ZodiacCounterEvidenceFact[];
+  counterSummaryFact: ZodiacCounterSummaryFact;
+  limitationFacts: ZodiacLimitationFact[];
+}): ZodiacSummaryFact {
+  const status =
+    args.calculationSteps.length === 4 &&
+    args.relations.length > 0 &&
+    args.counterEvidenceFacts.length === 3 &&
+    args.limitationFacts.length === 5
+      ? '证据链完整'
+      : '证据链有缺口';
+  return {
+    key: 'zodiac:evidence-summary',
+    status,
+    factKeys: Array.from(
+      new Set([
+        ...args.calculationSteps.map((item) => item.key),
+        ...args.relations.map((item) => item.key),
+        ...args.counterEvidenceFacts.map((item) => item.key),
+        args.counterSummaryFact.key,
+        ...args.limitationFacts.map((item) => item.key),
+      ]),
+    ),
+    relationFactCount: args.relations.length,
+    primaryEvidenceCount: args.primaryEvidence.length,
+    supportingEvidenceCount: args.supportingEvidence.length,
+    counterEvidenceCount: args.counterEvidenceFacts.length,
+    limitationFactCount: args.limitationFacts.length,
+    promptText: `证据链状态：${status}；关系事实${args.relations.length}项、主证${args.primaryEvidence.length}项、辅证${args.supportingEvidence.length}项、反证${args.counterEvidenceFacts.length}项、限制${args.limitationFacts.length}项`,
+    sources: ['生肖年支、流年干支、关系表、五行辅助、反证与限制事实逐项汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
 }
 
 export function analyzeZodiacEvidence(
@@ -354,6 +420,15 @@ export function analyzeZodiacEvidence(
     .map((fact) => fact.promptText);
   const limitationFacts = buildLimitationFacts(calculationSteps, relations);
   const limitations = limitationFacts.map((fact) => fact.promptText);
+  const summaryFact = buildSummaryFact({
+    calculationSteps,
+    relations,
+    primaryEvidence,
+    supportingEvidence,
+    counterEvidenceFacts,
+    counterSummaryFact,
+    limitationFacts,
+  });
   const sources: ZodiacEvidenceAnalysis['sources'] = [
     {
       title: '十二地支关系表',
@@ -405,6 +480,13 @@ export function analyzeZodiacEvidence(
       tags: ['反证汇总', counterSummaryFact.status],
     },
     {
+      level: summaryFact.status === '证据链完整' ? '辅证' : '反证',
+      title: `生肖证据汇总：${summaryFact.status}`,
+      detail: `${summaryFact.promptText}；边界：${summaryFact.limitation}`,
+      source: summaryFact.sources.join('、'),
+      tags: ['证据汇总', summaryFact.status],
+    },
+    {
       level: '限制',
       title: '生肖流年信息量与解释边界',
       detail: `${limitationFacts.map((fact) => fact.promptText).join('；')}；边界：${LIMITATION_FACT_LIMITATION}`,
@@ -421,9 +503,13 @@ export function analyzeZodiacEvidence(
     `有利关系：${data.favorableRelations.join('；') || '未命中三合六合或明确年干辅助关系'}。`,
     `风险关系：${data.riskRelations.join('；') || '未命中值、冲、刑、害、破关系'}。`,
     `反证限制：${counterSummaryFact.promptText}。`,
+    `证据汇总：${summaryFact.promptText}。`,
+    `解释限制：${limitations.join('；')}。`,
     `规则来源：${sources.map((item) => `${item.title}（${item.role}：${item.evidence}）`).join('；')}。`,
   ].join('\n');
   return {
+    key: 'zodiac:evidence',
+    status: '已计算',
     calculationSteps,
     calculationChain,
     relations,
@@ -434,6 +520,7 @@ export function analyzeZodiacEvidence(
     counterSummaryFact,
     limitations,
     limitationFacts,
+    summaryFact,
     sources,
     evidence,
     promptText,

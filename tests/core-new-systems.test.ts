@@ -285,6 +285,8 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.ok(r.prompt.includes('生肖与流年关系简析'));
   assert.ok(r.prompt.includes('五行来源'));
   assert.ok(r.prompt.includes('犯太岁明细'));
+  assert.equal(r.evidenceAnalysis.key, 'zodiac:evidence');
+  assert.equal(r.evidenceAnalysis.status, '已计算');
   assert.equal(r.evidenceAnalysis.evidence.title, '生肖流年关系矩阵结构化证据');
   assert.equal(r.evidenceAnalysis.calculationSteps.length, 4);
   assert.deepEqual(
@@ -328,6 +330,38 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.equal(r.evidenceAnalysis.counterSummaryFact.factKeys.length, 2);
   assert.equal(r.evidenceAnalysis.counterEvidence.length, 3);
   assert.equal(r.evidenceAnalysis.limitationFacts.length, 5);
+  assert.equal(r.evidenceAnalysis.summaryFact.key, 'zodiac:evidence-summary');
+  assert.equal(r.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(
+    r.evidenceAnalysis.summaryFact.relationFactCount,
+    r.evidenceAnalysis.relations.length,
+  );
+  assert.equal(
+    r.evidenceAnalysis.summaryFact.primaryEvidenceCount,
+    r.evidenceAnalysis.primaryEvidence.length,
+  );
+  assert.equal(
+    r.evidenceAnalysis.summaryFact.supportingEvidenceCount,
+    r.evidenceAnalysis.supportingEvidence.length,
+  );
+  assert.equal(
+    r.evidenceAnalysis.summaryFact.counterEvidenceCount,
+    r.evidenceAnalysis.counterEvidenceFacts.length,
+  );
+  assert.equal(
+    r.evidenceAnalysis.summaryFact.limitationFactCount,
+    r.evidenceAnalysis.limitationFacts.length,
+  );
+  const zodiacFactKeys = new Set([
+    r.evidenceAnalysis.summaryFact.key,
+    ...r.evidenceAnalysis.summaryFact.factKeys,
+  ]);
+  assert.ok(
+    r.evidenceAnalysis.counterEvidenceFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => zodiacFactKeys.has(key)),
+    ),
+  );
   assert.equal(r.evidenceAnalysis.limitations.length, r.evidenceAnalysis.limitationFacts.length);
   assert.ok(
     r.evidenceAnalysis.limitationFacts.every(
@@ -335,11 +369,13 @@ test('zodiac: 犯太岁与流年运程', () => {
         item.key.startsWith('zodiac:limitation:') &&
         item.status === '适用' &&
         item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => zodiacFactKeys.has(key)) &&
         item.sources.length > 0,
     ),
   );
   assert.match(r.evidenceAnalysis.promptText, /现实复核提示：.*边界：/);
   assert.match(r.evidenceAnalysis.promptText, /流年年干甲[\s\S]*生肖年支本气午/);
+  assert.match(r.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制：/);
   assert.match(r.prompt, /【生肖流年关系矩阵结构化证据】/);
   assert.doesNotMatch(r.prompt, /综合定级：/);
   assert.doesNotMatch(r.prompt, /印星|财星|官杀|接口兼容/);
@@ -484,6 +520,8 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.ok(r.prompt.includes('将参'));
   assert.ok(r.prompt.includes('核心宫位'));
   assert.ok(r.prompt.includes('观察层级'));
+  assert.equal(r.evidenceAnalysis.key, 'taiyi:evidence');
+  assert.equal(r.evidenceAnalysis.status, '已计算');
   assert.match(r.evidenceAnalysis.promptText, /【太乙五计七十二局结构化证据】/);
   assert.deepEqual(
     r.evidenceAnalysis.calculationSteps.map((step) => step.name),
@@ -555,6 +593,39 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.equal(r.evidenceAnalysis.counterSummaryFact.status, '存在未命中条件');
   assert.equal(r.evidenceAnalysis.counterSummaryFact.factKeys.length, 3);
   assert.equal(r.evidenceAnalysis.limitationFacts.length, 5);
+  assert.equal(r.evidenceAnalysis.summaryFact.key, 'taiyi:evidence-summary');
+  assert.equal(r.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(
+    r.evidenceAnalysis.summaryFact.positionFactCount,
+    r.evidenceAnalysis.positionFacts.length,
+  );
+  assert.equal(r.evidenceAnalysis.summaryFact.forceFactCount, r.evidenceAnalysis.forceFacts.length);
+  assert.equal(
+    r.evidenceAnalysis.summaryFact.sixteenGodFactCount,
+    r.evidenceAnalysis.sixteenGodFacts.length,
+  );
+  assert.equal(
+    r.evidenceAnalysis.summaryFact.conditionFactCount,
+    r.evidenceAnalysis.conditionFacts.length,
+  );
+  assert.equal(
+    r.evidenceAnalysis.summaryFact.counterEvidenceCount,
+    r.evidenceAnalysis.counterEvidenceFacts.length,
+  );
+  assert.equal(
+    r.evidenceAnalysis.summaryFact.limitationFactCount,
+    r.evidenceAnalysis.limitationFacts.length,
+  );
+  const taiyiFactKeys = new Set([
+    r.evidenceAnalysis.summaryFact.key,
+    ...r.evidenceAnalysis.summaryFact.factKeys,
+  ]);
+  assert.ok(
+    r.evidenceAnalysis.counterEvidenceFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => taiyiFactKeys.has(key)),
+    ),
+  );
   assert.equal(r.evidenceAnalysis.limitations.length, r.evidenceAnalysis.limitationFacts.length);
   assert.ok(
     r.evidenceAnalysis.limitationFacts.every(
@@ -562,6 +633,7 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
         item.key.startsWith('taiyi:limitation:') &&
         item.status === '适用' &&
         item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => taiyiFactKeys.has(key)) &&
         item.sources.length > 0,
     ),
   );
@@ -571,6 +643,7 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.ok(r.evidenceAnalysis.primaryFacts.some((item) => item.startsWith('掩成立')));
   assert.ok(r.evidenceAnalysis.counterEvidence.some((item) => item.startsWith('未见囚')));
   assert.match(r.evidenceAnalysis.promptText, /传统规则模型/);
+  assert.match(r.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制（方法限制）：/);
   assert.doesNotMatch(r.evidenceAnalysis.promptText, /宜先守后动|不宜轻进/);
   assert.doesNotMatch(
     r.evidenceAnalysis.promptText,
@@ -764,16 +837,22 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.match(r.prompt, /月相证据：/);
   assert.match(r.prompt, /JD\(TT\)/);
   assert.match(r.evidenceAnalysis.promptText, /【七政四余计算来源与证据分层】/);
+  assert.equal(r.evidenceAnalysis.key, 'qizheng:evidence');
+  assert.equal(r.evidenceAnalysis.status, '已计算');
   assert.equal(r.evidenceAnalysis.calculationFact.status, '含默认值');
   assert.equal(r.evidenceAnalysis.calculationFact.steps.length, 7);
+  assert.equal(r.evidenceAnalysis.calculationChain.length, 7);
+  const qizhengStepKeys = new Set(r.evidenceAnalysis.calculationFact.steps.map((item) => item.key));
   assert.ok(r.evidenceAnalysis.calculationFact.defaults.some((item) => item.includes('默认北京')));
   assert.ok(
     r.evidenceAnalysis.calculationFact.steps.every(
       (item) =>
         item.key.startsWith('qizheng:calculation:') &&
         item.status === '已计算' &&
+        item.dependsOnStepKeys.every((key) => qizhengStepKeys.has(key)) &&
         item.promptText &&
-        item.sources.length > 0,
+        item.sources.length > 0 &&
+        item.limitation.includes('不得把步骤完整度解释为观测级精度'),
     ),
   );
   assert.equal(r.evidenceAnalysis.positionSourceFacts.length, r.positionSources.length);
@@ -791,6 +870,55 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   );
   assert.equal(r.evidenceAnalysis.starFacts.length, r.stars.length);
   assert.equal(r.evidenceAnalysis.aspectFacts.length, r.aspects.length);
+  assert.deepEqual(
+    r.evidenceAnalysis.counterEvidenceFacts.map((item) => [item.type, item.status]),
+    [
+      ['输入完整性', '含默认值'],
+      ['位置精度分层', '混合模型'],
+      ['吊照覆盖', '有可用证据'],
+    ],
+  );
+  assert.equal(r.evidenceAnalysis.counterSummaryFact.status, '存在需保留反证');
+  assert.equal(r.evidenceAnalysis.counterSummaryFact.factKeys.length, 2);
+  assert.equal(r.evidenceAnalysis.summaryFact.key, 'qizheng:evidence-summary');
+  assert.equal(r.evidenceAnalysis.summaryFact.status, '证据链有缺口');
+  assert.equal(
+    r.evidenceAnalysis.summaryFact.positionSourceFactCount,
+    r.evidenceAnalysis.positionSourceFacts.length,
+  );
+  assert.equal(r.evidenceAnalysis.summaryFact.starFactCount, r.evidenceAnalysis.starFacts.length);
+  assert.equal(
+    r.evidenceAnalysis.summaryFact.aspectFactCount,
+    r.evidenceAnalysis.aspectFacts.length,
+  );
+  assert.equal(
+    r.evidenceAnalysis.summaryFact.counterEvidenceCount,
+    r.evidenceAnalysis.counterEvidenceFacts.length,
+  );
+  assert.equal(
+    r.evidenceAnalysis.summaryFact.limitationFactCount,
+    r.evidenceAnalysis.limitationFacts.length,
+  );
+  assert.equal(r.evidenceAnalysis.limitationFacts.length, 7);
+  const qizhengFactKeys = new Set([
+    r.evidenceAnalysis.summaryFact.key,
+    ...r.evidenceAnalysis.summaryFact.factKeys,
+  ]);
+  assert.ok(
+    r.evidenceAnalysis.counterEvidenceFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => qizhengFactKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    r.evidenceAnalysis.limitationFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => qizhengFactKeys.has(key)) &&
+        item.sources.length > 0,
+    ),
+  );
   assert.ok(
     r.evidenceAnalysis.starFacts.every(
       (item) =>
@@ -819,6 +947,7 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   );
   assert.match(r.evidenceAnalysis.promptText, /命宫、身宫与命主定位/);
   assert.match(r.evidenceAnalysis.promptText, /紫炁与神煞定位/);
+  assert.match(r.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制：/);
   assert.ok(r.evidenceAnalysis.primaryFacts.some((item) => item.includes('命宫落黄道第')));
   assert.ok(r.evidenceAnalysis.supportingFacts.some((item) => item.startsWith('神煞定位：')));
   assert.doesNotMatch(r.prompt, /强度\d+%|成功率[：=]?\d|吉凶总分[：=]?\d/);
@@ -837,6 +966,7 @@ test('qizheng: 用户地点与默认地点必须在计算上下文中明确区�
   assert.equal(supplied.calculationContext.locationSource, '用户提供');
   assert.equal(supplied.calculationContext.timezoneSource, '用户提供');
   assert.equal(supplied.evidenceAnalysis.calculationFact.status, '输入明确');
+  assert.equal(supplied.evidenceAnalysis.summaryFact.status, '证据链完整');
   assert.deepEqual(supplied.evidenceAnalysis.calculationFact.defaults, []);
 
   const partial = core.qizheng.generateQizheng({
@@ -848,6 +978,7 @@ test('qizheng: 用户地点与默认地点必须在计算上下文中明确区�
   });
   assert.equal(partial.calculationContext.locationSource, '部分坐标使用默认值');
   assert.equal(partial.evidenceAnalysis.calculationFact.status, '含默认值');
+  assert.equal(partial.evidenceAnalysis.summaryFact.status, '证据链有缺口');
   assert.ok(
     partial.evidenceAnalysis.calculationFact.defaults.some((item) =>
       item.includes('部分坐标使用默认值'),

@@ -152,13 +152,21 @@ export interface QizhengCalculationContext {
 }
 
 export interface QizhengEvidenceAnalysis {
+  key: 'qizheng:evidence';
+  status: '已计算';
   calculationFact: QizhengCalculationFact;
+  calculationChain: string[];
   positionSourceFacts: QizhengPositionSourceFact[];
   starFacts: QizhengStarFact[];
   aspectFacts: QizhengAspectFact[];
   primaryFacts: string[];
   supportingFacts: string[];
+  counterEvidence: string[];
+  counterEvidenceFacts: QizhengCounterEvidenceFact[];
+  counterSummaryFact: QizhengCounterSummaryFact;
   limitations: string[];
+  limitationFacts: QizhengLimitationFact[];
+  summaryFact: QizhengSummaryFact;
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
@@ -177,8 +185,10 @@ export interface QizhengCalculationStep {
   status: '已计算';
   inputs: Record<string, string | number | boolean>;
   result: Record<string, string | number | boolean>;
+  dependsOnStepKeys: string[];
   promptText: string;
   sources: string[];
+  limitation: '七政四余计算步骤只记录民用时间、天文时间尺度、位置模型、恒星黄经、宿度落宫与吊照筛选的形成过程；不得把步骤完整度解释为观测级精度、占星有效性、现实吉凶或事件概率';
 }
 
 export interface QizhengCalculationFact {
@@ -254,6 +264,56 @@ export interface QizhengAspectFact {
   limitation: '吊照相位只描述两星本次换算恒星黄经在当前容许度内的几何关系；混合模型不得提升为现代天文同精度证据，也不代表吉凶比例、事件概率或必然结果';
 }
 
+export interface QizhengCounterEvidenceFact {
+  key: string;
+  type: '输入完整性' | '位置精度分层' | '吊照覆盖';
+  status: '输入明确' | '含默认值' | '同层现代天文' | '混合模型' | '有可用证据' | '未见';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '反证事实只记录七政四余输入是否使用默认值、位置来源是否混合精度及当前容许度内是否有吊照；默认值、混合模型或未见吊照不直接等于现实不利，有资料也不证明吉凶结果';
+}
+
+export interface QizhengCounterSummaryFact {
+  key: 'qizheng:counter-summary';
+  status: '存在需保留反证' | '未见额外反证';
+  factKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '反证汇总只用于防止忽略默认输入、混合精度和吊照未见项；不得据反证数量生成吉凶总分、可信度、事件概率或精度评分';
+}
+
+export interface QizhengLimitationFact {
+  key: string;
+  type:
+    | '输入默认边界'
+    | '时间尺度边界'
+    | '位置来源边界'
+    | '混合精度边界'
+    | '吊照边界'
+    | '月相光照边界'
+    | '高风险输出边界';
+  status: '适用';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束七政四余输入、时间尺度、位置来源、混合模型、吊照、月相和光照资料可以支持的解释范围，不得被反向当作现实事件、吉凶或精度证据';
+}
+
+export interface QizhengSummaryFact {
+  key: 'qizheng:evidence-summary';
+  status: '证据链完整' | '证据链有缺口';
+  factKeys: string[];
+  positionSourceFactCount: number;
+  starFactCount: number;
+  aspectFactCount: number;
+  counterEvidenceCount: number;
+  limitationFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '七政四余证据汇总只统计输入、时间尺度、位置来源、逐星、吊照、月相光照、反证与限制覆盖；不得按数量生成吉凶等级、可信度、事件概率、观测精度或固定应期';
+}
+
 const STAR_FACT_LIMITATION =
   '逐星位置是回归黄经、本次换算恒星黄经、古距度宿度与落宫的计算事实；现代天文计算和传统均速模型必须分层使用，不单独证明人格、现实事件、吉凶或应期' as const;
 
@@ -263,6 +323,16 @@ const CALCULATION_FACT_LIMITATION =
   '计算链只证明民用时间、时区、地点、天文时间尺度、位置模型和坐标换算如何形成当前七政四余盘；默认地点、近似时间尺度与传统均速模型不得提升为真实出生地或观测级精度，也不证明现实事件或吉凶结果' as const;
 const POSITION_SOURCE_FACT_LIMITATION =
   '位置来源事实只说明各星体采用的提供方、模型、坐标和精度层级；来源可追溯不等于结果达到观测级精度，也不证明占星解释、现实事件或吉凶结论' as const;
+const QIZHENG_CALCULATION_STEP_LIMITATION =
+  '七政四余计算步骤只记录民用时间、天文时间尺度、位置模型、恒星黄经、宿度落宫与吊照筛选的形成过程；不得把步骤完整度解释为观测级精度、占星有效性、现实吉凶或事件概率' as const;
+const QIZHENG_COUNTER_FACT_LIMITATION =
+  '反证事实只记录七政四余输入是否使用默认值、位置来源是否混合精度及当前容许度内是否有吊照；默认值、混合模型或未见吊照不直接等于现实不利，有资料也不证明吉凶结果' as const;
+const QIZHENG_COUNTER_SUMMARY_LIMITATION =
+  '反证汇总只用于防止忽略默认输入、混合精度和吊照未见项；不得据反证数量生成吉凶总分、可信度、事件概率或精度评分' as const;
+const QIZHENG_LIMITATION_FACT_LIMITATION =
+  '限制事实用于约束七政四余输入、时间尺度、位置来源、混合模型、吊照、月相和光照资料可以支持的解释范围，不得被反向当作现实事件、吉凶或精度证据' as const;
+const QIZHENG_SUMMARY_FACT_LIMITATION =
+  '七政四余证据汇总只统计输入、时间尺度、位置来源、逐星、吊照、月相光照、反证与限制覆盖；不得按数量生成吉凶等级、可信度、事件概率、观测精度或固定应期' as const;
 
 function conditionQizhengPortableText(text: string): string {
   return text
@@ -766,6 +836,221 @@ function buildCalculationContext(
   };
 }
 
+function buildQizhengCounterEvidenceFacts(args: {
+  calculationFact: QizhengCalculationFact;
+  positionSourceFacts: QizhengPositionSourceFact[];
+  aspectFacts: QizhengAspectFact[];
+}): QizhengCounterEvidenceFact[] {
+  const hasMixedPrecision =
+    args.positionSourceFacts.some((item) => item.precisionClass === '传统均速模型') ||
+    args.aspectFacts.some((item) => item.precisionClass === '混合模型');
+  return [
+    {
+      key: 'qizheng:counter:input',
+      type: '输入完整性',
+      status: args.calculationFact.status,
+      ownerFactKeys: [
+        args.calculationFact.key,
+        ...args.calculationFact.steps.map((item) => item.key),
+      ],
+      promptText:
+        args.calculationFact.status === '输入明确'
+          ? '出生时间、地点和时区输入明确，未使用默认地点或默认时区'
+          : `本次使用${args.calculationFact.defaults.join('、')}，宫位和光照资料不得宣称已按真实出生地完整校准`,
+      sources: ['七政四余输入完整性与默认值逐项核验'],
+      limitation: QIZHENG_COUNTER_FACT_LIMITATION,
+    },
+    {
+      key: 'qizheng:counter:precision',
+      type: '位置精度分层',
+      status: hasMixedPrecision ? '混合模型' : '同层现代天文',
+      ownerFactKeys: args.positionSourceFacts.map((item) => item.key),
+      promptText: hasMixedPrecision
+        ? '七政、罗计、月孛与紫炁采用不同精度层级，混合吊照必须保留模型分层'
+        : '当前参与关系的位置来源均属同层现代天文计算',
+      sources: ['逐对象位置来源、坐标口径与精度层级核验'],
+      limitation: QIZHENG_COUNTER_FACT_LIMITATION,
+    },
+    {
+      key: 'qizheng:counter:aspects',
+      type: '吊照覆盖',
+      status: args.aspectFacts.length ? '有可用证据' : '未见',
+      ownerFactKeys: args.aspectFacts.length
+        ? args.aspectFacts.map((item) => item.key)
+        : ['qizheng:calculation:aspects'],
+      promptText: args.aspectFacts.length
+        ? `当前容许度内列出${args.aspectFacts.length}组吊照关系`
+        : '当前容许度内未见吊照关系，不得为了形成结论而放宽容许度或补造关系',
+      sources: ['本次换算恒星黄经最小夹角与吊照容许度筛选'],
+      limitation: QIZHENG_COUNTER_FACT_LIMITATION,
+    },
+  ];
+}
+
+function isQizhengCounterIssue(item: QizhengCounterEvidenceFact) {
+  return !['输入明确', '同层现代天文', '有可用证据'].includes(item.status);
+}
+
+function buildQizhengCounterSummaryFact(
+  counterEvidenceFacts: QizhengCounterEvidenceFact[],
+): QizhengCounterSummaryFact {
+  const issueFacts = counterEvidenceFacts.filter(isQizhengCounterIssue);
+  return {
+    key: 'qizheng:counter-summary',
+    status: issueFacts.length ? '存在需保留反证' : '未见额外反证',
+    factKeys: issueFacts.map((item) => item.key),
+    promptText: issueFacts.length
+      ? `需保留${issueFacts.map((item) => `${item.type}${item.status}`).join('、')}；不得静默补齐或提升精度`
+      : '输入完整性、位置精度分层与吊照覆盖未见额外缺口',
+    sources: ['输入默认值、位置来源精度与吊照覆盖逐项汇总'],
+    limitation: QIZHENG_COUNTER_SUMMARY_LIMITATION,
+  };
+}
+
+function buildQizhengLimitationFacts(args: {
+  calculationFact: QizhengCalculationFact;
+  positionSourceFacts: QizhengPositionSourceFact[];
+  starFacts: QizhengStarFact[];
+  aspectFacts: QizhengAspectFact[];
+  context: QizhengCalculationContext;
+  locationSourceText: string;
+  timezoneSourceText: string;
+}): QizhengLimitationFact[] {
+  const aspectOwnerKeys = args.aspectFacts.length
+    ? args.aspectFacts.map((item) => item.key)
+    : ['qizheng:calculation:aspects'];
+  const definitions: Array<
+    Pick<QizhengLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
+  > = [
+    {
+      key: 'qizheng:limitation:input-defaults',
+      type: '输入默认边界',
+      ownerFactKeys: [args.calculationFact.key, 'qizheng:calculation:utc'],
+      promptText: `${args.locationSourceText}；${args.timezoneSourceText}，地点或时区并非明确输入时，不得宣称宫位结果已按真实出生地校准`,
+      sources: ['地点、时区输入与默认值记录'],
+    },
+    {
+      key: 'qizheng:limitation:time-scales',
+      type: '时间尺度边界',
+      ownerFactKeys: [args.context.astronomicalTime.key, 'qizheng:calculation:time-scales'],
+      promptText: args.context.astronomicalTime.limitations.join('；'),
+      sources: ['UTC、UT1近似、ΔT与TT时间尺度证据'],
+    },
+    {
+      key: 'qizheng:limitation:position-sources',
+      type: '位置来源边界',
+      ownerFactKeys: args.positionSourceFacts.map((item) => item.key),
+      promptText:
+        '七政、罗计、月孛和紫炁必须保留各自提供方、模型、坐标和精度层级，不得把来源可追溯等同于观测级精度',
+      sources: ['逐对象位置来源与坐标口径'],
+    },
+    {
+      key: 'qizheng:limitation:mixed-precision',
+      type: '混合精度边界',
+      ownerFactKeys: [
+        ...args.positionSourceFacts
+          .filter((item) => item.precisionClass === '传统均速模型')
+          .map((item) => item.key),
+        ...args.starFacts
+          .filter((item) => item.precisionClass === '传统均速模型')
+          .map((item) => item.key),
+        ...args.aspectFacts
+          .filter((item) => item.precisionClass === '混合模型')
+          .map((item) => item.key),
+      ],
+      promptText:
+        '七政、罗计与月孛来自现代天文计算，紫炁来自传统均速模型；混合模型吊照不得按相同精度比较或提升为现代天文证据',
+      sources: ['现代天文位置与《七政算内篇》紫炁均速模型分层'],
+    },
+    {
+      key: 'qizheng:limitation:aspects',
+      type: '吊照边界',
+      ownerFactKeys: aspectOwnerKeys,
+      promptText:
+        '吊照仅表示进入当前容许度，紧密等级和归一化容许度位置不代表成功率、吉凶百分比、事件概率或必然结果',
+      sources: ['吊照实际夹角、精确角与允许容许度'],
+    },
+    {
+      key: 'qizheng:limitation:moon-illumination',
+      type: '月相光照边界',
+      ownerFactKeys: [args.context.moonPhase.key, args.context.solarIllumination.key],
+      promptText: [
+        ...args.context.moonPhase.limitations,
+        ...args.context.solarIllumination.limitations,
+      ].join('；'),
+      sources: ['月相黄经差与出生地点太阳光照证据'],
+    },
+    {
+      key: 'qizheng:limitation:high-risk-output',
+      type: '高风险输出边界',
+      ownerFactKeys: [
+        args.calculationFact.key,
+        ...args.starFacts.map((item) => item.key),
+        ...aspectOwnerKeys,
+      ],
+      promptText:
+        '不得输出吉凶总分、成功率、疾病诊断、投资回报、人物意图、保证有效的化解方案或唯一应期；神煞只作辅证',
+      sources: ['盘面位置、吊照、神煞与现实结果分离原则'],
+    },
+  ];
+  return definitions.map((definition) => ({
+    ...definition,
+    ownerFactKeys: Array.from(
+      new Set(
+        definition.ownerFactKeys.length ? definition.ownerFactKeys : [args.calculationFact.key],
+      ),
+    ),
+    status: '适用',
+    limitation: QIZHENG_LIMITATION_FACT_LIMITATION,
+  }));
+}
+
+function buildQizhengSummaryFact(args: {
+  calculationFact: QizhengCalculationFact;
+  positionSourceFacts: QizhengPositionSourceFact[];
+  starFacts: QizhengStarFact[];
+  aspectFacts: QizhengAspectFact[];
+  counterEvidenceFacts: QizhengCounterEvidenceFact[];
+  counterSummaryFact: QizhengCounterSummaryFact;
+  limitationFacts: QizhengLimitationFact[];
+  context: QizhengCalculationContext;
+}): QizhengSummaryFact {
+  const status =
+    args.calculationFact.status === '输入明确' &&
+    args.calculationFact.steps.length === 7 &&
+    args.positionSourceFacts.length === 4 &&
+    args.starFacts.length === 11
+      ? '证据链完整'
+      : '证据链有缺口';
+  return {
+    key: 'qizheng:evidence-summary',
+    status,
+    factKeys: Array.from(
+      new Set([
+        args.calculationFact.key,
+        ...args.calculationFact.steps.map((item) => item.key),
+        ...args.positionSourceFacts.map((item) => item.key),
+        ...args.starFacts.map((item) => item.key),
+        ...args.aspectFacts.map((item) => item.key),
+        args.context.astronomicalTime.key,
+        args.context.moonPhase.key,
+        args.context.solarIllumination.key,
+        ...args.counterEvidenceFacts.map((item) => item.key),
+        args.counterSummaryFact.key,
+        ...args.limitationFacts.map((item) => item.key),
+      ]),
+    ),
+    positionSourceFactCount: args.positionSourceFacts.length,
+    starFactCount: args.starFacts.length,
+    aspectFactCount: args.aspectFacts.length,
+    counterEvidenceCount: args.counterEvidenceFacts.length,
+    limitationFactCount: args.limitationFacts.length,
+    promptText: `证据链状态：${status}；位置来源${args.positionSourceFacts.length}项、逐星${args.starFacts.length}项、吊照${args.aspectFacts.length}项、反证${args.counterEvidenceFacts.length}项、限制${args.limitationFacts.length}项`,
+    sources: ['七政四余输入、时间尺度、位置来源、逐星、吊照、月相光照、反证与限制事实逐项汇总'],
+    limitation: QIZHENG_SUMMARY_FACT_LIMITATION,
+  };
+}
+
 function buildQizhengEvidence(
   stars: QizhengStar[],
   aspects: QizhengAspect[],
@@ -804,8 +1089,10 @@ function buildQizhengEvidence(
         timezoneSource: context.timezoneSource,
       },
       result: { utcDateTime: context.utcDateTime },
+      dependsOnStepKeys: [],
       promptText: `当地民用时间${context.localDateTime}按UTC${context.timezone >= 0 ? '+' : ''}${context.timezone}换算为${context.utcDateTime}`,
       sources: ['历史时区或固定UTC偏移解析', '当前民用时间输入'],
+      limitation: QIZHENG_CALCULATION_STEP_LIMITATION,
     },
     {
       key: 'qizheng:calculation:time-scales',
@@ -818,8 +1105,10 @@ function buildQizhengEvidence(
         julianDayTtApprox: context.astronomicalTime.julianDayTtApprox,
         precisionLevel: context.astronomicalTime.precisionLevel,
       },
+      dependsOnStepKeys: ['qizheng:calculation:utc'],
       promptText: `UTC时刻换算JD(UTC)${context.astronomicalTime.julianDayUtc.toFixed(6)}，采用ΔT${context.astronomicalTime.deltaTSeconds.toFixed(3)}秒得到近似JD(TT)${context.astronomicalTime.julianDayTtApprox.toFixed(6)}`,
       sources: [context.astronomicalTime.source, context.astronomicalTime.deltaTModel],
+      limitation: QIZHENG_CALCULATION_STEP_LIMITATION,
     },
     {
       key: 'qizheng:calculation:modern-positions',
@@ -833,8 +1122,10 @@ function buildQizhengEvidence(
       result: {
         modernObjectCount: stars.filter((item) => item.precisionClass === '现代天文计算').length,
       },
+      dependsOnStepKeys: ['qizheng:calculation:time-scales'],
       promptText: '由celestine计算七政、真交点和真莉莉丝的回归黄经及逆行状态',
       sources: ['celestine.calculateChart', '真交点与真莉莉丝扩展计算'],
+      limitation: QIZHENG_CALCULATION_STEP_LIMITATION,
     },
     {
       key: 'qizheng:calculation:ziqi',
@@ -848,10 +1139,12 @@ function buildQizhengEvidence(
         tropicalLongitude: structure.ziqi.tropicalLongitude,
         dailyMotionDegrees: structure.ziqi.dailyMotionDegrees,
       },
+      dependsOnStepKeys: ['qizheng:calculation:time-scales'],
       promptText: `紫炁按${structure.ziqiModel.name}得到回归黄经${structure.ziqi.tropicalLongitude.toFixed(6)}°`,
       sources: structure.ziqiModel.sources
         .filter((item) => item.usage === '采用')
         .map((item) => item.title),
+      limitation: QIZHENG_CALCULATION_STEP_LIMITATION,
     },
     {
       key: 'qizheng:calculation:sidereal',
@@ -859,8 +1152,10 @@ function buildQizhengEvidence(
       status: '已计算',
       inputs: { objectCount: stars.length },
       result: { siderealObjectCount: stars.length },
+      dependsOnStepKeys: ['qizheng:calculation:modern-positions', 'qizheng:calculation:ziqi'],
       promptText: '各星回归黄经减IAU 2006近似岁差，得到本次恒星黄经',
       sources: ['IAU 2006近似岁差换算'],
+      limitation: QIZHENG_CALCULATION_STEP_LIMITATION,
     },
     {
       key: 'qizheng:calculation:xiu-palace',
@@ -868,8 +1163,10 @@ function buildQizhengEvidence(
       status: '已计算',
       inputs: { siderealObjectCount: stars.length },
       result: { starFactCount: stars.length, palaceCount: 12 },
+      dependsOnStepKeys: ['qizheng:calculation:sidereal'],
       promptText: '本次恒星黄经按二十八宿古距度比例换算宿度，并映射十二宫、命宫与身宫',
       sources: ['二十八宿古距度表', '十二宫映射与安命安身规则'],
+      limitation: QIZHENG_CALCULATION_STEP_LIMITATION,
     },
     {
       key: 'qizheng:calculation:aspects',
@@ -877,8 +1174,10 @@ function buildQizhengEvidence(
       status: '已计算',
       inputs: { starCount: stars.length },
       result: { aspectCount: aspects.length },
+      dependsOnStepKeys: ['qizheng:calculation:xiu-palace'],
       promptText: `按本次恒星黄经最小夹角与吊照容许度筛出${aspects.length}组关系`,
       sources: ['七政四余吊照角度与容许度表', '恒星黄经最小夹角计算'],
+      limitation: QIZHENG_CALCULATION_STEP_LIMITATION,
     },
   ];
   const calculationFact: QizhengCalculationFact = {
@@ -979,16 +1278,36 @@ function buildQizhengEvidence(
   supportingFacts.push(
     `神煞定位：${structure.shensha.map((item) => `${item.name}${item.value}`).join('、')}`,
   );
-  const limitations = [
-    `${locationSourceText}；${timezoneSourceText}，地点或时区并非明确输入时，不得宣称宫位结果已按真实出生地校准`,
-    '七政、罗计与月孛来自现代天文计算；紫炁来自传统均速模型，两者不得按相同精度比较',
-    '恒星黄经采用当前岁差近似，宿度再按古距度比例换算；显示小数只是可复算结果，不代表观测精度',
-    ...context.astronomicalTime.limitations,
-    ...context.moonPhase.limitations,
-    ...context.solarIllumination.limitations,
-    '相位仅表示进入当前容许度，不输出成功率、吉凶百分比或综合总分',
-    '神煞只作辅证，不能覆盖星体位置、宿度、落宫和吊照结构',
-  ];
+  const counterEvidenceFacts = buildQizhengCounterEvidenceFacts({
+    calculationFact,
+    positionSourceFacts,
+    aspectFacts,
+  });
+  const counterSummaryFact = buildQizhengCounterSummaryFact(counterEvidenceFacts);
+  const counterEvidence = counterEvidenceFacts
+    .filter(isQizhengCounterIssue)
+    .map((item) => item.promptText);
+  const limitationFacts = buildQizhengLimitationFacts({
+    calculationFact,
+    positionSourceFacts,
+    starFacts,
+    aspectFacts,
+    context,
+    locationSourceText,
+    timezoneSourceText,
+  });
+  const limitations = limitationFacts.map((item) => item.promptText);
+  const summaryFact = buildQizhengSummaryFact({
+    calculationFact,
+    positionSourceFacts,
+    starFacts,
+    aspectFacts,
+    counterEvidenceFacts,
+    counterSummaryFact,
+    limitationFacts,
+    context,
+  });
+  const calculationChain = calculationSteps.map((item) => item.promptText);
   const items: PromptEvidenceItem[] = [
     {
       level: calculationFact.status === '输入明确' ? '辅证' : '反证',
@@ -1032,26 +1351,61 @@ function buildQizhengEvidence(
       source: '紫炁均速模型与年支、日干神煞规则',
       tags: ['紫炁', '神煞'],
     },
+    ...counterEvidenceFacts.filter(isQizhengCounterIssue).map((item): PromptEvidenceItem => ({
+      level: '反证',
+      title: `七政四余${item.type}${item.status}`,
+      detail: `${item.promptText}；边界：${item.limitation}`,
+      source: item.sources.join('、'),
+      tags: ['反证', item.type, item.status],
+    })),
+    {
+      level: '反证',
+      title: `七政四余反证汇总：${counterSummaryFact.status}`,
+      detail: `${counterSummaryFact.promptText}；边界：${counterSummaryFact.limitation}`,
+      source: counterSummaryFact.sources.join('、'),
+      tags: ['反证汇总', counterSummaryFact.status],
+    },
+    {
+      level: summaryFact.status === '证据链完整' ? '辅证' : '反证',
+      title: `七政四余证据汇总：${summaryFact.status}`,
+      detail: `${summaryFact.promptText}；边界：${summaryFact.limitation}`,
+      source: summaryFact.sources.join('、'),
+      tags: ['证据汇总', summaryFact.status],
+    },
     {
       level: '限制',
       title: '坐标、模型与解释边界',
-      detail: limitations.join('；'),
-      source: '输入完整性、模型来源和坐标换算链路审计',
+      detail: `${limitations.join('；')}；边界：${QIZHENG_LIMITATION_FACT_LIMITATION}`,
+      source: Array.from(new Set(limitationFacts.flatMap((item) => item.sources))).join('、'),
     },
   ];
   const evidence: PromptEvidenceBundle = { title: '七政四余计算来源与证据分层', items };
+  const promptText = [
+    '【七政四余计算来源与证据分层】',
+    ...formatPromptEvidenceBundle(evidence),
+    `计算链：${calculationChain.join(' → ')}。`,
+    `反证汇总：${counterSummaryFact.promptText}。`,
+    `证据汇总：${summaryFact.promptText}。`,
+    `解释限制：${limitations.join('；')}。`,
+  ].join('\n');
   return {
+    key: 'qizheng:evidence',
+    status: '已计算',
     calculationFact,
+    calculationChain,
     positionSourceFacts,
     starFacts,
     aspectFacts,
     primaryFacts,
     supportingFacts,
+    counterEvidence,
+    counterEvidenceFacts,
+    counterSummaryFact,
     limitations,
+    limitationFacts,
+    summaryFact,
     evidence,
-    promptText: ['【七政四余计算来源与证据分层】', ...formatPromptEvidenceBundle(evidence)].join(
-      '\n',
-    ),
+    promptText,
     methodology: [
       '先固定民用时间、时区、地点和UTC计算时刻。',
       '逐星保留计算来源，区分现代天文位置与传统紫炁均速模型。',
