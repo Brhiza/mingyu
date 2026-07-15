@@ -87,6 +87,15 @@ test('选择大运时会附带该大运下的全部流年', () => {
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【应期】应期边界/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【限制】断事层级限制/);
   assert.ok(context.promptPayload.triggerEvidence);
+  assert.equal(context.promptPayload.triggerEvidence?.key, 'bazi:fortune-trigger:evidence');
+  assert.equal(context.promptPayload.triggerEvidence?.status, '已计算');
+  assert.ok(context.promptPayload.triggerEvidence?.calculationSteps.length);
+  assert.ok(context.promptPayload.triggerEvidence?.relationSummaryFact.relationCount);
+  assert.ok(
+    context.promptPayload.triggerEvidence?.limitationFacts.some(
+      (item) => item.type === '层级应期边界',
+    ),
+  );
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【八字岁运触发结构化证据】/);
 });
 

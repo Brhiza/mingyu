@@ -801,10 +801,50 @@ test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
 
     assert.equal(response.isError, undefined);
     const result = response.structuredContent?.result as {
-      fortuneSelection?: { promptPayload?: { triggerEvidence?: { relations?: unknown[] } } };
+      fortuneSelection?: {
+        promptPayload?: {
+          triggerEvidence?: {
+            key?: string;
+            status?: string;
+            layers?: Array<{ key?: string; status?: string }>;
+            relations?: Array<{
+              key?: string;
+              status?: string;
+              sourceLayerKey?: string;
+              targetLayerKey?: string;
+              calculationStepKey?: string;
+            }>;
+            calculationSteps?: Array<{ key: string; dependsOnStepKeys: string[] }>;
+            relationSummaryFact?: { relationCount?: number };
+            counterEvidenceFacts?: unknown[];
+            limitationFacts?: Array<{ type?: string }>;
+          };
+        };
+      };
     };
-    assert.ok(result.fortuneSelection?.promptPayload?.triggerEvidence?.relations?.length);
+    const triggerEvidence = result.fortuneSelection?.promptPayload?.triggerEvidence;
+    assert.equal(triggerEvidence?.key, 'bazi:fortune-trigger:evidence');
+    assert.equal(triggerEvidence?.status, '已计算');
+    assert.ok(triggerEvidence?.layers?.every((item) => item.key && item.status === '已计算'));
+    assert.ok(triggerEvidence?.relations?.length);
+    assert.ok(
+      triggerEvidence?.relations?.every(
+        (item) =>
+          item.key &&
+          item.status === '已命中' &&
+          item.sourceLayerKey &&
+          item.targetLayerKey &&
+          triggerEvidence.calculationSteps?.some((step) => step.key === item.calculationStepKey),
+      ),
+    );
+    assert.equal(
+      triggerEvidence?.relationSummaryFact?.relationCount,
+      triggerEvidence?.relations?.length,
+    );
+    assert.ok(triggerEvidence?.counterEvidenceFacts?.length);
+    assert.ok(triggerEvidence?.limitationFacts?.some((item) => item.type === '层级应期边界'));
     assert.match(String(response.structuredContent?.prompt), /【八字岁运触发结构化证据】/);
+    assert.match(String(response.structuredContent?.prompt), /未见主要关系不等于没有较弱关系/);
   });
 });
 

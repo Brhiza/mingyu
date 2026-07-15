@@ -21,6 +21,17 @@ test('岁运触发证据应逐层保留原局、大运和流年关系来源', ()
   ]);
 
   assert.equal(result.layers.length, 6);
+  assert.equal(result.key, 'bazi:fortune-trigger:evidence');
+  assert.equal(result.status, '已计算');
+  assert.ok(result.layers.every((item) => item.key && item.status === '已计算'));
+  assert.ok(result.calculationSteps.length > result.layers.length);
+  assert.ok(
+    result.calculationSteps.every((step) =>
+      step.dependsOnStepKeys.every((key) =>
+        result.calculationSteps.some((candidate) => candidate.key === key),
+      ),
+    ),
+  );
   assert.ok(
     result.relations.some(
       (item) =>
@@ -35,9 +46,26 @@ test('岁运触发证据应逐层保留原局、大运和流年关系来源', ()
         item.target.id === 'natal-year',
     ),
   );
+  assert.ok(
+    result.relations.every(
+      (item) =>
+        item.key &&
+        item.status === '已命中' &&
+        item.sourceLayerKey === item.source.key &&
+        item.targetLayerKey === item.target.key &&
+        result.calculationSteps.some((step) => step.key === item.calculationStepKey),
+    ),
+  );
+  assert.equal(result.relationSummaryFact.relationCount, result.relations.length);
+  assert.equal(result.relationSummaryFact.comparedPairCount, 9);
+  assert.equal(
+    result.primaryRelations.length + result.supportingRelations.length,
+    result.relations.length,
+  );
   assert.match(result.promptText, /【八字岁运触发结构化证据】/);
   assert.match(result.promptText, /岁运并临/);
   assert.match(result.promptText, /只表示干支关系成立及其所在时间层级/);
+  assert.match(result.promptText, /岁运层级与应期边界/);
 });
 
 test('岁运触发证据应识别天克地冲但不直接给出吉凶', () => {
@@ -52,7 +80,59 @@ test('岁运触发证据应识别天克地冲但不直接给出吉凶', () => {
   assert.equal(relation.stemRelation, 'clash');
   assert.equal(relation.branchRelation, 'clash');
   assert.match(relation.interpretationLimit, /不单独决定吉凶/);
+  assert.equal(relation.status, '已命中');
+  assert.ok(relation.key.startsWith('bazi:fortune-trigger:relation:tianke-dichong:'));
   assert.doesNotMatch(result.promptText, /判定为凶|匹配总分：/);
+});
+
+test('岁运触发证据应把未见主要关系保留为反证但不否定较弱触发', () => {
+  const result = analyzeFortuneTriggers(createResult(), [
+    { id: 'year', type: 'year', label: '乙巳流年', ganZhi: '乙巳' },
+  ]);
+
+  assert.equal(result.counterEvidenceFacts.length, 4);
+  assert.ok(result.counterEvidenceFacts.every((item) => item.status === '未见主要关系'));
+  assert.equal(result.relationSummaryFact.noMajorRelationPairCount, 4);
+  assert.ok(result.relationSummaryFact.supportingRelationCount > 0);
+  assert.match(result.counterEvidence.join('\n'), /未见主要关系不等于没有较弱触发或必然平稳/);
+  assert.ok(
+    result.limitationFacts.some(
+      (item) => item.type === '层级应期边界' && item.promptText.includes('不得补造'),
+    ),
+  );
+  assert.ok(
+    result.limitationFacts.some(
+      (item) => item.type === '高风险输出边界' && item.promptText.includes('不得按关系数量'),
+    ),
+  );
+  assert.doesNotMatch(result.promptText, /判定平稳|匹配总分：|成功率：\d|灾祸概率：\d/);
+});
+
+test('岁运触发证据在没有所选岁运层级时应明确返回无可比较层级', () => {
+  const result = analyzeFortuneTriggers(createResult(), []);
+
+  assert.equal(result.status, '无可比较层级');
+  assert.equal(result.relations.length, 0);
+  assert.equal(result.counterEvidenceFacts.length, 0);
+  assert.equal(result.relationSummaryFact.status, '无可比较层级');
+  assert.equal(result.relationSummaryFact.comparedPairCount, 0);
+  assert.match(result.promptText, /没有可供逐层比对的原局与岁运层级/);
+});
+
+test('岁运触发完整层级应保留详细对象但压缩可复制提示词', () => {
+  const result = analyzeFortuneTriggers(createResult(), [
+    { id: 'dayun', type: 'dayun', label: '甲午大运', ganZhi: '甲午' },
+    { id: 'year', type: 'year', label: '乙巳流年', ganZhi: '乙巳' },
+    { id: 'month', type: 'month', label: '丙辰流月', ganZhi: '丙辰' },
+    { id: 'day', type: 'day', label: '丁卯流日', ganZhi: '丁卯' },
+  ]);
+
+  assert.equal(result.relationSummaryFact.comparedPairCount, 22);
+  assert.equal(result.calculationSteps.filter((item) => item.stage === '层级关系比对').length, 22);
+  assert.ok(result.counterEvidenceFacts.length === 22);
+  assert.ok(result.promptText.length < 8000);
+  assert.match(result.promptText, /计算链概览/);
+  assert.doesNotMatch(result.promptText, /bazi:fortune-trigger:|本模块|本引擎|内部配置/);
 });
 
 test('岁运触发证据应拒绝非法干支，避免生成伪证据', () => {

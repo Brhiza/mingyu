@@ -1070,9 +1070,41 @@ test('公开 API 八字年限提示词返回逐层岁运触发结构化证据', 
   const triggerEvidence = body.data.resultSummary.fortuneSelection.promptPayload.triggerEvidence;
   assert.ok(triggerEvidence.layers.some((item: { type: string }) => item.type === 'dayun'));
   assert.ok(triggerEvidence.layers.some((item: { type: string }) => item.type === 'year'));
+  assert.equal(triggerEvidence.key, 'bazi:fortune-trigger:evidence');
+  assert.equal(triggerEvidence.status, '已计算');
+  assert.ok(
+    triggerEvidence.layers.every(
+      (item: { key?: string; status?: string }) => item.key && item.status === '已计算',
+    ),
+  );
+  assert.ok(triggerEvidence.calculationSteps.length > triggerEvidence.layers.length);
   assert.ok(triggerEvidence.relations.length > 0);
+  assert.ok(
+    triggerEvidence.relations.every(
+      (item: {
+        key?: string;
+        status?: string;
+        sourceLayerKey?: string;
+        targetLayerKey?: string;
+        calculationStepKey?: string;
+      }) =>
+        item.key &&
+        item.status === '已命中' &&
+        item.sourceLayerKey &&
+        item.targetLayerKey &&
+        triggerEvidence.calculationSteps.some(
+          (step: { key: string }) => step.key === item.calculationStepKey,
+        ),
+    ),
+  );
+  assert.equal(triggerEvidence.relationSummaryFact.relationCount, triggerEvidence.relations.length);
+  assert.ok(triggerEvidence.counterEvidenceFacts.length > 0);
+  assert.ok(
+    triggerEvidence.limitationFacts.some((item: { type: string }) => item.type === '层级应期边界'),
+  );
   assert.match(body.data.prompt, /【八字岁运触发结构化证据】/);
   assert.match(body.data.prompt, /岁运触发解释边界/);
+  assert.match(body.data.prompt, /未见主要关系不等于没有较弱关系/);
 });
 
 test('公开 API 八字自定义提示词不强塞专项框架', async () => {
