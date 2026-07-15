@@ -15,6 +15,20 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   const evidence = data.evidenceAnalysis;
 
   assert.ok(evidence);
+  assert.equal(evidence.key, 'meihua:evidence');
+  assert.equal(evidence.status, '已计算');
+  assert.equal(evidence.calculationSteps.length, 7);
+  assert.deepEqual(
+    evidence.calculationChain,
+    evidence.calculationSteps.map((item) => item.promptText),
+  );
+  assert.ok(
+    evidence.calculationSteps.every((step) =>
+      step.dependsOnStepKeys.every((key) =>
+        evidence.calculationSteps.some((candidate) => candidate.key === key),
+      ),
+    ),
+  );
   assert.deepEqual(
     evidence.stages.map((item) => item.stage),
     ['origin', 'process', 'result'],
@@ -36,7 +50,27 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
         item.limitation.includes('不得直接解释为现实起因'),
     ),
   );
+  assert.equal(evidence.summaryFact.status, '证据链完整');
+  assert.equal(evidence.summaryFact.hexagramFactCount, evidence.hexagramStructureFacts.length);
+  assert.equal(evidence.summaryFact.yaoFactCount, evidence.yaoStructureFacts.length);
+  assert.equal(evidence.summaryFact.stageFactCount, evidence.stages.length);
+  assert.equal(evidence.summaryFact.transitionFactCount, evidence.transitionFacts.length);
+  assert.equal(evidence.summaryFact.traditionalFactCount, evidence.traditionalFacts.length);
+  assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
+  assert.equal(evidence.summaryFact.timingFactCount, evidence.timingFacts.length);
+  assert.equal(evidence.limitationFacts.length, 6);
+  assert.deepEqual(
+    evidence.limitations,
+    evidence.limitationFacts.map((item) => item.promptText),
+  );
+  const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
+  assert.ok(
+    evidence.limitationFacts.every((item) => item.ownerFactKeys.every((key) => factKeys.has(key))),
+  );
   assert.match(evidence.promptText, /【梅花体用阶段推进结构化证据】/);
+  assert.match(evidence.promptText, /计算链：/);
+  assert.match(evidence.promptText, /证据汇总：/);
+  assert.match(evidence.promptText, /解释限制：/);
   assert.match(evidence.promptText, /起因.*→.*过程.*；.*过程.*→.*结果/);
   assert.doesNotMatch(evidence.promptText, /权重[：=]?\d|总分[：=]?\d|成功率[：=]?\d/);
   assertPromptIsPortableTaskText(evidence.promptText);
@@ -148,6 +182,11 @@ test('梅花旧结果缺少逐爻或互卦阶段时应明确标记缺口且不�
   assert.deepEqual(rebuilt.stageCoverageFact.missingStages, ['process']);
   assert.equal(rebuilt.transitionFacts.length, 1);
   assert.equal(rebuilt.transitionFacts[0].status, '跨阶段缺口');
+  assert.equal(rebuilt.summaryFact.status, '部分资料缺失');
+  assert.equal(
+    rebuilt.calculationSteps.find((item) => item.stage === '阶段推进核验')?.status,
+    '资料不足',
+  );
   assert.match(rebuilt.transitionFacts[0].promptText, /不补造过程/);
   assert.match(rebuilt.promptText, /不得反推缺失阶段体用关系/);
 
@@ -193,6 +232,9 @@ test('梅花四种起卦入口都应生成完整可移植的对象化证据', ()
     assert.equal(evidence.transitionFacts.length, 2);
     assert.equal(evidence.timingSummaryFact.status, '已提供触发条件');
     assert.equal(evidence.counterSummaryFact.factKeys.length, evidence.counterEvidenceFacts.length);
+    assert.equal(evidence.summaryFact.status, '证据链完整');
+    assert.equal(evidence.calculationSteps.length, 7);
+    assert.equal(evidence.limitationFacts.length, 6);
     assertPromptIsPortableTaskText(evidence.promptText);
   }
 });

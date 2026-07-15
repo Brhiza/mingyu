@@ -2110,6 +2110,15 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       chart.structuredContent as {
         result: {
           evidenceAnalysis: {
+            key: string;
+            status: string;
+            calculationSteps: Array<{
+              key: string;
+              stage: string;
+              status: string;
+              dependsOnStepKeys: string[];
+            }>;
+            calculationChain: string[];
             stages: Array<{
               key: string;
               status: string;
@@ -2145,6 +2154,26 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               limitation: string;
             }>;
             counterSummaryFact: { factKeys: string[] };
+            summaryFact: {
+              status: string;
+              factKeys: string[];
+              hexagramFactCount: number;
+              yaoFactCount: number;
+              stageFactCount: number;
+              transitionFactCount: number;
+              traditionalFactCount: number;
+              counterEvidenceCount: number;
+              timingFactCount: number;
+            };
+            limitations: string[];
+            limitationFacts: Array<{
+              key: string;
+              status: string;
+              ownerFactKeys: string[];
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
             promptText: string;
             calculationFact: {
               status: string;
@@ -2163,6 +2192,17 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
         };
       }
     ).result;
+    assert.equal(result.evidenceAnalysis.key, 'meihua:evidence');
+    assert.equal(result.evidenceAnalysis.status, '已计算');
+    assert.equal(result.evidenceAnalysis.calculationSteps.length, 7);
+    assert.equal(result.evidenceAnalysis.calculationChain.length, 7);
+    assert.ok(
+      result.evidenceAnalysis.calculationSteps.every((step) =>
+        step.dependsOnStepKeys.every((key) =>
+          result.evidenceAnalysis.calculationSteps.some((candidate) => candidate.key === key),
+        ),
+      ),
+    );
     assert.deepEqual(
       result.evidenceAnalysis.stages.map((item) => item.stage),
       ['origin', 'process', 'result'],
@@ -2210,6 +2250,47 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       result.evidenceAnalysis.counterSummaryFact.factKeys.length,
       result.evidenceAnalysis.counterEvidenceFacts.length,
     );
+    assert.equal(result.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      result.evidenceAnalysis.summaryFact.hexagramFactCount,
+      result.evidenceAnalysis.hexagramStructureFacts.length,
+    );
+    assert.equal(
+      result.evidenceAnalysis.summaryFact.stageFactCount,
+      result.evidenceAnalysis.stages.length,
+    );
+    assert.equal(
+      result.evidenceAnalysis.summaryFact.transitionFactCount,
+      result.evidenceAnalysis.transitionFacts.length,
+    );
+    assert.equal(
+      result.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      result.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      result.evidenceAnalysis.summaryFact.timingFactCount,
+      result.evidenceAnalysis.timingFacts.length,
+    );
+    assert.equal(result.evidenceAnalysis.limitationFacts.length, 6);
+    assert.equal(
+      result.evidenceAnalysis.limitations.length,
+      result.evidenceAnalysis.limitationFacts.length,
+    );
+    const factKeys = new Set([
+      'meihua:evidence-summary',
+      ...result.evidenceAnalysis.summaryFact.factKeys,
+    ]);
+    assert.ok(
+      result.evidenceAnalysis.limitationFacts.every(
+        (item) =>
+          item.key.startsWith('meihua:limitation:') &&
+          item.status === '适用' &&
+          item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得被反向当作现实吉凶'),
+      ),
+    );
     assert.ok(
       result.evidenceAnalysis.counterEvidenceFacts.every(
         (item) =>
@@ -2221,6 +2302,8 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       ),
     );
     assert.match(result.evidenceAnalysis.promptText, /【梅花体用阶段推进结构化证据】/);
+    assert.match(result.evidenceAnalysis.promptText, /证据汇总：/);
+    assert.match(result.evidenceAnalysis.promptText, /解释限制：/);
     assertPromptIsPortableTaskText(result.evidenceAnalysis.promptText);
     assert.equal(result.evidenceAnalysis.calculationFact.status, '完整');
     assert.equal(result.evidenceAnalysis.calculationFact.methodKey, 'number');

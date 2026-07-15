@@ -3191,6 +3191,10 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     }),
   });
   assert.equal(chart.response.status, 200);
+  assert.equal(chart.body.data.evidenceAnalysis.key, 'meihua:evidence');
+  assert.equal(chart.body.data.evidenceAnalysis.status, '已计算');
+  assert.equal(chart.body.data.evidenceAnalysis.calculationSteps.length, 7);
+  assert.equal(chart.body.data.evidenceAnalysis.calculationChain.length, 7);
   assert.deepEqual(
     chart.body.data.evidenceAnalysis.stages.map((item: { stage: string }) => item.stage),
     ['origin', 'process', 'result'],
@@ -3238,6 +3242,24 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     chart.body.data.evidenceAnalysis.counterSummaryFact.factKeys.length,
     chart.body.data.evidenceAnalysis.counterEvidenceFacts.length,
   );
+  assert.equal(chart.body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(
+    chart.body.data.evidenceAnalysis.summaryFact.hexagramFactCount,
+    chart.body.data.evidenceAnalysis.hexagramStructureFacts.length,
+  );
+  assert.equal(
+    chart.body.data.evidenceAnalysis.summaryFact.stageFactCount,
+    chart.body.data.evidenceAnalysis.stages.length,
+  );
+  assert.equal(
+    chart.body.data.evidenceAnalysis.summaryFact.transitionFactCount,
+    chart.body.data.evidenceAnalysis.transitionFacts.length,
+  );
+  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 6);
+  assert.equal(
+    chart.body.data.evidenceAnalysis.limitations.length,
+    chart.body.data.evidenceAnalysis.limitationFacts.length,
+  );
   assert.ok(
     chart.body.data.evidenceAnalysis.counterEvidenceFacts.every(
       (item: Record<string, unknown>) =>
@@ -3249,6 +3271,8 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     ),
   );
   assert.match(chart.body.data.evidenceAnalysis.promptText, /【梅花体用阶段推进结构化证据】/);
+  assert.match(chart.body.data.evidenceAnalysis.promptText, /证据汇总：/);
+  assert.match(chart.body.data.evidenceAnalysis.promptText, /解释限制：/);
   assertPromptIsPortableTaskText(chart.body.data.evidenceAnalysis.promptText);
   assert.equal(chart.body.data.evidenceAnalysis.calculationFact.status, '完整');
   assert.equal(chart.body.data.evidenceAnalysis.calculationFact.methodKey, 'number');

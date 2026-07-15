@@ -182,9 +182,64 @@ export interface MeihuaCalculationFact {
   limitation: '取数算式只证明当前上下卦与动爻索引如何由输入或随机取数得到，不证明卦象预测有效性、现实吉凶或固定应期';
 }
 
+export interface MeihuaEvidenceCalculationStep {
+  key: string;
+  stage:
+    | '起卦取数核验'
+    | '主互变卦象构造'
+    | '六爻与动爻核验'
+    | '阶段体用计算'
+    | '阶段推进核验'
+    | '反证与应期核验'
+    | '证据汇总';
+  status: '已计算' | '资料不足';
+  inputs: Record<string, string | number | boolean | string[]>;
+  result: Record<string, string | number | boolean | string[]>;
+  dependsOnStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '计算步骤只证明起卦取数、主互变卦象、六爻动爻、阶段体用、推进、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期';
+}
+
+export interface MeihuaSummaryFact {
+  key: 'meihua:evidence-summary';
+  status: '证据链完整' | '部分资料缺失' | '阶段链不完整';
+  factKeys: string[];
+  hexagramFactCount: number;
+  yaoFactCount: number;
+  stageFactCount: number;
+  transitionFactCount: number;
+  traditionalFactCount: number;
+  counterEvidenceCount: number;
+  timingFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、阶段体用、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图或唯一日期';
+}
+
+export interface MeihuaLimitationFact {
+  key: string;
+  type:
+    | '起卦与随机来源边界'
+    | '卦象与逐爻资料边界'
+    | '阶段体用边界'
+    | '阶段推进与反证边界'
+    | '应期边界'
+    | '传统文本与高风险输出边界';
+  status: '适用';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束梅花起卦、卦象、逐爻、体用、推进、传统卦爻辞与应期资料能够支持的解释范围，不得被反向当作现实吉凶、婚育疾病、伤亡诉讼、事件概率或固定应期的证据';
+}
+
 export interface MeihuaEvidenceAnalysis {
+  key: 'meihua:evidence';
+  status: '已计算';
   calculationFact: MeihuaCalculationFact;
   calculationFacts: string[];
+  calculationSteps: MeihuaEvidenceCalculationStep[];
+  calculationChain: string[];
   hexagramStructureFacts: MeihuaHexagramFact[];
   hexagramFacts: string[];
   yaoCoverageFact: MeihuaYaoCoverageFact;
@@ -205,6 +260,9 @@ export interface MeihuaEvidenceAnalysis {
   counterSummaryFact: MeihuaCounterSummaryFact;
   counterEvidence: string[];
   traditionalFacts: MeihuaTraditionalFact[];
+  summaryFact: MeihuaSummaryFact;
+  limitations: string[];
+  limitationFacts: MeihuaLimitationFact[];
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
@@ -234,6 +292,12 @@ const TIMING_FACT_LIMITATION =
   '应期事实只提供动爻层位、体用生克、月令旺衰与现实条件的相对触发；不得把爻位、卦数、阶段数量或旺衰换算唯一日期，也不证明事件必然发生' as const;
 const TIMING_SUMMARY_LIMITATION =
   '应期汇总只说明当前保存了哪些相对触发与期限边界；不得按条件数量、动爻、卦数或旺衰生成固定天数、绝对日期或事件概率' as const;
+const CALCULATION_STEP_LIMITATION =
+  '计算步骤只证明起卦取数、主互变卦象、六爻动爻、阶段体用、推进、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期' as const;
+const SUMMARY_FACT_LIMITATION =
+  '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、阶段体用、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图或唯一日期' as const;
+const LIMITATION_FACT_LIMITATION =
+  '限制事实用于约束梅花起卦、卦象、逐爻、体用、推进、传统卦爻辞与应期资料能够支持的解释范围，不得被反向当作现实吉凶、婚育疾病、伤亡诉讼、事件概率或固定应期的证据' as const;
 
 function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
@@ -949,6 +1013,297 @@ function buildTimingFacts(
   return facts;
 }
 
+function buildSummaryFact(params: {
+  calculationFact: MeihuaCalculationFact;
+  randomFact: RandomTraceFact;
+  hexagramStructureFacts: MeihuaHexagramFact[];
+  yaoCoverageFact: MeihuaYaoCoverageFact;
+  yaoStructureFacts: MeihuaYaoFact[];
+  stageCoverageFact: MeihuaStageCoverageFact;
+  stages: MeihuaStageEvidence[];
+  transitionFacts: MeihuaTransitionFact[];
+  traditionalFacts: MeihuaTraditionalFact[];
+  counterEvidenceFacts: MeihuaCounterEvidenceFact[];
+  counterSummaryFact: MeihuaCounterSummaryFact;
+  timingFacts: MeihuaTimingFact[];
+  timingSummaryFact: MeihuaTimingSummaryFact;
+}): MeihuaSummaryFact {
+  const factKeys = Array.from(
+    new Set([
+      params.calculationFact.key,
+      params.randomFact.key,
+      ...params.hexagramStructureFacts.map((item) => item.key),
+      params.yaoCoverageFact.key,
+      ...params.yaoStructureFacts.map((item) => item.key),
+      params.stageCoverageFact.key,
+      ...params.stages.map((item) => item.key),
+      ...params.transitionFacts.map((item) => item.key),
+      ...params.traditionalFacts.map((item) => item.key),
+      params.counterSummaryFact.key,
+      ...params.counterEvidenceFacts.map((item) => item.key),
+      params.timingSummaryFact.key,
+      ...params.timingFacts.map((item) => item.key),
+    ]),
+  );
+  const status =
+    params.calculationFact.status !== '完整' || params.yaoCoverageFact.status !== '完整'
+      ? '部分资料缺失'
+      : params.stageCoverageFact.status !== '完整' ||
+          params.transitionFacts.some((item) => item.status === '跨阶段缺口')
+        ? '阶段链不完整'
+        : '证据链完整';
+  return {
+    key: 'meihua:evidence-summary',
+    status,
+    factKeys,
+    hexagramFactCount: params.hexagramStructureFacts.length,
+    yaoFactCount: params.yaoStructureFacts.length,
+    stageFactCount: params.stages.length,
+    transitionFactCount: params.transitionFacts.length,
+    traditionalFactCount: params.traditionalFacts.length,
+    counterEvidenceCount: params.counterEvidenceFacts.length,
+    timingFactCount: params.timingFacts.length,
+    promptText: `证据状态${status}：主互变卦象${params.hexagramStructureFacts.length}项、逐爻${params.yaoStructureFacts.length}项、体用阶段${params.stages.length}项、阶段推进${params.transitionFacts.length}项、传统卦爻辞${params.traditionalFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
+    sources: ['全部起卦、主互变卦象、逐爻、阶段体用、推进、传统文本、反证与应期事实逐项汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
+}
+
+function buildCalculationSteps(params: {
+  calculationFact: MeihuaCalculationFact;
+  randomFact: RandomTraceFact;
+  hexagramStructureFacts: MeihuaHexagramFact[];
+  yaoCoverageFact: MeihuaYaoCoverageFact;
+  yaoStructureFacts: MeihuaYaoFact[];
+  stageCoverageFact: MeihuaStageCoverageFact;
+  stages: MeihuaStageEvidence[];
+  transitionFacts: MeihuaTransitionFact[];
+  counterEvidenceFacts: MeihuaCounterEvidenceFact[];
+  timingFacts: MeihuaTimingFact[];
+  summaryFact: MeihuaSummaryFact;
+}): MeihuaEvidenceCalculationStep[] {
+  return [
+    {
+      key: 'meihua:calculation:generation',
+      stage: '起卦取数核验',
+      status: params.calculationFact.status === '完整' ? '已计算' : '资料不足',
+      inputs: {
+        method: params.calculationFact.methodLabel,
+        inputKeys: Object.keys(params.calculationFact.inputs),
+      },
+      result: {
+        calculationStatus: params.calculationFact.status,
+        upperTrigram: params.calculationFact.resolvedResult.upperTrigram,
+        lowerTrigram: params.calculationFact.resolvedResult.lowerTrigram,
+        movingYao: params.calculationFact.resolvedResult.movingYao,
+        randomTraceStatus: params.randomFact.status,
+      },
+      dependsOnStepKeys: [],
+      promptText: `${params.calculationFact.promptText}；随机轨迹${params.randomFact.status === '不适用' ? '不适用' : params.randomFact.status}`,
+      sources: Array.from(
+        new Set([...params.calculationFact.sources, ...params.randomFact.sources]),
+      ),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'meihua:calculation:hexagrams',
+      stage: '主互变卦象构造',
+      status: params.hexagramStructureFacts.length === 3 ? '已计算' : '资料不足',
+      inputs: {
+        upperTrigram: params.calculationFact.resolvedResult.upperTrigram,
+        lowerTrigram: params.calculationFact.resolvedResult.lowerTrigram,
+        movingYao: params.calculationFact.resolvedResult.movingYao,
+      },
+      result: {
+        hexagramFactCount: params.hexagramStructureFacts.length,
+        stages: params.hexagramStructureFacts.map((item) => item.label),
+      },
+      dependsOnStepKeys: ['meihua:calculation:generation'],
+      promptText: `按上下卦、互卦构造与动爻翻转记录${params.hexagramStructureFacts.length}项主互变卦象事实`,
+      sources: Array.from(new Set(params.hexagramStructureFacts.flatMap((item) => item.sources))),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'meihua:calculation:yaos',
+      stage: '六爻与动爻核验',
+      status: params.yaoCoverageFact.status === '完整' ? '已计算' : '资料不足',
+      inputs: {
+        expectedPositions: params.yaoCoverageFact.expectedPositions.map(String),
+        movingYao: params.calculationFact.resolvedResult.movingYao,
+      },
+      result: {
+        coverageStatus: params.yaoCoverageFact.status,
+        yaoFactCount: params.yaoStructureFacts.length,
+        changingPositions: params.yaoCoverageFact.changingPositions.map(String),
+      },
+      dependsOnStepKeys: ['meihua:calculation:generation'],
+      promptText: `${params.yaoCoverageFact.promptText}；已记录${params.yaoStructureFacts.length}项阴阳、体用归属与动爻事实`,
+      sources: ['主卦六爻阴阳序列、动爻位置与体用归属规则'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'meihua:calculation:stages',
+      stage: '阶段体用计算',
+      status: params.stageCoverageFact.status === '完整' ? '已计算' : '资料不足',
+      inputs: {
+        hexagramFactCount: params.hexagramStructureFacts.length,
+        stageKeys: params.stages.map((item) => item.stage),
+      },
+      result: {
+        coverageStatus: params.stageCoverageFact.status,
+        stageFactCount: params.stages.length,
+        incompleteStages: params.stageCoverageFact.incompleteStages,
+      },
+      dependsOnStepKeys: ['meihua:calculation:hexagrams', 'meihua:calculation:yaos'],
+      promptText: `${params.stageCoverageFact.promptText}；逐阶段计算体用五行关系与月令旺衰`,
+      sources: ['主卦、互卦、变卦上下经卦与原动爻所在经卦的体用规则'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'meihua:calculation:transitions',
+      stage: '阶段推进核验',
+      status:
+        params.transitionFacts.length === 2 &&
+        params.transitionFacts.every((item) => item.status === '连续')
+          ? '已计算'
+          : '资料不足',
+      inputs: { stageFactCount: params.stages.length },
+      result: {
+        transitionFactCount: params.transitionFacts.length,
+        transitionStatuses: params.transitionFacts.map((item) => item.status),
+      },
+      dependsOnStepKeys: ['meihua:calculation:stages'],
+      promptText: params.transitionFacts.length
+        ? params.transitionFacts.map((item) => item.promptText).join('；')
+        : '当前只有主卦阶段，未形成可核验推进链',
+      sources: ['相邻阶段体用关系与阶段完整性逐项比较'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'meihua:calculation:counter-timing',
+      stage: '反证与应期核验',
+      status: '已计算',
+      inputs: { stageFactCount: params.stages.length },
+      result: {
+        counterEvidenceCount: params.counterEvidenceFacts.length,
+        timingFactCount: params.timingFacts.length,
+      },
+      dependsOnStepKeys: ['meihua:calculation:stages', 'meihua:calculation:transitions'],
+      promptText: `逐项核验阶段限制${params.counterEvidenceFacts.length}项，并记录相对触发与期限边界${params.timingFacts.length}项`,
+      sources: ['阶段体用限制、月令旺衰、动爻层位与现实触发条件'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'meihua:calculation:summary',
+      stage: '证据汇总',
+      status: params.summaryFact.status === '证据链完整' ? '已计算' : '资料不足',
+      inputs: { factCount: params.summaryFact.factKeys.length },
+      result: {
+        summaryStatus: params.summaryFact.status,
+        hexagramFactCount: params.summaryFact.hexagramFactCount,
+        stageFactCount: params.summaryFact.stageFactCount,
+        transitionFactCount: params.summaryFact.transitionFactCount,
+        counterEvidenceCount: params.summaryFact.counterEvidenceCount,
+        timingFactCount: params.summaryFact.timingFactCount,
+      },
+      dependsOnStepKeys: [
+        'meihua:calculation:generation',
+        'meihua:calculation:hexagrams',
+        'meihua:calculation:yaos',
+        'meihua:calculation:stages',
+        'meihua:calculation:transitions',
+        'meihua:calculation:counter-timing',
+      ],
+      promptText: params.summaryFact.promptText,
+      sources: params.summaryFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+  ];
+}
+
+function buildLimitationFacts(params: {
+  calculationFact: MeihuaCalculationFact;
+  randomFact: RandomTraceFact;
+  hexagramStructureFacts: MeihuaHexagramFact[];
+  yaoCoverageFact: MeihuaYaoCoverageFact;
+  yaoStructureFacts: MeihuaYaoFact[];
+  stageCoverageFact: MeihuaStageCoverageFact;
+  stages: MeihuaStageEvidence[];
+  transitionFacts: MeihuaTransitionFact[];
+  traditionalFacts: MeihuaTraditionalFact[];
+  counterEvidenceFacts: MeihuaCounterEvidenceFact[];
+  counterSummaryFact: MeihuaCounterSummaryFact;
+  timingFacts: MeihuaTimingFact[];
+  timingSummaryFact: MeihuaTimingSummaryFact;
+  summaryFact: MeihuaSummaryFact;
+}): MeihuaLimitationFact[] {
+  const definitions: Array<
+    Pick<MeihuaLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
+  > = [
+    {
+      key: 'meihua:limitation:generation-random',
+      type: '起卦与随机来源边界',
+      ownerFactKeys: [params.calculationFact.key, params.randomFact.key],
+      promptText:
+        '取数算式与随机轨迹只用于核验上下卦和动爻如何由输入或抽样得到；随机重放只记录生成过程，不提高预测有效性，也不证明现实结果',
+      sources: ['起卦输入、取余算式与随机轨迹'],
+    },
+    {
+      key: 'meihua:limitation:hexagrams-yaos',
+      type: '卦象与逐爻资料边界',
+      ownerFactKeys: [
+        ...params.hexagramStructureFacts.map((item) => item.key),
+        params.yaoCoverageFact.key,
+        ...params.yaoStructureFacts.map((item) => item.key),
+      ],
+      promptText:
+        '主互变卦象与逐爻事实只记录卦名、卦符、上下经卦、阴阳、体用归属和动爻位置；资料缺失时不得补造，资料完整也不直接证明现实事件或吉凶',
+      sources: ['主互变卦象构造、六爻覆盖与逐爻事实'],
+    },
+    {
+      key: 'meihua:limitation:stages',
+      type: '阶段体用边界',
+      ownerFactKeys: [params.stageCoverageFact.key, ...params.stages.map((item) => item.key)],
+      promptText:
+        '体用生克只描述卦内关系，不直接等于现实吉凶；起因、过程和结果标签只表示主卦、互卦、变卦的分析层级，不证明现实必然按同样阶段发生',
+      sources: ['主互变阶段覆盖与逐阶段体用月令事实'],
+    },
+    {
+      key: 'meihua:limitation:transitions-counters',
+      type: '阶段推进与反证边界',
+      ownerFactKeys: [
+        ...params.transitionFacts.map((item) => item.key),
+        params.counterSummaryFact.key,
+        ...params.counterEvidenceFacts.map((item) => item.key),
+      ],
+      promptText:
+        '阶段推进只比较相邻体用关系变化，阶段缺口时不得补造中间过程；泄耗、受克、休囚死等反证须与支持条件并列，不得直接写成现实失败、灾祸或损失',
+      sources: ['阶段推进事实与逐阶段反证汇总'],
+    },
+    {
+      key: 'meihua:limitation:timing',
+      type: '应期边界',
+      ownerFactKeys: [params.timingSummaryFact.key, ...params.timingFacts.map((item) => item.key)],
+      promptText:
+        '动爻、卦数、阶段数量、体用生克与月令旺衰只提供相对层位和触发条件；未给目标期限时不得换算唯一日期、固定天数或事件概率',
+      sources: ['动爻层位、月令旺衰、体用状态与期限边界'],
+    },
+    {
+      key: 'meihua:limitation:tradition-risk',
+      type: '传统文本与高风险输出边界',
+      ownerFactKeys: [params.summaryFact.key, ...params.traditionalFacts.map((item) => item.key)],
+      promptText:
+        '互卦用于过程、变卦用于结果，卦名与卦爻辞只能结合问题作辅助取象；不得按阶段、旺衰、传统吉凶词或卦数生成总分、成功率，也不得直接输出婚育、疾病、伤亡、诉讼、财物得失或人物意图结论',
+      sources: ['传统卦爻辞条件化事实、证据汇总与高风险解释约束'],
+    },
+  ];
+  return definitions.map((item) => ({
+    ...item,
+    status: '适用',
+    limitation: LIMITATION_FACT_LIMITATION,
+  }));
+}
+
 export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis {
   if (!data?.tiGua || !data?.yongGua || !data?.movingYao) {
     throw new Error('梅花体用推进证据缺少完整体用或动爻资料。');
@@ -1058,7 +1413,62 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     sources: ['梅花起卦方式与取数记录', '随机上下卦、动爻样本与重放元数据'],
   });
   const randomFacts = formatLegacyRandomFacts(randomFact);
+  const summaryFact = buildSummaryFact({
+    calculationFact,
+    randomFact,
+    hexagramStructureFacts,
+    yaoCoverageFact,
+    yaoStructureFacts,
+    stageCoverageFact,
+    stages,
+    transitionFacts,
+    traditionalFacts,
+    counterEvidenceFacts,
+    counterSummaryFact,
+    timingFacts,
+    timingSummaryFact,
+  });
+  const calculationSteps = buildCalculationSteps({
+    calculationFact,
+    randomFact,
+    hexagramStructureFacts,
+    yaoCoverageFact,
+    yaoStructureFacts,
+    stageCoverageFact,
+    stages,
+    transitionFacts,
+    counterEvidenceFacts,
+    timingFacts,
+    summaryFact,
+  });
+  summaryFact.factKeys = Array.from(
+    new Set([...calculationSteps.map((item) => item.key), ...summaryFact.factKeys]),
+  );
+  const limitationFacts = buildLimitationFacts({
+    calculationFact,
+    randomFact,
+    hexagramStructureFacts,
+    yaoCoverageFact,
+    yaoStructureFacts,
+    stageCoverageFact,
+    stages,
+    transitionFacts,
+    traditionalFacts,
+    counterEvidenceFacts,
+    counterSummaryFact,
+    timingFacts,
+    timingSummaryFact,
+    summaryFact,
+  });
+  const limitations = limitationFacts.map((item) => item.promptText);
   const items: PromptEvidenceItem[] = [
+    {
+      level: calculationSteps.some((item) => item.status === '资料不足') ? '反证' : '辅证',
+      title: '梅花计算链',
+      detail: `${calculationSteps.map((item) => item.promptText).join('；')}；统一边界：${CALCULATION_STEP_LIMITATION}`,
+      source: Array.from(new Set(calculationSteps.flatMap((item) => item.sources))).join('、'),
+      tags: ['计算链', summaryFact.status],
+    },
     {
       level: calculationFact.status === '完整' ? '辅证' : '反证',
       title: '起卦方式与取数算式',
@@ -1177,23 +1587,39 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       tags: ['随机起卦', randomFact.status, '不代表预测有效性'],
     });
   }
-  items.push({
-    level: '限制',
-    title: '梅花推进链解释边界',
-    detail:
-      '体用生克只描述卦内关系，不直接等于现实吉凶；互卦用于过程、变卦用于结果，卦名与爻辞只能结合问题作辅助取象。不得按阶段数量、旺衰或卦数生成总分、成功率和绝对应期。',
-    source: '计算事实与解释结论分离原则',
-  });
+  items.push(
+    {
+      level: '辅证',
+      title: `梅花证据汇总：${summaryFact.status}`,
+      detail: `${summaryFact.promptText}；边界：${summaryFact.limitation}`,
+      source: summaryFact.sources.join('、'),
+      tags: ['证据汇总', summaryFact.status],
+    },
+    {
+      level: '限制',
+      title: '梅花推进链解释边界',
+      detail: `${limitationFacts.map((item) => item.promptText).join('；')}；统一边界：${LIMITATION_FACT_LIMITATION}`,
+      source: Array.from(new Set(limitationFacts.flatMap((item) => item.sources))).join('、'),
+    },
+  );
   const evidence: PromptEvidenceBundle = { title: '梅花体用阶段推进结构化证据', items };
+  const calculationChain = calculationSteps.map((item) => item.promptText);
   const promptText = [
     '【梅花体用阶段推进结构化证据】',
     ...formatPromptEvidenceBundle(evidence),
+    `计算链：${calculationChain.join(' → ')}。`,
+    `证据汇总：${summaryFact.promptText}。`,
     `推进关系：${transitionFacts.map((item) => item.promptText).join('；') || '只有主卦阶段，未形成可核验的互变推进链'}`,
     `触发条件：${timingFacts.map((item) => item.promptText).join('；')}`,
+    `解释限制：${limitations.join('；')}。`,
   ].join('\n');
   return {
+    key: 'meihua:evidence',
+    status: '已计算',
     calculationFact,
     calculationFacts,
+    calculationSteps,
+    calculationChain,
     hexagramStructureFacts,
     hexagramFacts,
     yaoCoverageFact,
@@ -1214,6 +1640,9 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     counterSummaryFact,
     counterEvidence,
     traditionalFacts,
+    summaryFact,
+    limitations,
+    limitationFacts,
     evidence,
     promptText,
     methodology: [
