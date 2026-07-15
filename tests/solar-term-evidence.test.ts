@@ -6,6 +6,7 @@ import { calculateSeasonInfo } from '@core/bazi/baziCalculatorTime';
 import { getJieQiPhaseByDate } from '@core/divination/algorithms/qimen/helpers/seasonality';
 import { calculateSolarTermEvidence, calculateSolarTermsForYear } from 'mingyu-core/calendar';
 import { SolarTime } from 'tyme4ts';
+import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 test('节气证据应采用历表边界并保留太阳视黄经独立核验', () => {
   const evidence = calculateSolarTermEvidence(2024, 3);
@@ -20,6 +21,26 @@ test('节气证据应采用历表边界并保留太阳视黄经独立核验', ()
   assert.match(evidence.promptText, /排盘采用 tyme4ts 历表/);
   assert.match(evidence.promptText, /独立模型求根/);
   assert.match(evidence.promptText, /不等于观测级一秒精度/);
+  assert.equal(evidence.key, 'solar-term:2024:3:立春');
+  assert.equal(evidence.status, '历表已采用并独立核验');
+  assert.deepEqual(
+    evidence.calculationSteps.map((item) => item.stage),
+    ['目标黄经', '历表时刻', '独立求根', '差值核验'],
+  );
+  assert.equal(evidence.calculationSteps[0].result.isJie, true);
+  assert.deepEqual(evidence.calculationSteps[3].dependsOnStepKeys, [
+    evidence.calculationSteps[1].key,
+    evidence.calculationSteps[2].key,
+  ]);
+  assert.equal(evidence.verificationFact.adoptedStepKey, evidence.calculationSteps[1].key);
+  assert.equal(evidence.verificationFact.modelStepKey, evidence.calculationSteps[2].key);
+  assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
+  assert.ok(
+    [...evidence.calculationSteps, evidence.verificationFact, ...evidence.limitationFacts].every(
+      (item) => item.sources.length > 0 && item.limitation.length > 0,
+    ),
+  );
+  assertPromptIsPortableTaskText(evidence.promptText);
 });
 
 test('全年二十四节气应保持名称、黄经和节气属性顺序', () => {

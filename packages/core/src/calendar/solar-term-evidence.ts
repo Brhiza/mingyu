@@ -33,7 +33,42 @@ const TERM_NAMES = [
 
 export type SolarTermName = (typeof TERM_NAMES)[number];
 
+export interface SolarTermCalculationStep {
+  key: string;
+  stage: '目标黄经' | '历表时刻' | '独立求根' | '差值核验';
+  status: '已计算' | '已采用';
+  dependsOnStepKeys: string[];
+  inputs: Record<string, string | number>;
+  result: Record<string, string | number | boolean>;
+  promptText: string;
+  sources: string[];
+  limitation: '节气计算步骤只证明目标黄经、采用历表、低阶模型求根和两者差值如何形成；不得把二分区间或输出小数位解释为观测级精度';
+}
+
+export interface SolarTermVerificationFact {
+  key: string;
+  status: '已记录差值';
+  adoptedStepKey: string;
+  modelStepKey: string;
+  seedDifferenceSeconds: number;
+  promptText: string;
+  sources: string[];
+  limitation: '独立模型差值只用于核验采用历表没有明显偏离节气定义；不得用低阶模型覆盖采用历表，也不得据差值生成可信度百分比';
+}
+
+export interface SolarTermLimitationFact {
+  key: string;
+  type: '数值求根精度' | '星历模型边界';
+  status: '适用';
+  ownerStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束节气历表与独立太阳黄经核验可以支持的精度声明，不得被反向当作现实事件、吉凶或应期证据';
+}
+
 export interface SolarTermEvidence {
+  key: string;
+  status: '历表已采用并独立核验';
   name: SolarTermName;
   index: number;
   isJie: boolean;
@@ -52,9 +87,19 @@ export interface SolarTermEvidence {
   refinementIterations: number;
   method: string;
   source: string;
+  calculationSteps: SolarTermCalculationStep[];
+  verificationFact: SolarTermVerificationFact;
   limitations: string[];
+  limitationFacts: SolarTermLimitationFact[];
   promptText: string;
 }
+
+const CALCULATION_STEP_LIMITATION =
+  '节气计算步骤只证明目标黄经、采用历表、低阶模型求根和两者差值如何形成；不得把二分区间或输出小数位解释为观测级精度' as const;
+const VERIFICATION_FACT_LIMITATION =
+  '独立模型差值只用于核验采用历表没有明显偏离节气定义；不得用低阶模型覆盖采用历表，也不得据差值生成可信度百分比' as const;
+const LIMITATION_FACT_LIMITATION =
+  '限制事实用于约束节气历表与独立太阳黄经核验可以支持的精度声明，不得被反向当作现实事件、吉凶或应期证据' as const;
 
 function normalizeLongitude(value: number) {
   return ((value % 360) + 360) % 360;
@@ -153,10 +198,94 @@ export function calculateSolarTermEvidence(year: number, index: number): SolarTe
     '节气定义采用太阳视运动每隔 15° 的回归黄经；太阳视黄经采用 Meeus/NOAA 低阶公式，tyme4ts 提供独立历表初值';
   const limitations = [
     'Meeus/NOAA 低阶太阳公式适合民用历法级节气核验，但二分到 1 秒只表示数值求根区间，不等于观测级一秒精度。',
-    '未接入实时 UT1、完整章动项或 JPL 高精度星历；项目保留与 tyme4ts 历表的差值。出生时间无法满足排盘精度要求时应拒绝进入排盘流程，不生成候选盘。',
+    '未接入实时 UT1、完整章动项或 JPL 高精度星历；保留与 tyme4ts 历表的差值。出生时间无法满足排盘精度要求时应拒绝进入排盘流程，不生成候选盘。',
+  ];
+  const calculationSteps: SolarTermCalculationStep[] = [
+    {
+      key: `solar-term:${year}:${index}:calculation:target`,
+      stage: '目标黄经',
+      status: '已计算',
+      dependsOnStepKeys: [],
+      inputs: { year, index, name },
+      result: { targetLongitudeDegrees, isJie: index % 2 === 1 },
+      promptText: `${name}按二十四节气序列定位目标回归黄经${targetLongitudeDegrees}°`,
+      sources: ['二十四节气每隔15°回归黄经定义'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: `solar-term:${year}:${index}:calculation:adopted-table`,
+      stage: '历表时刻',
+      status: '已采用',
+      dependsOnStepKeys: [`solar-term:${year}:${index}:calculation:target`],
+      inputs: { year, index },
+      result: { utcDateTime, utcTimestamp },
+      promptText: `排盘边界采用 tyme4ts 历表 UTC ${utcDateTime}`,
+      sources: ['tyme4ts 节气历表'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: `solar-term:${year}:${index}:calculation:model-root`,
+      stage: '独立求根',
+      status: '已计算',
+      dependsOnStepKeys: [`solar-term:${year}:${index}:calculation:target`],
+      inputs: { searchWindowHours, refinementToleranceSeconds, targetLongitudeDegrees },
+      result: { modelRootUtcDateTime, refinementIterations, residualDegrees },
+      promptText: `Meeus/NOAA 低阶太阳视黄经在前后${searchWindowHours}小时窗口二分至${refinementToleranceSeconds}秒区间，独立求根为${modelRootUtcDateTime}`,
+      sources: ['Meeus/NOAA 低阶太阳视黄经公式', '二分求根'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: `solar-term:${year}:${index}:calculation:comparison`,
+      stage: '差值核验',
+      status: '已计算',
+      dependsOnStepKeys: [
+        `solar-term:${year}:${index}:calculation:adopted-table`,
+        `solar-term:${year}:${index}:calculation:model-root`,
+      ],
+      inputs: { adoptedUtcDateTime: utcDateTime, modelRootUtcDateTime },
+      result: { seedDifferenceSeconds },
+      promptText: `独立模型与采用历表相差${seedDifferenceSeconds >= 0 ? '+' : ''}${seedDifferenceSeconds.toFixed(1)}秒`,
+      sources: ['采用历表与独立低阶模型逐时刻比较'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+  ];
+  const verificationFact: SolarTermVerificationFact = {
+    key: `solar-term:${year}:${index}:verification`,
+    status: '已记录差值',
+    adoptedStepKey: `solar-term:${year}:${index}:calculation:adopted-table`,
+    modelStepKey: `solar-term:${year}:${index}:calculation:model-root`,
+    seedDifferenceSeconds,
+    promptText: `采用历表与独立低阶模型差值为${seedDifferenceSeconds >= 0 ? '+' : ''}${seedDifferenceSeconds.toFixed(1)}秒；排盘仍采用历表`,
+    sources: ['tyme4ts 节气历表', 'Meeus/NOAA 低阶太阳视黄经独立求根'],
+    limitation: VERIFICATION_FACT_LIMITATION,
+  };
+  const limitationFacts: SolarTermLimitationFact[] = [
+    {
+      key: `solar-term:${year}:${index}:limitation:numerical-root`,
+      type: '数值求根精度',
+      status: '适用',
+      ownerStepKeys: [`solar-term:${year}:${index}:calculation:model-root`],
+      promptText: limitations[0],
+      sources: ['低阶太阳公式与二分求根精度说明'],
+      limitation: LIMITATION_FACT_LIMITATION,
+    },
+    {
+      key: `solar-term:${year}:${index}:limitation:ephemeris`,
+      type: '星历模型边界',
+      status: '适用',
+      ownerStepKeys: [
+        `solar-term:${year}:${index}:calculation:adopted-table`,
+        `solar-term:${year}:${index}:calculation:model-root`,
+      ],
+      promptText: limitations[1],
+      sources: ['UT1、章动项与高精度星历覆盖范围'],
+      limitation: LIMITATION_FACT_LIMITATION,
+    },
   ];
 
   return {
+    key: `solar-term:${year}:${index}:${name}`,
+    status: '历表已采用并独立核验',
     name,
     index,
     isJie: index % 2 === 1,
@@ -175,8 +304,11 @@ export function calculateSolarTermEvidence(year: number, index: number): SolarTe
     refinementIterations,
     method,
     source,
+    calculationSteps,
+    verificationFact,
     limitations,
-    promptText: `节气交接证据：${name}定义为太阳回归黄经${targetLongitudeDegrees}°，排盘采用 tyme4ts 历表 UTC ${utcDateTime}；该时刻按 Meeus/NOAA 低阶公式得视黄经${solarLongitudeDegrees.toFixed(6)}°，差目标${residualDegrees.toFixed(6)}°。独立模型求根为${modelRootUtcDateTime}，与采用历表相差${seedDifferenceSeconds >= 0 ? '+' : ''}${seedDifferenceSeconds.toFixed(1)}秒，迭代${refinementIterations}次。方法：${method}。来源：${source}。限制：${limitations.join('；')}`,
+    limitationFacts,
+    promptText: `节气交接证据：${name}定义为太阳回归黄经${targetLongitudeDegrees}°，排盘采用 tyme4ts 历表 UTC ${utcDateTime}；该时刻按 Meeus/NOAA 低阶公式得视黄经${solarLongitudeDegrees.toFixed(6)}°，差目标${residualDegrees.toFixed(6)}°。独立模型求根为${modelRootUtcDateTime}，与采用历表相差${seedDifferenceSeconds >= 0 ? '+' : ''}${seedDifferenceSeconds.toFixed(1)}秒，迭代${refinementIterations}次。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。差值核验：${verificationFact.promptText}。方法：${method}。来源：${source}。限制：${limitations.join('；')}`,
   };
 }
 

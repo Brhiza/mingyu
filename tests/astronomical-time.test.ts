@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { buildAstronomicalTimeEvidence, estimateDeltaTSeconds } from 'mingyu-core/calendar';
+import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 test('天文时间尺度应以 J2000.0 校验 UTC 儒略日', () => {
   const evidence = buildAstronomicalTimeEvidence({
@@ -18,6 +19,35 @@ test('天文时间尺度应以 J2000.0 校验 UTC 儒略日', () => {
   assert.ok(evidence.julianDayTtApprox > evidence.julianDayUtc);
   assert.match(evidence.promptText, /UT1≈UTC/);
   assert.match(evidence.promptText, /不自动推断地点历史时区/);
+  assert.equal(evidence.key, 'astronomical-time:2000-01-01 12:00:00:0');
+  assert.equal(evidence.status, '已计算');
+  assert.deepEqual(
+    evidence.calculationSteps.map((item) => item.stage),
+    ['时区解析', 'UTC换算', 'UTC儒略日', 'UT1近似', 'ΔT与TT'],
+  );
+  assert.deepEqual(evidence.calculationSteps[1].dependsOnStepKeys, [
+    evidence.calculationSteps[0].key,
+  ]);
+  assert.deepEqual(evidence.calculationSteps[4].dependsOnStepKeys, [
+    evidence.calculationSteps[3].key,
+  ]);
+  assert.equal(evidence.assumptions.length, evidence.assumptionFacts.length);
+  assert.equal(evidence.counterEvidence.length, evidence.counterEvidenceFacts.length);
+  assert.deepEqual(
+    evidence.counterSummaryFact.factKeys,
+    evidence.counterEvidenceFacts.map((item) => item.key),
+  );
+  assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
+  assert.ok(
+    [
+      ...evidence.calculationSteps,
+      ...evidence.assumptionFacts,
+      ...evidence.counterEvidenceFacts,
+      evidence.counterSummaryFact,
+      ...evidence.limitationFacts,
+    ].every((item) => item.sources.length > 0 && item.limitation.length > 0),
+  );
+  assertPromptIsPortableTaskText(evidence.promptText);
 });
 
 test('天文时间尺度应正确把当地钟表时间换算为 UTC', () => {

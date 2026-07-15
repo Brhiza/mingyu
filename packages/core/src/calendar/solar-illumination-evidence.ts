@@ -2,7 +2,11 @@
  * @file 太阳高度、日出日落与曙暮光证据
  * @description 采用 NOAA/Meeus 低阶太阳模型，输出地点相关的光照事件和计算限制。
  */
-import { buildAstronomicalTimeEvidence, type AstronomicalTimeInput } from './astronomical-time';
+import {
+  buildAstronomicalTimeEvidence,
+  type AstronomicalTimeEvidence,
+  type AstronomicalTimeInput,
+} from './astronomical-time';
 
 const DAY_MS = 86_400_000;
 
@@ -18,9 +22,50 @@ export interface SolarCrossingEvidence {
   morningLocalDateTime: string | null;
   eveningLocalDateTime: string | null;
   promptText: string;
+  calculationStepKeys: string[];
   sources: string[];
   calculation: string;
   limitation: '太阳高度阈值交点只描述低阶太阳模型在理想地平线条件下的几何时刻或全天状态；不代表实际可见性、天气、遮挡、建筑采光效果、吉凶或事件结果';
+}
+
+export interface SolarIlluminationCalculationStep {
+  key: string;
+  stage: '天文时间' | '参考太阳位置' | '视太阳正午' | '阈值交点';
+  status: '已计算';
+  dependsOnStepKeys: string[];
+  inputs: Record<string, string | number>;
+  result: Record<string, string | number>;
+  promptText: string;
+  sources: string[];
+  limitation: '太阳光照步骤只证明天文时间、低阶太阳位置、视太阳正午和高度阈值交点如何形成；不得把几何结果解释为实际可见性、建筑采光效果或导航级精度';
+}
+
+export interface SolarIlluminationAssumptionFact {
+  key: string;
+  status: '适用';
+  ownerStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '假设事实只说明标准太阳半径、折射近似与单日时区偏移的计算前提；不得当作实际天气、遮挡或时区切换影响已经排除';
+}
+
+export interface SolarCrossingSummaryFact {
+  key: 'solar-illumination:crossing-summary';
+  status: '均有正常交点' | '存在全天状态';
+  crossingFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '交点汇总只说明四类太阳高度阈值在该民用日期是否存在正常交点；全天状态不是错误，也不得直接解释为现实吉凶或居住效果';
+}
+
+export interface SolarIlluminationLimitationFact {
+  key: string;
+  type: '现场可见性边界' | '时区切换边界' | '模型精度边界';
+  status: '适用';
+  ownerStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束太阳高度、方位、日出日落和曙暮光结果可以支持的解释范围，不得被反向当作天气、建筑性能、吉凶或事件证据';
 }
 
 const CROSSING_SOURCES = [
@@ -37,12 +82,15 @@ export interface SolarIlluminationInput extends AstronomicalTimeInput {
 }
 
 export interface SolarIlluminationEvidence {
+  key: string;
+  status: '已计算' | '存在全天状态';
   localDate: string;
   referenceLocalDateTime: string;
   referenceUtcDateTime: string;
   latitude: number;
   longitude: number;
   timezone: number;
+  astronomicalTime: AstronomicalTimeEvidence;
   solarAltitudeDegrees: number;
   solarAzimuthDegrees: number;
   solarDeclinationDegrees: number;
@@ -55,10 +103,23 @@ export interface SolarIlluminationEvidence {
   astronomicalTwilight: SolarCrossingEvidence;
   method: string;
   source: string;
+  calculationSteps: SolarIlluminationCalculationStep[];
   assumptions: string[];
+  assumptionFacts: SolarIlluminationAssumptionFact[];
+  crossingSummaryFact: SolarCrossingSummaryFact;
   limitations: string[];
+  limitationFacts: SolarIlluminationLimitationFact[];
   promptText: string;
 }
+
+const CALCULATION_STEP_LIMITATION =
+  '太阳光照步骤只证明天文时间、低阶太阳位置、视太阳正午和高度阈值交点如何形成；不得把几何结果解释为实际可见性、建筑采光效果或导航级精度' as const;
+const ASSUMPTION_FACT_LIMITATION =
+  '假设事实只说明标准太阳半径、折射近似与单日时区偏移的计算前提；不得当作实际天气、遮挡或时区切换影响已经排除' as const;
+const CROSSING_SUMMARY_LIMITATION =
+  '交点汇总只说明四类太阳高度阈值在该民用日期是否存在正常交点；全天状态不是错误，也不得直接解释为现实吉凶或居住效果' as const;
+const LIMITATION_FACT_LIMITATION =
+  '限制事实用于约束太阳高度、方位、日出日落和曙暮光结果可以支持的解释范围，不得被反向当作天气、建筑性能、吉凶或事件证据' as const;
 
 function degreesToRadians(value: number) {
   return (value * Math.PI) / 180;
@@ -115,6 +176,7 @@ function crossingEvidence(
   declinationRadians: number,
 ): SolarCrossingEvidence {
   const key = `光照交点:${name}`;
+  const calculationStepKeys = ['solar-illumination:calculation:crossings'];
   const calculation = `以太阳中心高度${altitudeDegrees}°为阈值，结合纬度${latitude}°、经度${longitude}°、时区UTC${timezone >= 0 ? '+' : ''}${timezone}、时间方程${equationOfTimeMinutes.toFixed(4)}分钟与太阳赤纬${radiansToDegrees(declinationRadians).toFixed(6)}°求时角交点`;
   const latitudeRadians = degreesToRadians(latitude);
   const zenithRadians = degreesToRadians(90 - altitudeDegrees);
@@ -132,6 +194,7 @@ function crossingEvidence(
       morningLocalDateTime: null,
       eveningLocalDateTime: null,
       promptText: `${name}：太阳高度${altitudeDegrees}°阈值在该民用日期全天无交点，状态为全天低于阈值`,
+      calculationStepKeys,
       sources: [...CROSSING_SOURCES],
       calculation: `${calculation}；余弦时角大于1，判定全天低于阈值`,
       limitation: CROSSING_LIMITATION,
@@ -148,6 +211,7 @@ function crossingEvidence(
       morningLocalDateTime: null,
       eveningLocalDateTime: null,
       promptText: `${name}：太阳高度${altitudeDegrees}°阈值在该民用日期全天无交点，状态为全天高于阈值`,
+      calculationStepKeys,
       sources: [...CROSSING_SOURCES],
       calculation: `${calculation}；余弦时角小于-1，判定全天高于阈值`,
       limitation: CROSSING_LIMITATION,
@@ -173,6 +237,7 @@ function crossingEvidence(
     morningLocalDateTime,
     eveningLocalDateTime,
     promptText: `${name}：太阳高度${altitudeDegrees}°阈值的当地上午交点为${morningLocalDateTime}、下午交点为${eveningLocalDateTime}`,
+    calculationStepKeys,
     sources: [...CROSSING_SOURCES],
     calculation: `${calculation}；余弦时角位于[-1,1]，解得上午与下午两个交点`,
     limitation: CROSSING_LIMITATION,
@@ -250,7 +315,157 @@ export function calculateSolarIlluminationEvidence(
     '低阶模型适合民用历法和光照背景，不宣称达到观测级或导航级精度。',
   ];
   const localDate = `${String(input.year).padStart(4, '0')}-${String(input.month).padStart(2, '0')}-${String(input.day).padStart(2, '0')}`;
+  const calculationSteps: SolarIlluminationCalculationStep[] = [
+    {
+      key: 'solar-illumination:calculation:astronomical-time',
+      stage: '天文时间',
+      status: '已计算',
+      dependsOnStepKeys: [],
+      inputs: {
+        referenceLocalDateTime: astronomicalTime.localDateTime,
+        timezone,
+      },
+      result: {
+        referenceUtcDateTime: astronomicalTime.utcDateTime,
+        unixMilliseconds: astronomicalTime.unixMilliseconds,
+      },
+      promptText: `将参考当地时间${astronomicalTime.localDateTime}换算为 UTC ${astronomicalTime.utcDateTime}`,
+      sources: ['天文时间尺度换算证据', '当地时间与 UTC 偏移'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'solar-illumination:calculation:reference-position',
+      stage: '参考太阳位置',
+      status: '已计算',
+      dependsOnStepKeys: ['solar-illumination:calculation:astronomical-time'],
+      inputs: {
+        latitude: input.latitude,
+        longitude: input.longitude,
+        referenceUtcDateTime: astronomicalTime.utcDateTime,
+      },
+      result: {
+        solarAltitudeDegrees: Number(solarAltitudeDegrees.toFixed(4)),
+        solarAzimuthDegrees: Number(solarAzimuthDegrees.toFixed(4)),
+        solarDeclinationDegrees: Number(radiansToDegrees(reference.declinationRadians).toFixed(6)),
+        equationOfTimeMinutes: Number(reference.equationOfTimeMinutes.toFixed(4)),
+      },
+      promptText: `按 NOAA/Meeus 低阶模型计算参考时刻太阳高度${solarAltitudeDegrees.toFixed(4)}°、方位${solarAzimuthDegrees.toFixed(4)}°、赤纬${radiansToDegrees(reference.declinationRadians).toFixed(6)}°`,
+      sources: [...CROSSING_SOURCES],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'solar-illumination:calculation:solar-noon',
+      stage: '视太阳正午',
+      status: '已计算',
+      dependsOnStepKeys: ['solar-illumination:calculation:reference-position'],
+      inputs: {
+        localDate,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        timezone,
+      },
+      result: {
+        apparentSolarNoonUtcDateTime: new Date(solarNoonTimestamp).toISOString(),
+        apparentSolarNoonLocalDateTime: formatLocalTimestamp(solarNoonTimestamp, timezone),
+      },
+      promptText: `按经度、时区与时间方程求视太阳正午：当地${formatLocalTimestamp(solarNoonTimestamp, timezone)}`,
+      sources: [...CROSSING_SOURCES],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'solar-illumination:calculation:crossings',
+      stage: '阈值交点',
+      status: '已计算',
+      dependsOnStepKeys: [
+        'solar-illumination:calculation:reference-position',
+        'solar-illumination:calculation:solar-noon',
+      ],
+      inputs: {
+        localDate,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        timezone,
+      },
+      result: {
+        crossingCount: 4,
+        normalCrossingCount: [
+          sunriseSunset,
+          civilTwilight,
+          nauticalTwilight,
+          astronomicalTwilight,
+        ].filter((item) => item.status === '正常交点').length,
+      },
+      promptText: `以 -0.833°、-6°、-12°、-18° 四个太阳高度阈值求日出日落与曙暮光交点，并记录全天状态`,
+      sources: [...CROSSING_SOURCES],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+  ];
+  const assumptionFacts: SolarIlluminationAssumptionFact[] = assumptions.map((text, index) => ({
+    key: `solar-illumination:assumption:${index + 1}`,
+    status: '适用',
+    ownerStepKeys:
+      index === 0
+        ? ['solar-illumination:calculation:crossings']
+        : [
+            'solar-illumination:calculation:astronomical-time',
+            'solar-illumination:calculation:crossings',
+          ],
+    promptText: text,
+    sources: [index === 0 ? '太阳高度阈值定义' : '参考时刻的时区偏移'],
+    limitation: ASSUMPTION_FACT_LIMITATION,
+  }));
+  const crossings = [sunriseSunset, civilTwilight, nauticalTwilight, astronomicalTwilight];
+  const normalCrossingCount = crossings.filter((item) => item.status === '正常交点').length;
+  const crossingSummaryFact: SolarCrossingSummaryFact = {
+    key: 'solar-illumination:crossing-summary',
+    status: normalCrossingCount === crossings.length ? '均有正常交点' : '存在全天状态',
+    crossingFactKeys: crossings.map((item) => item.key),
+    promptText:
+      normalCrossingCount === crossings.length
+        ? '四类太阳高度阈值均找到上午和下午正常交点'
+        : `${crossings.length - normalCrossingCount}类太阳高度阈值呈全天高于或低于阈值状态，未形成常规交点`,
+    sources: [...CROSSING_SOURCES],
+    limitation: CROSSING_SUMMARY_LIMITATION,
+  };
+  const limitationFacts: SolarIlluminationLimitationFact[] = [
+    {
+      key: 'solar-illumination:limitation:visibility',
+      type: '现场可见性边界',
+      status: '适用',
+      ownerStepKeys: ['solar-illumination:calculation:crossings'],
+      promptText: limitations[0],
+      sources: ['理想地平线模型与现场条件差异'],
+      limitation: LIMITATION_FACT_LIMITATION,
+    },
+    {
+      key: 'solar-illumination:limitation:timezone-transition',
+      type: '时区切换边界',
+      status: '适用',
+      ownerStepKeys: [
+        'solar-illumination:calculation:astronomical-time',
+        'solar-illumination:calculation:crossings',
+      ],
+      promptText: limitations[1],
+      sources: ['IANA 时区历史偏移诊断'],
+      limitation: LIMITATION_FACT_LIMITATION,
+    },
+    {
+      key: 'solar-illumination:limitation:model-precision',
+      type: '模型精度边界',
+      status: '适用',
+      ownerStepKeys: [
+        'solar-illumination:calculation:reference-position',
+        'solar-illumination:calculation:crossings',
+      ],
+      promptText: limitations[2],
+      sources: [...CROSSING_SOURCES],
+      limitation: LIMITATION_FACT_LIMITATION,
+    },
+  ];
+  const status = crossingSummaryFact.status === '均有正常交点' ? '已计算' : '存在全天状态';
   return {
+    key: `solar-illumination:${localDate}:${input.latitude}:${input.longitude}`,
+    status,
     localDate,
     referenceLocalDateTime: astronomicalTime.localDateTime,
     referenceUtcDateTime: astronomicalTime.utcDateTime,
@@ -263,14 +478,19 @@ export function calculateSolarIlluminationEvidence(
     equationOfTimeMinutes: Number(reference.equationOfTimeMinutes.toFixed(4)),
     apparentSolarNoonUtcDateTime: new Date(solarNoonTimestamp).toISOString(),
     apparentSolarNoonLocalDateTime: formatLocalTimestamp(solarNoonTimestamp, timezone),
+    astronomicalTime,
     sunriseSunset,
     civilTwilight,
     nauticalTwilight,
     astronomicalTwilight,
     method,
     source,
+    calculationSteps,
     assumptions,
+    assumptionFacts,
+    crossingSummaryFact,
     limitations,
-    promptText: `太阳光照证据：${localDate}，纬度${input.latitude}°、经度${input.longitude}°，参考当地时间${astronomicalTime.localDateTime}太阳高度${solarAltitudeDegrees.toFixed(2)}°、方位角${solarAzimuthDegrees.toFixed(2)}°（真北起顺时针），视太阳正午${formatLocalTimestamp(solarNoonTimestamp, timezone)}；${[sunriseSunset, civilTwilight, nauticalTwilight, astronomicalTwilight].map(formatCrossing).join('；')}。方法：${method}。来源：${source}。假设：${assumptions.join('；')}。限制：${limitations.join('；')}`,
+    limitationFacts,
+    promptText: `太阳光照证据：${localDate}，纬度${input.latitude}°、经度${input.longitude}°，参考当地时间${astronomicalTime.localDateTime}太阳高度${solarAltitudeDegrees.toFixed(2)}°、方位角${solarAzimuthDegrees.toFixed(2)}°（真北起顺时针），视太阳正午${formatLocalTimestamp(solarNoonTimestamp, timezone)}；计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}；${crossings.map(formatCrossing).join('；')}。交点汇总：${crossingSummaryFact.promptText}。方法：${method}。来源：${source}。假设：${assumptions.join('；')}。限制：${limitations.join('；')}`,
   };
 }

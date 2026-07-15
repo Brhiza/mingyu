@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { calculateSolarIlluminationEvidence } from '../packages/core/src/calendar/solar-illumination-evidence.ts';
 import { generateAstrolabe } from '../packages/core/src/divination/algorithms/astrolabe.ts';
 import { generateQizheng } from '../packages/core/src/qi_zheng/index.ts';
+import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 test('北京夏至应给出可复核的日出日落、太阳高度与曙暮光', () => {
   const evidence = calculateSolarIlluminationEvidence({
@@ -39,6 +40,38 @@ test('北京夏至应给出可复核的日出日落、太阳高度与曙暮光',
   assert.match(evidence.promptText, /真北起顺时针/);
   assert.match(evidence.promptText, /日出\/日落：太阳高度-0\.833°阈值/);
   assert.match(evidence.promptText, /不宣称达到观测级或导航级精度/);
+  assert.equal(evidence.key, 'solar-illumination:2024-06-21:39.9042:116.4074');
+  assert.equal(evidence.status, '已计算');
+  assert.equal(evidence.astronomicalTime.status, '已计算');
+  assert.deepEqual(
+    evidence.calculationSteps.map((item) => item.stage),
+    ['天文时间', '参考太阳位置', '视太阳正午', '阈值交点'],
+  );
+  assert.deepEqual(evidence.calculationSteps[3].dependsOnStepKeys, [
+    evidence.calculationSteps[1].key,
+    evidence.calculationSteps[2].key,
+  ]);
+  assert.ok(
+    [
+      evidence.sunriseSunset,
+      evidence.civilTwilight,
+      evidence.nauticalTwilight,
+      evidence.astronomicalTwilight,
+    ].every((item) => item.calculationStepKeys.includes(evidence.calculationSteps[3].key)),
+  );
+  assert.equal(evidence.assumptions.length, evidence.assumptionFacts.length);
+  assert.equal(evidence.crossingSummaryFact.status, '均有正常交点');
+  assert.equal(evidence.crossingSummaryFact.crossingFactKeys.length, 4);
+  assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
+  assert.ok(
+    [
+      ...evidence.calculationSteps,
+      ...evidence.assumptionFacts,
+      evidence.crossingSummaryFact,
+      ...evidence.limitationFacts,
+    ].every((item) => item.sources.length > 0 && item.limitation.length > 0),
+  );
+  assertPromptIsPortableTaskText(evidence.promptText);
 });
 
 test('高纬冬夏应明确表达极夜无日出和极昼无日落', () => {
@@ -67,6 +100,9 @@ test('高纬冬夏应明确表达极夜无日出和极昼无日落', () => {
   assert.equal(summer.sunriseSunset.status, '全天高于阈值');
   assert.equal(summer.civilTwilight.status, '全天高于阈值');
   assert.match(summer.sunriseSunset.calculation, /余弦时角小于-1/);
+  assert.equal(winter.status, '存在全天状态');
+  assert.equal(winter.crossingSummaryFact.status, '存在全天状态');
+  assert.equal(summer.status, '存在全天状态');
 });
 
 test('太阳光照证据应复用IANA历史时区并拒绝非法坐标', () => {

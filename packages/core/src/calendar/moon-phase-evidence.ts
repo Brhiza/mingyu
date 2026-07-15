@@ -31,11 +31,13 @@ export type EightMoonPhaseName = (typeof EIGHT_PHASE_NAMES)[number];
 export interface PrincipalMoonPhaseEvent {
   key: string;
   name: PrincipalMoonPhaseName;
+  status: '已求根';
   targetAngleDegrees: number;
   utcTimestamp: number;
   utcDateTime: string;
   residualDegrees: number;
   refinementIterations: number;
+  calculationStepKeys: string[];
   promptText: string;
   sources: string[];
   calculation: string;
@@ -50,7 +52,42 @@ const PRINCIPAL_PHASE_SOURCES = [
 const PRINCIPAL_PHASE_LIMITATION =
   '四正月相事件是日月地心黄经差对目标角度的数值求根结果；1秒求根区间不等于观测级精度，也不证明月食可见性、现实事件、吉凶或固定应期' as const;
 
+export interface MoonPhaseCalculationStep {
+  key: string;
+  stage: '日月位置' | '月相角与照明' | '前一四正相位' | '下一四正相位';
+  status: '已计算' | '已求根';
+  dependsOnStepKeys: string[];
+  inputs: Record<string, string | number>;
+  result: Record<string, string | number>;
+  promptText: string;
+  sources: string[];
+  limitation: '月相步骤只证明日月黄经、几何照明和前后四正相位求根如何形成；不得把求根区间解释为观测级精度、月食可见性或现实事件证据';
+}
+
+export interface MoonPhaseEventSummaryFact {
+  key: 'moon-phase:event-summary';
+  status: '已记录前后四正相位';
+  previousEventKey: string;
+  nextEventKey: string;
+  calculationStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '事件汇总只说明当前时刻前后相邻的四正月相，不等于观测地点可见性、月食判断或现实应期';
+}
+
+export interface MoonPhaseLimitationFact {
+  key: string;
+  type: '平均月龄近似' | '几何照明近似' | '星历精度边界';
+  status: '适用';
+  ownerStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束月相角、照明比例、近似月龄与四正事件可以支持的解释范围，不得被反向当作月食、天气、吉凶或固定应期证据';
+}
+
 export interface MoonPhaseEvidence {
+  key: string;
+  status: '已计算';
   utcTimestamp: number;
   utcDateTime: string;
   julianDayUtc: number;
@@ -67,9 +104,19 @@ export interface MoonPhaseEvidence {
   nextPrincipalPhase: PrincipalMoonPhaseEvent;
   method: string;
   source: string;
+  calculationSteps: MoonPhaseCalculationStep[];
+  eventSummaryFact: MoonPhaseEventSummaryFact;
   limitations: string[];
+  limitationFacts: MoonPhaseLimitationFact[];
   promptText: string;
 }
+
+const CALCULATION_STEP_LIMITATION =
+  '月相步骤只证明日月黄经、几何照明和前后四正相位求根如何形成；不得把求根区间解释为观测级精度、月食可见性或现实事件证据' as const;
+const EVENT_SUMMARY_LIMITATION =
+  '事件汇总只说明当前时刻前后相邻的四正月相，不等于观测地点可见性、月食判断或现实应期' as const;
+const LIMITATION_FACT_LIMITATION =
+  '限制事实用于约束月相角、照明比例、近似月龄与四正事件可以支持的解释范围，不得被反向当作月食、天气、吉凶或固定应期证据' as const;
 
 function normalizeDegrees(value: number) {
   return ((value % 360) + 360) % 360;
@@ -95,6 +142,7 @@ function positionsAt(timestamp: number) {
 function refinePhaseEvent(
   estimatedTimestamp: number,
   phase: (typeof PRINCIPAL_PHASES)[number],
+  calculationStepKeys: string[],
 ): PrincipalMoonPhaseEvent {
   let left = estimatedTimestamp - 2 * 86400000;
   let right = estimatedTimestamp + 2 * 86400000;
@@ -129,11 +177,13 @@ function refinePhaseEvent(
   return {
     key: `四正月相:${phase.name}:${utcTimestamp}`,
     name: phase.name,
+    status: '已求根',
     targetAngleDegrees: phase.angle,
     utcTimestamp,
     utcDateTime,
     residualDegrees: Number(residualDegrees.toFixed(8)),
     refinementIterations,
+    calculationStepKeys,
     promptText: `${phase.name}事件：UTC ${utcDateTime}，目标日月黄经差${phase.angle}°，求根残差${residualDegrees.toFixed(8)}°，迭代${refinementIterations}次`,
     sources: [...PRINCIPAL_PHASE_SOURCES],
     calculation,
@@ -161,10 +211,12 @@ function nearestPrincipalEvents(timestamp: number, phaseAngle: number) {
     previous: refinePhaseEvent(
       timestamp - (previous.backwardDegrees / MEAN_PHASE_SPEED_DEGREES_PER_DAY) * 86400000,
       previous.phase,
+      ['moon-phase:calculation:previous-principal'],
     ),
     next: refinePhaseEvent(
       timestamp + (next.forwardDegrees / MEAN_PHASE_SPEED_DEGREES_PER_DAY) * 86400000,
       next.phase,
+      ['moon-phase:calculation:next-principal'],
     ),
   };
 }
@@ -192,8 +244,115 @@ export function calculateMoonPhaseEvidence(utcTimestamp: number): MoonPhaseEvide
     '求根到 1 秒只表示数值区间，实际精度仍受底层日月星历模型限制，不宣称达到 JPL 或观测级精度。',
   ];
   const utcDateTime = new Date(utcTimestamp).toISOString();
+  const previousEventKey = events.previous.key;
+  const nextEventKey = events.next.key;
+  const calculationSteps: MoonPhaseCalculationStep[] = [
+    {
+      key: 'moon-phase:calculation:positions',
+      stage: '日月位置',
+      status: '已计算',
+      dependsOnStepKeys: [],
+      inputs: { utcTimestamp, utcDateTime },
+      result: {
+        julianDayUtc: Number(positions.julianDay.toFixed(9)),
+        sunLongitudeDegrees: Number(positions.sunLongitude.toFixed(8)),
+        moonLongitudeDegrees: Number(positions.moonLongitude.toFixed(8)),
+      },
+      promptText: `按 celestine 计算 UTC ${utcDateTime} 的日月地心黄经：太阳${positions.sunLongitude.toFixed(6)}°、月亮${positions.moonLongitude.toFixed(6)}°`,
+      sources: ['celestine 日月地心黄经'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'moon-phase:calculation:angle-illumination',
+      stage: '月相角与照明',
+      status: '已计算',
+      dependsOnStepKeys: ['moon-phase:calculation:positions'],
+      inputs: {
+        sunLongitudeDegrees: Number(positions.sunLongitude.toFixed(8)),
+        moonLongitudeDegrees: Number(positions.moonLongitude.toFixed(8)),
+      },
+      result: {
+        phaseAngleDegrees: Number(phaseAngleDegrees.toFixed(8)),
+        illuminationPercent: Number((illuminationFraction * 100).toFixed(3)),
+        approximateMoonAgeDays: Number(approximateMoonAgeDays.toFixed(4)),
+      },
+      promptText: `由日月地心黄经差${phaseAngleDegrees.toFixed(6)}°计算${eightPhaseName}、${waxing ? '盈' : '亏'}与照明${(illuminationFraction * 100).toFixed(3)}%`,
+      sources: ['日月黄经差定义', '月相照明几何公式'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'moon-phase:calculation:previous-principal',
+      stage: '前一四正相位',
+      status: '已求根',
+      dependsOnStepKeys: ['moon-phase:calculation:angle-illumination'],
+      inputs: { utcTimestamp, phaseAngleDegrees },
+      result: { eventKey: previousEventKey, utcDateTime: events.previous.utcDateTime },
+      promptText: `以前一相邻目标角度${events.previous.targetAngleDegrees}°为初值，二分求根得到${events.previous.name} ${events.previous.utcDateTime}`,
+      sources: [...PRINCIPAL_PHASE_SOURCES],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'moon-phase:calculation:next-principal',
+      stage: '下一四正相位',
+      status: '已求根',
+      dependsOnStepKeys: ['moon-phase:calculation:angle-illumination'],
+      inputs: { utcTimestamp, phaseAngleDegrees },
+      result: { eventKey: nextEventKey, utcDateTime: events.next.utcDateTime },
+      promptText: `以后一相邻目标角度${events.next.targetAngleDegrees}°为初值，二分求根得到${events.next.name} ${events.next.utcDateTime}`,
+      sources: [...PRINCIPAL_PHASE_SOURCES],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+  ];
+  const eventSummaryFact: MoonPhaseEventSummaryFact = {
+    key: 'moon-phase:event-summary',
+    status: '已记录前后四正相位',
+    previousEventKey,
+    nextEventKey,
+    calculationStepKeys: [
+      'moon-phase:calculation:previous-principal',
+      'moon-phase:calculation:next-principal',
+    ],
+    promptText: `前一四正相位为${events.previous.name}（${events.previous.utcDateTime}），下一四正相位为${events.next.name}（${events.next.utcDateTime}）`,
+    sources: [...PRINCIPAL_PHASE_SOURCES],
+    limitation: EVENT_SUMMARY_LIMITATION,
+  };
+  const limitationFacts: MoonPhaseLimitationFact[] = [
+    {
+      key: 'moon-phase:limitation:mean-age',
+      type: '平均月龄近似',
+      status: '适用',
+      ownerStepKeys: ['moon-phase:calculation:angle-illumination'],
+      promptText: limitations[0],
+      sources: ['平均朔望月 29.530588861 日'],
+      limitation: LIMITATION_FACT_LIMITATION,
+    },
+    {
+      key: 'moon-phase:limitation:illumination',
+      type: '几何照明近似',
+      status: '适用',
+      ownerStepKeys: ['moon-phase:calculation:angle-illumination'],
+      promptText: limitations[1],
+      sources: ['月相照明几何公式'],
+      limitation: LIMITATION_FACT_LIMITATION,
+    },
+    {
+      key: 'moon-phase:limitation:ephemeris',
+      type: '星历精度边界',
+      status: '适用',
+      ownerStepKeys: [
+        'moon-phase:calculation:positions',
+        'moon-phase:calculation:previous-principal',
+        'moon-phase:calculation:next-principal',
+      ],
+      promptText: limitations[2],
+      sources: ['celestine 日月星历模型', '二分求根区间说明'],
+      limitation: LIMITATION_FACT_LIMITATION,
+    },
+  ];
 
   return {
+    key: `moon-phase:${utcTimestamp}`,
+    status: '已计算',
     utcTimestamp,
     utcDateTime,
     julianDayUtc: Number(positions.julianDay.toFixed(9)),
@@ -210,7 +369,10 @@ export function calculateMoonPhaseEvidence(utcTimestamp: number): MoonPhaseEvide
     nextPrincipalPhase: events.next,
     method,
     source,
+    calculationSteps,
+    eventSummaryFact,
     limitations,
-    promptText: `月相证据：UTC ${utcDateTime} 日月黄经差${phaseAngleDegrees.toFixed(3)}°，最小距角${elongationDegrees.toFixed(3)}°，${eightPhaseName}、${waxing ? '盈' : '亏'}，照明约${(illuminationFraction * 100).toFixed(1)}%，近似月龄${approximateMoonAgeDays.toFixed(2)}日；前一四正相位：${events.previous.promptText}；下一四正相位：${events.next.promptText}；四正事件统一边界：${PRINCIPAL_PHASE_LIMITATION}。方法：${method}。来源：${source}。限制：${limitations.join('；')}`,
+    limitationFacts,
+    promptText: `月相证据：UTC ${utcDateTime} 日月黄经差${phaseAngleDegrees.toFixed(3)}°，最小距角${elongationDegrees.toFixed(3)}°，${eightPhaseName}、${waxing ? '盈' : '亏'}，照明约${(illuminationFraction * 100).toFixed(1)}%，近似月龄${approximateMoonAgeDays.toFixed(2)}日；计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}；前一四正相位：${events.previous.promptText}；下一四正相位：${events.next.promptText}；事件汇总：${eventSummaryFact.promptText}；四正事件统一边界：${PRINCIPAL_PHASE_LIMITATION}。方法：${method}。来源：${source}。限制：${limitations.join('；')}`,
   };
 }

@@ -384,9 +384,27 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
               stars?: unknown[];
               aspects?: Array<{ strength?: number; allowedOrb?: number }>;
               calculationContext?: {
+                astronomicalTime?: {
+                  status: string;
+                  calculationSteps: unknown[];
+                  limitations: string[];
+                  limitationFacts: unknown[];
+                };
                 moonPhase?: {
+                  status: string;
+                  calculationSteps: unknown[];
                   previousPrincipalPhase?: { key: string; sources: string[] };
-                  nextPrincipalPhase?: { limitation: string };
+                  nextPrincipalPhase?: { key: string; limitation: string };
+                  eventSummaryFact: { previousEventKey: string; nextEventKey: string };
+                  limitations: string[];
+                  limitationFacts: unknown[];
+                };
+                solarIllumination?: {
+                  status: string;
+                  calculationSteps: unknown[];
+                  astronomicalTime: { status: string };
+                  limitations: string[];
+                  limitationFacts: unknown[];
                 };
               };
               evidenceAnalysis?: {
@@ -455,6 +473,35 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         assert.match(
           chart?.calculationContext?.moonPhase?.nextPrincipalPhase?.limitation ?? '',
           /不等于观测级精度/,
+        );
+        assert.equal(chart?.calculationContext?.astronomicalTime?.status, '已计算');
+        assert.equal(chart?.calculationContext?.astronomicalTime?.calculationSteps.length, 5);
+        assert.equal(
+          chart?.calculationContext?.astronomicalTime?.limitations.length,
+          chart?.calculationContext?.astronomicalTime?.limitationFacts.length,
+        );
+        assert.equal(chart?.calculationContext?.moonPhase?.status, '已计算');
+        assert.equal(chart?.calculationContext?.moonPhase?.calculationSteps.length, 4);
+        assert.equal(
+          chart?.calculationContext?.moonPhase?.eventSummaryFact.previousEventKey,
+          chart?.calculationContext?.moonPhase?.previousPrincipalPhase?.key,
+        );
+        assert.equal(
+          chart?.calculationContext?.moonPhase?.eventSummaryFact.nextEventKey,
+          chart?.calculationContext?.moonPhase?.nextPrincipalPhase?.key,
+        );
+        assert.equal(
+          chart?.calculationContext?.moonPhase?.limitations.length,
+          chart?.calculationContext?.moonPhase?.limitationFacts.length,
+        );
+        assert.equal(
+          chart?.calculationContext?.solarIllumination?.astronomicalTime.status,
+          '已计算',
+        );
+        assert.equal(chart?.calculationContext?.solarIllumination?.calculationSteps.length, 4);
+        assert.equal(
+          chart?.calculationContext?.solarIllumination?.limitations.length,
+          chart?.calculationContext?.solarIllumination?.limitationFacts.length,
         );
         assert.ok(
           chart?.evidenceAnalysis?.starFacts?.every(
@@ -697,7 +744,23 @@ test('MCP 太阳光照工具应返回日出日落与曙暮光结构化证据', a
       String(result.structuredContent?.result.sunriseSunset.limitation),
       /不代表实际可见性/,
     );
+    assert.equal(result.structuredContent?.result.status, '已计算');
+    assert.equal(result.structuredContent?.result.astronomicalTime.status, '已计算');
+    assert.equal(result.structuredContent?.result.calculationSteps.length, 4);
+    assert.equal(
+      result.structuredContent?.result.sunriseSunset.calculationStepKeys[0],
+      result.structuredContent?.result.calculationSteps[3].key,
+    );
+    assert.equal(result.structuredContent?.result.assumptions.length, 2);
+    assert.equal(result.structuredContent?.result.assumptionFacts.length, 2);
+    assert.equal(result.structuredContent?.result.crossingSummaryFact.status, '均有正常交点');
+    assert.equal(result.structuredContent?.result.crossingSummaryFact.crossingFactKeys.length, 4);
+    assert.equal(
+      result.structuredContent?.result.limitations.length,
+      result.structuredContent?.result.limitationFacts.length,
+    );
     assert.match(String(result.structuredContent?.result.promptText), /太阳光照证据：/);
+    assertPromptIsPortableTaskText(String(result.structuredContent?.result.promptText));
   });
 });
 

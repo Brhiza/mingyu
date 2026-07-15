@@ -479,7 +479,20 @@ test('公开 API 应提供太阳高度、日出日落与曙暮光证据接口', 
   assert.ok(body.data.sunriseSunset.sources.length >= 2);
   assert.match(body.data.sunriseSunset.calculation, /求时角交点/);
   assert.match(body.data.sunriseSunset.limitation, /不代表实际可见性/);
+  assert.equal(body.data.key, 'solar-illumination:2024-06-21:39.9042:116.4074');
+  assert.equal(body.data.status, '已计算');
+  assert.equal(body.data.astronomicalTime.status, '已计算');
+  assert.deepEqual(
+    body.data.calculationSteps.map((item: { stage: string }) => item.stage),
+    ['天文时间', '参考太阳位置', '视太阳正午', '阈值交点'],
+  );
+  assert.equal(body.data.sunriseSunset.calculationStepKeys[0], body.data.calculationSteps[3].key);
+  assert.equal(body.data.assumptions.length, body.data.assumptionFacts.length);
+  assert.equal(body.data.crossingSummaryFact.status, '均有正常交点');
+  assert.equal(body.data.crossingSummaryFact.crossingFactKeys.length, 4);
+  assert.equal(body.data.limitations.length, body.data.limitationFacts.length);
   assert.match(body.data.promptText, /太阳光照证据：/);
+  assertPromptIsPortableTaskText(body.data.promptText);
 
   const invalid = await callApi('calendar/solar-illumination', {
     method: 'POST',
@@ -3648,11 +3661,33 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
   assert.equal(body.data.calculationContext.timezoneSource, '用户提供');
   assert.match(body.data.calculationContext.astronomicalTime.utcDateTime, /Z$/);
   assert.ok(body.data.calculationContext.astronomicalTime.julianDayTtApprox > 2400000);
+  assert.equal(body.data.calculationContext.astronomicalTime.status, '已计算');
+  assert.equal(body.data.calculationContext.astronomicalTime.calculationSteps.length, 5);
+  assert.equal(
+    body.data.calculationContext.astronomicalTime.limitations.length,
+    body.data.calculationContext.astronomicalTime.limitationFacts.length,
+  );
   assert.match(body.data.calculationContext.moonPhase.previousPrincipalPhase.key, /^四正月相:/);
   assert.ok(body.data.calculationContext.moonPhase.previousPrincipalPhase.sources.length >= 2);
   assert.match(
     body.data.calculationContext.moonPhase.nextPrincipalPhase.limitation,
     /不等于观测级精度/,
+  );
+  assert.equal(body.data.calculationContext.moonPhase.status, '已计算');
+  assert.equal(body.data.calculationContext.moonPhase.calculationSteps.length, 4);
+  assert.equal(
+    body.data.calculationContext.moonPhase.eventSummaryFact.previousEventKey,
+    body.data.calculationContext.moonPhase.previousPrincipalPhase.key,
+  );
+  assert.equal(
+    body.data.calculationContext.moonPhase.limitations.length,
+    body.data.calculationContext.moonPhase.limitationFacts.length,
+  );
+  assert.equal(body.data.calculationContext.solarIllumination.astronomicalTime.status, '已计算');
+  assert.equal(body.data.calculationContext.solarIllumination.calculationSteps.length, 4);
+  assert.equal(
+    body.data.calculationContext.solarIllumination.limitations.length,
+    body.data.calculationContext.solarIllumination.limitationFacts.length,
   );
   assert.equal(
     body.data.stars.find((star: { name: string }) => star.name.includes('紫炁')).precisionClass,

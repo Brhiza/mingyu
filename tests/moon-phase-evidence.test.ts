@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { calculateMoonPhaseEvidence } from '../packages/core/src/calendar/moon-phase-evidence.ts';
 import { generateQimen } from '../packages/core/src/divination/algorithms/qimen/index.ts';
 import { generateQizheng } from '../packages/core/src/qi_zheng/index.ts';
+import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const MINUTE = 60_000;
 
@@ -24,6 +25,29 @@ test('月相证据应识别2024年4月日食附近的朔并保留精度限制', 
   );
   assert.match(evidence.promptText, /求根到 1 秒只表示数值区间/);
   assert.match(evidence.promptText, /不得用于月食可见性判断/);
+  assert.equal(evidence.key, `moon-phase:${Date.parse('2024-04-08T18:21:00Z')}`);
+  assert.equal(evidence.status, '已计算');
+  assert.deepEqual(
+    evidence.calculationSteps.map((item) => item.stage),
+    ['日月位置', '月相角与照明', '前一四正相位', '下一四正相位'],
+  );
+  assert.equal(evidence.previousPrincipalPhase.status, '已求根');
+  assert.equal(evidence.nextPrincipalPhase.status, '已求根');
+  assert.deepEqual(evidence.previousPrincipalPhase.calculationStepKeys, [
+    evidence.calculationSteps[2].key,
+  ]);
+  assert.deepEqual(evidence.nextPrincipalPhase.calculationStepKeys, [
+    evidence.calculationSteps[3].key,
+  ]);
+  assert.equal(evidence.eventSummaryFact.previousEventKey, evidence.previousPrincipalPhase.key);
+  assert.equal(evidence.eventSummaryFact.nextEventKey, evidence.nextPrincipalPhase.key);
+  assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
+  assert.ok(
+    [...evidence.calculationSteps, evidence.eventSummaryFact, ...evidence.limitationFacts].every(
+      (item) => item.sources.length > 0 && item.limitation.length > 0,
+    ),
+  );
+  assertPromptIsPortableTaskText(evidence.promptText);
 });
 
 test('月相证据应区分望、上弦、下弦及盈亏方向', () => {
