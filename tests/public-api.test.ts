@@ -1822,12 +1822,25 @@ test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏
   assert.equal(confirmed.body.data.evidenceAnalysis.ritualFact.status, '已确认');
   assert.equal(confirmed.body.data.evidenceAnalysis.ritualFact.throws.length, 1);
   assert.equal(confirmed.body.data.evidenceAnalysis.ritualThrowFacts[0].key, 'ssgw:ritual-throw:1');
+  assert.equal(confirmed.body.data.evidenceAnalysis.ritualThrowFacts[0].status, '已记录');
+  assert.equal(
+    confirmed.body.data.evidenceAnalysis.ritualThrowFacts[0].ritualFactKey,
+    '仪式:掷筊确认',
+  );
   assert.equal(confirmed.body.data.evidenceAnalysis.randomFact.status, '可重放');
   assert.equal(confirmed.body.data.evidenceAnalysis.randomFact.sampleCount, 3);
   assert.ok(confirmed.body.data.evidenceAnalysis.randomFact.sources.length >= 2);
   assert.match(confirmed.body.data.evidenceAnalysis.randomFact.limitation, /不表示可信度/);
   assert.match(confirmed.body.data.evidenceAnalysis.promptText, /签诗原文/);
   assert.match(confirmed.body.data.evidenceAnalysis.promptText, /不证明预测有效性/);
+  assert.equal(confirmed.body.data.evidenceAnalysis.counterEvidenceFacts.length, 6);
+  assert.equal(confirmed.body.data.evidenceAnalysis.counterSummaryFact.status, '未见额外反证');
+  assert.equal(confirmed.body.data.evidenceAnalysis.counterSummaryFact.factKeys.length, 0);
+  assert.equal(confirmed.body.data.evidenceAnalysis.limitationFacts.length, 6);
+  assert.equal(
+    confirmed.body.data.evidenceAnalysis.limitations.length,
+    confirmed.body.data.evidenceAnalysis.limitationFacts.length,
+  );
   assert.doesNotMatch(
     confirmed.body.data.evidenceAnalysis.promptText,
     /项目模拟|项目资料|按项目仪式规则|命语|本项目|项目统一|工程|算法结果/,

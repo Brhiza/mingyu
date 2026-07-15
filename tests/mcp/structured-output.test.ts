@@ -1339,6 +1339,14 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
       confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts[0].key,
       'ssgw:ritual-throw:1',
     );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts[0].status,
+      '已记录',
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts[0].ritualFactKey,
+      '仪式:掷筊确认',
+    );
     assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.randomFact.sampleCount, 3);
     assert.match(
       String(confirmed.structuredContent?.result.evidenceAnalysis.randomFact.limitation),
@@ -1346,6 +1354,23 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
     );
     assert.match(String(confirmed.structuredContent?.prompt), /三山国王灵签文本与仪式结构化证据/);
     assert.match(String(confirmed.structuredContent?.prompt), /不证明预测有效性/);
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.counterEvidenceFacts.length,
+      6,
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.counterSummaryFact.status,
+      '未见额外反证',
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.counterSummaryFact.factKeys.length,
+      0,
+    );
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.limitationFacts.length, 6);
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.limitations.length,
+      confirmed.structuredContent?.result.evidenceAnalysis.limitationFacts.length,
+    );
     assert.doesNotMatch(
       String(confirmed.structuredContent?.prompt),
       /项目模拟|项目资料|按项目仪式规则|命语|本项目|项目统一|工程|算法结果/,

@@ -9,9 +9,12 @@ import { analyzeSsgwEvidence } from '../ssgw-evidence';
 export { analyzeSsgwEvidence, conditionSsgwInterpretation } from '../ssgw-evidence';
 export type {
   SsgwCoverageFact,
+  SsgwCounterEvidenceFact,
+  SsgwCounterSummaryFact,
   SsgwDrawFact,
   SsgwEvidenceAnalysis,
   SsgwInterpretationFact,
+  SsgwLimitationFact,
   SsgwMissingFieldFact,
   SsgwRandomFact,
   SsgwRitualFact,
