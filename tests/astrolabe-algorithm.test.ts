@@ -81,6 +81,18 @@ test('星盘底层算法应保留扩展计算点，不再只返回十大星体',
   assert.ok(labels.includes('精神点'));
 });
 
+test('星盘真太阳时应透传统一校正证据并纳入总汇总', () => {
+  const result = generateAstrolabe({ ...validInput, useTrueSolarTime: true });
+  const evidence = result.birth.trueSolarEvidence;
+
+  assert.ok(evidence);
+  assert.equal(evidence.summaryFact.status, '证据链完整');
+  assert.equal(evidence.calculationChain.length, evidence.calculationSteps.length);
+  assert.equal(result.evidenceAnalysis?.trueSolarTimeFact?.key, evidence.key);
+  assert.ok(result.evidenceAnalysis?.summaryFact.factKeys.includes(evidence.summaryFact.key));
+  assert.match(result.evidenceAnalysis?.promptText ?? '', /真太阳时校正证据/);
+});
+
 test('星盘应返回可复用的位置、相位、计算链与限制证据', () => {
   const result = generateAstrolabe(validInput);
   const evidence = result.evidenceAnalysis;

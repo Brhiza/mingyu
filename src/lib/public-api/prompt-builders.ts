@@ -9,7 +9,11 @@ import {
   type AIPromptOption,
   type BaziFortunePromptScope,
 } from '../../utils/ai/aiPrompts';
-import { buildCombinedZiweiPrompt, type ZiweiRuntime } from '../full-chart-engine/ziwei';
+import {
+  buildCombinedZiweiPrompt,
+  formatZiweiTrueSolarEvidence,
+  type ZiweiRuntime,
+} from '../full-chart-engine/ziwei';
 import { buildEvidenceChainSummary } from '../ziwei-prompts/builders';
 import { mapScopeLabel, mapTopicLabel } from '../ziwei-prompts/labels';
 import { formatPromptCurrentTime } from '../prompt-time';
@@ -236,6 +240,7 @@ export function buildSerializableZiweiResult(result: ZiweiRuntime) {
     basicInfo: originPayload.basic_info,
     scopeNames: Object.keys(result.payloadByScope),
     payloadByScope: result.payloadByScope,
+    trueSolarEvidence: result.trueSolarEvidence,
     ...compatibility,
   };
 }
@@ -386,6 +391,7 @@ export function buildZiweiPromptForRuntime(params: {
     params.question ?? '',
     {
       isCustomQuestion: params.mode === 'custom',
+      trueSolarEvidence: params.result.trueSolarEvidence,
     },
   );
   const promptText =
@@ -498,6 +504,7 @@ export function buildPublicZiweiPromptForRuntime(params: {
   const evidenceSummaryText = Object.entries(buildEvidenceChainSummary(payload))
     .map(([key, value]) => `${key}：${value}`)
     .join('\n');
+  const trueSolarEvidenceText = formatZiweiTrueSolarEvidence(params.result.trueSolarEvidence);
   const prompt = [
     `【分析背景】\n分析主题：${topicLabel}\n分析范围：${scopeLabel}\n分析对象：${scope === 'full' ? '本命盘与完整大限流年流月流日流时' : payload.active_scope.label || scopeLabel}\n参考日期：${payload.active_scope.solar_date}\n虚岁：${payload.active_scope.nominal_age}`,
     `【排盘信息】\n出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}\n命宫：${lifePalace?.name ?? '命宫'}；星曜：${formatStars(lifePalace)}\n身宫：${bodyPalace?.name ?? '未标出'}；星曜：${formatStars(bodyPalace)}\n当前落宫：${activePalace?.name ?? '本命范围'}\n当前四化：${mutagenText}`,
@@ -508,6 +515,7 @@ export function buildPublicZiweiPromptForRuntime(params: {
       bodyPalace,
       isOriginScope: payload.active_scope.scope === 'origin',
     }),
+    trueSolarEvidenceText ? `【出生时间校正证据】\n${trueSolarEvidenceText}` : '',
     `【证据汇总】\n${evidenceSummaryText}`,
     scope === 'full' ? `【完整运限资料】\n${formatPublicZiweiFullScopeText(params.result)}` : '',
     `【问题】\n${params.question ?? ''}`,
@@ -570,6 +578,7 @@ function formatPublicZiweiEvidenceText(params: {
   const evidenceSummaryText = Object.entries(buildEvidenceChainSummary(payload))
     .map(([key, value]) => `${key}：${value}`)
     .join('\n');
+  const trueSolarEvidenceText = formatZiweiTrueSolarEvidence(params.result.trueSolarEvidence);
 
   return [
     `分析主题：${topicLabel}`,
@@ -582,6 +591,7 @@ function formatPublicZiweiEvidenceText(params: {
     `身宫：${bodyPalace?.name ?? '未标出'}；星曜：${formatStars(bodyPalace)}`,
     `当前落宫：${activePalace?.name ?? '本命范围'}`,
     `当前四化：${mutagenText}`,
+    trueSolarEvidenceText ? `出生时间校正证据：\n${trueSolarEvidenceText}` : '',
     `证据汇总：\n${evidenceSummaryText}`,
     buildPublicZiweiKeyPalaceSection({
       palaces: payload.palaces,

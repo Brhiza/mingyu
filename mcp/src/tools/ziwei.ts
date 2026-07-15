@@ -138,7 +138,7 @@ export function registerZiweiTool(server: McpServer) {
     'ziwei_calculate',
     {
       description:
-        '紫微斗数排盘：根据出生信息计算紫微命盘。默认只返回 origin（本命）范围；通过 promptScope 可指定额外的运限范围（full/decadal/yearly/monthly/daily/hourly/age）',
+        '紫微斗数排盘：根据出生信息计算紫微命盘；启用真太阳时时返回统一校正计算链、事实、汇总与限制，关闭时保留传统时辰直接排盘。默认只返回 origin（本命）范围；通过 promptScope 可指定额外运限范围',
       inputSchema: ziweiSchema.shape,
       outputSchema: ziweiOutputSchema,
     },
@@ -161,7 +161,7 @@ export function registerZiweiTool(server: McpServer) {
     'ziwei_prompt',
     {
       description:
-        '紫微斗数排盘并生成结构化 AI 解读提示词：一次调用返回命盘数据和可直接复制给 AI 的提示词。默认只返回 origin（本命）范围；通过 promptScope 可指定额外的运限范围（full/decadal/yearly/monthly/daily/hourly/age）',
+        '紫微斗数排盘并生成结构化 AI 解读提示词：返回命盘数据、真太阳时校正证据和可直接复制给 AI 的完整提示词。默认只返回 origin（本命）范围；通过 promptScope 可指定额外运限范围',
       inputSchema: ziweiPromptSchema.shape,
       outputSchema: {
         result: z.unknown().describe('紫微命盘数据'),
@@ -262,6 +262,8 @@ export function registerZiweiTool(server: McpServer) {
           prompt: buildCombinedZiweiCompatibilityPrompt({
             primaryPayload: person1.payloadByScope.origin,
             partnerPayload: person2.payloadByScope.origin,
+            primaryTrueSolarEvidence: person1.trueSolarEvidence,
+            partnerTrueSolarEvidence: person2.trueSolarEvidence,
             primaryName: args.person1.name,
             partnerName: args.person2.name,
             topic: args.promptTopic ?? 'relationship',

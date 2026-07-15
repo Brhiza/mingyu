@@ -50,11 +50,13 @@ test('统一出生档案可复用到八字与星盘输入', () => {
 
   const baziInput = birthProfileToBaziPerson(profile);
   const astrolabeInput = birthProfileToAstrolabeInput(profile);
+  const normalized = normalizeBirthProfile(profile);
   assert.equal(baziInput.birthLongitude, 116.4);
   assert.equal(baziInput.useTrueSolarTime, true);
   assert.equal(astrolabeInput.longitude, '116.4');
   assert.equal(astrolabeInput.latitude, '39.9');
   assert.equal(astrolabeInput.useTrueSolarTime, true);
+  assert.equal(normalized.trueSolarEvidence?.summaryFact.status, '证据链完整');
 });
 
 test('择日适配器保持真太阳时跨日后的日期与时辰一致', () => {
@@ -88,6 +90,12 @@ test('能力清单可序列化且返回副本', () => {
   assert.notEqual(second.systems[0]!.name, '已修改');
   assert.equal(getSystemCapability('bazhai')?.inputs[1]?.id, 'doorToInteriorDegree');
   assert.equal(getSystemCapability('bazi')?.supports.birthTimeRequired, true);
+  for (const systemId of ['calendar.trueSolarBirth', 'bazi', 'ziwei', 'astrolabe']) {
+    assert.ok(
+      getSystemCapability(systemId)?.outputs.some((item) => item.includes('真太阳时结构化计算链')),
+      `${systemId} 应声明真太阳时结构化证据输出`,
+    );
+  }
   const liuyao = getSystemCapability('liuyao');
   assert.equal(liuyao?.supports.seed, true);
   assert.equal(liuyao?.supports.replay, true);

@@ -369,6 +369,20 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
       trueSolarDateTime: trueSolarResult
         ? formatDateTime(trueSolarResult.correctedTime)
         : undefined,
+      trueSolarEvidence: trueSolarResult
+        ? {
+            key: trueSolarResult.key,
+            status: trueSolarResult.status,
+            calculationSteps: trueSolarResult.calculationSteps,
+            calculationChain: trueSolarResult.calculationChain,
+            correctionFacts: trueSolarResult.correctionFacts,
+            summaryFact: trueSolarResult.summaryFact,
+            limitations: trueSolarResult.limitations,
+            limitationFacts: trueSolarResult.limitationFacts,
+            source: trueSolarResult.source,
+            promptText: trueSolarResult.promptText,
+          }
+        : undefined,
       isTrueSolarTime: Boolean(trueSolarResult),
     },
     planets: calculatedPoints,

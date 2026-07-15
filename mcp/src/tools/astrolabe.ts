@@ -180,7 +180,8 @@ export function registerAstrolabeTool(server: McpServer) {
   server.registerTool(
     'divine_astrolabe',
     {
-      description: '星盘生成：根据出生时间、经纬度和时区生成星体、宫位、相位与元素模式数据',
+      description:
+        '星盘生成：根据出生时间、经纬度和时区生成星体、宫位、相位、元素模式及结构化证据；启用真太阳时时附带统一校正计算链、事实、汇总与限制',
       inputSchema: astrolabeSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -198,7 +199,7 @@ export function registerAstrolabeTool(server: McpServer) {
     'astrolabe_prompt',
     {
       description:
-        '星盘生成并生成结构化 AI 解读提示词：一次调用返回星盘结果和可直接复制给 AI 的提示词',
+        '星盘生成并生成结构化 AI 解读提示词：返回星盘结果、结构化证据和可直接复制给 AI 的提示词，并将真太阳时校正证据纳入证据包',
       inputSchema: astrolabePromptSchema.shape,
       outputSchema: {
         result: z.unknown().describe('星盘结果'),

@@ -173,7 +173,8 @@ export function registerBaziTool(server: McpServer) {
   server.registerTool(
     'bazi_calculate',
     {
-      description: '八字排盘：根据出生信息计算四柱八字、十神、藏干、大运、神煞等完整命盘数据',
+      description:
+        '八字排盘：根据出生信息计算四柱、十神、藏干、大运、神煞与本命证据；启用真太阳时时同时返回统一计算链、校正事实、证据汇总和限制，关闭时仍可直接按明确时辰排盘',
       inputSchema: baziSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -192,7 +193,7 @@ export function registerBaziTool(server: McpServer) {
     'bazi_prompt',
     {
       description:
-        '八字排盘并生成结构化 AI 解读提示词：一次调用返回命盘数据和可直接复制给 AI 的提示词',
+        '八字排盘并生成结构化 AI 解读提示词：返回命盘、结构化证据和可直接复制给 AI 的提示词；真太阳时校正证据会随排盘资料写入提示词',
       inputSchema: baziPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },

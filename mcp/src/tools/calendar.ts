@@ -60,7 +60,7 @@ export function registerCalendarTools(server: McpServer) {
     'calendar_true_solar_time',
     {
       description:
-        '将当地钟表时间换算为真太阳时，返回经度修正、均时差、总修正量、跨日状态和对应时辰',
+        '将当地钟表时间换算为真太阳时，返回唯一校正时间、经度与均时差修正、跨日和时辰结果，以及可核验的计算链、校正事实、证据汇总、来源与限制',
       inputSchema: trueSolarTimeSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -77,7 +77,7 @@ export function registerCalendarTools(server: McpServer) {
     'calendar_true_solar_birth',
     {
       description:
-        '统一换算公历或农历出生真太阳时，返回农历转公历、历史夏令时、跨日、时辰索引及完整修正资料',
+        '统一换算公历或农历出生真太阳时，返回历法换算、历史夏令时、跨日、唯一时辰索引及完整结构化计算链、校正事实、证据汇总、来源与限制',
       inputSchema: trueSolarBirthSchema.shape,
       outputSchema: resultOutputSchema,
     },

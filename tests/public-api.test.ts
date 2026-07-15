@@ -461,6 +461,30 @@ test('公开 API 应提供便捷真太阳时换算接口', async () => {
   assert.equal(body.data.standardMeridian, 120);
   assert.equal(body.data.shichen.name, '巳时');
   assert.equal(typeof body.data.totalCorrectionMinutes, 'number');
+  assert.equal(body.data.key, 'true-solar-time:1990-05-15T10:30:20:116.4074:8');
+  assert.equal(body.data.status, '已计算');
+  assert.equal(body.data.calculationSteps.length, 6);
+  assert.deepEqual(
+    body.data.calculationChain,
+    body.data.calculationSteps.map((item: { promptText: string }) => item.promptText),
+  );
+  assert.equal(body.data.summaryFact.calculationStepCount, body.data.calculationSteps.length);
+  assert.equal(body.data.summaryFact.correctionFactCount, body.data.correctionFacts.length);
+  assert.equal(body.data.summaryFact.limitationFactCount, body.data.limitationFacts.length);
+  assert.ok(
+    body.data.correctionFacts.every(
+      (fact: { ownerStepKeys: string[]; sources: string[] }) =>
+        fact.ownerStepKeys.length > 0 && fact.sources.length > 0,
+    ),
+  );
+  assert.ok(
+    body.data.limitationFacts.every(
+      (fact: { ownerStepKeys: string[]; ownerFactKeys: string[] }) =>
+        fact.ownerStepKeys.length > 0 && fact.ownerFactKeys.length > 0,
+    ),
+  );
+  assert.match(body.data.promptText, /计算链：/);
+  assert.doesNotMatch(body.data.promptText, /候选时辰为|出生时间敏感性|缺少时柱/);
 
   const chinaDst = await callApi('calendar/true-solar-time', {
     method: 'POST',
@@ -511,6 +535,10 @@ test('公开 API 应提供统一公历农历出生真太阳时接口', async () 
   assert.match(body.data.solarClockDateTime, /^1990-\d{2}-\d{2}T12:00:00$/);
   assert.equal(typeof body.data.timeIndex, 'number');
   assert.equal(typeof body.data.correctedDateTime, 'string');
+  assert.equal(body.data.calculationSteps.length, 7);
+  assert.equal(body.data.calculationSteps[0].stage, '历法输入换算');
+  assert.equal(body.data.correctionFacts[0].type, '历法输入');
+  assert.equal(body.data.summaryFact.status, '证据链完整');
 });
 
 test('公开 API 应提供太阳高度、日出日落与曙暮光证据接口', async () => {
@@ -820,6 +848,13 @@ test('公开 API 八字排盘应支持真太阳时精确时分和经度', async 
   assert.equal(body.data.timing.correctedTime.hour, corrected.hour);
   assert.equal(body.data.timing.correctedTime.minute, corrected.minute);
   assert.equal(body.data.timing.birthPlace, '新疆喀什');
+  assert.equal(body.data.timing.evidence.status, '已计算');
+  assert.equal(body.data.timing.evidence.calculationSteps.length, 7);
+  assert.equal(
+    body.data.timing.evidence.summaryFact.calculationStepCount,
+    body.data.timing.evidence.calculationSteps.length,
+  );
+  assert.match(body.data.timing.evidence.promptText, /唯一映射为/);
 });
 
 test('公开 API 八字公历日期不存在时应返回参数错误', async () => {
@@ -1566,6 +1601,33 @@ test('公开 API 紫微排盘应支持真太阳时精确时分和经度', async 
     `${corrected.year}-${String(corrected.month).padStart(2, '0')}-${String(corrected.day).padStart(2, '0')}`,
   );
   assert.equal(body.data.basicInfo.birth_time_range, timeIndexRangeMap[expectedTimeIndex]);
+  assert.equal(body.data.trueSolarEvidence.status, '已计算');
+  assert.equal(body.data.trueSolarEvidence.calculationSteps.length, 7);
+  assert.equal(body.data.trueSolarEvidence.summaryFact.status, '证据链完整');
+
+  const promptResult = await callApi('ziwei/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: '测试',
+      gender: 'male',
+      dateType: 'solar',
+      year: '1990',
+      month: '4',
+      day: '15',
+      useTrueSolarTime: true,
+      birthHour: '1',
+      birthMinute: '20',
+      birthLongitude: '73.5',
+      question: '请分析整体命盘。',
+      responseMode: 'full',
+    }),
+  });
+  assert.equal(promptResult.response.status, 200);
+  assert.equal(promptResult.body.data.result.trueSolarEvidence.status, '已计算');
+  assert.match(promptResult.body.data.prompt, /【出生时间校正证据】/);
+  assert.match(promptResult.body.data.prompt, /计算步骤：/);
+  assert.match(promptResult.body.data.prompt, /不生成候选时辰、敏感性结果或缺时柱命盘/);
 });
 
 test('公开 API 紫微排盘接口支持按需返回指定范围', async () => {
@@ -3099,6 +3161,8 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
   assert.equal(body.data.birth.isTrueSolarTime, true);
+  assert.equal(body.data.birth.trueSolarEvidence.status, '已计算');
+  assert.equal(body.data.birth.trueSolarEvidence.calculationSteps.length, 7);
   assert.equal(body.data.birth.timezoneEvidence.status, 'unique');
   assert.equal(body.data.birth.timezoneEvidence.calculationSteps.length, 4);
   assert.deepEqual(
@@ -3130,9 +3194,14 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
   );
   assertPromptIsPortableTaskText(body.data.birth.timezoneEvidence.promptText);
   assert.equal(body.data.evidenceAnalysis.timezoneFact.key, body.data.birth.timezoneEvidence.key);
+  assert.equal(
+    body.data.evidenceAnalysis.trueSolarTimeFact.key,
+    body.data.birth.trueSolarEvidence.key,
+  );
   assert.equal(body.data.evidenceAnalysis.key, 'astrolabe:evidence');
   assert.equal(body.data.evidenceAnalysis.status, '已计算');
   assert.match(body.data.evidenceAnalysis.promptText, /历史时区映射与诊断/);
+  assert.match(body.data.evidenceAnalysis.promptText, /真太阳时校正证据/);
   assert.ok(body.data.aspects.length > 0);
   assert.equal(body.data.evidenceAnalysis.evidence.title, '西方星盘位置与相位结构化证据');
   assert.equal(body.data.evidenceAnalysis.calculationFact.status, '完整');

@@ -4,6 +4,7 @@ import type { SolarTermEvidence } from '../calendar/solar-term-evidence';
 import type { MoonPhaseEvidence } from '../calendar/moon-phase-evidence';
 import type { SolarIlluminationEvidence } from '../calendar/solar-illumination-evidence';
 import type { HistoricalTimezoneEvidence } from '../calendar/historical-timezone';
+import type { TrueSolarTimeEvidenceFields } from '../calendar/true-solar-time';
 
 export type { RandomOptions, RandomSource } from '../shared/random';
 export type { CoreResultMeta } from '../shared/result';
@@ -998,6 +999,7 @@ export interface AstrolabeData {
     timezoneEvidence?: HistoricalTimezoneEvidence;
     standardDateTime?: string;
     trueSolarDateTime?: string;
+    trueSolarEvidence?: TrueSolarTimeEvidenceFields;
     isTrueSolarTime?: boolean;
   };
   planets: AstrolabePoint[];

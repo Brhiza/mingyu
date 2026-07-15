@@ -107,6 +107,12 @@ test('八字真太阳时本命证据应引用校正后的唯一时间而不生�
   const analysis = result.evidenceAnalysis;
 
   assert.ok(analysis);
+  assert.ok(result.timing?.evidence);
+  assert.equal(result.timing.evidence.summaryFact.status, '证据链完整');
+  assert.equal(
+    result.timing.evidence.calculationChain.length,
+    result.timing.evidence.calculationSteps.length,
+  );
   assert.match(analysis.calculationSteps[0].promptText, /经真太阳时校正后采用/);
   assert.equal(analysis.calculationSteps[0].inputs.trueSolarTimeEnabled, true);
   assert.match(
@@ -114,4 +120,5 @@ test('八字真太阳时本命证据应引用校正后的唯一时间而不生�
     /当前命盘只采用已确认的传统时辰，或采用精准时分与出生地校正后的真太阳时/,
   );
   assert.doesNotMatch(analysis.promptText, /候选盘\d|候选时辰为/);
+  assert.match(formatBaziForPrompt(result), /真太阳时结构化证据:/);
 });

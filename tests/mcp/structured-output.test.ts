@@ -1031,6 +1031,31 @@ test('MCP 真太阳时工具应返回换算资料并拒绝带时区后缀的钟�
     assert.equal(success.isError, undefined);
     assert.equal(success.structuredContent?.result.standardMeridian, 120);
     assert.equal(success.structuredContent?.result.shichen.name, '巳时');
+    assert.equal(success.structuredContent?.result.status, '已计算');
+    assert.equal(success.structuredContent?.result.calculationSteps.length, 6);
+    assert.deepEqual(
+      success.structuredContent?.result.calculationChain,
+      success.structuredContent?.result.calculationSteps.map(
+        (item: { promptText: string }) => item.promptText,
+      ),
+    );
+    assert.equal(
+      success.structuredContent?.result.summaryFact.calculationStepCount,
+      success.structuredContent?.result.calculationSteps.length,
+    );
+    assert.equal(
+      success.structuredContent?.result.summaryFact.correctionFactCount,
+      success.structuredContent?.result.correctionFacts.length,
+    );
+    assert.equal(
+      success.structuredContent?.result.summaryFact.limitationFactCount,
+      success.structuredContent?.result.limitationFacts.length,
+    );
+    assert.match(success.structuredContent?.result.promptText, /计算链：/);
+    assert.doesNotMatch(
+      success.structuredContent?.result.promptText,
+      /候选时辰为|出生时间敏感性|缺少时柱/,
+    );
 
     const chinaDst = await client.callTool({
       name: 'calendar_true_solar_time',
@@ -1073,6 +1098,10 @@ test('MCP 统一出生真太阳时工具应支持农历与跨日资料', async (
     assert.equal(result.structuredContent?.result.inputDateType, 'lunar');
     assert.equal(typeof result.structuredContent?.result.solarClockDateTime, 'string');
     assert.equal(typeof result.structuredContent?.result.timeIndex, 'number');
+    assert.equal(result.structuredContent?.result.calculationSteps.length, 7);
+    assert.equal(result.structuredContent?.result.calculationSteps[0].stage, '历法输入换算');
+    assert.equal(result.structuredContent?.result.correctionFacts[0].type, '历法输入');
+    assert.equal(result.structuredContent?.result.summaryFact.status, '证据链完整');
   });
 });
 
@@ -2507,6 +2536,12 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
       timing?: {
         correctedTime?: { hour?: number; minute?: number };
         dstCorrectionMinutes?: number;
+        evidence?: {
+          status: string;
+          calculationSteps: unknown[];
+          summaryFact: { calculationStepCount: number };
+          promptText: string;
+        };
       };
       warningFacts?: Array<{ key: string; sources: string[]; referenceKeys: string[] }>;
       warningSummaryFact?: { status: string; factKeys: string[] };
@@ -2517,6 +2552,13 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
       baziExpected.timing?.correctedTime.minute,
     );
     assert.equal(baziChart.timing?.dstCorrectionMinutes, baziExpected.timing?.dstCorrectionMinutes);
+    assert.equal(baziChart.timing?.evidence?.status, '已计算');
+    assert.equal(baziChart.timing?.evidence?.calculationSteps.length, 7);
+    assert.equal(
+      baziChart.timing?.evidence?.summaryFact.calculationStepCount,
+      baziChart.timing?.evidence?.calculationSteps.length,
+    );
+    assert.match(baziChart.timing?.evidence?.promptText ?? '', /唯一映射为/);
     assert.equal(baziChart.warningFacts?.length, baziExpected.warningFacts.length);
     assert.equal(baziChart.warningSummaryFact?.status, baziExpected.warningSummaryFact.status);
     assert.ok(
@@ -2558,9 +2600,73 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
     assert.equal(ziweiResult.isError, undefined, 'ziwei_calculate 真太阳时不应返回错误');
     const ziweiChart = ziweiResult.structuredContent as {
       basicInfo?: { birth_time_label?: string; birth_time_range?: string };
+      trueSolarEvidence?: {
+        status: string;
+        calculationSteps: unknown[];
+        summaryFact: { status: string };
+      };
     };
     assert.equal(ziweiChart.basicInfo?.birth_time_label, ziweiTimeInfo.name);
     assert.equal(ziweiChart.basicInfo?.birth_time_range, ziweiTimeInfo.range.replace('-', '~'));
+    assert.equal(ziweiChart.trueSolarEvidence?.status, '已计算');
+    assert.equal(ziweiChart.trueSolarEvidence?.calculationSteps.length, 7);
+    assert.equal(ziweiChart.trueSolarEvidence?.summaryFact.status, '证据链完整');
+
+    const ziweiPromptResult = await client.callTool({
+      name: 'ziwei_prompt',
+      arguments: {
+        gender: 'female',
+        dateType: 'solar',
+        year: '1992',
+        month: '8',
+        day: '21',
+        useTrueSolarTime: true,
+        birthHour: '1',
+        birthMinute: '20',
+        birthLongitude: '73.5',
+        question: '请分析整体命盘。',
+      },
+    });
+    assert.equal(ziweiPromptResult.isError, undefined);
+    const ziweiPrompt = String(ziweiPromptResult.structuredContent?.prompt ?? '');
+    assert.match(ziweiPrompt, /【出生时间校正证据】/);
+    assert.match(ziweiPrompt, /计算步骤：/);
+    assert.match(ziweiPrompt, /不生成候选时辰、敏感性结果或缺时柱命盘/);
+
+    const astrolabePromptResult = await client.callTool({
+      name: 'astrolabe_prompt',
+      arguments: {
+        name: '本人',
+        gender: '女',
+        year: 1995,
+        month: 5,
+        day: 20,
+        hour: 1,
+        minute: 20,
+        latitude: 39.9042,
+        longitude: 73.5,
+        timezone: 8,
+        timeZoneId: 'Asia/Shanghai',
+        locationName: '喀什',
+        useTrueSolarTime: true,
+        question: '请分析整体星盘。',
+      },
+    });
+    assert.equal(astrolabePromptResult.isError, undefined);
+    const astrolabePromptResultData = astrolabePromptResult.structuredContent as {
+      result?: {
+        birth?: { trueSolarEvidence?: { status: string; calculationSteps: unknown[] } };
+        evidenceAnalysis?: { trueSolarTimeFact?: { key: string } };
+      };
+      prompt?: string;
+    };
+    assert.equal(astrolabePromptResultData.result?.birth?.trueSolarEvidence?.status, '已计算');
+    assert.equal(
+      astrolabePromptResultData.result?.birth?.trueSolarEvidence?.calculationSteps.length,
+      7,
+    );
+    assert.ok(astrolabePromptResultData.result?.evidenceAnalysis?.trueSolarTimeFact?.key);
+    assert.match(astrolabePromptResultData.prompt ?? '', /真太阳时校正证据/);
   });
 });
 

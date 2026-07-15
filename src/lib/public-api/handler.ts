@@ -391,7 +391,8 @@ export function getPublicApiOpenApiDocument(
           requestBody: openApiJsonRequestBody('#/components/schemas/TrueSolarTimeRequest'),
           responses: {
             '200': {
-              description: '校正时间、经度修正、均时差、总修正量、跨日状态与对应时辰',
+              description:
+                '唯一校正时间、经度与均时差修正、跨日、对应时辰，以及结构化计算链、校正事实、证据汇总、来源与限制',
             },
           },
         },
@@ -402,7 +403,8 @@ export function getPublicApiOpenApiDocument(
           requestBody: openApiJsonRequestBody('#/components/schemas/TrueSolarBirthRequest'),
           responses: {
             '200': {
-              description: '公历钟表时间、标准时间、真太阳时、跨日、时辰索引与夏令时资料',
+              description:
+                '公历钟表时间、标准时间、真太阳时、跨日、唯一时辰索引、夏令时资料，以及历法输入在内的完整结构化计算链、事实、汇总与限制',
             },
           },
         },
@@ -1960,6 +1962,8 @@ async function buildZiweiCompatibilityPromptApi(input: JsonRecord) {
   const prompt = buildCombinedZiweiCompatibilityPrompt({
     primaryPayload: charts.person1.payloadByScope.origin,
     partnerPayload: charts.person2.payloadByScope.origin,
+    primaryTrueSolarEvidence: charts.person1.trueSolarEvidence,
+    partnerTrueSolarEvidence: charts.person2.trueSolarEvidence,
     primaryName: charts.person1Name,
     partnerName: charts.person2Name,
     topic,

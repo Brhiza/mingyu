@@ -157,7 +157,7 @@ npm run mcp
 
 八字和紫微工具默认使用 `timeIndex` 表示出生时辰，范围为 `0` 到 `12`，其中 `0` 为早子时，`12` 为晚子时。
 
-需要启用真太阳时校正时，传入 `useTrueSolarTime: true`，并提供 `birthHour`、`birthMinute`、`birthLongitude`；此时可以不传 `timeIndex`，工具会按校正后的真太阳时自动换算时辰。八字工具的精准时间和经度使用数字，紫微工具与公开 API 保持一致，使用字符串。
+需要启用真太阳时校正时，传入 `useTrueSolarTime: true`，并提供 `birthHour`、`birthMinute`、`birthLongitude`；此时可以不传 `timeIndex`，工具会按校正后的真太阳时自动换算唯一时辰，并返回结构化计算步骤、校正事实、证据汇总和限制。关闭真太阳时时仍可直接传入明确的 `timeIndex`，按传统时辰生成完整时柱。八字工具的精准时间和经度使用数字，紫微工具与公开 API 保持一致，使用字符串。
 
 ### 八字命限提示词参数
 

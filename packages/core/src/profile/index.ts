@@ -1,4 +1,8 @@
-import { resolveTrueSolarBirthTime, type SolarDateTimeParts } from '../calendar/true-solar-time';
+import {
+  resolveTrueSolarBirthTime,
+  type SolarDateTimeParts,
+  type TrueSolarTimeEvidenceFields,
+} from '../calendar/true-solar-time';
 import { getTimeIndexFromClock } from '../calendar/dateUtils';
 import type { Person } from '../bazi/baziTypes';
 import type { AlmanacParticipantInput, AstrolabeBirthInput } from '../types/divination';
@@ -51,6 +55,7 @@ export interface NormalizedBirthProfile {
   effectiveTime: SolarDateTimeParts;
   timeIndex: number;
   usedTrueSolarTime: boolean;
+  trueSolarEvidence?: TrueSolarTimeEvidenceFields;
   diagnostics: BirthProfileDiagnostic[];
 }
 
@@ -156,6 +161,18 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
       effectiveTime: resolved.correctedTime,
       timeIndex: resolved.timeIndex,
       usedTrueSolarTime: true,
+      trueSolarEvidence: {
+        key: resolved.key,
+        status: resolved.status,
+        calculationSteps: resolved.calculationSteps,
+        calculationChain: resolved.calculationChain,
+        correctionFacts: resolved.correctionFacts,
+        summaryFact: resolved.summaryFact,
+        limitations: resolved.limitations,
+        limitationFacts: resolved.limitationFacts,
+        source: resolved.source,
+        promptText: resolved.promptText,
+      },
       diagnostics,
     };
   }

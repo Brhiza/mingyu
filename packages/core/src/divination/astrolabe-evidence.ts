@@ -2,6 +2,7 @@ import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { AstrolabeData } from '../types/divination';
 import type { HistoricalTimezoneEvidence } from '../calendar/historical-timezone';
+import type { TrueSolarTimeEvidenceFields } from '../calendar/true-solar-time';
 
 export interface AstrolabePositionFact {
   key: string;
@@ -198,6 +199,7 @@ export interface AstrolabeEvidenceAnalysis {
   calculationSteps: AstrolabeCalculationStep[];
   calculationChain: string[];
   timezoneFact?: HistoricalTimezoneEvidence;
+  trueSolarTimeFact?: TrueSolarTimeEvidenceFields;
   primaryCoverageFact: AstrolabePrimaryCoverageFact;
   primaryPointFacts: AstrolabePrimaryFact[];
   primaryFacts: string[];
@@ -819,6 +821,7 @@ function buildLimitationFacts(
 function buildSummaryFact(args: {
   calculationFact: AstrolabeCalculationFact;
   timezoneFact?: HistoricalTimezoneEvidence;
+  trueSolarTimeFact?: TrueSolarTimeEvidenceFields;
   primaryCoverageFact: AstrolabePrimaryCoverageFact;
   primaryPointFacts: AstrolabePrimaryFact[];
   positionFacts: AstrolabePositionFact[];
@@ -833,6 +836,7 @@ function buildSummaryFact(args: {
     args.calculationFact.status === '完整' &&
     (!args.timezoneFact ||
       (args.timezoneFact.status === 'unique' && !args.timezoneFact.offsetConflict)) &&
+    (!args.trueSolarTimeFact || args.trueSolarTimeFact.status === '已计算') &&
     args.primaryCoverageFact.status === '完整' &&
     args.positionFacts.length > 0 &&
     args.aspectFacts.every((item) => item.status === '几何完整') &&
@@ -854,6 +858,15 @@ function buildSummaryFact(args: {
               args.timezoneFact.diagnosticSummaryFact.key,
               args.timezoneFact.summaryFact.key,
               ...args.timezoneFact.limitationFacts.map((item) => item.key),
+            ]
+          : []),
+        ...(args.trueSolarTimeFact
+          ? [
+              args.trueSolarTimeFact.key,
+              ...args.trueSolarTimeFact.calculationSteps.map((item) => item.key),
+              ...args.trueSolarTimeFact.correctionFacts.map((item) => item.key),
+              args.trueSolarTimeFact.summaryFact.key,
+              ...args.trueSolarTimeFact.limitationFacts.map((item) => item.key),
             ]
           : []),
         args.primaryCoverageFact.key,
@@ -919,6 +932,7 @@ export function analyzeAstrolabeEvidence(
       : [];
   const supportingFacts = aspectFacts.map((item) => item.promptText);
   const timezoneFact = data.birth.timezoneEvidence;
+  const trueSolarTimeFact = data.birth.trueSolarEvidence;
   const counterEvidenceFacts = buildCounterEvidenceFacts(aspectFacts, distributionEvidenceFacts);
   const counterSummaryFact = buildCounterSummaryFact(counterEvidenceFacts);
   const counterEvidence = counterEvidenceFacts
@@ -936,6 +950,7 @@ export function analyzeAstrolabeEvidence(
   const summaryFact = buildSummaryFact({
     calculationFact,
     timezoneFact,
+    trueSolarTimeFact,
     primaryCoverageFact,
     primaryPointFacts,
     positionFacts,
@@ -965,6 +980,17 @@ export function analyzeAstrolabeEvidence(
             detail: `${timezoneFact.promptText}；诊断边界：${timezoneFact.diagnosticSummaryFact.limitation}`,
             source: timezoneFact.source,
             tags: ['历史时区', timezoneFact.status, timezoneFact.diagnosticSummaryFact.status],
+          },
+        ]
+      : []),
+    ...(trueSolarTimeFact
+      ? [
+          {
+            level: trueSolarTimeFact.status === '已计算' ? ('辅证' as const) : ('反证' as const),
+            title: '真太阳时校正证据',
+            detail: `${trueSolarTimeFact.promptText}；边界：${trueSolarTimeFact.summaryFact.limitation}`,
+            source: trueSolarTimeFact.source,
+            tags: ['真太阳时', trueSolarTimeFact.status, trueSolarTimeFact.summaryFact.status],
           },
         ]
       : []),
@@ -1074,6 +1100,7 @@ export function analyzeAstrolabeEvidence(
     calculationSteps: calculationFact.steps,
     calculationChain,
     timezoneFact,
+    trueSolarTimeFact,
     primaryCoverageFact,
     primaryPointFacts,
     primaryFacts,

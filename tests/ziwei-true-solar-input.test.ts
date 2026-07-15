@@ -33,6 +33,12 @@ test('紫微真太阳时排盘应改用修正后的公历日期与时辰', () =>
     `${corrected.year}-${String(corrected.month).padStart(2, '0')}-${String(corrected.day).padStart(2, '0')}`,
   );
   assert.equal(result.birthTimeIndex, getTimeIndexFromClock(corrected.hour, corrected.minute));
+  assert.equal(result.trueSolarEvidence.summaryFact.status, '证据链完整');
+  assert.equal(
+    result.trueSolarEvidence.calculationChain.length,
+    result.trueSolarEvidence.calculationSteps.length,
+  );
+  assert.match(result.trueSolarEvidence.promptText, /证据汇总：/);
 });
 
 test('紫微农历输入启用真太阳时跨日时应改用校正后的公历日期排盘', () => {

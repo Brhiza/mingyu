@@ -551,6 +551,8 @@ export function ResultPage() {
       return buildCombinedZiweiCompatibilityPrompt({
         primaryPayload: currentZiweiPayload,
         partnerPayload: partnerZiweiPayload,
+        primaryTrueSolarEvidence: ziweiRuntime?.trueSolarEvidence,
+        partnerTrueSolarEvidence: partnerZiweiRuntime?.trueSolarEvidence,
         topic: promptState.ziweiTopic,
         question,
         isCustomQuestion: activeZiweiShortcutMode === '自定义',
@@ -563,6 +565,7 @@ export function ResultPage() {
       question,
       {
         isCustomQuestion: activeZiweiShortcutMode === '自定义',
+        trueSolarEvidence: ziweiRuntime?.trueSolarEvidence,
       },
     );
     if (promptState.ziweiScope !== 'full' || !activeZiweiPayloadByScope) {
@@ -735,10 +738,12 @@ export function ResultPage() {
       effectiveZiweiQuickQuestion,
       inputState.analysisMode,
       partnerZiweiPayload,
+      partnerZiweiRuntime,
       promptState.promptSource,
       promptState.tab,
       promptState.ziweiScope,
       promptState.ziweiTopic,
+      ziweiRuntime,
     ],
   );
   const previewZiweiPromptText = useMemo(
@@ -763,10 +768,12 @@ export function ResultPage() {
       inputState.analysisMode,
       latestZiweiPromptText,
       partnerZiweiPayload,
+      partnerZiweiRuntime,
       promptState.promptSource,
       promptState.tab,
       promptState.ziweiScope,
       promptState.ziweiTopic,
+      ziweiRuntime,
     ],
   );
 

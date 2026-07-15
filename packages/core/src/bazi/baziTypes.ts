@@ -6,6 +6,7 @@
 import type { ShenShaVariantConfig } from './baziShenSha/variants';
 import type { MingGuaProfile } from '../types/analysis';
 import type { SolarTermEvidence } from '../calendar/solar-term-evidence';
+import type { TrueSolarTimeEvidenceFields } from '../calendar/true-solar-time';
 import { WUXING } from '../wuxing';
 import type { Wuxing } from '../wuxing';
 
@@ -130,6 +131,7 @@ export interface TimingInfo {
   longitudeCorrectionMinutes: number;
   equationOfTimeMinutes: number;
   totalCorrectionMinutes: number;
+  evidence: TrueSolarTimeEvidenceFields;
   /** 中国夏令时校正（命中 1986-1991 夏令时时为 -60，未命中时省略） */
   dstCorrectionMinutes?: number;
 }

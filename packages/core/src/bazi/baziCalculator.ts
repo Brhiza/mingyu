@@ -287,6 +287,18 @@ export class BaziCalculator {
         longitudeCorrectionMinutes: trueSolarResult.longitudeCorrectionMinutes,
         equationOfTimeMinutes: trueSolarResult.equationOfTimeMinutes,
         totalCorrectionMinutes: trueSolarResult.totalCorrectionMinutes,
+        evidence: {
+          key: trueSolarResult.key,
+          status: trueSolarResult.status,
+          calculationSteps: trueSolarResult.calculationSteps,
+          calculationChain: trueSolarResult.calculationChain,
+          correctionFacts: trueSolarResult.correctionFacts,
+          summaryFact: trueSolarResult.summaryFact,
+          limitations: trueSolarResult.limitations,
+          limitationFacts: trueSolarResult.limitationFacts,
+          source: trueSolarResult.source,
+          promptText: trueSolarResult.promptText,
+        },
         ...(dstCorrectionMinutes !== 0 ? { dstCorrectionMinutes } : {}),
       };
 

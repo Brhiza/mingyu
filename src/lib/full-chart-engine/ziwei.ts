@@ -34,7 +34,10 @@ export type ZiweiRuntime = {
   astrolabe: IztroAstrolabe;
   horoscope: IztroHoroscope;
   payloadByScope: Record<ScopeType, AnalysisPayloadV1>;
+  trueSolarEvidence?: ChartInput['trueSolarEvidence'];
 };
+
+type ZiweiTrueSolarEvidence = NonNullable<ZiweiRuntime['trueSolarEvidence']>;
 
 function readInteger(value: string | number, label: string) {
   if (typeof value === 'number') {
@@ -138,6 +141,7 @@ export async function calculateZiweiChartForScopes(
     astrolabe,
     horoscope,
     payloadByScope,
+    trueSolarEvidence: input.trueSolarEvidence,
   };
 }
 
@@ -255,6 +259,7 @@ export async function calculatePublicZiweiChartForScopes(
     astrolabe,
     horoscope,
     payloadByScope: payloadByScope as Record<ScopeType, AnalysisPayloadV1>,
+    trueSolarEvidence: input.trueSolarEvidence,
   };
 }
 
@@ -328,6 +333,7 @@ export function buildZiweiChartInput(input: {
     dateType: input.useTrueSolarTime ? 'solar' : input.dateType,
     birthDate,
     birthTimeIndex: trueSolarBirth?.birthTimeIndex ?? birthTimeIndex,
+    trueSolarEvidence: trueSolarBirth?.trueSolarEvidence,
     isLeapMonth: input.useTrueSolarTime ? false : input.isLeapMonth,
     fixLeap: true,
     algorithm: 'default',
@@ -557,11 +563,26 @@ function buildZiweiOutputRequirementText() {
   ].join('\n');
 }
 
+export function formatZiweiTrueSolarEvidence(evidence?: ZiweiTrueSolarEvidence): string {
+  if (!evidence) return '';
+
+  return [
+    `校正状态：${evidence.status}；${evidence.summaryFact.promptText}`,
+    `计算步骤：${evidence.calculationSteps.map((step) => step.promptText).join(' → ')}`,
+    `校正事实：${evidence.correctionFacts.map((fact) => fact.promptText).join('；')}`,
+    `限制边界：${evidence.limitations.join('；')}`,
+    `资料来源：${evidence.source}`,
+  ].join('\n');
+}
+
 export function buildCombinedZiweiPrompt(
   payload: AnalysisPayloadV1,
   topic: string,
   question: string,
-  options: { isCustomQuestion?: boolean } = {},
+  options: {
+    isCustomQuestion?: boolean;
+    trueSolarEvidence?: ZiweiTrueSolarEvidence;
+  } = {},
 ) {
   const isCustomQuestion = Boolean(options.isCustomQuestion);
   const normalizedQuestion =
@@ -572,6 +593,7 @@ export function buildCombinedZiweiPrompt(
     reportContext,
     mode: 'task-book',
   });
+  const trueSolarEvidenceText = formatZiweiTrueSolarEvidence(options.trueSolarEvidence);
 
   return [
     ZIWEI_ANALYST_ROLE,
@@ -591,6 +613,7 @@ export function buildCombinedZiweiPrompt(
     `【当前时间】\n${formatPromptCurrentTime()}`,
     '',
     pack,
+    ...(trueSolarEvidenceText ? ['', `【出生时间校正证据】\n${trueSolarEvidenceText}`] : []),
     ...(isCustomQuestion ? [] : ['', `【解读范围】\n${buildZiweiScopePriorityText(payload)}`]),
     ...(isCustomQuestion
       ? []
@@ -618,6 +641,8 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
   isCustomQuestion?: boolean;
   primaryName?: string;
   partnerName?: string;
+  primaryTrueSolarEvidence?: ZiweiTrueSolarEvidence;
+  partnerTrueSolarEvidence?: ZiweiTrueSolarEvidence;
 }) {
   const isCustomQuestion = Boolean(params.isCustomQuestion);
   const primaryContext = createZiweiReportContext(params.primaryPayload, params.topic);
@@ -634,6 +659,12 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
   });
   const primaryEmbeddedPack = demoteEmbeddedPromptSections(primaryPack);
   const partnerEmbeddedPack = demoteEmbeddedPromptSections(partnerPack);
+  const primaryTrueSolarEvidenceText = formatZiweiTrueSolarEvidence(
+    params.primaryTrueSolarEvidence,
+  );
+  const partnerTrueSolarEvidenceText = formatZiweiTrueSolarEvidence(
+    params.partnerTrueSolarEvidence,
+  );
   const compatibilityEvidence = analyzeZiweiCompatibility(
     params.primaryPayload,
     params.partnerPayload,
@@ -664,9 +695,15 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
     `【当前时间】\n${formatPromptCurrentTime()}`,
     `【${primaryName}盘面】`,
     primaryEmbeddedPack,
+    ...(primaryTrueSolarEvidenceText
+      ? ['', `【${primaryName}出生时间校正证据】\n${primaryTrueSolarEvidenceText}`]
+      : []),
     '',
     `【${partnerName}盘面】`,
     partnerEmbeddedPack,
+    ...(partnerTrueSolarEvidenceText
+      ? ['', `【${partnerName}出生时间校正证据】\n${partnerTrueSolarEvidenceText}`]
+      : []),
     '',
     compatibilityEvidence,
     '',
