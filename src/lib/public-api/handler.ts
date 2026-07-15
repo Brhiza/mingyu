@@ -2528,6 +2528,20 @@ function buildCompactBaziResult(result: BaziChartResult) {
     warnings: result.warnings,
     warningFacts: result.warningFacts,
     warningSummaryFact: result.warningSummaryFact,
+    evidenceAnalysis: result.evidenceAnalysis
+      ? {
+          key: result.evidenceAnalysis.key,
+          status: result.evidenceAnalysis.status,
+          calculationSteps: result.evidenceAnalysis.calculationSteps,
+          pillarFacts: result.evidenceAnalysis.pillarFacts,
+          analysisFacts: result.evidenceAnalysis.analysisFacts,
+          relationFacts: result.evidenceAnalysis.relationFacts,
+          counterEvidenceFacts: result.evidenceAnalysis.counterEvidenceFacts,
+          counterSummaryFact: result.evidenceAnalysis.counterSummaryFact,
+          summaryFact: result.evidenceAnalysis.summaryFact,
+          limitationFacts: result.evidenceAnalysis.limitationFacts,
+        }
+      : undefined,
   };
 }
 

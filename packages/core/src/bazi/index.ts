@@ -119,6 +119,18 @@ export type { HarmonyPillarInput } from './harmonyTransform';
 export { getLifeStage } from './baziValues';
 export { analyzeBaziCompatibility } from './compatibilityEvidence';
 export { analyzeFortuneTriggers } from './fortuneTriggerEvidence';
+export { analyzeBaziNatalEvidence } from './natalEvidence';
+export type {
+  BaziNatalAnalysisFact,
+  BaziNatalCalculationStep,
+  BaziNatalCounterEvidenceFact,
+  BaziNatalCounterSummaryFact,
+  BaziNatalEvidenceAnalysis,
+  BaziNatalLimitationFact,
+  BaziNatalPillarFact,
+  BaziNatalRelationFact,
+  BaziNatalSummaryFact,
+} from './natalEvidence';
 export type {
   FortuneLayerType,
   FortuneTriggerEvidenceResult,

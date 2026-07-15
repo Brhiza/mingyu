@@ -217,7 +217,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       question: '我适合创业还是上班？',
       promptTopic: 'career',
     },
-    /【排盘信息】/,
+    /【排盘信息】[\s\S]*【八字本命四柱与核心判断结构化证据】[\s\S]*证据汇总：八字本命证据状态为证据链完整/,
   ],
   [
     'ziwei_prompt',
@@ -408,6 +408,44 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         false,
         `${name} 不应通过旧排盘工具返回提示词`,
       );
+      if (name === 'bazi_calculate') {
+        const chart = result.structuredContent as {
+          result?: {
+            evidenceAnalysis?: {
+              key?: string;
+              status?: string;
+              calculationSteps?: Array<{ key: string }>;
+              pillarFacts?: Array<{ key?: string; calculationStepKeys?: string[] }>;
+              analysisFacts?: Array<{ key?: string; calculationStepKeys?: string[] }>;
+              relationFacts?: Array<{ key?: string; calculationStepKeys?: string[] }>;
+              counterEvidenceFacts?: Array<{ key?: string; ownerFactKeys?: string[] }>;
+              summaryFact?: {
+                key?: string;
+                factKeys?: string[];
+                pillarFactCount?: number;
+                analysisFactCount?: number;
+              };
+              limitationFacts?: Array<{ ownerFactKeys?: string[] }>;
+            };
+          };
+        };
+        const analysis = chart.result?.evidenceAnalysis;
+        const stepKeys = new Set(analysis?.calculationSteps?.map((item) => item.key));
+        assert.equal(analysis?.key, 'bazi:natal:evidence');
+        assert.equal(analysis?.calculationSteps?.length, 5);
+        assert.equal(analysis?.pillarFacts?.length, 4);
+        assert.equal(analysis?.analysisFacts?.length, 3);
+        assert.equal(analysis?.summaryFact?.pillarFactCount, analysis?.pillarFacts?.length);
+        assert.equal(analysis?.summaryFact?.analysisFactCount, analysis?.analysisFacts?.length);
+        assert.ok(
+          [
+            ...(analysis?.pillarFacts ?? []),
+            ...(analysis?.analysisFacts ?? []),
+            ...(analysis?.relationFacts ?? []),
+          ].every((item) => item.calculationStepKeys?.every((key) => stepKeys.has(key))),
+        );
+        assertEvidenceOwnerReferences(analysis);
+      }
       if (name === 'ziwei_calculate') {
         const chart = result.structuredContent as {
           payloadByScope?: {

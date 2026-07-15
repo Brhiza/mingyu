@@ -638,6 +638,18 @@ test('公开 API 应支持八字排盘', async () => {
   assert.equal(body.data.gender, 'male');
   assert.equal(body.data.warningFacts.length, body.data.warnings.length);
   assert.equal(body.data.warningSummaryFact.status, '存在需核验事项');
+  assert.equal(body.data.evidenceAnalysis.key, 'bazi:natal:evidence');
+  assert.equal(body.data.evidenceAnalysis.calculationSteps.length, 5);
+  assert.equal(body.data.evidenceAnalysis.pillarFacts.length, 4);
+  assert.equal(body.data.evidenceAnalysis.analysisFacts.length, 3);
+  assert.equal(body.data.evidenceAnalysis.counterEvidenceFacts.length, 4);
+  assert.equal(body.data.evidenceAnalysis.limitationFacts.length, 6);
+  assert.equal(body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.warningFactCount,
+    body.data.warningFacts.length,
+  );
+  assertEvidenceOwnerReferences(body.data.evidenceAnalysis);
 });
 
 test('公开 API 八字神煞默认使用主流口径', async () => {
@@ -750,6 +762,12 @@ test('公开 API 八字排盘支持轻量模式，避免默认拉取大流年明
   assert.equal(body.data.liunian, undefined);
   assert.ok(body.data.luckInfo.cycles.length > 0);
   assert.equal(body.data.luckInfo.cycles[0].years, undefined);
+  assert.equal(body.data.evidenceAnalysis.key, 'bazi:natal:evidence');
+  assert.equal(body.data.evidenceAnalysis.calculationSteps.length, 5);
+  assert.equal(body.data.evidenceAnalysis.pillarFacts.length, 4);
+  assert.equal(body.data.evidenceAnalysis.analysisFacts.length, 3);
+  assert.equal(body.data.evidenceAnalysis.limitationFacts.length, 6);
+  assertEvidenceOwnerReferences(body.data.evidenceAnalysis);
 });
 
 test('公开 API 八字排盘应支持真太阳时精确时分和经度', async () => {
@@ -855,6 +873,8 @@ test('公开 API 八字提示词接口默认返回轻量摘要和提示词', asy
   assert.equal(body.data.resultSummary.liunian, undefined);
   const prompt = body.data.prompt;
   assert.match(prompt, /【排盘信息】/);
+  assert.match(prompt, /【八字本命四柱与核心判断结构化证据】/);
+  assert.match(prompt, /证据汇总：八字本命证据状态为证据链完整/);
   assert.match(prompt, /我适合创业还是上班/);
   assertPromptIsPortableTaskText(prompt);
 });

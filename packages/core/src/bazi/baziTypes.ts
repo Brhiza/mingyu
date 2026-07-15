@@ -376,4 +376,6 @@ export interface BaziChartResult {
   warnings: string[];
   warningFacts: BaziWarningFact[];
   warningSummaryFact: BaziWarningSummaryFact;
+  /** 八字本命四柱、旺衰、格局、取用、关系、反证与限制的统一证据链。 */
+  evidenceAnalysis?: import('./natalEvidence').BaziNatalEvidenceAnalysis;
 }

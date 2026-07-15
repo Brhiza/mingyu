@@ -307,6 +307,10 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     result += '\n';
   }
 
+  if (baziResult.evidenceAnalysis?.promptText) {
+    result += `\n${baziResult.evidenceAnalysis.promptText}\n`;
+  }
+
   if (includeLuckOverview && baziResult.luckInfo?.cycles) {
     result += '\n【大运】\n';
     result += `${formatPromptLuckOverview(baziResult)}\n`;

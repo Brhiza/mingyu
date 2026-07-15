@@ -50,6 +50,7 @@ import { getTimeIndexFromClock } from '../calendar/dateUtils';
 import { getBirthDateValidationMessage } from '../calendar/date-validation';
 import { calculateMingGua } from './mingGua';
 import { analyzePillarRelations } from './baziPromptEnhancement';
+import { analyzeBaziNatalEvidence } from './natalEvidence';
 
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 type LunarHourInstance = ReturnType<SolarTimeInstance['getLunarHour']>;
@@ -455,6 +456,7 @@ export class BaziCalculator {
       ...extendedResult,
       pillarRelations: analyzePillarRelations(coreResult),
     };
+    finalResult.evidenceAnalysis = analyzeBaziNatalEvidence(finalResult);
 
     delete finalResult.solarTime;
     delete finalResult.eightChar;
