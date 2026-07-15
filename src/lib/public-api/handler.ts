@@ -390,7 +390,12 @@ export function getPublicApiOpenApiDocument(
       '/foundation/capabilities': {
         get: {
           summary: '获取公共地基能力目录',
-          responses: { '200': { description: '天干地支、六十甲子、五行、八卦等可复用常量与能力' } },
+          responses: {
+            '200': {
+              description:
+                '历法、干支、五行、方位与神煞目录的稳定能力事实、来源、证据汇总、限制和可复制说明',
+            },
+          },
         },
       },
       '/calendar/true-solar-time': {

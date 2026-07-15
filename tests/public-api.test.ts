@@ -691,6 +691,33 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   assert.ok(capabilities.body.data.evidenceOutputs.ganzhi.includes('来源事实'));
   assert.ok(capabilities.body.data.evidenceOutputs.wuxing.includes('并列最高最低项'));
   assert.ok(capabilities.body.data.evidenceOutputs.direction.includes('分界线状态'));
+  assert.equal(capabilities.body.data.key, 'foundation:capabilities');
+  assert.equal(capabilities.body.data.status, '已登记');
+  assert.equal(capabilities.body.data.capabilityFacts.length, 5);
+  assert.equal(capabilities.body.data.summaryFact.moduleFactCount, 5);
+  assert.equal(capabilities.body.data.summaryFact.evidenceReadyModuleCount, 4);
+  assert.equal(capabilities.body.data.summaryFact.catalogOnlyModuleCount, 1);
+  assert.equal(
+    capabilities.body.data.summaryFact.commonShenshaCount,
+    capabilities.body.data.commonShensha.length,
+  );
+  assert.equal(
+    capabilities.body.data.summaryFact.constantGroupCount,
+    Object.keys(capabilities.body.data.constants).length,
+  );
+  assert.equal(capabilities.body.data.limitationFacts.length, 4);
+  assert.equal(
+    capabilities.body.data.limitations.length,
+    capabilities.body.data.limitationFacts.length,
+  );
+  assert.ok(capabilities.body.data.evidenceOutputs.calendar.includes('真太阳时计算链'));
+  assert.ok(capabilities.body.data.evidenceOutputs.shensha.includes('稳定编号'));
+  assert.match(capabilities.body.data.promptText, /能力目录证据汇总：目录完整/);
+  assert.match(capabilities.body.data.promptText, /不得把目录数量/);
+  assert.doesNotMatch(
+    capabilities.body.data.promptText,
+    /命语|mingyu-core|本项目|当前项目|工程|接口|API|MCP/,
+  );
 
   const ganZhi = await callApi('foundation/ganzhi', {
     method: 'POST',

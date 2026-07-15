@@ -29,7 +29,8 @@ test('公共地基层应成为八字与占卜旧路径的单一真相源', () =>
 });
 
 test('六十甲子工具应返回完整序列与结构化关系', () => {
-  const cycle = core.foundation.getFoundationCapabilities().constants.sixtyCycle;
+  const capabilities = core.foundation.getFoundationCapabilities();
+  const cycle = capabilities.constants.sixtyCycle;
   assert.equal(cycle.length, 60);
   assert.equal(cycle[0], '甲子');
   assert.equal(cycle[59], '癸亥');
@@ -88,6 +89,51 @@ test('六十甲子工具应返回完整序列与结构化关系', () => {
     [1986, 1987, 1988, 1989, 1990, 1991],
   );
   assert.ok(core.foundation.getFoundationCapabilities().singleSourceModules.includes('calendar'));
+  assert.equal(capabilities.key, 'foundation:capabilities');
+  assert.equal(capabilities.status, '已登记');
+  assert.equal(capabilities.version, '1.1.0');
+  assert.equal(capabilities.capabilityFacts.length, capabilities.singleSourceModules.length);
+  assert.equal(capabilities.summaryFact.status, '目录完整');
+  assert.equal(capabilities.summaryFact.moduleFactCount, capabilities.capabilityFacts.length);
+  assert.equal(capabilities.summaryFact.evidenceReadyModuleCount, 4);
+  assert.equal(capabilities.summaryFact.catalogOnlyModuleCount, 1);
+  assert.equal(
+    capabilities.summaryFact.constantGroupCount,
+    Object.keys(capabilities.constants).length,
+  );
+  assert.equal(capabilities.summaryFact.commonShenshaCount, capabilities.commonShensha.length);
+  assert.deepEqual(
+    capabilities.summaryFact.factKeys,
+    capabilities.capabilityFacts.map((fact) => fact.key),
+  );
+  assert.equal(capabilities.limitationFacts.length, 4);
+  assert.equal(capabilities.limitations.length, capabilities.limitationFacts.length);
+  assert.ok(
+    capabilities.capabilityFacts.every(
+      (fact) =>
+        fact.key.startsWith('foundation:capability:') &&
+        fact.provides.length > 0 &&
+        fact.sources.length > 0 &&
+        fact.promptText &&
+        fact.limitation.includes('不证明传统解释'),
+    ),
+  );
+  assert.equal(
+    capabilities.capabilityFacts.find((fact) => fact.module === 'shensha')?.status,
+    '目录资料可用',
+  );
+  assert.ok(capabilities.evidenceOutputs.calendar.includes('月相与节气证据'));
+  assert.ok(capabilities.evidenceOutputs.shensha.includes('适用范围'));
+  assert.match(capabilities.promptText, /【公共历法干支五行方位能力结构化证据】/);
+  assert.match(capabilities.promptText, /神煞目录本身不表示任何神煞已经命中/);
+  assert.doesNotMatch(
+    capabilities.promptText,
+    /命语|mingyu-core|本项目|当前项目|工程|接口|API|MCP/,
+  );
+  assert.doesNotMatch(
+    capabilities.promptText,
+    /"score"\s*:|成功率[：=]?\s*\d|吉凶总分[：=]?\s*\d|事件概率[：=]?\s*\d/,
+  );
 });
 
 test('统一五行分析应严格校验输入并支持藏干权重', () => {

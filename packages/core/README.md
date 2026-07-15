@@ -288,6 +288,9 @@ import {
 } from 'mingyu-core';
 
 const house = bazhai.analyzeBaZhai({ birthYear: 1990, gender: 'male', sitMountain: '子' });
+const foundationCapabilities = foundation.getFoundationCapabilities();
+console.log(foundationCapabilities.capabilityFacts); // 历法、干支、五行、方位与神煞目录能力事实
+console.log(foundationCapabilities.promptText); // 来源、证据汇总与解释限制
 const houseByDoorDegree = bazhai.analyzeBaZhaiByDoorDegree({
   birthYear: 1990,
   birthMonth: 6,

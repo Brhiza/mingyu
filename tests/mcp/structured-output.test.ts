@@ -416,6 +416,45 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         false,
         `${name} 不应通过旧排盘工具返回提示词`,
       );
+      if (name === 'foundation_capabilities') {
+        const capabilities = result.structuredContent.result as {
+          key: string;
+          status: string;
+          capabilityFacts: Array<{
+            key: string;
+            status: string;
+            provides: string[];
+            sources: string[];
+          }>;
+          summaryFact: {
+            moduleFactCount: number;
+            evidenceReadyModuleCount: number;
+            catalogOnlyModuleCount: number;
+            commonShenshaCount: number;
+          };
+          limitationFacts: Array<{ ownerFactKeys: string[] }>;
+          commonShensha: unknown[];
+          promptText: string;
+        };
+        assert.equal(capabilities.key, 'foundation:capabilities');
+        assert.equal(capabilities.status, '已登记');
+        assert.equal(capabilities.capabilityFacts.length, 5);
+        assert.equal(capabilities.summaryFact.moduleFactCount, capabilities.capabilityFacts.length);
+        assert.equal(capabilities.summaryFact.evidenceReadyModuleCount, 4);
+        assert.equal(capabilities.summaryFact.catalogOnlyModuleCount, 1);
+        assert.equal(
+          capabilities.summaryFact.commonShenshaCount,
+          capabilities.commonShensha.length,
+        );
+        assert.ok(
+          capabilities.capabilityFacts.every(
+            (fact) => fact.key.startsWith('foundation:capability:') && fact.provides.length > 0,
+          ),
+        );
+        assert.ok(capabilities.limitationFacts.every((fact) => fact.ownerFactKeys.length > 0));
+        assert.match(capabilities.promptText, /能力目录证据汇总：目录完整/);
+        assertPromptIsPortableTaskText(capabilities.promptText);
+      }
       if (name === 'foundation_ganzhi') {
         const profile = result.structuredContent.result as {
           key: string;

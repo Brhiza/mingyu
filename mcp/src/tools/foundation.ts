@@ -30,7 +30,8 @@ export function registerFoundationTools(server: McpServer) {
   server.registerTool(
     'foundation_capabilities',
     {
-      description: '获取命语公共地基能力目录：天干地支、六十甲子、五行、八卦、二十四山与通用神煞',
+      description:
+        '获取公共地基能力目录，返回历法、干支、五行、方位与通用神煞的稳定能力事实、来源、证据汇总、限制和可复制说明',
       inputSchema: {},
       outputSchema: resultOutputSchema,
     },
