@@ -195,6 +195,7 @@ export interface AstrolabeEvidenceAnalysis {
   key: 'astrolabe:evidence';
   status: '已计算';
   calculationFact: AstrolabeCalculationFact;
+  calculationSteps: AstrolabeCalculationStep[];
   calculationChain: string[];
   timezoneFact?: HistoricalTimezoneEvidence;
   primaryCoverageFact: AstrolabePrimaryCoverageFact;
@@ -1069,6 +1070,7 @@ export function analyzeAstrolabeEvidence(
     key: 'astrolabe:evidence',
     status: '已计算',
     calculationFact,
+    calculationSteps: calculationFact.steps,
     calculationChain,
     timezoneFact,
     primaryCoverageFact,

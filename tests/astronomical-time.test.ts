@@ -46,6 +46,10 @@ test('天文时间尺度应以 J2000.0 校验 UTC 儒略日', () => {
     evidence.calculationSteps.map((item) => item.stage),
     ['时区解析', 'UTC换算', 'UTC儒略日', 'UT1近似', 'ΔT与TT'],
   );
+  assert.deepEqual(
+    evidence.calculationChain,
+    evidence.calculationSteps.map((item) => item.promptText),
+  );
   assert.deepEqual(evidence.calculationSteps[1].dependsOnStepKeys, [
     evidence.calculationSteps[0].key,
   ]);

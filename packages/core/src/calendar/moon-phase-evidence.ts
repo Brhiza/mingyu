@@ -121,6 +121,7 @@ export interface MoonPhaseEvidence {
   method: string;
   source: string;
   calculationSteps: MoonPhaseCalculationStep[];
+  calculationChain: string[];
   eventSummaryFact: MoonPhaseEventSummaryFact;
   summaryFact: MoonPhaseSummaryFact;
   limitations: string[];
@@ -424,6 +425,7 @@ export function calculateMoonPhaseEvidence(utcTimestamp: number): MoonPhaseEvide
     method,
     source,
     calculationSteps,
+    calculationChain: calculationSteps.map((item) => item.promptText),
     eventSummaryFact,
     summaryFact,
     limitations,

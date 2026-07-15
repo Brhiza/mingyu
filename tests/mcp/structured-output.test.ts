@@ -411,6 +411,17 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
       if (name === 'bazi_calculate') {
         const chart = result.structuredContent as {
           result?: {
+            seasonInfo?: {
+              previousTermEvidence?: {
+                calculationSteps: unknown[];
+                calculationChain: string[];
+                limitationFacts: unknown[];
+                summaryFact: {
+                  verificationFactCount: number;
+                  limitationFactCount: number;
+                };
+              };
+            };
             evidenceAnalysis?: {
               key?: string;
               status?: string;
@@ -430,7 +441,17 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
           };
         };
         const analysis = chart.result?.evidenceAnalysis;
+        const previousTermEvidence = chart.result?.seasonInfo?.previousTermEvidence;
         const stepKeys = new Set(analysis?.calculationSteps?.map((item) => item.key));
+        assert.equal(
+          previousTermEvidence?.calculationChain.length,
+          previousTermEvidence?.calculationSteps.length,
+        );
+        assert.equal(previousTermEvidence?.summaryFact.verificationFactCount, 1);
+        assert.equal(
+          previousTermEvidence?.summaryFact.limitationFactCount,
+          previousTermEvidence?.limitationFacts.length,
+        );
         assert.equal(analysis?.key, 'bazi:natal:evidence');
         assert.equal(analysis?.calculationSteps?.length, 5);
         assert.equal(analysis?.pillarFacts?.length, 4);
@@ -536,12 +557,14 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
                 astronomicalTime?: {
                   status: string;
                   calculationSteps: unknown[];
+                  calculationChain: string[];
                   limitations: string[];
                   limitationFacts: unknown[];
                 };
                 moonPhase?: {
                   status: string;
                   calculationSteps: unknown[];
+                  calculationChain: string[];
                   previousPrincipalPhase?: { key: string; sources: string[] };
                   nextPrincipalPhase?: { key: string; limitation: string };
                   eventSummaryFact: { previousEventKey: string; nextEventKey: string };
@@ -551,6 +574,7 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
                 solarIllumination?: {
                   status: string;
                   calculationSteps: unknown[];
+                  calculationChain: string[];
                   astronomicalTime: { status: string };
                   limitations: string[];
                   limitationFacts: unknown[];
@@ -571,6 +595,14 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
                     limitation: string;
                   }>;
                 };
+                calculationSteps?: Array<{
+                  key: string;
+                  status: string;
+                  promptText: string;
+                  sources: string[];
+                  dependsOnStepKeys: string[];
+                  limitation: string;
+                }>;
                 calculationChain?: string[];
                 positionSourceFacts?: Array<{
                   key: string;
@@ -616,6 +648,10 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         assert.equal(chart?.evidenceAnalysis?.status, '已计算');
         assert.equal(chart?.evidenceAnalysis?.calculationFact?.status, '含默认值');
         assert.equal(chart?.evidenceAnalysis?.calculationFact?.steps.length, 7);
+        assert.deepEqual(
+          chart?.evidenceAnalysis?.calculationSteps,
+          chart?.evidenceAnalysis?.calculationFact?.steps,
+        );
         assert.equal(chart?.evidenceAnalysis?.calculationChain?.length, 7);
         const qizhengStepKeys = new Set(
           chart?.evidenceAnalysis?.calculationFact?.steps.map((item) => item.key),
@@ -659,12 +695,14 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         );
         assert.equal(chart?.calculationContext?.astronomicalTime?.status, '已计算');
         assert.equal(chart?.calculationContext?.astronomicalTime?.calculationSteps.length, 5);
+        assert.equal(chart?.calculationContext?.astronomicalTime?.calculationChain.length, 5);
         assert.equal(
           chart?.calculationContext?.astronomicalTime?.limitations.length,
           chart?.calculationContext?.astronomicalTime?.limitationFacts.length,
         );
         assert.equal(chart?.calculationContext?.moonPhase?.status, '已计算');
         assert.equal(chart?.calculationContext?.moonPhase?.calculationSteps.length, 4);
+        assert.equal(chart?.calculationContext?.moonPhase?.calculationChain.length, 4);
         assert.equal(
           chart?.calculationContext?.moonPhase?.eventSummaryFact.previousEventKey,
           chart?.calculationContext?.moonPhase?.previousPrincipalPhase?.key,
@@ -682,6 +720,7 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
           '已计算',
         );
         assert.equal(chart?.calculationContext?.solarIllumination?.calculationSteps.length, 4);
+        assert.equal(chart?.calculationContext?.solarIllumination?.calculationChain.length, 4);
         assert.equal(
           chart?.calculationContext?.solarIllumination?.limitations.length,
           chart?.calculationContext?.solarIllumination?.limitationFacts.length,
@@ -757,6 +796,13 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
                     limitation: string;
                   }>;
                 };
+                calculationSteps?: Array<{
+                  key: string;
+                  dependsOnStepKeys: string[];
+                  promptText: string;
+                  sources: string[];
+                  limitation: string;
+                }>;
                 measurementFact?: {
                   status: string;
                   referenceStatus: string;
@@ -808,6 +854,10 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         assert.equal(chart?.evidenceAnalysis?.status, '已计算');
         assert.equal(chart?.evidenceAnalysis?.calculationFact?.status, '命宅完整');
         assert.equal(chart?.evidenceAnalysis?.calculationFact?.steps.length, 5);
+        assert.deepEqual(
+          chart?.evidenceAnalysis?.calculationSteps,
+          chart?.evidenceAnalysis?.calculationFact?.steps,
+        );
         assert.ok(
           chart?.evidenceAnalysis?.calculationFact?.steps.every(
             (item) =>
@@ -1051,6 +1101,7 @@ test('MCP 太阳光照工具应返回日出日落与曙暮光结构化证据', a
     assert.equal(result.structuredContent?.result.status, '已计算');
     assert.equal(result.structuredContent?.result.astronomicalTime.status, '已计算');
     assert.equal(result.structuredContent?.result.calculationSteps.length, 4);
+    assert.equal(result.structuredContent?.result.calculationChain.length, 4);
     assert.equal(
       result.structuredContent?.result.sunriseSunset.calculationStepKeys[0],
       result.structuredContent?.result.calculationSteps[3].key,
@@ -1481,6 +1532,7 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
               key: string;
               status: string;
               calculationSteps: unknown[];
+              calculationChain: string[];
               diagnosticFacts: unknown[];
               diagnosticSummaryFact: { status: string; factKeys: string[] };
               limitations: string[];
@@ -1513,6 +1565,14 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
                 limitation: string;
               }>;
             };
+            calculationSteps?: Array<{
+              key: string;
+              stage: string;
+              promptText: string;
+              sources: string[];
+              dependsOnStepKeys: string[];
+              limitation: string;
+            }>;
             calculationChain?: string[];
             primaryCoverageFact?: { status: string; positionFactKeys: string[] };
             primaryPointFacts?: Array<{ key: string; positionFactKey: string }>;
@@ -1568,6 +1628,7 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
     assert.equal(chart?.evidenceAnalysis?.status, '已计算');
     assert.equal(chart?.birth?.timezoneEvidence?.status, 'unique');
     assert.equal(chart?.birth?.timezoneEvidence?.calculationSteps.length, 4);
+    assert.equal(chart?.birth?.timezoneEvidence?.calculationChain.length, 4);
     assert.equal(chart?.birth?.timezoneEvidence?.diagnosticFacts.length, 2);
     assert.equal(chart?.birth?.timezoneEvidence?.diagnosticSummaryFact.status, '唯一且无冲突');
     assert.equal(
@@ -1578,6 +1639,10 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
     assert.equal(chart?.evidenceAnalysis?.timezoneFact?.key, chart?.birth?.timezoneEvidence?.key);
     assert.equal(chart?.evidenceAnalysis?.calculationFact?.status, '完整');
     assert.equal(chart?.evidenceAnalysis?.calculationFact?.steps.length, 5);
+    assert.deepEqual(
+      chart?.evidenceAnalysis?.calculationSteps,
+      chart?.evidenceAnalysis?.calculationFact?.steps,
+    );
     assert.ok(
       chart?.evidenceAnalysis?.calculationFact?.steps.every(
         (item) =>

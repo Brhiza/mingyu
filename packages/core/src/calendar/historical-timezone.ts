@@ -77,6 +77,7 @@ export interface HistoricalTimezoneEvidence {
   offsetConflict: boolean;
   diagnostics: string[];
   calculationSteps: HistoricalTimezoneCalculationStep[];
+  calculationChain: string[];
   diagnosticFacts: HistoricalTimezoneDiagnosticFact[];
   diagnosticSummaryFact: HistoricalTimezoneDiagnosticSummaryFact;
   limitations: string[];
@@ -378,6 +379,7 @@ export function resolveHistoricalTimezone(
     offsetConflict,
     diagnostics,
     calculationSteps,
+    calculationChain: calculationSteps.map((item) => item.promptText),
     diagnosticFacts,
     diagnosticSummaryFact,
     limitations,

@@ -541,6 +541,10 @@ test('公开 API 应提供太阳高度、日出日落与曙暮光证据接口', 
     body.data.calculationSteps.map((item: { stage: string }) => item.stage),
     ['天文时间', '参考太阳位置', '视太阳正午', '阈值交点'],
   );
+  assert.deepEqual(
+    body.data.calculationChain,
+    body.data.calculationSteps.map((item: { promptText: string }) => item.promptText),
+  );
   assert.equal(body.data.sunriseSunset.calculationStepKeys[0], body.data.calculationSteps[3].key);
   assert.equal(body.data.assumptions.length, body.data.assumptionFacts.length);
   assert.equal(body.data.crossingSummaryFact.status, '均有正常交点');
@@ -638,6 +642,15 @@ test('公开 API 应支持八字排盘', async () => {
   assert.equal(body.data.gender, 'male');
   assert.equal(body.data.warningFacts.length, body.data.warnings.length);
   assert.equal(body.data.warningSummaryFact.status, '存在需核验事项');
+  assert.equal(
+    body.data.seasonInfo.previousTermEvidence.calculationChain.length,
+    body.data.seasonInfo.previousTermEvidence.calculationSteps.length,
+  );
+  assert.equal(body.data.seasonInfo.previousTermEvidence.summaryFact.verificationFactCount, 1);
+  assert.equal(
+    body.data.seasonInfo.previousTermEvidence.summaryFact.limitationFactCount,
+    body.data.seasonInfo.previousTermEvidence.limitationFacts.length,
+  );
   assert.equal(body.data.evidenceAnalysis.key, 'bazi:natal:evidence');
   assert.equal(body.data.evidenceAnalysis.calculationSteps.length, 5);
   assert.equal(body.data.evidenceAnalysis.pillarFacts.length, 4);
@@ -3088,6 +3101,12 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
   assert.equal(body.data.birth.isTrueSolarTime, true);
   assert.equal(body.data.birth.timezoneEvidence.status, 'unique');
   assert.equal(body.data.birth.timezoneEvidence.calculationSteps.length, 4);
+  assert.deepEqual(
+    body.data.birth.timezoneEvidence.calculationChain,
+    body.data.birth.timezoneEvidence.calculationSteps.map(
+      (item: { promptText: string }) => item.promptText,
+    ),
+  );
   assert.equal(body.data.birth.timezoneEvidence.diagnosticSummaryFact.status, '唯一且无冲突');
   assert.equal(
     body.data.birth.timezoneEvidence.limitations.length,
@@ -3102,6 +3121,10 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
   assert.equal(body.data.evidenceAnalysis.evidence.title, '西方星盘位置与相位结构化证据');
   assert.equal(body.data.evidenceAnalysis.calculationFact.status, '完整');
   assert.equal(body.data.evidenceAnalysis.calculationFact.steps.length, 5);
+  assert.deepEqual(
+    body.data.evidenceAnalysis.calculationSteps,
+    body.data.evidenceAnalysis.calculationFact.steps,
+  );
   assert.ok(
     body.data.evidenceAnalysis.calculationFact.steps.every(
       (item: Record<string, unknown>) =>
@@ -4290,6 +4313,10 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
   assert.equal(body.data.result.evidenceAnalysis.status, '已计算');
   assert.equal(body.data.result.evidenceAnalysis.calculationFact.status, '命宅完整');
   assert.equal(body.data.result.evidenceAnalysis.calculationFact.steps.length, 5);
+  assert.deepEqual(
+    body.data.result.evidenceAnalysis.calculationSteps,
+    body.data.result.evidenceAnalysis.calculationFact.steps,
+  );
   assert.ok(
     body.data.result.evidenceAnalysis.calculationFact.steps.every(
       (item: Record<string, unknown>) =>
@@ -4558,6 +4585,10 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
   assert.equal(body.data.calculationContext.astronomicalTime.status, '已计算');
   assert.equal(body.data.calculationContext.astronomicalTime.calculationSteps.length, 5);
   assert.equal(
+    body.data.calculationContext.astronomicalTime.calculationChain.length,
+    body.data.calculationContext.astronomicalTime.calculationSteps.length,
+  );
+  assert.equal(
     body.data.calculationContext.astronomicalTime.limitations.length,
     body.data.calculationContext.astronomicalTime.limitationFacts.length,
   );
@@ -4570,6 +4601,10 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
   assert.equal(body.data.calculationContext.moonPhase.status, '已计算');
   assert.equal(body.data.calculationContext.moonPhase.calculationSteps.length, 4);
   assert.equal(
+    body.data.calculationContext.moonPhase.calculationChain.length,
+    body.data.calculationContext.moonPhase.calculationSteps.length,
+  );
+  assert.equal(
     body.data.calculationContext.moonPhase.eventSummaryFact.previousEventKey,
     body.data.calculationContext.moonPhase.previousPrincipalPhase.key,
   );
@@ -4579,6 +4614,10 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
   );
   assert.equal(body.data.calculationContext.solarIllumination.astronomicalTime.status, '已计算');
   assert.equal(body.data.calculationContext.solarIllumination.calculationSteps.length, 4);
+  assert.equal(
+    body.data.calculationContext.solarIllumination.calculationChain.length,
+    body.data.calculationContext.solarIllumination.calculationSteps.length,
+  );
   assert.equal(
     body.data.calculationContext.solarIllumination.limitations.length,
     body.data.calculationContext.solarIllumination.limitationFacts.length,
@@ -4592,6 +4631,10 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
   assert.equal(body.data.evidenceAnalysis.status, '已计算');
   assert.equal(body.data.evidenceAnalysis.calculationFact.status, '含默认值');
   assert.equal(body.data.evidenceAnalysis.calculationFact.steps.length, 7);
+  assert.deepEqual(
+    body.data.evidenceAnalysis.calculationSteps,
+    body.data.evidenceAnalysis.calculationFact.steps,
+  );
   assert.equal(body.data.evidenceAnalysis.calculationChain.length, 7);
   const qizhengStepKeys = new Set(
     body.data.evidenceAnalysis.calculationFact.steps.map((item: { key: string }) => item.key),

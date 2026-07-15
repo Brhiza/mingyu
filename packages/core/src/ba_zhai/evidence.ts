@@ -163,6 +163,7 @@ export interface BaZhaiEvidenceAnalysis {
   key: 'bazhai:evidence';
   status: '已计算';
   calculationFact: BaZhaiCalculationFact;
+  calculationSteps: BaZhaiCalculationStep[];
   calculationChain: string[];
   directionFacts: BaZhaiDirectionFact[];
   directionComparisons: BaZhaiDirectionComparison[];
@@ -837,6 +838,7 @@ export function analyzeBaZhaiEvidence(
     key: 'bazhai:evidence',
     status: '已计算',
     calculationFact,
+    calculationSteps: calculationFact.steps,
     calculationChain,
     directionFacts,
     directionComparisons,

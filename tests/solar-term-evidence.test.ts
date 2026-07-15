@@ -27,6 +27,10 @@ test('节气证据应采用历表边界并保留太阳视黄经独立核验', ()
     evidence.calculationSteps.map((item) => item.stage),
     ['目标黄经', '历表时刻', '独立求根', '差值核验'],
   );
+  assert.deepEqual(
+    evidence.calculationChain,
+    evidence.calculationSteps.map((item) => item.promptText),
+  );
   assert.equal(evidence.calculationSteps[0].result.isJie, true);
   assert.deepEqual(evidence.calculationSteps[3].dependsOnStepKeys, [
     evidence.calculationSteps[1].key,
@@ -35,10 +39,33 @@ test('节气证据应采用历表边界并保留太阳视黄经独立核验', ()
   assert.equal(evidence.verificationFact.adoptedStepKey, evidence.calculationSteps[1].key);
   assert.equal(evidence.verificationFact.modelStepKey, evidence.calculationSteps[2].key);
   assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
+  assert.equal(evidence.summaryFact.calculationStepCount, evidence.calculationSteps.length);
+  assert.equal(evidence.summaryFact.verificationFactCount, 1);
+  assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
+  assert.deepEqual(evidence.summaryFact.factKeys, [
+    ...evidence.calculationSteps.map((item) => item.key),
+    evidence.verificationFact.key,
+    ...evidence.limitationFacts.map((item) => item.key),
+  ]);
+  const factKeys = new Set(evidence.summaryFact.factKeys);
+  const stepKeys = new Set(evidence.calculationSteps.map((item) => item.key));
   assert.ok(
-    [...evidence.calculationSteps, evidence.verificationFact, ...evidence.limitationFacts].every(
-      (item) => item.sources.length > 0 && item.limitation.length > 0,
+    evidence.limitationFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+        item.ownerStepKeys.length > 0 &&
+        item.ownerStepKeys.every((key) => stepKeys.has(key)),
     ),
+  );
+  assert.match(evidence.promptText, /证据汇总：/);
+  assert.ok(
+    [
+      ...evidence.calculationSteps,
+      evidence.verificationFact,
+      evidence.summaryFact,
+      ...evidence.limitationFacts,
+    ].every((item) => item.sources.length > 0 && item.limitation.length > 0),
   );
   assertPromptIsPortableTaskText(evidence.promptText);
 });

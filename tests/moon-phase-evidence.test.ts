@@ -60,6 +60,10 @@ test('月相证据应识别2024年4月日食附近的朔并保留精度限制', 
     evidence.calculationSteps.map((item) => item.stage),
     ['日月位置', '月相角与照明', '前一四正相位', '下一四正相位'],
   );
+  assert.deepEqual(
+    evidence.calculationChain,
+    evidence.calculationSteps.map((item) => item.promptText),
+  );
   assert.equal(evidence.previousPrincipalPhase.status, '已求根');
   assert.equal(evidence.nextPrincipalPhase.status, '已求根');
   assert.deepEqual(evidence.previousPrincipalPhase.calculationStepKeys, [

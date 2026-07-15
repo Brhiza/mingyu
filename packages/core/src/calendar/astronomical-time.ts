@@ -107,6 +107,7 @@ export interface AstronomicalTimeEvidence {
   assumptions: string[];
   assumptionFacts: AstronomicalTimeAssumptionFact[];
   calculationSteps: AstronomicalTimeCalculationStep[];
+  calculationChain: string[];
   counterEvidence: string[];
   counterEvidenceFacts: AstronomicalTimeCounterEvidenceFact[];
   counterSummaryFact: AstronomicalTimeCounterSummaryFact;
@@ -457,6 +458,7 @@ export function buildAstronomicalTimeEvidence(
     assumptions,
     assumptionFacts,
     calculationSteps,
+    calculationChain: calculationSteps.map((item) => item.promptText),
     counterEvidence,
     counterEvidenceFacts,
     counterSummaryFact,

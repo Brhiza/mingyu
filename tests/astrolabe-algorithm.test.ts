@@ -91,6 +91,7 @@ test('星盘应返回可复用的位置、相位、计算链与限制证据', ()
   assert.equal(evidence.evidence.title, '西方星盘位置与相位结构化证据');
   assert.equal(evidence.calculationFact.status, '完整');
   assert.equal(evidence.calculationFact.steps.length, 5);
+  assert.strictEqual(evidence.calculationSteps, evidence.calculationFact.steps);
   assert.deepEqual(
     evidence.calculationFact.steps.map((item) => item.stage),
     ['输入固定', '时间处理', '盘面计算', '相位筛选', '分布汇总'],

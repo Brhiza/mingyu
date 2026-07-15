@@ -112,6 +112,7 @@ test('bazhai: 命宅配合', () => {
   assert.equal(r.calculationInput.sitMountain, '子');
   assert.equal(r.evidenceAnalysis.calculationFact.steps[2].inputs.sitMountain, '子');
   assert.equal(r.evidenceAnalysis.calculationFact.steps.length, 5);
+  assert.strictEqual(r.evidenceAnalysis.calculationSteps, r.evidenceAnalysis.calculationFact.steps);
   assert.ok(
     r.evidenceAnalysis.calculationFact.steps.every(
       (item) =>
@@ -841,6 +842,7 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.equal(r.evidenceAnalysis.status, '已计算');
   assert.equal(r.evidenceAnalysis.calculationFact.status, '含默认值');
   assert.equal(r.evidenceAnalysis.calculationFact.steps.length, 7);
+  assert.strictEqual(r.evidenceAnalysis.calculationSteps, r.evidenceAnalysis.calculationFact.steps);
   assert.equal(r.evidenceAnalysis.calculationChain.length, 7);
   const qizhengStepKeys = new Set(r.evidenceAnalysis.calculationFact.steps.map((item) => item.key));
   assert.ok(r.evidenceAnalysis.calculationFact.defaults.some((item) => item.includes('默认北京')));

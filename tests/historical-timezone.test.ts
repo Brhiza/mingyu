@@ -50,6 +50,10 @@ test('IANA 历史时区应识别中国 1990 年夏令时', () => {
     evidence.calculationSteps.map((item) => item.stage),
     ['时区规则加载', '候选偏移采样', '当地时刻匹配', '偏移核验'],
   );
+  assert.deepEqual(
+    evidence.calculationChain,
+    evidence.calculationSteps.map((item) => item.promptText),
+  );
   assert.equal(evidence.calculationSteps[2].status, '已匹配');
   assert.equal(evidence.diagnosticFacts[0].status, '唯一映射');
   assert.equal(evidence.diagnosticFacts[1].status, '未核验');

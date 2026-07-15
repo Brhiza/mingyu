@@ -122,6 +122,7 @@ export interface SolarIlluminationEvidence {
   method: string;
   source: string;
   calculationSteps: SolarIlluminationCalculationStep[];
+  calculationChain: string[];
   assumptions: string[];
   assumptionFacts: SolarIlluminationAssumptionFact[];
   crossingSummaryFact: SolarCrossingSummaryFact;
@@ -548,6 +549,7 @@ export function calculateSolarIlluminationEvidence(
     method,
     source,
     calculationSteps,
+    calculationChain: calculationSteps.map((item) => item.promptText),
     assumptions,
     assumptionFacts,
     crossingSummaryFact,

@@ -85,6 +85,10 @@ test('北京夏至应给出可复核的日出日落、太阳高度与曙暮光',
     evidence.calculationSteps.map((item) => item.stage),
     ['天文时间', '参考太阳位置', '视太阳正午', '阈值交点'],
   );
+  assert.deepEqual(
+    evidence.calculationChain,
+    evidence.calculationSteps.map((item) => item.promptText),
+  );
   assert.deepEqual(evidence.calculationSteps[3].dependsOnStepKeys, [
     evidence.calculationSteps[1].key,
     evidence.calculationSteps[2].key,

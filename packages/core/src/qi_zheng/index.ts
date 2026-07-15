@@ -155,6 +155,7 @@ export interface QizhengEvidenceAnalysis {
   key: 'qizheng:evidence';
   status: '已计算';
   calculationFact: QizhengCalculationFact;
+  calculationSteps: QizhengCalculationStep[];
   calculationChain: string[];
   positionSourceFacts: QizhengPositionSourceFact[];
   starFacts: QizhengStarFact[];
@@ -1392,6 +1393,7 @@ function buildQizhengEvidence(
     key: 'qizheng:evidence',
     status: '已计算',
     calculationFact,
+    calculationSteps,
     calculationChain,
     positionSourceFacts,
     starFacts,
