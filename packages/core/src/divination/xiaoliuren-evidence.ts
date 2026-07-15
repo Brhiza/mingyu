@@ -133,10 +133,62 @@ export interface XiaoliurenCalculationFact {
   limitation: '逐宫顺数只证明起课基数、农历日数和时辰数如何定位起因、过程、结果三宫，不证明宫义预测有效性、现实吉凶或固定应期';
 }
 
+export interface XiaoliurenEvidenceCalculationStep {
+  key: string;
+  stage:
+    | '起课来源核验'
+    | '三宫定位核验'
+    | '三宫阶段计算'
+    | '五行推进核验'
+    | '反证与应期核验'
+    | '证据汇总';
+  status: '已计算' | '资料不足';
+  inputs: Record<string, string | number | boolean | string[]>;
+  result: Record<string, string | number | boolean | string[]>;
+  dependsOnStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '计算步骤只证明起课来源、三宫定位、阶段事实、五行推进、反证与应期条件如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期';
+}
+
+export interface XiaoliurenSummaryFact {
+  key: 'xiaoliuren:evidence-summary';
+  status: '证据链完整' | '起课资料缺失';
+  factKeys: string[];
+  stageFactCount: number;
+  transitionFactCount: number;
+  traditionalFactCount: number;
+  counterEvidenceCount: number;
+  timingBasisFactCount: number;
+  triggerConditionFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '小六壬证据汇总只统计起课、三宫、五行推进、传统宫义、反证、节奏与触发条件的覆盖情况；不得按数量生成吉凶总分、成功率、方位保证、身体结论或唯一日期';
+}
+
+export interface XiaoliurenLimitationFact {
+  key: string;
+  type:
+    | '起课与随机来源边界'
+    | '三宫资料边界'
+    | '五行推进边界'
+    | '传统宫义边界'
+    | '反证与应期边界'
+    | '高风险输出边界';
+  status: '适用';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束小六壬起课、三宫、五行推进、传统宫义、方位神煞与应期资料能够支持的解释范围，不得被反向当作现实吉凶、疾病身体、方位保证、事件概率或固定应期的证据';
+}
+
 export interface XiaoliurenEvidenceAnalysis {
+  key: 'xiaoliuren:evidence';
+  status: '已计算';
   sources: Array<{ title: string; evidence: string; role: '传统规则来源' | '历法计算来源' }>;
   calculationFact: XiaoliurenCalculationFact;
   calculationFacts: string[];
+  calculationSteps: XiaoliurenEvidenceCalculationStep[];
   calculationChain: string[];
   stages: XiaoliurenStageEvidence[];
   transitionFacts: XiaoliurenTransitionFact[];
@@ -152,6 +204,8 @@ export interface XiaoliurenEvidenceAnalysis {
   timingSummaryFact: XiaoliurenTimingSummaryFact;
   triggerConditions: string[];
   limitations: string[];
+  limitationFacts: XiaoliurenLimitationFact[];
+  summaryFact: XiaoliurenSummaryFact;
   traditionalFacts: XiaoliurenTraditionalFact[];
   evidence: PromptEvidenceBundle;
   promptText: string;
@@ -178,6 +232,12 @@ const TRIGGER_FACT_LIMITATION =
   '触发条件只提供消息、沟通、资源、手续、目标落实与相对节奏等观察点；不得由宫数、传统数目或节奏标签生成固定日期，也不证明事件必然发生' as const;
 const TIMING_SUMMARY_LIMITATION =
   '应期汇总只说明当前保存了哪些相对节奏、触发与期限边界；不得按条件数量、宫数、五行或旺衰生成固定天数、绝对日期或事件概率' as const;
+const CALCULATION_STEP_LIMITATION =
+  '计算步骤只证明起课来源、三宫定位、阶段事实、五行推进、反证与应期条件如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期' as const;
+const SUMMARY_FACT_LIMITATION =
+  '小六壬证据汇总只统计起课、三宫、五行推进、传统宫义、反证、节奏与触发条件的覆盖情况；不得按数量生成吉凶总分、成功率、方位保证、身体结论或唯一日期' as const;
+const LIMITATION_FACT_LIMITATION =
+  '限制事实用于约束小六壬起课、三宫、五行推进、传统宫义、方位神煞与应期资料能够支持的解释范围，不得被反向当作现实吉凶、疾病身体、方位保证、事件概率或固定应期的证据' as const;
 
 function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
@@ -555,6 +615,245 @@ function buildTriggerConditionFacts(
   return facts;
 }
 
+function buildSummaryFact(params: {
+  calculationFact: XiaoliurenCalculationFact;
+  randomFact: RandomTraceFact;
+  stages: XiaoliurenStageEvidence[];
+  transitionFacts: XiaoliurenTransitionFact[];
+  traditionalFacts: XiaoliurenTraditionalFact[];
+  counterEvidenceFacts: XiaoliurenCounterEvidenceFact[];
+  counterSummaryFact: XiaoliurenCounterSummaryFact;
+  timingBasisFacts: XiaoliurenTimingBasisFact[];
+  triggerConditionFacts: XiaoliurenTriggerConditionFact[];
+  timingSummaryFact: XiaoliurenTimingSummaryFact;
+}): XiaoliurenSummaryFact {
+  const factKeys = Array.from(
+    new Set([
+      params.calculationFact.key,
+      params.randomFact.key,
+      ...params.stages.map((item) => item.key),
+      ...params.transitionFacts.map((item) => item.key),
+      ...params.traditionalFacts.map((item) => item.key),
+      params.counterSummaryFact.key,
+      ...params.counterEvidenceFacts.map((item) => item.key),
+      params.timingSummaryFact.key,
+      ...params.timingBasisFacts.map((item) => item.key),
+      ...params.triggerConditionFacts.map((item) => item.key),
+    ]),
+  );
+  const status = params.calculationFact.status === '完整' ? '证据链完整' : '起课资料缺失';
+  return {
+    key: 'xiaoliuren:evidence-summary',
+    status,
+    factKeys,
+    stageFactCount: params.stages.length,
+    transitionFactCount: params.transitionFacts.length,
+    traditionalFactCount: params.traditionalFacts.length,
+    counterEvidenceCount: params.counterEvidenceFacts.length,
+    timingBasisFactCount: params.timingBasisFacts.length,
+    triggerConditionFactCount: params.triggerConditionFacts.length,
+    promptText: `证据状态${status}：三宫阶段${params.stages.length}项、五行推进${params.transitionFacts.length}项、传统宫义${params.traditionalFacts.length}项、反证${params.counterEvidenceFacts.length}项、节奏依据${params.timingBasisFacts.length}项、触发条件${params.triggerConditionFacts.length}项`,
+    sources: ['全部起课、三宫、五行推进、传统宫义、反证、节奏与触发条件逐项汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
+}
+
+function buildCalculationSteps(params: {
+  calculationFact: XiaoliurenCalculationFact;
+  randomFact: RandomTraceFact;
+  stages: XiaoliurenStageEvidence[];
+  transitionFacts: XiaoliurenTransitionFact[];
+  counterEvidenceFacts: XiaoliurenCounterEvidenceFact[];
+  timingBasisFacts: XiaoliurenTimingBasisFact[];
+  triggerConditionFacts: XiaoliurenTriggerConditionFact[];
+  summaryFact: XiaoliurenSummaryFact;
+}): XiaoliurenEvidenceCalculationStep[] {
+  return [
+    {
+      key: 'xiaoliuren:calculation:generation',
+      stage: '起课来源核验',
+      status: params.calculationFact.status === '完整' ? '已计算' : '资料不足',
+      inputs: {
+        method: params.calculationFact.methodLabel,
+        lunarDay: params.calculationFact.lunarDay,
+      },
+      result: {
+        calculationStatus: params.calculationFact.status,
+        inputBase: params.calculationFact.inputBase ?? '未记录',
+        hourNumber: params.calculationFact.hourNumber ?? '未记录',
+        randomTraceStatus: params.randomFact.status,
+      },
+      dependsOnStepKeys: [],
+      promptText: `${params.calculationFact.promptText}；随机轨迹${params.randomFact.status === '不适用' ? '不适用' : params.randomFact.status}`,
+      sources: Array.from(
+        new Set([...params.calculationFact.sources, ...params.randomFact.sources]),
+      ),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'xiaoliuren:calculation:palaces',
+      stage: '三宫定位核验',
+      status: params.calculationFact.steps.length === 3 ? '已计算' : '资料不足',
+      inputs: {
+        stepCount: params.calculationFact.steps.length,
+        stages: ['起因', '过程', '结果'],
+      },
+      result: {
+        palaces: params.stages.map((item) => item.palace.name),
+        recordedStepCount: params.calculationFact.steps.length,
+      },
+      dependsOnStepKeys: ['xiaoliuren:calculation:generation'],
+      promptText: `三宫定位为${params.stages.map((item) => `${item.stage}${item.palace.name}`).join('、')}；${params.calculationFact.steps.length === 3 ? '逐宫顺数参数完整' : '缺少逐宫顺数中间参数'}`,
+      sources: ['六宫顺序、起课基数、农历日数与时辰数逐宫定位'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'xiaoliuren:calculation:stages',
+      stage: '三宫阶段计算',
+      status: params.stages.length === 3 ? '已计算' : '资料不足',
+      inputs: { palaceCount: params.stages.length },
+      result: {
+        stageFactCount: params.stages.length,
+        seasonStates: params.stages.map((item) => `${item.stage}:${item.seasonState}`),
+      },
+      dependsOnStepKeys: ['xiaoliuren:calculation:palaces'],
+      promptText: `已记录起因、过程、结果三宫的宫位、五行、月令旺衰、支持与限制事实`,
+      sources: ['三宫宫位资料与月支五行旺相休囚死关系'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'xiaoliuren:calculation:transitions',
+      stage: '五行推进核验',
+      status: params.transitionFacts.length === 2 ? '已计算' : '资料不足',
+      inputs: { stageFactCount: params.stages.length },
+      result: {
+        transitionFactCount: params.transitionFacts.length,
+        relations: params.transitionFacts.map((item) => item.relation),
+      },
+      dependsOnStepKeys: ['xiaoliuren:calculation:stages'],
+      promptText: params.transitionFacts.map((item) => item.promptText).join('；'),
+      sources: ['起因至过程、过程至结果的相邻宫位五行关系'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'xiaoliuren:calculation:counter-timing',
+      stage: '反证与应期核验',
+      status: '已计算',
+      inputs: { stageFactCount: params.stages.length },
+      result: {
+        counterEvidenceCount: params.counterEvidenceFacts.length,
+        timingBasisFactCount: params.timingBasisFacts.length,
+        triggerConditionFactCount: params.triggerConditionFacts.length,
+      },
+      dependsOnStepKeys: ['xiaoliuren:calculation:stages', 'xiaoliuren:calculation:transitions'],
+      promptText: `逐项核验三宫限制${params.counterEvidenceFacts.length}项，并记录节奏依据${params.timingBasisFacts.length}项、触发条件${params.triggerConditionFacts.length}项`,
+      sources: ['三宫限制、结果宫节奏、五行推进、月令旺衰与现实触发条件'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'xiaoliuren:calculation:summary',
+      stage: '证据汇总',
+      status: params.summaryFact.status === '证据链完整' ? '已计算' : '资料不足',
+      inputs: { factCount: params.summaryFact.factKeys.length },
+      result: {
+        summaryStatus: params.summaryFact.status,
+        stageFactCount: params.summaryFact.stageFactCount,
+        transitionFactCount: params.summaryFact.transitionFactCount,
+        counterEvidenceCount: params.summaryFact.counterEvidenceCount,
+        triggerConditionFactCount: params.summaryFact.triggerConditionFactCount,
+      },
+      dependsOnStepKeys: [
+        'xiaoliuren:calculation:generation',
+        'xiaoliuren:calculation:palaces',
+        'xiaoliuren:calculation:stages',
+        'xiaoliuren:calculation:transitions',
+        'xiaoliuren:calculation:counter-timing',
+      ],
+      promptText: params.summaryFact.promptText,
+      sources: params.summaryFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+  ];
+}
+
+function buildLimitationFacts(params: {
+  calculationFact: XiaoliurenCalculationFact;
+  randomFact: RandomTraceFact;
+  stages: XiaoliurenStageEvidence[];
+  transitionFacts: XiaoliurenTransitionFact[];
+  traditionalFacts: XiaoliurenTraditionalFact[];
+  counterEvidenceFacts: XiaoliurenCounterEvidenceFact[];
+  counterSummaryFact: XiaoliurenCounterSummaryFact;
+  timingBasisFacts: XiaoliurenTimingBasisFact[];
+  triggerConditionFacts: XiaoliurenTriggerConditionFact[];
+  timingSummaryFact: XiaoliurenTimingSummaryFact;
+  summaryFact: XiaoliurenSummaryFact;
+  inputLimitations: string[];
+}): XiaoliurenLimitationFact[] {
+  const definitions: Array<
+    Pick<XiaoliurenLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
+  > = [
+    {
+      key: 'xiaoliuren:limitation:generation-random',
+      type: '起课与随机来源边界',
+      ownerFactKeys: [params.calculationFact.key, params.randomFact.key],
+      promptText:
+        '时间、数字与随机起课只改变起课输入；顺数算式和随机轨迹仅用于核验生成过程，不代表其中一种方式具有更高预测准确率，也不证明现实结果',
+      sources: ['起课方式、逐宫顺数参数与随机轨迹'],
+    },
+    {
+      key: 'xiaoliuren:limitation:stages',
+      type: '三宫资料边界',
+      ownerFactKeys: params.stages.map((item) => item.key),
+      promptText:
+        '起因、过程、结果三宫只记录当前课式的宫位、五行、月令旺衰与支持限制；结果宫是当前主轴，但不得跳过起因与过程直接套用固定吉凶断语',
+      sources: ['三宫阶段事实与结果宫主轴规则'],
+    },
+    {
+      key: 'xiaoliuren:limitation:transitions',
+      type: '五行推进边界',
+      ownerFactKeys: params.transitionFacts.map((item) => item.key),
+      promptText:
+        '三宫五行推进只描述起因至过程、过程至结果的盘内生克与先后；不得直接写成现实事件必然顺利、受阻、成功、失败或按同样顺序发生',
+      sources: ['相邻三宫五行推进事实'],
+    },
+    {
+      key: 'xiaoliuren:limitation:tradition',
+      type: '传统宫义边界',
+      ownerFactKeys: params.traditionalFacts.map((item) => item.key),
+      promptText:
+        '六宫、五行、旺衰、方位、身体部位和神煞属于传统取象规则，不是现代统计预测模型；传统宫义与属性不得单独证明现实事件、疾病身体或方位吉凶',
+      sources: ['六宫传统宫义、属性、方位、身体类象与神煞条件化事实'],
+    },
+    {
+      key: 'xiaoliuren:limitation:counter-timing',
+      type: '反证与应期边界',
+      ownerFactKeys: [
+        params.counterSummaryFact.key,
+        ...params.counterEvidenceFacts.map((item) => item.key),
+        params.timingSummaryFact.key,
+        ...params.timingBasisFacts.map((item) => item.key),
+        ...params.triggerConditionFacts.map((item) => item.key),
+      ],
+      promptText: `等待、反复、争执、落空、休囚死等反证须与支持条件并列；节奏和触发只供现实复核，不得换算固定日期或事件概率${params.inputLimitations.length ? `；原结果限制：${params.inputLimitations.join('；')}` : ''}`,
+      sources: ['三宫反证、节奏依据、触发条件与原结果应期限制'],
+    },
+    {
+      key: 'xiaoliuren:limitation:high-risk',
+      type: '高风险输出边界',
+      ownerFactKeys: [params.summaryFact.key],
+      promptText:
+        '不得按宫位、支持、反证、旺衰或传统吉凶标签生成总分与成功率；不得输出医疗、身体、法律、财务、方位安全或保证有效结论，也不得生成唯一日期',
+      sources: ['小六壬证据汇总与高风险解释约束'],
+    },
+  ];
+  return definitions.map((item) => ({
+    ...item,
+    status: '适用',
+    limitation: LIMITATION_FACT_LIMITATION,
+  }));
+}
+
 export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvidenceAnalysis {
   const sources: XiaoliurenEvidenceAnalysis['sources'] = [
     {
@@ -639,14 +938,54 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     sources: ['节奏依据与触发条件逐项汇总'],
     limitation: TIMING_SUMMARY_LIMITATION,
   };
-  const limitations = unique([
-    ...(data.timingEvidence?.limitations ?? []),
-    '六宫、五行、旺衰、方位和神煞属于传统取象规则，不是现代统计预测模型',
-    '时间、数字与随机起课只改变起课输入，不代表其中一种方式具有更高预测准确率',
-    '结果宫是当前课式主轴，不得跳过起因与过程直接套用固定吉凶断语',
-    '方位、身体部位、传统吉凶标签和神煞不得单独证明现实事件，也不得换算成功率或唯一日期',
-  ]);
+  const summaryFact = buildSummaryFact({
+    calculationFact,
+    randomFact,
+    stages,
+    transitionFacts,
+    traditionalFacts,
+    counterEvidenceFacts,
+    counterSummaryFact,
+    timingBasisFacts,
+    triggerConditionFacts,
+    timingSummaryFact,
+  });
+  const calculationSteps = buildCalculationSteps({
+    calculationFact,
+    randomFact,
+    stages,
+    transitionFacts,
+    counterEvidenceFacts,
+    timingBasisFacts,
+    triggerConditionFacts,
+    summaryFact,
+  });
+  summaryFact.factKeys = Array.from(
+    new Set([...calculationSteps.map((item) => item.key), ...summaryFact.factKeys]),
+  );
+  const limitationFacts = buildLimitationFacts({
+    calculationFact,
+    randomFact,
+    stages,
+    transitionFacts,
+    traditionalFacts,
+    counterEvidenceFacts,
+    counterSummaryFact,
+    timingBasisFacts,
+    triggerConditionFacts,
+    timingSummaryFact,
+    summaryFact,
+    inputLimitations: data.timingEvidence?.limitations ?? [],
+  });
+  const limitations = limitationFacts.map((item) => item.promptText);
   const items: PromptEvidenceItem[] = [
+    {
+      level: calculationSteps.some((item) => item.status === '资料不足') ? '反证' : '辅证',
+      title: '小六壬计算链',
+      detail: `${calculationSteps.map((item) => item.promptText).join('；')}；统一边界：${CALCULATION_STEP_LIMITATION}`,
+      source: Array.from(new Set(calculationSteps.flatMap((item) => item.sources))).join('、'),
+      tags: ['计算链', summaryFact.status],
+    },
     {
       level: calculationFact.status === '完整' ? '主证' : '反证',
       title: '起课输入与逐宫顺数',
@@ -716,10 +1055,17 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
       tags: ['应期', '触发条件', '不换算固定日期'],
     },
     {
+      level: '辅证',
+      title: `小六壬证据汇总：${summaryFact.status}`,
+      detail: `${summaryFact.promptText}；边界：${summaryFact.limitation}`,
+      source: summaryFact.sources.join('、'),
+      tags: ['证据汇总', summaryFact.status],
+    },
+    {
       level: '限制',
       title: '小六壬解释边界',
-      detail: limitations.join('；'),
-      source: '计算事实与解释结论分离原则',
+      detail: `${limitationFacts.map((item) => item.promptText).join('；')}；统一边界：${LIMITATION_FACT_LIMITATION}`,
+      source: Array.from(new Set(limitationFacts.flatMap((item) => item.sources))).join('、'),
       tags: ['传统模型', '证据边界'],
     },
   );
@@ -734,13 +1080,18 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     `推进关系：${transitionFacts.map((item) => item.promptText).join('；')}。`,
     `反证限制：${counterEvidenceFacts.map((item) => item.promptText).join('；') || '未见明确休囚、争执、反复或落空标签，仍须现实进展复核'}。`,
     `触发条件：${triggerConditionFacts.map((item) => item.promptText).join('；')}。`,
+    `证据汇总：${summaryFact.promptText}。`,
+    `解释限制：${limitations.join('；')}。`,
     `规则来源：${sources.map((item) => `${item.title}（${item.role}：${item.evidence}）`).join('；')}。`,
   ].join('\n');
 
   return {
+    key: 'xiaoliuren:evidence',
+    status: '已计算',
     sources,
     calculationFact,
     calculationFacts,
+    calculationSteps,
     calculationChain,
     stages,
     transitionFacts,
@@ -756,6 +1107,8 @@ export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvide
     timingSummaryFact,
     triggerConditions,
     limitations,
+    limitationFacts,
+    summaryFact,
     traditionalFacts,
     evidence,
     promptText,

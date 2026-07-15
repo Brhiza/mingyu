@@ -2364,6 +2364,12 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
       chart.structuredContent as {
         result: {
           evidenceAnalysis: {
+            key: string;
+            status: string;
+            calculationSteps: Array<{
+              key: string;
+              dependsOnStepKeys: string[];
+            }>;
             stages: Array<{
               key: string;
               status: string;
@@ -2382,7 +2388,7 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
             }>;
             counterEvidence: string[];
             counterEvidenceFacts: Array<{ key: string; status: string; limitation: string }>;
-            counterSummaryFact: { factKeys: string[] };
+            counterSummaryFact: { key: string; factKeys: string[] };
             timingBasisFacts: Array<{
               key: string;
               promptText: string;
@@ -2395,8 +2401,21 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
               sources: string[];
               limitation: string;
             }>;
-            timingSummaryFact: { basisFactKeys: string[]; triggerFactKeys: string[] };
+            timingSummaryFact: {
+              key: string;
+              basisFactKeys: string[];
+              triggerFactKeys: string[];
+            };
+            limitations: string[];
+            limitationFacts: Array<{ ownerFactKeys: string[] }>;
+            summaryFact: {
+              key: string;
+              status: string;
+              stageFactCount: number;
+              transitionFactCount: number;
+            };
             calculationFact: {
+              key: string;
               status: string;
               steps: Array<{
                 key: string;
@@ -2407,8 +2426,9 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
                 promptText: string;
               }>;
             };
-            randomFact: { status: string };
+            randomFact: { key: string; status: string };
             traditionalFacts: Array<{
+              key: string;
               kind: string;
               originalText: string;
               promptText: string;
@@ -2419,6 +2439,17 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
         };
       }
     ).result;
+    assert.equal(result.evidenceAnalysis.key, 'xiaoliuren:evidence');
+    assert.equal(result.evidenceAnalysis.status, '已计算');
+    assert.equal(result.evidenceAnalysis.calculationSteps.length, 6);
+    const calculationStepKeys = new Set(
+      result.evidenceAnalysis.calculationSteps.map((item) => item.key),
+    );
+    assert.ok(
+      result.evidenceAnalysis.calculationSteps.every((item) =>
+        item.dependsOnStepKeys.every((key) => calculationStepKeys.has(key)),
+      ),
+    );
     assert.deepEqual(
       result.evidenceAnalysis.stages.map((item) => item.stage),
       ['起因', '过程', '结果'],
@@ -2480,6 +2511,40 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
       ),
     );
     assert.equal(result.evidenceAnalysis.randomFact.status, '不适用');
+    assert.equal(result.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      result.evidenceAnalysis.summaryFact.stageFactCount,
+      result.evidenceAnalysis.stages.length,
+    );
+    assert.equal(
+      result.evidenceAnalysis.summaryFact.transitionFactCount,
+      result.evidenceAnalysis.transitionFacts.length,
+    );
+    assert.equal(result.evidenceAnalysis.limitationFacts.length, 6);
+    assert.equal(
+      result.evidenceAnalysis.limitations.length,
+      result.evidenceAnalysis.limitationFacts.length,
+    );
+    const factKeys = new Set([
+      result.evidenceAnalysis.calculationFact.key,
+      result.evidenceAnalysis.randomFact.key,
+      ...result.evidenceAnalysis.calculationSteps.map((item) => item.key),
+      ...result.evidenceAnalysis.stages.map((item) => item.key),
+      ...result.evidenceAnalysis.transitionFacts.map((item) => item.key),
+      ...result.evidenceAnalysis.traditionalFacts.map((item) => item.key),
+      result.evidenceAnalysis.counterSummaryFact.key,
+      ...result.evidenceAnalysis.counterEvidenceFacts.map((item) => item.key),
+      result.evidenceAnalysis.timingSummaryFact.key,
+      ...result.evidenceAnalysis.timingBasisFacts.map((item) => item.key),
+      ...result.evidenceAnalysis.triggerConditionFacts.map((item) => item.key),
+      result.evidenceAnalysis.summaryFact.key,
+    ]);
+    assert.ok(
+      result.evidenceAnalysis.limitationFacts.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+      ),
+    );
     assert.ok(Array.isArray(result.evidenceAnalysis.counterEvidence));
     assert.ok(result.evidenceAnalysis.traditionalFacts.length > 0);
     assert.ok(
@@ -2504,6 +2569,7 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
     });
     const prompt = String(promptResult.structuredContent?.prompt);
     assert.match(prompt, /【小六壬三宫推进结构化证据】/);
+    assert.match(prompt, /小六壬计算链[\s\S]*小六壬证据汇总[\s\S]*小六壬解释边界/);
     assert.match(prompt, /现实事件复核/);
     assert.doesNotMatch(prompt, /事情整体可成|容易白忙一场|凶（大凶）/);
     assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|吉凶总分(?:为|：)|\d+日内|\d+周内/);

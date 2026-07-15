@@ -2531,7 +2531,19 @@ test('公开 API 奇门与小六壬应期应返回条件证据，不返回伪精
   assert.equal(xiaoliuren.response.status, 200);
   assert.ok(xiaoliuren.body.data.timingEvidence.primaryBasis.length > 0);
   assert.ok(xiaoliuren.body.data.timingEvidence.triggerConditions.length > 0);
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.key, 'xiaoliuren:evidence');
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.status, '已计算');
   assert.equal(xiaoliuren.body.data.evidenceAnalysis.evidence.title, '小六壬三宫推进结构化证据');
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.calculationSteps.length, 6);
+  const xiaoliurenCalculationStepKeys = new Set(
+    xiaoliuren.body.data.evidenceAnalysis.calculationSteps.map((item: { key: string }) => item.key),
+  );
+  assert.ok(
+    xiaoliuren.body.data.evidenceAnalysis.calculationSteps.every(
+      (item: { dependsOnStepKeys: string[] }) =>
+        item.dependsOnStepKeys.every((key) => xiaoliurenCalculationStepKeys.has(key)),
+    ),
+  );
   assert.deepEqual(
     xiaoliuren.body.data.evidenceAnalysis.stages.map((item: { stage: string }) => item.stage),
     ['起因', '过程', '结果'],
@@ -2594,6 +2606,53 @@ test('公开 API 奇门与小六壬应期应返回条件证据，不返回伪精
     ),
   );
   assert.equal(xiaoliuren.body.data.evidenceAnalysis.randomFact.status, '不适用');
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(
+    xiaoliuren.body.data.evidenceAnalysis.summaryFact.stageFactCount,
+    xiaoliuren.body.data.evidenceAnalysis.stages.length,
+  );
+  assert.equal(
+    xiaoliuren.body.data.evidenceAnalysis.summaryFact.transitionFactCount,
+    xiaoliuren.body.data.evidenceAnalysis.transitionFacts.length,
+  );
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.limitationFacts.length, 6);
+  assert.equal(
+    xiaoliuren.body.data.evidenceAnalysis.limitations.length,
+    xiaoliuren.body.data.evidenceAnalysis.limitationFacts.length,
+  );
+  const xiaoliurenFactKeys = new Set([
+    xiaoliuren.body.data.evidenceAnalysis.calculationFact.key,
+    xiaoliuren.body.data.evidenceAnalysis.randomFact.key,
+    ...xiaoliuren.body.data.evidenceAnalysis.calculationSteps.map(
+      (item: { key: string }) => item.key,
+    ),
+    ...xiaoliuren.body.data.evidenceAnalysis.stages.map((item: { key: string }) => item.key),
+    ...xiaoliuren.body.data.evidenceAnalysis.transitionFacts.map(
+      (item: { key: string }) => item.key,
+    ),
+    ...xiaoliuren.body.data.evidenceAnalysis.traditionalFacts.map(
+      (item: { key: string }) => item.key,
+    ),
+    xiaoliuren.body.data.evidenceAnalysis.counterSummaryFact.key,
+    ...xiaoliuren.body.data.evidenceAnalysis.counterEvidenceFacts.map(
+      (item: { key: string }) => item.key,
+    ),
+    xiaoliuren.body.data.evidenceAnalysis.timingSummaryFact.key,
+    ...xiaoliuren.body.data.evidenceAnalysis.timingBasisFacts.map(
+      (item: { key: string }) => item.key,
+    ),
+    ...xiaoliuren.body.data.evidenceAnalysis.triggerConditionFacts.map(
+      (item: { key: string }) => item.key,
+    ),
+    xiaoliuren.body.data.evidenceAnalysis.summaryFact.key,
+  ]);
+  assert.ok(
+    xiaoliuren.body.data.evidenceAnalysis.limitationFacts.every(
+      (item: { ownerFactKeys: string[] }) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => xiaoliurenFactKeys.has(key)),
+    ),
+  );
   const xiaoliurenFacts = xiaoliuren.body.data.evidenceAnalysis.traditionalFacts as Array<{
     kind: string;
     originalText: string;
@@ -2624,6 +2683,10 @@ test('公开 API 奇门与小六壬应期应返回条件证据，不返回伪精
   });
   assert.equal(xiaoliurenPrompt.response.status, 200);
   assert.match(xiaoliurenPrompt.body.data.prompt, /【小六壬三宫推进结构化证据】/);
+  assert.match(
+    xiaoliurenPrompt.body.data.prompt,
+    /小六壬计算链[\s\S]*小六壬证据汇总[\s\S]*小六壬解释边界/,
+  );
   assert.doesNotMatch(
     xiaoliurenPrompt.body.data.prompt,
     /事情整体可成|容易白忙一场|当前整体偏可成|凶（大凶）|吉凶凶|吉凶吉/,

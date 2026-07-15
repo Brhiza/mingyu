@@ -53,6 +53,7 @@ test('小六壬：起课基数、逐宫顺数和六宫归一结果应进入结�
   const evidence = data.evidenceAnalysis;
 
   assert.ok(calculation);
+  assert.ok(evidence);
   assert.equal(calculation.inputBase, 5);
   assert.equal(calculation.inputBaseSource, '用户数字');
   assert.equal(calculation.startPalaceIndex, data.sequence.start.index);
@@ -98,6 +99,51 @@ test('小六壬：起课基数、逐宫顺数和六宫归一结果应进入结�
         item.limitation.includes('现实事件必然顺利'),
     ),
   );
+  assert.equal(evidence.key, 'xiaoliuren:evidence');
+  assert.equal(evidence.status, '已计算');
+  assert.equal(evidence.calculationSteps.length, 6);
+  const calculationStepKeys = new Set(evidence.calculationSteps.map((item) => item.key));
+  assert.ok(
+    evidence.calculationSteps.every((item) =>
+      item.dependsOnStepKeys.every((key) => calculationStepKeys.has(key)),
+    ),
+  );
+  assert.equal(evidence.summaryFact.status, '证据链完整');
+  assert.equal(evidence.summaryFact.stageFactCount, evidence.stages.length);
+  assert.equal(evidence.summaryFact.transitionFactCount, evidence.transitionFacts.length);
+  assert.equal(evidence.summaryFact.traditionalFactCount, evidence.traditionalFacts.length);
+  assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
+  assert.equal(evidence.summaryFact.timingBasisFactCount, evidence.timingBasisFacts.length);
+  assert.equal(
+    evidence.summaryFact.triggerConditionFactCount,
+    evidence.triggerConditionFacts.length,
+  );
+  assert.equal(evidence.limitationFacts.length, 6);
+  assert.deepEqual(
+    evidence.limitations,
+    evidence.limitationFacts.map((item) => item.promptText),
+  );
+  const factKeys = new Set([
+    evidence.calculationFact.key,
+    evidence.randomFact.key,
+    ...evidence.calculationSteps.map((item) => item.key),
+    ...evidence.stages.map((item) => item.key),
+    ...evidence.transitionFacts.map((item) => item.key),
+    ...evidence.traditionalFacts.map((item) => item.key),
+    evidence.counterSummaryFact.key,
+    ...evidence.counterEvidenceFacts.map((item) => item.key),
+    evidence.timingSummaryFact.key,
+    ...evidence.timingBasisFacts.map((item) => item.key),
+    ...evidence.triggerConditionFacts.map((item) => item.key),
+    evidence.summaryFact.key,
+  ]);
+  assert.ok(
+    evidence.limitationFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.match(evidence.promptText, /计算链：[\s\S]*证据汇总：[\s\S]*解释限制：/);
   assert.doesNotMatch(
     JSON.stringify(evidence?.evidence),
     /"score"\s*:|成功率[：=]?\s*\d|吉凶总分[：=]?\s*\d/,
@@ -276,6 +322,11 @@ test('小六壬：旧数据缺少证据分析时应重新生成安全传统事�
 
   assert.equal(evidence.calculationFact.status, '缺少中间参数');
   assert.equal(evidence.calculationFact.steps.length, 0);
+  assert.equal(evidence.summaryFact.status, '起课资料缺失');
+  assert.equal(evidence.calculationSteps.length, 6);
+  assert.equal(evidence.calculationSteps[0]?.status, '资料不足');
+  assert.equal(evidence.calculationSteps[1]?.status, '资料不足');
+  assert.equal(evidence.calculationSteps[5]?.status, '资料不足');
   assert.match(evidence.calculationFact.promptText, /未附逐宫顺数中间参数/);
   assert.ok(evidence.traditionalFacts.length > 0);
   assert.doesNotMatch(evidence.promptText, /事情整体可成|白忙一场|凶（大凶）/);
@@ -299,11 +350,25 @@ test('小六壬三种起课入口都应生成完整可移植的对象化证据',
   for (const result of results) {
     const evidence = result.evidenceAnalysis;
     assert.ok(evidence);
+    assert.equal(evidence.key, 'xiaoliuren:evidence');
+    assert.equal(evidence.status, '已计算');
     assert.equal(evidence.calculationFact.status, '完整');
+    assert.equal(evidence.calculationSteps.length, 6);
+    const calculationStepKeys = new Set(evidence.calculationSteps.map((item) => item.key));
+    assert.ok(
+      evidence.calculationSteps.every((item) =>
+        item.dependsOnStepKeys.every((key) => calculationStepKeys.has(key)),
+      ),
+    );
     assert.equal(evidence.stages.length, 3);
     assert.equal(evidence.transitionFacts.length, 2);
     assert.equal(evidence.timingSummaryFact.status, '已提供节奏与触发条件');
     assert.equal(evidence.counterSummaryFact.factKeys.length, evidence.counterEvidenceFacts.length);
+    assert.equal(evidence.summaryFact.status, '证据链完整');
+    assert.equal(evidence.summaryFact.stageFactCount, evidence.stages.length);
+    assert.equal(evidence.summaryFact.transitionFactCount, evidence.transitionFacts.length);
+    assert.equal(evidence.limitationFacts.length, 6);
+    assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
     assertPromptIsPortableTaskText(evidence.promptText);
   }
 });
