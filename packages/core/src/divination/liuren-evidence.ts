@@ -173,9 +173,65 @@ export interface LiurenPlateCoverageFact {
   limitation: '天地盘覆盖状态只说明当前结果能否完整核验十二位对应；缺少逐位资料时不得反推或补造天盘支、地盘支与天将';
 }
 
+export interface LiurenEvidenceCalculationStep {
+  key: string;
+  stage:
+    | '起盘参数核验'
+    | '天地盘覆盖核验'
+    | '四课结构核验'
+    | '取传规则核验'
+    | '三传推进核验'
+    | '反证类神应期核验'
+    | '证据汇总';
+  status: '已计算' | '资料不足';
+  inputs: Record<string, string | number | boolean | string[]>;
+  result: Record<string, string | number | boolean | string[]>;
+  dependsOnStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '计算步骤只证明占时参数、天地盘、四课、取传、三传、反证、类神与应期条件如何形成当前证据；不证明现实吉凶、事件概率、人物身份或固定应期';
+}
+
+export interface LiurenSummaryFact {
+  key: 'liuren:evidence-summary';
+  status: '证据链完整' | '证据链有缺口';
+  factKeys: string[];
+  platePositionFactCount: number;
+  lessonFactCount: number;
+  transmissionFactCount: number;
+  transitionFactCount: number;
+  counterEvidenceCount: number;
+  timingFactCount: number;
+  focusFactCount: number;
+  traditionalFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '大六壬证据汇总只统计起盘、天地盘、四课取传、三传推进、反证、类神、应期与传统资料的覆盖情况；不得按数量生成吉凶总分、成功率、人物身份、事件保证或唯一日期';
+}
+
+export interface LiurenLimitationFact {
+  key: string;
+  type:
+    | '起盘天地盘边界'
+    | '四课取传边界'
+    | '三传推进边界'
+    | '反证类神应期边界'
+    | '传统规则类象边界'
+    | '高风险输出边界';
+  status: '适用';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束大六壬占时、天地盘、四课取传、三传、类神、课体、天将、神煞与应期资料能够支持的解释范围，不得被反向当作现实吉凶、人物身份、疾病灾祸、事件概率或固定应期的证据';
+}
+
 export interface LiurenEvidenceAnalysis {
+  key: 'liuren:evidence';
+  status: '已计算';
   calculationFact: LiurenCalculationFact;
   calculationFacts: string[];
+  calculationSteps: LiurenEvidenceCalculationStep[];
+  calculationChain: string[];
   plateFact: LiurenPlateCoverageFact;
   platePositionFacts: LiurenPlateFact[];
   plateFacts: string[];
@@ -199,6 +255,9 @@ export interface LiurenEvidenceAnalysis {
   focusEvidence: NonNullable<LiurenData['focusEvidence']>;
   timingEvidence: string[];
   traditionalFacts: LiurenTraditionalFact[];
+  limitations: string[];
+  limitationFacts: LiurenLimitationFact[];
+  summaryFact: LiurenSummaryFact;
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
@@ -232,6 +291,12 @@ const FOCUS_FACT_LIMITATION =
   '类神焦点事实只记录当前结果已选出的关注对象、角色、依据与限制；未选定具体问题类神时不得把日支、天将或神煞固定当作用神' as const;
 const FOCUS_SUMMARY_LIMITATION =
   '焦点覆盖状态只说明当前结果是否保存关注对象；缺少焦点时不得自行把日支、天将或神煞固定当作用神，仍须按具体问题选择类神' as const;
+const CALCULATION_STEP_LIMITATION =
+  '计算步骤只证明占时参数、天地盘、四课、取传、三传、反证、类神与应期条件如何形成当前证据；不证明现实吉凶、事件概率、人物身份或固定应期' as const;
+const SUMMARY_FACT_LIMITATION =
+  '大六壬证据汇总只统计起盘、天地盘、四课取传、三传推进、反证、类神、应期与传统资料的覆盖情况；不得按数量生成吉凶总分、成功率、人物身份、事件保证或唯一日期' as const;
+const LIMITATION_FACT_LIMITATION =
+  '限制事实用于约束大六壬占时、天地盘、四课取传、三传、类神、课体、天将、神煞与应期资料能够支持的解释范围，不得被反向当作现实吉凶、人物身份、疾病灾祸、事件概率或固定应期的证据' as const;
 
 export function conditionLiurenTraditionalText(text: string): string {
   return text
@@ -666,6 +731,343 @@ function buildPlateCoverageFact(positions: LiurenPlateFact[]): LiurenPlateCovera
   };
 }
 
+function buildSummaryFact(params: {
+  calculationFact: LiurenCalculationFact;
+  plateFact: LiurenPlateCoverageFact;
+  platePositionFacts: LiurenPlateFact[];
+  transmissionRuleFact: LiurenTransmissionRuleFact;
+  lessons: LiurenLessonEvidence[];
+  transmissions: LiurenTransmissionEvidence[];
+  transitionFacts: LiurenTransitionFact[];
+  counterSummaryFact: LiurenCounterSummaryFact;
+  counterEvidenceFacts: LiurenCounterEvidenceFact[];
+  timingFacts: LiurenTimingFact[];
+  focusSummaryFact: LiurenFocusSummaryFact;
+  focusFacts: LiurenFocusFact[];
+  traditionalFacts: LiurenTraditionalFact[];
+}): LiurenSummaryFact {
+  const factKeys = Array.from(
+    new Set([
+      params.calculationFact.key,
+      params.plateFact.key,
+      ...params.platePositionFacts.map((item) => item.key),
+      params.transmissionRuleFact.key,
+      ...params.lessons.flatMap((item) => [
+        item.key,
+        ...item.relationFacts.map((fact) => fact.key),
+      ]),
+      ...params.transmissions.flatMap((item) => [
+        item.key,
+        ...item.relationFacts.map((fact) => fact.key),
+      ]),
+      ...params.transitionFacts.map((item) => item.key),
+      params.counterSummaryFact.key,
+      ...params.counterEvidenceFacts.map((item) => item.key),
+      ...params.timingFacts.map((item) => item.key),
+      params.focusSummaryFact.key,
+      ...params.focusFacts.map((item) => item.key),
+      ...params.traditionalFacts.map((item) => item.key),
+    ]),
+  );
+  const status =
+    params.plateFact.status === '完整' &&
+    params.lessons.length === 4 &&
+    params.transmissions.length === 3 &&
+    params.transitionFacts.length === 2 &&
+    params.transmissionRuleFact.status === '已确定'
+      ? '证据链完整'
+      : '证据链有缺口';
+  return {
+    key: 'liuren:evidence-summary',
+    status,
+    factKeys,
+    platePositionFactCount: params.platePositionFacts.length,
+    lessonFactCount: params.lessons.length,
+    transmissionFactCount: params.transmissions.length,
+    transitionFactCount: params.transitionFacts.length,
+    counterEvidenceCount: params.counterEvidenceFacts.length,
+    timingFactCount: params.timingFacts.length,
+    focusFactCount: params.focusFacts.length,
+    traditionalFactCount: params.traditionalFacts.length,
+    promptText: `证据链状态：${status}；天地盘${params.platePositionFacts.length}/12位、四课${params.lessons.length}项、三传${params.transmissions.length}项、推进${params.transitionFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项、类神焦点${params.focusFacts.length}项、传统资料${params.traditionalFacts.length}项`,
+    sources: ['全部起盘、天地盘、四课取传、三传、反证、类神、应期与传统事实逐项汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
+}
+
+function buildCalculationSteps(params: {
+  calculationFact: LiurenCalculationFact;
+  plateFact: LiurenPlateCoverageFact;
+  platePositionFacts: LiurenPlateFact[];
+  lessons: LiurenLessonEvidence[];
+  transmissionRuleFact: LiurenTransmissionRuleFact;
+  transmissions: LiurenTransmissionEvidence[];
+  transitionFacts: LiurenTransitionFact[];
+  counterEvidenceFacts: LiurenCounterEvidenceFact[];
+  counterSummaryFact: LiurenCounterSummaryFact;
+  focusFacts: LiurenFocusFact[];
+  focusSummaryFact: LiurenFocusSummaryFact;
+  timingFacts: LiurenTimingFact[];
+  summaryFact: LiurenSummaryFact;
+}): LiurenEvidenceCalculationStep[] {
+  return [
+    {
+      key: 'liuren:calculation:chart-input',
+      stage: '起盘参数核验',
+      status: '已计算',
+      inputs: {
+        ganzhi: [
+          params.calculationFact.ganzhi.year,
+          params.calculationFact.ganzhi.month,
+          params.calculationFact.ganzhi.day,
+          params.calculationFact.ganzhi.hour,
+        ],
+        monthLeader: params.calculationFact.monthLeader,
+        divinationBranch: params.calculationFact.divinationBranch,
+      },
+      result: {
+        dayNight: params.calculationFact.dayNight ?? '未列',
+        noblemanBranch: params.calculationFact.noblemanBranch ?? '未列',
+        noblemanGroundBranch: params.calculationFact.noblemanGroundBranch ?? '未列',
+        dayStemResidence: params.calculationFact.dayStemResidence ?? '未列',
+        xunKong: params.calculationFact.xunKong,
+      },
+      dependsOnStepKeys: [],
+      promptText: params.calculationFact.promptText,
+      sources: params.calculationFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'liuren:calculation:plate',
+      stage: '天地盘覆盖核验',
+      status: params.plateFact.status === '完整' ? '已计算' : '资料不足',
+      inputs: {
+        monthLeader: params.calculationFact.monthLeader,
+        divinationBranch: params.calculationFact.divinationBranch,
+        noblemanGroundBranch: params.calculationFact.noblemanGroundBranch ?? '未列',
+      },
+      result: {
+        coverageStatus: params.plateFact.status,
+        expectedCount: params.plateFact.expectedCount,
+        actualCount: params.platePositionFacts.length,
+      },
+      dependsOnStepKeys: ['liuren:calculation:chart-input'],
+      promptText: params.plateFact.promptText,
+      sources: Array.from(
+        new Set([
+          ...params.plateFact.sources,
+          ...params.platePositionFacts.flatMap((item) => item.sources),
+        ]),
+      ),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'liuren:calculation:lessons',
+      stage: '四课结构核验',
+      status: params.lessons.length === 4 ? '已计算' : '资料不足',
+      inputs: { platePositionCount: params.platePositionFacts.length },
+      result: {
+        lessonCount: params.lessons.length,
+        initialSourceLessons: params.lessons
+          .filter((item) => item.isInitialSource)
+          .map((item) => item.name),
+      },
+      dependsOnStepKeys: ['liuren:calculation:plate'],
+      promptText: `四课共${params.lessons.length}项，逐课记录上下神、乘将、关系、旬空与初传来源状态`,
+      sources: Array.from(new Set(params.lessons.flatMap((item) => item.sources))),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'liuren:calculation:transmission-rule',
+      stage: '取传规则核验',
+      status: params.transmissionRuleFact.status === '已确定' ? '已计算' : '资料不足',
+      inputs: {
+        lessonCount: params.lessons.length,
+        initialSourceLessonKeys: params.transmissionRuleFact.initialSourceLessonKeys,
+      },
+      result: {
+        ruleStatus: params.transmissionRuleFact.status,
+        rule: params.transmissionRuleFact.rule ?? '未记录',
+        pattern: params.transmissionRuleFact.pattern ?? '未记录',
+        initialBranch: params.transmissionRuleFact.initialBranch,
+        initialGod: params.transmissionRuleFact.initialGod,
+      },
+      dependsOnStepKeys: ['liuren:calculation:lessons'],
+      promptText: params.transmissionRuleFact.promptText,
+      sources: params.transmissionRuleFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'liuren:calculation:transmissions',
+      stage: '三传推进核验',
+      status:
+        params.transmissions.length === 3 && params.transitionFacts.length === 2
+          ? '已计算'
+          : '资料不足',
+      inputs: { initialBranch: params.transmissionRuleFact.initialBranch },
+      result: {
+        transmissionCount: params.transmissions.length,
+        transitionCount: params.transitionFacts.length,
+        stages: params.transmissions.map((item) => `${item.stage}${item.branch}`),
+      },
+      dependsOnStepKeys: ['liuren:calculation:transmission-rule'],
+      promptText: `三传为${params.transmissions.map((item) => `${item.stage}${item.branch}乘${item.god}`).join('、')}；相邻推进${params.transitionFacts.map((item) => item.promptText).join('；')}`,
+      sources: Array.from(
+        new Set([
+          ...params.transmissions.flatMap((item) => item.sources),
+          ...params.transitionFacts.flatMap((item) => item.sources),
+        ]),
+      ),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'liuren:calculation:counter-focus-timing',
+      stage: '反证类神应期核验',
+      status: params.timingFacts.length ? '已计算' : '资料不足',
+      inputs: { transmissionCount: params.transmissions.length },
+      result: {
+        counterStatus: params.counterSummaryFact.status,
+        counterEvidenceCount: params.counterEvidenceFacts.length,
+        focusStatus: params.focusSummaryFact.status,
+        focusFactCount: params.focusFacts.length,
+        timingFactCount: params.timingFacts.length,
+      },
+      dependsOnStepKeys: ['liuren:calculation:transmissions'],
+      promptText: `${params.counterSummaryFact.promptText}；${params.focusSummaryFact.promptText}；已记录${params.timingFacts.length}项应期触发与期限事实`,
+      sources: Array.from(
+        new Set([
+          ...params.counterSummaryFact.sources,
+          ...params.focusSummaryFact.sources,
+          ...params.timingFacts.flatMap((item) => item.sources),
+        ]),
+      ),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'liuren:calculation:summary',
+      stage: '证据汇总',
+      status: params.summaryFact.status === '证据链完整' ? '已计算' : '资料不足',
+      inputs: { factCount: params.summaryFact.factKeys.length },
+      result: {
+        summaryStatus: params.summaryFact.status,
+        platePositionFactCount: params.summaryFact.platePositionFactCount,
+        lessonFactCount: params.summaryFact.lessonFactCount,
+        transmissionFactCount: params.summaryFact.transmissionFactCount,
+        counterEvidenceCount: params.summaryFact.counterEvidenceCount,
+        timingFactCount: params.summaryFact.timingFactCount,
+      },
+      dependsOnStepKeys: [
+        'liuren:calculation:chart-input',
+        'liuren:calculation:plate',
+        'liuren:calculation:lessons',
+        'liuren:calculation:transmission-rule',
+        'liuren:calculation:transmissions',
+        'liuren:calculation:counter-focus-timing',
+      ],
+      promptText: params.summaryFact.promptText,
+      sources: params.summaryFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+  ];
+}
+
+function buildLimitationFacts(params: {
+  calculationFact: LiurenCalculationFact;
+  plateFact: LiurenPlateCoverageFact;
+  platePositionFacts: LiurenPlateFact[];
+  lessons: LiurenLessonEvidence[];
+  transmissionRuleFact: LiurenTransmissionRuleFact;
+  transmissions: LiurenTransmissionEvidence[];
+  transitionFacts: LiurenTransitionFact[];
+  counterSummaryFact: LiurenCounterSummaryFact;
+  counterEvidenceFacts: LiurenCounterEvidenceFact[];
+  timingFacts: LiurenTimingFact[];
+  focusSummaryFact: LiurenFocusSummaryFact;
+  focusFacts: LiurenFocusFact[];
+  traditionalFacts: LiurenTraditionalFact[];
+  summaryFact: LiurenSummaryFact;
+}): LiurenLimitationFact[] {
+  const definitions: Array<
+    Pick<LiurenLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
+  > = [
+    {
+      key: 'liuren:limitation:chart-plate',
+      type: '起盘天地盘边界',
+      ownerFactKeys: [
+        params.calculationFact.key,
+        params.plateFact.key,
+        ...params.platePositionFacts.map((item) => item.key),
+      ],
+      promptText:
+        '占时四柱、月将加时、昼夜贵人、日干寄宫、旬空和天地盘逐位资料只证明起盘计算与排布结果；不得由单一位置、天将或方位直接推出人物、事件与现实吉凶',
+      sources: ['起盘参数、天地盘覆盖与十二位逐项事实'],
+    },
+    {
+      key: 'liuren:limitation:lessons-rule',
+      type: '四课取传边界',
+      ownerFactKeys: [
+        ...params.lessons.flatMap((item) => [
+          item.key,
+          ...item.relationFacts.map((fact) => fact.key),
+        ]),
+        params.transmissionRuleFact.key,
+      ],
+      promptText:
+        '四课记录上下神、乘将、生克、旬空和初传来源，九宗门规则只说明如何发用取传；缺少规则名时不得按结果反推，已有规则也不单独证明现实成败',
+      sources: ['四课关系事实、初传来源与九宗门取传结果'],
+    },
+    {
+      key: 'liuren:limitation:transmissions',
+      type: '三传推进边界',
+      ownerFactKeys: [
+        ...params.transmissions.flatMap((item) => [
+          item.key,
+          ...item.relationFacts.map((fact) => fact.key),
+        ]),
+        ...params.transitionFacts.map((item) => item.key),
+      ],
+      promptText:
+        '初传、中传、末传及相邻关系只描述盘内发用、过程与落点结构；三传顺序、旺衰、旬空与生克不得直接写成现实事件必然按同样顺序推进、停滞、成功或失败',
+      sources: ['三传阶段、逐传关系与相邻推进事实'],
+    },
+    {
+      key: 'liuren:limitation:counter-focus-timing',
+      type: '反证类神应期边界',
+      ownerFactKeys: [
+        params.counterSummaryFact.key,
+        ...params.counterEvidenceFacts.map((item) => item.key),
+        params.focusSummaryFact.key,
+        ...params.focusFacts.map((item) => item.key),
+        ...params.timingFacts.map((item) => item.key),
+      ],
+      promptText:
+        '空亡、休囚、冲克等反证必须与主证并列；未按具体问题选定类神时，不得把日支或任一神煞固定当作用神，天将也只能结合课传与问题使用；应期只保留先后、快慢、填实、冲合、旺衰与现实触发条件，不换算唯一日期或事件概率',
+      sources: ['课传反证、类神焦点覆盖与应期触发事实'],
+    },
+    {
+      key: 'liuren:limitation:tradition',
+      type: '传统规则类象边界',
+      ownerFactKeys: params.traditionalFacts.map((item) => item.key),
+      promptText:
+        '经典取传规则、课体、天将属性和神煞属于传统规则与类象资料，只能辅助限定解释方向；不得直接证明人物身份、疾病死亡、犯罪官非、婚姻、法律责任、财务或安全结果',
+      sources: ['经典规则、课体、天将属性与神煞条件化事实'],
+    },
+    {
+      key: 'liuren:limitation:high-risk',
+      type: '高风险输出边界',
+      ownerFactKeys: [params.summaryFact.key],
+      promptText:
+        '不得按课传关系、支持、反证、旺衰、天将、神煞或传统标签生成吉凶总分与成功率；不得输出医疗、法律、财务、安全保证、人物定性、必然事件或唯一日期',
+      sources: ['大六壬证据汇总与高风险解释约束'],
+    },
+  ];
+  return definitions.map((item) => ({
+    ...item,
+    status: '适用',
+    limitation: LIMITATION_FACT_LIMITATION,
+  }));
+}
+
 export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis {
   if (data.fourLessons.length !== 4 || data.threeTransmissions.length !== 3) {
     throw new Error('大六壬证据分析需要完整四课与三传。');
@@ -796,6 +1198,57 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     ],
     limitation: RULE_FACT_LIMITATION,
   };
+  const summaryFact = buildSummaryFact({
+    calculationFact,
+    plateFact,
+    platePositionFacts,
+    transmissionRuleFact,
+    lessons,
+    transmissions,
+    transitionFacts,
+    counterSummaryFact,
+    counterEvidenceFacts,
+    timingFacts,
+    focusSummaryFact,
+    focusFacts,
+    traditionalFacts,
+  });
+  const calculationSteps = buildCalculationSteps({
+    calculationFact,
+    plateFact,
+    platePositionFacts,
+    lessons,
+    transmissionRuleFact,
+    transmissions,
+    transitionFacts,
+    counterEvidenceFacts,
+    counterSummaryFact,
+    focusFacts,
+    focusSummaryFact,
+    timingFacts,
+    summaryFact,
+  });
+  summaryFact.factKeys = Array.from(
+    new Set([...calculationSteps.map((item) => item.key), ...summaryFact.factKeys]),
+  );
+  const calculationChain = calculationSteps.map((item) => item.promptText);
+  const limitationFacts = buildLimitationFacts({
+    calculationFact,
+    plateFact,
+    platePositionFacts,
+    lessons,
+    transmissionRuleFact,
+    transmissions,
+    transitionFacts,
+    counterSummaryFact,
+    counterEvidenceFacts,
+    timingFacts,
+    focusSummaryFact,
+    focusFacts,
+    traditionalFacts,
+    summaryFact,
+  });
+  const limitations = limitationFacts.map((item) => item.promptText);
 
   const classicalText = data.classicalRules?.length
     ? traditionalFacts
@@ -804,6 +1257,13 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
         .join('；')
     : '未附经典规则说明';
   const items: PromptEvidenceItem[] = [
+    {
+      level: calculationSteps.some((item) => item.status === '资料不足') ? '反证' : '辅证',
+      title: '大六壬计算链',
+      detail: `${calculationChain.join('；')}；统一边界：${CALCULATION_STEP_LIMITATION}`,
+      source: Array.from(new Set(calculationSteps.flatMap((item) => item.sources))).join('、'),
+      tags: ['计算链', summaryFact.status],
+    },
     {
       level: '辅证',
       title: '月将加时与贵人起盘事实',
@@ -948,11 +1408,17 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
       tags: ['反证', '课传限制', fact.scope, fact.basis],
     })),
     {
+      level: '辅证',
+      title: `大六壬证据汇总：${summaryFact.status}`,
+      detail: `${summaryFact.promptText}；边界：${summaryFact.limitation}`,
+      source: summaryFact.sources.join('、'),
+      tags: ['证据汇总', summaryFact.status],
+    },
+    {
       level: '限制',
       title: '大六壬课传解释边界',
-      detail:
-        '四课用于背景和取传依据，初传为发用主轴，中末传表示过程与落点；课体、天将和神煞只作辅助证据。未按具体问题选定类神时，不得把日支或任一神煞固定当作用神，也不得按证据数量生成吉凶总分或成功率。',
-      source: '计算事实与解释结论分离原则',
+      detail: `${limitations.join('；')}；统一边界：${LIMITATION_FACT_LIMITATION}`,
+      source: Array.from(new Set(limitationFacts.flatMap((item) => item.sources))).join('、'),
     },
   ];
   const evidence: PromptEvidenceBundle = { title: '大六壬四课取传与三传推进结构化证据', items };
@@ -965,10 +1431,17 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     `触发条件：${timingFacts.map((item) => `${item.promptText}（${item.sourceStatus}）`).join('；')}`,
     `类神焦点状态：${focusSummaryFact.promptText}；边界：${focusSummaryFact.limitation}`,
     '应期边界：未给期限时不换算唯一日期，不以神煞、课体或单项关系指定应期。',
+    `计算链：${calculationChain.join(' → ')}`,
+    `证据汇总：${summaryFact.promptText}。`,
+    `解释限制：${limitations.join('；')}。`,
   ].join('\n');
   return {
+    key: 'liuren:evidence',
+    status: '已计算',
     calculationFact,
     calculationFacts,
+    calculationSteps,
+    calculationChain,
     plateFact,
     platePositionFacts,
     plateFacts,
@@ -992,6 +1465,9 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     focusEvidence,
     timingEvidence,
     traditionalFacts,
+    limitations,
+    limitationFacts,
+    summaryFact,
     evidence,
     promptText,
     methodology: [

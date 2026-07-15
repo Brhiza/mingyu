@@ -3424,6 +3424,24 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
     body: JSON.stringify({ customDate: '2025-01-01T08:00:00+08:00' }),
   });
   assert.equal(liurenChart.response.status, 200);
+  assert.equal(liurenChart.body.data.evidenceAnalysis.key, 'liuren:evidence');
+  assert.equal(liurenChart.body.data.evidenceAnalysis.status, '已计算');
+  assert.equal(liurenChart.body.data.evidenceAnalysis.calculationSteps.length, 7);
+  assert.equal(
+    liurenChart.body.data.evidenceAnalysis.calculationChain.length,
+    liurenChart.body.data.evidenceAnalysis.calculationSteps.length,
+  );
+  const liurenCalculationStepKeys = new Set(
+    liurenChart.body.data.evidenceAnalysis.calculationSteps.map(
+      (item: { key: string }) => item.key,
+    ),
+  );
+  assert.ok(
+    liurenChart.body.data.evidenceAnalysis.calculationSteps.every(
+      (item: { dependsOnStepKeys: string[] }) =>
+        item.dependsOnStepKeys.every((key) => liurenCalculationStepKeys.has(key)),
+    ),
+  );
   assert.equal(liurenChart.body.data.evidenceAnalysis.lessons.length, 4);
   assert.equal(liurenChart.body.data.evidenceAnalysis.transmissions.length, 3);
   assert.equal(liurenChart.body.data.evidenceAnalysis.transmissionRuleFact.status, '已确定');
@@ -3508,6 +3526,68 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
         String(item.limitation).includes('只证明月将加时'),
     ),
   );
+  assert.equal(liurenChart.body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(
+    liurenChart.body.data.evidenceAnalysis.summaryFact.platePositionFactCount,
+    liurenChart.body.data.evidenceAnalysis.platePositionFacts.length,
+  );
+  assert.equal(
+    liurenChart.body.data.evidenceAnalysis.summaryFact.lessonFactCount,
+    liurenChart.body.data.evidenceAnalysis.lessons.length,
+  );
+  assert.equal(
+    liurenChart.body.data.evidenceAnalysis.summaryFact.transmissionFactCount,
+    liurenChart.body.data.evidenceAnalysis.transmissions.length,
+  );
+  assert.equal(
+    liurenChart.body.data.evidenceAnalysis.summaryFact.transitionFactCount,
+    liurenChart.body.data.evidenceAnalysis.transitionFacts.length,
+  );
+  assert.equal(liurenChart.body.data.evidenceAnalysis.limitationFacts.length, 6);
+  assert.equal(
+    liurenChart.body.data.evidenceAnalysis.limitations.length,
+    liurenChart.body.data.evidenceAnalysis.limitationFacts.length,
+  );
+  const liurenFactKeys = new Set([
+    liurenChart.body.data.evidenceAnalysis.calculationFact.key,
+    liurenChart.body.data.evidenceAnalysis.plateFact.key,
+    ...liurenChart.body.data.evidenceAnalysis.platePositionFacts.map(
+      (item: { key: string }) => item.key,
+    ),
+    liurenChart.body.data.evidenceAnalysis.transmissionRuleFact.key,
+    ...liurenChart.body.data.evidenceAnalysis.lessons.flatMap(
+      (item: { key: string; relationFacts: Array<{ key: string }> }) => [
+        item.key,
+        ...item.relationFacts.map((fact) => fact.key),
+      ],
+    ),
+    ...liurenChart.body.data.evidenceAnalysis.transmissions.flatMap(
+      (item: { key: string; relationFacts: Array<{ key: string }> }) => [
+        item.key,
+        ...item.relationFacts.map((fact) => fact.key),
+      ],
+    ),
+    ...liurenChart.body.data.evidenceAnalysis.transitionFacts.map(
+      (item: { key: string }) => item.key,
+    ),
+    liurenChart.body.data.evidenceAnalysis.counterSummaryFact.key,
+    ...liurenChart.body.data.evidenceAnalysis.counterEvidenceFacts.map(
+      (item: { key: string }) => item.key,
+    ),
+    ...liurenChart.body.data.evidenceAnalysis.timingFacts.map((item: { key: string }) => item.key),
+    liurenChart.body.data.evidenceAnalysis.focusSummaryFact.key,
+    ...liurenChart.body.data.evidenceAnalysis.focusFacts.map((item: { key: string }) => item.key),
+    ...liurenChart.body.data.evidenceAnalysis.traditionalFacts.map(
+      (item: { key: string }) => item.key,
+    ),
+    liurenChart.body.data.evidenceAnalysis.summaryFact.key,
+  ]);
+  assert.ok(
+    liurenChart.body.data.evidenceAnalysis.limitationFacts.every(
+      (item: { ownerFactKeys: string[] }) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => liurenFactKeys.has(key)),
+    ),
+  );
   const traditionalFacts = liurenChart.body.data.evidenceAnalysis.traditionalFacts as Array<{
     kind: string;
     originalText: string;
@@ -3532,6 +3612,10 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
   assert.match(liuren.body.data.prompt, /取传规则事实：/);
   assert.match(liuren.body.data.prompt, /类神焦点状态：/);
   assert.match(liuren.body.data.prompt, /应期边界：未给期限时不换算唯一日期/);
+  assert.match(
+    liuren.body.data.prompt,
+    /大六壬计算链[\s\S]*大六壬证据汇总[\s\S]*大六壬课传解释边界/,
+  );
   assert.doesNotMatch(liuren.body.data.prompt, /主婚姻|主官非|主疾病|主死丧|主虚而不实/);
 });
 

@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import type { LiurenLesson, LiurenPlateItem } from 'mingyu-core/types';
-import { generateLiuren } from 'mingyu-core/divination/liuren';
+import { analyzeLiurenEvidence, generateLiuren } from 'mingyu-core/divination/liuren';
+import { assertPromptIsPortableTaskText } from './prompt-assertions';
 import {
   getLiurenTransmissionGuaTi,
   getTransmissionPattern,
@@ -53,11 +54,84 @@ test('大六壬应输出分层取用与应期证据', () => {
   assert.match(result.focusEvidence?.[0]?.role ?? '', /发用主轴/);
   assert.equal(result.timingEvidence?.length, 4);
   assert.match(result.timingEvidence?.join('；') ?? '', /一级发用.*二级三传.*三级日月/);
+  const evidence = result.evidenceAnalysis;
+  assert.ok(evidence);
+  assert.equal(evidence.key, 'liuren:evidence');
+  assert.equal(evidence.status, '已计算');
+  assert.equal(evidence.calculationSteps.length, 7);
+  assert.equal(evidence.calculationChain.length, evidence.calculationSteps.length);
+  const calculationStepKeys = new Set(evidence.calculationSteps.map((item) => item.key));
+  assert.ok(
+    evidence.calculationSteps.every((item) =>
+      item.dependsOnStepKeys.every((key) => calculationStepKeys.has(key)),
+    ),
+  );
+  assert.equal(evidence.summaryFact.status, '证据链完整');
+  assert.equal(evidence.summaryFact.platePositionFactCount, evidence.platePositionFacts.length);
+  assert.equal(evidence.summaryFact.lessonFactCount, evidence.lessons.length);
+  assert.equal(evidence.summaryFact.transmissionFactCount, evidence.transmissions.length);
+  assert.equal(evidence.summaryFact.transitionFactCount, evidence.transitionFacts.length);
+  assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
+  assert.equal(evidence.summaryFact.timingFactCount, evidence.timingFacts.length);
+  assert.equal(evidence.summaryFact.focusFactCount, evidence.focusFacts.length);
+  assert.equal(evidence.summaryFact.traditionalFactCount, evidence.traditionalFacts.length);
+  assert.equal(evidence.limitationFacts.length, 6);
+  assert.deepEqual(
+    evidence.limitations,
+    evidence.limitationFacts.map((item) => item.promptText),
+  );
+  const factKeys = new Set([
+    evidence.calculationFact.key,
+    evidence.plateFact.key,
+    ...evidence.platePositionFacts.map((item) => item.key),
+    evidence.transmissionRuleFact.key,
+    ...evidence.lessons.flatMap((item) => [
+      item.key,
+      ...item.relationFacts.map((fact) => fact.key),
+    ]),
+    ...evidence.transmissions.flatMap((item) => [
+      item.key,
+      ...item.relationFacts.map((fact) => fact.key),
+    ]),
+    ...evidence.transitionFacts.map((item) => item.key),
+    evidence.counterSummaryFact.key,
+    ...evidence.counterEvidenceFacts.map((item) => item.key),
+    ...evidence.timingFacts.map((item) => item.key),
+    evidence.focusSummaryFact.key,
+    ...evidence.focusFacts.map((item) => item.key),
+    ...evidence.traditionalFacts.map((item) => item.key),
+    evidence.summaryFact.key,
+  ]);
+  assert.ok(
+    evidence.limitationFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.match(evidence.promptText, /计算链：[\s\S]*证据汇总：[\s\S]*解释限制：/);
+  assertPromptIsPortableTaskText(evidence.promptText);
   for (const transmission of result.threeTransmissions) {
     assert.ok(transmission.wuxing);
     assert.ok(transmission.seasonState);
     assert.equal(typeof transmission.isVoid, 'boolean');
   }
+});
+
+test('大六壬旧资料缺少取传规则名时应保留证据缺口，不按三传反推九宗门', () => {
+  const data = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
+  data.transmissionRule = undefined;
+  data.transmissionPattern = undefined;
+  data.evidenceAnalysis = undefined;
+
+  const evidence = analyzeLiurenEvidence(data);
+
+  assert.equal(evidence.transmissionRuleFact.status, '缺少规则名');
+  assert.equal(evidence.transmissionRuleFact.rule, null);
+  assert.equal(evidence.summaryFact.status, '证据链有缺口');
+  assert.equal(evidence.calculationSteps[3]?.status, '资料不足');
+  assert.equal(evidence.calculationSteps[6]?.status, '资料不足');
+  assert.match(evidence.transmissionRuleFact.promptText, /不得按三传结果反推九宗门名称/);
+  assertPromptIsPortableTaskText(evidence.promptText);
 });
 
 function getUpperByUnder(
