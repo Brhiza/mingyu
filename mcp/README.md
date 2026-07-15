@@ -12,6 +12,7 @@
 | `calendar_moon_phase`        | 月相证据     | 返回月相角、照明比例、近似月龄和前后朔弦望求根事件                             |
 | `calendar_solar_term`        | 节气证据     | 返回采用历表时刻、目标黄经、独立求根与差值核验                                 |
 | `foundation_capabilities`    | 地基能力目录 | 返回历法、干支、五行、方位和神煞目录的稳定事实、来源、证据汇总与限制           |
+| `foundation_shensha`         | 通用神煞证据 | 核验完整四柱，返回空亡、驿马、桃花的起法、目标、命中柱位、来源与限制           |
 | `foundation_ganzhi`          | 干支资料     | 返回单个六十甲子的纳音、藏干、五行与合冲刑害破                                 |
 | `foundation_wuxing`          | 五行分析     | 统计天干地支五行分布，可选计入藏干权重                                         |
 | `foundation_direction`       | 罗盘方位     | 把朝向度数换算为二十四山坐向、后天八卦与分界状态                               |

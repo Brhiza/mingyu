@@ -45,6 +45,15 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ['foundation_wuxing', { items: ['甲', '子', '丙', '午'], weightHidden: true }],
   ['foundation_direction', { degree: 180 }],
   [
+    'foundation_shensha',
+    {
+      yearGanZhi: '甲子',
+      monthGanZhi: '丙寅',
+      dayGanZhi: '戊辰',
+      hourGanZhi: '丁酉',
+    },
+  ],
+  [
     'calendar_true_solar_time',
     { localDateTime: '1990-05-15T10:30:00', longitude: 116.4074, timezone: 8 },
   ],
@@ -374,7 +383,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 49);
+    assert.equal(tools.length, 50);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
@@ -392,6 +401,7 @@ test('MCP 工具列表应声明输出结构', async () => {
     assert.ok(tools.find((tool) => tool.name === 'calendar_moon_phase'));
     assert.ok(tools.find((tool) => tool.name === 'calendar_solar_term'));
     assert.ok(tools.find((tool) => tool.name === 'foundation_direction'));
+    assert.ok(tools.find((tool) => tool.name === 'foundation_shensha'));
 
     assert.equal(
       tools.some((tool) => tool.name === 'build_divination_prompt'),
@@ -401,6 +411,23 @@ test('MCP 工具列表应声明输出结构', async () => {
       assert.ok(tools.find((tool) => tool.name === name)?.outputSchema?.properties?.result);
       assert.ok(tools.find((tool) => tool.name === name)?.outputSchema?.properties?.prompt);
     }
+  });
+});
+
+test('通用神煞 MCP 输入应拒绝重复编号', async () => {
+  await withMcpClient(async (client) => {
+    const result = await client.callTool({
+      name: 'foundation_shensha',
+      arguments: {
+        yearGanZhi: '甲子',
+        monthGanZhi: '丙寅',
+        dayGanZhi: '戊辰',
+        hourGanZhi: '丁酉',
+        ids: ['yima', 'yima'],
+      },
+    });
+
+    assert.equal(result.isError, true);
   });
 });
 
@@ -440,8 +467,8 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         assert.equal(capabilities.status, '已登记');
         assert.equal(capabilities.capabilityFacts.length, 5);
         assert.equal(capabilities.summaryFact.moduleFactCount, capabilities.capabilityFacts.length);
-        assert.equal(capabilities.summaryFact.evidenceReadyModuleCount, 4);
-        assert.equal(capabilities.summaryFact.catalogOnlyModuleCount, 1);
+        assert.equal(capabilities.summaryFact.evidenceReadyModuleCount, 5);
+        assert.equal(capabilities.summaryFact.catalogOnlyModuleCount, 0);
         assert.equal(
           capabilities.summaryFact.commonShenshaCount,
           capabilities.commonShensha.length,
@@ -543,6 +570,47 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         assert.equal(direction.summaryFact.directionFactCount, direction.directionFacts.length);
         assert.equal(direction.summaryFact.limitationFactCount, direction.limitationFacts.length);
         assert.match(direction.promptText, /不自动推断或补造磁偏角/);
+      }
+      if (name === 'foundation_shensha') {
+        const analysis = result.structuredContent.result as {
+          key: string;
+          status: string;
+          pillarFacts: unknown[];
+          calculationSteps: Array<{ promptText: string }>;
+          calculationChain: string[];
+          matchFacts: Array<{
+            id: string;
+            status: string;
+            evidenceStatus: string;
+            matchedPillars: Array<{ label: string }>;
+          }>;
+          summaryFact: {
+            status: string;
+            matchedRuleCount: number;
+            matchFactCount: number;
+            limitationFactCount: number;
+          };
+          limitationFacts: unknown[];
+          promptText: string;
+        };
+        assert.match(analysis.key, /^foundation:shensha:/);
+        assert.equal(analysis.status, '已核验');
+        assert.equal(analysis.pillarFacts.length, 4);
+        assert.equal(analysis.calculationSteps.length, 8);
+        assert.deepEqual(
+          analysis.calculationChain,
+          analysis.calculationSteps.map((item) => item.promptText),
+        );
+        assert.equal(analysis.summaryFact.status, '证据链完整');
+        assert.equal(analysis.summaryFact.matchedRuleCount, 2);
+        assert.equal(analysis.summaryFact.matchFactCount, analysis.matchFacts.length);
+        assert.equal(analysis.summaryFact.limitationFactCount, analysis.limitationFacts.length);
+        assert.deepEqual(analysis.matchFacts.find((item) => item.id === 'yima')?.matchedPillars, [
+          { pillar: 'monthGanZhi', label: '月柱', ganZhi: '丙寅', branch: '寅' },
+        ]);
+        assert.ok(analysis.matchFacts.every((item) => item.evidenceStatus === '来源已声明'));
+        assert.match(analysis.promptText, /不得凭单项神煞定吉凶/);
+        assertPromptIsPortableTaskText(analysis.promptText);
       }
       if (name === 'calendar_astronomical_time') {
         const evidence = result.structuredContent.result as {

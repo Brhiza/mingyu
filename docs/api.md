@@ -113,6 +113,7 @@
 | 计算太阳光照证据                   | `POST /calendar/solar-illumination`          | `year`、`month`、`day`、`latitude`、`longitude`，并提供 `timezone` 或 `timeZoneId`；可选参考时分秒                                                          | 返回太阳高度、方位、视太阳正午、日出日落与三类曙暮光                             |
 | 查六十甲子、纳音、藏干和合冲       | `POST /foundation/ganzhi`                    | `ganZhi`，如“甲子”                                                                                                                                          | 返回统一公共地基资料，不需重复实现                                               |
 | 统计天干地支五行分布               | `POST /foundation/wuxing`                    | `items`、可选 `weightHidden`                                                                                                                                | 默认计入地支藏干权重                                                             |
+| 核验通用神煞命中                   | `POST /foundation/shensha`                   | 完整年、月、日、时四柱干支；可选 `ids`                                                                                                                      | 返回空亡、驿马、桃花的固定起法、目标地支、命中柱位、来源与限制                   |
 | 整体人生、长期事业、财运、婚恋     | `POST /bazi-ziwei/prompt`                    | `baziPromptTopic`、`ziweiPromptTopic` 按主题填写，`promptScope: "full"` 或 `"origin"`                                                                       | 有完整出生信息时优先合参；想看完整阶段时用 `full`                                |
 | 今年、某一年、当前阶段运势         | `POST /bazi-ziwei/prompt`                    | `promptScope: "yearly"`，主题填事业、财运、感情等                                                                                                           | 八字看岁运触发，紫微看流年落宫与四化                                             |
 | 换工作、创业、合伙、投资合作       | `POST /bazi-ziwei/prompt`                    | `job-change`、`startup-partnership`、`investment-partnership`，按问题选择主题                                                                               | 这类问题兼具长期结构和当前触发，优先合参                                         |
@@ -172,6 +173,16 @@ curl -X POST https://aov.cc/api/v1/foundation/wuxing \
   -H "Content-Type: application/json" \
   -d '{"items":["甲","子","丙","午"],"weightHidden":true}'
 ```
+
+通用神煞结构化证据：
+
+```bash
+curl -X POST https://aov.cc/api/v1/foundation/shensha \
+  -H "Content-Type: application/json" \
+  -d '{"yearGanZhi":"甲子","monthGanZhi":"丙寅","dayGanZhi":"戊辰","hourGanZhi":"丁巳"}'
+```
+
+该入口要求四柱全部明确且合法；不会生成候选时辰、缺时柱命盘、吉凶总分或事件概率。
 
 八字排盘并生成提示词：
 

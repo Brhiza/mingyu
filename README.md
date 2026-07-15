@@ -54,7 +54,7 @@ OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.jso
 - 干支：十天干、十二地支、六十甲子、六旬旬首、纳音、藏干、阴阳五行、合冲刑害破、三合三会统一真相源。
 - 五行：统一生克、月令旺相休囚死和天干地支权重统计，可选计入藏干。
 - 八字、六爻、奇门、六壬等旧模块统一复用公共地基，旧导入路径仅保留兼容转发。
-- 核心包提供 `mingyu-core/foundation`，线上提供 `/foundation/capabilities`、`/foundation/ganzhi`、`/foundation/wuxing`、`/foundation/direction`；能力目录本身也返回稳定事实、来源、证据汇总与解释限制。
+- 核心包提供 `mingyu-core/foundation`，线上提供 `/foundation/capabilities`、`/foundation/ganzhi`、`/foundation/wuxing`、`/foundation/direction`、`/foundation/shensha`；通用神煞入口会严格核验完整四柱，逐项返回空亡、驿马、桃花的起法、目标地支、命中柱位、来源声明和解释限制，能力目录本身也返回稳定事实、来源、证据汇总与解释限制。
 - 真太阳时统一提升到 `mingyu-core/calendar`，线上提供 `/calendar/true-solar-time` 便捷换算接口。
 - `mingyu-core/calendar` 还提供统一天文时间尺度证据，可把当地钟表时间换算为 UTC、`JD(UTC)`、近似 `JD(UT)` 与 `JD(TT)`，同时返回 ΔT 模型、估算等级和精度限制；支持用 IANA 时区解析历史夏令时、回拨歧义和跳时缺口，太阳返照与七政四余已接入该证据。
 - 历法层可由日月地心黄经差输出月相角、最小距角、照明近似、盈亏、八相、近似月龄及前后朔弦望时刻；奇门、七政四余和黄历候选日已接入，并明确不把月相自动解释为吉凶或观测级精度。

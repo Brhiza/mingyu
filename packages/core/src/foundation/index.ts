@@ -14,7 +14,7 @@ import {
 import { describeGanZhi, getBranchRelations, getStemRelations } from '../ganzhi';
 import { WUXING, analyzeWuxing } from '../wuxing';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS, analyzeCompassDirection } from '../direction';
-import { listShensha } from '../shensha';
+import { analyzeShenshaEvidence, listShenshaCatalog } from '../shensha';
 import { CHINA_DST_YEARS, SHICHEN_PERIODS } from '../calendar';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
@@ -92,7 +92,15 @@ export interface FoundationCapabilities {
     }>;
     chinaDstYears: number[];
   };
-  commonShensha: { id: string; name: string; scope: string }[];
+  commonShensha: Array<{
+    id: string;
+    name: string;
+    scope: string;
+    evidenceStatus: '来源已声明' | '来源未声明';
+    inputDependencies: string[];
+    ruleText: string;
+    sources: string[];
+  }>;
 }
 
 const FOUNDATION_EVIDENCE_OUTPUTS: Record<FoundationModuleId, string[]> = {
@@ -124,7 +132,18 @@ const FOUNDATION_EVIDENCE_OUTPUTS: Record<FoundationModuleId, string[]> = {
     '解释限制',
     '可复制证据文本',
   ],
-  shensha: ['稳定编号', '名称', '适用范围'],
+  shensha: [
+    '稳定键',
+    '稳定编号',
+    '完整四柱核验',
+    '逐项起法与目标地支',
+    '逐柱命中事实',
+    '来源声明状态',
+    '计算链',
+    '证据汇总',
+    '解释限制',
+    '可复制证据文本',
+  ],
 };
 
 const CAPABILITY_FACT_LIMITATION =
@@ -184,14 +203,14 @@ function buildCapabilityFacts(): FoundationCapabilityFact[] {
     },
     {
       key: 'foundation:capability:shensha',
-      status: '目录资料可用',
+      status: '结构化证据可用',
       module: 'shensha',
-      name: '通用神煞目录',
-      provides: ['稳定编号', '名称', '适用范围'],
+      name: '通用神煞证据',
+      provides: ['空亡', '驿马', '桃花', '完整四柱校验', '逐柱命中', '来源声明状态'],
       evidenceOutputs: [...FOUNDATION_EVIDENCE_OUTPUTS.shensha],
-      sources: ['通用神煞注册目录'],
+      sources: ['六十甲子旬空固定规则', '年支三合局驿马与桃花固定表', '通用神煞注册目录'],
       promptText:
-        '通用神煞资料只提供稳定编号、名称与适用范围；具体命中必须由相应排盘规则结合输入另行计算',
+        '通用神煞资料可严格核验完整四柱，逐项计算空亡、驿马和桃花目标，定位实际命中柱位并记录起法、来源与限制',
       limitation: CAPABILITY_FACT_LIMITATION,
     },
   ];
@@ -229,8 +248,8 @@ function buildLimitationFacts(
       type: '神煞边界',
       ownerFactKeys: ['foundation:capability:shensha'],
       promptText:
-        '神煞目录本身不表示任何神煞已经命中；必须结合具体体系、出生或起局资料及对应规则逐项核验',
-      sources: ['通用神煞目录与各体系命中规则分离原则'],
+        '通用神煞查询只表示已按当前固定规则核验命中；各体系特有神煞仍须结合对应排盘资料与规则独立计算',
+      sources: ['通用神煞证据与各体系特有神煞分离原则'],
       limitation: LIMITATION_FACT_LIMITATION,
     },
     {
@@ -274,7 +293,7 @@ function buildCapabilityEvidence(
       tags: ['目录边界', '反伪精确'],
     },
   ];
-  return { title: '公共历法干支五行方位能力结构化证据', items };
+  return { title: '公共历法干支五行方位神煞能力结构化证据', items };
 }
 
 /** 获取可复用底层能力目录。 */
@@ -292,7 +311,7 @@ export function getFoundationCapabilities(): FoundationCapabilities {
     shichenPeriods: SHICHEN_PERIODS.map((period) => ({ ...period })),
     chinaDstYears: [...CHINA_DST_YEARS],
   };
-  const commonShensha = listShensha('common').map(({ id, name, scope }) => ({ id, name, scope }));
+  const commonShensha = listShenshaCatalog('common');
   const capabilityFacts = buildCapabilityFacts();
   const evidenceReadyModuleCount = capabilityFacts.filter(
     (item) => item.status === '结构化证据可用',
@@ -314,7 +333,7 @@ export function getFoundationCapabilities(): FoundationCapabilities {
   const evidence = buildCapabilityEvidence(capabilityFacts, summaryFact, limitationFacts);
   const limitations = limitationFacts.map((item) => item.promptText);
   const promptText = [
-    '【公共历法干支五行方位能力结构化证据】',
+    '【公共历法干支五行方位神煞能力结构化证据】',
     ...formatPromptEvidenceBundle(evidence),
     `能力事实：${capabilityFacts.map((item) => item.promptText).join('；')}。`,
     `证据汇总：${summaryFact.promptText}。`,
@@ -324,7 +343,7 @@ export function getFoundationCapabilities(): FoundationCapabilities {
   return {
     key: 'foundation:capabilities',
     status: '已登记',
-    version: '1.1.0',
+    version: '1.2.0',
     singleSourceModules: capabilityFacts.map((item) => item.module),
     evidenceOutputs: Object.fromEntries(
       Object.entries(FOUNDATION_EVIDENCE_OUTPUTS).map(([key, outputs]) => [key, [...outputs]]),
@@ -347,8 +366,10 @@ export const foundation = {
   getBranchRelations,
   analyzeWuxing,
   analyzeCompassDirection,
+  analyzeShenshaEvidence,
 };
 
 export { describeGanZhi, getStemRelations, getBranchRelations } from '../ganzhi';
 export { analyzeWuxing } from '../wuxing';
 export { analyzeCompassDirection } from '../direction';
+export { analyzeShenshaEvidence } from '../shensha';

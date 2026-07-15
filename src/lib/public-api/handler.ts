@@ -41,6 +41,7 @@ import { getGanZhiFromDate, isValidGanZhi, EARTHLY_BRANCHES, ZODIACS } from 'min
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
 import {
   analyzeCompassDirection,
+  analyzeShenshaEvidence,
   analyzeWuxing,
   describeGanZhi,
   getFoundationCapabilities,
@@ -503,6 +504,18 @@ export function getPublicApiOpenApiDocument(
           },
         },
       },
+      '/foundation/shensha': {
+        post: {
+          summary: '核验完整四柱的通用神煞结构化证据',
+          requestBody: openApiJsonRequestBody('#/components/schemas/FoundationShenshaRequest'),
+          responses: {
+            '200': {
+              description:
+                '空亡、驿马、桃花逐项起法、目标地支、命中柱位、来源声明、计算链、证据汇总和解释限制',
+            },
+          },
+        },
+      },
       '/bazi/calculate': {
         post: {
           summary: '八字排盘',
@@ -942,6 +955,24 @@ export function getPublicApiOpenApiDocument(
             },
           },
         },
+        FoundationShenshaRequest: {
+          type: 'object',
+          required: ['yearGanZhi', 'monthGanZhi', 'dayGanZhi', 'hourGanZhi'],
+          properties: {
+            yearGanZhi: { type: 'string', description: '年柱六十甲子，如“甲子”' },
+            monthGanZhi: { type: 'string', description: '月柱六十甲子，如“丙寅”' },
+            dayGanZhi: { type: 'string', description: '日柱六十甲子，如“戊辰”' },
+            hourGanZhi: { type: 'string', description: '时柱六十甲子，如“丁巳”' },
+            ids: {
+              type: 'array',
+              minItems: 1,
+              maxItems: 3,
+              uniqueItems: true,
+              items: { enum: ['kongwang', 'yima', 'taohua'] },
+              description: '可选；不传时查询全部通用规则：空亡、驿马、桃花',
+            },
+          },
+        },
         ShenShaVariants: {
           type: 'object',
           description:
@@ -1372,6 +1403,8 @@ async function route(context: RouteContext) {
       return calculateFoundationWuxing(await readJson(context.request));
     case 'foundation/direction':
       return calculateFoundationDirection(await readJson(context.request));
+    case 'foundation/shensha':
+      return calculateFoundationShensha(await readJson(context.request));
     case 'bazi/calculate':
       return calculateBaziApi(await readJson(context.request));
     case 'bazi/prompt':
@@ -1634,6 +1667,38 @@ function calculateFoundationDirection(input: JsonRecord) {
       400,
       'BAD_REQUEST',
       error instanceof Error ? error.message : '罗盘方位参数无效。',
+    );
+  }
+}
+
+function calculateFoundationShensha(input: JsonRecord) {
+  const ids = input.ids;
+  if (
+    ids !== undefined &&
+    (!Array.isArray(ids) ||
+      ids.length < 1 ||
+      ids.length > 3 ||
+      !ids.every((item) => typeof item === 'string') ||
+      new Set(ids).size !== ids.length)
+  ) {
+    throw new ApiError(400, 'BAD_REQUEST', 'ids 必须是包含 1-3 个不重复神煞编号的字符串数组。');
+  }
+  try {
+    return analyzeShenshaEvidence(
+      {
+        yearGanZhi: readRequiredString(input, 'yearGanZhi'),
+        monthGanZhi: readRequiredString(input, 'monthGanZhi'),
+        dayGanZhi: readRequiredString(input, 'dayGanZhi'),
+        hourGanZhi: readRequiredString(input, 'hourGanZhi'),
+      },
+      ids as string[] | undefined,
+    );
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '通用神煞参数无效。',
     );
   }
 }

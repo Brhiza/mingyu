@@ -91,12 +91,12 @@ test('六十甲子工具应返回完整序列与结构化关系', () => {
   assert.ok(core.foundation.getFoundationCapabilities().singleSourceModules.includes('calendar'));
   assert.equal(capabilities.key, 'foundation:capabilities');
   assert.equal(capabilities.status, '已登记');
-  assert.equal(capabilities.version, '1.1.0');
+  assert.equal(capabilities.version, '1.2.0');
   assert.equal(capabilities.capabilityFacts.length, capabilities.singleSourceModules.length);
   assert.equal(capabilities.summaryFact.status, '目录完整');
   assert.equal(capabilities.summaryFact.moduleFactCount, capabilities.capabilityFacts.length);
-  assert.equal(capabilities.summaryFact.evidenceReadyModuleCount, 4);
-  assert.equal(capabilities.summaryFact.catalogOnlyModuleCount, 1);
+  assert.equal(capabilities.summaryFact.evidenceReadyModuleCount, 5);
+  assert.equal(capabilities.summaryFact.catalogOnlyModuleCount, 0);
   assert.equal(
     capabilities.summaryFact.constantGroupCount,
     Object.keys(capabilities.constants).length,
@@ -120,12 +120,13 @@ test('六十甲子工具应返回完整序列与结构化关系', () => {
   );
   assert.equal(
     capabilities.capabilityFacts.find((fact) => fact.module === 'shensha')?.status,
-    '目录资料可用',
+    '结构化证据可用',
   );
   assert.ok(capabilities.evidenceOutputs.calendar.includes('月相与节气证据'));
-  assert.ok(capabilities.evidenceOutputs.shensha.includes('适用范围'));
-  assert.match(capabilities.promptText, /【公共历法干支五行方位能力结构化证据】/);
-  assert.match(capabilities.promptText, /神煞目录本身不表示任何神煞已经命中/);
+  assert.ok(capabilities.evidenceOutputs.shensha.includes('逐柱命中事实'));
+  assert.ok(capabilities.commonShensha.every((item) => item.evidenceStatus === '来源已声明'));
+  assert.match(capabilities.promptText, /【公共历法干支五行方位神煞能力结构化证据】/);
+  assert.match(capabilities.promptText, /各体系特有神煞仍须结合对应排盘资料/);
   assert.doesNotMatch(
     capabilities.promptText,
     /命语|mingyu-core|本项目|当前项目|工程|接口|API|MCP/,

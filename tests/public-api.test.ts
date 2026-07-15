@@ -124,6 +124,7 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/ganzhi'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/wuxing'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/direction'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/shensha'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi-ziwei/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/almanac'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/xiaoliuren/prompt'));
@@ -292,6 +293,21 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
   assert.ok(body.data.paths['/divination/xiaoliuren']);
   assert.ok(body.data.paths['/divination/lenormand']);
   assert.ok(body.data.paths['/divination/astrolabe']);
+  assert.ok(body.data.paths['/foundation/shensha']);
+  assert.equal(
+    body.data.paths['/foundation/shensha'].post.requestBody.content['application/json'].schema.$ref,
+    '#/components/schemas/FoundationShenshaRequest',
+  );
+  assert.deepEqual(body.data.components.schemas.FoundationShenshaRequest.required, [
+    'yearGanZhi',
+    'monthGanZhi',
+    'dayGanZhi',
+    'hourGanZhi',
+  ]);
+  assert.deepEqual(
+    body.data.components.schemas.FoundationShenshaRequest.properties.ids.items.enum,
+    ['kongwang', 'yima', 'taohua'],
+  );
   for (const path of [
     '/divination/liuyao',
     '/divination/meihua',
@@ -695,8 +711,8 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   assert.equal(capabilities.body.data.status, '已登记');
   assert.equal(capabilities.body.data.capabilityFacts.length, 5);
   assert.equal(capabilities.body.data.summaryFact.moduleFactCount, 5);
-  assert.equal(capabilities.body.data.summaryFact.evidenceReadyModuleCount, 4);
-  assert.equal(capabilities.body.data.summaryFact.catalogOnlyModuleCount, 1);
+  assert.equal(capabilities.body.data.summaryFact.evidenceReadyModuleCount, 5);
+  assert.equal(capabilities.body.data.summaryFact.catalogOnlyModuleCount, 0);
   assert.equal(
     capabilities.body.data.summaryFact.commonShenshaCount,
     capabilities.body.data.commonShensha.length,
@@ -712,6 +728,7 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   );
   assert.ok(capabilities.body.data.evidenceOutputs.calendar.includes('真太阳时计算链'));
   assert.ok(capabilities.body.data.evidenceOutputs.shensha.includes('稳定编号'));
+  assert.ok(capabilities.body.data.evidenceOutputs.shensha.includes('逐柱命中事实'));
   assert.match(capabilities.body.data.promptText, /能力目录证据汇总：目录完整/);
   assert.match(capabilities.body.data.promptText, /不得把目录数量/);
   assert.doesNotMatch(
@@ -775,6 +792,32 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   assert.equal(boundaryDirection.body.data.status, '存在分界线');
   assert.equal(boundaryDirection.body.data.summaryFact.status, '坐向均位于分界线');
 
+  const shensha = await callApi('foundation/shensha', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      yearGanZhi: '甲子',
+      monthGanZhi: '丙寅',
+      dayGanZhi: '戊辰',
+      hourGanZhi: '丁酉',
+    }),
+  });
+  assert.equal(shensha.response.status, 200);
+  assert.equal(shensha.body.data.status, '已核验');
+  assert.equal(shensha.body.data.pillarFacts.length, 4);
+  assert.equal(shensha.body.data.matchFacts.length, 3);
+  assert.equal(shensha.body.data.summaryFact.status, '证据链完整');
+  assert.equal(shensha.body.data.summaryFact.matchedRuleCount, 2);
+  assert.deepEqual(
+    shensha.body.data.matchFacts.find((item: { id: string }) => item.id === 'yima').matchedPillars,
+    [{ pillar: 'monthGanZhi', label: '月柱', ganZhi: '丙寅', branch: '寅' }],
+  );
+  assert.match(shensha.body.data.promptText, /通用神煞结构化证据/);
+  assert.doesNotMatch(
+    shensha.body.data.promptText,
+    /命语|mingyu-core|本项目|当前项目|工程|接口|API|MCP/,
+  );
+
   for (const payload of [{ ganZhi: '甲丑' }, { ganZhi: '' }]) {
     const invalid = await callApi('foundation/ganzhi', {
       method: 'POST',
@@ -798,6 +841,31 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
       body: JSON.stringify({ degree }),
     });
     assert.equal(invalidDirection.response.status, 400);
+  }
+
+  for (const payload of [
+    { yearGanZhi: '甲丑', monthGanZhi: '丙寅', dayGanZhi: '戊辰', hourGanZhi: '丁酉' },
+    {
+      yearGanZhi: '甲子',
+      monthGanZhi: '丙寅',
+      dayGanZhi: '戊辰',
+      hourGanZhi: '丁酉',
+      ids: ['unknown'],
+    },
+    {
+      yearGanZhi: '甲子',
+      monthGanZhi: '丙寅',
+      dayGanZhi: '戊辰',
+      hourGanZhi: '丁酉',
+      ids: ['yima', 'yima'],
+    },
+  ]) {
+    const invalidShensha = await callApi('foundation/shensha', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    assert.equal(invalidShensha.response.status, 400);
   }
 });
 

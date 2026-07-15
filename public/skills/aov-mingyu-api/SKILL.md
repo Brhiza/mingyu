@@ -96,6 +96,8 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 - `GET /foundation/capabilities`：公共地基能力、常量与可复用模块目录。
 - `POST /foundation/ganzhi`：查询六十甲子的纳音、藏干、五行和合冲刑害破。
 - `POST /foundation/wuxing`：统计天干地支五行分布，可选计入藏干权重。
+- `POST /foundation/direction`：把罗盘度数换算为二十四山坐向、后天八卦与分界状态。
+- `POST /foundation/shensha`：严格核验完整四柱，返回空亡、驿马、桃花的起法、目标地支、命中柱位、来源声明与解释限制。
 - `POST /bazi/calculate`：八字排盘。
 - `POST /bazi/prompt`：八字排盘并生成结构化 AI 解读提示词。
 - `POST /bazi/compatibility`：八字双盘日主、日支、四柱交叉关系、双向十神、喜忌覆盖与证据计算。
