@@ -2743,12 +2743,16 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
           method: string;
           jiuGongGe: unknown[];
           evidenceAnalysis: {
+            key: string;
+            status: string;
             calculationEvidenceFacts: Array<{
               key: string;
               status: string;
               sourceKeys: string[];
               limitation: string;
             }>;
+            calculationSteps: Array<{ key: string }>;
+            calculationChain: string[];
             ruleSourceFacts: Array<{
               key: string;
               status: string;
@@ -2793,6 +2797,26 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
               sources: string[];
               limitation: string;
             }>;
+            summaryFact: {
+              status: string;
+              factKeys: string[];
+              palaceFactCount: number;
+              candidateCount: number;
+              relationCount: number;
+              patternCount: number;
+              counterEvidenceCount: number;
+              timingFactCount: number;
+              directionFactCount: number;
+            };
+            limitations: string[];
+            limitationFacts: Array<{
+              key: string;
+              status: string;
+              ownerFactKeys: string[];
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
             patternFacts: Array<{ key: string; status: string }>;
             palaceFacts: Array<{
               key: string;
@@ -2825,7 +2849,11 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
       }
     ).result;
     assert.equal(chart.method, 'zhuanpan');
+    assert.equal(chart.evidenceAnalysis.key, 'qimen:evidence');
+    assert.equal(chart.evidenceAnalysis.status, '已计算');
     assert.equal(chart.evidenceAnalysis.calculationEvidenceFacts.length, 5);
+    assert.equal(chart.evidenceAnalysis.calculationSteps.length, 5);
+    assert.equal(chart.evidenceAnalysis.calculationChain.length, 5);
     assert.equal(chart.evidenceAnalysis.ruleSourceFacts.length, 4);
     assert.equal(chart.evidenceAnalysis.palaceCoverageFact.status, '完整');
     assert.deepEqual(
@@ -2899,6 +2927,55 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
       chart.evidenceAnalysis.timingSummaryFact.factKeys.length,
       chart.evidenceAnalysis.timingFacts.length,
     );
+    assert.equal(chart.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.palaceFactCount,
+      chart.evidenceAnalysis.palaceFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.candidateCount,
+      chart.evidenceAnalysis.candidates.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.relationCount,
+      chart.evidenceAnalysis.relations.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.patternCount,
+      chart.evidenceAnalysis.patternFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      chart.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.timingFactCount,
+      chart.evidenceAnalysis.timingFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.directionFactCount,
+      chart.evidenceAnalysis.directionFacts.length,
+    );
+    assert.equal(chart.evidenceAnalysis.limitationFacts.length, 6);
+    assert.equal(
+      chart.evidenceAnalysis.limitations.length,
+      chart.evidenceAnalysis.limitationFacts.length,
+    );
+    const factKeys = new Set([
+      'qimen:evidence-summary',
+      ...chart.evidenceAnalysis.summaryFact.factKeys,
+    ]);
+    assert.ok(
+      chart.evidenceAnalysis.limitationFacts.every(
+        (item) =>
+          item.key.startsWith('qimen:limitation:') &&
+          item.status === '适用' &&
+          item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得被反向当作现实吉凶'),
+      ),
+    );
     assert.ok(
       chart.evidenceAnalysis.directionFacts.every(
         (item) =>
@@ -2950,6 +3027,8 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
     );
     assert.match(prompt, /【奇门用神宫与宫间作用结构化证据】/);
     assert.match(prompt, /奇门九宫逐宫计算事实/);
+    assert.match(prompt, /证据汇总：/);
+    assert.match(prompt, /解释限制：/);
     assert.match(prompt, /不等于已经按具体问题选定用神/);
     assert.doesNotMatch(prompt, /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|应期范围\d/);
     assert.doesNotMatch(prompt, /大吉格|大凶格|显著加快|显著延迟/);

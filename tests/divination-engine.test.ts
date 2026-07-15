@@ -631,6 +631,8 @@ test('奇门定局、值符值使、宫间作用与触发条件应进入统一�
     evidenceAnalysis: undefined,
   });
   assert.equal(incomplete.palaceCoverageFact.status, '缺少宫位');
+  assert.equal(incomplete.summaryFact.status, '部分资料缺失');
+  assert.equal(incomplete.summaryFact.palaceFactCount, 8);
   assert.deepEqual(incomplete.palaceCoverageFact.missingGongs, [5]);
   assert.match(incomplete.palaceCoverageFact.promptText, /不得补造缺失宫位内容/);
 });

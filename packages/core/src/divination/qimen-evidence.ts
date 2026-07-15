@@ -208,9 +208,47 @@ export interface QimenDirectionSummaryFact {
   limitation: '方位汇总只说明当前结果是否提供建议、避用或候选宫方向；未列方位不代表其他方向安全，列出方位也不得脱离现实路线与安全条件使用';
 }
 
+export interface QimenSummaryFact {
+  key: 'qimen:evidence-summary';
+  status: '证据链完整' | '部分资料缺失' | '未定位候选宫';
+  factKeys: string[];
+  calculationFactCount: number;
+  ruleSourceCount: number;
+  palaceFactCount: number;
+  candidateCount: number;
+  relationCount: number;
+  patternCount: number;
+  counterEvidenceCount: number;
+  timingFactCount: number;
+  directionFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '奇门证据汇总只统计排盘、九宫、候选、格局、反证、应期与方位事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图、方位保证或唯一日期';
+}
+
+export interface QimenLimitationFact {
+  key: string;
+  type:
+    | '排盘与规则边界'
+    | '九宫资料边界'
+    | '用神候选边界'
+    | '格局与反证边界'
+    | '应期边界'
+    | '方位与高风险输出边界';
+  status: '适用';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束奇门排盘、候选宫、格局、应期与方位资料能够支持的解释范围，不得被反向当作现实吉凶、人物意图、事件概率、方位保证或固定应期的证据';
+}
+
 export interface QimenEvidenceAnalysis {
+  key: 'qimen:evidence';
+  status: '已计算';
   calculationEvidenceFacts: QimenCalculationEvidenceFact[];
+  calculationSteps: QimenCalculationEvidenceFact[];
   calculationFacts: string[];
+  calculationChain: string[];
   ruleSourceFacts: QimenRuleSourceFact[];
   ruleSources: string[];
   palaceCoverageFact: QimenPalaceCoverageFact;
@@ -227,6 +265,9 @@ export interface QimenEvidenceAnalysis {
   directionFacts: QimenDirectionFact[];
   directionSummaryFact: QimenDirectionSummaryFact;
   directionConditions: string[];
+  summaryFact: QimenSummaryFact;
+  limitations: string[];
+  limitationFacts: QimenLimitationFact[];
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
@@ -258,6 +299,10 @@ const STEM_RELATION_FACT_LIMITATION =
   '天地盘干关系只记录当前宫天盘干与地盘干的生克、合、墓、刑或命名格局；不单独证明现实吉凶、人物关系、事件结果或固定应期' as const;
 const PALACE_COVERAGE_FACT_LIMITATION =
   '九宫覆盖状态只说明当前结果能否完整核验一至九宫；缺少、重复或越界宫位时不得反推门、星、神、天地盘干、空亡、马星或格局' as const;
+const SUMMARY_FACT_LIMITATION =
+  '奇门证据汇总只统计排盘、九宫、候选、格局、反证、应期与方位事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图、方位保证或唯一日期' as const;
+const LIMITATION_FACT_LIMITATION =
+  '限制事实用于约束奇门排盘、候选宫、格局、应期与方位资料能够支持的解释范围，不得被反向当作现实吉凶、人物意图、事件概率、方位保证或固定应期的证据' as const;
 
 export function conditionQimenTraditionalText(text: string): string {
   return text
@@ -568,6 +613,166 @@ function buildPalaceFact(
     ],
     limitation: PALACE_FACT_LIMITATION,
   };
+}
+
+function buildSummaryFact(params: {
+  calculationEvidenceFacts: QimenCalculationEvidenceFact[];
+  ruleSourceFacts: QimenRuleSourceFact[];
+  palaceCoverageFact: QimenPalaceCoverageFact;
+  palaceFacts: QimenPalaceFact[];
+  candidates: QimenPalaceEvidence[];
+  relations: QimenPalaceRelationEvidence[];
+  patternFacts: QimenPatternEvidenceFact[];
+  counterEvidenceFacts: QimenCounterEvidenceFact[];
+  counterSummaryFact: QimenCounterSummaryFact;
+  timingFacts: QimenTimingFact[];
+  timingSummaryFact: QimenTimingSummaryFact;
+  directionFacts: QimenDirectionFact[];
+  directionSummaryFact: QimenDirectionSummaryFact;
+}): QimenSummaryFact {
+  const factKeys = Array.from(
+    new Set([
+      ...params.calculationEvidenceFacts.map((item) => item.key),
+      ...params.ruleSourceFacts.map((item) => item.key),
+      params.palaceCoverageFact.key,
+      ...params.palaceFacts.flatMap((item) => [
+        item.key,
+        ...item.patternFactKeys,
+        ...item.stemRelationFacts.map((fact) => fact.key),
+        ...item.insights.map((fact) => fact.key),
+      ]),
+      ...params.relations.map((item) => item.key),
+      ...params.patternFacts.map((item) => item.key),
+      params.counterSummaryFact.key,
+      ...params.counterEvidenceFacts.map((item) => item.key),
+      params.timingSummaryFact.key,
+      ...params.timingFacts.map((item) => item.key),
+      params.directionSummaryFact.key,
+      ...params.directionFacts.map((item) => item.key),
+    ]),
+  );
+  const status =
+    params.palaceCoverageFact.status !== '完整' ||
+    params.calculationEvidenceFacts.some((item) => item.status === '落宫缺失')
+      ? '部分资料缺失'
+      : params.candidates.length
+        ? '证据链完整'
+        : '未定位候选宫';
+  return {
+    key: 'qimen:evidence-summary',
+    status,
+    factKeys,
+    calculationFactCount: params.calculationEvidenceFacts.length,
+    ruleSourceCount: params.ruleSourceFacts.length,
+    palaceFactCount: params.palaceFacts.length,
+    candidateCount: params.candidates.length,
+    relationCount: params.relations.length,
+    patternCount: params.patternFacts.length,
+    counterEvidenceCount: params.counterEvidenceFacts.length,
+    timingFactCount: params.timingFacts.length,
+    directionFactCount: params.directionFacts.length,
+    promptText: `证据状态${status}：排盘事实${params.calculationEvidenceFacts.length}项、规则来源${params.ruleSourceFacts.length}项、九宫事实${params.palaceFacts.length}项、候选宫${params.candidates.length}项、宫间关系${params.relations.length}项、格局${params.patternFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项、方位${params.directionFacts.length}项`,
+    sources: ['全部排盘、规则、九宫、候选、格局、反证、应期与方位事实逐项汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
+}
+
+function buildLimitationFacts(params: {
+  calculationEvidenceFacts: QimenCalculationEvidenceFact[];
+  ruleSourceFacts: QimenRuleSourceFact[];
+  palaceCoverageFact: QimenPalaceCoverageFact;
+  palaceFacts: QimenPalaceFact[];
+  candidates: QimenPalaceEvidence[];
+  relations: QimenPalaceRelationEvidence[];
+  patternFacts: QimenPatternEvidenceFact[];
+  counterEvidenceFacts: QimenCounterEvidenceFact[];
+  counterSummaryFact: QimenCounterSummaryFact;
+  timingFacts: QimenTimingFact[];
+  timingSummaryFact: QimenTimingSummaryFact;
+  directionFacts: QimenDirectionFact[];
+  directionSummaryFact: QimenDirectionSummaryFact;
+  summaryFact: QimenSummaryFact;
+}): QimenLimitationFact[] {
+  const definitions: Array<
+    Pick<QimenLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
+  > = [
+    {
+      key: 'qimen:limitation:calculation-rules',
+      type: '排盘与规则边界',
+      ownerFactKeys: [
+        ...params.calculationEvidenceFacts.map((item) => item.key),
+        ...params.ruleSourceFacts.map((item) => item.key),
+      ],
+      promptText:
+        '排盘事实与规则来源只证明当前时刻、定局、值符值使及九宫排布所采用的计算路径，不等于现代实证验证、现实因果、吉凶保证或结果概率',
+      sources: ['定局、值符值使、九宫排布与五行关系规则来源'],
+    },
+    {
+      key: 'qimen:limitation:palace-data',
+      type: '九宫资料边界',
+      ownerFactKeys: [
+        params.palaceCoverageFact.key,
+        ...params.palaceFacts.flatMap((item) => [
+          item.key,
+          ...item.stemRelationFacts.map((fact) => fact.key),
+          ...item.insights.map((fact) => fact.key),
+        ]),
+      ],
+      promptText:
+        '九宫事实只记录门、星、神、天地盘干、空亡、马星和规则命中；宫位缺失、重复或越界时不得补造内容，资料完整也不直接证明现实吉凶',
+      sources: ['九宫覆盖核验与逐宫门星神干事实'],
+    },
+    {
+      key: 'qimen:limitation:candidates',
+      type: '用神候选边界',
+      ownerFactKeys: Array.from(
+        new Set([
+          ...params.candidates.map((item) => item.palaceFactKey),
+          ...params.relations.map((item) => item.key),
+        ]),
+      ),
+      promptText:
+        '以上宫位均为盘面候选，不等于已经按具体问题选定用神；值符、值使、日干、时干、洞察和格局只能提出候选范围，不得把候选顺序或宫间五行关系写成现实主次、支持阻碍或人物意图',
+      sources: ['候选宫来源与候选宫间五行关系'],
+    },
+    {
+      key: 'qimen:limitation:patterns-counters',
+      type: '格局与反证边界',
+      ownerFactKeys: [
+        ...params.patternFacts.map((item) => item.key),
+        params.counterSummaryFact.key,
+        ...params.counterEvidenceFacts.map((item) => item.key),
+      ],
+      promptText:
+        '传统格局、空亡、特殊条件和风险洞察只证明当前规则命中或存在盘内限制；不得把单项命中写成现实成功、失败、灾祸、人物恶意或必然结果',
+      sources: ['基础格局、经典格局、复合格局与候选宫限制逐项核验'],
+    },
+    {
+      key: 'qimen:limitation:timing',
+      type: '应期边界',
+      ownerFactKeys: [params.timingSummaryFact.key, ...params.timingFacts.map((item) => item.key)],
+      promptText:
+        '应期只保留盘内相对节奏、填实、马星、伏吟反吟和现实触发条件；未给目标期限时不得换算唯一日期、固定天数或事件概率',
+      sources: ['逐项应期事实、相对节奏与期限边界'],
+    },
+    {
+      key: 'qimen:limitation:direction-risk',
+      type: '方位与高风险输出边界',
+      ownerFactKeys: [
+        params.summaryFact.key,
+        params.directionSummaryFact.key,
+        ...params.directionFacts.map((item) => item.key),
+      ],
+      promptText:
+        '方位仅供路线和行动条件复核，使用前必须核实现实安全、权限、天气与事项用神；不得输出吉凶总分、成功率、医疗法律财务定论或保证有效建议',
+      sources: ['方位事实汇总与现实安全、高风险输出约束'],
+    },
+  ];
+  return definitions.map((item) => ({
+    ...item,
+    status: '适用',
+    limitation: LIMITATION_FACT_LIMITATION,
+  }));
 }
 
 export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
@@ -971,6 +1176,38 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
     limitation: DIRECTION_SUMMARY_LIMITATION,
   };
   const directionConditions = directionFacts.map((item) => item.promptText);
+  const summaryFact = buildSummaryFact({
+    calculationEvidenceFacts,
+    ruleSourceFacts,
+    palaceCoverageFact,
+    palaceFacts,
+    candidates,
+    relations,
+    patternFacts,
+    counterEvidenceFacts,
+    counterSummaryFact,
+    timingFacts,
+    timingSummaryFact,
+    directionFacts,
+    directionSummaryFact,
+  });
+  const limitationFacts = buildLimitationFacts({
+    calculationEvidenceFacts,
+    ruleSourceFacts,
+    palaceCoverageFact,
+    palaceFacts,
+    candidates,
+    relations,
+    patternFacts,
+    counterEvidenceFacts,
+    counterSummaryFact,
+    timingFacts,
+    timingSummaryFact,
+    directionFacts,
+    directionSummaryFact,
+    summaryFact,
+  });
+  const limitations = limitationFacts.map((item) => item.promptText);
   const patternItems: PromptEvidenceItem[] = patternFacts.map((pattern): PromptEvidenceItem => ({
     level: pattern.traditionalTone === '风险' ? '反证' : '辅证',
     title: `${pattern.kind}：${pattern.name}`,
@@ -1064,22 +1301,36 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
       tags: ['方位', '现实条件'],
     },
     {
+      level: '辅证',
+      title: `奇门证据汇总：${summaryFact.status}`,
+      detail: `${summaryFact.promptText}；边界：${summaryFact.limitation}`,
+      source: summaryFact.sources.join('、'),
+      tags: ['证据汇总', summaryFact.status],
+    },
+    {
       level: '限制',
       title: '奇门用神与方位解释边界',
-      detail:
-        '以上宫位均为盘面候选，不等于已经按具体问题选定用神。宫位排序不得替代门、星、神、天地盘干、旺衰、空亡、入墓、击刑和门迫的逐项判断；方位和时间只给条件，不输出吉凶总分、成功率或绝对日期。',
-      source: '计算事实与解释结论分离原则',
+      detail: `${limitationFacts.map((item) => item.promptText).join('；')}；统一边界：${LIMITATION_FACT_LIMITATION}`,
+      source: unique(limitationFacts.flatMap((item) => item.sources)).join('、'),
     },
   ];
   const evidence: PromptEvidenceBundle = { title: '奇门用神宫与宫间作用结构化证据', items };
+  const calculationChain = calculationEvidenceFacts.map((item) => item.promptText);
   const promptText = [
     '【奇门用神宫与宫间作用结构化证据】',
     ...formatPromptEvidenceBundle(evidence),
+    `计算链：${calculationChain.join(' → ')}。`,
+    `证据汇总：${summaryFact.promptText}。`,
     `触发条件：${timingConditions.join('；')}`,
+    `解释限制：${limitations.join('；')}。`,
   ].join('\n');
   return {
+    key: 'qimen:evidence',
+    status: '已计算',
     calculationEvidenceFacts,
+    calculationSteps: calculationEvidenceFacts,
     calculationFacts,
+    calculationChain,
     ruleSourceFacts,
     ruleSources,
     palaceCoverageFact,
@@ -1096,6 +1347,9 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
     directionFacts,
     directionSummaryFact,
     directionConditions,
+    summaryFact,
+    limitations,
+    limitationFacts,
     evidence,
     promptText,
     methodology: [

@@ -2115,8 +2115,12 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
   assert.equal(defaultResult.response.status, 200);
   assert.equal(defaultResult.body.ok, true);
   assert.equal(defaultResult.body.data.method, 'zhuanpan');
+  assert.equal(defaultResult.body.data.evidenceAnalysis.key, 'qimen:evidence');
+  assert.equal(defaultResult.body.data.evidenceAnalysis.status, '已计算');
   assert.ok(defaultResult.body.data.evidenceAnalysis.candidates.length > 0);
   assert.equal(defaultResult.body.data.evidenceAnalysis.calculationEvidenceFacts.length, 5);
+  assert.equal(defaultResult.body.data.evidenceAnalysis.calculationSteps.length, 5);
+  assert.equal(defaultResult.body.data.evidenceAnalysis.calculationChain.length, 5);
   assert.equal(defaultResult.body.data.evidenceAnalysis.ruleSourceFacts.length, 4);
   assert.equal(defaultResult.body.data.evidenceAnalysis.palaceCoverageFact.status, '完整');
   assert.deepEqual(
@@ -2211,6 +2215,16 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
     defaultResult.body.data.evidenceAnalysis.timingSummaryFact.factKeys.length,
     defaultResult.body.data.evidenceAnalysis.timingFacts.length,
   );
+  assert.equal(defaultResult.body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(
+    defaultResult.body.data.evidenceAnalysis.summaryFact.palaceFactCount,
+    defaultResult.body.data.evidenceAnalysis.palaceFacts.length,
+  );
+  assert.equal(defaultResult.body.data.evidenceAnalysis.limitationFacts.length, 6);
+  assert.equal(
+    defaultResult.body.data.evidenceAnalysis.limitations.length,
+    defaultResult.body.data.evidenceAnalysis.limitationFacts.length,
+  );
   assert.ok(
     defaultResult.body.data.evidenceAnalysis.directionFacts.every(
       (item: Record<string, unknown>) =>
@@ -2226,6 +2240,7 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
     /【奇门用神宫与宫间作用结构化证据】/,
   );
   assert.match(defaultResult.body.data.evidenceAnalysis.promptText, /奇门九宫逐宫计算事实/);
+  assert.match(defaultResult.body.data.evidenceAnalysis.promptText, /证据汇总：/);
   assert.doesNotMatch(
     defaultResult.body.data.evidenceAnalysis.promptText,
     /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|成功率[：=]?\d|项目以|项目规则|项目计算|命语|本项目|项目统一|工程|算法结果/,
@@ -2279,6 +2294,8 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
   });
   assert.equal(feipanPrompt.response.status, 200);
   assert.equal(feipanPrompt.body.ok, true);
+  assert.equal(feipanPrompt.body.data.result.evidenceAnalysis.key, 'qimen:evidence');
+  assert.equal(feipanPrompt.body.data.result.evidenceAnalysis.limitationFacts.length, 6);
   assert.deepEqual(
     feipanPrompt.body.data.result.jiuGongGe.map(
       (gong: { tianPan: { star: string } }) => gong.tianPan.star,
