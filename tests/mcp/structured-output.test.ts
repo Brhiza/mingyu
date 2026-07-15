@@ -408,6 +408,62 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         false,
         `${name} 不应通过旧排盘工具返回提示词`,
       );
+      if (name === 'foundation_ganzhi') {
+        const profile = result.structuredContent.result as {
+          key: string;
+          status: string;
+          calculationSteps: Array<{ promptText: string }>;
+          calculationChain: string[];
+          sourceFacts: Array<{ ownerStepKeys: string[] }>;
+          summaryFact: { sourceFactCount: number; limitationFactCount: number };
+          limitationFacts: unknown[];
+          promptText: string;
+        };
+        assert.equal(profile.key, 'foundation:ganzhi:甲子');
+        assert.equal(profile.status, '已查询');
+        assert.equal(profile.calculationSteps.length, 5);
+        assert.deepEqual(
+          profile.calculationChain,
+          profile.calculationSteps.map((item) => item.promptText),
+        );
+        assert.equal(profile.summaryFact.sourceFactCount, profile.sourceFacts.length);
+        assert.equal(profile.summaryFact.limitationFactCount, profile.limitationFacts.length);
+        assert.ok(profile.sourceFacts.every((fact) => fact.ownerStepKeys.length > 0));
+        assert.match(profile.promptText, /固定资料查询/);
+      }
+      if (name === 'foundation_wuxing') {
+        const analysis = result.structuredContent.result as {
+          key: string;
+          status: string;
+          calculationSteps: Array<{ promptText: string }>;
+          calculationChain: string[];
+          itemFacts: Array<{
+            item: string;
+            hiddenContributions: Array<{ stem: string; wuxing: string; weight: number }>;
+          }>;
+          dominantElements: string[];
+          weakestElements: string[];
+          summaryFact: { itemFactCount: number; limitationFactCount: number };
+          limitationFacts: unknown[];
+          promptText: string;
+        };
+        assert.equal(analysis.key, 'foundation:wuxing:with-hidden:甲-子-丙-午');
+        assert.equal(analysis.status, '已统计');
+        assert.equal(analysis.calculationSteps.length, 4);
+        assert.deepEqual(
+          analysis.calculationChain,
+          analysis.calculationSteps.map((item) => item.promptText),
+        );
+        assert.equal(analysis.itemFacts.length, 4);
+        assert.deepEqual(analysis.itemFacts[1]?.hiddenContributions, [
+          { stem: '癸', wuxing: '水', weight: 1, rank: '本气' },
+        ]);
+        assert.deepEqual(analysis.dominantElements, ['火']);
+        assert.deepEqual(analysis.weakestElements, ['金']);
+        assert.equal(analysis.summaryFact.itemFactCount, analysis.itemFacts.length);
+        assert.equal(analysis.summaryFact.limitationFactCount, analysis.limitationFacts.length);
+        assert.match(analysis.promptText, /不是命理吉凶评分/);
+      }
       if (name === 'bazi_calculate') {
         const chart = result.structuredContent as {
           result?: {

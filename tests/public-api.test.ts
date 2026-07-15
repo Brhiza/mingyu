@@ -614,6 +614,8 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
     '甲寅',
   ]);
   assert.equal(capabilities.body.data.constants.shichenPeriods.length, 13);
+  assert.ok(capabilities.body.data.evidenceOutputs.ganzhi.includes('来源事实'));
+  assert.ok(capabilities.body.data.evidenceOutputs.wuxing.includes('并列最高最低项'));
 
   const ganZhi = await callApi('foundation/ganzhi', {
     method: 'POST',
@@ -623,6 +625,14 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   assert.equal(ganZhi.response.status, 200);
   assert.equal(ganZhi.body.data.nayin, '海中金');
   assert.equal(ganZhi.body.data.branch.clash, '午');
+  assert.equal(ganZhi.body.data.key, 'foundation:ganzhi:甲子');
+  assert.equal(ganZhi.body.data.calculationSteps.length, 5);
+  assert.deepEqual(
+    ganZhi.body.data.calculationChain,
+    ganZhi.body.data.calculationSteps.map((item: { promptText: string }) => item.promptText),
+  );
+  assert.equal(ganZhi.body.data.summaryFact.sourceFactCount, ganZhi.body.data.sourceFacts.length);
+  assert.match(ganZhi.body.data.promptText, /关系对象/);
 
   const wuxing = await callApi('foundation/wuxing', {
     method: 'POST',
@@ -632,6 +642,13 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   assert.equal(wuxing.response.status, 200);
   assert.equal(wuxing.body.data.weightHidden, true);
   assert.ok(wuxing.body.data.counts.火 > 0);
+  assert.equal(wuxing.body.data.status, '已统计');
+  assert.equal(wuxing.body.data.calculationSteps.length, 4);
+  assert.equal(wuxing.body.data.itemFacts.length, 4);
+  assert.deepEqual(wuxing.body.data.dominantElements, ['火']);
+  assert.deepEqual(wuxing.body.data.weakestElements, ['金']);
+  assert.equal(wuxing.body.data.summaryFact.itemFactCount, wuxing.body.data.itemFacts.length);
+  assert.match(wuxing.body.data.promptText, /不包含月令司权、季节旺衰、日主、格局/);
 
   for (const payload of [{ ganZhi: '甲丑' }, { ganZhi: '' }]) {
     const invalid = await callApi('foundation/ganzhi', {

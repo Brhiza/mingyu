@@ -422,14 +422,24 @@ export function getPublicApiOpenApiDocument(
         post: {
           summary: '查询六十甲子完整基础资料',
           requestBody: openApiJsonRequestBody('#/components/schemas/FoundationGanZhiRequest'),
-          responses: { '200': { description: '干支序号、纳音、五行、阴阳、藏干与合冲刑害破' } },
+          responses: {
+            '200': {
+              description:
+                '干支序号、纳音、五行、阴阳、藏干与合冲刑害破，以及稳定键、计算链、来源事实、证据汇总和解释限制',
+            },
+          },
         },
       },
       '/foundation/wuxing': {
         post: {
           summary: '统一五行分布分析',
           requestBody: openApiJsonRequestBody('#/components/schemas/FoundationWuxingRequest'),
-          responses: { '200': { description: '五行计数、最强、最弱与缺失五行' } },
+          responses: {
+            '200': {
+              description:
+                '五行计数、并列最高最低与缺失五行，以及逐项贡献、计算链、证据汇总和解释限制',
+            },
+          },
         },
       },
       '/bazi/calculate': {

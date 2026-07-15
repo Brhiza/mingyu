@@ -132,7 +132,63 @@ export interface BranchRelationProfile {
   sanhui?: { group: string; members: string[] };
 }
 
-export interface GanZhiProfile {
+export interface GanZhiCalculationStep {
+  key: string;
+  stage: '输入核验' | '六十甲子定位' | '天干资料整理' | '地支资料整理' | '纳音汇总';
+  status: '已核验' | '已查询' | '已整理';
+  dependsOnStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '干支计算步骤只证明输入如何映射到六十甲子序号、天干、地支、纳音与固定关系表；不得把步骤完整度解释为吉凶、事件概率或关系必然成立';
+}
+
+export interface GanZhiSourceFact {
+  key: string;
+  type: '六十甲子' | '纳音' | '天干资料' | '地支资料';
+  status: '已查询';
+  ownerStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '干支资料事实只记录当前干支在公共表中的固定属性与关系候选；合冲刑害破是否在具体命盘、课盘或时空条件中成立，必须由上层算法另行判断';
+}
+
+export interface GanZhiLimitationFact {
+  key: string;
+  type: '固定资料边界' | '关系成立边界' | '纳音解释边界';
+  status: '适用';
+  ownerFactKeys: string[];
+  ownerStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '干支限制事实用于约束固定资料的解释范围，不得被反向当作现实结果、吉凶评分、事件概率或唯一结论的证据';
+}
+
+export interface GanZhiSummaryFact {
+  key: string;
+  status: '证据链完整';
+  factKeys: string[];
+  calculationStepCount: number;
+  sourceFactCount: number;
+  limitationFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '干支证据汇总只统计六十甲子定位、天干、地支、纳音和解释边界的覆盖，不表示传统关系在具体问题中已经触发';
+}
+
+export interface GanZhiEvidenceFields {
+  key: string;
+  status: '已查询';
+  calculationSteps: GanZhiCalculationStep[];
+  calculationChain: string[];
+  sourceFacts: GanZhiSourceFact[];
+  summaryFact: GanZhiSummaryFact;
+  limitations: string[];
+  limitationFacts: GanZhiLimitationFact[];
+  source: string;
+  promptText: string;
+}
+
+export interface GanZhiBaseProfile {
   ganZhi: string;
   index: number;
   yinYang: '阳' | '阴';
@@ -140,6 +196,177 @@ export interface GanZhiProfile {
   nayinWuxing: string;
   stem: StemRelationProfile;
   branch: BranchRelationProfile;
+}
+
+export interface GanZhiProfile extends GanZhiBaseProfile, GanZhiEvidenceFields {}
+
+const GANZHI_STEP_LIMITATION =
+  '干支计算步骤只证明输入如何映射到六十甲子序号、天干、地支、纳音与固定关系表；不得把步骤完整度解释为吉凶、事件概率或关系必然成立' as const;
+const GANZHI_SOURCE_FACT_LIMITATION =
+  '干支资料事实只记录当前干支在公共表中的固定属性与关系候选；合冲刑害破是否在具体命盘、课盘或时空条件中成立，必须由上层算法另行判断' as const;
+const GANZHI_LIMITATION_FACT_LIMITATION =
+  '干支限制事实用于约束固定资料的解释范围，不得被反向当作现实结果、吉凶评分、事件概率或唯一结论的证据' as const;
+const GANZHI_SUMMARY_LIMITATION =
+  '干支证据汇总只统计六十甲子定位、天干、地支、纳音和解释边界的覆盖，不表示传统关系在具体问题中已经触发' as const;
+
+function buildGanZhiEvidence(profile: GanZhiBaseProfile): GanZhiEvidenceFields {
+  const inputStepKey = 'foundation:ganzhi:calculation:input';
+  const cycleStepKey = 'foundation:ganzhi:calculation:cycle';
+  const stemStepKey = 'foundation:ganzhi:calculation:stem';
+  const branchStepKey = 'foundation:ganzhi:calculation:branch';
+  const nayinStepKey = 'foundation:ganzhi:calculation:nayin';
+  const calculationSteps: GanZhiCalculationStep[] = [
+    {
+      key: inputStepKey,
+      stage: '输入核验',
+      status: '已核验',
+      dependsOnStepKeys: [],
+      promptText: `核验${profile.ganZhi}属于有效六十甲子组合`,
+      sources: ['公共六十甲子与纳音映射表'],
+      limitation: GANZHI_STEP_LIMITATION,
+    },
+    {
+      key: cycleStepKey,
+      stage: '六十甲子定位',
+      status: '已查询',
+      dependsOnStepKeys: [inputStepKey],
+      promptText: `${profile.ganZhi}在六十甲子中的零基序号为${profile.index}，阴阳取${profile.yinYang}`,
+      sources: ['公共六十甲子顺序、天干阴阳表'],
+      limitation: GANZHI_STEP_LIMITATION,
+    },
+    {
+      key: stemStepKey,
+      stage: '天干资料整理',
+      status: '已整理',
+      dependsOnStepKeys: [cycleStepKey],
+      promptText: `${profile.stem.name}为${profile.stem.yinYang}${profile.stem.wuxing}，五合对象为${profile.stem.combine}、传统合化五行为${profile.stem.combineWuxing}${profile.stem.clash ? `，相冲对象为${profile.stem.clash}` : '，主流口径不列固定相冲对象'}`,
+      sources: ['tyme4ts 天干五行', '公共天干五合与主流相冲表'],
+      limitation: GANZHI_STEP_LIMITATION,
+    },
+    {
+      key: branchStepKey,
+      stage: '地支资料整理',
+      status: '已整理',
+      dependsOnStepKeys: [cycleStepKey],
+      promptText: `${profile.branch.name}为${profile.branch.yinYang}${profile.branch.wuxing}、生肖${profile.branch.zodiac}，藏干${profile.branch.hiddenStems.join('、') || '无'}；六合对象${profile.branch.combine}、相冲对象${profile.branch.clash}、相害对象${profile.branch.harm}、相破对象${profile.branch.break}、相刑候选${profile.branch.punishments.join('、') || '无'}`,
+      sources: ['tyme4ts 地支五行', '公共藏干、六合、六冲、六害、六破与三刑表'],
+      limitation: GANZHI_STEP_LIMITATION,
+    },
+    {
+      key: nayinStepKey,
+      stage: '纳音汇总',
+      status: '已整理',
+      dependsOnStepKeys: [cycleStepKey, stemStepKey, branchStepKey],
+      promptText: `${profile.ganZhi}纳音为${profile.nayin}，归属${profile.nayinWuxing}五行`,
+      sources: ['公共六十甲子纳音表'],
+      limitation: GANZHI_STEP_LIMITATION,
+    },
+  ];
+  const sourceFacts: GanZhiSourceFact[] = [
+    {
+      key: 'foundation:ganzhi:fact:cycle',
+      type: '六十甲子',
+      status: '已查询',
+      ownerStepKeys: [cycleStepKey],
+      promptText: `${profile.ganZhi}序号${profile.index}，阴阳${profile.yinYang}`,
+      sources: ['公共六十甲子顺序'],
+      limitation: GANZHI_SOURCE_FACT_LIMITATION,
+    },
+    {
+      key: 'foundation:ganzhi:fact:nayin',
+      type: '纳音',
+      status: '已查询',
+      ownerStepKeys: [nayinStepKey],
+      promptText: `${profile.ganZhi}纳音${profile.nayin}，纳音五行${profile.nayinWuxing}`,
+      sources: ['公共纳音映射表'],
+      limitation: GANZHI_SOURCE_FACT_LIMITATION,
+    },
+    {
+      key: 'foundation:ganzhi:fact:stem',
+      type: '天干资料',
+      status: '已查询',
+      ownerStepKeys: [stemStepKey],
+      promptText: calculationSteps.find((item) => item.key === stemStepKey)!.promptText,
+      sources: ['天干五行、阴阳、五合与相冲公共资料'],
+      limitation: GANZHI_SOURCE_FACT_LIMITATION,
+    },
+    {
+      key: 'foundation:ganzhi:fact:branch',
+      type: '地支资料',
+      status: '已查询',
+      ownerStepKeys: [branchStepKey],
+      promptText: calculationSteps.find((item) => item.key === branchStepKey)!.promptText,
+      sources: ['地支五行、生肖、藏干与合冲刑害破公共资料'],
+      limitation: GANZHI_SOURCE_FACT_LIMITATION,
+    },
+  ];
+  const limitations = [
+    '本结果是单个干支的固定资料查询，不包含月令、旺衰、柱位、运限或现实问题上下文。',
+    '合、冲、刑、害、破只列公共关系对象；是否在具体盘面成立，需结合另一干支、柱位和上层规则判断。',
+    '纳音仅作为六十甲子的传统分类资料，不单独证明性格、吉凶、职业、健康或事件结果。',
+  ];
+  const limitationFacts: GanZhiLimitationFact[] = [
+    {
+      key: 'foundation:ganzhi:limitation:fixed-profile',
+      type: '固定资料边界',
+      status: '适用',
+      ownerFactKeys: sourceFacts.map((item) => item.key),
+      ownerStepKeys: calculationSteps.map((item) => item.key),
+      promptText: limitations[0],
+      sources: ['单个干支查询的输入范围'],
+      limitation: GANZHI_LIMITATION_FACT_LIMITATION,
+    },
+    {
+      key: 'foundation:ganzhi:limitation:relation-context',
+      type: '关系成立边界',
+      status: '适用',
+      ownerFactKeys: ['foundation:ganzhi:fact:stem', 'foundation:ganzhi:fact:branch'],
+      ownerStepKeys: [stemStepKey, branchStepKey],
+      promptText: limitations[1],
+      sources: ['合冲刑害破的上层组合判断要求'],
+      limitation: GANZHI_LIMITATION_FACT_LIMITATION,
+    },
+    {
+      key: 'foundation:ganzhi:limitation:nayin',
+      type: '纳音解释边界',
+      status: '适用',
+      ownerFactKeys: ['foundation:ganzhi:fact:nayin'],
+      ownerStepKeys: [nayinStepKey],
+      promptText: limitations[2],
+      sources: ['纳音作为传统分类资料的解释边界'],
+      limitation: GANZHI_LIMITATION_FACT_LIMITATION,
+    },
+  ];
+  const summaryFact: GanZhiSummaryFact = {
+    key: 'foundation:ganzhi:evidence-summary',
+    status: '证据链完整',
+    factKeys: [
+      ...calculationSteps.map((item) => item.key),
+      ...sourceFacts.map((item) => item.key),
+      ...limitationFacts.map((item) => item.key),
+    ],
+    calculationStepCount: calculationSteps.length,
+    sourceFactCount: sourceFacts.length,
+    limitationFactCount: limitationFacts.length,
+    promptText: `干支资料证据链完整：计算步骤${calculationSteps.length}项、来源事实${sourceFacts.length}项、限制${limitationFacts.length}项`,
+    sources: ['六十甲子、天干、地支、纳音与解释边界汇总'],
+    limitation: GANZHI_SUMMARY_LIMITATION,
+  };
+  const source =
+    '六十甲子、纳音、阴阳、藏干及关系表来自公共干支单一真相源；天干地支五行与基础历法能力对齐 tyme4ts';
+
+  return {
+    key: `foundation:ganzhi:${profile.ganZhi}`,
+    status: '已查询',
+    calculationSteps,
+    calculationChain: calculationSteps.map((item) => item.promptText),
+    sourceFacts,
+    summaryFact,
+    limitations,
+    limitationFacts,
+    source,
+    promptText: `干支资料：${calculationSteps.map((item) => item.promptText).join(' → ')}。证据汇总：${summaryFact.promptText}。来源：${source}。限制：${limitations.map((item) => item.replace(/[。；]+$/, '')).join('；')}。`,
+  };
 }
 
 /** 返回六十甲子副本，避免调用方改写公共序列。 */
@@ -193,7 +420,7 @@ export function getBranchRelations(branch: string): BranchRelationProfile {
 /** 生成单个六十甲子的完整可复用资料。 */
 export function describeGanZhi(ganZhi: string): GanZhiProfile {
   assertValidGanZhi(ganZhi);
-  return {
+  const profile: GanZhiBaseProfile = {
     ganZhi,
     index: getSixtyCycleIndex(ganZhi),
     yinYang: getGanZhiYinYang(ganZhi),
@@ -202,6 +429,7 @@ export function describeGanZhi(ganZhi: string): GanZhiProfile {
     stem: getStemRelations(ganZhi[0]),
     branch: getBranchRelations(ganZhi[1]),
   };
+  return { ...profile, ...buildGanZhiEvidence(profile) };
 }
 
 /** 干支纪时结果 */

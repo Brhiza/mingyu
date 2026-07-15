@@ -20,6 +20,10 @@ import { CHINA_DST_YEARS, SHICHEN_PERIODS } from '../calendar';
 export interface FoundationCapabilities {
   version: string;
   singleSourceModules: string[];
+  evidenceOutputs: {
+    ganzhi: string[];
+    wuxing: string[];
+  };
   constants: {
     heavenlyStems: string[];
     earthlyBranches: string[];
@@ -47,6 +51,18 @@ export function getFoundationCapabilities(): FoundationCapabilities {
   return {
     version: '1.0.0',
     singleSourceModules: ['calendar', 'ganzhi', 'wuxing', 'direction', 'shensha'],
+    evidenceOutputs: {
+      ganzhi: ['稳定键', '计算链', '来源事实', '证据汇总', '解释限制', '可复制证据文本'],
+      wuxing: [
+        '稳定键',
+        '逐项五行与藏干贡献',
+        '计算链',
+        '并列最高最低项',
+        '证据汇总',
+        '解释限制',
+        '可复制证据文本',
+      ],
+    },
     constants: {
       heavenlyStems: [...HEAVENLY_STEMS],
       earthlyBranches: [...EARTHLY_BRANCHES],

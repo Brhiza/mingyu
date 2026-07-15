@@ -31,7 +31,8 @@ export function registerFoundationTools(server: McpServer) {
   server.registerTool(
     'foundation_ganzhi',
     {
-      description: '查询单个六十甲子的序号、纳音、五行、阴阳、藏干与合冲刑害破',
+      description:
+        '查询单个六十甲子的序号、纳音、五行、阴阳、藏干与合冲刑害破，并返回稳定键、计算链、来源事实、证据汇总和解释限制',
       inputSchema: ganZhiSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -47,7 +48,8 @@ export function registerFoundationTools(server: McpServer) {
   server.registerTool(
     'foundation_wuxing',
     {
-      description: '统计天干地支的五行分布，可选计入地支藏干权重',
+      description:
+        '统计天干地支的五行分布，可选计入地支藏干权重，并返回逐项贡献、并列最高最低五行、计算链、证据汇总和解释限制',
       inputSchema: wuxingSchema.shape,
       outputSchema: resultOutputSchema,
     },
