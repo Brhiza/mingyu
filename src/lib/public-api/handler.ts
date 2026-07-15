@@ -8,7 +8,10 @@ import {
   type BaziFortuneSelectionValue,
 } from '@core/bazi/fortuneSelection';
 import {
+  buildAstronomicalTimeEvidence,
+  calculateMoonPhaseEvidence,
   calculateSolarIlluminationEvidence,
+  calculateSolarTermEvidence,
   convertTrueSolarTime,
   getTimeIndexFromClock,
   resolveTrueSolarBirthTime,
@@ -423,6 +426,42 @@ export function getPublicApiOpenApiDocument(
           },
         },
       },
+      '/calendar/astronomical-time': {
+        post: {
+          summary: '换算UTC、儒略日、近似UT1、ΔT与近似TT',
+          requestBody: openApiJsonRequestBody('#/components/schemas/AstronomicalTimeRequest'),
+          responses: {
+            '200': {
+              description:
+                '历史时区诊断、UTC、JD(UTC)、近似UT1、ΔT、近似TT、计算链、反证、汇总与精度限制',
+            },
+          },
+        },
+      },
+      '/calendar/moon-phase': {
+        post: {
+          summary: '计算月相、照明比例与前后朔弦望事件',
+          requestBody: openApiJsonRequestBody('#/components/schemas/MoonPhaseRequest'),
+          responses: {
+            '200': {
+              description:
+                '日月黄经差、八分月相、照明比例、近似月龄、前后四正事件、计算链、汇总与限制',
+            },
+          },
+        },
+      },
+      '/calendar/solar-term': {
+        post: {
+          summary: '查询单个二十四节气交接与独立黄经核验证据',
+          requestBody: openApiJsonRequestBody('#/components/schemas/SolarTermRequest'),
+          responses: {
+            '200': {
+              description:
+                '采用历表时刻、目标黄经、独立模型求根、差值核验、计算链、证据汇总与精度限制',
+            },
+          },
+        },
+      },
       '/foundation/ganzhi': {
         post: {
           summary: '查询六十甲子完整基础资料',
@@ -824,6 +863,45 @@ export function getPublicApiOpenApiDocument(
             longitude: { type: 'number', minimum: -180, maximum: 180 },
             timezone: { type: 'number', minimum: -14, maximum: 14 },
             timeZoneId: { type: 'string', example: 'Asia/Shanghai' },
+          },
+        },
+        AstronomicalTimeRequest: {
+          type: 'object',
+          required: ['year', 'month', 'day'],
+          properties: {
+            year: { type: 'integer', minimum: 1900, maximum: 2200 },
+            month: { type: 'integer', minimum: 1, maximum: 12 },
+            day: { type: 'integer', minimum: 1, maximum: 31 },
+            hour: { type: 'integer', minimum: 0, maximum: 23, default: 0 },
+            minute: { type: 'integer', minimum: 0, maximum: 59, default: 0 },
+            second: { type: 'integer', minimum: 0, maximum: 59, default: 0 },
+            timezone: { type: 'number', minimum: -14, maximum: 14 },
+            timeZoneId: { type: 'string', example: 'Asia/Shanghai' },
+          },
+          description: 'timezone 与 timeZoneId 至少提供一项；同时提供时会保留偏移冲突诊断。',
+        },
+        MoonPhaseRequest: {
+          type: 'object',
+          required: ['utcDateTime'],
+          properties: {
+            utcDateTime: {
+              type: 'string',
+              format: 'date-time',
+              description: '带 Z 或 UTC 偏移的 ISO 时间，如 2024-06-21T12:00:00Z',
+            },
+          },
+        },
+        SolarTermRequest: {
+          type: 'object',
+          required: ['year', 'index'],
+          properties: {
+            year: { type: 'integer', minimum: 1900, maximum: 2200 },
+            index: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 23,
+              description: '0冬至、1小寒、2大寒、3立春……23大雪',
+            },
           },
         },
         FoundationGanZhiRequest: {
@@ -1277,6 +1355,12 @@ async function route(context: RouteContext) {
       return calculateTrueSolarBirthApi(await readJson(context.request));
     case 'calendar/solar-illumination':
       return calculateSolarIlluminationApi(await readJson(context.request));
+    case 'calendar/astronomical-time':
+      return calculateAstronomicalTimeApi(await readJson(context.request));
+    case 'calendar/moon-phase':
+      return calculateMoonPhaseApi(await readJson(context.request));
+    case 'calendar/solar-term':
+      return calculateSolarTermApi(await readJson(context.request));
     case 'foundation/ganzhi':
       return calculateFoundationGanZhi(await readJson(context.request));
     case 'foundation/wuxing':
@@ -1435,6 +1519,68 @@ function calculateSolarIlluminationApi(input: JsonRecord) {
       400,
       'BAD_REQUEST',
       error instanceof Error ? error.message : '太阳光照参数无效。',
+    );
+  }
+}
+
+function calculateAstronomicalTimeApi(input: JsonRecord) {
+  try {
+    const timezone =
+      input.timezone === undefined ? undefined : readNumberLike(input, 'timezone', -14, 14);
+    const timeZoneId =
+      input.timeZoneId === undefined ? undefined : readRequiredString(input, 'timeZoneId');
+    if (timezone === undefined && !timeZoneId) {
+      throw new ApiError(400, 'BAD_REQUEST', 'timezone 与 timeZoneId 至少需要提供一项。');
+    }
+    return buildAstronomicalTimeEvidence({
+      year: readIntegerLike(input, 'year', 1900, 2200),
+      month: readIntegerLike(input, 'month', 1, 12),
+      day: readIntegerLike(input, 'day', 1, 31),
+      hour: input.hour === undefined ? 0 : readIntegerLike(input, 'hour', 0, 23),
+      minute: input.minute === undefined ? 0 : readIntegerLike(input, 'minute', 0, 59),
+      second: input.second === undefined ? 0 : readIntegerLike(input, 'second', 0, 59),
+      timezone,
+      timeZoneId,
+    });
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '天文时间尺度参数无效。',
+    );
+  }
+}
+
+function calculateMoonPhaseApi(input: JsonRecord) {
+  const utcDateTime = readRequiredString(input, 'utcDateTime');
+  const date = new Date(utcDateTime);
+  if (!isValidIsoDateTime(utcDateTime, date)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'utcDateTime 需为带 Z 或 UTC 偏移的有效 ISO 时间。');
+  }
+  try {
+    return calculateMoonPhaseEvidence(date.getTime());
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '月相参数无效。',
+    );
+  }
+}
+
+function calculateSolarTermApi(input: JsonRecord) {
+  try {
+    return calculateSolarTermEvidence(
+      readIntegerLike(input, 'year', 1900, 2200),
+      readIntegerLike(input, 'index', 0, 23),
+    );
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '节气参数无效。',
     );
   }
 }

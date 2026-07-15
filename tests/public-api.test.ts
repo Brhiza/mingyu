@@ -118,6 +118,9 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.ok(body.data.endpoints.includes('GET /api/v1/foundation/capabilities'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/true-solar-time'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/true-solar-birth'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/astronomical-time'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/moon-phase'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/solar-term'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/ganzhi'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/wuxing'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/direction'));
@@ -599,6 +602,76 @@ test('公开 API 应提供太阳高度、日出日落与曙暮光证据接口', 
   });
   assert.equal(invalid.response.status, 400);
   assert.match(invalid.body.error.message, /timezone 与 timeZoneId 至少需要提供一项/);
+});
+
+test('公开 API 应提供天文时间、月相与节气公共证据接口', async () => {
+  const astronomicalTime = await callApi('calendar/astronomical-time', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      year: 2000,
+      month: 1,
+      day: 1,
+      hour: 12,
+      timezone: 0,
+    }),
+  });
+  assert.equal(astronomicalTime.response.status, 200);
+  assert.equal(astronomicalTime.body.data.julianDayUtc, 2451545);
+  assert.equal(astronomicalTime.body.data.calculationSteps.length, 5);
+  assert.deepEqual(
+    astronomicalTime.body.data.calculationChain,
+    astronomicalTime.body.data.calculationSteps.map(
+      (item: { promptText: string }) => item.promptText,
+    ),
+  );
+  assert.equal(
+    astronomicalTime.body.data.summaryFact.calculationStepCount,
+    astronomicalTime.body.data.calculationSteps.length,
+  );
+  assert.match(astronomicalTime.body.data.promptText, /UT1≈UTC/);
+
+  const moonPhase = await callApi('calendar/moon-phase', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ utcDateTime: '2024-06-21T12:00:00Z' }),
+  });
+  assert.equal(moonPhase.response.status, 200);
+  assert.equal(moonPhase.body.data.status, '已计算');
+  assert.equal(moonPhase.body.data.calculationSteps.length, 4);
+  assert.equal(moonPhase.body.data.summaryFact.principalEventCount, 2);
+  assert.equal(typeof moonPhase.body.data.illuminationPercent, 'number');
+  assert.ok(moonPhase.body.data.previousPrincipalPhase.utcDateTime);
+  assert.ok(moonPhase.body.data.nextPrincipalPhase.utcDateTime);
+  assert.match(moonPhase.body.data.promptText, /前一四正相位/);
+
+  const solarTerm = await callApi('calendar/solar-term', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ year: 2024, index: 12 }),
+  });
+  assert.equal(solarTerm.response.status, 200);
+  assert.equal(solarTerm.body.data.name, '夏至');
+  assert.equal(solarTerm.body.data.targetLongitudeDegrees, 90);
+  assert.equal(solarTerm.body.data.calculationSteps.length, 4);
+  assert.equal(solarTerm.body.data.summaryFact.verificationFactCount, 1);
+  assert.equal(solarTerm.body.data.verificationFact.status, '已记录差值');
+  assert.match(solarTerm.body.data.promptText, /独立模型求根/);
+
+  const invalidCalls: Array<[string, Record<string, unknown>]> = [
+    ['calendar/astronomical-time', { year: 2000, month: 1, day: 1 }],
+    ['calendar/moon-phase', { utcDateTime: '2024-02-30T12:00:00Z' }],
+    ['calendar/moon-phase', { utcDateTime: '2024-06-21T12:00:00' }],
+    ['calendar/solar-term', { year: 2024, index: 24 }],
+  ];
+  for (const [path, payload] of invalidCalls) {
+    const invalid = await callApi(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    assert.equal(invalid.response.status, 400);
+  }
 });
 
 test('公开 API 应提供公共地基能力、六十甲子与五行接口', async () => {

@@ -96,6 +96,9 @@ test('能力清单可序列化且返回副本', () => {
       `${systemId} 应声明真太阳时结构化证据输出`,
     );
   }
+  assert.ok(getSystemCapability('calendar.astronomicalTime')?.outputs.includes('ΔT与近似JD(TT)'));
+  assert.ok(getSystemCapability('calendar.moonPhase')?.outputs.includes('前后朔弦望求根事件'));
+  assert.ok(getSystemCapability('calendar.solarTerm')?.outputs.includes('历表与模型差值核验'));
   const liuyao = getSystemCapability('liuyao');
   assert.equal(liuyao?.supports.seed, true);
   assert.equal(liuyao?.supports.replay, true);

@@ -73,6 +73,9 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
       timezone: 8,
     },
   ],
+  ['calendar_astronomical_time', { year: 2000, month: 1, day: 1, hour: 12, timezone: 0 }],
+  ['calendar_moon_phase', { utcDateTime: '2024-06-21T12:00:00Z' }],
+  ['calendar_solar_term', { year: 2024, index: 12 }],
   ['divine_qimen', {}],
   [
     'divine_almanac',
@@ -371,7 +374,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 46);
+    assert.equal(tools.length, 49);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
@@ -385,6 +388,9 @@ test('MCP 工具列表应声明输出结构', async () => {
       undefined,
     );
     assert.ok(tools.find((tool) => tool.name === 'calendar_solar_illumination'));
+    assert.ok(tools.find((tool) => tool.name === 'calendar_astronomical_time'));
+    assert.ok(tools.find((tool) => tool.name === 'calendar_moon_phase'));
+    assert.ok(tools.find((tool) => tool.name === 'calendar_solar_term'));
     assert.ok(tools.find((tool) => tool.name === 'foundation_direction'));
 
     assert.equal(
@@ -498,6 +504,63 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         assert.equal(direction.summaryFact.directionFactCount, direction.directionFacts.length);
         assert.equal(direction.summaryFact.limitationFactCount, direction.limitationFacts.length);
         assert.match(direction.promptText, /不自动推断或补造磁偏角/);
+      }
+      if (name === 'calendar_astronomical_time') {
+        const evidence = result.structuredContent.result as {
+          julianDayUtc: number;
+          calculationSteps: Array<{ promptText: string }>;
+          calculationChain: string[];
+          summaryFact: { calculationStepCount: number };
+          counterEvidenceFacts: unknown[];
+          limitationFacts: unknown[];
+          promptText: string;
+        };
+        assert.equal(evidence.julianDayUtc, 2451545);
+        assert.equal(evidence.calculationSteps.length, 5);
+        assert.deepEqual(
+          evidence.calculationChain,
+          evidence.calculationSteps.map((item) => item.promptText),
+        );
+        assert.equal(evidence.summaryFact.calculationStepCount, evidence.calculationSteps.length);
+        assert.equal(evidence.counterEvidenceFacts.length, 2);
+        assert.equal(evidence.limitationFacts.length, 2);
+        assert.match(evidence.promptText, /UT1≈UTC/);
+      }
+      if (name === 'calendar_moon_phase') {
+        const evidence = result.structuredContent.result as {
+          status: string;
+          calculationSteps: unknown[];
+          summaryFact: { principalEventCount: number; limitationFactCount: number };
+          limitationFacts: unknown[];
+          previousPrincipalPhase: { utcDateTime: string };
+          nextPrincipalPhase: { utcDateTime: string };
+          promptText: string;
+        };
+        assert.equal(evidence.status, '已计算');
+        assert.equal(evidence.calculationSteps.length, 4);
+        assert.equal(evidence.summaryFact.principalEventCount, 2);
+        assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
+        assert.ok(evidence.previousPrincipalPhase.utcDateTime);
+        assert.ok(evidence.nextPrincipalPhase.utcDateTime);
+        assert.match(evidence.promptText, /前一四正相位/);
+      }
+      if (name === 'calendar_solar_term') {
+        const evidence = result.structuredContent.result as {
+          name: string;
+          targetLongitudeDegrees: number;
+          calculationSteps: unknown[];
+          verificationFact: { status: string };
+          summaryFact: { verificationFactCount: number; limitationFactCount: number };
+          limitationFacts: unknown[];
+          promptText: string;
+        };
+        assert.equal(evidence.name, '夏至');
+        assert.equal(evidence.targetLongitudeDegrees, 90);
+        assert.equal(evidence.calculationSteps.length, 4);
+        assert.equal(evidence.verificationFact.status, '已记录差值');
+        assert.equal(evidence.summaryFact.verificationFactCount, 1);
+        assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
+        assert.match(evidence.promptText, /独立模型求根/);
       }
       if (name === 'bazi_calculate') {
         const chart = result.structuredContent as {
