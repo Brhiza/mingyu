@@ -120,6 +120,7 @@ test('公开 API manifest 应暴露 OpenAPI 和 skill 地址', async () => {
   assert.ok(body.data.endpoints.includes('POST /api/v1/calendar/true-solar-birth'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/ganzhi'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/wuxing'));
+  assert.ok(body.data.endpoints.includes('POST /api/v1/foundation/direction'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/bazi-ziwei/prompt'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/almanac'));
   assert.ok(body.data.endpoints.includes('POST /api/v1/divination/xiaoliuren/prompt'));
@@ -616,6 +617,7 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   assert.equal(capabilities.body.data.constants.shichenPeriods.length, 13);
   assert.ok(capabilities.body.data.evidenceOutputs.ganzhi.includes('来源事实'));
   assert.ok(capabilities.body.data.evidenceOutputs.wuxing.includes('并列最高最低项'));
+  assert.ok(capabilities.body.data.evidenceOutputs.direction.includes('分界线状态'));
 
   const ganZhi = await callApi('foundation/ganzhi', {
     method: 'POST',
@@ -650,6 +652,29 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   assert.equal(wuxing.body.data.summaryFact.itemFactCount, wuxing.body.data.itemFacts.length);
   assert.match(wuxing.body.data.promptText, /不包含月令司权、季节旺衰、日主、格局/);
 
+  const direction = await callApi('foundation/direction', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ degree: 180 }),
+  });
+  assert.equal(direction.response.status, 200);
+  assert.equal(direction.body.data.key, 'foundation:direction:180');
+  assert.equal(direction.body.data.label, '子山午向');
+  assert.equal(direction.body.data.facingBagua, '离');
+  assert.equal(direction.body.data.sitBagua, '坎');
+  assert.equal(direction.body.data.calculationSteps.length, 4);
+  assert.equal(direction.body.data.summaryFact.status, '映射稳定');
+  assert.match(direction.body.data.promptText, /不自动推断或补造磁偏角/);
+
+  const boundaryDirection = await callApi('foundation/direction', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ degree: 7.5 }),
+  });
+  assert.equal(boundaryDirection.response.status, 200);
+  assert.equal(boundaryDirection.body.data.status, '存在分界线');
+  assert.equal(boundaryDirection.body.data.summaryFact.status, '坐向均位于分界线');
+
   for (const payload of [{ ganZhi: '甲丑' }, { ganZhi: '' }]) {
     const invalid = await callApi('foundation/ganzhi', {
       method: 'POST',
@@ -665,6 +690,15 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
     body: JSON.stringify({ items: ['甲子'] }),
   });
   assert.equal(invalidWuxing.response.status, 400);
+
+  for (const degree of [-0.1, 360.1, '180']) {
+    const invalidDirection = await callApi('foundation/direction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ degree }),
+    });
+    assert.equal(invalidDirection.response.status, 400);
+  }
 });
 
 test('公开 API 应支持八字排盘', async () => {

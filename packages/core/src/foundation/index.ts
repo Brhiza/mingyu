@@ -13,7 +13,7 @@ import {
 } from '../ganzhi/data';
 import { describeGanZhi, getBranchRelations, getStemRelations } from '../ganzhi';
 import { WUXING, analyzeWuxing } from '../wuxing';
-import { BAGUA, TWENTY_FOUR_MOUNTAINS } from '../direction';
+import { BAGUA, TWENTY_FOUR_MOUNTAINS, analyzeCompassDirection } from '../direction';
 import { listShensha } from '../shensha';
 import { CHINA_DST_YEARS, SHICHEN_PERIODS } from '../calendar';
 
@@ -23,6 +23,7 @@ export interface FoundationCapabilities {
   evidenceOutputs: {
     ganzhi: string[];
     wuxing: string[];
+    direction: string[];
   };
   constants: {
     heavenlyStems: string[];
@@ -62,6 +63,17 @@ export function getFoundationCapabilities(): FoundationCapabilities {
         '解释限制',
         '可复制证据文本',
       ],
+      direction: [
+        '稳定键',
+        '度数归一化',
+        '向山与坐山',
+        '八卦归属',
+        '分界线状态',
+        '计算链',
+        '证据汇总',
+        '解释限制',
+        '可复制证据文本',
+      ],
     },
     constants: {
       heavenlyStems: [...HEAVENLY_STEMS],
@@ -86,7 +98,9 @@ export const foundation = {
   getStemRelations,
   getBranchRelations,
   analyzeWuxing,
+  analyzeCompassDirection,
 };
 
 export { describeGanZhi, getStemRelations, getBranchRelations } from '../ganzhi';
 export { analyzeWuxing } from '../wuxing';
+export { analyzeCompassDirection } from '../direction';

@@ -43,6 +43,7 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ['foundation_capabilities', {}],
   ['foundation_ganzhi', { ganZhi: '甲子' }],
   ['foundation_wuxing', { items: ['甲', '子', '丙', '午'], weightHidden: true }],
+  ['foundation_direction', { degree: 180 }],
   [
     'calendar_true_solar_time',
     { localDateTime: '1990-05-15T10:30:00', longitude: 116.4074, timezone: 8 },
@@ -370,7 +371,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 45);
+    assert.equal(tools.length, 46);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
@@ -384,6 +385,7 @@ test('MCP 工具列表应声明输出结构', async () => {
       undefined,
     );
     assert.ok(tools.find((tool) => tool.name === 'calendar_solar_illumination'));
+    assert.ok(tools.find((tool) => tool.name === 'foundation_direction'));
 
     assert.equal(
       tools.some((tool) => tool.name === 'build_divination_prompt'),
@@ -463,6 +465,39 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         assert.equal(analysis.summaryFact.itemFactCount, analysis.itemFacts.length);
         assert.equal(analysis.summaryFact.limitationFactCount, analysis.limitationFacts.length);
         assert.match(analysis.promptText, /不是命理吉凶评分/);
+      }
+      if (name === 'foundation_direction') {
+        const direction = result.structuredContent.result as {
+          key: string;
+          status: string;
+          label: string;
+          facingBagua: string;
+          sitBagua: string;
+          calculationSteps: Array<{ promptText: string }>;
+          calculationChain: string[];
+          directionFacts: unknown[];
+          summaryFact: {
+            status: string;
+            directionFactCount: number;
+            limitationFactCount: number;
+          };
+          limitationFacts: unknown[];
+          promptText: string;
+        };
+        assert.equal(direction.key, 'foundation:direction:180');
+        assert.equal(direction.status, '已换算');
+        assert.equal(direction.label, '子山午向');
+        assert.equal(direction.facingBagua, '离');
+        assert.equal(direction.sitBagua, '坎');
+        assert.equal(direction.calculationSteps.length, 4);
+        assert.deepEqual(
+          direction.calculationChain,
+          direction.calculationSteps.map((item) => item.promptText),
+        );
+        assert.equal(direction.summaryFact.status, '映射稳定');
+        assert.equal(direction.summaryFact.directionFactCount, direction.directionFacts.length);
+        assert.equal(direction.summaryFact.limitationFactCount, direction.limitationFacts.length);
+        assert.match(direction.promptText, /不自动推断或补造磁偏角/);
       }
       if (name === 'bazi_calculate') {
         const chart = result.structuredContent as {

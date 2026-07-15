@@ -36,7 +36,12 @@ import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { bazhai, zodiac, taiyi, qizheng } from 'mingyu-core';
 import { getGanZhiFromDate, isValidGanZhi, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
-import { analyzeWuxing, describeGanZhi, getFoundationCapabilities } from 'mingyu-core/foundation';
+import {
+  analyzeCompassDirection,
+  analyzeWuxing,
+  describeGanZhi,
+  getFoundationCapabilities,
+} from 'mingyu-core/foundation';
 import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
 import { buildAstrolabeScopeContext } from '../astrolabe-scope';
@@ -442,6 +447,18 @@ export function getPublicApiOpenApiDocument(
           },
         },
       },
+      '/foundation/direction': {
+        post: {
+          summary: '换算罗盘度数、二十四山坐向与八卦归属',
+          requestBody: openApiJsonRequestBody('#/components/schemas/FoundationDirectionRequest'),
+          responses: {
+            '200': {
+              description:
+                '归一化度数、向山、坐山、八卦归属、分界线状态，以及计算链、证据汇总和解释限制',
+            },
+          },
+        },
+      },
       '/bazi/calculate': {
         post: {
           summary: '八字排盘',
@@ -828,6 +845,18 @@ export function getPublicApiOpenApiDocument(
               description: '天干或地支数组，如 [“甲”,“子”,“丙”,“午”]',
             },
             weightHidden: { type: 'boolean', description: '是否对地支藏干加权，默认 true' },
+          },
+        },
+        FoundationDirectionRequest: {
+          type: 'object',
+          required: ['degree'],
+          properties: {
+            degree: {
+              type: 'number',
+              minimum: 0,
+              maximum: 360,
+              description: '朝向罗盘度数，正北为0°、顺时针增加，360°等同0°',
+            },
           },
         },
         ShenShaVariants: {
@@ -1252,6 +1281,8 @@ async function route(context: RouteContext) {
       return calculateFoundationGanZhi(await readJson(context.request));
     case 'foundation/wuxing':
       return calculateFoundationWuxing(await readJson(context.request));
+    case 'foundation/direction':
+      return calculateFoundationDirection(await readJson(context.request));
     case 'bazi/calculate':
       return calculateBaziApi(await readJson(context.request));
     case 'bazi/prompt':
@@ -1439,6 +1470,19 @@ function calculateFoundationWuxing(input: JsonRecord) {
       400,
       'BAD_REQUEST',
       error instanceof Error ? error.message : '五行分析参数无效。',
+    );
+  }
+}
+
+function calculateFoundationDirection(input: JsonRecord) {
+  const degree = readNumber(input, 'degree', 0, 360);
+  try {
+    return analyzeCompassDirection(degree);
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '罗盘方位参数无效。',
     );
   }
 }

@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { analyzeWuxing, describeGanZhi, getFoundationCapabilities } from 'mingyu-core/foundation';
+import {
+  analyzeCompassDirection,
+  analyzeWuxing,
+  describeGanZhi,
+  getFoundationCapabilities,
+} from 'mingyu-core/foundation';
 import { resultOutputSchema } from '../schemas.js';
 import {
   createErrorToolResult,
@@ -15,6 +20,10 @@ const ganZhiSchema = z.object({
 const wuxingSchema = z.object({
   items: z.array(z.string()).min(1).max(32).describe('天干或地支数组，如 [“甲”,“子”,“丙”,“午”]'),
   weightHidden: z.boolean().optional().describe('是否计入地支藏干权重，默认 true'),
+});
+
+const directionSchema = z.object({
+  degree: z.number().min(0).max(360).describe('朝向罗盘度数，正北为0°、顺时针增加，360°等同0°'),
 });
 
 export function registerFoundationTools(server: McpServer) {
@@ -60,6 +69,23 @@ export function registerFoundationTools(server: McpServer) {
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '五行分析失败'));
+      }
+    },
+  );
+
+  server.registerTool(
+    'foundation_direction',
+    {
+      description:
+        '将朝向罗盘度数换算为二十四山向山、相反坐山和后天八卦归属，并返回分界线状态、计算链、证据汇总与解释限制',
+      inputSchema: directionSchema.shape,
+      outputSchema: resultOutputSchema,
+    },
+    async (args) => {
+      try {
+        return createStructuredToolResult({ result: analyzeCompassDirection(args.degree) });
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '罗盘方位换算失败'));
       }
     },
   );

@@ -20,6 +20,7 @@ export const PUBLIC_API_ENDPOINTS = [
   'POST /api/v1/calendar/true-solar-birth',
   'POST /api/v1/foundation/ganzhi',
   'POST /api/v1/foundation/wuxing',
+  'POST /api/v1/foundation/direction',
   'POST /api/v1/bazi/calculate',
   'POST /api/v1/bazi/prompt',
   'POST /api/v1/bazi/compatibility',
