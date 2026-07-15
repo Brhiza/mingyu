@@ -1,6 +1,6 @@
 import type { IztroAstrolabe, IztroHoroscope } from '../../../types/iztro';
 import type { AnalysisPayloadV1, ScopeType } from '../../../types/analysis';
-import { buildEvidencePool } from '../build-evidence-pool';
+import { buildEvidenceAnalysis, buildEvidencePool } from '../build-evidence-pool';
 import { detectPatterns } from '../pattern-detection';
 import { assertScopeType, getCurrentScopeItem } from './helpers/scope';
 import { buildActiveScope, buildBasicInfo, buildPalaceFacts } from './helpers/builders';
@@ -39,6 +39,12 @@ export function buildAnalysisPayloadV1(params: {
         currentScope,
         palaces,
       });
+  const evidence_analysis = buildEvidenceAnalysis({
+    evidencePool: evidence_pool,
+    currentScope,
+    palaces,
+    skipped: skipAnalysis,
+  });
 
   const patterns = skipAnalysis
     ? []
@@ -55,6 +61,7 @@ export function buildAnalysisPayloadV1(params: {
     active_scope,
     palaces,
     evidence_pool,
+    evidence_analysis,
     patterns,
   };
 }

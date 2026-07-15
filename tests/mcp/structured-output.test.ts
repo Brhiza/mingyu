@@ -408,6 +408,46 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         false,
         `${name} 不应通过旧排盘工具返回提示词`,
       );
+      if (name === 'ziwei_calculate') {
+        const chart = result.structuredContent as {
+          payloadByScope?: {
+            origin?: {
+              evidence_pool?: Array<{
+                key?: string;
+                status?: string;
+                calculationStepKey?: string;
+              }>;
+              evidence_analysis?: {
+                key?: string;
+                status?: string;
+                calculationSteps?: Array<{ key: string }>;
+                counterEvidenceFacts?: Array<{ key?: string; ownerFactKeys?: string[] }>;
+                summaryFact?: { key?: string; factKeys?: string[]; evidenceFactCount?: number };
+                limitationFacts?: Array<{ ownerFactKeys?: string[] }>;
+              };
+            };
+          };
+        };
+        const origin = chart.payloadByScope?.origin;
+        assert.ok(origin?.evidence_pool?.length);
+        assert.ok(
+          origin?.evidence_pool?.every(
+            (item) =>
+              item.key?.startsWith('ziwei:evidence:') &&
+              item.status &&
+              origin.evidence_analysis?.calculationSteps?.some(
+                (step) => step.key === item.calculationStepKey,
+              ),
+          ),
+        );
+        assert.equal(origin?.evidence_analysis?.key, 'ziwei:evidence');
+        assert.equal(origin?.evidence_analysis?.calculationSteps?.length, 4);
+        assert.equal(
+          origin?.evidence_analysis?.summaryFact?.evidenceFactCount,
+          origin?.evidence_pool?.length,
+        );
+        assertEvidenceOwnerReferences(origin?.evidence_analysis);
+      }
       if (name === 'metaphysics_qizheng') {
         const chart = (
           result.structuredContent as {

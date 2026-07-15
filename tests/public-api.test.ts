@@ -1342,8 +1342,11 @@ test('公开 API 紫微提示词接口只生成所需范围，避免线上函数
   assert.deepEqual(body.data.resultSummary.scopeNames, ['origin', 'yearly']);
   assert.equal(body.data.resultSummary.activeScopes.yearly.active_scope.scope, 'yearly');
   assert.equal(body.data.resultSummary.activeScopes.decadal, undefined);
+  assert.equal(body.data.resultSummary.evidenceByScope.yearly.key, 'ziwei:evidence');
+  assertEvidenceOwnerReferences(body.data.resultSummary.evidenceByScope.yearly);
   const prompt = body.data.prompt;
   assert.match(prompt, /分析范围：流年/);
+  assert.match(prompt, /【证据汇总】/);
   assert.match(prompt, /【任务】/);
   assertPromptIsPortableTaskText(prompt);
 });
@@ -1553,9 +1556,25 @@ test('公开 API 紫微排盘接口支持按需返回指定范围', async () => 
   assert.equal(body.data.payloadByScope.yearly, undefined);
   assert.ok(
     body.data.payloadByScope.monthly.evidence_pool.every(
-      (item: Record<string, unknown>) => !('priority' in item),
+      (item: Record<string, unknown>) =>
+        !('priority' in item) &&
+        String(item.key).startsWith('ziwei:evidence:') &&
+        (item.status === '已记录' || item.status === '资料缺口') &&
+        Array.isArray(item.sources) &&
+        item.sources.length > 0 &&
+        String(item.calculationStepKey).startsWith('ziwei:evidence:calculation:'),
     ),
   );
+  const evidenceAnalysis = body.data.payloadByScope.monthly.evidence_analysis;
+  assert.equal(evidenceAnalysis.key, 'ziwei:evidence');
+  assert.equal(evidenceAnalysis.calculationSteps.length, 4);
+  assert.equal(
+    evidenceAnalysis.summaryFact.evidenceFactCount,
+    body.data.payloadByScope.monthly.evidence_pool.length,
+  );
+  assert.equal(evidenceAnalysis.counterEvidenceFacts.length, 3);
+  assert.equal(evidenceAnalysis.limitationFacts.length, 5);
+  assertEvidenceOwnerReferences(evidenceAnalysis);
   assert.ok(
     body.data.payloadByScope.monthly.patterns.every(
       (item: Record<string, unknown>) => !('priority' in item),
@@ -1585,6 +1604,12 @@ test('公开 API 紫微排盘支持轻量模式，减少默认响应体积', asy
   assert.deepEqual(body.data.scopeNames, ['origin', 'monthly']);
   assert.equal(body.data.payloadByScope, undefined);
   assert.equal(body.data.gongList, undefined);
+  assert.equal(body.data.evidenceByScope.monthly.key, 'ziwei:evidence');
+  assert.equal(body.data.evidenceByScope.monthly.calculationSteps.length, 4);
+  assert.equal(body.data.evidenceByScope.monthly.counterEvidenceFacts.length, 3);
+  assert.equal(body.data.evidenceByScope.monthly.limitationFacts.length, 5);
+  assert.ok(body.data.evidenceByScope.monthly.summaryFact.evidenceFactCount > 0);
+  assertEvidenceOwnerReferences(body.data.evidenceByScope.monthly);
   assert.equal(body.data.activeScopes.monthly.active_scope.scope, 'monthly');
   assert.equal(body.data.activeScopes.monthly.palaces.length, 12);
   assert.ok(body.data.activeScopes.monthly.palaces[0].major_stars);

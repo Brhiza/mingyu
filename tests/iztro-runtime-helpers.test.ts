@@ -292,6 +292,49 @@ test('紫微分析载荷应拒绝非法分析范围和不完整宫位', async ()
   );
 });
 
+test('紫微分析载荷应附带可追溯证据分析并明确轻量模式未生成状态', async () => {
+  const astrolabe = await buildAstrolabeFromInput(DEFAULT_CHART_INPUT);
+  const horoscope = buildHoroscope(astrolabe, '2024-02-29', 6);
+  const payload = buildAnalysisPayloadV1({
+    astrolabe,
+    horoscope,
+    currentScope: 'yearly',
+  });
+  const analysis = payload.evidence_analysis;
+
+  assert.ok(analysis);
+  assert.equal(analysis.key, 'ziwei:evidence');
+  assert.equal(analysis.calculationSteps.length, 4);
+  assert.equal(analysis.summaryFact.evidenceFactCount, payload.evidence_pool.length);
+  assert.ok(
+    payload.evidence_pool.every(
+      (item) =>
+        item.key &&
+        item.status &&
+        item.calculationStepKey &&
+        analysis.calculationSteps.some((step) => step.key === item.calculationStepKey),
+    ),
+  );
+  const factKeys = new Set([analysis.summaryFact.key, ...analysis.summaryFact.factKeys]);
+  assert.ok(
+    [...analysis.counterEvidenceFacts, ...analysis.limitationFacts].every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+
+  const compactPayload = buildAnalysisPayloadV1({
+    astrolabe,
+    horoscope,
+    currentScope: 'origin',
+    skipAnalysis: true,
+  });
+  assert.equal(compactPayload.evidence_pool.length, 0);
+  assert.equal(compactPayload.evidence_analysis?.status, '未生成');
+  assert.equal(compactPayload.evidence_analysis?.summaryFact.status, '未生成');
+  assert.match(compactPayload.evidence_analysis?.promptText ?? '', /明确跳过本命证据采集/);
+});
+
 test('紫微大限时间轴应按农历年位移，春节前出生者不落入相邻流年', () => {
   // 1995-01-20 出生 = 农历甲戌(1994)年十二月二十；+1 农历年 = 乙亥(1995)年十二月二十
   assert.equal(shiftLunarYear('1995-01-20', 1), '1996-02-08');

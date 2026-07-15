@@ -9,6 +9,7 @@ export type AnalysisPayloadV1 = {
   active_scope: ActiveScopeInfo;
   palaces: PalaceFact[];
   evidence_pool: EvidenceFact[];
+  evidence_analysis?: ZiweiEvidenceAnalysis;
   patterns?: PatternFact[];
 };
 
@@ -113,6 +114,9 @@ export type StarFact = {
 export type EvidenceFact = {
   id: string;
   stable_key: string;
+  /** 统一稳定键；保留 stable_key 兼容旧调用。 */
+  key?: string;
+  status?: '已记录' | '资料缺口';
   type: string;
   title: string;
   scope: ScopeType;
@@ -123,8 +127,76 @@ export type EvidenceFact = {
   description: string;
   level?: '主证' | '辅证' | '反证';
   source?: string;
+  sources?: string[];
   calculation?: string;
+  calculationStepKey?: string;
+  dependsOnStepKeys?: string[];
+  promptText?: string;
+  limitation?: string;
   limitations?: string[];
+};
+
+export type ZiweiEvidenceCalculationStep = {
+  key: string;
+  stage: '十二宫输入校验' | '本命证据采集' | '运限证据采集' | '证据汇总';
+  status: '已计算' | '不适用' | '存在资料缺口';
+  dependsOnStepKeys: string[];
+  inputs: Record<string, string | number | boolean | string[]>;
+  result: Record<string, string | number | boolean | string[]>;
+  promptText: string;
+  sources: string[];
+  limitation: '紫微证据步骤只证明十二宫、星曜、四化与所选运限如何形成当前证据池；不得把证据数量解释为吉凶分数、匹配率、事件概率或固定应期';
+};
+
+export type ZiweiEvidenceCounterEvidenceFact = {
+  key: string;
+  type: '十二宫资料覆盖' | '运限资料覆盖' | '四化定位覆盖';
+  status: '有可用证据' | '资料不足' | '存在未定位' | '不适用';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '紫微反证事实只记录宫位、运限与四化资料是否足以形成当前线索；未命中或未定位不等于现实有利、不利或没有其他传统关系';
+};
+
+export type ZiweiEvidenceSummaryFact = {
+  key: 'ziwei:evidence-summary';
+  status: '证据链完整' | '证据链有缺口' | '未生成';
+  factKeys: string[];
+  evidenceFactCount: number;
+  natalFactCount: number;
+  scopeFactCount: number;
+  primaryFactCount: number;
+  supportingFactCount: number;
+  missingFactCount: number;
+  counterEvidenceCount: number;
+  limitationFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '紫微证据汇总只统计本命宫星、四化、三方四正、运限落宫、运限四化、资料缺口、反证与限制覆盖；不得按数量生成命盘总分、吉凶概率、事件概率或唯一应期';
+};
+
+export type ZiweiEvidenceLimitationFact = {
+  key: string;
+  type: '传统结构边界' | '本命应期边界' | '运限层级边界' | '资料缺口边界' | '高风险输出边界';
+  status: '适用';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '紫微限制事实用于约束宫位、星曜、四化与运限证据可以支持的解释范围，不得被反向当作现实因果、人物意图、吉凶概率或保证有效建议的证据';
+};
+
+export type ZiweiEvidenceAnalysis = {
+  key: 'ziwei:evidence';
+  status: '已计算' | '存在资料缺口' | '未生成';
+  calculationSteps: ZiweiEvidenceCalculationStep[];
+  calculationChain: string[];
+  counterEvidence: string[];
+  counterEvidenceFacts: ZiweiEvidenceCounterEvidenceFact[];
+  summaryFact: ZiweiEvidenceSummaryFact;
+  limitations: string[];
+  limitationFacts: ZiweiEvidenceLimitationFact[];
+  promptText: string;
+  methodology: { notes: string[] };
 };
 
 export type PatternFact = {

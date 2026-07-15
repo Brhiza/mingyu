@@ -5,7 +5,7 @@ import {
   buildCombinedZiweiCompatibilityPrompt,
   buildCombinedZiweiPrompt,
 } from '../src/lib/full-chart-engine/ziwei';
-import { buildEvidencePool } from '@core/ziwei/iztro';
+import { buildEvidenceAnalysis, buildEvidencePool } from '@core/ziwei/iztro';
 import { buildEvidenceSummary, buildPalaceSummary } from '../src/lib/ziwei-prompts/builders';
 import { buildZiweiReadableSnapshot } from '../src/lib/ziwei-prompts/snapshot';
 import type { PromptContext } from '../src/lib/ziwei-prompts/types';
@@ -515,12 +515,85 @@ test('紫微证据池应输出大限流年流月流日落宫与运限四化飞�
   assert.match(descriptions, /流年（丙午流年）干支为丙午/);
   assert.match(descriptions, /运限本身落于财帛/);
   assert.ok(evidence.every((item) => item.level === '主证' || item.level === '辅证'));
-  assert.ok(evidence.every((item) => item.source?.includes('iztro')));
+  assert.ok(evidence.every((item) => item.source?.includes('紫微')));
   assert.ok(evidence.every((item) => item.calculation));
+  assert.ok(
+    evidence.every(
+      (item) =>
+        item.key?.startsWith('ziwei:evidence:') &&
+        (item.status === '已记录' || item.status === '资料缺口') &&
+        item.sources?.length &&
+        item.calculationStepKey &&
+        item.dependsOnStepKeys?.includes(item.calculationStepKey) &&
+        item.promptText &&
+        item.limitation,
+    ),
+  );
   assert.ok(
     evidence.every((item) => item.limitations?.some((text) => text.includes('不直接证明'))),
   );
   assert.ok(evidence.every((item) => !('priority' in item)));
+
+  const analysis = buildEvidenceAnalysis({
+    evidencePool: evidence,
+    currentScope: 'yearly',
+    palaces,
+  });
+  const factKeys = new Set([analysis.summaryFact.key, ...analysis.summaryFact.factKeys]);
+  assert.equal(analysis.key, 'ziwei:evidence');
+  assert.equal(analysis.status, '存在资料缺口');
+  assert.equal(analysis.calculationSteps.length, 4);
+  assert.ok(
+    analysis.calculationSteps.every((step) =>
+      step.dependsOnStepKeys.every((key) =>
+        analysis.calculationSteps.some((candidate) => candidate.key === key),
+      ),
+    ),
+  );
+  assert.equal(analysis.counterEvidenceFacts.length, 3);
+  assert.equal(analysis.summaryFact.evidenceFactCount, evidence.length);
+  assert.equal(analysis.summaryFact.counterEvidenceCount, analysis.counterEvidenceFacts.length);
+  assert.equal(analysis.summaryFact.limitationFactCount, analysis.limitationFacts.length);
+  assert.ok(
+    analysis.counterEvidenceFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    analysis.limitationFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.match(analysis.promptText, /计算链：[\s\S]*反证核验：[\s\S]*证据汇总：[\s\S]*解释限制：/);
+  assert.doesNotMatch(
+    analysis.promptText,
+    /命语|iztro|本项目|项目统一|工程|接口|API|MCP|ziwei:evidence:/,
+  );
+
+  const payload = createPayload();
+  payload.active_scope = {
+    ...payload.active_scope,
+    scope: 'yearly',
+    label: '丙午流年',
+    palace_index: 4,
+  };
+  payload.evidence_pool = evidence;
+  payload.evidence_analysis = analysis;
+  const snapshot = buildZiweiReadableSnapshot({
+    payload,
+    reportContext: createReportContext({
+      report_key: 'life:yearly:2026-05-16',
+      scope_type: 'yearly',
+      scope_label: '流年',
+    }),
+  });
+  assert.match(snapshot, /【证据汇总】/);
+  assert.match(snapshot, /证据状态：证据链有缺口/);
+  assert.match(snapshot, /资料缺口：\d+项/);
+  assert.match(snapshot, /解释边界：紫微证据汇总只统计/);
+  assert.doesNotMatch(snapshot, /命语|iztro|本项目|项目统一|工程|接口|API|MCP/);
 });
 
 test('紫微关键判断线索在原始资料缺少关联星曜与关联四化时应自动补全', () => {
@@ -728,4 +801,19 @@ test('紫微本命证据池不应生成运限落宫证据', () => {
   assert.doesNotMatch(titles, /流年（丙午流年）落入/);
   assert.doesNotMatch(titles, /流年落宫位于/);
   assert.doesNotMatch(titles, /天同化禄/);
+
+  const analysis = buildEvidenceAnalysis({
+    evidencePool: evidence,
+    currentScope: 'origin',
+    palaces,
+  });
+  assert.equal(
+    analysis.counterEvidenceFacts.find((item) => item.type === '运限资料覆盖')?.status,
+    '不适用',
+  );
+  assert.equal(
+    analysis.counterEvidenceFacts.find((item) => item.type === '四化定位覆盖')?.status,
+    '不适用',
+  );
+  assert.match(analysis.promptText, /当前为本命范围，不生成运限落宫/);
 });

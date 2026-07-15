@@ -247,18 +247,54 @@ export function buildEvidenceSummary(
 
   return picked.map((item) => ({
     证据等级: item.level || '辅证',
+    证据状态: item.status || '已记录',
     判断线索: item.title,
     适用范围: mapScopeLabel(item.scope),
     关联宫位: item.palace_names.map((name) => formatPalaceName(name)),
     关联星曜: deriveEvidenceStars(payload, focusPalaces, item),
     关联四化: deriveEvidenceMutagens(payload, focusPalaces, item),
-    数据来源: item.source || '现有紫微结构化证据池',
+    数据来源: item.sources?.join('、') || item.source || '现有紫微结构化证据池',
     计算依据: item.calculation || '按证据项登记的宫位、星曜与四化关联逐项核对',
-    说明: item.description,
+    说明: item.promptText || item.description,
     适用边界:
+      item.limitation ||
       item.limitations?.join('；') ||
       '仅作为传统紫微结构化线索，不直接证明现实事件、吉凶结果或发生概率',
   }));
+}
+
+export function buildEvidenceChainSummary(payload: AnalysisPayloadV1) {
+  const analysis = payload.evidence_analysis;
+  if (analysis) {
+    return {
+      证据状态: analysis.summaryFact.status,
+      本命证据: `${analysis.summaryFact.natalFactCount}项`,
+      运限证据: `${analysis.summaryFact.scopeFactCount}项`,
+      主证: `${analysis.summaryFact.primaryFactCount}项`,
+      辅证: `${analysis.summaryFact.supportingFactCount}项`,
+      资料缺口: `${analysis.summaryFact.missingFactCount}项`,
+      反证核验: analysis.counterEvidence.length
+        ? analysis.counterEvidence.join('；')
+        : '当前资料覆盖未见明确缺口；仍不代表现实风险为零',
+      汇总说明: analysis.summaryFact.promptText,
+      解释边界: analysis.summaryFact.limitation,
+    };
+  }
+
+  const missingFactCount = payload.evidence_pool.filter(
+    (item) => item.status === '资料缺口',
+  ).length;
+  return {
+    证据状态: payload.evidence_pool.length ? '旧资料已保留证据线索' : '旧资料未生成证据线索',
+    本命证据: `${payload.evidence_pool.filter((item) => item.scope === 'origin').length}项`,
+    运限证据: `${payload.evidence_pool.filter((item) => item.scope !== 'origin').length}项`,
+    资料缺口: `${missingFactCount}项`,
+    汇总说明: payload.evidence_pool.length
+      ? `当前保留${payload.evidence_pool.length}项紫微结构化线索，旧资料未附带统一计算链汇总`
+      : '当前没有可用的紫微结构化线索，证据不足时必须直接说明',
+    解释边界:
+      '仅基于已提供宫位、星曜、四化与运限资料解释，不按线索数量生成吉凶总分、概率或必然结论',
+  };
 }
 
 export function buildScopeStructureSummary(payload: AnalysisPayloadV1) {

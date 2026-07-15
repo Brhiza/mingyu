@@ -9,6 +9,8 @@ import {
   buildActiveScope,
   buildAnalysisPayloadV1,
   buildBasicInfo,
+  buildEvidenceAnalysis,
+  buildEvidencePool,
   getCurrentScopeItem,
   getDefaultHoroscopeContext,
   mapStarFact,
@@ -185,19 +187,32 @@ function buildLightweightPublicPayload(params: {
   astrolabe: IztroAstrolabe;
 }): AnalysisPayloadV1 {
   const currentScopeItem = getCurrentScopeItem(params.horoscope, params.scope);
+  const activeScope = buildActiveScope({
+    horoscope: params.horoscope,
+    currentScope: params.scope,
+    currentScopeItem,
+    palaces: params.astrolabe.palaces,
+  });
+  const evidencePool = buildEvidencePool({
+    astrolabe: params.astrolabe,
+    horoscope: params.horoscope,
+    currentScope: params.scope,
+    palaces: params.palaces,
+  });
+  const evidenceAnalysis = buildEvidenceAnalysis({
+    evidencePool,
+    currentScope: params.scope,
+    palaces: params.palaces,
+  });
 
   return {
     payload_version: 'analysis_payload_v1',
     language: 'zh-CN',
     basic_info: params.basicInfo,
-    active_scope: buildActiveScope({
-      horoscope: params.horoscope,
-      currentScope: params.scope,
-      currentScopeItem,
-      palaces: params.astrolabe.palaces,
-    }),
+    active_scope: activeScope,
     palaces: params.palaces,
-    evidence_pool: [],
+    evidence_pool: evidencePool,
+    evidence_analysis: evidenceAnalysis,
     patterns: [],
   };
 }

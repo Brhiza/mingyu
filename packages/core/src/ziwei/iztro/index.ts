@@ -19,7 +19,7 @@ export { buildActiveScope, buildBasicInfo } from './build-analysis-payload/helpe
 export { mapStarFact } from './build-analysis-payload/helpers/mappers';
 export { getCurrentScopeItem } from './build-analysis-payload/helpers/scope';
 export { detectPatterns } from './pattern-detection';
-export { buildEvidencePool } from './build-evidence-pool';
+export { buildEvidenceAnalysis, buildEvidencePool } from './build-evidence-pool';
 export {
   buildScopeFocusPalaces,
   collectMutagenStars,

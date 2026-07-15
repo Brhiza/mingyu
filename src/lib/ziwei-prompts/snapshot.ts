@@ -1,5 +1,6 @@
 import type { AnalysisPayloadV1 } from '../../types/analysis';
 import {
+  buildEvidenceChainSummary,
   buildEvidenceSummary,
   buildPalaceIndex,
   buildPalaceSummary,
@@ -157,6 +158,7 @@ export function buildPromptContextSnapshot(params: {
     运限命中摘要: buildScopeHitSummary(payload),
     运限结构: buildScopeStructureSummary(payload).slice(0, 8),
     重点宫位摘要: focusPalaces.map((item) => buildPalaceSummary(payload, item)),
+    证据链汇总: buildEvidenceChainSummary(payload),
     关键证据摘要: buildEvidenceSummary(payload, focusPalaces, reportContext).slice(0, 6),
     全盘宫位索引: buildPalaceIndex(payload),
   };
@@ -198,6 +200,9 @@ export function buildZiweiReadableSnapshot(params: {
     '',
     '【重点宫位资料】',
     formatObjectList(snapshot.重点宫位摘要),
+    '',
+    '【证据汇总】',
+    formatKeyValueBlock(snapshot.证据链汇总),
     '',
     '【关键判断线索】',
     formatObjectList(snapshot.关键证据摘要),
@@ -244,6 +249,9 @@ export function buildZiweiTaskBookSnapshot(params: {
     '',
     '【重点宫位资料】',
     formatObjectList(focusPalaces.map((item) => buildPalaceSummary(payload, item))),
+    '',
+    '【证据汇总】',
+    formatKeyValueBlock(buildEvidenceChainSummary(payload)),
     '',
     '【关键判断线索】',
     formatObjectList(evidenceSummary),
