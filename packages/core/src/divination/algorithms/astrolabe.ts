@@ -364,6 +364,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
       timeZoneId: input.timeZoneId,
       timezoneStatus: timezoneEvidence?.status,
       timezoneDiagnostics: timezoneEvidence?.diagnostics,
+      timezoneEvidence,
       standardDateTime: formatDateTime(standardBirth),
       trueSolarDateTime: trueSolarResult
         ? formatDateTime(trueSolarResult.correctedTime)

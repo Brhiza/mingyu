@@ -1,6 +1,7 @@
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import type { AstrolabeData } from '../types/divination';
+import type { HistoricalTimezoneEvidence } from '../calendar/historical-timezone';
 
 export interface AstrolabePositionFact {
   key: string;
@@ -178,6 +179,7 @@ export interface AstrolabeLimitationFact {
 export interface AstrolabeEvidenceAnalysis {
   calculationFact: AstrolabeCalculationFact;
   calculationChain: string[];
+  timezoneFact?: HistoricalTimezoneEvidence;
   primaryCoverageFact: AstrolabePrimaryCoverageFact;
   primaryPointFacts: AstrolabePrimaryFact[];
   primaryFacts: string[];
@@ -827,6 +829,7 @@ export function analyzeAstrolabeEvidence(
         ]
       : [];
   const supportingFacts = aspectFacts.map((item) => item.promptText);
+  const timezoneFact = data.birth.timezoneEvidence;
   const counterEvidenceFacts = buildCounterEvidenceFacts(aspectFacts, distributionEvidenceFacts);
   const counterSummaryFact = buildCounterSummaryFact(counterEvidenceFacts);
   const counterEvidence = counterEvidenceFacts
@@ -849,6 +852,20 @@ export function analyzeAstrolabeEvidence(
       source: calculationFact.sources.join('、'),
       tags: ['计算链', calculationFact.status, calculationFact.models.houseSystem],
     },
+    ...(timezoneFact
+      ? [
+          {
+            level:
+              timezoneFact.status === 'ambiguous' || timezoneFact.offsetConflict
+                ? ('反证' as const)
+                : ('辅证' as const),
+            title: '历史时区映射与诊断',
+            detail: `${timezoneFact.promptText}；诊断边界：${timezoneFact.diagnosticSummaryFact.limitation}`,
+            source: timezoneFact.source,
+            tags: ['历史时区', timezoneFact.status, timezoneFact.diagnosticSummaryFact.status],
+          },
+        ]
+      : []),
     {
       level: primaryCoverageFact.status === '完整' ? '辅证' : '反证',
       title: '太阳月亮上升天顶覆盖',
@@ -943,6 +960,7 @@ export function analyzeAstrolabeEvidence(
   return {
     calculationFact,
     calculationChain,
+    timezoneFact,
     primaryCoverageFact,
     primaryPointFacts,
     primaryFacts,

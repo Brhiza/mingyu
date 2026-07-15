@@ -2567,6 +2567,7 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
       latitude: 39.9042,
       longitude: 73.5,
       timezone: 8,
+      timeZoneId: 'Asia/Shanghai',
       locationName: '喀什',
       useTrueSolarTime: true,
     }),
@@ -2575,6 +2576,16 @@ test('公开 API 星盘应支持真太阳时校正', async () => {
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
   assert.equal(body.data.birth.isTrueSolarTime, true);
+  assert.equal(body.data.birth.timezoneEvidence.status, 'unique');
+  assert.equal(body.data.birth.timezoneEvidence.calculationSteps.length, 4);
+  assert.equal(body.data.birth.timezoneEvidence.diagnosticSummaryFact.status, '唯一且无冲突');
+  assert.equal(
+    body.data.birth.timezoneEvidence.limitations.length,
+    body.data.birth.timezoneEvidence.limitationFacts.length,
+  );
+  assertPromptIsPortableTaskText(body.data.birth.timezoneEvidence.promptText);
+  assert.equal(body.data.evidenceAnalysis.timezoneFact.key, body.data.birth.timezoneEvidence.key);
+  assert.match(body.data.evidenceAnalysis.promptText, /历史时区映射与诊断/);
   assert.ok(body.data.aspects.length > 0);
   assert.equal(body.data.evidenceAnalysis.evidence.title, '西方星盘位置与相位结构化证据');
   assert.equal(body.data.evidenceAnalysis.calculationFact.status, '完整');

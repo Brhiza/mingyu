@@ -14,7 +14,55 @@ export interface HistoricalTimezoneInput {
   fixedOffsetHours?: number;
 }
 
+export interface HistoricalTimezoneCalculationStep {
+  key: string;
+  stage: '时区规则加载' | '候选偏移采样' | '当地时刻匹配' | '偏移核验';
+  status: '已解析' | '已匹配' | '存在歧义' | '已核验' | '未核验' | '存在冲突';
+  dependsOnStepKeys: string[];
+  inputs: Record<string, string | number | boolean>;
+  result: Record<string, string | number | boolean>;
+  promptText: string;
+  sources: string[];
+  limitation: '历史时区步骤只证明指定 IANA 时区规则下当地钟表时间如何映射为 UTC，并记录回拨歧义与固定偏移冲突；不得把数据库解析结果解释为出生记录本身已经无误';
+}
+
+export interface HistoricalTimezoneDiagnosticFact {
+  key: string;
+  type: '当地时刻映射' | '固定偏移核验';
+  status: '唯一映射' | '存在回拨歧义' | '无冲突' | '存在冲突' | '未核验';
+  ownerStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '诊断事实只记录 IANA 历史规则下的映射数量与偏移一致性；歧义或冲突需要结合原始时间记录复核，不得自动改写出生时间';
+}
+
+export interface HistoricalTimezoneDiagnosticSummaryFact {
+  key: 'historical-timezone:diagnostic-summary';
+  status:
+    | '唯一且无冲突'
+    | '唯一但偏移冲突'
+    | '唯一映射且未核验固定偏移'
+    | '存在回拨歧义'
+    | '回拨歧义且偏移冲突'
+    | '存在回拨歧义且未核验固定偏移';
+  factKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '诊断汇总只整合当地时刻映射与固定偏移核验，不证明原始钟表记录、地点或时区标注必然正确';
+}
+
+export interface HistoricalTimezoneLimitationFact {
+  key: string;
+  type: '数据库版本边界' | '回拨选择边界' | '固定偏移边界';
+  status: '适用';
+  ownerStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束历史时区换算可支持的结论范围，不得被反向当作出生记录真实性、事件结果或观测精度证据';
+}
+
 export interface HistoricalTimezoneEvidence {
+  key: string;
   timeZoneId: string;
   database: string;
   status: 'unique' | 'ambiguous';
@@ -26,8 +74,23 @@ export interface HistoricalTimezoneEvidence {
   fixedOffsetHours?: number;
   offsetConflict: boolean;
   diagnostics: string[];
+  calculationSteps: HistoricalTimezoneCalculationStep[];
+  diagnosticFacts: HistoricalTimezoneDiagnosticFact[];
+  diagnosticSummaryFact: HistoricalTimezoneDiagnosticSummaryFact;
+  limitations: string[];
+  limitationFacts: HistoricalTimezoneLimitationFact[];
   source: string;
+  promptText: string;
 }
+
+const CALCULATION_STEP_LIMITATION =
+  '历史时区步骤只证明指定 IANA 时区规则下当地钟表时间如何映射为 UTC，并记录回拨歧义与固定偏移冲突；不得把数据库解析结果解释为出生记录本身已经无误' as const;
+const DIAGNOSTIC_FACT_LIMITATION =
+  '诊断事实只记录 IANA 历史规则下的映射数量与偏移一致性；歧义或冲突需要结合原始时间记录复核，不得自动改写出生时间' as const;
+const DIAGNOSTIC_SUMMARY_LIMITATION =
+  '诊断汇总只整合当地时刻映射与固定偏移核验，不证明原始钟表记录、地点或时区标注必然正确' as const;
+const LIMITATION_FACT_LIMITATION =
+  '限制事实用于约束历史时区换算可支持的结论范围，不得被反向当作出生记录真实性、事件结果或观测精度证据' as const;
 
 type WallClockParts = Omit<HistoricalTimezoneInput, 'timeZoneId' | 'fixedOffsetHours'>;
 
@@ -117,6 +180,7 @@ export function resolveHistoricalTimezone(
     target.minute,
     target.second,
   );
+  const wallClockDateTime = `${String(target.year).padStart(4, '0')}-${String(target.month).padStart(2, '0')}-${String(target.day).padStart(2, '0')} ${String(target.hour).padStart(2, '0')}:${String(target.minute).padStart(2, '0')}:${String(target.second).padStart(2, '0')}`;
 
   // 在目标时刻前后取样所有可能偏移，再反推 UTC；可同时找到秋季回拨时的两个合法时刻。
   const offsets = new Set<number>();
@@ -130,7 +194,7 @@ export function resolveHistoricalTimezone(
 
   if (!matches.length) {
     throw new Error(
-      `${timeZoneId} 的当地钟表时间 ${input.year}-${String(input.month).padStart(2, '0')}-${String(input.day).padStart(2, '0')} ${String(input.hour).padStart(2, '0')}:${String(input.minute).padStart(2, '0')}:${String(input.second).padStart(2, '0')} 不存在，通常由夏令时跳时造成。`,
+      `${timeZoneId} 的当地钟表时间 ${wallClockDateTime} 不存在，通常由夏令时跳时造成。`,
     );
   }
 
@@ -148,10 +212,155 @@ export function resolveHistoricalTimezone(
       `输入固定偏移 UTC${fixedOffsetHours! >= 0 ? '+' : ''}${fixedOffsetHours} 与 IANA 历史偏移 UTC${selected.offset >= 0 ? '+' : ''}${selected.offset} 不一致。`,
     );
   }
+  const source = 'IANA 时区规则由 Intl.DateTimeFormat 解析；不使用按当前时区反推历史的固定偏移假设';
+  const calculationSteps: HistoricalTimezoneCalculationStep[] = [
+    {
+      key: 'historical-timezone:calculation:database',
+      stage: '时区规则加载',
+      status: '已解析',
+      dependsOnStepKeys: [],
+      inputs: { timeZoneId, wallClockDateTime },
+      result: { database: 'Intl.DateTimeFormat 所带 IANA Time Zone Database' },
+      promptText: `按 IANA 时区 ${timeZoneId} 加载${wallClockDateTime}对应的历史规则`,
+      sources: ['IANA Time Zone Database', 'Intl.DateTimeFormat 时区解析'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'historical-timezone:calculation:candidate-offsets',
+      stage: '候选偏移采样',
+      status: '已解析',
+      dependsOnStepKeys: ['historical-timezone:calculation:database'],
+      inputs: { sampleWindowHours: 36, sampleStepHours: 1 },
+      result: {
+        candidateOffsetCount: offsets.size,
+        candidateOffsetsHours: [...offsets].sort((first, second) => first - second).join('、'),
+      },
+      promptText: `在目标时刻前后36小时按1小时采样，取得${offsets.size}个候选历史偏移`,
+      sources: ['IANA 历史偏移采样'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'historical-timezone:calculation:wall-clock-match',
+      stage: '当地时刻匹配',
+      status: matches.length > 1 ? '存在歧义' : '已匹配',
+      dependsOnStepKeys: ['historical-timezone:calculation:candidate-offsets'],
+      inputs: { wallClockDateTime, candidateOffsetCount: offsets.size },
+      result: {
+        matchCount: matches.length,
+        selectedUtcDateTime: toIso(selected.timestamp),
+        resolvedOffsetHours: selected.offset,
+      },
+      promptText:
+        matches.length > 1
+          ? `当地钟表时间${wallClockDateTime}匹配到${matches.length}个 UTC 时刻，按明确规则暂取较早的${toIso(selected.timestamp)}`
+          : `当地钟表时间${wallClockDateTime}唯一映射为 UTC ${toIso(selected.timestamp)}`,
+      sources: ['IANA 当地钟表时间反向匹配'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'historical-timezone:calculation:fixed-offset-check',
+      stage: '偏移核验',
+      status: fixedOffsetHours === undefined ? '未核验' : offsetConflict ? '存在冲突' : '已核验',
+      dependsOnStepKeys: ['historical-timezone:calculation:wall-clock-match'],
+      inputs: {
+        resolvedOffsetHours: selected.offset,
+        ...(fixedOffsetHours === undefined ? {} : { fixedOffsetHours }),
+      },
+      result: { offsetConflict },
+      promptText:
+        fixedOffsetHours === undefined
+          ? '未另给固定 UTC 偏移，仅保留 IANA 历史偏移结果'
+          : offsetConflict
+            ? `固定偏移 UTC${fixedOffsetHours >= 0 ? '+' : ''}${fixedOffsetHours} 与 IANA 历史偏移 UTC${selected.offset >= 0 ? '+' : ''}${selected.offset}不一致`
+            : `固定偏移与 IANA 历史偏移一致，均为 UTC${selected.offset >= 0 ? '+' : ''}${selected.offset}`,
+      sources: ['明确固定偏移与 IANA 历史偏移比较'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+  ];
+  const diagnosticFacts: HistoricalTimezoneDiagnosticFact[] = [
+    {
+      key: 'historical-timezone:diagnostic:wall-clock-mapping',
+      type: '当地时刻映射',
+      status: matches.length > 1 ? '存在回拨歧义' : '唯一映射',
+      ownerStepKeys: ['historical-timezone:calculation:wall-clock-match'],
+      promptText: diagnostics[0],
+      sources: ['IANA 当地钟表时间反向匹配'],
+      limitation: DIAGNOSTIC_FACT_LIMITATION,
+    },
+    {
+      key: 'historical-timezone:diagnostic:fixed-offset',
+      type: '固定偏移核验',
+      status: fixedOffsetHours === undefined ? '未核验' : offsetConflict ? '存在冲突' : '无冲突',
+      ownerStepKeys: ['historical-timezone:calculation:fixed-offset-check'],
+      promptText:
+        fixedOffsetHours === undefined
+          ? '没有另列固定 UTC 偏移，无法进行偏移一致性比较'
+          : offsetConflict
+            ? diagnostics[1]
+            : `固定偏移与 IANA 历史偏移一致，均为 UTC${selected.offset >= 0 ? '+' : ''}${selected.offset}。`,
+      sources: ['明确固定偏移与 IANA 历史偏移比较'],
+      limitation: DIAGNOSTIC_FACT_LIMITATION,
+    },
+  ];
+  const summaryStatus: HistoricalTimezoneDiagnosticSummaryFact['status'] =
+    matches.length > 1
+      ? fixedOffsetHours === undefined
+        ? '存在回拨歧义且未核验固定偏移'
+        : offsetConflict
+          ? '回拨歧义且偏移冲突'
+          : '存在回拨歧义'
+      : fixedOffsetHours === undefined
+        ? '唯一映射且未核验固定偏移'
+        : offsetConflict
+          ? '唯一但偏移冲突'
+          : '唯一且无冲突';
+  const diagnosticSummaryFact: HistoricalTimezoneDiagnosticSummaryFact = {
+    key: 'historical-timezone:diagnostic-summary',
+    status: summaryStatus,
+    factKeys: diagnosticFacts.map((item) => item.key),
+    promptText: `历史时区诊断为${summaryStatus}；采用 UTC ${toIso(selected.timestamp)}、偏移 UTC${selected.offset >= 0 ? '+' : ''}${selected.offset}`,
+    sources: ['当地时刻映射与固定偏移核验汇总'],
+    limitation: DIAGNOSTIC_SUMMARY_LIMITATION,
+  };
+  const limitations = [
+    'IANA 历史规则随所用时区数据库版本更新，极早期地方平太阳时或资料修订可能出现版本差异。',
+    '回拨歧义默认选择较早 UTC 时刻只用于保持计算确定性，仍应结合原始钟表记录确认。',
+    '固定偏移冲突只表示两种时间口径不一致，不自动证明其中任一记录错误。',
+  ];
+  const limitationFacts: HistoricalTimezoneLimitationFact[] = [
+    {
+      key: 'historical-timezone:limitation:database-version',
+      type: '数据库版本边界',
+      status: '适用',
+      ownerStepKeys: ['historical-timezone:calculation:database'],
+      promptText: limitations[0],
+      sources: ['IANA Time Zone Database 更新机制'],
+      limitation: LIMITATION_FACT_LIMITATION,
+    },
+    {
+      key: 'historical-timezone:limitation:ambiguous-selection',
+      type: '回拨选择边界',
+      status: '适用',
+      ownerStepKeys: ['historical-timezone:calculation:wall-clock-match'],
+      promptText: limitations[1],
+      sources: ['夏令时回拨的重复当地时刻规则'],
+      limitation: LIMITATION_FACT_LIMITATION,
+    },
+    {
+      key: 'historical-timezone:limitation:fixed-offset',
+      type: '固定偏移边界',
+      status: '适用',
+      ownerStepKeys: ['historical-timezone:calculation:fixed-offset-check'],
+      promptText: limitations[2],
+      sources: ['固定 UTC 偏移与历史时区规则的口径差异'],
+      limitation: LIMITATION_FACT_LIMITATION,
+    },
+  ];
 
   return {
+    key: `historical-timezone:${timeZoneId}:${wallClockDateTime}`,
     timeZoneId,
-    database: '运行环境 Intl.DateTimeFormat 所带 IANA Time Zone Database',
+    database: 'Intl.DateTimeFormat 所带 IANA Time Zone Database',
     status: matches.length > 1 ? 'ambiguous' : 'unique',
     selectedUtcTimestamp: selected.timestamp,
     selectedUtcDateTime: toIso(selected.timestamp),
@@ -161,7 +370,12 @@ export function resolveHistoricalTimezone(
     fixedOffsetHours,
     offsetConflict,
     diagnostics,
-    source:
-      'IANA 时区规则由运行环境 Intl.DateTimeFormat 解析；不使用按当前时区反推历史的固定偏移假设',
+    calculationSteps,
+    diagnosticFacts,
+    diagnosticSummaryFact,
+    limitations,
+    limitationFacts,
+    source,
+    promptText: `历史时区证据：${timeZoneId} 的当地钟表时间${wallClockDateTime}映射为 UTC ${toIso(selected.timestamp)}，历史偏移 UTC${selected.offset >= 0 ? '+' : ''}${selected.offset}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。诊断汇总：${diagnosticSummaryFact.promptText}。来源：${source}。限制：${limitations.join('；')}`,
   };
 }

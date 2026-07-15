@@ -963,6 +963,7 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
         latitude: 39.9042,
         longitude: 116.4074,
         timezone: 8,
+        timeZoneId: 'Asia/Shanghai',
         locationName: '北京',
         question: '请看我 2028 年事业机会。',
         astrolabeTopic: 'job-change',
@@ -975,6 +976,18 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
     const chart = (
       result.structuredContent as {
         result?: {
+          birth?: {
+            timezoneEvidence?: {
+              key: string;
+              status: string;
+              calculationSteps: unknown[];
+              diagnosticFacts: unknown[];
+              diagnosticSummaryFact: { status: string; factKeys: string[] };
+              limitations: string[];
+              limitationFacts: unknown[];
+              promptText: string;
+            };
+          };
           planets?: unknown[];
           angles?: unknown[];
           houses?: unknown[];
@@ -986,6 +999,7 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
           }>;
           evidenceAnalysis?: {
             evidence?: { title?: string };
+            timezoneFact?: { key: string; diagnosticSummaryFact: { status: string } };
             calculationFact?: {
               status: string;
               steps: Array<{
@@ -1037,6 +1051,16 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
       assert.equal(typeof aspect.allowedOrb, 'number');
     }
     assert.equal(chart?.evidenceAnalysis?.evidence?.title, '西方星盘位置与相位结构化证据');
+    assert.equal(chart?.birth?.timezoneEvidence?.status, 'unique');
+    assert.equal(chart?.birth?.timezoneEvidence?.calculationSteps.length, 4);
+    assert.equal(chart?.birth?.timezoneEvidence?.diagnosticFacts.length, 2);
+    assert.equal(chart?.birth?.timezoneEvidence?.diagnosticSummaryFact.status, '唯一且无冲突');
+    assert.equal(
+      chart?.birth?.timezoneEvidence?.limitations.length,
+      chart?.birth?.timezoneEvidence?.limitationFacts.length,
+    );
+    assertPromptIsPortableTaskText(chart?.birth?.timezoneEvidence?.promptText ?? '');
+    assert.equal(chart?.evidenceAnalysis?.timezoneFact?.key, chart?.birth?.timezoneEvidence?.key);
     assert.equal(chart?.evidenceAnalysis?.calculationFact?.status, '完整');
     assert.equal(chart?.evidenceAnalysis?.calculationFact?.steps.length, 5);
     assert.ok(

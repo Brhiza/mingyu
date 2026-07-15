@@ -3,6 +3,7 @@ import type { CoreResultMeta } from '../shared/result';
 import type { SolarTermEvidence } from '../calendar/solar-term-evidence';
 import type { MoonPhaseEvidence } from '../calendar/moon-phase-evidence';
 import type { SolarIlluminationEvidence } from '../calendar/solar-illumination-evidence';
+import type { HistoricalTimezoneEvidence } from '../calendar/historical-timezone';
 
 export type { RandomOptions, RandomSource } from '../shared/random';
 export type { CoreResultMeta } from '../shared/result';
@@ -994,6 +995,7 @@ export interface AstrolabeData {
     timeZoneId?: string;
     timezoneStatus?: 'unique' | 'ambiguous';
     timezoneDiagnostics?: string[];
+    timezoneEvidence?: HistoricalTimezoneEvidence;
     standardDateTime?: string;
     trueSolarDateTime?: string;
     isTrueSolarTime?: boolean;
