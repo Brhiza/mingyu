@@ -1564,6 +1564,26 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     });
     const tarotData = tarot.structuredContent?.result as Record<string, any>;
     assert.equal(tarot.isError, undefined);
+    assert.equal(tarotData.evidenceAnalysis.key, 'tarot:evidence');
+    assert.equal(tarotData.evidenceAnalysis.status, '已计算');
+    assert.equal(tarotData.evidenceAnalysis.calculationSteps.length, 7);
+    const tarotStepKeys = new Set(
+      tarotData.evidenceAnalysis.calculationSteps.map((item: Record<string, unknown>) => item.key),
+    );
+    assert.ok(
+      tarotData.evidenceAnalysis.calculationSteps.every(
+        (item: Record<string, any>) =>
+          item.status === '已计算' &&
+          item.promptText &&
+          Array.isArray(item.sources) &&
+          item.sources.length > 0 &&
+          item.dependsOnStepKeys.every((key: string) => tarotStepKeys.has(key)),
+      ),
+    );
+    assert.equal(
+      tarotData.evidenceAnalysis.calculationChain.length,
+      tarotData.evidenceAnalysis.calculationSteps.length,
+    );
     assert.equal(tarotData.evidenceAnalysis.cards.length, 3);
     assert.equal(tarotData.evidenceAnalysis.spreadCoverageFact.status, '完整');
     assert.equal(tarotData.evidenceAnalysis.spreadCoverageFact.cardFactKeys.length, 3);
@@ -1598,6 +1618,18 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
       tarotData.evidenceAnalysis.counterEvidenceFacts.length,
     );
     assert.equal(tarotData.evidenceAnalysis.limitationFacts.length, 6);
+    assert.ok(
+      tarotData.evidenceAnalysis.limitationFacts.every(
+        (item: Record<string, any>) =>
+          Array.isArray(item.ownerFactKeys) &&
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every(
+            (key: string) =>
+              key === tarotData.evidenceAnalysis.summaryFact.key ||
+              tarotData.evidenceAnalysis.summaryFact.factKeys.includes(key),
+          ),
+      ),
+    );
     assert.equal(
       tarotData.evidenceAnalysis.limitations.length,
       tarotData.evidenceAnalysis.limitationFacts.length,
@@ -1609,6 +1641,36 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     );
     assert.doesNotMatch(tarotData.evidenceAnalysis.randomFact.promptText, /MCP塔罗证据样例/);
     assert.equal(tarotData.evidenceAnalysis.traditionalFacts.length, 3);
+    assert.equal(tarotData.evidenceAnalysis.summaryFact.key, 'tarot:evidence-summary');
+    assert.equal(tarotData.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      tarotData.evidenceAnalysis.summaryFact.cardFactCount,
+      tarotData.evidenceAnalysis.cards.length,
+    );
+    assert.equal(
+      tarotData.evidenceAnalysis.summaryFact.drawOrderFactCount,
+      tarotData.evidenceAnalysis.drawOrderFacts.length,
+    );
+    assert.equal(
+      tarotData.evidenceAnalysis.summaryFact.sequenceFactCount,
+      tarotData.evidenceAnalysis.sequenceFacts.length,
+    );
+    assert.equal(
+      tarotData.evidenceAnalysis.summaryFact.themeFactCount,
+      tarotData.evidenceAnalysis.themeFacts.length,
+    );
+    assert.equal(
+      tarotData.evidenceAnalysis.summaryFact.recurringThemeFactCount,
+      tarotData.evidenceAnalysis.recurringThemeFacts.length,
+    );
+    assert.equal(
+      tarotData.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      tarotData.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      tarotData.evidenceAnalysis.summaryFact.traditionalFactCount,
+      tarotData.evidenceAnalysis.traditionalFacts.length,
+    );
     assert.ok(
       tarotData.evidenceAnalysis.cards.every(
         (item: Record<string, unknown>, index: number) =>
@@ -1633,6 +1695,9 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     const tarotPrompt = String(tarotPromptResult.structuredContent?.prompt);
     assert.match(tarotPrompt, /【塔罗牌位与牌面结构化证据】/);
     assert.match(tarotPrompt, /条件化牌义|传统牌义/);
+    assert.match(tarotPrompt, /计算链/);
+    assert.match(tarotPrompt, /证据汇总/);
+    assert.match(tarotPrompt, /解释限制|解释边界/);
     assert.doesNotMatch(tarotPrompt, /表示这些能量正在直接发挥作用|信息被隐藏/);
     assertPromptIsPortableTaskText(tarotPrompt);
 
@@ -1642,6 +1707,28 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     });
     const lenormandData = lenormand.structuredContent?.result as Record<string, any>;
     assert.equal(lenormand.isError, undefined);
+    assert.equal(lenormandData.evidenceAnalysis.key, 'lenormand:evidence');
+    assert.equal(lenormandData.evidenceAnalysis.status, '已计算');
+    assert.equal(lenormandData.evidenceAnalysis.calculationSteps.length, 8);
+    const lenormandStepKeys = new Set(
+      lenormandData.evidenceAnalysis.calculationSteps.map(
+        (item: Record<string, unknown>) => item.key,
+      ),
+    );
+    assert.ok(
+      lenormandData.evidenceAnalysis.calculationSteps.every(
+        (item: Record<string, any>) =>
+          item.status === '已计算' &&
+          item.promptText &&
+          Array.isArray(item.sources) &&
+          item.sources.length > 0 &&
+          item.dependsOnStepKeys.every((key: string) => lenormandStepKeys.has(key)),
+      ),
+    );
+    assert.equal(
+      lenormandData.evidenceAnalysis.calculationChain.length,
+      lenormandData.evidenceAnalysis.calculationSteps.length,
+    );
     assert.ok(Array.isArray(lenormandData.evidenceAnalysis.fixedCombinations));
     assert.ok(Array.isArray(lenormandData.evidenceAnalysis.adjacentReadings));
     assert.equal(lenormandData.evidenceAnalysis.spreadCoverageFact.status, '完整');
@@ -1659,12 +1746,58 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     assert.equal(lenormandData.evidenceAnalysis.layoutCoverageFact.status, '结构化覆盖');
     assert.equal(lenormandData.evidenceAnalysis.counterEvidenceFacts.length, 2);
     assert.equal(lenormandData.evidenceAnalysis.limitationFacts.length, 6);
+    assert.ok(
+      lenormandData.evidenceAnalysis.limitationFacts.every(
+        (item: Record<string, any>) =>
+          Array.isArray(item.ownerFactKeys) &&
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every(
+            (key: string) =>
+              key === lenormandData.evidenceAnalysis.summaryFact.key ||
+              lenormandData.evidenceAnalysis.summaryFact.factKeys.includes(key),
+          ),
+      ),
+    );
     assert.ok(lenormandData.evidenceAnalysis.drawFact.sources.length >= 2);
     assert.equal(lenormandData.evidenceAnalysis.randomFact.status, '可重放');
     assert.equal(lenormandData.evidenceAnalysis.randomFact.seed, 'MCP雷诺曼证据样例');
     assert.doesNotMatch(lenormandData.evidenceAnalysis.randomFact.promptText, /MCP雷诺曼证据样例/);
     assert.ok(lenormandData.evidenceAnalysis.traditionalFacts.length >= 9);
     assert.equal(lenormandData.evidenceAnalysis.structuredLayoutFacts.length, 9);
+    assert.equal(lenormandData.evidenceAnalysis.summaryFact.key, 'lenormand:evidence-summary');
+    assert.equal(lenormandData.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      lenormandData.evidenceAnalysis.summaryFact.cardFactCount,
+      lenormandData.evidenceAnalysis.cards.length,
+    );
+    assert.equal(
+      lenormandData.evidenceAnalysis.summaryFact.drawOrderFactCount,
+      lenormandData.evidenceAnalysis.drawOrderFacts.length,
+    );
+    assert.equal(
+      lenormandData.evidenceAnalysis.summaryFact.sequenceFactCount,
+      lenormandData.evidenceAnalysis.sequenceFacts.length,
+    );
+    assert.equal(
+      lenormandData.evidenceAnalysis.summaryFact.fixedCombinationCount,
+      lenormandData.evidenceAnalysis.fixedCombinations.length,
+    );
+    assert.equal(
+      lenormandData.evidenceAnalysis.summaryFact.adjacentReadingCount,
+      lenormandData.evidenceAnalysis.adjacentReadings.length,
+    );
+    assert.equal(
+      lenormandData.evidenceAnalysis.summaryFact.structuredLayoutFactCount,
+      lenormandData.evidenceAnalysis.structuredLayoutFacts.length,
+    );
+    assert.equal(
+      lenormandData.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      lenormandData.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      lenormandData.evidenceAnalysis.summaryFact.traditionalFactCount,
+      lenormandData.evidenceAnalysis.traditionalFacts.length,
+    );
     assert.ok(
       lenormandData.evidenceAnalysis.traditionalFacts.every(
         (item: Record<string, unknown>) =>
@@ -1696,6 +1829,9 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     const lenormandPrompt = String(lenormandPromptResult.structuredContent?.prompt);
     assert.match(lenormandPrompt, /【雷诺曼牌序组合与布局结构化证据】/);
     assert.match(lenormandPrompt, /条件化牌义|传统单牌|相邻牌/);
+    assert.match(lenormandPrompt, /计算链/);
+    assert.match(lenormandPrompt, /证据汇总/);
+    assert.match(lenormandPrompt, /解释限制|解释边界/);
     assert.doesNotMatch(
       lenormandPrompt,
       /感情的承诺或婚约|家庭添丁|通过网络\/远程获利|隐藏在迷雾中的欺骗/,

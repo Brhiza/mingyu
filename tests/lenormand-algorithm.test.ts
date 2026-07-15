@@ -229,6 +229,9 @@ test('雷诺曼旧数据缺少抽牌来源时应明确保留证据缺口', () =>
   const missingItem = legacyAnalysis.evidence.items.find((item) => item.title === '抽牌来源链缺失');
   assert.equal(legacyAnalysis.drawFact.status, '来源链缺失');
   assert.equal(legacyAnalysis.drawFact.recordedCardCount, 0);
+  assert.equal(legacyAnalysis.summaryFact.status, '证据链有缺口');
+  assert.equal(legacyAnalysis.calculationSteps[1]?.status, '资料不足');
+  assert.equal(legacyAnalysis.calculationSteps[7]?.status, '资料不足');
   assert.match(legacyAnalysis.drawFact.promptText, /不能反推完整抽牌来源链/);
   assert.equal(missingItem?.level, '反证');
   assert.match(missingItem?.detail || '', /不能反推完整抽牌来源链/);
@@ -244,6 +247,19 @@ test('雷诺曼全部牌阵应输出覆盖、逐牌、牌序、来源与限制�
     const evidence = result.evidenceAnalysis;
 
     assert.ok(evidence);
+    assert.equal(evidence.key, 'lenormand:evidence');
+    assert.equal(evidence.status, '已计算');
+    assert.equal(evidence.calculationSteps.length, 8);
+    assert.equal(evidence.calculationChain.length, evidence.calculationSteps.length);
+    const calculationStepKeys = new Set(evidence.calculationSteps.map((item) => item.key));
+    assert.ok(
+      evidence.calculationSteps.every(
+        (item) =>
+          item.dependsOnStepKeys.every((key) => calculationStepKeys.has(key)) &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不证明预测有效性'),
+      ),
+    );
     assert.equal(evidence.spreadCoverageFact.status, '完整');
     assert.equal(evidence.spreadCoverageFact.actualCardCount, result.cards.length);
     assert.deepEqual(evidence.spreadCoverageFact.positionOrderMismatches, []);
@@ -258,6 +274,25 @@ test('雷诺曼全部牌阵应输出覆盖、逐牌、牌序、来源与限制�
     assert.ok(['有证据缺口', '未见证据缺口'].includes(evidence.counterSummaryFact.status));
     assert.equal(evidence.limitationFacts.length, 6);
     assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
+    assert.equal(evidence.summaryFact.status, '证据链完整');
+    assert.equal(evidence.summaryFact.cardFactCount, evidence.cards.length);
+    assert.equal(evidence.summaryFact.drawOrderFactCount, evidence.drawOrderFacts.length);
+    assert.equal(evidence.summaryFact.sequenceFactCount, evidence.sequenceFacts.length);
+    assert.equal(evidence.summaryFact.fixedCombinationCount, evidence.fixedCombinations.length);
+    assert.equal(evidence.summaryFact.adjacentReadingCount, evidence.adjacentReadings.length);
+    assert.equal(
+      evidence.summaryFact.structuredLayoutFactCount,
+      evidence.structuredLayoutFacts.length,
+    );
+    assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
+    assert.equal(evidence.summaryFact.traditionalFactCount, evidence.traditionalFacts.length);
+    const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
+    assert.ok(
+      evidence.limitationFacts.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+      ),
+    );
 
     const cardKeys = new Set(evidence.cards.map((card) => card.key));
     const traditionalFactKeys = new Set(evidence.traditionalFacts.map((fact) => fact.key));
@@ -298,6 +333,7 @@ test('雷诺曼全部牌阵应输出覆盖、逐牌、牌序、来源与限制�
       spreadType === 'nine' || spreadType === 'grandTableau' ? '结构化覆盖' : '不适用',
     );
     assert.match(evidence.drawFacts[1], /^第1张对应/);
+    assert.match(evidence.promptText, /计算链：[\s\S]*证据汇总：[\s\S]*解释限制：/);
     assert.doesNotMatch(evidence.promptText, /成功率|吉凶总分|score/i);
     assertPromptIsPortableTaskText(evidence.promptText);
   });
@@ -355,6 +391,9 @@ test('雷诺曼牌位、顺序和牌号异常时应给出可定位的覆盖事�
   const evidence = analyzeLenormandEvidence(tampered);
 
   assert.equal(evidence.spreadCoverageFact.status, '牌位异常');
+  assert.equal(evidence.summaryFact.status, '证据链有缺口');
+  assert.equal(evidence.calculationSteps[2]?.status, '资料不足');
+  assert.equal(evidence.calculationSteps[7]?.status, '资料不足');
   assert.deepEqual(evidence.spreadCoverageFact.missingPositions, ['现状']);
   assert.deepEqual(evidence.spreadCoverageFact.duplicatePositions, ['起因']);
   assert.deepEqual(evidence.spreadCoverageFact.positionOrderMismatches, [2]);
@@ -400,6 +439,9 @@ test('雷诺曼旧布局文字只能兼容展示，不得反推结构化布局',
     evidenceAnalysis: undefined,
   });
   assert.equal(missing.layoutCoverageFact.status, '结构缺失');
+  assert.equal(missing.summaryFact.status, '证据链有缺口');
+  assert.equal(missing.calculationSteps[5]?.status, '资料不足');
+  assert.equal(missing.calculationSteps[7]?.status, '资料不足');
   assert.equal(
     missing.counterEvidenceFacts.find((fact) => fact.type === '布局覆盖')?.status,
     '存在缺口',

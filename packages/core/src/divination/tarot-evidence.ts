@@ -116,9 +116,45 @@ export interface TarotLimitationFact {
   key: string;
   type: '随机边界' | '象征材料边界' | '聚合边界' | '正逆位边界' | '高风险结论边界' | '时间边界';
   status: '适用';
+  ownerFactKeys: string[];
   promptText: string;
   sources: string[];
   limitation: '限制事实用于约束牌面材料可以支持的解释范围，不得被反向当作现实事件、人物意图或未来结果的证据';
+}
+
+export interface TarotEvidenceCalculationStep {
+  key: string;
+  stage:
+    | '随机来源核验'
+    | '抽牌记录核验'
+    | '牌阵覆盖核验'
+    | '逐牌映射核验'
+    | '牌序关系核验'
+    | '主题与反证核验'
+    | '证据汇总';
+  status: '已计算' | '资料不足';
+  inputs: Record<string, string | number | boolean | string[]>;
+  result: Record<string, string | number | boolean | string[]>;
+  dependsOnStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '计算步骤只证明随机轨迹、抽牌记录、牌阵覆盖、逐牌映射、牌序、主题与逆位约束如何形成当前证据；不证明预测有效性、现实吉凶、人物意图或唯一未来';
+}
+
+export interface TarotSummaryFact {
+  key: 'tarot:evidence-summary';
+  status: '证据链完整' | '证据链有缺口';
+  factKeys: string[];
+  cardFactCount: number;
+  drawOrderFactCount: number;
+  sequenceFactCount: number;
+  themeFactCount: number;
+  recurringThemeFactCount: number;
+  counterEvidenceCount: number;
+  traditionalFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '塔罗证据汇总只统计随机、抽牌、牌阵、逐牌、牌序、主题、逆位约束与传统牌义的覆盖情况；不得按数量生成能量分数、吉凶总分、成功率、人物判断或唯一未来';
 }
 
 export interface TarotTraditionalFact {
@@ -154,6 +190,10 @@ export interface TarotDrawFact {
 }
 
 export interface TarotEvidenceAnalysis {
+  key: 'tarot:evidence';
+  status: '已计算';
+  calculationSteps: TarotEvidenceCalculationStep[];
+  calculationChain: string[];
   sources: Array<{ title: string; evidence: string; role: '牌组结构' | '传统解释来源' }>;
   cards: TarotCardEvidence[];
   spreadCoverageFact: TarotSpreadCoverageFact;
@@ -173,6 +213,7 @@ export interface TarotEvidenceAnalysis {
   limitationFacts: TarotLimitationFact[];
   limitations: string[];
   traditionalFacts: TarotTraditionalFact[];
+  summaryFact: TarotSummaryFact;
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
@@ -202,6 +243,10 @@ const COUNTER_SUMMARY_LIMITATION =
   '反证汇总只说明本次牌面是否存在逆位解释约束；未见逆位不代表结果必然有利，也不得按逆位数量换算吉凶或成功率' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束牌面材料可以支持的解释范围，不得被反向当作现实事件、人物意图或未来结果的证据' as const;
+const CALCULATION_STEP_LIMITATION =
+  '计算步骤只证明随机轨迹、抽牌记录、牌阵覆盖、逐牌映射、牌序、主题与逆位约束如何形成当前证据；不证明预测有效性、现实吉凶、人物意图或唯一未来' as const;
+const SUMMARY_FACT_LIMITATION =
+  '塔罗证据汇总只统计随机、抽牌、牌阵、逐牌、牌序、主题、逆位约束与传统牌义的覆盖情况；不得按数量生成能量分数、吉凶总分、成功率、人物判断或唯一未来' as const;
 
 function buildSpreadCoverageFact(
   data: TarotData,
@@ -442,47 +487,276 @@ function buildCounterSummaryFact(
   };
 }
 
-function buildLimitationFacts(): TarotLimitationFact[] {
-  const definitions: Array<Pick<TarotLimitationFact, 'key' | 'type' | 'promptText' | 'sources'>> = [
+function buildSummaryFact(params: {
+  cards: TarotCardEvidence[];
+  spreadCoverageFact: TarotSpreadCoverageFact;
+  drawFact: TarotDrawFact;
+  drawOrderFacts: TarotDrawOrderFact[];
+  sequenceFacts: TarotSequenceFact[];
+  themeFacts: TarotThemeFact[];
+  recurringThemeFacts: TarotThemeFact[];
+  randomFact: RandomTraceFact;
+  counterSummaryFact: TarotCounterSummaryFact;
+  counterEvidenceFacts: TarotCounterEvidenceFact[];
+  traditionalFacts: TarotTraditionalFact[];
+}): TarotSummaryFact {
+  const status =
+    params.spreadCoverageFact.status === '完整' &&
+    params.drawFact.status === '可核验' &&
+    params.randomFact.status === '可重放' &&
+    params.drawOrderFacts.length === params.cards.length
+      ? '证据链完整'
+      : '证据链有缺口';
+  return {
+    key: 'tarot:evidence-summary',
+    status,
+    factKeys: Array.from(
+      new Set([
+        params.randomFact.key,
+        params.drawFact.key,
+        ...params.drawOrderFacts.map((item) => item.key),
+        params.spreadCoverageFact.key,
+        ...params.cards.map((item) => item.key),
+        ...params.sequenceFacts.map((item) => item.key),
+        ...params.themeFacts.map((item) => item.key),
+        params.counterSummaryFact.key,
+        ...params.counterEvidenceFacts.map((item) => item.key),
+        ...params.traditionalFacts.map((item) => item.key),
+      ]),
+    ),
+    cardFactCount: params.cards.length,
+    drawOrderFactCount: params.drawOrderFacts.length,
+    sequenceFactCount: params.sequenceFacts.length,
+    themeFactCount: params.themeFacts.length,
+    recurringThemeFactCount: params.recurringThemeFacts.length,
+    counterEvidenceCount: params.counterEvidenceFacts.length,
+    traditionalFactCount: params.traditionalFacts.length,
+    promptText: `证据链状态：${status}；逐牌${params.cards.length}项、抽取顺序${params.drawOrderFacts.length}项、牌序关系${params.sequenceFacts.length}项、主题标签${params.themeFacts.length}项、重复主题${params.recurringThemeFacts.length}项、逆位约束${params.counterEvidenceFacts.length}项、传统牌义${params.traditionalFacts.length}项`,
+    sources: ['全部随机、抽牌、牌阵、逐牌、牌序、主题、逆位与传统牌义事实逐项汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
+}
+
+function buildCalculationSteps(params: {
+  cards: TarotCardEvidence[];
+  spreadCoverageFact: TarotSpreadCoverageFact;
+  drawFact: TarotDrawFact;
+  drawOrderFacts: TarotDrawOrderFact[];
+  sequenceFacts: TarotSequenceFact[];
+  themeFacts: TarotThemeFact[];
+  recurringThemeFacts: TarotThemeFact[];
+  randomFact: RandomTraceFact;
+  counterSummaryFact: TarotCounterSummaryFact;
+  counterEvidenceFacts: TarotCounterEvidenceFact[];
+  summaryFact: TarotSummaryFact;
+}): TarotEvidenceCalculationStep[] {
+  return [
+    {
+      key: 'tarot:calculation:random',
+      stage: '随机来源核验',
+      status: params.randomFact.status === '可重放' ? '已计算' : '资料不足',
+      inputs: { randomMode: params.randomFact.mode },
+      result: {
+        randomStatus: params.randomFact.status,
+        sampleCount: params.randomFact.sampleCount,
+      },
+      dependsOnStepKeys: [],
+      promptText: params.randomFact.promptText,
+      sources: params.randomFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'tarot:calculation:draw',
+      stage: '抽牌记录核验',
+      status: params.drawFact.status === '可核验' ? '已计算' : '资料不足',
+      inputs: {
+        expectedCardCount: params.drawFact.expectedCardCount,
+        recordedCardCount: params.drawFact.recordedCardCount,
+      },
+      result: {
+        drawStatus: params.drawFact.status,
+        drawOrderFactCount: params.drawOrderFacts.length,
+        mismatchIndexes: params.drawFact.mismatchIndexes.map(String),
+        missingIndexes: params.drawFact.missingIndexes.map(String),
+      },
+      dependsOnStepKeys: ['tarot:calculation:random'],
+      promptText: params.drawFact.promptText,
+      sources: params.drawFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'tarot:calculation:spread',
+      stage: '牌阵覆盖核验',
+      status: params.spreadCoverageFact.status === '完整' ? '已计算' : '资料不足',
+      inputs: {
+        spreadType: params.spreadCoverageFact.spreadType,
+        expectedCardCount: params.spreadCoverageFact.expectedCardCount ?? '未知',
+      },
+      result: {
+        coverageStatus: params.spreadCoverageFact.status,
+        actualCardCount: params.spreadCoverageFact.actualCardCount,
+        missingPositions: params.spreadCoverageFact.missingPositions,
+        duplicatePositions: params.spreadCoverageFact.duplicatePositions,
+      },
+      dependsOnStepKeys: ['tarot:calculation:draw'],
+      promptText: params.spreadCoverageFact.promptText,
+      sources: params.spreadCoverageFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'tarot:calculation:cards',
+      stage: '逐牌映射核验',
+      status: params.cards.length ? '已计算' : '资料不足',
+      inputs: { cardCount: params.cards.length },
+      result: {
+        mappedCardCount: params.cards.length,
+        positions: params.cards.map((item) => item.position),
+        orientations: params.cards.map((item) => item.orientation),
+      },
+      dependsOnStepKeys: ['tarot:calculation:spread'],
+      promptText: `已逐牌映射${params.cards.length}个牌位的牌名、正逆位、关键词、元素与牌阶主题`,
+      sources: Array.from(new Set(params.cards.flatMap((item) => item.sources))),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'tarot:calculation:sequence',
+      stage: '牌序关系核验',
+      status: params.cards.length ? '已计算' : '资料不足',
+      inputs: { cardCount: params.cards.length },
+      result: { sequenceFactCount: params.sequenceFacts.length },
+      dependsOnStepKeys: ['tarot:calculation:cards'],
+      promptText: params.sequenceFacts.length
+        ? `按牌位顺序记录${params.sequenceFacts.length}项相邻牌面关系`
+        : '单牌牌阵无跨牌推进关系，不补造牌序事实',
+      sources: Array.from(
+        new Set([
+          '已声明牌阵的牌位顺序完整性检查',
+          ...params.sequenceFacts.flatMap((item) => item.sources),
+        ]),
+      ),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'tarot:calculation:themes-counter',
+      stage: '主题与反证核验',
+      status: params.cards.length ? '已计算' : '资料不足',
+      inputs: { cardCount: params.cards.length },
+      result: {
+        themeFactCount: params.themeFacts.length,
+        recurringThemeFactCount: params.recurringThemeFacts.length,
+        counterStatus: params.counterSummaryFact.status,
+        counterEvidenceCount: params.counterEvidenceFacts.length,
+      },
+      dependsOnStepKeys: ['tarot:calculation:sequence'],
+      promptText: `记录${params.themeFacts.length}项元素与牌阶主题，其中重复主题${params.recurringThemeFacts.length}项；${params.counterSummaryFact.promptText}`,
+      sources: Array.from(
+        new Set([
+          ...params.themeFacts.flatMap((item) => item.sources),
+          ...params.counterSummaryFact.sources,
+        ]),
+      ),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'tarot:calculation:summary',
+      stage: '证据汇总',
+      status: params.summaryFact.status === '证据链完整' ? '已计算' : '资料不足',
+      inputs: { factCount: params.summaryFact.factKeys.length },
+      result: {
+        summaryStatus: params.summaryFact.status,
+        cardFactCount: params.summaryFact.cardFactCount,
+        sequenceFactCount: params.summaryFact.sequenceFactCount,
+        themeFactCount: params.summaryFact.themeFactCount,
+        counterEvidenceCount: params.summaryFact.counterEvidenceCount,
+      },
+      dependsOnStepKeys: [
+        'tarot:calculation:random',
+        'tarot:calculation:draw',
+        'tarot:calculation:spread',
+        'tarot:calculation:cards',
+        'tarot:calculation:sequence',
+        'tarot:calculation:themes-counter',
+      ],
+      promptText: params.summaryFact.promptText,
+      sources: params.summaryFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+  ];
+}
+
+function buildLimitationFacts(params: {
+  randomFact: RandomTraceFact;
+  spreadCoverageFact: TarotSpreadCoverageFact;
+  cards: TarotCardEvidence[];
+  sequenceFacts: TarotSequenceFact[];
+  themeFacts: TarotThemeFact[];
+  counterSummaryFact: TarotCounterSummaryFact;
+  counterEvidenceFacts: TarotCounterEvidenceFact[];
+  traditionalFacts: TarotTraditionalFact[];
+  summaryFact: TarotSummaryFact;
+}): TarotLimitationFact[] {
+  const definitions: Array<
+    Pick<TarotLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
+  > = [
     {
       key: 'tarot:limitation:random',
       type: '随机边界',
+      ownerFactKeys: [params.randomFact.key],
       promptText: '塔罗抽牌包含随机过程；seed或replay只能复现抽牌轨迹，不证明预测有效性',
       sources: ['洗牌、抽牌和正逆位随机轨迹', '随机轨迹可重放边界'],
     },
     {
       key: 'tarot:limitation:symbolic-material',
       type: '象征材料边界',
+      ownerFactKeys: [
+        params.spreadCoverageFact.key,
+        ...params.cards.map((item) => item.key),
+        ...params.traditionalFacts.map((item) => item.key),
+      ],
       promptText: '牌位、牌名、正逆位、关键词、元素和牌阶属于象征解释材料，不是现代统计证据',
       sources: ['韦特系牌组结构', '牌位与传统牌义解释范围'],
     },
     {
       key: 'tarot:limitation:aggregation',
       type: '聚合边界',
+      ownerFactKeys: [
+        ...params.sequenceFacts.map((item) => item.key),
+        ...params.themeFacts.map((item) => item.key),
+      ],
       promptText: '重复元素或大阿卡纳数量只用于描述牌面构成，不生成能量分数、吉凶总分或成功率',
       sources: ['逐牌元素与牌阶标签计数', '构成描述与结论分离原则'],
     },
     {
       key: 'tarot:limitation:orientation',
       type: '正逆位边界',
+      ownerFactKeys: [
+        params.counterSummaryFact.key,
+        ...params.counterEvidenceFacts.map((item) => item.key),
+        ...params.cards.map((item) => item.key),
+      ],
       promptText: '正位不等于必然有利，逆位不等于必然不利，必须结合牌位、问题和整组牌序',
       sources: ['逐牌正逆位记录', '牌位与整组牌序互证原则'],
     },
     {
       key: 'tarot:limitation:high-risk',
       type: '高风险结论边界',
+      ownerFactKeys: [params.summaryFact.key],
       promptText: '牌面不能证明他人隐私、医疗诊断、法律事实、投资回报或唯一未来结果',
       sources: ['象征解释与现实事实分离原则'],
     },
     {
       key: 'tarot:limitation:timing',
       type: '时间边界',
+      ownerFactKeys: [params.summaryFact.key],
       promptText: '未给现实期限时不得把牌号、张数或牌义换算为绝对日期',
       sources: ['牌号、张数与现实时间无确定换算关系'],
     },
   ];
   return definitions.map((definition) => ({
     ...definition,
+    ownerFactKeys: definition.ownerFactKeys.length
+      ? Array.from(new Set(definition.ownerFactKeys))
+      : [params.summaryFact.key],
     status: '适用',
     limitation: LIMITATION_FACT_LIMITATION,
   }));
@@ -579,7 +853,47 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
   const counterEvidence = counterEvidenceFacts.map(
     (fact) => `${fact.position}${fact.card}：${fact.detail}`,
   );
-  const limitationFacts = buildLimitationFacts();
+  const summaryFact = buildSummaryFact({
+    cards,
+    spreadCoverageFact,
+    drawFact,
+    drawOrderFacts,
+    sequenceFacts,
+    themeFacts,
+    recurringThemeFacts,
+    randomFact,
+    counterSummaryFact,
+    counterEvidenceFacts,
+    traditionalFacts,
+  });
+  const calculationSteps = buildCalculationSteps({
+    cards,
+    spreadCoverageFact,
+    drawFact,
+    drawOrderFacts,
+    sequenceFacts,
+    themeFacts,
+    recurringThemeFacts,
+    randomFact,
+    counterSummaryFact,
+    counterEvidenceFacts,
+    summaryFact,
+  });
+  summaryFact.factKeys = Array.from(
+    new Set([...calculationSteps.map((item) => item.key), ...summaryFact.factKeys]),
+  );
+  const calculationChain = calculationSteps.map((item) => item.promptText);
+  const limitationFacts = buildLimitationFacts({
+    randomFact,
+    spreadCoverageFact,
+    cards,
+    sequenceFacts,
+    themeFacts,
+    counterSummaryFact,
+    counterEvidenceFacts,
+    traditionalFacts,
+    summaryFact,
+  });
   const limitations = limitationFacts.map((fact) => fact.promptText);
   const drawTitle =
     drawFact.status === '可核验'
@@ -588,6 +902,13 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
         ? '抽牌来源链不一致'
         : '抽牌来源链缺失';
   const items: PromptEvidenceItem[] = [
+    {
+      level: calculationSteps.some((item) => item.status === '资料不足') ? '反证' : '辅证',
+      title: '塔罗抽牌与牌阵计算链',
+      detail: `${calculationChain.join('；')}；统一边界：${CALCULATION_STEP_LIMITATION}`,
+      source: Array.from(new Set(calculationSteps.flatMap((item) => item.sources))).join('、'),
+      tags: ['计算链', summaryFact.status, data.spreadType],
+    },
     {
       level: drawFact.status === '可核验' ? '辅证' : '反证',
       title: drawTitle,
@@ -657,6 +978,13 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
       tags: ['逆位约束', counterSummaryFact.status],
     },
     {
+      level: '辅证',
+      title: `塔罗证据汇总：${summaryFact.status}`,
+      detail: `${summaryFact.promptText}；边界：${summaryFact.limitation}`,
+      source: summaryFact.sources.join('、'),
+      tags: ['证据汇总', summaryFact.status],
+    },
+    {
       level: '限制',
       title: '塔罗牌面解释边界',
       detail: `${limitationFacts.map((fact) => fact.promptText).join('；')}；边界：${LIMITATION_FACT_LIMITATION}`,
@@ -671,9 +999,16 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
     `牌序关系：${sequence.join('；') || '单牌牌阵，无跨牌推进关系'}。`,
     `重复主题：${recurringThemes.join('；') || '未见达到两张的同类元素主题，不强行归纳主导元素'}。`,
     `反证限制：${counterSummaryFact.promptText}。`,
+    `计算链：${calculationChain.join(' → ')}`,
+    `证据汇总：${summaryFact.promptText}。`,
+    `解释限制：${limitations.join('；')}。`,
     `规则来源：${sources.map((item) => `${item.title}（${item.role}：${item.evidence}）`).join('；')}。`,
   ].join('\n');
   return {
+    key: 'tarot:evidence',
+    status: '已计算',
+    calculationSteps,
+    calculationChain,
     sources,
     cards,
     spreadCoverageFact,
@@ -693,6 +1028,7 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
     limitationFacts,
     limitations,
     traditionalFacts,
+    summaryFact,
     evidence,
     promptText,
     methodology: [

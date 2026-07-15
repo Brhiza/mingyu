@@ -113,9 +113,47 @@ export interface LenormandLimitationFact {
   key: string;
   type: '随机边界' | '组合分层边界' | '布局边界' | '象征材料边界' | '高风险结论边界' | '时间边界';
   status: '适用';
+  ownerFactKeys: string[];
   promptText: string;
   sources: string[];
   limitation: '限制事实用于约束雷诺曼牌面、组合和布局可以支持的解释范围，不得被反向当作现实事件或未来结果的证据';
+}
+
+export interface LenormandEvidenceCalculationStep {
+  key: string;
+  stage:
+    | '随机来源核验'
+    | '抽牌记录核验'
+    | '牌阵覆盖核验'
+    | '逐牌映射核验'
+    | '牌序与组合核验'
+    | '布局覆盖核验'
+    | '反证核验'
+    | '证据汇总';
+  status: '已计算' | '资料不足';
+  inputs: Record<string, string | number | boolean | string[]>;
+  result: Record<string, string | number | boolean | string[]>;
+  dependsOnStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '计算步骤只证明随机轨迹、抽牌记录、牌阵覆盖、逐牌、牌序组合、九宫或大桌布局与反证如何形成当前证据；不证明预测有效性、现实吉凶、人物意图、概率或唯一未来';
+}
+
+export interface LenormandSummaryFact {
+  key: 'lenormand:evidence-summary';
+  status: '证据链完整' | '证据链有缺口';
+  factKeys: string[];
+  cardFactCount: number;
+  drawOrderFactCount: number;
+  sequenceFactCount: number;
+  fixedCombinationCount: number;
+  adjacentReadingCount: number;
+  structuredLayoutFactCount: number;
+  counterEvidenceCount: number;
+  traditionalFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '雷诺曼证据汇总只统计随机、抽牌、牌阵、逐牌、牌序、固定组合、相邻合读、布局与反证覆盖；不得按数量生成吉凶等级、概率数值、人物判断、时间保证或唯一未来';
 }
 
 export interface LenormandTraditionalFact {
@@ -165,6 +203,10 @@ export interface LenormandDrawFact {
 }
 
 export interface LenormandEvidenceAnalysis {
+  key: 'lenormand:evidence';
+  status: '已计算';
+  calculationSteps: LenormandEvidenceCalculationStep[];
+  calculationChain: string[];
   cards: LenormandCardEvidence[];
   spreadCoverageFact: LenormandSpreadCoverageFact;
   sequenceFacts: LenormandSequenceFact[];
@@ -185,6 +227,7 @@ export interface LenormandEvidenceAnalysis {
   limitationFacts: LenormandLimitationFact[];
   traditionalFacts: LenormandTraditionalFact[];
   structuredLayoutFacts: LenormandLayoutFact[];
+  summaryFact: LenormandSummaryFact;
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
@@ -212,6 +255,10 @@ const COUNTER_SUMMARY_LIMITATION =
   '反证汇总只说明固定组合与适用布局的资料覆盖情况；不得据此生成吉凶等级、概率数值或现实结果' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束雷诺曼牌面、组合和布局可以支持的解释范围，不得被反向当作现实事件或未来结果的证据' as const;
+const CALCULATION_STEP_LIMITATION =
+  '计算步骤只证明随机轨迹、抽牌记录、牌阵覆盖、逐牌、牌序组合、九宫或大桌布局与反证如何形成当前证据；不证明预测有效性、现实吉凶、人物意图、概率或唯一未来' as const;
+const SUMMARY_FACT_LIMITATION =
+  '雷诺曼证据汇总只统计随机、抽牌、牌阵、逐牌、牌序、固定组合、相邻合读、布局与反证覆盖；不得按数量生成吉凶等级、概率数值、人物判断、时间保证或唯一未来' as const;
 
 const LENORMAND_SPREAD_POSITIONS: Record<string, string[]> = {
   single: ['核心线索'],
@@ -727,19 +774,263 @@ function buildCounterSummaryFact(
   };
 }
 
-function buildLimitationFacts(): LenormandLimitationFact[] {
+function buildSummaryFact(params: {
+  cards: LenormandCardEvidence[];
+  spreadCoverageFact: LenormandSpreadCoverageFact;
+  sequenceFacts: LenormandSequenceFact[];
+  fixedCombinations: NonNullable<LenormandData['combinations']>;
+  adjacentReadings: NonNullable<LenormandData['combinations']>;
+  drawFact: LenormandDrawFact;
+  drawOrderFacts: LenormandDrawOrderFact[];
+  layoutCoverageFact: LenormandLayoutCoverageFact;
+  randomFact: RandomTraceFact;
+  counterSummaryFact: LenormandCounterSummaryFact;
+  counterEvidenceFacts: LenormandCounterEvidenceFact[];
+  traditionalFacts: LenormandTraditionalFact[];
+  structuredLayoutFacts: LenormandLayoutFact[];
+}): LenormandSummaryFact {
+  const layoutComplete =
+    params.layoutCoverageFact.status === '结构化覆盖' ||
+    params.layoutCoverageFact.status === '旧版字符串兼容' ||
+    params.layoutCoverageFact.status === '不适用';
+  const status =
+    params.spreadCoverageFact.status === '完整' &&
+    params.drawFact.status === '可核验' &&
+    params.randomFact.status === '可重放' &&
+    params.drawOrderFacts.length === params.cards.length &&
+    layoutComplete
+      ? '证据链完整'
+      : '证据链有缺口';
+  return {
+    key: 'lenormand:evidence-summary',
+    status,
+    factKeys: unique([
+      params.randomFact.key,
+      params.drawFact.key,
+      ...params.drawOrderFacts.map((item) => item.key),
+      params.spreadCoverageFact.key,
+      ...params.cards.map((item) => item.key),
+      ...params.sequenceFacts.map((item) => item.key),
+      params.layoutCoverageFact.key,
+      ...params.structuredLayoutFacts.map((item) => item.key),
+      params.counterSummaryFact.key,
+      ...params.counterEvidenceFacts.map((item) => item.key),
+      ...params.traditionalFacts.map((item) => item.key),
+    ]),
+    cardFactCount: params.cards.length,
+    drawOrderFactCount: params.drawOrderFacts.length,
+    sequenceFactCount: params.sequenceFacts.length,
+    fixedCombinationCount: params.fixedCombinations.length,
+    adjacentReadingCount: params.adjacentReadings.length,
+    structuredLayoutFactCount: params.structuredLayoutFacts.length,
+    counterEvidenceCount: params.counterEvidenceFacts.length,
+    traditionalFactCount: params.traditionalFacts.length,
+    promptText: `证据链状态：${status}；逐牌${params.cards.length}项、抽取顺序${params.drawOrderFacts.length}项、牌序关系${params.sequenceFacts.length}项、固定组合${params.fixedCombinations.length}项、相邻合读${params.adjacentReadings.length}项、结构化布局${params.structuredLayoutFacts.length}项、反证覆盖${params.counterEvidenceFacts.length}项、传统解释${params.traditionalFacts.length}项`,
+    sources: ['全部随机、抽牌、牌阵、逐牌、牌序组合、布局、反证与传统解释事实逐项汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
+}
+
+function buildCalculationSteps(params: {
+  cards: LenormandCardEvidence[];
+  spreadCoverageFact: LenormandSpreadCoverageFact;
+  sequenceFacts: LenormandSequenceFact[];
+  fixedCombinations: NonNullable<LenormandData['combinations']>;
+  adjacentReadings: NonNullable<LenormandData['combinations']>;
+  drawFact: LenormandDrawFact;
+  drawOrderFacts: LenormandDrawOrderFact[];
+  layoutCoverageFact: LenormandLayoutCoverageFact;
+  randomFact: RandomTraceFact;
+  counterSummaryFact: LenormandCounterSummaryFact;
+  counterEvidenceFacts: LenormandCounterEvidenceFact[];
+  structuredLayoutFacts: LenormandLayoutFact[];
+  summaryFact: LenormandSummaryFact;
+}): LenormandEvidenceCalculationStep[] {
+  const layoutComplete =
+    params.layoutCoverageFact.status === '结构化覆盖' ||
+    params.layoutCoverageFact.status === '旧版字符串兼容' ||
+    params.layoutCoverageFact.status === '不适用';
+  return [
+    {
+      key: 'lenormand:calculation:random',
+      stage: '随机来源核验',
+      status: params.randomFact.status === '可重放' ? '已计算' : '资料不足',
+      inputs: { randomMode: params.randomFact.mode },
+      result: {
+        randomStatus: params.randomFact.status,
+        sampleCount: params.randomFact.sampleCount,
+      },
+      dependsOnStepKeys: [],
+      promptText: params.randomFact.promptText,
+      sources: params.randomFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'lenormand:calculation:draw',
+      stage: '抽牌记录核验',
+      status: params.drawFact.status === '可核验' ? '已计算' : '资料不足',
+      inputs: {
+        expectedCardCount: params.drawFact.expectedCardCount,
+        recordedCardCount: params.drawFact.recordedCardCount,
+      },
+      result: {
+        drawStatus: params.drawFact.status,
+        drawOrderFactCount: params.drawOrderFacts.length,
+        mismatchIndexes: params.drawFact.mismatchIndexes.map(String),
+        missingIndexes: params.drawFact.missingIndexes.map(String),
+      },
+      dependsOnStepKeys: ['lenormand:calculation:random'],
+      promptText: params.drawFact.promptText,
+      sources: params.drawFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'lenormand:calculation:spread',
+      stage: '牌阵覆盖核验',
+      status: params.spreadCoverageFact.status === '完整' ? '已计算' : '资料不足',
+      inputs: {
+        spreadType: params.spreadCoverageFact.spreadType,
+        expectedCardCount: params.spreadCoverageFact.expectedCardCount ?? '未知',
+      },
+      result: {
+        coverageStatus: params.spreadCoverageFact.status,
+        actualCardCount: params.spreadCoverageFact.actualCardCount,
+        missingPositions: params.spreadCoverageFact.missingPositions,
+        duplicatePositions: params.spreadCoverageFact.duplicatePositions,
+      },
+      dependsOnStepKeys: ['lenormand:calculation:draw'],
+      promptText: params.spreadCoverageFact.promptText,
+      sources: params.spreadCoverageFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'lenormand:calculation:cards',
+      stage: '逐牌映射核验',
+      status: params.cards.length ? '已计算' : '资料不足',
+      inputs: { cardCount: params.cards.length },
+      result: {
+        mappedCardCount: params.cards.length,
+        positions: params.cards.map((item) => item.position),
+        houses: params.cards.map((item) => item.house ?? '未列'),
+      },
+      dependsOnStepKeys: ['lenormand:calculation:spread'],
+      promptText: `已逐牌映射${params.cards.length}个牌位的牌号、牌名、关键词、基础牌义、宫位与行列落点`,
+      sources: unique(params.cards.flatMap((item) => item.sources)),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'lenormand:calculation:sequence-combinations',
+      stage: '牌序与组合核验',
+      status: params.cards.length ? '已计算' : '资料不足',
+      inputs: { cardCount: params.cards.length },
+      result: {
+        sequenceFactCount: params.sequenceFacts.length,
+        fixedCombinationCount: params.fixedCombinations.length,
+        adjacentReadingCount: params.adjacentReadings.length,
+      },
+      dependsOnStepKeys: ['lenormand:calculation:cards'],
+      promptText: `记录${params.sequenceFacts.length}项相邻牌序关系，分层保存固定组合${params.fixedCombinations.length}项与相邻合读${params.adjacentReadings.length}项`,
+      sources: unique([
+        '已声明牌阵的牌位顺序完整性检查',
+        ...params.sequenceFacts.flatMap((item) => item.sources),
+        '固定组合资料与相邻牌义合读生成规则',
+      ]),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'lenormand:calculation:layout',
+      stage: '布局覆盖核验',
+      status: layoutComplete ? '已计算' : '资料不足',
+      inputs: { cardCount: params.cards.length },
+      result: {
+        layoutStatus: params.layoutCoverageFact.status,
+        structuredLayoutFactCount: params.structuredLayoutFacts.length,
+        legacyLayoutFactCount: params.layoutCoverageFact.legacyFactCount,
+      },
+      dependsOnStepKeys: ['lenormand:calculation:sequence-combinations'],
+      promptText: params.layoutCoverageFact.promptText,
+      sources: unique([
+        ...params.layoutCoverageFact.sources,
+        ...params.structuredLayoutFacts.flatMap((item) => item.sources),
+      ]),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'lenormand:calculation:counter',
+      stage: '反证核验',
+      status: '已计算',
+      inputs: { layoutStatus: params.layoutCoverageFact.status },
+      result: {
+        counterStatus: params.counterSummaryFact.status,
+        counterEvidenceCount: params.counterEvidenceFacts.length,
+        gapCount: params.counterEvidenceFacts.filter((item) => item.status === '存在缺口').length,
+      },
+      dependsOnStepKeys: ['lenormand:calculation:layout'],
+      promptText: params.counterSummaryFact.promptText,
+      sources: params.counterSummaryFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'lenormand:calculation:summary',
+      stage: '证据汇总',
+      status: params.summaryFact.status === '证据链完整' ? '已计算' : '资料不足',
+      inputs: { factCount: params.summaryFact.factKeys.length },
+      result: {
+        summaryStatus: params.summaryFact.status,
+        cardFactCount: params.summaryFact.cardFactCount,
+        sequenceFactCount: params.summaryFact.sequenceFactCount,
+        fixedCombinationCount: params.summaryFact.fixedCombinationCount,
+        structuredLayoutFactCount: params.summaryFact.structuredLayoutFactCount,
+        counterEvidenceCount: params.summaryFact.counterEvidenceCount,
+      },
+      dependsOnStepKeys: [
+        'lenormand:calculation:random',
+        'lenormand:calculation:draw',
+        'lenormand:calculation:spread',
+        'lenormand:calculation:cards',
+        'lenormand:calculation:sequence-combinations',
+        'lenormand:calculation:layout',
+        'lenormand:calculation:counter',
+      ],
+      promptText: params.summaryFact.promptText,
+      sources: params.summaryFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+  ];
+}
+
+function buildLimitationFacts(params: {
+  randomFact: RandomTraceFact;
+  spreadCoverageFact: LenormandSpreadCoverageFact;
+  cards: LenormandCardEvidence[];
+  sequenceFacts: LenormandSequenceFact[];
+  layoutCoverageFact: LenormandLayoutCoverageFact;
+  counterSummaryFact: LenormandCounterSummaryFact;
+  counterEvidenceFacts: LenormandCounterEvidenceFact[];
+  traditionalFacts: LenormandTraditionalFact[];
+  structuredLayoutFacts: LenormandLayoutFact[];
+  summaryFact: LenormandSummaryFact;
+}): LenormandLimitationFact[] {
   const definitions: Array<
-    Pick<LenormandLimitationFact, 'key' | 'type' | 'promptText' | 'sources'>
+    Pick<LenormandLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
   > = [
     {
       key: 'lenormand:limitation:random',
       type: '随机边界',
+      ownerFactKeys: [params.randomFact.key],
       promptText: '雷诺曼抽牌包含随机过程；seed或replay只能复现抽牌轨迹，不证明预测有效性',
       sources: ['洗牌和抽牌随机轨迹', '随机轨迹可重放边界'],
     },
     {
       key: 'lenormand:limitation:combination-level',
       type: '组合分层边界',
+      ownerFactKeys: [
+        ...params.sequenceFacts.map((item) => item.key),
+        ...params.traditionalFacts
+          .filter((item) => item.kind === '固定组合' || item.kind === '相邻合读')
+          .map((item) => item.key),
+        params.counterEvidenceFacts.find((item) => item.type === '固定组合覆盖')?.key ?? '',
+      ],
       promptText:
         '固定组合仅指当前采用的固定牌对资料中明确登记的组合，相邻牌义合读是当前牌序解释，二者证据等级不同',
       sources: ['固定组合资料', '相邻牌义合读生成规则'],
@@ -747,6 +1038,11 @@ function buildLimitationFacts(): LenormandLimitationFact[] {
     {
       key: 'lenormand:limitation:layout',
       type: '布局边界',
+      ownerFactKeys: [
+        params.layoutCoverageFact.key,
+        ...params.structuredLayoutFacts.map((item) => item.key),
+        params.counterEvidenceFacts.find((item) => item.type === '布局覆盖')?.key ?? '',
+      ],
       promptText:
         '九宫中心、横纵对角线、大桌宫位、近身牌和归宫牌只描述布局关系，不自动产生吉凶结论',
       sources: ['九宫与大桌结构化布局事实'],
@@ -754,24 +1050,34 @@ function buildLimitationFacts(): LenormandLimitationFact[] {
     {
       key: 'lenormand:limitation:symbolic-material',
       type: '象征材料边界',
+      ownerFactKeys: [
+        params.spreadCoverageFact.key,
+        ...params.cards.map((item) => item.key),
+        ...params.traditionalFacts.map((item) => item.key),
+      ],
       promptText: '牌名、关键词、组合和布局属于象征解释材料，不是事件发生概率或现代统计证据',
       sources: ['36张雷诺曼牌组与组合、布局解释范围'],
     },
     {
       key: 'lenormand:limitation:high-risk',
       type: '高风险结论边界',
+      ownerFactKeys: [params.summaryFact.key, params.counterSummaryFact.key],
       promptText: '单牌或单一组合不能证明他人意图、隐私、医疗、法律、财务事实或必然结果',
       sources: ['象征解释与现实事实分离原则'],
     },
     {
       key: 'lenormand:limitation:timing',
       type: '时间边界',
+      ownerFactKeys: [params.summaryFact.key, params.layoutCoverageFact.key],
       promptText: '未给现实期限时不得把牌号、宫位或距离换算为唯一日期',
       sources: ['牌号、宫位、距离与现实时间无确定换算关系'],
     },
   ];
   return definitions.map((definition) => ({
     ...definition,
+    ownerFactKeys: unique(definition.ownerFactKeys).length
+      ? unique(definition.ownerFactKeys)
+      : [params.summaryFact.key],
     status: '适用',
     limitation: LIMITATION_FACT_LIMITATION,
   }));
@@ -840,7 +1146,53 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
   const counterEvidence = counterEvidenceFacts
     .filter((fact) => fact.status === '存在缺口')
     .map((fact) => fact.promptText);
-  const limitationFacts = buildLimitationFacts();
+  const summaryFact = buildSummaryFact({
+    cards,
+    spreadCoverageFact,
+    sequenceFacts,
+    fixedCombinations,
+    adjacentReadings,
+    drawFact,
+    drawOrderFacts,
+    layoutCoverageFact,
+    randomFact,
+    counterSummaryFact,
+    counterEvidenceFacts,
+    traditionalFacts,
+    structuredLayoutFacts,
+  });
+  const calculationSteps = buildCalculationSteps({
+    cards,
+    spreadCoverageFact,
+    sequenceFacts,
+    fixedCombinations,
+    adjacentReadings,
+    drawFact,
+    drawOrderFacts,
+    layoutCoverageFact,
+    randomFact,
+    counterSummaryFact,
+    counterEvidenceFacts,
+    structuredLayoutFacts,
+    summaryFact,
+  });
+  summaryFact.factKeys = unique([
+    ...calculationSteps.map((item) => item.key),
+    ...summaryFact.factKeys,
+  ]);
+  const calculationChain = calculationSteps.map((item) => item.promptText);
+  const limitationFacts = buildLimitationFacts({
+    randomFact,
+    spreadCoverageFact,
+    cards,
+    sequenceFacts,
+    layoutCoverageFact,
+    counterSummaryFact,
+    counterEvidenceFacts,
+    traditionalFacts,
+    structuredLayoutFacts,
+    summaryFact,
+  });
   const limitations = limitationFacts.map((fact) => fact.promptText);
   const drawTitle =
     drawFact.status === '可核验'
@@ -849,6 +1201,13 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
         ? '抽牌来源链不一致'
         : '抽牌来源链缺失';
   const items: PromptEvidenceItem[] = [
+    {
+      level: calculationSteps.some((item) => item.status === '资料不足') ? '反证' : '辅证',
+      title: '雷诺曼抽牌、组合与布局计算链',
+      detail: `${calculationChain.join('；')}；统一边界：${CALCULATION_STEP_LIMITATION}`,
+      source: unique(calculationSteps.flatMap((item) => item.sources)).join('、'),
+      tags: ['计算链', summaryFact.status, data.spreadType],
+    },
     {
       level: spreadCoverageFact.status === '完整' ? '辅证' : '反证',
       title: `牌阵结构：${data.spreadName}`,
@@ -934,6 +1293,13 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
       tags: ['证据缺口', counterSummaryFact.status],
     },
     {
+      level: '辅证',
+      title: `雷诺曼证据汇总：${summaryFact.status}`,
+      detail: `${summaryFact.promptText}；边界：${summaryFact.limitation}`,
+      source: summaryFact.sources.join('、'),
+      tags: ['证据汇总', summaryFact.status],
+    },
+    {
       level: '限制',
       title: '雷诺曼牌面解释边界',
       detail: `${limitationFacts.map((fact) => fact.promptText).join('；')}；边界：${LIMITATION_FACT_LIMITATION}`,
@@ -949,8 +1315,15 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
     `组合分层：固定组合${fixedCombinations.length}组，相邻合读${adjacentReadings.length}组；逐组条件化解释已列在证据条目中。`,
     `布局覆盖：${structuredLayoutFacts.length ? `${structuredLayoutFacts.length}条结构化布局事实已保存；自然语言证据只展开中心、路径、人物牌近身与归宫，逐牌宫位落点见对应牌面条目` : layoutCoverageFact.promptText}。`,
     `反证限制：${counterSummaryFact.promptText}。`,
+    `计算链：${calculationChain.join(' → ')}`,
+    `证据汇总：${summaryFact.promptText}。`,
+    `解释限制：${limitations.join('；')}。`,
   ].join('\n');
   return {
+    key: 'lenormand:evidence',
+    status: '已计算',
+    calculationSteps,
+    calculationChain,
     cards,
     spreadCoverageFact,
     sequenceFacts,
@@ -971,6 +1344,7 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
     limitationFacts,
     traditionalFacts,
     structuredLayoutFacts,
+    summaryFact,
     evidence,
     promptText,
     methodology: [

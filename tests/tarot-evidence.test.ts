@@ -14,6 +14,19 @@ test('塔罗全部牌阵应输出覆盖、来源、牌序、主题与限制对�
     const evidence = data.evidenceAnalysis;
 
     assert.ok(evidence);
+    assert.equal(evidence.key, 'tarot:evidence');
+    assert.equal(evidence.status, '已计算');
+    assert.equal(evidence.calculationSteps.length, 7);
+    assert.equal(evidence.calculationChain.length, evidence.calculationSteps.length);
+    const calculationStepKeys = new Set(evidence.calculationSteps.map((item) => item.key));
+    assert.ok(
+      evidence.calculationSteps.every(
+        (item) =>
+          item.dependsOnStepKeys.every((key) => calculationStepKeys.has(key)) &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不证明预测有效性'),
+      ),
+    );
     assert.equal(evidence.spreadCoverageFact.status, '完整');
     assert.equal(evidence.spreadCoverageFact.expectedCardCount, tarotSpreads[spreadType].cardCount);
     assert.equal(evidence.spreadCoverageFact.actualCardCount, data.cards.length);
@@ -28,6 +41,21 @@ test('塔罗全部牌阵应输出覆盖、来源、牌序、主题与限制对�
     assert.equal(evidence.recurringThemes.length, evidence.recurringThemeFacts.length);
     assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
     assert.equal(evidence.limitationFacts.length, 6);
+    assert.equal(evidence.summaryFact.status, '证据链完整');
+    assert.equal(evidence.summaryFact.cardFactCount, evidence.cards.length);
+    assert.equal(evidence.summaryFact.drawOrderFactCount, evidence.drawOrderFacts.length);
+    assert.equal(evidence.summaryFact.sequenceFactCount, evidence.sequenceFacts.length);
+    assert.equal(evidence.summaryFact.themeFactCount, evidence.themeFacts.length);
+    assert.equal(evidence.summaryFact.recurringThemeFactCount, evidence.recurringThemeFacts.length);
+    assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
+    assert.equal(evidence.summaryFact.traditionalFactCount, evidence.traditionalFacts.length);
+    const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
+    assert.ok(
+      evidence.limitationFacts.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+      ),
+    );
     assert.match(evidence.drawFacts[2], /^第1张对应/);
     assert.ok(evidence.recurringThemes.every((item) => !item.includes('关联')));
 
@@ -61,6 +89,7 @@ test('塔罗全部牌阵应输出覆盖、来源、牌序、主题与限制对�
         (fact) => cardKeys.has(fact.ownerCardKey) && fact.status === '已触发',
       ),
     );
+    assert.match(evidence.promptText, /计算链：[\s\S]*证据汇总：[\s\S]*解释限制：/);
     assertPromptIsPortableTaskText(evidence.promptText);
   });
 });
@@ -136,6 +165,9 @@ test('塔罗旧资料缺少抽牌记录时不得反推来源链', () => {
   assert.equal(evidence.drawFact.recordedCardCount, 0);
   assert.deepEqual(evidence.drawFact.missingIndexes, [1, 2, 3]);
   assert.deepEqual(evidence.drawOrderFacts, []);
+  assert.equal(evidence.summaryFact.status, '证据链有缺口');
+  assert.equal(evidence.calculationSteps[1]?.status, '资料不足');
+  assert.equal(evidence.calculationSteps[6]?.status, '资料不足');
   assert.match(evidence.drawFact.promptText, /现有资料未附.*不能反推完整抽牌来源链/);
   assert.doesNotMatch(evidence.promptText, /当前结果|当前数据|接口|API|MCP|工程/);
   assertPromptIsPortableTaskText(evidence.promptText);
@@ -172,6 +204,9 @@ test('塔罗牌位、顺序和牌号异常时应给出可定位的覆盖事实',
   const evidence = analyzeTarotEvidence(tampered);
 
   assert.equal(evidence.spreadCoverageFact.status, '牌位异常');
+  assert.equal(evidence.summaryFact.status, '证据链有缺口');
+  assert.equal(evidence.calculationSteps[2]?.status, '资料不足');
+  assert.equal(evidence.calculationSteps[6]?.status, '资料不足');
   assert.deepEqual(evidence.spreadCoverageFact.missingPositions, ['现在']);
   assert.deepEqual(evidence.spreadCoverageFact.duplicatePositions, ['过去']);
   assert.deepEqual(evidence.spreadCoverageFact.positionOrderMismatches, [2]);
