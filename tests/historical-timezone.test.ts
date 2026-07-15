@@ -6,6 +6,31 @@ import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { generateQizheng } from 'mingyu-core/qizheng';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
+function assertEvidenceReferences(evidence: ReturnType<typeof resolveHistoricalTimezone>) {
+  const factKeys = new Set([
+    ...evidence.calculationSteps.map((item) => item.key),
+    ...evidence.diagnosticFacts.map((item) => item.key),
+    evidence.diagnosticSummaryFact.key,
+    ...evidence.limitationFacts.map((item) => item.key),
+  ]);
+  assert.ok(
+    evidence.diagnosticFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+        item.ownerFactKeys.join('|') === item.ownerStepKeys.join('|'),
+    ),
+  );
+  assert.ok(
+    evidence.limitationFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+        item.ownerFactKeys.join('|') === item.ownerStepKeys.join('|'),
+    ),
+  );
+}
+
 test('IANA 历史时区应识别中国 1990 年夏令时', () => {
   const evidence = resolveHistoricalTimezone({
     year: 1990,
@@ -34,6 +59,7 @@ test('IANA 历史时区应识别中国 1990 年夏令时', () => {
     evidence.diagnosticFacts.map((item) => item.key),
   );
   assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
+  assertEvidenceReferences(evidence);
   assert.ok(
     [
       ...evidence.calculationSteps,
@@ -95,6 +121,7 @@ test('IANA 历史时区应保留纽约秋季回拨的两个候选时刻', () => 
   assert.equal(evidence.diagnosticFacts[0].status, '存在回拨歧义');
   assert.equal(evidence.diagnosticSummaryFact.status, '存在回拨歧义且未核验固定偏移');
   assert.equal(evidence.diagnosticSummaryFact.factKeys.length, 2);
+  assertEvidenceReferences(evidence);
 });
 
 test('IANA 历史时区应拒绝春季跳时与无效时区', () => {

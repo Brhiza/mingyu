@@ -30,6 +30,7 @@ export interface HistoricalTimezoneDiagnosticFact {
   key: string;
   type: '当地时刻映射' | '固定偏移核验';
   status: '唯一映射' | '存在回拨歧义' | '无冲突' | '存在冲突' | '未核验';
+  ownerFactKeys: string[];
   ownerStepKeys: string[];
   promptText: string;
   sources: string[];
@@ -55,6 +56,7 @@ export interface HistoricalTimezoneLimitationFact {
   key: string;
   type: '数据库版本边界' | '回拨选择边界' | '固定偏移边界';
   status: '适用';
+  ownerFactKeys: string[];
   ownerStepKeys: string[];
   promptText: string;
   sources: string[];
@@ -282,6 +284,7 @@ export function resolveHistoricalTimezone(
       key: 'historical-timezone:diagnostic:wall-clock-mapping',
       type: '当地时刻映射',
       status: matches.length > 1 ? '存在回拨歧义' : '唯一映射',
+      ownerFactKeys: ['historical-timezone:calculation:wall-clock-match'],
       ownerStepKeys: ['historical-timezone:calculation:wall-clock-match'],
       promptText: diagnostics[0],
       sources: ['IANA 当地钟表时间反向匹配'],
@@ -291,6 +294,7 @@ export function resolveHistoricalTimezone(
       key: 'historical-timezone:diagnostic:fixed-offset',
       type: '固定偏移核验',
       status: fixedOffsetHours === undefined ? '未核验' : offsetConflict ? '存在冲突' : '无冲突',
+      ownerFactKeys: ['historical-timezone:calculation:fixed-offset-check'],
       ownerStepKeys: ['historical-timezone:calculation:fixed-offset-check'],
       promptText:
         fixedOffsetHours === undefined
@@ -332,6 +336,7 @@ export function resolveHistoricalTimezone(
       key: 'historical-timezone:limitation:database-version',
       type: '数据库版本边界',
       status: '适用',
+      ownerFactKeys: ['historical-timezone:calculation:database'],
       ownerStepKeys: ['historical-timezone:calculation:database'],
       promptText: limitations[0],
       sources: ['IANA Time Zone Database 更新机制'],
@@ -341,6 +346,7 @@ export function resolveHistoricalTimezone(
       key: 'historical-timezone:limitation:ambiguous-selection',
       type: '回拨选择边界',
       status: '适用',
+      ownerFactKeys: ['historical-timezone:calculation:wall-clock-match'],
       ownerStepKeys: ['historical-timezone:calculation:wall-clock-match'],
       promptText: limitations[1],
       sources: ['夏令时回拨的重复当地时刻规则'],
@@ -350,6 +356,7 @@ export function resolveHistoricalTimezone(
       key: 'historical-timezone:limitation:fixed-offset',
       type: '固定偏移边界',
       status: '适用',
+      ownerFactKeys: ['historical-timezone:calculation:fixed-offset-check'],
       ownerStepKeys: ['historical-timezone:calculation:fixed-offset-check'],
       promptText: limitations[2],
       sources: ['固定 UTC 偏移与历史时区规则的口径差异'],

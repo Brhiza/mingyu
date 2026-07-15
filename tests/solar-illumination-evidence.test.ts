@@ -5,6 +5,44 @@ import { generateAstrolabe } from '../packages/core/src/divination/algorithms/as
 import { generateQizheng } from '../packages/core/src/qi_zheng/index.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
+function assertEvidenceReferences(evidence: ReturnType<typeof calculateSolarIlluminationEvidence>) {
+  const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
+  const crossings = [
+    evidence.sunriseSunset,
+    evidence.civilTwilight,
+    evidence.nauticalTwilight,
+    evidence.astronomicalTwilight,
+  ];
+  assert.equal(evidence.summaryFact.calculationStepCount, evidence.calculationSteps.length);
+  assert.equal(evidence.summaryFact.assumptionFactCount, evidence.assumptionFacts.length);
+  assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
+  assert.equal(
+    evidence.summaryFact.normalCrossingCount,
+    crossings.filter((item) => item.status === '正常交点').length,
+  );
+  assert.equal(
+    evidence.summaryFact.allDayStateCount,
+    crossings.filter((item) => item.status !== '正常交点').length,
+  );
+  assert.ok(evidence.crossingSummaryFact.factKeys.every((key) => factKeys.has(key)));
+  assert.ok(
+    crossings.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+        item.ownerFactKeys.join('|') === item.calculationStepKeys.join('|'),
+    ),
+  );
+  assert.ok(
+    [...evidence.assumptionFacts, ...evidence.limitationFacts].every(
+      (item) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+        item.ownerFactKeys.join('|') === item.ownerStepKeys.join('|'),
+    ),
+  );
+}
+
 test('北京夏至应给出可复核的日出日落、太阳高度与曙暮光', () => {
   const evidence = calculateSolarIlluminationEvidence({
     year: 2024,
@@ -63,6 +101,8 @@ test('北京夏至应给出可复核的日出日落、太阳高度与曙暮光',
   assert.equal(evidence.crossingSummaryFact.status, '均有正常交点');
   assert.equal(evidence.crossingSummaryFact.crossingFactKeys.length, 4);
   assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
+  assert.equal(evidence.summaryFact.status, '证据链完整');
+  assertEvidenceReferences(evidence);
   assert.ok(
     [
       ...evidence.calculationSteps,
@@ -103,6 +143,10 @@ test('高纬冬夏应明确表达极夜无日出和极昼无日落', () => {
   assert.equal(winter.status, '存在全天状态');
   assert.equal(winter.crossingSummaryFact.status, '存在全天状态');
   assert.equal(summer.status, '存在全天状态');
+  assert.equal(winter.summaryFact.status, '含全天状态');
+  assert.equal(summer.summaryFact.status, '含全天状态');
+  assertEvidenceReferences(winter);
+  assertEvidenceReferences(summer);
 });
 
 test('太阳光照证据应复用IANA历史时区并拒绝非法坐标', () => {

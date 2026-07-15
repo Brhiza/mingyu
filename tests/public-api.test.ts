@@ -545,6 +545,10 @@ test('公开 API 应提供太阳高度、日出日落与曙暮光证据接口', 
   assert.equal(body.data.assumptions.length, body.data.assumptionFacts.length);
   assert.equal(body.data.crossingSummaryFact.status, '均有正常交点');
   assert.equal(body.data.crossingSummaryFact.crossingFactKeys.length, 4);
+  assert.equal(body.data.summaryFact.key, 'solar-illumination:evidence-summary');
+  assert.equal(body.data.summaryFact.status, '证据链完整');
+  assert.equal(body.data.summaryFact.normalCrossingCount, 4);
+  assert.ok(body.data.summaryFact.factKeys.length > 0);
   assert.equal(body.data.limitations.length, body.data.limitationFacts.length);
   assert.match(body.data.promptText, /太阳光照证据：/);
   assertPromptIsPortableTaskText(body.data.promptText);

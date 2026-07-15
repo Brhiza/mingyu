@@ -32,6 +32,7 @@ export interface AstronomicalTimeCalculationStep {
 export interface AstronomicalTimeAssumptionFact {
   key: string;
   status: '适用';
+  ownerFactKeys: string[];
   ownerStepKeys: string[];
   promptText: string;
   sources: string[];
@@ -42,6 +43,7 @@ export interface AstronomicalTimeCounterEvidenceFact {
   key: string;
   type: 'UT1近似' | 'ΔT模型等级';
   status: '近似' | '历史拟合' | '近现代估算' | '长期外推';
+  ownerFactKeys: string[];
   ownerStepKeys: string[];
   promptText: string;
   sources: string[];
@@ -61,10 +63,29 @@ export interface AstronomicalTimeLimitationFact {
   key: string;
   type: 'ΔT估算边界' | '底层星历边界';
   status: '适用';
+  ownerFactKeys: string[];
   ownerStepKeys: string[];
   promptText: string;
   sources: string[];
   limitation: '限制事实用于约束 UTC、UT1、ΔT 与 TT 数值可以支持的精度声明，不得被反向当作天文事件或现实结果证据';
+}
+
+export interface AstronomicalTimeSummaryFact {
+  key: 'astronomical-time:evidence-summary';
+  status:
+    | '民用时间链完整'
+    | '含长期外推'
+    | '含历史时区歧义'
+    | '含固定偏移冲突'
+    | '含历史时区歧义与偏移冲突';
+  factKeys: string[];
+  calculationStepCount: number;
+  assumptionFactCount: number;
+  counterEvidenceCount: number;
+  limitationFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '天文时间证据汇总只统计时区、UTC、儒略日、UT1近似、ΔT模型、反证与限制覆盖；不得按状态生成可信度百分比、观测精度声明或现实结论';
 }
 
 export interface AstronomicalTimeEvidence {
@@ -91,6 +112,7 @@ export interface AstronomicalTimeEvidence {
   counterSummaryFact: AstronomicalTimeCounterSummaryFact;
   limitations: string[];
   limitationFacts: AstronomicalTimeLimitationFact[];
+  summaryFact: AstronomicalTimeSummaryFact;
   source: string;
   promptText: string;
 }
@@ -105,6 +127,8 @@ const COUNTER_SUMMARY_LIMITATION =
   '反证汇总只提醒时间尺度中存在近似或外推，不否定民用历法用途，也不证明观测级精度' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束 UTC、UT1、ΔT 与 TT 数值可以支持的精度声明，不得被反向当作天文事件或现实结果证据' as const;
+const SUMMARY_FACT_LIMITATION =
+  '天文时间证据汇总只统计时区、UTC、儒略日、UT1近似、ΔT模型、反证与限制覆盖；不得按状态生成可信度百分比、观测精度声明或现实结论' as const;
 
 function assertIntegerInRange(value: number, min: number, max: number, label: string) {
   if (!Number.isInteger(value) || value < min || value > max) {
@@ -323,6 +347,10 @@ export function buildAstronomicalTimeEvidence(
       index === 0
         ? ['astronomical-time:calculation:timezone']
         : ['astronomical-time:calculation:ut1'],
+    ownerFactKeys:
+      index === 0
+        ? ['astronomical-time:calculation:timezone']
+        : ['astronomical-time:calculation:ut1'],
     promptText: text,
     sources: [index === 0 ? '时区输入与历史偏移资料' : 'UT1 与 UTC 近似条件'],
     limitation: ASSUMPTION_FACT_LIMITATION,
@@ -332,6 +360,7 @@ export function buildAstronomicalTimeEvidence(
       key: 'astronomical-time:counter:ut1-approximation',
       type: 'UT1近似',
       status: '近似',
+      ownerFactKeys: ['astronomical-time:calculation:ut1'],
       ownerStepKeys: ['astronomical-time:calculation:ut1'],
       promptText: '未提供实时 DUT1，UT1 以 UTC 近似',
       sources: ['实时 DUT1 未作为输入提供'],
@@ -341,6 +370,7 @@ export function buildAstronomicalTimeEvidence(
       key: 'astronomical-time:counter:delta-t-model',
       type: 'ΔT模型等级',
       status: precisionLevel,
+      ownerFactKeys: ['astronomical-time:calculation:tt'],
       ownerStepKeys: ['astronomical-time:calculation:tt'],
       promptText: `ΔT 使用${precisionLevel}分段模型，不是逐日观测值`,
       sources: ['Espenak-Meeus 分段多项式适用年代'],
@@ -361,6 +391,7 @@ export function buildAstronomicalTimeEvidence(
       key: 'astronomical-time:limitation:delta-t',
       type: 'ΔT估算边界',
       status: '适用',
+      ownerFactKeys: ['astronomical-time:calculation:tt'],
       ownerStepKeys: ['astronomical-time:calculation:tt'],
       promptText: limitations[0],
       sources: ['Espenak-Meeus 分段多项式模型说明'],
@@ -370,12 +401,42 @@ export function buildAstronomicalTimeEvidence(
       key: 'astronomical-time:limitation:ephemeris',
       type: '底层星历边界',
       status: '适用',
+      ownerFactKeys: ['astronomical-time:calculation:jd-utc', 'astronomical-time:calculation:tt'],
       ownerStepKeys: ['astronomical-time:calculation:jd-utc', 'astronomical-time:calculation:tt'],
       promptText: limitations[1],
       sources: ['时间尺度与具体星历实现分离原则'],
       limitation: LIMITATION_FACT_LIMITATION,
     },
   ];
+  const summaryStatus: AstronomicalTimeSummaryFact['status'] =
+    timezoneEvidence?.status === 'ambiguous'
+      ? timezoneEvidence.offsetConflict
+        ? '含历史时区歧义与偏移冲突'
+        : '含历史时区歧义'
+      : timezoneEvidence?.offsetConflict
+        ? '含固定偏移冲突'
+        : precisionLevel === '长期外推'
+          ? '含长期外推'
+          : '民用时间链完整';
+  const summaryFact: AstronomicalTimeSummaryFact = {
+    key: 'astronomical-time:evidence-summary',
+    status: summaryStatus,
+    factKeys: [
+      ...calculationSteps.map((item) => item.key),
+      ...assumptionFacts.map((item) => item.key),
+      ...counterEvidenceFacts.map((item) => item.key),
+      counterSummaryFact.key,
+      ...limitationFacts.map((item) => item.key),
+      ...(timezoneEvidence ? [timezoneEvidence.diagnosticSummaryFact.key] : []),
+    ],
+    calculationStepCount: calculationSteps.length,
+    assumptionFactCount: assumptionFacts.length,
+    counterEvidenceCount: counterEvidenceFacts.length,
+    limitationFactCount: limitationFacts.length,
+    promptText: `天文时间证据状态为${summaryStatus}；记录计算步骤${calculationSteps.length}项、计算假设${assumptionFacts.length}项、反证${counterEvidenceFacts.length}项、限制${limitationFacts.length}项`,
+    sources: ['天文时间计算链、历史时区诊断、反证与限制事实汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
 
   return {
     key: `astronomical-time:${localDateTime}:${timezone}`,
@@ -401,7 +462,8 @@ export function buildAstronomicalTimeEvidence(
     counterSummaryFact,
     limitations,
     limitationFacts,
+    summaryFact,
     source,
-    promptText: `天文时间尺度：当地钟表时间${localDateTime}（${input.timeZoneId ? `${input.timeZoneId}，` : ''}UTC${timezone >= 0 ? '+' : ''}${timezone}）→ UTC ${utcDateTime}；JD(UTC)=${julianDayUtc.toFixed(6)}，在 UT1≈UTC 假设下 JD(UT)≈${julianDayUtApprox.toFixed(6)}；ΔT≈${deltaTSeconds.toFixed(3)}秒，JD(TT)≈${julianDayTtApprox.toFixed(6)}。模型等级：${precisionLevel}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。反证汇总：${counterSummaryFact.promptText}。${timezoneEvidence ? `历史时区诊断：${timezoneEvidence.diagnostics.join('；')}。` : ''}来源：${source}。限制：${[...assumptions, ...limitations].join('；')}`,
+    promptText: `天文时间尺度：当地钟表时间${localDateTime}（${input.timeZoneId ? `${input.timeZoneId}，` : ''}UTC${timezone >= 0 ? '+' : ''}${timezone}）→ UTC ${utcDateTime}；JD(UTC)=${julianDayUtc.toFixed(6)}，在 UT1≈UTC 假设下 JD(UT)≈${julianDayUtApprox.toFixed(6)}；ΔT≈${deltaTSeconds.toFixed(3)}秒，JD(TT)≈${julianDayTtApprox.toFixed(6)}。模型等级：${precisionLevel}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。反证汇总：${counterSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。${timezoneEvidence ? `历史时区诊断：${timezoneEvidence.diagnostics.join('；')}。` : ''}来源：${source}。限制：${[...assumptions, ...limitations].join('；')}`,
   };
 }

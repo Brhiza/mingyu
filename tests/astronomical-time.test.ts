@@ -4,6 +4,27 @@ import test from 'node:test';
 import { buildAstronomicalTimeEvidence, estimateDeltaTSeconds } from 'mingyu-core/calendar';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
+function assertEvidenceReferences(evidence: ReturnType<typeof buildAstronomicalTimeEvidence>) {
+  const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
+  assert.ok(evidence.summaryFact.factKeys.length > 0);
+  assert.equal(evidence.summaryFact.calculationStepCount, evidence.calculationSteps.length);
+  assert.equal(evidence.summaryFact.assumptionFactCount, evidence.assumptionFacts.length);
+  assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
+  assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
+  assert.ok(
+    [
+      ...evidence.assumptionFacts,
+      ...evidence.counterEvidenceFacts,
+      ...evidence.limitationFacts,
+    ].every(
+      (item) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+        item.ownerFactKeys.join('|') === item.ownerStepKeys.join('|'),
+    ),
+  );
+}
+
 test('天文时间尺度应以 J2000.0 校验 UTC 儒略日', () => {
   const evidence = buildAstronomicalTimeEvidence({
     year: 2000,
@@ -38,6 +59,8 @@ test('天文时间尺度应以 J2000.0 校验 UTC 儒略日', () => {
     evidence.counterEvidenceFacts.map((item) => item.key),
   );
   assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
+  assert.equal(evidence.summaryFact.status, '民用时间链完整');
+  assertEvidenceReferences(evidence);
   assert.ok(
     [
       ...evidence.calculationSteps,
@@ -75,6 +98,8 @@ test('ΔT 长期年份应明确标为外推并拒绝越界年份', () => {
   });
 
   assert.equal(evidence.precisionLevel, '长期外推');
+  assert.equal(evidence.summaryFact.status, '含长期外推');
+  assertEvidenceReferences(evidence);
   assert.throws(() => estimateDeltaTSeconds(1899), /1900-2200/);
   assert.throws(
     () =>
@@ -86,4 +111,29 @@ test('ΔT 长期年份应明确标为外推并拒绝越界年份', () => {
       }),
     /不存在第30日/,
   );
+});
+
+test('天文时间汇总应保留历史时区歧义和固定偏移冲突', () => {
+  const ambiguous = buildAstronomicalTimeEvidence({
+    year: 2024,
+    month: 11,
+    day: 3,
+    hour: 1,
+    minute: 30,
+    timeZoneId: 'America/New_York',
+  });
+  const conflict = buildAstronomicalTimeEvidence({
+    year: 1990,
+    month: 7,
+    day: 1,
+    hour: 12,
+    timeZoneId: 'Asia/Shanghai',
+    timezone: 8,
+  });
+
+  assert.equal(ambiguous.summaryFact.status, '含历史时区歧义');
+  assert.equal(conflict.summaryFact.status, '含固定偏移冲突');
+  assertEvidenceReferences(ambiguous);
+  assertEvidenceReferences(conflict);
+  assert.match(ambiguous.promptText, /证据汇总：天文时间证据状态为含历史时区歧义/);
 });

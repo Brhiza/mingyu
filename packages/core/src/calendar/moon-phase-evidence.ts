@@ -37,6 +37,7 @@ export interface PrincipalMoonPhaseEvent {
   utcDateTime: string;
   residualDegrees: number;
   refinementIterations: number;
+  ownerFactKeys: string[];
   calculationStepKeys: string[];
   promptText: string;
   sources: string[];
@@ -69,6 +70,8 @@ export interface MoonPhaseEventSummaryFact {
   status: '已记录前后四正相位';
   previousEventKey: string;
   nextEventKey: string;
+  factKeys: string[];
+  ownerFactKeys: string[];
   calculationStepKeys: string[];
   promptText: string;
   sources: string[];
@@ -79,10 +82,23 @@ export interface MoonPhaseLimitationFact {
   key: string;
   type: '平均月龄近似' | '几何照明近似' | '星历精度边界';
   status: '适用';
+  ownerFactKeys: string[];
   ownerStepKeys: string[];
   promptText: string;
   sources: string[];
   limitation: '限制事实用于约束月相角、照明比例、近似月龄与四正事件可以支持的解释范围，不得被反向当作月食、天气、吉凶或固定应期证据';
+}
+
+export interface MoonPhaseSummaryFact {
+  key: 'moon-phase:evidence-summary';
+  status: '证据链完整';
+  factKeys: string[];
+  calculationStepCount: number;
+  principalEventCount: number;
+  limitationFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '月相证据汇总只统计日月黄经、月相角、几何照明、前后四正事件与限制覆盖；不得按数量生成月相吉凶、月食可见性、可信度或现实应期';
 }
 
 export interface MoonPhaseEvidence {
@@ -106,6 +122,7 @@ export interface MoonPhaseEvidence {
   source: string;
   calculationSteps: MoonPhaseCalculationStep[];
   eventSummaryFact: MoonPhaseEventSummaryFact;
+  summaryFact: MoonPhaseSummaryFact;
   limitations: string[];
   limitationFacts: MoonPhaseLimitationFact[];
   promptText: string;
@@ -117,6 +134,8 @@ const EVENT_SUMMARY_LIMITATION =
   '事件汇总只说明当前时刻前后相邻的四正月相，不等于观测地点可见性、月食判断或现实应期' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束月相角、照明比例、近似月龄与四正事件可以支持的解释范围，不得被反向当作月食、天气、吉凶或固定应期证据' as const;
+const SUMMARY_FACT_LIMITATION =
+  '月相证据汇总只统计日月黄经、月相角、几何照明、前后四正事件与限制覆盖；不得按数量生成月相吉凶、月食可见性、可信度或现实应期' as const;
 
 function normalizeDegrees(value: number) {
   return ((value % 360) + 360) % 360;
@@ -183,6 +202,7 @@ function refinePhaseEvent(
     utcDateTime,
     residualDegrees: Number(residualDegrees.toFixed(8)),
     refinementIterations,
+    ownerFactKeys: calculationStepKeys,
     calculationStepKeys,
     promptText: `${phase.name}事件：UTC ${utcDateTime}，目标日月黄经差${phase.angle}°，求根残差${residualDegrees.toFixed(8)}°，迭代${refinementIterations}次`,
     sources: [...PRINCIPAL_PHASE_SOURCES],
@@ -308,6 +328,16 @@ export function calculateMoonPhaseEvidence(utcTimestamp: number): MoonPhaseEvide
     status: '已记录前后四正相位',
     previousEventKey,
     nextEventKey,
+    factKeys: [
+      previousEventKey,
+      nextEventKey,
+      'moon-phase:calculation:previous-principal',
+      'moon-phase:calculation:next-principal',
+    ],
+    ownerFactKeys: [
+      'moon-phase:calculation:previous-principal',
+      'moon-phase:calculation:next-principal',
+    ],
     calculationStepKeys: [
       'moon-phase:calculation:previous-principal',
       'moon-phase:calculation:next-principal',
@@ -321,6 +351,7 @@ export function calculateMoonPhaseEvidence(utcTimestamp: number): MoonPhaseEvide
       key: 'moon-phase:limitation:mean-age',
       type: '平均月龄近似',
       status: '适用',
+      ownerFactKeys: ['moon-phase:calculation:angle-illumination'],
       ownerStepKeys: ['moon-phase:calculation:angle-illumination'],
       promptText: limitations[0],
       sources: ['平均朔望月 29.530588861 日'],
@@ -330,6 +361,7 @@ export function calculateMoonPhaseEvidence(utcTimestamp: number): MoonPhaseEvide
       key: 'moon-phase:limitation:illumination',
       type: '几何照明近似',
       status: '适用',
+      ownerFactKeys: ['moon-phase:calculation:angle-illumination'],
       ownerStepKeys: ['moon-phase:calculation:angle-illumination'],
       promptText: limitations[1],
       sources: ['月相照明几何公式'],
@@ -339,6 +371,11 @@ export function calculateMoonPhaseEvidence(utcTimestamp: number): MoonPhaseEvide
       key: 'moon-phase:limitation:ephemeris',
       type: '星历精度边界',
       status: '适用',
+      ownerFactKeys: [
+        'moon-phase:calculation:positions',
+        'moon-phase:calculation:previous-principal',
+        'moon-phase:calculation:next-principal',
+      ],
       ownerStepKeys: [
         'moon-phase:calculation:positions',
         'moon-phase:calculation:previous-principal',
@@ -349,6 +386,23 @@ export function calculateMoonPhaseEvidence(utcTimestamp: number): MoonPhaseEvide
       limitation: LIMITATION_FACT_LIMITATION,
     },
   ];
+  const summaryFact: MoonPhaseSummaryFact = {
+    key: 'moon-phase:evidence-summary',
+    status: '证据链完整',
+    factKeys: [
+      ...calculationSteps.map((item) => item.key),
+      events.previous.key,
+      events.next.key,
+      eventSummaryFact.key,
+      ...limitationFacts.map((item) => item.key),
+    ],
+    calculationStepCount: calculationSteps.length,
+    principalEventCount: 2,
+    limitationFactCount: limitationFacts.length,
+    promptText: `月相证据链记录计算步骤${calculationSteps.length}项、前后四正事件2项、限制${limitationFacts.length}项`,
+    sources: ['日月黄经、月相角照明、前后四正事件与限制事实汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
 
   return {
     key: `moon-phase:${utcTimestamp}`,
@@ -371,8 +425,9 @@ export function calculateMoonPhaseEvidence(utcTimestamp: number): MoonPhaseEvide
     source,
     calculationSteps,
     eventSummaryFact,
+    summaryFact,
     limitations,
     limitationFacts,
-    promptText: `月相证据：UTC ${utcDateTime} 日月黄经差${phaseAngleDegrees.toFixed(3)}°，最小距角${elongationDegrees.toFixed(3)}°，${eightPhaseName}、${waxing ? '盈' : '亏'}，照明约${(illuminationFraction * 100).toFixed(1)}%，近似月龄${approximateMoonAgeDays.toFixed(2)}日；计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}；前一四正相位：${events.previous.promptText}；下一四正相位：${events.next.promptText}；事件汇总：${eventSummaryFact.promptText}；四正事件统一边界：${PRINCIPAL_PHASE_LIMITATION}。方法：${method}。来源：${source}。限制：${limitations.join('；')}`,
+    promptText: `月相证据：UTC ${utcDateTime} 日月黄经差${phaseAngleDegrees.toFixed(3)}°，最小距角${elongationDegrees.toFixed(3)}°，${eightPhaseName}、${waxing ? '盈' : '亏'}，照明约${(illuminationFraction * 100).toFixed(1)}%，近似月龄${approximateMoonAgeDays.toFixed(2)}日；计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}；前一四正相位：${events.previous.promptText}；下一四正相位：${events.next.promptText}；事件汇总：${eventSummaryFact.promptText}；证据汇总：${summaryFact.promptText}；四正事件统一边界：${PRINCIPAL_PHASE_LIMITATION}。方法：${method}。来源：${source}。限制：${limitations.join('；')}`,
   };
 }

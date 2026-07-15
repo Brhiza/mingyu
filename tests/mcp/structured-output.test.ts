@@ -942,6 +942,12 @@ test('MCP 太阳光照工具应返回日出日落与曙暮光结构化证据', a
     assert.equal(result.structuredContent?.result.crossingSummaryFact.status, '均有正常交点');
     assert.equal(result.structuredContent?.result.crossingSummaryFact.crossingFactKeys.length, 4);
     assert.equal(
+      result.structuredContent?.result.summaryFact.key,
+      'solar-illumination:evidence-summary',
+    );
+    assert.equal(result.structuredContent?.result.summaryFact.status, '证据链完整');
+    assert.equal(result.structuredContent?.result.summaryFact.normalCrossingCount, 4);
+    assert.equal(
       result.structuredContent?.result.limitations.length,
       result.structuredContent?.result.limitationFacts.length,
     );

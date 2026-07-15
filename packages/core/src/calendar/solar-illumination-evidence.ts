@@ -22,6 +22,7 @@ export interface SolarCrossingEvidence {
   morningLocalDateTime: string | null;
   eveningLocalDateTime: string | null;
   promptText: string;
+  ownerFactKeys: string[];
   calculationStepKeys: string[];
   sources: string[];
   calculation: string;
@@ -43,6 +44,7 @@ export interface SolarIlluminationCalculationStep {
 export interface SolarIlluminationAssumptionFact {
   key: string;
   status: '适用';
+  ownerFactKeys: string[];
   ownerStepKeys: string[];
   promptText: string;
   sources: string[];
@@ -52,6 +54,7 @@ export interface SolarIlluminationAssumptionFact {
 export interface SolarCrossingSummaryFact {
   key: 'solar-illumination:crossing-summary';
   status: '均有正常交点' | '存在全天状态';
+  factKeys: string[];
   crossingFactKeys: string[];
   promptText: string;
   sources: string[];
@@ -62,10 +65,25 @@ export interface SolarIlluminationLimitationFact {
   key: string;
   type: '现场可见性边界' | '时区切换边界' | '模型精度边界';
   status: '适用';
+  ownerFactKeys: string[];
   ownerStepKeys: string[];
   promptText: string;
   sources: string[];
   limitation: '限制事实用于约束太阳高度、方位、日出日落和曙暮光结果可以支持的解释范围，不得被反向当作天气、建筑性能、吉凶或事件证据';
+}
+
+export interface SolarIlluminationSummaryFact {
+  key: 'solar-illumination:evidence-summary';
+  status: '证据链完整' | '含全天状态';
+  factKeys: string[];
+  calculationStepCount: number;
+  normalCrossingCount: number;
+  allDayStateCount: number;
+  assumptionFactCount: number;
+  limitationFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '太阳光照证据汇总只统计天文时间、太阳位置、视太阳正午、阈值交点、全天状态、假设与限制覆盖；不得按状态生成采光评分、天气结论、吉凶或事件保证';
 }
 
 const CROSSING_SOURCES = [
@@ -107,6 +125,7 @@ export interface SolarIlluminationEvidence {
   assumptions: string[];
   assumptionFacts: SolarIlluminationAssumptionFact[];
   crossingSummaryFact: SolarCrossingSummaryFact;
+  summaryFact: SolarIlluminationSummaryFact;
   limitations: string[];
   limitationFacts: SolarIlluminationLimitationFact[];
   promptText: string;
@@ -120,6 +139,8 @@ const CROSSING_SUMMARY_LIMITATION =
   '交点汇总只说明四类太阳高度阈值在该民用日期是否存在正常交点；全天状态不是错误，也不得直接解释为现实吉凶或居住效果' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束太阳高度、方位、日出日落和曙暮光结果可以支持的解释范围，不得被反向当作天气、建筑性能、吉凶或事件证据' as const;
+const SUMMARY_FACT_LIMITATION =
+  '太阳光照证据汇总只统计天文时间、太阳位置、视太阳正午、阈值交点、全天状态、假设与限制覆盖；不得按状态生成采光评分、天气结论、吉凶或事件保证' as const;
 
 function degreesToRadians(value: number) {
   return (value * Math.PI) / 180;
@@ -194,6 +215,7 @@ function crossingEvidence(
       morningLocalDateTime: null,
       eveningLocalDateTime: null,
       promptText: `${name}：太阳高度${altitudeDegrees}°阈值在该民用日期全天无交点，状态为全天低于阈值`,
+      ownerFactKeys: calculationStepKeys,
       calculationStepKeys,
       sources: [...CROSSING_SOURCES],
       calculation: `${calculation}；余弦时角大于1，判定全天低于阈值`,
@@ -211,6 +233,7 @@ function crossingEvidence(
       morningLocalDateTime: null,
       eveningLocalDateTime: null,
       promptText: `${name}：太阳高度${altitudeDegrees}°阈值在该民用日期全天无交点，状态为全天高于阈值`,
+      ownerFactKeys: calculationStepKeys,
       calculationStepKeys,
       sources: [...CROSSING_SOURCES],
       calculation: `${calculation}；余弦时角小于-1，判定全天高于阈值`,
@@ -237,6 +260,7 @@ function crossingEvidence(
     morningLocalDateTime,
     eveningLocalDateTime,
     promptText: `${name}：太阳高度${altitudeDegrees}°阈值的当地上午交点为${morningLocalDateTime}、下午交点为${eveningLocalDateTime}`,
+    ownerFactKeys: calculationStepKeys,
     calculationStepKeys,
     sources: [...CROSSING_SOURCES],
     calculation: `${calculation}；余弦时角位于[-1,1]，解得上午与下午两个交点`,
@@ -410,6 +434,13 @@ export function calculateSolarIlluminationEvidence(
             'solar-illumination:calculation:astronomical-time',
             'solar-illumination:calculation:crossings',
           ],
+    ownerFactKeys:
+      index === 0
+        ? ['solar-illumination:calculation:crossings']
+        : [
+            'solar-illumination:calculation:astronomical-time',
+            'solar-illumination:calculation:crossings',
+          ],
     promptText: text,
     sources: [index === 0 ? '太阳高度阈值定义' : '参考时刻的时区偏移'],
     limitation: ASSUMPTION_FACT_LIMITATION,
@@ -419,6 +450,7 @@ export function calculateSolarIlluminationEvidence(
   const crossingSummaryFact: SolarCrossingSummaryFact = {
     key: 'solar-illumination:crossing-summary',
     status: normalCrossingCount === crossings.length ? '均有正常交点' : '存在全天状态',
+    factKeys: ['solar-illumination:calculation:crossings', ...crossings.map((item) => item.key)],
     crossingFactKeys: crossings.map((item) => item.key),
     promptText:
       normalCrossingCount === crossings.length
@@ -432,6 +464,7 @@ export function calculateSolarIlluminationEvidence(
       key: 'solar-illumination:limitation:visibility',
       type: '现场可见性边界',
       status: '适用',
+      ownerFactKeys: ['solar-illumination:calculation:crossings'],
       ownerStepKeys: ['solar-illumination:calculation:crossings'],
       promptText: limitations[0],
       sources: ['理想地平线模型与现场条件差异'],
@@ -441,6 +474,10 @@ export function calculateSolarIlluminationEvidence(
       key: 'solar-illumination:limitation:timezone-transition',
       type: '时区切换边界',
       status: '适用',
+      ownerFactKeys: [
+        'solar-illumination:calculation:astronomical-time',
+        'solar-illumination:calculation:crossings',
+      ],
       ownerStepKeys: [
         'solar-illumination:calculation:astronomical-time',
         'solar-illumination:calculation:crossings',
@@ -453,6 +490,10 @@ export function calculateSolarIlluminationEvidence(
       key: 'solar-illumination:limitation:model-precision',
       type: '模型精度边界',
       status: '适用',
+      ownerFactKeys: [
+        'solar-illumination:calculation:reference-position',
+        'solar-illumination:calculation:crossings',
+      ],
       ownerStepKeys: [
         'solar-illumination:calculation:reference-position',
         'solar-illumination:calculation:crossings',
@@ -463,6 +504,27 @@ export function calculateSolarIlluminationEvidence(
     },
   ];
   const status = crossingSummaryFact.status === '均有正常交点' ? '已计算' : '存在全天状态';
+  const summaryFact: SolarIlluminationSummaryFact = {
+    key: 'solar-illumination:evidence-summary',
+    status: normalCrossingCount === crossings.length ? '证据链完整' : '含全天状态',
+    factKeys: [
+      astronomicalTime.key,
+      astronomicalTime.summaryFact.key,
+      ...calculationSteps.map((item) => item.key),
+      ...crossings.map((item) => item.key),
+      crossingSummaryFact.key,
+      ...assumptionFacts.map((item) => item.key),
+      ...limitationFacts.map((item) => item.key),
+    ],
+    calculationStepCount: calculationSteps.length,
+    normalCrossingCount,
+    allDayStateCount: crossings.length - normalCrossingCount,
+    assumptionFactCount: assumptionFacts.length,
+    limitationFactCount: limitationFacts.length,
+    promptText: `太阳光照证据状态为${normalCrossingCount === crossings.length ? '证据链完整' : '含全天状态'}；记录计算步骤${calculationSteps.length}项、正常交点阈值${normalCrossingCount}类、全天状态${crossings.length - normalCrossingCount}类、假设${assumptionFacts.length}项、限制${limitationFacts.length}项`,
+    sources: ['天文时间、太阳位置、阈值交点、全天状态、假设与限制事实汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
   return {
     key: `solar-illumination:${localDate}:${input.latitude}:${input.longitude}`,
     status,
@@ -489,8 +551,9 @@ export function calculateSolarIlluminationEvidence(
     assumptions,
     assumptionFacts,
     crossingSummaryFact,
+    summaryFact,
     limitations,
     limitationFacts,
-    promptText: `太阳光照证据：${localDate}，纬度${input.latitude}°、经度${input.longitude}°，参考当地时间${astronomicalTime.localDateTime}太阳高度${solarAltitudeDegrees.toFixed(2)}°、方位角${solarAzimuthDegrees.toFixed(2)}°（真北起顺时针），视太阳正午${formatLocalTimestamp(solarNoonTimestamp, timezone)}；计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}；${crossings.map(formatCrossing).join('；')}。交点汇总：${crossingSummaryFact.promptText}。方法：${method}。来源：${source}。假设：${assumptions.join('；')}。限制：${limitations.join('；')}`,
+    promptText: `太阳光照证据：${localDate}，纬度${input.latitude}°、经度${input.longitude}°，参考当地时间${astronomicalTime.localDateTime}太阳高度${solarAltitudeDegrees.toFixed(2)}°、方位角${solarAzimuthDegrees.toFixed(2)}°（真北起顺时针），视太阳正午${formatLocalTimestamp(solarNoonTimestamp, timezone)}；计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}；${crossings.map(formatCrossing).join('；')}。交点汇总：${crossingSummaryFact.promptText}。证据汇总：${summaryFact.promptText}。方法：${method}。来源：${source}。假设：${assumptions.join('；')}。限制：${limitations.join('；')}`,
   };
 }

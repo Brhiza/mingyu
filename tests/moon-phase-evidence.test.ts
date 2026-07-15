@@ -7,6 +7,35 @@ import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const MINUTE = 60_000;
 
+function assertEvidenceReferences(evidence: ReturnType<typeof calculateMoonPhaseEvidence>) {
+  const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
+  assert.equal(evidence.summaryFact.status, '证据链完整');
+  assert.equal(evidence.summaryFact.calculationStepCount, evidence.calculationSteps.length);
+  assert.equal(evidence.summaryFact.principalEventCount, 2);
+  assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
+  assert.ok(evidence.eventSummaryFact.factKeys.every((key) => factKeys.has(key)));
+  assert.ok(
+    [evidence.previousPrincipalPhase, evidence.nextPrincipalPhase].every(
+      (item) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+        item.ownerFactKeys.join('|') === item.calculationStepKeys.join('|'),
+    ),
+  );
+  assert.ok(
+    evidence.eventSummaryFact.ownerFactKeys.length > 0 &&
+      evidence.eventSummaryFact.ownerFactKeys.every((key) => factKeys.has(key)),
+  );
+  assert.ok(
+    evidence.limitationFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+        item.ownerFactKeys.join('|') === item.ownerStepKeys.join('|'),
+    ),
+  );
+}
+
 test('月相证据应识别2024年4月日食附近的朔并保留精度限制', () => {
   const evidence = calculateMoonPhaseEvidence(Date.parse('2024-04-08T18:21:00Z'));
 
@@ -42,6 +71,7 @@ test('月相证据应识别2024年4月日食附近的朔并保留精度限制', 
   assert.equal(evidence.eventSummaryFact.previousEventKey, evidence.previousPrincipalPhase.key);
   assert.equal(evidence.eventSummaryFact.nextEventKey, evidence.nextPrincipalPhase.key);
   assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
+  assertEvidenceReferences(evidence);
   assert.ok(
     [...evidence.calculationSteps, evidence.eventSummaryFact, ...evidence.limitationFacts].every(
       (item) => item.sources.length > 0 && item.limitation.length > 0,
@@ -85,6 +115,7 @@ test('一般日期的月相证据应由前后四正相位稳定包围', () => {
   );
   assert.ok(evidence.approximateMoonAgeDays > 0);
   assert.ok(evidence.approximateMoonAgeDays < 29.530588861);
+  assertEvidenceReferences(evidence);
 });
 
 test('月相证据应拒绝无效时间戳和超出支持范围的年份', () => {
