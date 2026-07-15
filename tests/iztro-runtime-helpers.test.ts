@@ -322,6 +322,24 @@ test('紫微分析载荷应附带可追溯证据分析并明确轻量模式未�
         item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
     ),
   );
+  const patternAnalysis = payload.pattern_analysis;
+  assert.ok(patternAnalysis);
+  assert.equal(patternAnalysis.key, 'ziwei:patterns');
+  assert.equal(patternAnalysis.calculationSteps.length, 4);
+  assert.equal(
+    patternAnalysis.summaryFact.evaluatedRuleCount,
+    patternAnalysis.summaryFact.registeredRuleCount,
+  );
+  assert.equal(patternAnalysis.summaryFact.matchedPatternCount, payload.patterns?.length ?? 0);
+  assert.ok(
+    (payload.patterns ?? []).every(
+      (item) =>
+        item.key &&
+        item.status === '已命中' &&
+        item.calculationStepKey &&
+        patternAnalysis.calculationSteps.some((step) => step.key === item.calculationStepKey),
+    ),
+  );
 
   const compactPayload = buildAnalysisPayloadV1({
     astrolabe,
@@ -333,6 +351,9 @@ test('紫微分析载荷应附带可追溯证据分析并明确轻量模式未�
   assert.equal(compactPayload.evidence_analysis?.status, '未生成');
   assert.equal(compactPayload.evidence_analysis?.summaryFact.status, '未生成');
   assert.match(compactPayload.evidence_analysis?.promptText ?? '', /明确跳过本命证据采集/);
+  assert.equal(compactPayload.pattern_analysis?.status, '未生成');
+  assert.equal(compactPayload.pattern_analysis?.summaryFact.evaluatedRuleCount, 0);
+  assert.match(compactPayload.pattern_analysis?.promptText ?? '', /明确跳过格局规则评估/);
 });
 
 test('紫微大限时间轴应按农历年位移，春节前出生者不落入相邻流年', () => {

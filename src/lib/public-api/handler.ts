@@ -2550,6 +2550,21 @@ function buildCompactZiweiResult(result: ReturnType<typeof buildSerializableZiwe
           : undefined,
       ]),
     ),
+    patternEvidenceByScope: Object.fromEntries(
+      Object.entries(result.payloadByScope).map(([scope, payload]) => [
+        scope,
+        payload.pattern_analysis
+          ? {
+              key: payload.pattern_analysis.key,
+              status: payload.pattern_analysis.status,
+              calculationSteps: payload.pattern_analysis.calculationSteps,
+              counterEvidenceFacts: payload.pattern_analysis.counterEvidenceFacts,
+              summaryFact: payload.pattern_analysis.summaryFact,
+              limitationFacts: payload.pattern_analysis.limitationFacts,
+            }
+          : undefined,
+      ]),
+    ),
     activeScopes: Object.fromEntries(
       Object.entries(result.payloadByScope).map(([scope, payload]) => [
         scope,

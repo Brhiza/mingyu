@@ -103,6 +103,7 @@ function buildPatternSummary(payload: AnalysisPayloadV1) {
 
     return {
       传统格局: item.name,
+      证据状态: item.status || '已命中',
       传统分类_非综合吉凶:
         item.kind === 'auspicious' ? '吉格' : item.kind === 'inauspicious' ? '凶格' : '中性',
       命中条件: item.matched_conditions ?? [
@@ -112,10 +113,12 @@ function buildPatternSummary(payload: AnalysisPayloadV1) {
       ],
       关联宫位: item.palace_names.map((name) => formatPalaceName(name)),
       关联星曜: item.star_names,
-      规则来源: item.source || '现有紫微格局规则表',
+      规则来源: item.sources?.join('、') || item.source || '传统紫微格局规则汇编',
       计算依据: item.calculation || '按格局登记条件与当前宫位星曜逐项匹配',
+      事实说明: item.promptText,
       传统释义_非事实结论: item.traditional_interpretation || legacyInterpretation,
       适用边界:
+        item.limitation ||
         item.limitations?.join('；') ||
         '传统格局只作为术数分类参考，不是综合吉凶评分，也不证明现实事件必然发生',
     };

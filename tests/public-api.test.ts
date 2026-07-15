@@ -1344,6 +1344,8 @@ test('公开 API 紫微提示词接口只生成所需范围，避免线上函数
   assert.equal(body.data.resultSummary.activeScopes.decadal, undefined);
   assert.equal(body.data.resultSummary.evidenceByScope.yearly.key, 'ziwei:evidence');
   assertEvidenceOwnerReferences(body.data.resultSummary.evidenceByScope.yearly);
+  assert.equal(body.data.resultSummary.patternEvidenceByScope.yearly.key, 'ziwei:patterns');
+  assertEvidenceOwnerReferences(body.data.resultSummary.patternEvidenceByScope.yearly);
   const prompt = body.data.prompt;
   assert.match(prompt, /分析范围：流年/);
   assert.match(prompt, /【证据汇总】/);
@@ -1577,9 +1579,29 @@ test('公开 API 紫微排盘接口支持按需返回指定范围', async () => 
   assertEvidenceOwnerReferences(evidenceAnalysis);
   assert.ok(
     body.data.payloadByScope.monthly.patterns.every(
-      (item: Record<string, unknown>) => !('priority' in item),
+      (item: Record<string, unknown>) =>
+        !('priority' in item) &&
+        String(item.key).startsWith('ziwei:pattern:') &&
+        item.status === '已命中' &&
+        Array.isArray(item.sources) &&
+        item.sources.length > 0 &&
+        item.calculationStepKey === 'ziwei:pattern:calculation:matched-facts',
     ),
   );
+  const patternAnalysis = body.data.payloadByScope.monthly.pattern_analysis;
+  assert.equal(patternAnalysis.key, 'ziwei:patterns');
+  assert.equal(patternAnalysis.calculationSteps.length, 4);
+  assert.equal(
+    patternAnalysis.summaryFact.evaluatedRuleCount,
+    patternAnalysis.summaryFact.registeredRuleCount,
+  );
+  assert.equal(
+    patternAnalysis.summaryFact.matchedPatternCount,
+    body.data.payloadByScope.monthly.patterns.length,
+  );
+  assert.equal(patternAnalysis.counterEvidenceFacts.length, 3);
+  assert.equal(patternAnalysis.limitationFacts.length, 4);
+  assertEvidenceOwnerReferences(patternAnalysis);
 });
 
 test('公开 API 紫微排盘支持轻量模式，减少默认响应体积', async () => {
@@ -1610,6 +1632,15 @@ test('公开 API 紫微排盘支持轻量模式，减少默认响应体积', asy
   assert.equal(body.data.evidenceByScope.monthly.limitationFacts.length, 5);
   assert.ok(body.data.evidenceByScope.monthly.summaryFact.evidenceFactCount > 0);
   assertEvidenceOwnerReferences(body.data.evidenceByScope.monthly);
+  assert.equal(body.data.patternEvidenceByScope.monthly.key, 'ziwei:patterns');
+  assert.equal(body.data.patternEvidenceByScope.monthly.calculationSteps.length, 4);
+  assert.equal(body.data.patternEvidenceByScope.monthly.counterEvidenceFacts.length, 3);
+  assert.equal(body.data.patternEvidenceByScope.monthly.limitationFacts.length, 4);
+  assert.equal(
+    body.data.patternEvidenceByScope.monthly.summaryFact.evaluatedRuleCount,
+    body.data.patternEvidenceByScope.monthly.summaryFact.registeredRuleCount,
+  );
+  assertEvidenceOwnerReferences(body.data.patternEvidenceByScope.monthly);
   assert.equal(body.data.activeScopes.monthly.active_scope.scope, 'monthly');
   assert.equal(body.data.activeScopes.monthly.palaces.length, 12);
   assert.ok(body.data.activeScopes.monthly.palaces[0].major_stars);

@@ -14,7 +14,16 @@
  * - 平格：杀破狼/日月反背/天罗地网/武贪同行/马头带箭等
  */
 
-import type { PalaceFact, PatternFact, StarFact } from '../../types/analysis';
+import type {
+  PalaceFact,
+  PatternFact,
+  StarFact,
+  ZiweiPatternAnalysis,
+  ZiweiPatternCalculationStep,
+  ZiweiPatternCounterEvidenceFact,
+  ZiweiPatternLimitationFact,
+  ZiweiPatternSummaryFact,
+} from '../../types/analysis';
 import { LIU_HE_BRANCH } from './build-analysis-payload/helpers/palace-lookup';
 import { EARTHLY_BRANCHES } from '../../ganzhi/data';
 
@@ -41,6 +50,15 @@ type DetectResult = {
 };
 
 type PatternDraft = PatternFact & { priority: number };
+
+const PATTERN_CALCULATION_LIMITATION =
+  '紫微格局计算步骤只证明登记规则如何核对当前十二宫、星曜、亮度、四化与宫位关系；不得把命中数量解释为命盘分数、现实概率或必然事件' as const;
+const PATTERN_COUNTER_LIMITATION =
+  '紫微格局反证只记录十二宫资料、登记规则与未命中数量的覆盖状态；未命中不等于没有其他传统格局，也不证明现实有利或不利' as const;
+const PATTERN_SUMMARY_LIMITATION =
+  '紫微格局汇总只统计当前登记规则的评估覆盖和命中分类；不得按吉格、凶格、中性格或命中数量生成综合吉凶、权重、概率与固定应期' as const;
+const PATTERN_FACT_LIMITATION =
+  '紫微格局限制事实用于约束规则命中可以支持的解释范围，不得被反向当作现实因果、人物命运、吉凶概率或保证有效建议的证据' as const;
 
 function splitPatternDescription(description: string): {
   condition: string;
@@ -2013,9 +2031,19 @@ export function detectPatterns(params: {
     if (!matched) return;
     const { condition, traditionalInterpretation } = splitPatternDescription(rule.description);
     const palaceNames = matched.palaces.map((palace) => palace.name);
+    const limitations = [
+      '格局名称及吉格、凶格、中性分类属于传统术数分类，不是综合吉凶评分',
+      '规则命中只证明当前盘面满足登记条件，不证明传统释义必然发生',
+      '传统格局缺少现代统计因果验证，不得转写为成功率、灾祸概率或绝对人生结论',
+    ];
+    const source = '传统紫微格局规则汇编，参考《紫微斗数全书》《紫微斗数全集》等文献';
+    const calculationStepKey = 'ziwei:pattern:calculation:matched-facts';
 
     patterns.push({
       id: `P${index + 1}`,
+      stable_key: rule.id,
+      key: `ziwei:pattern:${rule.id}`,
+      status: '已命中',
       name: rule.name,
       kind: rule.kind,
       description: condition,
@@ -2029,17 +2057,256 @@ export function detectPatterns(params: {
         `实际命中星曜：${matched.stars.join('、') || '该规则按宫位、地支或空亡等条件命中'}`,
       ],
       traditional_interpretation: traditionalInterpretation,
-      source: '命语紫微格局规则表；传统口径汇总自《紫微斗数全书》《紫微斗数全集》等',
-      calculation: `逐项执行格局规则 ${rule.id}，按命宫、地支、星曜、亮度、四化、三方四正、对宫及夹宫条件返回命中结果`,
-      limitations: [
-        '格局名称及吉格、凶格、中性分类属于传统术数分类，不是综合吉凶评分',
-        '规则命中只证明当前盘面满足项目登记条件，不证明传统释义必然发生',
-        '传统格局缺少现代统计因果验证，不得转写为成功率、灾祸概率或绝对人生结论',
-      ],
+      source,
+      sources: [source],
+      calculation:
+        '按命宫、地支、星曜、亮度、四化、三方四正、对宫及夹宫条件逐项核对，并登记实际命中的宫位与星曜',
+      calculationStepKey,
+      dependsOnStepKeys: ['ziwei:pattern:calculation:rule-evaluation', calculationStepKey],
+      promptText: `${rule.name}：${condition}；实际命中宫位为${palaceNames.join('、') || '未登记独立宫位'}；实际命中星曜为${matched.stars.join('、') || '该规则按宫位、地支或空亡等条件命中'}`,
+      limitation: limitations.join('；'),
+      limitations,
     });
   });
 
   return patterns
     .sort((left, right) => right.priority - left.priority)
     .map(({ priority: _priority, ...pattern }) => pattern);
+}
+
+export function buildPatternAnalysis(params: {
+  patterns: PatternFact[];
+  palaces: PalaceFact[];
+  skipped?: boolean;
+}): ZiweiPatternAnalysis {
+  const { patterns, palaces, skipped = false } = params;
+  const registeredRuleCount = PATTERN_RULES.length;
+  const uniquePalaceIndexCount = new Set(palaces.map((item) => item.index)).size;
+  const palaceDataComplete = palaces.length === ZIWEI_PALACE_COUNT && uniquePalaceIndexCount === 12;
+  const evaluatedRuleCount = skipped || !palaceDataComplete ? 0 : registeredRuleCount;
+  const unevaluatedRuleCount = registeredRuleCount - evaluatedRuleCount;
+  const matchedPatternCount = patterns.length;
+  const unmatchedRuleCount = Math.max(0, evaluatedRuleCount - matchedPatternCount);
+  const patternFactKeys = patterns.map(
+    (item) => item.key ?? `ziwei:pattern:${item.stable_key ?? item.id}`,
+  );
+  const summaryStatus: ZiweiPatternSummaryFact['status'] = skipped
+    ? '未生成'
+    : !palaceDataComplete
+      ? '资料不足'
+      : matchedPatternCount === 0
+        ? '未命中'
+        : '已完成';
+  const analysisStatus: ZiweiPatternAnalysis['status'] = skipped
+    ? '未生成'
+    : !palaceDataComplete
+      ? '资料不足'
+      : matchedPatternCount === 0
+        ? '未命中'
+        : '已计算';
+  const calculationSteps: ZiweiPatternCalculationStep[] = [
+    {
+      key: 'ziwei:pattern:calculation:input',
+      stage: '十二宫输入校验',
+      status: palaceDataComplete ? '已计算' : '资料不足',
+      dependsOnStepKeys: [],
+      inputs: { palaceCount: palaces.length },
+      result: { palaceDataComplete, uniquePalaceIndexCount },
+      promptText: palaceDataComplete
+        ? '已校验完整十二宫及唯一宫位索引，可进入格局规则评估'
+        : `当前仅有${palaces.length}项宫位资料或宫位索引不唯一，不执行格局规则评估`,
+      sources: ['紫微十二宫结构化盘面资料'],
+      limitation: PATTERN_CALCULATION_LIMITATION,
+    },
+    {
+      key: 'ziwei:pattern:calculation:rule-evaluation',
+      stage: '格局规则评估',
+      status: skipped ? '未生成' : palaceDataComplete ? '已计算' : '资料不足',
+      dependsOnStepKeys: ['ziwei:pattern:calculation:input'],
+      inputs: { registeredRuleCount, palaceDataComplete },
+      result: { evaluatedRuleCount, unevaluatedRuleCount },
+      promptText: skipped
+        ? '当前明确跳过格局规则评估，不补造格局命中或未命中结果'
+        : palaceDataComplete
+          ? `已逐项评估${evaluatedRuleCount}条登记格局规则，未跳过规则`
+          : `十二宫资料不足，${unevaluatedRuleCount}条登记规则均未评估`,
+      sources: ['传统紫微格局登记条件与十二宫盘面资料'],
+      limitation: PATTERN_CALCULATION_LIMITATION,
+    },
+    {
+      key: 'ziwei:pattern:calculation:matched-facts',
+      stage: '命中事实登记',
+      status: skipped ? '未生成' : palaceDataComplete ? '已计算' : '资料不足',
+      dependsOnStepKeys: ['ziwei:pattern:calculation:rule-evaluation'],
+      inputs: { evaluatedRuleCount },
+      result: {
+        matchedPatternCount,
+        unmatchedRuleCount,
+        matchedPatternKeys: patternFactKeys,
+      },
+      promptText: skipped
+        ? '当前未生成格局命中事实'
+        : palaceDataComplete
+          ? `登记${matchedPatternCount}项命中格局，${unmatchedRuleCount}条已评估规则未命中`
+          : '十二宫资料不足，不登记格局命中事实',
+      sources: ['逐条规则评估结果与实际命中宫位、星曜'],
+      limitation: PATTERN_CALCULATION_LIMITATION,
+    },
+    {
+      key: 'ziwei:pattern:calculation:summary',
+      stage: '格局覆盖汇总',
+      status: skipped ? '未生成' : palaceDataComplete ? '已计算' : '资料不足',
+      dependsOnStepKeys: ['ziwei:pattern:calculation:matched-facts'],
+      inputs: { registeredRuleCount, evaluatedRuleCount, matchedPatternCount },
+      result: { summaryStatus, unmatchedRuleCount, unevaluatedRuleCount },
+      promptText: `格局规则覆盖状态为${summaryStatus}；登记规则${registeredRuleCount}条，已评估${evaluatedRuleCount}条，命中${matchedPatternCount}项，未命中${unmatchedRuleCount}条，未评估${unevaluatedRuleCount}条`,
+      sources: ['格局规则评估、命中事实与未命中数量逐项汇总'],
+      limitation: PATTERN_CALCULATION_LIMITATION,
+    },
+  ];
+  const counterEvidenceFacts: ZiweiPatternCounterEvidenceFact[] = [
+    {
+      key: 'ziwei:pattern:counter:palace-coverage',
+      type: '十二宫资料覆盖',
+      status: skipped ? '未生成' : palaceDataComplete ? '有可用证据' : '资料不足',
+      ownerFactKeys: ['ziwei:pattern:calculation:input'],
+      promptText: skipped
+        ? '当前未生成格局分析，不以空列表代替十二宫资料覆盖结论'
+        : palaceDataComplete
+          ? '十二宫资料与宫位索引完整，可支持当前登记规则评估'
+          : '十二宫资料不完整，格局分析必须降级且不得补造命中结果',
+      sources: ['十二宫输入校验结果'],
+      limitation: PATTERN_COUNTER_LIMITATION,
+    },
+    {
+      key: 'ziwei:pattern:counter:rule-coverage',
+      type: '登记规则覆盖',
+      status: skipped
+        ? '未生成'
+        : evaluatedRuleCount === registeredRuleCount
+          ? '有可用证据'
+          : '资料不足',
+      ownerFactKeys: ['ziwei:pattern:calculation:rule-evaluation', ...patternFactKeys],
+      promptText: skipped
+        ? `${registeredRuleCount}条登记规则当前均未评估，不得把空结果解释为没有格局`
+        : evaluatedRuleCount === registeredRuleCount
+          ? `${registeredRuleCount}条登记格局规则已全部逐项评估`
+          : `尚有${unevaluatedRuleCount}条登记规则未评估，当前命中列表不完整`,
+      sources: ['登记规则总数与实际评估数量'],
+      limitation: PATTERN_COUNTER_LIMITATION,
+    },
+    {
+      key: 'ziwei:pattern:counter:unmatched-boundary',
+      type: '未命中规则边界',
+      status: skipped
+        ? '未生成'
+        : !palaceDataComplete
+          ? '资料不足'
+          : matchedPatternCount === 0
+            ? '未命中'
+            : '有可用证据',
+      ownerFactKeys: ['ziwei:pattern:calculation:matched-facts', ...patternFactKeys],
+      promptText: skipped
+        ? '当前未评估登记规则，不得声称任何格局未命中'
+        : !palaceDataComplete
+          ? '十二宫资料不足，无法形成可靠的未命中统计'
+          : matchedPatternCount === 0
+            ? `${evaluatedRuleCount}条登记规则均未命中；这只表示当前规则表未命中，不等于不存在其他传统格局`
+            : `${unmatchedRuleCount}条已评估规则未命中；未命中结果用于反证覆盖，不抵消已命中事实，也不代表规则表穷尽所有传统格局`,
+      sources: ['逐条规则评估的命中与未命中数量'],
+      limitation: PATTERN_COUNTER_LIMITATION,
+    },
+  ];
+  const summaryFact: ZiweiPatternSummaryFact = {
+    key: 'ziwei:pattern-summary',
+    status: summaryStatus,
+    factKeys: [
+      ...calculationSteps.map((item) => item.key),
+      ...patternFactKeys,
+      ...counterEvidenceFacts.map((item) => item.key),
+    ],
+    registeredRuleCount,
+    evaluatedRuleCount,
+    unevaluatedRuleCount,
+    matchedPatternCount,
+    unmatchedRuleCount,
+    auspiciousPatternCount: patterns.filter((item) => item.kind === 'auspicious').length,
+    inauspiciousPatternCount: patterns.filter((item) => item.kind === 'inauspicious').length,
+    neutralPatternCount: patterns.filter((item) => item.kind === 'neutral').length,
+    counterEvidenceCount: counterEvidenceFacts.length,
+    limitationFactCount: 4,
+    promptText: `格局证据状态为${summaryStatus}；登记规则${registeredRuleCount}条，已评估${evaluatedRuleCount}条，命中${matchedPatternCount}项，未命中${unmatchedRuleCount}条，未评估${unevaluatedRuleCount}条；命中分类仅记录吉格${patterns.filter((item) => item.kind === 'auspicious').length}项、凶格${patterns.filter((item) => item.kind === 'inauspicious').length}项、中性${patterns.filter((item) => item.kind === 'neutral').length}项，不作综合评分`,
+    sources: ['传统格局登记规则、十二宫盘面、命中事实与未命中统计'],
+    limitation: PATTERN_SUMMARY_LIMITATION,
+  };
+  const limitationDefinitions: Array<
+    Pick<ZiweiPatternLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
+  > = [
+    {
+      key: 'ziwei:pattern:limitation:traditional-classification',
+      type: '传统分类边界',
+      ownerFactKeys: [summaryFact.key, ...patternFactKeys],
+      promptText: '吉格、凶格和中性格只属于传统分类标签，不是命盘总分，也不能相互加减抵消',
+      sources: ['传统格局分类与量化评分分离原则'],
+    },
+    {
+      key: 'ziwei:pattern:limitation:rule-coverage',
+      type: '规则覆盖边界',
+      ownerFactKeys: [summaryFact.key, 'ziwei:pattern:calculation:rule-evaluation'],
+      promptText: `当前只核对已登记的${registeredRuleCount}条规则；即使全部评估，也不宣称穷尽所有流派、古籍异文或复合格局`,
+      sources: ['当前登记规则范围与传统流派差异'],
+    },
+    {
+      key: 'ziwei:pattern:limitation:reality-causality',
+      type: '现实因果边界',
+      ownerFactKeys: [summaryFact.key, ...patternFactKeys],
+      promptText:
+        '规则命中只证明盘面满足登记条件，传统释义不得直接写成现实性格、财富、婚恋、健康或事件结果',
+      sources: ['盘面结构事实与现实因果分离原则'],
+    },
+    {
+      key: 'ziwei:pattern:limitation:high-risk-output',
+      type: '高风险输出边界',
+      ownerFactKeys: [summaryFact.key, ...summaryFact.factKeys],
+      promptText:
+        '不得根据格局名称、传统分类或命中数量生成成功率、灾祸概率、疾病判断、财富保证、必然断语或固定应期',
+      sources: ['传统规则事实与高风险现实结论分离原则'],
+    },
+  ];
+  const limitationFacts: ZiweiPatternLimitationFact[] = limitationDefinitions.map((definition) => ({
+    ...definition,
+    status: '适用',
+    limitation: PATTERN_FACT_LIMITATION,
+  }));
+  const counterEvidence = counterEvidenceFacts
+    .filter((item) => item.status !== '有可用证据')
+    .map((item) => item.promptText);
+  const limitations = limitationFacts.map((item) => item.promptText);
+
+  return {
+    key: 'ziwei:patterns',
+    status: analysisStatus,
+    calculationSteps,
+    calculationChain: calculationSteps.map((item) => item.promptText),
+    counterEvidence,
+    counterEvidenceFacts,
+    summaryFact,
+    limitations,
+    limitationFacts,
+    promptText: [
+      '【紫微格局结构化证据】',
+      `计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。`,
+      `反证核验：${counterEvidence.length ? counterEvidence.join('；') : '登记规则与十二宫资料已完成覆盖核验；仍不代表现实风险为零或传统格局已被穷尽'}。`,
+      `证据汇总：${summaryFact.promptText}。`,
+      `解释限制：${limitations.join('；')}。`,
+    ].join('\n'),
+    methodology: {
+      notes: [
+        '先校验十二宫、宫位索引、对宫与三方四正结构，再逐条执行登记规则。',
+        '每项命中事实登记实际宫位、星曜、规则条件和传统分类。',
+        '未命中按已评估规则数量汇总，不生成海量空事实，也不把未命中解释为现实吉凶。',
+        '规则表只代表当前已登记范围，不宣称穷尽所有流派或古籍异文。',
+      ],
+    },
+  };
 }

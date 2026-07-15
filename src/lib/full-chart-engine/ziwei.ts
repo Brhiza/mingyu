@@ -11,6 +11,8 @@ import {
   buildBasicInfo,
   buildEvidenceAnalysis,
   buildEvidencePool,
+  buildPatternAnalysis,
+  detectPatterns,
   getCurrentScopeItem,
   getDefaultHoroscopeContext,
   mapStarFact,
@@ -204,6 +206,15 @@ function buildLightweightPublicPayload(params: {
     currentScope: params.scope,
     palaces: params.palaces,
   });
+  const patterns = detectPatterns({
+    palaces: params.palaces,
+    birthTimeLabel: params.basicInfo.birth_time_label,
+    birthTimeRange: params.basicInfo.birth_time_range,
+  });
+  const patternAnalysis = buildPatternAnalysis({
+    patterns,
+    palaces: params.palaces,
+  });
 
   return {
     payload_version: 'analysis_payload_v1',
@@ -213,7 +224,8 @@ function buildLightweightPublicPayload(params: {
     palaces: params.palaces,
     evidence_pool: evidencePool,
     evidence_analysis: evidenceAnalysis,
-    patterns: [],
+    patterns,
+    pattern_analysis: patternAnalysis,
   };
 }
 

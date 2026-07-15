@@ -5,7 +5,7 @@ import {
   buildCombinedZiweiCompatibilityPrompt,
   buildCombinedZiweiPrompt,
 } from '../src/lib/full-chart-engine/ziwei';
-import { buildEvidenceAnalysis, buildEvidencePool } from '@core/ziwei/iztro';
+import { buildEvidenceAnalysis, buildEvidencePool, buildPatternAnalysis } from '@core/ziwei/iztro';
 import { buildEvidenceSummary, buildPalaceSummary } from '../src/lib/ziwei-prompts/builders';
 import { buildZiweiReadableSnapshot } from '../src/lib/ziwei-prompts/snapshot';
 import type { PromptContext } from '../src/lib/ziwei-prompts/types';
@@ -127,8 +127,13 @@ function createReportContext(overrides: Partial<PromptContext> = {}): PromptCont
 }
 
 test('紫微提示词快照应输出已检测出的命盘格局', () => {
+  const payload = createPayload();
+  payload.pattern_analysis = buildPatternAnalysis({
+    patterns: payload.patterns ?? [],
+    palaces: payload.palaces,
+  });
   const snapshot = buildZiweiReadableSnapshot({
-    payload: createPayload(),
+    payload,
     reportContext: createReportContext({
       report_key: 'destiny:origin:2026-05-16',
       report_title: '命局综述',
@@ -143,6 +148,12 @@ test('紫微提示词快照应输出已检测出的命盘格局', () => {
   assert.match(snapshot, /传统分类_非综合吉凶/);
   assert.match(snapshot, /传统释义_非事实结论/);
   assert.match(snapshot, /适用边界：传统格局只作为术数分类参考/);
+  assert.match(snapshot, /格局证据状态：已完成/);
+  assert.match(snapshot, /登记格局规则：\d+条/);
+  assert.match(snapshot, /已检格局规则：\d+条/);
+  assert.match(snapshot, /未命中规则：\d+条/);
+  assert.match(snapshot, /格局解释边界：紫微格局汇总只统计/);
+  assert.doesNotMatch(snapshot, /命语|iztro|本项目|项目统一|工程|接口|API|MCP/);
   assert.doesNotMatch(snapshot, /星座|金牛座/);
   assert.match(snapshot, /【十二宫资料】/);
 });

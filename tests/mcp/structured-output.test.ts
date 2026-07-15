@@ -425,6 +425,25 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
                 summaryFact?: { key?: string; factKeys?: string[]; evidenceFactCount?: number };
                 limitationFacts?: Array<{ ownerFactKeys?: string[] }>;
               };
+              patterns?: Array<{
+                key?: string;
+                status?: string;
+                calculationStepKey?: string;
+              }>;
+              pattern_analysis?: {
+                key?: string;
+                status?: string;
+                calculationSteps?: Array<{ key: string }>;
+                counterEvidenceFacts?: Array<{ key?: string; ownerFactKeys?: string[] }>;
+                summaryFact?: {
+                  key?: string;
+                  factKeys?: string[];
+                  registeredRuleCount?: number;
+                  evaluatedRuleCount?: number;
+                  matchedPatternCount?: number;
+                };
+                limitationFacts?: Array<{ ownerFactKeys?: string[] }>;
+              };
             };
           };
         };
@@ -447,6 +466,27 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
           origin?.evidence_pool?.length,
         );
         assertEvidenceOwnerReferences(origin?.evidence_analysis);
+        assert.equal(origin?.pattern_analysis?.key, 'ziwei:patterns');
+        assert.equal(origin?.pattern_analysis?.calculationSteps?.length, 4);
+        assert.equal(
+          origin?.pattern_analysis?.summaryFact?.evaluatedRuleCount,
+          origin?.pattern_analysis?.summaryFact?.registeredRuleCount,
+        );
+        assert.equal(
+          origin?.pattern_analysis?.summaryFact?.matchedPatternCount,
+          origin?.patterns?.length,
+        );
+        assert.ok(
+          origin?.patterns?.every(
+            (item) =>
+              item.key?.startsWith('ziwei:pattern:') &&
+              item.status === '已命中' &&
+              origin.pattern_analysis?.calculationSteps?.some(
+                (step) => step.key === item.calculationStepKey,
+              ),
+          ),
+        );
+        assertEvidenceOwnerReferences(origin?.pattern_analysis);
       }
       if (name === 'metaphysics_qizheng') {
         const chart = (

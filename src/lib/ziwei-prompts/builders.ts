@@ -265,35 +265,64 @@ export function buildEvidenceSummary(
 
 export function buildEvidenceChainSummary(payload: AnalysisPayloadV1) {
   const analysis = payload.evidence_analysis;
-  if (analysis) {
-    return {
-      证据状态: analysis.summaryFact.status,
-      本命证据: `${analysis.summaryFact.natalFactCount}项`,
-      运限证据: `${analysis.summaryFact.scopeFactCount}项`,
-      主证: `${analysis.summaryFact.primaryFactCount}项`,
-      辅证: `${analysis.summaryFact.supportingFactCount}项`,
-      资料缺口: `${analysis.summaryFact.missingFactCount}项`,
-      反证核验: analysis.counterEvidence.length
-        ? analysis.counterEvidence.join('；')
-        : '当前资料覆盖未见明确缺口；仍不代表现实风险为零',
-      汇总说明: analysis.summaryFact.promptText,
-      解释边界: analysis.summaryFact.limitation,
-    };
-  }
+  const evidenceSummary = analysis
+    ? {
+        证据状态: analysis.summaryFact.status,
+        本命证据: `${analysis.summaryFact.natalFactCount}项`,
+        运限证据: `${analysis.summaryFact.scopeFactCount}项`,
+        主证: `${analysis.summaryFact.primaryFactCount}项`,
+        辅证: `${analysis.summaryFact.supportingFactCount}项`,
+        资料缺口: `${analysis.summaryFact.missingFactCount}项`,
+        反证核验: analysis.counterEvidence.length
+          ? analysis.counterEvidence.join('；')
+          : '当前资料覆盖未见明确缺口；仍不代表现实风险为零',
+        汇总说明: analysis.summaryFact.promptText,
+        解释边界: analysis.summaryFact.limitation,
+      }
+    : (() => {
+        const missingFactCount = payload.evidence_pool.filter(
+          (item) => item.status === '资料缺口',
+        ).length;
+        return {
+          证据状态: payload.evidence_pool.length ? '旧资料已保留证据线索' : '旧资料未生成证据线索',
+          本命证据: `${payload.evidence_pool.filter((item) => item.scope === 'origin').length}项`,
+          运限证据: `${payload.evidence_pool.filter((item) => item.scope !== 'origin').length}项`,
+          资料缺口: `${missingFactCount}项`,
+          汇总说明: payload.evidence_pool.length
+            ? `当前保留${payload.evidence_pool.length}项紫微结构化线索，旧资料未附带统一计算链汇总`
+            : '当前没有可用的紫微结构化线索，证据不足时必须直接说明',
+          解释边界:
+            '仅基于已提供宫位、星曜、四化与运限资料解释，不按线索数量生成吉凶总分、概率或必然结论',
+        };
+      })();
+  const patternAnalysis = payload.pattern_analysis;
+  const patternSummary = patternAnalysis
+    ? {
+        格局证据状态: patternAnalysis.summaryFact.status,
+        登记格局规则: `${patternAnalysis.summaryFact.registeredRuleCount}条`,
+        已检格局规则: `${patternAnalysis.summaryFact.evaluatedRuleCount}条`,
+        命中格局: `${patternAnalysis.summaryFact.matchedPatternCount}项`,
+        未命中规则: `${patternAnalysis.summaryFact.unmatchedRuleCount}条`,
+        未评估规则: `${patternAnalysis.summaryFact.unevaluatedRuleCount}条`,
+        格局反证核验: patternAnalysis.counterEvidence.length
+          ? patternAnalysis.counterEvidence.join('；')
+          : '登记规则与十二宫资料已完成覆盖核验；仍不代表传统格局已被穷尽',
+        格局汇总说明: patternAnalysis.summaryFact.promptText,
+        格局解释边界: patternAnalysis.summaryFact.limitation,
+      }
+    : {
+        格局证据状态: payload.patterns?.length ? '旧资料已保留命中格局' : '旧资料未生成格局分析',
+        命中格局: `${payload.patterns?.length ?? 0}项`,
+        格局汇总说明: payload.patterns?.length
+          ? '当前仅保留格局命中列表，旧资料未附带规则覆盖与未命中统计'
+          : '当前没有可用的格局分析资料，不得把空列表解释为没有传统格局',
+        格局解释边界:
+          '传统格局只作为盘面规则分类，不按吉格、凶格或命中数量生成综合吉凶、概率与必然结论',
+      };
 
-  const missingFactCount = payload.evidence_pool.filter(
-    (item) => item.status === '资料缺口',
-  ).length;
   return {
-    证据状态: payload.evidence_pool.length ? '旧资料已保留证据线索' : '旧资料未生成证据线索',
-    本命证据: `${payload.evidence_pool.filter((item) => item.scope === 'origin').length}项`,
-    运限证据: `${payload.evidence_pool.filter((item) => item.scope !== 'origin').length}项`,
-    资料缺口: `${missingFactCount}项`,
-    汇总说明: payload.evidence_pool.length
-      ? `当前保留${payload.evidence_pool.length}项紫微结构化线索，旧资料未附带统一计算链汇总`
-      : '当前没有可用的紫微结构化线索，证据不足时必须直接说明',
-    解释边界:
-      '仅基于已提供宫位、星曜、四化与运限资料解释，不按线索数量生成吉凶总分、概率或必然结论',
+    ...evidenceSummary,
+    ...patternSummary,
   };
 }
 

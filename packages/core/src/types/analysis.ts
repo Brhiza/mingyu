@@ -11,6 +11,7 @@ export type AnalysisPayloadV1 = {
   evidence_pool: EvidenceFact[];
   evidence_analysis?: ZiweiEvidenceAnalysis;
   patterns?: PatternFact[];
+  pattern_analysis?: ZiweiPatternAnalysis;
 };
 
 export type FourPillars = {
@@ -199,8 +200,76 @@ export type ZiweiEvidenceAnalysis = {
   methodology: { notes: string[] };
 };
 
+export type ZiweiPatternCalculationStep = {
+  key: string;
+  stage: '十二宫输入校验' | '格局规则评估' | '命中事实登记' | '格局覆盖汇总';
+  status: '已计算' | '未生成' | '资料不足';
+  dependsOnStepKeys: string[];
+  inputs: Record<string, string | number | boolean | string[]>;
+  result: Record<string, string | number | boolean | string[]>;
+  promptText: string;
+  sources: string[];
+  limitation: '紫微格局计算步骤只证明登记规则如何核对当前十二宫、星曜、亮度、四化与宫位关系；不得把命中数量解释为命盘分数、现实概率或必然事件';
+};
+
+export type ZiweiPatternCounterEvidenceFact = {
+  key: string;
+  type: '十二宫资料覆盖' | '登记规则覆盖' | '未命中规则边界';
+  status: '有可用证据' | '未命中' | '资料不足' | '未生成';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '紫微格局反证只记录十二宫资料、登记规则与未命中数量的覆盖状态；未命中不等于没有其他传统格局，也不证明现实有利或不利';
+};
+
+export type ZiweiPatternSummaryFact = {
+  key: 'ziwei:pattern-summary';
+  status: '已完成' | '未命中' | '资料不足' | '未生成';
+  factKeys: string[];
+  registeredRuleCount: number;
+  evaluatedRuleCount: number;
+  unevaluatedRuleCount: number;
+  matchedPatternCount: number;
+  unmatchedRuleCount: number;
+  auspiciousPatternCount: number;
+  inauspiciousPatternCount: number;
+  neutralPatternCount: number;
+  counterEvidenceCount: number;
+  limitationFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '紫微格局汇总只统计当前登记规则的评估覆盖和命中分类；不得按吉格、凶格、中性格或命中数量生成综合吉凶、权重、概率与固定应期';
+};
+
+export type ZiweiPatternLimitationFact = {
+  key: string;
+  type: '传统分类边界' | '规则覆盖边界' | '现实因果边界' | '高风险输出边界';
+  status: '适用';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '紫微格局限制事实用于约束规则命中可以支持的解释范围，不得被反向当作现实因果、人物命运、吉凶概率或保证有效建议的证据';
+};
+
+export type ZiweiPatternAnalysis = {
+  key: 'ziwei:patterns';
+  status: '已计算' | '未命中' | '资料不足' | '未生成';
+  calculationSteps: ZiweiPatternCalculationStep[];
+  calculationChain: string[];
+  counterEvidence: string[];
+  counterEvidenceFacts: ZiweiPatternCounterEvidenceFact[];
+  summaryFact: ZiweiPatternSummaryFact;
+  limitations: string[];
+  limitationFacts: ZiweiPatternLimitationFact[];
+  promptText: string;
+  methodology: { notes: string[] };
+};
+
 export type PatternFact = {
   id: string;
+  stable_key?: string;
+  key?: string;
+  status?: '已命中';
   name: string;
   kind: 'auspicious' | 'inauspicious' | 'neutral';
   description: string;
@@ -210,7 +279,12 @@ export type PatternFact = {
   matched_conditions?: string[];
   traditional_interpretation?: string;
   source?: string;
+  sources?: string[];
   calculation?: string;
+  calculationStepKey?: string;
+  dependsOnStepKeys?: string[];
+  promptText?: string;
+  limitation?: string;
   limitations?: string[];
 };
 

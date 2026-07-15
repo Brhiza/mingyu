@@ -1,7 +1,7 @@
 import type { IztroAstrolabe, IztroHoroscope } from '../../../types/iztro';
 import type { AnalysisPayloadV1, ScopeType } from '../../../types/analysis';
 import { buildEvidenceAnalysis, buildEvidencePool } from '../build-evidence-pool';
-import { detectPatterns } from '../pattern-detection';
+import { buildPatternAnalysis, detectPatterns } from '../pattern-detection';
 import { assertScopeType, getCurrentScopeItem } from './helpers/scope';
 import { buildActiveScope, buildBasicInfo, buildPalaceFacts } from './helpers/builders';
 
@@ -53,6 +53,11 @@ export function buildAnalysisPayloadV1(params: {
         birthTimeLabel: basic_info.birth_time_label,
         birthTimeRange: basic_info.birth_time_range,
       });
+  const pattern_analysis = buildPatternAnalysis({
+    patterns,
+    palaces,
+    skipped: skipAnalysis,
+  });
 
   return {
     payload_version: 'analysis_payload_v1',
@@ -63,5 +68,6 @@ export function buildAnalysisPayloadV1(params: {
     evidence_pool,
     evidence_analysis,
     patterns,
+    pattern_analysis,
   };
 }
