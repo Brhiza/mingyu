@@ -2340,6 +2340,49 @@ test('公开 API 奇门与小六壬应期应返回条件证据，不返回伪精
     ['起因', '过程', '结果'],
   );
   assert.ok(xiaoliuren.body.data.evidenceAnalysis.transitions.length === 2);
+  assert.ok(
+    xiaoliuren.body.data.evidenceAnalysis.stages.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('xiaoliuren:stage:') &&
+        item.status === '已计算' &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        String(item.limitation).includes('不得直接解释为现实起因'),
+    ),
+  );
+  assert.equal(xiaoliuren.body.data.evidenceAnalysis.transitionFacts.length, 2);
+  assert.ok(
+    xiaoliuren.body.data.evidenceAnalysis.transitionFacts.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('xiaoliuren:transition:') &&
+        item.fromStageKey &&
+        item.toStageKey &&
+        Array.isArray(item.sources) &&
+        String(item.limitation).includes('现实事件必然顺利'),
+    ),
+  );
+  assert.equal(
+    xiaoliuren.body.data.evidenceAnalysis.counterSummaryFact.factKeys.length,
+    xiaoliuren.body.data.evidenceAnalysis.counterEvidenceFacts.length,
+  );
+  assert.equal(
+    xiaoliuren.body.data.evidenceAnalysis.timingSummaryFact.basisFactKeys.length,
+    xiaoliuren.body.data.evidenceAnalysis.timingBasisFacts.length,
+  );
+  assert.equal(
+    xiaoliuren.body.data.evidenceAnalysis.timingSummaryFact.triggerFactKeys.length,
+    xiaoliuren.body.data.evidenceAnalysis.triggerConditionFacts.length,
+  );
+  assert.ok(
+    xiaoliuren.body.data.evidenceAnalysis.triggerConditionFacts.every(
+      (item: Record<string, unknown>) =>
+        String(item.key).startsWith('xiaoliuren:trigger:') &&
+        item.promptText &&
+        Array.isArray(item.sources) &&
+        String(item.limitation).includes('不得由宫数'),
+    ),
+  );
+  assertPromptIsPortableTaskText(xiaoliuren.body.data.evidenceAnalysis.promptText);
   assert.equal(xiaoliuren.body.data.evidenceAnalysis.calculationFact.status, '完整');
   assert.equal(xiaoliuren.body.data.evidenceAnalysis.calculationFact.steps.length, 3);
   assert.ok(
@@ -2365,6 +2408,7 @@ test('公开 API 奇门与小六壬应期应返回条件证据，不返回伪精
   assert.ok(
     xiaoliurenFacts.every(
       (item) =>
+        (item as Record<string, unknown>).status === '已映射' &&
         item.originalText &&
         item.promptText &&
         item.sources.length > 0 &&

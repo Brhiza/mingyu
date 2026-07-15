@@ -6,6 +6,7 @@ import {
   conditionXiaoliurenTraditionalText,
   generateXiaoliuren,
 } from '../packages/core/src/divination/algorithms/xiaoliuren.ts';
+import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const SAMPLE_DATE = new Date('2025-01-01T08:00:00+08:00');
 
@@ -75,6 +76,28 @@ test('小六壬：起课基数、逐宫顺数和六宫归一结果应进入结�
   assert.ok(evidence?.calculationFacts.some((item) => item.includes('起课基数取用户数字5')));
   assert.ok(evidence?.calculationFacts.some((item) => item.includes('减1后按6取余')));
   assert.ok(evidence?.evidence.items.some((item) => item.title === '起课输入与逐宫顺数'));
+  assert.ok(
+    evidence?.stages.every(
+      (item) =>
+        item.key.startsWith('xiaoliuren:stage:') &&
+        item.status === '已计算' &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不得直接解释为现实起因'),
+    ),
+  );
+  assert.equal(evidence?.transitionFacts.length, 2);
+  assert.ok(
+    evidence?.transitionFacts.every(
+      (item) =>
+        item.key.startsWith('xiaoliuren:transition:') &&
+        evidence.stages.some((stage) => stage.key === item.fromStageKey) &&
+        evidence.stages.some((stage) => stage.key === item.toStageKey) &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('现实事件必然顺利'),
+    ),
+  );
   assert.doesNotMatch(
     JSON.stringify(evidence?.evidence),
     /"score"\s*:|成功率[：=]?\s*\d|吉凶总分[：=]?\s*\d/,
@@ -121,6 +144,38 @@ test('小六壬：应期只给盘内节奏、触发条件和限制，不机械�
   assert.ok(result.timingEvidence);
   assert.ok(result.timingEvidence.primaryBasis.length >= 3);
   assert.deepEqual(result.evidenceAnalysis?.timingBasis, result.timingEvidence.primaryBasis);
+  assert.equal(
+    result.evidenceAnalysis?.timingSummaryFact.basisFactKeys.length,
+    result.evidenceAnalysis?.timingBasisFacts.length,
+  );
+  assert.equal(
+    result.evidenceAnalysis?.timingSummaryFact.triggerFactKeys.length,
+    result.evidenceAnalysis?.triggerConditionFacts.length,
+  );
+  assert.ok(
+    result.evidenceAnalysis?.timingBasisFacts.every(
+      (item) =>
+        item.key.startsWith('xiaoliuren:timing-basis:') &&
+        item.ownerFactKeys.length > 0 &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不得把宫名'),
+    ),
+  );
+  assert.ok(
+    result.evidenceAnalysis?.triggerConditionFacts.every(
+      (item) =>
+        item.key.startsWith('xiaoliuren:trigger:') &&
+        item.ownerFactKeys.length > 0 &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不得由宫数'),
+    ),
+  );
+  assert.equal(
+    result.evidenceAnalysis?.counterSummaryFact.factKeys.length,
+    result.evidenceAnalysis?.counterEvidenceFacts.length,
+  );
   assert.match(result.evidenceAnalysis?.promptText ?? '', /盘内节奏依据/);
   assert.match(result.evidenceAnalysis?.promptText ?? '', /传统辅证.*方位.*神煞/);
   assert.ok(result.timingEvidence.triggerConditions.length > 0);
@@ -176,6 +231,7 @@ test('小六壬：六宫传统资料应保留原文并生成条件化事实', ()
   assert.ok(
     facts.every(
       (item) =>
+        item.status === '已映射' &&
         item.originalText &&
         item.promptText &&
         item.sources.length > 0 &&
@@ -223,4 +279,31 @@ test('小六壬：旧数据缺少证据分析时应重新生成安全传统事�
   assert.match(evidence.calculationFact.promptText, /未附逐宫顺数中间参数/);
   assert.ok(evidence.traditionalFacts.length > 0);
   assert.doesNotMatch(evidence.promptText, /事情整体可成|白忙一场|凶（大凶）/);
+
+  data.timingEvidence = undefined;
+  const rebuiltWithoutTiming = analyzeXiaoliurenEvidence(data);
+  assert.equal(rebuiltWithoutTiming.timingBasisFacts.length, 3);
+  assert.ok(
+    rebuiltWithoutTiming.timingBasisFacts.every((item) => item.sourceStatus === '由盘面补齐'),
+  );
+  assert.ok(rebuiltWithoutTiming.triggerConditionFacts.some((item) => item.type === '期限边界'));
+});
+
+test('小六壬三种起课入口都应生成完整可移植的对象化证据', () => {
+  const results = [
+    generateXiaoliuren({ method: 'time', customDate: SAMPLE_DATE }),
+    generateXiaoliuren({ method: 'number', number: 18, customDate: SAMPLE_DATE }),
+    generateXiaoliuren({ method: 'random', seed: '三种入口核验', customDate: SAMPLE_DATE }),
+  ];
+
+  for (const result of results) {
+    const evidence = result.evidenceAnalysis;
+    assert.ok(evidence);
+    assert.equal(evidence.calculationFact.status, '完整');
+    assert.equal(evidence.stages.length, 3);
+    assert.equal(evidence.transitionFacts.length, 2);
+    assert.equal(evidence.timingSummaryFact.status, '已提供节奏与触发条件');
+    assert.equal(evidence.counterSummaryFact.factKeys.length, evidence.counterEvidenceFacts.length);
+    assertPromptIsPortableTaskText(evidence.promptText);
+  }
 });

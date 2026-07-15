@@ -32,7 +32,17 @@ export {
   analyzeXiaoliurenEvidence,
   conditionXiaoliurenTraditionalText,
 } from '../xiaoliuren-evidence';
-export type { XiaoliurenEvidenceAnalysis, XiaoliurenTraditionalFact } from '../xiaoliuren-evidence';
+export type {
+  XiaoliurenCounterEvidenceFact,
+  XiaoliurenCounterSummaryFact,
+  XiaoliurenEvidenceAnalysis,
+  XiaoliurenStageEvidence,
+  XiaoliurenTimingBasisFact,
+  XiaoliurenTimingSummaryFact,
+  XiaoliurenTraditionalFact,
+  XiaoliurenTransitionFact,
+  XiaoliurenTriggerConditionFact,
+} from '../xiaoliuren-evidence';
 
 const XIAOLIUREN_PALACES = [
   {

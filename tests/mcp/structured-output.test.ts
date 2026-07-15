@@ -1760,9 +1760,38 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
       chart.structuredContent as {
         result: {
           evidenceAnalysis: {
-            stages: Array<{ stage: string }>;
+            stages: Array<{
+              key: string;
+              status: string;
+              stage: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
             transitions: string[];
+            transitionFacts: Array<{
+              key: string;
+              fromStageKey: string;
+              toStageKey: string;
+              sources: string[];
+              limitation: string;
+            }>;
             counterEvidence: string[];
+            counterEvidenceFacts: Array<{ key: string; status: string; limitation: string }>;
+            counterSummaryFact: { factKeys: string[] };
+            timingBasisFacts: Array<{
+              key: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            triggerConditionFacts: Array<{
+              key: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            timingSummaryFact: { basisFactKeys: string[]; triggerFactKeys: string[] };
             calculationFact: {
               status: string;
               steps: Array<{
@@ -1791,6 +1820,48 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
       ['起因', '过程', '结果'],
     );
     assert.equal(result.evidenceAnalysis.transitions.length, 2);
+    assert.ok(
+      result.evidenceAnalysis.stages.every(
+        (item) =>
+          item.key.startsWith('xiaoliuren:stage:') &&
+          item.status === '已计算' &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得直接解释为现实起因'),
+      ),
+    );
+    assert.equal(result.evidenceAnalysis.transitionFacts.length, 2);
+    assert.ok(
+      result.evidenceAnalysis.transitionFacts.every(
+        (item) =>
+          item.key.startsWith('xiaoliuren:transition:') &&
+          item.fromStageKey &&
+          item.toStageKey &&
+          item.sources.length > 0 &&
+          item.limitation.includes('现实事件必然顺利'),
+      ),
+    );
+    assert.equal(
+      result.evidenceAnalysis.counterSummaryFact.factKeys.length,
+      result.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      result.evidenceAnalysis.timingSummaryFact.basisFactKeys.length,
+      result.evidenceAnalysis.timingBasisFacts.length,
+    );
+    assert.equal(
+      result.evidenceAnalysis.timingSummaryFact.triggerFactKeys.length,
+      result.evidenceAnalysis.triggerConditionFacts.length,
+    );
+    assert.ok(
+      result.evidenceAnalysis.triggerConditionFacts.every(
+        (item) =>
+          item.key.startsWith('xiaoliuren:trigger:') &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得由宫数'),
+      ),
+    );
     assert.equal(result.evidenceAnalysis.calculationFact.status, '完整');
     assert.equal(result.evidenceAnalysis.calculationFact.steps.length, 3);
     assert.ok(
@@ -1810,6 +1881,7 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
     assert.ok(
       result.evidenceAnalysis.traditionalFacts.every(
         (item) =>
+          (item as Record<string, unknown>).status === '已映射' &&
           item.originalText &&
           item.promptText &&
           item.sources.length > 0 &&
