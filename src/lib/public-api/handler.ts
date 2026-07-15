@@ -1978,9 +1978,15 @@ async function buildZiweiCompatibilityPromptApi(input: JsonRecord) {
     prompt,
     fullResult,
     resultSummary: {
+      key: compatibility.key,
+      status: compatibility.status,
       people: compatibility.people,
+      calculationSteps: compatibility.calculationSteps,
       palaceOverlays: compatibility.palaceOverlays,
       crossMutagenPlacements: compatibility.crossMutagenPlacements,
+      counterEvidenceFacts: compatibility.counterEvidenceFacts,
+      summaryFact: compatibility.summaryFact,
+      limitationFacts: compatibility.limitationFacts,
       evidence: compatibility.evidence,
     },
   });

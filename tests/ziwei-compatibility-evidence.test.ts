@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { analyzeZiweiCompatibility } from '../packages/core/src/ziwei/iztro/compatibility-evidence';
+import { assertPromptIsPortableTaskText } from './prompt-assertions';
 import type {
   AnalysisPayloadV1,
   MutagenName,
@@ -99,13 +100,49 @@ test('紫微双盘应按地支映射双方关键宫位', () => {
   );
 
   assert.ok(overlay);
+  assert.equal(result.key, 'ziwei:compatibility:evidence');
+  assert.equal(result.status, '已计算');
+  assert.equal(result.calculationSteps.length, 6);
+  assert.ok(
+    result.calculationSteps.every((step) =>
+      step.dependsOnStepKeys.every((key) =>
+        result.calculationSteps.some((candidate) => candidate.key === key),
+      ),
+    ),
+  );
   assert.match(overlay.key, /^宫位叠盘:person1:/);
+  assert.equal(overlay.status, '已命中');
+  assert.ok(overlay.sourcePalaceKey && overlay.targetPalaceKey);
+  assert.ok(result.calculationSteps.some((step) => step.key === overlay.calculationStepKey));
   assert.equal(overlay.earthlyBranch, '子');
   assert.equal(overlay.targetPalace, '福德（身宫同宫）');
   assert.ok(overlay.sources.length >= 2);
   assert.match(overlay.calculation, /按相同地支定位/);
   assert.match(overlay.promptText, /同处子支轴位/);
   assert.match(overlay.limitation, /不单独证明关系吉凶/);
+  assert.equal(result.summaryFact.palaceOverlayCount, result.palaceOverlays.length);
+  assert.equal(
+    result.summaryFact.importantPalaceOverlayCount,
+    result.palaceOverlays.filter(
+      (item) =>
+        item.sourcePalace.includes('命宫') ||
+        item.sourcePalace.includes('身宫') ||
+        item.sourcePalace.includes('夫妻'),
+    ).length,
+  );
+  const factKeys = new Set([
+    result.summaryFact.key,
+    ...result.palaceOverlays.map((item) => item.key),
+    ...result.crossMutagenPlacements.map((item) => item.key),
+  ]);
+  assert.ok(
+    result.counterEvidenceFacts.every((item) =>
+      item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    result.limitationFacts.every((item) => item.ownerFactKeys.every((key) => factKeys.has(key))),
+  );
 });
 
 test('紫微双盘应生成生年四化来源到对方落宫链路', () => {
@@ -116,6 +153,9 @@ test('紫微双盘应生成生年四化来源到对方落宫链路', () => {
 
   assert.ok(placement);
   assert.match(placement.key, /^跨盘四化:person1:紫微:化禄:/);
+  assert.equal(placement.status, '已命中');
+  assert.ok(placement.sourcePalaceKey && placement.targetPalaceKey);
+  assert.ok(result.calculationSteps.some((step) => step.key === placement.calculationStepKey));
   assert.equal(placement.mutagen, '禄');
   assert.equal(placement.sourcePalace, '命宫');
   assert.equal(placement.targetPalace, '命宫');
@@ -123,6 +163,8 @@ test('紫微双盘应生成生年四化来源到对方落宫链路', () => {
   assert.match(placement.calculation, /同名紫微/);
   assert.match(placement.promptText, /生年化禄/);
   assert.match(placement.limitation, /不直接等于关系吉凶/);
+  assert.equal(result.summaryFact.crossMutagenPlacementCount, result.crossMutagenPlacements.length);
+  assert.ok(result.summaryFact.mutagenCounts.禄);
 });
 
 test('紫微双盘提示词应包含主证、限制且不输出匹配总分', () => {
@@ -135,10 +177,48 @@ test('紫微双盘提示词应包含主证、限制且不输出匹配总分', ()
   assert.match(result.promptText, /甲方.*乙方/);
   assert.match(result.promptText, /【主证】/);
   assert.match(result.promptText, /【限制】紫微双盘证据边界/);
+  assert.match(result.promptText, /【应期】静态双盘应期边界/);
   assert.match(result.promptText, /同处.*支轴位.*边界：宫位叠盘只证明/);
   assert.match(result.promptText, /生年化[禄忌].*边界：跨盘四化只证明/);
   assert.match(result.promptText, /不输出匹配总分/);
+  assert.match(result.promptText, /计算链概览/);
+  assert.match(result.promptText, /证据汇总/);
+  assert.equal(result.counterEvidenceFacts.length, 5);
+  assert.ok(result.counterEvidenceFacts.some((item) => item.type === '静态应期边界'));
+  assert.ok(result.limitationFacts.some((item) => item.type === '四化语义边界'));
+  assert.ok(result.promptText.length < 10000);
+  assert.doesNotMatch(
+    result.promptText,
+    /analysis_payload_v1|命语|本项目|项目统一|工程|接口|API|MCP|ziwei:compatibility:/,
+  );
+  assertPromptIsPortableTaskText(result.promptText);
   assert.doesNotMatch(result.promptText, /匹配(?:分数|率|百分比)/);
+});
+
+test('紫微双盘没有生年四化定位时应保留未命中反证', () => {
+  const first = createPayload(0, '禄');
+  const second = createPayload(2, '忌');
+  [...first.palaces, ...second.palaces].forEach((palace) => {
+    [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars].forEach((star) => {
+      star.birth_mutagen = undefined;
+    });
+  });
+
+  const result = analyzeZiweiCompatibility(first, second);
+
+  assert.equal(result.crossMutagenPlacements.length, 0);
+  assert.equal(result.summaryFact.status, '仅见宫位叠盘');
+  assert.deepEqual(result.summaryFact.uncoveredMutagenDirections, [
+    'person1-to-person2',
+    'person2-to-person1',
+  ]);
+  assert.equal(
+    result.counterEvidenceFacts.filter(
+      (item) => item.type === '跨盘四化覆盖' && item.status === '未命中',
+    ).length,
+    2,
+  );
+  assert.match(result.promptText, /未形成可定位的跨盘生年四化事实/);
 });
 
 test('紫微双盘应拒绝缺少完整十二宫的资料', () => {

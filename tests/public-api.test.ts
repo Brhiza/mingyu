@@ -1214,11 +1214,16 @@ test('公开 API 紫微双盘返回宫位叠盘、四化证据并保留双方称
     person1: '甲方',
     person2: '乙方',
   });
-  assert.ok(calculation.body.data.compatibility.palaceOverlays.length > 0);
+  const compatibility = calculation.body.data.compatibility;
+  assert.equal(compatibility.key, 'ziwei:compatibility:evidence');
+  assert.equal(compatibility.status, '已计算');
+  assert.equal(compatibility.calculationSteps.length, 6);
+  assert.ok(compatibility.palaceOverlays.length > 0);
   assert.ok(
-    calculation.body.data.compatibility.palaceOverlays.every(
+    compatibility.palaceOverlays.every(
       (item: Record<string, unknown>) =>
         String(item.key).startsWith('宫位叠盘:') &&
+        item.status === '已命中' &&
         Array.isArray(item.sources) &&
         item.sources.length >= 2 &&
         String(item.calculation).length > 0 &&
@@ -1226,16 +1231,31 @@ test('公开 API 紫微双盘返回宫位叠盘、四化证据并保留双方称
     ),
   );
   assert.ok(
-    calculation.body.data.compatibility.crossMutagenPlacements.every(
+    compatibility.crossMutagenPlacements.every(
       (item: Record<string, unknown>) =>
         String(item.key).startsWith('跨盘四化:') &&
+        item.status === '已命中' &&
         Array.isArray(item.sources) &&
         item.sources.length >= 2 &&
         String(item.promptText).length > 0 &&
         String(item.limitation).includes('不直接等于关系吉凶'),
     ),
   );
-  assert.ok(calculation.body.data.compatibility.evidence.items.length > 0);
+  assert.equal(compatibility.summaryFact.palaceOverlayCount, compatibility.palaceOverlays.length);
+  assert.equal(
+    compatibility.summaryFact.crossMutagenPlacementCount,
+    compatibility.crossMutagenPlacements.length,
+  );
+  assert.equal(compatibility.counterEvidenceFacts.length, 5);
+  assert.ok(
+    compatibility.limitationFacts.some((item: { type: string }) => item.type === '高风险输出边界'),
+  );
+  assert.ok(compatibility.evidence.items.length > 0);
+  assert.doesNotMatch(
+    compatibility.promptText,
+    /analysis_payload_v1|命语|本项目|项目统一|工程|接口|API|MCP|ziwei:compatibility:/,
+  );
+  assertPromptIsPortableTaskText(compatibility.promptText);
   assert.equal(calculation.body.data.charts.person1.scopeNames[0], 'origin');
 
   const prompted = await callApi('ziwei/compatibility/prompt', {
@@ -1252,6 +1272,8 @@ test('公开 API 紫微双盘返回宫位叠盘、四化证据并保留双方称
   assert.equal(prompted.response.status, 200);
   assert.equal(prompted.body.data.result, undefined);
   assert.equal(prompted.body.data.resultSummary.people.person1, '甲方');
+  assert.equal(prompted.body.data.resultSummary.key, 'ziwei:compatibility:evidence');
+  assert.equal(prompted.body.data.resultSummary.summaryFact.palaceOverlayCount > 0, true);
   assert.match(prompted.body.data.prompt, /【甲方盘面】/);
   assert.match(prompted.body.data.prompt, /【紫微双盘结构化证据】/);
   assert.match(prompted.body.data.prompt, /同处.*支轴位.*边界：宫位叠盘只证明/s);

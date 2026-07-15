@@ -631,23 +631,44 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         const compatibility = (
           result.structuredContent as {
             compatibility?: {
+              key?: string;
+              status?: string;
+              calculationSteps?: Array<{ key: string; dependsOnStepKeys: string[] }>;
               palaceOverlays?: Array<{
                 key: string;
+                status?: string;
+                calculationStepKey?: string;
                 sources: string[];
                 limitation: string;
               }>;
               crossMutagenPlacements?: Array<{
                 key: string;
+                status?: string;
+                calculationStepKey?: string;
                 sources: string[];
                 limitation: string;
               }>;
+              counterEvidenceFacts?: unknown[];
+              summaryFact?: {
+                palaceOverlayCount?: number;
+                crossMutagenPlacementCount?: number;
+              };
+              limitationFacts?: Array<{ type?: string }>;
+              promptText?: string;
             };
           }
         ).compatibility;
+        assert.equal(compatibility?.key, 'ziwei:compatibility:evidence');
+        assert.equal(compatibility?.status, '已计算');
+        assert.equal(compatibility?.calculationSteps?.length, 6);
         assert.ok(
           compatibility?.palaceOverlays?.every(
             (item) =>
               item.key.startsWith('宫位叠盘:') &&
+              item.status === '已命中' &&
+              compatibility.calculationSteps?.some(
+                (step) => step.key === item.calculationStepKey,
+              ) &&
               item.sources.length >= 2 &&
               item.limitation.includes('不单独证明关系吉凶'),
           ),
@@ -656,10 +677,29 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
           compatibility?.crossMutagenPlacements?.every(
             (item) =>
               item.key.startsWith('跨盘四化:') &&
+              item.status === '已命中' &&
+              compatibility.calculationSteps?.some(
+                (step) => step.key === item.calculationStepKey,
+              ) &&
               item.sources.length >= 2 &&
               item.limitation.includes('不直接等于关系吉凶'),
           ),
         );
+        assert.equal(
+          compatibility?.summaryFact?.palaceOverlayCount,
+          compatibility?.palaceOverlays?.length,
+        );
+        assert.equal(
+          compatibility?.summaryFact?.crossMutagenPlacementCount,
+          compatibility?.crossMutagenPlacements?.length,
+        );
+        assert.equal(compatibility?.counterEvidenceFacts?.length, 5);
+        assert.ok(compatibility?.limitationFacts?.some((item) => item.type === '高风险输出边界'));
+        assert.doesNotMatch(
+          compatibility?.promptText ?? '',
+          /analysis_payload_v1|命语|本项目|项目统一|工程|接口|API|MCP|ziwei:compatibility:/,
+        );
+        assertPromptIsPortableTaskText(compatibility?.promptText ?? '');
       }
 
       const text = result.content[0]?.type === 'text' ? result.content[0].text : '';

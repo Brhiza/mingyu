@@ -38,8 +38,12 @@ export {
 } from '../true-solar-input';
 export { analyzeZiweiCompatibility } from './compatibility-evidence';
 export type {
+  ZiweiCompatibilityCalculationStep,
+  ZiweiCompatibilityCounterEvidenceFact,
   ZiweiCompatibilityEvidenceResult,
+  ZiweiCompatibilityLimitationFact,
   ZiweiCompatibilityOptions,
+  ZiweiCompatibilitySummaryFact,
   ZiweiCrossMutagenPlacement,
   ZiweiPalaceOverlay,
 } from './compatibility-evidence';
