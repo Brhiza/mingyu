@@ -474,19 +474,48 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
               evidenceAnalysis?: {
                 calculationFact?: {
                   status: string;
-                  steps: Array<{ key: string; promptText: string; sources: string[] }>;
+                  steps: Array<{
+                    key: string;
+                    dependsOnStepKeys: string[];
+                    promptText: string;
+                    sources: string[];
+                    limitation: string;
+                  }>;
                 };
                 measurementFact?: {
                   status: string;
                   referenceStatus: string;
-                  candidates: Array<{ key: string; limitation: string }>;
+                  candidateFactKeys: string[];
+                  candidates: Array<{
+                    key: string;
+                    status: string;
+                    measurementFactKey: string;
+                    calculationStepKeys: string[];
+                    limitation: string;
+                  }>;
                 };
                 directionFacts?: Array<{
                   key: string;
+                  status: string;
+                  calculationStepKeys: string[];
                   sources: string[];
                   calculation: string;
                   limitation: string;
                 }>;
+                counterEvidenceFacts?: Array<{
+                  type: string;
+                  status: string;
+                  ownerFactKeys: string[];
+                }>;
+                counterSummaryFact?: { status: string; factKeys: string[] };
+                limitations?: string[];
+                limitationFacts?: Array<{
+                  key: string;
+                  status: string;
+                  ownerFactKeys: string[];
+                  sources: string[];
+                }>;
+                promptText?: string;
               };
             };
           }
@@ -495,7 +524,12 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         assert.equal(chart?.evidenceAnalysis?.calculationFact?.steps.length, 5);
         assert.ok(
           chart?.evidenceAnalysis?.calculationFact?.steps.every(
-            (item) => item.key && item.promptText && item.sources.length > 0,
+            (item) =>
+              item.key &&
+              Array.isArray(item.dependsOnStepKeys) &&
+              item.promptText &&
+              item.sources.length > 0 &&
+              item.limitation.includes('不得把步骤完整度解释为住宅适用度'),
           ),
         );
         assert.equal(chart?.evidenceAnalysis?.measurementFact?.status, '稳定');
@@ -504,19 +538,47 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
           chart?.evidenceAnalysis?.measurementFact?.candidates.every(
             (item) =>
               item.key.startsWith('measurement:bazhai:candidate:') &&
+              item.status === '候选' &&
+              item.measurementFactKey === 'measurement:bazhai:door' &&
+              item.calculationStepKeys.includes('bazhai:calculation:house-gua') &&
               item.limitation.includes('不代表现场真实坐向'),
           ),
         );
+        assert.equal(chart?.evidenceAnalysis?.measurementFact?.candidateFactKeys.length, 1);
         assert.equal(chart?.evidenceAnalysis?.directionFacts?.length, 8);
         assert.ok(
           chart?.evidenceAnalysis?.directionFacts?.every(
             (item) =>
               item.key.startsWith('方位:') &&
+              item.status === '已计算' &&
+              item.calculationStepKeys.length > 0 &&
               item.sources.length >= 2 &&
               item.calculation.includes('查大游年表') &&
               item.limitation.includes('不证明房间适用性'),
           ),
         );
+        assert.equal(chart?.evidenceAnalysis?.counterEvidenceFacts?.length, 6);
+        assert.equal(
+          chart?.evidenceAnalysis?.counterEvidenceFacts?.find((item) => item.type === '命卦年界')
+            ?.status,
+          '待复核',
+        );
+        assert.equal(
+          chart?.evidenceAnalysis?.counterEvidenceFacts?.find((item) => item.type === '北向基准')
+            ?.status,
+          '未声明',
+        );
+        assert.equal(chart?.evidenceAnalysis?.counterSummaryFact?.status, '存在需保留反证');
+        assert.equal(chart?.evidenceAnalysis?.limitationFacts?.length, 6);
+        assert.equal(
+          chart?.evidenceAnalysis?.limitations?.length,
+          chart?.evidenceAnalysis?.limitationFacts?.length,
+        );
+        assert.doesNotMatch(
+          chart?.evidenceAnalysis?.promptText ?? '',
+          /命语|本项目|项目统一|调用方|当前调用|工程|接口|API|MCP/,
+        );
+        assertPromptIsPortableTaskText(chart?.evidenceAnalysis?.promptText ?? '');
       }
       if (name === 'ziwei_compatibility') {
         const compatibility = (

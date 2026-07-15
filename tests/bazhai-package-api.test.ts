@@ -25,12 +25,24 @@ test('mingyu-core/bazhai 应公开入户度数便捷接口和完整类型结果'
   assert.ok(
     result.evidenceAnalysis.directionFacts.every(
       (item) =>
+        item.status === '已计算' &&
+        item.calculationStepKeys.length > 0 &&
         item.sources.length >= 2 &&
         item.calculation.includes('查大游年表') &&
         item.limitation.includes('不证明房间适用性'),
     ),
   );
   assert.match(result.evidenceAnalysis.promptText, /测量误差±0°/);
+  assert.equal(result.evidenceAnalysis.counterSummaryFact.status, '存在需保留反证');
+  assert.equal(
+    result.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '命卦年界')?.status,
+    '已核定',
+  );
+  assert.equal(
+    result.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '北向基准')?.status,
+    '未声明',
+  );
+  assert.equal(result.evidenceAnalysis.limitationFacts.length, 6);
   assert.ok(result.housePalace);
   assert.equal(result.housePalace?.length, 8);
 });
@@ -81,6 +93,18 @@ test('八宅测量应换算磁北并识别跨宅卦边界的不稳定候选', ()
       item.includes('中心读数不能作为唯一宅卦主证'),
     ),
   );
+  assert.equal(
+    result.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '山向边界稳定性')
+      ?.status,
+    '边界敏感',
+  );
+  assert.equal(
+    result.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '宅卦边界稳定性')
+      ?.status,
+    '不稳定',
+  );
+  assert.equal(result.evidenceAnalysis.counterSummaryFact.status, '存在需保留反证');
+  assert.ok(result.evidenceAnalysis.counterSummaryFact.factKeys.length >= 2);
 });
 
 test('八宅磁北读数缺少磁偏角时应拒绝生成伪精确坐向', () => {

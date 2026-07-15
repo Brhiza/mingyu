@@ -3460,6 +3460,13 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
   assert.equal(body.data.result.evidenceAnalysis.evidence.title, '八宅命宅方位与测量结构化证据');
   assert.equal(body.data.result.evidenceAnalysis.calculationFact.status, '命宅完整');
   assert.equal(body.data.result.evidenceAnalysis.calculationFact.steps.length, 5);
+  assert.ok(
+    body.data.result.evidenceAnalysis.calculationFact.steps.every(
+      (item: Record<string, unknown>) =>
+        Array.isArray(item.dependsOnStepKeys) &&
+        String(item.limitation).includes('不得把步骤完整度解释为住宅适用度'),
+    ),
+  );
   assert.equal(body.data.result.evidenceAnalysis.measurementFact.status, '宅卦不稳定');
   assert.equal(body.data.result.evidenceAnalysis.measurementFact.referenceStatus, '已声明');
   assert.equal(body.data.result.calculationInput.sitMountain, '寅');
@@ -3468,6 +3475,9 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
     body.data.result.evidenceAnalysis.measurementCandidateFacts.every(
       (item: Record<string, unknown>) =>
         String(item.key).startsWith('measurement:bazhai:candidate:') &&
+        item.status === '候选' &&
+        item.measurementFactKey === 'measurement:bazhai:door' &&
+        Array.isArray(item.calculationStepKeys) &&
         item.promptText &&
         Array.isArray(item.sources) &&
         item.sources.length >= 2 &&
@@ -3479,12 +3489,45 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
     body.data.result.evidenceAnalysis.directionFacts.every(
       (item: Record<string, unknown>) =>
         item.key &&
+        item.status === '已计算' &&
+        Array.isArray(item.calculationStepKeys) &&
+        item.calculationStepKeys.length > 0 &&
         Array.isArray(item.sources) &&
         item.sources.length >= 2 &&
         String(item.calculation).includes('查大游年表') &&
         String(item.limitation).includes('不证明房间适用性'),
     ),
   );
+  assert.equal(body.data.result.evidenceAnalysis.counterEvidenceFacts.length, 6);
+  assert.equal(
+    body.data.result.evidenceAnalysis.counterEvidenceFacts.find(
+      (item: { type: string }) => item.type === '命卦年界',
+    ).status,
+    '待复核',
+  );
+  assert.equal(
+    body.data.result.evidenceAnalysis.counterEvidenceFacts.find(
+      (item: { type: string }) => item.type === '宅卦边界稳定性',
+    ).status,
+    '不稳定',
+  );
+  assert.equal(
+    body.data.result.evidenceAnalysis.counterEvidenceFacts.find(
+      (item: { type: string }) => item.type === '北向基准',
+    ).status,
+    '已覆盖',
+  );
+  assert.equal(body.data.result.evidenceAnalysis.counterSummaryFact.status, '存在需保留反证');
+  assert.equal(body.data.result.evidenceAnalysis.limitationFacts.length, 6);
+  assert.equal(
+    body.data.result.evidenceAnalysis.limitations.length,
+    body.data.result.evidenceAnalysis.limitationFacts.length,
+  );
+  assert.doesNotMatch(
+    body.data.result.evidenceAnalysis.promptText,
+    /命语|本项目|项目统一|调用方|当前调用|工程|接口|API|MCP/,
+  );
+  assertPromptIsPortableTaskText(body.data.result.evidenceAnalysis.promptText);
   assert.match(body.data.prompt, /【八宅命宅方位与测量结构化证据】/);
   assert.match(body.data.prompt, /中心\d+°.*传统[吉凶]方分类/);
   assert.match(body.data.prompt, /中心读数不能作为唯一宅卦主证/);

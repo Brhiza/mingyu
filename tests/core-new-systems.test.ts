@@ -114,7 +114,12 @@ test('bazhai: 命宅配合', () => {
   assert.equal(r.evidenceAnalysis.calculationFact.steps.length, 5);
   assert.ok(
     r.evidenceAnalysis.calculationFact.steps.every(
-      (item) => item.key && item.promptText && item.sources.length > 0,
+      (item) =>
+        item.key &&
+        Array.isArray(item.dependsOnStepKeys) &&
+        item.promptText &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不得把步骤完整度解释为住宅适用度'),
     ),
   );
   assert.equal(r.evidenceAnalysis.measurementFact.status, '未提供');
@@ -125,13 +130,44 @@ test('bazhai: 命宅配合', () => {
     r.evidenceAnalysis.directionFacts.every(
       (item) =>
         item.key === `方位:${item.gua}` &&
+        item.status === '已计算' &&
+        item.calculationStepKeys.length > 0 &&
         item.sources.length >= 2 &&
         item.calculation.includes('查大游年表') &&
         item.promptText.includes('传统') &&
         item.limitation.includes('不证明房间适用性'),
     ),
   );
+  assert.deepEqual(
+    r.evidenceAnalysis.counterEvidenceFacts.map((item) => [item.type, item.status]),
+    [
+      ['命卦年界', '待复核'],
+      ['宅卦资料覆盖', '已覆盖'],
+      ['命宅逐方一致性', '已覆盖'],
+      ['山向边界稳定性', '不适用'],
+      ['宅卦边界稳定性', '不适用'],
+      ['北向基准', '不适用'],
+    ],
+  );
+  assert.equal(r.evidenceAnalysis.counterSummaryFact.status, '存在需保留反证');
+  assert.equal(r.evidenceAnalysis.counterSummaryFact.factKeys.length, 1);
+  assert.equal(r.evidenceAnalysis.limitationFacts.length, 6);
+  assert.equal(r.evidenceAnalysis.limitations.length, r.evidenceAnalysis.limitationFacts.length);
+  assert.ok(
+    r.evidenceAnalysis.limitationFacts.every(
+      (item) =>
+        item.key.startsWith('bazhai:limitation:') &&
+        item.status === '适用' &&
+        item.ownerFactKeys.length > 0 &&
+        item.sources.length > 0,
+    ),
+  );
   assert.match(r.evidenceAnalysis.promptText, /北（坎宫，中心0°）.*逐方关系为同为吉方/);
+  assert.doesNotMatch(
+    r.evidenceAnalysis.promptText,
+    /命语|本项目|项目统一|调用方|当前调用|工程|接口|API|MCP/,
+  );
+  assertPromptIsPortableTaskText(r.evidenceAnalysis.promptText);
   assert.match(r.prompt, /【八宅命宅方位与测量结构化证据】/);
 });
 
@@ -163,11 +199,24 @@ test('bazhai: 从大门面向屋内的度数可直接生成传统坐向与完整
     r.evidenceAnalysis.measurementCandidateFacts.every(
       (item) =>
         item.key.startsWith('measurement:bazhai:candidate:') &&
+        item.status === '候选' &&
+        item.measurementFactKey === 'measurement:bazhai:door' &&
+        item.calculationStepKeys.includes('bazhai:calculation:house-gua') &&
         item.promptText &&
         item.sources.length >= 2 &&
         item.limitation.includes('不代表现场真实坐向'),
     ),
   );
+  assert.equal(r.evidenceAnalysis.measurementFact.candidateFactKeys.length, 1);
+  assert.equal(
+    r.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '命卦年界')?.status,
+    '已核定',
+  );
+  assert.equal(
+    r.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '北向基准')?.status,
+    '未声明',
+  );
+  assert.equal(r.evidenceAnalysis.counterSummaryFact.status, '存在需保留反证');
 });
 
 test('bazhai: 入户度数便捷入口应拒绝越界、非有限值与二十四山分界线', () => {
@@ -213,6 +262,15 @@ test('bazhai: 完整出生日期应按立春边界调整命卦年份', () => {
   assert.equal(direct.calculationInput.directMingGua, '坎');
   assert.equal(direct.evidenceAnalysis.calculationFact.yearBoundaryStatus, '直接命卦');
   assert.equal(direct.evidenceAnalysis.calculationFact.status, '命卦完整');
+  assert.equal(
+    direct.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '命卦年界')?.status,
+    '直接给定',
+  );
+  assert.equal(
+    direct.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '宅卦资料覆盖')
+      ?.status,
+    '未提供',
+  );
 });
 
 test('zodiac: 犯太岁与流年运程', () => {

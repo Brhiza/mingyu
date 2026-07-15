@@ -22,9 +22,12 @@ export { analyzeBaZhaiEvidence } from './evidence';
 export type {
   BaZhaiCalculationFact,
   BaZhaiCalculationStep,
+  BaZhaiCounterEvidenceFact,
+  BaZhaiCounterSummaryFact,
   BaZhaiDirectionComparison,
   BaZhaiDirectionFact,
   BaZhaiEvidenceAnalysis,
+  BaZhaiLimitationFact,
   BaZhaiMeasurementCandidateFact,
   BaZhaiMeasurementFact,
 } from './evidence';
