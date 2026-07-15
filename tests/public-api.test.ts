@@ -2001,6 +2001,10 @@ test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', asy
   assert.equal(first.response.status, 200);
   assert.equal(first.body.data.generation.method, 'coins');
   assert.equal(first.body.data.generation.coinThrows.length, 6);
+  assert.equal(first.body.data.evidenceAnalysis.key, 'liuyao:evidence');
+  assert.equal(first.body.data.evidenceAnalysis.status, '已计算');
+  assert.equal(first.body.data.evidenceAnalysis.calculationSteps.length, 7);
+  assert.equal(first.body.data.evidenceAnalysis.calculationChain.length, 7);
   assert.ok(first.body.data.evidenceAnalysis.candidates.length > 0);
   assert.equal(first.body.data.evidenceAnalysis.selectionFact.status, '已选定候选');
   assert.equal(first.body.data.evidenceAnalysis.lineCoverageFact.status, '完整');
@@ -2053,6 +2057,20 @@ test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', asy
     first.body.data.evidenceAnalysis.timingSummaryFact.factKeys.length,
     first.body.data.evidenceAnalysis.timingFacts.length,
   );
+  assert.equal(first.body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(
+    first.body.data.evidenceAnalysis.summaryFact.lineFactCount,
+    first.body.data.evidenceAnalysis.lineFacts.length,
+  );
+  assert.equal(
+    first.body.data.evidenceAnalysis.summaryFact.counterEvidenceCount,
+    first.body.data.evidenceAnalysis.counterEvidenceFacts.length,
+  );
+  assert.equal(first.body.data.evidenceAnalysis.limitationFacts.length, 6);
+  assert.equal(
+    first.body.data.evidenceAnalysis.limitations.length,
+    first.body.data.evidenceAnalysis.limitationFacts.length,
+  );
   assert.ok(
     first.body.data.evidenceAnalysis.timingFacts.every(
       (item: Record<string, unknown>) =>
@@ -2064,6 +2082,8 @@ test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', asy
   );
   assert.match(first.body.data.evidenceAnalysis.promptText, /【六爻用神作用链结构化证据】/);
   assert.match(first.body.data.evidenceAnalysis.promptText, /六爻逐爻计算事实/);
+  assert.match(first.body.data.evidenceAnalysis.promptText, /证据汇总：/);
+  assert.match(first.body.data.evidenceAnalysis.promptText, /解释限制：/);
   assert.doesNotMatch(first.body.data.evidenceAnalysis.promptText, /权重[：=]?\d/);
   assertPromptIsPortableTaskText(first.body.data.evidenceAnalysis.promptText);
   assert.equal(first.body.data.evidenceAnalysis.generationFact.status, '可核验');

@@ -3243,6 +3243,15 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
       generation: { method: string; coinThrows: unknown[] };
       yaoArray: number[];
       evidenceAnalysis: {
+        key: string;
+        status: string;
+        calculationSteps: Array<{
+          key: string;
+          stage: string;
+          status: string;
+          dependsOnStepKeys: string[];
+        }>;
+        calculationChain: string[];
         candidates: Array<{
           key: string;
           status: string;
@@ -3270,6 +3279,27 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
           limitation: string;
         }>;
         timingSummaryFact: { factKeys: string[] };
+        summaryFact: {
+          status: string;
+          factKeys: string[];
+          lineFactCount: number;
+          hiddenSpiritFactCount: number;
+          candidateCount: number;
+          matchedCandidateCount: number;
+          godChainFactCount: number;
+          structureFactCount: number;
+          counterEvidenceCount: number;
+          timingFactCount: number;
+        };
+        limitations: string[];
+        limitationFacts: Array<{
+          key: string;
+          status: string;
+          ownerFactKeys: string[];
+          promptText: string;
+          sources: string[];
+          limitation: string;
+        }>;
         hiddenSpiritFacts: unknown[];
         generationFact: {
           status: string;
@@ -3286,6 +3316,17 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
     const firstResult = (first.structuredContent as { result: LiuyaoReplayResult }).result;
     assert.equal(firstResult.generation.method, 'coins');
     assert.equal(firstResult.generation.coinThrows.length, 6);
+    assert.equal(firstResult.evidenceAnalysis.key, 'liuyao:evidence');
+    assert.equal(firstResult.evidenceAnalysis.status, '已计算');
+    assert.equal(firstResult.evidenceAnalysis.calculationSteps.length, 7);
+    assert.equal(firstResult.evidenceAnalysis.calculationChain.length, 7);
+    assert.ok(
+      firstResult.evidenceAnalysis.calculationSteps.every((step) =>
+        step.dependsOnStepKeys.every((key) =>
+          firstResult.evidenceAnalysis.calculationSteps.some((candidate) => candidate.key === key),
+        ),
+      ),
+    );
     assert.ok(firstResult.evidenceAnalysis.candidates.length > 0);
     assert.equal(firstResult.evidenceAnalysis.selectionFact.status, '已选定候选');
     assert.equal(firstResult.evidenceAnalysis.lineCoverageFact.status, '完整');
@@ -3341,6 +3382,43 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
       firstResult.evidenceAnalysis.timingSummaryFact.factKeys.length,
       firstResult.evidenceAnalysis.timingFacts.length,
     );
+    assert.equal(firstResult.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      firstResult.evidenceAnalysis.summaryFact.lineFactCount,
+      firstResult.evidenceAnalysis.lineFacts.length,
+    );
+    assert.equal(
+      firstResult.evidenceAnalysis.summaryFact.hiddenSpiritFactCount,
+      firstResult.evidenceAnalysis.hiddenSpiritFacts.length,
+    );
+    assert.equal(
+      firstResult.evidenceAnalysis.summaryFact.candidateCount,
+      firstResult.evidenceAnalysis.candidates.length,
+    );
+    assert.equal(
+      firstResult.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      firstResult.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(firstResult.evidenceAnalysis.limitationFacts.length, 6);
+    assert.equal(
+      firstResult.evidenceAnalysis.limitations.length,
+      firstResult.evidenceAnalysis.limitationFacts.length,
+    );
+    const factKeys = new Set([
+      'liuyao:evidence-summary',
+      ...firstResult.evidenceAnalysis.summaryFact.factKeys,
+    ]);
+    assert.ok(
+      firstResult.evidenceAnalysis.limitationFacts.every(
+        (item) =>
+          item.key.startsWith('liuyao:limitation:') &&
+          item.status === '适用' &&
+          item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得被反向当作现实吉凶'),
+      ),
+    );
     assert.ok(
       firstResult.evidenceAnalysis.timingFacts.every(
         (item) =>
@@ -3352,6 +3430,8 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
     );
     assert.match(firstResult.evidenceAnalysis.promptText, /【六爻用神作用链结构化证据】/);
     assert.match(firstResult.evidenceAnalysis.promptText, /六爻逐爻计算事实/);
+    assert.match(firstResult.evidenceAnalysis.promptText, /证据汇总：/);
+    assert.match(firstResult.evidenceAnalysis.promptText, /解释限制：/);
     assertPromptIsPortableTaskText(firstResult.evidenceAnalysis.promptText);
 
     const replay = await client.callTool({

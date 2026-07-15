@@ -248,7 +248,61 @@ export interface LiuyaoTimingSummaryFact {
   limitation: '应期汇总只说明当前盘面保存了哪些触发与边界条件；不得按条件数量、爻位或地支序换算固定天数、绝对日期或事件概率';
 }
 
+export interface LiuyaoCalculationStep {
+  key: string;
+  stage:
+    | '起卦来源核验'
+    | '六爻逐爻计算'
+    | '伏神资料核验'
+    | '用神候选筛选'
+    | '原忌仇神作用链'
+    | '反证与应期核验'
+    | '证据汇总';
+  status: '已计算' | '资料不足';
+  inputs: Record<string, string | number | boolean | string[]>;
+  result: Record<string, string | number | boolean | string[]>;
+  dependsOnStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '计算步骤只证明起卦来源、逐爻、伏神、用神候选、五行作用链、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期';
+}
+
+export interface LiuyaoSummaryFact {
+  key: 'liuyao:evidence-summary';
+  status: '证据链完整' | '部分资料缺失' | '缺少可用候选';
+  factKeys: string[];
+  lineFactCount: number;
+  hiddenSpiritFactCount: number;
+  candidateCount: number;
+  matchedCandidateCount: number;
+  godChainFactCount: number;
+  structureFactCount: number;
+  counterEvidenceCount: number;
+  timingFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '六爻证据汇总只统计起卦、逐爻、伏神、候选、五行作用链、卦内结构、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、超自然判断或唯一日期';
+}
+
+export interface LiuyaoLimitationFact {
+  key: string;
+  type:
+    | '起卦与随机来源边界'
+    | '逐爻与伏神资料边界'
+    | '用神候选与五行链边界'
+    | '卦内结构与传统类象边界'
+    | '反证与应期边界'
+    | '高风险输出边界';
+  status: '适用';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束六爻起卦、逐爻、伏神、用神、传统类象与应期资料能够支持的解释范围，不得被反向当作现实吉凶、疾病灾祸、超自然原因、事件概率或固定应期的证据';
+}
+
 export interface LiuyaoEvidenceAnalysis {
+  key: 'liuyao:evidence';
+  status: '已计算';
   topic: LiuyaoEvidenceTopic;
   monthBranch: string;
   dayBranch: string;
@@ -272,6 +326,11 @@ export interface LiuyaoEvidenceAnalysis {
   counterEvidenceFacts: LiuyaoCounterEvidenceFact[];
   counterSummaryFact: LiuyaoCounterSummaryFact;
   counterEvidence: string[];
+  calculationSteps: LiuyaoCalculationStep[];
+  calculationChain: string[];
+  summaryFact: LiuyaoSummaryFact;
+  limitations: string[];
+  limitationFacts: LiuyaoLimitationFact[];
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
@@ -306,6 +365,12 @@ const TIMING_SUMMARY_LIMITATION =
   '应期汇总只说明当前盘面保存了哪些触发与边界条件；不得按条件数量、爻位或地支序换算固定天数、绝对日期或事件概率' as const;
 const HEXAGRAM_STRUCTURE_FACT_LIMITATION =
   '整卦六合六冲、反吟伏吟、特殊卦象与日月三合只描述已计算的卦内结构；不得直接写成现实和合、冲散、反复、成功、失败或固定应期' as const;
+const CALCULATION_STEP_LIMITATION =
+  '计算步骤只证明起卦来源、逐爻、伏神、用神候选、五行作用链、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期' as const;
+const SUMMARY_FACT_LIMITATION =
+  '六爻证据汇总只统计起卦、逐爻、伏神、候选、五行作用链、卦内结构、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、超自然判断或唯一日期' as const;
+const LIMITATION_FACT_LIMITATION =
+  '限制事实用于约束六爻起卦、逐爻、伏神、用神、传统类象与应期资料能够支持的解释范围，不得被反向当作现实吉凶、疾病灾祸、超自然原因、事件概率或固定应期的证据' as const;
 
 const TRADITIONAL_RELATIVE_IMAGES: Record<string, string> = {
   父母: '传统常取文书、消息、单位、房屋、长辈、辛劳等类象',
@@ -816,6 +881,313 @@ function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions) {
   ];
 }
 
+function buildSummaryFact(params: {
+  generationFact: LiuyaoGenerationFact;
+  randomFact: RandomTraceFact;
+  lineCoverageFact: LiuyaoLineCoverageFact;
+  lineFacts: LiuyaoLineFact[];
+  hiddenSpiritCoverageFact: LiuyaoHiddenSpiritCoverageFact;
+  hiddenSpiritFacts: LiuyaoHiddenSpiritFact[];
+  candidates: LiuyaoUsefulGodCandidate[];
+  selectionFact: LiuyaoUsefulGodSelectionFact;
+  godChain: LiuyaoGodChainItem[];
+  traditionalSymbols: LiuyaoTraditionalSymbolFact[];
+  structureFacts: LiuyaoHexagramStructureFact[];
+  counterEvidenceFacts: LiuyaoCounterEvidenceFact[];
+  counterSummaryFact: LiuyaoCounterSummaryFact;
+  timingFacts: LiuyaoTimingFact[];
+  timingSummaryFact: LiuyaoTimingSummaryFact;
+}): LiuyaoSummaryFact {
+  const factKeys = Array.from(
+    new Set([
+      params.generationFact.key,
+      params.randomFact.key,
+      params.lineCoverageFact.key,
+      ...params.lineFacts.map((item) => item.key),
+      params.hiddenSpiritCoverageFact.key,
+      ...params.hiddenSpiritFacts.map((item) => item.key),
+      params.selectionFact.key,
+      ...params.candidates.flatMap((item) => [item.key, ...item.referenceKeys]),
+      ...params.godChain.flatMap((item) => [item.key, ...item.referenceKeys]),
+      ...params.traditionalSymbols.map((item) => item.key),
+      ...params.structureFacts.map((item) => item.key),
+      params.counterSummaryFact.key,
+      ...params.counterEvidenceFacts.map((item) => item.key),
+      params.timingSummaryFact.key,
+      ...params.timingFacts.map((item) => item.key),
+    ]),
+  );
+  const status =
+    params.generationFact.status === '来源链缺失' ||
+    params.lineCoverageFact.status !== '完整' ||
+    params.hiddenSpiritCoverageFact.status === '字段缺失'
+      ? '部分资料缺失'
+      : params.selectionFact.status === '缺少可用候选'
+        ? '缺少可用候选'
+        : '证据链完整';
+  const matchedCandidateCount = params.candidates.filter((item) => item.status === '已匹配').length;
+  return {
+    key: 'liuyao:evidence-summary',
+    status,
+    factKeys,
+    lineFactCount: params.lineFacts.length,
+    hiddenSpiritFactCount: params.hiddenSpiritFacts.length,
+    candidateCount: params.candidates.length,
+    matchedCandidateCount,
+    godChainFactCount: params.godChain.length,
+    structureFactCount: params.structureFacts.length,
+    counterEvidenceCount: params.counterEvidenceFacts.length,
+    timingFactCount: params.timingFacts.length,
+    promptText: `证据状态${status}：逐爻${params.lineFacts.length}项、伏神${params.hiddenSpiritFacts.length}项、用神候选${params.candidates.length}项（匹配${matchedCandidateCount}项）、五行作用链${params.godChain.length}项、卦内结构${params.structureFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
+    sources: ['全部起卦、逐爻、伏神、候选、五行作用链、卦内结构、反证与应期事实逐项汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
+}
+
+function buildCalculationSteps(params: {
+  generationFact: LiuyaoGenerationFact;
+  randomFact: RandomTraceFact;
+  lineCoverageFact: LiuyaoLineCoverageFact;
+  lineFacts: LiuyaoLineFact[];
+  hiddenSpiritCoverageFact: LiuyaoHiddenSpiritCoverageFact;
+  hiddenSpiritFacts: LiuyaoHiddenSpiritFact[];
+  candidates: LiuyaoUsefulGodCandidate[];
+  selectionFact: LiuyaoUsefulGodSelectionFact;
+  godChain: LiuyaoGodChainItem[];
+  counterEvidenceFacts: LiuyaoCounterEvidenceFact[];
+  timingFacts: LiuyaoTimingFact[];
+  summaryFact: LiuyaoSummaryFact;
+}): LiuyaoCalculationStep[] {
+  return [
+    {
+      key: 'liuyao:calculation:generation',
+      stage: '起卦来源核验',
+      status: params.generationFact.status === '可核验' ? '已计算' : '资料不足',
+      inputs: {
+        method: params.generationFact.method,
+        expectedLineCount: params.generationFact.expectedLineCount,
+      },
+      result: {
+        generationStatus: params.generationFact.status,
+        recordedLineCount: params.generationFact.recordedLineCount,
+        randomTraceStatus: params.randomFact.status,
+        randomSampleCount: params.randomFact.sampleCount,
+      },
+      dependsOnStepKeys: [],
+      promptText: `${params.generationFact.promptText}；随机轨迹${params.randomFact.status === '不适用' ? '不适用' : params.randomFact.status}`,
+      sources: Array.from(
+        new Set([...params.generationFact.sources, ...params.randomFact.sources]),
+      ),
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'liuyao:calculation:lines',
+      stage: '六爻逐爻计算',
+      status: params.lineCoverageFact.status === '完整' ? '已计算' : '资料不足',
+      inputs: {
+        expectedPositions: params.lineCoverageFact.expectedPositions.map(String),
+        recordedLineCount: params.lineFacts.length,
+      },
+      result: {
+        coverageStatus: params.lineCoverageFact.status,
+        actualPositions: params.lineCoverageFact.actualPositions.map(String),
+        missingPositions: params.lineCoverageFact.missingPositions.map(String),
+      },
+      dependsOnStepKeys: ['liuyao:calculation:generation'],
+      promptText: `${params.lineCoverageFact.promptText}；已形成${params.lineFacts.length}项逐爻纳甲、世应、月日与动变事实`,
+      sources: ['起卦六个爻值', ...params.lineCoverageFact.sources, '逐爻纳甲与动变计算'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'liuyao:calculation:hidden-spirits',
+      stage: '伏神资料核验',
+      status: params.hiddenSpiritCoverageFact.status === '字段缺失' ? '资料不足' : '已计算',
+      inputs: { lineFactCount: params.lineFacts.length },
+      result: {
+        coverageStatus: params.hiddenSpiritCoverageFact.status,
+        hiddenSpiritFactCount: params.hiddenSpiritFacts.length,
+      },
+      dependsOnStepKeys: ['liuyao:calculation:lines'],
+      promptText: params.hiddenSpiritCoverageFact.promptText,
+      sources: params.hiddenSpiritCoverageFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'liuyao:calculation:candidates',
+      stage: '用神候选筛选',
+      status: params.selectionFact.status === '已选定候选' ? '已计算' : '资料不足',
+      inputs: {
+        candidateCount: params.candidates.length,
+        candidateKeys: params.candidates.map((item) => item.key),
+      },
+      result: {
+        selectionStatus: params.selectionFact.status,
+        matchedCandidateCount: params.candidates.filter((item) => item.status === '已匹配').length,
+        selectedCandidateKey: params.selectionFact.selectedCandidateKey ?? '无',
+      },
+      dependsOnStepKeys: ['liuyao:calculation:lines', 'liuyao:calculation:hidden-spirits'],
+      promptText: params.selectionFact.promptText,
+      sources: params.selectionFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'liuyao:calculation:god-chain',
+      stage: '原忌仇神作用链',
+      status: params.godChain.length ? '已计算' : '资料不足',
+      inputs: { selectionStatus: params.selectionFact.status },
+      result: {
+        godChainFactCount: params.godChain.length,
+        roles: params.godChain.map((item) => item.role),
+      },
+      dependsOnStepKeys: ['liuyao:calculation:candidates'],
+      promptText: params.godChain.length
+        ? `按所选候选五行建立${params.godChain.map((item) => item.role).join('、')}作用链`
+        : '当前没有可用候选，未强定原神、忌神与仇神',
+      sources: ['所选候选五行与五行生克关系', '本卦与伏神逐项五行匹配'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'liuyao:calculation:counter-timing',
+      stage: '反证与应期核验',
+      status: '已计算',
+      inputs: {
+        candidateCount: params.candidates.length,
+        lineFactCount: params.lineFacts.length,
+      },
+      result: {
+        counterEvidenceCount: params.counterEvidenceFacts.length,
+        timingFactCount: params.timingFacts.length,
+      },
+      dependsOnStepKeys: [
+        'liuyao:calculation:lines',
+        'liuyao:calculation:candidates',
+        'liuyao:calculation:god-chain',
+      ],
+      promptText: `逐项核验候选限制${params.counterEvidenceFacts.length}项，并记录应期触发与边界${params.timingFacts.length}项`,
+      sources: ['候选空破墓退等限制', '动爻、旬空、伏神与反吟伏吟触发条件'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'liuyao:calculation:summary',
+      stage: '证据汇总',
+      status: params.summaryFact.status === '证据链完整' ? '已计算' : '资料不足',
+      inputs: { factCount: params.summaryFact.factKeys.length },
+      result: {
+        summaryStatus: params.summaryFact.status,
+        lineFactCount: params.summaryFact.lineFactCount,
+        candidateCount: params.summaryFact.candidateCount,
+        counterEvidenceCount: params.summaryFact.counterEvidenceCount,
+        timingFactCount: params.summaryFact.timingFactCount,
+      },
+      dependsOnStepKeys: [
+        'liuyao:calculation:generation',
+        'liuyao:calculation:lines',
+        'liuyao:calculation:hidden-spirits',
+        'liuyao:calculation:candidates',
+        'liuyao:calculation:god-chain',
+        'liuyao:calculation:counter-timing',
+      ],
+      promptText: params.summaryFact.promptText,
+      sources: params.summaryFact.sources,
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+  ];
+}
+
+function buildLimitationFacts(params: {
+  generationFact: LiuyaoGenerationFact;
+  randomFact: RandomTraceFact;
+  lineCoverageFact: LiuyaoLineCoverageFact;
+  lineFacts: LiuyaoLineFact[];
+  hiddenSpiritCoverageFact: LiuyaoHiddenSpiritCoverageFact;
+  hiddenSpiritFacts: LiuyaoHiddenSpiritFact[];
+  candidates: LiuyaoUsefulGodCandidate[];
+  selectionFact: LiuyaoUsefulGodSelectionFact;
+  godChain: LiuyaoGodChainItem[];
+  traditionalSymbols: LiuyaoTraditionalSymbolFact[];
+  structureFacts: LiuyaoHexagramStructureFact[];
+  counterEvidenceFacts: LiuyaoCounterEvidenceFact[];
+  counterSummaryFact: LiuyaoCounterSummaryFact;
+  timingFacts: LiuyaoTimingFact[];
+  timingSummaryFact: LiuyaoTimingSummaryFact;
+  summaryFact: LiuyaoSummaryFact;
+}): LiuyaoLimitationFact[] {
+  const definitions: Array<
+    Pick<LiuyaoLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
+  > = [
+    {
+      key: 'liuyao:limitation:generation-random',
+      type: '起卦与随机来源边界',
+      ownerFactKeys: [params.generationFact.key, params.randomFact.key],
+      promptText:
+        '起卦来源与随机轨迹只用于核验六个爻值如何录入、生成或重放；模拟三钱和随机重放只记录生成过程，不等同于现实投掷，也不提高预测有效性',
+      sources: ['起卦方式、原始爻值、三钱记录与随机轨迹'],
+    },
+    {
+      key: 'liuyao:limitation:lines-hidden-spirits',
+      type: '逐爻与伏神资料边界',
+      ownerFactKeys: [
+        params.lineCoverageFact.key,
+        ...params.lineFacts.map((item) => item.key),
+        params.hiddenSpiritCoverageFact.key,
+        ...params.hiddenSpiritFacts.map((item) => item.key),
+      ],
+      promptText:
+        '逐爻与伏神事实只记录纳甲、六亲、六神、世应、月日、空破墓及动变条件；资料缺失时不得补造爻位或伏神，资料完整也不单独证明现实吉凶',
+      sources: ['六爻覆盖、逐爻计算与伏神飞神配对事实'],
+    },
+    {
+      key: 'liuyao:limitation:candidates-god-chain',
+      type: '用神候选与五行链边界',
+      ownerFactKeys: [
+        params.selectionFact.key,
+        ...params.candidates.map((item) => item.key),
+        ...params.godChain.map((item) => item.key),
+      ],
+      promptText:
+        '主题默认用神只是候选；实际问题语义、求测者身份与所问对象可能改变取用。原神、忌神和仇神只按候选五行建立盘内关系，不证明现实助力、阻碍或结果',
+      sources: ['用神候选来源、候选匹配与五行生克作用链'],
+    },
+    {
+      key: 'liuyao:limitation:structure-tradition',
+      type: '卦内结构与传统类象边界',
+      ownerFactKeys: [
+        ...params.structureFacts.map((item) => item.key),
+        ...params.traditionalSymbols.map((item) => item.key),
+      ],
+      promptText:
+        '整卦六合六冲、反吟伏吟、三合、特殊卦象与六亲类象只提供盘内结构和传统事项候选；不得直接写成现实和合冲散、疾病官非、财运关系或固定应期',
+      sources: ['卦内结构事实与传统六亲类象条件化映射'],
+    },
+    {
+      key: 'liuyao:limitation:counter-timing',
+      type: '反证与应期边界',
+      ownerFactKeys: [
+        params.counterSummaryFact.key,
+        ...params.counterEvidenceFacts.map((item) => item.key),
+        params.timingSummaryFact.key,
+        ...params.timingFacts.map((item) => item.key),
+      ],
+      promptText:
+        '空亡、月破、日破、休囚死、入墓、回头克冲、化空化退等反证须与支持证据并列；应期只保留触发条件，未给期限时不得换算唯一日期或事件概率',
+      sources: ['候选反证汇总、逐项应期触发与期限边界'],
+    },
+    {
+      key: 'liuyao:limitation:high-risk',
+      type: '高风险输出边界',
+      ownerFactKeys: [params.summaryFact.key],
+      promptText:
+        '不得按候选、支持、反证或动爻数量生成吉凶总分与成功率；不得仅凭官鬼、白虎、螣蛇等单项证明疾病、灾祸或超自然原因，也不得替代医疗、法律、财务与安全核验',
+      sources: ['六爻证据汇总与高风险解释约束'],
+    },
+  ];
+  return definitions.map((item) => ({
+    ...item,
+    status: '适用',
+    limitation: LIMITATION_FACT_LIMITATION,
+  }));
+}
+
 export function analyzeLiuyaoEvidence(
   data: LiuyaoData,
   options: LiuyaoEvidenceOptions = {},
@@ -1048,6 +1420,59 @@ export function analyzeLiuyaoEvidence(
     sources: ['候选 constraints 字段逐项汇总'],
     limitation: COUNTER_SUMMARY_LIMITATION,
   };
+  const summaryFact = buildSummaryFact({
+    generationFact,
+    randomFact,
+    lineCoverageFact,
+    lineFacts,
+    hiddenSpiritCoverageFact,
+    hiddenSpiritFacts,
+    candidates,
+    selectionFact,
+    godChain,
+    traditionalSymbols,
+    structureFacts,
+    counterEvidenceFacts,
+    counterSummaryFact,
+    timingFacts,
+    timingSummaryFact,
+  });
+  const calculationSteps = buildCalculationSteps({
+    generationFact,
+    randomFact,
+    lineCoverageFact,
+    lineFacts,
+    hiddenSpiritCoverageFact,
+    hiddenSpiritFacts,
+    candidates,
+    selectionFact,
+    godChain,
+    counterEvidenceFacts,
+    timingFacts,
+    summaryFact,
+  });
+  summaryFact.factKeys = Array.from(
+    new Set([...calculationSteps.map((item) => item.key), ...summaryFact.factKeys]),
+  );
+  const limitationFacts = buildLimitationFacts({
+    generationFact,
+    randomFact,
+    lineCoverageFact,
+    lineFacts,
+    hiddenSpiritCoverageFact,
+    hiddenSpiritFacts,
+    candidates,
+    selectionFact,
+    godChain,
+    traditionalSymbols,
+    structureFacts,
+    counterEvidenceFacts,
+    counterSummaryFact,
+    timingFacts,
+    timingSummaryFact,
+    summaryFact,
+  });
+  const limitations = limitationFacts.map((item) => item.promptText);
   const items: PromptEvidenceItem[] = candidates.map((candidate, index) => ({
     level: candidate.references.length ? (index === 0 ? '主证' : '辅证') : '限制',
     title: candidate.label,
@@ -1056,6 +1481,13 @@ export function analyzeLiuyaoEvidence(
     tags: [candidate.relative ?? '爻位候选', candidate.status, candidate.sourceStatus],
   }));
   items.push(
+    {
+      level: calculationSteps.some((item) => item.status === '资料不足') ? '反证' : '辅证',
+      title: '六爻计算链',
+      detail: `${calculationSteps.map((item) => item.promptText).join('；')}；统一边界：${CALCULATION_STEP_LIMITATION}`,
+      source: Array.from(new Set(calculationSteps.flatMap((item) => item.sources))).join('、'),
+      tags: ['计算链', summaryFact.status],
+    },
     {
       level: selectionFact.status === '已选定候选' ? '主证' : '反证',
       title: '用神候选选择状态',
@@ -1163,23 +1595,35 @@ export function analyzeLiuyaoEvidence(
       tags: ['应期', '触发条件', '不换算固定日期'],
     },
     {
+      level: '辅证',
+      title: `六爻证据汇总：${summaryFact.status}`,
+      detail: `${summaryFact.promptText}；边界：${summaryFact.limitation}`,
+      source: summaryFact.sources.join('、'),
+      tags: ['证据汇总', summaryFact.status],
+    },
+    {
       level: '限制',
       title: '六爻取用与作用链解释边界',
-      detail:
-        '主题默认用神只是候选；实际问题语义、求测者身份与所问对象可能改变取用。不得按候选数量或支持项数量生成吉凶总分，也不得仅凭官鬼、白虎、螣蛇等单项证明疾病、灾祸或超自然原因。模拟三钱和随机重放只记录生成过程，不等同于现实投掷或预测有效性。',
-      source: '计算事实与解释结论分离原则',
+      detail: `${limitationFacts.map((item) => item.promptText).join('；')}；统一边界：${LIMITATION_FACT_LIMITATION}`,
+      source: Array.from(new Set(limitationFacts.flatMap((item) => item.sources))).join('、'),
     },
   );
   const evidence: PromptEvidenceBundle = { title: '六爻用神作用链结构化证据', items };
+  const calculationChain = calculationSteps.map((item) => item.promptText);
   const promptText = [
     '【六爻用神作用链结构化证据】',
     ...formatPromptEvidenceBundle(evidence),
+    `计算链：${calculationChain.join(' → ')}。`,
+    `证据汇总：${summaryFact.promptText}。`,
     godChain.length
       ? `作用链：${godChain.map((item) => item.promptText).join('；')}`
       : '作用链：当前没有可用候选，不能强定原神、忌神与仇神。',
     `触发条件：${timingConditions.join('；')}`,
+    `解释限制：${limitations.join('；')}。`,
   ].join('\n');
   return {
+    key: 'liuyao:evidence',
+    status: '已计算',
     topic,
     monthBranch,
     dayBranch,
@@ -1203,6 +1647,11 @@ export function analyzeLiuyaoEvidence(
     counterEvidenceFacts,
     counterSummaryFact,
     counterEvidence,
+    calculationSteps,
+    calculationChain,
+    summaryFact,
+    limitations,
+    limitationFacts,
     evidence,
     promptText,
     methodology: [

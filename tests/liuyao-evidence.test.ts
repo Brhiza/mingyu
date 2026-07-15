@@ -12,6 +12,20 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
   const evidence = data.evidenceAnalysis;
 
   assert.ok(evidence);
+  assert.equal(evidence.key, 'liuyao:evidence');
+  assert.equal(evidence.status, '已计算');
+  assert.equal(evidence.calculationSteps.length, 7);
+  assert.deepEqual(
+    evidence.calculationChain,
+    evidence.calculationSteps.map((item) => item.promptText),
+  );
+  assert.ok(
+    evidence.calculationSteps.every((step) =>
+      step.dependsOnStepKeys.every((key) =>
+        evidence.calculationSteps.some((candidate) => candidate.key === key),
+      ),
+    ),
+  );
   assert.ok(evidence.candidates.length > 0);
   assert.ok(evidence.selectedCandidate);
   assert.equal(evidence.selectionFact.status, '已选定候选');
@@ -104,8 +118,32 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
         item.limitation.includes('不得把爻位'),
     ),
   );
+  assert.equal(evidence.summaryFact.status, '证据链完整');
+  assert.equal(evidence.summaryFact.lineFactCount, evidence.lineFacts.length);
+  assert.equal(evidence.summaryFact.hiddenSpiritFactCount, evidence.hiddenSpiritFacts.length);
+  assert.equal(evidence.summaryFact.candidateCount, evidence.candidates.length);
+  assert.equal(
+    evidence.summaryFact.matchedCandidateCount,
+    evidence.candidates.filter((item) => item.status === '已匹配').length,
+  );
+  assert.equal(evidence.summaryFact.godChainFactCount, evidence.godChain.length);
+  assert.equal(evidence.summaryFact.structureFactCount, evidence.structureFacts.length);
+  assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
+  assert.equal(evidence.summaryFact.timingFactCount, evidence.timingFacts.length);
+  assert.equal(evidence.limitationFacts.length, 6);
+  assert.deepEqual(
+    evidence.limitations,
+    evidence.limitationFacts.map((item) => item.promptText),
+  );
+  const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
+  assert.ok(
+    evidence.limitationFacts.every((item) => item.ownerFactKeys.every((key) => factKeys.has(key))),
+  );
   assert.match(evidence.promptText, /【六爻用神作用链结构化证据】/);
   assert.match(evidence.promptText, /六爻逐爻计算事实/);
+  assert.match(evidence.promptText, /计算链：/);
+  assert.match(evidence.promptText, /证据汇总：/);
+  assert.match(evidence.promptText, /解释限制：/);
   assert.match(evidence.promptText, /六爻取用与作用链解释边界/);
   const changingReference = evidence.candidates
     .flatMap((candidate) => candidate.references)
@@ -126,6 +164,11 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
   assert.equal(incomplete.lineCoverageFact.status, '缺少爻位');
   assert.deepEqual(incomplete.lineCoverageFact.missingPositions, [6]);
   assert.equal(incomplete.hiddenSpiritCoverageFact.status, '字段缺失');
+  assert.equal(incomplete.summaryFact.status, '部分资料缺失');
+  assert.equal(
+    incomplete.calculationSteps.find((item) => item.stage === '六爻逐爻计算')?.status,
+    '资料不足',
+  );
   assert.match(incomplete.hiddenSpiritCoverageFact.promptText, /不得反推伏神位置/);
 });
 
