@@ -14,6 +14,30 @@ function createResult(): BaziChartResult {
   } as BaziChartResult;
 }
 
+function assertEvidenceReferences(result: ReturnType<typeof analyzeFortuneTriggers>) {
+  const factKeys = new Set([
+    result.relationSummaryFact.key,
+    ...result.calculationSteps.map((item) => item.key),
+    ...result.layers.map((item) => item.key),
+    ...result.relations.map((item) => item.key),
+    ...result.counterEvidenceFacts.map((item) => item.key),
+  ]);
+  assert.ok(result.relationSummaryFact.factKeys.length > 0);
+  assert.ok(result.relationSummaryFact.factKeys.every((key) => factKeys.has(key)));
+  assert.ok(
+    result.counterEvidenceFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    result.limitationFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+}
+
 test('岁运触发证据应逐层保留原局、大运和流年关系来源', () => {
   const result = analyzeFortuneTriggers(createResult(), [
     { id: 'dayun', type: 'dayun', label: '甲午大运', ganZhi: '甲午' },
@@ -62,6 +86,7 @@ test('岁运触发证据应逐层保留原局、大运和流年关系来源', ()
     result.primaryRelations.length + result.supportingRelations.length,
     result.relations.length,
   );
+  assertEvidenceReferences(result);
   assert.match(result.promptText, /【八字岁运触发结构化证据】/);
   assert.match(result.promptText, /岁运并临/);
   assert.match(result.promptText, /只表示干支关系成立及其所在时间层级/);
@@ -105,6 +130,7 @@ test('岁运触发证据应把未见主要关系保留为反证但不否定较�
       (item) => item.type === '高风险输出边界' && item.promptText.includes('不得按关系数量'),
     ),
   );
+  assertEvidenceReferences(result);
   assert.doesNotMatch(result.promptText, /判定平稳|匹配总分：|成功率：\d|灾祸概率：\d/);
 });
 
@@ -116,6 +142,7 @@ test('岁运触发证据在没有所选岁运层级时应明确返回无可比�
   assert.equal(result.counterEvidenceFacts.length, 0);
   assert.equal(result.relationSummaryFact.status, '无可比较层级');
   assert.equal(result.relationSummaryFact.comparedPairCount, 0);
+  assertEvidenceReferences(result);
   assert.match(result.promptText, /没有可供逐层比对的原局与岁运层级/);
 });
 

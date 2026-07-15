@@ -611,7 +611,10 @@ function buildCounterEvidenceFacts(params: {
       key: 'bazi:compatibility:counter:spouse-palace-relations',
       type: '夫妻宫关系覆盖',
       status: params.spousePalaceRelations.length ? '有可用证据' : '未命中',
-      ownerFactKeys: params.spousePalaceRelations.map((item) => item.key),
+      ownerFactKeys: [
+        'bazi:compatibility:calculation:cross-pillars',
+        ...params.spousePalaceRelations.map((item) => item.key),
+      ],
       promptText: params.spousePalaceRelations.length
         ? `双方日支命中${params.spousePalaceRelations.map((item) => item.type).join('、')}关系，已保留逐项夫妻宫事实`
         : '双方日支未命中同支、六合、六冲、三刑、六害或六破；未命中不代表夫妻关系有利或不利',
@@ -622,7 +625,10 @@ function buildCounterEvidenceFacts(params: {
       key: 'bazi:compatibility:counter:branch-combinations',
       type: '跨盘组合覆盖',
       status: params.combinations.length ? '有可用证据' : '未命中',
-      ownerFactKeys: params.combinations.map((item) => item.key),
+      ownerFactKeys: [
+        'bazi:compatibility:calculation:branch-combinations',
+        ...params.combinations.map((item) => item.key),
+      ],
       promptText: params.combinations.length
         ? `双方八个地支共同命中${params.combinations.map((item) => `${item.name}${item.type}`).join('、')}`
         : '双方八个地支未共同凑齐跨盘三合或三会成员；未命中不代表缺乏其他互动关系',
@@ -637,7 +643,11 @@ function buildCounterEvidenceFacts(params: {
       type: '喜用资料覆盖',
       status:
         item.status === '资料不足' ? '资料不足' : item.favorable.length ? '有可用证据' : '未命中',
-      ownerFactKeys: [item.key, ...item.favorable.map((entry) => entry.key)],
+      ownerFactKeys: [
+        'bazi:compatibility:calculation:useful-god-coverage',
+        item.key,
+        ...item.favorable.map((entry) => entry.key),
+      ],
       promptText:
         item.status === '资料不足'
           ? `${direction}缺少受益方结构化喜忌资料，不生成互补结论`
@@ -652,6 +662,8 @@ function buildCounterEvidenceFacts(params: {
       type: '喜忌并存',
       status: item.favorable.length && item.unfavorable.length ? '存在双向条件' : '未命中',
       ownerFactKeys: [
+        'bazi:compatibility:calculation:useful-god-coverage',
+        item.key,
         ...item.favorable.map((entry) => entry.key),
         ...item.unfavorable.map((entry) => entry.key),
       ],
@@ -686,6 +698,12 @@ function buildSummaryFact(params: {
     (item) => item.status === '资料不足',
   ).length;
   const factKeys = [
+    'bazi:compatibility:calculation:input',
+    'bazi:compatibility:calculation:day-master',
+    'bazi:compatibility:calculation:cross-pillars',
+    'bazi:compatibility:calculation:branch-combinations',
+    'bazi:compatibility:calculation:ten-god-mappings',
+    'bazi:compatibility:calculation:useful-god-coverage',
     params.dayMasterRelation.key,
     ...params.relations.map((item) => item.key),
     ...params.combinations.map((item) => item.key),
@@ -730,7 +748,12 @@ function buildLimitationFacts(params: {
     {
       key: 'bazi:compatibility:limitation:causality',
       type: '关系因果边界',
-      ownerFactKeys: [params.dayMasterRelation.key, ...params.relations.map((item) => item.key)],
+      ownerFactKeys: [
+        'bazi:compatibility:calculation:day-master',
+        'bazi:compatibility:calculation:cross-pillars',
+        params.dayMasterRelation.key,
+        ...params.relations.map((item) => item.key),
+      ],
       promptText:
         '日主生克、日支关系及跨柱合冲刑害破只证明盘面结构，不等于现实吸引、冲突、伤害、分离、忠诚或关系成败',
       sources: ['盘面关系事实与现实因果分离原则'],
@@ -739,6 +762,8 @@ function buildLimitationFacts(params: {
       key: 'bazi:compatibility:limitation:transformation',
       type: '合化边界',
       ownerFactKeys: [
+        'bazi:compatibility:calculation:cross-pillars',
+        'bazi:compatibility:calculation:branch-combinations',
         ...params.relations.filter((item) => item.type === '五合候选').map((item) => item.key),
         ...params.combinations.map((item) => item.key),
       ],
@@ -749,7 +774,10 @@ function buildLimitationFacts(params: {
     {
       key: 'bazi:compatibility:limitation:ten-god',
       type: '十神边界',
-      ownerFactKeys: params.tenGodMappings.map((item) => item.key),
+      ownerFactKeys: [
+        'bazi:compatibility:calculation:ten-god-mappings',
+        ...params.tenGodMappings.map((item) => item.key),
+      ],
       promptText:
         '双向十神是相对各自日干的分类，不得把单个十神直接当作人格标签、关系角色或行为因果',
       sources: ['十神相对映射规则'],
@@ -757,11 +785,14 @@ function buildLimitationFacts(params: {
     {
       key: 'bazi:compatibility:limitation:useful-god',
       type: '喜忌覆盖边界',
-      ownerFactKeys: params.coverage.flatMap((item) => [
-        item.key,
-        ...item.favorable.map((entry) => entry.key),
-        ...item.unfavorable.map((entry) => entry.key),
-      ]),
+      ownerFactKeys: [
+        'bazi:compatibility:calculation:useful-god-coverage',
+        ...params.coverage.flatMap((item) => [
+          item.key,
+          ...item.favorable.map((entry) => entry.key),
+          ...item.unfavorable.map((entry) => entry.key),
+        ]),
+      ],
       promptText:
         '喜用或忌神五行在对方盘面出现只说明符号覆盖，不比较伪精确强度，不等于必然互补、克制或适合婚配合作',
       sources: ['双方既有喜忌结论与对方五行来源交叉'],

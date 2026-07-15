@@ -60,6 +60,37 @@ function createPair() {
   return { chart1, chart2 };
 }
 
+function assertEvidenceReferences(result: ReturnType<typeof analyzeBaziCompatibility>) {
+  const factKeys = new Set([
+    result.dayMasterRelation.key,
+    result.summaryFact.key,
+    ...result.calculationSteps.map((item) => item.key),
+    ...result.crossPillarRelations.map((item) => item.key),
+    ...result.crossBranchCombinations.map((item) => item.key),
+    ...result.tenGodMappings.map((item) => item.key),
+    ...result.usefulGodCoverage.flatMap((item) => [
+      item.key,
+      ...item.favorable.map((entry) => entry.key),
+      ...item.unfavorable.map((entry) => entry.key),
+    ]),
+    ...result.counterEvidenceFacts.map((item) => item.key),
+  ]);
+  assert.ok(result.summaryFact.factKeys.length > 0);
+  assert.ok(result.summaryFact.factKeys.every((key) => factKeys.has(key)));
+  assert.ok(
+    result.counterEvidenceFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    result.limitationFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+}
+
 test('八字双盘证据应计算日主、日支和四柱交叉关系', () => {
   const { chart1, chart2 } = createPair();
   const result = analyzeBaziCompatibility(chart1, chart2, {
@@ -102,26 +133,7 @@ test('八字双盘证据应计算日主、日支和四柱交叉关系', () => {
   );
   assert.equal(result.summaryFact.crossPillarRelationCount, result.crossPillarRelations.length);
   assert.equal(result.summaryFact.spousePalaceRelationCount, result.spousePalaceRelations.length);
-  const factKeys = new Set([
-    result.dayMasterRelation.key,
-    result.summaryFact.key,
-    ...result.crossPillarRelations.map((item) => item.key),
-    ...result.crossBranchCombinations.map((item) => item.key),
-    ...result.tenGodMappings.map((item) => item.key),
-    ...result.usefulGodCoverage.flatMap((item) => [
-      item.key,
-      ...item.favorable.map((entry) => entry.key),
-      ...item.unfavorable.map((entry) => entry.key),
-    ]),
-  ]);
-  assert.ok(
-    result.counterEvidenceFacts.every((item) =>
-      item.ownerFactKeys.every((key) => factKeys.has(key)),
-    ),
-  );
-  assert.ok(
-    result.limitationFacts.every((item) => item.ownerFactKeys.every((key) => factKeys.has(key))),
-  );
+  assertEvidenceReferences(result);
 });
 
 test('八字双盘证据应记录跨盘三会来源但不声称成化', () => {
@@ -211,7 +223,39 @@ test('八字双盘喜忌资料缺失时应保留缺口而不生成互补结论',
       (item) => item.type === '喜用资料覆盖' && item.status === '资料不足',
     ),
   );
+  assertEvidenceReferences(result);
   assert.match(result.promptText, /缺少受益方结构化喜忌资料，不生成互补结论/);
+});
+
+test('八字双盘未命中关系或喜忌覆盖时仍应保留可追溯引用', () => {
+  const { chart1, chart2 } = createPair();
+  const person1Pillar = { gan: '甲', zhi: '子', ganZhi: '甲子' };
+  const person2Pillar = { gan: '戊', zhi: '辰', ganZhi: '戊辰' };
+  chart1.pillars = {
+    year: { ...person1Pillar },
+    month: { ...person1Pillar },
+    day: { ...person1Pillar },
+    hour: { ...person1Pillar },
+  };
+  chart2.pillars = {
+    year: { ...person2Pillar },
+    month: { ...person2Pillar },
+    day: { ...person2Pillar },
+    hour: { ...person2Pillar },
+  };
+  chart1.dayMaster = { gan: '甲', element: '木', yinYang: '阳' };
+  chart2.dayMaster = { gan: '戊', element: '土', yinYang: '阳' };
+  chart1.analysis.usefulGod.favorableWuxing = [];
+  chart1.analysis.usefulGod.unfavorableWuxing = [];
+  chart2.analysis.usefulGod.favorableWuxing = [];
+  chart2.analysis.usefulGod.unfavorableWuxing = [];
+
+  const result = analyzeBaziCompatibility(chart1, chart2);
+
+  assert.equal(result.spousePalaceRelations.length, 0);
+  assert.equal(result.crossBranchCombinations.length, 0);
+  assert.ok(result.counterEvidenceFacts.some((item) => item.status === '未命中'));
+  assertEvidenceReferences(result);
 });
 
 test('八字双盘证据应拒绝无效四柱', () => {

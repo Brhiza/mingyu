@@ -70,6 +70,7 @@ export interface FortuneTriggerCounterEvidenceFact {
   key: string;
   type: '主要关系覆盖';
   status: '已命中主要关系' | '未见主要关系';
+  ownerFactKeys: string[];
   sourceLayerKey: string;
   targetLayerKey: string;
   sourceLabel: string;
@@ -85,6 +86,8 @@ export interface FortuneTriggerCounterEvidenceFact {
 export interface FortuneTriggerRelationSummaryFact {
   key: 'bazi:fortune-trigger:relation-summary';
   status: '有关系事实' | '未见列入关系' | '无可比较层级';
+  factKeys: string[];
+  calculationStepKeys: string[];
   relationKeys: string[];
   comparisonStepKeys: string[];
   relationCount: number;
@@ -444,6 +447,10 @@ function buildCounterEvidenceFact(params: {
     key: `bazi:fortune-trigger:counter:major-coverage:${params.source.type}:${params.source.id}:${params.target.type}:${params.target.id}`,
     type: '主要关系覆盖',
     status: majorRelations.length ? '已命中主要关系' : '未见主要关系',
+    ownerFactKeys: [
+      `bazi:fortune-trigger:calculation:compare:${params.source.type}:${params.source.id}:${params.target.type}:${params.target.id}`,
+      ...params.relations.map((item) => item.key),
+    ],
     sourceLayerKey: params.source.key,
     targetLayerKey: params.target.key,
     sourceLabel: params.source.label,
@@ -460,6 +467,7 @@ function buildCounterEvidenceFact(params: {
 }
 
 function buildRelationSummaryFact(params: {
+  calculationSteps: FortuneTriggerCalculationStep[];
   relations: FortuneTriggerRelation[];
   comparisonSteps: FortuneTriggerCalculationStep[];
   counterEvidenceFacts: FortuneTriggerCounterEvidenceFact[];
@@ -482,6 +490,12 @@ function buildRelationSummaryFact(params: {
   return {
     key: 'bazi:fortune-trigger:relation-summary',
     status,
+    factKeys: [
+      ...params.calculationSteps.map((item) => item.key),
+      ...params.relations.map((item) => item.key),
+      ...params.counterEvidenceFacts.map((item) => item.key),
+    ],
+    calculationStepKeys: params.calculationSteps.map((item) => item.key),
     relationKeys: params.relations.map((item) => item.key),
     comparisonStepKeys: params.comparisonSteps.map((item) => item.key),
     relationCount: params.relations.length,
@@ -500,13 +514,11 @@ function buildRelationSummaryFact(params: {
 }
 
 function buildLimitationFacts(params: {
-  calculationSteps: FortuneTriggerCalculationStep[];
   relations: FortuneTriggerRelation[];
   counterEvidenceFacts: FortuneTriggerCounterEvidenceFact[];
   relationSummaryFact: FortuneTriggerRelationSummaryFact;
 }): FortuneTriggerLimitationFact[] {
   const relationKeys = params.relations.map((item) => item.key);
-  const calculationKeys = params.calculationSteps.map((item) => item.key);
   const counterKeys = params.counterEvidenceFacts.map((item) => item.key);
   const definitions: Array<
     Pick<FortuneTriggerLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
@@ -514,7 +526,7 @@ function buildLimitationFacts(params: {
     {
       key: 'bazi:fortune-trigger:limitation:relation-meaning',
       type: '关系解释边界',
-      ownerFactKeys: relationKeys,
+      ownerFactKeys: [params.relationSummaryFact.key, ...relationKeys],
       promptText:
         '合、冲、刑、害、破、伏吟、岁运并临与天克地冲只记录结构关系，不单独决定吉凶、事件类型或结果',
       sources: ['干支关系事实与命理解释分离原则'],
@@ -530,7 +542,7 @@ function buildLimitationFacts(params: {
     {
       key: 'bazi:fortune-trigger:limitation:counter-evidence',
       type: '反证边界',
-      ownerFactKeys: counterKeys,
+      ownerFactKeys: [params.relationSummaryFact.key, ...counterKeys],
       promptText:
         '未见岁运并临、天克地冲或同柱伏吟，不等于没有同干、合冲刑害破等较弱关系，也不证明现实必然平稳',
       sources: ['主要关系覆盖与辅助关系事实对照'],
@@ -546,7 +558,7 @@ function buildLimitationFacts(params: {
     {
       key: 'bazi:fortune-trigger:limitation:high-risk-output',
       type: '高风险输出边界',
-      ownerFactKeys: [...calculationKeys, ...relationKeys, ...counterKeys],
+      ownerFactKeys: [params.relationSummaryFact.key, ...params.relationSummaryFact.factKeys],
       promptText:
         '不得按关系数量生成命运总分、吉凶概率、灾祸概率、事件发生率、必然结论或保证有效的趋避方案',
       sources: ['传统关系事实与现实结果分离原则'],
@@ -669,6 +681,7 @@ export function analyzeFortuneTriggers(
   const counterEvidenceFacts = comparisonFacts.map(buildCounterEvidenceFact);
   const comparisonSteps = calculationSteps.filter((item) => item.stage === '层级关系比对');
   const relationSummaryFact = buildRelationSummaryFact({
+    calculationSteps,
     relations,
     comparisonSteps,
     counterEvidenceFacts,
@@ -695,7 +708,6 @@ export function analyzeFortuneTriggers(
   });
 
   const limitationFacts = buildLimitationFacts({
-    calculationSteps,
     relations,
     counterEvidenceFacts,
     relationSummaryFact,

@@ -8,6 +8,37 @@ import { calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { assertPromptIsPortableTaskText } from '../prompt-assertions';
 
+function assertEvidenceOwnerReferences(evidence: unknown) {
+  const data = evidence as {
+    summaryFact?: { key?: string; factKeys?: string[] };
+    relationSummaryFact?: { key?: string; factKeys?: string[] };
+    counterEvidenceFacts?: Array<{ key?: string; ownerFactKeys?: string[] }>;
+    limitationFacts?: Array<{ ownerFactKeys?: string[] }>;
+  };
+  const summary = data.summaryFact ?? data.relationSummaryFact;
+  assert.ok(summary?.key);
+  assert.ok(summary.factKeys?.length);
+  const factKeys = new Set([
+    summary.key,
+    ...(summary.factKeys ?? []),
+    ...(data.counterEvidenceFacts ?? []).flatMap((item) => (item.key ? [item.key] : [])),
+  ]);
+  assert.ok(
+    (data.counterEvidenceFacts ?? []).every(
+      (item) =>
+        (item.ownerFactKeys?.length ?? 0) > 0 &&
+        item.ownerFactKeys?.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    (data.limitationFacts ?? []).every(
+      (item) =>
+        (item.ownerFactKeys?.length ?? 0) > 0 &&
+        item.ownerFactKeys?.every((key) => factKeys.has(key)),
+    ),
+  );
+}
+
 const toolCalls: Array<[string, Record<string, unknown>]> = [
   ['foundation_capabilities', {}],
   ['foundation_ganzhi', { ganZhi: '甲子' }],
@@ -809,6 +840,7 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         );
         assert.equal(compatibility?.counterEvidenceFacts?.length, 5);
         assert.ok(compatibility?.limitationFacts?.some((item) => item.type === '高风险输出边界'));
+        assertEvidenceOwnerReferences(compatibility);
         assert.doesNotMatch(
           compatibility?.promptText ?? '',
           /analysis_payload_v1|命语|本项目|项目统一|工程|接口|API|MCP|ziwei:compatibility:/,
@@ -997,6 +1029,7 @@ test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
     );
     assert.ok(triggerEvidence?.counterEvidenceFacts?.length);
     assert.ok(triggerEvidence?.limitationFacts?.some((item) => item.type === '层级应期边界'));
+    assertEvidenceOwnerReferences(triggerEvidence);
     assert.match(String(response.structuredContent?.prompt), /【八字岁运触发结构化证据】/);
     assert.match(String(response.structuredContent?.prompt), /未见主要关系不等于没有较弱关系/);
   });
@@ -1065,6 +1098,7 @@ test('MCP 八字双盘应返回计算链、反证、汇总与限制对象', asyn
     );
     assert.ok(compatibility?.counterEvidenceFacts?.length);
     assert.ok(compatibility?.limitationFacts?.some((item) => item.type === '高风险输出边界'));
+    assertEvidenceOwnerReferences(compatibility);
     assert.match(String(response.structuredContent?.prompt), /【八字双盘结构化证据】/);
     assert.doesNotMatch(String(response.structuredContent?.prompt), /bazi:compatibility:/);
   });
@@ -1652,6 +1686,7 @@ test('MCP 西占双盘提示词应返回跨盘证据和完整任务书', async (
     assert.equal(chart?.synastry?.summary?.strongAspects, undefined);
     assert.equal(chart?.synastry?.counterEvidenceFacts?.length, 4);
     assert.equal(chart?.synastry?.limitationFacts?.length, 6);
+    assertEvidenceOwnerReferences(chart?.synastry);
     assert.equal(
       chart?.synastry?.summaryFact?.returnedAspectCount,
       chart?.synastry?.aspects?.length,

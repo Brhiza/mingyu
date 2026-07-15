@@ -93,6 +93,30 @@ function createPayload(offset: number, mutagen: MutagenName): AnalysisPayloadV1 
   };
 }
 
+function assertEvidenceReferences(result: ReturnType<typeof analyzeZiweiCompatibility>) {
+  const factKeys = new Set([
+    result.summaryFact.key,
+    ...result.calculationSteps.map((item) => item.key),
+    ...result.palaceOverlays.map((item) => item.key),
+    ...result.crossMutagenPlacements.map((item) => item.key),
+    ...result.counterEvidenceFacts.map((item) => item.key),
+  ]);
+  assert.ok(result.summaryFact.factKeys.length > 0);
+  assert.ok(result.summaryFact.factKeys.every((key) => factKeys.has(key)));
+  assert.ok(
+    result.counterEvidenceFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    result.limitationFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+}
+
 test('紫微双盘应按地支映射双方关键宫位', () => {
   const result = analyzeZiweiCompatibility(createPayload(0, '禄'), createPayload(2, '忌'));
   const overlay = result.palaceOverlays.find(
@@ -130,19 +154,7 @@ test('紫微双盘应按地支映射双方关键宫位', () => {
         item.sourcePalace.includes('夫妻'),
     ).length,
   );
-  const factKeys = new Set([
-    result.summaryFact.key,
-    ...result.palaceOverlays.map((item) => item.key),
-    ...result.crossMutagenPlacements.map((item) => item.key),
-  ]);
-  assert.ok(
-    result.counterEvidenceFacts.every((item) =>
-      item.ownerFactKeys.every((key) => factKeys.has(key)),
-    ),
-  );
-  assert.ok(
-    result.limitationFacts.every((item) => item.ownerFactKeys.every((key) => factKeys.has(key))),
-  );
+  assertEvidenceReferences(result);
 });
 
 test('紫微双盘应生成生年四化来源到对方落宫链路', () => {
@@ -218,6 +230,7 @@ test('紫微双盘没有生年四化定位时应保留未命中反证', () => {
     ).length,
     2,
   );
+  assertEvidenceReferences(result);
   assert.match(result.promptText, /未形成可定位的跨盘生年四化事实/);
 });
 

@@ -25,6 +25,37 @@ async function callApi(path: string, init?: RequestInit) {
   };
 }
 
+function assertEvidenceOwnerReferences(evidence: unknown) {
+  const data = evidence as {
+    summaryFact?: { key?: string; factKeys?: string[] };
+    relationSummaryFact?: { key?: string; factKeys?: string[] };
+    counterEvidenceFacts?: Array<{ key?: string; ownerFactKeys?: string[] }>;
+    limitationFacts?: Array<{ ownerFactKeys?: string[] }>;
+  };
+  const summary = data.summaryFact ?? data.relationSummaryFact;
+  assert.ok(summary?.key);
+  assert.ok(summary.factKeys?.length);
+  const factKeys = new Set([
+    summary.key,
+    ...(summary.factKeys ?? []),
+    ...(data.counterEvidenceFacts ?? []).flatMap((item) => (item.key ? [item.key] : [])),
+  ]);
+  assert.ok(
+    (data.counterEvidenceFacts ?? []).every(
+      (item) =>
+        (item.ownerFactKeys?.length ?? 0) > 0 &&
+        item.ownerFactKeys?.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    (data.limitationFacts ?? []).every(
+      (item) =>
+        (item.ownerFactKeys?.length ?? 0) > 0 &&
+        item.ownerFactKeys?.every((key) => factKeys.has(key)),
+    ),
+  );
+}
+
 const timeIndexRangeMap: Record<number, string> = {
   0: '00:00~01:00',
   1: '01:00~03:00',
@@ -147,6 +178,7 @@ test('公开 API 八字双盘应返回交叉证据与完整提示词', async () 
   assert.ok(
     compatibility.limitationFacts.some((item: { type: string }) => item.type === '高风险输出边界'),
   );
+  assertEvidenceOwnerReferences(compatibility);
   assert.match(compatibility.promptText, /【八字双盘结构化证据】/);
   assert.doesNotMatch(compatibility.promptText, /bazi:compatibility:/);
 
@@ -1125,6 +1157,7 @@ test('公开 API 八字年限提示词返回逐层岁运触发结构化证据', 
   assert.ok(
     triggerEvidence.limitationFacts.some((item: { type: string }) => item.type === '层级应期边界'),
   );
+  assertEvidenceOwnerReferences(triggerEvidence);
   assert.match(body.data.prompt, /【八字岁运触发结构化证据】/);
   assert.match(body.data.prompt, /岁运触发解释边界/);
   assert.match(body.data.prompt, /未见主要关系不等于没有较弱关系/);
@@ -1250,6 +1283,7 @@ test('公开 API 紫微双盘返回宫位叠盘、四化证据并保留双方称
   assert.ok(
     compatibility.limitationFacts.some((item: { type: string }) => item.type === '高风险输出边界'),
   );
+  assertEvidenceOwnerReferences(compatibility);
   assert.ok(compatibility.evidence.items.length > 0);
   assert.doesNotMatch(
     compatibility.promptText,
@@ -3240,6 +3274,7 @@ test('公开 API 西占双盘应返回跨盘相位、落宫和结构化证据', 
   assert.equal(synastry.summaryFact.houseOverlayCount, synastry.houseOverlays.length);
   assert.equal(synastry.counterEvidenceFacts.length, 4);
   assert.equal(synastry.limitationFacts.length, 6);
+  assertEvidenceOwnerReferences(synastry);
   assert.doesNotMatch(synastry.promptText, /本项目|项目统一|工程|接口|API|MCP|astrolabe:synastry:/);
   assertPromptIsPortableTaskText(synastry.promptText);
   assert.ok(synastry.evidence.items.some((item: { level: string }) => item.level === '限制'));

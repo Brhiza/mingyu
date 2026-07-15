@@ -38,6 +38,30 @@ function chart(name: string, sun: number, moon: number): AstrolabeData {
   };
 }
 
+function assertEvidenceReferences(result: ReturnType<typeof analyzeAstrolabeSynastry>) {
+  const factKeys = new Set([
+    result.summaryFact.key,
+    ...result.calculationSteps.map((item) => item.key),
+    ...result.aspects.map((item) => item.key),
+    ...result.houseOverlays.map((item) => item.key),
+    ...result.counterEvidenceFacts.map((item) => item.key),
+  ]);
+  assert.ok(result.summaryFact.factKeys.length > 0);
+  assert.ok(result.summaryFact.factKeys.every((key) => factKeys.has(key)));
+  assert.ok(
+    result.counterEvidenceFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    result.limitationFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+}
+
 test('西占双盘应按黄经最小夹角识别主要相位并保留计算口径', () => {
   const result = analyzeAstrolabeSynastry(chart('甲', 359, 120), chart('乙', 1, 210));
   const conjunction = result.aspects.find(
@@ -86,6 +110,7 @@ test('西占双盘应按黄经最小夹角识别主要相位并保留计算口�
   assert.match(result.promptText, /计算链概览/);
   assert.equal(result.counterEvidenceFacts.length, 4);
   assert.equal(result.limitationFacts.length, 6);
+  assertEvidenceReferences(result);
   assert.ok(result.promptText.length < 10000);
   assert.doesNotMatch(result.promptText, /本项目|项目统一|工程|接口|API|MCP|astrolabe:synastry:/);
   assertPromptIsPortableTaskText(result.promptText);
@@ -108,19 +133,7 @@ test('西占双盘应计算双方星体落入对方宫位', () => {
   assert.equal(overlay?.houseStart, 60);
   assert.equal(overlay?.houseEnd, 90);
   assert.equal(result.summaryFact.houseOverlayCount, result.houseOverlays.length);
-  const factKeys = new Set([
-    result.summaryFact.key,
-    ...result.aspects.map((item) => item.key),
-    ...result.houseOverlays.map((item) => item.key),
-  ]);
-  assert.ok(
-    result.counterEvidenceFacts.every((item) =>
-      item.ownerFactKeys.every((key) => factKeys.has(key)),
-    ),
-  );
-  assert.ok(
-    result.limitationFacts.every((item) => item.ownerFactKeys.every((key) => factKeys.has(key))),
-  );
+  assertEvidenceReferences(result);
 });
 
 test('西占双盘应允许显式调整容许度并拒绝非法参数', () => {
@@ -175,5 +188,6 @@ test('西占双盘应保留截断数量和关闭落宫的反证', () => {
     noFacts.counterEvidenceFacts.find((item) => item.type === '跨盘落宫覆盖')?.status,
     '已关闭',
   );
+  assertEvidenceReferences(noFacts);
   assert.match(noFacts.promptText, /明确关闭跨盘落宫计算/);
 });

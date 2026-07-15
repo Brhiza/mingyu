@@ -379,7 +379,10 @@ function buildCounterEvidenceFacts(params: {
         type: '关键宫位叠盘覆盖',
         status: overlays.length ? '有可用证据' : '未命中',
         direction: direction.key,
-        ownerFactKeys: overlays.map((item) => item.key),
+        ownerFactKeys: [
+          'ziwei:compatibility:calculation:palace-overlays',
+          ...overlays.map((item) => item.key),
+        ],
         promptText: overlays.length
           ? `${direction.label}记录${overlays.length}项关键宫位同支叠盘事实`
           : `${direction.label}未生成关键宫位同支叠盘事实；未命中不代表现实关系有利或不利`,
@@ -391,7 +394,10 @@ function buildCounterEvidenceFacts(params: {
         type: '跨盘四化覆盖',
         status: mutagens.length ? '有可用证据' : '未命中',
         direction: direction.key,
-        ownerFactKeys: mutagens.map((item) => item.key),
+        ownerFactKeys: [
+          'ziwei:compatibility:calculation:cross-mutagens',
+          ...mutagens.map((item) => item.key),
+        ],
         promptText: mutagens.length
           ? `${direction.label}记录${mutagens.length}项生年四化同名星曜落宫事实`
           : `${direction.label}未形成可定位的跨盘生年四化事实；不得补造四化落宫或据此推断关系好坏`,
@@ -405,6 +411,8 @@ function buildCounterEvidenceFacts(params: {
     type: '静态应期边界',
     status: '固有限制',
     ownerFactKeys: [
+      'ziwei:compatibility:calculation:palace-overlays',
+      'ziwei:compatibility:calculation:cross-mutagens',
       ...params.overlays.map((item) => item.key),
       ...params.mutagens.map((item) => item.key),
     ],
@@ -437,6 +445,11 @@ function buildSummaryFact(params: {
     key: 'ziwei:compatibility:evidence-summary',
     status,
     factKeys: [
+      'ziwei:compatibility:calculation:input',
+      'ziwei:compatibility:calculation:palace-index',
+      'ziwei:compatibility:calculation:palace-overlays',
+      'ziwei:compatibility:calculation:star-index',
+      'ziwei:compatibility:calculation:cross-mutagens',
       ...params.overlays.map((item) => item.key),
       ...params.mutagens.map((item) => item.key),
     ],
@@ -465,7 +478,10 @@ function buildLimitationFacts(params: {
     {
       key: 'ziwei:compatibility:limitation:palace-causality',
       type: '宫位因果边界',
-      ownerFactKeys: params.overlays.map((item) => item.key),
+      ownerFactKeys: [
+        'ziwei:compatibility:calculation:palace-overlays',
+        ...params.overlays.map((item) => item.key),
+      ],
       promptText:
         '宫位同支叠盘只说明双方宫位处于同一地支轴位，不等于现实吸引、冲突、忠诚、婚恋结果、合作结果或他人意图',
       sources: ['宫位轴位事实与现实关系因果分离原则'],
@@ -473,7 +489,10 @@ function buildLimitationFacts(params: {
     {
       key: 'ziwei:compatibility:limitation:mutagen-semantics',
       type: '四化语义边界',
-      ownerFactKeys: params.mutagens.map((item) => item.key),
+      ownerFactKeys: [
+        'ziwei:compatibility:calculation:cross-mutagens',
+        ...params.mutagens.map((item) => item.key),
+      ],
       promptText:
         '化禄、化权、化科、化忌只保留来源星曜与目标落宫链路；化禄不等于必然有利，化忌不等于必然不利',
       sources: ['生年四化定位事实与吉凶解释分离原则'],

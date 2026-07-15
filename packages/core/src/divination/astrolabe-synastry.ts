@@ -368,7 +368,10 @@ function buildCounterEvidenceFacts(params: {
       key: 'astrolabe:synastry:counter:aspect-coverage',
       type: '主要相位覆盖',
       status: params.aspects.length ? '有可用证据' : '未命中',
-      ownerFactKeys: params.aspects.map((item) => item.key),
+      ownerFactKeys: [
+        'astrolabe:synastry:calculation:aspect-filter',
+        ...params.aspects.map((item) => item.key),
+      ],
       promptText: params.aspects.length
         ? `当前返回${params.aspects.length}项进入容许度的主要跨盘相位`
         : '当前所选计算点未命中设定容许度内的合、六合、刑、拱或冲；未命中不等于双方没有互动或关系必然平稳',
@@ -385,7 +388,11 @@ function buildCounterEvidenceFacts(params: {
           : params.overlays.length
             ? '有可用证据'
             : '未命中',
-      ownerFactKeys: params.overlays.map((item) => item.key),
+      ownerFactKeys: [
+        'astrolabe:synastry:calculation:house-cusps',
+        'astrolabe:synastry:calculation:house-overlays',
+        ...params.overlays.map((item) => item.key),
+      ],
       promptText: !overlaysEnabled
         ? '当前明确关闭跨盘落宫计算，不把缺少落宫事实误写成未命中'
         : !houseDataComplete
@@ -405,7 +412,10 @@ function buildCounterEvidenceFacts(params: {
           : params.aspects.length
             ? '单一类型'
             : '未命中',
-      ownerFactKeys: [...harmonious.map((item) => item.key), ...tense.map((item) => item.key)],
+      ownerFactKeys: [
+        'astrolabe:synastry:calculation:aspect-filter',
+        ...params.aspects.map((item) => item.key),
+      ],
       promptText:
         harmonious.length && tense.length
           ? `同时记录${harmonious.length}项和谐相位与${tense.length}项紧张相位，必须并列解释，不得只取单一方向`
@@ -420,6 +430,8 @@ function buildCounterEvidenceFacts(params: {
       type: '静态应期边界',
       status: '固有限制',
       ownerFactKeys: [
+        'astrolabe:synastry:calculation:aspect-filter',
+        'astrolabe:synastry:calculation:house-overlays',
         ...params.aspects.map((item) => item.key),
         ...params.overlays.map((item) => item.key),
       ],
@@ -461,6 +473,12 @@ function buildSummaryFact(params: {
     key: 'astrolabe:synastry:evidence-summary',
     status,
     factKeys: [
+      'astrolabe:synastry:calculation:input',
+      'astrolabe:synastry:calculation:point-selection',
+      'astrolabe:synastry:calculation:aspect-geometry',
+      'astrolabe:synastry:calculation:aspect-filter',
+      'astrolabe:synastry:calculation:house-cusps',
+      'astrolabe:synastry:calculation:house-overlays',
       ...params.aspects.map((item) => item.key),
       ...params.overlays.map((item) => item.key),
     ],
@@ -495,7 +513,10 @@ function buildLimitationFacts(params: {
     {
       key: 'astrolabe:synastry:limitation:aspect-geometry',
       type: '相位几何边界',
-      ownerFactKeys: params.aspects.map((item) => item.key),
+      ownerFactKeys: [
+        'astrolabe:synastry:calculation:aspect-filter',
+        ...params.aspects.map((item) => item.key),
+      ],
       promptText:
         '跨盘相位只表示黄经夹角进入精确角与容许度范围；不包含现实因果、关系角色、他人意图或事件结果',
       sources: ['圆周最小夹角与主要相位角定义'],
@@ -503,21 +524,32 @@ function buildLimitationFacts(params: {
     {
       key: 'astrolabe:synastry:limitation:orb-truncation',
       type: '容许度与截断边界',
-      ownerFactKeys: [params.summaryFact.key, ...params.aspects.map((item) => item.key)],
+      ownerFactKeys: [
+        params.summaryFact.key,
+        'astrolabe:synastry:calculation:aspect-filter',
+        ...params.aspects.map((item) => item.key),
+      ],
       promptText: `容许度是可配置口径，当前最多返回${params.options.maxAspects ?? 40}项相位；排序或截断只控制输出范围，不代表未返回相位不存在或不重要`,
       sources: ['当前相位容许度与最大返回数配置'],
     },
     {
       key: 'astrolabe:synastry:limitation:house-data',
       type: '落宫资料边界',
-      ownerFactKeys: params.overlays.map((item) => item.key),
+      ownerFactKeys: [
+        'astrolabe:synastry:calculation:house-cusps',
+        'astrolabe:synastry:calculation:house-overlays',
+        ...params.overlays.map((item) => item.key),
+      ],
       promptText: '跨盘落宫沿用宫主本命盘的宫制和宫头区间；关闭落宫或宫头不完整时，不生成落宫结论',
       sources: ['宫主本命宫制、宫头区间与落宫开关'],
     },
     {
       key: 'astrolabe:synastry:limitation:tendency',
       type: '关系类型边界',
-      ownerFactKeys: params.aspects.map((item) => item.key),
+      ownerFactKeys: [
+        'astrolabe:synastry:calculation:aspect-filter',
+        ...params.aspects.map((item) => item.key),
+      ],
       promptText:
         '不得把单一和谐相位写成必然适合，也不得把单一紧张相位写成必然冲突或分离；中性相位也不等于没有影响，必须结合双方现实问题并列解释',
       sources: ['相位几何事实与关系评价分离原则'],
