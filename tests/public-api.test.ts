@@ -123,9 +123,32 @@ test('公开 API 八字双盘应返回交叉证据与完整提示词', async () 
   });
 
   assert.equal(calculation.response.status, 200);
-  assert.equal(calculation.body.data.compatibility.people.person1, '甲方');
-  assert.ok(calculation.body.data.compatibility.tenGodMappings.length === 8);
-  assert.match(calculation.body.data.compatibility.promptText, /【八字双盘结构化证据】/);
+  const compatibility = calculation.body.data.compatibility;
+  assert.equal(compatibility.people.person1, '甲方');
+  assert.equal(compatibility.key, 'bazi:compatibility:evidence');
+  assert.equal(compatibility.status, '已计算');
+  assert.equal(compatibility.calculationSteps.length, 7);
+  assert.ok(compatibility.tenGodMappings.length === 8);
+  assert.ok(
+    compatibility.crossPillarRelations.every(
+      (item: { key?: string; status?: string; calculationStepKey?: string }) =>
+        item.key &&
+        item.status === '已命中' &&
+        compatibility.calculationSteps.some(
+          (step: { key: string }) => step.key === item.calculationStepKey,
+        ),
+    ),
+  );
+  assert.equal(
+    compatibility.summaryFact.crossPillarRelationCount,
+    compatibility.crossPillarRelations.length,
+  );
+  assert.ok(compatibility.counterEvidenceFacts.length >= 4);
+  assert.ok(
+    compatibility.limitationFacts.some((item: { type: string }) => item.type === '高风险输出边界'),
+  );
+  assert.match(compatibility.promptText, /【八字双盘结构化证据】/);
+  assert.doesNotMatch(compatibility.promptText, /bazi:compatibility:/);
 
   const prompted = await callApi('bazi/compatibility/prompt', {
     method: 'POST',

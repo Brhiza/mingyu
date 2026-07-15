@@ -69,6 +69,17 @@ test('八字双盘证据应计算日主、日支和四柱交叉关系', () => {
 
   assert.equal(result.dayMasterRelation.person1ToPerson2, '克对方');
   assert.equal(result.dayMasterRelation.person2ToPerson1, '受对方克');
+  assert.equal(result.key, 'bazi:compatibility:evidence');
+  assert.equal(result.status, '已计算');
+  assert.equal(result.dayMasterRelation.key, 'bazi:compatibility:day-master-relation');
+  assert.equal(result.calculationSteps.length, 7);
+  assert.ok(
+    result.calculationSteps.every((step) =>
+      step.dependsOnStepKeys.every((key) =>
+        result.calculationSteps.some((candidate) => candidate.key === key),
+      ),
+    ),
+  );
   assert.ok(result.spousePalaceRelations.some((item) => item.type === '六合'));
   assert.ok(
     result.crossPillarRelations.some(
@@ -78,6 +89,38 @@ test('八字双盘证据应计算日主、日支和四柱交叉关系', () => {
         item.person2Pillar === 'day' &&
         item.transformWuxing === '水',
     ),
+  );
+  assert.ok(
+    result.crossPillarRelations.every(
+      (item) =>
+        item.key &&
+        item.status === '已命中' &&
+        item.sourceLayerKey &&
+        item.targetLayerKey &&
+        result.calculationSteps.some((step) => step.key === item.calculationStepKey),
+    ),
+  );
+  assert.equal(result.summaryFact.crossPillarRelationCount, result.crossPillarRelations.length);
+  assert.equal(result.summaryFact.spousePalaceRelationCount, result.spousePalaceRelations.length);
+  const factKeys = new Set([
+    result.dayMasterRelation.key,
+    result.summaryFact.key,
+    ...result.crossPillarRelations.map((item) => item.key),
+    ...result.crossBranchCombinations.map((item) => item.key),
+    ...result.tenGodMappings.map((item) => item.key),
+    ...result.usefulGodCoverage.flatMap((item) => [
+      item.key,
+      ...item.favorable.map((entry) => entry.key),
+      ...item.unfavorable.map((entry) => entry.key),
+    ]),
+  ]);
+  assert.ok(
+    result.counterEvidenceFacts.every((item) =>
+      item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    result.limitationFacts.every((item) => item.ownerFactKeys.every((key) => factKeys.has(key))),
   );
 });
 
@@ -92,6 +135,9 @@ test('八字双盘证据应记录跨盘三会来源但不声称成化', () => {
     ['寅', '卯', '辰'],
   );
   assert.match(combination.note, /不直接判定成局或成化/);
+  assert.equal(combination.status, '组合齐备');
+  assert.ok(combination.key.startsWith('bazi:compatibility:branch-combination:'));
+  assert.ok(combination.sourceLayerKeys.length >= 3);
 });
 
 test('八字双盘证据应双向映射十神和喜忌覆盖', () => {
@@ -100,6 +146,11 @@ test('八字双盘证据应双向映射十神和喜忌覆盖', () => {
 
   assert.equal(result.tenGodMappings.length, 8);
   assert.ok(
+    result.tenGodMappings.every(
+      (item) => item.key && item.status === '已计算' && item.sourceLayerKey,
+    ),
+  );
+  assert.ok(
     result.tenGodMappings.some(
       (item) => item.observer === 'person1' && item.pillar === 'day' && item.stem === '辛',
     ),
@@ -107,6 +158,12 @@ test('八字双盘证据应双向映射十神和喜忌覆盖', () => {
   assert.deepEqual(
     result.usefulGodCoverage[0].favorable.map((item) => item.wuxing),
     ['木', '火'],
+  );
+  assert.equal(result.usefulGodCoverage[0].status, '已计算');
+  assert.ok(
+    result.usefulGodCoverage
+      .flatMap((item) => [...item.favorable, ...item.unfavorable])
+      .every((item) => item.key && item.status === '已命中' && item.sourceLayerKeys.length),
   );
   assert.deepEqual(
     result.usefulGodCoverage[1].unfavorable.map((item) => item.wuxing),
@@ -129,7 +186,32 @@ test('八字双盘提示词应区分事实和限制且不输出匹配总分', ()
   assert.match(result.promptText, /【反证】/);
   assert.match(result.promptText, /【限制】/);
   assert.match(result.promptText, /不输出匹配总分/);
+  assert.match(result.promptText, /计算链概览/);
+  assert.match(result.promptText, /证据汇总/);
+  assert.ok(result.counterEvidenceFacts.length >= 4);
+  assert.ok(result.limitationFacts.some((item) => item.type === '合化边界'));
+  assert.ok(result.promptText.length < 10000);
+  assert.doesNotMatch(result.promptText, /bazi:compatibility:|本模块|本引擎|内部配置/);
   assert.doesNotMatch(result.promptText, /匹配(?:分数|率|百分比)|合化成功/);
+});
+
+test('八字双盘喜忌资料缺失时应保留缺口而不生成互补结论', () => {
+  const { chart1, chart2 } = createPair();
+  chart1.analysis.usefulGod.favorableWuxing = [];
+  chart1.analysis.usefulGod.unfavorableWuxing = [];
+
+  const result = analyzeBaziCompatibility(chart1, chart2);
+
+  assert.equal(result.status, '存在资料缺口');
+  assert.equal(result.summaryFact.status, '存在资料缺口');
+  assert.equal(result.summaryFact.unavailableCoverageCount, 1);
+  assert.ok(result.usefulGodCoverage.some((item) => item.status === '资料不足'));
+  assert.ok(
+    result.counterEvidenceFacts.some(
+      (item) => item.type === '喜用资料覆盖' && item.status === '资料不足',
+    ),
+  );
+  assert.match(result.promptText, /缺少受益方结构化喜忌资料，不生成互补结论/);
 });
 
 test('八字双盘证据应拒绝无效四柱', () => {

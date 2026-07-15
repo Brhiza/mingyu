@@ -127,11 +127,16 @@ export type {
   FortuneTriggerRelationType,
 } from './fortuneTriggerEvidence';
 export type {
+  BaziCompatibilityCalculationStep,
+  BaziCompatibilityCounterEvidenceFact,
   BaziCompatibilityEvidenceResult,
+  BaziCompatibilityLimitationFact,
   BaziCompatibilityOptions,
+  BaziCompatibilitySummaryFact,
   BaziCrossBranchCombination,
   BaziCrossPillarRelation,
   BaziDayMasterRelation,
   BaziTenGodMapping,
   BaziUsefulGodCoverage,
+  BaziUsefulGodCoverageItem,
 } from './compatibilityEvidence';

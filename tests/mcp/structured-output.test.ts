@@ -848,6 +848,74 @@ test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
   });
 });
 
+test('MCP 八字双盘应返回计算链、反证、汇总与限制对象', async () => {
+  await withMcpClient(async (client) => {
+    const response = await client.callTool({
+      name: 'bazi_compatibility_prompt',
+      arguments: {
+        person1: {
+          name: '甲方',
+          gender: 'female',
+          year: 1988,
+          month: 1,
+          day: 1,
+          timeIndex: 0,
+          dateType: 'solar',
+        },
+        person2: {
+          name: '乙方',
+          gender: 'male',
+          year: 1990,
+          month: 6,
+          day: 15,
+          timeIndex: 5,
+          dateType: 'solar',
+        },
+        question: '双方适合长期合作吗？',
+        compatType: 'career',
+      },
+    });
+
+    assert.equal(response.isError, undefined);
+    const compatibility = (
+      response.structuredContent?.result as {
+        compatibility?: {
+          key?: string;
+          status?: string;
+          calculationSteps?: Array<{ key: string; dependsOnStepKeys: string[] }>;
+          crossPillarRelations?: Array<{
+            key?: string;
+            status?: string;
+            calculationStepKey?: string;
+          }>;
+          counterEvidenceFacts?: unknown[];
+          summaryFact?: { crossPillarRelationCount?: number };
+          limitationFacts?: Array<{ type?: string }>;
+        };
+      }
+    )?.compatibility;
+    assert.equal(compatibility?.key, 'bazi:compatibility:evidence');
+    assert.equal(compatibility?.status, '已计算');
+    assert.equal(compatibility?.calculationSteps?.length, 7);
+    assert.ok(
+      compatibility?.crossPillarRelations?.every(
+        (item) =>
+          item.key &&
+          item.status === '已命中' &&
+          compatibility.calculationSteps?.some((step) => step.key === item.calculationStepKey),
+      ),
+    );
+    assert.equal(
+      compatibility?.summaryFact?.crossPillarRelationCount,
+      compatibility?.crossPillarRelations?.length,
+    );
+    assert.ok(compatibility?.counterEvidenceFacts?.length);
+    assert.ok(compatibility?.limitationFacts?.some((item) => item.type === '高风险输出边界'));
+    assert.match(String(response.structuredContent?.prompt), /【八字双盘结构化证据】/);
+    assert.doesNotMatch(String(response.structuredContent?.prompt), /bazi:compatibility:/);
+  });
+});
+
 test('MCP 黄历择日提示词应允许省略问题', async () => {
   await withMcpClient(async (client) => {
     const result = await client.callTool({
