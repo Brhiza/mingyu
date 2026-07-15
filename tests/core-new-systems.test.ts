@@ -494,6 +494,7 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
       (step) =>
         step.key.startsWith('taiyi:calculation:') &&
         step.status === '已核验' &&
+        Array.isArray(step.dependsOnStepKeys) &&
         step.promptText &&
         step.sources.length >= 2 &&
         step.limitation.includes('不证明传统解释有效性'),
@@ -509,12 +510,18 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   );
   assert.ok(
     r.evidenceAnalysis.positionFacts.every(
-      (item) => item.sources.length >= 2 && item.limitation.includes('不单独证明现实吉凶'),
+      (item) =>
+        item.status === '已计算' &&
+        item.calculationStepKeys.includes('taiyi:calculation:bureau') &&
+        item.sources.length >= 2 &&
+        item.limitation.includes('不单独证明现实吉凶'),
     ),
   );
   assert.ok(
     r.evidenceAnalysis.forceFacts.every(
       (item) =>
+        item.status === '已计算' &&
+        item.calculationStepKeys.includes('taiyi:calculation:bureau') &&
         item.promptText &&
         item.sources.length >= 2 &&
         item.limitation.includes('不直接证明现实胜负'),
@@ -522,7 +529,40 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   );
   assert.ok(
     r.evidenceAnalysis.sixteenGodFacts.every(
-      (item) => item.promptText && item.limitation.includes('不得单独生成现实结论'),
+      (item) =>
+        item.status === '已计算' &&
+        item.calculationStepKeys.includes('taiyi:calculation:bureau') &&
+        item.promptText &&
+        item.limitation.includes('不得单独生成现实结论'),
+    ),
+  );
+  assert.ok(
+    r.evidenceAnalysis.conditionFacts.every(
+      (item) =>
+        (item.status === '已命中' || item.status === '未命中') &&
+        item.calculationStepKeys.includes('taiyi:calculation:bureau'),
+    ),
+  );
+  assert.deepEqual(
+    r.evidenceAnalysis.counterEvidenceFacts.map((item) => [item.type, item.status]),
+    [
+      ['掩', '已命中'],
+      ['囚', '未命中'],
+      ['主将参中宫', '未命中'],
+      ['客将参中宫', '未命中'],
+    ],
+  );
+  assert.equal(r.evidenceAnalysis.counterSummaryFact.status, '存在未命中条件');
+  assert.equal(r.evidenceAnalysis.counterSummaryFact.factKeys.length, 3);
+  assert.equal(r.evidenceAnalysis.limitationFacts.length, 5);
+  assert.equal(r.evidenceAnalysis.limitations.length, r.evidenceAnalysis.limitationFacts.length);
+  assert.ok(
+    r.evidenceAnalysis.limitationFacts.every(
+      (item) =>
+        item.key.startsWith('taiyi:limitation:') &&
+        item.status === '适用' &&
+        item.ownerFactKeys.length > 0 &&
+        item.sources.length > 0,
     ),
   );
   assert.ok(r.evidenceAnalysis.conditionFacts.some((item) => item.kind === '掩' && item.matched));
@@ -536,6 +576,11 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
     r.evidenceAnalysis.promptText,
     /\d+(?:\.\d+)?%|成功率(?:为|：)|匹配率(?:为|：)|吉凶总分(?:为|：)/,
   );
+  assert.doesNotMatch(
+    r.evidenceAnalysis.promptText,
+    /命语|本项目|项目统一|当前结果|工程|接口|API|MCP/,
+  );
+  assertPromptIsPortableTaskText(r.evidenceAnalysis.promptText);
   assert.throws(() => core.taiyi.generateTaiyi({ year: 2004, scope: 'month' }), /完整日期和时间/);
 });
 
@@ -592,6 +637,8 @@ test('taiyi: 未见掩囚时应明确输出反证而非省略', () => {
   assert.ok(result.evidenceAnalysis.counterEvidence.some((item) => item.startsWith('未见掩')));
   assert.ok(result.evidenceAnalysis.counterEvidence.some((item) => item.startsWith('未见囚')));
   assert.match(result.evidenceAnalysis.promptText, /反证核验：未见掩/);
+  assert.equal(result.evidenceAnalysis.counterSummaryFact.status, '存在未命中条件');
+  assert.equal(result.evidenceAnalysis.counterSummaryFact.factKeys.length, 3);
 });
 
 test('taiyi: 年家 72 局应完整覆盖且宫卦名不与字位混用', () => {

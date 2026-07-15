@@ -49,7 +49,10 @@ export interface TaiyiEvidenceAnalysis {
   primaryFacts: string[];
   supportingFacts: string[];
   counterEvidence: string[];
+  counterEvidenceFacts: TaiyiCounterEvidenceFact[];
+  counterSummaryFact: TaiyiCounterSummaryFact;
   limitations: string[];
+  limitationFacts: TaiyiLimitationFact[];
   evidence: PromptEvidenceBundle;
   promptText: string;
   methodology: string[];
@@ -57,9 +60,11 @@ export interface TaiyiEvidenceAnalysis {
 
 export interface TaiyiPositionFact {
   key: string;
+  status: '已计算';
   role: '太乙' | '文昌（主目）' | '始击（客目）' | '计神';
   position: string;
   palace: number;
+  calculationStepKeys: string[];
   promptText: string;
   sources: string[];
   limitation: '核心定位字段是七十二局立成与计神规则的计算事实，只限定太乙盘面取证位置，不单独证明现实吉凶、攻守结果、人物处境或固定应期';
@@ -67,6 +72,7 @@ export interface TaiyiPositionFact {
 
 export interface TaiyiForceFact {
   key: string;
+  status: '已计算';
   side: '主' | '客' | '定';
   count: number;
   nature?: string;
@@ -74,6 +80,7 @@ export interface TaiyiForceFact {
   assistantPalace: number;
   generalInCenter: boolean;
   assistantInCenter: boolean;
+  calculationStepKeys: string[];
   promptText: string;
   sources: string[];
   limitation: '主客定算、算数属性与将参宫位是传统规则计算结果，只用于比较三方盘面条件，不直接证明现实胜负、行动成败、吉凶比例或人物强弱';
@@ -81,9 +88,11 @@ export interface TaiyiForceFact {
 
 export interface TaiyiSixteenGodFact {
   key: string;
+  status: '已计算';
   index: number;
   branch: string;
   god: string;
+  calculationStepKeys: string[];
   promptText: string;
   sources: string[];
   limitation: '十六神固定定位只作为太乙基础盘辅助索引，未结合具体类神和完整古法细目时不得单独生成现实结论';
@@ -91,8 +100,10 @@ export interface TaiyiSixteenGodFact {
 
 export interface TaiyiConditionFact {
   key: string;
+  status: '已命中' | '未命中';
   kind: '掩' | '囚' | '主将参中宫' | '客将参中宫';
   matched: boolean;
+  calculationStepKeys: string[];
   calculationText: string;
   promptText: string;
   sources: string[];
@@ -106,10 +117,40 @@ export interface TaiyiCalculationStep {
   input: number;
   operation: string;
   result: number;
+  dependsOnStepKeys: string[];
   basis: string;
   promptText: string;
   sources: string[];
   limitation: '积数算式只证明本计积数如何折算入纪元数、元数、纪数与七十二局，不证明传统解释有效性、现实胜负、吉凶比例、人物强弱或固定应期';
+}
+
+export interface TaiyiCounterEvidenceFact {
+  key: string;
+  type: '掩' | '囚' | '主将参中宫' | '客将参中宫';
+  status: '已命中' | '未命中';
+  ownerConditionKey: string;
+  promptText: string;
+  sources: string[];
+  limitation: '反证事实只记录掩、囚与主客将参中宫条件是否命中；未命中不代表现实有利，命中也不证明攻守、胜负或固定应期';
+}
+
+export interface TaiyiCounterSummaryFact {
+  key: 'taiyi:counter-summary';
+  status: '存在未命中条件' | '条件均有命中';
+  factKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '反证汇总只说明传统条件覆盖情况；不得据命中数量生成吉凶总分、成功率、人物强弱或固定应期';
+}
+
+export interface TaiyiLimitationFact {
+  key: string;
+  type: '时间尺度边界' | '传统模型边界' | '实证范围边界' | '古法覆盖边界' | '高风险输出边界';
+  status: '适用';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束太乙五计、七十二局、主客定算和十六神可以支持的解释范围，不得被反向当作现实结果或概率证据';
 }
 
 const POSITION_FACT_LIMITATION =
@@ -125,6 +166,12 @@ const CONDITION_FACT_LIMITATION =
   '掩、囚与将参中宫只证明盘面满足对应位置条件；传统动静或攻守解释须结合所问事项与现实资料，不代表必然结果' as const;
 const CALCULATION_STEP_LIMITATION =
   '积数算式只证明本计积数如何折算入纪元数、元数、纪数与七十二局，不证明传统解释有效性、现实胜负、吉凶比例、人物强弱或固定应期' as const;
+const COUNTER_FACT_LIMITATION =
+  '反证事实只记录掩、囚与主客将参中宫条件是否命中；未命中不代表现实有利，命中也不证明攻守、胜负或固定应期' as const;
+const COUNTER_SUMMARY_LIMITATION =
+  '反证汇总只说明传统条件覆盖情况；不得据命中数量生成吉凶总分、成功率、人物强弱或固定应期' as const;
+const LIMITATION_FACT_LIMITATION =
+  '限制事实用于约束太乙五计、七十二局、主客定算和十六神可以支持的解释范围，不得被反向当作现实结果或概率证据' as const;
 
 const SCOPE_LABELS: Record<TaiyiScope, string> = {
   year: '年计',
@@ -150,9 +197,11 @@ function buildPositionFacts(data: TaiyiEvidenceInput): TaiyiPositionFact[] {
     ['计神', data.jiShenPosition, data.jiShenPalace, '本计阴阳遁与周期地支计神定位规则'],
   ].map(([role, position, palace, source]) => ({
     key: `核心定位:${role}`,
+    status: '已计算' as const,
     role,
     position,
     palace,
+    calculationStepKeys: ['taiyi:calculation:bureau'],
     promptText: `${role}在${position}（第${palace}宫）`,
     sources: [source, `${data.model.name}当前第${data.bureau}局结果`],
     limitation: POSITION_FACT_LIMITATION,
@@ -166,6 +215,7 @@ function buildForceFacts(data: TaiyiEvidenceInput): TaiyiForceFact[] {
     ['定', data.setCount, data.countNatures?.set, data.setGeneral, data.setAssistant],
   ].map(([side, count, nature, generalPalace, assistantPalace]) => ({
     key: `三方算将参:${side}`,
+    status: '已计算' as const,
     side,
     count,
     nature,
@@ -173,6 +223,7 @@ function buildForceFacts(data: TaiyiEvidenceInput): TaiyiForceFact[] {
     assistantPalace,
     generalInCenter: generalPalace === 5,
     assistantInCenter: assistantPalace === 5,
+    calculationStepKeys: ['taiyi:calculation:bureau'],
     promptText: `${side}算${count}${nature ? `（传统算数属性${nature}）` : '（未列算数属性）'}；${side}大将第${generalPalace}宫，${side}参将第${assistantPalace}宫${generalPalace === 5 || assistantPalace === 5 ? '；将或参落中宫' : ''}`,
     sources: ['七十二局主算、客算、定算立成表', '定算余数定位大将与大将乘三定位参将规则'],
     limitation: FORCE_FACT_LIMITATION,
@@ -182,9 +233,11 @@ function buildForceFacts(data: TaiyiEvidenceInput): TaiyiForceFact[] {
 function buildSixteenGodFacts(data: TaiyiEvidenceInput): TaiyiSixteenGodFact[] {
   return data.sixteenGods.map((item, index) => ({
     key: `十六神:${index + 1}:${item.god}`,
+    status: '已计算' as const,
     index: index + 1,
     branch: item.branch,
     god: item.god,
+    calculationStepKeys: ['taiyi:calculation:bureau'],
     promptText: `第${index + 1}位${item.branch}${item.god}`,
     sources: ['太乙十六神固定定位表', `${data.model.name}基础盘辅助定位`],
     limitation: SIXTEEN_GOD_FACT_LIMITATION,
@@ -232,12 +285,106 @@ function buildConditionFacts(data: TaiyiEvidenceInput): TaiyiConditionFact[] {
   ];
   return facts.map((item) => ({
     key: `条件:${item.kind}`,
+    status: item.matched ? ('已命中' as const) : ('未命中' as const),
     kind: item.kind,
     matched: item.matched,
+    calculationStepKeys: ['taiyi:calculation:bureau'],
     calculationText: item.calculationText,
     promptText: item.matched ? item.matchedText : item.unmatchedText,
-    sources: ['当前盘面宫位逐项比较', '太乙掩囚与将参中宫传统条件'],
+    sources: ['盘面宫位逐项比较', '太乙掩囚与将参中宫传统条件'],
     limitation: CONDITION_FACT_LIMITATION,
+  }));
+}
+
+function buildCounterEvidenceFacts(
+  conditionFacts: TaiyiConditionFact[],
+): TaiyiCounterEvidenceFact[] {
+  return conditionFacts.map((condition) => ({
+    key: `taiyi:counter:${condition.kind}`,
+    type: condition.kind,
+    status: condition.status,
+    ownerConditionKey: condition.key,
+    promptText: condition.matched
+      ? `${condition.kind}条件已命中：${condition.promptText}`
+      : `未见${condition.kind}：${condition.promptText}`,
+    sources: condition.sources,
+    limitation: COUNTER_FACT_LIMITATION,
+  }));
+}
+
+function buildCounterSummaryFact(
+  counterEvidenceFacts: TaiyiCounterEvidenceFact[],
+): TaiyiCounterSummaryFact {
+  const unmatched = counterEvidenceFacts.filter((item) => item.status === '未命中');
+  return {
+    key: 'taiyi:counter-summary',
+    status: unmatched.length ? '存在未命中条件' : '条件均有命中',
+    factKeys: unmatched.map((item) => item.key),
+    promptText: unmatched.length
+      ? `未见${unmatched.map((item) => item.type).join('、')}；未命中不代表现实有利或不利，只保留条件事实`
+      : '掩、囚与主客将参中宫条件均有命中记录；不得据命中数量生成综合判断',
+    sources: ['掩、囚与主客将参中宫条件逐项汇总'],
+    limitation: COUNTER_SUMMARY_LIMITATION,
+  };
+}
+
+function buildLimitationFacts(
+  data: TaiyiEvidenceInput,
+  calculationSteps: TaiyiCalculationStep[],
+  positionFacts: TaiyiPositionFact[],
+  forceFacts: TaiyiForceFact[],
+  sixteenGodFacts: TaiyiSixteenGodFact[],
+): TaiyiLimitationFact[] {
+  const allFactKeys = [
+    ...calculationSteps.map((item) => item.key),
+    ...positionFacts.map((item) => item.key),
+    ...forceFacts.map((item) => item.key),
+    ...sixteenGodFacts.map((item) => item.key),
+  ];
+  const definitions: Array<
+    Pick<TaiyiLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
+  > = [
+    {
+      key: 'taiyi:limitation:time-scale',
+      type: '时间尺度边界',
+      ownerFactKeys: calculationSteps.map((item) => item.key),
+      promptText: `${SCOPE_LABELS[data.scope]}只适用于${SCOPE_LABELS[data.scope]}时间尺度，年、月、日、时、分五计的积数与阴阳遁规则不可互相替代`,
+      sources: ['太乙五计时间尺度与独立积数规则'],
+    },
+    {
+      key: 'taiyi:limitation:traditional-model',
+      type: '传统模型边界',
+      ownerFactKeys: allFactKeys,
+      promptText: '七十二局立成、宫位、算数与十六神属于传统规则模型，不是现代统计预测模型',
+      sources: ['太乙七十二局立成与传统定位规则'],
+    },
+    {
+      key: 'taiyi:limitation:evidence-scope',
+      type: '实证范围边界',
+      ownerFactKeys: allFactKeys,
+      promptText: '古籍与公开实现用于说明规则来源和交叉校验，不代表吉凶解释经过现代实证验证',
+      sources: ['传统文献与现代实证范围区分'],
+    },
+    {
+      key: 'taiyi:limitation:classic-coverage',
+      type: '古法覆盖边界',
+      ownerFactKeys: allFactKeys,
+      promptText:
+        '本盘是太乙基础盘的结构化计算，未覆盖全部古法细目，不得据此声称完整复原所有太乙法门',
+      sources: ['七十二局基础盘与古法细目范围对照'],
+    },
+    {
+      key: 'taiyi:limitation:high-risk-output',
+      type: '高风险输出边界',
+      ownerFactKeys: allFactKeys,
+      promptText: '宫位、算数、掩囚及十六神不得换算为吉凶总分、成功率、匹配率、必然事件或唯一应期',
+      sources: ['盘面事实与现实结果分离原则'],
+    },
+  ];
+  return definitions.map((definition) => ({
+    ...definition,
+    status: '适用',
+    limitation: LIMITATION_FACT_LIMITATION,
   }));
 }
 
@@ -257,6 +404,7 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
       input: data.accumulatedValue,
       operation: `(${data.accumulatedValue} - 1) mod 360 + 1`,
       result: data.entryYears,
+      dependsOnStepKeys: [],
       basis: '积数按三百六十数循环，余零按三百六十计',
       promptText: `入纪元数：${data.accumulatedValue}按三百六十循环得${data.entryYears}`,
       sources: [`${scopeLabel}${data.accumulatedLabel}规则`, '太乙三百六十数入纪循环规则'],
@@ -269,6 +417,7 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
       input: data.entryYears,
       operation: `ceil(${data.entryYears} / 72)`,
       result: data.yuan,
+      dependsOnStepKeys: ['taiyi:calculation:entry'],
       basis: '入纪元数每七十二数为一元',
       promptText: `元数：入纪元数${data.entryYears}每七十二数一元，得第${data.yuan}元`,
       sources: ['太乙七十二数一元规则', data.model.name],
@@ -281,6 +430,7 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
       input: data.entryYears,
       operation: `ceil(${data.entryYears} / 60)`,
       result: data.ji,
+      dependsOnStepKeys: ['taiyi:calculation:entry'],
       basis: '入纪元数每六十数为一纪',
       promptText: `纪数：入纪元数${data.entryYears}每六十数一纪，得第${data.ji}纪`,
       sources: ['太乙六十数一纪规则', data.model.name],
@@ -293,6 +443,7 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
       input: data.accumulatedValue,
       operation: `(${data.accumulatedValue} - 1) mod 72 + 1`,
       result: data.bureau,
+      dependsOnStepKeys: ['taiyi:calculation:entry'],
       basis: '积数按七十二局循环，余零按第七十二局计',
       promptText: `局数：${data.accumulatedValue}按七十二局循环得${data.yinYang}第${data.bureau}局`,
       sources: [`${scopeLabel}${data.accumulatedLabel}与阴阳遁规则`, '太乙七十二局循环规则'],
@@ -328,16 +479,19 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     `计神在${palaceText(data.jiShenPosition, data.jiShenPalace)}`,
     `十六神固定定位：${data.sixteenGods.map((item) => `${item.branch}${item.god}`).join('、')}`,
   ];
-  const counterEvidence = conditionFacts
-    .filter((item) => !item.matched)
-    .map((item) => `未见${item.kind}：${item.promptText}`);
-  const limitations = [
-    `${scopeLabel}只适用于${scopeLabel}时间尺度，年、月、日、时、分五计的积数与阴阳遁规则不可互相替代`,
-    '七十二局立成、宫位、算数与十六神属于传统规则模型，不是现代统计预测模型',
-    '古籍与公开实现用于说明规则来源和交叉校验，不代表吉凶解释经过现代实证验证',
-    '当前结果是太乙基础盘的结构化计算，未覆盖全部古法细目，不得据此声称完整复原所有太乙法门',
-    '宫位、算数、掩囚及十六神不得换算为吉凶总分、成功率、匹配率、必然事件或唯一应期',
-  ];
+  const counterEvidenceFacts = buildCounterEvidenceFacts(conditionFacts);
+  const counterSummaryFact = buildCounterSummaryFact(counterEvidenceFacts);
+  const counterEvidence = counterEvidenceFacts
+    .filter((item) => item.status === '未命中')
+    .map((item) => item.promptText);
+  const limitationFacts = buildLimitationFacts(
+    data,
+    calculationSteps,
+    positionFacts,
+    forceFacts,
+    sixteenGodFacts,
+  );
+  const limitations = limitationFacts.map((item) => item.promptText);
   const sourceText = data.model.sources
     .map((source) => `${source.title}：${source.evidence}`)
     .join('；');
@@ -378,10 +532,17 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
       tags: [item.kind, item.matched ? '条件成立' : '条件未成立'],
     })),
     {
+      level: '反证',
+      title: `太乙反证汇总：${counterSummaryFact.status}`,
+      detail: `${counterSummaryFact.promptText}；边界：${counterSummaryFact.limitation}`,
+      source: counterSummaryFact.sources.join('、'),
+      tags: ['反证汇总', counterSummaryFact.status],
+    },
+    {
       level: '限制',
       title: '太乙五计解释边界',
-      detail: limitations.join('；'),
-      source: '计算事实与解释结论分离原则',
+      detail: `${limitations.join('；')}；边界：${LIMITATION_FACT_LIMITATION}`,
+      source: Array.from(new Set(limitationFacts.flatMap((item) => item.sources))).join('、'),
       tags: ['传统模型', '证据边界'],
     },
   ];
@@ -394,7 +555,7 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     ...formatPromptEvidenceBundle(evidence),
     `计算链：${calculationChain.join(' → ')}。`,
     `算式核验：${calculationSteps.map((step) => `${step.key} ${step.name}${step.operation}=${step.result}`).join('；')}。`,
-    `反证核验：${counterEvidence.join('；') || '未见掩、囚或将参中宫等明确限制结构'}。`,
+    `反证核验：${counterSummaryFact.promptText}。`,
     `方法限制：${limitations.join('；')}。`,
   ].join('\n');
 
@@ -408,7 +569,10 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     primaryFacts,
     supportingFacts,
     counterEvidence,
+    counterEvidenceFacts,
+    counterSummaryFact,
     limitations,
+    limitationFacts,
     evidence,
     promptText,
     methodology: [

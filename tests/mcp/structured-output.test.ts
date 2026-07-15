@@ -2617,6 +2617,7 @@ test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级'
             calculationSteps: Array<{
               key: string;
               status: string;
+              dependsOnStepKeys: string[];
               promptText: string;
               sources: string[];
               dependsOnStepKeys: string[];
@@ -2718,8 +2719,25 @@ test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
             }>;
             primaryFacts: unknown[];
             counterEvidence: string[];
+            counterEvidenceFacts: Array<{
+              key: string;
+              type: string;
+              status: string;
+              ownerConditionKey: string;
+              sources: string[];
+            }>;
+            counterSummaryFact: { status: string; factKeys: string[] };
+            limitations: string[];
+            limitationFacts: Array<{
+              key: string;
+              status: string;
+              ownerFactKeys: string[];
+              sources: string[];
+            }>;
             positionFacts: unknown[];
             forceFacts: Array<{
+              status: string;
+              calculationStepKeys: string[];
               promptText: string;
               sources: string[];
               limitation: string;
@@ -2737,6 +2755,7 @@ test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
         (item) =>
           item.key.startsWith('taiyi:calculation:') &&
           item.status === '已核验' &&
+          Array.isArray(item.dependsOnStepKeys) &&
           item.promptText &&
           item.sources.length >= 2 &&
           item.limitation.includes('不证明传统解释有效性'),
@@ -2747,9 +2766,19 @@ test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
     assert.equal(chart.evidenceAnalysis.forceFacts.length, 3);
     assert.equal(chart.evidenceAnalysis.sixteenGodFacts.length, 16);
     assert.equal(chart.evidenceAnalysis.conditionFacts.length, 4);
+    assert.equal(chart.evidenceAnalysis.counterEvidenceFacts.length, 4);
+    assert.equal(chart.evidenceAnalysis.counterSummaryFact.status, '存在未命中条件');
+    assert.equal(chart.evidenceAnalysis.counterSummaryFact.factKeys.length, 3);
+    assert.equal(chart.evidenceAnalysis.limitationFacts.length, 5);
+    assert.equal(
+      chart.evidenceAnalysis.limitations.length,
+      chart.evidenceAnalysis.limitationFacts.length,
+    );
     assert.ok(
       chart.evidenceAnalysis.forceFacts.every(
         (item) =>
+          item.status === '已计算' &&
+          item.calculationStepKeys.includes('taiyi:calculation:bureau') &&
           item.promptText &&
           item.sources.length >= 2 &&
           item.limitation.includes('不直接证明现实胜负'),
@@ -2760,6 +2789,7 @@ test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
     assert.match(prompt, /传统规则模型/);
     assert.doesNotMatch(prompt, /宜先守后动|不宜轻进/);
     assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|匹配率(?:为|：)|吉凶总分(?:为|：)/);
+    assert.doesNotMatch(prompt, /命语|本项目|项目统一|当前结果|工程|接口|API|MCP/);
     assertPromptIsPortableTaskText(prompt);
   });
 });

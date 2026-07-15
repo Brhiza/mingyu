@@ -3759,6 +3759,7 @@ test('公开 API 太乙应返回年计七十二局立成结果', async () => {
       (item: Record<string, unknown>) =>
         String(item.key).startsWith('taiyi:calculation:') &&
         item.status === '已核验' &&
+        Array.isArray(item.dependsOnStepKeys) &&
         item.promptText &&
         Array.isArray(item.sources) &&
         item.sources.length >= 2 &&
@@ -3769,9 +3770,19 @@ test('公开 API 太乙应返回年计七十二局立成结果', async () => {
   assert.equal(body.data.evidenceAnalysis.forceFacts.length, 3);
   assert.equal(body.data.evidenceAnalysis.sixteenGodFacts.length, 16);
   assert.equal(body.data.evidenceAnalysis.conditionFacts.length, 4);
+  assert.equal(body.data.evidenceAnalysis.counterEvidenceFacts.length, 4);
+  assert.equal(body.data.evidenceAnalysis.counterSummaryFact.status, '存在未命中条件');
+  assert.equal(body.data.evidenceAnalysis.counterSummaryFact.factKeys.length, 3);
+  assert.equal(body.data.evidenceAnalysis.limitationFacts.length, 5);
+  assert.equal(
+    body.data.evidenceAnalysis.limitations.length,
+    body.data.evidenceAnalysis.limitationFacts.length,
+  );
   assert.ok(
     body.data.evidenceAnalysis.forceFacts.every(
       (item: Record<string, unknown>) =>
+        item.status === '已计算' &&
+        Array.isArray(item.calculationStepKeys) &&
         item.promptText &&
         Array.isArray(item.sources) &&
         item.sources.length >= 2 &&
@@ -3780,6 +3791,11 @@ test('公开 API 太乙应返回年计七十二局立成结果', async () => {
   );
   assert.match(body.data.evidenceAnalysis.promptText, /未见囚/);
   assert.doesNotMatch(body.data.evidenceAnalysis.promptText, /宜先守后动|不宜轻进/);
+  assert.doesNotMatch(
+    body.data.evidenceAnalysis.promptText,
+    /命语|本项目|项目统一|当前结果|工程|接口|API|MCP/,
+  );
+  assertPromptIsPortableTaskText(body.data.evidenceAnalysis.promptText);
 });
 
 test('公开 API 太乙应支持月日时分四种计式', async () => {

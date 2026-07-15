@@ -19,8 +19,11 @@ import { buildTaiyiEvidence } from './evidence';
 export type { TaiyiModelInfo, TaiyiResult, TaiyiScope } from '../types/divination';
 export type {
   TaiyiConditionFact,
+  TaiyiCounterEvidenceFact,
+  TaiyiCounterSummaryFact,
   TaiyiEvidenceAnalysis,
   TaiyiForceFact,
+  TaiyiLimitationFact,
   TaiyiPositionFact,
   TaiyiSixteenGodFact,
 } from './evidence';
