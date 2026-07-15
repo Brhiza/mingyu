@@ -6,8 +6,17 @@ import { analyzeLenormandEvidence } from '../lenormand-evidence';
 
 export { analyzeLenormandEvidence, conditionLenormandTraditionalText } from '../lenormand-evidence';
 export type {
+  LenormandCardEvidence,
+  LenormandCounterEvidenceFact,
+  LenormandCounterSummaryFact,
+  LenormandDrawFact,
+  LenormandDrawOrderFact,
   LenormandEvidenceAnalysis,
   LenormandLayoutFact,
+  LenormandLayoutCoverageFact,
+  LenormandLimitationFact,
+  LenormandSequenceFact,
+  LenormandSpreadCoverageFact,
   LenormandTraditionalFact,
 } from '../lenormand-evidence';
 

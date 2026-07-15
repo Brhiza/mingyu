@@ -1144,9 +1144,21 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     assert.equal(lenormand.isError, undefined);
     assert.ok(Array.isArray(lenormandData.evidenceAnalysis.fixedCombinations));
     assert.ok(Array.isArray(lenormandData.evidenceAnalysis.adjacentReadings));
+    assert.equal(lenormandData.evidenceAnalysis.spreadCoverageFact.status, '完整');
+    assert.equal(lenormandData.evidenceAnalysis.spreadCoverageFact.cardFactKeys.length, 9);
     assert.equal(lenormandData.evidenceAnalysis.drawFact.status, '可核验');
     assert.equal(lenormandData.evidenceAnalysis.drawFact.deckSize, 36);
     assert.equal(lenormandData.evidenceAnalysis.drawFact.order.length, 9);
+    assert.equal(lenormandData.evidenceAnalysis.drawOrderFacts.length, 9);
+    assert.ok(
+      lenormandData.evidenceAnalysis.drawOrderFacts.every(
+        (item: Record<string, unknown>) => item.status === '一致' && item.cardFactKey,
+      ),
+    );
+    assert.equal(lenormandData.evidenceAnalysis.sequenceFacts.length, 8);
+    assert.equal(lenormandData.evidenceAnalysis.layoutCoverageFact.status, '结构化覆盖');
+    assert.equal(lenormandData.evidenceAnalysis.counterEvidenceFacts.length, 2);
+    assert.equal(lenormandData.evidenceAnalysis.limitationFacts.length, 6);
     assert.ok(lenormandData.evidenceAnalysis.drawFact.sources.length >= 2);
     assert.equal(lenormandData.evidenceAnalysis.randomFact.status, '可重放');
     assert.equal(lenormandData.evidenceAnalysis.randomFact.seed, 'MCP雷诺曼证据样例');
@@ -1156,6 +1168,9 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     assert.ok(
       lenormandData.evidenceAnalysis.traditionalFacts.every(
         (item: Record<string, unknown>) =>
+          item.status === '已映射' &&
+          Array.isArray(item.cardFactKeys) &&
+          item.cardFactKeys.length > 0 &&
           item.originalText &&
           item.promptText &&
           Array.isArray(item.verificationTargets) &&
@@ -1163,6 +1178,14 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
           Array.isArray(item.sources) &&
           item.sources.length > 0 &&
           String(item.limitation).includes('不证明现实事件'),
+      ),
+    );
+    assert.ok(
+      lenormandData.evidenceAnalysis.structuredLayoutFacts.every(
+        (item: Record<string, unknown>) =>
+          item.status === '已计算' &&
+          Array.isArray(item.cardFactKeys) &&
+          Array.isArray(item.sources),
       ),
     );
 

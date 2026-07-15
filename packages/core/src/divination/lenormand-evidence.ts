@@ -7,9 +7,122 @@ import {
 } from '../shared/random';
 import type { LenormandData } from '../types/divination';
 
+export interface LenormandCardEvidence {
+  key: string;
+  status: '已映射';
+  index: number;
+  cardId: number;
+  name: string;
+  position: string;
+  keywords: string[];
+  meaning: string;
+  house?: string;
+  row?: number;
+  column?: number;
+  traditionalFactKey: string;
+  promptText: string;
+  sources: string[];
+  limitation: '逐牌事实只记录牌位、牌号、牌名、关键词、基础牌义、宫位与行列落点；不得由单牌直接推断现实事件、他人意图、隐私、疾病、法律事实、财务结果、概率数值或唯一未来';
+}
+
+export interface LenormandSpreadCoverageFact {
+  key: 'lenormand:spread-coverage';
+  status: '完整' | '牌数不符' | '牌位异常' | '未知牌阵';
+  spreadType: string;
+  spreadName: string;
+  expectedCardCount: number | null;
+  actualCardCount: number;
+  expectedPositions: string[];
+  actualPositions: string[];
+  missingPositions: string[];
+  duplicatePositions: string[];
+  unexpectedPositions: string[];
+  positionOrderMismatches: number[];
+  duplicateCardIds: number[];
+  cardFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '牌阵覆盖状态只核对牌数、牌位顺序与牌面唯一性；缺失、重复、越位或未知牌阵时不得补造牌面、牌位、组合或布局关系';
+}
+
+export interface LenormandDrawOrderFact {
+  key: string;
+  status: '一致' | '不一致' | '缺少牌面';
+  index: number;
+  recordedIndex: number;
+  cardFactKey: string | null;
+  position: string;
+  cardId: number;
+  cardName: string;
+  house?: string;
+  row?: number;
+  column?: number;
+  mismatches: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '逐张抽取事实只核对洗牌顺序记录与已确定牌面的序号、牌位、牌号、牌名、宫位和行列落点；记录一致不表示牌义可信度、预测有效性或现实结果';
+}
+
+export interface LenormandSequenceFact {
+  key: string;
+  status: '已连接';
+  fromCardKey: string;
+  toCardKey: string;
+  fromPosition: string;
+  toPosition: string;
+  fromCard: string;
+  toCard: string;
+  promptText: string;
+  sources: string[];
+  limitation: '牌序事实只描述已声明牌位的相邻顺序与牌面衔接；不得把牌阵顺序直接写成现实事件必然按同样阶段发生';
+}
+
+export interface LenormandLayoutCoverageFact {
+  key: 'lenormand:layout-coverage';
+  status: '结构化覆盖' | '旧版字符串兼容' | '结构缺失' | '不适用';
+  spreadType: string;
+  expectedRequiredFactCount: number;
+  structuredFactCount: number;
+  legacyFactCount: number;
+  layoutFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '布局覆盖只说明九宫或大桌所需的中心、路径、宫位和人物牌近身关系是否有可核验结构；旧版字符串不得反推行列、宫位、距离或缺失布局事实';
+}
+
+export interface LenormandCounterEvidenceFact {
+  key: string;
+  type: '固定组合覆盖' | '布局覆盖';
+  status: '有可用证据' | '存在缺口';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '反证事实只记录固定组合或布局证据是否存在；没有命中不代表现实不利，存在证据也不证明现实事件、吉凶或预测有效性';
+}
+
+export interface LenormandCounterSummaryFact {
+  key: 'lenormand:counter-summary';
+  status: '有证据缺口' | '未见证据缺口';
+  factKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '反证汇总只说明固定组合与适用布局的资料覆盖情况；不得据此生成吉凶等级、概率数值或现实结果';
+}
+
+export interface LenormandLimitationFact {
+  key: string;
+  type: '随机边界' | '组合分层边界' | '布局边界' | '象征材料边界' | '高风险结论边界' | '时间边界';
+  status: '适用';
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束雷诺曼牌面、组合和布局可以支持的解释范围，不得被反向当作现实事件或未来结果的证据';
+}
+
 export interface LenormandTraditionalFact {
   key: string;
+  status: '已映射';
   kind: '单牌牌义' | '固定组合' | '相邻合读';
+  cardFactKeys: string[];
   cardNames: string[];
   positions: string[];
   originalText: string;
@@ -21,41 +134,55 @@ export interface LenormandTraditionalFact {
 
 export interface LenormandLayoutFact {
   key: string;
+  status: '已计算';
   kind: '九宫中心' | '九宫路径' | '大桌宫位' | '人物牌近身' | '归宫';
+  cardFactKeys: string[];
   cardNames: string[];
   positions: string[];
   houses: string[];
   factText: string;
   promptText: string;
   source: string;
+  sources: string[];
   limitation: '布局位置是由牌阵顺序计算的事实；中心、路径、近身与归宫只定义传统读取范围，不自动证明吉凶、现实事件或时间';
 }
 
 export interface LenormandDrawFact {
   key: string;
-  status: '可核验' | '来源链缺失';
+  status: '可核验' | '来源链缺失' | '来源链不一致';
   deckSize?: number;
   method?: string;
   order: NonNullable<LenormandData['draw']>['order'];
   expectedCardCount: number;
   recordedCardCount: number;
+  orderFactKeys: string[];
+  mismatchIndexes: number[];
+  missingIndexes: number[];
+  extraIndexes: number[];
   promptText: string;
   sources: string[];
   limitation: '抽牌来源只记录洗牌、牌位顺序、宫位和行列落点；来源链完整不表示牌义可信度、预测有效性或现实结果';
 }
 
 export interface LenormandEvidenceAnalysis {
-  cards: Array<LenormandData['cards'][number] & { index: number }>;
+  cards: LenormandCardEvidence[];
+  spreadCoverageFact: LenormandSpreadCoverageFact;
+  sequenceFacts: LenormandSequenceFact[];
   sequence: string[];
   fixedCombinations: NonNullable<LenormandData['combinations']>;
   adjacentReadings: NonNullable<LenormandData['combinations']>;
   drawFact: LenormandDrawFact;
+  drawOrderFacts: LenormandDrawOrderFact[];
   drawFacts: string[];
   layoutFacts: string[];
+  layoutCoverageFact: LenormandLayoutCoverageFact;
   randomFact: RandomTraceFact;
   randomFacts: string[];
   counterEvidence: string[];
+  counterEvidenceFacts: LenormandCounterEvidenceFact[];
+  counterSummaryFact: LenormandCounterSummaryFact;
   limitations: string[];
+  limitationFacts: LenormandLimitationFact[];
   traditionalFacts: LenormandTraditionalFact[];
   structuredLayoutFacts: LenormandLayoutFact[];
   evidence: PromptEvidenceBundle;
@@ -69,15 +196,176 @@ const LAYOUT_FACT_LIMITATION =
   '布局位置是由牌阵顺序计算的事实；中心、路径、近身与归宫只定义传统读取范围，不自动证明吉凶、现实事件或时间' as const;
 const DRAW_FACT_LIMITATION =
   '抽牌来源只记录洗牌、牌位顺序、宫位和行列落点；来源链完整不表示牌义可信度、预测有效性或现实结果' as const;
+const CARD_FACT_LIMITATION =
+  '逐牌事实只记录牌位、牌号、牌名、关键词、基础牌义、宫位与行列落点；不得由单牌直接推断现实事件、他人意图、隐私、疾病、法律事实、财务结果、概率数值或唯一未来' as const;
+const SPREAD_COVERAGE_LIMITATION =
+  '牌阵覆盖状态只核对牌数、牌位顺序与牌面唯一性；缺失、重复、越位或未知牌阵时不得补造牌面、牌位、组合或布局关系' as const;
+const DRAW_ORDER_FACT_LIMITATION =
+  '逐张抽取事实只核对洗牌顺序记录与已确定牌面的序号、牌位、牌号、牌名、宫位和行列落点；记录一致不表示牌义可信度、预测有效性或现实结果' as const;
+const SEQUENCE_FACT_LIMITATION =
+  '牌序事实只描述已声明牌位的相邻顺序与牌面衔接；不得把牌阵顺序直接写成现实事件必然按同样阶段发生' as const;
+const LAYOUT_COVERAGE_LIMITATION =
+  '布局覆盖只说明九宫或大桌所需的中心、路径、宫位和人物牌近身关系是否有可核验结构；旧版字符串不得反推行列、宫位、距离或缺失布局事实' as const;
+const COUNTER_FACT_LIMITATION =
+  '反证事实只记录固定组合或布局证据是否存在；没有命中不代表现实不利，存在证据也不证明现实事件、吉凶或预测有效性' as const;
+const COUNTER_SUMMARY_LIMITATION =
+  '反证汇总只说明固定组合与适用布局的资料覆盖情况；不得据此生成吉凶等级、概率数值或现实结果' as const;
+const LIMITATION_FACT_LIMITATION =
+  '限制事实用于约束雷诺曼牌面、组合和布局可以支持的解释范围，不得被反向当作现实事件或未来结果的证据' as const;
+
+const LENORMAND_SPREAD_POSITIONS: Record<string, string[]> = {
+  single: ['核心线索'],
+  three: ['起因', '现状', '走向'],
+  five: ['过去背景', '当前处境', '隐藏因素', '外在助力', '最终走向'],
+  relationship: ['你的状态', '对方状态', '关系纽带', '隐藏因素', '后续走向'],
+  decision: ['当前处境', '选择A', '选择A走向', '选择B', '选择B走向', '关键建议'],
+  nine: ['左上', '上方', '右上', '左侧', '核心', '右侧', '左下', '下方', '右下'],
+  element: ['火（行动/能量）', '水（情感/直觉）', '风（思维/沟通）', '土（物质/根基）'],
+  grandTableau: Array.from({ length: 36 }, (_, index) => `第${index + 1}宫`),
+};
 
 function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
-function buildDrawFact(data: LenormandData): LenormandDrawFact {
+function normalizeCoveragePosition(spreadType: string, position: string) {
+  if (spreadType !== 'grandTableau') return position;
+  return position.match(/^第\d+宫/)?.[0] ?? position;
+}
+
+function buildSpreadCoverageFact(
+  data: LenormandData,
+  cards: LenormandCardEvidence[],
+): LenormandSpreadCoverageFact {
+  const expectedPositions = LENORMAND_SPREAD_POSITIONS[data.spreadType];
+  const actualPositions = cards.map((card) => card.position);
+  const normalizedActualPositions = actualPositions.map((position) =>
+    normalizeCoveragePosition(data.spreadType, position),
+  );
+  const missingPositions = expectedPositions
+    ? expectedPositions.filter((position) => !normalizedActualPositions.includes(position))
+    : [];
+  const duplicatePositions = [...new Set(normalizedActualPositions)].filter(
+    (position) => normalizedActualPositions.filter((item) => item === position).length > 1,
+  );
+  const unexpectedPositions = expectedPositions
+    ? normalizedActualPositions.filter((position) => !expectedPositions.includes(position))
+    : [];
+  const positionOrderMismatches = expectedPositions
+    ? normalizedActualPositions.flatMap((position, index) =>
+        expectedPositions[index] === position ? [] : [index + 1],
+      )
+    : [];
+  const cardIds = cards.map((card) => card.cardId);
+  const duplicateCardIds = [...new Set(cardIds)].filter(
+    (cardId) => cardIds.filter((item) => item === cardId).length > 1,
+  );
+  const status: LenormandSpreadCoverageFact['status'] = !expectedPositions
+    ? '未知牌阵'
+    : cards.length !== expectedPositions.length
+      ? '牌数不符'
+      : missingPositions.length ||
+          duplicatePositions.length ||
+          unexpectedPositions.length ||
+          positionOrderMismatches.length ||
+          duplicateCardIds.length
+        ? '牌位异常'
+        : '完整';
+  return {
+    key: 'lenormand:spread-coverage',
+    status,
+    spreadType: data.spreadType,
+    spreadName: data.spreadName,
+    expectedCardCount: expectedPositions?.length ?? null,
+    actualCardCount: cards.length,
+    expectedPositions: expectedPositions ? [...expectedPositions] : [],
+    actualPositions,
+    missingPositions,
+    duplicatePositions,
+    unexpectedPositions,
+    positionOrderMismatches,
+    duplicateCardIds,
+    cardFactKeys: cards.map((card) => card.key),
+    promptText:
+      status === '完整'
+        ? `${data.spreadName}共${cards.length}张，牌位顺序与牌面唯一性完整`
+        : status === '未知牌阵'
+          ? `牌阵类型${data.spreadType}未找到已声明配置，不得补造预期牌位与牌数`
+          : status === '牌数不符'
+            ? `${data.spreadName}应有${expectedPositions?.length ?? '未知'}张，现有资料记录${cards.length}张，不得补造缺失牌面`
+            : `牌阵资料异常：缺少牌位${missingPositions.join('、') || '无'}；重复牌位${duplicatePositions.join('、') || '无'}；越位牌位${unexpectedPositions.join('、') || '无'}；顺序不符位置${positionOrderMismatches.join('、') || '无'}；重复牌号${duplicateCardIds.join('、') || '无'}`,
+    sources: ['已声明牌阵牌数与牌位顺序', '逐牌位置与牌号唯一性核验'],
+    limitation: SPREAD_COVERAGE_LIMITATION,
+  };
+}
+
+function buildDrawOrderFacts(
+  data: LenormandData,
+  cards: LenormandCardEvidence[],
+): LenormandDrawOrderFact[] {
+  return (data.draw?.order ?? []).map((item, orderIndex) => {
+    const expectedIndex = orderIndex + 1;
+    const card = cards[orderIndex];
+    const mismatches = card
+      ? [
+          item.index === expectedIndex ? '' : `记录序号应为${expectedIndex}`,
+          card.position === item.position ? '' : `牌位应为${card.position}`,
+          card.cardId === item.cardId ? '' : `牌号应为${card.cardId}`,
+          card.name === item.cardName ? '' : `牌名应为${card.name}`,
+          card.house === item.house ? '' : `宫位应为${card.house ?? '未列'}`,
+          card.row === item.row ? '' : `行号应为${card.row ?? '未列'}`,
+          card.column === item.column ? '' : `列号应为${card.column ?? '未列'}`,
+        ].filter(Boolean)
+      : ['缺少对应牌面'];
+    const status: LenormandDrawOrderFact['status'] = !card
+      ? '缺少牌面'
+      : mismatches.length
+        ? '不一致'
+        : '一致';
+    return {
+      key: `lenormand:draw-order:${expectedIndex}`,
+      status,
+      index: expectedIndex,
+      recordedIndex: item.index,
+      cardFactKey: card?.key ?? null,
+      position: item.position,
+      cardId: item.cardId,
+      cardName: item.cardName,
+      house: item.house,
+      row: item.row,
+      column: item.column,
+      mismatches,
+      promptText: `第${expectedIndex}张记录对应${item.position}：牌号${item.cardId} ${item.cardName}${item.house ? `，落${item.house}宫` : ''}${item.row && item.column ? `，第${item.row}排第${item.column}列` : ''}${mismatches.length ? `；不一致项：${mismatches.join('、')}` : '；与牌面记录一致'}`,
+      sources: ['洗牌后依牌位顺序取牌记录', '已确定逐牌牌号、牌名、牌位、宫位与行列落点'],
+      limitation: DRAW_ORDER_FACT_LIMITATION,
+    };
+  });
+}
+
+function buildDrawFact(
+  data: LenormandData,
+  drawOrderFacts: LenormandDrawOrderFact[],
+): LenormandDrawFact {
   const order = (data.draw?.order ?? []).map((item) => ({ ...item }));
-  const status =
-    data.draw && order.length === data.cards.length ? ('可核验' as const) : ('来源链缺失' as const);
+  const missingIndexes = Array.from(
+    { length: Math.max(0, data.cards.length - order.length) },
+    (_, index) => order.length + index + 1,
+  );
+  const extraIndexes = Array.from(
+    { length: Math.max(0, order.length - data.cards.length) },
+    (_, index) => data.cards.length + index + 1,
+  );
+  const mismatchIndexes = [
+    ...drawOrderFacts.filter((fact) => fact.status !== '一致').map((fact) => fact.index),
+    ...missingIndexes,
+    ...extraIndexes,
+  ].filter((item, index, values) => values.indexOf(item) === index);
+  const status: LenormandDrawFact['status'] =
+    !data.draw || order.length !== data.cards.length
+      ? '来源链缺失'
+      : mismatchIndexes.length
+        ? '来源链不一致'
+        : '可核验';
   return {
     key: `draw:lenormand:${data.spreadType}`,
     status,
@@ -86,9 +374,13 @@ function buildDrawFact(data: LenormandData): LenormandDrawFact {
     order,
     expectedCardCount: data.cards.length,
     recordedCardCount: order.length,
+    orderFactKeys: drawOrderFacts.map((fact) => fact.key),
+    mismatchIndexes,
+    missingIndexes,
+    extraIndexes,
     promptText: data.draw
-      ? `牌组规模：${data.draw.deckSize}张；洗牌与取牌方法：${data.draw.method}；${order.map((item) => `第${item.index}张对应${item.position}：牌号${item.cardId} ${item.cardName}${item.house ? `，落${item.house}宫` : ''}${item.row && item.column ? `，第${item.row}排第${item.column}列` : ''}`).join('；')}${status === '来源链缺失' ? `；当前仅记录${order.length}/${data.cards.length}张抽取顺序，不能完整核验` : ''}`
-      : `当前结果未附洗牌方法与抽取顺序，仅保留${data.cards.length}张已确定牌面，不能反推完整抽牌来源链`,
+      ? `牌组规模：${data.draw.deckSize}张；洗牌与取牌方法：${data.draw.method}；${drawOrderFacts.map((fact) => fact.promptText).join('；')}${status === '来源链缺失' ? `；现有资料仅记录${order.length}/${data.cards.length}张抽取顺序，不能完整核验` : status === '来源链不一致' ? `；第${mismatchIndexes.join('、')}张来源记录与牌面不一致` : ''}`
+      : `现有资料未附洗牌方法与抽取顺序，仅保留${data.cards.length}张已确定牌面，不能反推完整抽牌来源链`,
     sources: ['36张雷诺曼牌组与 Fisher-Yates 洗牌记录', '牌位顺序、宫位与行列落点记录'],
     limitation: DRAW_FACT_LIMITATION,
   };
@@ -163,7 +455,9 @@ function buildTraditionalFacts(
   const cardByName = new Map(cards.map((card) => [card.name, card]));
   const cardFacts = cards.map((card): LenormandTraditionalFact => ({
     key: `card:${card.index}:${card.name}`,
+    status: '已映射',
     kind: '单牌牌义',
+    cardFactKeys: [card.key],
     cardNames: [card.name],
     positions: [card.position],
     originalText: card.meaning,
@@ -183,7 +477,9 @@ function buildTraditionalFacts(
     const verificationTargets = unique([...(first?.keywords ?? []), ...(second?.keywords ?? [])]);
     return {
       key: `combination:${index + 1}:${combo.card1}:${combo.card2}:${kind}`,
+      status: '已映射',
       kind,
+      cardFactKeys: unique([first?.key ?? '', second?.key ?? '']),
       cardNames: [combo.card1, combo.card2],
       positions: unique([first?.position ?? '', second?.position ?? '']),
       originalText: combo.meaning,
@@ -204,11 +500,18 @@ function buildTraditionalFacts(
 }
 
 function createLayoutFact(
-  fact: Omit<LenormandLayoutFact, 'source' | 'limitation'>,
+  fact: Omit<LenormandLayoutFact, 'status' | 'cardFactKeys' | 'source' | 'sources' | 'limitation'>,
+  cards: LenormandCardEvidence[],
 ): LenormandLayoutFact {
+  const source = '当前牌阵的牌位顺序、行列坐标、宫位与牌间距离计算';
   return {
     ...fact,
-    source: '当前牌阵的牌位顺序、行列坐标、宫位与牌间距离计算',
+    status: '已计算',
+    cardFactKeys: unique(
+      fact.cardNames.map((name) => cards.find((card) => card.name === name)?.key ?? ''),
+    ),
+    source,
+    sources: [source],
     limitation: LAYOUT_FACT_LIMITATION,
   };
 }
@@ -230,39 +533,48 @@ function buildStructuredLayoutFacts(
       ['右上至左下对角线', [cards[2], cards[4], cards[6]]],
     ] as const;
     return [
-      createLayoutFact({
-        key: 'nine:center',
-        kind: '九宫中心',
-        cardNames: [center.name],
-        positions: [center.position],
-        houses: [],
-        factText: `九宫第2排第2列的中心位置为${center.name}`,
-        promptText: `九宫中心计算事实为${center.name}；传统上可先作为全阵主轴读取，但仍须与各行列、对角线和现实资料互证`,
-      }),
-      ...paths.map(([label, path]) =>
-        createLayoutFact({
-          key: `nine:path:${label}`,
-          kind: '九宫路径',
-          cardNames: path.map((card) => card.name),
-          positions: path.map((card) => card.position),
+      createLayoutFact(
+        {
+          key: 'nine:center',
+          kind: '九宫中心',
+          cardNames: [center.name],
+          positions: [center.position],
           houses: [],
-          factText: `${label}依次为${path.map((card) => card.name).join('→')}`,
-          promptText: `${label}计算路径为${path.map((card) => card.name).join('→')}；只用于比较该路径内的牌序与主题衔接，不单独生成现实结论`,
-        }),
+          factText: `九宫第2排第2列的中心位置为${center.name}`,
+          promptText: `九宫中心计算事实为${center.name}；传统上可先作为全阵主轴读取，但仍须与各行列、对角线和现实资料互证`,
+        },
+        cards,
+      ),
+      ...paths.map(([label, path]) =>
+        createLayoutFact(
+          {
+            key: `nine:path:${label}`,
+            kind: '九宫路径',
+            cardNames: path.map((card) => card.name),
+            positions: path.map((card) => card.position),
+            houses: [],
+            factText: `${label}依次为${path.map((card) => card.name).join('→')}`,
+            promptText: `${label}计算路径为${path.map((card) => card.name).join('→')}；只用于比较该路径内的牌序与主题衔接，不单独生成现实结论`,
+          },
+          cards,
+        ),
       ),
     ];
   }
   if (data.spreadType !== 'grandTableau' || cards.length !== 36) return [];
   const placementFacts = cards.map((card) =>
-    createLayoutFact({
-      key: `grand-tableau:position:${card.index}`,
-      kind: '大桌宫位',
-      cardNames: [card.name],
-      positions: [card.position],
-      houses: card.house ? [card.house] : [],
-      factText: `${card.name}落第${card.index}宫${card.house ? `（${card.house}宫）` : ''}${card.row && card.column ? `，第${card.row}排第${card.column}列` : ''}`,
-      promptText: `${card.name}的计算落点为第${card.index}宫${card.house ? `（${card.house}宫）` : ''}；宫位只限定传统合读范围，不直接证明事件或吉凶`,
-    }),
+    createLayoutFact(
+      {
+        key: `grand-tableau:position:${card.index}`,
+        kind: '大桌宫位',
+        cardNames: [card.name],
+        positions: [card.position],
+        houses: card.house ? [card.house] : [],
+        factText: `${card.name}落第${card.index}宫${card.house ? `（${card.house}宫）` : ''}${card.row && card.column ? `，第${card.row}排第${card.column}列` : ''}`,
+        promptText: `${card.name}的计算落点为第${card.index}宫${card.house ? `（${card.house}宫）` : ''}；宫位只限定传统合读范围，不直接证明事件或吉凶`,
+      },
+      cards,
+    ),
   );
   const personFacts = ['男士', '女士'].flatMap((name) => {
     const card = cards.find((item) => item.name === name);
@@ -276,56 +588,243 @@ function buildStructuredLayoutFacts(
       );
     });
     return [
-      createLayoutFact({
-        key: `grand-tableau:person:${name}`,
-        kind: '人物牌近身',
-        cardNames: [name, ...neighbors.map((item) => item.name)],
-        positions: [card.position, ...neighbors.map((item) => item.position)],
-        houses: unique([card.house ?? '', ...neighbors.map((item) => item.house ?? '')]),
-        factText: `${name}位于第${card.row}排第${card.column}列，八邻域近身牌为${neighbors.map((item) => item.name).join('、') || '无'}`,
-        promptText: `${name}的八邻域近身牌计算结果为${neighbors.map((item) => item.name).join('、') || '无'}；只可用于限定人物牌周边合读范围，不证明人物意图、关系或事件`,
-      }),
+      createLayoutFact(
+        {
+          key: `grand-tableau:person:${name}`,
+          kind: '人物牌近身',
+          cardNames: [name, ...neighbors.map((item) => item.name)],
+          positions: [card.position, ...neighbors.map((item) => item.position)],
+          houses: unique([card.house ?? '', ...neighbors.map((item) => item.house ?? '')]),
+          factText: `${name}位于第${card.row}排第${card.column}列，八邻域近身牌为${neighbors.map((item) => item.name).join('、') || '无'}`,
+          promptText: `${name}的八邻域近身牌计算结果为${neighbors.map((item) => item.name).join('、') || '无'}；只可用于限定人物牌周边合读范围，不证明人物意图、关系或事件`,
+        },
+        cards,
+      ),
     ];
   });
   const houseMatches = cards.filter((card) => card.house === card.name);
   const homeFacts = houseMatches.length
     ? [
-        createLayoutFact({
-          key: 'grand-tableau:home-cards',
-          kind: '归宫',
-          cardNames: houseMatches.map((card) => card.name),
-          positions: houseMatches.map((card) => card.position),
-          houses: houseMatches.map((card) => card.house ?? ''),
-          factText: `归宫牌为${houseMatches.map((card) => card.name).join('、')}`,
-          promptText: `计算得到${houseMatches.map((card) => card.name).join('、')}回到同名宫位；归宫只表示牌与宫名重合，须结合整桌牌序与现实资料复核`,
-        }),
+        createLayoutFact(
+          {
+            key: 'grand-tableau:home-cards',
+            kind: '归宫',
+            cardNames: houseMatches.map((card) => card.name),
+            positions: houseMatches.map((card) => card.position),
+            houses: houseMatches.map((card) => card.house ?? ''),
+            factText: `归宫牌为${houseMatches.map((card) => card.name).join('、')}`,
+            promptText: `计算得到${houseMatches.map((card) => card.name).join('、')}回到同名宫位；归宫只表示牌与宫名重合，须结合整桌牌序与现实资料复核`,
+          },
+          cards,
+        ),
       ]
     : [];
   return [...placementFacts, ...personFacts, ...homeFacts];
 }
 
+function buildSequenceFacts(cards: LenormandCardEvidence[]): LenormandSequenceFact[] {
+  return cards.slice(1).map((card, index) => {
+    const previous = cards[index];
+    return {
+      key: `lenormand:sequence:${previous.index}-${card.index}`,
+      status: '已连接',
+      fromCardKey: previous.key,
+      toCardKey: card.key,
+      fromPosition: previous.position,
+      toPosition: card.position,
+      fromCard: previous.name,
+      toCard: card.name,
+      promptText: `${previous.position}${previous.name} → ${card.position}${card.name}`,
+      sources: ['已声明牌阵的牌位顺序', '相邻牌位的已确定牌面'],
+      limitation: SEQUENCE_FACT_LIMITATION,
+    };
+  });
+}
+
+function buildLayoutCoverageFact(
+  data: LenormandData,
+  structuredLayoutFacts: LenormandLayoutFact[],
+  layoutFacts: string[],
+): LenormandLayoutCoverageFact {
+  const expectedRequiredFactCount =
+    data.spreadType === 'nine' ? 9 : data.spreadType === 'grandTableau' ? 38 : 0;
+  const status: LenormandLayoutCoverageFact['status'] = !expectedRequiredFactCount
+    ? '不适用'
+    : structuredLayoutFacts.length >= expectedRequiredFactCount
+      ? '结构化覆盖'
+      : layoutFacts.length
+        ? '旧版字符串兼容'
+        : '结构缺失';
+  return {
+    key: 'lenormand:layout-coverage',
+    status,
+    spreadType: data.spreadType,
+    expectedRequiredFactCount,
+    structuredFactCount: structuredLayoutFacts.length,
+    legacyFactCount: layoutFacts.length,
+    layoutFactKeys: structuredLayoutFacts.map((fact) => fact.key),
+    promptText:
+      status === '结构化覆盖'
+        ? `${data.spreadName}已保存${structuredLayoutFacts.length}条结构化布局事实，覆盖所需中心、路径、宫位与人物牌近身关系`
+        : status === '旧版字符串兼容'
+          ? `${data.spreadName}仅有${layoutFacts.length}条旧版布局文字，不得反推缺失的行列、宫位或距离事实`
+          : status === '结构缺失'
+            ? `${data.spreadName}缺少适用的结构化布局事实，也没有可兼容的旧版布局文字`
+            : `${data.spreadName}不要求九宫或大桌布局事实，只按牌位与相邻顺序读取`,
+    sources: ['牌阵类型与布局适用范围', '结构化布局事实和旧版布局文字逐项计数'],
+    limitation: LAYOUT_COVERAGE_LIMITATION,
+  };
+}
+
+function buildCounterEvidenceFacts(
+  fixedCombinationFacts: LenormandTraditionalFact[],
+  layoutCoverageFact: LenormandLayoutCoverageFact,
+): LenormandCounterEvidenceFact[] {
+  const fixedCombinationAvailable = fixedCombinationFacts.length > 0;
+  const layoutAvailable =
+    layoutCoverageFact.status === '结构化覆盖' ||
+    layoutCoverageFact.status === '旧版字符串兼容' ||
+    layoutCoverageFact.status === '不适用';
+  return [
+    {
+      key: 'lenormand:counter:fixed-combination',
+      type: '固定组合覆盖',
+      status: fixedCombinationAvailable ? '有可用证据' : '存在缺口',
+      ownerFactKeys: fixedCombinationFacts.map((fact) => fact.key),
+      promptText: fixedCombinationAvailable
+        ? `命中${fixedCombinationFacts.length}组已登记固定组合，并与普通相邻合读分层保存`
+        : '本次未命中当前资料已登记的固定组合，不得把普通相邻合读冒充传统定式',
+      sources: ['固定组合资料与本次相邻牌对逐项匹配'],
+      limitation: COUNTER_FACT_LIMITATION,
+    },
+    {
+      key: 'lenormand:counter:layout',
+      type: '布局覆盖',
+      status: layoutAvailable ? '有可用证据' : '存在缺口',
+      ownerFactKeys: layoutCoverageFact.layoutFactKeys,
+      promptText: layoutAvailable
+        ? layoutCoverageFact.promptText
+        : '当前牌阵没有九宫或大桌布局证据，只按牌位与相邻顺序读取',
+      sources: layoutCoverageFact.sources,
+      limitation: COUNTER_FACT_LIMITATION,
+    },
+  ];
+}
+
+function buildCounterSummaryFact(
+  counterEvidenceFacts: LenormandCounterEvidenceFact[],
+): LenormandCounterSummaryFact {
+  const gaps = counterEvidenceFacts.filter((fact) => fact.status === '存在缺口');
+  return {
+    key: 'lenormand:counter-summary',
+    status: gaps.length ? '有证据缺口' : '未见证据缺口',
+    factKeys: gaps.map((fact) => fact.key),
+    promptText: gaps.length
+      ? `共记录${gaps.length}类证据缺口：${gaps.map((fact) => fact.type).join('、')}；只按已有牌位、组合和布局资料解释`
+      : '固定组合与适用布局均有可用资料；这不提高预测可信度，也不证明现实结果',
+    sources: ['固定组合覆盖与布局覆盖逐项汇总'],
+    limitation: COUNTER_SUMMARY_LIMITATION,
+  };
+}
+
+function buildLimitationFacts(): LenormandLimitationFact[] {
+  const definitions: Array<
+    Pick<LenormandLimitationFact, 'key' | 'type' | 'promptText' | 'sources'>
+  > = [
+    {
+      key: 'lenormand:limitation:random',
+      type: '随机边界',
+      promptText: '雷诺曼抽牌包含随机过程；seed或replay只能复现抽牌轨迹，不证明预测有效性',
+      sources: ['洗牌和抽牌随机轨迹', '随机轨迹可重放边界'],
+    },
+    {
+      key: 'lenormand:limitation:combination-level',
+      type: '组合分层边界',
+      promptText:
+        '固定组合仅指当前采用的固定牌对资料中明确登记的组合，相邻牌义合读是当前牌序解释，二者证据等级不同',
+      sources: ['固定组合资料', '相邻牌义合读生成规则'],
+    },
+    {
+      key: 'lenormand:limitation:layout',
+      type: '布局边界',
+      promptText:
+        '九宫中心、横纵对角线、大桌宫位、近身牌和归宫牌只描述布局关系，不自动产生吉凶结论',
+      sources: ['九宫与大桌结构化布局事实'],
+    },
+    {
+      key: 'lenormand:limitation:symbolic-material',
+      type: '象征材料边界',
+      promptText: '牌名、关键词、组合和布局属于象征解释材料，不是事件发生概率或现代统计证据',
+      sources: ['36张雷诺曼牌组与组合、布局解释范围'],
+    },
+    {
+      key: 'lenormand:limitation:high-risk',
+      type: '高风险结论边界',
+      promptText: '单牌或单一组合不能证明他人意图、隐私、医疗、法律、财务事实或必然结果',
+      sources: ['象征解释与现实事实分离原则'],
+    },
+    {
+      key: 'lenormand:limitation:timing',
+      type: '时间边界',
+      promptText: '未给现实期限时不得把牌号、宫位或距离换算为唯一日期',
+      sources: ['牌号、宫位、距离与现实时间无确定换算关系'],
+    },
+  ];
+  return definitions.map((definition) => ({
+    ...definition,
+    status: '适用',
+    limitation: LIMITATION_FACT_LIMITATION,
+  }));
+}
+
 export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidenceAnalysis {
   if (!data.cards.length) throw new Error('雷诺曼结构化证据至少需要一张牌。');
-  const cards = data.cards.map((card, index) => ({ ...card, index: index + 1 }));
-  const sequence = cards.slice(1).map((card, index) => {
-    const previous = cards[index];
-    return `${previous.position}${previous.name} → ${card.position}${card.name}`;
+  const cards = data.cards.map((card, index): LenormandCardEvidence => {
+    const key = `lenormand:card:${index + 1}:${card.id}`;
+    const traditionalFactKey = `card:${index + 1}:${card.name}`;
+    const promptMeaning = conditionLenormandTraditionalText(card.meaning, {
+      kind: '单牌牌义',
+      cardNames: [card.name],
+      keywords: card.keywords,
+    });
+    return {
+      key,
+      status: '已映射',
+      index: index + 1,
+      cardId: card.id,
+      name: card.name,
+      position: card.position,
+      keywords: [...card.keywords],
+      meaning: card.meaning,
+      house: card.house,
+      row: card.row,
+      column: card.column,
+      traditionalFactKey,
+      promptText: `${card.position}为${card.name}；关键词${card.keywords.join('、') || '未列'}；条件化牌义${promptMeaning}${card.house ? `；计算落${card.house}宫` : ''}${card.row && card.column ? `；第${card.row}排第${card.column}列` : ''}`,
+      sources: ['已声明牌阵牌位', '已确定牌号与牌名', '36张雷诺曼逐牌关键词与基础牌义资料'],
+      limitation: CARD_FACT_LIMITATION,
+    };
   });
+  const spreadCoverageFact = buildSpreadCoverageFact(data, cards);
+  const sequenceFacts = buildSequenceFacts(cards);
+  const sequence = sequenceFacts.map((fact) => fact.promptText);
   const fixedCombinations = (data.combinations ?? []).filter((item) => item.source === '固定组合');
   const adjacentReadings = (data.combinations ?? []).filter((item) => item.source !== '固定组合');
   const traditionalFacts = buildTraditionalFacts(cards, data.combinations ?? []);
   const structuredLayoutFacts = buildStructuredLayoutFacts(data, cards);
-  const drawFact = buildDrawFact(data);
+  const layoutFacts = data.layoutEvidence ?? [];
+  const layoutCoverageFact = buildLayoutCoverageFact(data, structuredLayoutFacts, layoutFacts);
+  const drawOrderFacts = buildDrawOrderFacts(data, cards);
+  const drawFact = buildDrawFact(data, drawOrderFacts);
   const drawFacts = data.draw
     ? [
         `牌组规模：${data.draw.deckSize}张；洗牌与取牌方法：${data.draw.method}`,
-        ...data.draw.order.map(
-          (item) =>
-            `第${item.index}张对应${item.position}：牌号${item.cardId} ${item.cardName}${item.house ? `，落${item.house}宫` : ''}${item.row && item.column ? `，第${item.row}排第${item.column}列` : ''}`,
+        ...drawOrderFacts.map(
+          (fact) =>
+            `第${fact.recordedIndex}张对应${fact.position}：牌号${fact.cardId} ${fact.cardName}${fact.house ? `，落${fact.house}宫` : ''}${fact.row && fact.column ? `，第${fact.row}排第${fact.column}列` : ''}`,
         ),
       ]
-    : ['当前结果未附洗牌方法与抽取顺序，仅保留已确定牌面，不能反推完整抽牌来源链'];
-  const layoutFacts = data.layoutEvidence ?? [];
+    : ['现有资料未附洗牌方法与抽取顺序，仅保留已确定牌面，不能反推完整抽牌来源链'];
   const trace = data.meta?.random;
   const randomFact = buildRandomTraceFact({
     key: `random:lenormand:${data.spreadType}`,
@@ -335,56 +834,49 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
     sources: ['雷诺曼牌阵与抽牌顺序记录', '洗牌、抽牌随机样本与重放元数据'],
   });
   const randomFacts = formatLegacyRandomFacts(randomFact);
-  const counterEvidence = [
-    fixedCombinations.length
-      ? ''
-      : '本次未命中当前资料已登记的固定组合，不得把普通相邻合读冒充传统定式',
-    structuredLayoutFacts.length || layoutFacts.length
-      ? ''
-      : '当前牌阵没有九宫或大桌布局证据，只按牌位与相邻顺序读取',
-  ].filter(Boolean);
-  const limitations = [
-    '雷诺曼抽牌包含随机过程；seed或replay只能复现抽牌轨迹，不证明预测有效性',
-    '固定组合仅指当前采用的固定牌对资料中明确登记的组合，相邻牌义合读是当前牌序解释，二者证据等级不同',
-    '九宫中心、横纵对角线、大桌宫位、近身牌和归宫牌只描述布局关系，不自动产生吉凶结论',
-    '牌名、关键词、组合和布局属于象征解释材料，不是事件发生概率或现代统计证据',
-    '单牌或单一组合不能证明他人意图、隐私、医疗、法律、财务事实或必然结果',
-    '未给现实期限时不得把牌号、宫位或距离换算为唯一日期',
-  ];
+  const fixedCombinationFacts = traditionalFacts.filter((fact) => fact.kind === '固定组合');
+  const counterEvidenceFacts = buildCounterEvidenceFacts(fixedCombinationFacts, layoutCoverageFact);
+  const counterSummaryFact = buildCounterSummaryFact(counterEvidenceFacts);
+  const counterEvidence = counterEvidenceFacts
+    .filter((fact) => fact.status === '存在缺口')
+    .map((fact) => fact.promptText);
+  const limitationFacts = buildLimitationFacts();
+  const limitations = limitationFacts.map((fact) => fact.promptText);
+  const drawTitle =
+    drawFact.status === '可核验'
+      ? '洗牌与抽取顺序事实'
+      : drawFact.status === '来源链不一致'
+        ? '抽牌来源链不一致'
+        : '抽牌来源链缺失';
   const items: PromptEvidenceItem[] = [
     {
-      level: '辅证',
+      level: spreadCoverageFact.status === '完整' ? '辅证' : '反证',
       title: `牌阵结构：${data.spreadName}`,
-      detail: `牌阵类型${data.spreadType}；共${cards.length}张；牌位依次为${cards.map((card) => card.position).join('、')}`,
-      source: '当前牌阵配置与牌阵位置定义',
-      tags: ['牌阵结构', data.spreadType, `${cards.length}张`],
+      detail: `${spreadCoverageFact.promptText}；边界：${spreadCoverageFact.limitation}`,
+      source: spreadCoverageFact.sources.join('、'),
+      tags: ['牌阵结构', data.spreadType, spreadCoverageFact.status],
     },
     {
       level: drawFact.status === '可核验' ? '辅证' : '反证',
-      title: drawFact.status === '可核验' ? '洗牌与抽取顺序事实' : '抽牌来源链缺失',
+      title: drawTitle,
       detail: `${drawFact.promptText}；边界：${drawFact.limitation}`,
       source: drawFact.sources.join('、'),
       tags: ['抽牌来源', drawFact.status, drawFact.status === '可核验' ? '可重放' : '不可反推'],
     },
-    ...cards.map((card, index): PromptEvidenceItem => {
-      const fact = traditionalFacts.find(
-        (item) => item.kind === '单牌牌义' && item.cardNames[0] === card.name,
-      );
-      return {
-        level: index === Math.floor(cards.length / 2) || cards.length === 1 ? '主证' : '辅证',
-        title: `${card.position}：${card.name}`,
-        detail: `关键词${card.keywords.join('、') || '未列'}；条件化牌义${fact?.promptText ?? conditionLenormandTraditionalText(card.meaning, { cardNames: [card.name], keywords: card.keywords })}${card.house ? `；计算落${card.house}宫` : ''}${card.row && card.column ? `；第${card.row}排第${card.column}列` : ''}；边界${TRADITIONAL_FACT_LIMITATION}。`,
-        source: '当前牌阵牌位、抽取牌面与36张牌解释资料',
-        tags: [card.position, card.name, ...card.keywords.slice(0, 3)],
-      };
-    }),
-    ...(sequence.length
+    ...cards.map((card, index): PromptEvidenceItem => ({
+      level: index === Math.floor(cards.length / 2) || cards.length === 1 ? '主证' : '辅证',
+      title: `${card.position}：${card.name}`,
+      detail: `${card.promptText}；边界：${card.limitation}`,
+      source: card.sources.join('、'),
+      tags: [card.position, card.name, ...card.keywords.slice(0, 3)],
+    })),
+    ...(sequenceFacts.length
       ? [
           {
             level: '辅证' as const,
             title: '牌位顺序推进',
-            detail: sequence.join('；'),
-            source: '当前牌阵的既定牌位顺序',
+            detail: `${sequenceFacts.map((fact) => fact.promptText).join('；')}；边界：${SEQUENCE_FACT_LIMITATION}`,
+            source: Array.from(new Set(sequenceFacts.flatMap((fact) => fact.sources))).join('、'),
             tags: ['牌序', '相邻关系'],
           },
         ]
@@ -413,7 +905,7 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
         level: '辅证',
         title: `${fact.kind}：${fact.cardNames.slice(0, 3).join('→')}${fact.cardNames.length > 3 ? '等' : ''}`,
         detail: `${fact.factText}；解释边界${fact.promptText}；${fact.limitation}`,
-        source: fact.source,
+        source: fact.sources.join('、'),
         tags: ['布局证据', fact.kind],
       })),
     ...(structuredLayoutFacts.length
@@ -425,17 +917,27 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
           source: '旧版牌阵布局资料',
           tags: ['布局证据', '旧版兼容'],
         }))),
-    ...counterEvidence.map((detail): PromptEvidenceItem => ({
+    ...counterEvidenceFacts
+      .filter((fact) => fact.status === '存在缺口')
+      .map((fact): PromptEvidenceItem => ({
+        level: '反证',
+        title: '当前证据缺口',
+        detail: `${fact.promptText}；边界：${fact.limitation}`,
+        source: fact.sources.join('、'),
+        tags: ['证据缺口', fact.type],
+      })),
+    {
       level: '反证',
-      title: '当前证据缺口',
-      detail,
-      source: '组合词典与牌阵布局逐项核验',
-    })),
+      title: `证据缺口汇总：${counterSummaryFact.status}`,
+      detail: `${counterSummaryFact.promptText}；边界：${counterSummaryFact.limitation}`,
+      source: counterSummaryFact.sources.join('、'),
+      tags: ['证据缺口', counterSummaryFact.status],
+    },
     {
       level: '限制',
       title: '雷诺曼牌面解释边界',
-      detail: limitations.join('；'),
-      source: '随机事实、象征材料与现实结论分离原则',
+      detail: `${limitationFacts.map((fact) => fact.promptText).join('；')}；边界：${LIMITATION_FACT_LIMITATION}`,
+      source: Array.from(new Set(limitationFacts.flatMap((fact) => fact.sources))).join('、'),
       tags: ['象征解释', '现实复核'],
     },
   );
@@ -445,21 +947,28 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
     ...formatPromptEvidenceBundle(evidence),
     `牌序关系：${sequence.join('；') || '单牌牌阵，无相邻推进关系'}。`,
     `组合分层：固定组合${fixedCombinations.length}组，相邻合读${adjacentReadings.length}组；逐组条件化解释已列在证据条目中。`,
-    `布局覆盖：${structuredLayoutFacts.length ? `${structuredLayoutFacts.length}条结构化布局事实已保存；自然语言证据只展开中心、路径、人物牌近身与归宫，逐牌宫位落点见对应牌面条目` : layoutFacts.length ? '仅有旧版布局字符串，已按兼容资料列出' : '当前牌阵无额外九宫或大桌布局事实'}。`,
-    `反证限制：${counterEvidence.join('；') || '已列组合与布局仍须结合牌位和现实资料复核'}。`,
+    `布局覆盖：${structuredLayoutFacts.length ? `${structuredLayoutFacts.length}条结构化布局事实已保存；自然语言证据只展开中心、路径、人物牌近身与归宫，逐牌宫位落点见对应牌面条目` : layoutCoverageFact.promptText}。`,
+    `反证限制：${counterSummaryFact.promptText}。`,
   ].join('\n');
   return {
     cards,
+    spreadCoverageFact,
+    sequenceFacts,
     sequence,
     fixedCombinations,
     adjacentReadings,
     drawFact,
+    drawOrderFacts,
     drawFacts,
     layoutFacts,
+    layoutCoverageFact,
     randomFact,
     randomFacts,
     counterEvidence,
+    counterEvidenceFacts,
+    counterSummaryFact,
     limitations,
+    limitationFacts,
     traditionalFacts,
     structuredLayoutFacts,
     evidence,

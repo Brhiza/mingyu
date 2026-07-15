@@ -1743,13 +1743,31 @@ test('公开 API 雷诺曼接口应分层返回组合与布局证据', async () 
   assert.ok(Array.isArray(body.data.evidenceAnalysis.adjacentReadings));
   assert.ok(body.data.evidenceAnalysis.layoutFacts.length > 0);
   assert.ok(body.data.evidenceAnalysis.traditionalFacts.length >= body.data.cards.length);
+  assert.equal(body.data.evidenceAnalysis.spreadCoverageFact.status, '完整');
+  assert.equal(
+    body.data.evidenceAnalysis.spreadCoverageFact.cardFactKeys.length,
+    body.data.cards.length,
+  );
   assert.equal(body.data.evidenceAnalysis.drawFact.status, '可核验');
   assert.equal(body.data.evidenceAnalysis.drawFact.deckSize, 36);
   assert.equal(body.data.evidenceAnalysis.drawFact.order.length, body.data.cards.length);
+  assert.equal(body.data.evidenceAnalysis.drawOrderFacts.length, body.data.cards.length);
+  assert.ok(
+    body.data.evidenceAnalysis.drawOrderFacts.every(
+      (item: Record<string, unknown>) => item.status === '一致' && item.cardFactKey,
+    ),
+  );
+  assert.equal(body.data.evidenceAnalysis.sequenceFacts.length, body.data.cards.length - 1);
+  assert.equal(body.data.evidenceAnalysis.layoutCoverageFact.status, '结构化覆盖');
+  assert.equal(body.data.evidenceAnalysis.counterEvidenceFacts.length, 2);
+  assert.equal(body.data.evidenceAnalysis.limitationFacts.length, 6);
   assert.ok(body.data.evidenceAnalysis.drawFact.sources.length >= 2);
   assert.ok(
     body.data.evidenceAnalysis.traditionalFacts.every(
       (item: Record<string, unknown>) =>
+        item.status === '已映射' &&
+        Array.isArray(item.cardFactKeys) &&
+        item.cardFactKeys.length > 0 &&
         item.originalText &&
         item.promptText &&
         Array.isArray(item.verificationTargets) &&
@@ -1757,6 +1775,12 @@ test('公开 API 雷诺曼接口应分层返回组合与布局证据', async () 
         Array.isArray(item.sources) &&
         item.sources.length > 0 &&
         String(item.limitation).includes('不证明现实事件'),
+    ),
+  );
+  assert.ok(
+    body.data.evidenceAnalysis.structuredLayoutFacts.every(
+      (item: Record<string, unknown>) =>
+        item.status === '已计算' && Array.isArray(item.cardFactKeys) && Array.isArray(item.sources),
     ),
   );
   assert.equal(body.data.evidenceAnalysis.structuredLayoutFacts.length, 9);
