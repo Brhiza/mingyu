@@ -1675,10 +1675,37 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
   assert.equal(body.data.meta.algorithm, 'tarot.single');
   assert.equal(body.data.evidenceAnalysis.cards.length, 1);
   assert.equal(body.data.evidenceAnalysis.evidence.title, '塔罗牌位与牌面结构化证据');
+  assert.equal(body.data.evidenceAnalysis.spreadCoverageFact.status, '完整');
+  assert.deepEqual(body.data.evidenceAnalysis.spreadCoverageFact.cardFactKeys, [
+    body.data.evidenceAnalysis.cards[0].key,
+  ]);
   assert.equal(body.data.evidenceAnalysis.drawFact.status, '可核验');
   assert.equal(body.data.evidenceAnalysis.drawFact.deckSize, 78);
   assert.equal(body.data.evidenceAnalysis.drawFact.order.length, 1);
+  assert.equal(body.data.evidenceAnalysis.drawOrderFacts.length, 1);
+  assert.equal(body.data.evidenceAnalysis.drawOrderFacts[0].status, '一致');
+  assert.deepEqual(body.data.evidenceAnalysis.drawFact.orderFactKeys, [
+    body.data.evidenceAnalysis.drawOrderFacts[0].key,
+  ]);
   assert.ok(body.data.evidenceAnalysis.drawFact.sources.length >= 2);
+  assert.deepEqual(body.data.evidenceAnalysis.sequenceFacts, []);
+  assert.ok(body.data.evidenceAnalysis.themeFacts.length > 0);
+  assert.equal(
+    body.data.evidenceAnalysis.recurringThemes.length,
+    body.data.evidenceAnalysis.recurringThemeFacts.length,
+  );
+  assert.equal(
+    body.data.evidenceAnalysis.counterEvidence.length,
+    body.data.evidenceAnalysis.counterEvidenceFacts.length,
+  );
+  assert.ok(
+    ['有逆位约束', '未见逆位约束'].includes(body.data.evidenceAnalysis.counterSummaryFact.status),
+  );
+  assert.equal(body.data.evidenceAnalysis.limitationFacts.length, 6);
+  assert.equal(
+    body.data.evidenceAnalysis.limitations.length,
+    body.data.evidenceAnalysis.limitationFacts.length,
+  );
   assert.equal(body.data.evidenceAnalysis.randomFact.status, '可重放');
   assert.equal(
     body.data.evidenceAnalysis.randomFact.sampleCount,
@@ -1686,6 +1713,10 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
   );
   assert.ok(body.data.evidenceAnalysis.randomFact.sources.length >= 2);
   assert.equal(body.data.evidenceAnalysis.traditionalFacts.length, 1);
+  assert.equal(
+    body.data.evidenceAnalysis.cards[0].traditionalFactKey,
+    body.data.evidenceAnalysis.traditionalFacts[0].key,
+  );
   assert.ok(
     body.data.evidenceAnalysis.traditionalFacts.every(
       (item: Record<string, unknown>) =>
