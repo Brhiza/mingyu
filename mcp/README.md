@@ -84,7 +84,7 @@
 | 紫微宫位、四化、运限             | `ziwei_prompt`              | `promptTopic`、`promptScope`                                             |
 | 一事一问、短期成败、应期         | `liuyao_prompt`             | `question`、可选 `customDate`                                            |
 | 项目推进、方向、方位、谈判       | `qimen_prompt`              | `question`、可选 `qimenMethod`、`customDate`                             |
-| 临时小事快速判断                 | `xiaoliuren_prompt`         | `question`、可选 `xiaoliurenMethod`、`xiaoliurenNumber`                  |
+| 临时小事快速判断                 | `xiaoliuren_prompt`         | `question`、可选 `xiaoliurenMethod`、`xiaoliurenSchool`、`xiaoliurenNumber` |
 | 时间或数字象意判断               | `meihua_prompt`             | `question`、可选 `method`、`number`、`customDate`                        |
 | 传统复杂事项推演                 | `liuren_prompt`             | `question`、可选 `liurenTemplate`、`customDate`                          |
 | 结婚、搬家、开业、签约、安葬择日 | `almanac_prompt`            | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize` |
@@ -179,7 +179,7 @@ npm run mcp
 
 ### 小六壬数字起课参数
 
-小六壬工具使用 `xiaoliurenMethod: "number"` 时，需要提供 `xiaoliurenNumber` 正整数。未提供时工具会返回参数错误；不传 `xiaoliurenMethod` 时默认按当前时间起课。
+小六壬工具使用 `xiaoliurenMethod: "number"` 时，需要提供 `xiaoliurenNumber` 正整数。未提供时工具会返回参数错误；不传 `xiaoliurenMethod` 时默认按当前时间起课。`xiaoliurenSchool: "huashan"` 仅支持时间起课，并返回完整课象。
 
 ### 黄历择日参数
 

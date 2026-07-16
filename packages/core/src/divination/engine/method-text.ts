@@ -7,7 +7,7 @@ export function buildTaskText(method: Exclude<DivinationMethodId, 'random'>) {
     case 'meihua':
       return '请严格围绕已给出的体用关系、互卦过程、变卦结果和四时旺衰作答，直接给出判断与应对建议。';
     case 'xiaoliuren':
-      return '请严格围绕已给出的起因、过程、结果三段宫位与五行推进作答，直接给出走势、阻力与行动节奏。';
+      return '请严格围绕已给出的流派口径、起因、过程、结果三段宫位、五行推进与完整课象作答；华山派已给主线时不得另立取用，直接给出走势、阻力与行动节奏。';
     case 'jinkoujue':
       return '请严格围绕已给出的取用主线与地分、将神、贵神、人元四位一体作答；主线已定时不得另立主神，直接给出主客、人情、落点与行动建议。';
     case 'qimen':

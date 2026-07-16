@@ -7,6 +7,7 @@ import {
   MEIHUA_METHOD_OPTIONS,
   TAROT_SPREAD_OPTIONS,
   XIAOLIUREN_METHOD_OPTIONS,
+  XIAOLIUREN_SCHOOL_OPTIONS,
   JINKOUJUE_METHOD_OPTIONS,
 } from '@core/divination/config';
 import type { DivinationDraft } from '@/lib/divination/engine';
@@ -19,6 +20,7 @@ import {
   methodLabelMap,
   tarotSpreadLabelMap,
   xiaoliurenMethodLabelMap,
+  xiaoliurenSchoolLabelMap,
   jinkoujueMethodLabelMap,
 } from './constants';
 
@@ -210,6 +212,36 @@ export function DivinationForm({
                     ) : null}
 
                     {draft.method === 'xiaoliuren' ? (
+                      <div className="form-item divination-inline-field">
+                        <label htmlFor="xiaoliuren-school-select">流派</label>
+                        <div className="divination-select-shell divination-desktop-select-shell">
+                          <span className="divination-trigger-text">
+                            {xiaoliurenSchoolLabelMap[draft.xiaoliurenSchool]}
+                          </span>
+                          <select
+                            id="xiaoliuren-school-select"
+                            value={draft.xiaoliurenSchool}
+                            className="form-input divination-overlay-select"
+                            onChange={(event) => {
+                              const school = event.target
+                                .value as DivinationDraft['xiaoliurenSchool'];
+                              updateDraft('xiaoliurenSchool', school);
+                              if (school === 'huashan') {
+                                updateDraft('xiaoliurenMethod', 'time');
+                              }
+                            }}
+                          >
+                            {XIAOLIUREN_SCHOOL_OPTIONS.map((item) => (
+                              <option key={item.value} value={item.value}>
+                                {item.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {draft.method === 'xiaoliuren' && draft.xiaoliurenSchool !== 'huashan' ? (
                       <div className="form-item divination-inline-field">
                         <label htmlFor="xiaoliuren-method-select">起课方式</label>
                         <div className="divination-select-shell divination-desktop-select-shell">

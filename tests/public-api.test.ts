@@ -334,6 +334,7 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
   }
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.topic);
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.xiaoliurenMethod);
+  assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.xiaoliurenSchool);
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.participants);
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.latitude);
   assert.ok(body.data.components.schemas.DivinationPromptRequest.properties.liuyaoTemplate);
@@ -872,6 +873,36 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
     });
     assert.equal(invalidShensha.response.status, 400);
   }
+});
+
+test('公开 API 华山派小六壬只允许时间起课并返回完整课象', async () => {
+  const invalid = await callApi('divination/xiaoliuren', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      xiaoliurenMethod: 'number',
+      xiaoliurenNumber: 5,
+      xiaoliurenSchool: 'huashan',
+    }),
+  });
+  assert.equal(invalid.response.status, 400);
+  assert.equal(invalid.body.ok, false);
+
+  const { response, body } = await callApi('divination/xiaoliuren', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      xiaoliurenMethod: 'time',
+      xiaoliurenSchool: 'huashan',
+      customDate: '2025-06-18T10:30:00+08:00',
+    }),
+  });
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.data.school, 'huashan');
+  assert.ok(body.data.stageCharts?.result?.relative);
+  assert.ok(body.data.mainLine);
+  assert.ok(body.data.xunKong);
 });
 
 test('公开 API 应支持八字排盘', async () => {

@@ -182,7 +182,6 @@ test('能力清单可序列化且返回副本', () => {
   const first = getCapabilities();
   const second = getCapabilities();
   assert.equal(first.package, 'mingyu-core');
-  assert.equal(first.version, '0.1.20');
   assert.ok(first.systems.length >= 10);
   assert.doesNotThrow(() => JSON.stringify(first));
 

@@ -21,6 +21,10 @@ const xiaoliurenSchema = z.object({
     .enum(['time', 'number', 'random'])
     .optional()
     .describe('起课方式：time=时间起课, number=数字起课, random=随机起课'),
+  xiaoliurenSchool: z
+    .enum(['standard', 'huashan'])
+    .optional()
+    .describe('流派：standard=通行掌诀, huashan=华山派完整时间课（仅 time）'),
   xiaoliurenNumber: z.number().optional().describe('数字起课时使用的正整数'),
   customDate: z
     .string()
@@ -35,11 +39,16 @@ const xiaoliurenPromptSchema = extendPromptSchema(
 
 function buildXiaoliurenInput(args: z.infer<typeof xiaoliurenSchema>) {
   const method = args.xiaoliurenMethod || 'time';
+  const school = args.xiaoliurenSchool || 'standard';
   if (method !== 'random') {
     assertMcpNoRandomOptions(args, '小六壬仅随机起课接受 seed 或 replay。');
   }
+  if (school === 'huashan' && method !== 'time') {
+    throw new Error('华山派小六壬只以时间起课，不支持数字或随机起课。');
+  }
   return {
     method,
+    school,
     ...(method === 'number'
       ? { number: readMcpPositiveInteger(args.xiaoliurenNumber, 'xiaoliurenNumber') }
       : {}),
@@ -53,7 +62,7 @@ export function registerXiaoliurenTool(server: McpServer) {
     'divine_xiaoliuren',
     {
       description:
-        '小六壬起课：支持时间起课、数字起课、随机起课，生成起因、过程、结果三段宫位与行动倾向',
+        '小六壬起课：支持通行掌诀时间/数字/随机起课，以及华山派完整时间课；生成起因、过程、结果与完整课象',
       inputSchema: xiaoliurenSchema.shape,
       outputSchema: resultOutputSchema,
     },

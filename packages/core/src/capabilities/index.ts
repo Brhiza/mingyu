@@ -6,6 +6,7 @@ import {
   MEIHUA_METHOD_OPTIONS,
   TAROT_SPREAD_OPTIONS,
   XIAOLIUREN_METHOD_OPTIONS,
+  XIAOLIUREN_SCHOOL_OPTIONS,
   JINKOUJUE_METHOD_OPTIONS,
 } from '../divination/config';
 import { MINGYU_CORE_VERSION, MINGYU_SCHEMA_VERSION } from '../shared/version';
@@ -425,12 +426,20 @@ const systems: SystemCapability[] = [
     defaultMethod: 'time',
     inputs: [
       {
+        id: 'school',
+        label: '流派',
+        type: 'select',
+        required: false,
+        options: options(XIAOLIUREN_SCHOOL_OPTIONS),
+      },
+      {
         id: 'number',
         label: '起课数字',
         type: 'number',
         required: false,
         requiredWhen: { method: 'number' },
       },
+      { id: 'date', label: '起课时间', type: 'datetime', required: false },
       questionInput,
     ],
     outputs: [
@@ -442,9 +451,13 @@ const systems: SystemCapability[] = [
       '相对应期节奏',
       '应期触发条件与限制',
       '方位',
+      '完整课象',
       '结构化证据',
     ],
     supports: randomSupports,
+    notes: [
+      '华山派只以时间起课，并输出日干支、旬空、驿马、桃花、六亲与三宫完整课象；通行掌诀仍支持时间、数字、随机起课。',
+    ],
   },
   {
     id: 'jinkoujue',
