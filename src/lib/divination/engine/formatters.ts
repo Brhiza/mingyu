@@ -945,7 +945,6 @@ function formatAlmanacInfo(data: AlmanacData) {
   return [
     '占法：黄历择日',
     `核心结构：择日事项：${data.topicLabel}；候选日期：${data.startDate} 至 ${data.endDate}`,
-    bestDay ? `当前首列候选：${bestDay.date}` : '',
     bestDay ? `首选日期：${bestDay.date}` : '',
     topicScopeEvidence,
     participantFitEvidence ? `参与人适配：${participantFitEvidence}` : '',

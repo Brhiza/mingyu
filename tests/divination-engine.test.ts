@@ -4310,7 +4310,7 @@ test('黄历择日会结合可选事项、日期范围和多位出生信息生�
   assert.match(session.prompt, /占法：黄历择日/);
   assert.match(session.prompt, /择日事项：搬家入宅/);
   assert.match(session.prompt, /候选日期：2026-06-01 至 2026-06-05/);
-  assert.match(session.prompt, /当前首列候选：/);
+  assert.match(session.prompt, /首选日期：/);
   assert.match(session.prompt, /候选日期明细：/);
   assert.doesNotMatch(session.prompt, /结构化证据|证据汇总|计算链|解释限制|传统硬限制/);
   assert.match(session.prompt, /参与人八字参考：/);
