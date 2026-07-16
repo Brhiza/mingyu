@@ -332,7 +332,7 @@ test('八字提示词中的经典格局片段不应再单列独立喜忌，避�
 
   assert.match(
     prompt.user,
-    /【经典格局】丙辛化水格（传统等级参考：极品，需复核成败） \| 丙辛合化水/,
+    /【经典格局】丙辛化水格（传统等级参考：极品，以成败条件裁定） \| 丙辛合化水/,
   );
   assert.doesNotMatch(prompt.user, /【经典格局】[^\n]* \| 喜:/);
   assert.doesNotMatch(prompt.user, /【经典格局】[^\n]* 忌:/);
@@ -359,7 +359,7 @@ test('八字提示词中的经典格局片段应收起传统强断语，避免�
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /【经典格局】壬骑龙背格（传统等级参考：极品，需复核成败）/);
+  assert.match(prompt.user, /【经典格局】壬骑龙背格（传统等级参考：极品，以成败条件裁定）/);
   assert.match(prompt.user, /壬辰日生，地支多辰，取辰多冲戌中官星。忌戌字填实冲破。/);
   assert.doesNotMatch(prompt.user, /主大富大贵/);
 });
@@ -524,8 +524,8 @@ test('八字经典格局提示词应统一收敛剩余主字类断语', () => {
 
   const section = generateEnhancedAnalysisSection(chartResult as any, 'general');
 
-  assert.match(section, /【经典格局】福德格（传统等级参考：中等，需复核成败）/);
-  assert.match(section, /传统多取象为一生福禄厚重，仍需结合原局成败与岁运同看/);
+  assert.match(section, /【经典格局】福德格（传统等级参考：中等，以成败条件裁定）/);
+  assert.match(section, /传统多取象为一生福禄厚重，并按原局成败与岁运同看/);
   assert.doesNotMatch(section, /主一生福禄厚重|主人聪明智慧|多主武贵|主辛苦创业|主艺术才华/);
 });
 
@@ -806,7 +806,7 @@ test('八字提示词的刑冲合会破段应直接写入盘面证据', () => {
   assert.match(prompt.user, /年柱卯与月柱子刑/);
 });
 
-test('八字提示词会节选合化评分，避免把合化候选直接当成成化', () => {
+test('八字提示词会节选合化结构，避免把合化结构直接当成成化', () => {
   const result = baziCalculator.calculateBazi({
     year: 1988,
     month: 1,
@@ -827,9 +827,9 @@ test('八字提示词会节选合化评分，避免把合化候选直接当成�
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /【合化程度】命盘见合化候选：/);
+  assert.match(prompt.user, /【合化程度】命盘见合化结构：/);
   assert.match(prompt.user, /天干五合年柱丁与月柱壬化木：合而不化，方向合绊/);
-  assert.doesNotMatch(prompt.user, /合化候选：[^\n]*\d+分|【合化程度】合化评分|80分以下/);
+  assert.doesNotMatch(prompt.user, /合化结构：[^\n]*\d+分|【合化程度】合化评分|80分以下/);
   assert.doesNotMatch(prompt.user, /概率或吉凶分/);
   assert.doesNotMatch(prompt.user, /原组合可按化神木参与后续结构判断/);
 });

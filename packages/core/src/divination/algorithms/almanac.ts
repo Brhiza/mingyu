@@ -60,13 +60,13 @@ export const ALMANAC_TOPIC_LABELS: Record<AlmanacTopic, string> = {
 
 const TOPIC_RECOMMEND_KEYWORDS: Record<AlmanacTopic, string[]> = {
   move: ['入宅', '移徙', '安床', '修造', '动土'],
-  marriage: ['嫁娶', '纳采', '订盟', '会亲友'],
-  opening: ['开市', '交易', '立券', '纳财'],
+  marriage: ['嫁娶', '纳采', '订盟', '会亲友', '冠笄', '成服', '安床'],
+  opening: ['开市', '交易', '立券', '纳财', '开仓', '出货财', '挂匾'],
   contract: ['交易', '立券', '纳财', '会亲友'],
   travel: ['出行', '赴任', '移徙'],
   medical: ['求医', '治病', '解除'],
   study: ['入学', '求嗣', '祭祀', '祈福'],
-  burial: ['安葬', '修坟', '启钻', '立碑', '入殓', '移柩'],
+  burial: ['安葬', '修坟', '启钻', '立碑', '入殓', '移柩', '成服', '除服'],
   renovation: ['修造', '动土', '竖柱', '上梁', '盖屋', '起基'],
   custom: [],
 };
@@ -82,6 +82,90 @@ const TOPIC_AVOID_KEYWORDS: Record<AlmanacTopic, string[]> = {
   burial: ['安葬', '修坟', '启钻'],
   renovation: ['修造', '动土', '竖柱', '上梁'],
   custom: [],
+};
+
+/** 事项硬规则：不仅看宜忌关键词，还纳入建除、神煞与参与人适配门槛。 */
+const TOPIC_RULE_PROFILES: Record<
+  AlmanacTopic,
+  {
+    preferredDayOfficers: string[];
+    avoidedDayOfficers: string[];
+    preferredGods: string[];
+    avoidedGods: string[];
+    requireUsefulGodHit?: boolean;
+    blockYearClash?: boolean;
+    blockDayClash?: boolean;
+  }
+> = {
+  marriage: {
+    preferredDayOfficers: ['成', '开', '定'],
+    avoidedDayOfficers: ['破', '危', '收', '闭'],
+    preferredGods: ['天德', '月德', '天喜', '红鸾', '天赦'],
+    avoidedGods: ['月破', '劫煞', '灾煞', '四废', '往亡'],
+    requireUsefulGodHit: true,
+    blockYearClash: true,
+    blockDayClash: true,
+  },
+  move: {
+    preferredDayOfficers: ['定', '成', '开'],
+    avoidedDayOfficers: ['破', '收', '闭'],
+    preferredGods: ['天德', '月德', '天恩', '天赦'],
+    avoidedGods: ['月破', '劫煞', '灾煞', '四废'],
+    requireUsefulGodHit: true,
+    blockYearClash: true,
+  },
+  opening: {
+    preferredDayOfficers: ['开', '成', '定'],
+    avoidedDayOfficers: ['破', '闭', '收'],
+    preferredGods: ['天德', '月德', '天财', '天恩'],
+    avoidedGods: ['月破', '劫煞', '灾煞', '四废'],
+    requireUsefulGodHit: true,
+  },
+  contract: {
+    preferredDayOfficers: ['成', '定', '开'],
+    avoidedDayOfficers: ['破', '危', '闭'],
+    preferredGods: ['天德', '月德', '天恩'],
+    avoidedGods: ['月破', '劫煞', '灾煞'],
+    requireUsefulGodHit: true,
+  },
+  travel: {
+    preferredDayOfficers: ['开', '成', '建'],
+    avoidedDayOfficers: ['破', '闭', '收'],
+    preferredGods: ['天德', '月德', '天马', '驿马'],
+    avoidedGods: ['月破', '往亡', '劫煞'],
+  },
+  medical: {
+    preferredDayOfficers: ['成', '开', '定', '破'],
+    avoidedDayOfficers: ['危', '闭'],
+    preferredGods: ['天德', '月德', '天医', '天赦'],
+    avoidedGods: ['劫煞', '灾煞', '四废'],
+    requireUsefulGodHit: true,
+  },
+  study: {
+    preferredDayOfficers: ['成', '开', '定'],
+    avoidedDayOfficers: ['破', '闭'],
+    preferredGods: ['天德', '月德', '文昌', '天恩'],
+    avoidedGods: ['月破', '劫煞'],
+  },
+  burial: {
+    preferredDayOfficers: ['成', '定', '收'],
+    avoidedDayOfficers: ['破', '危', '开'],
+    preferredGods: ['天德', '月德', '天赦'],
+    avoidedGods: ['月破', '劫煞', '灾煞', '四废'],
+    blockYearClash: true,
+  },
+  renovation: {
+    preferredDayOfficers: ['成', '定', '开'],
+    avoidedDayOfficers: ['破', '危', '闭'],
+    preferredGods: ['天德', '月德', '天恩'],
+    avoidedGods: ['月破', '劫煞', '灾煞'],
+  },
+  custom: {
+    preferredDayOfficers: ['成', '开', '定'],
+    avoidedDayOfficers: ['破', '危', '闭'],
+    preferredGods: ['天德', '月德', '天恩'],
+    avoidedGods: ['月破', '劫煞', '灾煞'],
+  },
 };
 
 function assertAlmanacTopic(topic: AlmanacTopic): void {
@@ -822,6 +906,67 @@ function scoreDay(params: {
     cautions.push(`黄历忌项触及${ALMANAC_TOPIC_LABELS[params.topic]}`);
   }
 
+  const topicRule = TOPIC_RULE_PROFILES[params.topic];
+  if (topicRule) {
+    const preferredOfficerHit = topicRule.preferredDayOfficers.includes(params.dayDuty);
+    const avoidedOfficerHit = topicRule.avoidedDayOfficers.includes(params.dayDuty);
+    topicMatchFacts.push(
+      buildTopicMatchFact({
+        key: `${params.dateKey}:topic:rule-day-officer`,
+        scope: '候选日',
+        topic: params.topic,
+        sourceType: '建除值日',
+        status: preferredOfficerHit ? '支持' : avoidedOfficerHit ? '限制' : '中性',
+        inputItems: [params.dayDuty],
+        keywords: [...topicRule.preferredDayOfficers, ...topicRule.avoidedDayOfficers],
+        matchedItems: preferredOfficerHit || avoidedOfficerHit ? [params.dayDuty] : [],
+        promptText: preferredOfficerHit
+          ? `事项规则支持执日${params.dayDuty}`
+          : avoidedOfficerHit
+            ? `事项规则限制执日${params.dayDuty}`
+            : `执日${params.dayDuty}未命中当前事项专属建除规则`,
+        sources: ['事项硬规则表', '建除十二值'],
+      }),
+    );
+    if (preferredOfficerHit) {
+      score += 10;
+      highlights.push(`事项规则支持执日${params.dayDuty}`);
+    }
+    if (avoidedOfficerHit) {
+      score -= 14;
+      cautions.push(`事项规则限制执日${params.dayDuty}`);
+    }
+
+    const preferredGodHits = topicRule.preferredGods.filter((name) => params.gods.includes(name));
+    const avoidedGodHits = topicRule.avoidedGods.filter((name) => params.gods.includes(name));
+    topicMatchFacts.push(
+      buildTopicMatchFact({
+        key: `${params.dateKey}:topic:rule-gods`,
+        scope: '候选日',
+        topic: params.topic,
+        sourceType: '原始宜项',
+        status: preferredGodHits.length ? '支持' : avoidedGodHits.length ? '限制' : '中性',
+        inputItems: [...params.gods],
+        keywords: [...topicRule.preferredGods, ...topicRule.avoidedGods],
+        matchedItems: [...preferredGodHits, ...avoidedGodHits],
+        promptText: preferredGodHits.length
+          ? `事项规则命中喜神${preferredGodHits.join('、')}`
+          : avoidedGodHits.length
+            ? `事项规则触及忌神${avoidedGodHits.join('、')}`
+            : '事项规则未命中专属喜忌神煞',
+        sources: ['事项硬规则表', '当日神煞'],
+      }),
+    );
+    if (preferredGodHits.length) {
+      score += preferredGodHits.length * 4;
+      highlights.push(`事项规则命中喜神${preferredGodHits.join('、')}`);
+    }
+    if (avoidedGodHits.length) {
+      score -= avoidedGodHits.length * 6;
+      cautions.push(`事项规则触及忌神${avoidedGodHits.join('、')}`);
+    }
+  }
+
   // 建除十二神评分
   const duty = JIANCHU_DUTIES[params.dayDuty];
   if (duty) {
@@ -913,6 +1058,24 @@ function scoreDay(params: {
       participantNotes.push(`${participant.name}：${branchConflict.text}`);
     }
 
+    const topicRuleForParticipant = TOPIC_RULE_PROFILES[params.topic];
+    if (topicRuleForParticipant?.blockYearClash || topicRuleForParticipant?.blockDayClash) {
+      const hasYearClash = branchConflict.relations.some(
+        (item) => item.scope === 'year' && (item.type === '冲' || item.type === '刑'),
+      );
+      const hasDayClash = branchConflict.relations.some(
+        (item) => item.scope === 'day' && (item.type === '冲' || item.type === '刑'),
+      );
+      if (topicRuleForParticipant.blockYearClash && hasYearClash) {
+        score -= 12;
+        cautions.push(`${participant.name}：事项规则下年支冲刑属强限制`);
+      }
+      if (topicRuleForParticipant.blockDayClash && hasDayClash) {
+        score -= 12;
+        cautions.push(`${participant.name}：事项规则下日支冲刑属强限制`);
+      }
+    }
+
     const usefulGods = [...new Set(participant.usefulGods)].filter(Boolean);
     const avoidGods = [...new Set(participant.avoidGods)].filter(Boolean);
     const candidateElements = [getStemWuxing(params.dayStem), getBranchWuxing(params.dayBranch)];
@@ -963,6 +1126,26 @@ function scoreDay(params: {
         participantNotes.push(
           `${participant.name}：候选日干支五行命中喜用${usefulHits.join('、')}，可作辅助支持`,
         );
+      }
+      const requireUseful = TOPIC_RULE_PROFILES[params.topic]?.requireUsefulGodHit;
+      if (requireUseful && !usefulHits.length) {
+        score -= 6;
+        participantNotes.push(`${participant.name}：事项规则要求喜用有落点，当前未命中`);
+        participantRelationFacts.push({
+          key: `${params.dateKey}:participant:${participant.id}:useful-required-miss`,
+          participantId: participant.id,
+          participantName: participant.name,
+          scope: '候选日',
+          basis: '喜用五行',
+          candidateValue: candidateElements.join('、'),
+          participantValues: usefulGods,
+          relation: '未命中',
+          status: '限制',
+          detail: '事项规则要求喜用有落点',
+          promptText: `${participant.name}：事项规则要求喜用有落点，当前候选日未命中`,
+          sources: ['事项硬规则表', '参与人喜用五行'],
+          limitation: PARTICIPANT_FACT_LIMITATION,
+        });
       }
       if (avoidHits.length) {
         score -= avoidHits.length * 5;

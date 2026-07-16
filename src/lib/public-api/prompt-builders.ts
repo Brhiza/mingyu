@@ -112,9 +112,12 @@ const BAZI_SCHOOL_GUIDANCE: Record<BaziSchool, string> = {
 };
 
 const ZIWEI_SCHOOL_GUIDANCE: Record<ZiweiSchool, string> = {
-  sanhe: '紫微流派：三合派（三方四正、星曜宫位）',
-  feixing: '紫微流派：飞星派（四化飞星）',
-  sihua: '紫微流派：四化派（生年四化、宫干四化）',
+  sanhe:
+    '紫微流派：三合派。主线固定为命身宫位—主星庙旺—对宫与三方四正—已列格局；四化只作牵引，不改三方会照主轴。',
+  feixing:
+    '紫微流派：飞星派。主线固定为生年四化与当前运限四化飞入链路—自化与飞化落宫—宫干飞化与对宫回冲；三方四正只作会照辅证，不得另立无飞化依据的主断。',
+  sihua:
+    '紫微流派：四化派。主线固定为生年四化定位—宫干四化—运限四化触发—禄权科忌对宫位主题的牵动顺序；星曜庙旺与三方只解释四化条件，不替代四化主线。',
 };
 
 export function getBaziSchoolGuidance(school?: BaziSchool) {

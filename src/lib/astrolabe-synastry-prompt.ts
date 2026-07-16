@@ -17,10 +17,10 @@ function formatSynastryFacts(synastry: AstrolabeSynastryData) {
 
   return [
     '【跨盘相位】',
-    ...(aspectLines.length ? aspectLines : ['- 暂无主要跨盘相位。']),
+    ...(aspectLines.length ? aspectLines : ['- 本次未见主要跨盘相位。']),
     '',
     '【跨盘落宫】',
-    ...(overlayLines.length ? overlayLines : ['- 暂无可用跨盘落宫资料。']),
+    ...(overlayLines.length ? overlayLines : ['- 本次未见可用跨盘落宫资料。']),
   ].join('\n');
 }
 

@@ -13,6 +13,7 @@ import type {
   TarotData,
   TaiyiResult,
   XiaoliurenData,
+  JinkoujueData,
 } from '../../types/divination';
 import { analyzeAlmanacEvidence } from 'mingyu-core/divination/almanac';
 import {
@@ -348,6 +349,27 @@ export function getDivinationSummaryBlocks(
           `过程：${meaning(xiaoliuren.sequence.process.name) ?? conditionXiaoliurenTraditionalText(xiaoliuren.sequence.process.meaning)}`,
           `结果：${meaning(xiaoliuren.sequence.result.name) ?? conditionXiaoliurenTraditionalText(xiaoliuren.sequence.result.meaning)}`,
           `提醒：${conditionXiaoliurenTraditionalText(xiaoliuren.questionHint)}`,
+        ].filter(Boolean),
+      };
+    }
+    case 'jinkoujue': {
+      const jinkoujue = data as JinkoujueData;
+      const p = jinkoujue.positions;
+      return {
+        title: '金口诀起课结果',
+        tags: [
+          `起课方式：${jinkoujue.methodLabel}`,
+          `地分：${p.diFen.branch}`,
+          `将神：${p.jiangShen.branch}`,
+          `贵神：${p.guiShen.god || ''}${p.guiShen.branch}`,
+          `人元：${p.renYuan.stem || ''}${p.renYuan.branch}`,
+        ],
+        lines: [
+          wrapMainEvidence(jinkoujue.mainLine),
+          `月将贵人：月将${jinkoujue.monthLeader}；贵人${jinkoujue.noblemanBranch}；${jinkoujue.dayNight}`,
+          `四位关系：贵将${jinkoujue.relations.guiToJiang}；贵人${jinkoujue.relations.guiToRen}；将地${jinkoujue.relations.jiangToDi}`,
+          jinkoujue.xunKong?.length ? `旬空：${jinkoujue.xunKong.join('、')}` : '',
+          jinkoujue.summary ? `提示：${jinkoujue.summary}` : '',
         ].filter(Boolean),
       };
     }

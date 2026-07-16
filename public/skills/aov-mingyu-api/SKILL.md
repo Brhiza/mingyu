@@ -1,6 +1,6 @@
 ---
 name: aov-mingyu-api
-description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜和一站式提示词能力。用于需要真太阳时、八字排盘、紫微斗数排盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗、三山国王灵签、黄历择日、雷诺曼、星盘、西占双盘、八宅、生肖犯太岁、太乙神数、七政四余，或直接返回可交给 AI 解读的完整提示词的任务。
+description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜和一站式提示词能力。用于需要真太阳时、八字排盘、紫微斗数排盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、金口诀、塔罗、三山国王灵签、黄历择日、雷诺曼、星盘、西占双盘、八宅、生肖犯太岁、太乙神数、七政四余，或直接返回可交给 AI 解读的完整提示词的任务。
 ---
 
 # AOV 命理与占卜 API
@@ -113,6 +113,8 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 - `POST /divination/meihua/prompt`：梅花易数起卦并生成结构化 AI 解读提示词。
 - `POST /divination/xiaoliuren`：小六壬起课。
 - `POST /divination/xiaoliuren/prompt`：小六壬起课并生成结构化 AI 解读提示词。
+- `POST /divination/jinkoujue`：金口诀起课。
+- `POST /divination/jinkoujue/prompt`：金口诀起课并生成结构化 AI 解读提示词。
 - `POST /divination/qimen`：奇门遁甲排盘。
 - `POST /divination/qimen/prompt`：奇门遁甲排盘并生成结构化 AI 解读提示词。
 - `POST /divination/liuren`：大六壬排盘。
@@ -337,7 +339,7 @@ Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用�
 
 占卜时间参数：
 
-- `customDate`：六爻、梅花易数、小六壬、奇门遁甲、大六壬可用该字段指定起卦或排盘时间；不提供则使用当前时间。必须传带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:00:00+08:00`。
+- `customDate`：六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬可用该字段指定起卦或排盘时间；不提供则使用当前时间。必须传带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:00:00+08:00`。
 
 占卜通用参数：
 
@@ -348,6 +350,7 @@ Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用�
 
 - 梅花易数 `method`：`time`（时间起卦）、`number`（数字起卦）、`random`（随机起卦）、`timeTrigram`（兼容旧参数，按年月日时起卦法计算）。`method` 为 `number` 时需提供 `number`（正整数）。
 - 小六壬 `xiaoliurenMethod`：`time`、`number`、`random`。`number` 时需提供 `xiaoliurenNumber`（正整数）。
+- 金口诀 `jinkoujueMethod`：`time`、`number`、`random`。`number` 时需提供 `jinkoujueNumber`（正整数）。
 - 塔罗 `spreadType`：`single`（单牌指引）、`three`（时间流）、`love`（爱情）、`career`（事业）、`decision`（选择）、`celtic`（凯尔特十字）、`chakra`（七脉轮）、`year`（年运）、`mindBodySpirit`（身心灵）、`horseshoe`（马蹄铁）。
 - 六爻 `liuyaoTemplate`：`general`（通用）、`ganqing`（感情）、`shiye`（事业）、`caifu`（财运）、`guaishen`（鬼神怪异）。
 - 大六壬 `liurenTemplate`：`general`（通用）、`ganqing`（感情）、`shiye`（事业）、`caifu`（财富）。

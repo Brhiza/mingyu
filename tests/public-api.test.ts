@@ -276,6 +276,7 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
           'liuyao',
           'meihua',
           'xiaoliuren',
+          'jinkoujue',
           'qimen',
           'liuren',
           'tarot',
@@ -892,7 +893,7 @@ test('公开 API 应支持八字排盘', async () => {
   assert.equal(body.data.pillars.day.ganZhi.length, 2);
   assert.equal(body.data.gender, 'male');
   assert.equal(body.data.warningFacts.length, body.data.warnings.length);
-  assert.equal(body.data.warningSummaryFact.status, '存在需核验事项');
+  assert.equal(body.data.warningSummaryFact.status, '存在边界提示');
   assert.equal(
     body.data.seasonInfo.previousTermEvidence.calculationChain.length,
     body.data.seasonInfo.previousTermEvidence.calculationSteps.length,
@@ -5383,4 +5384,3 @@ test('公开 API 住宅风水合参接口返回八宅与玄空分层结果', asy
   assert.match(body.data.prompt, /【传统判断规则】/);
   assert.match(body.data.prompt, /这套房怎么看？/);
 });
-

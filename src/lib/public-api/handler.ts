@@ -29,6 +29,7 @@ import {
 import { generateLiuyao, type LiuyaoGenerationOptions } from 'mingyu-core/divination/liuyao';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
+import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
 import { analyzeAlmanacEvidence, generateAlmanacSelection } from 'mingyu-core/divination/almanac';
@@ -193,6 +194,7 @@ const DIVINATION_METHODS = [
   'liuyao',
   'meihua',
   'xiaoliuren',
+  'jinkoujue',
   'qimen',
   'liuren',
   'tarot',
@@ -256,6 +258,8 @@ const DIVINATION_REQUEST_PROPERTIES = {
   number: { type: 'integer', minimum: 1 },
   xiaoliurenMethod: { enum: ['time', 'number', 'random'] },
   xiaoliurenNumber: { type: 'integer', minimum: 1 },
+  jinkoujueMethod: { enum: ['time', 'number', 'random'] },
+  jinkoujueNumber: { type: 'integer', minimum: 1 },
   spreadType: {
     enum: [
       'single',
@@ -600,6 +604,22 @@ export function getPublicApiOpenApiDocument(
           summary: '梅花易数起卦',
           requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest', false),
           responses: { '200': { description: '梅花易数卦盘' } },
+        },
+      },
+      '/divination/jinkoujue': {
+        post: {
+          summary: '金口诀起课',
+          description: '生成地分、将神、贵神、人元四位一体课盘。',
+          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest', false),
+          responses: { '200': { description: '金口诀课盘' } },
+        },
+      },
+      '/divination/jinkoujue/prompt': {
+        post: {
+          summary: '金口诀提示词',
+          description: '生成金口诀课盘与可外发 AI 提示词。',
+          requestBody: openApiJsonRequestBody('#/components/schemas/DivinationRequest'),
+          responses: { '200': { description: '金口诀课盘与提示词' } },
         },
       },
       '/divination/xiaoliuren': {
@@ -1469,6 +1489,10 @@ async function route(context: RouteContext) {
       return calculateXiaoliuren(await readJson(context.request, true));
     case 'divination/xiaoliuren/prompt':
       return buildDivinationPromptResult('xiaoliuren', await readJson(context.request));
+    case 'divination/jinkoujue':
+      return calculateJinkoujue(await readJson(context.request, true));
+    case 'divination/jinkoujue/prompt':
+      return buildDivinationPromptResult('jinkoujue', await readJson(context.request));
     case 'divination/qimen':
       return calculateQimenApi(await readJson(context.request, true));
     case 'divination/qimen/prompt':
@@ -2568,6 +2592,20 @@ function calculateXiaoliuren(input: JsonRecord) {
   });
 }
 
+function calculateJinkoujue(input: JsonRecord) {
+  const method = readEnum(input, 'jinkoujueMethod', ['time', 'number', 'random'], 'time') as
+    'time' | 'number' | 'random';
+  if (method !== 'random') {
+    assertNoRandomOptions(input, '金口诀仅随机起课接受 seed 或 replay。');
+  }
+  return generateJinkoujue({
+    method,
+    customDate: readCustomDate(input),
+    ...(method === 'number' ? { number: readInteger(input, 'jinkoujueNumber', 1) } : {}),
+    ...(method === 'random' ? readRandomOptions(input) : {}),
+  });
+}
+
 function calculateTarot(input: JsonRecord) {
   const randomOptions = readRandomOptions(input);
   const spreadType = readEnum(
@@ -2830,6 +2868,8 @@ function calculateDivinationData(
       return calculateMeihua(input);
     case 'xiaoliuren':
       return calculateXiaoliuren(input);
+    case 'jinkoujue':
+      return calculateJinkoujue(input);
     case 'qimen':
       return calculateQimen(input);
     case 'liuren':

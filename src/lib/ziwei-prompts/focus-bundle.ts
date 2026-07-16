@@ -21,6 +21,25 @@ function buildCommonBoundary() {
   return [];
 }
 
+function buildMutagenFocusPalaces(payload: AnalysisPayloadV1): PalaceFact[] {
+  const palaces = payload.palaces.filter((palace) => {
+    const stars = [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars];
+    return stars.some(
+      (star) =>
+        Boolean(star.birth_mutagen) ||
+        Boolean(star.horoscope_mutagen) ||
+        Boolean(star.active_scope_mutagen) ||
+        Boolean(palace.self_mutagens?.length),
+    );
+  });
+  return dedupePalaces(palaces);
+}
+
+function isFeixingOrSihuaTopic(reportContext: PromptContext) {
+  const topic = `${reportContext.selected_topic || ''} ${reportContext.report_key || ''} ${reportContext.report_title || ''}`;
+  return /飞星|四化|飞化|mutagen|sihua|feixing/i.test(topic);
+}
+
 export function buildFocusTaskBundle(
   payload: AnalysisPayloadV1,
   reportContext: PromptContext,
@@ -62,6 +81,23 @@ export function buildFocusTaskBundle(
     };
   }
 
+  if (isFeixingOrSihuaTopic(reportContext) || reportContext.report_type === 'mutagen') {
+    const mutagenPalaces = buildMutagenFocusPalaces(payload);
+    const focusPalaces = dedupePalaces([
+      ...mutagenPalaces,
+      activePalace,
+      mingPalace,
+      bodyPalace,
+      ...(!isOriginScope ? buildScopeFocusPalaces(payload) : []),
+    ]).slice(0, 8);
+    return {
+      focusSummary:
+        '围绕生年四化、运限四化、自化与飞化落宫组织专题主线，先定四化牵动，再看落宫与三方会照条件。',
+      focusPalaces,
+      avoid: buildCommonBoundary(),
+    };
+  }
+
   const generalPalaces = (
     isOriginScope
       ? dedupePalaces([
@@ -70,12 +106,21 @@ export function buildFocusTaskBundle(
           bodyPalace,
           getPalaceByName(payload, '福德'),
           getPalaceByName(payload, '迁移'),
+          ...buildMutagenFocusPalaces(payload).slice(0, 2),
         ])
-      : dedupePalaces([activePalace, ...buildScopeFocusPalaces(payload), mingPalace, bodyPalace])
+      : dedupePalaces([
+          activePalace,
+          ...buildScopeFocusPalaces(payload),
+          mingPalace,
+          bodyPalace,
+          ...buildMutagenFocusPalaces(payload).slice(0, 2),
+        ])
   ).slice(0, 6);
 
   return {
-    focusSummary: '重点分析命宫、身宫及与【问题】相关的宫位。',
+    focusSummary: isOriginScope
+      ? '重点分析命宫、身宫、相关宫位，并保留生年四化牵动线索。'
+      : '重点分析当前运限落宫、本命主线与运限四化触发关系。',
     focusPalaces: generalPalaces,
     avoid: buildCommonBoundary(),
   };

@@ -158,7 +158,10 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
     },
   ],
   ['metaphysics_bazhai', { birthYear: 1990, gender: 'male', doorToInteriorDegree: 0 }],
-  ['metaphysics_residential', { birthYear: 1990, gender: 'male', year: 2024, doorToInteriorDegree: 0 }],
+  [
+    'metaphysics_residential',
+    { birthYear: 1990, gender: 'male', year: 2024, doorToInteriorDegree: 0 },
+  ],
   ['metaphysics_xuankong', { year: 2024, facingDegree: 0 }],
   ['metaphysics_zodiac', { zodiac: '鼠', year: 2024 }],
   ['metaphysics_taiyi', { year: 2004, scope: 'year' }],
@@ -370,6 +373,7 @@ const promptToolNames = [
   'liuyao_prompt',
   'meihua_prompt',
   'xiaoliuren_prompt',
+  'jinkoujue_prompt',
   'qimen_prompt',
   'liuren_prompt',
   'tarot_prompt',
@@ -407,7 +411,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 54);
+    assert.equal(tools.length, 56);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
@@ -426,6 +430,8 @@ test('MCP 工具列表应声明输出结构', async () => {
     assert.ok(tools.find((tool) => tool.name === 'calendar_solar_term'));
     assert.ok(tools.find((tool) => tool.name === 'foundation_direction'));
     assert.ok(tools.find((tool) => tool.name === 'foundation_shensha'));
+    assert.ok(tools.find((tool) => tool.name === 'divine_jinkoujue'));
+    assert.ok(tools.find((tool) => tool.name === 'jinkoujue_prompt'));
     assert.ok(tools.find((tool) => tool.name === 'metaphysics_residential'));
     assert.ok(tools.find((tool) => tool.name === 'residential_prompt'));
     assert.ok(tools.find((tool) => tool.name === 'metaphysics_xuankong'));

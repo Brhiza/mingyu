@@ -691,8 +691,8 @@ test('紫微本命提示词不应混入大限流年流月流日运限结构', ()
     }),
   });
 
-  assert.match(snapshot, /【运限资料】\n- 暂无/);
-  assert.match(snapshot, /【运限重点】\n- 暂无/);
+  assert.match(snapshot, /【运限资料】\n- 无/);
+  assert.match(snapshot, /【运限重点】\n- 无/);
   assert.doesNotMatch(snapshot, /类型：当前四化飞入/);
   assert.doesNotMatch(snapshot, /【主证】运限命中宫位/);
   assert.doesNotMatch(snapshot, /当前动态宫名：流年命宫/);
@@ -708,7 +708,7 @@ test('紫微提示词快照不应输出无意义占位的当前落宫与当前�
   const scopeSection = snapshot.match(/【分析对象】([\s\S]*?)\n\n【运限重点】/)?.[1] || '';
 
   assert.doesNotMatch(scopeSection, /当前落宫：未标注/);
-  assert.doesNotMatch(scopeSection, /当前四化：暂无/);
+  assert.doesNotMatch(scopeSection, /当前四化：无/);
 });
 
 test('紫微本命证据池不应生成运限落宫证据', () => {

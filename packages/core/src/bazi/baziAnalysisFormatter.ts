@@ -17,7 +17,7 @@ interface FormatBaziOptions {
 export type PromptChartScene =
   'general' | 'fortune' | 'compatibility' | 'comprehensive' | 'concise';
 
-function joinOrFallback(values: string[] | undefined, fallback = '暂无'): string {
+function joinOrFallback(values: string[] | undefined, fallback = '无'): string {
   return values && values.length > 0 ? values.join('、') : fallback;
 }
 
@@ -160,13 +160,13 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   result += `基本信息: ${isMale ? '乾造' : '坤造'} | ${solarDate.year}年${solarDate.month}月${solarDate.day}日 ${timeInfo.name}\n`;
   result += `出生历法: 阳历${solarDate.year}年${solarDate.month}月${solarDate.day}日 | 农历${formatLunarDate(baziResult)} | 生肖:${baziResult.zodiac}\n`;
   if (baziResult.timing?.enabled) {
-    result += `真太阳时: ${baziResult.timing.correctedTime.year}年${baziResult.timing.correctedTime.month}月${baziResult.timing.correctedTime.day}日 ${String(baziResult.timing.correctedTime.hour).padStart(2, '0')}:${String(baziResult.timing.correctedTime.minute).padStart(2, '0')} | 出生地:${baziResult.timing.birthPlace || '未给出'} | 经度:${baziResult.timing.birthLongitude}\n`;
+    result += `真太阳时: ${baziResult.timing.correctedTime.year}年${baziResult.timing.correctedTime.month}月${baziResult.timing.correctedTime.day}日 ${String(baziResult.timing.correctedTime.hour).padStart(2, '0')}:${String(baziResult.timing.correctedTime.minute).padStart(2, '0')} | 出生地:${baziResult.timing.birthPlace || '经度定点'} | 经度:${baziResult.timing.birthLongitude}\n`;
     if (baziResult.timing.dstCorrectionMinutes) {
       result += `夏令时校正: ${baziResult.timing.dstCorrectionMinutes} 分钟（中国夏令时 1986-1991）\n`;
     }
   }
   if (baziResult.warnings?.length) {
-    result += `【排盘预警】\n${baziResult.warnings.map((w) => `⚠ ${w}`).join('\n')}\n`;
+    result += `【定盘说明】\n${baziResult.warnings.map((w) => `- ${w}`).join('\n')}\n`;
   }
   result += `日元本命: ${dayMaster.gan}${dayMaster.element} (${dayMaster.yinYang})\n`;
   if (baziResult.monthCommander) result += `月令司权: ${baziResult.monthCommander}\n`;
@@ -199,9 +199,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   }
   if (analysis.usefulGod) {
     const primaryFavorableWuxing =
-      analysis.usefulGod.primaryFavorableWuxing ||
-      analysis.usefulGod.favorableWuxing?.[0] ||
-      '暂无';
+      analysis.usefulGod.primaryFavorableWuxing || analysis.usefulGod.favorableWuxing?.[0] || '无';
     const secondaryFavorableWuxing =
       analysis.usefulGod.secondaryFavorableWuxing ||
       analysis.usefulGod.favorableWuxing?.slice(1) ||
@@ -209,7 +207,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     const primaryUnfavorableWuxing =
       analysis.usefulGod.primaryUnfavorableWuxing ||
       analysis.usefulGod.unfavorableWuxing?.[0] ||
-      '暂无';
+      '无';
     const secondaryUnfavorableWuxing =
       analysis.usefulGod.secondaryUnfavorableWuxing ||
       analysis.usefulGod.unfavorableWuxing?.slice(1) ||
@@ -235,6 +233,16 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
       result += `取用脉络: ${promptStrategyTrace.join(' -> ')}\n`;
     }
   }
+
+  result += '\n【定盘口径】\n';
+  result += '换日口径: 晚子时换日（23:00 起换日柱）\n';
+  result += '节气口径: 以节气历表交接时刻换年、换月\n';
+  if (baziResult.timing?.enabled) {
+    result += '时间口径: 已按出生地经度与历史夏令时规则完成真太阳时校正，并采用唯一校正时刻\n';
+  } else {
+    result += '时间口径: 采用明确传统时辰排盘\n';
+  }
+  result += '解读口径: 旺衰、格局、用神均按本次盘面字段与既定规则链直接裁定\n';
 
   result += '\n【四柱】\n';
   const pillarNames = ['年柱', '月柱', '日柱', '时柱'] as const;
@@ -269,7 +277,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     result += `${pillarParts}\n`;
     if (hiddenStr) result += `  藏干: ${hiddenStr}\n`;
     if (dayMasterLifeStage || kongWangValue) {
-      result += `  日主十二运: ${dayMasterLifeStage || '暂无'} | 旬空: ${kongWangValue || '暂无'}\n`;
+      result += `  日主十二运: ${dayMasterLifeStage || '无'} | 旬空: ${kongWangValue || '无'}\n`;
     }
     if (includeShensha && shenShaValue) result += `  神煞: ${shenShaValue}\n`;
     if (includeShensha && shenShaExplain) result += `  传统旁证: ${shenShaExplain}\n`;

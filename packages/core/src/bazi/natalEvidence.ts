@@ -509,7 +509,7 @@ function buildCounterEvidenceFacts(args: {
         ...data.warningFacts.map((item) => item.key),
       ],
       promptText: data.warningFacts.length
-        ? `${data.warningSummaryFact.promptText}；已按明确输入生成当前唯一命盘，不生成候选时柱`
+        ? `${data.warningSummaryFact.promptText}；已按明确输入生成当前唯一命盘`
         : '当前输入未触发已登记的节气、时辰、换日或历史夏令时边界提示',
       sources: ['出生时间定盘口径与排盘边界预警'],
       limitation: COUNTER_FACT_LIMITATION,
@@ -561,8 +561,7 @@ function buildLimitationFacts(args: {
         data.warningSummaryFact.key,
         ...data.warningFacts.map((item) => item.key),
       ],
-      promptText:
-        '当前命盘只采用已确认的传统时辰，或采用精准时分与出生地校正后的真太阳时；不生成候选时辰、敏感性结果或缺时柱命盘',
+      promptText: '当前命盘只采用明确时辰或真太阳时校正后的唯一时刻',
       sources: ['出生时间输入规则、真太阳时与排盘边界事实'],
     },
     {

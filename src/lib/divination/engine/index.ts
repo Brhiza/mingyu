@@ -13,6 +13,7 @@ import type {
   TaiyiResult,
   TaiyiScope,
   XiaoliurenDivinationMethod,
+  JinkoujueDivinationMethod,
 } from '../../../types/divination';
 import type { DivinationMethodId } from '@core/divination/config';
 import { daysInSolarMonth } from '../../date-validation';
@@ -38,6 +39,7 @@ const CONCRETE_DIVINATION_METHODS: Array<Exclude<DivinationMethodId, 'random'>> 
   'liuyao',
   'meihua',
   'xiaoliuren',
+  'jinkoujue',
   'qimen',
   'liuren',
   'taiyi',
@@ -73,6 +75,8 @@ export type DivinationDraft = {
   meihuaNumber: string;
   xiaoliurenMethod: XiaoliurenDivinationMethod;
   xiaoliurenNumber: string;
+  jinkoujueMethod: JinkoujueDivinationMethod;
+  jinkoujueNumber: string;
   liuyaoTemplate: LiuyaoTemplateType;
   liurenTemplate: LiurenTemplateType;
   tarotSpread: TarotSpreadType;
@@ -250,6 +254,9 @@ function validateDraft(draft: DivinationDraft) {
   if (draft.method === 'xiaoliuren' && draft.xiaoliurenMethod === 'number') {
     readPositiveIntegerText(draft.xiaoliurenNumber, '小六壬数字起课');
   }
+  if (draft.method === 'jinkoujue' && draft.jinkoujueMethod === 'number') {
+    readPositiveIntegerText(draft.jinkoujueNumber, '金口诀数字起课');
+  }
 
   if (draft.method === 'taiyi') {
     if ((draft.taiyiScope ?? 'year') === 'year') {
@@ -364,7 +371,12 @@ function isTimeBasedDivinationMethod(method: Exclude<DivinationMethodId, 'random
     return true;
   }
 
-  if (method === 'meihua' || method === 'xiaoliuren' || method === 'taiyi') {
+  if (
+    method === 'meihua' ||
+    method === 'xiaoliuren' ||
+    method === 'jinkoujue' ||
+    method === 'taiyi'
+  ) {
     return true;
   }
 
@@ -523,6 +535,17 @@ export async function generateDivinationSession(
         customDate,
         ...(draft.xiaoliurenMethod === 'number' && draft.xiaoliurenNumber.trim()
           ? { number: readPositiveIntegerText(draft.xiaoliurenNumber, '小六壬数字起课') }
+          : {}),
+      });
+      break;
+    }
+    case 'jinkoujue': {
+      const module = await import('mingyu-core/divination/jinkoujue');
+      data = module.generateJinkoujue({
+        method: draft.jinkoujueMethod,
+        customDate,
+        ...(draft.jinkoujueMethod === 'number' && draft.jinkoujueNumber.trim()
+          ? { number: readPositiveIntegerText(draft.jinkoujueNumber, '金口诀数字起课') }
           : {}),
       });
       break;

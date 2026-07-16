@@ -275,7 +275,7 @@ export function buildScopeStructureSummary(payload: AnalysisPayloadV1) {
     运限: payload.active_scope.label,
     星曜: item.star,
     四化: `化${item.mutagen}`,
-    飞入宫位: item.palace_name ? formatPalaceName(item.palace_name) : '未定位',
+    飞入宫位: item.palace_name ? formatPalaceName(item.palace_name) : '宫位未给出',
   }));
 
   return [...scopeLandings, ...activeMutagens];
@@ -303,7 +303,7 @@ export function buildScopeHitSummary(payload: AnalysisPayloadV1) {
   const mutagenLines = payload.active_scope.mutagen_map.map(
     (item) =>
       `${item.star}化${item.mutagen}→${
-        item.palace_name ? formatPalaceName(item.palace_name) : '未定位宫位'
+        item.palace_name ? formatPalaceName(item.palace_name) : '宫位未给出'
       }`,
   );
   const focusLine = currentPalace

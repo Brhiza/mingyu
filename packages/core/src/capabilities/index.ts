@@ -6,6 +6,7 @@ import {
   MEIHUA_METHOD_OPTIONS,
   TAROT_SPREAD_OPTIONS,
   XIAOLIUREN_METHOD_OPTIONS,
+  JINKOUJUE_METHOD_OPTIONS,
 } from '../divination/config';
 import { MINGYU_CORE_VERSION, MINGYU_SCHEMA_VERSION } from '../shared/version';
 
@@ -444,6 +445,27 @@ const systems: SystemCapability[] = [
       '结构化证据',
     ],
     supports: randomSupports,
+  },
+  {
+    id: 'jinkoujue',
+    name: '金口诀',
+    category: 'divination',
+    methods: options(JINKOUJUE_METHOD_OPTIONS),
+    defaultMethod: 'time',
+    inputs: [
+      {
+        id: 'number',
+        label: '起课数字',
+        type: 'number',
+        required: false,
+        requiredWhen: { method: 'number' },
+      },
+      { id: 'date', label: '起课时间', type: 'datetime', required: false },
+      questionInput,
+    ],
+    outputs: ['地分', '将神', '贵神', '人元', '四位生克', '取用主线', '月令与旬空', '结构化证据'],
+    supports: randomSupports,
+    notes: ['金口诀固定采用地分、将神、贵神、人元四位一体口径，不以小六壬六宫替代。'],
   },
   {
     id: 'liuren',

@@ -1062,6 +1062,7 @@ test('奇门提示词会输出值符值使、旬空马星和格局资料', () =>
   });
 
   assert.match(prompt, /核心结构：阳遁3局；值符天蓬；值使休门/);
+  assert.match(prompt, /取用主线：/);
   assert.match(prompt, /值符值使与时干：值符天蓬落坎一宫；值使休门落坎一宫；时干丁见于离九宫/);
   assert.match(prompt, /旬空与马星：旬空子空落坎一宫、丑空落艮八宫；马星卯时驿马在巳，落巽四宫/);
   assert.match(prompt, /太白入荧/);
@@ -1127,7 +1128,8 @@ test('六爻提示词会保留世应、动变、空亡、伏神和月日资料',
     prompt,
     /月日触发：月建丑：未直接同支入爻；日辰寅：同支第2爻子孙寅木，冲第5爻父母申金/,
   );
-  assert.match(prompt, /应期候选：动变触发：第1爻兄弟子水动/);
+  assert.match(prompt, /应期资料：动变触发：第1爻兄弟子水动/);
+  assert.match(prompt, /用神主线：/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界|只使用上方/);
   assert.doesNotMatch(prompt, /课传|盘局|牌阵|签诗|牌位/);
 });
@@ -1202,7 +1204,7 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /互卦：泽风大过；互卦体用比和；互上辅助生/);
   assert.match(prompt, /变卦：地火明夷；变后体卦坤（土）；变后用卦离（火）；变后体用体克用/);
   assert.match(prompt, /四时与起卦：春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
-  assert.match(prompt, /应期候选：动爻第3爻：对应阶段、层位或触发点/);
+  assert.match(prompt, /应期资料：动爻第3爻：对应阶段、层位或触发点/);
   assert.match(prompt, /主卦卦辞分类：.*(?:传统.*标签|未见明确吉凶或进退标签)/);
   assert.match(prompt, /动爻传统辅助：.*当前爻位已发动/);
   assert.match(prompt, /未发动，不展开爻辞解释/);
@@ -1238,7 +1240,7 @@ test('小六壬提示词会保留三段宫位、五行推进和起课资料', ()
   assert.match(prompt, /五行推进：起因到过程/);
   assert.match(prompt, /关键词/);
   assert.match(prompt, /取象提示：/);
-  assert.match(prompt, /应期候选：起因留连：偏拖延反复，常需先清旧账或等阻滞松动/);
+  assert.match(prompt, /应期资料：起因留连：偏拖延反复，常需先清旧账或等阻滞松动/);
   assert.match(prompt, /- 起课方式：数字起课/);
   assert.match(prompt, /- 结果：小吉（五行.*）；关键词.*；倾向有助力/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界|断课抓手/);
@@ -1304,7 +1306,7 @@ test('大六壬提示词使用简短任务与输出要求', () => {
 
   assert.match(
     prompt,
-    /【任务】\n请围绕月将、四课、三传、天将、课体与神煞主线判断，直接回答问题，并说明事情会如何演变、卡点在哪、下一步该先做什么。/,
+    /【任务】\n请严格围绕已给出的月将、四课、三传、天将、课体与神煞主线作答，直接说明演变、卡点与下一步。/,
   );
   assert.match(
     prompt,
@@ -1476,4 +1478,23 @@ test('星盘提示词写入年限选择后应包含分析对象与行运边界',
   assert.doesNotMatch(prompt, /强度\d+%/);
   assert.doesNotMatch(prompt, /【应期判断方法】/);
   assert.ok(prompt.indexOf('【分析对象】') < prompt.indexOf('【占卜信息】'));
+});
+
+
+test('金口诀提示词应写入四位主线且可外发', async () => {
+  const { generateJinkoujue } = await import('../packages/core/src/divination/algorithms/jinkoujue.ts');
+  const { buildDivinationPrompt } = await import('../src/lib/divination/engine/index.ts');
+  const data = generateJinkoujue({
+    method: 'number',
+    number: 5,
+    customDate: new Date('2025-01-01T08:00:00+08:00'),
+  });
+  const prompt = buildDivinationPrompt('jinkoujue', PROJECT_DECISION_QUESTION, data, createProjectSupplementaryInfo(), {
+    isCustomQuestion: true,
+  });
+  assert.match(prompt, /占法：金口诀/);
+  assert.match(prompt, /取用主线：以贵神/);
+  assert.match(prompt, /地分|将神|贵神|人元/);
+  assert.doesNotMatch(prompt, /你是资深|取证顺序|证据边界|待核|可疑|暂无/);
+  assertPromptIsPortableTaskText(prompt);
 });

@@ -71,7 +71,7 @@ test('八字本命应输出四柱、核心判断、反证、汇总与限制的�
     analysis.promptText,
     /命语|本项目|当前项目|项目统一|工程|接口|API|MCP|内部权重|bazi:natal:/,
   );
-  assert.match(analysis.promptText, /不生成候选时辰、敏感性结果或缺时柱命盘/);
+  assert.match(analysis.promptText, /只采用明确时辰或真太阳时校正后的唯一时刻/);
   assert.equal(analysis.evidence.title, '八字本命四柱与核心判断结构化证据');
 });
 
@@ -90,7 +90,7 @@ test('八字本命提示词应保留用户选择的传统时辰且不混入工�
   assert.doesNotMatch(prompt, /出生时间敏感性|候选时柱|缺少时柱/);
 });
 
-test('八字真太阳时本命证据应引用校正后的唯一时间而不生成候选盘', () => {
+test('八字真太阳时本命证据应引用校正后的唯一时间并采用唯一校正时刻', () => {
   const result = baziCalculator.calculateBazi({
     year: 1990,
     month: 4,
@@ -116,7 +116,7 @@ test('八字真太阳时本命证据应引用校正后的唯一时间而不生�
   assert.equal(analysis.calculationSteps[0].inputs.trueSolarTimeEnabled, true);
   assert.match(
     analysis.promptText,
-    /当前命盘只采用已确认的传统时辰，或采用精准时分与出生地校正后的真太阳时/,
+    /当前命盘只采用明确时辰或真太阳时校正后的唯一时刻/,
   );
   assert.doesNotMatch(analysis.promptText, /候选盘\d|候选时辰为/);
   const prompt = formatBaziForPrompt(result);

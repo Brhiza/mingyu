@@ -173,7 +173,7 @@ npm run mcp
 
 ### 起卦与排盘时间参数
 
-六爻、梅花易数、小六壬、奇门遁甲、大六壬工具默认使用当前时间。需要复盘历史时刻、按用户指定时间起卦，或让本地 MCP 与网页端自定时间保持一致时，传入 `customDate`。
+六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬工具默认使用当前时间。需要复盘历史时刻、按用户指定时间起卦，或让本地 MCP 与网页端自定时间保持一致时，传入 `customDate`。
 
 `customDate` 必须是带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:30:00+08:00`。适用工具包括 `divine_liuyao`、`liuyao_prompt`、`divine_meihua`、`meihua_prompt`、`divine_xiaoliuren`、`xiaoliuren_prompt`、`divine_qimen`、`qimen_prompt`、`divine_liuren`、`liuren_prompt`。
 

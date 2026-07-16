@@ -24,17 +24,17 @@ function buildEvidenceDrivenHintSection(title: string, evidence: string): string
 
 function formatClassicPatternMainClaim(claim: string): string {
   const normalized = claim.replace(/^人/, '');
-  return `传统多取象为${normalized}，仍需结合原局成败与岁运同看。`;
+  return `传统多取象为${normalized}，并按原局成败与岁运同看。`;
 }
 
 function toClassicPatternPromptDescription(description: string): string {
   return description
-    .replace(/主大富大贵。?/g, '传统多视为层次较高，仍需结合原局成败与岁运同看。')
-    .replace(/主大贵。?/g, '传统多视为层次较高，仍需结合原局成败与岁运同看。')
-    .replace(/主清贵富足。?/g, '传统多视为较有清气与发展空间，仍需结合原局成败与岁运同看。')
-    .replace(/主清贵。?/g, '传统多视为较有清气与发展空间，仍需结合原局成败与岁运同看。')
-    .replace(/主名利双收。?/g, '传统多视为较易兼顾名与利，仍需结合原局成败与岁运同看。')
-    .replace(/主异路功名。?/g, '传统多视为发展路径有别于常规，仍需结合原局成败与岁运同看。')
+    .replace(/主大富大贵。?/g, '传统多视为层次较高，并按原局成败与岁运同看。')
+    .replace(/主大贵。?/g, '传统多视为层次较高，并按原局成败与岁运同看。')
+    .replace(/主清贵富足。?/g, '传统多视为较有清气与发展空间，并按原局成败与岁运同看。')
+    .replace(/主清贵。?/g, '传统多视为较有清气与发展空间，并按原局成败与岁运同看。')
+    .replace(/主名利双收。?/g, '传统多视为较易兼顾名与利，并按原局成败与岁运同看。')
+    .replace(/主异路功名。?/g, '传统多视为发展路径有别于常规，并按原局成败与岁运同看。')
     .replace(/因祸得福。?/g, '传统多视为在冲动与转折中仍可能藏有转机。')
     .replace(/财富丰厚。?/g, '传统多视为物质积累倾向较明显。')
     .replace(/多主([^。；]+)[。；]?/g, (_match, claim: string) =>
@@ -163,7 +163,7 @@ function generateClassicPatternSection(chartResult: BaziChartResult): string {
 
   if (!classicPattern) return '';
 
-  return `【经典格局】${classicPattern.name}（传统等级参考：${classicPattern.level}，需复核成败） | ${toClassicPatternPromptDescription(classicPattern.description)}`;
+  return `【经典格局】${classicPattern.name}（传统等级参考：${classicPattern.level}，以成败条件裁定） | ${toClassicPatternPromptDescription(classicPattern.description)}`;
 }
 
 /**
@@ -261,7 +261,7 @@ function generateHarmonyTransformSection(chartResult: BaziChartResult): string {
     })
     .join('；');
 
-  return buildEvidenceDrivenHintSection('合化程度', `命盘见合化候选：${evidence}`);
+  return buildEvidenceDrivenHintSection('合化程度', `命盘见合化结构：${evidence}`);
 }
 
 /**
