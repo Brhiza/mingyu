@@ -30,6 +30,9 @@ export type MeihuaDivinationMethod = 'time' | 'number' | 'random' | 'timeTrigram
 
 export type XiaoliurenDivinationMethod = 'time' | 'number' | 'random';
 
+/** 小六壬流派：standard 为现行通行掌诀；huashan 为华山派完整时间课。 */
+export type XiaoliurenSchool = 'standard' | 'huashan';
+
 export interface MeihuaSettings extends RandomOptions {
   method?: MeihuaDivinationMethod;
   number?: number;
@@ -53,15 +56,40 @@ export interface XiaoliurenPalaceDetail {
   timing?: string;
 }
 
+export interface XiaoliurenStageChart {
+  stage: '起因' | '过程' | '结果';
+  role: string;
+  palace: XiaoliurenPalaceDetail;
+  seasonState: string;
+  relative: string;
+  relationToDay: string;
+  isVoid: boolean;
+  hasYiMa: boolean;
+  hasTaoHua: boolean;
+  support: string[];
+  constraints: string[];
+  promptText: string;
+}
+
 export interface XiaoliurenData {
   meta?: CoreResultMeta;
   method: XiaoliurenDivinationMethod;
   methodLabel: string;
+  /** 流派口径：默认 standard；huashan 仅支持时间起课并输出完整课盘。 */
+  school: XiaoliurenSchool;
+  schoolLabel: string;
   timestamp: number;
   lunarMonth: number;
   lunarDay: number;
   hourIndex: number;
   hourLabel: string;
+  /** 起课时间干支与课盘附属资料；华山派完整课必备。 */
+  ganzhi?: { year: string; month: string; day: string; hour: string };
+  dayNight?: '昼占' | '夜占';
+  xunKong?: string[];
+  yiMa?: string;
+  taoHua?: string;
+  mainLine?: string;
   /** 起课输入、逐宫顺数与六宫归一的可复核计算过程。 */
   calculation?: {
     inputBase: number;
@@ -74,12 +102,25 @@ export interface XiaoliurenData {
     startPalaceIndex: number;
     processPalaceIndex: number;
     resultPalaceIndex: number;
+    school: XiaoliurenSchool;
+    schoolLabel: string;
+    dayStem?: string;
+    dayBranch?: string;
+    hourBranch?: string;
   };
   sequence: {
     start: XiaoliurenPalaceDetail;
     process: XiaoliurenPalaceDetail;
     result: XiaoliurenPalaceDetail;
   };
+  /** 华山派完整三宫课象，含六亲、空亡、驿马、桃花与旺衰。 */
+  stageCharts?: {
+    start: XiaoliurenStageChart;
+    process: XiaoliurenStageChart;
+    result: XiaoliurenStageChart;
+  };
+  /** 六宫环位，便于复核月日时顺数路径。 */
+  sixPalaceRing?: XiaoliurenPalaceDetail[];
   wuxingRelations: {
     startToProcess: string;
     processToResult: string;
@@ -100,6 +141,13 @@ export interface XiaoliurenData {
     triggerConditions: string[];
     limitations: string[];
   };
+  focusEvidence?: Array<{
+    target: string;
+    role: string;
+    level: '主证' | '辅证';
+    evidence: string[];
+    limitations: string[];
+  }>;
   direction?: string;
   shenSha?: string;
   fortune?: string;

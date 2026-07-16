@@ -506,9 +506,26 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
       .join('；');
   });
 
+  const stageChartLines = data.stageCharts
+    ? (
+        [
+          ['起因', data.stageCharts.start],
+          ['过程', data.stageCharts.process],
+          ['结果', data.stageCharts.result],
+        ] as const
+      ).map(
+        ([stage, chart]) =>
+          `- ${stage}完整课象：${chart.palace.name}；六亲${chart.relative}；对日主${chart.relationToDay}；月令${chart.seasonState}；支持${chart.support.join('、') || '无'}；限制${chart.constraints.join('、') || '无'}`,
+      )
+    : [];
   return [
     '占法：小六壬',
-    `时间干支：以【当前时间】为准；农历${data.lunarMonth}月${data.lunarDay}日，${data.hourLabel}`,
+    `流派：${data.schoolLabel || (data.school === 'huashan' ? '华山派' : '通行掌诀')}`,
+    data.mainLine ? `取用主线：${data.mainLine}` : '',
+    `时间干支：${data.ganzhi ? `${data.ganzhi.year}年 ${data.ganzhi.month}月 ${data.ganzhi.day}日 ${data.ganzhi.hour}时` : '以【当前时间】为准'}；农历${data.lunarMonth}月${data.lunarDay}日，${data.hourLabel}${data.dayNight ? `；${data.dayNight}` : ''}`,
+    data.xunKong?.length || data.yiMa || data.taoHua
+      ? `课盘神煞：旬空${data.xunKong?.join('、') || '无'}；年驿马${data.yiMa || '无'}；年桃花${data.taoHua || '无'}`
+      : '',
     `核心结构：起因${sequence.start.name}；过程${sequence.process.name}；结果${sequence.result.name}`,
     `关键提示：起课方式${data.methodLabel}；结果宫${data.primary.name}；宫位倾向${data.tendency}${data.fortune ? `；${conditionXiaoliurenTraditionalText(data.fortune)}` : ''}`,
     data.wuxingRelations
@@ -531,8 +548,11 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
     data.timingEvidence?.limitations?.length
       ? `应期限制：${data.timingEvidence.limitations.join('；')}`
       : '',
+    stageChartLines.length ? '完整课象：' : '',
+    ...stageChartLines,
     '结构明细：',
     `- 起课方式：${data.methodLabel}`,
+    `- 流派：${data.schoolLabel || (data.school === 'huashan' ? '华山派' : '通行掌诀')}`,
     ...palaceLines,
   ]
     .filter(Boolean)

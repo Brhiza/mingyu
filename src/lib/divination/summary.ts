@@ -337,17 +337,25 @@ export function getDivinationSummaryBlocks(
       return {
         title: '小六壬起课结果',
         tags: [
+          `流派：${xiaoliuren.schoolLabel || (xiaoliuren.school === 'huashan' ? '华山派' : '通行掌诀')}`,
           `起课方式：${xiaoliuren.methodLabel}`,
           `主判断：${xiaoliuren.primary.name}`,
           `倾向：${xiaoliuren.tendency}`,
         ],
         lines: [
           wrapMainEvidence(
-            `起因${xiaoliuren.sequence.start.name}；过程${xiaoliuren.sequence.process.name}；结果${xiaoliuren.sequence.result.name}`,
+            xiaoliuren.mainLine ||
+              `起因${xiaoliuren.sequence.start.name}；过程${xiaoliuren.sequence.process.name}；结果${xiaoliuren.sequence.result.name}`,
           ),
           `起因：${meaning(xiaoliuren.sequence.start.name) ?? conditionXiaoliurenTraditionalText(xiaoliuren.sequence.start.meaning)}`,
           `过程：${meaning(xiaoliuren.sequence.process.name) ?? conditionXiaoliurenTraditionalText(xiaoliuren.sequence.process.meaning)}`,
           `结果：${meaning(xiaoliuren.sequence.result.name) ?? conditionXiaoliurenTraditionalText(xiaoliuren.sequence.result.meaning)}`,
+          xiaoliuren.stageCharts
+            ? `完整课象：起因${xiaoliuren.stageCharts.start.palace.name}六亲${xiaoliuren.stageCharts.start.relative}；过程${xiaoliuren.stageCharts.process.palace.name}六亲${xiaoliuren.stageCharts.process.relative}；结果${xiaoliuren.stageCharts.result.palace.name}六亲${xiaoliuren.stageCharts.result.relative}`
+            : '',
+          xiaoliuren.xunKong?.length
+            ? `旬空驿马：旬空${xiaoliuren.xunKong.join('、')}；驿马${xiaoliuren.yiMa || '无'}；桃花${xiaoliuren.taoHua || '无'}`
+            : '',
           `提醒：${conditionXiaoliurenTraditionalText(xiaoliuren.questionHint)}`,
         ].filter(Boolean),
       };

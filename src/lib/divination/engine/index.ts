@@ -13,6 +13,7 @@ import type {
   TaiyiResult,
   TaiyiScope,
   XiaoliurenDivinationMethod,
+  XiaoliurenSchool,
   JinkoujueDivinationMethod,
 } from '../../../types/divination';
 import type { DivinationMethodId } from '@core/divination/config';
@@ -74,6 +75,7 @@ export type DivinationDraft = {
   meihuaMethod: 'time' | 'number' | 'random' | 'timeTrigram';
   meihuaNumber: string;
   xiaoliurenMethod: XiaoliurenDivinationMethod;
+  xiaoliurenSchool: XiaoliurenSchool;
   xiaoliurenNumber: string;
   jinkoujueMethod: JinkoujueDivinationMethod;
   jinkoujueNumber: string;
@@ -251,8 +253,13 @@ function validateDraft(draft: DivinationDraft) {
     readPositiveIntegerText(draft.meihuaNumber, '数字起卦');
   }
 
-  if (draft.method === 'xiaoliuren' && draft.xiaoliurenMethod === 'number') {
-    readPositiveIntegerText(draft.xiaoliurenNumber, '小六壬数字起课');
+  if (draft.method === 'xiaoliuren') {
+    if (draft.xiaoliurenSchool === 'huashan' && draft.xiaoliurenMethod !== 'time') {
+      throw new Error('华山派小六壬只以时间起课');
+    }
+    if (draft.xiaoliurenMethod === 'number') {
+      readPositiveIntegerText(draft.xiaoliurenNumber, '小六壬数字起课');
+    }
   }
   if (draft.method === 'jinkoujue' && draft.jinkoujueMethod === 'number') {
     readPositiveIntegerText(draft.jinkoujueNumber, '金口诀数字起课');
@@ -532,6 +539,7 @@ export async function generateDivinationSession(
       const module = await import('mingyu-core/divination/xiaoliuren');
       data = module.generateXiaoliuren({
         method: draft.xiaoliurenMethod,
+        school: draft.xiaoliurenSchool,
         customDate,
         ...(draft.xiaoliurenMethod === 'number' && draft.xiaoliurenNumber.trim()
           ? { number: readPositiveIntegerText(draft.xiaoliurenNumber, '小六壬数字起课') }

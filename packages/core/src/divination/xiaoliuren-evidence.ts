@@ -857,8 +857,14 @@ function buildLimitationFacts(params: {
 export function analyzeXiaoliurenEvidence(data: XiaoliurenData): XiaoliurenEvidenceAnalysis {
   const sources: XiaoliurenEvidenceAnalysis['sources'] = [
     {
-      title: '《小六壬金口诀》《李淳风六壬时课》传统掌诀体系',
-      evidence: '月、日、时或数字顺数六宫及大安、留连、速喜、赤口、小吉、空亡取象',
+      title:
+        data.school === 'huashan'
+          ? '华山派小六壬时间课与《小六壬金口诀》六宫掌诀体系'
+          : '《小六壬金口诀》《李淳风六壬时课》传统掌诀体系',
+      evidence:
+        data.school === 'huashan'
+          ? '时间起课月日时顺数六宫，并取日干支六亲、旬空、驿马、桃花与三宫完整课象'
+          : '月、日、时或数字顺数六宫及大安、留连、速喜、赤口、小吉、空亡取象',
       role: '传统规则来源',
     },
     {

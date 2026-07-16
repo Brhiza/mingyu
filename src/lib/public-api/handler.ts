@@ -74,6 +74,7 @@ import type {
   RandomOptions,
   SupplementaryInfo,
   XiaoliurenDivinationMethod,
+  XiaoliurenSchool,
 } from '../../types/divination';
 import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import type { DivinationMethodId } from '@core/divination/config';
@@ -257,6 +258,10 @@ const DIVINATION_REQUEST_PROPERTIES = {
   method: { enum: ['time', 'number', 'random', 'timeTrigram'] },
   number: { type: 'integer', minimum: 1 },
   xiaoliurenMethod: { enum: ['time', 'number', 'random'] },
+  xiaoliurenSchool: {
+    enum: ['standard', 'huashan'],
+    description: '小六壬流派。huashan 仅支持时间起课。',
+  },
   xiaoliurenNumber: { type: 'integer', minimum: 1 },
   jinkoujueMethod: { enum: ['time', 'number', 'random'] },
   jinkoujueNumber: { type: 'integer', minimum: 1 },
@@ -2581,11 +2586,21 @@ function calculateXiaoliuren(input: JsonRecord) {
     ['time', 'number', 'random'],
     'time',
   ) as XiaoliurenDivinationMethod;
+  const school = readEnum(
+    input,
+    'xiaoliurenSchool',
+    ['standard', 'huashan'],
+    'standard',
+  ) as XiaoliurenSchool;
+  if (school === 'huashan' && method !== 'time') {
+    throw new ApiError(400, 'BAD_REQUEST', '华山派小六壬只以时间起课。');
+  }
   if (method !== 'random') {
     assertNoRandomOptions(input, '小六壬仅随机起课接受 seed 或 replay。');
   }
   return generateXiaoliuren({
     method,
+    school,
     ...(method === 'number' ? { number: readInteger(input, 'xiaoliurenNumber', 1) } : {}),
     customDate: readCustomDate(input),
     ...(method === 'random' ? readRandomOptions(input) : {}),
