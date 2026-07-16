@@ -156,7 +156,10 @@ test('夏令时:1988-07-15 12:00 北京(钟表) → 自动回拨 60 分钟,时�
     ),
   );
   const prompt = formatBaziForPrompt(r);
-  assert.match(prompt, /排盘边界证据/);
+  assert.match(prompt, /真太阳时: 1988年7月15日 10:39/);
+  assert.match(prompt, /夏令时校正: -60 分钟/);
+  assert.match(prompt, /基本信息: 乾造 \| 1988年7月15日 巳时/);
+  assert.doesNotMatch(prompt, /结构化证据|排盘边界证据|计算链|证据汇总|解释限制/);
   assert.doesNotMatch(prompt, /项目节气历表|applyChinaDst|本引擎/);
   assertPromptIsPortableTaskText(prompt);
 });

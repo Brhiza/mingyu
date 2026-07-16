@@ -625,12 +625,6 @@ export function generateTaiyi(input: TaiyiInput = {}): TaiyiResult {
     `将参：主大将${formatGeneralPalace(lordGeneral)}、主参将${formatGeneralPalace(lordAssistant)}；客大将${formatGeneralPalace(guestGeneral)}、客参将${formatGeneralPalace(guestAssistant)}；定大将${formatGeneralPalace(setGeneral)}、定参将${formatGeneralPalace(setAssistant)}。`,
     `判断：${judgments.join('；')}`,
     `十六神：${sixteenGodsText}。`,
-    '取证层级：先以局数、太乙及主客目宫位、掩囚关系、主客定算和将参宫位为主证；计神与十六神为定位资料和辅证，不得脱离主客格局单独定案。',
-    `资料来源：${TAIYI_MODEL_INFO.sources.map((source) => `${source.title}（${source.evidence}）`).join('；')}。`,
-    `观察层级：以${scopeInfo.title}对应的时间尺度分析趋势、条件与行动时宜。`,
-    evidenceAnalysis.promptText,
-    '',
-    `请依《太乙金镜式经》${scopeInfo.title}式理，结合太乙、文昌、始击、计神、十六神、主客定算与主客定将参，分析${scopeInfo.title}范围内的气运、动静、攻守与时宜；逐项说明主证、辅证、反证或限制，以及可以观察的触发条件。`,
   ].join('\n');
 
   return {

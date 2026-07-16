@@ -1,5 +1,7 @@
 import type { EvidenceLevel, PromptEvidenceBundle, PromptEvidenceItem } from './types';
 
+export const TRADITIONAL_RESEARCH_NOTICE = '请从传统命理文化研究角度，依据以下资料完成解读。';
+
 const LEVEL_ORDER: Record<EvidenceLevel, number> = {
   主证: 0,
   辅证: 1,
@@ -98,4 +100,19 @@ export function formatPromptEvidenceBundle(bundle: PromptEvidenceBundle): string
 
   const emptyText = cleanOptionalText(bundle.emptyText, '空证据占位文本');
   return emptyText ? [emptyText] : [];
+}
+
+export function appendTraditionalResearchNotice(prompt: string) {
+  const normalized = prompt.trim();
+  if (!normalized || normalized.includes(TRADITIONAL_RESEARCH_NOTICE)) {
+    return normalized;
+  }
+  const guidanceMarker = '\n\n【解读主线】';
+  if (normalized.includes(guidanceMarker)) {
+    return normalized.replace(
+      guidanceMarker,
+      `\n\n${TRADITIONAL_RESEARCH_NOTICE}${guidanceMarker}`,
+    );
+  }
+  return `${TRADITIONAL_RESEARCH_NOTICE}\n\n${normalized}`;
 }

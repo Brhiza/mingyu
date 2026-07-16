@@ -134,6 +134,7 @@ export type {
 export type {
   FortuneLayerType,
   FortuneTriggerEvidenceResult,
+  FortuneTriggerFormationFact,
   FortuneTriggerLayer,
   FortuneTriggerRelation,
   FortuneTriggerRelationType,

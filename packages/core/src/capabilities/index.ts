@@ -43,6 +43,7 @@ export interface SystemCapability {
     replay?: boolean;
     trueSolarTime: boolean;
     birthTimeRequired: boolean;
+    birthTimeModes?: Array<'traditional-shichen' | 'precise-clock-time'>;
     batch: boolean;
   };
   optionalDependencies?: string[];
@@ -61,7 +62,8 @@ const birthProfileInput: CapabilityInput = {
   label: '出生档案',
   type: 'object',
   required: true,
-  description: '推荐使用统一 BirthProfile；出生小时和分钟必须完整提供。',
+  description:
+    '推荐使用统一 BirthProfile；时辰级算法可提供明确传统时辰，真太阳时、星盘和七政四余必须提供精准时分。',
 };
 
 const questionInput: CapabilityInput = {
@@ -107,6 +109,7 @@ const systems: SystemCapability[] = [
       customRandomSource: false,
       trueSolarTime: true,
       birthTimeRequired: true,
+      birthTimeModes: ['precise-clock-time'],
       batch: false,
     },
   },
@@ -199,6 +202,7 @@ const systems: SystemCapability[] = [
       '流年',
       '大运流年流月流日逐层触发证据',
       '岁运并临与天克地冲',
+      '岁运补全三合三会成局证据',
       '节气历表边界与太阳视黄经独立核验',
       '神煞',
       '刑冲合害',
@@ -212,6 +216,7 @@ const systems: SystemCapability[] = [
       customRandomSource: false,
       trueSolarTime: true,
       birthTimeRequired: true,
+      birthTimeModes: ['traditional-shichen', 'precise-clock-time'],
       batch: false,
     },
     notes: [
@@ -239,6 +244,7 @@ const systems: SystemCapability[] = [
       customRandomSource: false,
       trueSolarTime: true,
       birthTimeRequired: true,
+      birthTimeModes: ['traditional-shichen', 'precise-clock-time'],
       batch: false,
     },
     optionalDependencies: ['iztro'],
@@ -270,6 +276,7 @@ const systems: SystemCapability[] = [
       customRandomSource: false,
       trueSolarTime: true,
       birthTimeRequired: true,
+      birthTimeModes: ['precise-clock-time'],
       batch: false,
     },
     optionalDependencies: ['celestine'],
@@ -296,12 +303,25 @@ const systems: SystemCapability[] = [
           { value: 'year', label: '年家' },
         ]),
       },
+      {
+        id: 'juMethod',
+        label: '定局方法',
+        type: 'select',
+        required: false,
+        options: options([
+          { value: 'chaibu', label: '拆补法' },
+          { value: 'zhirun', label: '置闰法' },
+        ]),
+        description: '默认拆补法；置闰法仅对时家与日家生效。',
+      },
       { id: 'date', label: '起局时间', type: 'datetime', required: false },
       questionInput,
     ],
     outputs: [
       '九宫',
       '值符值使',
+      '定局方法',
+      '符头与超神接气',
       '用神宫候选',
       '门星神干证据',
       '空亡与格局反证',
@@ -531,6 +551,7 @@ const systems: SystemCapability[] = [
       customRandomSource: false,
       trueSolarTime: false,
       birthTimeRequired: true,
+      birthTimeModes: ['traditional-shichen', 'precise-clock-time'],
       batch: true,
     },
   },
@@ -581,7 +602,7 @@ const systems: SystemCapability[] = [
     ],
     outputs: [
       '值冲刑害破关系',
-      '三合六合关系',
+      '三合六合三会关系',
       '年干五行辅助关系',
       '计算链',
       '主证辅证反证',
@@ -660,14 +681,174 @@ const systems: SystemCapability[] = [
     supports: {
       seed: false,
       customRandomSource: false,
-      trueSolarTime: false,
+      trueSolarTime: true,
       birthTimeRequired: true,
+      birthTimeModes: ['precise-clock-time'],
       batch: false,
     },
     optionalDependencies: ['celestine'],
-    notes: ['现有七政四余输入尚未拆分天体计算时刻与传统真太阳时宫位口径，因此不宣称支持真太阳时。'],
+    notes: [
+      'useTrueSolarTime 可选；启用后仅传统命身十二宫按真太阳时排布，七政四余位置仍用现代星历，属于混合精度口径。',
+    ],
   },
-];
+  {
+    id: 'xuankong',
+    name: '玄空飞星',
+    category: 'environment',
+    inputs: [
+      { id: 'year', label: '建造或起运年', type: 'number', required: false },
+      {
+        id: 'sitMountain',
+        label: '坐山',
+        type: 'text',
+        required: false,
+        description: '二十四山；可与朝向或度数二选一。',
+      },
+      {
+        id: 'facingMountain',
+        label: '朝向',
+        type: 'text',
+        required: false,
+      },
+      {
+        id: 'facingDegree',
+        label: '朝向度数',
+        type: 'number',
+        required: false,
+        description: '正北 0°，顺时针；可与二十四山二选一。',
+      },
+      {
+        id: 'sitDegree',
+        label: '坐山度数',
+        type: 'number',
+        required: false,
+      },
+      {
+        id: 'measurementUncertaintyDegrees',
+        label: '测量误差',
+        type: 'number',
+        required: false,
+      },
+      {
+        id: 'guaType',
+        label: '卦型',
+        type: 'select',
+        required: false,
+        options: options([
+          { value: '下卦', label: '下卦' },
+          { value: '替卦', label: '替卦' },
+        ]),
+      },
+      questionInput,
+    ],
+    outputs: [
+      '三元九运',
+      '山向',
+      '下卦或替卦',
+      '运盘',
+      '山盘',
+      '向盘',
+      '到山到向',
+      '结构化证据',
+    ],
+    supports: {
+      seed: false,
+      customRandomSource: false,
+      trueSolarTime: false,
+      birthTimeRequired: false,
+      batch: false,
+    },
+    notes: [
+      '玄空飞星 v1 只输出可复现的三盘结构与证据，不覆盖形峦、玄空大卦或全流派替卦口诀。',
+    ],
+  },
+  {
+    id: 'residential',
+    name: '住宅风水',
+    category: 'environment',
+    inputs: [
+      birthProfileInput,
+      { id: 'year', label: '建造或起运年', type: 'number', required: false },
+      {
+        id: 'sitMountain',
+        label: '坐山',
+        type: 'text',
+        required: false,
+        description: '二十四山；可与朝向或度数二选一。',
+      },
+      { id: 'facingMountain', label: '朝向', type: 'text', required: false },
+      {
+        id: 'facingDegree',
+        label: '朝向度数',
+        type: 'number',
+        required: false,
+        description: '正北 0°，顺时针；可与二十四山二选一。',
+      },
+      { id: 'sitDegree', label: '坐山度数', type: 'number', required: false },
+      {
+        id: 'doorToInteriorDegree',
+        label: '大门朝屋内角度',
+        type: 'number',
+        required: false,
+        description: '站在大门处面向屋内测量，范围 0° 至小于 360°。',
+      },
+      {
+        id: 'northReference',
+        label: '北向基准',
+        type: 'select',
+        required: false,
+        options: options([
+          { value: 'unspecified', label: '未指定' },
+          { value: 'magnetic', label: '磁北' },
+          { value: 'true', label: '真北' },
+        ]),
+      },
+      {
+        id: 'magneticDeclinationDegrees',
+        label: '磁偏角',
+        type: 'number',
+        required: false,
+      },
+      {
+        id: 'measurementUncertaintyDegrees',
+        label: '测量误差',
+        type: 'number',
+        required: false,
+      },
+      {
+        id: 'guaType',
+        label: '玄空卦型',
+        type: 'select',
+        required: false,
+        options: options([
+          { value: '下卦', label: '下卦' },
+          { value: '替卦', label: '替卦' },
+        ]),
+      },
+      questionInput,
+    ],
+    outputs: [
+      '宅运结构',
+      '人宅适配',
+      '八宅命卦宅卦',
+      '玄空运盘山盘向盘',
+      '合参要点',
+      '行动建议',
+      '结构化证据',
+    ],
+    supports: {
+      seed: false,
+      customRandomSource: false,
+      trueSolarTime: false,
+      birthTimeRequired: false,
+      batch: false,
+    },
+    notes: [
+      '住宅风水为产品统一入口：后台分别计算八宅与玄空飞星后合参，不生成综合吉凶总分，也不互相改写两套规则。',
+      '至少提供山向/门向度数，或居住人出生年与性别/命卦之一；可只做人宅、只做宅运或两者合参。底层 bazhai 与 xuankong 能力仍保留。',
+    ],
+  },
+]
 
 /** 返回可安全序列化的能力清单，供网站、App、API 或 MCP 自动生成入口。 */
 export function getCapabilities(): MingyuCapabilities {

@@ -17,22 +17,14 @@ export function getLiurenPatternHint(pattern?: LiurenData['transmissionPattern']
   return '传态未标注：优先按初传-中传-末传的顺序说明。';
 }
 
-export function buildLiurenTemplateText(template: LiurenTemplateType, data: LiurenData) {
+export function buildLiurenTemplateText(template: LiurenTemplateType, _data: LiurenData) {
   const templateLabelMap: Record<LiurenTemplateType, string> = {
-    general: '通用断课',
-    ganqing: '感情断课',
-    shiye: '事业断课',
-    caifu: '财富断课',
+    general: '通用',
+    ganqing: '感情关系',
+    shiye: '事业工作',
+    caifu: '财富财运',
   };
-  const chu = data.threeTransmissions[0];
-  const classicalRule = data.classicalRules?.[0];
   const safeTemplate = templateLabelMap[template] ? template : 'general';
 
-  return [
-    `断课类型：${templateLabelMap[safeTemplate]}`,
-    '断课类型只作为问题范围；未限定或通用时按通用断课处理，不额外套用固定事项。',
-    getLiurenPatternHint(data.transmissionPattern),
-    `取证顺序：先按${classicalRule?.rule || '取传法'}看发用${chu ? `${chu.branch}乘${chu.god}` : '初传'}，再看三传推进，四课看背景，课体神煞只作辅证。`,
-    '回答口径：先给结论，再按“课传主线、发用推进、四课背景、反证限制、应期条件、现实建议”说明；不要复述完整课盘。',
-  ].join('\n');
+  return templateLabelMap[safeTemplate];
 }

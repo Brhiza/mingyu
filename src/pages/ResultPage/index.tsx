@@ -7,6 +7,7 @@ import {
 import {
   buildResultSearch,
   buildInputSearch,
+  hasCompletePreciseBirthData,
   parseInputState,
   parsePromptState,
   type PromptSourceKey,
@@ -25,7 +26,7 @@ import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
 import { buildDivinationPrompt } from '@/lib/divination/engine';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { generateQizheng, type QizhengResult } from '@core/qi_zheng';
-import type { BaZhaiResult } from '@core/ba_zhai';
+import type { ResidentialFengshuiResult } from '@core/residential_fengshui';
 import type { AstrolabeData } from '@/types/divination';
 import type {
   BaziFortuneSelectionModule,
@@ -76,12 +77,68 @@ import {
   type PromptRealWorldContext,
 } from '@/lib/metaphysics-prompt';
 import {
-  calculateBazhaiBaseChart,
-  calculateBazhaiChart,
-  type BazhaiMeasurement,
-} from '@/lib/bazhai-chart';
+  calculateResidentialChart,
+  type ResidentialMeasurement,
+} from '@/lib/residential-fengshui-chart';
 import { PromptContextFields } from '@/components/PromptContextFields';
 import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
+import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
+import { buildRecentBaziFortuneSelection } from '@/components/BaziFortuneTools/helpers';
+import type { BaziFortuneSelectionValue } from '@core/bazi/fortuneSelection';
+
+type FortuneScopePreset = 'default' | 'recent' | 'all' | 'manual';
+
+function FortuneScopePresetSelect(props: {
+  value: FortuneScopePreset;
+  onChange: (value: FortuneScopePreset) => void;
+  className?: string;
+  disabled?: boolean;
+}) {
+  const displayValue = props.value === 'manual' ? 'manual-current' : props.value;
+
+  return (
+    <select
+      className={props.className}
+      value={displayValue}
+      onChange={(event) => {
+        if (event.target.value !== 'manual-current') {
+          props.onChange(event.target.value as FortuneScopePreset);
+        }
+      }}
+      disabled={props.disabled}
+      aria-label="年限选择"
+    >
+      <option value="default">默认</option>
+      <option value="recent">近期</option>
+      <option value="all">全部</option>
+      <option value="manual">手动</option>
+      <option value="manual-current" hidden>
+        手动
+      </option>
+    </select>
+  );
+}
+
+function formatLocalDate(date: Date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+function isSameBaziFortuneSelection(
+  first: BaziFortuneSelectionValue,
+  second: BaziFortuneSelectionValue,
+) {
+  return (
+    first.scope === second.scope &&
+    first.cycleIndex === second.cycleIndex &&
+    first.year === second.year &&
+    first.month === second.month &&
+    first.day === second.day
+  );
+}
 
 const LazyBaziFortuneModal = lazy(async () => {
   const module = await import('@/components/BaziFortuneTools/BaziFortuneModal');
@@ -93,21 +150,12 @@ const LazyMetaphysicsPanel = lazy(async () => {
   return { default: module.MetaphysicsPanel };
 });
 
-function compactScopeSummary(value: string) {
-  if (value.startsWith('本命盘与完整大运流年')) return '完整大运流年';
-  if (value.startsWith('本命盘与大运概览')) return '本命与大运';
-  if (value.startsWith('本命盘与完整运限资料')) return '完整运限资料';
-  if (value.startsWith('本命盘与完整行运资料')) return '完整行运资料';
-  if (value.startsWith('本命盘与行运概览')) return '本命与行运';
-  return value;
-}
-
 export function ResultPage() {
   const navigate = useNavigate();
   const [promptContext, setPromptContext] = useState<PromptRealWorldContext>({});
   const [metaphysicsQuestionDraft, setMetaphysicsQuestionDraft] = useState('');
-  const [bazhaiResult, setBazhaiResult] = useState<BaZhaiResult | null>(null);
-  const [bazhaiMeasurement, setBazhaiMeasurement] = useState<BazhaiMeasurement | null>(null);
+  const [residentialResult, setResidentialResult] = useState<ResidentialFengshuiResult | null>(null);
+  const [residentialMeasurement, setResidentialMeasurement] = useState<ResidentialMeasurement | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const inputSearch = useMemo(() => buildInputSearch(searchParams), [searchParams]);
   const inputState = useMemo(
@@ -115,17 +163,33 @@ export function ResultPage() {
     [inputSearch],
   );
   const promptState = useMemo(() => parsePromptState(searchParams), [searchParams]);
-  const hasAstrolabeChart =
-    inputState.analysisMode === 'single' &&
-    inputState.useTrueSolarTime &&
-    Boolean(inputState.birthHour) &&
-    Boolean(inputState.birthMinute) &&
-    Boolean(inputState.birthPlace) &&
-    Boolean(inputState.birthLongitude) &&
-    Boolean(inputState.birthLatitude);
+  const hasPreciseBirthData = hasCompletePreciseBirthData(inputState);
+  const hasResidentialBirthData = useMemo(() => {
+    const year = Number(inputState.year);
+    const month = Number(inputState.month);
+    const day = Number(inputState.day);
+    return (
+      inputState.analysisMode === 'single' &&
+      Number.isInteger(year) &&
+      year >= 1900 &&
+      year <= 2100 &&
+      Number.isInteger(month) &&
+      month >= 1 &&
+      month <= 12 &&
+      Number.isInteger(day) &&
+      day >= 1 &&
+      day <= 31
+    );
+  }, [inputState.analysisMode, inputState.day, inputState.month, inputState.year]);
+  const canUseResidentialFengshui =
+    hasResidentialBirthData || Boolean(promptState.bazhaiFacingDegree.trim());
+  const hasAstrolabeChart = hasPreciseBirthData;
   const isAstrolabePromptSource = promptState.promptSource === 'astrolabe';
   const isQizhengPromptSource = promptState.promptSource === 'qizheng';
   const isBazhaiPromptSource = promptState.promptSource === 'bazhai';
+  const bazhaiResult = residentialResult?.bazhai ?? null;
+  const bazhaiMeasurement = residentialMeasurement;
+
   const baziDraftStorageKey = useMemo(
     () => `${PROMPT_DRAFT_STORAGE_PREFIX}:bazi:${inputSearch}`,
     [inputSearch],
@@ -166,12 +230,12 @@ export function ResultPage() {
     ziwei: promptState.tab === 'ziwei',
     astrolabe: promptState.tab === 'astrolabe',
     qizheng: promptState.tab === 'qizheng',
-    bazhai: promptState.tab === 'bazhai',
+    bazhai: canUseResidentialFengshui && promptState.tab === 'bazhai',
     prompt: promptState.tab === 'prompt',
   }));
   const { baziResult, partnerBaziResult, baziError } = useBaziCalculations(inputState);
   const sharedBirthData = useMemo(() => {
-    if (inputState.analysisMode !== 'single' || !baziResult) return null;
+    if (!hasPreciseBirthData || !baziResult) return null;
     const selectedHour =
       inputState.birthHour !== ''
         ? Number(inputState.birthHour)
@@ -193,7 +257,23 @@ export function ResultPage() {
       longitude: inputState.birthLongitude ? Number(inputState.birthLongitude) : undefined,
       timezone: 8,
     };
-  }, [baziResult, inputState]);
+  }, [baziResult, hasPreciseBirthData, inputState]);
+  const residentialBirthData = useMemo(() => {
+    if (!hasResidentialBirthData) return null;
+    if (inputState.dateType === 'solar') {
+      return {
+        year: Number(inputState.year),
+        month: Number(inputState.month),
+        day: Number(inputState.day),
+        gender: inputState.gender,
+      };
+    }
+    if (!baziResult) return null;
+    return {
+      ...baziResult.solarDate,
+      gender: inputState.gender,
+    };
+  }, [baziResult, hasResidentialBirthData, inputState]);
   const {
     ziweiRuntime,
     partnerZiweiRuntime,
@@ -267,34 +347,71 @@ export function ResultPage() {
   }, [inputState.analysisMode, promptState.promptSource, updatePromptState]);
 
   useEffect(() => {
-    if (
-      (promptState.promptSource === 'qizheng' && !hasAstrolabeChart) ||
-      (promptState.promptSource === 'bazhai' && inputState.analysisMode !== 'single')
-    ) {
-      updatePromptState({ promptSource: 'bazi' });
+    const hasUnavailablePromptSource =
+      ((promptState.promptSource === 'astrolabe' || promptState.promptSource === 'qizheng') &&
+        !hasAstrolabeChart) ||
+      (promptState.promptSource === 'bazhai' && !canUseResidentialFengshui);
+    const hasUnavailableTab =
+      ((promptState.tab === 'astrolabe' || promptState.tab === 'qizheng') && !hasAstrolabeChart) ||
+      (promptState.tab === 'bazhai' && !canUseResidentialFengshui);
+
+    if (hasUnavailablePromptSource || hasUnavailableTab) {
+      updatePromptState({
+        ...(hasUnavailablePromptSource ? { promptSource: 'bazi' as const } : {}),
+        ...(hasUnavailableTab ? { tab: 'bazi' as const } : {}),
+      });
     }
-  }, [hasAstrolabeChart, inputState.analysisMode, promptState.promptSource, updatePromptState]);
+  }, [
+    canUseResidentialFengshui,
+    hasAstrolabeChart,
+    hasPreciseBirthData,
+    promptState.promptSource,
+    promptState.tab,
+    updatePromptState,
+  ]);
 
   useEffect(() => {
-    if (!sharedBirthData || bazhaiResult) return;
-    try {
-      if (promptState.bazhaiFacingDegree) {
-        const next = calculateBazhaiChart(sharedBirthData, Number(promptState.bazhaiFacingDegree));
-        setBazhaiResult(next.result);
-        setBazhaiMeasurement(next.measurement);
-      } else {
-        setBazhaiResult(calculateBazhaiBaseChart(sharedBirthData));
-        setBazhaiMeasurement(null);
-      }
-    } catch {
-      // URL 中的旧值或人工修改值无法生成时，八宅页仍允许用户重新测量。
+    if (!canUseResidentialFengshui) {
+      setResidentialResult(null);
+      setResidentialMeasurement(null);
+      return;
     }
-  }, [bazhaiResult, promptState.bazhaiFacingDegree, sharedBirthData]);
+    if (residentialResult) return;
+    try {
+      const houseYear = promptState.residentialHouseYear
+        ? Number(promptState.residentialHouseYear)
+        : undefined;
+      const next = calculateResidentialChart({
+        ...(residentialBirthData
+          ? {
+              year: residentialBirthData.year,
+              month: residentialBirthData.month,
+              day: residentialBirthData.day,
+              gender: residentialBirthData.gender,
+            }
+          : {}),
+        ...(houseYear != null && Number.isFinite(houseYear) ? { houseYear } : {}),
+        ...(promptState.bazhaiFacingDegree
+          ? { doorToInteriorDegree: Number(promptState.bazhaiFacingDegree) }
+          : {}),
+      });
+      setResidentialResult(next.result);
+      setResidentialMeasurement(next.measurement);
+    } catch {
+      // URL 中的旧值或人工修改值无法生成时，住宅风水页仍允许用户重新测量。
+    }
+  }, [
+    canUseResidentialFengshui,
+    promptState.bazhaiFacingDegree,
+    promptState.residentialHouseYear,
+    residentialBirthData,
+    residentialResult,
+  ]);
 
   const handleBazhaiResultChange = useCallback(
-    (nextResult: BaZhaiResult, nextMeasurement: BazhaiMeasurement | null) => {
-      setBazhaiResult(nextResult);
-      setBazhaiMeasurement(nextMeasurement);
+    (nextResult: ResidentialFengshuiResult, nextMeasurement: ResidentialMeasurement | null) => {
+      setResidentialResult(nextResult);
+      setResidentialMeasurement(nextMeasurement);
     },
     [],
   );
@@ -305,6 +422,14 @@ export function ResultPage() {
       }
     },
     [promptState.bazhaiFacingDegree, updatePromptState],
+  );
+  const handleResidentialHouseYearChange = useCallback(
+    (value: string) => {
+      if (value !== promptState.residentialHouseYear) {
+        updatePromptState({ residentialHouseYear: value });
+      }
+    },
+    [promptState.residentialHouseYear, updatePromptState],
   );
 
   useEffect(() => {
@@ -389,6 +514,95 @@ export function ResultPage() {
       normalizedBaziFortuneSelection,
     );
   }, [baziFortuneSelectionModule, baziResult, normalizedBaziFortuneSelection]);
+  const currentScopeDate = useMemo(() => new Date(), []);
+  const currentDateStr = useMemo(() => formatLocalDate(currentScopeDate), [currentScopeDate]);
+  const recentBaziFortuneSelection = useMemo(
+    () => (baziResult ? buildRecentBaziFortuneSelection(baziResult, currentScopeDate) : null),
+    [baziResult, currentScopeDate],
+  );
+  const baziFortunePreset: FortuneScopePreset =
+    promptState.baziFortuneScope === 'natal'
+      ? 'default'
+      : promptState.baziFortuneScope === 'full'
+        ? 'all'
+        : recentBaziFortuneSelection &&
+            isSameBaziFortuneSelection(normalizedBaziFortuneSelection, recentBaziFortuneSelection)
+          ? 'recent'
+          : 'manual';
+  const ziweiScopePreset: FortuneScopePreset =
+    promptState.ziweiScope === 'origin'
+      ? 'default'
+      : promptState.ziweiScope === 'full'
+        ? 'all'
+        : promptState.ziweiScope === 'monthly' && promptState.ziweiScopeDate === currentDateStr
+          ? 'recent'
+          : 'manual';
+  const astrolabeScopePreset: FortuneScopePreset =
+    promptState.astrolabeScope === 'natal'
+      ? 'default'
+      : promptState.astrolabeScope === 'full'
+        ? 'all'
+        : promptState.astrolabeScope === 'monthly' &&
+            promptState.astrolabeScopeDate === currentDateStr
+          ? 'recent'
+          : 'manual';
+
+  const applyBaziFortuneSelection = useCallback(
+    (next: BaziFortuneSelectionValue) => {
+      const isGeneralScope = next.scope === 'natal' || next.scope === 'full';
+      const nextPromptState: Partial<QueryPromptState> = {
+        baziFortuneScope: next.scope,
+        baziFortuneCycleIndex: isGeneralScope ? '' : String(next.cycleIndex ?? ''),
+        baziFortuneYear: isGeneralScope ? '' : String(next.year ?? ''),
+        baziFortuneMonth:
+          next.scope === 'month' || next.scope === 'day' ? String(next.month ?? '') : '',
+        baziFortuneDay: next.scope === 'day' ? String(next.day ?? '') : '',
+      };
+
+      if (promptState.promptSource === 'bazi-ziwei') {
+        const mappedZiweiScope = mapBaziFortuneToZiweiScope(next);
+        nextPromptState.ziweiScope = mappedZiweiScope.scope;
+        nextPromptState.ziweiScopeDate = mappedZiweiScope.dateStr;
+      }
+
+      updatePromptState(nextPromptState);
+    },
+    [promptState.promptSource, updatePromptState],
+  );
+
+  function handleBaziFortunePresetChange(value: FortuneScopePreset) {
+    if (value === 'manual') {
+      setIsBaziFortuneModalOpen(true);
+      return;
+    }
+    if (value === 'recent' && recentBaziFortuneSelection) {
+      applyBaziFortuneSelection(recentBaziFortuneSelection);
+      return;
+    }
+    applyBaziFortuneSelection({ scope: value === 'all' ? 'full' : 'natal' });
+  }
+
+  function handleZiweiScopePresetChange(value: FortuneScopePreset) {
+    if (value === 'manual') {
+      setIsZiweiScopeModalOpen(true);
+      return;
+    }
+    updatePromptState({
+      ziweiScope: value === 'all' ? 'full' : value === 'recent' ? 'monthly' : 'origin',
+      ziweiScopeDate: value === 'recent' ? currentDateStr : '',
+    });
+  }
+
+  function handleAstrolabeScopePresetChange(value: FortuneScopePreset) {
+    if (value === 'manual') {
+      setIsAstrolabeScopeModalOpen(true);
+      return;
+    }
+    updatePromptState({
+      astrolabeScope: value === 'all' ? 'full' : value === 'recent' ? 'monthly' : 'natal',
+      astrolabeScopeDate: value === 'recent' ? currentDateStr : '',
+    });
+  }
 
   const deferredBaziQuickQuestion = useDeferredValue(effectiveBaziQuickQuestion);
   const deferredZiweiQuickQuestion = useDeferredValue(effectiveZiweiQuickQuestion);
@@ -851,7 +1065,9 @@ export function ResultPage() {
     ) {
       return '';
     }
-    return buildMetaphysicsPrompt(qizhengCalculation.data.prompt, metaphysicsQuestionDraft);
+    return buildMetaphysicsPrompt(qizhengCalculation.data.prompt, metaphysicsQuestionDraft, {
+      method: 'qizheng',
+    });
   }, [
     metaphysicsQuestionDraft,
     promptState.promptSource,
@@ -859,18 +1075,25 @@ export function ResultPage() {
     qizhengCalculation.data,
   ]);
   const bazhaiPromptText = useMemo(() => {
-    if (promptState.tab !== 'prompt' || promptState.promptSource !== 'bazhai' || !bazhaiResult) {
+    if (
+      !canUseResidentialFengshui ||
+      promptState.tab !== 'prompt' ||
+      promptState.promptSource !== 'bazhai' ||
+      !residentialResult
+    ) {
       return '';
     }
-    return buildMetaphysicsPrompt(bazhaiResult.prompt, metaphysicsQuestionDraft, {
-      measurement: bazhaiMeasurement?.promptText,
+    return buildMetaphysicsPrompt(residentialResult.prompt, metaphysicsQuestionDraft, {
+      method: 'residential',
+      measurement: residentialMeasurement?.promptText,
     });
   }, [
-    bazhaiMeasurement,
-    bazhaiResult,
+    canUseResidentialFengshui,
     metaphysicsQuestionDraft,
     promptState.promptSource,
     promptState.tab,
+    residentialMeasurement,
+    residentialResult,
   ]);
   const latestEnhancedPromptText = useMemo(
     () =>
@@ -946,9 +1169,8 @@ export function ResultPage() {
             : promptState.promptSource === 'bazi'
               ? previewBaziPromptText
               : previewZiweiPromptText;
-  const previewActivePromptText = insertPromptRealWorldContext(
-    basePreviewActivePromptText,
-    promptContext,
+  const previewActivePromptText = appendTraditionalResearchNotice(
+    insertPromptRealWorldContext(basePreviewActivePromptText, promptContext),
   );
 
   const aiContextPrompt = useMemo(() => {
@@ -958,19 +1180,6 @@ export function ResultPage() {
   }, [previewActivePromptText, promptState.tab]);
 
   const [inspirationText, setInspirationText] = useState('');
-  const isBaziFortuneSummaryLoading = shouldLoadBaziPromptModules && !baziFortuneSelectionModule;
-  const baziFortuneSummaryText =
-    promptState.baziFortuneScope === 'full'
-      ? '本命盘与完整大运流年'
-      : (baziFortuneContext?.displayText ?? '本命盘与大运概览');
-  const astrolabeScopeSummaryText =
-    promptState.astrolabeScope === 'full'
-      ? '本命盘与完整行运资料'
-      : astrolabeScopeContext.displayText;
-  const baziFortuneButtonText = compactScopeSummary(baziFortuneSummaryText);
-  const ziweiScopeButtonText = compactScopeSummary(ziweiScopeSummaryText);
-  const astrolabeScopeButtonText = compactScopeSummary(astrolabeScopeSummaryText);
-
   const baseLatestActivePromptText =
     promptState.promptSource === 'qizheng'
       ? qizhengPromptText
@@ -983,9 +1192,8 @@ export function ResultPage() {
             : promptState.promptSource === 'bazi'
               ? latestBaziPromptText
               : latestZiweiPromptText;
-  const latestActivePromptText = insertPromptRealWorldContext(
-    baseLatestActivePromptText,
-    promptContext,
+  const latestActivePromptText = appendTraditionalResearchNotice(
+    insertPromptRealWorldContext(baseLatestActivePromptText, promptContext),
   );
   const { copyState, shareState, handleCopy, handleShare } =
     usePromptCopyShare(latestActivePromptText);
@@ -1100,7 +1308,7 @@ export function ResultPage() {
             className={`tab-chip ${promptState.tab === 'bazhai' ? 'is-active' : ''}`}
             onClick={() => switchTab('bazhai')}
           >
-            八宅
+            住宅风水
           </button>
         ) : null}
         <button
@@ -1250,14 +1458,16 @@ export function ResultPage() {
           className={`result-tab-pane ${promptState.tab === 'bazhai' ? 'is-active' : 'is-inactive'}`}
           aria-hidden={promptState.tab !== 'bazhai'}
         >
-          {mountedTabs.bazhai && sharedBirthData ? (
+          {inputState.analysisMode === 'single' && mountedTabs.bazhai ? (
             <Suspense fallback={<InlineSkeleton />}>
               <LazyMetaphysicsPanel
-                method="bazhai"
-                birthData={sharedBirthData}
+                method="residential"
+                birthData={residentialBirthData}
                 embedded
                 initialFacingDegree={promptState.bazhaiFacingDegree}
+                initialHouseYear={promptState.residentialHouseYear}
                 onDirectionDegreeChange={handleBazhaiDirectionDegreeChange}
+                onHouseYearChange={handleResidentialHouseYearChange}
                 onResultChange={handleBazhaiResultChange}
               />
             </Suspense>
@@ -1332,43 +1542,37 @@ export function ResultPage() {
                           ) : null}
                           {hasAstrolabeChart ? <option value="astrolabe">星盘</option> : null}
                           {hasAstrolabeChart ? <option value="qizheng">七政四余</option> : null}
-                          {bazhaiResult ? <option value="bazhai">八宅</option> : null}
+                          {canUseResidentialFengshui && residentialResult ? (
+                            <option value="bazhai">住宅风水</option>
+                          ) : null}
                         </select>
 
                         {(promptState.promptSource === 'bazi' ||
                           promptState.promptSource === 'bazi-ziwei') &&
                         inputState.analysisMode === 'single' ? (
-                          <button
-                            type="button"
-                            className="ai-mobile-scope-btn"
-                            onClick={() => setIsBaziFortuneModalOpen(true)}
-                          >
-                            {isBaziFortuneSummaryLoading ? '年限…' : baziFortuneButtonText}
-                          </button>
+                          <FortuneScopePresetSelect
+                            className="ai-mobile-source-select"
+                            value={baziFortunePreset}
+                            onChange={handleBaziFortunePresetChange}
+                          />
                         ) : null}
 
                         {promptState.promptSource === 'ziwei' ? (
-                          <button
-                            type="button"
-                            className="ai-mobile-scope-btn"
-                            onClick={() => setIsZiweiScopeModalOpen(true)}
+                          <FortuneScopePresetSelect
+                            className="ai-mobile-source-select"
+                            value={ziweiScopePreset}
+                            onChange={handleZiweiScopePresetChange}
                             disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
-                          >
-                            {!primaryZiweiInput || !activeZiweiPayloadByScope
-                              ? '年限…'
-                              : ziweiScopeButtonText}
-                          </button>
+                          />
                         ) : null}
 
                         {promptState.promptSource === 'astrolabe' ? (
-                          <button
-                            type="button"
-                            className="ai-mobile-scope-btn"
-                            onClick={() => setIsAstrolabeScopeModalOpen(true)}
+                          <FortuneScopePresetSelect
+                            className="ai-mobile-source-select"
+                            value={astrolabeScopePreset}
+                            onChange={handleAstrolabeScopePresetChange}
                             disabled={!astrolabeCalculation.data}
-                          >
-                            {!astrolabeCalculation.data ? '年限…' : astrolabeScopeButtonText}
-                          </button>
+                          />
                         ) : null}
                       </div>
                     ) : null}
@@ -1424,7 +1628,9 @@ export function ResultPage() {
                             {hasAstrolabeChart ? (
                               <option value="qizheng">基于七政四余</option>
                             ) : null}
-                            {bazhaiResult ? <option value="bazhai">基于八宅</option> : null}
+                            {canUseResidentialFengshui && residentialResult ? (
+                              <option value="bazhai">基于住宅风水</option>
+                            ) : null}
                           </select>
                         </label>
 
@@ -1435,17 +1641,10 @@ export function ResultPage() {
                             <div className="field-header">
                               <span>年限选择</span>
                             </div>
-                            <button
-                              type="button"
-                              className="place-trigger prompt-scope-trigger"
-                              onClick={() => setIsBaziFortuneModalOpen(true)}
-                            >
-                              {isBaziFortuneSummaryLoading ? (
-                                <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
-                              ) : (
-                                <span>{baziFortuneButtonText}</span>
-                              )}
-                            </button>
+                            <FortuneScopePresetSelect
+                              value={baziFortunePreset}
+                              onChange={handleBaziFortunePresetChange}
+                            />
                           </div>
                         ) : null}
 
@@ -1454,18 +1653,11 @@ export function ResultPage() {
                             <div className="field-header">
                               <span>年限选择</span>
                             </div>
-                            <button
-                              type="button"
-                              className="place-trigger prompt-scope-trigger"
-                              onClick={() => setIsZiweiScopeModalOpen(true)}
+                            <FortuneScopePresetSelect
+                              value={ziweiScopePreset}
+                              onChange={handleZiweiScopePresetChange}
                               disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
-                            >
-                              {!primaryZiweiInput || !activeZiweiPayloadByScope ? (
-                                <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
-                              ) : (
-                                <span>{ziweiScopeButtonText}</span>
-                              )}
-                            </button>
+                            />
                           </div>
                         ) : null}
 
@@ -1474,18 +1666,11 @@ export function ResultPage() {
                             <div className="field-header">
                               <span>年限选择</span>
                             </div>
-                            <button
-                              type="button"
-                              className="place-trigger prompt-scope-trigger"
-                              onClick={() => setIsAstrolabeScopeModalOpen(true)}
+                            <FortuneScopePresetSelect
+                              value={astrolabeScopePreset}
+                              onChange={handleAstrolabeScopePresetChange}
                               disabled={!astrolabeCalculation.data}
-                            >
-                              {!astrolabeCalculation.data ? (
-                                <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
-                              ) : (
-                                <span>{astrolabeScopeButtonText}</span>
-                              )}
-                            </button>
+                            />
                           </div>
                         ) : null}
                       </div>
@@ -1601,7 +1786,9 @@ export function ResultPage() {
                             {hasAstrolabeChart ? (
                               <option value="qizheng">基于七政四余</option>
                             ) : null}
-                            {bazhaiResult ? <option value="bazhai">基于八宅</option> : null}
+                            {canUseResidentialFengshui && residentialResult ? (
+                              <option value="bazhai">基于住宅风水</option>
+                            ) : null}
                           </select>
                         </label>
 
@@ -1612,17 +1799,10 @@ export function ResultPage() {
                             <div className="field-header">
                               <span>年限选择</span>
                             </div>
-                            <button
-                              type="button"
-                              className="place-trigger prompt-scope-trigger"
-                              onClick={() => setIsBaziFortuneModalOpen(true)}
-                            >
-                              {isBaziFortuneSummaryLoading ? (
-                                <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
-                              ) : (
-                                <span>{baziFortuneButtonText}</span>
-                              )}
-                            </button>
+                            <FortuneScopePresetSelect
+                              value={baziFortunePreset}
+                              onChange={handleBaziFortunePresetChange}
+                            />
                           </div>
                         ) : null}
 
@@ -1631,18 +1811,11 @@ export function ResultPage() {
                             <div className="field-header">
                               <span>年限选择</span>
                             </div>
-                            <button
-                              type="button"
-                              className="place-trigger prompt-scope-trigger"
-                              onClick={() => setIsZiweiScopeModalOpen(true)}
+                            <FortuneScopePresetSelect
+                              value={ziweiScopePreset}
+                              onChange={handleZiweiScopePresetChange}
                               disabled={!primaryZiweiInput || !activeZiweiPayloadByScope}
-                            >
-                              {!primaryZiweiInput || !activeZiweiPayloadByScope ? (
-                                <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
-                              ) : (
-                                <span>{ziweiScopeButtonText}</span>
-                              )}
-                            </button>
+                            />
                           </div>
                         ) : null}
 
@@ -1651,18 +1824,11 @@ export function ResultPage() {
                             <div className="field-header">
                               <span>年限选择</span>
                             </div>
-                            <button
-                              type="button"
-                              className="place-trigger prompt-scope-trigger"
-                              onClick={() => setIsAstrolabeScopeModalOpen(true)}
+                            <FortuneScopePresetSelect
+                              value={astrolabeScopePreset}
+                              onChange={handleAstrolabeScopePresetChange}
                               disabled={!astrolabeCalculation.data}
-                            >
-                              {!astrolabeCalculation.data ? (
-                                <InlineSkeleton className="inline-skeleton inline-skeleton-medium" />
-                              ) : (
-                                <span>{astrolabeScopeButtonText}</span>
-                              )}
-                            </button>
+                            />
                           </div>
                         ) : null}
                       </div>
@@ -1741,7 +1907,7 @@ export function ResultPage() {
                   <div className="panel-head">
                     <div>
                       <h2>提示词正文</h2>
-                      <p>系统要求和问题正文已合并，复制这一整段提示词即可。</p>
+                      <p>排盘资料、问题和输出要求已整理好，复制这一整段提示词即可。</p>
                     </div>
                     <div className="action-row compact-actions">
                       <button
@@ -1779,25 +1945,7 @@ export function ResultPage() {
             result={baziResult}
             selection={baziFortuneSelection}
             onClose={() => setIsBaziFortuneModalOpen(false)}
-            onApply={(next) => {
-              const isGeneralScope = next.scope === 'natal' || next.scope === 'full';
-              const nextPromptState: Partial<QueryPromptState> = {
-                baziFortuneScope: next.scope,
-                baziFortuneCycleIndex: isGeneralScope ? '' : String(next.cycleIndex ?? ''),
-                baziFortuneYear: isGeneralScope ? '' : String(next.year ?? ''),
-                baziFortuneMonth:
-                  next.scope === 'month' || next.scope === 'day' ? String(next.month ?? '') : '',
-                baziFortuneDay: next.scope === 'day' ? String(next.day ?? '') : '',
-              };
-
-              if (promptState.promptSource === 'bazi-ziwei') {
-                const mappedZiweiScope = mapBaziFortuneToZiweiScope(next);
-                nextPromptState.ziweiScope = mappedZiweiScope.scope;
-                nextPromptState.ziweiScopeDate = mappedZiweiScope.dateStr;
-              }
-
-              updatePromptState(nextPromptState);
-            }}
+            onApply={applyBaziFortuneSelection}
           />
         </Suspense>
       ) : null}

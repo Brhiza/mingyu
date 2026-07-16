@@ -75,7 +75,7 @@ test('八字本命应输出四柱、核心判断、反证、汇总与限制的�
   assert.equal(analysis.evidence.title, '八字本命四柱与核心判断结构化证据');
 });
 
-test('八字本命提示词应写入证据汇总并保留传统时辰直接定盘口径', () => {
+test('八字本命提示词应保留用户选择的传统时辰且不混入工程证据话术', () => {
   const result = baziCalculator.calculateBazi({
     year: 1992,
     month: 8,
@@ -85,9 +85,8 @@ test('八字本命提示词应写入证据汇总并保留传统时辰直接定�
   });
   const prompt = formatBaziForPrompt(result);
 
-  assert.match(prompt, /【八字本命四柱与核心判断结构化证据】/);
-  assert.match(prompt, /出生时间按明确选择的辰时/);
-  assert.match(prompt, /证据汇总：八字本命证据状态为证据链完整/);
+  assert.match(prompt, /基本信息: 坤造 \| 1992年8月21日 辰时/);
+  assert.doesNotMatch(prompt, /结构化证据|证据汇总|计算链|解释限制/);
   assert.doesNotMatch(prompt, /出生时间敏感性|候选时柱|缺少时柱/);
 });
 
@@ -120,5 +119,8 @@ test('八字真太阳时本命证据应引用校正后的唯一时间而不生�
     /当前命盘只采用已确认的传统时辰，或采用精准时分与出生地校正后的真太阳时/,
   );
   assert.doesNotMatch(analysis.promptText, /候选盘\d|候选时辰为/);
-  assert.match(formatBaziForPrompt(result), /真太阳时结构化证据:/);
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /真太阳时: 1990年4月14日 22:13 \| 出生地:新疆喀什 \| 经度:73\.5/);
+  assert.match(prompt, /基本信息: 乾造 \| 1990年4月14日 亥时/);
+  assert.doesNotMatch(prompt, /结构化证据|证据汇总|候选盘|出生时间敏感性/);
 });

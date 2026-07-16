@@ -8,6 +8,10 @@ import {
 } from '@core/bazi/fortuneSelection';
 import { getDayHourBreakdown } from '@core/bazi/fortuneSelection/helpers/breakdown';
 import type { BaziChartResult } from '@core/bazi/baziTypes';
+import {
+  buildCurrentBaziFortuneSelection,
+  buildRecentBaziFortuneSelection,
+} from '../src/components/BaziFortuneTools/helpers';
 
 function createMockResult(): BaziChartResult {
   return {
@@ -58,6 +62,31 @@ function createMockResult(): BaziChartResult {
     },
   } as BaziChartResult;
 }
+
+test('运限选择器的当天快捷值会选择对应的大运、流月和流日', () => {
+  const result = createMockResult();
+  const selection = buildCurrentBaziFortuneSelection(result, new Date(2008, 1, 8, 12));
+
+  assert.deepEqual(selection, {
+    scope: 'day',
+    cycleIndex: 0,
+    year: 2008,
+    month: 1,
+    day: 5,
+  });
+});
+
+test('近期年限预设会选择当前流月而不是锁定当天', () => {
+  const result = createMockResult();
+  const selection = buildRecentBaziFortuneSelection(result, new Date(2008, 1, 8, 12));
+
+  assert.deepEqual(selection, {
+    scope: 'month',
+    cycleIndex: 0,
+    year: 2008,
+    month: 1,
+  });
+});
 
 test('选择大运时会附带该大运下的全部流年', () => {
   const result = createMockResult();

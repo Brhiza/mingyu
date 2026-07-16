@@ -6,7 +6,8 @@ import { baziCalculator } from '@core/bazi/baziCalculator';
 import { TIME_MAP } from '@core/bazi/baziDisplayData';
 import { calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
-import { assertPromptIsPortableTaskText } from '../prompt-assertions';
+import { assertPromptHasSingleRole, assertPromptIsPortableTaskText } from '../prompt-assertions';
+import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../../src/lib/prompt-guidance';
 
 function assertEvidenceOwnerReferences(evidence: unknown) {
   const data = evidence as {
@@ -157,6 +158,7 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
     },
   ],
   ['metaphysics_bazhai', { birthYear: 1990, gender: 'male', doorToInteriorDegree: 0 }],
+  ['metaphysics_residential', { birthYear: 1990, gender: 'male', year: 2024, doorToInteriorDegree: 0 }],
   ['metaphysics_zodiac', { zodiac: '鼠', year: 2024 }],
   ['metaphysics_taiyi', { year: 2004, scope: 'year' }],
   ['metaphysics_qizheng', { year: 2024, month: 6, day: 15, hour: 12 }],
@@ -216,7 +218,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       question: '请分析双方长期合作关系。',
       compatType: 'career',
     },
-    /【八字双盘结构化证据】/,
+    /【双盘关系资料】/,
   ],
   [
     'bazi_prompt',
@@ -230,7 +232,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       question: '我适合创业还是上班？',
       promptTopic: 'career',
     },
-    /【排盘信息】[\s\S]*【八字本命四柱与核心判断结构化证据】[\s\S]*证据汇总：八字本命证据状态为证据链完整/,
+    /【排盘信息】[\s\S]*【核心判断依据】[\s\S]*【四柱】/,
   ],
   [
     'ziwei_prompt',
@@ -271,7 +273,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       question: '双方长期合作关系应注意什么？',
       promptTopic: 'career-wealth',
     },
-    /【紫微双盘结构化证据】/,
+    /【双盘关系资料】/,
   ],
   [
     'bazi_ziwei_prompt',
@@ -302,7 +304,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
   [
     'qimen_prompt',
     { customDate: '2025-01-01T06:00:00+08:00', question: '这件事何时出现转机？' },
-    /触发条件：[\s\S]*不对应固定日数[\s\S]*【问题】\n这件事何时出现转机？/,
+    /占法：奇门遁甲[\s\S]*值符值使与时干：[\s\S]*【问题】\n这件事何时出现转机？/,
   ],
   [
     'bazhai_prompt',
@@ -315,12 +317,23 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       measurementUncertaintyDegrees: 3,
       question: '办公桌朝向怎么选？',
     },
-    /【八宅命宅方位与测量结构化证据】[\s\S]*中心读数不能作为唯一宅卦主证[\s\S]*证据汇总[\s\S]*解释限制[\s\S]*稳定性为宅卦不稳定[\s\S]*【问题】\n办公桌朝向怎么选？/,
+    /【八宅风水排盘】[\s\S]*命卦：[\s\S]*四吉方：[\s\S]*【问题】\n办公桌朝向怎么选？/,
+  ],
+  [
+    'residential_prompt',
+    {
+      birthYear: 1990,
+      gender: 'male',
+      year: 2024,
+      doorToInteriorDegree: 0,
+      question: '这套房怎么看？',
+    },
+    /【住宅风水排盘】[\s\S]*合参要点：[\s\S]*【问题】\n这套房怎么看？/,
   ],
   [
     'zodiac_prompt',
     { zodiac: '马', yearGanZhi: '庚子', question: '今年应注意什么？' },
-    /【生肖流年关系矩阵结构化证据】[\s\S]*生肖只取出生年支[\s\S]*【问题】\n今年应注意什么？/,
+    /【生肖与流年关系简析】[\s\S]*马（午）遇庚子年[\s\S]*【问题】\n今年应注意什么？/,
   ],
   [
     'qizheng_prompt',
@@ -334,7 +347,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       timezone: 8,
       question: '请分析本命结构。',
     },
-    /【七政四余计算来源与证据分层】[\s\S]*混合模型[\s\S]*证据汇总[\s\S]*解释限制[\s\S]*【问题】\n请分析本命结构。/,
+    /【七政四余 · 果老星宗】[\s\S]*出生时空：[\s\S]*七政四余吊照：[\s\S]*【问题】\n请分析本命结构。/,
   ],
 ];
 
@@ -356,6 +369,7 @@ const promptToolNames = [
   'astrolabe_prompt',
   'astrolabe_synastry_prompt',
   'bazhai_prompt',
+  'residential_prompt',
   'zodiac_prompt',
   'taiyi_prompt',
   'qizheng_prompt',
@@ -1495,8 +1509,10 @@ test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
     assert.ok(triggerEvidence?.counterEvidenceFacts?.length);
     assert.ok(triggerEvidence?.limitationFacts?.some((item) => item.type === '层级应期边界'));
     assertEvidenceOwnerReferences(triggerEvidence);
-    assert.match(String(response.structuredContent?.prompt), /【八字岁运触发结构化证据】/);
-    assert.match(String(response.structuredContent?.prompt), /未见主要关系不等于没有较弱关系/);
+    const prompt = String(response.structuredContent?.prompt);
+    assert.match(prompt, /【分析对象】[\s\S]*分析对象：1997年流年/);
+    assert.match(prompt, /【岁运重点】[\s\S]*主要触发：/);
+    assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);
   });
 });
 
@@ -1564,8 +1580,9 @@ test('MCP 八字双盘应返回计算链、反证、汇总与限制对象', asyn
     assert.ok(compatibility?.counterEvidenceFacts?.length);
     assert.ok(compatibility?.limitationFacts?.some((item) => item.type === '高风险输出边界'));
     assertEvidenceOwnerReferences(compatibility);
-    assert.match(String(response.structuredContent?.prompt), /【八字双盘结构化证据】/);
-    assert.doesNotMatch(String(response.structuredContent?.prompt), /bazi:compatibility:/);
+    const prompt = String(response.structuredContent?.prompt);
+    assert.match(prompt, /【双盘关系资料】[\s\S]*日主关系：[\s\S]*四柱关系：/);
+    assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|bazi:compatibility:/);
   });
 });
 
@@ -1777,9 +1794,9 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
     }
     const prompt = String(result.structuredContent?.prompt);
     assert.match(prompt, /【占卜信息】/);
-    assert.match(prompt, /【黄历择日透明约束与候选证据】/);
-    assert.match(prompt, /状态形成链/);
-    assert.match(prompt, /黄历择日计算链[\s\S]*黄历择日证据汇总[\s\S]*择日证据边界/);
+    assert.match(prompt, /占法：黄历择日/);
+    assert.match(prompt, /候选日期明细：/);
+    assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);
     assert.doesNotMatch(prompt, /评分[：=]?\d|（\d+分|成功率[：=]?\d/);
     assert.doesNotMatch(
       prompt,
@@ -2053,18 +2070,12 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
       ),
     );
     const prompt = String(result.structuredContent?.prompt);
-    assert.match(prompt, /【西方星盘位置与相位结构化证据】/);
-    assert.match(prompt, /实际夹角.*精确角.*允许容许度.*距精确角偏差/);
-    assert.match(prompt, /证据汇总/);
-    assert.match(prompt, /解释限制（方法限制）/);
+    assert.match(prompt, /占法：星盘/);
+    assert.match(prompt, /星体位置：[\s\S]*宫头位置：[\s\S]*相位明细：/);
     assert.match(prompt, /【分析对象】\n分析对象：流年2028。/);
     assert.match(prompt, /行运证据：土星□太阳/);
     assert.doesNotMatch(prompt, /强度\d+%/);
-    assert.match(prompt, /【行运时间尺度】/);
-    assert.match(
-      prompt,
-      /【分析对象】已经给出本命、流年、流月或流日范围时，必须以该范围作为本次回答主范围/,
-    );
+    assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|必须以该范围/);
     assertPromptIsPortableTaskText(prompt);
 
     const yearlyResult = await client.callTool({
@@ -2170,7 +2181,7 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
   });
 });
 
-test('MCP 西占双盘提示词应返回跨盘证据和完整任务书', async () => {
+test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () => {
   await withMcpClient(async (client) => {
     const result = await client.callTool({
       name: 'astrolabe_synastry_prompt',
@@ -2261,9 +2272,12 @@ test('MCP 西占双盘提示词应返回跨盘证据和完整任务书', async (
     assertPromptIsPortableTaskText(chart?.synastry?.promptText ?? '');
     const prompt = String(result.structuredContent?.prompt);
     assert.match(prompt, /【第一人本命盘】/);
-    assert.match(prompt, /【西占双盘结构化证据】/);
+    assert.match(prompt, /【跨盘相位】/);
+    assert.match(prompt, /【跨盘落宫】/);
     assert.match(prompt, /容许度/);
-    assert.match(prompt, /反证限制/);
+    assert.match(prompt, /分析互动主轴、互补点、张力点与现实触发条件/);
+    assert.doesNotMatch(prompt, /不得输出|不得编造|只依据/);
+    assert.doesNotMatch(prompt, /结构化证据|计算链概览|证据汇总|解释限制/);
     assert.doesNotMatch(prompt, /本项目|项目统一|工程|接口|API|MCP|astrolabe:synastry:/);
     assertPromptIsPortableTaskText(prompt);
   });
@@ -2320,8 +2334,8 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
     assert.equal(ziweiFrameworkResult.isError, undefined, 'ziwei_prompt framework 不应返回错误');
     const ziweiFrameworkPrompt = String(ziweiFrameworkResult.structuredContent?.prompt);
     assert.match(ziweiFrameworkPrompt, /分析主题：人生解析/);
-    assert.match(ziweiFrameworkPrompt, /若【问题】未限定具体主题，按通用紫微口径处理/);
     assert.match(ziweiFrameworkPrompt, /【重点宫位资料】/);
+    assert.match(ziweiFrameworkPrompt, /【任务】[\s\S]*请结合宫位、星曜、四化、格局和三方四正/);
     assert.doesNotMatch(ziweiFrameworkPrompt, /自由问答先判断问题落在哪些宫位/);
     assertPromptIsPortableTaskText(ziweiFrameworkPrompt);
   });
@@ -2464,11 +2478,9 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
       arguments: { spreadType: 'three', seed: 'MCP塔罗证据样例', question: '如何推进？' },
     });
     const tarotPrompt = String(tarotPromptResult.structuredContent?.prompt);
-    assert.match(tarotPrompt, /【塔罗牌位与牌面结构化证据】/);
-    assert.match(tarotPrompt, /条件化牌义|传统牌义/);
-    assert.match(tarotPrompt, /计算链/);
-    assert.match(tarotPrompt, /证据汇总/);
-    assert.match(tarotPrompt, /解释限制|解释边界/);
+    assert.match(tarotPrompt, /占法：塔罗/);
+    assert.match(tarotPrompt, /核心结构：牌阵[\s\S]*牌位明细：/);
+    assert.doesNotMatch(tarotPrompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
     assert.doesNotMatch(tarotPrompt, /表示这些能量正在直接发挥作用|信息被隐藏/);
     assertPromptIsPortableTaskText(tarotPrompt);
 
@@ -2598,11 +2610,9 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
       arguments: { spreadType: 'nine', seed: 'MCP雷诺曼证据样例', question: '有哪些线索？' },
     });
     const lenormandPrompt = String(lenormandPromptResult.structuredContent?.prompt);
-    assert.match(lenormandPrompt, /【雷诺曼牌序组合与布局结构化证据】/);
-    assert.match(lenormandPrompt, /条件化牌义|传统单牌|相邻牌/);
-    assert.match(lenormandPrompt, /计算链/);
-    assert.match(lenormandPrompt, /证据汇总/);
-    assert.match(lenormandPrompt, /解释限制|解释边界/);
+    assert.match(lenormandPrompt, /占法：雷诺曼/);
+    assert.match(lenormandPrompt, /牌位顺序：[\s\S]*牌位明细：/);
+    assert.doesNotMatch(lenormandPrompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
     assert.doesNotMatch(
       lenormandPrompt,
       /感情的承诺或婚约|家庭添丁|通过网络\/远程获利|隐藏在迷雾中的欺骗/,
@@ -2677,11 +2687,10 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
       String(confirmed.structuredContent?.result.evidenceAnalysis.randomFact.limitation),
       /不表示可信度/,
     );
-    assert.match(String(confirmed.structuredContent?.prompt), /三山国王灵签文本与仪式结构化证据/);
-    assert.match(String(confirmed.structuredContent?.prompt), /不证明预测有效性/);
-    assert.match(String(confirmed.structuredContent?.prompt), /计算链/);
-    assert.match(String(confirmed.structuredContent?.prompt), /证据汇总/);
-    assert.match(String(confirmed.structuredContent?.prompt), /解释限制|解释边界/);
+    const confirmedPrompt = String(confirmed.structuredContent?.prompt);
+    assert.match(confirmedPrompt, /占法：三山国王灵签/);
+    assert.match(confirmedPrompt, /掷筊记录：[\s\S]*签诗：[\s\S]*签意：/);
+    assert.doesNotMatch(confirmedPrompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
     assert.equal(
       confirmed.structuredContent?.result.evidenceAnalysis.counterEvidenceFacts.length,
       6,
@@ -2742,10 +2751,10 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
       confirmed.structuredContent?.result.evidenceAnalysis.limitationFacts.length,
     );
     assert.doesNotMatch(
-      String(confirmed.structuredContent?.prompt),
+      confirmedPrompt,
       /项目模拟|项目资料|按项目仪式规则|命语|本项目|项目统一|工程|算法结果/,
     );
-    assertPromptIsPortableTaskText(String(confirmed.structuredContent?.prompt));
+    assertPromptIsPortableTaskText(confirmedPrompt);
 
     const rejected = await client.callTool({
       name: 'ssgw_prompt',
@@ -2758,7 +2767,7 @@ test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文'
     assert.equal(rejected.structuredContent?.result.rejected, true);
     assert.equal(rejected.structuredContent?.result.poem, undefined);
     assert.doesNotMatch(String(rejected.structuredContent?.prompt), /签诗：/);
-    assert.match(String(rejected.structuredContent?.prompt), /本次没有形成可解释签文/);
+    assert.match(String(rejected.structuredContent?.prompt), /连续三次阴杯|拒绝起签/);
   });
 });
 
@@ -2890,9 +2899,9 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
     });
     assert.equal(ziweiPromptResult.isError, undefined);
     const ziweiPrompt = String(ziweiPromptResult.structuredContent?.prompt ?? '');
-    assert.match(ziweiPrompt, /【出生时间校正证据】/);
-    assert.match(ziweiPrompt, /计算步骤：/);
-    assert.match(ziweiPrompt, /不生成候选时辰、敏感性结果或缺时柱命盘/);
+    assert.match(ziweiPrompt, /【出生时间校正】/);
+    assert.match(ziweiPrompt, /钟表时间|真太阳时/);
+    assert.doesNotMatch(ziweiPrompt, /结构化证据|计算步骤|出生时间敏感性|候选时辰|缺时柱/);
 
     const astrolabePromptResult = await client.callTool({
       name: 'astrolabe_prompt',
@@ -2927,7 +2936,11 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
       7,
     );
     assert.ok(astrolabePromptResultData.result?.evidenceAnalysis?.trueSolarTimeFact?.key);
-    assert.match(astrolabePromptResultData.prompt ?? '', /真太阳时校正证据/);
+    assert.match(astrolabePromptResultData.prompt ?? '', /出生时间校正：[\s\S]*采用真太阳时/);
+    assert.doesNotMatch(
+      astrolabePromptResultData.prompt ?? '',
+      /结构化证据|计算链|证据汇总|解释限制/,
+    );
   });
 });
 
@@ -3473,7 +3486,9 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       },
     });
     const promptText = String(prompt.structuredContent?.prompt);
-    assert.match(promptText, /【梅花体用阶段推进结构化证据】/);
+    assert.match(promptText, /占法：梅花易数/);
+    assert.match(promptText, /核心结构：主卦[\s\S]*体用：[\s\S]*结构明细：/);
+    assert.doesNotMatch(promptText, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
     assert.doesNotMatch(promptText, /妇三岁不孕|焚如，死如|至于八月有凶/);
     assert.doesNotMatch(promptText, /体用评分：|类象权重：|\d+日内|\d+月左右/);
   });
@@ -3697,9 +3712,9 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
       },
     });
     const prompt = String(promptResult.structuredContent?.prompt);
-    assert.match(prompt, /【小六壬三宫推进结构化证据】/);
-    assert.match(prompt, /小六壬计算链[\s\S]*小六壬证据汇总[\s\S]*小六壬解释边界/);
-    assert.match(prompt, /现实事件复核/);
+    assert.match(prompt, /占法：小六壬/);
+    assert.match(prompt, /核心结构：起因[\s\S]*过程[\s\S]*结果[\s\S]*结构明细：/);
+    assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
     assert.doesNotMatch(prompt, /事情整体可成|容易白忙一场|凶（大凶）/);
     assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|吉凶总分(?:为|：)|\d+日内|\d+周内/);
     assertPromptIsPortableTaskText(prompt);
@@ -3801,11 +3816,10 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     });
     assert.equal(liuyaoResult.isError, undefined, 'liuyao_prompt 不应返回错误');
     const liuyaoPrompt = String(liuyaoResult.structuredContent?.prompt);
-    assert.match(liuyaoPrompt, /【断卦要点】/);
-    assert.match(liuyaoPrompt, /断卦类型：鬼神怪异/);
-    assert.match(liuyaoPrompt, /【六爻用神作用链结构化证据】/);
-    assert.match(liuyaoPrompt, /【主证】怪异事项候选/);
-    assert.match(liuyaoPrompt, /不能据此证明超自然原因/);
+    assert.match(liuyaoPrompt, /占法：六爻/);
+    assert.match(liuyaoPrompt, /六亲持世：[\s\S]*世应动变：[\s\S]*月日触发：/);
+    assert.match(liuyaoPrompt, /【问题范围】\n鬼神怪异/);
+    assert.doesNotMatch(liuyaoPrompt, /结构化证据|计算链|证据汇总|解释限制|断卦要点/);
     assertPromptIsPortableTaskText(liuyaoPrompt);
 
     const liurenResult = await client.callTool({
@@ -3818,10 +3832,10 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     });
     assert.equal(liurenResult.isError, undefined, 'liuren_prompt 不应返回错误');
     const liurenPrompt = String(liurenResult.structuredContent?.prompt);
-    assert.match(liurenPrompt, /【断课要点】/);
-    assert.match(liurenPrompt, /断课类型：事业断课/);
-    assert.match(liurenPrompt, /【大六壬四课取传与三传推进结构化证据】/);
-    assert.match(liurenPrompt, /四课取传与初传发用/);
+    assert.match(liurenPrompt, /占法：大六壬/);
+    assert.match(liurenPrompt, /课传主线：[\s\S]*四课：[\s\S]*三传：/);
+    assert.match(liurenPrompt, /【问题范围】\n事业工作/);
+    assert.doesNotMatch(liurenPrompt, /结构化证据|计算链|证据汇总|解释限制|断课要点/);
     assert.doesNotMatch(liurenPrompt, /取用候选：.*权重\d|吉凶总分[：=]?\d/);
     const liurenData = (
       liurenResult.structuredContent as {
@@ -4078,10 +4092,8 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
       new Set(['经典取传规则', '课体', '天将属性', '神煞']),
     );
     assert.doesNotMatch(liurenPrompt, /主婚姻|主官非|主疾病|主死丧|主虚而不实/);
-    assert.match(liurenPrompt, /取传规则事实：/);
-    assert.match(liurenPrompt, /类神焦点状态：/);
-    assert.match(liurenPrompt, /应期边界：未给期限时不换算唯一日期/);
-    assert.match(liurenPrompt, /大六壬计算链[\s\S]*大六壬证据汇总[\s\S]*大六壬课传解释边界/);
+    assert.match(liurenPrompt, /古籍依据：/);
+    assert.match(liurenPrompt, /应期资料：/);
     assert.doesNotMatch(liurenPrompt, /【分析思路】/);
     assert.doesNotMatch(liurenPrompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
     assertPromptIsPortableTaskText(liurenPrompt);
@@ -4387,11 +4399,10 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
         (item) => item.score === undefined,
       ),
     );
-    assert.match(prompt, /【奇门用神宫与宫间作用结构化证据】/);
-    assert.match(prompt, /奇门九宫逐宫计算事实/);
-    assert.match(prompt, /证据汇总：/);
-    assert.match(prompt, /解释限制：/);
-    assert.match(prompt, /不等于已经按具体问题选定用神/);
+    assert.match(prompt, /占法：奇门遁甲/);
+    assert.match(prompt, /核心结构：[\s\S]*值符值使与时干：[\s\S]*旬空与马星：/);
+    assert.match(prompt, /节气交接：[\s\S]*月相：/);
+    assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);
     assert.doesNotMatch(prompt, /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|应期范围\d/);
     assert.doesNotMatch(prompt, /大吉格|大凶格|显著加快|显著延迟/);
     assert.doesNotMatch(prompt, /项目以|项目规则|项目计算|命语|本项目|项目统一|工程|算法结果/);
@@ -4532,6 +4543,28 @@ test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级'
     );
     assert.match(chart.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制：/);
     assertPromptIsPortableTaskText(chart.evidenceAnalysis.promptText);
+  });
+});
+
+test('MCP 生肖工具返回三会固定关系且不改写为贵人或吉凶', async () => {
+  await withMcpClient(async (client) => {
+    const result = await client.callTool({
+      name: 'metaphysics_zodiac',
+      arguments: { zodiac: '虎', yearGanZhi: '丁卯' },
+    });
+    assert.equal(result.isError, undefined, 'metaphysics_zodiac 不应返回错误');
+    const chart = (result.structuredContent as { result: Record<string, any> }).result;
+    assert.equal(chart.meeting, '三会关系（东方木）');
+    assert.equal(chart.noble, null);
+    assert.ok(!chart.favorableRelations.includes(chart.meeting));
+    assert.ok(!chart.riskRelations.includes(chart.meeting));
+    assert.ok(
+      chart.evidenceAnalysis.relations.some(
+        (item: { category: string; relation: string }) =>
+          item.category === '地支会合' && item.relation === '三会关系（东方木）',
+      ),
+    );
+    assert.match(chart.evidenceAnalysis.promptText, /十二地支三会固定关系表/);
   });
 });
 
@@ -4687,10 +4720,10 @@ test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
       ),
     );
     assert.ok(chart.evidenceAnalysis.counterEvidence.some((item) => item.startsWith('未见囚')));
-    assert.match(prompt, /【太乙五计七十二局结构化证据】/);
-    assert.match(prompt, /传统规则模型/);
-    assert.match(prompt, /证据汇总/);
-    assert.match(prompt, /解释限制（方法限制）/);
+    assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.taiyi);
+    assert.match(prompt, /【太乙神数 · 年计】/);
+    assert.match(prompt, /核心宫位：[\s\S]*主客定算：[\s\S]*将参：/);
+    assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);
     assert.doesNotMatch(prompt, /宜先守后动|不宜轻进/);
     assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|匹配率(?:为|：)|吉凶总分(?:为|：)/);
     assert.doesNotMatch(prompt, /命语|本项目|项目统一|当前结果|工程|接口|API|MCP/);

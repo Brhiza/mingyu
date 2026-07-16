@@ -4134,10 +4134,12 @@ test('太乙神数作为占卜方法应生成完整年计盘与时间层级提�
   assert.equal(data.scope, 'year');
   assert.equal(data.bureau, 33);
   assert.match(session.prompt, /占法：太乙神数（年计）/);
-  assert.match(session.prompt, /【太乙五计七十二局结构化证据】/);
   assert.match(session.prompt, /阳遁第33局/);
-  assert.match(session.prompt, /太乙神数按所选年计、月计、日计、时计或分计判断/);
-  assert.match(session.prompt, /时间判断应与所选计式的尺度一致/);
+  assert.match(session.prompt, /太乙：艮（第3宫/);
+  assert.match(session.prompt, /主客定算：主算24/);
+  assert.doesNotMatch(session.prompt, /结构化证据|证据汇总|计算链|解释限制/);
+  assert.match(session.prompt, /年计、月计、日计、时计、分计分别按各自积数与阴阳遁规则起局/);
+  assert.match(session.prompt, /判断年度气运、动静、攻守与时宜/);
   assert.doesNotMatch(session.prompt, /尚未计算|月计、日计或时计/);
   assert.match(
     session.prompt,
@@ -4177,11 +4179,14 @@ test('太乙神数占卜入口应支持月日时分四种按时间起局', async
   }
 });
 
-test('塔罗与雷诺曼提示词应包含可回退生成的结构化证据', async () => {
+test('塔罗与雷诺曼提示词应保留牌面资料且不混入工程证据话术', async () => {
   const tarotSession = await generateDivinationSession(
     buildDraft({ method: 'tarot', tarotSpread: 'three', question: '接下来应如何推进？' }),
   );
-  assert.match(tarotSession.prompt, /【塔罗牌位与牌面结构化证据】/);
+  assert.match(tarotSession.prompt, /占法：塔罗/);
+  assert.match(tarotSession.prompt, /牌位顺序：/);
+  assert.match(tarotSession.prompt, /牌位明细：/);
+  assert.doesNotMatch(tarotSession.prompt, /结构化证据|证据汇总|计算链|解释限制/);
   assert.doesNotMatch(tarotSession.prompt, /成功率为\d|吉凶总分[：=]\d|能量分数[：=]\d/);
   const tarotData = tarotSession.data as TarotData;
   const tarotItems = tarotData.evidenceAnalysis?.evidence.items ?? [];
@@ -4215,8 +4220,10 @@ test('塔罗与雷诺曼提示词应包含可回退生成的结构化证据', as
   const lenormandSession = await generateDivinationSession(
     buildDraft({ method: 'lenormand', lenormandSpread: 'nine', question: '事情有哪些线索？' }),
   );
-  assert.match(lenormandSession.prompt, /【雷诺曼牌序组合与布局结构化证据】/);
-  assert.match(lenormandSession.prompt, /固定组合仅指当前采用的固定牌对资料中明确登记的组合/);
+  assert.match(lenormandSession.prompt, /占法：雷诺曼/);
+  assert.match(lenormandSession.prompt, /牌位顺序：/);
+  assert.match(lenormandSession.prompt, /牌位明细：/);
+  assert.doesNotMatch(lenormandSession.prompt, /结构化证据|证据汇总|计算链|解释限制/);
   assert.doesNotMatch(lenormandSession.prompt, /成功率为\d|成功率提升至|吉凶总分[：=]\d/);
 });
 
@@ -4303,10 +4310,9 @@ test('黄历择日会结合可选事项、日期范围和多位出生信息生�
   assert.match(session.prompt, /占法：黄历择日/);
   assert.match(session.prompt, /择日事项：搬家入宅/);
   assert.match(session.prompt, /候选日期：2026-06-01 至 2026-06-05/);
-  assert.match(session.prompt, /【黄历择日透明约束与候选证据】/);
-  assert.match(session.prompt, /候选分组：/);
-  assert.match(session.prompt, /慎用/);
-  assert.match(session.prompt, /传统硬限制：只比较/);
+  assert.match(session.prompt, /当前首列候选：/);
+  assert.match(session.prompt, /候选日期明细：/);
+  assert.doesNotMatch(session.prompt, /结构化证据|证据汇总|计算链|解释限制|传统硬限制/);
   assert.match(session.prompt, /参与人八字参考：/);
   assert.match(session.prompt, /本人：男/);
   assert.ok('days' in session.data && session.data.days.length === 5);
@@ -4469,10 +4475,9 @@ test('小六壬支持时间起课与数字起课，并生成适合复制给 AI �
   assert.match(timeSession.prompt, /起因/);
   assert.match(timeSession.prompt, /过程/);
   assert.match(timeSession.prompt, /结果/);
-  assert.match(timeSession.prompt, /【小六壬三宫推进结构化证据】/);
-  assert.match(timeSession.prompt, /计算链：/);
-  assert.match(timeSession.prompt, /现实事件复核/);
-  assert.match(timeSession.prompt, /规则来源：.*传统掌诀体系/);
+  assert.match(timeSession.prompt, /结构明细：/);
+  assert.match(timeSession.prompt, /起课方式：时间起课/);
+  assert.doesNotMatch(timeSession.prompt, /结构化证据|证据汇总|计算链|解释限制|规则来源/);
 
   const numberSession = await generateDivinationSession(
     buildDraft({
@@ -4487,7 +4492,7 @@ test('小六壬支持时间起课与数字起课，并生成适合复制给 AI �
 
   assert.equal(numberSession.method, 'xiaoliuren');
   assert.match(numberSession.prompt, /起课方式数字起课/);
-  assert.match(numberSession.prompt, /时间、数字与随机起课只改变起课输入/);
+  assert.equal((numberSession.data as XiaoliurenData).calculation?.inputBase, 18);
 });
 
 test('小六壬数字起课底层算法缺少数字时应明确失败', () => {

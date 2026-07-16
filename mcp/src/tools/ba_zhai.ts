@@ -104,6 +104,7 @@ export function registerBaZhaiTool(server: McpServer) {
         return createStructuredToolResult({
           result,
           prompt: buildMetaphysicsPrompt(result.prompt, args.question, {
+            method: 'bazhai',
             measurement: (result as { directionMeasurement?: { promptText: string } })
               .directionMeasurement?.promptText,
           }),

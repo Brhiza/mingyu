@@ -290,7 +290,7 @@ function buildPrompt(r: Omit<BaZhaiResult, 'prompt'>): string {
     lines.push(`宅卦：${r.houseGua}（${r.houseGroup}）`);
     lines.push(`命宅配合：${r.match}。${r.matchAdvice}`);
   } else {
-    lines.push('解读范围：本次只按命卦八宫判断个人方位取舍。');
+    lines.push('宅卦：未提供');
   }
   lines.push(`四吉方：${r.luckyDirections.map((p) => `${p.direction}(${p.label})`).join('、')}`);
   lines.push(`四凶方：${r.unluckyDirections.map((p) => `${p.direction}(${p.label})`).join('、')}`);
@@ -310,17 +310,6 @@ function buildPrompt(r: Omit<BaZhaiResult, 'prompt'>): string {
       ),
     );
   }
-  lines.push(
-    '取证层级：命卦八宫用于个人方位取舍，宅卦八宫用于住宅理气；两者重合可作主证，不重合时必须说明采用命卦或宅卦的理由。',
-  );
-  lines.push(
-    '证据边界：只按命卦、宅卦与八宅大游年方位判断理气取舍；现场安全、实际动线与居住需求优先于单一方位吉凶。',
-  );
-  lines.push(r.evidenceAnalysis.promptText);
-  lines.push('');
-  lines.push(
-    '请结合命卦、宅卦和八宫明细，分析住宅大门、卧室、厨房、书房宜取的吉方及应回避的凶方；结论须区分主证、辅证和适用边界，只围绕上方明确列出的方位事实作答。',
-  );
   return lines.join('\n');
 }
 
@@ -439,7 +428,6 @@ export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiD
           )
         : []),
       measurement.warnings.length ? `测量限制：${measurement.warnings.join('；')}。` : '',
-      '取证边界：中心读数只在测量稳定时作为单一宅卦主证；跨宅卦边界时必须并列候选盘，不得以中心值伪装成确定坐向。',
     ]
       .filter(Boolean)
       .join('\n'),
@@ -449,7 +437,7 @@ export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiD
   return {
     ...result,
     evidenceAnalysis,
-    prompt: result.prompt.replace(result.evidenceAnalysis.promptText, evidenceAnalysis.promptText),
+    prompt: buildPrompt({ ...resultFacts, evidenceAnalysis }),
     directionMeasurement,
   };
 }

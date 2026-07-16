@@ -17,6 +17,7 @@ const qiZhengSchema = z.object({
   minute: z.number().int().min(0).max(59).optional().describe('分'),
   latitude: z.number().min(-90).max(90).optional().describe('纬度（默认北京）'),
   longitude: z.number().min(-180).max(180).optional().describe('经度（默认北京）'),
+  useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时仅校正传统命身十二宫'),
   timezone: z.number().min(-12).max(14).optional().describe('时区偏移（默认 +8）'),
   timeZoneId: z
     .string()
@@ -46,6 +47,7 @@ export function registerQizhengTool(server: McpServer) {
           ...(args.longitude !== undefined ? { longitude: args.longitude } : {}),
           ...(args.timezone !== undefined ? { timezone: args.timezone } : {}),
           ...(args.timeZoneId ? { timeZoneId: args.timeZoneId } : {}),
+          ...(args.useTrueSolarTime !== undefined ? { useTrueSolarTime: args.useTrueSolarTime } : {}),
         });
         return createStructuredToolResult({ result });
       } catch (error) {
@@ -73,10 +75,11 @@ export function registerQizhengTool(server: McpServer) {
           ...(args.longitude !== undefined ? { longitude: args.longitude } : {}),
           ...(args.timezone !== undefined ? { timezone: args.timezone } : {}),
           ...(args.timeZoneId ? { timeZoneId: args.timeZoneId } : {}),
+          ...(args.useTrueSolarTime !== undefined ? { useTrueSolarTime: args.useTrueSolarTime } : {}),
         });
         return createStructuredToolResult({
           result,
-          prompt: buildMetaphysicsPrompt(result.prompt, args.question),
+          prompt: buildMetaphysicsPrompt(result.prompt, args.question, { method: 'qizheng' }),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成七政四余提示词失败'));

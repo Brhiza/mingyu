@@ -34,6 +34,7 @@ import {
   getZhiFuZhiShiByGanZhi,
   getDunJiaStem,
 } from './helpers/jushu';
+import type { QimenJuMethod, QimenJuShuResult } from './helpers/jushu';
 import { getMonthQimenJuShu, getYearQimenJuShu } from './helpers/jushu-extended';
 import { arrangeJiuGongGe, resolveZhiShiLandingPalace } from './helpers/layout';
 import { getQimenPatternTags, buildPatternDetails, buildPalaceInsights } from './helpers/patterns';
@@ -238,6 +239,7 @@ export function generateQimen(
   customDate?: Date,
   method: QimenMethod = 'zhuanpan',
   scope: QimenScope = 'hour',
+  juMethod: QimenJuMethod = 'chaibu',
 ): QimenData {
   assertQimenScope(scope);
   // ──────────────────────────────────────────────────────────────────────────
@@ -252,7 +254,7 @@ export function generateQimen(
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 2：定局数
   // ──────────────────────────────────────────────────────────────────────────
-  const jushuResult = getJushuForScope(scope, ganzhi, timeInfo);
+  const jushuResult = getJushuForScope(scope, ganzhi, timeInfo, juMethod);
   const { isYangDun, juShu, yuan } = jushuResult;
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -433,9 +435,16 @@ export function generateQimen(
   const result: QimenData = {
     method,
     scope,
+    juMethod: jushuResult.juMethod,
     timeInfo: {
       solarTerm: jushuResult.jieQi || jieQi,
       epoch: jushuResult.yuan,
+      juMethod: jushuResult.juMethod,
+      ...(jushuResult.fuTou ? { fuTou: jushuResult.fuTou } : {}),
+      ...(jushuResult.fuTouDate ? { fuTouDate: jushuResult.fuTouDate } : {}),
+      ...(jushuResult.chaoShenOrJieQi ? { chaoShenOrJieQi: jushuResult.chaoShenOrJieQi } : {}),
+      ...(jushuResult.isZhiRun !== undefined ? { isZhiRun: String(jushuResult.isZhiRun) } : {}),
+      ...(jushuResult.juMethodNote ? { juMethodNote: jushuResult.juMethodNote } : {}),
     },
     ganzhi,
     isYangDun: jushuResult.isYangDun,
@@ -491,30 +500,46 @@ function getJushuForScope(
     solar: { year: number; month: number; day: number; hour?: number; minute?: number };
     jieQi: string;
   },
-): { isYangDun: boolean; juShu: number; yuan: string; jieQi?: string } {
+  juMethod: QimenJuMethod = 'chaibu',
+): QimenJuShuResult {
   switch (scope) {
     case 'year': {
       const r = getYearQimenJuShu(ganzhi.year, timeInfo.solar.year);
-      return { ...r, jieQi: timeInfo.jieQi };
+      return {
+        ...r,
+        jieQi: timeInfo.jieQi,
+        juMethod,
+        isZhiRun: false,
+        juMethodNote: '年家奇门使用年干与三元甲子定局，拆补/置闰仅适用于时家与日家',
+      };
     }
     case 'month': {
       const r = getMonthQimenJuShu(ganzhi.month, ganzhi.year);
-      return { ...r, jieQi: timeInfo.jieQi };
+      return {
+        ...r,
+        jieQi: timeInfo.jieQi,
+        juMethod,
+        isZhiRun: false,
+        juMethodNote: '月家奇门使用月家定局法，拆补/置闰仅适用于时家与日家',
+      };
     }
     case 'day':
     case 'hour':
     default: {
-      return getQimenJuShu({
-        jieQi: timeInfo.jieQi,
-        ganzhi: { day: ganzhi.day },
-        solar: {
-          year: timeInfo.solar.year,
-          month: timeInfo.solar.month,
-          day: timeInfo.solar.day,
-          hour: timeInfo.solar.hour,
-          minute: timeInfo.solar.minute,
+      return getQimenJuShu(
+        {
+          jieQi: timeInfo.jieQi,
+          ganzhi: { day: ganzhi.day },
+          solar: {
+            year: timeInfo.solar.year,
+            month: timeInfo.solar.month,
+            day: timeInfo.solar.day,
+            hour: timeInfo.solar.hour,
+            minute: timeInfo.solar.minute,
+          },
         },
-      });
+        juMethod,
+      );
     }
   }
 }

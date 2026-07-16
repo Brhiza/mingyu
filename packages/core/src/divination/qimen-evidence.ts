@@ -821,6 +821,8 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
   const scopeLabel = SCOPE_LABELS[scope];
   const layoutMethod = data.method ?? 'zhuanpan';
   const layoutMethodLabel = layoutMethod === 'feipan' ? '飞盘法' : '转盘法';
+  const juMethod = data.juMethod ?? (data.timeInfo?.juMethod as 'chaibu' | 'zhirun' | undefined) ?? 'chaibu';
+  const juMethodLabel = juMethod === 'zhirun' ? '置闰法' : '拆补法';
   const activeGanZhi = getActiveGanZhi(data);
   const zhiFuPalace = data.jiuGongGe.find((item) => item.tianPan.star === data.zhiFu);
   const zhiShiPalace = data.jiuGongGe.find((item) => item.renPan.door === data.zhiShi);
@@ -832,7 +834,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
       rule: '节气、三元与主动干支共同确定阴阳遁和局数',
       appliesTo: ['排盘范围', '定局'],
       sources: ['《烟波钓叟歌》阴阳二遁与一气三元口径', '时家、日家、月家与年家分层定局计算入口'],
-      promptText: `${scopeLabel}定局规则：节气、三元与主动干支共同确定阴阳遁和局数`,
+      promptText: `${scopeLabel}定局规则：采用${juMethodLabel}，节气、三元与主动干支共同确定阴阳遁和局数${data.timeInfo?.juMethodNote ? `；${data.timeInfo.juMethodNote}` : ''}`,
       limitation: RULE_SOURCE_LIMITATION,
     },
     {
@@ -876,7 +878,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
       status: '已确定',
       inputs: { scope, activeGanZhi, layoutMethod },
       result: { scopeLabel, activeGanZhi, layoutMethodLabel },
-      promptText: `排盘范围：${scopeLabel}，采用${layoutMethodLabel}，以${activeGanZhi}作为本盘主动干支`,
+      promptText: `排盘范围：${scopeLabel}，采用${layoutMethodLabel}与${juMethodLabel}，以${activeGanZhi}作为本盘主动干支`,
       sourceKeys: ['rule:qimen:setup'],
       limitation: CALCULATION_FACT_LIMITATION,
     },
@@ -1235,7 +1237,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
         .slice(0, 2)
         .map((item) => `${item.key} ${item.sources.join('、')}；${item.promptText}`)
         .join('；'),
-      tags: [scopeLabel, layoutMethodLabel, data.isYangDun ? '阳遁' : '阴遁', `${data.juShu}局`],
+      tags: [scopeLabel, layoutMethodLabel, juMethodLabel, data.isYangDun ? '阳遁' : '阴遁', `${data.juShu}局`],
     },
     {
       level: palaceCoverageFact.status === '完整' ? '辅证' : '反证',

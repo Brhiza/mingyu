@@ -102,7 +102,7 @@ test('bazhai: 命宅配合', () => {
   assert.ok(r.prompt.includes('八宅风水'));
   assert.ok(r.prompt.includes('命卦八宫明细'));
   assert.ok(r.prompt.includes('宅卦八宫明细'));
-  assert.ok(r.prompt.includes('证据边界'));
+  assert.doesNotMatch(r.prompt, /结构化证据|证据边界|计算链|解释限制/);
   assert.equal(r.evidenceAnalysis.evidence.title, '八宅命宅方位与测量结构化证据');
   assert.equal(r.evidenceAnalysis.calculationFact.status, '命宅完整');
   assert.equal(r.evidenceAnalysis.calculationFact.yearBoundaryStatus, '待复核');
@@ -169,7 +169,7 @@ test('bazhai: 命宅配合', () => {
     /命语|本项目|项目统一|调用方|当前调用|工程|接口|API|MCP/,
   );
   assertPromptIsPortableTaskText(r.evidenceAnalysis.promptText);
-  assert.match(r.prompt, /【八宅命宅方位与测量结构化证据】/);
+  assert.match(r.prompt, /命宅配合：相合/);
 });
 
 test('bazhai: 从大门面向屋内的度数可直接生成传统坐向与完整八宅结果', () => {
@@ -285,7 +285,7 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.ok(!('confidence' in r));
   assert.ok(r.prompt.includes('生肖与流年关系简析'));
   assert.ok(r.prompt.includes('五行来源'));
-  assert.ok(r.prompt.includes('犯太岁明细'));
+  assert.ok(r.prompt.includes('干支关系'));
   assert.equal(r.evidenceAnalysis.key, 'zodiac:evidence');
   assert.equal(r.evidenceAnalysis.status, '已计算');
   assert.equal(r.evidenceAnalysis.evidence.title, '生肖流年关系矩阵结构化证据');
@@ -323,7 +323,7 @@ test('zodiac: 犯太岁与流年运程', () => {
     r.evidenceAnalysis.counterEvidenceFacts.map((item) => [item.type, item.status]),
     [
       ['太岁关系覆盖', '未命中'],
-      ['三合六合覆盖', '未命中'],
+      ['三合六合三会覆盖', '未命中'],
       ['生肖信息量', '固有限制'],
     ],
   );
@@ -377,10 +377,11 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.match(r.evidenceAnalysis.promptText, /现实复核提示：.*边界：/);
   assert.match(r.evidenceAnalysis.promptText, /流年年干甲[\s\S]*生肖年支本气午/);
   assert.match(r.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制：/);
-  assert.match(r.prompt, /【生肖流年关系矩阵结构化证据】/);
+  assert.match(r.prompt, /马（午）遇甲辰年/);
+  assert.match(r.prompt, /有利关系：年干五行生生肖地支本气/);
+  assert.doesNotMatch(r.prompt, /结构化证据|证据汇总|计算链|解释限制/);
   assert.doesNotMatch(r.prompt, /综合定级：/);
   assert.doesNotMatch(r.prompt, /印星|财星|官杀|接口兼容/);
-  assert.ok(r.prompt.includes('只作生肖与流年关系层的趋势参考'));
   assert.doesNotMatch(r.prompt, /完整的事业、财运、感情或健康断语/);
   assert.doesNotMatch(r.evidenceAnalysis.promptText, /命语|本项目|项目统一|工程|接口|API|MCP/);
   assertPromptIsPortableTaskText(r.evidenceAnalysis.promptText);
@@ -403,6 +404,33 @@ test('zodiac: 冲太岁只作轻量风险关系，不生成综合吉凶等级', 
   assert.ok(!('level' in result));
   assert.equal(result.interpretationBoundary, '仅限生肖与流年关系');
   assert.ok(!('confidence' in result));
+});
+
+test('zodiac: 三会只记录固定同组关系，不冒充贵人或吉凶结论', () => {
+  const eastWood = core.zodiac.getZodiacYearFortune('寅', '丁卯');
+  assert.equal(eastWood.meeting, '三会关系（东方木）');
+  assert.equal(eastWood.noble, null);
+  assert.ok(!eastWood.favorableRelations.includes(eastWood.meeting));
+  assert.ok(!eastWood.riskRelations.includes(eastWood.meeting));
+  assert.ok(
+    eastWood.evidenceAnalysis.supportingEvidence.some(
+      (item) => item.category === '地支会合' && item.relation === eastWood.meeting,
+    ),
+  );
+  assert.equal(
+    eastWood.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '三合六合三会覆盖')
+      ?.status,
+    '有可用证据',
+  );
+  assert.match(eastWood.prompt, /三会：三会关系（东方木）/);
+  assert.match(eastWood.evidenceAnalysis.promptText, /十二地支三会固定关系表/);
+  assert.doesNotMatch(eastWood.prompt, /三会贵人|构成完整三会成局|形成完整三会成局/);
+
+  const southFire = core.zodiac.getZodiacYearFortune('午', '辛未');
+  assert.equal(southFire.meeting, '三会关系（南方火）');
+  assert.equal(southFire.noble, '六合贵人');
+  assert.ok(!southFire.favorableRelations.includes(southFire.meeting));
+  assert.ok(!southFire.riskRelations.includes(southFire.meeting));
 });
 
 test('tarot: 逐牌证据应区分正逆位、元素与牌阶', () => {
@@ -520,7 +548,7 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.ok(r.prompt.includes('主客定算'));
   assert.ok(r.prompt.includes('将参'));
   assert.ok(r.prompt.includes('核心宫位'));
-  assert.ok(r.prompt.includes('观察层级'));
+  assert.doesNotMatch(r.prompt, /结构化证据|观察层级|证据汇总|计算链|解释限制/);
   assert.equal(r.evidenceAnalysis.key, 'taiyi:evidence');
   assert.equal(r.evidenceAnalysis.status, '已计算');
   assert.match(r.evidenceAnalysis.promptText, /【太乙五计七十二局结构化证据】/);
@@ -818,8 +846,9 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.ok(r.prompt.includes('出生时空'));
   assert.ok(r.prompt.includes('十二宫映射'));
   assert.ok(r.prompt.includes('七政四余吊照'));
-  assert.ok(r.prompt.includes('坐标与精度边界'));
-  assert.ok(r.prompt.includes('不得替换成月孛对冲'));
+  assert.match(r.prompt, /月相：/);
+  assert.match(r.prompt, /出生时刻光照：/);
+  assert.doesNotMatch(r.prompt, /结构化证据|坐标与精度边界|计算链|证据汇总|解释限制/);
   assert.equal(r.positionSources.length, 4);
   assert.equal(r.stars.find((star) => star.name === '太阳')?.sourceId, 'celestine-planets');
   assert.equal(r.stars.find((star) => star.name.includes('罗睺'))?.sourceId, 'celestine-true-node');
@@ -834,9 +863,8 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.ok(r.calculationContext.astronomicalTime.julianDayUtc > 2400000);
   assert.ok(r.calculationContext.moonPhase.phaseAngleDegrees >= 0);
   assert.ok(r.calculationContext.moonPhase.phaseAngleDegrees < 360);
-  assert.match(r.prompt, /天文时间尺度：/);
-  assert.match(r.prompt, /月相证据：/);
-  assert.match(r.prompt, /JD\(TT\)/);
+  assert.match(r.prompt, /月相：.+日月黄经差约.+照明约/);
+  assert.match(r.prompt, /出生时刻光照：太阳高度.+方位角.+视太阳正午/);
   assert.match(r.evidenceAnalysis.promptText, /【七政四余计算来源与证据分层】/);
   assert.equal(r.evidenceAnalysis.key, 'qizheng:evidence');
   assert.equal(r.evidenceAnalysis.status, '已计算');

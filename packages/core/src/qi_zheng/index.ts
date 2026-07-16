@@ -20,6 +20,7 @@ import { calculateChart } from 'celestine';
 import { SevenStar, TwentyEightStar } from 'tyme4ts';
 import { daysInGregorianMonth } from '../calendar/date-validation';
 import { getShichenFromClock } from '../calendar/dateUtils';
+import { calculateTrueSolarTime } from '../calendar/true-solar-time';
 import {
   buildAstronomicalTimeEvidence,
   type AstronomicalTimeEvidence,
@@ -138,6 +139,9 @@ export interface QizhengPositionSource {
 }
 
 export interface QizhengCalculationContext {
+  /** 传统宫位时间口径 */
+  palaceTimeMode?: '民用时间' | '真太阳时混合口径';
+  palaceTimeNote?: string;
   localDateTime: string;
   utcDateTime: string;
   timezone: number;
@@ -356,6 +360,11 @@ export interface QizhengInput {
   longitude?: number;
   timezone?: number;
   timeZoneId?: string;
+  /**
+   * 可选：启用后仅用真太阳时校正传统命身十二宫排布；
+   * 七政四余天体位置仍按现代星历与天文时间尺度计算。
+   */
+  useTrueSolarTime?: boolean;
 }
 
 export interface QizhengResult {
@@ -1423,11 +1432,42 @@ function buildQizhengEvidence(
 /** 生成七政四余盘 */
 export function generateQizheng(input: QizhengInput): QizhengResult {
   validateQizhengInput(input, true);
+  if (input.useTrueSolarTime !== undefined && typeof input.useTrueSolarTime !== 'boolean') {
+    throw new Error('useTrueSolarTime 必须是布尔值。');
+  }
   const lat = input.latitude ?? 39.9;
   const lon = input.longitude ?? 116.4;
   const astronomicalTime = buildQizhengAstronomicalTime(input);
   const tz = astronomicalTime.timezone;
   const calculationContext = buildCalculationContext(input, lat, lon, astronomicalTime);
+  const useTrueSolarTime = input.useTrueSolarTime === true;
+  calculationContext.palaceTimeMode = useTrueSolarTime ? '真太阳时混合口径' : '民用时间';
+  let palaceHour = input.hour;
+  let palaceMinute = input.minute ?? 0;
+  let trueSolarNote = '传统命身十二宫按输入民用时间排布';
+  if (useTrueSolarTime) {
+    if (input.longitude === undefined) {
+      throw new Error('启用真太阳时时必须提供出生地经度。');
+    }
+    const standardMeridian = tz * 15;
+    const trueSolar = calculateTrueSolarTime(
+      {
+        year: input.year,
+        month: input.month,
+        day: input.day,
+        hour: input.hour,
+        minute: input.minute ?? 0,
+      },
+      lon,
+      standardMeridian,
+    );
+    palaceHour = trueSolar.correctedTime.hour;
+    palaceMinute = trueSolar.correctedTime.minute;
+    trueSolarNote = `传统命身十二宫已按真太阳时校正（经度修正 ${trueSolar.longitudeCorrectionMinutes.toFixed(2)} 分，均时差 ${trueSolar.equationOfTimeMinutes.toFixed(2)} 分）；七政四余位置仍用现代星历`;
+    calculationContext.palaceTimeNote = trueSolarNote;
+  } else {
+    calculationContext.palaceTimeNote = trueSolarNote;
+  }
   const chart = calculateChart(
     {
       year: input.year,
@@ -1515,7 +1555,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
   const moonSign = moon.signIndex;
 
   // 生时地支序（子0…亥11）：复用公共十二时辰；晚子时索引 12 归并为子支序 0。
-  const shichen = getShichenFromClock(input.hour, input.minute ?? 0);
+  const shichen = getShichenFromClock(palaceHour, palaceMinute);
   if (!shichen) throw new Error('七政四余无法根据输入时间确定时辰。');
   const hourIdx = shichen.index % 12;
   const MAO = 3,
@@ -1567,9 +1607,8 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     `七政：太阳、太阴、水、金、火、木、土；四余：罗睺、计都、月孛、紫炁。`,
     `紫炁推算口径：${ZIQI_MODEL_INFO.name}；周期${ZIQI_MODEL_INFO.periodDays}日，日行${ZIQI_MODEL_INFO.dailyMotionDegrees.toFixed(12)}°；${ZIQI_MODEL_INFO.precision}。`,
     `计算上下文：当地民用时间${calculationContext.localDateTime}，对应UTC ${calculationContext.utcDateTime}；地点来源${calculationContext.locationSource === '用户提供' ? '输入明确' : calculationContext.locationSource}，时区来源${calculationContext.timezoneSource === '用户提供' ? '输入明确' : calculationContext.timezoneSource}。`,
-    calculationContext.astronomicalTime.promptText,
-    calculationContext.moonPhase.promptText,
-    calculationContext.solarIllumination.promptText,
+    `月相：${calculationContext.moonPhase.eightPhaseName}（${calculationContext.moonPhase.waxing ? '盈' : '亏'}），日月黄经差约${calculationContext.moonPhase.phaseAngleDegrees.toFixed(2)}°，照明约${calculationContext.moonPhase.illuminationPercent.toFixed(1)}%。`,
+    `出生时刻光照：太阳高度${calculationContext.solarIllumination.solarAltitudeDegrees.toFixed(2)}°，方位角${calculationContext.solarIllumination.solarAzimuthDegrees.toFixed(2)}°，视太阳正午${calculationContext.solarIllumination.apparentSolarNoonLocalDateTime}。`,
     `位置来源：${QIZHENG_POSITION_SOURCES.map((source) => `${source.objects.join('、')}取自${source.provider}（${source.precisionClass}）`).join('；')}。`,
     `紫炁位置：顺行，回归黄经${ziqi.tropicalLongitude.toFixed(3)}°，本次换算恒星黄经${ziqi.siderealLongitude.toFixed(3)}°。`,
     ...stars.map(
@@ -1587,13 +1626,9 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
         : '未见容许度内的主要同宫、六合、四正、三方或对照'
     }。`,
     `命宫在${TWELVE_PALACES[0]}（黄道第 ${mingGong + 1} 宫），命主${mingZhu}；身宫在第 ${shenGong + 1} 宫。`,
+    trueSolarNote,
     `十二宫映射：${twelvePalaces.map((item) => `${item.palace}=黄道第${item.signIndex + 1}宫`).join('；')}。`,
     `神煞：天乙贵人${shensha[0].value}、驿马${shensha[1].value}、劫煞${shensha[2].value}、咸池${shensha[3].value}、华盖${shensha[4].value}、孤辰${shensha[5].value}、寡宿${shensha[6].value}。`,
-    evidenceAnalysis.promptText,
-    '取证层级：七政四余的宿度、落宫、庙旺、命身宫与已计算的吊照关系为主证；神煞只能作为辅证；出现相互矛盾时须说明各证据适用范围，不得以单一星曜或神煞定案。',
-    `坐标与精度边界：星体同时保留回归黄经和岁差换算后的恒星黄经；宿度按上方二十八宿古度口径换算。${ZIQI_MODEL_INFO.precision}。本次只解读本命结构与长期倾向，不判断具体应期。`,
-    '',
-    '请依《果老星宗》星学，论命主强弱、七政庙旺、四余吊照、十二宫所主与神煞吉凶；结论需列出主证、辅证、反证与精度限制。紫炁仅使用上列《七政算内篇》模型，不得替换成月孛对冲或月球近地点。',
   ].join('\n');
 
   return {

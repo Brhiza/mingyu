@@ -36,9 +36,10 @@ import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { analyzeAstrolabeSynastry } from 'mingyu-core/divination/astrolabe-synastry';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
-import { bazhai, zodiac, taiyi, qizheng } from 'mingyu-core';
+import { bazhai, zodiac, taiyi, qizheng, xuankong, residentialFengshui } from 'mingyu-core';
 import { getGanZhiFromDate, isValidGanZhi, EARTHLY_BRANCHES, ZODIACS } from 'mingyu-core/ganzhi';
 import { BAGUA, TWENTY_FOUR_MOUNTAINS } from 'mingyu-core/direction';
+import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 import {
   analyzeCompassDirection,
   analyzeShenshaEvidence,
@@ -246,6 +247,10 @@ const DIVINATION_REQUEST_PROPERTIES = {
   qimenMethod: {
     enum: ['zhuanpan', 'feipan'],
     description: '奇门遁甲排盘方法：zhuanpan 为转盘法（默认），feipan 为飞盘法。',
+  },
+  qimenJuMethod: {
+    enum: ['chaibu', 'zhirun'],
+    description: '奇门定局方法：chaibu 为拆补法（默认），zhirun 为置闰法；仅时家/日家生效。',
   },
   method: { enum: ['time', 'number', 'random', 'timeTrigram'] },
   number: { type: 'integer', minimum: 1 },
@@ -739,6 +744,35 @@ export function getPublicApiOpenApiDocument(
           responses: { '200': { description: '七政四余星盘、紫炁模型与提示词' } },
         },
       },
+      '/metaphysics/xuankong/calculate': {
+        post: {
+          summary: '玄空飞星排盘',
+          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          responses: { '200': { description: '运盘、山盘、向盘与到山到向证据' } },
+        },
+      },
+      '/metaphysics/xuankong/prompt': {
+        post: {
+          summary: '玄空飞星排盘并生成提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          responses: { '200': { description: '玄空飞星盘与结构化提示词' } },
+        },
+      },
+      '/metaphysics/residential/calculate': {
+        post: {
+          summary: '住宅风水排盘',
+          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          responses: { '200': { description: '八宅与玄空分层合参结果' } },
+        },
+      },
+      '/metaphysics/residential/prompt': {
+        post: {
+          summary: '住宅风水排盘并生成提示词',
+          requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
+          responses: { '200': { description: '住宅风水合参结果与结构化提示词' } },
+        },
+      },
+
       '/ai/analyze': {
         post: {
           summary: 'AI 解读（流式 SSE）',
@@ -1484,6 +1518,14 @@ async function route(context: RouteContext) {
       return calculateQizhengApi(await readJson(context.request));
     case 'metaphysics/qizheng/prompt':
       return buildQizhengPrompt(await readJson(context.request));
+    case 'metaphysics/xuankong/calculate':
+      return calculateXuanKongApi(await readJson(context.request));
+    case 'metaphysics/xuankong/prompt':
+      return buildXuanKongPrompt(await readJson(context.request));
+    case 'metaphysics/residential/calculate':
+      return calculateResidentialApi(await readJson(context.request));
+    case 'metaphysics/residential/prompt':
+      return buildResidentialPrompt(await readJson(context.request));
     default:
       throw new ApiError(404, 'NOT_FOUND', '没有找到对应的 API 路径。');
   }
@@ -1741,10 +1783,14 @@ function buildSolarDate(year: number, month: number, day: number, hour = 0, minu
   return date;
 }
 
-function buildMetaphysicsPrompt(basePrompt: string, input: JsonRecord): string {
+function buildMetaphysicsPrompt(
+  basePrompt: string,
+  input: JsonRecord,
+  method: 'zodiac' | 'taiyi' | 'qizheng' | 'xuankong' | 'residential',
+): string {
   const question =
     readString(input, 'question', '').trim() || '请综合解读本次排盘的重点、风险与行动建议。';
-  return buildSharedMetaphysicsPrompt(basePrompt, question);
+  return buildSharedMetaphysicsPrompt(basePrompt, question, { method });
 }
 
 function resolveZodiacBranch(z: unknown): string {
@@ -1815,6 +1861,7 @@ function buildBaZhaiPrompt(input: JsonRecord) {
       result.prompt,
       readString(input, 'question', '').trim() || '请综合解读本次排盘的重点、风险与行动建议。',
       {
+        method: 'bazhai',
         measurement: (result as { directionMeasurement?: { promptText: string } })
           .directionMeasurement?.promptText,
       },
@@ -1839,7 +1886,7 @@ function buildZodiacPrompt(input: JsonRecord) {
   const result = calculateZodiacApi(input);
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
-    prompt: buildMetaphysicsPrompt(result.prompt, input),
+    prompt: buildMetaphysicsPrompt(result.prompt, input, 'zodiac'),
     fullResult: result,
   });
 }
@@ -1881,7 +1928,7 @@ function buildTaiyiPrompt(input: JsonRecord) {
   const result = calculateTaiyiApi(input);
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
-    prompt: buildMetaphysicsPrompt(result.prompt, input),
+    prompt: buildMetaphysicsPrompt(result.prompt, input, 'taiyi'),
     fullResult: result,
   });
 }
@@ -1898,6 +1945,7 @@ function calculateQizhengApi(input: JsonRecord) {
   const timezone = optNumber(input, 'timezone', -12, 14);
   const timeZoneId =
     input.timeZoneId === undefined ? undefined : readString(input, 'timeZoneId', '');
+  const useTrueSolarTime = readBoolean(input, 'useTrueSolarTime', false);
   return qizheng.generateQizheng({
     year,
     month,
@@ -1908,6 +1956,129 @@ function calculateQizhengApi(input: JsonRecord) {
     ...(longitude !== undefined ? { longitude } : {}),
     ...(timezone !== undefined ? { timezone } : {}),
     ...(timeZoneId ? { timeZoneId } : {}),
+    ...(useTrueSolarTime ? { useTrueSolarTime: true } : {}),
+  });
+}
+
+
+function calculateXuanKongApi(input: JsonRecord) {
+  const year = input.year === undefined ? undefined : readInteger(input, 'year', 1, 9999);
+  const sitMountain = input.sitMountain === undefined ? undefined : readString(input, 'sitMountain', '');
+  const facingMountain =
+    input.facingMountain === undefined ? undefined : readString(input, 'facingMountain', '');
+  const facingDegree =
+    input.facingDegree === undefined ? undefined : readNumberLike(input, 'facingDegree', 0, 360);
+  const sitDegree =
+    input.sitDegree === undefined ? undefined : readNumberLike(input, 'sitDegree', 0, 360);
+  const measurementUncertaintyDegrees =
+    input.measurementUncertaintyDegrees === undefined
+      ? undefined
+      : readNumberLike(input, 'measurementUncertaintyDegrees', 0, 45);
+  const guaType =
+    input.guaType === undefined
+      ? undefined
+      : (readEnum(input, 'guaType', ['下卦', '替卦']) as '下卦' | '替卦');
+  return xuankong.generateXuanKong({
+    ...(year !== undefined ? { year } : {}),
+    ...(sitMountain ? { sitMountain } : {}),
+    ...(facingMountain ? { facingMountain } : {}),
+    ...(facingDegree !== undefined ? { facingDegree } : {}),
+    ...(sitDegree !== undefined ? { sitDegree } : {}),
+    ...(measurementUncertaintyDegrees !== undefined ? { measurementUncertaintyDegrees } : {}),
+    ...(guaType ? { guaType } : {}),
+  });
+}
+
+
+function calculateResidentialApi(input: JsonRecord) {
+  const year = input.year === undefined ? undefined : readInteger(input, 'year', 1, 9999);
+  const birthYear = optInt(input, 'birthYear', 1900, 2100);
+  const birthMonth = optInt(input, 'birthMonth', 1, 12);
+  const birthDay = optInt(input, 'birthDay', 1, 31);
+  const gender =
+    input.gender === 'female' ? 'female' : input.gender === 'male' ? 'male' : undefined;
+  const mingGua = input.mingGua === undefined ? undefined : readString(input, 'mingGua', '');
+  const sitMountain =
+    input.sitMountain === undefined ? undefined : readString(input, 'sitMountain', '');
+  const facingMountain =
+    input.facingMountain === undefined ? undefined : readString(input, 'facingMountain', '');
+  const facingDegree =
+    input.facingDegree === undefined ? undefined : readNumberLike(input, 'facingDegree', 0, 360);
+  const sitDegree =
+    input.sitDegree === undefined ? undefined : readNumberLike(input, 'sitDegree', 0, 360);
+  const doorToInteriorDegree = optNumber(input, 'doorToInteriorDegree', 0, 360);
+  const northReference = input.northReference === undefined ? undefined : readString(input, 'northReference', '');
+  const magneticDeclinationDegrees = optNumber(input, 'magneticDeclinationDegrees', -30, 30);
+  const measurementUncertaintyDegrees = optNumber(input, 'measurementUncertaintyDegrees', 0, 45);
+  const guaType =
+    input.guaType === undefined
+      ? undefined
+      : (readEnum(input, 'guaType', ['下卦', '替卦']) as '下卦' | '替卦');
+
+  if (mingGua && !BAGUA.includes(mingGua)) {
+    throw new ApiError(400, 'BAD_REQUEST', `mingGua 必须是八卦之一：${BAGUA.join('、')}。`);
+  }
+  if (sitMountain && !TWENTY_FOUR_MOUNTAINS.includes(sitMountain)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'sitMountain 必须是有效的二十四山。');
+  }
+  if (facingMountain && !TWENTY_FOUR_MOUNTAINS.includes(facingMountain)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'facingMountain 必须是有效的二十四山。');
+  }
+  if (northReference && !['unspecified', 'magnetic', 'true'].includes(northReference)) {
+    throw new ApiError(400, 'BAD_REQUEST', 'northReference 只能是 unspecified、magnetic 或 true。');
+  }
+  if (birthYear !== undefined && !gender && !mingGua) {
+    throw new ApiError(400, 'BAD_REQUEST', '使用 birthYear 推命卦时必须同时提供 gender，或直接给定 mingGua。');
+  }
+
+  try {
+    return residentialFengshui.generateResidentialFengshui({
+      ...(year !== undefined ? { year } : {}),
+      ...(birthYear !== undefined ? { birthYear } : {}),
+      ...(birthMonth !== undefined ? { birthMonth } : {}),
+      ...(birthDay !== undefined ? { birthDay } : {}),
+      ...(gender ? { gender } : {}),
+      ...(mingGua ? { mingGua } : {}),
+      ...(sitMountain ? { sitMountain } : {}),
+      ...(facingMountain ? { facingMountain } : {}),
+      ...(facingDegree !== undefined ? { facingDegree } : {}),
+      ...(sitDegree !== undefined ? { sitDegree } : {}),
+      ...(doorToInteriorDegree !== undefined ? { doorToInteriorDegree } : {}),
+      ...(northReference
+        ? { northReference: northReference as 'unspecified' | 'magnetic' | 'true' }
+        : {}),
+      ...(magneticDeclinationDegrees !== undefined
+        ? { magneticDeclinationDegrees }
+        : {}),
+      ...(measurementUncertaintyDegrees !== undefined
+        ? { measurementUncertaintyDegrees }
+        : {}),
+      ...(guaType ? { guaType } : {}),
+    });
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '住宅风水参数无效。',
+    );
+  }
+}
+
+function buildResidentialPrompt(input: JsonRecord) {
+  const result = calculateResidentialApi(input);
+  return buildPromptApiResult({
+    responseMode: readPromptResponseMode(input),
+    prompt: buildMetaphysicsPrompt(result.prompt, input, 'residential'),
+    fullResult: result,
+  });
+}
+
+function buildXuanKongPrompt(input: JsonRecord) {
+  const result = calculateXuanKongApi(input);
+  return buildPromptApiResult({
+    responseMode: readPromptResponseMode(input),
+    prompt: buildMetaphysicsPrompt(result.prompt, input, 'xuankong'),
+    fullResult: result,
   });
 }
 
@@ -1915,7 +2086,7 @@ function buildQizhengPrompt(input: JsonRecord) {
   const result = calculateQizhengApi(input);
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
-    prompt: buildMetaphysicsPrompt(result.prompt, input),
+    prompt: buildMetaphysicsPrompt(result.prompt, input, 'qizheng'),
     fullResult: result,
   });
 }
@@ -2099,7 +2270,7 @@ function buildBaziCompatibilityPromptApi(input: JsonRecord) {
       person2Name: readString(input, 'person2Name', ''),
     },
   );
-  const prompt = [`【角色与总则】\n${promptParts.system}`, promptParts.user].join('\n\n');
+  const prompt = [promptParts.system, promptParts.user].filter(Boolean).join('\n\n');
   return buildPromptApiResult({
     responseMode: readPromptResponseMode(input),
     prompt,
@@ -2339,7 +2510,13 @@ function calculateLiuyao(input: JsonRecord) {
 function calculateQimen(input: JsonRecord) {
   assertNoRandomOptions(input, '奇门遁甲是确定性排盘，不接受 seed 或 replay。');
   const method = readEnum(input, 'qimenMethod', ['zhuanpan', 'feipan'], 'zhuanpan');
-  return generateQimen(readCustomDate(input), method as 'zhuanpan' | 'feipan');
+  const juMethod = readEnum(input, 'qimenJuMethod', ['chaibu', 'zhirun'], 'chaibu');
+  return generateQimen(
+    readCustomDate(input),
+    method as 'zhuanpan' | 'feipan',
+    'hour',
+    juMethod as 'chaibu' | 'zhirun',
+  );
 }
 
 function calculateQimenApi(input: JsonRecord) {
@@ -2732,22 +2909,23 @@ function buildPromptApiResult(params: {
   fullResult: unknown;
   resultSummary?: unknown;
 }) {
+  const prompt = appendTraditionalResearchNotice(params.prompt);
   if (params.responseMode === 'prompt-only') {
-    return { prompt: params.prompt };
+    return { prompt };
   }
 
   if (params.responseMode === 'full') {
     return {
       result: params.fullResult,
       ...(params.summary === undefined ? {} : { summary: params.summary }),
-      prompt: params.prompt,
+      prompt,
     };
   }
 
   return {
     ...(params.resultSummary === undefined ? {} : { resultSummary: params.resultSummary }),
     ...(params.summary === undefined ? {} : { summary: params.summary }),
-    prompt: params.prompt,
+    prompt,
   };
 }
 

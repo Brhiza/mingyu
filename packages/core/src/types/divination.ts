@@ -489,6 +489,8 @@ export interface QimenData {
   method?: 'zhuanpan' | 'feipan';
   /** 排盘级别：hour=时家, day=日家, month=月家, year=年家 */
   scope?: QimenScope;
+  /** 定局方法：chaibu=拆补法（默认），zhirun=置闰法。仅时家/日家生效。 */
+  juMethod?: 'chaibu' | 'zhirun';
   /** 九宫格完整数据（1-9宫） */
   jiuGongGe: QimenJiuGongGe[];
   /** 四柱干支（年/月/日/时） */

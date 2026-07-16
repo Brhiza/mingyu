@@ -163,6 +163,14 @@
       "import": "./dist/qi_zheng/index.js",
       "types": "./dist/qi_zheng/index.d.ts"
     },
+    "./xuankong": {
+      "import": "./dist/xuan_kong/index.js",
+      "types": "./dist/xuan_kong/index.d.ts"
+    },
+    "./residential-fengshui": {
+      "import": "./dist/residential_fengshui/index.js",
+      "types": "./dist/residential_fengshui/index.d.ts"
+    },
     "./types": {
       "import": "./dist/types/index.js",
       "types": "./dist/types/index.d.ts"

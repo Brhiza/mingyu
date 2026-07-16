@@ -74,18 +74,15 @@ function assertAdvancedEvidenceReferences(evidence: AdvancedEvidence) {
   assertPromptIsPortableTaskText(evidence.promptText);
 }
 
-test('星盘本命分析对象只写入长期结构边界', () => {
+test('星盘本命分析对象只写入本命资料', () => {
   const context = buildAstrolabeScopeContext(astrolabeData, 'natal', '2028-06-01');
 
   assert.equal(context.displayText, '仅使用本命信息');
   assert.equal(context.dateStr, '');
   assert.match(context.promptText, /分析对象：本命盘。/);
-  assert.match(context.promptText, /本命宫主星链条：第1宫/);
-  assert.match(context.promptText, /宫主星链条只用于定位议题落点/);
-  assert.match(context.promptText, /不得自行指定流年、流月、流日或具体应期/);
-  assert.match(context.promptText, /资料范围：以本命盘结构、本命宫主星链条/);
-  assert.doesNotMatch(context.promptText, /不包含太阳返照、次限推进、太阳弧/);
-  assert.doesNotMatch(context.promptText, /行运落宫提示：/);
+  assert.match(context.promptText, /本命宫主星：第1宫/);
+  assert.doesNotMatch(context.promptText, /不得|资料范围|时间边界|证据/);
+  assert.doesNotMatch(context.promptText, /行运落宫：/);
 });
 
 test('星盘完整输出版显示完整行运资料摘要', () => {
@@ -95,7 +92,7 @@ test('星盘完整输出版显示完整行运资料摘要', () => {
   assert.equal(context.displayText, '本命盘与完整行运资料');
   assert.equal(context.dateStr, '');
   assert.match(context.promptText, /分析对象：本命盘与完整行运资料。/);
-  assert.match(context.promptText, /本命宫主星链条：第1宫/);
+  assert.match(context.promptText, /本命宫主星：第1宫/);
 });
 
 test('星盘流年分析对象会生成行运证据和展示文本', () => {
@@ -105,22 +102,14 @@ test('星盘流年分析对象会生成行运证据和展示文本', () => {
   assert.equal(context.dateStr, '2028');
   assert.match(context.promptText, /分析对象：流年2028。/);
   assert.match(context.promptText, /取样时间：2028-07-01 12:00/);
-  assert.match(context.promptText, /本命宫主星链条：第1宫/);
-  assert.match(context.promptText, /行运证据：/);
-  assert.match(context.promptText, /行运落宫提示：/);
-  assert.match(context.promptText, /太阳返照证据：/);
-  assert.match(context.promptText, /搜索方法：粗搜步长2小时、二分细化至1分钟内/);
-  assert.match(context.promptText, /太阳黄经残差\d+\.\d{4}°/);
-  assert.match(context.promptText, /天文时间尺度：当地钟表时间/);
-  assert.match(context.promptText, /JD\(UTC\)=/);
-  assert.match(context.promptText, /ΔT≈/);
-  assert.match(context.promptText, /不代表底层星历达到观测级精度/);
-  assert.match(context.promptText, /次限证据（一岁一日）：/);
-  assert.match(context.promptText, /太阳弧证据：/);
+  assert.match(context.promptText, /本命宫主星：第1宫/);
+  assert.match(context.promptText, /主要行运相位：/);
+  assert.match(context.promptText, /行运落宫：/);
+  assert.match(context.promptText, /太阳返照：/);
+  assert.match(context.promptText, /次限推进：/);
+  assert.match(context.promptText, /太阳弧：/);
   assert.match(context.promptText, /落本命第\d+宫/);
-  assert.doesNotMatch(context.promptText, /不包含太阳返照、次限推进、太阳弧/);
-  assert.doesNotMatch(context.promptText, /未计算|技术限制|当前项目/);
-  assert.match(context.promptText, /时间边界：本命盘只定长期结构/);
+  assert.doesNotMatch(context.promptText, /计算链|证据汇总|解释限制|时间边界|不得|不代表/);
   assert.equal(context.solarReturnEvidence?.status, 'exact');
   assert.equal(context.secondaryProgressionEvidence?.status, 'calculated');
   assert.equal(context.solarArcEvidence?.status, 'calculated');
@@ -232,7 +221,7 @@ test('高级时限不可用与出生前目标年应返回可追溯的缺口或�
   });
 });
 
-test('星盘流月与流日沿用同一选择器语义并写明应期层级', () => {
+test('星盘流月与流日沿用同一选择器语义并写入对应行运资料', () => {
   const monthContext = buildAstrolabeScopeContext(astrolabeData, 'monthly', '2028-06');
   const dayContext = buildAstrolabeScopeContext(astrolabeData, 'daily', '2028-06-12');
 
@@ -240,10 +229,11 @@ test('星盘流月与流日沿用同一选择器语义并写明应期层级', ()
   assert.equal(dayContext.displayText, '流日 · 2028-06-12');
   assert.match(monthContext.promptText, /分析对象：流月2028-06。/);
   assert.match(dayContext.promptText, /分析对象：流日2028-06-12。/);
-  assert.match(monthContext.promptText, /行运落宫提示：/);
-  assert.match(dayContext.promptText, /行运落宫提示：/);
-  assert.match(monthContext.promptText, /所选流年、流月或流日只作为当前阶段触发与应期参考/);
-  assert.match(dayContext.promptText, /不能把没有行运证据支持的年份、月份或日期硬说成确定应期/);
+  assert.match(monthContext.promptText, /主要行运相位：/);
+  assert.match(dayContext.promptText, /主要行运相位：/);
+  assert.match(monthContext.promptText, /行运落宫：/);
+  assert.match(dayContext.promptText, /行运落宫：/);
+  assert.doesNotMatch(`${monthContext.promptText}\n${dayContext.promptText}`, /不得|时间边界|证据/);
 });
 
 test('星盘范围日期不存在时不应夹到另一天', () => {
@@ -280,7 +270,7 @@ test('星盘资料缺少经度时应退回保守提示而不是报错', () => {
 
   assert.equal(context.displayText, '流日 · 2028-06-12');
   assert.match(context.promptText, /本命点经度资料不足/);
-  assert.match(context.promptText, /行运落宫提示：/);
+  assert.match(context.promptText, /行运落宫：/);
   assert.match(context.promptText, /落本命第\d+宫/);
   assert.doesNotThrow(() => buildAstrolabeScopeContext(incompleteData, 'daily', '2028-06-12'));
 });
@@ -295,6 +285,6 @@ test('星盘资料缺少宫头经度时应禁止行运落宫证据', () => {
   } satisfies AstrolabeData;
   const context = buildAstrolabeScopeContext(incompleteData, 'daily', '2028-06-12');
 
-  assert.match(context.promptText, /行运落宫提示：本命宫头资料不足/);
+  assert.match(context.promptText, /行运落宫：本命宫头资料不足/);
   assert.doesNotThrow(() => buildAstrolabeScopeContext(incompleteData, 'daily', '2028-06-12'));
 });

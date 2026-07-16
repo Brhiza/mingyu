@@ -347,7 +347,7 @@ export function getDivinationSummaryBlocks(
           `起因：${meaning(xiaoliuren.sequence.start.name) ?? conditionXiaoliurenTraditionalText(xiaoliuren.sequence.start.meaning)}`,
           `过程：${meaning(xiaoliuren.sequence.process.name) ?? conditionXiaoliurenTraditionalText(xiaoliuren.sequence.process.meaning)}`,
           `结果：${meaning(xiaoliuren.sequence.result.name) ?? conditionXiaoliurenTraditionalText(xiaoliuren.sequence.result.meaning)}`,
-          `提醒（传统宫义、非事实结论）：${conditionXiaoliurenTraditionalText(xiaoliuren.questionHint)}`,
+          `提醒：${conditionXiaoliurenTraditionalText(xiaoliuren.questionHint)}`,
         ].filter(Boolean),
       };
     }

@@ -39,6 +39,8 @@ export * as bazhai from './ba_zhai/index';
 export * as zodiac from './zodiac/index';
 export * as taiyi from './taiyi/index';
 export * as qizheng from './qi_zheng/index';
+export * as xuankong from './xuan_kong/index';
+export * as residentialFengshui from './residential_fengshui/index';
 
 // 全局配置
 export { configure } from './calendar/timeManager';

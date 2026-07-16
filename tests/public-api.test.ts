@@ -13,7 +13,8 @@ import { baziCalculator } from '@core/bazi/baziCalculator';
 import { calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { generateQimen } from 'mingyu-core/divination/qimen';
-import { assertPromptIsPortableTaskText } from './prompt-assertions';
+import { assertPromptHasSingleRole, assertPromptIsPortableTaskText } from './prompt-assertions';
+import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../src/lib/prompt-guidance';
 
 async function callApi(path: string, init?: RequestInit) {
   const request = new Request(`https://aov.cc/api/v1/${path}`, init);
@@ -202,10 +203,13 @@ test('公开 API 八字双盘应返回交叉证据与完整提示词', async () 
   });
 
   assert.equal(prompted.response.status, 200);
-  assert.match(prompted.body.data.prompt, /【角色与总则】/);
-  assert.match(prompted.body.data.prompt, /【八字双盘结构化证据】/);
+  assert.match(prompted.body.data.prompt, /【双盘关系资料】/);
   assert.match(prompted.body.data.prompt, /请分析双方是否适合长期合作/);
   assert.match(prompted.body.data.prompt, /甲方.*乙方/);
+  assert.doesNotMatch(
+    prompted.body.data.prompt,
+    /【角色与总则】|结构化证据|证据汇总|解释边界|计算链/,
+  );
   assertPromptIsPortableTaskText(prompted.body.data.prompt);
 });
 
@@ -1139,10 +1143,12 @@ test('公开 API 八字提示词接口默认返回轻量摘要和提示词', asy
   assert.equal(body.data.resultSummary.gender, 'male');
   assert.equal(body.data.resultSummary.liunian, undefined);
   const prompt = body.data.prompt;
+  assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.bazi);
   assert.match(prompt, /【排盘信息】/);
-  assert.match(prompt, /【八字本命四柱与核心判断结构化证据】/);
-  assert.match(prompt, /证据汇总：八字本命证据状态为证据链完整/);
+  assert.match(prompt, /核心判断依据/);
+  assert.match(prompt, /【四柱】/);
   assert.match(prompt, /我适合创业还是上班/);
+  assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界|计算链/);
   assertPromptIsPortableTaskText(prompt);
 });
 
@@ -1231,14 +1237,12 @@ test('公开 API 应支持八字紫微合参提示词', async () => {
   assert.equal(body.data.result, undefined);
   assert.equal(body.data.resultSummary.bazi.gender, 'female');
   assert.equal(body.data.resultSummary.ziwei.scopeNames.includes('yearly'), true);
+  assertPromptHasSingleRole(body.data.prompt, PROMPT_ROLE_TEXT['bazi-ziwei']);
   assert.match(body.data.prompt, /【八字排盘信息】/);
   assert.match(body.data.prompt, /【紫微盘面信息】/);
   assert.match(body.data.prompt, /【任务】/);
-  assert.match(body.data.prompt, /结论总览/);
-  assert.match(body.data.prompt, /八字主线/);
-  assert.match(body.data.prompt, /紫微校验/);
-  assert.match(body.data.prompt, /应期触发/);
   assert.match(body.data.prompt, /我现在适合换工作还是继续等待/);
+  assert.doesNotMatch(body.data.prompt, /结构化证据|证据汇总|解释边界|计算链/);
   assertPromptIsPortableTaskText(body.data.prompt);
 });
 
@@ -1325,10 +1329,8 @@ test('八字公开 API prompt builder 空问题走通用问题，不复用本地
   });
 
   assert.match(prompt, /【问题】\n请先做整体解读。/);
-  assert.match(
-    prompt,
-    /【任务】\n主题范围：事业。请围绕【问题】和该主题范围直接判断重点；若【问题】未限定具体事项，按通用八字口径先做整体分析，再结合该主题提示重点。/,
-  );
+  assert.match(prompt, /【任务】\n请重点分析事业，并直接回答【问题】。/);
+  assert.doesNotMatch(prompt, /若【问题】|按通用.*口径|问题未限定/);
   assert.doesNotMatch(prompt, /【问题】\n判断命局更适合守成/);
   assert.doesNotMatch(prompt, /【任务】\n判断命局更适合守成/);
 });
@@ -1363,9 +1365,10 @@ test('八字公开 API 不同主题只切换范围，空问题仍使用通用任
     assert.match(prompt, /【问题】\n请先做整体解读。/, `${topic} 应使用通用默认问题`);
     assert.match(
       prompt,
-      /【任务】\n主题范围：[^。]+。请围绕【问题】和该主题范围直接判断重点；若【问题】未限定具体事项，按通用八字口径先做整体分析，再结合该主题提示重点。/,
+      /【任务】\n请重点分析[^，]+，并直接回答【问题】。/,
       `${topic} 应只把主题作为范围`,
     );
+    assert.doesNotMatch(prompt, /若【问题】|按通用.*口径|问题未限定/);
   }
 });
 
@@ -1394,7 +1397,7 @@ test('八字公开 API 提示词支持完整输出版命限范围', () => {
   assert.doesNotMatch(prompt, /详细命限资料|资料量|聚焦当前分析对象/);
 });
 
-test('公开 API 八字年限提示词返回逐层岁运触发结构化证据', async () => {
+test('公开 API 八字年限提示词保留岁运资料但不拼接工程证据话术', async () => {
   const { response, body } = await callApi('bazi/prompt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1449,9 +1452,10 @@ test('公开 API 八字年限提示词返回逐层岁运触发结构化证据', 
     triggerEvidence.limitationFacts.some((item: { type: string }) => item.type === '层级应期边界'),
   );
   assertEvidenceOwnerReferences(triggerEvidence);
-  assert.match(body.data.prompt, /【八字岁运触发结构化证据】/);
-  assert.match(body.data.prompt, /岁运触发解释边界/);
-  assert.match(body.data.prompt, /未见主要关系不等于没有较弱关系/);
+  assert.match(body.data.prompt, /【分析对象】/);
+  assert.match(body.data.prompt, /【岁运重点】/);
+  assert.match(body.data.prompt, /这一年的事业触发有哪些/);
+  assert.doesNotMatch(body.data.prompt, /结构化证据|证据汇总|解释边界|计算链/);
 });
 
 test('公开 API 八字自定义提示词不强塞专项框架', async () => {
@@ -1503,6 +1507,7 @@ test('公开 API 紫微提示词接口默认返回轻量摘要和提示词', asy
   assert.deepEqual(body.data.resultSummary.scopeNames, ['origin']);
   assert.equal(body.data.resultSummary.activeScopes.origin.active_scope.scope, 'origin');
   const prompt = body.data.prompt;
+  assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.ziwei);
   assert.match(prompt, /【问题】/);
   assert.match(prompt, /我的感情关系要注意什么/);
   assertPromptIsPortableTaskText(prompt);
@@ -1600,9 +1605,13 @@ test('公开 API 紫微双盘返回宫位叠盘、四化证据并保留双方称
   assert.equal(prompted.body.data.resultSummary.key, 'ziwei:compatibility:evidence');
   assert.equal(prompted.body.data.resultSummary.summaryFact.palaceOverlayCount > 0, true);
   assert.match(prompted.body.data.prompt, /【甲方盘面】/);
-  assert.match(prompted.body.data.prompt, /【紫微双盘结构化证据】/);
-  assert.match(prompted.body.data.prompt, /同处.*支轴位.*边界：宫位叠盘只证明/s);
+  assert.match(prompted.body.data.prompt, /【双盘关系资料】/);
+  assert.match(prompted.body.data.prompt, /宫位对应：/);
   assert.match(prompted.body.data.prompt, /双方长期合作关系应注意什么/);
+  assert.doesNotMatch(
+    prompted.body.data.prompt,
+    /结构化证据|证据汇总|解释边界|计算链|边界：宫位叠盘/,
+  );
   assert.doesNotMatch(prompted.body.data.prompt, /匹配总分：/);
 });
 
@@ -1635,8 +1644,9 @@ test('公开 API 紫微提示词接口只生成所需范围，避免线上函数
   assertEvidenceOwnerReferences(body.data.resultSummary.patternEvidenceByScope.yearly);
   const prompt = body.data.prompt;
   assert.match(prompt, /分析范围：流年/);
-  assert.match(prompt, /【证据汇总】/);
+  assert.match(prompt, /【重点宫位】/);
   assert.match(prompt, /【任务】/);
+  assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界|计算链/);
   assertPromptIsPortableTaskText(prompt);
 });
 
@@ -1722,7 +1732,8 @@ test('紫微公开 API prompt builder 空问题走通用问题，主题只作为
 
   assert.match(prompt, /分析主题：事业财运/);
   assert.match(prompt, /【问题】\n请先做整体解读。/);
-  assert.match(prompt, /若【问题】已限定主题，只把主题作为回答范围，不额外套用固定题目/);
+  assert.match(prompt, /【任务】/);
+  assert.doesNotMatch(prompt, /主题只作为|不额外套用|解读方法|推断顺序/);
 });
 
 test('紫微公开 API 工作变动主题只切换范围，不补固定问题', async () => {
@@ -1749,8 +1760,8 @@ test('紫微公开 API 工作变动主题只切换范围，不补固定问题', 
 
   assert.match(prompt, /分析主题：工作变动/);
   assert.match(prompt, /【问题】\n请先做整体解读。/);
-  assert.match(prompt, /主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/);
-  assert.match(prompt, /若【问题】已限定主题，只把主题作为回答范围，不额外套用固定题目/);
+  assert.match(prompt, /【任务】/);
+  assert.doesNotMatch(prompt, /主题只作为|不额外套用|解读方法|推断顺序/);
   assert.doesNotMatch(prompt, /重点参考宫位：官禄宫、迁移宫、财帛宫、命宫/);
 });
 
@@ -1774,13 +1785,9 @@ test('公开 API 紫微未指定方向时应默认走综合框架而不是自由
   assert.equal(body.ok, true);
   assert.match(body.data.prompt, /【分析背景】/);
   assert.match(body.data.prompt, /分析主题：人生解析/);
-  assert.match(
-    body.data.prompt,
-    /若【问题】未限定主题，按通用口径处理；若【问题】已限定主题，只把主题作为问题范围/,
-  );
   assert.match(body.data.prompt, /【重点宫位】/);
   assert.match(body.data.prompt, /【输出要求】/);
-  assert.doesNotMatch(body.data.prompt, /自由问答先判断问题落在哪些宫位/);
+  assert.doesNotMatch(body.data.prompt, /主题只作为|自由问答|解读方法|推断顺序/);
 });
 
 test('公开 API 紫微排盘应支持真太阳时精确时分和经度', async () => {
@@ -1844,9 +1851,9 @@ test('公开 API 紫微排盘应支持真太阳时精确时分和经度', async 
   });
   assert.equal(promptResult.response.status, 200);
   assert.equal(promptResult.body.data.result.trueSolarEvidence.status, '已计算');
-  assert.match(promptResult.body.data.prompt, /【出生时间校正证据】/);
-  assert.match(promptResult.body.data.prompt, /计算步骤：/);
-  assert.match(promptResult.body.data.prompt, /不生成候选时辰、敏感性结果或缺时柱命盘/);
+  assert.match(promptResult.body.data.prompt, /【出生时间校正】/);
+  assert.match(promptResult.body.data.prompt, /真太阳时/);
+  assert.doesNotMatch(promptResult.body.data.prompt, /计算步骤：|候选时辰|敏感性结果|缺时柱命盘/);
 });
 
 test('公开 API 紫微排盘接口支持按需返回指定范围', async () => {
@@ -2300,9 +2307,13 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
     }),
   });
   assert.equal(tarotPromptResponse.response.status, 200);
-  assert.match(tarotPromptResponse.body.data.prompt, /计算链/);
-  assert.match(tarotPromptResponse.body.data.prompt, /证据汇总/);
-  assert.match(tarotPromptResponse.body.data.prompt, /解释限制|解释边界/);
+  assert.match(tarotPromptResponse.body.data.prompt, /占法：塔罗/);
+  assert.match(tarotPromptResponse.body.data.prompt, /核心结构：牌阵/);
+  assert.match(tarotPromptResponse.body.data.prompt, /正位|逆位/);
+  assert.doesNotMatch(
+    tarotPromptResponse.body.data.prompt,
+    /结构化证据|计算链|证据汇总|解释限制|解释边界/,
+  );
   assertPromptIsPortableTaskText(tarotPromptResponse.body.data.prompt);
   assert.doesNotMatch(JSON.stringify(body.data), /成功率为\d|吉凶总分[：=]\d|能量分数[：=]\d/);
 });
@@ -2451,9 +2462,13 @@ test('公开 API 雷诺曼接口应分层返回组合与布局证据', async () 
     }),
   });
   assert.equal(lenormandPromptResponse.response.status, 200);
-  assert.match(lenormandPromptResponse.body.data.prompt, /计算链/);
-  assert.match(lenormandPromptResponse.body.data.prompt, /证据汇总/);
-  assert.match(lenormandPromptResponse.body.data.prompt, /解释限制|解释边界/);
+  assert.match(lenormandPromptResponse.body.data.prompt, /占法：雷诺曼/);
+  assert.match(lenormandPromptResponse.body.data.prompt, /牌位顺序：/);
+  assert.match(lenormandPromptResponse.body.data.prompt, /牌位明细：/);
+  assert.doesNotMatch(
+    lenormandPromptResponse.body.data.prompt,
+    /结构化证据|计算链|证据汇总|解释限制|解释边界/,
+  );
   assertPromptIsPortableTaskText(lenormandPromptResponse.body.data.prompt);
   assert.doesNotMatch(JSON.stringify(body.data), /成功率提升至|吉凶总分[：=]\d/);
 });
@@ -2569,10 +2584,10 @@ test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏
     }),
   });
   assert.equal(prompt.response.status, 200);
-  assert.match(prompt.body.data.prompt, /三山国王灵签文本与仪式结构化证据/);
-  assert.match(prompt.body.data.prompt, /计算链/);
-  assert.match(prompt.body.data.prompt, /证据汇总/);
-  assert.match(prompt.body.data.prompt, /解释限制|解释边界/);
+  assert.match(prompt.body.data.prompt, /占法：三山国王灵签/);
+  assert.match(prompt.body.data.prompt, /签号：|签题：/);
+  assert.match(prompt.body.data.prompt, /签诗：/);
+  assert.doesNotMatch(prompt.body.data.prompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
   assert.doesNotMatch(
     prompt.body.data.prompt,
     /项目模拟|项目资料|按项目仪式规则|命语|本项目|项目统一|工程|算法结果/,
@@ -2609,7 +2624,7 @@ test('公开 API 灵签应返回文本仪式证据，并在阴杯拒签时隐藏
   assert.equal(rejectedPrompt.body.data.result.poem, undefined);
   assert.equal(rejectedPrompt.body.data.result.details, undefined);
   assert.doesNotMatch(rejectedPrompt.body.data.prompt, /签诗：/);
-  assert.match(rejectedPrompt.body.data.prompt, /本次没有形成可解释签文/);
+  assert.match(rejectedPrompt.body.data.prompt, /连续三次阴杯.*拒绝起签/);
 });
 
 test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', async () => {
@@ -3307,10 +3322,13 @@ test('公开 API 奇门与小六壬应期应返回条件证据，不返回伪精
     }),
   });
   assert.equal(xiaoliurenPrompt.response.status, 200);
-  assert.match(xiaoliurenPrompt.body.data.prompt, /【小六壬三宫推进结构化证据】/);
-  assert.match(
+  assert.match(xiaoliurenPrompt.body.data.prompt, /占法：小六壬/);
+  assert.match(xiaoliurenPrompt.body.data.prompt, /起因：/);
+  assert.match(xiaoliurenPrompt.body.data.prompt, /过程：/);
+  assert.match(xiaoliurenPrompt.body.data.prompt, /结果：/);
+  assert.doesNotMatch(
     xiaoliurenPrompt.body.data.prompt,
-    /小六壬计算链[\s\S]*小六壬证据汇总[\s\S]*小六壬解释边界/,
+    /结构化证据|计算链|证据汇总|解释限制|解释边界/,
   );
   assert.doesNotMatch(
     xiaoliurenPrompt.body.data.prompt,
@@ -3710,7 +3728,7 @@ test('公开 API 西占双盘应返回跨盘相位、落宫和结构化证据', 
   assert.ok(synastry.evidence.items.some((item: { level: string }) => item.level === '限制'));
 });
 
-test('公开 API 西占双盘提示词应携带双方本命盘与可复核证据', async () => {
+test('公开 API 西占双盘提示词应携带双方本命盘与简明任务', async () => {
   const { response, body } = await callApi('divination/astrolabe/synastry/prompt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -3752,15 +3770,16 @@ test('公开 API 西占双盘提示词应携带双方本命盘与可复核证据
   assert.equal(body.data.resultSummary.counterEvidenceFacts.length, 4);
   assert.equal(body.data.resultSummary.limitationFacts.length, 6);
   assert.ok(body.data.resultSummary.summaryFact.returnedAspectCount > 0);
+  assertPromptHasSingleRole(body.data.prompt, PROMPT_ROLE_TEXT['astrolabe-synastry']);
   assert.match(body.data.prompt, /【第一人本命盘】/);
   assert.match(body.data.prompt, /【第二人本命盘】/);
-  assert.match(body.data.prompt, /【西占双盘结构化证据】/);
-  assert.match(
-    body.data.prompt,
-    /实际夹角\d+\.\d{4}°，距(?:合相|六合|刑相|拱相|冲相)精确角\d+°偏差\d+\.\d{4}°，进入允许容许度\d+(?:\.\d+)?°，属于(?:紧密|中等|宽松)等级/,
-  );
+  assert.match(body.data.prompt, /【跨盘相位】/);
+  assert.match(body.data.prompt, /实际夹角\d+\.\d{2}°，容许度\d+\.\d{2}°，(?:紧密|中等|宽松)/);
+  assert.match(body.data.prompt, /【跨盘落宫】/);
   assert.doesNotMatch(body.data.prompt, /强度\d+%|匹配率\d+%/);
-  assert.match(body.data.prompt, /不得输出缺乏统一依据的关系匹配总分/);
+  assert.match(body.data.prompt, /分析互动主轴、互补点、张力点与现实触发条件/);
+  assert.doesNotMatch(body.data.prompt, /不得输出|不得编造|只依据/);
+  assert.doesNotMatch(body.data.prompt, /结构化证据|计算链概览|证据汇总|解释限制/);
   assert.doesNotMatch(body.data.prompt, /本项目|项目统一|工程|接口|API|MCP|astrolabe:synastry:/);
   assertPromptIsPortableTaskText(body.data.prompt);
 });
@@ -3780,14 +3799,15 @@ test('公开 API 黄历择日提示词不强制填写问题', async () => {
   assert.equal(body.ok, true);
   assert.match(body.data.prompt, /【占卜信息】/);
   assert.match(body.data.prompt, /【任务】/);
-  assert.match(body.data.prompt, /【黄历择日透明约束与候选证据】/);
+  assert.match(body.data.prompt, /占法：黄历择日/);
+  assert.match(body.data.prompt, /候选日期明细：/);
   assert.doesNotMatch(body.data.prompt, /评分[：=]?\d|（\d+分|成功率[：=]?\d/);
   assert.doesNotMatch(
     body.data.prompt,
     /主疾病|主死丧|主灾病死亡|主哭泣死亡|必见灾殃|毒气入肠|大凶|辅助加分/,
   );
   assert.doesNotMatch(body.data.prompt, /【问题】/);
-  assert.match(body.data.prompt, /先直接给出首选日期、备选日期与慎用日期/);
+  assert.match(body.data.prompt, /给出首选日期、备选日期和慎用日期/);
   assert.doesNotMatch(body.data.prompt, /先直接回答【问题】/);
 });
 
@@ -4168,7 +4188,12 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     }),
   });
   assert.equal(prompt.response.status, 200);
-  assert.match(prompt.body.data.prompt, /【梅花体用阶段推进结构化证据】/);
+  assert.match(prompt.body.data.prompt, /占法：梅花易数/);
+  assert.match(prompt.body.data.prompt, /核心结构：主卦/);
+  assert.match(prompt.body.data.prompt, /互卦/);
+  assert.match(prompt.body.data.prompt, /变卦/);
+  assert.match(prompt.body.data.prompt, /体用：/);
+  assert.doesNotMatch(prompt.body.data.prompt, /结构化证据|计算链|证据汇总|解释边界/);
   assert.doesNotMatch(prompt.body.data.prompt, /妇三岁不孕|焚如，死如|至于八月有凶/);
   assert.doesNotMatch(prompt.body.data.prompt, /体用评分：|类象权重：|\d+日内|\d+月左右/);
 });
@@ -4186,9 +4211,9 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
 
   assert.equal(liuyao.response.status, 200);
   assert.equal(liuyao.body.ok, true);
-  assert.match(liuyao.body.data.prompt, /【断卦要点】/);
-  assert.match(liuyao.body.data.prompt, /断卦类型：鬼神怪异/);
+  assert.match(liuyao.body.data.prompt, /【问题范围】\n鬼神怪异/);
   assert.doesNotMatch(liuyao.body.data.prompt, /鬼神怪异：以官鬼为取用参考|官鬼与子孙制鬼/);
+  assert.doesNotMatch(liuyao.body.data.prompt, /断卦要点|取证顺序|回答口径|证据边界/);
 
   const liuren = await callApi('divination/liuren/prompt', {
     method: 'POST',
@@ -4202,11 +4227,12 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
 
   assert.equal(liuren.response.status, 200);
   assert.equal(liuren.body.ok, true);
-  assert.match(liuren.body.data.prompt, /【断课要点】/);
-  assert.match(liuren.body.data.prompt, /断课类型：事业断课/);
-  assert.match(liuren.body.data.prompt, /【大六壬四课取传与三传推进结构化证据】/);
+  assert.match(liuren.body.data.prompt, /【问题范围】\n事业工作/);
   assert.doesNotMatch(liuren.body.data.prompt, /取用候选：.*权重\d|吉凶总分[：=]?\d/);
-  assert.doesNotMatch(liuren.body.data.prompt, /【分析思路】/);
+  assert.doesNotMatch(
+    liuren.body.data.prompt,
+    /【分析思路】|断课要点|取证顺序|回答口径|证据边界|结构化证据/,
+  );
   assert.doesNotMatch(liuren.body.data.prompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
 
   const liurenChart = await callApi('divination/liuren', {
@@ -4400,13 +4426,11 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
   assert.ok(traditionalFacts.some((item) => item.kind === '课体'));
   assert.ok(traditionalFacts.some((item) => item.kind === '天将属性'));
   assert.ok(traditionalFacts.some((item) => item.kind === '神煞'));
-  assert.match(liuren.body.data.prompt, /取传规则事实：/);
-  assert.match(liuren.body.data.prompt, /类神焦点状态：/);
-  assert.match(liuren.body.data.prompt, /应期边界：未给期限时不换算唯一日期/);
-  assert.match(
-    liuren.body.data.prompt,
-    /大六壬计算链[\s\S]*大六壬证据汇总[\s\S]*大六壬课传解释边界/,
-  );
+  assert.match(liuren.body.data.prompt, /课传主线：/);
+  assert.match(liuren.body.data.prompt, /四课：/);
+  assert.match(liuren.body.data.prompt, /三传：/);
+  assert.match(liuren.body.data.prompt, /应期资料：/);
+  assert.doesNotMatch(liuren.body.data.prompt, /结构化证据|计算链|证据汇总|解释边界/);
   assert.doesNotMatch(liuren.body.data.prompt, /主婚姻|主官非|主疾病|主死丧|主虚而不实/);
 });
 
@@ -4623,6 +4647,7 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
+  assertPromptHasSingleRole(body.data.prompt, PROMPT_ROLE_TEXT.bazhai);
   assert.match(body.data.prompt, /【八宅风水排盘】/);
   assert.match(body.data.prompt, /【测量换算】/);
   assert.match(body.data.prompt, /站在大门处面向屋内/);
@@ -4756,17 +4781,14 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
     /命语|本项目|项目统一|调用方|当前调用|工程|接口|API|MCP/,
   );
   assertPromptIsPortableTaskText(body.data.result.evidenceAnalysis.promptText);
-  assert.match(body.data.prompt, /【八宅命宅方位与测量结构化证据】/);
-  assert.match(body.data.prompt, /证据汇总/);
-  assert.match(body.data.prompt, /解释限制/);
-  assert.match(body.data.prompt, /中心\d+°.*传统[吉凶]方分类/);
-  assert.match(body.data.prompt, /中心读数不能作为唯一宅卦主证/);
+  assert.match(body.data.prompt, /【八宅风水排盘】/);
+  assert.match(body.data.prompt, /【测量换算】/);
+  assert.match(body.data.prompt, /误差候选：/);
   assert.match(body.data.prompt, /【当前时间】/);
   assert.match(body.data.prompt, /【问题】\n住宅办公方位怎么安排？/);
   assert.match(body.data.prompt, /【任务】/);
   assert.match(body.data.prompt, /【输出要求】/);
-  assert.match(body.data.prompt, /主证、辅证、反证或限制/);
-  assert.match(body.data.prompt, /每个关键结论都要紧跟对应盘面依据/);
+  assert.doesNotMatch(body.data.prompt, /结构化证据|证据汇总|解释限制|计算链|主证、辅证、反证/);
 });
 
 test('公开 API 生肖流年应返回关系矩阵证据而不使用综合吉凶定级', async () => {
@@ -4876,12 +4898,33 @@ test('公开 API 生肖流年应返回关系矩阵证据而不使用综合吉凶
     body: JSON.stringify({ zodiac: '马', yearGanZhi: '庚子', question: '今年应注意什么？' }),
   });
   assert.equal(prompt.response.status, 200);
-  assert.match(prompt.body.data.prompt, /【生肖流年关系矩阵结构化证据】/);
-  assert.match(prompt.body.data.prompt, /逐项核验.*现实复核提示：.*边界：/s);
-  assert.match(prompt.body.data.prompt, /生肖只取出生年支/);
-  assert.match(prompt.body.data.prompt, /证据汇总/);
-  assert.match(prompt.body.data.prompt, /解释限制/);
+  assertPromptHasSingleRole(prompt.body.data.prompt, PROMPT_ROLE_TEXT.zodiac);
+  assert.match(prompt.body.data.prompt, /【生肖与流年关系简析】/);
+  assert.match(prompt.body.data.prompt, /干支关系：/);
+  assert.match(prompt.body.data.prompt, /犯太岁明细：/);
+  assert.match(prompt.body.data.prompt, /行动信号：/);
+  assert.doesNotMatch(prompt.body.data.prompt, /结构化证据|证据汇总|解释限制|计算链/);
   assert.doesNotMatch(prompt.body.data.prompt, /综合定级：|吉凶总分[：=]\d|成功率为\d/);
+});
+
+test('公开 API 生肖流年应返回三会关系但不并入贵人或吉凶数组', async () => {
+  const calculate = await callApi('metaphysics/zodiac/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ zodiac: '虎', yearGanZhi: '丁卯' }),
+  });
+  assert.equal(calculate.response.status, 200);
+  assert.equal(calculate.body.data.meeting, '三会关系（东方木）');
+  assert.equal(calculate.body.data.noble, null);
+  assert.ok(!calculate.body.data.favorableRelations.includes(calculate.body.data.meeting));
+  assert.ok(!calculate.body.data.riskRelations.includes(calculate.body.data.meeting));
+  assert.ok(
+    calculate.body.data.evidenceAnalysis.relations.some(
+      (item: { category: string; relation: string }) =>
+        item.category === '地支会合' && item.relation === '三会关系（东方木）',
+    ),
+  );
+  assert.match(calculate.body.data.evidenceAnalysis.promptText, /十二地支三会固定关系表/);
 });
 
 test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完整位置元数据', async () => {
@@ -5088,11 +5131,15 @@ test('公开 API 七政四余提示词应展示逐星来源、混合模型和输
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
-  assert.match(body.data.prompt, /【七政四余计算来源与证据分层】/);
+  assertPromptHasSingleRole(body.data.prompt, PROMPT_ROLE_TEXT.qizheng);
+  assert.match(body.data.prompt, /【七政四余 · 果老星宗】/);
+  assert.match(body.data.prompt, /计算上下文：/);
+  assert.match(body.data.prompt, /位置来源：/);
   assert.match(body.data.prompt, /地点来源默认北京坐标/);
   assert.match(body.data.prompt, /现代天文计算/);
   assert.match(body.data.prompt, /传统均速模型/);
   assert.match(body.data.prompt, /混合模型/);
+  assert.doesNotMatch(body.data.prompt, /结构化证据|证据汇总|解释限制|计算链概览/);
   assert.doesNotMatch(body.data.prompt, /强度\d+%/);
   body.data.result.aspects.forEach((aspect: { strength?: number }) => {
     assert.equal(aspect.strength, undefined);
@@ -5209,6 +5256,22 @@ test('公开 API 太乙应返回年计七十二局立成结果', async () => {
     /命语|本项目|项目统一|当前结果|工程|接口|API|MCP/,
   );
   assertPromptIsPortableTaskText(body.data.evidenceAnalysis.promptText);
+
+  const promptResponse = await callApi('metaphysics/taiyi/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      year: 2004,
+      scope: 'year',
+      question: '请分析这一年适合采取什么行动。',
+    }),
+  });
+  assert.equal(promptResponse.response.status, 200);
+  assertPromptHasSingleRole(promptResponse.body.data.prompt, PROMPT_ROLE_TEXT.taiyi);
+  assert.doesNotMatch(
+    promptResponse.body.data.prompt,
+    /系统提示词|回答中不要|取证顺序|证据边界|只依据|只基于/,
+  );
 });
 
 test('公开 API 太乙应支持月日时分四种计式', async () => {
@@ -5294,3 +5357,30 @@ test('公开 API 未知异常不应向调用方暴露内部错误细节', async 
     console.error = originalConsoleError;
   }
 });
+
+test('公开 API 住宅风水合参接口返回八宅与玄空分层结果', async () => {
+  const { response, body } = await callApi('metaphysics/residential/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      birthYear: 1990,
+      birthMonth: 5,
+      birthDay: 12,
+      gender: 'male',
+      year: 2024,
+      doorToInteriorDegree: 0,
+      responseMode: 'full',
+      question: '这套房怎么看？',
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.data.result.key, 'residential-fengshui');
+  assert.ok(body.data.result.bazhai);
+  assert.ok(body.data.result.xuankong);
+  assert.match(body.data.prompt, /【住宅风水排盘】/);
+  assert.match(body.data.prompt, /【传统判断规则】/);
+  assert.match(body.data.prompt, /这套房怎么看？/);
+});
+

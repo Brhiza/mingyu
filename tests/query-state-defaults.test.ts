@@ -5,9 +5,28 @@ import {
   buildResultSearch,
   defaultInputState,
   defaultPromptState,
+  hasCompletePreciseBirthData,
   parseInputState,
   parsePromptState,
 } from '../src/lib/query-state';
+
+test('精准出生资料必须包含真太阳时、时分、地点和经纬度', () => {
+  const complete = {
+    ...defaultInputState,
+    analysisMode: 'single' as const,
+    useTrueSolarTime: true,
+    birthHour: '0',
+    birthMinute: '0',
+    birthPlace: '北京',
+    birthLongitude: '116.4',
+    birthLatitude: '39.9',
+  };
+
+  assert.equal(hasCompletePreciseBirthData(complete), true);
+  assert.equal(hasCompletePreciseBirthData({ ...complete, birthMinute: '' }), false);
+  assert.equal(hasCompletePreciseBirthData({ ...complete, useTrueSolarTime: false }), false);
+  assert.equal(hasCompletePreciseBirthData({ ...complete, analysisMode: 'compatibility' }), false);
+});
 
 test('输入页默认状态不应预填生日与时辰', () => {
   assert.equal(defaultInputState.chartType, 'bazi');

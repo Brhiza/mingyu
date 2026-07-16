@@ -1,4 +1,4 @@
-import { SolarDay, SolarTime, type LunarDay } from 'tyme4ts';
+import { SolarDay, SolarTime } from 'tyme4ts';
 import { baziCalculator } from '../../bazi/baziCalculator';
 import { getBirthDateValidationMessage } from '../../calendar/date-validation';
 import { SHICHEN_PERIODS } from '../../calendar/dateUtils';
@@ -27,6 +27,17 @@ import type {
 } from '../../types/divination';
 
 type ScoredAlmanacHourCandidate = AlmanacHourCandidate & { score: number };
+
+interface AlmanacLunarHourSource {
+  getSixtyCycle(): { getName(): string };
+  getTwelveStar(): { getName(): string };
+  getRecommends(): Array<{ getName(): string }>;
+  getAvoids(): Array<{ getName(): string }>;
+}
+
+interface AlmanacLunarDaySource {
+  getHours(): AlmanacLunarHourSource[];
+}
 type ScoredAlmanacDayCandidate = Omit<AlmanacDayCandidate, 'hours' | 'bestHours'> & {
   score: number;
   hours?: ScoredAlmanacHourCandidate[];
@@ -998,7 +1009,7 @@ function scoreDay(params: {
 
 function buildHourCandidates(
   dateKey: string,
-  lunarDay: LunarDay,
+  lunarDay: AlmanacLunarDaySource,
   topic: AlmanacTopic,
   participants: AlmanacParticipantProfile[],
 ): ScoredAlmanacHourCandidate[] {

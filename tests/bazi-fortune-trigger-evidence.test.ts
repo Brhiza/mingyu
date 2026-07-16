@@ -20,6 +20,7 @@ function assertEvidenceReferences(result: ReturnType<typeof analyzeFortuneTrigge
     ...result.calculationSteps.map((item) => item.key),
     ...result.layers.map((item) => item.key),
     ...result.relations.map((item) => item.key),
+    ...result.formations.map((item) => item.key),
     ...result.counterEvidenceFacts.map((item) => item.key),
   ]);
   assert.ok(result.relationSummaryFact.factKeys.length > 0);
@@ -170,4 +171,60 @@ test('岁运触发证据应拒绝非法干支，避免生成伪证据', () => {
       ]),
     /岁运干支地支无效/,
   );
+});
+
+test('流年补齐原局缺支时应记录完整三合结构', () => {
+  const result = analyzeFortuneTriggers(createResult(), [
+    { id: 'year', type: 'year', label: '甲辰流年', ganZhi: '甲辰' },
+  ]);
+  const formation = result.formations.find((item) => item.type === 'branch-sanhe');
+
+  assert.ok(formation);
+  assert.equal(formation.group, '水局');
+  assert.deepEqual(formation.branches, ['申', '子', '辰']);
+  assert.equal(formation.triggerLayerKeys.length, 1);
+  assert.match(formation.label, /甲辰流年补全申子辰三合水局/);
+  assert.match(formation.interpretationLimit, /不等于已经成化/);
+  assert.equal(result.relationSummaryFact.formationCount, 1);
+  assertEvidenceReferences(result);
+});
+
+test('多个岁运层级共同补齐时应记录完整三会结构', () => {
+  const natal = createResult();
+  natal.pillars = {
+    year: { gan: '甲', zhi: '寅', ganZhi: '甲寅' },
+    month: { gan: '己', zhi: '丑', ganZhi: '己丑' },
+    day: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+    hour: { gan: '丁', zhi: '酉', ganZhi: '丁酉' },
+  };
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'dayun', type: 'dayun', label: '乙卯大运', ganZhi: '乙卯' },
+    { id: 'year', type: 'year', label: '庚辰流年', ganZhi: '庚辰' },
+  ]);
+  const formation = result.formations.find(
+    (item) => item.type === 'branch-sanhui' && item.group === '东方木',
+  );
+
+  assert.ok(formation);
+  assert.deepEqual(formation.triggerLayerKeys, [
+    'bazi:fortune-trigger:layer:dayun:dayun',
+    'bazi:fortune-trigger:layer:year:year',
+  ]);
+  assert.match(formation.label, /乙卯大运、庚辰流年共同补全寅卯辰东方木三会/);
+  assertEvidenceReferences(result);
+});
+
+test('原局已经完整成局时不应重复报告为岁运补全', () => {
+  const natal = createResult();
+  natal.pillars.month = { gan: '戊', zhi: '辰', ganZhi: '戊辰' };
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'year', type: 'year', label: '乙巳流年', ganZhi: '乙巳' },
+  ]);
+
+  assert.equal(
+    result.formations.some((item) => item.type === 'branch-sanhe' && item.group === '水局'),
+    false,
+  );
+  assert.equal(result.relationSummaryFact.formationCount, 0);
+  assertEvidenceReferences(result);
 });

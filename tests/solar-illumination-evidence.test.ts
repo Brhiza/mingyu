@@ -216,7 +216,8 @@ test('西占与七政四余应附带地点相关光照证据而不生成吉凶�
 
   assert.equal(astrolabe.solarIllumination.sunriseSunset.status, '正常交点');
   assert.equal(qizheng.calculationContext.solarIllumination.sunriseSunset.status, '正常交点');
-  assert.match(qizheng.prompt, /太阳光照证据：/);
+  assert.match(qizheng.prompt, /出生时刻光照：太阳高度.+方位角.+视太阳正午/);
   assert.match(qizheng.evidenceAnalysis.methodology.join(''), /不直接生成庙旺或吉凶结论/);
   assert.doesNotMatch(qizheng.prompt, /光照吉凶|日出成功率|太阳高度评分/);
+  assert.doesNotMatch(qizheng.prompt, /太阳光照证据|结构化证据|计算链|解释限制/);
 });

@@ -6,7 +6,7 @@ import { getBranchWuxing, getStemWuxing } from '../ganzhi';
 export interface ZodiacRelationEvidence {
   key: string;
   status: '已命中';
-  category: '流年同支' | '地支冲突' | '地支助缘' | '年干五行';
+  category: '流年同支' | '地支冲突' | '地支助缘' | '地支会合' | '年干五行';
   relation: string;
   source: string;
   sources: string[];
@@ -32,13 +32,13 @@ export interface ZodiacCalculationStep {
 
 export interface ZodiacCounterEvidenceFact {
   key: string;
-  type: '太岁关系覆盖' | '三合六合覆盖' | '生肖信息量';
+  type: '太岁关系覆盖' | '三合六合三会覆盖' | '生肖信息量';
   status: '有可用证据' | '未命中' | '固有限制';
   ownerRelationKeys: string[];
   ownerFactKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '反证事实只记录值、冲、刑、害、破、六合、三合是否命中以及生肖模型固有的信息量限制；未命中不代表现实有利或不利，命中也不证明事件结果';
+  limitation: '反证事实只记录值、冲、刑、害、破、六合、三合、三会是否命中以及生肖模型固有的信息量限制；未命中不代表现实有利或不利，命中也不证明事件结果';
 }
 
 export interface ZodiacCounterSummaryFact {
@@ -99,7 +99,7 @@ const RELATION_FACT_LIMITATION =
 const CALCULATION_STEP_LIMITATION =
   '生肖计算链只证明生肖、流年干支、固定地支关系与五行辅助关系如何形成当前轻量结果，不证明个人现实事件、完整命理结构、吉凶概率、固定应期或化解效果' as const;
 const COUNTER_FACT_LIMITATION =
-  '反证事实只记录值、冲、刑、害、破、六合、三合是否命中以及生肖模型固有的信息量限制；未命中不代表现实有利或不利，命中也不证明事件结果' as const;
+  '反证事实只记录值、冲、刑、害、破、六合、三合、三会是否命中以及生肖模型固有的信息量限制；未命中不代表现实有利或不利，命中也不证明事件结果' as const;
 const COUNTER_SUMMARY_LIMITATION =
   '反证汇总只说明传统关系表的命中覆盖情况；不得据命中数量生成吉凶总分、成功率、灾祸概率、固定应期或化解效果' as const;
 const LIMITATION_FACT_LIMITATION =
@@ -137,7 +137,9 @@ function buildCounterEvidenceFacts(
   const conflictRelations = relations.filter(
     (relation) => relation.category === '流年同支' || relation.category === '地支冲突',
   );
-  const nobleRelations = relations.filter((relation) => relation.category === '地支助缘');
+  const harmonyRelations = relations.filter(
+    (relation) => relation.category === '地支助缘' || relation.category === '地支会合',
+  );
   return [
     {
       key: 'zodiac:counter:tai-sui-relations',
@@ -155,16 +157,16 @@ function buildCounterEvidenceFacts(
     },
     {
       key: 'zodiac:counter:noble-relations',
-      type: '三合六合覆盖',
-      status: nobleRelations.length ? '有可用证据' : '未命中',
-      ownerRelationKeys: nobleRelations.map((relation) => relation.key),
-      ownerFactKeys: nobleRelations.length
-        ? nobleRelations.map((relation) => relation.key)
+      type: '三合六合三会覆盖',
+      status: harmonyRelations.length ? '有可用证据' : '未命中',
+      ownerRelationKeys: harmonyRelations.map((relation) => relation.key),
+      ownerFactKeys: harmonyRelations.length
+        ? harmonyRelations.map((relation) => relation.key)
         : ['zodiac:calculation:branch-relations'],
-      promptText: nobleRelations.length
-        ? `命中${nobleRelations.length}项六合或三合关系，并保留逐项关系事实`
-        : '本年未命中六合或三合关系，不应泛称有“生肖贵人”',
-      sources: ['生肖年支与流年年支的六合、三合逐项核验'],
+      promptText: harmonyRelations.length
+        ? `命中${harmonyRelations.length}项六合、三合或三会关系，并保留逐项关系事实`
+        : '本年未命中六合、三合或三会关系，不补造生肖贵人或会合关系',
+      sources: ['生肖年支与流年年支的六合、三合、三会逐项核验'],
       limitation: COUNTER_FACT_LIMITATION,
     },
     {
@@ -190,8 +192,8 @@ function buildCounterSummaryFact(
     factKeys: unmatched.map((fact) => fact.key),
     promptText: unmatched.length
       ? `未命中${unmatched.map((fact) => fact.type).join('、')}；未命中不代表现实有利或不利，只按已有关系事实解释`
-      : '值冲刑害破与三合六合均有可列关系；不得据命中数量生成吉凶或概率结论',
-    sources: ['太岁关系覆盖与三合六合覆盖逐项汇总'],
+      : '值冲刑害破与三合六合三会均有可列关系；不得据命中数量生成吉凶或概率结论',
+    sources: ['太岁关系覆盖与三合六合三会覆盖逐项汇总'],
     limitation: COUNTER_SUMMARY_LIMITATION,
   };
 }
@@ -213,7 +215,8 @@ function buildLimitationFacts(
     {
       key: 'zodiac:limitation:relation-tables',
       type: '关系表边界',
-      promptText: '值、冲、刑、害、破和三合六合是传统关系分类，不是现代统计概率或事件因果证明',
+      promptText:
+        '值、冲、刑、害、破、三合、六合和三会是传统关系分类，不是现代统计概率或事件因果证明',
       ownerFactKeys: [
         'zodiac:calculation:branch-relations',
         ...relations
@@ -333,6 +336,35 @@ export function analyzeZodiacEvidence(
           },
         ]
       : []),
+    ...(data.meeting
+      ? [
+          {
+            key: `关系:${data.meeting}:${data.zodiacBranch}:${data.yearBranch}`,
+            status: '已命中' as const,
+            category: '地支会合' as const,
+            relation: data.meeting,
+            source: '生肖年支与流年年支同属固定三会组',
+            sources: ['十二地支三会固定关系表', '干支关系公共规则'],
+            role: '辅证' as const,
+            detail: '只表示两支同属三会组，不表示三支齐全、成局或成化。',
+            operands: [
+              {
+                label: '生肖年支',
+                value: data.zodiacBranch,
+                wuxing: getBranchWuxing(data.zodiacBranch),
+              },
+              {
+                label: '流年年支',
+                value: data.yearBranch,
+                wuxing: getBranchWuxing(data.yearBranch),
+              },
+            ],
+            rule: '十二地支三会组成员关系命中；两支不等同完整三会成局',
+            promptText: `生肖年支${data.zodiacBranch}与流年年支${data.yearBranch}逐项核验，同属${data.meeting.replace(/^三会关系（|）$/g, '')}三会组，记录为${data.meeting}；两支不等同完整三会成局`,
+            limitation: RELATION_FACT_LIMITATION,
+          },
+        ]
+      : []),
     {
       key: `关系:年干五行:${data.yearGanZhi[0]}:${data.zodiacBranch}`,
       status: '已命中',
@@ -388,9 +420,10 @@ export function analyzeZodiacEvidence(
       result: {
         conflictCount: data.conflicts.length,
         nobleRelation: data.noble ?? '未命中',
+        meetingRelation: data.meeting ?? '未命中',
       },
       dependsOnStepKeys: ['zodiac:calculation:branch', 'zodiac:calculation:year'],
-      promptText: `生肖年支${data.zodiacBranch}与流年年支${data.yearBranch}逐项核验同支、六冲、相刑、六害、六破、六合与三合`,
+      promptText: `生肖年支${data.zodiacBranch}与流年年支${data.yearBranch}逐项核验同支、六冲、相刑、六害、六破、六合、三合与三会`,
       sources: ['十二地支固定关系表', '干支关系公共规则'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -432,7 +465,7 @@ export function analyzeZodiacEvidence(
   const sources: ZodiacEvidenceAnalysis['sources'] = [
     {
       title: '十二地支关系表',
-      evidence: '同支、六冲、相刑、六害、六破、六合与三合的固定关系',
+      evidence: '同支、六冲、相刑、六害、六破、六合、三合与三会的固定关系',
       role: '传统关系表',
     },
     {
@@ -526,7 +559,7 @@ export function analyzeZodiacEvidence(
     promptText,
     methodology: [
       '先只计算生肖年支与流年年支的固定关系，不混入完整八字结论。',
-      '冲突关系作为主证，三合六合与年干五行作为辅证，未命中关系保留反证。',
+      '冲突关系作为主证，三合、六合、三会与年干五行作为辅证，未命中关系保留反证。',
       '所有传统关系只转换为可观察条件和稳妥行动，不转换为分数、概率或必然事件。',
     ],
   };

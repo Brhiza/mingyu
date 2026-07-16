@@ -24,11 +24,7 @@ import {
 } from '../prompt-default-questions';
 import { buildPortablePromptPack, type PromptContext } from '../ziwei-prompts';
 import { formatPromptCurrentTime } from '../prompt-time';
-import {
-  ZIWEI_ANALYSIS_REQUIREMENT,
-  ZIWEI_ANALYST_ROLE,
-  ZIWEI_COMPATIBILITY_ROLE,
-} from '../ziwei-prompt-copy';
+import { buildPromptGuidanceSections } from '../prompt-guidance';
 
 export type ZiweiRuntime = {
   astrolabe: IztroAstrolabe;
@@ -489,90 +485,60 @@ function demoteEmbeddedPromptSections(content: string) {
   return content.replace(/^【([^】]+)】$/gm, '$1：');
 }
 
-function buildZiweiTopicGuidanceSection(_topic: string) {
-  return [
-    '先围绕【问题】判断对应宫位范围，再组织证据，不要只做星曜罗列。',
-    '若【问题】未限定具体主题，按通用紫微口径处理；若【问题】已限定主题，只把主题作为回答范围，不额外套用固定题目。',
-    '先看命宫、身宫、三方四正、对宫与四化，再结合当前运限、自化、飞化和重点宫位触发。',
-    '优先使用【重点宫位资料】和【关键判断线索】组织推理，不要平均复述全盘。',
-    '不得编造已提供资料没有给出的新盘面事实；允许基于已提供资料做紫微斗数推理，但必须标明来自宫位、星曜、四化、运限、三方四正、格局或现实补充信息。',
-    '每个关键结论都要区分主证、辅证、反证或限制，并对应到宫位、星曜、四化、运限或现实建议；证据不足时要说明倾向和待确认处。',
-  ]
-    .map((line) => `- ${line}`)
-    .join('\n');
-}
-
 function buildZiweiScopePriorityText(payload: AnalysisPayloadV1) {
   const scope = payload.active_scope.scope;
   const scopeLabel = payload.active_scope.label || '当前分析对象';
   const dateText = payload.active_scope.solar_date || '未标注参考日期';
   const isOrigin = scope === 'origin';
 
-  return [
-    `分析对象：${isOrigin ? '本命盘' : scopeLabel}（${dateText}）。`,
-    isOrigin
-      ? '本次只提供本命盘，只能判断长期结构、宫位主轴、星曜组合、四化底色和人生底色；不得把问题中的年份、月份或日期当作已排出的运限证据。'
-      : '当前资料已提供明确分析对象，必须优先围绕该范围作答，并说明本命底色如何被当前运限触发。',
-    isOrigin
-      ? '如果【问题】询问具体年份、月份、日期或年龄，开头先说明当前资料只能看本命倾向，本次不判断具体时间窗口。'
-      : '如果【问题】中的时间与【分析对象】不一致，开头先提醒不一致，再以【分析对象】为准。',
-    '写应期时必须说明依据来自本命宫位底色、大限阶段、流年触发、流月窗口还是流日/流时短期触发；不得只给年份结论。',
-  ].join('\n');
-}
-
-function buildZiweiScopeInterpretationRules(payload: AnalysisPayloadV1) {
-  const scope = payload.active_scope.scope;
-  const scopeLabel = payload.active_scope.label || '当前分析对象';
-  const scopeRuleMap: Record<ScopeType, string> = {
-    origin:
-      '当前为本命范围：只判断宫位结构、星曜组合、格局层次、四化底色和长期人生主题；不得把问题中的年份、月份或日期当作已排出的运限证据。',
-    decadal:
-      '当前指定大限：以十年阶段环境、身份变化、资源压力、长期机会和大限命宫落点为主；不得把大限本身直接断成某个确定年份已经发生。',
-    yearly:
-      '当前指定流年：以该年年度触发、四化飞入、流年命宫落点和年度事件类别为主；必须承接大限背景，不能脱离大限单断吉凶。',
-    monthly:
-      '当前指定流月：以月内推进窗口、短期反复、流月落宫和月度四化触发为主；必须服从大限与流年，不得覆盖整年趋势。',
-    daily:
-      '当前指定流日：以当天执行、沟通、签约、出行、冲突和避险为主；只能作为短期触发，不能改写本命、大限或流年主线。',
-    hourly:
-      '当前指定流时：以数小时内的临场状态、沟通节奏和即时取舍为主；只能辅助流日判断，不得扩展为长期结论。',
-    age: '当前为年龄范围：只围绕已提供的虚岁、小限或对应年龄段判断；不能自动外推到未提供的其他年份、月份或日期。',
-  };
-
-  return [
-    `当前对象读法：${scopeLabel}。${scopeRuleMap[scope]}`,
-    '本命层：看命宫、身宫、十二宫结构、星曜庙旺陷、格局、三方四正、生年四化和自化，负责长期底色，不负责指定应期。',
-    '大限层：看十年阶段的主环境、角色变化、资源压力和机会方向；大限能定阶段强弱，不能替代流年给精确年份。',
-    '流年层：看年度命宫、流年四化、流年将前/岁前十二神与被引动宫位；流年必须承接大限，不能孤立下结论。',
-    '流月层：看月内窗口、推进节奏和短期反复；流月只能细化年度主题，不能覆盖全年判断。',
-    '流日/流时层：看当日或当时执行、沟通、出行、签约、冲突与避险；只作短期触发，不改写长期命局。',
-    '写应期时，先讲本命底色，再讲上层运限，最后讲当前层级的触发证据；只在【分析对象】明确的时间层级内给条件窗口。',
-  ].join('\n');
+  return `分析对象：${isOrigin ? '本命盘' : scopeLabel}（${dateText}）。`;
 }
 
 function buildZiweiOutputRequirementText() {
+  return '使用简体中文，先回答【问题】，再说明主要宫位、星曜、四化依据和现实建议。';
+}
+
+function buildZiweiCompatibilityInfo(result: ReturnType<typeof analyzeZiweiCompatibility>) {
+  const overlayLines = result.palaceOverlays
+    .filter((item) =>
+      ['命宫', '身宫', '夫妻', '官禄', '财帛', '福德', '迁移'].some(
+        (name) => item.sourcePalace.includes(name) || item.targetPalace.includes(name),
+      ),
+    )
+    .slice(0, 12)
+    .map((item) => {
+      const sourceStars = item.sourceMajorStars.length
+        ? `，主星${item.sourceMajorStars.join('、')}`
+        : '';
+      const targetStars = item.targetMajorStars.length
+        ? `；对方该宫主星${item.targetMajorStars.join('、')}`
+        : '';
+      return `- ${result.people[item.sourcePerson]}${item.sourcePalace}与${result.people[item.targetPerson]}${item.targetPalace}同在${item.earthlyBranch}轴${sourceStars}${targetStars}`;
+    });
+  const mutagenLines = result.crossMutagenPlacements
+    .slice(0, 12)
+    .map(
+      (item) =>
+        `- ${result.people[item.sourcePerson]}${item.sourcePalace}的${item.star}生年化${item.mutagen}，对应${result.people[item.targetPerson]}${item.targetPalace}`,
+    );
+
   return [
-    '先直接回答【问题】，再按“结论总览、宫位主线、四化触发、格局与三方四正、反证限制、应期与建议”展开。',
-    '结论总览要说明倾向、强弱和成立条件，不要只写泛泛性格或吉凶标签。',
-    '宫位主线要交代命宫、身宫、相关主题宫位和对宫/三方四正如何共同指向结论。',
-    '四化触发要说明化禄、化权、化科、化忌落点与飞入路径；有【分析对象】触发时必须说明触发路径，本命范围下不得硬断具体年份。',
-    '格局、自化、空宫、煞曜、辅曜都要区分主证、辅证、反证或限制，不能越过宫位与四化主线强断。',
-    '应期要区分本命长期底色、大限阶段、流年触发、流月流日短期窗口；资料未给到的层级只能写条件，不能硬给唯一日期。',
-    '证据不足或结论存在条件时要单独说明，不要为了给结论而编造盘面事实。',
-    '最后给出分层建议：当下最该做的事、需要避免的事、后续观察信号。',
-  ].join('\n');
+    overlayLines.length ? '宫位对应：' : '',
+    ...overlayLines,
+    mutagenLines.length ? '跨盘四化：' : '',
+    ...mutagenLines,
+    !overlayLines.length && !mutagenLines.length ? '未见可列出的宫位对应或跨盘四化。' : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 export function formatZiweiTrueSolarEvidence(evidence?: ZiweiTrueSolarEvidence): string {
   if (!evidence) return '';
-
-  return [
-    `校正状态：${evidence.status}；${evidence.summaryFact.promptText}`,
-    `计算步骤：${evidence.calculationSteps.map((step) => step.promptText).join(' → ')}`,
-    `校正事实：${evidence.correctionFacts.map((fact) => fact.promptText).join('；')}`,
-    `限制边界：${evidence.limitations.join('；')}`,
-    `资料来源：${evidence.source}`,
-  ].join('\n');
+  return evidence.correctionFacts
+    .map((fact) => fact.promptText)
+    .filter(Boolean)
+    .join('；');
 }
 
 export function buildCombinedZiweiPrompt(
@@ -596,37 +562,19 @@ export function buildCombinedZiweiPrompt(
   const trueSolarEvidenceText = formatZiweiTrueSolarEvidence(options.trueSolarEvidence);
 
   return [
-    ZIWEI_ANALYST_ROLE,
-    '【要求】',
-    `- ${ZIWEI_ANALYSIS_REQUIREMENT}`,
-    ...(isCustomQuestion
-      ? []
-      : [
-          '- 先直接回答【问题】，再按问题范围组织完整判断。',
-          '- 按“结论总览、宫位主线、四化触发、反证限制、应期与建议”分层回答。',
-          '- 每一层都要写明主证、辅证、反证或限制、触发机制与建议。',
-          '- 优先说明宫位主线、四化命中、格局线索、自化迹象和三方四正呼应。',
-        ]),
-    '- 不得编造已提供资料没有给出的新盘面事实；允许基于已提供资料做紫微斗数推理，但必须标明证据来源。',
-    '- 不要整段复述原始盘面信息。',
-    '',
+    buildPromptGuidanceSections('ziwei'),
     `【当前时间】\n${formatPromptCurrentTime()}`,
     '',
     pack,
-    ...(trueSolarEvidenceText ? ['', `【出生时间校正证据】\n${trueSolarEvidenceText}`] : []),
-    ...(isCustomQuestion ? [] : ['', `【解读范围】\n${buildZiweiScopePriorityText(payload)}`]),
-    ...(isCustomQuestion
-      ? []
-      : ['', `【解读方法】\n${buildZiweiScopeInterpretationRules(payload)}`]),
+    ...(trueSolarEvidenceText ? ['', `【出生时间校正】\n${trueSolarEvidenceText}`] : []),
+    ...(isCustomQuestion ? [] : ['', `【分析对象】\n${buildZiweiScopePriorityText(payload)}`]),
     '',
     `【问题】\n${normalizedQuestion}`,
     ...(isCustomQuestion
       ? []
       : [
           '',
-          `【断盘要点】\n${buildZiweiTopicGuidanceSection(topic)}`,
-          '',
-          '【任务】\n结合【解读目标】、盘面结构与【分析对象】，优先从宫位主线、四化触发、格局线索、自化与三方四正呼应中提炼核心判断、关键依据和建议。',
+          '【任务】\n请结合宫位、星曜、四化、格局和三方四正直接回答【问题】，并给出现实建议。',
           '',
           `【输出要求】\n${buildZiweiOutputRequirementText()}`,
         ]),
@@ -665,54 +613,45 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
   const partnerTrueSolarEvidenceText = formatZiweiTrueSolarEvidence(
     params.partnerTrueSolarEvidence,
   );
-  const compatibilityEvidence = analyzeZiweiCompatibility(
+  const compatibilityResult = analyzeZiweiCompatibility(
     params.primaryPayload,
     params.partnerPayload,
     {
       person1Name: params.primaryName,
       person2Name: params.partnerName,
     },
-  ).promptText;
+  );
+  const compatibilityInfo = buildZiweiCompatibilityInfo(compatibilityResult);
   const primaryName = params.primaryName?.trim() || '第一人';
   const partnerName = params.partnerName?.trim() || '第二人';
   const compatibilityTopic = params.topic || 'chat';
-  const compatibilityRules = [
-    '- 先围绕【问题】判断双方互动主轴，再按“互动主轴、互补点、冲突点、触发机制、建议边界”分层展开。',
-    '- 若【问题】已限定主题，只把主题作为关系范围，不额外套用固定题目；未限定具体问题时按通用合盘口径处理。',
-  ];
   const compatibilityTask =
     '请综合双方盘面和关系范围，直接判断互动主轴、互补点、冲突点、触发机制与建议。';
   const compatibilityQuestion = getZiweiCompatibilityDefaultQuestion(compatibilityTopic);
 
   return [
-    ZIWEI_COMPATIBILITY_ROLE,
-    '【要求】',
-    '- 只基于提供的双方盘面和问题作答。',
-    '- 不得编造已提供资料没有给出的新盘面事实；允许基于双方已提供资料做紫微斗数推理，但必须标明来自宫位、星曜、四化、运限、三方四正或现实补充信息。',
-    ...(isCustomQuestion ? [] : compatibilityRules),
-    '- 不要整段复述双方原始盘面信息。',
-    '',
+    buildPromptGuidanceSections('ziwei-compatibility'),
     `【当前时间】\n${formatPromptCurrentTime()}`,
     `【${primaryName}盘面】`,
     primaryEmbeddedPack,
     ...(primaryTrueSolarEvidenceText
-      ? ['', `【${primaryName}出生时间校正证据】\n${primaryTrueSolarEvidenceText}`]
+      ? ['', `【${primaryName}出生时间校正】\n${primaryTrueSolarEvidenceText}`]
       : []),
     '',
     `【${partnerName}盘面】`,
     partnerEmbeddedPack,
     ...(partnerTrueSolarEvidenceText
-      ? ['', `【${partnerName}出生时间校正证据】\n${partnerTrueSolarEvidenceText}`]
+      ? ['', `【${partnerName}出生时间校正】\n${partnerTrueSolarEvidenceText}`]
       : []),
     '',
-    compatibilityEvidence,
+    `【双盘关系资料】\n${compatibilityInfo}`,
     '',
     `【问题】\n${params.question.trim() || compatibilityQuestion}`,
     ...(isCustomQuestion
       ? []
       : [
           `【任务】\n${compatibilityTask}`,
-          '【输出要求】\n先直接回答【问题】，再按“互动主轴、互补点、冲突点、触发机制、建议边界”展开；每部分都要写明双方盘面主证、辅证、反证或限制、触发机制与建议；证据不足或结论存在条件时要单独说明；最后给出适合推进、观察还是暂缓的现实建议。',
+          '【输出要求】\n先直接回答【问题】，再说明互动主轴、互补点、冲突点、触发机制和现实建议。',
         ]),
   ].join('\n');
 }

@@ -342,7 +342,7 @@ export const singlePromptShortcutSections = [
   {
     key: 'overview',
     title: '通用',
-    description: '不限定细分问题，按通用口径处理。',
+    description: '分析整体命盘与近期趋势。',
     labels: ['综合', '近期'],
   },
   {

@@ -53,7 +53,7 @@ yarn add mingyu-core
 
 ## 统一出生档案与能力发现
 
-应用可以只维护一份精确到时分的 `BirthProfile`，再按需要转换为八字、星盘或择日的既有输入。该统一档案适用于真太阳时等需要钟表时间的入口，因此小时和分钟必须完整提供；八字、紫微原有的明确时辰索引入口继续保留：
+应用可以只维护一份 `BirthProfile`，再按需要转换为八字、星盘或择日的既有输入。八字、紫微等时辰级算法可直接提供明确的 `timeIndex`；需要真太阳时、星盘或七政四余时，才必须提供完整 `hour`、`minute` 和所需地点资料：
 
 ```ts
 import { normalizeBirthProfile, getCapabilities } from 'mingyu-core';
@@ -64,13 +64,12 @@ const profile = {
   year: 1990,
   month: 5,
   day: 15,
-  hour: 14,
-  minute: 30,
+  timeIndex: 7,
 } as const;
 
 const normalized = normalizeBirthProfile(profile);
-// 校验通过后一定包含完整、可直接排盘的时间与时辰索引
-console.log(normalized.effectiveTime, normalized.timeIndex);
+// 明确未时可直接用于八字、紫微等时辰级排盘，并返回时间口径证据
+console.log(normalized.timeIndex, normalized.timeEvidence.promptText);
 
 const capabilities = getCapabilities();
 // 可用于生成算法入口、输入项和依赖提示
@@ -85,7 +84,7 @@ import { getCapabilities } from 'mingyu-core/capabilities';
 
 `getCapabilities()` 返回可序列化副本，包含各系统支持的起法、输入、输出、随机种子、随机轨迹重放、真太阳时、是否要求完整出生时间、批量计算和可选依赖状态。能力清单只描述核心包真实提供的能力，不把页面、本地报告或历史记录算作核心能力。
 
-八字、紫微若不启用真太阳时，可以直接使用明确的时辰索引排盘；这属于有效的确定输入，不属于出生时间缺失。启用真太阳时时，才需要具体小时、分钟和出生地资料。
+八字、紫微若不启用真太阳时，可以直接使用明确的时辰索引排盘；这属于有效的确定输入，不属于出生时间缺失。统一档案会明确记录输入精度、代表时刻边界、时辰映射、真太阳时状态、证据汇总和解释限制。启用真太阳时，或转换为星盘等分钟级算法输入时，才需要具体小时、分钟和出生地资料；时辰代表值不会被冒充为精确分钟。
 
 ## 可选结果元数据与随机重放
 

@@ -18,7 +18,7 @@ type FocusTaskBundle = {
 };
 
 function buildCommonBoundary() {
-  return ['只基于已提供盘面、运限和问题作答；证据不足时直接说明。'];
+  return [];
 }
 
 export function buildFocusTaskBundle(
@@ -75,10 +75,7 @@ export function buildFocusTaskBundle(
   ).slice(0, 6);
 
   return {
-    focusSummary:
-      reportContext.selected_topic === 'chat'
-        ? '按【问题】选择最相关宫位；主题未明确时按通用紫微证据处理。'
-        : '主题只作为问题范围；重点宫位由【问题】与盘面证据决定。',
+    focusSummary: '重点分析命宫、身宫及与【问题】相关的宫位。',
     focusPalaces: generalPalaces,
     avoid: buildCommonBoundary(),
   };

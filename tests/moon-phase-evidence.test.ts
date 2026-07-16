@@ -148,7 +148,8 @@ test('奇门和七政四余应携带月相证据且不将其解释为吉凶', ()
   assert.equal(qimen.seasonality?.moonPhaseEvidence.eightPhaseName, '新月');
   assert.equal(typeof qimen.seasonality?.lunarPhaseConsistency, 'boolean');
   assert.equal(qizheng.calculationContext.moonPhase.eightPhaseName, '新月');
-  assert.match(qizheng.prompt, /月相证据：/);
+  assert.match(qizheng.prompt, /月相：新月（(?:盈|亏)），日月黄经差约.+照明约/);
   assert.match(qizheng.evidenceAnalysis.methodology.join(''), /不把月相直接解释为吉凶/);
   assert.doesNotMatch(qizheng.prompt, /月相吉凶|月相评分|月相成功率/);
+  assert.doesNotMatch(qizheng.prompt, /月相证据|结构化证据|计算链|解释限制/);
 });

@@ -3,6 +3,7 @@ import type { BaziChartResult } from './baziTypes';
 import { assertGanZhiPair } from './baziUtils';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
+import { SANHE_GROUPS, SANHUI_GROUPS } from '../ganzhi/relations';
 
 export type FortuneLayerType = 'natal' | 'dayun' | 'year' | 'month' | 'day' | 'hour';
 export type FortuneTriggerRelationType =
@@ -38,7 +39,7 @@ export interface FortuneTriggerResolvedLayer extends FortuneTriggerLayer {
 
 export interface FortuneTriggerCalculationStep {
   key: string;
-  stage: '层级干支校验' | '层级关系比对' | '关系汇总';
+  stage: '层级干支校验' | '层级关系比对' | '三支成局核验' | '关系汇总';
   status: '已计算';
   inputs: Record<string, string | number | boolean | string[]>;
   result: Record<string, string | number | boolean | string[]>;
@@ -46,6 +47,22 @@ export interface FortuneTriggerCalculationStep {
   promptText: string;
   sources: string[];
   limitation: '计算步骤只证明所列干支经过固定关系表逐项比对并形成关系事实，不证明关系对应现实事件、吉凶方向、发生概率或固定应期';
+}
+
+export interface FortuneTriggerFormationFact {
+  key: string;
+  status: '已命中';
+  type: 'branch-sanhe' | 'branch-sanhui';
+  label: string;
+  group: string;
+  branches: string[];
+  participantLayerKeys: string[];
+  natalLayerKeys: string[];
+  activeLayerKeys: string[];
+  triggerLayerKeys: string[];
+  calculationStepKey: string;
+  sources: string[];
+  interpretationLimit: string;
 }
 
 export interface FortuneTriggerRelation {
@@ -89,8 +106,10 @@ export interface FortuneTriggerRelationSummaryFact {
   factKeys: string[];
   calculationStepKeys: string[];
   relationKeys: string[];
+  formationKeys: string[];
   comparisonStepKeys: string[];
   relationCount: number;
+  formationCount: number;
   majorRelationCount: number;
   supportingRelationCount: number;
   comparedPairCount: number;
@@ -118,6 +137,7 @@ export interface FortuneTriggerEvidenceResult {
   calculationChain: string[];
   layers: FortuneTriggerResolvedLayer[];
   relations: FortuneTriggerRelation[];
+  formations: FortuneTriggerFormationFact[];
   primaryRelations: FortuneTriggerRelation[];
   supportingRelations: FortuneTriggerRelation[];
   counterEvidence: string[];
@@ -466,9 +486,112 @@ function buildCounterEvidenceFact(params: {
   };
 }
 
+function buildFormationFacts(params: {
+  natalLayers: FortuneTriggerResolvedLayer[];
+  activeLayers: FortuneTriggerResolvedLayer[];
+  calculationStepKey: string;
+}): FortuneTriggerFormationFact[] {
+  const natalBranches = new Set(params.natalLayers.map((layer) => splitGanZhi(layer.ganZhi).zhi));
+  const allLayers = [...params.natalLayers, ...params.activeLayers];
+  const allBranches = new Set(allLayers.map((layer) => splitGanZhi(layer.ganZhi).zhi));
+  const definitions = [
+    ...Object.entries(SANHE_GROUPS).map(([group, branches]) => ({
+      type: 'branch-sanhe' as const,
+      group,
+      branches,
+    })),
+    ...Object.entries(SANHUI_GROUPS).map(([group, branches]) => ({
+      type: 'branch-sanhui' as const,
+      group,
+      branches,
+    })),
+  ];
+
+  return definitions.flatMap((definition) => {
+    const natalComplete = definition.branches.every((branch) => natalBranches.has(branch));
+    const complete = definition.branches.every((branch) => allBranches.has(branch));
+    if (natalComplete || !complete) return [];
+
+    const participants = definition.branches.map((branch) => {
+      const natalLayer = params.natalLayers.find(
+        (layer) => splitGanZhi(layer.ganZhi).zhi === branch,
+      );
+      return (
+        natalLayer ?? params.activeLayers.find((layer) => splitGanZhi(layer.ganZhi).zhi === branch)
+      );
+    });
+    if (participants.some((layer) => !layer)) return [];
+
+    const resolvedParticipants = participants as FortuneTriggerResolvedLayer[];
+    const natalParticipants = resolvedParticipants.filter((layer) => layer.type === 'natal');
+    const activeParticipants = resolvedParticipants.filter((layer) => layer.type !== 'natal');
+    if (!activeParticipants.length) return [];
+
+    const triggerLabels = activeParticipants.map((layer) => layer.label);
+    const formationLabel =
+      definition.type === 'branch-sanhe'
+        ? `${definition.branches.join('')}三合${definition.group}`
+        : `${definition.branches.join('')}${definition.group}三会`;
+    const triggerPrefix =
+      triggerLabels.length > 1 ? `${triggerLabels.join('、')}共同补全` : `${triggerLabels[0]}补全`;
+
+    return [
+      {
+        key: `bazi:fortune-trigger:formation:${definition.type}:${definition.group}`,
+        status: '已命中' as const,
+        type: definition.type,
+        label: `${triggerPrefix}${formationLabel}`,
+        group: definition.group,
+        branches: [...definition.branches],
+        participantLayerKeys: resolvedParticipants.map((layer) => layer.key),
+        natalLayerKeys: natalParticipants.map((layer) => layer.key),
+        activeLayerKeys: activeParticipants.map((layer) => layer.key),
+        triggerLayerKeys: activeParticipants.map((layer) => layer.key),
+        calculationStepKey: params.calculationStepKey,
+        sources:
+          definition.type === 'branch-sanhe'
+            ? ['地支三合固定关系表', '原局与所选岁运层级地支汇总核验']
+            : ['地支三会固定关系表', '原局与所选岁运层级地支汇总核验'],
+        interpretationLimit:
+          '只记录原局与所选岁运层级合计具备完整三支成局结构，不等于已经成化，也不单独决定吉凶、事件或应期。',
+      },
+    ];
+  });
+}
+
+function buildFormationCalculationStep(params: {
+  layers: FortuneTriggerResolvedLayer[];
+  formations: FortuneTriggerFormationFact[];
+}): FortuneTriggerCalculationStep {
+  return {
+    key: 'bazi:fortune-trigger:calculation:formation-scan',
+    stage: '三支成局核验',
+    status: '已计算',
+    inputs: {
+      layerKeys: params.layers.map((layer) => layer.key),
+      branches: params.layers.map((layer) => splitGanZhi(layer.ganZhi).zhi),
+      sanheGroups: Object.keys(SANHE_GROUPS),
+      sanhuiGroups: Object.keys(SANHUI_GROUPS),
+    },
+    result: {
+      formationCount: params.formations.length,
+      formationKeys: params.formations.map((item) => item.key),
+    },
+    dependsOnStepKeys: params.layers.map(
+      (layer) => `bazi:fortune-trigger:calculation:layer:${layer.type}:${layer.id}`,
+    ),
+    promptText: params.formations.length
+      ? `已汇总原局与所选岁运地支，命中${params.formations.length}项由岁运补全的完整三合或三会结构`
+      : '已汇总原局与所选岁运地支，未见由岁运补全的完整三合或三会结构',
+    sources: ['地支三合、三会固定关系表', '原局与所选岁运层级地支汇总核验'],
+    limitation: CALCULATION_STEP_LIMITATION,
+  };
+}
+
 function buildRelationSummaryFact(params: {
   calculationSteps: FortuneTriggerCalculationStep[];
   relations: FortuneTriggerRelation[];
+  formations: FortuneTriggerFormationFact[];
   comparisonSteps: FortuneTriggerCalculationStep[];
   counterEvidenceFacts: FortuneTriggerCounterEvidenceFact[];
 }): FortuneTriggerRelationSummaryFact {
@@ -484,7 +607,7 @@ function buildRelationSummaryFact(params: {
   ).length;
   const status = !params.comparisonSteps.length
     ? '无可比较层级'
-    : params.relations.length
+    : params.relations.length || params.formations.length
       ? '有关系事实'
       : '未见列入关系';
   return {
@@ -493,12 +616,15 @@ function buildRelationSummaryFact(params: {
     factKeys: [
       ...params.calculationSteps.map((item) => item.key),
       ...params.relations.map((item) => item.key),
+      ...params.formations.map((item) => item.key),
       ...params.counterEvidenceFacts.map((item) => item.key),
     ],
     calculationStepKeys: params.calculationSteps.map((item) => item.key),
     relationKeys: params.relations.map((item) => item.key),
+    formationKeys: params.formations.map((item) => item.key),
     comparisonStepKeys: params.comparisonSteps.map((item) => item.key),
     relationCount: params.relations.length,
+    formationCount: params.formations.length,
     majorRelationCount,
     supportingRelationCount: params.relations.length - majorRelationCount,
     comparedPairCount: params.comparisonSteps.length,
@@ -507,7 +633,7 @@ function buildRelationSummaryFact(params: {
     promptText:
       status === '无可比较层级'
         ? '当前没有可供逐层比对的原局与岁运层级，不生成关系结论'
-        : `共比对${params.comparisonSteps.length}组层级，记录${params.relations.length}项关系，其中主要关系${majorRelationCount}项、辅助关系${params.relations.length - majorRelationCount}项；${noMajorRelationPairCount}组层级未见主要关系`,
+        : `共比对${params.comparisonSteps.length}组层级，记录${params.relations.length}项两层关系，其中主要关系${majorRelationCount}项、辅助关系${params.relations.length - majorRelationCount}项；另记录${params.formations.length}项岁运补全三合三会结构；${noMajorRelationPairCount}组层级未见主要关系`,
     sources: ['全部层级关系比对步骤与关系事实逐项汇总'],
     limitation: RELATION_SUMMARY_LIMITATION,
   };
@@ -515,10 +641,12 @@ function buildRelationSummaryFact(params: {
 
 function buildLimitationFacts(params: {
   relations: FortuneTriggerRelation[];
+  formations: FortuneTriggerFormationFact[];
   counterEvidenceFacts: FortuneTriggerCounterEvidenceFact[];
   relationSummaryFact: FortuneTriggerRelationSummaryFact;
 }): FortuneTriggerLimitationFact[] {
   const relationKeys = params.relations.map((item) => item.key);
+  const formationKeys = params.formations.map((item) => item.key);
   const counterKeys = params.counterEvidenceFacts.map((item) => item.key);
   const definitions: Array<
     Pick<FortuneTriggerLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
@@ -526,15 +654,15 @@ function buildLimitationFacts(params: {
     {
       key: 'bazi:fortune-trigger:limitation:relation-meaning',
       type: '关系解释边界',
-      ownerFactKeys: [params.relationSummaryFact.key, ...relationKeys],
+      ownerFactKeys: [params.relationSummaryFact.key, ...relationKeys, ...formationKeys],
       promptText:
-        '合、冲、刑、害、破、伏吟、岁运并临与天克地冲只记录结构关系，不单独决定吉凶、事件类型或结果',
+        '合、冲、刑、害、破、伏吟、岁运并临、天克地冲与三合三会补全只记录结构关系，不单独决定吉凶、事件类型或结果；三支齐备也不等于已经成化',
       sources: ['干支关系事实与命理解释分离原则'],
     },
     {
       key: 'bazi:fortune-trigger:limitation:timing-level',
       type: '层级应期边界',
-      ownerFactKeys: [params.relationSummaryFact.key, ...relationKeys],
+      ownerFactKeys: [params.relationSummaryFact.key, ...relationKeys, ...formationKeys],
       promptText:
         '大运、流年、流月、流日和流时只表示触发所在时间层级；未选择更细层级时，不得补造月份、日期、时辰或唯一应期',
       sources: ['岁运层级范围与所选分析对象'],
@@ -550,7 +678,7 @@ function buildLimitationFacts(params: {
     {
       key: 'bazi:fortune-trigger:limitation:context',
       type: '上下文边界',
-      ownerFactKeys: [params.relationSummaryFact.key, ...relationKeys],
+      ownerFactKeys: [params.relationSummaryFact.key, ...relationKeys, ...formationKeys],
       promptText:
         '关系解释必须结合原局喜忌、十神、旺衰、宫位及现实问题；当前关系核验不独立提供完整断事结论',
       sources: ['八字原局、岁运层级与现实问题联合解释要求'],
@@ -574,6 +702,7 @@ function buildLimitationFacts(params: {
 function buildEvidence(params: {
   calculationSteps: FortuneTriggerCalculationStep[];
   relations: FortuneTriggerRelation[];
+  formations: FortuneTriggerFormationFact[];
   counterEvidenceFacts: FortuneTriggerCounterEvidenceFact[];
   relationSummaryFact: FortuneTriggerRelationSummaryFact;
   limitationFacts: FortuneTriggerLimitationFact[];
@@ -601,6 +730,13 @@ function buildEvidence(params: {
       detail: `规则：${item.rule}。${item.interpretationLimit}`,
       source: `${item.sources.join('、')}；层级：${item.source.label}与${item.target.label}；计算：${item.source.ganZhi}与${item.target.ganZhi}逐项比对`,
       tags: ['八字岁运', item.source.type, item.target.type, item.type],
+    })),
+    ...params.formations.map((item): PromptEvidenceItem => ({
+      level: '主证',
+      title: item.label,
+      detail: `${item.branches.join('、')}三支已由原局与所选岁运层级共同备齐。${item.interpretationLimit}`,
+      source: item.sources.join('、'),
+      tags: ['八字岁运', '三支成局', item.type, item.group],
     })),
     ...(noMajorFacts.length
       ? [
@@ -680,9 +816,17 @@ export function analyzeFortuneTriggers(
 
   const counterEvidenceFacts = comparisonFacts.map(buildCounterEvidenceFact);
   const comparisonSteps = calculationSteps.filter((item) => item.stage === '层级关系比对');
+  const formationCalculationStepKey = 'bazi:fortune-trigger:calculation:formation-scan';
+  const formations = buildFormationFacts({
+    natalLayers,
+    activeLayers: resolvedActiveLayers,
+    calculationStepKey: formationCalculationStepKey,
+  });
+  calculationSteps.push(buildFormationCalculationStep({ layers, formations }));
   const relationSummaryFact = buildRelationSummaryFact({
     calculationSteps,
     relations,
+    formations,
     comparisonSteps,
     counterEvidenceFacts,
   });
@@ -693,15 +837,17 @@ export function analyzeFortuneTriggers(
     inputs: {
       comparedPairCount: relationSummaryFact.comparedPairCount,
       relationKeys: relationSummaryFact.relationKeys,
+      formationKeys: relationSummaryFact.formationKeys,
     },
     result: {
       status: relationSummaryFact.status,
       relationCount: relationSummaryFact.relationCount,
+      formationCount: relationSummaryFact.formationCount,
       majorRelationCount: relationSummaryFact.majorRelationCount,
       supportingRelationCount: relationSummaryFact.supportingRelationCount,
       noMajorRelationPairCount: relationSummaryFact.noMajorRelationPairCount,
     },
-    dependsOnStepKeys: relationSummaryFact.comparisonStepKeys,
+    dependsOnStepKeys: [...relationSummaryFact.comparisonStepKeys, formationCalculationStepKey],
     promptText: relationSummaryFact.promptText,
     sources: relationSummaryFact.sources,
     limitation: CALCULATION_STEP_LIMITATION,
@@ -709,6 +855,7 @@ export function analyzeFortuneTriggers(
 
   const limitationFacts = buildLimitationFacts({
     relations,
+    formations,
     counterEvidenceFacts,
     relationSummaryFact,
   });
@@ -719,6 +866,7 @@ export function analyzeFortuneTriggers(
   const evidence = buildEvidence({
     calculationSteps,
     relations,
+    formations,
     counterEvidenceFacts,
     relationSummaryFact,
     limitationFacts,
@@ -728,7 +876,7 @@ export function analyzeFortuneTriggers(
   const calculationChain = calculationSteps.map((item) => item.promptText);
   const noMajorFacts = counterEvidenceFacts.filter((item) => item.status === '未见主要关系');
   const noMajorWithSupporting = noMajorFacts.filter((item) => item.supportingRelationKeys.length);
-  const calculationOverview = `已校验${layers.length}个原局与岁运层级，完成${comparisonSteps.length}组逐项比对；${relationSummaryFact.promptText}`;
+  const calculationOverview = `已校验${layers.length}个原局与岁运层级，完成${comparisonSteps.length}组逐项比对和三合三会汇总核验；${relationSummaryFact.promptText}`;
   const counterOverview = noMajorFacts.length
     ? `共${noMajorFacts.length}组层级未见岁运并临、天克地冲或同柱伏吟，其中${noMajorWithSupporting.length}组仍有辅助关系；未见主要关系不等于没有较弱关系、没有现实触发或必然平稳`
     : '所有已比较层级均已记录主要关系；仍不得据命中数量生成吉凶或概率结论';
@@ -739,6 +887,7 @@ export function analyzeFortuneTriggers(
     calculationChain,
     layers,
     relations,
+    formations,
     primaryRelations,
     supportingRelations,
     counterEvidence,
@@ -759,6 +908,7 @@ export function analyzeFortuneTriggers(
       notes: [
         '原局四柱与所选大运、流年、流月、流日逐层比对天干同干、五合、相冲及地支同支、六合、六冲、刑、害、破。',
         '大运与流年干支完全相同时单列岁运并临；两层天干相冲且地支相冲时单列天克地冲。',
+        '汇总原局与所选岁运层级的地支；仅在原局尚未完整、岁运补齐第三支时记录完整三合或三会结构，不据此断定成化。',
         '每个层级和关系均保留稳定键、计算步骤依赖及来源层级，未见主要关系时保留反证，不补造候选应期。',
         '关系成立与吉凶解释分离，不对不同关系设置命运总分，也不从单条关系直接推断事件。',
       ],

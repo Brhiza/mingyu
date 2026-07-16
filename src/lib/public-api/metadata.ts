@@ -62,6 +62,10 @@ export const PUBLIC_API_ENDPOINTS = [
   'POST /api/v1/metaphysics/taiyi/prompt',
   'POST /api/v1/metaphysics/qizheng/calculate',
   'POST /api/v1/metaphysics/qizheng/prompt',
+  'POST /api/v1/metaphysics/xuankong/calculate',
+  'POST /api/v1/metaphysics/xuankong/prompt',
+  'POST /api/v1/metaphysics/residential/calculate',
+  'POST /api/v1/metaphysics/residential/prompt',
   'POST /api/v1/ai/analyze',
   'POST /api/v1/ai/models',
 ] as const;

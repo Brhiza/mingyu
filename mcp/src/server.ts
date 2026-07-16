@@ -18,6 +18,8 @@ import { registerBaZhaiTool } from './tools/ba_zhai.js';
 import { registerZodiacTool } from './tools/zodiac.js';
 import { registerTaiyiTool } from './tools/taiyi.js';
 import { registerQizhengTool } from './tools/qi_zheng.js';
+import { registerXuanKongTool } from './tools/xuan_kong.js';
+import { registerResidentialFengshuiTool } from './tools/residential_fengshui.js';
 import { registerFoundationTools } from './tools/foundation.js';
 import { registerCalendarTools } from './tools/calendar.js';
 
@@ -52,6 +54,8 @@ registerBaZhaiTool(server);
 registerZodiacTool(server);
 registerTaiyiTool(server);
 registerQizhengTool(server);
+registerXuanKongTool(server);
+registerResidentialFengshuiTool(server);
 registerFoundationTools(server);
 registerCalendarTools(server);
 

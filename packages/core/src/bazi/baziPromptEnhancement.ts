@@ -5,11 +5,7 @@
 
 import type { BaziChartResult } from './baziTypes';
 import { BASIC_MAPPINGS, SAN_HE_MAP, SAN_HUI_MAP } from './baziMappingsData';
-import {
-  identifyClassicPattern,
-  getPeachBlossomDetail,
-  generateAnalysisDimensionHints,
-} from './baziEnhancement';
+import { identifyClassicPattern, getPeachBlossomDetail } from './baziEnhancement';
 import { assessAllHarmonyTransforms } from './harmonyTransform';
 
 type PillarKey = 'year' | 'month' | 'day' | 'hour';
@@ -22,12 +18,8 @@ const PILLAR_LABELS: Record<PillarKey, string> = {
   hour: '时柱',
 };
 
-function stripSectionTitle(text: string): string {
-  return text.replace(/^【[^】]+】/, '').trim();
-}
-
-function buildEvidenceDrivenHintSection(title: string, evidence: string, baseHint: string): string {
-  return `【${title}】${evidence}。${stripSectionTitle(baseHint)}`;
+function buildEvidenceDrivenHintSection(title: string, evidence: string): string {
+  return `【${title}】${evidence}。`;
 }
 
 function formatClassicPatternMainClaim(claim: string): string {
@@ -221,33 +213,21 @@ function generateFuxinSection(chartResult: BaziChartResult): string {
         ? '命盘见伏吟'
         : '命盘见反吟';
 
-  return buildEvidenceDrivenHintSection(
-    '伏吟反吟',
-    `${evidenceLabel}：${evidences.join('；')}`,
-    generateAnalysisDimensionHints('fuxin'),
-  );
+  return buildEvidenceDrivenHintSection('伏吟反吟', `${evidenceLabel}：${evidences.join('；')}`);
 }
 
 function generateKongWangSection(chartResult: BaziChartResult): string {
   const kongWangPillars = getKongWangEvidence(chartResult);
   if (!kongWangPillars.length) return '';
 
-  return buildEvidenceDrivenHintSection(
-    '空亡详解',
-    `命盘见空亡：${kongWangPillars.join('、')}`,
-    generateAnalysisDimensionHints('kongwang'),
-  );
+  return buildEvidenceDrivenHintSection('空亡详解', `命盘见空亡：${kongWangPillars.join('、')}`);
 }
 
 function generateXingChongSection(chartResult: BaziChartResult): string {
   const relations = analyzePillarRelations(chartResult);
   if (!relations.xingChong.length) return '';
 
-  return buildEvidenceDrivenHintSection(
-    '刑冲合会破',
-    `命盘见：${relations.xingChong.join('；')}`,
-    generateAnalysisDimensionHints('xingchong'),
-  );
+  return buildEvidenceDrivenHintSection('刑冲合会破', `命盘见：${relations.xingChong.join('；')}`);
 }
 
 function generateHarmonyTransformSection(chartResult: BaziChartResult): string {
@@ -281,11 +261,7 @@ function generateHarmonyTransformSection(chartResult: BaziChartResult): string {
     })
     .join('；');
 
-  return buildEvidenceDrivenHintSection(
-    '合化程度',
-    `命盘见合化候选：${evidence}`,
-    '【合化程度】等级是按月令、透干、根气、清杂、冲破与争合条件形成的传统规则分类，不是概率或吉凶分。必须逐项引用条件，并结合日主旺衰、格局调候、正式喜忌和岁运触发复核，不得仅凭等级直接断定成化。',
-  );
+  return buildEvidenceDrivenHintSection('合化程度', `命盘见合化候选：${evidence}`);
 }
 
 /**
@@ -301,7 +277,7 @@ export function generateEnhancedAnalysisSection(
   const wuxingEvidence = chartResult.wuxingStrength;
   if (wuxingEvidence) {
     sections.push(
-      `【五行结构证据】出现：${wuxingEvidence.present.join('、') || '无'}；按当前规则相对突出：${wuxingEvidence.dominantByRule.join('、') || '无'}；缺失：${wuxingEvidence.missing.join('、') || '无'}。${wuxingEvidence.ruleBasis.join('；')}`,
+      `【五行结构】出现：${wuxingEvidence.present.join('、') || '无'}；相对突出：${wuxingEvidence.dominantByRule.join('、') || '无'}；缺失：${wuxingEvidence.missing.join('、') || '无'}。`,
     );
   }
   const classicSection = generateClassicPatternSection(chartResult);

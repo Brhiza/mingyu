@@ -1,6 +1,4 @@
 import type { AnalysisPayloadV1, PalaceFact, StarFact } from '../../types/analysis';
-import { formatPromptEvidenceBundle } from '@core/prompt-evidence/format';
-import type { PromptEvidenceItem } from '@core/prompt-evidence/types';
 import { formatPalaceName, mapScopeLabel, normalizePalaceName } from './labels';
 import {
   collectMutagenStars,
@@ -246,84 +244,13 @@ export function buildEvidenceSummary(
   });
 
   return picked.map((item) => ({
-    证据等级: item.level || '辅证',
-    证据状态: item.status || '已记录',
     判断线索: item.title,
     适用范围: mapScopeLabel(item.scope),
     关联宫位: item.palace_names.map((name) => formatPalaceName(name)),
     关联星曜: deriveEvidenceStars(payload, focusPalaces, item),
     关联四化: deriveEvidenceMutagens(payload, focusPalaces, item),
-    数据来源: item.sources?.join('、') || item.source || '现有紫微结构化证据池',
-    计算依据: item.calculation || '按证据项登记的宫位、星曜与四化关联逐项核对',
-    说明: item.promptText || item.description,
-    适用边界:
-      item.limitation ||
-      item.limitations?.join('；') ||
-      '仅作为传统紫微结构化线索，不直接证明现实事件、吉凶结果或发生概率',
+    说明: item.description,
   }));
-}
-
-export function buildEvidenceChainSummary(payload: AnalysisPayloadV1) {
-  const analysis = payload.evidence_analysis;
-  const evidenceSummary = analysis
-    ? {
-        证据状态: analysis.summaryFact.status,
-        本命证据: `${analysis.summaryFact.natalFactCount}项`,
-        运限证据: `${analysis.summaryFact.scopeFactCount}项`,
-        主证: `${analysis.summaryFact.primaryFactCount}项`,
-        辅证: `${analysis.summaryFact.supportingFactCount}项`,
-        资料缺口: `${analysis.summaryFact.missingFactCount}项`,
-        反证核验: analysis.counterEvidence.length
-          ? analysis.counterEvidence.join('；')
-          : '当前资料覆盖未见明确缺口；仍不代表现实风险为零',
-        汇总说明: analysis.summaryFact.promptText,
-        解释边界: analysis.summaryFact.limitation,
-      }
-    : (() => {
-        const missingFactCount = payload.evidence_pool.filter(
-          (item) => item.status === '资料缺口',
-        ).length;
-        return {
-          证据状态: payload.evidence_pool.length ? '旧资料已保留证据线索' : '旧资料未生成证据线索',
-          本命证据: `${payload.evidence_pool.filter((item) => item.scope === 'origin').length}项`,
-          运限证据: `${payload.evidence_pool.filter((item) => item.scope !== 'origin').length}项`,
-          资料缺口: `${missingFactCount}项`,
-          汇总说明: payload.evidence_pool.length
-            ? `当前保留${payload.evidence_pool.length}项紫微结构化线索，旧资料未附带统一计算链汇总`
-            : '当前没有可用的紫微结构化线索，证据不足时必须直接说明',
-          解释边界:
-            '仅基于已提供宫位、星曜、四化与运限资料解释，不按线索数量生成吉凶总分、概率或必然结论',
-        };
-      })();
-  const patternAnalysis = payload.pattern_analysis;
-  const patternSummary = patternAnalysis
-    ? {
-        格局证据状态: patternAnalysis.summaryFact.status,
-        登记格局规则: `${patternAnalysis.summaryFact.registeredRuleCount}条`,
-        已检格局规则: `${patternAnalysis.summaryFact.evaluatedRuleCount}条`,
-        命中格局: `${patternAnalysis.summaryFact.matchedPatternCount}项`,
-        未命中规则: `${patternAnalysis.summaryFact.unmatchedRuleCount}条`,
-        未评估规则: `${patternAnalysis.summaryFact.unevaluatedRuleCount}条`,
-        格局反证核验: patternAnalysis.counterEvidence.length
-          ? patternAnalysis.counterEvidence.join('；')
-          : '登记规则与十二宫资料已完成覆盖核验；仍不代表传统格局已被穷尽',
-        格局汇总说明: patternAnalysis.summaryFact.promptText,
-        格局解释边界: patternAnalysis.summaryFact.limitation,
-      }
-    : {
-        格局证据状态: payload.patterns?.length ? '旧资料已保留命中格局' : '旧资料未生成格局分析',
-        命中格局: `${payload.patterns?.length ?? 0}项`,
-        格局汇总说明: payload.patterns?.length
-          ? '当前仅保留格局命中列表，旧资料未附带规则覆盖与未命中统计'
-          : '当前没有可用的格局分析资料，不得把空列表解释为没有传统格局',
-        格局解释边界:
-          '传统格局只作为盘面规则分类，不按吉格、凶格或命中数量生成综合吉凶、概率与必然结论',
-      };
-
-  return {
-    ...evidenceSummary,
-    ...patternSummary,
-  };
 }
 
 export function buildScopeStructureSummary(payload: AnalysisPayloadV1) {
@@ -381,52 +308,8 @@ export function buildScopeHitSummary(payload: AnalysisPayloadV1) {
   );
   const focusLine = currentPalace
     ? `${payload.active_scope.label || scopeLabel}当前落宫为本命${formatPalaceName(currentPalace.name)}。`
-    : `${payload.active_scope.label || scopeLabel}未提供明确落宫，只能引用已给出的运限四化与关键线索。`;
-  const items: PromptEvidenceItem[] = [
-    {
-      level: '主证',
-      title: '所选运限落宫',
-      detail: focusLine,
-      source: '运限落宫',
-    },
-  ];
-
-  if (landingLines.length) {
-    items.push({
-      level: '主证',
-      title: '运限命中宫位',
-      detail: landingLines.slice(0, 6).join('；'),
-      source: '运限命中',
-    });
-  }
-
-  if (mutagenLines.length) {
-    items.push({
-      level: '主证',
-      title: '当前运限四化飞入',
-      detail: mutagenLines.slice(0, 8).join('；'),
-      source: '运限四化',
-    });
-  }
-
-  items.push(
-    {
-      level: '应期',
-      title: '应期层级',
-      detail: `${scopeLabel}只负责${payload.active_scope.label || scopeLabel}这一层级的触发；下层资料未提供时，只能给条件窗口，不给绝对日期。`,
-      source: '解读方法',
-    },
-    {
-      level: '限制',
-      title: '本命与运限边界',
-      detail: '本命宫位定长期底色，当前运限只说明阶段触发；不得把短期触发写成一生命定。',
-      source: '解读边界',
-    },
-  );
-
-  return formatPromptEvidenceBundle({
-    items,
-  });
+    : '';
+  return [focusLine, ...landingLines.slice(0, 6), ...mutagenLines.slice(0, 8)];
 }
 
 export function buildPalaceIndex(payload: AnalysisPayloadV1) {

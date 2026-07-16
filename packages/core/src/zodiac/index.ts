@@ -1,6 +1,6 @@
 /**
  * @file 生肖犯太岁 / 流年运程
- * @description 由年支推算值/冲/刑/害/破太岁，并逐项返回流年干支五行、三合六合关系与解释边界。
+ * @description 由年支推算值/冲/刑/害/破太岁，并逐项返回流年干支五行、三合六合与三会关系及解释边界。
  * 复用 ganzhi 的干支关系函数。生肖按立春为年界（调用方传入立春校正后的年柱）。
  */
 import {
@@ -16,6 +16,7 @@ import {
   isValidGanZhi,
   getBranchIndex,
   BRANCH_SANHE,
+  SANHUI_GROUPS,
   ZODIACS,
   EARTHLY_BRANCHES,
 } from '../ganzhi';
@@ -171,6 +172,8 @@ export interface ZodiacYearFortune {
   relation: string;
   /** 三合/六合贵人 */
   noble: string | null;
+  /** 两支同属固定三会组；只记录关系，不表示完整三会成局 */
+  meeting: string | null;
   conflicts: TaiSuiConflict[];
   evidenceGrade: '轻量';
   interpretationBoundary: '仅限生肖与流年关系';
@@ -187,6 +190,14 @@ function relationText(yearStemWuxing: string, zodiacWuxing: string): string {
   if (isKe(yearStemWuxing, zodiacWuxing)) return '年干五行克生肖地支本气';
   if (isKe(zodiacWuxing, yearStemWuxing)) return '生肖地支本气克年干五行';
   return '年干五行与生肖地支本气同类';
+}
+
+function getSanhuiRelation(zodiacBranch: string, yearBranch: string): string | null {
+  if (zodiacBranch === yearBranch) return null;
+  const group = Object.entries(SANHUI_GROUPS).find(
+    ([, members]) => members.includes(zodiacBranch) && members.includes(yearBranch),
+  );
+  return group ? `三会关系（${group[0]}）` : null;
 }
 
 /** 生肖流年运程 */
@@ -206,6 +217,7 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
     const sanhe = BRANCH_SANHE[zodiacBranch];
     if (sanhe?.partners.includes(yearBranch)) noble = `三合贵人（${sanhe.group}）`;
   }
+  const meeting = getSanhuiRelation(zodiacBranch, yearBranch);
   const favorableRelations = [
     noble ? noble : '',
     relation.includes('年干五行生生肖') ? relation : '',
@@ -230,6 +242,7 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
     yearBranch,
     relation,
     noble,
+    meeting,
     conflicts,
     evidenceGrade: '轻量' as const,
     interpretationBoundary: '仅限生肖与流年关系' as const,
@@ -241,20 +254,19 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
   const prompt = [
     `【生肖与流年关系简析】`,
     `${zodiac}（${zodiacBranch}）遇${yearGanZhi}年（${TAI_SUI_STARS[yearGanZhi] ?? ''}太岁）。`,
-    `五行来源：流年年干${yearGanZhi[0]}属${yearStemWuxing}，流年地支${yearBranch}属${yearBranchWuxing}；生肖地支${zodiacBranch}属${zodiacWuxing}；年干与生肖五行据此得到“${relation}”，年支则用于值、冲、刑、害、破及三合六合判断。`,
+    `五行来源：流年年干${yearGanZhi[0]}属${yearStemWuxing}，流年地支${yearBranch}属${yearBranchWuxing}；生肖地支${zodiacBranch}属${zodiacWuxing}；年干与生肖五行据此得到“${relation}”，年支则用于值、冲、刑、害、破、三合、六合及三会判断。`,
     `干支关系：${relation}。`,
-    noble ? `贵人：${noble}。` : '贵人：无明显三合六合贵人。',
+    noble ? `贵人：${noble}。` : '',
+    meeting ? `三会：${meeting}；仅表示两支同属三会组，不表示完整三会成局。` : '',
     conflicts.length
       ? `犯太岁明细：${conflicts.map((conflict) => `${conflict.type}（${conflict.desc}）`).join('；')}`
-      : '犯太岁明细：本年未命中值、冲、刑、害、破太岁。',
-    `有利关系：${favorableRelations.join('；') || '未见三合六合或年干明显生扶'}。`,
-    `风险关系：${riskRelations.join('；') || '未见值、冲、刑、害、破关系'}。`,
-    `行动信号：${actionSignals.join('；') || '按实际计划稳步推进，不因生肖关系额外制造焦虑'}。`,
-    evidenceAnalysis.promptText,
-    '证据边界：本次只作生肖与流年关系层的趋势参考；不得仅凭犯太岁名称断定必然事件，也不得把化解建议写成保证结果。',
-    '',
-    '请围绕上述生肖与流年地支关系，依次说明有利关系、风险关系、可观察的现实信号和稳妥行动建议。',
-  ].join('\n');
+      : '',
+    favorableRelations.length ? `有利关系：${favorableRelations.join('；')}。` : '',
+    riskRelations.length ? `风险关系：${riskRelations.join('；')}。` : '',
+    actionSignals.length ? `行动信号：${actionSignals.join('；')}。` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   return {
     ...resultBase,

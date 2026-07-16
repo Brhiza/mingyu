@@ -15,10 +15,7 @@ import {
   type AstronomicalTimeEvidence,
 } from '../calendar/astronomical-time';
 import { resolveHistoricalTimezone } from '../calendar/historical-timezone';
-import {
-  classifyAspectClosenessFromStrength,
-  normalizedOrbRatioFromStrength,
-} from './astrolabe-aspect-evidence';
+import { classifyAspectClosenessFromStrength } from './astrolabe-aspect-evidence';
 
 export type AstrolabeScopeContext = {
   scope: AstrolabeScopeMode;
@@ -273,9 +270,6 @@ const TRANSITING_BODIES = [
   CelestialBody.Moon,
 ];
 
-const ASTROLABE_EVIDENCE_SCOPE_NOTE =
-  '资料范围：以本命盘结构、本命宫主星链条，以及所选流年、流月或流日的主要行运相位和行运落本命宫位为判断依据。';
-
 function parseDateParts(dateStr: string) {
   const matched = /^(\d{4})(?:-(\d{1,2}))?(?:-(\d{1,2}))?$/.exec(dateStr.trim());
   if (!matched) {
@@ -432,9 +426,7 @@ function formatTransitLine(transit: Transit) {
   const phase = PHASE_LABELS[transit.phase] ?? transit.phase;
   const retrograde = transit.isRetrograde ? '，逆行' : '';
   const closeness = classifyAspectClosenessFromStrength(transit.strength);
-  const normalizedOrbRatio = normalizedOrbRatioFromStrength(transit.strength);
-
-  return `${transitingBody}${transit.symbol}${natalPoint}（${aspect}，偏差${transit.deviation.toFixed(2)}°，${closeness}等级，归一化容许度位置${normalizedOrbRatio.toFixed(2)}，${phase}${retrograde}）`;
+  return `${transitingBody}${transit.symbol}${natalPoint}（${aspect}，偏差${transit.deviation.toFixed(2)}°，${closeness}，${phase}${retrograde}）`;
 }
 
 function getNatalHouseCusps(data: AstrolabeData) {
@@ -1601,7 +1593,7 @@ function buildHouseRulerChainEvidence(data: AstrolabeData) {
     .map((house) => {
       const ruler = HOUSE_RULER_MAP[house.sign];
       if (!ruler) {
-        return `第${house.house}宫${house.sign}宫头：宫主星未识别，只按宫头星座和宫内星体保守判断`;
+        return `第${house.house}宫${house.sign}宫头，宫主星未识别`;
       }
 
       const primary = data.planets.find((planet) => planet.name === ruler.primary);
@@ -1622,7 +1614,7 @@ function buildHouseRulerChainEvidence(data: AstrolabeData) {
       return `第${house.house}宫${house.sign}宫头，${primaryText}${modernText}`;
     });
 
-  return `本命宫主星链条：${lines.join('；')}；宫主星链条只用于定位议题落点，不能脱离本命星体、相位和行运触发单独下结论。`;
+  return `本命宫主星：${lines.join('；')}。`;
 }
 
 function parseBirthCoordinates(data: AstrolabeData) {
@@ -1654,7 +1646,7 @@ function buildTransitHouseEvidence(
 ) {
   const cusps = getNatalHouseCusps(data);
   if (!cusps) {
-    return '行运落宫提示：本命宫头资料不足，无法可靠判断行运行星落入本命哪一宫；不得编造行运落宫。';
+    return '行运落宫：本命宫头资料不足。';
   }
 
   try {
@@ -1693,11 +1685,9 @@ function buildTransitHouseEvidence(
           : `${label}${position}${retrograde}未能定位本命落宫`;
       });
 
-    return lines.length
-      ? `行运落宫提示：${lines.join('；')}；落宫只说明被触发的生活领域，必须与行运相位、本命宫主星和【问题】互证。`
-      : '行运落宫提示：未取得可用行运行星位置，不得编造行运落宫。';
+    return lines.length ? `行运落宫：${lines.join('；')}。` : '行运落宫：未取得可用行运行星位置。';
   } catch {
-    return '行运落宫提示：行运行星位置计算失败，不能使用行运落宫作证据。';
+    return '行运落宫：计算失败。';
   }
 }
 
@@ -1707,7 +1697,7 @@ function buildTransitEvidence(
 ) {
   const natalPoints = buildNatalPoints(data);
   if (natalPoints.length < 3) {
-    return '行运证据：本命点经度资料不足，无法可靠计算行运行星与本命点相位；请只按本命盘做长期结构分析，不要硬断具体年份。';
+    return '主要行运相位：本命点经度资料不足。';
   }
 
   try {
@@ -1740,13 +1730,42 @@ function buildTransitEvidence(
       .map(formatTransitLine);
 
     if (transitLines.length === 0) {
-      return '行运证据：所选日期未检测到进入当前筛选容许度的主要行运相位；请以本命盘结构为主，只把该时间段当作弱触发背景。';
+      return '主要行运相位：所选日期未见当前容许度内的主要相位。';
     }
 
-    return `行运证据：${transitLines.join('；')}。来源为 celestine 行运计算；归一化容许度位置只用于相位紧密分层，不代表事件概率或吉凶比例。`;
+    return `主要行运相位：${transitLines.join('；')}。`;
   } catch {
-    return '行运证据：行运计算失败；请以本命盘结构为主，不要硬断具体年份。';
+    return '主要行运相位：计算失败。';
   }
+}
+
+function formatAdvancedScopeFacts(params: {
+  solarReturnEvidence?: SolarReturnEvidence;
+  secondaryProgressionEvidence?: SecondaryProgressionEvidence;
+  solarArcEvidence?: SolarArcEvidence;
+}) {
+  const lines: string[] = [];
+  const solarReturn = params.solarReturnEvidence;
+  const progression = params.secondaryProgressionEvidence;
+  const solarArc = params.solarArcEvidence;
+
+  if (solarReturn) {
+    lines.push(
+      `太阳返照：${solarReturn.dateTime || '未取得返照时刻'}；主要相位：${solarReturn.aspects.join('；') || '暂无'}。`,
+    );
+  }
+  if (progression) {
+    lines.push(
+      `次限推进：${progression.progressedDateTime || '未取得推进日期'}；主要相位：${progression.aspects.join('；') || '暂无'}。`,
+    );
+  }
+  if (solarArc) {
+    lines.push(
+      `太阳弧：${solarArc.arcDegrees === undefined ? '未取得推进弧' : `${solarArc.arcDegrees.toFixed(2)}°`}；主要相位：${solarArc.aspects.join('；') || '暂无'}。`,
+    );
+  }
+
+  return lines;
 }
 
 export function buildAstrolabeScopeContext(
@@ -1760,11 +1779,7 @@ export function buildAstrolabeScopeContext(
       dateStr: '',
       displayText: '仅使用本命信息',
       displayLabel: '本命盘',
-      promptText: [
-        '分析对象：本命盘。',
-        '时间边界：只判断长期性格结构、人生主题、稳定倾向与可长期调整的模式；不得自行指定流年、流月、流日或具体应期。',
-        ASTROLABE_EVIDENCE_SCOPE_NOTE,
-      ].join('\n'),
+      promptText: '分析对象：本命盘。',
     };
   }
 
@@ -1778,8 +1793,6 @@ export function buildAstrolabeScopeContext(
       promptText: [
         scope === 'full' ? '分析对象：本命盘与完整行运资料。' : '分析对象：本命盘。',
         houseRulerChain,
-        '时间边界：只判断长期性格结构、人生主题、稳定倾向与可长期调整的模式；不得自行指定流年、流月、流日或具体应期。',
-        ASTROLABE_EVIDENCE_SCOPE_NOTE,
       ].join('\n'),
     };
   }
@@ -1797,11 +1810,11 @@ export function buildAstrolabeScopeContext(
     scope === 'yearly' ? calculateSecondaryProgressionEvidence(data, target.year) : undefined;
   const solarArcEvidence =
     scope === 'yearly' ? calculateSolarArcEvidence(data, target.year) : undefined;
-  const advancedYearlyEvidence = [
-    solarReturnEvidence?.promptText,
-    secondaryProgressionEvidence?.promptText,
-    solarArcEvidence?.promptText,
-  ].filter((item): item is string => Boolean(item));
+  const advancedYearlyFacts = formatAdvancedScopeFacts({
+    solarReturnEvidence,
+    secondaryProgressionEvidence,
+    solarArcEvidence,
+  });
 
   return {
     scope,
@@ -1814,9 +1827,7 @@ export function buildAstrolabeScopeContext(
       houseRulerChain,
       transitEvidence,
       transitHouseEvidence,
-      ...advancedYearlyEvidence,
-      ASTROLABE_EVIDENCE_SCOPE_NOTE,
-      '时间边界：本命盘只定长期结构；所选流年、流月或流日只作为当前阶段触发与应期参考。回答时必须先围绕这个分析对象作答，不能把没有行运证据支持的年份、月份或日期硬说成确定应期。',
+      ...advancedYearlyFacts,
     ].join('\n'),
     solarReturnEvidence,
     secondaryProgressionEvidence,

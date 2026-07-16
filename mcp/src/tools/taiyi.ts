@@ -75,7 +75,7 @@ export function registerTaiyiTool(server: McpServer) {
         });
         return createStructuredToolResult({
           result,
-          prompt: buildMetaphysicsPrompt(result.prompt, args.question),
+          prompt: buildMetaphysicsPrompt(result.prompt, args.question, { method: 'taiyi' }),
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成太乙提示词失败'));
