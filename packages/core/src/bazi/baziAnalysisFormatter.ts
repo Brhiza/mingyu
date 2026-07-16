@@ -199,9 +199,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   }
   if (analysis.usefulGod) {
     const primaryFavorableWuxing =
-      analysis.usefulGod.primaryFavorableWuxing ||
-      analysis.usefulGod.favorableWuxing?.[0] ||
-      '无';
+      analysis.usefulGod.primaryFavorableWuxing || analysis.usefulGod.favorableWuxing?.[0] || '无';
     const secondaryFavorableWuxing =
       analysis.usefulGod.secondaryFavorableWuxing ||
       analysis.usefulGod.favorableWuxing?.slice(1) ||

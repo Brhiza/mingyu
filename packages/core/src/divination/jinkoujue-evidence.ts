@@ -294,8 +294,7 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
       data.calculation.yuanDunRule,
     ].join('；'),
     sources: ['金口诀起课规则', '月将加时', '昼夜贵人', '五子元遁'],
-    limitation:
-      '计算事实只证明地分、月将、贵人与人元如何形成当前四位；不证明现实结论' as const,
+    limitation: '计算事实只证明地分、月将、贵人与人元如何形成当前四位；不证明现实结论' as const,
   };
 
   const randomTraceFact = buildRandomTraceFact({
@@ -321,33 +320,27 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
       source: calculationFact.sources.join('、'),
       tags: ['起课', data.method, calculationFact.status],
     },
-    ...positions.map(
-      (item): PromptEvidenceItem => ({
-        level: item.position === '贵神' || item.position === '将神' ? '主证' : '辅证',
-        title: `${item.position}位`,
-        detail: `${item.promptText}；角色${item.role}；支持${item.support.join('、') || '无'}；限制${item.constraints.join('、') || '无'}；边界：${item.limitation}`,
-        source: item.sources.join('、'),
-        tags: [item.position, item.element, item.seasonState],
-      }),
-    ),
-    ...relations.map(
-      (item): PromptEvidenceItem => ({
-        level: item.status === '限制' ? '反证' : item.status === '支持' ? '主证' : '辅证',
-        title: '四位关系',
-        detail: `${item.promptText}；边界：${item.limitation}`,
-        source: item.sources.join('、'),
-        tags: ['生克', item.relation],
-      }),
-    ),
-    ...focusFacts.map(
-      (item): PromptEvidenceItem => ({
-        level: item.level,
-        title: `焦点：${item.target}`,
-        detail: `${item.promptText}；边界：${item.limitation}`,
-        source: item.sources.join('、'),
-        tags: ['焦点', item.role],
-      }),
-    ),
+    ...positions.map((item): PromptEvidenceItem => ({
+      level: item.position === '贵神' || item.position === '将神' ? '主证' : '辅证',
+      title: `${item.position}位`,
+      detail: `${item.promptText}；角色${item.role}；支持${item.support.join('、') || '无'}；限制${item.constraints.join('、') || '无'}；边界：${item.limitation}`,
+      source: item.sources.join('、'),
+      tags: [item.position, item.element, item.seasonState],
+    })),
+    ...relations.map((item): PromptEvidenceItem => ({
+      level: item.status === '限制' ? '反证' : item.status === '支持' ? '主证' : '辅证',
+      title: '四位关系',
+      detail: `${item.promptText}；边界：${item.limitation}`,
+      source: item.sources.join('、'),
+      tags: ['生克', item.relation],
+    })),
+    ...focusFacts.map((item): PromptEvidenceItem => ({
+      level: item.level,
+      title: `焦点：${item.target}`,
+      detail: `${item.promptText}；边界：${item.limitation}`,
+      source: item.sources.join('、'),
+      tags: ['焦点', item.role],
+    })),
     ...(data.method === 'random'
       ? [
           {
@@ -359,15 +352,13 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
           },
         ]
       : []),
-    ...counterEvidenceFacts.map(
-      (item): PromptEvidenceItem => ({
-        level: '反证',
-        title: item.type,
-        detail: `${item.promptText}；边界：${item.limitation}`,
-        source: item.sources.join('、'),
-        tags: ['反证', item.type],
-      }),
-    ),
+    ...counterEvidenceFacts.map((item): PromptEvidenceItem => ({
+      level: '反证',
+      title: item.type,
+      detail: `${item.promptText}；边界：${item.limitation}`,
+      source: item.sources.join('、'),
+      tags: ['反证', item.type],
+    })),
     {
       level: '辅证',
       title: `金口诀证据汇总：${summaryFact.status}`,

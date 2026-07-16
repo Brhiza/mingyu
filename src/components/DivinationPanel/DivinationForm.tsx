@@ -313,10 +313,7 @@ export function DivinationForm({
                           placeholder="例如 7"
                           value={draft.jinkoujueNumber}
                           onChange={(event) =>
-                            updateDraft(
-                              'jinkoujueNumber',
-                              event.target.value.replace(/[^\d]/g, ''),
-                            )
+                            updateDraft('jinkoujueNumber', event.target.value.replace(/[^\d]/g, ''))
                           }
                         />
                       </div>

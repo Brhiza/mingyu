@@ -364,7 +364,10 @@ function formatLiuyaoInfo(
     : `用神主线：${evidenceAnalysis.selectionFact.promptText}`;
   const godChainText = evidenceAnalysis.godChain.length
     ? `作用链：${evidenceAnalysis.godChain
-        .map((item) => `${item.role}${item.wuxing || ''}${item.status === '盘中有对应' ? `见${item.references.map((ref) => `第${ref.position}爻${ref.sixRelative}${ref.branch}${ref.wuxing}`).join('、')}` : '未见'}`)
+        .map(
+          (item) =>
+            `${item.role}${item.wuxing || ''}${item.status === '盘中有对应' ? `见${item.references.map((ref) => `第${ref.position}爻${ref.sixRelative}${ref.branch}${ref.wuxing}`).join('、')}` : '未见'}`,
+        )
         .join('；')}`
     : '';
   const monthDayEvidence = createLiuyaoMonthDayEvidence(data);
@@ -968,6 +971,7 @@ function formatAlmanacInfo(data: AlmanacData) {
   return [
     '占法：黄历择日',
     `核心结构：择日事项：${data.topicLabel}；候选日期：${data.startDate} 至 ${data.endDate}`,
+    mainLine,
     bestDay ? `首选日期：${bestDay.date}` : '',
     topicScopeEvidence,
     participantFitEvidence ? `参与人适配：${participantFitEvidence}` : '',
@@ -1056,7 +1060,6 @@ export function formatTaiyiInfo(data: TaiyiResult) {
     `十六神：${data.sixteenGods.map((item) => `${item.branch}${item.god}`).join('、')}`,
   ].join('\n');
 }
-
 
 function formatJinkoujueInfo(data: JinkoujueData) {
   const evidenceAnalysis = data.evidenceAnalysis ?? analyzeJinkoujueEvidence(data);

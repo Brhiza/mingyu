@@ -326,7 +326,9 @@ export function buildPromptFromConfig(
           fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
           fortuneEvidenceSection ? buildPromptSection('岁运重点', fortuneEvidenceSection) : '',
           buildPromptSection('问题', normalizedQuestion),
-          isCustomQuestion ? '' : buildPromptSection('任务', task || '请依据已给出的命盘字段直接裁定重点。'),
+          isCustomQuestion
+            ? ''
+            : buildPromptSection('任务', task || '请依据已给出的命盘字段直接裁定重点。'),
           isCustomQuestion ? '' : buildPromptSection('输出要求', buildBaziOutputRequirementText()),
         ]),
       ),

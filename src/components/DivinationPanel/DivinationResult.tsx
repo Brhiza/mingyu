@@ -4,6 +4,7 @@ import type { DivinationSession } from '@/lib/divination/engine';
 import type { DivinationSummaryBlocks } from '@/lib/divination/summary';
 import type {
   AstrolabeData,
+  JinkoujueData,
   LiurenData,
   LiurenPlateItem,
   LiurenTransmission,
@@ -345,34 +346,41 @@ export function DivinationResult({
       {session.method === 'jinkoujue' ? (
         <div className="divination-extra-panel">
           <div className="divination-extra-title">金口诀四位</div>
-          <div className="xiaoliuren-overview-grid">
-            <div className="xiaoliuren-overview-item">
-              <strong>地分</strong>
-              <span>{(session.data as any).positions?.diFen?.branch}</span>
-            </div>
-            <div className="xiaoliuren-overview-item">
-              <strong>将神</strong>
-              <span>{(session.data as any).positions?.jiangShen?.branch}</span>
-            </div>
-            <div className="xiaoliuren-overview-item">
-              <strong>贵神</strong>
-              <span>
-                {(session.data as any).positions?.guiShen?.god || ''}
-                {(session.data as any).positions?.guiShen?.branch}
-              </span>
-            </div>
-            <div className="xiaoliuren-overview-item">
-              <strong>人元</strong>
-              <span>
-                {(session.data as any).positions?.renYuan?.stem || ''}
-                {(session.data as any).positions?.renYuan?.branch}
-              </span>
-            </div>
-          </div>
-          <div className="xiaoliuren-overview-item">
-            <strong>取用主线</strong>
-            <span>{(session.data as any).mainLine}</span>
-          </div>
+          {(() => {
+            const jinkoujue = session.data as JinkoujueData;
+            return (
+              <>
+                <div className="xiaoliuren-overview-grid">
+                  <div className="xiaoliuren-overview-item">
+                    <strong>地分</strong>
+                    <span>{jinkoujue.positions.diFen.branch}</span>
+                  </div>
+                  <div className="xiaoliuren-overview-item">
+                    <strong>将神</strong>
+                    <span>{jinkoujue.positions.jiangShen.branch}</span>
+                  </div>
+                  <div className="xiaoliuren-overview-item">
+                    <strong>贵神</strong>
+                    <span>
+                      {jinkoujue.positions.guiShen.god || ''}
+                      {jinkoujue.positions.guiShen.branch}
+                    </span>
+                  </div>
+                  <div className="xiaoliuren-overview-item">
+                    <strong>人元</strong>
+                    <span>
+                      {jinkoujue.positions.renYuan.stem || ''}
+                      {jinkoujue.positions.renYuan.branch}
+                    </span>
+                  </div>
+                </div>
+                <div className="xiaoliuren-overview-item">
+                  <strong>取用主线</strong>
+                  <span>{jinkoujue.mainLine}</span>
+                </div>
+              </>
+            );
+          })()}
         </div>
       ) : null}
 

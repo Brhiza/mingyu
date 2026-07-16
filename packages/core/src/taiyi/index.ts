@@ -563,14 +563,10 @@ export function generateTaiyi(input: TaiyiInput = {}): TaiyiResult {
   if (guestNature) judgments.push(`客算 ${guestCount} 为${guestNature}。`);
   if (setNature) judgments.push(`定算 ${setCount} 为${setNature}。`);
   if (lordGeneral === 5 || lordAssistant === 5) {
-    judgments.push(
-      '主大将或主参将居中宫：主方行动条件受制，先看守势与内部整理。',
-    );
+    judgments.push('主大将或主参将居中宫：主方行动条件受制，先看守势与内部整理。');
   }
   if (guestGeneral === 5 || guestAssistant === 5) {
-    judgments.push(
-      '客大将或客参将居中宫：客方行动条件受制，先看外部阻力与节奏放缓。',
-    );
+    judgments.push('客大将或客参将居中宫：客方行动条件受制，先看外部阻力与节奏放缓。');
   }
   if (judgments.length === 0) judgments.push('本局未见主目、客目与太乙同位。');
 

@@ -371,7 +371,12 @@ function isTimeBasedDivinationMethod(method: Exclude<DivinationMethodId, 'random
     return true;
   }
 
-  if (method === 'meihua' || method === 'xiaoliuren' || method === 'jinkoujue' || method === 'taiyi') {
+  if (
+    method === 'meihua' ||
+    method === 'xiaoliuren' ||
+    method === 'jinkoujue' ||
+    method === 'taiyi'
+  ) {
     return true;
   }
 

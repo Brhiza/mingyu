@@ -168,7 +168,6 @@ const TOPIC_RULE_PROFILES: Record<
   },
 };
 
-
 function assertAlmanacTopic(topic: AlmanacTopic): void {
   if (!Object.prototype.hasOwnProperty.call(ALMANAC_TOPIC_LABELS, topic)) {
     throw new Error(`未知的黄历择日事项类型: ${String(topic)}`);

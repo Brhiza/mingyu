@@ -561,8 +561,7 @@ function buildLimitationFacts(args: {
         data.warningSummaryFact.key,
         ...data.warningFacts.map((item) => item.key),
       ],
-      promptText:
-        '当前命盘只采用明确时辰或真太阳时校正后的唯一时刻',
+      promptText: '当前命盘只采用明确时辰或真太阳时校正后的唯一时刻',
       sources: ['出生时间输入规则、真太阳时与排盘边界事实'],
     },
     {

@@ -822,14 +822,14 @@ function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions) {
       {
         label: '怪异事项候选',
         relative: '官鬼',
-        reason: '怪异事项以官鬼为用神，并先核对世爻与现实条件。',
+        reason: '仅按传统取官鬼为候选，不能据此证明超自然原因。',
       },
       ...(world
         ? [
             {
               label: '求测者主轴',
               position: world.position,
-              reason: '以世爻核对求测者当前状态。',
+              reason: '仍须先检查世爻状态与现实因素。',
             },
           ]
         : []),

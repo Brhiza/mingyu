@@ -2593,12 +2593,8 @@ function calculateXiaoliuren(input: JsonRecord) {
 }
 
 function calculateJinkoujue(input: JsonRecord) {
-  const method = readEnum(
-    input,
-    'jinkoujueMethod',
-    ['time', 'number', 'random'],
-    'time',
-  ) as 'time' | 'number' | 'random';
+  const method = readEnum(input, 'jinkoujueMethod', ['time', 'number', 'random'], 'time') as
+    'time' | 'number' | 'random';
   if (method !== 'random') {
     assertNoRandomOptions(input, '金口诀仅随机起课接受 seed 或 replay。');
   }
