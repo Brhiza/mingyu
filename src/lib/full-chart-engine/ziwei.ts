@@ -566,10 +566,7 @@ export function buildCombinedZiweiPrompt(
   const packWithPriority =
     isCustomQuestion || payload.active_scope.scope !== 'origin'
       ? pack
-      : pack.replace(
-          '【分析对象】\n',
-          `【分析对象】\n${analysisPriorityText}\n`,
-        );
+      : pack.replace('【分析对象】\n', `【分析对象】\n${analysisPriorityText}\n`);
 
   return [
     buildPromptGuidanceSections('ziwei'),
