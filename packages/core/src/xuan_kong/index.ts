@@ -9,10 +9,7 @@ import {
   TWENTY_FOUR_MOUNTAINS,
   type CompassMountainPosition,
 } from '../direction';
-import {
-  analyzeXuanKongEvidence,
-  type XuanKongEvidenceAnalysis,
-} from './evidence';
+import { analyzeXuanKongEvidence, type XuanKongEvidenceAnalysis } from './evidence';
 
 export type XuanKongGuaType = '下卦' | '替卦';
 
@@ -214,7 +211,9 @@ function resolveMountains(input: XuanKongInput): {
     };
     const boundaryDistance = Math.min(distanceToBoundary(sitPos), distanceToBoundary(facingPos));
     const stability: XuanKongMeasurement['stability'] =
-      (uncertainty > 0 && boundaryDistance <= uncertainty) || sitPos.isBoundary || facingPos.isBoundary
+      (uncertainty > 0 && boundaryDistance <= uncertainty) ||
+      sitPos.isBoundary ||
+      facingPos.isBoundary
         ? '山向边界敏感'
         : '稳定';
     const warnings: string[] = [];
@@ -224,9 +223,7 @@ function resolveMountains(input: XuanKongInput): {
       const offsets = [-1.0, 0, 1.0];
       const seen = new Set<string>();
       for (const offset of offsets) {
-        const sitCandidate = getMountainFromDegree(
-          (((sitPos.degree + offset) % 360) + 360) % 360,
-        );
+        const sitCandidate = getMountainFromDegree((((sitPos.degree + offset) % 360) + 360) % 360);
         const facingCandidate = getMountainFromDegree(
           (((facingPos.degree + offset) % 360) + 360) % 360,
         );

@@ -154,8 +154,11 @@ export function ResultPage() {
   const navigate = useNavigate();
   const [promptContext, setPromptContext] = useState<PromptRealWorldContext>({});
   const [metaphysicsQuestionDraft, setMetaphysicsQuestionDraft] = useState('');
-  const [residentialResult, setResidentialResult] = useState<ResidentialFengshuiResult | null>(null);
-  const [residentialMeasurement, setResidentialMeasurement] = useState<ResidentialMeasurement | null>(null);
+  const [residentialResult, setResidentialResult] = useState<ResidentialFengshuiResult | null>(
+    null,
+  );
+  const [residentialMeasurement, setResidentialMeasurement] =
+    useState<ResidentialMeasurement | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const inputSearch = useMemo(() => buildInputSearch(searchParams), [searchParams]);
   const inputState = useMemo(
@@ -187,8 +190,6 @@ export function ResultPage() {
   const isAstrolabePromptSource = promptState.promptSource === 'astrolabe';
   const isQizhengPromptSource = promptState.promptSource === 'qizheng';
   const isBazhaiPromptSource = promptState.promptSource === 'bazhai';
-  const bazhaiResult = residentialResult?.bazhai ?? null;
-  const bazhaiMeasurement = residentialMeasurement;
 
   const baziDraftStorageKey = useMemo(
     () => `${PROMPT_DRAFT_STORAGE_PREFIX}:bazi:${inputSearch}`,

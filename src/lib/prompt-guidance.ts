@@ -165,9 +165,8 @@ export const PROMPT_GUIDANCE_TEXT = {
     analysis:
       '先分别把握双方太阳、月亮、上升和关系需求，再结合跨盘相位、星体落宫、相位容许度与双方本命结构，分析互动模式。',
     tradition:
-      '合盘先各自确认太阳、月亮、上升和关系需求，再比较跨盘相位、落宫与容许度。双方本命结构优先于单一跨盘相位；紧密相位说明互动强度线索，不直接等于关系结果。当前只在已提供的双盘资料范围内讨论，不外推未计算的组合盘或组合中点体系。',
-    sources:
-      '参考现代西方占星合盘通行读法；解释范围以双方本命结构、跨盘相位和落宫资料为准。',
+      '合盘先各自确认太阳、月亮、上升和关系需求，再比较跨盘相位、落宫与容许度。双方本命结构优先于单一跨盘相位；紧密相位说明互动强度线索，不直接等于关系结果。当前只在已提供的双盘资料范围内讨论，不外推尚未给出的组合盘或组合中点体系。',
+    sources: '参考现代西方占星合盘通行读法；解释范围以双方本命结构、跨盘相位和落宫资料为准。',
     output: '按“关系主轴、情感与沟通模式、互补点、张力与触发条件、相处建议”的顺序回答。',
   },
   bazhai: {
@@ -237,7 +236,8 @@ export type DivinationPromptGuidanceMethod =
   | 'lenormand'
   | 'astrolabe';
 
-export type MetaphysicsPromptMethod = 'bazhai' | 'residential' | 'zodiac' | 'taiyi' | 'qizheng' | 'xuankong';
+export type MetaphysicsPromptMethod =
+  'bazhai' | 'residential' | 'zodiac' | 'taiyi' | 'qizheng' | 'xuankong';
 
 export function buildPromptGuidanceSections(method: PromptGuidanceId) {
   const guidance = PROMPT_GUIDANCE_TEXT[method];

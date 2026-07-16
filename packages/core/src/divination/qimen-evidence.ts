@@ -821,7 +821,8 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
   const scopeLabel = SCOPE_LABELS[scope];
   const layoutMethod = data.method ?? 'zhuanpan';
   const layoutMethodLabel = layoutMethod === 'feipan' ? '飞盘法' : '转盘法';
-  const juMethod = data.juMethod ?? (data.timeInfo?.juMethod as 'chaibu' | 'zhirun' | undefined) ?? 'chaibu';
+  const juMethod =
+    data.juMethod ?? (data.timeInfo?.juMethod as 'chaibu' | 'zhirun' | undefined) ?? 'chaibu';
   const juMethodLabel = juMethod === 'zhirun' ? '置闰法' : '拆补法';
   const activeGanZhi = getActiveGanZhi(data);
   const zhiFuPalace = data.jiuGongGe.find((item) => item.tianPan.star === data.zhiFu);
@@ -1237,7 +1238,13 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
         .slice(0, 2)
         .map((item) => `${item.key} ${item.sources.join('、')}；${item.promptText}`)
         .join('；'),
-      tags: [scopeLabel, layoutMethodLabel, juMethodLabel, data.isYangDun ? '阳遁' : '阴遁', `${data.juShu}局`],
+      tags: [
+        scopeLabel,
+        layoutMethodLabel,
+        juMethodLabel,
+        data.isYangDun ? '阳遁' : '阴遁',
+        `${data.juShu}局`,
+      ],
     },
     {
       level: palaceCoverageFact.status === '完整' ? '辅证' : '反证',

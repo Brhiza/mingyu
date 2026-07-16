@@ -741,16 +741,7 @@ const systems: SystemCapability[] = [
       },
       questionInput,
     ],
-    outputs: [
-      '三元九运',
-      '山向',
-      '下卦或替卦',
-      '运盘',
-      '山盘',
-      '向盘',
-      '到山到向',
-      '结构化证据',
-    ],
+    outputs: ['三元九运', '山向', '下卦或替卦', '运盘', '山盘', '向盘', '到山到向', '结构化证据'],
     supports: {
       seed: false,
       customRandomSource: false,
@@ -758,9 +749,7 @@ const systems: SystemCapability[] = [
       birthTimeRequired: false,
       batch: false,
     },
-    notes: [
-      '玄空飞星 v1 只输出可复现的三盘结构与证据，不覆盖形峦、玄空大卦或全流派替卦口诀。',
-    ],
+    notes: ['玄空飞星 v1 只输出可复现的三盘结构与证据，不覆盖形峦、玄空大卦或全流派替卦口诀。'],
   },
   {
     id: 'residential',
@@ -848,7 +837,7 @@ const systems: SystemCapability[] = [
       '至少提供山向/门向度数，或居住人出生年与性别/命卦之一；可只做人宅、只做宅运或两者合参。底层 bazhai 与 xuankong 能力仍保留。',
     ],
   },
-]
+];
 
 /** 返回可安全序列化的能力清单，供网站、App、API 或 MCP 自动生成入口。 */
 export function getCapabilities(): MingyuCapabilities {

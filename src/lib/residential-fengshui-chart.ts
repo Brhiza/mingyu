@@ -48,9 +48,7 @@ function toCoreInput(input: ResidentialChartInput): ResidentialFengshuiInput {
   };
 }
 
-export function calculateResidentialChart(
-  input: ResidentialChartInput = {},
-): {
+export function calculateResidentialChart(input: ResidentialChartInput = {}): {
   result: ResidentialFengshuiResult;
   measurement: ResidentialMeasurement | null;
   bazhai: BaZhaiResult | null;

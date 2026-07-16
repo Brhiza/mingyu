@@ -255,8 +255,8 @@ export function getQimenJuShu(
       let chaoShenOrJieQi: QimenChaoShenState = '正授';
       let isZhiRun = false;
       let juMethodNote = '置闰法定局：以甲己符头定元，超神/接气按符头与交节先后判定';
-      let activeJieQi = jieQi;
-      let activeRule = rule;
+      const activeJieQi = jieQi;
+      const activeRule = rule;
       let activeFuTou = fuTouAfter;
 
       if (fuTouAfter && dayDiff(jieQiDay, fuTouAfter.day) === 0) {

@@ -89,8 +89,8 @@ function buildOrientationText(params: {
   }
   const sit =
     params.input.sitMountain ||
-    (params.bazhai as { directionMeasurement?: { sitMountain?: string } } | null)?.directionMeasurement
-      ?.sitMountain;
+    (params.bazhai as { directionMeasurement?: { sitMountain?: string } } | null)
+      ?.directionMeasurement?.sitMountain;
   const facing =
     params.input.facingMountain ||
     (params.bazhai as { directionMeasurement?: { facingMountain?: string } } | null)
@@ -133,9 +133,7 @@ function buildBazhai(input: ResidentialFengshuiInput): BaZhaiResult | null {
 
   const sitMountain =
     input.sitMountain ||
-    (input.facingMountain
-      ? undefined
-      : (input as { sitMountain?: string }).sitMountain);
+    (input.facingMountain ? undefined : (input as { sitMountain?: string }).sitMountain);
 
   // 若只给了朝向山名，则由玄空侧推坐山后，再回填八宅。
   if (sitMountain) {
@@ -164,7 +162,14 @@ function buildXuanKong(
   }
 
   const measurement = (
-    bazhai as { directionMeasurement?: { sitMountain?: string; facingMountain?: string; sitDegree?: number; facingDegree?: number } } | null
+    bazhai as {
+      directionMeasurement?: {
+        sitMountain?: string;
+        facingMountain?: string;
+        sitDegree?: number;
+        facingDegree?: number;
+      };
+    } | null
   )?.directionMeasurement;
 
   const xuanInput: XuanKongInput = {
@@ -333,7 +338,8 @@ function buildEvidencePrompt(params: {
   items.push({
     level: '限制',
     title: '合参边界',
-    detail: '住宅风水只分层并列八宅与玄空，不生成综合吉凶总分，也不覆盖形峦、阴宅或全套装修方案保证。',
+    detail:
+      '住宅风水只分层并列八宅与玄空，不生成综合吉凶总分，也不覆盖形峦、阴宅或全套装修方案保证。',
     source: '项目住宅风水 v1',
   });
   const bundle: PromptEvidenceBundle = { title: '住宅风水证据', items };
@@ -378,7 +384,7 @@ export function generateResidentialFengshui(
 
   // 先尽量用门向度数算出八宅坐向，再喂给玄空，保证两边山向一致。
   let bazhai = buildBazhai(input);
-  let xuankong = buildXuanKong(input, bazhai);
+  const xuankong = buildXuanKong(input, bazhai);
 
   // 若八宅只有命卦、但玄空已推出坐山，则回填八宅宅卦。
   if (bazhai && !bazhai.houseGua && xuankong?.sitMountain && hasPersonInput(input)) {
@@ -394,7 +400,7 @@ export function generateResidentialFengshui(
 
   const agreements = buildAgreements(bazhai, xuankong);
   const advice = buildAdvice(bazhai, xuankong, agreements);
-  const houseYear = xuankong ? xuankong.period.year : input.year ?? null;
+  const houseYear = xuankong ? xuankong.period.year : (input.year ?? null);
   const orientationText = buildOrientationText({ bazhai, xuankong, input });
   const evidencePromptText = buildEvidencePrompt({ bazhai, xuankong, agreements, advice });
   const prompt = buildPrompt({

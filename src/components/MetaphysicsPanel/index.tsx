@@ -47,12 +47,7 @@ function BaZhaiCompass({
   const palaces = result.housePalace ?? result.mingPalace;
   const palaceByDirection = new Map(palaces.map((item) => [item.direction, item]));
   return (
-    <svg
-      className="bazhai-compass-svg"
-      viewBox="0 0 400 400"
-      role="img"
-      aria-label="住宅八方盘面"
-    >
+    <svg className="bazhai-compass-svg" viewBox="0 0 400 400" role="img" aria-label="住宅八方盘面">
       <circle cx="200" cy="200" r="184" className="bazhai-ring" />
       <circle cx="200" cy="200" r="128" className="bazhai-ring" />
       <circle cx="200" cy="200" r="67" className="bazhai-ring bazhai-ring-core" />
@@ -182,9 +177,45 @@ export function MetaphysicsPanel({
 }: MetaphysicsPanelProps) {
   const [facingDegree, setFacingDegree] = useState(initialFacingDegree);
   const [houseYear, setHouseYear] = useState(initialHouseYear);
-  const [result, setResult] = useState<ResidentialFengshuiResult | null>(null);
-  const [measurement, setMeasurement] = useState<ResidentialMeasurement | null>(null);
-  const [error, setError] = useState('');
+  const initialChart = useMemo(() => {
+    try {
+      if (!birthData && !initialFacingDegree.trim()) {
+        return {
+          result: null as ResidentialFengshuiResult | null,
+          measurement: null as ResidentialMeasurement | null,
+          error: '',
+        };
+      }
+      const next = calculateResidentialChart({
+        ...(birthData
+          ? {
+              year: birthData.year,
+              month: birthData.month,
+              day: birthData.day,
+              gender: birthData.gender,
+            }
+          : {}),
+        ...(initialHouseYear.trim() && Number.isInteger(Number(initialHouseYear))
+          ? { houseYear: Number(initialHouseYear) }
+          : {}),
+        ...(initialFacingDegree.trim()
+          ? { doorToInteriorDegree: Number(initialFacingDegree) }
+          : {}),
+      });
+      return { result: next.result, measurement: next.measurement, error: '' };
+    } catch (currentError) {
+      return {
+        result: null as ResidentialFengshuiResult | null,
+        measurement: null as ResidentialMeasurement | null,
+        error: currentError instanceof Error ? currentError.message : '住宅风水排盘失败。',
+      };
+    }
+  }, [birthData, initialFacingDegree, initialHouseYear]);
+  const [result, setResult] = useState<ResidentialFengshuiResult | null>(initialChart.result);
+  const [measurement, setMeasurement] = useState<ResidentialMeasurement | null>(
+    initialChart.measurement,
+  );
+  const [error, setError] = useState(initialChart.error);
 
   const parsedHouseYear = useMemo(() => {
     if (!houseYear.trim()) return undefined;
@@ -271,7 +302,11 @@ export function MetaphysicsPanel({
               {result?.inputSummary.orientationText &&
               result.inputSummary.orientationText !== '未提供山向'
                 ? result.inputSummary.orientationText
-                : '人宅与宅运分层排盘'}
+                : bazhai
+                  ? measurement
+                    ? result?.inputSummary.orientationText || '命宅合参'
+                    : '个人八宅方位'
+                  : '人宅与宅运分层排盘'}
             </h2>
           </div>
           <div className="result-chip-row">
@@ -376,7 +411,7 @@ export function MetaphysicsPanel({
             </div>
             <div className="result-side-card bazhai-direction-card">
               <div className="result-side-head">
-                <h3>补充住宅信息</h3>
+                <h3>{measurement || facingDegree.trim() ? '补充住宅信息' : '补充住宅角度'}</h3>
                 <p>有山向可先看宅运；有出生可看人宅。两边都有时自动合参。</p>
               </div>
               <label className="form-item" htmlFor="metaphysics-house-year">
