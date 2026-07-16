@@ -159,6 +159,7 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ],
   ['metaphysics_bazhai', { birthYear: 1990, gender: 'male', doorToInteriorDegree: 0 }],
   ['metaphysics_residential', { birthYear: 1990, gender: 'male', year: 2024, doorToInteriorDegree: 0 }],
+  ['metaphysics_xuankong', { year: 2024, facingDegree: 0 }],
   ['metaphysics_zodiac', { zodiac: '鼠', year: 2024 }],
   ['metaphysics_taiyi', { year: 2004, scope: 'year' }],
   ['metaphysics_qizheng', { year: 2024, month: 6, day: 15, hour: 12 }],
@@ -331,6 +332,15 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
     /【住宅风水排盘】[\s\S]*合参要点：[\s\S]*【问题】\n这套房怎么看？/,
   ],
   [
+    'xuankong_prompt',
+    {
+      year: 2024,
+      facingDegree: 0,
+      question: '这套宅的飞星怎么看？',
+    },
+    /【玄空飞星排盘】[\s\S]*【问题】\n这套宅的飞星怎么看？/,
+  ],
+  [
     'zodiac_prompt',
     { zodiac: '马', yearGanZhi: '庚子', question: '今年应注意什么？' },
     /【生肖与流年关系简析】[\s\S]*马（午）遇庚子年[\s\S]*【问题】\n今年应注意什么？/,
@@ -397,7 +407,7 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 50);
+    assert.equal(tools.length, 54);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
@@ -416,6 +426,10 @@ test('MCP 工具列表应声明输出结构', async () => {
     assert.ok(tools.find((tool) => tool.name === 'calendar_solar_term'));
     assert.ok(tools.find((tool) => tool.name === 'foundation_direction'));
     assert.ok(tools.find((tool) => tool.name === 'foundation_shensha'));
+    assert.ok(tools.find((tool) => tool.name === 'metaphysics_residential'));
+    assert.ok(tools.find((tool) => tool.name === 'residential_prompt'));
+    assert.ok(tools.find((tool) => tool.name === 'metaphysics_xuankong'));
+    assert.ok(tools.find((tool) => tool.name === 'xuankong_prompt'));
 
     assert.equal(
       tools.some((tool) => tool.name === 'build_divination_prompt'),

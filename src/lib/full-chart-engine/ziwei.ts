@@ -561,13 +561,22 @@ export function buildCombinedZiweiPrompt(
   });
   const trueSolarEvidenceText = formatZiweiTrueSolarEvidence(options.trueSolarEvidence);
 
+  // pack 已含【分析对象】；本命时再补一句优先级摘要，避免重复 section 标题
+  const analysisPriorityText = buildZiweiScopePriorityText(payload);
+  const packWithPriority =
+    isCustomQuestion || payload.active_scope.scope !== 'origin'
+      ? pack
+      : pack.replace(
+          '【分析对象】\n',
+          `【分析对象】\n${analysisPriorityText}\n`,
+        );
+
   return [
     buildPromptGuidanceSections('ziwei'),
     `【当前时间】\n${formatPromptCurrentTime()}`,
     '',
-    pack,
+    packWithPriority,
     ...(trueSolarEvidenceText ? ['', `【出生时间校正】\n${trueSolarEvidenceText}`] : []),
-    ...(isCustomQuestion ? [] : ['', `【分析对象】\n${buildZiweiScopePriorityText(payload)}`]),
     '',
     `【问题】\n${normalizedQuestion}`,
     ...(isCustomQuestion

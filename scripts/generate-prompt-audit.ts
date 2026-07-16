@@ -20,6 +20,8 @@ import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { drawSpreadCards, getCardKeywords } from 'mingyu-core/divination/tarot';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { analyzeBaZhai } from '@core/ba_zhai';
+import { generateResidentialFengshui } from '@core/residential_fengshui';
+import { generateXuanKong } from '@core/xuan_kong';
 import { getZodiacYearFortune } from '@core/zodiac';
 import { generateTaiyi } from '@core/taiyi';
 import { generateQizheng } from '@core/qi_zheng';
@@ -58,67 +60,71 @@ function withCommonProjectSupplementRequired(fields: string[]) {
 const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   {
     sampleName: '八字排盘',
-    requiredFields: ['【分析对象】', '【岁运重点】', '【解读方法】'],
+    requiredFields: ['【传统判断规则】', '【传统依据】', '【分析对象】', '【岁运重点】'],
   },
   {
     sampleName: '紫微斗数',
-    requiredFields: ['【分析对象】', '【本命资料】', '【解读方法】'],
+    requiredFields: ['【传统判断规则】', '【传统依据】', '【分析对象】', '【本命资料】'],
   },
   {
     sampleName: '星盘',
-    requiredFields: ['【分析对象】', '行运证据', '资料范围', '时间边界'],
+    requiredFields: ['【传统判断规则】', '【传统依据】', '【分析对象】', '行运'],
   },
   {
     sampleName: '六爻',
-    requiredFields: withCommonProjectSupplementRequired(['主轴证据', '应期优先级']),
+    requiredFields: withCommonProjectSupplementRequired(['【传统判断规则】', '【传统依据】', '应期']),
   },
   {
     sampleName: '梅花易数',
-    requiredFields: withCommonProjectSupplementRequired(['体用关系', '应期优先级']),
+    requiredFields: withCommonProjectSupplementRequired(['【传统判断规则】', '【传统依据】', '体用关系']),
   },
   {
     sampleName: '奇门遁甲',
-    requiredFields: withCommonProjectSupplementRequired(['主证', '反证', '时间窗口']),
+    requiredFields: withCommonProjectSupplementRequired(['【传统判断规则】', '【传统依据】', '发用', '值符']),
   },
   {
     sampleName: '大六壬',
     requiredFields: withCommonProjectSupplementRequired([
+      '【传统判断规则】',
+      '【传统依据】',
       '【排盘信息】',
-      '取证顺序',
       '发用',
-      '三传推进',
-      '四课背景',
-      '应期只能写课传支持的触发条件',
+      '三传',
+      '四课',
     ]),
   },
   {
     sampleName: '小六壬',
     requiredFields: withCommonProjectSupplementRequired([
-      '五行推进证据',
+      '【传统判断规则】',
+      '【传统依据】',
+      '主证',
+      '五行推进',
       '关键词',
-      '行动建议等级',
-      '复盘窗口',
-      '证据边界',
     ]),
   },
   {
     sampleName: '塔罗牌',
     requiredFields: withCommonProjectSupplementRequired([
-      '判断主轴',
+      '【传统判断规则】',
+      '【传统依据】',
       '关键词',
-      '证据边界',
-      '现实边界',
     ]),
   },
   {
     sampleName: '雷诺曼',
-    requiredFields: withCommonProjectSupplementRequired(['牌序主轴', '关键词', '现实边界']),
+    requiredFields: withCommonProjectSupplementRequired([
+      '【传统判断规则】',
+      '【传统依据】',
+      '关键词',
+    ]),
   },
   {
     sampleName: '三山国王灵签',
     requiredFields: withCommonProjectSupplementRequired([
-      '断签口径',
-      '签诗：',
+      '【传统判断规则】',
+      '【传统依据】',
+      '签诗',
       '核心寓意',
       '事业',
       '财运',
@@ -126,42 +132,76 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '学业',
       '健康',
       '行动建议',
-      '风险提醒',
     ]),
   },
   {
     sampleName: '择日',
     requiredFields: [
       '择日补充：计划在六月上旬签署项目合作合同，希望兼顾推进效率、资金安全和双方合作稳定。',
-      '事项口径',
-      '参与人适配',
-      '现实约束',
-      '可用时段边界',
+      '【传统判断规则】',
+      '【传统依据】',
+      '参与人',
+      '可用时段',
     ],
   },
   {
     sampleName: '八宅风水',
-    requiredFields: ['【当前时间】', '命卦八宫明细', '宅卦八宫明细', '取证层级', '证据边界'],
+    requiredFields: [
+      '【当前时间】',
+      '【传统判断规则】',
+      '【传统依据】',
+      '命卦八宫明细',
+      '宅卦八宫明细',
+    ],
+  },
+  {
+    sampleName: '住宅风水',
+    requiredFields: [
+      '【当前时间】',
+      '【传统判断规则】',
+      '【传统依据】',
+      '合参要点',
+      '结构化证据',
+    ],
+  },
+  {
+    sampleName: '玄空飞星',
+    requiredFields: [
+      '【当前时间】',
+      '【传统判断规则】',
+      '【传统依据】',
+      '运盘',
+      '山盘',
+      '向盘',
+      '结构化证据',
+    ],
   },
   {
     sampleName: '生肖流年',
-    requiredFields: ['【当前时间】', '五行来源', '犯太岁明细', '证据边界'],
+    requiredFields: ['【当前时间】', '【传统判断规则】', '【传统依据】', '太岁'],
   },
   {
     sampleName: '太乙神数',
     requiredFields: [
       '【当前时间】',
+      '【传统判断规则】',
+      '【传统依据】',
       '核心宫位',
       '主客定算',
       '将参',
       '十六神',
-      '取证层级',
-      '观察层级',
     ],
   },
   {
     sampleName: '七政四余',
-    requiredFields: ['【当前时间】', '出生时空', '十二宫映射', '取证层级', '坐标与精度边界'],
+    requiredFields: [
+      '【当前时间】',
+      '【传统判断规则】',
+      '【传统依据】',
+      '出生时空',
+      '十二宫映射',
+      '计算上下文',
+    ],
   },
 ];
 
@@ -230,7 +270,7 @@ function buildPromptMarkdown(samples: PromptSample[]) {
     '',
     `生成时间：${AUDIT_DATE_TEXT}`,
     '',
-    '说明：本文件由项目本地函数真实生成，覆盖八字排盘、紫微斗数、星盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗牌、雷诺曼、三山国王灵签、择日、八宅风水、生肖流年、太乙神数、七政四余。八字、紫微斗数、星盘测试资料取自比赛原题公开出生信息，未读取正确答案文件。',
+    '说明：本文件由项目本地函数真实生成，覆盖八字排盘、紫微斗数、星盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗牌、雷诺曼、三山国王灵签、择日、八宅风水、住宅风水、玄空飞星、生肖流年、太乙神数、七政四余。八字、紫微斗数、星盘测试资料取自比赛原题公开出生信息，未读取正确答案文件。',
     '',
     '## 审计原则',
     '',
@@ -534,21 +574,21 @@ async function buildSamples(): Promise<PromptSample[]> {
     const bazhaiPrompt = buildMetaphysicsPrompt(
       bazhaiData.prompt,
       '住宅的大门、卧室和书房应该怎样安排方位？',
-      { currentTime: fixedNow },
+      { method: 'bazhai', currentTime: fixedNow },
     );
 
     const zodiacData = getZodiacYearFortune('午', '甲辰');
     const zodiacPrompt = buildMetaphysicsPrompt(
       zodiacData.prompt,
       '属马的人在甲辰年应该重点留意哪些方面？',
-      { currentTime: fixedNow },
+      { method: 'zodiac', currentTime: fixedNow },
     );
 
     const taiyiData = generateTaiyi({ date: fixedNow, scope: 'hour' });
     const taiyiPrompt = buildMetaphysicsPrompt(
       taiyiData.prompt,
       '请分析当前时段更适合主动推进还是稳守，以及应观察什么信号。',
-      { currentTime: fixedNow },
+      { method: 'taiyi', currentTime: fixedNow },
     );
 
     const qizhengData = generateQizheng({
@@ -564,7 +604,32 @@ async function buildSamples(): Promise<PromptSample[]> {
     const qizhengPrompt = buildMetaphysicsPrompt(
       qizhengData.prompt,
       '请分析命主的核心结构、优势、限制和适合的发展方向。',
-      { currentTime: fixedNow },
+      { method: 'qizheng', currentTime: fixedNow },
+    );
+
+
+    const residentialData = generateResidentialFengshui({
+      birthYear: 1990,
+      birthMonth: 6,
+      birthDay: 15,
+      gender: 'male',
+      year: 2024,
+      doorToInteriorDegree: 0,
+    });
+    const residentialPrompt = buildMetaphysicsPrompt(
+      residentialData.prompt,
+      '这套房的宅运和人宅关系怎么看？',
+      { method: 'residential', currentTime: fixedNow },
+    );
+
+    const xuankongData = generateXuanKong({
+      year: 2024,
+      facingDegree: 0,
+    });
+    const xuankongPrompt = buildMetaphysicsPrompt(
+      xuankongData.prompt,
+      '这套宅的飞星结构与重点宫位怎么看？',
+      { method: 'xuankong', currentTime: fixedNow },
     );
 
     return [
@@ -669,6 +734,20 @@ async function buildSamples(): Promise<PromptSample[]> {
         notes: ['本样本只有坐山和命卦资料，未假定具体户型、门窗、灶厕或外部形峦。'],
       },
       {
+        name: '住宅风水',
+        source: '项目住宅风水统一入口真实生成；八宅与玄空分层并列，不合成总分。',
+        inputSummary: '男，1990年6月15日生；建造/起运年 2024；门向 0°；问题为宅运与人宅关系。',
+        prompt: residentialPrompt,
+        notes: ['统一入口样本展示八宅与玄空分层合参，不代表装修吉凶保证。'],
+      },
+      {
+        name: '玄空飞星',
+        source: '项目玄空飞星 v1 算法真实生成；输出运盘、山盘、向盘与到山到向。',
+        inputSummary: '建造/起运年 2024；朝向 0°；问题为飞星结构与重点宫位。',
+        prompt: xuankongPrompt,
+        notes: ['当前样本只审计飞星盘面结构，不扩展形峦或全流派替卦。'],
+      },
+      {
         name: '生肖流年',
         source: '项目生肖流年算法真实生成；复用干支五行及值、冲、刑、害、破关系。',
         inputSummary: '生肖午马；流年甲辰；问题为年度重点注意事项。',
@@ -712,3 +791,4 @@ async function main() {
 }
 
 await main();
+
