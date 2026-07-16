@@ -1,3 +1,5 @@
+import type { FortuneTriggerEvidenceResult } from '../../fortuneTriggerEvidence';
+
 export interface FortunePromptPayload {
   scopeLabel: string;
   summaryLines: string[];
@@ -8,6 +10,8 @@ export interface FortunePromptPayload {
     title: string;
     lines: string[];
   }>;
+  /** 可供 API、页面和提示词复用的逐层岁运触发事实。 */
+  triggerEvidence?: FortuneTriggerEvidenceResult;
 }
 
 export interface FortuneSelectionContext {

@@ -18,8 +18,8 @@ export { buildAnalysisPayloadV1 } from './build-analysis-payload/index';
 export { buildActiveScope, buildBasicInfo } from './build-analysis-payload/helpers/builders';
 export { mapStarFact } from './build-analysis-payload/helpers/mappers';
 export { getCurrentScopeItem } from './build-analysis-payload/helpers/scope';
-export { detectPatterns } from './pattern-detection';
-export { buildEvidencePool } from './build-evidence-pool';
+export { buildPatternAnalysis, detectPatterns } from './pattern-detection';
+export { buildEvidenceAnalysis, buildEvidencePool } from './build-evidence-pool';
 export {
   buildScopeFocusPalaces,
   collectMutagenStars,
@@ -36,3 +36,14 @@ export {
   type ZiweiTrueSolarBirth,
   type ZiweiTrueSolarInput,
 } from '../true-solar-input';
+export { analyzeZiweiCompatibility } from './compatibility-evidence';
+export type {
+  ZiweiCompatibilityCalculationStep,
+  ZiweiCompatibilityCounterEvidenceFact,
+  ZiweiCompatibilityEvidenceResult,
+  ZiweiCompatibilityLimitationFact,
+  ZiweiCompatibilityOptions,
+  ZiweiCompatibilitySummaryFact,
+  ZiweiCrossMutagenPlacement,
+  ZiweiPalaceOverlay,
+} from './compatibility-evidence';

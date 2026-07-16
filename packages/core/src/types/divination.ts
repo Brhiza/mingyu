@@ -1,5 +1,10 @@
 import type { RandomOptions } from '../shared/random';
 import type { CoreResultMeta } from '../shared/result';
+import type { SolarTermEvidence } from '../calendar/solar-term-evidence';
+import type { MoonPhaseEvidence } from '../calendar/moon-phase-evidence';
+import type { SolarIlluminationEvidence } from '../calendar/solar-illumination-evidence';
+import type { HistoricalTimezoneEvidence } from '../calendar/historical-timezone';
+import type { TrueSolarTimeEvidenceFields } from '../calendar/true-solar-time';
 
 export type { RandomOptions, RandomSource } from '../shared/random';
 export type { CoreResultMeta } from '../shared/result';
@@ -56,6 +61,19 @@ export interface XiaoliurenData {
   lunarDay: number;
   hourIndex: number;
   hourLabel: string;
+  /** 起课输入、逐宫顺数与六宫归一的可复核计算过程。 */
+  calculation?: {
+    inputBase: number;
+    inputBaseSource: '农历月数' | '用户数字' | '随机取数';
+    lunarDay: number;
+    hourNumber: number;
+    startSeed: number;
+    processSeed: number;
+    resultSeed: number;
+    startPalaceIndex: number;
+    processPalaceIndex: number;
+    resultPalaceIndex: number;
+  };
   sequence: {
     start: XiaoliurenPalaceDetail;
     process: XiaoliurenPalaceDetail;
@@ -75,11 +93,18 @@ export interface XiaoliurenData {
     result: string;
   };
   yingQi?: string;
+  timingEvidence?: {
+    rhythm: '偏快' | '平稳' | '偏缓' | '反复' | '不定';
+    primaryBasis: string[];
+    triggerConditions: string[];
+    limitations: string[];
+  };
   direction?: string;
   shenSha?: string;
   fortune?: string;
   timing?: string;
   bodyPart?: string;
+  evidenceAnalysis?: import('../divination/xiaoliuren-evidence').XiaoliurenEvidenceAnalysis;
 }
 
 export interface BaseGanZhi {
@@ -193,6 +218,8 @@ export interface BaseHexagramData {
 }
 
 export interface LiuyaoData extends BaseHexagramData {
+  /** 用神候选、原神忌神仇神与逐爻支持/反证结构。 */
+  evidenceAnalysis?: import('../divination/liuyao-evidence').LiuyaoEvidenceAnalysis;
   /** 起卦来源与三钱投掷轨迹。 */
   generation?: {
     method: 'time' | 'manual' | 'coins';
@@ -285,6 +312,8 @@ export interface MeihuaCalculation {
 }
 
 export interface MeihuaData extends BaseHexagramData {
+  /** 主卦、互卦、变卦逐阶段体用关系与支持/限制证据。 */
+  evidenceAnalysis?: import('../divination/meihua-evidence').MeihuaEvidenceAnalysis;
   /** 体卦（代表问卦者） */
   tiGua: {
     name: string;
@@ -337,6 +366,7 @@ export interface MeihuaData extends BaseHexagramData {
     description: string;
     yaoCi?: string[];
     movingYaoCi?: string;
+    yongCi?: string;
   };
   /** 互卦（代表过程） */
   interHexagram?: {
@@ -346,6 +376,7 @@ export interface MeihuaData extends BaseHexagramData {
     lower: string;
     description: string;
     yaoCi?: string[];
+    yongCi?: string;
   } | null;
   /** 变卦（代表结果） */
   changedHexagram?: {
@@ -355,6 +386,7 @@ export interface MeihuaData extends BaseHexagramData {
     lower: string;
     description: string;
     yaoCi?: string[];
+    yongCi?: string;
   } | null;
   /** 各爻详情 */
   yaosDetail: MeihuaYaoDetail[];
@@ -416,6 +448,7 @@ export interface QimenSeasonalityInfo {
     jieQi: string;
     phase: '上元' | '中元' | '下元';
     phaseIndex: number;
+    solarTermEvidence: SolarTermEvidence;
   };
   dayStem: string;
   dayElement: string;
@@ -423,6 +456,8 @@ export interface QimenSeasonalityInfo {
   seasonRelationDescription: string;
   lunarPhase: '新月' | '上弦' | '满月' | '下弦';
   lunarPhaseDetail: string;
+  moonPhaseEvidence: MoonPhaseEvidence;
+  lunarPhaseConsistency: boolean;
   dayOfficer: string;
   dayOfficerFortuneLabel: '吉' | '凶' | '平';
   dayOfficerAdvice: string;
@@ -433,7 +468,6 @@ export interface QimenPatternCombo {
   key: string;
   name: string;
   tone: 'super-good' | 'super-bad' | 'mixed';
-  score: number;
   summary: string;
   palace?: number;
   sources: string[];
@@ -449,8 +483,14 @@ export interface QimenPatternCombo {
 export type QimenScope = 'hour' | 'day' | 'month' | 'year';
 
 export interface QimenData {
+  /** 用神宫候选、宫内组合、宫间作用、反证与触发条件。 */
+  evidenceAnalysis?: import('../divination/qimen-evidence').QimenEvidenceAnalysis;
+  /** 九宫排布方法：zhuanpan=转盘法，feipan=飞盘法。旧结果未记录时按转盘法兼容。 */
+  method?: 'zhuanpan' | 'feipan';
   /** 排盘级别：hour=时家, day=日家, month=月家, year=年家 */
   scope?: QimenScope;
+  /** 定局方法：chaibu=拆补法（默认），zhirun=置闰法。仅时家/日家生效。 */
+  juMethod?: 'chaibu' | 'zhirun';
   /** 九宫格完整数据（1-9宫） */
   jiuGongGe: QimenJiuGongGe[];
   /** 四柱干支（年/月/日/时） */
@@ -495,7 +535,6 @@ export interface QimenData {
   classicPatterns?: Array<{
     name: string;
     type: 'good' | 'bad' | 'neutral';
-    score: number;
     summary: string;
     palaces: number[];
   }>;
@@ -515,7 +554,6 @@ export interface QimenData {
       gong: number;
       name: string;
       direction: string;
-      score: number;
       use: string;
       reasons: string[];
     }>;
@@ -523,17 +561,18 @@ export interface QimenData {
       gong: number;
       name: string;
       direction: string;
-      score: number;
       use: string;
       reasons: string[];
     }>;
   };
-  /** 应期估算（最快/最慢天数、节奏） */
+  /** 应期证据（相对节奏、触发条件与限制；不机械换算固定天数） */
   yingQi?: {
-    minDays: number;
-    maxDays: number;
+    minDays?: number;
+    maxDays?: number;
     rhythm: '快' | '中' | '慢';
     sources: string[];
+    triggerConditions: string[];
+    limitations: string[];
     description: string;
   };
   /** Unix 时间戳（毫秒） */
@@ -575,6 +614,8 @@ export interface LiurenClassicalRule {
 }
 
 export interface LiurenData {
+  /** 四课取传、三传推进、旺衰空亡及反证限制。 */
+  evidenceAnalysis?: import('../divination/liuren-evidence').LiurenEvidenceAnalysis;
   /** 四柱干支（年/月/日/时） */
   ganzhi: BaseGanZhi;
   /** Unix 时间戳（毫秒） */
@@ -639,7 +680,7 @@ export interface LiurenData {
   focusEvidence?: Array<{
     target: string;
     role: string;
-    weight: number;
+    level: '主证' | '辅证';
     evidence: string[];
     limitations: string[];
   }>;
@@ -661,7 +702,20 @@ export interface TarotData {
     element?: string;
     archetype?: string;
   }[];
+  draw?: {
+    deckSize: number;
+    method: 'Fisher-Yates洗牌后依牌位顺序取顶牌';
+    orientationRule: '每张牌独立取随机数，小于0.5为逆位，否则为正位';
+    order: Array<{
+      index: number;
+      position: string;
+      cardId: number;
+      cardName: string;
+      orientation: '正位' | '逆位';
+    }>;
+  };
   timestamp: number;
+  evidenceAnalysis?: import('../divination/tarot-evidence').TarotEvidenceAnalysis;
 }
 
 export type TarotSpreadType =
@@ -729,8 +783,53 @@ export interface AlmanacAnnualDirectionGod {
   meaning: string;
 }
 
+export type AlmanacRuleFactStatus = '支持' | '限制' | '中性' | '未采用';
+
+export interface AlmanacTopicMatchFact {
+  key: string;
+  scope: '候选日' | '时辰';
+  topic: AlmanacTopic;
+  topicLabel: string;
+  sourceType: '原始宜项' | '原始忌项' | '建除值日' | '十二神';
+  status: AlmanacRuleFactStatus;
+  inputItems: string[];
+  keywords: string[];
+  matchedItems: string[];
+  promptText: string;
+  sources: string[];
+  limitation: string;
+}
+
+export interface AlmanacGodFact {
+  key: string;
+  name: string;
+  classification: '吉神' | '凶神' | '未分级';
+  status: '已读取';
+  promptText: string;
+  sources: string[];
+  limitation: string;
+}
+
+export interface AlmanacParticipantRelationFact {
+  key: string;
+  participantId: string;
+  participantName: string;
+  scope: '候选日' | '时辰';
+  basis: '年支' | '日支' | '喜用五行' | '忌神五行' | '整体';
+  candidateValue: string;
+  participantValues: string[];
+  relation: '冲' | '刑' | '害' | '破' | '命中' | '未命中' | '未见直接冲突' | '未采用';
+  status: AlmanacRuleFactStatus;
+  detail?: string;
+  promptText: string;
+  sources: string[];
+  limitation: string;
+}
+
 export interface AlmanacDayCandidate {
   date: string;
+  /** 以该民用日期中国标准时间12:00为统一参照的月相事实，不参与传统宜忌评分。 */
+  moonPhaseEvidence?: MoonPhaseEvidence;
   weekday: string;
   lunarDate: string;
   ganzhi: {
@@ -761,10 +860,12 @@ export interface AlmanacDayCandidate {
   pengZuZhi?: string;
   clash: string;
   annualDirectionGods?: AlmanacAnnualDirectionGod[];
-  score: number;
   highlights: string[];
   cautions: string[];
   participantNotes: string[];
+  topicMatchFacts?: AlmanacTopicMatchFact[];
+  godFacts?: AlmanacGodFact[];
+  participantRelationFacts?: AlmanacParticipantRelationFact[];
   hours?: AlmanacHourCandidate[];
   bestHours?: AlmanacHourCandidate[];
 }
@@ -777,13 +878,16 @@ export interface AlmanacHourCandidate {
   twelveStar: string;
   recommends: string[];
   avoids: string[];
-  score: number;
   highlights: string[];
   cautions: string[];
   participantNotes: string[];
+  topicMatchFacts?: AlmanacTopicMatchFact[];
+  participantRelationFacts?: AlmanacParticipantRelationFact[];
 }
 
 export interface AlmanacData {
+  /** 日期约束、传统宜忌、参与人冲突、时辰条件与现实限制。 */
+  evidenceAnalysis?: import('../divination/almanac-evidence').AlmanacEvidenceAnalysis;
   topic: AlmanacTopic;
   topicLabel: string;
   startDate: string;
@@ -800,6 +904,19 @@ export interface LenormandData {
   meta?: CoreResultMeta;
   spreadType: LenormandSpreadType;
   spreadName: string;
+  draw?: {
+    deckSize: number;
+    method: 'Fisher-Yates洗牌后依牌位顺序取顶牌';
+    order: Array<{
+      index: number;
+      position: string;
+      cardId: number;
+      cardName: string;
+      house?: string;
+      row?: number;
+      column?: number;
+    }>;
+  };
   cards: {
     id: number;
     name: string;
@@ -818,6 +935,7 @@ export interface LenormandData {
   }>;
   layoutEvidence?: string[];
   timestamp: number;
+  evidenceAnalysis?: import('../divination/lenormand-evidence').LenormandEvidenceAnalysis;
 }
 
 export interface AstrolabeBirthInput {
@@ -830,7 +948,8 @@ export interface AstrolabeBirthInput {
   minute: string;
   latitude: string;
   longitude: string;
-  timezone: string;
+  timezone?: string;
+  timeZoneId?: string;
   locationName?: string;
   useTrueSolarTime?: boolean;
 }
@@ -852,31 +971,196 @@ export interface AstrolabeAspect {
   body2: string;
   type: string;
   symbol: string;
+  /** 相位类型的标准精确角。旧结果可能缺少。 */
+  exactAngle?: number;
+  /** 两计算点黄经的实际最小夹角。旧结果可能缺少。 */
+  actualAngle?: number;
   orb: number;
-  strength: number;
+  /** 本次相位筛选采用的允许容许度。旧结果可能缺少。 */
+  allowedOrb?: number;
+  closeness?: '紧密' | '中等' | '宽松';
+  normalizedOrbRatio?: number;
+  /** 是否为跨星座相位。旧结果可能缺少。 */
+  isOutOfSign?: boolean;
+  source?: string;
   applying: boolean | null;
 }
 
 export interface AstrolabeData {
+  /** 星体、四轴、相位、反证、计算链与解释限制。 */
+  evidenceAnalysis?: import('../divination/astrolabe-evidence').AstrolabeEvidenceAnalysis;
   birth: {
     name: string;
     gender: AlmanacParticipantGender;
     dateTime: string;
     location: string;
     timezone: number;
+    timeZoneId?: string;
+    timezoneStatus?: 'unique' | 'ambiguous';
+    timezoneDiagnostics?: string[];
+    timezoneEvidence?: HistoricalTimezoneEvidence;
     standardDateTime?: string;
     trueSolarDateTime?: string;
+    trueSolarEvidence?: TrueSolarTimeEvidenceFields;
     isTrueSolarTime?: boolean;
   };
   planets: AstrolabePoint[];
   angles: AstrolabePoint[];
   houses: AstrolabePoint[];
   aspects: AstrolabeAspect[];
+  solarIllumination?: SolarIlluminationEvidence;
   summary: {
     elements: Record<string, string[]>;
     modalities: Record<string, string[]>;
     retrograde: string[];
     patterns: string[];
+  };
+  timestamp: number;
+}
+
+export type AstrolabeSynastryAspectType = '合相' | '六合' | '刑相' | '拱相' | '冲相';
+
+export interface AstrolabeSynastryAspect {
+  key: string;
+  status: '已命中';
+  person1: string;
+  person2: string;
+  point1Name: string;
+  point2Name: string;
+  point1: string;
+  point2: string;
+  type: AstrolabeSynastryAspectType;
+  symbol: string;
+  exactAngle: number;
+  actualAngle: number;
+  orb: number;
+  allowedOrb: number;
+  closeness: '紧密' | '中等' | '宽松';
+  orbRatio: number;
+  source: string;
+  sourcePointKey: string;
+  targetPointKey: string;
+  calculationStepKey: 'astrolabe:synastry:calculation:aspect-filter';
+  promptText: string;
+  sources: string[];
+  limitation: '跨盘相位只证明双方计算点黄经最小夹角进入所设相位角与容许度范围；和谐或紧张标签不等于现实关系好坏、匹配程度、事件结果或发生概率';
+  tendency: '和谐' | '紧张' | '中性';
+  tags: string[];
+}
+
+export interface AstrolabeHouseOverlay {
+  key: string;
+  status: '已定位';
+  ownerPerson: 'person1' | 'person2';
+  visitorPerson: 'person1' | 'person2';
+  owner: string;
+  visitor: string;
+  pointName: string;
+  point: string;
+  house: number;
+  longitude: number;
+  houseStart: number;
+  houseEnd: number;
+  ownerChartKey: string;
+  visitorPointKey: string;
+  calculationStepKey: 'astrolabe:synastry:calculation:house-overlays';
+  promptText: string;
+  sources: string[];
+  limitation: '跨盘落宫只证明访客计算点黄经位于宫主本命盘某一宫头区间；不证明现实事件、关系角色、他人意图、匹配程度或固定应期';
+}
+
+export interface AstrolabeSynastryCalculationStep {
+  key: string;
+  stage:
+    | '双盘输入校验'
+    | '计算点筛选'
+    | '跨盘角距计算'
+    | '相位容许度筛选'
+    | '宫头区间校验'
+    | '跨盘落宫定位'
+    | '证据汇总';
+  status: '已计算';
+  inputs: Record<string, string | number | boolean | string[]>;
+  result: Record<string, string | number | boolean | string[]>;
+  dependsOnStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '计算步骤只证明双方本命计算点、黄经、容许度与宫头区间经过固定几何规则形成当前相位和落宫事实，不证明现实关系、匹配程度、事件概率或固定应期';
+}
+
+export interface AstrolabeSynastryCounterEvidenceFact {
+  key: string;
+  type: '主要相位覆盖' | '跨盘落宫覆盖' | '关系类型覆盖' | '静态应期边界';
+  status:
+    '有可用证据' | '未命中' | '已关闭' | '资料不足' | '存在多类关系' | '单一类型' | '固有限制';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '反证事实只记录主要相位、跨盘落宫、关系类型与静态应期的覆盖情况；未命中不等于关系有利或不利，命中也不证明现实结果';
+}
+
+export interface AstrolabeSynastrySummaryFact {
+  key: 'astrolabe:synastry:evidence-summary';
+  status: '相位与落宫均有证据' | '仅见相位证据' | '仅见落宫证据' | '未见已列交叉事实';
+  factKeys: string[];
+  selectedPointCount1: number;
+  selectedPointCount2: number;
+  evaluatedPairCount: number;
+  matchedAspectCount: number;
+  returnedAspectCount: number;
+  truncatedAspectCount: number;
+  houseOverlayCount: number;
+  coreHouseOverlayCount: number;
+  aspectTypeCounts: Partial<Record<AstrolabeSynastryAspectType, number>>;
+  tendencyCounts: Record<'和谐' | '紧张' | '中性', number>;
+  promptText: string;
+  sources: string[];
+  limitation: '双盘证据汇总只统计几何相位、容许度筛选与落宫定位事实，不得按数量生成匹配分、成功率、关系概率、吉凶结论或唯一应期';
+}
+
+export interface AstrolabeSynastryLimitationFact {
+  key: string;
+  type:
+    | '相位几何边界'
+    | '容许度与截断边界'
+    | '落宫资料边界'
+    | '关系类型边界'
+    | '静态应期边界'
+    | '高风险输出边界';
+  status: '适用';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束跨盘相位与落宫能够支持的解释范围，不得被反向当作现实关系结果、他人意图、吉凶概率或保证有效建议的证据';
+}
+
+export interface AstrolabeSynastryData {
+  key: 'astrolabe:synastry:evidence';
+  status: '已计算';
+  people: [string, string];
+  calculationSteps: AstrolabeSynastryCalculationStep[];
+  calculationChain: string[];
+  aspects: AstrolabeSynastryAspect[];
+  houseOverlays: AstrolabeHouseOverlay[];
+  summary: {
+    totalAspects: number;
+    harmonious: number;
+    tense: number;
+    neutral: number;
+    tightAspects: number;
+    closestAspects: AstrolabeSynastryAspect[];
+  };
+  counterEvidence: string[];
+  counterEvidenceFacts: AstrolabeSynastryCounterEvidenceFact[];
+  summaryFact: AstrolabeSynastrySummaryFact;
+  limitations: string[];
+  limitationFacts: AstrolabeSynastryLimitationFact[];
+  evidence: import('../prompt-evidence/types').PromptEvidenceBundle;
+  promptText: string;
+  methodology: {
+    aspectAngles: Record<AstrolabeSynastryAspectType, number>;
+    defaultOrbs: Record<AstrolabeSynastryAspectType, number>;
+    notes: string[];
   };
   timestamp: number;
 }
@@ -926,15 +1210,19 @@ export interface TaiyiResult {
   sixteenGods: { branch: string; god: string }[];
   judgments: string[];
   model: TaiyiModelInfo;
+  evidenceAnalysis: import('../taiyi/evidence').TaiyiEvidenceAnalysis;
   prompt: string;
 }
 
 export interface SsgwRitualThrow {
   result: '圣杯' | '笑杯' | '阴杯';
+  firstFace?: '阳面' | '阴面';
+  secondFace?: '阳面' | '阴面';
 }
 
 export interface SsgwRitual {
   throws: SsgwRitualThrow[];
+  confirmed?: boolean;
   rejected?: boolean;
   reason?: string;
 }
@@ -948,7 +1236,13 @@ export interface SsgwData {
   details?: { [key: string]: string };
   timestamp: number;
   ganzhi: BaseGanZhi;
+  draw?: {
+    poolSize: number;
+    selectedIndex: number;
+    selectedNumber: number;
+  };
   ritual?: SsgwRitual;
+  evidenceAnalysis?: import('../divination/ssgw-evidence').SsgwEvidenceAnalysis;
 }
 
 export type DivinationData =

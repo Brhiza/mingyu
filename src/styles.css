@@ -4409,6 +4409,75 @@ select {
   }
 }
 
+
+
+.xuankong-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.xuankong-cell {
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  padding: 10px 8px 8px;
+  min-height: 92px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.xuankong-cell.is-center {
+  background: color-mix(in srgb, var(--accent-soft, #f4efe6) 70%, transparent);
+}
+
+.xuankong-cell-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.xuankong-cell-head strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.xuankong-stars {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.xuankong-star-yun {
+  color: var(--text-primary);
+}
+
+.xuankong-star-shan {
+  color: color-mix(in srgb, #2f6fed 80%, var(--text-primary));
+}
+
+.xuankong-star-xiang {
+  color: color-mix(in srgb, #c45c26 80%, var(--text-primary));
+}
+
+.xuankong-cell-caption {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 760px) {
+  .xuankong-cell {
+    min-height: 84px;
+  }
+}
+
 .astrolabe-board-layout {
   display: grid;
   grid-template-columns: minmax(260px, 420px) minmax(0, 1fr);
@@ -4705,29 +4774,6 @@ select {
   margin-top: 6px;
   font-size: 12px;
   color: var(--text-muted);
-}
-
-.birth-time-actions {
-  display: grid;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.birth-time-reverse-button {
-  width: fit-content;
-  border: 1px solid var(--border-contrast);
-  border-radius: var(--radius-control);
-  background: linear-gradient(180deg, var(--accent-soft), var(--secondary-soft));
-  color: var(--accent-deep);
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.birth-time-reverse-button:hover {
-  border-color: var(--accent-strong);
-  background: linear-gradient(180deg, var(--accent-surface), var(--accent-soft));
 }
 
 .form-error-text {

@@ -11,6 +11,7 @@ import {
 } from './baziUtils';
 import type { BaziChartResult, SeasonInfo, ShenShaResult } from './baziTypes';
 import { daysInSolarMonth } from '../calendar/date-validation';
+import { calculateSolarTermEvidence } from '../calendar/solar-term-evidence';
 
 type SolarTermInstance = ReturnType<typeof SolarTerm.fromIndex>;
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
@@ -364,6 +365,22 @@ export function calculateSeasonInfo(solarTime: SolarTimeInstance): SeasonInfo {
     daysToNext,
     currentSeason: prevTerm ? seasonIndexMap[prevTerm.index] : '未知',
     jieqiList: solarTerms.map((term) => ({ name: term.name, date: term.date })),
+    previousTermEvidence: prevTerm
+      ? calculateSolarTermEvidence(
+          prevTerm.index === 0
+            ? Number(prevTerm.date.slice(0, 4)) + 1
+            : Number(prevTerm.date.slice(0, 4)),
+          prevTerm.index,
+        )
+      : undefined,
+    nextTermEvidence: nextTerm
+      ? calculateSolarTermEvidence(
+          nextTerm.index === 0
+            ? Number(nextTerm.date.slice(0, 4)) + 1
+            : Number(nextTerm.date.slice(0, 4)),
+          nextTerm.index,
+        )
+      : undefined,
   };
 }
 

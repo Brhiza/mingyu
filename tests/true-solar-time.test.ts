@@ -10,6 +10,51 @@ import {
 } from 'mingyu-core/calendar';
 import { calculateTrueSolarTime as legacyCalculateTrueSolarTime } from '../packages/core/src/bazi/trueSolarTime.ts';
 import { checkChinaDst as legacyCheckChinaDst } from '../packages/core/src/bazi/chinaDst.ts';
+import { assertPromptIsPortableTaskText } from './prompt-assertions';
+
+type TrueSolarEvidenceResult =
+  ReturnType<typeof convertTrueSolarTime> | ReturnType<typeof resolveTrueSolarBirthTime>;
+
+function assertTrueSolarEvidence(result: TrueSolarEvidenceResult) {
+  const stepKeys = new Set(result.calculationSteps.map((item) => item.key));
+  const factKeys = new Set([result.summaryFact.key, ...result.summaryFact.factKeys]);
+  assert.deepEqual(
+    result.calculationChain,
+    result.calculationSteps.map((item) => item.promptText),
+  );
+  assert.equal(result.summaryFact.calculationStepCount, result.calculationSteps.length);
+  assert.equal(result.summaryFact.correctionFactCount, result.correctionFacts.length);
+  assert.equal(result.summaryFact.limitationFactCount, result.limitationFacts.length);
+  assert.ok(
+    result.correctionFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+        item.ownerStepKeys.every((key) => stepKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    result.limitationFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 &&
+        item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+        item.ownerStepKeys.length > 0 &&
+        item.ownerStepKeys.every((key) => stepKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    [
+      ...result.calculationSteps,
+      ...result.correctionFacts,
+      result.summaryFact,
+      ...result.limitationFacts,
+    ].every((item) => item.sources.length > 0 && item.limitation.length > 0),
+  );
+  assert.match(result.promptText, /计算链：/);
+  assert.match(result.promptText, /证据汇总：/);
+  assert.doesNotMatch(result.promptText, /候选时辰为|出生时间敏感性|缺少时柱/);
+  assertPromptIsPortableTaskText(result.promptText);
+}
 
 test('真太阳时公共入口应复用旧八字算法并返回便捷资料', () => {
   const result = convertTrueSolarTime({
@@ -34,6 +79,10 @@ test('真太阳时公共入口应复用旧八字算法并返回便捷资料', ()
   assert.equal(result.standardMeridian, 120);
   assert.equal(result.crossesDate, false);
   assert.equal(result.shichen.name, '巳时');
+  assert.equal(result.status, '已计算');
+  assert.equal(result.summaryFact.status, '证据链完整');
+  assert.equal(result.calculationSteps.length, 6);
+  assertTrueSolarEvidence(result);
   assert.deepEqual(legacyCheckChinaDst(1988, 7, 15, 12), checkChinaDst(1988, 7, 15, 12));
 });
 
@@ -54,6 +103,12 @@ test('真太阳时便捷入口应可选自动还原中国历史夏令时', () =>
   assert.equal(withDst.standardDateTime, '1988-07-15T11:00:00');
   assert.equal(withDst.chinaDst.applied, true);
   assert.equal(withDst.chinaDst.offsetMinutes, -60);
+  assert.equal(
+    withDst.correctionFacts.find((item) => item.type === '历史夏令时')?.correctionMinutes,
+    -60,
+  );
+  assertTrueSolarEvidence(withoutDst);
+  assertTrueSolarEvidence(withDst);
 });
 
 test('真太阳时便捷入口应识别跨日并支持全球时区', () => {
@@ -64,6 +119,8 @@ test('真太阳时便捷入口应识别跨日并支持全球时区', () => {
   });
   assert.equal(kashgar.crossesDate, true);
   assert.equal(kashgar.correctedTime.day, 31);
+  assert.equal(kashgar.correctionFacts.find((item) => item.type === '跨日结果')?.status, '已确定');
+  assertTrueSolarEvidence(kashgar);
 
   const utcPlus14 = convertTrueSolarTime({
     localDateTime: '2026-07-10T12:00',
@@ -120,6 +177,13 @@ test('统一出生真太阳时入口应处理公历、农历、跨日和时辰�
   assert.notEqual(lunar.solarClockTime.month, 5);
   assert.match(lunar.solarClockDateTime, /^1990-\d{2}-\d{2}T12:00:00$/);
   assert.ok(lunar.timeIndex >= 0 && lunar.timeIndex <= 12);
+  assert.equal(solar.calculationSteps[0].stage, '历法输入换算');
+  assert.equal(lunar.calculationSteps[0].status, '已换算');
+  assert.equal(lunar.correctionFacts[0].type, '历法输入');
+  assert.equal(solar.calculationSteps.length, 7);
+  assert.equal(lunar.calculationSteps.length, 7);
+  assertTrueSolarEvidence(solar);
+  assertTrueSolarEvidence(lunar);
 });
 
 test('统一出生真太阳时入口应集中处理中国历史夏令时', () => {

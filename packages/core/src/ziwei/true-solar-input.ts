@@ -1,5 +1,8 @@
 import { getBirthDateValidationMessage } from '../calendar/date-validation';
-import { resolveTrueSolarBirthTime } from '../calendar/true-solar-time';
+import {
+  resolveTrueSolarBirthTime,
+  type TrueSolarTimeEvidenceFields,
+} from '../calendar/true-solar-time';
 
 export interface ZiweiTrueSolarInput {
   dateType: 'solar' | 'lunar';
@@ -19,6 +22,8 @@ export interface ZiweiTrueSolarBirth {
   birthDate: string;
   /** 紫微排盘使用的时辰索引，范围 0-12。 */
   birthTimeIndex: number;
+  /** 历法换算、夏令时、经度时差、均时差、跨日与时辰映射的统一证据。 */
+  trueSolarEvidence: TrueSolarTimeEvidenceFields;
 }
 
 function readIntegerText(value: string, label: string) {
@@ -85,5 +90,17 @@ export function resolveZiweiTrueSolarBirth(input: ZiweiTrueSolarInput): ZiweiTru
   return {
     birthDate: `${corrected.year}-${String(corrected.month).padStart(2, '0')}-${String(corrected.day).padStart(2, '0')}`,
     birthTimeIndex: resolved.timeIndex,
+    trueSolarEvidence: {
+      key: resolved.key,
+      status: resolved.status,
+      calculationSteps: resolved.calculationSteps,
+      calculationChain: resolved.calculationChain,
+      correctionFacts: resolved.correctionFacts,
+      summaryFact: resolved.summaryFact,
+      limitations: resolved.limitations,
+      limitationFacts: resolved.limitationFacts,
+      source: resolved.source,
+      promptText: resolved.promptText,
+    },
   };
 }

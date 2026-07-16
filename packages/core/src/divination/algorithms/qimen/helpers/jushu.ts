@@ -1,6 +1,6 @@
 /**
  * @file 奇门遁甲定局数、值符值使、特殊时辰和遁干
- * @description 基于拆补法实现时家奇门的定局数、值符值使、特殊时辰检查和遁干。
+ * @description 基于拆补法或置闰法实现时家/日家奇门的定局数、值符值使、特殊时辰检查和遁干。
  *
  * 拆补法以节气为界，不置闰，是当代主流排盘软件（元亨利贞、各在线排盘）普遍采用的定局法。
  *
@@ -65,6 +65,23 @@ const hourRuMuByGanZhi: Record<
   癸未: { branch: '未', palace: 2, category: '时干入墓' },
   辛丑: { branch: '丑', palace: 8, category: '时干入墓' },
 };
+
+export type QimenJuMethod = 'chaibu' | 'zhirun';
+
+export type QimenChaoShenState = '正授' | '超神' | '接气';
+
+export interface QimenJuShuResult {
+  isYangDun: boolean;
+  juShu: number;
+  yuan: string;
+  jieQi: string;
+  juMethod: QimenJuMethod;
+  fuTou?: string;
+  fuTouDate?: string;
+  chaoShenOrJieQi?: QimenChaoShenState;
+  isZhiRun?: boolean;
+  juMethodNote?: string;
+}
 
 export interface QimenLayoutContext {
   isYangDun: boolean;
@@ -171,43 +188,42 @@ function getDoorByXunShouPalace(palace: number): string {
 // ============================================================================
 
 /**
- * 拆补法定三元局数
+ * 拆补法 / 置闰法定三元局数
  *
- * 核心逻辑：
+ * 拆补法：
  *   1. 以节气交节日为界，每个节气跨 15 天左右，含上中下三元。
- *   2. 上元起于该节气内最近的"甲己符头日"（甲子/甲戌/甲申/甲午/甲辰/甲寅）。
- *   3. 若符头早于节气交节日（超神），则该符头日之前属上一节气末尾（拆），
- *      之后属本节气上元（补）；若符头晚于交节日，同理向下一节气拆补。
- *   4. 本法不置闰，三元局数严格按节气表取。
+ *   2. 上元起于该节气内最近的"甲己符头日"。
+ *   3. 交节后至首个符头前归属上一节气下元（拆补）。
+ *   4. 本法不置闰。
  *
- * @param timeInfo 时间信息，包含 solar 日期字段（用于 拆补法 精确计算）、
- *                 jieQi 节气名和 ganzhi 日干支（用作兜底）
- * @returns { isYangDun, juShu, yuan, jieQi }
- *    isYangDun  - 是否为阳遁
- *    juShu      - 局数（1-9）
- *    yuan       - 三元名称（"上元" | "中元" | "下元"）
- *    jieQi      - 实际归属的节气名（当日期在第一个符头前时可能为上一节气）
- *
- * @throws 当无法获取节气信息或查找局数规则失败时
+ * 置闰法 v1：
+ *   1. 仍使用同一节气三元局数表。
+ *   2. 以甲己符头定元。
+ *   3. 符头与交节同日为正授；符头早于交节为超神；晚于交节为接气。
+ *   4. 超神超过 9 日则置闰：本节气首个符头前并入上一节气下元，不换局。
  */
-export function getQimenJuShu(timeInfo: {
-  solar?: {
-    year: number;
-    month: number;
-    day: number;
-    hour?: number;
-    minute?: number;
-    second?: number;
-  };
-  jieQi: string;
-  ganzhi: { day: string };
-}): {
-  isYangDun: boolean;
-  juShu: number;
-  yuan: string;
-  jieQi: string;
-} {
-  // ── 拆补法（优先） ──
+export function getQimenJuShu(
+  timeInfo: {
+    solar?: {
+      year: number;
+      month: number;
+      day: number;
+      hour?: number;
+      minute?: number;
+      second?: number;
+    };
+    jieQi: string;
+    ganzhi: { day: string };
+  },
+  juMethod: QimenJuMethod = 'chaibu',
+): QimenJuShuResult {
+  if (juMethod !== 'chaibu' && juMethod !== 'zhirun') {
+    throw new Error(`未知的奇门定局方法：${String(juMethod)}。`);
+  }
+
+  const formatDay = (day: TymeSolarDay) =>
+    `${day.getYear()}-${String(day.getMonth()).padStart(2, '0')}-${String(day.getDay()).padStart(2, '0')}`;
+
   if (timeInfo.solar) {
     const currentTime = SolarTime.fromYmdHms(
       timeInfo.solar.year,
@@ -218,8 +234,6 @@ export function getQimenJuShu(timeInfo: {
       timeInfo.solar.second ?? 0,
     );
     const today = getQimenGanZhiDay(currentTime);
-
-    // 获取当前时刻所属节气，不能只按日期取节气，否则交节当天会提前换局。
     const term = currentTime.getTerm();
     if (!term) {
       throw new Error(
@@ -231,51 +245,149 @@ export function getQimenJuShu(timeInfo: {
     if (!rule) {
       throw new Error(`找不到节气 "${jieQi}" 对应的局数规则。`);
     }
-    const isYangDun = rule.dun === '阳';
 
-    // 节气交节日（精确到日的节气起始日）
     const jieQiDay = term.getSolarDay();
-
-    // 在本节气内找最早的符头日（从交节日当天往后找，取本节气内第一个符头）
-    // 拆补法以"本节气内出现的符头日"为上元起点
-    // 若交节日当天就是符头，则为正授
     const fuTouAfter = findFuTou(jieQiDay, 1);
+    const fuTouBefore = findFuTou(jieQiDay.next(-1), -1);
+    const yuanNames = ['上元', '中元', '下元'] as const;
 
+    if (juMethod === 'zhirun') {
+      let chaoShenOrJieQi: QimenChaoShenState = '正授';
+      let isZhiRun = false;
+      let juMethodNote = '置闰法定局：以甲己符头定元，超神/接气按符头与交节先后判定';
+      const activeJieQi = jieQi;
+      const activeRule = rule;
+      let activeFuTou = fuTouAfter;
+
+      if (fuTouAfter && dayDiff(jieQiDay, fuTouAfter.day) === 0) {
+        chaoShenOrJieQi = '正授';
+        activeFuTou = fuTouAfter;
+      } else if (fuTouAfter && dayDiff(jieQiDay, fuTouAfter.day) > 0) {
+        chaoShenOrJieQi = '接气';
+        activeFuTou = fuTouAfter;
+        juMethodNote = '置闰法定局：符头晚于交节，按接气处理，上元起于本节气符头';
+      } else if (fuTouBefore) {
+        const superDays = dayDiff(fuTouBefore.day, jieQiDay);
+        chaoShenOrJieQi = '超神';
+        if (superDays > 9) {
+          isZhiRun = true;
+          juMethodNote = `置闰法定局：符头超节气 ${superDays} 日，触发置闰`;
+          if (!fuTouAfter || today.isBefore(fuTouAfter.day)) {
+            const prevTerm = term.next(-1);
+            const prevJieQi = prevTerm.getName();
+            const prevRule = jieQiJuShuMap[prevJieQi as keyof typeof jieQiJuShuMap];
+            if (!prevRule) {
+              throw new Error(`置闰时找不到上一节气 "${prevJieQi}" 对应的局数规则。`);
+            }
+            const prevFu = findFuTou(prevTerm.getSolarDay(), 1) ?? fuTouBefore;
+            return {
+              isYangDun: prevRule.dun === '阳',
+              juShu: prevRule.ju[2],
+              yuan: '下元',
+              jieQi: prevJieQi,
+              juMethod: 'zhirun',
+              fuTou: prevFu?.ganzhi,
+              fuTouDate: prevFu ? formatDay(prevFu.day) : undefined,
+              chaoShenOrJieQi,
+              isZhiRun,
+              juMethodNote: `${juMethodNote}，当前并入${prevJieQi}下元`,
+            };
+          }
+          activeFuTou = fuTouAfter;
+        } else {
+          activeFuTou = fuTouBefore;
+          juMethodNote = `置闰法定局：符头超节气 ${superDays} 日，按超神处理，仍用本节气三元`;
+        }
+      }
+
+      if (!activeFuTou) {
+        throw new Error(`置闰法无法定位节气 "${activeJieQi}" 的符头日。`);
+      }
+
+      if (today.isBefore(activeFuTou.day)) {
+        const prevTerm = term.next(-1);
+        const prevJieQi = prevTerm.getName();
+        const prevRule = jieQiJuShuMap[prevJieQi as keyof typeof jieQiJuShuMap];
+        if (!prevRule) {
+          throw new Error(`置闰法找不到上一节气 "${prevJieQi}" 对应的局数规则。`);
+        }
+        const prevFu = findFuTou(prevTerm.getSolarDay(), 1);
+        return {
+          isYangDun: prevRule.dun === '阳',
+          juShu: prevRule.ju[2],
+          yuan: '下元',
+          jieQi: prevJieQi,
+          juMethod: 'zhirun',
+          fuTou: prevFu?.ganzhi,
+          fuTouDate: prevFu ? formatDay(prevFu.day) : undefined,
+          chaoShenOrJieQi,
+          isZhiRun,
+          juMethodNote: `${juMethodNote}；当日早于符头，归属上一节气下元`,
+        };
+      }
+
+      const diff = dayDiff(activeFuTou.day, today);
+      const yuanIndex = Math.min(2, Math.max(0, Math.floor(diff / 5)));
+      return {
+        isYangDun: activeRule.dun === '阳',
+        juShu: activeRule.ju[yuanIndex],
+        yuan: yuanNames[yuanIndex],
+        jieQi: activeJieQi,
+        juMethod: 'zhirun',
+        fuTou: activeFuTou.ganzhi,
+        fuTouDate: formatDay(activeFuTou.day),
+        chaoShenOrJieQi,
+        isZhiRun,
+        juMethodNote,
+      };
+    }
+
+    // 拆补法
     let yuanIndex: number;
-
     if (fuTouAfter && !today.isBefore(fuTouAfter.day)) {
-      // 当日 >= 本节气内首个符头日
-      // 按天数差定上/中/下元：
-      //   符头日当天 ~ +4 天 → 上元
-      //   +5 天 ~ +9 天     → 中元
-      //   +10 天 ~ +14 天   → 下元
-      const diff = dayDiff(fuTouAfter.day, today); // 0..14
+      const diff = dayDiff(fuTouAfter.day, today);
       yuanIndex = Math.min(2, Math.floor(diff / 5));
     } else {
-      // 当日在本节气首个符头之前：
-      // 从交节日到首个符头之间的日期，属上一节气末尾拆过来的元
-      // 统一归为上一节气的下元
       const prevTerm = term.next(-1);
       const prevJieQi = prevTerm.getName();
       const prevRule = jieQiJuShuMap[prevJieQi as keyof typeof jieQiJuShuMap];
       if (prevRule) {
         return {
           isYangDun: prevRule.dun === '阳',
-          juShu: prevRule.ju[2], // 上一节气下元
+          juShu: prevRule.ju[2],
           yuan: '下元',
           jieQi: prevJieQi,
+          juMethod: 'chaibu',
+          fuTou: fuTouBefore?.ganzhi,
+          fuTouDate: fuTouBefore ? formatDay(fuTouBefore.day) : undefined,
+          chaoShenOrJieQi: '接气',
+          isZhiRun: false,
+          juMethodNote: '拆补法定局：交节后至本节气首个符头前，归属上一节气下元',
         };
       }
-      // 防御：如果查不到上一节气规则，用本节气下元
       yuanIndex = 2;
     }
 
-    const yuan = ['上元', '中元', '下元'][yuanIndex];
-    const juShu = rule.ju[yuanIndex];
-    return { isYangDun, juShu, yuan, jieQi };
+    return {
+      isYangDun: rule.dun === '阳',
+      juShu: rule.ju[yuanIndex],
+      yuan: yuanNames[yuanIndex],
+      jieQi,
+      juMethod: 'chaibu',
+      fuTou: fuTouAfter?.ganzhi,
+      fuTouDate: fuTouAfter ? formatDay(fuTouAfter.day) : undefined,
+      chaoShenOrJieQi:
+        fuTouAfter && dayDiff(jieQiDay, fuTouAfter.day) === 0
+          ? '正授'
+          : fuTouAfter && dayDiff(jieQiDay, fuTouAfter.day) > 0
+            ? '接气'
+            : '超神',
+      isZhiRun: false,
+      juMethodNote: '拆补法定局：以节气内首个甲己符头起上元，不置闰',
+    };
   }
 
-  // ── 兜底：无 solar 字段时使用日干支序数定元（旧方法） ──
+  // 兜底：无 solar 字段时使用日干支序数定元
   const { jieQi, ganzhi } = timeInfo;
   const dayGanZhi = ganzhi.day;
   const rule = jieQiJuShuMap[jieQi as keyof typeof jieQiJuShuMap];
@@ -290,7 +402,18 @@ export function getQimenJuShu(timeInfo: {
   const yuanIndex = Math.floor(dayIndex / 5) % 3;
   const yuan = ['上元', '中元', '下元'][yuanIndex];
   const juShu = rule.ju[yuanIndex];
-  return { isYangDun, juShu, yuan, jieQi };
+  return {
+    isYangDun,
+    juShu,
+    yuan,
+    jieQi,
+    juMethod,
+    isZhiRun: false,
+    juMethodNote:
+      juMethod === 'zhirun'
+        ? '置闰法兜底：无精确公历时刻时退回日干支序数定元，不执行超神置闰判定'
+        : '拆补法兜底：无精确公历时刻时退回日干支序数定元',
+  };
 }
 
 // ============================================================================

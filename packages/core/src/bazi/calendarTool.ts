@@ -1,4 +1,8 @@
 import { SolarTime, SolarTerm } from 'tyme4ts';
+import {
+  calculateSolarTermEvidence,
+  type SolarTermEvidence,
+} from '../calendar/solar-term-evidence';
 import { EARTHLY_BRANCHES, ZODIACS } from './baziMappingsData';
 
 type SolarTermInstance = ReturnType<typeof SolarTerm.fromIndex>;
@@ -14,6 +18,8 @@ export interface BaziMonthInfo {
   endDateTime?: string;
   startTermName?: string;
   endTermName?: string;
+  startTermEvidence?: SolarTermEvidence;
+  endTermEvidence?: SolarTermEvidence;
 }
 
 export interface BaziMonthDayInfo {
@@ -180,7 +186,12 @@ function collectSolarTerms(years: number[]): Array<{
   return Array.from(termMap.values()).sort((left, right) => left.jd - right.jd);
 }
 
-function buildBaziMonthInfoFromTerm(term: SolarTermInstance, index: number): DetailedBaziMonthInfo {
+function buildBaziMonthInfoFromTerm(
+  term: SolarTermInstance,
+  index: number,
+  termYear: number,
+  termIndex: number,
+): DetailedBaziMonthInfo {
   const nextTerm = term.next(2);
   const startSolarTime = term.getJulianDay().getSolarTime() as SolarTimeInstance;
   const endSolarTime = nextTerm.getJulianDay().getSolarTime() as SolarTimeInstance;
@@ -199,6 +210,14 @@ function buildBaziMonthInfoFromTerm(term: SolarTermInstance, index: number): Det
     endDateTime: formatDateTime(endAt),
     startTermName: term.getName(),
     endTermName: nextTerm.getName(),
+    startTermEvidence: calculateSolarTermEvidence(
+      termYear + Math.floor(termIndex / 24),
+      termIndex % 24,
+    ),
+    endTermEvidence: calculateSolarTermEvidence(
+      termYear + Math.floor((termIndex + 2) / 24),
+      (termIndex + 2) % 24,
+    ),
     startAt,
     endAt,
   };
@@ -206,9 +225,15 @@ function buildBaziMonthInfoFromTerm(term: SolarTermInstance, index: number): Det
 
 function getYearMonthsGanZhiDetailed(year: number): DetailedBaziMonthInfo[] {
   assertYear(year);
-  return Array.from({ length: 12 }, (_, offset) =>
-    buildBaziMonthInfoFromTerm(SolarTerm.fromIndex(year, 3 + offset * 2), offset + 1),
-  );
+  return Array.from({ length: 12 }, (_, offset) => {
+    const termIndex = 3 + offset * 2;
+    return buildBaziMonthInfoFromTerm(
+      SolarTerm.fromIndex(year, termIndex),
+      offset + 1,
+      year,
+      termIndex,
+    );
+  });
 }
 
 function getMonthDaysInfoDetailed(year: number, month: number): DetailedBaziMonthDayInfo[] {

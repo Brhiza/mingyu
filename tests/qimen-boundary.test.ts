@@ -96,6 +96,22 @@ test('奇门门星神关系：未知门星神应明确报错，不应当成比�
   );
 });
 
+test('奇门门星神关系应返回逐项关系与计数，不展示综合评分', () => {
+  const result = analyzePalaceRelations({
+    renPan: { door: '休门' },
+    tianPan: { star: '天蓬', stem: '戊' },
+    shenPan: { god: '值符' },
+  });
+
+  assert.deepEqual(
+    [result.doorStar.relation, result.doorGod.relation, result.starGod.relation],
+    ['比和', '相克', '相克'],
+  );
+  assert.deepEqual(result.relationCounts, { supporting: 1, controlling: 2 });
+  assert.doesNotMatch(result.description, /综合评分|\d+\s*\/\s*3/);
+  assert.match(result.description, /不能压缩成单一吉凶结论/);
+});
+
 test('奇门九星旺衰：未知星或非法宫位应明确报错，不应默认休囚', () => {
   assert.equal(evaluateSingleStar('天蓬', 1, '水').state, '旺');
   assert.throws(() => evaluateSingleStar('假星', 1, '水'), /九星 "假星" 无法识别/);
@@ -117,4 +133,33 @@ test('奇门节令：未知节气或日干应明确报错，不应降级成无�
   assert.throws(() => getSeasonalElement('假节气'), /无法识别节气 "假节气" 的五行属性/);
   assert.throws(() => getDaySeasonRelation('假', '木'), /无法识别日干 "假" 的五行属性/);
   assert.throws(() => getDaySeasonRelation('甲', ''), /节令五行不能为空/);
+});
+
+
+test('奇门定局方法应支持拆补与置闰，并在结果中标明', () => {
+  const date = new Date('2024-05-20T21:30:00+08:00');
+  const chaibu = generateQimen(date, 'zhuanpan', 'hour', 'chaibu');
+  const zhirun = generateQimen(date, 'zhuanpan', 'hour', 'zhirun');
+
+  assert.equal(chaibu.juMethod, 'chaibu');
+  assert.equal(zhirun.juMethod, 'zhirun');
+  assert.equal(chaibu.timeInfo.juMethod, 'chaibu');
+  assert.equal(zhirun.timeInfo.juMethod, 'zhirun');
+  assert.match(String(chaibu.timeInfo.juMethodNote ?? ''), /拆补/);
+  assert.match(String(zhirun.timeInfo.juMethodNote ?? ''), /置闰|符头|接气|超神|正授/);
+  // 不得静默退回拆补标签
+  assert.notEqual(zhirun.juMethod, 'chaibu');
+});
+
+test('奇门未知定局方法应明确报错', () => {
+  assert.throws(
+    () =>
+      generateQimen(
+        new Date('2025-01-01T08:00:00+08:00'),
+        'zhuanpan',
+        'hour',
+        'unknown' as 'chaibu',
+      ),
+    /未知的奇门定局方法/,
+  );
 });

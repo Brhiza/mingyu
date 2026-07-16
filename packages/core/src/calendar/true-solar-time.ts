@@ -19,6 +19,73 @@ export interface TrueSolarTimeResult {
   totalCorrectionMinutes: number;
 }
 
+export interface TrueSolarTimeCalculationStep {
+  key: string;
+  stage:
+    | '历法输入换算'
+    | '输入口径核验'
+    | '历史夏令时还原'
+    | '经度时差计算'
+    | '均时差计算'
+    | '总校正与跨日'
+    | '时辰映射';
+  status: '已核验' | '已换算' | '已计算' | '已应用' | '未请求' | '未命中';
+  dependsOnStepKeys: string[];
+  inputs: Record<string, string | number | boolean>;
+  result: Record<string, string | number | boolean>;
+  promptText: string;
+  sources: string[];
+  limitation: '真太阳时步骤只证明当地钟表时间如何经历法换算、历史夏令时还原、经度时差、均时差与时辰映射形成当前唯一结果；不得据此生成候选时辰、出生时间敏感性、预测概率或观测级精度声明';
+}
+
+export interface TrueSolarTimeCorrectionFact {
+  key: string;
+  type: '历法输入' | '历史夏令时' | '经度时差' | '均时差' | '总校正' | '跨日结果' | '时辰结果';
+  status: '已核验' | '已换算' | '已应用' | '未请求' | '未命中' | '已计算' | '已确定';
+  correctionMinutes?: number;
+  ownerFactKeys: string[];
+  ownerStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '校正事实只记录历法、夏令时、经度、均时差、跨日与时辰映射的计算结果；不证明原始出生记录必然正确，也不生成候选时柱或现实事件结论';
+}
+
+export interface TrueSolarTimeLimitationFact {
+  key: string;
+  type: '均时差近似' | '经度与时区口径' | '历史夏令时口径' | '原始记录边界';
+  status: '适用';
+  ownerFactKeys: string[];
+  ownerStepKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '限制事实用于约束真太阳时校正可支持的时间口径和精度声明；不得被反向当作原始出生记录真实性、候选时辰、现实事件或预测有效性证据';
+}
+
+export interface TrueSolarTimeSummaryFact {
+  key: 'true-solar-time:evidence-summary';
+  status: '证据链完整' | '含夏令时重复时段' | '含夏令时不存在时段';
+  factKeys: string[];
+  calculationStepCount: number;
+  correctionFactCount: number;
+  limitationFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '真太阳时证据汇总只统计历法输入、钟表时间、历史夏令时、经度时差、均时差、跨日、时辰映射与限制覆盖；不得按校正量或边界状态生成可信度百分比、候选时辰、敏感性结果或必然结论';
+}
+
+export interface TrueSolarTimeEvidenceFields {
+  key: string;
+  status: '已计算' | '存在时间记录边界';
+  calculationSteps: TrueSolarTimeCalculationStep[];
+  calculationChain: string[];
+  correctionFacts: TrueSolarTimeCorrectionFact[];
+  summaryFact: TrueSolarTimeSummaryFact;
+  limitations: string[];
+  limitationFacts: TrueSolarTimeLimitationFact[];
+  source: string;
+  promptText: string;
+}
+
 export interface TrueSolarTimeConversionInput {
   /** 不带时区偏移的当地钟表时间，如 1990-05-15T10:30:00。 */
   localDateTime: string;
@@ -30,7 +97,8 @@ export interface TrueSolarTimeConversionInput {
   applyChinaDst?: boolean;
 }
 
-export interface TrueSolarTimeConversionResult extends TrueSolarTimeResult {
+export interface TrueSolarTimeConversionResult
+  extends TrueSolarTimeResult, TrueSolarTimeEvidenceFields {
   clockTime: SolarDateTimeParts;
   clockDateTime: string;
   standardTime: SolarDateTimeParts;
@@ -76,6 +144,299 @@ export interface TrueSolarBirthTimeResult extends TrueSolarTimeConversionResult 
 }
 
 const LOCAL_DATE_TIME_PATTERN = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/;
+const TRUE_SOLAR_STEP_LIMITATION =
+  '真太阳时步骤只证明当地钟表时间如何经历法换算、历史夏令时还原、经度时差、均时差与时辰映射形成当前唯一结果；不得据此生成候选时辰、出生时间敏感性、预测概率或观测级精度声明' as const;
+const TRUE_SOLAR_CORRECTION_LIMITATION =
+  '校正事实只记录历法、夏令时、经度、均时差、跨日与时辰映射的计算结果；不证明原始出生记录必然正确，也不生成候选时柱或现实事件结论' as const;
+const TRUE_SOLAR_LIMITATION_FACT_LIMITATION =
+  '限制事实用于约束真太阳时校正可支持的时间口径和精度声明；不得被反向当作原始出生记录真实性、候选时辰、现实事件或预测有效性证据' as const;
+const TRUE_SOLAR_SUMMARY_LIMITATION =
+  '真太阳时证据汇总只统计历法输入、钟表时间、历史夏令时、经度时差、均时差、跨日、时辰映射与限制覆盖；不得按校正量或边界状态生成可信度百分比、候选时辰、敏感性结果或必然结论' as const;
+
+interface TrueSolarTimeEvidenceInput {
+  key: string;
+  clockDateTime: string;
+  standardDateTime: string;
+  correctedDateTime: string;
+  longitude: number;
+  timezone: number;
+  standardMeridian: number;
+  longitudeCorrectionMinutes: number;
+  equationOfTimeMinutes: number;
+  totalCorrectionMinutes: number;
+  crossesDate: boolean;
+  chinaDst: TrueSolarTimeConversionResult['chinaDst'];
+  shichen: TrueSolarTimeConversionResult['shichen'];
+  calendarStep?: TrueSolarTimeCalculationStep;
+  calendarFact?: TrueSolarTimeCorrectionFact;
+}
+
+function buildTrueSolarTimeEvidence(
+  input: TrueSolarTimeEvidenceInput,
+): TrueSolarTimeEvidenceFields {
+  const inputStepKey = 'true-solar-time:calculation:input';
+  const dstStepKey = 'true-solar-time:calculation:china-dst';
+  const longitudeStepKey = 'true-solar-time:calculation:longitude';
+  const equationStepKey = 'true-solar-time:calculation:equation-of-time';
+  const totalStepKey = 'true-solar-time:calculation:total-correction';
+  const shichenStepKey = 'true-solar-time:calculation:shichen';
+  const calculationSteps: TrueSolarTimeCalculationStep[] = [
+    ...(input.calendarStep ? [input.calendarStep] : []),
+    {
+      key: inputStepKey,
+      stage: '输入口径核验',
+      status: '已核验',
+      dependsOnStepKeys: input.calendarStep ? [input.calendarStep.key] : [],
+      inputs: {
+        clockDateTime: input.clockDateTime,
+        longitude: input.longitude,
+        timezone: input.timezone,
+      },
+      result: { standardMeridian: input.standardMeridian },
+      promptText: `核验当地钟表时间${input.clockDateTime}、经度${input.longitude}°与法定时区 UTC${input.timezone >= 0 ? '+' : ''}${input.timezone}，对应标准经线${input.standardMeridian}°`,
+      sources: ['明确当地钟表时间、经度与法定 UTC 偏移'],
+      limitation: TRUE_SOLAR_STEP_LIMITATION,
+    },
+    {
+      key: dstStepKey,
+      stage: '历史夏令时还原',
+      status: input.chinaDst.applied ? '已应用' : input.chinaDst.requested ? '未命中' : '未请求',
+      dependsOnStepKeys: [inputStepKey],
+      inputs: { requested: input.chinaDst.requested, clockDateTime: input.clockDateTime },
+      result: {
+        applied: input.chinaDst.applied,
+        offsetMinutes: input.chinaDst.applied ? input.chinaDst.offsetMinutes : 0,
+        standardDateTime: input.standardDateTime,
+        ambiguous: input.chinaDst.ambiguous,
+        nonexistent: input.chinaDst.nonexistent,
+      },
+      promptText: input.chinaDst.applied
+        ? `按中国历史夏令时规则将钟表时间还原${input.chinaDst.offsetMinutes}分钟为标准时间${input.standardDateTime}`
+        : input.chinaDst.requested
+          ? `已核验中国历史夏令时，当前时刻未命中需还原区间，标准时间仍为${input.standardDateTime}`
+          : `未请求中国历史夏令时还原，直接采用钟表时间${input.standardDateTime}`,
+      sources: ['中国 1986-1991 年历史夏令时规则'],
+      limitation: TRUE_SOLAR_STEP_LIMITATION,
+    },
+    {
+      key: longitudeStepKey,
+      stage: '经度时差计算',
+      status: '已计算',
+      dependsOnStepKeys: [dstStepKey],
+      inputs: { longitude: input.longitude, standardMeridian: input.standardMeridian },
+      result: { longitudeCorrectionMinutes: input.longitudeCorrectionMinutes },
+      promptText: `按（经度${input.longitude}°-标准经线${input.standardMeridian}°）×4分钟计算经度时差${input.longitudeCorrectionMinutes.toFixed(3)}分钟`,
+      sources: ['每经度1°对应时差4分钟的地方时换算'],
+      limitation: TRUE_SOLAR_STEP_LIMITATION,
+    },
+    {
+      key: equationStepKey,
+      stage: '均时差计算',
+      status: '已计算',
+      dependsOnStepKeys: [dstStepKey],
+      inputs: { standardDateTime: input.standardDateTime },
+      result: { equationOfTimeMinutes: input.equationOfTimeMinutes },
+      promptText: `按标准日期计算均时差${input.equationOfTimeMinutes.toFixed(3)}分钟`,
+      sources: ['基于年内日序的均时差近似公式'],
+      limitation: TRUE_SOLAR_STEP_LIMITATION,
+    },
+    {
+      key: totalStepKey,
+      stage: '总校正与跨日',
+      status: '已计算',
+      dependsOnStepKeys: [longitudeStepKey, equationStepKey],
+      inputs: {
+        standardDateTime: input.standardDateTime,
+        longitudeCorrectionMinutes: input.longitudeCorrectionMinutes,
+        equationOfTimeMinutes: input.equationOfTimeMinutes,
+      },
+      result: {
+        totalCorrectionMinutes: input.totalCorrectionMinutes,
+        correctedDateTime: input.correctedDateTime,
+        crossesDate: input.crossesDate,
+      },
+      promptText: `合并经度时差与均时差得总校正${input.totalCorrectionMinutes.toFixed(3)}分钟，采用真太阳时${input.correctedDateTime}${input.crossesDate ? '，日期已跨日' : '，日期未跨日'}`,
+      sources: ['经度时差与均时差合并校正'],
+      limitation: TRUE_SOLAR_STEP_LIMITATION,
+    },
+    {
+      key: shichenStepKey,
+      stage: '时辰映射',
+      status: '已计算',
+      dependsOnStepKeys: [totalStepKey],
+      inputs: { correctedDateTime: input.correctedDateTime },
+      result: {
+        timeIndex: input.shichen.index,
+        branch: input.shichen.branch,
+        shichen: input.shichen.name,
+      },
+      promptText: `校正后时刻${input.correctedDateTime}唯一映射为${input.shichen.name}，时辰索引${input.shichen.index}`,
+      sources: ['早子、晚子拆分的公共时辰映射'],
+      limitation: TRUE_SOLAR_STEP_LIMITATION,
+    },
+  ];
+  const correctionFacts: TrueSolarTimeCorrectionFact[] = [
+    ...(input.calendarFact ? [input.calendarFact] : []),
+    {
+      key: 'true-solar-time:fact:china-dst',
+      type: '历史夏令时',
+      status: input.chinaDst.applied ? '已应用' : input.chinaDst.requested ? '未命中' : '未请求',
+      correctionMinutes: input.chinaDst.applied ? input.chinaDst.offsetMinutes : 0,
+      ownerFactKeys: [dstStepKey],
+      ownerStepKeys: [dstStepKey],
+      promptText: calculationSteps.find((item) => item.key === dstStepKey)!.promptText,
+      sources: ['中国历史夏令时校正结果'],
+      limitation: TRUE_SOLAR_CORRECTION_LIMITATION,
+    },
+    {
+      key: 'true-solar-time:fact:longitude',
+      type: '经度时差',
+      status: '已计算',
+      correctionMinutes: input.longitudeCorrectionMinutes,
+      ownerFactKeys: [longitudeStepKey],
+      ownerStepKeys: [longitudeStepKey],
+      promptText: `经度时差为${input.longitudeCorrectionMinutes.toFixed(3)}分钟`,
+      sources: ['经度与标准经线差值'],
+      limitation: TRUE_SOLAR_CORRECTION_LIMITATION,
+    },
+    {
+      key: 'true-solar-time:fact:equation-of-time',
+      type: '均时差',
+      status: '已计算',
+      correctionMinutes: input.equationOfTimeMinutes,
+      ownerFactKeys: [equationStepKey],
+      ownerStepKeys: [equationStepKey],
+      promptText: `均时差为${input.equationOfTimeMinutes.toFixed(3)}分钟`,
+      sources: ['年内日序均时差近似公式'],
+      limitation: TRUE_SOLAR_CORRECTION_LIMITATION,
+    },
+    {
+      key: 'true-solar-time:fact:total-correction',
+      type: '总校正',
+      status: '已计算',
+      correctionMinutes: input.totalCorrectionMinutes,
+      ownerFactKeys: [totalStepKey],
+      ownerStepKeys: [totalStepKey],
+      promptText: `总校正为${input.totalCorrectionMinutes.toFixed(3)}分钟，真太阳时为${input.correctedDateTime}`,
+      sources: ['经度时差与均时差合并结果'],
+      limitation: TRUE_SOLAR_CORRECTION_LIMITATION,
+    },
+    {
+      key: 'true-solar-time:fact:date-crossing',
+      type: '跨日结果',
+      status: '已确定',
+      ownerFactKeys: [totalStepKey],
+      ownerStepKeys: [totalStepKey],
+      promptText: input.crossesDate
+        ? `校正后日期已跨日，采用${input.correctedDateTime}`
+        : '校正后日期未跨日',
+      sources: ['钟表时间与校正后日期比较'],
+      limitation: TRUE_SOLAR_CORRECTION_LIMITATION,
+    },
+    {
+      key: 'true-solar-time:fact:shichen',
+      type: '时辰结果',
+      status: '已确定',
+      ownerFactKeys: [shichenStepKey],
+      ownerStepKeys: [shichenStepKey],
+      promptText: `校正后唯一时辰为${input.shichen.name}（${input.shichen.branch}支，索引${input.shichen.index}）`,
+      sources: ['公共时辰映射结果'],
+      limitation: TRUE_SOLAR_CORRECTION_LIMITATION,
+    },
+  ];
+  const limitations = [
+    '均时差采用年内日序近似公式，用于民用排盘校正，不宣称达到观测级或航海级精度。',
+    '经度时差依赖已确认的出生地经度与当地法定时区；时区口径错误会直接改变校正结果。',
+    '中国历史夏令时只在明确请求时按 1986-1991 年规则还原；如原记录已折算为标准时间，不应重复校正。',
+    '当前结果只采用用户明确提供的精准时分、经度与时区生成唯一真太阳时和唯一时辰；不生成候选时辰、敏感性结果或缺时柱命盘。',
+  ];
+  const limitationFacts: TrueSolarTimeLimitationFact[] = [
+    {
+      key: 'true-solar-time:limitation:equation-of-time',
+      type: '均时差近似',
+      status: '适用',
+      ownerFactKeys: ['true-solar-time:fact:equation-of-time'],
+      ownerStepKeys: [equationStepKey],
+      promptText: limitations[0],
+      sources: ['均时差近似公式精度说明'],
+      limitation: TRUE_SOLAR_LIMITATION_FACT_LIMITATION,
+    },
+    {
+      key: 'true-solar-time:limitation:longitude-timezone',
+      type: '经度与时区口径',
+      status: '适用',
+      ownerFactKeys: [inputStepKey, 'true-solar-time:fact:longitude'],
+      ownerStepKeys: [inputStepKey, longitudeStepKey],
+      promptText: limitations[1],
+      sources: ['出生地经度、法定时区与标准经线口径'],
+      limitation: TRUE_SOLAR_LIMITATION_FACT_LIMITATION,
+    },
+    {
+      key: 'true-solar-time:limitation:china-dst',
+      type: '历史夏令时口径',
+      status: '适用',
+      ownerFactKeys: ['true-solar-time:fact:china-dst'],
+      ownerStepKeys: [dstStepKey],
+      promptText: limitations[2],
+      sources: ['中国历史夏令时还原边界'],
+      limitation: TRUE_SOLAR_LIMITATION_FACT_LIMITATION,
+    },
+    {
+      key: 'true-solar-time:limitation:source-record',
+      type: '原始记录边界',
+      status: '适用',
+      ownerFactKeys: [inputStepKey, 'true-solar-time:fact:shichen'],
+      ownerStepKeys: [inputStepKey, shichenStepKey],
+      promptText: limitations[3],
+      sources: ['明确输入与唯一真太阳时、时辰结果'],
+      limitation: TRUE_SOLAR_LIMITATION_FACT_LIMITATION,
+    },
+  ];
+  const summaryStatus: TrueSolarTimeSummaryFact['status'] = input.chinaDst.nonexistent
+    ? '含夏令时不存在时段'
+    : input.chinaDst.ambiguous
+      ? '含夏令时重复时段'
+      : '证据链完整';
+  const summaryFact: TrueSolarTimeSummaryFact = {
+    key: 'true-solar-time:evidence-summary',
+    status: summaryStatus,
+    factKeys: [
+      ...calculationSteps.map((item) => item.key),
+      ...correctionFacts.map((item) => item.key),
+      ...limitationFacts.map((item) => item.key),
+    ],
+    calculationStepCount: calculationSteps.length,
+    correctionFactCount: correctionFacts.length,
+    limitationFactCount: limitationFacts.length,
+    promptText: `真太阳时证据状态为${summaryStatus}；记录计算步骤${calculationSteps.length}项、校正事实${correctionFacts.length}项、限制${limitationFacts.length}项`,
+    sources: [
+      input.calendarStep
+        ? '历法输入、历史夏令时、经度时差、均时差、跨日与时辰映射汇总'
+        : '钟表时间、历史夏令时、经度时差、均时差、跨日与时辰映射汇总',
+    ],
+    limitation: TRUE_SOLAR_SUMMARY_LIMITATION,
+  };
+  const source = [
+    input.calendarStep
+      ? '公历农历换算由 tyme4ts 完成'
+      : '当地钟表时间格式、日期与时空参数由公共日历入口核验',
+    '中国历史夏令时按明确规则还原',
+    '经度时差按4分钟/度',
+    '均时差采用年内日序近似公式',
+  ].join('；');
+  return {
+    key: input.key,
+    status: input.chinaDst.ambiguous || input.chinaDst.nonexistent ? '存在时间记录边界' : '已计算',
+    calculationSteps,
+    calculationChain: calculationSteps.map((item) => item.promptText),
+    correctionFacts,
+    summaryFact,
+    limitations,
+    limitationFacts,
+    source,
+    promptText: `真太阳时证据：钟表时间${input.clockDateTime}，标准时间${input.standardDateTime}，经度时差${input.longitudeCorrectionMinutes.toFixed(3)}分钟，均时差${input.equationOfTimeMinutes.toFixed(3)}分钟，总校正${input.totalCorrectionMinutes.toFixed(3)}分钟，采用${input.correctedDateTime}与${input.shichen.name}。计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。证据汇总：${summaryFact.promptText}。来源：${source}。限制：${limitations.join('；')}`,
+  };
+}
 
 function getDayOfYear(year: number, month: number, day: number): number {
   const current = new Date(Date.UTC(year, month - 1, day));
@@ -245,31 +606,53 @@ export function convertTrueSolarTime(
   if (!shichen) {
     throw new Error('无法根据校正后的真太阳时确定时辰。');
   }
-
-  return {
-    ...result,
-    clockTime,
-    clockDateTime: formatSolarDateTimeParts(clockTime),
-    standardTime,
-    standardDateTime: formatSolarDateTimeParts(standardTime),
-    correctedDateTime: formatSolarDateTimeParts(result.correctedTime),
+  const clockDateTime = formatSolarDateTimeParts(clockTime);
+  const standardDateTime = formatSolarDateTimeParts(standardTime);
+  const correctedDateTime = formatSolarDateTimeParts(result.correctedTime);
+  const crossesDate =
+    clockTime.year !== result.correctedTime.year ||
+    clockTime.month !== result.correctedTime.month ||
+    clockTime.day !== result.correctedTime.day;
+  const chinaDst = {
+    ...chinaDstCheck,
+    requested: requestedChinaDst,
+    applied: chinaDstApplied,
+  };
+  const shichenResult = {
+    index: shichen.index,
+    branch: shichen.branch,
+    name: shichen.name,
+  };
+  const evidence = buildTrueSolarTimeEvidence({
+    key: `true-solar-time:${clockDateTime}:${input.longitude}:${timezone}`,
+    clockDateTime,
+    standardDateTime,
+    correctedDateTime,
     longitude: input.longitude,
     timezone,
     standardMeridian,
-    chinaDst: {
-      ...chinaDstCheck,
-      requested: requestedChinaDst,
-      applied: chinaDstApplied,
-    },
-    crossesDate:
-      clockTime.year !== result.correctedTime.year ||
-      clockTime.month !== result.correctedTime.month ||
-      clockTime.day !== result.correctedTime.day,
-    shichen: {
-      index: shichen.index,
-      branch: shichen.branch,
-      name: shichen.name,
-    },
+    longitudeCorrectionMinutes: result.longitudeCorrectionMinutes,
+    equationOfTimeMinutes: result.equationOfTimeMinutes,
+    totalCorrectionMinutes: result.totalCorrectionMinutes,
+    crossesDate,
+    chinaDst,
+    shichen: shichenResult,
+  });
+
+  return {
+    ...result,
+    ...evidence,
+    clockTime,
+    clockDateTime,
+    standardTime,
+    standardDateTime,
+    correctedDateTime,
+    longitude: input.longitude,
+    timezone,
+    standardMeridian,
+    chinaDst,
+    crossesDate,
+    shichen: shichenResult,
   };
 }
 
@@ -322,12 +705,63 @@ export function resolveTrueSolarBirthTime(
     timezone: input.timezone,
     applyChinaDst: input.applyChinaDst,
   });
+  const solarClockDateTime = formatSolarDateTimeParts(solarClockTime);
+  const calendarStep: TrueSolarTimeCalculationStep = {
+    key: 'true-solar-time:calculation:calendar-input',
+    stage: '历法输入换算',
+    status: input.dateType === 'lunar' ? '已换算' : '已核验',
+    dependsOnStepKeys: [],
+    inputs: {
+      dateType: input.dateType,
+      year: input.year,
+      month: input.month,
+      day: input.day,
+      hour: input.hour,
+      minute: input.minute,
+      isLeapMonth: input.isLeapMonth ?? false,
+    },
+    result: { solarClockDateTime },
+    promptText:
+      input.dateType === 'lunar'
+        ? `农历${input.year}年${input.isLeapMonth ? '闰' : ''}${input.month}月${input.day}日换算为公历钟表时间${solarClockDateTime}`
+        : `已核验公历出生钟表时间${solarClockDateTime}`,
+    sources: ['tyme4ts 公历农历换算与出生日期合法性核验'],
+    limitation: TRUE_SOLAR_STEP_LIMITATION,
+  };
+  const calendarFact: TrueSolarTimeCorrectionFact = {
+    key: 'true-solar-time:fact:calendar-input',
+    type: '历法输入',
+    status: input.dateType === 'lunar' ? '已换算' : '已核验',
+    ownerFactKeys: [calendarStep.key],
+    ownerStepKeys: [calendarStep.key],
+    promptText: calendarStep.promptText,
+    sources: [...calendarStep.sources],
+    limitation: TRUE_SOLAR_CORRECTION_LIMITATION,
+  };
+  const birthEvidence = buildTrueSolarTimeEvidence({
+    key: `true-solar-birth-time:${input.dateType}:${input.year}-${input.month}-${input.day}:${input.hour}:${input.minute}:${input.longitude}:${converted.timezone}`,
+    clockDateTime: converted.clockDateTime,
+    standardDateTime: converted.standardDateTime,
+    correctedDateTime: converted.correctedDateTime,
+    longitude: converted.longitude,
+    timezone: converted.timezone,
+    standardMeridian: converted.standardMeridian,
+    longitudeCorrectionMinutes: converted.longitudeCorrectionMinutes,
+    equationOfTimeMinutes: converted.equationOfTimeMinutes,
+    totalCorrectionMinutes: converted.totalCorrectionMinutes,
+    crossesDate: converted.crossesDate,
+    chinaDst: converted.chinaDst,
+    shichen: converted.shichen,
+    calendarStep,
+    calendarFact,
+  });
   return {
     ...converted,
+    ...birthEvidence,
     inputDateType: input.dateType,
     isLeapMonth: input.isLeapMonth ?? false,
     solarClockTime,
-    solarClockDateTime: formatSolarDateTimeParts(solarClockTime),
+    solarClockDateTime,
     timeIndex: converted.shichen.index,
   };
 }

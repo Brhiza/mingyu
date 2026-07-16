@@ -3,7 +3,7 @@
  * @description 在经典单格基础上识别同宫叠加、吉凶混杂、吉格逢空、
  * 以及三奇、伏吟、反吟等关键盘面组合。
  *
- * 这里只输出结构化算法结果，不生成应用层报告、评分报告或具体场景话术。
+ * 这里只输出结构化计算结果，不生成应用层报告、评分报告或具体场景话术。
  */
 
 import type { QimenBranchPalace, QimenJiuGongGe } from '../../../../types/divination';

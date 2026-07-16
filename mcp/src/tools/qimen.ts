@@ -19,6 +19,10 @@ const qimenSchema = z.object({
     .enum(['zhuanpan', 'feipan'])
     .optional()
     .describe('排盘方法：zhuanpan 为转盘法（默认），feipan 为飞盘法'),
+  qimenJuMethod: z
+    .enum(['chaibu', 'zhirun'])
+    .optional()
+    .describe('定局方法：chaibu 为拆补法（默认），zhirun 为置闰法；仅时家/日家生效'),
 });
 
 const qimenPromptSchema = extendPromptSchema(qimenSchema, '用户希望围绕奇门盘解读的问题');
@@ -35,9 +39,12 @@ export function registerQimenTool(server: McpServer) {
     async (args) => {
       try {
         const method = args.qimenMethod ?? 'zhuanpan';
+        const juMethod = args.qimenJuMethod ?? 'chaibu';
         const result = generateQimen(
           readMcpCustomDate(args.customDate),
           method as 'zhuanpan' | 'feipan',
+          'hour',
+          juMethod as 'chaibu' | 'zhirun',
         );
         return createStructuredToolResult({ result });
       } catch (error) {
@@ -60,9 +67,12 @@ export function registerQimenTool(server: McpServer) {
     async (args) => {
       try {
         const method = args.qimenMethod ?? 'zhuanpan';
+        const juMethod = args.qimenJuMethod ?? 'chaibu';
         const result = generateQimen(
           readMcpCustomDate(args.customDate),
           method as 'zhuanpan' | 'feipan',
+          'hour',
+          juMethod as 'chaibu' | 'zhirun',
         );
         return createStructuredToolResult({
           result,

@@ -12,30 +12,6 @@ import { formatPalaceName, mapScopeLabel, mapTopicLabel } from './labels';
 import { getPalaceByIndex } from './palace-helpers';
 import type { PromptContext } from './types';
 
-function dedupeAndTrim(values: string[] | undefined, limit: number) {
-  if (!values?.length) {
-    return [];
-  }
-
-  return Array.from(new Set(values.map((item) => item.trim()).filter(Boolean))).slice(0, limit);
-}
-
-function sortByPriority<T extends { priority?: number }>(items: T[]) {
-  return [...items].sort((left, right) => (right.priority ?? 0) - (left.priority ?? 0));
-}
-
-function buildPromptTaskSummary(params: {
-  focusSummary: string;
-  focusPalaces: string[];
-  avoid: string[];
-}) {
-  return {
-    解读目标: params.focusSummary,
-    重点参考宫位: dedupeAndTrim(params.focusPalaces, 4),
-    严格边界: dedupeAndTrim(params.avoid, 2),
-  };
-}
-
 function buildTaskBookAnalysisObject(payload: AnalysisPayloadV1) {
   const currentPalace = getPalaceByIndex(payload, payload.active_scope.palace_index);
   const currentMutagens = payload.active_scope.mutagen_map ?? [];
@@ -45,8 +21,6 @@ function buildTaskBookAnalysisObject(payload: AnalysisPayloadV1) {
     return {
       分析对象: '本命盘',
       参考日期: payload.active_scope.solar_date,
-      解读范围: '只判断命盘长期结构、宫位主轴、星曜组合、四化底色、格局层次与人生长期倾向。',
-      应期范围: '只给长期趋势和触发条件，不指定具体年份、月份、日期或年龄。',
     };
   }
 
@@ -64,8 +38,6 @@ function buildTaskBookAnalysisObject(payload: AnalysisPayloadV1) {
               : `${item.star}化${item.mutagen}`,
           )
         : undefined,
-    解读范围:
-      '以上面提供的分析对象为主，先承接本命底色，再判断当前运限如何触发；应期只到当前分析对象的时间层级。',
   };
 }
 
@@ -97,15 +69,26 @@ function buildTaskBookBasicInfo(payload: AnalysisPayloadV1) {
 }
 
 function buildPatternSummary(payload: AnalysisPayloadV1) {
-  return sortByPriority(payload.patterns ?? [])
-    .slice(0, 4)
-    .map((item) => ({
-      格局: item.name,
-      性质: item.kind === 'auspicious' ? '吉格' : item.kind === 'inauspicious' ? '凶格' : '中性',
+  return (payload.patterns ?? []).slice(0, 4).map((item) => {
+    const markerIndex = item.description.search(/[，；。]主/);
+    const legacyCondition =
+      markerIndex >= 0 ? item.description.slice(0, markerIndex) : item.description;
+    const legacyInterpretation =
+      markerIndex >= 0 ? item.description.slice(markerIndex + 1).trim() : undefined;
+
+    return {
+      传统格局: item.name,
+      命中条件: item.matched_conditions ?? [
+        `规则条件：${legacyCondition}`,
+        `实际命中宫位：${item.palace_names.join('、') || '未登记独立宫位'}`,
+        `实际命中星曜：${item.star_names.join('、') || '未登记独立星曜'}`,
+      ],
       关联宫位: item.palace_names.map((name) => formatPalaceName(name)),
       关联星曜: item.star_names,
-      说明: item.description,
-    }));
+      事实说明: item.promptText,
+      传统释义: item.traditional_interpretation || legacyInterpretation,
+    };
+  });
 }
 
 export function buildPromptContextSnapshot(params: {
@@ -119,11 +102,6 @@ export function buildPromptContextSnapshot(params: {
   const currentMutagens = payload.active_scope.mutagen_map ?? [];
 
   return {
-    当前报告任务: buildPromptTaskSummary({
-      focusSummary: focusTaskBundle.focusSummary,
-      focusPalaces: focusTaskBundle.focusPalaces.map((item) => formatPalaceName(item.name)),
-      avoid: focusTaskBundle.avoid,
-    }),
     命主基础信息: buildTaskBookBasicInfo(payload),
     当前运限信息: {
       时限类型: mapScopeLabel(payload.active_scope.scope),
@@ -165,9 +143,6 @@ export function buildZiweiReadableSnapshot(params: {
         : undefined,
     }),
     '',
-    '【解读目标】',
-    formatKeyValueBlock(snapshot.当前报告任务),
-    '',
     '【本命资料】',
     formatKeyValueBlock(snapshot.命主基础信息),
     '',
@@ -202,11 +177,6 @@ export function buildZiweiTaskBookSnapshot(params: {
   const focusTaskBundle = buildFocusTaskBundle(payload, reportContext);
   const focusPalaces = focusTaskBundle.focusPalaces.slice(0, 4);
   const isOrigin = params.payload.active_scope.scope === 'origin';
-  const taskSummary = buildPromptTaskSummary({
-    focusSummary: focusTaskBundle.focusSummary,
-    focusPalaces: focusTaskBundle.focusPalaces.map((item) => formatPalaceName(item.name)),
-    avoid: focusTaskBundle.avoid,
-  });
   const evidenceSummary = buildEvidenceSummary(payload, focusPalaces, reportContext).slice(0, 6);
 
   const sections = [
@@ -216,9 +186,6 @@ export function buildZiweiTaskBookSnapshot(params: {
       分析范围: reportContext.scope_label,
       重点宫位: reportContext.palace_name ? formatPalaceName(reportContext.palace_name) : undefined,
     }),
-    '',
-    '【解读目标】',
-    formatKeyValueBlock(taskSummary),
     '',
     '【本命资料】',
     formatKeyValueBlock(buildTaskBookBasicInfo(payload)),
@@ -238,7 +205,7 @@ export function buildZiweiTaskBookSnapshot(params: {
 
   if (!isOrigin) {
     sections.splice(
-      12,
+      9,
       0,
       '【运限重点】',
       formatObjectList(buildScopeHitSummary(payload).map((line) => ({ 摘要: line }))),

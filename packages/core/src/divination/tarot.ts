@@ -2,8 +2,41 @@ import { tarotCards, tarotSpreads } from './tarot-data';
 import type { RandomOptions } from '../shared/random';
 import { createRandomContext, randomFloat, randomInt, type RandomSource } from '../shared/random';
 import { attachResultMeta } from '../shared/result';
+import type { TarotData, TarotSpreadType } from '../types/divination';
+import { analyzeTarotEvidence } from './tarot-evidence';
 
 export { tarotSpreads } from './tarot-data';
+export { analyzeTarotEvidence, conditionTarotTraditionalText } from './tarot-evidence';
+export type {
+  TarotCardEvidence,
+  TarotCounterEvidenceFact,
+  TarotCounterSummaryFact,
+  TarotDrawFact,
+  TarotDrawOrderFact,
+  TarotEvidenceAnalysis,
+  TarotLimitationFact,
+  TarotSequenceFact,
+  TarotSpreadCoverageFact,
+  TarotThemeFact,
+  TarotTraditionalFact,
+} from './tarot-evidence';
+
+function buildDrawFacts(
+  cards: Array<{ id: number; name: string; position: string; reversed: boolean }>,
+): NonNullable<TarotData['draw']> {
+  return {
+    deckSize: tarotCards.length,
+    method: 'Fisher-Yates洗牌后依牌位顺序取顶牌',
+    orientationRule: '每张牌独立取随机数，小于0.5为逆位，否则为正位',
+    order: cards.map((card, index) => ({
+      index: index + 1,
+      position: card.position,
+      cardId: card.id,
+      cardName: card.name,
+      orientation: card.reversed ? '逆位' : '正位',
+    })),
+  };
+}
 
 function shuffleCards(rng: RandomSource) {
   const shuffled = [...tarotCards];
@@ -222,4 +255,49 @@ export function getCardEvidence(cardName: string) {
     element: getTarotElement(cardName),
     archetype: getTarotArchetype(cardName),
   };
+}
+
+export function drawTarotSpread(
+  spreadType: TarotSpreadType = 'single',
+  options?: RandomOptions,
+): TarotData {
+  if (spreadType === 'single') {
+    const draw = drawSingleCard(options);
+    const data: TarotData = {
+      spreadType,
+      spreadName: '单牌指引',
+      cards: [
+        {
+          id: draw.card.number,
+          name: draw.card.name,
+          position: draw.position,
+          reversed: draw.isReversed,
+          ...getCardEvidence(draw.card.name),
+        },
+      ],
+      timestamp: draw.timestamp,
+      meta: draw.meta,
+    };
+    data.draw = buildDrawFacts(data.cards);
+    data.evidenceAnalysis = analyzeTarotEvidence(data);
+    return data;
+  }
+
+  const draw = drawSpreadCards(spreadType, options);
+  const data: TarotData = {
+    spreadType,
+    spreadName: draw.spreadName,
+    cards: draw.cards.map((item) => ({
+      id: item.card.number,
+      name: item.card.name,
+      position: item.position,
+      reversed: item.isReversed,
+      ...getCardEvidence(item.card.name),
+    })),
+    timestamp: draw.timestamp,
+    meta: draw.meta,
+  };
+  data.draw = buildDrawFacts(data.cards);
+  data.evidenceAnalysis = analyzeTarotEvidence(data);
+  return data;
 }

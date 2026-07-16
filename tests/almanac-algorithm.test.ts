@@ -12,6 +12,9 @@ test('黄历择日：tyme4ts 返回九星短名时也应补出九星详情', () 
 
   assert.ok(result.days.length > 0);
   for (const day of result.days) {
+    assert.ok(day.moonPhaseEvidence);
+    assert.ok(day.moonPhaseEvidence.phaseAngleDegrees >= 0);
+    assert.ok(day.moonPhaseEvidence.phaseAngleDegrees < 360);
     assert.ok(day.nineStar, `${day.date} 应有九星名称`);
     assert.ok(day.nineStarDetail, `${day.date} 的九星 ${day.nineStar} 应有详情`);
     assert.match(day.nineStarDetail.meaning, new RegExp(`^${day.nineStar}`));
@@ -120,11 +123,12 @@ test('黄历择日：交节当天年柱月柱按正午精确干支历显示', ()
 });
 
 test('黄历择日：参与人适配应覆盖本命日支刑冲破害', () => {
-  const noParticipant = generateAlmanacSelection({
+  const withoutParticipant = generateAlmanacSelection({
     topic: 'move',
     startDate: '2026-06-10',
     endDate: '2026-06-10',
-  }).days[0];
+  });
+  const noParticipant = withoutParticipant.days[0];
   const result = generateAlmanacSelection({
     topic: 'move',
     startDate: '2026-06-10',
@@ -149,7 +153,12 @@ test('黄历择日：参与人适配应覆盖本命日支刑冲破害', () => {
   assert.match(participantText, /候选日地支卯/);
   assert.match(participantText, /破生肖\/年支午/);
   assert.match(participantText, /刑日支子（无礼之刑）/);
-  assert.ok(day.score < noParticipant.score);
+  assert.equal(day.score, undefined);
+  assert.equal(noParticipant.score, undefined);
+  assert.ok(
+    result.evidenceAnalysis?.candidates[0].participantConflicts.length >
+      (withoutParticipant.evidenceAnalysis?.candidates[0].participantConflicts.length ?? 0),
+  );
   assert.doesNotMatch(participantText, /未见直接/);
 });
 

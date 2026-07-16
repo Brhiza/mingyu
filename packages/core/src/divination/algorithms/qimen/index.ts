@@ -1,8 +1,8 @@
 /**
  * @file 奇门遁甲排盘算法（主入口）
- * @description 基于转盘法，实现时家/日家/月家/年家奇门完整排盘，
+ * @description 基于转盘法或飞盘法，实现时家/日家/月家/年家奇门完整排盘，
  * 含定局、布盘、格局识别、方位建议、应期判断。
- * @流派 转盘奇门（拆补法定局）
+ * @流派 转盘奇门为默认口径，飞盘奇门为可选口径（拆补法定局）
  * @古籍依据 《烟波钓叟歌》《遁甲演义》《奇门遁甲秘籍大全》
  *
  * @核心流程
@@ -34,6 +34,7 @@ import {
   getZhiFuZhiShiByGanZhi,
   getDunJiaStem,
 } from './helpers/jushu';
+import type { QimenJuMethod, QimenJuShuResult } from './helpers/jushu';
 import { getMonthQimenJuShu, getYearQimenJuShu } from './helpers/jushu-extended';
 import { arrangeJiuGongGe, resolveZhiShiLandingPalace } from './helpers/layout';
 import { getQimenPatternTags, buildPatternDetails, buildPalaceInsights } from './helpers/patterns';
@@ -42,9 +43,29 @@ import { buildDirectionAdvice } from './helpers/directions';
 import { estimateYingQi } from './helpers/ying-qi';
 import { buildSeasonality } from './helpers/seasonality';
 import { detectQimenPatternCombos } from './helpers/pattern-combos';
+import { analyzeQimenEvidence } from '../../qimen-evidence';
 
 export { createQimenPriorityPalaces } from './helpers/guidance';
 export type { QimenPriorityPalace } from './helpers/guidance';
+export { analyzeQimenEvidence, conditionQimenTraditionalText } from '../../qimen-evidence';
+export type {
+  QimenCalculationEvidenceFact,
+  QimenCounterEvidenceFact,
+  QimenCounterSummaryFact,
+  QimenDirectionFact,
+  QimenDirectionSummaryFact,
+  QimenEvidenceAnalysis,
+  QimenPalaceEvidence,
+  QimenPalaceFact,
+  QimenPalaceCoverageFact,
+  QimenPalaceInsightFact,
+  QimenPalaceRelationEvidence,
+  QimenPatternEvidenceFact,
+  QimenRuleSourceFact,
+  QimenStemRelationFact,
+  QimenTimingFact,
+  QimenTimingSummaryFact,
+} from '../../qimen-evidence';
 
 // ============================================================================
 // 内部工具函数
@@ -119,13 +140,14 @@ function assertQimenScope(scope: QimenScope): void {
 function mapClassicPatterns(
   patterns: ClassicPattern[],
 ): Exclude<QimenData['classicPatterns'], undefined> {
-  return patterns.map((p) => ({
-    name: p.name,
-    type: p.tone,
-    score: p.score,
-    summary: p.summary,
-    palaces: p.palace ? [p.palace] : [],
-  }));
+  return [...patterns]
+    .sort((a, b) => Math.abs(b.score) - Math.abs(a.score))
+    .map((p) => ({
+      name: p.name,
+      type: p.tone,
+      summary: p.summary,
+      palaces: p.palace ? [p.palace] : [],
+    }));
 }
 
 /**
@@ -159,7 +181,7 @@ function mapStemRelations(
  * 支持时家（hour）、日家（day）、月家（month）、年家（year）四种级别。
  * 默认时家奇门（精确到时辰），使用拆补法定局。
  *
- * 遵循拆补法定局、转盘法排盘，完整输出九宫四盘（天地人神）、
+ * 遵循拆补法定局，并按所选转盘法或飞盘法完整输出九宫四盘（天地人神）、
  * 格局标签、经典格局（九遁、三奇、门迫、击刑、入墓等）、
  * 宫位洞察、方位吉凶指引和应期估算。
  *
@@ -176,7 +198,7 @@ function mapStemRelations(
  * 3. **寻值符值使（旬首法）**：《歌》"直符直使各有时，时干直符时支使"
  *    - 由对应级别干支的旬首定位值符星和值使门
  *
- * 4. **排九宫格（转盘法）**：《歌》"星随符转，门随地转，八神随遁顺逆"
+ * 4. **排九宫格（转盘法或飞盘法）**：按所选方法排列九星、八门、八神与天地盘干
  *    - 布地盘三奇六仪 -> 定值符值使落宫 -> 排天盘九星 -> 排人盘八门 -> 排神盘八神
  *
  * 5. **辅助数据**：空亡地支配对、驿马定位
@@ -192,7 +214,7 @@ function mapStemRelations(
  * 9. **宫位洞察**：综合门、神、星、格局标签判定各宫等级
  *
  * 10. **方位建议**：《歌》"八门若遇开休生，诸事逢之总称情"
- *     - 按门、神、星、三奇综合评分，推荐吉方与避方
+ *     - 逐项保留门、神、星、三奇、空亡与格局依据，给出有明确证据的方位候选
  *
  * 11. **应期估算**：《奇门遁甲大全》庚格应期法
  *
@@ -217,6 +239,7 @@ export function generateQimen(
   customDate?: Date,
   method: QimenMethod = 'zhuanpan',
   scope: QimenScope = 'hour',
+  juMethod: QimenJuMethod = 'chaibu',
 ): QimenData {
   assertQimenScope(scope);
   // ──────────────────────────────────────────────────────────────────────────
@@ -231,7 +254,7 @@ export function generateQimen(
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 2：定局数
   // ──────────────────────────────────────────────────────────────────────────
-  const jushuResult = getJushuForScope(scope, ganzhi, timeInfo);
+  const jushuResult = getJushuForScope(scope, ganzhi, timeInfo, juMethod);
   const { isYangDun, juShu, yuan } = jushuResult;
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -243,7 +266,7 @@ export function generateQimen(
   // ── 后续步骤 4-12 与 scope 无关，共用同一套排盘逻辑 ──
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 步骤 4：排九宫格（转盘法）
+  // 步骤 4：按所选转盘法或飞盘法排九宫格
   // ──────────────────────────────────────────────────────────────────────────
   const jiuGongGe = arrangeJiuGongGe(
     isYangDun,
@@ -400,15 +423,28 @@ export function generateQimen(
     hourBranch,
     jiuGongGe,
   });
+  const publicPatternCombos = patternCombos.map(({ score: _score, ...combo }) => combo);
+  const publicDirections = {
+    goodDirections: directions.goodDirections.map(({ score: _score, ...item }) => item),
+    avoidDirections: directions.avoidDirections.map(({ score: _score, ...item }) => item),
+  };
 
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 15：返回完整 QimenData
   // ──────────────────────────────────────────────────────────────────────────
-  return {
+  const result: QimenData = {
+    method,
     scope,
+    juMethod: jushuResult.juMethod,
     timeInfo: {
       solarTerm: jushuResult.jieQi || jieQi,
       epoch: jushuResult.yuan,
+      juMethod: jushuResult.juMethod,
+      ...(jushuResult.fuTou ? { fuTou: jushuResult.fuTou } : {}),
+      ...(jushuResult.fuTouDate ? { fuTouDate: jushuResult.fuTouDate } : {}),
+      ...(jushuResult.chaoShenOrJieQi ? { chaoShenOrJieQi: jushuResult.chaoShenOrJieQi } : {}),
+      ...(jushuResult.isZhiRun !== undefined ? { isZhiRun: String(jushuResult.isZhiRun) } : {}),
+      ...(jushuResult.juMethodNote ? { juMethodNote: jushuResult.juMethodNote } : {}),
     },
     ganzhi,
     isYangDun: jushuResult.isYangDun,
@@ -426,11 +462,13 @@ export function generateQimen(
     jiuGongGe,
     classicPatterns,
     stemRelations,
-    patternCombos,
-    directions,
+    patternCombos: publicPatternCombos,
+    directions: publicDirections,
     yingQi,
     timestamp,
   };
+  result.evidenceAnalysis = analyzeQimenEvidence(result);
+  return result;
 }
 
 // ============================================================================
@@ -462,30 +500,46 @@ function getJushuForScope(
     solar: { year: number; month: number; day: number; hour?: number; minute?: number };
     jieQi: string;
   },
-): { isYangDun: boolean; juShu: number; yuan: string; jieQi?: string } {
+  juMethod: QimenJuMethod = 'chaibu',
+): QimenJuShuResult {
   switch (scope) {
     case 'year': {
       const r = getYearQimenJuShu(ganzhi.year, timeInfo.solar.year);
-      return { ...r, jieQi: timeInfo.jieQi };
+      return {
+        ...r,
+        jieQi: timeInfo.jieQi,
+        juMethod,
+        isZhiRun: false,
+        juMethodNote: '年家奇门使用年干与三元甲子定局，拆补/置闰仅适用于时家与日家',
+      };
     }
     case 'month': {
       const r = getMonthQimenJuShu(ganzhi.month, ganzhi.year);
-      return { ...r, jieQi: timeInfo.jieQi };
+      return {
+        ...r,
+        jieQi: timeInfo.jieQi,
+        juMethod,
+        isZhiRun: false,
+        juMethodNote: '月家奇门使用月家定局法，拆补/置闰仅适用于时家与日家',
+      };
     }
     case 'day':
     case 'hour':
     default: {
-      return getQimenJuShu({
-        jieQi: timeInfo.jieQi,
-        ganzhi: { day: ganzhi.day },
-        solar: {
-          year: timeInfo.solar.year,
-          month: timeInfo.solar.month,
-          day: timeInfo.solar.day,
-          hour: timeInfo.solar.hour,
-          minute: timeInfo.solar.minute,
+      return getQimenJuShu(
+        {
+          jieQi: timeInfo.jieQi,
+          ganzhi: { day: ganzhi.day },
+          solar: {
+            year: timeInfo.solar.year,
+            month: timeInfo.solar.month,
+            day: timeInfo.solar.day,
+            hour: timeInfo.solar.hour,
+            minute: timeInfo.solar.minute,
+          },
         },
-      });
+        juMethod,
+      );
     }
   }
 }

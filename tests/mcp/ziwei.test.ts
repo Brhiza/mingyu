@@ -80,9 +80,13 @@ test('紫微合盘主题只作为关系范围，不再注入固定问题与任�
   );
   assert.match(
     cooperationPrompt,
-    /【输出要求】\n先直接回答【问题】，再按“互动主轴、互补点、冲突点、触发机制、建议边界”展开；/,
+    /【输出要求】\n先直接回答【问题】，再说明互动主轴、互补点、冲突点、触发机制和现实建议。/,
   );
-  assert.match(cooperationPrompt, /若【问题】已限定主题，只把主题作为关系范围，不额外套用固定题目/);
+  assert.match(cooperationPrompt, /分析主题：事业财运/);
+  assert.doesNotMatch(
+    cooperationPrompt,
+    /若【问题】已限定主题|只把主题作为关系范围|不额外套用固定题目/,
+  );
   assert.doesNotMatch(cooperationPrompt, /合作默契|合作分工|关系主基调/);
 
   const interactionPrompt = buildCombinedZiweiCompatibilityPrompt({

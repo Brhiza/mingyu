@@ -9,7 +9,9 @@ export type AnalysisPayloadV1 = {
   active_scope: ActiveScopeInfo;
   palaces: PalaceFact[];
   evidence_pool: EvidenceFact[];
+  evidence_analysis?: ZiweiEvidenceAnalysis;
   patterns?: PatternFact[];
+  pattern_analysis?: ZiweiPatternAnalysis;
 };
 
 export type FourPillars = {
@@ -113,6 +115,9 @@ export type StarFact = {
 export type EvidenceFact = {
   id: string;
   stable_key: string;
+  /** 统一稳定键；保留 stable_key 兼容旧调用。 */
+  key?: string;
+  status?: '已记录' | '资料缺口';
   type: string;
   title: string;
   scope: ScopeType;
@@ -121,18 +126,166 @@ export type EvidenceFact = {
   star_names: string[];
   mutagens: string[];
   description: string;
-  priority: number;
+  level?: '主证' | '辅证' | '反证';
+  source?: string;
+  sources?: string[];
+  calculation?: string;
+  calculationStepKey?: string;
+  dependsOnStepKeys?: string[];
+  promptText?: string;
+  limitation?: string;
+  limitations?: string[];
+};
+
+export type ZiweiEvidenceCalculationStep = {
+  key: string;
+  stage: '十二宫输入校验' | '本命证据采集' | '运限证据采集' | '证据汇总';
+  status: '已计算' | '不适用' | '存在资料缺口';
+  dependsOnStepKeys: string[];
+  inputs: Record<string, string | number | boolean | string[]>;
+  result: Record<string, string | number | boolean | string[]>;
+  promptText: string;
+  sources: string[];
+  limitation: '紫微证据步骤只证明十二宫、星曜、四化与所选运限如何形成当前证据池；不得把证据数量解释为吉凶分数、匹配率、事件概率或固定应期';
+};
+
+export type ZiweiEvidenceCounterEvidenceFact = {
+  key: string;
+  type: '十二宫资料覆盖' | '运限资料覆盖' | '四化定位覆盖';
+  status: '有可用证据' | '资料不足' | '存在未定位' | '不适用';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '紫微反证事实只记录宫位、运限与四化资料是否足以形成当前线索；未命中或未定位不等于现实有利、不利或没有其他传统关系';
+};
+
+export type ZiweiEvidenceSummaryFact = {
+  key: 'ziwei:evidence-summary';
+  status: '证据链完整' | '证据链有缺口' | '未生成';
+  factKeys: string[];
+  evidenceFactCount: number;
+  natalFactCount: number;
+  scopeFactCount: number;
+  primaryFactCount: number;
+  supportingFactCount: number;
+  missingFactCount: number;
+  counterEvidenceCount: number;
+  limitationFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '紫微证据汇总只统计本命宫星、四化、三方四正、运限落宫、运限四化、资料缺口、反证与限制覆盖；不得按数量生成命盘总分、吉凶概率、事件概率或唯一应期';
+};
+
+export type ZiweiEvidenceLimitationFact = {
+  key: string;
+  type: '传统结构边界' | '本命应期边界' | '运限层级边界' | '资料缺口边界' | '高风险输出边界';
+  status: '适用';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '紫微限制事实用于约束宫位、星曜、四化与运限证据可以支持的解释范围，不得被反向当作现实因果、人物意图、吉凶概率或保证有效建议的证据';
+};
+
+export type ZiweiEvidenceAnalysis = {
+  key: 'ziwei:evidence';
+  status: '已计算' | '存在资料缺口' | '未生成';
+  calculationSteps: ZiweiEvidenceCalculationStep[];
+  calculationChain: string[];
+  counterEvidence: string[];
+  counterEvidenceFacts: ZiweiEvidenceCounterEvidenceFact[];
+  summaryFact: ZiweiEvidenceSummaryFact;
+  limitations: string[];
+  limitationFacts: ZiweiEvidenceLimitationFact[];
+  promptText: string;
+  methodology: { notes: string[] };
+};
+
+export type ZiweiPatternCalculationStep = {
+  key: string;
+  stage: '十二宫输入校验' | '格局规则评估' | '命中事实登记' | '格局覆盖汇总';
+  status: '已计算' | '未生成' | '资料不足';
+  dependsOnStepKeys: string[];
+  inputs: Record<string, string | number | boolean | string[]>;
+  result: Record<string, string | number | boolean | string[]>;
+  promptText: string;
+  sources: string[];
+  limitation: '紫微格局计算步骤只证明登记规则如何核对当前十二宫、星曜、亮度、四化与宫位关系；不得把命中数量解释为命盘分数、现实概率或必然事件';
+};
+
+export type ZiweiPatternCounterEvidenceFact = {
+  key: string;
+  type: '十二宫资料覆盖' | '登记规则覆盖' | '未命中规则边界';
+  status: '有可用证据' | '未命中' | '资料不足' | '未生成';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '紫微格局反证只记录十二宫资料、登记规则与未命中数量的覆盖状态；未命中不等于没有其他传统格局，也不证明现实有利或不利';
+};
+
+export type ZiweiPatternSummaryFact = {
+  key: 'ziwei:pattern-summary';
+  status: '已完成' | '未命中' | '资料不足' | '未生成';
+  factKeys: string[];
+  registeredRuleCount: number;
+  evaluatedRuleCount: number;
+  unevaluatedRuleCount: number;
+  matchedPatternCount: number;
+  unmatchedRuleCount: number;
+  auspiciousPatternCount: number;
+  inauspiciousPatternCount: number;
+  neutralPatternCount: number;
+  counterEvidenceCount: number;
+  limitationFactCount: number;
+  promptText: string;
+  sources: string[];
+  limitation: '紫微格局汇总只统计当前登记规则的评估覆盖和命中分类；不得按吉格、凶格、中性格或命中数量生成综合吉凶、权重、概率与固定应期';
+};
+
+export type ZiweiPatternLimitationFact = {
+  key: string;
+  type: '传统分类边界' | '规则覆盖边界' | '现实因果边界' | '高风险输出边界';
+  status: '适用';
+  ownerFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '紫微格局限制事实用于约束规则命中可以支持的解释范围，不得被反向当作现实因果、人物命运、吉凶概率或保证有效建议的证据';
+};
+
+export type ZiweiPatternAnalysis = {
+  key: 'ziwei:patterns';
+  status: '已计算' | '未命中' | '资料不足' | '未生成';
+  calculationSteps: ZiweiPatternCalculationStep[];
+  calculationChain: string[];
+  counterEvidence: string[];
+  counterEvidenceFacts: ZiweiPatternCounterEvidenceFact[];
+  summaryFact: ZiweiPatternSummaryFact;
+  limitations: string[];
+  limitationFacts: ZiweiPatternLimitationFact[];
+  promptText: string;
+  methodology: { notes: string[] };
 };
 
 export type PatternFact = {
   id: string;
+  stable_key?: string;
+  key?: string;
+  status?: '已命中';
   name: string;
   kind: 'auspicious' | 'inauspicious' | 'neutral';
   description: string;
   palace_indexes: number[];
   palace_names: string[];
   star_names: string[];
-  priority: number;
+  matched_conditions?: string[];
+  traditional_interpretation?: string;
+  source?: string;
+  sources?: string[];
+  calculation?: string;
+  calculationStepKey?: string;
+  dependsOnStepKeys?: string[];
+  promptText?: string;
+  limitation?: string;
+  limitations?: string[];
 };
 
 export interface DayRootItem {
@@ -141,11 +294,9 @@ export interface DayRootItem {
   stem: string;
   tenGod: string;
   strength: '本气' | '中气' | '余气';
-  score: number;
 }
 export interface DayRootProfile {
   status: '有根' | '弱根' | '无根';
-  score: number;
   items: DayRootItem[];
   summary: string;
 }
@@ -155,13 +306,11 @@ export interface StemRootItem {
   stem: string;
   tenGod: string;
   strength: '本气' | '中气' | '余气';
-  score: number;
 }
 export interface VisibleStemRootItem {
   pillar: string;
   stem: string;
   tenGod: string;
-  rootScore: number;
   status: '有本根' | '有同气根' | '无根';
   summary: string;
 }
@@ -177,7 +326,6 @@ export interface ExposedStemItem {
   seasonStatus: string;
   commandStatus: string;
   rootStatus: string;
-  rootScore: number;
   summary: string;
 }
 export interface ExposedStemProfile {
@@ -189,12 +337,11 @@ export interface TenGodDistributionItem {
   visibleCount: number;
   hiddenCount: number;
   totalCount: number;
-  score: number;
   status: string;
 }
 export interface TenGodStructureProfile {
   distributions: TenGodDistributionItem[];
-  familyDistributions: Array<{ family: string; totalCount: number; score: number; status: string }>;
+  familyDistributions: Array<{ family: string; totalCount: number; status: string }>;
   summary: string;
 }
 export interface TenGodFlowItem {
@@ -209,9 +356,11 @@ export interface TenGodFlowProfile {
 export interface MonthQiElementItem {
   element: string;
   seasonStatus: string;
-  score: number;
-  percent: number;
+  /** 传统月令状态与司令规则的归一化构成占比，不是概率或吉凶比例。 */
+  weightSharePercent: number;
   count: number;
+  commanderApplied: boolean;
+  ruleBasis: string[];
   summary: string;
 }
 export interface MonthQiProfile {
@@ -240,15 +389,14 @@ export interface HarmonyTransformProfile {
   participants: string[];
   transformElement: string;
   transformStem?: string;
-  score: number;
   level: HarmonyTransformLevel;
   direction: HarmonyTransformDirection;
-  monthSupport: number;
-  stemScore: number;
-  rootScore: number;
-  clashPenalty: number;
-  purityScore: number;
-  competitionPenalty: number;
+  monthSupported: boolean;
+  transformStemVisible: boolean;
+  transformRooted: boolean;
+  hasClashBreak: boolean;
+  hasControllingElement: boolean;
+  hasCompetition: boolean;
   evidence: string[];
   isTransformed: boolean;
   consequences: string[];

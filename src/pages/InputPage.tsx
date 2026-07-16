@@ -13,7 +13,6 @@ import { PrivacyHint } from '@/components/PrivacyHint';
 import { getPersonReferenceLabel, type PersonRole } from '@/lib/input-labels';
 import { upsertCompatibilityHistory, upsertPersonalHistory } from '@/lib/history-records';
 import {
-  buildInputStateSearch,
   buildResultSearch,
   defaultInputState,
   defaultPromptState,
@@ -23,7 +22,7 @@ import { clampNumericField, validateBirthInput } from '@/lib/input-validation';
 import { useBirthPlace } from '@/hooks/useBirthPlace';
 import { BirthPlaceModal } from './InputPage.BirthPlaceModal';
 import { PersonForm } from './InputPage.PersonForm';
-import { getFieldKey, getPersonValue, type SELF_FIELD_MAP } from './InputPage.field-helpers';
+import { getFieldKey, type SELF_FIELD_MAP } from './InputPage.field-helpers';
 import { AiSettingsModal } from '@/components/AiSettingsModal';
 import { useAiSettings } from '@/hooks/useAiSettings';
 
@@ -346,24 +345,6 @@ export function InputPage() {
     updatePersonField(role, 'birthMinute', minute);
   }
 
-  function openBirthTimeReversePage(role: PersonRole) {
-    const selfLabel = getPersonReferenceLabel(form.analysisMode, role);
-
-    if (
-      !String(getPersonValue(form, role, 'year')).trim() ||
-      !String(getPersonValue(form, role, 'month')).trim() ||
-      !String(getPersonValue(form, role, 'day')).trim()
-    ) {
-      setError(`请先填写完整的${selfLabel}出生日期`);
-      return;
-    }
-
-    navigate({
-      pathname: '/birth-time-reverse',
-      search: `?${buildInputStateSearch(form)}&target=${role}`,
-    });
-  }
-
   function updateEntryMode(value: InputEntryMode) {
     setEntryMode(value);
 
@@ -459,7 +440,6 @@ export function InputPage() {
                     updateNumericField={updateNumericField}
                     updateBirthTime={updateBirthTime}
                     openBirthPlaceModal={birthPlace.openBirthPlaceModal}
-                    openBirthTimeReversePage={openBirthTimeReversePage}
                     historyHint={
                       form.analysisMode === 'single'
                         ? '填写一份个人信息，自动生成八字、紫微和八宅入口；填写精准时间与出生地后，同时生成星盘和七政四余。'
@@ -474,7 +454,6 @@ export function InputPage() {
                       updateNumericField={updateNumericField}
                       updateBirthTime={updateBirthTime}
                       openBirthPlaceModal={birthPlace.openBirthPlaceModal}
-                      openBirthTimeReversePage={openBirthTimeReversePage}
                     />
                   ) : null}
 

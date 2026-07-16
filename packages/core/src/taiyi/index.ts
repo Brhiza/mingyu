@@ -14,8 +14,19 @@
 import { SolarTime } from 'tyme4ts';
 import { getGanZhiFromDate, getSixtyCycle, isValidGanZhi } from '../ganzhi';
 import type { TaiyiModelInfo, TaiyiResult, TaiyiScope } from '../types/divination';
+import { buildTaiyiEvidence } from './evidence';
 
 export type { TaiyiModelInfo, TaiyiResult, TaiyiScope } from '../types/divination';
+export type {
+  TaiyiConditionFact,
+  TaiyiCounterEvidenceFact,
+  TaiyiCounterSummaryFact,
+  TaiyiEvidenceAnalysis,
+  TaiyiForceFact,
+  TaiyiLimitationFact,
+  TaiyiPositionFact,
+  TaiyiSixteenGodFact,
+} from './evidence';
 
 /** 太乙统宗年家积年基数。 */
 export const TAIYI_BASE_YEARS = 10153917;
@@ -541,8 +552,10 @@ export function generateTaiyi(input: TaiyiInput = {}): TaiyiResult {
   const ji = Math.ceil(entryYears / 60);
 
   const judgments: string[] = [];
-  if (shiJiPalace === taiyiPalace) judgments.push('掩：始击与太乙同宫，客目掩太乙。');
-  if (wenChangPalace === taiyiPalace) judgments.push('囚：文昌与太乙同宫，主目囚太乙。');
+  if (shiJiPalace === taiyiPalace)
+    judgments.push('掩：始击与太乙同宫，传统称客目掩太乙；只表示位置条件成立。');
+  if (wenChangPalace === taiyiPalace)
+    judgments.push('囚：文昌与太乙同宫，传统称主目囚太乙；只表示位置条件成立。');
   const lordNature = countNature(lordCount);
   const guestNature = countNature(guestCount);
   const setNature = countNature(setCount);
@@ -550,10 +563,14 @@ export function generateTaiyi(input: TaiyiInput = {}): TaiyiResult {
   if (guestNature) judgments.push(`客算 ${guestCount} 为${guestNature}。`);
   if (setNature) judgments.push(`定算 ${setCount} 为${setNature}。`);
   if (lordGeneral === 5 || lordAssistant === 5) {
-    judgments.push('主大将或主参将居中宫，主方行动受限，宜先守后动。');
+    judgments.push(
+      '主大将或主参将居中宫，传统提示主方行动条件可能受限；须结合现实资料，不直接断宜守或成败。',
+    );
   }
   if (guestGeneral === 5 || guestAssistant === 5) {
-    judgments.push('客大将或客参将居中宫，客方行动受限，不宜轻进。');
+    judgments.push(
+      '客大将或客参将居中宫，传统提示客方行动条件可能受限；须结合现实资料，不直接断宜守或成败。',
+    );
   }
   if (judgments.length === 0) judgments.push('本局未见主目、客目与太乙同位。');
 
@@ -562,6 +579,42 @@ export function generateTaiyi(input: TaiyiInput = {}): TaiyiResult {
   const sixteenGodsText = sixteenGods.map((item) => `${item.branch}${item.god}`).join('、');
   const scopeInfo = SCOPE_LABELS[scope];
   const dateTime = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  const evidenceAnalysis = buildTaiyiEvidence({
+    scope,
+    dateTime,
+    ganZhi,
+    accumulatedLabel: scopeInfo.accumulated,
+    accumulatedValue,
+    entryYears,
+    yuan,
+    ji,
+    yinYang,
+    bureau,
+    taiyiPosition,
+    taiyiPalace,
+    wenChangPosition,
+    wenChangPalace,
+    shiJiPosition,
+    shiJiPalace,
+    jiShenPosition,
+    jiShenPalace,
+    lordCount,
+    guestCount,
+    setCount,
+    countNatures: {
+      lord: lordNature,
+      guest: guestNature,
+      set: setNature,
+    },
+    lordGeneral,
+    lordAssistant,
+    guestGeneral,
+    guestAssistant,
+    setGeneral,
+    setAssistant,
+    sixteenGods,
+    model: TAIYI_MODEL_INFO,
+  });
   const prompt = [
     `【太乙神数 · ${scopeInfo.title}】`,
     `起局时间：${dateTime}；本计干支：${ganZhi}。`,
@@ -572,11 +625,6 @@ export function generateTaiyi(input: TaiyiInput = {}): TaiyiResult {
     `将参：主大将${formatGeneralPalace(lordGeneral)}、主参将${formatGeneralPalace(lordAssistant)}；客大将${formatGeneralPalace(guestGeneral)}、客参将${formatGeneralPalace(guestAssistant)}；定大将${formatGeneralPalace(setGeneral)}、定参将${formatGeneralPalace(setAssistant)}。`,
     `判断：${judgments.join('；')}`,
     `十六神：${sixteenGodsText}。`,
-    '取证层级：先以局数、太乙及主客目宫位、掩囚关系、主客定算和将参宫位为主证；计神与十六神为定位资料和辅证，不得脱离主客格局单独定案。',
-    `资料来源：${TAIYI_MODEL_INFO.sources.map((source) => `${source.title}（${source.evidence}）`).join('；')}。`,
-    `观察层级：以${scopeInfo.title}对应的时间尺度分析趋势、条件与行动时宜。`,
-    '',
-    `请依《太乙金镜式经》${scopeInfo.title}式理，结合太乙、文昌、始击、计神、十六神、主客定算与主客定将参，分析${scopeInfo.title}范围内的气运、动静、攻守与时宜；逐项说明主证、辅证、反证或限制，以及可以观察的触发条件。`,
   ].join('\n');
 
   return {
@@ -613,6 +661,7 @@ export function generateTaiyi(input: TaiyiInput = {}): TaiyiResult {
     sixteenGods,
     judgments,
     model: TAIYI_MODEL_INFO,
+    evidenceAnalysis,
     prompt,
   };
 }
@@ -622,4 +671,5 @@ export const taiyi = {
   TAIYI_16_GODS,
   TAIYI_BASE_YEARS,
   TAIYI_MODEL_INFO,
+  buildTaiyiEvidence,
 };

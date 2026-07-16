@@ -2,9 +2,11 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ScopeType } from '../../../src/types/analysis.js';
 import {
+  buildCombinedZiweiCompatibilityPrompt,
   buildZiweiChartInput,
   calculateZiweiChartForScopes,
 } from '../../../src/lib/full-chart-engine/ziwei.js';
+import { analyzeZiweiCompatibility } from 'mingyu-core/ziwei/iztro';
 import {
   PROMPT_MODES,
   ZIWEI_PROMPT_SCOPES,
@@ -77,6 +79,20 @@ const ziweiPromptSchema = ziweiSchema.extend({
     ),
 });
 
+const ziweiCompatibilitySchema = z.object({
+  person1: ziweiSchema.omit({ promptScope: true }),
+  person2: ziweiSchema.omit({ promptScope: true }),
+});
+
+const ziweiCompatibilityPromptSchema = ziweiCompatibilitySchema.extend({
+  question: z.string().optional().describe('希望围绕双方关系解读的问题'),
+  promptTopic: z.enum(ZIWEI_PROMPT_TOPICS).optional().describe('关系分析主题'),
+  promptMode: z
+    .enum(PROMPT_MODES)
+    .optional()
+    .describe('framework=内置关系框架，custom=只围绕用户问题作答'),
+});
+
 export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
   const useTrueSolarTime = args.useTrueSolarTime ?? false;
   assertMcpBirthDate({
@@ -122,7 +138,7 @@ export function registerZiweiTool(server: McpServer) {
     'ziwei_calculate',
     {
       description:
-        '紫微斗数排盘：根据出生信息计算紫微命盘。默认只返回 origin（本命）范围；通过 promptScope 可指定额外的运限范围（full/decadal/yearly/monthly/daily/hourly/age）',
+        '紫微斗数排盘：根据出生信息计算紫微命盘；启用真太阳时时返回统一校正计算链、事实、汇总与限制，关闭时保留传统时辰直接排盘。默认只返回 origin（本命）范围；通过 promptScope 可指定额外运限范围',
       inputSchema: ziweiSchema.shape,
       outputSchema: ziweiOutputSchema,
     },
@@ -145,7 +161,7 @@ export function registerZiweiTool(server: McpServer) {
     'ziwei_prompt',
     {
       description:
-        '紫微斗数排盘并生成结构化 AI 解读提示词：一次调用返回命盘数据和可直接复制给 AI 的提示词。默认只返回 origin（本命）范围；通过 promptScope 可指定额外的运限范围（full/decadal/yearly/monthly/daily/hourly/age）',
+        '紫微斗数排盘并生成结构化 AI 解读提示词：返回命盘数据、真太阳时校正证据和可直接复制给 AI 的完整提示词。默认只返回 origin（本命）范围；通过 promptScope 可指定额外运限范围',
       inputSchema: ziweiPromptSchema.shape,
       outputSchema: {
         result: z.unknown().describe('紫微命盘数据'),
@@ -173,6 +189,90 @@ export function registerZiweiTool(server: McpServer) {
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成紫微提示词失败'));
+      }
+    },
+  );
+
+  server.registerTool(
+    'ziwei_compatibility',
+    {
+      description:
+        '紫微双盘结构化证据计算：返回双方本命盘、关键宫位叠盘、跨盘生年四化落宫和解释边界，不输出匹配总分',
+      inputSchema: ziweiCompatibilitySchema.shape,
+      outputSchema: {
+        charts: z.unknown().describe('双方紫微本命盘'),
+        compatibility: z.unknown().describe('宫位叠盘、四化交叉落宫与结构化证据'),
+      },
+    },
+    async (args) => {
+      try {
+        const [person1, person2] = await Promise.all([
+          calculateZiweiChartForScopes(buildMcpZiweiChartInput(args.person1), ['origin']),
+          calculateZiweiChartForScopes(buildMcpZiweiChartInput(args.person2), ['origin']),
+        ]);
+        const compatibility = analyzeZiweiCompatibility(
+          person1.payloadByScope.origin,
+          person2.payloadByScope.origin,
+          { person1Name: args.person1.name, person2Name: args.person2.name },
+        );
+        return createStructuredToolResult({
+          charts: {
+            person1: buildSerializableZiweiResult(person1),
+            person2: buildSerializableZiweiResult(person2),
+          },
+          compatibility,
+        });
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '紫微双盘计算失败'));
+      }
+    },
+  );
+
+  server.registerTool(
+    'ziwei_compatibility_prompt',
+    {
+      description:
+        '紫微双盘计算并生成结构化 AI 提示词：保留宫位叠盘、跨盘四化证据、方法说明和解释限制',
+      inputSchema: ziweiCompatibilityPromptSchema.shape,
+      outputSchema: {
+        result: z.unknown().describe('双方命盘与双盘结构化证据'),
+        prompt: z.string().describe('可直接用于 AI 解读的完整证据提示词'),
+      },
+    },
+    async (args) => {
+      try {
+        const [person1, person2] = await Promise.all([
+          calculateZiweiChartForScopes(buildMcpZiweiChartInput(args.person1), ['origin']),
+          calculateZiweiChartForScopes(buildMcpZiweiChartInput(args.person2), ['origin']),
+        ]);
+        const compatibility = analyzeZiweiCompatibility(
+          person1.payloadByScope.origin,
+          person2.payloadByScope.origin,
+          { person1Name: args.person1.name, person2Name: args.person2.name },
+        );
+        const result = {
+          charts: {
+            person1: buildSerializableZiweiResult(person1),
+            person2: buildSerializableZiweiResult(person2),
+          },
+          compatibility,
+        };
+        return createStructuredToolResult({
+          result,
+          prompt: buildCombinedZiweiCompatibilityPrompt({
+            primaryPayload: person1.payloadByScope.origin,
+            partnerPayload: person2.payloadByScope.origin,
+            primaryTrueSolarEvidence: person1.trueSolarEvidence,
+            partnerTrueSolarEvidence: person2.trueSolarEvidence,
+            primaryName: args.person1.name,
+            partnerName: args.person2.name,
+            topic: args.promptTopic ?? 'relationship',
+            question: args.question ?? '',
+            isCustomQuestion: args.promptMode === 'custom',
+          }),
+        });
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '生成紫微双盘提示词失败'));
       }
     },
   );

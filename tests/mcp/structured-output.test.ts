@@ -6,12 +6,54 @@ import { baziCalculator } from '@core/bazi/baziCalculator';
 import { TIME_MAP } from '@core/bazi/baziDisplayData';
 import { calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
-import { assertPromptIsPortableTaskText } from '../prompt-assertions';
+import { assertPromptHasSingleRole, assertPromptIsPortableTaskText } from '../prompt-assertions';
+import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../../src/lib/prompt-guidance';
+
+function assertEvidenceOwnerReferences(evidence: unknown) {
+  const data = evidence as {
+    summaryFact?: { key?: string; factKeys?: string[] };
+    relationSummaryFact?: { key?: string; factKeys?: string[] };
+    counterEvidenceFacts?: Array<{ key?: string; ownerFactKeys?: string[] }>;
+    limitationFacts?: Array<{ ownerFactKeys?: string[] }>;
+  };
+  const summary = data.summaryFact ?? data.relationSummaryFact;
+  assert.ok(summary?.key);
+  assert.ok(summary.factKeys?.length);
+  const factKeys = new Set([
+    summary.key,
+    ...(summary.factKeys ?? []),
+    ...(data.counterEvidenceFacts ?? []).flatMap((item) => (item.key ? [item.key] : [])),
+  ]);
+  assert.ok(
+    (data.counterEvidenceFacts ?? []).every(
+      (item) =>
+        (item.ownerFactKeys?.length ?? 0) > 0 &&
+        item.ownerFactKeys?.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    (data.limitationFacts ?? []).every(
+      (item) =>
+        (item.ownerFactKeys?.length ?? 0) > 0 &&
+        item.ownerFactKeys?.every((key) => factKeys.has(key)),
+    ),
+  );
+}
 
 const toolCalls: Array<[string, Record<string, unknown>]> = [
   ['foundation_capabilities', {}],
   ['foundation_ganzhi', { ganZhi: '甲子' }],
   ['foundation_wuxing', { items: ['甲', '子', '丙', '午'], weightHidden: true }],
+  ['foundation_direction', { degree: 180 }],
+  [
+    'foundation_shensha',
+    {
+      yearGanZhi: '甲子',
+      monthGanZhi: '丙寅',
+      dayGanZhi: '戊辰',
+      hourGanZhi: '丁酉',
+    },
+  ],
   [
     'calendar_true_solar_time',
     { localDateTime: '1990-05-15T10:30:00', longitude: 116.4074, timezone: 8 },
@@ -29,6 +71,21 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
       timezone: 8,
     },
   ],
+  [
+    'calendar_solar_illumination',
+    {
+      year: 2024,
+      month: 6,
+      day: 21,
+      hour: 12,
+      latitude: 39.9042,
+      longitude: 116.4074,
+      timezone: 8,
+    },
+  ],
+  ['calendar_astronomical_time', { year: 2000, month: 1, day: 1, hour: 12, timezone: 0 }],
+  ['calendar_moon_phase', { utcDateTime: '2024-06-21T12:00:00Z' }],
+  ['calendar_solar_term', { year: 2024, index: 12 }],
   ['divine_qimen', {}],
   [
     'divine_almanac',
@@ -54,13 +111,116 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
     'bazi_calculate',
     { gender: 'male', year: 1990, month: 5, day: 15, timeIndex: 1, dateType: 'solar' },
   ],
+  [
+    'bazi_compatibility',
+    {
+      person1: {
+        name: '甲方',
+        gender: 'female',
+        year: 1988,
+        month: 1,
+        day: 1,
+        timeIndex: 0,
+        dateType: 'solar',
+      },
+      person2: {
+        name: '乙方',
+        gender: 'male',
+        year: 1990,
+        month: 6,
+        day: 15,
+        timeIndex: 5,
+        dateType: 'solar',
+      },
+    },
+  ],
+  [
+    'ziwei_compatibility',
+    {
+      person1: {
+        name: '甲方',
+        gender: 'female',
+        dateType: 'solar',
+        year: '1992',
+        month: '8',
+        day: '21',
+        timeIndex: 4,
+      },
+      person2: {
+        name: '乙方',
+        gender: 'male',
+        dateType: 'solar',
+        year: '1990',
+        month: '5',
+        day: '15',
+        timeIndex: 1,
+      },
+    },
+  ],
   ['metaphysics_bazhai', { birthYear: 1990, gender: 'male', doorToInteriorDegree: 0 }],
+  ['metaphysics_residential', { birthYear: 1990, gender: 'male', year: 2024, doorToInteriorDegree: 0 }],
+  ['metaphysics_xuankong', { year: 2024, facingDegree: 0 }],
   ['metaphysics_zodiac', { zodiac: '鼠', year: 2024 }],
   ['metaphysics_taiyi', { year: 2004, scope: 'year' }],
   ['metaphysics_qizheng', { year: 2024, month: 6, day: 15, hour: 12 }],
+  [
+    'astrolabe_synastry',
+    {
+      person1: {
+        name: '甲',
+        gender: '女',
+        year: 1995,
+        month: 5,
+        day: 20,
+        hour: 12,
+        minute: 30,
+        latitude: 39.9042,
+        longitude: 116.4074,
+        timezone: 8,
+      },
+      person2: {
+        name: '乙',
+        gender: '男',
+        year: 1992,
+        month: 8,
+        day: 21,
+        hour: 8,
+        minute: 15,
+        latitude: 31.2304,
+        longitude: 121.4737,
+        timezone: 8,
+      },
+    },
+  ],
 ];
 
 const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
+  [
+    'bazi_compatibility_prompt',
+    {
+      person1: {
+        name: '甲方',
+        gender: 'female',
+        year: 1988,
+        month: 1,
+        day: 1,
+        timeIndex: 0,
+        dateType: 'solar',
+      },
+      person2: {
+        name: '乙方',
+        gender: 'male',
+        year: 1990,
+        month: 6,
+        day: 15,
+        timeIndex: 5,
+        dateType: 'solar',
+      },
+      question: '请分析双方长期合作关系。',
+      compatType: 'career',
+    },
+    /【双盘关系资料】/,
+  ],
   [
     'bazi_prompt',
     {
@@ -73,7 +233,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       question: '我适合创业还是上班？',
       promptTopic: 'career',
     },
-    /【排盘信息】/,
+    /【排盘信息】[\s\S]*【核心判断依据】[\s\S]*【四柱】/,
   ],
   [
     'ziwei_prompt',
@@ -89,6 +249,32 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       promptScope: 'origin',
     },
     /【问题】/,
+  ],
+  [
+    'ziwei_compatibility_prompt',
+    {
+      person1: {
+        name: '甲方',
+        gender: 'female',
+        dateType: 'solar',
+        year: '1992',
+        month: '8',
+        day: '21',
+        timeIndex: 4,
+      },
+      person2: {
+        name: '乙方',
+        gender: 'male',
+        dateType: 'solar',
+        year: '1990',
+        month: '5',
+        day: '15',
+        timeIndex: 1,
+      },
+      question: '双方长期合作关系应注意什么？',
+      promptTopic: 'career-wealth',
+    },
+    /【双盘关系资料】/,
   ],
   [
     'bazi_ziwei_prompt',
@@ -112,20 +298,74 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
     /【占卜信息】/,
   ],
   [
+    'xiaoliuren_prompt',
+    { customDate: '2025-01-01T08:00:00+08:00', question: '这件事接下来如何推进？' },
+    /应期触发条件：[\s\S]*不换算固定日数[\s\S]*【问题】\n这件事接下来如何推进？/,
+  ],
+  [
+    'qimen_prompt',
+    { customDate: '2025-01-01T06:00:00+08:00', question: '这件事何时出现转机？' },
+    /占法：奇门遁甲[\s\S]*值符值使与时干：[\s\S]*【问题】\n这件事何时出现转机？/,
+  ],
+  [
     'bazhai_prompt',
     {
       birthYear: 1990,
       gender: 'male',
-      doorToInteriorDegree: 0,
+      doorToInteriorDegree: 64,
+      northReference: 'magnetic',
+      magneticDeclinationDegrees: 1,
+      measurementUncertaintyDegrees: 3,
       question: '办公桌朝向怎么选？',
     },
-    /【问题】\n办公桌朝向怎么选？/,
+    /【八宅风水排盘】[\s\S]*命卦：[\s\S]*四吉方：[\s\S]*【问题】\n办公桌朝向怎么选？/,
+  ],
+  [
+    'residential_prompt',
+    {
+      birthYear: 1990,
+      gender: 'male',
+      year: 2024,
+      doorToInteriorDegree: 0,
+      question: '这套房怎么看？',
+    },
+    /【住宅风水排盘】[\s\S]*合参要点：[\s\S]*【问题】\n这套房怎么看？/,
+  ],
+  [
+    'xuankong_prompt',
+    {
+      year: 2024,
+      facingDegree: 0,
+      question: '这套宅的飞星怎么看？',
+    },
+    /【玄空飞星排盘】[\s\S]*【问题】\n这套宅的飞星怎么看？/,
+  ],
+  [
+    'zodiac_prompt',
+    { zodiac: '马', yearGanZhi: '庚子', question: '今年应注意什么？' },
+    /【生肖与流年关系简析】[\s\S]*马（午）遇庚子年[\s\S]*【问题】\n今年应注意什么？/,
+  ],
+  [
+    'qizheng_prompt',
+    {
+      year: 2024,
+      month: 6,
+      day: 15,
+      hour: 12,
+      latitude: 31.23,
+      longitude: 121.47,
+      timezone: 8,
+      question: '请分析本命结构。',
+    },
+    /【七政四余 · 果老星宗】[\s\S]*出生时空：[\s\S]*七政四余吊照：[\s\S]*【问题】\n请分析本命结构。/,
   ],
 ];
 
 const promptToolNames = [
   'bazi_prompt',
+  'bazi_compatibility_prompt',
   'ziwei_prompt',
+  'ziwei_compatibility_prompt',
   'bazi_ziwei_prompt',
   'liuyao_prompt',
   'meihua_prompt',
@@ -137,7 +377,9 @@ const promptToolNames = [
   'almanac_prompt',
   'lenormand_prompt',
   'astrolabe_prompt',
+  'astrolabe_synastry_prompt',
   'bazhai_prompt',
+  'residential_prompt',
   'zodiac_prompt',
   'taiyi_prompt',
   'qizheng_prompt',
@@ -165,13 +407,29 @@ test('MCP 工具列表应声明输出结构', async () => {
   await withMcpClient(async (client) => {
     const { tools } = await client.listTools();
 
-    assert.equal(tools.length, 38);
+    assert.equal(tools.length, 54);
     tools.forEach((tool) => {
       assert.equal(tool.outputSchema?.type, 'object', `${tool.name} 缺少 outputSchema`);
     });
 
     const ziweiTool = tools.find((tool) => tool.name === 'ziwei_calculate');
     assert.ok(ziweiTool?.outputSchema?.properties?.payloadByScope);
+    assert.ok(tools.find((tool) => tool.name === 'ziwei_compatibility'));
+    assert.ok(tools.find((tool) => tool.name === 'ziwei_compatibility_prompt'));
+    assert.equal(
+      tools.find((tool) => tool.name === 'bazi_time_sensitivity'),
+      undefined,
+    );
+    assert.ok(tools.find((tool) => tool.name === 'calendar_solar_illumination'));
+    assert.ok(tools.find((tool) => tool.name === 'calendar_astronomical_time'));
+    assert.ok(tools.find((tool) => tool.name === 'calendar_moon_phase'));
+    assert.ok(tools.find((tool) => tool.name === 'calendar_solar_term'));
+    assert.ok(tools.find((tool) => tool.name === 'foundation_direction'));
+    assert.ok(tools.find((tool) => tool.name === 'foundation_shensha'));
+    assert.ok(tools.find((tool) => tool.name === 'metaphysics_residential'));
+    assert.ok(tools.find((tool) => tool.name === 'residential_prompt'));
+    assert.ok(tools.find((tool) => tool.name === 'metaphysics_xuankong'));
+    assert.ok(tools.find((tool) => tool.name === 'xuankong_prompt'));
 
     assert.equal(
       tools.some((tool) => tool.name === 'build_divination_prompt'),
@@ -181,6 +439,23 @@ test('MCP 工具列表应声明输出结构', async () => {
       assert.ok(tools.find((tool) => tool.name === name)?.outputSchema?.properties?.result);
       assert.ok(tools.find((tool) => tool.name === name)?.outputSchema?.properties?.prompt);
     }
+  });
+});
+
+test('通用神煞 MCP 输入应拒绝重复编号', async () => {
+  await withMcpClient(async (client) => {
+    const result = await client.callTool({
+      name: 'foundation_shensha',
+      arguments: {
+        yearGanZhi: '甲子',
+        monthGanZhi: '丙寅',
+        dayGanZhi: '戊辰',
+        hourGanZhi: '丁酉',
+        ids: ['yima', 'yima'],
+      },
+    });
+
+    assert.equal(result.isError, true);
   });
 });
 
@@ -196,6 +471,839 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         false,
         `${name} 不应通过旧排盘工具返回提示词`,
       );
+      if (name === 'foundation_capabilities') {
+        const capabilities = result.structuredContent.result as {
+          key: string;
+          status: string;
+          capabilityFacts: Array<{
+            key: string;
+            status: string;
+            provides: string[];
+            sources: string[];
+          }>;
+          summaryFact: {
+            moduleFactCount: number;
+            evidenceReadyModuleCount: number;
+            catalogOnlyModuleCount: number;
+            commonShenshaCount: number;
+          };
+          limitationFacts: Array<{ ownerFactKeys: string[] }>;
+          commonShensha: unknown[];
+          promptText: string;
+        };
+        assert.equal(capabilities.key, 'foundation:capabilities');
+        assert.equal(capabilities.status, '已登记');
+        assert.equal(capabilities.capabilityFacts.length, 5);
+        assert.equal(capabilities.summaryFact.moduleFactCount, capabilities.capabilityFacts.length);
+        assert.equal(capabilities.summaryFact.evidenceReadyModuleCount, 5);
+        assert.equal(capabilities.summaryFact.catalogOnlyModuleCount, 0);
+        assert.equal(
+          capabilities.summaryFact.commonShenshaCount,
+          capabilities.commonShensha.length,
+        );
+        assert.ok(
+          capabilities.capabilityFacts.every(
+            (fact) => fact.key.startsWith('foundation:capability:') && fact.provides.length > 0,
+          ),
+        );
+        assert.ok(capabilities.limitationFacts.every((fact) => fact.ownerFactKeys.length > 0));
+        assert.match(capabilities.promptText, /能力目录证据汇总：目录完整/);
+        assertPromptIsPortableTaskText(capabilities.promptText);
+      }
+      if (name === 'foundation_ganzhi') {
+        const profile = result.structuredContent.result as {
+          key: string;
+          status: string;
+          calculationSteps: Array<{ promptText: string }>;
+          calculationChain: string[];
+          sourceFacts: Array<{ ownerStepKeys: string[] }>;
+          summaryFact: { sourceFactCount: number; limitationFactCount: number };
+          limitationFacts: unknown[];
+          promptText: string;
+        };
+        assert.equal(profile.key, 'foundation:ganzhi:甲子');
+        assert.equal(profile.status, '已查询');
+        assert.equal(profile.calculationSteps.length, 5);
+        assert.deepEqual(
+          profile.calculationChain,
+          profile.calculationSteps.map((item) => item.promptText),
+        );
+        assert.equal(profile.summaryFact.sourceFactCount, profile.sourceFacts.length);
+        assert.equal(profile.summaryFact.limitationFactCount, profile.limitationFacts.length);
+        assert.ok(profile.sourceFacts.every((fact) => fact.ownerStepKeys.length > 0));
+        assert.match(profile.promptText, /固定资料查询/);
+      }
+      if (name === 'foundation_wuxing') {
+        const analysis = result.structuredContent.result as {
+          key: string;
+          status: string;
+          calculationSteps: Array<{ promptText: string }>;
+          calculationChain: string[];
+          itemFacts: Array<{
+            item: string;
+            hiddenContributions: Array<{ stem: string; wuxing: string; weight: number }>;
+          }>;
+          dominantElements: string[];
+          weakestElements: string[];
+          summaryFact: { itemFactCount: number; limitationFactCount: number };
+          limitationFacts: unknown[];
+          promptText: string;
+        };
+        assert.equal(analysis.key, 'foundation:wuxing:with-hidden:甲-子-丙-午');
+        assert.equal(analysis.status, '已统计');
+        assert.equal(analysis.calculationSteps.length, 4);
+        assert.deepEqual(
+          analysis.calculationChain,
+          analysis.calculationSteps.map((item) => item.promptText),
+        );
+        assert.equal(analysis.itemFacts.length, 4);
+        assert.deepEqual(analysis.itemFacts[1]?.hiddenContributions, [
+          { stem: '癸', wuxing: '水', weight: 1, rank: '本气' },
+        ]);
+        assert.deepEqual(analysis.dominantElements, ['火']);
+        assert.deepEqual(analysis.weakestElements, ['金']);
+        assert.equal(analysis.summaryFact.itemFactCount, analysis.itemFacts.length);
+        assert.equal(analysis.summaryFact.limitationFactCount, analysis.limitationFacts.length);
+        assert.match(analysis.promptText, /不是命理吉凶评分/);
+      }
+      if (name === 'foundation_direction') {
+        const direction = result.structuredContent.result as {
+          key: string;
+          status: string;
+          label: string;
+          facingBagua: string;
+          sitBagua: string;
+          calculationSteps: Array<{ promptText: string }>;
+          calculationChain: string[];
+          directionFacts: unknown[];
+          summaryFact: {
+            status: string;
+            directionFactCount: number;
+            limitationFactCount: number;
+          };
+          limitationFacts: unknown[];
+          promptText: string;
+        };
+        assert.equal(direction.key, 'foundation:direction:180');
+        assert.equal(direction.status, '已换算');
+        assert.equal(direction.label, '子山午向');
+        assert.equal(direction.facingBagua, '离');
+        assert.equal(direction.sitBagua, '坎');
+        assert.equal(direction.calculationSteps.length, 4);
+        assert.deepEqual(
+          direction.calculationChain,
+          direction.calculationSteps.map((item) => item.promptText),
+        );
+        assert.equal(direction.summaryFact.status, '映射稳定');
+        assert.equal(direction.summaryFact.directionFactCount, direction.directionFacts.length);
+        assert.equal(direction.summaryFact.limitationFactCount, direction.limitationFacts.length);
+        assert.match(direction.promptText, /不自动推断或补造磁偏角/);
+      }
+      if (name === 'foundation_shensha') {
+        const analysis = result.structuredContent.result as {
+          key: string;
+          status: string;
+          pillarFacts: unknown[];
+          calculationSteps: Array<{ promptText: string }>;
+          calculationChain: string[];
+          matchFacts: Array<{
+            id: string;
+            status: string;
+            evidenceStatus: string;
+            matchedPillars: Array<{ label: string }>;
+          }>;
+          summaryFact: {
+            status: string;
+            matchedRuleCount: number;
+            matchFactCount: number;
+            limitationFactCount: number;
+          };
+          limitationFacts: unknown[];
+          promptText: string;
+        };
+        assert.match(analysis.key, /^foundation:shensha:/);
+        assert.equal(analysis.status, '已核验');
+        assert.equal(analysis.pillarFacts.length, 4);
+        assert.equal(analysis.calculationSteps.length, 8);
+        assert.deepEqual(
+          analysis.calculationChain,
+          analysis.calculationSteps.map((item) => item.promptText),
+        );
+        assert.equal(analysis.summaryFact.status, '证据链完整');
+        assert.equal(analysis.summaryFact.matchedRuleCount, 2);
+        assert.equal(analysis.summaryFact.matchFactCount, analysis.matchFacts.length);
+        assert.equal(analysis.summaryFact.limitationFactCount, analysis.limitationFacts.length);
+        assert.deepEqual(analysis.matchFacts.find((item) => item.id === 'yima')?.matchedPillars, [
+          { pillar: 'monthGanZhi', label: '月柱', ganZhi: '丙寅', branch: '寅' },
+        ]);
+        assert.ok(analysis.matchFacts.every((item) => item.evidenceStatus === '来源已声明'));
+        assert.match(analysis.promptText, /不得凭单项神煞定吉凶/);
+        assertPromptIsPortableTaskText(analysis.promptText);
+      }
+      if (name === 'calendar_astronomical_time') {
+        const evidence = result.structuredContent.result as {
+          julianDayUtc: number;
+          calculationSteps: Array<{ promptText: string }>;
+          calculationChain: string[];
+          summaryFact: { calculationStepCount: number };
+          counterEvidenceFacts: unknown[];
+          limitationFacts: unknown[];
+          promptText: string;
+        };
+        assert.equal(evidence.julianDayUtc, 2451545);
+        assert.equal(evidence.calculationSteps.length, 5);
+        assert.deepEqual(
+          evidence.calculationChain,
+          evidence.calculationSteps.map((item) => item.promptText),
+        );
+        assert.equal(evidence.summaryFact.calculationStepCount, evidence.calculationSteps.length);
+        assert.equal(evidence.counterEvidenceFacts.length, 2);
+        assert.equal(evidence.limitationFacts.length, 2);
+        assert.match(evidence.promptText, /UT1≈UTC/);
+      }
+      if (name === 'calendar_moon_phase') {
+        const evidence = result.structuredContent.result as {
+          status: string;
+          calculationSteps: unknown[];
+          summaryFact: { principalEventCount: number; limitationFactCount: number };
+          limitationFacts: unknown[];
+          previousPrincipalPhase: { utcDateTime: string };
+          nextPrincipalPhase: { utcDateTime: string };
+          promptText: string;
+        };
+        assert.equal(evidence.status, '已计算');
+        assert.equal(evidence.calculationSteps.length, 4);
+        assert.equal(evidence.summaryFact.principalEventCount, 2);
+        assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
+        assert.ok(evidence.previousPrincipalPhase.utcDateTime);
+        assert.ok(evidence.nextPrincipalPhase.utcDateTime);
+        assert.match(evidence.promptText, /前一四正相位/);
+      }
+      if (name === 'calendar_solar_term') {
+        const evidence = result.structuredContent.result as {
+          name: string;
+          targetLongitudeDegrees: number;
+          calculationSteps: unknown[];
+          verificationFact: { status: string };
+          summaryFact: { verificationFactCount: number; limitationFactCount: number };
+          limitationFacts: unknown[];
+          promptText: string;
+        };
+        assert.equal(evidence.name, '夏至');
+        assert.equal(evidence.targetLongitudeDegrees, 90);
+        assert.equal(evidence.calculationSteps.length, 4);
+        assert.equal(evidence.verificationFact.status, '已记录差值');
+        assert.equal(evidence.summaryFact.verificationFactCount, 1);
+        assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
+        assert.match(evidence.promptText, /独立模型求根/);
+      }
+      if (name === 'bazi_calculate') {
+        const chart = result.structuredContent as {
+          result?: {
+            seasonInfo?: {
+              previousTermEvidence?: {
+                calculationSteps: unknown[];
+                calculationChain: string[];
+                limitationFacts: unknown[];
+                summaryFact: {
+                  verificationFactCount: number;
+                  limitationFactCount: number;
+                };
+              };
+            };
+            evidenceAnalysis?: {
+              key?: string;
+              status?: string;
+              calculationSteps?: Array<{ key: string }>;
+              pillarFacts?: Array<{ key?: string; calculationStepKeys?: string[] }>;
+              analysisFacts?: Array<{ key?: string; calculationStepKeys?: string[] }>;
+              relationFacts?: Array<{ key?: string; calculationStepKeys?: string[] }>;
+              counterEvidenceFacts?: Array<{ key?: string; ownerFactKeys?: string[] }>;
+              summaryFact?: {
+                key?: string;
+                factKeys?: string[];
+                pillarFactCount?: number;
+                analysisFactCount?: number;
+              };
+              limitationFacts?: Array<{ ownerFactKeys?: string[] }>;
+            };
+          };
+        };
+        const analysis = chart.result?.evidenceAnalysis;
+        const previousTermEvidence = chart.result?.seasonInfo?.previousTermEvidence;
+        const stepKeys = new Set(analysis?.calculationSteps?.map((item) => item.key));
+        assert.equal(
+          previousTermEvidence?.calculationChain.length,
+          previousTermEvidence?.calculationSteps.length,
+        );
+        assert.equal(previousTermEvidence?.summaryFact.verificationFactCount, 1);
+        assert.equal(
+          previousTermEvidence?.summaryFact.limitationFactCount,
+          previousTermEvidence?.limitationFacts.length,
+        );
+        assert.equal(analysis?.key, 'bazi:natal:evidence');
+        assert.equal(analysis?.calculationSteps?.length, 5);
+        assert.equal(analysis?.pillarFacts?.length, 4);
+        assert.equal(analysis?.analysisFacts?.length, 3);
+        assert.equal(analysis?.summaryFact?.pillarFactCount, analysis?.pillarFacts?.length);
+        assert.equal(analysis?.summaryFact?.analysisFactCount, analysis?.analysisFacts?.length);
+        assert.ok(
+          [
+            ...(analysis?.pillarFacts ?? []),
+            ...(analysis?.analysisFacts ?? []),
+            ...(analysis?.relationFacts ?? []),
+          ].every((item) => item.calculationStepKeys?.every((key) => stepKeys.has(key))),
+        );
+        assertEvidenceOwnerReferences(analysis);
+      }
+      if (name === 'ziwei_calculate') {
+        const chart = result.structuredContent as {
+          payloadByScope?: {
+            origin?: {
+              evidence_pool?: Array<{
+                key?: string;
+                status?: string;
+                calculationStepKey?: string;
+              }>;
+              evidence_analysis?: {
+                key?: string;
+                status?: string;
+                calculationSteps?: Array<{ key: string }>;
+                counterEvidenceFacts?: Array<{ key?: string; ownerFactKeys?: string[] }>;
+                summaryFact?: { key?: string; factKeys?: string[]; evidenceFactCount?: number };
+                limitationFacts?: Array<{ ownerFactKeys?: string[] }>;
+              };
+              patterns?: Array<{
+                key?: string;
+                status?: string;
+                calculationStepKey?: string;
+              }>;
+              pattern_analysis?: {
+                key?: string;
+                status?: string;
+                calculationSteps?: Array<{ key: string }>;
+                counterEvidenceFacts?: Array<{ key?: string; ownerFactKeys?: string[] }>;
+                summaryFact?: {
+                  key?: string;
+                  factKeys?: string[];
+                  registeredRuleCount?: number;
+                  evaluatedRuleCount?: number;
+                  matchedPatternCount?: number;
+                };
+                limitationFacts?: Array<{ ownerFactKeys?: string[] }>;
+              };
+            };
+          };
+        };
+        const origin = chart.payloadByScope?.origin;
+        assert.ok(origin?.evidence_pool?.length);
+        assert.ok(
+          origin?.evidence_pool?.every(
+            (item) =>
+              item.key?.startsWith('ziwei:evidence:') &&
+              item.status &&
+              origin.evidence_analysis?.calculationSteps?.some(
+                (step) => step.key === item.calculationStepKey,
+              ),
+          ),
+        );
+        assert.equal(origin?.evidence_analysis?.key, 'ziwei:evidence');
+        assert.equal(origin?.evidence_analysis?.calculationSteps?.length, 4);
+        assert.equal(
+          origin?.evidence_analysis?.summaryFact?.evidenceFactCount,
+          origin?.evidence_pool?.length,
+        );
+        assertEvidenceOwnerReferences(origin?.evidence_analysis);
+        assert.equal(origin?.pattern_analysis?.key, 'ziwei:patterns');
+        assert.equal(origin?.pattern_analysis?.calculationSteps?.length, 4);
+        assert.equal(
+          origin?.pattern_analysis?.summaryFact?.evaluatedRuleCount,
+          origin?.pattern_analysis?.summaryFact?.registeredRuleCount,
+        );
+        assert.equal(
+          origin?.pattern_analysis?.summaryFact?.matchedPatternCount,
+          origin?.patterns?.length,
+        );
+        assert.ok(
+          origin?.patterns?.every(
+            (item) =>
+              item.key?.startsWith('ziwei:pattern:') &&
+              item.status === '已命中' &&
+              origin.pattern_analysis?.calculationSteps?.some(
+                (step) => step.key === item.calculationStepKey,
+              ),
+          ),
+        );
+        assertEvidenceOwnerReferences(origin?.pattern_analysis);
+      }
+      if (name === 'metaphysics_qizheng') {
+        const chart = (
+          result.structuredContent as {
+            result?: {
+              stars?: unknown[];
+              aspects?: Array<{ strength?: number; allowedOrb?: number }>;
+              calculationContext?: {
+                astronomicalTime?: {
+                  status: string;
+                  calculationSteps: unknown[];
+                  calculationChain: string[];
+                  limitations: string[];
+                  limitationFacts: unknown[];
+                };
+                moonPhase?: {
+                  status: string;
+                  calculationSteps: unknown[];
+                  calculationChain: string[];
+                  previousPrincipalPhase?: { key: string; sources: string[] };
+                  nextPrincipalPhase?: { key: string; limitation: string };
+                  eventSummaryFact: { previousEventKey: string; nextEventKey: string };
+                  limitations: string[];
+                  limitationFacts: unknown[];
+                };
+                solarIllumination?: {
+                  status: string;
+                  calculationSteps: unknown[];
+                  calculationChain: string[];
+                  astronomicalTime: { status: string };
+                  limitations: string[];
+                  limitationFacts: unknown[];
+                };
+              };
+              evidenceAnalysis?: {
+                key?: string;
+                status?: string;
+                calculationFact?: {
+                  status: string;
+                  defaults: string[];
+                  steps: Array<{
+                    key: string;
+                    status: string;
+                    promptText: string;
+                    sources: string[];
+                    dependsOnStepKeys: string[];
+                    limitation: string;
+                  }>;
+                };
+                calculationSteps?: Array<{
+                  key: string;
+                  status: string;
+                  promptText: string;
+                  sources: string[];
+                  dependsOnStepKeys: string[];
+                  limitation: string;
+                }>;
+                calculationChain?: string[];
+                positionSourceFacts?: Array<{
+                  key: string;
+                  status: string;
+                  adoptedSources: string[];
+                  promptLimitations: string[];
+                  limitation: string;
+                }>;
+                starFacts?: Array<{ sources: string[]; limitation: string }>;
+                aspectFacts?: Array<{ allowedOrb: number; limitation: string }>;
+                counterEvidenceFacts?: Array<{
+                  type: string;
+                  status: string;
+                  ownerFactKeys: string[];
+                }>;
+                counterSummaryFact?: { status: string; factKeys: string[] };
+                limitationFacts?: Array<{
+                  ownerFactKeys: string[];
+                  sources: string[];
+                }>;
+                summaryFact?: {
+                  key: string;
+                  status: string;
+                  factKeys: string[];
+                  positionSourceFactCount: number;
+                  starFactCount: number;
+                  aspectFactCount: number;
+                  counterEvidenceCount: number;
+                  limitationFactCount: number;
+                };
+                promptText?: string;
+              };
+            };
+          }
+        ).result;
+        for (const aspect of chart?.aspects ?? []) {
+          assert.equal(aspect.strength, undefined);
+          assert.equal(typeof aspect.allowedOrb, 'number');
+        }
+        assert.equal(chart?.evidenceAnalysis?.starFacts?.length, chart?.stars?.length);
+        assert.equal(chart?.evidenceAnalysis?.aspectFacts?.length, chart?.aspects?.length);
+        assert.equal(chart?.evidenceAnalysis?.key, 'qizheng:evidence');
+        assert.equal(chart?.evidenceAnalysis?.status, '已计算');
+        assert.equal(chart?.evidenceAnalysis?.calculationFact?.status, '含默认值');
+        assert.equal(chart?.evidenceAnalysis?.calculationFact?.steps.length, 7);
+        assert.deepEqual(
+          chart?.evidenceAnalysis?.calculationSteps,
+          chart?.evidenceAnalysis?.calculationFact?.steps,
+        );
+        assert.equal(chart?.evidenceAnalysis?.calculationChain?.length, 7);
+        const qizhengStepKeys = new Set(
+          chart?.evidenceAnalysis?.calculationFact?.steps.map((item) => item.key),
+        );
+        assert.ok(
+          chart?.evidenceAnalysis?.calculationFact?.steps.every(
+            (item) =>
+              item.key.startsWith('qizheng:calculation:') &&
+              item.status === '已计算' &&
+              item.dependsOnStepKeys.every((key) => qizhengStepKeys.has(key)) &&
+              item.promptText &&
+              item.sources.length > 0 &&
+              item.limitation.includes('不得把步骤完整度解释为观测级精度'),
+          ),
+        );
+        assert.equal(chart?.evidenceAnalysis?.positionSourceFacts?.length, 4);
+        assert.ok(
+          chart?.evidenceAnalysis?.positionSourceFacts?.every(
+            (item) =>
+              item.key.startsWith('qizheng:position-source:') &&
+              item.status === '已采用' &&
+              item.adoptedSources.length > 0 &&
+              item.promptLimitations.every((text) => !text.includes('本项目')) &&
+              item.limitation.includes('不等于结果达到观测级精度'),
+          ),
+        );
+        assert.doesNotMatch(
+          String(chart?.evidenceAnalysis?.promptText ?? ''),
+          /本项目|项目统一|项目恒星黄经|命语/,
+        );
+        assert.match(
+          chart?.calculationContext?.moonPhase?.previousPrincipalPhase?.key ?? '',
+          /^四正月相:/,
+        );
+        assert.ok(
+          (chart?.calculationContext?.moonPhase?.previousPrincipalPhase?.sources.length ?? 0) >= 2,
+        );
+        assert.match(
+          chart?.calculationContext?.moonPhase?.nextPrincipalPhase?.limitation ?? '',
+          /不等于观测级精度/,
+        );
+        assert.equal(chart?.calculationContext?.astronomicalTime?.status, '已计算');
+        assert.equal(chart?.calculationContext?.astronomicalTime?.calculationSteps.length, 5);
+        assert.equal(chart?.calculationContext?.astronomicalTime?.calculationChain.length, 5);
+        assert.equal(
+          chart?.calculationContext?.astronomicalTime?.limitations.length,
+          chart?.calculationContext?.astronomicalTime?.limitationFacts.length,
+        );
+        assert.equal(chart?.calculationContext?.moonPhase?.status, '已计算');
+        assert.equal(chart?.calculationContext?.moonPhase?.calculationSteps.length, 4);
+        assert.equal(chart?.calculationContext?.moonPhase?.calculationChain.length, 4);
+        assert.equal(
+          chart?.calculationContext?.moonPhase?.eventSummaryFact.previousEventKey,
+          chart?.calculationContext?.moonPhase?.previousPrincipalPhase?.key,
+        );
+        assert.equal(
+          chart?.calculationContext?.moonPhase?.eventSummaryFact.nextEventKey,
+          chart?.calculationContext?.moonPhase?.nextPrincipalPhase?.key,
+        );
+        assert.equal(
+          chart?.calculationContext?.moonPhase?.limitations.length,
+          chart?.calculationContext?.moonPhase?.limitationFacts.length,
+        );
+        assert.equal(
+          chart?.calculationContext?.solarIllumination?.astronomicalTime.status,
+          '已计算',
+        );
+        assert.equal(chart?.calculationContext?.solarIllumination?.calculationSteps.length, 4);
+        assert.equal(chart?.calculationContext?.solarIllumination?.calculationChain.length, 4);
+        assert.equal(
+          chart?.calculationContext?.solarIllumination?.limitations.length,
+          chart?.calculationContext?.solarIllumination?.limitationFacts.length,
+        );
+        assert.ok(
+          chart?.evidenceAnalysis?.starFacts?.every(
+            (item) => item.sources.length >= 3 && item.limitation.includes('必须分层使用'),
+          ),
+        );
+        assert.ok(
+          chart?.evidenceAnalysis?.aspectFacts?.every(
+            (item) => item.allowedOrb > 0 && item.limitation.includes('混合模型不得提升为现代天文'),
+          ),
+        );
+        assert.equal(chart?.evidenceAnalysis?.counterEvidenceFacts?.length, 3);
+        assert.equal(chart?.evidenceAnalysis?.counterSummaryFact?.status, '存在需保留反证');
+        assert.equal(chart?.evidenceAnalysis?.counterSummaryFact?.factKeys.length, 2);
+        assert.equal(chart?.evidenceAnalysis?.summaryFact?.key, 'qizheng:evidence-summary');
+        assert.equal(chart?.evidenceAnalysis?.summaryFact?.status, '证据链有缺口');
+        assert.equal(
+          chart?.evidenceAnalysis?.summaryFact?.positionSourceFactCount,
+          chart?.evidenceAnalysis?.positionSourceFacts?.length,
+        );
+        assert.equal(
+          chart?.evidenceAnalysis?.summaryFact?.starFactCount,
+          chart?.evidenceAnalysis?.starFacts?.length,
+        );
+        assert.equal(
+          chart?.evidenceAnalysis?.summaryFact?.aspectFactCount,
+          chart?.evidenceAnalysis?.aspectFacts?.length,
+        );
+        assert.equal(
+          chart?.evidenceAnalysis?.summaryFact?.counterEvidenceCount,
+          chart?.evidenceAnalysis?.counterEvidenceFacts?.length,
+        );
+        assert.equal(chart?.evidenceAnalysis?.limitationFacts?.length, 7);
+        assert.equal(
+          chart?.evidenceAnalysis?.summaryFact?.limitationFactCount,
+          chart?.evidenceAnalysis?.limitationFacts?.length,
+        );
+        const qizhengFactKeys = new Set([
+          chart?.evidenceAnalysis?.summaryFact?.key,
+          ...(chart?.evidenceAnalysis?.summaryFact?.factKeys ?? []),
+        ]);
+        assert.ok(
+          chart?.evidenceAnalysis?.counterEvidenceFacts?.every(
+            (item) =>
+              item.ownerFactKeys.length > 0 &&
+              item.ownerFactKeys.every((key) => qizhengFactKeys.has(key)),
+          ),
+        );
+        assert.ok(
+          chart?.evidenceAnalysis?.limitationFacts?.every(
+            (item) =>
+              item.ownerFactKeys.length > 0 &&
+              item.ownerFactKeys.every((key) => qizhengFactKeys.has(key)),
+          ),
+        );
+        assert.match(chart?.evidenceAnalysis?.promptText ?? '', /证据汇总：[\s\S]*解释限制：/);
+      }
+      if (name === 'metaphysics_bazhai') {
+        const chart = (
+          result.structuredContent as {
+            result?: {
+              evidenceAnalysis?: {
+                calculationFact?: {
+                  status: string;
+                  steps: Array<{
+                    key: string;
+                    dependsOnStepKeys: string[];
+                    promptText: string;
+                    sources: string[];
+                    limitation: string;
+                  }>;
+                };
+                calculationSteps?: Array<{
+                  key: string;
+                  dependsOnStepKeys: string[];
+                  promptText: string;
+                  sources: string[];
+                  limitation: string;
+                }>;
+                measurementFact?: {
+                  status: string;
+                  referenceStatus: string;
+                  candidateFactKeys: string[];
+                  candidates: Array<{
+                    key: string;
+                    status: string;
+                    measurementFactKey: string;
+                    calculationStepKeys: string[];
+                    limitation: string;
+                  }>;
+                };
+                directionFacts?: Array<{
+                  key: string;
+                  status: string;
+                  calculationStepKeys: string[];
+                  sources: string[];
+                  calculation: string;
+                  limitation: string;
+                }>;
+                counterEvidenceFacts?: Array<{
+                  type: string;
+                  status: string;
+                  ownerFactKeys: string[];
+                }>;
+                counterSummaryFact?: { status: string; factKeys: string[] };
+                summaryFact?: {
+                  key: string;
+                  status: string;
+                  factKeys: string[];
+                  directionFactCount: number;
+                  measurementCandidateCount: number;
+                  counterEvidenceCount: number;
+                  limitationFactCount: number;
+                };
+                limitations?: string[];
+                limitationFacts?: Array<{
+                  key: string;
+                  status: string;
+                  ownerFactKeys: string[];
+                  sources: string[];
+                }>;
+                promptText?: string;
+              };
+            };
+          }
+        ).result;
+        assert.equal(chart?.evidenceAnalysis?.key, 'bazhai:evidence');
+        assert.equal(chart?.evidenceAnalysis?.status, '已计算');
+        assert.equal(chart?.evidenceAnalysis?.calculationFact?.status, '命宅完整');
+        assert.equal(chart?.evidenceAnalysis?.calculationFact?.steps.length, 5);
+        assert.deepEqual(
+          chart?.evidenceAnalysis?.calculationSteps,
+          chart?.evidenceAnalysis?.calculationFact?.steps,
+        );
+        assert.ok(
+          chart?.evidenceAnalysis?.calculationFact?.steps.every(
+            (item) =>
+              item.key &&
+              Array.isArray(item.dependsOnStepKeys) &&
+              item.promptText &&
+              item.sources.length > 0 &&
+              item.limitation.includes('不得把步骤完整度解释为住宅适用度'),
+          ),
+        );
+        assert.equal(chart?.evidenceAnalysis?.measurementFact?.status, '稳定');
+        assert.equal(chart?.evidenceAnalysis?.measurementFact?.referenceStatus, '未声明');
+        assert.ok(
+          chart?.evidenceAnalysis?.measurementFact?.candidates.every(
+            (item) =>
+              item.key.startsWith('measurement:bazhai:candidate:') &&
+              item.status === '候选' &&
+              item.measurementFactKey === 'measurement:bazhai:door' &&
+              item.calculationStepKeys.includes('bazhai:calculation:house-gua') &&
+              item.limitation.includes('不代表现场真实坐向'),
+          ),
+        );
+        assert.equal(chart?.evidenceAnalysis?.measurementFact?.candidateFactKeys.length, 1);
+        assert.equal(chart?.evidenceAnalysis?.directionFacts?.length, 8);
+        assert.ok(
+          chart?.evidenceAnalysis?.directionFacts?.every(
+            (item) =>
+              item.key.startsWith('方位:') &&
+              item.status === '已计算' &&
+              item.calculationStepKeys.length > 0 &&
+              item.sources.length >= 2 &&
+              item.calculation.includes('查大游年表') &&
+              item.limitation.includes('不证明房间适用性'),
+          ),
+        );
+        assert.equal(chart?.evidenceAnalysis?.counterEvidenceFacts?.length, 6);
+        assert.equal(
+          chart?.evidenceAnalysis?.counterEvidenceFacts?.find((item) => item.type === '命卦年界')
+            ?.status,
+          '待复核',
+        );
+        assert.equal(
+          chart?.evidenceAnalysis?.counterEvidenceFacts?.find((item) => item.type === '北向基准')
+            ?.status,
+          '未声明',
+        );
+        assert.equal(chart?.evidenceAnalysis?.counterSummaryFact?.status, '存在需保留反证');
+        assert.equal(chart?.evidenceAnalysis?.limitationFacts?.length, 6);
+        assert.equal(chart?.evidenceAnalysis?.summaryFact?.key, 'bazhai:evidence-summary');
+        assert.equal(chart?.evidenceAnalysis?.summaryFact?.status, '证据链有缺口');
+        assert.equal(chart?.evidenceAnalysis?.summaryFact?.directionFactCount, 8);
+        assert.equal(chart?.evidenceAnalysis?.summaryFact?.measurementCandidateCount, 1);
+        assert.equal(chart?.evidenceAnalysis?.summaryFact?.counterEvidenceCount, 6);
+        assert.equal(chart?.evidenceAnalysis?.summaryFact?.limitationFactCount, 6);
+        const bazhaiFactKeys = new Set([
+          chart?.evidenceAnalysis?.summaryFact?.key,
+          ...(chart?.evidenceAnalysis?.summaryFact?.factKeys ?? []),
+        ]);
+        assert.ok(
+          chart?.evidenceAnalysis?.counterEvidenceFacts?.every(
+            (item) =>
+              item.ownerFactKeys.length > 0 &&
+              item.ownerFactKeys.every((key) => bazhaiFactKeys.has(key)),
+          ),
+        );
+        assert.ok(
+          chart?.evidenceAnalysis?.limitationFacts?.every(
+            (item) =>
+              item.ownerFactKeys.length > 0 &&
+              item.ownerFactKeys.every((key) => bazhaiFactKeys.has(key)),
+          ),
+        );
+        assert.equal(
+          chart?.evidenceAnalysis?.limitations?.length,
+          chart?.evidenceAnalysis?.limitationFacts?.length,
+        );
+        assert.doesNotMatch(
+          chart?.evidenceAnalysis?.promptText ?? '',
+          /命语|本项目|项目统一|调用方|当前调用|工程|接口|API|MCP/,
+        );
+        assertPromptIsPortableTaskText(chart?.evidenceAnalysis?.promptText ?? '');
+      }
+      if (name === 'ziwei_compatibility') {
+        const compatibility = (
+          result.structuredContent as {
+            compatibility?: {
+              key?: string;
+              status?: string;
+              calculationSteps?: Array<{ key: string; dependsOnStepKeys: string[] }>;
+              palaceOverlays?: Array<{
+                key: string;
+                status?: string;
+                calculationStepKey?: string;
+                sources: string[];
+                limitation: string;
+              }>;
+              crossMutagenPlacements?: Array<{
+                key: string;
+                status?: string;
+                calculationStepKey?: string;
+                sources: string[];
+                limitation: string;
+              }>;
+              counterEvidenceFacts?: unknown[];
+              summaryFact?: {
+                palaceOverlayCount?: number;
+                crossMutagenPlacementCount?: number;
+              };
+              limitationFacts?: Array<{ type?: string }>;
+              promptText?: string;
+            };
+          }
+        ).compatibility;
+        assert.equal(compatibility?.key, 'ziwei:compatibility:evidence');
+        assert.equal(compatibility?.status, '已计算');
+        assert.equal(compatibility?.calculationSteps?.length, 6);
+        assert.ok(
+          compatibility?.palaceOverlays?.every(
+            (item) =>
+              item.key.startsWith('宫位叠盘:') &&
+              item.status === '已命中' &&
+              compatibility.calculationSteps?.some(
+                (step) => step.key === item.calculationStepKey,
+              ) &&
+              item.sources.length >= 2 &&
+              item.limitation.includes('不单独证明关系吉凶'),
+          ),
+        );
+        assert.ok(
+          compatibility?.crossMutagenPlacements?.every(
+            (item) =>
+              item.key.startsWith('跨盘四化:') &&
+              item.status === '已命中' &&
+              compatibility.calculationSteps?.some(
+                (step) => step.key === item.calculationStepKey,
+              ) &&
+              item.sources.length >= 2 &&
+              item.limitation.includes('不直接等于关系吉凶'),
+          ),
+        );
+        assert.equal(
+          compatibility?.summaryFact?.palaceOverlayCount,
+          compatibility?.palaceOverlays?.length,
+        );
+        assert.equal(
+          compatibility?.summaryFact?.crossMutagenPlacementCount,
+          compatibility?.crossMutagenPlacements?.length,
+        );
+        assert.equal(compatibility?.counterEvidenceFacts?.length, 5);
+        assert.ok(compatibility?.limitationFacts?.some((item) => item.type === '高风险输出边界'));
+        assertEvidenceOwnerReferences(compatibility);
+        assert.doesNotMatch(
+          compatibility?.promptText ?? '',
+          /analysis_payload_v1|命语|本项目|项目统一|工程|接口|API|MCP|ziwei:compatibility:/,
+        );
+        assertPromptIsPortableTaskText(compatibility?.promptText ?? '');
+      }
 
       const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
       assert.deepEqual(JSON.parse(text), result.structuredContent);
@@ -212,6 +1320,31 @@ test('MCP 真太阳时工具应返回换算资料并拒绝带时区后缀的钟�
     assert.equal(success.isError, undefined);
     assert.equal(success.structuredContent?.result.standardMeridian, 120);
     assert.equal(success.structuredContent?.result.shichen.name, '巳时');
+    assert.equal(success.structuredContent?.result.status, '已计算');
+    assert.equal(success.structuredContent?.result.calculationSteps.length, 6);
+    assert.deepEqual(
+      success.structuredContent?.result.calculationChain,
+      success.structuredContent?.result.calculationSteps.map(
+        (item: { promptText: string }) => item.promptText,
+      ),
+    );
+    assert.equal(
+      success.structuredContent?.result.summaryFact.calculationStepCount,
+      success.structuredContent?.result.calculationSteps.length,
+    );
+    assert.equal(
+      success.structuredContent?.result.summaryFact.correctionFactCount,
+      success.structuredContent?.result.correctionFacts.length,
+    );
+    assert.equal(
+      success.structuredContent?.result.summaryFact.limitationFactCount,
+      success.structuredContent?.result.limitationFacts.length,
+    );
+    assert.match(success.structuredContent?.result.promptText, /计算链：/);
+    assert.doesNotMatch(
+      success.structuredContent?.result.promptText,
+      /候选时辰为|出生时间敏感性|缺少时柱/,
+    );
 
     const chinaDst = await client.callTool({
       name: 'calendar_true_solar_time',
@@ -254,6 +1387,59 @@ test('MCP 统一出生真太阳时工具应支持农历与跨日资料', async (
     assert.equal(result.structuredContent?.result.inputDateType, 'lunar');
     assert.equal(typeof result.structuredContent?.result.solarClockDateTime, 'string');
     assert.equal(typeof result.structuredContent?.result.timeIndex, 'number');
+    assert.equal(result.structuredContent?.result.calculationSteps.length, 7);
+    assert.equal(result.structuredContent?.result.calculationSteps[0].stage, '历法输入换算');
+    assert.equal(result.structuredContent?.result.correctionFacts[0].type, '历法输入');
+    assert.equal(result.structuredContent?.result.summaryFact.status, '证据链完整');
+  });
+});
+
+test('MCP 太阳光照工具应返回日出日落与曙暮光结构化证据', async () => {
+  await withMcpClient(async (client) => {
+    const result = await client.callTool({
+      name: 'calendar_solar_illumination',
+      arguments: {
+        year: 2024,
+        month: 6,
+        day: 21,
+        hour: 12,
+        latitude: 39.9042,
+        longitude: 116.4074,
+        timezone: 8,
+      },
+    });
+    assert.equal(result.isError, undefined);
+    assert.equal(result.structuredContent?.result.sunriseSunset.status, '正常交点');
+    assert.match(String(result.structuredContent?.result.sunriseSunset.key), /^光照交点:/);
+    assert.ok(result.structuredContent?.result.sunriseSunset.sources.length >= 2);
+    assert.match(
+      String(result.structuredContent?.result.sunriseSunset.limitation),
+      /不代表实际可见性/,
+    );
+    assert.equal(result.structuredContent?.result.status, '已计算');
+    assert.equal(result.structuredContent?.result.astronomicalTime.status, '已计算');
+    assert.equal(result.structuredContent?.result.calculationSteps.length, 4);
+    assert.equal(result.structuredContent?.result.calculationChain.length, 4);
+    assert.equal(
+      result.structuredContent?.result.sunriseSunset.calculationStepKeys[0],
+      result.structuredContent?.result.calculationSteps[3].key,
+    );
+    assert.equal(result.structuredContent?.result.assumptions.length, 2);
+    assert.equal(result.structuredContent?.result.assumptionFacts.length, 2);
+    assert.equal(result.structuredContent?.result.crossingSummaryFact.status, '均有正常交点');
+    assert.equal(result.structuredContent?.result.crossingSummaryFact.crossingFactKeys.length, 4);
+    assert.equal(
+      result.structuredContent?.result.summaryFact.key,
+      'solar-illumination:evidence-summary',
+    );
+    assert.equal(result.structuredContent?.result.summaryFact.status, '证据链完整');
+    assert.equal(result.structuredContent?.result.summaryFact.normalCrossingCount, 4);
+    assert.equal(
+      result.structuredContent?.result.limitations.length,
+      result.structuredContent?.result.limitationFacts.length,
+    );
+    assert.match(String(result.structuredContent?.result.promptText), /太阳光照证据：/);
+    assertPromptIsPortableTaskText(String(result.structuredContent?.result.promptText));
   });
 });
 
@@ -274,6 +1460,146 @@ test('MCP 一站式提示词工具应同时返回结果和 prompt', async () => 
   });
 });
 
+test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
+  await withMcpClient(async (client) => {
+    const response = await client.callTool({
+      name: 'bazi_prompt',
+      arguments: {
+        gender: 'male',
+        year: 1990,
+        month: 5,
+        day: 15,
+        timeIndex: 1,
+        dateType: 'solar',
+        question: '这一年的事业触发有哪些？',
+        promptTopic: 'career',
+        baziFortuneScope: 'year',
+        baziFortuneCycleIndex: 1,
+      },
+    });
+
+    assert.equal(response.isError, undefined);
+    const result = response.structuredContent?.result as {
+      fortuneSelection?: {
+        promptPayload?: {
+          triggerEvidence?: {
+            key?: string;
+            status?: string;
+            layers?: Array<{ key?: string; status?: string }>;
+            relations?: Array<{
+              key?: string;
+              status?: string;
+              sourceLayerKey?: string;
+              targetLayerKey?: string;
+              calculationStepKey?: string;
+            }>;
+            calculationSteps?: Array<{ key: string; dependsOnStepKeys: string[] }>;
+            relationSummaryFact?: { relationCount?: number };
+            counterEvidenceFacts?: unknown[];
+            limitationFacts?: Array<{ type?: string }>;
+          };
+        };
+      };
+    };
+    const triggerEvidence = result.fortuneSelection?.promptPayload?.triggerEvidence;
+    assert.equal(triggerEvidence?.key, 'bazi:fortune-trigger:evidence');
+    assert.equal(triggerEvidence?.status, '已计算');
+    assert.ok(triggerEvidence?.layers?.every((item) => item.key && item.status === '已计算'));
+    assert.ok(triggerEvidence?.relations?.length);
+    assert.ok(
+      triggerEvidence?.relations?.every(
+        (item) =>
+          item.key &&
+          item.status === '已命中' &&
+          item.sourceLayerKey &&
+          item.targetLayerKey &&
+          triggerEvidence.calculationSteps?.some((step) => step.key === item.calculationStepKey),
+      ),
+    );
+    assert.equal(
+      triggerEvidence?.relationSummaryFact?.relationCount,
+      triggerEvidence?.relations?.length,
+    );
+    assert.ok(triggerEvidence?.counterEvidenceFacts?.length);
+    assert.ok(triggerEvidence?.limitationFacts?.some((item) => item.type === '层级应期边界'));
+    assertEvidenceOwnerReferences(triggerEvidence);
+    const prompt = String(response.structuredContent?.prompt);
+    assert.match(prompt, /【分析对象】[\s\S]*分析对象：1997年流年/);
+    assert.match(prompt, /【岁运重点】[\s\S]*主要触发：/);
+    assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);
+  });
+});
+
+test('MCP 八字双盘应返回计算链、反证、汇总与限制对象', async () => {
+  await withMcpClient(async (client) => {
+    const response = await client.callTool({
+      name: 'bazi_compatibility_prompt',
+      arguments: {
+        person1: {
+          name: '甲方',
+          gender: 'female',
+          year: 1988,
+          month: 1,
+          day: 1,
+          timeIndex: 0,
+          dateType: 'solar',
+        },
+        person2: {
+          name: '乙方',
+          gender: 'male',
+          year: 1990,
+          month: 6,
+          day: 15,
+          timeIndex: 5,
+          dateType: 'solar',
+        },
+        question: '双方适合长期合作吗？',
+        compatType: 'career',
+      },
+    });
+
+    assert.equal(response.isError, undefined);
+    const compatibility = (
+      response.structuredContent?.result as {
+        compatibility?: {
+          key?: string;
+          status?: string;
+          calculationSteps?: Array<{ key: string; dependsOnStepKeys: string[] }>;
+          crossPillarRelations?: Array<{
+            key?: string;
+            status?: string;
+            calculationStepKey?: string;
+          }>;
+          counterEvidenceFacts?: unknown[];
+          summaryFact?: { crossPillarRelationCount?: number };
+          limitationFacts?: Array<{ type?: string }>;
+        };
+      }
+    )?.compatibility;
+    assert.equal(compatibility?.key, 'bazi:compatibility:evidence');
+    assert.equal(compatibility?.status, '已计算');
+    assert.equal(compatibility?.calculationSteps?.length, 7);
+    assert.ok(
+      compatibility?.crossPillarRelations?.every(
+        (item) =>
+          item.key &&
+          item.status === '已命中' &&
+          compatibility.calculationSteps?.some((step) => step.key === item.calculationStepKey),
+      ),
+    );
+    assert.equal(
+      compatibility?.summaryFact?.crossPillarRelationCount,
+      compatibility?.crossPillarRelations?.length,
+    );
+    assert.ok(compatibility?.counterEvidenceFacts?.length);
+    assert.ok(compatibility?.limitationFacts?.some((item) => item.type === '高风险输出边界'));
+    assertEvidenceOwnerReferences(compatibility);
+    const prompt = String(response.structuredContent?.prompt);
+    assert.match(prompt, /【双盘关系资料】[\s\S]*日主关系：[\s\S]*四柱关系：/);
+    assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|bazi:compatibility:/);
+  });
+});
+
 test('MCP 黄历择日提示词应允许省略问题', async () => {
   await withMcpClient(async (client) => {
     const result = await client.callTool({
@@ -287,8 +1613,209 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
 
     assert.equal(result.isError, undefined, 'almanac_prompt 不填 question 不应返回错误');
     assert.ok(result.structuredContent?.result, 'almanac_prompt 应返回 result');
+    const chart = (
+      result.structuredContent as {
+        result: {
+          days: Array<{
+            score?: number;
+            hours?: Array<{ score?: number }>;
+            bestHours?: Array<{ score?: number }>;
+          }>;
+          evidenceAnalysis: {
+            key: string;
+            status: string;
+            key: string;
+            status: string;
+            calculationSteps: Array<{
+              key: string;
+              dependsOnStepKeys: string[];
+              sources: string[];
+              limitation: string;
+            }>;
+            calculationChain: string[];
+            candidates: Array<{
+              date: string;
+              calendarFact: {
+                key: string;
+                promptText: string;
+                sources: string[];
+                limitation: string;
+              };
+              rawTabooFact: { key: string; status: string };
+              godFacts: Array<{ key: string; status: string; sources: string[] }>;
+              topicMatchFacts: Array<{ key: string; sources: string[]; limitation: string }>;
+              participantRelationFacts: Array<{ key: string }>;
+              decisionFact: {
+                key: string;
+                status: string;
+                steps: Array<{ key: string; result: string }>;
+                limitation: string;
+              };
+              moonPhaseFact: {
+                previousPrincipalPhase: { sources: string[] };
+                nextPrincipalPhase: { calculation: string };
+              };
+              usableHours: Array<{
+                key: string;
+                promptText: string;
+                sources: string[];
+                limitation: string;
+                rawTabooFact: { key: string };
+                topicMatchFacts: Array<{ key: string; scope: string }>;
+              }>;
+            }>;
+            cautionDates: string[];
+            counterEvidenceFacts: Array<{ ownerFactKeys: string[] }>;
+            counterSummaryFact: { factKeys: string[] };
+            limitations: string[];
+            limitationFacts: Array<{ ownerFactKeys: string[] }>;
+            summaryFact: {
+              key: string;
+              status: string;
+              factKeys: string[];
+              candidateCount: number;
+              traditionalFactCount: number;
+              counterEvidenceCount: number;
+            };
+            traditionalFacts: Array<{
+              kind: string;
+              originalText: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+          };
+        };
+      }
+    ).result;
+    assert.equal(chart.evidenceAnalysis.key, 'almanac:evidence');
+    assert.equal(chart.evidenceAnalysis.status, '已计算');
+    assert.equal(chart.evidenceAnalysis.calculationSteps.length, 7);
+    assert.equal(
+      chart.evidenceAnalysis.calculationChain.length,
+      chart.evidenceAnalysis.calculationSteps.length,
+    );
+    const calculationStepKeys = new Set(
+      chart.evidenceAnalysis.calculationSteps.map((item) => item.key),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.calculationSteps.every(
+        (item) =>
+          item.dependsOnStepKeys.every((key) => calculationStepKeys.has(key)) &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不证明现实吉凶'),
+      ),
+    );
+    assert.ok(chart.evidenceAnalysis.candidates.length > 0);
+    assert.ok(Array.isArray(chart.evidenceAnalysis.cautionDates));
+    assert.ok(
+      chart.evidenceAnalysis.candidates.every(
+        (item) =>
+          item.calendarFact.key === `${item.date}:calendar` &&
+          item.calendarFact.promptText &&
+          item.calendarFact.sources.length >= 2 &&
+          item.calendarFact.limitation.includes('不单独证明现实吉凶') &&
+          item.rawTabooFact.key === `${item.date}:raw-taboo` &&
+          item.rawTabooFact.status !== '均未列' &&
+          item.godFacts.length > 0 &&
+          item.godFacts.every(
+            (fact) =>
+              fact.key.startsWith(`${item.date}:god:`) &&
+              fact.status === '已读取' &&
+              fact.sources.length >= 2,
+          ) &&
+          item.topicMatchFacts.length >= 4 &&
+          item.topicMatchFacts.every(
+            (fact) =>
+              fact.key.startsWith(`${item.date}:topic:`) &&
+              fact.sources.length >= 2 &&
+              fact.limitation.includes('不证明事项必然成功'),
+          ) &&
+          item.participantRelationFacts.length === 0 &&
+          item.decisionFact.key === `${item.date}:decision` &&
+          item.decisionFact.steps.length === 7 &&
+          item.decisionFact.steps.at(-1)?.result === item.decisionFact.status &&
+          item.decisionFact.limitation.includes('不公开内部排序分值') &&
+          item.moonPhaseFact.previousPrincipalPhase.sources.length >= 2 &&
+          item.moonPhaseFact.nextPrincipalPhase.calculation.includes('二分求根') &&
+          item.usableHours.every(
+            (hour) =>
+              hour.key.startsWith(`${item.date}:hour:`) &&
+              hour.promptText &&
+              hour.sources.length >= 2 &&
+              hour.rawTabooFact.key.startsWith(hour.key) &&
+              hour.topicMatchFacts.length === 3 &&
+              hour.topicMatchFacts.every(
+                (fact) => fact.key.startsWith(hour.key) && fact.scope === '时辰',
+              ) &&
+              hour.limitation.includes('不证明该时辰必然成功'),
+          ),
+      ),
+    );
+    assert.ok(chart.evidenceAnalysis.traditionalFacts.length > 0);
+    assert.ok(
+      chart.evidenceAnalysis.traditionalFacts.every(
+        (item) =>
+          item.originalText &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不证明现实中'),
+      ),
+    );
+    assert.equal(chart.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.candidateCount,
+      chart.evidenceAnalysis.candidates.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.traditionalFactCount,
+      chart.evidenceAnalysis.traditionalFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      chart.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.counterSummaryFact.factKeys.length,
+      chart.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(chart.evidenceAnalysis.limitationFacts.length, 6);
+    assert.equal(
+      chart.evidenceAnalysis.limitations.length,
+      chart.evidenceAnalysis.limitationFacts.length,
+    );
+    const factKeys = new Set([
+      chart.evidenceAnalysis.summaryFact.key,
+      ...chart.evidenceAnalysis.summaryFact.factKeys,
+    ]);
+    assert.ok(
+      chart.evidenceAnalysis.counterEvidenceFacts.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+      ),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.limitationFacts.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+      ),
+    );
+    for (const day of chart.days) {
+      assert.equal(day.score, undefined);
+      for (const hour of [...(day.hours ?? []), ...(day.bestHours ?? [])]) {
+        assert.equal(hour.score, undefined);
+      }
+    }
     const prompt = String(result.structuredContent?.prompt);
     assert.match(prompt, /【占卜信息】/);
+    assert.match(prompt, /占法：黄历择日/);
+    assert.match(prompt, /候选日期明细：/);
+    assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);
+    assert.doesNotMatch(prompt, /评分[：=]?\d|（\d+分|成功率[：=]?\d/);
+    assert.doesNotMatch(
+      prompt,
+      /主疾病|主死丧|主灾病死亡|主哭泣死亡|必见灾殃|毒气入肠|大凶|辅助加分/,
+    );
     assertPromptIsPortableTaskText(prompt);
   });
 });
@@ -308,23 +1835,464 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
         latitude: 39.9042,
         longitude: 116.4074,
         timezone: 8,
+        timeZoneId: 'Asia/Shanghai',
         locationName: '北京',
         question: '请看我 2028 年事业机会。',
         astrolabeTopic: 'job-change',
         astrolabeScopeText:
-          '分析对象：流年2028。\n行运证据：土星□太阳（刑相，偏差0.50°，强度92%，入相）。',
+          '分析对象：流年2028。\n行运证据：土星□太阳（刑相，偏差0.50°，紧密等级，归一化容许度位置0.08，入相）。',
       },
     });
 
     assert.equal(result.isError, undefined, 'astrolabe_prompt 不应返回错误');
+    const chart = (
+      result.structuredContent as {
+        result?: {
+          birth?: {
+            timezoneEvidence?: {
+              key: string;
+              status: string;
+              calculationSteps: unknown[];
+              calculationChain: string[];
+              diagnosticFacts: unknown[];
+              diagnosticSummaryFact: { status: string; factKeys: string[] };
+              summaryFact: {
+                key: string;
+                status: string;
+                calculationStepCount: number;
+                diagnosticFactCount: number;
+                limitationFactCount: number;
+              };
+              limitations: string[];
+              limitationFacts: unknown[];
+              promptText: string;
+            };
+          };
+          planets?: unknown[];
+          angles?: unknown[];
+          houses?: unknown[];
+          aspects?: Array<{
+            strength?: number;
+            actualAngle?: number;
+            exactAngle?: number;
+            allowedOrb?: number;
+          }>;
+          evidenceAnalysis?: {
+            key?: string;
+            status?: string;
+            evidence?: { title?: string };
+            timezoneFact?: { key: string; diagnosticSummaryFact: { status: string } };
+            calculationFact?: {
+              status: string;
+              steps: Array<{
+                key: string;
+                stage: string;
+                promptText: string;
+                sources: string[];
+                dependsOnStepKeys: string[];
+                limitation: string;
+              }>;
+            };
+            calculationSteps?: Array<{
+              key: string;
+              stage: string;
+              promptText: string;
+              sources: string[];
+              dependsOnStepKeys: string[];
+              limitation: string;
+            }>;
+            calculationChain?: string[];
+            primaryCoverageFact?: { status: string; positionFactKeys: string[] };
+            primaryPointFacts?: Array<{ key: string; positionFactKey: string }>;
+            positionFacts?: unknown[];
+            illuminationFact?: { status: string; crossingFactKeys: string[] };
+            counterEvidenceFacts?: Array<{
+              type: string;
+              status: string;
+              ownerFactKeys: string[];
+            }>;
+            counterSummaryFact?: { status: string; factKeys: string[] };
+            summaryFact?: {
+              key: string;
+              status: string;
+              factKeys: string[];
+              primaryFactCount: number;
+              positionFactCount: number;
+              aspectFactCount: number;
+              distributionFactCount: number;
+              counterEvidenceCount: number;
+              limitationFactCount: number;
+            };
+            limitations?: string[];
+            limitationFacts?: Array<{ key: string; type: string; ownerFactKeys: string[] }>;
+            distributionEvidenceFacts?: Array<{
+              key: string;
+              count: number;
+              members: string[];
+              memberPositionFactKeys: string[];
+              limitation: string;
+            }>;
+            aspectFacts?: Array<{
+              actualAngle?: number;
+              exactAngle?: number;
+              allowedOrb?: number;
+              status?: string;
+              positionFactKeys?: string[];
+              sources?: string[];
+              limitation?: string;
+            }>;
+          };
+        };
+      }
+    ).result;
+    for (const aspect of chart?.aspects ?? []) {
+      assert.equal(aspect.strength, undefined);
+      assert.equal(typeof aspect.actualAngle, 'number');
+      assert.equal(typeof aspect.exactAngle, 'number');
+      assert.equal(typeof aspect.allowedOrb, 'number');
+    }
+    assert.equal(chart?.evidenceAnalysis?.evidence?.title, '西方星盘位置与相位结构化证据');
+    assert.equal(chart?.evidenceAnalysis?.key, 'astrolabe:evidence');
+    assert.equal(chart?.evidenceAnalysis?.status, '已计算');
+    assert.equal(chart?.birth?.timezoneEvidence?.status, 'unique');
+    assert.equal(chart?.birth?.timezoneEvidence?.calculationSteps.length, 4);
+    assert.equal(chart?.birth?.timezoneEvidence?.calculationChain.length, 4);
+    assert.equal(chart?.birth?.timezoneEvidence?.diagnosticFacts.length, 2);
+    assert.equal(chart?.birth?.timezoneEvidence?.diagnosticSummaryFact.status, '唯一且无冲突');
+    assert.equal(
+      chart?.birth?.timezoneEvidence?.summaryFact.status,
+      chart?.birth?.timezoneEvidence?.diagnosticSummaryFact.status,
+    );
+    assert.equal(chart?.birth?.timezoneEvidence?.summaryFact.calculationStepCount, 4);
+    assert.equal(chart?.birth?.timezoneEvidence?.summaryFact.diagnosticFactCount, 2);
+    assert.equal(
+      chart?.birth?.timezoneEvidence?.summaryFact.limitationFactCount,
+      chart?.birth?.timezoneEvidence?.limitationFacts.length,
+    );
+    assert.equal(
+      chart?.birth?.timezoneEvidence?.limitations.length,
+      chart?.birth?.timezoneEvidence?.limitationFacts.length,
+    );
+    assertPromptIsPortableTaskText(chart?.birth?.timezoneEvidence?.promptText ?? '');
+    assert.equal(chart?.evidenceAnalysis?.timezoneFact?.key, chart?.birth?.timezoneEvidence?.key);
+    assert.equal(chart?.evidenceAnalysis?.calculationFact?.status, '完整');
+    assert.equal(chart?.evidenceAnalysis?.calculationFact?.steps.length, 5);
+    assert.deepEqual(
+      chart?.evidenceAnalysis?.calculationSteps,
+      chart?.evidenceAnalysis?.calculationFact?.steps,
+    );
+    assert.ok(
+      chart?.evidenceAnalysis?.calculationFact?.steps.every(
+        (item) =>
+          item.key &&
+          item.stage &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          Array.isArray(item.dependsOnStepKeys) &&
+          item.limitation.includes('单个计算步骤'),
+      ),
+    );
+    assert.equal(chart?.evidenceAnalysis?.primaryCoverageFact?.status, '完整');
+    assert.equal(chart?.evidenceAnalysis?.primaryPointFacts?.length, 4);
+    assert.equal(chart?.evidenceAnalysis?.primaryCoverageFact?.positionFactKeys.length, 4);
+    assert.ok((chart?.evidenceAnalysis?.calculationChain?.length ?? 0) >= 5);
+    assert.equal(
+      chart?.evidenceAnalysis?.positionFacts?.length,
+      (chart?.planets?.length ?? 0) + (chart?.angles?.length ?? 0) + (chart?.houses?.length ?? 0),
+    );
+    assert.equal(chart?.evidenceAnalysis?.aspectFacts?.length, chart?.aspects?.length);
+    assert.ok(
+      chart?.evidenceAnalysis?.distributionEvidenceFacts?.every(
+        (item) =>
+          item.key.startsWith('distribution:') &&
+          item.count === item.members.length &&
+          Array.isArray(item.memberPositionFactKeys) &&
+          item.limitation.includes('不代表能量分数'),
+      ),
+    );
+    assert.ok(
+      chart?.evidenceAnalysis?.aspectFacts?.every(
+        (item) =>
+          typeof item.actualAngle === 'number' &&
+          typeof item.exactAngle === 'number' &&
+          typeof item.allowedOrb === 'number' &&
+          (item.status === '几何完整' || item.status === '旧记录缺几何量') &&
+          Array.isArray(item.positionFactKeys) &&
+          Array.isArray(item.sources) &&
+          item.limitation?.includes('不代表事件概率'),
+      ),
+    );
+    assert.equal(chart?.evidenceAnalysis?.illuminationFact?.status, '可用');
+    assert.equal(chart?.evidenceAnalysis?.illuminationFact?.crossingFactKeys.length, 4);
+    assert.equal(chart?.evidenceAnalysis?.counterEvidenceFacts?.length, 3);
+    assert.ok(
+      ['有未见项', '全部有可列资料'].includes(
+        chart?.evidenceAnalysis?.counterSummaryFact?.status ?? '',
+      ),
+    );
+    assert.equal(
+      chart?.evidenceAnalysis?.limitationFacts?.length,
+      chart?.evidenceAnalysis?.limitations?.length,
+    );
+    assert.equal(chart?.evidenceAnalysis?.summaryFact?.key, 'astrolabe:evidence-summary');
+    assert.equal(chart?.evidenceAnalysis?.summaryFact?.status, '证据链完整');
+    assert.ok(
+      chart?.evidenceAnalysis?.summaryFact?.factKeys.includes(
+        chart?.birth?.timezoneEvidence?.summaryFact.key ?? '',
+      ),
+    );
+    assert.equal(
+      chart?.evidenceAnalysis?.summaryFact?.primaryFactCount,
+      chart?.evidenceAnalysis?.primaryPointFacts?.length,
+    );
+    assert.equal(
+      chart?.evidenceAnalysis?.summaryFact?.positionFactCount,
+      chart?.evidenceAnalysis?.positionFacts?.length,
+    );
+    assert.equal(
+      chart?.evidenceAnalysis?.summaryFact?.aspectFactCount,
+      chart?.evidenceAnalysis?.aspectFacts?.length,
+    );
+    assert.equal(
+      chart?.evidenceAnalysis?.summaryFact?.distributionFactCount,
+      chart?.evidenceAnalysis?.distributionEvidenceFacts?.length,
+    );
+    assert.equal(
+      chart?.evidenceAnalysis?.summaryFact?.counterEvidenceCount,
+      chart?.evidenceAnalysis?.counterEvidenceFacts?.length,
+    );
+    assert.equal(
+      chart?.evidenceAnalysis?.summaryFact?.limitationFactCount,
+      chart?.evidenceAnalysis?.limitationFacts?.length,
+    );
+    const astrolabeFactKeys = new Set([
+      chart?.evidenceAnalysis?.summaryFact?.key,
+      ...(chart?.evidenceAnalysis?.summaryFact?.factKeys ?? []),
+    ]);
+    assert.ok(
+      chart?.evidenceAnalysis?.counterEvidenceFacts?.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every((key) => astrolabeFactKeys.has(key)),
+      ),
+    );
+    assert.ok(
+      chart?.evidenceAnalysis?.limitationFacts?.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every((key) => astrolabeFactKeys.has(key)),
+      ),
+    );
     const prompt = String(result.structuredContent?.prompt);
+    assert.match(prompt, /占法：星盘/);
+    assert.match(prompt, /星体位置：[\s\S]*宫头位置：[\s\S]*相位明细：/);
     assert.match(prompt, /【分析对象】\n分析对象：流年2028。/);
     assert.match(prompt, /行运证据：土星□太阳/);
-    assert.match(prompt, /【行运时间尺度】/);
-    assert.match(
-      prompt,
-      /【分析对象】已经给出本命、流年、流月或流日范围时，必须以该范围作为本次回答主范围/,
+    assert.doesNotMatch(prompt, /强度\d+%/);
+    assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|必须以该范围/);
+    assertPromptIsPortableTaskText(prompt);
+
+    const yearlyResult = await client.callTool({
+      name: 'astrolabe_prompt',
+      arguments: {
+        name: '本人',
+        gender: '女',
+        year: 1995,
+        month: 5,
+        day: 20,
+        hour: 12,
+        minute: 30,
+        latitude: 39.9042,
+        longitude: 116.4074,
+        timezone: 8,
+        question: '请看2028年的阶段重点。',
+        astrolabeScope: 'yearly',
+        astrolabeScopeDate: '2028',
+      },
+    });
+    const scopeEvidence = (
+      yearlyResult.structuredContent as {
+        result?: {
+          scopeEvidence?: {
+            scope: string;
+            solarReturnEvidence?: {
+              key: string;
+              calculationSteps: unknown[];
+              calculationChain: string[];
+              aspectFacts: Array<{ ownerFactKeys: string[] }>;
+              summaryFact: {
+                key: string;
+                factKeys: string[];
+                calculationStepCount: number;
+                aspectFactCount: number;
+                limitationFactCount: number;
+              };
+              limitationFacts: Array<{ ownerFactKeys: string[] }>;
+              limitations: string[];
+              promptText: string;
+            };
+            secondaryProgressionEvidence?: {
+              key: string;
+              calculationSteps: unknown[];
+              calculationChain: string[];
+              aspectFacts: Array<{ ownerFactKeys: string[] }>;
+              summaryFact: {
+                key: string;
+                factKeys: string[];
+                calculationStepCount: number;
+                aspectFactCount: number;
+                limitationFactCount: number;
+              };
+              limitationFacts: Array<{ ownerFactKeys: string[] }>;
+              promptText: string;
+            };
+            solarArcEvidence?: {
+              key: string;
+              calculationSteps: unknown[];
+              calculationChain: string[];
+              aspectFacts: Array<{ ownerFactKeys: string[] }>;
+              summaryFact: {
+                key: string;
+                factKeys: string[];
+                calculationStepCount: number;
+                aspectFactCount: number;
+                limitationFactCount: number;
+              };
+              limitationFacts: Array<{ ownerFactKeys: string[] }>;
+              promptText: string;
+            };
+          };
+        };
+      }
+    ).result?.scopeEvidence;
+    assert.equal(scopeEvidence?.scope, 'yearly');
+    assert.equal(scopeEvidence?.solarReturnEvidence?.key, 'solar-return:2028');
+    assert.equal(scopeEvidence?.secondaryProgressionEvidence?.key, 'secondary-progression:2028');
+    assert.equal(scopeEvidence?.solarArcEvidence?.key, 'solar-arc:2028');
+    assert.equal(
+      scopeEvidence?.solarReturnEvidence?.limitations.length,
+      scopeEvidence?.solarReturnEvidence?.limitationFacts.length,
     );
+    for (const evidence of [
+      scopeEvidence?.solarReturnEvidence,
+      scopeEvidence?.secondaryProgressionEvidence,
+      scopeEvidence?.solarArcEvidence,
+    ]) {
+      assert.ok(evidence);
+      assert.equal(evidence.calculationChain.length, evidence.calculationSteps.length);
+      assert.equal(evidence.summaryFact.calculationStepCount, evidence.calculationSteps.length);
+      assert.equal(evidence.summaryFact.aspectFactCount, evidence.aspectFacts.length);
+      assert.equal(evidence.summaryFact.limitationFactCount, evidence.limitationFacts.length);
+      const factKeys = new Set([evidence.summaryFact.key, ...evidence.summaryFact.factKeys]);
+      assert.ok(
+        [...evidence.aspectFacts, ...evidence.limitationFacts].every(
+          (item) =>
+            item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+        ),
+      );
+      assert.match(evidence.promptText, /证据汇总：/);
+    }
+  });
+});
+
+test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () => {
+  await withMcpClient(async (client) => {
+    const result = await client.callTool({
+      name: 'astrolabe_synastry_prompt',
+      arguments: {
+        person1: {
+          name: '甲',
+          gender: '女',
+          year: 1995,
+          month: 5,
+          day: 20,
+          hour: 12,
+          minute: 30,
+          latitude: 39.9042,
+          longitude: 116.4074,
+          timezone: 8,
+        },
+        person2: {
+          name: '乙',
+          gender: '男',
+          year: 1992,
+          month: 8,
+          day: 21,
+          hour: 8,
+          minute: 15,
+          latitude: 31.2304,
+          longitude: 121.4737,
+          timezone: 8,
+        },
+        question: '我们的长期合作关系有哪些互补和张力？',
+      },
+    });
+
+    assert.equal(result.isError, undefined);
+    assert.ok(result.structuredContent?.result);
+    const chart = (
+      result.structuredContent as {
+        result?: {
+          synastry?: {
+            key?: string;
+            status?: string;
+            calculationSteps?: Array<{ key: string }>;
+            aspects?: Array<{
+              key: string;
+              status: string;
+              calculationStepKey: string;
+              strength?: number;
+            }>;
+            houseOverlays?: Array<{ key: string; status: string; calculationStepKey: string }>;
+            summary?: { strongAspects?: number };
+            counterEvidenceFacts?: unknown[];
+            summaryFact?: { returnedAspectCount: number; houseOverlayCount: number };
+            limitationFacts?: unknown[];
+            promptText?: string;
+          };
+        };
+      }
+    ).result;
+    assert.equal(chart?.synastry?.key, 'astrolabe:synastry:evidence');
+    assert.equal(chart?.synastry?.status, '已计算');
+    assert.equal(chart?.synastry?.calculationSteps?.length, 7);
+    for (const aspect of chart?.synastry?.aspects ?? []) {
+      assert.match(aspect.key, /^astrolabe:synastry:aspect:/);
+      assert.equal(aspect.status, '已命中');
+      assert.equal(aspect.calculationStepKey, 'astrolabe:synastry:calculation:aspect-filter');
+      assert.equal(aspect.strength, undefined);
+    }
+    for (const overlay of chart?.synastry?.houseOverlays ?? []) {
+      assert.match(overlay.key, /^astrolabe:synastry:house-overlay:/);
+      assert.equal(overlay.status, '已定位');
+      assert.equal(overlay.calculationStepKey, 'astrolabe:synastry:calculation:house-overlays');
+    }
+    assert.equal(chart?.synastry?.summary?.strongAspects, undefined);
+    assert.equal(chart?.synastry?.counterEvidenceFacts?.length, 4);
+    assert.equal(chart?.synastry?.limitationFacts?.length, 6);
+    assertEvidenceOwnerReferences(chart?.synastry);
+    assert.equal(
+      chart?.synastry?.summaryFact?.returnedAspectCount,
+      chart?.synastry?.aspects?.length,
+    );
+    assert.equal(
+      chart?.synastry?.summaryFact?.houseOverlayCount,
+      chart?.synastry?.houseOverlays?.length,
+    );
+    assert.doesNotMatch(
+      chart?.synastry?.promptText ?? '',
+      /本项目|项目统一|工程|接口|API|MCP|astrolabe:synastry:/,
+    );
+    assertPromptIsPortableTaskText(chart?.synastry?.promptText ?? '');
+    const prompt = String(result.structuredContent?.prompt);
+    assert.match(prompt, /【第一人本命盘】/);
+    assert.match(prompt, /【跨盘相位】/);
+    assert.match(prompt, /【跨盘落宫】/);
+    assert.match(prompt, /容许度/);
+    assert.match(prompt, /分析互动主轴、互补点、张力点与现实触发条件/);
+    assert.doesNotMatch(prompt, /不得输出|不得编造|只依据/);
+    assert.doesNotMatch(prompt, /结构化证据|计算链概览|证据汇总|解释限制/);
+    assert.doesNotMatch(prompt, /本项目|项目统一|工程|接口|API|MCP|astrolabe:synastry:/);
     assertPromptIsPortableTaskText(prompt);
   });
 });
@@ -380,10 +2348,440 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
     assert.equal(ziweiFrameworkResult.isError, undefined, 'ziwei_prompt framework 不应返回错误');
     const ziweiFrameworkPrompt = String(ziweiFrameworkResult.structuredContent?.prompt);
     assert.match(ziweiFrameworkPrompt, /分析主题：人生解析/);
-    assert.match(ziweiFrameworkPrompt, /若【问题】未限定具体主题，按通用紫微口径处理/);
     assert.match(ziweiFrameworkPrompt, /【重点宫位资料】/);
+    assert.match(ziweiFrameworkPrompt, /【任务】[\s\S]*请结合宫位、星曜、四化、格局和三方四正/);
     assert.doesNotMatch(ziweiFrameworkPrompt, /自由问答先判断问题落在哪些宫位/);
     assertPromptIsPortableTaskText(ziweiFrameworkPrompt);
+  });
+});
+
+test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', async () => {
+  await withMcpClient(async (client) => {
+    const tarot = await client.callTool({
+      name: 'divine_tarot',
+      arguments: { spreadType: 'three', seed: 'MCP塔罗证据样例' },
+    });
+    const tarotData = tarot.structuredContent?.result as Record<string, any>;
+    assert.equal(tarot.isError, undefined);
+    assert.equal(tarotData.evidenceAnalysis.key, 'tarot:evidence');
+    assert.equal(tarotData.evidenceAnalysis.status, '已计算');
+    assert.equal(tarotData.evidenceAnalysis.calculationSteps.length, 7);
+    const tarotStepKeys = new Set(
+      tarotData.evidenceAnalysis.calculationSteps.map((item: Record<string, unknown>) => item.key),
+    );
+    assert.ok(
+      tarotData.evidenceAnalysis.calculationSteps.every(
+        (item: Record<string, any>) =>
+          item.status === '已计算' &&
+          item.promptText &&
+          Array.isArray(item.sources) &&
+          item.sources.length > 0 &&
+          item.dependsOnStepKeys.every((key: string) => tarotStepKeys.has(key)),
+      ),
+    );
+    assert.equal(
+      tarotData.evidenceAnalysis.calculationChain.length,
+      tarotData.evidenceAnalysis.calculationSteps.length,
+    );
+    assert.equal(tarotData.evidenceAnalysis.cards.length, 3);
+    assert.equal(tarotData.evidenceAnalysis.spreadCoverageFact.status, '完整');
+    assert.equal(tarotData.evidenceAnalysis.spreadCoverageFact.cardFactKeys.length, 3);
+    assert.equal(tarotData.evidenceAnalysis.drawFact.status, '可核验');
+    assert.equal(tarotData.evidenceAnalysis.drawFact.deckSize, 78);
+    assert.equal(tarotData.evidenceAnalysis.drawFact.order.length, 3);
+    assert.equal(tarotData.evidenceAnalysis.drawOrderFacts.length, 3);
+    assert.ok(
+      tarotData.evidenceAnalysis.drawOrderFacts.every(
+        (item: Record<string, unknown>) => item.status === '一致' && item.cardFactKey,
+      ),
+    );
+    assert.deepEqual(
+      tarotData.evidenceAnalysis.drawFact.orderFactKeys,
+      tarotData.evidenceAnalysis.drawOrderFacts.map((item: Record<string, unknown>) => item.key),
+    );
+    assert.ok(tarotData.evidenceAnalysis.drawFact.sources.length >= 2);
+    assert.equal(tarotData.evidenceAnalysis.sequenceFacts.length, 2);
+    assert.ok(
+      tarotData.evidenceAnalysis.sequenceFacts.every(
+        (item: Record<string, unknown>) =>
+          item.fromCardKey && item.toCardKey && String(item.limitation).includes('不得把牌阵顺序'),
+      ),
+    );
+    assert.ok(tarotData.evidenceAnalysis.themeFacts.length > 0);
+    assert.equal(
+      tarotData.evidenceAnalysis.recurringThemes.length,
+      tarotData.evidenceAnalysis.recurringThemeFacts.length,
+    );
+    assert.equal(
+      tarotData.evidenceAnalysis.counterEvidence.length,
+      tarotData.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(tarotData.evidenceAnalysis.limitationFacts.length, 6);
+    assert.ok(
+      tarotData.evidenceAnalysis.limitationFacts.every(
+        (item: Record<string, any>) =>
+          Array.isArray(item.ownerFactKeys) &&
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every(
+            (key: string) =>
+              key === tarotData.evidenceAnalysis.summaryFact.key ||
+              tarotData.evidenceAnalysis.summaryFact.factKeys.includes(key),
+          ),
+      ),
+    );
+    assert.equal(
+      tarotData.evidenceAnalysis.limitations.length,
+      tarotData.evidenceAnalysis.limitationFacts.length,
+    );
+    assert.equal(tarotData.evidenceAnalysis.randomFact.status, '可重放');
+    assert.equal(
+      tarotData.evidenceAnalysis.randomFact.sampleCount,
+      tarotData.meta.random.samples.length,
+    );
+    assert.doesNotMatch(tarotData.evidenceAnalysis.randomFact.promptText, /MCP塔罗证据样例/);
+    assert.equal(tarotData.evidenceAnalysis.traditionalFacts.length, 3);
+    assert.equal(tarotData.evidenceAnalysis.summaryFact.key, 'tarot:evidence-summary');
+    assert.equal(tarotData.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      tarotData.evidenceAnalysis.summaryFact.cardFactCount,
+      tarotData.evidenceAnalysis.cards.length,
+    );
+    assert.equal(
+      tarotData.evidenceAnalysis.summaryFact.drawOrderFactCount,
+      tarotData.evidenceAnalysis.drawOrderFacts.length,
+    );
+    assert.equal(
+      tarotData.evidenceAnalysis.summaryFact.sequenceFactCount,
+      tarotData.evidenceAnalysis.sequenceFacts.length,
+    );
+    assert.equal(
+      tarotData.evidenceAnalysis.summaryFact.themeFactCount,
+      tarotData.evidenceAnalysis.themeFacts.length,
+    );
+    assert.equal(
+      tarotData.evidenceAnalysis.summaryFact.recurringThemeFactCount,
+      tarotData.evidenceAnalysis.recurringThemeFacts.length,
+    );
+    assert.equal(
+      tarotData.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      tarotData.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      tarotData.evidenceAnalysis.summaryFact.traditionalFactCount,
+      tarotData.evidenceAnalysis.traditionalFacts.length,
+    );
+    assert.ok(
+      tarotData.evidenceAnalysis.cards.every(
+        (item: Record<string, unknown>, index: number) =>
+          item.traditionalFactKey === tarotData.evidenceAnalysis.traditionalFacts[index].key,
+      ),
+    );
+    assert.ok(
+      tarotData.evidenceAnalysis.traditionalFacts.every(
+        (item: Record<string, unknown>) =>
+          item.originalText &&
+          item.promptText &&
+          Array.isArray(item.sources) &&
+          item.sources.length > 0 &&
+          String(item.limitation).includes('不证明现实事件'),
+      ),
+    );
+
+    const tarotPromptResult = await client.callTool({
+      name: 'tarot_prompt',
+      arguments: { spreadType: 'three', seed: 'MCP塔罗证据样例', question: '如何推进？' },
+    });
+    const tarotPrompt = String(tarotPromptResult.structuredContent?.prompt);
+    assert.match(tarotPrompt, /占法：塔罗/);
+    assert.match(tarotPrompt, /核心结构：牌阵[\s\S]*牌位明细：/);
+    assert.doesNotMatch(tarotPrompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
+    assert.doesNotMatch(tarotPrompt, /表示这些能量正在直接发挥作用|信息被隐藏/);
+    assertPromptIsPortableTaskText(tarotPrompt);
+
+    const lenormand = await client.callTool({
+      name: 'divine_lenormand',
+      arguments: { spreadType: 'nine', seed: 'MCP雷诺曼证据样例' },
+    });
+    const lenormandData = lenormand.structuredContent?.result as Record<string, any>;
+    assert.equal(lenormand.isError, undefined);
+    assert.equal(lenormandData.evidenceAnalysis.key, 'lenormand:evidence');
+    assert.equal(lenormandData.evidenceAnalysis.status, '已计算');
+    assert.equal(lenormandData.evidenceAnalysis.calculationSteps.length, 8);
+    const lenormandStepKeys = new Set(
+      lenormandData.evidenceAnalysis.calculationSteps.map(
+        (item: Record<string, unknown>) => item.key,
+      ),
+    );
+    assert.ok(
+      lenormandData.evidenceAnalysis.calculationSteps.every(
+        (item: Record<string, any>) =>
+          item.status === '已计算' &&
+          item.promptText &&
+          Array.isArray(item.sources) &&
+          item.sources.length > 0 &&
+          item.dependsOnStepKeys.every((key: string) => lenormandStepKeys.has(key)),
+      ),
+    );
+    assert.equal(
+      lenormandData.evidenceAnalysis.calculationChain.length,
+      lenormandData.evidenceAnalysis.calculationSteps.length,
+    );
+    assert.ok(Array.isArray(lenormandData.evidenceAnalysis.fixedCombinations));
+    assert.ok(Array.isArray(lenormandData.evidenceAnalysis.adjacentReadings));
+    assert.equal(lenormandData.evidenceAnalysis.spreadCoverageFact.status, '完整');
+    assert.equal(lenormandData.evidenceAnalysis.spreadCoverageFact.cardFactKeys.length, 9);
+    assert.equal(lenormandData.evidenceAnalysis.drawFact.status, '可核验');
+    assert.equal(lenormandData.evidenceAnalysis.drawFact.deckSize, 36);
+    assert.equal(lenormandData.evidenceAnalysis.drawFact.order.length, 9);
+    assert.equal(lenormandData.evidenceAnalysis.drawOrderFacts.length, 9);
+    assert.ok(
+      lenormandData.evidenceAnalysis.drawOrderFacts.every(
+        (item: Record<string, unknown>) => item.status === '一致' && item.cardFactKey,
+      ),
+    );
+    assert.equal(lenormandData.evidenceAnalysis.sequenceFacts.length, 8);
+    assert.equal(lenormandData.evidenceAnalysis.layoutCoverageFact.status, '结构化覆盖');
+    assert.equal(lenormandData.evidenceAnalysis.counterEvidenceFacts.length, 2);
+    assert.equal(lenormandData.evidenceAnalysis.limitationFacts.length, 6);
+    assert.ok(
+      lenormandData.evidenceAnalysis.limitationFacts.every(
+        (item: Record<string, any>) =>
+          Array.isArray(item.ownerFactKeys) &&
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every(
+            (key: string) =>
+              key === lenormandData.evidenceAnalysis.summaryFact.key ||
+              lenormandData.evidenceAnalysis.summaryFact.factKeys.includes(key),
+          ),
+      ),
+    );
+    assert.ok(lenormandData.evidenceAnalysis.drawFact.sources.length >= 2);
+    assert.equal(lenormandData.evidenceAnalysis.randomFact.status, '可重放');
+    assert.equal(lenormandData.evidenceAnalysis.randomFact.seed, 'MCP雷诺曼证据样例');
+    assert.doesNotMatch(lenormandData.evidenceAnalysis.randomFact.promptText, /MCP雷诺曼证据样例/);
+    assert.ok(lenormandData.evidenceAnalysis.traditionalFacts.length >= 9);
+    assert.equal(lenormandData.evidenceAnalysis.structuredLayoutFacts.length, 9);
+    assert.equal(lenormandData.evidenceAnalysis.summaryFact.key, 'lenormand:evidence-summary');
+    assert.equal(lenormandData.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      lenormandData.evidenceAnalysis.summaryFact.cardFactCount,
+      lenormandData.evidenceAnalysis.cards.length,
+    );
+    assert.equal(
+      lenormandData.evidenceAnalysis.summaryFact.drawOrderFactCount,
+      lenormandData.evidenceAnalysis.drawOrderFacts.length,
+    );
+    assert.equal(
+      lenormandData.evidenceAnalysis.summaryFact.sequenceFactCount,
+      lenormandData.evidenceAnalysis.sequenceFacts.length,
+    );
+    assert.equal(
+      lenormandData.evidenceAnalysis.summaryFact.fixedCombinationCount,
+      lenormandData.evidenceAnalysis.fixedCombinations.length,
+    );
+    assert.equal(
+      lenormandData.evidenceAnalysis.summaryFact.adjacentReadingCount,
+      lenormandData.evidenceAnalysis.adjacentReadings.length,
+    );
+    assert.equal(
+      lenormandData.evidenceAnalysis.summaryFact.structuredLayoutFactCount,
+      lenormandData.evidenceAnalysis.structuredLayoutFacts.length,
+    );
+    assert.equal(
+      lenormandData.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      lenormandData.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      lenormandData.evidenceAnalysis.summaryFact.traditionalFactCount,
+      lenormandData.evidenceAnalysis.traditionalFacts.length,
+    );
+    assert.ok(
+      lenormandData.evidenceAnalysis.traditionalFacts.every(
+        (item: Record<string, unknown>) =>
+          item.status === '已映射' &&
+          Array.isArray(item.cardFactKeys) &&
+          item.cardFactKeys.length > 0 &&
+          item.originalText &&
+          item.promptText &&
+          Array.isArray(item.verificationTargets) &&
+          item.verificationTargets.length > 0 &&
+          Array.isArray(item.sources) &&
+          item.sources.length > 0 &&
+          String(item.limitation).includes('不证明现实事件'),
+      ),
+    );
+    assert.ok(
+      lenormandData.evidenceAnalysis.structuredLayoutFacts.every(
+        (item: Record<string, unknown>) =>
+          item.status === '已计算' &&
+          Array.isArray(item.cardFactKeys) &&
+          Array.isArray(item.sources),
+      ),
+    );
+
+    const lenormandPromptResult = await client.callTool({
+      name: 'lenormand_prompt',
+      arguments: { spreadType: 'nine', seed: 'MCP雷诺曼证据样例', question: '有哪些线索？' },
+    });
+    const lenormandPrompt = String(lenormandPromptResult.structuredContent?.prompt);
+    assert.match(lenormandPrompt, /占法：雷诺曼/);
+    assert.match(lenormandPrompt, /牌位顺序：[\s\S]*牌位明细：/);
+    assert.doesNotMatch(lenormandPrompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
+    assert.doesNotMatch(
+      lenormandPrompt,
+      /感情的承诺或婚约|家庭添丁|通过网络\/远程获利|隐藏在迷雾中的欺骗/,
+    );
+    assert.doesNotMatch(
+      `${tarotPrompt}\n${lenormandPrompt}`,
+      /成功率为\d|成功率提升至|吉凶总分[：=]\d/,
+    );
+    assertPromptIsPortableTaskText(lenormandPrompt);
+  });
+});
+
+test('MCP 灵签应输出仪式证据，并在拒签时不泄露未确认签文', async () => {
+  await withMcpClient(async (client) => {
+    const confirmed = await client.callTool({
+      name: 'ssgw_prompt',
+      arguments: {
+        question: '这件事应该怎样核实现实条件？',
+        replay: [0.1, 0.1, 0.9],
+      },
+    });
+    assert.equal(confirmed.isError, undefined);
+    assert.equal(confirmed.structuredContent?.result.ritual.confirmed, true);
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.key, 'ssgw:evidence');
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.status, '已计算');
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.calculationSteps.length, 8);
+    const ssgwStepKeys = new Set(
+      confirmed.structuredContent?.result.evidenceAnalysis.calculationSteps.map(
+        (item: Record<string, unknown>) => item.key,
+      ),
+    );
+    assert.ok(
+      confirmed.structuredContent?.result.evidenceAnalysis.calculationSteps.every(
+        (item: Record<string, any>) =>
+          item.status === '已计算' &&
+          item.promptText &&
+          Array.isArray(item.sources) &&
+          item.sources.length > 0 &&
+          item.dependsOnStepKeys.every((key: string) => ssgwStepKeys.has(key)),
+      ),
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.calculationChain.length,
+      confirmed.structuredContent?.result.evidenceAnalysis.calculationSteps.length,
+    );
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.drawFact.status, '可核验');
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.signFact.status, '完整');
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.coverageFact.key,
+      'ssgw:interpretation-coverage',
+    );
+    assert.ok(
+      confirmed.structuredContent?.result.evidenceAnalysis.interpretationFacts.every(
+        (item: Record<string, unknown>) => item.key && item.status === '已收录' && item.promptText,
+      ),
+    );
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.ritualFact.status, '已确认');
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts[0].key,
+      'ssgw:ritual-throw:1',
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts[0].status,
+      '已记录',
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts[0].ritualFactKey,
+      '仪式:掷筊确认',
+    );
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.randomFact.sampleCount, 3);
+    assert.match(
+      String(confirmed.structuredContent?.result.evidenceAnalysis.randomFact.limitation),
+      /不表示可信度/,
+    );
+    const confirmedPrompt = String(confirmed.structuredContent?.prompt);
+    assert.match(confirmedPrompt, /占法：三山国王灵签/);
+    assert.match(confirmedPrompt, /掷筊记录：[\s\S]*签诗：[\s\S]*签意：/);
+    assert.doesNotMatch(confirmedPrompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.counterEvidenceFacts.length,
+      6,
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.counterSummaryFact.status,
+      '未见额外反证',
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.counterSummaryFact.factKeys.length,
+      0,
+    );
+    assert.equal(confirmed.structuredContent?.result.evidenceAnalysis.limitationFacts.length, 6);
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.key,
+      'ssgw:evidence-summary',
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.status,
+      '证据链完整',
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.interpretationFactCount,
+      confirmed.structuredContent?.result.evidenceAnalysis.interpretationFacts.length,
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.missingFieldFactCount,
+      confirmed.structuredContent?.result.evidenceAnalysis.missingFieldFacts.length,
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.ritualThrowFactCount,
+      confirmed.structuredContent?.result.evidenceAnalysis.ritualThrowFacts.length,
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      confirmed.structuredContent?.result.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.sourceFactCount,
+      confirmed.structuredContent?.result.evidenceAnalysis.sourceFacts.length,
+    );
+    assert.ok(
+      confirmed.structuredContent?.result.evidenceAnalysis.limitationFacts.every(
+        (item: Record<string, any>) =>
+          Array.isArray(item.ownerFactKeys) &&
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every(
+            (key: string) =>
+              key === confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.key ||
+              confirmed.structuredContent?.result.evidenceAnalysis.summaryFact.factKeys.includes(
+                key,
+              ),
+          ),
+      ),
+    );
+    assert.equal(
+      confirmed.structuredContent?.result.evidenceAnalysis.limitations.length,
+      confirmed.structuredContent?.result.evidenceAnalysis.limitationFacts.length,
+    );
+    assert.doesNotMatch(
+      confirmedPrompt,
+      /项目模拟|项目资料|按项目仪式规则|命语|本项目|项目统一|工程|算法结果/,
+    );
+    assertPromptIsPortableTaskText(confirmedPrompt);
+
+    const rejected = await client.callTool({
+      name: 'ssgw_prompt',
+      arguments: {
+        question: '这件事应该怎样核实现实条件？',
+        replay: [0.1, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9],
+      },
+    });
+    assert.equal(rejected.isError, undefined);
+    assert.equal(rejected.structuredContent?.result.rejected, true);
+    assert.equal(rejected.structuredContent?.result.poem, undefined);
+    assert.doesNotMatch(String(rejected.structuredContent?.prompt), /签诗：/);
+    assert.match(String(rejected.structuredContent?.prompt), /连续三次阴杯|拒绝起签/);
   });
 });
 
@@ -422,7 +2820,15 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
       timing?: {
         correctedTime?: { hour?: number; minute?: number };
         dstCorrectionMinutes?: number;
+        evidence?: {
+          status: string;
+          calculationSteps: unknown[];
+          summaryFact: { calculationStepCount: number };
+          promptText: string;
+        };
       };
+      warningFacts?: Array<{ key: string; sources: string[]; referenceKeys: string[] }>;
+      warningSummaryFact?: { status: string; factKeys: string[] };
     };
     assert.equal(baziChart.timing?.correctedTime?.hour, baziExpected.timing?.correctedTime.hour);
     assert.equal(
@@ -430,6 +2836,23 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
       baziExpected.timing?.correctedTime.minute,
     );
     assert.equal(baziChart.timing?.dstCorrectionMinutes, baziExpected.timing?.dstCorrectionMinutes);
+    assert.equal(baziChart.timing?.evidence?.status, '已计算');
+    assert.equal(baziChart.timing?.evidence?.calculationSteps.length, 7);
+    assert.equal(
+      baziChart.timing?.evidence?.summaryFact.calculationStepCount,
+      baziChart.timing?.evidence?.calculationSteps.length,
+    );
+    assert.match(baziChart.timing?.evidence?.promptText ?? '', /唯一映射为/);
+    assert.equal(baziChart.warningFacts?.length, baziExpected.warningFacts.length);
+    assert.equal(baziChart.warningSummaryFact?.status, baziExpected.warningSummaryFact.status);
+    assert.ok(
+      baziChart.warningFacts?.every(
+        (fact) =>
+          fact.key.startsWith('bazi:warning:') &&
+          fact.sources.length > 0 &&
+          fact.referenceKeys.length > 0,
+      ),
+    );
 
     const ziweiCorrected = calculateTrueSolarTime(
       {
@@ -461,9 +2884,77 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
     assert.equal(ziweiResult.isError, undefined, 'ziwei_calculate 真太阳时不应返回错误');
     const ziweiChart = ziweiResult.structuredContent as {
       basicInfo?: { birth_time_label?: string; birth_time_range?: string };
+      trueSolarEvidence?: {
+        status: string;
+        calculationSteps: unknown[];
+        summaryFact: { status: string };
+      };
     };
     assert.equal(ziweiChart.basicInfo?.birth_time_label, ziweiTimeInfo.name);
     assert.equal(ziweiChart.basicInfo?.birth_time_range, ziweiTimeInfo.range.replace('-', '~'));
+    assert.equal(ziweiChart.trueSolarEvidence?.status, '已计算');
+    assert.equal(ziweiChart.trueSolarEvidence?.calculationSteps.length, 7);
+    assert.equal(ziweiChart.trueSolarEvidence?.summaryFact.status, '证据链完整');
+
+    const ziweiPromptResult = await client.callTool({
+      name: 'ziwei_prompt',
+      arguments: {
+        gender: 'female',
+        dateType: 'solar',
+        year: '1992',
+        month: '8',
+        day: '21',
+        useTrueSolarTime: true,
+        birthHour: '1',
+        birthMinute: '20',
+        birthLongitude: '73.5',
+        question: '请分析整体命盘。',
+      },
+    });
+    assert.equal(ziweiPromptResult.isError, undefined);
+    const ziweiPrompt = String(ziweiPromptResult.structuredContent?.prompt ?? '');
+    assert.match(ziweiPrompt, /【出生时间校正】/);
+    assert.match(ziweiPrompt, /钟表时间|真太阳时/);
+    assert.doesNotMatch(ziweiPrompt, /结构化证据|计算步骤|出生时间敏感性|候选时辰|缺时柱/);
+
+    const astrolabePromptResult = await client.callTool({
+      name: 'astrolabe_prompt',
+      arguments: {
+        name: '本人',
+        gender: '女',
+        year: 1995,
+        month: 5,
+        day: 20,
+        hour: 1,
+        minute: 20,
+        latitude: 39.9042,
+        longitude: 73.5,
+        timezone: 8,
+        timeZoneId: 'Asia/Shanghai',
+        locationName: '喀什',
+        useTrueSolarTime: true,
+        question: '请分析整体星盘。',
+      },
+    });
+    assert.equal(astrolabePromptResult.isError, undefined);
+    const astrolabePromptResultData = astrolabePromptResult.structuredContent as {
+      result?: {
+        birth?: { trueSolarEvidence?: { status: string; calculationSteps: unknown[] } };
+        evidenceAnalysis?: { trueSolarTimeFact?: { key: string } };
+      };
+      prompt?: string;
+    };
+    assert.equal(astrolabePromptResultData.result?.birth?.trueSolarEvidence?.status, '已计算');
+    assert.equal(
+      astrolabePromptResultData.result?.birth?.trueSolarEvidence?.calculationSteps.length,
+      7,
+    );
+    assert.ok(astrolabePromptResultData.result?.evidenceAnalysis?.trueSolarTimeFact?.key);
+    assert.match(astrolabePromptResultData.prompt ?? '', /出生时间校正：[\s\S]*采用真太阳时/);
+    assert.doesNotMatch(
+      astrolabePromptResultData.prompt ?? '',
+      /结构化证据|计算链|证据汇总|解释限制/,
+    );
   });
 });
 
@@ -761,6 +3252,489 @@ test('MCP 梅花工具应拒绝未知起卦方式', async () => {
   });
 });
 
+test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async () => {
+  await withMcpClient(async (client) => {
+    const chart = await client.callTool({
+      name: 'divine_meihua',
+      arguments: {
+        method: 'number',
+        number: 123,
+        customDate: '2025-01-01T08:00:00+08:00',
+      },
+    });
+    const result = (
+      chart.structuredContent as {
+        result: {
+          evidenceAnalysis: {
+            key: string;
+            status: string;
+            calculationSteps: Array<{
+              key: string;
+              stage: string;
+              status: string;
+              dependsOnStepKeys: string[];
+            }>;
+            calculationChain: string[];
+            stages: Array<{
+              key: string;
+              status: string;
+              stage: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            stageCoverageFact: { status: string };
+            yaoCoverageFact: { status: string };
+            hexagramStructureFacts: unknown[];
+            yaoStructureFacts: unknown[];
+            transitionFacts: Array<{
+              key: string;
+              status: string;
+              fromStageKey: string;
+              toStageKey: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            timingFacts: Array<{
+              key: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            timingSummaryFact: { factKeys: string[] };
+            counterEvidenceFacts: Array<{
+              key: string;
+              status: string;
+              ownerStageKey: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            counterSummaryFact: { factKeys: string[] };
+            summaryFact: {
+              status: string;
+              factKeys: string[];
+              hexagramFactCount: number;
+              yaoFactCount: number;
+              stageFactCount: number;
+              transitionFactCount: number;
+              traditionalFactCount: number;
+              counterEvidenceCount: number;
+              timingFactCount: number;
+            };
+            limitations: string[];
+            limitationFacts: Array<{
+              key: string;
+              status: string;
+              ownerFactKeys: string[];
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            promptText: string;
+            calculationFact: {
+              status: string;
+              methodKey: string;
+              steps: Array<{
+                key: string;
+                target: string;
+                expression: string;
+                result?: number;
+                promptText: string;
+              }>;
+            };
+            randomFact: { status: string };
+            traditionalFacts: Array<Record<string, unknown>>;
+          };
+        };
+      }
+    ).result;
+    assert.equal(result.evidenceAnalysis.key, 'meihua:evidence');
+    assert.equal(result.evidenceAnalysis.status, '已计算');
+    assert.equal(result.evidenceAnalysis.calculationSteps.length, 7);
+    assert.equal(result.evidenceAnalysis.calculationChain.length, 7);
+    assert.ok(
+      result.evidenceAnalysis.calculationSteps.every((step) =>
+        step.dependsOnStepKeys.every((key) =>
+          result.evidenceAnalysis.calculationSteps.some((candidate) => candidate.key === key),
+        ),
+      ),
+    );
+    assert.deepEqual(
+      result.evidenceAnalysis.stages.map((item) => item.stage),
+      ['origin', 'process', 'result'],
+    );
+    assert.equal(result.evidenceAnalysis.stageCoverageFact.status, '完整');
+    assert.equal(result.evidenceAnalysis.yaoCoverageFact.status, '完整');
+    assert.equal(result.evidenceAnalysis.hexagramStructureFacts.length, 3);
+    assert.equal(result.evidenceAnalysis.yaoStructureFacts.length, 6);
+    assert.ok(
+      result.evidenceAnalysis.stages.every(
+        (item) =>
+          item.key.startsWith('meihua:stage:') &&
+          item.status === '已计算' &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得直接解释为现实起因'),
+      ),
+    );
+    assert.equal(result.evidenceAnalysis.transitionFacts.length, 2);
+    assert.ok(
+      result.evidenceAnalysis.transitionFacts.every(
+        (item) =>
+          item.key.startsWith('meihua:transition:') &&
+          item.status === '连续' &&
+          item.fromStageKey &&
+          item.toStageKey &&
+          item.sources.length > 0 &&
+          item.limitation.includes('现实事件必然按同样顺序'),
+      ),
+    );
+    assert.equal(
+      result.evidenceAnalysis.timingSummaryFact.factKeys.length,
+      result.evidenceAnalysis.timingFacts.length,
+    );
+    assert.ok(
+      result.evidenceAnalysis.timingFacts.every(
+        (item) =>
+          item.key.startsWith('meihua:timing:') &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得把爻位'),
+      ),
+    );
+    assert.equal(
+      result.evidenceAnalysis.counterSummaryFact.factKeys.length,
+      result.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(result.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      result.evidenceAnalysis.summaryFact.hexagramFactCount,
+      result.evidenceAnalysis.hexagramStructureFacts.length,
+    );
+    assert.equal(
+      result.evidenceAnalysis.summaryFact.stageFactCount,
+      result.evidenceAnalysis.stages.length,
+    );
+    assert.equal(
+      result.evidenceAnalysis.summaryFact.transitionFactCount,
+      result.evidenceAnalysis.transitionFacts.length,
+    );
+    assert.equal(
+      result.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      result.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      result.evidenceAnalysis.summaryFact.timingFactCount,
+      result.evidenceAnalysis.timingFacts.length,
+    );
+    assert.equal(result.evidenceAnalysis.limitationFacts.length, 6);
+    assert.equal(
+      result.evidenceAnalysis.limitations.length,
+      result.evidenceAnalysis.limitationFacts.length,
+    );
+    const factKeys = new Set([
+      'meihua:evidence-summary',
+      ...result.evidenceAnalysis.summaryFact.factKeys,
+    ]);
+    assert.ok(
+      result.evidenceAnalysis.limitationFacts.every(
+        (item) =>
+          item.key.startsWith('meihua:limitation:') &&
+          item.status === '适用' &&
+          item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得被反向当作现实吉凶'),
+      ),
+    );
+    assert.ok(
+      result.evidenceAnalysis.counterEvidenceFacts.every(
+        (item) =>
+          item.key.startsWith('meihua:counter:') &&
+          item.status === '已触发' &&
+          item.ownerStageKey &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得把单项反证直接写成现实失败'),
+      ),
+    );
+    assert.match(result.evidenceAnalysis.promptText, /【梅花体用阶段推进结构化证据】/);
+    assert.match(result.evidenceAnalysis.promptText, /证据汇总：/);
+    assert.match(result.evidenceAnalysis.promptText, /解释限制：/);
+    assertPromptIsPortableTaskText(result.evidenceAnalysis.promptText);
+    assert.equal(result.evidenceAnalysis.calculationFact.status, '完整');
+    assert.equal(result.evidenceAnalysis.calculationFact.methodKey, 'number');
+    assert.equal(result.evidenceAnalysis.calculationFact.steps.length, 3);
+    assert.ok(
+      result.evidenceAnalysis.calculationFact.steps.every(
+        (item) =>
+          item.key &&
+          item.target &&
+          item.expression &&
+          typeof item.result === 'number' &&
+          item.promptText,
+      ),
+    );
+    assert.equal(result.evidenceAnalysis.randomFact.status, '不适用');
+    assert.ok(result.evidenceAnalysis.traditionalFacts.length >= 21);
+    assert.ok(
+      result.evidenceAnalysis.traditionalFacts.every(
+        (item) =>
+          item.status === '已映射' &&
+          item.originalText &&
+          item.promptText &&
+          Array.isArray(item.traditionalSignals) &&
+          Array.isArray(item.topicTags) &&
+          Array.isArray(item.sources) &&
+          item.sources.length > 0 &&
+          String(item.limitation).includes('不证明现实吉凶'),
+      ),
+    );
+
+    const prompt = await client.callTool({
+      name: 'meihua_prompt',
+      arguments: {
+        method: 'number',
+        number: 123,
+        customDate: '2025-01-01T08:00:00+08:00',
+        question: '这件事应如何推进？',
+      },
+    });
+    const promptText = String(prompt.structuredContent?.prompt);
+    assert.match(promptText, /占法：梅花易数/);
+    assert.match(promptText, /核心结构：主卦[\s\S]*体用：[\s\S]*结构明细：/);
+    assert.doesNotMatch(promptText, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
+    assert.doesNotMatch(promptText, /妇三岁不孕|焚如，死如|至于八月有凶/);
+    assert.doesNotMatch(promptText, /体用评分：|类象权重：|\d+日内|\d+月左右/);
+  });
+});
+
+test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', async () => {
+  await withMcpClient(async (client) => {
+    const chart = await client.callTool({
+      name: 'divine_xiaoliuren',
+      arguments: {
+        xiaoliurenMethod: 'number',
+        xiaoliurenNumber: 18,
+        customDate: '2025-01-01T08:00:00+08:00',
+      },
+    });
+    const result = (
+      chart.structuredContent as {
+        result: {
+          evidenceAnalysis: {
+            key: string;
+            status: string;
+            calculationSteps: Array<{
+              key: string;
+              dependsOnStepKeys: string[];
+            }>;
+            stages: Array<{
+              key: string;
+              status: string;
+              stage: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            transitions: string[];
+            transitionFacts: Array<{
+              key: string;
+              fromStageKey: string;
+              toStageKey: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            counterEvidence: string[];
+            counterEvidenceFacts: Array<{ key: string; status: string; limitation: string }>;
+            counterSummaryFact: { key: string; factKeys: string[] };
+            timingBasisFacts: Array<{
+              key: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            triggerConditionFacts: Array<{
+              key: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            timingSummaryFact: {
+              key: string;
+              basisFactKeys: string[];
+              triggerFactKeys: string[];
+            };
+            limitations: string[];
+            limitationFacts: Array<{ ownerFactKeys: string[] }>;
+            summaryFact: {
+              key: string;
+              status: string;
+              stageFactCount: number;
+              transitionFactCount: number;
+            };
+            calculationFact: {
+              key: string;
+              status: string;
+              steps: Array<{
+                key: string;
+                stage: string;
+                expression: string;
+                modulo: number;
+                palaceIndex: number;
+                promptText: string;
+              }>;
+            };
+            randomFact: { key: string; status: string };
+            traditionalFacts: Array<{
+              key: string;
+              kind: string;
+              originalText: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+          };
+        };
+      }
+    ).result;
+    assert.equal(result.evidenceAnalysis.key, 'xiaoliuren:evidence');
+    assert.equal(result.evidenceAnalysis.status, '已计算');
+    assert.equal(result.evidenceAnalysis.calculationSteps.length, 6);
+    const calculationStepKeys = new Set(
+      result.evidenceAnalysis.calculationSteps.map((item) => item.key),
+    );
+    assert.ok(
+      result.evidenceAnalysis.calculationSteps.every((item) =>
+        item.dependsOnStepKeys.every((key) => calculationStepKeys.has(key)),
+      ),
+    );
+    assert.deepEqual(
+      result.evidenceAnalysis.stages.map((item) => item.stage),
+      ['起因', '过程', '结果'],
+    );
+    assert.equal(result.evidenceAnalysis.transitions.length, 2);
+    assert.ok(
+      result.evidenceAnalysis.stages.every(
+        (item) =>
+          item.key.startsWith('xiaoliuren:stage:') &&
+          item.status === '已计算' &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得直接解释为现实起因'),
+      ),
+    );
+    assert.equal(result.evidenceAnalysis.transitionFacts.length, 2);
+    assert.ok(
+      result.evidenceAnalysis.transitionFacts.every(
+        (item) =>
+          item.key.startsWith('xiaoliuren:transition:') &&
+          item.fromStageKey &&
+          item.toStageKey &&
+          item.sources.length > 0 &&
+          item.limitation.includes('现实事件必然顺利'),
+      ),
+    );
+    assert.equal(
+      result.evidenceAnalysis.counterSummaryFact.factKeys.length,
+      result.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      result.evidenceAnalysis.timingSummaryFact.basisFactKeys.length,
+      result.evidenceAnalysis.timingBasisFacts.length,
+    );
+    assert.equal(
+      result.evidenceAnalysis.timingSummaryFact.triggerFactKeys.length,
+      result.evidenceAnalysis.triggerConditionFacts.length,
+    );
+    assert.ok(
+      result.evidenceAnalysis.triggerConditionFacts.every(
+        (item) =>
+          item.key.startsWith('xiaoliuren:trigger:') &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得由宫数'),
+      ),
+    );
+    assert.equal(result.evidenceAnalysis.calculationFact.status, '完整');
+    assert.equal(result.evidenceAnalysis.calculationFact.steps.length, 3);
+    assert.ok(
+      result.evidenceAnalysis.calculationFact.steps.every(
+        (item) =>
+          item.key &&
+          item.stage &&
+          item.expression &&
+          item.modulo === 6 &&
+          typeof item.palaceIndex === 'number' &&
+          item.promptText,
+      ),
+    );
+    assert.equal(result.evidenceAnalysis.randomFact.status, '不适用');
+    assert.equal(result.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      result.evidenceAnalysis.summaryFact.stageFactCount,
+      result.evidenceAnalysis.stages.length,
+    );
+    assert.equal(
+      result.evidenceAnalysis.summaryFact.transitionFactCount,
+      result.evidenceAnalysis.transitionFacts.length,
+    );
+    assert.equal(result.evidenceAnalysis.limitationFacts.length, 6);
+    assert.equal(
+      result.evidenceAnalysis.limitations.length,
+      result.evidenceAnalysis.limitationFacts.length,
+    );
+    const factKeys = new Set([
+      result.evidenceAnalysis.calculationFact.key,
+      result.evidenceAnalysis.randomFact.key,
+      ...result.evidenceAnalysis.calculationSteps.map((item) => item.key),
+      ...result.evidenceAnalysis.stages.map((item) => item.key),
+      ...result.evidenceAnalysis.transitionFacts.map((item) => item.key),
+      ...result.evidenceAnalysis.traditionalFacts.map((item) => item.key),
+      result.evidenceAnalysis.counterSummaryFact.key,
+      ...result.evidenceAnalysis.counterEvidenceFacts.map((item) => item.key),
+      result.evidenceAnalysis.timingSummaryFact.key,
+      ...result.evidenceAnalysis.timingBasisFacts.map((item) => item.key),
+      ...result.evidenceAnalysis.triggerConditionFacts.map((item) => item.key),
+      result.evidenceAnalysis.summaryFact.key,
+    ]);
+    assert.ok(
+      result.evidenceAnalysis.limitationFacts.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+      ),
+    );
+    assert.ok(Array.isArray(result.evidenceAnalysis.counterEvidence));
+    assert.ok(result.evidenceAnalysis.traditionalFacts.length > 0);
+    assert.ok(
+      result.evidenceAnalysis.traditionalFacts.every(
+        (item) =>
+          (item as Record<string, unknown>).status === '已映射' &&
+          item.originalText &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不证明现实中'),
+      ),
+    );
+
+    const promptResult = await client.callTool({
+      name: 'xiaoliuren_prompt',
+      arguments: {
+        xiaoliurenMethod: 'number',
+        xiaoliurenNumber: 18,
+        customDate: '2025-01-01T08:00:00+08:00',
+        question: '这件事应如何推进？',
+      },
+    });
+    const prompt = String(promptResult.structuredContent?.prompt);
+    assert.match(prompt, /占法：小六壬/);
+    assert.match(prompt, /核心结构：起因[\s\S]*过程[\s\S]*结果[\s\S]*结构明细：/);
+    assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
+    assert.doesNotMatch(prompt, /事情整体可成|容易白忙一场|凶（大凶）/);
+    assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|吉凶总分(?:为|：)|\d+日内|\d+周内/);
+    assertPromptIsPortableTaskText(prompt);
+  });
+});
+
 test('MCP 时间型占卜工具应拒绝无效 customDate', async () => {
   await withMcpClient(async (client) => {
     const invalidDateCalls: Array<[string, Record<string, unknown>]> = [
@@ -856,9 +3830,10 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     });
     assert.equal(liuyaoResult.isError, undefined, 'liuyao_prompt 不应返回错误');
     const liuyaoPrompt = String(liuyaoResult.structuredContent?.prompt);
-    assert.match(liuyaoPrompt, /【断卦要点】/);
-    assert.match(liuyaoPrompt, /断卦类型：鬼神怪异/);
-    assert.doesNotMatch(liuyaoPrompt, /鬼神怪异：以官鬼为取用参考|官鬼与子孙制鬼/);
+    assert.match(liuyaoPrompt, /占法：六爻/);
+    assert.match(liuyaoPrompt, /六亲持世：[\s\S]*世应动变：[\s\S]*月日触发：/);
+    assert.match(liuyaoPrompt, /【问题范围】\n鬼神怪异/);
+    assert.doesNotMatch(liuyaoPrompt, /结构化证据|计算链|证据汇总|解释限制|断卦要点/);
     assertPromptIsPortableTaskText(liuyaoPrompt);
 
     const liurenResult = await client.callTool({
@@ -871,11 +3846,902 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     });
     assert.equal(liurenResult.isError, undefined, 'liuren_prompt 不应返回错误');
     const liurenPrompt = String(liurenResult.structuredContent?.prompt);
-    assert.match(liurenPrompt, /【断课要点】/);
-    assert.match(liurenPrompt, /断课类型：事业断课/);
+    assert.match(liurenPrompt, /占法：大六壬/);
+    assert.match(liurenPrompt, /课传主线：[\s\S]*四课：[\s\S]*三传：/);
+    assert.match(liurenPrompt, /【问题范围】\n事业工作/);
+    assert.doesNotMatch(liurenPrompt, /结构化证据|计算链|证据汇总|解释限制|断课要点/);
+    assert.doesNotMatch(liurenPrompt, /取用候选：.*权重\d|吉凶总分[：=]?\d/);
+    const liurenData = (
+      liurenResult.structuredContent as {
+        result: {
+          evidenceAnalysis: {
+            key: string;
+            status: string;
+            calculationSteps: Array<{ key: string; dependsOnStepKeys: string[] }>;
+            calculationChain: string[];
+            transmissionRuleFact: {
+              key: string;
+              status: string;
+              rule: string;
+              initialSourceLessonKeys: string[];
+              sources: string[];
+              limitation: string;
+            };
+            lessons: Array<{
+              key: string;
+              relationFacts: Array<{ key: string; ownerKey: string; sources: string[] }>;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            transmissions: Array<{
+              key: string;
+              relationFacts: Array<{ key: string; ownerKey: string; sources: string[] }>;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            transitionFacts: Array<{
+              key: string;
+              fromTransmissionKey: string;
+              toTransmissionKey: string;
+              promptText: string;
+              sources: string[];
+            }>;
+            counterEvidenceFacts: Array<{ key: string; status: string; limitation: string }>;
+            counterSummaryFact: { key: string; factKeys: string[]; limitation: string };
+            timingFacts: Array<{
+              key: string;
+              sourceStatus: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            focusFacts: Array<{ key: string }>;
+            focusSummaryFact: { key: string; status: string; limitation: string };
+            calculationFact: {
+              key: string;
+              monthLeader: string;
+              sources: string[];
+              limitation: string;
+            };
+            plateFact: { key: string; status: string; actualCount: number; limitation: string };
+            platePositionFacts: Array<{
+              key: string;
+              earthBranch: string;
+              heavenBranch: string;
+              god: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            traditionalFacts: Array<{
+              key: string;
+              kind: string;
+              originalText: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            limitations: string[];
+            limitationFacts: Array<{ ownerFactKeys: string[] }>;
+            summaryFact: {
+              key: string;
+              status: string;
+              platePositionFactCount: number;
+              lessonFactCount: number;
+              transmissionFactCount: number;
+              transitionFactCount: number;
+            };
+          };
+        };
+      }
+    ).result;
+    assert.equal(liurenData.evidenceAnalysis.key, 'liuren:evidence');
+    assert.equal(liurenData.evidenceAnalysis.status, '已计算');
+    assert.equal(liurenData.evidenceAnalysis.calculationSteps.length, 7);
+    assert.equal(
+      liurenData.evidenceAnalysis.calculationChain.length,
+      liurenData.evidenceAnalysis.calculationSteps.length,
+    );
+    const calculationStepKeys = new Set(
+      liurenData.evidenceAnalysis.calculationSteps.map((item) => item.key),
+    );
+    assert.ok(
+      liurenData.evidenceAnalysis.calculationSteps.every((item) =>
+        item.dependsOnStepKeys.every((key) => calculationStepKeys.has(key)),
+      ),
+    );
+    assert.equal(liurenData.evidenceAnalysis.lessons.length, 4);
+    assert.equal(liurenData.evidenceAnalysis.transmissions.length, 3);
+    assert.equal(liurenData.evidenceAnalysis.transmissionRuleFact.status, '已确定');
+    assert.ok(liurenData.evidenceAnalysis.transmissionRuleFact.rule);
+    assert.ok(liurenData.evidenceAnalysis.transmissionRuleFact.initialSourceLessonKeys.length > 0);
+    assert.ok(liurenData.evidenceAnalysis.transmissionRuleFact.sources.length >= 2);
+    assert.match(
+      liurenData.evidenceAnalysis.transmissionRuleFact.limitation,
+      /不得按结果反推九宗门名称/,
+    );
+    assert.ok(
+      liurenData.evidenceAnalysis.lessons.every(
+        (item) =>
+          item.key.startsWith('liuren:lesson:') &&
+          item.relationFacts.length > 0 &&
+          item.relationFacts.every(
+            (fact) => fact.ownerKey === item.key && fact.sources.length > 0,
+          ) &&
+          item.promptText &&
+          item.sources.length >= 2 &&
+          item.limitation.includes('不单独证明现实事件'),
+      ),
+    );
+    assert.ok(
+      liurenData.evidenceAnalysis.transmissions.every(
+        (item) =>
+          item.key.startsWith('liuren:transmission:') &&
+          item.relationFacts.length === 4 &&
+          item.relationFacts.every(
+            (fact) => fact.ownerKey === item.key && fact.sources.length > 0,
+          ) &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('阶段顺序不证明现实事件必然'),
+      ),
+    );
+    assert.equal(liurenData.evidenceAnalysis.transitionFacts.length, 2);
+    assert.ok(
+      liurenData.evidenceAnalysis.transitionFacts.every(
+        (item) =>
+          item.key.startsWith('liuren:transition:') &&
+          item.fromTransmissionKey &&
+          item.toTransmissionKey &&
+          item.promptText &&
+          item.sources.length > 0,
+      ),
+    );
+    assert.equal(
+      liurenData.evidenceAnalysis.counterSummaryFact.factKeys.length,
+      liurenData.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.ok(
+      liurenData.evidenceAnalysis.counterEvidenceFacts.every(
+        (item) =>
+          item.key.startsWith('liuren:counter:') &&
+          item.status === '已触发' &&
+          item.limitation.includes('不得把单项反证直接写成现实失败'),
+      ),
+    );
+    assert.equal(liurenData.evidenceAnalysis.timingFacts.length, 4);
+    assert.ok(
+      liurenData.evidenceAnalysis.timingFacts.every(
+        (item) =>
+          item.key.startsWith('liuren:timing:') &&
+          item.sourceStatus === '原结果提供' &&
+          item.promptText &&
+          item.sources.length >= 2 &&
+          item.limitation.includes('不得换算唯一日期'),
+      ),
+    );
+    assert.equal(liurenData.evidenceAnalysis.focusSummaryFact.status, '已提供焦点');
+    assert.ok(liurenData.evidenceAnalysis.calculationFact.monthLeader);
+    assert.ok(liurenData.evidenceAnalysis.calculationFact.sources.length >= 3);
+    assert.match(liurenData.evidenceAnalysis.calculationFact.limitation, /不单独证明现实事件/);
+    assert.equal(liurenData.evidenceAnalysis.plateFact.status, '完整');
+    assert.equal(liurenData.evidenceAnalysis.plateFact.actualCount, 12);
+    assert.equal(liurenData.evidenceAnalysis.platePositionFacts.length, 12);
+    assert.ok(
+      liurenData.evidenceAnalysis.platePositionFacts.every(
+        (item) =>
+          item.key &&
+          item.earthBranch &&
+          item.heavenBranch &&
+          item.god &&
+          item.promptText &&
+          item.sources.length >= 2 &&
+          item.limitation.includes('只证明月将加时'),
+      ),
+    );
+    assert.equal(liurenData.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      liurenData.evidenceAnalysis.summaryFact.platePositionFactCount,
+      liurenData.evidenceAnalysis.platePositionFacts.length,
+    );
+    assert.equal(
+      liurenData.evidenceAnalysis.summaryFact.lessonFactCount,
+      liurenData.evidenceAnalysis.lessons.length,
+    );
+    assert.equal(
+      liurenData.evidenceAnalysis.summaryFact.transmissionFactCount,
+      liurenData.evidenceAnalysis.transmissions.length,
+    );
+    assert.equal(
+      liurenData.evidenceAnalysis.summaryFact.transitionFactCount,
+      liurenData.evidenceAnalysis.transitionFacts.length,
+    );
+    assert.equal(liurenData.evidenceAnalysis.limitationFacts.length, 6);
+    assert.equal(
+      liurenData.evidenceAnalysis.limitations.length,
+      liurenData.evidenceAnalysis.limitationFacts.length,
+    );
+    const factKeys = new Set([
+      liurenData.evidenceAnalysis.calculationFact.key,
+      liurenData.evidenceAnalysis.plateFact.key,
+      ...liurenData.evidenceAnalysis.platePositionFacts.map((item) => item.key),
+      liurenData.evidenceAnalysis.transmissionRuleFact.key,
+      ...liurenData.evidenceAnalysis.lessons.flatMap((item) => [
+        item.key,
+        ...item.relationFacts.map((fact) => fact.key),
+      ]),
+      ...liurenData.evidenceAnalysis.transmissions.flatMap((item) => [
+        item.key,
+        ...item.relationFacts.map((fact) => fact.key),
+      ]),
+      ...liurenData.evidenceAnalysis.transitionFacts.map((item) => item.key),
+      liurenData.evidenceAnalysis.counterSummaryFact.key,
+      ...liurenData.evidenceAnalysis.counterEvidenceFacts.map((item) => item.key),
+      ...liurenData.evidenceAnalysis.timingFacts.map((item) => item.key),
+      liurenData.evidenceAnalysis.focusSummaryFact.key,
+      ...liurenData.evidenceAnalysis.focusFacts.map((item) => item.key),
+      ...liurenData.evidenceAnalysis.traditionalFacts.map((item) => item.key),
+      liurenData.evidenceAnalysis.summaryFact.key,
+    ]);
+    assert.ok(
+      liurenData.evidenceAnalysis.limitationFacts.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+      ),
+    );
+    assert.ok(liurenData.evidenceAnalysis.traditionalFacts.length > 0);
+    assert.ok(
+      liurenData.evidenceAnalysis.traditionalFacts.every(
+        (item) =>
+          item.originalText &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不证明现实事件'),
+      ),
+    );
+    assert.deepEqual(
+      new Set(liurenData.evidenceAnalysis.traditionalFacts.map((item) => item.kind)),
+      new Set(['经典取传规则', '课体', '天将属性', '神煞']),
+    );
+    assert.doesNotMatch(liurenPrompt, /主婚姻|主官非|主疾病|主死丧|主虚而不实/);
+    assert.match(liurenPrompt, /古籍依据：/);
+    assert.match(liurenPrompt, /应期资料：/);
     assert.doesNotMatch(liurenPrompt, /【分析思路】/);
     assert.doesNotMatch(liurenPrompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
     assertPromptIsPortableTaskText(liurenPrompt);
+  });
+});
+
+test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () => {
+  await withMcpClient(async (client) => {
+    const result = await client.callTool({
+      name: 'qimen_prompt',
+      arguments: {
+        customDate: '2025-01-01T08:00:00+08:00',
+        question: '我现在要不要推进这个项目？',
+      },
+    });
+    assert.equal(result.isError, undefined, 'qimen_prompt 不应返回错误');
+    const prompt = String(result.structuredContent?.prompt);
+    const chart = (
+      result.structuredContent as {
+        result: {
+          method: string;
+          jiuGongGe: unknown[];
+          evidenceAnalysis: {
+            key: string;
+            status: string;
+            calculationEvidenceFacts: Array<{
+              key: string;
+              status: string;
+              sourceKeys: string[];
+              limitation: string;
+            }>;
+            calculationSteps: Array<{ key: string }>;
+            calculationChain: string[];
+            ruleSourceFacts: Array<{
+              key: string;
+              status: string;
+              rule: string;
+              sources: string[];
+              promptText: string;
+              limitation: string;
+            }>;
+            palaceCoverageFact: {
+              status: string;
+              actualGongs: number[];
+              missingGongs: number[];
+            };
+            candidates: Array<{ palaceFactKey: string }>;
+            relations: Array<{
+              key: string;
+              fromPalaceFactKey: string;
+              toPalaceFactKey: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            counterEvidenceFacts: Array<{
+              key: string;
+              status: string;
+              ownerPalaceFactKey: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            counterSummaryFact: { factKeys: string[] };
+            timingFacts: Array<{
+              key: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            timingSummaryFact: { factKeys: string[] };
+            directionFacts: Array<{
+              key: string;
+              palaceFactKey: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            summaryFact: {
+              status: string;
+              factKeys: string[];
+              palaceFactCount: number;
+              candidateCount: number;
+              relationCount: number;
+              patternCount: number;
+              counterEvidenceCount: number;
+              timingFactCount: number;
+              directionFactCount: number;
+            };
+            limitations: string[];
+            limitationFacts: Array<{
+              key: string;
+              status: string;
+              ownerFactKeys: string[];
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            patternFacts: Array<{ key: string; status: string }>;
+            palaceFacts: Array<{
+              key: string;
+              status: string;
+              patternFactKeys: string[];
+              stemRelationFacts: Array<{
+                ownerPalaceFactKey: string;
+                status: string;
+                sources: string[];
+                limitation: string;
+              }>;
+              insights: Array<{
+                ownerPalaceFactKey: string;
+                status: string;
+                originalText: string;
+                promptText: string;
+                sources: string[];
+              }>;
+              sources: string[];
+              limitation: string;
+            }>;
+          };
+          classicPatterns: Array<Record<string, unknown>>;
+          patternCombos: Array<Record<string, unknown>>;
+          directions: {
+            goodDirections: Array<Record<string, unknown>>;
+            avoidDirections: Array<Record<string, unknown>>;
+          };
+        };
+      }
+    ).result;
+    assert.equal(chart.method, 'zhuanpan');
+    assert.equal(chart.evidenceAnalysis.key, 'qimen:evidence');
+    assert.equal(chart.evidenceAnalysis.status, '已计算');
+    assert.equal(chart.evidenceAnalysis.calculationEvidenceFacts.length, 5);
+    assert.equal(chart.evidenceAnalysis.calculationSteps.length, 5);
+    assert.equal(chart.evidenceAnalysis.calculationChain.length, 5);
+    assert.equal(chart.evidenceAnalysis.ruleSourceFacts.length, 4);
+    assert.equal(chart.evidenceAnalysis.palaceCoverageFact.status, '完整');
+    assert.deepEqual(
+      chart.evidenceAnalysis.palaceCoverageFact.actualGongs,
+      [1, 2, 3, 4, 5, 6, 7, 8, 9],
+    );
+    assert.ok(
+      chart.evidenceAnalysis.calculationEvidenceFacts.every(
+        (item) =>
+          item.key.startsWith('qimen:calculation:') &&
+          item.status === '已确定' &&
+          item.sourceKeys.length > 0 &&
+          item.limitation.includes('不证明现实吉凶'),
+      ),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.ruleSourceFacts.every(
+        (item) =>
+          item.key.startsWith('rule:qimen:') &&
+          item.status === '已声明' &&
+          item.rule &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不等于现代实证验证'),
+      ),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.ruleSourceFacts.some((item) =>
+        item.promptText.includes('转盘法九宫规则'),
+      ),
+    );
+    assert.ok(chart.evidenceAnalysis.candidates.length > 0);
+    assert.equal(
+      chart.evidenceAnalysis.relations.length,
+      Math.max(0, chart.evidenceAnalysis.candidates.length - 1),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.relations.every(
+        (item) =>
+          item.key.startsWith('qimen:relation:') &&
+          item.fromPalaceFactKey &&
+          item.toPalaceFactKey &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不证明现实中的支持'),
+      ),
+    );
+    assert.equal(
+      chart.evidenceAnalysis.counterSummaryFact.factKeys.length,
+      chart.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.ok(
+      chart.evidenceAnalysis.counterEvidenceFacts.every(
+        (item) =>
+          item.key.startsWith('qimen:counter:') &&
+          item.status === '已触发' &&
+          item.ownerPalaceFactKey &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得把单项限制直接写成现实失败'),
+      ),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.timingFacts.every(
+        (item) =>
+          item.key.startsWith('qimen:timing:') &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得换算唯一日期'),
+      ),
+    );
+    assert.equal(
+      chart.evidenceAnalysis.timingSummaryFact.factKeys.length,
+      chart.evidenceAnalysis.timingFacts.length,
+    );
+    assert.equal(chart.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.palaceFactCount,
+      chart.evidenceAnalysis.palaceFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.candidateCount,
+      chart.evidenceAnalysis.candidates.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.relationCount,
+      chart.evidenceAnalysis.relations.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.patternCount,
+      chart.evidenceAnalysis.patternFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      chart.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.timingFactCount,
+      chart.evidenceAnalysis.timingFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.directionFactCount,
+      chart.evidenceAnalysis.directionFacts.length,
+    );
+    assert.equal(chart.evidenceAnalysis.limitationFacts.length, 6);
+    assert.equal(
+      chart.evidenceAnalysis.limitations.length,
+      chart.evidenceAnalysis.limitationFacts.length,
+    );
+    const factKeys = new Set([
+      'qimen:evidence-summary',
+      ...chart.evidenceAnalysis.summaryFact.factKeys,
+    ]);
+    assert.ok(
+      chart.evidenceAnalysis.limitationFacts.every(
+        (item) =>
+          item.key.startsWith('qimen:limitation:') &&
+          item.status === '适用' &&
+          item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得被反向当作现实吉凶'),
+      ),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.directionFacts.every(
+        (item) =>
+          item.key.startsWith('qimen:direction:') &&
+          item.palaceFactKey &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('必须核实现实路线'),
+      ),
+    );
+    assert.equal(chart.evidenceAnalysis.palaceFacts.length, chart.jiuGongGe.length);
+    assert.ok(
+      chart.evidenceAnalysis.palaceFacts.every(
+        (item) =>
+          item.status === '已计算' &&
+          item.patternFactKeys.every((key) =>
+            chart.evidenceAnalysis.patternFacts.some((fact) => fact.key === key),
+          ) &&
+          item.stemRelationFacts.every(
+            (fact) =>
+              fact.ownerPalaceFactKey === item.key &&
+              fact.status === '已计算' &&
+              fact.sources.length > 0 &&
+              fact.limitation.includes('不单独证明现实吉凶'),
+          ) &&
+          item.insights.every(
+            (fact) =>
+              fact.ownerPalaceFactKey === item.key &&
+              fact.status === '已命中' &&
+              fact.originalText &&
+              fact.promptText &&
+              fact.sources.length > 0,
+          ) &&
+          item.sources.length >= 3 &&
+          item.limitation.includes('不单独证明现实吉凶'),
+      ),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.candidates.every((item) =>
+        chart.evidenceAnalysis.palaceFacts.some((fact) => fact.key === item.palaceFactKey),
+      ),
+    );
+    assert.ok(chart.classicPatterns.every((item) => item.score === undefined));
+    assert.ok(chart.patternCombos.every((item) => item.score === undefined));
+    assert.ok(
+      [...chart.directions.goodDirections, ...chart.directions.avoidDirections].every(
+        (item) => item.score === undefined,
+      ),
+    );
+    assert.match(prompt, /占法：奇门遁甲/);
+    assert.match(prompt, /核心结构：[\s\S]*值符值使与时干：[\s\S]*旬空与马星：/);
+    assert.match(prompt, /节气交接：[\s\S]*月相：/);
+    assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);
+    assert.doesNotMatch(prompt, /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|应期范围\d/);
+    assert.doesNotMatch(prompt, /大吉格|大凶格|显著加快|显著延迟/);
+    assert.doesNotMatch(prompt, /项目以|项目规则|项目计算|命语|本项目|项目统一|工程|算法结果/);
+    assertPromptIsPortableTaskText(prompt);
+  });
+});
+
+test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级', async () => {
+  await withMcpClient(async (client) => {
+    const result = await client.callTool({
+      name: 'metaphysics_zodiac',
+      arguments: { zodiac: '马', yearGanZhi: '庚子' },
+    });
+    assert.equal(result.isError, undefined, 'metaphysics_zodiac 不应返回错误');
+    const chart = (
+      result.structuredContent as {
+        result: Record<string, unknown> & {
+          evidenceAnalysis: {
+            calculationSteps: Array<{
+              key: string;
+              status: string;
+              dependsOnStepKeys: string[];
+              promptText: string;
+              sources: string[];
+              dependsOnStepKeys: string[];
+              limitation: string;
+            }>;
+            relations: Array<{
+              key: string;
+              status: string;
+              sources: string[];
+              promptText: string;
+              limitation: string;
+            }>;
+            counterEvidenceFacts: Array<{
+              type: string;
+              status: string;
+              ownerRelationKeys: string[];
+              ownerFactKeys: string[];
+            }>;
+            counterSummaryFact: { status: string; factKeys: string[] };
+            summaryFact: {
+              key: string;
+              status: string;
+              factKeys: string[];
+              relationFactCount: number;
+              primaryEvidenceCount: number;
+              supportingEvidenceCount: number;
+              counterEvidenceCount: number;
+              limitationFactCount: number;
+            };
+            limitations: string[];
+            limitationFacts: Array<{
+              key: string;
+              status: string;
+              ownerFactKeys: string[];
+              sources: string[];
+            }>;
+            promptText: string;
+          };
+        };
+      }
+    ).result;
+    assert.equal(chart.interpretationBoundary, '仅限生肖与流年关系');
+    assert.equal(chart.evidenceAnalysis.key, 'zodiac:evidence');
+    assert.equal(chart.evidenceAnalysis.status, '已计算');
+    assert.equal(chart.level, undefined);
+    assert.equal(chart.confidence, undefined);
+    assert.equal(chart.evidenceAnalysis.calculationSteps.length, 4);
+    assert.ok(
+      chart.evidenceAnalysis.calculationSteps.every(
+        (item) =>
+          item.key.startsWith('zodiac:calculation:') &&
+          item.status === '已计算' &&
+          Array.isArray(item.dependsOnStepKeys) &&
+          item.promptText &&
+          item.sources.length >= 2 &&
+          item.limitation.includes('不证明个人现实事件'),
+      ),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.relations.every(
+        (item) =>
+          item.key.startsWith('关系:') &&
+          item.status === '已命中' &&
+          item.sources.length >= 2 &&
+          item.promptText.length > 0 &&
+          item.limitation.includes('不证明现实事件'),
+      ),
+    );
+    assert.equal(chart.evidenceAnalysis.counterEvidenceFacts.length, 3);
+    assert.equal(
+      chart.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '太岁关系覆盖')
+        ?.status,
+      '有可用证据',
+    );
+    assert.equal(chart.evidenceAnalysis.counterSummaryFact.status, '有未命中关系');
+    assert.equal(chart.evidenceAnalysis.limitationFacts.length, 5);
+    assert.equal(chart.evidenceAnalysis.summaryFact.key, 'zodiac:evidence-summary');
+    assert.equal(chart.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.relationFactCount,
+      chart.evidenceAnalysis.relations.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      chart.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.limitationFactCount,
+      chart.evidenceAnalysis.limitationFacts.length,
+    );
+    const zodiacFactKeys = new Set([
+      chart.evidenceAnalysis.summaryFact.key,
+      ...chart.evidenceAnalysis.summaryFact.factKeys,
+    ]);
+    assert.ok(
+      chart.evidenceAnalysis.counterEvidenceFacts.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every((key) => zodiacFactKeys.has(key)),
+      ),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.limitationFacts.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every((key) => zodiacFactKeys.has(key)),
+      ),
+    );
+    assert.equal(
+      chart.evidenceAnalysis.limitations.length,
+      chart.evidenceAnalysis.limitationFacts.length,
+    );
+    assert.doesNotMatch(
+      chart.evidenceAnalysis.promptText,
+      /命语|本项目|项目统一|工程|接口|API|MCP/,
+    );
+    assert.match(chart.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制：/);
+    assertPromptIsPortableTaskText(chart.evidenceAnalysis.promptText);
+  });
+});
+
+test('MCP 生肖工具返回三会固定关系且不改写为贵人或吉凶', async () => {
+  await withMcpClient(async (client) => {
+    const result = await client.callTool({
+      name: 'metaphysics_zodiac',
+      arguments: { zodiac: '虎', yearGanZhi: '丁卯' },
+    });
+    assert.equal(result.isError, undefined, 'metaphysics_zodiac 不应返回错误');
+    const chart = (result.structuredContent as { result: Record<string, any> }).result;
+    assert.equal(chart.meeting, '三会关系（东方木）');
+    assert.equal(chart.noble, null);
+    assert.ok(!chart.favorableRelations.includes(chart.meeting));
+    assert.ok(!chart.riskRelations.includes(chart.meeting));
+    assert.ok(
+      chart.evidenceAnalysis.relations.some(
+        (item: { category: string; relation: string }) =>
+          item.category === '地支会合' && item.relation === '三会关系（东方木）',
+      ),
+    );
+    assert.match(chart.evidenceAnalysis.promptText, /十二地支三会固定关系表/);
+  });
+});
+
+test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
+  await withMcpClient(async (client) => {
+    const result = await client.callTool({
+      name: 'taiyi_prompt',
+      arguments: {
+        year: 2004,
+        scope: 'year',
+        question: '请分析这一年适合采取什么行动。',
+      },
+    });
+    assert.equal(result.isError, undefined, 'taiyi_prompt 不应返回错误');
+    const prompt = String(result.structuredContent?.prompt);
+    const chart = (
+      result.structuredContent as {
+        result: {
+          evidenceAnalysis: {
+            key: string;
+            status: string;
+            calculationChain: unknown[];
+            calculationSteps: Array<{
+              key: string;
+              status: string;
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            primaryFacts: unknown[];
+            counterEvidence: string[];
+            counterEvidenceFacts: Array<{
+              key: string;
+              type: string;
+              status: string;
+              ownerConditionKey: string;
+              ownerFactKeys: string[];
+              sources: string[];
+            }>;
+            counterSummaryFact: { status: string; factKeys: string[] };
+            summaryFact: {
+              key: string;
+              status: string;
+              factKeys: string[];
+              positionFactCount: number;
+              forceFactCount: number;
+              sixteenGodFactCount: number;
+              conditionFactCount: number;
+              counterEvidenceCount: number;
+              limitationFactCount: number;
+            };
+            limitations: string[];
+            limitationFacts: Array<{
+              key: string;
+              status: string;
+              ownerFactKeys: string[];
+              sources: string[];
+            }>;
+            positionFacts: unknown[];
+            forceFacts: Array<{
+              status: string;
+              calculationStepKeys: string[];
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            }>;
+            sixteenGodFacts: unknown[];
+            conditionFacts: unknown[];
+          };
+        };
+      }
+    ).result;
+    assert.equal(chart.evidenceAnalysis.key, 'taiyi:evidence');
+    assert.equal(chart.evidenceAnalysis.status, '已计算');
+    assert.ok(chart.evidenceAnalysis.calculationChain.length >= 5);
+    assert.equal(chart.evidenceAnalysis.calculationSteps.length, 4);
+    assert.ok(
+      chart.evidenceAnalysis.calculationSteps.every(
+        (item) =>
+          item.key.startsWith('taiyi:calculation:') &&
+          item.status === '已核验' &&
+          Array.isArray(item.dependsOnStepKeys) &&
+          item.promptText &&
+          item.sources.length >= 2 &&
+          item.limitation.includes('不证明传统解释有效性'),
+      ),
+    );
+    assert.ok(chart.evidenceAnalysis.primaryFacts.length >= 4);
+    assert.equal(chart.evidenceAnalysis.positionFacts.length, 4);
+    assert.equal(chart.evidenceAnalysis.forceFacts.length, 3);
+    assert.equal(chart.evidenceAnalysis.sixteenGodFacts.length, 16);
+    assert.equal(chart.evidenceAnalysis.conditionFacts.length, 4);
+    assert.equal(chart.evidenceAnalysis.counterEvidenceFacts.length, 4);
+    assert.equal(chart.evidenceAnalysis.counterSummaryFact.status, '存在未命中条件');
+    assert.equal(chart.evidenceAnalysis.counterSummaryFact.factKeys.length, 3);
+    assert.equal(chart.evidenceAnalysis.limitationFacts.length, 5);
+    assert.equal(chart.evidenceAnalysis.summaryFact.key, 'taiyi:evidence-summary');
+    assert.equal(chart.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.positionFactCount,
+      chart.evidenceAnalysis.positionFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.forceFactCount,
+      chart.evidenceAnalysis.forceFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.sixteenGodFactCount,
+      chart.evidenceAnalysis.sixteenGodFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.conditionFactCount,
+      chart.evidenceAnalysis.conditionFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      chart.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(
+      chart.evidenceAnalysis.summaryFact.limitationFactCount,
+      chart.evidenceAnalysis.limitationFacts.length,
+    );
+    const taiyiFactKeys = new Set([
+      chart.evidenceAnalysis.summaryFact.key,
+      ...chart.evidenceAnalysis.summaryFact.factKeys,
+    ]);
+    assert.ok(
+      chart.evidenceAnalysis.counterEvidenceFacts.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every((key) => taiyiFactKeys.has(key)),
+      ),
+    );
+    assert.ok(
+      chart.evidenceAnalysis.limitationFacts.every(
+        (item) =>
+          item.ownerFactKeys.length > 0 &&
+          item.ownerFactKeys.every((key) => taiyiFactKeys.has(key)),
+      ),
+    );
+    assert.equal(
+      chart.evidenceAnalysis.limitations.length,
+      chart.evidenceAnalysis.limitationFacts.length,
+    );
+    assert.ok(
+      chart.evidenceAnalysis.forceFacts.every(
+        (item) =>
+          item.status === '已计算' &&
+          item.calculationStepKeys.includes('taiyi:calculation:bureau') &&
+          item.promptText &&
+          item.sources.length >= 2 &&
+          item.limitation.includes('不直接证明现实胜负'),
+      ),
+    );
+    assert.ok(chart.evidenceAnalysis.counterEvidence.some((item) => item.startsWith('未见囚')));
+    assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.taiyi);
+    assert.match(prompt, /【太乙神数 · 年计】/);
+    assert.match(prompt, /核心宫位：[\s\S]*主客定算：[\s\S]*将参：/);
+    assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);
+    assert.doesNotMatch(prompt, /宜先守后动|不宜轻进/);
+    assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|匹配率(?:为|：)|吉凶总分(?:为|：)/);
+    assert.doesNotMatch(prompt, /命语|本项目|项目统一|当前结果|工程|接口|API|MCP/);
+    assertPromptIsPortableTaskText(prompt);
   });
 });
 
@@ -893,11 +4759,197 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
     type LiuyaoReplayResult = {
       generation: { method: string; coinThrows: unknown[] };
       yaoArray: number[];
+      evidenceAnalysis: {
+        key: string;
+        status: string;
+        calculationSteps: Array<{
+          key: string;
+          stage: string;
+          status: string;
+          dependsOnStepKeys: string[];
+        }>;
+        calculationChain: string[];
+        candidates: Array<{
+          key: string;
+          status: string;
+          sourceStatus: string;
+          referenceKeys: string[];
+          promptText: string;
+          sources: string[];
+          limitation: string;
+        }>;
+        selectionFact: { status: string; selectedCandidateKey: string | null };
+        lineCoverageFact: { status: string; actualPositions: number[] };
+        lineFacts: Array<{ status: string; sources: string[]; limitation: string }>;
+        counterEvidenceFacts: Array<{
+          key: string;
+          status: string;
+          ownerCandidateKey: string;
+          sources: string[];
+          limitation: string;
+        }>;
+        counterSummaryFact: { factKeys: string[] };
+        timingFacts: Array<{
+          key: string;
+          promptText: string;
+          sources: string[];
+          limitation: string;
+        }>;
+        timingSummaryFact: { factKeys: string[] };
+        summaryFact: {
+          status: string;
+          factKeys: string[];
+          lineFactCount: number;
+          hiddenSpiritFactCount: number;
+          candidateCount: number;
+          matchedCandidateCount: number;
+          godChainFactCount: number;
+          structureFactCount: number;
+          counterEvidenceCount: number;
+          timingFactCount: number;
+        };
+        limitations: string[];
+        limitationFacts: Array<{
+          key: string;
+          status: string;
+          ownerFactKeys: string[];
+          promptText: string;
+          sources: string[];
+          limitation: string;
+        }>;
+        hiddenSpiritFacts: unknown[];
+        generationFact: {
+          status: string;
+          method: string;
+          coinThrows: unknown[];
+          recordedLineCount: number;
+          sources: string[];
+        };
+        promptText: string;
+      };
+      hiddenSpirits?: unknown[];
       meta: { resultId: string; random: { samples: number[] } };
     };
     const firstResult = (first.structuredContent as { result: LiuyaoReplayResult }).result;
     assert.equal(firstResult.generation.method, 'coins');
     assert.equal(firstResult.generation.coinThrows.length, 6);
+    assert.equal(firstResult.evidenceAnalysis.key, 'liuyao:evidence');
+    assert.equal(firstResult.evidenceAnalysis.status, '已计算');
+    assert.equal(firstResult.evidenceAnalysis.calculationSteps.length, 7);
+    assert.equal(firstResult.evidenceAnalysis.calculationChain.length, 7);
+    assert.ok(
+      firstResult.evidenceAnalysis.calculationSteps.every((step) =>
+        step.dependsOnStepKeys.every((key) =>
+          firstResult.evidenceAnalysis.calculationSteps.some((candidate) => candidate.key === key),
+        ),
+      ),
+    );
+    assert.ok(firstResult.evidenceAnalysis.candidates.length > 0);
+    assert.equal(firstResult.evidenceAnalysis.selectionFact.status, '已选定候选');
+    assert.equal(firstResult.evidenceAnalysis.lineCoverageFact.status, '完整');
+    assert.deepEqual(
+      firstResult.evidenceAnalysis.lineCoverageFact.actualPositions,
+      [1, 2, 3, 4, 5, 6],
+    );
+    assert.equal(firstResult.evidenceAnalysis.lineFacts.length, 6);
+    assert.equal(firstResult.evidenceAnalysis.generationFact.status, '可核验');
+    assert.equal(firstResult.evidenceAnalysis.generationFact.method, 'coins');
+    assert.equal(firstResult.evidenceAnalysis.generationFact.coinThrows.length, 6);
+    assert.equal(firstResult.evidenceAnalysis.generationFact.recordedLineCount, 6);
+    assert.ok(firstResult.evidenceAnalysis.generationFact.sources.length >= 2);
+    assert.equal(
+      firstResult.evidenceAnalysis.hiddenSpiritFacts.length,
+      firstResult.hiddenSpirits?.length ?? 0,
+    );
+    assert.ok(
+      firstResult.evidenceAnalysis.lineFacts.every(
+        (item) =>
+          item.status === '已计算' &&
+          item.sources.length >= 3 &&
+          item.limitation.includes('不单独证明现实吉凶'),
+      ),
+    );
+    assert.ok(
+      firstResult.evidenceAnalysis.candidates.every(
+        (item) =>
+          item.key.startsWith('liuyao:candidate:') &&
+          item.status &&
+          item.sourceStatus &&
+          item.referenceKeys.length >= 0 &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('候选不等于已证明现实事项'),
+      ),
+    );
+    assert.equal(
+      firstResult.evidenceAnalysis.counterSummaryFact.factKeys.length,
+      firstResult.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.ok(
+      firstResult.evidenceAnalysis.counterEvidenceFacts.every(
+        (item) =>
+          item.key.startsWith('liuyao:counter:') &&
+          item.status === '已触发' &&
+          item.ownerCandidateKey &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得把单项反证直接写成现实失败'),
+      ),
+    );
+    assert.equal(
+      firstResult.evidenceAnalysis.timingSummaryFact.factKeys.length,
+      firstResult.evidenceAnalysis.timingFacts.length,
+    );
+    assert.equal(firstResult.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(
+      firstResult.evidenceAnalysis.summaryFact.lineFactCount,
+      firstResult.evidenceAnalysis.lineFacts.length,
+    );
+    assert.equal(
+      firstResult.evidenceAnalysis.summaryFact.hiddenSpiritFactCount,
+      firstResult.evidenceAnalysis.hiddenSpiritFacts.length,
+    );
+    assert.equal(
+      firstResult.evidenceAnalysis.summaryFact.candidateCount,
+      firstResult.evidenceAnalysis.candidates.length,
+    );
+    assert.equal(
+      firstResult.evidenceAnalysis.summaryFact.counterEvidenceCount,
+      firstResult.evidenceAnalysis.counterEvidenceFacts.length,
+    );
+    assert.equal(firstResult.evidenceAnalysis.limitationFacts.length, 6);
+    assert.equal(
+      firstResult.evidenceAnalysis.limitations.length,
+      firstResult.evidenceAnalysis.limitationFacts.length,
+    );
+    const factKeys = new Set([
+      'liuyao:evidence-summary',
+      ...firstResult.evidenceAnalysis.summaryFact.factKeys,
+    ]);
+    assert.ok(
+      firstResult.evidenceAnalysis.limitationFacts.every(
+        (item) =>
+          item.key.startsWith('liuyao:limitation:') &&
+          item.status === '适用' &&
+          item.ownerFactKeys.every((key) => factKeys.has(key)) &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得被反向当作现实吉凶'),
+      ),
+    );
+    assert.ok(
+      firstResult.evidenceAnalysis.timingFacts.every(
+        (item) =>
+          item.key.startsWith('liuyao:timing:') &&
+          item.promptText &&
+          item.sources.length > 0 &&
+          item.limitation.includes('不得把爻位'),
+      ),
+    );
+    assert.match(firstResult.evidenceAnalysis.promptText, /【六爻用神作用链结构化证据】/);
+    assert.match(firstResult.evidenceAnalysis.promptText, /六爻逐爻计算事实/);
+    assert.match(firstResult.evidenceAnalysis.promptText, /证据汇总：/);
+    assert.match(firstResult.evidenceAnalysis.promptText, /解释限制：/);
+    assertPromptIsPortableTaskText(firstResult.evidenceAnalysis.promptText);
 
     const replay = await client.callTool({
       name: 'divine_liuyao',

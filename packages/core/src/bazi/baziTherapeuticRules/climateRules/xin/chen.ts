@@ -19,7 +19,7 @@ export const XIN_CHEN_CLIMATE_RULES: ClimateRule[] = [
     ],
     usefulWuxing: '水',
     favorableOrder: ['水', '木'],
-    traceHints: ['取用层次:先壬后甲', '成格层次:壬甲两透，富贵必然'],
+    traceHints: ['取用层次:先壬后甲', '传统成格原文:壬甲两透，古法视为富贵格候选'],
     hint: '辛金辰月壬甲两透，多主富贵',
   },
   {

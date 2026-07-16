@@ -5,12 +5,16 @@ import {
   buildCombinedZiweiCompatibilityPrompt,
   buildCombinedZiweiPrompt,
 } from '../src/lib/full-chart-engine/ziwei';
-import { buildEvidencePool } from '@core/ziwei/iztro';
+import { buildEvidenceAnalysis, buildEvidencePool, buildPatternAnalysis } from '@core/ziwei/iztro';
 import { buildEvidenceSummary, buildPalaceSummary } from '../src/lib/ziwei-prompts/builders';
 import { buildZiweiReadableSnapshot } from '../src/lib/ziwei-prompts/snapshot';
 import type { PromptContext } from '../src/lib/ziwei-prompts/types';
-import { assertPromptCurrentTimeHasGanzhiCalendar } from './prompt-assertions';
+import {
+  assertPromptCurrentTimeHasGanzhiCalendar,
+  assertPromptHasSingleRole,
+} from './prompt-assertions';
 import type { AnalysisPayloadV1, PalaceFact } from '../src/types/analysis';
+import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../src/lib/prompt-guidance';
 
 function assertNoEngineeringPromptText(prompt: string) {
   assert.doesNotMatch(
@@ -108,7 +112,6 @@ function createPayload(): AnalysisPayloadV1 {
         palace_indexes: [0],
         palace_names: ['命宫'],
         star_names: ['紫微', '天府'],
-        priority: 92,
       },
     ],
   };
@@ -128,8 +131,13 @@ function createReportContext(overrides: Partial<PromptContext> = {}): PromptCont
 }
 
 test('紫微提示词快照应输出已检测出的命盘格局', () => {
+  const payload = createPayload();
+  payload.pattern_analysis = buildPatternAnalysis({
+    patterns: payload.patterns ?? [],
+    palaces: payload.palaces,
+  });
   const snapshot = buildZiweiReadableSnapshot({
-    payload: createPayload(),
+    payload,
     reportContext: createReportContext({
       report_key: 'destiny:origin:2026-05-16',
       report_title: '命局综述',
@@ -141,6 +149,10 @@ test('紫微提示词快照应输出已检测出的命盘格局', () => {
   assert.match(snapshot, /【命盘格局】/);
   assert.match(snapshot, /紫府同宫/);
   assert.match(snapshot, /紫微与天府同坐命宫/);
+  assert.match(snapshot, /命中条件：/);
+  assert.match(snapshot, /传统释义：主格局稳重/);
+  assert.doesNotMatch(snapshot, /证据状态|已检格局规则|未命中规则|解释边界|非事实结论/);
+  assert.doesNotMatch(snapshot, /命语|iztro|本项目|项目统一|工程|接口|API|MCP/);
   assert.doesNotMatch(snapshot, /星座|金牛座/);
   assert.match(snapshot, /【十二宫资料】/);
 });
@@ -156,10 +168,11 @@ test('紫微重点宫位资料展示三方四正时应排除本宫', () => {
 test('紫微输出提示词应是可复制给在线 AI 的独立任务书，不暴露工程提示词', () => {
   const prompt = buildCombinedZiweiPrompt(createPayload(), 'destiny', '请分析命局主线。');
 
+  assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.ziwei);
   assertNoEngineeringPromptText(prompt);
 });
 
-test('紫微提示词快照应输出解读目标，明确范围与边界', () => {
+test('紫微提示词快照只保留分析背景和盘面资料', () => {
   const snapshot = buildZiweiReadableSnapshot({
     payload: createPayload(),
     reportContext: createReportContext({
@@ -170,17 +183,10 @@ test('紫微提示词快照应输出解读目标，明确范围与边界', () =>
       focus_notes: ['优先看事业与财帛联动', '若证据不足要明确保守表达', '不要复述全盘'],
     }),
   });
-  const taskSection = snapshot.match(/【解读目标】([\s\S]*?)\n\n【本命资料】/)?.[1] || '';
-
-  assert.match(snapshot, /【解读目标】/);
-  assert.match(taskSection, /解读目标：主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/);
-  assert.match(taskSection, /重点参考宫位：/);
-  assert.match(taskSection, /严格边界：只基于已提供盘面、运限和问题作答；证据不足时直接说明。/);
-  assert.doesNotMatch(taskSection, /报告标题：|解读主题：|报告类型：/);
-  assert.doesNotMatch(taskSection, /推荐追问：/);
-  assert.doesNotMatch(taskSection, /输出重点：/);
-  assert.doesNotMatch(taskSection, /焦点提示：/);
-  assert.doesNotMatch(taskSection, /不要复述全盘/);
+  assert.match(snapshot, /【分析背景】/);
+  assert.match(snapshot, /分析主题：事业财运/);
+  assert.match(snapshot, /分析范围：本命/);
+  assert.doesNotMatch(snapshot, /【解读目标】|严格边界|推荐追问|输出重点|焦点提示|不要复述全盘/);
 });
 
 test('紫微提示词快照不再回退到专题焦点话术', () => {
@@ -193,12 +199,8 @@ test('紫微提示词快照不再回退到专题焦点话术', () => {
       selected_topic: 'relationship',
     }),
   });
-  const taskSection = snapshot.match(/【解读目标】([\s\S]*?)\n\n【本命资料】/)?.[1] || '';
-
-  assert.match(taskSection, /解读目标：主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/);
-  assert.doesNotMatch(taskSection, /夫妻宫、命宫、福德宫、子女宫、迁移宫/);
-  assert.doesNotMatch(taskSection, /焦点提示：/);
-  assert.doesNotMatch(taskSection, /。、/);
+  assert.match(snapshot, /分析主题：婚姻感情/);
+  assert.doesNotMatch(snapshot, /【解读目标】|焦点提示|主题只作为问题范围/);
 });
 
 test('紫微分析背景不再重复输出报告标题，只保留主题与范围', () => {
@@ -206,14 +208,14 @@ test('紫微分析背景不再重复输出报告标题，只保留主题与范�
     payload: createPayload(),
     reportContext: createReportContext(),
   });
-  const backgroundSection = snapshot.match(/【分析背景】([\s\S]*?)\n\n【解读目标】/)?.[1] || '';
+  const backgroundSection = snapshot.match(/【分析背景】([\s\S]*?)\n\n【本命资料】/)?.[1] || '';
 
   assert.match(backgroundSection, /分析主题：人生解析/);
   assert.match(backgroundSection, /分析范围：本命/);
   assert.doesNotMatch(backgroundSection, /报告标题：/);
 });
 
-test('紫微近期专题快照保留主题和通用目标', () => {
+test('紫微近期专题快照保留主题和盘面资料', () => {
   const snapshot = buildZiweiReadableSnapshot({
     payload: createPayload(),
     reportContext: createReportContext({
@@ -223,12 +225,9 @@ test('紫微近期专题快照保留主题和通用目标', () => {
       selected_topic: 'recent',
     }),
   });
-  const taskSection = snapshot.match(/【解读目标】([\s\S]*?)\n\n【本命资料】/)?.[1] || '';
-
   assert.match(snapshot, /分析主题：近期趋势/);
-  assert.match(taskSection, /解读目标：主题只作为问题范围；重点宫位由【问题】与盘面证据决定。/);
-  assert.match(taskSection, /重点参考宫位：/);
-  assert.doesNotMatch(taskSection, /焦点提示：/);
+  assert.match(snapshot, /【本命资料】/);
+  assert.doesNotMatch(snapshot, /【解读目标】|焦点提示|主题只作为问题范围/);
 });
 
 test('紫微重点宫位资料应输出星曜亮度四化与空宫传统辅证', () => {
@@ -320,11 +319,6 @@ test('紫微提示词快照应单独输出运限落宫与当前四化飞入结�
 
   assert.match(snapshot, /【运限资料】/);
   assert.match(snapshot, /【运限重点】/);
-  assert.match(snapshot, /【主证】所选运限落宫/);
-  assert.match(snapshot, /【主证】运限命中宫位/);
-  assert.match(snapshot, /【主证】当前运限四化飞入/);
-  assert.match(snapshot, /【应期】应期层级/);
-  assert.match(snapshot, /【限制】本命与运限边界/);
   assert.match(snapshot, /类型：运限落宫/);
   assert.match(snapshot, /运限：流年/);
   assert.match(snapshot, /本命落宫：财帛宫/);
@@ -332,9 +326,10 @@ test('紫微提示词快照应单独输出运限落宫与当前四化飞入结�
   assert.match(snapshot, /类型：当前四化飞入/);
   assert.match(snapshot, /天同/);
   assert.match(snapshot, /飞入宫位：财帛宫/);
+  assert.doesNotMatch(snapshot, /【主证】|【辅证】|【应期】|【限制】|证据汇总|解释边界/);
 });
 
-test('紫微完整提示词应补充完整运限任务书', () => {
+test('紫微运限提示词应保留分析对象和简短任务', () => {
   const payload = createPayload();
   payload.active_scope = {
     ...payload.active_scope,
@@ -348,12 +343,10 @@ test('紫微完整提示词应补充完整运限任务书', () => {
     isCustomQuestion: false,
   });
 
-  assert.match(prompt, /【解读目标】/);
   assert.match(prompt, /【本命资料】/);
   assert.match(prompt, /【分析对象】/);
   assertPromptCurrentTimeHasGanzhiCalendar(prompt);
   assert.match(prompt, /【运限重点】/);
-  assert.match(prompt, /【主证】所选运限落宫/);
   assert.doesNotMatch(prompt, /【运限资料】/);
   assert.doesNotMatch(prompt, /【十二宫资料】/);
   assert.doesNotMatch(prompt, /类型：运限落宫/);
@@ -363,15 +356,18 @@ test('紫微完整提示词应补充完整运限任务书', () => {
   assert.doesNotMatch(prompt, /【分析对象优先级】/);
   assert.doesNotMatch(prompt, /【运限解读规则】/);
   assert.doesNotMatch(prompt, /【分析框架】/);
-  assert.match(prompt, /【解读范围】/);
-  assert.match(prompt, /【解读方法】/);
-  assert.match(prompt, /【断盘要点】/);
-  assert.match(prompt, /当前指定流年：以该年年度触发、四化飞入、流年命宫落点和年度事件类别为主/);
-  assert.match(prompt, /大限层：看十年阶段的主环境、角色变化、资源压力和机会方向/);
-  assert.match(prompt, /流月层：看月内窗口、推进节奏和短期反复/);
-  assert.match(prompt, /流日\/流时层：看当日或当时执行、沟通、出行、签约、冲突与避险/);
-  assert.ok(prompt.indexOf('【解读范围】') < prompt.indexOf('【解读方法】'));
-  assert.ok(prompt.indexOf('【解读方法】') < prompt.indexOf('【问题】\n今年事业财运怎么判断？'));
+  assert.match(
+    prompt,
+    /【任务】\n请结合宫位、星曜、四化、格局和三方四正直接回答【问题】，并给出现实建议。/,
+  );
+  assert.match(
+    prompt,
+    /【输出要求】\n使用简体中文，先回答【问题】，再说明主要宫位、星曜、四化依据和现实建议。/,
+  );
+  assert.doesNotMatch(
+    prompt,
+    /【解读目标】|【解读范围】|【解读方法】|【断盘要点】|证据汇总|解释边界/,
+  );
 });
 
 test('紫微本命完整提示词应输出本命分析对象且不输出空运限重点', () => {
@@ -380,17 +376,12 @@ test('紫微本命完整提示词应输出本命分析对象且不输出空运�
   });
 
   assert.match(prompt, /【分析对象】/);
-  assert.match(prompt, /分析对象：本命盘/);
-  assert.match(prompt, /应期范围：只给长期趋势和触发条件/);
-  assert.doesNotMatch(prompt, /本次没有提供大限、流年、流月、流日或流时/);
-  assert.match(prompt, /【解读范围】/);
-  assert.match(prompt, /本次只提供本命盘/);
-  assert.match(prompt, /【解读方法】/);
-  assert.match(prompt, /当前为本命范围：只判断宫位结构、星曜组合、格局层次/);
+  assert.match(prompt, /分析对象：本命盘（2026-05-16）。/);
   assert.doesNotMatch(prompt, /【运限重点】/);
   assert.doesNotMatch(prompt, /【运限命中摘要】/);
   assert.doesNotMatch(prompt, /【当前运限】/);
   assert.doesNotMatch(prompt, /【当前报告任务】/);
+  assert.doesNotMatch(prompt, /【解读目标】|【解读范围】|【解读方法】|应期范围|本次只提供/);
 });
 
 test('紫微合盘内嵌盘面资料不应重复使用顶层 section 标题', () => {
@@ -401,13 +392,20 @@ test('紫微合盘内嵌盘面资料不应重复使用顶层 section 标题', ()
     question: '我们适合长期合作吗？',
   });
 
+  assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT['ziwei-compatibility']);
+  assert.match(prompt, /【双盘关系资料】/);
+  assert.match(prompt, /宫位对应：/);
+  assert.doesNotMatch(
+    prompt,
+    /紫微双盘结构化证据|【限制】|证据汇总|计算链概览|解释限制|反证与应期边界/,
+  );
+
   assert.equal((prompt.match(/^【第一人盘面】$/gm) ?? []).length, 1);
   assert.equal((prompt.match(/^【第二人盘面】$/gm) ?? []).length, 1);
   assert.doesNotMatch(prompt, /^【分析背景】$/m);
   assert.doesNotMatch(prompt, /^【解读目标】$/m);
   assert.doesNotMatch(prompt, /^【重点宫位资料】$/m);
   assert.match(prompt, /分析背景：\n/);
-  assert.match(prompt, /解读目标：\n/);
   assert.match(prompt, /重点宫位资料：\n/);
 });
 
@@ -508,7 +506,87 @@ test('紫微证据池应输出大限流年流月流日落宫与运限四化飞�
   assert.match(titles, /流年（丙午流年）天同化禄入财帛/);
   assert.match(titles, /流年（丙午流年）文昌化科入官禄/);
   assert.match(descriptions, /流年（丙午流年）干支为丙午/);
-  assert.match(descriptions, /结合财帛的运限落宫一起判断触发路径/);
+  assert.match(descriptions, /运限本身落于财帛/);
+  assert.ok(evidence.every((item) => item.level === '主证' || item.level === '辅证'));
+  assert.ok(evidence.every((item) => item.source?.includes('紫微')));
+  assert.ok(evidence.every((item) => item.calculation));
+  assert.ok(
+    evidence.every(
+      (item) =>
+        item.key?.startsWith('ziwei:evidence:') &&
+        (item.status === '已记录' || item.status === '资料缺口') &&
+        item.sources?.length &&
+        item.calculationStepKey &&
+        item.dependsOnStepKeys?.includes(item.calculationStepKey) &&
+        item.promptText &&
+        item.limitation,
+    ),
+  );
+  assert.ok(
+    evidence.every((item) => item.limitations?.some((text) => text.includes('不直接证明'))),
+  );
+  assert.ok(evidence.every((item) => !('priority' in item)));
+
+  const analysis = buildEvidenceAnalysis({
+    evidencePool: evidence,
+    currentScope: 'yearly',
+    palaces,
+  });
+  const factKeys = new Set([analysis.summaryFact.key, ...analysis.summaryFact.factKeys]);
+  assert.equal(analysis.key, 'ziwei:evidence');
+  assert.equal(analysis.status, '存在资料缺口');
+  assert.equal(analysis.calculationSteps.length, 4);
+  assert.ok(
+    analysis.calculationSteps.every((step) =>
+      step.dependsOnStepKeys.every((key) =>
+        analysis.calculationSteps.some((candidate) => candidate.key === key),
+      ),
+    ),
+  );
+  assert.equal(analysis.counterEvidenceFacts.length, 3);
+  assert.equal(analysis.summaryFact.evidenceFactCount, evidence.length);
+  assert.equal(analysis.summaryFact.counterEvidenceCount, analysis.counterEvidenceFacts.length);
+  assert.equal(analysis.summaryFact.limitationFactCount, analysis.limitationFacts.length);
+  assert.ok(
+    analysis.counterEvidenceFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.ok(
+    analysis.limitationFacts.every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.match(analysis.promptText, /计算链：[\s\S]*反证核验：[\s\S]*证据汇总：[\s\S]*解释限制：/);
+  assert.doesNotMatch(
+    analysis.promptText,
+    /命语|iztro|本项目|项目统一|工程|接口|API|MCP|ziwei:evidence:/,
+  );
+
+  const payload = createPayload();
+  payload.active_scope = {
+    ...payload.active_scope,
+    scope: 'yearly',
+    label: '丙午流年',
+    palace_index: 4,
+  };
+  payload.evidence_pool = evidence;
+  payload.evidence_analysis = analysis;
+  const snapshot = buildZiweiReadableSnapshot({
+    payload,
+    reportContext: createReportContext({
+      report_key: 'life:yearly:2026-05-16',
+      scope_type: 'yearly',
+      scope_label: '流年',
+    }),
+  });
+  assert.match(snapshot, /【关键判断线索】/);
+  assert.match(snapshot, /流年（丙午流年）天同化禄入财帛/);
+  assert.match(snapshot, /流年（丙午流年）落入财帛/);
+  assert.doesNotMatch(snapshot, /【证据汇总】|证据状态|资料缺口：|解释边界/);
+  assert.doesNotMatch(snapshot, /命语|iztro|本项目|项目统一|工程|接口|API|MCP/);
 });
 
 test('紫微关键判断线索在原始资料缺少关联星曜与关联四化时应自动补全', () => {
@@ -555,7 +633,6 @@ test('紫微关键判断线索在原始资料缺少关联星曜与关联四化�
       star_names: [],
       mutagens: [],
       description: '命宫在当前阶段受四化牵动。',
-      priority: 95,
     },
   ];
 
@@ -571,6 +648,13 @@ test('紫微关键判断线索在原始资料缺少关联星曜与关联四化�
 
   assert.deepEqual(summary[0]?.关联星曜, ['天机', '太阴', '文昌']);
   assert.deepEqual(summary[0]?.关联四化, ['禄', '科', '忌']);
+  assert.equal(summary[0]?.判断线索, '命宫三方四正见化忌');
+  assert.equal(summary[0]?.适用范围, '流年');
+  assert.equal(summary[0]?.说明, '命宫在当前阶段受四化牵动。');
+  assert.ok(!('证据等级' in (summary[0] ?? {})));
+  assert.ok(!('数据来源' in (summary[0] ?? {})));
+  assert.ok(!('计算依据' in (summary[0] ?? {})));
+  assert.ok(!('适用边界' in (summary[0] ?? {})));
 });
 
 test('紫微本命提示词不应混入大限流年流月流日运限结构', () => {
@@ -713,4 +797,19 @@ test('紫微本命证据池不应生成运限落宫证据', () => {
   assert.doesNotMatch(titles, /流年（丙午流年）落入/);
   assert.doesNotMatch(titles, /流年落宫位于/);
   assert.doesNotMatch(titles, /天同化禄/);
+
+  const analysis = buildEvidenceAnalysis({
+    evidencePool: evidence,
+    currentScope: 'origin',
+    palaces,
+  });
+  assert.equal(
+    analysis.counterEvidenceFacts.find((item) => item.type === '运限资料覆盖')?.status,
+    '不适用',
+  );
+  assert.equal(
+    analysis.counterEvidenceFacts.find((item) => item.type === '四化定位覆盖')?.status,
+    '不适用',
+  );
+  assert.match(analysis.promptText, /当前为本命范围，不生成运限落宫/);
 });

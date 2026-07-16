@@ -55,6 +55,14 @@
       "import": "./dist/divination/astrolabe-scope.js",
       "types": "./dist/divination/astrolabe-scope.d.ts"
     },
+    "./divination/astrolabe-synastry": {
+      "import": "./dist/divination/astrolabe-synastry.js",
+      "types": "./dist/divination/astrolabe-synastry.d.ts"
+    },
+    "./prompt-evidence": {
+      "import": "./dist/prompt-evidence/index.js",
+      "types": "./dist/prompt-evidence/index.d.ts"
+    },
     "./divination/config": {
       "import": "./dist/divination/config.js",
       "types": "./dist/divination/config.d.ts"
@@ -98,10 +106,6 @@
     "./ziwei/true-solar-input": {
       "import": "./dist/ziwei/true-solar-input.js",
       "types": "./dist/ziwei/true-solar-input.d.ts"
-    },
-    "./birth-time-reverse": {
-      "import": "./dist/birth-time-reverse/index.js",
-      "types": "./dist/birth-time-reverse/index.d.ts"
     },
     "./calendar": {
       "import": "./dist/calendar/index.js",
@@ -158,6 +162,14 @@
     "./qizheng": {
       "import": "./dist/qi_zheng/index.js",
       "types": "./dist/qi_zheng/index.d.ts"
+    },
+    "./xuankong": {
+      "import": "./dist/xuan_kong/index.js",
+      "types": "./dist/xuan_kong/index.d.ts"
+    },
+    "./residential-fengshui": {
+      "import": "./dist/residential_fengshui/index.js",
+      "types": "./dist/residential_fengshui/index.d.ts"
     },
     "./types": {
       "import": "./dist/types/index.js",

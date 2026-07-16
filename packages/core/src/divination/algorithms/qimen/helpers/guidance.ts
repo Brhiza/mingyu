@@ -45,7 +45,7 @@ export function createQimenPriorityPalaces(data: QimenData): QimenPriorityPalace
   });
 
   data.classicPatterns?.forEach((pattern) => {
-    const score = getPatternScore(pattern.score, pattern.type);
+    const score = getPatternPriority(pattern.type);
     pattern.palaces.forEach((gong) => {
       addReason(gong, score, `${pattern.type === 'bad' ? '凶格' : '格局'}:${pattern.name}`);
     });
@@ -89,10 +89,6 @@ function getInsightScore(level: '有利' | '风险' | '关注'): number {
   }
 }
 
-function getPatternScore(score: number, type: 'good' | 'bad' | 'neutral'): number {
-  const base = Math.min(Math.max(Math.abs(score), 6), 18);
-  if (type === 'neutral') {
-    return base;
-  }
-  return base + 6;
+function getPatternPriority(type: 'good' | 'bad' | 'neutral'): number {
+  return type === 'neutral' ? 12 : 18;
 }

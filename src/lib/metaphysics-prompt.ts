@@ -1,6 +1,9 @@
 import { formatPromptCurrentTime } from './prompt-time';
+import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
+import { buildPromptGuidanceSections, type MetaphysicsPromptMethod } from './prompt-guidance';
 
 export interface MetaphysicsPromptOptions {
+  method: MetaphysicsPromptMethod;
   measurement?: string;
   currentTime?: Date;
   context?: PromptRealWorldContext;
@@ -43,30 +46,31 @@ export function insertPromptRealWorldContext(
 
 export function buildMetaphysicsPrompt(
   basePrompt: string,
-  question?: string,
-  options: MetaphysicsPromptOptions = {},
+  question: string | undefined,
+  options: MetaphysicsPromptOptions,
 ): string {
   const normalizedQuestion = question?.trim() || '请综合解读本次排盘的重点、风险与行动建议。';
   const contextText = formatPromptRealWorldContext(options.context);
 
-  return [
-    '【当前时间】',
-    formatPromptCurrentTime(options.currentTime),
-    '',
-    basePrompt,
-    ...(options.measurement ? ['', '【测量换算】', options.measurement] : []),
-    ...(contextText ? ['', '【补充信息】', contextText] : []),
-    '',
-    '【问题】',
-    normalizedQuestion,
-    '',
-    '【任务】',
-    '只依据上方排盘信息回答【问题】。先给结论，再按主证、辅证、反证或限制说明推理，最后给出可执行建议。',
-    '主证必须来自上方排盘的核心结构；辅证只能用于增减或限定主证；证据互相矛盾时要明确保留意见。',
-    '',
-    '【输出要求】',
-    '使用简体中文；每个关键结论都要紧跟对应盘面依据，不要只给笼统吉凶。',
-    '只使用上方明确列出的星曜、宫位、关系、日期和现实背景；证据不能支持时保守表达，不延伸新的盘面事实。',
-    '神煞、单一方位、单一星曜、单张牌或生肖定级不得作为唯一结论；涉及健康、法律、财务和安全时必须提醒核实现实资料。',
-  ].join('\n');
+  return appendTraditionalResearchNotice(
+    [
+      buildPromptGuidanceSections(options.method),
+      '',
+      '【当前时间】',
+      formatPromptCurrentTime(options.currentTime),
+      '',
+      basePrompt,
+      ...(options.measurement ? ['', '【测量换算】', options.measurement] : []),
+      ...(contextText ? ['', '【补充信息】', contextText] : []),
+      '',
+      '【问题】',
+      normalizedQuestion,
+      '',
+      '【任务】',
+      '请直接回答【问题】，说明关键盘面依据，并给出可执行建议。',
+      '',
+      '【输出要求】',
+      '使用简体中文，先说结论，再展开依据和建议。',
+    ].join('\n'),
+  );
 }

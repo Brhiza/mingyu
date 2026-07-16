@@ -6,9 +6,7 @@
  *   - 无根：地支藏干中既无同干也无同五行
  * @古籍依据 《子平真诠》"论根基"、《渊海子平》"论通根"
  *
- * 评分口径（沿用 vibebazi 量化方案）：
- *   - 本气 1.2 / 中气 0.8 / 余气 0.5
- *   - 本根权重 1.0，同气根权重 0.6
+ * 结果只公开本根、同气根或无根的逐项事实，不生成通根分值。
  */
 import type {
   StemRootProfile,
@@ -32,16 +30,6 @@ const STEM_ELEMENT: Record<string, string> = {
   壬: '水',
   癸: '水',
 };
-
-function getHiddenRootScore(index: number): number {
-  if (index === 0) return 1.2; // 本气
-  if (index === 1) return 0.8; // 中气
-  return 0.5; // 余气
-}
-
-function roundScore(value: number): number {
-  return Math.round(value * 100) / 100;
-}
 
 function assertPillarInputs(pillars: Array<{ gan: string; zhi: string }>): void {
   if (pillars.length !== 4) {
@@ -92,22 +80,19 @@ export function analyzeStemRootProfile(
       STEM_ELEMENT[visibleStem] || resolveWuxing(getWuxing, visibleStem, '透干');
     let hasSameStem = false;
     let hasSameElement = false;
-    let rootScore = 0;
 
     pillars.forEach((rootPillar) => {
       const stems = HIDDEN_STEMS[rootPillar.zhi];
       if (!stems) {
         throw new Error(`藏干数据缺失：${rootPillar.zhi}`);
       }
-      stems.forEach((stem, index) => {
+      stems.forEach((stem) => {
         const isSameStem = stem === visibleStem;
         const isSameElement = STEM_ELEMENT[stem] === visibleElement && stem !== visibleStem;
         if (isSameStem) {
           hasSameStem = true;
-          rootScore += getHiddenRootScore(index) * 1.0; // 本根权重 1.0
         } else if (isSameElement) {
           hasSameElement = true;
-          rootScore += getHiddenRootScore(index) * 0.6; // 同气根权重 0.6
         }
       });
     });
@@ -122,7 +107,6 @@ export function analyzeStemRootProfile(
       pillar: pillarNames[idx],
       stem: visibleStem,
       tenGod: resolveTenGod(getTenGod, visibleStem, dayMaster),
-      rootScore: roundScore(rootScore),
       status,
       summary:
         status === '有本根'
@@ -185,7 +169,6 @@ export function analyzeExposedStemProfile(
       seasonStatus: '平',
       commandStatus,
       rootStatus: '待定',
-      rootScore: 0,
       summary: `${p.gan}透于${pillarNames[idx]}，${commandStatus}`,
     });
   });

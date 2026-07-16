@@ -10,9 +10,9 @@ import type { AstrolabeScopeContext } from '@/lib/astrolabe-scope';
 import type { PalaceFact } from '@/types/analysis';
 import type { BaziChartResult } from '@core/bazi/baziTypes';
 import type { BaziFortuneSelectionValue } from '@core/bazi/fortuneSelection';
-import { buildBaziQuestionGuidanceSection } from '@/utils/ai/baziPromptGuidance';
 import { safeStorage } from '@/lib/safe-storage';
 import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
+import { buildPromptGuidanceSections } from '@/lib/prompt-guidance';
 import {
   baziCompatibilityShortcutActions,
   baziSingleShortcutActions,
@@ -173,7 +173,7 @@ export function resolveAstrolabeShortcutMode(
 }
 
 export function buildCombinedPromptText(system: string, user: string) {
-  return [system, '', user].join('\n');
+  return [system, user].filter(Boolean).join('\n\n');
 }
 
 export function buildEnhancedZiweiPromptPack(payload: AnalysisPayloadV1, selectedTopic: string) {
@@ -213,16 +213,7 @@ export function buildBaziZiweiEnhancedPrompt(params: {
   const questionScopeLabel = params.questionScopeLabel?.trim();
 
   return [
-    '你是一位同时熟悉八字与紫微斗数的资深命理分析师，擅长先用八字判断命局结构与岁运主线，再用紫微斗数校验宫位主轴、四化触发与运限落点。',
-    '【要求】',
-    '- 只基于提供的八字排盘、紫微盘面和问题作答。',
-    '- 先用八字判断长期底色、用神喜忌、结构强弱和当前触发，再用紫微校验对应宫位、四化、三方四正和运限呼应。',
-    '- 两套体系结论一致时可以增强结论；出现分歧时必须指出哪一侧证据更强、另一侧对应的条件与待核验点。',
-    '- 不得编造已提供资料没有给出的新盘面事实；允许基于已提供资料做传统命理推理，但必须标明来自八字原局、岁运、紫微宫位、四化、运限或现实补充信息。',
-    '- 年份、月份、日期或年龄只有出现在【分析对象】或已提供资料中，才可作为当前年限运限依据。',
-    '- 不要平均复述两套盘面资料，优先提炼最能回答【问题】的核心证据。',
-    '- 使用简体中文，不写空话；证据不足处直接说明。',
-    '',
+    buildPromptGuidanceSections('bazi-ziwei'),
     `【当前时间】\n${formatPromptCurrentTime()}`,
     sourceLabels.length > 0 ? `【分析对象】\n${sourceLabels.join('\n')}` : '',
     questionScopeLabel && questionScopeLabel !== '通用'
@@ -234,10 +225,8 @@ export function buildBaziZiweiEnhancedPrompt(params: {
     ...(isCustomQuestion
       ? []
       : [
-          `【断盘要点】\n${buildBaziQuestionGuidanceSection(Boolean(params.baziFortuneSummary))}`,
-          '【解读范围】\n如果【分析对象】已经给出八字年限或紫微范围，必须优先围绕该对象分析；如果【问题】中的时间与分析对象不一致，开头先提醒不一致，再以分析对象为准；应期判断必须说明来自本命底色、阶段运限、年度触发、月度窗口还是日时短期触发。',
           '【任务】\n先用八字判断命局主线、结构强弱、喜忌取用与当前触发，再用紫微校验对应宫位主轴、四化牵动、三方四正和运限落点，最后整合成一致结论、冲突点、应期触发与现实建议。',
-          '【输出要求】\n先直接回答【问题】，再按“结论总览”“八字主线”“紫微校验”“交叉验证”“冲突点与待核验项”“应期触发”“现实建议”展开；每部分都要写明主证、辅证、反证或限制、触发条件与建议；若两套体系存在冲突，必须说明哪一侧证据更强、另一侧在什么条件下才成立。',
+          '【输出要求】\n先直接回答【问题】，再说明八字主线、紫微校验、两者一致或分歧之处、应期触发和现实建议。',
         ]),
   ]
     .filter(Boolean)
@@ -345,44 +334,6 @@ export function buildAstrolabeFullScopePromptText(
   return lines.length
     ? ['分析对象：本命盘与完整行运资料。', '完整星盘行运资料：', ...lines].join('\n')
     : '';
-}
-
-export function buildCompatibilityPromptWithUnknownTime(params: {
-  firstName: string;
-  firstText: string;
-  secondName: string;
-  secondText: string;
-  question: string;
-  isCustomQuestion?: boolean;
-}) {
-  const isCustomQuestion = Boolean(params.isCustomQuestion);
-  return [
-    '你是资深八字命理师，当前合盘信息里至少有一方出生时辰未知，请只做保守分析。',
-    '【要求】',
-    '- 只基于提供的双方信息作答。',
-    '- 其中带“时辰未知”的一方只能按三柱理解，不得自行补足时柱。',
-    '- 不得编造资料里没有给出的新盘面事实；允许基于三柱和已知资料做保守推理，但必须标明证据来源。',
-    '- 凡是明显依赖时柱、子女宫或更细时限的判断，都要标记为待确认。',
-    ...(isCustomQuestion
-      ? []
-      : [
-          '- 先直接回答【问题】，并区分当前能确认的主线与因时辰未知而待确认的部分。',
-          '- 最后补充最值得继续核验的时辰线索。',
-        ]),
-    '',
-    `【当前时间】\n${formatPromptCurrentTime()}`,
-    `【第一人排盘信息】\n姓名：${params.firstName}\n${params.firstText}`,
-    '',
-    `【第二人排盘信息】\n姓名：${params.secondName}\n${params.secondText}`,
-    '',
-    `【问题】\n${params.question.trim() || '请先做整体合盘解读。'}`,
-    ...(isCustomQuestion
-      ? []
-      : [
-          '【任务】\n请结合双方已知信息，先做保守分析，并明确哪些部分需要等时辰确认后再细化。',
-          '【输出要求】\n先直接回答【问题】，再分成“可确认部分”“待确认部分”“建议继续核验的线索”“当前行动建议”四段；每段尽量写明对应依据、触发条件与建议；证据不足时直接说明；用简体中文。',
-        ]),
-  ].join('\n');
 }
 
 export function formatGender(value: string) {

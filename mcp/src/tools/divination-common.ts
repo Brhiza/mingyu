@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { drawSingleCard, drawSpreadCards, getCardKeywords } from 'mingyu-core/divination/tarot';
+import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import type { RandomOptions } from 'mingyu-core/types';
 import type { tarotSpreads } from 'mingyu-core/divination/tarot';
 import { PROMPT_MODES } from '../../../src/lib/public-api/prompt-builders.js';
@@ -65,37 +65,5 @@ export function buildCommonDivinationPrompt(
 }
 
 export function buildTarotSpread(spreadType: TarotSpreadKey, options?: RandomOptions) {
-  if (spreadType === 'single') {
-    const draw = drawSingleCard(options);
-    return {
-      spreadType: 'single',
-      spreadName: '单牌指引',
-      cards: [
-        {
-          id: draw.card.number,
-          name: draw.card.name,
-          position: draw.position,
-          reversed: draw.isReversed,
-          keywords: getCardKeywords(draw.card.name).split(','),
-        },
-      ],
-      timestamp: draw.timestamp,
-      meta: draw.meta,
-    };
-  }
-
-  const draw = drawSpreadCards(spreadType, options);
-  return {
-    spreadType: draw.spreadType,
-    spreadName: draw.spreadName,
-    cards: draw.cards.map((item) => ({
-      id: item.card.number,
-      name: item.card.name,
-      position: item.position,
-      reversed: item.isReversed,
-      keywords: getCardKeywords(item.card.name).split(','),
-    })),
-    timestamp: draw.timestamp,
-    meta: draw.meta,
-  };
+  return drawTarotSpread(spreadType, options);
 }

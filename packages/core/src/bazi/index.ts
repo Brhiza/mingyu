@@ -21,6 +21,8 @@ export type {
   Pillars,
   BaziChartResult,
   BaziAnalysisResult,
+  BaziWarningFact,
+  BaziWarningSummaryFact,
   Wuxing,
 } from './baziTypes';
 export {
@@ -85,6 +87,7 @@ export {
   BOUNDARY_THRESHOLD_MINUTES,
 } from './paipanWarnings';
 export type { BoundaryCheckInput } from './paipanWarnings';
+export { buildBaziWarningEvidence } from './paipanWarnings';
 export { LuckCalculator } from './LuckCalculator';
 export {
   formatSolarDateTime,
@@ -114,3 +117,39 @@ export {
 } from './harmonyTransform';
 export type { HarmonyPillarInput } from './harmonyTransform';
 export { getLifeStage } from './baziValues';
+export { analyzeBaziCompatibility } from './compatibilityEvidence';
+export { analyzeFortuneTriggers } from './fortuneTriggerEvidence';
+export { analyzeBaziNatalEvidence } from './natalEvidence';
+export type {
+  BaziNatalAnalysisFact,
+  BaziNatalCalculationStep,
+  BaziNatalCounterEvidenceFact,
+  BaziNatalCounterSummaryFact,
+  BaziNatalEvidenceAnalysis,
+  BaziNatalLimitationFact,
+  BaziNatalPillarFact,
+  BaziNatalRelationFact,
+  BaziNatalSummaryFact,
+} from './natalEvidence';
+export type {
+  FortuneLayerType,
+  FortuneTriggerEvidenceResult,
+  FortuneTriggerFormationFact,
+  FortuneTriggerLayer,
+  FortuneTriggerRelation,
+  FortuneTriggerRelationType,
+} from './fortuneTriggerEvidence';
+export type {
+  BaziCompatibilityCalculationStep,
+  BaziCompatibilityCounterEvidenceFact,
+  BaziCompatibilityEvidenceResult,
+  BaziCompatibilityLimitationFact,
+  BaziCompatibilityOptions,
+  BaziCompatibilitySummaryFact,
+  BaziCrossBranchCombination,
+  BaziCrossPillarRelation,
+  BaziDayMasterRelation,
+  BaziTenGodMapping,
+  BaziUsefulGodCoverage,
+  BaziUsefulGodCoverageItem,
+} from './compatibilityEvidence';

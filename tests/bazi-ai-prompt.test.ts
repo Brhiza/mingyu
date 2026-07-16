@@ -9,6 +9,8 @@ import { formatBaziForPrompt as formatBaziForPromptCore } from '../packages/core
 import { identifyClassicPattern as identifyClassicPatternCore } from '../packages/core/src/bazi/baziEnhancement/classicPatterns';
 import { identifyClassicPattern as identifyClassicPatternLocal } from '@core/bazi/baziEnhancement/classicPatterns';
 import { generateEnhancedAnalysisSection } from '@core/bazi/baziPromptEnhancement';
+import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../src/lib/prompt-guidance';
+import { assertPromptHasSingleRole } from './prompt-assertions';
 
 function assertNoEngineeringPromptText(prompt: string) {
   assert.doesNotMatch(
@@ -57,21 +59,17 @@ function createCompatibilityBaziResults() {
   };
 }
 
-test('八字合盘系统提示词应使用专门的双盘规则，不混入单盘要求', () => {
+test('八字合盘不再附加系统提示词，并保留双盘资料与简明任务', () => {
   const { result1, result2 } = createCompatibilityBaziResults();
 
   const prompt = getCompatibilityPrompt('请分析我们适不适合长期合伙。', result1, result2, 'career');
 
-  assert.match(prompt.system, /只基于提供的双方命盘、岁运和问题作答/);
-  assert.match(
-    prompt.system,
-    /双盘先分别判断旺衰、格局、调候和用忌，再汇总双方互动主线、互补点、冲突点、现实压力和建议/,
-  );
-  assert.match(prompt.system, /关系结论若与双方命局主线或岁运节奏不一致，必须指出冲突点/);
-  assert.match(prompt.system, /不得编造已提供资料没有给出的新盘面事实/);
-  assert.match(prompt.system, /允许基于双方已提供资料做传统八字推理/);
-  assert.doesNotMatch(prompt.system, /说清核心用神、辅助喜用与主忌/);
-  assert.equal((prompt.system.match(/信息不足时说明证据不足/g) || []).length, 1);
+  assert.equal(prompt.system, '');
+  assertPromptHasSingleRole(prompt.user, PROMPT_ROLE_TEXT['bazi-compatibility']);
+  assert.match(prompt.user, /【双盘关系资料】/);
+  assert.match(prompt.user, /日主关系：/);
+  assert.match(prompt.user, /【任务】\n关系范围：合伙。请先判断关系主轴/);
+  assert.doesNotMatch(prompt.user, /结构化证据|证据边界|不得编造|只基于/);
 });
 
 test('八字输出提示词应是可复制给在线 AI 的独立任务书，不暴露工程提示词', () => {
@@ -89,6 +87,7 @@ test('八字输出提示词应是可复制给在线 AI 的独立任务书，不�
   );
   const combinedPrompt = `${prompt.system}\n\n${prompt.user}`;
 
+  assertPromptHasSingleRole(combinedPrompt, PROMPT_ROLE_TEXT.bazi);
   assertNoEngineeringPromptText(combinedPrompt);
 });
 
@@ -109,15 +108,13 @@ test('八字单盘空问题补通用问题，分类不再塞本地固定问题',
   );
 
   assert.match(prompt.user, /【问题】\n请先做整体解读。/);
-  assert.match(
-    prompt.user,
-    /【任务】\n主题范围：事业。请围绕【问题】和该主题范围直接判断重点；若【问题】未限定具体事项，按通用八字口径先做整体分析，再结合该主题提示重点。/,
-  );
+  assert.match(prompt.user, /【任务】\n请重点分析事业，并直接回答【问题】。/);
+  assert.doesNotMatch(prompt.user, /若【问题】|按通用.*口径|问题未限定/);
   assert.doesNotMatch(prompt.user, /【问题】\n判断命局更适合守成/);
   assert.doesNotMatch(prompt.user, /【任务】\n判断命局更适合守成/);
 });
 
-test('八字提示词写入年限选择后应补充完整岁运任务书', () => {
+test('八字提示词写入年限选择后应保留岁运资料并省略控制话术', () => {
   const result = createBaziResult();
   const fortuneContext = buildFortuneSelectionContext(result, {
     scope: 'year',
@@ -147,19 +144,12 @@ test('八字提示词写入年限选择后应补充完整岁运任务书', () =>
   assert.match(prompt.user, /上层岁运：/);
   assert.match(prompt.user, /所选干支：/);
   assert.match(prompt.user, /主要触发：/);
-  assert.match(prompt.user, /解读范围：重点判断这一年的年度触发/);
-  assert.doesNotMatch(prompt.user, /【主证】|【辅证】|【限制】|来源：|标签：/);
   assert.match(prompt.user, /所属大运包含的流年/);
   assert.match(prompt.user, /该流年包含的流月/);
   assert.match(prompt.user, /交下节/);
-  assert.match(prompt.user, /【解读方法】/);
-  assert.match(prompt.user, /当前指定流年：回答以该年年度触发为主，必须承接所属大运背景/);
-  assert.match(prompt.user, /大运层：看十年阶段的环境、身份、资源、压力和机会方向/);
-  assert.match(prompt.user, /流月层：看月份窗口、推进节奏、临门一脚和短期反复/);
-  assert.match(prompt.user, /流日层：看当日执行、沟通、签约、出行、冲突和避险/);
+  assert.doesNotMatch(prompt.user, /结构化证据|【主证】|【辅证】|【限制】|【解读方法】|解读范围：/);
   assert.ok(prompt.user.indexOf('【分析对象】') < prompt.user.indexOf('【岁运重点】'));
-  assert.ok(prompt.user.indexOf('【岁运重点】') < prompt.user.indexOf('【解读方法】'));
-  assert.ok(prompt.user.indexOf('【解读方法】') < prompt.user.indexOf('【解读范围】'));
+  assert.ok(prompt.user.indexOf('【岁运重点】') < prompt.user.indexOf('【问题】'));
 });
 
 test('八字完整输出版会附加完整大运流年资料', () => {
@@ -182,7 +172,7 @@ test('八字完整输出版会附加完整大运流年资料', () => {
   assert.doesNotMatch(prompt.user, /详细命限资料|资料量|聚焦当前分析对象/);
 });
 
-test('八字流月提示词应突出所选日期范围且不输出证据调试字段', () => {
+test('八字流月提示词应突出所选日期范围并保留必要触发资料', () => {
   const result = createBaziResult();
   const fortuneContext = buildFortuneSelectionContext(result, {
     scope: 'month',
@@ -205,20 +195,19 @@ test('八字流月提示词应突出所选日期范围且不输出证据调试�
     '换工作',
     { isCustomQuestion: false },
   );
-  const fortuneSection = prompt.user.match(/【岁运重点】([\s\S]*?)\n\n【解读方法】/)?.[1] || '';
+  const fortuneSection = prompt.user.match(/【岁运重点】([\s\S]*?)\n\n【问题】/)?.[1] || '';
 
   assert.match(fortuneSection, /分析对象：\d{4}年.+流月/);
   assert.match(fortuneSection, /选择日期：\d{4}-\d{2}-\d{2} 至 \d{4}-\d{2}-\d{2}/);
   assert.match(fortuneSection, /节气月：/);
   assert.match(fortuneSection, /上层岁运：/);
-  assert.match(fortuneSection, /解读范围：重点判断这个节气月窗口/);
   assert.match(prompt.user, /所属流年包含的流月/);
   assert.match(prompt.user, /该流月包含的流日/);
   assert.match(prompt.user, /\d{4}-\d{2}-\d{2} .+｜十神/);
-  assert.doesNotMatch(fortuneSection, /【主证】|来源：|标签：|断事层级限制/);
+  assert.doesNotMatch(fortuneSection, /结构化证据|来源：|解释边界|断事层级限制/);
 });
 
-test('八字提示词未选择年限时输出本命独立任务书且不输出岁运重点', () => {
+test('八字提示词未选择年限时输出本命资料且不输出岁运重点', () => {
   const result = createBaziResult();
 
   const prompt = buildPromptFromConfig(
@@ -241,12 +230,9 @@ test('八字提示词未选择年限时输出本命独立任务书且不输出�
   assert.match(prompt.user, /\d+\. .+：?\d{4}年起，约\d+岁交运，含\d{4}-\d{4}年流年/);
   assert.match(prompt.user, /当前大运:|当前阶段:/);
   assert.match(prompt.user, /近年流年:/);
-  assert.match(prompt.user, /资料说明：本次未指定某个大运、流年、流月或流日为分析对象/);
-  assert.match(prompt.user, /可参考【排盘信息】中的大运总览、当前大运与近年流年作阶段背景/);
-  assert.match(prompt.user, /本次未指定某个大运、流年、流月或流日为分析对象/);
-  assert.match(prompt.user, /问题.*具体年份、月份、日期或年龄/);
   assert.doesNotMatch(prompt.user, /【岁运重点】/);
   assert.doesNotMatch(prompt.user, /【解读方法】/);
+  assert.doesNotMatch(prompt.user, /资料说明：|本次未指定|不得自行指定/);
 });
 
 test('合盘提示词不应误要求使用单盘核心用神句式', () => {
@@ -272,7 +258,7 @@ test('八字合盘内嵌命盘资料不应重复使用顶层 section 标题', ()
   assert.match(prompt.user, /四柱：\n/);
 });
 
-test('八字提示词在病药结论与正式主忌一致时应保留病药法片段（不冲突不隐藏）', () => {
+test('八字提示词不应由五行百分比阈值自动生成病药结论', () => {
   const result = baziCalculator.calculateBazi({
     year: 1995,
     month: 5,
@@ -294,11 +280,11 @@ test('八字提示词在病药结论与正式主忌一致时应保留病药法�
   );
 
   assert.match(prompt.user, /主忌火/);
-  // 病药法与主忌不冲突（药=水 克 病=火=主忌火），应保留
-  assert.match(prompt.user, /【病药法】/);
+  assert.match(prompt.user, /【五行结构】/);
+  assert.doesNotMatch(prompt.user, /【病药法】/);
 });
 
-test('八字提示词在病药结论与正式喜忌一致时仍可保留病药法片段', () => {
+test('八字提示词不应把五行构成阈值包装为过强过弱病药断语', () => {
   const result = baziCalculator.calculateBazi({
     year: 1988,
     month: 1,
@@ -320,7 +306,7 @@ test('八字提示词在病药结论与正式喜忌一致时仍可保留病药�
   );
 
   assert.match(prompt.user, /喜忌五行: 火、水、土、金 \| 木/);
-  assert.match(prompt.user, /【病药法】病:金过弱为病 \| 药:土/);
+  assert.doesNotMatch(prompt.user, /【病药法】|过弱为病|过旺为病/);
 });
 
 test('八字提示词中的经典格局片段不应再单列独立喜忌，避免与正式主线冲突', () => {
@@ -606,7 +592,7 @@ test('八字提示词在通关结论落入正式主忌时应隐藏通关法片�
   assert.doesNotMatch(prompt.user, /【通关法】/);
 });
 
-test('八字提示词在通关结论不与正式主忌冲突时仍可保留通关法片段', () => {
+test('八字提示词不应由五行百分比阈值自动生成通关结论', () => {
   const result = baziCalculator.calculateBazi({
     year: 1988,
     month: 1,
@@ -628,7 +614,7 @@ test('八字提示词在通关结论不与正式主忌冲突时仍可保留通�
   );
 
   assert.match(prompt.user, /主忌土\+次水/);
-  assert.match(prompt.user, /【通关法】水与火相战，以木通关调和/);
+  assert.doesNotMatch(prompt.user, /【通关法】/);
 });
 
 test('柱位出现桃花时即使全局神煞没有桃花也应生成桃花详解', () => {
@@ -842,8 +828,9 @@ test('八字提示词会节选合化评分，避免把合化候选直接当成�
   );
 
   assert.match(prompt.user, /【合化程度】命盘见合化候选：/);
-  assert.match(prompt.user, /天干五合年柱丁与月柱壬化木：合而不化50分，方向合绊/);
-  assert.match(prompt.user, /80分以下不得直接按成化处理/);
+  assert.match(prompt.user, /天干五合年柱丁与月柱壬化木：合而不化，方向合绊/);
+  assert.doesNotMatch(prompt.user, /合化候选：[^\n]*\d+分|【合化程度】合化评分|80分以下/);
+  assert.doesNotMatch(prompt.user, /概率或吉凶分/);
   assert.doesNotMatch(prompt.user, /原组合可按化神木参与后续结构判断/);
 });
 
@@ -865,6 +852,9 @@ test('八字增强资料包不再按用户分类切换本地模板', () => {
 
   assert.equal(healthSection, generalSection);
   assert.equal(careerSection, generalSection);
+  assert.match(generalSection, /【五行结构】出现：/);
+  assert.match(generalSection, /相对突出：/);
+  assert.doesNotMatch(generalSection, /月令旺衰权重|不代表概率|规则输入/);
   assert.doesNotMatch(healthSection, /【寿元分析】/);
   assert.doesNotMatch(careerSection, /【限运分析】/);
 });
@@ -900,7 +890,7 @@ test('合盘分类只作为关系范围，不再插入本地专项框架', () =>
   );
   assert.match(
     careerPrompt.user,
-    /【输出要求】\n先直接回答【问题】，再按“关系主轴、互补资源、冲突压力、触发条件、推进建议”展开。/,
+    /【输出要求】\n先直接回答【问题】，再说明关系主轴、互补点、冲突点、触发条件和现实建议，并结合双方盘面资料说明。/,
   );
 
   const friendshipPrompt = getCompatibilityPrompt(
@@ -920,7 +910,7 @@ test('合盘分类只作为关系范围，不再插入本地专项框架', () =>
   assert.doesNotMatch(childrenPrompt.user, /【合盘分析思路】|【子女缘分】/);
   assert.match(
     childrenPrompt.user,
-    /【输出要求】\n先直接回答【问题】，再按“关系主轴、互补资源、冲突压力、触发条件、推进建议”展开。/,
+    /【输出要求】\n先直接回答【问题】，再说明关系主轴、互补点、冲突点、触发条件和现实建议，并结合双方盘面资料说明。/,
   );
 
   const parentsPrompt = getCompatibilityPrompt('请分析双方父母情况。', result1, result2, 'parents');
@@ -938,6 +928,7 @@ test('八字合盘自定义问题不应额外拼接框架任务书', () => {
     { isCustomQuestion: true },
   );
 
+  assertPromptHasSingleRole(prompt.user, PROMPT_ROLE_TEXT['bazi-compatibility']);
   assert.match(prompt.user, /【问题】\n我们现在更适合继续推进合作，还是先保持距离？/);
   assert.doesNotMatch(prompt.user, /【合盘分析思路】/);
   assert.doesNotMatch(prompt.user, /【任务】/);

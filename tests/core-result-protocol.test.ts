@@ -9,7 +9,7 @@ import {
   serializeCoreResult,
   stableStringify,
 } from 'mingyu-core/result';
-import { createRandomContext } from 'mingyu-core/random';
+import { buildRandomTraceFact, createRandomContext } from 'mingyu-core/random';
 import { normalizeBirthProfile, BirthProfileError } from 'mingyu-core/profile';
 import { drawSpreadCards } from '../packages/core/src/divination/tarot';
 import { drawLenormandSpread } from '../packages/core/src/divination/algorithms/lenormand';
@@ -83,16 +83,7 @@ test('统一错误可结构化输出，出生档案错误继续保持兼容类�
       year: 1990,
       month: 5,
       day: 15,
-      unknownTime: true,
-    });
-    if (!profile.hasKnownTime) {
-      throw new BirthProfileError({
-        code: 'TIME_REQUIRED',
-        level: 'error',
-        field: 'hour',
-        message: '需要时辰。',
-      });
-    }
+    } as never);
   } catch (error) {
     caught = error;
   }
@@ -102,10 +93,17 @@ test('统一错误可结构化输出，出生档案错误继续保持兼容类�
     name: 'BirthProfileError',
     code: 'TIME_REQUIRED',
     category: 'validation',
-    message: '需要时辰。',
-    field: 'hour',
+    message: '请提供明确的出生时辰，或完整的出生小时和分钟。',
+    field: 'timeIndex',
     recoverable: true,
-    diagnostics: [{ code: 'TIME_REQUIRED', level: 'error', field: 'hour', message: '需要时辰。' }],
+    diagnostics: [
+      {
+        code: 'TIME_REQUIRED',
+        level: 'error',
+        field: 'timeIndex',
+        message: '请提供明确的出生时辰，或完整的出生小时和分钟。',
+      },
+    ],
     context: undefined,
   });
 });
@@ -127,6 +125,44 @@ test('随机上下文支持种子记录和原始样本重放', () => {
       error instanceof MingyuCoreError && error.code === 'RANDOM_REPLAY_EXHAUSTED',
   );
   assert.throws(() => createRandomContext({ seed: 1, replay: [0.5] }), /只能提供一种/);
+});
+
+test('随机轨迹事实应区分可重放、轨迹缺失和不适用', () => {
+  const replayable = buildRandomTraceFact({
+    key: 'random:test:seeded',
+    applicable: true,
+    trace: { mode: 'seeded', seed: '结构化样例', samples: [0.1, 0.2] },
+    processLabel: '测试生成过程',
+    sources: ['测试输入', '随机元数据'],
+  });
+  assert.equal(replayable.status, '可重放');
+  assert.equal(replayable.mode, 'seeded');
+  assert.equal(replayable.seed, '结构化样例');
+  assert.deepEqual(replayable.samples, [0.1, 0.2]);
+  assert.equal(replayable.sampleCount, 2);
+  assert.doesNotMatch(replayable.promptText, /结构化样例|0\.1|0\.2/);
+  assert.match(replayable.limitation, /不表示可信度或预测有效性/);
+
+  const missing = buildRandomTraceFact({
+    key: 'random:test:missing',
+    applicable: true,
+    processLabel: '测试生成过程',
+    sources: ['测试输入'],
+  });
+  assert.equal(missing.status, '缺少轨迹');
+  assert.equal(missing.mode, '未记录');
+  assert.equal(missing.sampleCount, 0);
+  assert.match(missing.promptText, /无法核验或重放/);
+
+  const notApplicable = buildRandomTraceFact({
+    key: 'random:test:manual',
+    applicable: false,
+    processLabel: '手工录入过程',
+    sources: ['手工输入'],
+  });
+  assert.equal(notApplicable.status, '不适用');
+  assert.equal(notApplicable.mode, '不适用');
+  assert.match(notApplicable.promptText, /不依赖随机抽样/);
 });
 
 test('塔罗、雷诺曼、灵签、梅花和小六壬可由结果元数据完整重放', () => {
@@ -190,6 +226,38 @@ test('六爻保留时间、手工和模拟三钱三种来源及逐币轨迹', ()
   assert.deepEqual(replay.generation.coinThrows, coins.generation.coinThrows);
   assert.equal(replay.meta.resultId, coins.meta.resultId);
   assert.equal(coins.generation.coinThrows?.flatMap((item) => item.coins).length, 18);
+  const sourceItem = coins.evidenceAnalysis?.evidence.items.find(
+    (item) => item.title === '起卦来源：模拟三钱起卦',
+  );
+  const randomItem = coins.evidenceAnalysis?.evidence.items.find(
+    (item) => item.title === '六爻随机重放记录',
+  );
+  assert.equal(sourceItem?.level, '辅证');
+  assert.match(sourceItem?.detail || '', /第1爻计算样本/);
+  assert.match(sourceItem?.detail || '', /只说明卦象如何生成/);
+  assert.equal(randomItem?.level, '辅证');
+  assert.doesNotMatch(randomItem?.detail || '', /三钱样例/);
+  assert.match(randomItem?.detail || '', /不表示可信度或预测有效性/);
+  assert.equal(time.evidenceAnalysis?.generationFact.status, '可核验');
+  assert.equal(time.evidenceAnalysis?.generationFact.method, 'time');
+  assert.equal(time.evidenceAnalysis?.generationFact.recordedLineCount, 6);
+  assert.equal(coins.evidenceAnalysis?.generationFact.status, '可核验');
+  assert.equal(coins.evidenceAnalysis?.generationFact.coinThrows.length, 6);
+  assert.equal(manual.evidenceAnalysis?.generationFact.status, '可核验');
+  assert.deepEqual(manual.evidenceAnalysis?.generationFact.yaoValues, [...manualYaos]);
+  assert.equal(manual.evidenceAnalysis?.generationFact.coinThrows.length, 0);
+  assert.match(manual.evidenceAnalysis?.generationFact.limitation || '', /不证明预测有效性/);
+  assert.equal(time.evidenceAnalysis?.randomFact.status, '可重放');
+  assert.equal(time.evidenceAnalysis?.randomFact.sampleCount, 18);
+  assert.equal(coins.evidenceAnalysis?.randomFact.status, '可重放');
+  assert.equal(coins.evidenceAnalysis?.randomFact.seed, '三钱样例');
+  assert.equal(coins.evidenceAnalysis?.randomFact.sampleCount, 18);
+  assert.doesNotMatch(coins.evidenceAnalysis?.randomFact.promptText || '', /三钱样例/);
+  assert.equal(manual.evidenceAnalysis?.randomFact.status, '不适用');
+  assert.deepEqual(manual.evidenceAnalysis?.randomFacts, []);
+  assert.ok(
+    !manual.evidenceAnalysis?.evidence.items.some((item) => item.title === '六爻随机重放记录'),
+  );
 
   assert.throws(() => generateLiuyao(DATE, { method: 'manual' }), /必须提供六个爻值/);
   assert.throws(

@@ -42,6 +42,44 @@ export function findPromptSectionHeadingIndex(prompt: string, section: string) {
   return prompt.search(new RegExp(`^${escapeRegExp(section)}$`, 'm'));
 }
 
+export function assertPromptHasSingleRole(
+  prompt: string,
+  expectedGuidance?: {
+    identity: string;
+    analysis: string;
+    tradition?: string;
+    sources?: string;
+    output: string;
+  },
+) {
+  assert.doesNotMatch(prompt, /^【角色】$/m, '角色设定不应使用【角色】标签');
+  assert.equal(prompt.match(/^【解读主线】$/gm)?.length ?? 0, 1, '解读主线应且只应出现一次');
+  assert.equal(prompt.match(/^【输出结构】$/gm)?.length ?? 0, 1, '输出结构应且只应出现一次');
+  if (expectedGuidance) {
+    assert.match(prompt, new RegExp(`^${escapeRegExp(expectedGuidance.identity)}$`, 'm'));
+    assert.match(
+      prompt,
+      new RegExp(`^【解读主线】\\n${escapeRegExp(expectedGuidance.analysis)}$`, 'm'),
+    );
+    assert.match(
+      prompt,
+      new RegExp(`^【输出结构】\\n${escapeRegExp(expectedGuidance.output)}$`, 'm'),
+    );
+    if (expectedGuidance.tradition) {
+      assert.match(
+        prompt,
+        new RegExp(`^【传统判断规则】\\n${escapeRegExp(expectedGuidance.tradition)}$`, 'm'),
+      );
+    }
+    if (expectedGuidance.sources) {
+      assert.match(
+        prompt,
+        new RegExp(`^【传统依据】\\n${escapeRegExp(expectedGuidance.sources)}$`, 'm'),
+      );
+    }
+  }
+}
+
 export function assertNoPromptPlaceholders(prompt: string) {
   assert.doesNotMatch(prompt, /\b(?:undefined|null|NaN)\b/);
 }
@@ -55,6 +93,10 @@ export function assertNoEngineeringPromptText(prompt: string) {
   assert.doesNotMatch(prompt, /用户(?:未|没有|选择|所选|已选|填写|提供|补充|问题)/);
   assert.doesNotMatch(prompt, /需要补充|请补充|再选择/);
   assert.doesNotMatch(prompt, /预设|模板|接口|API|MCP|调试/);
+  assert.doesNotMatch(
+    prompt,
+    /若【问题】|如果【问题】|问题未限定|主题未明确|按通用[^。\n]*口径|本提示词/,
+  );
 }
 
 export function assertPromptIsPortableTaskText(prompt: string) {

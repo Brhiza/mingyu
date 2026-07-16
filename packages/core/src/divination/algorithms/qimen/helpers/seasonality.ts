@@ -16,6 +16,15 @@
  */
 
 import { SolarDay, SolarTime } from 'tyme4ts';
+import {
+  findSolarTermEvidence,
+  type SolarTermEvidence,
+  type SolarTermName,
+} from '../../../../calendar/solar-term-evidence';
+import {
+  calculateMoonPhaseEvidence,
+  type MoonPhaseEvidence,
+} from '../../../../calendar/moon-phase-evidence';
 import { stemElements, isGenerating, isControlling } from './_constants';
 import {
   LIUHE_MAP,
@@ -119,6 +128,8 @@ export interface JieQiPhaseResult {
   phase: '上元' | '中元' | '下元';
   /** 数字索引：0 → 上元，1 → 中元，2 → 下元 */
   phaseIndex: number;
+  /** 当前节气的历表边界、太阳视黄经核验和精度限制 */
+  solarTermEvidence: SolarTermEvidence;
 }
 
 /**
@@ -147,8 +158,13 @@ export function getJieQiPhaseByDate(date: Date): JieQiPhaseResult {
   );
   const phaseIndex = Math.min(2, Math.floor(diff / 5));
   const phase = (['上元', '中元', '下元'] as const)[phaseIndex];
+  const termYear =
+    jieQi === '冬至' && termStartTime.getMonth() === 12
+      ? termStartTime.getYear() + 1
+      : termStartTime.getYear();
+  const solarTermEvidence = findSolarTermEvidence(jieQi as SolarTermName, termYear);
 
-  return { jieQi, phase, phaseIndex };
+  return { jieQi, phase, phaseIndex, solarTermEvidence };
 }
 
 // ============================================================================
@@ -323,6 +339,10 @@ export interface SeasonalityInfo {
   lunarPhase: LunarPhase;
   /** 月相详细名称（来自 tyme4ts 的八相名，如蛾眉月、盈凸月等） */
   lunarPhaseDetail: string;
+  /** 日月黄经差、照明比例及前后朔弦望时刻 */
+  moonPhaseEvidence: MoonPhaseEvidence;
+  /** 历法八相名称与天文相位八分法是否一致 */
+  lunarPhaseConsistency: boolean;
 
   /** 十二建除（建/除/满/平/定/执/破/危/成/收/开/闭） */
   dayOfficer: string;
@@ -391,6 +411,8 @@ export function buildSeasonality(ganzhi: BaseGanZhi, jieQi: string, date: Date):
   const phaseIndex = tymePhase.getIndex();
   const lunarPhase = MOON_PHASE_MAP[phaseIndex] ?? '新月';
   const lunarPhaseDetail = tymePhase.getName();
+  const moonPhaseEvidence = calculateMoonPhaseEvidence(date.getTime());
+  const lunarPhaseConsistency = lunarPhaseDetail === moonPhaseEvidence.eightPhaseName;
 
   // ── 4. 建除十二神 ──
   const duty = solarDay.getLunarDay().getDuty();
@@ -415,6 +437,8 @@ export function buildSeasonality(ganzhi: BaseGanZhi, jieQi: string, date: Date):
 
     lunarPhase,
     lunarPhaseDetail,
+    moonPhaseEvidence,
+    lunarPhaseConsistency,
 
     dayOfficer,
     dayOfficerFortuneLabel: officerInfo.fortune,

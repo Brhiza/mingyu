@@ -1,12 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { BaziFortuneScope } from '@/lib/query-state';
 import type { BaziChartResult } from '@core/bazi/baziTypes';
-import {
-  getBaziDayIndexByDate,
-  getBaziMonthIndexByDate,
-  getMonthDaysInfo,
-  getYearInfo,
-} from '@core/bazi/calendarTool';
+import { getMonthDaysInfo, getYearInfo } from '@core/bazi/calendarTool';
 import {
   buildFortuneSelectionContext,
   normalizeFortuneSelection,
@@ -16,7 +11,11 @@ import {
   isFortuneModalDetailOptionActive,
   isFortuneModalParentOptionActive,
 } from '@core/bazi/fortuneModalSelection';
-import { baziFortuneScopeLabelMap, formatBaziCycleDisplay, getCurrentLuckCycle } from './helpers';
+import {
+  baziFortuneScopeLabelMap,
+  buildCurrentBaziFortuneSelection,
+  formatBaziCycleDisplay,
+} from './helpers';
 
 export function BaziFortuneModal(props: {
   result: BaziChartResult;
@@ -29,27 +28,10 @@ export function BaziFortuneModal(props: {
     () => normalizeFortuneSelection(result, selection),
     [result, selection],
   );
-  const currentCycle = useMemo(() => getCurrentLuckCycle(result), [result]);
-  const currentCycleIndex = useMemo(
-    () =>
-      Math.max(
-        0,
-        result.luckInfo.cycles.findIndex((item) => item === currentCycle),
-      ),
-    [currentCycle, result.luckInfo.cycles],
-  );
   const now = useMemo(() => new Date(), []);
-  const currentQuickYear = now.getFullYear();
-  const currentQuickMonth = getBaziMonthIndexByDate(currentQuickYear, now) ?? 1;
-  const currentQuickDay = getBaziDayIndexByDate(currentQuickYear, currentQuickMonth, now) ?? 1;
   const currentQuickSelection = useMemo(
-    () => ({
-      cycleIndex: currentCycleIndex,
-      year: currentQuickYear,
-      month: currentQuickMonth,
-      day: currentQuickDay,
-    }),
-    [currentCycleIndex, currentQuickDay, currentQuickMonth, currentQuickYear],
+    () => buildCurrentBaziFortuneSelection(result, now),
+    [now, result],
   );
   const [draftScope, setDraftScope] = useState<BaziFortuneScope>(normalizedSelection.scope);
   const [draftCycleIndex, setDraftCycleIndex] = useState(normalizedSelection.cycleIndex ?? 0);
@@ -135,7 +117,7 @@ export function BaziFortuneModal(props: {
     });
 
     setDraftScope(nextSelection.scope);
-    setDraftCycleIndex(nextSelection.cycleIndex ?? currentQuickSelection.cycleIndex);
+    setDraftCycleIndex(nextSelection.cycleIndex ?? currentQuickSelection.cycleIndex ?? 0);
     setDraftYear(nextSelection.year ?? 0);
     setDraftMonth(nextSelection.month ?? 1);
     setDraftDay(nextSelection.day ?? 1);

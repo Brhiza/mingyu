@@ -46,6 +46,7 @@ export interface DirectionAdvice {
   gong: number;
   name: string;
   direction: string;
+  /** @deprecated 仅用于旧版排序兼容，不代表方位吉凶强度。 */
   score: number;
   use: string;
   reasons: string[];
@@ -294,9 +295,7 @@ export function buildDirectionAdvice(
       if (voidGongs.has(p.gong)) {
         reasons.push('空亡');
       }
-      if (reasons.length === 0) {
-        reasons.push('综合评分偏低');
-      }
+      if (reasons.length === 0) return null;
 
       return {
         gong: p.gong,
@@ -306,7 +305,8 @@ export function buildDirectionAdvice(
         use: '宜避之方',
         reasons,
       };
-    });
+    })
+    .filter((item): item is DirectionAdvice => Boolean(item));
 
   return { goodDirections, avoidDirections };
 }

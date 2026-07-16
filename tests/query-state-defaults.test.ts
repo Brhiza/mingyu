@@ -5,10 +5,28 @@ import {
   buildResultSearch,
   defaultInputState,
   defaultPromptState,
-  UNKNOWN_TIME_INDEX,
+  hasCompletePreciseBirthData,
   parseInputState,
   parsePromptState,
 } from '../src/lib/query-state';
+
+test('精准出生资料必须包含真太阳时、时分、地点和经纬度', () => {
+  const complete = {
+    ...defaultInputState,
+    analysisMode: 'single' as const,
+    useTrueSolarTime: true,
+    birthHour: '0',
+    birthMinute: '0',
+    birthPlace: '北京',
+    birthLongitude: '116.4',
+    birthLatitude: '39.9',
+  };
+
+  assert.equal(hasCompletePreciseBirthData(complete), true);
+  assert.equal(hasCompletePreciseBirthData({ ...complete, birthMinute: '' }), false);
+  assert.equal(hasCompletePreciseBirthData({ ...complete, useTrueSolarTime: false }), false);
+  assert.equal(hasCompletePreciseBirthData({ ...complete, analysisMode: 'compatibility' }), false);
+});
 
 test('输入页默认状态不应预填生日与时辰', () => {
   assert.equal(defaultInputState.chartType, 'bazi');
@@ -648,7 +666,7 @@ test('短参数链接可以完整恢复输入与提示词状态', () => {
   assert.equal(parsedInput.name, '张三');
   assert.equal(parsedInput.gender, 'female');
   assert.equal(parsedInput.dateType, 'lunar');
-  assert.equal(parsedInput.timeIndex, UNKNOWN_TIME_INDEX);
+  assert.equal(parsedInput.timeIndex, '');
   assert.equal(parsedInput.isLeapMonth, true);
   assert.equal(parsedInput.partnerName, '李四');
   assert.equal(parsedInput.partnerTimeIndex, 6);

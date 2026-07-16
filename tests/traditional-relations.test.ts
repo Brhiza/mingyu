@@ -381,7 +381,8 @@ test('八字透干通根应扫描四柱地支，不应只看本柱坐支', () =>
 
   assert.equal(yearStem?.stem, '甲');
   assert.equal(yearStem?.status, '有本根');
-  assert.ok((yearStem?.rootScore || 0) >= 1.2);
+  assert.equal(yearStem?.status, '有本根');
+  assert.ok(profile.items.every((item) => !('rootScore' in item)));
 
   assert.throws(
     () =>

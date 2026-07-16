@@ -136,7 +136,7 @@ export const commonQuestionInspirations: Array<{
   { category: '子女', question: '我的子女缘分深不深？' },
   { category: '子女', question: '我未来更可能有几个孩子，性别倾向分别是什么？' },
   { category: '子女', question: '我的孩子大概会是什么性格，我适合怎样教育和陪伴？' },
-  { category: '子女', question: '如果出生时辰不准，子女数量和性别判断哪些地方最需要保守？' },
+  { category: '子女', question: '关于子女数量和性别，哪些判断缺少可靠依据、需要保守看待？' },
   { category: '子女', question: '我在亲子关系里更适合温和引导还是严格管理？' },
   { category: '子女', question: '我未来与子女的互动重点会体现在哪些方面？' },
   { category: '子女', question: '在子女教育上，我最需要避免什么做法？' },
@@ -342,7 +342,7 @@ export const singlePromptShortcutSections = [
   {
     key: 'overview',
     title: '通用',
-    description: '不限定细分问题，按通用口径处理。',
+    description: '分析整体命盘与近期趋势。',
     labels: ['综合', '近期'],
   },
   {

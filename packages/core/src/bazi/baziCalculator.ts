@@ -2,7 +2,7 @@ import { SolarTime, Gender, LunarHour } from 'tyme4ts';
 import { TIME_MAP } from './baziDefinitions';
 import { resolveTrueSolarBirthTime } from '../calendar/true-solar-time';
 import { isDateInChinaDstRange } from '../calendar/china-dst';
-import { collectBoundaryWarnings } from './paipanWarnings';
+import { buildBaziWarningEvidence, collectBoundaryWarnings } from './paipanWarnings';
 import { ShenShaCalculator } from './baziShenSha';
 import { BaziAnalyzer } from './baziAnalysis';
 import { LuckCalculator } from './LuckCalculator';
@@ -50,6 +50,7 @@ import { getTimeIndexFromClock } from '../calendar/dateUtils';
 import { getBirthDateValidationMessage } from '../calendar/date-validation';
 import { calculateMingGua } from './mingGua';
 import { analyzePillarRelations } from './baziPromptEnhancement';
+import { analyzeBaziNatalEvidence } from './natalEvidence';
 
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 type LunarHourInstance = ReturnType<SolarTimeInstance['getLunarHour']>;
@@ -254,7 +255,7 @@ export class BaziCalculator {
         : 0;
       if (trueSolarResult.chinaDst.applied) {
         warnings.push(
-          '出生时刻处于中国夏令时期间（1986-1991），钟表时间比北京标准时间快 1 小时，已自动回拨 60 分钟后排盘。如所记时间已折算为标准时间，请设置 applyChinaDst: false。',
+          '出生时刻处于中国夏令时期间（1986-1991），钟表时间比北京标准时间快 1 小时，已自动回拨 60 分钟后排盘。如所记时间已折算为标准时间，请关闭自动夏令时校正选项。',
         );
         if (trueSolarResult.chinaDst.ambiguous) {
           warnings.push(
@@ -286,6 +287,18 @@ export class BaziCalculator {
         longitudeCorrectionMinutes: trueSolarResult.longitudeCorrectionMinutes,
         equationOfTimeMinutes: trueSolarResult.equationOfTimeMinutes,
         totalCorrectionMinutes: trueSolarResult.totalCorrectionMinutes,
+        evidence: {
+          key: trueSolarResult.key,
+          status: trueSolarResult.status,
+          calculationSteps: trueSolarResult.calculationSteps,
+          calculationChain: trueSolarResult.calculationChain,
+          correctionFacts: trueSolarResult.correctionFacts,
+          summaryFact: trueSolarResult.summaryFact,
+          limitations: trueSolarResult.limitations,
+          limitationFacts: trueSolarResult.limitationFacts,
+          source: trueSolarResult.source,
+          promptText: trueSolarResult.promptText,
+        },
         ...(dstCorrectionMinutes !== 0 ? { dstCorrectionMinutes } : {}),
       };
 
@@ -311,6 +324,7 @@ export class BaziCalculator {
     }
 
     const eightChar = lunarHour.getEightChar();
+    const { warningFacts, warningSummaryFact } = buildBaziWarningEvidence(warnings);
 
     const yearColumn = eightChar.getYear();
     const monthColumn = eightChar.getMonth();
@@ -368,6 +382,8 @@ export class BaziCalculator {
       pillars,
       pillarRelations: { fuxin: [], fanyin: [], xingChong: [] },
       warnings,
+      warningFacts,
+      warningSummaryFact,
       dayMaster: {
         gan: dayMasterGan,
         element: getWuxingUtil(dayMasterGan),
@@ -393,9 +409,10 @@ export class BaziCalculator {
       hiddenStems: { year: [], month: [], day: [], hour: [] },
       hiddenTenGods: {},
       wuxingStrength: {
-        percentages: { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 },
-        scores: { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 },
         missing: [],
+        present: [],
+        dominantByRule: [],
+        ruleBasis: [],
       },
       mingGong: '',
       shenGong: '',
@@ -419,15 +436,17 @@ export class BaziCalculator {
       },
       analysis: {
         dayMasterStrength: {
-          score: 0,
           status: '未知',
           details: {
-            seasonalScore: 0,
             timely: false,
-            formationStrength: 0,
-            rootStrength: 0,
-            supportStrength: 0,
-            constraintStrength: 0,
+            seasonalEffect: '中性',
+            commanderEffect: '中性',
+            formationEffect: '中性',
+            hasRoot: false,
+            hasStrongRoot: false,
+            hasSupport: false,
+            hasConstraint: false,
+            ruleBasis: [],
           },
         },
         mingGe: { pattern: '未知', isSpecial: false },
@@ -449,6 +468,7 @@ export class BaziCalculator {
       ...extendedResult,
       pillarRelations: analyzePillarRelations(coreResult),
     };
+    finalResult.evidenceAnalysis = analyzeBaziNatalEvidence(finalResult);
 
     delete finalResult.solarTime;
     delete finalResult.eightChar;

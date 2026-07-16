@@ -17,5 +17,6 @@ export * from './engine/liuyao-template';
 export * from './engine/liuren-template';
 export * from './engine/method-text';
 export * from './astrolabe-scope';
+export * from './astrolabe-synastry';
 
 export type * from '../types/index';

@@ -1,9 +1,41 @@
 import type { IFunctionalAstrolabe } from 'iztro/lib/astro/FunctionalAstrolabe';
 import type { IFunctionalHoroscope } from 'iztro/lib/astro/FunctionalHoroscope';
 import type { IFunctionalPalace } from 'iztro/lib/astro/FunctionalPalace';
-import type { EvidenceFact, MutagenName, PalaceFact, ScopeType } from '../../types/analysis';
+import type {
+  EvidenceFact,
+  MutagenName,
+  PalaceFact,
+  ScopeType,
+  ZiweiEvidenceAnalysis,
+  ZiweiEvidenceCalculationStep,
+  ZiweiEvidenceCounterEvidenceFact,
+  ZiweiEvidenceLimitationFact,
+  ZiweiEvidenceSummaryFact,
+} from '../../types/analysis';
 
-type EvidenceDraft = Omit<EvidenceFact, 'id'>;
+type EvidenceDraft = Omit<
+  EvidenceFact,
+  | 'id'
+  | 'key'
+  | 'level'
+  | 'source'
+  | 'sources'
+  | 'calculation'
+  | 'calculationStepKey'
+  | 'dependsOnStepKeys'
+  | 'promptText'
+  | 'limitation'
+  | 'limitations'
+> & { priority: number };
+
+const CALCULATION_STEP_LIMITATION =
+  '紫微证据步骤只证明十二宫、星曜、四化与所选运限如何形成当前证据池；不得把证据数量解释为吉凶分数、匹配率、事件概率或固定应期' as const;
+const COUNTER_FACT_LIMITATION =
+  '紫微反证事实只记录宫位、运限与四化资料是否足以形成当前线索；未命中或未定位不等于现实有利、不利或没有其他传统关系' as const;
+const SUMMARY_FACT_LIMITATION =
+  '紫微证据汇总只统计本命宫星、四化、三方四正、运限落宫、运限四化、资料缺口、反证与限制覆盖；不得按数量生成命盘总分、吉凶概率、事件概率或唯一应期' as const;
+const LIMITATION_FACT_LIMITATION =
+  '紫微限制事实用于约束宫位、星曜、四化与运限证据可以支持的解释范围，不得被反向当作现实因果、人物意图、吉凶概率或保证有效建议的证据' as const;
 
 const MUTAGEN_LIST: MutagenName[] = ['禄', '权', '科', '忌'];
 
@@ -140,7 +172,7 @@ function collectScopeStructureEvidence(params: {
       palace_names: [palace.name],
       star_names: [],
       mutagens: [],
-      description: `${scopeLabel}${stemBranch ? `干支为${stemBranch}，` : ''}当前落在本命${palace.name}，解读时应把该宫作为阶段触发点。`,
+      description: `${scopeLabel}${stemBranch ? `干支为${stemBranch}，` : ''}落宫索引为${item.index}，对应本命${palace.name}。`,
       priority: landingPriority[scope],
     });
 
@@ -166,8 +198,9 @@ function collectScopeStructureEvidence(params: {
         star_names: [starName],
         mutagens: [mutagen],
         description: targetPalace
-          ? `${scopeLabel}四化中的${starName}化${mutagen}落到本命${targetPalace.name}，需结合${palace.name}的运限落宫一起判断触发路径。`
-          : `${scopeLabel}四化中的${starName}化${mutagen}未能在本命宫位索引中定位，解读时只作为运限四化参考。`,
+          ? `${scopeLabel}四化序列中的${starName}对应化${mutagen}；该星在本命盘定位于${targetPalace.name}，运限本身落于${palace.name}。`
+          : `${scopeLabel}四化序列中的${starName}对应化${mutagen}，但该星未能在本命宫位索引中定位。`,
+        status: targetPalace ? '已记录' : '资料缺口',
         priority: mutagen === '忌' ? 96 : mutagen === '禄' ? 94 : 91,
       });
     });
@@ -203,7 +236,7 @@ function collectPalaceEvidence(params: {
       palace_names: [palace.name],
       star_names: palace.major_stars.map((s) => s.name),
       mutagens: [],
-      description: `${palace.name}的主星组合会直接影响该宫位主题的解读重点。`,
+      description: `${palace.name}登记主星${palace.major_stars.map((star) => star.name).join('、')}。`,
       priority: palace.name === '命宫' ? 100 : 60,
     });
   }
@@ -218,7 +251,7 @@ function collectPalaceEvidence(params: {
       palace_names: [palace.name],
       star_names: [],
       mutagens: [],
-      description: `${palace.name}没有主星，解读时要结合对宫和三方四正。`,
+      description: `${palace.name}的主星列表为空；对宫及三方四正索引另行保留，供传统空宫合参。`,
       priority: 50,
     });
   }
@@ -316,7 +349,7 @@ function collectPalaceEvidence(params: {
       palace_names: [palace.name],
       star_names: [],
       mutagens: [mutagen],
-      description: `${palace.name}存在自化${mutagen}，会牵动该宫主题与对宫的能量流向。`,
+      description: `${palace.name}的自化列表包含化${mutagen}。`,
       priority: mutagen === '忌' ? 82 : 75,
     });
   });
@@ -340,8 +373,8 @@ function collectPalaceEvidence(params: {
         star_names: [],
         mutagens: [target.mutagen],
         description: isToSelf
-          ? `${palace.name}化${target.mutagen}回照自身，主该宫主题被自化${target.mutagen}牵动。`
-          : `${palace.name}的化${target.mutagen}飞入${target.palace_name}，主该方向与该宫主题产生连动。`,
+          ? `${palace.name}的化${target.mutagen}目标宫索引仍为${palace.index}，属于回入本宫。`
+          : `${palace.name}的化${target.mutagen}目标宫索引为${target.palace_index}，对应${target.palace_name}。`,
         priority: target.mutagen === '忌' ? 86 : target.mutagen === '禄' ? 84 : 78,
       });
     });
@@ -381,10 +414,327 @@ function finalizeEvidence(drafts: EvidenceDraft[]): EvidenceFact[] {
 
   return Array.from(map.values())
     .sort((a, b) => b.priority - a.priority)
-    .map((item, index) => ({
-      id: `E${index + 1}`,
-      ...item,
-    }));
+    .map(({ priority, ...item }, index) => {
+      const isScope = item.type.startsWith('scope_') || item.type === 'palace_scope_mutagen';
+      const isMutagen = item.type.includes('mutagen') || item.type.includes('mutaged');
+      const calculationStepKey = isScope
+        ? 'ziwei:evidence:calculation:scope-facts'
+        : 'ziwei:evidence:calculation:natal-facts';
+      const source = isScope
+        ? '紫微运限排盘结果、当前运限落宫与四化序列'
+        : '紫微本命盘宫位、星曜、四化与三方四正结构化资料';
+      const calculation = isScope
+        ? '按运限层级读取落宫索引和四化星名，再以本命十二宫星曜索引定位目标宫位'
+        : isMutagen
+          ? '按宫位星曜四化标记、自化列表、飞化目标索引及三方四正宫位逐项匹配'
+          : '按十二宫索引读取主星、空宫状态及关联宫位，不使用吉凶总分';
+      const limitations = [
+        '仅证明当前排盘数据中存在相应宫位、星曜或四化关系，不直接证明现实事件与吉凶结果',
+        isScope
+          ? '运限关系只对应所选时间层级，不得外推为终身结论或伪精确日期'
+          : '紫微宫星与四化属于传统术数结构，缺少现代统计因果验证',
+      ];
+
+      return {
+        id: `E${index + 1}`,
+        ...item,
+        key: `ziwei:evidence:${item.stable_key}`,
+        status: item.status ?? '已记录',
+        level: priority >= 80 ? '主证' : '辅证',
+        source,
+        sources: [source],
+        calculation,
+        calculationStepKey,
+        dependsOnStepKeys: [calculationStepKey],
+        promptText: `${item.title}：${item.description}`,
+        limitation: limitations.join('；'),
+        limitations,
+      };
+    });
+}
+
+export function buildEvidenceAnalysis(params: {
+  evidencePool: EvidenceFact[];
+  currentScope: ScopeType;
+  palaces: PalaceFact[];
+  skipped?: boolean;
+}): ZiweiEvidenceAnalysis {
+  const { evidencePool, currentScope, palaces, skipped = false } = params;
+  const evidenceKeys = evidencePool.map((item) => item.key ?? `ziwei:evidence:${item.stable_key}`);
+  const natalFacts = evidencePool.filter(
+    (item) => !(item.type.startsWith('scope_') || item.type === 'palace_scope_mutagen'),
+  );
+  const scopeFacts = evidencePool.filter(
+    (item) => item.type.startsWith('scope_') || item.type === 'palace_scope_mutagen',
+  );
+  const scopeLandingFacts = evidencePool.filter((item) => item.type === 'scope_landing');
+  const scopeMutagenFacts = evidencePool.filter(
+    (item) => item.type === 'scope_mutagen_destination',
+  );
+  const missingFacts = evidencePool.filter((item) => item.status === '资料缺口');
+  const palaceDataComplete =
+    palaces.length === 12 && new Set(palaces.map((item) => item.index)).size === 12;
+  const scopeApplicable = currentScope !== 'origin';
+  const scopeDataComplete = !scopeApplicable || scopeLandingFacts.length > 0;
+  const hasGap =
+    skipped ||
+    !palaceDataComplete ||
+    natalFacts.length === 0 ||
+    !scopeDataComplete ||
+    missingFacts.length > 0;
+  const summaryStatus: ZiweiEvidenceSummaryFact['status'] = skipped
+    ? '未生成'
+    : hasGap
+      ? '证据链有缺口'
+      : '证据链完整';
+  const analysisStatus: ZiweiEvidenceAnalysis['status'] = skipped
+    ? '未生成'
+    : hasGap
+      ? '存在资料缺口'
+      : '已计算';
+  const calculationSteps: ZiweiEvidenceCalculationStep[] = [
+    {
+      key: 'ziwei:evidence:calculation:input',
+      stage: '十二宫输入校验',
+      status: palaceDataComplete ? '已计算' : '存在资料缺口',
+      dependsOnStepKeys: [],
+      inputs: { currentScope, palaceCount: palaces.length },
+      result: {
+        palaceDataComplete,
+        uniquePalaceIndexCount: new Set(palaces.map((item) => item.index)).size,
+      },
+      promptText: palaceDataComplete
+        ? '已校验完整十二宫及唯一宫位索引'
+        : `当前仅有${palaces.length}项宫位资料或宫位索引不唯一，证据链降级`,
+      sources: ['紫微十二宫结构化盘面资料'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'ziwei:evidence:calculation:natal-facts',
+      stage: '本命证据采集',
+      status: skipped || natalFacts.length === 0 ? '存在资料缺口' : '已计算',
+      dependsOnStepKeys: ['ziwei:evidence:calculation:input'],
+      inputs: { palaceCount: palaces.length },
+      result: {
+        natalFactCount: natalFacts.length,
+        missingNatalFactCount: natalFacts.filter((item) => item.status === '资料缺口').length,
+      },
+      promptText: skipped
+        ? '当前明确跳过本命证据采集，不补造宫星或四化线索'
+        : `按宫位主星、空宫、生年四化、自化、飞化与三方四正采集${natalFacts.length}项本命事实`,
+      sources: ['本命十二宫、星曜、四化、自化、飞化与三方四正资料'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'ziwei:evidence:calculation:scope-facts',
+      stage: '运限证据采集',
+      status: !scopeApplicable
+        ? '不适用'
+        : skipped || !scopeDataComplete
+          ? '存在资料缺口'
+          : '已计算',
+      dependsOnStepKeys: ['ziwei:evidence:calculation:input'],
+      inputs: { currentScope, scopeApplicable },
+      result: {
+        scopeFactCount: scopeFacts.length,
+        scopeLandingFactCount: scopeLandingFacts.length,
+        scopeMutagenFactCount: scopeMutagenFacts.length,
+        missingScopeFactCount: scopeFacts.filter((item) => item.status === '资料缺口').length,
+      },
+      promptText: !scopeApplicable
+        ? '当前为本命范围，运限证据采集明确标记为不适用'
+        : skipped
+          ? '当前明确跳过运限证据采集，不补造落宫或四化飞入'
+          : `按所选运限层级采集${scopeFacts.length}项落宫、四化与动态宫位事实`,
+      sources: ['当前运限落宫、四化序列与本命星曜定位资料'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'ziwei:evidence:calculation:summary',
+      stage: '证据汇总',
+      status: hasGap ? '存在资料缺口' : '已计算',
+      dependsOnStepKeys: [
+        'ziwei:evidence:calculation:natal-facts',
+        'ziwei:evidence:calculation:scope-facts',
+      ],
+      inputs: { evidenceFactCount: evidencePool.length, currentScope },
+      result: {
+        summaryStatus,
+        missingFactCount: missingFacts.length,
+        primaryFactCount: evidencePool.filter((item) => item.level === '主证').length,
+      },
+      promptText: `证据池汇总为${summaryStatus}，记录${evidencePool.length}项事实，其中资料缺口${missingFacts.length}项`,
+      sources: ['本命证据、运限证据与资料缺口逐项汇总'],
+      limitation: CALCULATION_STEP_LIMITATION,
+    },
+  ];
+  const counterEvidenceFacts: ZiweiEvidenceCounterEvidenceFact[] = [
+    {
+      key: 'ziwei:evidence:counter:palace-coverage',
+      type: '十二宫资料覆盖',
+      status: palaceDataComplete && natalFacts.length > 0 && !skipped ? '有可用证据' : '资料不足',
+      ownerFactKeys: [
+        'ziwei:evidence:calculation:input',
+        'ziwei:evidence:calculation:natal-facts',
+        ...natalFacts.map((item) => item.key ?? `ziwei:evidence:${item.stable_key}`),
+      ],
+      promptText:
+        palaceDataComplete && natalFacts.length > 0 && !skipped
+          ? `十二宫资料完整并形成${natalFacts.length}项本命证据`
+          : '十二宫或本命证据资料不足，不生成完整本命证据结论',
+      sources: ['十二宫输入校验与本命证据采集结果'],
+      limitation: COUNTER_FACT_LIMITATION,
+    },
+    {
+      key: 'ziwei:evidence:counter:scope-coverage',
+      type: '运限资料覆盖',
+      status: !scopeApplicable
+        ? '不适用'
+        : scopeDataComplete && !skipped
+          ? '有可用证据'
+          : '资料不足',
+      ownerFactKeys: [
+        'ziwei:evidence:calculation:scope-facts',
+        ...scopeFacts.map((item) => item.key ?? `ziwei:evidence:${item.stable_key}`),
+      ],
+      promptText: !scopeApplicable
+        ? '当前为本命范围，不生成运限落宫、动态宫位或运限四化结论'
+        : scopeDataComplete && !skipped
+          ? `当前运限形成${scopeFacts.length}项结构化证据`
+          : '当前运限缺少可定位落宫资料，不补造运限结论',
+      sources: ['当前分析范围与运限证据采集结果'],
+      limitation: COUNTER_FACT_LIMITATION,
+    },
+    {
+      key: 'ziwei:evidence:counter:mutagen-location',
+      type: '四化定位覆盖',
+      status:
+        !scopeApplicable || scopeMutagenFacts.length === 0
+          ? '不适用'
+          : scopeMutagenFacts.some((item) => item.status === '资料缺口')
+            ? '存在未定位'
+            : '有可用证据',
+      ownerFactKeys: [
+        'ziwei:evidence:calculation:scope-facts',
+        ...scopeMutagenFacts.map((item) => item.key ?? `ziwei:evidence:${item.stable_key}`),
+      ],
+      promptText: !scopeApplicable
+        ? '本命范围不使用运限四化定位'
+        : scopeMutagenFacts.length === 0
+          ? '当前运限未提供可定位的四化序列，不补造四化飞入'
+          : scopeMutagenFacts.some((item) => item.status === '资料缺口')
+            ? `${scopeMutagenFacts.filter((item) => item.status === '资料缺口').length}项运限四化星曜未能在本命宫位索引中定位，必须保留资料缺口`
+            : `${scopeMutagenFacts.length}项运限四化均已定位到本命宫位`,
+      sources: ['运限四化序列与本命同名星曜定位结果'],
+      limitation: COUNTER_FACT_LIMITATION,
+    },
+  ];
+  const limitationCount = 5;
+  const summaryFact: ZiweiEvidenceSummaryFact = {
+    key: 'ziwei:evidence-summary',
+    status: summaryStatus,
+    factKeys: [
+      ...calculationSteps.map((item) => item.key),
+      ...evidenceKeys,
+      ...counterEvidenceFacts.map((item) => item.key),
+    ],
+    evidenceFactCount: evidencePool.length,
+    natalFactCount: natalFacts.length,
+    scopeFactCount: scopeFacts.length,
+    primaryFactCount: evidencePool.filter((item) => item.level === '主证').length,
+    supportingFactCount: evidencePool.filter((item) => item.level !== '主证').length,
+    missingFactCount: missingFacts.length,
+    counterEvidenceCount: counterEvidenceFacts.length,
+    limitationFactCount: limitationCount,
+    promptText: `紫微证据状态为${summaryStatus}；记录本命证据${natalFacts.length}项、运限证据${scopeFacts.length}项、主证${evidencePool.filter((item) => item.level === '主证').length}项、辅证${evidencePool.filter((item) => item.level !== '主证').length}项、资料缺口${missingFacts.length}项`,
+    sources: ['紫微本命与运限证据池、计算链和反证逐项汇总'],
+    limitation: SUMMARY_FACT_LIMITATION,
+  };
+  const limitationDefinitions: Array<
+    Pick<ZiweiEvidenceLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
+  > = [
+    {
+      key: 'ziwei:evidence:limitation:traditional-structure',
+      type: '传统结构边界',
+      ownerFactKeys: [summaryFact.key, ...evidenceKeys],
+      promptText:
+        '宫位、星曜、四化、空宫借对宫与三方四正只属于传统盘面结构，不直接证明现实性格、关系、财富、健康或事件结果',
+      sources: ['紫微传统结构事实与现实因果分离原则'],
+    },
+    {
+      key: 'ziwei:evidence:limitation:natal-timing',
+      type: '本命应期边界',
+      ownerFactKeys: [summaryFact.key, 'ziwei:evidence:calculation:natal-facts'],
+      promptText: '本命证据只描述长期结构和触发条件，不生成具体年份、月份、日期或唯一应期',
+      sources: ['本命盘与动态运限分析层级边界'],
+    },
+    {
+      key: 'ziwei:evidence:limitation:scope-level',
+      type: '运限层级边界',
+      ownerFactKeys: [summaryFact.key, 'ziwei:evidence:calculation:scope-facts'],
+      promptText:
+        '运限事实只对应当前明确选择的大限、流年、流月、流日、流时或小限层级，不得外推到更细日期或终身结论',
+      sources: ['当前运限范围与证据层级'],
+    },
+    {
+      key: 'ziwei:evidence:limitation:missing-data',
+      type: '资料缺口边界',
+      ownerFactKeys: [
+        summaryFact.key,
+        'ziwei:evidence:calculation:summary',
+        ...missingFacts.map((item) => item.key ?? `ziwei:evidence:${item.stable_key}`),
+      ],
+      promptText:
+        '星曜或四化未定位、证据池未生成或宫位资料不足时必须明确降级，不得反推缺失落宫、星曜或应期',
+      sources: ['资料缺口事实与计算状态'],
+    },
+    {
+      key: 'ziwei:evidence:limitation:high-risk-output',
+      type: '高风险输出边界',
+      ownerFactKeys: [summaryFact.key, ...summaryFact.factKeys],
+      promptText:
+        '不得按证据数量生成命盘总分、吉凶概率、婚恋成败率、疾病判断、财富保证、人物意图或必然断语',
+      sources: ['传统盘面事实与现实决策分离原则'],
+    },
+  ];
+  const limitationFacts: ZiweiEvidenceLimitationFact[] = limitationDefinitions.map(
+    (definition) => ({
+      ...definition,
+      status: '适用',
+      limitation: LIMITATION_FACT_LIMITATION,
+    }),
+  );
+  const limitations = limitationFacts.map((item) => item.promptText);
+  const counterEvidence = counterEvidenceFacts
+    .filter((item) => item.status !== '有可用证据')
+    .map((item) => item.promptText);
+
+  return {
+    key: 'ziwei:evidence',
+    status: analysisStatus,
+    calculationSteps,
+    calculationChain: calculationSteps.map((item) => item.promptText),
+    counterEvidence,
+    counterEvidenceFacts,
+    summaryFact,
+    limitations,
+    limitationFacts,
+    promptText: [
+      '【紫微本命与运限结构化证据】',
+      `计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。`,
+      `反证核验：${counterEvidence.length ? counterEvidence.join('；') : '当前资料覆盖未见明确缺口；仍不得据证据数量生成现实保证'}。`,
+      `证据汇总：${summaryFact.promptText}。`,
+      `解释限制：${limitations.join('；')}。`,
+    ].join('\n'),
+    methodology: {
+      notes: [
+        '本命证据按十二宫主星、空宫、生年四化、自化、飞化与三方四正逐项采集。',
+        '运限证据按所选层级读取落宫与四化序列，再以本命星曜索引定位目标宫位。',
+        '未定位星曜与跳过分析状态保留为资料缺口，不补造宫位、四化或应期。',
+        '证据数量只用于覆盖统计，不转换为吉凶总分、概率或必然结论。',
+      ],
+    },
+  };
 }
 
 export function buildEvidencePool(params: {

@@ -14,6 +14,15 @@ import type {
   TaiyiResult,
   XiaoliurenData,
 } from '../../types/divination';
+import { analyzeAlmanacEvidence } from 'mingyu-core/divination/almanac';
+import {
+  analyzeLenormandEvidence,
+  conditionLenormandTraditionalText,
+} from 'mingyu-core/divination/lenormand';
+import {
+  analyzeXiaoliurenEvidence,
+  conditionXiaoliurenTraditionalText,
+} from 'mingyu-core/divination/xiaoliuren';
 import { resolveSsgwStoryContent } from './ssgw-content';
 
 export interface DivinationSummaryBlocks {
@@ -146,9 +155,15 @@ function formatQimenPatternComboSummary(data: DivinationData) {
     return '';
   }
 
+  const toneLabels = {
+    'super-good': '支持条件较集中',
+    'super-bad': '限制条件较集中',
+    mixed: '支持与限制并存',
+  } as const;
+
   return `复合格局：${data.patternCombos
     .slice(0, 3)
-    .map((item) => `${item.name}（${item.score}）`)
+    .map((item) => `${item.name}（${toneLabels[item.tone]}）`)
     .join('、')}`;
 }
 
@@ -314,6 +329,10 @@ export function getDivinationSummaryBlocks(
     }
     case 'xiaoliuren': {
       const xiaoliuren = data as XiaoliurenData;
+      const evidence = xiaoliuren.evidenceAnalysis ?? analyzeXiaoliurenEvidence(xiaoliuren);
+      const meaning = (palace: XiaoliurenData['primary']['name']) =>
+        evidence.traditionalFacts.find((item) => item.palace === palace && item.kind === '宫位解释')
+          ?.promptText;
       return {
         title: '小六壬起课结果',
         tags: [
@@ -325,10 +344,10 @@ export function getDivinationSummaryBlocks(
           wrapMainEvidence(
             `起因${xiaoliuren.sequence.start.name}；过程${xiaoliuren.sequence.process.name}；结果${xiaoliuren.sequence.result.name}`,
           ),
-          `起因：${xiaoliuren.sequence.start.meaning}`,
-          `过程：${xiaoliuren.sequence.process.meaning}`,
-          `结果：${xiaoliuren.sequence.result.meaning}`,
-          `提醒：${xiaoliuren.questionHint}`,
+          `起因：${meaning(xiaoliuren.sequence.start.name) ?? conditionXiaoliurenTraditionalText(xiaoliuren.sequence.start.meaning)}`,
+          `过程：${meaning(xiaoliuren.sequence.process.name) ?? conditionXiaoliurenTraditionalText(xiaoliuren.sequence.process.meaning)}`,
+          `结果：${meaning(xiaoliuren.sequence.result.name) ?? conditionXiaoliurenTraditionalText(xiaoliuren.sequence.result.meaning)}`,
+          `提醒：${conditionXiaoliurenTraditionalText(xiaoliuren.questionHint)}`,
         ].filter(Boolean),
       };
     }
@@ -399,6 +418,16 @@ export function getDivinationSummaryBlocks(
       };
     }
     case 'ssgw': {
+      if ('ritual' in data && data.ritual?.rejected) {
+        return {
+          title: '灵签仪式未确认',
+          tags: ['本次不起签'],
+          lines: [
+            `掷筊记录：${data.ritual.throws.map((item) => item.result).join(' → ')}`,
+            data.ritual.reason || '本次未获圣杯，不生成签文结论。',
+          ],
+        };
+      }
       const storyContent =
         'number' in data && 'title' in data && 'poem' in data
           ? resolveSsgwStoryContent(data)
@@ -426,7 +455,14 @@ export function getDivinationSummaryBlocks(
     }
     case 'almanac': {
       const almanac = data as AlmanacData;
-      const best = almanac.days[0];
+      const evidence = almanac.evidenceAnalysis ?? analyzeAlmanacEvidence(almanac);
+      const candidateByDate = new Map(evidence.candidates.map((item) => [item.date, item]));
+      const primaryDate =
+        evidence.preferredDates[0] ??
+        evidence.conditionalDates[0] ??
+        evidence.cautionDates[0] ??
+        almanac.days[0]?.date;
+      const primary = primaryDate ? candidateByDate.get(primaryDate) : undefined;
       return {
         title: '黄历择日结果',
         tags: [
@@ -435,18 +471,32 @@ export function getDivinationSummaryBlocks(
           `参与人：${almanac.participants.length || 0} 位`,
         ],
         lines: [
-          best ? wrapMainEvidence(`${best.date}，评分${best.score}`) : '',
-          ...(almanac.days
-            .slice(0, 5)
-            .map(
-              (item) =>
-                `${item.date}：${item.ganzhi.day}日，${item.dayOfficer}执，评分${item.score}，${item.clash}`,
-            ) ?? []),
+          primary
+            ? wrapMainEvidence(
+                `${primary.date}，${primary.status}，需结合所列支持、限制与现实条件取舍`,
+              )
+            : '',
+          ...(almanac.days.slice(0, 5).map((item) => {
+            const candidate = candidateByDate.get(item.date);
+            const constraints = candidate
+              ? [
+                  ...candidate.traditionalConstraints,
+                  ...candidate.participantConflicts,
+                  ...candidate.directionConstraints,
+                ]
+              : [];
+            return `${item.date}：${candidate?.status ?? '待核验候选'}，${item.ganzhi.day}日，${item.dayOfficer}执；${constraints.length ? `限制：${constraints.slice(0, 2).join('、')}` : `未见明确传统禁忌；${item.clash}`}`;
+          }) ?? []),
         ].filter(Boolean),
       };
     }
     case 'lenormand': {
       const lenormand = data as LenormandData;
+      const evidence =
+        lenormand.evidenceAnalysis?.traditionalFacts &&
+        lenormand.evidenceAnalysis.structuredLayoutFacts
+          ? lenormand.evidenceAnalysis
+          : analyzeLenormandEvidence(lenormand);
       return {
         title: '雷诺曼抽牌结果',
         tags: [`牌阵：${lenormand.spreadName}`, `张数：${lenormand.cards.length} 张`],
@@ -457,10 +507,12 @@ export function getDivinationSummaryBlocks(
               .map((card) => `${card.position}${card.name}`)
               .join('；'),
           ),
-          ...lenormand.cards.map(
-            (card) =>
-              `${card.position}：${card.name}${card.meaning ? `，牌义 ${card.meaning}` : ''}`,
-          ),
+          ...lenormand.cards.map((card) => {
+            const fact = evidence.traditionalFacts.find(
+              (item) => item.kind === '单牌牌义' && item.positions.includes(card.position),
+            );
+            return `${card.position}：${card.name}，${fact?.promptText ?? conditionLenormandTraditionalText(card.meaning, { cardNames: [card.name], keywords: card.keywords })}`;
+          }),
         ].filter(Boolean),
       };
     }

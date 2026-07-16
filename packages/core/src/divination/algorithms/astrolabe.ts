@@ -6,7 +6,27 @@ import type {
   AstrolabePoint,
 } from '../../types/divination';
 import { daysInSolarMonth } from '../../calendar/date-validation';
+import { resolveHistoricalTimezone } from '../../calendar/historical-timezone';
+import { calculateSolarIlluminationEvidence } from '../../calendar/solar-illumination-evidence';
 import { resolveTrueSolarBirthTime } from '../../calendar/true-solar-time';
+import { classifyAspectClosenessByRatio } from '../astrolabe-aspect-evidence';
+import { analyzeAstrolabeEvidence } from '../astrolabe-evidence';
+
+export { analyzeAstrolabeEvidence } from '../astrolabe-evidence';
+export type {
+  AstrolabeAspectFact,
+  AstrolabeCalculationFact,
+  AstrolabeCalculationStep,
+  AstrolabeCounterEvidenceFact,
+  AstrolabeCounterSummaryFact,
+  AstrolabeDistributionFact,
+  AstrolabeEvidenceAnalysis,
+  AstrolabeIlluminationFact,
+  AstrolabeLimitationFact,
+  AstrolabePositionFact,
+  AstrolabePrimaryCoverageFact,
+  AstrolabePrimaryFact,
+} from '../astrolabe-evidence';
 
 const PLANET_LABELS: Record<string, string> = {
   Sun: '太阳',
@@ -25,7 +45,11 @@ const PLANET_LABELS: Record<string, string> = {
   Juno: '婚神星',
   Vesta: '灶神星',
   'North Node': '北交点',
+  'True North Node': '北交点',
+  'Mean North Node': '北交点',
   'South Node': '南交点',
+  'True South Node': '南交点',
+  'Mean South Node': '南交点',
   'True Lilith': '莉莉丝',
   'Mean Lilith': '莉莉丝',
   'Part of Fortune': '福点',
@@ -147,17 +171,28 @@ function mapAspect(aspect: {
   body2: string;
   type: string;
   symbol: string;
+  angle: number;
+  separation: number;
   deviation: number;
+  orb: number;
   strength: number;
   isApplying: boolean | null;
+  isOutOfSign: boolean;
 }): AstrolabeAspect {
+  const normalizedOrbRatio = Number((aspect.deviation / aspect.orb).toFixed(4));
   return {
     body1: PLANET_LABELS[aspect.body1] ?? aspect.body1,
     body2: PLANET_LABELS[aspect.body2] ?? aspect.body2,
     type: ASPECT_LABELS[aspect.type] ?? aspect.type,
     symbol: aspect.symbol,
+    exactAngle: Number(aspect.angle.toFixed(4)),
+    actualAngle: Number(aspect.separation.toFixed(4)),
     orb: Number(aspect.deviation.toFixed(2)),
-    strength: Math.round(aspect.strength),
+    allowedOrb: Number(aspect.orb.toFixed(4)),
+    closeness: classifyAspectClosenessByRatio(normalizedOrbRatio),
+    normalizedOrbRatio,
+    isOutOfSign: aspect.isOutOfSign,
+    source: 'celestine 本命相位计算；紧密等级按偏差占本次允许容许度的比例换算',
     applying: aspect.isApplying,
   };
 }
@@ -231,7 +266,20 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
   const standardBirth = localTimestamp(input);
   const latitude = requireNumber(input.latitude, '出生地纬度');
   const longitude = requireNumber(input.longitude, '出生地经度');
-  const timezone = requireNumber(input.timezone, '时区');
+  if (input.timezone === undefined && !input.timeZoneId) {
+    throw new Error('时区或 IANA 时区名至少需要提供一项。');
+  }
+  const fixedTimezone =
+    input.timezone === undefined ? undefined : requireNumber(input.timezone, '时区');
+  const timezoneEvidence = input.timeZoneId
+    ? resolveHistoricalTimezone({
+        ...standardBirth,
+        second: 0,
+        timeZoneId: input.timeZoneId,
+        fixedOffsetHours: fixedTimezone,
+      })
+    : undefined;
+  const timezone = timezoneEvidence?.resolvedOffsetHours ?? fixedTimezone!;
   assertNumberRange(latitude, '出生地纬度', -90, 90);
   assertNumberRange(longitude, '出生地经度', -180, 180);
   assertNumberRange(timezone, '时区', -12, 14);
@@ -249,6 +297,14 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     : null;
   const birth = trueSolarResult?.correctedTime ?? standardBirth;
   const locationName = readOptionalText(input.locationName, '');
+  const solarIllumination = calculateSolarIlluminationEvidence({
+    ...standardBirth,
+    second: 0,
+    latitude,
+    longitude,
+    timezone: fixedTimezone,
+    timeZoneId: input.timeZoneId,
+  });
 
   const chart = calculateChart(
     {
@@ -295,7 +351,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     mapPlanet,
   );
 
-  return {
+  const result: AstrolabeData = {
     birth: {
       name: readOptionalText(input.name, '未命名'),
       gender: input.gender,
@@ -305,9 +361,27 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
           ? `${locationName}（${latitude.toFixed(4)}, ${longitude.toFixed(4)}）`
           : `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
       timezone,
+      timeZoneId: input.timeZoneId,
+      timezoneStatus: timezoneEvidence?.status,
+      timezoneDiagnostics: timezoneEvidence?.diagnostics,
+      timezoneEvidence,
       standardDateTime: formatDateTime(standardBirth),
       trueSolarDateTime: trueSolarResult
         ? formatDateTime(trueSolarResult.correctedTime)
+        : undefined,
+      trueSolarEvidence: trueSolarResult
+        ? {
+            key: trueSolarResult.key,
+            status: trueSolarResult.status,
+            calculationSteps: trueSolarResult.calculationSteps,
+            calculationChain: trueSolarResult.calculationChain,
+            correctionFacts: trueSolarResult.correctionFacts,
+            summaryFact: trueSolarResult.summaryFact,
+            limitations: trueSolarResult.limitations,
+            limitationFacts: trueSolarResult.limitationFacts,
+            source: trueSolarResult.source,
+            promptText: trueSolarResult.promptText,
+          }
         : undefined,
       isTrueSolarTime: Boolean(trueSolarResult),
     },
@@ -327,6 +401,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
       .sort((a, b) => b.strength - a.strength)
       .slice(0, 12)
       .map(mapAspect),
+    solarIllumination,
     summary: {
       elements: {
         火: chart.summary.elements.fire.map((item) => PLANET_LABELS[item] ?? item),
@@ -344,4 +419,6 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     },
     timestamp: Date.now(),
   };
+  result.evidenceAnalysis = analyzeAstrolabeEvidence(result);
+  return result;
 }

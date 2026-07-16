@@ -14,6 +14,16 @@ const ssgwSchema = z.object({ ...randomOptionShape });
 
 const ssgwPromptSchema = extendPromptSchema(ssgwSchema, '用户希望围绕灵签解读的问题');
 
+function toPublicSsgwResult(result: ReturnType<typeof drawRandomSign>) {
+  if (!result.ritual?.rejected) return result;
+  return {
+    rejected: true,
+    message: result.ritual.reason,
+    ritual: result.ritual,
+    meta: result.meta,
+  };
+}
+
 export function registerSsgwTool(server: McpServer) {
   server.registerTool(
     'divine_ssgw',
@@ -26,7 +36,7 @@ export function registerSsgwTool(server: McpServer) {
     async (args) => {
       try {
         const result = drawRandomSign(readMcpRandomOptions(args));
-        return createStructuredToolResult({ result });
+        return createStructuredToolResult({ result: toPublicSsgwResult(result) });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '求签失败'));
       }
@@ -48,7 +58,7 @@ export function registerSsgwTool(server: McpServer) {
       try {
         const result = drawRandomSign(readMcpRandomOptions(args));
         return createStructuredToolResult({
-          result,
+          result: toPublicSsgwResult(result),
           prompt: buildCommonDivinationPrompt('ssgw', args.question, result, args.promptMode),
         });
       } catch (error) {

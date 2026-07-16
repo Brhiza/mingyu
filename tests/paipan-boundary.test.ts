@@ -9,8 +9,14 @@ import assert from 'node:assert/strict';
 
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { checkChinaDst, isDateInChinaDstRange } from '@core/bazi/chinaDst';
-import { checkJieqiBoundary, checkShichenBoundary } from '@core/bazi/paipanWarnings';
+import {
+  buildBaziWarningEvidence,
+  checkJieqiBoundary,
+  checkShichenBoundary,
+} from '@core/bazi/paipanWarnings';
 import { calculateSeasonInfo, getMonthCommander } from '@core/bazi/baziCalculatorTime';
+import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
+import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const ganZhi = (p: { gan: string; zhi: string }) => `${p.gan}${p.zhi}`;
 
@@ -49,7 +55,7 @@ test('回归:日支坐印计入帮扶(甲子日,upstream #27)', () => {
     gender: 'male',
   });
   // 帮扶 = 年甲(比)+月乙(劫)+月支亥(印)+日支子(印) = 4
-  assert.equal(r.analysis.dayMasterStrength.details.supportStrength, 4);
+  assert.equal(r.analysis.dayMasterStrength.details.hasSupport, true);
 });
 
 test('立春边界:2024-02-04 16:27 立春,前后年柱月柱翻转', () => {
@@ -142,6 +148,20 @@ test('夏令时:1988-07-15 12:00 北京(钟表) → 自动回拨 60 分钟,时�
   // 12:00 钟表 → 11:00 标准 → 经度-14.4min + 均时差≈-6min → 约 10:40,巳时
   assert.equal(r.pillars.hour.zhi, '巳');
   assert.ok(r.warnings.some((w) => w.includes('夏令时')));
+  assert.equal(r.warningFacts.length, r.warnings.length);
+  assert.equal(r.warningSummaryFact.status, '存在边界提示');
+  assert.ok(
+    r.warningFacts.every(
+      (fact) => fact.sources.length > 0 && fact.limitation.includes('不生成候选'),
+    ),
+  );
+  const prompt = formatBaziForPrompt(r);
+  assert.match(prompt, /真太阳时: 1988年7月15日 10:39/);
+  assert.match(prompt, /夏令时校正: -60 分钟/);
+  assert.match(prompt, /基本信息: 乾造 \| 1988年7月15日 巳时/);
+  assert.doesNotMatch(prompt, /结构化证据|排盘边界证据|计算链|证据汇总|解释限制/);
+  assert.doesNotMatch(prompt, /项目节气历表|applyChinaDst|本引擎/);
+  assertPromptIsPortableTaskText(prompt);
 });
 
 test('夏令时:applyChinaDst=false 时不校正,时柱午时', () => {
@@ -195,7 +215,7 @@ test('夏令时区间函数:边界与非夏令时年份', () => {
   assert.equal(isDateInChinaDstRange(1990, 6, 1), true);
 });
 
-test('边界预警:距立春 1 分钟内提示年柱月柱两可', () => {
+test('边界预警:距立春 1 分钟内说明已采用结果且不生成候选盘', () => {
   // 2024 立春 = 2024-02-04 16:27:07
   const warnings = checkJieqiBoundary({
     year: 2024,
@@ -207,9 +227,10 @@ test('边界预警:距立春 1 分钟内提示年柱月柱两可', () => {
   assert.equal(warnings.length, 1);
   assert.ok(warnings[0].includes('立春'));
   assert.ok(warnings[0].includes('年柱'));
+  assert.ok(warnings[0].includes('不生成候选盘'));
 });
 
-test('边界预警:距时辰边界 1 分钟内提示时柱两可', () => {
+test('边界预警:距时辰边界 1 分钟内说明已采用时柱', () => {
   const warnings = checkShichenBoundary({
     year: 2024,
     month: 6,
@@ -219,7 +240,7 @@ test('边界预警:距时辰边界 1 分钟内提示时柱两可', () => {
   });
   assert.equal(warnings.length, 1);
   assert.ok(warnings[0].includes('未时'));
-  assert.ok(warnings[0].includes('申时'));
+  assert.ok(warnings[0].includes('不生成候选时柱'));
 });
 
 test('边界预警:23:00 换日线额外提示流派差异', () => {
@@ -240,6 +261,21 @@ test('边界预警:远离边界时不产生预警', () => {
     checkShichenBoundary({ year: 2024, month: 6, day: 15, hour: 12, minute: 0 }),
     [],
   );
+});
+
+test('边界预警对象应保留稳定键、来源、引用和不生成候选盘限制', () => {
+  const evidence = buildBaziWarningEvidence([
+    '出生时刻距「立春」交节仅约 1 分钟（交节前）。本次年柱与月柱已按采用的节气历表和输入时刻确定；该提示仅记录历表精度边界，不生成候选盘。',
+    '出生时刻贴近 23:00 换日线：本次采用晚子时换日口径；其他传统流派可能采用不同规则，此处不生成候选盘。',
+  ]);
+  assert.equal(evidence.warningFacts.length, 2);
+  assert.ok(evidence.warningFacts.every((fact) => fact.key.startsWith('bazi:warning:')));
+  assert.deepEqual(
+    evidence.warningSummaryFact.factKeys,
+    evidence.warningFacts.map((fact) => fact.key),
+  );
+  assert.equal(evidence.warningSummaryFact.status, '存在需核验事项');
+  assert.ok(evidence.warningFacts.every((fact) => fact.referenceKeys.length > 0));
 });
 
 test('核心节气和月令计算异常不应被降级成未知结果', () => {

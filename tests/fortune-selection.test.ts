@@ -8,6 +8,10 @@ import {
 } from '@core/bazi/fortuneSelection';
 import { getDayHourBreakdown } from '@core/bazi/fortuneSelection/helpers/breakdown';
 import type { BaziChartResult } from '@core/bazi/baziTypes';
+import {
+  buildCurrentBaziFortuneSelection,
+  buildRecentBaziFortuneSelection,
+} from '../src/components/BaziFortuneTools/helpers';
 
 function createMockResult(): BaziChartResult {
   return {
@@ -59,6 +63,31 @@ function createMockResult(): BaziChartResult {
   } as BaziChartResult;
 }
 
+test('运限选择器的当天快捷值会选择对应的大运、流月和流日', () => {
+  const result = createMockResult();
+  const selection = buildCurrentBaziFortuneSelection(result, new Date(2008, 1, 8, 12));
+
+  assert.deepEqual(selection, {
+    scope: 'day',
+    cycleIndex: 0,
+    year: 2008,
+    month: 1,
+    day: 5,
+  });
+});
+
+test('近期年限预设会选择当前流月而不是锁定当天', () => {
+  const result = createMockResult();
+  const selection = buildRecentBaziFortuneSelection(result, new Date(2008, 1, 8, 12));
+
+  assert.deepEqual(selection, {
+    scope: 'month',
+    cycleIndex: 0,
+    year: 2008,
+    month: 1,
+  });
+});
+
 test('选择大运时会附带该大运下的全部流年', () => {
   const result = createMockResult();
   const context = buildFortuneSelectionContext(result, {
@@ -86,6 +115,17 @@ test('选择大运时会附带该大运下的全部流年', () => {
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【主证】大运干支与十神/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【应期】应期边界/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【限制】断事层级限制/);
+  assert.ok(context.promptPayload.triggerEvidence);
+  assert.equal(context.promptPayload.triggerEvidence?.key, 'bazi:fortune-trigger:evidence');
+  assert.equal(context.promptPayload.triggerEvidence?.status, '已计算');
+  assert.ok(context.promptPayload.triggerEvidence?.calculationSteps.length);
+  assert.ok(context.promptPayload.triggerEvidence?.relationSummaryFact.relationCount);
+  assert.ok(
+    context.promptPayload.triggerEvidence?.limitationFacts.some(
+      (item) => item.type === '层级应期边界',
+    ),
+  );
+  assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【八字岁运触发结构化证据】/);
 });
 
 test('选择流年时会附带该流年下的全部流月', () => {
@@ -117,6 +157,11 @@ test('选择流年时会附带该流年下的全部流月', () => {
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【辅证】上层岁运背景/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【主证】流年干支与十神/);
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /未给出具体流月或流日/);
+  assert.ok(
+    context.promptPayload.triggerEvidence?.relations.some(
+      (item) => item.source.type === 'year' && item.target.type === 'dayun',
+    ),
+  );
 });
 
 test('节令月会使用实际交节日期范围，而不是直接套用公历月份', () => {

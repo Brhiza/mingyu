@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { detectPatterns } from '../packages/core/src/ziwei/iztro/pattern-detection.ts';
+import {
+  buildPatternAnalysis,
+  detectPatterns,
+} from '../packages/core/src/ziwei/iztro/pattern-detection.ts';
 import type { PalaceFact, StarFact } from '../packages/core/src/types/analysis.ts';
 
 const branches = ['寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥', '子', '丑'];
@@ -71,9 +74,73 @@ test('紫微格局检测应拒绝不完整或结构错误的宫位数据', () =>
   );
 });
 
+test('紫微格局分析应输出规则覆盖、未命中反证与可追溯限制', () => {
+  const palaces = createPalaces('亥', [star('太阴')]);
+  const patterns = detectPatterns({ palaces });
+  const analysis = buildPatternAnalysis({ patterns, palaces });
+
+  assert.equal(analysis.key, 'ziwei:patterns');
+  assert.equal(analysis.status, '已计算');
+  assert.equal(analysis.calculationSteps.length, 4);
+  assert.equal(analysis.summaryFact.evaluatedRuleCount, analysis.summaryFact.registeredRuleCount);
+  assert.equal(analysis.summaryFact.unevaluatedRuleCount, 0);
+  assert.equal(analysis.summaryFact.matchedPatternCount, patterns.length);
+  assert.equal(
+    analysis.summaryFact.unmatchedRuleCount,
+    analysis.summaryFact.registeredRuleCount - patterns.length,
+  );
+  assert.ok(
+    patterns.every(
+      (item) =>
+        item.stable_key &&
+        item.key === `ziwei:pattern:${item.stable_key}` &&
+        item.status === '已命中' &&
+        item.sources?.length &&
+        item.calculationStepKey === 'ziwei:pattern:calculation:matched-facts' &&
+        item.dependsOnStepKeys?.includes(item.calculationStepKey) &&
+        item.promptText &&
+        item.limitation,
+    ),
+  );
+  const factKeys = new Set([analysis.summaryFact.key, ...analysis.summaryFact.factKeys]);
+  assert.ok(
+    [...analysis.counterEvidenceFacts, ...analysis.limitationFacts].every(
+      (item) =>
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+    ),
+  );
+  assert.match(analysis.promptText, /计算链：[\s\S]*反证核验：[\s\S]*证据汇总：[\s\S]*解释限制：/);
+  assert.doesNotMatch(
+    analysis.promptText,
+    /命语|iztro|本项目|项目统一|工程|接口|API|MCP|ziwei:pattern:/,
+  );
+
+  const emptyPalaces = createPalaces('寅', []);
+  const unmatched = buildPatternAnalysis({
+    patterns: detectPatterns({ palaces: emptyPalaces }),
+    palaces: emptyPalaces,
+  });
+  assert.equal(unmatched.status, '未命中');
+  assert.equal(unmatched.summaryFact.matchedPatternCount, 0);
+  assert.equal(unmatched.summaryFact.unmatchedRuleCount, unmatched.summaryFact.registeredRuleCount);
+  assert.match(unmatched.counterEvidence.join('；'), /不等于不存在其他传统格局/);
+
+  const skipped = buildPatternAnalysis({ patterns: [], palaces, skipped: true });
+  assert.equal(skipped.status, '未生成');
+  assert.equal(skipped.summaryFact.evaluatedRuleCount, 0);
+  assert.equal(skipped.summaryFact.unevaluatedRuleCount, skipped.summaryFact.registeredRuleCount);
+  assert.match(skipped.promptText, /明确跳过格局规则评估/);
+});
+
 test('紫微格局：按实际地支和昼夜判断月朗天门和日照雷门，不依赖宫位数字索引', () => {
   const yueLang = detectPatterns({ palaces: createPalaces('亥', [star('太阴')]) });
-  assert.ok(yueLang.some((item) => item.name === '月朗天门'));
+  const yueLangPattern = yueLang.find((item) => item.name === '月朗天门');
+  assert.ok(yueLangPattern);
+  assert.ok(yueLangPattern.matched_conditions?.some((item) => item.includes('实际命中宫位')));
+  assert.match(yueLangPattern.source || '', /传统紫微格局规则/);
+  assert.match(yueLangPattern.calculation || '', /逐项核对/);
+  assert.ok(yueLangPattern.limitations?.some((item) => item.includes('不证明传统释义必然发生')));
+  assert.doesNotMatch(yueLangPattern.description, /主清贵|主富贵|主灾/);
 
   const wrongYueLang = detectPatterns({ palaces: createPalaces('丑', [star('太阴')]) });
   assert.equal(

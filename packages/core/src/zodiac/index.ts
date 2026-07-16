@@ -1,6 +1,6 @@
 /**
  * @file 生肖犯太岁 / 流年运程
- * @description 由年支推算值/冲/刑/害/破太岁，并结合流年干支五行、三合六合贵人给出运程等级。
+ * @description 由年支推算值/冲/刑/害/破太岁，并逐项返回流年干支五行、三合六合与三会关系及解释边界。
  * 复用 ganzhi 的干支关系函数。生肖按立春为年界（调用方传入立春校正后的年柱）。
  */
 import {
@@ -16,9 +16,21 @@ import {
   isValidGanZhi,
   getBranchIndex,
   BRANCH_SANHE,
+  SANHUI_GROUPS,
   ZODIACS,
   EARTHLY_BRANCHES,
 } from '../ganzhi';
+import { analyzeZodiacEvidence } from './evidence';
+
+export { analyzeZodiacEvidence } from './evidence';
+export type {
+  ZodiacCalculationStep,
+  ZodiacCounterEvidenceFact,
+  ZodiacCounterSummaryFact,
+  ZodiacEvidenceAnalysis,
+  ZodiacLimitationFact,
+  ZodiacRelationEvidence,
+} from './evidence';
 
 /** 六十甲子值年太岁星君 */
 export const TAI_SUI_STARS: Record<string, string> = {
@@ -151,8 +163,6 @@ export function getYearTaiSui(yearGanZhi: string): { yearBranch: string; star: s
   return { yearBranch: yearGanZhi[1], star };
 }
 
-export type FortuneLevel = '大吉' | '吉' | '平' | '凶' | '大凶';
-
 export interface ZodiacYearFortune {
   zodiacBranch: string;
   zodiac: string;
@@ -162,32 +172,32 @@ export interface ZodiacYearFortune {
   relation: string;
   /** 三合/六合贵人 */
   noble: string | null;
+  /** 两支同属固定三会组；只记录关系，不表示完整三会成局 */
+  meeting: string | null;
   conflicts: TaiSuiConflict[];
-  level: FortuneLevel;
   evidenceGrade: '轻量';
-  confidence: '低';
+  interpretationBoundary: '仅限生肖与流年关系';
   favorableRelations: string[];
   riskRelations: string[];
   actionSignals: string[];
+  evidenceAnalysis: import('./evidence').ZodiacEvidenceAnalysis;
   prompt: string;
 }
 
 function relationText(yearStemWuxing: string, zodiacWuxing: string): string {
-  if (isSheng(yearStemWuxing, zodiacWuxing)) return '年干生扶生肖（印星得助）';
-  if (isSheng(zodiacWuxing, yearStemWuxing)) return '生肖生年干（泄气耗神）';
-  if (isKe(yearStemWuxing, zodiacWuxing)) return '年干克生肖（官杀压力）';
-  if (isKe(zodiacWuxing, yearStemWuxing)) return '生肖克年干（财星可得）';
-  return '比劫同气（帮扶竞争）';
+  if (isSheng(yearStemWuxing, zodiacWuxing)) return '年干五行生生肖地支本气';
+  if (isSheng(zodiacWuxing, yearStemWuxing)) return '生肖地支本气生年干五行';
+  if (isKe(yearStemWuxing, zodiacWuxing)) return '年干五行克生肖地支本气';
+  if (isKe(zodiacWuxing, yearStemWuxing)) return '生肖地支本气克年干五行';
+  return '年干五行与生肖地支本气同类';
 }
 
-function judgeLevel(conflicts: TaiSuiConflict[], relation: string): FortuneLevel {
-  const severe = conflicts.some((c) => c.type === '值太岁' || c.type === '冲太岁');
-  const mild = conflicts.length > 0;
-  if (severe) return '凶';
-  if (mild) return '平';
-  if (relation.includes('印星') || relation.includes('财星')) return '吉';
-  if (relation.includes('比劫')) return '平';
-  return '平';
+function getSanhuiRelation(zodiacBranch: string, yearBranch: string): string | null {
+  if (zodiacBranch === yearBranch) return null;
+  const group = Object.entries(SANHUI_GROUPS).find(
+    ([, members]) => members.includes(zodiacBranch) && members.includes(yearBranch),
+  );
+  return group ? `三会关系（${group[0]}）` : null;
 }
 
 /** 生肖流年运程 */
@@ -207,14 +217,14 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
     const sanhe = BRANCH_SANHE[zodiacBranch];
     if (sanhe?.partners.includes(yearBranch)) noble = `三合贵人（${sanhe.group}）`;
   }
-  const level = judgeLevel(conflicts, relation);
+  const meeting = getSanhuiRelation(zodiacBranch, yearBranch);
   const favorableRelations = [
     noble ? noble : '',
-    relation.includes('印星') || relation.includes('财星') ? relation : '',
+    relation.includes('年干五行生生肖') ? relation : '',
   ].filter(Boolean);
   const riskRelations = [
     ...conflicts.map((conflict) => `${conflict.type}：${conflict.desc}`),
-    relation.includes('压力') || relation.includes('泄气') ? relation : '',
+    relation.includes('克生肖') || relation.includes('生肖地支本气生年干') ? relation : '',
   ].filter(Boolean);
   const actionSignals = [
     conflicts.some((item) => item.type === '冲太岁') ? '重大变动前预留备选方案' : '',
@@ -225,39 +235,42 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
   const yearStemWuxing = getStemWuxing(yearGanZhi[0]);
   const yearBranchWuxing = getBranchWuxing(yearBranch);
   const zodiacWuxing = getBranchWuxing(zodiacBranch);
-  const prompt = [
-    `【生肖与流年关系简析】`,
-    `${zodiac}（${zodiacBranch}）遇${yearGanZhi}年（${TAI_SUI_STARS[yearGanZhi] ?? ''}太岁）。`,
-    `五行来源：流年年干${yearGanZhi[0]}属${yearStemWuxing}，流年地支${yearBranch}属${yearBranchWuxing}；生肖地支${zodiacBranch}属${zodiacWuxing}；年干与生肖五行据此得到“${relation}”，年支则用于值、冲、刑、害、破及三合六合判断。`,
-    `干支关系：${relation}。`,
-    noble ? `贵人：${noble}。` : '贵人：无明显三合六合贵人。',
-    conflicts.length
-      ? `犯太岁明细：${conflicts.map((conflict) => `${conflict.type}（${conflict.desc}）`).join('；')}`
-      : '犯太岁明细：本年未命中值、冲、刑、害、破太岁。',
-    `综合定级：${level}。`,
-    `有利关系：${favorableRelations.join('；') || '未见三合六合或年干明显生扶'}。`,
-    `风险关系：${riskRelations.join('；') || '未见值、冲、刑、害、破关系'}。`,
-    `行动信号：${actionSignals.join('；') || '按实际计划稳步推进，不因生肖关系额外制造焦虑'}。`,
-    `证据层级：生肖与流年地支的值、冲、刑、害、破为主要关系证据；年干五行与三合六合为辅助证据；“${level}”只是本次生肖层的简化定级，不等于完整个人运势。`,
-    '证据边界：本次只作生肖与流年关系层的趋势参考；不得仅凭犯太岁名称断定必然事件，也不得把化解建议写成保证结果。',
-    '',
-    '请围绕上述生肖与流年地支关系，依次说明有利关系、风险关系、可观察的现实信号和稳妥行动建议。',
-  ].join('\n');
-
-  return {
+  const resultBase = {
     zodiacBranch,
     zodiac,
     yearGanZhi,
     yearBranch,
     relation,
     noble,
+    meeting,
     conflicts,
-    level,
-    evidenceGrade: '轻量',
-    confidence: '低',
+    evidenceGrade: '轻量' as const,
+    interpretationBoundary: '仅限生肖与流年关系' as const,
     favorableRelations,
     riskRelations,
     actionSignals,
+  };
+  const evidenceAnalysis = analyzeZodiacEvidence(resultBase);
+  const prompt = [
+    `【生肖与流年关系简析】`,
+    `${zodiac}（${zodiacBranch}）遇${yearGanZhi}年（${TAI_SUI_STARS[yearGanZhi] ?? ''}太岁）。`,
+    `五行来源：流年年干${yearGanZhi[0]}属${yearStemWuxing}，流年地支${yearBranch}属${yearBranchWuxing}；生肖地支${zodiacBranch}属${zodiacWuxing}；年干与生肖五行据此得到“${relation}”，年支则用于值、冲、刑、害、破、三合、六合及三会判断。`,
+    `干支关系：${relation}。`,
+    noble ? `贵人：${noble}。` : '',
+    meeting ? `三会：${meeting}；仅表示两支同属三会组，不表示完整三会成局。` : '',
+    conflicts.length
+      ? `犯太岁明细：${conflicts.map((conflict) => `${conflict.type}（${conflict.desc}）`).join('；')}`
+      : '',
+    favorableRelations.length ? `有利关系：${favorableRelations.join('；')}。` : '',
+    riskRelations.length ? `风险关系：${riskRelations.join('；')}。` : '',
+    actionSignals.length ? `行动信号：${actionSignals.join('；')}。` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  return {
+    ...resultBase,
+    evidenceAnalysis,
     prompt,
   };
 }

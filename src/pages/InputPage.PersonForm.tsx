@@ -4,7 +4,6 @@ import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { getPersonSectionTitle } from '@/lib/input-labels';
 import type { QueryInputState } from '@/lib/query-state';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
-import { UNKNOWN_TIME_INDEX } from '@/lib/birth-time-reverse';
 import { isValidHourMinute } from '@/lib/input-validation';
 import { getPersonValue, type SELF_FIELD_MAP } from './InputPage.field-helpers';
 import type { PersonRole } from './InputPage.field-helpers';
@@ -45,7 +44,6 @@ export interface PersonFormProps {
   ) => void;
   updateBirthTime: (role: PersonRole, value: string) => void;
   openBirthPlaceModal: (role: PersonRole) => void;
-  openBirthTimeReversePage: (role: PersonRole) => void;
   sectionTitle?: string;
   historyHint?: string;
   forcePreciseBirthPlace?: boolean;
@@ -58,7 +56,6 @@ export const PersonForm = memo(function PersonForm({
   updateNumericField,
   updateBirthTime,
   openBirthPlaceModal,
-  openBirthTimeReversePage,
   sectionTitle,
   historyHint: historyHintOverride,
   forcePreciseBirthPlace = false,
@@ -194,7 +191,7 @@ export const PersonForm = memo(function PersonForm({
                   updatePersonField(role, 'useTrueSolarTime', event.target.checked)
                 }
               />
-              <span>使用真太阳时</span>
+              <span>使用真太阳时（需精准时分和出生地）</span>
             </label>
           </div>
         )}
@@ -258,19 +255,10 @@ export const PersonForm = memo(function PersonForm({
                     {time.label}（{time.range}）
                   </option>
                 ))}
-                <option value={UNKNOWN_TIME_INDEX}>未知时辰</option>
               </select>
-              {form.analysisMode === 'single' && role === 'self' && !forcePreciseBirthPlace ? (
-                <div className="birth-time-actions">
-                  <button
-                    type="button"
-                    className="birth-time-reverse-button"
-                    onClick={() => openBirthTimeReversePage(role)}
-                  >
-                    反推时辰
-                  </button>
-                </div>
-              ) : null}
+              <div className="birth-time-hint">
+                普通排盘可直接按明确时辰生成完整时柱，无需精确到分钟。
+              </div>
             </div>
           </div>
         )}

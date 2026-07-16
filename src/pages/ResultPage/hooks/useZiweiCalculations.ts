@@ -49,8 +49,6 @@ export function useZiweiCalculations(
   },
   _isZiweiTabMounted: boolean,
   isPromptTabMounted: boolean,
-  primaryHasUnknownTime: boolean,
-  partnerHasUnknownTime: boolean,
 ): ZiweiCalculations {
   const [ziweiRuntime, setZiweiRuntime] = useState<ZiweiRuntimeState>(null);
   const [partnerZiweiRuntime, setPartnerZiweiRuntime] = useState<ZiweiRuntimeState>(null);
@@ -67,23 +65,15 @@ export function useZiweiCalculations(
   const partnerPayloadKeyRef = useRef('');
 
   const primaryZiweiInput = useMemo(() => {
-    if (primaryHasUnknownTime) {
-      return null;
-    }
-
     try {
       return buildZiweiChartInput(inputState);
     } catch {
       return null;
     }
-  }, [inputState, primaryHasUnknownTime]);
+  }, [inputState]);
 
   const partnerZiweiInput = useMemo(() => {
     if (inputState.analysisMode !== 'compatibility') {
-      return null;
-    }
-
-    if (partnerHasUnknownTime) {
       return null;
     }
 
@@ -105,7 +95,7 @@ export function useZiweiCalculations(
     } catch {
       return null;
     }
-  }, [inputState, partnerHasUnknownTime]);
+  }, [inputState]);
 
   const shouldLoadZiweiPromptPayload =
     isPromptTabMounted &&

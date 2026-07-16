@@ -2,8 +2,25 @@ import type { LenormandData, LenormandSpreadType } from '../../types/divination'
 import type { RandomOptions, RandomSource } from '../../shared/random';
 import { createRandomContext, randomInt } from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
+import { analyzeLenormandEvidence } from '../lenormand-evidence';
 
-const LENORMAND_CARDS = [
+export { analyzeLenormandEvidence, conditionLenormandTraditionalText } from '../lenormand-evidence';
+export type {
+  LenormandCardEvidence,
+  LenormandCounterEvidenceFact,
+  LenormandCounterSummaryFact,
+  LenormandDrawFact,
+  LenormandDrawOrderFact,
+  LenormandEvidenceAnalysis,
+  LenormandLayoutFact,
+  LenormandLayoutCoverageFact,
+  LenormandLimitationFact,
+  LenormandSequenceFact,
+  LenormandSpreadCoverageFact,
+  LenormandTraditionalFact,
+} from '../lenormand-evidence';
+
+export const LENORMAND_CARDS = [
   { id: 1, name: '骑士', keywords: ['消息', '到来', '进展'], meaning: '消息抵达，事情开始移动。' },
   {
     id: 2,
@@ -164,7 +181,7 @@ const LENORMAND_CARDS = [
     keywords: ['成熟', '平和', '伦理'],
     meaning: '需要成熟处理，重视体面与长期安稳。',
   },
-  { id: 31, name: '太阳', keywords: ['成功', '清晰', '能量'], meaning: '局势转明，成功率提升。' },
+  { id: 31, name: '太阳', keywords: ['成功', '清晰', '能量'], meaning: '局势转明，推进条件增强。' },
   {
     id: 32,
     name: '月亮',
@@ -227,7 +244,7 @@ function shuffleCards(rng: RandomSource) {
  * 雷诺曼牌组两牌组合含义（为配对解读提供传统关键词）
  * 如 "太阳+鱼" = 财运好、"鞭子+鼠" = 消耗性争执
  */
-const CARD_COMBINATIONS: Record<string, string> = {
+export const LENORMAND_FIXED_COMBINATIONS: Record<string, string> = {
   '骑士+心': '消息带来感情进展',
   '心+戒指': '感情的承诺或婚约',
   '心+花束': '被人喜欢或表白',
@@ -304,7 +321,10 @@ export function drawLenormandSpread(
   for (let i = 0; i < cards.length - 1; i++) {
     const comboKey = `${cards[i].name}+${cards[i + 1].name}`;
     const reverseComboKey = `${cards[i + 1].name}+${cards[i].name}`;
-    const fixedMeaning = CARD_COMBINATIONS[comboKey] || CARD_COMBINATIONS[reverseComboKey] || null;
+    const fixedMeaning =
+      LENORMAND_FIXED_COMBINATIONS[comboKey] ||
+      LENORMAND_FIXED_COMBINATIONS[reverseComboKey] ||
+      null;
     combinations.push({
       card1: cards[i].name,
       card2: cards[i + 1].name,
@@ -356,15 +376,29 @@ export function drawLenormandSpread(
   }
 
   const timestamp = Date.now();
-  return attachResultMeta(
+  const draw: NonNullable<LenormandData['draw']> = {
+    deckSize: LENORMAND_CARDS.length,
+    method: 'Fisher-Yates洗牌后依牌位顺序取顶牌',
+    order: cards.map((card, index) => ({
+      index: index + 1,
+      position: card.position,
+      cardId: card.id,
+      cardName: card.name,
+      house: card.house,
+      row: card.row,
+      column: card.column,
+    })),
+  };
+  const result = attachResultMeta(
     {
       spreadType,
       spreadName: spread.name,
+      draw,
       cards,
       combinations,
       layoutEvidence,
       timestamp,
-    },
+    } satisfies LenormandData,
     {
       algorithm: 'lenormand.spread',
       input: { spreadType },
@@ -372,4 +406,5 @@ export function drawLenormandSpread(
       random: context.getTrace(),
     },
   );
+  return { ...result, evidenceAnalysis: analyzeLenormandEvidence(result) };
 }

@@ -1,8 +1,28 @@
-import { resolveTrueSolarBirthTime, type SolarDateTimeParts } from '../calendar/true-solar-time';
-import { getTimeIndexFromClock } from '../calendar/dateUtils';
+import {
+  resolveTrueSolarBirthTime,
+  type SolarDateTimeParts,
+  type TrueSolarTimeEvidenceFields,
+} from '../calendar/true-solar-time';
+import { getShichenByIndex, getTimeIndexFromClock } from '../calendar/dateUtils';
 import type { Person } from '../bazi/baziTypes';
 import type { AlmanacParticipantInput, AstrolabeBirthInput } from '../types/divination';
 import { MingyuCoreError, type CoreDiagnostic } from '../shared/result';
+import {
+  buildBirthTimeEvidence,
+  type BirthTimeEvidence,
+  type BirthTimeInputMode,
+  type BirthTimePrecision,
+} from './evidence';
+
+export type {
+  BirthTimeCalculationStep,
+  BirthTimeEvidence,
+  BirthTimeInputFact,
+  BirthTimeInputMode,
+  BirthTimeLimitationFact,
+  BirthTimePrecision,
+  BirthTimeSummaryFact,
+} from './evidence';
 
 export type BirthGender = 'male' | 'female' | 'unspecified';
 export type BirthCalendarType = 'solar' | 'lunar';
@@ -28,10 +48,13 @@ export interface BirthProfile {
   year: number;
   month: number;
   day: number;
+  /** 精准出生小时；与 minute 成对提供。 */
   hour?: number;
+  /** 精准出生分钟；与 hour 成对提供。 */
   minute?: number;
+  /** 明确传统时辰索引，范围 0-12；未启用真太阳时时可替代精准时分。 */
+  timeIndex?: number;
   second?: number;
-  unknownTime?: boolean;
   isLeapMonth?: boolean;
   location?: BirthProfileLocation;
   useTrueSolarTime?: boolean;
@@ -39,22 +62,25 @@ export interface BirthProfile {
 }
 
 export type BirthProfileDiagnosticCode =
-  | 'UNKNOWN_BIRTH_TIME'
-  | 'TIME_IGNORED_WHEN_UNKNOWN'
   | 'LOCATION_REQUIRED_FOR_TRUE_SOLAR_TIME'
   | 'LATITUDE_REQUIRED'
   | 'GENDER_REQUIRED'
-  | 'TIME_REQUIRED';
+  | 'TIME_REQUIRED'
+  | 'PRECISE_TIME_REQUIRED'
+  | 'TIME_INPUT_CONFLICT';
 
 export type BirthProfileDiagnostic = CoreDiagnostic<BirthProfileDiagnosticCode>;
 
 export interface NormalizedBirthProfile {
   profile: BirthProfile;
-  hasKnownTime: boolean;
-  solarClockTime?: SolarDateTimeParts;
-  effectiveTime?: SolarDateTimeParts;
-  timeIndex?: number;
+  solarClockTime: SolarDateTimeParts;
+  effectiveTime: SolarDateTimeParts;
+  timeIndex: number;
+  timeInputMode: BirthTimeInputMode;
+  timePrecision: BirthTimePrecision;
   usedTrueSolarTime: boolean;
+  trueSolarEvidence?: TrueSolarTimeEvidenceFields;
+  timeEvidence: BirthTimeEvidence;
   diagnostics: BirthProfileDiagnostic[];
 }
 
@@ -108,42 +134,108 @@ function assertProfileShape(profile: BirthProfile): void {
   }
 }
 
+interface ResolvedBirthTimeInput {
+  inputMode: BirthTimeInputMode;
+  hour: number;
+  minute: number;
+  timeIndex: number;
+}
+
+function throwBirthTimeError(
+  code: Extract<
+    BirthProfileDiagnosticCode,
+    'TIME_REQUIRED' | 'PRECISE_TIME_REQUIRED' | 'TIME_INPUT_CONFLICT'
+  >,
+  message: string,
+  field: string,
+): never {
+  throw new BirthProfileError({
+    code,
+    level: 'error',
+    field,
+    message,
+  });
+}
+
+function resolveBirthTimeInput(profile: BirthProfile): ResolvedBirthTimeInput {
+  const hasHour = profile.hour !== undefined;
+  const hasMinute = profile.minute !== undefined;
+  const hasPreciseTime = hasHour && hasMinute;
+  const hasTimeIndex = profile.timeIndex !== undefined;
+
+  if (hasHour !== hasMinute) {
+    throwBirthTimeError(
+      'TIME_REQUIRED',
+      '出生小时和分钟必须同时提供；也可以改为只提供明确的传统时辰。',
+      hasHour ? 'minute' : 'hour',
+    );
+  }
+  if (!hasPreciseTime && !hasTimeIndex) {
+    throwBirthTimeError(
+      'TIME_REQUIRED',
+      '请提供明确的出生时辰，或完整的出生小时和分钟。',
+      'timeIndex',
+    );
+  }
+
+  let selectedTimeIndex: number | undefined;
+  if (hasTimeIndex) {
+    const shichen = getShichenByIndex(profile.timeIndex!);
+    if (!shichen) {
+      throw new RangeError('出生时辰索引需在 0-12 之间。');
+    }
+    selectedTimeIndex = shichen.index;
+  }
+
+  if (hasPreciseTime) {
+    const hour = profile.hour!;
+    const minute = profile.minute!;
+    assertIntegerInRange(hour, '出生小时', 0, 23);
+    assertIntegerInRange(minute, '出生分钟', 0, 59);
+    const preciseTimeIndex = getTimeIndexFromClock(hour, minute);
+    if (selectedTimeIndex !== undefined && selectedTimeIndex !== preciseTimeIndex) {
+      throwBirthTimeError(
+        'TIME_INPUT_CONFLICT',
+        `精准出生时间对应时辰索引 ${preciseTimeIndex}，与已提供的时辰索引 ${selectedTimeIndex} 不一致。`,
+        'timeIndex',
+      );
+    }
+    return {
+      inputMode: 'precise-clock-time',
+      hour,
+      minute,
+      timeIndex: preciseTimeIndex,
+    };
+  }
+
+  if (profile.useTrueSolarTime) {
+    throwBirthTimeError(
+      'PRECISE_TIME_REQUIRED',
+      '真太阳时必须提供完整的出生小时和分钟，不能使用传统时辰代表值。',
+      'hour',
+    );
+  }
+  const shichen = getShichenByIndex(selectedTimeIndex!);
+  if (!shichen) throw new Error('出生时辰状态异常。');
+  return {
+    inputMode: 'traditional-shichen',
+    hour: shichen.hour,
+    minute: 0,
+    timeIndex: shichen.index,
+  };
+}
+
 /**
  * 校验并统一出生档案的时间口径。
  *
- * 未知时辰不会被静默替换为中午或子时；调用方可根据 hasKnownTime 和
- * diagnostics 决定降级展示，必须依赖时辰的算法则使用下方适配函数明确报错。
+ * 未启用真太阳时时，可直接提供明确传统时辰；启用真太阳时时必须提供完整小时和分钟。
+ * 两种模式都只形成一个确定结果，不生成候选盘、敏感性结果或缺时柱命盘。
  */
 export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthProfile {
   assertProfileShape(profile);
   const diagnostics: BirthProfileDiagnostic[] = [];
-  const hasClockFields = profile.hour !== undefined || profile.minute !== undefined;
-  const hasCompleteClock = profile.hour !== undefined && profile.minute !== undefined;
-  const hasKnownTime = profile.unknownTime !== true && hasCompleteClock;
-
-  if (profile.unknownTime === true) {
-    diagnostics.push({
-      code: 'UNKNOWN_BIRTH_TIME',
-      level: 'warning',
-      field: 'unknownTime',
-      message: '出生时辰未知，仅可使用不依赖时柱或宫位起点的稳定结论。',
-    });
-    if (hasClockFields) {
-      diagnostics.push({
-        code: 'TIME_IGNORED_WHEN_UNKNOWN',
-        level: 'info',
-        field: 'hour',
-        message: '已标记未知时辰，传入的小时和分钟不会参与计算。',
-      });
-    }
-  } else if (!hasKnownTime) {
-    diagnostics.push({
-      code: 'TIME_REQUIRED',
-      level: 'error',
-      field: 'hour',
-      message: '请提供出生小时和分钟，或明确设置 unknownTime: true。',
-    });
-  }
+  const timeInput = resolveBirthTimeInput(profile);
+  const { hour, minute } = timeInput;
 
   if (profile.useTrueSolarTime && !profile.location) {
     diagnostics.push({
@@ -154,65 +246,9 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
     });
   }
 
-  if (!hasKnownTime) {
-    // 未知时辰也必须校验出生日期；用正午只做历法转换，不把该时间写入结果。
-    resolveTrueSolarBirthTime({
-      dateType: profile.calendarType,
-      year: profile.year,
-      month: profile.month,
-      day: profile.day,
-      hour: 12,
-      minute: 0,
-      isLeapMonth: profile.isLeapMonth,
-      longitude: 120,
-      timezone: 8,
-      applyChinaDst: false,
-    });
-    return {
-      profile: { ...profile, hour: undefined, minute: undefined, second: undefined },
-      hasKnownTime: false,
-      usedTrueSolarTime: false,
-      diagnostics,
-    };
-  }
-
-  const hour = profile.hour;
-  const minute = profile.minute;
-  if (hour === undefined || minute === undefined) {
-    throw new Error('出生时间状态异常。');
-  }
-  assertIntegerInRange(hour, '出生小时', 0, 23);
-  assertIntegerInRange(minute, '出生分钟', 0, 59);
   const second = profile.second ?? 0;
   assertIntegerInRange(second, '出生秒数', 0, 59);
 
-  if (profile.useTrueSolarTime && profile.location) {
-    const resolved = resolveTrueSolarBirthTime({
-      dateType: profile.calendarType,
-      year: profile.year,
-      month: profile.month,
-      day: profile.day,
-      hour,
-      minute,
-      second,
-      isLeapMonth: profile.isLeapMonth,
-      longitude: profile.location.longitude,
-      timezone: profile.location.timezone ?? 8,
-      applyChinaDst: profile.applyChinaDst,
-    });
-    return {
-      profile,
-      hasKnownTime: true,
-      solarClockTime: resolved.solarClockTime,
-      effectiveTime: resolved.correctedTime,
-      timeIndex: resolved.timeIndex,
-      usedTrueSolarTime: true,
-      diagnostics,
-    };
-  }
-
-  // 即使不启用真太阳时，也通过统一入口完成农历转公历和日期合法性校验。
-  const location = profile.location;
   const resolved = resolveTrueSolarBirthTime({
     dateType: profile.calendarType,
     year: profile.year,
@@ -222,17 +258,88 @@ export function normalizeBirthProfile(profile: BirthProfile): NormalizedBirthPro
     minute,
     second,
     isLeapMonth: profile.isLeapMonth,
-    longitude: (location?.timezone ?? 8) * 15,
-    timezone: location?.timezone ?? 8,
-    applyChinaDst: false,
+    longitude: profile.location?.longitude ?? (profile.location?.timezone ?? 8) * 15,
+    timezone: profile.location?.timezone ?? 8,
+    applyChinaDst: profile.useTrueSolarTime ? profile.applyChinaDst : false,
+  });
+
+  if (profile.useTrueSolarTime && profile.location) {
+    const selectedShichen = getShichenByIndex(resolved.timeIndex);
+    if (!selectedShichen) throw new Error('真太阳时时辰状态异常。');
+    const trueSolarEvidence: TrueSolarTimeEvidenceFields = {
+      key: resolved.key,
+      status: resolved.status,
+      calculationSteps: resolved.calculationSteps,
+      calculationChain: resolved.calculationChain,
+      correctionFacts: resolved.correctionFacts,
+      summaryFact: resolved.summaryFact,
+      limitations: resolved.limitations,
+      limitationFacts: resolved.limitationFacts,
+      source: resolved.source,
+      promptText: resolved.promptText,
+    };
+    const timeEvidence = buildBirthTimeEvidence({
+      inputMode: timeInput.inputMode,
+      calendarType: profile.calendarType,
+      originalDate: {
+        year: profile.year,
+        month: profile.month,
+        day: profile.day,
+        isLeapMonth: profile.isLeapMonth ?? false,
+      },
+      inputHour: hour,
+      inputMinute: minute,
+      selectedShichen,
+      solarClockTime: resolved.solarClockTime,
+      effectiveTime: resolved.correctedTime,
+      usedTrueSolarTime: true,
+      requestedTrueSolarTime: true,
+      trueSolarEvidence,
+      diagnostics,
+    });
+    return {
+      profile,
+      solarClockTime: resolved.solarClockTime,
+      effectiveTime: resolved.correctedTime,
+      timeIndex: resolved.timeIndex,
+      timeInputMode: timeInput.inputMode,
+      timePrecision: 'minute',
+      usedTrueSolarTime: true,
+      trueSolarEvidence,
+      timeEvidence,
+      diagnostics,
+    };
+  }
+
+  const selectedShichen = getShichenByIndex(timeInput.timeIndex);
+  if (!selectedShichen) throw new Error('出生时辰状态异常。');
+  const timeEvidence = buildBirthTimeEvidence({
+    inputMode: timeInput.inputMode,
+    calendarType: profile.calendarType,
+    originalDate: {
+      year: profile.year,
+      month: profile.month,
+      day: profile.day,
+      isLeapMonth: profile.isLeapMonth ?? false,
+    },
+    inputHour: hour,
+    inputMinute: minute,
+    selectedShichen,
+    solarClockTime: resolved.solarClockTime,
+    effectiveTime: resolved.solarClockTime,
+    usedTrueSolarTime: false,
+    requestedTrueSolarTime: profile.useTrueSolarTime ?? false,
+    diagnostics,
   });
   return {
     profile,
-    hasKnownTime: true,
     solarClockTime: resolved.solarClockTime,
     effectiveTime: resolved.solarClockTime,
-    timeIndex: getTimeIndexFromClock(resolved.solarClockTime.hour, resolved.solarClockTime.minute),
+    timeIndex: timeInput.timeIndex,
+    timeInputMode: timeInput.inputMode,
+    timePrecision: timeInput.inputMode === 'traditional-shichen' ? 'shichen' : 'minute',
     usedTrueSolarTime: false,
+    timeEvidence,
     diagnostics,
   };
 }
@@ -247,19 +354,6 @@ function requireReady(
 } {
   const blocking = extraDiagnostic ?? result.diagnostics.find((item) => item.level === 'error');
   if (blocking) throw new BirthProfileError(blocking);
-  if (
-    !result.hasKnownTime ||
-    !result.solarClockTime ||
-    !result.effectiveTime ||
-    result.timeIndex === undefined
-  ) {
-    throw new BirthProfileError({
-      code: 'TIME_REQUIRED',
-      level: 'error',
-      field: 'hour',
-      message: '此算法必须提供准确出生时辰，未知时辰不能使用占位值代替。',
-    });
-  }
 }
 
 /** 将统一档案转换为八字既有输入。 */
@@ -276,8 +370,9 @@ export function birthProfileToBaziPerson(profile: BirthProfile): Person {
     isLunar: profile.calendarType === 'lunar',
     isLeapMonth: profile.isLeapMonth,
     useTrueSolarTime: profile.useTrueSolarTime,
-    birthHour: clock.hour,
-    birthMinute: clock.minute,
+    ...(normalized.timePrecision === 'minute'
+      ? { birthHour: clock.hour, birthMinute: clock.minute }
+      : {}),
     birthPlace: profile.location?.name,
     birthLongitude: profile.location?.longitude,
     applyChinaDst: profile.applyChinaDst,
@@ -287,6 +382,15 @@ export function birthProfileToBaziPerson(profile: BirthProfile): Person {
 /** 将统一档案转换为星盘既有输入。星盘必须有经纬度和准确时辰。 */
 export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBirthInput {
   const normalized = normalizeBirthProfile(profile);
+  const preciseTimeDiagnostic: BirthProfileDiagnostic | undefined =
+    normalized.timePrecision !== 'minute'
+      ? {
+          code: 'PRECISE_TIME_REQUIRED',
+          level: 'error',
+          field: 'hour',
+          message: '星盘必须提供精确到分钟的出生时间，不能使用传统时辰代表值。',
+        }
+      : undefined;
   const locationDiagnostic: BirthProfileDiagnostic | undefined =
     profile.location?.latitude === undefined
       ? {
@@ -305,7 +409,7 @@ export function birthProfileToAstrolabeInput(profile: BirthProfile): AstrolabeBi
           message: '星盘现有输入需要明确性别。',
         }
       : undefined;
-  requireReady(normalized, locationDiagnostic ?? genderDiagnostic);
+  requireReady(normalized, preciseTimeDiagnostic ?? locationDiagnostic ?? genderDiagnostic);
   const clock = normalized.solarClockTime;
   const location = profile.location;
   if (!location || location.latitude === undefined) throw new Error('出生地状态异常。');

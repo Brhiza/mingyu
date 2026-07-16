@@ -5,6 +5,8 @@
 
 import type { ShenShaVariantConfig } from './baziShenSha/variants';
 import type { MingGuaProfile } from '../types/analysis';
+import type { SolarTermEvidence } from '../calendar/solar-term-evidence';
+import type { TrueSolarTimeEvidenceFields } from '../calendar/true-solar-time';
 import { WUXING } from '../wuxing';
 import type { Wuxing } from '../wuxing';
 
@@ -70,9 +72,30 @@ export interface HiddenStems {
 }
 
 export interface WuxingStrengthDetails {
-  scores: Record<string, number>;
-  percentages: Record<string, number>;
   missing: string[];
+  present: string[];
+  dominantByRule: string[];
+  ruleBasis: string[];
+  commanderElement?: string;
+}
+
+export interface BaziWarningFact {
+  key: string;
+  type: '节气交接边界' | '时辰边界' | '换日流派边界' | '历史夏令时边界' | '输入时间边界';
+  status: '已确定当前口径' | '已校正' | '需核验原始记录';
+  referenceKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '边界预警只记录当前输入下已采用的时间口径和需复核事项；不生成候选时柱、敏感性结果或现实事件结论';
+}
+
+export interface BaziWarningSummaryFact {
+  key: 'bazi:warning-summary';
+  status: '无预警' | '存在边界提示' | '存在需核验事项';
+  factKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '预警汇总只说明排盘边界是否需要留意，不改变已经按输入确定的时柱，也不生成候选盘';
 }
 
 export interface LiunianInfo {
@@ -108,6 +131,7 @@ export interface TimingInfo {
   longitudeCorrectionMinutes: number;
   equationOfTimeMinutes: number;
   totalCorrectionMinutes: number;
+  evidence: TrueSolarTimeEvidenceFields;
   /** 中国夏令时校正（命中 1986-1991 夏令时时为 -60，未命中时省略） */
   dstCorrectionMinutes?: number;
 }
@@ -173,6 +197,8 @@ export interface SeasonInfo {
   daysToNext: number | undefined;
   currentSeason: string;
   jieqiList: { name: string; date: string }[];
+  previousTermEvidence?: SolarTermEvidence;
+  nextTermEvidence?: SolarTermEvidence;
 }
 
 export interface RootAnalysis {
@@ -195,16 +221,17 @@ export interface ConstraintAnalysis {
 }
 
 export interface DayMasterStrengthAnalysis {
-  score: number;
   status: string;
   details: {
-    seasonalScore: number;
-    commanderScore?: number;
     timely: boolean;
-    formationStrength: number;
-    rootStrength: number;
-    supportStrength: number;
-    constraintStrength: number;
+    seasonalEffect: '支持' | '中性' | '削弱';
+    commanderEffect: '助身' | '生身' | '泄身' | '耗身' | '克身' | '中性';
+    formationEffect: '支持' | '中性' | '削弱';
+    hasRoot: boolean;
+    hasStrongRoot: boolean;
+    hasSupport: boolean;
+    hasConstraint: boolean;
+    ruleBasis: string[];
   };
 }
 
@@ -349,4 +376,8 @@ export interface BaziChartResult {
    * 或落于中国夏令时期间等可能翻柱的情形。无预警时为空数组。
    */
   warnings: string[];
+  warningFacts: BaziWarningFact[];
+  warningSummaryFact: BaziWarningSummaryFact;
+  /** 八字本命四柱、旺衰、格局、取用、关系、反证与限制的统一证据链。 */
+  evidenceAnalysis?: import('./natalEvidence').BaziNatalEvidenceAnalysis;
 }

@@ -26,17 +26,28 @@ export class WuxingCalculator {
       }
     }
 
-    const totalStrength = Object.values(weightedStrength).reduce((sum, val) => sum + val, 0);
-    const percentages = this._calculatePercentages(weightedStrength, totalStrength);
-
     const missingElements = Object.entries(rawStrength)
       .filter(([, score]) => score === 0)
       .map(([wuxing]) => wuxing);
+    const present = Object.keys(rawStrength).filter((wuxing) => !missingElements.includes(wuxing));
+    const maxStrength = Math.max(...Object.values(weightedStrength));
+    const dominantByRule = Object.entries(weightedStrength)
+      .filter(([, value]) => value === maxStrength && maxStrength > 0)
+      .map(([wuxing]) => wuxing);
+    const commanderElement = monthCommander ? getWuxingUtil(monthCommander) : undefined;
 
     return {
-      scores: weightedStrength,
-      percentages,
       missing: missingElements,
+      present,
+      dominantByRule,
+      commanderElement: commanderElement === '未知' ? undefined : commanderElement,
+      ruleBasis: [
+        '天干与地支藏干按项目五行规则计入结构来源',
+        '月令旺衰权重用于比较规则输入，不代表概率、吉凶或现实结果',
+        monthCommander
+          ? '司令天干仅作为项目内部规则加权条件'
+          : '未提供司令天干，未应用司令附加条件',
+      ],
     };
   }
 
@@ -75,34 +86,5 @@ export class WuxingCalculator {
       );
     }
     return weightedStrength;
-  }
-
-  private _calculatePercentages(
-    weightedStrength: Record<string, number>,
-    totalStrength: number,
-  ): Record<string, number> {
-    const percentages: Record<string, number> = { 金: 0, 木: 0, 水: 0, 火: 0, 土: 0 };
-    if (totalStrength === 0) {
-      return percentages;
-    }
-
-    // 按比例计算并保留一位小数，避免 Math.round 取整后将误差集中到末项
-    let accumulated = 0;
-    const keys = Object.keys(weightedStrength);
-    const rawPcts: Array<{ key: string; pct: number }> = keys.map((key) => ({
-      key,
-      pct: Math.round(((weightedStrength[key] || 0) / totalStrength) * 1000) / 10,
-    }));
-    // 按原始比例降序，末项补差时偏小项承受误差更不明显
-    rawPcts.sort((a, b) => b.pct - a.pct);
-
-    for (let i = 0; i < rawPcts.length - 1; i++) {
-      const pct = Math.round(rawPcts[i].pct);
-      percentages[rawPcts[i].key] = pct;
-      accumulated += pct;
-    }
-    percentages[rawPcts[rawPcts.length - 1].key] = Math.max(0, 100 - accumulated);
-
-    return percentages;
   }
 }

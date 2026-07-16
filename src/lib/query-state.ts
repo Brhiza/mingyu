@@ -67,6 +67,7 @@ export type QueryPromptState = {
   astrolabeScope: AstrolabeScopeMode;
   astrolabeScopeDate: string;
   bazhaiFacingDegree: string;
+  residentialHouseYear: string;
 };
 
 const BAZI_FORTUNE_SCOPES: readonly BaziFortuneScope[] = [
@@ -123,7 +124,6 @@ const ASTROLABE_PROMPT_SCOPES: readonly AstrolabeScopeMode[] = [
   'daily',
 ];
 
-export const UNKNOWN_TIME_INDEX = -1;
 const MAX_TIME_INDEX = BIRTH_TIME_OPTIONS.length - 1;
 
 export const defaultInputState: QueryInputState = {
@@ -181,7 +181,31 @@ export const defaultPromptState: QueryPromptState = {
   astrolabeScope: 'natal',
   astrolabeScopeDate: '',
   bazhaiFacingDegree: '',
+  residentialHouseYear: '',
 };
+
+export function hasCompletePreciseBirthData(
+  input: Pick<
+    QueryInputState,
+    | 'analysisMode'
+    | 'useTrueSolarTime'
+    | 'birthHour'
+    | 'birthMinute'
+    | 'birthPlace'
+    | 'birthLongitude'
+    | 'birthLatitude'
+  >,
+) {
+  return (
+    input.analysisMode === 'single' &&
+    input.useTrueSolarTime &&
+    input.birthHour !== '' &&
+    input.birthMinute !== '' &&
+    input.birthPlace.trim() !== '' &&
+    input.birthLongitude !== '' &&
+    input.birthLatitude !== ''
+  );
+}
 
 const INPUT_PARAM_KEYS: Record<keyof QueryInputState, string> = {
   analysisMode: 'a',
@@ -238,6 +262,7 @@ const PROMPT_PARAM_KEYS: Record<keyof QueryPromptState, string> = {
   astrolabeScope: 'as',
   astrolabeScopeDate: 'asd',
   bazhaiFacingDegree: 'bhd',
+  residentialHouseYear: 'rhy',
 };
 
 const PARAM_KEY_ALIASES: Record<string, string> = {
@@ -430,6 +455,12 @@ function appendPromptStateParams(params: URLSearchParams, prompt: QueryPromptSta
     prompt.bazhaiFacingDegree,
     defaultPromptState.bazhaiFacingDegree,
   );
+  setCompactParam(
+    params,
+    'residentialHouseYear',
+    prompt.residentialHouseYear,
+    defaultPromptState.residentialHouseYear,
+  );
 }
 
 function getString(params: URLSearchParams, key: string, fallback: string) {
@@ -447,10 +478,7 @@ function parseTimeIndex(value: string) {
   }
 
   const parsed = Number(value);
-  return Number.isInteger(parsed) &&
-    (parsed === UNKNOWN_TIME_INDEX || (parsed >= 0 && parsed <= MAX_TIME_INDEX))
-    ? parsed
-    : '';
+  return Number.isInteger(parsed) && parsed >= 0 && parsed <= MAX_TIME_INDEX ? parsed : '';
 }
 
 function parseIntegerText(value: string, min: number, max: number) {
@@ -777,8 +805,11 @@ export function parsePromptState(params: URLSearchParams): QueryPromptState {
     rawTab === 'astrolabe' ||
     rawTab === 'qizheng' ||
     rawTab === 'bazhai' ||
+    rawTab === 'residential' ||
     rawTab === 'prompt'
-      ? rawTab
+      ? rawTab === 'residential'
+        ? 'bazhai'
+        : rawTab
       : defaultPromptState.tab;
   const rawPromptSource = getString(params, 'promptSource', defaultPromptState.promptSource);
   const promptSource: PromptSourceKey =
@@ -786,8 +817,11 @@ export function parsePromptState(params: URLSearchParams): QueryPromptState {
     rawPromptSource === 'bazi-ziwei' ||
     rawPromptSource === 'astrolabe' ||
     rawPromptSource === 'qizheng' ||
-    rawPromptSource === 'bazhai'
-      ? rawPromptSource
+    rawPromptSource === 'bazhai' ||
+    rawPromptSource === 'residential'
+      ? rawPromptSource === 'residential'
+        ? 'bazhai'
+        : rawPromptSource
       : 'bazi';
 
   return normalizePromptState({
@@ -841,6 +875,11 @@ export function parsePromptState(params: URLSearchParams): QueryPromptState {
       getString(params, 'bazhaiFacingDegree', defaultPromptState.bazhaiFacingDegree),
       0,
       360,
+    ),
+    residentialHouseYear: parseDecimalText(
+      getString(params, 'residentialHouseYear', defaultPromptState.residentialHouseYear),
+      1,
+      9999,
     ),
   });
 }

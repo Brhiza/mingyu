@@ -64,21 +64,6 @@ export function getAstrolabeDefaultQuestion(
   return ASTROLABE_GENERAL_DEFAULT_QUESTION;
 }
 
-export function buildAstrolabeTopicGuidanceSection(_topic?: string) {
-  return [
-    '先围绕【问题】判断最相关的星体、宫位、守护星和相位，再组织答案，不要平均复述全盘。',
-    '若【问题】未限定具体主题，按通用星盘口径处理；若【问题】已限定主题，只把主题作为回答范围，不额外套用固定题目。',
-    '不得编造已提供资料没有给出的新盘面事实；允许基于盘面做占星推理，但必须标明来自星体、宫位、守护星、相位或现实补充信息。',
-    '涉及风险、健康、家庭压力或重大决策时保守表达，只给趋势、边界和建议。',
-  ]
-    .map((line) => `- ${line}`)
-    .join('\n');
-}
-
 export function buildAstrolabeTopicTask(_topic?: string) {
-  return '请围绕【问题】最相关的星体、宫位、守护星和相位作答，按本命结构、行运触发、反证限制和现实建议组织完整判断。';
-}
-
-export function buildAstrolabeTopicOutputRequirement(_topic?: string) {
-  return '先直接回答【问题】，再按“结论总览、本命结构、行运触发、反证限制、现实建议”展开；每部分都要写清盘面证据、判断条件和现实建议；证据不足时直接说明。';
+  return '请结合星体、宫位和相位直接回答【问题】，并给出现实建议。';
 }

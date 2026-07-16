@@ -17,11 +17,6 @@ interface FormatBaziOptions {
 export type PromptChartScene =
   'general' | 'fortune' | 'compatibility' | 'comprehensive' | 'concise';
 
-function formatSignedScore(value: number): string {
-  const rounded = Number(value.toFixed(1));
-  return `${rounded >= 0 ? '+' : ''}${rounded}`;
-}
-
 function joinOrFallback(values: string[] | undefined, fallback = '暂无'): string {
   return values && values.length > 0 ? values.join('、') : fallback;
 }
@@ -195,8 +190,9 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
 
   result += '\n【核心判断依据】\n';
   const analysis = baziResult.analysis;
-  result += `旺衰: ${analysis.dayMasterStrength.status}（得分:${analysis.dayMasterStrength.score}）\n`;
-  result += `旺衰拆分: 月令:${formatSignedScore(analysis.dayMasterStrength.details.seasonalScore)} | 司令:${formatSignedScore(analysis.dayMasterStrength.details.commanderScore ?? 0)} | 成局:${formatSignedScore(analysis.dayMasterStrength.details.formationStrength)} | 通根:${formatSignedScore(analysis.dayMasterStrength.details.rootStrength)} | 帮扶:${formatSignedScore(analysis.dayMasterStrength.details.supportStrength)} | 克泄耗:${formatSignedScore(-analysis.dayMasterStrength.details.constraintStrength)}\n`;
+  const strengthDetails = analysis.dayMasterStrength.details;
+  result += `旺衰: ${analysis.dayMasterStrength.status}\n`;
+  result += `旺衰依据: 月令${strengthDetails.seasonalEffect} | 司令${strengthDetails.commanderEffect} | 成局${strengthDetails.formationEffect} | 通根${strengthDetails.hasRoot ? '有根' : '无根'} | 帮扶${strengthDetails.hasSupport ? '可见' : '不明显'} | 克泄耗${strengthDetails.hasConstraint ? '可见' : '不明显'}\n`;
   result += `格局: ${analysis.mingGe.pattern}\n`;
   if (analysis.mingGe.basis) {
     result += `格局依据: ${analysis.mingGe.basis}\n`;
@@ -293,12 +289,9 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     result += `全局传统旁证: ${globalShenShaExplain}\n`;
   }
 
-  if (includeWuxing && baziResult.wuxingStrength?.percentages) {
+  if (includeWuxing && baziResult.wuxingStrength) {
     result += '\n【五行】\n';
-    const wuxingMap = baziResult.wuxingStrength.percentages;
-    result += Object.entries(wuxingMap)
-      .map(([key, value]) => `${key}:${value}%`)
-      .join('  ');
+    result += `出现:${baziResult.wuxingStrength.present.join('、') || '无'} | 规则下相对突出:${baziResult.wuxingStrength.dominantByRule.join('、') || '无'}`;
     if (baziResult.wuxingStrength.missing?.length) {
       result += ` | 缺失:${baziResult.wuxingStrength.missing.join(',')}`;
     }

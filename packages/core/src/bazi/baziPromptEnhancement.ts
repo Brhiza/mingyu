@@ -5,13 +5,7 @@
 
 import type { BaziChartResult } from './baziTypes';
 import { BASIC_MAPPINGS, SAN_HE_MAP, SAN_HUI_MAP } from './baziMappingsData';
-import {
-  identifyClassicPattern,
-  getPeachBlossomDetail,
-  generateAnalysisDimensionHints,
-  detectDiseaseMedicine,
-  detectTongguanNeed,
-} from './baziEnhancement';
+import { identifyClassicPattern, getPeachBlossomDetail } from './baziEnhancement';
 import { assessAllHarmonyTransforms } from './harmonyTransform';
 
 type PillarKey = 'year' | 'month' | 'day' | 'hour';
@@ -24,44 +18,8 @@ const PILLAR_LABELS: Record<PillarKey, string> = {
   hour: '时柱',
 };
 
-function extractWuxingTokens(text: string | undefined): string[] {
-  if (!text) return [];
-  return Array.from(new Set(text.match(/[木火土金水]/g) || []));
-}
-
-function extractMedicineWuxingCandidates(medicine: string): string[] {
-  const directionalMatches = Array.from(
-    medicine.matchAll(/([木火土金水])(?:克|泄|调|润|暖|通)/g),
-    (match) => match[1],
-  );
-  if (directionalMatches.length > 0) {
-    return Array.from(new Set(directionalMatches));
-  }
-  return extractWuxingTokens(medicine);
-}
-
-function shouldIncludeDiseaseMedicineSection(
-  medicine: string,
-  unfavorableWuxing: string[],
-): boolean {
-  const medicineWuxings = extractMedicineWuxingCandidates(medicine);
-  if (!medicineWuxings.length) return true;
-
-  return !medicineWuxings.some((wuxing) => unfavorableWuxing.includes(wuxing));
-}
-
-function shouldIncludeTongguanSection(tongguan: string, unfavorableWuxing: string[]): boolean {
-  const tongguanWuxings = extractWuxingTokens(tongguan);
-  if (!tongguanWuxings.length) return true;
-  return !tongguanWuxings.some((wuxing) => unfavorableWuxing.includes(wuxing));
-}
-
-function stripSectionTitle(text: string): string {
-  return text.replace(/^【[^】]+】/, '').trim();
-}
-
-function buildEvidenceDrivenHintSection(title: string, evidence: string, baseHint: string): string {
-  return `【${title}】${evidence}。${stripSectionTitle(baseHint)}`;
+function buildEvidenceDrivenHintSection(title: string, evidence: string): string {
+  return `【${title}】${evidence}。`;
 }
 
 function formatClassicPatternMainClaim(claim: string): string {
@@ -255,33 +213,21 @@ function generateFuxinSection(chartResult: BaziChartResult): string {
         ? '命盘见伏吟'
         : '命盘见反吟';
 
-  return buildEvidenceDrivenHintSection(
-    '伏吟反吟',
-    `${evidenceLabel}：${evidences.join('；')}`,
-    generateAnalysisDimensionHints('fuxin'),
-  );
+  return buildEvidenceDrivenHintSection('伏吟反吟', `${evidenceLabel}：${evidences.join('；')}`);
 }
 
 function generateKongWangSection(chartResult: BaziChartResult): string {
   const kongWangPillars = getKongWangEvidence(chartResult);
   if (!kongWangPillars.length) return '';
 
-  return buildEvidenceDrivenHintSection(
-    '空亡详解',
-    `命盘见空亡：${kongWangPillars.join('、')}`,
-    generateAnalysisDimensionHints('kongwang'),
-  );
+  return buildEvidenceDrivenHintSection('空亡详解', `命盘见空亡：${kongWangPillars.join('、')}`);
 }
 
 function generateXingChongSection(chartResult: BaziChartResult): string {
   const relations = analyzePillarRelations(chartResult);
   if (!relations.xingChong.length) return '';
 
-  return buildEvidenceDrivenHintSection(
-    '刑冲合会破',
-    `命盘见：${relations.xingChong.join('；')}`,
-    generateAnalysisDimensionHints('xingchong'),
-  );
+  return buildEvidenceDrivenHintSection('刑冲合会破', `命盘见：${relations.xingChong.join('；')}`);
 }
 
 function generateHarmonyTransformSection(chartResult: BaziChartResult): string {
@@ -300,27 +246,22 @@ function generateHarmonyTransformSection(chartResult: BaziChartResult): string {
   const strongestProfiles = profiles
     .sort((a, b) => {
       if (a.isTransformed !== b.isTransformed) return a.isTransformed ? -1 : 1;
-      return b.score - a.score;
+      const evidenceCount = (profile: (typeof profiles)[number]) =>
+        Number(profile.monthSupported) +
+        Number(profile.transformStemVisible) +
+        Number(profile.transformRooted) -
+        Number(profile.hasClashBreak) -
+        Number(profile.hasCompetition);
+      return evidenceCount(b) - evidenceCount(a);
     })
     .slice(0, 2);
   const evidence = strongestProfiles
     .map((profile) => {
-      const scoreParts = [
-        `月令${profile.monthSupport}`,
-        `透干${profile.stemScore}`,
-        `根气${profile.rootScore}`,
-        profile.clashPenalty ? `冲破${profile.clashPenalty}` : '',
-        profile.competitionPenalty ? `争合${profile.competitionPenalty}` : '',
-      ].filter(Boolean);
-      return `${profile.type}${profile.participants.join('与')}化${profile.transformElement}：${profile.level}${profile.score}分，方向${profile.direction}（${scoreParts.join('、')}）`;
+      return `${profile.type}${profile.participants.join('与')}化${profile.transformElement}：${profile.level}，方向${profile.direction}（${profile.evidence.join('、')}）`;
     })
     .join('；');
 
-  return buildEvidenceDrivenHintSection(
-    '合化程度',
-    `命盘见合化候选：${evidence}`,
-    '【合化程度】合化评分只用于复核“合而能否化”的强弱，不替代日主旺衰、格局调候和正式喜忌。80分以下不得直接按成化处理，80分以上也要回扣月令、透干、根气、清杂、冲破和岁运触发。',
-  );
+  return buildEvidenceDrivenHintSection('合化程度', `命盘见合化候选：${evidence}`);
 }
 
 /**
@@ -333,37 +274,12 @@ export function generateEnhancedAnalysisSection(
 ): string {
   const sections: string[] = [];
 
-  const wuxingCounts = chartResult.wuxingStrength?.percentages;
-  if (wuxingCounts && chartResult.analysis?.mingGe) {
-    const dm = detectDiseaseMedicine(
-      wuxingCounts,
-      chartResult.analysis.mingGe,
-      chartResult.analysis.dayMasterStrength.status,
+  const wuxingEvidence = chartResult.wuxingStrength;
+  if (wuxingEvidence) {
+    sections.push(
+      `【五行结构】出现：${wuxingEvidence.present.join('、') || '无'}；相对突出：${wuxingEvidence.dominantByRule.join('、') || '无'}；缺失：${wuxingEvidence.missing.join('、') || '无'}。`,
     );
-    const unfavorableWuxing = chartResult.analysis?.usefulGod?.unfavorableWuxing || [];
-    if (
-      dm.hasDisease &&
-      dm.medicine &&
-      shouldIncludeDiseaseMedicineSection(dm.medicine, unfavorableWuxing)
-    ) {
-      sections.push(`【病药法】病:${dm.disease} | 药:${dm.medicine}`);
-    }
   }
-
-  const favorableWuxing = chartResult.analysis?.usefulGod?.favorableWuxing || [];
-  const unfavorableWuxing = chartResult.analysis?.usefulGod?.unfavorableWuxing || [];
-  if (wuxingCounts && favorableWuxing.length > 0) {
-    const tg = detectTongguanNeed(wuxingCounts, favorableWuxing, unfavorableWuxing);
-    if (
-      tg.need &&
-      tg.conflict &&
-      tg.tongguan &&
-      shouldIncludeTongguanSection(tg.tongguan, unfavorableWuxing)
-    ) {
-      sections.push(`【通关法】${tg.conflict[0]}与${tg.conflict[1]}相战，以${tg.tongguan}通关调和`);
-    }
-  }
-
   const classicSection = generateClassicPatternSection(chartResult);
   if (classicSection) sections.push(classicSection);
 

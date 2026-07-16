@@ -1,9 +1,12 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { baziCalculator } from '@core/bazi/baziCalculator';
+import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
 import type { Person } from '@core/bazi/baziTypes';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
+import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
+import { getCompatibilityPrompt, type CompatType } from '../../../src/utils/ai/aiPrompts.js';
 import {
   BAZI_PROMPT_TOPICS,
   BAZI_FORTUNE_SCOPES,
@@ -27,6 +30,7 @@ import {
 } from './input-helpers.js';
 
 export const baziSchema = z.object({
+  name: z.string().optional().describe('称呼（可选，用于双盘证据来源标注）'),
   gender: z.enum(['male', 'female']).describe('性别：male 为男，female 为女'),
   year: z.number().describe('出生年'),
   month: z.number().describe('出生月'),
@@ -42,6 +46,32 @@ export const baziSchema = z.object({
   birthMinute: z.number().optional().describe('精准出生分钟，启用真太阳时时必填'),
   birthPlace: z.string().optional().describe('出生地名称，启用真太阳时时可选'),
   birthLongitude: z.number().optional().describe('出生地经度，启用真太阳时时必填'),
+});
+
+const baziCompatibilityTypes = [
+  'marriage',
+  'career',
+  'friendship',
+  'children',
+  'parents',
+  'siblings',
+] as const;
+
+const baziCompatibilitySchema = z.object({
+  person1: baziSchema.describe('第一人的出生资料'),
+  person2: baziSchema.describe('第二人的出生资料'),
+});
+
+const baziCompatibilityPromptSchema = baziCompatibilitySchema.extend({
+  question: z.string().optional().describe('希望围绕双方关系解读的问题；省略时先做整体合盘'),
+  compatType: z
+    .enum(baziCompatibilityTypes)
+    .optional()
+    .describe('关系范围：婚恋、合作、友情、亲子、父母或兄弟姐妹'),
+  promptMode: z
+    .enum(PROMPT_MODES)
+    .optional()
+    .describe('提示词模式：framework=完整框架，custom=只围绕自定义问题'),
 });
 
 const baziPromptSchema = baziSchema.extend({
@@ -65,7 +95,9 @@ const baziPromptSchema = baziSchema.extend({
   baziFortuneScope: z
     .enum(BAZI_FORTUNE_SCOPES)
     .optional()
-    .describe('八字命限范围：natal=本命, full=完整输出版, dayun=大运, year=流年, month=流月, day=流日'),
+    .describe(
+      '八字命限范围：natal=本命, full=完整输出版, dayun=大运, year=流年, month=流月, day=流日',
+    ),
   baziFortuneCycleIndex: z.number().optional().describe('大运序号，从 0 开始'),
   baziFortuneYear: z.number().optional().describe('指定流年年份'),
   baziFortuneMonth: z.number().optional().describe('指定流月序号'),
@@ -142,7 +174,8 @@ export function registerBaziTool(server: McpServer) {
   server.registerTool(
     'bazi_calculate',
     {
-      description: '八字排盘：根据出生信息计算四柱八字、十神、藏干、大运、神煞等完整命盘数据',
+      description:
+        '八字排盘：根据出生信息计算四柱、十神、藏干、大运、神煞与本命证据；启用真太阳时时同时返回统一计算链、校正事实、证据汇总和限制，关闭时仍可直接按明确时辰排盘',
       inputSchema: baziSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -161,7 +194,7 @@ export function registerBaziTool(server: McpServer) {
     'bazi_prompt',
     {
       description:
-        '八字排盘并生成结构化 AI 解读提示词：一次调用返回命盘数据和可直接复制给 AI 的提示词',
+        '八字排盘并生成结构化 AI 解读提示词：返回命盘、结构化证据和可直接复制给 AI 的提示词；真太阳时校正证据会随排盘资料写入提示词',
       inputSchema: baziPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },
@@ -195,20 +228,89 @@ export function registerBaziTool(server: McpServer) {
               ? undefined
               : readMcpIntegerLikeInRange(args.baziFortuneDay, 'baziFortuneDay', 1, 31),
         });
-        return createStructuredToolResult({
+        const basePrompt = buildBaziPromptForResult({
           result,
-          prompt: buildBaziPromptForResult({
-            result,
-            question: args.question,
-            topic: (args.promptTopic ?? 'general') as BaziPromptTopic,
-            mode: (args.promptMode ?? 'framework') as PromptMode,
-            fortuneSelectionContext,
-            fortuneScope: args.baziFortuneScope ?? 'natal',
-            school: args.school as BaziSchool | undefined,
-          }),
+          question: args.question,
+          topic: (args.promptTopic ?? 'general') as BaziPromptTopic,
+          mode: (args.promptMode ?? 'framework') as PromptMode,
+          fortuneSelectionContext,
+          fortuneScope: args.baziFortuneScope ?? 'natal',
+          school: args.school as BaziSchool | undefined,
+        });
+        return createStructuredToolResult({
+          result: {
+            ...result,
+            ...(fortuneSelectionContext ? { fortuneSelection: fortuneSelectionContext } : {}),
+          },
+          prompt: basePrompt,
         });
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '生成八字提示词失败'));
+      }
+    },
+  );
+
+  server.registerTool(
+    'bazi_compatibility',
+    {
+      description:
+        '八字双盘结构化证据计算：返回双方命盘、日主与日支关系、四柱交叉合冲刑害破、双向十神、喜忌覆盖和证据包',
+      inputSchema: baziCompatibilitySchema.shape,
+      outputSchema: resultOutputSchema,
+    },
+    async (args) => {
+      try {
+        const chart1 = baziCalculator.calculateBazi(buildBaziPerson(args.person1));
+        const chart2 = baziCalculator.calculateBazi(buildBaziPerson(args.person2));
+        const compatibility = analyzeBaziCompatibility(chart1, chart2, {
+          person1Name: args.person1.name,
+          person2Name: args.person2.name,
+        });
+        return createStructuredToolResult({
+          result: { charts: { person1: chart1, person2: chart2 }, compatibility },
+        });
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '八字双盘计算失败'));
+      }
+    },
+  );
+
+  server.registerTool(
+    'bazi_compatibility_prompt',
+    {
+      description:
+        '八字双盘计算并生成结构化 AI 解读提示词：返回双方命盘、可复核交叉证据和完整关系分析任务书',
+      inputSchema: baziCompatibilityPromptSchema.shape,
+      outputSchema: promptOutputSchema,
+    },
+    async (args) => {
+      try {
+        const chart1 = baziCalculator.calculateBazi(buildBaziPerson(args.person1));
+        const chart2 = baziCalculator.calculateBazi(buildBaziPerson(args.person2));
+        const compatibility = analyzeBaziCompatibility(chart1, chart2, {
+          person1Name: args.person1.name,
+          person2Name: args.person2.name,
+        });
+        const promptParts = getCompatibilityPrompt(
+          args.question ?? '',
+          chart1,
+          chart2,
+          (args.compatType ?? 'marriage') as CompatType,
+          {
+            isCustomQuestion: args.promptMode === 'custom',
+            person1Name: args.person1.name,
+            person2Name: args.person2.name,
+          },
+        );
+        const prompt = appendTraditionalResearchNotice(
+          [promptParts.system, promptParts.user].filter(Boolean).join('\n\n'),
+        );
+        return createStructuredToolResult({
+          result: { charts: { person1: chart1, person2: chart2 }, compatibility },
+          prompt,
+        });
+      } catch (error) {
+        return createErrorToolResult(getErrorMessage(error, '生成八字双盘提示词失败'));
       }
     },
   );

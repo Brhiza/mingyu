@@ -4,45 +4,59 @@
 
 ## 支持的 Tool
 
-| Tool 名称                  | 功能         | 说明                                                                           |
-| -------------------------- | ------------ | ------------------------------------------------------------------------------ |
-| `calendar_true_solar_time` | 真太阳时换算 | 返回校正时间、经度修正、均时差、跨日状态和对应时辰，可选校正中国历史夏令时     |
-| `foundation_capabilities`  | 地基能力目录 | 返回天干地支、六十甲子、六旬旬首、十二时辰、五行、八卦、二十四山与通用神煞     |
-| `foundation_ganzhi`        | 干支资料     | 返回单个六十甲子的纳音、藏干、五行与合冲刑害破                                 |
-| `foundation_wuxing`        | 五行分析     | 统计天干地支五行分布，可选计入藏干权重                                         |
-| `bazi_calculate`           | 八字排盘     | 输入出生信息，返回四柱、十神、藏干、大运、神煞、旺衰分析                       |
-| `bazi_prompt`              | 八字提示词   | 八字排盘并返回可直接用于 AI 解读的结构化提示词                                 |
-| `ziwei_calculate`          | 紫微斗数排盘 | 输入出生信息，返回星盘、宫位、大限、流年数据                                   |
-| `ziwei_prompt`             | 紫微提示词   | 紫微斗数排盘并返回可直接用于 AI 解读的结构化提示词                             |
-| `bazi_ziwei_prompt`        | 八字紫微合参 | 同一出生信息同时返回八字、紫微数据和合参解读提示词                             |
-| `divine_liuyao`            | 六爻起卦     | 基于当前时间或自定义时间生成完整六爻卦象                                       |
-| `liuyao_prompt`            | 六爻提示词   | 六爻起卦并返回可直接用于 AI 解读的结构化提示词                                 |
-| `divine_meihua`            | 梅花易数起卦 | 支持时间/数字/随机三种起卦方式，兼容旧 timeTrigram 参数                        |
-| `meihua_prompt`            | 梅花提示词   | 梅花易数起卦并返回可直接用于 AI 解读的结构化提示词                             |
-| `divine_xiaoliuren`        | 小六壬起课   | 支持时间/数字/随机三种起课方式，返回三段宫位与行动倾向                         |
-| `xiaoliuren_prompt`        | 小六壬提示词 | 小六壬起课并返回可直接用于 AI 解读的结构化提示词                               |
-| `divine_qimen`             | 奇门遁甲排盘 | 基于当前时间或自定义时间排时家奇门转盘                                         |
-| `qimen_prompt`             | 奇门提示词   | 奇门遁甲排盘并返回可直接用于 AI 解读的结构化提示词                             |
-| `divine_liuren`            | 大六壬排盘   | 基于当前时间或自定义时间排大六壬课盘                                           |
-| `liuren_prompt`            | 大六壬提示词 | 大六壬排盘并返回可直接用于 AI 解读的结构化提示词                               |
-| `divine_tarot`             | 塔罗抽牌     | 78 张塔罗，支持单牌/时间流/爱情/事业/选择牌阵                                  |
-| `tarot_prompt`             | 塔罗提示词   | 塔罗抽牌并返回可直接用于 AI 解读的结构化提示词                                 |
-| `divine_ssgw`              | 灵签求签     | 模拟传统摇签、掷筊流程，圣杯确认后方出签；三连阴杯则拒绝起卦，返回 ritual 记录 |
-| `ssgw_prompt`              | 灵签提示词   | 三山国王灵签求签（含传统掷筊流程）并返回可直接用于 AI 解读的结构化提示词       |
-| `divine_almanac`           | 黄历择日     | 按事项、日期范围和可选参与人八字筛选候选日期                                   |
-| `almanac_prompt`           | 择日提示词   | 黄历择日并返回可直接用于 AI 解读的结构化提示词                                 |
-| `divine_lenormand`         | 雷诺曼抽牌   | 支持单牌、三牌、五牌十字、关系、选择、九宫、元素和大桌牌阵                     |
-| `lenormand_prompt`         | 雷诺曼提示词 | 雷诺曼抽牌并返回可直接用于 AI 解读的结构化提示词                               |
-| `divine_astrolabe`         | 星盘生成     | 根据出生时间、经纬度和时区生成星体、宫位与相位数据                             |
-| `astrolabe_prompt`         | 星盘提示词   | 星盘生成并返回可直接用于 AI 解读的结构化提示词                                 |
-| `metaphysics_bazhai`       | 八宅排盘     | 返回命卦、宅卦、东西四命和大游年方位                                           |
-| `bazhai_prompt`            | 八宅提示词   | 八宅排盘并返回可直接用于 AI 解读的提示词                                       |
-| `metaphysics_zodiac`       | 生肖流年     | 返回犯太岁、贵人、五行关系和运程等级                                           |
-| `zodiac_prompt`            | 生肖提示词   | 生肖流年排盘并返回可直接用于 AI 解读的提示词                                   |
-| `metaphysics_taiyi`        | 太乙五计     | 按年、月、日、时、分五计的积数和阴阳遁返回七十二局式盘                         |
-| `taiyi_prompt`             | 太乙提示词   | 太乙排盘并返回可直接用于 AI 解读的提示词                                       |
-| `metaphysics_qizheng`      | 七政四余     | 返回七政四余宿度、紫炁模型参数、十二宫、庙旺和神煞                             |
-| `qizheng_prompt`           | 七政提示词   | 七政四余排盘并返回可直接用于 AI 解读的提示词                                   |
+| Tool 名称                    | 功能         | 说明                                                                           |
+| ---------------------------- | ------------ | ------------------------------------------------------------------------------ |
+| `calendar_true_solar_time`   | 真太阳时换算 | 返回校正时间、经度修正、均时差、跨日状态和对应时辰，可选校正中国历史夏令时     |
+| `calendar_true_solar_birth`  | 出生时间校正 | 统一处理公历农历、夏令时、跨日和唯一时辰证据                                   |
+| `calendar_astronomical_time` | 天文时间尺度 | 返回历史时区、UTC、儒略日、近似UT1、ΔT与近似TT证据                             |
+| `calendar_moon_phase`        | 月相证据     | 返回月相角、照明比例、近似月龄和前后朔弦望求根事件                             |
+| `calendar_solar_term`        | 节气证据     | 返回采用历表时刻、目标黄经、独立求根与差值核验                                 |
+| `foundation_capabilities`    | 地基能力目录 | 返回历法、干支、五行、方位和神煞目录的稳定事实、来源、证据汇总与限制           |
+| `foundation_shensha`         | 通用神煞证据 | 核验完整四柱，返回空亡、驿马、桃花的起法、目标、命中柱位、来源与限制           |
+| `foundation_ganzhi`          | 干支资料     | 返回单个六十甲子的纳音、藏干、五行与合冲刑害破                                 |
+| `foundation_wuxing`          | 五行分析     | 统计天干地支五行分布，可选计入藏干权重                                         |
+| `foundation_direction`       | 罗盘方位     | 把朝向度数换算为二十四山坐向、后天八卦与分界状态                               |
+| `bazi_calculate`             | 八字排盘     | 输入出生信息，返回四柱、十神、藏干、大运、神煞、旺衰分析                       |
+| `bazi_prompt`                | 八字提示词   | 八字排盘并返回可直接用于 AI 解读的结构化提示词                                 |
+| `bazi_compatibility`         | 八字双盘     | 返回双方命盘、四柱交叉关系、双向十神、喜忌覆盖与证据包                         |
+| `bazi_compatibility_prompt`  | 双盘提示词   | 八字双盘计算并返回可直接用于 AI 解读的完整证据任务书                           |
+| `ziwei_calculate`            | 紫微斗数排盘 | 输入出生信息，返回星盘、宫位、大限、流年数据                                   |
+| `ziwei_prompt`               | 紫微提示词   | 紫微斗数排盘并返回可直接用于 AI 解读的结构化提示词                             |
+| `ziwei_compatibility`        | 紫微双盘     | 返回双方本命盘、关键宫位叠盘、生年四化跨盘落宫与证据包                         |
+| `ziwei_compatibility_prompt` | 双盘提示词   | 紫微双盘计算并返回可直接用于 AI 解读的完整证据任务书                           |
+| `bazi_ziwei_prompt`          | 八字紫微合参 | 同一出生信息同时返回八字、紫微数据和合参解读提示词                             |
+| `divine_liuyao`              | 六爻起卦     | 基于当前时间或自定义时间生成完整六爻卦象                                       |
+| `liuyao_prompt`              | 六爻提示词   | 六爻起卦并返回用神作用链、逐爻证据及可直接用于 AI 解读的结构化提示词           |
+| `divine_meihua`              | 梅花易数起卦 | 支持时间/数字/随机三种起卦方式，兼容旧 timeTrigram 参数                        |
+| `meihua_prompt`              | 梅花提示词   | 梅花起卦并返回主互变体用推进证据及可直接用于 AI 解读的结构化提示词             |
+| `divine_xiaoliuren`          | 小六壬起课   | 支持时间/数字/随机三种起课方式，返回三段宫位与行动倾向                         |
+| `xiaoliuren_prompt`          | 小六壬提示词 | 小六壬起课并返回可直接用于 AI 解读的结构化提示词                               |
+| `divine_qimen`               | 奇门遁甲排盘 | 返回九宫盘及值符值使、日时干候选宫、宫间作用、反证与触发条件                   |
+| `qimen_prompt`               | 奇门提示词   | 返回不含数字评分的用神宫证据及可直接用于 AI 解读的结构化提示词                 |
+| `divine_liuren`              | 大六壬排盘   | 基于当前时间或自定义时间排大六壬课盘                                           |
+| `liuren_prompt`              | 大六壬提示词 | 大六壬排盘并返回四课取传、三传推进证据及可直接解读的结构化提示词               |
+| `divine_tarot`               | 塔罗抽牌     | 78 张塔罗，支持单牌/时间流/爱情/事业/选择牌阵                                  |
+| `tarot_prompt`               | 塔罗提示词   | 塔罗抽牌并返回可直接用于 AI 解读的结构化提示词                                 |
+| `divine_ssgw`                | 灵签求签     | 模拟传统摇签、掷筊流程，圣杯确认后方出签；三连阴杯则拒绝起卦，返回 ritual 记录 |
+| `ssgw_prompt`                | 灵签提示词   | 三山国王灵签求签（含传统掷筊流程）并返回可直接用于 AI 解读的结构化提示词       |
+| `divine_almanac`             | 黄历择日     | 按事项、参与人冲突、时辰和现实限制返回可用、条件与慎用候选                     |
+| `almanac_prompt`             | 择日提示词   | 返回不含数字评分的透明约束证据及可直接用于 AI 解读的结构化提示词               |
+| `divine_lenormand`           | 雷诺曼抽牌   | 支持单牌、三牌、五牌十字、关系、选择、九宫、元素和大桌牌阵                     |
+| `lenormand_prompt`           | 雷诺曼提示词 | 雷诺曼抽牌并返回可直接用于 AI 解读的结构化提示词                               |
+| `divine_astrolabe`           | 星盘生成     | 根据出生时间、经纬度和时区生成星体、宫位与相位数据                             |
+| `astrolabe_prompt`           | 星盘提示词   | 星盘生成并返回可直接用于 AI 解读的结构化提示词                                 |
+| `astrolabe_synastry`         | 西占双盘     | 返回双方本命盘、跨盘相位、精确角距、容许度、跨盘落宫与证据包                   |
+| `astrolabe_synastry_prompt`  | 双盘提示词   | 西占双盘计算并返回可直接用于 AI 解读的证据任务书                               |
+| `metaphysics_bazhai`         | 八宅排盘     | 返回命卦、宅卦、大游年方位、磁北/真北换算、测量误差与候选坐向                  |
+| `bazhai_prompt`              | 八宅提示词   | 八宅排盘并返回含测量稳定性和证据边界的 AI 解读提示词                           |
+| `metaphysics_zodiac`         | 生肖流年     | 返回犯太岁、三合六合、五行关系和解释边界                                       |
+| `zodiac_prompt`              | 生肖提示词   | 生肖流年排盘并返回可直接用于 AI 解读的提示词                                   |
+| `metaphysics_taiyi`          | 太乙五计     | 按年、月、日、时、分五计的积数和阴阳遁返回七十二局式盘                         |
+| `taiyi_prompt`               | 太乙提示词   | 太乙排盘并返回可直接用于 AI 解读的提示词                                       |
+| `metaphysics_qizheng`        | 七政四余     | 返回逐星来源、UTC上下文、坐标换算、宿度、紫炁模型、十二宫和精度分层            |
+| `qizheng_prompt`             | 七政提示词   | 返回含主证、辅证、模型差异和输入缺省限制的七政四余提示词                       |
+
+七政四余相位保留实际夹角、精确角、偏差、容许度位置、紧密等级与精度分层，不返回由容许度位置重复换算的百分制强度。
 
 ## 工具选择指南
 
@@ -51,33 +65,34 @@
 默认优先级：
 
 1. 用户提供完整出生信息，并询问人生、事业、财运、婚恋、亲子、健康、迁居、学习、考试、合作、近期趋势或某一年某阶段走势时，优先调用 `bazi_ziwei_prompt`。这是深度解读首选工具，用八字定主线，用紫微校验宫位、四化、三方四正和运限。
-2. 用户明确只看八字时，调用 `bazi_prompt`；长期或完整阶段分析优先传 `baziFortuneScope: "full"`。
+2. 用户明确只看单人八字时调用 `bazi_prompt`；询问两人婚恋、合作或亲属互动时调用 `bazi_compatibility_prompt`；长期或完整阶段分析优先传 `baziFortuneScope: "full"`。出生时间由输入约束保证符合排盘要求，不基于模糊时间范围继续排盘。
 3. 用户明确只看紫微时，调用 `ziwei_prompt`；长期或完整阶段分析优先传 `promptScope: "full"`。
 4. 用户问单件事情当前能否推进、对方态度、短期成败或应期，优先调用 `liuyao_prompt`；涉及项目路径、方位、谈判、出行和时空窗口时，优先调用 `qimen_prompt`。
 5. 用户要从日期范围里选日子，调用 `almanac_prompt`；日期范围或参与人较多时使用分页参数。
-6. 用户明确要西方星盘，或提供出生地点、经纬度、时区时，调用 `astrolabe_prompt`。
+6. 用户提供一人的西方占星资料时调用 `astrolabe_prompt`；提供双方完整资料并询问关系时调用 `astrolabe_synastry_prompt`。
 7. 用户没有出生信息，只想要轻量启发、牌阵或签文时，用 `tarot_prompt`、`lenormand_prompt` 或 `ssgw_prompt`。
 8. 用户明确要求八宅、生肖犯太岁、太乙或七政四余时，使用对应的 `*_prompt` 工具；只要原始排盘则使用 `metaphysics_*`。
 
 常见问题到工具：
 
-| 用户问题类型                     | 首选工具            | 推荐参数                                                                 |
-| -------------------------------- | ------------------- | ------------------------------------------------------------------------ |
-| 整体人生、长期事业、财运、婚恋   | `bazi_ziwei_prompt` | `baziPromptTopic`、`ziweiPromptTopic`、`promptScope: "full"` 或 `origin` |
-| 今年运势、当前阶段、某年趋势     | `bazi_ziwei_prompt` | `promptScope: "yearly"`，主题按事业、财运、感情等选择                    |
-| 换工作、创业、合伙、投资         | `bazi_ziwei_prompt` | `job-change`、`startup-partnership`、`investment-partnership`            |
-| 八字格局、用神、大运流年         | `bazi_prompt`       | `promptTopic`、`baziFortuneScope`                                        |
-| 紫微宫位、四化、运限             | `ziwei_prompt`      | `promptTopic`、`promptScope`                                             |
-| 一事一问、短期成败、应期         | `liuyao_prompt`     | `question`、可选 `customDate`                                            |
-| 项目推进、方向、方位、谈判       | `qimen_prompt`      | `question`、可选 `qimenMethod`、`customDate`                             |
-| 临时小事快速判断                 | `xiaoliuren_prompt` | `question`、可选 `xiaoliurenMethod`、`xiaoliurenNumber`                  |
-| 时间或数字象意判断               | `meihua_prompt`     | `question`、可选 `method`、`number`、`customDate`                        |
-| 传统复杂事项推演                 | `liuren_prompt`     | `question`、可选 `liurenTemplate`、`customDate`                          |
-| 结婚、搬家、开业、签约、安葬择日 | `almanac_prompt`    | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize` |
-| 星盘本命和行运                   | `astrolabe_prompt`  | 出生时间地点、经纬度、`astrolabeTopic`、`astrolabeScope`                 |
-| 牌阵启发                         | `tarot_prompt`      | `spreadType`、`question`                                                 |
-| 雷诺曼关系或选择牌阵             | `lenormand_prompt`  | `spreadType`、`question`                                                 |
-| 求签                             | `ssgw_prompt`       | `question`                                                               |
+| 用户问题类型                     | 首选工具                    | 推荐参数                                                                 |
+| -------------------------------- | --------------------------- | ------------------------------------------------------------------------ |
+| 整体人生、长期事业、财运、婚恋   | `bazi_ziwei_prompt`         | `baziPromptTopic`、`ziweiPromptTopic`、`promptScope: "full"` 或 `origin` |
+| 今年运势、当前阶段、某年趋势     | `bazi_ziwei_prompt`         | `promptScope: "yearly"`，主题按事业、财运、感情等选择                    |
+| 换工作、创业、合伙、投资         | `bazi_ziwei_prompt`         | `job-change`、`startup-partnership`、`investment-partnership`            |
+| 八字格局、用神、大运流年         | `bazi_prompt`               | `promptTopic`、`baziFortuneScope`                                        |
+| 紫微宫位、四化、运限             | `ziwei_prompt`              | `promptTopic`、`promptScope`                                             |
+| 一事一问、短期成败、应期         | `liuyao_prompt`             | `question`、可选 `customDate`                                            |
+| 项目推进、方向、方位、谈判       | `qimen_prompt`              | `question`、可选 `qimenMethod`、`customDate`                             |
+| 临时小事快速判断                 | `xiaoliuren_prompt`         | `question`、可选 `xiaoliurenMethod`、`xiaoliurenNumber`                  |
+| 时间或数字象意判断               | `meihua_prompt`             | `question`、可选 `method`、`number`、`customDate`                        |
+| 传统复杂事项推演                 | `liuren_prompt`             | `question`、可选 `liurenTemplate`、`customDate`                          |
+| 结婚、搬家、开业、签约、安葬择日 | `almanac_prompt`            | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize` |
+| 星盘本命和行运                   | `astrolabe_prompt`          | 出生时间地点、经纬度、`astrolabeTopic`、`astrolabeScope`                 |
+| 西占双方关系、合作或婚恋互动     | `astrolabe_synastry_prompt` | `person1`、`person2` 分别提供完整出生时间、经纬度和时区                  |
+| 牌阵启发                         | `tarot_prompt`              | `spreadType`、`question`                                                 |
+| 雷诺曼关系或选择牌阵             | `lenormand_prompt`          | `spreadType`、`question`                                                 |
+| 求签                             | `ssgw_prompt`               | `question`                                                               |
 
 出生时辰未知时，不要自行补时辰。八字可以保守分析；紫微和八字紫微合参需要时辰，优先请用户补足后再调用。
 
@@ -148,7 +163,7 @@ npm run mcp
 
 八字和紫微工具默认使用 `timeIndex` 表示出生时辰，范围为 `0` 到 `12`，其中 `0` 为早子时，`12` 为晚子时。
 
-需要启用真太阳时校正时，传入 `useTrueSolarTime: true`，并提供 `birthHour`、`birthMinute`、`birthLongitude`；此时可以不传 `timeIndex`，工具会按校正后的真太阳时自动换算时辰。八字工具的精准时间和经度使用数字，紫微工具与公开 API 保持一致，使用字符串。
+需要启用真太阳时校正时，传入 `useTrueSolarTime: true`，并提供 `birthHour`、`birthMinute`、`birthLongitude`；此时可以不传 `timeIndex`，工具会按校正后的真太阳时自动换算唯一时辰，并返回结构化计算步骤、校正事实、证据汇总和限制。关闭真太阳时时仍可直接传入明确的 `timeIndex`，按传统时辰生成完整时柱。八字工具的精准时间和经度使用数字，紫微工具与公开 API 保持一致，使用字符串。
 
 ### 八字命限提示词参数
 
@@ -187,13 +202,17 @@ npm run mcp
 
 `ziwei_calculate` 和 `ziwei_prompt` 默认只返回 `origin`（本命）范围。传入 `promptScope` 时会返回 `origin` 加指定范围。支持的值：`origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`。`full` 会返回并写入本命、大限、流年、流月、流日、流时资料。
 
+`ziwei_compatibility` 和 `ziwei_compatibility_prompt` 只计算双方静态本命盘的宫位叠盘与生年四化跨盘落点。它们不会伪造具体年份应期，也不会输出缺乏统一依据的匹配总分。
+
 ### 雷诺曼牌阵参数
 
 雷诺曼工具的 `spreadType` 支持 `single`、`three`、`five`（五牌十字阵）、`relationship`、`decision`、`nine`、`element`（四元素牌阵）、`grandTableau`（大桌牌阵），不传时默认使用单牌线索。
 
 ### 星盘参数
 
-星盘工具需要提供 `year`、`month`、`day`、`hour`、`minute`、`latitude`、`longitude`、`timezone`。`gender` 使用 `男`、`女` 或空字符串，`locationName` 可选；可传 `useTrueSolarTime` 启用真太阳时校正。提示词工具可额外提供 `astrolabeTopic`、`astrolabeScope`、`astrolabeScopeDate` 和 `astrolabeScopeText`。`astrolabeScope` 支持 `natal`、`full`、`yearly`、`monthly`、`daily`；`full` 会写入本命、当前流年、当前流月、当前流日行运资料；传入 `astrolabeScopeText` 时以自定义文本为准。
+星盘工具需要提供 `year`、`month`、`day`、`hour`、`minute`、`latitude`、`longitude`，并至少提供 `timezone` 或 `timeZoneId`。国际地点及历史日期推荐传 IANA 时区（如 `Asia/Shanghai`、`America/New_York`），以识别历史夏令时、回拨歧义和跳时缺口；同时传固定偏移时会保留冲突诊断。`gender` 使用 `男`、`女` 或空字符串，`locationName` 可选；可传 `useTrueSolarTime` 启用真太阳时校正。
+
+西占双盘工具使用 `person1`、`person2` 分别传入上述星盘参数。结果中的跨盘相位、实际夹角、精确角、偏差、允许容许度、紧密等级和落宫属于可复核盘面事实；结果不返回百分制相位强度，避免被误读为关系概率、匹配率或吉凶百分比，也禁止把单一相位写成必然结果。
 
 ## 在其他 MCP 客户端中使用
 

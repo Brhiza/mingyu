@@ -4,14 +4,18 @@ import type { FortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
 import {
   BAZI_AI_PROMPTS,
-  buildBaziQuestionGuidanceSection,
   buildPromptFromConfig,
   type AIPromptOption,
   type BaziFortunePromptScope,
 } from '../../utils/ai/aiPrompts';
-import { buildCombinedZiweiPrompt, type ZiweiRuntime } from '../full-chart-engine/ziwei';
+import {
+  buildCombinedZiweiPrompt,
+  formatZiweiTrueSolarEvidence,
+  type ZiweiRuntime,
+} from '../full-chart-engine/ziwei';
 import { mapScopeLabel, mapTopicLabel } from '../ziwei-prompts/labels';
 import { formatPromptCurrentTime } from '../prompt-time';
+import { buildPromptGuidanceSections, insertPromptSectionBeforeHeading } from '../prompt-guidance';
 
 export const BAZI_PROMPT_TOPICS = [
   'general',
@@ -102,21 +106,15 @@ const FULL_ZIWEI_SCOPE_ORDER: ScopeType[] = [
 ];
 
 const BAZI_SCHOOL_GUIDANCE: Record<BaziSchool, string> = {
-  traditional:
-    '【流派指引】传统派：以子平正法为本，先看月令旺衰、格局成败、调候用神，再看十神生克、宫位关系、神煞旁证；用神取扶抑、调候、通关、病药四法之一作为主线。',
-  mangpai:
-    '【流派指引】盲派：以日干为我，重柱位、阴阳、十神象法、六亲实战；不强调旺衰格局，而以十神配位、生克制化、合冲刑害的"动作"为断验主线；可结合"年限分段"看大运岁数对应实事。',
-  xinpai:
-    '【流派指引】新派（新派子平）：以日干旺衰为根，强调"调候 + 流通"，重五行平衡与气候配合；用神取流通生扶之神，忌神为破坏流通之神；不拘泥固定格局名相。',
+  traditional: '八字流派：传统派（子平、格局调候）',
+  mangpai: '八字流派：盲派（十神象法、年限分段）',
+  xinpai: '八字流派：新派（旺衰、调候流通）',
 };
 
 const ZIWEI_SCHOOL_GUIDANCE: Record<ZiweiSchool, string> = {
-  sanhe:
-    '【流派指引】三合派：以本命十二宫为根基，重三方四正（命迁财官的对、合、夹）、星曜庙旺平陷、星情组合、本命格局；运限按大限十年看，重点是星曜与宫位的稳定结构。',
-  feixing:
-    '【流派指引】飞星派：以四化飞星为核心，关注生年四化、命宫四化、宫干自化、运限四化飞入飞出的链路；化禄/化权/化科为引动主证，化忌为牵动暗证；强调"飞入哪宫触发哪事"。',
-  sihua:
-    '【流派指引】四化派：以生年四化定先天命局主轴，结合宫干四化看后天事象；化禄主财喜机会、化权主权柄掌控、化科主名声贵人、化忌主牵挂阻滞；以四化飞入飞出的"宫职链"判断主线。',
+  sanhe: '紫微流派：三合派（三方四正、星曜宫位）',
+  feixing: '紫微流派：飞星派（四化飞星）',
+  sihua: '紫微流派：四化派（生年四化、宫干四化）',
 };
 
 export function getBaziSchoolGuidance(school?: BaziSchool) {
@@ -222,7 +220,7 @@ export function buildBaziPromptForResult(params: {
   const baseText = buildCombinedPromptText(prompt.system, prompt.user);
   const schoolGuidance = getBaziSchoolGuidance(params.school);
   if (schoolGuidance) {
-    return `${schoolGuidance}\n\n${baseText}`;
+    return insertPromptSectionBeforeHeading(baseText, '【问题】', `【流派】\n${schoolGuidance}`);
   }
   return baseText;
 }
@@ -235,6 +233,7 @@ export function buildSerializableZiweiResult(result: ZiweiRuntime) {
     basicInfo: originPayload.basic_info,
     scopeNames: Object.keys(result.payloadByScope),
     payloadByScope: result.payloadByScope,
+    trueSolarEvidence: result.trueSolarEvidence,
     ...compatibility,
   };
 }
@@ -385,6 +384,7 @@ export function buildZiweiPromptForRuntime(params: {
     params.question ?? '',
     {
       isCustomQuestion: params.mode === 'custom',
+      trueSolarEvidence: params.result.trueSolarEvidence,
     },
   );
   const promptText =
@@ -393,13 +393,13 @@ export function buildZiweiPromptForRuntime(params: {
       : baseText;
   const schoolGuidance = getZiweiSchoolGuidance(params.school);
   if (schoolGuidance) {
-    return `${schoolGuidance}\n\n${promptText}`;
+    return insertPromptSectionBeforeHeading(promptText, '【问题】', `【流派】\n${schoolGuidance}`);
   }
   return promptText;
 }
 
 function buildPublicZiweiTaskText() {
-  return '先围绕【问题】判断对应宫位范围，再从已给出的命宫、身宫、当前落宫、三方四正、四化和分析对象中选取主要证据；若【问题】未限定主题，按通用口径处理；若【问题】已限定主题，只把主题作为问题范围。';
+  return '请结合紫微盘面回答【问题】，说明主要依据和现实建议。';
 }
 
 function formatPublicZiweiStar(star: StarFact) {
@@ -412,7 +412,12 @@ function formatPublicZiweiPalaceBrief(palace: PalaceFact) {
     .filter(Boolean)
     .slice(0, 8);
   const tags = palace.summary_tags.length > 0 ? `；标记：${palace.summary_tags.join('、')}` : '';
-  return `- ${palace.name}（${palace.heavenly_stem}${palace.earthly_branch}）：星曜：${stars.length > 0 ? stars.join('、') : '未提供主星资料'}；长生：${palace.changsheng12 || '未提供'}；博士：${palace.boshi12 || '未提供'}${tags}`;
+  const details = [
+    stars.length > 0 ? `星曜：${stars.join('、')}` : '',
+    palace.changsheng12 ? `长生：${palace.changsheng12}` : '',
+    palace.boshi12 ? `博士：${palace.boshi12}` : '',
+  ].filter(Boolean);
+  return `- ${palace.name}（${palace.heavenly_stem}${palace.earthly_branch}）：${details.join('；')}${tags}`;
 }
 
 function findPublicZiweiPalaceByName(palaces: PalaceFact[], name: string) {
@@ -482,7 +487,7 @@ export function buildPublicZiweiPromptForRuntime(params: {
       .filter(Boolean)
       .slice(0, 8);
 
-    return stars.length > 0 ? stars.join('、') : '未提供主星资料';
+    return stars.join('、');
   };
   const mutagenText =
     payload.active_scope.mutagen_map.length > 0
@@ -493,10 +498,23 @@ export function buildPublicZiweiPromptForRuntime(params: {
               .join('入'),
           )
           .join('；')
-      : '未提供当前范围四化';
+      : '';
+  const trueSolarEvidenceText = formatZiweiTrueSolarEvidence(params.result.trueSolarEvidence);
+  const chartLines = [
+    `出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}`,
+    lifePalace
+      ? `命宫：${lifePalace.name}${formatStars(lifePalace) ? `；星曜：${formatStars(lifePalace)}` : ''}`
+      : '',
+    bodyPalace
+      ? `身宫：${bodyPalace.name}${formatStars(bodyPalace) ? `；星曜：${formatStars(bodyPalace)}` : ''}`
+      : '',
+    activePalace ? `当前落宫：${activePalace.name}` : '',
+    mutagenText ? `当前四化：${mutagenText}` : '',
+  ].filter(Boolean);
   const prompt = [
+    buildPromptGuidanceSections('ziwei'),
     `【分析背景】\n分析主题：${topicLabel}\n分析范围：${scopeLabel}\n分析对象：${scope === 'full' ? '本命盘与完整大限流年流月流日流时' : payload.active_scope.label || scopeLabel}\n参考日期：${payload.active_scope.solar_date}\n虚岁：${payload.active_scope.nominal_age}`,
-    `【排盘信息】\n出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}\n命宫：${lifePalace?.name ?? '命宫'}；星曜：${formatStars(lifePalace)}\n身宫：${bodyPalace?.name ?? '未标出'}；星曜：${formatStars(bodyPalace)}\n当前落宫：${activePalace?.name ?? '本命范围'}\n当前四化：${mutagenText}`,
+    `【排盘信息】\n${chartLines.join('\n')}`,
     buildPublicZiweiKeyPalaceSection({
       palaces: payload.palaces,
       activePalace,
@@ -504,6 +522,7 @@ export function buildPublicZiweiPromptForRuntime(params: {
       bodyPalace,
       isOriginScope: payload.active_scope.scope === 'origin',
     }),
+    trueSolarEvidenceText ? `【出生时间校正】\n${trueSolarEvidenceText}` : '',
     scope === 'full' ? `【完整运限资料】\n${formatPublicZiweiFullScopeText(params.result)}` : '',
     `【问题】\n${params.question ?? ''}`,
   ]
@@ -511,7 +530,9 @@ export function buildPublicZiweiPromptForRuntime(params: {
     .join('\n\n');
 
   const schoolGuidance = getZiweiSchoolGuidance(params.school);
-  const promptWithSchool = schoolGuidance ? `${schoolGuidance}\n\n${prompt}` : prompt;
+  const promptWithSchool = schoolGuidance
+    ? insertPromptSectionBeforeHeading(prompt, '【问题】', `【流派】\n${schoolGuidance}`)
+    : prompt;
 
   if (mode === 'custom') {
     return promptWithSchool;
@@ -520,9 +541,9 @@ export function buildPublicZiweiPromptForRuntime(params: {
   return [
     promptWithSchool,
     '',
-    `【任务】\n${buildPublicZiweiTaskText()}请结合【问题】直接给出判断、关键依据和可执行建议。`,
+    `【任务】\n${buildPublicZiweiTaskText()}`,
     '',
-    '【输出要求】\n先直接回答【问题】，再按“结论总览、宫位主线、四化触发、格局与三方四正、反证限制、应期与建议”展开；每部分都要写明主证、辅证、反证或限制；证据不足时要明确说明，不要编造盘面没有提供的信息；最后给出当下建议、避免事项和观察信号。',
+    '【输出要求】\n先直接回答【问题】，再说明宫位主线、四化触发、格局与三方四正、应期条件和现实建议。',
   ].join('\n');
 }
 
@@ -550,7 +571,7 @@ function formatPublicZiweiEvidenceText(params: {
       .filter(Boolean)
       .slice(0, 8);
 
-    return stars.length > 0 ? stars.join('、') : '未提供主星资料';
+    return stars.join('、');
   };
   const mutagenText =
     payload.active_scope.mutagen_map.length > 0
@@ -561,7 +582,8 @@ function formatPublicZiweiEvidenceText(params: {
               .join('入'),
           )
           .join('；')
-      : '未提供当前范围四化';
+      : '';
+  const trueSolarEvidenceText = formatZiweiTrueSolarEvidence(params.result.trueSolarEvidence);
 
   return [
     `分析主题：${topicLabel}`,
@@ -570,10 +592,15 @@ function formatPublicZiweiEvidenceText(params: {
     `参考日期：${payload.active_scope.solar_date}`,
     `虚岁：${payload.active_scope.nominal_age}`,
     `出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}`,
-    `命宫：${lifePalace?.name ?? '命宫'}；星曜：${formatStars(lifePalace)}`,
-    `身宫：${bodyPalace?.name ?? '未标出'}；星曜：${formatStars(bodyPalace)}`,
-    `当前落宫：${activePalace?.name ?? '本命范围'}`,
-    `当前四化：${mutagenText}`,
+    lifePalace
+      ? `命宫：${lifePalace.name}${formatStars(lifePalace) ? `；星曜：${formatStars(lifePalace)}` : ''}`
+      : '',
+    bodyPalace
+      ? `身宫：${bodyPalace.name}${formatStars(bodyPalace) ? `；星曜：${formatStars(bodyPalace)}` : ''}`
+      : '',
+    activePalace ? `当前落宫：${activePalace.name}` : '',
+    mutagenText ? `当前四化：${mutagenText}` : '',
+    trueSolarEvidenceText ? `出生时间校正：\n${trueSolarEvidenceText}` : '',
     buildPublicZiweiKeyPalaceSection({
       palaces: payload.palaces,
       activePalace,
@@ -614,9 +641,8 @@ export function buildBaziZiweiPromptForResults(params: {
   ].filter(Boolean);
 
   const baseSections = [
-    '你是一位同时熟悉八字与紫微斗数的资深命理分析师，擅长先用八字判断命局结构、用神喜忌与岁运主线，再用紫微斗数校验对应宫位主轴、四化触发、三方四正和运限落点。',
-    guidance.join('\n'),
-    '【要求】\n- 只基于提供的八字排盘、紫微盘面和问题作答。\n- 八字用于判断长期底色、格局强弱、喜忌取用和岁运触发；紫微用于校验宫位主轴、四化牵动、三方四正与运限落点。\n- 两套体系结论一致时可以增强结论；出现分歧时必须说明哪一侧证据更强、另一侧对应的条件与待核验点。\n- 不得编造已提供资料没有给出的新盘面事实；允许基于已提供资料做传统命理推理，但必须标明证据来源。\n- 不要平均复述两套盘面资料，优先提炼最能回答【问题】的核心证据。',
+    buildPromptGuidanceSections('bazi-ziwei'),
+    guidance.length ? `【流派】\n${guidance.join('\n')}` : '',
     `【当前时间】\n${formatPromptCurrentTime()}`,
     `【分析对象】\n八字主题：${BAZI_TOPIC_LABELS[baziTopic]}\n紫微主题：${mapTopicLabel(ziweiTopic)}\n紫微范围：${mapZiweiPromptScopeLabel(ziweiScope)}`,
     `【八字排盘信息】\n${baziText}`,
@@ -630,8 +656,7 @@ export function buildBaziZiweiPromptForResults(params: {
 
   return [
     ...baseSections,
-    `【断盘要点】\n${buildBaziQuestionGuidanceSection(false)}`,
-    '【任务】\n先用八字判断命局主线、结构强弱、喜忌取用与当前触发，再用紫微校验对应宫位主轴、四化牵动、三方四正和运限落点，最后整合成一致结论、冲突点、应期触发与现实建议。',
-    '【输出要求】\n先直接回答【问题】，再按“结论总览”“八字主线”“紫微校验”“交叉验证”“冲突点与待核验项”“应期触发”“现实建议”展开；每部分都要写明主证、辅证、反证或限制、触发条件与建议；若两套体系存在冲突，必须说明哪一侧证据更强、另一侧在什么条件下才成立。',
+    '【任务】\n请结合八字和紫微盘面回答【问题】，说明两者一致或分歧之处。',
+    '【输出要求】\n先直接回答问题，再说明主要依据和现实建议。',
   ].join('\n\n');
 }
