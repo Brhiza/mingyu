@@ -7,6 +7,7 @@ import {
   MEIHUA_METHOD_OPTIONS,
   TAROT_SPREAD_OPTIONS,
   XIAOLIUREN_METHOD_OPTIONS,
+  JINKOUJUE_METHOD_OPTIONS,
 } from '@core/divination/config';
 import type { DivinationDraft } from '@/lib/divination/engine';
 
@@ -28,6 +29,8 @@ export const defaultDraft: DivinationDraft = {
   meihuaNumber: '',
   xiaoliurenMethod: 'time',
   xiaoliurenNumber: '',
+  jinkoujueMethod: 'time',
+  jinkoujueNumber: '',
   liuyaoTemplate: 'general',
   liurenTemplate: 'general',
   tarotSpread: 'single',
@@ -73,6 +76,10 @@ export const meihuaMethodLabelMap = Object.fromEntries(
 export const xiaoliurenMethodLabelMap = Object.fromEntries(
   XIAOLIUREN_METHOD_OPTIONS.map((item) => [item.value, item.label]),
 ) as Record<NonNullable<DivinationDraft['xiaoliurenMethod']>, string>;
+
+export const jinkoujueMethodLabelMap = Object.fromEntries(
+  JINKOUJUE_METHOD_OPTIONS.map((item) => [item.value, item.label]),
+) as Record<NonNullable<DivinationDraft['jinkoujueMethod']>, string>;
 
 export const liuyaoTemplateLabelMap = Object.fromEntries(
   LIUYAO_TEMPLATE_OPTIONS.map((item) => [item.value, item.label]),

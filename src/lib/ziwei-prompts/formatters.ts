@@ -1,11 +1,11 @@
 export function formatScalarValue(value: unknown) {
   if (value === undefined || value === null || value === '') {
-    return '暂无';
+    return '无';
   }
 
   if (Array.isArray(value)) {
     if (value.length === 0) {
-      return '暂无';
+      return '无';
     }
 
     if (value.every((item) => ['string', 'number', 'boolean'].includes(typeof item))) {
@@ -29,7 +29,7 @@ export function formatKeyValueBlock(record: Record<string, unknown>) {
 
 export function formatObjectList(items: Array<Record<string, unknown>>) {
   if (items.length === 0) {
-    return '- 暂无';
+    return '- 无';
   }
 
   return items

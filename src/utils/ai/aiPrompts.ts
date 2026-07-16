@@ -9,6 +9,7 @@ import { formatPromptCurrentTime } from '../../lib/prompt-time';
 import { generateEnhancedAnalysisSection } from '@core/bazi/baziPromptEnhancement';
 import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
 import { buildPromptGuidanceSections } from '../../lib/prompt-guidance';
+import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 
 export interface AIPromptOption {
   id: string;
@@ -310,23 +311,25 @@ export function buildPromptFromConfig(
 
     return {
       system: SYSTEM_PROMPT,
-      user: joinPromptSections([
-        buildPromptGuidanceSections('bazi'),
-        buildPromptSection('当前时间', formatPromptCurrentTime()),
-        buildPromptSection('排盘信息', [chartData, enhancedSection].filter(Boolean).join('\n')),
-        hasFullFortuneOutput
-          ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
-          : '',
-        !isCustomQuestion && !fortuneSection && !hasFullFortuneOutput
-          ? buildPromptSection('分析对象', buildBaziNatalAnalysisObjectSection())
-          : '',
-        fortuneSection ? buildPromptSection('分析对象', fortuneSection) : '',
-        fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
-        fortuneEvidenceSection ? buildPromptSection('岁运重点', fortuneEvidenceSection) : '',
-        buildPromptSection('问题', normalizedQuestion),
-        isCustomQuestion ? '' : buildPromptSection('任务', task || '请直接判断重点。'),
-        isCustomQuestion ? '' : buildPromptSection('输出要求', buildBaziOutputRequirementText()),
-      ]),
+      user: appendTraditionalResearchNotice(
+        joinPromptSections([
+          buildPromptGuidanceSections('bazi'),
+          buildPromptSection('当前时间', formatPromptCurrentTime()),
+          buildPromptSection('排盘信息', [chartData, enhancedSection].filter(Boolean).join('\n')),
+          hasFullFortuneOutput
+            ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
+            : '',
+          !isCustomQuestion && !fortuneSection && !hasFullFortuneOutput
+            ? buildPromptSection('分析对象', buildBaziNatalAnalysisObjectSection())
+            : '',
+          fortuneSection ? buildPromptSection('分析对象', fortuneSection) : '',
+          fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
+          fortuneEvidenceSection ? buildPromptSection('岁运重点', fortuneEvidenceSection) : '',
+          buildPromptSection('问题', normalizedQuestion),
+          isCustomQuestion ? '' : buildPromptSection('任务', task || '请依据已给出的命盘字段直接裁定重点。'),
+          isCustomQuestion ? '' : buildPromptSection('输出要求', buildBaziOutputRequirementText()),
+        ]),
+      ),
     };
   }
 
@@ -339,21 +342,23 @@ export function buildPromptFromConfig(
 
   return {
     system: SYSTEM_PROMPT,
-    user: joinPromptSections([
-      buildPromptGuidanceSections('bazi'),
-      buildPromptSection('当前时间', formatPromptCurrentTime()),
-      buildPromptSection('排盘信息', chartData),
-      hasFullFortuneOutput
-        ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
-        : '',
-      !isCustomQuestion && !hasFullFortuneOutput
-        ? buildPromptSection('分析对象', buildBaziNatalAnalysisObjectSection())
-        : '',
-      fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
-      buildPromptSection('问题', normalizedQuestion),
-      isCustomQuestion ? '' : buildPromptSection('任务', '请直接判断重点。'),
-      isCustomQuestion ? '' : buildPromptSection('输出要求', buildBaziOutputRequirementText()),
-    ]),
+    user: appendTraditionalResearchNotice(
+      joinPromptSections([
+        buildPromptGuidanceSections('bazi'),
+        buildPromptSection('当前时间', formatPromptCurrentTime()),
+        buildPromptSection('排盘信息', chartData),
+        hasFullFortuneOutput
+          ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
+          : '',
+        !isCustomQuestion && !hasFullFortuneOutput
+          ? buildPromptSection('分析对象', buildBaziNatalAnalysisObjectSection())
+          : '',
+        fullFortuneSection ? buildPromptSection('命限资料', fullFortuneSection) : '',
+        buildPromptSection('问题', normalizedQuestion),
+        isCustomQuestion ? '' : buildPromptSection('任务', '请依据已给出的命盘字段直接裁定重点。'),
+        isCustomQuestion ? '' : buildPromptSection('输出要求', buildBaziOutputRequirementText()),
+      ]),
+    ),
   };
 }
 
@@ -419,24 +424,26 @@ export function getCompatibilityPrompt(
             person2Name: options.person2Name,
           }),
         )
-      : '双方命盘不完整，暂无双盘关系资料。';
+      : '双方命盘不完整，无法生成双盘关系资料。';
 
   return {
     system: COMPATIBILITY_SYSTEM_PROMPT,
-    user: joinPromptSections([
-      buildPromptGuidanceSections('bazi-compatibility'),
-      buildPromptSection('当前时间', formatPromptCurrentTime()),
-      buildPromptSection('第一人排盘信息', data1),
-      buildPromptSection('第二人排盘信息', data2),
-      buildPromptSection('双盘关系资料', compatibilityEvidence),
-      buildPromptSection(
-        '问题',
-        questionText.trim() || getBaziCompatibilityDefaultQuestion(compatType),
-      ),
-      isCustomQuestion ? '' : buildPromptSection('任务', getCompatibilityTask(compatType)),
-      isCustomQuestion
-        ? ''
-        : buildPromptSection('输出要求', getCompatibilityOutputRequirement(compatType)),
-    ]),
+    user: appendTraditionalResearchNotice(
+      joinPromptSections([
+        buildPromptGuidanceSections('bazi-compatibility'),
+        buildPromptSection('当前时间', formatPromptCurrentTime()),
+        buildPromptSection('第一人排盘信息', data1),
+        buildPromptSection('第二人排盘信息', data2),
+        buildPromptSection('双盘关系资料', compatibilityEvidence),
+        buildPromptSection(
+          '问题',
+          questionText.trim() || getBaziCompatibilityDefaultQuestion(compatType),
+        ),
+        isCustomQuestion ? '' : buildPromptSection('任务', getCompatibilityTask(compatType)),
+        isCustomQuestion
+          ? ''
+          : buildPromptSection('输出要求', getCompatibilityOutputRequirement(compatType)),
+      ]),
+    ),
   };
 }

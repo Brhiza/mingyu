@@ -2,10 +2,10 @@
  * @file 排盘边界预警
  * @description
  * 当出生时刻贴近"换柱边界"时，说明当前结果采用的计算口径：
- * 1. 节气交接（换月柱，立春同时换年柱）——底层节气常数表存在 ±20 秒级偏差，
- * 2. 时辰边界（奇数整点换时柱）——真太阳时均时差为近似公式（±1~2 分钟）；
- * 3. 23:00 换日线——说明本次采用的换日流派。
- * 输入必须先通过完整性校验；这里不生成候选盘或敏感性结果。
+ * 1. 节气交接（换月柱，立春同时换年柱）——采用节气历表与输入时刻直接定柱；
+ * 2. 时辰边界（奇数整点换时柱）——采用校正后的唯一时刻定柱；
+ * 3. 23:00 换日线——采用晚子时换日口径。
+ * 输入必须先通过完整性校验；提示词只写已采用的唯一结果。
  */
 import { SolarTerm } from 'tyme4ts';
 import { EARTHLY_BRANCHES } from '../ganzhi/data';
@@ -15,9 +15,9 @@ import type { BaziWarningFact, BaziWarningSummaryFact } from './baziTypes';
 export const BOUNDARY_THRESHOLD_MINUTES = 3;
 
 const WARNING_LIMITATION =
-  '边界预警只记录当前输入下已采用的时间口径和需复核事项；不生成候选时柱、敏感性结果或现实事件结论' as const;
+  '边界说明只记录当前输入下已经采用的时间口径与唯一定盘结果；不另起第二套盘面，也不改写已确定的四柱' as const;
 const SUMMARY_LIMITATION =
-  '预警汇总只说明排盘边界是否需要留意，不改变已经按输入确定的时柱，也不生成候选盘' as const;
+  '预警汇总只说明当前盘面是否贴近交界时刻，不改变已经按输入确定的时柱' as const;
 
 /** 十二"节"（换月柱的交接点；"气"不换柱，不预警） */
 const JIE_NAMES = new Set([
@@ -100,7 +100,7 @@ export function checkJieqiBoundary(t: BoundaryCheckInput): string[] {
     const extra = best.name === '立春' ? '年柱与月柱' : '月柱';
     warnings.push(
       `出生时刻距「${best.name}」交节仅约 ${formatMinutes(best.diffMinutes)} 分钟（交节${side}）。` +
-        `本次${extra}已按采用的节气历表和输入时刻确定；该提示仅记录历表精度边界，不生成候选盘。`,
+        `本次${extra}已按节气历表与输入时刻确定，并作为唯一定盘结果使用。`,
     );
   }
   return warnings;
@@ -130,12 +130,12 @@ export function checkShichenBoundary(t: BoundaryCheckInput): string[] {
 
   warnings.push(
     `出生时刻距 ${String(boundaryHour).padStart(2, '0')}:00 时辰边界仅约 ${formatMinutes(distance)} 分钟，` +
-      `本次已按校正后时刻确定为「${phase <= 60 ? nextBranch : prevBranch}时」；真太阳时均时差采用近似公式，该提示不生成候选时柱。`,
+      `本次已按校正后时刻确定为「${phase <= 60 ? nextBranch : prevBranch}时」，并作为唯一时柱使用。`,
   );
 
   if (boundaryHour === 23) {
     warnings.push(
-      '出生时刻贴近 23:00 换日线：本次采用晚子时换日口径；其他传统流派可能采用不同规则，此处不生成候选盘。',
+      '出生时刻贴近 23:00 换日线：本次统一采用晚子时换日口径，日柱与时柱均按该口径确定。',
     );
   }
   return warnings;
@@ -151,7 +151,7 @@ export function collectBoundaryWarnings(t: BoundaryCheckInput): string[] {
 function classifyWarning(text: string): BaziWarningFact['type'] {
   if (text.includes('节气') || text.includes('交节')) return '节气交接边界';
   if (text.includes('23:00') || text.includes('换日')) return '换日流派边界';
-  if (text.includes('时辰边界') || text.includes('候选时柱') || text.includes('时柱')) {
+  if (text.includes('时辰边界') || text.includes('时柱')) {
     return '时辰边界';
   }
   if (text.includes('夏令时')) return '历史夏令时边界';
@@ -163,12 +163,11 @@ function classifyWarningStatus(
   type: BaziWarningFact['type'],
 ): BaziWarningFact['status'] {
   if (
-    text.includes('可能有误') ||
-    text.includes('可能需') ||
-    text.includes('建议') ||
-    text.includes('重复') ||
-    text.includes('不存在') ||
-    text.includes('流派')
+    text.includes('并不存在') ||
+    text.includes('出现两次') ||
+    text.includes('无法唯一') ||
+    text.includes('重复时段') ||
+    text.includes('跳变时段')
   ) {
     return '需核验原始记录';
   }

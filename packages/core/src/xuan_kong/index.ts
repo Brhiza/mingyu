@@ -219,7 +219,7 @@ function resolveMountains(input: XuanKongInput): {
     const warnings: string[] = [];
     const candidateMountains: NonNullable<XuanKongMeasurement['candidateMountains']> = [];
     if (stability === '山向边界敏感') {
-      warnings.push('测量误差可能跨越二十四山边界，应保留相邻山向候选');
+      warnings.push('测量容差已跨越二十四山边界，本次并列相邻山向结果');
       const offsets = [-1.0, 0, 1.0];
       const seen = new Set<string>();
       for (const offset of offsets) {

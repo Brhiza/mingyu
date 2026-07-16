@@ -418,16 +418,16 @@ export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiD
     label,
     promptText: [
       `测量方式：站在大门处面向屋内，指南针读数为 ${doorToInteriorDegree}°；北向基准为${measurement.reference === 'magnetic' ? `磁北，磁偏角 ${measurement.declination}°（东偏为正）` : measurement.reference === 'true' ? '真北' : '未声明'}。`,
-      `真北口径入户方向为 ${measurement.trueNorthDegree}°，测量误差 ±${measurement.uncertainty}°，距最近二十四山边界 ${measurement.nearestBoundaryDistanceDegrees.toFixed(2)}°，稳定性为${measurement.stability}。`,
+      `真北口径入户方向为 ${measurement.trueNorthDegree}°，测量容差 ±${measurement.uncertainty}°，距最近二十四山边界 ${measurement.nearestBoundaryDistanceDegrees.toFixed(2)}°，稳定性为${measurement.stability}。`,
       `中心读数换算后住宅坐山 ${sit.degree}° 为${sit.mountain}山，传统朝向 ${facing.degree}° 为${facing.mountain}向，结果为${label}。`,
-      `误差候选：${candidateDirections.map((item) => `${item.label}（${item.houseGua}宅、${item.houseGroup}、命宅${item.match}）`).join('、')}。`,
+      `容差范围内山向：${candidateDirections.map((item) => `${item.label}（${item.houseGua}宅、${item.houseGroup}、命宅${item.match}）`).join('、')}。`,
       ...(measurement.stability === '宅卦不稳定'
         ? candidateDirections.map(
             (item) =>
               `- 候选${item.label}：${item.houseGua}宅八宫为${item.housePalace.map((palace) => `${palace.direction}${palace.label}`).join('、')}`,
           )
         : []),
-      measurement.warnings.length ? `测量限制：${measurement.warnings.join('；')}。` : '',
+      measurement.warnings.length ? `测量说明：${measurement.warnings.join('；')}。` : '',
     ]
       .filter(Boolean)
       .join('\n'),

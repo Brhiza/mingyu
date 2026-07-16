@@ -342,6 +342,40 @@ export function DivinationResult({
         <AstrolabeChart data={session.data as AstrolabeData} />
       ) : null}
 
+      {session.method === 'jinkoujue' ? (
+        <div className="divination-extra-panel">
+          <div className="divination-extra-title">金口诀四位</div>
+          <div className="xiaoliuren-overview-grid">
+            <div className="xiaoliuren-overview-item">
+              <strong>地分</strong>
+              <span>{(session.data as any).positions?.diFen?.branch}</span>
+            </div>
+            <div className="xiaoliuren-overview-item">
+              <strong>将神</strong>
+              <span>{(session.data as any).positions?.jiangShen?.branch}</span>
+            </div>
+            <div className="xiaoliuren-overview-item">
+              <strong>贵神</strong>
+              <span>
+                {(session.data as any).positions?.guiShen?.god || ''}
+                {(session.data as any).positions?.guiShen?.branch}
+              </span>
+            </div>
+            <div className="xiaoliuren-overview-item">
+              <strong>人元</strong>
+              <span>
+                {(session.data as any).positions?.renYuan?.stem || ''}
+                {(session.data as any).positions?.renYuan?.branch}
+              </span>
+            </div>
+          </div>
+          <div className="xiaoliuren-overview-item">
+            <strong>取用主线</strong>
+            <span>{(session.data as any).mainLine}</span>
+          </div>
+        </div>
+      ) : null}
+
       {session.method === 'xiaoliuren' ? (
         <XiaoliurenBoard data={session.data as XiaoliurenData} />
       ) : null}

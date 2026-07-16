@@ -3,6 +3,7 @@
  */
 export * as liuyao from './algorithms/liuyao';
 export * as xiaoliuren from './algorithms/xiaoliuren';
+export * as jinkoujue from './algorithms/jinkoujue';
 export * as meihua from './algorithms/meihua/index';
 export * as qimen from './algorithms/qimen/index';
 export * as liuren from './algorithms/liuren/index';

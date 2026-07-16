@@ -7,6 +7,7 @@ import type {
   MeihuaDivinationMethod,
   TarotSpreadType,
   XiaoliurenDivinationMethod,
+  JinkoujueDivinationMethod,
 } from '../types/divination';
 
 export type DivinationMethodId =
@@ -16,6 +17,7 @@ export type DivinationMethodId =
       | 'liuyao'
       | 'meihua'
       | 'xiaoliuren'
+      | 'jinkoujue'
       | 'qimen'
       | 'liuren'
       | 'tarot'
@@ -67,6 +69,11 @@ export const DIVINATION_METHOD_OPTIONS: Array<{
     description: '适合快速判断眼前事情的走势、阻力与行动节奏。',
   },
   {
+    value: 'jinkoujue',
+    label: '金口诀',
+    description: '以地分、将神、贵神、人元四位一体判断事情主客、人情与落点。',
+  },
+  {
     value: 'ssgw',
     label: '三山国王灵签',
     description: '随机求签，适合快速获得方向提示。',
@@ -108,6 +115,15 @@ export const MEIHUA_METHOD_OPTIONS: Array<{
 
 export const XIAOLIUREN_METHOD_OPTIONS: Array<{
   value: XiaoliurenDivinationMethod;
+  label: string;
+}> = [
+  { value: 'time', label: '时间起课' },
+  { value: 'number', label: '数字起课' },
+  { value: 'random', label: '随机起课' },
+];
+
+export const JINKOUJUE_METHOD_OPTIONS: Array<{
+  value: JinkoujueDivinationMethod;
   label: string;
 }> = [
   { value: 'time', label: '时间起课' },
@@ -163,6 +179,8 @@ export const ALMANAC_TOPIC_OPTIONS: Array<{
   { value: 'travel', label: '出行赴任' },
   { value: 'medical', label: '就医手术' },
   { value: 'study', label: '考试学习' },
+  { value: 'burial', label: '安葬修坟' },
+  { value: 'renovation', label: '修造动土' },
   { value: 'custom', label: '自定义事项' },
 ];
 

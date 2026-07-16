@@ -152,7 +152,7 @@ test('夏令时:1988-07-15 12:00 北京(钟表) → 自动回拨 60 分钟,时�
   assert.equal(r.warningSummaryFact.status, '存在边界提示');
   assert.ok(
     r.warningFacts.every(
-      (fact) => fact.sources.length > 0 && fact.limitation.includes('不生成候选'),
+      (fact) => fact.sources.length > 0 && fact.limitation.includes('唯一定盘'),
     ),
   );
   const prompt = formatBaziForPrompt(r);
@@ -215,7 +215,7 @@ test('夏令时区间函数:边界与非夏令时年份', () => {
   assert.equal(isDateInChinaDstRange(1990, 6, 1), true);
 });
 
-test('边界预警:距立春 1 分钟内说明已采用结果且不生成候选盘', () => {
+test('边界预警:距立春 1 分钟内说明已采用结果且唯一定盘结果', () => {
   // 2024 立春 = 2024-02-04 16:27:07
   const warnings = checkJieqiBoundary({
     year: 2024,
@@ -227,7 +227,7 @@ test('边界预警:距立春 1 分钟内说明已采用结果且不生成候选�
   assert.equal(warnings.length, 1);
   assert.ok(warnings[0].includes('立春'));
   assert.ok(warnings[0].includes('年柱'));
-  assert.ok(warnings[0].includes('不生成候选盘'));
+  assert.ok(warnings[0].includes('唯一定盘结果'));
 });
 
 test('边界预警:距时辰边界 1 分钟内说明已采用时柱', () => {
@@ -240,10 +240,10 @@ test('边界预警:距时辰边界 1 分钟内说明已采用时柱', () => {
   });
   assert.equal(warnings.length, 1);
   assert.ok(warnings[0].includes('未时'));
-  assert.ok(warnings[0].includes('不生成候选时柱'));
+  assert.ok(warnings[0].includes('唯一时柱'));
 });
 
-test('边界预警:23:00 换日线额外提示流派差异', () => {
+test('边界预警:23:00 换日线额外说明晚子时换日口径', () => {
   const warnings = checkShichenBoundary({
     year: 2024,
     month: 6,
@@ -263,10 +263,10 @@ test('边界预警:远离边界时不产生预警', () => {
   );
 });
 
-test('边界预警对象应保留稳定键、来源、引用和不生成候选盘限制', () => {
+test('边界预警对象应保留稳定键、来源、引用和唯一定盘结果限制', () => {
   const evidence = buildBaziWarningEvidence([
-    '出生时刻距「立春」交节仅约 1 分钟（交节前）。本次年柱与月柱已按采用的节气历表和输入时刻确定；该提示仅记录历表精度边界，不生成候选盘。',
-    '出生时刻贴近 23:00 换日线：本次采用晚子时换日口径；其他传统流派可能采用不同规则，此处不生成候选盘。',
+    '出生时刻距「立春」交节仅约 1 分钟（交节前）。本次年柱与月柱已按节气历表与输入时刻确定，并作为唯一定盘结果使用。',
+    '出生时刻贴近 23:00 换日线：本次统一采用晚子时换日口径，日柱与时柱均按该口径确定。',
   ]);
   assert.equal(evidence.warningFacts.length, 2);
   assert.ok(evidence.warningFacts.every((fact) => fact.key.startsWith('bazi:warning:')));
@@ -274,7 +274,7 @@ test('边界预警对象应保留稳定键、来源、引用和不生成候选�
     evidence.warningSummaryFact.factKeys,
     evidence.warningFacts.map((fact) => fact.key),
   );
-  assert.equal(evidence.warningSummaryFact.status, '存在需核验事项');
+  assert.equal(evidence.warningSummaryFact.status, '存在边界提示');
   assert.ok(evidence.warningFacts.every((fact) => fact.referenceKeys.length > 0));
 });
 

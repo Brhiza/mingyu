@@ -801,20 +801,20 @@ function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions) {
       {
         label: '指定用神',
         relative: options.usefulGodRelative,
-        reason: '由调用方根据实际问题明确指定，盘面只负责检索与验证。',
+        reason: '按明确指定的六亲取用，并以盘面检索结果裁定。',
       },
     ];
   }
   if (topic === 'shiye') {
     return [
-      { label: '事业用神', relative: '官鬼', reason: '事业工作以官鬼为主要事项候选。' },
-      { label: '文书辅证', relative: '父母', reason: '父母爻辅助观察单位、合同、文书与消息。' },
+      { label: '事业用神', relative: '官鬼', reason: '事业工作以官鬼为用神。' },
+      { label: '文书辅证', relative: '父母', reason: '父母爻作为文书、单位与消息辅证。' },
     ];
   }
   if (topic === 'caifu') {
     return [
-      { label: '财运用神', relative: '妻财', reason: '财运交易以妻财为主要事项候选。' },
-      { label: '财源辅证', relative: '子孙', reason: '子孙生财，可作为财源与经营能力辅证。' },
+      { label: '财运用神', relative: '妻财', reason: '财运交易以妻财为用神。' },
+      { label: '财源辅证', relative: '子孙', reason: '子孙爻作为财源与经营能力辅证。' },
     ];
   }
   if (topic === 'guaishen') {
@@ -822,14 +822,14 @@ function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions) {
       {
         label: '怪异事项候选',
         relative: '官鬼',
-        reason: '仅按传统取官鬼为候选，不能据此证明超自然原因。',
+        reason: '怪异事项以官鬼为用神，并先核对世爻与现实条件。',
       },
       ...(world
         ? [
             {
               label: '求测者主轴',
               position: world.position,
-              reason: '仍须先检查世爻状态与现实因素。',
+              reason: '以世爻核对求测者当前状态。',
             },
           ]
         : []),
@@ -842,7 +842,7 @@ function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions) {
             {
               label: '关系我方',
               position: world.position,
-              reason: '感情关系先以世爻代表求测者一方。',
+              reason: '感情关系以世爻为我方。',
             },
           ]
         : []),
@@ -851,7 +851,7 @@ function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions) {
             {
               label: '关系对方',
               position: response.position,
-              reason: '应爻代表对方或关系外部条件。',
+              reason: '感情关系以应爻为对方。',
             },
           ]
         : []),
@@ -863,12 +863,12 @@ function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions) {
           {
             label: '通用主轴',
             position: world.position,
-            reason: '问题未明确取用时，先以世爻作为求测者主轴。',
+            reason: '未另指定用神时，以世爻为求测者主轴。',
           },
         ]
       : []),
     ...(response
-      ? [{ label: '应爻辅轴', position: response.position, reason: '应爻用于观察对方或外部条件。' }]
+      ? [{ label: '应爻辅轴', position: response.position, reason: '应爻用于观察对方与外部条件。' }]
       : []),
     ...data.yaosDetail
       .filter((item) => item.isChanging)
@@ -876,7 +876,7 @@ function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions) {
       .map((item) => ({
         label: `动爻触发第${item.position}爻`,
         position: item.position,
-        reason: '动爻只作为事件变化触发候选，仍须回扣世应与实际问题。',
+        reason: '动爻作为事件变化触发点，并回扣世应主线。',
       })),
   ];
 }
@@ -1241,8 +1241,8 @@ export function analyzeLiuyaoEvidence(
     selectedCandidateKey: selectedCandidate?.key ?? null,
     candidateKeys: candidates.map((item) => item.key),
     promptText: selectedCandidate
-      ? `当前首个可用候选为${selectedCandidate.label}；盘面匹配${selectedCandidate.references.map(formatYao).join('、')}`
-      : '当前候选均未在本卦或伏神中找到匹配，不能强定用神、原神、忌神与仇神',
+      ? `本次用神取${selectedCandidate.label}；盘面匹配${selectedCandidate.references.map(formatYao).join('、')}`
+      : '本次按既定取用规则检索后，本卦与伏神均未见对应用神爻，改以世应与动变主线裁定',
     sources: ['候选顺序、匹配状态与逐爻引用核验'],
     limitation: SELECTION_FACT_LIMITATION,
   };
@@ -1252,7 +1252,7 @@ export function analyzeLiuyaoEvidence(
   const enemyElement = tabooElement ? findGeneratingElement(tabooElement) : '';
   const chainSpecs: Array<[LiuyaoGodRole, string, string]> = usefulElement
     ? [
-        ['用神', usefulElement, '当前首个可见或伏藏候选的五行'],
+        ['用神', usefulElement, '本次用神五行'],
         ['原神', sourceElement, `${sourceElement}生${usefulElement}`],
         ['忌神', tabooElement, `${tabooElement}克${usefulElement}`],
         ['仇神', enemyElement, `${enemyElement}生${tabooElement}并克${sourceElement}`],
@@ -1617,7 +1617,7 @@ export function analyzeLiuyaoEvidence(
     `证据汇总：${summaryFact.promptText}。`,
     godChain.length
       ? `作用链：${godChain.map((item) => item.promptText).join('；')}`
-      : '作用链：当前没有可用候选，不能强定原神、忌神与仇神。',
+      : '作用链：本次未见可匹配用神爻，按世应与动变主线裁定。',
     `触发条件：${timingConditions.join('；')}`,
     `解释限制：${limitations.join('；')}。`,
   ].join('\n');

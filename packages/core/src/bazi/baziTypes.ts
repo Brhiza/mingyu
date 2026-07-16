@@ -86,7 +86,7 @@ export interface BaziWarningFact {
   referenceKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '边界预警只记录当前输入下已采用的时间口径和需复核事项；不生成候选时柱、敏感性结果或现实事件结论';
+  limitation: '边界说明只记录当前输入下已经采用的时间口径与唯一定盘结果；不另起第二套盘面，也不改写已确定的四柱';
 }
 
 export interface BaziWarningSummaryFact {
@@ -95,7 +95,7 @@ export interface BaziWarningSummaryFact {
   factKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '预警汇总只说明排盘边界是否需要留意，不改变已经按输入确定的时柱，也不生成候选盘';
+  limitation: '预警汇总只说明当前盘面是否贴近交界时刻，不改变已经按输入确定的时柱';
 }
 
 export interface LiunianInfo {

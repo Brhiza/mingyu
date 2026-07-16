@@ -7,6 +7,7 @@ import {
   MEIHUA_METHOD_OPTIONS,
   TAROT_SPREAD_OPTIONS,
   XIAOLIUREN_METHOD_OPTIONS,
+  JINKOUJUE_METHOD_OPTIONS,
 } from '@core/divination/config';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import {
@@ -18,6 +19,7 @@ import {
   methodLabelMap,
   tarotSpreadLabelMap,
   xiaoliurenMethodLabelMap,
+  jinkoujueMethodLabelMap,
 } from './constants';
 
 const DIVINATION_TIME_MODE_OPTIONS = [
@@ -38,7 +40,7 @@ function isTimeBasedDivinationDraft(draft: DivinationDraft) {
     return true;
   }
 
-  if (draft.method === 'meihua' || draft.method === 'xiaoliuren') {
+  if (draft.method === 'meihua' || draft.method === 'xiaoliuren' || draft.method === 'jinkoujue') {
     return true;
   }
 
@@ -235,6 +237,34 @@ export function DivinationForm({
                       </div>
                     ) : null}
 
+                    {draft.method === 'jinkoujue' ? (
+                      <div className="form-item divination-inline-field">
+                        <label htmlFor="jinkoujue-method-select">起课方式</label>
+                        <div className="divination-select-shell divination-desktop-select-shell">
+                          <span className="divination-trigger-text">
+                            {jinkoujueMethodLabelMap[draft.jinkoujueMethod]}
+                          </span>
+                          <select
+                            id="jinkoujue-method-select"
+                            value={draft.jinkoujueMethod}
+                            className="form-input divination-overlay-select"
+                            onChange={(event) =>
+                              updateDraft(
+                                'jinkoujueMethod',
+                                event.target.value as DivinationDraft['jinkoujueMethod'],
+                              )
+                            }
+                          >
+                            {JINKOUJUE_METHOD_OPTIONS.map((item) => (
+                              <option key={item.value} value={item.value}>
+                                {item.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ) : null}
+
                     {draft.method === 'meihua' && draft.meihuaMethod === 'number' ? (
                       <div className="form-item divination-inline-field divination-inline-number-field">
                         <label htmlFor="meihua-number-input">起卦数字</label>
@@ -265,6 +295,26 @@ export function DivinationForm({
                           onChange={(event) =>
                             updateDraft(
                               'xiaoliurenNumber',
+                              event.target.value.replace(/[^\d]/g, ''),
+                            )
+                          }
+                        />
+                      </div>
+                    ) : null}
+
+                    {draft.method === 'jinkoujue' && draft.jinkoujueMethod === 'number' ? (
+                      <div className="form-item divination-inline-field divination-inline-number-field">
+                        <label htmlFor="jinkoujue-number-input">起课数字</label>
+                        <input
+                          id="jinkoujue-number-input"
+                          type="text"
+                          inputMode="numeric"
+                          className="form-input"
+                          placeholder="例如 7"
+                          value={draft.jinkoujueNumber}
+                          onChange={(event) =>
+                            updateDraft(
+                              'jinkoujueNumber',
                               event.target.value.replace(/[^\d]/g, ''),
                             )
                           }
@@ -460,6 +510,7 @@ export function DivinationForm({
                   draft.method === 'meihua' ||
                   draft.method === 'liuyao' ||
                   draft.method === 'xiaoliuren' ||
+                  draft.method === 'jinkoujue' ||
                   draft.method === 'liuren' ||
                   draft.method === 'tarot' ||
                   draft.method === 'almanac' ||
@@ -532,6 +583,31 @@ export function DivinationForm({
                       }
                     >
                       {XIAOLIUREN_METHOD_OPTIONS.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+
+                {draft.method === 'jinkoujue' ? (
+                  <div className="divination-mobile-secondary-picker">
+                    <span className="divination-mobile-trigger-text divination-trigger-text">
+                      {jinkoujueMethodLabelMap[draft.jinkoujueMethod]}
+                    </span>
+                    <select
+                      aria-label="金口诀起课方式"
+                      value={draft.jinkoujueMethod}
+                      className="form-input divination-mobile-method-select divination-overlay-select"
+                      onChange={(event) =>
+                        updateDraft(
+                          'jinkoujueMethod',
+                          event.target.value as DivinationDraft['jinkoujueMethod'],
+                        )
+                      }
+                    >
+                      {JINKOUJUE_METHOD_OPTIONS.map((item) => (
                         <option key={item.value} value={item.value}>
                           {item.label}
                         </option>
@@ -735,6 +811,25 @@ export function DivinationForm({
                   value={draft.xiaoliurenNumber}
                   onChange={(event) =>
                     updateDraft('xiaoliurenNumber', event.target.value.replace(/[^\d]/g, ''))
+                  }
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {draft.method === 'jinkoujue' && draft.jinkoujueMethod === 'number' ? (
+            <div className="form-row divination-mobile-only">
+              <div className="form-item">
+                <label htmlFor="jinkoujue-number-input-mobile">起课数字</label>
+                <input
+                  id="jinkoujue-number-input-mobile"
+                  type="text"
+                  inputMode="numeric"
+                  className="form-input"
+                  placeholder="例如 7"
+                  value={draft.jinkoujueNumber}
+                  onChange={(event) =>
+                    updateDraft('jinkoujueNumber', event.target.value.replace(/[^\d]/g, ''))
                   }
                 />
               </div>

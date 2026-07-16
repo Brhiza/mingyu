@@ -35,6 +35,10 @@
       "import": "./dist/divination/algorithms/xiaoliuren.js",
       "types": "./dist/divination/algorithms/xiaoliuren.d.ts"
     },
+    "./divination/jinkoujue": {
+      "import": "./dist/divination/algorithms/jinkoujue.js",
+      "types": "./dist/divination/algorithms/jinkoujue.d.ts"
+    },
     "./divination/lenormand": {
       "import": "./dist/divination/algorithms/lenormand.js",
       "types": "./dist/divination/algorithms/lenormand.d.ts"
@@ -212,6 +216,7 @@
     "liuyao",
     "六爻",
     "liuren",
+    "jinkoujue",
     "六壬",
     "meihua",
     "梅花易数",

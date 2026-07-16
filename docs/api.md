@@ -392,6 +392,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 梅花易数 `method` 支持 `time`、`number`、`random`、`timeTrigram`。数字起卦使用 `number`；`timeTrigram` 为历史兼容入口，按《梅花易数》年月日时起卦法计算，不再使用时辰地支方位自定义映射。
 - 梅花排盘结果的 `evidenceAnalysis` 返回主卦起因、互卦过程、变卦结果三阶段体用关系、月建旺衰、推进变化、支持项、限制项和触发条件。动爻与卦数只保留为层位和取数旁证，不机械换算绝对日期，也不输出吉凶总分或成功率。
 - 小六壬 `xiaoliurenMethod` 支持 `time`、`number`、`random`，数字起课时使用 `xiaoliurenNumber`。
+- 金口诀 `jinkoujueMethod` 支持 `time`、`number`、`random`，数字起课时使用 `jinkoujueNumber`；排盘结果含地分、将神、贵神、人元四位、取用主线与结构化证据。
 - 塔罗 `spreadType` 支持 `single`、`three`、`love`、`career`、`decision`、`celtic`、`chakra`、`year`、`mindBodySpirit`、`horseshoe`。
 - 六爻 `liuyaoTemplate` 支持 `general`、`ganqing`、`shiye`、`caifu`、`guaishen`。
 - 六爻排盘结果的 `evidenceAnalysis` 返回用神候选、本卦与伏神爻位、原神忌神仇神作用链、月日和动变支持、空破墓退反证及触发条件。提示词会按 `liuyaoTemplate` 重新选择对应主题候选；候选不等于已定用神，也不输出吉凶总分或成功率。

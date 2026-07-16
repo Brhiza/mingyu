@@ -201,6 +201,29 @@ export const DIVINATION_INSPIRATION_CONTENT: Record<
   ],
 };
 
+export const JINKOUJUE_SPECIAL_INSPIRATION_CONTENT: DivinationInspirationSection[] = [
+  {
+    heading: '主客判断',
+    questions: [
+      '这件事当前谁更占主动？',
+      '对方现在是配合还是牵制？',
+      '我这边的人情和气势能不能撑住局面？',
+      '当前最大的卡点落在人、事，还是场合？',
+      '这件事适合硬推进，还是先换路径？',
+    ],
+  },
+  {
+    heading: '人事落点',
+    questions: [
+      '这件事的关键人物态度会怎样变化？',
+      '当前场合和落点是否有利？',
+      '推进时更容易得助，还是更容易受制？',
+      '我该先处理人情，还是先处理事体？',
+      '结果更可能落实到哪里？',
+    ],
+  },
+];
+
 export const XIAOLIUREN_SPECIAL_INSPIRATION_CONTENT: DivinationInspirationSection[] = [
   {
     heading: '感情速断',
@@ -589,6 +612,13 @@ export function getDivinationSpecialInspiration(
     return {
       label: '速断',
       sections: XIAOLIUREN_SPECIAL_INSPIRATION_CONTENT,
+    };
+  }
+
+  if (draft.method === 'jinkoujue') {
+    return {
+      label: '四位',
+      sections: JINKOUJUE_SPECIAL_INSPIRATION_CONTENT,
     };
   }
 

@@ -15,6 +15,7 @@ export type DivinationType =
   | 'liuyao'
   | 'meihua'
   | 'xiaoliuren'
+  | 'jinkoujue'
   | 'qimen'
   | 'liuren'
   | 'tarot'
@@ -105,6 +106,72 @@ export interface XiaoliurenData {
   timing?: string;
   bodyPart?: string;
   evidenceAnalysis?: import('../divination/xiaoliuren-evidence').XiaoliurenEvidenceAnalysis;
+}
+
+export type JinkoujueDivinationMethod = 'time' | 'number' | 'random';
+
+export type JinkoujuePositionName = '地分' | '将神' | '贵神' | '人元';
+
+export interface JinkoujueFourPosition {
+  name: JinkoujuePositionName;
+  role: string;
+  branch: string;
+  stem?: string;
+  god?: string;
+  element: string;
+  seasonState: string;
+  isVoid: boolean;
+  support: string[];
+  constraints: string[];
+  promptText: string;
+}
+
+export interface JinkoujueData {
+  meta?: CoreResultMeta;
+  method: JinkoujueDivinationMethod;
+  methodLabel: string;
+  timestamp: number;
+  ganzhi: BaseGanZhi;
+  dayNight: '昼占' | '夜占';
+  monthLeader: string;
+  divinationBranch: string;
+  noblemanBranch: string;
+  xunKong: string[];
+  diFenBranch: string;
+  positions: {
+    diFen: JinkoujueFourPosition;
+    jiangShen: JinkoujueFourPosition;
+    guiShen: JinkoujueFourPosition;
+    renYuan: JinkoujueFourPosition;
+  };
+  relations: {
+    guiToJiang: string;
+    guiToRen: string;
+    jiangToDi: string;
+    renToDi: string;
+    guiToDi: string;
+  };
+  mainLine: string;
+  calculation: {
+    method: JinkoujueDivinationMethod;
+    methodLabel: string;
+    inputBase: number;
+    inputBaseSource: '占时地支序数' | '用户数字' | '随机数';
+    diFenNote: string;
+    monthLeaderRule: string;
+    yuanDunRule: string;
+    noblemanRule: string;
+  };
+  focusEvidence?: Array<{
+    target: string;
+    role: string;
+    level: '主证' | '辅证';
+    evidence: string[];
+    limitations: string[];
+  }>;
+  summary: string;
+  randomTrace?: import('../shared/random').RandomTrace;
+  evidenceAnalysis?: import('../divination/jinkoujue-evidence').JinkoujueEvidenceAnalysis;
 }
 
 export interface BaseGanZhi {
@@ -1249,6 +1316,7 @@ export type DivinationData =
   | LiuyaoData
   | MeihuaData
   | XiaoliurenData
+  | JinkoujueData
   | QimenData
   | LiurenData
   | TarotData
