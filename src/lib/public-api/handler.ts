@@ -1960,10 +1960,10 @@ function calculateQizhengApi(input: JsonRecord) {
   });
 }
 
-
 function calculateXuanKongApi(input: JsonRecord) {
   const year = input.year === undefined ? undefined : readInteger(input, 'year', 1, 9999);
-  const sitMountain = input.sitMountain === undefined ? undefined : readString(input, 'sitMountain', '');
+  const sitMountain =
+    input.sitMountain === undefined ? undefined : readString(input, 'sitMountain', '');
   const facingMountain =
     input.facingMountain === undefined ? undefined : readString(input, 'facingMountain', '');
   const facingDegree =
@@ -1989,7 +1989,6 @@ function calculateXuanKongApi(input: JsonRecord) {
   });
 }
 
-
 function calculateResidentialApi(input: JsonRecord) {
   const year = input.year === undefined ? undefined : readInteger(input, 'year', 1, 9999);
   const birthYear = optInt(input, 'birthYear', 1900, 2100);
@@ -2007,7 +2006,8 @@ function calculateResidentialApi(input: JsonRecord) {
   const sitDegree =
     input.sitDegree === undefined ? undefined : readNumberLike(input, 'sitDegree', 0, 360);
   const doorToInteriorDegree = optNumber(input, 'doorToInteriorDegree', 0, 360);
-  const northReference = input.northReference === undefined ? undefined : readString(input, 'northReference', '');
+  const northReference =
+    input.northReference === undefined ? undefined : readString(input, 'northReference', '');
   const magneticDeclinationDegrees = optNumber(input, 'magneticDeclinationDegrees', -30, 30);
   const measurementUncertaintyDegrees = optNumber(input, 'measurementUncertaintyDegrees', 0, 45);
   const guaType =
@@ -2028,7 +2028,11 @@ function calculateResidentialApi(input: JsonRecord) {
     throw new ApiError(400, 'BAD_REQUEST', 'northReference 只能是 unspecified、magnetic 或 true。');
   }
   if (birthYear !== undefined && !gender && !mingGua) {
-    throw new ApiError(400, 'BAD_REQUEST', '使用 birthYear 推命卦时必须同时提供 gender，或直接给定 mingGua。');
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      '使用 birthYear 推命卦时必须同时提供 gender，或直接给定 mingGua。',
+    );
   }
 
   try {
@@ -2047,12 +2051,8 @@ function calculateResidentialApi(input: JsonRecord) {
       ...(northReference
         ? { northReference: northReference as 'unspecified' | 'magnetic' | 'true' }
         : {}),
-      ...(magneticDeclinationDegrees !== undefined
-        ? { magneticDeclinationDegrees }
-        : {}),
-      ...(measurementUncertaintyDegrees !== undefined
-        ? { measurementUncertaintyDegrees }
-        : {}),
+      ...(magneticDeclinationDegrees !== undefined ? { magneticDeclinationDegrees } : {}),
+      ...(measurementUncertaintyDegrees !== undefined ? { measurementUncertaintyDegrees } : {}),
       ...(guaType ? { guaType } : {}),
     });
   } catch (error) {
