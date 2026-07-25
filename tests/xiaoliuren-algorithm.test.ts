@@ -5,10 +5,37 @@ import {
   analyzeXiaoliurenEvidence,
   conditionXiaoliurenTraditionalText,
   generateXiaoliuren,
+  getXiaoliurenElementRelation,
+  validateXiaoliurenReferenceData,
 } from '../packages/core/src/divination/algorithms/xiaoliuren.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const SAMPLE_DATE = new Date('2025-01-01T08:00:00+08:00');
+
+test('小六壬：五行关系表应完整覆盖 25 种组合', () => {
+  const elements = ['木', '火', '土', '金', '水'];
+  const relations = elements.flatMap((source) =>
+    elements.map((target) => getXiaoliurenElementRelation(source, target)),
+  );
+
+  assert.equal(relations.length, 25);
+  assert.deepEqual(new Set(relations), new Set(['比和', '被克', '得生', '所生', '所克']));
+  assert.doesNotThrow(() => validateXiaoliurenReferenceData());
+  assert.throws(() => getXiaoliurenElementRelation('木', ''), /五行无效/);
+});
+
+test('小六壬：六个结果宫都应使用专属应期画像', () => {
+  const results = Array.from({ length: 6 }, (_, index) =>
+    generateXiaoliuren({ method: 'number', number: index + 1, customDate: SAMPLE_DATE }),
+  );
+
+  assert.equal(new Set(results.map((result) => result.sequence.result.name)).size, 6);
+  assert.ok(results.every((result) => result.timingEvidence?.triggerConditions[0]));
+  assert.doesNotMatch(
+    results.map((result) => result.timingEvidence?.triggerConditions.join('；')).join('\n'),
+    /通用|特殊生克态势/,
+  );
+});
 
 test('小六壬：空亡宫五行应为土，类型与算法数据保持一致', () => {
   const data = generateXiaoliuren({ method: 'number', number: 5, customDate: SAMPLE_DATE });

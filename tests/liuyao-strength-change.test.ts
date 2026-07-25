@@ -3,7 +3,9 @@ import { strict as assert } from 'node:assert';
 import {
   generateLiuyao,
   getLiuyaoChangeDirection,
+  getLiuyaoChangeRelation,
   getLiuyaoFanFuRelations,
+  getLiuyaoGuaShenBranch,
   getLiuyaoHexagramRelation,
   getLiuyaoHexagramRelations,
   getLiuyaoPalaceStage,
@@ -266,6 +268,18 @@ test('六爻：月卦身应按阳世起子、阴世起午逐爻顺数', () => {
   assert.equal(yinShi.yaosDetail[5].yaoType, '阴');
   assert.equal(yinShi.guaShen?.branch, '亥');
   assert.equal(yinShi.guaShen?.position, 2);
+});
+
+test('六爻：动变关系与月卦身应拒绝非法资料', () => {
+  assert.throws(() => getLiuyaoChangeRelation('', '火', '子', '午', false), /动变五行无效/);
+  assert.throws(() => getLiuyaoChangeRelation('水', '火', '无', '午', false), /动变地支无效/);
+  assert.throws(
+    () => getLiuyaoChangeRelation('水', '火', '子', '午', undefined as never),
+    /旬空标记必须是布尔值/,
+  );
+  assert.throws(() => getLiuyaoGuaShenBranch(0, true), /世爻位置无效/);
+  assert.throws(() => getLiuyaoGuaShenBranch(7, false), /世爻位置无效/);
+  assert.throws(() => getLiuyaoGuaShenBranch(1, undefined as never), /阴阳标记必须是布尔值/);
 });
 
 test('六爻：手工三钱法爻值应严格校验长度与取值', () => {

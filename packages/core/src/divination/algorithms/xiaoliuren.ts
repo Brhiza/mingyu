@@ -165,6 +165,92 @@ const XIAOLIUREN_SCHOOL_LABEL_MAP: Record<XiaoliurenSchool, string> = {
   huashan: '华山派',
 };
 
+type XiaoliurenElementRelation = '比和' | '被克' | '得生' | '所生' | '所克';
+type XiaoliurenPalaceName = '大安' | '留连' | '速喜' | '赤口' | '小吉' | '空亡';
+
+const XIAOLIUREN_TIMING_PROFILES: Record<
+  XiaoliurenPalaceName,
+  {
+    rhythm: '偏快' | '平稳' | '偏缓' | '反复' | '不定';
+    trigger: string;
+  }
+> = {
+  大安: { rhythm: '平稳', trigger: '基础条件稳定、资源到位或立场明确后推进' },
+  留连: { rhythm: '反复', trigger: '旧问题、手续或牵扯事项得到清理后再推进' },
+  速喜: { rhythm: '偏快', trigger: '消息、回复、邀约或明确机会出现时及时核验' },
+  赤口: { rhythm: '反复', trigger: '沟通冲突、误解澄清或立场摊牌时出现转折' },
+  小吉: { rhythm: '平稳', trigger: '协助者、资源、中间人或小步成果出现后渐进' },
+  空亡: { rhythm: '不定', trigger: '先核实目标、信息和承诺是否真实，再重新判断时机' },
+};
+
+const START_TO_PROCESS_DESCRIPTIONS: Record<XiaoliurenElementRelation, string> = {
+  比和: '起因与过程平稳衔接',
+  得生: '过程回生起因，推进中有反哺助力',
+  所生: '起因生过程，事态自然推进',
+  被克: '起因被过程克制，起步受阻需耐心',
+  所克: '起因克过程，前段有压制，先难后易',
+};
+
+const PROCESS_TO_RESULT_DESCRIPTIONS: Record<XiaoliurenElementRelation, string> = {
+  比和: '过程与结果保持同势',
+  得生: '结果回生过程，后续仍有支撑',
+  所生: '过程生结果，越做越顺',
+  被克: '过程被结果克制，先易后难需谨慎',
+  所克: '过程克结果，后段受压，先易后难',
+};
+
+const VALID_XIAOLIUREN_WUXING = new Set(['木', '火', '土', '金', '水']);
+
+export function getXiaoliurenElementRelation(
+  sourceElement: string,
+  targetElement: string,
+): XiaoliurenElementRelation {
+  if (!VALID_XIAOLIUREN_WUXING.has(sourceElement) || !VALID_XIAOLIUREN_WUXING.has(targetElement)) {
+    throw new Error(`小六壬五行无效：${sourceElement || '空'}→${targetElement || '空'}`);
+  }
+  if (sourceElement === targetElement) return '比和';
+  const sourceRelations = liuqinRelations[sourceElement as keyof typeof liuqinRelations];
+  const relative = sourceRelations[targetElement as keyof typeof sourceRelations];
+  switch (relative) {
+    case '父母':
+      return '得生';
+    case '子孙':
+      return '所生';
+    case '官鬼':
+      return '被克';
+    case '妻财':
+      return '所克';
+    case '兄弟':
+      return '比和';
+    default:
+      throw new Error(`小六壬无法判断${sourceElement}与${targetElement}的五行关系。`);
+  }
+}
+
+function getXiaoliurenTimingProfile(name: string) {
+  if (!Object.prototype.hasOwnProperty.call(XIAOLIUREN_TIMING_PROFILES, name)) {
+    throw new Error(`小六壬结果宫应期资料缺失：${name || '空值'}`);
+  }
+  return XIAOLIUREN_TIMING_PROFILES[name as XiaoliurenPalaceName];
+}
+
+export function validateXiaoliurenReferenceData(): void {
+  const expectedNames: XiaoliurenPalaceName[] = ['大安', '留连', '速喜', '赤口', '小吉', '空亡'];
+  const actualNames = XIAOLIUREN_PALACES.map((palace) => palace.name);
+  if (
+    actualNames.length !== expectedNames.length ||
+    expectedNames.some((name, index) => actualNames[index] !== name) ||
+    XIAOLIUREN_PALACES.some(
+      (palace, index) => palace.index !== index || !VALID_XIAOLIUREN_WUXING.has(palace.element),
+    )
+  ) {
+    throw new Error('小六壬六宫资料必须按大安至空亡顺序完整登记索引与五行');
+  }
+  expectedNames.forEach(getXiaoliurenTimingProfile);
+}
+
+validateXiaoliurenReferenceData();
+
 const DAYTIME_BRANCHES = new Set(['卯', '辰', '巳', '午', '未', '申']);
 
 const STAGE_ROLE_MAP: Record<XiaoliurenStageChart['stage'], string> = {
@@ -193,19 +279,8 @@ function getRelativeToDay(dayElement: string, palaceElement: string): string {
 }
 
 function describeElementToDay(dayElement: string, palaceElement: string): string {
-  if (dayElement === palaceElement) return '比和日主';
-  const relationTables: Record<string, Record<string, string>> = {
-    木: { 木: '比和', 金: '被克', 水: '得生', 火: '所生', 土: '所克' },
-    金: { 金: '比和', 火: '被克', 土: '得生', 水: '所生', 木: '所克' },
-    火: { 火: '比和', 水: '被克', 木: '得生', 土: '所生', 金: '所克' },
-    水: { 水: '比和', 土: '被克', 金: '得生', 木: '所生', 火: '所克' },
-    土: { 土: '比和', 木: '被克', 火: '得生', 金: '所生', 水: '所克' },
-  };
-  const relation = relationTables[palaceElement]?.[dayElement];
-  if (!relation) {
-    throw new Error(`小六壬无法判断宫位${palaceElement}与日主${dayElement}的五行关系。`);
-  }
-  return relation;
+  const relation = getXiaoliurenElementRelation(palaceElement, dayElement);
+  return relation === '比和' ? '比和日主' : relation;
 }
 
 function buildStageChart(params: {
@@ -375,40 +450,14 @@ export function generateXiaoliuren(
   // 宫间五行生克分析（《小六壬金口诀》核心精要）：
   // 起因宫克过程宫→先难后易；起因生过程→顺遂；比和→平稳；
   // 过程宫生结果宫→渐入佳境；过程克结果→先易后难；比和→势头保持。
-  const elementRelations: Record<string, Record<string, string>> = {
-    木: { 木: '比和', 金: '被克', 水: '得生', 火: '所生', 土: '所克' },
-    金: { 金: '比和', 火: '被克', 土: '得生', 水: '所生', 木: '所克' },
-    火: { 火: '比和', 水: '被克', 木: '得生', 土: '所生', 金: '所克' },
-    水: { 水: '比和', 土: '被克', 金: '得生', 木: '所生', 火: '所克' },
-    土: { 土: '比和', 木: '被克', 火: '得生', 金: '所生', 水: '所克' },
-  };
-  const startToProcess = elementRelations[start.element]?.[process.element];
-  const processToResult = elementRelations[process.element]?.[result.element];
-  if (!startToProcess) {
-    throw new Error(`小六壬无法判断${start.element}与${process.element}的五行关系。`);
-  }
-  if (!processToResult) {
-    throw new Error(`小六壬无法判断${process.element}与${result.element}的五行关系。`);
-  }
-  const wuXingDesc = [
-    startToProcess === '比和' ? '起因与过程平稳衔接' : '',
-    startToProcess === '得生' ? '过程回生起因，推进中有反哺助力' : '',
-    startToProcess === '所生' ? '起因生过程，事态自然推进' : '',
-    startToProcess === '被克' ? '起因被过程克制，起步受阻需耐心' : '',
-    startToProcess === '所克' ? '起因克过程，前段有压制，先难后易' : '',
-    processToResult === '比和' ? '过程与结果保持同势' : '',
-    processToResult === '得生' ? '结果回生过程，后续仍有支撑' : '',
-    processToResult === '所生' ? '过程生结果，越做越顺' : '',
-    processToResult === '被克' ? '过程被结果克制，先易后难需谨慎' : '',
-    processToResult === '所克' ? '过程克结果，后段受压，先易后难' : '',
-  ]
-    .filter(Boolean)
-    .join('；');
+  const startToProcess = getXiaoliurenElementRelation(start.element, process.element);
+  const processToResult = getXiaoliurenElementRelation(process.element, result.element);
+  const wuXingDesc = `${START_TO_PROCESS_DESCRIPTIONS[startToProcess]}；${PROCESS_TO_RESULT_DESCRIPTIONS[processToResult]}`;
 
   const wuxingRelations = {
     startToProcess,
     processToResult,
-    description: wuXingDesc || '三宫五行无特殊生克态势',
+    description: wuXingDesc,
   };
 
   // 旺衰按月令分析（取月干支的地支）
@@ -419,24 +468,7 @@ export function generateXiaoliuren(
     result: getSeasonState(result.element, monthBranch),
   };
 
-  const timingProfiles: Record<
-    string,
-    {
-      rhythm: '偏快' | '平稳' | '偏缓' | '反复' | '不定';
-      trigger: string;
-    }
-  > = {
-    大安: { rhythm: '平稳', trigger: '基础条件稳定、资源到位或立场明确后推进' },
-    留连: { rhythm: '反复', trigger: '旧问题、手续或牵扯事项得到清理后再推进' },
-    速喜: { rhythm: '偏快', trigger: '消息、回复、邀约或明确机会出现时及时核验' },
-    赤口: { rhythm: '反复', trigger: '沟通冲突、误解澄清或立场摊牌时出现转折' },
-    小吉: { rhythm: '平稳', trigger: '协助者、资源、中间人或小步成果出现后渐进' },
-    空亡: { rhythm: '不定', trigger: '先核实目标、信息和承诺是否真实，再重新判断时机' },
-  };
-  const timingProfile = timingProfiles[result.name] ?? {
-    rhythm: '不定' as const,
-    trigger: '结合具体问题和现实进展重新判断',
-  };
+  const timingProfile = getXiaoliurenTimingProfile(result.name);
   const resultSeasonState = seasonStates.result;
   const timingEvidence = {
     rhythm: timingProfile.rhythm,

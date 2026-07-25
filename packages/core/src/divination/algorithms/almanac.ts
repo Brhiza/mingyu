@@ -3,7 +3,7 @@ import { baziCalculator } from '../../bazi/baziCalculator';
 import { getBirthDateValidationMessage } from '../../calendar/date-validation';
 import { SHICHEN_PERIODS } from '../../calendar/dateUtils';
 import { calculateMoonPhaseEvidence } from '../../calendar/moon-phase-evidence';
-import { EARTHLY_BRANCHES } from '../../ganzhi/data';
+import { EARTHLY_BRANCHES, HEAVENLY_STEMS } from '../../ganzhi/data';
 import {
   getBranchWuxing,
   getOppositeBranch,
@@ -591,20 +591,36 @@ const NINE_STAR_SHORT_NAME_MAP: Record<
   Object.entries(NINE_STARS).map(([name, detail]) => [name.slice(0, 1), detail]),
 );
 
-function getNineStarDetail(name: string) {
-  return NINE_STARS[name] || NINE_STAR_SHORT_NAME_MAP[name.slice(0, 1)] || null;
+function requireReferenceValue<T>(record: Record<string, T>, key: string, label: string): T {
+  if (!key || !Object.prototype.hasOwnProperty.call(record, key)) {
+    throw new Error(`黄历${label}资料缺失：${key || '空值'}`);
+  }
+  return record[key];
 }
 
-function getAnnualDirectionGods(yearBranch: string): AlmanacAnnualDirectionGod[] {
+export function getAlmanacTwentyEightStarDetail(name: string) {
+  return requireReferenceValue(TWENTY_EIGHT_STARS, name, '二十八宿');
+}
+
+export function getAlmanacNineStarDetail(name: string) {
+  if (Object.prototype.hasOwnProperty.call(NINE_STARS, name)) {
+    return NINE_STARS[name];
+  }
+  return requireReferenceValue(NINE_STAR_SHORT_NAME_MAP, name.slice(0, 1), '九星');
+}
+
+export function getAlmanacAnnualDirectionGods(yearBranch: string): AlmanacAnnualDirectionGod[] {
   const startIndex = (EARTHLY_BRANCHES as readonly string[]).indexOf(yearBranch);
-  if (startIndex < 0) return [];
+  if (startIndex < 0) {
+    throw new Error(`黄历年支无效：${yearBranch || '空值'}`);
+  }
 
   return ANNUAL_DIRECTION_GOD_SEQUENCE.map((item, index) => {
     const branch = EARTHLY_BRANCHES[(startIndex + index) % EARTHLY_BRANCHES.length];
     return {
       ...item,
       branch,
-      direction: BRANCH_DIRECTIONS[branch] || '',
+      direction: requireReferenceValue(BRANCH_DIRECTIONS, branch, '地支方位'),
     };
   });
 }
@@ -644,6 +660,80 @@ const PENGZU_DAY_ZHI: Record<string, string> = {
   戌: '戌不吃狗作怪上床',
   亥: '亥不嫁娶不利新郎',
 };
+
+function assertExactReferenceKeys(
+  label: string,
+  record: Record<string, unknown>,
+  expectedKeys: readonly string[],
+): void {
+  const actualKeys = Object.keys(record);
+  const missingKeys = expectedKeys.filter(
+    (key) => !Object.prototype.hasOwnProperty.call(record, key),
+  );
+  const unexpectedKeys = actualKeys.filter((key) => !expectedKeys.includes(key));
+  if (missingKeys.length || unexpectedKeys.length) {
+    throw new Error(
+      `黄历${label}资料表不完整：缺少${missingKeys.join('、') || '无'}；多出${unexpectedKeys.join('、') || '无'}`,
+    );
+  }
+}
+
+export function validateAlmanacReferenceData(): void {
+  const twentyEightStarNames = [
+    '角',
+    '亢',
+    '氐',
+    '房',
+    '心',
+    '尾',
+    '箕',
+    '斗',
+    '牛',
+    '女',
+    '虚',
+    '危',
+    '室',
+    '壁',
+    '奎',
+    '娄',
+    '胃',
+    '昴',
+    '毕',
+    '觜',
+    '参',
+    '井',
+    '鬼',
+    '柳',
+    '星',
+    '张',
+    '翼',
+    '轸',
+  ] as const;
+  const nineStarNames = ['一白', '二黑', '三碧', '四绿', '五黄', '六白', '七赤', '八白', '九紫'];
+  const nineStarShortNames = nineStarNames.map((name) => name.slice(0, 1));
+
+  assertExactReferenceKeys('二十八宿', TWENTY_EIGHT_STARS, twentyEightStarNames);
+  assertExactReferenceKeys('九星', NINE_STARS, nineStarNames);
+  assertExactReferenceKeys('九星短名', NINE_STAR_SHORT_NAME_MAP, nineStarShortNames);
+  assertExactReferenceKeys('彭祖天干百忌', PENGZU_DAY_GAN, HEAVENLY_STEMS);
+  assertExactReferenceKeys('彭祖地支百忌', PENGZU_DAY_ZHI, EARTHLY_BRANCHES);
+  assertExactReferenceKeys('地支方位', BRANCH_DIRECTIONS, EARTHLY_BRANCHES);
+  if (
+    ANNUAL_DIRECTION_GOD_SEQUENCE.length !== EARTHLY_BRANCHES.length ||
+    new Set(ANNUAL_DIRECTION_GOD_SEQUENCE.map((item) => item.god)).size !== EARTHLY_BRANCHES.length
+  ) {
+    throw new Error('黄历岁支十二神资料表必须恰好包含 12 个不重复神名');
+  }
+}
+
+export function getAlmanacPengZuDetails(dayStem: string, dayBranch: string) {
+  return {
+    gan: requireReferenceValue(PENGZU_DAY_GAN, dayStem, '彭祖天干百忌'),
+    zhi: requireReferenceValue(PENGZU_DAY_ZHI, dayBranch, '彭祖地支百忌'),
+  };
+}
+
+validateAlmanacReferenceData();
 
 // 传统吉凶神煞清单（取自《协纪辨方书》，名称与 tyme4ts God.NAMES 对齐）。
 // tyme4ts 的 getGods() 已返回每日临值神煞及其吉凶（getLuck），此处按传统
@@ -1210,9 +1300,22 @@ function buildHourCandidates(
 ): ScoredAlmanacHourCandidate[] {
   const recommendKeywords = TOPIC_RECOMMEND_KEYWORDS[topic];
   const avoidKeywords = TOPIC_AVOID_KEYWORDS[topic];
-  return lunarDay.getHours().map((hour, index) => {
+  const lunarHours = lunarDay.getHours();
+  if (lunarHours.length !== SHICHEN_PERIODS.length) {
+    throw new Error(
+      `黄历时辰资料数量异常：应为${SHICHEN_PERIODS.length}项，实际${lunarHours.length}项`,
+    );
+  }
+  return lunarHours.map((hour, index) => {
     const ganzhi = hour.getSixtyCycle().getName();
-    const branch = ganzhi[1];
+    const branch = ganzhi.slice(-1);
+    const period = SHICHEN_PERIODS[index];
+    if (!period) {
+      throw new Error(`黄历第${index + 1}个时辰缺少时段定义`);
+    }
+    if (branch !== period.branch) {
+      throw new Error(`黄历第${index + 1}个时辰地支与时段不一致：${ganzhi}对应${period.name}`);
+    }
     const twelveStar = hour.getTwelveStar().getName();
     const recommends = normalizeTaboos(hour.getRecommends());
     const avoids = normalizeTaboos(hour.getAvoids());
@@ -1221,8 +1324,7 @@ function buildHourCandidates(
     const participantNotes: string[] = [];
     const topicMatchFacts: AlmanacTopicMatchFact[] = [];
     const participantRelationFacts: AlmanacParticipantRelationFact[] = [];
-    const period = SHICHEN_PERIODS[index] ?? SHICHEN_PERIODS[index % 12];
-    const hourName = index === 12 ? '晚子时' : period.name;
+    const hourName = period.name;
     const hourKey = `${dateKey}:hour:${ganzhi}:${hourName}`;
     const recommendMatches = findKeywordMatches(recommends, recommendKeywords);
     const avoidMatches = findKeywordMatches(avoids, [...avoidKeywords, '诸事不宜']);
@@ -1362,6 +1464,9 @@ function buildDayCandidate(
   // 彭祖百忌完整：天干+地支
   const dayStemName = dayCycle.getHeavenStem().getName();
   const dayZhiName = dayCycle.getEarthBranch().getName();
+  const twentyEightStar = lunarDay.getTwentyEightStar().getName();
+  const nineStar = lunarDay.getNineStar().getName();
+  const pengZuDetails = getAlmanacPengZuDetails(dayStemName, dayZhiName);
   const hours = buildHourCandidates(dateKey, lunarDay, topic, participants);
   const bestHours = [...hours]
     .filter((hour) => hour.score >= 55 && !hour.avoids.includes('诸事不宜'))
@@ -1381,19 +1486,21 @@ function buildDayCandidate(
     zodiac: dayBranch.getZodiac().getName(),
     dayOfficer: lunarDay.getDuty().getName(),
     twelveStar: lunarDay.getTwelveStar().getName(),
-    twentyEightStar: lunarDay.getTwentyEightStar().getName(),
-    twentyEightStarDetail: TWENTY_EIGHT_STARS[lunarDay.getTwentyEightStar().getName()] || null,
-    nineStar: lunarDay.getNineStar().getName(),
-    nineStarDetail: getNineStarDetail(lunarDay.getNineStar().getName()),
+    twentyEightStar,
+    twentyEightStarDetail: getAlmanacTwentyEightStarDetail(twentyEightStar),
+    nineStar,
+    nineStarDetail: getAlmanacNineStarDetail(nineStar),
     gods,
     recommends,
     avoids,
     pengZu: dayCycle.getPengZu().getName(),
     // 彭祖百忌完整：天干+地支
-    pengZuGan: PENGZU_DAY_GAN[dayStemName] || '',
-    pengZuZhi: PENGZU_DAY_ZHI[dayZhiName] || '',
+    pengZuGan: pengZuDetails.gan,
+    pengZuZhi: pengZuDetails.zhi,
     clash: `冲${dayBranch.getOpposite().getName()}，煞${dayBranch.getOminous().getName()}`,
-    annualDirectionGods: getAnnualDirectionGods(noonEightChar.getYear().getEarthBranch().getName()),
+    annualDirectionGods: getAlmanacAnnualDirectionGods(
+      noonEightChar.getYear().getEarthBranch().getName(),
+    ),
     score: scoring.score,
     highlights: scoring.highlights,
     cautions: scoring.cautions,

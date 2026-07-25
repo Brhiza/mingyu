@@ -1010,10 +1010,12 @@ function formatLenormandInfo(data: LenormandData) {
     (card) =>
       `- ${card.position}：${card.name}；关键词：${card.keywords.join('、')}；牌义：${card.meaning}`,
   );
-  const combinationLines = (data.combinations ?? []).map(
-    (item) =>
-      `- ${item.card1}+${item.card2}：${item.meaning}${item.source ? `（${item.source}）` : ''}`,
-  );
+  const combinationLines = (data.combinations ?? []).map((item) => {
+    const positions =
+      item.position1 && item.position2 ? `${item.position1} ↔ ${item.position2}；` : '';
+    const relation = item.relation ? `${item.relation}；` : '';
+    return `- ${item.card1}+${item.card2}：${positions}${relation}${item.meaning}${item.source ? `（${item.source}）` : ''}`;
+  });
   return [
     '占法：雷诺曼',
     '时间干支：以【当前时间】为准',
