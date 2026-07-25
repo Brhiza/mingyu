@@ -374,8 +374,145 @@ function buildTraditionalFacts(day: AlmanacDayCandidate): AlmanacTraditionalFact
   return facts;
 }
 
-function isConflictNote(note: string) {
-  return /冲|刑|害|破|忌|不宜|避/.test(note) && !/未见|未冲|不冲|无明显/.test(note);
+function isDirectConflictNote(note: string): boolean {
+  return (
+    /(?:候选日地支|时支).*(?:冲|刑|害|破)(?:生肖|年支|日支)/.test(note) ||
+    /(?:冲|刑|害|破)(?:生肖|年支|日支)/.test(note)
+  );
+}
+
+function isDirectParticipantConstraint(fact: AlmanacParticipantRelationFact): boolean {
+  return (
+    fact.status === '限制' &&
+    (fact.basis === '年支' ||
+      fact.basis === '日支' ||
+      (fact.basis === '整体' && isDirectConflictNote(fact.promptText))) &&
+    (fact.relation === '冲' ||
+      fact.relation === '刑' ||
+      fact.relation === '害' ||
+      fact.relation === '破')
+  );
+}
+
+function getParticipantConstraintTexts(
+  facts: AlmanacParticipantRelationFact[] | undefined,
+  notes: string[],
+): string[] {
+  if (facts?.length) {
+    return unique(facts.filter((item) => item.status === '限制').map((item) => item.promptText));
+  }
+  return unique(notes.filter(isDirectConflictNote));
+}
+
+function getDirectParticipantConflictTexts(
+  facts: AlmanacParticipantRelationFact[] | undefined,
+  notes: string[],
+): string[] {
+  if (facts?.length) {
+    return unique(facts.filter(isDirectParticipantConstraint).map((item) => item.promptText));
+  }
+  return unique(notes.filter(isDirectConflictNote));
+}
+
+function getParticipantSupportTexts(
+  facts: AlmanacParticipantRelationFact[] | undefined,
+  notes: string[],
+): string[] {
+  if (facts?.length) {
+    return unique(facts.filter((item) => item.status === '支持').map((item) => item.promptText));
+  }
+  return unique(
+    notes.filter((item) => /辅助支持|未见.*刑冲破害/.test(item) && !isDirectConflictNote(item)),
+  );
+}
+
+function isStrongTopicConstraint(fact: AlmanacTopicMatchFact): boolean {
+  return (
+    fact.status === '限制' &&
+    /:topic:(?:day-avoids|rule-day-officer|rule-gods-constraint|day-officer-constraint)$/.test(
+      fact.key,
+    )
+  );
+}
+
+function classifyAlmanacHourCandidate(hour: AlmanacHourCandidate): {
+  status: AlmanacCandidateStatus;
+  strongConstraintTexts: string[];
+  constraintTexts: string[];
+} {
+  const topicConstraints = (hour.topicMatchFacts ?? []).filter((item) => item.status === '限制');
+  const participantConstraints = getParticipantConstraintTexts(
+    hour.participantRelationFacts,
+    hour.participantNotes,
+  );
+  const directParticipantConflicts = getDirectParticipantConflictTexts(
+    hour.participantRelationFacts,
+    hour.participantNotes,
+  );
+  const strongConstraintTexts = unique([
+    ...topicConstraints
+      .filter((item) => /:topic:avoids$/.test(item.key))
+      .map((item) => item.promptText),
+    ...directParticipantConflicts,
+    ...(hour.avoids.includes('诸事不宜') ? ['时辰明列诸事不宜'] : []),
+  ]);
+  const constraintTexts = unique([
+    ...hour.cautions,
+    ...topicConstraints.map((item) => item.promptText),
+    ...participantConstraints,
+  ]);
+  return {
+    status: strongConstraintTexts.length
+      ? '慎用候选'
+      : constraintTexts.length
+        ? '条件候选'
+        : '可用候选',
+    strongConstraintTexts,
+    constraintTexts,
+  };
+}
+
+export function classifyAlmanacCandidate(day: AlmanacDayCandidate): {
+  status: AlmanacCandidateStatus;
+  strongConstraintTexts: string[];
+  constraintTexts: string[];
+} {
+  const topicConstraints = (day.topicMatchFacts ?? []).filter((item) => item.status === '限制');
+  const participantConstraints = getParticipantConstraintTexts(
+    day.participantRelationFacts,
+    day.participantNotes,
+  );
+  const directParticipantConflicts = getDirectParticipantConflictTexts(
+    day.participantRelationFacts,
+    day.participantNotes,
+  );
+  const strongConstraintTexts = unique([
+    ...topicConstraints.filter(isStrongTopicConstraint).map((item) => item.promptText),
+    ...directParticipantConflicts,
+    ...(day.avoids.includes('诸事不宜') ? ['候选日明列诸事不宜'] : []),
+    ...day.cautions.filter((item) =>
+      /黄历忌项触及|事项规则限制执日|事项规则触及忌神|执日.*(?:不宜|忌)|诸事不宜/.test(item),
+    ),
+  ]);
+  const hasHourData = Array.isArray(day.hours) && day.hours.length > 0;
+  const usableHourCount = hasHourData
+    ? day.hours!.filter((hour) => classifyAlmanacHourCandidate(hour).status !== '慎用候选').length
+    : 0;
+  const constraintTexts = unique([
+    ...day.cautions,
+    ...topicConstraints.map((item) => item.promptText),
+    ...participantConstraints,
+    ...(hasHourData && usableHourCount === 0 ? ['未筛出无强冲突时辰'] : []),
+  ]);
+  return {
+    status: strongConstraintTexts.length
+      ? '慎用候选'
+      : constraintTexts.length
+        ? '条件候选'
+        : '可用候选',
+    strongConstraintTexts,
+    constraintTexts,
+  };
 }
 
 function buildCalendarFact(day: AlmanacDayCandidate): AlmanacCalendarFact {
@@ -495,7 +632,7 @@ function buildCompatibleParticipantFacts(params: {
   return params.notes.map((note, index) => {
     const participantName = note.split('：')[0] || `参与人${index + 1}`;
     const isUnused = /不用|未采用/.test(note);
-    const isLimit = isConflictNote(note);
+    const isLimit = isDirectConflictNote(note) || /触及忌神|要求喜用.*未命中/.test(note);
     const relationMatch = note.match(/[冲刑害破]/)?.[0] as '冲' | '刑' | '害' | '破' | undefined;
     const relation = isUnused
       ? '未采用'
@@ -526,20 +663,6 @@ function buildHourEvidence(
   topic: AlmanacTopic,
   topicLabel: string,
 ): AlmanacHourEvidence {
-  const participantSupport = unique(hour.participantNotes.filter((item) => !isConflictNote(item)));
-  const constraints = unique([
-    ...hour.cautions,
-    ...hour.participantNotes.filter(isConflictNote),
-    ...(hour.avoids.includes('诸事不宜') ? ['时辰明列诸事不宜'] : []),
-  ]);
-  const support = unique([...hour.highlights, ...participantSupport]);
-  const status: AlmanacCandidateStatus = constraints.some((item) =>
-    /诸事不宜|忌项触及|冲|刑|害|破/.test(item),
-  )
-    ? '慎用候选'
-    : constraints.length
-      ? '条件候选'
-      : '可用候选';
   const recommends = unique(hour.recommends);
   const avoids = unique(hour.avoids);
   const keyPrefix = `${date}:hour:${hour.ganzhi}:${hour.name}`;
@@ -568,6 +691,26 @@ function buildHourEvidence(
       candidateValue: hour.branch,
       notes: hour.participantNotes,
     });
+  const participantSupport = getParticipantSupportTexts(
+    participantRelationFacts,
+    hour.participantNotes,
+  );
+  const participantConstraints = getParticipantConstraintTexts(
+    participantRelationFacts,
+    hour.participantNotes,
+  );
+  const classification = classifyAlmanacHourCandidate({
+    ...hour,
+    topicMatchFacts,
+    participantRelationFacts,
+  });
+  const constraints = unique([
+    ...classification.constraintTexts,
+    ...participantConstraints,
+    ...(hour.avoids.includes('诸事不宜') ? ['时辰明列诸事不宜'] : []),
+  ]);
+  const support = unique([...hour.highlights, ...participantSupport]);
+  const status = classification.status;
   const promptText = `${hour.name}${hour.range}，${hour.ganzhi}（${hour.branch}支）、${hour.twelveStar}；${status}；宜${recommends.join('、') || '未列'}；忌${avoids.join('、') || '未列'}；支持${support.join('、') || '未见额外支持'}；限制${constraints.join('、') || '未见明确冲突'}`;
   return {
     key: keyPrefix,
@@ -773,8 +916,6 @@ function buildCandidateEvidence(
 ): AlmanacCandidateEvidence {
   const moonPhaseEvidence =
     day.moonPhaseEvidence ?? calculateMoonPhaseEvidence(Date.parse(`${day.date}T04:00:00Z`));
-  const participantConflicts = unique(day.participantNotes.filter(isConflictNote));
-  const participantSupport = unique(day.participantNotes.filter((item) => !isConflictNote(item)));
   const calendarFact = buildCalendarFact(day);
   const rawTabooFact = buildRawTabooFact({
     keyPrefix: day.date,
@@ -802,6 +943,14 @@ function buildCandidateEvidence(
       candidateValue: day.ganzhi.day.slice(-1),
       notes: day.participantNotes,
     });
+  const participantConflicts = getDirectParticipantConflictTexts(
+    participantRelationFacts,
+    day.participantNotes,
+  );
+  const participantSupport = getParticipantSupportTexts(
+    participantRelationFacts,
+    day.participantNotes,
+  );
   const traditionalConstraints = unique(day.cautions);
   const topicMatches = unique(day.highlights.filter((item) => /宜项命中|执日.*宜/.test(item)));
   const traditionalSupport = unique(day.highlights.filter((item) => !topicMatches.includes(item)));
@@ -812,19 +961,17 @@ function buildCandidateEvidence(
   const directionFacts = traditionalFacts
     .filter((item) => item.kind === '全年方位神')
     .map((item) => item.promptText);
-  const strongConstraintTexts = unique([
-    ...traditionalConstraints.filter((item) => /黄历忌项触及|诸事不宜|岁破/.test(item)),
-    ...participantConflicts,
-  ]);
-  const status: AlmanacCandidateStatus = strongConstraintTexts.length
-    ? '慎用候选'
-    : traditionalConstraints.length || participantConflicts.length
-      ? '条件候选'
-      : '可用候选';
   const usableHours = (day.hours ?? [])
     .map((hour) => buildHourEvidence(day.date, hour, topic, topicLabel))
     .filter((item) => item.status !== '慎用候选')
     .slice(0, 4);
+  const classification = classifyAlmanacCandidate({
+    ...day,
+    topicMatchFacts,
+    participantRelationFacts,
+  });
+  const strongConstraintTexts = classification.strongConstraintTexts;
+  const status = classification.status;
   const decisionFact = buildCandidateDecisionFact({
     date: day.date,
     status,

@@ -262,6 +262,33 @@ test('择日参与人支持与冲突应保留逐项结构化依据', () => {
   assert.doesNotMatch(JSON.stringify(facts), /"score"\s*:/);
 });
 
+test('择日参与人忌神命中只作一般限制，不得误报为年支日支直接冲突', () => {
+  const result = generateAlmanacSelection({
+    topic: 'marriage',
+    startDate: '2025-06-02',
+    endDate: '2025-06-02',
+    participants: [
+      {
+        id: 'person-constraint',
+        name: '测试人',
+        gender: '男',
+        year: '1990',
+        month: '5',
+        day: '12',
+        timeIndex: '5',
+        dateType: 'solar',
+      },
+    ],
+  });
+  const candidate = result.evidenceAnalysis?.candidates[0];
+
+  assert.ok(candidate);
+  assert.deepEqual(candidate.participantConflicts, []);
+  assert.ok(candidate.decisionFact.limitingFactKeys.some((key) => key.endsWith(':avoid-elements')));
+  assert.ok(candidate.participantSupport.some((item) => item.includes('命中喜用木')));
+  assert.ok(!candidate.participantSupport.some((item) => item.includes('触及忌神')));
+});
+
 test('旧黄历字符串结果应生成兼容事实且不反推缺失参数', () => {
   const result = generateAlmanacSelection({
     topic: 'contract',
