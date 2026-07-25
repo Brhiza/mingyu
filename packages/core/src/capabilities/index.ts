@@ -731,7 +731,13 @@ const systems: SystemCapability[] = [
     name: '玄空飞星',
     category: 'environment',
     inputs: [
-      { id: 'year', label: '建造或起运年', type: 'number', required: false },
+      {
+        id: 'year',
+        label: '建造或起运年',
+        type: 'number',
+        required: false,
+        description: '排玄空宅运盘时必填；只做八宅人宅层时可不填。',
+      },
       {
         id: 'sitMountain',
         label: '坐山',
@@ -869,7 +875,7 @@ const systems: SystemCapability[] = [
     },
     notes: [
       '住宅风水为产品统一入口：后台分别计算八宅与玄空飞星后合参，不生成综合吉凶总分，也不互相改写两套规则。',
-      '至少提供山向/门向度数，或居住人出生年与性别/命卦之一；可只做人宅、只做宅运或两者合参。底层 bazhai 与 xuankong 能力仍保留。',
+      '至少提供山向/门向度数，或居住人出生年与性别/命卦之一；玄空宅运层还必须提供住宅建造年或起运年，缺年时不得用当前年份代替。底层 bazhai 与 xuankong 能力仍保留。',
     ],
   },
 ];

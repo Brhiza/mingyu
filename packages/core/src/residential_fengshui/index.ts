@@ -17,7 +17,7 @@ import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 
 export interface ResidentialFengshuiInput {
-  /** 建造年或起运年；不传则玄空用当前年 */
+  /** 建造年或起运年；排玄空宅运盘时必需 */
   year?: number;
   /** 出生公历年，用于八宅命卦 */
   birthYear?: number;
@@ -51,6 +51,7 @@ export interface ResidentialFengshuiResult {
     hasHouseOrientation: boolean;
     houseYear: number | null;
     orientationText: string;
+    xuankongStatus: '已排盘' | '缺少山向' | '缺少建造年或起运年';
   };
   bazhai: BaZhaiResult | null;
   xuankong: XuanKongResult | null;
@@ -72,11 +73,6 @@ function hasOrientationInput(input: ResidentialFengshuiInput) {
     input.sitDegree != null ||
     input.doorToInteriorDegree != null
   );
-}
-
-function resolveHouseYear(input: ResidentialFengshuiInput) {
-  if (input.year != null) return input.year;
-  return new Date().getFullYear();
 }
 
 function buildOrientationText(params: {
@@ -148,18 +144,7 @@ function buildXuanKong(
   input: ResidentialFengshuiInput,
   bazhai: BaZhaiResult | null,
 ): XuanKongResult | null {
-  if (!hasOrientationInput(input) && !bazhai?.houseGua) {
-    // 没有山向时无法起玄空盘
-    if (
-      input.sitMountain == null &&
-      input.facingMountain == null &&
-      input.facingDegree == null &&
-      input.sitDegree == null &&
-      input.doorToInteriorDegree == null
-    ) {
-      return null;
-    }
-  }
+  if (!hasOrientationInput(input) || input.year == null) return null;
 
   const measurement = (
     bazhai as {
@@ -173,7 +158,7 @@ function buildXuanKong(
   )?.directionMeasurement;
 
   const xuanInput: XuanKongInput = {
-    year: resolveHouseYear(input),
+    year: input.year,
     ...(input.guaType ? { guaType: input.guaType } : {}),
     ...(input.measurementUncertaintyDegrees != null
       ? { measurementUncertaintyDegrees: input.measurementUncertaintyDegrees }
@@ -208,6 +193,7 @@ function buildXuanKong(
 function buildAgreements(
   bazhai: BaZhaiResult | null,
   xuankong: XuanKongResult | null,
+  xuankongStatus: ResidentialFengshuiResult['inputSummary']['xuankongStatus'],
 ): ResidentialFengshuiAgreement[] {
   const items: ResidentialFengshuiAgreement[] = [];
 
@@ -225,7 +211,10 @@ function buildAgreements(
     items.push({
       level: '资料不足',
       title: '仅完成八宅人宅层',
-      detail: '已有命卦方位，但缺少明确山向，暂不能排玄空宅运盘。',
+      detail:
+        xuankongStatus === '缺少建造年或起运年'
+          ? '已有命卦与山向资料，但缺少住宅建造年或起运年，暂不排玄空宅运盘。'
+          : '已有命卦方位，但缺少明确山向，暂不能排玄空宅运盘。',
     });
   }
 
@@ -274,6 +263,7 @@ function buildAdvice(
   bazhai: BaZhaiResult | null,
   xuankong: XuanKongResult | null,
   agreements: ResidentialFengshuiAgreement[],
+  xuankongStatus: ResidentialFengshuiResult['inputSummary']['xuankongStatus'],
 ): string[] {
   const advice: string[] = [];
   if (xuankong) {
@@ -296,7 +286,11 @@ function buildAdvice(
     advice.push('两边有分歧时，分别保留宅运结构与个人方位依据，不硬统一成一个总分。');
   }
   if (agreements.some((item) => item.level === '资料不足')) {
-    advice.push('资料不足处先补山向或居住人信息，再做更细的布局讨论。');
+    advice.push(
+      xuankongStatus === '缺少建造年或起运年'
+        ? '请先补充住宅建造年或起运年，再排玄空宅运盘并讨论具体布局。'
+        : '资料不足处先补山向或居住人信息，再做更细的布局讨论。',
+    );
   }
   if (!advice.length) {
     advice.push('请补充山向或居住人信息后重新排盘。');
@@ -354,6 +348,7 @@ function buildPrompt(result: {
   agreements: ResidentialFengshuiAgreement[];
   advice: string[];
   evidencePromptText: string;
+  xuankongStatus: ResidentialFengshuiResult['inputSummary']['xuankongStatus'];
 }) {
   const lines = [
     '【住宅风水排盘】',
@@ -361,7 +356,7 @@ function buildPrompt(result: {
     result.houseYear != null ? `宅运年份：${result.houseYear}` : '',
     result.xuankong
       ? `玄空：${result.xuankong.period.label}；坐${result.xuankong.sitMountain}向${result.xuankong.facingMountain}；${result.xuankong.guaType}；${result.xuankong.daoShanXiang.summary}`
-      : '玄空：未排盘（缺少山向）',
+      : `玄空：未排盘（${result.xuankongStatus}）`,
     result.bazhai
       ? `八宅：命卦${result.bazhai.mingGua}（${result.bazhai.mingGroup}），宅卦${result.bazhai.houseGua ?? '未定'}，命宅关系${result.bazhai.match}`
       : '八宅：未排盘（缺少居住人出生信息或命卦）',
@@ -381,6 +376,9 @@ export function generateResidentialFengshui(
   if (!hasPersonInput(input) && !hasOrientationInput(input)) {
     throw new Error('住宅风水至少需要提供山向，或居住人出生年与性别/命卦。');
   }
+  if (hasOrientationInput(input) && input.year == null && !hasPersonInput(input)) {
+    throw new Error('仅按山向排玄空宅运盘时，必须提供住宅建造年或起运年。');
+  }
 
   // 先尽量用门向度数算出八宅坐向，再喂给玄空，保证两边山向一致。
   let bazhai = buildBazhai(input);
@@ -398,8 +396,13 @@ export function generateResidentialFengshui(
     });
   }
 
-  const agreements = buildAgreements(bazhai, xuankong);
-  const advice = buildAdvice(bazhai, xuankong, agreements);
+  const xuankongStatus: ResidentialFengshuiResult['inputSummary']['xuankongStatus'] = xuankong
+    ? '已排盘'
+    : hasOrientationInput(input)
+      ? '缺少建造年或起运年'
+      : '缺少山向';
+  const agreements = buildAgreements(bazhai, xuankong, xuankongStatus);
+  const advice = buildAdvice(bazhai, xuankong, agreements, xuankongStatus);
   const houseYear = xuankong ? xuankong.period.year : (input.year ?? null);
   const orientationText = buildOrientationText({ bazhai, xuankong, input });
   const evidencePromptText = buildEvidencePrompt({ bazhai, xuankong, agreements, advice });
@@ -411,6 +414,7 @@ export function generateResidentialFengshui(
     agreements,
     advice,
     evidencePromptText,
+    xuankongStatus,
   });
 
   return {
@@ -421,6 +425,7 @@ export function generateResidentialFengshui(
       hasHouseOrientation: Boolean(xuankong || bazhai?.houseGua),
       houseYear,
       orientationText,
+      xuankongStatus,
     },
     bazhai,
     xuankong,

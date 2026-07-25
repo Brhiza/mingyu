@@ -19,6 +19,8 @@ export type {
   TarotCounterSummaryFact,
   TarotDrawFact,
   TarotDrawOrderFact,
+  TarotElementInteractionFact,
+  TarotElementInteractionRelation,
   TarotEvidenceAnalysis,
   TarotLimitationFact,
   TarotSequenceFact,
