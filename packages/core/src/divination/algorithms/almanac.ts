@@ -43,7 +43,7 @@ type ScoredAlmanacDayCandidate = Omit<AlmanacDayCandidate, 'hours' | 'bestHours'
   hours?: ScoredAlmanacHourCandidate[];
   bestHours?: ScoredAlmanacHourCandidate[];
 };
-import { analyzeAlmanacEvidence } from '../almanac-evidence';
+import { analyzeAlmanacEvidence, classifyAlmanacCandidate } from '../almanac-evidence';
 
 export const ALMANAC_TOPIC_LABELS: Record<AlmanacTopic, string> = {
   move: '搬家入宅',
@@ -941,19 +941,31 @@ function scoreDay(params: {
     const avoidedGodHits = topicRule.avoidedGods.filter((name) => params.gods.includes(name));
     topicMatchFacts.push(
       buildTopicMatchFact({
-        key: `${params.dateKey}:topic:rule-gods`,
+        key: `${params.dateKey}:topic:rule-gods-support`,
         scope: '候选日',
         topic: params.topic,
         sourceType: '原始宜项',
-        status: preferredGodHits.length ? '支持' : avoidedGodHits.length ? '限制' : '中性',
+        status: preferredGodHits.length ? '支持' : '中性',
         inputItems: [...params.gods],
-        keywords: [...topicRule.preferredGods, ...topicRule.avoidedGods],
-        matchedItems: [...preferredGodHits, ...avoidedGodHits],
+        keywords: [...topicRule.preferredGods],
+        matchedItems: preferredGodHits,
         promptText: preferredGodHits.length
           ? `事项规则命中喜神${preferredGodHits.join('、')}`
-          : avoidedGodHits.length
-            ? `事项规则触及忌神${avoidedGodHits.join('、')}`
-            : '事项规则未命中专属喜忌神煞',
+          : '事项规则未命中专属喜神',
+        sources: ['事项硬规则表', '当日神煞'],
+      }),
+      buildTopicMatchFact({
+        key: `${params.dateKey}:topic:rule-gods-constraint`,
+        scope: '候选日',
+        topic: params.topic,
+        sourceType: '原始忌项',
+        status: avoidedGodHits.length ? '限制' : '中性',
+        inputItems: [...params.gods],
+        keywords: [...topicRule.avoidedGods],
+        matchedItems: avoidedGodHits,
+        promptText: avoidedGodHits.length
+          ? `事项规则触及忌神${avoidedGodHits.join('、')}`
+          : '事项规则未触及专属忌神',
         sources: ['事项硬规则表', '当日神煞'],
       }),
     );
@@ -1436,11 +1448,17 @@ export function generateAlmanacSelection(params: {
   }
 
   const participants = createParticipantProfiles(params.participants ?? []);
+  const statusPriority = { 可用候选: 0, 条件候选: 1, 慎用候选: 2 } as const;
   const days = Array.from({ length: diffDays + 1 }, (_, index) => {
     const current = new Date(start.date);
     current.setDate(start.date.getDate() + index);
     return buildDayCandidate(current, params.topic, participants);
-  }).sort((a, b) => b.score - a.score);
+  }).sort((a, b) => {
+    const statusDifference =
+      statusPriority[classifyAlmanacCandidate(a).status] -
+      statusPriority[classifyAlmanacCandidate(b).status];
+    return statusDifference || b.score - a.score || a.date.localeCompare(b.date);
+  });
 
   const scoredResult: Omit<AlmanacData, 'days'> & { days: ScoredAlmanacDayCandidate[] } = {
     topic: params.topic,
