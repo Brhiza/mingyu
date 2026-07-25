@@ -120,18 +120,17 @@ function isRiMu(branch: string, dayBranch: string): boolean {
  * "三合主久远、多人协力，事势增强，吉凶随局而定。"
  */
 function checkSanheWithTrigger(
-  yaoBranches: string[],
+  activeBranches: string[],
   triggerBranch: string,
   triggerLabel: '日辰' | '月建',
 ): { group: string; members: string[]; description: string } | null {
-  const allBranches = new Set([...yaoBranches, triggerBranch]);
-  // 完整三合局
+  const activeBranchSet = new Set(activeBranches);
   for (const [group, members] of Object.entries(SANHE_GROUPS)) {
     if (!members.includes(triggerBranch)) {
       continue;
     }
-    const present = members.filter((m) => allBranches.has(m));
-    if (present.length === members.length) {
+    const requiredYaoBranches = members.filter((member) => member !== triggerBranch);
+    if (requiredYaoBranches.every((member) => activeBranchSet.has(member))) {
       return {
         group,
         members,
@@ -983,10 +982,16 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     voidBranches: voids,
   });
 
-  // 三合局检测：日辰/月建与爻中静爻/动爻组成的三合局
+  // 三合局只取明动、暗动及其变爻；静态纳甲支不能自行凑局。
   const yaoBranches = yaosInfo.map((i) => i.dizhi);
-  const sanheWithDay = checkSanheWithTrigger(yaoBranches, dayBranch, '日辰');
-  const sanheWithMonth = checkSanheWithTrigger(yaoBranches, monthBranch, '月建');
+  const activeBranches = yaosDetail.flatMap((yao) => {
+    if (!yao.isChanging && !yao.isHiddenMove) {
+      return [];
+    }
+    return yao.changedYao ? [yao.najiaDizhi, yao.changedYao.dizhi] : [yao.najiaDizhi];
+  });
+  const sanheWithDay = checkSanheWithTrigger(activeBranches, dayBranch, '日辰');
+  const sanheWithMonth = checkSanheWithTrigger(activeBranches, monthBranch, '月建');
 
   const sanxingInYaos = collectSanxingInBranches(yaoBranches);
 

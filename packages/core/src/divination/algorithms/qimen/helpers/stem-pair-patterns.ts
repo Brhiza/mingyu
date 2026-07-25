@@ -67,14 +67,7 @@ function getAutoPattern(heavenStem: string, earthStem: string): StemPairPattern 
   const earthElem = stemElements[earthStem];
 
   if (!heavenElem || !earthElem) {
-    return {
-      name: '未知',
-      type: 'neutral',
-      score: 0,
-      summary: `天盘${heavenStem}与地盘${earthStem}的五行属性无法识别。`,
-      interpretation: '无法判断两者关系。',
-      manifestation: '需结合其他宫位信息综合判断。',
-    };
+    throw new Error(`奇门十干组合五行数据缺失：天盘${heavenStem}、地盘${earthStem}。`);
   }
 
   // 五行相同 → 比和
@@ -1348,11 +1341,9 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
  * // { name: '比和', type: 'neutral', score: 0, ... }
  * ```
  */
-export function getStemPairPattern(heavenStem: string, earthStem: string): StemPairPattern | null {
-  // 参数校验
-  if (!heavenStem || !earthStem) return null;
-  if (heavenStem === '甲' || earthStem === '甲') return null;
-  if (!stemElements[heavenStem] || !stemElements[earthStem]) return null;
+export function getStemPairPattern(heavenStem: string, earthStem: string): StemPairPattern {
+  assertValidStem(heavenStem, '天盘干');
+  assertValidStem(earthStem, '地盘干');
 
   // 优先查找命名格局
   const key = `${heavenStem}_${earthStem}`;
@@ -1375,12 +1366,17 @@ export function getNamedStemPairPattern(
   heavenStem: string,
   earthStem: string,
 ): StemPairPattern | null {
-  if (!heavenStem || !earthStem) return null;
-  if (heavenStem === '甲' || earthStem === '甲') return null;
-  if (!stemElements[heavenStem] || !stemElements[earthStem]) return null;
+  assertValidStem(heavenStem, '天盘干');
+  assertValidStem(earthStem, '地盘干');
 
   const named = NAMED_PATTERNS[`${heavenStem}_${earthStem}`];
   return named ? { ...named } : null;
+}
+
+function assertValidStem(stem: string, label: string): void {
+  if (!stemElements[stem]) {
+    throw new Error(`${label}必须是合法十天干（甲乙丙丁戊己庚辛壬癸）。`);
+  }
 }
 
 /**
@@ -1400,10 +1396,7 @@ export function listAllStemPairs(): StemPairPattern[] {
   for (const heavenStem of HEAVEN_STEMS) {
     for (const earthStem of EARTH_STEMS) {
       const pattern = getStemPairPattern(heavenStem, earthStem);
-      // 内部调用不会返回 null
-      if (pattern) {
-        results.push(pattern);
-      }
+      results.push(pattern);
     }
   }
 

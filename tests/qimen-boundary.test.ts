@@ -14,7 +14,10 @@ import {
   getZhiFuStarJudgement,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/star-palace.ts';
 import {
+  getDayOfficerInfo,
   getDaySeasonRelation,
+  getLunarPhase,
+  getLunarPhaseByIndex,
   getSeasonalElement,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/seasonality.ts';
 import {
@@ -22,6 +25,11 @@ import {
   getYearQimenJuShu,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/jushu-extended.ts';
 import { getQimenPatternTags } from '../packages/core/src/divination/algorithms/qimen/helpers/patterns.ts';
+import {
+  getNamedStemPairPattern,
+  getStemPairPattern,
+} from '../packages/core/src/divination/algorithms/qimen/helpers/stem-pair-patterns.ts';
+import { estimateYingQi } from '../packages/core/src/divination/algorithms/qimen/helpers/ying-qi.ts';
 
 test('奇门拆补法在交节当天应按具体时刻换节气，不应按整日提前换局', () => {
   const beforeXiaoman = generateQimen(new Date('2024-05-20T10:00:00+08:00'));
@@ -169,6 +177,29 @@ test('奇门节令：未知节气或日干应明确报错，不应降级成无�
   assert.throws(() => getSeasonalElement('假节气'), /无法识别节气 "假节气" 的五行属性/);
   assert.throws(() => getDaySeasonRelation('假', '木'), /无法识别日干 "假" 的五行属性/);
   assert.throws(() => getDaySeasonRelation('甲', ''), /节令五行不能为空/);
+});
+
+test('奇门月相与建除映射缺失时应报错，不得默认新月或平', () => {
+  assert.equal(getLunarPhaseByIndex(0), '新月');
+  assert.equal(getLunarPhaseByIndex(7), '下弦');
+  assert.equal(getDayOfficerInfo('成').fortune, '吉');
+  assert.throws(() => getLunarPhaseByIndex(8), /无法识别历法月相索引/);
+  assert.throws(() => getLunarPhase(new Date(Number.NaN)), /月相日期必须是有效日期/);
+  assert.throws(() => getDayOfficerInfo('未知'), /无法识别建除十二神/);
+});
+
+test('奇门十干格局应正常返回合法组合并拒绝非法输入', () => {
+  assert.ok(getStemPairPattern('壬', '癸'));
+  assert.equal(getStemPairPattern('甲', '癸').name, '生');
+  assert.equal(getNamedStemPairPattern('壬', '癸')?.name, '螣蛇飞空');
+  assert.throws(() => getStemPairPattern('A', '癸'), /合法十天干/);
+  assert.throws(() => getNamedStemPairPattern('A', '癸'), /合法十天干/);
+});
+
+test('奇门应期必须有明确基准宫并校验宫位与日干', () => {
+  assert.throws(() => estimateYingQi([]), /必须提供用神落宫/);
+  assert.throws(() => estimateYingQi([], 0), /用神落宫必须是 1-9/);
+  assert.throws(() => estimateYingQi([], 1, { dayGanZhi: 'A子' }), /无法识别日干/);
 });
 
 test('奇门定局方法应支持拆补与置闰，并在结果中标明', () => {

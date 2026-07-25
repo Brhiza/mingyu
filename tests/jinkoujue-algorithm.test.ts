@@ -57,8 +57,16 @@ test('金口诀：五子元遁应按日干起遁干', () => {
 });
 
 test('金口诀：同种子随机起课可复现，并保留随机轨迹', () => {
-  const a = generateJinkoujue({ method: 'random', seed: 'jinkoujue-seed', customDate: SAMPLE_DATE });
-  const b = generateJinkoujue({ method: 'random', seed: 'jinkoujue-seed', customDate: SAMPLE_DATE });
+  const a = generateJinkoujue({
+    method: 'random',
+    seed: 'jinkoujue-seed',
+    customDate: SAMPLE_DATE,
+  });
+  const b = generateJinkoujue({
+    method: 'random',
+    seed: 'jinkoujue-seed',
+    customDate: SAMPLE_DATE,
+  });
 
   assert.equal(a.diFenBranch, b.diFenBranch);
   assert.ok(a.randomTrace?.samples.length);
@@ -74,4 +82,15 @@ test('金口诀：证据层应覆盖四位、关系、焦点与主线', () => {
   assert.ok(evidence.focusFacts.length >= 3);
   assert.match(evidence.mainLine, /贵神/);
   assert.equal(evidence.calculationFact.status, '完整');
+});
+
+test('金口诀：十二地分的四位五行与天将必须完整，不得输出未定关系', () => {
+  for (let number = 1; number <= 12; number += 1) {
+    const data = generateJinkoujue({ method: 'number', number, customDate: SAMPLE_DATE });
+    const positions = Object.values(data.positions);
+
+    assert.ok(positions.every((item) => ['木', '火', '土', '金', '水'].includes(item.element)));
+    assert.ok(data.positions.guiShen.god);
+    assert.doesNotMatch(JSON.stringify(data.relations), /未定|未知|^$/);
+  }
 });

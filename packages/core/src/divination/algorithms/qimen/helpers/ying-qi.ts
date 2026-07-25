@@ -18,6 +18,7 @@ import { LIUCHONG_MAP } from '../../../../ganzhi';
 
 /** 阳干 */
 const YANG_STEMS = ['甲', '丙', '戊', '庚', '壬'];
+const ALL_STEMS = new Set(['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']);
 
 /** 阳遁内四宫：冬至以后，自坎至巽四宫为内 */
 const YANG_DUN_INNER_PALACES = new Set([1, 8, 3, 4]);
@@ -44,6 +45,12 @@ function getPalaceDistance(gong: number, isYangDun?: boolean): PalaceDistance {
   if (gong <= 3) return 'inner';
   if (gong <= 6) return 'middle';
   return 'outer';
+}
+
+function assertPalaceNumber(gong: number, label: string): void {
+  if (!Number.isInteger(gong) || gong < 1 || gong > 9) {
+    throw new Error(`${label}必须是 1-9 的整数宫位。`);
+  }
 }
 
 function getPalaceDistanceLabel(distance: PalaceDistance, isYangDun?: boolean): string {
@@ -140,7 +147,20 @@ export function estimateYingQi(
   // ==========================================================================
   // 阴阳遁内外宫随冬至/夏至后切换；未传阴阳遁时保留旧固定宫号兼容。
 
-  const baseGong = useShenPalace || options?.zhiFuLandingPalace || 5;
+  const baseGong = useShenPalace ?? options?.zhiFuLandingPalace;
+  if (baseGong === undefined) {
+    throw new Error('奇门应期必须提供用神落宫；未选定具体用神时应明确传入值符落宫。');
+  }
+  assertPalaceNumber(baseGong, '用神落宫');
+  if (options?.zhiFuLandingPalace !== undefined) {
+    assertPalaceNumber(options.zhiFuLandingPalace, '值符落宫');
+  }
+  if (options?.zhiShiLandingPalace !== undefined) {
+    assertPalaceNumber(options.zhiShiLandingPalace, '值使落宫');
+  }
+  for (const palace of jiuGongGe) {
+    assertPalaceNumber(palace.gong, '九宫格宫位');
+  }
   const baseDistance = getPalaceDistance(baseGong, options?.isYangDun);
   let fastSignals = 0;
   let slowSignals = 0;
@@ -217,6 +237,9 @@ export function estimateYingQi(
   const ganZhi = options?.dayGanZhi || options?.hourGanZhi || '';
   if (ganZhi) {
     const dayStem = ganZhi.charAt(0);
+    if (!ALL_STEMS.has(dayStem)) {
+      throw new Error(`奇门应期无法识别日干 "${dayStem || '空'}"。`);
+    }
     const isYangDay = YANG_STEMS.includes(dayStem);
 
     // 遍历九宫查找庚的位置

@@ -303,8 +303,17 @@ export function generateLiuren(customDate?: Date): LiurenData {
     heavenlyPlate,
   });
   const chu = initialResult.initial;
-  const zhong = initialResult.branches?.[1] || getUpperByUnder(heavenlyPlate, chu);
-  const mo = initialResult.branches?.[2] || getUpperByUnder(heavenlyPlate, zhong);
+  let zhong: string;
+  let mo: string;
+  if (initialResult.branches) {
+    if (initialResult.branches.length !== 3 || initialResult.branches[0] !== chu) {
+      throw new Error(`${initialResult.rule}返回的三传结构不完整或与初传不一致。`);
+    }
+    [, zhong, mo] = initialResult.branches;
+  } else {
+    zhong = getUpperByUnder(heavenlyPlate, chu);
+    mo = getUpperByUnder(heavenlyPlate, zhong);
+  }
   const inferredTransmissionPattern = getTransmissionPattern(chu, zhong, mo);
   const transmissionPattern = initialResult.rule.includes('伏吟')
     ? '伏吟'
@@ -370,7 +379,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
       evidence: [
         `${initialResult.rule}取为初传`,
         `月令${firstTransmission.seasonState}`,
-        firstTransmission.dayRelation || '与日支关系平',
+        firstTransmission.dayRelation,
       ],
       limitations: firstTransmission.isVoid ? ['初传空亡，主证需待填实'] : [],
     },

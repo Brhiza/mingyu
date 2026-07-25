@@ -63,6 +63,7 @@ const MONTH_LEADER_BY_ZHONGQI: Record<string, string> = {
 };
 
 const DAYTIME_BRANCHES = new Set(['卯', '辰', '巳', '午', '未', '申']);
+const VALID_WUXING = new Set(['木', '火', '土', '金', '水']);
 
 /** 五子元遁：甲己还加甲，乙庚丙作初，丙辛从戊起，丁壬庚子居，戊癸何方发，壬子是真途 */
 const WUZI_YUAN_STEM: Record<string, string> = {
@@ -137,7 +138,9 @@ function getYuanStemOnBranch(dayStem: string, branch: string) {
 }
 
 function describeElementRelation(sourceElement: string, targetElement: string) {
-  if (!sourceElement || !targetElement) return '关系未定';
+  if (!VALID_WUXING.has(sourceElement) || !VALID_WUXING.has(targetElement)) {
+    throw new Error(`金口诀四位五行无效：${sourceElement || '空'} -> ${targetElement || '空'}。`);
+  }
   if (sourceElement === targetElement) return '比和';
   if (isSheng(sourceElement, targetElement)) return '生';
   if (isSheng(targetElement, sourceElement)) return '被生';
@@ -155,6 +158,11 @@ function buildPosition(params: {
   xunKong: string[];
 }): JinkoujueFourPosition {
   const element = params.stem ? getStemWuxing(params.stem) : getBranchWuxing(params.branch);
+  if (!VALID_WUXING.has(element)) {
+    throw new Error(
+      `金口诀${params.name}五行数据缺失：${params.stem ? `天干${params.stem}` : `地支${params.branch}`}。`,
+    );
+  }
   const seasonState = getSeasonState(element, params.monthBranch);
   const isVoid = params.xunKong.includes(params.branch);
   const support: string[] = [];
@@ -167,7 +175,10 @@ function buildPosition(params: {
   if (isVoid) constraints.push('落日旬空');
   if (params.god) {
     const attr = TIANJIANG_ATTRIBUTES[params.god as TianJiangName];
-    if (attr) support.push(`天将属${attr.category}`);
+    if (!attr) {
+      throw new Error(`金口诀${params.name}天将数据缺失：${params.god}。`);
+    }
+    support.push(`天将属${attr.category}`);
   }
 
   return {
