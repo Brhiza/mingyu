@@ -3839,6 +3839,12 @@ select {
   margin-top: -4px;
 }
 
+.liuyao-manual-panel,
+.manual-entry-panel {
+  gap: 10px;
+  background: color-mix(in srgb, var(--surface-muted) 56%, transparent);
+}
+
 .manual-mode-switch,
 .manual-orientation-switch {
   display: grid;
@@ -3846,7 +3852,7 @@ select {
   padding: 3px;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
-  background: var(--surface-elevated);
+  background: color-mix(in srgb, var(--surface-elevated) 58%, transparent);
 }
 
 .manual-mode-switch button,
@@ -3863,7 +3869,7 @@ select {
 
 .manual-mode-switch button.is-active,
 .manual-orientation-switch button.is-active {
-  background: var(--surface-elevated-strong);
+  background: color-mix(in srgb, var(--surface-elevated-strong) 76%, transparent);
   color: var(--text-strong);
   box-shadow: 0 0 0 1px var(--border-strong);
 }
@@ -3881,6 +3887,11 @@ select {
   color: var(--text-soft);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
+}
+
+.interactive-draw-session {
+  display: grid;
+  gap: 10px;
 }
 
 .liuyao-reveal-stack {
@@ -3957,6 +3968,16 @@ select {
   gap: 8px;
 }
 
+.liuyao-shake-button,
+.interactive-draw-button {
+  flex: 1 1 180px;
+  min-height: 44px;
+}
+
+.manual-record-item.is-revealed {
+  animation: liuyao-line-reveal 220ms ease-out;
+}
+
 .manual-choice-button {
   display: grid;
   place-items: center;
@@ -3984,16 +4005,30 @@ select {
   color: var(--text-strong);
 }
 
-.manual-choice-button:disabled,
-.manual-entry-actions button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
+.manual-session-actions {
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 8px;
 }
 
-.manual-entry-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+.manual-session-actions .manual-reset-button {
+  flex: 0 0 auto;
+  min-width: 112px;
+  border: 1px solid var(--border-contrast);
+  background: color-mix(in srgb, var(--surface-elevated-strong) 58%, transparent);
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+
+.manual-session-actions .manual-reset-button:hover {
+  border-color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent-surface) 54%, transparent);
+  color: var(--text-strong);
+}
+
+.manual-session-actions .manual-reset-button:only-child {
+  margin-left: auto;
 }
 
 .compact-action-button {
@@ -4004,21 +4039,20 @@ select {
 
 .manual-record-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 6px;
 }
 
 .manual-record-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  align-content: center;
   min-width: 0;
-  gap: 10px;
-  min-height: 36px;
-  padding: 7px 9px;
+  gap: 2px;
+  min-height: 48px;
+  padding: 7px 10px;
   border: 1px solid var(--border-soft);
   border-radius: 6px;
-  background: var(--surface-elevated);
+  background: color-mix(in srgb, var(--surface-elevated) 52%, transparent);
   font-size: 13px;
 }
 
@@ -4030,8 +4064,10 @@ select {
 }
 
 .manual-record-item strong {
-  flex: 0 0 auto;
+  overflow: hidden;
   color: var(--text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .manual-card-editor {
@@ -6500,8 +6536,15 @@ div.form-actions.page-submit-actions {
   }
 
   .liuyao-reveal-row {
-    grid-template-columns: 38px minmax(96px, 1fr) 96px;
+    grid-template-columns: 34px minmax(88px, 0.8fr) minmax(130px, 1.2fr);
     gap: 8px;
+  }
+
+  .liuyao-reveal-value {
+    overflow: visible;
+    line-height: 1.35;
+    text-overflow: clip;
+    white-space: normal;
   }
 
   .liuyao-cast-actions {
@@ -6517,12 +6560,10 @@ div.form-actions.page-submit-actions {
     grid-template-columns: 1fr;
   }
 
-  .manual-entry-actions {
-    justify-content: stretch;
-  }
-
-  .manual-entry-actions button {
-    flex: 1 1 0;
+  .manual-session-actions .manual-reset-button {
+    width: auto;
+    min-height: 44px;
+    padding-inline: 14px;
   }
 
   .divination-method-btn {

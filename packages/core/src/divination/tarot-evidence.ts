@@ -350,6 +350,7 @@ function buildDrawOrderFacts(data: TarotData, cards: TarotCardEvidence[]): Tarot
 
 function buildDrawFact(data: TarotData, drawOrderFacts: TarotDrawOrderFact[]): TarotDrawFact {
   const isManual = data.draw?.method === '用户按牌位手工录入';
+  const isInteractive = data.draw?.method === '用户逐张触发前端随机抽取';
   const order = (data.draw?.order ?? []).map((item) => ({ ...item }));
   const missingIndexes = Array.from(
     { length: Math.max(0, data.cards.length - order.length) },
@@ -384,11 +385,13 @@ function buildDrawFact(data: TarotData, drawOrderFacts: TarotDrawOrderFact[]): T
     missingIndexes,
     extraIndexes,
     promptText: data.draw
-      ? `牌组规模：${data.draw.deckSize}张；${isManual ? '录入方式' : '洗牌方法'}：${data.draw.method}；正逆位规则：${data.draw.orientationRule}；${drawOrderFacts.map((item) => item.promptText).join('；')}${status === '来源链缺失' ? `；当前仅记录${order.length}/${data.cards.length}张来源顺序，不能完整核验` : status === '来源链不一致' ? `；第${mismatchIndexes.join('、')}张来源记录与牌面不一致` : ''}`
+      ? `牌组规模：${data.draw.deckSize}张；${isManual ? '录入方式' : isInteractive ? '抽取方式' : '洗牌方法'}：${data.draw.method}；正逆位规则：${data.draw.orientationRule}；${drawOrderFacts.map((item) => item.promptText).join('；')}${status === '来源链缺失' ? `；当前仅记录${order.length}/${data.cards.length}张来源顺序，不能完整核验` : status === '来源链不一致' ? `；第${mismatchIndexes.join('、')}张来源记录与牌面不一致` : ''}`
       : `现有资料未附洗牌与抽取顺序，仅保留${data.cards.length}张已确定牌面，不能反推完整抽牌来源链`,
     sources: isManual
       ? ['78张塔罗牌组', '用户按牌位逐张录入的牌号与正逆位记录']
-      : ['78张塔罗牌组与 Fisher-Yates 洗牌记录', '牌位顺序取牌与逐牌正逆位判定记录'],
+      : isInteractive
+        ? ['78张塔罗牌组', '用户逐张触发的抽牌与正逆位随机样本记录']
+        : ['78张塔罗牌组与 Fisher-Yates 洗牌记录', '牌位顺序取牌与逐牌正逆位判定记录'],
     limitation: DRAW_FACT_LIMITATION,
   };
 }
@@ -850,16 +853,21 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
   );
   const trace = data.meta?.random;
   const isManual = data.draw?.method === '用户按牌位手工录入';
+  const isInteractive = data.draw?.method === '用户逐张触发前端随机抽取';
   const randomFact = buildRandomTraceFact({
     key: `random:tarot:${data.spreadType}`,
     applicable: !isManual,
     trace,
     processLabel: isManual
       ? `${data.spreadName}的手工牌面与正逆位录入过程`
-      : `${data.spreadName}的洗牌、抽牌与正逆位生成过程`,
+      : isInteractive
+        ? `${data.spreadName}的逐张抽牌与正逆位生成过程`
+        : `${data.spreadName}的洗牌、抽牌与正逆位生成过程`,
     sources: isManual
       ? ['用户按牌位逐张录入的牌面与正逆位记录']
-      : ['塔罗牌阵与抽牌顺序记录', '洗牌、抽牌、正逆位随机样本与重放元数据'],
+      : isInteractive
+        ? ['塔罗牌阵与逐张抽牌顺序记录', '抽牌、正逆位随机样本与重放元数据']
+        : ['塔罗牌阵与抽牌顺序记录', '洗牌、抽牌、正逆位随机样本与重放元数据'],
   });
   const randomFacts = formatLegacyRandomFacts(randomFact);
   const counterEvidenceFacts = buildCounterEvidenceFacts(cards);

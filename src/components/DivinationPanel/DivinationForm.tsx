@@ -10,8 +10,11 @@ import {
   XIAOLIUREN_SCHOOL_OPTIONS,
   JINKOUJUE_METHOD_OPTIONS,
 } from '@core/divination/config';
-import { tarotCards, tarotSpreads } from '@core/divination/tarot';
-import { LENORMAND_CARDS, LENORMAND_SPREADS } from '@core/divination/algorithms/lenormand';
+import { resolveInteractiveTarotCards, tarotSpreads } from '@core/divination/tarot';
+import {
+  LENORMAND_SPREADS,
+  resolveInteractiveLenormandCards,
+} from '@core/divination/algorithms/lenormand';
 import type { DivinationDraft } from '@/lib/divination/engine';
 import {
   almanacTopicLabelMap,
@@ -33,7 +36,7 @@ const DIVINATION_TIME_MODE_OPTIONS = [
 
 const LIUYAO_METHOD_OPTIONS = [
   { value: 'time', label: '时间起卦' },
-  { value: 'coins', label: '模拟投币' },
+  { value: 'coins', label: '手摇' },
   { value: 'manual', label: '手动录入' },
 ] as const;
 
@@ -48,12 +51,12 @@ const LIUYAO_POSITION_LABELS = ['初爻', '二爻', '三爻', '四爻', '五爻'
 
 const MANUAL_METHOD_OPTIONS = [
   { value: 'random', label: '自动抽取' },
-  { value: 'manual', label: '手动录入' },
+  { value: 'interactive', label: '手动抽取' },
 ] as const;
 
 const liuyaoMethodLabelMap: Record<NonNullable<DivinationDraft['liuyaoMethod']>, string> = {
   time: '时间起卦',
-  coins: '模拟投币',
+  coins: '手摇',
   manual: '手动录入',
 };
 
@@ -77,6 +80,16 @@ function isTimeBasedDivinationDraft(draft: DivinationDraft) {
   if (draft.method === 'taiyi' && (draft.taiyiScope ?? 'year') !== 'year') return true;
 
   return false;
+}
+
+function createRandomSample() {
+  const cryptoObject = globalThis.crypto;
+  if (cryptoObject?.getRandomValues) {
+    const value = new Uint32Array(1);
+    cryptoObject.getRandomValues(value);
+    return value[0] / 4294967296;
+  }
+  return Math.random();
 }
 
 interface DivinationFormProps {
@@ -126,24 +139,35 @@ export function DivinationForm({
   const divinationTimeMode = draft.divinationTimeMode ?? 'current';
   const liuyaoMethod = draft.liuyaoMethod ?? 'time';
   const liuyaoYaos = draft.liuyaoYaos ?? [];
+  const liuyaoCoinThrows = draft.liuyaoCoinThrows ?? [];
+  const visibleLiuyaoYaos =
+    liuyaoMethod === 'coins' ? liuyaoCoinThrows.map((item) => item.total) : liuyaoYaos;
   const tarotMethod = draft.tarotMethod ?? 'random';
-  const tarotManualCards = draft.tarotManualCards ?? [];
+  const tarotInteractiveSamples = draft.tarotInteractiveSamples ?? [];
   const tarotSpread = tarotSpreads[draft.tarotSpread];
-  const tarotPendingCardId = draft.tarotPendingCardId ?? '1';
+  const tarotInteractiveCards = resolveInteractiveTarotCards(
+    draft.tarotSpread,
+    tarotInteractiveSamples,
+  );
   const lenormandMethod = draft.lenormandMethod ?? 'random';
-  const lenormandManualCardIds = draft.lenormandManualCardIds ?? [];
+  const lenormandInteractiveSamples = draft.lenormandInteractiveSamples ?? [];
   const lenormandSpread = LENORMAND_SPREADS[draft.lenormandSpread];
-  const lenormandPendingCardId = draft.lenormandPendingCardId ?? '1';
+  const lenormandInteractiveCards = resolveInteractiveLenormandCards(
+    draft.lenormandSpread,
+    lenormandInteractiveSamples,
+  );
   const ssgwMethod = draft.ssgwMethod ?? 'random';
   const ssgwNumber = draft.ssgwNumber ?? '';
   const isManualInputIncomplete =
-    (draft.method === 'liuyao' && liuyaoMethod === 'manual' && liuyaoYaos.length !== 6) ||
+    (draft.method === 'liuyao' &&
+      ((liuyaoMethod === 'manual' && liuyaoYaos.length !== 6) ||
+        (liuyaoMethod === 'coins' && liuyaoCoinThrows.length !== 6))) ||
     (draft.method === 'tarot' &&
-      tarotMethod === 'manual' &&
-      tarotManualCards.length !== tarotSpread.cardCount) ||
+      tarotMethod === 'interactive' &&
+      tarotInteractiveCards.length !== tarotSpread.cardCount) ||
     (draft.method === 'lenormand' &&
-      lenormandMethod === 'manual' &&
-      lenormandManualCardIds.length !== lenormandSpread.positions.length) ||
+      lenormandMethod === 'interactive' &&
+      lenormandInteractiveCards.length !== lenormandSpread.positions.length) ||
     (draft.method === 'ssgw' &&
       ssgwMethod === 'manual' &&
       (!/^\d+$/.test(ssgwNumber) || Number(ssgwNumber) < 1 || Number(ssgwNumber) > 92));
@@ -154,71 +178,50 @@ export function DivinationForm({
     }
   }
 
+  function shakeLiuyaoYao() {
+    if (liuyaoCoinThrows.length >= 6) return;
+    const coins = [0, 1, 2].map(() => (createRandomSample() < 0.5 ? 2 : 3)) as [
+      2 | 3,
+      2 | 3,
+      2 | 3,
+    ];
+    const total = coins.reduce<number>((sum, coin) => sum + coin, 0) as 6 | 7 | 8 | 9;
+    updateDraft('liuyaoCoinThrows', [...liuyaoCoinThrows, { coins, total }]);
+  }
+
   function updateTarotSpread(value: DivinationDraft['tarotSpread']) {
     updateDraft('tarotSpread', value);
-    updateDraft('tarotManualCards', []);
-    updateDraft('tarotPendingCardId', '1');
+    updateDraft('tarotInteractiveSamples', []);
   }
 
-  function appendTarotCard() {
-    const id = Number(tarotPendingCardId);
-    if (
-      tarotManualCards.length >= tarotSpread.cardCount ||
-      tarotManualCards.some((item) => item.id === id) ||
-      !tarotCards.some((item) => item.number === id)
-    ) {
-      return;
-    }
-    const nextCards = [...tarotManualCards, { id, reversed: Boolean(draft.tarotPendingReversed) }];
-    updateDraft('tarotManualCards', nextCards);
-    const nextCard = tarotCards.find(
-      (item) => !nextCards.some((selected) => selected.id === item.number),
-    );
-    if (nextCard) updateDraft('tarotPendingCardId', String(nextCard.number));
-  }
-
-  function undoTarotCard() {
-    const removedCard = tarotManualCards.at(-1);
-    updateDraft('tarotManualCards', tarotManualCards.slice(0, -1));
-    if (removedCard) updateDraft('tarotPendingCardId', String(removedCard.id));
+  function drawTarotCard() {
+    if (tarotInteractiveCards.length >= tarotSpread.cardCount) return;
+    updateDraft('tarotInteractiveSamples', [
+      ...tarotInteractiveSamples,
+      createRandomSample(),
+      createRandomSample(),
+    ]);
   }
 
   function resetTarotCards() {
-    updateDraft('tarotManualCards', []);
-    updateDraft('tarotPendingCardId', '1');
-    updateDraft('tarotPendingReversed', false);
+    updateDraft('tarotInteractiveSamples', []);
   }
 
   function updateLenormandSpread(value: DivinationDraft['lenormandSpread']) {
     updateDraft('lenormandSpread', value);
-    updateDraft('lenormandManualCardIds', []);
-    updateDraft('lenormandPendingCardId', '1');
+    updateDraft('lenormandInteractiveSamples', []);
   }
 
-  function appendLenormandCard() {
-    const id = Number(lenormandPendingCardId);
-    if (
-      lenormandManualCardIds.length >= lenormandSpread.positions.length ||
-      lenormandManualCardIds.includes(id) ||
-      !LENORMAND_CARDS.some((item) => item.id === id)
-    ) {
-      return;
-    }
-    const nextIds = [...lenormandManualCardIds, id];
-    updateDraft('lenormandManualCardIds', nextIds);
-    const nextCard = LENORMAND_CARDS.find((item) => !nextIds.includes(item.id));
-    if (nextCard) updateDraft('lenormandPendingCardId', String(nextCard.id));
-  }
-
-  function undoLenormandCard() {
-    const removedCardId = lenormandManualCardIds.at(-1);
-    updateDraft('lenormandManualCardIds', lenormandManualCardIds.slice(0, -1));
-    if (removedCardId) updateDraft('lenormandPendingCardId', String(removedCardId));
+  function drawLenormandCard() {
+    if (lenormandInteractiveCards.length >= lenormandSpread.positions.length) return;
+    updateDraft('lenormandInteractiveSamples', [
+      ...lenormandInteractiveSamples,
+      createRandomSample(),
+    ]);
   }
 
   function resetLenormandCards() {
-    updateDraft('lenormandManualCardIds', []);
-    updateDraft('lenormandPendingCardId', '1');
+    updateDraft('lenormandInteractiveSamples', []);
   }
 
   function updateAlmanacParticipant(
@@ -1036,25 +1039,26 @@ export function DivinationForm({
             </div>
           ) : null}
 
-          {draft.method === 'liuyao' && liuyaoMethod === 'manual' ? (
+          {draft.method === 'liuyao' && (liuyaoMethod === 'manual' || liuyaoMethod === 'coins') ? (
             <div className="divination-extra-panel liuyao-manual-panel">
               <div className="manual-entry-head">
                 <strong>
-                  {liuyaoYaos.length < 6
-                    ? `下一爻：${LIUYAO_POSITION_LABELS[liuyaoYaos.length]}`
+                  {visibleLiuyaoYaos.length < 6
+                    ? `下一爻：${LIUYAO_POSITION_LABELS[visibleLiuyaoYaos.length]}`
                     : '六爻已成'}
                 </strong>
-                <span>{liuyaoYaos.length} / 6</span>
+                <span>{visibleLiuyaoYaos.length} / 6</span>
               </div>
-              <div className="liuyao-reveal-stack" aria-label="手动六爻卦象">
+              <div className="liuyao-reveal-stack" aria-label="逐爻显示六爻卦象">
                 {[...LIUYAO_POSITION_LABELS].reverse().map((label, reverseIndex) => {
                   const index = 5 - reverseIndex;
-                  const value = liuyaoYaos[index];
+                  const value = visibleLiuyaoYaos[index];
+                  const coinThrow = liuyaoCoinThrows[index];
                   const isYin = value === 6 || value === 8;
                   const isMoving = value === 6 || value === 9;
                   return (
                     <div
-                      className={`liuyao-reveal-row ${value ? 'is-filled' : ''} ${index === liuyaoYaos.length - 1 ? 'is-latest' : ''}`}
+                      className={`liuyao-reveal-row ${value ? 'is-filled' : ''} ${index === visibleLiuyaoYaos.length - 1 ? 'is-latest' : ''}`}
                       key={label}
                     >
                       <span className="liuyao-reveal-label">{label}</span>
@@ -1074,44 +1078,53 @@ export function DivinationForm({
                       </span>
                       <span className="liuyao-reveal-value">
                         {value
-                          ? LIUYAO_YAO_OPTIONS.find((item) => item.value === value)?.label
+                          ? liuyaoMethod === 'coins' && coinThrow
+                            ? `${coinThrow.coins.join(' + ')} = ${LIUYAO_YAO_OPTIONS.find((item) => item.value === value)?.label}`
+                            : LIUYAO_YAO_OPTIONS.find((item) => item.value === value)?.label
                           : '待起'}
                       </span>
                     </div>
                   );
                 })}
               </div>
-              <div className="liuyao-cast-actions">
-                {LIUYAO_YAO_OPTIONS.map((item) => (
+              {visibleLiuyaoYaos.length < 6 && liuyaoMethod === 'manual' ? (
+                <div className="liuyao-cast-actions">
+                  {LIUYAO_YAO_OPTIONS.map((item) => (
+                    <button
+                      type="button"
+                      className="manual-choice-button"
+                      key={item.value}
+                      onClick={() => appendLiuyaoYao(item.value)}
+                    >
+                      <span>{item.label.split(' · ')[1]}</span>
+                      <strong>{item.value}</strong>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <div className="manual-session-actions">
+                {visibleLiuyaoYaos.length < 6 && liuyaoMethod === 'coins' ? (
                   <button
                     type="button"
-                    className="manual-choice-button"
-                    disabled={liuyaoYaos.length >= 6}
-                    key={item.value}
-                    onClick={() => appendLiuyaoYao(item.value)}
+                    className="primary-button liuyao-shake-button"
+                    onClick={shakeLiuyaoYao}
                   >
-                    <span>{item.label.split(' · ')[1]}</span>
-                    <strong>{item.value}</strong>
+                    手摇一爻
                   </button>
-                ))}
-              </div>
-              <div className="manual-entry-actions">
-                <button
-                  type="button"
-                  className="secondary-page-button compact-action-button"
-                  disabled={liuyaoYaos.length === 0}
-                  onClick={() => updateDraft('liuyaoYaos', liuyaoYaos.slice(0, -1))}
-                >
-                  撤回一爻
-                </button>
-                <button
-                  type="button"
-                  className="secondary-page-button compact-action-button"
-                  disabled={liuyaoYaos.length === 0}
-                  onClick={() => updateDraft('liuyaoYaos', [])}
-                >
-                  重新起卦
-                </button>
+                ) : null}
+                {visibleLiuyaoYaos.length > 0 ? (
+                  <button
+                    type="button"
+                    className="secondary-page-button compact-action-button manual-reset-button"
+                    onClick={() =>
+                      liuyaoMethod === 'coins'
+                        ? updateDraft('liuyaoCoinThrows', [])
+                        : updateDraft('liuyaoYaos', [])
+                    }
+                  >
+                    重新起卦
+                  </button>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -1130,89 +1143,49 @@ export function DivinationForm({
                   </button>
                 ))}
               </div>
-              {tarotMethod === 'manual' ? (
-                <>
+              {tarotMethod === 'interactive' ? (
+                <div className="interactive-draw-session">
                   <div className="manual-entry-head">
                     <strong>
-                      {tarotManualCards.length < tarotSpread.cardCount
-                        ? `当前牌位：${tarotSpread.positions[tarotManualCards.length]}`
-                        : '牌阵已录完'}
+                      {tarotInteractiveCards.length < tarotSpread.cardCount
+                        ? `当前牌位：${tarotSpread.positions[tarotInteractiveCards.length]}`
+                        : '牌阵已抽完'}
                     </strong>
                     <span>
-                      {tarotManualCards.length} / {tarotSpread.cardCount}
+                      {tarotInteractiveCards.length} / {tarotSpread.cardCount}
                     </span>
                   </div>
-                  <div className="manual-record-list">
-                    {tarotManualCards.map((selected, index) => {
-                      const card = tarotCards.find((item) => item.number === selected.id);
-                      return (
-                        <div className="manual-record-item" key={`${selected.id}-${index}`}>
-                          <span>{tarotSpread.positions[index]}</span>
-                          <strong>
-                            {card?.name} · {selected.reversed ? '逆位' : '正位'}
-                          </strong>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {tarotManualCards.length < tarotSpread.cardCount ? (
-                    <div className="manual-card-editor">
-                      <select
-                        aria-label="选择塔罗牌"
-                        className="form-input"
-                        value={tarotPendingCardId}
-                        onChange={(event) => updateDraft('tarotPendingCardId', event.target.value)}
-                      >
-                        {tarotCards.map((card) => (
-                          <option
-                            disabled={tarotManualCards.some((item) => item.id === card.number)}
-                            key={card.number}
-                            value={card.number}
-                          >
-                            {String(card.number).padStart(2, '0')} · {card.name}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="manual-orientation-switch" role="group" aria-label="正逆位">
-                        <button
-                          type="button"
-                          className={!draft.tarotPendingReversed ? 'is-active' : ''}
-                          onClick={() => updateDraft('tarotPendingReversed', false)}
-                        >
-                          正位
-                        </button>
-                        <button
-                          type="button"
-                          className={draft.tarotPendingReversed ? 'is-active' : ''}
-                          onClick={() => updateDraft('tarotPendingReversed', true)}
-                        >
-                          逆位
-                        </button>
+                  <div className="manual-record-list" aria-live="polite">
+                    {tarotInteractiveCards.map((card, index) => (
+                      <div className="manual-record-item is-revealed" key={`${card.id}-${index}`}>
+                        <span>{tarotSpread.positions[index]}</span>
+                        <strong>
+                          {card.name} · {card.reversed ? '逆位' : '正位'}
+                        </strong>
                       </div>
-                      <button type="button" className="primary-button" onClick={appendTarotCard}>
-                        确认此牌
-                      </button>
-                    </div>
-                  ) : null}
-                  <div className="manual-entry-actions">
-                    <button
-                      type="button"
-                      className="secondary-page-button compact-action-button"
-                      disabled={tarotManualCards.length === 0}
-                      onClick={undoTarotCard}
-                    >
-                      撤回一张
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary-page-button compact-action-button"
-                      disabled={tarotManualCards.length === 0}
-                      onClick={resetTarotCards}
-                    >
-                      重新录入
-                    </button>
+                    ))}
                   </div>
-                </>
+                  <div className="manual-session-actions">
+                    {tarotInteractiveCards.length < tarotSpread.cardCount ? (
+                      <button
+                        type="button"
+                        className="primary-button interactive-draw-button"
+                        onClick={drawTarotCard}
+                      >
+                        抽一张
+                      </button>
+                    ) : null}
+                    {tarotInteractiveCards.length > 0 ? (
+                      <button
+                        type="button"
+                        className="secondary-page-button compact-action-button manual-reset-button"
+                        onClick={resetTarotCards}
+                      >
+                        重新抽取
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
               ) : null}
             </div>
           ) : null}
@@ -1231,74 +1204,47 @@ export function DivinationForm({
                   </button>
                 ))}
               </div>
-              {lenormandMethod === 'manual' ? (
-                <>
+              {lenormandMethod === 'interactive' ? (
+                <div className="interactive-draw-session">
                   <div className="manual-entry-head">
                     <strong>
-                      {lenormandManualCardIds.length < lenormandSpread.positions.length
-                        ? `当前牌位：${lenormandSpread.positions[lenormandManualCardIds.length]}`
-                        : '牌阵已录完'}
+                      {lenormandInteractiveCards.length < lenormandSpread.positions.length
+                        ? `当前牌位：${lenormandSpread.positions[lenormandInteractiveCards.length]}`
+                        : '牌阵已抽完'}
                     </strong>
                     <span>
-                      {lenormandManualCardIds.length} / {lenormandSpread.positions.length}
+                      {lenormandInteractiveCards.length} / {lenormandSpread.positions.length}
                     </span>
                   </div>
-                  <div className="manual-record-list">
-                    {lenormandManualCardIds.map((id, index) => (
-                      <div className="manual-record-item" key={`${id}-${index}`}>
+                  <div className="manual-record-list" aria-live="polite">
+                    {lenormandInteractiveCards.map((card, index) => (
+                      <div className="manual-record-item is-revealed" key={`${card.id}-${index}`}>
                         <span>{lenormandSpread.positions[index]}</span>
-                        <strong>{LENORMAND_CARDS.find((item) => item.id === id)?.name}</strong>
+                        <strong>{card.name}</strong>
                       </div>
                     ))}
                   </div>
-                  {lenormandManualCardIds.length < lenormandSpread.positions.length ? (
-                    <div className="manual-card-editor is-lenormand">
-                      <select
-                        aria-label="选择雷诺曼牌"
-                        className="form-input"
-                        value={lenormandPendingCardId}
-                        onChange={(event) =>
-                          updateDraft('lenormandPendingCardId', event.target.value)
-                        }
-                      >
-                        {LENORMAND_CARDS.map((card) => (
-                          <option
-                            disabled={lenormandManualCardIds.includes(card.id)}
-                            key={card.id}
-                            value={card.id}
-                          >
-                            {String(card.id).padStart(2, '0')} · {card.name}
-                          </option>
-                        ))}
-                      </select>
+                  <div className="manual-session-actions">
+                    {lenormandInteractiveCards.length < lenormandSpread.positions.length ? (
                       <button
                         type="button"
-                        className="primary-button"
-                        onClick={appendLenormandCard}
+                        className="primary-button interactive-draw-button"
+                        onClick={drawLenormandCard}
                       >
-                        确认此牌
+                        抽一张
                       </button>
-                    </div>
-                  ) : null}
-                  <div className="manual-entry-actions">
-                    <button
-                      type="button"
-                      className="secondary-page-button compact-action-button"
-                      disabled={lenormandManualCardIds.length === 0}
-                      onClick={undoLenormandCard}
-                    >
-                      撤回一张
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary-page-button compact-action-button"
-                      disabled={lenormandManualCardIds.length === 0}
-                      onClick={resetLenormandCards}
-                    >
-                      重新录入
-                    </button>
+                    ) : null}
+                    {lenormandInteractiveCards.length > 0 ? (
+                      <button
+                        type="button"
+                        className="secondary-page-button compact-action-button manual-reset-button"
+                        onClick={resetLenormandCards}
+                      >
+                        重新抽取
+                      </button>
+                    ) : null}
                   </div>
-                </>
+                </div>
               ) : null}
             </div>
           ) : null}

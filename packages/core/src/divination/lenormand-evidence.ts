@@ -394,6 +394,7 @@ function buildDrawFact(
   drawOrderFacts: LenormandDrawOrderFact[],
 ): LenormandDrawFact {
   const isManual = data.draw?.method === '用户按牌位手工录入';
+  const isInteractive = data.draw?.method === '用户逐张触发前端随机抽取';
   const order = (data.draw?.order ?? []).map((item) => ({ ...item }));
   const missingIndexes = Array.from(
     { length: Math.max(0, data.cards.length - order.length) },
@@ -427,11 +428,13 @@ function buildDrawFact(
     missingIndexes,
     extraIndexes,
     promptText: data.draw
-      ? `牌组规模：${data.draw.deckSize}张；${isManual ? '录入方式' : '洗牌与取牌方法'}：${data.draw.method}；${drawOrderFacts.map((fact) => fact.promptText).join('；')}${status === '来源链缺失' ? `；现有资料仅记录${order.length}/${data.cards.length}张来源顺序，不能完整核验` : status === '来源链不一致' ? `；第${mismatchIndexes.join('、')}张来源记录与牌面不一致` : ''}`
+      ? `牌组规模：${data.draw.deckSize}张；${isManual ? '录入方式' : isInteractive ? '抽取方式' : '洗牌与取牌方法'}：${data.draw.method}；${drawOrderFacts.map((fact) => fact.promptText).join('；')}${status === '来源链缺失' ? `；现有资料仅记录${order.length}/${data.cards.length}张来源顺序，不能完整核验` : status === '来源链不一致' ? `；第${mismatchIndexes.join('、')}张来源记录与牌面不一致` : ''}`
       : `现有资料未附洗牌方法与抽取顺序，仅保留${data.cards.length}张已确定牌面，不能反推完整抽牌来源链`,
     sources: isManual
       ? ['36张雷诺曼牌组', '用户按牌位逐张录入的牌号记录']
-      : ['36张雷诺曼牌组与 Fisher-Yates 洗牌记录', '牌位顺序、宫位与行列落点记录'],
+      : isInteractive
+        ? ['36张雷诺曼牌组', '用户逐张触发的抽牌随机样本记录']
+        : ['36张雷诺曼牌组与 Fisher-Yates 洗牌记录', '牌位顺序、宫位与行列落点记录'],
     limitation: DRAW_FACT_LIMITATION,
   };
 }
@@ -1142,16 +1145,21 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
     : ['现有资料未附洗牌方法与抽取顺序，仅保留已确定牌面，不能反推完整抽牌来源链'];
   const trace = data.meta?.random;
   const isManual = data.draw?.method === '用户按牌位手工录入';
+  const isInteractive = data.draw?.method === '用户逐张触发前端随机抽取';
   const randomFact = buildRandomTraceFact({
     key: `random:lenormand:${data.spreadType}`,
     applicable: !isManual,
     trace,
     processLabel: isManual
       ? `${data.spreadName}的手工牌面录入过程`
-      : `${data.spreadName}的洗牌与抽牌生成过程`,
+      : isInteractive
+        ? `${data.spreadName}的逐张抽牌生成过程`
+        : `${data.spreadName}的洗牌与抽牌生成过程`,
     sources: isManual
       ? ['用户按牌位逐张录入的牌面记录']
-      : ['雷诺曼牌阵与抽牌顺序记录', '洗牌、抽牌随机样本与重放元数据'],
+      : isInteractive
+        ? ['雷诺曼牌阵与逐张抽牌顺序记录', '抽牌随机样本与重放元数据']
+        : ['雷诺曼牌阵与抽牌顺序记录', '洗牌、抽牌随机样本与重放元数据'],
   });
   const randomFacts = formatLegacyRandomFacts(randomFact);
   const fixedCombinationFacts = traditionalFacts.filter((fact) => fact.kind === '固定组合');

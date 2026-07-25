@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { analyzeTarotEvidence, drawTarotSpread, tarotSpreads } from 'mingyu-core/divination/tarot';
+import {
+  analyzeTarotEvidence,
+  drawTarotSpread,
+  resolveInteractiveTarotCards,
+  tarotSpreads,
+} from 'mingyu-core/divination/tarot';
 import type { TarotData, TarotSpreadType } from 'mingyu-core/types';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
@@ -155,6 +160,32 @@ test('塔罗手工录入应保留牌位与正逆位，并将随机轨迹标为�
         seed: '冲突参数',
         manualCards: [{ id: 1, reversed: false }],
       }),
+    /不能同时提供随机选项/,
+  );
+});
+
+test('塔罗手动抽取应按样本逐张无重复翻牌并保留可重放轨迹', () => {
+  const samples = [0, 0.75, 0.5, 0.25, 0.999, 0.75];
+  const preview = resolveInteractiveTarotCards('three', samples);
+  const data = drawTarotSpread('three', { interactiveSamples: samples });
+
+  assert.deepEqual(
+    data.cards.map((card) => ({ id: card.id, name: card.name, reversed: card.reversed })),
+    preview,
+  );
+  assert.equal(new Set(data.cards.map((card) => card.id)).size, 3);
+  assert.equal(data.draw?.method, '用户逐张触发前端随机抽取');
+  assert.equal(data.meta?.algorithm, 'tarot.spread.interactive');
+  assert.deepEqual(data.meta?.random, { mode: 'system', seed: undefined, samples });
+  assert.equal(data.evidenceAnalysis?.randomFact.status, '可重放');
+
+  assert.throws(
+    () => drawTarotSpread('three', { interactiveSamples: samples.slice(0, -2) }),
+    /需要逐张抽取3张牌/,
+  );
+  assert.throws(() => resolveInteractiveTarotCards('three', [0]), /需要两个随机样本/);
+  assert.throws(
+    () => drawTarotSpread('three', { seed: '冲突', interactiveSamples: samples }),
     /不能同时提供随机选项/,
   );
 });

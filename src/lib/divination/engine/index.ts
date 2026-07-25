@@ -76,6 +76,7 @@ export type DivinationDraft = {
   customDivinationTime?: string;
   liuyaoMethod?: 'time' | 'coins' | 'manual';
   liuyaoYaos?: Array<6 | 7 | 8 | 9>;
+  liuyaoCoinThrows?: Array<{ coins: [2 | 3, 2 | 3, 2 | 3]; total: 6 | 7 | 8 | 9 }>;
   meihuaMethod: 'time' | 'number' | 'random' | 'timeTrigram';
   meihuaNumber: string;
   xiaoliurenMethod: XiaoliurenDivinationMethod;
@@ -86,10 +87,9 @@ export type DivinationDraft = {
   liuyaoTemplate: LiuyaoTemplateType;
   liurenTemplate: LiurenTemplateType;
   tarotSpread: TarotSpreadType;
-  tarotMethod?: 'random' | 'manual';
+  tarotMethod?: 'random' | 'manual' | 'interactive';
   tarotManualCards?: Array<{ id: number; reversed: boolean }>;
-  tarotPendingCardId?: string;
-  tarotPendingReversed?: boolean;
+  tarotInteractiveSamples?: number[];
   ssgwMethod?: 'random' | 'manual';
   ssgwNumber?: string;
   almanacTopic: AlmanacTopic;
@@ -97,9 +97,9 @@ export type DivinationDraft = {
   almanacEndDate: string;
   almanacParticipants: AlmanacParticipantInput[];
   lenormandSpread: LenormandSpreadType;
-  lenormandMethod?: 'random' | 'manual';
+  lenormandMethod?: 'random' | 'manual' | 'interactive';
   lenormandManualCardIds?: number[];
-  lenormandPendingCardId?: string;
+  lenormandInteractiveSamples?: number[];
   astrolabeName: string;
   astrolabeGender: '' | '男' | '女';
   astrolabeYear: string;
@@ -275,6 +275,19 @@ function validateDraft(draft: DivinationDraft) {
     }
   }
 
+  if (draft.method === 'liuyao' && (draft.liuyaoMethod ?? 'time') === 'coins') {
+    if (draft.liuyaoCoinThrows?.length !== 6) {
+      throw new Error('手摇起卦需要从初爻到上爻完成六次手摇');
+    }
+  }
+
+  if (draft.method === 'tarot' && draft.tarotMethod === 'interactive') {
+    const expectedCount = tarotSpreads[draft.tarotSpread].cardCount;
+    if (draft.tarotInteractiveSamples?.length !== expectedCount * 2) {
+      throw new Error(`当前牌阵需要逐张抽取${expectedCount}张牌`);
+    }
+  }
+
   if (draft.method === 'tarot' && (draft.tarotMethod ?? 'random') === 'manual') {
     const expectedCount = tarotSpreads[draft.tarotSpread].cardCount;
     if (draft.tarotManualCards?.length !== expectedCount) {
@@ -286,6 +299,13 @@ function validateDraft(draft: DivinationDraft) {
     const expectedCount = LENORMAND_SPREADS[draft.lenormandSpread].positions.length;
     if (draft.lenormandManualCardIds?.length !== expectedCount) {
       throw new Error(`当前牌阵需要按牌位录入${expectedCount}张牌`);
+    }
+  }
+
+  if (draft.method === 'lenormand' && draft.lenormandMethod === 'interactive') {
+    const expectedCount = LENORMAND_SPREADS[draft.lenormandSpread].positions.length;
+    if (draft.lenormandInteractiveSamples?.length !== expectedCount) {
+      throw new Error(`当前牌阵需要逐张抽取${expectedCount}张牌`);
     }
   }
 
@@ -574,6 +594,7 @@ export async function generateDivinationSession(
       data = module.generateLiuyao(customDate, {
         method: liuyaoMethod,
         ...(liuyaoMethod === 'manual' ? { yaos: draft.liuyaoYaos } : {}),
+        ...(liuyaoMethod === 'coins' ? { coinThrows: draft.liuyaoCoinThrows } : {}),
       });
       break;
     }
@@ -630,9 +651,11 @@ export async function generateDivinationSession(
       const module = await import('mingyu-core/divination/tarot');
       data = module.drawTarotSpread(
         draft.tarotSpread,
-        (draft.tarotMethod ?? 'random') === 'manual'
-          ? { manualCards: draft.tarotManualCards }
-          : undefined,
+        draft.tarotMethod === 'interactive'
+          ? { interactiveSamples: draft.tarotInteractiveSamples }
+          : (draft.tarotMethod ?? 'random') === 'manual'
+            ? { manualCards: draft.tarotManualCards }
+            : undefined,
       );
       break;
     }
@@ -658,9 +681,11 @@ export async function generateDivinationSession(
       const module = await import('mingyu-core/divination/lenormand');
       data = module.drawLenormandSpread(
         draft.lenormandSpread,
-        (draft.lenormandMethod ?? 'random') === 'manual'
-          ? { manualCardIds: draft.lenormandManualCardIds }
-          : undefined,
+        draft.lenormandMethod === 'interactive'
+          ? { interactiveSamples: draft.lenormandInteractiveSamples }
+          : (draft.lenormandMethod ?? 'random') === 'manual'
+            ? { manualCardIds: draft.lenormandManualCardIds }
+            : undefined,
       );
       break;
     }

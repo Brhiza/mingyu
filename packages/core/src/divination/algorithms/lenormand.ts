@@ -232,6 +232,31 @@ export const LENORMAND_SPREADS: Record<LenormandSpreadType, { name: string; posi
     },
   };
 
+function assertInteractiveSample(sample: number, index: number) {
+  if (!Number.isFinite(sample) || sample < 0 || sample >= 1) {
+    throw new Error(`第${index + 1}个雷诺曼抽牌随机样本无效`);
+  }
+}
+
+/** 根据前端已产生的随机样本复算当前抽牌进度，允许传入未完成牌阵的样本。 */
+export function resolveInteractiveLenormandCards(
+  spreadType: LenormandSpreadType,
+  samples: readonly number[],
+) {
+  const spread = LENORMAND_SPREADS[spreadType];
+  if (!spread) throw new Error(`未知的雷诺曼牌阵类型: ${spreadType}`);
+  if (samples.length > spread.positions.length) {
+    throw new Error(`${spread.name}最多抽取${spread.positions.length}张牌`);
+  }
+  samples.forEach(assertInteractiveSample);
+
+  const remaining = [...LENORMAND_CARDS];
+  return samples.map((sample) => {
+    const index = Math.floor(sample * remaining.length);
+    return remaining.splice(index, 1)[0];
+  });
+}
+
 function shuffleCards(rng: RandomSource) {
   const shuffled = [...LENORMAND_CARDS];
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -295,7 +320,10 @@ export const LENORMAND_FIXED_COMBINATIONS: Record<string, string> = {
  */
 export function drawLenormandSpread(
   spreadType: LenormandSpreadType = 'single',
-  options?: RandomOptions & { manualCardIds?: readonly number[] },
+  options?: RandomOptions & {
+    manualCardIds?: readonly number[];
+    interactiveSamples?: readonly number[];
+  },
 ): LenormandData {
   const spread = LENORMAND_SPREADS[spreadType];
   if (!spread) {
@@ -303,6 +331,16 @@ export function drawLenormandSpread(
   }
 
   const manualCardIds = options?.manualCardIds;
+  const interactiveSamples = options?.interactiveSamples;
+  if (manualCardIds && interactiveSamples) {
+    throw new Error('雷诺曼手动抽取不能同时提供手工录入牌面');
+  }
+  if (interactiveSamples && hasRandomOptions(options)) {
+    throw new Error('雷诺曼手动抽取样本不能同时提供随机选项');
+  }
+  if (interactiveSamples && interactiveSamples.length !== spread.positions.length) {
+    throw new Error(`${spread.name}需要逐张抽取${spread.positions.length}张牌`);
+  }
   if (manualCardIds && hasRandomOptions(options)) {
     throw new Error('手工录入雷诺曼牌时不能同时提供随机选项');
   }
@@ -313,14 +351,16 @@ export function drawLenormandSpread(
     throw new Error('同一次雷诺曼牌阵不能重复录入同一张牌');
   }
 
-  const context = manualCardIds ? null : createRandomContext(options);
+  const context = manualCardIds || interactiveSamples ? null : createRandomContext(options);
   const selectedCards = manualCardIds
     ? manualCardIds.map((id, index) => {
         const card = LENORMAND_CARDS.find((item) => item.id === id);
         if (!card) throw new Error(`第${index + 1}张雷诺曼牌录入无效`);
         return card;
       })
-    : shuffleCards(context!.random).slice(0, spread.positions.length);
+    : interactiveSamples
+      ? resolveInteractiveLenormandCards(spreadType, interactiveSamples)
+      : shuffleCards(context!.random).slice(0, spread.positions.length);
   const cards = selectedCards.map((card, index) => {
     const columns = spreadType === 'grandTableau' ? 9 : spreadType === 'nine' ? 3 : 0;
     return {
@@ -394,7 +434,11 @@ export function drawLenormandSpread(
   const timestamp = Date.now();
   const draw: NonNullable<LenormandData['draw']> = {
     deckSize: LENORMAND_CARDS.length,
-    method: manualCardIds ? '用户按牌位手工录入' : 'Fisher-Yates洗牌后依牌位顺序取顶牌',
+    method: manualCardIds
+      ? '用户按牌位手工录入'
+      : interactiveSamples
+        ? '用户逐张触发前端随机抽取'
+        : 'Fisher-Yates洗牌后依牌位顺序取顶牌',
     order: cards.map((card, index) => ({
       index: index + 1,
       position: card.position,
@@ -416,10 +460,18 @@ export function drawLenormandSpread(
       timestamp,
     } satisfies LenormandData,
     {
-      algorithm: manualCardIds ? 'lenormand.spread.manual' : 'lenormand.spread',
+      algorithm: manualCardIds
+        ? 'lenormand.spread.manual'
+        : interactiveSamples
+          ? 'lenormand.spread.interactive'
+          : 'lenormand.spread',
       input: manualCardIds ? { spreadType, manualCardIds } : { spreadType },
       calculatedAt: timestamp,
-      ...(context ? { random: context.getTrace() } : {}),
+      ...(context
+        ? { random: context.getTrace() }
+        : interactiveSamples
+          ? { random: { mode: 'system' as const, samples: [...interactiveSamples] } }
+          : {}),
     },
   );
   return { ...result, evidenceAnalysis: analyzeLenormandEvidence(result) };

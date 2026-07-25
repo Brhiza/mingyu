@@ -734,6 +734,11 @@ export interface LiuyaoGenerationOptions extends RandomOptions {
   method?: LiuyaoGenerationMethod;
   /** 可选手工三钱法爻值，按初爻到上爻传入 6、7、8、9。 */
   yaos?: readonly number[];
+  /** 用户逐爻手摇得到的三钱记录，按初爻到上爻传入。 */
+  coinThrows?: readonly {
+    coins: readonly (2 | 3)[];
+    total: 6 | 7 | 8 | 9;
+  }[];
 }
 
 type LiuyaoGeneration = NonNullable<import('../../types/divination').LiuyaoData['generation']>;
@@ -778,13 +783,36 @@ function resolveRawYaos(
   const usesRandomOptions = hasRandomOptions(options);
   if (method === 'time') {
     if (options?.yaos !== undefined) throw new Error('六爻时间起卦不能同时提供手工爻值。');
+    if (options?.coinThrows !== undefined) throw new Error('六爻时间起卦不能同时提供手摇记录。');
     if (usesRandomOptions) throw new Error('六爻时间起卦不接受额外随机选项。');
     return generateCoinYaos('time', { seed: `时间起卦:${timestamp}` });
   }
   if (method === 'coins') {
     if (options?.yaos !== undefined) throw new Error('六爻模拟投掷不能同时提供手工爻值。');
+    if (options?.coinThrows !== undefined) {
+      if (usesRandomOptions) throw new Error('六爻手摇记录不能同时提供随机选项。');
+      if (options.coinThrows.length !== 6) {
+        throw new Error('六爻手摇记录必须恰好包含 6 爻。');
+      }
+      const coinThrows = options.coinThrows.map((item, index) => {
+        if (item.coins.length !== 3 || !item.coins.every((coin) => coin === 2 || coin === 3)) {
+          throw new Error(`第${index + 1}爻必须包含三枚有效铜钱。`);
+        }
+        const coins = [...item.coins] as [2 | 3, 2 | 3, 2 | 3];
+        const total = coins.reduce<number>((sum, coin) => sum + coin, 0) as 6 | 7 | 8 | 9;
+        if (item.total !== total) {
+          throw new Error(`第${index + 1}爻的铜钱合计与爻值不一致。`);
+        }
+        return { coins, total };
+      });
+      return {
+        yaos: coinThrows.map((item) => item.total),
+        generation: { method: 'coins', coinThrows },
+      };
+    }
     return generateCoinYaos('coins', options ?? {});
   }
+  if (options?.coinThrows !== undefined) throw new Error('六爻手工起卦不能同时提供手摇记录。');
   if (usesRandomOptions) throw new Error('六爻手工起卦不接受随机选项。');
   if (options?.yaos === undefined) throw new Error('六爻手工起卦必须提供六个爻值。');
   if (options.yaos.length !== 6) {

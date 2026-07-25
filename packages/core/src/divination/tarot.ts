@@ -34,15 +34,28 @@ export interface TarotManualCardInput {
 
 export interface TarotDrawOptions extends RandomOptions {
   manualCards?: readonly TarotManualCardInput[];
+  /** 用户在前端逐张抽牌时产生的原始随机样本，每张牌依次使用抽牌与正逆位两个样本。 */
+  interactiveSamples?: readonly number[];
+}
+
+export interface TarotInteractiveCard {
+  id: number;
+  name: string;
+  reversed: boolean;
 }
 
 function buildDrawFacts(
   cards: Array<{ id: number; name: string; position: string; reversed: boolean }>,
-  method: 'random' | 'manual' = 'random',
+  method: 'random' | 'manual' | 'interactive' = 'random',
 ): NonNullable<TarotData['draw']> {
   return {
     deckSize: tarotCards.length,
-    method: method === 'manual' ? '用户按牌位手工录入' : 'Fisher-Yates洗牌后依牌位顺序取顶牌',
+    method:
+      method === 'manual'
+        ? '用户按牌位手工录入'
+        : method === 'interactive'
+          ? '用户逐张触发前端随机抽取'
+          : 'Fisher-Yates洗牌后依牌位顺序取顶牌',
     orientationRule:
       method === 'manual'
         ? '正逆位由用户逐张录入'
@@ -55,6 +68,39 @@ function buildDrawFacts(
       orientation: card.reversed ? '逆位' : '正位',
     })),
   };
+}
+
+function assertInteractiveSample(sample: number, index: number) {
+  if (!Number.isFinite(sample) || sample < 0 || sample >= 1) {
+    throw new Error(`第${index + 1}个塔罗抽牌随机样本无效`);
+  }
+}
+
+/** 根据前端已产生的随机样本复算当前抽牌进度，允许传入未完成牌阵的样本。 */
+export function resolveInteractiveTarotCards(
+  spreadType: TarotSpreadType,
+  samples: readonly number[],
+): TarotInteractiveCard[] {
+  const spread = tarotSpreads[spreadType];
+  if (!spread) throw new Error(`未知的牌阵类型: ${spreadType}`);
+  if (samples.length % 2 !== 0) throw new Error('塔罗手动抽取每张牌需要两个随机样本');
+  if (samples.length > spread.cardCount * 2) {
+    throw new Error(`${spread.name}最多抽取${spread.cardCount}张牌`);
+  }
+  samples.forEach(assertInteractiveSample);
+
+  const remaining = [...tarotCards];
+  const selected: TarotInteractiveCard[] = [];
+  for (let index = 0; index < samples.length; index += 2) {
+    const cardIndex = Math.floor(samples[index] * remaining.length);
+    const [card] = remaining.splice(cardIndex, 1);
+    selected.push({
+      id: card.number,
+      name: card.name,
+      reversed: samples[index + 1] < 0.5,
+    });
+  }
+  return selected;
 }
 
 function shuffleCards(rng: RandomSource) {
@@ -283,6 +329,43 @@ export function drawTarotSpread(
   const spread = tarotSpreads[spreadType];
   if (!spread) {
     throw new Error(`未知的牌阵类型: ${spreadType}`);
+  }
+
+  if (options?.interactiveSamples && options.manualCards) {
+    throw new Error('塔罗手动抽取不能同时提供手工录入牌面');
+  }
+  if (options?.interactiveSamples && hasRandomOptions(options)) {
+    throw new Error('塔罗手动抽取样本不能同时提供随机选项');
+  }
+
+  if (options?.interactiveSamples) {
+    if (options.interactiveSamples.length !== spread.cardCount * 2) {
+      throw new Error(`${spread.name}需要逐张抽取${spread.cardCount}张牌`);
+    }
+    const cards = resolveInteractiveTarotCards(spreadType, options.interactiveSamples).map(
+      (card, index) => ({
+        ...card,
+        position: spread.positions[index],
+        ...getCardEvidence(card.name),
+      }),
+    );
+    const timestamp = Date.now();
+    const data = attachResultMeta(
+      {
+        spreadType,
+        spreadName: spread.name,
+        cards,
+        draw: buildDrawFacts(cards, 'interactive'),
+        timestamp,
+      } satisfies Omit<TarotData, 'meta' | 'evidenceAnalysis'>,
+      {
+        algorithm: 'tarot.spread.interactive',
+        input: { spreadType },
+        calculatedAt: timestamp,
+        random: { mode: 'system', samples: [...options.interactiveSamples] },
+      },
+    );
+    return { ...data, evidenceAnalysis: analyzeTarotEvidence(data) };
   }
 
   if (options?.manualCards) {
