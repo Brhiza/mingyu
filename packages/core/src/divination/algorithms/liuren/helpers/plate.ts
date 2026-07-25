@@ -379,7 +379,11 @@ export function getPlateItemByBranch(plate: LiurenPlateItem[], branch: string) {
   return item;
 }
 
-export function getDayStemResidence(dayStem: string, fallbackBranch: string) {
+export function getDayStemResidence(dayStem: string) {
   assertStem(dayStem, '日干');
-  return DAY_STEM_RESIDENCE_MAP[dayStem] || fallbackBranch;
+  const residence = DAY_STEM_RESIDENCE_MAP[dayStem];
+  if (!residence) {
+    throw new Error(`日干寄宫数据缺失：${dayStem}`);
+  }
+  return residence;
 }

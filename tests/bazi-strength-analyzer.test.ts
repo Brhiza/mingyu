@@ -13,6 +13,10 @@ import { analyzeTenGodStructure } from '@core/bazi/tenGodAnalysis';
 import { getSeasonStatus, getWuxing } from '@core/bazi/baziUtils';
 import { SEASON_STATUS, WUXING_MONTH_WEIGHTS } from '@core/bazi/baziDefinitions';
 import type { Wuxing } from '@core/bazi/baziTypes';
+import {
+  collectCompleteBranchFormations,
+  collectEstablishedBranchFormations,
+} from '@core/bazi/baziFormationUtils';
 
 const SEASON_STATUS_RANK: Record<string, number> = {
   旺: 5,
@@ -329,6 +333,38 @@ test('三合三会成局时，旺衰评分应额外计入成局助势，而不�
   assert.ok(result.totalStrength > 0);
 });
 
+test('三合三会三支齐全但月令不支持时，只记录结构，不应计入成势力量', () => {
+  const pillars = {
+    year: { gan: '癸', zhi: '亥', ganZhi: '癸亥' },
+    month: { gan: '壬', zhi: '申', ganZhi: '壬申' },
+    day: { gan: '丁', zhi: '卯', ganZhi: '丁卯' },
+    hour: { gan: '辛', zhi: '未', ganZhi: '辛未' },
+  };
+
+  assert.equal(collectCompleteBranchFormations(pillars).length, 1);
+  assert.equal(collectEstablishedBranchFormations(pillars).length, 0);
+  assert.deepEqual(analyzeFormation('丁', pillars, getWuxing as (value: string) => Wuxing), {
+    formations: [],
+    totalStrength: 0,
+  });
+});
+
+test('三合三会被局外地支冲破时，只记录结构，不应计入成势力量', () => {
+  const pillars = {
+    year: { gan: '丁', zhi: '卯', ganZhi: '丁卯' },
+    month: { gan: '癸', zhi: '亥', ganZhi: '癸亥' },
+    day: { gan: '辛', zhi: '未', ganZhi: '辛未' },
+    hour: { gan: '癸', zhi: '酉', ganZhi: '癸酉' },
+  };
+
+  assert.equal(collectCompleteBranchFormations(pillars).length, 1);
+  assert.equal(collectEstablishedBranchFormations(pillars).length, 0);
+  assert.deepEqual(analyzeFormation('辛', pillars, getWuxing as (value: string) => Wuxing), {
+    formations: [],
+    totalStrength: 0,
+  });
+});
+
 test('克泄耗一方三合成局时，旺衰评分也应计入成局破势，不应仍按普通身弱看待', () => {
   const formation = analyzeFormation(
     '甲',
@@ -490,6 +526,16 @@ test('克泄耗统计不应把地支主气与同支本气藏干重复计入', ()
 
 test('旺衰分析器应拒绝坏输入，不应把缺失旺衰或未知五行按零分继续计算', () => {
   assert.throws(
+    () =>
+      analyzeSeasonalStatus(
+        '甲',
+        '辰',
+        () => ({ 木: '未知状态' }),
+        getWuxing as (value: string) => Wuxing,
+      ),
+    /月令旺衰状态无效/,
+  );
+  assert.throws(
     () => analyzeSeasonalStatus('甲', '辰', () => ({}), getWuxing as (value: string) => Wuxing),
     /月令旺衰数据缺失/,
   );
@@ -536,5 +582,25 @@ test('旺衰分析器应拒绝坏输入，不应把缺失旺衰或未知五行�
         getWuxing as (value: string) => Wuxing,
       ),
     /month柱藏干无效/,
+  );
+  assert.throws(
+    () =>
+      analyzeConstraint(
+        '甲',
+        {
+          year: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+          month: { gan: '丙', zhi: '午', ganZhi: '丙午' },
+          day: { gan: '甲', zhi: '寅', ganZhi: '甲寅' },
+          hour: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+        },
+        {
+          year: ['庚', '壬', '戊'],
+          month: ['丁', '己'],
+          day: ['甲', '丙', '戊'],
+          hour: ['戊', '癸', '乙'],
+        },
+        getWuxing as (value: string) => Wuxing,
+      ),
+    /hour柱藏干与地支辰不一致/,
   );
 });

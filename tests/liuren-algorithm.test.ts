@@ -197,7 +197,7 @@ function buildReferenceLiurenPlate(args: { day: string; hour: string; monthLeade
     noblemanBranch: GUIREN_BRANCH_BY_STEM[dayStem][dayNight === '昼占' ? 'day' : 'night'],
     dayNight,
   });
-  const dayStemResidence = getDayStemResidence(dayStem, dayBranch);
+  const dayStemResidence = getDayStemResidence(dayStem);
   const lessons = buildFourLessons({
     heavenlyPlate,
     dayStem,
@@ -319,7 +319,7 @@ test('大六壬十干寄宫与四课上下递取应符合传统口径', () => {
   });
 
   for (const [dayStem, expectedResidence] of residenceCases) {
-    const dayStemResidence = getDayStemResidence(dayStem, '子');
+    const dayStemResidence = getDayStemResidence(dayStem);
     const lessons = buildFourLessons({
       heavenlyPlate: plate,
       dayStem,
@@ -612,7 +612,7 @@ test('大六壬涉害法无孟候选时应先取仲上神，不应改取季上�
   });
   const dayStem = '甲';
   const dayBranch = '卯';
-  const dayStemResidence = getDayStemResidence(dayStem, dayBranch);
+  const dayStemResidence = getDayStemResidence(dayStem);
   const lessons = buildFourLessons({
     heavenlyPlate,
     dayStem,
@@ -815,7 +815,7 @@ test('大六壬应与传统排盘样本的申将午时天地盘和十二天将�
 test('大六壬底层参数非法时应明确报错，不应用默认贵人或首个天盘项兜底', () => {
   assert.equal(getNoblemanBranch('甲', '昼占'), '丑');
   assert.throws(() => getNoblemanBranch('A', '昼占'), /日干必须是有效天干/);
-  assert.throws(() => getDayStemResidence('A', '子'), /日干必须是有效天干/);
+  assert.throws(() => getDayStemResidence('A'), /日干必须是有效天干/);
   assert.throws(
     () =>
       buildHeavenlyPlate({

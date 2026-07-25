@@ -4,7 +4,7 @@
  */
 
 import { BASIC_MAPPINGS, HIDDEN_STEMS, SEASON_STATUS, shenShaTypes } from './baziDefinitions';
-import type { Pillars, Wuxing } from './baziTypes';
+import type { HiddenStems, Pillars, Wuxing } from './baziTypes';
 
 const ctg = BASIC_MAPPINGS.HEAVENLY_STEMS as readonly string[];
 const cdz = BASIC_MAPPINGS.EARTHLY_BRANCHES as readonly string[];
@@ -75,6 +75,36 @@ export function assertPillars(pillars: Pillars): void {
 
     if (pillar.ganZhi && pillar.ganZhi !== `${pillar.gan}${pillar.zhi}`) {
       throw new Error(`${key}柱干支不一致：${pillar.ganZhi}`);
+    }
+  }
+}
+
+export function assertHiddenStemsMatchPillars(pillars: Pillars, hiddenStems: HiddenStems): void {
+  assertPillars(pillars);
+  if (!hiddenStems) {
+    throw new Error('藏干缺失');
+  }
+
+  const keys = ['year', 'month', 'day', 'hour'] as const;
+  for (const key of keys) {
+    const actual = hiddenStems[key];
+    if (!Array.isArray(actual)) {
+      throw new Error(`藏干缺少${key}`);
+    }
+    actual.forEach((stem) => assertHeavenlyStem(stem, `${key}柱藏干`));
+
+    const branch = pillars[key].zhi;
+    const expected = HIDDEN_STEMS[branch];
+    if (!expected) {
+      throw new Error(`${key}柱藏干数据缺失：${branch}`);
+    }
+    if (
+      actual.length !== expected.length ||
+      actual.some((stem, index) => stem !== expected[index])
+    ) {
+      throw new Error(
+        `${key}柱藏干与地支${branch}不一致：应为${expected.join('、')}，实际为${actual.join('、') || '空'}`,
+      );
     }
   }
 }

@@ -17,6 +17,11 @@ import {
   getDaySeasonRelation,
   getSeasonalElement,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/seasonality.ts';
+import {
+  getMonthQimenJuShu,
+  getYearQimenJuShu,
+} from '../packages/core/src/divination/algorithms/qimen/helpers/jushu-extended.ts';
+import { getQimenPatternTags } from '../packages/core/src/divination/algorithms/qimen/helpers/patterns.ts';
 
 test('奇门拆补法在交节当天应按具体时刻换节气，不应按整日提前换局', () => {
   const beforeXiaoman = generateQimen(new Date('2024-05-20T10:00:00+08:00'));
@@ -127,6 +132,37 @@ test('奇门九星旺衰：未知星或非法宫位应明确报错，不应默�
   );
 });
 
+test('月家与年家奇门应校验完整干支，不应只读取单个天干或地支', () => {
+  assert.deepEqual(getMonthQimenJuShu('丙寅', '甲辰'), {
+    isYangDun: true,
+    juShu: 1,
+    yuan: '月局',
+  });
+  assert.throws(() => getMonthQimenJuShu('甲丑', '甲辰'), /月干支不是有效六十甲子/);
+  assert.throws(() => getMonthQimenJuShu('丙寅', '甲丑'), /年干支不是有效六十甲子/);
+  assert.throws(() => getYearQimenJuShu('甲丑'), /年干支不是有效六十甲子/);
+});
+
+test('奇门格局应拒绝未知值符和值使，不应按零宫位继续判断', () => {
+  const baseParams = {
+    zhiFu: '天蓬',
+    zhiShi: '休门',
+    zhiFuLandingPalace: 1,
+    zhiShiLandingPalace: 1,
+    jiuGongGe: [],
+    hourGanForFind: '戊',
+  };
+
+  assert.throws(
+    () => getQimenPatternTags({ ...baseParams, zhiFu: '假星' }),
+    /值符星 "假星" 无法识别/,
+  );
+  assert.throws(
+    () => getQimenPatternTags({ ...baseParams, zhiShi: '假门' }),
+    /值使门 "假门" 无法识别/,
+  );
+});
+
 test('奇门节令：未知节气或日干应明确报错，不应降级成无法判定', () => {
   assert.equal(getSeasonalElement('立春'), '木');
   assert.equal(getDaySeasonRelation('甲', '木').relation, '得时');
@@ -134,7 +170,6 @@ test('奇门节令：未知节气或日干应明确报错，不应降级成无�
   assert.throws(() => getDaySeasonRelation('假', '木'), /无法识别日干 "假" 的五行属性/);
   assert.throws(() => getDaySeasonRelation('甲', ''), /节令五行不能为空/);
 });
-
 
 test('奇门定局方法应支持拆补与置闰，并在结果中标明', () => {
   const date = new Date('2024-05-20T21:30:00+08:00');
