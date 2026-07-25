@@ -31,6 +31,7 @@ const STEM_RESIDENCE_MAP = DAY_STEM_RESIDENCE_MAP;
 const MENG_BRANCHES = new Set(['寅', '巳', '申', '亥']);
 const ZHONG_BRANCHES = new Set(['子', '卯', '午', '酉']);
 const JI_BRANCHES = new Set(['辰', '戌', '丑', '未']);
+const VALID_WUXING = new Set(['木', '火', '土', '金', '水']);
 const STEMS_BY_RESIDENCE: Record<string, string[]> = Object.entries(STEM_RESIDENCE_MAP).reduce<
   Record<string, string[]>
 >((acc, [stem, branch]) => {
@@ -205,7 +206,14 @@ function isSameYinYangAsDayStem(branch: string, dayStem: string) {
 
 function getStemWuxing(stem: string) {
   const stemIndex = HEAVENLY_STEMS.indexOf(stem as (typeof HEAVENLY_STEMS)[number]);
-  return stemIndex >= 0 ? BASIC_MAPPINGS.STEM_WUXING[stemIndex] : '';
+  if (stemIndex < 0) {
+    throw new Error(`无法识别天干 "${stem}" 的五行属性。`);
+  }
+  const element = BASIC_MAPPINGS.STEM_WUXING[stemIndex];
+  if (!VALID_WUXING.has(element)) {
+    throw new Error(`天干 ${stem} 的五行数据缺失。`);
+  }
+  return element;
 }
 
 function uniqueCandidatesByUpper(candidates: KeCandidate[]) {
@@ -220,16 +228,15 @@ function uniqueCandidatesByUpper(candidates: KeCandidate[]) {
 }
 
 function hasSameDayAndHourElement(context: ResolveTransmissionContext) {
+  if (!context.hourStem || !context.hourBranch) {
+    return false;
+  }
   const dayStemElement = getGanZhiWuxing(context.dayStem);
   const dayBranchElement = getGanZhiWuxing(context.dayBranch);
-  const hourStemElement = getGanZhiWuxing(context.hourStem || '');
-  const hourBranchElement = getGanZhiWuxing(context.hourBranch || '');
+  const hourStemElement = getGanZhiWuxing(context.hourStem);
+  const hourBranchElement = getGanZhiWuxing(context.hourBranch);
 
-  return (
-    Boolean(dayStemElement && hourStemElement) &&
-    dayStemElement === dayBranchElement &&
-    hourStemElement === hourBranchElement
-  );
+  return dayStemElement === dayBranchElement && hourStemElement === hourBranchElement;
 }
 
 function getBranchAt(rawIndex: number) {
@@ -240,7 +247,7 @@ function getBranchAt(rawIndex: number) {
 function shiftBranch(branch: string, steps: number) {
   const index = getBranchIndex(branch);
   if (index < 0) {
-    return branch;
+    throw new Error(`无法移动非法地支 "${branch}"。`);
   }
   return getBranchAt(index + steps);
 }
@@ -249,7 +256,7 @@ function walkBranches(start: string, end: string) {
   const startIndex = getBranchIndex(start);
   const endIndex = getBranchIndex(end);
   if (startIndex < 0 || endIndex < 0) {
-    return [];
+    throw new Error(`涉害深度计算收到非法地支：${start} -> ${end}。`);
   }
 
   const branches: string[] = [];
@@ -270,7 +277,10 @@ function getHarmDepth(candidate: KeCandidate, context: ResolveTransmissionContex
   const walkedBranches = walkBranches(startUnder, candidate.lesson.upper);
 
   return walkedBranches.reduce((count, branch) => {
-    const branchElement = BRANCH_WUXING[branch] || '';
+    const branchElement = BRANCH_WUXING[branch];
+    if (!VALID_WUXING.has(branchElement)) {
+      throw new Error(`地支 ${branch} 的五行数据缺失。`);
+    }
     const housedStemElements = (STEMS_BY_RESIDENCE[branch] || [])
       .map(getStemWuxing)
       .filter(Boolean);
@@ -319,10 +329,13 @@ function pickByHarmDepth(candidates: KeCandidate[], context: ResolveTransmission
   const preferredUpper = YANG_STEMS.has(context.dayStem)
     ? context.dayStemResidence
     : context.dayBranch;
-  return (
-    tied.find((item) => item.candidate.lesson.upper === preferredUpper)?.candidate ||
-    tied[0].candidate
-  );
+  const picked =
+    tied.find((item) => item.candidate.lesson.upper === preferredUpper)?.candidate ??
+    tied[0]?.candidate;
+  if (!picked) {
+    throw new Error('涉害法没有可供比较的候选课。');
+  }
+  return picked;
 }
 
 function resolveMultipleCandidates(
@@ -381,7 +394,7 @@ function pickZhiYiVariant(
     return null;
   }
 
-  return lessons[1] || null;
+  return lessons[1];
 }
 
 function resolveKeCandidates(
@@ -469,15 +482,19 @@ function getUniqueLessonPairCount(lessons: LiurenLesson[]) {
 }
 
 function getPunishment(branch: string) {
-  return SANXING_MAP[branch] || branch;
+  const punishment = SANXING_MAP[branch];
+  if (!punishment) {
+    throw new Error(`地支 ${branch} 的三刑映射缺失。`);
+  }
+  return punishment;
 }
 
 function resolveFuyinTransmission(
   lessons: LiurenLesson[],
   context: ResolveTransmissionContext,
 ): InitialTransmissionResult {
-  const yiKeUpper = lessons[0]?.upper || context.dayStemResidence;
-  const sanKeUpper = lessons[2]?.upper || context.dayBranch;
+  const yiKeUpper = lessons[0].upper;
+  const sanKeUpper = lessons[2].upper;
   const isSelfResponsibility =
     YANG_STEMS.has(context.dayStem) || context.dayStem === '乙' || context.dayStem === '癸';
   const useDayStemSide = isSelfResponsibility;
@@ -490,7 +507,11 @@ function resolveFuyinTransmission(
 
   let final = getPunishment(middle);
   if (final === middle || getPunishment(middle) === initial) {
-    final = LIUCHONG_MAP[middle] || middle;
+    const opposite = LIUCHONG_MAP[middle];
+    if (!opposite) {
+      throw new Error(`地支 ${middle} 的六冲映射缺失。`);
+    }
+    final = opposite;
   }
 
   return {
@@ -522,9 +543,12 @@ function resolveFanyinTransmission(
     return keResult;
   }
 
-  const yiKeUpper = lessons[0]?.upper || context.dayStemResidence;
-  const sanKeUpper = lessons[2]?.upper || context.dayBranch;
-  const initial = getYiMa(context.dayBranch) || getUpperByUnder(context.heavenlyPlate, '寅');
+  const yiKeUpper = lessons[0].upper;
+  const sanKeUpper = lessons[2].upper;
+  const initial = getYiMa(context.dayBranch);
+  if (!initial) {
+    throw new Error(`日支 ${context.dayBranch} 的驿马映射缺失。`);
+  }
 
   return {
     initial,
@@ -538,9 +562,9 @@ function resolveSpecialTransmission(
   lessons: LiurenLesson[],
   context: ResolveTransmissionContext,
 ): InitialTransmissionResult {
-  const yiKeUpper = lessons[0]?.upper || context.dayStemResidence;
-  const sanKeUpper = lessons[2]?.upper || context.dayBranch;
-  const siKeUpper = lessons[3]?.upper || sanKeUpper;
+  const yiKeUpper = lessons[0].upper;
+  const sanKeUpper = lessons[2].upper;
+  const siKeUpper = lessons[3].upper;
   const isYangDay = YANG_STEMS.has(context.dayStem);
   const isBazhuanDay = BAZHUAN_DAYS.has(`${context.dayStem}${context.dayBranch}`);
 
@@ -568,8 +592,14 @@ function resolveSpecialTransmission(
 
   if (getUniqueLessonPairCount(lessons) === 3) {
     if (isYangDay) {
-      const heStem = TIAN_GAN_HE[context.dayStem]?.partner || context.dayStem;
-      const heStemResidence = STEM_RESIDENCE_MAP[heStem] || context.dayStemResidence;
+      const heStem = TIAN_GAN_HE[context.dayStem]?.partner;
+      if (!heStem) {
+        throw new Error(`日干 ${context.dayStem} 的天干五合映射缺失。`);
+      }
+      const heStemResidence = STEM_RESIDENCE_MAP[heStem];
+      if (!heStemResidence) {
+        throw new Error(`合干 ${heStem} 的寄宫映射缺失。`);
+      }
       const initial = getUpperByUnder(context.heavenlyPlate, heStemResidence);
       return {
         initial,

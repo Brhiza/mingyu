@@ -213,7 +213,7 @@ test('六爻：八宫卦位应输出首卦一世游魂归魂等卦序', () => {
   assert.equal(data.palaceStage, '五世');
 });
 
-test('六爻：三合局应区分日辰与月建的实际参与', () => {
+test('六爻：静卦不能仅凭静态纳甲支凑成三合局', () => {
   const data = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
     yaos: KAN_WEI_SHUI_YAOS,
   });
@@ -222,13 +222,30 @@ test('六爻：三合局应区分日辰与月建的实际参与', () => {
   assert.equal(data.ganzhi.day.slice(1), '午');
   assert.deepEqual(data.najiaDizhi, ['寅', '辰', '午', '申', '戌', '子']);
 
+  assert.equal(data.changingYaos.length, 0);
+  assert.equal(data.sanheWithDay, null);
+  assert.equal(data.sanheWithMonth, null);
+});
+
+test('六爻：动爻的变爻可以与日辰补成完整三合局', () => {
+  const data = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
+    yaos: [7, 6, 7, 7, 7, 6],
+  });
+
+  assert.equal(data.ganzhi.day.slice(1), '午');
+  assert.deepEqual(
+    data.yaosDetail
+      .filter((yao) => yao.isChanging)
+      .map((yao) => [yao.najiaDizhi, yao.changedYao?.dizhi]),
+    [
+      ['丑', '寅'],
+      ['卯', '戌'],
+    ],
+  );
   assert.equal(data.sanheWithDay?.group, '火局');
   assert.deepEqual(data.sanheWithDay?.members, ['寅', '午', '戌']);
   assert.match(data.sanheWithDay?.description || '', /日辰午引动三合火局/);
-
-  assert.equal(data.sanheWithMonth?.group, '水局');
-  assert.deepEqual(data.sanheWithMonth?.members, ['申', '子', '辰']);
-  assert.match(data.sanheWithMonth?.description || '', /月建子引动三合水局/);
+  assert.equal(data.sanheWithMonth, null);
 });
 
 test('六爻：月卦身应按阳世起子、阴世起午逐爻顺数', () => {

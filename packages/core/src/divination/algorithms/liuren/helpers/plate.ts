@@ -8,6 +8,7 @@ import { BRANCH_WUXING, getBranchIndex, isKe, isSheng } from '../../../../ganzhi
 
 export const DIZHI = EARTHLY_BRANCHES;
 export const TIANGAN = HEAVENLY_STEMS;
+const VALID_WUXING = new Set(['木', '火', '土', '金', '水']);
 
 /**
  * 十二天将（《大六壬大全》天将体系）：
@@ -259,10 +260,6 @@ function assertDayNight(value: string): asserts value is '昼占' | '夜占' {
 export function describeRelation(sourceBranch: string, targetBranch: string) {
   const sourceElement = getGanZhiWuxing(sourceBranch);
   const targetElement = getGanZhiWuxing(targetBranch);
-
-  if (!sourceElement || !targetElement) {
-    return '关系待定';
-  }
   if (sourceElement === targetElement) {
     return '比和';
   }
@@ -285,25 +282,30 @@ export function describeRelation(sourceBranch: string, targetBranch: string) {
 export function getGanZhiWuxing(value: string) {
   const stemIndex = TIANGAN.indexOf(value as (typeof TIANGAN)[number]);
   if (stemIndex >= 0) {
-    return BASIC_MAPPINGS.STEM_WUXING[stemIndex] || '';
+    const element = BASIC_MAPPINGS.STEM_WUXING[stemIndex];
+    if (!VALID_WUXING.has(element)) {
+      throw new Error(`天干 ${value} 的五行数据缺失。`);
+    }
+    return element;
   }
-
-  return BRANCH_WUXING[value] || '';
+  const element = BRANCH_WUXING[value];
+  if (!VALID_WUXING.has(element)) {
+    throw new Error(`无法识别干支 "${value}" 的五行属性。`);
+  }
+  return element;
 }
 
 export function isBranchKe(sourceBranch: string, targetBranch: string) {
   const sourceElement = getGanZhiWuxing(sourceBranch);
   const targetElement = getGanZhiWuxing(targetBranch);
-  if (!sourceElement || !targetElement) {
-    return false;
-  }
-
   return isKe(sourceElement, targetElement);
 }
 
 export function isElementKe(sourceElement: string, targetElement: string) {
-  if (!sourceElement || !targetElement) {
-    return false;
+  if (!VALID_WUXING.has(sourceElement) || !VALID_WUXING.has(targetElement)) {
+    throw new Error(
+      `大六壬五行比较参数无效：${sourceElement || '空'} -> ${targetElement || '空'}。`,
+    );
   }
 
   return isKe(sourceElement, targetElement);
@@ -364,10 +366,13 @@ export function buildHeavenlyPlate(args: {
     byUpperGod.set(DIZHI[branchIndex], TIANJIANG[godIndex]);
   }
 
-  return basePlate.map((item) => ({
-    ...item,
-    god: byUpperGod.get(item.branch) || '贵人',
-  }));
+  return basePlate.map((item) => {
+    const god = byUpperGod.get(item.branch);
+    if (!god || !TIANJIANG.includes(god as TianJiangName)) {
+      throw new Error(`上神 ${item.branch} 的十二天将映射缺失。`);
+    }
+    return { ...item, god };
+  });
 }
 
 export function getPlateItemByBranch(plate: LiurenPlateItem[], branch: string) {

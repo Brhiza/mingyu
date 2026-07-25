@@ -4233,13 +4233,15 @@ test('塔罗与雷诺曼提示词应保留牌面资料且不混入工程证据�
   assert.doesNotMatch(lenormandSession.prompt, /成功率为\d|成功率提升至|吉凶总分[：=]\d/);
 });
 
-test('六爻提示词应同时写出日辰和月建参与的三合局', async () => {
+test('六爻提示词应写出动爻、变爻与日辰月建形成的三合局', async () => {
   const session = await generateDivinationSession(
     buildDraft({
       method: 'liuyao',
       divinationTimeMode: 'custom',
       customDivinationDate: '2025-01-01',
       customDivinationTime: '00:21',
+      liuyaoMethod: 'manual',
+      liuyaoYaos: [6, 6, 6, 6, 6, 6],
     }),
   );
   const data = session.data as ReturnType<typeof generateLiuyao>;

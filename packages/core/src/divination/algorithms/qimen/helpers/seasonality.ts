@@ -300,15 +300,26 @@ const MOON_PHASE_MAP: Record<number, LunarPhase> = {
   7: '下弦',
 };
 
+export function getLunarPhaseByIndex(index: number): LunarPhase {
+  const phase = MOON_PHASE_MAP[index];
+  if (!phase) {
+    throw new Error(`无法识别历法月相索引 "${index}"。`);
+  }
+  return phase;
+}
+
 /**
  * 获取农历日对应的四相月相
  * @param date 公历日期
  * @returns 月相
  */
 export function getLunarPhase(date: Date): LunarPhase {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    throw new Error('月相日期必须是有效日期。');
+  }
   const solarDay = SolarDay.fromYmd(date.getFullYear(), date.getMonth() + 1, date.getDate());
   const phase = solarDay.getLunarDay().getPhase();
-  return MOON_PHASE_MAP[phase.getIndex()] ?? '新月';
+  return getLunarPhaseByIndex(phase.getIndex());
 }
 
 // ============================================================================
@@ -382,6 +393,14 @@ const DAY_OFFICER_INFO: Record<string, { fortune: '吉' | '凶' | '平'; meaning
   闭: { fortune: '凶', meaning: '闭为天狱，宜安葬、收藏，忌开市出行' },
 };
 
+export function getDayOfficerInfo(dayOfficer: string) {
+  const info = DAY_OFFICER_INFO[dayOfficer];
+  if (!info) {
+    throw new Error(`无法识别建除十二神 "${dayOfficer}"。`);
+  }
+  return info;
+}
+
 /**
  * 构建完整节令背景信息
  *
@@ -409,7 +428,7 @@ export function buildSeasonality(ganzhi: BaseGanZhi, jieQi: string, date: Date):
   const solarDay = SolarDay.fromYmd(date.getFullYear(), date.getMonth() + 1, date.getDate());
   const tymePhase = solarDay.getLunarDay().getPhase();
   const phaseIndex = tymePhase.getIndex();
-  const lunarPhase = MOON_PHASE_MAP[phaseIndex] ?? '新月';
+  const lunarPhase = getLunarPhaseByIndex(phaseIndex);
   const lunarPhaseDetail = tymePhase.getName();
   const moonPhaseEvidence = calculateMoonPhaseEvidence(date.getTime());
   const lunarPhaseConsistency = lunarPhaseDetail === moonPhaseEvidence.eightPhaseName;
@@ -417,10 +436,7 @@ export function buildSeasonality(ganzhi: BaseGanZhi, jieQi: string, date: Date):
   // ── 4. 建除十二神 ──
   const duty = solarDay.getLunarDay().getDuty();
   const dayOfficer = duty.getName();
-  const officerInfo = DAY_OFFICER_INFO[dayOfficer] ?? {
-    fortune: '平' as const,
-    meaning: '未知建除',
-  };
+  const officerInfo = getDayOfficerInfo(dayOfficer);
 
   // ── 5. 干支互动分析 ──
   const ganzhiInteractions = analyzeGanzhiInteractions(ganzhi);

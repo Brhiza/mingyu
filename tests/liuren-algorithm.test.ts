@@ -16,6 +16,7 @@ import {
 import {
   buildHeavenlyPlate,
   getDayStemResidence,
+  getGanZhiWuxing,
   getNoblemanBranch,
   getPlateItemByBranch,
 } from '../packages/core/src/divination/algorithms/liuren/helpers/plate.ts';
@@ -834,6 +835,7 @@ test('大六壬底层参数非法时应明确报错，不应用默认贵人或�
     dayNight: '昼占',
   });
   assert.throws(() => getPlateItemByBranch(plate, 'A'), /天盘地支必须是有效地支/);
+  assert.throws(() => getGanZhiWuxing('A'), /无法识别干支/);
 });
 
 test('大六壬取传入口应拒绝坏四课和坏天盘，不应静默套用取传规则', () => {

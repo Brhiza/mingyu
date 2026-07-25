@@ -50,6 +50,22 @@ test('梅花：互卦应取二三四爻为下互、三四五爻为上互', () =>
   assert.equal(data.interHexagram?.lower, '艮');
 });
 
+test('梅花：数字起卦生成的主互变三卦与动爻资料必须始终完整', () => {
+  for (let number = 1; number <= 192; number += 1) {
+    const data = generateMeihua(SAMPLE_DATE, { method: 'number', number });
+
+    assert.ok(data.originalName);
+    assert.ok(data.interName);
+    assert.ok(data.changedName);
+    assert.ok(data.interHexagram?.upper && data.interHexagram.lower);
+    assert.ok(data.changedHexagram?.upper && data.changedHexagram.lower);
+    assert.ok(data.changedTiGua && data.changedYongGua);
+    assert.ok(data.mainHexagram.movingYaoCi);
+    assert.doesNotMatch(data.movingYao.yaoName, /未知/);
+    assert.doesNotMatch(JSON.stringify(data.analysis), /无变卦|关系未定/);
+  }
+});
+
 test('梅花：爻位详情应从初爻往上排列并准确标出动爻', () => {
   const data = generateMeihua(SAMPLE_DATE, { method: 'number', number: 123 });
 
