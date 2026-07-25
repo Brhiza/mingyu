@@ -2,8 +2,33 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { determinePattern } from '@core/bazi/baziPatternStrategy';
+import {
+  HIDDEN_STEMS,
+  LU_BRANCH_MAP,
+  REN_BRANCH_MAP,
+  SIXTY_CYCLE,
+} from '@core/bazi/baziDefinitions';
 import { getTenGod } from '@core/bazi/baziUtils';
-import type { Pillars } from '@core/bazi/baziTypes';
+import type { Pillar, Pillars } from '@core/bazi/baziTypes';
+
+function createPillar(match: (ganZhi: string) => boolean): Pillar {
+  const ganZhi = SIXTY_CYCLE.find(match);
+  assert.ok(ganZhi, '测试夹具必须能找到有效六十甲子');
+  return { gan: ganZhi[0], zhi: ganZhi[1], ganZhi };
+}
+
+function createPatternPillars(
+  dayMaster: string,
+  monthBranch: string,
+  exposedStem: string,
+): Pillars {
+  return {
+    year: createPillar((ganZhi) => ganZhi[0] === exposedStem),
+    month: createPillar((ganZhi) => ganZhi[1] === monthBranch),
+    day: createPillar((ganZhi) => ganZhi[0] === dayMaster),
+    hour: createPillar((ganZhi) => ganZhi === '甲子'),
+  };
+}
 
 test('特殊从格判断不能忽略地支副气里的印比', () => {
   const pillars: Pillars = {
@@ -33,7 +58,7 @@ test('专旺格判断不能忽略地支副气里的财官食伤', () => {
   assert.notEqual(result.pattern, '专旺格');
 });
 
-test('格局判定应优先参考月令司权，而不是把寅月一律当建禄', () => {
+test('建禄应按日干禄位精确取格，不应被初气司令透干改判为偏财格', () => {
   const pillars: Pillars = {
     year: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
     month: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
@@ -44,8 +69,40 @@ test('格局判定应优先参考月令司权，而不是把寅月一律当建�
   const result = determinePattern(pillars, '身强', getTenGod, '戊');
 
   assert.equal(result.isSpecial, false);
-  assert.equal(result.pattern, '偏财格');
-  assert.match(result.basis || '', /司权/);
+  assert.equal(result.pattern, '建禄格');
+  assert.match(result.basis || '', /禄位/);
+});
+
+test('十干建禄应按固定禄位命中，包括月支本气不是比肩的戊己土', () => {
+  Object.entries(LU_BRANCH_MAP).forEach(([dayMaster, monthBranch]) => {
+    const monthStems = HIDDEN_STEMS[monthBranch];
+    const commander = monthStems.find((stem) => stem !== dayMaster) || monthStems[0];
+    const result = determinePattern(
+      createPatternPillars(dayMaster, monthBranch, commander),
+      '身强',
+      getTenGod,
+      commander,
+    );
+
+    assert.equal(result.pattern, '建禄格', `${dayMaster}日${monthBranch}月应为建禄格`);
+    assert.match(result.basis || '', /禄位/);
+  });
+});
+
+test('五阳干月刃应按固定刃位命中，包括月支本气不是劫财的戊土', () => {
+  Object.entries(REN_BRANCH_MAP).forEach(([dayMaster, monthBranch]) => {
+    const monthStems = HIDDEN_STEMS[monthBranch];
+    const commander = monthStems.find((stem) => stem !== dayMaster) || monthStems[0];
+    const result = determinePattern(
+      createPatternPillars(dayMaster, monthBranch, commander),
+      '身强',
+      getTenGod,
+      commander,
+    );
+
+    assert.equal(result.pattern, '月刃格', `${dayMaster}日${monthBranch}月应为月刃格`);
+    assert.match(result.basis || '', /羊刃位/);
+  });
 });
 
 test('丁火生巳月时不应被透出的庚金误判为正财格', () => {
@@ -61,6 +118,14 @@ test('丁火生巳月时不应被透出的庚金误判为正财格', () => {
   assert.equal(result.isSpecial, false);
   assert.equal(result.pattern, '劫财格');
   assert.match(result.basis || '', /月令本气为丙/);
+});
+
+test('交节初段的上一月余气司权即使不在本月藏干中，也应按实际司令十神取格', () => {
+  const pillars = createPatternPillars('癸', '卯', '甲');
+  const result = determinePattern(pillars, '身强', getTenGod, '甲');
+
+  assert.equal(result.pattern, '伤官格');
+  assert.match(result.basis || '', /司权为甲/);
 });
 
 test('杂气多透时本气优先于透干柱位，不应只按透干柱位优先定格', () => {

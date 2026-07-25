@@ -135,10 +135,13 @@ export function evaluateSingleStar(
   palaceElement: string,
 ): StarPalaceResult {
   const starWuxing = starElements[star];
-  const originalPalace = STAR_ORIGINAL_PALACES[star] ?? 0;
+  const originalPalace = STAR_ORIGINAL_PALACES[star];
 
   if (!starWuxing) {
     throw new Error(`九星 "${star}" 无法识别，不能评估旺衰。`);
+  }
+  if (!originalPalace) {
+    throw new Error(`九星 "${star}" 缺少本宫映射，不能评估旺衰。`);
   }
   if (!Number.isInteger(currentGong) || currentGong < 1 || currentGong > 9) {
     throw new Error(`宫位 "${currentGong}" 无效，必须是 1-9 的整数。`);

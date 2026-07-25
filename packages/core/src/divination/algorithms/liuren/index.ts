@@ -285,7 +285,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
   });
   const noblemanGroundBranch = getUnderByUpper(heavenlyPlate, noblemanBranch);
 
-  const dayStemResidence = getDayStemResidence(dayStem, dayBranch);
+  const dayStemResidence = getDayStemResidence(dayStem);
   const fourLessons = buildFourLessons({
     heavenlyPlate,
     dayStem,

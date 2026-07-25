@@ -1,5 +1,5 @@
 import { BASIC_MAPPINGS } from './baziDefinitions';
-import { collectCompleteBranchFormations } from './baziFormationUtils';
+import { collectEstablishedBranchFormations } from './baziFormationUtils';
 import type {
   ConstraintAnalysis,
   DayMasterStrengthAnalysis,
@@ -10,7 +10,12 @@ import type {
   Wuxing,
 } from './baziTypes';
 import { WUXING } from './baziTypes';
-import { assertEarthlyBranch, assertHeavenlyStem, assertPillars } from './baziUtils';
+import {
+  assertEarthlyBranch,
+  assertHeavenlyStem,
+  assertHiddenStemsMatchPillars,
+  assertPillars,
+} from './baziUtils';
 
 export interface SeasonalStatusAnalysis {
   status: string;
@@ -36,8 +41,6 @@ export interface FormationAnalysis {
 type GetWuxingFn = (ganOrZhi: string) => Wuxing;
 type GetSeasonStatusFn = (zhi: string) => Record<string, string>;
 
-const PILLAR_KEYS = ['year', 'month', 'day', 'hour'] as const;
-
 function assertValidWuxing(value: string, label: string): asserts value is Wuxing {
   if (!(WUXING as readonly string[]).includes(value)) {
     throw new Error(`${label}五行无效：${value}`);
@@ -48,21 +51,6 @@ function resolveWuxing(getWuxing: GetWuxingFn, value: string, label: string): Wu
   const wuxing = getWuxing(value);
   assertValidWuxing(wuxing, label);
   return wuxing;
-}
-
-function assertHiddenStems(hiddenStems: HiddenStems): void {
-  if (!hiddenStems) {
-    throw new Error('藏干缺失');
-  }
-
-  for (const key of PILLAR_KEYS) {
-    const stems = hiddenStems[key];
-    if (!Array.isArray(stems)) {
-      throw new Error(`藏干缺少${key}`);
-    }
-
-    stems.filter(Boolean).forEach((stem) => assertHeavenlyStem(stem, `${key}柱藏干`));
-  }
 }
 
 function assertStrengthPillars(dayMaster: string, pillars: Pillars): void {
@@ -108,7 +96,7 @@ export function analyzeRoot(
   getWuxing: GetWuxingFn,
 ): RootAnalysis {
   assertStrengthPillars(dayMaster, pillars);
-  assertHiddenStems(hiddenStems);
+  assertHiddenStemsMatchPillars(pillars, hiddenStems);
 
   const roots: { position: string; branch: string; strength: number }[] = [];
   let totalStrength = 0;
@@ -147,7 +135,7 @@ export function analyzeSupport(
   getWuxing: GetWuxingFn,
 ): SupportAnalysis {
   assertStrengthPillars(dayMaster, pillars);
-  assertHiddenStems(hiddenStems);
+  assertHiddenStemsMatchPillars(pillars, hiddenStems);
 
   const supporters: { position: string; stem: string; strength: number }[] = [];
   let totalStrength = 0;
@@ -210,7 +198,7 @@ export function analyzeConstraint(
   getWuxing: GetWuxingFn,
 ): ConstraintAnalysis {
   assertStrengthPillars(dayMaster, pillars);
-  assertHiddenStems(hiddenStems);
+  assertHiddenStemsMatchPillars(pillars, hiddenStems);
 
   const constraints: { position: string; stem: string; strength: number }[] = [];
   let totalStrength = 0;
@@ -309,7 +297,10 @@ export function analyzeSeasonalStatus(
     死: -4,
   };
 
-  const baseScore = scoreMap[seasonStatus] ?? 0;
+  if (!Object.hasOwn(scoreMap, seasonStatus)) {
+    throw new Error(`月令旺衰状态无效：${monthBranch}/${dayMasterWuxing}/${seasonStatus}`);
+  }
+  const baseScore = scoreMap[seasonStatus];
   const commanderWuxing = monthCommander
     ? resolveWuxing(getWuxing, monthCommander, '月令司权天干')
     : undefined;
@@ -345,7 +336,7 @@ export function analyzeFormation(
     ([, target]) => target === dayMasterWuxing,
   )?.[0] as Wuxing | undefined;
 
-  const formations = collectCompleteBranchFormations(pillars)
+  const formations = collectEstablishedBranchFormations(pillars)
     .map((formation) => {
       const monthBonus = formation.includesMonthBranch ? 0.4 : 0;
 

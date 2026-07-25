@@ -13,9 +13,9 @@ import type {
 } from './baziTypes';
 import { WUXING } from './baziTypes';
 import type { FormationAnalysis, SeasonalStatusAnalysis } from './baziStrengthAnalyzer';
-import { collectCompleteBranchFormations } from './baziFormationUtils';
+import { collectEstablishedBranchFormations } from './baziFormationUtils';
 import type { HiddenStemSource, VisibleStemSource } from './baziRuleMatcher';
-import { assertHeavenlyStem, assertPillars } from './baziUtils';
+import { assertHeavenlyStem, assertHiddenStemsMatchPillars } from './baziUtils';
 
 export interface BaziAnalysisPipelineDeps {
   getWuxing: (ganOrZhi: string) => Wuxing;
@@ -98,32 +98,14 @@ interface BaziAnalysisPipelineState {
   usefulGod: UsefulGodAnalysis & { favorableWuxing: string[]; unfavorableWuxing: string[] };
 }
 
-const PILLAR_KEYS = ['year', 'month', 'day', 'hour'] as const;
-
 function assertValidWuxing(value: string, label: string): asserts value is Wuxing {
   if (!(WUXING as readonly string[]).includes(value)) {
     throw new Error(`${label}五行无效：${value}`);
   }
 }
 
-function assertHiddenStems(hiddenStems: HiddenStems): void {
-  if (!hiddenStems) {
-    throw new Error('藏干缺失');
-  }
-
-  for (const key of PILLAR_KEYS) {
-    const stems = hiddenStems[key];
-    if (!Array.isArray(stems)) {
-      throw new Error(`藏干缺少${key}`);
-    }
-
-    stems.filter(Boolean).forEach((stem) => assertHeavenlyStem(stem, `${key}柱藏干`));
-  }
-}
-
 function assertAnalysisInput(input: BaziAnalysisPipelineInput): void {
-  assertPillars(input.pillars);
-  assertHiddenStems(input.hiddenStems);
+  assertHiddenStemsMatchPillars(input.pillars, input.hiddenStems);
 
   if (input.monthCommander) {
     assertHeavenlyStem(input.monthCommander, '月令司权天干');
@@ -165,7 +147,7 @@ function buildHiddenStemSources(pillars: Pillars, hiddenStems: HiddenStems): Hid
 
 function buildFormationWuxings(pillars: Pillars): string[] {
   return [
-    ...new Set(collectCompleteBranchFormations(pillars).map((formation) => formation.wuxing)),
+    ...new Set(collectEstablishedBranchFormations(pillars).map((formation) => formation.wuxing)),
   ];
 }
 

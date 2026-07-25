@@ -536,3 +536,23 @@ test('占法共享月令旺衰应按古籍口径区分囚死', () => {
   assert.throws(() => getBranchWuxing('风'), /地支无效/);
   assert.throws(() => getHiddenMainStem('风'), /地支无效/);
 });
+
+test('十二月司令表应完整覆盖每月三十日，并以月支本气收尾', () => {
+  assert.equal(Object.keys(coreMonthCommander).length, 12);
+  assert.deepEqual(coreMonthCommander, appMonthCommander);
+
+  for (const branch of EARTHLY_BRANCHES) {
+    const entries = coreMonthCommander[branch];
+    assert.ok(entries, `${branch}月缺少司令数据`);
+    assert.equal(
+      entries.reduce((total, [, days]) => total + days, 0),
+      30,
+      `${branch}月司令天数应合计三十日`,
+    );
+    entries.forEach(([stem, days]) => {
+      assert.ok(HEAVENLY_STEMS.includes(stem), `${branch}月司令天干${stem}无效`);
+      assert.ok(Number.isInteger(days) && days > 0, `${branch}月司令天数必须是正整数`);
+    });
+    assert.equal(entries.at(-1)?.[0], HIDDEN_STEMS[branch][0], `${branch}月末段应由本气司令`);
+  }
+});

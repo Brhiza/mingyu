@@ -242,16 +242,22 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
   // 星伏吟：值符落回原宫（palaceStars 索引+1）
   // 星反吟：值符落原宫的对冲宫
   const zhiFuOriginalPalace = palaceStars.indexOf(zhiFu) + 1;
-  if (zhiFuLandingPalace === zhiFuOriginalPalace) {
+  if (zhiFu && zhiFuOriginalPalace === 0) {
+    throw new Error(`值符星 "${zhiFu}" 无法识别。`);
+  }
+  if (zhiFu && zhiFuLandingPalace === zhiFuOriginalPalace) {
     tags.push('星伏吟');
-  } else if (getOppositePalace(zhiFuOriginalPalace) === zhiFuLandingPalace) {
+  } else if (zhiFu && getOppositePalace(zhiFuOriginalPalace) === zhiFuLandingPalace) {
     tags.push('星反吟');
   }
 
   // ── 2. 门伏吟 / 门反吟 ──
   // 门伏吟：值使落回原宫（doorPalaceMap 中该门对应宫位）
   // 门反吟：值使落原宫的对冲宫
-  const zhiShiOriginalPalace = doorPalaceMap[zhiShi as keyof typeof doorPalaceMap] || 0;
+  const zhiShiOriginalPalace = doorPalaceMap[zhiShi as keyof typeof doorPalaceMap];
+  if (!zhiShiOriginalPalace) {
+    throw new Error(`值使门 "${zhiShi}" 无法识别。`);
+  }
   if (zhiShiLandingPalace === zhiShiOriginalPalace) {
     tags.push('门伏吟');
   } else if (getOppositePalace(zhiShiOriginalPalace) === zhiShiLandingPalace) {

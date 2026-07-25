@@ -12,6 +12,7 @@
  */
 
 import { jiazi } from '../../../../divination/divination-data';
+import { assertGanZhiName } from '../../../../bazi/baziUtils';
 
 const SAN_YUAN_BASE_YEAR = 1864; // 甲子上元起点
 
@@ -32,12 +33,14 @@ const SAN_YUAN_BASE_YEAR = 1864; // 甲子上元起点
  */
 export function getMonthQimenJuShu(
   monthGanZhi: string,
-  _yearGanZhi: string,
+  yearGanZhi: string,
 ): {
   isYangDun: boolean;
   juShu: number;
   yuan: string;
 } {
+  assertGanZhiName(monthGanZhi, '月干支');
+  assertGanZhiName(yearGanZhi, '年干支');
   const monthZhi = monthGanZhi.charAt(1);
 
   // 月支对应的月数（寅=1，卯=2，…，丑=12）
@@ -101,6 +104,7 @@ export function getYearQimenJuShu(
   juShu: number;
   yuan: string;
 } {
+  assertGanZhiName(yearGanZhi, '年干支');
   const yearGan = yearGanZhi.charAt(0);
   const yearIndex = jiazi.indexOf(yearGanZhi);
   if (yearIndex === -1) {
@@ -130,7 +134,10 @@ export function getYearQimenJuShu(
   const isYangDun = yuanCycle === '上元' || yuanCycle === '下元';
 
   // 古法按年干分组定局，同年干各年均起同局
-  const juShu = ganJuMap[yearGan] || 1;
+  const juShu = ganJuMap[yearGan];
+  if (!juShu) {
+    throw new Error(`年干定局数据缺失：${yearGan}`);
+  }
 
   return { isYangDun, juShu, yuan: yuanCycle };
 }

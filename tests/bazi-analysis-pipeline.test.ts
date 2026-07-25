@@ -361,6 +361,17 @@ test('分析管道应拒绝非法藏干和司令天干，不应让取用规则�
         pillars: VALID_PILLARS,
         hiddenStems: {
           ...VALID_HIDDEN_STEMS,
+          month: ['戊', '癸', '乙'],
+        },
+      }),
+    /month柱藏干与地支辰不一致/,
+  );
+  assert.throws(
+    () =>
+      pipeline.run({
+        pillars: VALID_PILLARS,
+        hiddenStems: {
+          ...VALID_HIDDEN_STEMS,
           month: ['风'],
         },
       }),

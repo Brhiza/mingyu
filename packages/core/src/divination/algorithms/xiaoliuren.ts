@@ -201,7 +201,11 @@ function describeElementToDay(dayElement: string, palaceElement: string): string
     水: { 水: '比和', 土: '被克', 金: '得生', 木: '所生', 火: '所克' },
     土: { 土: '比和', 木: '被克', 火: '得生', 金: '所生', 水: '所克' },
   };
-  return relationTables[palaceElement]?.[dayElement] || '关系未定';
+  const relation = relationTables[palaceElement]?.[dayElement];
+  if (!relation) {
+    throw new Error(`小六壬无法判断宫位${palaceElement}与日主${dayElement}的五行关系。`);
+  }
+  return relation;
 }
 
 function buildStageChart(params: {
@@ -408,11 +412,11 @@ export function generateXiaoliuren(
   };
 
   // 旺衰按月令分析（取月干支的地支）
-  const monthBranch = ganzhi?.month?.slice(-1) || '';
+  const monthBranch = ganzhi.month.slice(-1);
   const seasonStates = {
-    start: monthBranch ? getSeasonState(start.element, monthBranch) : '平',
-    process: monthBranch ? getSeasonState(process.element, monthBranch) : '平',
-    result: monthBranch ? getSeasonState(result.element, monthBranch) : '平',
+    start: getSeasonState(start.element, monthBranch),
+    process: getSeasonState(process.element, monthBranch),
+    result: getSeasonState(result.element, monthBranch),
   };
 
   const timingProfiles: Record<
@@ -439,7 +443,7 @@ export function generateXiaoliuren(
     primaryBasis: [
       `结果宫为${result.name}，宫义节奏为${timingProfile.rhythm}`,
       `过程至结果五行关系为${processToResult}：${wuxingRelations.description}`,
-      `结果宫${result.element}在${monthBranch || '未知月支'}月为${resultSeasonState}，只作条件成熟度辅助`,
+      `结果宫${result.element}在${monthBranch}月为${resultSeasonState}，只作条件成熟度辅助`,
     ],
     triggerConditions: [timingProfile.trigger],
     limitations: [
@@ -449,7 +453,11 @@ export function generateXiaoliuren(
     ],
   };
 
-  const hourBranch = getShichenByIndex(hourIndex)?.branch || '子';
+  const shichen = getShichenByIndex(hourIndex);
+  if (!shichen) {
+    throw new Error(`小六壬时辰索引无效：${hourIndex}`);
+  }
+  const hourBranch = shichen.branch;
   const dayBranch = ganzhi.day.slice(-1);
   const dayStem = ganzhi.day.slice(0, 1);
   const yearBranch = ganzhi.year.slice(-1);

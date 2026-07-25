@@ -1,6 +1,6 @@
 import { HIDDEN_STEMS, LU_BRANCH_MAP, REN_BRANCH_MAP } from './baziDefinitions';
 import {
-  collectCompleteBranchFormations,
+  collectEstablishedBranchFormations,
   getRepresentativeStemByWuxing,
 } from './baziFormationUtils';
 import type { PatternAnalysis, Pillars } from './baziTypes';
@@ -25,27 +25,21 @@ function isSamePartyGod(tenGod: string) {
   return SAME_PARTY_GODS.includes(tenGod);
 }
 
-function getPatternNameByTenGod(tenGod: string, dayMaster?: string, monthBranch?: string) {
+function getPatternNameByTenGod(tenGod: string, dayMaster: string, monthBranch: string) {
   // 建禄格/月刃格需要精确校验月支是否为禄/刃位
-  if (tenGod === '比肩' && dayMaster && monthBranch) {
+  if (tenGod === '比肩') {
     if (LU_BRANCH_MAP[dayMaster] === monthBranch) {
       return '建禄格';
     }
     return '比肩格';
   }
-  if (tenGod === '劫财' && dayMaster && monthBranch) {
+  if (tenGod === '劫财') {
     if (REN_BRANCH_MAP[dayMaster] === monthBranch) {
       return '月刃格';
     }
     return '劫财格';
   }
-  // 降级：无月支信息时保留原逻辑
-  const specialPatternMap: Record<string, string> = {
-    比肩: '建禄格',
-    劫财: '月刃格',
-  };
-
-  return specialPatternMap[tenGod] || `${tenGod}格`;
+  return `${tenGod}格`;
 }
 
 function isSamePartyTenGod(tenGod: string): boolean {
@@ -112,7 +106,7 @@ function collectSpecialPatternForce(
     addForce(stem, 0.6, 'day', true);
   });
 
-  const formationForce = collectCompleteBranchFormations(pillars).reduce(
+  const formationForce = collectEstablishedBranchFormations(pillars).reduce(
     (summary, formation) => {
       const representativeStem = getRepresentativeStemByWuxing(formation.wuxing);
       const tenGod = getTenGod(representativeStem, dayMaster);
@@ -253,7 +247,7 @@ function resolveSubPattern(pillars: Pillars, dayMaster: string, getTenGod: GetTe
   });
 
   // 三合三会局加成
-  const formations = collectCompleteBranchFormations(pillars);
+  const formations = collectEstablishedBranchFormations(pillars);
   formations.forEach((formation) => {
     const representativeStem = getRepresentativeStemByWuxing(formation.wuxing);
     const tenGod = getTenGod(representativeStem, dayMaster);
@@ -358,16 +352,18 @@ export function determinePattern(
 
   const monthPrincipalStem = monthStems[0];
   const monthPrincipalGod = getTenGod(monthPrincipalStem, dayMaster);
-  const activeMonthStem =
-    monthCommander && monthStems.includes(monthCommander) ? monthCommander : monthStems[0];
+  const activeMonthStem = monthCommander || monthStems[0];
   const monthMainGod = getTenGod(activeMonthStem, dayMaster);
   let basis: string;
 
-  if (monthPrincipalGod === '劫财') {
-    if (REN_BRANCH_MAP[dayMaster] === monthBranch) {
-      patternName = '月刃格';
-      basis = `月令${monthBranch}为日主${dayMaster}之羊刃位，按月刃格处理`;
-    } else if (REN_BRANCH_MAP[dayMaster]) {
+  if (LU_BRANCH_MAP[dayMaster] === monthBranch) {
+    patternName = '建禄格';
+    basis = `月令${monthBranch}为日主${dayMaster}之禄位，按建禄格处理`;
+  } else if (REN_BRANCH_MAP[dayMaster] === monthBranch) {
+    patternName = '月刃格';
+    basis = `月令${monthBranch}为日主${dayMaster}之羊刃位，按月刃格处理`;
+  } else if (monthPrincipalGod === '劫财') {
+    if (REN_BRANCH_MAP[dayMaster]) {
       patternName = '劫财格';
       basis = `月令本气为${monthPrincipalStem}，对应劫财，但月支${monthBranch}非${dayMaster}刃位（刃在${REN_BRANCH_MAP[dayMaster]}），按劫财格处理`;
     } else {
@@ -377,18 +373,10 @@ export function determinePattern(
   } else if (monthCommander && exposedStems.includes(monthCommander)) {
     patternName = getPatternNameByTenGod(monthMainGod, dayMaster, monthBranch);
     basis = `月令司权为${monthCommander}，且已透干，按司令十神取格`;
-  } else if (monthMainGod === '比肩' && LU_BRANCH_MAP[dayMaster] === monthBranch) {
-    // 建禄格：月支必须确实是日干的临官禄位
-    patternName = '建禄格';
-    basis = `月令${monthBranch}为日主${dayMaster}之禄位，按建禄格处理`;
   } else if (monthMainGod === '比肩') {
     // 月令主气虽为比肩，但月支非禄位（如杂气中比肩透出），按普通比肩格处理
     patternName = '比肩格';
     basis = `月令主气为${activeMonthStem}，对应比肩，但月支${monthBranch}非${dayMaster}禄位，按比肩格处理`;
-  } else if (monthMainGod === '劫财' && REN_BRANCH_MAP[dayMaster] === monthBranch) {
-    // 月刃格：月支必须确实是阳干的帝旺羊刃位
-    patternName = '月刃格';
-    basis = `月令${monthBranch}为日主${dayMaster}之羊刃位，按月刃格处理`;
   } else if (monthMainGod === '劫财') {
     // 阳干但月支非刃位，或阴干，一律按劫财格处理
     patternName = '劫财格';
