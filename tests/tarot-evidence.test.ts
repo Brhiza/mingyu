@@ -114,6 +114,51 @@ test('塔罗单牌不应伪造跨牌关系，多牌应逐对连接相邻牌位',
   assert.ok(celtic.sequenceFacts.every((fact) => fact.limitation.includes('不得把牌阵顺序')));
 });
 
+test('塔罗手工录入应保留牌位与正逆位，并将随机轨迹标为不适用', () => {
+  const data = drawTarotSpread('three', {
+    manualCards: [
+      { id: 1, reversed: false },
+      { id: 22, reversed: true },
+      { id: 78, reversed: false },
+    ],
+  });
+
+  assert.deepEqual(
+    data.cards.map((card) => [card.id, card.position, card.reversed]),
+    [
+      [1, '过去', false],
+      [22, '现在', true],
+      [78, '未来', false],
+    ],
+  );
+  assert.equal(data.draw?.method, '用户按牌位手工录入');
+  assert.equal(data.meta?.algorithm, 'tarot.spread.manual');
+  assert.equal(data.meta?.random, undefined);
+  assert.equal(data.evidenceAnalysis?.randomFact.status, '不适用');
+  assert.equal(data.evidenceAnalysis?.summaryFact.status, '证据链完整');
+  assert.ok(data.evidenceAnalysis?.evidence.items.some((item) => item.title === '手工录入来源'));
+
+  assert.throws(
+    () =>
+      drawTarotSpread('three', {
+        manualCards: [
+          { id: 1, reversed: false },
+          { id: 1, reversed: true },
+          { id: 2, reversed: false },
+        ],
+      }),
+    /不能重复录入/,
+  );
+  assert.throws(
+    () =>
+      drawTarotSpread('single', {
+        seed: '冲突参数',
+        manualCards: [{ id: 1, reversed: false }],
+      }),
+    /不能同时提供随机选项/,
+  );
+});
+
 test('塔罗逆位应形成指向所属牌面的反证事实与汇总', () => {
   const data = drawTarotSpread('three', { seed: '塔罗逆位反证' });
   data.cards = data.cards.map((card, index) => ({ ...card, reversed: index === 1 }));

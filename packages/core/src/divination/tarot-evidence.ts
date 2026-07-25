@@ -349,6 +349,7 @@ function buildDrawOrderFacts(data: TarotData, cards: TarotCardEvidence[]): Tarot
 }
 
 function buildDrawFact(data: TarotData, drawOrderFacts: TarotDrawOrderFact[]): TarotDrawFact {
+  const isManual = data.draw?.method === '用户按牌位手工录入';
   const order = (data.draw?.order ?? []).map((item) => ({ ...item }));
   const missingIndexes = Array.from(
     { length: Math.max(0, data.cards.length - order.length) },
@@ -383,9 +384,11 @@ function buildDrawFact(data: TarotData, drawOrderFacts: TarotDrawOrderFact[]): T
     missingIndexes,
     extraIndexes,
     promptText: data.draw
-      ? `牌组规模：${data.draw.deckSize}张；洗牌方法：${data.draw.method}；正逆位规则：${data.draw.orientationRule}；${drawOrderFacts.map((item) => item.promptText).join('；')}${status === '来源链缺失' ? `；当前仅记录${order.length}/${data.cards.length}张抽取顺序，不能完整核验` : status === '来源链不一致' ? `；第${mismatchIndexes.join('、')}张来源记录与牌面不一致` : ''}`
+      ? `牌组规模：${data.draw.deckSize}张；${isManual ? '录入方式' : '洗牌方法'}：${data.draw.method}；正逆位规则：${data.draw.orientationRule}；${drawOrderFacts.map((item) => item.promptText).join('；')}${status === '来源链缺失' ? `；当前仅记录${order.length}/${data.cards.length}张来源顺序，不能完整核验` : status === '来源链不一致' ? `；第${mismatchIndexes.join('、')}张来源记录与牌面不一致` : ''}`
       : `现有资料未附洗牌与抽取顺序，仅保留${data.cards.length}张已确定牌面，不能反推完整抽牌来源链`,
-    sources: ['78张塔罗牌组与 Fisher-Yates 洗牌记录', '牌位顺序取牌与逐牌正逆位判定记录'],
+    sources: isManual
+      ? ['78张塔罗牌组', '用户按牌位逐张录入的牌号与正逆位记录']
+      : ['78张塔罗牌组与 Fisher-Yates 洗牌记录', '牌位顺序取牌与逐牌正逆位判定记录'],
     limitation: DRAW_FACT_LIMITATION,
   };
 }
@@ -503,7 +506,7 @@ function buildSummaryFact(params: {
   const status =
     params.spreadCoverageFact.status === '完整' &&
     params.drawFact.status === '可核验' &&
-    params.randomFact.status === '可重放' &&
+    ['可重放', '不适用'].includes(params.randomFact.status) &&
     params.drawOrderFacts.length === params.cards.length
       ? '证据链完整'
       : '证据链有缺口';
@@ -554,7 +557,7 @@ function buildCalculationSteps(params: {
     {
       key: 'tarot:calculation:random',
       stage: '随机来源核验',
-      status: params.randomFact.status === '可重放' ? '已计算' : '资料不足',
+      status: params.randomFact.status === '缺少轨迹' ? '资料不足' : '已计算',
       inputs: { randomMode: params.randomFact.mode },
       result: {
         randomStatus: params.randomFact.status,
@@ -702,8 +705,14 @@ function buildLimitationFacts(params: {
       key: 'tarot:limitation:random',
       type: '随机边界',
       ownerFactKeys: [params.randomFact.key],
-      promptText: '塔罗抽牌包含随机过程；seed或replay只能复现抽牌轨迹，不证明预测有效性',
-      sources: ['洗牌、抽牌和正逆位随机轨迹', '随机轨迹可重放边界'],
+      promptText:
+        params.randomFact.status === '不适用'
+          ? '手工录入只核对用户提交的牌号、牌位与正逆位，不依赖随机抽样'
+          : '塔罗抽牌包含随机过程；seed或replay只能复现抽牌轨迹，不证明预测有效性',
+      sources:
+        params.randomFact.status === '不适用'
+          ? ['用户手工录入来源边界']
+          : ['洗牌、抽牌和正逆位随机轨迹', '随机轨迹可重放边界'],
     },
     {
       key: 'tarot:limitation:symbolic-material',
@@ -840,12 +849,17 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
     (fact) => `${fact.theme}主题出现${fact.count}张，只表示牌面重复，不等于权重分数`,
   );
   const trace = data.meta?.random;
+  const isManual = data.draw?.method === '用户按牌位手工录入';
   const randomFact = buildRandomTraceFact({
     key: `random:tarot:${data.spreadType}`,
-    applicable: true,
+    applicable: !isManual,
     trace,
-    processLabel: `${data.spreadName}的洗牌、抽牌与正逆位生成过程`,
-    sources: ['塔罗牌阵与抽牌顺序记录', '洗牌、抽牌、正逆位随机样本与重放元数据'],
+    processLabel: isManual
+      ? `${data.spreadName}的手工牌面与正逆位录入过程`
+      : `${data.spreadName}的洗牌、抽牌与正逆位生成过程`,
+    sources: isManual
+      ? ['用户按牌位逐张录入的牌面与正逆位记录']
+      : ['塔罗牌阵与抽牌顺序记录', '洗牌、抽牌、正逆位随机样本与重放元数据'],
   });
   const randomFacts = formatLegacyRandomFacts(randomFact);
   const counterEvidenceFacts = buildCounterEvidenceFacts(cards);
@@ -897,7 +911,9 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
   const limitations = limitationFacts.map((fact) => fact.promptText);
   const drawTitle =
     drawFact.status === '可核验'
-      ? '洗牌、抽取顺序与正逆位事实'
+      ? isManual
+        ? '手工录入牌序与正逆位事实'
+        : '洗牌、抽取顺序与正逆位事实'
       : drawFact.status === '来源链不一致'
         ? '抽牌来源链不一致'
         : '抽牌来源链缺失';
@@ -955,8 +971,13 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
         ]
       : []),
     {
-      level: randomFact.status === '可重放' ? '辅证' : '反证',
-      title: randomFact.status === '可重放' ? '随机过程重放记录' : '随机轨迹缺失',
+      level: randomFact.status === '缺少轨迹' ? '反证' : '辅证',
+      title:
+        randomFact.status === '不适用'
+          ? '手工录入来源'
+          : randomFact.status === '可重放'
+            ? '随机过程重放记录'
+            : '随机轨迹缺失',
       detail: `${randomFact.promptText}；边界：${randomFact.limitation}`,
       source: randomFact.sources.join('、'),
       tags: ['随机轨迹', randomFact.status, '不代表预测有效性'],

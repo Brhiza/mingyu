@@ -35,6 +35,8 @@ import { buildLiurenTemplateText } from '@core/divination/engine/liuren-template
 import { buildLiuyaoTemplateText } from '@core/divination/engine/liuyao-template';
 import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 import { buildPromptGuidanceSections } from '../../prompt-guidance';
+import { tarotSpreads } from '@core/divination/tarot';
+import { LENORMAND_SPREADS } from '@core/divination/algorithms/lenormand';
 
 const CONCRETE_DIVINATION_METHODS: Array<Exclude<DivinationMethodId, 'random'>> = [
   'liuyao',
@@ -84,11 +86,20 @@ export type DivinationDraft = {
   liuyaoTemplate: LiuyaoTemplateType;
   liurenTemplate: LiurenTemplateType;
   tarotSpread: TarotSpreadType;
+  tarotMethod?: 'random' | 'manual';
+  tarotManualCards?: Array<{ id: number; reversed: boolean }>;
+  tarotPendingCardId?: string;
+  tarotPendingReversed?: boolean;
+  ssgwMethod?: 'random' | 'manual';
+  ssgwNumber?: string;
   almanacTopic: AlmanacTopic;
   almanacStartDate: string;
   almanacEndDate: string;
   almanacParticipants: AlmanacParticipantInput[];
   lenormandSpread: LenormandSpreadType;
+  lenormandMethod?: 'random' | 'manual';
+  lenormandManualCardIds?: number[];
+  lenormandPendingCardId?: string;
   astrolabeName: string;
   astrolabeGender: '' | '男' | '女';
   astrolabeYear: string;
@@ -261,6 +272,27 @@ function validateDraft(draft: DivinationDraft) {
     }
     if (!draft.liuyaoYaos.every((value) => [6, 7, 8, 9].includes(value))) {
       throw new Error('手动起卦的爻值只能是 6、7、8、9');
+    }
+  }
+
+  if (draft.method === 'tarot' && (draft.tarotMethod ?? 'random') === 'manual') {
+    const expectedCount = tarotSpreads[draft.tarotSpread].cardCount;
+    if (draft.tarotManualCards?.length !== expectedCount) {
+      throw new Error(`当前牌阵需要按牌位录入${expectedCount}张牌`);
+    }
+  }
+
+  if (draft.method === 'lenormand' && (draft.lenormandMethod ?? 'random') === 'manual') {
+    const expectedCount = LENORMAND_SPREADS[draft.lenormandSpread].positions.length;
+    if (draft.lenormandManualCardIds?.length !== expectedCount) {
+      throw new Error(`当前牌阵需要按牌位录入${expectedCount}张牌`);
+    }
+  }
+
+  if (draft.method === 'ssgw' && (draft.ssgwMethod ?? 'random') === 'manual') {
+    const number = Number(draft.ssgwNumber);
+    if (!/^\d+$/.test(draft.ssgwNumber?.trim() ?? '') || number < 1 || number > 92) {
+      throw new Error('签号需为1至92的整数');
     }
   }
 
@@ -596,12 +628,20 @@ export async function generateDivinationSession(
     }
     case 'tarot': {
       const module = await import('mingyu-core/divination/tarot');
-      data = module.drawTarotSpread(draft.tarotSpread);
+      data = module.drawTarotSpread(
+        draft.tarotSpread,
+        (draft.tarotMethod ?? 'random') === 'manual'
+          ? { manualCards: draft.tarotManualCards }
+          : undefined,
+      );
       break;
     }
     case 'ssgw': {
       const module = await import('mingyu-core/divination/ssgw');
-      data = module.drawRandomSign(customDate);
+      data =
+        (draft.ssgwMethod ?? 'random') === 'manual'
+          ? module.resolveSignByNumber(Number(draft.ssgwNumber), customDate)
+          : module.drawRandomSign(customDate);
       break;
     }
     case 'almanac': {
@@ -616,7 +656,12 @@ export async function generateDivinationSession(
     }
     case 'lenormand': {
       const module = await import('mingyu-core/divination/lenormand');
-      data = module.drawLenormandSpread(draft.lenormandSpread);
+      data = module.drawLenormandSpread(
+        draft.lenormandSpread,
+        (draft.lenormandMethod ?? 'random') === 'manual'
+          ? { manualCardIds: draft.lenormandManualCardIds }
+          : undefined,
+      );
       break;
     }
     case 'astrolabe': {

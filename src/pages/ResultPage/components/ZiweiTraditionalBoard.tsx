@@ -95,7 +95,7 @@ export function ZiweiTraditionalBoard(props: {
                 className="ziwei-relation-point"
                 cx={point[0]}
                 cy={point[1]}
-                r="0.9"
+                r="0.65"
                 key={`${point.join('-')}-${index}`}
               />
             ))}

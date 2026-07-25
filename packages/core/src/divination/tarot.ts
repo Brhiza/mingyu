@@ -1,11 +1,17 @@
 import { tarotCards, tarotSpreads } from './tarot-data';
 import type { RandomOptions } from '../shared/random';
-import { createRandomContext, randomFloat, randomInt, type RandomSource } from '../shared/random';
+import {
+  createRandomContext,
+  hasRandomOptions,
+  randomFloat,
+  randomInt,
+  type RandomSource,
+} from '../shared/random';
 import { attachResultMeta } from '../shared/result';
 import type { TarotData, TarotSpreadType } from '../types/divination';
 import { analyzeTarotEvidence } from './tarot-evidence';
 
-export { tarotSpreads } from './tarot-data';
+export { tarotCards, tarotSpreads } from './tarot-data';
 export { analyzeTarotEvidence, conditionTarotTraditionalText } from './tarot-evidence';
 export type {
   TarotCardEvidence,
@@ -21,13 +27,26 @@ export type {
   TarotTraditionalFact,
 } from './tarot-evidence';
 
+export interface TarotManualCardInput {
+  id: number;
+  reversed: boolean;
+}
+
+export interface TarotDrawOptions extends RandomOptions {
+  manualCards?: readonly TarotManualCardInput[];
+}
+
 function buildDrawFacts(
   cards: Array<{ id: number; name: string; position: string; reversed: boolean }>,
+  method: 'random' | 'manual' = 'random',
 ): NonNullable<TarotData['draw']> {
   return {
     deckSize: tarotCards.length,
-    method: 'Fisher-Yates洗牌后依牌位顺序取顶牌',
-    orientationRule: '每张牌独立取随机数，小于0.5为逆位，否则为正位',
+    method: method === 'manual' ? '用户按牌位手工录入' : 'Fisher-Yates洗牌后依牌位顺序取顶牌',
+    orientationRule:
+      method === 'manual'
+        ? '正逆位由用户逐张录入'
+        : '每张牌独立取随机数，小于0.5为逆位，否则为正位',
     order: cards.map((card, index) => ({
       index: index + 1,
       position: card.position,
@@ -259,8 +278,55 @@ export function getCardEvidence(cardName: string) {
 
 export function drawTarotSpread(
   spreadType: TarotSpreadType = 'single',
-  options?: RandomOptions,
+  options?: TarotDrawOptions,
 ): TarotData {
+  const spread = tarotSpreads[spreadType];
+  if (!spread) {
+    throw new Error(`未知的牌阵类型: ${spreadType}`);
+  }
+
+  if (options?.manualCards) {
+    if (hasRandomOptions(options)) {
+      throw new Error('手工录入塔罗牌时不能同时提供随机选项');
+    }
+    if (options.manualCards.length !== spread.cardCount) {
+      throw new Error(`${spread.name}需要按牌位录入${spread.cardCount}张牌`);
+    }
+    const ids = options.manualCards.map((item) => item.id);
+    if (new Set(ids).size !== ids.length) {
+      throw new Error('同一次塔罗牌阵不能重复录入同一张牌');
+    }
+    const cards = options.manualCards.map((input, index) => {
+      const card = tarotCards.find((item) => item.number === input.id);
+      if (!card || typeof input.reversed !== 'boolean') {
+        throw new Error(`第${index + 1}张塔罗牌录入无效`);
+      }
+      return {
+        id: card.number,
+        name: card.name,
+        position: spread.positions[index],
+        reversed: input.reversed,
+        ...getCardEvidence(card.name),
+      };
+    });
+    const timestamp = Date.now();
+    const data = attachResultMeta(
+      {
+        spreadType,
+        spreadName: spread.name,
+        cards,
+        draw: buildDrawFacts(cards, 'manual'),
+        timestamp,
+      } satisfies Omit<TarotData, 'meta' | 'evidenceAnalysis'>,
+      {
+        algorithm: 'tarot.spread.manual',
+        input: { spreadType, manualCards: options.manualCards },
+        calculatedAt: timestamp,
+      },
+    );
+    return { ...data, evidenceAnalysis: analyzeTarotEvidence(data) };
+  }
+
   if (spreadType === 'single') {
     const draw = drawSingleCard(options);
     const data: TarotData = {

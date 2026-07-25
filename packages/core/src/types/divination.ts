@@ -819,8 +819,8 @@ export interface TarotData {
   }[];
   draw?: {
     deckSize: number;
-    method: 'Fisher-Yates洗牌后依牌位顺序取顶牌';
-    orientationRule: '每张牌独立取随机数，小于0.5为逆位，否则为正位';
+    method: 'Fisher-Yates洗牌后依牌位顺序取顶牌' | '用户按牌位手工录入';
+    orientationRule: '每张牌独立取随机数，小于0.5为逆位，否则为正位' | '正逆位由用户逐张录入';
     order: Array<{
       index: number;
       position: string;
@@ -1021,7 +1021,7 @@ export interface LenormandData {
   spreadName: string;
   draw?: {
     deckSize: number;
-    method: 'Fisher-Yates洗牌后依牌位顺序取顶牌';
+    method: 'Fisher-Yates洗牌后依牌位顺序取顶牌' | '用户按牌位手工录入';
     order: Array<{
       index: number;
       position: string;
@@ -1352,8 +1352,9 @@ export interface SsgwData {
   timestamp: number;
   ganzhi: BaseGanZhi;
   draw?: {
+    method?: 'random' | 'manual';
     poolSize: number;
-    selectedIndex: number;
+    selectedIndex: number | null;
     selectedNumber: number;
   };
   ritual?: SsgwRitual;

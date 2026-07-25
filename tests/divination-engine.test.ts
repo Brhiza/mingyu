@@ -6,7 +6,13 @@ import {
   TAROT_SPREAD_INSPIRATION_QUESTIONS,
   resolveDivinationInspiredDraftPatch,
 } from '../src/lib/divination/inspiration';
-import type { QimenJiuGongGe, TaiyiResult, TarotData } from '../packages/core/src/types/divination';
+import type {
+  LenormandData,
+  QimenJiuGongGe,
+  SsgwData,
+  TaiyiResult,
+  TarotData,
+} from '../packages/core/src/types/divination';
 import { STEM_TOMB_MAP } from '../packages/core/src/divination/algorithms/qimen/helpers/_constants';
 import {
   getClassicPatterns,
@@ -4260,6 +4266,52 @@ test('前端占卜链路应把手动六爻爻值原样传入核心算法', async
     data.changingYaos.map((item) => item.position),
     [1, 4],
   );
+});
+
+test('前端占卜链路应支持手动塔罗、雷诺曼与灵签', async () => {
+  const tarotSession = await generateDivinationSession(
+    buildDraft({
+      method: 'tarot',
+      tarotSpread: 'three',
+      tarotMethod: 'manual',
+      tarotManualCards: [
+        { id: 1, reversed: false },
+        { id: 22, reversed: true },
+        { id: 78, reversed: false },
+      ],
+    }),
+  );
+  const tarot = tarotSession.data as TarotData;
+  assert.deepEqual(
+    tarot.cards.map((card) => card.id),
+    [1, 22, 78],
+  );
+  assert.equal(tarot.evidenceAnalysis?.randomFact.status, '不适用');
+
+  const lenormandSession = await generateDivinationSession(
+    buildDraft({
+      method: 'lenormand',
+      lenormandSpread: 'three',
+      lenormandMethod: 'manual',
+      lenormandManualCardIds: [1, 24, 36],
+    }),
+  );
+  const lenormand = lenormandSession.data as LenormandData;
+  assert.deepEqual(
+    lenormand.cards.map((card) => card.id),
+    [1, 24, 36],
+  );
+  assert.equal(lenormand.evidenceAnalysis?.randomFact.status, '不适用');
+
+  const ssgwSession = await generateDivinationSession(
+    buildDraft({ method: 'ssgw', ssgwMethod: 'manual', ssgwNumber: '36' }),
+  );
+  const ssgw = ssgwSession.data as SsgwData;
+  assert.equal(ssgw.number, 36);
+  assert.equal(ssgw.draw?.method, 'manual');
+  assert.equal(ssgw.meta?.random, undefined);
+  assert.equal(ssgw.evidenceAnalysis?.randomFact.status, '不适用');
+  assert.equal(ssgw.evidenceAnalysis?.ritualFact.status, '缺少记录');
 });
 
 test('自定起卦时间缺少日期或时间时应明确提示', async () => {

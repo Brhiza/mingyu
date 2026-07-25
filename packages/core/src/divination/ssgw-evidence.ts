@@ -57,8 +57,8 @@ export interface SsgwRitualFact {
 
 export interface SsgwRandomFact {
   key: '随机:重放轨迹';
-  status: '可重放' | '缺少轨迹';
-  mode: 'system' | 'seeded' | 'custom' | 'replay' | null;
+  status: '可重放' | '缺少轨迹' | '不适用';
+  mode: 'system' | 'seeded' | 'custom' | 'replay' | '不适用' | null;
   seed?: string | number;
   samples: number[];
   sampleCount: number;
@@ -124,7 +124,8 @@ export interface SsgwCounterEvidenceFact {
     | '未确认'
     | '缺少记录'
     | '可重放'
-    | '缺少轨迹';
+    | '缺少轨迹'
+    | '不适用';
   ownerFactKeys: string[];
   promptText: string;
   sources: string[];
@@ -361,7 +362,7 @@ function buildCounterEvidenceFacts(args: {
 }
 
 function isCounterIssue(item: SsgwCounterEvidenceFact) {
-  return !['已覆盖', '可核验', '已确认', '可重放'].includes(item.status);
+  return !['已覆盖', '可核验', '已确认', '可重放', '不适用'].includes(item.status);
 }
 
 function buildCounterSummaryFact(
@@ -399,7 +400,7 @@ function buildSummaryFact(args: {
     args.drawFact.status === '可核验' &&
     args.ritualFact.status === '已确认' &&
     args.ritualThrowFacts.length > 0 &&
-    args.randomFact.status === '可重放' &&
+    ['可重放', '不适用'].includes(args.randomFact.status) &&
     args.counterSummaryFact.status === '未见额外反证'
       ? '证据链完整'
       : '证据链有缺口';
@@ -449,7 +450,7 @@ function buildCalculationSteps(args: {
     {
       key: 'ssgw:calculation:random',
       stage: '随机来源核验',
-      status: args.randomFact.status === '可重放' ? '已计算' : '资料不足',
+      status: args.randomFact.status === '缺少轨迹' ? '资料不足' : '已计算',
       inputs: { randomMode: args.randomFact.mode ?? '缺少轨迹' },
       result: {
         randomStatus: args.randomFact.status,
@@ -637,8 +638,14 @@ function buildLimitationFacts(args: {
       key: 'ssgw:limitation:random-replay',
       type: '随机重放边界',
       ownerFactKeys: [args.drawFact.key, args.randomFact.key],
-      promptText: '随机种子或重放轨迹只能证明随机过程可以重放，不证明预测有效性或神意来源',
-      sources: ['抽签随机轨迹与重放条件'],
+      promptText:
+        args.randomFact.status === '不适用'
+          ? '手工录入签号不依赖随机抽样，只证明用户提交签号与签文资料的对应关系'
+          : '随机种子或重放轨迹只能证明随机过程可以重放，不证明预测有效性或神意来源',
+      sources:
+        args.randomFact.status === '不适用'
+          ? ['用户手工录入签号来源边界']
+          : ['抽签随机轨迹与重放条件'],
     },
     {
       key: 'ssgw:limitation:ritual-confirmation',
@@ -722,6 +729,7 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     sources: ['签诗、典故与八类分类字段逐项核验'],
     limitation: COVERAGE_FACT_LIMITATION,
   };
+  const isManual = data.draw?.method === 'manual';
   const drawFact: SsgwDrawFact = data.draw
     ? {
         key: '抽签:签池索引',
@@ -731,8 +739,12 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
         selectedNumber: data.draw.selectedNumber,
         resultNumber: data.number,
         resultTitle: data.title,
-        promptText: `签池共${data.draw.poolSize}签，随机索引${data.draw.selectedIndex}（从0起）对应第${data.draw.selectedNumber}签；结果核验为第${data.number}签《${data.title}》`,
-        sources: ['三山国王九十二签签池', '统一随机整数抽取与签号索引记录'],
+        promptText: isManual
+          ? `签池共${data.draw.poolSize}签，用户录入第${data.draw.selectedNumber}签；结果核验为第${data.number}签《${data.title}》`
+          : `签池共${data.draw.poolSize}签，随机索引${data.draw.selectedIndex}（从0起）对应第${data.draw.selectedNumber}签；结果核验为第${data.number}签《${data.title}》`,
+        sources: isManual
+          ? ['三山国王九十二签签池', '用户手工录入的签号']
+          : ['三山国王九十二签签池', '统一随机整数抽取与签号索引记录'],
         limitation: DRAW_FACT_LIMITATION,
       }
     : {
@@ -749,7 +761,9 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       };
   const drawFacts = data.draw
     ? [
-        `签池共${data.draw.poolSize}签，随机索引${data.draw.selectedIndex}（从0起）对应第${data.draw.selectedNumber}签`,
+        isManual
+          ? `签池共${data.draw.poolSize}签，用户录入第${data.draw.selectedNumber}签`
+          : `签池共${data.draw.poolSize}签，随机索引${data.draw.selectedIndex}（从0起）对应第${data.draw.selectedNumber}签`,
         `抽签结果核验：第${data.number}签《${data.title}》`,
       ]
     : [`本次资料未附签池索引过程，仅保留已确定的第${data.number}签《${data.title}》`];
@@ -808,35 +822,48 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       ]
     : ['仪式状态：既有资料未提供掷筊记录，不得补写圣杯确认'];
   const trace = data.meta?.random;
-  const randomFact: SsgwRandomFact = trace
+  const randomFact: SsgwRandomFact = isManual
     ? {
         key: '随机:重放轨迹',
-        status: '可重放',
-        mode: trace.mode,
-        ...(trace.seed !== undefined ? { seed: trace.seed } : {}),
-        samples: [...trace.samples],
-        sampleCount: trace.samples.length,
-        promptText: `随机模式：${trace.mode}；原始随机样本数：${trace.samples.length}；随机种子与原始样本保留在可重放记录中，本段提示词不展开`,
-        sources: ['统一随机轨迹协议', '抽签与掷筊共用随机源的原始样本记录'],
-        limitation: RANDOM_FACT_LIMITATION,
-      }
-    : {
-        key: '随机:重放轨迹',
-        status: '缺少轨迹',
-        mode: null,
+        status: '不适用',
+        mode: '不适用',
         samples: [],
         sampleCount: 0,
-        promptText: '本次资料未附随机轨迹，无法验证抽签与掷筊的重放过程',
-        sources: ['随机轨迹资料完整性核验'],
+        promptText: '签号由用户手工录入，不依赖随机抽样，随机轨迹不适用',
+        sources: ['用户手工录入的签号'],
         limitation: RANDOM_FACT_LIMITATION,
-      };
-  const randomFacts = trace
-    ? [
-        `随机模式：${trace.mode}`,
-        `原始随机样本数：${trace.samples.length}`,
-        trace.seed !== undefined ? `随机种子：${String(trace.seed)}` : '',
-      ].filter(Boolean)
-    : ['本次资料未附随机轨迹，无法验证抽签与掷筊的重放过程'];
+      }
+    : trace
+      ? {
+          key: '随机:重放轨迹',
+          status: '可重放',
+          mode: trace.mode,
+          ...(trace.seed !== undefined ? { seed: trace.seed } : {}),
+          samples: [...trace.samples],
+          sampleCount: trace.samples.length,
+          promptText: `随机模式：${trace.mode}；原始随机样本数：${trace.samples.length}；随机种子与原始样本保留在可重放记录中，本段提示词不展开`,
+          sources: ['统一随机轨迹协议', '抽签与掷筊共用随机源的原始样本记录'],
+          limitation: RANDOM_FACT_LIMITATION,
+        }
+      : {
+          key: '随机:重放轨迹',
+          status: '缺少轨迹',
+          mode: null,
+          samples: [],
+          sampleCount: 0,
+          promptText: '本次资料未附随机轨迹，无法验证抽签与掷筊的重放过程',
+          sources: ['随机轨迹资料完整性核验'],
+          limitation: RANDOM_FACT_LIMITATION,
+        };
+  const randomFacts = isManual
+    ? []
+    : trace
+      ? [
+          `随机模式：${trace.mode}`,
+          `原始随机样本数：${trace.samples.length}`,
+          trace.seed !== undefined ? `随机种子：${String(trace.seed)}` : '',
+        ].filter(Boolean)
+      : ['本次资料未附随机轨迹，无法验证抽签与掷筊的重放过程'];
   const sourceFacts: SsgwSourceFact[] = [
     {
       key: 'ssgw:source:traditional-signbook',
@@ -861,11 +888,15 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     {
       key: 'ssgw:source:random-trace',
       status: '已声明',
-      title: '可重放随机轨迹记录',
-      evidence: '抽签和掷筊使用同一随机源，保留随机种子或重放轨迹所需的原始样本',
+      title: isManual ? '用户手工录入记录' : '可重放随机轨迹记录',
+      evidence: isManual
+        ? '签号由用户录入，系统只核对签号与签文资料的对应关系'
+        : '抽签和掷筊使用同一随机源，保留随机种子或重放轨迹所需的原始样本',
       role: '随机协议',
-      promptText: '随机记录来源：抽签和掷筊使用同一随机源，并保留重放所需的原始样本',
-      sources: ['抽签与掷筊随机轨迹记录'],
+      promptText: isManual
+        ? '签号来源：用户手工录入，系统未模拟抽签或掷筊'
+        : '随机记录来源：抽签和掷筊使用同一随机源，并保留重放所需的原始样本',
+      sources: isManual ? ['用户手工录入的签号'] : ['抽签与掷筊随机轨迹记录'],
       limitation: SOURCE_FACT_LIMITATION,
     },
   ];
@@ -880,7 +911,7 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     story ? '' : '资料没有典故，不得自行补造人物或事件',
     drawFact.status === '可核验' ? '' : drawFact.promptText,
     ritualFact.status === '已确认' ? '' : ritualFact.promptText,
-    randomFact.status === '可重放' ? '' : randomFact.promptText,
+    randomFact.status === '缺少轨迹' ? randomFact.promptText : '',
   ].filter(Boolean);
   const counterEvidenceFacts = buildCounterEvidenceFacts({
     signFact,
@@ -992,11 +1023,16 @@ export function analyzeSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       tags: ['仪式流程', data.ritual?.confirmed ? '已确认' : '未确认', '不代表现实结论'],
     },
     {
-      level: trace ? '辅证' : '反证',
-      title: trace ? '随机过程重放记录' : '随机轨迹缺失',
+      level: randomFact.status === '缺少轨迹' ? '反证' : '辅证',
+      title:
+        randomFact.status === '不适用'
+          ? '手工录入来源'
+          : trace
+            ? '随机过程重放记录'
+            : '随机轨迹缺失',
       detail: `${randomFact.promptText}；边界：${randomFact.limitation}`,
       source: randomFact.sources.join('；'),
-      tags: ['随机轨迹', trace ? '可重放' : '不可核验', '不代表预测有效性'],
+      tags: ['随机轨迹', randomFact.status, '不代表预测有效性'],
     },
     ...counterEvidence.map((detail): PromptEvidenceItem => ({
       level: '反证',
