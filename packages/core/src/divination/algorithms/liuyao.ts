@@ -154,14 +154,24 @@ function checkSanheWithTrigger(
  * - 化泄：动爻生变爻，本爻之气外泄
  * - 化耗：动爻克变爻，本爻用力而耗
  */
-function getChangeRelation(
+const VALID_LIUYAO_WUXING = new Set(Object.keys(wuxing));
+
+export function getLiuyaoChangeRelation(
   originalWuxing: string,
   changedWuxing: string,
   originalBranch: string,
   changedBranch: string,
   changedIsVoid: boolean,
-): '回头生' | '回头克' | '回头冲' | '化空' | '比和' | '化泄' | '化耗' | null {
-  if (!originalWuxing || !changedWuxing) return null;
+): '回头生' | '回头克' | '回头冲' | '化空' | '比和' | '化泄' | '化耗' {
+  if (!VALID_LIUYAO_WUXING.has(originalWuxing) || !VALID_LIUYAO_WUXING.has(changedWuxing)) {
+    throw new Error(`六爻动变五行无效：${originalWuxing || '空'}→${changedWuxing || '空'}`);
+  }
+  if (!BRANCH_ORDER.includes(originalBranch) || !BRANCH_ORDER.includes(changedBranch)) {
+    throw new Error(`六爻动变地支无效：${originalBranch || '空'}→${changedBranch || '空'}`);
+  }
+  if (typeof changedIsVoid !== 'boolean') {
+    throw new Error('六爻变爻旬空标记必须是布尔值');
+  }
   if (changedIsVoid) return '化空';
   if (isLiuchong(originalBranch, changedBranch)) return '回头冲';
   if (isSheng(changedWuxing, originalWuxing)) return '回头生';
@@ -170,6 +180,38 @@ function getChangeRelation(
   if (isSheng(originalWuxing, changedWuxing)) return '化泄';
   if (isKe(originalWuxing, changedWuxing)) return '化耗';
   throw new Error(`动变五行关系无法判定：${originalWuxing}→${changedWuxing}`);
+}
+
+const SHI_YANG_TO_GUA_SHEN: Record<number, string> = {
+  1: '子',
+  2: '丑',
+  3: '寅',
+  4: '卯',
+  5: '辰',
+  6: '巳',
+};
+
+const SHI_YIN_TO_GUA_SHEN: Record<number, string> = {
+  1: '午',
+  2: '未',
+  3: '申',
+  4: '酉',
+  5: '戌',
+  6: '亥',
+};
+
+export function getLiuyaoGuaShenBranch(shiPosition: number, shiYaoIsYang: boolean): string {
+  if (!Number.isInteger(shiPosition) || shiPosition < 1 || shiPosition > 6) {
+    throw new Error(`六爻世爻位置无效：${shiPosition}`);
+  }
+  if (typeof shiYaoIsYang !== 'boolean') {
+    throw new Error('六爻世爻阴阳标记必须是布尔值');
+  }
+  const branch = (shiYaoIsYang ? SHI_YANG_TO_GUA_SHEN : SHI_YIN_TO_GUA_SHEN)[shiPosition];
+  if (!branch) {
+    throw new Error(`六爻月卦身资料缺失：世爻${shiPosition}，${shiYaoIsYang ? '阳' : '阴'}`);
+  }
+  return branch;
 }
 
 /**
@@ -923,7 +965,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
       !isChanging && isDayBreakFlag && (seasonState === '旺' || seasonState === '相');
     // 回头生克冲：动爻变出之爻对动爻本身的关系（仅动爻有变爻时计算）。
     const changeRelation = changedInfo
-      ? getChangeRelation(
+      ? getLiuyaoChangeRelation(
           info.wuxing,
           changedInfo.wuxing,
           info.dizhi,
@@ -998,26 +1040,12 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
   // 月卦身（按六爻传统“阳世从子月起，阴世从午月生，从初数至世方真”）：
   // 阳世：初爻子、二爻丑、三爻寅、四爻卯、五爻辰、六爻巳
   // 阴世：初爻午、二爻未、三爻申、四爻酉、五爻戌、六爻亥
-  const SHI_YANG_TO_GUA_SHEN: Record<number, string> = {
-    1: '子',
-    2: '丑',
-    3: '寅',
-    4: '卯',
-    5: '辰',
-    6: '巳',
-  };
-  const SHI_YIN_TO_GUA_SHEN: Record<number, string> = {
-    1: '午',
-    2: '未',
-    3: '申',
-    4: '酉',
-    5: '戌',
-    6: '亥',
-  };
   // 世爻的阴阳决定卦身取阳表还是阴表
-  const shiYaoIsYang = mainYaos[shiYing.shi - 1] === '阳';
-  const guaShenBranch =
-    (shiYaoIsYang ? SHI_YANG_TO_GUA_SHEN : SHI_YIN_TO_GUA_SHEN)[shiYing.shi] || '';
+  const shiYaoType = mainYaos[shiYing.shi - 1];
+  if (shiYaoType !== '阳' && shiYaoType !== '阴') {
+    throw new Error(`六爻世爻资料缺失：第${shiYing.shi}爻`);
+  }
+  const guaShenBranch = getLiuyaoGuaShenBranch(shiYing.shi, shiYaoType === '阳');
   const guaShenYao = yaosInfo.find((i) => i.dizhi === guaShenBranch);
   const guaShen = guaShenYao
     ? {

@@ -1016,6 +1016,8 @@ export interface AlmanacData {
 export type LenormandSpreadType =
   'single' | 'three' | 'five' | 'relationship' | 'decision' | 'nine' | 'element' | 'grandTableau';
 
+export type LenormandCombinationRelation = '牌序相邻' | '横向相邻' | '纵向相邻' | '对角相邻';
+
 export interface LenormandData {
   meta?: CoreResultMeta;
   spreadType: LenormandSpreadType;
@@ -1047,6 +1049,11 @@ export interface LenormandData {
   combinations?: Array<{
     card1: string;
     card2: string;
+    position1?: string;
+    position2?: string;
+    relation?: LenormandCombinationRelation;
+    rowDistance?: number;
+    columnDistance?: number;
     meaning: string;
     source?: '固定组合' | '相邻牌义合读';
   }>;

@@ -1,7 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { generateAlmanacSelection } from '../packages/core/src/divination/algorithms/almanac.ts';
+import {
+  generateAlmanacSelection,
+  getAlmanacAnnualDirectionGods,
+  getAlmanacNineStarDetail,
+  getAlmanacPengZuDetails,
+  getAlmanacTwentyEightStarDetail,
+} from '../packages/core/src/divination/algorithms/almanac.ts';
+
+test('黄历基础资料缺失或输入非法时应明确报错', () => {
+  assert.throws(() => getAlmanacTwentyEightStarDetail('未知宿'), /二十八宿资料缺失/);
+  assert.throws(() => getAlmanacNineStarDetail('十白'), /九星资料缺失/);
+  assert.throws(() => getAlmanacPengZuDetails('甲', '无'), /彭祖地支百忌资料缺失/);
+  assert.throws(() => getAlmanacPengZuDetails('无', '子'), /彭祖天干百忌资料缺失/);
+  assert.throws(() => getAlmanacAnnualDirectionGods('无'), /年支无效/);
+});
 
 test('黄历择日：tyme4ts 返回九星短名时也应补出九星详情', () => {
   const result = generateAlmanacSelection({
@@ -295,6 +309,25 @@ test('黄历择日：每个候选日应给出完整时辰并排除诸事不宜�
 
   for (const day of result.days) {
     assert.equal(day.hours?.length, 13, `${day.date} 应包含早晚子时在内的 13 个时段`);
+    assert.deepEqual(
+      day.hours?.map((hour) => [hour.name, hour.branch, hour.range]),
+      [
+        ['早子时', '子', '00:00-01:00'],
+        ['丑时', '丑', '01:00-03:00'],
+        ['寅时', '寅', '03:00-05:00'],
+        ['卯时', '卯', '05:00-07:00'],
+        ['辰时', '辰', '07:00-09:00'],
+        ['巳时', '巳', '09:00-11:00'],
+        ['午时', '午', '11:00-13:00'],
+        ['未时', '未', '13:00-15:00'],
+        ['申时', '申', '15:00-17:00'],
+        ['酉时', '酉', '17:00-19:00'],
+        ['戌时', '戌', '19:00-21:00'],
+        ['亥时', '亥', '21:00-23:00'],
+        ['晚子时', '子', '23:00-24:00'],
+      ],
+    );
+    assert.equal(new Set(day.hours?.map((hour) => hour.range)).size, 13);
     assert.ok((day.bestHours?.length ?? 0) > 0, `${day.date} 应给出首选时辰`);
     for (const hour of day.bestHours ?? []) {
       assert.doesNotMatch(

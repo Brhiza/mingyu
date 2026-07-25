@@ -5,7 +5,7 @@ import {
   formatLegacyRandomFacts,
   type RandomTraceFact,
 } from '../shared/random';
-import type { LenormandData } from '../types/divination';
+import type { LenormandCombinationRelation, LenormandData } from '../types/divination';
 
 export interface LenormandCardEvidence {
   key: string;
@@ -74,7 +74,7 @@ export interface LenormandSequenceFact {
   toCard: string;
   promptText: string;
   sources: string[];
-  limitation: '牌序事实只描述已声明牌位的相邻顺序与牌面衔接；不得把牌阵顺序直接写成现实事件必然按同样阶段发生';
+  limitation: '牌序事实只描述抽取或登记顺序与牌面衔接，不代表两张牌在网格中空间相邻；不得把牌阵顺序直接写成现实事件必然按同样阶段发生';
 }
 
 export interface LenormandLayoutCoverageFact {
@@ -246,7 +246,7 @@ const SPREAD_COVERAGE_LIMITATION =
 const DRAW_ORDER_FACT_LIMITATION =
   '逐张抽取事实只核对洗牌顺序记录与已确定牌面的序号、牌位、牌号、牌名、宫位和行列落点；记录一致不表示牌义可信度、预测有效性或现实结果' as const;
 const SEQUENCE_FACT_LIMITATION =
-  '牌序事实只描述已声明牌位的相邻顺序与牌面衔接；不得把牌阵顺序直接写成现实事件必然按同样阶段发生' as const;
+  '牌序事实只描述抽取或登记顺序与牌面衔接，不代表两张牌在网格中空间相邻；不得把牌阵顺序直接写成现实事件必然按同样阶段发生' as const;
 const LAYOUT_COVERAGE_LIMITATION =
   '布局覆盖只说明九宫或大桌所需的中心、路径、宫位和人物牌近身关系是否有可核验结构；旧版字符串不得反推行列、宫位、距离或缺失布局事实' as const;
 const COUNTER_FACT_LIMITATION =
@@ -445,6 +445,8 @@ export function conditionLenormandTraditionalText(
     kind?: LenormandTraditionalFact['kind'];
     cardNames?: string[];
     keywords?: string[];
+    relation?: LenormandCombinationRelation;
+    positions?: string[];
   },
 ): string {
   const kind = options?.kind ?? '单牌牌义';
@@ -452,6 +454,12 @@ export function conditionLenormandTraditionalText(
   const keywords = unique(options?.keywords ?? []);
   const targetText = keywords.length ? keywords.join('、') : '相关象征主题';
   const cardsText = cardNames.length ? cardNames.join('+') : '当前牌面';
+  const positions = unique(options?.positions ?? []);
+  const relationText = options?.relation
+    ? `${positions.length ? `${positions.join('与')}的` : ''}${options.relation}`
+    : positions.length
+      ? `${positions.join('与')}的已登记组合关系`
+      : '已登记组合关系';
   const conditionedText = text
     .replace(/感情的承诺或婚约/g, '关系承诺、契约或婚约议题')
     .replace(/订婚或喜讯/g, '订婚或喜讯线索')
@@ -493,10 +501,10 @@ export function conditionLenormandTraditionalText(
     .replace(/需要承担代价或接受现实/g, '需要核实现实责任、成本与可承受范围')
     .replace(/[。.]$/, '');
   if (kind === '固定组合') {
-    return `传统固定组合${cardsText}提示关注${conditionedText || targetText}；只可检查这些主题是否同时出现现实证据，不得直接认定婚约、生育、收益、欺骗或其他现实结果`;
+    return `传统固定组合${cardsText}通过${relationText}命中，提示关注${conditionedText || targetText}；只可检查这些主题是否同时出现现实证据，不得直接认定婚约、生育、收益、欺骗或其他现实结果`;
   }
   if (kind === '相邻合读') {
-    return `相邻牌${cardsText}按抽牌顺序形成${targetText}的合读范围；这不是传统固定组合，须逐项核实前后牌主题是否与现实进展相符`;
+    return `相邻牌${cardsText}通过${relationText}形成${targetText}的合读范围；这不是传统固定组合，须逐项核实两张牌主题是否与现实进展相符`;
   }
   return `传统单牌${cardsText}以${targetText}为解释范围；可在当前牌位检查这些主题的现实线索，但不把原始牌义直接当作已发生事实`;
 }
@@ -527,6 +535,11 @@ function buildTraditionalFacts(
     const first = cardByName.get(combo.card1);
     const second = cardByName.get(combo.card2);
     const kind = combo.source === '固定组合' ? '固定组合' : '相邻合读';
+    const relation = combo.relation;
+    const positions = unique([
+      combo.position1 ?? first?.position ?? '',
+      combo.position2 ?? second?.position ?? '',
+    ]);
     const verificationTargets = unique([...(first?.keywords ?? []), ...(second?.keywords ?? [])]);
     return {
       key: `combination:${index + 1}:${combo.card1}:${combo.card2}:${kind}`,
@@ -534,18 +547,32 @@ function buildTraditionalFacts(
       kind,
       cardFactKeys: unique([first?.key ?? '', second?.key ?? '']),
       cardNames: [combo.card1, combo.card2],
-      positions: unique([first?.position ?? '', second?.position ?? '']),
+      positions,
       originalText: combo.meaning,
       promptText: conditionLenormandTraditionalText(combo.meaning, {
         kind,
         cardNames: [combo.card1, combo.card2],
         keywords: verificationTargets,
+        relation,
+        positions,
       }),
       verificationTargets,
       sources:
         kind === '固定组合'
-          ? ['当前雷诺曼固定牌对解释资料']
-          : ['当前相邻牌位顺序与两张牌的关键词、基础牌义'],
+          ? [
+              '当前雷诺曼固定牌对解释资料',
+              relation
+                ? `当前牌阵两张牌的${relation}与具体牌位`
+                : '原始组合记录未注明空间方向，仅保留已登记牌位',
+            ]
+          : [
+              relation === '牌序相邻'
+                ? '当前牌阵的抽取或登记顺序'
+                : relation
+                  ? `当前牌阵两张牌的${relation}与具体牌位`
+                  : '原始组合记录未注明相邻关系类型',
+              '两张牌的关键词与基础牌义',
+            ],
       limitation: TRADITIONAL_FACT_LIMITATION,
     };
   });
@@ -687,8 +714,8 @@ function buildSequenceFacts(cards: LenormandCardEvidence[]): LenormandSequenceFa
       toPosition: card.position,
       fromCard: previous.name,
       toCard: card.name,
-      promptText: `${previous.position}${previous.name} → ${card.position}${card.name}`,
-      sources: ['已声明牌阵的牌位顺序', '相邻牌位的已确定牌面'],
+      promptText: `${previous.position}${previous.name} → ${card.position}${card.name}（仅表示抽取或登记顺序，不表示空间相邻）`,
+      sources: ['已声明牌阵的抽取或登记顺序', '顺序相接的已确定牌面'],
       limitation: SEQUENCE_FACT_LIMITATION,
     };
   });
