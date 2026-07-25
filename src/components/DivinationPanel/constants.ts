@@ -26,6 +26,8 @@ export const defaultDraft: DivinationDraft = {
   divinationTimeMode: 'current',
   customDivinationDate: '',
   customDivinationTime: '',
+  liuyaoMethod: 'time',
+  liuyaoYaos: [7, 7, 7, 7, 7, 7],
   meihuaMethod: 'time',
   meihuaNumber: '',
   xiaoliurenMethod: 'time',

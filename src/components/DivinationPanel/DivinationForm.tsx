@@ -29,6 +29,27 @@ const DIVINATION_TIME_MODE_OPTIONS = [
   { value: 'custom', label: '自定时间' },
 ] as const;
 
+const LIUYAO_METHOD_OPTIONS = [
+  { value: 'time', label: '时间起卦' },
+  { value: 'coins', label: '模拟投币' },
+  { value: 'manual', label: '手动录入' },
+] as const;
+
+const LIUYAO_YAO_OPTIONS = [
+  { value: 6, label: '6 · 老阴（动）' },
+  { value: 7, label: '7 · 少阳' },
+  { value: 8, label: '8 · 少阴' },
+  { value: 9, label: '9 · 老阳（动）' },
+] as const;
+
+const LIUYAO_POSITION_LABELS = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'] as const;
+
+const liuyaoMethodLabelMap: Record<NonNullable<DivinationDraft['liuyaoMethod']>, string> = {
+  time: '时间起卦',
+  coins: '模拟投币',
+  manual: '手动录入',
+};
+
 const divinationTimeModeLabelMap: Record<
   NonNullable<DivinationDraft['divinationTimeMode']>,
   string
@@ -96,6 +117,14 @@ export function DivinationForm({
         : '开始占卜';
   const isTimeBasedDivination = isTimeBasedDivinationDraft(draft);
   const divinationTimeMode = draft.divinationTimeMode ?? 'current';
+  const liuyaoMethod = draft.liuyaoMethod ?? 'time';
+  const liuyaoYaos = draft.liuyaoYaos ?? [7, 7, 7, 7, 7, 7];
+
+  function updateLiuyaoYao(index: number, value: 6 | 7 | 8 | 9) {
+    const nextYaos = [...liuyaoYaos];
+    nextYaos[index] = value;
+    updateDraft('liuyaoYaos', nextYaos);
+  }
 
   function updateAlmanacParticipant(
     id: string,
@@ -370,6 +399,34 @@ export function DivinationForm({
                             }
                           >
                             {LIUYAO_TEMPLATE_OPTIONS.map((item) => (
+                              <option key={item.value} value={item.value}>
+                                {item.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {draft.method === 'liuyao' ? (
+                      <div className="form-item divination-inline-field">
+                        <label htmlFor="liuyao-method-select">起卦方式</label>
+                        <div className="divination-select-shell divination-desktop-select-shell">
+                          <span className="divination-trigger-text">
+                            {liuyaoMethodLabelMap[liuyaoMethod]}
+                          </span>
+                          <select
+                            id="liuyao-method-select"
+                            value={liuyaoMethod}
+                            className="form-input divination-overlay-select"
+                            onChange={(event) =>
+                              updateDraft(
+                                'liuyaoMethod',
+                                event.target.value as NonNullable<DivinationDraft['liuyaoMethod']>,
+                              )
+                            }
+                          >
+                            {LIUYAO_METHOD_OPTIONS.map((item) => (
                               <option key={item.value} value={item.value}>
                                 {item.label}
                               </option>
@@ -670,6 +727,31 @@ export function DivinationForm({
                   </div>
                 ) : null}
 
+                {draft.method === 'liuyao' ? (
+                  <div className="divination-mobile-secondary-picker">
+                    <span className="divination-mobile-trigger-text divination-trigger-text">
+                      {liuyaoMethodLabelMap[liuyaoMethod]}
+                    </span>
+                    <select
+                      aria-label="六爻起卦方式"
+                      value={liuyaoMethod}
+                      className="form-input divination-mobile-method-select divination-overlay-select"
+                      onChange={(event) =>
+                        updateDraft(
+                          'liuyaoMethod',
+                          event.target.value as NonNullable<DivinationDraft['liuyaoMethod']>,
+                        )
+                      }
+                    >
+                      {LIUYAO_METHOD_OPTIONS.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+
                 {draft.method === 'tarot' ? (
                   <div className="divination-mobile-secondary-picker">
                     <span className="divination-mobile-trigger-text divination-trigger-text">
@@ -861,6 +943,32 @@ export function DivinationForm({
                     updateDraft('jinkoujueNumber', event.target.value.replace(/[^\d]/g, ''))
                   }
                 />
+              </div>
+            </div>
+          ) : null}
+
+          {draft.method === 'liuyao' && liuyaoMethod === 'manual' ? (
+            <div className="divination-extra-panel liuyao-manual-panel">
+              <div className="liuyao-manual-grid">
+                {LIUYAO_POSITION_LABELS.map((label, index) => (
+                  <div className="form-item" key={label}>
+                    <label htmlFor={`liuyao-yao-${index}`}>{label}</label>
+                    <select
+                      id={`liuyao-yao-${index}`}
+                      className="form-input"
+                      value={liuyaoYaos[index]}
+                      onChange={(event) =>
+                        updateLiuyaoYao(index, Number(event.target.value) as 6 | 7 | 8 | 9)
+                      }
+                    >
+                      {LIUYAO_YAO_OPTIONS.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
               </div>
             </div>
           ) : null}

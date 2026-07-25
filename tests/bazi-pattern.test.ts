@@ -48,6 +48,21 @@ test('格局判定应优先参考月令司权，而不是把寅月一律当建�
   assert.match(result.basis || '', /司权/);
 });
 
+test('丁火生巳月时不应被透出的庚金误判为正财格', () => {
+  const pillars: Pillars = {
+    year: { gan: '庚', zhi: '辰', ganZhi: '庚辰' },
+    month: { gan: '辛', zhi: '巳', ganZhi: '辛巳' },
+    day: { gan: '丁', zhi: '酉', ganZhi: '丁酉' },
+    hour: { gan: '庚', zhi: '子', ganZhi: '庚子' },
+  };
+
+  const result = determinePattern(pillars, '身强', getTenGod, '庚');
+
+  assert.equal(result.isSpecial, false);
+  assert.equal(result.pattern, '劫财格');
+  assert.match(result.basis || '', /月令本气为丙/);
+});
+
 test('杂气多透时本气优先于透干柱位，不应只按透干柱位优先定格', () => {
   const pillars: Pillars = {
     year: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },

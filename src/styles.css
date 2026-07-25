@@ -1231,6 +1231,7 @@ select {
 }
 
 .ziwei-traditional-grid {
+  position: relative;
   display: grid;
   width: 100%;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1238,6 +1239,46 @@ select {
   gap: 8px;
   min-width: 0;
   aspect-ratio: 1 / 1.08;
+}
+
+.ziwei-relation-lines {
+  position: absolute;
+  z-index: 2;
+  inset: 24px 10px;
+  width: calc(100% - 20px);
+  height: calc(100% - 48px);
+  overflow: visible;
+  pointer-events: none;
+  color: var(--accent-strong);
+}
+
+.ziwei-relation-triangle,
+.ziwei-relation-opposite-line {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 5;
+  stroke-linecap: round;
+  opacity: 0.72;
+}
+
+.ziwei-relation-opposite-line {
+  color: var(--secondary-strong);
+  stroke-dasharray: 3 5;
+}
+
+.ziwei-relation-point {
+  fill: var(--surface-elevated-strong);
+  stroke: currentColor;
+  stroke-width: 0.45;
+  vector-effect: non-scaling-stroke;
+}
+
+.ziwei-grid-cell > *,
+.ziwei-board-center > * {
+  position: relative;
+  z-index: 3;
 }
 
 .ziwei-grid-cell,
@@ -3779,6 +3820,16 @@ select {
   margin-top: -4px;
 }
 
+.liuyao-manual-panel {
+  margin-top: -4px;
+}
+
+.liuyao-manual-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .divination-mobile-control-row {
   margin-top: 8px;
   align-items: center;
@@ -4408,8 +4459,6 @@ select {
     grid-template-columns: 1fr;
   }
 }
-
-
 
 .xuankong-grid {
   display: grid;
@@ -5469,6 +5518,12 @@ div.form-actions.page-submit-actions {
     aspect-ratio: 1 / 1.08;
   }
 
+  .ziwei-relation-lines {
+    inset: 4px;
+    width: calc(100% - 8px);
+    height: calc(100% - 8px);
+  }
+
   .ziwei-grid-cell {
     min-height: 0;
     padding: 14px 4px 4px;
@@ -6206,6 +6261,10 @@ div.form-actions.page-submit-actions {
 
   .divination-method-grid {
     display: none;
+  }
+
+  .liuyao-manual-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .divination-method-btn {

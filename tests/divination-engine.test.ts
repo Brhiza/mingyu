@@ -4244,6 +4244,24 @@ test('六爻提示词应同时写出日辰和月建参与的三合局', async ()
   assert.match(session.prompt, /月建子引动水局（申、子、辰）/);
 });
 
+test('前端占卜链路应把手动六爻爻值原样传入核心算法', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'liuyao',
+      liuyaoMethod: 'manual',
+      liuyaoYaos: [6, 7, 8, 9, 7, 8],
+    }),
+  );
+  const data = session.data as ReturnType<typeof generateLiuyao>;
+
+  assert.deepEqual(data.yaoArray, [6, 7, 8, 9, 7, 8]);
+  assert.equal(data.generation?.method, 'manual');
+  assert.deepEqual(
+    data.changingYaos.map((item) => item.position),
+    [1, 4],
+  );
+});
+
 test('自定起卦时间缺少日期或时间时应明确提示', async () => {
   await assert.rejects(
     () =>

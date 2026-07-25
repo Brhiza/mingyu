@@ -72,6 +72,8 @@ export type DivinationDraft = {
   divinationTimeMode?: 'current' | 'custom';
   customDivinationDate?: string;
   customDivinationTime?: string;
+  liuyaoMethod?: 'time' | 'coins' | 'manual';
+  liuyaoYaos?: Array<6 | 7 | 8 | 9>;
   meihuaMethod: 'time' | 'number' | 'random' | 'timeTrigram';
   meihuaNumber: string;
   xiaoliurenMethod: XiaoliurenDivinationMethod;
@@ -251,6 +253,15 @@ function validateDraft(draft: DivinationDraft) {
 
   if (draft.method === 'meihua' && draft.meihuaMethod === 'number') {
     readPositiveIntegerText(draft.meihuaNumber, '数字起卦');
+  }
+
+  if (draft.method === 'liuyao' && (draft.liuyaoMethod ?? 'time') === 'manual') {
+    if (draft.liuyaoYaos?.length !== 6) {
+      throw new Error('手动起卦需要从初爻到上爻填写六个爻值');
+    }
+    if (!draft.liuyaoYaos.every((value) => [6, 7, 8, 9].includes(value))) {
+      throw new Error('手动起卦的爻值只能是 6、7、8、9');
+    }
   }
 
   if (draft.method === 'xiaoliuren') {
@@ -527,7 +538,11 @@ export async function generateDivinationSession(
   switch (method) {
     case 'liuyao': {
       const module = await import('mingyu-core/divination/liuyao');
-      data = module.generateLiuyao(customDate);
+      const liuyaoMethod = draft.liuyaoMethod ?? 'time';
+      data = module.generateLiuyao(customDate, {
+        method: liuyaoMethod,
+        ...(liuyaoMethod === 'manual' ? { yaos: draft.liuyaoYaos } : {}),
+      });
       break;
     }
     case 'meihua': {
