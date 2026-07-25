@@ -356,12 +356,25 @@ export function determinePattern(
     return { pattern: subPattern, isSpecial: true, basis };
   }
 
+  const monthPrincipalStem = monthStems[0];
+  const monthPrincipalGod = getTenGod(monthPrincipalStem, dayMaster);
   const activeMonthStem =
     monthCommander && monthStems.includes(monthCommander) ? monthCommander : monthStems[0];
   const monthMainGod = getTenGod(activeMonthStem, dayMaster);
   let basis: string;
 
-  if (monthCommander && exposedStems.includes(monthCommander)) {
+  if (monthPrincipalGod === '劫财') {
+    if (REN_BRANCH_MAP[dayMaster] === monthBranch) {
+      patternName = '月刃格';
+      basis = `月令${monthBranch}为日主${dayMaster}之羊刃位，按月刃格处理`;
+    } else if (REN_BRANCH_MAP[dayMaster]) {
+      patternName = '劫财格';
+      basis = `月令本气为${monthPrincipalStem}，对应劫财，但月支${monthBranch}非${dayMaster}刃位（刃在${REN_BRANCH_MAP[dayMaster]}），按劫财格处理`;
+    } else {
+      patternName = '劫财格';
+      basis = `月令本气为${monthPrincipalStem}，对应劫财，日主${dayMaster}为阴干无真刃，按劫财格处理`;
+    }
+  } else if (monthCommander && exposedStems.includes(monthCommander)) {
     patternName = getPatternNameByTenGod(monthMainGod, dayMaster, monthBranch);
     basis = `月令司权为${monthCommander}，且已透干，按司令十神取格`;
   } else if (monthMainGod === '比肩' && LU_BRANCH_MAP[dayMaster] === monthBranch) {

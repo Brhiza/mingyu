@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { analyzeTarotEvidence, drawTarotSpread, tarotSpreads } from 'mingyu-core/divination/tarot';
+import {
+  analyzeTarotEvidence,
+  drawTarotSpread,
+  resolveInteractiveTarotCards,
+  tarotSpreads,
+} from 'mingyu-core/divination/tarot';
 import type { TarotData, TarotSpreadType } from 'mingyu-core/types';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
@@ -112,6 +117,77 @@ test('塔罗单牌不应伪造跨牌关系，多牌应逐对连接相邻牌位',
     celtic.cards.slice(1).map((card) => card.key),
   );
   assert.ok(celtic.sequenceFacts.every((fact) => fact.limitation.includes('不得把牌阵顺序')));
+});
+
+test('塔罗手工录入应保留牌位与正逆位，并将随机轨迹标为不适用', () => {
+  const data = drawTarotSpread('three', {
+    manualCards: [
+      { id: 1, reversed: false },
+      { id: 22, reversed: true },
+      { id: 78, reversed: false },
+    ],
+  });
+
+  assert.deepEqual(
+    data.cards.map((card) => [card.id, card.position, card.reversed]),
+    [
+      [1, '过去', false],
+      [22, '现在', true],
+      [78, '未来', false],
+    ],
+  );
+  assert.equal(data.draw?.method, '用户按牌位手工录入');
+  assert.equal(data.meta?.algorithm, 'tarot.spread.manual');
+  assert.equal(data.meta?.random, undefined);
+  assert.equal(data.evidenceAnalysis?.randomFact.status, '不适用');
+  assert.equal(data.evidenceAnalysis?.summaryFact.status, '证据链完整');
+  assert.ok(data.evidenceAnalysis?.evidence.items.some((item) => item.title === '手工录入来源'));
+
+  assert.throws(
+    () =>
+      drawTarotSpread('three', {
+        manualCards: [
+          { id: 1, reversed: false },
+          { id: 1, reversed: true },
+          { id: 2, reversed: false },
+        ],
+      }),
+    /不能重复录入/,
+  );
+  assert.throws(
+    () =>
+      drawTarotSpread('single', {
+        seed: '冲突参数',
+        manualCards: [{ id: 1, reversed: false }],
+      }),
+    /不能同时提供随机选项/,
+  );
+});
+
+test('塔罗手动抽取应按样本逐张无重复翻牌并保留可重放轨迹', () => {
+  const samples = [0, 0.75, 0.5, 0.25, 0.999, 0.75];
+  const preview = resolveInteractiveTarotCards('three', samples);
+  const data = drawTarotSpread('three', { interactiveSamples: samples });
+
+  assert.deepEqual(
+    data.cards.map((card) => ({ id: card.id, name: card.name, reversed: card.reversed })),
+    preview,
+  );
+  assert.equal(new Set(data.cards.map((card) => card.id)).size, 3);
+  assert.equal(data.draw?.method, '用户逐张触发前端随机抽取');
+  assert.equal(data.meta?.algorithm, 'tarot.spread.interactive');
+  assert.deepEqual(data.meta?.random, { mode: 'system', seed: undefined, samples });
+  assert.equal(data.evidenceAnalysis?.randomFact.status, '可重放');
+
+  assert.throws(
+    () => drawTarotSpread('three', { interactiveSamples: samples.slice(0, -2) }),
+    /需要逐张抽取3张牌/,
+  );
+  assert.throws(() => resolveInteractiveTarotCards('three', [0]), /需要两个随机样本/);
+  assert.throws(
+    () => drawTarotSpread('three', { seed: '冲突', interactiveSamples: samples }),
+    /不能同时提供随机选项/,
+  );
 });
 
 test('塔罗逆位应形成指向所属牌面的反证事实与汇总', () => {

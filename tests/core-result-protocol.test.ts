@@ -264,6 +264,31 @@ test('六爻保留时间、手工和模拟三钱三种来源及逐币轨迹', ()
     () => generateLiuyao(DATE, { method: 'coins', yaos: manualYaos }),
     /不能同时提供手工爻值/,
   );
+
+  const handShakenCoinThrows = [
+    { coins: [2, 2, 2], total: 6 },
+    { coins: [2, 2, 3], total: 7 },
+    { coins: [2, 3, 3], total: 8 },
+    { coins: [3, 3, 3], total: 9 },
+    { coins: [2, 2, 3], total: 7 },
+    { coins: [2, 3, 3], total: 8 },
+  ] as const;
+  const handShaken = generateLiuyao(DATE, {
+    method: 'coins',
+    coinThrows: handShakenCoinThrows,
+  });
+  assert.deepEqual(handShaken.yaoArray, [6, 7, 8, 9, 7, 8]);
+  assert.deepEqual(handShaken.generation.coinThrows, handShakenCoinThrows);
+  assert.equal(handShaken.meta.random, undefined);
+  assert.equal(handShaken.evidenceAnalysis?.generationFact.status, '可核验');
+  assert.throws(
+    () =>
+      generateLiuyao(DATE, {
+        method: 'coins',
+        coinThrows: handShakenCoinThrows.slice(0, -1),
+      }),
+    /必须恰好包含 6 爻/,
+  );
 });
 
 test('非随机起法不得静默忽略随机设置', () => {

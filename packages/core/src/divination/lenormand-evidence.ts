@@ -393,6 +393,8 @@ function buildDrawFact(
   data: LenormandData,
   drawOrderFacts: LenormandDrawOrderFact[],
 ): LenormandDrawFact {
+  const isManual = data.draw?.method === '用户按牌位手工录入';
+  const isInteractive = data.draw?.method === '用户逐张触发前端随机抽取';
   const order = (data.draw?.order ?? []).map((item) => ({ ...item }));
   const missingIndexes = Array.from(
     { length: Math.max(0, data.cards.length - order.length) },
@@ -426,9 +428,13 @@ function buildDrawFact(
     missingIndexes,
     extraIndexes,
     promptText: data.draw
-      ? `牌组规模：${data.draw.deckSize}张；洗牌与取牌方法：${data.draw.method}；${drawOrderFacts.map((fact) => fact.promptText).join('；')}${status === '来源链缺失' ? `；现有资料仅记录${order.length}/${data.cards.length}张抽取顺序，不能完整核验` : status === '来源链不一致' ? `；第${mismatchIndexes.join('、')}张来源记录与牌面不一致` : ''}`
+      ? `牌组规模：${data.draw.deckSize}张；${isManual ? '录入方式' : isInteractive ? '抽取方式' : '洗牌与取牌方法'}：${data.draw.method}；${drawOrderFacts.map((fact) => fact.promptText).join('；')}${status === '来源链缺失' ? `；现有资料仅记录${order.length}/${data.cards.length}张来源顺序，不能完整核验` : status === '来源链不一致' ? `；第${mismatchIndexes.join('、')}张来源记录与牌面不一致` : ''}`
       : `现有资料未附洗牌方法与抽取顺序，仅保留${data.cards.length}张已确定牌面，不能反推完整抽牌来源链`,
-    sources: ['36张雷诺曼牌组与 Fisher-Yates 洗牌记录', '牌位顺序、宫位与行列落点记录'],
+    sources: isManual
+      ? ['36张雷诺曼牌组', '用户按牌位逐张录入的牌号记录']
+      : isInteractive
+        ? ['36张雷诺曼牌组', '用户逐张触发的抽牌随机样本记录']
+        : ['36张雷诺曼牌组与 Fisher-Yates 洗牌记录', '牌位顺序、宫位与行列落点记录'],
     limitation: DRAW_FACT_LIMITATION,
   };
 }
@@ -796,7 +802,7 @@ function buildSummaryFact(params: {
   const status =
     params.spreadCoverageFact.status === '完整' &&
     params.drawFact.status === '可核验' &&
-    params.randomFact.status === '可重放' &&
+    ['可重放', '不适用'].includes(params.randomFact.status) &&
     params.drawOrderFacts.length === params.cards.length &&
     layoutComplete
       ? '证据链完整'
@@ -854,7 +860,7 @@ function buildCalculationSteps(params: {
     {
       key: 'lenormand:calculation:random',
       stage: '随机来源核验',
-      status: params.randomFact.status === '可重放' ? '已计算' : '资料不足',
+      status: params.randomFact.status === '缺少轨迹' ? '资料不足' : '已计算',
       inputs: { randomMode: params.randomFact.mode },
       result: {
         randomStatus: params.randomFact.status,
@@ -1018,8 +1024,14 @@ function buildLimitationFacts(params: {
       key: 'lenormand:limitation:random',
       type: '随机边界',
       ownerFactKeys: [params.randomFact.key],
-      promptText: '雷诺曼抽牌包含随机过程；seed或replay只能复现抽牌轨迹，不证明预测有效性',
-      sources: ['洗牌和抽牌随机轨迹', '随机轨迹可重放边界'],
+      promptText:
+        params.randomFact.status === '不适用'
+          ? '手工录入只核对用户提交的牌号与牌位，不依赖随机抽样'
+          : '雷诺曼抽牌包含随机过程；seed或replay只能复现抽牌轨迹，不证明预测有效性',
+      sources:
+        params.randomFact.status === '不适用'
+          ? ['用户手工录入来源边界']
+          : ['洗牌和抽牌随机轨迹', '随机轨迹可重放边界'],
     },
     {
       key: 'lenormand:limitation:combination-level',
@@ -1132,12 +1144,22 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
       ]
     : ['现有资料未附洗牌方法与抽取顺序，仅保留已确定牌面，不能反推完整抽牌来源链'];
   const trace = data.meta?.random;
+  const isManual = data.draw?.method === '用户按牌位手工录入';
+  const isInteractive = data.draw?.method === '用户逐张触发前端随机抽取';
   const randomFact = buildRandomTraceFact({
     key: `random:lenormand:${data.spreadType}`,
-    applicable: true,
+    applicable: !isManual,
     trace,
-    processLabel: `${data.spreadName}的洗牌与抽牌生成过程`,
-    sources: ['雷诺曼牌阵与抽牌顺序记录', '洗牌、抽牌随机样本与重放元数据'],
+    processLabel: isManual
+      ? `${data.spreadName}的手工牌面录入过程`
+      : isInteractive
+        ? `${data.spreadName}的逐张抽牌生成过程`
+        : `${data.spreadName}的洗牌与抽牌生成过程`,
+    sources: isManual
+      ? ['用户按牌位逐张录入的牌面记录']
+      : isInteractive
+        ? ['雷诺曼牌阵与逐张抽牌顺序记录', '抽牌随机样本与重放元数据']
+        : ['雷诺曼牌阵与抽牌顺序记录', '洗牌、抽牌随机样本与重放元数据'],
   });
   const randomFacts = formatLegacyRandomFacts(randomFact);
   const fixedCombinationFacts = traditionalFacts.filter((fact) => fact.kind === '固定组合');
@@ -1196,7 +1218,9 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
   const limitations = limitationFacts.map((fact) => fact.promptText);
   const drawTitle =
     drawFact.status === '可核验'
-      ? '洗牌与抽取顺序事实'
+      ? isManual
+        ? '手工录入牌序事实'
+        : '洗牌与抽取顺序事实'
       : drawFact.status === '来源链不一致'
         ? '抽牌来源链不一致'
         : '抽牌来源链缺失';
@@ -1241,8 +1265,13 @@ export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidence
         ]
       : []),
     {
-      level: randomFact.status === '可重放' ? '辅证' : '反证',
-      title: randomFact.status === '可重放' ? '随机过程重放记录' : '随机轨迹缺失',
+      level: randomFact.status === '缺少轨迹' ? '反证' : '辅证',
+      title:
+        randomFact.status === '不适用'
+          ? '手工录入来源'
+          : randomFact.status === '可重放'
+            ? '随机过程重放记录'
+            : '随机轨迹缺失',
       detail: `${randomFact.promptText}；边界：${randomFact.limitation}`,
       source: randomFact.sources.join('、'),
       tags: ['随机轨迹', randomFact.status, '不代表预测有效性'],

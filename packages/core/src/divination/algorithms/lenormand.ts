@@ -1,6 +1,6 @@
 import type { LenormandData, LenormandSpreadType } from '../../types/divination';
 import type { RandomOptions, RandomSource } from '../../shared/random';
-import { createRandomContext, randomInt } from '../../shared/random';
+import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
 import { analyzeLenormandEvidence } from '../lenormand-evidence';
 
@@ -199,37 +199,63 @@ export const LENORMAND_CARDS = [
   },
 ];
 
-const SPREADS: Record<LenormandSpreadType, { name: string; positions: string[] }> = {
-  single: { name: '单牌线索', positions: ['核心线索'] },
-  three: { name: '三牌事件线', positions: ['起因', '现状', '走向'] },
-  five: {
-    name: '五牌十字阵',
-    positions: ['过去背景', '当前处境', '隐藏因素', '外在助力', '最终走向'],
-  },
-  relationship: {
-    name: '关系牌阵',
-    positions: ['你的状态', '对方状态', '关系纽带', '隐藏因素', '后续走向'],
-  },
-  decision: {
-    name: '选择牌阵',
-    positions: ['当前处境', '选择A', '选择A走向', '选择B', '选择B走向', '关键建议'],
-  },
-  nine: {
-    name: '九宫牌阵',
-    positions: ['左上', '上方', '右上', '左侧', '核心', '右侧', '左下', '下方', '右下'],
-  },
-  element: {
-    name: '元素牌阵',
-    positions: ['火（行动/能量）', '水（情感/直觉）', '风（思维/沟通）', '土（物质/根基）'],
-  },
-  grandTableau: {
-    name: '大桌牌阵',
-    positions: Array.from(
-      { length: 36 },
-      (_, i) => `第${i + 1}宫（${LENORMAND_CARDS[i]?.name ?? '未知'}宫）`,
-    ),
-  },
-};
+export const LENORMAND_SPREADS: Record<LenormandSpreadType, { name: string; positions: string[] }> =
+  {
+    single: { name: '单牌线索', positions: ['核心线索'] },
+    three: { name: '三牌事件线', positions: ['起因', '现状', '走向'] },
+    five: {
+      name: '五牌十字阵',
+      positions: ['过去背景', '当前处境', '隐藏因素', '外在助力', '最终走向'],
+    },
+    relationship: {
+      name: '关系牌阵',
+      positions: ['你的状态', '对方状态', '关系纽带', '隐藏因素', '后续走向'],
+    },
+    decision: {
+      name: '选择牌阵',
+      positions: ['当前处境', '选择A', '选择A走向', '选择B', '选择B走向', '关键建议'],
+    },
+    nine: {
+      name: '九宫牌阵',
+      positions: ['左上', '上方', '右上', '左侧', '核心', '右侧', '左下', '下方', '右下'],
+    },
+    element: {
+      name: '元素牌阵',
+      positions: ['火（行动/能量）', '水（情感/直觉）', '风（思维/沟通）', '土（物质/根基）'],
+    },
+    grandTableau: {
+      name: '大桌牌阵',
+      positions: Array.from(
+        { length: 36 },
+        (_, i) => `第${i + 1}宫（${LENORMAND_CARDS[i]?.name ?? '未知'}宫）`,
+      ),
+    },
+  };
+
+function assertInteractiveSample(sample: number, index: number) {
+  if (!Number.isFinite(sample) || sample < 0 || sample >= 1) {
+    throw new Error(`第${index + 1}个雷诺曼抽牌随机样本无效`);
+  }
+}
+
+/** 根据前端已产生的随机样本复算当前抽牌进度，允许传入未完成牌阵的样本。 */
+export function resolveInteractiveLenormandCards(
+  spreadType: LenormandSpreadType,
+  samples: readonly number[],
+) {
+  const spread = LENORMAND_SPREADS[spreadType];
+  if (!spread) throw new Error(`未知的雷诺曼牌阵类型: ${spreadType}`);
+  if (samples.length > spread.positions.length) {
+    throw new Error(`${spread.name}最多抽取${spread.positions.length}张牌`);
+  }
+  samples.forEach(assertInteractiveSample);
+
+  const remaining = [...LENORMAND_CARDS];
+  return samples.map((sample) => {
+    const index = Math.floor(sample * remaining.length);
+    return remaining.splice(index, 1)[0];
+  });
+}
 
 function shuffleCards(rng: RandomSource) {
   const shuffled = [...LENORMAND_CARDS];
@@ -294,27 +320,57 @@ export const LENORMAND_FIXED_COMBINATIONS: Record<string, string> = {
  */
 export function drawLenormandSpread(
   spreadType: LenormandSpreadType = 'single',
-  options?: RandomOptions,
+  options?: RandomOptions & {
+    manualCardIds?: readonly number[];
+    interactiveSamples?: readonly number[];
+  },
 ): LenormandData {
-  const spread = SPREADS[spreadType];
+  const spread = LENORMAND_SPREADS[spreadType];
   if (!spread) {
     throw new Error(`未知的雷诺曼牌阵类型: ${spreadType}`);
   }
 
-  const context = createRandomContext(options);
-  const rng = context.random;
-  const cards = shuffleCards(rng)
-    .slice(0, spread.positions.length)
-    .map((card, index) => {
-      const columns = spreadType === 'grandTableau' ? 9 : spreadType === 'nine' ? 3 : 0;
-      return {
-        ...card,
-        position: spread.positions[index],
-        house: spreadType === 'grandTableau' ? LENORMAND_CARDS[index]?.name : undefined,
-        row: columns ? Math.floor(index / columns) + 1 : undefined,
-        column: columns ? (index % columns) + 1 : undefined,
-      };
-    });
+  const manualCardIds = options?.manualCardIds;
+  const interactiveSamples = options?.interactiveSamples;
+  if (manualCardIds && interactiveSamples) {
+    throw new Error('雷诺曼手动抽取不能同时提供手工录入牌面');
+  }
+  if (interactiveSamples && hasRandomOptions(options)) {
+    throw new Error('雷诺曼手动抽取样本不能同时提供随机选项');
+  }
+  if (interactiveSamples && interactiveSamples.length !== spread.positions.length) {
+    throw new Error(`${spread.name}需要逐张抽取${spread.positions.length}张牌`);
+  }
+  if (manualCardIds && hasRandomOptions(options)) {
+    throw new Error('手工录入雷诺曼牌时不能同时提供随机选项');
+  }
+  if (manualCardIds && manualCardIds.length !== spread.positions.length) {
+    throw new Error(`${spread.name}需要按牌位录入${spread.positions.length}张牌`);
+  }
+  if (manualCardIds && new Set(manualCardIds).size !== manualCardIds.length) {
+    throw new Error('同一次雷诺曼牌阵不能重复录入同一张牌');
+  }
+
+  const context = manualCardIds || interactiveSamples ? null : createRandomContext(options);
+  const selectedCards = manualCardIds
+    ? manualCardIds.map((id, index) => {
+        const card = LENORMAND_CARDS.find((item) => item.id === id);
+        if (!card) throw new Error(`第${index + 1}张雷诺曼牌录入无效`);
+        return card;
+      })
+    : interactiveSamples
+      ? resolveInteractiveLenormandCards(spreadType, interactiveSamples)
+      : shuffleCards(context!.random).slice(0, spread.positions.length);
+  const cards = selectedCards.map((card, index) => {
+    const columns = spreadType === 'grandTableau' ? 9 : spreadType === 'nine' ? 3 : 0;
+    return {
+      ...card,
+      position: spread.positions[index],
+      house: spreadType === 'grandTableau' ? LENORMAND_CARDS[index]?.name : undefined,
+      row: columns ? Math.floor(index / columns) + 1 : undefined,
+      column: columns ? (index % columns) + 1 : undefined,
+    };
+  });
 
   // 两牌组合分析（仅当至少有2张牌时）
   const combinations: NonNullable<LenormandData['combinations']> = [];
@@ -378,7 +434,11 @@ export function drawLenormandSpread(
   const timestamp = Date.now();
   const draw: NonNullable<LenormandData['draw']> = {
     deckSize: LENORMAND_CARDS.length,
-    method: 'Fisher-Yates洗牌后依牌位顺序取顶牌',
+    method: manualCardIds
+      ? '用户按牌位手工录入'
+      : interactiveSamples
+        ? '用户逐张触发前端随机抽取'
+        : 'Fisher-Yates洗牌后依牌位顺序取顶牌',
     order: cards.map((card, index) => ({
       index: index + 1,
       position: card.position,
@@ -400,10 +460,18 @@ export function drawLenormandSpread(
       timestamp,
     } satisfies LenormandData,
     {
-      algorithm: 'lenormand.spread',
-      input: { spreadType },
+      algorithm: manualCardIds
+        ? 'lenormand.spread.manual'
+        : interactiveSamples
+          ? 'lenormand.spread.interactive'
+          : 'lenormand.spread',
+      input: manualCardIds ? { spreadType, manualCardIds } : { spreadType },
       calculatedAt: timestamp,
-      random: context.getTrace(),
+      ...(context
+        ? { random: context.getTrace() }
+        : interactiveSamples
+          ? { random: { mode: 'system' as const, samples: [...interactiveSamples] } }
+          : {}),
     },
   );
   return { ...result, evidenceAnalysis: analyzeLenormandEvidence(result) };

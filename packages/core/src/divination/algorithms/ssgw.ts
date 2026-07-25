@@ -105,6 +105,7 @@ export function drawRandomSign(
       timestamp,
       ganzhi,
       draw: {
+        method: 'random' as const,
         poolSize: ssgwSigns.length,
         selectedIndex: randomIndex,
         selectedNumber: sign.number,
@@ -116,6 +117,37 @@ export function drawRandomSign(
       input: { timestamp },
       calculatedAt: timestamp,
       random: context.getTrace(),
+    },
+  );
+  return { ...base, evidenceAnalysis: analyzeSsgwEvidence(base) };
+}
+
+/** 按用户已取得的签号查出签文，不模拟抽签或掷筊。 */
+export function resolveSignByNumber(number: number, customDate?: Date): SsgwData {
+  if (!Number.isInteger(number) || number < 1 || number > ssgwSigns.length) {
+    throw new Error(`签号需为1至${ssgwSigns.length}的整数`);
+  }
+  const sign = ssgwSigns.find((item) => item.number === number);
+  if (!sign) {
+    throw new Error(`未找到第${number}签`);
+  }
+  const { ganzhi, timestamp } = getDivinationTime(customDate);
+  const base = attachResultMeta(
+    {
+      ...sign,
+      timestamp,
+      ganzhi,
+      draw: {
+        method: 'manual' as const,
+        poolSize: ssgwSigns.length,
+        selectedIndex: null,
+        selectedNumber: sign.number,
+      },
+    },
+    {
+      algorithm: 'ssgw.resolve.manual',
+      input: { number, timestamp },
+      calculatedAt: timestamp,
     },
   );
   return { ...base, evidenceAnalysis: analyzeSsgwEvidence(base) };

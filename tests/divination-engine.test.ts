@@ -6,7 +6,13 @@ import {
   TAROT_SPREAD_INSPIRATION_QUESTIONS,
   resolveDivinationInspiredDraftPatch,
 } from '../src/lib/divination/inspiration';
-import type { QimenJiuGongGe, TaiyiResult, TarotData } from '../packages/core/src/types/divination';
+import type {
+  LenormandData,
+  QimenJiuGongGe,
+  SsgwData,
+  TaiyiResult,
+  TarotData,
+} from '../packages/core/src/types/divination';
 import { STEM_TOMB_MAP } from '../packages/core/src/divination/algorithms/qimen/helpers/_constants';
 import {
   getClassicPatterns,
@@ -4242,6 +4248,126 @@ test('六爻提示词应同时写出日辰和月建参与的三合局', async ()
   assert.equal(data.sanheWithMonth?.group, '水局');
   assert.match(session.prompt, /日辰午引动火局（寅、午、戌）/);
   assert.match(session.prompt, /月建子引动水局（申、子、辰）/);
+});
+
+test('前端占卜链路应把手动六爻爻值原样传入核心算法', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'liuyao',
+      liuyaoMethod: 'manual',
+      liuyaoYaos: [6, 7, 8, 9, 7, 8],
+    }),
+  );
+  const data = session.data as ReturnType<typeof generateLiuyao>;
+
+  assert.deepEqual(data.yaoArray, [6, 7, 8, 9, 7, 8]);
+  assert.equal(data.generation?.method, 'manual');
+  assert.deepEqual(
+    data.changingYaos.map((item) => item.position),
+    [1, 4],
+  );
+});
+
+test('前端占卜链路应把逐爻手摇记录原样传入核心算法', async () => {
+  const coinThrows = [
+    { coins: [2, 2, 2], total: 6 },
+    { coins: [2, 2, 3], total: 7 },
+    { coins: [2, 3, 3], total: 8 },
+    { coins: [3, 3, 3], total: 9 },
+    { coins: [2, 2, 3], total: 7 },
+    { coins: [2, 3, 3], total: 8 },
+  ] as const;
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'liuyao',
+      liuyaoMethod: 'coins',
+      liuyaoCoinThrows: coinThrows.map((item) => ({
+        coins: [...item.coins],
+        total: item.total,
+      })),
+    }),
+  );
+  const data = session.data as ReturnType<typeof generateLiuyao>;
+
+  assert.deepEqual(data.yaoArray, [6, 7, 8, 9, 7, 8]);
+  assert.deepEqual(data.generation.coinThrows, coinThrows);
+  assert.equal(data.meta.random, undefined);
+});
+
+test('前端占卜链路应使用逐张抽取样本复算塔罗和雷诺曼牌阵', async () => {
+  const tarotSamples = [0, 0.75, 0.5, 0.25, 0.999, 0.75];
+  const tarotSession = await generateDivinationSession(
+    buildDraft({
+      method: 'tarot',
+      tarotSpread: 'three',
+      tarotMethod: 'interactive',
+      tarotInteractiveSamples: tarotSamples,
+    }),
+  );
+  const tarot = tarotSession.data as TarotData;
+  assert.equal(new Set(tarot.cards.map((card) => card.id)).size, 3);
+  assert.deepEqual(tarot.meta?.random?.samples, tarotSamples);
+  assert.equal(tarot.evidenceAnalysis?.randomFact.status, '可重放');
+
+  const lenormandSamples = [0, 0.5, 0.999];
+  const lenormandSession = await generateDivinationSession(
+    buildDraft({
+      method: 'lenormand',
+      lenormandSpread: 'three',
+      lenormandMethod: 'interactive',
+      lenormandInteractiveSamples: lenormandSamples,
+    }),
+  );
+  const lenormand = lenormandSession.data as LenormandData;
+  assert.equal(new Set(lenormand.cards.map((card) => card.id)).size, 3);
+  assert.deepEqual(lenormand.meta?.random?.samples, lenormandSamples);
+  assert.equal(lenormand.evidenceAnalysis?.randomFact.status, '可重放');
+});
+
+test('前端占卜链路应支持手动塔罗、雷诺曼与灵签', async () => {
+  const tarotSession = await generateDivinationSession(
+    buildDraft({
+      method: 'tarot',
+      tarotSpread: 'three',
+      tarotMethod: 'manual',
+      tarotManualCards: [
+        { id: 1, reversed: false },
+        { id: 22, reversed: true },
+        { id: 78, reversed: false },
+      ],
+    }),
+  );
+  const tarot = tarotSession.data as TarotData;
+  assert.deepEqual(
+    tarot.cards.map((card) => card.id),
+    [1, 22, 78],
+  );
+  assert.equal(tarot.evidenceAnalysis?.randomFact.status, '不适用');
+
+  const lenormandSession = await generateDivinationSession(
+    buildDraft({
+      method: 'lenormand',
+      lenormandSpread: 'three',
+      lenormandMethod: 'manual',
+      lenormandManualCardIds: [1, 24, 36],
+    }),
+  );
+  const lenormand = lenormandSession.data as LenormandData;
+  assert.deepEqual(
+    lenormand.cards.map((card) => card.id),
+    [1, 24, 36],
+  );
+  assert.equal(lenormand.evidenceAnalysis?.randomFact.status, '不适用');
+
+  const ssgwSession = await generateDivinationSession(
+    buildDraft({ method: 'ssgw', ssgwMethod: 'manual', ssgwNumber: '36' }),
+  );
+  const ssgw = ssgwSession.data as SsgwData;
+  assert.equal(ssgw.number, 36);
+  assert.equal(ssgw.draw?.method, 'manual');
+  assert.equal(ssgw.meta?.random, undefined);
+  assert.equal(ssgw.evidenceAnalysis?.randomFact.status, '不适用');
+  assert.equal(ssgw.evidenceAnalysis?.ritualFact.status, '缺少记录');
 });
 
 test('自定起卦时间缺少日期或时间时应明确提示', async () => {

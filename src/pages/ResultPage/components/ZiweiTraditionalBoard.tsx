@@ -4,6 +4,21 @@ import { ZIWEI_GRID_ORDER } from '../ResultPage.constants';
 import { getZiweiDisplaySurroundedPalaces, joinStarNames } from '../ResultPage.helpers';
 import { ChartStarLine } from './ChartStar';
 
+const ZIWEI_PALACE_CENTER: Record<number, readonly [number, number]> = {
+  0: [12.5, 87.5],
+  1: [12.5, 62.5],
+  2: [12.5, 37.5],
+  3: [12.5, 12.5],
+  4: [37.5, 12.5],
+  5: [62.5, 12.5],
+  6: [87.5, 12.5],
+  7: [87.5, 37.5],
+  8: [87.5, 62.5],
+  9: [87.5, 87.5],
+  10: [62.5, 87.5],
+  11: [37.5, 87.5],
+};
+
 export function ZiweiTraditionalBoard(props: {
   payload: AnalysisPayloadV1;
   boardTitle: string;
@@ -19,6 +34,13 @@ export function ZiweiTraditionalBoard(props: {
   const surroundedPalaces = getZiweiDisplaySurroundedPalaces(payload, selectedPalace);
   const surroundedIndexSet = new Set(surroundedPalaces.map((palace) => palace.index));
   const surrounded = surroundedPalaces.map((palace) => palace.name).join('、') || '暂无';
+  const selectedPoint = ZIWEI_PALACE_CENTER[selectedPalace.index];
+  const oppositePoint = ZIWEI_PALACE_CENTER[selectedPalace.opposite_palace_index];
+  const trinePoints = surroundedPalaces
+    .filter((palace) => palace.index !== selectedPalace.opposite_palace_index)
+    .map((palace) => ZIWEI_PALACE_CENTER[palace.index])
+    .filter((point): point is readonly [number, number] => Boolean(point));
+  const trianglePoints = selectedPoint ? [selectedPoint, ...trinePoints].slice(0, 3) : [];
   const centerFocusTags = uniqueNonEmptyStrings(selectedPalace.scope_hits).slice(0, 2);
   const centerSummaryTags =
     centerFocusTags.length === 0
@@ -49,6 +71,36 @@ export function ZiweiTraditionalBoard(props: {
         <div className="ziwei-board-note ziwei-board-note-bottom-right">
           {payload.basic_info.birth_time_label}
         </div>
+
+        {trianglePoints.length === 3 && oppositePoint ? (
+          <svg
+            className="ziwei-relation-lines"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <polygon
+              className="ziwei-relation-triangle"
+              points={trianglePoints.map((point) => point.join(',')).join(' ')}
+            />
+            <line
+              className="ziwei-relation-opposite-line"
+              x1={selectedPoint[0]}
+              y1={selectedPoint[1]}
+              x2={oppositePoint[0]}
+              y2={oppositePoint[1]}
+            />
+            {[...trianglePoints, oppositePoint].map((point, index) => (
+              <circle
+                className="ziwei-relation-point"
+                cx={point[0]}
+                cy={point[1]}
+                r="0.65"
+                key={`${point.join('-')}-${index}`}
+              />
+            ))}
+          </svg>
+        ) : null}
 
         <div className="ziwei-traditional-grid">
           {ZIWEI_GRID_ORDER.map((item, index) => {
