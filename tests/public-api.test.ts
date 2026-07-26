@@ -2249,6 +2249,8 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
   ]);
   assert.ok(body.data.evidenceAnalysis.drawFact.sources.length >= 2);
   assert.deepEqual(body.data.evidenceAnalysis.sequenceFacts, []);
+  assert.deepEqual(body.data.evidenceAnalysis.elementInteractionFacts, []);
+  assert.deepEqual(body.data.evidenceAnalysis.elementInteractions, []);
   assert.ok(body.data.evidenceAnalysis.themeFacts.length > 0);
   assert.equal(
     body.data.evidenceAnalysis.recurringThemes.length,
@@ -2302,6 +2304,10 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
   assert.equal(
     body.data.evidenceAnalysis.summaryFact.sequenceFactCount,
     body.data.evidenceAnalysis.sequenceFacts.length,
+  );
+  assert.equal(
+    body.data.evidenceAnalysis.summaryFact.elementInteractionFactCount,
+    body.data.evidenceAnalysis.elementInteractionFacts.length,
   );
   assert.equal(
     body.data.evidenceAnalysis.summaryFact.themeFactCount,
@@ -5414,4 +5420,34 @@ test('公开 API 住宅风水合参接口返回八宅与玄空分层结果', asy
   assert.match(body.data.prompt, /【住宅风水排盘】/);
   assert.match(body.data.prompt, /【传统判断规则】/);
   assert.match(body.data.prompt, /这套房怎么看？/);
+});
+
+test('公开 API 住宅风水缺建造或起运年时不得静默生成玄空盘', async () => {
+  const withPerson = await callApi('metaphysics/residential/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      birthYear: 1990,
+      birthMonth: 5,
+      birthDay: 12,
+      gender: 'male',
+      doorToInteriorDegree: 0,
+    }),
+  });
+
+  assert.equal(withPerson.response.status, 200);
+  assert.equal(withPerson.body.ok, true);
+  assert.ok(withPerson.body.data.bazhai);
+  assert.equal(withPerson.body.data.xuankong, null);
+  assert.equal(withPerson.body.data.inputSummary.houseYear, null);
+  assert.equal(withPerson.body.data.inputSummary.xuankongStatus, '缺少建造年或起运年');
+
+  const orientationOnly = await callApi('metaphysics/residential/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ doorToInteriorDegree: 0 }),
+  });
+  assert.equal(orientationOnly.response.status, 400);
+  assert.equal(orientationOnly.body.ok, false);
+  assert.match(orientationOnly.body.error.message, /必须提供住宅建造年或起运年/);
 });

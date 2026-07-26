@@ -282,6 +282,13 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.ok(!('level' in r));
   assert.equal(r.evidenceGrade, '轻量');
   assert.equal(r.interpretationBoundary, '仅限生肖与流年关系');
+  assert.deepEqual(r.elementRelation, {
+    kind: '年干生生肖',
+    label: '年干五行生生肖地支本气',
+    classification: '有利关系',
+    yearStemWuxing: '木',
+    zodiacWuxing: '火',
+  });
   assert.ok(!('confidence' in r));
   assert.ok(r.prompt.includes('生肖与流年关系简析'));
   assert.ok(r.prompt.includes('五行来源'));
@@ -385,6 +392,65 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.doesNotMatch(r.prompt, /完整的事业、财运、感情或健康断语/);
   assert.doesNotMatch(r.evidenceAnalysis.promptText, /命语|本项目|项目统一|工程|接口|API|MCP/);
   assertPromptIsPortableTaskText(r.evidenceAnalysis.promptText);
+});
+
+test('zodiac: 六十甲子太岁资料应完整、非空、无重名且不可被运行时改写', () => {
+  const entries = Object.entries(core.zodiac.TAI_SUI_STARS);
+  assert.equal(entries.length, 60);
+  assert.equal(new Set(entries.map(([ganZhi]) => ganZhi)).size, 60);
+  assert.equal(new Set(entries.map(([, name]) => name)).size, 60);
+  assert.ok(entries.every(([ganZhi, name]) => ganZhi.length === 2 && name.trim().length > 0));
+  assert.equal(Object.isFrozen(core.zodiac.TAI_SUI_STARS), true);
+  assert.deepEqual(core.zodiac.getYearTaiSui('甲辰'), { yearBranch: '辰', star: '李诚' });
+});
+
+test('zodiac: 五行利弊分类应由结构化关系驱动而非解析中文描述', () => {
+  const cases = [
+    {
+      result: core.zodiac.getZodiacYearFortune('午', '甲辰'),
+      kind: '年干生生肖',
+      classification: '有利关系',
+      bucket: 'favorableRelations',
+    },
+    {
+      result: core.zodiac.getZodiacYearFortune('寅', '丁卯'),
+      kind: '生肖生年干',
+      classification: '风险关系',
+      bucket: 'riskRelations',
+    },
+    {
+      result: core.zodiac.getZodiacYearFortune('寅', '庚子'),
+      kind: '年干克生肖',
+      classification: '风险关系',
+      bucket: 'riskRelations',
+    },
+    {
+      result: core.zodiac.getZodiacYearFortune('寅', '戊寅'),
+      kind: '生肖克年干',
+      classification: '中性关系',
+      bucket: null,
+    },
+    {
+      result: core.zodiac.getZodiacYearFortune('寅', '甲子'),
+      kind: '同类',
+      classification: '中性关系',
+      bucket: null,
+    },
+  ] as const;
+
+  for (const item of cases) {
+    assert.equal(item.result.elementRelation.kind, item.kind);
+    assert.equal(item.result.elementRelation.classification, item.classification);
+    assert.equal(item.result.elementRelation.label, item.result.relation);
+    assert.equal(
+      item.result.favorableRelations.includes(item.result.relation),
+      item.bucket === 'favorableRelations',
+    );
+    assert.equal(
+      item.result.riskRelations.includes(item.result.relation),
+      item.bucket === 'riskRelations',
+    );
+  }
 });
 
 test('zodiac: 冲太岁只作轻量风险关系，不生成综合吉凶等级', () => {

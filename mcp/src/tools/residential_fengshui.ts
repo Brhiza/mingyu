@@ -16,7 +16,13 @@ const mountainSchema = z
   .optional();
 
 const residentialSchema = z.object({
-  year: z.number().int().min(1).max(9999).optional().describe('建造年或起运年'),
+  year: z
+    .number()
+    .int()
+    .min(1)
+    .max(9999)
+    .optional()
+    .describe('建造年或起运年；排玄空宅运盘时必填，只做八宅时可不填'),
   birthYear: z.number().int().min(1900).max(2100).optional().describe('出生公历年份'),
   birthMonth: z.number().int().min(1).max(12).optional().describe('出生公历月份'),
   birthDay: z.number().int().min(1).max(31).optional().describe('出生公历日期'),
@@ -41,12 +47,7 @@ const residentialSchema = z.object({
     .optional()
     .describe('指南针读数的北向基准'),
   magneticDeclinationDegrees: z.number().min(-30).max(30).optional().describe('当地磁偏角'),
-  measurementUncertaintyDegrees: z
-    .number()
-    .min(0)
-    .max(45)
-    .optional()
-    .describe('测量可能误差'),
+  measurementUncertaintyDegrees: z.number().min(0).max(45).optional().describe('测量可能误差'),
   guaType: z.enum(['下卦', '替卦']).optional().describe('可选强制玄空卦型'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
@@ -82,7 +83,7 @@ export function registerResidentialFengshuiTool(server: McpServer) {
     'metaphysics_residential',
     {
       description:
-        '住宅风水一站式：分层计算八宅与玄空飞星，输出宅运结构、人宅适配、合参要点与证据；不生成综合吉凶总分',
+        '住宅风水一站式：分层计算八宅与玄空飞星，输出宅运结构、人宅适配、合参要点与证据；玄空层须提供建造年或起运年，不生成综合吉凶总分',
       inputSchema: residentialSchema.omit({ question: true }).shape,
       outputSchema: resultOutputSchema,
     },

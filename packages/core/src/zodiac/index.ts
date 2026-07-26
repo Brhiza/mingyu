@@ -19,6 +19,7 @@ import {
   SANHUI_GROUPS,
   ZODIACS,
   EARTHLY_BRANCHES,
+  SIXTY_CYCLE,
 } from '../ganzhi';
 import { analyzeZodiacEvidence } from './evidence';
 
@@ -33,7 +34,7 @@ export type {
 } from './evidence';
 
 /** 六十甲子值年太岁星君 */
-export const TAI_SUI_STARS: Record<string, string> = {
+export const TAI_SUI_STARS: Readonly<Record<string, string>> = Object.freeze({
   甲子: '金辨',
   乙丑: '陈材',
   丙寅: '耿章',
@@ -94,7 +95,24 @@ export const TAI_SUI_STARS: Record<string, string> = {
   辛酉: '石政',
   壬戌: '洪充',
   癸亥: '虞程',
-};
+});
+
+function assertTaiSuiStarTable() {
+  const expected = new Set<string>(SIXTY_CYCLE);
+  const keys = Object.keys(TAI_SUI_STARS);
+  const missing = SIXTY_CYCLE.filter((ganZhi) => !TAI_SUI_STARS[ganZhi]?.trim());
+  const unexpected = keys.filter((ganZhi) => !expected.has(ganZhi));
+  const duplicateNames = [...new Set(Object.values(TAI_SUI_STARS))].filter(
+    (name) => Object.values(TAI_SUI_STARS).filter((item) => item === name).length > 1,
+  );
+  if (missing.length || unexpected.length || duplicateNames.length || keys.length !== 60) {
+    throw new Error(
+      `六十甲子太岁星君资料不完整：缺失${missing.join('、') || '无'}；多余${unexpected.join('、') || '无'}；重名${duplicateNames.join('、') || '无'}；当前${keys.length}项`,
+    );
+  }
+}
+
+assertTaiSuiStarTable();
 
 export interface TaiSuiConflict {
   type: '值太岁' | '冲太岁' | '刑太岁' | '害太岁' | '破太岁';
@@ -170,6 +188,7 @@ export interface ZodiacYearFortune {
   yearBranch: string;
   /** 年干与生肖五行关系 */
   relation: string;
+  elementRelation: ZodiacElementRelation;
   /** 三合/六合贵人 */
   noble: string | null;
   /** 两支同属固定三会组；只记录关系，不表示完整三会成局 */
@@ -184,12 +203,58 @@ export interface ZodiacYearFortune {
   prompt: string;
 }
 
-function relationText(yearStemWuxing: string, zodiacWuxing: string): string {
-  if (isSheng(yearStemWuxing, zodiacWuxing)) return '年干五行生生肖地支本气';
-  if (isSheng(zodiacWuxing, yearStemWuxing)) return '生肖地支本气生年干五行';
-  if (isKe(yearStemWuxing, zodiacWuxing)) return '年干五行克生肖地支本气';
-  if (isKe(zodiacWuxing, yearStemWuxing)) return '生肖地支本气克年干五行';
-  return '年干五行与生肖地支本气同类';
+export interface ZodiacElementRelation {
+  kind: '年干生生肖' | '生肖生年干' | '年干克生肖' | '生肖克年干' | '同类';
+  label: string;
+  classification: '有利关系' | '风险关系' | '中性关系';
+  yearStemWuxing: string;
+  zodiacWuxing: string;
+}
+
+function getElementRelation(yearStemWuxing: string, zodiacWuxing: string): ZodiacElementRelation {
+  if (isSheng(yearStemWuxing, zodiacWuxing)) {
+    return {
+      kind: '年干生生肖',
+      label: '年干五行生生肖地支本气',
+      classification: '有利关系',
+      yearStemWuxing,
+      zodiacWuxing,
+    };
+  }
+  if (isSheng(zodiacWuxing, yearStemWuxing)) {
+    return {
+      kind: '生肖生年干',
+      label: '生肖地支本气生年干五行',
+      classification: '风险关系',
+      yearStemWuxing,
+      zodiacWuxing,
+    };
+  }
+  if (isKe(yearStemWuxing, zodiacWuxing)) {
+    return {
+      kind: '年干克生肖',
+      label: '年干五行克生肖地支本气',
+      classification: '风险关系',
+      yearStemWuxing,
+      zodiacWuxing,
+    };
+  }
+  if (isKe(zodiacWuxing, yearStemWuxing)) {
+    return {
+      kind: '生肖克年干',
+      label: '生肖地支本气克年干五行',
+      classification: '中性关系',
+      yearStemWuxing,
+      zodiacWuxing,
+    };
+  }
+  return {
+    kind: '同类',
+    label: '年干五行与生肖地支本气同类',
+    classification: '中性关系',
+    yearStemWuxing,
+    zodiacWuxing,
+  };
 }
 
 function getSanhuiRelation(zodiacBranch: string, yearBranch: string): string | null {
@@ -202,15 +267,17 @@ function getSanhuiRelation(zodiacBranch: string, yearBranch: string): string | n
 
 /** 生肖流年运程 */
 export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): ZodiacYearFortune {
-  if (!isValidGanZhi(yearGanZhi)) {
-    throw new Error(`流年干支无效：${yearGanZhi}`);
-  }
-  const yearBranch = yearGanZhi[1];
+  const taiSui = getYearTaiSui(yearGanZhi);
+  const yearBranch = taiSui.yearBranch;
   const zodiacIdx = EARTHLY_BRANCHES.indexOf(zodiacBranch as (typeof EARTHLY_BRANCHES)[number]);
   if (zodiacIdx < 0) throw new Error(`生肖地支无效：${zodiacBranch}`);
   const zodiac = ZODIACS[zodiacIdx];
   const conflicts = getTaiSuiConflicts(zodiacBranch, yearBranch);
-  const relation = relationText(getStemWuxing(yearGanZhi[0]), getBranchWuxing(zodiacBranch));
+  const yearStemWuxing = getStemWuxing(yearGanZhi[0]);
+  const yearBranchWuxing = getBranchWuxing(yearBranch);
+  const zodiacWuxing = getBranchWuxing(zodiacBranch);
+  const elementRelation = getElementRelation(yearStemWuxing, zodiacWuxing);
+  const relation = elementRelation.label;
   let noble: string | null = null;
   if (isLiuhe(zodiacBranch, yearBranch)) noble = '六合贵人';
   else {
@@ -220,11 +287,11 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
   const meeting = getSanhuiRelation(zodiacBranch, yearBranch);
   const favorableRelations = [
     noble ? noble : '',
-    relation.includes('年干五行生生肖') ? relation : '',
+    elementRelation.classification === '有利关系' ? relation : '',
   ].filter(Boolean);
   const riskRelations = [
     ...conflicts.map((conflict) => `${conflict.type}：${conflict.desc}`),
-    relation.includes('克生肖') || relation.includes('生肖地支本气生年干') ? relation : '',
+    elementRelation.classification === '风险关系' ? relation : '',
   ].filter(Boolean);
   const actionSignals = [
     conflicts.some((item) => item.type === '冲太岁') ? '重大变动前预留备选方案' : '',
@@ -232,15 +299,13 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
     conflicts.some((item) => item.type === '刑太岁') ? '合同、规则和沟通内容尽量留痕' : '',
     noble ? '有合作或求助机会时，优先看对方是否真正可靠' : '',
   ].filter(Boolean);
-  const yearStemWuxing = getStemWuxing(yearGanZhi[0]);
-  const yearBranchWuxing = getBranchWuxing(yearBranch);
-  const zodiacWuxing = getBranchWuxing(zodiacBranch);
   const resultBase = {
     zodiacBranch,
     zodiac,
     yearGanZhi,
     yearBranch,
     relation,
+    elementRelation,
     noble,
     meeting,
     conflicts,
@@ -253,7 +318,7 @@ export function getZodiacYearFortune(zodiacBranch: string, yearGanZhi: string): 
   const evidenceAnalysis = analyzeZodiacEvidence(resultBase);
   const prompt = [
     `【生肖与流年关系简析】`,
-    `${zodiac}（${zodiacBranch}）遇${yearGanZhi}年（${TAI_SUI_STARS[yearGanZhi] ?? ''}太岁）。`,
+    `${zodiac}（${zodiacBranch}）遇${yearGanZhi}年（${taiSui.star}太岁）。`,
     `五行来源：流年年干${yearGanZhi[0]}属${yearStemWuxing}，流年地支${yearBranch}属${yearBranchWuxing}；生肖地支${zodiacBranch}属${zodiacWuxing}；年干与生肖五行据此得到“${relation}”，年支则用于值、冲、刑、害、破、三合、六合及三会判断。`,
     `干支关系：${relation}。`,
     noble ? `贵人：${noble}。` : '',
