@@ -98,10 +98,13 @@ const baziPromptSchema = baziSchema.extend({
     .describe(
       '八字命限范围：natal=本命, full=完整输出版, dayun=大运, year=流年, month=流月, day=流日',
     ),
-  baziFortuneCycleIndex: z.number().optional().describe('大运序号，从 0 开始'),
-  baziFortuneYear: z.number().optional().describe('指定流年年份'),
-  baziFortuneMonth: z.number().optional().describe('指定流月序号'),
-  baziFortuneDay: z.number().optional().describe('指定流日序号'),
+  baziFortuneCycleIndex: z
+    .number()
+    .optional()
+    .describe('大运序号，从 0 开始；选择大运时必填，交运年建议同时传入'),
+  baziFortuneYear: z.number().optional().describe('指定流年年份；选择流年及以下范围时必填'),
+  baziFortuneMonth: z.number().optional().describe('指定流月序号；选择流月及以下范围时必填'),
+  baziFortuneDay: z.number().optional().describe('指定流日序号；选择流日时必填'),
 });
 
 export function buildBaziPerson(args: z.infer<typeof baziSchema>): Person {
@@ -202,14 +205,29 @@ export function registerBaziTool(server: McpServer) {
       try {
         const person = buildBaziPerson(args);
         const result = baziCalculator.calculateBazi(person);
+        const fortuneScope = args.baziFortuneScope ?? 'natal';
+        const requiresCycle = fortuneScope === 'dayun';
+        const requiresYear = ['year', 'month', 'day'].includes(fortuneScope);
+        const requiresMonth = fortuneScope === 'month' || fortuneScope === 'day';
+        const requiresDay = fortuneScope === 'day';
+        if (requiresCycle && args.baziFortuneCycleIndex === undefined) {
+          throw new Error('选择大运时必须提供 baziFortuneCycleIndex。');
+        }
+        if (requiresYear && args.baziFortuneYear === undefined) {
+          throw new Error('选择流年、流月或流日时必须提供 baziFortuneYear。');
+        }
+        if (requiresMonth && args.baziFortuneMonth === undefined) {
+          throw new Error('选择流月或流日时必须提供 baziFortuneMonth。');
+        }
+        if (requiresDay && args.baziFortuneDay === undefined) {
+          throw new Error('选择流日时必须提供 baziFortuneDay。');
+        }
         const fortuneSelectionContext = buildFortuneSelectionContext(result, {
-          scope: args.baziFortuneScope ?? 'natal',
+          scope: fortuneScope,
           cycleIndex:
-            args.baziFortuneScope &&
-            args.baziFortuneScope !== 'natal' &&
-            args.baziFortuneScope !== 'full'
+            args.baziFortuneCycleIndex !== undefined
               ? readMcpIntegerLikeInRange(
-                  args.baziFortuneCycleIndex ?? 0,
+                  args.baziFortuneCycleIndex,
                   'baziFortuneCycleIndex',
                   0,
                   99,

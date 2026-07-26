@@ -467,20 +467,20 @@ test('星盘提示词指定年限日期会写入并从地址栏恢复', () => {
   assert.equal(parsed.astrolabeScopeDate, '2028-06');
 });
 
-test('星盘提示词完整输出版会写入并清空日期', () => {
+test('星盘提示词完整输出版会写入并恢复明确基准日', () => {
   const search = buildResultSearch(defaultInputState, {
     ...defaultPromptState,
     promptSource: 'astrolabe',
     astrolabeScope: 'full',
-    astrolabeScopeDate: '2028-06',
+    astrolabeScopeDate: '2028-06-12',
   });
 
   assert.match(search, /as=full/);
-  assert.doesNotMatch(search, /asd=2028-06/);
+  assert.match(search, /asd=2028-06-12/);
 
   const parsed = parsePromptState(new URLSearchParams(search));
   assert.equal(parsed.astrolabeScope, 'full');
-  assert.equal(parsed.astrolabeScopeDate, '');
+  assert.equal(parsed.astrolabeScopeDate, '2028-06-12');
 });
 
 test('七政四余和八宅提示词来源可从地址栏恢复', () => {
@@ -551,7 +551,15 @@ test('星盘提示词范围日期应按范围校验并清空非法日期', () =>
       }),
     );
 
-    assert.equal(parsed.astrolabeScope, scope);
+    assert.equal(parsed.astrolabeScope, 'natal');
+    assert.equal(parsed.astrolabeScopeDate, '');
+  }
+});
+
+test('星盘非本命范围缺少日期时应整体回到本命而不是等待核心补当前日期', () => {
+  for (const scope of ['full', 'yearly', 'monthly', 'daily'] as const) {
+    const parsed = parsePromptState(new URLSearchParams({ astrolabeScope: scope }));
+    assert.equal(parsed.astrolabeScope, 'natal');
     assert.equal(parsed.astrolabeScopeDate, '');
   }
 });

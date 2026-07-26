@@ -1481,6 +1481,7 @@ test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
         promptTopic: 'career',
         baziFortuneScope: 'year',
         baziFortuneCycleIndex: 1,
+        baziFortuneYear: 1998,
       },
     });
 
@@ -1530,9 +1531,52 @@ test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
     assert.ok(triggerEvidence?.limitationFacts?.some((item) => item.type === '层级应期边界'));
     assertEvidenceOwnerReferences(triggerEvidence);
     const prompt = String(response.structuredContent?.prompt);
-    assert.match(prompt, /【分析对象】[\s\S]*分析对象：1997年流年/);
+    assert.match(prompt, /【分析对象】[\s\S]*分析对象：1998年流年/);
     assert.match(prompt, /【岁运重点】[\s\S]*主要触发：/);
     assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);
+  });
+});
+
+test('MCP 八字和星盘年限缺少明确层级参数时应返回业务错误', async () => {
+  await withMcpClient(async (client) => {
+    const bazi = await client.callTool({
+      name: 'bazi_prompt',
+      arguments: {
+        gender: 'male',
+        year: 1990,
+        month: 5,
+        day: 15,
+        timeIndex: 1,
+        dateType: 'solar',
+        question: '请分析指定流年。',
+        baziFortuneScope: 'year',
+        baziFortuneCycleIndex: 1,
+      },
+    });
+    assert.equal(bazi.isError, true);
+    const baziText = bazi.content[0]?.type === 'text' ? bazi.content[0].text : '';
+    assert.match(baziText, /baziFortuneYear/);
+
+    const astrolabe = await client.callTool({
+      name: 'astrolabe_prompt',
+      arguments: {
+        name: '本人',
+        gender: '女',
+        year: 1995,
+        month: 5,
+        day: 20,
+        hour: 12,
+        minute: 30,
+        latitude: 39.9042,
+        longitude: 116.4074,
+        timezone: 8,
+        question: '请分析完整行运。',
+        astrolabeScope: 'full',
+      },
+    });
+    assert.equal(astrolabe.isError, true);
+    const astrolabeText = astrolabe.content[0]?.type === 'text' ? astrolabe.content[0].text : '';
+    assert.match(astrolabeText, /astrolabeScopeDate/);
   });
 });
 

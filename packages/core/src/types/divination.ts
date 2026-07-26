@@ -1118,6 +1118,8 @@ export interface AstrolabeData {
     gender: AlmanacParticipantGender;
     dateTime: string;
     location: string;
+    latitude?: number;
+    longitude?: number;
     timezone: number;
     timeZoneId?: string;
     timezoneStatus?: 'unique' | 'ambiguous';

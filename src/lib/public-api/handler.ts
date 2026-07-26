@@ -50,7 +50,7 @@ import {
 } from 'mingyu-core/foundation';
 import { buildDivinationPrompt } from '../divination/engine';
 import { getDivinationSummaryBlocks } from '../divination/summary';
-import { buildAstrolabeScopeContext } from '../astrolabe-scope';
+import { buildAstrolabeFullScopeContexts, buildAstrolabeScopeContext } from '../astrolabe-scope';
 import { buildAstrolabeSynastryPrompt } from '../astrolabe-synastry-prompt';
 import { getCompatibilityPrompt, type CompatType } from '../../utils/ai/aiPrompts';
 import {
@@ -343,7 +343,8 @@ const DIVINATION_REQUEST_PROPERTIES = {
   },
   astrolabeScopeDate: {
     type: 'string',
-    description: '星盘行运日期；yearly 用年份，monthly 用 年-月，daily 用 年-月-日。',
+    description:
+      '星盘行运日期；full 和 daily 用 YYYY-MM-DD，yearly 用 YYYY，monthly 用 YYYY-MM。除 natal 外均必填。',
   },
   astrolabeScopeText: { type: 'string', maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH },
   promptMode: { enum: [...PROMPT_MODES] },
@@ -1186,20 +1187,24 @@ export function getPublicApiOpenApiDocument(
                 baziFortuneCycleIndex: {
                   type: 'integer',
                   minimum: 0,
-                  description: '大运序号，从 0 开始；选择大运、流年、流月或流日时可传。',
+                  description:
+                    '大运序号，从 0 开始；选择大运时必填，选择流年、流月或流日时可与年份一起传入以消除交运年歧义。',
                 },
-                baziFortuneYear: { type: 'integer', description: '指定流年年份。' },
+                baziFortuneYear: {
+                  type: 'integer',
+                  description: '指定流年年份；选择流年、流月或流日时必填。',
+                },
                 baziFortuneMonth: {
                   type: 'integer',
                   minimum: 1,
                   maximum: 12,
-                  description: '指定流月序号。',
+                  description: '指定流月序号；选择流月或流日时必填。',
                 },
                 baziFortuneDay: {
                   type: 'integer',
                   minimum: 1,
                   maximum: 31,
-                  description: '指定流日序号。',
+                  description: '指定流日序号；选择流日时必填。',
                 },
                 responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
                 school: {
@@ -2212,26 +2217,34 @@ function readShenShaVariants(input: JsonRecord): Partial<ShenShaVariantConfig> |
 
 function buildBaziFortuneContextFromInput(result: BaziChartResult, input: JsonRecord) {
   const scope = readEnum(input, 'baziFortuneScope', BAZI_FORTUNE_SCOPES, 'natal');
-  const readOptionalInteger = (key: string, min: number, max: number) =>
-    input[key] === undefined ? undefined : readInteger(input, key, min, max);
   const selection: BaziFortuneSelectionValue = {
     scope,
     cycleIndex:
       scope === 'natal' || scope === 'full'
         ? undefined
-        : readInteger(input, 'baziFortuneCycleIndex', 0, 99, 0),
+        : scope === 'dayun' || input.baziFortuneCycleIndex !== undefined
+          ? readInteger(input, 'baziFortuneCycleIndex', 0, 99)
+          : undefined,
     year:
       scope === 'year' || scope === 'month' || scope === 'day'
-        ? readOptionalInteger('baziFortuneYear', 1900, 2200)
+        ? readInteger(input, 'baziFortuneYear', 1900, 2200)
         : undefined,
     month:
       scope === 'month' || scope === 'day'
-        ? readOptionalInteger('baziFortuneMonth', 1, 12)
+        ? readInteger(input, 'baziFortuneMonth', 1, 12)
         : undefined,
-    day: scope === 'day' ? readOptionalInteger('baziFortuneDay', 1, 31) : undefined,
+    day: scope === 'day' ? readInteger(input, 'baziFortuneDay', 1, 31) : undefined,
   };
 
-  return buildFortuneSelectionContext(result, selection);
+  try {
+    return buildFortuneSelectionContext(result, selection);
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '八字年限参数无效。',
+    );
+  }
 }
 
 function buildBaziPrompt(input: JsonRecord) {
@@ -2788,12 +2801,13 @@ function buildAstrolabeSynastryPromptApi(input: JsonRecord) {
   });
 }
 
-function buildAstrolabeFullScopePromptText(data: AstrolabeData) {
+function buildAstrolabeFullScopePromptText(data: AstrolabeData, referenceDateStr: string) {
+  const fullContexts = buildAstrolabeFullScopeContexts(data, referenceDateStr);
   const contexts = [
-    buildAstrolabeScopeContext(data, 'natal', ''),
-    buildAstrolabeScopeContext(data, 'yearly', ''),
-    buildAstrolabeScopeContext(data, 'monthly', ''),
-    buildAstrolabeScopeContext(data, 'daily', ''),
+    fullContexts.natal,
+    fullContexts.yearly,
+    fullContexts.monthly,
+    fullContexts.daily,
   ];
   const lines = contexts
     .map((context) => context.promptText)
@@ -2813,13 +2827,21 @@ function buildAstrolabePromptScopeText(input: JsonRecord, data: AstrolabeData) {
     ASTROLABE_PROMPT_SCOPES,
     'natal',
   ) as (typeof ASTROLABE_PROMPT_SCOPES)[number];
+  const dateStr = scope === 'natal' ? '' : readRequiredString(input, 'astrolabeScopeDate');
 
-  if (scope === 'full') {
-    return buildAstrolabeFullScopePromptText(data);
+  try {
+    if (scope === 'full') {
+      return buildAstrolabeFullScopePromptText(data, dateStr);
+    }
+
+    return buildAstrolabeScopeContext(data, scope, dateStr).promptText;
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '星盘行运日期无效。',
+    );
   }
-
-  const dateStr = readString(input, 'astrolabeScopeDate', '');
-  return buildAstrolabeScopeContext(data, scope, dateStr).promptText;
 }
 
 function buildAstrolabeScopeEvidence(input: JsonRecord, data: AstrolabeData) {
@@ -2834,19 +2856,24 @@ function buildAstrolabeScopeEvidence(input: JsonRecord, data: AstrolabeData) {
     ASTROLABE_PROMPT_SCOPES,
     'natal',
   ) as (typeof ASTROLABE_PROMPT_SCOPES)[number];
-  if (scope === 'full') {
-    return {
-      scope: 'full' as const,
-      contexts: {
-        natal: buildAstrolabeScopeContext(data, 'natal', ''),
-        yearly: buildAstrolabeScopeContext(data, 'yearly', ''),
-        monthly: buildAstrolabeScopeContext(data, 'monthly', ''),
-        daily: buildAstrolabeScopeContext(data, 'daily', ''),
-      },
-    };
-  }
+  const dateStr = scope === 'natal' ? '' : readRequiredString(input, 'astrolabeScopeDate');
+  try {
+    if (scope === 'full') {
+      return {
+        scope: 'full' as const,
+        referenceDate: dateStr,
+        contexts: buildAstrolabeFullScopeContexts(data, dateStr),
+      };
+    }
 
-  return buildAstrolabeScopeContext(data, scope, readString(input, 'astrolabeScopeDate', ''));
+    return buildAstrolabeScopeContext(data, scope, dateStr);
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '星盘行运日期无效。',
+    );
+  }
 }
 
 function buildDivinationPromptResult(
