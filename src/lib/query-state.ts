@@ -645,8 +645,12 @@ function normalizeZiweiScopeDate(scope: ZiweiScopeMode, dateStr: string) {
 }
 
 function normalizeAstrolabeScopeDate(scope: AstrolabeScopeMode, dateStr: string) {
-  if (scope === 'natal' || scope === 'full' || !dateStr) {
+  if (scope === 'natal' || !dateStr) {
     return '';
+  }
+
+  if (scope === 'full') {
+    return parseScopeDateParts(dateStr) ? dateStr : '';
   }
 
   if (scope === 'yearly') {
@@ -679,6 +683,9 @@ function normalizePromptState(prompt: QueryPromptState): QueryPromptState {
     normalized.astrolabeScope,
     normalized.astrolabeScopeDate,
   );
+  if (normalized.astrolabeScope !== 'natal' && !normalized.astrolabeScopeDate) {
+    normalized.astrolabeScope = 'natal';
+  }
 
   if (normalized.baziFortuneScope === 'natal' || normalized.baziFortuneScope === 'full') {
     normalized.baziFortuneCycleIndex = '';

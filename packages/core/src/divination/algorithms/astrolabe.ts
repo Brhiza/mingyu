@@ -364,6 +364,8 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
         locationName.length > 0
           ? `${locationName}（${latitude.toFixed(4)}, ${longitude.toFixed(4)}）`
           : `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+      latitude,
+      longitude,
       timezone,
       timeZoneId: input.timeZoneId,
       timezoneStatus: timezoneEvidence?.status,

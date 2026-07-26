@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildAstrolabeFullScopeContexts,
   buildAstrolabeScopeContext,
   calculateSecondaryProgressionEvidence,
   calculateSolarArcEvidence,
@@ -87,10 +88,15 @@ test('星盘完整输出版显示完整行运资料摘要', () => {
   const context = buildAstrolabeScopeContext(astrolabeData, 'full', '2028-06-01');
 
   assert.equal(context.scope, 'full');
-  assert.equal(context.displayText, '本命盘与完整行运资料');
-  assert.equal(context.dateStr, '');
-  assert.match(context.promptText, /分析对象：本命盘与完整行运资料。/);
+  assert.equal(context.displayText, '本命盘与完整行运资料 · 2028-06-01');
+  assert.equal(context.dateStr, '2028-06-01');
+  assert.match(context.promptText, /以2028-06-01为基准的完整行运资料/);
   assert.match(context.promptText, /本命宫主星：第1宫/);
+
+  const contexts = buildAstrolabeFullScopeContexts(astrolabeData, '2028-06-01');
+  assert.equal(contexts.yearly.dateStr, '2028');
+  assert.equal(contexts.monthly.dateStr, '2028-06');
+  assert.equal(contexts.daily.dateStr, '2028-06-01');
 });
 
 test('星盘流年分析对象会生成行运证据和展示文本', () => {
@@ -233,12 +239,24 @@ test('星盘流月与流日沿用同一选择器语义并写入对应行运资�
   assert.doesNotMatch(`${monthContext.promptText}\n${dayContext.promptText}`, /不得|时间边界|证据/);
 });
 
-test('星盘范围日期不存在时不应夹到另一天', () => {
-  const invalidDayContext = buildAstrolabeScopeContext(astrolabeData, 'daily', '2028-02-31');
-  const invalidMonthContext = buildAstrolabeScopeContext(astrolabeData, 'monthly', '2028-13');
-
-  assert.notEqual(invalidDayContext.dateStr, '2028-02-29');
-  assert.notEqual(invalidMonthContext.dateStr, '2028-12');
+test('星盘行运范围应拒绝缺失、错格式和不存在的日期', () => {
+  assert.throws(
+    () => buildAstrolabeScopeContext(astrolabeData, 'daily', '2028-02-31'),
+    /流日日期无效/,
+  );
+  assert.throws(
+    () => buildAstrolabeScopeContext(astrolabeData, 'monthly', '2028-13'),
+    /流月日期无效/,
+  );
+  assert.throws(() => buildAstrolabeScopeContext(astrolabeData, 'yearly', ''), /流年必须提供 YYYY/);
+  assert.throws(
+    () => buildAstrolabeScopeContext(astrolabeData, 'monthly', '2028-6'),
+    /流月必须提供 YYYY-MM/,
+  );
+  assert.throws(
+    () => buildAstrolabeScopeContext(astrolabeData, 'full', ''),
+    /完整输出必须提供 YYYY-MM-DD/,
+  );
 });
 
 test('星盘行运范围应支持 2100 年以后的有效年份', () => {
@@ -284,4 +302,37 @@ test('星盘资料缺少宫头经度时应禁止行运落宫证据', () => {
 
   assert.match(context.promptText, /行运落宫：本命宫头资料不足/);
   assert.doesNotThrow(() => buildAstrolabeScopeContext(incompleteData, 'daily', '2028-06-12'));
+});
+
+test('星盘行运应使用目标日期的出生地时区而不是固定北京时间', () => {
+  const newYorkData = generateAstrolabe({
+    name: '本人',
+    gender: '女',
+    year: '1995',
+    month: '5',
+    day: '20',
+    hour: '12',
+    minute: '30',
+    latitude: '40.7128',
+    longitude: '-74.0060',
+    timeZoneId: 'America/New_York',
+    locationName: '纽约',
+  });
+  const context = buildAstrolabeScopeContext(newYorkData, 'daily', '2028-07-12');
+
+  assert.match(context.promptText, /America\/New_York（UTC-4）/);
+  assert.match(context.promptText, /行运落宫：取样时区UTC-4/);
+  assert.doesNotMatch(context.promptText, /按北京时间|取样时区UTC\+8/);
+});
+
+test('星盘行运缺少真实经纬度时不得静默使用零度坐标', () => {
+  const incompleteData = structuredClone(astrolabeData) as AstrolabeData;
+  delete incompleteData.birth.latitude;
+  delete incompleteData.birth.longitude;
+  incompleteData.birth.location = '未知地点';
+
+  assert.throws(
+    () => buildAstrolabeScopeContext(incompleteData, 'daily', '2028-06-12'),
+    /缺少有效出生地经纬度/,
+  );
 });

@@ -350,7 +350,11 @@ export function AstrolabeScopeModal(props: {
               onClick={() => {
                 onApply(
                   draftScope,
-                  draftScope === 'natal' || draftScope === 'full' ? '' : draftScopeDateStr,
+                  draftScope === 'natal'
+                    ? ''
+                    : draftScope === 'full'
+                      ? formatDateByScope('daily', draftYear, draftMonth, normalizedDraftDay)
+                      : draftScopeDateStr,
                 );
                 onClose();
               }}

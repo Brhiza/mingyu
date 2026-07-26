@@ -1,10 +1,5 @@
 import type { BaziChartResult, LiunianInfo, LuckCycle } from '../../baziTypes';
-import {
-  getBaziDayIndexByDate,
-  getBaziMonthIndexByDate,
-  getMonthDaysInfo,
-  getYearInfo,
-} from '../../calendarTool';
+import { getMonthDaysInfo, getYearInfo } from '../../calendarTool';
 import type { BaziFortuneSelectionValue } from './types';
 
 export function formatCycleLabel(cycle: LuckCycle) {
@@ -22,12 +17,12 @@ export function formatYearLabel(yearInfo: LiunianInfo) {
 export function resolveCycleIndex(result: BaziChartResult, selection: BaziFortuneSelectionValue) {
   if (!result.luckInfo.cycles.length) return -1;
 
-  if (
-    typeof selection.cycleIndex === 'number' &&
-    selection.cycleIndex >= 0 &&
-    selection.cycleIndex < result.luckInfo.cycles.length
-  ) {
-    return selection.cycleIndex;
+  if (selection.cycleIndex !== undefined) {
+    return Number.isInteger(selection.cycleIndex) &&
+      selection.cycleIndex >= 0 &&
+      selection.cycleIndex < result.luckInfo.cycles.length
+      ? selection.cycleIndex
+      : -1;
   }
 
   if (typeof selection.year === 'number') {
@@ -43,15 +38,7 @@ export function resolveCycleIndex(result: BaziChartResult, selection: BaziFortun
     }
   }
 
-  const currentYear = new Date().getFullYear();
-  let currentCycleIndex = -1;
-  for (let i = result.luckInfo.cycles.length - 1; i >= 0; i -= 1) {
-    if (result.luckInfo.cycles[i].years.some((item) => item.year === currentYear)) {
-      currentCycleIndex = i;
-      break;
-    }
-  }
-  return currentCycleIndex >= 0 ? currentCycleIndex : 0;
+  return -1;
 }
 
 export function resolveSelectedYear(
@@ -67,9 +54,7 @@ export function resolveSelectedYear(
     return selection.year;
   }
 
-  const currentYear = new Date().getFullYear();
-  const currentItem = cycle.years.find((item) => item.year === currentYear);
-  return currentItem?.year ?? cycle.years[0]?.year;
+  return undefined;
 }
 
 export function resolveSelectedMonth(selection: BaziFortuneSelectionValue) {
@@ -84,7 +69,7 @@ export function resolveSelectedMonth(selection: BaziFortuneSelectionValue) {
     return selection.month;
   }
 
-  return getBaziMonthIndexByDate(selection.year, new Date()) ?? 1;
+  return undefined;
 }
 
 export function resolveSelectedDay(
@@ -103,5 +88,5 @@ export function resolveSelectedDay(
     return selection.day;
   }
 
-  return getBaziDayIndexByDate(year, month, new Date()) ?? 1;
+  return undefined;
 }

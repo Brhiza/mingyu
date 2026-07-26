@@ -1471,6 +1471,7 @@ test('公开 API 八字年限提示词保留岁运资料但不拼接工程证据
       promptTopic: 'career',
       baziFortuneScope: 'year',
       baziFortuneCycleIndex: 1,
+      baziFortuneYear: 1998,
     }),
   });
 
@@ -2831,6 +2832,39 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
   );
 });
 
+test('公开 API 八字年限范围缺少必要层级参数时应拒绝而非套用第一项', async () => {
+  const base = {
+    gender: 'male',
+    year: 1990,
+    month: 5,
+    day: 15,
+    timeIndex: 1,
+    dateType: 'solar',
+    question: '请分析指定年限。',
+  };
+  const cases = [
+    { ...base, baziFortuneScope: 'dayun' },
+    { ...base, baziFortuneScope: 'year', baziFortuneCycleIndex: 1 },
+    { ...base, baziFortuneScope: 'month', baziFortuneYear: 1998 },
+    {
+      ...base,
+      baziFortuneScope: 'day',
+      baziFortuneYear: 1998,
+      baziFortuneMonth: 1,
+    },
+  ];
+
+  for (const payload of cases) {
+    const { response, body } = await callApi('bazi/prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    assert.equal(response.status, 400, JSON.stringify(payload));
+    assert.equal(body.error.code, 'BAD_REQUEST');
+  }
+});
+
 test('公开 API 奇门排盘支持轻量模式，便于调用方按需拆分请求', async () => {
   const customDate = '2025-01-01T08:00:00+08:00';
   const fullResult = await callApi('divination/qimen', {
@@ -3277,6 +3311,7 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
       question: '整体人生和近期重点怎么看？',
       astrolabeTopic: 'life',
       astrolabeScope: 'full',
+      astrolabeScopeDate: '2028-06-12',
       responseMode: 'prompt-only',
     }),
   });
@@ -3343,6 +3378,38 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
       ),
     );
     assert.match(evidence.promptText, /证据汇总：/);
+  }
+});
+
+test('公开 API 星盘非本命范围必须提供匹配范围的明确日期', async () => {
+  const base = {
+    name: '本人',
+    gender: '女',
+    year: 1995,
+    month: 5,
+    day: 20,
+    hour: 12,
+    minute: 30,
+    latitude: 39.9042,
+    longitude: 116.4074,
+    timezone: 8,
+    question: '请分析指定行运。',
+  };
+  const cases = [
+    { ...base, astrolabeScope: 'full' },
+    { ...base, astrolabeScope: 'yearly', astrolabeScopeDate: '2028-06' },
+    { ...base, astrolabeScope: 'monthly', astrolabeScopeDate: '2028-13' },
+    { ...base, astrolabeScope: 'daily', astrolabeScopeDate: '2028-02-31' },
+  ];
+
+  for (const payload of cases) {
+    const { response, body } = await callApi('divination/astrolabe/prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    assert.equal(response.status, 400, JSON.stringify(payload));
+    assert.equal(body.error.code, 'BAD_REQUEST');
   }
 });
 
