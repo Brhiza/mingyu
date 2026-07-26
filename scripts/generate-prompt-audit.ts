@@ -43,6 +43,7 @@ type RequiredSampleFields = {
 
 const AUDIT_DATE = new Date('2026-05-19T10:30:00+08:00');
 const AUDIT_DATE_TEXT = '2026年5月19日 10时30分（北京时间）';
+const AUDIT_ZIWEI_CONTEXT = { dateStr: '2026-05-19', hourIndex: 5 };
 const CUSTOM_DATE = '2026-05-19T10:30:00+08:00';
 const CONTEST_SOURCE = 'docs/2025第十六届全球算命师比赛/00_原题目.md；本脚本未读取“正确答案.md”。';
 const COMMON_PROJECT_QUESTION = '我现在应该继续推进这个项目，还是先调整策略再行动？';
@@ -72,15 +73,28 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '六爻',
-    requiredFields: withCommonProjectSupplementRequired(['【传统判断规则】', '【传统依据】', '应期']),
+    requiredFields: withCommonProjectSupplementRequired([
+      '【传统判断规则】',
+      '【传统依据】',
+      '应期',
+    ]),
   },
   {
     sampleName: '梅花易数',
-    requiredFields: withCommonProjectSupplementRequired(['【传统判断规则】', '【传统依据】', '体用关系']),
+    requiredFields: withCommonProjectSupplementRequired([
+      '【传统判断规则】',
+      '【传统依据】',
+      '体用关系',
+    ]),
   },
   {
     sampleName: '奇门遁甲',
-    requiredFields: withCommonProjectSupplementRequired(['【传统判断规则】', '【传统依据】', '发用', '值符']),
+    requiredFields: withCommonProjectSupplementRequired([
+      '【传统判断规则】',
+      '【传统依据】',
+      '发用',
+      '值符',
+    ]),
   },
   {
     sampleName: '大六壬',
@@ -146,63 +160,39 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '八宅风水',
-    requiredFields: [
-      '【当前时间】',
-      '【传统判断规则】',
-      '【传统依据】',
-      '命卦八宫明细',
-      '宅卦八宫明细',
-    ],
+    requiredFields: ['【传统判断规则】', '【传统依据】', '命卦八宫明细', '宅卦八宫明细'],
   },
   {
     sampleName: '住宅风水',
-    requiredFields: [
-      '【当前时间】',
-      '【传统判断规则】',
-      '【传统依据】',
-      '合参要点',
-      '结构化证据',
-    ],
+    requiredFields: ['【传统判断规则】', '【传统依据】', '合参要点', '结构化证据'],
   },
   {
     sampleName: '玄空飞星',
-    requiredFields: [
-      '【当前时间】',
-      '【传统判断规则】',
-      '【传统依据】',
-      '运盘',
-      '山盘',
-      '向盘',
-      '结构化证据',
-    ],
+    requiredFields: ['【传统判断规则】', '【传统依据】', '运盘', '山盘', '向盘', '结构化证据'],
   },
   {
     sampleName: '生肖流年',
-    requiredFields: ['【当前时间】', '【传统判断规则】', '【传统依据】', '太岁'],
+    requiredFields: ['【传统判断规则】', '【传统依据】', '太岁'],
   },
   {
     sampleName: '太乙神数',
-    requiredFields: [
-      '【当前时间】',
-      '【传统判断规则】',
-      '【传统依据】',
-      '核心宫位',
-      '主客定算',
-      '将参',
-      '十六神',
-    ],
+    requiredFields: ['【传统判断规则】', '【传统依据】', '核心宫位', '主客定算', '将参', '十六神'],
   },
   {
     sampleName: '七政四余',
-    requiredFields: [
-      '【当前时间】',
-      '【传统判断规则】',
-      '【传统依据】',
-      '出生时空',
-      '十二宫映射',
-      '计算上下文',
-    ],
+    requiredFields: ['【传统判断规则】', '【传统依据】', '出生时空', '十二宫映射', '计算上下文'],
   },
+];
+
+const SAMPLES_WITHOUT_CURRENT_TIME = [
+  '八字排盘',
+  '紫微斗数',
+  '八宅风水',
+  '住宅风水',
+  '玄空飞星',
+  '生肖流年',
+  '太乙神数',
+  '七政四余',
 ];
 
 function withSeed<T>(seed: number, callback: () => T): T {
@@ -276,7 +266,7 @@ function buildPromptMarkdown(samples: PromptSample[]) {
     '',
     '使用场景：以下提示词会由用户直接复制到外部在线 AI 中解读，外部 AI 不知道本仓库、页面、接口、内部实现或生成过程。',
     '',
-    '硬性要求：每份提示词必须像用户手动写成的完整任务书，独立包含当前时间、盘面资料、问题、任务、证据要求、输出要求和必要边界；提示词正文不得出现本项目、算法返回、本模块、接口、代码、调试、系统提示词等工程语境。',
+    '硬性要求：每份提示词必须像用户手动写成的完整任务书，独立包含盘面资料、问题、任务、证据要求、输出要求和必要边界；即时占卜应包含明确起盘时间，命盘、行运和环境类任务不得用系统当前时间补齐分析目标；提示词正文不得出现本项目、算法返回、本模块、接口、代码、调试、系统提示词等工程语境。',
     '',
     '理由：工程语境会让外部 AI 误以为需要理解或评价软件实现，也可能使它依赖并不存在的上下文，导致偏离盘面和用户问题。改用“本盘”“上方资料”“推算口径”“资料边界”等自然表达，能让解读只围绕已提供事实展开。',
     '',
@@ -328,6 +318,13 @@ function assertRequiredSampleFields(samples: PromptSample[]) {
         missingMessages.push(`${sampleName} 缺少字段：${field}`);
       }
     });
+  });
+
+  SAMPLES_WITHOUT_CURRENT_TIME.forEach((sampleName) => {
+    const sample = samples.find((item) => item.name === sampleName);
+    if (sample?.prompt.includes('【当前时间】')) {
+      missingMessages.push(`${sampleName} 不应包含字段：【当前时间】`);
+    }
   });
 
   if (missingMessages.length > 0) {
@@ -431,6 +428,7 @@ async function buildSamples(): Promise<PromptSample[]> {
         birthMinute: '34',
         birthLongitude: '103.8198',
       }),
+      AUDIT_ZIWEI_CONTEXT,
     );
     const ziweiPrompt = buildZiweiPromptForRuntime({
       result: ziweiRuntime,
@@ -606,7 +604,6 @@ async function buildSamples(): Promise<PromptSample[]> {
       '请分析命主的核心结构、优势、限制和适合的发展方向。',
       { method: 'qizheng', currentTime: fixedNow },
     );
-
 
     const residentialData = generateResidentialFengshui({
       birthYear: 1990,
@@ -791,4 +788,3 @@ async function main() {
 }
 
 await main();
-
