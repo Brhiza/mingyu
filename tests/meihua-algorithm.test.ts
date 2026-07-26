@@ -15,6 +15,25 @@ import { MeihuaHelpers } from '../packages/core/src/divination/divination-helper
 
 const SAMPLE_DATE = new Date('2025-01-01T08:00:00+08:00');
 
+const TRIGRAM_LINES_BOTTOM_UP: Record<string, number[]> = {
+  乾: [1, 1, 1],
+  兑: [1, 1, 0],
+  离: [1, 0, 1],
+  震: [0, 0, 1],
+  巽: [0, 1, 1],
+  坎: [0, 1, 0],
+  艮: [1, 0, 0],
+  坤: [0, 0, 0],
+};
+
+const TRIGRAM_BY_BOTTOM_UP_LINES = new Map(
+  Object.entries(TRIGRAM_LINES_BOTTOM_UP).map(([name, lines]) => [lines.join(''), name]),
+);
+
+function replaySampleForIndex(index: number, total: number): number {
+  return (index - 0.5) / total;
+}
+
 test('梅花：变卦应按初爻到上爻的传统爻位计算', () => {
   const data = generateMeihua(SAMPLE_DATE, { method: 'number', number: 123 });
 
@@ -73,6 +92,51 @@ test('梅花：天泽履应按自下而上的爻序生成互卦和变卦', () =>
   assert.equal(data.changedHexagram?.lower, '艮');
   assert.equal(data.analysis.tiSeasonState, '相');
   assert.equal(data.analysis.yongSeasonState, '相');
+});
+
+test('梅花：八八六共三百八十四种主卦动爻组合应保持爻序、互卦和变卦一致', () => {
+  for (let upperIndex = 1; upperIndex <= 8; upperIndex += 1) {
+    for (let lowerIndex = 1; lowerIndex <= 8; lowerIndex += 1) {
+      for (let movingYaoIndex = 1; movingYaoIndex <= 6; movingYaoIndex += 1) {
+        const data = generateMeihua(SAMPLE_DATE, {
+          method: 'random',
+          replay: [
+            replaySampleForIndex(upperIndex, 8),
+            replaySampleForIndex(lowerIndex, 8),
+            replaySampleForIndex(movingYaoIndex, 6),
+          ],
+        });
+        const mainLines = [
+          ...TRIGRAM_LINES_BOTTOM_UP[data.mainHexagram.lower],
+          ...TRIGRAM_LINES_BOTTOM_UP[data.mainHexagram.upper],
+        ];
+        const expectedInterLower = TRIGRAM_BY_BOTTOM_UP_LINES.get(mainLines.slice(1, 4).join(''));
+        const expectedInterUpper = TRIGRAM_BY_BOTTOM_UP_LINES.get(mainLines.slice(2, 5).join(''));
+        const changedLines = [...mainLines];
+        changedLines[movingYaoIndex - 1] = 1 - changedLines[movingYaoIndex - 1];
+        const expectedChangedLower = TRIGRAM_BY_BOTTOM_UP_LINES.get(
+          changedLines.slice(0, 3).join(''),
+        );
+        const expectedChangedUpper = TRIGRAM_BY_BOTTOM_UP_LINES.get(
+          changedLines.slice(3, 6).join(''),
+        );
+        const label = `${data.originalName}第${movingYaoIndex}爻`;
+
+        assert.deepEqual(
+          data.yaosDetail.map((yao) => (yao.yaoType === '阳' ? 1 : 0)),
+          mainLines,
+          `${label}主卦爻序`,
+        );
+        assert.equal(data.interHexagram?.lower, expectedInterLower, `${label}下互卦`);
+        assert.equal(data.interHexagram?.upper, expectedInterUpper, `${label}上互卦`);
+        assert.equal(data.changedHexagram?.lower, expectedChangedLower, `${label}变卦下卦`);
+        assert.equal(data.changedHexagram?.upper, expectedChangedUpper, `${label}变卦上卦`);
+        assert.equal(data.originalName, data.mainHexagram.name, `${label}主卦名称`);
+        assert.equal(data.interName, data.interHexagram?.name, `${label}互卦名称`);
+        assert.equal(data.changedName, data.changedHexagram?.name, `${label}变卦名称`);
+      }
+    }
+  }
 });
 
 test('梅花：数字起卦生成的主互变三卦与动爻资料必须始终完整', () => {
