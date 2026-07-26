@@ -80,7 +80,14 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '奇门遁甲',
-    requiredFields: withCommonProjectSupplementRequired(['【传统判断规则】', '【传统依据】', '发用', '值符']),
+    requiredFields: withCommonProjectSupplementRequired([
+      '【传统判断规则】',
+      '【传统依据】',
+      '值符',
+      '值使',
+      '旬空',
+      '马星',
+    ]),
   },
   {
     sampleName: '大六壬',
