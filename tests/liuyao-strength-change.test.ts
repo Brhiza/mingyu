@@ -15,9 +15,10 @@ import type { LiuyaoYaoDetail } from 'mingyu-core/types';
 // 2025-01-01 农历为丙子月（子月：水旺木相金休土囚火死）、丙寅日（日支寅）
 // 该日期的卦象固定，用于回归月令旺衰、暗动、回头生克冲的字段输出。
 const SAMPLE_DATE = new Date('2025-01-01T08:00:00+08:00');
-const SHAN_HUO_BI_YAOS = [7, 8, 7, 8, 8, 7] as const;
-const XUN_WEI_FENG_YAOS = [7, 7, 8, 7, 7, 8] as const;
-const FENG_SHUI_HUAN_YAOS = [8, 7, 8, 7, 7, 8] as const;
+const SHAN_HUO_BI_YAOS = [7, 8, 7, 7, 8, 8] as const;
+const XUN_WEI_FENG_YAOS = [8, 7, 7, 8, 7, 7] as const;
+const DUI_WEI_ZE_YAOS = [7, 7, 8, 7, 7, 8] as const;
+const FENG_SHUI_HUAN_YAOS = [8, 7, 8, 8, 7, 7] as const;
 const KAN_WEI_SHUI_YAOS = [8, 7, 8, 8, 7, 8] as const;
 
 function generateSampleLiuyao(yaos: readonly number[] = SHAN_HUO_BI_YAOS) {
@@ -231,7 +232,7 @@ test('六爻：静卦不能仅凭静态纳甲支凑成三合局', () => {
 
 test('六爻：动爻的变爻可以与日辰补成完整三合局', () => {
   const data = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
-    yaos: [7, 6, 7, 7, 7, 6],
+    yaos: [6, 7, 8, 6, 8, 8],
   });
 
   assert.equal(data.ganzhi.day.slice(1), '午');
@@ -240,8 +241,8 @@ test('六爻：动爻的变爻可以与日辰补成完整三合局', () => {
       .filter((yao) => yao.isChanging)
       .map((yao) => [yao.najiaDizhi, yao.changedYao?.dizhi]),
     [
-      ['丑', '寅'],
-      ['卯', '戌'],
+      ['寅', '巳'],
+      ['丑', '戌'],
     ],
   );
   assert.equal(data.sanheWithDay?.group, '火局');
@@ -261,13 +262,13 @@ test('六爻：月卦身应按阳世起子、阴世起午逐爻顺数', () => {
   assert.equal(yangShi.guaShen?.position, 2);
 
   const yinShi = generateLiuyao(new Date('2025-01-01T01:00:00+08:00'), {
-    yaos: XUN_WEI_FENG_YAOS,
+    yaos: DUI_WEI_ZE_YAOS,
   });
-  assert.equal(yinShi.originalName, '巽为风');
+  assert.equal(yinShi.originalName, '兑为泽');
   assert.equal(yinShi.worldAndResponse.indexOf('世') + 1, 6);
   assert.equal(yinShi.yaosDetail[5].yaoType, '阴');
   assert.equal(yinShi.guaShen?.branch, '亥');
-  assert.equal(yinShi.guaShen?.position, 2);
+  assert.equal(yinShi.guaShen?.position, 4);
 });
 
 test('六爻：动变关系与月卦身应拒绝非法资料', () => {

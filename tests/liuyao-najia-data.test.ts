@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { getSixAnimals } from '../packages/core/src/calendar/lunar.ts';
+import { generateLiuyao } from '../packages/core/src/divination/algorithms/liuyao.ts';
 import { hexagramNaJia as coreHexagramNaJia } from '../packages/core/src/divination/divination-data.ts';
+import { hexagramsData } from '../packages/core/src/divination/hexagram-data.ts';
 
 /**
  * 六爻纳甲回归：下三爻按下经卦所属八纯卦纳支，上三爻按上经卦所属八纯卦纳支。
@@ -19,6 +21,31 @@ const pureNaJia: Record<string, { inner: string[]; outer: string[] }> = {
   坤: { inner: ['未', '巳', '卯'], outer: ['丑', '亥', '酉'] },
   兑: { inner: ['巳', '卯', '丑'], outer: ['亥', '酉', '未'] },
 };
+
+const trigramLinesBottomUp: Record<string, number[]> = {
+  乾: [1, 1, 1],
+  兑: [1, 1, 0],
+  离: [1, 0, 1],
+  震: [0, 0, 1],
+  巽: [0, 1, 1],
+  坎: [0, 1, 0],
+  艮: [1, 0, 0],
+  坤: [0, 0, 0],
+};
+
+const trigramSymbols: Record<string, string> = {
+  乾: '☰',
+  兑: '☱',
+  离: '☲',
+  震: '☳',
+  巽: '☴',
+  坎: '☵',
+  艮: '☶',
+  坤: '☷',
+};
+
+// 与下方独立六十四卦表一致：每宫连续 8 卦，依次为本宫、一至五世、游魂、归魂。
+const palaceOrder = ['乾', '坎', '艮', '震', '巽', '离', '坤', '兑'];
 
 // 64 卦 → [上经卦, 下经卦]（所属八纯卦）。按八宫顺序列出。
 const trigrams: Record<string, [string, string]> = {
@@ -95,6 +122,92 @@ const trigrams: Record<string, [string, string]> = {
   雷山小过: ['震', '艮'],
   雷泽归妹: ['震', '兑'],
 };
+
+const trigramByBottomUpLines = new Map(
+  Object.entries(trigramLinesBottomUp).map(([name, lines]) => [lines.join(''), name]),
+);
+
+const hexagramByTrigrams = new Map(
+  Object.entries(trigrams).map(([name, [upper, lower]]) => [`${upper}/${lower}`, name]),
+);
+
+test('六十四卦底表：卦名、上下卦、爻序、符号和八宫应与独立规则表完全一致', () => {
+  assert.equal(hexagramsData.length, 64, '六十四卦底表必须恰好有 64 项');
+  assert.equal(new Set(hexagramsData.map((item) => item.id)).size, 64, '卦序不得重复');
+  assert.equal(new Set(hexagramsData.map((item) => item.name)).size, 64, '卦名不得重复');
+  assert.equal(new Set(hexagramsData.map((item) => item.symbol)).size, 64, '卦符不得重复');
+  assert.equal(
+    new Set(hexagramsData.map((item) => item.binarySymbol)).size,
+    64,
+    '六爻二进制不得重复',
+  );
+  assert.deepEqual(
+    hexagramsData.map((item) => item.id).sort((left, right) => left - right),
+    Array.from({ length: 64 }, (_, index) => index + 1),
+    '卦序必须完整覆盖文王六十四卦的 1 至 64',
+  );
+
+  const dataByName = new Map(hexagramsData.map((item) => [item.name, item]));
+  assert.deepEqual(
+    [...dataByName.keys()].sort(),
+    Object.keys(trigrams).sort(),
+    '底表卦名必须与独立六十四卦表完全相同',
+  );
+
+  Object.entries(trigrams).forEach(([name, [upper, lower]], index) => {
+    const item = dataByName.get(name);
+    assert.ok(item, `缺少${name}`);
+    assert.equal(item.upper, upper, `${name}上卦`);
+    assert.equal(item.lower, lower, `${name}下卦`);
+    assert.equal(
+      item.binarySymbol,
+      [...trigramLinesBottomUp[upper], ...trigramLinesBottomUp[lower]].join(''),
+      `${name}六爻二进制应按“上卦、下卦”存储，且每个经卦内部自下而上`,
+    );
+    assert.equal(item.symbol, `${trigramSymbols[upper]}${trigramSymbols[lower]}`, `${name}卦符`);
+    assert.equal(item.palace, palaceOrder[Math.floor(index / 8)], `${name}所属八宫`);
+    assert.equal(item.yaoCi?.length, 6, `${name}必须包含从初爻到上爻的 6 条爻辞`);
+  });
+});
+
+test('六爻排盘：全六十四卦每爻发动时主卦、互卦、变卦应与自下而上爻序一致', () => {
+  const sampleDate = new Date('2026-07-25T23:30:00+08:00');
+
+  for (const [originalName, [upper, lower]] of Object.entries(trigrams)) {
+    const mainLines = [...trigramLinesBottomUp[lower], ...trigramLinesBottomUp[upper]];
+    const interLower = trigramByBottomUpLines.get(mainLines.slice(1, 4).join(''));
+    const interUpper = trigramByBottomUpLines.get(mainLines.slice(2, 5).join(''));
+    const expectedInterName = hexagramByTrigrams.get(`${interUpper}/${interLower}`);
+
+    for (let movingYao = 1; movingYao <= 6; movingYao += 1) {
+      const changedLines = [...mainLines];
+      changedLines[movingYao - 1] = 1 - changedLines[movingYao - 1];
+      const changedLower = trigramByBottomUpLines.get(changedLines.slice(0, 3).join(''));
+      const changedUpper = trigramByBottomUpLines.get(changedLines.slice(3, 6).join(''));
+      const expectedChangedName = hexagramByTrigrams.get(`${changedUpper}/${changedLower}`);
+      const yaos = mainLines.map((line, index) => {
+        if (index === movingYao - 1) return line === 1 ? 9 : 6;
+        return line === 1 ? 7 : 8;
+      });
+      const data = generateLiuyao(sampleDate, { method: 'manual', yaos });
+      const label = `${originalName}第${movingYao}爻`;
+
+      assert.equal(data.originalName, originalName, `${label}主卦`);
+      assert.equal(data.interName, expectedInterName, `${label}互卦`);
+      assert.equal(data.changedName, expectedChangedName, `${label}变卦`);
+      assert.deepEqual(
+        data.yaosDetail.map((yao) => (yao.yaoType === '阳' ? 1 : 0)),
+        mainLines,
+        `${label}逐爻阴阳`,
+      );
+      assert.deepEqual(
+        data.changingYaos.map((yao) => yao.position),
+        [movingYao],
+        `${label}动爻位置`,
+      );
+    }
+  }
+});
 
 test('六爻纳甲：核心包全 64 卦按上下经卦所属纯卦分别纳甲', () => {
   for (const [name, [upper, lower]] of Object.entries(trigrams)) {
