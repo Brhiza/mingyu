@@ -75,7 +75,7 @@ const ziweiPromptSchema = ziweiSchema.extend({
     .enum(ZIWEI_SCHOOLS)
     .optional()
     .describe(
-      '紫微流派：sanhe=三合派（三方四正、星曜庙旺）, feixing=飞星派（四化飞星链路）, sihua=四化派（生年四化主线）。不传则不附加流派指引',
+      '紫微解读侧重点：sanhe=三合派（三方四正、星曜庙旺）, feixing=飞星派（只读取盘面已有四化飞星链路）, sihua=四化派（生年四化主线）。只影响提示词，不改变 iztro 基础安星口径',
     ),
 });
 

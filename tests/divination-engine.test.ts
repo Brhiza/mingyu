@@ -106,7 +106,6 @@ function buildDraft(overrides: Partial<DivinationDraftInput>): DivinationDraftIn
     meihuaMethod: 'time',
     meihuaNumber: '',
     xiaoliurenMethod: 'time',
-    xiaoliurenNumber: '',
     liuyaoTemplate: 'general',
     liurenTemplate: 'general',
     tarotSpread: 'single',
@@ -4196,7 +4195,7 @@ test('太乙神数作为占卜方法应生成完整年计盘与时间层级提�
   assert.match(session.prompt, /太乙：艮（第3宫/);
   assert.match(session.prompt, /主客定算：主算24/);
   assert.doesNotMatch(session.prompt, /结构化证据|证据汇总|计算链|解释限制/);
-  assert.match(session.prompt, /年计、月计、日计、时计、分计分别按各自积数与阴阳遁规则起局/);
+  assert.match(session.prompt, /当前只解读已完成历法链校勘的年计字段/);
   assert.match(session.prompt, /判断年度气运、动静、攻守与时宜/);
   assert.doesNotMatch(session.prompt, /尚未计算|月计、日计或时计/);
   assert.match(
@@ -4214,25 +4213,18 @@ test('太乙神数占卜入口应拒绝空年份和超出网页支持范围的�
   }
 });
 
-test('太乙神数占卜入口应支持月日时分四种按时间起局', async () => {
-  for (const scope of ['month', 'day', 'hour', 'minute'] as const) {
-    const session = await generateDivinationSession(
-      buildDraft({
-        method: 'taiyi',
-        taiyiScope: scope,
-        divinationTimeMode: 'custom',
-        customDivinationDate: '2026-07-11',
-        customDivinationTime: '14:35',
-        question: '当前应当主动推进还是暂时稳守？',
-      }),
-    );
-    const data = session.data as TaiyiResult;
-    assert.equal(data.scope, scope);
-    assert.match(
-      session.prompt,
-      new RegExp(
-        `占法：太乙神数（${{ month: '月计', day: '日计', hour: '时计', minute: '分计' }[scope]}）`,
-      ),
+test('太乙神数占卜入口应拒绝尚未校勘的月日时计', async () => {
+  for (const scope of ['month', 'day', 'hour'] as const) {
+    await assert.rejects(
+      () =>
+        generateDivinationSession(
+          buildDraft({
+            method: 'taiyi',
+            taiyiScope: scope,
+            taiyiYear: '2026',
+          }),
+        ),
+      /古籍历法链校勘.*只开放年计/,
     );
   }
 });
@@ -4614,7 +4606,7 @@ test('占卜引擎星盘应在本地拒绝无效出生时间和经纬度', async
   }
 });
 
-test('占卜引擎数字起卦只接受十进制正整数文本', async () => {
+test('占卜引擎梅花数字起卦只接受十进制正整数文本', async () => {
   await assert.rejects(
     () =>
       generateDivinationSession(
@@ -4626,21 +4618,9 @@ test('占卜引擎数字起卦只接受十进制正整数文本', async () => {
       ),
     /数字起卦需要填写正整数/,
   );
-
-  await assert.rejects(
-    () =>
-      generateDivinationSession(
-        buildDraft({
-          method: 'xiaoliuren',
-          xiaoliurenMethod: 'number',
-          xiaoliurenNumber: '1e2',
-        }),
-      ),
-    /小六壬数字起课需要填写正整数/,
-  );
 });
 
-test('小六壬支持时间起课与数字起课，并生成适合复制给 AI 的提示词', async () => {
+test('小六壬只按时间起课，并生成可复核顺数与时宫提示词', async () => {
   const timeSession = await generateDivinationSession(
     buildDraft({
       method: 'xiaoliuren',
@@ -4652,32 +4632,17 @@ test('小六壬支持时间起课与数字起课，并生成适合复制给 AI �
 
   assert.equal(timeSession.method, 'xiaoliuren');
   assert.match(timeSession.prompt, /占法：小六壬/);
-  assert.match(timeSession.prompt, /起因/);
-  assert.match(timeSession.prompt, /过程/);
-  assert.match(timeSession.prompt, /结果/);
-  assert.match(timeSession.prompt, /结构明细：/);
-  assert.match(timeSession.prompt, /起课方式：时间起课/);
-  assert.doesNotMatch(timeSession.prompt, /结构化证据|证据汇总|计算链|解释限制|规则来源/);
-
-  const numberSession = await generateDivinationSession(
-    buildDraft({
-      method: 'xiaoliuren',
-      question: '这件事现在该不该继续推进？',
-      xiaoliurenMethod: 'number',
-      xiaoliurenNumber: '18',
-      almanacStartDate: '',
-      almanacEndDate: '',
-    }),
-  );
-
-  assert.equal(numberSession.method, 'xiaoliuren');
-  assert.match(numberSession.prompt, /起课方式数字起课/);
-  assert.equal((numberSession.data as XiaoliurenData).calculation?.inputBase, 18);
+  assert.match(timeSession.prompt, /顺数轨迹：月宫.*；日宫.*；时宫/);
+  assert.match(timeSession.prompt, /占得宫：/);
+  assert.match(timeSession.prompt, /歌诀原文：/);
+  assert.match(timeSession.prompt, /计算链：/);
+  assert.match(timeSession.prompt, /解释限制：/);
+  assert.doesNotMatch(timeSession.prompt, /核心结构：起因|五行推进：|月令旺衰：|日干六亲：/);
 });
 
-test('小六壬数字起课底层算法缺少数字时应明确失败', () => {
+test('小六壬底层算法应拒绝已移除的数字起课', () => {
   assert.throws(
-    () => generateXiaoliuren({ method: 'number' }),
-    /小六壬数字起课必须提供安全范围内的正整数/,
+    () => generateXiaoliuren({ method: 'number' as never }),
+    /当前仅保留有明确顺数规则的时间起课/,
   );
 });

@@ -226,7 +226,7 @@
 - `number?: number`
 - `customDate?: Date`
 
-**返回 `XiaoliurenData`：** 含三宫（起因 start/过程 process/结果 result，各为大安/留连/速喜/赤口/小吉/空亡）、五行生克分析、月令旺衰、应期估算。
+**返回 `XiaoliurenData`：** 含月宫、日宫、时宫顺数轨迹（大安/留连/速喜/赤口/小吉/空亡）、时宫主证、通行歌诀、逐步计算参数及来源、历法和解释限制。
 
 ---
 
@@ -318,10 +318,10 @@
 | `buildAstrolabeFromInput(input)` | 由 ChartInput 构建 iztro 盘 |
 | `buildHoroscope(astrolabe, dateStr, hourIndex)` | 构建运限盘 |
 | `buildAnalysisPayloadV1({astrolabe, horoscope, currentScope})` | 构建分析数据载荷 |
-| `detectPatterns({palaces})` | 检测 35 种传统紫微格局 |
+| `detectPatterns({palaces})` | 格局来源审查入口；当前没有完成逐条原文校勘的规则，返回空列表 |
 | `buildEvidencePool({astrolabe, horoscope, currentScope, palaces})` | 构建证据池 |
 
-依赖 `iztro`。返回类型见 `mingyu-core/types` 的 `analysis.ts`。
+依赖 `iztro`。十二宫、星曜、亮度、三方四正、运限宫位、运限星曜、四化、自化与宫干飞化均直接读取 `iztro` 原生对象；公开链路与内部完整盘共用同一载荷构建器。原有自定义格局规则因缺少逐条版本、卷页、原文和独立例盘，当前不进入排盘、证据和提示词；空列表不表示命盘没有其他传统格局。返回类型见 `mingyu-core/types` 的 `analysis.ts`。
 
 ---
 

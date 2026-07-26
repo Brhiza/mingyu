@@ -240,10 +240,11 @@ function readOptionalText(value: unknown, fallback: string) {
  * 生成西洋占星星盘
  *
  * 使用 Placidus 宫位制计算本命盘，含太阳、月亮、上升、十大星体
- * 落宫、星座、以及主要相位分析。支持真太阳时校正。
+ * 落宫、星座、以及主要相位分析。真太阳时只作为传统时间参考证据，
+ * 不替换现代星历计算所需的实际出生时刻。
  *
  * @param input 出生信息，含经纬度、时区、出生日期时间等。
- *   设置 useTrueSolarTime 为 true 可启用真太阳时校正。
+ *   设置 useTrueSolarTime 为 true 可附带真太阳时参考证据。
  * @returns 星盘数据对象 AstrolabeData，含星体、宫位、相位等信息。
  *
  * @example
@@ -295,7 +296,6 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
         timezone,
       })
     : null;
-  const birth = trueSolarResult?.correctedTime ?? standardBirth;
   const locationName = readOptionalText(input.locationName, '');
   const solarIllumination = calculateSolarIlluminationEvidence({
     ...standardBirth,
@@ -308,7 +308,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
 
   const chart = calculateChart(
     {
-      ...birth,
+      ...standardBirth,
       second: 0,
       timezone,
       latitude,
@@ -355,7 +355,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
     birth: {
       name: readOptionalText(input.name, '未命名'),
       gender: input.gender,
-      dateTime: formatDateTime(birth),
+      dateTime: formatDateTime(standardBirth),
       location:
         locationName.length > 0
           ? `${locationName}（${latitude.toFixed(4)}, ${longitude.toFixed(4)}）`
@@ -397,10 +397,7 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
       house: cusp.house,
       formatted: formatPosition(cusp.signName, cusp.degree, cusp.minute),
     })),
-    aspects: [...chart.aspects.all]
-      .sort((a, b) => b.strength - a.strength)
-      .slice(0, 12)
-      .map(mapAspect),
+    aspects: [...chart.aspects.all].sort((a, b) => b.strength - a.strength).map(mapAspect),
     solarIllumination,
     summary: {
       elements: {

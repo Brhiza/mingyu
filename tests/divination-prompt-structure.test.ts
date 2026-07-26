@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { taiyi } from 'mingyu-core';
+import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
 import {
@@ -446,75 +447,10 @@ function createData(method: FixtureMethod): DivinationData {
         },
       };
     case 'xiaoliuren':
-      return {
-        method: 'number',
-        methodLabel: '数字起课',
-        timestamp: Date.now(),
-        lunarMonth: 4,
-        lunarDay: 18,
-        hourIndex: 6,
-        hourLabel: '午时',
-        sequence: {
-          start: {
-            name: '留连',
-            index: 1,
-            element: '土',
-            meaning: '事情容易拖延反复，推进时会被旧问题牵扯。',
-            keywords: ['拖延', '牵扯', '反复'],
-            tendency: '易反复',
-            advice: '不要急着定论，先清理卡点与未处理事项。',
-            direction: '四角',
-            shenSha: '螣蛇',
-            yinYang: '阴',
-            fortune: '平（偏凶）',
-            timing: '节奏反复，待牵扯事项清理后再观察进展',
-          },
-          process: {
-            name: '赤口',
-            index: 3,
-            element: '金',
-            meaning: '容易出现争执、误会、口舌或情绪冲撞。',
-            keywords: ['争执', '误会', '情绪'],
-            tendency: '易争执',
-            advice: '少硬碰硬，先控情绪和表达，再谈结果。',
-            direction: '西',
-            shenSha: '白虎',
-            yinYang: '阳',
-            fortune: '凶',
-            timing: '争执触发性强，以沟通冲突或立场摊牌为观察点',
-          },
-          result: {
-            name: '小吉',
-            index: 4,
-            element: '水',
-            meaning: '事情整体可成，常有助力，但更适合渐进推进。',
-            keywords: ['助力', '可成', '渐进'],
-            tendency: '有助力',
-            advice: '可以推进，但要一步一步拿结果，不宜贪快。',
-            direction: '北',
-            shenSha: '玄武',
-            yinYang: '阴',
-            fortune: '吉',
-            timing: '节奏渐进，以协助、资源或中间人出现为触发',
-          },
-        },
-        wuxingRelations: {
-          startToProcess: '所生',
-          processToResult: '所生',
-          description: '起因生过程，事态自然推进；过程生结果，越做越顺',
-        },
-        primary: {
-          name: '小吉',
-          index: 4,
-          element: '水',
-          meaning: '事情整体可成，常有助力，但更适合渐进推进。',
-          keywords: ['助力', '可成', '渐进'],
-          tendency: '有助力',
-          advice: '可以推进，但要一步一步拿结果，不宜贪快。',
-        },
-        tendency: '有助力',
-        questionHint: '当前整体偏可成，适合稳步推进，慢慢拿结果。',
-      };
+      return generateXiaoliuren({
+        method: 'time',
+        customDate: new Date('2025-06-29T08:00:00+08:00'),
+      });
     case 'qimen':
       return {
         jiuGongGe: [
@@ -1227,7 +1163,7 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /第3爻.*动.*属体/);
 });
 
-test('小六壬提示词会保留三段宫位、五行推进和起课资料', () => {
+test('小六壬提示词只保留时宫主证、顺数计算和规则边界', () => {
   const prompt = buildDivinationPrompt(
     'xiaoliuren',
     '这件事接下来该怎么推进？',
@@ -1236,15 +1172,17 @@ test('小六壬提示词会保留三段宫位、五行推进和起课资料', ()
   );
 
   assert.match(prompt, /占法：小六壬/);
-  assert.match(prompt, /核心结构：起因留连；过程赤口；结果小吉/);
-  assert.match(prompt, /五行推进：起因到过程/);
-  assert.match(prompt, /关键词/);
-  assert.match(prompt, /取象提示：/);
-  assert.match(prompt, /应期资料：起因留连：偏拖延反复，常需先清旧账或等阻滞松动/);
-  assert.match(prompt, /- 起课方式：数字起课/);
-  assert.match(prompt, /- 结果：小吉（五行.*）；关键词.*；倾向有助力/);
-  assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界|断课抓手/);
-  assert.doesNotMatch(prompt, /吉凶凶|吉凶吉|凶（大凶）|事情整体可成|容易白忙一场/);
+  assert.match(prompt, /顺数轨迹：月宫空亡；日宫赤口；时宫留连/);
+  assert.match(prompt, /占得宫：留连/);
+  assert.match(prompt, /歌诀原文：留连事难成/);
+  assert.match(prompt, /计算链：正月从大安起/);
+  assert.match(prompt, /历法口径：东八区民用日零点换日；闰月沿用同名月序/);
+  assert.match(prompt, /署名不作为已证实的古籍归属/);
+  assert.match(prompt, /月宫和日宫只是顺数中间位置/);
+  assert.doesNotMatch(
+    prompt,
+    /核心结构：起因|五行推进：|月令旺衰：|日干六亲：|课盘神煞：|应期参考：/,
+  );
 });
 
 test('梅花、小六壬、奇门不再输出隐藏专项分析思路', () => {
@@ -1480,7 +1418,7 @@ test('星盘提示词写入年限选择后应包含分析对象与行运边界',
   assert.ok(prompt.indexOf('【分析对象】') < prompt.indexOf('【占卜信息】'));
 });
 
-test('金口诀提示词应写入四位主线且可外发', async () => {
+test('金口诀提示词应写入阴阳发用、贵神本属与五动三动且可外发', async () => {
   const { generateJinkoujue } =
     await import('../packages/core/src/divination/algorithms/jinkoujue.ts');
   const { buildDivinationPrompt } = await import('../src/lib/divination/engine/index.ts');
@@ -1499,8 +1437,12 @@ test('金口诀提示词应写入四位主线且可外发', async () => {
     },
   );
   assert.match(prompt, /占法：金口诀/);
-  assert.match(prompt, /取用主线：以贵神/);
+  assert.match(prompt, /阴阳发用：/);
+  assert.match(prompt, /发用位/);
+  assert.match(prompt, /五动|三动/);
+  assert.match(prompt, /贵神本属/);
   assert.match(prompt, /地分|将神|贵神|人元/);
+  assert.doesNotMatch(prompt, /先以贵神主事|贵神主事、将神主事体/);
   assert.doesNotMatch(prompt, /你是资深|取证顺序|证据边界|待核|可疑|暂无/);
   assertPromptIsPortableTaskText(prompt);
 });

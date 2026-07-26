@@ -277,6 +277,12 @@ test('大六壬传统事实应保留原文并为提示词生成条件化副本',
   assert.ok(evidence.traditionalFacts.some((item) => item.kind === '课体'));
   assert.ok(evidence.traditionalFacts.some((item) => item.kind === '天将属性'));
   assert.ok(evidence.traditionalFacts.some((item) => item.kind === '神煞'));
+  const shenShaFacts = evidence.traditionalFacts.filter((item) => item.kind === '神煞');
+  assert.equal(shenShaFacts.length, data.shenShaFacts?.length);
+  assert.ok(shenShaFacts.every((item) => /^(日干|日支|月建).+按“.+”定位/.test(item.promptText)));
+  assert.ok(
+    shenShaFacts.some((item) => item.sources.some((source) => source.includes('逐月神煞'))),
+  );
   assert.ok(
     evidence.traditionalFacts.every(
       (item) =>
@@ -296,10 +302,9 @@ test('十二天将传统属性进入提示词时不得直接证明疾病、死�
   const originalTexts = Object.values(TIANJIANG_ATTRIBUTES).map((item) => item.description);
   const promptTexts = originalTexts.map(conditionLiurenTraditionalText);
 
-  assert.ok(originalTexts.some((item) => /主婚姻/.test(item)));
-  assert.ok(originalTexts.some((item) => /主官非/.test(item)));
-  assert.ok(originalTexts.some((item) => /主疾病、死丧/.test(item)));
-  assert.ok(originalTexts.some((item) => /主失窃、欺骗/.test(item)));
+  assert.ok(originalTexts.some((item) => /婚姻/.test(item)));
+  assert.ok(originalTexts.some((item) => /疾病/.test(item)));
+  assert.ok(originalTexts.some((item) => /盗贼/.test(item)));
   promptTexts.forEach((text) => {
     assert.doesNotMatch(text, /主婚姻|主官非|主疾病|主死丧|主失窃|主欺骗|必然|必定/);
   });
@@ -310,4 +315,32 @@ test('十二天将传统属性进入提示词时不得直接证明疾病、死�
   assert.match(dangerousText, /传统类象涉及健康、损伤、安全与财物风险等议题/);
   assert.match(dangerousText, /六合传统类象涉及婚姻/);
   assert.match(dangerousText, /勾陈传统类象涉及官非/);
+});
+
+test('十二天将不得混入十二月将的五味、主数、地形和身体属性', () => {
+  Object.values(TIANJIANG_ATTRIBUTES).forEach((item) => {
+    assert.deepEqual(Object.keys(item).sort(), ['category', 'description', 'wuxing', 'yinYang']);
+  });
+
+  const data = generateLiuren(fixedDate);
+  Object.values(data.tianJiangProps ?? {}).forEach((item) => {
+    assert.deepEqual(Object.keys(item).sort(), ['category', 'description', 'wuxing', 'yinYang']);
+  });
+});
+
+test('大六壬旧结果缺少逐项神煞起法时应明确不可复算', () => {
+  const data = generateLiuren(fixedDate);
+  data.shenShaFacts = undefined;
+
+  const evidence = analyzeLiurenEvidence(data);
+  const shenShaFacts = evidence.traditionalFacts.filter((item) => item.kind === '神煞');
+  assert.ok(shenShaFacts.length > 0);
+  assert.ok(shenShaFacts.every((item) => item.promptText.includes('未保存起法输入，不能据此复算')));
+  assert.ok(shenShaFacts.every((item) => item.sources.includes('旧结果未保存逐项起法与来源')));
+});
+
+test('十二天将阴阳应与所配天干一致', () => {
+  assert.equal(TIANJIANG_ATTRIBUTES.贵人.yinYang, '阴');
+  assert.equal(TIANJIANG_ATTRIBUTES.六合.yinYang, '阴');
+  assert.equal(TIANJIANG_ATTRIBUTES.天后.yinYang, '阳');
 });

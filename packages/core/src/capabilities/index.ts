@@ -6,7 +6,6 @@ import {
   MEIHUA_METHOD_OPTIONS,
   TAROT_SPREAD_OPTIONS,
   XIAOLIUREN_METHOD_OPTIONS,
-  XIAOLIUREN_SCHOOL_OPTIONS,
   JINKOUJUE_METHOD_OPTIONS,
 } from '../divination/config';
 import { MINGYU_CORE_VERSION, MINGYU_SCHEMA_VERSION } from '../shared/version';
@@ -35,6 +34,8 @@ export interface SystemCapability {
   id: string;
   name: string;
   category: 'chart' | 'divination' | 'calendar' | 'environment';
+  /** 省略或为 true 表示可计算；false 表示只保留兼容入口并明确失败关闭。 */
+  available?: boolean;
   methods?: CapabilityOption[];
   defaultMethod?: string;
   inputs: CapabilityInput[];
@@ -65,7 +66,7 @@ const birthProfileInput: CapabilityInput = {
   type: 'object',
   required: true,
   description:
-    '推荐使用统一 BirthProfile；时辰级算法可提供明确传统时辰，真太阳时、星盘和七政四余必须提供精准时分。',
+    '推荐使用统一 BirthProfile；时辰级算法可提供明确传统时辰，真太阳时和星盘必须提供精准时分。七政四余完整传统盘当前暂停。',
 };
 
 const questionInput: CapabilityInput = {
@@ -424,39 +425,25 @@ const systems: SystemCapability[] = [
     category: 'divination',
     methods: options(XIAOLIUREN_METHOD_OPTIONS),
     defaultMethod: 'time',
-    inputs: [
-      {
-        id: 'school',
-        label: '流派',
-        type: 'select',
-        required: false,
-        options: options(XIAOLIUREN_SCHOOL_OPTIONS),
-      },
-      {
-        id: 'number',
-        label: '起课数字',
-        type: 'number',
-        required: false,
-        requiredWhen: { method: 'number' },
-      },
-      { id: 'date', label: '起课时间', type: 'datetime', required: false },
-      questionInput,
-    ],
+    inputs: [{ id: 'date', label: '起课时间', type: 'datetime', required: false }, questionInput],
     outputs: [
-      '起因宫',
-      '过程宫',
-      '结果宫',
-      '五行关系',
-      '旺衰',
-      '相对应期节奏',
-      '应期触发条件与限制',
-      '方位',
-      '完整课象',
+      '月宫顺数轨迹',
+      '日宫顺数轨迹',
+      '时宫主证',
+      '通行六宫歌诀',
+      '历法边界说明',
       '结构化证据',
     ],
-    supports: randomSupports,
+    supports: {
+      seed: false,
+      customRandomSource: false,
+      replay: false,
+      trueSolarTime: false,
+      birthTimeRequired: false,
+      batch: false,
+    },
     notes: [
-      '华山派只以时间起课，并输出日干支、旬空、驿马、桃花、六亲与三宫完整课象；通行掌诀仍支持时间、数字、随机起课。',
+      '仅保留可复核的通行时间课：正月起大安，月上起日，日上起时，以时宫为占得宫。作者及李淳风署名暂无可靠版本学证据。',
     ],
   },
   {
@@ -476,9 +463,21 @@ const systems: SystemCapability[] = [
       { id: 'date', label: '起课时间', type: 'datetime', required: false },
       questionInput,
     ],
-    outputs: ['地分', '将神', '贵神', '人元', '四位生克', '取用主线', '月令与旬空', '结构化证据'],
+    outputs: [
+      '地分',
+      '将神与将干',
+      '贵神与神干',
+      '人元',
+      '阴阳发用',
+      '五动三动',
+      '四位生克',
+      '月令与旬空',
+      '结构化证据',
+    ],
     supports: randomSupports,
-    notes: ['金口诀固定采用地分、将神、贵神、人元四位一体口径，不以小六壬六宫替代。'],
+    notes: [
+      '金口诀采用《六壬神课金口诀古本》的四位、贵神本属、阴阳发用与五动三动口径，不与大六壬天将表或小六壬六宫混用。',
+    ],
   },
   {
     id: 'liuren',
@@ -657,13 +656,7 @@ const systems: SystemCapability[] = [
     id: 'taiyi',
     name: '太乙神数',
     category: 'divination',
-    methods: options([
-      { value: 'year', label: '年计' },
-      { value: 'month', label: '月计' },
-      { value: 'day', label: '日计' },
-      { value: 'hour', label: '时计' },
-      { value: 'minute', label: '分计' },
-    ]),
+    methods: options([{ value: 'year', label: '年计' }]),
     defaultMethod: 'year',
     inputs: [
       {
@@ -671,27 +664,14 @@ const systems: SystemCapability[] = [
         label: '公历年份',
         type: 'number',
         required: true,
-        description: '所有计式必须提供；年计只使用该字段。',
-      },
-      {
-        id: 'date',
-        label: '起局时间',
-        type: 'datetime',
-        required: false,
-        description: '月计、日计、时计、分计必填；时计须含小时，分计须含分钟。',
+        description: '年计必须提供。',
       },
       {
         id: 'scope',
-        label: '五计范围',
+        label: '计式范围',
         type: 'select',
         required: false,
-        options: options([
-          { value: 'year', label: '年计' },
-          { value: 'month', label: '月计' },
-          { value: 'day', label: '日计' },
-          { value: 'hour', label: '时计' },
-          { value: 'minute', label: '分计' },
-        ]),
+        options: options([{ value: 'year', label: '年计' }]),
       },
     ],
     outputs: ['七十二局', '阴阳遁', '太乙', '文昌', '始击', '主客定算', '十六神', '结构化证据'],
@@ -702,42 +682,25 @@ const systems: SystemCapability[] = [
       birthTimeRequired: false,
       batch: false,
     },
-    notes: ['年计不接受日期时间；其余计式不得用系统当前时间补齐缺失资料。'],
+    notes: ['当前只开放完成积年与七十二局立成校勘的年计；月、日、时计等待完整古籍历法链校勘。'],
   },
   {
     id: 'qizheng',
     name: '七政四余',
     category: 'chart',
+    available: false,
     inputs: [birthProfileInput],
-    outputs: [
-      '七政',
-      '四余',
-      '逐星来源',
-      '回归黄经',
-      '项目恒星黄经',
-      '宿度',
-      '紫炁模型',
-      '十二宫',
-      '命身宫',
-      '命主',
-      '庙旺',
-      '神煞',
-      '相位容许度',
-      '计算上下文',
-      'IANA历史时区与夏令时诊断',
-      '精度边界',
-    ],
+    outputs: ['明确失败信息', '独立紫炁均速研究函数'],
     supports: {
       seed: false,
       customRandomSource: false,
-      trueSolarTime: true,
-      birthTimeRequired: true,
-      birthTimeModes: ['precise-clock-time'],
+      trueSolarTime: false,
+      birthTimeRequired: false,
       batch: false,
     },
-    optionalDependencies: ['celestine'],
     notes: [
-      'useTrueSolarTime 可选；启用后仅传统命身十二宫按真太阳时排布，七政四余位置仍用现代星历，属于混合精度口径。',
+      '完整传统盘暂时失败关闭：旧宿度链误把角宿起点固定为黄经0°，古距度表合计366.5度，且缺少经校勘的二十八宿距星边界。',
+      '独立紫炁均速模型仍可用于研究校勘；命身宫、十二宫、庙旺与吊照在传统坐标链完成前不对外输出。',
     ],
   },
   {

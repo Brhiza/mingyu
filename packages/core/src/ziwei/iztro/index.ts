@@ -4,6 +4,9 @@
 export {
   buildAstrolabeFromInput,
   buildHoroscope,
+  buildHoroscopeFromInput,
+  buildZiweiCalculationConfig,
+  DEFAULT_ZIWEI_CALCULATION_CONFIG,
   getDefaultHoroscopeContext,
 } from './runtime-helpers';
 export { shiftLocalDate, shiftLunarYear } from './runtime-helpers';
@@ -18,7 +21,11 @@ export { buildAnalysisPayloadV1 } from './build-analysis-payload/index';
 export { buildActiveScope, buildBasicInfo } from './build-analysis-payload/helpers/builders';
 export { mapStarFact } from './build-analysis-payload/helpers/mappers';
 export { getCurrentScopeItem } from './build-analysis-payload/helpers/scope';
-export { buildPatternAnalysis, detectPatterns } from './pattern-detection';
+export {
+  buildPatternAnalysis,
+  detectPatterns,
+  ZIWEI_PATTERN_AUDIT_NOTICE,
+} from './pattern-detection';
 export { buildEvidenceAnalysis, buildEvidencePool } from './build-evidence-pool';
 export {
   buildScopeFocusPalaces,

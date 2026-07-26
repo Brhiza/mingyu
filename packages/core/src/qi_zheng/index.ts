@@ -1,12 +1,12 @@
 /**
  * @file 七政四余（Qizheng Siyu / 果老星宗）
  * @description 中国占星：日、月、五星为七政；罗睺、计都、月孛、紫炁为四余。
- * 依《果老星宗》《御定五星精义》立命身、定十二宫、安命主、排庙旺、起神煞：
+ * 完整传统盘当前失败关闭。以下旧实现只保留用于重新校勘，不得作为公开结果：
  *   - 安命宫：「以生时，加太阳宫，即从生时顺数见卯所临之宫，即为命宫。」（逢卯安命）
  *   - 安身宫：「以生时加太阴宫，即从生时逆数见酉所临之宫，即为身宫。」
  *   - 安十二宫：自命宫逆数（命、财帛、兄弟、田宅、男女、奴仆、妻妾、疾厄、迁移、官禄、福德、相貌）。
  *   - 安命主：寅亥木、卯戌火、辰酉金、巳申水、子丑土、午日、未月。
- *   - 宿度：采用古距度（角宿起），七政经度由回归黄道换算恒星黄道（减岁差），再入二十八宿。
+ *   - 旧宿度链误把角宿起点固定为黄经 0°，古距度表合计 366.5 度，且缺少距星边界校勘。
  *   - 庙旺：七政于十二宫之庙、旺、乐、陷。
  *   - 神煞：天乙贵人（日干）、驿马/劫煞/咸池/华盖/孤辰/寡宿（年支）。
  *
@@ -14,7 +14,7 @@
  * 历元按 PlanetCalendar 对《七政算内篇》至元十八年立元数据的现代复原值换算。
  * 罗计孛取月交点与真莉莉丝（celestine）。
  *
- * 古籍依据：《果老星宗》《御定五星精义》《星学大成》《七政算内篇》《古今律历考》《革象新书》《高丽史》。
+ * 独立紫炁均速函数继续保留研究用途；命身宫、十二宫、庙旺、吊照及完整盘均不对外输出。
  */
 import { calculateChart } from 'celestine';
 import { SevenStar, TwentyEightStar } from 'tyme4ts';
@@ -365,6 +365,13 @@ export interface QizhengInput {
    * 七政四余天体位置仍按现代星历与天文时间尺度计算。
    */
   useTrueSolarTime?: boolean;
+}
+
+export const QIZHENG_TRADITIONAL_CHART_DISABLED_MESSAGE =
+  '七政四余传统盘暂未开放：现有宿度链误把角宿起点固定为黄经 0°，古距度表合计 366.5 度，且尚未建立经校勘的二十八宿距星边界；命身宫、十二宫、庙旺与吊照均受此坐标误差影响，完成传统坐标链校勘前停止输出近似盘。';
+
+function rejectUnverifiedTraditionalChart(): void {
+  throw new Error(QIZHENG_TRADITIONAL_CHART_DISABLED_MESSAGE);
 }
 
 export interface QizhengResult {
@@ -1442,6 +1449,9 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
   if (input.useTrueSolarTime !== undefined && typeof input.useTrueSolarTime !== 'boolean') {
     throw new Error('useTrueSolarTime 必须是布尔值。');
   }
+  rejectUnverifiedTraditionalChart();
+
+  // 保留待重新校勘的旧实现；上方守卫在运行时始终拒绝公开输出。
   const lat = input.latitude ?? 39.9;
   const lon = input.longitude ?? 116.4;
   const astronomicalTime = buildQizhengAstronomicalTime(input);

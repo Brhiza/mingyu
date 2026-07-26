@@ -11,6 +11,15 @@ const NINE_STARS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 test('三元九运：2024 应落入下元九运区间附近可复现运表', () => {
   const period = resolveXuanKongPeriod(2024);
+  assert.deepEqual(period, {
+    year: 2024,
+    yuan: '下元',
+    yun: 9,
+    yunStar: 9,
+    startYear: 2024,
+    endYear: 2043,
+    label: '下元9运（2024-2043）',
+  });
   assert.equal(period.yunStar, period.yun);
   assert.ok(period.startYear <= 2024 && period.endYear >= 2024);
   assert.match(period.label, /运/);
@@ -63,6 +72,8 @@ test('玄空飞星拒绝缺年、不相对坐向和尚未实现的替卦', () =>
     /当前只支持下卦/,
   );
   assert.throws(() => generateXuanKong({ year: 2024, sitDegree: 7 }), /触发兼向替卦条件/);
+  assert.throws(() => generateXuanKong({ year: 2024, sitDegree: 4.5 }), /触发兼向替卦条件/);
+  assert.doesNotThrow(() => generateXuanKong({ year: 2024, sitDegree: 4.49 }));
   assert.throws(
     () =>
       generateXuanKong({
@@ -83,6 +94,7 @@ test('测量误差跨边界时标记山向边界敏感', () => {
     year: 2024,
     sitDegree: 5.5,
     measurementUncertaintyDegrees: 3,
+    guaType: '下卦',
   });
   assert.ok(result.measurement);
   assert.equal(result.measurement?.stability, '山向边界敏感');
@@ -98,6 +110,27 @@ test('玄空边界敏感时应输出候选山向', () => {
   assert.equal(result.measurement?.stability, '山向边界敏感');
   assert.ok((result.measurement?.candidateMountains?.length ?? 0) >= 1);
   assert.match(result.prompt, /候选/);
+});
+
+test('玄空测量误差范围应枚举全部覆盖山向，不得只取左中右三个采样点', () => {
+  const result = generateXuanKong({
+    year: 2024,
+    sitDegree: 0,
+    measurementUncertaintyDegrees: 45,
+    guaType: '下卦',
+  });
+
+  assert.deepEqual(
+    result.measurement?.candidateMountains?.map((item) => item.sitMountain),
+    ['子', '癸', '丑', '艮', '乾', '亥', '壬'],
+  );
+  assert.ok(
+    result.measurement?.candidateMountains?.every(
+      (item) =>
+        TWENTY_FOUR_MOUNTAINS.indexOf(item.facingMountain) ===
+        (TWENTY_FOUR_MOUNTAINS.indexOf(item.sitMountain) + 12) % 24,
+    ),
+  );
 });
 
 test('玄空九运乘二十四山的 216 盘应保持三盘、九宫和坐向完整', () => {

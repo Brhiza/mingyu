@@ -356,9 +356,7 @@ function buildCalculationFact(
       item.exactAngle !== undefined &&
       item.allowedOrb !== undefined,
   ).length;
-  const effectiveDateTime = isTrueSolarTime
-    ? (data.birth.trueSolarDateTime ?? data.birth.dateTime)
-    : (data.birth.standardDateTime ?? data.birth.dateTime);
+  const effectiveDateTime = data.birth.standardDateTime ?? data.birth.dateTime;
   const missing = [
     !data.birth.dateTime ? '出生民用时间' : '',
     !data.birth.location ? '出生地点' : '',
@@ -399,12 +397,17 @@ function buildCalculationFact(
         standardDateTime: data.birth.standardDateTime ?? data.birth.dateTime,
         isTrueSolarTime,
       },
-      outputs: { effectiveDateTime },
+      outputs: {
+        effectiveDateTime,
+        ...(data.birth.trueSolarDateTime
+          ? { trueSolarReferenceDateTime: data.birth.trueSolarDateTime }
+          : {}),
+      },
       dependsOnStepKeys: ['astrolabe:calculation:input'],
       promptText: isTrueSolarTime
         ? data.birth.trueSolarDateTime
-          ? `执行真太阳时校正，采用${data.birth.trueSolarDateTime}进入星盘计算`
-          : `已标记使用真太阳时，但旧结果未记录校正时刻；仅保留当前盘面采用时间${effectiveDateTime}`
+          ? `采用民用出生时间${effectiveDateTime}进入现代星历计算；真太阳时${data.birth.trueSolarDateTime}仅作为传统时间参考，不改写实际出生瞬间`
+          : `已标记附带真太阳时参考，但旧结果未记录参考时刻；现代星历仍采用民用出生时间${effectiveDateTime}`
         : '采用输入民用时间进入星盘计算',
       sources: isTrueSolarTime
         ? ['统一出生真太阳时换算资料', '当前星盘出生时间记录']

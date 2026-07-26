@@ -3,6 +3,7 @@ import type FunctionalHoroscope from 'iztro/lib/astro/FunctionalHoroscope';
 import type { Config } from 'iztro/lib/data/types';
 import { LunarDay, SolarDay } from 'tyme4ts';
 import type { ChartInput } from '../../types/chart';
+import type { ZiweiCalculationConfig } from '../../types/analysis';
 import { daysInSolarMonth } from '../../calendar/date-validation';
 import { getTimeIndexFromClock } from '../../calendar/dateUtils';
 import { TimeManager } from '../../calendar/timeManager';
@@ -47,6 +48,47 @@ export function buildIztroConfig(input: ChartInput): Config {
     dayDivide: input.dayDivide,
   };
 }
+
+export function buildZiweiCalculationConfig(input: ChartInput): ZiweiCalculationConfig {
+  const normalized = normalizeChartInput(input);
+  return {
+    engine: 'iztro',
+    algorithm: normalized.algorithm!,
+    algorithm_basis:
+      normalized.algorithm === 'zhongzhou'
+        ? 'iztro 中州派安星法'
+        : 'iztro 以《紫微斗数全书》为基础的默认安星法',
+    fix_leap: normalized.fixLeap!,
+    leap_month_rule: normalized.fixLeap
+      ? '闰月十五日及以前按同名月，十六日起按下月；晚子时另按本次日期分界口径处理'
+      : '闰月全月沿用同名月序',
+    year_divide: normalized.yearDivide!,
+    year_divide_rule: normalized.yearDivide === 'exact' ? '以立春分年' : '以农历正月初一分年',
+    horoscope_divide: normalized.horoscopeDivide!,
+    horoscope_divide_rule:
+      normalized.horoscopeDivide === 'exact' ? '运限月份以节气分界' : '运限月份以农历月份分界',
+    age_divide: normalized.ageDivide!,
+    age_divide_rule:
+      normalized.ageDivide === 'birthday' ? '小限年龄以生日分界' : '小限年龄只按年份计算',
+    day_divide: normalized.dayDivide!,
+    late_zi_rule:
+      normalized.dayDivide === 'forward'
+        ? '晚子时按次日干支及次日安星日数排盘'
+        : '晚子时仍按当日干支及当日安星日数排盘',
+    limitation:
+      '这些字段记录本次实际传给 iztro 的基础排盘口径；提示词中的三合、飞星或四化流派选项只改变解读侧重点，不改变这里的安星算法',
+  };
+}
+
+export const DEFAULT_ZIWEI_CALCULATION_CONFIG: ZiweiCalculationConfig = buildZiweiCalculationConfig(
+  {
+    name: '',
+    dateType: 'solar',
+    birthDate: '',
+    birthTimeIndex: 0,
+    gender: '男',
+  },
+);
 
 export async function buildAstrolabeFromInput(input: ChartInput): Promise<FunctionalAstrolabe> {
   const normalized = normalizeChartInput(input);
@@ -142,6 +184,22 @@ export function buildHoroscope(
   hourIndex: number,
 ): FunctionalHoroscope {
   assertValidHoroscopeInput(dateStr, hourIndex);
+  return astrolabe.horoscope(dateStr, hourIndex) as FunctionalHoroscope;
+}
+
+export async function buildHoroscopeFromInput(
+  astrolabe: FunctionalAstrolabe,
+  input: ChartInput,
+  dateStr: string,
+  hourIndex: number,
+): Promise<FunctionalHoroscope> {
+  const normalized = normalizeChartInput(input);
+  assertValidChartInput(normalized);
+  assertValidHoroscopeInput(dateStr, hourIndex);
+  const { astro } = await import('iztro');
+
+  // iztro 的配置是全局状态；每次取运限前恢复本盘配置，避免不同口径串盘。
+  astro.config(buildIztroConfig(normalized));
   return astrolabe.horoscope(dateStr, hourIndex) as FunctionalHoroscope;
 }
 

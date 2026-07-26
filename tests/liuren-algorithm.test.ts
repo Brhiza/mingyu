@@ -276,14 +276,26 @@ test('大六壬三传成局应按六壬指南输出课体标签', () => {
   assert.deepEqual(getLiurenTransmissionGuaTi(['子', '子', '卯']), []);
 });
 
-test('大六壬三传传态应复用共享六冲口径识别反吟', () => {
-  for (const branch of DIZHI) {
-    assert.equal(getTransmissionPattern(branch, '寅', LIUCHONG_MAP[branch]), '反吟', branch);
-  }
-
-  assert.equal(getTransmissionPattern('子', '子', '子'), '伏吟');
+test('大六壬伏吟返吟只按天地盘取传规则识别，不以三传首尾关系替代', () => {
+  assert.equal(getTransmissionPattern('子', '子', '子', '伏吟法'), '伏吟');
+  assert.equal(getTransmissionPattern('子', '午', '子', '返吟重审法'), '反吟');
+  assert.equal(getTransmissionPattern('子', '寅', '午', '重审法'), '递传');
   assert.equal(getTransmissionPattern('子', '寅', '子'), '回环');
   assert.equal(getTransmissionPattern('子', '丑', '寅'), '递传');
+});
+
+test('大六壬普通递传即使初末六冲也不得误标返吟', () => {
+  const result = generateLiuren(new Date('2026-01-01T08:00:00+08:00'));
+
+  assert.equal(result.ganzhi.day, '乙亥');
+  assert.equal(result.transmissionRule, '重审法');
+  assert.deepEqual(
+    result.threeTransmissions.map((item) => item.branch),
+    ['丑', '戌', '未'],
+  );
+  assert.equal(LIUCHONG_MAP.丑, '未');
+  assert.equal(result.transmissionPattern, '递传');
+  assert.ok(!result.patternTags?.includes('反吟'));
 });
 
 test('大六壬天地盘会把月将加在占时地盘上，并保持天地互查可逆', () => {
@@ -511,7 +523,7 @@ test('大六壬排盘骨架应与 GitHub 高星参考项目 kinliuren 样例一�
         '酉子',
       ],
       expectedLessons: ['一课申丙', '二课亥申', '三课酉午', '四课子酉'],
-      expectedTransmissions: ['亥', '寅', '巳'],
+      expectedTransmissions: ['申', '亥', '寅'],
     },
     {
       name: '惊蛰二月己未日甲午时',
@@ -569,32 +581,64 @@ test('大六壬月将按中气切换，不按整个月支粗略取值', () => {
   assert.equal(afterGuyu.monthLeader, '酉');
 });
 
-test('大六壬破碎煞应按四孟四仲四季取，不按三合局取', () => {
-  const meng = generateLiuren(new Date('2026-01-01T12:00:00+08:00'));
-  const zhong = generateLiuren(new Date('2026-01-02T12:00:00+08:00'));
-  const ji = generateLiuren(new Date('2026-01-06T12:00:00+08:00'));
+test('大六壬逐月神煞应按月建起，且与日支支马分层保存', () => {
+  const result = generateLiuren(new Date('2026-01-01T12:00:00+08:00'));
+  const facts = new Map(result.shenShaFacts?.map((item) => [item.name, item]));
 
-  assert.equal(meng.ganzhi.day, '乙亥');
-  assert.ok(meng.shenShaSummary?.includes('破碎煞在酉'));
-
-  assert.equal(zhong.ganzhi.day, '丙子');
-  assert.ok(zhong.shenShaSummary?.includes('破碎煞在巳'));
-
-  assert.equal(ji.ganzhi.day, '庚辰');
-  assert.ok(ji.shenShaSummary?.includes('破碎煞在丑'));
+  assert.equal(result.ganzhi.month.charAt(1), '子');
+  assert.equal(result.ganzhi.day, '乙亥');
+  assert.deepEqual(
+    ['驿马', '劫煞', '亡神', '咸池', '破碎'].map((name) => [
+      name,
+      facts.get(name)?.target,
+      facts.get(name)?.basis,
+      facts.get(name)?.input,
+    ]),
+    [
+      ['驿马', '寅', '月建', '子'],
+      ['劫煞', '巳', '月建', '子'],
+      ['亡神', '亥', '月建', '子'],
+      ['咸池', '酉', '月建', '子'],
+      ['破碎', '巳', '月建', '子'],
+    ],
+  );
+  assert.deepEqual(
+    [facts.get('支马')?.target, facts.get('支马')?.basis, facts.get('支马')?.input],
+    ['巳', '日支', '亥'],
+  );
+  assert.ok(result.shenShaSummary?.includes('破碎在巳'));
+  assert.ok(result.shenShaSummary?.every((item) => !item.startsWith('桃花')));
+  assert.ok(
+    result.shenShaFacts?.every(
+      (item) => item.rule && item.sources.length > 0 && item.limitations.length >= 3,
+    ),
+  );
 });
 
-test('大六壬天罗地网应按戌亥为天罗、辰巳为地网', () => {
-  const chenYear = generateLiuren(new Date('2024-06-01T12:00:00+08:00'));
-  const xuYear = generateLiuren(new Date('2030-06-01T12:00:00+08:00'));
+test('大六壬罗网应按日支前一辰与对冲定位，不误用流年冒充本命', () => {
+  const haiDay = generateLiuren(new Date('2026-01-01T12:00:00+08:00'));
+  const ziDay = generateLiuren(new Date('2026-01-02T12:00:00+08:00'));
 
-  assert.equal(chenYear.ganzhi.year, '甲辰');
-  assert.ok(chenYear.shenShaSummary?.includes('命带地网'));
-  assert.ok(!chenYear.shenShaSummary?.includes('命带天罗'));
+  assert.equal(haiDay.ganzhi.day, '乙亥');
+  assert.ok(haiDay.shenShaSummary?.includes('天罗在子'));
+  assert.ok(haiDay.shenShaSummary?.includes('地网在午'));
 
-  assert.equal(xuYear.ganzhi.year, '庚戌');
-  assert.ok(xuYear.shenShaSummary?.includes('命带天罗'));
-  assert.ok(!xuYear.shenShaSummary?.includes('命带地网'));
+  assert.equal(ziDay.ganzhi.day, '丙子');
+  assert.ok(ziDay.shenShaSummary?.includes('天罗在丑'));
+  assert.ok(ziDay.shenShaSummary?.includes('地网在未'));
+  assert.ok(ziDay.shenShaSummary?.every((item) => !item.startsWith('命带')));
+});
+
+test('大六壬课注传注只描述盘面关系，不提前生成现实结论或建议', () => {
+  const result = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
+  const notes = [
+    ...result.fourLessons.map((item) => item.note),
+    ...result.threeTransmissions.map((item) => item.note),
+  ].join('；');
+
+  assert.match(notes, /五行关系为/);
+  assert.doesNotMatch(notes, /推进|转机|发力|阻力|卡点|落地|延后|建议|适合/);
+  assert.equal(Object.hasOwn(result, 'dayOfficer'), false);
 });
 
 test('大六壬天将应按贵人所临地盘定顺逆，不是简单昼顺夜逆', () => {
@@ -638,7 +682,7 @@ test('大六壬多处贼克时按比用取与日干同阴阳的发用', () => {
   assert.equal(result.initial, '午');
 });
 
-test('大六壬知一变格会按传统斫轮样例取二课上神发用', () => {
+test('大六壬比用发用不得因时柱五行或课体名称擅改为二课上神', () => {
   const result = resolveInitialTransmission(
     [
       createLesson('申', '丙', '火克金'),
@@ -656,8 +700,8 @@ test('大六壬知一变格会按传统斫轮样例取二课上神发用', () =>
   );
 
   assert.equal(result.rule, '比用法');
-  assert.equal(result.tag, '知一');
-  assert.equal(result.initial, '亥');
+  assert.equal(result.tag, '比用');
+  assert.equal(result.initial, '申');
 });
 
 test('大六壬重复课只按一处贼克处理，不误入比用或涉害', () => {
@@ -690,33 +734,23 @@ test('大六壬多处贼克且同阴阳候选不唯一时进入涉害法', () =>
   assert.ok(['巳', '未', '亥'].includes(result.initial));
 });
 
-test('大六壬涉害法无孟候选时应先取仲上神，不应改取季上神', () => {
-  const heavenlyPlate = buildHeavenlyPlate({
-    monthLeader: '子',
-    divinationBranch: '寅',
-    noblemanBranch: '未',
-    dayNight: '夜占',
-  });
-  const dayStem = '甲';
-  const dayBranch = '卯';
-  const dayStemResidence = getDayStemResidence(dayStem);
-  const lessons = buildFourLessons({
-    heavenlyPlate,
-    dayStem,
-    dayBranch,
-    dayStemResidence,
-    xunKong: [],
-  });
+test('大六壬涉害法先取受克最深者，再以孟仲季决胜', () => {
+  const cases = [
+    { day: '己亥', hour: '辛申', expected: ['亥', '卯', '未'] },
+    { day: '丁卯', hour: '辛寅', expected: ['亥', '酉', '未'] },
+    { day: '辛卯', hour: '庚寅', expected: ['亥', '酉', '未'] },
+  ];
 
-  const result = resolveInitialTransmission(lessons, {
-    dayStem,
-    dayBranch,
-    dayStemResidence,
-    heavenlyPlate,
-  });
+  for (const item of cases) {
+    const result = buildReferenceLiurenPlate({
+      day: item.day,
+      hour: item.hour,
+      monthLeader: '子',
+    });
 
-  assert.equal(result.rule, '涉害法');
-  assert.equal(result.initial, '丑');
+    assert.equal(result.initial.rule, '涉害法', item.day);
+    assert.deepEqual(result.branches, item.expected, item.day);
+  }
 });
 
 test('大六壬无上下克时不会把四课比和误判为比用法', () => {
@@ -770,7 +804,7 @@ test('大六壬伏吟课按三刑推进三传，不再简单重复同一上神',
   assert.deepEqual(result.branches, ['寅', '巳', '申']);
 });
 
-test('大六壬伏吟六乙六癸仍按自任从干上传发用', () => {
+test('大六壬伏吟六乙六癸从干上传发用，但柔日课名仍为自信', () => {
   const result = resolveInitialTransmission(
     [
       createLesson('辰', '辰'),
@@ -787,7 +821,7 @@ test('大六壬伏吟六乙六癸仍按自任从干上传发用', () => {
   );
 
   assert.equal(result.rule, '伏吟法');
-  assert.equal(result.tag, '自任');
+  assert.equal(result.tag, '自信');
   assert.deepEqual(result.branches, ['辰', '丑', '戌']);
 });
 

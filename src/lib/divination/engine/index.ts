@@ -13,7 +13,6 @@ import type {
   TaiyiResult,
   TaiyiScope,
   XiaoliurenDivinationMethod,
-  XiaoliurenSchool,
   JinkoujueDivinationMethod,
 } from '../../../types/divination';
 import type { DivinationMethodId } from '@core/divination/config';
@@ -80,8 +79,6 @@ export type DivinationDraft = {
   meihuaMethod: 'time' | 'number' | 'random' | 'timeTrigram';
   meihuaNumber: string;
   xiaoliurenMethod: XiaoliurenDivinationMethod;
-  xiaoliurenSchool: XiaoliurenSchool;
-  xiaoliurenNumber: string;
   jinkoujueMethod: JinkoujueDivinationMethod;
   jinkoujueNumber: string;
   liuyaoTemplate: LiuyaoTemplateType;
@@ -316,23 +313,16 @@ function validateDraft(draft: DivinationDraft) {
     }
   }
 
-  if (draft.method === 'xiaoliuren') {
-    if (draft.xiaoliurenSchool === 'huashan' && draft.xiaoliurenMethod !== 'time') {
-      throw new Error('华山派小六壬只以时间起课');
-    }
-    if (draft.xiaoliurenMethod === 'number') {
-      readPositiveIntegerText(draft.xiaoliurenNumber, '小六壬数字起课');
-    }
-  }
   if (draft.method === 'jinkoujue' && draft.jinkoujueMethod === 'number') {
     readPositiveIntegerText(draft.jinkoujueNumber, '金口诀数字起课');
   }
 
   if (draft.method === 'taiyi') {
-    if ((draft.taiyiScope ?? 'year') === 'year') {
-      const year = readIntegerText(draft.taiyiYear, '太乙年计年份');
-      assertNumberRange(year, '太乙年计年份', 1900, 2200);
+    if ((draft.taiyiScope ?? 'year') !== 'year') {
+      throw new Error('太乙月计、日计、时计尚未完成古籍历法链校勘，当前只开放年计。');
     }
+    const year = readIntegerText(draft.taiyiYear, '太乙年计年份');
+    assertNumberRange(year, '太乙年计年份', 1900, 2200);
   }
 
   if (draft.method === 'almanac') {
@@ -607,11 +597,7 @@ export async function generateDivinationSession(
       const module = await import('mingyu-core/divination/xiaoliuren');
       data = module.generateXiaoliuren({
         method: draft.xiaoliurenMethod,
-        school: draft.xiaoliurenSchool,
         customDate,
-        ...(draft.xiaoliurenMethod === 'number' && draft.xiaoliurenNumber.trim()
-          ? { number: readPositiveIntegerText(draft.xiaoliurenNumber, '小六壬数字起课') }
-          : {}),
       });
       break;
     }
@@ -638,12 +624,9 @@ export async function generateDivinationSession(
     }
     case 'taiyi': {
       const module = await import('mingyu-core/taiyi');
-      const scope = draft.taiyiScope ?? 'year';
       data = module.generateTaiyi({
-        scope,
-        ...(scope === 'year'
-          ? { year: readIntegerText(draft.taiyiYear, '太乙年计年份') }
-          : { date: customDate ?? new Date() }),
+        scope: 'year',
+        year: readIntegerText(draft.taiyiYear, '太乙年计年份'),
       }) as TaiyiResult;
       break;
     }

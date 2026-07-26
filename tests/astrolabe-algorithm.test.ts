@@ -91,6 +91,30 @@ test('星盘真太阳时应透传统一校正证据并纳入总汇总', () => {
   assert.equal(result.evidenceAnalysis?.trueSolarTimeFact?.key, evidence.key);
   assert.ok(result.evidenceAnalysis?.summaryFact.factKeys.includes(evidence.summaryFact.key));
   assert.match(result.evidenceAnalysis?.promptText ?? '', /真太阳时校正证据/);
+  assert.match(
+    result.evidenceAnalysis?.promptText ?? '',
+    /民用出生时间.*进入现代星历.*仅作为传统时间参考/,
+  );
+  assert.doesNotMatch(result.evidenceAnalysis?.promptText ?? '', /真太阳时.*进入星盘计算/);
+});
+
+test('现代星盘不得用真太阳时改写实际出生瞬间和盘面', () => {
+  const standard = generateAstrolabe(validInput);
+  const withTrueSolarEvidence = generateAstrolabe({ ...validInput, useTrueSolarTime: true });
+
+  assert.equal(withTrueSolarEvidence.birth.dateTime, standard.birth.dateTime);
+  assert.notEqual(withTrueSolarEvidence.birth.trueSolarDateTime, standard.birth.dateTime);
+  assert.deepEqual(withTrueSolarEvidence.planets, standard.planets);
+  assert.deepEqual(withTrueSolarEvidence.angles, standard.angles);
+  assert.deepEqual(withTrueSolarEvidence.houses, standard.houses);
+  assert.deepEqual(withTrueSolarEvidence.aspects, standard.aspects);
+});
+
+test('星盘应返回筛选阈值内全部相位，不得只截取最强十二条', () => {
+  const result = generateAstrolabe(validInput);
+
+  assert.ok(result.aspects.length > 12);
+  assert.equal(result.evidenceAnalysis?.aspectFacts.length, result.aspects.length);
 });
 
 test('星盘应返回可复用的位置、相位、计算链与限制证据', () => {

@@ -52,8 +52,12 @@ function findLiurenTransmissionStage(
   return transmissions.find((item) => item.branch === branch)?.stage || null;
 }
 
-function XiaoliurenStageCard(props: { label: string; detail: XiaoliurenPalaceDetail }) {
-  const { label, detail } = props;
+function XiaoliurenPalaceCard(props: {
+  label: string;
+  detail: XiaoliurenPalaceDetail;
+  primary?: boolean;
+}) {
+  const { label, detail, primary = false } = props;
 
   return (
     <article className="xiaoliuren-stage-card">
@@ -61,8 +65,7 @@ function XiaoliurenStageCard(props: { label: string; detail: XiaoliurenPalaceDet
         <span>{label}</span>
         <strong>{detail.name}</strong>
       </div>
-      <p>{detail.meaning}</p>
-      <small>建议：{detail.advice}</small>
+      {primary ? <p>{detail.verse}</p> : <small>顺数中间位置</small>}
     </article>
   );
 }
@@ -71,28 +74,28 @@ function XiaoliurenBoard({ data }: { data: XiaoliurenData }) {
   return (
     <div className="divination-extra-panel xiaoliuren-board">
       <div className="divination-extra-head">
-        <strong>小六壬三段推演</strong>
+        <strong>小六壬时间课</strong>
         <span>
-          {data.methodLabel} · {data.hourLabel}
+          农历{data.isLeapMonth ? '闰' : ''}
+          {data.lunarMonth}月{data.lunarDay}日 · {data.hourLabel}
         </span>
       </div>
 
       <div className="xiaoliuren-card-grid">
-        <XiaoliurenStageCard label="起因" detail={data.sequence.start} />
-        <XiaoliurenStageCard label="过程" detail={data.sequence.process} />
-        <XiaoliurenStageCard label="结果" detail={data.sequence.result} />
+        <XiaoliurenPalaceCard label="月宫" detail={data.sequence.month} />
+        <XiaoliurenPalaceCard label="日宫" detail={data.sequence.day} />
+        <XiaoliurenPalaceCard label="时宫" detail={data.sequence.hour} primary />
       </div>
 
       <div className="xiaoliuren-overview-grid">
         <div className="xiaoliuren-overview-item">
-          <span>主判断</span>
+          <span>占得宫</span>
           <strong>{data.primary.name}</strong>
-          <p>{data.primary.tendency}</p>
         </div>
         <div className="xiaoliuren-overview-item">
-          <span>问事提醒</span>
-          <strong>{data.questionHint}</strong>
-          <p>适合把这个判断继续交给 AI 展开细拆。</p>
+          <span>历法口径</span>
+          <strong>{data.calculation.dayBoundary}</strong>
+          <p>{data.calculation.leapMonthRule}</p>
         </div>
       </div>
     </div>
@@ -357,13 +360,16 @@ export function DivinationResult({
                   </div>
                   <div className="xiaoliuren-overview-item">
                     <strong>将神</strong>
-                    <span>{jinkoujue.positions.jiangShen.branch}</span>
+                    <span>
+                      {jinkoujue.positions.jiangShen.stem || ''}
+                      {jinkoujue.positions.jiangShen.branch}
+                    </span>
                   </div>
                   <div className="xiaoliuren-overview-item">
                     <strong>贵神</strong>
                     <span>
-                      {jinkoujue.positions.guiShen.god || ''}
-                      {jinkoujue.positions.guiShen.branch}
+                      {jinkoujue.positions.guiShen.stem || ''}
+                      {jinkoujue.positions.guiShen.branch}乘{jinkoujue.positions.guiShen.god || ''}
                     </span>
                   </div>
                   <div className="xiaoliuren-overview-item">
@@ -375,7 +381,7 @@ export function DivinationResult({
                   </div>
                 </div>
                 <div className="xiaoliuren-overview-item">
-                  <strong>取用主线</strong>
+                  <strong>阴阳发用与动爻</strong>
                   <span>{jinkoujue.mainLine}</span>
                 </div>
               </>

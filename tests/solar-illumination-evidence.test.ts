@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calculateSolarIlluminationEvidence } from '../packages/core/src/calendar/solar-illumination-evidence.ts';
 import { generateAstrolabe } from '../packages/core/src/divination/algorithms/astrolabe.ts';
-import { generateQizheng } from '../packages/core/src/qi_zheng/index.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 function assertEvidenceReferences(evidence: ReturnType<typeof calculateSolarIlluminationEvidence>) {
@@ -191,7 +190,7 @@ test('太阳光照证据应复用IANA历史时区并拒绝非法坐标', () => {
   );
 });
 
-test('西占与七政四余应附带地点相关光照证据而不生成吉凶结论', () => {
+test('西占应附带地点相关光照证据而不生成吉凶结论', () => {
   const astrolabe = generateAstrolabe({
     name: '测试',
     gender: 'unspecified',
@@ -204,20 +203,9 @@ test('西占与七政四余应附带地点相关光照证据而不生成吉凶�
     longitude: '116.4074',
     timezone: '8',
   });
-  const qizheng = generateQizheng({
-    year: 2024,
-    month: 6,
-    day: 21,
-    hour: 12,
-    latitude: 39.9042,
-    longitude: 116.4074,
-    timezone: 8,
-  });
-
   assert.equal(astrolabe.solarIllumination.sunriseSunset.status, '正常交点');
-  assert.equal(qizheng.calculationContext.solarIllumination.sunriseSunset.status, '正常交点');
-  assert.match(qizheng.prompt, /出生时刻光照：太阳高度.+方位角.+视太阳正午/);
-  assert.match(qizheng.evidenceAnalysis.methodology.join(''), /不直接生成庙旺或吉凶结论/);
-  assert.doesNotMatch(qizheng.prompt, /光照吉凶|日出成功率|太阳高度评分/);
-  assert.doesNotMatch(qizheng.prompt, /太阳光照证据|结构化证据|计算链|解释限制/);
+  assert.doesNotMatch(
+    astrolabe.evidenceAnalysis?.promptText ?? '',
+    /光照吉凶|日出成功率|太阳高度评分/,
+  );
 });

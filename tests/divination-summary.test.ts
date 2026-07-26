@@ -30,17 +30,18 @@ test('奇门摘要应把复合格局分数转换为证据条件标签', () => {
   assert.doesNotMatch(text, /复合格局：[^\n]*（-?\d+）/);
 });
 
-test('小六壬摘要应使用条件化宫义而非现实结果断语', () => {
+test('小六壬摘要应展示时宫主证和顺数轨迹', () => {
   const data = generateXiaoliuren({
-    method: 'number',
-    number: 5,
-    customDate: new Date('2025-01-01T08:00:00+08:00'),
+    method: 'time',
+    customDate: new Date('2025-06-29T08:00:00+08:00'),
   });
   const summary = getDivinationSummaryBlocks('xiaoliuren', data);
   const text = [...summary.tags, ...summary.lines].join('\n');
 
-  assert.match(text, /传统宫义|非事实结论/);
-  assert.doesNotMatch(text, /事情整体可成|容易白忙一场|当前整体偏可成|凶（大凶）/);
+  assert.match(text, /时宫留连|占得宫：留连/);
+  assert.match(text, /月宫空亡.*日宫赤口.*时宫留连/);
+  assert.match(text, /零点换日|闰月沿用同名月序/);
+  assert.doesNotMatch(text, /起因|过程|五行推进|月令旺衰|六亲|旬空|驿马|桃花/);
 });
 
 test('雷诺曼摘要应使用关键词核验范围而非原始牌义断语', () => {

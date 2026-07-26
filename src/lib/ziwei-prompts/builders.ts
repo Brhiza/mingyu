@@ -276,6 +276,7 @@ export function buildScopeStructureSummary(payload: AnalysisPayloadV1) {
     星曜: item.star,
     四化: `化${item.mutagen}`,
     飞入宫位: item.palace_name ? formatPalaceName(item.palace_name) : '宫位未给出',
+    动态飞入宫位: item.dynamic_palace_name ? formatPalaceName(item.dynamic_palace_name) : undefined,
   }));
 
   return [...scopeLandings, ...activeMutagens];
@@ -304,7 +305,7 @@ export function buildScopeHitSummary(payload: AnalysisPayloadV1) {
     (item) =>
       `${item.star}化${item.mutagen}→${
         item.palace_name ? formatPalaceName(item.palace_name) : '宫位未给出'
-      }`,
+      }${item.dynamic_palace_name ? `（动态${formatPalaceName(item.dynamic_palace_name)}）` : ''}`,
   );
   const focusLine = currentPalace
     ? `${payload.active_scope.label || scopeLabel}当前落宫为本命${formatPalaceName(currentPalace.name)}。`

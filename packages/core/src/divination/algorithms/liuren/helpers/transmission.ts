@@ -3,37 +3,26 @@ import type {
   LiurenData,
   LiurenTransmission,
 } from '../../../../types/divination';
-import { LIUCHONG_MAP } from '../../../../ganzhi';
 
 export function buildTransmissionNote(stage: LiurenTransmission['stage'], relation: string) {
-  const stagePrefixMap: Record<LiurenTransmission['stage'], string> = {
-    初传: '事情起点',
-    中传: '过程阶段',
-    末传: '结果落点',
+  const comparedPosition: Record<LiurenTransmission['stage'], string> = {
+    初传: '一课下位',
+    中传: '初传',
+    末传: '中传',
   };
-
-  if (relation === '比和') {
-    return `${stagePrefixMap[stage]}偏平稳，可按既定节奏推进。`;
-  }
-  if (relation.includes('生')) {
-    return `${stagePrefixMap[stage]}有承接与转机，适合顺势发力。`;
-  }
-  if (relation.includes('克')) {
-    return `${stagePrefixMap[stage]}阻力更明显，宜先拆解卡点。`;
-  }
-
-  return `${stagePrefixMap[stage]}变化较杂，需要边走边校正。`;
+  return `${stage}与${comparedPosition[stage]}的五行关系为${relation}。`;
 }
 
 export function getTransmissionPattern(
   chu: string,
-  zhong: string,
+  _zhong: string,
   mo: string,
+  transmissionRule = '',
 ): LiurenData['transmissionPattern'] {
-  if (chu === zhong && zhong === mo) {
+  if (transmissionRule.includes('伏吟')) {
     return '伏吟';
   }
-  if (LIUCHONG_MAP[chu] === mo) {
+  if (transmissionRule.includes('返吟')) {
     return '反吟';
   }
   if (chu === mo) {
@@ -115,14 +104,16 @@ export function buildTransmissionDetail(
   rule: string,
   _pattern: LiurenData['transmissionPattern'],
   transmissions: LiurenTransmission[],
-  classicalRule?: LiurenClassicalRule,
+  classicalRules: LiurenClassicalRule[] = [],
 ) {
   const initialTransmission = transmissions[0];
   if (!initialTransmission) {
     throw new Error('buildTransmissionDetail 需要至少包含初传信息。');
   }
-  const sourceText = classicalRule
-    ? `；古籍依据按${classicalRule.source}之${classicalRule.rule}，${classicalRule.summary}`
+  const sourceText = classicalRules.length
+    ? `；古籍依据依次为：${classicalRules
+        .map((item) => `${item.source}之${item.rule}（${item.summary}）`)
+        .join('；')}`
     : '';
   return `取传采用${rule}，以${initialTransmission.stage}${initialTransmission.branch}为初传发用${sourceText}。`;
 }

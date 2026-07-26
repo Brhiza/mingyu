@@ -257,17 +257,14 @@ function resolveMountains(input: XuanKongInput): {
     const candidateMountains: NonNullable<XuanKongMeasurement['candidateMountains']> = [];
     if (stability === '山向边界敏感') {
       warnings.push('测量容差已跨越二十四山边界，本次并列相邻山向结果');
-      const delta = uncertainty > 0 ? uncertainty : 0.01;
-      const offsets = [-delta, 0, delta];
-      const seen = new Set<string>();
-      for (const offset of offsets) {
-        const sitCandidate = getMountainFromDegree((((sitPos.degree + offset) % 360) + 360) % 360);
-        const facingCandidate = getMountainFromDegree(
-          (((facingPos.degree + offset) % 360) + 360) % 360,
-        );
-        const key = `${sitCandidate.mountain}-${facingCandidate.mountain}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
+      const coverage = Math.max(uncertainty, 0.01) + 7.5;
+      for (let index = 0; index < TWENTY_FOUR_MOUNTAINS.length; index += 1) {
+        const centerDegree = index * 15;
+        const difference = Math.abs(centerDegree - sitPos.degree);
+        const circularDistance = Math.min(difference, 360 - difference);
+        if (circularDistance > coverage + Number.EPSILON * 32) continue;
+        const sitCandidate = getMountainFromDegree(centerDegree);
+        const facingCandidate = getMountainFromDegree((centerDegree + 180) % 360);
         candidateMountains.push({
           sitMountain: sitCandidate.mountain,
           facingMountain: facingCandidate.mountain,
@@ -326,9 +323,9 @@ function resolveGuaType(
   if (measurement?.sitDegree !== undefined) {
     const rem = (((measurement.sitDegree + 7.5) % 15) + 15) % 15;
     const distanceToEdge = Math.min(rem, 15 - rem);
-    if (distanceToEdge < 1.5) {
+    if (distanceToEdge <= 3 + Number.EPSILON * 32) {
       throw new Error(
-        `坐山度数距二十四山边界仅 ${distanceToEdge.toFixed(2)}°，已触发兼向替卦条件；当前替卦尚未实现，请明确指定下卦后再排盘。`,
+        `坐山度数距二十四山边界仅 ${distanceToEdge.toFixed(2)}°，超出每山中央 9° 的下卦范围，已触发兼向替卦条件；当前替卦尚未实现，请明确指定下卦后再排盘。`,
       );
     }
   }

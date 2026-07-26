@@ -6,8 +6,6 @@ import {
   LIUREN_TEMPLATE_OPTIONS,
   MEIHUA_METHOD_OPTIONS,
   TAROT_SPREAD_OPTIONS,
-  XIAOLIUREN_METHOD_OPTIONS,
-  XIAOLIUREN_SCHOOL_OPTIONS,
   JINKOUJUE_METHOD_OPTIONS,
 } from '@core/divination/config';
 import type { DivinationDraft } from '@/lib/divination/engine';
@@ -32,8 +30,6 @@ export const defaultDraft: DivinationDraft = {
   meihuaMethod: 'time',
   meihuaNumber: '',
   xiaoliurenMethod: 'time',
-  xiaoliurenSchool: 'standard',
-  xiaoliurenNumber: '',
   jinkoujueMethod: 'time',
   jinkoujueNumber: '',
   liuyaoTemplate: 'general',
@@ -85,14 +81,6 @@ export const methodLabelMap = Object.fromEntries(
 export const meihuaMethodLabelMap = Object.fromEntries(
   MEIHUA_METHOD_OPTIONS.map((item) => [item.value, item.label]),
 ) as Record<NonNullable<DivinationDraft['meihuaMethod']>, string>;
-
-export const xiaoliurenMethodLabelMap = Object.fromEntries(
-  XIAOLIUREN_METHOD_OPTIONS.map((item) => [item.value, item.label]),
-) as Record<NonNullable<DivinationDraft['xiaoliurenMethod']>, string>;
-
-export const xiaoliurenSchoolLabelMap = Object.fromEntries(
-  XIAOLIUREN_SCHOOL_OPTIONS.map((item) => [item.value, item.label]),
-) as Record<NonNullable<DivinationDraft['xiaoliurenSchool']>, string>;
 
 export const jinkoujueMethodLabelMap = Object.fromEntries(
   JINKOUJUE_METHOD_OPTIONS.map((item) => [item.value, item.label]),

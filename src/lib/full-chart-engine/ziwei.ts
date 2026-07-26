@@ -1,21 +1,14 @@
 import { resolveZiweiTrueSolarBirth } from '../ziwei/true-solar-input';
 import type { ChartInput } from '../../types/chart';
-import type { AnalysisPayloadV1, PalaceFact, ScopeType } from '../../types/analysis';
+import type { AnalysisPayloadV1, ScopeType } from '../../types/analysis';
 import type { IztroAstrolabe, IztroHoroscope } from '../../types/iztro';
 import { getBirthDateValidationMessage } from '../date-validation';
 import {
   buildAstrolabeFromInput,
-  buildHoroscope,
-  buildActiveScope,
+  buildHoroscopeFromInput,
+  buildZiweiCalculationConfig,
   buildAnalysisPayloadV1,
-  buildBasicInfo,
-  buildEvidenceAnalysis,
-  buildEvidencePool,
-  buildPatternAnalysis,
-  detectPatterns,
-  getCurrentScopeItem,
   getDefaultHoroscopeContext,
-  mapStarFact,
   analyzeZiweiCompatibility,
 } from '@core/ziwei/iztro';
 import {
@@ -91,6 +84,7 @@ export function buildZiweiPayloadByScope(params: {
   astrolabe: IztroAstrolabe;
   horoscope: IztroHoroscope;
   scopes?: ScopeType[];
+  calculationConfig: AnalysisPayloadV1['calculation_config'];
   skipAnalysis?: boolean;
 }) {
   const requestedScopes = params.scopes?.length
@@ -105,6 +99,7 @@ export function buildZiweiPayloadByScope(params: {
         astrolabe: params.astrolabe,
         horoscope: params.horoscope,
         currentScope: scope,
+        calculationConfig: params.calculationConfig,
         skipAnalysis: params.skipAnalysis,
       }),
     ]),
@@ -125,11 +120,13 @@ export async function calculateZiweiChartForScopes(
 ): Promise<ZiweiRuntime> {
   const astrolabe = await buildAstrolabeFromInput(input);
   const { dateStr, hourIndex } = getDefaultHoroscopeContext();
-  const horoscope = buildHoroscope(astrolabe, dateStr, hourIndex);
+  const horoscope = await buildHoroscopeFromInput(astrolabe, input, dateStr, hourIndex);
+  const calculationConfig = buildZiweiCalculationConfig(input);
   const payloadByScope = buildZiweiPayloadByScope({
     astrolabe,
     horoscope,
     scopes,
+    calculationConfig,
     skipAnalysis,
   });
 
@@ -141,120 +138,26 @@ export async function calculateZiweiChartForScopes(
   };
 }
 
-function buildLightweightPublicPalaces(astrolabe: IztroAstrolabe): PalaceFact[] {
-  return astrolabe.palaces.map((palace) => {
-    const surrounded = astrolabe.surroundedPalaces(palace.name);
-
-    return {
-      index: palace.index,
-      name: palace.name,
-      is_body_palace: palace.isBodyPalace,
-      is_original_palace: palace.isOriginalPalace,
-      heavenly_stem: palace.heavenlyStem,
-      earthly_branch: palace.earthlyBranch,
-      major_stars: palace.majorStars.map((star) => mapStarFact(star, [])),
-      minor_stars: palace.minorStars.map((star) => mapStarFact(star, [])),
-      other_stars: palace.adjectiveStars.map((star) => mapStarFact(star, [])),
-      scope_stars: [],
-      changsheng12: palace.changsheng12,
-      boshi12: palace.boshi12,
-      base_jiangqian12: palace.jiangqian12,
-      base_suiqian12: palace.suiqian12,
-      decadal_range: palace.decadal.range,
-      ages: palace.ages,
-      scope_hits: [],
-      empty_state: palace.isEmpty(),
-      opposite_palace_index: surrounded.opposite.index,
-      surrounded_palace_indexes: [
-        surrounded.target.index,
-        surrounded.opposite.index,
-        surrounded.wealth.index,
-        surrounded.career.index,
-      ],
-      summary_tags: [
-        palace.name === '命宫' ? '命宫' : '',
-        palace.isBodyPalace ? '身宫' : '',
-        palace.isOriginalPalace ? '来因宫' : '',
-        palace.isEmpty() ? '空宫' : '',
-      ].filter(Boolean),
-    };
-  });
-}
-
-function buildLightweightPublicPayload(params: {
-  horoscope: IztroHoroscope;
-  basicInfo: AnalysisPayloadV1['basic_info'];
-  palaces: PalaceFact[];
-  scope: ScopeType;
-  astrolabe: IztroAstrolabe;
-}): AnalysisPayloadV1 {
-  const currentScopeItem = getCurrentScopeItem(params.horoscope, params.scope);
-  const activeScope = buildActiveScope({
-    horoscope: params.horoscope,
-    currentScope: params.scope,
-    currentScopeItem,
-    palaces: params.astrolabe.palaces,
-  });
-  const evidencePool = buildEvidencePool({
-    astrolabe: params.astrolabe,
-    horoscope: params.horoscope,
-    currentScope: params.scope,
-    palaces: params.palaces,
-  });
-  const evidenceAnalysis = buildEvidenceAnalysis({
-    evidencePool,
-    currentScope: params.scope,
-    palaces: params.palaces,
-  });
-  const patterns = detectPatterns({
-    palaces: params.palaces,
-    birthTimeLabel: params.basicInfo.birth_time_label,
-    birthTimeRange: params.basicInfo.birth_time_range,
-  });
-  const patternAnalysis = buildPatternAnalysis({
-    patterns,
-    palaces: params.palaces,
-  });
-
-  return {
-    payload_version: 'analysis_payload_v1',
-    language: 'zh-CN',
-    basic_info: params.basicInfo,
-    active_scope: activeScope,
-    palaces: params.palaces,
-    evidence_pool: evidencePool,
-    evidence_analysis: evidenceAnalysis,
-    patterns,
-    pattern_analysis: patternAnalysis,
-  };
-}
-
 export async function calculatePublicZiweiChartForScopes(
   input: ChartInput,
   scopes?: ScopeType[],
 ): Promise<ZiweiRuntime> {
   const astrolabe = await buildAstrolabeFromInput(input);
   const { dateStr, hourIndex } = getDefaultHoroscopeContext();
-  const horoscope = buildHoroscope(astrolabe, dateStr, hourIndex);
+  const horoscope = await buildHoroscopeFromInput(astrolabe, input, dateStr, hourIndex);
   const requestedScopes = Array.from(new Set(['origin' as const, ...(scopes ?? [])]));
-  const basicInfo = buildBasicInfo(astrolabe);
-  const palaces = buildLightweightPublicPalaces(astrolabe);
-  const payloadByScope: Partial<Record<ScopeType, AnalysisPayloadV1>> = {};
-
-  requestedScopes.forEach((scope) => {
-    payloadByScope[scope] = buildLightweightPublicPayload({
-      astrolabe,
-      horoscope,
-      basicInfo,
-      palaces,
-      scope,
-    });
+  const calculationConfig = buildZiweiCalculationConfig(input);
+  const payloadByScope = buildZiweiPayloadByScope({
+    astrolabe,
+    horoscope,
+    scopes: requestedScopes,
+    calculationConfig,
   });
 
   return {
     astrolabe,
     horoscope,
-    payloadByScope: payloadByScope as Record<ScopeType, AnalysisPayloadV1>,
+    payloadByScope,
     trueSolarEvidence: input.trueSolarEvidence,
   };
 }
@@ -262,11 +165,12 @@ export async function calculatePublicZiweiChartForScopes(
 export async function calculateZiweiPayloadByScope(input: ChartInput) {
   const astrolabe = await buildAstrolabeFromInput(input);
   const { dateStr, hourIndex } = getDefaultHoroscopeContext();
-  const horoscope = buildHoroscope(astrolabe, dateStr, hourIndex);
+  const horoscope = await buildHoroscopeFromInput(astrolabe, input, dateStr, hourIndex);
 
   return buildZiweiPayloadByScope({
     astrolabe,
     horoscope,
+    calculationConfig: buildZiweiCalculationConfig(input),
   });
 }
 
@@ -277,12 +181,18 @@ export async function calculateZiweiDisplayPayload(params: {
   scope: ScopeType;
 }) {
   const astrolabe = await buildAstrolabeFromInput(params.input);
-  const horoscope = buildHoroscope(astrolabe, params.dateStr, params.hourIndex);
+  const horoscope = await buildHoroscopeFromInput(
+    astrolabe,
+    params.input,
+    params.dateStr,
+    params.hourIndex,
+  );
 
   return buildAnalysisPayloadV1({
     astrolabe,
     horoscope,
     currentScope: params.scope,
+    calculationConfig: buildZiweiCalculationConfig(params.input),
   });
 }
 
@@ -580,7 +490,7 @@ export function buildCombinedZiweiPrompt(
       ? []
       : [
           '',
-          '【任务】\n请结合宫位、星曜、四化、格局和三方四正直接回答【问题】，并给出现实建议。',
+          '【任务】\n请结合宫位、星曜、四化和三方四正直接回答【问题】，并给出现实建议。',
           '',
           `【输出要求】\n${buildZiweiOutputRequirementText()}`,
         ]),

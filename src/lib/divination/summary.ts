@@ -20,10 +20,7 @@ import {
   analyzeLenormandEvidence,
   conditionLenormandTraditionalText,
 } from 'mingyu-core/divination/lenormand';
-import {
-  analyzeXiaoliurenEvidence,
-  conditionXiaoliurenTraditionalText,
-} from 'mingyu-core/divination/xiaoliuren';
+import { analyzeXiaoliurenEvidence } from 'mingyu-core/divination/xiaoliuren';
 import { resolveSsgwStoryContent } from './ssgw-content';
 
 export interface DivinationSummaryBlocks {
@@ -340,32 +337,17 @@ export function getDivinationSummaryBlocks(
     case 'xiaoliuren': {
       const xiaoliuren = data as XiaoliurenData;
       const evidence = xiaoliuren.evidenceAnalysis ?? analyzeXiaoliurenEvidence(xiaoliuren);
-      const meaning = (palace: XiaoliurenData['primary']['name']) =>
-        evidence.traditionalFacts.find((item) => item.palace === palace && item.kind === '宫位解释')
-          ?.promptText;
       return {
         title: '小六壬起课结果',
         tags: [
-          `流派：${xiaoliuren.schoolLabel || (xiaoliuren.school === 'huashan' ? '华山派' : '通行掌诀')}`,
           `起课方式：${xiaoliuren.methodLabel}`,
-          `主判断：${xiaoliuren.primary.name}`,
-          `倾向：${xiaoliuren.tendency}`,
+          `占得宫：${xiaoliuren.primary.name}`,
+          `时辰：${xiaoliuren.hourLabel}`,
         ],
         lines: [
-          wrapMainEvidence(
-            xiaoliuren.mainLine ||
-              `起因${xiaoliuren.sequence.start.name}；过程${xiaoliuren.sequence.process.name}；结果${xiaoliuren.sequence.result.name}`,
-          ),
-          `起因：${meaning(xiaoliuren.sequence.start.name) ?? conditionXiaoliurenTraditionalText(xiaoliuren.sequence.start.meaning)}`,
-          `过程：${meaning(xiaoliuren.sequence.process.name) ?? conditionXiaoliurenTraditionalText(xiaoliuren.sequence.process.meaning)}`,
-          `结果：${meaning(xiaoliuren.sequence.result.name) ?? conditionXiaoliurenTraditionalText(xiaoliuren.sequence.result.meaning)}`,
-          xiaoliuren.stageCharts
-            ? `完整课象：起因${xiaoliuren.stageCharts.start.palace.name}六亲${xiaoliuren.stageCharts.start.relative}；过程${xiaoliuren.stageCharts.process.palace.name}六亲${xiaoliuren.stageCharts.process.relative}；结果${xiaoliuren.stageCharts.result.palace.name}六亲${xiaoliuren.stageCharts.result.relative}`
-            : '',
-          xiaoliuren.xunKong?.length
-            ? `旬空驿马：旬空${xiaoliuren.xunKong.join('、')}；驿马${xiaoliuren.yiMa || '无'}；桃花${xiaoliuren.taoHua || '无'}`
-            : '',
-          `提醒：${conditionXiaoliurenTraditionalText(xiaoliuren.questionHint)}`,
+          wrapMainEvidence(evidence.primaryFact.promptText),
+          `顺数轨迹：月宫${xiaoliuren.sequence.month.name}；日宫${xiaoliuren.sequence.day.name}；时宫${xiaoliuren.sequence.hour.name}`,
+          `历法口径：${xiaoliuren.calculation.dayBoundary}；${xiaoliuren.calculation.leapMonthRule}`,
         ].filter(Boolean),
       };
     }
@@ -377,13 +359,15 @@ export function getDivinationSummaryBlocks(
         tags: [
           `起课方式：${jinkoujue.methodLabel}`,
           `地分：${p.diFen.branch}`,
-          `将神：${p.jiangShen.branch}`,
-          `贵神：${p.guiShen.god || ''}${p.guiShen.branch}`,
+          `将神：${p.jiangShen.stem || ''}${p.jiangShen.branch}`,
+          `贵神：${p.guiShen.stem || ''}${p.guiShen.branch}乘${p.guiShen.god || ''}`,
           `人元：${p.renYuan.stem || ''}${p.renYuan.branch}`,
         ],
         lines: [
           wrapMainEvidence(jinkoujue.mainLine),
-          `月将贵人：月将${jinkoujue.monthLeader}；贵人${jinkoujue.noblemanBranch}；${jinkoujue.dayNight}`,
+          `阴阳发用：${jinkoujue.yinYangUse.rule}；发用位${jinkoujue.yinYangUse.usePosition}${jinkoujue.yinYangUse.isVoid ? '旬空' : '不空'}`,
+          `动爻：${jinkoujue.movements.map((item) => `${item.name}（${item.trigger}）`).join('、') || '未触发五动或三动'}`,
+          `月将贵人：月将${jinkoujue.monthLeader}；${jinkoujue.dayNight}贵人起${jinkoujue.noblemanBranch}${jinkoujue.calculation.noblemanDirection}`,
           `四位关系：贵将${jinkoujue.relations.guiToJiang}；贵人${jinkoujue.relations.guiToRen}；将地${jinkoujue.relations.jiangToDi}`,
           jinkoujue.xunKong?.length ? `旬空：${jinkoujue.xunKong.join('、')}` : '',
           jinkoujue.summary ? `提示：${jinkoujue.summary}` : '',
@@ -593,7 +577,6 @@ export function getDivinationSummaryBlocks(
         month: '月计',
         day: '日计',
         hour: '时计',
-        minute: '分计',
       }[taiyi.scope];
       return {
         title: `太乙神数${scopeLabel}结果`,
@@ -606,7 +589,7 @@ export function getDivinationSummaryBlocks(
           wrapMainEvidence(
             `太乙${taiyi.taiyiPosition}；文昌${taiyi.wenChangPosition}；始击${taiyi.shiJiPosition}`,
           ),
-          `元纪：第${taiyi.yuan}元、第${taiyi.ji}纪`,
+          `周期分段：第${taiyi.yuan}个72数段、第${taiyi.ji}个60数段`,
           `主客定算：主算${taiyi.lordCount}，客算${taiyi.guestCount}，定算${taiyi.setCount}`,
           `计神：${taiyi.jiShenPosition}`,
           `判断：${taiyi.judgments.join('；')}`,

@@ -1,18 +1,29 @@
-import type { IztroPalace, IztroStar } from '../../../../types/iztro';
+import type { IztroAstrolabe, IztroStar } from '../../../../types/iztro';
 import type { MutagenName, ScopeMutagenItem, StarFact } from '../../../../types/analysis';
-import { findPalaceByIndex, findStarPalaceIndex, normalizeStarName } from './palace-lookup';
+import { normalizeStarName } from './palace-lookup';
 
 export const MUTAGEN_ORDER: MutagenName[] = ['禄', '权', '科', '忌'];
 
-export function mapScopeMutagenMap(stars: string[], palaces: IztroPalace[]): ScopeMutagenItem[] {
+export function mapScopeMutagenMap(
+  stars: string[],
+  astrolabe: IztroAstrolabe,
+  dynamicPalaceNames: string[] = [],
+): ScopeMutagenItem[] {
   return stars.slice(0, 4).map((star, index) => {
-    const palaceIndex = findStarPalaceIndex(palaces, star);
-    const palace = findPalaceByIndex(palaces, palaceIndex);
+    let palace;
+    try {
+      palace = astrolabe.star(star as never).palace();
+    } catch {
+      throw new Error(`iztro 未能定位${star}的本命落宫。`);
+    }
+
     return {
       mutagen: MUTAGEN_ORDER[index],
       star,
-      palace_index: palaceIndex,
+      palace_index: palace?.index,
       palace_name: palace?.name,
+      dynamic_palace_name:
+        palace?.index === undefined ? undefined : dynamicPalaceNames[palace.index],
     };
   });
 }

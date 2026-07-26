@@ -8,24 +8,13 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { buildCommonDivinationPrompt, extendPromptSchema } from './divination-common.js';
-import { readMcpCustomDate, readMcpPositiveInteger } from './input-helpers.js';
-import {
-  assertMcpNoRandomOptions,
-  randomOptionShape,
-  readMcpRandomOptions,
-} from './random-options.js';
+import { readMcpCustomDate } from './input-helpers.js';
 
 const xiaoliurenSchema = z.object({
-  ...randomOptionShape,
   xiaoliurenMethod: z
-    .enum(['time', 'number', 'random'])
+    .enum(['time'])
     .optional()
-    .describe('起课方式：time=时间起课, number=数字起课, random=随机起课'),
-  xiaoliurenSchool: z
-    .enum(['standard', 'huashan'])
-    .optional()
-    .describe('流派：standard=通行掌诀, huashan=华山派完整时间课（仅 time）'),
-  xiaoliurenNumber: z.number().optional().describe('数字起课时使用的正整数'),
+    .describe('起课方式：仅支持通行掌诀时间起课'),
   customDate: z
     .string()
     .optional()
@@ -38,22 +27,9 @@ const xiaoliurenPromptSchema = extendPromptSchema(
 );
 
 function buildXiaoliurenInput(args: z.infer<typeof xiaoliurenSchema>) {
-  const method = args.xiaoliurenMethod || 'time';
-  const school = args.xiaoliurenSchool || 'standard';
-  if (method !== 'random') {
-    assertMcpNoRandomOptions(args, '小六壬仅随机起课接受 seed 或 replay。');
-  }
-  if (school === 'huashan' && method !== 'time') {
-    throw new Error('华山派小六壬只以时间起课，不支持数字或随机起课。');
-  }
   return {
-    method,
-    school,
-    ...(method === 'number'
-      ? { number: readMcpPositiveInteger(args.xiaoliurenNumber, 'xiaoliurenNumber') }
-      : {}),
+    method: args.xiaoliurenMethod || 'time',
     customDate: readMcpCustomDate(args.customDate),
-    ...(method === 'random' ? readMcpRandomOptions(args) : {}),
   };
 }
 
@@ -62,7 +38,7 @@ export function registerXiaoliurenTool(server: McpServer) {
     'divine_xiaoliuren',
     {
       description:
-        '小六壬起课：支持通行掌诀时间/数字/随机起课，以及华山派完整时间课；生成起因、过程、结果与完整课象',
+        '小六壬通行时间课：按农历月、日、时辰逐步顺数，返回时宫歌诀与来源、历法和解释限制',
       inputSchema: xiaoliurenSchema.shape,
       outputSchema: resultOutputSchema,
     },

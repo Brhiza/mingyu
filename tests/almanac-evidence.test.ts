@@ -47,7 +47,7 @@ test('黄历择日应内置透明约束与候选证据', () => {
             item.status === '已读取' &&
             item.sources.length >= 2,
         ) &&
-        candidate.topicMatchFacts.length >= 4 &&
+        candidate.topicMatchFacts.length === 2 &&
         candidate.topicMatchFacts.every(
           (item) =>
             item.key.startsWith(`${candidate.date}:topic:`) &&
@@ -59,7 +59,7 @@ test('黄历择日应内置透明约束与候选证据', () => {
         candidate.decisionFact.status === candidate.status &&
         candidate.decisionFact.steps.length === 7 &&
         candidate.decisionFact.steps.at(-1)?.result === candidate.status &&
-        candidate.decisionFact.limitation.includes('不公开内部排序分值'),
+        candidate.decisionFact.limitation.includes('不设置吉凶总分'),
     ),
   );
   assert.ok(
@@ -172,7 +172,7 @@ test('择日证据应保留日课、宿曜、九星、百忌、方位神与逐�
   );
 });
 
-test('择日证据应让明确事项忌项覆盖内部排序', () => {
+test('择日证据应让明确事项忌项决定慎用分组', () => {
   const data = generateAlmanacSelection({
     topic: 'move',
     startDate: '2026-06-01',
@@ -240,7 +240,7 @@ test('择日参与人支持与冲突应保留逐项结构化依据', () => {
     ),
   );
   assert.ok(facts.some((item) => item.basis === '年支' || item.basis === '日支'));
-  assert.ok(facts.some((item) => item.basis === '喜用五行' || item.status === '未采用'));
+  assert.ok(facts.some((item) => item.status === '未采用'));
   const directConflictCandidates = result.evidenceAnalysis?.candidates.filter((candidate) =>
     candidate.participantRelationFacts.some(
       (item) =>
@@ -262,7 +262,7 @@ test('择日参与人支持与冲突应保留逐项结构化依据', () => {
   assert.doesNotMatch(JSON.stringify(facts), /"score"\s*:/);
 });
 
-test('择日参与人忌神命中只作一般限制，不得误报为年支日支直接冲突', () => {
+test('择日不应把候选日干支五行简单命中喜忌作为限制或支持', () => {
   const result = generateAlmanacSelection({
     topic: 'marriage',
     startDate: '2025-06-02',
@@ -284,9 +284,13 @@ test('择日参与人忌神命中只作一般限制，不得误报为年支日�
 
   assert.ok(candidate);
   assert.deepEqual(candidate.participantConflicts, []);
-  assert.ok(candidate.decisionFact.limitingFactKeys.some((key) => key.endsWith(':avoid-elements')));
-  assert.ok(candidate.participantSupport.some((item) => item.includes('命中喜用木')));
-  assert.ok(!candidate.participantSupport.some((item) => item.includes('触及忌神')));
+  assert.ok(
+    candidate.participantRelationFacts.some(
+      (item) => item.key.endsWith(':elements-not-adopted') && item.status === '未采用',
+    ),
+  );
+  assert.ok(!candidate.decisionFact.limitingFactKeys.some((key) => key.includes('elements')));
+  assert.ok(!candidate.participantSupport.some((item) => /命中喜用|触及忌神/.test(item)));
 });
 
 test('旧黄历字符串结果应生成兼容事实且不反推缺失参数', () => {
@@ -405,5 +409,5 @@ test('择日公开证据不得暴露内部加分措辞', () => {
   });
 
   assert.doesNotMatch(result.evidenceAnalysis?.promptText ?? '', /辅助加分|加\d+分|扣\d+分/);
-  assert.ok(result.days.some((day) => day.highlights.some((item) => item.includes('辅助支持'))));
+  assert.ok(result.days.every((day) => day.highlights.every((item) => !item.includes('辅助支持'))));
 });

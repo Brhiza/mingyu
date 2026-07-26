@@ -11,6 +11,73 @@ import { TWENTY_FOUR_MOUNTAINS } from '../packages/core/src/direction/index.ts';
 const TRIGRAMS = ['坎', '坤', '震', '巽', '乾', '兑', '艮', '离'];
 const EAST_TRIGRAMS = new Set(['坎', '震', '巽', '离']);
 
+test('八宅命卦应符合 2000 年前后传统九宫真值与五黄寄宫口径', () => {
+  const cases = [
+    { birthYear: 1990, gender: 'male' as const, gua: '坎' },
+    { birthYear: 1990, gender: 'female' as const, gua: '艮' },
+    { birthYear: 2000, gender: 'male' as const, gua: '离' },
+    { birthYear: 2000, gender: 'female' as const, gua: '乾' },
+    { birthYear: 2001, gender: 'male' as const, gua: '艮' },
+    { birthYear: 2001, gender: 'female' as const, gua: '兑' },
+    { birthYear: 2024, gender: 'male' as const, gua: '震' },
+    { birthYear: 2024, gender: 'female' as const, gua: '震' },
+  ];
+
+  for (const item of cases) {
+    const result = analyzeBaZhai({ birthYear: item.birthYear, gender: item.gender });
+    assert.equal(result.mingGua, item.gua, `${item.birthYear}${item.gender}命卦错误`);
+    assert.equal(result.effectiveBirthYear, item.birthYear);
+  }
+
+  assert.equal(analyzeBaZhai({ birthYear: 1986, gender: 'male' }).mingGua, '坤');
+});
+
+test('八宅立春日期边界应按干支年切换命卦', () => {
+  const before = analyzeBaZhai({
+    birthYear: 2024,
+    birthMonth: 2,
+    birthDay: 4,
+    gender: 'male',
+  });
+  const after = analyzeBaZhai({
+    birthYear: 2024,
+    birthMonth: 2,
+    birthDay: 5,
+    gender: 'male',
+  });
+
+  assert.equal(before.effectiveBirthYear, 2023);
+  assert.equal(before.mingGua, '巽');
+  assert.equal(after.effectiveBirthYear, 2024);
+  assert.equal(after.mingGua, '震');
+});
+
+test('八宅大游年应符合乾宅与坎宅逐宫传统真值', () => {
+  const palaceOrder = ['坎', '艮', '震', '巽', '离', '坤', '兑', '乾'];
+  const cases = [
+    {
+      mingGua: '乾',
+      labels: ['祸害', '天医', '五鬼', '六煞', '绝命', '延年', '生气', '伏位'],
+    },
+    {
+      mingGua: '坎',
+      labels: ['伏位', '五鬼', '天医', '生气', '延年', '绝命', '祸害', '六煞'],
+    },
+  ];
+
+  for (const item of cases) {
+    const result = analyzeBaZhai({ mingGua: item.mingGua });
+    assert.deepEqual(
+      result.mingPalace.map((palace) => palace.gua),
+      palaceOrder,
+    );
+    assert.deepEqual(
+      result.mingPalace.map((palace) => palace.label),
+      item.labels,
+    );
+  }
+});
+
 test('mingyu-core/bazhai 应公开入户度数便捷接口和完整类型结果', () => {
   const position = getBaZhaiSitFacingFromDoorDegree(90);
   assert.equal(position.sit.degree, 90);

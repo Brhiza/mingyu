@@ -372,7 +372,7 @@ function buildTraditionalFacts(
           name: transmission.god,
           originalText,
           promptText: `${props.wuxing}${props.yinYang}，传统分类为${props.category}；${conditionLiurenTraditionalText(originalText)}`,
-          sources: ['《大六壬大全》卷六《天将总论》及《大六壬指南》首卷天将章'],
+          sources: ['《六壬大全》卷二《天将总论》《十二将释》'],
           stages: [...(previous?.stages ?? []), transmission.stage],
           branches: [...(previous?.branches ?? []), transmission.branch],
           limitation: TRADITIONAL_FACT_LIMITATION,
@@ -381,16 +381,29 @@ function buildTraditionalFacts(
       }, new Map<string, LiurenTraditionalFact>())
       .values(),
   );
-  const shenShaFacts = (data.shenShaSummary ?? []).map((text, index): LiurenTraditionalFact => ({
-    key: `shensha:${index}:${text}`,
-    kind: '神煞',
-    name: text.replace(/在[子丑寅卯辰巳午未申酉戌亥]$/, ''),
-    originalText: text,
-    promptText: `盘面按年支、月支、日支或日干规则定位到“${conditionLiurenTraditionalText(text)}”`,
-    sources: ['年支、月支、日支与日干神煞规则逐项定位'],
-    branches: text.match(/[子丑寅卯辰巳午未申酉戌亥]$/)?.[0] ? [text.slice(-1)] : undefined,
-    limitation: TRADITIONAL_FACT_LIMITATION,
-  }));
+  const shenShaFacts = data.shenShaFacts?.length
+    ? data.shenShaFacts.map((fact, index): LiurenTraditionalFact => {
+        const text = `${fact.name}在${fact.target}`;
+        return {
+          key: `shensha:${index}:${fact.name}:${fact.target}`,
+          kind: '神煞',
+          name: fact.name,
+          originalText: text,
+          promptText: `${fact.basis}${fact.input}，按“${fact.rule}”定位${fact.name}在${fact.target}`,
+          sources: [...fact.sources],
+          branches: fact.targetType === '地支' ? [fact.target] : undefined,
+          limitation: TRADITIONAL_FACT_LIMITATION,
+        };
+      })
+    : (data.shenShaSummary ?? []).map((text, index): LiurenTraditionalFact => ({
+        key: `shensha:${index}:${text}`,
+        kind: '神煞',
+        name: text.replace(/在.+$/, ''),
+        originalText: text,
+        promptText: `旧结果只保存“${conditionLiurenTraditionalText(text)}”，未保存起法输入，不能据此复算`,
+        sources: ['旧结果未保存逐项起法与来源'],
+        limitation: TRADITIONAL_FACT_LIMITATION,
+      }));
 
   return [...classicalFacts, ...patternFacts, ...tianJiangFacts, ...shenShaFacts];
 }
@@ -1090,7 +1103,14 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
   const patternEvidence = Array.from(
     new Set([...(data.patternTags ?? []), ...(data.guaTi ?? [])].filter(Boolean)),
   );
-  const shenShaEvidence = Array.from(new Set((data.shenShaSummary ?? []).filter(Boolean)));
+  const shenShaEvidence = Array.from(
+    new Set(
+      (data.shenShaSummary?.length
+        ? data.shenShaSummary
+        : (data.shenShaFacts ?? []).map((item) => `${item.name}在${item.target}`)
+      ).filter(Boolean),
+    ),
+  );
   const traditionalFacts = buildTraditionalFacts(data, patternEvidence);
   const lessons = data.fourLessons.map((lesson, index) =>
     buildLessonEvidence(lesson, index, initial.branch, xunKong),

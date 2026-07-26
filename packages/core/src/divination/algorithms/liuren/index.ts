@@ -1,8 +1,8 @@
-import type { LiurenData, LiurenTransmission } from '../../../types/divination';
+import type { LiurenData, LiurenShenShaFact, LiurenTransmission } from '../../../types/divination';
 import { getDivinationTime } from '../../../calendar/timeManager';
 import { getVoidBranches } from '../../../calendar/lunar';
 import { SolarTerm, SolarTime } from 'tyme4ts';
-import { getBranchWuxing, getSeasonState, getYiMa, getTaoHua } from '../../../ganzhi';
+import { getBranchWuxing, getSeasonState, getYiMa } from '../../../ganzhi';
 import {
   buildHeavenlyPlate,
   DIZHI,
@@ -43,24 +43,57 @@ const MONTH_LEADER_BY_ZHONGQI: Record<string, string> = {
 const DAYTIME_BRANCHES = new Set(['卯', '辰', '巳', '午', '未', '申']);
 
 /**
- * 按《大六壬指南》《大六壬大全》神煞体系计算完整神煞。
- * 包括年煞、月煞、日煞三大类别。
+ * 按《六壬大全》分层计算无需本命资料即可确定的月煞和日煞。
+ * 每项保留起法输入与来源，避免把八字常用的年、日支起法混入六壬逐月神煞。
  */
-function buildShenShaSummary(
-  yearBranch: string,
+function buildShenShaFacts(
   monthBranch: string,
   dayBranch: string,
   dayStem: string,
-): string[] {
-  const items: string[] = [];
+): LiurenShenShaFact[] {
+  const facts: LiurenShenShaFact[] = [];
+  const commonLimitations = [
+    '只定位神煞所在干支',
+    '须核对是否入课、入传或临干支',
+    '不得单项定吉凶',
+  ];
+  const addFact = (
+    fact: Omit<LiurenShenShaFact, 'sources' | 'limitations'> & {
+      source: string;
+    },
+  ) => {
+    const { source, ...rest } = fact;
+    facts.push({ ...rest, sources: [source], limitations: [...commonLimitations] });
+  };
 
-  // ===== 日支取神煞 =====
+  const branchHorse = getYiMa(dayBranch);
+  if (branchHorse) {
+    addFact({
+      name: '支马',
+      target: branchHorse,
+      targetType: '地支',
+      category: '十二地支神煞',
+      basis: '日支',
+      input: dayBranch,
+      rule: '日支所属三合局取支马：申子辰寅、亥卯未巳、寅午戌申、巳酉丑亥',
+      source: '《六壬大全》卷一“十二地支神煞”支马表',
+    });
+  }
 
-  // 驿马（复用公共干支 getYiMa）：申子辰在寅、亥卯未在巳、寅午戌在申、巳酉丑在亥
-  const horse = getYiMa(dayBranch);
-  if (horse) items.push(`驿马在${horse}`);
+  const monthHorse = getYiMa(monthBranch);
+  if (monthHorse) {
+    addFact({
+      name: '驿马',
+      target: monthHorse,
+      targetType: '地支',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '按逐月神煞表取驿马：寅午戌月申、亥卯未月巳、申子辰月寅、巳酉丑月亥',
+      source: '《六壬大全》卷一“逐月神煞”表',
+    });
+  }
 
-  // 劫煞（日支取）：三合局之绝位
   const jieShaMap: Record<string, string> = {
     子: '巳',
     申: '巳',
@@ -75,10 +108,20 @@ function buildShenShaSummary(
     酉: '寅',
     丑: '寅',
   };
-  const jieSha = jieShaMap[dayBranch];
-  if (jieSha) items.push(`劫煞在${jieSha}`);
+  const jieSha = jieShaMap[monthBranch];
+  if (jieSha) {
+    addFact({
+      name: '劫煞',
+      target: jieSha,
+      targetType: '地支',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '按逐月神煞表取劫煞：寅午戌月亥、亥卯未月申、申子辰月巳、巳酉丑月寅',
+      source: '《六壬大全》卷一“逐月神煞”表',
+    });
+  }
 
-  // 亡神（日支取）：三合局之临官前一位
   const wangShenMap: Record<string, string> = {
     子: '亥',
     申: '亥',
@@ -93,14 +136,48 @@ function buildShenShaSummary(
     酉: '申',
     丑: '申',
   };
-  const wangShen = wangShenMap[dayBranch];
-  if (wangShen) items.push(`亡神在${wangShen}`);
+  const wangShen = wangShenMap[monthBranch];
+  if (wangShen) {
+    addFact({
+      name: '亡神',
+      target: wangShen,
+      targetType: '地支',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '按逐月神煞表取亡神：寅午戌月巳、亥卯未月寅、申子辰月亥、巳酉丑月申',
+      source: '《六壬大全》卷一“逐月神煞”表',
+    });
+  }
 
-  // 桃花/咸池（复用公共干支 getTaoHua）：
-  const peach = getTaoHua(dayBranch);
-  if (peach) items.push(`桃花在${peach}`);
+  const xianChiMap: Record<string, string> = {
+    寅: '卯',
+    午: '卯',
+    戌: '卯',
+    亥: '子',
+    卯: '子',
+    未: '子',
+    申: '酉',
+    子: '酉',
+    辰: '酉',
+    巳: '午',
+    酉: '午',
+    丑: '午',
+  };
+  const xianChi = xianChiMap[monthBranch];
+  if (xianChi) {
+    addFact({
+      name: '咸池',
+      target: xianChi,
+      targetType: '地支',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '按逐月神煞表取咸池：寅午戌月卯、亥卯未月子、申子辰月酉、巳酉丑月午',
+      source: '《六壬大全》卷一“逐月神煞”表',
+    });
+  }
 
-  // 破碎煞/红砂（日支取）：《六壬指南》“四孟金鸡，四仲蛇，四季丑日是红砂”。
   const poSuiMap: Record<string, string> = {
     寅: '酉',
     申: '酉',
@@ -117,12 +194,46 @@ function buildShenShaSummary(
     丑: '丑',
     未: '丑',
   };
-  const poSui = poSuiMap[dayBranch];
-  if (poSui) items.push(`破碎煞在${poSui}`);
+  const poSui = poSuiMap[monthBranch];
+  if (poSui) {
+    addFact({
+      name: '破碎',
+      target: poSui,
+      targetType: '地支',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '月建四孟在酉、四仲在巳、四季在丑',
+      source: '《六壬大全》卷一“逐月神煞”表',
+    });
+  }
 
-  // ===== 月支取神煞 =====
+  const dayBranchIndex = DIZHI.findIndex((branch) => branch === dayBranch);
+  if (dayBranchIndex >= 0) {
+    const tianLuo = DIZHI[(dayBranchIndex + 1) % DIZHI.length];
+    const diWang = DIZHI[(dayBranchIndex + 7) % DIZHI.length];
+    addFact({
+      name: '天罗',
+      target: tianLuo,
+      targetType: '地支',
+      category: '罗网神煞',
+      basis: '日支',
+      input: dayBranch,
+      rule: '日前一支为天罗',
+      source: '《六壬大全》卷七“天罗地网卦”',
+    });
+    addFact({
+      name: '地网',
+      target: diWang,
+      targetType: '地支',
+      category: '罗网神煞',
+      basis: '日支',
+      input: dayBranch,
+      rule: '天罗对冲之支为地网',
+      source: '《六壬大全》卷七“天罗地网卦”',
+    });
+  }
 
-  // 天德（月支取）
   const tianDeMap: Record<string, string> = {
     寅: '丁',
     卯: '申',
@@ -138,9 +249,19 @@ function buildShenShaSummary(
     丑: '庚',
   };
   const tianDe = tianDeMap[monthBranch];
-  if (tianDe) items.push(`天德在${tianDe}`);
+  if (tianDe) {
+    addFact({
+      name: '天德',
+      target: tianDe,
+      targetType: DIZHI.includes(tianDe as (typeof DIZHI)[number]) ? '地支' : '天干',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '按十二月天德表定位',
+      source: '《六壬大全》卷一“逐月神煞”表',
+    });
+  }
 
-  // 月德（月支取）
   const yueDeMap: Record<string, string> = {
     寅: '丙',
     午: '丙',
@@ -156,9 +277,19 @@ function buildShenShaSummary(
     丑: '庚',
   };
   const yueDe = yueDeMap[monthBranch];
-  if (yueDe) items.push(`月德在${yueDe}`);
+  if (yueDe) {
+    addFact({
+      name: '月德',
+      target: yueDe,
+      targetType: '天干',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '寅午戌月丙、申子辰月壬、亥卯未月甲、巳酉丑月庚',
+      source: '《六壬大全》卷一“逐月神煞”表',
+    });
+  }
 
-  // 天马（月支取）：正月在午，二月申，三月戌，四月子，五月寅，六月辰，七月午，八月申，九月戌，十月子，十一月寅，十二月辰
   const tianMaMap: Record<string, string> = {
     寅: '午',
     卯: '申',
@@ -174,11 +305,19 @@ function buildShenShaSummary(
     丑: '辰',
   };
   const tianMa = tianMaMap[monthBranch];
-  if (tianMa) items.push(`天马在${tianMa}`);
+  if (tianMa) {
+    addFact({
+      name: '天马',
+      target: tianMa,
+      targetType: '地支',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: '正月午起，逐月顺行两支',
+      source: '《六壬大全》卷一“逐月神煞”表',
+    });
+  }
 
-  // ===== 日干取神煞 =====
-
-  // 日德：甲己在寅、乙庚在申、丙辛在巳、丁壬在亥、戊癸在巳
   const riDeMap: Record<string, string> = {
     甲: '寅',
     己: '寅',
@@ -192,9 +331,19 @@ function buildShenShaSummary(
     癸: '巳',
   };
   const riDe = riDeMap[dayStem];
-  if (riDe) items.push(`日德在${riDe}`);
+  if (riDe) {
+    addFact({
+      name: '日德',
+      target: riDe,
+      targetType: '地支',
+      category: '十天干神煞',
+      basis: '日干',
+      input: dayStem,
+      rule: '甲己寅、乙庚申、丙辛巳、丁壬亥、戊癸巳',
+      source: '《六壬大全》卷一“十天干神煞”日德表',
+    });
+  }
 
-  // 禄神（日干取）：甲禄到寅、乙禄到卯、丙戊禄在巳、丁己禄到午、庚禄在申、辛禄在酉、壬禄在亥、癸禄在子
   const luMap: Record<string, string> = {
     甲: '寅',
     乙: '卯',
@@ -208,15 +357,20 @@ function buildShenShaSummary(
     癸: '子',
   };
   const lu = luMap[dayStem];
-  if (lu) items.push(`日禄在${lu}`);
+  if (lu) {
+    addFact({
+      name: '日禄',
+      target: lu,
+      targetType: '地支',
+      category: '十天干神煞',
+      basis: '日干',
+      input: dayStem,
+      rule: '甲寅、乙卯、丙戊巳、丁己午、庚申、辛酉、壬亥、癸子',
+      source: '《六壬大全》卷一“十天干神煞”日禄表',
+    });
+  }
 
-  // ===== 年支取神煞 =====
-
-  // 天罗地网：戌亥为天罗，辰巳为地网。
-  if (yearBranch === '戌' || yearBranch === '亥') items.push('命带天罗');
-  if (yearBranch === '辰' || yearBranch === '巳') items.push('命带地网');
-
-  return items;
+  return facts;
 }
 
 function getMonthLeaderByZhongqi(timeInfo: ReturnType<typeof getDivinationTime>['timeInfo']) {
@@ -276,7 +430,6 @@ export function generateLiuren(customDate?: Date): LiurenData {
   const monthLeader = getMonthLeaderByZhongqi(timeInfo);
   const noblemanBranch = getNoblemanBranch(dayStem, dayNight);
   const xunKong = getVoidBranches(ganzhi.day);
-  const dayOfficer = '贵人';
   const heavenlyPlate = buildHeavenlyPlate({
     monthLeader,
     divinationBranch: hourBranch,
@@ -314,12 +467,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     zhong = getUpperByUnder(heavenlyPlate, chu);
     mo = getUpperByUnder(heavenlyPlate, zhong);
   }
-  const inferredTransmissionPattern = getTransmissionPattern(chu, zhong, mo);
-  const transmissionPattern = initialResult.rule.includes('伏吟')
-    ? '伏吟'
-    : initialResult.rule.includes('返吟')
-      ? '反吟'
-      : inferredTransmissionPattern;
+  const transmissionPattern = getTransmissionPattern(chu, zhong, mo, initialResult.rule);
   const transmissionBranches = [chu, zhong, mo];
   const transmissionStages: LiurenTransmission['stage'][] = ['初传', '中传', '末传'];
   const threeTransmissions = transmissionBranches.map((branch, index) => {
@@ -346,7 +494,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     initialResult.rule,
     transmissionPattern,
     threeTransmissions,
-    classicalRules[0],
+    classicalRules,
   );
 
   const patternTags = [
@@ -364,12 +512,12 @@ export function generateLiuren(customDate?: Date): LiurenData {
   const transmissionSummary = `三传${transmissionPattern}，主线依次为${threeTransmissions
     .map((item) => `${item.stage}${item.branch}`)
     .join(' → ')}。`;
-  const shenShaSummary = buildShenShaSummary(
-    ganzhi.year.charAt(1),
+  const shenShaFacts = buildShenShaFacts(
     ganzhi.month.charAt(1),
     ganzhi.day.charAt(1),
     ganzhi.day.charAt(0),
   );
+  const shenShaSummary = shenShaFacts.map((item) => `${item.name}在${item.target}`);
   const firstTransmission = threeTransmissions[0];
   const focusEvidence: NonNullable<LiurenData['focusEvidence']> = [
     {
@@ -405,7 +553,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     '未给出目标期限时，只判断先后、快慢和触发条件，不硬换成唯一日期',
   ];
 
-  // 为每个天将附加属性
+  // 为入传天将附加可核验的基础属性。
   const tianJiangProps = threeTransmissions.reduce<
     Record<
       string,
@@ -413,12 +561,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
         wuxing: string;
         yinYang: string;
         category: string;
-        color?: string;
-        flavor?: string;
-        number?: number;
-        terrain?: string;
         description?: string;
-        bodyPart?: string;
       }
     >
   >((acc, t) => {
@@ -428,12 +571,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
         wuxing: attr.wuxing,
         yinYang: attr.yinYang,
         category: attr.category,
-        color: attr.color,
-        flavor: attr.flavor,
-        number: attr.number,
-        terrain: attr.terrain,
         description: attr.description,
-        bodyPart: attr.bodyPart,
       };
     }
     return acc;
@@ -445,7 +583,6 @@ export function generateLiuren(customDate?: Date): LiurenData {
     dayNight,
     monthLeader,
     divinationBranch: hourBranch,
-    dayOfficer,
     noblemanBranch,
     noblemanGroundBranch,
     xunKong,
@@ -463,6 +600,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     transmissionSummary,
     guaTi,
     shenShaSummary,
+    shenShaFacts,
     tianJiangProps,
     focusEvidence,
     timingEvidence,

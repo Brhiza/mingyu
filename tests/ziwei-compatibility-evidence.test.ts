@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { analyzeZiweiCompatibility } from '../packages/core/src/ziwei/iztro/compatibility-evidence';
+import { DEFAULT_ZIWEI_CALCULATION_CONFIG } from '../packages/core/src/ziwei/iztro/runtime-helpers';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 import type {
   AnalysisPayloadV1,
@@ -58,6 +59,7 @@ function createPayload(offset: number, mutagen: MutagenName): AnalysisPayloadV1 
   return {
     payload_version: 'analysis_payload_v1',
     language: 'zh-CN',
+    calculation_config: DEFAULT_ZIWEI_CALCULATION_CONFIG,
     basic_info: {
       gender: '男',
       solar_date: '1990-05-15',

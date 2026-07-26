@@ -5,7 +5,7 @@ import {
   formatLegacyRandomFacts,
   type RandomTraceFact,
 } from '../shared/random';
-import type { JinkoujueData, JinkoujueFourPosition } from '../types/divination';
+import type { JinkoujueData, JinkoujueFourPosition, JinkoujueMovement } from '../types/divination';
 
 export interface JinkoujuePositionFact {
   key: string;
@@ -14,8 +14,11 @@ export interface JinkoujuePositionFact {
   role: string;
   branch: string;
   stem?: string;
+  stemElement?: string;
   god?: string;
   element: string;
+  elementBasis: JinkoujueFourPosition['elementBasis'];
+  yinYang: JinkoujueFourPosition['yinYang'];
   seasonState: string;
   isVoid: boolean;
   support: string[];
@@ -23,6 +26,14 @@ export interface JinkoujuePositionFact {
   promptText: string;
   sources: string[];
   limitation: '四位事实只记录地分、将神、贵神、人元的落点、五行、月令与空亡；不得直接写成现实吉凶、人物身份或事件保证';
+}
+
+export interface JinkoujueMovementFact extends JinkoujueMovement {
+  key: string;
+  status: '已触发';
+  promptText: string;
+  sources: string[];
+  limitation: '动爻只记录四位之间满足的五行触发条件；具体人事须结合所问事项与主客用位，不得按动名直接断定现实结果';
 }
 
 export interface JinkoujueRelationFact {
@@ -45,7 +56,7 @@ export interface JinkoujueFocusFact {
   limitations: string[];
   promptText: string;
   sources: string[];
-  limitation: '焦点事实只记录当前课盘已选出的主事对象与依据；不得另立与四位主线冲突的断法';
+  limitation: '焦点事实只记录阴阳次第选出的发用位与其依据；不得把固定贵神或将神另立为用';
 }
 
 export interface JinkoujueCounterEvidenceFact {
@@ -85,13 +96,18 @@ export interface JinkoujueEvidenceAnalysis {
     diFenNote: string;
     monthLeaderRule: string;
     yuanDunRule: string;
+    dayNightRule: string;
     noblemanRule: string;
+    noblemanDirection: string;
+    guiShenRule: string;
+    yinYangUseRule: string;
     promptText: string;
     sources: string[];
-    limitation: '计算事实只证明地分、月将、贵人与人元如何形成当前四位；不证明现实结论';
+    limitation: '计算事实只证明地分、月将、贵神、遁干与发用如何形成当前课体；不证明现实结论';
   };
   positions: JinkoujuePositionFact[];
   relations: JinkoujueRelationFact[];
+  movementFacts: JinkoujueMovementFact[];
   focusFacts: JinkoujueFocusFact[];
   counterEvidenceFacts: JinkoujueCounterEvidenceFact[];
   summaryFact: JinkoujueEvidenceSummaryFact;
@@ -106,9 +122,11 @@ const POSITION_LIMITATION =
 const RELATION_LIMITATION =
   '四位生克关系只说明盘内作用方向；不得把生克直接写成现实必然顺利、受阻、成功或失败' as const;
 const FOCUS_LIMITATION =
-  '焦点事实只记录当前课盘已选出的主事对象与依据；不得另立与四位主线冲突的断法' as const;
+  '焦点事实只记录阴阳次第选出的发用位与其依据；不得把固定贵神或将神另立为用' as const;
 const COUNTER_LIMITATION =
   '反证只表示当前四位存在空亡、休囚死或受克条件；不得把单项反证直接写成现实失败或灾祸' as const;
+const MOVEMENT_LIMITATION =
+  '动爻只记录四位之间满足的五行触发条件；具体人事须结合所问事项与主客用位，不得按动名直接断定现实结果' as const;
 
 function buildPositionFact(position: JinkoujueFourPosition): JinkoujuePositionFact {
   return {
@@ -118,14 +136,22 @@ function buildPositionFact(position: JinkoujueFourPosition): JinkoujuePositionFa
     role: position.role,
     branch: position.branch,
     stem: position.stem,
+    stemElement: position.stemElement,
     god: position.god,
     element: position.element,
+    elementBasis: position.elementBasis,
+    yinYang: position.yinYang,
     seasonState: position.seasonState,
     isVoid: position.isVoid,
     support: [...position.support],
     constraints: [...position.constraints],
     promptText: position.promptText,
-    sources: ['月将加时天盘', '昼夜贵人法', '五子元遁', '日旬空亡', '月令旺衰'],
+    sources: [
+      '《六壬神课金口诀古本》“入式歌解”',
+      '《六壬神课金口诀古本》“十二贵神所属”',
+      '《六壬神课金口诀古本》“五子元遁起例”',
+      '日旬空亡与月令旺衰',
+    ],
     limitation: POSITION_LIMITATION,
   };
 }
@@ -136,20 +162,14 @@ function buildRelationFact(
   to: string,
   relation: string,
 ): JinkoujueRelationFact {
-  const status =
-    relation === '克' || relation === '被克'
-      ? '限制'
-      : relation === '生' || relation === '被生' || relation === '比和'
-        ? '支持'
-        : '中性';
   return {
     key,
-    status,
+    status: '中性',
     from,
     to,
     relation,
     promptText: `${from}对${to}为${relation}`,
-    sources: ['四位五行生克'],
+    sources: ['《六壬神课金口诀古本》“干类、神类、将类、方类”'],
     limitation: RELATION_LIMITATION,
   };
 }
@@ -166,7 +186,7 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
     buildRelationFact(
       'jinkoujue:relation:gui-jiang',
       `贵神${data.positions.guiShen.god || ''}${data.positions.guiShen.branch}`,
-      `将神${data.positions.jiangShen.branch}`,
+      `将神${data.positions.jiangShen.stem || ''}${data.positions.jiangShen.branch}`,
       data.relations.guiToJiang,
     ),
     buildRelationFact(
@@ -177,7 +197,7 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
     ),
     buildRelationFact(
       'jinkoujue:relation:jiang-di',
-      `将神${data.positions.jiangShen.branch}`,
+      `将神${data.positions.jiangShen.stem || ''}${data.positions.jiangShen.branch}`,
       `地分${data.positions.diFen.branch}`,
       data.relations.jiangToDi,
     ),
@@ -195,6 +215,15 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
     ),
   ];
 
+  const movementFacts: JinkoujueMovementFact[] = data.movements.map((item, index) => ({
+    ...item,
+    key: `jinkoujue:movement:${item.category}:${index + 1}:${item.name}`,
+    status: '已触发',
+    promptText: `${item.name}：${item.trigger}`,
+    sources: [item.source],
+    limitation: MOVEMENT_LIMITATION,
+  }));
+
   const focusFacts: JinkoujueFocusFact[] = (data.focusEvidence ?? []).map((item, index) => ({
     key: `jinkoujue:focus:${index + 1}:${item.target}`,
     target: item.target,
@@ -203,7 +232,7 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
     evidence: [...item.evidence],
     limitations: [...item.limitations],
     promptText: `${item.target}${item.role}：依据${item.evidence.join('、') || '未列'}；限制${item.limitations.join('、') || '未见'}`,
-    sources: ['四位取用主线', '月将加时', '昼夜贵人', '五子元遁'],
+    sources: ['《六壬神课金口诀古本》“阴阳次第五用”', '《六壬神课金口诀古本》“四象所属图”'],
     limitation: FOCUS_LIMITATION,
   }));
 
@@ -234,20 +263,6 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
       });
     }
   }
-  for (const relation of relations) {
-    if (relation.status === '限制') {
-      counterEvidenceFacts.push({
-        key: `jinkoujue:counter:relation:${relation.key}`,
-        ownerKey: relation.key,
-        type: '受克',
-        status: '已触发',
-        detail: relation.promptText,
-        promptText: `${relation.promptText}，主线推进时需并看限制条件`,
-        sources: ['四位五行生克'],
-        limitation: COUNTER_LIMITATION,
-      });
-    }
-  }
   for (const focus of focusFacts) {
     if (focus.limitations.length) {
       counterEvidenceFacts.push({
@@ -271,7 +286,7 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
     focusCount: focusFacts.length,
     counterCount: counterEvidenceFacts.length,
     promptText: `金口诀证据：四位${positions.length}项、关系${relations.length}项、焦点${focusFacts.length}项、反证${counterEvidenceFacts.length}项；主线${data.mainLine}`,
-    sources: ['四位一体取用', '生克空亡月令核验'],
+    sources: ['阴阳次第五用', '五动三动', '四位生克与空亡月令核验'],
     limitation: '证据汇总只统计四位、关系、焦点与反证覆盖，不得按数量生成吉凶总分或成功率',
   };
 
@@ -285,16 +300,30 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
     diFenNote: data.calculation.diFenNote,
     monthLeaderRule: data.calculation.monthLeaderRule,
     yuanDunRule: data.calculation.yuanDunRule,
+    dayNightRule: data.calculation.dayNightRule,
     noblemanRule: data.calculation.noblemanRule,
+    noblemanDirection: data.calculation.noblemanDirection,
+    guiShenRule: data.calculation.guiShenRule,
+    yinYangUseRule: `${data.yinYangUse.pattern}：${data.yinYangUse.rule}`,
     promptText: [
       `起课方式${data.calculation.methodLabel}`,
       data.calculation.diFenNote,
       data.calculation.monthLeaderRule,
+      data.calculation.dayNightRule,
       data.calculation.noblemanRule,
+      data.calculation.guiShenRule,
       data.calculation.yuanDunRule,
+      `${data.yinYangUse.pattern}，${data.yinYangUse.rule}`,
     ].join('；'),
-    sources: ['金口诀起课规则', '月将加时', '昼夜贵人', '五子元遁'],
-    limitation: '计算事实只证明地分、月将、贵人与人元如何形成当前四位；不证明现实结论' as const,
+    sources: [
+      '《六壬神课金口诀古本》“入式歌解”',
+      '《六壬神课金口诀古本》“贵神治旦暮”',
+      '《六壬神课金口诀古本》“贵神起例”',
+      '《六壬神课金口诀古本》“五子元遁起例”',
+      '《六壬神课金口诀古本》“阴阳次第五用”',
+    ],
+    limitation:
+      '计算事实只证明地分、月将、贵神、遁干与发用如何形成当前课体；不证明现实结论' as const,
   };
 
   const randomTraceFact = buildRandomTraceFact({
@@ -308,10 +337,10 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
   const items: PromptEvidenceItem[] = [
     {
       level: '主证',
-      title: '金口诀取用主线',
+      title: '金口诀阴阳发用主线',
       detail: `${data.mainLine}；边界：${FOCUS_LIMITATION}`,
-      source: '贵神主事、将神主事体、人元主人情、地分主落点',
-      tags: ['取用主线', '四位一体'],
+      source: '《六壬神课金口诀古本》“阴阳次第五用”“四象所属图”',
+      tags: ['阴阳发用', '四位一体'],
     },
     {
       level: '主证',
@@ -321,7 +350,7 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
       tags: ['起课', data.method, calculationFact.status],
     },
     ...positions.map((item): PromptEvidenceItem => ({
-      level: item.position === '贵神' || item.position === '将神' ? '主证' : '辅证',
+      level: item.position === data.yinYangUse.usePosition ? '主证' : '辅证',
       title: `${item.position}位`,
       detail: `${item.promptText}；角色${item.role}；支持${item.support.join('、') || '无'}；限制${item.constraints.join('、') || '无'}；边界：${item.limitation}`,
       source: item.sources.join('、'),
@@ -333,6 +362,13 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
       detail: `${item.promptText}；边界：${item.limitation}`,
       source: item.sources.join('、'),
       tags: ['生克', item.relation],
+    })),
+    ...movementFacts.map((item): PromptEvidenceItem => ({
+      level: '主证',
+      title: `${item.category}：${item.name}`,
+      detail: `${item.promptText}；边界：${item.limitation}`,
+      source: item.sources.join('、'),
+      tags: [item.category, item.name, item.relation],
     })),
     ...focusFacts.map((item): PromptEvidenceItem => ({
       level: item.level,
@@ -370,24 +406,25 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
       level: '限制',
       title: '金口诀解释边界',
       detail:
-        '不得输出吉凶总分或成功率；未给具体问题时仍须先按贵神—将神—人元—地分主线组织判断；空亡、休囚死与受克只作条件限制。',
-      source: '金口诀四位一体取用规则',
+        '不得输出吉凶总分或成功率；先按阴阳次第确认发用位，再结合五动三动与四位关系；生克和动名须结合具体所问，不得直接判成现实吉凶。',
+      source: '《六壬神课金口诀古本》“阴阳次第五用”“五动爻诵”“三动”',
       tags: ['解释边界'],
     },
   ];
 
   const evidence: PromptEvidenceBundle = {
-    title: '金口诀四位一体结构化证据',
+    title: '金口诀阴阳发用与四位一体结构化证据',
     items,
   };
 
   const promptText = [
-    '【金口诀取用主线结构化证据】',
+    '【金口诀阴阳发用结构化证据】',
     ...formatPromptEvidenceBundle(evidence),
     `主线：${data.mainLine}。`,
     `计算：${calculationFact.promptText}。`,
     `四位：${positions.map((item) => item.promptText).join('；')}。`,
     `关系：${relations.map((item) => item.promptText).join('；')}。`,
+    `动爻：${movementFacts.map((item) => item.promptText).join('；') || '未触发五动或三动'}。`,
     `反证：${counterEvidenceFacts.map((item) => item.promptText).join('；') || '未见明确空亡、休囚死或受克限制'}。`,
     `证据汇总：${summaryFact.promptText}。`,
   ].join('\n');
@@ -399,6 +436,7 @@ export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidence
     calculationFact,
     positions,
     relations,
+    movementFacts,
     focusFacts,
     counterEvidenceFacts,
     summaryFact,

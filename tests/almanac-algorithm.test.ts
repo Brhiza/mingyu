@@ -79,7 +79,7 @@ test('黄历择日：同一吉神不应因配置重复而重复加分和重复�
   assert.doesNotMatch(day.highlights.join('；'), /天德合、天德合/);
 });
 
-test('黄历择日：建除十二神不应把除成开日误判为忌出行', () => {
+test('黄历择日：建除值日只保留原生值日事实，不再叠加本地事项硬表', () => {
   const result = generateAlmanacSelection({
     topic: 'travel',
     startDate: '2026-06-01',
@@ -96,12 +96,13 @@ test('黄历择日：建除十二神不应把除成开日误判为忌出行', ()
     const day = result.days.find((candidate) => candidate.date === item.date);
     assert.ok(day, `${item.date} 应在候选日期中`);
     assert.equal(day.dayOfficer, item.officer);
-    assert.match(day.highlights.join('；'), new RegExp(`执日${item.officer}宜出行赴任`));
-    assert.doesNotMatch(day.cautions.join('；'), new RegExp(`执日${item.officer}.*出行`));
+    assert.ok(day.topicMatchFacts?.every((fact) => !fact.key.includes(':topic:rule-')));
+    assert.doesNotMatch(day.highlights.join('；'), /事项规则支持执日|执日.*宜出行赴任/);
+    assert.doesNotMatch(day.cautions.join('；'), /事项规则限制执日/);
   }
 });
 
-test('黄历择日：破日求医不应被建除表无条件扣分', () => {
+test('黄历择日：破日求医只采用 tyme4ts 原始宜忌，不泛化为所有医疗首选', () => {
   const result = generateAlmanacSelection({
     topic: 'medical',
     startDate: '2026-06-07',
@@ -110,8 +111,9 @@ test('黄历择日：破日求医不应被建除表无条件扣分', () => {
   const day = result.days[0];
 
   assert.equal(day.dayOfficer, '破');
-  assert.match(day.highlights.join('；'), /执日破宜就医手术/);
-  assert.doesNotMatch(day.cautions.join('；'), /执日破/);
+  assert.ok(!day.recommends.some((item) => item.includes('求医') || item.includes('治病')));
+  assert.doesNotMatch(day.highlights.join('；'), /黄历宜项命中就医手术/);
+  assert.doesNotMatch(day.highlights.join('；'), /执日破宜就医手术|事项规则/);
 });
 
 test('黄历择日：岁支十二神方位应从年支起太岁顺排', () => {

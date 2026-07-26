@@ -103,17 +103,8 @@ function getPalaceNamesByIndexes(palaces: PalaceFact[], indexes: number[]) {
     .filter(Boolean) as string[];
 }
 
-function getAllPalaceStars(palace: PalaceFact) {
-  return [
-    ...palace.major_stars,
-    ...palace.minor_stars,
-    ...palace.other_stars,
-    ...palace.scope_stars,
-  ];
-}
-
-function findStarPalace(palaces: PalaceFact[], starName: string) {
-  return palaces.find((palace) => getAllPalaceStars(palace).some((star) => star.name === starName));
+function formatPalaceName(name: string) {
+  return name.endsWith('宫') ? name : `${name}宫`;
 }
 
 function buildScopeTitle(scope: ScopeType, scopeName?: string) {
@@ -124,23 +115,45 @@ function buildScopeTitle(scope: ScopeType, scopeName?: string) {
 function getScopeItems(horoscope: IFunctionalHoroscope): Array<{
   scope: ScopeType;
   item: IFunctionalHoroscope['decadal'];
+  landingPalace: IFunctionalPalace | undefined;
 }> {
   return [
-    { scope: 'decadal', item: horoscope.decadal },
-    { scope: 'yearly', item: horoscope.yearly },
-    { scope: 'monthly', item: horoscope.monthly },
-    { scope: 'daily', item: horoscope.daily },
-    { scope: 'hourly', item: horoscope.hourly },
-    { scope: 'age', item: horoscope.age },
+    {
+      scope: 'decadal',
+      item: horoscope.decadal,
+      landingPalace: horoscope.palace('命宫', 'decadal'),
+    },
+    {
+      scope: 'yearly',
+      item: horoscope.yearly,
+      landingPalace: horoscope.palace('命宫', 'yearly'),
+    },
+    {
+      scope: 'monthly',
+      item: horoscope.monthly,
+      landingPalace: horoscope.palace('命宫', 'monthly'),
+    },
+    {
+      scope: 'daily',
+      item: horoscope.daily,
+      landingPalace: horoscope.palace('命宫', 'daily'),
+    },
+    {
+      scope: 'hourly',
+      item: horoscope.hourly,
+      landingPalace: horoscope.palace('命宫', 'hourly'),
+    },
+    { scope: 'age', item: horoscope.age, landingPalace: horoscope.agePalace() },
   ];
 }
 
 function collectScopeStructureEvidence(params: {
+  astrolabe: IFunctionalAstrolabe;
   horoscope: IFunctionalHoroscope;
   currentScope: ScopeType;
   palaces: PalaceFact[];
 }): EvidenceDraft[] {
-  const { horoscope, currentScope, palaces } = params;
+  const { astrolabe, horoscope, currentScope, palaces } = params;
   const drafts: EvidenceDraft[] = [];
   const landingPriority: Record<ScopeType, number> = {
     origin: 0,
@@ -156,29 +169,38 @@ function collectScopeStructureEvidence(params: {
     return drafts;
   }
 
-  getScopeItems(horoscope).forEach(({ scope, item }) => {
-    const palace = palaces.find((candidate) => candidate.index === item.index);
+  getScopeItems(horoscope).forEach(({ scope, item, landingPalace }) => {
+    const palace = palaces.find((candidate) => candidate.index === landingPalace?.index);
     if (!palace) return;
 
     const scopeLabel = buildScopeTitle(scope, item.name);
     const stemBranch = [item.heavenlyStem, item.earthlyBranch].filter(Boolean).join('');
 
     drafts.push({
-      stable_key: buildStableKey(['scope-landing', scope, item.index, item.name]),
+      stable_key: buildStableKey(['scope-landing', scope, palace.index, item.name]),
       type: 'scope_landing',
-      title: `${scopeLabel}落入${palace.name}`,
+      title: `${scopeLabel}落入本命${formatPalaceName(palace.name)}`,
       scope,
       palace_indexes: [palace.index],
       palace_names: [palace.name],
       star_names: [],
       mutagens: [],
-      description: `${scopeLabel}${stemBranch ? `干支为${stemBranch}，` : ''}落宫索引为${item.index}，对应本命${palace.name}。`,
+      description: `${scopeLabel}${stemBranch ? `干支为${stemBranch}，` : ''}命宫由运限对象定位到本命${formatPalaceName(palace.name)}。`,
       priority: landingPriority[scope],
     });
 
     item.mutagen?.slice(0, MUTAGEN_LIST.length).forEach((starName, index) => {
       const mutagen = MUTAGEN_LIST[index];
-      const targetPalace = findStarPalace(palaces, starName);
+      let nativeTargetPalace: IFunctionalPalace | undefined;
+      try {
+        nativeTargetPalace = astrolabe.star(starName as never).palace();
+      } catch {
+        nativeTargetPalace = undefined;
+      }
+      const targetPalace = palaces.find(
+        (candidate) => candidate.index === nativeTargetPalace?.index,
+      );
+      const dynamicPalaceName = targetPalace ? item.palaceNames[targetPalace.index] : undefined;
       const palaceIndexes = targetPalace
         ? Array.from(new Set([palace.index, targetPalace.index]))
         : [palace.index];
@@ -190,7 +212,7 @@ function collectScopeStructureEvidence(params: {
         stable_key: buildStableKey(['scope-mutagen-destination', scope, starName, mutagen]),
         type: 'scope_mutagen_destination',
         title: targetPalace
-          ? `${scopeLabel}${starName}化${mutagen}入${targetPalace.name}`
+          ? `${scopeLabel}${starName}化${mutagen}入本命${formatPalaceName(targetPalace.name)}${dynamicPalaceName ? `（当前${scopeLabel}${formatPalaceName(dynamicPalaceName)}）` : ''}`
           : `${scopeLabel}${starName}化${mutagen}`,
         scope,
         palace_indexes: palaceIndexes,
@@ -198,8 +220,8 @@ function collectScopeStructureEvidence(params: {
         star_names: [starName],
         mutagens: [mutagen],
         description: targetPalace
-          ? `${scopeLabel}四化序列中的${starName}对应化${mutagen}；该星在本命盘定位于${targetPalace.name}，运限本身落于${palace.name}。`
-          : `${scopeLabel}四化序列中的${starName}对应化${mutagen}，但该星未能在本命宫位索引中定位。`,
+          ? `${scopeLabel}四化序列中的${starName}对应化${mutagen}；该星的本命物理落宫为${formatPalaceName(targetPalace.name)}${dynamicPalaceName ? `，当前对应${scopeLabel}${formatPalaceName(dynamicPalaceName)}` : ''}，运限命宫落于本命${formatPalaceName(palace.name)}。`
+          : `${scopeLabel}四化序列中的${starName}对应化${mutagen}，但该星未能通过本命星曜对象定位宫位。`,
         status: targetPalace ? '已记录' : '资料缺口',
         priority: mutagen === '忌' ? 96 : mutagen === '禄' ? 94 : 91,
       });
@@ -424,7 +446,7 @@ function finalizeEvidence(drafts: EvidenceDraft[]): EvidenceFact[] {
         ? '紫微运限排盘结果、当前运限落宫与四化序列'
         : '紫微本命盘宫位、星曜、四化与三方四正结构化资料';
       const calculation = isScope
-        ? '按运限层级读取落宫索引和四化星名，再以本命十二宫星曜索引定位目标宫位'
+        ? '按运限对象读取命宫落点和四化星名，再由本命星曜对象定位物理宫位与动态宫名'
         : isMutagen
           ? '按宫位星曜四化标记、自化列表、飞化目标索引及三方四正宫位逐项匹配'
           : '按十二宫索引读取主星、空宫状态及关联宫位，不使用吉凶总分';
@@ -729,7 +751,7 @@ export function buildEvidenceAnalysis(params: {
     methodology: {
       notes: [
         '本命证据按十二宫主星、空宫、生年四化、自化、飞化与三方四正逐项采集。',
-        '运限证据按所选层级读取落宫与四化序列，再以本命星曜索引定位目标宫位。',
+        '运限证据按所选层级读取原生落宫与四化序列，再由星曜对象定位本命目标宫位与动态宫名。',
         '未定位星曜与跳过分析状态保留为资料缺口，不补造宫位、四化或应期。',
         '证据数量只用于覆盖统计，不转换为吉凶总分、概率或必然结论。',
       ],
@@ -758,6 +780,7 @@ export function buildEvidencePool(params: {
 
   return finalizeEvidence([
     ...collectScopeStructureEvidence({
+      astrolabe,
       horoscope,
       currentScope,
       palaces,

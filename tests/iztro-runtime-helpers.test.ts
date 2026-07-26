@@ -7,6 +7,7 @@ import {
   buildAstrolabeFromInput,
   buildAnalysisPayloadV1,
   buildHoroscope,
+  buildZiweiCalculationConfig,
   getDefaultHoroscopeContext,
   shiftLocalDate,
   shiftLunarYear,
@@ -247,6 +248,116 @@ test('紫微农历排盘封装默认值应与 iztro byLunar 官方入口一致',
   );
 });
 
+test('紫微基础资料应直接读取 iztro 身宫与来因宫原生定位', async () => {
+  const astrolabe = await buildAstrolabeFromInput(DEFAULT_CHART_INPUT);
+  const horoscope = buildHoroscope(astrolabe, '2026-07-27', 6);
+  const payload = buildAnalysisPayloadV1({
+    astrolabe,
+    horoscope,
+    currentScope: 'origin',
+    calculationConfig: buildZiweiCalculationConfig(DEFAULT_CHART_INPUT),
+  });
+  const bodyPalace = astrolabe.palace('身宫');
+  const originalPalace = astrolabe.palace('来因');
+
+  assert.ok(bodyPalace);
+  assert.ok(originalPalace);
+  assert.equal(payload.basic_info.hidden_palaces?.body_palace_index, bodyPalace.index);
+  assert.equal(payload.basic_info.hidden_palaces?.body_palace_name, bodyPalace.name);
+  assert.equal(payload.basic_info.hidden_palaces?.original_palace_index, originalPalace.index);
+  assert.equal(payload.basic_info.hidden_palaces?.original_palace_name, originalPalace.name);
+  assert.equal(payload.palaces.filter((palace) => palace.is_original_palace).length, 1);
+});
+
+test('紫微结果应披露实际传给 iztro 的基础排盘口径', () => {
+  const config = buildZiweiCalculationConfig(DEFAULT_CHART_INPUT);
+
+  assert.equal(config.engine, 'iztro');
+  assert.equal(config.algorithm, 'default');
+  assert.match(config.algorithm_basis, /《紫微斗数全书》/);
+  assert.equal(config.fix_leap, true);
+  assert.match(config.leap_month_rule, /十五日及以前按同名月，十六日起按下月/);
+  assert.equal(config.year_divide_rule, '以农历正月初一分年');
+  assert.equal(config.horoscope_divide_rule, '运限月份以农历月份分界');
+  assert.equal(config.age_divide_rule, '小限年龄只按年份计算');
+  assert.equal(config.late_zi_rule, '晚子时按次日干支及次日安星日数排盘');
+  assert.match(config.limitation, /解读侧重点，不改变这里的安星算法/);
+});
+
+test('紫微晚子时口径应同时影响日柱与按日安置的紫微星', async () => {
+  const current = await buildAstrolabeFromInput({
+    ...DEFAULT_CHART_INPUT,
+    birthDate: '2024-02-10',
+    birthTimeIndex: 12,
+    gender: '男',
+    dayDivide: 'current',
+  });
+  const forward = await buildAstrolabeFromInput({
+    ...DEFAULT_CHART_INPUT,
+    birthDate: '2024-02-10',
+    birthTimeIndex: 12,
+    gender: '男',
+    dayDivide: 'forward',
+  });
+
+  assert.deepEqual(current.rawDates.chineseDate.daily, ['甲', '辰']);
+  assert.deepEqual(forward.rawDates.chineseDate.daily, ['乙', '巳']);
+  assert.equal(
+    current.palaces.find((palace) => palace.majorStars.some((star) => star.name === '紫微'))
+      ?.earthlyBranch,
+    '酉',
+  );
+  assert.equal(
+    forward.palaces.find((palace) => palace.majorStars.some((star) => star.name === '紫微'))
+      ?.earthlyBranch,
+    '午',
+  );
+});
+
+test('紫微闰月修正应以十五日与十六日为界且不得提前换月', async () => {
+  const charts = await Promise.all(
+    [15, 16].flatMap((day) =>
+      [true, false].map((fixLeap) =>
+        buildAstrolabeFromInput({
+          ...DEFAULT_CHART_INPUT,
+          dateType: 'lunar',
+          birthDate: `2023-02-${day}`,
+          birthTimeIndex: 1,
+          gender: '男',
+          isLeapMonth: true,
+          fixLeap,
+        }),
+      ),
+    ),
+  );
+  const [day15Fixed, day15Original, day16Fixed, day16Original] = charts;
+
+  assert.equal(day15Fixed.earthlyBranchOfSoulPalace, '寅');
+  assert.equal(day15Original.earthlyBranchOfSoulPalace, '寅');
+  assert.equal(day16Fixed.earthlyBranchOfSoulPalace, '卯');
+  assert.equal(day16Original.earthlyBranchOfSoulPalace, '寅');
+});
+
+test('紫微正月初一分年与立春分年应在两条边界之间产生可见差异', async () => {
+  const normal = await buildAstrolabeFromInput({
+    ...DEFAULT_CHART_INPUT,
+    birthDate: '2024-02-06',
+    yearDivide: 'normal',
+    horoscopeDivide: 'normal',
+  });
+  const exact = await buildAstrolabeFromInput({
+    ...DEFAULT_CHART_INPUT,
+    birthDate: '2024-02-06',
+    yearDivide: 'exact',
+    horoscopeDivide: 'exact',
+  });
+
+  assert.deepEqual(normal.rawDates.chineseDate.yearly, ['癸', '卯']);
+  assert.deepEqual(exact.rawDates.chineseDate.yearly, ['甲', '辰']);
+  assert.deepEqual(normal.rawDates.chineseDate.monthly, ['乙', '丑']);
+  assert.deepEqual(exact.rawDates.chineseDate.monthly, ['丙', '寅']);
+});
+
 test('紫微行运封装应拒绝 iztro 会宽松接受的非法日期和时辰', async () => {
   const astrolabe = await buildAstrolabeFromInput(DEFAULT_CHART_INPUT);
 
@@ -325,12 +436,15 @@ test('紫微分析载荷应附带可追溯证据分析并明确轻量模式未�
   const patternAnalysis = payload.pattern_analysis;
   assert.ok(patternAnalysis);
   assert.equal(patternAnalysis.key, 'ziwei:patterns');
+  assert.equal(patternAnalysis.status, '未生成');
   assert.equal(patternAnalysis.calculationSteps.length, 4);
   assert.equal(
     patternAnalysis.summaryFact.evaluatedRuleCount,
     patternAnalysis.summaryFact.registeredRuleCount,
   );
   assert.equal(patternAnalysis.summaryFact.matchedPatternCount, payload.patterns?.length ?? 0);
+  assert.deepEqual(payload.patterns, []);
+  assert.match(patternAnalysis.promptText, /缺少逐条版本、卷页、原文与独立例盘校勘/);
   assert.ok(
     (payload.patterns ?? []).every(
       (item) =>
@@ -353,7 +467,99 @@ test('紫微分析载荷应附带可追溯证据分析并明确轻量模式未�
   assert.match(compactPayload.evidence_analysis?.promptText ?? '', /明确跳过本命证据采集/);
   assert.equal(compactPayload.pattern_analysis?.status, '未生成');
   assert.equal(compactPayload.pattern_analysis?.summaryFact.evaluatedRuleCount, 0);
-  assert.match(compactPayload.pattern_analysis?.promptText ?? '', /明确跳过格局规则评估/);
+  assert.match(
+    compactPayload.pattern_analysis?.promptText ?? '',
+    /缺少逐条版本、卷页、原文与独立例盘校勘/,
+  );
+});
+
+test('紫微分析载荷应直接采用 iztro 原生宫位、运限与飞化能力', async () => {
+  const astrolabe = await buildAstrolabeFromInput(DEFAULT_CHART_INPUT);
+  const horoscope = buildHoroscope(astrolabe, '2026-07-27', 6);
+  const originPayload = buildAnalysisPayloadV1({
+    astrolabe,
+    horoscope,
+    currentScope: 'origin',
+    skipAnalysis: true,
+  });
+  const yearlyPayload = buildAnalysisPayloadV1({
+    astrolabe,
+    horoscope,
+    currentScope: 'yearly',
+    skipAnalysis: true,
+  });
+
+  const nativeSoulPalace = astrolabe.palace('命宫');
+  assert.equal(originPayload.active_scope.palace_index, nativeSoulPalace?.index);
+  assert.equal(originPayload.active_scope.palace_name, nativeSoulPalace?.name);
+
+  const nativeYearlySoulPalace = horoscope.palace('命宫', 'yearly');
+  assert.equal(yearlyPayload.active_scope.palace_index, nativeYearlySoulPalace?.index);
+  assert.equal(yearlyPayload.active_scope.palace_name, nativeYearlySoulPalace?.name);
+
+  yearlyPayload.active_scope.mutagen_map.forEach((item) => {
+    const nativeStarPalace = astrolabe.star(item.star as never).palace();
+    assert.equal(item.palace_index, nativeStarPalace?.index, `${item.star}四化落宫索引不一致`);
+    assert.equal(item.palace_name, nativeStarPalace?.name, `${item.star}四化落宫名称不一致`);
+    assert.equal(
+      item.dynamic_palace_name,
+      nativeStarPalace ? horoscope.yearly.palaceNames[nativeStarPalace.index] : undefined,
+      `${item.star}流年动态宫名不一致`,
+    );
+    assert.equal(
+      horoscope.hasHoroscopeMutagen(
+        item.dynamic_palace_name as never,
+        'yearly',
+        item.mutagen as never,
+      ),
+      true,
+      `${item.star}应通过 iztro 运限四化检查`,
+    );
+  });
+
+  yearlyPayload.palaces.forEach((palace) => {
+    const nativePalace = astrolabe.palace(palace.index);
+    assert.ok(nativePalace, `${palace.name}缺少 iztro 原生宫位`);
+    const surrounded = astrolabe.surroundedPalaces(palace.index);
+    assert.deepEqual(palace.surrounded_palace_indexes, [
+      surrounded.target.index,
+      surrounded.opposite.index,
+      surrounded.wealth.index,
+      surrounded.career.index,
+    ]);
+    assert.deepEqual(
+      palace.mutaged_palaces?.map((item) => item.palace_index),
+      nativePalace.mutagedPlaces().map((item) => item?.index),
+      `${palace.name}宫干飞化目标不一致`,
+    );
+    assert.deepEqual(
+      palace.self_mutagens,
+      (['禄', '权', '科', '忌'] as const).filter((mutagen) => nativePalace.selfMutaged(mutagen)),
+      `${palace.name}自化不一致`,
+    );
+    assert.equal(palace.dynamic_scope_name, horoscope.yearly.palaceNames[palace.index]);
+    assert.equal(
+      palace.summary_tags.includes('有生年四化'),
+      (['禄', '权', '科', '忌'] as const).some((mutagen) => nativePalace.hasMutagen(mutagen)),
+      `${palace.name}生年四化标签未直接服从 iztro 宫位判定`,
+    );
+    assert.equal(
+      palace.summary_tags.includes('有当前运限四化'),
+      (['禄', '权', '科', '忌'] as const).some((mutagen) =>
+        horoscope.hasHoroscopeMutagen(
+          horoscope.yearly.palaceNames[palace.index] as never,
+          'yearly',
+          mutagen,
+        ),
+      ),
+      `${palace.name}运限四化标签未直接服从 iztro 运限判定`,
+    );
+    assert.deepEqual(
+      palace.scope_stars.map((star) => star.name),
+      (horoscope.yearly.stars?.[palace.index] ?? []).map((star) => star.name),
+      `${palace.name}流年星曜不一致`,
+    );
+  });
 });
 
 test('紫微大限时间轴应按农历年位移，春节前出生者不落入相邻流年', () => {

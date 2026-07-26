@@ -51,12 +51,12 @@
 | `bazhai_prompt`              | 八宅提示词   | 八宅排盘并返回含测量稳定性和证据边界的 AI 解读提示词                           |
 | `metaphysics_zodiac`         | 生肖流年     | 返回犯太岁、三合六合、五行关系和解释边界                                       |
 | `zodiac_prompt`              | 生肖提示词   | 生肖流年排盘并返回可直接用于 AI 解读的提示词                                   |
-| `metaphysics_taiyi`          | 太乙五计     | 按年、月、日、时、分五计的积数和阴阳遁返回七十二局式盘                         |
+| `metaphysics_taiyi`          | 太乙年计     | 按积年与阳遁七十二局立成返回年计式盘；月、日、时计完成古籍历法链校勘后再开放     |
 | `taiyi_prompt`               | 太乙提示词   | 太乙排盘并返回可直接用于 AI 解读的提示词                                       |
-| `metaphysics_qizheng`        | 七政四余     | 返回逐星来源、UTC上下文、坐标换算、宿度、紫炁模型、十二宫和精度分层            |
-| `qizheng_prompt`             | 七政提示词   | 返回含主证、辅证、模型差异和输入缺省限制的七政四余提示词                       |
+| `metaphysics_qizheng`        | 七政四余     | 传统宿度坐标链校勘期间失败关闭，不返回近似盘                                   |
+| `qizheng_prompt`             | 七政提示词   | 传统宿度坐标链校勘期间失败关闭，不生成近似盘提示词                             |
 
-七政四余相位保留实际夹角、精确角、偏差、容许度位置、紧密等级与精度分层，不返回由容许度位置重复换算的百分制强度。
+七政四余旧实现把角宿起点固定为黄经 0°，古距度表合计 366.5 度，且缺少经校勘的二十八宿距星边界。命身宫、十二宫、庙旺与吊照均受影响，因此完成传统坐标链校勘前不返回盘面。
 
 ## 工具选择指南
 
@@ -71,7 +71,7 @@
 5. 用户要从日期范围里选日子，调用 `almanac_prompt`；日期范围或参与人较多时使用分页参数。
 6. 用户提供一人的西方占星资料时调用 `astrolabe_prompt`；提供双方完整资料并询问关系时调用 `astrolabe_synastry_prompt`。
 7. 用户没有出生信息，只想要轻量启发、牌阵或签文时，用 `tarot_prompt`、`lenormand_prompt` 或 `ssgw_prompt`。
-8. 用户明确要求八宅、生肖犯太岁、太乙或七政四余时，使用对应的 `*_prompt` 工具；只要原始排盘则使用 `metaphysics_*`。
+8. 用户明确要求八宅、生肖犯太岁或太乙时，使用对应的 `*_prompt` 工具；只要原始排盘则使用 `metaphysics_*`。七政四余当前失败关闭。
 
 常见问题到工具：
 
@@ -84,7 +84,7 @@
 | 紫微宫位、四化、运限             | `ziwei_prompt`              | `promptTopic`、`promptScope`                                             |
 | 一事一问、短期成败、应期         | `liuyao_prompt`             | `question`、可选 `customDate`                                            |
 | 项目推进、方向、方位、谈判       | `qimen_prompt`              | `question`、可选 `qimenMethod`、`customDate`                             |
-| 临时小事快速判断                 | `xiaoliuren_prompt`         | `question`、可选 `xiaoliurenMethod`、`xiaoliurenSchool`、`xiaoliurenNumber` |
+| 临时小事快速判断                 | `xiaoliuren_prompt`         | `question`、可选 `xiaoliurenMethod: "time"`、`customDate` |
 | 时间或数字象意判断               | `meihua_prompt`             | `question`、可选 `method`、`number`、`customDate`                        |
 | 传统复杂事项推演                 | `liuren_prompt`             | `question`、可选 `liurenTemplate`、`customDate`                          |
 | 结婚、搬家、开业、签约、安葬择日 | `almanac_prompt`            | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize` |
@@ -179,7 +179,7 @@ npm run mcp
 
 ### 小六壬数字起课参数
 
-小六壬工具使用 `xiaoliurenMethod: "number"` 时，需要提供 `xiaoliurenNumber` 正整数。未提供时工具会返回参数错误；不传 `xiaoliurenMethod` 时默认按当前时间起课。`xiaoliurenSchool: "huashan"` 仅支持时间起课，并返回完整课象。
+小六壬工具当前只支持通行时间课；不传 `xiaoliurenMethod` 时默认按当前时间起课，也可用 `customDate` 指定时间。结果返回月、日、时顺数轨迹，以时宫为占得宫，并附歌诀和规则边界。
 
 ### 黄历择日参数
 
@@ -198,6 +198,8 @@ npm run mcp
 
 `bazi_ziwei_prompt` 工具使用同一份出生信息，同时计算八字和紫微斗数。它支持 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope`、`promptMode`、`baziSchool`、`ziweiSchool`，适合需要先用八字判断命局主线，再用紫微校验宫位、四化和运限的深度问题。
 
+紫微自定义格局表尚未逐条完成版本、卷页、原文与独立例盘校勘，因此 MCP 当前不返回格局命中，也不把空列表解释为命盘没有传统格局；十二宫、星曜、四化、三方四正和运限继续正常返回。
+
 ### 紫微 promptScope 参数
 
 `ziwei_calculate` 和 `ziwei_prompt` 默认只返回 `origin`（本命）范围。传入 `promptScope` 时会返回 `origin` 加指定范围。支持的值：`origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`。`full` 会返回并写入本命、大限、流年、流月、流日、流时资料。
@@ -210,7 +212,7 @@ npm run mcp
 
 ### 星盘参数
 
-星盘工具需要提供 `year`、`month`、`day`、`hour`、`minute`、`latitude`、`longitude`，并至少提供 `timezone` 或 `timeZoneId`。国际地点及历史日期推荐传 IANA 时区（如 `Asia/Shanghai`、`America/New_York`），以识别历史夏令时、回拨歧义和跳时缺口；同时传固定偏移时会保留冲突诊断。`gender` 使用 `男`、`女` 或空字符串，`locationName` 可选；可传 `useTrueSolarTime` 启用真太阳时校正。
+星盘工具需要提供 `year`、`month`、`day`、`hour`、`minute`、`latitude`、`longitude`，并至少提供 `timezone` 或 `timeZoneId`。国际地点及历史日期推荐传 IANA 时区（如 `Asia/Shanghai`、`America/New_York`），以识别历史夏令时、回拨歧义和跳时缺口；同时传固定偏移时会保留冲突诊断。`gender` 使用 `男`、`女` 或空字符串，`locationName` 可选；可传 `useTrueSolarTime` 附带真太阳时参考证据，但现代星历仍采用民用出生时间对应的真实 UTC 瞬间。
 
 西占双盘工具使用 `person1`、`person2` 分别传入上述星盘参数。结果中的跨盘相位、实际夹角、精确角、偏差、允许容许度、紧密等级和落宫属于可复核盘面事实；结果不返回百分制相位强度，避免被误读为关系概率、匹配率或吉凶百分比，也禁止把单一相位写成必然结果。
 

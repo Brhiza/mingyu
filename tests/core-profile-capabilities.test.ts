@@ -196,6 +196,10 @@ test('能力清单可序列化且返回副本', () => {
   assert.deepEqual(getSystemCapability('astrolabe')?.supports.birthTimeModes, [
     'precise-clock-time',
   ]);
+  const qizheng = getSystemCapability('qizheng');
+  assert.equal(qizheng?.available, false);
+  assert.equal(qizheng?.supports.trueSolarTime, false);
+  assert.deepEqual(qizheng?.outputs, ['明确失败信息', '独立紫炁均速研究函数']);
   for (const systemId of ['calendar.trueSolarBirth', 'bazi', 'ziwei', 'astrolabe']) {
     assert.ok(
       getSystemCapability(systemId)?.outputs.some((item) => item.includes('真太阳时结构化计算链')),
@@ -215,12 +219,18 @@ test('能力清单可序列化且返回副本', () => {
   assert.equal(first.version, packageJson.version, '能力清单版本必须与核心包版本一致');
 });
 
-test('小六壬随机起课支持统一种子与自定义随机源', () => {
+test('小六壬能力清单只公开可核验的时间起课', () => {
   const date = new Date('2026-07-11T08:00:00+08:00');
-  const first = generateXiaoliuren({ method: 'random', customDate: date, seed: '固定样例' });
-  const second = generateXiaoliuren({ method: 'random', customDate: date, seed: '固定样例' });
-  const custom = generateXiaoliuren({ method: 'random', customDate: date, random: () => 0 });
+  const result = generateXiaoliuren({ method: 'time', customDate: date });
+  const capability = getSystemCapability('xiaoliuren');
 
-  assert.deepEqual(first.sequence, second.sequence);
-  assert.equal(custom.sequence.start.name, '大安');
+  assert.deepEqual(
+    capability?.methods?.map((item) => item.value),
+    ['time'],
+  );
+  assert.equal(capability?.supports.seed, false);
+  assert.equal(capability?.supports.replay, false);
+  assert.equal(capability?.supports.customRandomSource, false);
+  assert.ok(capability?.outputs.includes('时宫主证'));
+  assert.equal(result.primary.name, result.sequence.hour.name);
 });

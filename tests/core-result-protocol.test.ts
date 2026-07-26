@@ -165,7 +165,7 @@ test('随机轨迹事实应区分可重放、轨迹缺失和不适用', () => {
   assert.match(notApplicable.promptText, /不依赖随机抽样/);
 });
 
-test('塔罗、雷诺曼、灵签、梅花和小六壬可由结果元数据完整重放', () => {
+test('塔罗、雷诺曼、灵签和梅花可由结果元数据完整重放', () => {
   const tarot = drawSpreadCards('three', { seed: '塔罗样例' });
   const tarotReplay = drawSpreadCards('three', { replay: tarot.meta.random?.samples });
   assert.deepEqual(tarotReplay.cards, tarot.cards);
@@ -190,19 +190,6 @@ test('塔罗、雷诺曼、灵签、梅花和小六壬可由结果元数据完�
   });
   assert.deepEqual(meihuaReplay.calculation, meihua.calculation);
   assert.equal(meihuaReplay.meta?.resultId, meihua.meta?.resultId);
-
-  const xiaoliuren = generateXiaoliuren({
-    method: 'random',
-    customDate: DATE,
-    seed: '小六壬样例',
-  });
-  const xiaoliurenReplay = generateXiaoliuren({
-    method: 'random',
-    customDate: DATE,
-    replay: xiaoliuren.meta?.random?.samples,
-  });
-  assert.deepEqual(xiaoliurenReplay.sequence, xiaoliuren.sequence);
-  assert.equal(xiaoliurenReplay.meta?.resultId, xiaoliuren.meta?.resultId);
 });
 
 test('六爻保留时间、手工和模拟三钱三种来源及逐币轨迹', () => {
@@ -294,7 +281,7 @@ test('六爻保留时间、手工和模拟三钱三种来源及逐币轨迹', ()
 test('非随机起法不得静默忽略随机设置', () => {
   assert.throws(() => generateMeihua(DATE, { method: 'time', seed: '不应忽略' }), /仅随机起卦接受/);
   assert.throws(
-    () => generateXiaoliuren({ method: 'number', number: 3, replay: [0.5] }),
-    /仅随机起课接受/,
+    () => generateXiaoliuren({ method: 'number' as never }),
+    /仅保留有明确顺数规则的时间起课/,
   );
 });

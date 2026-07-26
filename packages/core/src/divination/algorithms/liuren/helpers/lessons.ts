@@ -150,20 +150,11 @@ function assertValidResolveTransmissionInput(
 }
 
 export function buildLessonNote(relation: string, xunKong: string[], upper: string, lower: string) {
-  const xunKongTip =
-    xunKong.includes(upper) || xunKong.includes(lower) ? '本课触及旬空，落地会有延后。' : '';
-
-  if (relation === '比和') {
-    return ['内外同气，推进阻力相对可控。', xunKongTip].filter(Boolean).join('');
-  }
-  if (relation.includes('生')) {
-    return ['有承接与助推，但也要看后续是否跟得上。', xunKongTip].filter(Boolean).join('');
-  }
-  if (relation.includes('克')) {
-    return ['现实牵制较强，先处理冲突点更稳。', xunKongTip].filter(Boolean).join('');
-  }
-
-  return ['需结合全课继续判断。', xunKongTip].filter(Boolean).join('');
+  const voidFacts = [
+    xunKong.includes(upper) ? `上神${upper}落日柱旬空` : '',
+    xunKong.includes(lower) ? `下位${lower}落日柱旬空` : '',
+  ].filter(Boolean);
+  return [`上神${upper}与下位${lower}的五行关系为${relation}`, ...voidFacts].join('；') + '。';
 }
 
 export function buildFourLessons(args: {
@@ -225,18 +216,6 @@ function uniqueCandidatesByUpper(candidates: KeCandidate[]) {
     seen.add(candidate.lesson.upper);
     return true;
   });
-}
-
-function hasSameDayAndHourElement(context: ResolveTransmissionContext) {
-  if (!context.hourStem || !context.hourBranch) {
-    return false;
-  }
-  const dayStemElement = getGanZhiWuxing(context.dayStem);
-  const dayBranchElement = getGanZhiWuxing(context.dayBranch);
-  const hourStemElement = getGanZhiWuxing(context.hourStem);
-  const hourBranchElement = getGanZhiWuxing(context.hourBranch);
-
-  return dayStemElement === dayBranchElement && hourStemElement === hourBranchElement;
 }
 
 function getBranchAt(rawIndex: number) {
@@ -304,31 +283,23 @@ function pickByHarmDepth(candidates: KeCandidate[], context: ResolveTransmission
     depth: getHarmDepth(candidate, context),
     under: getUnderByUpper(context.heavenlyPlate, candidate.lesson.upper),
   }));
-  const meng = ranked
-    .filter((item) => MENG_BRANCHES.has(item.under))
-    .sort((a, b) => b.depth - a.depth || a.index - b.index)[0];
-  if (meng) {
-    return meng.candidate;
+  const maxDepth = Math.max(...ranked.map((item) => item.depth));
+  let tied = ranked.filter((item) => item.depth === maxDepth);
+
+  for (const branchGroup of [MENG_BRANCHES, ZHONG_BRANCHES, JI_BRANCHES]) {
+    const sameDepthGroup = tied.filter((item) => branchGroup.has(item.under));
+    if (sameDepthGroup.length === 1) {
+      return sameDepthGroup[0].candidate;
+    }
+    if (sameDepthGroup.length > 1) {
+      tied = sameDepthGroup;
+      break;
+    }
   }
 
-  const zhong = ranked
-    .filter((item) => ZHONG_BRANCHES.has(item.under))
-    .sort((a, b) => b.depth - a.depth || a.index - b.index)[0];
-  if (zhong) {
-    return zhong.candidate;
-  }
-
-  const ji = ranked
-    .filter((item) => JI_BRANCHES.has(item.under))
-    .sort((a, b) => b.depth - a.depth || a.index - b.index)[0];
-  if (ji) {
-    return ji.candidate;
-  }
-
-  const tied = ranked.sort((a, b) => b.depth - a.depth || a.index - b.index);
   const preferredUpper = YANG_STEMS.has(context.dayStem)
-    ? context.dayStemResidence
-    : context.dayBranch;
+    ? getUpperByUnder(context.heavenlyPlate, context.dayStemResidence)
+    : getUpperByUnder(context.heavenlyPlate, context.dayBranch);
   const picked =
     tied.find((item) => item.candidate.lesson.upper === preferredUpper)?.candidate ??
     tied[0]?.candidate;
@@ -341,7 +312,6 @@ function pickByHarmDepth(candidates: KeCandidate[], context: ResolveTransmission
 function resolveMultipleCandidates(
   candidates: KeCandidate[],
   context: ResolveTransmissionContext,
-  lessons: LiurenLesson[],
   tagPrefix = '',
 ): InitialTransmissionResult {
   const uniqueCandidates = uniqueCandidatesByUpper(candidates);
@@ -350,15 +320,6 @@ function resolveMultipleCandidates(
   );
 
   if (biYongCandidates.length === 1) {
-    const zhiYiVariant = pickZhiYiVariant(uniqueCandidates, biYongCandidates[0], context, lessons);
-    if (zhiYiVariant) {
-      return {
-        initial: zhiYiVariant.upper,
-        rule: tagPrefix ? `${tagPrefix}比用法` : '比用法',
-        tag: tagPrefix ? `${tagPrefix}知一` : '知一',
-      };
-    }
-
     const picked = biYongCandidates[0];
     return {
       initial: picked.lesson.upper,
@@ -379,29 +340,10 @@ function resolveMultipleCandidates(
   };
 }
 
-function pickZhiYiVariant(
-  uniqueCandidates: KeCandidate[],
-  sameYinYangCandidate: KeCandidate,
-  context: ResolveTransmissionContext,
-  lessons: LiurenLesson[],
-) {
-  if (
-    uniqueCandidates.length !== 2 ||
-    uniqueCandidates.some((candidate) => candidate.type !== '下贼上') ||
-    sameYinYangCandidate.index !== 0 ||
-    !hasSameDayAndHourElement(context)
-  ) {
-    return null;
-  }
-
-  return lessons[1];
-}
-
 function resolveKeCandidates(
   lowerKeUpper: KeCandidate[],
   upperKeLower: KeCandidate[],
   context: ResolveTransmissionContext,
-  lessons: LiurenLesson[],
   rulePrefix = '',
 ): InitialTransmissionResult | null {
   const uniqueLowerKeUpper = uniqueCandidatesByUpper(lowerKeUpper);
@@ -417,7 +359,7 @@ function resolveKeCandidates(
   }
 
   if (uniqueLowerKeUpper.length > 1) {
-    return resolveMultipleCandidates(uniqueLowerKeUpper, context, lessons, rulePrefix);
+    return resolveMultipleCandidates(uniqueLowerKeUpper, context, rulePrefix);
   }
 
   if (uniqueUpperKeLower.length === 1) {
@@ -430,7 +372,7 @@ function resolveKeCandidates(
   }
 
   if (uniqueUpperKeLower.length > 1) {
-    return resolveMultipleCandidates(uniqueUpperKeLower, context, lessons, rulePrefix);
+    return resolveMultipleCandidates(uniqueUpperKeLower, context, rulePrefix);
   }
 
   return null;
@@ -457,13 +399,13 @@ function resolveRemoteKe(
     return { initial: upperKeDay[0].lesson.upper, rule: '遥克法', tag: '蒿矢' };
   }
   if (upperKeDay.length > 1) {
-    return resolveMultipleCandidates(upperKeDay, context, lessons, '遥克');
+    return resolveMultipleCandidates(upperKeDay, context, '遥克');
   }
   if (dayKeUpper.length === 1) {
     return { initial: dayKeUpper[0].lesson.upper, rule: '遥克法', tag: '弹射' };
   }
   if (dayKeUpper.length > 1) {
-    return resolveMultipleCandidates(dayKeUpper, context, lessons, '遥克');
+    return resolveMultipleCandidates(dayKeUpper, context, '遥克');
   }
 
   return null;
@@ -495,9 +437,8 @@ function resolveFuyinTransmission(
 ): InitialTransmissionResult {
   const yiKeUpper = lessons[0].upper;
   const sanKeUpper = lessons[2].upper;
-  const isSelfResponsibility =
-    YANG_STEMS.has(context.dayStem) || context.dayStem === '乙' || context.dayStem === '癸';
-  const useDayStemSide = isSelfResponsibility;
+  const isYangDay = YANG_STEMS.has(context.dayStem);
+  const useDayStemSide = isYangDay || context.dayStem === '乙' || context.dayStem === '癸';
   const initial = useDayStemSide ? yiKeUpper : sanKeUpper;
   let middle = getPunishment(initial);
 
@@ -518,7 +459,7 @@ function resolveFuyinTransmission(
     initial,
     branches: [initial, middle, final],
     rule: '伏吟法',
-    tag: isSelfResponsibility ? '自任' : '自信',
+    tag: isYangDay ? '自任' : '自信',
   };
 }
 
@@ -538,7 +479,7 @@ function resolveFanyinTransmission(
       (lesson) =>
         ({ lesson, type: '上克下', index: lessons.indexOf(lesson) }) satisfies KeCandidate,
     );
-  const keResult = resolveKeCandidates(lowerKeUpper, upperKeLower, context, lessons, '返吟');
+  const keResult = resolveKeCandidates(lowerKeUpper, upperKeLower, context, '返吟');
   if (keResult) {
     return keResult;
   }
@@ -651,7 +592,7 @@ export function resolveInitialTransmission(
       (lesson) =>
         ({ lesson, type: '上克下', index: lessons.indexOf(lesson) }) satisfies KeCandidate,
     );
-  const keResult = resolveKeCandidates(lowerKeUpper, upperKeLower, context, lessons);
+  const keResult = resolveKeCandidates(lowerKeUpper, upperKeLower, context);
   if (keResult) {
     return keResult;
   }

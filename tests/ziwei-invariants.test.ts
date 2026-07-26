@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildAstrolabeFromInput, buildHoroscope } from '@core/ziwei/iztro';
+import {
+  buildAstrolabeFromInput,
+  buildHoroscope,
+  buildHoroscopeFromInput,
+} from '@core/ziwei/iztro';
+import type { ChartInput } from '../packages/core/src/types/chart';
 
 const PALACE_NAMES = [
   '命宫',
@@ -35,6 +40,54 @@ const MAJOR_STARS = [
   '破军',
 ] as const;
 const FIVE_ELEMENTS_CLASSES = ['水二局', '木三局', '金四局', '土五局', '火六局'];
+const BUREAU_NUMBERS: Record<string, number> = {
+  水二局: 2,
+  木三局: 3,
+  金四局: 4,
+  土五局: 5,
+  火六局: 6,
+};
+const HEAVENLY_STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+const MUTAGEN_TABLE: Record<string, [string, string, string, string]> = {
+  甲: ['廉贞', '破军', '武曲', '太阳'],
+  乙: ['天机', '天梁', '紫微', '太阴'],
+  丙: ['天同', '天机', '文昌', '廉贞'],
+  丁: ['太阴', '天同', '天机', '巨门'],
+  戊: ['贪狼', '太阴', '右弼', '天机'],
+  己: ['武曲', '贪狼', '天梁', '文曲'],
+  庚: ['太阳', '武曲', '太阴', '天同'],
+  辛: ['巨门', '太阳', '文曲', '文昌'],
+  壬: ['天梁', '紫微', '左辅', '武曲'],
+  癸: ['破军', '巨门', '太阴', '贪狼'],
+};
+
+function mod(value: number, divisor = 12) {
+  return ((value % divisor) + divisor) % divisor;
+}
+
+function expectedFiveElementsClass(stemIndex: number, branchIndex: number) {
+  const stemNumber = Math.floor(stemIndex / 2) + 1;
+  const branchNumber = Math.floor((branchIndex % 6) / 2) + 1;
+  const value = ((stemNumber + branchNumber - 1) % 5) + 1;
+  return ['木三局', '金四局', '水二局', '火六局', '土五局'][value - 1];
+}
+
+function expectedZiweiBranch(day: number, bureau: number) {
+  let offset = 0;
+  while ((day + offset) % bureau !== 0) offset += 1;
+  const quotient = (day + offset) / bureau;
+  const internalIndex = mod(quotient - 1 + (offset % 2 === 0 ? offset : -offset));
+  return EARTHLY_BRANCHES[mod(internalIndex + 2)];
+}
+
+function starBranch(
+  astrolabe: Awaited<ReturnType<typeof buildAstrolabeFromInput>>,
+  starName: string,
+) {
+  return astrolabe.palaces.find((palace) =>
+    [...palace.majorStars, ...palace.minorStars].some((star) => star.name === starName),
+  )?.earthlyBranch;
+}
 
 function sorted(values: readonly string[]) {
   return [...values].sort((left, right) => left.localeCompare(right, 'zh-CN'));
@@ -199,4 +252,131 @@ test('紫微连续排盘与行运调用不应反向改写既有结果', async ()
     }),
     signature,
   );
+});
+
+test('紫微默认安星应通过命身宫、五行局、十四主星与十干四化独立反算', async () => {
+  const timeIndexes = [0, 1, 6, 11];
+  let checkedCharts = 0;
+
+  for (let year = 1984; year <= 1993; year += 1) {
+    const yearStemIndex = mod(year - 4, 10);
+    const yearStem = HEAVENLY_STEMS[yearStemIndex];
+    const tigerStemIndex = mod((yearStemIndex % 5) * 2 + 2, 10);
+
+    for (let month = 1; month <= 12; month += 1) {
+      for (const day of [1, 13, 27]) {
+        for (const birthTimeIndex of timeIndexes) {
+          const astrolabe = await buildAstrolabeFromInput({
+            name: '独立反算',
+            dateType: 'lunar',
+            birthDate: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+            birthTimeIndex,
+            gender: '男',
+            isLeapMonth: false,
+            fixLeap: true,
+            algorithm: 'default',
+            yearDivide: 'normal',
+            horoscopeDivide: 'normal',
+            ageDivide: 'normal',
+            dayDivide: 'forward',
+          });
+          const label = `${year}年${month}月${day}日时辰${birthTimeIndex}`;
+          const soulInternalIndex = mod(month - 1 - birthTimeIndex);
+          const bodyInternalIndex = mod(month - 1 + birthTimeIndex);
+          const soulBranchIndex = mod(soulInternalIndex + 2);
+          const bodyBranchIndex = mod(bodyInternalIndex + 2);
+          const soulStemIndex = mod(tigerStemIndex + soulInternalIndex, 10);
+          const bureau = expectedFiveElementsClass(soulStemIndex, soulBranchIndex);
+          const bureauNumber = BUREAU_NUMBERS[bureau];
+
+          assert.equal(
+            astrolabe.earthlyBranchOfSoulPalace,
+            EARTHLY_BRANCHES[soulBranchIndex],
+            `${label}命宫反算不一致`,
+          );
+          assert.equal(
+            astrolabe.earthlyBranchOfBodyPalace,
+            EARTHLY_BRANCHES[bodyBranchIndex],
+            `${label}身宫反算不一致`,
+          );
+          assert.equal(astrolabe.fiveElementsClass, bureau, `${label}五行局反算不一致`);
+
+          const ziweiBranch = expectedZiweiBranch(day, bureauNumber);
+          const ziweiIndex = EARTHLY_BRANCHES.indexOf(ziweiBranch);
+          const tianfuIndex = mod(4 - ziweiIndex);
+          const expectedMajorStarBranches: Record<string, string> = {
+            紫微: ziweiBranch,
+            天机: EARTHLY_BRANCHES[mod(ziweiIndex - 1)],
+            太阳: EARTHLY_BRANCHES[mod(ziweiIndex - 3)],
+            武曲: EARTHLY_BRANCHES[mod(ziweiIndex - 4)],
+            天同: EARTHLY_BRANCHES[mod(ziweiIndex - 5)],
+            廉贞: EARTHLY_BRANCHES[mod(ziweiIndex - 8)],
+            天府: EARTHLY_BRANCHES[tianfuIndex],
+            太阴: EARTHLY_BRANCHES[mod(tianfuIndex + 1)],
+            贪狼: EARTHLY_BRANCHES[mod(tianfuIndex + 2)],
+            巨门: EARTHLY_BRANCHES[mod(tianfuIndex + 3)],
+            天相: EARTHLY_BRANCHES[mod(tianfuIndex + 4)],
+            天梁: EARTHLY_BRANCHES[mod(tianfuIndex + 5)],
+            七杀: EARTHLY_BRANCHES[mod(tianfuIndex + 6)],
+            破军: EARTHLY_BRANCHES[mod(tianfuIndex + 10)],
+          };
+          Object.entries(expectedMajorStarBranches).forEach(([star, branch]) => {
+            assert.equal(starBranch(astrolabe, star), branch, `${label}${star}反算不一致`);
+          });
+
+          const actualMutagens = new Map<string, string>();
+          astrolabe.palaces.forEach((palace) => {
+            [...palace.majorStars, ...palace.minorStars].forEach((star) => {
+              if (star.mutagen) actualMutagens.set(star.mutagen, star.name);
+            });
+          });
+          ['禄', '权', '科', '忌'].forEach((mutagen, index) => {
+            assert.equal(
+              actualMutagens.get(mutagen),
+              MUTAGEN_TABLE[yearStem][index],
+              `${label}生年化${mutagen}反算不一致`,
+            );
+          });
+          checkedCharts += 1;
+        }
+      }
+    }
+  }
+
+  assert.equal(checkedCharts, 1440);
+});
+
+test('紫微取运限时应恢复本盘配置，避免 iztro 全局设置串盘', async () => {
+  const defaultInput: ChartInput = {
+    name: '默认盘',
+    dateType: 'solar',
+    birthDate: '1998-08-13',
+    birthTimeIndex: 0,
+    gender: '女',
+    fixLeap: true,
+    algorithm: 'default',
+    yearDivide: 'normal',
+    horoscopeDivide: 'normal',
+    ageDivide: 'normal',
+    dayDivide: 'forward',
+  };
+  const astrolabe = await buildAstrolabeFromInput(defaultInput);
+
+  await buildAstrolabeFromInput({
+    ...defaultInput,
+    name: '另一口径',
+    algorithm: 'zhongzhou',
+    yearDivide: 'exact',
+    horoscopeDivide: 'exact',
+    ageDivide: 'birthday',
+    dayDivide: 'current',
+  });
+
+  const contaminated = buildHoroscope(astrolabe, '2024-02-06', 12);
+  const restored = await buildHoroscopeFromInput(astrolabe, defaultInput, '2024-02-06', 12);
+
+  assert.equal(contaminated.yearly.heavenlyStem, '甲');
+  assert.equal(contaminated.yearly.earthlyBranch, '辰');
+  assert.equal(restored.yearly.heavenlyStem, '癸');
+  assert.equal(restored.yearly.earthlyBranch, '卯');
 });
