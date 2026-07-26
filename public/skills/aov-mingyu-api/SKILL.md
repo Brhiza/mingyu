@@ -52,7 +52,7 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 
 - 有完整出生信息，且用户问人生、事业、财运、婚恋、亲子、健康、迁居、学习、考试、合作、近期趋势、某年某阶段走势：优先调用 `POST /bazi-ziwei/prompt`。这是深度解读的首选方案，用八字定主线，用紫微校验宫位、四化和运限。
 - 用户明确只要八字：调用 `POST /bazi/prompt`。长期或完整阶段分析用 `baziFortuneScope: "full"`；指定年份、月份、日期时用对应范围。
-- 用户明确只要紫微：调用 `POST /ziwei/prompt`。长期或完整阶段分析用 `promptScope: "full"`；指定年份、月份、日期时用 `yearly`、`monthly`、`daily` 或 `hourly`。
+- 用户明确只要紫微：调用 `POST /ziwei/prompt`。长期或完整阶段分析用 `promptScope: "full"`；指定年份、月份、日期时用 `yearly`、`monthly`、`daily` 或 `hourly`。除本命外必须同时提供 `ziweiScopeDate` 和 `ziweiScopeTimeIndex`。
 - 用户要求紫微合盘或双方宫位、四化互动证据：调用 `POST /ziwei/compatibility/prompt`；只要结构化数据时调用 `POST /ziwei/compatibility`。
 - 用户问一件事现在能不能成、要不要推进、对方态度、短期应期：优先用六爻 `POST /divination/liuyao/prompt`；涉及方位、项目路径、谈判、出行和时空窗口时优先用奇门 `POST /divination/qimen/prompt`。
 - 用户要从日期范围里挑日子：调用 `POST /divination/almanac/prompt`，日期多或参与人多时分页。
@@ -62,24 +62,24 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 
 问题到接口速查：
 
-| 问题类型                       | 首选接口                                     | 关键参数                                                                    |
-| ------------------------------ | -------------------------------------------- | --------------------------------------------------------------------------- |
-| 整体人生、长期事业、财运、婚恋 | `POST /bazi-ziwei/prompt`                    | `baziPromptTopic`、`ziweiPromptTopic`、`promptScope: "full"` 或 `"origin"`  |
-| 今年运势、当前阶段、某年趋势   | `POST /bazi-ziwei/prompt`                    | `promptScope: "yearly"`，主题按事业、财运、感情等选择                       |
-| 换工作、创业、合伙、投资       | `POST /bazi-ziwei/prompt`                    | `job-change`、`startup-partnership`、`investment-partnership`               |
-| 八字格局、用神、大运流年       | `POST /bazi/prompt`                          | `promptTopic`、`baziFortuneScope`                                           |
-| 紫微宫位、四化、运限           | `POST /ziwei/prompt`                         | `promptTopic`、`promptScope`                                                |
-| 一事一问、短期成败、应期       | `POST /divination/liuyao/prompt`             | `question`、可选 `customDate`                                               |
-| 项目推进、方向、方位、谈判     | `POST /divination/qimen/prompt`              | `question`、可选 `qimenMethod`、`customDate`                                |
-| 临时小事快速判断               | `POST /divination/xiaoliuren/prompt`         | `question`、可选 `xiaoliurenMethod`、`xiaoliurenSchool`、`xiaoliurenNumber` |
-| 时间或数字象意判断             | `POST /divination/meihua/prompt`             | `question`、可选 `method`、`number`、`customDate`                           |
-| 传统复杂事项推演               | `POST /divination/liuren/prompt`             | `question`、可选 `liurenTemplate`、`customDate`                             |
-| 结婚、搬家、开业、签约、安葬   | `POST /divination/almanac/prompt`            | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`    |
-| 星盘本命和行运                 | `POST /divination/astrolabe/prompt`          | 出生时间地点、经纬度、`astrolabeTopic`、`astrolabeScope`                    |
-| 西占双方关系、合作或婚恋互动   | `POST /divination/astrolabe/synastry/prompt` | `person1`、`person2` 分别提供完整出生时间、经纬度和时区                     |
-| 牌阵启发                       | `POST /divination/tarot/prompt`              | `spreadType`、`question`                                                    |
-| 雷诺曼关系或选择牌阵           | `POST /divination/lenormand/prompt`          | `spreadType`、`question`                                                    |
-| 求签                           | `POST /divination/ssgw/prompt`               | `question`                                                                  |
+| 问题类型                       | 首选接口                                     | 关键参数                                                                     |
+| ------------------------------ | -------------------------------------------- | ---------------------------------------------------------------------------- |
+| 整体人生、长期事业、财运、婚恋 | `POST /bazi-ziwei/prompt`                    | `origin` 无需行运目标；`full` 同时传 `ziweiScopeDate`、`ziweiScopeTimeIndex` |
+| 今年运势、当前阶段、某年趋势   | `POST /bazi-ziwei/prompt`                    | `promptScope: "yearly"`、`ziweiScopeDate`、`ziweiScopeTimeIndex`             |
+| 换工作、创业、合伙、投资       | `POST /bazi-ziwei/prompt`                    | `job-change`、`startup-partnership`、`investment-partnership`                |
+| 八字格局、用神、大运流年       | `POST /bazi/prompt`                          | `promptTopic`、`baziFortuneScope`                                            |
+| 紫微宫位、四化、运限           | `POST /ziwei/prompt`                         | `promptTopic`、非本命 `promptScope`、`ziweiScopeDate`、`ziweiScopeTimeIndex` |
+| 一事一问、短期成败、应期       | `POST /divination/liuyao/prompt`             | `question`、可选 `customDate`                                                |
+| 项目推进、方向、方位、谈判     | `POST /divination/qimen/prompt`              | `question`、可选 `qimenMethod`、`customDate`                                 |
+| 临时小事快速判断               | `POST /divination/xiaoliuren/prompt`         | `question`、可选 `xiaoliurenMethod`、`xiaoliurenSchool`、`xiaoliurenNumber`  |
+| 时间或数字象意判断             | `POST /divination/meihua/prompt`             | `question`、可选 `method`、`number`、`customDate`                            |
+| 传统复杂事项推演               | `POST /divination/liuren/prompt`             | `question`、可选 `liurenTemplate`、`customDate`                              |
+| 结婚、搬家、开业、签约、安葬   | `POST /divination/almanac/prompt`            | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`     |
+| 星盘本命和行运                 | `POST /divination/astrolabe/prompt`          | 出生时间地点、经纬度、`astrolabeTopic`、`astrolabeScope`                     |
+| 西占双方关系、合作或婚恋互动   | `POST /divination/astrolabe/synastry/prompt` | `person1`、`person2` 分别提供完整出生时间、经纬度和时区                      |
+| 牌阵启发                       | `POST /divination/tarot/prompt`              | `spreadType`、`question`                                                     |
+| 雷诺曼关系或选择牌阵           | `POST /divination/lenormand/prompt`          | `spreadType`、`question`                                                     |
+| 求签                           | `POST /divination/ssgw/prompt`               | `question`                                                                   |
 
 参数默认建议：
 
@@ -133,7 +133,7 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 - `POST /divination/astrolabe/synastry/prompt`：西占双盘计算并生成结构化证据提示词。
 - `POST /metaphysics/bazhai/calculate`、`POST /metaphysics/bazhai/prompt`：八宅排盘与提示词。
 - `POST /metaphysics/zodiac/calculate`、`POST /metaphysics/zodiac/prompt`：生肖犯太岁与流年提示词。
-- `POST /metaphysics/taiyi/calculate`、`POST /metaphysics/taiyi/prompt`：年家太乙七十二局排盘与提示词；当前不提供未完整复原的月、日、时家。
+- `POST /metaphysics/taiyi/calculate`、`POST /metaphysics/taiyi/prompt`：太乙年、月、日、时、分五计七十二局排盘与提示词。
 - `POST /metaphysics/qizheng/calculate`、`POST /metaphysics/qizheng/prompt`：七政四余排盘与提示词，紫炁采用《七政算内篇》古法均速模型。
 - `POST /ai/analyze`：AI 解读，返回 SSE 流式响应。
 - `POST /ai/models`：获取当前 AI 配置可用的模型列表。
@@ -177,7 +177,7 @@ curl -X POST https://aov.cc/api/v1/ziwei/prompt \
 ```bash
 curl -X POST https://aov.cc/api/v1/bazi-ziwei/prompt \
   -H "Content-Type: application/json" \
-  -d '{"name":"测试","gender":"female","dateType":"solar","year":1992,"month":8,"day":21,"timeIndex":4,"question":"我现在适合换工作还是继续等待？","baziPromptTopic":"job-change","ziweiPromptTopic":"job-change","promptScope":"yearly"}'
+  -d '{"name":"测试","gender":"female","dateType":"solar","year":1992,"month":8,"day":21,"timeIndex":4,"question":"我现在适合换工作还是继续等待？","baziPromptTopic":"job-change","ziweiPromptTopic":"job-change","promptScope":"yearly","ziweiScopeDate":"2028-06-12","ziweiScopeTimeIndex":4}'
 ```
 
 塔罗抽牌：
@@ -217,7 +217,7 @@ curl -X POST https://aov.cc/api/v1/bazi/prompt \
 ```bash
 curl -X POST https://aov.cc/api/v1/ziwei/prompt \
   -H "Content-Type: application/json" \
-  -d '{"gender":"female","dateType":"solar","year":"1992","month":"8","day":"21","timeIndex":4,"question":"2025年事业财运如何？","promptTopic":"career-wealth","promptScope":"yearly","school":"feixing"}'
+  -d '{"gender":"female","dateType":"solar","year":"1992","month":"8","day":"21","timeIndex":4,"question":"2025年事业财运如何？","promptTopic":"career-wealth","promptScope":"yearly","ziweiScopeDate":"2025-06-12","ziweiScopeTimeIndex":4,"school":"feixing"}'
 ```
 
 奇门飞盘法排盘：
@@ -323,11 +323,13 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 紫微 `promptTopic` 支持以下主题：
 `destiny`（命局）、`relationship`（感情）、`relationship-push`（感情推进）、`relationship-decision`（关系去留）、`career-wealth`（事业财运）、`job-change`（工作变动）、`startup-partnership`（创业合作）、`investment-partnership`（投资合作）、`recent`（近期趋势）、`family`（六亲家庭）、`home-move`（搬家置业）、`settle-relocate`（定居换城）、`social`（人际合作）、`emotion`（情绪心理）、`health`（健康养护）、`study`（学业成长）、`study-advance`（考证进修）、`exam-landing`（考试上岸）、`growth`（成长方向）、`talent`（天赋特质）、`reconciliation-decision`（复合判断）、`life`（人生解析）、`chat`（自由聊天）。
 
-紫微 `promptScope` 支持：`origin`（本命）、`full`（完整输出版）、`decadal`（大限）、`yearly`（流年）、`monthly`（流月）、`daily`（流日）、`hourly`（流时）、`age`（年龄）。公开 API 默认只返回 `origin`；请求传入 `promptScope` 时，会返回 `origin` 加指定范围，包含分析对象、落宫与四化信息；`full` 会返回并写入本命、大限、流年、流月、流日、流时资料。
+紫微 `promptScope` 支持：`origin`（本命）、`full`（完整输出版）、`decadal`（大限）、`yearly`（流年）、`monthly`（流月）、`daily`（流日）、`hourly`（流时）、`age`（年龄）。公开 API 默认只返回 `origin`；除 `origin` 外必须同时提供 `ziweiScopeDate`（`YYYY-MM-DD`）和 `ziweiScopeTimeIndex`（0-12），不会读取系统当前日期或时辰补齐。`full` 会按该目标时刻返回并写入本命、大限、流年、流月、流日、流时资料。
 
 紫微排盘结果以 `payloadByScope.origin.palaces` 为主结构；接口同时提供 `四化`、`fourMutagens`、`birthMutagens` 和 `gongList`，方便 agent 直接读取生年四化和十二宫星曜。
 
-八字紫微合参 `/bazi-ziwei/prompt` 使用同一份出生信息，支持 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope`、`promptMode`、`baziSchool`、`ziweiSchool`、`responseMode`。默认返回 `data.resultSummary.bazi`、`data.resultSummary.ziwei` 和 `data.prompt`；需要完整双盘时传 `responseMode: "full"`。
+八字紫微合参 `/bazi-ziwei/prompt` 使用同一份出生信息，支持 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope`、`ziweiScopeDate`、`ziweiScopeTimeIndex`、`promptMode`、`baziSchool`、`ziweiSchool`、`responseMode`。默认返回 `data.resultSummary.bazi`、`data.resultSummary.ziwei` 和 `data.prompt`；需要完整双盘时传 `responseMode: "full"`。非本命紫微范围同样必须提供明确目标日期和时辰。
+
+生肖流年接口必须在 `year` 与 `yearGanZhi` 中至少提供一项，不会默认使用系统当前年份。七政四余接口必须提供真实 `latitude`、`longitude`，并在 `timezone` 与 `timeZoneId` 中至少提供一项；不会默认使用北京坐标或东八区。
 
 `promptMode` 支持：`framework`（内置完整框架，默认）、`custom`（只围绕用户问题自由作答，不塞框架）。
 

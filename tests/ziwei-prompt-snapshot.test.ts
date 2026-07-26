@@ -9,10 +9,7 @@ import { buildEvidenceAnalysis, buildEvidencePool, buildPatternAnalysis } from '
 import { buildEvidenceSummary, buildPalaceSummary } from '../src/lib/ziwei-prompts/builders';
 import { buildZiweiReadableSnapshot } from '../src/lib/ziwei-prompts/snapshot';
 import type { PromptContext } from '../src/lib/ziwei-prompts/types';
-import {
-  assertPromptCurrentTimeHasGanzhiCalendar,
-  assertPromptHasSingleRole,
-} from './prompt-assertions';
+import { assertPromptHasSingleRole } from './prompt-assertions';
 import type { AnalysisPayloadV1, PalaceFact } from '../src/types/analysis';
 import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../src/lib/prompt-guidance';
 
@@ -345,7 +342,7 @@ test('紫微运限提示词应保留分析对象和简短任务', () => {
 
   assert.match(prompt, /【本命资料】/);
   assert.match(prompt, /【分析对象】/);
-  assertPromptCurrentTimeHasGanzhiCalendar(prompt);
+  assert.doesNotMatch(prompt, /【当前时间】/);
   assert.match(prompt, /【运限重点】/);
   assert.doesNotMatch(prompt, /【运限资料】/);
   assert.doesNotMatch(prompt, /【十二宫资料】/);

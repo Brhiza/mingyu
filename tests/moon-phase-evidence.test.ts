@@ -142,6 +142,8 @@ test('奇门和七政四余应携带月相证据且不将其解释为吉凶', ()
     day: 9,
     hour: 2,
     minute: 21,
+    latitude: 31.23,
+    longitude: 121.47,
     timezone: 8,
   });
 

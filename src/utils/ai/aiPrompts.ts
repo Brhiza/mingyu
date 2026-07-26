@@ -5,7 +5,6 @@ import {
   getBaziCompatibilityDefaultQuestion,
   getBaziDefaultQuestion,
 } from '../../lib/prompt-default-questions';
-import { formatPromptCurrentTime } from '../../lib/prompt-time';
 import { generateEnhancedAnalysisSection } from '@core/bazi/baziPromptEnhancement';
 import { analyzeBaziCompatibility } from '@core/bazi/compatibilityEvidence';
 import { buildPromptGuidanceSections } from '../../lib/prompt-guidance';
@@ -314,7 +313,6 @@ export function buildPromptFromConfig(
       user: appendTraditionalResearchNotice(
         joinPromptSections([
           buildPromptGuidanceSections('bazi'),
-          buildPromptSection('当前时间', formatPromptCurrentTime()),
           buildPromptSection('排盘信息', [chartData, enhancedSection].filter(Boolean).join('\n')),
           hasFullFortuneOutput
             ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
@@ -347,7 +345,6 @@ export function buildPromptFromConfig(
     user: appendTraditionalResearchNotice(
       joinPromptSections([
         buildPromptGuidanceSections('bazi'),
-        buildPromptSection('当前时间', formatPromptCurrentTime()),
         buildPromptSection('排盘信息', chartData),
         hasFullFortuneOutput
           ? buildPromptSection('分析对象', buildBaziFullAnalysisObjectSection())
@@ -433,7 +430,6 @@ export function getCompatibilityPrompt(
     user: appendTraditionalResearchNotice(
       joinPromptSections([
         buildPromptGuidanceSections('bazi-compatibility'),
-        buildPromptSection('当前时间', formatPromptCurrentTime()),
         buildPromptSection('第一人排盘信息', data1),
         buildPromptSection('第二人排盘信息', data2),
         buildPromptSection('双盘关系资料', compatibilityEvidence),

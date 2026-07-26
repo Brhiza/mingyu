@@ -15,16 +15,27 @@ const qiZhengSchema = z.object({
   day: z.number().int().min(1).max(31).describe('日'),
   hour: z.number().int().min(0).max(23).describe('时'),
   minute: z.number().int().min(0).max(59).optional().describe('分'),
-  latitude: z.number().min(-90).max(90).optional().describe('纬度（默认北京）'),
-  longitude: z.number().min(-180).max(180).optional().describe('经度（默认北京）'),
+  latitude: z.number().min(-90).max(90).describe('出生地纬度'),
+  longitude: z.number().min(-180).max(180).describe('出生地经度'),
   useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时仅校正传统命身十二宫'),
-  timezone: z.number().min(-12).max(14).optional().describe('时区偏移（默认 +8）'),
+  timezone: z
+    .number()
+    .min(-12)
+    .max(14)
+    .optional()
+    .describe('固定时区偏移；与 timeZoneId 至少提供一项'),
   timeZoneId: z
     .string()
     .optional()
     .describe('IANA 历史时区，例如 Asia/Shanghai；提供后会自动解析当年的夏令时'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
+
+function assertQizhengTimezone(input: z.infer<typeof qiZhengSchema>) {
+  if (input.timezone === undefined && !input.timeZoneId?.trim()) {
+    throw new Error('timezone 与 timeZoneId 至少需要提供一项。');
+  }
+}
 
 export function registerQizhengTool(server: McpServer) {
   server.registerTool(
@@ -37,14 +48,15 @@ export function registerQizhengTool(server: McpServer) {
     },
     async (args) => {
       try {
+        assertQizhengTimezone(args);
         const result = qizheng.generateQizheng({
           year: args.year,
           month: args.month,
           day: args.day,
           hour: args.hour,
           minute: args.minute ?? 0,
-          ...(args.latitude !== undefined ? { latitude: args.latitude } : {}),
-          ...(args.longitude !== undefined ? { longitude: args.longitude } : {}),
+          latitude: args.latitude,
+          longitude: args.longitude,
           ...(args.timezone !== undefined ? { timezone: args.timezone } : {}),
           ...(args.timeZoneId ? { timeZoneId: args.timeZoneId } : {}),
           ...(args.useTrueSolarTime !== undefined
@@ -67,14 +79,15 @@ export function registerQizhengTool(server: McpServer) {
     },
     async (args) => {
       try {
+        assertQizhengTimezone(args);
         const result = qizheng.generateQizheng({
           year: args.year,
           month: args.month,
           day: args.day,
           hour: args.hour,
           minute: args.minute ?? 0,
-          ...(args.latitude !== undefined ? { latitude: args.latitude } : {}),
-          ...(args.longitude !== undefined ? { longitude: args.longitude } : {}),
+          latitude: args.latitude,
+          longitude: args.longitude,
           ...(args.timezone !== undefined ? { timezone: args.timezone } : {}),
           ...(args.timeZoneId ? { timeZoneId: args.timeZoneId } : {}),
           ...(args.useTrueSolarTime !== undefined

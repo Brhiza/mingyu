@@ -12,7 +12,13 @@ import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
 
 const zodiacSchema = z.object({
   zodiac: z.string().describe('生肖或地支，如「鼠」或「子」'),
-  year: z.number().int().min(1900).max(2200).optional().describe('公元年（默认今年）'),
+  year: z
+    .number()
+    .int()
+    .min(1900)
+    .max(2200)
+    .optional()
+    .describe('公元年；与 yearGanZhi 至少提供一项'),
   yearGanZhi: z
     .string()
     .refine(isValidGanZhi, 'yearGanZhi 必须是有效的六十甲子')
@@ -20,6 +26,12 @@ const zodiacSchema = z.object({
     .describe('直接给定流年干支，如「甲辰」'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
+
+function assertZodiacYear(input: z.infer<typeof zodiacSchema>) {
+  if (input.year === undefined && !input.yearGanZhi) {
+    throw new Error('year 与 yearGanZhi 至少需要提供一项。');
+  }
+}
 
 function resolveZodiacBranch(z: string): string {
   if ((EARTHLY_BRANCHES as readonly string[]).includes(z)) return z;
@@ -39,10 +51,9 @@ export function registerZodiacTool(server: McpServer) {
     },
     async (args) => {
       try {
+        assertZodiacYear(args);
         const branch = resolveZodiacBranch(args.zodiac);
-        const yearGanZhi =
-          args.yearGanZhi ||
-          getGanZhiFromDate(new Date(args.year ?? new Date().getFullYear(), 1, 10)).year;
+        const yearGanZhi = args.yearGanZhi || getGanZhiFromDate(new Date(args.year!, 1, 10)).year;
         const result = zodiac.getZodiacYearFortune(branch, yearGanZhi);
         return createStructuredToolResult({ result });
       } catch (error) {
@@ -60,10 +71,9 @@ export function registerZodiacTool(server: McpServer) {
     },
     async (args) => {
       try {
+        assertZodiacYear(args);
         const branch = resolveZodiacBranch(args.zodiac);
-        const yearGanZhi =
-          args.yearGanZhi ||
-          getGanZhiFromDate(new Date(args.year ?? new Date().getFullYear(), 1, 10)).year;
+        const yearGanZhi = args.yearGanZhi || getGanZhiFromDate(new Date(args.year!, 1, 10)).year;
         const result = zodiac.getZodiacYearFortune(branch, yearGanZhi);
         return createStructuredToolResult({
           result,

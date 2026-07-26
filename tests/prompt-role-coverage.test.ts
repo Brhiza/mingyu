@@ -65,12 +65,12 @@ test('八宅、住宅风水、生肖、太乙、七政与玄空提示词使用�
   methods.forEach((method) => {
     const prompt = buildMetaphysicsPrompt('【排盘信息】\n测试盘面', '请解读重点。', {
       method,
-      currentTime: new Date('2026-07-16T12:00:00+08:00'),
     });
 
     assertPromptHasSingleRole(prompt, PROMPT_GUIDANCE_TEXT[method]);
     assert.match(prompt, /【问题】\n请解读重点。/);
     assert.match(prompt, /【传统判断规则】/);
     assert.match(prompt, /【传统依据】/);
+    assert.doesNotMatch(prompt, /【当前时间】/);
   });
 });

@@ -1131,9 +1131,12 @@ export function getPublicApiOpenApiDocument(
               type: 'integer',
               minimum: 1900,
               maximum: 2200,
-              description: '公元年（默认今年）',
+              description: '公元年；生肖流年中与 yearGanZhi 至少提供一项。',
             },
-            yearGanZhi: { type: 'string', description: '直接给定流年干支，如「甲辰」（生肖运程）' },
+            yearGanZhi: {
+              type: 'string',
+              description: '直接给定流年干支，如「甲辰」；与 year 至少提供一项（生肖运程）。',
+            },
             scope: {
               enum: ['year', 'month', 'day', 'hour', 'minute'],
               description: '太乙计式：年计、月计、日计、时计或分计',
@@ -1147,19 +1150,23 @@ export function getPublicApiOpenApiDocument(
               type: 'number',
               minimum: -90,
               maximum: 90,
-              description: '纬度（七政四余）',
+              description: '出生地纬度；七政四余必填。',
             },
             longitude: {
               type: 'number',
               minimum: -180,
               maximum: 180,
-              description: '经度（七政四余）',
+              description: '出生地经度；七政四余必填。',
             },
             timezone: {
               type: 'number',
               minimum: -12,
               maximum: 14,
-              description: '时区偏移（七政四余）',
+              description: '固定时区偏移；七政四余中与 timeZoneId 至少提供一项。',
+            },
+            timeZoneId: {
+              type: 'string',
+              description: 'IANA 时区名；七政四余中与 timezone 至少提供一项。',
             },
             question: { type: 'string', description: '解读问题（prompt 端点）' },
             promptMode: { type: 'string', description: '提示词模式（prompt 端点）' },
@@ -1249,6 +1256,17 @@ export function getPublicApiOpenApiDocument(
               description:
                 '可选。默认只返回本命范围；传入后会额外返回指定分析范围；full 会返回本命、大限、流年、流月、流日、流时。',
             },
+            ziweiScopeDate: {
+              type: 'string',
+              pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+              description: '行运目标公历日期；选择非本命范围时必填，格式 YYYY-MM-DD。',
+            },
+            ziweiScopeTimeIndex: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 12,
+              description: '行运目标时辰索引；选择非本命范围时必填。',
+            },
             isLeapMonth: { type: 'boolean' },
             useTrueSolarTime: { type: 'boolean' },
             birthHour: { type: 'string' },
@@ -1269,7 +1287,11 @@ export function getPublicApiOpenApiDocument(
                   maxLength: MAX_PUBLIC_API_TEXT_FIELD_LENGTH,
                 },
                 promptTopic: { enum: [...ZIWEI_PROMPT_TOPICS] },
-                promptScope: { enum: [...ZIWEI_PROMPT_SCOPES] },
+                promptScope: {
+                  enum: [...ZIWEI_PROMPT_SCOPES],
+                  description:
+                    '选择非本命范围时必须同时提供 ziweiScopeDate 和 ziweiScopeTimeIndex。',
+                },
                 promptMode: { enum: [...PROMPT_MODES] },
                 responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
                 school: {
@@ -1324,7 +1346,22 @@ export function getPublicApiOpenApiDocument(
                   enum: [...ZIWEI_PROMPT_TOPICS],
                   description: '紫微侧分析主题；不传时使用 life。',
                 },
-                promptScope: { enum: [...ZIWEI_PROMPT_SCOPES] },
+                promptScope: {
+                  enum: [...ZIWEI_PROMPT_SCOPES],
+                  description:
+                    '选择非本命范围时必须同时提供 ziweiScopeDate 和 ziweiScopeTimeIndex。',
+                },
+                ziweiScopeDate: {
+                  type: 'string',
+                  pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+                  description: '紫微行运目标公历日期；选择非本命范围时必填。',
+                },
+                ziweiScopeTimeIndex: {
+                  type: 'integer',
+                  minimum: 0,
+                  maximum: 12,
+                  description: '紫微行运目标时辰索引；选择非本命范围时必填。',
+                },
                 promptMode: { enum: [...PROMPT_MODES] },
                 responseMode: DIVINATION_REQUEST_PROPERTIES.responseMode,
                 baziSchool: {
@@ -1910,9 +1947,12 @@ function calculateZodiacApi(input: JsonRecord) {
   if (yearGanZhi && !isValidGanZhi(yearGanZhi)) {
     throw new ApiError(400, 'BAD_REQUEST', `yearGanZhi 不是有效的六十甲子：${yearGanZhi}。`);
   }
-  const year = readInteger(input, 'year', 1900, 2200, new Date().getFullYear());
+  if (!yearGanZhi && input.year === undefined) {
+    throw new ApiError(400, 'BAD_REQUEST', 'year 与 yearGanZhi 至少需要提供一项。');
+  }
+  const year = yearGanZhi ? undefined : readInteger(input, 'year', 1900, 2200);
   // 以"立春"为年界：取 2 月 10 日（必在立春之后）推算流年干支，避免 2/4 凌晨尚属上一干支年的误差
-  const gz = yearGanZhi || getGanZhiFromDate(new Date(year, 1, 10)).year;
+  const gz = yearGanZhi || getGanZhiFromDate(new Date(year!, 1, 10)).year;
   return zodiac.getZodiacYearFortune(zodiacBranch, gz);
 }
 
@@ -1976,11 +2016,14 @@ function calculateQizhengApi(input: JsonRecord) {
   const hour = readInteger(input, 'hour', 0, 23);
   const minute = optInt(input, 'minute', 0, 59) ?? 0;
   buildSolarDate(year, month, day, hour, minute);
-  const latitude = optNumber(input, 'latitude', -90, 90);
-  const longitude = optNumber(input, 'longitude', -180, 180);
+  const latitude = readNumber(input, 'latitude', -90, 90);
+  const longitude = readNumber(input, 'longitude', -180, 180);
   const timezone = optNumber(input, 'timezone', -12, 14);
   const timeZoneId =
     input.timeZoneId === undefined ? undefined : readString(input, 'timeZoneId', '');
+  if (timezone === undefined && !timeZoneId) {
+    throw new ApiError(400, 'BAD_REQUEST', 'timezone 与 timeZoneId 至少需要提供一项。');
+  }
   const useTrueSolarTime = readBoolean(input, 'useTrueSolarTime', false);
   return qizheng.generateQizheng({
     year,
@@ -1988,8 +2031,8 @@ function calculateQizhengApi(input: JsonRecord) {
     day,
     hour,
     minute,
-    ...(latitude !== undefined ? { latitude } : {}),
-    ...(longitude !== undefined ? { longitude } : {}),
+    latitude,
+    longitude,
     ...(timezone !== undefined ? { timezone } : {}),
     ...(timeZoneId ? { timeZoneId } : {}),
     ...(useTrueSolarTime ? { useTrueSolarTime: true } : {}),
@@ -2353,6 +2396,13 @@ async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['
         birthMinute: readString(input, 'birthMinute', ''),
         birthLongitude: readString(input, 'birthLongitude', ''),
       };
+  const needsHoroscopeContext = scopes.some((scope) => scope !== 'origin');
+  const horoscopeContext = needsHoroscopeContext
+    ? {
+        dateStr: readRequiredString(input, 'ziweiScopeDate'),
+        hourIndex: readInteger(input, 'ziweiScopeTimeIndex', 0, 12),
+      }
+    : undefined;
   return calculatePublicZiweiChartForScopes(
     buildZiweiChartInput({
       name: readString(input, 'name', ''),
@@ -2369,6 +2419,7 @@ async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['
       birthLongitude: timeInput.birthLongitude,
     }),
     Array.from(new Set(['origin' as ScopeType, ...scopes])),
+    horoscopeContext,
   );
 }
 
@@ -3022,9 +3073,6 @@ function buildPromptApiResult(params: {
 }
 
 function buildCompactBaziResult(result: BaziChartResult) {
-  const currentYear = new Date().getFullYear();
-  const currentLiunian = result.liunian?.find((item) => item.year === currentYear);
-
   return {
     gender: result.gender,
     solarDate: result.solarDate,
@@ -3068,7 +3116,6 @@ function buildCompactBaziResult(result: BaziChartResult) {
         endSolarTime: cycle.endSolarTime,
       })),
     },
-    currentLiunian,
     warnings: result.warnings,
     warningFacts: result.warningFacts,
     warningSummaryFact: result.warningSummaryFact,

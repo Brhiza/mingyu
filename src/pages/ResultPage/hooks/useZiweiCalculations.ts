@@ -16,7 +16,7 @@ async function runZiweiMainThread(
 ): Promise<void> {
   try {
     // skipAnalysis=true：不在主线程计算证据池和格局检测，仅生成展示所需的基础数据
-    const runtime = await calculateFullZiweiChart(input, true);
+    const runtime = await calculateFullZiweiChart(input, getDefaultHoroscopeContext(), true);
     onSuccess(runtime);
   } catch (error) {
     onError(error instanceof Error ? error.message : '紫微排盘失败。');
@@ -129,6 +129,7 @@ export function useZiweiCalculations(
 
     return createPayloadWorker(
       primaryZiweiInput,
+      getDefaultHoroscopeContext(),
       `${Date.now()}-primary`,
       (payloadByScope) => {
         setZiweiPayloadByScope(payloadByScope);
@@ -160,6 +161,7 @@ export function useZiweiCalculations(
 
     return createPayloadWorker(
       partnerZiweiInput,
+      getDefaultHoroscopeContext(),
       `${Date.now()}-partner`,
       (payloadByScope) => {
         setPartnerZiweiPayloadByScope(payloadByScope);
@@ -206,6 +208,7 @@ export function useZiweiCalculations(
           // 异步后台 worker 计算完整版（含证据池和格局检测），不阻塞主线程
           cleanupBackgroundWorker = createPayloadWorker(
             primaryZiweiInput,
+            getDefaultHoroscopeContext(),
             `${Date.now()}-bg-primary`,
             (fullPayloadByScope) => {
               if (!cancelled) {
@@ -258,6 +261,7 @@ export function useZiweiCalculations(
 
           cleanupBackgroundWorker = createPayloadWorker(
             partnerZiweiInput,
+            getDefaultHoroscopeContext(),
             `${Date.now()}-bg-partner`,
             (fullPayloadByScope) => {
               if (!cancelled) {

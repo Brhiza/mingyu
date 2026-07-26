@@ -1,4 +1,4 @@
-export type { ZiweiRuntime } from './ziwei';
+export type { ZiweiHoroscopeContext, ZiweiRuntime } from './ziwei';
 export { buildPersonFromInput, calculateFullBaziChart } from './bazi';
 export {
   buildZiweiPayloadByScope,

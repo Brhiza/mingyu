@@ -1,11 +1,9 @@
-import { formatPromptCurrentTime } from './prompt-time';
 import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 import { buildPromptGuidanceSections, type MetaphysicsPromptMethod } from './prompt-guidance';
 
 export interface MetaphysicsPromptOptions {
   method: MetaphysicsPromptMethod;
   measurement?: string;
-  currentTime?: Date;
   context?: PromptRealWorldContext;
 }
 
@@ -55,9 +53,6 @@ export function buildMetaphysicsPrompt(
   return appendTraditionalResearchNotice(
     [
       buildPromptGuidanceSections(options.method),
-      '',
-      '【当前时间】',
-      formatPromptCurrentTime(options.currentTime),
       '',
       basePrompt,
       ...(options.measurement ? ['', '【测量换算】', options.measurement] : []),

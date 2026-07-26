@@ -54,7 +54,7 @@
 | `metaphysics_taiyi`          | 太乙五计     | 按年、月、日、时、分五计的积数和阴阳遁返回七十二局式盘                         |
 | `taiyi_prompt`               | 太乙提示词   | 太乙排盘并返回可直接用于 AI 解读的提示词                                       |
 | `metaphysics_qizheng`        | 七政四余     | 返回逐星来源、UTC上下文、坐标换算、宿度、紫炁模型、十二宫和精度分层            |
-| `qizheng_prompt`             | 七政提示词   | 返回含主证、辅证、模型差异和输入缺省限制的七政四余提示词                       |
+| `qizheng_prompt`             | 七政提示词   | 返回含主证、辅证、模型差异和时空输入边界的七政四余提示词                       |
 
 七政四余相位保留实际夹角、精确角、偏差、容许度位置、紧密等级与精度分层，不返回由容许度位置重复换算的百分制强度。
 
@@ -66,7 +66,7 @@
 
 1. 用户提供完整出生信息，并询问人生、事业、财运、婚恋、亲子、健康、迁居、学习、考试、合作、近期趋势或某一年某阶段走势时，优先调用 `bazi_ziwei_prompt`。这是深度解读首选工具，用八字定主线，用紫微校验宫位、四化、三方四正和运限。
 2. 用户明确只看单人八字时调用 `bazi_prompt`；询问两人婚恋、合作或亲属互动时调用 `bazi_compatibility_prompt`；长期或完整阶段分析优先传 `baziFortuneScope: "full"`。出生时间由输入约束保证符合排盘要求，不基于模糊时间范围继续排盘。
-3. 用户明确只看紫微时，调用 `ziwei_prompt`；长期或完整阶段分析优先传 `promptScope: "full"`。
+3. 用户明确只看紫微时，调用 `ziwei_prompt`；长期或完整阶段分析优先传 `promptScope: "full"`。除本命外还必须明确传入 `ziweiScopeDate` 和 `ziweiScopeTimeIndex`。
 4. 用户问单件事情当前能否推进、对方态度、短期成败或应期，优先调用 `liuyao_prompt`；涉及项目路径、方位、谈判、出行和时空窗口时，优先调用 `qimen_prompt`。
 5. 用户要从日期范围里选日子，调用 `almanac_prompt`；日期范围或参与人较多时使用分页参数。
 6. 用户提供一人的西方占星资料时调用 `astrolabe_prompt`；提供双方完整资料并询问关系时调用 `astrolabe_synastry_prompt`。
@@ -75,24 +75,24 @@
 
 常见问题到工具：
 
-| 用户问题类型                     | 首选工具                    | 推荐参数                                                                    |
-| -------------------------------- | --------------------------- | --------------------------------------------------------------------------- |
-| 整体人生、长期事业、财运、婚恋   | `bazi_ziwei_prompt`         | `baziPromptTopic`、`ziweiPromptTopic`、`promptScope: "full"` 或 `origin`    |
-| 今年运势、当前阶段、某年趋势     | `bazi_ziwei_prompt`         | `promptScope: "yearly"`，主题按事业、财运、感情等选择                       |
-| 换工作、创业、合伙、投资         | `bazi_ziwei_prompt`         | `job-change`、`startup-partnership`、`investment-partnership`               |
-| 八字格局、用神、大运流年         | `bazi_prompt`               | `promptTopic`、`baziFortuneScope`                                           |
-| 紫微宫位、四化、运限             | `ziwei_prompt`              | `promptTopic`、`promptScope`                                                |
-| 一事一问、短期成败、应期         | `liuyao_prompt`             | `question`、可选 `customDate`                                               |
-| 项目推进、方向、方位、谈判       | `qimen_prompt`              | `question`、可选 `qimenMethod`、`customDate`                                |
-| 临时小事快速判断                 | `xiaoliuren_prompt`         | `question`、可选 `xiaoliurenMethod`、`xiaoliurenSchool`、`xiaoliurenNumber` |
-| 时间或数字象意判断               | `meihua_prompt`             | `question`、可选 `method`、`number`、`customDate`                           |
-| 传统复杂事项推演                 | `liuren_prompt`             | `question`、可选 `liurenTemplate`、`customDate`                             |
-| 结婚、搬家、开业、签约、安葬择日 | `almanac_prompt`            | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`    |
-| 星盘本命和行运                   | `astrolabe_prompt`          | 出生时间地点、经纬度、`astrolabeTopic`、`astrolabeScope`                    |
-| 西占双方关系、合作或婚恋互动     | `astrolabe_synastry_prompt` | `person1`、`person2` 分别提供完整出生时间、经纬度和时区                     |
-| 牌阵启发                         | `tarot_prompt`              | `spreadType`、`question`                                                    |
-| 雷诺曼关系或选择牌阵             | `lenormand_prompt`          | `spreadType`、`question`                                                    |
-| 求签                             | `ssgw_prompt`               | `question`                                                                  |
+| 用户问题类型                     | 首选工具                    | 推荐参数                                                                     |
+| -------------------------------- | --------------------------- | ---------------------------------------------------------------------------- |
+| 整体人生、长期事业、财运、婚恋   | `bazi_ziwei_prompt`         | `origin` 无需行运目标；`full` 同时传 `ziweiScopeDate`、`ziweiScopeTimeIndex` |
+| 今年运势、当前阶段、某年趋势     | `bazi_ziwei_prompt`         | `promptScope: "yearly"`、`ziweiScopeDate`、`ziweiScopeTimeIndex`             |
+| 换工作、创业、合伙、投资         | `bazi_ziwei_prompt`         | `job-change`、`startup-partnership`、`investment-partnership`                |
+| 八字格局、用神、大运流年         | `bazi_prompt`               | `promptTopic`、`baziFortuneScope`                                            |
+| 紫微宫位、四化、运限             | `ziwei_prompt`              | `promptTopic`、非本命 `promptScope`、`ziweiScopeDate`、`ziweiScopeTimeIndex` |
+| 一事一问、短期成败、应期         | `liuyao_prompt`             | `question`、可选 `customDate`                                                |
+| 项目推进、方向、方位、谈判       | `qimen_prompt`              | `question`、可选 `qimenMethod`、`customDate`                                 |
+| 临时小事快速判断                 | `xiaoliuren_prompt`         | `question`、可选 `xiaoliurenMethod`、`xiaoliurenSchool`、`xiaoliurenNumber`  |
+| 时间或数字象意判断               | `meihua_prompt`             | `question`、可选 `method`、`number`、`customDate`                            |
+| 传统复杂事项推演                 | `liuren_prompt`             | `question`、可选 `liurenTemplate`、`customDate`                              |
+| 结婚、搬家、开业、签约、安葬择日 | `almanac_prompt`            | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`     |
+| 星盘本命和行运                   | `astrolabe_prompt`          | 出生时间地点、经纬度、`astrolabeTopic`、`astrolabeScope`                     |
+| 西占双方关系、合作或婚恋互动     | `astrolabe_synastry_prompt` | `person1`、`person2` 分别提供完整出生时间、经纬度和时区                      |
+| 牌阵启发                         | `tarot_prompt`              | `spreadType`、`question`                                                     |
+| 雷诺曼关系或选择牌阵             | `lenormand_prompt`          | `spreadType`、`question`                                                     |
+| 求签                             | `ssgw_prompt`               | `question`                                                                   |
 
 出生时辰未知时，不要自行补时辰。八字可以保守分析；紫微和八字紫微合参需要时辰，优先请用户补足后再调用。
 
@@ -200,13 +200,19 @@ npm run mcp
 
 `ziwei_prompt` 工具支持 `school` 参数：`sanhe`（三合派三方四正）、`feixing`（飞星派四化飞星链路）、`sihua`（四化派生年四化主线）。不传则不附加流派指引。
 
-`bazi_ziwei_prompt` 工具使用同一份出生信息，同时计算八字和紫微斗数。它支持 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope`、`promptMode`、`baziSchool`、`ziweiSchool`，适合需要先用八字判断命局主线，再用紫微校验宫位、四化和运限的深度问题。
+`bazi_ziwei_prompt` 工具使用同一份出生信息，同时计算八字和紫微斗数。它支持 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope`、`ziweiScopeDate`、`ziweiScopeTimeIndex`、`promptMode`、`baziSchool`、`ziweiSchool`，适合需要先用八字判断命局主线，再用紫微校验宫位、四化和运限的深度问题。
 
 ### 紫微 promptScope 参数
 
-`ziwei_calculate` 和 `ziwei_prompt` 默认只返回 `origin`（本命）范围。传入 `promptScope` 时会返回 `origin` 加指定范围。支持的值：`origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`。`full` 会返回并写入本命、大限、流年、流月、流日、流时资料。
+`ziwei_calculate` 和 `ziwei_prompt` 默认只返回 `origin`（本命）范围。支持的 `promptScope` 值为 `origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`。除 `origin` 外必须同时提供 `ziweiScopeDate`（`YYYY-MM-DD`）和 `ziweiScopeTimeIndex`（0-12），工具不会读取系统当前日期或时辰补齐。`full` 会按该目标时刻返回并写入本命、大限、流年、流月、流日、流时资料。
 
 `ziwei_compatibility` 和 `ziwei_compatibility_prompt` 只计算双方静态本命盘的宫位叠盘与生年四化跨盘落点。它们不会伪造具体年份应期，也不会输出缺乏统一依据的匹配总分。
+
+### 生肖与七政时空参数
+
+`metaphysics_zodiac` 和 `zodiac_prompt` 必须在 `year` 与 `yearGanZhi` 中至少提供一项，不会默认使用系统当前年份。
+
+`metaphysics_qizheng` 和 `qizheng_prompt` 必须提供真实 `latitude`、`longitude`，并在 `timezone` 与 `timeZoneId` 中至少提供一项；不会默认使用北京坐标或东八区。
 
 ### 雷诺曼牌阵参数
 

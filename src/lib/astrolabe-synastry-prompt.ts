@@ -1,6 +1,5 @@
 import type { AstrolabeData, AstrolabeSynastryData } from 'mingyu-core/types';
 import { formatAstrolabeInfo } from './divination/engine/formatters';
-import { formatPromptCurrentTime } from './prompt-time';
 import { buildPromptGuidanceSections } from './prompt-guidance';
 
 export type AstrolabeSynastryPromptMode = 'framework' | 'custom';
@@ -30,14 +29,10 @@ export function buildAstrolabeSynastryPrompt(params: {
   synastry: AstrolabeSynastryData;
   question?: string;
   promptMode?: AstrolabeSynastryPromptMode;
-  currentTime?: Date;
 }) {
   const question = params.question?.trim() || '请先整体判断双方关系中的互动主轴。';
   const baseSections = [
     buildPromptGuidanceSections('astrolabe-synastry'),
-    '',
-    '【当前时间】',
-    formatPromptCurrentTime(params.currentTime),
     '',
     '【第一人本命盘】',
     formatAstrolabeInfo(params.chart1),

@@ -116,11 +116,11 @@
 | 查六十甲子、纳音、藏干和合冲       | `POST /foundation/ganzhi`                    | `ganZhi`，如“甲子”                                                                                                                                          | 返回统一公共地基资料，不需重复实现                                                |
 | 统计天干地支五行分布               | `POST /foundation/wuxing`                    | `items`、可选 `weightHidden`                                                                                                                                | 默认计入地支藏干权重                                                              |
 | 核验通用神煞命中                   | `POST /foundation/shensha`                   | 完整年、月、日、时四柱干支；可选 `ids`                                                                                                                      | 返回空亡、驿马、桃花的固定起法、目标地支、命中柱位、来源与限制                    |
-| 整体人生、长期事业、财运、婚恋     | `POST /bazi-ziwei/prompt`                    | `baziPromptTopic`、`ziweiPromptTopic` 按主题填写，`promptScope: "full"` 或 `"origin"`                                                                       | 有完整出生信息时优先合参；想看完整阶段时用 `full`                                 |
-| 今年、某一年、当前阶段运势         | `POST /bazi-ziwei/prompt`                    | `promptScope: "yearly"`，主题填事业、财运、感情等                                                                                                           | 八字看岁运触发，紫微看流年落宫与四化                                              |
+| 整体人生、长期事业、财运、婚恋     | `POST /bazi-ziwei/prompt`                    | `baziPromptTopic`、`ziweiPromptTopic` 按主题填写；`origin` 无需行运目标，`full` 同时传 `ziweiScopeDate`、`ziweiScopeTimeIndex`                              | 有完整出生信息时优先合参；想看完整阶段时用 `full`                                 |
+| 今年、某一年、当前阶段运势         | `POST /bazi-ziwei/prompt`                    | `promptScope: "yearly"`、`ziweiScopeDate`、`ziweiScopeTimeIndex`，主题填事业、财运、感情等                                                                  | 八字看岁运触发，紫微看流年落宫与四化                                              |
 | 换工作、创业、合伙、投资合作       | `POST /bazi-ziwei/prompt`                    | `job-change`、`startup-partnership`、`investment-partnership`，按问题选择主题                                                                               | 这类问题兼具长期结构和当前触发，优先合参                                          |
 | 只看八字格局、用神、流年流月       | `POST /bazi/prompt`                          | `promptTopic`，`baziFortuneScope: "full"`、`"year"`、`"month"` 或 `"day"`                                                                                   | 明确要求八字时使用                                                                |
-| 只看紫微宫位、四化、某年某月运限   | `POST /ziwei/prompt`                         | `promptTopic`，`promptScope: "full"`、`"yearly"`、`"monthly"`、`"daily"` 或 `"hourly"`                                                                      | 明确要求紫微时使用                                                                |
+| 只看紫微宫位、四化、某年某月运限   | `POST /ziwei/prompt`                         | `promptTopic`、非本命 `promptScope`、`ziweiScopeDate`、`ziweiScopeTimeIndex`                                                                                | 明确要求紫微时使用；服务端不补当前日期或时辰                                      |
 | 当前事项能否推进、短期成败         | `POST /divination/liuyao/prompt`             | `question`，必要时传 `customDate`                                                                                                                           | 六爻适合一事一问、取用和应期                                                      |
 | 项目推进、方向选择、谈判出行、方位 | `POST /divination/qimen/prompt`              | `question`，可选 `qimenMethod: "zhuanpan"` 或 `"feipan"`，必要时传 `customDate`                                                                             | 奇门适合时空局势、路径、方位和行动窗口                                            |
 | 临时小事、快速判断                 | `POST /divination/xiaoliuren/prompt`         | `question`，可选 `xiaoliurenMethod`、`xiaoliurenSchool` 和 `xiaoliurenNumber`                                                                               | 返回三宫推进、五行、旺衰、触发条件与反证限制；华山派另含完整课象；不用于长期命运  |
@@ -141,7 +141,7 @@
 参数选择建议：
 
 - `responseMode` 默认用 `summary`；只转交提示词给 AI 时用 `prompt-only`；确实需要完整结构化排盘时再用 `full`。
-- 八字紫微合参、八字、紫微、星盘要做完整长期分析时，优先选择完整输出版：八字用 `baziFortuneScope: "full"`，紫微和合参用 `promptScope: "full"`，星盘用 `astrolabeScope: "full"` 并以 `astrolabeScopeDate: "YYYY-MM-DD"` 明确行运基准日。
+- 八字紫微合参、八字、紫微、星盘要做完整长期分析时，优先选择完整输出版：八字用 `baziFortuneScope: "full"`；紫微和合参用 `promptScope: "full"`，并明确传入 `ziweiScopeDate: "YYYY-MM-DD"` 与 `ziweiScopeTimeIndex: 0-12`；星盘用 `astrolabeScope: "full"` 并以 `astrolabeScopeDate: "YYYY-MM-DD"` 明确行运基准日。
 - 只问某一年、某月、某日时，优先选择对应范围，避免把短期问题做成泛泛终身解读。
 - `promptMode` 默认用 `framework`，这样返回的提示词结构更完整；只有用户明确要自由问答或自己已经写好完整问题时，才用 `custom`。
 - 出生时辰未知时，不要自行补时辰；八字只能保守使用已知信息，紫微和八字紫微合参应等用户补足时辰后再调用。
@@ -237,7 +237,7 @@ curl -X POST https://aov.cc/api/v1/ziwei/compatibility/prompt \
 ```bash
 curl -X POST https://aov.cc/api/v1/ziwei/prompt \
   -H "Content-Type: application/json" \
-  -d '{"name":"测试","gender":"female","dateType":"solar","year":"1992","month":"8","day":"21","timeIndex":4,"question":"整体人生和近期重点怎么看？","promptTopic":"life","promptScope":"full"}'
+  -d '{"name":"测试","gender":"female","dateType":"solar","year":"1992","month":"8","day":"21","timeIndex":4,"question":"整体人生和近期重点怎么看？","promptTopic":"life","promptScope":"full","ziweiScopeDate":"2028-06-12","ziweiScopeTimeIndex":4}'
 ```
 
 八字紫微合参提示词适合“八字定主线、紫微校验宫位和运限”的深度问题，`promptScope` 同样支持 `full`：
@@ -245,7 +245,7 @@ curl -X POST https://aov.cc/api/v1/ziwei/prompt \
 ```bash
 curl -X POST https://aov.cc/api/v1/bazi-ziwei/prompt \
   -H "Content-Type: application/json" \
-  -d '{"name":"测试","gender":"female","dateType":"solar","year":1992,"month":8,"day":21,"timeIndex":4,"question":"我现在适合换工作还是继续等待？","baziPromptTopic":"job-change","ziweiPromptTopic":"job-change","promptScope":"yearly"}'
+  -d '{"name":"测试","gender":"female","dateType":"solar","year":1992,"month":8,"day":21,"timeIndex":4,"question":"我现在适合换工作还是继续等待？","baziPromptTopic":"job-change","ziweiPromptTopic":"job-change","promptScope":"yearly","ziweiScopeDate":"2028-06-12","ziweiScopeTimeIndex":4}'
 ```
 
 星盘提示词可用 `astrolabeScope` 指定范围。`yearly`、`monthly`、`daily` 分别要求 `YYYY`、`YYYY-MM`、`YYYY-MM-DD` 格式的 `astrolabeScopeDate`；`full` 要求 `YYYY-MM-DD` 基准日，并写入该日所属流年、流月和流日资料。服务端不会用当前日期补齐缺参：
@@ -305,7 +305,7 @@ curl -X POST https://aov.cc/api/v1/bazi/prompt \
 ```bash
 curl -X POST https://aov.cc/api/v1/ziwei/prompt \
   -H "Content-Type: application/json" \
-  -d '{"gender":"female","dateType":"solar","year":"1992","month":"8","day":"21","timeIndex":4,"question":"2025年事业财运如何？","promptTopic":"career-wealth","promptScope":"yearly","school":"feixing"}'
+  -d '{"gender":"female","dateType":"solar","year":"1992","month":"8","day":"21","timeIndex":4,"question":"2025年事业财运如何？","promptTopic":"career-wealth","promptScope":"yearly","ziweiScopeDate":"2025-06-12","ziweiScopeTimeIndex":4,"school":"feixing"}'
 ```
 
 奇门飞盘法排盘：
@@ -377,12 +377,12 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 八字 `promptTopic` 支持 `general`、`career`、`wealth`、`marriage`、`children`、`health`、`relationship-push`、`relationship-decision`、`job-change`、`startup-partnership`、`investment-partnership`、`recent`、`home-move`、`settle-relocate`、`study-advance`、`exam-landing`、`reconciliation-decision`、`emotion`、`talent`、`growth`、`social`。
 - 八字 `/bazi/prompt` 可传 `baziFortuneScope` 指定命限范围，支持 `natal`、`full`、`dayun`、`year`、`month`、`day`；除 `natal`、`full` 外必须提供所选层级需要的明确年限参数，工具不会自动选择当前时间或第一项。
 - 紫微 `promptTopic` 支持 `destiny`、`relationship`、`relationship-push`、`relationship-decision`、`children`、`career-wealth`、`job-change`、`startup-partnership`、`investment-partnership`、`recent`、`family`、`home-move`、`settle-relocate`、`social`、`emotion`、`health`、`study`、`study-advance`、`exam-landing`、`reconciliation-decision`、`growth`、`talent`、`life`、`chat`。
-- 紫微 `promptScope` 支持 `origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`；`full` 会返回并写入本命、大限、流年、流月、流日、流时资料。
-- 紫微公开 API 默认只返回 `origin`（本命）范围；如果请求传入 `promptScope`，接口会返回 `origin` 加指定范围，包含分析对象、落宫与四化信息，供流年、流月、流日等分析使用。
+- 紫微 `promptScope` 支持 `origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`；除 `origin` 外必须同时提供 `ziweiScopeDate`（`YYYY-MM-DD`）和 `ziweiScopeTimeIndex`（0-12），服务端不会用当前日期或时辰补齐。`full` 会按该目标时刻返回并写入本命、大限、流年、流月、流日、流时资料。
+- 紫微公开 API 默认只返回 `origin`（本命）范围；非本命请求会返回 `origin` 加指定范围，包含明确目标时刻对应的分析对象、落宫与四化信息。
 - 紫微排盘结果以 `payloadByScope.origin.palaces` 为主结构；同时提供 `四化`、`fourMutagens`、`birthMutagens` 和 `gongList`，方便 agent 直接读取生年四化和十二宫星曜。
 - 八字提示词选择 `baziFortuneScope` 后，`data.resultSummary.fortuneSelection.promptPayload.triggerEvidence` 会返回原局、大运、流年、流月、流日逐层关系，包括同干、五合、相冲、同支、六合、六冲、刑、害、破、岁运并临与天克地冲。它只表示触发结构和时间层级，不直接表示吉凶或事件必然发生。
 - 八字出生时间必须满足接口输入约束后才会进入排盘；接口不接受模糊时间误差范围，也不会基于误差范围继续排盘。
-- 八字紫微合参接口为 `POST /bazi-ziwei/prompt`，使用同一份出生信息，同时计算八字和紫微，默认返回 `data.resultSummary.bazi`、`data.resultSummary.ziwei` 和 `data.prompt`；传 `responseMode: "full"` 可返回完整双盘。该接口使用 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope` 区分两套体系的分析范围。
+- 八字紫微合参接口为 `POST /bazi-ziwei/prompt`，使用同一份出生信息，同时计算八字和紫微，默认返回 `data.resultSummary.bazi`、`data.resultSummary.ziwei` 和 `data.prompt`；传 `responseMode: "full"` 可返回完整双盘。该接口使用 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope` 区分两套体系的分析范围；非本命紫微范围同样必须提供 `ziweiScopeDate` 和 `ziweiScopeTimeIndex`。
 - `promptMode` 支持 `framework`（完整任务书，默认）和 `custom`（只围绕用户问题自由作答）。
 - 八字 `school` 支持 `traditional`（传统派子平正法）、`mangpai`（盲派十神象法）、`xinpai`（新派调候流通）。不传则不附加流派指引。
 - 八字 `shenShaVariants` 用于请求神煞争议口径；不传时使用默认主流口径：空亡只按日柱旬空、羊刃只取阳干帝旺、童子煞只查日柱和时柱。可选值：`kongWangBasis` 为 `day` 或 `day-and-year`；`yangRenMode` 为 `yang-stems-only` 或 `include-yin-ren`；`tongZiScope` 为 `day-hour` 或 `all-pillars`。
@@ -408,7 +408,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 星盘本命与行运相位会输出距精确角偏差、紧密等级和归一化容许度位置；归一化位置只用于相位分层，不代表事件概率或吉凶比例。
 - 流年星盘中的太阳返照先在出生日期附近按 2 小时步长寻找太阳黄经过零区间，再用二分法细化至 1 分钟范围；提示词会同时写出当地钟表时刻、固定时区、黄经残差、迭代次数、星历来源和精度边界，不以显示到分钟宣称观测级精度。
 - 太阳返照和七政四余的计算上下文会附带统一天文时间尺度证据，包括 UTC、`JD(UTC)`、`UT1≈UTC` 假设、Espenak-Meeus 分段多项式 ΔT、近似 `JD(TT)`、模型等级和限制。只传 `timezone` 时仍视为调用方已确认的法定偏移；传 `timeZoneId` 时按运行环境 IANA 数据解析历史偏移，并报告与固定偏移的冲突。
-- 七政四余还会附带同一 UTC 时刻的月相角、照明近似和前后朔弦望证据。黄历候选日则统一附带中国标准时间正午的月相背景；该背景不参与传统候选排序，其他时区或临近相位交接时应按实际地点时间另算。
+- 七政四余必须提供真实 `latitude`、`longitude`，并在 `timezone` 与 `timeZoneId` 中至少提供一项；不会默认使用北京坐标或东八区。结果还会附带同一 UTC 时刻的月相角、照明近似和前后朔弦望证据。黄历候选日则统一附带中国标准时间正午的月相背景；该背景不参与传统候选排序，其他时区或临近相位交接时应按实际地点时间另算。
 - 七政四余相位返回实际夹角、精确角、偏差、容许度位置、紧密等级与精度分层；核心结果、公开 API、MCP 和提示词均不返回由容许度位置重复换算的百分制强度。
 - 西占和七政四余会根据真实经纬度附带太阳光照证据，包括参考时刻太阳高度、真北方位角、视太阳正午、日出日落和三类曙暮光。该数据只描述天文光照背景，不改变星体庙旺或传统吉凶；实际地形、建筑、海拔和气象折射仍需现场资料。
 - 八字节令月和奇门节令背景会附带节气交接证据：排盘边界采用 `tyme4ts` 历表，另以 Meeus/NOAA 太阳视黄经公式独立求根，并返回历表与模型差值、黄经残差及精度限制；模型核验不会静默覆盖现有排盘边界。

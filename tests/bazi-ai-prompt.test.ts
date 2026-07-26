@@ -229,8 +229,8 @@ test('八字提示词未选择年限时输出本命资料且不输出岁运重�
   assert.match(prompt.user, /分析对象：本命盘/);
   assert.match(prompt.user, /大运总览:/);
   assert.match(prompt.user, /\d+\. .+：?\d{4}年起，约\d+岁交运，含\d{4}-\d{4}年流年/);
-  assert.match(prompt.user, /当前大运:|当前阶段:/);
-  assert.match(prompt.user, /近年流年:/);
+  assert.doesNotMatch(prompt.user, /当前大运:|当前阶段:|近年流年:|【当前流年】/);
+  assert.doesNotMatch(prompt.user, /【当前时间】/);
   assert.doesNotMatch(prompt.user, /【岁运重点】/);
   assert.doesNotMatch(prompt.user, /【解读方法】/);
   assert.doesNotMatch(prompt.user, /资料说明：|本次未指定|不得自行指定/);

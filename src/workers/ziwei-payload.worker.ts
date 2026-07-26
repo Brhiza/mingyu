@@ -1,9 +1,10 @@
-import { calculateZiweiPayloadByScope } from '@/lib/full-chart-engine';
+import { calculateZiweiPayloadByScope, type ZiweiHoroscopeContext } from '@/lib/full-chart-engine';
 import type { ChartInput } from '@/types/chart';
 
 type ZiweiPayloadWorkerRequest = {
   id: string;
   input: ChartInput;
+  horoscopeContext: ZiweiHoroscopeContext;
 };
 
 type ZiweiPayloadWorkerResponse =
@@ -20,7 +21,10 @@ type ZiweiPayloadWorkerResponse =
 
 self.onmessage = async (event: MessageEvent<ZiweiPayloadWorkerRequest>) => {
   try {
-    const payloadByScope = await calculateZiweiPayloadByScope(event.data.input);
+    const payloadByScope = await calculateZiweiPayloadByScope(
+      event.data.input,
+      event.data.horoscopeContext,
+    );
     const response: ZiweiPayloadWorkerResponse = {
       id: event.data.id,
       ok: true,

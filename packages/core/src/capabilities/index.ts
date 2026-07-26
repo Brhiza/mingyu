@@ -229,7 +229,23 @@ const systems: SystemCapability[] = [
     id: 'ziwei',
     name: '紫微斗数',
     category: 'chart',
-    inputs: [birthProfileInput],
+    inputs: [
+      birthProfileInput,
+      {
+        id: 'ziweiScopeDate',
+        label: '行运目标日期',
+        type: 'date',
+        required: false,
+        description: '选择非本命范围时必填，格式 YYYY-MM-DD。',
+      },
+      {
+        id: 'ziweiScopeTimeIndex',
+        label: '行运目标时辰',
+        type: 'number',
+        required: false,
+        description: '选择非本命范围时必填，取值 0-12。',
+      },
+    ],
     outputs: [
       '十二宫',
       '星曜',
@@ -250,6 +266,7 @@ const systems: SystemCapability[] = [
       batch: false,
     },
     optionalDependencies: ['iztro'],
+    notes: ['本命范围不读取系统当前时间；非本命范围必须明确提供目标日期和时辰。'],
   },
   {
     id: 'astrolabe',
@@ -632,8 +649,20 @@ const systems: SystemCapability[] = [
     category: 'chart',
     inputs: [
       { id: 'zodiac', label: '生肖或年支', type: 'text', required: true },
-      { id: 'year', label: '流年年份', type: 'number', required: false },
-      { id: 'yearGanZhi', label: '流年干支', type: 'text', required: false },
+      {
+        id: 'year',
+        label: '流年年份',
+        type: 'number',
+        required: false,
+        description: '与流年干支至少提供一项。',
+      },
+      {
+        id: 'yearGanZhi',
+        label: '流年干支',
+        type: 'text',
+        required: false,
+        description: '与流年年份至少提供一项。',
+      },
     ],
     outputs: [
       '值冲刑害破关系',
@@ -651,7 +680,10 @@ const systems: SystemCapability[] = [
       birthTimeRequired: false,
       batch: false,
     },
-    notes: ['生肖流年是只使用出生年支的轻量关系模型，不替代完整八字或现实资料。'],
+    notes: [
+      'year 与 yearGanZhi 至少提供一项，不使用系统当前年份补齐。',
+      '生肖流年是只使用出生年支的轻量关系模型，不替代完整八字或现实资料。',
+    ],
   },
   {
     id: 'taiyi',
@@ -708,7 +740,25 @@ const systems: SystemCapability[] = [
     id: 'qizheng',
     name: '七政四余',
     category: 'chart',
-    inputs: [birthProfileInput],
+    inputs: [
+      birthProfileInput,
+      { id: 'latitude', label: '出生地纬度', type: 'number', required: true },
+      { id: 'longitude', label: '出生地经度', type: 'number', required: true },
+      {
+        id: 'timezone',
+        label: '固定时区偏移',
+        type: 'number',
+        required: false,
+        description: '与 IANA 时区至少提供一项。',
+      },
+      {
+        id: 'timeZoneId',
+        label: 'IANA 时区',
+        type: 'text',
+        required: false,
+        description: '与固定时区偏移至少提供一项。',
+      },
+    ],
     outputs: [
       '七政',
       '四余',
@@ -737,6 +787,7 @@ const systems: SystemCapability[] = [
     },
     optionalDependencies: ['celestine'],
     notes: [
+      '必须提供真实经纬度，并在 timezone 与 timeZoneId 中至少提供一项；不会默认使用北京坐标或东八区。',
       'useTrueSolarTime 可选；启用后仅传统命身十二宫按真太阳时排布，七政四余位置仍用现代星历，属于混合精度口径。',
     ],
   },

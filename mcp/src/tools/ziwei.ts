@@ -32,6 +32,11 @@ import {
   readMcpNumberLikeInRange,
 } from './input-helpers.js';
 
+type ZiweiScopeInput = {
+  ziweiScopeDate?: string;
+  ziweiScopeTimeIndex?: number;
+};
+
 export const ziweiSchema = z.object({
   name: z.string().optional().describe('姓名（可选）'),
   gender: z.enum(['male', 'female']).describe('性别：male 为男，female 为女'),
@@ -52,6 +57,17 @@ export const ziweiSchema = z.object({
     .describe(
       '运限范围：origin=本命（默认）, full=完整输出版, decadal=大限, yearly=流年, monthly=流月, daily=流日, hourly=流时, age=年龄。默认只返回 origin 范围；full 会返回本命、大限、流年、流月、流日、流时。',
     ),
+  ziweiScopeDate: z
+    .string()
+    .optional()
+    .describe('行运目标公历日期，格式 YYYY-MM-DD；选择非本命范围时必填'),
+  ziweiScopeTimeIndex: z
+    .number()
+    .int()
+    .min(0)
+    .max(12)
+    .optional()
+    .describe('行运目标时辰索引 0-12；选择非本命范围时必填'),
   isLeapMonth: z.boolean().optional().describe('是否为闰月（仅农历有效）'),
   useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时校正'),
   birthHour: z.string().optional().describe('精准出生小时，启用真太阳时时必填，如 1'),
@@ -80,8 +96,16 @@ const ziweiPromptSchema = ziweiSchema.extend({
 });
 
 const ziweiCompatibilitySchema = z.object({
-  person1: ziweiSchema.omit({ promptScope: true }),
-  person2: ziweiSchema.omit({ promptScope: true }),
+  person1: ziweiSchema.omit({
+    promptScope: true,
+    ziweiScopeDate: true,
+    ziweiScopeTimeIndex: true,
+  }),
+  person2: ziweiSchema.omit({
+    promptScope: true,
+    ziweiScopeDate: true,
+    ziweiScopeTimeIndex: true,
+  }),
 });
 
 const ziweiCompatibilityPromptSchema = ziweiCompatibilitySchema.extend({
@@ -133,6 +157,20 @@ export function buildMcpZiweiChartInput(args: z.infer<typeof ziweiSchema>) {
   });
 }
 
+export function buildMcpZiweiHoroscopeContext(args: ZiweiScopeInput, scope: ZiweiPromptScope) {
+  if (scope === 'origin') return undefined;
+  if (!args.ziweiScopeDate?.trim()) {
+    throw new Error('选择紫微非本命范围时必须提供 ziweiScopeDate。');
+  }
+  if (args.ziweiScopeTimeIndex === undefined) {
+    throw new Error('选择紫微非本命范围时必须提供 ziweiScopeTimeIndex。');
+  }
+  return {
+    dateStr: args.ziweiScopeDate.trim(),
+    hourIndex: args.ziweiScopeTimeIndex,
+  };
+}
+
 export function registerZiweiTool(server: McpServer) {
   server.registerTool(
     'ziwei_calculate',
@@ -149,7 +187,12 @@ export function registerZiweiTool(server: McpServer) {
         const scopes: ScopeType[] = Array.from(
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
         );
-        const result = await calculateZiweiChartForScopes(input, scopes);
+        const result = await calculateZiweiChartForScopes(
+          input,
+          scopes,
+          undefined,
+          buildMcpZiweiHoroscopeContext(args, scope),
+        );
         return createStructuredToolResult(buildSerializableZiweiResult(result));
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '排盘失败'));
@@ -175,7 +218,12 @@ export function registerZiweiTool(server: McpServer) {
         const scopes: ScopeType[] = Array.from(
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
         );
-        const result = await calculateZiweiChartForScopes(input, scopes);
+        const result = await calculateZiweiChartForScopes(
+          input,
+          scopes,
+          undefined,
+          buildMcpZiweiHoroscopeContext(args, scope),
+        );
         return createStructuredToolResult({
           result: buildSerializableZiweiResult(result),
           prompt: buildZiweiPromptForRuntime({

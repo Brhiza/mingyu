@@ -1,5 +1,4 @@
 import type { DecadalTimelineOption } from '@core/ziwei/iztro';
-import { formatPromptCurrentTime } from '@/lib/prompt-time';
 import type { AstrolabeScopeMode, QueryPromptState, ZiweiScopeMode } from '@/lib/query-state';
 import type { AstrolabePromptTopic } from '@/lib/astrolabe-prompts';
 import { buildPortablePromptPack, type PromptContext } from '@/lib/ziwei-prompts';
@@ -214,7 +213,6 @@ export function buildBaziZiweiEnhancedPrompt(params: {
 
   return [
     buildPromptGuidanceSections('bazi-ziwei'),
-    `【当前时间】\n${formatPromptCurrentTime()}`,
     sourceLabels.length > 0 ? `【分析对象】\n${sourceLabels.join('\n')}` : '',
     questionScopeLabel && questionScopeLabel !== '通用'
       ? `【问题范围】\n${questionScopeLabel}`

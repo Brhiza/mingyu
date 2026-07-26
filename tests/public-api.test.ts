@@ -2,7 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { handlePublicApiRequest, isPublicApiRequestPath } from '../src/lib/public-api/handler';
 import { onRequest as handleWellKnownApiRequest } from '../functions/.well-known/[[path]]';
-import { buildZiweiChartInput, calculateFullZiweiChart } from '../src/lib/full-chart-engine/ziwei';
+import {
+  buildZiweiChartInput,
+  calculateFullZiweiChart,
+  calculateZiweiChartForScopes,
+} from '../src/lib/full-chart-engine/ziwei';
 import {
   buildBaziZiweiPromptForResults,
   buildBaziPromptForResult,
@@ -15,6 +19,8 @@ import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { assertPromptHasSingleRole, assertPromptIsPortableTaskText } from './prompt-assertions';
 import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../src/lib/prompt-guidance';
+
+const TEST_ZIWEI_CONTEXT = { dateStr: '2028-06-12', hourIndex: 4 };
 
 async function callApi(path: string, init?: RequestInit) {
   const request = new Request(`https://aov.cc/api/v1/${path}`, init);
@@ -461,6 +467,22 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
     body.data.components.schemas.ZiweiRequest.properties.promptScope.description,
     /full 会返回本命、大限、流年、流月、流日、流时/,
   );
+  assert.match(
+    body.data.components.schemas.ZiweiRequest.properties.ziweiScopeDate.description,
+    /选择非本命范围时必填/,
+  );
+  assert.ok(
+    body.data.components.schemas.BaziZiweiPromptRequest.allOf[1].properties.ziweiScopeTimeIndex,
+  );
+  assert.match(
+    body.data.components.schemas.MetaphysicsRequest.properties.year.description,
+    /yearGanZhi 至少提供一项/,
+  );
+  assert.match(
+    body.data.components.schemas.MetaphysicsRequest.properties.latitude.description,
+    /七政四余必填/,
+  );
+  assert.ok(body.data.components.schemas.MetaphysicsRequest.properties.timeZoneId);
   assert.equal(
     body.data.components.schemas.BaziRequest.properties.shenShaVariants.$ref,
     '#/components/schemas/ShenShaVariants',
@@ -1056,6 +1078,7 @@ test('公开 API 八字排盘支持轻量模式，避免默认拉取大流年明
   assert.equal(body.ok, true);
   assert.equal(body.data.gender, 'female');
   assert.equal(body.data.liunian, undefined);
+  assert.equal(body.data.currentLiunian, undefined);
   assert.ok(body.data.luckInfo.cycles.length > 0);
   assert.equal(body.data.luckInfo.cycles[0].years, undefined);
   assert.equal(body.data.evidenceAnalysis.key, 'bazi:natal:evidence');
@@ -1261,6 +1284,8 @@ test('公开 API 应支持八字紫微合参提示词', async () => {
       baziPromptTopic: 'job-change',
       ziweiPromptTopic: 'job-change',
       promptScope: 'yearly',
+      ziweiScopeDate: '2028-06-12',
+      ziweiScopeTimeIndex: 4,
     }),
   });
 
@@ -1302,6 +1327,7 @@ test('八字紫微合参提示词自定义模式不额外拼接任务框架', as
       isLeapMonth: false,
       useTrueSolarTime: false,
     }),
+    TEST_ZIWEI_CONTEXT,
   );
 
   const prompt = buildBaziZiweiPromptForResults({
@@ -1663,6 +1689,8 @@ test('公开 API 紫微提示词接口只生成所需范围，避免线上函数
       question: '今年适合换工作吗？',
       promptTopic: 'job-change',
       promptScope: 'yearly',
+      ziweiScopeDate: '2028-06-12',
+      ziweiScopeTimeIndex: 4,
     }),
   });
 
@@ -1698,6 +1726,8 @@ test('公开 API 紫微提示词支持完整输出版范围', async () => {
       question: '整体人生和近期重点怎么看？',
       promptTopic: 'life',
       promptScope: 'full',
+      ziweiScopeDate: '2028-06-12',
+      ziweiScopeTimeIndex: 4,
     }),
   });
 
@@ -1754,6 +1784,7 @@ test('紫微公开 API prompt builder 空问题走通用问题，主题只作为
       isLeapMonth: false,
       useTrueSolarTime: false,
     }),
+    TEST_ZIWEI_CONTEXT,
   );
 
   const prompt = buildZiweiPromptForRuntime({
@@ -1782,6 +1813,7 @@ test('紫微公开 API 工作变动主题只切换范围，不补固定问题', 
       isLeapMonth: false,
       useTrueSolarTime: false,
     }),
+    TEST_ZIWEI_CONTEXT,
   );
 
   const prompt = buildZiweiPromptForRuntime({
@@ -1902,6 +1934,8 @@ test('公开 API 紫微排盘接口支持按需返回指定范围', async () => 
       day: '21',
       timeIndex: 4,
       promptScope: 'monthly',
+      ziweiScopeDate: '2028-06-12',
+      ziweiScopeTimeIndex: 4,
     }),
   });
 
@@ -1958,6 +1992,70 @@ test('公开 API 紫微排盘接口支持按需返回指定范围', async () => 
   assertEvidenceOwnerReferences(patternAnalysis);
 });
 
+test('公开 API 紫微非本命范围必须提供明确目标日期和时辰', async () => {
+  const base = {
+    gender: 'female',
+    dateType: 'solar',
+    year: '1992',
+    month: '8',
+    day: '21',
+    timeIndex: 4,
+    promptScope: 'yearly',
+  };
+  const cases = [
+    ['ziwei/calculate', { ...base, ziweiScopeTimeIndex: 4 }, /ziweiScopeDate/],
+    [
+      'ziwei/prompt',
+      { ...base, ziweiScopeDate: '2028-06-12', question: '事业如何？' },
+      /ziweiScopeTimeIndex/,
+    ],
+    [
+      'bazi-ziwei/prompt',
+      {
+        ...base,
+        year: 1992,
+        month: 8,
+        day: 21,
+        ziweiScopeTimeIndex: 4,
+        question: '事业如何？',
+      },
+      /ziweiScopeDate/,
+    ],
+  ] as const;
+
+  for (const [path, payload, messagePattern] of cases) {
+    const { response, body } = await callApi(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    assert.equal(response.status, 400, path);
+    assert.equal(body.error.code, 'BAD_REQUEST', path);
+    assert.match(body.error.message, messagePattern, path);
+  }
+});
+
+test('紫微核心入口的本命范围使用确定上下文，非本命范围拒绝隐式当前时间', async () => {
+  const input = buildZiweiChartInput({
+    name: '测试',
+    gender: 'female',
+    dateType: 'solar',
+    year: '1992',
+    month: '8',
+    day: '21',
+    timeIndex: 4,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+
+  const origin = await calculateZiweiChartForScopes(input, ['origin']);
+  assert.equal(origin.payloadByScope.origin.active_scope.solar_date, '1992-08-21');
+  await assert.rejects(
+    calculateZiweiChartForScopes(input, ['yearly']),
+    /紫微非本命计算必须明确提供目标日期和时辰/,
+  );
+});
+
 test('公开 API 紫微排盘支持轻量模式，减少默认响应体积', async () => {
   const { response, body } = await callApi('ziwei/calculate', {
     method: 'POST',
@@ -1971,6 +2069,8 @@ test('公开 API 紫微排盘支持轻量模式，减少默认响应体积', asy
       day: '21',
       timeIndex: 4,
       promptScope: 'monthly',
+      ziweiScopeDate: '2028-06-12',
+      ziweiScopeTimeIndex: 4,
       detailMode: 'compact',
     }),
   });
@@ -2040,7 +2140,11 @@ test('公开 API 紫微排盘应提供 agent 易解析的四化和宫位列表',
     opposite_palace_index: number;
     surrounded_palace_indexes: number[];
   }>;
-  const fullRuntime = await calculateFullZiweiChart(buildZiweiChartInput(ziweiInput), true);
+  const fullRuntime = await calculateFullZiweiChart(
+    buildZiweiChartInput(ziweiInput),
+    TEST_ZIWEI_CONTEXT,
+    true,
+  );
   const fullPalaces = fullRuntime.payloadByScope.origin.palaces;
 
   assert.equal(publicPalaces.length, fullPalaces.length);
@@ -3881,6 +3985,7 @@ test('公开 API 西占双盘提示词应携带双方本命盘与简明任务', 
   assert.match(body.data.prompt, /【跨盘相位】/);
   assert.match(body.data.prompt, /实际夹角\d+\.\d{2}°，容许度\d+\.\d{2}°，(?:紧密|中等|宽松)/);
   assert.match(body.data.prompt, /【跨盘落宫】/);
+  assert.doesNotMatch(body.data.prompt, /【当前时间】/);
   assert.doesNotMatch(body.data.prompt, /强度\d+%|匹配率\d+%/);
   assert.match(body.data.prompt, /分析互动主轴、互补点、张力点与现实触发条件/);
   assert.doesNotMatch(body.data.prompt, /不得输出|不得编造|只依据/);
@@ -4889,7 +4994,7 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
   assert.match(body.data.prompt, /【八宅风水排盘】/);
   assert.match(body.data.prompt, /【测量换算】/);
   assert.match(body.data.prompt, /误差候选：/);
-  assert.match(body.data.prompt, /【当前时间】/);
+  assert.doesNotMatch(body.data.prompt, /【当前时间】/);
   assert.match(body.data.prompt, /【问题】\n住宅办公方位怎么安排？/);
   assert.match(body.data.prompt, /【任务】/);
   assert.match(body.data.prompt, /【输出要求】/);
@@ -5041,6 +5146,8 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
       month: 12,
       day: 31,
       hour: 8,
+      latitude: 39.9,
+      longitude: 116.4,
       timezone: 8,
     }),
   });
@@ -5053,7 +5160,7 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
   assert.ok(Math.abs(body.data.ziqi.tropicalLongitude - 237.038993) < 1e-9);
   assert.equal(body.data.stars.filter((star: { kind: string }) => star.kind === '四余').length, 4);
   assert.equal(body.data.positionSources.length, 4);
-  assert.equal(body.data.calculationContext.locationSource, '默认北京坐标');
+  assert.equal(body.data.calculationContext.locationSource, '用户提供');
   assert.equal(body.data.calculationContext.timezoneSource, '用户提供');
   assert.match(body.data.calculationContext.astronomicalTime.utcDateTime, /Z$/);
   assert.ok(body.data.calculationContext.astronomicalTime.julianDayTtApprox > 2400000);
@@ -5104,7 +5211,7 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
   assert.match(body.data.evidenceAnalysis.promptText, /【七政四余计算来源与证据分层】/);
   assert.equal(body.data.evidenceAnalysis.key, 'qizheng:evidence');
   assert.equal(body.data.evidenceAnalysis.status, '已计算');
-  assert.equal(body.data.evidenceAnalysis.calculationFact.status, '含默认值');
+  assert.equal(body.data.evidenceAnalysis.calculationFact.status, '输入明确');
   assert.equal(body.data.evidenceAnalysis.calculationFact.steps.length, 7);
   assert.deepEqual(
     body.data.evidenceAnalysis.calculationSteps,
@@ -5147,9 +5254,9 @@ test('公开 API 七政四余应只返回《七政算内篇》紫炁模型与完
   assert.equal(body.data.evidenceAnalysis.aspectFacts.length, body.data.aspects.length);
   assert.equal(body.data.evidenceAnalysis.counterEvidenceFacts.length, 3);
   assert.equal(body.data.evidenceAnalysis.counterSummaryFact.status, '存在需保留反证');
-  assert.equal(body.data.evidenceAnalysis.counterSummaryFact.factKeys.length, 2);
+  assert.equal(body.data.evidenceAnalysis.counterSummaryFact.factKeys.length, 1);
   assert.equal(body.data.evidenceAnalysis.summaryFact.key, 'qizheng:evidence-summary');
-  assert.equal(body.data.evidenceAnalysis.summaryFact.status, '证据链有缺口');
+  assert.equal(body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
   assert.equal(
     body.data.evidenceAnalysis.summaryFact.positionSourceFactCount,
     body.data.evidenceAnalysis.positionSourceFacts.length,
@@ -5229,6 +5336,9 @@ test('公开 API 七政四余提示词应展示逐星来源、混合模型和输
       month: 6,
       day: 15,
       hour: 12,
+      latitude: 31.23,
+      longitude: 121.47,
+      timezone: 8,
       question: '请分析本命结构。',
       responseMode: 'full',
     }),
@@ -5240,7 +5350,8 @@ test('公开 API 七政四余提示词应展示逐星来源、混合模型和输
   assert.match(body.data.prompt, /【七政四余 · 果老星宗】/);
   assert.match(body.data.prompt, /计算上下文：/);
   assert.match(body.data.prompt, /位置来源：/);
-  assert.match(body.data.prompt, /地点来源默认北京坐标/);
+  assert.match(body.data.prompt, /地点来源输入明确，时区来源输入明确/);
+  assert.doesNotMatch(body.data.prompt, /【当前时间】/);
   assert.match(body.data.prompt, /现代天文计算/);
   assert.match(body.data.prompt, /传统均速模型/);
   assert.match(body.data.prompt, /混合模型/);
@@ -5249,7 +5360,7 @@ test('公开 API 七政四余提示词应展示逐星来源、混合模型和输
   body.data.result.aspects.forEach((aspect: { strength?: number }) => {
     assert.equal(aspect.strength, undefined);
   });
-  assert.equal(body.data.result.calculationContext.locationSource, '默认北京坐标');
+  assert.equal(body.data.result.calculationContext.locationSource, '用户提供');
 });
 
 test('公开 API 太乙应返回年计七十二局立成结果', async () => {
@@ -5419,6 +5530,7 @@ test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async 
     ['metaphysics/bazhai/calculate', { birthYear: 1990 }],
     ['metaphysics/bazhai/calculate', { mingGua: '未知卦' }],
     ['metaphysics/bazhai/calculate', { mingGua: '坎', sitMountain: '未知山' }],
+    ['metaphysics/zodiac/calculate', { zodiac: '猴' }],
     ['metaphysics/zodiac/calculate', { zodiac: '猴', yearGanZhi: '甲丑' }],
     ['metaphysics/taiyi/calculate', { scope: 'year' }],
     ['metaphysics/taiyi/calculate', { year: 2004, scope: 'month' }],
@@ -5428,9 +5540,54 @@ test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async 
     ['metaphysics/qizheng/calculate', { year: 2026, day: 1, hour: 12 }],
     ['metaphysics/qizheng/calculate', { year: 2026, month: 1, hour: 12 }],
     ['metaphysics/qizheng/calculate', { year: 2026, month: 1, day: 1 }],
-    ['metaphysics/qizheng/calculate', { year: 2026, month: 2, day: 30, hour: 12 }],
-    ['metaphysics/qizheng/calculate', { year: 2026, month: 1, day: 1, hour: 12, latitude: 120 }],
-    ['metaphysics/qizheng/calculate', { year: 2026, month: 1, day: 1, hour: 12, timezone: 15 }],
+    [
+      'metaphysics/qizheng/calculate',
+      { year: 2026, month: 1, day: 1, hour: 12, longitude: 121.47, timezone: 8 },
+    ],
+    [
+      'metaphysics/qizheng/calculate',
+      { year: 2026, month: 1, day: 1, hour: 12, latitude: 31.23, timezone: 8 },
+    ],
+    [
+      'metaphysics/qizheng/calculate',
+      { year: 2026, month: 1, day: 1, hour: 12, latitude: 31.23, longitude: 121.47 },
+    ],
+    [
+      'metaphysics/qizheng/calculate',
+      {
+        year: 2026,
+        month: 2,
+        day: 30,
+        hour: 12,
+        latitude: 31.23,
+        longitude: 121.47,
+        timezone: 8,
+      },
+    ],
+    [
+      'metaphysics/qizheng/calculate',
+      {
+        year: 2026,
+        month: 1,
+        day: 1,
+        hour: 12,
+        latitude: 120,
+        longitude: 121.47,
+        timezone: 8,
+      },
+    ],
+    [
+      'metaphysics/qizheng/calculate',
+      {
+        year: 2026,
+        month: 1,
+        day: 1,
+        hour: 12,
+        latitude: 31.23,
+        longitude: 121.47,
+        timezone: 15,
+      },
+    ],
     ['metaphysics/xuankong/calculate', { sitMountain: '子' }],
   ] as const;
 

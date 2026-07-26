@@ -27,7 +27,7 @@ import {
   getErrorMessage,
 } from '../tool-results.js';
 import { buildBaziPerson } from './bazi.js';
-import { buildMcpZiweiChartInput } from './ziwei.js';
+import { buildMcpZiweiChartInput, buildMcpZiweiHoroscopeContext } from './ziwei.js';
 
 const baziZiweiPromptSchema = z.object({
   name: z.string().optional().describe('姓名（可选）'),
@@ -61,6 +61,17 @@ const baziZiweiPromptSchema = z.object({
     .describe(
       '紫微运限范围：origin=本命, full=完整输出版, decadal=大限, yearly=流年, monthly=流月等',
     ),
+  ziweiScopeDate: z
+    .string()
+    .optional()
+    .describe('紫微行运目标公历日期 YYYY-MM-DD；选择非本命范围时必填'),
+  ziweiScopeTimeIndex: z
+    .number()
+    .int()
+    .min(0)
+    .max(12)
+    .optional()
+    .describe('紫微行运目标时辰索引 0-12；选择非本命范围时必填'),
   promptMode: z
     .enum(PROMPT_MODES)
     .optional()
@@ -112,6 +123,8 @@ export function registerBaziZiweiTool(server: McpServer) {
         const ziweiResult = await calculateZiweiChartForScopes(
           buildCombinedZiweiInput(args),
           scopes,
+          undefined,
+          buildMcpZiweiHoroscopeContext(args, scope),
         );
         const serializableZiweiResult = buildSerializableZiweiResult(ziweiResult);
 

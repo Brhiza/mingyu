@@ -26,6 +26,8 @@ import type { AnalysisPayloadV1 } from '../src/types/analysis';
 import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../src/lib/prompt-guidance';
 import { assertPromptHasSingleRole } from './prompt-assertions';
 
+const TEST_ZIWEI_CONTEXT = { dateStr: '2028-06-12', hourIndex: 4 };
+
 test('parseZiweiDateParts 正确解析合法日期', () => {
   assert.deepEqual(parseZiweiDateParts('2024-05-13'), { year: 2024, month: 5, day: 13 });
   assert.deepEqual(parseZiweiDateParts('1990-12-01'), { year: 1990, month: 12, day: 1 });
@@ -253,6 +255,7 @@ test('单人增强提示词会保留 section 结构并强调双体系交叉校�
       isLeapMonth: false,
       useTrueSolarTime: false,
     }),
+    TEST_ZIWEI_CONTEXT,
   );
 
   const prompt = buildBaziZiweiEnhancedPrompt({
@@ -265,7 +268,7 @@ test('单人增强提示词会保留 section 结构并强调双体系交叉校�
   });
 
   assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT['bazi-ziwei']);
-  assert.match(prompt, /【当前时间】/);
+  assert.doesNotMatch(prompt, /【当前时间】/);
   assert.match(prompt, /【分析对象】\n八字分析对象：当前大运\n紫微分析范围：流年 · 2028-01-01/);
   assert.match(prompt, /【八字排盘信息】/);
   assert.match(prompt, /【紫微盘面信息】/);
@@ -329,6 +332,7 @@ test('紫微完整输出版会整理本命与各层运限资料', async () => {
       isLeapMonth: false,
       useTrueSolarTime: false,
     }),
+    TEST_ZIWEI_CONTEXT,
   );
 
   const text = formatZiweiFullScopeText(ziweiRuntime.payloadByScope);

@@ -1,9 +1,11 @@
 import { attachWorkerSafety } from '@/hooks/useWorkerRequest';
+import type { ZiweiHoroscopeContext } from '@/lib/full-chart-engine';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
 
 export function createPayloadWorker(
   input: ChartInput,
+  horoscopeContext: ZiweiHoroscopeContext,
   requestId: string,
   onSuccess: (payloadByScope: Record<ScopeType, AnalysisPayloadV1>) => void,
   onError: (message: string) => void,
@@ -35,7 +37,7 @@ export function createPayloadWorker(
     worker.terminate();
   };
 
-  worker.postMessage({ id: requestId, input });
+  worker.postMessage({ id: requestId, input, horoscopeContext });
 
   return () => {
     disarm();

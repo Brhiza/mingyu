@@ -14,7 +14,6 @@ import {
   type ZiweiRuntime,
 } from '../full-chart-engine/ziwei';
 import { mapScopeLabel, mapTopicLabel } from '../ziwei-prompts/labels';
-import { formatPromptCurrentTime } from '../prompt-time';
 import { buildPromptGuidanceSections, insertPromptSectionBeforeHeading } from '../prompt-guidance';
 
 export const BAZI_PROMPT_TOPICS = [
@@ -646,7 +645,6 @@ export function buildBaziZiweiPromptForResults(params: {
   const baseSections = [
     buildPromptGuidanceSections('bazi-ziwei'),
     guidance.length ? `【流派】\n${guidance.join('\n')}` : '',
-    `【当前时间】\n${formatPromptCurrentTime()}`,
     `【分析对象】\n八字主题：${BAZI_TOPIC_LABELS[baziTopic]}\n紫微主题：${mapTopicLabel(ziweiTopic)}\n紫微范围：${mapZiweiPromptScopeLabel(ziweiScope)}`,
     `【八字排盘信息】\n${baziText}`,
     `【紫微盘面信息】\n${ziweiText}`,

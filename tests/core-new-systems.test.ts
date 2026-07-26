@@ -855,7 +855,15 @@ test('taiyi: 核心年份边界不应把公元 1-99 年当成 1901-1999 年', ()
 
 test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   // 2024-06-15 12:00 北京：太阳约在寅宫，午时生 → 命宫亥(11)、命主木（亥→木）；七政7、四余4
-  const r = core.qizheng.generateQizheng({ year: 2024, month: 6, day: 15, hour: 12 });
+  const r = core.qizheng.generateQizheng({
+    year: 2024,
+    month: 6,
+    day: 15,
+    hour: 12,
+    latitude: 39.9,
+    longitude: 116.4,
+    timezone: 8,
+  });
   const qi = r.stars.filter((s) => s.kind === '七政');
   const yu = r.stars.filter((s) => s.kind === '四余');
   assert.equal(qi.length, 7);
@@ -944,8 +952,8 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
     'celestine-true-lilith',
   );
   assert.equal(r.stars.find((star) => star.name.includes('紫炁'))?.precisionClass, '传统均速模型');
-  assert.equal(r.calculationContext.locationSource, '默认北京坐标');
-  assert.equal(r.calculationContext.timezoneSource, '默认东八区');
+  assert.equal(r.calculationContext.locationSource, '用户提供');
+  assert.equal(r.calculationContext.timezoneSource, '用户提供');
   assert.match(r.calculationContext.astronomicalTime.utcDateTime, /Z$/);
   assert.ok(r.calculationContext.astronomicalTime.julianDayUtc > 2400000);
   assert.ok(r.calculationContext.moonPhase.phaseAngleDegrees >= 0);
@@ -955,12 +963,12 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.match(r.evidenceAnalysis.promptText, /【七政四余计算来源与证据分层】/);
   assert.equal(r.evidenceAnalysis.key, 'qizheng:evidence');
   assert.equal(r.evidenceAnalysis.status, '已计算');
-  assert.equal(r.evidenceAnalysis.calculationFact.status, '含默认值');
+  assert.equal(r.evidenceAnalysis.calculationFact.status, '输入明确');
   assert.equal(r.evidenceAnalysis.calculationFact.steps.length, 7);
   assert.strictEqual(r.evidenceAnalysis.calculationSteps, r.evidenceAnalysis.calculationFact.steps);
   assert.equal(r.evidenceAnalysis.calculationChain.length, 7);
   const qizhengStepKeys = new Set(r.evidenceAnalysis.calculationFact.steps.map((item) => item.key));
-  assert.ok(r.evidenceAnalysis.calculationFact.defaults.some((item) => item.includes('默认北京')));
+  assert.deepEqual(r.evidenceAnalysis.calculationFact.defaults, []);
   assert.ok(
     r.evidenceAnalysis.calculationFact.steps.every(
       (item) =>
@@ -990,15 +998,15 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.deepEqual(
     r.evidenceAnalysis.counterEvidenceFacts.map((item) => [item.type, item.status]),
     [
-      ['输入完整性', '含默认值'],
+      ['输入完整性', '输入明确'],
       ['位置精度分层', '混合模型'],
       ['吊照覆盖', '有可用证据'],
     ],
   );
   assert.equal(r.evidenceAnalysis.counterSummaryFact.status, '存在需保留反证');
-  assert.equal(r.evidenceAnalysis.counterSummaryFact.factKeys.length, 2);
+  assert.equal(r.evidenceAnalysis.counterSummaryFact.factKeys.length, 1);
   assert.equal(r.evidenceAnalysis.summaryFact.key, 'qizheng:evidence-summary');
-  assert.equal(r.evidenceAnalysis.summaryFact.status, '证据链有缺口');
+  assert.equal(r.evidenceAnalysis.summaryFact.status, '证据链完整');
   assert.equal(
     r.evidenceAnalysis.summaryFact.positionSourceFactCount,
     r.evidenceAnalysis.positionSourceFacts.length,
@@ -1070,7 +1078,7 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.doesNotMatch(r.prompt, /强度\d+%|成功率[：=]?\d|吉凶总分[：=]?\d/);
 });
 
-test('qizheng: 用户地点与默认地点必须在计算上下文中明确区分', () => {
+test('qizheng: 核心入口必须拒绝缺少出生地或时区', () => {
   const supplied = core.qizheng.generateQizheng({
     year: 2024,
     month: 6,
@@ -1086,26 +1094,40 @@ test('qizheng: 用户地点与默认地点必须在计算上下文中明确区�
   assert.equal(supplied.evidenceAnalysis.summaryFact.status, '证据链完整');
   assert.deepEqual(supplied.evidenceAnalysis.calculationFact.defaults, []);
 
-  const partial = core.qizheng.generateQizheng({
+  const base = { year: 2024, month: 6, day: 15, hour: 12 };
+  assert.throws(
+    () => core.qizheng.generateQizheng({ ...base, longitude: 121.47, timezone: 8 } as never),
+    /必须提供出生地纬度/,
+  );
+  assert.throws(
+    () => core.qizheng.generateQizheng({ ...base, latitude: 31.23, timezone: 8 } as never),
+    /必须提供出生地经度/,
+  );
+  assert.throws(
+    () =>
+      core.qizheng.generateQizheng({
+        ...base,
+        latitude: 31.23,
+        longitude: 121.47,
+      }),
+    /必须提供 timezone 或 timeZoneId/,
+  );
+  assert.throws(
+    () => core.qizheng.calculateZiqiTropicalLongitude({ ...base }),
+    /必须提供 timezone 或 timeZoneId/,
+  );
+});
+
+test('qizheng: 核心入口应拒绝不存在日期、越界时间坐标和非有限数字', () => {
+  const valid = {
     year: 2024,
     month: 6,
     day: 15,
     hour: 12,
     latitude: 31.23,
-  });
-  assert.equal(partial.calculationContext.locationSource, '部分坐标使用默认值');
-  assert.equal(partial.evidenceAnalysis.calculationFact.status, '含默认值');
-  assert.equal(partial.evidenceAnalysis.summaryFact.status, '证据链有缺口');
-  assert.ok(
-    partial.evidenceAnalysis.calculationFact.defaults.some((item) =>
-      item.includes('部分坐标使用默认值'),
-    ),
-  );
-  assert.match(partial.evidenceAnalysis.limitations.join('\n'), /部分坐标使用默认值/);
-});
-
-test('qizheng: 核心入口应拒绝不存在日期、越界时间坐标和非有限数字', () => {
-  const valid = { year: 2024, month: 6, day: 15, hour: 12 };
+    longitude: 121.47,
+    timezone: 8,
+  };
   assert.throws(() => core.qizheng.generateQizheng({ ...valid, day: 31 }), /日期需在 1-30 之间/);
   assert.throws(() => core.qizheng.generateQizheng({ ...valid, hour: 24 }), /小时需在 0-23 之间/);
   assert.throws(

@@ -14,7 +14,6 @@ import {
   buildPatternAnalysis,
   detectPatterns,
   getCurrentScopeItem,
-  getDefaultHoroscopeContext,
   mapStarFact,
   analyzeZiweiCompatibility,
 } from '@core/ziwei/iztro';
@@ -23,7 +22,6 @@ import {
   getZiweiDefaultQuestion,
 } from '../prompt-default-questions';
 import { buildPortablePromptPack, type PromptContext } from '../ziwei-prompts';
-import { formatPromptCurrentTime } from '../prompt-time';
 import { buildPromptGuidanceSections } from '../prompt-guidance';
 
 export type ZiweiRuntime = {
@@ -32,6 +30,11 @@ export type ZiweiRuntime = {
   payloadByScope: Record<ScopeType, AnalysisPayloadV1>;
   trueSolarEvidence?: ChartInput['trueSolarEvidence'];
 };
+
+export interface ZiweiHoroscopeContext {
+  dateStr: string;
+  hourIndex: number;
+}
 
 type ZiweiTrueSolarEvidence = NonNullable<ZiweiRuntime['trueSolarEvidence']>;
 
@@ -113,23 +116,51 @@ export function buildZiweiPayloadByScope(params: {
 
 export async function calculateFullZiweiChart(
   input: ChartInput,
+  horoscopeContext: ZiweiHoroscopeContext,
   skipAnalysis?: boolean,
 ): Promise<ZiweiRuntime> {
-  return calculateZiweiChartForScopes(input, undefined, skipAnalysis);
+  return calculateZiweiChartForScopes(input, undefined, skipAnalysis, horoscopeContext);
+}
+
+function resolveZiweiHoroscopeContext(
+  astrolabe: IztroAstrolabe,
+  input: ChartInput,
+  scopes: ScopeType[],
+  horoscopeContext: ZiweiHoroscopeContext | undefined,
+): ZiweiHoroscopeContext {
+  if (horoscopeContext) return horoscopeContext;
+
+  if (scopes.some((scope) => scope !== 'origin')) {
+    throw new Error('紫微非本命计算必须明确提供目标日期和时辰。');
+  }
+
+  return {
+    dateStr: buildBasicInfo(astrolabe).solar_date,
+    hourIndex: input.birthTimeIndex,
+  };
 }
 
 export async function calculateZiweiChartForScopes(
   input: ChartInput,
   scopes?: ScopeType[],
   skipAnalysis?: boolean,
+  horoscopeContext?: ZiweiHoroscopeContext,
 ): Promise<ZiweiRuntime> {
   const astrolabe = await buildAstrolabeFromInput(input);
-  const { dateStr, hourIndex } = getDefaultHoroscopeContext();
+  const requestedScopes = scopes?.length
+    ? scopes
+    : (['origin', 'decadal', 'yearly', 'monthly', 'daily', 'hourly', 'age'] as ScopeType[]);
+  const { dateStr, hourIndex } = resolveZiweiHoroscopeContext(
+    astrolabe,
+    input,
+    requestedScopes,
+    horoscopeContext,
+  );
   const horoscope = buildHoroscope(astrolabe, dateStr, hourIndex);
   const payloadByScope = buildZiweiPayloadByScope({
     astrolabe,
     horoscope,
-    scopes,
+    scopes: requestedScopes,
     skipAnalysis,
   });
 
@@ -232,11 +263,17 @@ function buildLightweightPublicPayload(params: {
 export async function calculatePublicZiweiChartForScopes(
   input: ChartInput,
   scopes?: ScopeType[],
+  horoscopeContext?: ZiweiHoroscopeContext,
 ): Promise<ZiweiRuntime> {
   const astrolabe = await buildAstrolabeFromInput(input);
-  const { dateStr, hourIndex } = getDefaultHoroscopeContext();
-  const horoscope = buildHoroscope(astrolabe, dateStr, hourIndex);
   const requestedScopes = Array.from(new Set(['origin' as const, ...(scopes ?? [])]));
+  const { dateStr, hourIndex } = resolveZiweiHoroscopeContext(
+    astrolabe,
+    input,
+    requestedScopes,
+    horoscopeContext,
+  );
+  const horoscope = buildHoroscope(astrolabe, dateStr, hourIndex);
   const basicInfo = buildBasicInfo(astrolabe);
   const palaces = buildLightweightPublicPalaces(astrolabe);
   const payloadByScope: Partial<Record<ScopeType, AnalysisPayloadV1>> = {};
@@ -259,9 +296,12 @@ export async function calculatePublicZiweiChartForScopes(
   };
 }
 
-export async function calculateZiweiPayloadByScope(input: ChartInput) {
+export async function calculateZiweiPayloadByScope(
+  input: ChartInput,
+  horoscopeContext: ZiweiHoroscopeContext,
+) {
   const astrolabe = await buildAstrolabeFromInput(input);
-  const { dateStr, hourIndex } = getDefaultHoroscopeContext();
+  const { dateStr, hourIndex } = horoscopeContext;
   const horoscope = buildHoroscope(astrolabe, dateStr, hourIndex);
 
   return buildZiweiPayloadByScope({
@@ -570,8 +610,6 @@ export function buildCombinedZiweiPrompt(
 
   return [
     buildPromptGuidanceSections('ziwei'),
-    `【当前时间】\n${formatPromptCurrentTime()}`,
-    '',
     packWithPriority,
     ...(trueSolarEvidenceText ? ['', `【出生时间校正】\n${trueSolarEvidenceText}`] : []),
     '',
@@ -637,7 +675,6 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
 
   return [
     buildPromptGuidanceSections('ziwei-compatibility'),
-    `【当前时间】\n${formatPromptCurrentTime()}`,
     `【${primaryName}盘面】`,
     primaryEmbeddedPack,
     ...(primaryTrueSolarEvidenceText

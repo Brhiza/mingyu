@@ -165,7 +165,18 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ['metaphysics_xuankong', { year: 2024, facingDegree: 0 }],
   ['metaphysics_zodiac', { zodiac: '鼠', year: 2024 }],
   ['metaphysics_taiyi', { year: 2004, scope: 'year' }],
-  ['metaphysics_qizheng', { year: 2024, month: 6, day: 15, hour: 12 }],
+  [
+    'metaphysics_qizheng',
+    {
+      year: 2024,
+      month: 6,
+      day: 15,
+      hour: 12,
+      latitude: 31.23,
+      longitude: 121.47,
+      timezone: 8,
+    },
+  ],
   [
     'astrolabe_synastry',
     {
@@ -292,6 +303,8 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       baziPromptTopic: 'job-change',
       ziweiPromptTopic: 'job-change',
       promptScope: 'yearly',
+      ziweiScopeDate: '2028-06-12',
+      ziweiScopeTimeIndex: 4,
     },
     /【八字排盘信息】/,
   ],
@@ -941,7 +954,7 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         assert.equal(chart?.evidenceAnalysis?.aspectFacts?.length, chart?.aspects?.length);
         assert.equal(chart?.evidenceAnalysis?.key, 'qizheng:evidence');
         assert.equal(chart?.evidenceAnalysis?.status, '已计算');
-        assert.equal(chart?.evidenceAnalysis?.calculationFact?.status, '含默认值');
+        assert.equal(chart?.evidenceAnalysis?.calculationFact?.status, '输入明确');
         assert.equal(chart?.evidenceAnalysis?.calculationFact?.steps.length, 7);
         assert.deepEqual(
           chart?.evidenceAnalysis?.calculationSteps,
@@ -1032,9 +1045,9 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         );
         assert.equal(chart?.evidenceAnalysis?.counterEvidenceFacts?.length, 3);
         assert.equal(chart?.evidenceAnalysis?.counterSummaryFact?.status, '存在需保留反证');
-        assert.equal(chart?.evidenceAnalysis?.counterSummaryFact?.factKeys.length, 2);
+        assert.equal(chart?.evidenceAnalysis?.counterSummaryFact?.factKeys.length, 1);
         assert.equal(chart?.evidenceAnalysis?.summaryFact?.key, 'qizheng:evidence-summary');
-        assert.equal(chart?.evidenceAnalysis?.summaryFact?.status, '证据链有缺口');
+        assert.equal(chart?.evidenceAnalysis?.summaryFact?.status, '证据链完整');
         assert.equal(
           chart?.evidenceAnalysis?.summaryFact?.positionSourceFactCount,
           chart?.evidenceAnalysis?.positionSourceFacts?.length,
@@ -2338,6 +2351,7 @@ test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () =
     assert.match(prompt, /【第一人本命盘】/);
     assert.match(prompt, /【跨盘相位】/);
     assert.match(prompt, /【跨盘落宫】/);
+    assert.doesNotMatch(prompt, /【当前时间】/);
     assert.match(prompt, /容许度/);
     assert.match(prompt, /分析互动主轴、互补点、张力点与现实触发条件/);
     assert.doesNotMatch(prompt, /不得输出|不得编造|只依据/);
@@ -3228,10 +3242,38 @@ test('MCP 八字与紫微工具应拒绝不存在的出生日期', async () => {
 test('MCP 七政四余应拒绝不存在日期和越界坐标时区', async () => {
   await withMcpClient(async (client) => {
     const invalidCalls: Array<[Record<string, unknown>, RegExp | null]> = [
-      [{ year: 2024, month: 6, day: 31, hour: 12 }, /日期需在 1-30 之间/],
-      [{ year: 2024, month: 6, day: 15, hour: 12, latitude: 91 }, null],
-      [{ year: 2024, month: 6, day: 15, hour: 12, longitude: 181 }, null],
-      [{ year: 2024, month: 6, day: 15, hour: 12, timezone: 15 }, null],
+      [
+        {
+          year: 2024,
+          month: 6,
+          day: 31,
+          hour: 12,
+          latitude: 31.23,
+          longitude: 121.47,
+          timezone: 8,
+        },
+        /日期需在 1-30 之间/,
+      ],
+      [
+        { year: 2024, month: 6, day: 15, hour: 12, latitude: 91, longitude: 121.47, timezone: 8 },
+        null,
+      ],
+      [
+        { year: 2024, month: 6, day: 15, hour: 12, latitude: 31.23, longitude: 181, timezone: 8 },
+        null,
+      ],
+      [
+        {
+          year: 2024,
+          month: 6,
+          day: 15,
+          hour: 12,
+          latitude: 31.23,
+          longitude: 121.47,
+          timezone: 15,
+        },
+        null,
+      ],
     ];
 
     for (const [args, messagePattern] of invalidCalls) {
@@ -3254,6 +3296,21 @@ test('MCP 七政、太乙和玄空不得补造缺失时间或返回替卦伪盘'
       ['metaphysics_qizheng', { year: 2024, day: 15, hour: 12 }, null],
       ['metaphysics_qizheng', { year: 2024, month: 6, hour: 12 }, null],
       ['metaphysics_qizheng', { year: 2024, month: 6, day: 15 }, null],
+      [
+        'metaphysics_qizheng',
+        { year: 2024, month: 6, day: 15, hour: 12, longitude: 121.47, timezone: 8 },
+        null,
+      ],
+      [
+        'metaphysics_qizheng',
+        { year: 2024, month: 6, day: 15, hour: 12, latitude: 31.23, timezone: 8 },
+        null,
+      ],
+      [
+        'metaphysics_qizheng',
+        { year: 2024, month: 6, day: 15, hour: 12, latitude: 31.23, longitude: 121.47 },
+        /timezone 与 timeZoneId 至少需要提供一项/,
+      ],
       ['metaphysics_taiyi', { scope: 'year' }, /年计必须提供公历年份/],
       [
         'metaphysics_taiyi',
@@ -3277,6 +3334,59 @@ test('MCP 七政、太乙和玄空不得补造缺失时间或返回替卦伪盘'
           messagePattern,
         );
       }
+    }
+  });
+});
+
+test('MCP 生肖和紫微不得用系统当前时间补齐分析目标', async () => {
+  await withMcpClient(async (client) => {
+    const zodiac = await client.callTool({
+      name: 'metaphysics_zodiac',
+      arguments: { zodiac: '马' },
+    });
+    assert.equal(zodiac.isError, true);
+    assert.match(
+      String((zodiac.structuredContent as { error?: string } | undefined)?.error),
+      /year 与 yearGanZhi 至少需要提供一项/,
+    );
+
+    const ziweiBase = {
+      gender: 'female',
+      dateType: 'solar',
+      year: '1992',
+      month: '8',
+      day: '21',
+      timeIndex: 4,
+      promptScope: 'yearly',
+    };
+    const ziweiCases: Array<[string, Record<string, unknown>, RegExp]> = [
+      ['ziwei_calculate', { ...ziweiBase, ziweiScopeTimeIndex: 4 }, /必须提供 ziweiScopeDate/],
+      [
+        'ziwei_prompt',
+        { ...ziweiBase, ziweiScopeDate: '2028-06-12', question: '事业如何？' },
+        /必须提供 ziweiScopeTimeIndex/,
+      ],
+      [
+        'bazi_ziwei_prompt',
+        {
+          ...ziweiBase,
+          year: 1992,
+          month: 8,
+          day: 21,
+          ziweiScopeTimeIndex: 4,
+          question: '事业如何？',
+        },
+        /必须提供 ziweiScopeDate/,
+      ],
+    ];
+
+    for (const [name, arguments_, messagePattern] of ziweiCases) {
+      const result = await client.callTool({ name, arguments: arguments_ });
+      assert.equal(result.isError, true, `${name} 应拒绝缺失的紫微行运目标`);
+      assert.match(
+        String((result.structuredContent as { error?: string } | undefined)?.error),
+        messagePattern,
+      );
     }
   });
 });

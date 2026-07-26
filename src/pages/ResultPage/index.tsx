@@ -676,6 +676,9 @@ export function ResultPage() {
     (mountedTabs.qizheng || (promptState.tab === 'prompt' && isQizhengPromptSource));
   const qizhengCalculation = useMemo<{ data: QizhengResult | null; error: string }>(() => {
     if (!shouldCalculateQizheng || !sharedBirthData) return { data: null, error: '' };
+    if (sharedBirthData.latitude === undefined || sharedBirthData.longitude === undefined) {
+      return { data: null, error: '七政四余排盘需要完整的出生地经纬度。' };
+    }
     try {
       return {
         data: generateQizheng({
