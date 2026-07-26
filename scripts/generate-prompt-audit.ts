@@ -24,7 +24,6 @@ import { generateResidentialFengshui } from '@core/residential_fengshui';
 import { generateXuanKong } from '@core/xuan_kong';
 import { getZodiacYearFortune } from '@core/zodiac';
 import { generateTaiyi } from '@core/taiyi';
-import { generateQizheng } from '@core/qi_zheng';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
 
@@ -72,11 +71,19 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '六爻',
-    requiredFields: withCommonProjectSupplementRequired(['【传统判断规则】', '【传统依据】', '应期']),
+    requiredFields: withCommonProjectSupplementRequired([
+      '【传统判断规则】',
+      '【传统依据】',
+      '应期',
+    ]),
   },
   {
     sampleName: '梅花易数',
-    requiredFields: withCommonProjectSupplementRequired(['【传统判断规则】', '【传统依据】', '体用关系']),
+    requiredFields: withCommonProjectSupplementRequired([
+      '【传统判断规则】',
+      '【传统依据】',
+      '体用关系',
+    ]),
   },
   {
     sampleName: '奇门遁甲',
@@ -105,9 +112,12 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
     requiredFields: withCommonProjectSupplementRequired([
       '【传统判断规则】',
       '【传统依据】',
-      '主证',
-      '五行推进',
-      '关键词',
+      '顺数轨迹',
+      '占得宫',
+      '歌诀原文',
+      '计算链',
+      '来源状态',
+      '解释限制',
     ]),
   },
   {
@@ -163,13 +173,7 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
   },
   {
     sampleName: '住宅风水',
-    requiredFields: [
-      '【当前时间】',
-      '【传统判断规则】',
-      '【传统依据】',
-      '合参要点',
-      '结构化证据',
-    ],
+    requiredFields: ['【当前时间】', '【传统判断规则】', '【传统依据】', '合参要点', '结构化证据'],
   },
   {
     sampleName: '玄空飞星',
@@ -197,17 +201,6 @@ const REQUIRED_SAMPLE_FIELDS: RequiredSampleFields[] = [
       '主客定算',
       '将参',
       '十六神',
-    ],
-  },
-  {
-    sampleName: '七政四余',
-    requiredFields: [
-      '【当前时间】',
-      '【传统判断规则】',
-      '【传统依据】',
-      '出生时空',
-      '十二宫映射',
-      '计算上下文',
     ],
   },
 ];
@@ -277,7 +270,7 @@ function buildPromptMarkdown(samples: PromptSample[]) {
     '',
     `生成时间：${AUDIT_DATE_TEXT}`,
     '',
-    '说明：本文件由项目本地函数真实生成，覆盖八字排盘、紫微斗数、星盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗牌、雷诺曼、三山国王灵签、择日、八宅风水、住宅风水、玄空飞星、生肖流年、太乙神数、七政四余。八字、紫微斗数、星盘测试资料取自比赛原题公开出生信息，未读取正确答案文件。',
+    '说明：本文件由项目本地函数真实生成，覆盖八字排盘、紫微斗数、星盘、六爻、梅花易数、奇门遁甲、大六壬、小六壬、塔罗牌、雷诺曼、三山国王灵签、择日、八宅风水、住宅风水、玄空飞星、生肖流年、太乙神数。七政四余完整盘在传统坐标链校勘完成前暂停输出，因此不生成可交给模型解读的样本。八字、紫微斗数、星盘测试资料取自比赛原题公开出生信息，未读取正确答案文件。',
     '',
     '## 审计原则',
     '',
@@ -356,7 +349,7 @@ function assertSamplePromptsAreClean(samples: PromptSample[]) {
     {
       label: '工程语境',
       pattern:
-        /本项目|当前项目|项目统一|本地(?:算法|系统|实现|程序|代码)|算法(?:结果|返回|生成|实际)|本模块|当前数据|实际返回|未计算|资料包|提示词规则|系统提示词|在线\s*AI|工程|接口|\bAPI\b|\bMCP\b|调试|用户补充：/,
+        /本项目|当前项目|项目(?:统一|明确)|本地(?:算法|系统|实现|程序|代码)|算法(?:结果|返回|生成|实际)|本模块|当前数据|实际返回|未计算|资料包|提示词规则|系统提示词|在线\s*AI|工程|接口|\bAPI\b|\bMCP\b|调试|用户补充：/,
     },
     {
       label: '外部补充或缺项清单',
@@ -507,8 +500,7 @@ async function buildSamples(): Promise<PromptSample[]> {
     });
 
     const xiaoliurenData = generateXiaoliuren({
-      method: 'number',
-      number: 18,
+      method: 'time',
       customDate: auditDate,
     });
     const xiaoliurenPrompt = buildDivinationPrompt(
@@ -591,29 +583,12 @@ async function buildSamples(): Promise<PromptSample[]> {
       { method: 'zodiac', currentTime: fixedNow },
     );
 
-    const taiyiData = generateTaiyi({ date: fixedNow, scope: 'hour' });
+    const taiyiData = generateTaiyi({ year: 2026, scope: 'year' });
     const taiyiPrompt = buildMetaphysicsPrompt(
       taiyiData.prompt,
-      '请分析当前时段更适合主动推进还是稳守，以及应观察什么信号。',
+      '请分析 2026 年更适合主动推进还是稳守，以及应观察什么信号。',
       { method: 'taiyi', currentTime: fixedNow },
     );
-
-    const qizhengData = generateQizheng({
-      year: 2024,
-      month: 6,
-      day: 15,
-      hour: 12,
-      minute: 30,
-      latitude: 39.9042,
-      longitude: 116.4074,
-      timezone: 8,
-    });
-    const qizhengPrompt = buildMetaphysicsPrompt(
-      qizhengData.prompt,
-      '请分析命主的核心结构、优势、限制和适合的发展方向。',
-      { method: 'qizheng', currentTime: fixedNow },
-    );
-
 
     const residentialData = generateResidentialFengshui({
       birthYear: 1990,
@@ -700,8 +675,8 @@ async function buildSamples(): Promise<PromptSample[]> {
       },
       {
         name: '小六壬',
-        source: '项目算法真实起课；固定时间 2026-05-19T10:30:00+08:00；数字起课 18。',
-        inputSummary: buildCommonProjectInputSummary('焦点：事业；数字起课 18'),
+        source: '项目算法真实起课；固定时间 2026-05-19T10:30:00+08:00；时间起课。',
+        inputSummary: buildCommonProjectInputSummary('焦点：事业；时间起课'),
         prompt: xiaoliurenPrompt,
         notes: [],
       },
@@ -763,21 +738,13 @@ async function buildSamples(): Promise<PromptSample[]> {
       },
       {
         name: '太乙神数',
-        source: '项目太乙五计七十二局立成真实生成；固定时间 2026-05-19T10:30:00+08:00，展示时计。',
-        inputSummary: '2026年5月19日10:30，太乙时计；问题为当前时段的攻守与行动时宜。',
+        source: '项目太乙年计七十二局立成真实生成；展示 2026 年年计。',
+        inputSummary: '2026年太乙年计；问题为本年度的攻守与行动时宜。',
         prompt: taiyiPrompt,
         notes: [
-          '太乙已支持年计、月计、日计、时计、分计；五种计式分别使用对应积数和阴阳遁规则。',
-          '本样本选用时计，便于审计冬至、夏至分阴阳遁及阴遁立成表是否进入提示词。',
+          '当前只开放完成积年与七十二局立成校勘的年计。',
+          '月、日、时计等待完整古籍历法链校勘，不生成近似盘审查样本。',
         ],
-      },
-      {
-        name: '七政四余',
-        source: '项目七政四余算法真实生成；紫炁仅使用《七政算内篇》古法均速模型。',
-        inputSummary:
-          '2024年6月15日 12:30，北京经纬度，UTC+8；问题为核心结构、优势、限制和发展方向。',
-        prompt: qizhengPrompt,
-        notes: ['当前样本只审计本命结构、长期倾向和紫炁古法均速口径。'],
       },
     ];
   });
@@ -798,4 +765,3 @@ async function main() {
 }
 
 await main();
-
