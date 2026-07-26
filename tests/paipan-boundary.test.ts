@@ -151,9 +151,7 @@ test('夏令时:1988-07-15 12:00 北京(钟表) → 自动回拨 60 分钟,时�
   assert.equal(r.warningFacts.length, r.warnings.length);
   assert.equal(r.warningSummaryFact.status, '存在边界提示');
   assert.ok(
-    r.warningFacts.every(
-      (fact) => fact.sources.length > 0 && fact.limitation.includes('唯一定盘'),
-    ),
+    r.warningFacts.every((fact) => fact.sources.length > 0 && fact.limitation.includes('唯一定盘')),
   );
   const prompt = formatBaziForPrompt(r);
   assert.match(prompt, /真太阳时: 1988年7月15日 10:39/);

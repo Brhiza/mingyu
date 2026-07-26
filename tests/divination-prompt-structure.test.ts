@@ -1203,7 +1203,7 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /体用：体卦离（火）；用卦震（木）；动爻第3爻；体用关系用生体/);
   assert.match(prompt, /互卦：泽风大过；互卦体用比和；互上辅助生/);
   assert.match(prompt, /变卦：地火明夷；变后体卦坤（土）；变后用卦离（火）；变后体用体克用/);
-  assert.match(prompt, /四时与起卦：春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
+  assert.match(prompt, /月令与起卦：春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
   assert.match(prompt, /应期资料：动爻第3爻：对应阶段、层位或触发点/);
   assert.match(prompt, /主卦卦辞分类：.*(?:传统.*标签|未见明确吉凶或进退标签)/);
   assert.match(prompt, /动爻传统辅助：.*当前爻位已发动/);
@@ -1480,18 +1480,24 @@ test('星盘提示词写入年限选择后应包含分析对象与行运边界',
   assert.ok(prompt.indexOf('【分析对象】') < prompt.indexOf('【占卜信息】'));
 });
 
-
 test('金口诀提示词应写入四位主线且可外发', async () => {
-  const { generateJinkoujue } = await import('../packages/core/src/divination/algorithms/jinkoujue.ts');
+  const { generateJinkoujue } =
+    await import('../packages/core/src/divination/algorithms/jinkoujue.ts');
   const { buildDivinationPrompt } = await import('../src/lib/divination/engine/index.ts');
   const data = generateJinkoujue({
     method: 'number',
     number: 5,
     customDate: new Date('2025-01-01T08:00:00+08:00'),
   });
-  const prompt = buildDivinationPrompt('jinkoujue', PROJECT_DECISION_QUESTION, data, createProjectSupplementaryInfo(), {
-    isCustomQuestion: true,
-  });
+  const prompt = buildDivinationPrompt(
+    'jinkoujue',
+    PROJECT_DECISION_QUESTION,
+    data,
+    createProjectSupplementaryInfo(),
+    {
+      isCustomQuestion: true,
+    },
+  );
   assert.match(prompt, /占法：金口诀/);
   assert.match(prompt, /取用主线：以贵神/);
   assert.match(prompt, /地分|将神|贵神|人元/);

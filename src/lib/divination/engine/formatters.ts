@@ -283,10 +283,14 @@ function createMeihuaTimingEvidence(data: MeihuaData) {
   ]
     .filter(Boolean)
     .join('、');
+  const seasonBasis =
+    data.analysis.monthBranch && data.analysis.monthElement
+      ? `${data.analysis.monthBranch}月（${data.analysis.monthElement}令）`
+      : `${data.analysis.season}季`;
 
   return [
     `动爻第${data.movingYao.position}爻：对应阶段、层位或触发点`,
-    `${data.analysis.season}季体卦${data.analysis.tiSeasonState}、用卦${data.analysis.yongSeasonState}`,
+    `${seasonBasis}体卦${data.analysis.tiSeasonState}、用卦${data.analysis.yongSeasonState}`,
     `互卦${data.interName || data.interHexagram?.name || '无'}主过程，变卦${data.changedName || data.changedHexagram?.name || '无'}主结果`,
     numberEvidence,
     timeEvidence ? `时间数：${timeEvidence}` : '',
@@ -450,6 +454,10 @@ function formatMeihuaInfo(data: MeihuaData) {
   const movingYaoFact = evidenceAnalysis.traditionalFacts.find(
     (fact) => fact.applicability === '当前动爻辅助',
   );
+  const seasonBasis =
+    data.analysis.monthBranch && data.analysis.monthElement
+      ? `${data.analysis.monthBranch}月（${data.analysis.monthElement}令）`
+      : `${data.analysis.season}季`;
 
   return [
     '占法：梅花易数',
@@ -462,10 +470,10 @@ function formatMeihuaInfo(data: MeihuaData) {
     `体用：体卦${data.tiGua.name}（${data.tiGua.element}）；用卦${data.yongGua.name}（${data.yongGua.element}）；动爻第${data.movingYao.position}爻；体用关系${data.analysis.tiYongRelation}`,
     `互卦：${processHexagram}；互卦体用${data.analysis.inter1Relation}；互上辅助${data.analysis.inter2Relation}`,
     `变卦：${resultHexagram}${changedTiYongText}；结果关系${data.analysis.changedRelation}`,
-    `四时与起卦：${data.analysis.season}季，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}；起卦法${methodLabel}${typeof calculation?.number === 'number' ? `；起卦数字${calculation.number}` : ''}`,
+    `月令与起卦：${seasonBasis}，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}；起卦法${methodLabel}${typeof calculation?.number === 'number' ? `；起卦数字${calculation.number}` : ''}`,
     `应期资料：${timingEvidence}`,
     '结构明细：',
-    `- 四时旺衰：${data.analysis.season}季，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}`,
+    `- 月令旺衰：${seasonBasis}，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}`,
     `- 体用关系：${data.analysis.tiYongRelation}`,
     `- 过程关系：互卦体用${data.analysis.inter1Relation}，互上辅助${data.analysis.inter2Relation}`,
     `- 结果关系：${data.analysis.changedRelation}`,
@@ -565,13 +573,18 @@ function formatQimenInfo(data: QimenData) {
     : analyzeQimenEvidence(data);
   const primaryUsefulPalace = evidenceAnalysis.candidates[0];
   const focusText = primaryUsefulPalace
-    ? `取用主线：优先看${primaryUsefulPalace.name}（${primaryUsefulPalace.direction}，${primaryUsefulPalace.element}）；来源${primaryUsefulPalace.sources.join('、')}；门星神干为${[primaryUsefulPalace.palace.renPan.door, primaryUsefulPalace.palace.tianPan.star, primaryUsefulPalace.palace.shenPan.god, primaryUsefulPalace.palace.tianPan.stem, primaryUsefulPalace.palace.diPan.stem].filter(Boolean).join('、')}；支持${primaryUsefulPalace.support.join('、') || '盘面平稳'}；限制${primaryUsefulPalace.constraints.join('、') || '未见明显空亡入墓'}`
+    ? `取用主线：优先看${primaryUsefulPalace.name}（${primaryUsefulPalace.direction}，${primaryUsefulPalace.element}）；来源${primaryUsefulPalace.sources.join('、')}；门星神干为${[primaryUsefulPalace.palace.renPan.door, primaryUsefulPalace.palace.tianPan.star, primaryUsefulPalace.palace.tianPan.companionStar, primaryUsefulPalace.palace.shenPan.god, primaryUsefulPalace.palace.tianPan.stem, primaryUsefulPalace.palace.tianPan.companionStem, primaryUsefulPalace.palace.diPan.stem].filter(Boolean).join('、')}；支持${primaryUsefulPalace.support.join('、') || '盘面平稳'}；限制${primaryUsefulPalace.constraints.join('、') || '未见明显空亡入墓'}`
     : '取用主线：以值符、值使、时干落宫为先，再看格局与宫间生克';
-  const zhiFuPalace = data.jiuGongGe.find((item) => item.tianPan.star === data.zhiFu);
+  const zhiFuPalace = data.jiuGongGe.find(
+    (item) => item.tianPan.star === data.zhiFu || item.tianPan.companionStar === data.zhiFu,
+  );
   const zhiShiPalace = data.jiuGongGe.find((item) => item.renPan.door === data.zhiShi);
   const hourStem = data.ganzhi.hour.charAt(0);
   const hourStemPalaces = data.jiuGongGe.filter(
-    (item) => item.tianPan.stem === hourStem || item.diPan.stem === hourStem,
+    (item) =>
+      item.tianPan.stem === hourStem ||
+      item.tianPan.companionStem === hourStem ||
+      item.diPan.stem === hourStem,
   );
   const voidText = data.voidPalaces?.length
     ? data.voidPalaces.map((item) => `${item.branch}空落${item.name}`).join('、')
@@ -665,13 +678,14 @@ function formatQimenInfo(data: QimenData) {
     : '';
   const solarTerm = data.seasonality?.jieQiPhase.solarTermEvidence;
   const moonPhase = data.seasonality?.moonPhaseEvidence;
+  const juTerm = data.timeInfo?.juTerm || data.timeInfo?.solarTerm || '未列';
 
   return [
     '占法：奇门遁甲',
     focusText,
     `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
     `核心结构：${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局；值符${data.zhiFu}；值使${data.zhiShi}`,
-    `关键提示：节令${`${data.timeInfo?.solarTerm || '未列'} ${data.timeInfo?.epoch || ''}`.trim()}；格局标签${data.patternTags?.join('、') || '无'}`,
+    `关键提示：实际节气${data.timeInfo?.solarTerm || '未列'}；定局${`${juTerm} ${data.timeInfo?.epoch || ''}`.trim()}；格局标签${data.patternTags?.join('、') || '无'}`,
     seasonalitySummary ? `节令背景：${seasonalitySummary}` : '',
     solarTerm
       ? `节气交接：${solarTerm.name}交节时刻 ${solarTerm.utcDateTime}（UTC），太阳黄经${solarTerm.targetLongitudeDegrees.toFixed(0)}°。`

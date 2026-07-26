@@ -17,7 +17,7 @@ import type { MeihuaData, MeihuaSettings } from '../../../types/divination';
 import { trigramsByIndex } from '../../../divination/hexagram-data';
 import { MeihuaHelpers } from '../../../divination/divination-helpers';
 import { getDivinationTime } from '../../../calendar/timeManager';
-import { getSeasonState, isSheng, isKe } from '../../../ganzhi';
+import { getBranchWuxing, getSeasonState, isSheng, isKe } from '../../../ganzhi';
 import { assertOptionalRecord } from '../../../shared/validation';
 import { findHexagramByTrigrams, resolveTiYongByMovingYao } from './helpers/hexagram';
 import {
@@ -163,25 +163,18 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   }
   const mainHexagram = findHexagramByTrigrams(upperTrigramIndex, lowerTrigramIndex);
 
-  const toBottomUpLines = (lines: number[]) => [...lines].reverse();
-  const toStoredLines = (bottomUpLines: number[]) => [...bottomUpLines].reverse();
-
-  const mainLines = [
-    ...toBottomUpLines(lowerTrigram.lines),
-    ...toBottomUpLines(upperTrigram.lines),
-  ];
+  const mainLines = [...lowerTrigram.lines, ...upperTrigram.lines];
 
   const interLowerLines = mainLines.slice(1, 4);
   const interUpperLines = mainLines.slice(2, 5);
 
   const findTrigramByBottomUpLines = (lines: number[]) => {
-    const storedLines = toStoredLines(lines);
     for (let i = 1; i <= 8; i++) {
       const trigram = trigrams[i];
-      if (trigram && trigram.lines.length === storedLines.length) {
+      if (trigram && trigram.lines.length === lines.length) {
         let match = true;
-        for (let j = 0; j < storedLines.length; j++) {
-          if (trigram.lines[j] !== storedLines[j]) {
+        for (let j = 0; j < lines.length; j++) {
+          if (trigram.lines[j] !== lines[j]) {
             match = false;
             break;
           }
@@ -248,6 +241,7 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   // 四时旺衰：按《梅花易数》以月建地支定旺相休囚死，比季节粗分更精确。
   // 复用六爻的 getSeasonState（同令→旺，令生我→相，我生令→休，我克令→囚，令克我→死）。
   const monthBranch = ganzhi.month.slice(-1);
+  const monthElement = getBranchWuxing(monthBranch);
   const tiSeasonState = getSeasonState(tiGua.element, monthBranch);
   const yongSeasonState = getSeasonState(yongGua.element, monthBranch);
   const seasonByJieQi = MeihuaHelpers.getSeasonByJieQi(timeInfo.jieQi);
@@ -314,6 +308,8 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
 
     analysis: {
       season,
+      monthBranch,
+      monthElement,
       tiYongRelation: MeihuaHelpers.getElementRelation(yongGua.element, tiGua.element),
       tiSeasonState,
       yongSeasonState,

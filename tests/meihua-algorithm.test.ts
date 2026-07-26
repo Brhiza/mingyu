@@ -50,6 +50,25 @@ test('梅花：互卦应取二三四爻为下互、三四五爻为上互', () =>
   assert.equal(data.interHexagram?.lower, '艮');
 });
 
+test('梅花：天泽履二爻动应变天雷无妄，不得错认成天山遁', () => {
+  const data = generateMeihua(new Date('2026-07-25T23:30:00+08:00'), { method: 'time' });
+
+  assert.equal(data.originalName, '天泽履');
+  assert.equal(data.movingYao.position, 2);
+  assert.deepEqual(
+    data.yaosDetail.map((yao) => yao.yaoType),
+    ['阳', '阳', '阴', '阳', '阳', '阳'],
+  );
+  assert.equal(data.interName, '风火家人');
+  assert.equal(data.changedName, '天雷无妄');
+  assert.equal(data.changedHexagram?.upper, '乾');
+  assert.equal(data.changedHexagram?.lower, '震');
+  assert.equal(data.analysis.monthBranch, '未');
+  assert.equal(data.analysis.monthElement, '土');
+  assert.equal(data.analysis.tiSeasonState, '相');
+  assert.equal(data.analysis.yongSeasonState, '相');
+});
+
 test('梅花：数字起卦生成的主互变三卦与动爻资料必须始终完整', () => {
   for (let number = 1; number <= 192; number += 1) {
     const data = generateMeihua(SAMPLE_DATE, { method: 'number', number });
@@ -137,7 +156,7 @@ test('梅花：年月日时起卦应以农历年支入数，不应在立春后�
   assert.equal(data.calculation.lowerTrigramIndex, 1);
   assert.equal(data.calculation.movingYaoIndex, 1);
   assert.equal(data.originalName, '泽天夬');
-  assert.equal(data.changedName, '兑为泽');
+  assert.equal(data.changedName, '泽风大过');
 });
 
 test('梅花：未知起卦方式应明确报错，不应静默退回时间卦', () => {

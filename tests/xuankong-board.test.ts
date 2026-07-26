@@ -5,6 +5,9 @@ import {
   flyStars,
   resolveXuanKongPeriod,
 } from '../packages/core/src/xuan_kong/index.ts';
+import { TWENTY_FOUR_MOUNTAINS } from '../packages/core/src/direction/index.ts';
+
+const NINE_STARS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 test('三元九运：2024 应落入下元九运区间附近可复现运表', () => {
   const period = resolveXuanKongPeriod(2024);
@@ -95,4 +98,38 @@ test('玄空边界敏感时应输出候选山向', () => {
   assert.equal(result.measurement?.stability, '山向边界敏感');
   assert.ok((result.measurement?.candidateMountains?.length ?? 0) >= 1);
   assert.match(result.prompt, /候选/);
+});
+
+test('玄空九运乘二十四山的 216 盘应保持三盘、九宫和坐向完整', () => {
+  for (let yun = 1; yun <= 9; yun += 1) {
+    const year = 1864 + (yun - 1) * 20;
+
+    for (let mountainIndex = 0; mountainIndex < TWENTY_FOUR_MOUNTAINS.length; mountainIndex += 1) {
+      const sitMountain = TWENTY_FOUR_MOUNTAINS[mountainIndex];
+      const expectedFacing = TWENTY_FOUR_MOUNTAINS[(mountainIndex + 12) % 24];
+      const result = generateXuanKong({ year, sitMountain });
+
+      assert.equal(result.period.yun, yun);
+      assert.equal(result.sitMountain, sitMountain);
+      assert.equal(result.facingMountain, expectedFacing);
+      assert.equal(result.guaType, '下卦');
+      assert.equal(result.replacementApplied, false);
+      assert.deepEqual([...result.plates.yun].sort(), NINE_STARS);
+      assert.deepEqual([...result.plates.shan].sort(), NINE_STARS);
+      assert.deepEqual([...result.plates.xiang].sort(), NINE_STARS);
+      assert.deepEqual(result.palaces.map((palace) => palace.gong).sort(), NINE_STARS);
+
+      for (const palace of result.palaces) {
+        assert.equal(palace.yunStar, result.plates.yun[palace.gong - 1]);
+        assert.equal(palace.shanStar, result.plates.shan[palace.gong - 1]);
+        assert.equal(palace.xiangStar, result.plates.xiang[palace.gong - 1]);
+      }
+      assert.ok(
+        result.combinations.every((item) =>
+          (item.palaces || []).every((gong) => NINE_STARS.includes(gong)),
+        ),
+      );
+      assert.equal(result.evidenceAnalysis.key, 'xuankong:evidence');
+    }
+  }
 });

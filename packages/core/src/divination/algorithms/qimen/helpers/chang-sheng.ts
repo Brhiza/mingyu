@@ -18,7 +18,7 @@
 import { EarthBranch, HeavenStem } from 'tyme4ts';
 import { CHANGSHENG_ORDER, WUXING_CHANGSHENG_START } from '../../../../ganzhi/data';
 import { stemElements, branchIndex, palaceStars } from './_constants';
-import { getDunJiaStem } from './palace-utils';
+import { getDunJiaStem, hasTianPanStar, hasTianPanStem } from './palace-utils';
 import type { QimenJiuGongGe } from '../../../../types/divination';
 
 // ============================================================================
@@ -306,7 +306,7 @@ export function evaluateZhiFuChangSheng(result: {
   }
 
   // 3. 找到值符星的当前落宫（天盘中该星所在宫位）
-  const currentGong = jiuGongGe.find((g) => g.tianPan.star === zhiFu);
+  const currentGong = jiuGongGe.find((g) => hasTianPanStar(g, zhiFu));
   if (!currentGong) {
     return { stage: '', index: -1, scoreFactor: NORMAL_FACTOR };
   }
@@ -370,7 +370,7 @@ export function evaluateHourStemChangSheng(result: {
 
   // 在天盘（tianPan.stem）中查找该干落宫（优先）
   // 值符携时干遁干飞转，天盘反映的是星飞之后的状态
-  const inTianPan = jiuGongGe.find((g) => g.tianPan.stem === hourGan);
+  const inTianPan = jiuGongGe.find((g) => hasTianPanStem(g, hourGan));
   if (inTianPan) {
     return evaluateChangSheng(hourGan, inTianPan.gong);
   }

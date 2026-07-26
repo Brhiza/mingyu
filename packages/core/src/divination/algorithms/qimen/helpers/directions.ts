@@ -35,7 +35,7 @@ export interface PalaceScoreInput {
   name: string;
   direction: string;
   element: string;
-  tianPan: { stem: string; star: string };
+  tianPan: { stem: string; star: string; companionStem?: string; companionStar?: string };
   diPan: { stem: string };
   renPan: { door: string };
   shenPan: { god: string };
@@ -94,7 +94,11 @@ const STAR_SCORES: Record<string, number> = {
 };
 
 function hasSanQiWithAuspiciousDoor(palace: Pick<PalaceScoreInput, 'tianPan' | 'renPan'>): boolean {
-  return sanQiStems.includes(palace.tianPan.stem) && auspiciousDoors.includes(palace.renPan.door);
+  return (
+    [palace.tianPan.stem, palace.tianPan.companionStem].some(
+      (stem) => Boolean(stem) && sanQiStems.includes(stem as string),
+    ) && auspiciousDoors.includes(palace.renPan.door)
+  );
 }
 
 // ============================================================================
@@ -136,8 +140,8 @@ export function getPalaceScore(
   }
 
   // 3. 星分
-  if (palace.tianPan.star && STAR_SCORES[palace.tianPan.star] !== undefined) {
-    score += STAR_SCORES[palace.tianPan.star];
+  for (const star of [palace.tianPan.star, palace.tianPan.companionStar]) {
+    if (star && STAR_SCORES[star] !== undefined) score += STAR_SCORES[star];
   }
 
   // 4. 三奇合吉门加分。古籍以「奇门会合」为用，单见天盘三奇不单独加分。
@@ -262,10 +266,13 @@ export function buildDirectionAdvice(
         reasons.push(`值${p.shenPan.god}`);
       }
       if (hasSanQiWithAuspiciousDoor(p)) {
-        reasons.push(`${p.tianPan.stem}奇合${p.renPan.door}`);
+        const qi = [p.tianPan.stem, p.tianPan.companionStem].find((stem) =>
+          sanQiStems.includes(stem || ''),
+        );
+        reasons.push(`${qi}奇合${p.renPan.door}`);
       }
-      if (p.tianPan.star && STAR_SCORES[p.tianPan.star] >= 2) {
-        reasons.push(`${p.tianPan.star}到宫`);
+      for (const star of [p.tianPan.star, p.tianPan.companionStar]) {
+        if (star && STAR_SCORES[star] >= 2) reasons.push(`${star}到宫`);
       }
 
       return {

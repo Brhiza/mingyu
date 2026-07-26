@@ -22,6 +22,11 @@ import {
 } from '../packages/core/src/divination/algorithms/liuren/helpers/plate.ts';
 
 const DIZHI = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'] as const;
+const TIANGAN = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'] as const;
+const SIXTY_DAYS = Array.from(
+  { length: 60 },
+  (_, index) => `${TIANGAN[index % 10]}${DIZHI[index % 12]}`,
+);
 const GUIREN_BRANCH_BY_STEM: Record<string, { day: string; night: string }> = {
   甲: { day: '丑', night: '未' },
   戊: { day: '丑', night: '未' },
@@ -297,6 +302,87 @@ test('大六壬天地盘会把月将加在占时地盘上，并保持天地互�
       assert.equal(new Set(plate.map((item) => item.branch)).size, 12);
     }
   }
+});
+
+test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取传', () => {
+  const ruleCounts = new Map<string, number>();
+  let caseCount = 0;
+
+  for (const monthLeader of DIZHI) {
+    for (const hourBranch of DIZHI) {
+      for (const day of SIXTY_DAYS) {
+        for (const dayNight of ['昼占', '夜占'] as const) {
+          const dayStem = day.charAt(0);
+          const dayBranch = day.charAt(1);
+          const dayStemIndex = TIANGAN.indexOf(dayStem as (typeof TIANGAN)[number]);
+          const hourBranchIndex = DIZHI.indexOf(hourBranch);
+          const hourStem = TIANGAN[((dayStemIndex % 5) * 2 + hourBranchIndex) % 10];
+          const heavenlyPlate = buildHeavenlyPlate({
+            monthLeader,
+            divinationBranch: hourBranch,
+            noblemanBranch: getNoblemanBranch(dayStem, dayNight),
+            dayNight,
+          });
+          const dayStemResidence = getDayStemResidence(dayStem);
+          const lessons = buildFourLessons({
+            heavenlyPlate,
+            dayStem,
+            dayBranch,
+            dayStemResidence,
+            xunKong: [],
+          });
+          const initial = resolveInitialTransmission(lessons, {
+            dayStem,
+            dayBranch,
+            dayStemResidence,
+            hourStem,
+            hourBranch,
+            heavenlyPlate,
+          });
+          const branches = initial.branches || [
+            initial.initial,
+            getUpperByUnder(heavenlyPlate, initial.initial),
+            getUpperByUnder(heavenlyPlate, getUpperByUnder(heavenlyPlate, initial.initial)),
+          ];
+          const label = `${monthLeader}将 ${day}${hourStem}${hourBranch} ${dayNight}`;
+
+          assert.equal(getUpperByUnder(heavenlyPlate, hourBranch), monthLeader, label);
+          assert.equal(new Set(heavenlyPlate.map((item) => item.under)).size, 12, label);
+          assert.equal(new Set(heavenlyPlate.map((item) => item.branch)).size, 12, label);
+          assert.equal(new Set(heavenlyPlate.map((item) => item.god)).size, 12, label);
+          assert.equal(lessons.length, 4, label);
+          assert.equal(branches.length, 3, label);
+          assert.ok(
+            branches.every((branch) => DIZHI.includes(branch as (typeof DIZHI)[number])),
+            label,
+          );
+
+          ruleCounts.set(initial.rule, (ruleCounts.get(initial.rule) || 0) + 1);
+          caseCount += 1;
+        }
+      }
+    }
+  }
+
+  assert.equal(caseCount, 17_280);
+  assert.deepEqual(Object.fromEntries([...ruleCounts].sort()), {
+    伏吟法: 1440,
+    元首法: 2856,
+    八专法: 384,
+    别责法: 216,
+    昴星法: 384,
+    比用法: 1944,
+    涉害法: 1824,
+    返吟元首法: 48,
+    返吟比用法: 384,
+    返吟法: 144,
+    返吟涉害法: 144,
+    返吟重审法: 720,
+    遥克比用法: 264,
+    遥克法: 1272,
+    遥克涉害法: 24,
+    重审法: 5232,
+  });
 });
 
 test('大六壬十干寄宫与四课上下递取应符合传统口径', () => {

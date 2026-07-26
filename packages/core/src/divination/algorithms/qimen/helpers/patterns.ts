@@ -16,7 +16,13 @@
 import type { QimenJiuGongGe } from '../../../../types/divination';
 import { qimen } from '../../../../divination/divination-data';
 import { isKe } from '../../../../ganzhi';
-import { getDoorElement, getOppositePalace } from './palace-utils';
+import {
+  getDoorElement,
+  getOppositePalace,
+  getTianPanStemForStar,
+  getTianPanStems,
+  hasTianPanStar,
+} from './palace-utils';
 import { STEM_TOMB_MAP } from './_constants';
 
 const { palaceStars, doorPalaceMap } = qimen;
@@ -289,22 +295,23 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
   // 古籍以「奇门会合」为用，单见天盘三奇不足以判吉。
   // 《遁甲演义》：「三奇倘合开休生，便是吉门利出行」
   // 《奇门遁甲统宗》：「有奇无门，则当另择矣」
-  const sanQiPalaces = jiuGongGe.filter(
-    (gong) => SAN_QI.includes(gong.tianPan.stem) && GOOD_DOORS.has(gong.renPan.door),
-  );
-  for (const gong of sanQiPalaces) {
-    const qiDisplay = SAN_QI_NAME[gong.tianPan.stem] || gong.tianPan.stem;
-    tags.push(`三奇得（${qiDisplay}合${gong.renPan.door}于${gong.name}）`);
+  for (const gong of jiuGongGe.filter((item) => GOOD_DOORS.has(item.renPan.door))) {
+    for (const stem of getTianPanStems(gong).filter((item) => SAN_QI.includes(item))) {
+      const qiDisplay = SAN_QI_NAME[stem] || stem;
+      tags.push(`三奇得（${qiDisplay}合${gong.renPan.door}于${gong.name}）`);
+    }
   }
 
   // ── 6.1 宝鉴三奇得使 ──
   // 《奇门宝鉴御定》：「三奇得使者，谓得三吉门、直使加奇也」
   if (GOOD_DOORS.has(zhiShi)) {
     const zhiShiSanQiPalace = jiuGongGe.find(
-      (gong) => gong.renPan.door === zhiShi && SAN_QI.includes(gong.tianPan.stem),
+      (gong) =>
+        gong.renPan.door === zhiShi && getTianPanStems(gong).some((stem) => SAN_QI.includes(stem)),
     );
     if (zhiShiSanQiPalace) {
-      const qiName = SAN_QI_NAME[zhiShiSanQiPalace.tianPan.stem] || zhiShiSanQiPalace.tianPan.stem;
+      const qiStem = getTianPanStems(zhiShiSanQiPalace).find((stem) => SAN_QI.includes(stem)) || '';
+      const qiName = SAN_QI_NAME[qiStem] || qiStem;
       tags.push(`宝鉴三奇得使（值使${zhiShi}加${qiName}于${zhiShiSanQiPalace.name}）`);
     }
   }
@@ -312,7 +319,7 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
   // ── 7. 符使同宫 ──
   // 《烟波钓叟歌》：「符使同宫事必成」
   // 值符星与值使门落在同一宫，力量集中
-  const fuPalace = jiuGongGe.find((gong) => gong.tianPan.star === zhiFu);
+  const fuPalace = jiuGongGe.find((gong) => hasTianPanStar(gong, zhiFu));
   const shiPalace = jiuGongGe.find((gong) => gong.renPan.door === zhiShi);
   if (fuPalace && shiPalace && fuPalace.gong === shiPalace.gong) {
     tags.push(`符使同宫（值符${zhiFu}与值使${zhiShi}同落${fuPalace.name}）`);
@@ -321,21 +328,22 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
   // ── 8. 三奇得使 ──
   // 《遁甲演义》：「甲戌甲午乙为使，甲子甲申丙为使，甲辰甲寅丁为使」
   for (const gong of jiuGongGe) {
-    const heavenStem = gong.tianPan.stem;
-    const config = SAN_QI_DE_SHI_EARTH_STEMS[heavenStem];
-    if (!config || !config.earthStems.includes(gong.diPan.stem)) continue;
+    for (const heavenStem of getTianPanStems(gong)) {
+      const config = SAN_QI_DE_SHI_EARTH_STEMS[heavenStem];
+      if (!config || !config.earthStems.includes(gong.diPan.stem)) continue;
 
-    const qiName = SAN_QI_NAME[heavenStem] || heavenStem;
-    tags.push(`三奇得使（${qiName}加${config.xunShouText}所遁${gong.diPan.stem}于${gong.name}）`);
+      const qiName = SAN_QI_NAME[heavenStem] || heavenStem;
+      tags.push(`三奇得使（${qiName}加${config.xunShouText}所遁${gong.diPan.stem}于${gong.name}）`);
+    }
   }
 
   // ── 9. 三奇游六仪 ──
   // 《奇门宝鉴御定》：「左仪加奇，则奇游于右仪。右仪加奇，则奇游于左仪……
   // 必为当旬直符来加方是」
-  const youYiZhiFuPalace = jiuGongGe.find((gong) => gong.tianPan.star === zhiFu);
+  const youYiZhiFuPalace = jiuGongGe.find((gong) => hasTianPanStar(gong, zhiFu));
   if (youYiZhiFuPalace) {
     const qi = youYiZhiFuPalace.diPan.stem;
-    const zhiFuStem = youYiZhiFuPalace.tianPan.stem;
+    const zhiFuStem = getTianPanStemForStar(youYiZhiFuPalace, zhiFu) || '';
     const config = SAN_QI_YOU_LIU_YI[qi]?.[zhiFuStem];
     if (config) {
       const qiName = SAN_QI_NAME[qi] || `${qi}奇`;
@@ -587,7 +595,7 @@ export function buildPalaceInsights(args: PalaceInsightParams): PalaceInsight[] 
 
     // ── 3. 关注 ← 值符 ──
     // 值符星（大值符）所在宫为全局核心观察位
-    if (gong.tianPan.star === zhiFu) {
+    if (hasTianPanStar(gong, zhiFu)) {
       insights.push({
         gong: gong.gong,
         name: gong.name,

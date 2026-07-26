@@ -22,6 +22,7 @@ import {
   supportiveGods,
 } from './_constants';
 import { getXunHead, isValidGanZhi, LIUCHONG_MAP } from '../../../../ganzhi';
+import { getTianPanStars, getTianPanStems, hasTianPanStar, hasTianPanStem } from './palace-utils';
 
 export interface QimenPatternCombo {
   key: string;
@@ -171,7 +172,7 @@ function getPalace(jiuGongGe: QimenJiuGongGe[], palace?: number): QimenJiuGongGe
 
 function findStarPalace(jiuGongGe: QimenJiuGongGe[], star?: string): QimenJiuGongGe | undefined {
   if (!star) return undefined;
-  return jiuGongGe.find((item) => item.tianPan.star === star);
+  return jiuGongGe.find((item) => hasTianPanStar(item, star));
 }
 
 function findDoorPalace(jiuGongGe: QimenJiuGongGe[], door?: string): QimenJiuGongGe | undefined {
@@ -188,7 +189,7 @@ function findTianStemPalace(
   stem?: string,
 ): QimenJiuGongGe | undefined {
   if (!stem) return undefined;
-  return jiuGongGe.find((item) => item.tianPan.stem === stem);
+  return jiuGongGe.find((item) => hasTianPanStem(item, stem));
 }
 
 function getDoorSeasonQiState(
@@ -1211,73 +1212,74 @@ function getStarPalaceHostGuestEntries(jiuGongGe: QimenJiuGongGe[]): StarPalaceH
   const entries: StarPalaceHostGuestEntry[] = [];
 
   for (const palace of jiuGongGe) {
-    const star = palace.tianPan.star;
-    const starElement = starElements[star];
-    const palaceElement = palace.element;
-    if (!star || !starElement || !palaceElement) continue;
+    for (const star of getTianPanStars(palace)) {
+      const starElement = starElements[star];
+      const palaceElement = palace.element;
+      if (!starElement || !palaceElement) continue;
 
-    if (starElement === palaceElement) {
-      entries.push({
-        gong: palace.gong,
-        palaceName: palace.name,
-        palaceElement,
-        star,
-        starElement,
-        relation: '星宫比和',
-        advice: '势均',
-      });
-      continue;
-    }
+      if (starElement === palaceElement) {
+        entries.push({
+          gong: palace.gong,
+          palaceName: palace.name,
+          palaceElement,
+          star,
+          starElement,
+          relation: '星宫比和',
+          advice: '势均',
+        });
+        continue;
+      }
 
-    if (isGenerating(palaceElement, starElement)) {
-      entries.push({
-        gong: palace.gong,
-        palaceName: palace.name,
-        palaceElement,
-        star,
-        starElement,
-        relation: '宫生星',
-        advice: '利客',
-      });
-      continue;
-    }
+      if (isGenerating(palaceElement, starElement)) {
+        entries.push({
+          gong: palace.gong,
+          palaceName: palace.name,
+          palaceElement,
+          star,
+          starElement,
+          relation: '宫生星',
+          advice: '利客',
+        });
+        continue;
+      }
 
-    if (isGenerating(starElement, palaceElement)) {
-      entries.push({
-        gong: palace.gong,
-        palaceName: palace.name,
-        palaceElement,
-        star,
-        starElement,
-        relation: '星生宫',
-        advice: '利主',
-      });
-      continue;
-    }
+      if (isGenerating(starElement, palaceElement)) {
+        entries.push({
+          gong: palace.gong,
+          palaceName: palace.name,
+          palaceElement,
+          star,
+          starElement,
+          relation: '星生宫',
+          advice: '利主',
+        });
+        continue;
+      }
 
-    if (isControlling(starElement, palaceElement)) {
-      entries.push({
-        gong: palace.gong,
-        palaceName: palace.name,
-        palaceElement,
-        star,
-        starElement,
-        relation: '星克宫',
-        advice: '利客',
-      });
-      continue;
-    }
+      if (isControlling(starElement, palaceElement)) {
+        entries.push({
+          gong: palace.gong,
+          palaceName: palace.name,
+          palaceElement,
+          star,
+          starElement,
+          relation: '星克宫',
+          advice: '利客',
+        });
+        continue;
+      }
 
-    if (isControlling(palaceElement, starElement)) {
-      entries.push({
-        gong: palace.gong,
-        palaceName: palace.name,
-        palaceElement,
-        star,
-        starElement,
-        relation: '宫克星',
-        advice: '利主',
-      });
+      if (isControlling(palaceElement, starElement)) {
+        entries.push({
+          gong: palace.gong,
+          palaceName: palace.name,
+          palaceElement,
+          star,
+          starElement,
+          relation: '宫克星',
+          advice: '利主',
+        });
+      }
     }
   }
 
@@ -1498,20 +1500,22 @@ function pushObjectClueCombo(ctx: PatternComboContext, out: QimenPatternCombo[])
   const entries = ctx.jiuGongGe
     .map((palace) => {
       const clues: string[] = [];
-      const stem = palace.tianPan.stem;
-      const star = palace.tianPan.star;
       const god = palace.shenPan.god;
       const door = palace.renPan.door;
 
-      if (stemObjectClues[stem]) clues.push(`天盘${stem}${stemObjectClues[stem]}`);
-      if (starObjectClues[star]) clues.push(`${star}${starObjectClues[star]}`);
+      for (const stem of getTianPanStems(palace)) {
+        if (stemObjectClues[stem]) clues.push(`天盘${stem}${stemObjectClues[stem]}`);
+      }
+      for (const star of getTianPanStars(palace)) {
+        if (starObjectClues[star]) clues.push(`${star}${starObjectClues[star]}`);
+      }
       if (godObjectClues[god]) clues.push(`${god}${godObjectClues[god]}`);
       if (doorObjectClues[door]) clues.push(`${door}${doorObjectClues[door]}`);
       if (!clues.length) return undefined;
 
       return {
         gong: palace.gong,
-        key: `${palace.gong}${stem || ''}${star || ''}${god || ''}${door || ''}`,
+        key: `${palace.gong}${getTianPanStems(palace).join('')}${getTianPanStars(palace).join('')}${god || ''}${door || ''}`,
         text: `${palace.name}：${clues.join('；')}`,
       };
     })
@@ -1534,16 +1538,17 @@ function pushObjectClueCombo(ctx: PatternComboContext, out: QimenPatternCombo[])
 
 function pushStemPressureCombo(ctx: PatternComboContext, out: QimenPatternCombo[]): void {
   const entries = ctx.jiuGongGe
-    .map((palace) => {
-      const stem = palace.tianPan.stem;
-      const rule = stemPressureRules[stem];
-      if (!stem || !rule || !rule.palaces.includes(palace.gong)) return undefined;
+    .flatMap((palace) =>
+      getTianPanStems(palace).map((stem) => {
+        const rule = stemPressureRules[stem];
+        if (!rule || !rule.palaces.includes(palace.gong)) return undefined;
 
-      return {
-        gong: palace.gong,
-        text: `${palace.name}天盘${stem}属${rule.stemElement}临${rule.palaceElement}宫，${rule.issue}`,
-      };
-    })
+        return {
+          gong: palace.gong,
+          text: `${palace.name}天盘${stem}属${rule.stemElement}临${rule.palaceElement}宫，${rule.issue}`,
+        };
+      }),
+    )
     .filter((entry): entry is { gong: number; text: string } => Boolean(entry));
 
   if (!entries.length) return;

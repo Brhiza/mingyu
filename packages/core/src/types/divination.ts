@@ -462,6 +462,10 @@ export interface MeihuaData extends BaseHexagramData {
   /** 体用生克综合分析 */
   analysis: {
     season: '春' | '夏' | '秋' | '冬';
+    /** 旺相休囚死采用的月建地支；旧结果可能缺失。 */
+    monthBranch?: string;
+    /** 月建本气五行；旧结果可能缺失。 */
+    monthElement?: string;
     tiYongRelation: string;
     tiSeasonState: string;
     yongSeasonState: string;
@@ -517,6 +521,10 @@ export interface QimenJiuGongGe {
   tianPan: {
     star: string;
     stem: string;
+    /** 转盘法中天禽随天芮同宫时的随行星。 */
+    companionStar?: string;
+    /** 随行星所携带的中宫地盘干。 */
+    companionStem?: string;
   };
   diPan: {
     stem: string;
@@ -538,7 +546,10 @@ export interface QimenSpecialConditions {
 }
 
 export interface QimenTimeInfo {
+  /** 排盘时刻实际所处的天文节气。 */
   solarTerm: string;
+  /** 拆补/置闰法实际采用的定局节气；置闰法下可能与 solarTerm 不同。 */
+  juTerm: string;
   epoch: string;
   [key: string]: string;
 }

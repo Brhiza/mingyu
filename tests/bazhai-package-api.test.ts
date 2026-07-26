@@ -1,7 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { analyzeBaZhaiByDoorDegree, getBaZhaiSitFacingFromDoorDegree } from 'mingyu-core/bazhai';
+import {
+  analyzeBaZhai,
+  analyzeBaZhaiByDoorDegree,
+  getBaZhaiSitFacingFromDoorDegree,
+} from 'mingyu-core/bazhai';
+import { TWENTY_FOUR_MOUNTAINS } from '../packages/core/src/direction/index.ts';
+
+const TRIGRAMS = ['坎', '坤', '震', '巽', '乾', '兑', '艮', '离'];
+const EAST_TRIGRAMS = new Set(['坎', '震', '巽', '离']);
 
 test('mingyu-core/bazhai 应公开入户度数便捷接口和完整类型结果', () => {
   const position = getBaZhaiSitFacingFromDoorDegree(90);
@@ -165,4 +173,59 @@ test('八宅磁北读数缺少磁偏角时应拒绝生成伪精确坐向', () =>
       }),
     /必须提供当地磁偏角/,
   );
+});
+
+test('八宅八命卦乘二十四山的 192 盘应保持八宫和命宅关系完整', () => {
+  for (const mingGua of TRIGRAMS) {
+    for (const sitMountain of TWENTY_FOUR_MOUNTAINS) {
+      const result = analyzeBaZhai({ mingGua, sitMountain });
+      const expectedMatch =
+        EAST_TRIGRAMS.has(result.mingGua) === EAST_TRIGRAMS.has(result.houseGua || '')
+          ? '相合'
+          : '相冲';
+
+      assert.equal(result.mingGua, mingGua);
+      assert.ok(TRIGRAMS.includes(result.houseGua || ''));
+      assert.equal(result.mingPalace.length, 8);
+      assert.equal(result.housePalace?.length, 8);
+      assert.equal(result.luckyDirections.length, 4);
+      assert.equal(result.unluckyDirections.length, 4);
+      assert.equal(new Set(result.mingPalace.map((palace) => palace.gua)).size, 8);
+      assert.equal(new Set(result.mingPalace.map((palace) => palace.direction)).size, 8);
+      assert.equal(new Set(result.housePalace?.map((palace) => palace.gua)).size, 8);
+      assert.equal(result.match, expectedMatch);
+      assert.equal(result.evidenceAnalysis.directionFacts.length, 8);
+    }
+  }
+});
+
+test('八宅 0 至 360 度应首尾一致，二十四山分界前后连续且严格反向', () => {
+  const atZero = getBaZhaiSitFacingFromDoorDegree(0);
+  const atFullCircle = getBaZhaiSitFacingFromDoorDegree(360);
+  assert.deepEqual(atFullCircle, atZero);
+
+  for (let degree = 0; degree < 360; degree += 1) {
+    const position = getBaZhaiSitFacingFromDoorDegree(degree);
+    const sitIndex = TWENTY_FOUR_MOUNTAINS.indexOf(position.sit.mountain);
+    const facingIndex = TWENTY_FOUR_MOUNTAINS.indexOf(position.facing.mountain);
+
+    assert.notEqual(sitIndex, -1);
+    assert.equal(facingIndex, (sitIndex + 12) % 24);
+    assert.equal(position.sit.degree, degree);
+    assert.equal(position.facing.degree, (degree + 180) % 360);
+  }
+
+  for (let boundaryIndex = 0; boundaryIndex < 24; boundaryIndex += 1) {
+    const boundary = 7.5 + boundaryIndex * 15;
+    const below = getBaZhaiSitFacingFromDoorDegree(boundary - 0.001);
+    const exact = getBaZhaiSitFacingFromDoorDegree(boundary);
+    const above = getBaZhaiSitFacingFromDoorDegree(boundary + 0.001);
+    const belowIndex = TWENTY_FOUR_MOUNTAINS.indexOf(below.sit.mountain);
+    const aboveIndex = TWENTY_FOUR_MOUNTAINS.indexOf(above.sit.mountain);
+
+    assert.equal(exact.sit.isBoundary, true);
+    assert.notEqual(below.sit.mountain, above.sit.mountain);
+    assert.equal(aboveIndex, (belowIndex + 1) % 24);
+    assert.deepEqual(exact.sit.boundaryMountains, [below.sit.mountain, above.sit.mountain]);
+  }
 });

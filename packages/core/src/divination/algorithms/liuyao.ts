@@ -866,6 +866,18 @@ function resolveRawYaos(
   return { yaos, generation: { method: 'manual' } };
 }
 
+function toHexagramBinary(yaos: string[]): string {
+  if (yaos.length !== 6) {
+    throw new Error(`六爻卦象必须恰好包含 6 爻，实际 ${yaos.length} 爻。`);
+  }
+  if (!yaos.every((yao) => yao === '阳' || yao === '阴')) {
+    throw new Error('六爻卦象只能包含阴爻或阳爻。');
+  }
+  const lines = yaos.map((yao) => (yao === '阳' ? '1' : '0'));
+  // 六十四卦编码按“上卦、下卦”，每个经卦内部仍按初爻到三爻排列。
+  return [...lines.slice(3, 6), ...lines.slice(0, 3)].join('');
+}
+
 export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOptions) {
   // 1. 获取占卜时间的干支信息
   const { ganzhi, timestamp } = getDivinationTime(customDate);
@@ -879,14 +891,8 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     return mainYaos[index];
   });
 
-  const mainBinary = mainYaos
-    .map((y) => (y === '阳' ? '1' : '0'))
-    .reverse()
-    .join('');
-  const changedBinary = changedYaos
-    .map((y) => (y === '阳' ? '1' : '0'))
-    .reverse()
-    .join('');
+  const mainBinary = toHexagramBinary(mainYaos);
+  const changedBinary = toHexagramBinary(changedYaos);
 
   const getInterHexagram = (yaos: string[]) => {
     const interLower = yaos.slice(1, 4);
@@ -894,10 +900,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     return [...interLower, ...interUpper];
   };
   const interYaos = getInterHexagram(mainYaos);
-  const interBinary = interYaos
-    .map((y) => (y === '阳' ? '1' : '0'))
-    .reverse()
-    .join('');
+  const interBinary = toHexagramBinary(interYaos);
 
   const mainHexagram = hexagramsData.find((h) => h.binarySymbol === mainBinary);
   const changedHexagram = hexagramsData.find((h) => h.binarySymbol === changedBinary);

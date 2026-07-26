@@ -124,11 +124,16 @@ function formatQimenFocusSummary(data: DivinationData) {
     return '';
   }
 
-  const zhiFuPalace = data.jiuGongGe.find((item) => item.tianPan.star === data.zhiFu);
+  const zhiFuPalace = data.jiuGongGe.find(
+    (item) => item.tianPan.star === data.zhiFu || item.tianPan.companionStar === data.zhiFu,
+  );
   const zhiShiPalace = data.jiuGongGe.find((item) => item.renPan.door === data.zhiShi);
   const hourStem = data.ganzhi.hour.charAt(0);
   const hourStemPalaces = data.jiuGongGe.filter(
-    (item) => item.tianPan.stem === hourStem || item.diPan.stem === hourStem,
+    (item) =>
+      item.tianPan.stem === hourStem ||
+      item.tianPan.companionStem === hourStem ||
+      item.diPan.stem === hourStem,
   );
 
   return `值符${data.zhiFu}${zhiFuPalace ? `落${zhiFuPalace.name}` : '落宫未定位'}；值使${data.zhiShi}${zhiShiPalace ? `落${zhiShiPalace.name}` : '落宫未定位'}；时干${hourStem}${hourStemPalaces.length ? `见于${hourStemPalaces.map((item) => item.name).join('、')}` : '落宫未定位'}`;
@@ -169,7 +174,11 @@ function formatQimenPatternComboSummary(data: DivinationData) {
 }
 
 function formatMeihuaSeasonSummary(data: MeihuaData) {
-  return `四时：${data.analysis.season}季，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}`;
+  const basis =
+    data.analysis.monthBranch && data.analysis.monthElement
+      ? `${data.analysis.monthBranch}月（${data.analysis.monthElement}令）`
+      : `${data.analysis.season}季`;
+  return `月令：${basis}，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}`;
 }
 
 function formatMeihuaRelationSummary(data: MeihuaData) {
@@ -392,6 +401,11 @@ export function getDivinationSummaryBlocks(
         lines: [
           wrapMainEvidence(formatQimenFocusSummary(data)),
           `节气：${'timeInfo' in data ? data.timeInfo.solarTerm : '未知'}`,
+          'timeInfo' in data &&
+          data.timeInfo.juTerm &&
+          data.timeInfo.juTerm !== data.timeInfo.solarTerm
+            ? `定局节气：${data.timeInfo.juTerm}${data.timeInfo.epoch}`
+            : '',
           formatQimenSeasonalitySummary(data),
           `格局标签：${'patternTags' in data && data.patternTags?.length ? data.patternTags.join('、') : '无明显标签'}`,
           formatQimenPatternComboSummary(data),
