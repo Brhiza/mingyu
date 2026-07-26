@@ -21,7 +21,10 @@ test('全部体系都提供传统判断规则与传统依据', () => {
     assert.ok('tradition' in guidance, `${method} 应提供传统判断规则`);
     assert.ok('sources' in guidance, `${method} 应提供传统依据`);
     assert.match(String(guidance.tradition), /./);
-    assert.match(String(guidance.sources), /《.+》|Rider-Waite|Lenormand|Petit|现代西方占星|潮汕|公开资料|通行/);
+    assert.match(
+      String(guidance.sources),
+      /《.+》|Rider-Waite|Lenormand|Petit|现代西方占星|潮汕|公开资料|通行/,
+    );
   });
 });
 
@@ -36,7 +39,7 @@ test('核心传统术数包含判断优先级、冲突处理和流派边界', ()
     taiyi: ['五计', '阴阳遁', '七十二局', '主客定算', '不可互相替代'],
     bazhai: ['命卦', '宅卦', '东四西四', '测量', '边界'],
     qizheng: ['命宫', '身宫', '真太阳时', '紫炁', '混合'],
-    xuankong: ['三元九运', '山向', '运盘', '下卦', '替卦'],
+    xuankong: ['三元九运', '山向', '运盘', '下卦', '元龙阴阳'],
     residential: ['宅运', '人宅', '合参', '分述', '边界'],
     almanac: ['事项宜忌', '建除', '参与人', '可用', '慎用'],
   } as const;
@@ -50,7 +53,14 @@ test('核心传统术数包含判断优先级、冲突处理和流派边界', ()
 });
 
 test('八宅、住宅风水、生肖、太乙、七政与玄空提示词使用各自角色', () => {
-  const methods: MetaphysicsPromptMethod[] = ['bazhai', 'residential', 'zodiac', 'taiyi', 'qizheng', 'xuankong'];
+  const methods: MetaphysicsPromptMethod[] = [
+    'bazhai',
+    'residential',
+    'zodiac',
+    'taiyi',
+    'qizheng',
+    'xuankong',
+  ];
 
   methods.forEach((method) => {
     const prompt = buildMetaphysicsPrompt('【排盘信息】\n测试盘面', '请解读重点。', {

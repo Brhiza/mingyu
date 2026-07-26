@@ -749,7 +749,20 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
     /命语|本项目|项目统一|当前结果|工程|接口|API|MCP/,
   );
   assertPromptIsPortableTaskText(r.evidenceAnalysis.promptText);
-  assert.throws(() => core.taiyi.generateTaiyi({ year: 2004, scope: 'month' }), /完整日期和时间/);
+  assert.throws(() => core.taiyi.generateTaiyi({ year: 2004, scope: 'month' }), /有效日期和时间/);
+  assert.throws(
+    () => core.taiyi.generateTaiyi({} as Parameters<typeof core.taiyi.generateTaiyi>[0]),
+    /年计必须提供公历年份/,
+  );
+  assert.throws(
+    () =>
+      core.taiyi.generateTaiyi({
+        year: 2004,
+        scope: 'year',
+        date: new Date(2004, 0, 1, 12),
+      }),
+    /年计只接受 year/,
+  );
 });
 
 test('taiyi: 年月日时分五计应使用各自积数和阴阳遁规则', () => {
@@ -848,6 +861,14 @@ test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
   assert.equal(qi.length, 7);
   assert.equal(yu.length, 4);
   assert.equal(new Set(r.stars.map((star) => star.name)).size, 11);
+  assert.ok(
+    r.stars.every(
+      (star) =>
+        star.palace !== '—' && Number.isFinite(star.longitude) && Number.isFinite(star.xiuDegree),
+    ),
+  );
+  assert.notEqual(r.mingZhu, '—');
+  assert.ok(r.shensha.every((item) => item.value !== '—'));
   assert.equal(
     r.stars.some((star) => star.name.includes('紫炁')),
     true,

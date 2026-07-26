@@ -666,7 +666,20 @@ const systems: SystemCapability[] = [
     ]),
     defaultMethod: 'year',
     inputs: [
-      { id: 'date', label: '起局时间', type: 'datetime', required: false },
+      {
+        id: 'year',
+        label: '公历年份',
+        type: 'number',
+        required: true,
+        description: '所有计式必须提供；年计只使用该字段。',
+      },
+      {
+        id: 'date',
+        label: '起局时间',
+        type: 'datetime',
+        required: false,
+        description: '月计、日计、时计、分计必填；时计须含小时，分计须含分钟。',
+      },
       {
         id: 'scope',
         label: '五计范围',
@@ -689,6 +702,7 @@ const systems: SystemCapability[] = [
       birthTimeRequired: false,
       batch: false,
     },
+    notes: ['年计不接受日期时间；其余计式不得用系统当前时间补齐缺失资料。'],
   },
   {
     id: 'qizheng',
@@ -735,8 +749,8 @@ const systems: SystemCapability[] = [
         id: 'year',
         label: '建造或起运年',
         type: 'number',
-        required: false,
-        description: '排玄空宅运盘时必填；只做八宅人宅层时可不填。',
+        required: true,
+        description: '独立玄空飞星排盘必须提供。',
       },
       {
         id: 'sitMountain',
@@ -775,14 +789,22 @@ const systems: SystemCapability[] = [
         label: '卦型',
         type: 'select',
         required: false,
-        options: options([
-          { value: '下卦', label: '下卦' },
-          { value: '替卦', label: '替卦' },
-        ]),
+        options: options([{ value: '下卦', label: '下卦' }]),
       },
       questionInput,
     ],
-    outputs: ['三元九运', '山向', '下卦或替卦', '运盘', '山盘', '向盘', '到山到向', '结构化证据'],
+    outputs: [
+      '三元九运',
+      '山向',
+      '下卦',
+      '运盘',
+      '山盘',
+      '向盘',
+      '局型',
+      '组合互参',
+      '到山到向',
+      '结构化证据',
+    ],
     supports: {
       seed: false,
       customRandomSource: false,
@@ -790,7 +812,10 @@ const systems: SystemCapability[] = [
       birthTimeRequired: false,
       batch: false,
     },
-    notes: ['玄空飞星 v1 只输出可复现的三盘结构与证据，不覆盖形峦、玄空大卦或全流派替卦口诀。'],
+    notes: [
+      '玄空飞星只输出可复现的下卦三盘、局型、组合与证据，不覆盖形峦、玄空大卦或替卦。',
+      '度数触发兼向替卦条件时会拒绝生成伪盘；用户明确指定下卦后才继续。',
+    ],
   },
   {
     id: 'residential',
@@ -850,10 +875,7 @@ const systems: SystemCapability[] = [
         label: '玄空卦型',
         type: 'select',
         required: false,
-        options: options([
-          { value: '下卦', label: '下卦' },
-          { value: '替卦', label: '替卦' },
-        ]),
+        options: options([{ value: '下卦', label: '下卦' }]),
       },
       questionInput,
     ],

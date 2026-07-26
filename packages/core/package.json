@@ -192,6 +192,7 @@
     "test": "node scripts/run-core-tests.mjs"
   },
   "dependencies": {
+    "@soul-atelier/xuankong": "0.2.1",
     "tyme4ts": "^1.3.3"
   },
   "peerDependencies": {

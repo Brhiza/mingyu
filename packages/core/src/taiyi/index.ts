@@ -411,6 +411,9 @@ function validateInput(input: TaiyiInput): {
   date: Date;
   ganZhi: string;
 } {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('太乙参数必须是对象。');
+  }
   const scope = input.scope ?? 'year';
   if (!SCOPE_LABELS[scope]) throw new Error(`太乙计式无效：${String(scope)}`);
   if (
@@ -420,15 +423,21 @@ function validateInput(input: TaiyiInput): {
     throw new Error('太乙日期无效。');
   }
   const dateYear = input.date?.getFullYear();
+  if (scope === 'year' && input.year === undefined) {
+    throw new Error('太乙年计必须提供公历年份。');
+  }
+  if (scope === 'year' && input.date !== undefined) {
+    throw new Error('太乙年计只接受 year；月计、日计、时计和分计才使用 date。');
+  }
+  if (scope !== 'year' && input.date === undefined) {
+    throw new Error(`${SCOPE_LABELS[scope].title}需要提供有效日期和时间。`);
+  }
   if (input.year !== undefined && dateYear !== undefined && input.year !== dateYear) {
     throw new Error('太乙 year 与 date 的公历年份不一致。');
   }
-  const year = input.year ?? dateYear ?? new Date().getFullYear();
-  if (!Number.isSafeInteger(year) || year < 1 || year > 9999) {
+  const year = input.year ?? dateYear;
+  if (typeof year !== 'number' || !Number.isSafeInteger(year) || year < 1 || year > 9999) {
     throw new Error('太乙年份必须是 1-9999 之间的整数。');
-  }
-  if (scope !== 'year' && input.date === undefined) {
-    throw new Error(`${SCOPE_LABELS[scope].title}需要提供完整日期和时间。`);
   }
   const date = input.date ?? createYearProbeDate(year);
   const pillars = getGanZhiFromDate(date);
@@ -521,7 +530,7 @@ function calculateAccumulatedValue(scope: TaiyiScope, date: Date, year: number):
 }
 
 /** 生成太乙五计七十二局基础盘。 */
-export function generateTaiyi(input: TaiyiInput = {}): TaiyiResult {
+export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   const { scope, year, date, ganZhi } = validateInput(input);
   const accumulatedValue = calculateAccumulatedValue(scope, date, year);
   const entryYears = positiveOneBased(accumulatedValue, 360);

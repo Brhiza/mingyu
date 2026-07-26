@@ -3203,6 +3203,40 @@ test('MCP 七政四余应拒绝不存在日期和越界坐标时区', async () =
   });
 });
 
+test('MCP 七政、太乙和玄空不得补造缺失时间或返回替卦伪盘', async () => {
+  await withMcpClient(async (client) => {
+    const calls: Array<[string, Record<string, unknown>, RegExp | null]> = [
+      ['metaphysics_qizheng', { month: 6, day: 15, hour: 12 }, null],
+      ['metaphysics_qizheng', { year: 2024, day: 15, hour: 12 }, null],
+      ['metaphysics_qizheng', { year: 2024, month: 6, hour: 12 }, null],
+      ['metaphysics_qizheng', { year: 2024, month: 6, day: 15 }, null],
+      ['metaphysics_taiyi', { scope: 'year' }, /年计必须提供公历年份/],
+      [
+        'metaphysics_taiyi',
+        { scope: 'hour', dateTime: '2026-07-11' },
+        /包含具体时分的有效 dateTime/,
+      ],
+      ['metaphysics_xuankong', { sitMountain: '子' }, null],
+      [
+        'metaphysics_xuankong',
+        { year: 2008, sitMountain: '子', guaType: '替卦' },
+        /当前只支持下卦/,
+      ],
+    ];
+
+    for (const [name, args, messagePattern] of calls) {
+      const result = await client.callTool({ name, arguments: args });
+      assert.equal(result.isError, true, `${name} 应拒绝不完整或不支持的参数`);
+      if (messagePattern) {
+        assert.match(
+          String((result.structuredContent as { error?: string } | undefined)?.error),
+          messagePattern,
+        );
+      }
+    }
+  });
+});
+
 test('MCP 黄历择日工具应拒绝越界日期范围', async () => {
   await withMcpClient(async (client) => {
     const invalidCalls: Array<[string, Record<string, unknown>, RegExp]> = [

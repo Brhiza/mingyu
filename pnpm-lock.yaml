@@ -90,6 +90,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@soul-atelier/xuankong':
+        specifier: 0.2.1
+        version: 0.2.1
       tyme4ts:
         specifier: ^1.3.3
         version: 1.5.2
@@ -584,6 +587,18 @@ packages:
     resolution: {integrity: sha512-BfzEnDJOt9T8M989/lA37EcJgat01wLRnoi5dQf3QzOH7jzpqTAzdDbVfRljVr5r+jzKqpbHeyOfAaXxAd0PAA==}
     cpu: [x64]
     os: [win32]
+
+  '@soul-atelier/calendar@0.3.0':
+    resolution: {integrity: sha512-nzOofC8BHp0+w1RY9yzFBPVFILAtrtE+XPr9gwp8pOMdyOsMUQO3xC3Ow9v3fXzE/f8n9Y8lTTaVTzncaZl7QQ==}
+
+  '@soul-atelier/core@0.3.0':
+    resolution: {integrity: sha512-gvEeEy72dZ2kgXHRmtLgOGhSSKUPnSS2GNdnH/7piiirYrW1gQ0uwBy5Exm+gEM6cZNHYuXRwDONdxP/4tJzBA==}
+
+  '@soul-atelier/core@0.4.0':
+    resolution: {integrity: sha512-OcICkqAckJ49TU0QNmbuGIAHA8dtZ/8emsZKeVfGLJn/AOhnHqlbv5tnzxqBVkrEPHXG8RNxa6cZJittCgU7oA==}
+
+  '@soul-atelier/xuankong@0.2.1':
+    resolution: {integrity: sha512-2cY/BUjkEB+UG+8Pc3Yod522f2BElI6yk4qeJi3rmi5WDHcovszTRzWUycPnz6anz6Jpk0Diq8F2l5nb7Kz6FA==}
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -1545,6 +1560,9 @@ packages:
     engines: {node: '>=18.0.0'}
     hasBin: true
 
+  tyme4ts@1.4.4:
+    resolution: {integrity: sha512-a6FfENUrQpg9F3hOhwFW0EDgmIbvOEXbtO7A2R8/49tGDnjqjUsuNIP0OOBnsGmN9y3hAsO69LsBgJk1re1/KA==}
+
   tyme4ts@1.5.2:
     resolution: {integrity: sha512-vVAjUv1ieXleS7hCOgjAoHaZ0BdNJIza0uDOhXNpndegqWQh9ytKMR0fjkG869yqLtpXAHnzNSouBg28nrIaAg==}
 
@@ -2031,6 +2049,20 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.62.2':
     optional: true
+
+  '@soul-atelier/calendar@0.3.0':
+    dependencies:
+      '@soul-atelier/core': 0.3.0
+      tyme4ts: 1.4.4
+
+  '@soul-atelier/core@0.3.0': {}
+
+  '@soul-atelier/core@0.4.0': {}
+
+  '@soul-atelier/xuankong@0.2.1':
+    dependencies:
+      '@soul-atelier/calendar': 0.3.0
+      '@soul-atelier/core': 0.4.0
 
   '@types/babel__core@7.20.5':
     dependencies:
@@ -3047,6 +3079,8 @@ snapshots:
       esbuild: 0.28.1
     optionalDependencies:
       fsevents: 2.3.3
+
+  tyme4ts@1.4.4: {}
 
   tyme4ts@1.5.2: {}
 

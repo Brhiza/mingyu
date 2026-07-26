@@ -16,7 +16,7 @@ const mountainSchema = z
   .optional();
 
 const xuanKongSchema = z.object({
-  year: z.number().int().min(1).max(9999).optional().describe('建造年或起运年'),
+  year: z.number().int().min(1).max(9999).describe('建造年或起运年'),
   sitMountain: mountainSchema.describe('坐山二十四山'),
   facingMountain: mountainSchema.describe('朝向二十四山'),
   facingDegree: z.number().min(0).max(360).optional().describe('朝向度数，正北 0°'),
@@ -33,7 +33,7 @@ const xuanKongSchema = z.object({
 
 function calculateXuanKong(args: z.infer<typeof xuanKongSchema>) {
   return xuankong.generateXuanKong({
-    ...(args.year !== undefined ? { year: args.year } : {}),
+    year: args.year,
     ...(args.sitMountain ? { sitMountain: args.sitMountain } : {}),
     ...(args.facingMountain ? { facingMountain: args.facingMountain } : {}),
     ...(args.facingDegree !== undefined ? { facingDegree: args.facingDegree } : {}),
