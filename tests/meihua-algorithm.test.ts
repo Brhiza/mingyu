@@ -45,9 +45,34 @@ test('梅花：变卦应按初爻到上爻的传统爻位计算', () => {
 test('梅花：互卦应取二三四爻为下互、三四五爻为上互', () => {
   const data = generateMeihua(SAMPLE_DATE, { method: 'number', number: 123 });
 
-  assert.equal(data.interName, '水山蹇');
+  assert.equal(data.interName, '水雷屯');
   assert.equal(data.interHexagram?.upper, '坎');
-  assert.equal(data.interHexagram?.lower, '艮');
+  assert.equal(data.interHexagram?.lower, '震');
+});
+
+test('梅花：天泽履应按自下而上的爻序生成互卦和变卦', () => {
+  const data = generateMeihua(new Date('2026-07-25T23:30:00+08:00'), { method: 'time' });
+
+  assert.deepEqual(data.ganzhi, {
+    year: '丙午',
+    month: '乙未',
+    day: '辛丑',
+    hour: '戊子',
+  });
+  assert.equal(data.originalName, '天泽履');
+  assert.equal(data.movingYao.position, 2);
+  assert.deepEqual(
+    data.yaosDetail.map((yao) => yao.yaoType),
+    ['阳', '阳', '阴', '阳', '阳', '阳'],
+  );
+  assert.equal(data.interName, '风火家人');
+  assert.equal(data.interHexagram?.upper, '巽');
+  assert.equal(data.interHexagram?.lower, '离');
+  assert.equal(data.changedName, '天山遁');
+  assert.equal(data.changedHexagram?.upper, '乾');
+  assert.equal(data.changedHexagram?.lower, '艮');
+  assert.equal(data.analysis.tiSeasonState, '相');
+  assert.equal(data.analysis.yongSeasonState, '相');
 });
 
 test('梅花：数字起卦生成的主互变三卦与动爻资料必须始终完整', () => {
@@ -137,7 +162,7 @@ test('梅花：年月日时起卦应以农历年支入数，不应在立春后�
   assert.equal(data.calculation.lowerTrigramIndex, 1);
   assert.equal(data.calculation.movingYaoIndex, 1);
   assert.equal(data.originalName, '泽天夬');
-  assert.equal(data.changedName, '兑为泽');
+  assert.equal(data.changedName, '泽风大过');
 });
 
 test('梅花：未知起卦方式应明确报错，不应静默退回时间卦', () => {

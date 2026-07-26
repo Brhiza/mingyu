@@ -22,7 +22,7 @@ export interface TrigramData {
   symbol: string; // 八卦符号
   nature: string; // 自然属性
   element: string; // 五行属性
-  lines: number[]; // 爻线数组，1 为阳爻，0 为阴爻
+  lines: number[]; // 自下而上（初爻至三爻）的爻线数组，1 为阳爻，0 为阴爻
 }
 
 // 八卦数据（字符串键格式，用于二进制查找）

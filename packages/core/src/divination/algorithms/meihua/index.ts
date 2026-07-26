@@ -163,25 +163,18 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   }
   const mainHexagram = findHexagramByTrigrams(upperTrigramIndex, lowerTrigramIndex);
 
-  const toBottomUpLines = (lines: number[]) => [...lines].reverse();
-  const toStoredLines = (bottomUpLines: number[]) => [...bottomUpLines].reverse();
-
-  const mainLines = [
-    ...toBottomUpLines(lowerTrigram.lines),
-    ...toBottomUpLines(upperTrigram.lines),
-  ];
+  const mainLines = [...lowerTrigram.lines, ...upperTrigram.lines];
 
   const interLowerLines = mainLines.slice(1, 4);
   const interUpperLines = mainLines.slice(2, 5);
 
   const findTrigramByBottomUpLines = (lines: number[]) => {
-    const storedLines = toStoredLines(lines);
     for (let i = 1; i <= 8; i++) {
       const trigram = trigrams[i];
-      if (trigram && trigram.lines.length === storedLines.length) {
+      if (trigram && trigram.lines.length === lines.length) {
         let match = true;
-        for (let j = 0; j < storedLines.length; j++) {
-          if (trigram.lines[j] !== storedLines[j]) {
+        for (let j = 0; j < lines.length; j++) {
+          if (trigram.lines[j] !== lines[j]) {
             match = false;
             break;
           }
