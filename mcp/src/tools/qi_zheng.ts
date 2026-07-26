@@ -10,10 +10,10 @@ import {
 import { buildMetaphysicsPrompt } from '../metaphysics-prompt.js';
 
 const qiZhengSchema = z.object({
-  year: z.number().int().min(1900).max(2200).optional().describe('公元年（默认今年）'),
-  month: z.number().int().min(1).max(12).optional().describe('月'),
-  day: z.number().int().min(1).max(31).optional().describe('日'),
-  hour: z.number().int().min(0).max(23).optional().describe('时'),
+  year: z.number().int().min(1900).max(2200).describe('公元年'),
+  month: z.number().int().min(1).max(12).describe('月'),
+  day: z.number().int().min(1).max(31).describe('日'),
+  hour: z.number().int().min(0).max(23).describe('时'),
   minute: z.number().int().min(0).max(59).optional().describe('分'),
   latitude: z.number().min(-90).max(90).optional().describe('纬度（默认北京）'),
   longitude: z.number().min(-180).max(180).optional().describe('经度（默认北京）'),
@@ -38,16 +38,18 @@ export function registerQizhengTool(server: McpServer) {
     async (args) => {
       try {
         const result = qizheng.generateQizheng({
-          year: args.year ?? new Date().getFullYear(),
-          month: args.month ?? 1,
-          day: args.day ?? 1,
-          hour: args.hour ?? 12,
+          year: args.year,
+          month: args.month,
+          day: args.day,
+          hour: args.hour,
           minute: args.minute ?? 0,
           ...(args.latitude !== undefined ? { latitude: args.latitude } : {}),
           ...(args.longitude !== undefined ? { longitude: args.longitude } : {}),
           ...(args.timezone !== undefined ? { timezone: args.timezone } : {}),
           ...(args.timeZoneId ? { timeZoneId: args.timeZoneId } : {}),
-          ...(args.useTrueSolarTime !== undefined ? { useTrueSolarTime: args.useTrueSolarTime } : {}),
+          ...(args.useTrueSolarTime !== undefined
+            ? { useTrueSolarTime: args.useTrueSolarTime }
+            : {}),
         });
         return createStructuredToolResult({ result });
       } catch (error) {
@@ -66,16 +68,18 @@ export function registerQizhengTool(server: McpServer) {
     async (args) => {
       try {
         const result = qizheng.generateQizheng({
-          year: args.year ?? new Date().getFullYear(),
-          month: args.month ?? 1,
-          day: args.day ?? 1,
-          hour: args.hour ?? 12,
+          year: args.year,
+          month: args.month,
+          day: args.day,
+          hour: args.hour,
           minute: args.minute ?? 0,
           ...(args.latitude !== undefined ? { latitude: args.latitude } : {}),
           ...(args.longitude !== undefined ? { longitude: args.longitude } : {}),
           ...(args.timezone !== undefined ? { timezone: args.timezone } : {}),
           ...(args.timeZoneId ? { timeZoneId: args.timeZoneId } : {}),
-          ...(args.useTrueSolarTime !== undefined ? { useTrueSolarTime: args.useTrueSolarTime } : {}),
+          ...(args.useTrueSolarTime !== undefined
+            ? { useTrueSolarTime: args.useTrueSolarTime }
+            : {}),
         });
         return createStructuredToolResult({
           result,

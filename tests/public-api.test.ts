@@ -5325,16 +5325,46 @@ test('公开 API 太乙应支持月日时分四种计式', async () => {
   }
 });
 
+test('公开 API 玄空飞星应返回真实下卦局型并拒绝替卦伪盘', async () => {
+  const valid = await callApi('metaphysics/xuankong/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ year: 2008, sitMountain: '子' }),
+  });
+  assert.equal(valid.response.status, 200);
+  assert.equal(valid.body.data.formation, '双星到向');
+  assert.ok(
+    valid.body.data.combinations.some((item: { name: string }) => item.name === '七星真打劫'),
+  );
+  assert.equal(valid.body.data.engine.name, '@soul-atelier/xuankong');
+
+  const unsupported = await callApi('metaphysics/xuankong/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ year: 2008, sitMountain: '子', guaType: '替卦' }),
+  });
+  assert.equal(unsupported.response.status, 400);
+  assert.match(unsupported.body.error.message, /当前只支持下卦/);
+});
+
 test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async () => {
   const cases = [
     ['metaphysics/bazhai/calculate', { birthYear: 1990 }],
     ['metaphysics/bazhai/calculate', { mingGua: '未知卦' }],
     ['metaphysics/bazhai/calculate', { mingGua: '坎', sitMountain: '未知山' }],
     ['metaphysics/zodiac/calculate', { zodiac: '猴', yearGanZhi: '甲丑' }],
+    ['metaphysics/taiyi/calculate', { scope: 'year' }],
     ['metaphysics/taiyi/calculate', { year: 2004, scope: 'month' }],
+    ['metaphysics/taiyi/calculate', { year: 2026, scope: 'hour', month: 7, day: 11 }],
+    ['metaphysics/taiyi/calculate', { year: 2026, scope: 'minute', month: 7, day: 11, hour: 14 }],
+    ['metaphysics/qizheng/calculate', { month: 1, day: 1, hour: 12 }],
+    ['metaphysics/qizheng/calculate', { year: 2026, day: 1, hour: 12 }],
+    ['metaphysics/qizheng/calculate', { year: 2026, month: 1, hour: 12 }],
+    ['metaphysics/qizheng/calculate', { year: 2026, month: 1, day: 1 }],
     ['metaphysics/qizheng/calculate', { year: 2026, month: 2, day: 30, hour: 12 }],
     ['metaphysics/qizheng/calculate', { year: 2026, month: 1, day: 1, hour: 12, latitude: 120 }],
     ['metaphysics/qizheng/calculate', { year: 2026, month: 1, day: 1, hour: 12, timezone: 15 }],
+    ['metaphysics/xuankong/calculate', { sitMountain: '子' }],
   ] as const;
 
   for (const [path, payload] of cases) {

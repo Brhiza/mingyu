@@ -1,8 +1,10 @@
 /**
- * @file 玄空飞星 v1
- * @description 三元九运、山向飞星、运盘/山盘/向盘与到山到向结构化证据。
- * 不做形峦、玄空大卦、全流派替卦口诀或吉凶总分。
+ * @file 玄空飞星
+ * @description 三元九运、下卦山向飞星、局型组合与结构化证据。
+ * 不做形峦、玄空大卦、替卦或吉凶总分。
  */
+
+import { buildChart, type Combination, type Formation } from '@soul-atelier/xuankong';
 
 import {
   getMountainFromDegree,
@@ -33,7 +35,7 @@ export interface XuanKongMeasurement {
 }
 
 export interface XuanKongInput {
-  year?: number;
+  year: number;
   sitMountain?: string;
   facingMountain?: string;
   facingDegree?: number;
@@ -51,6 +53,13 @@ export interface XuanKongPalace {
   xiangStar: number;
 }
 
+export interface XuanKongCombination {
+  name: string;
+  kind: 'auspicious' | 'inauspicious';
+  palaces?: number[];
+  note: string;
+}
+
 export interface XuanKongResult {
   period: XuanKongPeriod;
   sitMountain: string;
@@ -64,6 +73,13 @@ export interface XuanKongResult {
     xiang: number[];
   };
   palaces: XuanKongPalace[];
+  formation: Formation;
+  combinations: XuanKongCombination[];
+  engine: {
+    name: '@soul-atelier/xuankong';
+    version: '0.2.1';
+    mode: '下卦';
+  };
   daoShanXiang: {
     shanToMountain: boolean;
     xiangToFacing: boolean;
@@ -127,21 +143,35 @@ const MOUNTAIN_TO_GONG: Record<string, number> = {
 
 const PERIOD_BASE_YEAR = 1864;
 
+export type FlyDirection = '顺飞' | '逆飞';
+
+const PALACE_KEY_TO_GONG: Record<string, number> = {
+  kan: 1,
+  kun: 2,
+  zhen: 3,
+  xun: 4,
+  center: 5,
+  qian: 6,
+  dui: 7,
+  gen: 8,
+  li: 9,
+};
+
 function assertMountain(value: string, label: string) {
   if (!TWENTY_FOUR_MOUNTAINS.includes(value)) {
     throw new Error(`${label}必须是有效二十四山，当前为 ${value}。`);
   }
 }
 
-function normalizeYear(year?: number): number {
-  const value = year ?? new Date().getFullYear();
+function normalizeYear(year: number): number {
+  const value = year;
   if (!Number.isSafeInteger(value) || value < 1 || value > 9999) {
     throw new Error('year 必须是 1-9999 的整数年份。');
   }
   return value;
 }
 
-export function resolveXuanKongPeriod(year?: number): XuanKongPeriod {
+export function resolveXuanKongPeriod(year: number): XuanKongPeriod {
   const y = normalizeYear(year);
   const offset = y - PERIOD_BASE_YEAR;
   const cycleIndex = ((Math.floor(offset / 20) % 9) + 9) % 9;
@@ -161,20 +191,22 @@ export function resolveXuanKongPeriod(year?: number): XuanKongPeriod {
 }
 
 /**
- * 九星入中后顺逆飞布。
- * 阳星（1/3/5/7/9）顺飞，阴星（2/4/6/8）逆飞。
+ * 九星入中后按显式方向飞布。
  * 返回长度 9 的数组，下标 0..8 对应宫 1..9。
  */
-export function flyStars(centerStar: number): number[] {
+export function flyStars(centerStar: number, direction: FlyDirection): number[] {
   if (!Number.isInteger(centerStar) || centerStar < 1 || centerStar > 9) {
     throw new Error(`飞星入中值必须是 1-9，当前为 ${centerStar}。`);
   }
-  const yang = centerStar % 2 === 1;
-  const order = yang ? [5, 6, 7, 8, 9, 1, 2, 3, 4] : [5, 4, 3, 2, 1, 9, 8, 7, 6];
+  if (direction !== '顺飞' && direction !== '逆飞') {
+    throw new Error(`飞星方向必须是顺飞或逆飞，当前为 ${String(direction)}。`);
+  }
+  const order = [5, 6, 7, 8, 9, 1, 2, 3, 4];
   const stars = Array.from({ length: 9 }, () => 0);
   for (let i = 0; i < 9; i += 1) {
     const gong = order[i];
-    stars[gong - 1] = ((centerStar - 1 + i) % 9) + 1;
+    const offset = direction === '顺飞' ? i : -i;
+    stars[gong - 1] = ((centerStar - 1 + offset + 18) % 9) + 1;
   }
   return stars;
 }
@@ -190,7 +222,7 @@ function resolveMountains(input: XuanKongInput): {
   measurement?: XuanKongMeasurement;
 } {
   const uncertainty = input.measurementUncertaintyDegrees ?? 0;
-  if (uncertainty < 0 || uncertainty > 45) {
+  if (!Number.isFinite(uncertainty) || uncertainty < 0 || uncertainty > 45) {
     throw new Error('measurementUncertaintyDegrees 必须在 0-45 之间。');
   }
 
@@ -203,6 +235,11 @@ function resolveMountains(input: XuanKongInput): {
       input.facingDegree !== undefined
         ? getMountainFromDegree(input.facingDegree)
         : getMountainFromDegree(((input.sitDegree as number) + 180) % 360);
+    if (oppositeMountain(sitPos.mountain) !== facingPos.mountain) {
+      throw new Error(
+        `坐向必须严格相对；当前坐${sitPos.mountain}应向${oppositeMountain(sitPos.mountain)}，不能向${facingPos.mountain}。`,
+      );
+    }
 
     const distanceToBoundary = (pos: CompassMountainPosition) => {
       if (pos.isBoundary) return 0;
@@ -220,7 +257,8 @@ function resolveMountains(input: XuanKongInput): {
     const candidateMountains: NonNullable<XuanKongMeasurement['candidateMountains']> = [];
     if (stability === '山向边界敏感') {
       warnings.push('测量容差已跨越二十四山边界，本次并列相邻山向结果');
-      const offsets = [-1.0, 0, 1.0];
+      const delta = uncertainty > 0 ? uncertainty : 0.01;
+      const offsets = [-delta, 0, delta];
       const seen = new Set<string>();
       for (const offset of offsets) {
         const sitCandidate = getMountainFromDegree((((sitPos.degree + offset) % 360) + 360) % 360);
@@ -255,6 +293,11 @@ function resolveMountains(input: XuanKongInput): {
     assertMountain(input.sitMountain, 'sitMountain');
     const facing = input.facingMountain ?? oppositeMountain(input.sitMountain);
     assertMountain(facing, 'facingMountain');
+    if (oppositeMountain(input.sitMountain) !== facing) {
+      throw new Error(
+        `坐向必须严格相对；当前坐${input.sitMountain}应向${oppositeMountain(input.sitMountain)}，不能向${facing}。`,
+      );
+    }
     return { sitMountain: input.sitMountain, facingMountain: facing };
   }
   if (input.facingMountain) {
@@ -271,8 +314,11 @@ function resolveGuaType(
   input: XuanKongInput,
   measurement?: XuanKongMeasurement,
 ): { guaType: XuanKongGuaType; replacementApplied: boolean; replacementReason: string } {
+  if (input.guaType !== undefined && input.guaType !== '下卦' && input.guaType !== '替卦') {
+    throw new Error(`guaType 必须是下卦或替卦，当前为 ${String(input.guaType)}。`);
+  }
   if (input.guaType === '替卦') {
-    return { guaType: '替卦', replacementApplied: true, replacementReason: '输入明确指定替卦' };
+    throw new Error('当前只支持下卦，替卦算法尚未实现，已拒绝生成与下卦相同的伪盘。');
   }
   if (input.guaType === '下卦') {
     return { guaType: '下卦', replacementApplied: false, replacementReason: '输入明确指定下卦' };
@@ -281,11 +327,9 @@ function resolveGuaType(
     const rem = (((measurement.sitDegree + 7.5) % 15) + 15) % 15;
     const distanceToEdge = Math.min(rem, 15 - rem);
     if (distanceToEdge < 1.5) {
-      return {
-        guaType: '替卦',
-        replacementApplied: true,
-        replacementReason: `坐山度数距二十四山边界仅 ${distanceToEdge.toFixed(2)}°，按可核验兼向规则启用替卦`,
-      };
+      throw new Error(
+        `坐山度数距二十四山边界仅 ${distanceToEdge.toFixed(2)}°，已触发兼向替卦条件；当前替卦尚未实现，请明确指定下卦后再排盘。`,
+      );
     }
   }
   return {
@@ -321,6 +365,10 @@ function buildPrompt(
     `运程：${result.period.label}`,
     `山向：坐${result.sitMountain}向${result.facingMountain}`,
     `卦型：${result.guaType}；${result.replacementReason}`,
+    `局型：${result.formation}`,
+    result.combinations.length
+      ? `组合：${result.combinations.map((item) => item.name).join('、')}`
+      : '组合：未检出已实现的特殊组合',
     `到山到向：${result.daoShanXiang.summary}`,
     '三盘九宫：',
     palaceLines,
@@ -342,25 +390,51 @@ function buildPrompt(
     .join('\n');
 }
 
-export function generateXuanKong(input: XuanKongInput = {}): XuanKongResult {
+function mapCombination(combination: Combination): XuanKongCombination {
+  const palaces = combination.palaces?.map((key) => {
+    const gong = PALACE_KEY_TO_GONG[key];
+    if (!gong) throw new Error(`玄空引擎返回未知宫位：${key}。`);
+    return gong;
+  });
+  return {
+    name: combination.name,
+    kind: combination.kind,
+    ...(palaces?.length ? { palaces } : {}),
+    note: combination.note,
+  };
+}
+
+export function generateXuanKong(input: XuanKongInput): XuanKongResult {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('玄空飞星参数必须是对象。');
+  }
   const period = resolveXuanKongPeriod(input.year);
   const { sitMountain, facingMountain, measurement } = resolveMountains(input);
   const gua = resolveGuaType(input, measurement);
-
-  const yunPlate = flyStars(period.yunStar);
+  const chart = buildChart(period.year, sitMountain);
+  if (chart.period !== period.yun || chart.facing.name !== facingMountain) {
+    throw new Error('玄空引擎返回的运数或朝向与输入不一致。');
+  }
+  const yunPlate = Array.from({ length: 9 }, () => 0);
+  const shanPlate = Array.from({ length: 9 }, () => 0);
+  const xiangPlate = Array.from({ length: 9 }, () => 0);
+  for (const palace of chart.palaces) {
+    const index = palace.earth - 1;
+    if (index < 0 || index > 8) throw new Error(`玄空引擎返回无效洛书宫位：${palace.earth}。`);
+    yunPlate[index] = palace.period;
+    shanPlate[index] = palace.mountain;
+    xiangPlate[index] = palace.water;
+  }
+  if (
+    [yunPlate, shanPlate, xiangPlate].some((plate) => plate.some((star) => star < 1 || star > 9))
+  ) {
+    throw new Error('玄空引擎返回的三盘数据不完整。');
+  }
   const sitGong = MOUNTAIN_TO_GONG[sitMountain];
   const facingGong = MOUNTAIN_TO_GONG[facingMountain];
   if (!sitGong || !facingGong) {
     throw new Error('无法识别山向对应宫位。');
   }
-  const shanCenter = yunPlate[sitGong - 1];
-  const xiangCenter = yunPlate[facingGong - 1];
-  if (!shanCenter || !xiangCenter) {
-    throw new Error('无法从运盘读取山向宫入中星。');
-  }
-  const shanPlate = flyStars(shanCenter);
-  const xiangPlate = flyStars(xiangCenter);
-
   const daoShan = shanPlate[sitGong - 1] === period.yunStar;
   const daoXiang = xiangPlate[facingGong - 1] === period.yunStar;
   const daoShanXiang = {
@@ -377,6 +451,7 @@ export function generateXuanKong(input: XuanKongInput = {}): XuanKongResult {
   };
 
   const palaces = buildPalaces(yunPlate, shanPlate, xiangPlate);
+  const combinations = chart.combinations.map(mapCombination);
   const partial = {
     period,
     sitMountain,
@@ -386,6 +461,13 @@ export function generateXuanKong(input: XuanKongInput = {}): XuanKongResult {
     replacementReason: gua.replacementReason,
     plates: { yun: yunPlate, shan: shanPlate, xiang: xiangPlate },
     palaces,
+    formation: chart.formation,
+    combinations,
+    engine: {
+      name: '@soul-atelier/xuankong' as const,
+      version: '0.2.1' as const,
+      mode: '下卦' as const,
+    },
     daoShanXiang,
     ...(measurement ? { measurement } : {}),
   };

@@ -33,7 +33,7 @@ import {
   calculateSolarIlluminationEvidence,
   type SolarIlluminationEvidence,
 } from '../calendar/solar-illumination-evidence';
-import { getGanZhiFromDate } from '../ganzhi';
+import { getBranchIndex, getGanZhiFromDate, getStemIndex } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 
@@ -700,6 +700,7 @@ export function calculateZiqiPosition(input: QizhengInput): ZiqiPosition {
 }
 
 function longitudeToXiu(L: number): { xiu: string; xiuDegree: number } {
+  if (!Number.isFinite(L)) throw new Error(`七政四余恒星黄经无效：${String(L)}。`);
   // 先按本表总古度把现代 360° 黄经等比例换算，再逐宿扣减距度。
   let rem = (((L % 360) + 360) % 360) * (XIU_TOTAL / 360);
   for (const x of XIU) {
@@ -723,7 +724,10 @@ function tianYiGuiRen(dayGan: string): string {
     癸: '卯巳',
     辛: '寅午',
   };
-  return map[dayGan] ?? '—';
+  getStemIndex(dayGan);
+  const value = map[dayGan];
+  if (!value) throw new Error(`七政四余天乙贵人资料缺失：${dayGan}。`);
+  return value;
 }
 
 /** 年支三合局 → 各项神煞地支 */
@@ -735,6 +739,7 @@ function yearBranchShensha(yearBranch: string): {
   gu: string;
   gua: string;
 } {
+  getBranchIndex(yearBranch);
   const groups: Record<
     string,
     { yi: string; jie: string; chi: string; hua: string; gu: string; gua: string }
@@ -768,9 +773,8 @@ function yearBranchShensha(yearBranch: string): {
   };
   const base = groups[yearBranch];
   const guChen = sanhui[yearBranch];
-  return base && guChen
-    ? { ...base, ...guChen }
-    : { yi: '—', jie: '—', chi: '—', hua: '—', gu: '—', gua: '—' };
+  if (!base || !guChen) throw new Error(`七政四余年支神煞资料缺失：${yearBranch}。`);
+  return { ...base, ...guChen };
 }
 
 const PLANET_NAMES: Record<string, { label: string; key: string }> = {
@@ -785,8 +789,11 @@ const PLANET_NAMES: Record<string, { label: string; key: string }> = {
 
 /** 七政庙旺乐陷判定 */
 function dignityOf(key: string, signIndex: number): string {
+  if (!Number.isInteger(signIndex) || signIndex < 0 || signIndex > 11) {
+    throw new Error(`七政四余庙旺宫位无效：${String(signIndex)}。`);
+  }
   const d = DIGNITY[key];
-  if (!d) return '—';
+  if (!d) throw new Error(`七政四余庙旺资料缺失：${key}。`);
   if (d.miao.includes(signIndex)) return '庙';
   if (d.wang.includes(signIndex)) return '旺';
   if (d.le.includes(signIndex)) return '乐';
@@ -1502,12 +1509,16 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     retrograde = false,
     sourceId: QizhengPositionSourceId = 'celestine-planets',
   ): void => {
+    if (!Number.isFinite(tropical)) {
+      throw new Error(`七政四余星体黄经无效：${name}=${String(tropical)}。`);
+    }
     const L = toSidereal(tropical, targetDecimalYear);
     const { xiu, xiuDegree } = longitudeToXiu(L);
     const sevenStar = TwentyEightStar.fromName(xiu).getSevenStar().getName();
     const signIndex = Math.floor(L / 30);
     const dignity = key ? dignityOf(key, signIndex) : '—';
-    const source = QIZHENG_POSITION_SOURCES.find((item) => item.id === sourceId)!;
+    const source = QIZHENG_POSITION_SOURCES.find((item) => item.id === sourceId);
+    if (!source) throw new Error(`七政四余位置来源缺失：${sourceId}。`);
     stars.push({
       name,
       kind,
@@ -1571,9 +1582,14 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     signIndex: (mingGong - i + 12) % 12, // 自命宫逆布
   }));
   const palaceBySign = new Map(twelvePalaces.map((t) => [t.signIndex, t.palace]));
-  for (const s of stars) s.palace = palaceBySign.get(s.signIndex) ?? '—';
+  for (const s of stars) {
+    const palace = palaceBySign.get(s.signIndex);
+    if (!palace) throw new Error(`七政四余星体宫位映射缺失：${s.name}。`);
+    s.palace = palace;
+  }
 
-  const mingZhu = MING_ZHU[mingGong] ?? '—';
+  const mingZhu = MING_ZHU[mingGong];
+  if (!mingZhu) throw new Error(`七政四余命主资料缺失：命宫序号 ${mingGong}。`);
   const aspects = buildQizhengAspects(stars);
 
   // 神煞（年支 + 日干）

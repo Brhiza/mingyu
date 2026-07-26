@@ -1922,7 +1922,7 @@ function buildZodiacPrompt(input: JsonRecord) {
 
 function calculateTaiyiApi(input: JsonRecord) {
   const scope = readEnum(input, 'scope', ['year', 'month', 'day', 'hour', 'minute'], 'year');
-  const year = readInteger(input, 'year', 1900, 2200, new Date().getFullYear());
+  const year = readInteger(input, 'year', 1900, 2200);
   const ganZhi = readString(input, 'ganZhi', '');
   if (ganZhi && !isValidGanZhi(ganZhi)) {
     throw new ApiError(400, 'BAD_REQUEST', `ganZhi 不是有效的六十甲子：${ganZhi}。`);
@@ -1932,8 +1932,9 @@ function calculateTaiyiApi(input: JsonRecord) {
     if (scope !== 'year') {
       const month = readInteger(input, 'month', 1, 12);
       const day = readInteger(input, 'day', 1, 31);
-      const hour = readInteger(input, 'hour', 0, 23, 12);
-      const minute = readInteger(input, 'minute', 0, 59, 0);
+      // 月计、日计不依赖具体时分，固定正午可避免午夜跨日边界。
+      const hour = scope === 'month' || scope === 'day' ? 12 : readInteger(input, 'hour', 0, 23);
+      const minute = scope === 'minute' ? readInteger(input, 'minute', 0, 59) : 0;
       date = new Date(year, month - 1, day, hour, minute, 0);
       if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
         throw new Error('太乙日期无效。');
@@ -1941,7 +1942,8 @@ function calculateTaiyiApi(input: JsonRecord) {
     }
     return taiyi.generateTaiyi({
       scope,
-      ...(scope === 'year' ? { year } : { date }),
+      year,
+      ...(scope !== 'year' ? { date } : {}),
       ...(ganZhi ? { ganZhi } : {}),
     });
   } catch (error) {
@@ -1963,10 +1965,10 @@ function buildTaiyiPrompt(input: JsonRecord) {
 }
 
 function calculateQizhengApi(input: JsonRecord) {
-  const year = readInteger(input, 'year', 1900, 2200, new Date().getFullYear());
-  const month = optInt(input, 'month', 1, 12) ?? 1;
-  const day = optInt(input, 'day', 1, 31) ?? 1;
-  const hour = optInt(input, 'hour', 0, 23) ?? 12;
+  const year = readInteger(input, 'year', 1900, 2200);
+  const month = readInteger(input, 'month', 1, 12);
+  const day = readInteger(input, 'day', 1, 31);
+  const hour = readInteger(input, 'hour', 0, 23);
   const minute = optInt(input, 'minute', 0, 59) ?? 0;
   buildSolarDate(year, month, day, hour, minute);
   const latitude = optNumber(input, 'latitude', -90, 90);
@@ -1990,7 +1992,7 @@ function calculateQizhengApi(input: JsonRecord) {
 }
 
 function calculateXuanKongApi(input: JsonRecord) {
-  const year = input.year === undefined ? undefined : readInteger(input, 'year', 1, 9999);
+  const year = readInteger(input, 'year', 1, 9999);
   const sitMountain =
     input.sitMountain === undefined ? undefined : readString(input, 'sitMountain', '');
   const facingMountain =
@@ -2007,15 +2009,23 @@ function calculateXuanKongApi(input: JsonRecord) {
     input.guaType === undefined
       ? undefined
       : (readEnum(input, 'guaType', ['下卦', '替卦']) as '下卦' | '替卦');
-  return xuankong.generateXuanKong({
-    ...(year !== undefined ? { year } : {}),
-    ...(sitMountain ? { sitMountain } : {}),
-    ...(facingMountain ? { facingMountain } : {}),
-    ...(facingDegree !== undefined ? { facingDegree } : {}),
-    ...(sitDegree !== undefined ? { sitDegree } : {}),
-    ...(measurementUncertaintyDegrees !== undefined ? { measurementUncertaintyDegrees } : {}),
-    ...(guaType ? { guaType } : {}),
-  });
+  try {
+    return xuankong.generateXuanKong({
+      year,
+      ...(sitMountain ? { sitMountain } : {}),
+      ...(facingMountain ? { facingMountain } : {}),
+      ...(facingDegree !== undefined ? { facingDegree } : {}),
+      ...(sitDegree !== undefined ? { sitDegree } : {}),
+      ...(measurementUncertaintyDegrees !== undefined ? { measurementUncertaintyDegrees } : {}),
+      ...(guaType ? { guaType } : {}),
+    });
+  } catch (error) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      error instanceof Error ? error.message : '玄空飞星参数无效。',
+    );
+  }
 }
 
 function calculateResidentialApi(input: JsonRecord) {
