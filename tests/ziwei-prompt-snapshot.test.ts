@@ -222,6 +222,31 @@ test('紫微提示词快照应按登记稳定键去重', () => {
   assert.equal(snapshot.match(/格局：紫府同宫/g)?.length, 1);
 });
 
+test('紫微提示词快照应从十二宫重建登记内容，不信任带合法键的篡改字段', () => {
+  const payload = createPayload();
+  const verified = detectPatterns({ palaces: payload.palaces })[0];
+  payload.patterns = [
+    {
+      ...verified,
+      name: '篡改格局',
+      matched_conditions: ['篡改条件'],
+      palace_names: ['篡改宫位'],
+      star_names: ['篡改星曜'],
+      sources: ['篡改来源'],
+    },
+  ];
+
+  const snapshot = buildZiweiReadableSnapshot({
+    payload,
+    reportContext: createReportContext(),
+  });
+
+  assert.match(snapshot, /格局：紫府同宫/);
+  assert.match(snapshot, /命中条件：紫微与天府同坐命宫/);
+  assert.match(snapshot, /古籍依据：《紫微斗数全书》卷一/);
+  assert.doesNotMatch(snapshot, /篡改格局|篡改条件|篡改宫位|篡改星曜|篡改来源/);
+});
+
 test('紫微重点宫位资料展示三方四正时应排除本宫', () => {
   const payload = createPayload();
   const summary = buildPalaceSummary(payload, payload.palaces[0]);

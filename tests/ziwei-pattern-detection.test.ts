@@ -325,3 +325,28 @@ test('格局证据汇总应拒绝伪造登记前缀并按稳定键去重', () =>
   assert.ok(!analysis.summaryFact.factKeys.includes('ziwei:verified-pattern:not-registered'));
   assert.doesNotMatch(analysis.promptText, /伪造格局/);
 });
+
+test('格局证据汇总应拒绝冲突键、跳过状态与损坏的十二宫', () => {
+  const palaces = createPalaces();
+  addStar(palaces, 0, '紫微');
+  addStar(palaces, 0, '天府');
+  const verified = detectPatterns({ palaces })[0];
+
+  const conflicting = buildPatternAnalysis({
+    patterns: [{ ...verified, key: 'manual-shadow-key' }],
+    palaces,
+  });
+  assert.equal(conflicting.summaryFact.matchedPatternCount, 0);
+
+  const skipped = buildPatternAnalysis({ patterns: [verified], palaces, skipped: true });
+  assert.equal(skipped.status, '未生成');
+  assert.equal(skipped.summaryFact.evaluatedRuleCount, 0);
+  assert.equal(skipped.summaryFact.matchedPatternCount, 0);
+
+  const damaged = createPalaces();
+  damaged[0].surrounded_palace_indexes = [];
+  const insufficient = buildPatternAnalysis({ patterns: [verified], palaces: damaged });
+  assert.equal(insufficient.status, '资料不足');
+  assert.equal(insufficient.summaryFact.evaluatedRuleCount, 0);
+  assert.equal(insufficient.summaryFact.matchedPatternCount, 0);
+});

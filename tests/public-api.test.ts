@@ -5070,14 +5070,16 @@ test('公开 API 太乙应返回年计七十二局立成结果', async () => {
 });
 
 test('公开 API 太乙应拒绝尚未校勘的月日时计', async () => {
-  for (const scope of ['month', 'day', 'hour']) {
-    const { response, body } = await callApi('metaphysics/taiyi/calculate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scope, year: 2026, month: 7, day: 11, hour: 14, minute: 35 }),
-    });
-    assert.equal(response.status, 400, scope);
-    assert.equal(body.error.code, 'BAD_REQUEST', scope);
+  for (const path of ['metaphysics/taiyi/calculate', 'metaphysics/taiyi/prompt']) {
+    for (const scope of ['month', 'day', 'hour']) {
+      const { response, body } = await callApi(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope, year: 2026, month: 7, day: 11, hour: 14, minute: 35 }),
+      });
+      assert.equal(response.status, 400, `${path}:${scope}`);
+      assert.equal(body.error.code, 'BAD_REQUEST', `${path}:${scope}`);
+    }
   }
 });
 

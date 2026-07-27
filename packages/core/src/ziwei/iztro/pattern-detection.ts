@@ -427,6 +427,15 @@ function assertValidPatternPalaces(
   });
 }
 
+function hasValidPatternPalaces(palaces: PalaceFact[] | undefined): boolean {
+  try {
+    assertValidPatternPalaces(palaces);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export const ZIWEI_PATTERN_AUDIT_NOTICE =
   `原有${RETIRED_UNVERIFIED_PATTERN_COUNT}条项目格局规则已全部退役；现仅重新登记${VERIFIED_ZIWEI_PATTERN_RULE_COUNT}条具备固定版本、卷次、原文和可复算条件的规则，未登记格局不作命中或未命中结论` as const;
 
@@ -479,6 +488,32 @@ export function detectPatterns(params: {
   });
 }
 
+export function selectVerifiedZiweiPatterns(params: {
+  patterns: PatternFact[];
+  palaces: PalaceFact[];
+}): PatternFact[] {
+  if (!hasValidPatternPalaces(params.palaces)) return [];
+
+  const requestedStableKeys = new Set(
+    params.patterns.flatMap((pattern) => {
+      const stableKey = pattern.stable_key ?? pattern.key;
+      const hasConflictingKeys =
+        pattern.stable_key !== undefined &&
+        pattern.key !== undefined &&
+        pattern.stable_key !== pattern.key;
+      return pattern.status === '已命中' &&
+        !hasConflictingKeys &&
+        isVerifiedZiweiPatternKey(stableKey)
+        ? [stableKey]
+        : [];
+    }),
+  );
+
+  return detectPatterns({ palaces: params.palaces }).filter((pattern) =>
+    requestedStableKeys.has(pattern.stable_key ?? pattern.key ?? ''),
+  );
+}
+
 export function buildPatternAnalysis(params: {
   patterns: PatternFact[];
   palaces: PalaceFact[];
@@ -488,28 +523,19 @@ export function buildPatternAnalysis(params: {
   const { patterns, palaces, skipped = false, sourceUnverified = false } = params;
   const blockedBySourceAudit = sourceUnverified;
   const uniquePalaceIndexCount = new Set(palaces.map((item) => item.index)).size;
-  const palaceDataComplete =
-    palaces.length === ZIWEI_PALACE_COUNT && uniquePalaceIndexCount === ZIWEI_PALACE_COUNT;
+  const palaceDataComplete = hasValidPatternPalaces(palaces);
   const registeredRuleCount = blockedBySourceAudit ? 0 : VERIFIED_ZIWEI_PATTERN_RULE_COUNT;
   const evaluatedRuleCount =
     skipped || blockedBySourceAudit || !palaceDataComplete ? 0 : registeredRuleCount;
   const unevaluatedRuleCount = registeredRuleCount - evaluatedRuleCount;
-  const acceptedPatternEntries = blockedBySourceAudit
-    ? []
-    : [
-        ...new Map(
-          patterns.flatMap((item) => {
-            const stableKey = item.stable_key ?? item.key;
-            return item.status === '已命中' && isVerifiedZiweiPatternKey(stableKey)
-              ? ([[stableKey, item]] as const)
-              : [];
-          }),
-        ).entries(),
-      ];
-  const acceptedPatterns = acceptedPatternEntries.map(([, item]) => item);
+  const acceptedPatterns =
+    skipped || blockedBySourceAudit ? [] : selectVerifiedZiweiPatterns({ patterns, palaces });
   const matchedPatternCount = acceptedPatterns.length;
   const unmatchedRuleCount = Math.max(0, evaluatedRuleCount - matchedPatternCount);
-  const patternFactKeys = acceptedPatternEntries.map(([stableKey]) => stableKey);
+  const patternFactKeys = acceptedPatterns.flatMap((item) => {
+    const stableKey = item.stable_key ?? item.key;
+    return isVerifiedZiweiPatternKey(stableKey) ? [stableKey] : [];
+  });
   const summaryStatus: ZiweiPatternSummaryFact['status'] =
     skipped || blockedBySourceAudit
       ? '未生成'

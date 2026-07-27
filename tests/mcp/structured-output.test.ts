@@ -2984,7 +2984,12 @@ test('MCP 七政、太乙和玄空不得补造缺失时间或返回替卦伪盘'
       ['metaphysics_qizheng', { year: 2024, month: 6, hour: 12 }, null],
       ['metaphysics_qizheng', { year: 2024, month: 6, day: 15 }, null],
       ['metaphysics_taiyi', { scope: 'year' }, /年计必须提供公历年份/],
-      ['metaphysics_taiyi', { scope: 'hour', dateTime: '2026-07-11' }, null],
+      ['metaphysics_taiyi', { scope: 'month', year: 2026 }, null],
+      ['metaphysics_taiyi', { scope: 'day', year: 2026 }, null],
+      ['metaphysics_taiyi', { scope: 'hour', year: 2026 }, null],
+      ['taiyi_prompt', { scope: 'month', year: 2026 }, null],
+      ['taiyi_prompt', { scope: 'day', year: 2026 }, null],
+      ['taiyi_prompt', { scope: 'hour', year: 2026 }, null],
       ['metaphysics_xuankong', { sitMountain: '子' }, null],
       [
         'metaphysics_xuankong',

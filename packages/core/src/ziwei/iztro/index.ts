@@ -26,6 +26,7 @@ export {
   buildPatternAnalysis,
   detectPatterns,
   isVerifiedZiweiPatternKey,
+  selectVerifiedZiweiPatterns,
   VERIFIED_ZIWEI_PATTERN_RULE_COUNT,
   ZIWEI_PATTERN_AUDIT_NOTICE,
 } from './pattern-detection';

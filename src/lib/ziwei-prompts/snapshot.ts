@@ -1,5 +1,5 @@
 import type { AnalysisPayloadV1 } from '../../types/analysis';
-import { isVerifiedZiweiPatternKey } from '@core/ziwei/iztro';
+import { selectVerifiedZiweiPatterns } from '@core/ziwei/iztro';
 import {
   buildEvidenceSummary,
   buildPalaceIndex,
@@ -83,18 +83,12 @@ function buildCalculationConfigSummary(payload: AnalysisPayloadV1) {
 }
 
 function buildPatternSummary(payload: AnalysisPayloadV1) {
-  const verifiedPatterns = new Map(
-    (payload.patterns ?? []).flatMap((pattern) => {
-      const stableKey = pattern.stable_key ?? pattern.key;
-      return pattern.status === '已命中' &&
-        isVerifiedZiweiPatternKey(stableKey) &&
-        pattern.matched_conditions?.length
-        ? ([[stableKey, pattern]] as const)
-        : [];
-    }),
-  );
+  const verifiedPatterns = selectVerifiedZiweiPatterns({
+    patterns: payload.patterns ?? [],
+    palaces: payload.palaces,
+  });
 
-  return [...verifiedPatterns.values()].map((pattern) => ({
+  return verifiedPatterns.map((pattern) => ({
     格局: pattern.name,
     传统分类:
       pattern.kind === 'auspicious'
