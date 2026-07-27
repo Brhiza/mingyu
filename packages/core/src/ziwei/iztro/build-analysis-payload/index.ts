@@ -1,12 +1,7 @@
 import type { IztroAstrolabe, IztroHoroscope } from '../../../types/iztro';
-import type {
-  AnalysisPayloadV1,
-  PatternFact,
-  ScopeType,
-  ZiweiCalculationConfig,
-} from '../../../types/analysis';
+import type { AnalysisPayloadV1, ScopeType, ZiweiCalculationConfig } from '../../../types/analysis';
 import { buildEvidenceAnalysis, buildEvidencePool } from '../build-evidence-pool';
-import { buildPatternAnalysis } from '../pattern-detection';
+import { buildPatternAnalysis, detectPatterns } from '../pattern-detection';
 import { DEFAULT_ZIWEI_CALCULATION_CONFIG } from '../runtime-helpers';
 import { assertScopeType, getCurrentScopeItem } from './helpers/scope';
 import { buildActiveScope, buildBasicInfo, buildPalaceFacts } from './helpers/builders';
@@ -52,13 +47,17 @@ export function buildAnalysisPayloadV1(params: {
     skipped: skipAnalysis,
   });
 
-  // 自定义格局规则尚未逐条完成原文校勘，不能作为传统事实输出。
-  const patterns: PatternFact[] = [];
+  const patterns = skipAnalysis
+    ? []
+    : detectPatterns({
+        palaces,
+        birthTimeLabel: basic_info.birth_time_label,
+        birthTimeRange: basic_info.birth_time_range,
+      });
   const pattern_analysis = buildPatternAnalysis({
     patterns,
     palaces,
-    skipped: true,
-    sourceUnverified: true,
+    skipped: skipAnalysis,
   });
 
   return {

@@ -4,9 +4,10 @@ import assert from 'node:assert/strict';
 import {
   buildPatternAnalysis,
   detectPatterns,
+  VERIFIED_ZIWEI_PATTERN_RULE_COUNT,
   ZIWEI_PATTERN_AUDIT_NOTICE,
 } from '@core/ziwei/iztro';
-import type { PalaceFact } from '../packages/core/src/types/analysis';
+import type { PalaceFact, StarFact } from '../packages/core/src/types/analysis';
 
 const PALACE_NAMES = [
   '命宫',
@@ -32,13 +33,7 @@ function createPalaces(): PalaceFact[] {
     is_original_palace: index === 8,
     heavenly_stem: '甲',
     earthly_branch: BRANCHES[index],
-    major_stars:
-      index === 0
-        ? [
-            { name: '紫微', kind: 'major' },
-            { name: '天府', kind: 'major' },
-          ]
-        : [],
+    major_stars: [],
     minor_stars: [],
     other_stars: [],
     scope_stars: [],
@@ -49,11 +44,31 @@ function createPalaces(): PalaceFact[] {
     decadal_range: [1, 10],
     ages: [],
     scope_hits: [],
-    empty_state: index !== 0,
+    empty_state: true,
     opposite_palace_index: (index + 6) % 12,
     surrounded_palace_indexes: [index, (index + 4) % 12, (index + 6) % 12, (index + 8) % 12],
     summary_tags: [],
   }));
+}
+
+function addStar(
+  palaces: PalaceFact[],
+  palaceIndex: number,
+  name: string,
+  kind: 'major' | 'minor' | 'other' | 'scope' = 'major',
+  extra: Partial<StarFact> = {},
+): void {
+  const star: StarFact = { name, kind, ...extra };
+  const palace = palaces[palaceIndex];
+  if (kind === 'major') palace.major_stars.push(star);
+  else if (kind === 'minor') palace.minor_stars.push(star);
+  else if (kind === 'other') palace.other_stars.push(star);
+  else palace.scope_stars.push(star);
+  palace.empty_state = palace.major_stars.length === 0;
+}
+
+function detectedNames(palaces: PalaceFact[]): string[] {
+  return detectPatterns({ palaces }).map((pattern) => pattern.name);
 }
 
 test('紫微格局检测仍应拒绝不完整或索引损坏的十二宫资料', () => {
@@ -68,31 +83,148 @@ test('紫微格局检测仍应拒绝不完整或索引损坏的十二宫资料',
   assert.throws(() => detectPatterns({ palaces: invalidSurroundedIndex }), /三方四正宫位索引无效/);
 });
 
-test('未逐条校勘来源的自定义紫微格局不得形成命中事实', () => {
-  const palaces = createPalaces();
-  const patterns = detectPatterns({ palaces });
-
-  assert.deepEqual(patterns, []);
-  assert.match(ZIWEI_PATTERN_AUDIT_NOTICE, /缺少逐条版本、卷页、原文与独立例盘校勘/);
-  assert.match(ZIWEI_PATTERN_AUDIT_NOTICE, /不参与排盘、证据或提示词输出/);
+test('紫微首批格局登记表应固定为九条逐条校勘规则', () => {
+  assert.equal(VERIFIED_ZIWEI_PATTERN_RULE_COUNT, 9);
+  assert.match(ZIWEI_PATTERN_AUDIT_NOTICE, /原有84条.*已全部退役/);
+  assert.match(ZIWEI_PATTERN_AUDIT_NOTICE, /重新登记9条.*固定版本、卷次、原文/);
 });
 
-test('紫微格局证据应明确来源未校勘，不能把空列表解释为无格局', () => {
-  const palaces = createPalaces();
-  const analysis = buildPatternAnalysis({
-    patterns: [],
-    palaces,
-    skipped: true,
-    sourceUnverified: true,
-  });
+test('九条已校勘紫微格局应按各自盘面条件命中', () => {
+  const cases: Array<{ name: string; arrange: (palaces: PalaceFact[]) => void }> = [
+    {
+      name: '紫府同宫',
+      arrange(palaces) {
+        addStar(palaces, 0, '紫微');
+        addStar(palaces, 0, '天府');
+      },
+    },
+    {
+      name: '辅弼拱主',
+      arrange(palaces) {
+        addStar(palaces, 0, '紫微');
+        addStar(palaces, 4, '左辅', 'minor');
+        addStar(palaces, 8, '右弼', 'minor');
+      },
+    },
+    {
+      name: '君臣庆会',
+      arrange(palaces) {
+        addStar(palaces, 0, '紫微');
+        addStar(palaces, 0, '左辅', 'minor');
+        addStar(palaces, 0, '右弼', 'minor');
+      },
+    },
+    {
+      name: '左右夹命',
+      arrange(palaces) {
+        addStar(palaces, 11, '左辅', 'minor');
+        addStar(palaces, 1, '右弼', 'minor');
+      },
+    },
+    {
+      name: '坐贵向贵',
+      arrange(palaces) {
+        addStar(palaces, 0, '天魁', 'minor');
+        addStar(palaces, 6, '天钺', 'minor');
+      },
+    },
+    {
+      name: '金舆扶驾',
+      arrange(palaces) {
+        addStar(palaces, 0, '紫微');
+        addStar(palaces, 11, '太阳');
+        addStar(palaces, 1, '太阴');
+      },
+    },
+    {
+      name: '科权禄拱命',
+      arrange(palaces) {
+        addStar(palaces, 0, '紫微');
+        addStar(palaces, 4, '廉贞', 'major', { birth_mutagen: '禄' });
+        addStar(palaces, 6, '破军', 'major', { birth_mutagen: '权' });
+        addStar(palaces, 8, '武曲', 'major', { birth_mutagen: '科' });
+      },
+    },
+    {
+      name: '兼文武',
+      arrange(palaces) {
+        addStar(palaces, 4, '武曲');
+        addStar(palaces, 4, '文曲', 'minor');
+      },
+    },
+    {
+      name: '两重华盖',
+      arrange(palaces) {
+        addStar(palaces, 0, '禄存', 'minor');
+        addStar(palaces, 0, '廉贞', 'major', { birth_mutagen: '禄' });
+        addStar(palaces, 0, '地空', 'other');
+      },
+    },
+  ];
 
-  assert.equal(analysis.status, '未生成');
-  assert.equal(analysis.summaryFact.status, '未生成');
-  assert.equal(analysis.summaryFact.registeredRuleCount, 0);
-  assert.equal(analysis.summaryFact.evaluatedRuleCount, 0);
-  assert.equal(analysis.summaryFact.matchedPatternCount, 0);
-  assert.match(analysis.promptText, /来源尚未逐条校勘|缺少逐条版本/);
-  assert.match(analysis.promptText, /不表示命盘没有传统格局|不得声称任何传统格局/);
+  cases.forEach(({ name, arrange }) => {
+    const palaces = createPalaces();
+    arrange(palaces);
+    const pattern = detectPatterns({ palaces }).find((item) => item.name === name);
+    assert.ok(pattern, `${name}应命中`);
+    assert.equal(pattern.status, '已命中');
+    assert.match(pattern.stable_key ?? '', /^ziwei:verified-pattern:/);
+    assert.ok(pattern.matched_conditions?.length);
+    assert.ok(pattern.sources?.[0].includes('《紫微斗数全书》'));
+    assert.match(pattern.source ?? '', /oldid=\d+/);
+    assert.match(pattern.limitation ?? '', /不得.*现实因果|不得被反向/);
+  });
+});
+
+test('紫微格局只读取原局星曜和生年四化，不得混入运限星曜', () => {
+  const palaces = createPalaces();
+  addStar(palaces, 0, '紫微', 'scope');
+  addStar(palaces, 0, '天府', 'scope');
+  addStar(palaces, 0, '廉贞', 'major', { horoscope_mutagen: '禄' });
+  addStar(palaces, 4, '破军', 'major', { active_scope_mutagen: '权' });
+  addStar(palaces, 8, '武曲', 'scope', { birth_mutagen: '科' });
+
+  assert.deepEqual(detectPatterns({ palaces }), []);
+});
+
+test('科权禄拱命不得省略紫微守命、子午宫和三方会照前提', () => {
+  const missingZiwei = createPalaces();
+  addStar(missingZiwei, 4, '廉贞', 'major', { birth_mutagen: '禄' });
+  addStar(missingZiwei, 6, '破军', 'major', { birth_mutagen: '权' });
+  addStar(missingZiwei, 8, '武曲', 'major', { birth_mutagen: '科' });
+  assert.ok(!detectedNames(missingZiwei).includes('科权禄拱命'));
+
+  const wrongBranch = createPalaces();
+  wrongBranch[0].earthly_branch = '丑';
+  addStar(wrongBranch, 0, '紫微');
+  addStar(wrongBranch, 4, '廉贞', 'major', { birth_mutagen: '禄' });
+  addStar(wrongBranch, 6, '破军', 'major', { birth_mutagen: '权' });
+  addStar(wrongBranch, 8, '武曲', 'major', { birth_mutagen: '科' });
+  assert.ok(!detectedNames(wrongBranch).includes('科权禄拱命'));
+
+  const transformationInSoulPalace = createPalaces();
+  addStar(transformationInSoulPalace, 0, '紫微');
+  addStar(transformationInSoulPalace, 0, '廉贞', 'major', { birth_mutagen: '禄' });
+  addStar(transformationInSoulPalace, 6, '破军', 'major', { birth_mutagen: '权' });
+  addStar(transformationInSoulPalace, 8, '武曲', 'major', { birth_mutagen: '科' });
+  assert.ok(!detectedNames(transformationInSoulPalace).includes('科权禄拱命'));
+});
+
+test('紫微格局证据应汇总登记、命中、未命中与覆盖边界', () => {
+  const palaces = createPalaces();
+  addStar(palaces, 0, '紫微');
+  addStar(palaces, 0, '天府');
+  const patterns = detectPatterns({ palaces });
+  const analysis = buildPatternAnalysis({ patterns, palaces });
+
+  assert.equal(analysis.status, '已计算');
+  assert.equal(analysis.summaryFact.status, '已完成');
+  assert.equal(analysis.summaryFact.registeredRuleCount, 9);
+  assert.equal(analysis.summaryFact.evaluatedRuleCount, 9);
+  assert.equal(analysis.summaryFact.matchedPatternCount, 1);
+  assert.equal(analysis.summaryFact.unmatchedRuleCount, 8);
+  assert.match(analysis.promptText, /固定古籍版本逐条评估9条登记规则/);
+  assert.match(analysis.promptText, /未登记格局不作判断|不代表命盘没有其他传统格局/);
 
   const knownFactKeys = new Set([analysis.summaryFact.key, ...analysis.summaryFact.factKeys]);
   assert.ok(
@@ -101,4 +233,53 @@ test('紫微格局证据应明确来源未校勘，不能把空列表解释为�
         item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => knownFactKeys.has(key)),
     ),
   );
+});
+
+test('旧调用方标记来源未校勘时不得把注入数据纳入格局证据', () => {
+  const palaces = createPalaces();
+  const analysis = buildPatternAnalysis({
+    patterns: [
+      {
+        id: 'legacy',
+        name: '旧规则',
+        kind: 'auspicious',
+        description: '旧数据',
+        palace_indexes: [0],
+        palace_names: ['命宫'],
+        star_names: ['紫微'],
+      },
+    ],
+    palaces,
+    sourceUnverified: true,
+  });
+
+  assert.equal(analysis.status, '未生成');
+  assert.equal(analysis.summaryFact.registeredRuleCount, 0);
+  assert.equal(analysis.summaryFact.matchedPatternCount, 0);
+  assert.match(analysis.promptText, /原有84条.*已全部退役/);
+  assert.match(analysis.promptText, /不得把空结果解释为没有传统格局/);
+});
+
+test('格局证据汇总应主动过滤非登记稳定键', () => {
+  const analysis = buildPatternAnalysis({
+    patterns: [
+      {
+        id: 'manual',
+        stable_key: 'manual-pattern',
+        key: 'manual-pattern',
+        status: '已命中',
+        name: '手工注入规则',
+        kind: 'auspicious',
+        description: '未登记数据',
+        palace_indexes: [0],
+        palace_names: ['命宫'],
+        star_names: ['紫微'],
+      },
+    ],
+    palaces: createPalaces(),
+  });
+
+  assert.equal(analysis.summaryFact.matchedPatternCount, 0);
+  assert.ok(!analysis.summaryFact.factKeys.includes('manual-pattern'));
+  assert.doesNotMatch(analysis.promptText, /手工注入规则/);
 });

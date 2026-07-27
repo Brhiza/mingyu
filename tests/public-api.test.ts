@@ -1969,7 +1969,7 @@ test('公开 API 紫微排盘接口支持按需返回指定范围', async () => 
     body.data.payloadByScope.monthly.patterns.every(
       (item: Record<string, unknown>) =>
         !('priority' in item) &&
-        String(item.key).startsWith('ziwei:pattern:') &&
+        String(item.key).startsWith('ziwei:verified-pattern:') &&
         item.status === '已命中' &&
         Array.isArray(item.sources) &&
         item.sources.length > 0 &&

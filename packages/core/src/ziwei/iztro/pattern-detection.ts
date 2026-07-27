@@ -1,11 +1,12 @@
 /**
- * @file 紫微斗数格局来源审查与证据边界
- * @description 旧规则缺少逐条版本、卷页、原文与独立例盘，当前不执行任何自定义格局判定。
+ * @file 紫微斗数格局检测与证据边界
+ * @description 只执行已登记古籍版本、卷次、原文和可复算条件的格局规则。
  */
 
 import type {
   PalaceFact,
   PatternFact,
+  StarFact,
   ZiweiPatternAnalysis,
   ZiweiPatternCalculationStep,
   ZiweiPatternCounterEvidenceFact,
@@ -15,6 +16,11 @@ import type {
 
 const ZIWEI_PALACE_COUNT = 12;
 const RETIRED_UNVERIFIED_PATTERN_COUNT = 84;
+const PATTERN_RULE_STEP_KEY = 'ziwei:pattern:calculation:rule-evaluation';
+const VOLUME_ONE_URL =
+  'https://zh.wikisource.org/w/index.php?title=紫微斗數全書/卷一&oldid=2665454';
+const VOLUME_THREE_URL =
+  'https://zh.wikisource.org/w/index.php?title=紫微斗數全書/卷三&oldid=2268626';
 
 const PATTERN_CALCULATION_LIMITATION =
   '紫微格局计算步骤只证明登记规则如何核对当前十二宫、星曜、亮度、四化与宫位关系；不得把命中数量解释为命盘分数、现实概率或必然事件' as const;
@@ -25,9 +31,314 @@ const PATTERN_SUMMARY_LIMITATION =
 const PATTERN_FACT_LIMITATION =
   '紫微格局限制事实用于约束规则命中可以支持的解释范围，不得被反向当作现实因果、人物命运、吉凶概率或保证有效建议的证据' as const;
 
+type PatternContext = {
+  palaces: PalaceFact[];
+  palaceByIndex: Map<number, PalaceFact>;
+  soulPalace: PalaceFact;
+};
+
+type PatternMatch = {
+  palaces: PalaceFact[];
+  stars: string[];
+  conditions: string[];
+};
+
+type VerifiedPatternRule = {
+  id: string;
+  name: string;
+  kind: PatternFact['kind'];
+  description: string;
+  traditionalInterpretation: string;
+  sourceTitle: string;
+  sourceUrl: string;
+  sourceQuote: string;
+  calculation: string;
+  detect: (context: PatternContext) => PatternMatch | null;
+};
+
 function normalizePalaceName(name: string) {
   return name.endsWith('宫') ? name.slice(0, -1) : name;
 }
+
+function natalStars(palace: PalaceFact): StarFact[] {
+  return [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars];
+}
+
+function hasStar(palace: PalaceFact, name: string): boolean {
+  return natalStars(palace).some((star) => star.name === name);
+}
+
+function hasAllStars(palace: PalaceFact, names: string[]): boolean {
+  return names.every((name) => hasStar(palace, name));
+}
+
+function uniquePalaces(palaces: PalaceFact[]): PalaceFact[] {
+  return [...new Map(palaces.map((palace) => [palace.index, palace])).values()];
+}
+
+function getNeighborPalaces(context: PatternContext, palace: PalaceFact): PalaceFact[] {
+  return [
+    context.palaceByIndex.get((palace.index + ZIWEI_PALACE_COUNT - 1) % ZIWEI_PALACE_COUNT),
+    context.palaceByIndex.get((palace.index + 1) % ZIWEI_PALACE_COUNT),
+  ].filter((item): item is PalaceFact => !!item);
+}
+
+function getSurroundedPalaces(context: PatternContext, palace: PalaceFact): PalaceFact[] {
+  return palace.surrounded_palace_indexes
+    .map((index) => context.palaceByIndex.get(index))
+    .filter((item): item is PalaceFact => !!item);
+}
+
+function findStarPalace(palaces: PalaceFact[], starName: string): PalaceFact | undefined {
+  return palaces.find((palace) => hasStar(palace, starName));
+}
+
+const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
+  {
+    id: 'ziwei-tianfu-tonggong',
+    name: '紫府同宫',
+    kind: 'auspicious',
+    description: '紫微与天府同坐命宫。',
+    traditionalInterpretation: '《紫微斗数全书》把此组合列为传统富贵格，但仍须合看吉煞与庙旺。',
+    sourceTitle: '《紫微斗数全书》卷一·太微赋',
+    sourceUrl: VOLUME_ONE_URL,
+    sourceQuote: '紫府同宫终身福厚。',
+    calculation: '检查本命命宫的原局星曜是否同时包含紫微与天府。',
+    detect({ soulPalace }) {
+      return hasAllStars(soulPalace, ['紫微', '天府'])
+        ? {
+            palaces: [soulPalace],
+            stars: ['紫微', '天府'],
+            conditions: ['紫微与天府同坐命宫'],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'fu-bi-gong-zhu',
+    name: '辅弼拱主',
+    kind: 'auspicious',
+    description: '紫微守命，左辅、右弼从三方四正拱照或前后夹命。',
+    traditionalInterpretation: '古籍以辅弼拱夹紫微为传统助力结构。',
+    sourceTitle: '《紫微斗数全书》卷一·定富贵局',
+    sourceUrl: VOLUME_ONE_URL,
+    sourceQuote: '辅弼拱主，紫微守命二星来拱是也，夹之亦然。',
+    calculation: '先检查紫微守命，再在命宫三方四正与相邻两宫寻找左辅、右弼。',
+    detect(context) {
+      const { soulPalace } = context;
+      if (!hasStar(soulPalace, '紫微')) return null;
+      const candidates = uniquePalaces([
+        ...getSurroundedPalaces(context, soulPalace).filter(
+          (palace) => palace.index !== soulPalace.index,
+        ),
+        ...getNeighborPalaces(context, soulPalace),
+      ]);
+      const left = findStarPalace(candidates, '左辅');
+      const right = findStarPalace(candidates, '右弼');
+      return left && right
+        ? {
+            palaces: uniquePalaces([soulPalace, left, right]),
+            stars: ['紫微', '左辅', '右弼'],
+            conditions: ['紫微守命', '左辅与右弼从三方四正拱照或前后夹命'],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'jun-chen-qing-hui',
+    name: '君臣庆会',
+    kind: 'auspicious',
+    description: '紫微、左辅、右弼同守命宫。',
+    traditionalInterpretation: '古籍把紫微与左右同守命宫列为君臣庆会。',
+    sourceTitle: '《紫微斗数全书》卷一·定富贵局',
+    sourceUrl: VOLUME_ONE_URL,
+    sourceQuote: '君臣庆会，紫微左右同守命是也，更会相武阴妙上。',
+    calculation: '检查本命命宫的原局星曜是否同时包含紫微、左辅与右弼。',
+    detect({ soulPalace }) {
+      return hasAllStars(soulPalace, ['紫微', '左辅', '右弼'])
+        ? {
+            palaces: [soulPalace],
+            stars: ['紫微', '左辅', '右弼'],
+            conditions: ['紫微、左辅、右弼同守命宫'],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'zuo-you-jia-ming',
+    name: '左右夹命',
+    kind: 'auspicious',
+    description: '左辅、右弼分居命宫相邻两宫。',
+    traditionalInterpretation: '古籍把左辅、右弼前后夹命列为传统贵格。',
+    sourceTitle: '《紫微斗数全书》卷三·左辅右弼',
+    sourceUrl: VOLUME_THREE_URL,
+    sourceQuote: '左右夹命为贵格，如安命在丑宫，左辅在子宫，右弼在寅宫。',
+    calculation: '检查命宫前后相邻两宫是否分别出现左辅与右弼。',
+    detect(context) {
+      const neighbors = getNeighborPalaces(context, context.soulPalace);
+      if (neighbors.length !== 2) return null;
+      const matched =
+        (hasStar(neighbors[0], '左辅') && hasStar(neighbors[1], '右弼')) ||
+        (hasStar(neighbors[0], '右弼') && hasStar(neighbors[1], '左辅'));
+      return matched
+        ? {
+            palaces: [context.soulPalace, ...neighbors],
+            stars: ['左辅', '右弼'],
+            conditions: ['左辅、右弼分居命宫相邻两宫'],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'zuo-gui-xiang-gui',
+    name: '坐贵向贵',
+    kind: 'auspicious',
+    description: '天魁、天钺一曜坐命，另一曜在对宫。',
+    traditionalInterpretation: '古籍把魁钺在命宫与对宫相互坐拱列为传统贵格。',
+    sourceTitle: '《紫微斗数全书》卷一·定富贵局',
+    sourceUrl: VOLUME_ONE_URL,
+    sourceQuote: '坐贵向贵，谓魁钺在命迭相坐拱是也。',
+    calculation: '检查命宫与对宫是否分别出现天魁、天钺。',
+    detect(context) {
+      const opposite = context.palaceByIndex.get(context.soulPalace.opposite_palace_index);
+      if (!opposite) return null;
+      const matched =
+        (hasStar(context.soulPalace, '天魁') && hasStar(opposite, '天钺')) ||
+        (hasStar(context.soulPalace, '天钺') && hasStar(opposite, '天魁'));
+      return matched
+        ? {
+            palaces: [context.soulPalace, opposite],
+            stars: ['天魁', '天钺'],
+            conditions: ['天魁、天钺一曜坐命，另一曜在对宫'],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'jin-yu-fu-jia',
+    name: '金舆扶驾',
+    kind: 'auspicious',
+    description: '紫微守命，太阳、太阴分居命宫相邻两宫。',
+    traditionalInterpretation: '古籍把日月前后夹辅紫微守命列为金舆扶驾。',
+    sourceTitle: '《紫微斗数全书》卷一·定富贵局',
+    sourceUrl: VOLUME_ONE_URL,
+    sourceQuote: '金舆扶驾，紫微守命前后有日月来夹是也。',
+    calculation: '先检查紫微守命，再检查命宫前后相邻两宫是否分别出现太阳与太阴。',
+    detect(context) {
+      if (!hasStar(context.soulPalace, '紫微')) return null;
+      const neighbors = getNeighborPalaces(context, context.soulPalace);
+      if (neighbors.length !== 2) return null;
+      const matched =
+        (hasStar(neighbors[0], '太阳') && hasStar(neighbors[1], '太阴')) ||
+        (hasStar(neighbors[0], '太阴') && hasStar(neighbors[1], '太阳'));
+      return matched
+        ? {
+            palaces: [context.soulPalace, ...neighbors],
+            stars: ['紫微', '太阳', '太阴'],
+            conditions: ['紫微守命', '太阳、太阴分居命宫相邻两宫'],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'ke-quan-lu-gong-ming',
+    name: '科权禄拱命',
+    kind: 'auspicious',
+    description: '紫微在子或午宫守命，命宫三方齐见生年化禄、化权、化科。',
+    traditionalInterpretation: '古籍把紫微居子午并得科、权、禄三方照列为传统富贵结构。',
+    sourceTitle: '《紫微斗数全书》卷三·紫微',
+    sourceUrl: VOLUME_THREE_URL,
+    sourceQuote: '紫微居子午科权禄照最为奇，科权禄三方照是也。',
+    calculation:
+      '先检查紫微是否在子或午宫守命，再检查命宫以外三个会照宫位原局星曜的生年四化，不混入大限、流年等运限四化。',
+    detect(context) {
+      if (
+        !hasStar(context.soulPalace, '紫微') ||
+        !['子', '午'].includes(context.soulPalace.earthly_branch)
+      ) {
+        return null;
+      }
+      const surrounded = getSurroundedPalaces(context, context.soulPalace).filter(
+        (palace) => palace.index !== context.soulPalace.index,
+      );
+      const matchedStars = new Map<string, string>();
+      surrounded.forEach((palace) => {
+        natalStars(palace).forEach((star) => {
+          if (star.birth_mutagen && ['禄', '权', '科'].includes(star.birth_mutagen)) {
+            matchedStars.set(star.birth_mutagen, star.name);
+          }
+        });
+      });
+      const mutagens = ['禄', '权', '科'];
+      return mutagens.every((mutagen) => matchedStars.has(mutagen))
+        ? {
+            palaces: surrounded.filter((palace) =>
+              natalStars(palace).some((star) => mutagens.includes(star.birth_mutagen ?? '')),
+            ),
+            stars: [
+              '紫微',
+              ...mutagens.map((mutagen) => `${matchedStars.get(mutagen)}化${mutagen}`),
+            ],
+            conditions: [
+              `紫微在${context.soulPalace.earthly_branch}宫守命`,
+              '命宫以外三个会照宫位齐见生年化禄、化权、化科',
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'jian-wen-wu',
+    name: '兼文武',
+    kind: 'auspicious',
+    description: '文曲、武曲同坐命宫或身宫。',
+    traditionalInterpretation: '古籍把文曲、武曲同临命身列为兼文武。',
+    sourceTitle: '《紫微斗数全书》卷一·论兼文武格',
+    sourceUrl: VOLUME_ONE_URL,
+    sourceQuote: '论兼文武格，文曲武曲在身命是也。',
+    calculation: '在本命命宫及身宫检查文曲、武曲是否同宫。',
+    detect(context) {
+      const target = context.palaces.find(
+        (palace) =>
+          (palace.index === context.soulPalace.index || palace.is_body_palace) &&
+          hasAllStars(palace, ['文曲', '武曲']),
+      );
+      return target
+        ? {
+            palaces: [target],
+            stars: ['文曲', '武曲'],
+            conditions: [
+              `文曲、武曲同坐${target.index === context.soulPalace.index ? '命宫' : '身宫'}`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'liang-chong-hua-gai',
+    name: '两重华盖',
+    kind: 'inauspicious',
+    description: '禄存与生年化禄同坐命宫，并见地空或地劫。',
+    traditionalInterpretation: '古籍把双禄坐命又遇空劫列为传统受制结构。',
+    sourceTitle: '《紫微斗数全书》卷一·定贫贱局',
+    sourceUrl: VOLUME_ONE_URL,
+    sourceQuote: '两重华盖，谓禄存化禄坐命遇空劫是也。',
+    calculation: '检查命宫是否同时包含禄存、生年化禄星，并出现地空或地劫。',
+    detect({ soulPalace }) {
+      const huaLu = natalStars(soulPalace).find((star) => star.birth_mutagen === '禄');
+      const voidStars = ['地空', '地劫'].filter((name) => hasStar(soulPalace, name));
+      return hasStar(soulPalace, '禄存') && huaLu && voidStars.length > 0
+        ? {
+            palaces: [soulPalace],
+            stars: ['禄存', `${huaLu.name}化禄`, ...voidStars],
+            conditions: ['禄存与生年化禄同坐命宫', `命宫见${voidStars.join('、')}`],
+          }
+        : null;
+    },
+  },
+];
+
+export const VERIFIED_ZIWEI_PATTERN_RULE_COUNT = VERIFIED_PATTERN_RULES.length;
 
 function assertValidPatternPalaces(
   palaces: PalaceFact[] | undefined,
@@ -99,7 +410,7 @@ function assertValidPatternPalaces(
 }
 
 export const ZIWEI_PATTERN_AUDIT_NOTICE =
-  `原有${RETIRED_UNVERIFIED_PATTERN_COUNT}条项目格局规则缺少逐条版本、卷页、原文与独立例盘校勘，现阶段不参与排盘、证据或提示词输出` as const;
+  `原有${RETIRED_UNVERIFIED_PATTERN_COUNT}条项目格局规则已全部退役；现仅重新登记${VERIFIED_ZIWEI_PATTERN_RULE_COUNT}条具备固定版本、卷次、原文和可复算条件的规则，未登记格局不作命中或未命中结论` as const;
 
 export function detectPatterns(params: {
   palaces: PalaceFact[];
@@ -107,7 +418,47 @@ export function detectPatterns(params: {
   birthTimeRange?: string;
 }): PatternFact[] {
   assertValidPatternPalaces(params.palaces);
-  return [];
+  const soulPalace = params.palaces.find((palace) => normalizePalaceName(palace.name) === '命');
+  if (!soulPalace) throw new Error('紫微格局检测缺少命宫。');
+  const context: PatternContext = {
+    palaces: params.palaces,
+    palaceByIndex: new Map(params.palaces.map((palace) => [palace.index, palace])),
+    soulPalace,
+  };
+
+  return VERIFIED_PATTERN_RULES.flatMap((rule): PatternFact[] => {
+    const match = rule.detect(context);
+    if (!match) return [];
+    const stableKey = `ziwei:verified-pattern:${rule.id}`;
+    const sources = [`${rule.sourceTitle}：“${rule.sourceQuote}”`, `${rule.sourceUrl}`];
+    return [
+      {
+        id: rule.id,
+        stable_key: stableKey,
+        key: stableKey,
+        status: '已命中',
+        name: rule.name,
+        kind: rule.kind,
+        description: rule.description,
+        palace_indexes: uniquePalaces(match.palaces).map((palace) => palace.index),
+        palace_names: uniquePalaces(match.palaces).map((palace) => palace.name),
+        star_names: [...new Set(match.stars)],
+        matched_conditions: match.conditions,
+        traditional_interpretation: rule.traditionalInterpretation,
+        source: rule.sourceUrl,
+        sources,
+        calculation: rule.calculation,
+        calculationStepKey: PATTERN_RULE_STEP_KEY,
+        dependsOnStepKeys: ['ziwei:pattern:calculation:input'],
+        promptText: `${rule.name}：${match.conditions.join('；')}。`,
+        limitation: PATTERN_FACT_LIMITATION,
+        limitations: [
+          '命中只表示当前盘面满足这一条登记条件，不代表整盘吉凶或现实结果。',
+          '只评估当前已登记规则；未输出的格局不得解释为不存在。',
+        ],
+      },
+    ];
+  });
 }
 
 export function buildPatternAnalysis(params: {
@@ -117,31 +468,42 @@ export function buildPatternAnalysis(params: {
   sourceUnverified?: boolean;
 }): ZiweiPatternAnalysis {
   const { patterns, palaces, skipped = false, sourceUnverified = false } = params;
-  const registeredRuleCount = 0;
+  const blockedBySourceAudit = sourceUnverified;
   const uniquePalaceIndexCount = new Set(palaces.map((item) => item.index)).size;
   const palaceDataComplete =
     palaces.length === ZIWEI_PALACE_COUNT && uniquePalaceIndexCount === ZIWEI_PALACE_COUNT;
-  const evaluatedRuleCount = 0;
-  const unevaluatedRuleCount = 0;
-  const matchedPatternCount = patterns.length;
-  const unmatchedRuleCount = 0;
-  const patternFactKeys = patterns.map(
+  const registeredRuleCount = blockedBySourceAudit ? 0 : VERIFIED_ZIWEI_PATTERN_RULE_COUNT;
+  const evaluatedRuleCount =
+    skipped || blockedBySourceAudit || !palaceDataComplete ? 0 : registeredRuleCount;
+  const unevaluatedRuleCount = registeredRuleCount - evaluatedRuleCount;
+  const acceptedPatterns = blockedBySourceAudit
+    ? []
+    : patterns.filter(
+        (item) =>
+          item.status === '已命中' &&
+          (item.stable_key ?? item.key ?? '').startsWith('ziwei:verified-pattern:'),
+      );
+  const matchedPatternCount = acceptedPatterns.length;
+  const unmatchedRuleCount = Math.max(0, evaluatedRuleCount - matchedPatternCount);
+  const patternFactKeys = acceptedPatterns.map(
     (item) => item.key ?? `ziwei:pattern:${item.stable_key ?? item.id}`,
   );
-  const summaryStatus: ZiweiPatternSummaryFact['status'] = skipped
-    ? '未生成'
-    : !palaceDataComplete
-      ? '资料不足'
-      : matchedPatternCount === 0
-        ? '未命中'
-        : '已完成';
-  const analysisStatus: ZiweiPatternAnalysis['status'] = skipped
-    ? '未生成'
-    : !palaceDataComplete
-      ? '资料不足'
-      : matchedPatternCount === 0
-        ? '未命中'
-        : '已计算';
+  const summaryStatus: ZiweiPatternSummaryFact['status'] =
+    skipped || blockedBySourceAudit
+      ? '未生成'
+      : !palaceDataComplete
+        ? '资料不足'
+        : matchedPatternCount === 0
+          ? '未命中'
+          : '已完成';
+  const analysisStatus: ZiweiPatternAnalysis['status'] =
+    skipped || blockedBySourceAudit
+      ? '未生成'
+      : !palaceDataComplete
+        ? '资料不足'
+        : matchedPatternCount === 0
+          ? '未命中'
+          : '已计算';
 
   const calculationSteps: ZiweiPatternCalculationStep[] = [
     {
@@ -158,39 +520,49 @@ export function buildPatternAnalysis(params: {
       limitation: PATTERN_CALCULATION_LIMITATION,
     },
     {
-      key: 'ziwei:pattern:calculation:rule-evaluation',
+      key: PATTERN_RULE_STEP_KEY,
       stage: '格局规则评估',
-      status: skipped ? '未生成' : palaceDataComplete ? '已计算' : '资料不足',
+      status:
+        skipped || blockedBySourceAudit ? '未生成' : palaceDataComplete ? '已计算' : '资料不足',
       dependsOnStepKeys: ['ziwei:pattern:calculation:input'],
       inputs: { registeredRuleCount, palaceDataComplete },
       result: { evaluatedRuleCount, unevaluatedRuleCount },
-      promptText: sourceUnverified
-        ? `${ZIWEI_PATTERN_AUDIT_NOTICE}，不补造格局命中或未命中结果`
-        : '当前没有已登记且完成来源校勘的格局规则',
-      sources: ['紫微自定义格局逐条来源审查结果'],
+      promptText: skipped
+        ? '本次明确跳过格局规则评估，未生成格局命中或未命中事实'
+        : blockedBySourceAudit
+          ? `${ZIWEI_PATTERN_AUDIT_NOTICE}，本次调用未接入已校勘登记表`
+          : `已按固定古籍版本逐条评估${evaluatedRuleCount}条登记规则`,
+      sources: [
+        `《紫微斗数全书》卷一固定修订版 ${VOLUME_ONE_URL}`,
+        `《紫微斗数全书》卷三固定修订版 ${VOLUME_THREE_URL}`,
+      ],
       limitation: PATTERN_CALCULATION_LIMITATION,
     },
     {
       key: 'ziwei:pattern:calculation:matched-facts',
       stage: '命中事实登记',
-      status: skipped ? '未生成' : palaceDataComplete ? '已计算' : '资料不足',
-      dependsOnStepKeys: ['ziwei:pattern:calculation:rule-evaluation'],
+      status:
+        skipped || blockedBySourceAudit ? '未生成' : palaceDataComplete ? '已计算' : '资料不足',
+      dependsOnStepKeys: [PATTERN_RULE_STEP_KEY],
       inputs: { evaluatedRuleCount },
       result: { matchedPatternCount, unmatchedRuleCount, matchedPatternKeys: patternFactKeys },
-      promptText: sourceUnverified
-        ? '自定义格局来源尚未逐条校勘，当前不生成任何格局命中事实'
-        : `登记${matchedPatternCount}项已校勘格局事实`,
+      promptText: skipped
+        ? '本次明确跳过格局命中事实登记'
+        : blockedBySourceAudit
+          ? '本次调用未使用已校勘登记表，不生成格局命中事实'
+          : `登记${matchedPatternCount}项已校勘格局事实`,
       sources: ['逐条规则评估结果与实际命中宫位、星曜'],
       limitation: PATTERN_CALCULATION_LIMITATION,
     },
     {
       key: 'ziwei:pattern:calculation:summary',
       stage: '格局覆盖汇总',
-      status: skipped ? '未生成' : palaceDataComplete ? '已计算' : '资料不足',
+      status:
+        skipped || blockedBySourceAudit ? '未生成' : palaceDataComplete ? '已计算' : '资料不足',
       dependsOnStepKeys: ['ziwei:pattern:calculation:matched-facts'],
       inputs: { registeredRuleCount, evaluatedRuleCount, matchedPatternCount },
       result: { summaryStatus, unmatchedRuleCount, unevaluatedRuleCount },
-      promptText: `格局规则覆盖状态为${summaryStatus}；已校勘登记规则${registeredRuleCount}条，命中${matchedPatternCount}项`,
+      promptText: `格局规则覆盖状态为${summaryStatus}；登记${registeredRuleCount}条，评估${evaluatedRuleCount}条，命中${matchedPatternCount}项`,
       sources: ['格局规则来源审查与命中事实汇总'],
       limitation: PATTERN_CALCULATION_LIMITATION,
     },
@@ -200,10 +572,11 @@ export function buildPatternAnalysis(params: {
     {
       key: 'ziwei:pattern:counter:palace-coverage',
       type: '十二宫资料覆盖',
-      status: skipped ? '未生成' : palaceDataComplete ? '有可用证据' : '资料不足',
+      status:
+        skipped || blockedBySourceAudit ? '未生成' : palaceDataComplete ? '有可用证据' : '资料不足',
       ownerFactKeys: ['ziwei:pattern:calculation:input'],
       promptText: skipped
-        ? '自定义格局来源尚未逐条校勘，空列表只表示停止输出，不表示命盘没有传统格局'
+        ? '本次明确跳过格局分析，未使用十二宫资料形成格局结论'
         : palaceDataComplete
           ? '十二宫资料与宫位索引完整'
           : '十二宫资料不完整，格局分析必须降级且不得补造命中结果',
@@ -213,23 +586,26 @@ export function buildPatternAnalysis(params: {
     {
       key: 'ziwei:pattern:counter:rule-coverage',
       type: '登记规则覆盖',
-      status: skipped ? '未生成' : '有可用证据',
-      ownerFactKeys: ['ziwei:pattern:calculation:rule-evaluation', ...patternFactKeys],
-      promptText: sourceUnverified
-        ? `${ZIWEI_PATTERN_AUDIT_NOTICE}；不得把空结果解释为没有传统格局`
-        : '当前没有已登记且完成来源校勘的格局规则',
-      sources: ['登记规则来源审查结果'],
+      status: skipped || blockedBySourceAudit ? '未生成' : '有可用证据',
+      ownerFactKeys: [PATTERN_RULE_STEP_KEY, ...patternFactKeys],
+      promptText: skipped
+        ? '本次明确跳过登记规则评估，不形成格局覆盖结论'
+        : blockedBySourceAudit
+          ? `${ZIWEI_PATTERN_AUDIT_NOTICE}；不得把空结果解释为没有传统格局`
+          : `当前只覆盖${registeredRuleCount}条已校勘规则；未登记格局不作判断`,
+      sources: ['登记规则固定古籍版本、卷次、原文与计算条件'],
       limitation: PATTERN_COUNTER_LIMITATION,
     },
     {
       key: 'ziwei:pattern:counter:unmatched-boundary',
       type: '未命中规则边界',
-      status: skipped ? '未生成' : palaceDataComplete ? '未命中' : '资料不足',
+      status:
+        skipped || blockedBySourceAudit ? '未生成' : palaceDataComplete ? '未命中' : '资料不足',
       ownerFactKeys: ['ziwei:pattern:calculation:matched-facts', ...patternFactKeys],
-      promptText: sourceUnverified
-        ? '当前没有完成逐条来源校勘的格局规则，不得声称任何传统格局命中或未命中'
-        : '没有已校勘规则可供评估，不形成传统格局未命中结论',
-      sources: ['格局规则来源审查结果'],
+      promptText: skipped
+        ? '本次明确跳过规则评估，不形成格局未命中结论'
+        : `已评估规则中有${unmatchedRuleCount}条未命中；这不代表命盘没有其他传统格局`,
+      sources: ['当前登记规则逐条评估结果'],
       limitation: PATTERN_COUNTER_LIMITATION,
     },
   ];
@@ -247,13 +623,14 @@ export function buildPatternAnalysis(params: {
     unevaluatedRuleCount,
     matchedPatternCount,
     unmatchedRuleCount,
-    auspiciousPatternCount: patterns.filter((item) => item.kind === 'auspicious').length,
-    inauspiciousPatternCount: patterns.filter((item) => item.kind === 'inauspicious').length,
-    neutralPatternCount: patterns.filter((item) => item.kind === 'neutral').length,
+    auspiciousPatternCount: acceptedPatterns.filter((item) => item.kind === 'auspicious').length,
+    inauspiciousPatternCount: acceptedPatterns.filter((item) => item.kind === 'inauspicious')
+      .length,
+    neutralPatternCount: acceptedPatterns.filter((item) => item.kind === 'neutral').length,
     counterEvidenceCount: counterEvidenceFacts.length,
     limitationFactCount: 4,
-    promptText: `格局证据状态为${summaryStatus}；已校勘登记规则${registeredRuleCount}条，命中${matchedPatternCount}项；空列表不代表命盘没有其他传统格局`,
-    sources: ['格局规则来源审查、十二宫盘面与命中事实汇总'],
+    promptText: `格局证据状态为${summaryStatus}；登记规则${registeredRuleCount}条，已评估${evaluatedRuleCount}条，命中${matchedPatternCount}项；未登记格局不作判断`,
+    sources: ['格局规则固定版本、十二宫盘面与命中事实汇总'],
     limitation: PATTERN_SUMMARY_LIMITATION,
   };
 
@@ -270,9 +647,9 @@ export function buildPatternAnalysis(params: {
     {
       key: 'ziwei:pattern:limitation:rule-coverage',
       type: '规则覆盖边界',
-      ownerFactKeys: [summaryFact.key, 'ziwei:pattern:calculation:rule-evaluation'],
-      promptText: '当前没有完成逐条来源校勘的自定义格局规则；空列表不代表命盘没有其他传统格局',
-      sources: ['紫微自定义格局逐条来源审查结果'],
+      ownerFactKeys: [summaryFact.key, PATTERN_RULE_STEP_KEY],
+      promptText: `当前只登记${registeredRuleCount}条已完成版本、卷次、原文与条件校勘的规则；未登记格局不作命中或未命中结论`,
+      sources: ['紫微格局逐条来源审查结果'],
     },
     {
       key: 'ziwei:pattern:limitation:reality-causality',
@@ -312,15 +689,15 @@ export function buildPatternAnalysis(params: {
     promptText: [
       '【紫微格局结构化证据】',
       `计算链：${calculationSteps.map((item) => item.promptText).join(' → ')}。`,
-      `反证核验：${counterEvidence.join('；')}。`,
+      `反证核验：${counterEvidence.join('；') || '当前登记规则已完成逐条评估'}。`,
       `证据汇总：${summaryFact.promptText}。`,
       `解释限制：${limitations.join('；')}。`,
     ].join('\n'),
     methodology: {
       notes: [
-        '自定义格局必须先完成逐条版本、卷页、原文与独立例盘校勘，当前不参与排盘与提示词。',
-        '空格局列表只代表当前停止输出，不代表命盘不存在传统格局。',
-        '未来只有完成来源校勘与独立例盘验证的规则才可重新登记。',
+        `仅执行${VERIFIED_ZIWEI_PATTERN_RULE_COUNT}条具备固定版本、卷次、原文与可复算条件的登记规则。`,
+        `原有${RETIRED_UNVERIFIED_PATTERN_COUNT}条规则已整体退役，未通过校勘的部分不会借用旧实现。`,
+        '空格局列表只表示当前登记规则未命中，不代表命盘不存在其他传统格局。',
       ],
     },
   };

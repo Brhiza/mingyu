@@ -406,7 +406,7 @@ test('紫微分析载荷应拒绝非法分析范围和不完整宫位', async ()
   );
 });
 
-test('紫微分析载荷应附带可追溯证据分析并明确轻量模式未生成状态', async () => {
+test('紫微分析载荷应评估已登记格局并明确轻量模式未生成状态', async () => {
   const astrolabe = await buildAstrolabeFromInput(DEFAULT_CHART_INPUT);
   const horoscope = buildHoroscope(astrolabe, '2024-02-29', 6);
   const payload = buildAnalysisPayloadV1({
@@ -439,19 +439,19 @@ test('紫微分析载荷应附带可追溯证据分析并明确轻量模式未�
   const patternAnalysis = payload.pattern_analysis;
   assert.ok(patternAnalysis);
   assert.equal(patternAnalysis.key, 'ziwei:patterns');
-  assert.equal(patternAnalysis.status, '未生成');
+  assert.equal(patternAnalysis.status, payload.patterns?.length ? '已计算' : '未命中');
   assert.equal(patternAnalysis.calculationSteps.length, 4);
   assert.equal(
     patternAnalysis.summaryFact.evaluatedRuleCount,
     patternAnalysis.summaryFact.registeredRuleCount,
   );
   assert.equal(patternAnalysis.summaryFact.matchedPatternCount, payload.patterns?.length ?? 0);
-  assert.deepEqual(payload.patterns, []);
-  assert.match(patternAnalysis.promptText, /缺少逐条版本、卷页、原文与独立例盘校勘/);
+  assert.equal(patternAnalysis.summaryFact.registeredRuleCount, 9);
+  assert.match(patternAnalysis.promptText, /固定古籍版本逐条评估9条登记规则/);
   assert.ok(
     (payload.patterns ?? []).every(
       (item) =>
-        item.key &&
+        item.key?.startsWith('ziwei:verified-pattern:') &&
         item.status === '已命中' &&
         item.calculationStepKey &&
         patternAnalysis.calculationSteps.some((step) => step.key === item.calculationStepKey),
@@ -470,10 +470,7 @@ test('紫微分析载荷应附带可追溯证据分析并明确轻量模式未�
   assert.match(compactPayload.evidence_analysis?.promptText ?? '', /明确跳过本命证据采集/);
   assert.equal(compactPayload.pattern_analysis?.status, '未生成');
   assert.equal(compactPayload.pattern_analysis?.summaryFact.evaluatedRuleCount, 0);
-  assert.match(
-    compactPayload.pattern_analysis?.promptText ?? '',
-    /缺少逐条版本、卷页、原文与独立例盘校勘/,
-  );
+  assert.match(compactPayload.pattern_analysis?.promptText ?? '', /明确跳过格局规则评估/);
 });
 
 test('紫微分析载荷应直接采用 iztro 原生宫位、运限与飞化能力', async () => {

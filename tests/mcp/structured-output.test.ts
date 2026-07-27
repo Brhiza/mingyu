@@ -817,7 +817,7 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         assert.ok(
           origin?.patterns?.every(
             (item) =>
-              item.key?.startsWith('ziwei:pattern:') &&
+              item.key?.startsWith('ziwei:verified-pattern:') &&
               item.status === '已命中' &&
               origin.pattern_analysis?.calculationSteps?.some(
                 (step) => step.key === item.calculationStepKey,

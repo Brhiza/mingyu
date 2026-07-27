@@ -9,6 +9,7 @@ import {
   buildEvidenceAnalysis,
   buildEvidencePool,
   buildPatternAnalysis,
+  detectPatterns,
   DEFAULT_ZIWEI_CALCULATION_CONFIG,
 } from '@core/ziwei/iztro';
 import { buildEvidenceSummary, buildPalaceSummary } from '../src/lib/ziwei-prompts/builders';
@@ -159,6 +160,26 @@ test('紫微提示词快照不得重新接入未校勘的旧格局数据', () =>
   assert.doesNotMatch(snapshot, /命语|iztro|本项目|项目统一|工程|接口|API|MCP/);
   assert.doesNotMatch(snapshot, /星座|金牛座/);
   assert.match(snapshot, /【十二宫资料】/);
+});
+
+test('紫微提示词快照应输出已校勘格局的条件、古籍依据与判断边界', () => {
+  const payload = createPayload();
+  payload.patterns = detectPatterns({ palaces: payload.palaces });
+  payload.pattern_analysis = buildPatternAnalysis({
+    patterns: payload.patterns,
+    palaces: payload.palaces,
+  });
+  const snapshot = buildZiweiReadableSnapshot({
+    payload,
+    reportContext: createReportContext(),
+  });
+
+  assert.match(snapshot, /【命盘格局】/);
+  assert.match(snapshot, /格局：紫府同宫/);
+  assert.match(snapshot, /命中条件：紫微与天府同坐命宫/);
+  assert.match(snapshot, /古籍依据：《紫微斗数全书》卷一/);
+  assert.match(snapshot, /只表示盘面满足该条登记条件/);
+  assert.doesNotMatch(snapshot, /因此必然|命盘总分|保证实现/);
 });
 
 test('紫微重点宫位资料展示三方四正时应排除本宫', () => {

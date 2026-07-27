@@ -81,9 +81,28 @@ function buildCalculationConfigSummary(payload: AnalysisPayloadV1) {
   };
 }
 
-function buildPatternSummary(_payload: AnalysisPayloadV1) {
-  // 自定义格局尚未逐条校勘；即使旧调用方注入 patterns，也不得进入提示词。
-  return [];
+function buildPatternSummary(payload: AnalysisPayloadV1) {
+  return (payload.patterns ?? [])
+    .filter(
+      (pattern) =>
+        pattern.status === '已命中' &&
+        pattern.stable_key?.startsWith('ziwei:verified-pattern:') &&
+        pattern.matched_conditions?.length,
+    )
+    .map((pattern) => ({
+      格局: pattern.name,
+      传统分类:
+        pattern.kind === 'auspicious'
+          ? '传统吉格'
+          : pattern.kind === 'inauspicious'
+            ? '传统凶格'
+            : '传统中性格',
+      命中条件: pattern.matched_conditions?.join('；'),
+      涉及宫位: pattern.palace_names.join('、'),
+      涉及星曜: pattern.star_names.join('、'),
+      古籍依据: pattern.sources?.[0],
+      判断边界: '只表示盘面满足该条登记条件，须结合全盘与现实资料，不代表必然结果',
+    }));
 }
 
 export function buildPromptContextSnapshot(params: {
