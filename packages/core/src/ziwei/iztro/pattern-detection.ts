@@ -79,6 +79,58 @@ export const ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES = [
     reason:
       '若逐字取天相守中宫、武曲天梁分夹，则与十四主星固定排布矛盾；若把“财”改释为化禄，又超出该版本原文，故不伪造规则。',
   },
+  {
+    name: '昌曲夹命',
+    source: `${VOLUME_THREE_URL}（卷三·文昌文曲）`,
+    quote: '昌曲夹命最为奇，假若命在丑宫，文昌在寅，文曲在子是也。不贵即富，吉多方论此为贵。',
+    reason:
+      '固定版本没有定义“吉多”的吉曜范围、取用宫位和比较阈值，不能用项目自定星表代替原典条件。',
+  },
+  {
+    name: '日月夹命',
+    source: `${VOLUME_ONE_URL}（卷一·定贵局）`,
+    quote: '日月夹命，不坐空亡遇逢本宫有吉星是也。',
+    reason: '固定版本没有定义“吉星”的完整星曜范围，不能用项目自定星表决定是否命中。',
+  },
+  {
+    name: '羊刃入庙',
+    source: `${VOLUME_ONE_URL}（卷一·定贵局）`,
+    quote: '羊刃入庙，辰戍丑未守命遇吉是也。',
+    reason: '固定版本没有定义“遇吉”所指星曜与会照范围，条件不能唯一复算。',
+  },
+  {
+    name: '左辅文昌',
+    source: `${VOLUME_ONE_URL}（卷一·斗数骨髓赋）`,
+    quote: '左辅文昌会吉星尊居八座。',
+    reason:
+      '固定版本没有定义“会吉星”的星曜范围和宫位关系，卷三又仅写“左辅文昌位至三台”，两处口径不能唯一合并。',
+  },
+  {
+    name: '贪铃并守',
+    source: `${VOLUME_THREE_URL}（卷三·贪狼）`,
+    quote: '贪狼遇铃火四墓宫豪富家资侯伯贵，辰戌宫佳，丑未宫次之，若守照俱可论吉。',
+    reason:
+      '原文同时包含铃星、火星以及守、照两种关系，现有名称不足以唯一确定哪些分支属于必要条件。',
+  },
+  {
+    name: '廉杀巳亥',
+    source: `${VOLUME_THREE_URL}（卷三·廉贞）`,
+    quote: '廉贞七杀居巳亥流荡天涯。',
+    reason:
+      '当前固定安星体系中廉贞、七杀只会同宫于丑、未，不可能同守巳、亥；原文与当前排盘体系冲突。',
+  },
+  {
+    name: '日月反背',
+    source: `${VOLUME_THREE_URL}（卷三·太阳太阴拱照）`,
+    quote: '若反背日戌月辰，子月午。若出外离宗成家也吉。勿概以反背论。',
+    reason: '“日戌月辰，子月午”标点与主语残缺，无法唯一判断子、午两宫分别对应太阳还是太阴。',
+  },
+  {
+    name: '日照雷门',
+    source: `${VOLUME_THREE_URL}（卷三·太阳）`,
+    quote: '日照雷门子辰卯地昼生富贵声扬。',
+    reason: '“子辰卯地”的断句与“子”字含义不明，不能静默省略子宫后只执行卯、辰两宫。',
+  },
   ...[
     '风云际会',
     '锦上添花',
@@ -109,8 +161,6 @@ type PatternContext = {
   palaces: PalaceFact[];
   palaceByIndex: Map<number, PalaceFact>;
   soulPalace: PalaceFact;
-  birthTimeLabel?: string;
-  birthTimeRange?: string;
   birthYearHeavenlyStem?: string;
 };
 
@@ -118,26 +168,6 @@ const TEMPLE_OR_PROSPEROUS_BRIGHTNESS = new Set(['庙', '旺']);
 const FOUR_MALEFICS = ['擎羊', '陀罗', '火星', '铃星'] as const;
 const VOID_STARS = ['空亡', '旬空', '天空', '截空', '截路', '截路空亡'] as const;
 const KONG_JIE_STARS = ['地空', '地劫'] as const;
-const AUSPICIOUS_STARS = [
-  '紫微',
-  '天府',
-  '天机',
-  '太阳',
-  '武曲',
-  '天同',
-  '太阴',
-  '天相',
-  '天梁',
-  '左辅',
-  '右弼',
-  '文昌',
-  '文曲',
-  '天魁',
-  '天钺',
-  '禄存',
-] as const;
-const DAYTIME_BRANCHES = new Set(['卯', '辰', '巳', '午', '未', '申']);
-
 type PatternMatch = {
   palaces: PalaceFact[];
   stars: string[];
@@ -154,6 +184,7 @@ type VerifiedPatternRule = {
   sourceUrl: string;
   sourceQuote: string;
   calculation: string;
+  canEvaluate?: (context: PatternContext) => boolean;
   detect: (context: PatternContext) => PatternMatch | null;
 };
 
@@ -204,16 +235,6 @@ function getSoulAndBodyPalaces(context: PatternContext): PalaceFact[] {
     context.soulPalace,
     ...context.palaces.filter((palace) => palace.is_body_palace),
   ]);
-}
-
-function isDaytimeBirth(context: PatternContext): boolean {
-  const branch = [...DAYTIME_BRANCHES].find((item) => context.birthTimeLabel?.includes(item));
-  if (branch) return true;
-  if (context.birthTimeLabel && /子|丑|寅|酉|戌|亥/.test(context.birthTimeLabel)) return false;
-  const startHour = /(?:^|\D)(\d{1,2}):\d{2}/.exec(context.birthTimeRange ?? '')?.[1];
-  if (!startHour) return false;
-  const hour = Number(startHour);
-  return Number.isInteger(hour) && hour >= 5 && hour < 17;
 }
 
 function uniquePalaces(palaces: PalaceFact[]): PalaceFact[] {
@@ -827,50 +848,6 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
     },
   },
   {
-    id: 'chang-qu-jia-ming',
-    name: '昌曲夹命',
-    kind: 'auspicious',
-    description: '文昌、文曲分居命宫相邻两宫，相关宫位吉曜多于四煞。',
-    traditionalInterpretation: '古籍把昌曲前后夹命列为传统贵格，同时明确限定“吉多方论”。',
-    sourceTitle: '《紫微斗数全书》卷三·文昌文曲',
-    sourceUrl: VOLUME_THREE_URL,
-    sourceQuote: '昌曲夹命最为奇，假若命在丑宫，文昌在寅，文曲在子是也。不贵即富，吉多方论此为贵。',
-    calculation:
-      '先检查文昌、文曲是否夹命，再在命宫、相邻两宫与三方四正统计登记吉曜和羊陀火铃，只有吉曜数量较多才命中。',
-    detect(context) {
-      const flanks = getFlankingMatch(context, context.soulPalace, '文昌', '文曲');
-      if (!flanks) return null;
-      const related = uniquePalaces([
-        context.soulPalace,
-        ...flanks,
-        ...getSurroundedPalaces(context, context.soulPalace),
-      ]);
-      const auspiciousCount = related.reduce(
-        (count, palace) =>
-          count +
-          getMatchedStarNames(palace, AUSPICIOUS_STARS).filter(
-            (name) => !['文昌', '文曲'].includes(name),
-          ).length +
-          getBirthMutagenStars(palace, ['禄', '权', '科']).length,
-        0,
-      );
-      const maleficCount = related.reduce(
-        (count, palace) => count + getMatchedStarNames(palace, FOUR_MALEFICS).length,
-        0,
-      );
-      return auspiciousCount > maleficCount
-        ? {
-            palaces: [context.soulPalace, ...flanks],
-            stars: ['文昌', '文曲'],
-            conditions: [
-              '文昌、文曲分居命宫相邻两宫',
-              `相关宫位登记吉曜${auspiciousCount}颗，多于四煞${maleficCount}颗`,
-            ],
-          }
-        : null;
-    },
-  },
-  {
     id: 'yu-xiu-tian-xiang',
     name: '玉袖天香',
     kind: 'auspicious',
@@ -940,35 +917,6 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
             conditions: ['太阳、太阴在命宫三方四正会照', '太阳与太阴亮度均为庙或旺'],
           }
         : null;
-    },
-  },
-  {
-    id: 'ri-yue-jia-ming',
-    name: '日月夹命',
-    kind: 'auspicious',
-    description: '命宫不坐空亡且有吉曜，太阳、太阴分居相邻两宫。',
-    traditionalInterpretation: '古籍把日月夹命列为传统贵格，但明确要求命宫不空且本宫有吉星。',
-    sourceTitle: '《紫微斗数全书》卷一·定贵局',
-    sourceUrl: VOLUME_ONE_URL,
-    sourceQuote: '日月夹命，不坐空亡遇逢本宫有吉星是也。',
-    calculation: '检查日月是否夹命、命宫是否无空亡，并核对命宫至少有一颗登记吉曜或生年化禄权科。',
-    detect(context) {
-      if (hasVoidStar(context.soulPalace)) return null;
-      const flanks = getFlankingMatch(context, context.soulPalace, '太阳', '太阴');
-      if (!flanks) return null;
-      const supportStars = getMatchedStarNames(context.soulPalace, AUSPICIOUS_STARS);
-      const supportMutagens = getBirthMutagenStars(context.soulPalace, ['禄', '权', '科']);
-      if (supportStars.length + supportMutagens.length === 0) return null;
-      return {
-        palaces: [context.soulPalace, ...flanks],
-        stars: [
-          '太阳',
-          '太阴',
-          ...supportStars,
-          ...supportMutagens.map((star) => `${star.name}化${star.birth_mutagen}`),
-        ],
-        conditions: ['太阳、太阴分居命宫相邻两宫', '命宫不坐空亡且见登记吉曜'],
-      };
     },
   },
   {
@@ -1214,34 +1162,6 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
             palaces: [soulPalace],
             stars: [`${huaQuan.name}化权`, `${huaLu.name}化禄`],
             conditions: ['生年化权、生年化禄同守命宫', '两颗化曜亮度均为庙或旺'],
-          }
-        : null;
-    },
-  },
-  {
-    id: 'yang-ren-ru-miao',
-    name: '羊刃入庙',
-    kind: 'auspicious',
-    description: '擎羊在辰、戌、丑或未宫守命，并同见吉曜。',
-    traditionalInterpretation: '古籍只在四墓宫且遇吉的条件下，把擎羊守命列为羊刃入庙。',
-    sourceTitle: '《紫微斗数全书》卷一·定贵局',
-    sourceUrl: VOLUME_ONE_URL,
-    sourceQuote: '羊刃入庙，辰戍丑未守命遇吉是也。',
-    calculation: '检查命宫是否在辰戌丑未、有擎羊，并至少同见一颗登记吉曜或生年化禄权科。',
-    detect({ soulPalace }) {
-      const supportStars = getMatchedStarNames(soulPalace, AUSPICIOUS_STARS);
-      const supportMutagens = getBirthMutagenStars(soulPalace, ['禄', '权', '科']);
-      return ['辰', '戌', '丑', '未'].includes(soulPalace.earthly_branch) &&
-        hasStar(soulPalace, '擎羊') &&
-        supportStars.length + supportMutagens.length > 0
-        ? {
-            palaces: [soulPalace],
-            stars: [
-              '擎羊',
-              ...supportStars,
-              ...supportMutagens.map((star) => `${star.name}化${star.birth_mutagen}`),
-            ],
-            conditions: [`擎羊在${soulPalace.earthly_branch}宫守命`, '命宫同时见登记吉曜'],
           }
         : null;
     },
@@ -1519,36 +1439,32 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
     id: 'yang-tuo-jia-ji',
     name: '羊陀夹忌',
     kind: 'inauspicious',
-    description: '生年化忌坐宫，擎羊、陀罗分居该宫相邻两宫。',
-    traditionalInterpretation: '古籍把羊陀前后夹生年化忌列为败局。',
+    description: '生年化忌坐命，擎羊、陀罗分居命宫相邻两宫。',
+    traditionalInterpretation: '古籍以命宫逢忌、羊陀前后夹命为败局。',
     sourceTitle: '《紫微斗数全书》卷三·擎羊',
     sourceUrl: VOLUME_THREE_URL,
     sourceQuote: '羊陀夹忌为败局，假如安命在申宫，又逢忌星，羊在酉陀在未夹之。',
-    calculation:
-      '只在原局十二宫寻找生年化忌，再检查该宫相邻两宫是否分别有擎羊、陀罗，不读取运限星曜。',
+    calculation: '只检查命宫的原局生年化忌，再核对命宫相邻两宫是否分别有擎羊、陀罗。',
     detect(context) {
-      for (const target of context.palaces) {
-        const huaJi = getBirthMutagenStars(target, ['忌']);
-        if (huaJi.length === 0) continue;
-        const flanks = getFlankingMatch(context, target, '擎羊', '陀罗');
-        if (flanks) {
-          return {
-            palaces: [target, ...flanks],
+      const huaJi = getBirthMutagenStars(context.soulPalace, ['忌']);
+      if (huaJi.length === 0) return null;
+      const flanks = getFlankingMatch(context, context.soulPalace, '擎羊', '陀罗');
+      return flanks
+        ? {
+            palaces: [context.soulPalace, ...flanks],
             stars: [...huaJi.map((star) => `${star.name}化忌`), '擎羊', '陀罗'],
             conditions: [
-              `${huaJi.map((star) => `${star.name}生年化忌`).join('、')}坐${target.name}`,
-              '擎羊、陀罗分居该宫相邻两宫',
+              `${huaJi.map((star) => `${star.name}生年化忌`).join('、')}坐命宫`,
+              '擎羊、陀罗分居命宫相邻两宫',
             ],
-          };
-        }
-      }
-      return null;
+          }
+        : null;
     },
   },
   {
     id: 'huo-ling-jia-ming',
     name: '火铃夹命',
-    kind: 'inauspicious',
+    kind: 'neutral',
     description: '火星、铃星分居命宫相邻两宫。',
     traditionalInterpretation: '古籍把火铃前后夹命列为败局，并说明吉曜多时须另论。',
     sourceTitle: '《紫微斗数全书》卷三·火星铃星',
@@ -1590,7 +1506,7 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
   {
     id: 'fan-shui-tao-hua',
     name: '泛水桃花',
-    kind: 'inauspicious',
+    kind: 'neutral',
     description: '贪狼在亥或子宫守命，并同见擎羊或陀罗。',
     traditionalInterpretation: '古籍把贪狼在亥子又遇羊陀称为泛水桃花；名称只保留传统分类。',
     sourceTitle: '《紫微斗数全书》卷三·贪狼',
@@ -1649,36 +1565,6 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
             palaces: [soulPalace],
             stars: ['天梁'],
             conditions: ['天梁在午宫守命'],
-          }
-        : null;
-    },
-  },
-  {
-    id: 'zuo-fu-wen-chang',
-    name: '左辅文昌',
-    kind: 'auspicious',
-    description: '左辅、文昌同守命宫，并同见至少一颗其他登记吉曜。',
-    traditionalInterpretation: '古籍把左辅文昌会吉星列为传统台辅结构。',
-    sourceTitle: '《紫微斗数全书》卷一·斗数骨髓赋',
-    sourceUrl: VOLUME_ONE_URL,
-    sourceQuote: '左辅文昌会吉星尊居八座。',
-    calculation: '检查左辅、文昌是否同守命宫，并核对命宫另有至少一颗登记吉曜或生年化禄权科。',
-    detect({ soulPalace }) {
-      if (!hasAllStars(soulPalace, ['左辅', '文昌'])) return null;
-      const extraSupport = getMatchedStarNames(soulPalace, AUSPICIOUS_STARS).filter(
-        (name) => !['左辅', '文昌'].includes(name),
-      );
-      const supportMutagens = getBirthMutagenStars(soulPalace, ['禄', '权', '科']);
-      return extraSupport.length + supportMutagens.length > 0
-        ? {
-            palaces: [soulPalace],
-            stars: [
-              '左辅',
-              '文昌',
-              ...extraSupport,
-              ...supportMutagens.map((star) => `${star.name}化${star.birth_mutagen}`),
-            ],
-            conditions: ['左辅、文昌同守命宫', '命宫另见登记吉曜'],
           }
         : null;
     },
@@ -1749,27 +1635,6 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
     },
   },
   {
-    id: 'tan-ling-bing-shou',
-    name: '贪铃并守',
-    kind: 'auspicious',
-    description: '贪狼、铃星同守辰戌丑未命宫。',
-    traditionalInterpretation: '古籍把贪狼会铃星于四墓宫列为传统组合。',
-    sourceTitle: '《紫微斗数全书》卷三·贪狼',
-    sourceUrl: VOLUME_THREE_URL,
-    sourceQuote: '贪狼遇铃火四墓宫豪富家资侯伯贵，辰戌宫佳，丑未宫次之。',
-    calculation: '检查贪狼、铃星是否同守辰、戌、丑或未宫命宫。',
-    detect({ soulPalace }) {
-      return ['辰', '戌', '丑', '未'].includes(soulPalace.earthly_branch) &&
-        hasAllStars(soulPalace, ['贪狼', '铃星'])
-        ? {
-            palaces: [soulPalace],
-            stars: ['贪狼', '铃星'],
-            conditions: [`贪狼、铃星同守${soulPalace.earthly_branch}宫命宫`],
-          }
-        : null;
-    },
-  },
-  {
     id: 'lian-sha-miao-wang',
     name: '廉杀庙旺',
     kind: 'auspicious',
@@ -1786,27 +1651,6 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
             palaces: [soulPalace],
             stars: ['廉贞', '七杀'],
             conditions: ['廉贞、七杀同守命宫', '廉贞、七杀亮度均为庙或旺'],
-          }
-        : null;
-    },
-  },
-  {
-    id: 'lian-sha-si-hai',
-    name: '廉杀巳亥',
-    kind: 'inauspicious',
-    description: '廉贞、七杀同守巳或亥宫命宫。',
-    traditionalInterpretation: '古籍把廉贞七杀同居巳亥列为传统受制结构。',
-    sourceTitle: '《紫微斗数全书》卷三·廉贞',
-    sourceUrl: VOLUME_THREE_URL,
-    sourceQuote: '廉贞七杀居巳亥流荡天涯。',
-    calculation: '检查廉贞、七杀是否同守巳或亥宫命宫。',
-    detect({ soulPalace }) {
-      return ['巳', '亥'].includes(soulPalace.earthly_branch) &&
-        hasAllStars(soulPalace, ['廉贞', '七杀'])
-        ? {
-            palaces: [soulPalace],
-            stars: ['廉贞', '七杀'],
-            conditions: [`廉贞、七杀同守${soulPalace.earthly_branch}宫命宫`],
           }
         : null;
     },
@@ -1837,28 +1681,6 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
     },
   },
   {
-    id: 'ri-yue-fan-bei',
-    name: '日月反背',
-    kind: 'neutral',
-    description: '太阳在戌宫守命，或太阴在辰宫守命。',
-    traditionalInterpretation: '古籍以太阳在戌或太阴在辰为反背，但明确提醒不可一概作凶论。',
-    sourceTitle: '《紫微斗数全书》卷三·太阳太阴拱照',
-    sourceUrl: VOLUME_THREE_URL,
-    sourceQuote: '若反背日戌月辰……勿概以反背论。',
-    calculation: '检查太阳是否在戌宫守命，或太阴是否在辰宫守命。',
-    detect({ soulPalace }) {
-      const sun = soulPalace.earthly_branch === '戌' && hasStar(soulPalace, '太阳');
-      const moon = soulPalace.earthly_branch === '辰' && hasStar(soulPalace, '太阴');
-      return sun || moon
-        ? {
-            palaces: [soulPalace],
-            stars: [sun ? '太阳' : '太阴'],
-            conditions: [sun ? '太阳在戌宫守命' : '太阴在辰宫守命'],
-          }
-        : null;
-    },
-  },
-  {
     id: 'wu-tan-tong-xing',
     name: '武贪同行',
     kind: 'neutral',
@@ -1882,28 +1704,37 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
     id: 'huo-gui',
     name: '火贵格',
     kind: 'auspicious',
-    description: '贪狼、火星从命宫三方会照，且会照宫位不见羊陀铃。',
-    traditionalInterpretation: '古籍把贪狼火星从三方照命且无凶煞列为火贵格。',
+    description: '贪狼、火星从命宫或身宫同一组三方会照，且该组三方不见羊陀铃。',
+    traditionalInterpretation: '古籍把贪狼火星从同一组三方照身或照命且无凶煞列为火贵格。',
     sourceTitle: '《紫微斗数全书》卷一·论火贵格',
     sourceUrl: VOLUME_ONE_URL,
     sourceQuote: '论贪狼遇火名为火贵格，三合照身命是也；三方倘若无凶杀。',
-    calculation: '只在命宫以外三个会照宫位分别定位贪狼、火星，并排除这些宫位的擎羊、陀罗、铃星。',
+    calculation:
+      '分别以命宫、身宫为目标，在各自三个会照宫位定位贪狼、火星并排除擎羊、陀罗、铃星；不得跨两组宫位拼接。',
     detect(context) {
-      const surrounded = getSurroundedPalaces(context, context.soulPalace).filter(
-        (palace) => palace.index !== context.soulPalace.index,
-      );
-      const greed = findStarPalace(surrounded, '贪狼');
-      const fire = findStarPalace(surrounded, '火星');
-      const forbidden = surrounded.flatMap((palace) =>
-        getMatchedStarNames(palace, ['擎羊', '陀罗', '铃星']),
-      );
-      return greed && fire && forbidden.length === 0
-        ? {
-            palaces: uniquePalaces([context.soulPalace, greed, fire]),
+      for (const target of getSoulAndBodyPalaces(context)) {
+        const surrounded = getSurroundedPalaces(context, target).filter(
+          (palace) => palace.index !== target.index,
+        );
+        const greed = findStarPalace(surrounded, '贪狼');
+        const fire = findStarPalace(surrounded, '火星');
+        const forbidden = surrounded.flatMap((palace) =>
+          getMatchedStarNames(palace, ['擎羊', '陀罗', '铃星']),
+        );
+        if (greed && fire && forbidden.length === 0) {
+          const targetLabel =
+            target.index === context.soulPalace.index ? '命宫' : `身宫（${target.name}）`;
+          return {
+            palaces: uniquePalaces([target, greed, fire]),
             stars: ['贪狼', '火星'],
-            conditions: ['贪狼、火星从命宫三方会照', '三个会照宫位不见擎羊、陀罗、铃星'],
-          }
-        : null;
+            conditions: [
+              `贪狼、火星从${targetLabel}同一组三方会照`,
+              `${targetLabel}三个会照宫位不见擎羊、陀罗、铃星`,
+            ],
+          };
+        }
+      }
+      return null;
     },
   },
   {
@@ -1927,31 +1758,6 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
     },
   },
   {
-    id: 'ri-zhao-lei-men',
-    name: '日照雷门',
-    kind: 'auspicious',
-    description: '太阳在卯或辰宫守命，并且为昼生。',
-    traditionalInterpretation: '古籍把太阳在卯辰守命且昼生列为日照雷门。',
-    sourceTitle: '《紫微斗数全书》卷三·太阳',
-    sourceUrl: VOLUME_THREE_URL,
-    sourceQuote: '日照雷门子辰卯地昼生富贵声扬。',
-    calculation: '检查太阳是否在卯或辰宫守命，再依据出生时辰标签或时段核对是否属于昼生。',
-    detect(context) {
-      return ['卯', '辰'].includes(context.soulPalace.earthly_branch) &&
-        hasStar(context.soulPalace, '太阳') &&
-        isDaytimeBirth(context)
-        ? {
-            palaces: [context.soulPalace],
-            stars: ['太阳'],
-            conditions: [
-              `太阳在${context.soulPalace.earthly_branch}宫守命`,
-              '出生时辰属于昼生范围',
-            ],
-          }
-        : null;
-    },
-  },
-  {
     id: 'ju-ji-ju-mao',
     name: '巨机居卯',
     kind: 'auspicious',
@@ -1961,6 +1767,7 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
     sourceUrl: VOLUME_THREE_URL,
     sourceQuote: '巨机居卯乙辛己丙至公卿，甲人平常。',
     calculation: '检查巨门、天机是否同守卯宫命宫，并从四柱年柱核对生年天干为乙、辛、己或丙。',
+    canEvaluate: (context) => !!context.birthYearHeavenlyStem,
     detect(context) {
       return context.soulPalace.earthly_branch === '卯' &&
         hasAllStars(context.soulPalace, ['巨门', '天机']) &&
@@ -2065,6 +1872,24 @@ function hasValidPatternPalaces(palaces: PalaceFact[] | undefined): boolean {
   }
 }
 
+function createPatternContext(params: {
+  palaces: PalaceFact[];
+  birthYearHeavenlyStem?: string;
+}): PatternContext {
+  const soulPalace = params.palaces.find((palace) => normalizePalaceName(palace.name) === '命');
+  if (!soulPalace) throw new Error('紫微格局检测缺少命宫。');
+  return {
+    palaces: params.palaces,
+    palaceByIndex: new Map(params.palaces.map((palace) => [palace.index, palace])),
+    soulPalace,
+    birthYearHeavenlyStem: params.birthYearHeavenlyStem,
+  };
+}
+
+function canEvaluatePatternRule(rule: VerifiedPatternRule, context: PatternContext): boolean {
+  return rule.canEvaluate?.(context) ?? true;
+}
+
 export const ZIWEI_PATTERN_AUDIT_NOTICE =
   `原有${RETIRED_UNVERIFIED_PATTERN_COUNT}条项目格局规则已全部退役；固定版本传统目录现登记${ZIWEI_TRADITIONAL_PATTERN_CATALOG_COUNT}项，其中${VERIFIED_ZIWEI_PATTERN_RULE_COUNT}条具备卷次、原文和可复算条件，${ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES.length}项明确登记为不可唯一复算边界` as const;
 
@@ -2075,18 +1900,10 @@ export function detectPatterns(params: {
   birthYearHeavenlyStem?: string;
 }): PatternFact[] {
   assertValidPatternPalaces(params.palaces);
-  const soulPalace = params.palaces.find((palace) => normalizePalaceName(palace.name) === '命');
-  if (!soulPalace) throw new Error('紫微格局检测缺少命宫。');
-  const context: PatternContext = {
-    palaces: params.palaces,
-    palaceByIndex: new Map(params.palaces.map((palace) => [palace.index, palace])),
-    soulPalace,
-    birthTimeLabel: params.birthTimeLabel,
-    birthTimeRange: params.birthTimeRange,
-    birthYearHeavenlyStem: params.birthYearHeavenlyStem,
-  };
+  const context = createPatternContext(params);
 
   return VERIFIED_PATTERN_RULES.flatMap((rule): PatternFact[] => {
+    if (!canEvaluatePatternRule(rule, context)) return [];
     const match = rule.detect(context);
     if (!match) return [];
     const stableKey = `ziwei:verified-pattern:${rule.id}`;
@@ -2167,8 +1984,17 @@ export function buildPatternAnalysis(params: {
   const uniquePalaceIndexCount = new Set(palaces.map((item) => item.index)).size;
   const palaceDataComplete = hasValidPatternPalaces(palaces);
   const registeredRuleCount = blockedBySourceAudit ? 0 : VERIFIED_ZIWEI_PATTERN_RULE_COUNT;
+  const evaluationContext = palaceDataComplete
+    ? createPatternContext({
+        palaces,
+        birthYearHeavenlyStem: params.birthYearHeavenlyStem,
+      })
+    : null;
   const evaluatedRuleCount =
-    skipped || blockedBySourceAudit || !palaceDataComplete ? 0 : registeredRuleCount;
+    skipped || blockedBySourceAudit || !evaluationContext
+      ? 0
+      : VERIFIED_PATTERN_RULES.filter((rule) => canEvaluatePatternRule(rule, evaluationContext))
+          .length;
   const unevaluatedRuleCount = registeredRuleCount - evaluatedRuleCount;
   const acceptedPatterns =
     skipped || blockedBySourceAudit
@@ -2189,7 +2015,7 @@ export function buildPatternAnalysis(params: {
   const summaryStatus: ZiweiPatternSummaryFact['status'] =
     skipped || blockedBySourceAudit
       ? '未生成'
-      : !palaceDataComplete
+      : !palaceDataComplete || unevaluatedRuleCount > 0
         ? '资料不足'
         : matchedPatternCount === 0
           ? '未命中'
@@ -2197,7 +2023,7 @@ export function buildPatternAnalysis(params: {
   const analysisStatus: ZiweiPatternAnalysis['status'] =
     skipped || blockedBySourceAudit
       ? '未生成'
-      : !palaceDataComplete
+      : !palaceDataComplete || unevaluatedRuleCount > 0
         ? '资料不足'
         : matchedPatternCount === 0
           ? '未命中'
@@ -2221,15 +2047,23 @@ export function buildPatternAnalysis(params: {
       key: PATTERN_RULE_STEP_KEY,
       stage: '格局规则评估',
       status:
-        skipped || blockedBySourceAudit ? '未生成' : palaceDataComplete ? '已计算' : '资料不足',
+        skipped || blockedBySourceAudit
+          ? '未生成'
+          : palaceDataComplete && unevaluatedRuleCount === 0
+            ? '已计算'
+            : '资料不足',
       dependsOnStepKeys: ['ziwei:pattern:calculation:input'],
-      inputs: { registeredRuleCount, palaceDataComplete },
+      inputs: {
+        registeredRuleCount,
+        palaceDataComplete,
+        birthYearHeavenlyStem: params.birthYearHeavenlyStem ?? '未提供',
+      },
       result: { evaluatedRuleCount, unevaluatedRuleCount },
       promptText: skipped
         ? '本次明确跳过格局规则评估，未生成格局命中或未命中事实'
         : blockedBySourceAudit
           ? `${ZIWEI_PATTERN_AUDIT_NOTICE}，本次调用未接入已校勘登记表`
-          : `已按固定古籍版本逐条评估${evaluatedRuleCount}条可复算规则；另有${ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES.length}项原典边界未伪造命中`,
+          : `已按固定古籍版本逐条评估${evaluatedRuleCount}条可复算规则；${unevaluatedRuleCount}条因必要输入不足未评估；另有${ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES.length}项原典边界未伪造命中`,
       sources: [
         `《紫微斗数全书》卷一固定修订版 ${VOLUME_ONE_URL}`,
         `《紫微斗数全书》卷三固定修订版 ${VOLUME_THREE_URL}`,
@@ -2240,7 +2074,11 @@ export function buildPatternAnalysis(params: {
       key: PATTERN_MATCHED_FACTS_STEP_KEY,
       stage: '命中事实登记',
       status:
-        skipped || blockedBySourceAudit ? '未生成' : palaceDataComplete ? '已计算' : '资料不足',
+        skipped || blockedBySourceAudit
+          ? '未生成'
+          : palaceDataComplete && unevaluatedRuleCount === 0
+            ? '已计算'
+            : '资料不足',
       dependsOnStepKeys: [PATTERN_RULE_STEP_KEY],
       inputs: { evaluatedRuleCount },
       result: { matchedPatternCount, unmatchedRuleCount, matchedPatternKeys: patternFactKeys },
@@ -2256,7 +2094,11 @@ export function buildPatternAnalysis(params: {
       key: 'ziwei:pattern:calculation:summary',
       stage: '格局覆盖汇总',
       status:
-        skipped || blockedBySourceAudit ? '未生成' : palaceDataComplete ? '已计算' : '资料不足',
+        skipped || blockedBySourceAudit
+          ? '未生成'
+          : palaceDataComplete && unevaluatedRuleCount === 0
+            ? '已计算'
+            : '资料不足',
       dependsOnStepKeys: [PATTERN_MATCHED_FACTS_STEP_KEY],
       inputs: { registeredRuleCount, evaluatedRuleCount, matchedPatternCount },
       result: { summaryStatus, unmatchedRuleCount, unevaluatedRuleCount },
@@ -2284,13 +2126,18 @@ export function buildPatternAnalysis(params: {
     {
       key: 'ziwei:pattern:counter:rule-coverage',
       type: '登记规则覆盖',
-      status: skipped || blockedBySourceAudit ? '未生成' : '有可用证据',
+      status:
+        skipped || blockedBySourceAudit
+          ? '未生成'
+          : palaceDataComplete && unevaluatedRuleCount === 0
+            ? '有可用证据'
+            : '资料不足',
       ownerFactKeys: [PATTERN_RULE_STEP_KEY, ...patternFactKeys],
       promptText: skipped
         ? '本次明确跳过登记规则评估，不形成格局覆盖结论'
         : blockedBySourceAudit
           ? `${ZIWEI_PATTERN_AUDIT_NOTICE}；不得把空结果解释为没有传统格局`
-          : `当前执行${registeredRuleCount}条已校勘规则，并登记${ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES.length}项不可唯一复算边界；目录外格局不作判断`,
+          : `当前登记${registeredRuleCount}条已校勘规则，其中已评估${evaluatedRuleCount}条、必要输入不足${unevaluatedRuleCount}条；另登记${ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES.length}项不可唯一复算边界，目录外格局不作判断`,
       sources: ['登记规则固定古籍版本、卷次、原文与计算条件'],
       limitation: PATTERN_COUNTER_LIMITATION,
     },
@@ -2298,7 +2145,11 @@ export function buildPatternAnalysis(params: {
       key: 'ziwei:pattern:counter:unmatched-boundary',
       type: '未命中规则边界',
       status:
-        skipped || blockedBySourceAudit ? '未生成' : palaceDataComplete ? '未命中' : '资料不足',
+        skipped || blockedBySourceAudit
+          ? '未生成'
+          : palaceDataComplete && unevaluatedRuleCount === 0
+            ? '未命中'
+            : '资料不足',
       ownerFactKeys: [PATTERN_MATCHED_FACTS_STEP_KEY, ...patternFactKeys],
       promptText: skipped
         ? '本次明确跳过规则评估，不形成格局未命中结论'

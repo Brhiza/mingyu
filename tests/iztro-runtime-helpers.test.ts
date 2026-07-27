@@ -446,8 +446,8 @@ test('紫微分析载荷应评估已登记格局并明确轻量模式未生成�
     patternAnalysis.summaryFact.registeredRuleCount,
   );
   assert.equal(patternAnalysis.summaryFact.matchedPatternCount, payload.patterns?.length ?? 0);
-  assert.equal(patternAnalysis.summaryFact.registeredRuleCount, 70);
-  assert.match(patternAnalysis.promptText, /固定古籍版本逐条评估70条可复算规则/);
+  assert.equal(patternAnalysis.summaryFact.registeredRuleCount, 62);
+  assert.match(patternAnalysis.promptText, /固定古籍版本逐条评估62条可复算规则/);
   assert.ok(
     (payload.patterns ?? []).every(
       (item) =>
@@ -471,6 +471,37 @@ test('紫微分析载荷应评估已登记格局并明确轻量模式未生成�
   assert.equal(compactPayload.pattern_analysis?.status, '未生成');
   assert.equal(compactPayload.pattern_analysis?.summaryFact.evaluatedRuleCount, 0);
   assert.match(compactPayload.pattern_analysis?.promptText ?? '', /明确跳过格局规则评估/);
+});
+
+test('真实排盘中非命宫化忌被羊陀夹住时不得误报羊陀夹忌', async () => {
+  const input = {
+    ...DEFAULT_CHART_INPUT,
+    name: '羊陀夹忌回归',
+    birthDate: '2024-01-06',
+    birthTimeIndex: 7,
+    gender: '男' as const,
+  };
+  const astrolabe = await buildAstrolabeFromInput(input);
+  const horoscope = buildHoroscope(astrolabe, '2026-07-27', 6);
+  const payload = buildAnalysisPayloadV1({
+    astrolabe,
+    horoscope,
+    currentScope: 'origin',
+  });
+  const target = payload.palaces.find((palace) => palace.name === '疾厄');
+  assert.ok(target);
+  const targetStars = [...target.major_stars, ...target.minor_stars, ...target.other_stars];
+  assert.ok(targetStars.some((star) => star.name === '贪狼' && star.birth_mutagen === '忌'));
+  const neighborStars = payload.palaces
+    .filter(
+      (palace) =>
+        palace.index === (target.index + 11) % 12 || palace.index === (target.index + 1) % 12,
+    )
+    .flatMap((palace) => [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars])
+    .map((star) => star.name);
+  assert.ok(neighborStars.includes('擎羊'));
+  assert.ok(neighborStars.includes('陀罗'));
+  assert.ok(!(payload.patterns ?? []).some((pattern) => pattern.name === '羊陀夹忌'));
 });
 
 test('紫微分析载荷应直接采用 iztro 原生宫位、运限与飞化能力', async () => {

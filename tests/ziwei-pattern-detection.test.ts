@@ -86,16 +86,27 @@ test('紫微格局检测仍应拒绝不完整或索引损坏的十二宫资料',
 });
 
 test('紫微传统格局目录应完整区分可复算规则与原典边界', () => {
-  assert.equal(VERIFIED_ZIWEI_PATTERN_RULE_COUNT, 70);
-  assert.equal(ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES.length, 17);
+  assert.equal(VERIFIED_ZIWEI_PATTERN_RULE_COUNT, 62);
+  assert.equal(ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES.length, 25);
   assert.equal(ZIWEI_TRADITIONAL_PATTERN_CATALOG_COUNT, 87);
   assert.match(ZIWEI_PATTERN_AUDIT_NOTICE, /原有84条.*已全部退役/);
-  assert.match(ZIWEI_PATTERN_AUDIT_NOTICE, /传统目录现登记87项.*70条.*17项/);
+  assert.match(ZIWEI_PATTERN_AUDIT_NOTICE, /传统目录现登记87项.*62条.*25项/);
   assert.ok(
     ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES.every(
       (item) => item.name && item.quote && item.reason && /oldid=\d+/.test(item.source),
     ),
   );
+  const boundaryNames = new Set(ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES.map((item) => item.name));
+  [
+    '昌曲夹命',
+    '日月夹命',
+    '羊刃入庙',
+    '左辅文昌',
+    '贪铃并守',
+    '廉杀巳亥',
+    '日月反背',
+    '日照雷门',
+  ].forEach((name) => assert.ok(boundaryNames.has(name), `${name}应登记为原典边界`));
 });
 
 test('原有十八条已校勘紫微格局应按各自盘面条件命中', () => {
@@ -250,7 +261,7 @@ test('原有十八条已校勘紫微格局应按各自盘面条件命中', () =>
   });
 });
 
-test('新增五十二条传统格局应逐条满足完整原文条件', () => {
+test('新增四十四条可复算传统格局应逐条满足完整原文条件', () => {
   const cases: Array<{
     name: string;
     arrange: (palaces: PalaceFact[]) => void;
@@ -289,14 +300,6 @@ test('新增五十二条传统格局应逐条满足完整原文条件', () => {
       },
     },
     {
-      name: '昌曲夹命',
-      arrange(palaces) {
-        addStar(palaces, 11, '文昌', 'minor');
-        addStar(palaces, 1, '文曲', 'minor');
-        addStar(palaces, 0, '紫微');
-      },
-    },
-    {
       name: '玉袖天香',
       arrange(palaces) {
         addStar(palaces, 10, '文昌', 'minor');
@@ -315,14 +318,6 @@ test('新增五十二条传统格局应逐条满足完整原文条件', () => {
       arrange(palaces) {
         addStar(palaces, 4, '太阳', 'major', { brightness: '庙' });
         addStar(palaces, 8, '太阴', 'major', { brightness: '旺' });
-      },
-    },
-    {
-      name: '日月夹命',
-      arrange(palaces) {
-        addStar(palaces, 0, '紫微');
-        addStar(palaces, 11, '太阳');
-        addStar(palaces, 1, '太阴');
       },
     },
     {
@@ -403,14 +398,6 @@ test('新增五十二条传统格局应逐条满足完整原文条件', () => {
       arrange(palaces) {
         addStar(palaces, 0, '破军', 'major', { birth_mutagen: '权', brightness: '庙' });
         addStar(palaces, 0, '廉贞', 'major', { birth_mutagen: '禄', brightness: '旺' });
-      },
-    },
-    {
-      name: '羊刃入庙',
-      arrange(palaces) {
-        palaces[0].earthly_branch = '辰';
-        addStar(palaces, 0, '擎羊', 'minor');
-        addStar(palaces, 0, '左辅', 'minor');
       },
     },
     {
@@ -537,14 +524,6 @@ test('新增五十二条传统格局应逐条满足完整原文条件', () => {
       },
     },
     {
-      name: '左辅文昌',
-      arrange(palaces) {
-        addStar(palaces, 0, '左辅', 'minor');
-        addStar(palaces, 0, '文昌', 'minor');
-        addStar(palaces, 0, '紫微');
-      },
-    },
-    {
       name: '梁昌庙旺',
       arrange(palaces) {
         addStar(palaces, 0, '天梁', 'major', { brightness: '庙' });
@@ -568,26 +547,10 @@ test('新增五十二条传统格局应逐条满足完整原文条件', () => {
       },
     },
     {
-      name: '贪铃并守',
-      arrange(palaces) {
-        palaces[0].earthly_branch = '辰';
-        addStar(palaces, 0, '贪狼');
-        addStar(palaces, 0, '铃星', 'other');
-      },
-    },
-    {
       name: '廉杀庙旺',
       arrange(palaces) {
         addStar(palaces, 0, '廉贞', 'major', { brightness: '庙' });
         addStar(palaces, 0, '七杀', 'major', { brightness: '旺' });
-      },
-    },
-    {
-      name: '廉杀巳亥',
-      arrange(palaces) {
-        palaces[0].earthly_branch = '巳';
-        addStar(palaces, 0, '廉贞');
-        addStar(palaces, 0, '七杀');
       },
     },
     {
@@ -597,13 +560,6 @@ test('新增五十二条传统格局应逐条满足完整原文条件', () => {
         addStar(palaces, 4, '火星', 'other');
         addStar(palaces, 6, '擎羊', 'minor');
         addStar(palaces, 8, '陀罗', 'minor');
-      },
-    },
-    {
-      name: '日月反背',
-      arrange(palaces) {
-        palaces[0].earthly_branch = '戌';
-        addStar(palaces, 0, '太阳');
       },
     },
     {
@@ -627,14 +583,6 @@ test('新增五十二条传统格局应逐条满足完整原文条件', () => {
         addStar(palaces, 0, '贪狼');
         addStar(palaces, 0, '陀罗', 'minor');
       },
-    },
-    {
-      name: '日照雷门',
-      arrange(palaces) {
-        palaces[0].earthly_branch = '卯';
-        addStar(palaces, 0, '太阳');
-      },
-      params: { birthTimeLabel: '午时', birthTimeRange: '11:00-13:00' },
     },
     {
       name: '巨机居卯',
@@ -672,6 +620,65 @@ test('新增五十二条传统格局应逐条满足完整原文条件', () => {
       `${name}缺少必要星曜${essentialStar}时不应命中`,
     );
   });
+});
+
+test('条件不闭合或当前安星体系不可达的格局不得用人工拼盘伪造成可执行规则', () => {
+  const palaces = createPalaces();
+  palaces[0].earthly_branch = '巳';
+  addStar(palaces, 0, '廉贞');
+  addStar(palaces, 0, '七杀');
+  addStar(palaces, 0, '左辅', 'minor');
+  addStar(palaces, 0, '文昌', 'minor');
+  addStar(palaces, 11, '太阳');
+  addStar(palaces, 1, '太阴');
+
+  const names = detectedNames(palaces);
+  ['廉杀巳亥', '左辅文昌', '日月夹命'].forEach((name) => {
+    assert.ok(!names.includes(name), `${name}只应保留在原典边界目录`);
+  });
+});
+
+test('羊陀夹忌只核对命宫，不得把其他宫位化忌误识别为夹忌', () => {
+  const palaces = createPalaces();
+  addStar(palaces, 5, '贪狼', 'major', { birth_mutagen: '忌' });
+  addStar(palaces, 4, '擎羊', 'minor');
+  addStar(palaces, 6, '陀罗', 'minor');
+
+  assert.ok(!detectedNames(palaces).includes('羊陀夹忌'));
+});
+
+test('火贵格应分别核对命宫与身宫三方，不得跨目标拼接条件', () => {
+  const bodyMatch = createPalaces();
+  addStar(bodyMatch, 8, '贪狼');
+  addStar(bodyMatch, 10, '火星', 'other');
+  const pattern = detectPatterns({ palaces: bodyMatch }).find((item) => item.name === '火贵格');
+  assert.ok(pattern);
+  assert.ok(pattern.palace_indexes.includes(4));
+  assert.match(pattern.matched_conditions?.join('；') ?? '', /身宫/);
+
+  const crossTarget = createPalaces();
+  addStar(crossTarget, 4, '贪狼');
+  addStar(crossTarget, 10, '火星', 'other');
+  assert.ok(!detectedNames(crossTarget).includes('火贵格'));
+});
+
+test('带有吉曜转化条件的传统结构不得固定标为纯凶格', () => {
+  const fireBell = createPalaces();
+  addStar(fireBell, 11, '火星', 'other');
+  addStar(fireBell, 1, '铃星', 'other');
+  assert.equal(
+    detectPatterns({ palaces: fireBell }).find((item) => item.name === '火铃夹命')?.kind,
+    'neutral',
+  );
+
+  const peach = createPalaces();
+  peach[0].earthly_branch = '亥';
+  addStar(peach, 0, '贪狼');
+  addStar(peach, 0, '陀罗', 'minor');
+  assert.equal(
+    detectPatterns({ palaces: peach }).find((item) => item.name === '泛水桃花')?.kind,
+    'neutral',
+  );
 });
 
 test('紫微第二批九条格局不得省略宫位、地支、单守、同宫或夹宫条件', () => {
@@ -813,27 +820,7 @@ test('科权禄拱命不得省略紫微守命、子午宫和三方会照前提',
   assert.ok(!detectedNames(transformationInSoulPalace).includes('科权禄拱命'));
 });
 
-test('昼夜与生年天干条件应贯穿格局检测和证据重建', () => {
-  const daytime = createPalaces();
-  daytime[0].earthly_branch = '卯';
-  addStar(daytime, 0, '太阳');
-  const daytimePatterns = detectPatterns({
-    palaces: daytime,
-    birthTimeLabel: '午时',
-    birthTimeRange: '11:00-13:00',
-  });
-  assert.ok(daytimePatterns.some((item) => item.name === '日照雷门'));
-  assert.equal(
-    buildPatternAnalysis({
-      patterns: daytimePatterns,
-      palaces: daytime,
-      birthTimeLabel: '午时',
-      birthTimeRange: '11:00-13:00',
-    }).summaryFact.matchedPatternCount,
-    daytimePatterns.length,
-  );
-  assert.ok(!detectedNames(daytime).includes('日照雷门'));
-
+test('生年天干条件应贯穿格局检测、证据重建与评估覆盖统计', () => {
   const yearStem = createPalaces();
   yearStem[0].earthly_branch = '卯';
   addStar(yearStem, 0, '巨门');
@@ -853,23 +840,47 @@ test('昼夜与生年天干条件应贯穿格局检测和证据重建', () => {
     }).summaryFact.matchedPatternCount,
     yearStemPatterns.length,
   );
+
+  const missingInput = buildPatternAnalysis({
+    patterns: detectPatterns({ palaces: yearStem }),
+    palaces: yearStem,
+  });
+  assert.equal(missingInput.summaryFact.registeredRuleCount, 62);
+  assert.equal(missingInput.summaryFact.evaluatedRuleCount, 61);
+  assert.equal(missingInput.summaryFact.unevaluatedRuleCount, 1);
+  assert.equal(missingInput.status, '资料不足');
+  assert.equal(missingInput.summaryFact.status, '资料不足');
+  assert.equal(
+    missingInput.calculationSteps.find((step) => step.stage === '格局规则评估')?.status,
+    '资料不足',
+  );
+  assert.match(missingInput.promptText, /1条因必要输入不足未评估/);
+
+  const completeInput = buildPatternAnalysis({
+    patterns: yearStemPatterns,
+    palaces: yearStem,
+    birthYearHeavenlyStem: '乙',
+  });
+  assert.equal(completeInput.summaryFact.evaluatedRuleCount, 62);
+  assert.equal(completeInput.summaryFact.unevaluatedRuleCount, 0);
 });
 
 test('紫微格局证据应汇总登记、命中、未命中与覆盖边界', () => {
   const palaces = createPalaces();
   addStar(palaces, 0, '紫微');
   addStar(palaces, 0, '天府');
-  const patterns = detectPatterns({ palaces });
-  const analysis = buildPatternAnalysis({ patterns, palaces });
+  const patterns = detectPatterns({ palaces, birthYearHeavenlyStem: '甲' });
+  const analysis = buildPatternAnalysis({ patterns, palaces, birthYearHeavenlyStem: '甲' });
 
   assert.equal(analysis.status, '已计算');
   assert.equal(analysis.summaryFact.status, '已完成');
-  assert.equal(analysis.summaryFact.registeredRuleCount, 70);
-  assert.equal(analysis.summaryFact.evaluatedRuleCount, 70);
+  assert.equal(analysis.summaryFact.registeredRuleCount, 62);
+  assert.equal(analysis.summaryFact.evaluatedRuleCount, 62);
+  assert.equal(analysis.summaryFact.unevaluatedRuleCount, 0);
   assert.equal(analysis.summaryFact.matchedPatternCount, 1);
-  assert.equal(analysis.summaryFact.unmatchedRuleCount, 69);
-  assert.match(analysis.promptText, /固定古籍版本逐条评估70条可复算规则/);
-  assert.match(analysis.promptText, /17项.*边界|不代表命盘没有其他传统格局/);
+  assert.equal(analysis.summaryFact.unmatchedRuleCount, 61);
+  assert.match(analysis.promptText, /固定古籍版本逐条评估62条可复算规则/);
+  assert.match(analysis.promptText, /25项.*边界|不代表命盘没有其他传统格局/);
 
   const knownFactKeys = new Set([analysis.summaryFact.key, ...analysis.summaryFact.factKeys]);
   assert.ok(
@@ -947,10 +958,11 @@ test('格局证据汇总应拒绝伪造登记前缀并按稳定键去重', () =>
       },
     ],
     palaces,
+    birthYearHeavenlyStem: '甲',
   });
 
   assert.equal(analysis.summaryFact.matchedPatternCount, 1);
-  assert.equal(analysis.summaryFact.unmatchedRuleCount, 69);
+  assert.equal(analysis.summaryFact.unmatchedRuleCount, 61);
   assert.ok(!analysis.summaryFact.factKeys.includes('manual-shadow-key'));
   assert.ok(!analysis.summaryFact.factKeys.includes('ziwei:verified-pattern:not-registered'));
   assert.doesNotMatch(analysis.promptText, /伪造格局/);
