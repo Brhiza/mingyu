@@ -127,19 +127,30 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
     detect(context) {
       const { soulPalace } = context;
       if (!hasStar(soulPalace, '紫微')) return null;
-      const candidates = uniquePalaces([
-        ...getSurroundedPalaces(context, soulPalace).filter(
-          (palace) => palace.index !== soulPalace.index,
-        ),
-        ...getNeighborPalaces(context, soulPalace),
-      ]);
-      const left = findStarPalace(candidates, '左辅');
-      const right = findStarPalace(candidates, '右弼');
+
+      const neighbors = getNeighborPalaces(context, soulPalace);
+      if (
+        neighbors.length === 2 &&
+        ((hasStar(neighbors[0], '左辅') && hasStar(neighbors[1], '右弼')) ||
+          (hasStar(neighbors[0], '右弼') && hasStar(neighbors[1], '左辅')))
+      ) {
+        return {
+          palaces: [soulPalace, ...neighbors],
+          stars: ['紫微', '左辅', '右弼'],
+          conditions: ['紫微守命', '左辅与右弼前后夹命'],
+        };
+      }
+
+      const surrounded = getSurroundedPalaces(context, soulPalace).filter(
+        (palace) => palace.index !== soulPalace.index,
+      );
+      const left = findStarPalace(surrounded, '左辅');
+      const right = findStarPalace(surrounded, '右弼');
       return left && right
         ? {
             palaces: uniquePalaces([soulPalace, left, right]),
             stars: ['紫微', '左辅', '右弼'],
-            conditions: ['紫微守命', '左辅与右弼从三方四正拱照或前后夹命'],
+            conditions: ['紫微守命', '左辅与右弼从命宫三方四正拱照'],
           }
         : null;
     },
@@ -339,6 +350,13 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
 ];
 
 export const VERIFIED_ZIWEI_PATTERN_RULE_COUNT = VERIFIED_PATTERN_RULES.length;
+const VERIFIED_ZIWEI_PATTERN_STABLE_KEYS = new Set(
+  VERIFIED_PATTERN_RULES.map((rule) => `ziwei:verified-pattern:${rule.id}`),
+);
+
+export function isVerifiedZiweiPatternKey(value: unknown): value is string {
+  return typeof value === 'string' && VERIFIED_ZIWEI_PATTERN_STABLE_KEYS.has(value);
+}
 
 function assertValidPatternPalaces(
   palaces: PalaceFact[] | undefined,
@@ -476,18 +494,22 @@ export function buildPatternAnalysis(params: {
   const evaluatedRuleCount =
     skipped || blockedBySourceAudit || !palaceDataComplete ? 0 : registeredRuleCount;
   const unevaluatedRuleCount = registeredRuleCount - evaluatedRuleCount;
-  const acceptedPatterns = blockedBySourceAudit
+  const acceptedPatternEntries = blockedBySourceAudit
     ? []
-    : patterns.filter(
-        (item) =>
-          item.status === '已命中' &&
-          (item.stable_key ?? item.key ?? '').startsWith('ziwei:verified-pattern:'),
-      );
+    : [
+        ...new Map(
+          patterns.flatMap((item) => {
+            const stableKey = item.stable_key ?? item.key;
+            return item.status === '已命中' && isVerifiedZiweiPatternKey(stableKey)
+              ? ([[stableKey, item]] as const)
+              : [];
+          }),
+        ).entries(),
+      ];
+  const acceptedPatterns = acceptedPatternEntries.map(([, item]) => item);
   const matchedPatternCount = acceptedPatterns.length;
   const unmatchedRuleCount = Math.max(0, evaluatedRuleCount - matchedPatternCount);
-  const patternFactKeys = acceptedPatterns.map(
-    (item) => item.key ?? `ziwei:pattern:${item.stable_key ?? item.id}`,
-  );
+  const patternFactKeys = acceptedPatternEntries.map(([stableKey]) => stableKey);
   const summaryStatus: ZiweiPatternSummaryFact['status'] =
     skipped || blockedBySourceAudit
       ? '未生成'

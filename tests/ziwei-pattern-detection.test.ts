@@ -187,6 +187,21 @@ test('紫微格局只读取原局星曜和生年四化，不得混入运限星�
   assert.deepEqual(detectPatterns({ palaces }), []);
 });
 
+test('辅弼拱主不得把三方拱照与相邻夹命拼成混合条件', () => {
+  const mixed = createPalaces();
+  addStar(mixed, 0, '紫微');
+  addStar(mixed, 4, '左辅', 'minor');
+  addStar(mixed, 1, '右弼', 'minor');
+  assert.ok(!detectedNames(mixed).includes('辅弼拱主'));
+
+  const flanked = createPalaces();
+  addStar(flanked, 0, '紫微');
+  addStar(flanked, 11, '左辅', 'minor');
+  addStar(flanked, 1, '右弼', 'minor');
+  const pattern = detectPatterns({ palaces: flanked }).find((item) => item.name === '辅弼拱主');
+  assert.match(pattern?.matched_conditions?.join('；') ?? '', /前后夹命/);
+});
+
 test('科权禄拱命不得省略紫微守命、子午宫和三方会照前提', () => {
   const missingZiwei = createPalaces();
   addStar(missingZiwei, 4, '廉贞', 'major', { birth_mutagen: '禄' });
@@ -282,4 +297,31 @@ test('格局证据汇总应主动过滤非登记稳定键', () => {
   assert.equal(analysis.summaryFact.matchedPatternCount, 0);
   assert.ok(!analysis.summaryFact.factKeys.includes('manual-pattern'));
   assert.doesNotMatch(analysis.promptText, /手工注入规则/);
+});
+
+test('格局证据汇总应拒绝伪造登记前缀并按稳定键去重', () => {
+  const palaces = createPalaces();
+  addStar(palaces, 0, '紫微');
+  addStar(palaces, 0, '天府');
+  const verified = detectPatterns({ palaces })[0];
+  const analysis = buildPatternAnalysis({
+    patterns: [
+      verified,
+      { ...verified, key: 'manual-shadow-key' },
+      {
+        ...verified,
+        id: 'forged',
+        stable_key: 'ziwei:verified-pattern:not-registered',
+        key: 'ziwei:verified-pattern:not-registered',
+        name: '伪造格局',
+      },
+    ],
+    palaces,
+  });
+
+  assert.equal(analysis.summaryFact.matchedPatternCount, 1);
+  assert.equal(analysis.summaryFact.unmatchedRuleCount, 8);
+  assert.ok(!analysis.summaryFact.factKeys.includes('manual-shadow-key'));
+  assert.ok(!analysis.summaryFact.factKeys.includes('ziwei:verified-pattern:not-registered'));
+  assert.doesNotMatch(analysis.promptText, /伪造格局/);
 });

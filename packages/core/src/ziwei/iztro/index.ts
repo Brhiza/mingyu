@@ -25,6 +25,7 @@ export { getCurrentScopeItem } from './build-analysis-payload/helpers/scope';
 export {
   buildPatternAnalysis,
   detectPatterns,
+  isVerifiedZiweiPatternKey,
   VERIFIED_ZIWEI_PATTERN_RULE_COUNT,
   ZIWEI_PATTERN_AUDIT_NOTICE,
 } from './pattern-detection';

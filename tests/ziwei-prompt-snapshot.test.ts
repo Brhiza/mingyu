@@ -182,6 +182,46 @@ test('紫微提示词快照应输出已校勘格局的条件、古籍依据与�
   assert.doesNotMatch(snapshot, /因此必然|命盘总分|保证实现/);
 });
 
+test('紫微提示词快照不得接受只伪造登记前缀的格局', () => {
+  const payload = createPayload();
+  payload.patterns = [
+    {
+      id: 'forged',
+      stable_key: 'ziwei:verified-pattern:not-registered',
+      key: 'ziwei:verified-pattern:not-registered',
+      status: '已命中',
+      name: '伪造格局',
+      kind: 'auspicious',
+      description: '不应进入提示词',
+      palace_indexes: [0],
+      palace_names: ['命宫'],
+      star_names: ['紫微'],
+      matched_conditions: ['伪造条件'],
+      sources: ['伪造来源'],
+    },
+  ];
+
+  const snapshot = buildZiweiReadableSnapshot({
+    payload,
+    reportContext: createReportContext(),
+  });
+
+  assert.doesNotMatch(snapshot, /【命盘格局】|伪造格局|伪造条件|伪造来源/);
+});
+
+test('紫微提示词快照应按登记稳定键去重', () => {
+  const payload = createPayload();
+  const verified = detectPatterns({ palaces: payload.palaces })[0];
+  payload.patterns = [verified, { ...verified }];
+
+  const snapshot = buildZiweiReadableSnapshot({
+    payload,
+    reportContext: createReportContext(),
+  });
+
+  assert.equal(snapshot.match(/格局：紫府同宫/g)?.length, 1);
+});
+
 test('紫微重点宫位资料展示三方四正时应排除本宫', () => {
   const payload = createPayload();
   const summary = buildPalaceSummary(payload, payload.palaces[0]);
