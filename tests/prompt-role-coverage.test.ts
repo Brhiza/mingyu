@@ -75,11 +75,13 @@ test('八宅、住宅风水、生肖、太乙与玄空提示词使用各自角�
   });
 });
 
-test('七政四余提示词指引应明确失败关闭，不邀请模型解读近似盘', () => {
+test('七政四余提示词指引应约束真实距星宿界与混合精度', () => {
   const guidance = PROMPT_GUIDANCE_TEXT.qizheng;
 
-  assert.match(guidance.identity, /完整传统盘当前暂停/);
-  assert.match(guidance.analysis, /不得根据旧结果继续生成解读/);
-  assert.match(guidance.tradition, /不输出命身宫、十二宫、庙旺、宿度或吊照近似结论/);
-  assert.match(guidance.output, /不生成近似排盘解读/);
+  assert.match(guidance.identity, /果老星宗.*现代天文坐标证据/);
+  assert.match(guidance.analysis, /精度层级/);
+  assert.match(guidance.analysis, /十一星宿度与庙旺/);
+  assert.match(guidance.tradition, /真实距星黄经划界.*真太阳时只用于传统命身十二宫/);
+  assert.match(guidance.sources, /SIMBAD.*Astronomy Engine/);
+  assert.match(guidance.output, /反证与限制/);
 });

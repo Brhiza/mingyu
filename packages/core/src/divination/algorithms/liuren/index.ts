@@ -20,7 +20,7 @@ import { resolveLiurenClassicalRules } from './helpers/classical-rules';
 import {
   buildTransmissionDetail,
   buildTransmissionNote,
-  getLiurenTransmissionGuaTi,
+  getLiurenGuaTiFacts,
   getPatternTag,
   getTransmissionPattern,
 } from './helpers/transmission';
@@ -503,7 +503,18 @@ export function generateLiuren(customDate?: Date): LiurenData {
     threeTransmissions.some((item) => xunKong.includes(item.branch)) ? '空亡入传' : '传不逢空',
     getPatternTag(transmissionPattern),
   ];
-  const guaTi = getLiurenTransmissionGuaTi(transmissionBranches);
+  const initialGroundBranch = getPlateItemByBranch(heavenlyPlate, chu).under;
+  const guaTiFacts = getLiurenGuaTiFacts({
+    transmissionBranches,
+    initialGroundBranch,
+    yearBranch: ganzhi.year.charAt(1),
+    monthBranch: ganzhi.month.charAt(1),
+    monthLeader,
+    noblemanBranch,
+    noblemanGroundBranch,
+    fourLessons,
+  });
+  const guaTi = guaTiFacts.map((fact) => fact.name);
   patternTags.push(...guaTi);
 
   const lessonSummary = `四课源于日干寄宫${dayStemResidence}与日支${dayBranch}，关系呈${fourLessons
@@ -599,6 +610,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     lessonSummary: `${lessonSummary} 当前节气为${timeInfo.jieQi}。`,
     transmissionSummary,
     guaTi,
+    guaTiFacts,
     shenShaSummary,
     shenShaFacts,
     tianJiangProps,
@@ -610,6 +622,11 @@ export function generateLiuren(customDate?: Date): LiurenData {
 }
 
 export { analyzeLiurenEvidence, conditionLiurenTraditionalText } from '../../liuren-evidence';
+export {
+  getLiurenGuaTiFacts,
+  getLiurenTransmissionGuaTi,
+  REGISTERED_LIUREN_GUA_TI_COUNT,
+} from './helpers/transmission';
 export type {
   LiurenCounterEvidenceFact,
   LiurenCounterSummaryFact,

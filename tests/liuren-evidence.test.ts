@@ -298,6 +298,32 @@ test('大六壬传统事实应保留原文并为提示词生成条件化副本',
   );
 });
 
+test('大六壬登记课体应以稳定键、固定古籍版本进入统一证据', () => {
+  const data = generateLiuren(fixedDate);
+  const evidence = data.evidenceAnalysis;
+
+  assert.ok(evidence);
+  assert.ok(data.guaTiFacts?.length);
+  assert.deepEqual(
+    data.guaTi,
+    data.guaTiFacts.map((fact) => fact.name),
+  );
+
+  for (const fact of data.guaTiFacts) {
+    const traditionalFact = evidence.traditionalFacts.find(
+      (candidate) => candidate.key === fact.stableKey,
+    );
+    assert.ok(traditionalFact, `${fact.name}应进入传统事实证据`);
+    assert.match(traditionalFact.key, /^liuren:verified-guati:/);
+    assert.equal(traditionalFact.kind, '课体');
+    assert.equal(traditionalFact.originalText, fact.sourceQuote);
+    assert.deepEqual(traditionalFact.branches, fact.branches);
+    assert.ok(traditionalFact.sources.includes(fact.sourceUrl));
+    assert.match(fact.sourceUrl, /oldid=\d+$/);
+    assert.match(traditionalFact.promptText, new RegExp(fact.name));
+  }
+});
+
 test('十二天将传统属性进入提示词时不得直接证明疾病、死亡、犯罪或婚姻结果', () => {
   const originalTexts = Object.values(TIANJIANG_ATTRIBUTES).map((item) => item.description);
   const promptTexts = originalTexts.map(conditionLiurenTraditionalText);

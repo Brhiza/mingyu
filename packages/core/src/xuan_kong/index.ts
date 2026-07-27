@@ -1,10 +1,15 @@
 /**
  * @file 玄空飞星
- * @description 三元九运、下卦山向飞星、局型组合与结构化证据。
- * 不做形峦、玄空大卦、替卦或吉凶总分。
+ * @description 三元九运、下卦与兼向替卦山向飞星、局型组合与结构化证据。
+ * 不做形峦、玄空大卦或吉凶总分。
  */
 
-import { buildChart, type Combination, type Formation } from '@soul-atelier/xuankong';
+import {
+  buildChart,
+  detectCombinations,
+  type Combination,
+  type Formation,
+} from '@soul-atelier/xuankong';
 
 import {
   getMountainFromDegree,
@@ -14,6 +19,7 @@ import {
 import { analyzeXuanKongEvidence, type XuanKongEvidenceAnalysis } from './evidence';
 
 export type XuanKongGuaType = '下卦' | '替卦';
+export type XuanKongFormation = Formation | '替卦未成四正局';
 
 export interface XuanKongPeriod {
   year: number;
@@ -60,6 +66,13 @@ export interface XuanKongCombination {
   note: string;
 }
 
+export interface XuanKongReplacementLeg {
+  originalCenterStar: number;
+  referenceMountain: string;
+  replacementStar: number;
+  direction: FlyDirection;
+}
+
 export interface XuanKongResult {
   period: XuanKongPeriod;
   sitMountain: string;
@@ -73,13 +86,26 @@ export interface XuanKongResult {
     xiang: number[];
   };
   palaces: XuanKongPalace[];
-  formation: Formation;
+  formation: XuanKongFormation;
   combinations: XuanKongCombination[];
-  engine: {
-    name: '@soul-atelier/xuankong';
-    version: '0.2.1';
-    mode: '下卦';
+  replacement?: {
+    mountain: XuanKongReplacementLeg;
+    facing: XuanKongReplacementLeg;
+    rule: string;
+    sourceUrl: string;
   };
+  engine:
+    | {
+        name: '@soul-atelier/xuankong';
+        version: '0.2.1';
+        mode: '下卦';
+      }
+    | {
+        name: 'mingyu-core';
+        version: '替卦规则-v1';
+        mode: '替卦';
+        baseEngine: '@soul-atelier/xuankong@0.2.1';
+      };
   daoShanXiang: {
     shanToMountain: boolean;
     xiangToFacing: boolean;
@@ -144,6 +170,62 @@ const MOUNTAIN_TO_GONG: Record<string, number> = {
 const PERIOD_BASE_YEAR = 1864;
 
 export type FlyDirection = '顺飞' | '逆飞';
+
+const REPLACEMENT_SOURCE_URL =
+  'https://github.com/funfwo/Fengshui/blob/bd7d85ea1af4be41cacab6e35a5e07023e469be9/paipan.py';
+
+const REPLACEMENT_STAR_BY_MOUNTAIN: Record<string, number> = {
+  子: 1,
+  癸: 1,
+  甲: 1,
+  申: 1,
+  壬: 2,
+  卯: 2,
+  乙: 2,
+  未: 2,
+  坤: 2,
+  乾: 6,
+  亥: 6,
+  辰: 6,
+  巽: 6,
+  巳: 6,
+  戌: 6,
+  酉: 7,
+  辛: 7,
+  丑: 7,
+  艮: 7,
+  丙: 7,
+  寅: 9,
+  午: 9,
+  庚: 9,
+  丁: 9,
+};
+
+const STAR_HOME_MOUNTAINS: Record<number, readonly [string, string, string]> = {
+  1: ['壬', '子', '癸'],
+  2: ['未', '坤', '申'],
+  3: ['甲', '卯', '乙'],
+  4: ['辰', '巽', '巳'],
+  6: ['戌', '乾', '亥'],
+  7: ['庚', '酉', '辛'],
+  8: ['丑', '艮', '寅'],
+  9: ['丙', '午', '丁'],
+};
+
+const MOUNTAIN_YUAN_AND_DIRECTION: Record<string, { yuan: 0 | 1 | 2; direction: FlyDirection }> =
+  Object.fromEntries(
+    Object.entries(STAR_HOME_MOUNTAINS).flatMap(([starText, mountains]) => {
+      const star = Number(starText);
+      const corner = [2, 4, 6, 8].includes(star);
+      return mountains.map((mountain, yuan) => [
+        mountain,
+        {
+          yuan: yuan as 0 | 1 | 2,
+          direction: (corner ? yuan !== 0 : yuan === 0) ? '顺飞' : '逆飞',
+        },
+      ]);
+    }),
+  );
 
 const PALACE_KEY_TO_GONG: Record<string, number> = {
   kan: 1,
@@ -315,7 +397,7 @@ function resolveGuaType(
     throw new Error(`guaType 必须是下卦或替卦，当前为 ${String(input.guaType)}。`);
   }
   if (input.guaType === '替卦') {
-    throw new Error('当前只支持下卦，替卦算法尚未实现，已拒绝生成与下卦相同的伪盘。');
+    return { guaType: '替卦', replacementApplied: true, replacementReason: '输入明确指定替卦' };
   }
   if (input.guaType === '下卦') {
     return { guaType: '下卦', replacementApplied: false, replacementReason: '输入明确指定下卦' };
@@ -324,9 +406,11 @@ function resolveGuaType(
     const rem = (((measurement.sitDegree + 7.5) % 15) + 15) % 15;
     const distanceToEdge = Math.min(rem, 15 - rem);
     if (distanceToEdge <= 3 + Number.EPSILON * 32) {
-      throw new Error(
-        `坐山度数距二十四山边界仅 ${distanceToEdge.toFixed(2)}°，超出每山中央 9° 的下卦范围，已触发兼向替卦条件；当前替卦尚未实现，请明确指定下卦后再排盘。`,
-      );
+      return {
+        guaType: '替卦',
+        replacementApplied: true,
+        replacementReason: `坐山度数距二十四山边界 ${distanceToEdge.toFixed(2)}°，超出每山中央 9° 的下卦范围，自动采用兼向替卦`,
+      };
     }
   }
   return {
@@ -334,6 +418,50 @@ function resolveGuaType(
     replacementApplied: false,
     replacementReason: '未命中兼向过界条件，按一下卦处理',
   };
+}
+
+function resolveReplacementLeg(
+  sourceMountain: string,
+  originalCenterStar: number,
+): XuanKongReplacementLeg {
+  const sourceMeta = MOUNTAIN_YUAN_AND_DIRECTION[sourceMountain];
+  if (!sourceMeta) throw new Error(`替卦缺少${sourceMountain}山元龙资料。`);
+  const referenceMountain =
+    originalCenterStar === 5
+      ? sourceMountain
+      : STAR_HOME_MOUNTAINS[originalCenterStar]?.[sourceMeta.yuan];
+  if (!referenceMountain) {
+    throw new Error(`替卦无法按${originalCenterStar}星与${sourceMountain}山同元龙取本宫山。`);
+  }
+  const referenceMeta = MOUNTAIN_YUAN_AND_DIRECTION[referenceMountain];
+  const replacementStar = REPLACEMENT_STAR_BY_MOUNTAIN[referenceMountain];
+  if (!referenceMeta || !replacementStar) {
+    throw new Error(`替卦缺少${referenceMountain}山替星或阴阳资料。`);
+  }
+  return {
+    originalCenterStar,
+    referenceMountain,
+    replacementStar,
+    direction: referenceMeta.direction,
+  };
+}
+
+function classifyPlates(
+  period: number,
+  sitGong: number,
+  facingGong: number,
+  shanPlate: number[],
+  xiangPlate: number[],
+): XuanKongFormation {
+  const mountainAtSit = shanPlate[sitGong - 1] === period;
+  const mountainAtFacing = shanPlate[facingGong - 1] === period;
+  const facingAtSit = xiangPlate[sitGong - 1] === period;
+  const facingAtFacing = xiangPlate[facingGong - 1] === period;
+  if (mountainAtSit && facingAtFacing) return '旺山旺向';
+  if (mountainAtFacing && facingAtSit) return '上山下水';
+  if (mountainAtFacing && facingAtFacing) return '双星到向';
+  if (mountainAtSit && facingAtSit) return '双星到坐';
+  return '替卦未成四正局';
 }
 
 function buildPalaces(yun: number[], shan: number[], xiang: number[]): XuanKongPalace[] {
@@ -422,6 +550,26 @@ export function generateXuanKong(input: XuanKongInput): XuanKongResult {
     shanPlate[index] = palace.mountain;
     xiangPlate[index] = palace.water;
   }
+  let replacement: XuanKongResult['replacement'];
+  if (gua.guaType === '替卦') {
+    const sitGong = MOUNTAIN_TO_GONG[sitMountain];
+    const facingGong = MOUNTAIN_TO_GONG[facingMountain];
+    if (!sitGong || !facingGong) throw new Error('替卦无法识别山向对应宫位。');
+    const mountain = resolveReplacementLeg(sitMountain, yunPlate[sitGong - 1]);
+    const facing = resolveReplacementLeg(facingMountain, yunPlate[facingGong - 1]);
+    shanPlate.splice(
+      0,
+      shanPlate.length,
+      ...flyStars(mountain.replacementStar, mountain.direction),
+    );
+    xiangPlate.splice(0, xiangPlate.length, ...flyStars(facing.replacementStar, facing.direction));
+    replacement = {
+      mountain,
+      facing,
+      rule: '运盘山向宫星入中，按其本宫同元龙山取替星；五黄无本宫时借实际山向；顺逆仍依所取山阴阳',
+      sourceUrl: REPLACEMENT_SOURCE_URL,
+    };
+  }
   if (
     [yunPlate, shanPlate, xiangPlate].some((plate) => plate.some((star) => star < 1 || star > 9))
   ) {
@@ -448,7 +596,23 @@ export function generateXuanKong(input: XuanKongInput): XuanKongResult {
   };
 
   const palaces = buildPalaces(yunPlate, shanPlate, xiangPlate);
-  const combinations = chart.combinations.map(mapCombination);
+  const formation = classifyPlates(period.yun, sitGong, facingGong, shanPlate, xiangPlate);
+  const combinationSource =
+    gua.guaType === '下卦'
+      ? chart.combinations
+      : formation === '替卦未成四正局'
+        ? []
+        : detectCombinations(
+            period.yun,
+            formation,
+            chart.facing.palace,
+            chart.palaces.map((palace) => ({
+              ...palace,
+              mountain: shanPlate[palace.earth - 1],
+              water: xiangPlate[palace.earth - 1],
+            })),
+          );
+  const combinations = combinationSource.map(mapCombination);
   const partial = {
     period,
     sitMountain,
@@ -458,13 +622,22 @@ export function generateXuanKong(input: XuanKongInput): XuanKongResult {
     replacementReason: gua.replacementReason,
     plates: { yun: yunPlate, shan: shanPlate, xiang: xiangPlate },
     palaces,
-    formation: chart.formation,
+    formation,
     combinations,
-    engine: {
-      name: '@soul-atelier/xuankong' as const,
-      version: '0.2.1' as const,
-      mode: '下卦' as const,
-    },
+    ...(replacement ? { replacement } : {}),
+    engine:
+      gua.guaType === '下卦'
+        ? {
+            name: '@soul-atelier/xuankong' as const,
+            version: '0.2.1' as const,
+            mode: '下卦' as const,
+          }
+        : {
+            name: 'mingyu-core' as const,
+            version: '替卦规则-v1' as const,
+            mode: '替卦' as const,
+            baseEngine: '@soul-atelier/xuankong@0.2.1' as const,
+          },
     daoShanXiang,
     ...(measurement ? { measurement } : {}),
   };

@@ -300,6 +300,15 @@ test('公开 API OpenAPI 文档应标明占卜提示词接口返回摘要', asyn
   assert.ok(body.data.paths['/divination/astrolabe']);
   assert.ok(body.data.paths['/foundation/shensha']);
   assert.equal(
+    body.data.paths['/metaphysics/qizheng/calculate'].post.responses['200'].description,
+    '十一星、真实距星宿界与结构化证据',
+  );
+  assert.equal(
+    body.data.paths['/metaphysics/qizheng/prompt'].post.responses['200'].description,
+    '七政四余盘与结构化提示词',
+  );
+  assert.equal(body.data.paths['/metaphysics/qizheng/calculate'].post.responses['400'], undefined);
+  assert.equal(
     body.data.paths['/foundation/shensha'].post.requestBody.content['application/json'].schema.$ref,
     '#/components/schemas/FoundationShenshaRequest',
   );
@@ -4918,25 +4927,54 @@ test('公开 API 生肖流年应返回三会关系但不并入贵人或吉凶数
   assert.match(calculate.body.data.evidenceAnalysis.promptText, /十二地支三会固定关系表/);
 });
 
-test('公开 API 七政四余在传统坐标链校勘前应拒绝输出近似盘', async () => {
-  for (const path of ['metaphysics/qizheng/calculate', 'metaphysics/qizheng/prompt']) {
-    const { response, body } = await callApi(path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        year: 1995,
-        month: 12,
-        day: 31,
-        hour: 8,
-        timezone: 8,
-        question: '请分析本命结构。',
-      }),
-    });
+test('公开 API 七政四余应返回十一星、真实距星宿界、证据链与提示词', async () => {
+  const input = {
+    year: 2024,
+    month: 6,
+    day: 15,
+    hour: 12,
+    minute: 0,
+    latitude: 39.9,
+    longitude: 116.4,
+    timezone: 8,
+  };
+  const calculate = await callApi('metaphysics/qizheng/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  assert.equal(calculate.response.status, 200);
+  assert.equal(calculate.body.data.stars.length, 11);
+  assert.equal(calculate.body.data.mansionBoundaries.length, 28);
+  assert.equal(
+    calculate.body.data.mansionModel.id,
+    'qizheng-mansion-stars-simbad-astronomy-engine',
+  );
+  assert.equal(calculate.body.data.evidenceAnalysis.status, '已计算');
+  assert.equal(calculate.body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.ok(
+    calculate.body.data.stars.some(
+      (star: { precisionClass: string }) => star.precisionClass === '现代天文计算',
+    ),
+  );
+  assert.ok(
+    calculate.body.data.stars.some(
+      (star: { precisionClass: string }) => star.precisionClass === '传统均速模型',
+    ),
+  );
 
-    assert.equal(response.status, 400, path);
-    assert.equal(body.error.code, 'BAD_REQUEST', path);
-    assert.match(body.error.message, /角宿起点.*366\.5.*距星边界.*停止输出近似盘/, path);
-  }
+  const promptResponse = await callApi('metaphysics/qizheng/prompt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...input, question: '请分析本命结构。' }),
+  });
+  assert.equal(promptResponse.response.status, 200);
+  assertPromptHasSingleRole(promptResponse.body.data.prompt, PROMPT_ROLE_TEXT.qizheng);
+  assert.match(
+    promptResponse.body.data.prompt,
+    /【七政四余 · 果老星宗】[\s\S]*宿界模型[\s\S]*【问题】\n请分析本命结构。/,
+  );
+  assertPromptIsPortableTaskText(promptResponse.body.data.prompt);
 });
 test('公开 API 太乙应返回年计七十二局立成结果', async () => {
   const { response, body } = await callApi('metaphysics/taiyi/calculate', {
@@ -5083,7 +5121,7 @@ test('公开 API 太乙应拒绝尚未校勘的月日时计', async () => {
   }
 });
 
-test('公开 API 玄空飞星应返回真实下卦局型并拒绝替卦伪盘', async () => {
+test('公开 API 玄空飞星应返回真实下卦局型与可核验替卦', async () => {
   const valid = await callApi('metaphysics/xuankong/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -5096,13 +5134,20 @@ test('公开 API 玄空飞星应返回真实下卦局型并拒绝替卦伪盘', 
   );
   assert.equal(valid.body.data.engine.name, '@soul-atelier/xuankong');
 
-  const unsupported = await callApi('metaphysics/xuankong/calculate', {
+  const replacement = await callApi('metaphysics/xuankong/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ year: 2008, sitMountain: '子', guaType: '替卦' }),
   });
-  assert.equal(unsupported.response.status, 400);
-  assert.match(unsupported.body.error.message, /当前只支持下卦/);
+  assert.equal(replacement.response.status, 200);
+  assert.equal(replacement.body.data.guaType, '替卦');
+  assert.equal(replacement.body.data.replacementApplied, true);
+  assert.equal(replacement.body.data.replacement.mountain.referenceMountain, '巽');
+  assert.equal(replacement.body.data.replacement.mountain.replacementStar, 6);
+  assert.equal(replacement.body.data.replacement.facing.referenceMountain, '卯');
+  assert.equal(replacement.body.data.replacement.facing.replacementStar, 2);
+  assert.equal(replacement.body.data.engine.mode, '替卦');
+  assert.match(replacement.body.data.evidenceAnalysis.promptText, /巽山替为6顺飞|卯山替为2逆飞/);
 });
 
 test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async () => {

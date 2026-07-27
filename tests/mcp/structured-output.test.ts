@@ -2938,19 +2938,50 @@ test('MCP 八字与紫微工具应拒绝不存在的出生日期', async () => {
   });
 });
 
-test('MCP 七政四余在传统坐标链校勘前应拒绝输出近似盘', async () => {
+test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提示词', async () => {
   await withMcpClient(async (client) => {
-    for (const name of ['metaphysics_qizheng', 'qizheng_prompt']) {
-      const result = await client.callTool({
-        name,
-        arguments: { year: 2024, month: 6, day: 15, hour: 12 },
-      });
-      assert.equal(result.isError, true, `${name} 应失败关闭`);
-      assert.match(
-        String((result.structuredContent as { error?: string } | undefined)?.error),
-        /角宿起点.*366\.5.*距星边界.*停止输出近似盘/,
-      );
-    }
+    const arguments_ = {
+      year: 2024,
+      month: 6,
+      day: 15,
+      hour: 12,
+      minute: 0,
+      latitude: 39.9,
+      longitude: 116.4,
+      timezone: 8,
+    };
+    const chartResponse = await client.callTool({
+      name: 'metaphysics_qizheng',
+      arguments: arguments_,
+    });
+    assert.equal(chartResponse.isError, undefined);
+    const chart = (
+      chartResponse.structuredContent as {
+        result: {
+          stars: Array<{ precisionClass: string }>;
+          mansionBoundaries: unknown[];
+          mansionModel: { id: string };
+          evidenceAnalysis: { status: string; summaryFact: { status: string } };
+        };
+      }
+    ).result;
+    assert.equal(chart.stars.length, 11);
+    assert.equal(chart.mansionBoundaries.length, 28);
+    assert.equal(chart.mansionModel.id, 'qizheng-mansion-stars-simbad-astronomy-engine');
+    assert.ok(chart.stars.some((star) => star.precisionClass === '现代天文计算'));
+    assert.ok(chart.stars.some((star) => star.precisionClass === '传统均速模型'));
+    assert.equal(chart.evidenceAnalysis.status, '已计算');
+    assert.equal(chart.evidenceAnalysis.summaryFact.status, '证据链完整');
+
+    const promptResponse = await client.callTool({
+      name: 'qizheng_prompt',
+      arguments: { ...arguments_, question: '请分析本命结构。' },
+    });
+    assert.equal(promptResponse.isError, undefined);
+    const prompt = String(promptResponse.structuredContent?.prompt);
+    assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.qizheng);
+    assert.match(prompt, /【七政四余 · 果老星宗】[\s\S]*宿界模型[\s\S]*【问题】\n请分析本命结构。/);
+    assertPromptIsPortableTaskText(prompt);
   });
 });
 
@@ -2976,7 +3007,7 @@ test('MCP 七政四余应拒绝不存在日期和越界坐标时区', async () =
   });
 });
 
-test('MCP 七政、太乙和玄空不得补造缺失时间或返回替卦伪盘', async () => {
+test('MCP 七政、太乙和玄空不得补造缺失必填参数', async () => {
   await withMcpClient(async (client) => {
     const calls: Array<[string, Record<string, unknown>, RegExp | null]> = [
       ['metaphysics_qizheng', { month: 6, day: 15, hour: 12 }, null],
@@ -2991,11 +3022,6 @@ test('MCP 七政、太乙和玄空不得补造缺失时间或返回替卦伪盘'
       ['taiyi_prompt', { scope: 'day', year: 2026 }, null],
       ['taiyi_prompt', { scope: 'hour', year: 2026 }, null],
       ['metaphysics_xuankong', { sitMountain: '子' }, null],
-      [
-        'metaphysics_xuankong',
-        { year: 2008, sitMountain: '子', guaType: '替卦' },
-        /当前只支持下卦/,
-      ],
     ];
 
     for (const [name, args, messagePattern] of calls) {
@@ -3008,6 +3034,56 @@ test('MCP 七政、太乙和玄空不得补造缺失时间或返回替卦伪盘'
         );
       }
     }
+  });
+});
+
+test('MCP 玄空应返回可核验替卦和替星过程', async () => {
+  await withMcpClient(async (client) => {
+    const response = await client.callTool({
+      name: 'metaphysics_xuankong',
+      arguments: { year: 2008, sitMountain: '子', guaType: '替卦' },
+    });
+    assert.equal(response.isError, undefined);
+    const chart = (
+      response.structuredContent as {
+        result: {
+          guaType: string;
+          replacementApplied: boolean;
+          replacement: {
+            mountain: {
+              originalCenterStar: number;
+              referenceMountain: string;
+              replacementStar: number;
+              direction: string;
+            };
+            facing: {
+              originalCenterStar: number;
+              referenceMountain: string;
+              replacementStar: number;
+              direction: string;
+            };
+          };
+          engine: { mode: string };
+          evidenceAnalysis: { promptText: string };
+        };
+      }
+    ).result;
+    assert.equal(chart.guaType, '替卦');
+    assert.equal(chart.replacementApplied, true);
+    assert.deepEqual(chart.replacement.mountain, {
+      originalCenterStar: 4,
+      referenceMountain: '巽',
+      replacementStar: 6,
+      direction: '顺飞',
+    });
+    assert.deepEqual(chart.replacement.facing, {
+      originalCenterStar: 3,
+      referenceMountain: '卯',
+      replacementStar: 2,
+      direction: '逆飞',
+    });
+    assert.equal(chart.engine.mode, '替卦');
+    assert.match(chart.evidenceAnalysis.promptText, /替星|巽山替为6顺飞|卯山替为2逆飞/);
   });
 });
 

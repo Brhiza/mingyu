@@ -58,7 +58,7 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 - 用户要从日期范围里挑日子：调用 `POST /divination/almanac/prompt`，日期多或参与人多时分页。
 - 用户提供一人的西方星盘资料：调用 `POST /divination/astrolabe/prompt`；提供双方完整资料并询问关系：调用 `POST /divination/astrolabe/synastry/prompt`。
 - 用户没有出生信息，只想要轻量启发、牌阵或签文：调用塔罗、雷诺曼或三山国王灵签提示词接口。
-- 用户明确要求八宅、生肖犯太岁或太乙：调用对应的 `POST /metaphysics/{method}/prompt`；只要结构化排盘时改用 `/calculate`。七政四余当前暂停，不调用其排盘端点冒充可用结果。
+- 用户明确要求八宅、生肖犯太岁、太乙或七政四余：调用对应的 `POST /metaphysics/{method}/prompt`；只要结构化排盘时改用 `/calculate`。
 
 问题到接口速查：
 
@@ -134,7 +134,7 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 - `POST /metaphysics/bazhai/calculate`、`POST /metaphysics/bazhai/prompt`：八宅排盘与提示词。
 - `POST /metaphysics/zodiac/calculate`、`POST /metaphysics/zodiac/prompt`：生肖犯太岁与流年提示词。
 - `POST /metaphysics/taiyi/calculate`、`POST /metaphysics/taiyi/prompt`：年家太乙七十二局排盘与提示词；当前不提供未完整复原的月、日、时家。
-- `POST /metaphysics/qizheng/calculate`、`POST /metaphysics/qizheng/prompt`：七政四余传统宿度坐标链校勘期间暂停，当前明确拒绝输出近似盘。
+- `POST /metaphysics/qizheng/calculate`、`POST /metaphysics/qizheng/prompt`：七政四余十一星、真实距星二十八宿界、命身十二宫、庙旺吊照、分层天文证据与提示词。
 - `POST /ai/analyze`：AI 解读，返回 SSE 流式响应。
 - `POST /ai/models`：获取当前 AI 配置可用的模型列表。
 
@@ -327,7 +327,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 
 紫微排盘结果以 `payloadByScope.origin.palaces` 为主结构；接口同时提供 `四化`、`fourMutagens`、`birthMutagens` 和 `gongList`，方便 agent 直接读取生年四化和十二宫星曜。
 
-紫微自定义格局表尚未逐条完成版本、卷页、原文与独立例盘校勘，当前 `patterns` 为空且 `pattern_analysis` 标记未生成。不要把空列表解释为命盘没有传统格局，也不要自行补造格局；十二宫、星曜、四化、三方四正和运限仍可正常使用。
+紫微 `patterns` 当前评估 18 条已按《紫微斗数全书》固定版本登记的规则，每项包含卷次、原文、命中条件和解释边界，`pattern_analysis` 汇总登记数、评估数与命中数。原 84 条未校勘规则继续停用；空列表只表示当前 18 条规则未命中，不表示命盘没有其他传统格局，也不要自行补造未登记格局。
 
 八字紫微合参 `/bazi-ziwei/prompt` 使用同一份出生信息，支持 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope`、`promptMode`、`baziSchool`、`ziweiSchool`、`responseMode`。默认返回 `data.resultSummary.bazi`、`data.resultSummary.ziwei` 和 `data.prompt`；需要完整双盘时传 `responseMode: "full"`。
 

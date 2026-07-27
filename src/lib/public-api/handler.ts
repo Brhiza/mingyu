@@ -754,16 +754,16 @@ export function getPublicApiOpenApiDocument(
       },
       '/metaphysics/qizheng/calculate': {
         post: {
-          summary: '七政四余排盘（传统宿度坐标链校勘期间暂停）',
+          summary: '七政四余排盘',
           requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
-          responses: { '400': { description: '传统坐标链尚未完成校勘，拒绝输出近似盘' } },
+          responses: { '200': { description: '十一星、真实距星宿界与结构化证据' } },
         },
       },
       '/metaphysics/qizheng/prompt': {
         post: {
-          summary: '七政四余提示词（传统宿度坐标链校勘期间暂停）',
+          summary: '七政四余排盘并生成提示词',
           requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
-          responses: { '400': { description: '传统坐标链尚未完成校勘，拒绝生成近似盘提示词' } },
+          responses: { '200': { description: '七政四余盘与结构化提示词' } },
         },
       },
       '/metaphysics/xuankong/calculate': {

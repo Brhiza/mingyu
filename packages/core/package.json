@@ -193,6 +193,7 @@
   },
   "dependencies": {
     "@soul-atelier/xuankong": "0.2.1",
+    "astronomy-engine": "2.1.19",
     "tyme4ts": "^1.3.3"
   },
   "peerDependencies": {

@@ -686,6 +686,18 @@ export interface LiurenClassicalRule {
   summary: string;
 }
 
+export interface LiurenGuaTiFact {
+  id: string;
+  stableKey: string;
+  name: string;
+  category: '三传支类' | '三合成局' | '发用临地' | '岁将贵人' | '四课关系' | '贵人临地';
+  branches: string[];
+  matchedConditions: string[];
+  sourceTitle: string;
+  sourceUrl: string;
+  sourceQuote: string;
+}
+
 export interface LiurenShenShaFact {
   name: string;
   target: string;
@@ -745,6 +757,8 @@ export interface LiurenData {
   transmissionSummary?: string;
   /** 课体名称列表 */
   guaTi?: string[];
+  /** 逐项登记、可复算且带固定古籍来源的课体事实 */
+  guaTiFacts?: LiurenGuaTiFact[];
   /** 神煞汇总 */
   shenShaSummary?: string[];
   /** 可逐项复算的神煞定位事实 */

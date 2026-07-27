@@ -66,7 +66,7 @@ const birthProfileInput: CapabilityInput = {
   type: 'object',
   required: true,
   description:
-    '推荐使用统一 BirthProfile；时辰级算法可提供明确传统时辰，真太阳时和星盘必须提供精准时分。七政四余完整传统盘当前暂停。',
+    '推荐使用统一 BirthProfile；时辰级算法可提供明确传统时辰，真太阳时、星盘和七政四余必须提供精准时分及所需地点资料。',
 };
 
 const questionInput: CapabilityInput = {
@@ -688,19 +688,30 @@ const systems: SystemCapability[] = [
     id: 'qizheng',
     name: '七政四余',
     category: 'chart',
-    available: false,
+    available: true,
     inputs: [birthProfileInput],
-    outputs: ['明确失败信息', '独立紫炁均速研究函数'],
+    outputs: [
+      '七政四余十一星',
+      '二十八宿真实距星边界',
+      '命身十二宫',
+      '宿度与庙旺',
+      '吊照相位',
+      '位置来源与精度分层',
+      '月相与出生时刻光照',
+      '结构化证据',
+      '真太阳时宫位校正证据',
+    ],
     supports: {
       seed: false,
       customRandomSource: false,
-      trueSolarTime: false,
-      birthTimeRequired: false,
+      trueSolarTime: true,
+      birthTimeRequired: true,
+      birthTimeModes: ['precise-clock-time'],
       batch: false,
     },
     notes: [
-      '完整传统盘暂时失败关闭：旧宿度链误把角宿起点固定为黄经0°，古距度表合计366.5度，且缺少经校勘的二十八宿距星边界。',
-      '独立紫炁均速模型仍可用于研究校勘；命身宫、十二宫、庙旺与吊照在传统坐标链完成前不对外输出。',
+      '七政、罗睺、计都与月孛采用现代天文位置；紫炁采用《七政算内篇》古法均速模型，结果明确区分精度层级。',
+      '二十八宿以SIMBAD距星J2000坐标、自行和目标日期黄道转换形成真实宿界；真太阳时只校正传统命身十二宫，不改变现代天体计算时刻。',
     ],
   },
   {
@@ -752,14 +763,17 @@ const systems: SystemCapability[] = [
         label: '卦型',
         type: 'select',
         required: false,
-        options: options([{ value: '下卦', label: '下卦' }]),
+        options: options([
+          { value: '下卦', label: '下卦' },
+          { value: '替卦', label: '替卦' },
+        ]),
       },
       questionInput,
     ],
     outputs: [
       '三元九运',
       '山向',
-      '下卦',
+      '下卦与替卦',
       '运盘',
       '山盘',
       '向盘',
@@ -776,8 +790,8 @@ const systems: SystemCapability[] = [
       batch: false,
     },
     notes: [
-      '玄空飞星只输出可复现的下卦三盘、局型、组合与证据，不覆盖形峦、玄空大卦或替卦。',
-      '度数触发兼向替卦条件时会拒绝生成伪盘；用户明确指定下卦后才继续。',
+      '玄空飞星输出可复现的下卦或兼向替卦三盘、局型、组合与证据，不覆盖形峦、玄空大卦或其他门派替卦口诀。',
+      '可明确指定下卦或替卦；未指定时，坐山度数落在每山中央9°外会自动采用兼向替卦。',
     ],
   },
   {
@@ -838,7 +852,10 @@ const systems: SystemCapability[] = [
         label: '玄空卦型',
         type: 'select',
         required: false,
-        options: options([{ value: '下卦', label: '下卦' }]),
+        options: options([
+          { value: '下卦', label: '下卦' },
+          { value: '替卦', label: '替卦' },
+        ]),
       },
       questionInput,
     ],
@@ -846,7 +863,7 @@ const systems: SystemCapability[] = [
       '宅运结构',
       '人宅适配',
       '八宅命卦宅卦',
-      '玄空运盘山盘向盘',
+      '玄空下卦或替卦运盘山盘向盘',
       '合参要点',
       '行动建议',
       '结构化证据',

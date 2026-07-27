@@ -83,13 +83,13 @@ test('紫微格局检测仍应拒绝不完整或索引损坏的十二宫资料',
   assert.throws(() => detectPatterns({ palaces: invalidSurroundedIndex }), /三方四正宫位索引无效/);
 });
 
-test('紫微首批格局登记表应固定为九条逐条校勘规则', () => {
-  assert.equal(VERIFIED_ZIWEI_PATTERN_RULE_COUNT, 9);
+test('紫微两批格局登记表应固定为十八条逐条校勘规则', () => {
+  assert.equal(VERIFIED_ZIWEI_PATTERN_RULE_COUNT, 18);
   assert.match(ZIWEI_PATTERN_AUDIT_NOTICE, /原有84条.*已全部退役/);
-  assert.match(ZIWEI_PATTERN_AUDIT_NOTICE, /重新登记9条.*固定版本、卷次、原文/);
+  assert.match(ZIWEI_PATTERN_AUDIT_NOTICE, /重新登记18条.*固定版本、卷次、原文/);
 });
 
-test('九条已校勘紫微格局应按各自盘面条件命中', () => {
+test('十八条已校勘紫微格局应按各自盘面条件命中', () => {
   const cases: Array<{ name: string; arrange: (palaces: PalaceFact[]) => void }> = [
     {
       name: '紫府同宫',
@@ -160,6 +160,69 @@ test('九条已校勘紫微格局应按各自盘面条件命中', () => {
         addStar(palaces, 0, '地空', 'other');
       },
     },
+    {
+      name: '月朗天门',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '亥';
+        addStar(palaces, 0, '太阴');
+      },
+    },
+    {
+      name: '月生沧海',
+      arrange(palaces) {
+        palaces[9].earthly_branch = '子';
+        addStar(palaces, 9, '太阴');
+      },
+    },
+    {
+      name: '金灿光辉',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '午';
+        addStar(palaces, 0, '太阳');
+      },
+    },
+    {
+      name: '日出扶桑',
+      arrange(palaces) {
+        palaces[8].earthly_branch = '卯';
+        addStar(palaces, 8, '太阳');
+      },
+    },
+    {
+      name: '皇殿朝班',
+      arrange(palaces) {
+        addStar(palaces, 8, '太阳');
+        addStar(palaces, 8, '文昌', 'minor');
+      },
+    },
+    {
+      name: '禄马交驰',
+      arrange(palaces) {
+        addStar(palaces, 4, '禄存', 'minor');
+        addStar(palaces, 4, '天马', 'other');
+      },
+    },
+    {
+      name: '财禄夹马',
+      arrange(palaces) {
+        addStar(palaces, 0, '天马', 'other');
+        addStar(palaces, 11, '武曲');
+        addStar(palaces, 1, '禄存', 'minor');
+      },
+    },
+    {
+      name: '日月照璧',
+      arrange(palaces) {
+        addStar(palaces, 9, '太阳');
+        addStar(palaces, 9, '太阴');
+      },
+    },
+    {
+      name: '石中隐玉',
+      arrange(palaces) {
+        addStar(palaces, 0, '巨门');
+      },
+    },
   ];
 
   cases.forEach(({ name, arrange }) => {
@@ -174,6 +237,96 @@ test('九条已校勘紫微格局应按各自盘面条件命中', () => {
     assert.match(pattern.source ?? '', /oldid=\d+/);
     assert.match(pattern.limitation ?? '', /不得.*现实因果|不得被反向/);
   });
+});
+
+test('紫微第二批九条格局不得省略宫位、地支、单守、同宫或夹宫条件', () => {
+  const nearMisses: Array<{ name: string; arrange: (palaces: PalaceFact[]) => void }> = [
+    {
+      name: '月朗天门',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '戌';
+        addStar(palaces, 0, '太阴');
+      },
+    },
+    {
+      name: '月生沧海',
+      arrange(palaces) {
+        palaces[9].earthly_branch = '丑';
+        addStar(palaces, 9, '太阴');
+      },
+    },
+    {
+      name: '金灿光辉',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '午';
+        addStar(palaces, 0, '太阳');
+        addStar(palaces, 0, '武曲');
+      },
+    },
+    {
+      name: '日出扶桑',
+      arrange(palaces) {
+        palaces[4].earthly_branch = '卯';
+        addStar(palaces, 4, '太阳');
+      },
+    },
+    {
+      name: '皇殿朝班',
+      arrange(palaces) {
+        addStar(palaces, 8, '太阳');
+        addStar(palaces, 0, '文昌', 'minor');
+      },
+    },
+    {
+      name: '禄马交驰',
+      arrange(palaces) {
+        addStar(palaces, 0, '天马', 'other');
+        addStar(palaces, 1, '禄存', 'minor');
+      },
+    },
+    {
+      name: '财禄夹马',
+      arrange(palaces) {
+        addStar(palaces, 0, '天马', 'other');
+        addStar(palaces, 1, '武曲');
+        addStar(palaces, 1, '禄存', 'minor');
+      },
+    },
+    {
+      name: '日月照璧',
+      arrange(palaces) {
+        addStar(palaces, 9, '太阳');
+        addStar(palaces, 0, '太阴');
+      },
+    },
+    {
+      name: '石中隐玉',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '丑';
+        addStar(palaces, 0, '巨门');
+      },
+    },
+  ];
+
+  nearMisses.forEach(({ name, arrange }) => {
+    const palaces = createPalaces();
+    arrange(palaces);
+    assert.ok(!detectedNames(palaces).includes(name), `${name}不应因近似条件误命中`);
+  });
+});
+
+test('禄马交驰应同时登记命宫与身宫的实际命中', () => {
+  const palaces = createPalaces();
+  addStar(palaces, 0, '禄存', 'minor');
+  addStar(palaces, 0, '天马', 'other');
+  palaces[4].is_body_palace = true;
+  addStar(palaces, 4, '禄存', 'minor');
+  addStar(palaces, 4, '天马', 'other');
+
+  const pattern = detectPatterns({ palaces }).find((item) => item.name === '禄马交驰');
+  assert.ok(pattern);
+  assert.deepEqual(pattern.palace_names, ['命宫', '财帛']);
+  assert.deepEqual(pattern.matched_conditions, ['禄存与天马同坐命宫', '禄存与天马同坐身宫']);
 });
 
 test('紫微格局只读取原局星曜和生年四化，不得混入运限星曜', () => {
@@ -234,11 +387,11 @@ test('紫微格局证据应汇总登记、命中、未命中与覆盖边界', ()
 
   assert.equal(analysis.status, '已计算');
   assert.equal(analysis.summaryFact.status, '已完成');
-  assert.equal(analysis.summaryFact.registeredRuleCount, 9);
-  assert.equal(analysis.summaryFact.evaluatedRuleCount, 9);
+  assert.equal(analysis.summaryFact.registeredRuleCount, 18);
+  assert.equal(analysis.summaryFact.evaluatedRuleCount, 18);
   assert.equal(analysis.summaryFact.matchedPatternCount, 1);
-  assert.equal(analysis.summaryFact.unmatchedRuleCount, 8);
-  assert.match(analysis.promptText, /固定古籍版本逐条评估9条登记规则/);
+  assert.equal(analysis.summaryFact.unmatchedRuleCount, 17);
+  assert.match(analysis.promptText, /固定古籍版本逐条评估18条登记规则/);
   assert.match(analysis.promptText, /未登记格局不作判断|不代表命盘没有其他传统格局/);
 
   const knownFactKeys = new Set([analysis.summaryFact.key, ...analysis.summaryFact.factKeys]);
@@ -320,7 +473,7 @@ test('格局证据汇总应拒绝伪造登记前缀并按稳定键去重', () =>
   });
 
   assert.equal(analysis.summaryFact.matchedPatternCount, 1);
-  assert.equal(analysis.summaryFact.unmatchedRuleCount, 8);
+  assert.equal(analysis.summaryFact.unmatchedRuleCount, 17);
   assert.ok(!analysis.summaryFact.factKeys.includes('manual-shadow-key'));
   assert.ok(!analysis.summaryFact.factKeys.includes('ziwei:verified-pattern:not-registered'));
   assert.doesNotMatch(analysis.promptText, /伪造格局/);

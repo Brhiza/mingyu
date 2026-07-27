@@ -5,8 +5,10 @@ import type { LiurenLesson, LiurenPlateItem } from 'mingyu-core/types';
 import { analyzeLiurenEvidence, generateLiuren } from 'mingyu-core/divination/liuren';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 import {
+  getLiurenGuaTiFacts,
   getLiurenTransmissionGuaTi,
   getTransmissionPattern,
+  REGISTERED_LIUREN_GUA_TI_COUNT,
 } from '../packages/core/src/divination/algorithms/liuren/helpers/transmission.ts';
 import { LIUCHONG_MAP } from '../packages/core/src/divination/algorithms/_shared/wuxing.ts';
 import {
@@ -274,6 +276,127 @@ test('大六壬三传成局应按六壬指南输出课体标签', () => {
   }
 
   assert.deepEqual(getLiurenTransmissionGuaTi(['子', '子', '卯']), []);
+});
+
+test('大六壬课体登记表应固定十三条来源、稳定键和结构条件', () => {
+  assert.equal(REGISTERED_LIUREN_GUA_TI_COUNT, 13);
+  const facts = getLiurenGuaTiFacts({ transmissionBranches: ['亥', '卯', '未'] });
+  const fact = facts.find((item) => item.name === '曲直卦');
+
+  assert.ok(fact);
+  assert.equal(fact.stableKey, 'liuren:verified-guati:qu-zhi');
+  assert.deepEqual(fact.branches, ['亥', '卯', '未']);
+  assert.deepEqual(fact.matchedConditions, ['三传亥卯未全']);
+  assert.match(fact.sourceTitle, /《六壬指南》卷一/);
+  assert.match(fact.sourceUrl, /oldid=854504/);
+  assert.equal(fact.sourceQuote, '三传亥卯未曰曲直卦。');
+});
+
+test('大六壬新增六类课体应按完整起课条件命中', () => {
+  const cases = [
+    {
+      name: '龙德课',
+      sourceOldId: '854575',
+      context: {
+        transmissionBranches: ['子', '寅', '辰'],
+        yearBranch: '子',
+        monthLeader: '子',
+        noblemanBranch: '子',
+      },
+    },
+    {
+      name: '斫轮卦',
+      sourceOldId: '854504',
+      context: { transmissionBranches: ['卯', '辰', '巳'], initialGroundBranch: '申' },
+    },
+    {
+      name: '铸印卦',
+      sourceOldId: '854504',
+      context: { transmissionBranches: ['戌', '亥', '子'], initialGroundBranch: '巳' },
+    },
+    {
+      name: '高盖乘轩卦',
+      sourceOldId: '854504',
+      context: { transmissionBranches: ['午', '卯', '子'] },
+    },
+    {
+      name: '无禄卦',
+      sourceOldId: '854504',
+      context: {
+        transmissionBranches: ['子', '寅', '辰'],
+        fourLessons: [
+          { upper: '寅', lower: '丑' },
+          { upper: '卯', lower: '辰' },
+          { upper: '寅', lower: '未' },
+          { upper: '卯', lower: '戌' },
+        ],
+      },
+    },
+    {
+      name: '励德卦',
+      sourceOldId: '854504',
+      context: { transmissionBranches: ['子', '寅', '辰'], noblemanGroundBranch: '卯' },
+    },
+  ] as const;
+
+  for (const item of cases) {
+    const fact = getLiurenGuaTiFacts(item.context).find(
+      (candidate) => candidate.name === item.name,
+    );
+    assert.ok(fact, `${item.name}应按登记条件命中`);
+    assert.ok(fact.matchedConditions.length > 0);
+    assert.match(fact.stableKey, /^liuren:verified-guati:/);
+    assert.match(fact.sourceUrl, new RegExp(`oldid=${item.sourceOldId}`));
+  }
+});
+
+test('大六壬新增六类课体不得由相似三传或缺失起课条件误判', () => {
+  const nearMisses = [
+    {
+      name: '龙德课',
+      context: {
+        transmissionBranches: ['子', '寅', '辰'],
+        yearBranch: '子',
+        monthLeader: '丑',
+        noblemanBranch: '子',
+      },
+    },
+    {
+      name: '斫轮卦',
+      context: { transmissionBranches: ['卯', '辰', '巳'], initialGroundBranch: '酉' },
+    },
+    {
+      name: '铸印卦',
+      context: { transmissionBranches: ['戌', '亥', '子'], initialGroundBranch: '辰' },
+    },
+    {
+      name: '高盖乘轩卦',
+      context: { transmissionBranches: ['子', '卯', '午'] },
+    },
+    {
+      name: '无禄卦',
+      context: {
+        transmissionBranches: ['子', '寅', '辰'],
+        fourLessons: [
+          { upper: '寅', lower: '丑' },
+          { upper: '子', lower: '亥' },
+          { upper: '寅', lower: '未' },
+          { upper: '卯', lower: '戌' },
+        ],
+      },
+    },
+    {
+      name: '励德卦',
+      context: { transmissionBranches: ['子', '寅', '辰'], noblemanGroundBranch: '申' },
+    },
+  ] as const;
+
+  for (const item of nearMisses) {
+    assert.ok(
+      !getLiurenGuaTiFacts(item.context).some((candidate) => candidate.name === item.name),
+      `${item.name}不应因近似条件误命中`,
+    );
+  }
 });
 
 test('大六壬伏吟返吟只按天地盘取传规则识别，不以三传首尾关系替代', () => {

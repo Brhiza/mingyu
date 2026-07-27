@@ -25,6 +25,7 @@ import { ASTROLABE_SHORTCUT_ACTIONS } from '@/lib/astrolabe-prompts';
 import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
 import { buildDivinationPrompt } from '@/lib/divination/engine';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
+import { generateQizheng, type QizhengResult } from '@core/qi_zheng';
 import type { ResidentialFengshuiResult } from '@core/residential_fengshui';
 import type { AstrolabeData } from '@/types/divination';
 import type {
@@ -56,6 +57,7 @@ import {
   ZiweiBoardSkeleton,
 } from './components/skeletons';
 import { AstrolabeBoard } from './components/AstrolabeBoard';
+import { QizhengBoard } from './components/QizhengBoard';
 import { usePromptCopyShare } from '@/hooks/usePromptCopyShare';
 import { BaziChartBoard } from './components/BaziChartBoard';
 import { ZiweiBoard } from './components/ZiweiBoard';
@@ -79,6 +81,7 @@ import {
   type ResidentialMeasurement,
 } from '@/lib/residential-fengshui-chart';
 import { PromptContextFields } from '@/components/PromptContextFields';
+import { BIRTH_TIME_OPTIONS } from '@/lib/birth-time';
 import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 import { buildRecentBaziFortuneSelection } from '@/components/BaziFortuneTools/helpers';
 import type { BaziFortuneSelectionValue } from '@core/bazi/fortuneSelection';
@@ -185,6 +188,7 @@ export function ResultPage() {
     hasResidentialBirthData || Boolean(promptState.bazhaiFacingDegree.trim());
   const hasAstrolabeChart = hasPreciseBirthData;
   const isAstrolabePromptSource = promptState.promptSource === 'astrolabe';
+  const isQizhengPromptSource = promptState.promptSource === 'qizheng';
   const isBazhaiPromptSource = promptState.promptSource === 'bazhai';
 
   const baziDraftStorageKey = useMemo(
@@ -231,6 +235,30 @@ export function ResultPage() {
     prompt: promptState.tab === 'prompt',
   }));
   const { baziResult, partnerBaziResult, baziError } = useBaziCalculations(inputState);
+  const sharedBirthData = useMemo(() => {
+    if (!hasPreciseBirthData || !baziResult) return null;
+    const selectedHour =
+      inputState.birthHour !== ''
+        ? Number(inputState.birthHour)
+        : inputState.timeIndex !== ''
+          ? BIRTH_TIME_OPTIONS[Number(inputState.timeIndex)]?.hour
+          : undefined;
+    return {
+      ...(inputState.dateType === 'solar'
+        ? {
+            year: Number(inputState.year),
+            month: Number(inputState.month),
+            day: Number(inputState.day),
+          }
+        : baziResult.solarDate),
+      hour: selectedHour ?? 12,
+      minute: inputState.birthMinute === '' ? 0 : Number(inputState.birthMinute),
+      latitude: inputState.birthLatitude ? Number(inputState.birthLatitude) : undefined,
+      longitude: inputState.birthLongitude ? Number(inputState.birthLongitude) : undefined,
+      timezone: 8,
+      useTrueSolarTime: inputState.useTrueSolarTime,
+    };
+  }, [baziResult, hasPreciseBirthData, inputState]);
   const residentialBirthData = useMemo(() => {
     if (!hasResidentialBirthData) return null;
     if (inputState.dateType === 'solar') {
@@ -321,12 +349,11 @@ export function ResultPage() {
 
   useEffect(() => {
     const hasUnavailablePromptSource =
-      promptState.promptSource === 'qizheng' ||
-      (promptState.promptSource === 'astrolabe' && !hasAstrolabeChart) ||
+      ((promptState.promptSource === 'astrolabe' || promptState.promptSource === 'qizheng') &&
+        !hasAstrolabeChart) ||
       (promptState.promptSource === 'bazhai' && !canUseResidentialFengshui);
     const hasUnavailableTab =
-      promptState.tab === 'qizheng' ||
-      (promptState.tab === 'astrolabe' && !hasAstrolabeChart) ||
+      ((promptState.tab === 'astrolabe' || promptState.tab === 'qizheng') && !hasAstrolabeChart) ||
       (promptState.tab === 'bazhai' && !canUseResidentialFengshui);
 
     if (hasUnavailablePromptSource || hasUnavailableTab) {
@@ -640,6 +667,23 @@ export function ResultPage() {
     inputState.year,
     shouldCalculateAstrolabe,
   ]);
+  const shouldCalculateQizheng =
+    hasAstrolabeChart &&
+    (mountedTabs.qizheng || (promptState.tab === 'prompt' && isQizhengPromptSource));
+  const qizhengCalculation = useMemo<{ data: QizhengResult | null; error: string }>(() => {
+    if (!shouldCalculateQizheng || !sharedBirthData) return { data: null, error: '' };
+    try {
+      return {
+        data: generateQizheng(sharedBirthData),
+        error: '',
+      };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : '七政四余排盘生成失败。',
+      };
+    }
+  }, [sharedBirthData, shouldCalculateQizheng]);
   const astrolabeScopeContext = useMemo(
     () =>
       buildAstrolabeScopeContext(
@@ -1009,6 +1053,23 @@ export function ResultPage() {
     promptState.promptSource,
     promptState.tab,
   ]);
+  const qizhengPromptText = useMemo(() => {
+    if (
+      promptState.tab !== 'prompt' ||
+      promptState.promptSource !== 'qizheng' ||
+      !qizhengCalculation.data
+    ) {
+      return '';
+    }
+    return buildMetaphysicsPrompt(qizhengCalculation.data.prompt, metaphysicsQuestionDraft, {
+      method: 'qizheng',
+    });
+  }, [
+    metaphysicsQuestionDraft,
+    promptState.promptSource,
+    promptState.tab,
+    qizhengCalculation.data,
+  ]);
   const bazhaiPromptText = useMemo(() => {
     if (
       !canUseResidentialFengshui ||
@@ -1093,15 +1154,17 @@ export function ResultPage() {
   );
 
   const basePreviewActivePromptText =
-    promptState.promptSource === 'bazhai'
-      ? bazhaiPromptText
-      : promptState.promptSource === 'astrolabe'
-        ? previewAstrolabePromptText
-        : promptState.promptSource === 'bazi-ziwei'
-          ? previewEnhancedPromptText
-          : promptState.promptSource === 'bazi'
-            ? previewBaziPromptText
-            : previewZiweiPromptText;
+    promptState.promptSource === 'qizheng'
+      ? qizhengPromptText
+      : promptState.promptSource === 'bazhai'
+        ? bazhaiPromptText
+        : promptState.promptSource === 'astrolabe'
+          ? previewAstrolabePromptText
+          : promptState.promptSource === 'bazi-ziwei'
+            ? previewEnhancedPromptText
+            : promptState.promptSource === 'bazi'
+              ? previewBaziPromptText
+              : previewZiweiPromptText;
   const previewActivePromptText = appendTraditionalResearchNotice(
     insertPromptRealWorldContext(basePreviewActivePromptText, promptContext),
   );
@@ -1114,15 +1177,17 @@ export function ResultPage() {
 
   const [inspirationText, setInspirationText] = useState('');
   const baseLatestActivePromptText =
-    promptState.promptSource === 'bazhai'
-      ? bazhaiPromptText
-      : promptState.promptSource === 'astrolabe'
-        ? latestAstrolabePromptText
-        : promptState.promptSource === 'bazi-ziwei'
-          ? latestEnhancedPromptText
-          : promptState.promptSource === 'bazi'
-            ? latestBaziPromptText
-            : latestZiweiPromptText;
+    promptState.promptSource === 'qizheng'
+      ? qizhengPromptText
+      : promptState.promptSource === 'bazhai'
+        ? bazhaiPromptText
+        : promptState.promptSource === 'astrolabe'
+          ? latestAstrolabePromptText
+          : promptState.promptSource === 'bazi-ziwei'
+            ? latestEnhancedPromptText
+            : promptState.promptSource === 'bazi'
+              ? latestBaziPromptText
+              : latestZiweiPromptText;
   const latestActivePromptText = appendTraditionalResearchNotice(
     insertPromptRealWorldContext(baseLatestActivePromptText, promptContext),
   );
@@ -1169,19 +1234,24 @@ export function ResultPage() {
       : promptState.promptSource === 'ziwei'
         ? activeZiweiShortcutMode
         : activeAstrolabeShortcutMode;
-  const metaphysicsPromptQuestionField = isBazhaiPromptSource ? (
-    <label className="field-card metaphysics-prompt-question-field">
-      <div className="field-header">
-        <span>希望重点解读的问题（可选）</span>
-      </div>
-      <textarea
-        rows={4}
-        value={metaphysicsQuestionDraft}
-        onChange={(event) => setMetaphysicsQuestionDraft(event.target.value)}
-        placeholder="例如：卧室、书房和大门分别怎样安排更合适？"
-      />
-    </label>
-  ) : null;
+  const metaphysicsPromptQuestionField =
+    isQizhengPromptSource || isBazhaiPromptSource ? (
+      <label className="field-card metaphysics-prompt-question-field">
+        <div className="field-header">
+          <span>希望重点解读的问题（可选）</span>
+        </div>
+        <textarea
+          rows={4}
+          value={metaphysicsQuestionDraft}
+          onChange={(event) => setMetaphysicsQuestionDraft(event.target.value)}
+          placeholder={
+            isBazhaiPromptSource
+              ? '例如：卧室、书房和大门分别怎样安排更合适？'
+              : '例如：请重点分析事业方向、关系模式和近期应注意的风险。'
+          }
+        />
+      </label>
+    ) : null;
 
   return (
     <div className={`page-shell${isDesktopAiWorkspace ? ' page-shell-ai-workspace' : ''}`}>
@@ -1217,6 +1287,15 @@ export function ResultPage() {
             onClick={() => switchTab('astrolabe')}
           >
             星盘
+          </button>
+        ) : null}
+        {hasAstrolabeChart ? (
+          <button
+            type="button"
+            className={`tab-chip ${promptState.tab === 'qizheng' ? 'is-active' : ''}`}
+            onClick={() => switchTab('qizheng')}
+          >
+            七政四余
           </button>
         ) : null}
         {inputState.analysisMode === 'single' ? (
@@ -1272,6 +1351,25 @@ export function ResultPage() {
                 ) : null}
               </section>
             </div>
+          ) : null}
+        </div>
+
+        <div
+          className={`result-tab-pane ${promptState.tab === 'qizheng' ? 'is-active' : 'is-inactive'}`}
+          aria-hidden={promptState.tab !== 'qizheng'}
+        >
+          {hasAstrolabeChart && mountedTabs.qizheng ? (
+            qizhengCalculation.error ? (
+              <p className="error-text">{qizhengCalculation.error}</p>
+            ) : qizhengCalculation.data ? (
+              <QizhengBoard
+                title="七政四余本命盘"
+                name={inputState.name || '本人'}
+                data={qizhengCalculation.data}
+              />
+            ) : (
+              <InlineSkeleton />
+            )
           ) : null}
         </div>
 
@@ -1439,6 +1537,7 @@ export function ResultPage() {
                             <option value="bazi-ziwei">八字+紫微</option>
                           ) : null}
                           {hasAstrolabeChart ? <option value="astrolabe">星盘</option> : null}
+                          {hasAstrolabeChart ? <option value="qizheng">七政四余</option> : null}
                           {canUseResidentialFengshui && residentialResult ? (
                             <option value="bazhai">住宅风水</option>
                           ) : null}
@@ -1522,6 +1621,9 @@ export function ResultPage() {
                               <option value="bazi-ziwei">基于八字+紫微</option>
                             ) : null}
                             {hasAstrolabeChart ? <option value="astrolabe">基于星盘</option> : null}
+                            {hasAstrolabeChart ? (
+                              <option value="qizheng">基于七政四余</option>
+                            ) : null}
                             {canUseResidentialFengshui && residentialResult ? (
                               <option value="bazhai">基于住宅风水</option>
                             ) : null}
@@ -1677,6 +1779,9 @@ export function ResultPage() {
                               <option value="bazi-ziwei">基于八字+紫微</option>
                             ) : null}
                             {hasAstrolabeChart ? <option value="astrolabe">基于星盘</option> : null}
+                            {hasAstrolabeChart ? (
+                              <option value="qizheng">基于七政四余</option>
+                            ) : null}
                             {canUseResidentialFengshui && residentialResult ? (
                               <option value="bazhai">基于住宅风水</option>
                             ) : null}

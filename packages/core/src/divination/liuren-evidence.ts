@@ -350,15 +350,28 @@ function buildTraditionalFacts(
     sources: [item.source],
     limitation: TRADITIONAL_FACT_LIMITATION,
   }));
-  const patternFacts = patternEvidence.map((name, index): LiurenTraditionalFact => ({
-    key: `pattern:${index}:${name}`,
+  const registeredNames = new Set((data.guaTiFacts ?? []).map((fact) => fact.name));
+  const registeredPatternFacts = (data.guaTiFacts ?? []).map((fact): LiurenTraditionalFact => ({
+    key: fact.stableKey,
     kind: '课体',
-    name,
-    originalText: name,
-    promptText: `盘面命中“${name}”结构标签；该标签须与四课取传、三传、旺衰和空亡互证`,
-    sources: ['发用、三传结构、空亡与课体规则逐项命中'],
+    name: fact.name,
+    originalText: fact.sourceQuote,
+    promptText: `盘面命中“${fact.name}”：${fact.matchedConditions.join('；')}；只登记课体结构，不据此单断现实吉凶`,
+    sources: [`${fact.sourceTitle}：“${fact.sourceQuote}”`, fact.sourceUrl],
+    branches: [...fact.branches],
     limitation: TRADITIONAL_FACT_LIMITATION,
   }));
+  const patternFacts = patternEvidence
+    .filter((name) => !registeredNames.has(name))
+    .map((name, index): LiurenTraditionalFact => ({
+      key: `pattern:${index}:${name}`,
+      kind: '课体',
+      name,
+      originalText: name,
+      promptText: `盘面命中“${name}”结构标签；该标签须与四课取传、三传、旺衰和空亡互证`,
+      sources: ['发用、三传结构、空亡与课体规则逐项命中'],
+      limitation: TRADITIONAL_FACT_LIMITATION,
+    }));
   const tianJiangFacts = Array.from(
     data.threeTransmissions
       .reduce((facts, transmission) => {
@@ -405,7 +418,13 @@ function buildTraditionalFacts(
         limitation: TRADITIONAL_FACT_LIMITATION,
       }));
 
-  return [...classicalFacts, ...patternFacts, ...tianJiangFacts, ...shenShaFacts];
+  return [
+    ...classicalFacts,
+    ...registeredPatternFacts,
+    ...patternFacts,
+    ...tianJiangFacts,
+    ...shenShaFacts,
+  ];
 }
 
 function lessonConstraints(lesson: LiurenLesson, xunKong: string[]) {

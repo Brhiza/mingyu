@@ -442,7 +442,7 @@ export function InputPage() {
                     openBirthPlaceModal={birthPlace.openBirthPlaceModal}
                     historyHint={
                       form.analysisMode === 'single'
-                        ? '填写一份个人信息，自动生成八字、紫微和住宅风水入口；填写精准时间与出生地后，同时生成星盘。'
+                        ? '填写一份个人信息，自动生成八字、紫微和住宅风水入口；填写精准时间与出生地后，同时生成星盘和七政四余。'
                         : undefined
                     }
                   />

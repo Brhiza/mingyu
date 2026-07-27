@@ -93,6 +93,15 @@ function findStarPalace(palaces: PalaceFact[], starName: string): PalaceFact | u
   return palaces.find((palace) => hasStar(palace, starName));
 }
 
+function getPalaceByName(context: PatternContext, name: string): PalaceFact | undefined {
+  const normalizedName = normalizePalaceName(name);
+  return context.palaces.find((palace) => normalizePalaceName(palace.name) === normalizedName);
+}
+
+function hasSingleMajorStar(palace: PalaceFact, name: string): boolean {
+  return palace.major_stars.length === 1 && palace.major_stars[0]?.name === name;
+}
+
 const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
   {
     id: 'ziwei-tianfu-tonggong',
@@ -343,6 +352,210 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
             palaces: [soulPalace],
             stars: ['禄存', `${huaLu.name}化禄`, ...voidStars],
             conditions: ['禄存与生年化禄同坐命宫', `命宫见${voidStars.join('、')}`],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'yue-lang-tian-men',
+    name: '月朗天门',
+    kind: 'auspicious',
+    description: '太阴在亥宫守命。',
+    traditionalInterpretation: '古籍以月在亥宫守命称为月朗天门。',
+    sourceTitle: '《紫微斗数全书》卷一·定富贵局',
+    sourceUrl: VOLUME_ONE_URL,
+    sourceQuote: '月落亥宫，月在亥守命是也，又名月朗天门。',
+    calculation: '检查本命命宫是否位于亥宫，并由太阴守命。',
+    detect({ soulPalace }) {
+      return soulPalace.earthly_branch === '亥' && hasStar(soulPalace, '太阴')
+        ? {
+            palaces: [soulPalace],
+            stars: ['太阴'],
+            conditions: ['太阴在亥宫守命'],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'yue-sheng-cang-hai',
+    name: '月生沧海',
+    kind: 'auspicious',
+    description: '太阴在子宫守田宅宫。',
+    traditionalInterpretation: '古籍以月在子宫守田宅称为月生沧海。',
+    sourceTitle: '《紫微斗数全书》卷一·定富贵局',
+    sourceUrl: VOLUME_ONE_URL,
+    sourceQuote: '月生沧海，月在子宫守田宅是也。',
+    calculation: '检查本命田宅宫是否位于子宫，并由太阴守宫。',
+    detect(context) {
+      const target = getPalaceByName(context, '田宅');
+      return target?.earthly_branch === '子' && hasStar(target, '太阴')
+        ? {
+            palaces: [target],
+            stars: ['太阴'],
+            conditions: ['太阴在子宫守田宅宫'],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'jin-can-guang-hui',
+    name: '金灿光辉',
+    kind: 'auspicious',
+    description: '太阳单守午宫命宫。',
+    traditionalInterpretation: '古籍以太阳单守午宫命宫称为金灿光辉。',
+    sourceTitle: '《紫微斗数全书》卷一·定富贵局',
+    sourceUrl: VOLUME_ONE_URL,
+    sourceQuote: '金灿光辉，太阳单守，命在午宫是也。',
+    calculation: '检查本命命宫是否位于午宫，并且仅有太阳一颗主星守命。',
+    detect({ soulPalace }) {
+      return soulPalace.earthly_branch === '午' && hasSingleMajorStar(soulPalace, '太阳')
+        ? {
+            palaces: [soulPalace],
+            stars: ['太阳'],
+            conditions: ['太阳单守午宫命宫'],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'ri-chu-fu-sang',
+    name: '日出扶桑',
+    kind: 'auspicious',
+    description: '太阳在卯宫守命宫或官禄宫。',
+    traditionalInterpretation: '古籍以日在卯宫守命或守官禄称为日出扶桑。',
+    sourceTitle: '《紫微斗数全书》卷一·定富贵局',
+    sourceUrl: VOLUME_ONE_URL,
+    sourceQuote: '日出扶桑，日在卯守命是也，守官禄宫亦然。',
+    calculation: '分别检查本命命宫与官禄宫，登记太阳在卯宫守宫的实际命中宫位。',
+    detect(context) {
+      const targets = [context.soulPalace, getPalaceByName(context, '官禄')].filter(
+        (palace): palace is PalaceFact =>
+          !!palace && palace.earthly_branch === '卯' && hasStar(palace, '太阳'),
+      );
+      return targets.length
+        ? {
+            palaces: targets,
+            stars: ['太阳'],
+            conditions: targets.map((palace) => `太阳在卯宫守${palace.name}`),
+          }
+        : null;
+    },
+  },
+  {
+    id: 'huang-dian-chao-ban',
+    name: '皇殿朝班',
+    kind: 'auspicious',
+    description: '太阳与文昌同守官禄宫。',
+    traditionalInterpretation: '古籍以太阳会文昌于官禄称为皇殿朝班。',
+    sourceTitle: '《紫微斗数全书》卷一·定富贵局',
+    sourceUrl: VOLUME_ONE_URL,
+    sourceQuote: '太陽會文昌於官祿，皇殿朝班，富貴全美。',
+    calculation: '检查本命官禄宫是否同时包含太阳与文昌。',
+    detect(context) {
+      const target = getPalaceByName(context, '官禄');
+      return target && hasAllStars(target, ['太阳', '文昌'])
+        ? {
+            palaces: [target],
+            stars: ['太阳', '文昌'],
+            conditions: ['太阳与文昌同守官禄宫'],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'lu-ma-jiao-chi',
+    name: '禄马交驰',
+    kind: 'auspicious',
+    description: '禄存与天马同坐命宫或身宫。',
+    traditionalInterpretation: '古籍在身命驿马论中，把天马与禄存同宫称为禄马交驰。',
+    sourceTitle: '《紫微斗数全书》卷一·问天马星所主若何',
+    sourceUrl: VOLUME_ONE_URL,
+    sourceQuote: '如身命临之谓之驿马……如与禄存同宫，谓之禄马交驰。',
+    calculation: '在本命命宫及身宫检查禄存与天马是否同宫。',
+    detect(context) {
+      const targets = context.palaces.filter(
+        (palace) =>
+          (palace.index === context.soulPalace.index || palace.is_body_palace) &&
+          hasAllStars(palace, ['禄存', '天马']),
+      );
+      return targets.length
+        ? {
+            palaces: targets,
+            stars: ['禄存', '天马'],
+            conditions: targets.map(
+              (palace) =>
+                `禄存与天马同坐${palace.index === context.soulPalace.index ? '命宫' : '身宫'}`,
+            ),
+          }
+        : null;
+    },
+  },
+  {
+    id: 'cai-lu-jia-ma',
+    name: '财禄夹马',
+    kind: 'auspicious',
+    description: '天马守命，武曲与禄存分居命宫相邻两宫。',
+    traditionalInterpretation: '古籍把马守命而武曲、禄存来夹称为财禄夹马。',
+    sourceTitle: '《紫微斗数全书》卷一·定富贵局',
+    sourceUrl: VOLUME_ONE_URL,
+    sourceQuote: '财禄夹马，马守命武禄来夹是也，逢生旺尤妙。',
+    calculation: '先检查天马守命，再检查命宫相邻两宫是否分别出现武曲与禄存。',
+    detect(context) {
+      if (!hasStar(context.soulPalace, '天马')) return null;
+      const neighbors = getNeighborPalaces(context, context.soulPalace);
+      if (neighbors.length !== 2) return null;
+      const matched =
+        (hasStar(neighbors[0], '武曲') && hasStar(neighbors[1], '禄存')) ||
+        (hasStar(neighbors[0], '禄存') && hasStar(neighbors[1], '武曲'));
+      return matched
+        ? {
+            palaces: [context.soulPalace, ...neighbors],
+            stars: ['天马', '武曲', '禄存'],
+            conditions: ['天马守命', '武曲与禄存分居命宫相邻两宫'],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'ri-yue-zhao-bi',
+    name: '日月照璧',
+    kind: 'auspicious',
+    description: '太阳与太阴同守田宅宫。',
+    traditionalInterpretation: '古籍以日月同临田宅宫称为日月照璧，并另说明居墓库更佳。',
+    sourceTitle: '《紫微斗数全书》卷一·定富贵局',
+    sourceUrl: VOLUME_ONE_URL,
+    sourceQuote: '日月照璧，日月临田宅宫是也，喜居墓库。',
+    calculation: '检查本命田宅宫是否同时包含太阳与太阴；墓库只作古籍附加条件，不扩大基本命中。',
+    detect(context) {
+      const target = getPalaceByName(context, '田宅');
+      return target && hasAllStars(target, ['太阳', '太阴'])
+        ? {
+            palaces: [target],
+            stars: ['太阳', '太阴'],
+            conditions: [
+              '太阳与太阴同守田宅宫',
+              `田宅宫在${target.earthly_branch}${['辰', '戌', '丑', '未'].includes(target.earthly_branch) ? '，属于古籍所喜墓库' : '，不附加墓库条件'}`,
+            ],
+          }
+        : null;
+    },
+  },
+  {
+    id: 'shi-zhong-yin-yu',
+    name: '石中隐玉',
+    kind: 'auspicious',
+    description: '巨门在子宫或午宫守命。',
+    traditionalInterpretation: '古籍以命在子午而逢巨门称为石中隐玉，三方科禄属于加强条件。',
+    sourceTitle: '《紫微斗数全书》卷一·论石中隐玉格',
+    sourceUrl: VOLUME_ONE_URL,
+    sourceQuote: '论石中隐玉格，命在子午逢巨门是也。',
+    calculation: '检查本命命宫是否位于子宫或午宫，并由巨门守命。',
+    detect({ soulPalace }) {
+      return ['子', '午'].includes(soulPalace.earthly_branch) && hasStar(soulPalace, '巨门')
+        ? {
+            palaces: [soulPalace],
+            stars: ['巨门'],
+            conditions: [`巨门在${soulPalace.earthly_branch}宫守命`],
           }
         : null;
     },

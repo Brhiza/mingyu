@@ -834,11 +834,17 @@ test('qizheng: 独立紫炁均速模型保留可复算历元', () => {
   assert.equal(core.qizheng.ZIQI_MODEL_INFO.periodDays, 10227.1792);
 });
 
-test('qizheng: 完整传统盘在宿度坐标链校勘前必须失败关闭', () => {
-  assert.throws(
-    () => core.qizheng.generateQizheng({ year: 2024, month: 6, day: 15, hour: 12 }),
-    /角宿起点.*366\.5.*距星边界.*停止输出近似盘/,
-  );
+test('qizheng: 完整传统盘应返回十一星、二十八宿界与结构化证据', () => {
+  const result = core.qizheng.generateQizheng({
+    year: 2024,
+    month: 6,
+    day: 15,
+    hour: 12,
+  });
+  assert.equal(result.stars.length, 11);
+  assert.equal(result.mansionBoundaries.length, 28);
+  assert.equal(result.evidenceAnalysis.status, '已计算');
+  assert.equal(result.mansionModel.id, 'qizheng-mansion-stars-simbad-astronomy-engine');
 });
 
 test('qizheng: 核心入口仍应优先拒绝无效输入', () => {

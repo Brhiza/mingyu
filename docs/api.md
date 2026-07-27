@@ -88,8 +88,8 @@
 | `POST /metaphysics/zodiac/prompt`            | 生肖流年关系排盘并生成含信息量限制的 AI 解读提示词                             |
 | `POST /metaphysics/taiyi/calculate`          | 太乙神数排盘                                                                   |
 | `POST /metaphysics/taiyi/prompt`             | 太乙神数排盘并生成 AI 解读提示词                                               |
-| `POST /metaphysics/qizheng/calculate`        | 七政四余传统宿度坐标链校勘期间暂停，当前明确拒绝输出近似盘                     |
-| `POST /metaphysics/qizheng/prompt`           | 七政四余传统宿度坐标链校勘期间暂停，当前明确拒绝生成近似盘提示词               |
+| `POST /metaphysics/qizheng/calculate`        | 七政四余十一星、真实距星宿界、命身十二宫、庙旺吊照与结构化证据                 |
+| `POST /metaphysics/qizheng/prompt`           | 七政四余排盘并生成含分层天文证据的 AI 解读提示词                               |
 | `POST /ai/analyze`                           | AI 解读，返回 SSE 流式响应                                                     |
 | `POST /ai/models`                            | 获取当前 AI 配置可用的模型列表                                                 |
 
@@ -105,7 +105,7 @@
 4. 用户要从一段日期里挑日子，优先用 `POST /divination/almanac/prompt`；日期超过 31 天或参与人很多时分页调用。
 5. 用户提供一人的西方占星出生资料时，用 `POST /divination/astrolabe/prompt`；提供双方完整出生资料并询问关系时，用 `POST /divination/astrolabe/synastry/prompt`。
 6. 用户只想要轻量灵感、心理牌面或不提供出生信息时，可用塔罗、雷诺曼、灵签等提示词接口。
-7. 用户问住宅、搬家、坐向、命宅或风水时，优先用 `POST /metaphysics/residential/prompt`（产品统一入口）；明确只要八宅或只要玄空时再用对应底层接口；生肖犯太岁和太乙仍用各自 `/metaphysics/{method}/prompt`。七政四余当前暂停。
+7. 用户问住宅、搬家、坐向、命宅或风水时，优先用 `POST /metaphysics/residential/prompt`（产品统一入口）；明确只要八宅或只要玄空时再用对应底层接口；生肖犯太岁、太乙和七政四余仍用各自 `/metaphysics/{method}/prompt`。
 
 常见问题到推荐接口：
 
@@ -135,8 +135,8 @@
 | 仅八宅命卦、坐山吉凶               | `POST /metaphysics/bazhai/prompt`            | `birthYear`、`gender`、可选 `sitMountain`；实测可传 `doorToInteriorDegree`、`northReference`、`magneticDeclinationDegrees`、`measurementUncertaintyDegrees` | 返回磁北/真北换算、候选坐向与边界稳定性                                          |
 | 生肖犯太岁、流年贵人               | `POST /metaphysics/zodiac/prompt`            | `zodiac`、`year` 或 `yearGanZhi`                                                                                                                            | 生肖可传“鼠”或“子”                                                               |
 | 太乙神数                           | `POST /metaphysics/taiyi/prompt`             | 当前只接受 `scope: "year"` 与 `year`                                                                                                                       | 年计按积年与阳遁七十二局立成；结果含 `evidenceAnalysis` 结构化证据              |
-| 七政四余                           | `POST /metaphysics/qizheng/prompt`           | 暂停开放                                                                                                                                                    | 旧宿度链存在角宿零点、古距度合计与距星边界问题；校勘完成前拒绝输出近似盘           |
-| 玄空飞星                           | `POST /metaphysics/xuankong/prompt`          | `year`、`sitMountain`/`facingMountain` 或度数；可选 `guaType`、测量误差                                                                                    | 返回三元九运、三盘飞星、到山到向与结构化证据                                      |
+| 七政四余                           | `POST /metaphysics/qizheng/prompt`           | 精准出生年月日时、经纬度，并提供 `timezone` 或 `timeZoneId`；可选 `useTrueSolarTime`                                                                        | 返回十一星、真实距星宿界、命身十二宫、庙旺吊照和分层天文证据                       |
+| 玄空飞星                           | `POST /metaphysics/xuankong/prompt`          | `year`、`sitMountain`/`facingMountain` 或度数；可选 `guaType`（下卦或替卦）、测量误差                                                                      | 返回下卦或兼向替卦的三元九运、三盘飞星、替星过程、到山到向与结构化证据             |
 
 参数选择建议：
 
@@ -377,7 +377,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 紫微 `promptScope` 支持 `origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`；`full` 会返回并写入本命、大限、流年、流月、流日、流时资料。
 - 紫微公开 API 默认只返回 `origin`（本命）范围；如果请求传入 `promptScope`，接口会返回 `origin` 加指定范围。各范围统一读取 `iztro` 原生宫位对象与运限对象，包含落宫、动态宫名、运限星曜、四化、自化、宫干飞化和三方四正，不再另建一份简化盘面。
 - 紫微排盘结果以 `payloadByScope.origin.palaces` 为主结构；同时提供 `四化`、`fourMutagens`、`birthMutagens` 和 `gongList`，方便 agent 直接读取生年四化和十二宫星曜。本命 `active_scope.palace_index` / `palace_name` 明确指向 `iztro` 的命宫，不使用宫位数组首项代替。
-- 紫微 `patterns` 当前只评估首批 9 条已登记规则，每条附《紫微斗数全书》固定版本、卷次、原文、命中条件与解释边界；`pattern_analysis` 汇总登记数、评估数、命中数和未命中边界。原 84 条未校勘规则继续停用；空列表只表示当前登记规则未命中，不表示命盘没有其他传统格局。十二宫、星曜、四化、三方四正和运限不受影响。
+- 紫微 `patterns` 当前评估 18 条已登记规则，每条附《紫微斗数全书》固定版本、卷次、原文、命中条件与解释边界；`pattern_analysis` 汇总登记数、评估数、命中数和未命中边界。原 84 条未校勘规则继续停用；空列表只表示当前登记规则未命中，不表示命盘没有其他传统格局。十二宫、星曜、四化、三方四正和运限不受影响。
 - 八字提示词选择 `baziFortuneScope` 后，`data.resultSummary.fortuneSelection.promptPayload.triggerEvidence` 会返回原局、大运、流年、流月、流日逐层关系，包括同干、五合、相冲、同支、六合、六冲、刑、害、破、岁运并临与天克地冲。它只表示触发结构和时间层级，不直接表示吉凶或事件必然发生。
 - 八字出生时间必须满足接口输入约束后才会进入排盘；接口不接受模糊时间误差范围，也不会基于误差范围继续排盘。
 - 八字紫微合参接口为 `POST /bazi-ziwei/prompt`，使用同一份出生信息，同时计算八字和紫微，默认返回 `data.resultSummary.bazi`、`data.resultSummary.ziwei` 和 `data.prompt`；传 `responseMode: "full"` 可返回完整双盘。该接口使用 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope` 区分两套体系的分析范围。

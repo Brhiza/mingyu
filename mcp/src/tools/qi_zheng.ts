@@ -31,7 +31,7 @@ export function registerQizhengTool(server: McpServer) {
     'metaphysics_qizheng',
     {
       description:
-        '七政四余（果老星宗）：传统宿度坐标链重新校勘期间失败关闭，不返回近似盘',
+        '七政四余（果老星宗）：计算十一星、真实距星二十八宿界、命身十二宫、庙旺、吊照及分层天文证据',
       inputSchema: qiZhengSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -61,7 +61,7 @@ export function registerQizhengTool(server: McpServer) {
   server.registerTool(
     'qizheng_prompt',
     {
-      description: '七政四余：传统宿度坐标链重新校勘期间失败关闭，不生成近似盘提示词',
+      description: '七政四余排盘并生成可直接复制给 AI 的结构化提示词',
       inputSchema: qiZhengSchema.shape,
       outputSchema: promptOutputSchema,
     },

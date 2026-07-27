@@ -197,9 +197,23 @@ test('能力清单可序列化且返回副本', () => {
     'precise-clock-time',
   ]);
   const qizheng = getSystemCapability('qizheng');
-  assert.equal(qizheng?.available, false);
-  assert.equal(qizheng?.supports.trueSolarTime, false);
-  assert.deepEqual(qizheng?.outputs, ['明确失败信息', '独立紫炁均速研究函数']);
+  assert.equal(qizheng?.available, true);
+  assert.equal(qizheng?.supports.trueSolarTime, true);
+  assert.equal(qizheng?.supports.birthTimeRequired, true);
+  assert.deepEqual(qizheng?.supports.birthTimeModes, ['precise-clock-time']);
+  assert.ok(qizheng?.outputs.includes('七政四余十一星'));
+  assert.ok(qizheng?.outputs.includes('二十八宿真实距星边界'));
+  assert.ok(qizheng?.outputs.includes('位置来源与精度分层'));
+  assert.ok(
+    getSystemCapability('xuankong')
+      ?.inputs.find((input) => input.id === 'guaType')
+      ?.options?.some((item) => item.value === '替卦'),
+  );
+  assert.ok(
+    getSystemCapability('residential')
+      ?.inputs.find((input) => input.id === 'guaType')
+      ?.options?.some((item) => item.value === '替卦'),
+  );
   for (const systemId of ['calendar.trueSolarBirth', 'bazi', 'ziwei', 'astrolabe']) {
     assert.ok(
       getSystemCapability(systemId)?.outputs.some((item) => item.includes('真太阳时结构化计算链')),

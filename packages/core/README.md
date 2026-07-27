@@ -29,7 +29,7 @@
 | 奇门遁甲 | 《烟波钓叟歌》《遁甲演义》《奇门遁甲秘籍大全》   |
 | 大六壬   | 《大六壬大全》《大六壬指南》                     |
 | 择日     | 《协纪辨方书》《象吉通书》                       |
-| 紫微斗数 | 基础排盘委托 `iztro`；首批 9 条格局按《紫微斗数全书》固定版本逐条登记原文与条件 |
+| 紫微斗数 | 基础排盘委托 `iztro`；当前 18 条格局按《紫微斗数全书》固定版本逐条登记原文与条件 |
 
 ---
 
@@ -48,12 +48,13 @@ yarn add mingyu-core
 - `tyme4ts`（历法计算，作为依赖自动安装）
 - `iztro`（紫微斗数，可选，使用紫微模块时需要）
 - `celestine`（西洋占星，可选，使用星盘模块时需要）
+- `astronomy-engine`（七政四余距星坐标换算，作为依赖自动安装）
 
 ---
 
 ## 统一出生档案与能力发现
 
-应用可以只维护一份 `BirthProfile`，再按需要转换为八字、星盘或择日的既有输入。八字、紫微等时辰级算法可直接提供明确的 `timeIndex`；需要真太阳时或星盘时，才必须提供完整 `hour`、`minute` 和所需地点资料。七政四余完整传统盘当前暂停：
+应用可以只维护一份 `BirthProfile`，再按需要转换为八字、星盘或择日的既有输入。八字、紫微等时辰级算法可直接提供明确的 `timeIndex`；需要真太阳时、星盘或七政四余时，必须提供完整 `hour`、`minute` 和所需地点资料：
 
 ```ts
 import { normalizeBirthProfile, getCapabilities } from 'mingyu-core';
@@ -136,8 +137,8 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **塔罗 Tarot**         | `mingyu-core/divination/tarot`                                                                                                                | 塔罗抽牌、牌阵、关键字                                                                                 |
 | **塔罗牌数据**         | `mingyu-core/divination/tarot-data`                                                                                                           | 塔罗牌定义与牌阵配置                                                                                   |
 | **占卜辅助工具**       | `mingyu-core/divination/divination-helpers`                                                                                                   | 占卜通用格式与计算工具                                                                                 |
-| **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | iztro 十二宫、星曜、四化、证据池与大限时间线；输出首批 9 条已校勘格局，未登记格局不作判断               |
-| **七政四余 Qizheng**   | `mingyu-core/qizheng`                                                                                                                         | 传统宿度坐标链校勘期间失败关闭；保留独立紫炁均速函数供研究校勘，不输出近似传统盘                       |
+| **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | iztro 十二宫、星曜、四化、证据池与大限时间线；输出当前 18 条已校勘格局，未登记格局不作判断               |
+| **七政四余 Qizheng**   | `mingyu-core/qizheng`                                                                                                                         | 十一星、真实距星二十八宿界、命身十二宫、庙旺吊照、天文事实与分层精度证据                              |
 
 ---
 
@@ -346,6 +347,16 @@ const yearlyAstrolabe = buildAstrolabeScopeContext(natalAstrolabe, 'yearly', '20
 console.log(yearlyAstrolabe.displayText, yearlyAstrolabe.promptText);
 const zodiacYear = zodiac.getZodiacYearFortune('午', '甲辰');
 const taiyiChart = taiyi.generateTaiyi({ year: 2004, scope: 'year' });
+const qizhengChart = qizheng.generateQizheng({
+  year: 2024,
+  month: 6,
+  day: 15,
+  hour: 12,
+  minute: 0,
+  latitude: 39.9,
+  longitude: 116.4,
+  timezone: 8,
+});
 
 console.log(ganzhi.getNayin('甲子'));
 console.log(wuxing.tallyWuxing(['甲', '子', '丙', '午']));
@@ -362,6 +373,8 @@ console.log(ganzhi.getXunHead('乙丑')); // 甲子
 console.log(foundation.analyzeWuxing(['甲', '子', '丙', '午']));
 console.log(direction.getEightMansion('坎'));
 console.log(shensha.getHuangliShensha(2026, 7, 10));
+console.log(qizhengChart.stars.length, qizhengChart.mansionBoundaries.length); // 11 星、28 宿界
+console.log(qizhengChart.positionSources); // 现代天文与传统均速来源分层
 ```
 
 ### 八字增强分析（从 vibebazi 整合）

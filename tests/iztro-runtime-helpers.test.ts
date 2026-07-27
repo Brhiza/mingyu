@@ -446,8 +446,8 @@ test('紫微分析载荷应评估已登记格局并明确轻量模式未生成�
     patternAnalysis.summaryFact.registeredRuleCount,
   );
   assert.equal(patternAnalysis.summaryFact.matchedPatternCount, payload.patterns?.length ?? 0);
-  assert.equal(patternAnalysis.summaryFact.registeredRuleCount, 9);
-  assert.match(patternAnalysis.promptText, /固定古籍版本逐条评估9条登记规则/);
+  assert.equal(patternAnalysis.summaryFact.registeredRuleCount, 18);
+  assert.match(patternAnalysis.promptText, /固定古籍版本逐条评估18条登记规则/);
   assert.ok(
     (payload.patterns ?? []).every(
       (item) =>

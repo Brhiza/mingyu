@@ -58,7 +58,7 @@ test('玄空飞星使用元龙阴阳下卦引擎生成金标盘、局型与组�
   assert.match(result.evidenceAnalysis.promptText, /元龙阴阳|双星到向|七星真打劫/);
 });
 
-test('玄空飞星拒绝缺年、不相对坐向和尚未实现的替卦', () => {
+test('玄空飞星拒绝缺年和不相对坐向，并按兼向边界切换替卦', () => {
   assert.throws(
     () => generateXuanKong({ sitMountain: '子' } as Parameters<typeof generateXuanKong>[0]),
     /year 必须是/,
@@ -67,12 +67,8 @@ test('玄空飞星拒绝缺年、不相对坐向和尚未实现的替卦', () =>
     () => generateXuanKong({ year: 2024, sitMountain: '子', facingMountain: '卯' }),
     /坐向必须严格相对/,
   );
-  assert.throws(
-    () => generateXuanKong({ year: 2024, sitMountain: '子', guaType: '替卦' }),
-    /当前只支持下卦/,
-  );
-  assert.throws(() => generateXuanKong({ year: 2024, sitDegree: 7 }), /触发兼向替卦条件/);
-  assert.throws(() => generateXuanKong({ year: 2024, sitDegree: 4.5 }), /触发兼向替卦条件/);
+  assert.equal(generateXuanKong({ year: 2024, sitDegree: 7 }).guaType, '替卦');
+  assert.equal(generateXuanKong({ year: 2024, sitDegree: 4.5 }).guaType, '替卦');
   assert.doesNotThrow(() => generateXuanKong({ year: 2024, sitDegree: 4.49 }));
   assert.throws(
     () =>
@@ -87,6 +83,60 @@ test('玄空飞星拒绝缺年、不相对坐向和尚未实现的替卦', () =>
   const explicit = generateXuanKong({ year: 2024, sitDegree: 7, guaType: '下卦' });
   assert.equal(explicit.guaType, '下卦');
   assert.equal(explicit.replacementApplied, false);
+});
+
+test('玄空九运子山替卦应逐项记录五黄借山与同元龙替星', () => {
+  const result = generateXuanKong({ year: 2024, sitMountain: '子', guaType: '替卦' });
+
+  assert.equal(result.guaType, '替卦');
+  assert.equal(result.replacementApplied, true);
+  assert.deepEqual(result.replacement?.mountain, {
+    originalCenterStar: 5,
+    referenceMountain: '子',
+    replacementStar: 1,
+    direction: '逆飞',
+  });
+  assert.deepEqual(result.replacement?.facing, {
+    originalCenterStar: 4,
+    referenceMountain: '巽',
+    replacementStar: 6,
+    direction: '顺飞',
+  });
+  assert.deepEqual(result.plates.shan, [5, 4, 3, 2, 1, 9, 8, 7, 6]);
+  assert.deepEqual(result.plates.xiang, [2, 3, 4, 5, 6, 7, 8, 9, 1]);
+  assert.match(result.replacement?.sourceUrl ?? '', /bd7d85ea1af4be41cacab6e35a5e07023e469be9/);
+  assert.match(result.evidenceAnalysis.promptText, /五黄|子山替为1逆飞|巽山替为6顺飞/);
+});
+
+test('玄空八运子山替卦应按入中星本宫同元龙取巽卯替星', () => {
+  const result = generateXuanKong({ year: 2008, sitMountain: '子', guaType: '替卦' });
+
+  assert.deepEqual(result.replacement?.mountain, {
+    originalCenterStar: 4,
+    referenceMountain: '巽',
+    replacementStar: 6,
+    direction: '顺飞',
+  });
+  assert.deepEqual(result.replacement?.facing, {
+    originalCenterStar: 3,
+    referenceMountain: '卯',
+    replacementStar: 2,
+    direction: '逆飞',
+  });
+  assert.equal(result.plates.shan[4], 6);
+  assert.equal(result.plates.xiang[4], 2);
+});
+
+test('玄空替卦未成四正局时不得借用其他局型生成组合', () => {
+  for (let yun = 1; yun <= 9; yun += 1) {
+    const year = 1864 + (yun - 1) * 20;
+    for (const sitMountain of TWENTY_FOUR_MOUNTAINS) {
+      const result = generateXuanKong({ year, sitMountain, guaType: '替卦' });
+      if (result.formation !== '替卦未成四正局') continue;
+      assert.deepEqual(result.combinations, []);
+      assert.match(result.evidenceAnalysis.promptText, /组合检测已保守跳过/);
+    }
+  }
 });
 
 test('测量误差跨边界时标记山向边界敏感', () => {
@@ -163,6 +213,26 @@ test('玄空九运乘二十四山的 216 盘应保持三盘、九宫和坐向完
         ),
       );
       assert.equal(result.evidenceAnalysis.key, 'xuankong:evidence');
+    }
+  }
+});
+
+test('玄空替卦九运乘二十四山的 216 盘应保持替星来源、三盘和九宫完整', () => {
+  for (let yun = 1; yun <= 9; yun += 1) {
+    const year = 1864 + (yun - 1) * 20;
+
+    for (const sitMountain of TWENTY_FOUR_MOUNTAINS) {
+      const result = generateXuanKong({ year, sitMountain, guaType: '替卦' });
+      assert.equal(result.guaType, '替卦');
+      assert.equal(result.replacementApplied, true);
+      assert.ok(result.replacement);
+      assert.match(result.replacement.sourceUrl, /bd7d85ea/);
+      assert.deepEqual([...result.plates.yun].sort(), NINE_STARS);
+      assert.deepEqual([...result.plates.shan].sort(), NINE_STARS);
+      assert.deepEqual([...result.plates.xiang].sort(), NINE_STARS);
+      assert.equal(result.palaces.length, 9);
+      assert.ok([1, 2, 6, 7, 9].includes(result.replacement.mountain.replacementStar));
+      assert.ok([1, 2, 6, 7, 9].includes(result.replacement.facing.replacementStar));
     }
   }
 });

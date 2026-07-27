@@ -318,10 +318,10 @@
 | `buildAstrolabeFromInput(input)` | 由 ChartInput 构建 iztro 盘 |
 | `buildHoroscope(astrolabe, dateStr, hourIndex)` | 构建运限盘 |
 | `buildAnalysisPayloadV1({astrolabe, horoscope, currentScope})` | 构建分析数据载荷 |
-| `detectPatterns({palaces})` | 评估首批 9 条已登记格局；每项返回固定古籍版本、卷次、原文、命中条件与解释边界 |
+| `detectPatterns({palaces})` | 评估当前 18 条已登记格局；每项返回固定古籍版本、卷次、原文、命中条件与解释边界 |
 | `buildEvidencePool({astrolabe, horoscope, currentScope, palaces})` | 构建证据池 |
 
-依赖 `iztro`。十二宫、星曜、亮度、三方四正、运限宫位、运限星曜、四化、自化与宫干飞化均直接读取 `iztro` 原生对象；公开链路与内部完整盘共用同一载荷构建器。原 84 条自定义格局因缺少逐条版本、卷页、原文和独立例盘已整体退役；当前从零登记 9 条具备固定《紫微斗数全书》版本、卷次、原文和可复算条件的规则。空列表只表示这 9 条未命中，不表示命盘没有其他传统格局。返回类型见 `mingyu-core/types` 的 `analysis.ts`。
+依赖 `iztro`。十二宫、星曜、亮度、三方四正、运限宫位、运限星曜、四化、自化与宫干飞化均直接读取 `iztro` 原生对象；公开链路与内部完整盘共用同一载荷构建器。原 84 条自定义格局因缺少逐条版本、卷页、原文和独立例盘已整体退役；当前从零登记 18 条具备固定《紫微斗数全书》版本、卷次、原文和可复算条件的规则。空列表只表示这 18 条未命中，不表示命盘没有其他传统格局。返回类型见 `mingyu-core/types` 的 `analysis.ts`。
 
 ---
 
