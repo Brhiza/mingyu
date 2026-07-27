@@ -446,8 +446,8 @@ test('紫微分析载荷应评估已登记格局并明确轻量模式未生成�
     patternAnalysis.summaryFact.registeredRuleCount,
   );
   assert.equal(patternAnalysis.summaryFact.matchedPatternCount, payload.patterns?.length ?? 0);
-  assert.equal(patternAnalysis.summaryFact.registeredRuleCount, 62);
-  assert.match(patternAnalysis.promptText, /固定古籍版本逐条评估62条可复算规则/);
+  assert.equal(patternAnalysis.summaryFact.registeredRuleCount, 55);
+  assert.match(patternAnalysis.promptText, /固定古籍版本逐条评估55条可复算规则/);
   assert.ok(
     (payload.patterns ?? []).every(
       (item) =>
@@ -502,6 +502,34 @@ test('真实排盘中非命宫化忌被羊陀夹住时不得误报羊陀夹忌',
   assert.ok(neighborStars.includes('擎羊'));
   assert.ok(neighborStars.includes('陀罗'));
   assert.ok(!(payload.patterns ?? []).some((pattern) => pattern.name === '羊陀夹忌'));
+});
+
+test('罕见紫微格局应有真实 iztro 排盘回归样本', async () => {
+  const cases = [
+    { name: '君臣庆会', birthDate: '1984-05-06', birthTimeIndex: 10 },
+    { name: '两重华盖', birthDate: '1984-05-07', birthTimeIndex: 3 },
+    { name: '皇殿朝班', birthDate: '1984-05-31', birthTimeIndex: 4 },
+    { name: '贪火相逢', birthDate: '1984-06-13', birthTimeIndex: 8 },
+    { name: '梁昌庙旺', birthDate: '1984-10-08', birthTimeIndex: 9 },
+    { name: '风流彩杖', birthDate: '1985-02-22', birthTimeIndex: 0 },
+    { name: '泛水桃花', birthDate: '1992-02-10', birthTimeIndex: 2 },
+  ] as const;
+
+  for (const item of cases) {
+    const astrolabe = await buildAstrolabeFromInput({
+      ...DEFAULT_CHART_INPUT,
+      name: `${item.name}回归`,
+      birthDate: item.birthDate,
+      birthTimeIndex: item.birthTimeIndex,
+      gender: '男',
+    });
+    const horoscope = buildHoroscope(astrolabe, item.birthDate, item.birthTimeIndex);
+    const payload = buildAnalysisPayloadV1({ astrolabe, horoscope, currentScope: 'origin' });
+    assert.ok(
+      (payload.patterns ?? []).some((pattern) => pattern.name === item.name),
+      `${item.name}应在${item.birthDate}、时辰索引${item.birthTimeIndex}的真实排盘中命中`,
+    );
+  }
 });
 
 test('紫微分析载荷应直接采用 iztro 原生宫位、运限与飞化能力', async () => {

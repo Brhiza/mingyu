@@ -131,6 +131,55 @@ export const ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES = [
     quote: '日照雷门子辰卯地昼生富贵声扬。',
     reason: '“子辰卯地”的断句与“子”字含义不明，不能静默省略子宫后只执行卯、辰两宫。',
   },
+  {
+    name: '金舆扶驾',
+    source: `${VOLUME_ONE_URL}（卷一·定富贵局）`,
+    quote: '金舆扶驾，紫微守命前后有日月来夹是也。',
+    reason:
+      '当前固定安星体系中太阳与紫微始终相隔三宫，不可能与太阴分居紫微相邻两宫；原文与当前排盘体系冲突。',
+  },
+  {
+    name: '科权禄拱命',
+    source: `${VOLUME_THREE_URL}（卷三·紫微）`,
+    quote: '紫微居子午科权禄照最为奇，科权禄三方照是也。',
+    reason:
+      '按当前固定的十干四化和主辅星排布逐项枚举，紫微守子、午命宫时不存在禄、权、科齐从命宫以外三方会照的本命盘；不能伪造命中样本。',
+  },
+  {
+    name: '荫印拱身',
+    source: `${VOLUME_ONE_URL}（卷一·定富局）`,
+    quote: '荫印拱身，身临田宅梁相拱冲是也，勿坐空亡。',
+    reason:
+      '当前固定安命身宫公式中，身宫相对命宫只会落在偶数间隔的宫位，不可能落在相隔三宫的田宅宫；“身临田宅”与当前排盘体系冲突。',
+  },
+  {
+    name: '财印夹禄',
+    source: `${VOLUME_ONE_URL}（卷一·定贵局）`,
+    quote: '财印夹禄，禄守命梁相来夹是也，入财亦然。',
+    reason:
+      '当前固定主星排布中天相、天梁始终相邻，不可能分居任一宫位的前后两宫；原文的“夹”不能按当前相邻夹宫口径复算。',
+  },
+  {
+    name: '马头带剑',
+    source: `${VOLUME_ONE_URL}（卷一·定贵局）`,
+    quote: '马头带剑，谓马有刃是也，不是居午格。',
+    reason:
+      '按当前以生年干安擎羊、以生年支安天马的规则遍历六十甲子，两星不会同宫；原文“马有刃”不能直接等同为本命天马与擎羊同守。',
+  },
+  {
+    name: '紫禄同宫',
+    source: `${VOLUME_THREE_URL}（卷三·紫微）`,
+    quote: '紫禄同宫日月照贵不可言，紫微禄存同宫，日月三合拱照。',
+    reason:
+      '当前固定主星排布中太阳与紫微始终相隔三宫，太阳不会落入紫微的三方四正；即使紫微、禄存同宫也不能满足原文所述日月三合。',
+  },
+  {
+    name: '廉杀庙旺',
+    source: `${VOLUME_THREE_URL}（卷三·廉贞）`,
+    quote: '廉贞七杀居庙旺反为积富之人。',
+    reason:
+      '当前固定主星排布中廉贞、七杀只会同宫于丑、未，而当前亮度表把两宫的廉贞都标为“利”而非“庙”或“旺”；不能擅自把“利”改作原文的庙旺。',
+  },
   ...[
     '风云际会',
     '锦上添花',
@@ -417,79 +466,6 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
             palaces: [context.soulPalace, opposite],
             stars: ['天魁', '天钺'],
             conditions: ['天魁、天钺一曜坐命，另一曜在对宫'],
-          }
-        : null;
-    },
-  },
-  {
-    id: 'jin-yu-fu-jia',
-    name: '金舆扶驾',
-    kind: 'auspicious',
-    description: '紫微守命，太阳、太阴分居命宫相邻两宫。',
-    traditionalInterpretation: '古籍把日月前后夹辅紫微守命列为金舆扶驾。',
-    sourceTitle: '《紫微斗数全书》卷一·定富贵局',
-    sourceUrl: VOLUME_ONE_URL,
-    sourceQuote: '金舆扶驾，紫微守命前后有日月来夹是也。',
-    calculation: '先检查紫微守命，再检查命宫前后相邻两宫是否分别出现太阳与太阴。',
-    detect(context) {
-      if (!hasStar(context.soulPalace, '紫微')) return null;
-      const neighbors = getNeighborPalaces(context, context.soulPalace);
-      if (neighbors.length !== 2) return null;
-      const matched =
-        (hasStar(neighbors[0], '太阳') && hasStar(neighbors[1], '太阴')) ||
-        (hasStar(neighbors[0], '太阴') && hasStar(neighbors[1], '太阳'));
-      return matched
-        ? {
-            palaces: [context.soulPalace, ...neighbors],
-            stars: ['紫微', '太阳', '太阴'],
-            conditions: ['紫微守命', '太阳、太阴分居命宫相邻两宫'],
-          }
-        : null;
-    },
-  },
-  {
-    id: 'ke-quan-lu-gong-ming',
-    name: '科权禄拱命',
-    kind: 'auspicious',
-    description: '紫微在子或午宫守命，命宫三方齐见生年化禄、化权、化科。',
-    traditionalInterpretation: '古籍把紫微居子午并得科、权、禄三方照列为传统富贵结构。',
-    sourceTitle: '《紫微斗数全书》卷三·紫微',
-    sourceUrl: VOLUME_THREE_URL,
-    sourceQuote: '紫微居子午科权禄照最为奇，科权禄三方照是也。',
-    calculation:
-      '先检查紫微是否在子或午宫守命，再检查命宫以外三个会照宫位原局星曜的生年四化，不混入大限、流年等运限四化。',
-    detect(context) {
-      if (
-        !hasStar(context.soulPalace, '紫微') ||
-        !['子', '午'].includes(context.soulPalace.earthly_branch)
-      ) {
-        return null;
-      }
-      const surrounded = getSurroundedPalaces(context, context.soulPalace).filter(
-        (palace) => palace.index !== context.soulPalace.index,
-      );
-      const matchedStars = new Map<string, string>();
-      surrounded.forEach((palace) => {
-        natalStars(palace).forEach((star) => {
-          if (star.birth_mutagen && ['禄', '权', '科'].includes(star.birth_mutagen)) {
-            matchedStars.set(star.birth_mutagen, star.name);
-          }
-        });
-      });
-      const mutagens = ['禄', '权', '科'];
-      return mutagens.every((mutagen) => matchedStars.has(mutagen))
-        ? {
-            palaces: surrounded.filter((palace) =>
-              natalStars(palace).some((star) => mutagens.includes(star.birth_mutagen ?? '')),
-            ),
-            stars: [
-              '紫微',
-              ...mutagens.map((mutagen) => `${matchedStars.get(mutagen)}化${mutagen}`),
-            ],
-            conditions: [
-              `紫微在${context.soulPalace.earthly_branch}宫守命`,
-              '命宫以外三个会照宫位齐见生年化禄、化权、化科',
-            ],
           }
         : null;
     },
@@ -1012,76 +988,6 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
     },
   },
   {
-    id: 'yin-yin-gong-shen',
-    name: '荫印拱身',
-    kind: 'auspicious',
-    description: '身宫落在田宅宫，天梁、天相从三方四正拱照，田宅宫不坐空亡。',
-    traditionalInterpretation: '古籍以天梁为荫、天相为印，把二星拱照落在田宅的身宫列为荫印拱身。',
-    sourceTitle: '《紫微斗数全书》卷一·定富局',
-    sourceUrl: VOLUME_ONE_URL,
-    sourceQuote: '荫印拱身，身临田宅梁相拱冲是也，勿坐空亡。',
-    calculation: '检查身宫是否落在田宅宫且无空亡，再从该宫三方四正分别定位天梁、天相。',
-    detect(context) {
-      const target = getPalaceByName(context, '田宅');
-      if (!target?.is_body_palace || hasVoidStar(target)) return null;
-      const tianLiang = getSurroundedStarPalace(context, target, '天梁');
-      const tianXiang = getSurroundedStarPalace(context, target, '天相');
-      return tianLiang && tianXiang
-        ? {
-            palaces: uniquePalaces([target, tianLiang, tianXiang]),
-            stars: ['天梁', '天相'],
-            conditions: ['身宫落在田宅宫且不坐空亡', '天梁、天相从三方四正拱照'],
-          }
-        : null;
-    },
-  },
-  {
-    id: 'cai-yin-jia-lu',
-    name: '财印夹禄',
-    kind: 'auspicious',
-    description: '禄存守命宫或财帛宫，天梁、天相分居该宫相邻两宫。',
-    traditionalInterpretation: '古籍把禄存坐命或财帛并由梁相前后夹拱列为财印夹禄。',
-    sourceTitle: '《紫微斗数全书》卷一·定贵局',
-    sourceUrl: VOLUME_ONE_URL,
-    sourceQuote: '财印夹禄，禄守命梁相来夹是也，入财亦然。',
-    calculation: '依次检查命宫与财帛宫；目标宫有禄存时，再核对天梁、天相是否分居相邻两宫。',
-    detect(context) {
-      for (const targetName of ['命', '财帛']) {
-        const target = getPalaceByName(context, targetName);
-        if (!target || !hasStar(target, '禄存')) continue;
-        const flanks = getFlankingMatch(context, target, '天梁', '天相');
-        if (flanks) {
-          return {
-            palaces: [target, ...flanks],
-            stars: ['禄存', '天梁', '天相'],
-            conditions: [`禄存守${target.name}`, '天梁、天相分居该宫相邻两宫'],
-          };
-        }
-      }
-      return null;
-    },
-  },
-  {
-    id: 'ma-tou-dai-jian',
-    name: '马头带剑',
-    kind: 'neutral',
-    description: '天马与擎羊同守命宫。',
-    traditionalInterpretation: '古籍明确以“马有刃”说明此格，并否定仅凭命宫在午的简化口径。',
-    sourceTitle: '《紫微斗数全书》卷一·定贵局',
-    sourceUrl: VOLUME_ONE_URL,
-    sourceQuote: '马头带剑，谓马有刃是也，不是居午格。',
-    calculation: '检查本命命宫是否同时包含天马与擎羊，不把单纯午宫坐命视为命中。',
-    detect({ soulPalace }) {
-      return hasAllStars(soulPalace, ['天马', '擎羊'])
-        ? {
-            palaces: [soulPalace],
-            stars: ['天马', '擎羊'],
-            conditions: ['天马与擎羊同守命宫'],
-          }
-        : null;
-    },
-  },
-  {
     id: 'qi-sha-chao-dou',
     name: '七杀朝斗',
     kind: 'auspicious',
@@ -1187,29 +1093,6 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
             conditions: [
               `天刑、廉贞同临${target.index === context.soulPalace.index ? '命宫' : '身宫'}`,
             ],
-          }
-        : null;
-    },
-  },
-  {
-    id: 'zi-lu-tong-gong',
-    name: '紫禄同宫',
-    kind: 'auspicious',
-    description: '紫微、禄存同守命宫，太阳、太阴从三方四正拱照。',
-    traditionalInterpretation: '古籍以紫微禄存同宫、日月三合拱照为传统贵格。',
-    sourceTitle: '《紫微斗数全书》卷三·紫微',
-    sourceUrl: VOLUME_THREE_URL,
-    sourceQuote: '紫禄同宫日月照贵不可言，紫微禄存同宫，日月三合拱照。',
-    calculation: '先检查紫微、禄存同守命宫，再从命宫三方四正分别定位太阳与太阴。',
-    detect(context) {
-      if (!hasAllStars(context.soulPalace, ['紫微', '禄存'])) return null;
-      const sun = getSurroundedStarPalace(context, context.soulPalace, '太阳');
-      const moon = getSurroundedStarPalace(context, context.soulPalace, '太阴');
-      return sun && moon
-        ? {
-            palaces: uniquePalaces([context.soulPalace, sun, moon]),
-            stars: ['紫微', '禄存', '太阳', '太阴'],
-            conditions: ['紫微、禄存同守命宫', '太阳、太阴从命宫三方四正拱照'],
           }
         : null;
     },
@@ -1630,27 +1513,6 @@ const VERIFIED_PATTERN_RULES: VerifiedPatternRule[] = [
             palaces: [soulPalace],
             stars: ['巨门', '太阳'],
             conditions: ['巨门、太阳同守命宫'],
-          }
-        : null;
-    },
-  },
-  {
-    id: 'lian-sha-miao-wang',
-    name: '廉杀庙旺',
-    kind: 'auspicious',
-    description: '廉贞、七杀同守命宫且均为庙或旺。',
-    traditionalInterpretation: '古籍把廉贞七杀同宫庙旺列为传统积富结构。',
-    sourceTitle: '《紫微斗数全书》卷三·廉贞',
-    sourceUrl: VOLUME_THREE_URL,
-    sourceQuote: '廉贞七杀居庙旺反为积富之人。',
-    calculation: '检查廉贞、七杀是否同守命宫，并核对两曜亮度均为庙或旺。',
-    detect({ soulPalace }) {
-      return isTempleOrProsperous(getStar(soulPalace, '廉贞')) &&
-        isTempleOrProsperous(getStar(soulPalace, '七杀'))
-        ? {
-            palaces: [soulPalace],
-            stars: ['廉贞', '七杀'],
-            conditions: ['廉贞、七杀同守命宫', '廉贞、七杀亮度均为庙或旺'],
           }
         : null;
     },
