@@ -93,6 +93,7 @@ export interface XuanKongResult {
     facing: XuanKongReplacementLeg;
     rule: string;
     sourceUrl: string;
+    verificationSourceUrl: string;
   };
   engine:
     | {
@@ -173,6 +174,8 @@ export type FlyDirection = '顺飞' | '逆飞';
 
 const REPLACEMENT_SOURCE_URL =
   'https://github.com/funfwo/Fengshui/blob/bd7d85ea1af4be41cacab6e35a5e07023e469be9/paipan.py';
+const REPLACEMENT_TABLE_VERIFICATION_URL =
+  'https://github.com/weig19364/xuankongfeixing/blob/324623c5460b035d537a8ff2da6b6567f9b85e9e/index.html';
 
 const REPLACEMENT_STAR_BY_MOUNTAIN: Record<string, number> = {
   子: 1,
@@ -568,6 +571,7 @@ export function generateXuanKong(input: XuanKongInput): XuanKongResult {
       facing,
       rule: '运盘山向宫星入中，按其本宫同元龙山取替星；五黄无本宫时借实际山向；顺逆仍依所取山阴阳',
       sourceUrl: REPLACEMENT_SOURCE_URL,
+      verificationSourceUrl: REPLACEMENT_TABLE_VERIFICATION_URL,
     };
   }
   if (

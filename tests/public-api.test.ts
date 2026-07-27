@@ -5146,6 +5146,10 @@ test('公开 API 玄空飞星应返回真实下卦局型与可核验替卦', asy
   assert.equal(replacement.body.data.replacement.mountain.replacementStar, 6);
   assert.equal(replacement.body.data.replacement.facing.referenceMountain, '卯');
   assert.equal(replacement.body.data.replacement.facing.replacementStar, 2);
+  assert.match(
+    replacement.body.data.replacement.verificationSourceUrl,
+    /324623c5460b035d537a8ff2da6b6567f9b85e9e/,
+  );
   assert.equal(replacement.body.data.engine.mode, '替卦');
   assert.match(replacement.body.data.evidenceAnalysis.promptText, /巽山替为6顺飞|卯山替为2逆飞/);
 });

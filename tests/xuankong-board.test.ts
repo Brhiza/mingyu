@@ -8,6 +8,98 @@ import {
 import { TWENTY_FOUR_MOUNTAINS } from '../packages/core/src/direction/index.ts';
 
 const NINE_STARS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const REFERENCE_REPLACEMENT_STARS: Record<string, number> = {
+  子: 1,
+  癸: 1,
+  甲: 1,
+  申: 1,
+  壬: 2,
+  卯: 2,
+  乙: 2,
+  未: 2,
+  坤: 2,
+  乾: 6,
+  亥: 6,
+  辰: 6,
+  巽: 6,
+  巳: 6,
+  戌: 6,
+  酉: 7,
+  辛: 7,
+  丑: 7,
+  艮: 7,
+  丙: 7,
+  寅: 9,
+  午: 9,
+  庚: 9,
+  丁: 9,
+};
+const REFERENCE_STAR_HOME_MOUNTAINS: Record<number, readonly [string, string, string]> = {
+  1: ['壬', '子', '癸'],
+  2: ['未', '坤', '申'],
+  3: ['甲', '卯', '乙'],
+  4: ['辰', '巽', '巳'],
+  6: ['戌', '乾', '亥'],
+  7: ['庚', '酉', '辛'],
+  8: ['丑', '艮', '寅'],
+  9: ['丙', '午', '丁'],
+};
+const REFERENCE_MOUNTAIN_DIRECTIONS: Record<string, '顺飞' | '逆飞'> = {
+  壬: '顺飞',
+  子: '逆飞',
+  癸: '逆飞',
+  未: '逆飞',
+  坤: '顺飞',
+  申: '顺飞',
+  甲: '顺飞',
+  卯: '逆飞',
+  乙: '逆飞',
+  辰: '逆飞',
+  巽: '顺飞',
+  巳: '顺飞',
+  戌: '逆飞',
+  乾: '顺飞',
+  亥: '顺飞',
+  庚: '顺飞',
+  酉: '逆飞',
+  辛: '逆飞',
+  丑: '逆飞',
+  艮: '顺飞',
+  寅: '顺飞',
+  丙: '顺飞',
+  午: '逆飞',
+  丁: '逆飞',
+};
+
+function resolveReferenceReplacementLeg(sourceMountain: string, originalCenterStar: number) {
+  const homeMountains = Object.values(REFERENCE_STAR_HOME_MOUNTAINS);
+  const sourceGroup = homeMountains.find((mountains) =>
+    mountains.some((mountain) => mountain === sourceMountain),
+  );
+  const sourceYuan = sourceGroup?.findIndex((mountain) => mountain === sourceMountain);
+  assert.ok(sourceYuan !== undefined && sourceYuan >= 0, `${sourceMountain}应有元龙位置`);
+  const referenceMountain =
+    originalCenterStar === 5
+      ? sourceMountain
+      : REFERENCE_STAR_HOME_MOUNTAINS[originalCenterStar]?.[sourceYuan];
+  assert.ok(referenceMountain, `${originalCenterStar}星应有同元龙参考山`);
+  return {
+    originalCenterStar,
+    referenceMountain,
+    replacementStar: REFERENCE_REPLACEMENT_STARS[referenceMountain],
+    direction: REFERENCE_MOUNTAIN_DIRECTIONS[referenceMountain],
+  };
+}
+
+function flyReferenceStars(centerStar: number, direction: '顺飞' | '逆飞') {
+  const plate = Array.from({ length: 9 }, () => 0);
+  const loShuPalacePath = [5, 6, 7, 8, 9, 1, 2, 3, 4];
+  loShuPalacePath.forEach((palace, step) => {
+    const delta = direction === '顺飞' ? step : -step;
+    plate[palace - 1] = ((centerStar - 1 + delta + 81) % 9) + 1;
+  });
+  return plate;
+}
 
 test('三元九运：2024 应落入下元九运区间附近可复现运表', () => {
   const period = resolveXuanKongPeriod(2024);
@@ -105,6 +197,10 @@ test('玄空九运子山替卦应逐项记录五黄借山与同元龙替星', ()
   assert.deepEqual(result.plates.shan, [5, 4, 3, 2, 1, 9, 8, 7, 6]);
   assert.deepEqual(result.plates.xiang, [2, 3, 4, 5, 6, 7, 8, 9, 1]);
   assert.match(result.replacement?.sourceUrl ?? '', /bd7d85ea1af4be41cacab6e35a5e07023e469be9/);
+  assert.match(
+    result.replacement?.verificationSourceUrl ?? '',
+    /324623c5460b035d537a8ff2da6b6567f9b85e9e/,
+  );
   assert.match(result.evidenceAnalysis.promptText, /五黄|子山替为1逆飞|巽山替为6顺飞/);
 });
 
@@ -227,6 +323,35 @@ test('玄空替卦九运乘二十四山的 216 盘应保持替星来源、三盘
       assert.equal(result.replacementApplied, true);
       assert.ok(result.replacement);
       assert.match(result.replacement.sourceUrl, /bd7d85ea/);
+      assert.match(result.replacement.verificationSourceUrl, /324623c/);
+      assert.deepEqual(
+        result.replacement.mountain,
+        resolveReferenceReplacementLeg(
+          result.sitMountain,
+          result.replacement.mountain.originalCenterStar,
+        ),
+      );
+      assert.deepEqual(
+        result.replacement.facing,
+        resolveReferenceReplacementLeg(
+          result.facingMountain,
+          result.replacement.facing.originalCenterStar,
+        ),
+      );
+      assert.deepEqual(
+        result.plates.shan,
+        flyReferenceStars(
+          result.replacement.mountain.replacementStar,
+          result.replacement.mountain.direction,
+        ),
+      );
+      assert.deepEqual(
+        result.plates.xiang,
+        flyReferenceStars(
+          result.replacement.facing.replacementStar,
+          result.replacement.facing.direction,
+        ),
+      );
       assert.deepEqual([...result.plates.yun].sort(), NINE_STARS);
       assert.deepEqual([...result.plates.shan].sort(), NINE_STARS);
       assert.deepEqual([...result.plates.xiang].sort(), NINE_STARS);

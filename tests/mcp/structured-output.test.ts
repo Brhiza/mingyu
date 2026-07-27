@@ -3062,6 +3062,7 @@ test('MCP 玄空应返回可核验替卦和替星过程', async () => {
               replacementStar: number;
               direction: string;
             };
+            verificationSourceUrl: string;
           };
           engine: { mode: string };
           evidenceAnalysis: { promptText: string };
@@ -3082,6 +3083,10 @@ test('MCP 玄空应返回可核验替卦和替星过程', async () => {
       replacementStar: 2,
       direction: '逆飞',
     });
+    assert.match(
+      chart.replacement.verificationSourceUrl,
+      /324623c5460b035d537a8ff2da6b6567f9b85e9e/,
+    );
     assert.equal(chart.engine.mode, '替卦');
     assert.match(chart.evidenceAnalysis.promptText, /替星|巽山替为6顺飞|卯山替为2逆飞/);
   });

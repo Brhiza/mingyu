@@ -35,6 +35,7 @@ export interface XuanKongEvidenceSourceResult {
     };
     rule: string;
     sourceUrl: string;
+    verificationSourceUrl: string;
   };
   daoShanXiang: { summary: string };
   measurement?: { stability: string };
@@ -114,7 +115,11 @@ export function analyzeXuanKongEvidence(
         ? `运星${result.period.yunStar}顺飞生成运盘；山盘原${result.replacement.mountain.originalCenterStar}入中，取${result.replacement.mountain.referenceMountain}山替为${result.replacement.mountain.replacementStar}${result.replacement.mountain.direction}；向盘原${result.replacement.facing.originalCenterStar}入中，取${result.replacement.facing.referenceMountain}山替为${result.replacement.facing.replacementStar}${result.replacement.facing.direction}`
         : `运星${result.period.yunStar}顺飞生成运盘；山向盘按入中星本宫同元龙山阴阳定顺逆，五黄入中时借原山阴阳`,
       sources: result.replacement
-        ? [result.replacement.sourceUrl, '二十四山替星表与元龙阴阳顺逆规则']
+        ? [
+            result.replacement.sourceUrl,
+            result.replacement.verificationSourceUrl,
+            '二十四山替星表与元龙阴阳顺逆规则',
+          ]
         : [`${result.engine.name}@${result.engine.version} 下卦引擎`, '玄空飞星元龙阴阳顺逆规则'],
       limitation: STEP_LIMIT,
     },
@@ -206,6 +211,11 @@ export function analyzeXuanKongEvidence(
     {
       title: 'funfwo/Fengshui 固定提交',
       evidence: '固定提交 bd7d85e 的 getJianshanxiangpan：同元龙取本宫山、查替星并沿用原山阴阳顺逆',
+      role: '公共算法来源' as const,
+    },
+    {
+      title: 'weig19364/xuankongfeixing 固定提交',
+      evidence: '固定提交 324623c 的单文件 tiGuaMap：完整列出二十四山替星表，用于逐山交叉核验',
       role: '公共算法来源' as const,
     },
     {
