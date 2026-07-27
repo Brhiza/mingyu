@@ -48,7 +48,7 @@ yarn add mingyu-core
 - `tyme4ts`（历法计算，作为依赖自动安装）
 - `iztro`（紫微斗数，可选，使用紫微模块时需要）
 - `celestine`（西洋占星，可选，使用星盘模块时需要）
-- `astronomy-engine`（七政四余距星坐标换算，作为依赖自动安装）
+- 七政四余距星坐标换算内置与 Astronomy Engine 2.1.19 同口径的 IAU 2006/2000B 变换，不依赖特定运行时的模块兼容行为
 
 ---
 

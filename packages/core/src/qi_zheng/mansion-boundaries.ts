@@ -1,4 +1,4 @@
-import { AstroTime, RotateVector, Rotation_EQJ_ECT, Vector } from 'astronomy-engine';
+import { estimateDeltaTSeconds } from '../calendar/astronomical-time';
 
 export interface QizhengMansionStar {
   mansion: string;
@@ -70,7 +70,7 @@ export const QIZHENG_MANSION_MODEL = {
   mappingSource: 'https://zh.wikipedia.org/w/index.php?title=二十八宿&oldid=92223725',
   astrometrySource: 'SIMBAD TAP basic 表（ra、dec、pmra、pmdec；查询日期 2026-07-27）',
   transformSource:
-    'astronomy-engine 2.1.19：Rotation_EQJ_ECT，将 J2000 平赤道坐标转为目标日期真黄道坐标',
+    'Astronomy Engine 2.1.19 同口径内置变换：IAU 2006 岁差与 IAU 2000B 章动，将 J2000 平赤道坐标转为目标日期真黄道坐标',
   limitation:
     '宿界按距星目标日期真黄经至下一距星真黄经的实际弧段划分；这是可复算的现代坐标复原，不等同于某一历史历元的古赤道距度表，也不证明占星解释有效。',
 } as const;
@@ -86,13 +86,194 @@ function decimalYear(date: Date): number {
   return year + (date.getTime() - start) / (end - start);
 }
 
+type Vector3 = readonly [number, number, number];
+type Rotation3 = readonly [Vector3, Vector3, Vector3];
+
+/*
+ * 以下 IAU 2006/2000B 坐标变换由 Astronomy Engine 2.1.19 的 JavaScript 实现移植。
+ * Copyright (c) 2019-2023 Don Cross. MIT License.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+const ARCSECONDS_TO_RADIANS = Math.PI / (180 * 3600);
+const ARCSECONDS_PER_CIRCLE = 360 * 3600;
+const J2000_UNIX_MILLISECONDS = Date.UTC(2000, 0, 1, 12);
+const MILLISECONDS_PER_DAY = 86_400_000;
+
+function rotateVector(rotation: Rotation3, vector: Vector3): Vector3 {
+  return [
+    rotation[0][0] * vector[0] + rotation[1][0] * vector[1] + rotation[2][0] * vector[2],
+    rotation[0][1] * vector[0] + rotation[1][1] * vector[1] + rotation[2][1] * vector[2],
+    rotation[0][2] * vector[0] + rotation[1][2] * vector[1] + rotation[2][2] * vector[2],
+  ];
+}
+
+/** IAU 2006 岁差矩阵：J2000 平赤道坐标转目标日期平赤道坐标。 */
+function precessionRotationFromJ2000(ttDaysSinceJ2000: number): Rotation3 {
+  const t = ttDaysSinceJ2000 / 36525;
+  const epsilon0 = 84381.406 * ARCSECONDS_TO_RADIANS;
+  const psiA =
+    ((((-0.0000000951 * t + 0.000132851) * t - 0.00114045) * t - 1.0790069) * t + 5038.481507) *
+    t *
+    ARCSECONDS_TO_RADIANS;
+  const omegaA =
+    (((((0.0000003337 * t - 0.000000467) * t - 0.00772503) * t + 0.0512623) * t - 0.025754) * t +
+      84381.406) *
+    ARCSECONDS_TO_RADIANS;
+  const chiA =
+    ((((-0.000000056 * t + 0.000170663) * t - 0.00121197) * t - 2.3814292) * t + 10.556403) *
+    t *
+    ARCSECONDS_TO_RADIANS;
+
+  const sinEpsilon0 = Math.sin(epsilon0);
+  const cosEpsilon0 = Math.cos(epsilon0);
+  const sinPsi = Math.sin(-psiA);
+  const cosPsi = Math.cos(-psiA);
+  const sinOmega = Math.sin(-omegaA);
+  const cosOmega = Math.cos(-omegaA);
+  const sinChi = Math.sin(chiA);
+  const cosChi = Math.cos(chiA);
+  const xx = cosChi * cosPsi - sinPsi * sinChi * cosOmega;
+  const yx =
+    cosChi * sinPsi * cosEpsilon0 +
+    sinChi * cosOmega * cosPsi * cosEpsilon0 -
+    sinEpsilon0 * sinChi * sinOmega;
+  const zx =
+    cosChi * sinPsi * sinEpsilon0 +
+    sinChi * cosOmega * cosPsi * sinEpsilon0 +
+    cosEpsilon0 * sinChi * sinOmega;
+  const xy = -sinChi * cosPsi - sinPsi * cosChi * cosOmega;
+  const yy =
+    -sinChi * sinPsi * cosEpsilon0 +
+    cosChi * cosOmega * cosPsi * cosEpsilon0 -
+    sinEpsilon0 * cosChi * sinOmega;
+  const zy =
+    -sinChi * sinPsi * sinEpsilon0 +
+    cosChi * cosOmega * cosPsi * sinEpsilon0 +
+    cosEpsilon0 * cosChi * sinOmega;
+  const xz = sinPsi * sinOmega;
+  const yz = -sinOmega * cosPsi * cosEpsilon0 - sinEpsilon0 * cosOmega;
+  const zz = -sinOmega * cosPsi * sinEpsilon0 + cosOmega * cosEpsilon0;
+  return [
+    [xx, xy, xz],
+    [yx, yy, yz],
+    [zx, zy, zz],
+  ];
+}
+
+function iau2000bNutation(ttDaysSinceJ2000: number) {
+  const t = ttDaysSinceJ2000 / 36525;
+  const mod = (arcseconds: number) => (arcseconds % ARCSECONDS_PER_CIRCLE) * ARCSECONDS_TO_RADIANS;
+  const lunarMeanAnomaly = mod(1287104.79305 + t * 129596581.0481);
+  const lunarArgumentOfLatitude = mod(335779.526232 + t * 1739527262.8478);
+  const lunarElongation = mod(1072260.70369 + t * 1602961601.209);
+  const ascendingNode = mod(450160.398036 - t * 6962890.5431);
+  let sinArgument = Math.sin(ascendingNode);
+  let cosArgument = Math.cos(ascendingNode);
+  let longitude = (-172064161 - 174666 * t) * sinArgument + 33386 * cosArgument;
+  let obliquity = (92052331 + 9086 * t) * cosArgument + 15377 * sinArgument;
+  let argument = 2 * (lunarArgumentOfLatitude - lunarElongation + ascendingNode);
+  sinArgument = Math.sin(argument);
+  cosArgument = Math.cos(argument);
+  longitude += (-13170906 - 1675 * t) * sinArgument - 13696 * cosArgument;
+  obliquity += (5730336 - 3015 * t) * cosArgument - 4587 * sinArgument;
+  argument = 2 * (lunarArgumentOfLatitude + ascendingNode);
+  sinArgument = Math.sin(argument);
+  cosArgument = Math.cos(argument);
+  longitude += (-2276413 - 234 * t) * sinArgument + 2796 * cosArgument;
+  obliquity += (978459 - 485 * t) * cosArgument + 1374 * sinArgument;
+  argument = 2 * ascendingNode;
+  sinArgument = Math.sin(argument);
+  cosArgument = Math.cos(argument);
+  longitude += (2074554 + 207 * t) * sinArgument - 698 * cosArgument;
+  obliquity += (-897492 + 470 * t) * cosArgument - 291 * sinArgument;
+  sinArgument = Math.sin(lunarMeanAnomaly);
+  cosArgument = Math.cos(lunarMeanAnomaly);
+  longitude += (1475877 - 3633 * t) * sinArgument + 11817 * cosArgument;
+  obliquity += (73871 - 184 * t) * cosArgument - 1924 * sinArgument;
+  return {
+    longitudeArcseconds: -0.000135 + longitude * 1e-7,
+    obliquityArcseconds: 0.000388 + obliquity * 1e-7,
+  };
+}
+
+function meanObliquityDegrees(ttDaysSinceJ2000: number): number {
+  const t = ttDaysSinceJ2000 / 36525;
+  return (
+    (((((-0.0000000434 * t - 0.000000576) * t + 0.0020034) * t - 0.0001831) * t - 46.836769) * t +
+      84381.406) /
+    3600
+  );
+}
+
+function createEquatorialJ2000ToTrueEcliptic(date: Date) {
+  const utDaysSinceJ2000 = (date.getTime() - J2000_UNIX_MILLISECONDS) / MILLISECONDS_PER_DAY;
+  const ttDaysSinceJ2000 = utDaysSinceJ2000 + estimateDeltaTSeconds(decimalYear(date)) / 86_400;
+  const precessionRotation = precessionRotationFromJ2000(ttDaysSinceJ2000);
+  const nutation = iau2000bNutation(ttDaysSinceJ2000);
+  const meanObliquity = meanObliquityDegrees(ttDaysSinceJ2000) * (Math.PI / 180);
+  const trueObliquity = meanObliquity + nutation.obliquityArcseconds * ARCSECONDS_TO_RADIANS;
+  const longitudeNutation = nutation.longitudeArcseconds * ARCSECONDS_TO_RADIANS;
+  const sinMeanObliquity = Math.sin(meanObliquity);
+  const cosMeanObliquity = Math.cos(meanObliquity);
+  const sinTrueObliquity = Math.sin(trueObliquity);
+  const cosTrueObliquity = Math.cos(trueObliquity);
+  const sinLongitudeNutation = Math.sin(longitudeNutation);
+  const cosLongitudeNutation = Math.cos(longitudeNutation);
+  const nutationRotation: Rotation3 = [
+    [
+      cosLongitudeNutation,
+      sinLongitudeNutation * cosTrueObliquity,
+      sinLongitudeNutation * sinTrueObliquity,
+    ],
+    [
+      -sinLongitudeNutation * cosMeanObliquity,
+      cosLongitudeNutation * cosMeanObliquity * cosTrueObliquity +
+        sinMeanObliquity * sinTrueObliquity,
+      cosLongitudeNutation * cosMeanObliquity * sinTrueObliquity -
+        sinMeanObliquity * cosTrueObliquity,
+    ],
+    [
+      -sinLongitudeNutation * sinMeanObliquity,
+      cosLongitudeNutation * sinMeanObliquity * cosTrueObliquity -
+        cosMeanObliquity * sinTrueObliquity,
+      cosLongitudeNutation * sinMeanObliquity * sinTrueObliquity +
+        cosMeanObliquity * cosTrueObliquity,
+    ],
+  ];
+  return (vector: Vector3): Vector3 => {
+    const precessed = rotateVector(precessionRotation, vector);
+    const nutated = rotateVector(nutationRotation, precessed);
+    return [
+      nutated[0],
+      Math.cos(trueObliquity) * nutated[1] + Math.sin(trueObliquity) * nutated[2],
+      -Math.sin(trueObliquity) * nutated[1] + Math.cos(trueObliquity) * nutated[2],
+    ];
+  };
+}
+
 export function calculateQizhengMansionBoundaries(date: Date): QizhengMansionBoundary[] {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
     throw new Error('七政四余距星边界日期无效。');
   }
   const yearsSinceJ2000 = decimalYear(date) - 2000;
-  const time = new AstroTime(date);
-  const rotation = Rotation_EQJ_ECT(time);
+  const toTrueEcliptic = createEquatorialJ2000ToTrueEcliptic(date);
   const boundaries = QIZHENG_MANSION_STARS.map((star) => {
     const dec = star.decJ2000Degrees + (star.pmDecMasPerYear * yearsSinceJ2000) / 3_600_000;
     const ra =
@@ -101,16 +282,14 @@ export function calculateQizhengMansionBoundaries(date: Date): QizhengMansionBou
         (3_600_000 * Math.cos((star.decJ2000Degrees * Math.PI) / 180));
     const raRadians = (ra * Math.PI) / 180;
     const decRadians = (dec * Math.PI) / 180;
-    const eqj = new Vector(
+    const ecliptic = toTrueEcliptic([
       Math.cos(decRadians) * Math.cos(raRadians),
       Math.cos(decRadians) * Math.sin(raRadians),
       Math.sin(decRadians),
-      time,
-    );
-    const ecliptic = RotateVector(rotation, eqj);
+    ]);
     return {
       ...star,
-      longitude: normalizeLongitude((Math.atan2(ecliptic.y, ecliptic.x) * 180) / Math.PI),
+      longitude: normalizeLongitude((Math.atan2(ecliptic[1], ecliptic[0]) * 180) / Math.PI),
       widthDegrees: 0,
     };
   }).sort((left, right) => left.longitude - right.longitude);
