@@ -53,11 +53,15 @@ export function buildAnalysisPayloadV1(params: {
         palaces,
         birthTimeLabel: basic_info.birth_time_label,
         birthTimeRange: basic_info.birth_time_range,
+        birthYearHeavenlyStem: basic_info.four_pillars?.year_pillar.slice(0, 1),
       });
   const pattern_analysis = buildPatternAnalysis({
     patterns,
     palaces,
     skipped: skipAnalysis,
+    birthTimeLabel: basic_info.birth_time_label,
+    birthTimeRange: basic_info.birth_time_range,
+    birthYearHeavenlyStem: basic_info.four_pillars?.year_pillar.slice(0, 1),
   });
 
   return {

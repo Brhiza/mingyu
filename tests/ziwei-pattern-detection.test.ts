@@ -6,6 +6,8 @@ import {
   detectPatterns,
   VERIFIED_ZIWEI_PATTERN_RULE_COUNT,
   ZIWEI_PATTERN_AUDIT_NOTICE,
+  ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES,
+  ZIWEI_TRADITIONAL_PATTERN_CATALOG_COUNT,
 } from '@core/ziwei/iztro';
 import type { PalaceFact, StarFact } from '../packages/core/src/types/analysis';
 
@@ -83,13 +85,20 @@ test('紫微格局检测仍应拒绝不完整或索引损坏的十二宫资料',
   assert.throws(() => detectPatterns({ palaces: invalidSurroundedIndex }), /三方四正宫位索引无效/);
 });
 
-test('紫微两批格局登记表应固定为十八条逐条校勘规则', () => {
-  assert.equal(VERIFIED_ZIWEI_PATTERN_RULE_COUNT, 18);
+test('紫微传统格局目录应完整区分可复算规则与原典边界', () => {
+  assert.equal(VERIFIED_ZIWEI_PATTERN_RULE_COUNT, 70);
+  assert.equal(ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES.length, 17);
+  assert.equal(ZIWEI_TRADITIONAL_PATTERN_CATALOG_COUNT, 87);
   assert.match(ZIWEI_PATTERN_AUDIT_NOTICE, /原有84条.*已全部退役/);
-  assert.match(ZIWEI_PATTERN_AUDIT_NOTICE, /重新登记18条.*固定版本、卷次、原文/);
+  assert.match(ZIWEI_PATTERN_AUDIT_NOTICE, /传统目录现登记87项.*70条.*17项/);
+  assert.ok(
+    ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES.every(
+      (item) => item.name && item.quote && item.reason && /oldid=\d+/.test(item.source),
+    ),
+  );
 });
 
-test('十八条已校勘紫微格局应按各自盘面条件命中', () => {
+test('原有十八条已校勘紫微格局应按各自盘面条件命中', () => {
   const cases: Array<{ name: string; arrange: (palaces: PalaceFact[]) => void }> = [
     {
       name: '紫府同宫',
@@ -233,9 +242,435 @@ test('十八条已校勘紫微格局应按各自盘面条件命中', () => {
     assert.equal(pattern.status, '已命中');
     assert.match(pattern.stable_key ?? '', /^ziwei:verified-pattern:/);
     assert.ok(pattern.matched_conditions?.length);
+    assert.equal(pattern.calculationStepKey, 'ziwei:pattern:calculation:matched-facts');
+    assert.deepEqual(pattern.dependsOnStepKeys, ['ziwei:pattern:calculation:rule-evaluation']);
     assert.ok(pattern.sources?.[0].includes('《紫微斗数全书》'));
     assert.match(pattern.source ?? '', /oldid=\d+/);
     assert.match(pattern.limitation ?? '', /不得.*现实因果|不得被反向/);
+  });
+});
+
+test('新增五十二条传统格局应逐条满足完整原文条件', () => {
+  const cases: Array<{
+    name: string;
+    arrange: (palaces: PalaceFact[]) => void;
+    params?: Omit<Parameters<typeof detectPatterns>[0], 'palaces'>;
+  }> = [
+    {
+      name: '紫府夹命',
+      arrange(palaces) {
+        addStar(palaces, 11, '紫微');
+        addStar(palaces, 1, '天府');
+      },
+    },
+    {
+      name: '机月同梁',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '寅';
+        addStar(palaces, 0, '天机');
+        addStar(palaces, 4, '太阴');
+        addStar(palaces, 6, '天同');
+        addStar(palaces, 8, '天梁');
+      },
+    },
+    {
+      name: '府相朝垣',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '申';
+        addStar(palaces, 4, '天府');
+        addStar(palaces, 8, '天相');
+      },
+    },
+    {
+      name: '魁钺夹命',
+      arrange(palaces) {
+        addStar(palaces, 11, '天魁', 'minor');
+        addStar(palaces, 1, '天钺', 'minor');
+      },
+    },
+    {
+      name: '昌曲夹命',
+      arrange(palaces) {
+        addStar(palaces, 11, '文昌', 'minor');
+        addStar(palaces, 1, '文曲', 'minor');
+        addStar(palaces, 0, '紫微');
+      },
+    },
+    {
+      name: '玉袖天香',
+      arrange(palaces) {
+        addStar(palaces, 10, '文昌', 'minor');
+        addStar(palaces, 10, '文曲', 'minor');
+      },
+    },
+    {
+      name: '蟾宫折桂',
+      arrange(palaces) {
+        addStar(palaces, 2, '太阴');
+        addStar(palaces, 2, '文曲', 'minor');
+      },
+    },
+    {
+      name: '日月并明',
+      arrange(palaces) {
+        addStar(palaces, 4, '太阳', 'major', { brightness: '庙' });
+        addStar(palaces, 8, '太阴', 'major', { brightness: '旺' });
+      },
+    },
+    {
+      name: '日月夹命',
+      arrange(palaces) {
+        addStar(palaces, 0, '紫微');
+        addStar(palaces, 11, '太阳');
+        addStar(palaces, 1, '太阴');
+      },
+    },
+    {
+      name: '左右朝垣',
+      arrange(palaces) {
+        addStar(palaces, 4, '左辅', 'minor');
+        addStar(palaces, 8, '右弼', 'minor');
+      },
+    },
+    {
+      name: '文星朝命',
+      arrange(palaces) {
+        addStar(palaces, 0, '文昌', 'minor');
+        addStar(palaces, 0, '文曲', 'minor');
+      },
+    },
+    {
+      name: '对面朝斗',
+      arrange(palaces) {
+        palaces[6].earthly_branch = '午';
+        addStar(palaces, 6, '禄存', 'minor');
+      },
+    },
+    {
+      name: '日月夹财',
+      arrange(palaces) {
+        addStar(palaces, 0, '武曲');
+        addStar(palaces, 11, '太阳');
+        addStar(palaces, 1, '太阴');
+      },
+    },
+    {
+      name: '荫印拱身',
+      arrange(palaces) {
+        palaces[4].is_body_palace = false;
+        palaces[9].is_body_palace = true;
+        addStar(palaces, 1, '天梁');
+        addStar(palaces, 3, '天相');
+      },
+    },
+    {
+      name: '财印夹禄',
+      arrange(palaces) {
+        addStar(palaces, 0, '禄存', 'minor');
+        addStar(palaces, 11, '天梁');
+        addStar(palaces, 1, '天相');
+      },
+    },
+    {
+      name: '马头带剑',
+      arrange(palaces) {
+        addStar(palaces, 0, '天马', 'other');
+        addStar(palaces, 0, '擎羊', 'minor');
+      },
+    },
+    {
+      name: '七杀朝斗',
+      arrange(palaces) {
+        addStar(palaces, 0, '七杀');
+      },
+    },
+    {
+      name: '贪火相逢',
+      arrange(palaces) {
+        addStar(palaces, 0, '贪狼', 'major', { brightness: '庙' });
+        addStar(palaces, 0, '火星', 'other', { brightness: '旺' });
+      },
+    },
+    {
+      name: '武曲守垣',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '卯';
+        addStar(palaces, 0, '武曲');
+      },
+    },
+    {
+      name: '权禄生逢',
+      arrange(palaces) {
+        addStar(palaces, 0, '破军', 'major', { birth_mutagen: '权', brightness: '庙' });
+        addStar(palaces, 0, '廉贞', 'major', { birth_mutagen: '禄', brightness: '旺' });
+      },
+    },
+    {
+      name: '羊刃入庙',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '辰';
+        addStar(palaces, 0, '擎羊', 'minor');
+        addStar(palaces, 0, '左辅', 'minor');
+      },
+    },
+    {
+      name: '刑囚夹印',
+      arrange(palaces) {
+        addStar(palaces, 4, '天刑', 'other');
+        addStar(palaces, 4, '廉贞');
+      },
+    },
+    {
+      name: '紫禄同宫',
+      arrange(palaces) {
+        addStar(palaces, 0, '紫微');
+        addStar(palaces, 0, '禄存', 'minor');
+        addStar(palaces, 4, '太阳');
+        addStar(palaces, 8, '太阴');
+      },
+    },
+    {
+      name: '雄宿朝元',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '申';
+        addStar(palaces, 0, '廉贞');
+      },
+    },
+    {
+      name: '破军子午',
+      arrange(palaces) {
+        addStar(palaces, 0, '破军');
+      },
+    },
+    {
+      name: '生不逢时',
+      arrange(palaces) {
+        addStar(palaces, 0, '廉贞');
+        addStar(palaces, 0, '空亡', 'other');
+      },
+    },
+    {
+      name: '禄逢两杀',
+      arrange(palaces) {
+        addStar(palaces, 4, '禄存', 'minor');
+        addStar(palaces, 4, '空亡', 'other');
+        addStar(palaces, 4, '地空', 'other');
+      },
+    },
+    {
+      name: '马落空亡',
+      arrange(palaces) {
+        addStar(palaces, 4, '天马', 'other');
+        addStar(palaces, 4, '旬空', 'other');
+      },
+    },
+    {
+      name: '日月藏辉',
+      arrange(palaces) {
+        palaces[4].earthly_branch = '戌';
+        palaces[8].earthly_branch = '辰';
+        addStar(palaces, 4, '太阳');
+        addStar(palaces, 8, '太阴');
+        addStar(palaces, 6, '巨门');
+      },
+    },
+    {
+      name: '财与囚仇',
+      arrange(palaces) {
+        addStar(palaces, 0, '武曲');
+        addStar(palaces, 4, '廉贞');
+      },
+    },
+    {
+      name: '一生孤贫',
+      arrange(palaces) {
+        addStar(palaces, 0, '破军', 'major', { brightness: '陷' });
+      },
+    },
+    {
+      name: '君子在野',
+      arrange(palaces) {
+        addStar(palaces, 4, '火星', 'other', { brightness: '陷' });
+      },
+    },
+    {
+      name: '羊陀夹忌',
+      arrange(palaces) {
+        addStar(palaces, 0, '廉贞', 'major', { birth_mutagen: '忌' });
+        addStar(palaces, 11, '擎羊', 'minor');
+        addStar(palaces, 1, '陀罗', 'minor');
+      },
+    },
+    {
+      name: '火铃夹命',
+      arrange(palaces) {
+        addStar(palaces, 11, '火星', 'other');
+        addStar(palaces, 1, '铃星', 'other');
+      },
+    },
+    {
+      name: '空劫夹命',
+      arrange(palaces) {
+        addStar(palaces, 11, '地空', 'other');
+        addStar(palaces, 1, '地劫', 'other');
+      },
+    },
+    {
+      name: '泛水桃花',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '亥';
+        addStar(palaces, 0, '贪狼');
+        addStar(palaces, 0, '陀罗', 'minor');
+      },
+    },
+    {
+      name: '水澄桂萼',
+      arrange(palaces) {
+        addStar(palaces, 0, '太阴');
+      },
+    },
+    {
+      name: '天梁居午',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '午';
+        addStar(palaces, 0, '天梁');
+      },
+    },
+    {
+      name: '左辅文昌',
+      arrange(palaces) {
+        addStar(palaces, 0, '左辅', 'minor');
+        addStar(palaces, 0, '文昌', 'minor');
+        addStar(palaces, 0, '紫微');
+      },
+    },
+    {
+      name: '梁昌庙旺',
+      arrange(palaces) {
+        addStar(palaces, 0, '天梁', 'major', { brightness: '庙' });
+        addStar(palaces, 0, '文昌', 'minor', { brightness: '旺' });
+      },
+    },
+    {
+      name: '阳梁昌禄',
+      arrange(palaces) {
+        addStar(palaces, 0, '太阳');
+        addStar(palaces, 4, '天梁');
+        addStar(palaces, 6, '文昌', 'minor');
+        addStar(palaces, 8, '禄存', 'minor');
+      },
+    },
+    {
+      name: '巨日同宫',
+      arrange(palaces) {
+        addStar(palaces, 0, '巨门');
+        addStar(palaces, 0, '太阳');
+      },
+    },
+    {
+      name: '贪铃并守',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '辰';
+        addStar(palaces, 0, '贪狼');
+        addStar(palaces, 0, '铃星', 'other');
+      },
+    },
+    {
+      name: '廉杀庙旺',
+      arrange(palaces) {
+        addStar(palaces, 0, '廉贞', 'major', { brightness: '庙' });
+        addStar(palaces, 0, '七杀', 'major', { brightness: '旺' });
+      },
+    },
+    {
+      name: '廉杀巳亥',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '巳';
+        addStar(palaces, 0, '廉贞');
+        addStar(palaces, 0, '七杀');
+      },
+    },
+    {
+      name: '巨火擎羊',
+      arrange(palaces) {
+        addStar(palaces, 0, '巨门');
+        addStar(palaces, 4, '火星', 'other');
+        addStar(palaces, 6, '擎羊', 'minor');
+        addStar(palaces, 8, '陀罗', 'minor');
+      },
+    },
+    {
+      name: '日月反背',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '戌';
+        addStar(palaces, 0, '太阳');
+      },
+    },
+    {
+      name: '武贪同行',
+      arrange(palaces) {
+        addStar(palaces, 0, '武曲');
+        addStar(palaces, 0, '贪狼');
+      },
+    },
+    {
+      name: '火贵格',
+      arrange(palaces) {
+        addStar(palaces, 4, '贪狼');
+        addStar(palaces, 8, '火星', 'other');
+      },
+    },
+    {
+      name: '风流彩杖',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '寅';
+        addStar(palaces, 0, '贪狼');
+        addStar(palaces, 0, '陀罗', 'minor');
+      },
+    },
+    {
+      name: '日照雷门',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '卯';
+        addStar(palaces, 0, '太阳');
+      },
+      params: { birthTimeLabel: '午时', birthTimeRange: '11:00-13:00' },
+    },
+    {
+      name: '巨机居卯',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '卯';
+        addStar(palaces, 0, '巨门');
+        addStar(palaces, 0, '天机');
+      },
+      params: { birthYearHeavenlyStem: '乙' },
+    },
+  ];
+
+  assert.equal(cases.length, VERIFIED_ZIWEI_PATTERN_RULE_COUNT - 18);
+  assert.equal(new Set(cases.map((item) => item.name)).size, cases.length);
+
+  cases.forEach(({ name, arrange, params }) => {
+    const palaces = createPalaces();
+    arrange(palaces);
+    const pattern = detectPatterns({ palaces, ...params }).find((item) => item.name === name);
+    assert.ok(pattern, `${name}应命中`);
+    assert.ok(pattern.matched_conditions?.length, `${name}应登记实际命中条件`);
+    assert.match(pattern.source ?? '', /oldid=\d+/, `${name}应固定古籍版本`);
+    assert.ok(pattern.calculation, `${name}应说明可复算步骤`);
+    assert.equal(pattern.calculationStepKey, 'ziwei:pattern:calculation:matched-facts');
+
+    const essentialStar = pattern.star_names[0]?.replace(/化[禄权科忌]$/, '');
+    assert.ok(essentialStar, `${name}应登记必要星曜`);
+    palaces.forEach((palace) => {
+      palace.major_stars = palace.major_stars.filter((star) => star.name !== essentialStar);
+      palace.minor_stars = palace.minor_stars.filter((star) => star.name !== essentialStar);
+      palace.other_stars = palace.other_stars.filter((star) => star.name !== essentialStar);
+    });
+    assert.ok(
+      !detectPatterns({ palaces, ...params }).some((item) => item.name === name),
+      `${name}缺少必要星曜${essentialStar}时不应命中`,
+    );
   });
 });
 
@@ -378,6 +813,48 @@ test('科权禄拱命不得省略紫微守命、子午宫和三方会照前提',
   assert.ok(!detectedNames(transformationInSoulPalace).includes('科权禄拱命'));
 });
 
+test('昼夜与生年天干条件应贯穿格局检测和证据重建', () => {
+  const daytime = createPalaces();
+  daytime[0].earthly_branch = '卯';
+  addStar(daytime, 0, '太阳');
+  const daytimePatterns = detectPatterns({
+    palaces: daytime,
+    birthTimeLabel: '午时',
+    birthTimeRange: '11:00-13:00',
+  });
+  assert.ok(daytimePatterns.some((item) => item.name === '日照雷门'));
+  assert.equal(
+    buildPatternAnalysis({
+      patterns: daytimePatterns,
+      palaces: daytime,
+      birthTimeLabel: '午时',
+      birthTimeRange: '11:00-13:00',
+    }).summaryFact.matchedPatternCount,
+    daytimePatterns.length,
+  );
+  assert.ok(!detectedNames(daytime).includes('日照雷门'));
+
+  const yearStem = createPalaces();
+  yearStem[0].earthly_branch = '卯';
+  addStar(yearStem, 0, '巨门');
+  addStar(yearStem, 0, '天机');
+  const yearStemPatterns = detectPatterns({ palaces: yearStem, birthYearHeavenlyStem: '乙' });
+  assert.ok(yearStemPatterns.some((item) => item.name === '巨机居卯'));
+  assert.ok(
+    !detectPatterns({ palaces: yearStem, birthYearHeavenlyStem: '甲' }).some(
+      (item) => item.name === '巨机居卯',
+    ),
+  );
+  assert.equal(
+    buildPatternAnalysis({
+      patterns: yearStemPatterns,
+      palaces: yearStem,
+      birthYearHeavenlyStem: '乙',
+    }).summaryFact.matchedPatternCount,
+    yearStemPatterns.length,
+  );
+});
+
 test('紫微格局证据应汇总登记、命中、未命中与覆盖边界', () => {
   const palaces = createPalaces();
   addStar(palaces, 0, '紫微');
@@ -387,12 +864,12 @@ test('紫微格局证据应汇总登记、命中、未命中与覆盖边界', ()
 
   assert.equal(analysis.status, '已计算');
   assert.equal(analysis.summaryFact.status, '已完成');
-  assert.equal(analysis.summaryFact.registeredRuleCount, 18);
-  assert.equal(analysis.summaryFact.evaluatedRuleCount, 18);
+  assert.equal(analysis.summaryFact.registeredRuleCount, 70);
+  assert.equal(analysis.summaryFact.evaluatedRuleCount, 70);
   assert.equal(analysis.summaryFact.matchedPatternCount, 1);
-  assert.equal(analysis.summaryFact.unmatchedRuleCount, 17);
-  assert.match(analysis.promptText, /固定古籍版本逐条评估18条登记规则/);
-  assert.match(analysis.promptText, /未登记格局不作判断|不代表命盘没有其他传统格局/);
+  assert.equal(analysis.summaryFact.unmatchedRuleCount, 69);
+  assert.match(analysis.promptText, /固定古籍版本逐条评估70条可复算规则/);
+  assert.match(analysis.promptText, /17项.*边界|不代表命盘没有其他传统格局/);
 
   const knownFactKeys = new Set([analysis.summaryFact.key, ...analysis.summaryFact.factKeys]);
   assert.ok(
@@ -473,7 +950,7 @@ test('格局证据汇总应拒绝伪造登记前缀并按稳定键去重', () =>
   });
 
   assert.equal(analysis.summaryFact.matchedPatternCount, 1);
-  assert.equal(analysis.summaryFact.unmatchedRuleCount, 17);
+  assert.equal(analysis.summaryFact.unmatchedRuleCount, 69);
   assert.ok(!analysis.summaryFact.factKeys.includes('manual-shadow-key'));
   assert.ok(!analysis.summaryFact.factKeys.includes('ziwei:verified-pattern:not-registered'));
   assert.doesNotMatch(analysis.promptText, /伪造格局/);

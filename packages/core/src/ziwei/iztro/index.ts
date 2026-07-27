@@ -29,6 +29,8 @@ export {
   selectVerifiedZiweiPatterns,
   VERIFIED_ZIWEI_PATTERN_RULE_COUNT,
   ZIWEI_PATTERN_AUDIT_NOTICE,
+  ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES,
+  ZIWEI_TRADITIONAL_PATTERN_CATALOG_COUNT,
 } from './pattern-detection';
 export { buildEvidenceAnalysis, buildEvidencePool } from './build-evidence-pool';
 export {
