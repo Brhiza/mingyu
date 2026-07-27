@@ -49,7 +49,7 @@ test('黄历基础资料缺失或输入非法时应明确报错', () => {
   assert.throws(() => getAlmanacAnnualDirectionGods('无'), /年支无效/);
 });
 
-test('黄历择日：tyme4ts 返回九星短名时也应补出九星详情', () => {
+test('黄历择日：二十八宿与九星详情应直接来自 tyme4ts 原生属性', () => {
   const result = generateAlmanacSelection({
     topic: 'move',
     startDate: '2026-06-01',
@@ -63,7 +63,11 @@ test('黄历择日：tyme4ts 返回九星短名时也应补出九星详情', () 
     assert.ok(day.moonPhaseEvidence.phaseAngleDegrees < 360);
     assert.ok(day.nineStar, `${day.date} 应有九星名称`);
     assert.ok(day.nineStarDetail, `${day.date} 的九星 ${day.nineStar} 应有详情`);
-    assert.match(day.nineStarDetail.meaning, new RegExp(`^${day.nineStar}`));
+    assert.match(day.nineStarDetail.fullName, new RegExp(`^${day.nineStar}`));
+    assert.equal(day.nineStarDetail.source, 'tyme4ts NineStar 原生属性');
+    assert.ok(day.twentyEightStarDetail);
+    assert.match(day.twentyEightStarDetail.fullName, new RegExp(`^${day.twentyEightStar}`));
+    assert.equal(day.twentyEightStarDetail.source, 'tyme4ts TwentyEightStar 原生属性');
   }
 });
 
@@ -144,8 +148,7 @@ test('黄历择日：岁支十二神方位应从年支起太岁顺排', () => {
   );
   assert.equal(day.annualDirectionGods?.find((item) => item.god === '太岁')?.direction, '正南');
   assert.equal(day.annualDirectionGods?.find((item) => item.god === '岁破')?.direction, '正北');
-  assert.equal(day.annualDirectionGods?.find((item) => item.god === '福德')?.fortune, '吉');
-  assert.equal(day.annualDirectionGods?.find((item) => item.god === '病符')?.fortune, '凶');
+  assert.ok(day.annualDirectionGods?.every((item) => Object.keys(item).length === 3));
 });
 
 test('黄历择日：交节当天年柱月柱按正午精确干支历显示', () => {

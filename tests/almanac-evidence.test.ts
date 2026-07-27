@@ -348,8 +348,16 @@ test('择日传统资料应保留原文并为提示词生成条件化事实', ()
         item.limitation.includes('不证明现实中'),
     ),
   );
-  assert.ok(
-    evidence.traditionalFacts.some((item) => /主疾病|必见灾殃|大凶/.test(item.originalText)),
+  const candidateTraditionalFacts = evidence.candidates.flatMap((item) => item.traditionalFacts);
+  assert.ok(candidateTraditionalFacts.some((item) => /原生吉凶属性/.test(item.originalText)));
+  assert.doesNotMatch(
+    candidateTraditionalFacts
+      .filter(
+        (item) => item.kind === '二十八宿' || item.kind === '九星' || item.kind === '全年方位神',
+      )
+      .map((item) => item.originalText)
+      .join('；'),
+    /主疾病|主死丧|主灾病死亡|主哭泣死亡|必见灾殃|大凶/,
   );
   assert.doesNotMatch(
     evidence.promptText,

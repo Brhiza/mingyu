@@ -1,4 +1,4 @@
-import { SolarDay, SolarTime } from 'tyme4ts';
+import { NineStar, SolarDay, SolarTime, TwentyEightStar } from 'tyme4ts';
 import { baziCalculator } from '../../bazi/baziCalculator';
 import { getBirthDateValidationMessage } from '../../calendar/date-validation';
 import { SHICHEN_PERIODS } from '../../calendar/dateUtils';
@@ -110,18 +110,18 @@ const BRANCH_DIRECTIONS: Record<string, string> = {
 const ANNUAL_DIRECTION_GOD_SEQUENCE: Array<
   Omit<AlmanacAnnualDirectionGod, 'branch' | 'direction'>
 > = [
-  { god: '太岁', fortune: '凶', meaning: '犯太岁防宅长大凶' },
-  { god: '太阳', fortune: '吉', meaning: '修太阳能制诸煞，移床此方主添丁' },
-  { god: '丧门', fortune: '凶', meaning: '犯丧门主死丧哭泣' },
-  { god: '太阴', fortune: '吉', meaning: '修太阴主生女，散病患' },
-  { god: '官符', fortune: '凶', meaning: '犯官符主口舌官讼' },
-  { god: '死符', fortune: '凶', meaning: '犯死符主灾病死亡' },
-  { god: '岁破', fortune: '凶', meaning: '犯岁破忧宅母' },
-  { god: '龙德', fortune: '吉', meaning: '修龙德能散瘟疫官讼' },
-  { god: '白虎', fortune: '凶', meaning: '犯白虎主哭泣死亡及小儿凶' },
-  { god: '福德', fortune: '吉', meaning: '修福德主添丁生子' },
-  { god: '吊客', fortune: '凶', meaning: '犯吊客主丧服' },
-  { god: '病符', fortune: '凶', meaning: '犯病符主疾病' },
+  { god: '太岁' },
+  { god: '太阳' },
+  { god: '丧门' },
+  { god: '太阴' },
+  { god: '官符' },
+  { god: '死符' },
+  { god: '岁破' },
+  { god: '龙德' },
+  { god: '白虎' },
+  { god: '福德' },
+  { god: '吊客' },
+  { god: '病符' },
 ];
 
 function parseDateText(value: string, fieldName: string) {
@@ -326,70 +326,6 @@ function createParticipantProfiles(
     });
 }
 
-/**
- * 二十八宿吉凶属性（《象吉通书》卷一二十八宿值日、清代《择日全纪》）：
- * 每宿含五行、吉凶、宜忌事项，用于黄历择日中辅助判断每日吉凶倾向。
- * 二十八宿轮流值日，每四星期（28日）一循环。
- *
- * 四灵七宿分布：
- * 东方苍龙七宿：角木蛟(吉) 亢金龙(凶) 氐土貉(吉) 房日兔(吉) 心月狐(凶) 尾火虎(吉) 箕水豹(凶)
- * 北方玄武七宿：斗木獬(吉) 牛金牛(凶) 女土蝠(凶) 虚日鼠(凶) 危月燕(凶) 室火猪(吉) 壁水貐(吉)
- * 西方白虎七宿：奎木狼(凶) 娄金狗(吉) 胃土雉(凶) 昴日鸡(凶) 毕月乌(吉) 觜火猴(凶) 参水猿(吉)
- * 南方朱雀七宿：井木犴(吉) 鬼金羊(凶) 柳土獐(凶) 星日马(吉) 张月鹿(吉) 翼火蛇(凶) 轸水蚓(吉)
- */
-const TWENTY_EIGHT_STARS: Record<string, { wuxing: string; fortune: string; meaning: string }> = {
-  角: { wuxing: '木', fortune: '吉', meaning: '角宿值日宜嫁娶、修造、出行，诸事可为' },
-  亢: { wuxing: '金', fortune: '凶', meaning: '亢宿值日宜婚嫁，忌葬埋、开市' },
-  氐: { wuxing: '土', fortune: '吉', meaning: '氐宿值日百事吉，宜嫁娶出行、修造动土' },
-  房: { wuxing: '火', fortune: '吉', meaning: '房宿值日宜嫁娶、开市、入宅，忌安葬' },
-  心: { wuxing: '火', fortune: '凶', meaning: '心宿值日宜嫁娶，忌安葬、出行、求财' },
-  尾: { wuxing: '火', fortune: '吉', meaning: '尾宿值日诸事吉，宜嫁娶、开市、修造' },
-  箕: { wuxing: '水', fortune: '凶', meaning: '箕宿值日宜造桥、修仓库，不宜嫁娶开市' },
-  斗: { wuxing: '木', fortune: '吉', meaning: '斗宿值日百事吉，宜嫁娶、开市、修造、出行' },
-  牛: { wuxing: '金', fortune: '凶', meaning: '牛宿值日宜祭祀，忌嫁娶、开市、修造' },
-  女: { wuxing: '土', fortune: '凶', meaning: '女宿值日宜祭祀，忌嫁娶、出行、开市' },
-  虚: { wuxing: '水', fortune: '凶', meaning: '虚宿值日百事不宜，诸事不吉' },
-  危: { wuxing: '水', fortune: '凶', meaning: '危宿值日宜祭祀、安床，忌出行、开市' },
-  室: { wuxing: '火', fortune: '吉', meaning: '室宿值日百事吉，宜修造、嫁娶、入宅' },
-  壁: { wuxing: '水', fortune: '吉', meaning: '壁宿值日诸事吉，宜嫁娶、出行、开市' },
-  奎: { wuxing: '木', fortune: '凶', meaning: '奎宿值日宜出行，忌修造、嫁娶、开市' },
-  娄: { wuxing: '金', fortune: '吉', meaning: '娄宿值日诸事吉，宜婚嫁、修造、开市' },
-  胃: { wuxing: '土', fortune: '凶', meaning: '胃宿值日宜祭祀，忌嫁娶、出行、开市' },
-  昴: { wuxing: '火', fortune: '凶', meaning: '昴宿值日百事不宜，诸事不吉' },
-  毕: { wuxing: '水', fortune: '吉', meaning: '毕宿值日宜修造、葬埋，忌嫁娶' },
-  觜: { wuxing: '火', fortune: '凶', meaning: '觜宿值日宜祭祀，忌嫁娶、开市、出行' },
-  参: { wuxing: '水', fortune: '吉', meaning: '参宿值日诸事吉，宜嫁娶、开市、修造' },
-  井: { wuxing: '木', fortune: '吉', meaning: '井宿值日百事吉，宜修造、开市、出行' },
-  鬼: { wuxing: '金', fortune: '凶', meaning: '鬼宿值日宜祭祀，忌嫁娶、修造、出行' },
-  柳: { wuxing: '土', fortune: '凶', meaning: '柳宿值日宜祭祀，忌开市、出行' },
-  星: { wuxing: '火', fortune: '吉', meaning: '星宿值日诸事吉，宜嫁娶、修造' },
-  张: { wuxing: '木', fortune: '吉', meaning: '张宿值日百事吉，宜嫁娶、开市、出行' },
-  翼: { wuxing: '火', fortune: '凶', meaning: '翼宿值日宜祭祀、出行，忌嫁娶' },
-  轸: { wuxing: '水', fortune: '吉', meaning: '轸宿值日诸事吉，宜嫁娶、开市、修造' },
-};
-
-/**
- * 九星吉凶属性（《紫白九星》玄空飞星）：
- */
-const NINE_STARS: Record<string, { wuxing: string; fortune: string; meaning: string }> = {
-  一白: { wuxing: '水', fortune: '吉', meaning: '一白贪狼星，主官贵、文运、财禄' },
-  二黑: { wuxing: '土', fortune: '凶', meaning: '二黑巨门星，主疾病、破财、是非' },
-  三碧: { wuxing: '木', fortune: '凶', meaning: '三碧禄存星，主是非、争斗、官非' },
-  四绿: { wuxing: '木', fortune: '吉', meaning: '四绿文曲星，主文昌、考试、名声' },
-  五黄: { wuxing: '土', fortune: '凶', meaning: '五黄廉贞星，大凶，主凶灾、病患' },
-  六白: { wuxing: '金', fortune: '吉', meaning: '六白武曲星，主财禄、武职、贵气' },
-  七赤: { wuxing: '金', fortune: '凶', meaning: '七赤破军星，主破财、口舌、盗贼' },
-  八白: { wuxing: '土', fortune: '吉', meaning: '八白左辅星，主财运、田宅、吉庆' },
-  九紫: { wuxing: '火', fortune: '吉', meaning: '九紫右弼星，主喜事、婚姻、文书' },
-};
-
-const NINE_STAR_SHORT_NAME_MAP: Record<
-  string,
-  { wuxing: string; fortune: string; meaning: string }
-> = Object.fromEntries(
-  Object.entries(NINE_STARS).map(([name, detail]) => [name.slice(0, 1), detail]),
-);
-
 function requireReferenceValue<T>(record: Record<string, T>, key: string, label: string): T {
   if (!key || !Object.prototype.hasOwnProperty.call(record, key)) {
     throw new Error(`黄历${label}资料缺失：${key || '空值'}`);
@@ -398,14 +334,38 @@ function requireReferenceValue<T>(record: Record<string, T>, key: string, label:
 }
 
 export function getAlmanacTwentyEightStarDetail(name: string) {
-  return requireReferenceValue(TWENTY_EIGHT_STARS, name, '二十八宿');
+  try {
+    const star = TwentyEightStar.fromName(name);
+    const sevenStar = star.getSevenStar().getName();
+    const animal = star.getAnimal().getName();
+    return {
+      fullName: `${name}${sevenStar}${animal}`,
+      sevenStar,
+      animal,
+      zone: star.getZone().getName(),
+      fortune: star.getLuck().getName(),
+      source: 'tyme4ts TwentyEightStar 原生属性',
+    };
+  } catch {
+    throw new Error(`黄历二十八宿资料缺失：${name || '空值'}`);
+  }
 }
 
 export function getAlmanacNineStarDetail(name: string) {
-  if (Object.prototype.hasOwnProperty.call(NINE_STARS, name)) {
-    return NINE_STARS[name];
+  const normalizedName = name.slice(0, 1);
+  try {
+    const star = NineStar.fromName(normalizedName);
+    return {
+      fullName: star.toString(),
+      color: star.getColor(),
+      wuxing: star.getElement().getName(),
+      dipper: star.getDipper().getName(),
+      direction: star.getDirection().getName(),
+      source: 'tyme4ts NineStar 原生属性',
+    };
+  } catch {
+    throw new Error(`黄历九星资料缺失：${name || '空值'}`);
   }
-  return requireReferenceValue(NINE_STAR_SHORT_NAME_MAP, name.slice(0, 1), '九星');
 }
 
 export function getAlmanacAnnualDirectionGods(yearBranch: string): AlmanacAnnualDirectionGod[] {
@@ -478,42 +438,6 @@ function assertExactReferenceKeys(
 }
 
 export function validateAlmanacReferenceData(): void {
-  const twentyEightStarNames = [
-    '角',
-    '亢',
-    '氐',
-    '房',
-    '心',
-    '尾',
-    '箕',
-    '斗',
-    '牛',
-    '女',
-    '虚',
-    '危',
-    '室',
-    '壁',
-    '奎',
-    '娄',
-    '胃',
-    '昴',
-    '毕',
-    '觜',
-    '参',
-    '井',
-    '鬼',
-    '柳',
-    '星',
-    '张',
-    '翼',
-    '轸',
-  ] as const;
-  const nineStarNames = ['一白', '二黑', '三碧', '四绿', '五黄', '六白', '七赤', '八白', '九紫'];
-  const nineStarShortNames = nineStarNames.map((name) => name.slice(0, 1));
-
-  assertExactReferenceKeys('二十八宿', TWENTY_EIGHT_STARS, twentyEightStarNames);
-  assertExactReferenceKeys('九星', NINE_STARS, nineStarNames);
-  assertExactReferenceKeys('九星短名', NINE_STAR_SHORT_NAME_MAP, nineStarShortNames);
   assertExactReferenceKeys('彭祖天干百忌', PENGZU_DAY_GAN, HEAVENLY_STEMS);
   assertExactReferenceKeys('彭祖地支百忌', PENGZU_DAY_ZHI, EARTHLY_BRANCHES);
   assertExactReferenceKeys('地支方位', BRANCH_DIRECTIONS, EARTHLY_BRANCHES);
@@ -905,7 +829,7 @@ function buildDayCandidate(
   const dayBranch = dayCycle.getEarthBranch();
   const recommends = normalizeTaboos(lunarDay.getRecommends());
   const avoids = normalizeTaboos(lunarDay.getAvoids());
-  const godSources = lunarDay.getGods();
+  const godSources = lunarDay.getGods() as AlmanacGodSource[];
   const gods = godSources.map((item) => item.getName());
   const scoring = buildDayFacts({
     dateKey,

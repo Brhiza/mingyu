@@ -21,10 +21,7 @@ import {
   analyzeQimenEvidence,
   conditionQimenTraditionalText,
 } from '@core/divination/algorithms/qimen';
-import {
-  analyzeAlmanacEvidence,
-  conditionAlmanacTraditionalText,
-} from '@core/divination/algorithms/almanac';
+import { analyzeAlmanacEvidence } from '@core/divination/algorithms/almanac';
 import { LIUCHONG_MAP } from '@core/ganzhi';
 import type { DivinationMethodId } from '@core/divination/config';
 import {
@@ -803,31 +800,7 @@ function formatAlmanacAnnualDirectionGods(
 ) {
   const gods = candidate?.traditionalFacts.filter((fact) => fact.kind === '全年方位神') ?? [];
   if (!gods.length) return '';
-
-  const importantBadGods = new Set([
-    '太岁',
-    '岁破',
-    '丧门',
-    '官符',
-    '死符',
-    '白虎',
-    '吊客',
-    '病符',
-  ]);
-  const helpfulGods = new Set(['太阳', '太阴', '龙德', '福德']);
-  const importantBad = gods
-    .filter((god) => importantBadGods.has(god.name))
-    .map((god) => `${god.name}${god.branch}${god.direction}`);
-  const helpful = gods
-    .filter((god) => helpfulGods.has(god.name))
-    .map((god) => `${god.name}${god.branch}${god.direction}`);
-
-  return [
-    importantBad.length ? `岁支方位避${importantBad.join('、')}` : '',
-    helpful.length ? `可参考${helpful.join('、')}` : '',
-  ]
-    .filter(Boolean)
-    .join('；');
+  return `岁支十二神方位${gods.map((god) => `${god.name}${god.branch}${god.direction}`).join('、')}（只列方位，不据此判吉凶）`;
 }
 
 function formatAlmanacInfo(data: AlmanacData) {
@@ -853,12 +826,12 @@ function formatAlmanacInfo(data: AlmanacData) {
     const starDetail = starFact
       ? `（${starFact.promptText}）`
       : item.twentyEightStarDetail
-        ? `（${conditionAlmanacTraditionalText(item.twentyEightStarDetail.meaning)}）`
+        ? `（${item.twentyEightStarDetail.fullName}，${item.twentyEightStarDetail.zone}方七宿，原生属性${item.twentyEightStarDetail.fortune}）`
         : '';
     const nineStarDetail = nineStarFact
       ? `（${nineStarFact.promptText}）`
       : item.nineStarDetail
-        ? `（${conditionAlmanacTraditionalText(item.nineStarDetail.meaning)}）`
+        ? `（${item.nineStarDetail.fullName}，北斗${item.nineStarDetail.dipper}，方位${item.nineStarDetail.direction}）`
         : '';
     const godText = item.gods.length ? `吉神${item.gods.join('、')}` : '';
     const annualDirectionGodsText = formatAlmanacAnnualDirectionGods(candidate);

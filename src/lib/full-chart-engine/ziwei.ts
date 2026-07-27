@@ -10,6 +10,7 @@ import {
   buildAnalysisPayloadV1,
   getDefaultHoroscopeContext,
   analyzeZiweiCompatibility,
+  buildVerifiedDecadalTimelineOptions,
 } from '@core/ziwei/iztro';
 import {
   getZiweiCompatibilityDefaultQuestion,
@@ -23,6 +24,7 @@ export type ZiweiRuntime = {
   astrolabe: IztroAstrolabe;
   horoscope: IztroHoroscope;
   payloadByScope: Record<ScopeType, AnalysisPayloadV1>;
+  decadalTimeline: Awaited<ReturnType<typeof buildVerifiedDecadalTimelineOptions>>;
   trueSolarEvidence?: ChartInput['trueSolarEvidence'];
 };
 
@@ -129,11 +131,13 @@ export async function calculateZiweiChartForScopes(
     calculationConfig,
     skipAnalysis,
   });
+  const decadalTimeline = await buildVerifiedDecadalTimelineOptions(astrolabe, input);
 
   return {
     astrolabe,
     horoscope,
     payloadByScope,
+    decadalTimeline,
     trueSolarEvidence: input.trueSolarEvidence,
   };
 }
@@ -153,11 +157,13 @@ export async function calculatePublicZiweiChartForScopes(
     scopes: requestedScopes,
     calculationConfig,
   });
+  const decadalTimeline = await buildVerifiedDecadalTimelineOptions(astrolabe, input);
 
   return {
     astrolabe,
     horoscope,
     payloadByScope,
+    decadalTimeline,
     trueSolarEvidence: input.trueSolarEvidence,
   };
 }
@@ -500,6 +506,8 @@ export function buildCombinedZiweiPrompt(
 export function buildCombinedZiweiCompatibilityPrompt(params: {
   primaryPayload: AnalysisPayloadV1;
   partnerPayload: AnalysisPayloadV1;
+  primaryAstrolabe?: IztroAstrolabe;
+  partnerAstrolabe?: IztroAstrolabe;
   topic: string;
   question: string;
   isCustomQuestion?: boolean;
@@ -535,6 +543,8 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
     {
       person1Name: params.primaryName,
       person2Name: params.partnerName,
+      astrolabe1: params.primaryAstrolabe,
+      astrolabe2: params.partnerAstrolabe,
     },
   );
   const compatibilityInfo = buildZiweiCompatibilityInfo(compatibilityResult);

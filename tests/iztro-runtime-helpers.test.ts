@@ -7,7 +7,10 @@ import {
   buildAstrolabeFromInput,
   buildAnalysisPayloadV1,
   buildHoroscope,
+  buildHoroscopeFromInput,
+  buildVerifiedDecadalTimelineOptions,
   buildZiweiCalculationConfig,
+  findCurrentDecadalOption,
   getDefaultHoroscopeContext,
   shiftLocalDate,
   shiftLunarYear,
@@ -569,6 +572,109 @@ test('紫微大限时间轴应按农历年位移，春节前出生者不落入�
   assert.equal(shiftLunarYear('1995-02-10', 1), '1996-02-29');
   // 位移量为 0 应返回出生日对应公历日期本身
   assert.equal(shiftLunarYear('1995-02-10', 0), '1995-02-10');
+});
+
+test('紫微童限与大限时间轴应逐项服从 iztro 运限结果', async () => {
+  const astrolabe = await buildAstrolabeFromInput(DEFAULT_CHART_INPUT);
+  const options = await buildVerifiedDecadalTimelineOptions(astrolabe, DEFAULT_CHART_INPUT);
+  const firstRegularAge = Math.min(...astrolabe.palaces.map((palace) => palace.decadal.range[0]));
+  const childhoodOptions = options.filter((option) => option.kind === 'childhood');
+  const decadalOptions = options.filter((option) => option.kind === 'decadal');
+
+  assert.deepEqual(
+    childhoodOptions.map((option) => option.startAge),
+    Array.from({ length: firstRegularAge - 1 }, (_, index) => index + 1),
+  );
+  assert.ok(childhoodOptions.every((option) => option.startAge === option.endAge));
+  assert.equal(decadalOptions.length, 12);
+  assert.ok(options.every((option) => option.source === 'iztro-horoscope'));
+  assert.ok(options.every((option) => option.endDateStr && option.endDateStr >= option.dateStr));
+  assert.ok(
+    options.slice(0, -1).every((option, index) => option.endDateStr! < options[index + 1].dateStr),
+  );
+
+  for (const option of options) {
+    const horoscope = await buildHoroscopeFromInput(
+      astrolabe,
+      DEFAULT_CHART_INPUT,
+      option.dateStr,
+      DEFAULT_CHART_INPUT.birthTimeIndex,
+    );
+    assert.equal(horoscope.age.nominalAge, option.startAge);
+    assert.equal(horoscope.decadal.index, option.palaceIndex);
+    assert.equal(horoscope.decadal.name, option.label);
+    assert.equal(astrolabe.palace(horoscope.decadal.index)?.name, option.palaceName);
+    if (option.startAge > 1) {
+      const lunarParts = getLunarParts(option.dateStr);
+      assert.equal(lunarParts.monthWithLeap, 1);
+      assert.equal(lunarParts.day, 1);
+      const [year, month, day] = option.dateStr.split('-').map(Number);
+      const previousDay = SolarDay.fromYmd(year, month, day).next(-1);
+      const previousDate = `${previousDay.getYear()}-${String(previousDay.getMonth()).padStart(2, '0')}-${String(previousDay.getDay()).padStart(2, '0')}`;
+      const previousHoroscope = await buildHoroscopeFromInput(
+        astrolabe,
+        DEFAULT_CHART_INPUT,
+        previousDate,
+        DEFAULT_CHART_INPUT.birthTimeIndex,
+      );
+      assert.ok(previousHoroscope.age.nominalAge < option.startAge);
+    }
+  }
+});
+
+test('紫微农历闰月出生的大限时间线应以 iztro 换算后的公历生日为基准', async () => {
+  const input = {
+    ...DEFAULT_CHART_INPUT,
+    dateType: 'lunar' as const,
+    birthDate: '2023-02-04',
+    isLeapMonth: true,
+  };
+  const astrolabe = await buildAstrolabeFromInput(input);
+  const options = await buildVerifiedDecadalTimelineOptions(astrolabe, input);
+
+  assert.equal(astrolabe.solarDate, '2023-3-25');
+  assert.equal(options[0]?.dateStr, '2023-03-25');
+  assert.equal(
+    (await buildHoroscopeFromInput(astrolabe, input, options[0].dateStr, input.birthTimeIndex)).age
+      .nominalAge,
+    1,
+  );
+});
+
+test('紫微按生日换虚岁时应寻找并验证 iztro 实际换岁代表日', async () => {
+  const input = { ...DEFAULT_CHART_INPUT, ageDivide: 'birthday' as const };
+  const astrolabe = await buildAstrolabeFromInput(input);
+  const options = await buildVerifiedDecadalTimelineOptions(astrolabe, input);
+  const firstOption = options[0];
+
+  assert.ok(firstOption);
+  assert.notEqual(firstOption.dateStr, input.birthDate);
+  const horoscope = await buildHoroscopeFromInput(
+    astrolabe,
+    input,
+    firstOption.dateStr,
+    input.birthTimeIndex,
+  );
+  assert.equal(horoscope.age.nominalAge, 1);
+  assert.equal(horoscope.decadal.name, '童限');
+});
+
+test('紫微当前大限查找失败时不得默认选择第一项', () => {
+  const options = [
+    {
+      kind: 'decadal' as const,
+      label: '大限',
+      startAge: 6,
+      endAge: 15,
+      dateStr: '2003-07-21',
+      source: 'iztro-horoscope' as const,
+    },
+  ];
+
+  assert.equal(findCurrentDecadalOption(options, 6), options[0]);
+  assert.equal(findCurrentDecadalOption(options, 1), null);
+  assert.equal(findCurrentDecadalOption(options, 16), null);
+  assert.equal(findCurrentDecadalOption(options, 1.5), null);
 });
 
 test('紫微农历年位移应处理闰月与月底回退', () => {

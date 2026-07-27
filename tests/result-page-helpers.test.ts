@@ -102,6 +102,7 @@ test('findZiweiDecadalIndexByDate 按日期范围查找大限索引', () => {
   assert.equal(findZiweiDecadalIndexByDate(options, '2015-06-01', 0), 1);
   assert.equal(findZiweiDecadalIndexByDate(options, '2025-06-01', 0), 2);
   assert.equal(findZiweiDecadalIndexByDate(options, '1990-01-01', 0), 0);
+  assert.equal(findZiweiDecadalIndexByDate(options, '1990-01-01', -1), -1);
   assert.equal(findZiweiDecadalIndexByDate([], '2024-01-01', 3), 3);
   assert.equal(findZiweiDecadalIndexByDate(options, '', 1), 1);
 });

@@ -243,6 +243,7 @@ export const ZiweiBoard = memo(function ZiweiBoard(props: {
           <ZiweiFortuneSelector
             chartInput={chartInput}
             payloadByScope={runtime.payloadByScope}
+            decadalTimeline={runtime.decadalTimeline}
             selectedScope={selectedScope}
             selectedDateStr={selectedDateStr}
             onSelectScopeDate={(scope, dateStr) => {

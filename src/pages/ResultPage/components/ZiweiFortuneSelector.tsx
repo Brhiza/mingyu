@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  buildDecadalTimelineOptions,
   findCurrentDecadalOption,
   formatDecadalAgeRange,
   getDefaultHoroscopeContext,
 } from '@core/ziwei/iztro';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
+import type { DecadalTimelineOption } from '@core/ziwei/iztro';
 import { formatMonthDayLabel, splitGanZhi } from '../ResultPage.helpers';
 import { useZiweiFortuneOptionsWorker } from '../hooks/useZiweiFortuneOptionsWorker';
 import { BaziFortuneLoadingCard } from './skeletons';
@@ -14,29 +14,31 @@ import { BaziFortuneLoadingCard } from './skeletons';
 export function ZiweiFortuneSelector(props: {
   chartInput: ChartInput;
   payloadByScope: Record<ScopeType, AnalysisPayloadV1>;
+  decadalTimeline: DecadalTimelineOption[];
   selectedScope: ScopeType;
   selectedDateStr: string;
   onSelectScopeDate: (scope: ScopeType, dateStr: string) => void;
 }) {
-  const { chartInput, payloadByScope, selectedScope, selectedDateStr, onSelectScopeDate } = props;
+  const {
+    chartInput,
+    payloadByScope,
+    decadalTimeline,
+    selectedScope,
+    selectedDateStr,
+    onSelectScopeDate,
+  } = props;
   const defaultContext = useMemo(() => getDefaultHoroscopeContext(), []);
   const originPayload = payloadByScope.origin;
   const birthSolarDate = originPayload.basic_info.solar_date;
-  const decadalOptions = useMemo(
-    () => buildDecadalTimelineOptions(originPayload.palaces, birthSolarDate),
-    [birthSolarDate, originPayload.palaces],
-  );
+  const decadalOptions = decadalTimeline;
   const initialDecadal = useMemo(
     () => findCurrentDecadalOption(decadalOptions, payloadByScope.yearly.active_scope.nominal_age),
     [decadalOptions, payloadByScope],
   );
   const [selectedDecadalIndex, setSelectedDecadalIndex] = useState(
-    Math.max(
-      0,
-      decadalOptions.findIndex((item) => item === initialDecadal),
-    ),
+    decadalOptions.findIndex((item) => item === initialDecadal),
   );
-  const selectedDecadal = decadalOptions[selectedDecadalIndex] ?? decadalOptions[0];
+  const selectedDecadal = decadalOptions[selectedDecadalIndex] ?? null;
   const [selectedYearDateStr, setSelectedYearDateStr] = useState(selectedDateStr);
   const [selectedMonthDateStr, setSelectedMonthDateStr] = useState(selectedDateStr);
 

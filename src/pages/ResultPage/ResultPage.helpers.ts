@@ -527,12 +527,13 @@ export function findZiweiDecadalIndexByDate(
   }
 
   for (let index = decadalOptions.length - 1; index >= 0; index -= 1) {
-    if (dateStr >= decadalOptions[index].dateStr) {
+    const option = decadalOptions[index];
+    if (dateStr >= option.dateStr && (!option.endDateStr || dateStr <= option.endDateStr)) {
       return index;
     }
   }
 
-  return 0;
+  return fallbackIndex;
 }
 
 export function findZiweiYearOptionDate(yearOptions: ZiweiYearOption[], dateStr: string) {

@@ -1,6 +1,7 @@
 import type { LiurenClassicalRule } from '../../../../types/divination';
 
 const MAIN_SOURCE = '《大六壬大全》九宗门取传法';
+const SHEHAI_SOURCE = '《六壬粹言》涉害第六及《大六壬大全》涉害课';
 
 const RULES: Array<LiurenClassicalRule & { match: RegExp }> = [
   {
@@ -62,10 +63,11 @@ const RULES: Array<LiurenClassicalRule & { match: RegExp }> = [
   },
   {
     match: /涉害/,
-    source: MAIN_SOURCE,
+    source: SHEHAI_SOURCE,
     rule: '涉害',
     category: '涉害法',
-    summary: '多处贼克且比用不能独定时，比较涉害深浅，并参考孟仲季位置取发用。',
+    summary:
+      '多处贼克且阴阳比用不能独定时，从上神所临地盘之后历归本家，先比受克深浅，再依孟仲季及刚日干上、柔日支上取用；不另用“择比”改传。',
   },
   {
     match: /昴星/,

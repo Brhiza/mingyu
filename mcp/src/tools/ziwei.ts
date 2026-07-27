@@ -213,7 +213,12 @@ export function registerZiweiTool(server: McpServer) {
         const compatibility = analyzeZiweiCompatibility(
           person1.payloadByScope.origin,
           person2.payloadByScope.origin,
-          { person1Name: args.person1.name, person2Name: args.person2.name },
+          {
+            person1Name: args.person1.name,
+            person2Name: args.person2.name,
+            astrolabe1: person1.astrolabe,
+            astrolabe2: person2.astrolabe,
+          },
         );
         return createStructuredToolResult({
           charts: {
@@ -248,7 +253,12 @@ export function registerZiweiTool(server: McpServer) {
         const compatibility = analyzeZiweiCompatibility(
           person1.payloadByScope.origin,
           person2.payloadByScope.origin,
-          { person1Name: args.person1.name, person2Name: args.person2.name },
+          {
+            person1Name: args.person1.name,
+            person2Name: args.person2.name,
+            astrolabe1: person1.astrolabe,
+            astrolabe2: person2.astrolabe,
+          },
         );
         const result = {
           charts: {
@@ -262,6 +272,8 @@ export function registerZiweiTool(server: McpServer) {
           prompt: buildCombinedZiweiCompatibilityPrompt({
             primaryPayload: person1.payloadByScope.origin,
             partnerPayload: person2.payloadByScope.origin,
+            primaryAstrolabe: person1.astrolabe,
+            partnerAstrolabe: person2.astrolabe,
             primaryTrueSolarEvidence: person1.trueSolarEvidence,
             partnerTrueSolarEvidence: person2.trueSolarEvidence,
             primaryName: args.person1.name,

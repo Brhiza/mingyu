@@ -709,12 +709,16 @@ export function ResultPage() {
   function computeZiweiPromptText(question: string): string {
     if (promptState.tab !== 'prompt') return '';
     if (inputState.analysisMode === 'compatibility') {
-      if (!currentZiweiPayload || !partnerZiweiPayload) return '';
+      if (!currentZiweiPayload || !partnerZiweiPayload || !ziweiRuntime || !partnerZiweiRuntime) {
+        return '';
+      }
       return buildCombinedZiweiCompatibilityPrompt({
         primaryPayload: currentZiweiPayload,
         partnerPayload: partnerZiweiPayload,
-        primaryTrueSolarEvidence: ziweiRuntime?.trueSolarEvidence,
-        partnerTrueSolarEvidence: partnerZiweiRuntime?.trueSolarEvidence,
+        primaryAstrolabe: ziweiRuntime.astrolabe,
+        partnerAstrolabe: partnerZiweiRuntime.astrolabe,
+        primaryTrueSolarEvidence: ziweiRuntime.trueSolarEvidence,
+        partnerTrueSolarEvidence: partnerZiweiRuntime.trueSolarEvidence,
         topic: promptState.ziweiTopic,
         question,
         isCustomQuestion: activeZiweiShortcutMode === '自定义',
@@ -1837,10 +1841,11 @@ export function ResultPage() {
         </Suspense>
       ) : null}
 
-      {isZiweiScopeModalOpen && primaryZiweiInput && activeZiweiPayloadByScope ? (
+      {isZiweiScopeModalOpen && primaryZiweiInput && activeZiweiPayloadByScope && ziweiRuntime ? (
         <ZiweiScopeModal
           chartInput={primaryZiweiInput}
           payloadByScope={activeZiweiPayloadByScope}
+          decadalTimeline={ziweiRuntime.decadalTimeline}
           selectedScope={promptState.ziweiScope}
           selectedDateStr={promptState.ziweiScopeDate}
           onClose={() => setIsZiweiScopeModalOpen(false)}

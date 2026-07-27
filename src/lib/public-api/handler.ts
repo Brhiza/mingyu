@@ -2411,7 +2411,12 @@ async function calculateZiweiCompatibilityApi(input: JsonRecord) {
   const compatibility = analyzeZiweiCompatibility(
     charts.person1.payloadByScope.origin,
     charts.person2.payloadByScope.origin,
-    { person1Name: charts.person1Name, person2Name: charts.person2Name },
+    {
+      person1Name: charts.person1Name,
+      person2Name: charts.person2Name,
+      astrolabe1: charts.person1.astrolabe,
+      astrolabe2: charts.person2.astrolabe,
+    },
   );
   return {
     charts: {
@@ -2428,12 +2433,19 @@ async function buildZiweiCompatibilityPromptApi(input: JsonRecord) {
   const compatibility = analyzeZiweiCompatibility(
     charts.person1.payloadByScope.origin,
     charts.person2.payloadByScope.origin,
-    { person1Name: charts.person1Name, person2Name: charts.person2Name },
+    {
+      person1Name: charts.person1Name,
+      person2Name: charts.person2Name,
+      astrolabe1: charts.person1.astrolabe,
+      astrolabe2: charts.person2.astrolabe,
+    },
   );
   const topic = readEnum(input, 'promptTopic', ZIWEI_PROMPT_TOPICS, 'relationship');
   const prompt = buildCombinedZiweiCompatibilityPrompt({
     primaryPayload: charts.person1.payloadByScope.origin,
     partnerPayload: charts.person2.payloadByScope.origin,
+    primaryAstrolabe: charts.person1.astrolabe,
+    partnerAstrolabe: charts.person2.astrolabe,
     primaryTrueSolarEvidence: charts.person1.trueSolarEvidence,
     partnerTrueSolarEvidence: charts.person2.trueSolarEvidence,
     primaryName: charts.person1Name,

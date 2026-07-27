@@ -1,4 +1,5 @@
 import type FunctionalAstrolabe from 'iztro/lib/astro/FunctionalAstrolabe';
+import type { IFunctionalAstrolabe } from 'iztro/lib/astro/FunctionalAstrolabe';
 import type FunctionalHoroscope from 'iztro/lib/astro/FunctionalHoroscope';
 import type { Config } from 'iztro/lib/data/types';
 import { LunarDay, SolarDay } from 'tyme4ts';
@@ -179,7 +180,7 @@ export function getDefaultHoroscopeContext(now = new Date()) {
 }
 
 export function buildHoroscope(
-  astrolabe: FunctionalAstrolabe,
+  astrolabe: IFunctionalAstrolabe,
   dateStr: string,
   hourIndex: number,
 ): FunctionalHoroscope {
@@ -188,7 +189,7 @@ export function buildHoroscope(
 }
 
 export async function buildHoroscopeFromInput(
-  astrolabe: FunctionalAstrolabe,
+  astrolabe: IFunctionalAstrolabe,
   input: ChartInput,
   dateStr: string,
   hourIndex: number,

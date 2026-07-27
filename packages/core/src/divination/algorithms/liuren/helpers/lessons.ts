@@ -239,9 +239,10 @@ function walkBranches(start: string, end: string) {
   }
 
   const branches: string[] = [];
-  for (let step = 0; step < 12; step += 1) {
+  // 涉害从所临地盘之后起数，归上神本家即止；起点与本家均不重复计入。
+  for (let step = 1; step <= 12; step += 1) {
     const branch = getBranchAt(startIndex + step);
-    if (branch === end && step > 0) {
+    if (branch === end) {
       break;
     }
     branches.push(branch);
@@ -300,11 +301,9 @@ function pickByHarmDepth(candidates: KeCandidate[], context: ResolveTransmission
   const preferredUpper = YANG_STEMS.has(context.dayStem)
     ? getUpperByUnder(context.heavenlyPlate, context.dayStemResidence)
     : getUpperByUnder(context.heavenlyPlate, context.dayBranch);
-  const picked =
-    tied.find((item) => item.candidate.lesson.upper === preferredUpper)?.candidate ??
-    tied[0]?.candidate;
+  const picked = tied.find((item) => item.candidate.lesson.upper === preferredUpper)?.candidate;
   if (!picked) {
-    throw new Error('涉害法没有可供比较的候选课。');
+    throw new Error('涉害复等无法按刚日干上或柔日支上确定发用。');
   }
   return picked;
 }

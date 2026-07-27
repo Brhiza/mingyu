@@ -734,11 +734,60 @@ test('大六壬多处贼克且同阴阳候选不唯一时进入涉害法', () =>
   assert.ok(['巳', '未', '亥'].includes(result.initial));
 });
 
-test('大六壬涉害法先取受克最深者，再以孟仲季决胜', () => {
+test('大六壬涉害从所临地盘之后起算，并依深浅、孟仲季取用', () => {
   const cases = [
-    { day: '己亥', hour: '辛申', expected: ['亥', '卯', '未'] },
-    { day: '丁卯', hour: '辛寅', expected: ['亥', '酉', '未'] },
-    { day: '辛卯', hour: '庚寅', expected: ['亥', '酉', '未'] },
+    {
+      day: '丁卯',
+      hour: '辛丑',
+      monthLeader: '亥',
+      expected: ['亥', '酉', '未'],
+      source: '《六壬粹言》丁卯日两下贼上例',
+    },
+    {
+      day: '庚子',
+      hour: '丁丑',
+      monthLeader: '亥',
+      expected: ['午', '辰', '寅'],
+      source: '《大六壬大全》庚子日涉害例',
+    },
+    {
+      day: '甲午',
+      hour: '庚午',
+      monthLeader: '申',
+      expected: ['辰', '午', '申'],
+      source: '《大六壬大全》甲午日复等例',
+    },
+  ];
+
+  for (const item of cases) {
+    const result = buildReferenceLiurenPlate({
+      day: item.day,
+      hour: item.hour,
+      monthLeader: item.monthLeader,
+    });
+
+    assert.equal(result.initial.rule, '涉害法', item.source);
+    assert.deepEqual(result.branches, item.expected, item.source);
+  }
+});
+
+test('大六壬涉害依《六壬粹言》古法不另用择比改传', () => {
+  const cases = [
+    {
+      day: '乙卯',
+      hour: '戊寅',
+      expected: ['亥', '酉', '未'],
+    },
+    {
+      day: '甲辰',
+      hour: '戊辰',
+      expected: ['子', '申', '辰'],
+    },
+    {
+      day: '庚午',
+      hour: '庚辰',
+      expected: ['子', '申', '辰'],
+    },
   ];
 
   for (const item of cases) {

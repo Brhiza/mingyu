@@ -13,6 +13,7 @@ export { shiftLocalDate, shiftLunarYear } from './runtime-helpers';
 export type { DecadalTimelineOption } from './decadal';
 export {
   buildDecadalTimelineOptions,
+  buildVerifiedDecadalTimelineOptions,
   findCurrentDecadalOption,
   formatDecadalAgeRange,
   getChildhoodAgeRange,

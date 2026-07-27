@@ -310,28 +310,31 @@ export function conditionAlmanacTraditionalText(text: string): string {
 function buildTraditionalFacts(day: AlmanacDayCandidate): AlmanacTraditionalFact[] {
   const facts: AlmanacTraditionalFact[] = [];
   if (day.twentyEightStarDetail) {
+    const detail = day.twentyEightStarDetail;
+    const originalText = `${detail.fullName}，${detail.zone}方七宿，tyme4ts 原生吉凶属性${detail.fortune}`;
     facts.push({
       key: `${day.date}:twenty-eight-star:${day.twentyEightStar}`,
       date: day.date,
       kind: '二十八宿',
       name: day.twentyEightStar,
-      originalText: day.twentyEightStarDetail.meaning,
-      promptText: `${day.twentyEightStar}宿五行${day.twentyEightStarDetail.wuxing}，传统属性${day.twentyEightStarDetail.fortune}；${conditionAlmanacTraditionalText(day.twentyEightStarDetail.meaning)}`,
-      sources: ['《象吉通书》卷一二十八宿值日、清代《择日全纪》'],
-      fortune: day.twentyEightStarDetail.fortune,
+      originalText,
+      promptText: originalText,
+      sources: [detail.source],
+      fortune: detail.fortune,
       limitation: TRADITIONAL_FACT_LIMITATION,
     });
   }
   if (day.nineStarDetail) {
+    const detail = day.nineStarDetail;
+    const originalText = `${detail.fullName}，北斗${detail.dipper}，方位${detail.direction}`;
     facts.push({
       key: `${day.date}:nine-star:${day.nineStar}`,
       date: day.date,
       kind: '九星',
       name: day.nineStar,
-      originalText: day.nineStarDetail.meaning,
-      promptText: `${day.nineStar}五行${day.nineStarDetail.wuxing}，传统属性${day.nineStarDetail.fortune}；${conditionAlmanacTraditionalText(day.nineStarDetail.meaning)}`,
-      sources: ['传统紫白九星值日表'],
-      fortune: day.nineStarDetail.fortune,
+      originalText,
+      promptText: originalText,
+      sources: [detail.source],
       limitation: TRADITIONAL_FACT_LIMITATION,
     });
   }
@@ -341,10 +344,9 @@ function buildTraditionalFacts(day: AlmanacDayCandidate): AlmanacTraditionalFact
       date: day.date,
       kind: '全年方位神',
       name: item.god,
-      originalText: item.meaning,
-      promptText: `${item.god}在${item.branch}${item.direction}，传统属性${item.fortune}；${conditionAlmanacTraditionalText(item.meaning)}`,
+      originalText: `${item.god}在${item.branch}${item.direction}`,
+      promptText: `${item.god}在${item.branch}${item.direction}；当前只保留方位，不附未经逐条校勘的吉凶断语`,
       sources: ['岁支起太岁顺排十二神方位表'],
-      fortune: item.fortune,
       branch: item.branch,
       direction: item.direction,
       limitation: TRADITIONAL_FACT_LIMITATION,

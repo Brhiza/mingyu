@@ -862,8 +862,6 @@ export interface AlmanacAnnualDirectionGod {
   branch: string;
   direction: string;
   god: string;
-  fortune: '吉' | '凶' | '平';
-  meaning: string;
 }
 
 export type AlmanacRuleFactStatus = '支持' | '限制' | '中性' | '未采用';
@@ -925,15 +923,21 @@ export interface AlmanacDayCandidate {
   twelveStar: string;
   twentyEightStar: string;
   twentyEightStarDetail?: {
-    wuxing: string;
+    fullName: string;
+    sevenStar: string;
+    animal: string;
+    zone: string;
     fortune: string;
-    meaning: string;
+    source: string;
   } | null;
   nineStar: string;
   nineStarDetail?: {
+    fullName: string;
+    color: string;
     wuxing: string;
-    fortune: string;
-    meaning: string;
+    dipper: string;
+    direction: string;
+    source: string;
   } | null;
   gods: string[];
   recommends: string[];
