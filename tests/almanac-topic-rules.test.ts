@@ -37,7 +37,7 @@ test('黄历择日：神煞吉凶直接采用 tyme4ts 原生属性并分别保�
   assert.ok(facts.every((fact) => fact.sources.includes('tyme4ts God.getLuck() 原生吉凶属性')));
 });
 
-test('黄历择日：候选先按状态、再按明确宜项数量和日期稳定排序', () => {
+test('黄历择日：候选只按状态分组，同组保持日期先后而不按宜项数量排名', () => {
   const result = generateAlmanacSelection({
     topic: 'move',
     startDate: '2026-06-01',
@@ -59,15 +59,13 @@ test('黄历择日：候选先按状态、再按明确宜项数量和日期稳�
     const previousStatus = result.evidenceAnalysis?.candidates[index - 1]?.status;
     const currentStatus = result.evidenceAnalysis?.candidates[index]?.status;
     if (previousStatus !== currentStatus) continue;
-    const previousSupports =
-      previous.topicMatchFacts?.filter((fact) => fact.status === '支持').length ?? 0;
-    const currentSupports =
-      current.topicMatchFacts?.filter((fact) => fact.status === '支持').length ?? 0;
-    assert.ok(
-      previousSupports > currentSupports ||
-        (previousSupports === currentSupports && previous.date < current.date),
-    );
+    assert.ok(previous.date < current.date);
   }
+  assert.ok(
+    result.evidenceAnalysis?.hardConstraints.some((item) =>
+      item.includes('不按支持项或限制项数量生成高低'),
+    ),
+  );
 });
 
 test('黄历择日：参与人适配证据字段应完整生成', () => {

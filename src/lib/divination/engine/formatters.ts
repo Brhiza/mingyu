@@ -814,10 +814,11 @@ function formatAlmanacAnnualDirectionGods(
 
 function formatAlmanacInfo(data: AlmanacData) {
   const evidenceAnalysis = analyzeAlmanacEvidence(data);
-  const topDays = data.days.slice(0, 8);
-  const preferred = evidenceAnalysis.preferredDates?.slice(0, 3) || [];
-  const caution = evidenceAnalysis.cautionDates?.slice(0, 3) || [];
-  const mainLine = `事项主线：围绕${data.topicLabel}，先核对原始宜忌与参与人年支、日支刑冲破害，再并列查看建除、神煞与冲煞；可用候选${preferred.join('、') || '暂无'}，慎用候选${caution.join('、') || '暂无'}`;
+  const candidateDays = data.days;
+  const preferred = evidenceAnalysis.preferredDates || [];
+  const conditional = evidenceAnalysis.conditionalDates || [];
+  const caution = evidenceAnalysis.cautionDates || [];
+  const mainLine = `事项主线：围绕${data.topicLabel}，先核对原始宜忌与参与人年支、日支刑冲破害，再并列查看建除、神煞与冲煞；可用候选${preferred.join('、') || '暂无'}，条件候选${conditional.join('、') || '暂无'}，慎用候选${caution.join('、') || '暂无'}；同组按日期先后列出，不按证据数量生成名次`;
   const participantLines = data.participants.map((item) => {
     const usefulEvidenceAvailable =
       item.usefulGods.length > 0 && item.usefulGods.length <= 3 && item.avoidGods.length > 0;
@@ -826,7 +827,7 @@ function formatAlmanacInfo(data: AlmanacData) {
       : '本次不采用喜忌五行作简单加权';
     return `- ${item.name}：${item.gender || '性别未填'}，公历${item.solarDate}，农历${item.lunarDate}，生肖${item.zodiac}，日主${item.dayMaster}${item.dayMasterElement}，四柱${item.pillars.year}年 ${item.pillars.month}月 ${item.pillars.day}日 ${item.pillars.hour}时，${useful}`;
   });
-  const dayLines = topDays.map((item, index) => {
+  const dayLines = candidateDays.map((item) => {
     const candidate = evidenceAnalysis.candidates.find(
       (candidateItem) => candidateItem.date === item.date,
     );
@@ -845,15 +846,15 @@ function formatAlmanacInfo(data: AlmanacData) {
     const godText = item.gods.length ? `吉神${item.gods.join('、')}` : '';
     const annualDirectionGodsText = formatAlmanacAnnualDirectionGods(candidate);
     const evidence = [
-      `宜${item.recommends.slice(0, 8).join('、') || '无'}`,
-      `忌${item.avoids.slice(0, 8).join('、') || '无'}`,
+      `宜${item.recommends.join('、') || '无'}`,
+      `忌${item.avoids.join('、') || '无'}`,
       godText,
       annualDirectionGodsText,
       item.highlights.length ? `支持${item.highlights.join('、')}` : '',
       item.cautions.length ? `风险${item.cautions.join('、')}` : '',
       item.participantNotes.length ? `参与人${item.participantNotes.join('；')}` : '',
       item.bestHours?.length
-        ? `可用时辰${item.bestHours
+        ? `无强冲突时辰${item.bestHours
             .map(
               (hour) =>
                 `${hour.name}${hour.range}（${hour.ganzhi}、${hour.twelveStar}；${hour.highlights.join('、') || '未见独立增强条件'}${hour.cautions.length ? `；风险${hour.cautions.join('、')}` : ''}）`,
@@ -862,21 +863,17 @@ function formatAlmanacInfo(data: AlmanacData) {
         : '',
     ].filter(Boolean);
     const status = candidate?.status;
-    return `- 第${index + 1}候选：${item.date} ${item.weekday}${status ? `，${status}` : ''}，${item.lunarDate}，${item.ganzhi.year}年 ${item.ganzhi.month}月 ${item.ganzhi.day}日；${item.dayOfficer}执日，十二神${item.twelveStar}，二十八宿${item.twentyEightStar}${starDetail}，九星${item.nineStar}${nineStarDetail}，${item.clash}；${evidence.join('；')}`;
+    return `- 候选日期：${item.date} ${item.weekday}${status ? `，${status}` : ''}，${item.lunarDate}，${item.ganzhi.year}年 ${item.ganzhi.month}月 ${item.ganzhi.day}日；${item.dayOfficer}执日，十二神${item.twelveStar}，二十八宿${item.twentyEightStar}${starDetail}，九星${item.nineStar}${nineStarDetail}，${item.clash}；${evidence.join('；')}`;
   });
-  const bestDay = topDays[0];
-  const backupDays = topDays.slice(1, 3);
   const topicScopeEvidence = data.topic === 'custom' ? '' : `事项范围：${data.topicLabel}`;
   const participantFitEvidence = data.participants.length
     ? data.participants
         .map((participant) => {
-          const relatedNotes = topDays
-            .flatMap((day) =>
-              day.participantNotes
-                .filter((note) => note.includes(participant.name))
-                .map((note) => `${day.date}${note}`),
-            )
-            .slice(0, 3);
+          const relatedNotes = candidateDays.flatMap((day) =>
+            day.participantNotes
+              .filter((note) => note.includes(participant.name))
+              .map((note) => `${day.date}${note}`),
+          );
           const usefulEvidenceAvailable =
             participant.usefulGods.length > 0 &&
             participant.usefulGods.length <= 3 &&
@@ -890,12 +887,9 @@ function formatAlmanacInfo(data: AlmanacData) {
     : '';
   const availableWindowEvidence = [
     `候选范围：${data.startDate}至${data.endDate}`,
-    bestDay?.bestHours?.length
-      ? `首选日可用时辰${bestDay.bestHours.map((hour) => `${hour.name}${hour.range}`).join('、')}`
-      : '',
-    bestDay
-      ? `首选日期${bestDay.date}，备选${backupDays.map((item) => item.date).join('、') || '无'}`
-      : '',
+    `可用候选${preferred.join('、') || '暂无'}`,
+    `条件候选${conditional.join('、') || '暂无'}`,
+    `慎用候选${caution.join('、') || '暂无'}`,
   ]
     .filter(Boolean)
     .join('；');
@@ -904,7 +898,6 @@ function formatAlmanacInfo(data: AlmanacData) {
     '占法：黄历择日',
     `核心结构：择日事项：${data.topicLabel}；候选日期：${data.startDate} 至 ${data.endDate}`,
     mainLine,
-    bestDay ? `首选日期：${bestDay.date}` : '',
     topicScopeEvidence,
     participantFitEvidence ? `参与人适配：${participantFitEvidence}` : '',
     `可用时段：${availableWindowEvidence}`,

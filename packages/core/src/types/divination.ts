@@ -988,6 +988,10 @@ export interface AlmanacDayCandidate {
   godFacts?: AlmanacGodFact[];
   participantRelationFacts?: AlmanacParticipantRelationFact[];
   hours?: AlmanacHourCandidate[];
+  /**
+   * 兼容字段：按“可用候选、条件候选”分组并保持组内自然时序的无强冲突时辰全集；
+   * 不表示唯一最佳，也不按支持项数量截取名次。慎用时辰仍保留在 hours。
+   */
   bestHours?: AlmanacHourCandidate[];
 }
 

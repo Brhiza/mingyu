@@ -4603,12 +4603,28 @@ test('黄历择日会结合可选事项、日期范围和多位出生信息生�
   assert.match(session.prompt, /占法：黄历择日/);
   assert.match(session.prompt, /择日事项：搬家入宅/);
   assert.match(session.prompt, /候选日期：2026-06-01 至 2026-06-05/);
-  assert.match(session.prompt, /首选日期：/);
+  assert.match(session.prompt, /同组按日期先后列出，不按证据数量生成名次/);
+  assert.doesNotMatch(session.prompt, /首选日期：|第\d+候选/);
   assert.match(session.prompt, /候选日期明细：/);
   assert.doesNotMatch(session.prompt, /结构化证据|证据汇总|计算链|解释限制|传统硬限制/);
   assert.match(session.prompt, /参与人八字参考：/);
   assert.match(session.prompt, /本人：男/);
   assert.ok('days' in session.data && session.data.days.length === 5);
+});
+
+test('黄历择日提示词应保留超过八天的全部候选日期', async () => {
+  const session = await generateDivinationSession(
+    buildDraft({
+      method: 'almanac',
+      almanacTopic: 'contract',
+      almanacEndDate: '2026-06-10',
+    }),
+  );
+
+  assert.ok('days' in session.data && session.data.days.length === 10);
+  for (let day = 1; day <= 10; day += 1) {
+    assert.match(session.prompt, new RegExp(`候选日期：2026-06-${String(day).padStart(2, '0')}`));
+  }
 });
 
 test('黄历择日不强制填写问题，空补充时仍生成完整择日提示词和历史标题', async () => {

@@ -4053,7 +4053,8 @@ test('公开 API 黄历提示词支持按页生成，便于调用方拆分大范
     /计算链：[\s\S]*反证汇总：[\s\S]*证据汇总：[\s\S]*解释限制：/,
   );
   assert.match(body.data.prompt, /候选日期：2026-06-01 至 2026-06-30/);
-  assert.equal((body.data.prompt.match(/第\d+候选：/g) ?? []).length, 5);
+  assert.equal((body.data.prompt.match(/- 候选日期：/g) ?? []).length, 5);
+  assert.doesNotMatch(body.data.prompt, /首选日期：|第\d+候选/);
   body.data.result.days.forEach((day: { date: string }) => {
     assert.match(body.data.prompt, new RegExp(day.date));
   });

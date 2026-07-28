@@ -40,7 +40,11 @@ interface AlmanacGodSource {
   getName(): string;
   getLuck(): { getName(): string };
 }
-import { analyzeAlmanacEvidence, classifyAlmanacCandidate } from '../almanac-evidence';
+import {
+  analyzeAlmanacEvidence,
+  classifyAlmanacCandidate,
+  classifyAlmanacHourCandidate,
+} from '../almanac-evidence';
 
 export const ALMANAC_TOPIC_LABELS: Record<AlmanacTopic, string> = {
   move: '搬家入宅',
@@ -849,31 +853,17 @@ function buildDayCandidate(
   const nineStar = lunarDay.getNineStar().getName();
   const pengZuDetails = getAlmanacPengZuDetails(dayStemName, dayZhiName);
   const hours = buildHourCandidates(dateKey, lunarDay, topic, participants);
-  const hourPriority = (hour: AlmanacHourCandidate) => {
-    const hasDirectConstraint =
-      hour.avoids.includes('诸事不宜') ||
-      (hour.topicMatchFacts ?? []).some(
-        (fact) => fact.status === '限制' && fact.key.endsWith(':topic:avoids'),
-      ) ||
-      (hour.participantRelationFacts ?? []).some(
-        (fact) =>
-          fact.status === '限制' &&
-          ['年支', '日支'].includes(fact.basis) &&
-          ['冲', '刑', '害', '破'].includes(fact.relation),
-      );
-    return hasDirectConstraint ? 2 : hour.cautions.length ? 1 : 0;
-  };
-  const bestHours = [...hours]
-    .filter((hour) => hourPriority(hour) < 2)
-    .sort((a, b) => {
-      const priorityDifference = hourPriority(a) - hourPriority(b);
-      if (priorityDifference) return priorityDifference;
-      const supportDifference =
-        (b.topicMatchFacts ?? []).filter((fact) => fact.status === '支持').length -
-        (a.topicMatchFacts ?? []).filter((fact) => fact.status === '支持').length;
-      return supportDifference;
-    })
-    .slice(0, 3);
+  // bestHours 是兼容既有调用方的字段名，不表示算法裁定了唯一“最佳时辰”。
+  // 仅按可复核的状态分组：先列无明确限制时辰，再列有条件时辰；组内保持自然时序，
+  // 慎用时辰仍完整保留在 hours 中，不用支持项数量生成综合排名，也不任意截断前三项。
+  const classifiedHours = hours.map((hour) => ({
+    hour,
+    status: classifyAlmanacHourCandidate(hour).status,
+  }));
+  const bestHours = [
+    ...classifiedHours.filter((item) => item.status === '可用候选'),
+    ...classifiedHours.filter((item) => item.status === '条件候选'),
+  ].map((item) => item.hour);
 
   return {
     date: dateKey,
@@ -965,10 +955,8 @@ export function generateAlmanacSelection(params: {
     const statusDifference =
       statusPriority[classifyAlmanacCandidate(a).status] -
       statusPriority[classifyAlmanacCandidate(b).status];
-    const supportDifference =
-      (b.topicMatchFacts ?? []).filter((fact) => fact.status === '支持').length -
-      (a.topicMatchFacts ?? []).filter((fact) => fact.status === '支持').length;
-    return statusDifference || supportDifference || a.date.localeCompare(b.date);
+    // 状态只表达可用、条件、慎用三组，不继续把宜项数量换算成同组高低。
+    return statusDifference || a.date.localeCompare(b.date);
   });
 
   const result: AlmanacData = {

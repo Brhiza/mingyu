@@ -10,7 +10,7 @@ test('黄历择日应内置透明约束与候选证据', () => {
   const data = generateAlmanacSelection({
     topic: 'move',
     startDate: '2026-06-01',
-    endDate: '2026-06-05',
+    endDate: '2026-06-10',
   });
   const evidence = data.evidenceAnalysis;
 
@@ -81,7 +81,13 @@ test('黄历择日应内置透明约束与候选证据', () => {
   );
   assert.equal(evidence.summaryFact.status, '证据链完整');
   assert.equal(evidence.summaryFact.candidateCount, evidence.candidates.length);
-  assert.equal(evidence.summaryFact.visibleCandidateCount, Math.min(evidence.candidates.length, 8));
+  assert.equal(evidence.summaryFact.visibleCandidateCount, evidence.candidates.length);
+  assert.ok(evidence.candidates.some((candidate) => candidate.usableHours.length > 4));
+  assert.ok(
+    evidence.candidates.every((candidate) =>
+      evidence.evidence.items.some((item) => item.title === `${candidate.date}${candidate.status}`),
+    ),
+  );
   assert.equal(evidence.summaryFact.preferredDateCount, evidence.preferredDates.length);
   assert.equal(evidence.summaryFact.conditionalDateCount, evidence.conditionalDates.length);
   assert.equal(evidence.summaryFact.cautionDateCount, evidence.cautionDates.length);

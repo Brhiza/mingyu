@@ -8,6 +8,7 @@ import {
   getAlmanacPengZuDetails,
   getAlmanacTwentyEightStarDetail,
 } from '../packages/core/src/divination/algorithms/almanac.ts';
+import { classifyAlmanacHourCandidate } from '../packages/core/src/divination/almanac-evidence.ts';
 
 const ALMANAC_CROSS_CENTURY_TRUTH = [
   ['1900-01-01', '己亥', '丙子', '甲戌'],
@@ -337,7 +338,7 @@ test('黄历择日：核心算法应限制参与人数量，避免绕过 API 放
   );
 });
 
-test('黄历择日：每个候选日应给出完整时辰并排除诸事不宜的首选时辰', () => {
+test('黄历择日：每个候选日应完整保留逐时时辰与全部无强冲突时辰', () => {
   const result = generateAlmanacSelection({
     topic: 'contract',
     startDate: '2026-06-01',
@@ -365,7 +366,15 @@ test('黄历择日：每个候选日应给出完整时辰并排除诸事不宜�
       ],
     );
     assert.equal(new Set(day.hours?.map((hour) => hour.range)).size, 13);
-    assert.ok((day.bestHours?.length ?? 0) > 0, `${day.date} 应给出首选时辰`);
+    const expectedHours = (['可用候选', '条件候选'] as const).flatMap((status) =>
+      (day.hours ?? []).filter((hour) => classifyAlmanacHourCandidate(hour).status === status),
+    );
+    assert.deepEqual(
+      day.bestHours?.map((hour) => hour.range),
+      expectedHours.map((hour) => hour.range),
+      `${day.date} 应按状态分组保留全部无强冲突时辰`,
+    );
+    assert.ok((day.bestHours?.length ?? 0) > 3, `${day.date} 不应任意截断前三个时辰`);
     for (const hour of day.bestHours ?? []) {
       assert.doesNotMatch(
         [...hour.recommends, ...hour.avoids, ...hour.cautions].join('；'),

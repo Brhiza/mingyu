@@ -437,7 +437,7 @@ function isStrongTopicConstraint(fact: AlmanacTopicMatchFact): boolean {
   );
 }
 
-function classifyAlmanacHourCandidate(hour: AlmanacHourCandidate): {
+export function classifyAlmanacHourCandidate(hour: AlmanacHourCandidate): {
   status: AlmanacCandidateStatus;
   strongConstraintTexts: string[];
   constraintTexts: string[];
@@ -965,8 +965,7 @@ function buildCandidateEvidence(
     .map((item) => item.promptText);
   const usableHours = (day.hours ?? [])
     .map((hour) => buildHourEvidence(day.date, hour, topic, topicLabel))
-    .filter((item) => item.status !== '慎用候选')
-    .slice(0, 4);
+    .filter((item) => item.status !== '慎用候选');
   const classification = classifyAlmanacCandidate({
     ...day,
     topicMatchFacts,
@@ -1175,7 +1174,7 @@ function buildSummaryFact(params: {
       ...params.counterEvidenceFacts.map((item) => item.key),
     ]),
     candidateCount: params.candidates.length,
-    visibleCandidateCount: Math.min(params.candidates.length, 8),
+    visibleCandidateCount: params.candidates.length,
     preferredDateCount: params.preferredDates.length,
     conditionalDateCount: params.conditionalDates.length,
     cautionDateCount: params.cautionDates.length,
@@ -1446,7 +1445,7 @@ function buildLimitationFacts(params: {
         ...params.counterEvidenceFacts.map((item) => item.key),
       ]),
       promptText:
-        '候选顺序只表示当前规则集下的比较结果；现实条件未提供时只列待核验项，场地、证件、人员、交通、预算、天气、办理窗口与安全要求优先；传统冲突不合成为成功率或吉凶总分，也不得宣称某日必然适合',
+        '候选状态只表示当前规则集下的分组结果，同组按日期先后列出，不表示综合名次；现实条件未提供时只列待核验项，场地、证件、人员、交通、预算、天气、办理窗口与安全要求优先；传统冲突不合成为成功率或吉凶总分，也不得宣称某日必然适合',
       sources: ['证据汇总、反证汇总与现实刚性约束'],
     },
   ];
@@ -1475,7 +1474,7 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
   const hardConstraints = unique([
     `只比较${data.startDate}至${data.endDate}范围内的候选日期`,
     `事项限定为${data.topicLabel}，不得把其他事项宜忌直接替代当前事项规则`,
-    '命中当前事项明确忌项、诸事不宜或参与人直接刑冲破害时列为慎用候选；同组仅按明确宜项数量和日期稳定排列',
+    '命中当前事项明确忌项、诸事不宜或参与人直接刑冲破害时列为慎用候选；同组只按日期先后稳定排列，不按支持项或限制项数量生成高低',
     '没有参与人资料时不得编造个人适配结论',
   ]);
   const realityConstraints = [
@@ -1526,7 +1525,6 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
     summaryFact,
   });
   const limitations = limitationFacts.map((item) => item.promptText);
-  const visibleCandidates = candidates.slice(0, 8);
   const items: PromptEvidenceItem[] = [
     {
       level: calculationSteps.some((item) => item.status === '资料不足') ? '反证' : '辅证',
@@ -1535,13 +1533,8 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
       source: unique(calculationSteps.flatMap((item) => item.sources)).join('、'),
       tags: ['计算链', summaryFact.status, data.topicLabel],
     },
-    ...visibleCandidates.map((item, index): PromptEvidenceItem => ({
-      level:
-        item.status === '慎用候选'
-          ? '反证'
-          : index === 0 && item.status === '可用候选'
-            ? '主证'
-            : '辅证',
+    ...candidates.map((item): PromptEvidenceItem => ({
+      level: item.status === '慎用候选' ? '反证' : item.status === '可用候选' ? '主证' : '辅证',
       title: `${item.date}${item.status}`,
       detail: formatCandidate(item),
       source: `${item.calendarFact.sources.join('、')}；二十八宿、九星、彭祖百忌、全年方位神、事项宜忌、参与人刑冲破害；${item.usableHours[0]?.sources.join('、') ?? '逐时时课'}；月相取中国标准时间正午的celestine日月黄经`,

@@ -891,8 +891,9 @@ test('择日提示词保留候选日期、事项和参与人资料', () => {
     /岁支十二神方位太岁午正南、太阳未西南偏南、岁破子正北、福德卯正东（只列方位，不据此判吉凶）/,
   );
   assert.doesNotMatch(prompt, /岁支方位避|可参考太阳|可参考福德/);
-  assert.match(prompt, /第1候选：2026-06-01/);
-  assert.match(prompt, /第2候选：2026-06-02/);
+  assert.match(prompt, /候选日期：2026-06-01/);
+  assert.match(prompt, /候选日期：2026-06-02/);
+  assert.doesNotMatch(prompt, /第\d+候选|首选日期：/);
   assert.match(prompt, /黄历忌项触及搬家入宅/);
   assert.doesNotMatch(prompt, /事项权重|优先匹配宜项|事项忌项命中|评分42|高分日期/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|反证|解释边界/);
