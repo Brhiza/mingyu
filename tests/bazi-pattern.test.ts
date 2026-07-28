@@ -268,12 +268,77 @@ test('月令藏干兼透时不得按藏干次序或透干柱位强定单一格�
   assert.match(result.basis || '', /不按藏干次序、重复透出次数或年、月、时柱位强定/);
 });
 
+test('月令单透同时会支时必须透与会并用，不得只按透干强定单格', () => {
+  const pillars: Pillars = {
+    year: { gan: '壬', zhi: '申', ganZhi: '壬申' },
+    month: { gan: '庚', zhi: '辰', ganZhi: '庚辰' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '癸', zhi: '酉', ganZhi: '癸酉' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod);
+
+  assert.equal(result.pattern, '待综合判断');
+  assert.match(result.basis || '', /癸（正印）透出/);
+  assert.match(result.basis || '', /月支辰参与地支申子辰完整三合水结构（水印星）/);
+  assert.match(result.basis || '', /透而又会，则透与会并用/);
+  assert.match(result.basis || '', /有情无情判断成败/);
+});
+
+test('透干与会支关系未自动裁定时必须保留待定，不得擅写有情或无情', () => {
+  const pillars: Pillars = {
+    year: { gan: '己', zhi: '亥', ganZhi: '己亥' },
+    month: { gan: '辛', zhi: '未', ganZhi: '辛未' },
+    day: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
+    hour: { gan: '癸', zhi: '卯', ganZhi: '癸卯' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod);
+
+  assert.equal(result.pattern, '待综合判断');
+  assert.match(result.basis || '', /己（正官）透出/);
+  assert.match(result.basis || '', /月支未参与地支亥卯未完整三合木结构（木食伤）/);
+  assert.match(result.basis || '', /有情无情判断成败/);
+  assert.doesNotMatch(result.basis || '', /合而有情|合而无情/);
+});
+
+test('月令兼透又会支时必须把会支一并写入综合判断依据', () => {
+  const pillars: Pillars = {
+    year: { gan: '辛', zhi: '巳', ganZhi: '辛巳' },
+    month: { gan: '戊', zhi: '戌', ganZhi: '戊戌' },
+    day: { gan: '甲', zhi: '寅', ganZhi: '甲寅' },
+    hour: { gan: '庚', zhi: '午', ganZhi: '庚午' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod);
+
+  assert.equal(result.pattern, '待综合判断');
+  assert.match(result.basis || '', /戊（偏财）、辛（正官）透出/);
+  assert.match(result.basis || '', /月支戌参与地支寅午戌完整三合火结构（火食伤）/);
+  assert.match(result.basis || '', /透而又会，则透与会并用/);
+});
+
+test('完整会局未包含月支时不得冒充月令会支改写单透格局', () => {
+  const pillars: Pillars = {
+    year: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    month: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    day: { gan: '甲', zhi: '午', ganZhi: '甲午' },
+    hour: { gan: '甲', zhi: '戌', ganZhi: '甲戌' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod);
+
+  assert.equal(result.pattern, '偏财格');
+  assert.match(result.basis || '', /戊为月令藏干，单独透于月干/);
+  assert.doesNotMatch(result.basis || '', /透而又会/);
+});
+
 test('月令藏干只有一项透出时仍按一透一用取格', () => {
   const pillars: Pillars = {
     year: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
     month: { gan: '甲', zhi: '戌', ganZhi: '甲戌' },
     day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
-    hour: { gan: '壬', zhi: '申', ganZhi: '壬申' },
+    hour: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
   };
 
   const result = determinePattern(pillars, '身强', getTenGod, '戊');
@@ -305,7 +370,7 @@ test('庚生午月单透己印时应以透干定格，丁司令只作得时事�
     year: { gan: '己', zhi: '未', ganZhi: '己未' },
     month: { gan: '庚', zhi: '午', ganZhi: '庚午' },
     day: { gan: '庚', zhi: '辰', ganZhi: '庚辰' },
-    hour: { gan: '辛', zhi: '巳', ganZhi: '辛巳' },
+    hour: { gan: '壬', zhi: '午', ganZhi: '壬午' },
   };
 
   const result = determinePattern(pillars, '待综合判断', getTenGod, '丁');

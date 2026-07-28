@@ -201,6 +201,37 @@ test('真实交节排盘中外部过渡气即使透干也不得改写格局、�
   assert.doesNotMatch(prompt, /格局: 正印格/);
 });
 
+test('真实透而又会排盘必须把透干和会支共同贯穿格局证据与最终提示词', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1980,
+    month: 1,
+    day: 9,
+    timeIndex: 9,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['己未', '丁丑', '辛巳', '丁酉'],
+  );
+  assert.deepEqual(result.hiddenStems.month, ['己', '癸', '辛']);
+  assert.equal(result.analysis.mingGe.pattern, '待综合判断');
+  assert.match(result.analysis.mingGe.basis || '', /己（偏印）透出/);
+  assert.match(result.analysis.mingGe.basis || '', /月支丑参与地支巳酉丑完整三合金结构（金比劫）/);
+  assert.match(result.analysis.mingGe.basis || '', /透而又会，则透与会并用/);
+
+  const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.status, '资料缺口');
+  assert.equal(patternFact?.result, '待综合判断');
+  assert.match(patternFact?.promptText || '', /己（偏印）透出/);
+  assert.match(patternFact?.promptText || '', /巳酉丑完整三合金结构（金比劫）/);
+
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 待综合判断/);
+  assert.match(prompt, /透而又会，则透与会并用/);
+  assert.doesNotMatch(prompt, /格局: 杂气偏印格/);
+});
+
 test('八字真太阳时本命证据应引用校正后的唯一时间并采用唯一校正时刻', () => {
   const result = baziCalculator.calculateBazi({
     year: 1990,

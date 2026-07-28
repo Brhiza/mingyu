@@ -1,9 +1,11 @@
 import { HIDDEN_STEMS, LU_BRANCH_MAP, REN_BRANCH_MAP } from './baziDefinitions';
 import {
+  collectCompleteBranchFormations,
   collectEstablishedBranchFormations,
   getRepresentativeStemByWuxing,
 } from './baziFormationUtils';
-import type { PatternAnalysis, Pillars } from './baziTypes';
+import { getWuxingTenGodCategory } from './baziRuleMatcher/helpers';
+import type { PatternAnalysis, Pillars, Wuxing } from './baziTypes';
 import { assertHeavenlyStem, assertPillars } from './baziUtils';
 
 type GetTenGodFn = (gan: string, dayMaster: string) => string;
@@ -171,6 +173,11 @@ function collectExposedMonthStems(monthStems: string[], pillars: Pillars): strin
   return monthStems.filter((stem) => exposedStems.has(stem));
 }
 
+function getFormationUseLabel(wuxing: Wuxing, dayMaster: string): string {
+  const tenGodGroup = getWuxingTenGodCategory(dayMaster, wuxing) || '十神待核';
+  return `${wuxing}${tenGodGroup}`;
+}
+
 const TEN_GOD_TO_SUB_PATTERN: Record<string, 'wealth' | 'officer' | 'output'> = {
   正财: 'wealth',
   偏财: 'wealth',
@@ -299,6 +306,9 @@ export function determinePattern(
   const monthPrincipalStem = monthStems[0];
   const monthPrincipalGod = getTenGod(monthPrincipalStem, dayMaster);
   const exposedMonthStems = collectExposedMonthStems(monthStems, pillars);
+  const monthBranchFormations = collectCompleteBranchFormations(pillars).filter(
+    (formation) => formation.includesMonthBranch,
+  );
   const commanderIsMonthStem = Boolean(monthCommander && monthStems.includes(monthCommander));
   const commanderIsExposed = Boolean(monthCommander && exposedStems.includes(monthCommander));
   let basis: string;
@@ -309,6 +319,19 @@ export function determinePattern(
   } else if (REN_BRANCH_MAP[dayMaster] === monthBranch) {
     patternName = '月刃格';
     basis = `月令${monthBranch}为日主${dayMaster}之羊刃位，按月刃格处理`;
+  } else if (exposedMonthStems.length > 0 && monthBranchFormations.length > 0) {
+    const exposedUses = exposedMonthStems.map((stem) => `${stem}（${getTenGod(stem, dayMaster)}）`);
+    const formationUses = monthBranchFormations.map(
+      (formation) =>
+        `月支${monthBranch}参与地支${formation.branches.join('')}完整${formation.type}${formation.wuxing}结构（${getFormationUseLabel(formation.wuxing, dayMaster)}）`,
+    );
+    const commanderFact = monthCommander
+      ? !commanderIsMonthStem
+        ? `；${monthCommander}为交节过渡气${commanderIsExposed ? '且已透干' : ''}，只作司权${commanderIsExposed ? '与透干' : ''}事实`
+        : `；当前${monthCommander}司权另作得时事实`
+      : '';
+    patternName = '待综合判断';
+    basis = `月令藏干${exposedUses.join('、')}透出；${formationUses.join('；')}；《子平真诠》称“透而又会，则透与会并用”，故不能只按透干强定单一格局，须再结合透干与会支的生克、刑冲及有情无情判断成败${commanderFact}`;
   } else if (exposedMonthStems.length > 1) {
     const exposedUses = exposedMonthStems.map((stem) => `${stem}（${getTenGod(stem, dayMaster)}）`);
     patternName = '待综合判断';
