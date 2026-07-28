@@ -11,8 +11,8 @@ type PillarPosition = 'year' | 'month' | 'hour';
 type HiddenStemPosition = keyof Pillars;
 
 interface SpecialPatternForceSummary {
-  samePartyForce: number;
-  oppositePartyForce: number;
+  samePartyDirectCount: number;
+  oppositePartyDirectCount: number;
   samePartyResidualPositions: Set<HiddenStemPosition>;
   oppositePartyResidualPositions: Set<HiddenStemPosition>;
   hasSamePartyFormation: boolean;
@@ -51,29 +51,26 @@ function collectSpecialPatternForce(
   dayMaster: string,
   getTenGod: GetTenGodFn,
 ): SpecialPatternForceSummary {
-  let samePartyForce = 0;
-  let oppositePartyForce = 0;
+  let samePartyDirectCount = 0;
+  let oppositePartyDirectCount = 0;
   const samePartyResidualPositions = new Set<HiddenStemPosition>();
   const oppositePartyResidualPositions = new Set<HiddenStemPosition>();
 
-  const addForce = (
-    stem: string,
-    force: number,
-    position?: HiddenStemPosition,
-    isResidual = false,
-  ) => {
+  const addEvidence = (stem: string, position?: HiddenStemPosition, isResidual = false) => {
     const tenGod = getTenGod(stem, dayMaster);
     if (isSamePartyTenGod(tenGod)) {
-      samePartyForce += force;
       if (isResidual && position) {
         samePartyResidualPositions.add(position);
+      } else {
+        samePartyDirectCount += 1;
       }
       return;
     }
 
-    oppositePartyForce += force;
     if (isResidual && position) {
       oppositePartyResidualPositions.add(position);
+    } else {
+      oppositePartyDirectCount += 1;
     }
   };
 
@@ -84,61 +81,57 @@ function collectSpecialPatternForce(
       ['hour', pillars.hour],
     ] as const
   ).forEach(([position, pillar]) => {
-    addForce(pillar.gan, position === 'month' ? 2.2 : 1.8);
+    addEvidence(pillar.gan);
     const hiddenStems = HIDDEN_STEMS[pillar.zhi] || [];
     hiddenStems.forEach((stem, index) => {
       if (index === 0) {
-        addForce(stem, position === 'month' ? 2.6 : 2.1);
+        addEvidence(stem);
         return;
       }
 
-      addForce(stem, 0.6, position, true);
+      addEvidence(stem, position, true);
     });
   });
 
   const dayHiddenStems = HIDDEN_STEMS[pillars.day.zhi] || [];
   dayHiddenStems.forEach((stem, index) => {
     if (index === 0) {
-      addForce(stem, 2.4);
+      addEvidence(stem);
       return;
     }
 
-    addForce(stem, 0.6, 'day', true);
+    addEvidence(stem, 'day', true);
   });
 
-  const formationForce = collectEstablishedBranchFormations(pillars).reduce(
+  const formationSummary = collectEstablishedBranchFormations(pillars).reduce(
     (summary, formation) => {
       const representativeStem = getRepresentativeStemByWuxing(formation.wuxing);
       const tenGod = getTenGod(representativeStem, dayMaster);
       if (isSamePartyTenGod(tenGod)) {
         return {
           ...summary,
-          samePartyForce: summary.samePartyForce + 3.2,
           hasSamePartyFormation: true,
         };
       }
 
       return {
         ...summary,
-        oppositePartyForce: summary.oppositePartyForce + 3.2,
         hasOppositePartyFormation: true,
       };
     },
     {
-      samePartyForce,
-      oppositePartyForce,
       hasSamePartyFormation: false,
       hasOppositePartyFormation: false,
     },
   );
 
   return {
-    samePartyForce: Number(formationForce.samePartyForce.toFixed(1)),
-    oppositePartyForce: Number(formationForce.oppositePartyForce.toFixed(1)),
+    samePartyDirectCount,
+    oppositePartyDirectCount,
     samePartyResidualPositions,
     oppositePartyResidualPositions,
-    hasSamePartyFormation: formationForce.hasSamePartyFormation,
-    hasOppositePartyFormation: formationForce.hasOppositePartyFormation,
+    hasSamePartyFormation: formationSummary.hasSamePartyFormation,
+    hasOppositePartyFormation: formationSummary.hasOppositePartyFormation,
   };
 }
 
@@ -212,74 +205,43 @@ const SUB_PATTERN_CATEGORY_TO_LABEL: Record<string, string> = {
 };
 
 /**
- * 从格细分：根据异党（对立面）中力量最强的十神类别判断从财/从杀/从儿
- * - 财星（正财/偏财）最旺 → 从财格
- * - 官杀（正官/七杀）最旺 → 从杀格
- * - 食伤（食神/伤官）最旺 → 从儿格
- * - 多种势均力敌 → 从势格
+ * 从格细分：根据明透、本气与已成立会合局的类别是否纯一，判断从财/从杀/从儿。
+ * 类别混杂时保守返回从势格，不按自定义分数或比例选出单一类别。
  */
 function resolveSubPattern(pillars: Pillars, dayMaster: string, getTenGod: GetTenGodFn): string {
-  const categoryForce: Record<string, number> = { wealth: 0, officer: 0, output: 0 };
+  const directCategories = new Set<string>();
 
-  const addOppositeForce = (stem: string, force: number) => {
+  const addOppositeCategory = (stem: string) => {
     const tenGod = getTenGod(stem, dayMaster);
     const category = TEN_GOD_TO_SUB_PATTERN[tenGod];
     if (category) {
-      categoryForce[category] += force;
+      directCategories.add(category);
     }
   };
 
-  // 统计四柱天干和地支藏干中异党力量
+  // 从格细分只看明透、本气与已成局的类别是否纯一；中余气不换算比例争夺主导权。
   (['year', 'month', 'hour'] as const).forEach((position) => {
     const pillar = pillars[position];
-    const stemForce = position === 'month' ? 2.2 : 1.8;
-    addOppositeForce(pillar.gan, stemForce);
+    addOppositeCategory(pillar.gan);
     const hiddenStems = HIDDEN_STEMS[pillar.zhi] || [];
-    hiddenStems.forEach((stem, index) => {
-      addOppositeForce(stem, index === 0 ? (position === 'month' ? 2.6 : 2.1) : 0.6);
-    });
+    if (hiddenStems[0]) addOppositeCategory(hiddenStems[0]);
   });
 
-  // 日支藏干
   const dayHiddenStems = HIDDEN_STEMS[pillars.day.zhi] || [];
-  dayHiddenStems.forEach((stem, index) => {
-    addOppositeForce(stem, index === 0 ? 2.4 : 0.6);
-  });
+  if (dayHiddenStems[0]) addOppositeCategory(dayHiddenStems[0]);
 
-  // 三合三会局加成
-  const formations = collectEstablishedBranchFormations(pillars);
-  formations.forEach((formation) => {
+  collectEstablishedBranchFormations(pillars).forEach((formation) => {
     const representativeStem = getRepresentativeStemByWuxing(formation.wuxing);
     const tenGod = getTenGod(representativeStem, dayMaster);
     const category = TEN_GOD_TO_SUB_PATTERN[tenGod];
     if (category) {
-      categoryForce[category] += 3.2;
+      directCategories.add(category);
     }
   });
 
-  // 判断哪种力量最强
-  const maxForce = Math.max(categoryForce.wealth, categoryForce.officer, categoryForce.output);
-  if (maxForce === 0) return '从势格';
-
-  // 如果多种力量接近（差距不超过30%），归为从势格
-  const threshold = maxForce * 0.7;
-  const dominantCategories: string[] = [];
-  if (categoryForce.wealth >= threshold) dominantCategories.push('财');
-  if (categoryForce.officer >= threshold) dominantCategories.push('杀');
-  if (categoryForce.output >= threshold) dominantCategories.push('儿');
-
-  if (dominantCategories.length > 1) {
-    return '从势格';
-  }
-
-  // 返回力量最强的类别对应的从格名称
-  for (const [category, force] of Object.entries(categoryForce)) {
-    if (force === maxForce && SUB_PATTERN_CATEGORY_TO_LABEL[category]) {
-      return SUB_PATTERN_CATEGORY_TO_LABEL[category];
-    }
-  }
-
-  return '从势格';
+  if (directCategories.size !== 1) return '从势格';
+  const [category] = directCategories;
+  return SUB_PATTERN_CATEGORY_TO_LABEL[category] || '从势格';
 }
 
 export function determinePattern(
@@ -317,13 +279,15 @@ export function determinePattern(
   const commanderSupportsOppositeParty = !monthCommander || !isSamePartyTenGod(commanderGod);
   const specialPatternForce = collectSpecialPatternForce(pillars, dayMaster, getTenGod);
   const canTreatAsSpecialStrong =
-    specialPatternForce.samePartyForce >= 10 &&
-    specialPatternForce.samePartyForce >= specialPatternForce.oppositePartyForce * 2 &&
+    (specialPatternForce.oppositePartyDirectCount === 0 ||
+      (specialPatternForce.hasSamePartyFormation &&
+        specialPatternForce.oppositePartyDirectCount <= 1)) &&
     (specialPatternForce.oppositePartyResidualPositions.size <= 1 ||
       specialPatternForce.hasSamePartyFormation);
   const canTreatAsSpecialWeak =
-    specialPatternForce.oppositePartyForce >= 10 &&
-    specialPatternForce.oppositePartyForce >= specialPatternForce.samePartyForce * 2 &&
+    (specialPatternForce.samePartyDirectCount === 0 ||
+      (specialPatternForce.hasOppositePartyFormation &&
+        specialPatternForce.samePartyDirectCount <= 1)) &&
     (specialPatternForce.samePartyResidualPositions.size <= 1 ||
       specialPatternForce.hasOppositePartyFormation);
 
@@ -342,7 +306,7 @@ export function determinePattern(
     commanderSupportsOppositeParty &&
     (isPureOppositeParty || canTreatAsSpecialWeak)
   ) {
-    // 从格细分：根据异党中最强势的十神类别判断从财/从杀/从儿
+    // 从格细分只读主气类别是否纯一，不比较自定义力量分数。
     const subPattern = resolveSubPattern(pillars, dayMaster, getTenGod);
     const basis = specialPatternForce.hasOppositePartyFormation
       ? `主气与会局异党成势，同党余气未至破格，且日主极弱，按${subPattern}处理`

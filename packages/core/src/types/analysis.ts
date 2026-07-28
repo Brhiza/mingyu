@@ -374,8 +374,7 @@ export interface TenGodFlowProfile {
 export interface MonthQiElementItem {
   element: string;
   seasonStatus: string;
-  /** 传统月令状态与司令规则的归一化构成占比，不是概率或吉凶比例。 */
-  weightSharePercent: number;
+  /** 月令状态与司令两项事实的登记数量，不表示力量比例。 */
   count: number;
   commanderApplied: boolean;
   ruleBasis: string[];

@@ -202,7 +202,7 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
               {result.wuxingStrength.present.map((item) => (
                 <span className="result-soft-tag" key={item}>
                   见 {item}
-                  {result.wuxingStrength.dominantByRule.includes(item) ? '（规则下相对突出）' : ''}
+                  {result.wuxingStrength.dominantByRule.includes(item) ? '（结构比较优先）' : ''}
                 </span>
               ))}
               {missingElements.map((item) => (

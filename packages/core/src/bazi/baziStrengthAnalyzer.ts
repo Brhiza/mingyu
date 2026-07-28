@@ -19,9 +19,12 @@ import {
 
 export interface SeasonalStatusAnalysis {
   status: string;
+  /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
   score: number;
+  /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
   baseScore?: number;
   commanderStem?: string;
+  /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
   commanderScore?: number;
   commanderEffect?: '助身' | '生身' | '泄身' | '耗身' | '克身' | '中性';
   isTimely: boolean;
@@ -33,8 +36,10 @@ export interface FormationAnalysis {
     branches: string[];
     wuxing: Wuxing;
     effect: '助身' | '生身' | '泄身' | '耗身' | '克身';
+    /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
     strength: number;
   }>;
+  /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
   totalStrength: number;
 }
 
@@ -89,6 +94,73 @@ function resolveCommanderEffect(
   return { commanderScore: 0, commanderEffect: '中性' };
 }
 
+type StrengthTendency = '扶身' | '制身' | '相持';
+
+const SUPPORTING_COMMANDER_EFFECTS = new Set(['助身', '生身']);
+const CONSTRAINING_COMMANDER_EFFECTS = new Set(['泄身', '耗身', '克身']);
+const SUPPORTING_FORMATION_EFFECTS = new Set(['助身', '生身']);
+
+function resolveMonthTendency(seasonalStatus: SeasonalStatusAnalysis): StrengthTendency {
+  const seasonTendency: StrengthTendency =
+    seasonalStatus.status === '旺' || seasonalStatus.status === '相'
+      ? '扶身'
+      : seasonalStatus.status === '囚' || seasonalStatus.status === '死'
+        ? '制身'
+        : '相持';
+  const commanderEffect = seasonalStatus.commanderEffect ?? '中性';
+  const commanderTendency: StrengthTendency = SUPPORTING_COMMANDER_EFFECTS.has(commanderEffect)
+    ? '扶身'
+    : CONSTRAINING_COMMANDER_EFFECTS.has(commanderEffect)
+      ? '制身'
+      : '相持';
+
+  if (seasonTendency === '相持') return commanderTendency;
+  if (commanderTendency === '相持') return seasonTendency;
+  return seasonTendency === commanderTendency ? seasonTendency : '相持';
+}
+
+function isDirectEvidence(value: string): boolean {
+  return !value.includes('(');
+}
+
+function compareEvidenceCount(supporting: number, constraining: number): StrengthTendency {
+  if (supporting > constraining) return '扶身';
+  if (constraining > supporting) return '制身';
+  return '相持';
+}
+
+function resolveStructureTendency(
+  formationAnalysis: FormationAnalysis,
+  rootAnalysis: RootAnalysis,
+  supportAnalysis: SupportAnalysis,
+  constraintAnalysis: ConstraintAnalysis,
+): StrengthTendency {
+  const supportingFormations = formationAnalysis.formations.filter((formation) =>
+    SUPPORTING_FORMATION_EFFECTS.has(formation.effect),
+  ).length;
+  const constrainingFormations = formationAnalysis.formations.length - supportingFormations;
+
+  if (supportingFormations !== constrainingFormations) {
+    return compareEvidenceCount(supportingFormations, constrainingFormations);
+  }
+
+  const directSupporting =
+    rootAnalysis.roots.filter((root) => isDirectEvidence(root.branch)).length +
+    supportAnalysis.supporters.filter((supporter) => isDirectEvidence(supporter.stem)).length;
+  const directConstraining = constraintAnalysis.constraints.filter((constraint) =>
+    isDirectEvidence(constraint.stem),
+  ).length;
+
+  if (directSupporting !== directConstraining) {
+    return compareEvidenceCount(directSupporting, directConstraining);
+  }
+
+  const hiddenSupporting =
+    rootAnalysis.roots.length + supportAnalysis.supporters.length - directSupporting;
+  const hiddenConstraining = constraintAnalysis.constraints.length - directConstraining;
+  return compareEvidenceCount(hiddenSupporting, hiddenConstraining);
+}
+
 export function analyzeRoot(
   dayMaster: string,
   pillars: Pillars,
@@ -124,7 +196,8 @@ export function analyzeRoot(
     roots,
     totalStrength,
     hasRoot: roots.length > 0,
-    strongRoot: totalStrength >= 3,
+    // 地支本气与日主同气即为明根；只在中余气中见同气者仍记有根，不抬成强根。
+    strongRoot: roots.some((root) => isDirectEvidence(root.branch)),
   };
 }
 
@@ -403,62 +476,81 @@ export function analyzeDayMasterStrength(
   supportAnalysis: SupportAnalysis,
   constraintAnalysis: ConstraintAnalysis,
 ): DayMasterStrengthAnalysis {
-  const seasonalBaseScore = seasonalStatus.baseScore ?? seasonalStatus.score;
-  const commanderScore = seasonalStatus.commanderScore ?? 0;
-  const seasonalTotalScore =
-    seasonalStatus.baseScore === undefined
-      ? seasonalStatus.score
-      : seasonalBaseScore + commanderScore;
-  const score = Number(
-    (
-      seasonalTotalScore +
-      formationAnalysis.totalStrength +
-      rootAnalysis.totalStrength +
-      supportAnalysis.totalStrength -
-      constraintAnalysis.totalStrength
-    ).toFixed(1),
+  const monthTendency = resolveMonthTendency(seasonalStatus);
+  const rootTendency: StrengthTendency = rootAnalysis.strongRoot
+    ? '扶身'
+    : rootAnalysis.hasRoot
+      ? '相持'
+      : '制身';
+  const structureTendency = resolveStructureTendency(
+    formationAnalysis,
+    rootAnalysis,
+    supportAnalysis,
+    constraintAnalysis,
+  );
+  const tendencies = [monthTendency, rootTendency, structureTendency];
+  const supportingConditions = tendencies.filter((item) => item === '扶身').length;
+  const constrainingConditions = tendencies.filter((item) => item === '制身').length;
+  const hasSupportingFormation = formationAnalysis.formations.some((formation) =>
+    SUPPORTING_FORMATION_EFFECTS.has(formation.effect),
+  );
+  const hasConstrainingFormation = formationAnalysis.formations.some(
+    (formation) => !SUPPORTING_FORMATION_EFFECTS.has(formation.effect),
   );
 
-  let status = '中和';
-  if (score >= 6) status = '身强';
-  if (score >= 4 && score < 6) status = '偏强';
-  if (score > 1 && score <= 2.5) status = '偏弱';
-  if (score <= 1) status = '身弱';
+  let status: DayMasterStrengthAnalysis['status'] = '中和';
   if (
+    monthTendency === '扶身' &&
     rootAnalysis.strongRoot &&
-    seasonalTotalScore >= 2 &&
-    formationAnalysis.totalStrength >= 0 &&
-    constraintAnalysis.totalStrength <= 1.5
+    structureTendency === '扶身' &&
+    constraintAnalysis.constraints.length === 0 &&
+    !hasConstrainingFormation
   ) {
     status = '极强';
-  }
-  if (
+  } else if (
     !rootAnalysis.hasRoot &&
-    seasonalTotalScore <= 0 &&
-    (supportAnalysis.totalStrength <= 0.5 || score <= 0)
+    monthTendency !== '扶身' &&
+    (supportAnalysis.supporters.length === 0 || hasConstrainingFormation) &&
+    !hasSupportingFormation
   ) {
     status = '极弱';
+  } else if (!rootAnalysis.hasRoot && monthTendency !== '扶身') {
+    status = '身弱';
+  } else if (supportingConditions >= 2 && constrainingConditions === 0) {
+    status = '身强';
+  } else if (supportingConditions > constrainingConditions) {
+    status = '偏强';
+  } else if (constrainingConditions >= 2 && supportingConditions === 0) {
+    status = '身弱';
+  } else if (constrainingConditions > supportingConditions) {
+    status = '偏弱';
   }
 
   return {
     status,
     details: {
       timely: seasonalStatus.isTimely,
-      seasonalEffect: seasonalBaseScore > 0 ? '支持' : seasonalBaseScore < 0 ? '削弱' : '中性',
-      commanderEffect: seasonalStatus.commanderEffect ?? '中性',
-      formationEffect:
-        formationAnalysis.totalStrength > 0
+      seasonalEffect:
+        seasonalStatus.status === '旺' || seasonalStatus.status === '相'
           ? '支持'
-          : formationAnalysis.totalStrength < 0
+          : seasonalStatus.status === '囚' || seasonalStatus.status === '死'
             ? '削弱'
             : '中性',
+      commanderEffect: seasonalStatus.commanderEffect ?? '中性',
+      formationEffect: hasSupportingFormation
+        ? hasConstrainingFormation
+          ? '中性'
+          : '支持'
+        : hasConstrainingFormation
+          ? '削弱'
+          : '中性',
       hasRoot: rootAnalysis.hasRoot,
       hasStrongRoot: rootAnalysis.strongRoot,
       hasSupport: supportAnalysis.hasSupport,
       hasConstraint: constraintAnalysis.hasConstraint,
       ruleBasis: [
-        '综合月令、司令、成局、通根、帮扶与克泄耗条件判定旺衰状态',
-        '内部权重仅用于规则分类，不作为概率、吉凶分或现实结果公开',
+        `月令与司令合看为${monthTendency}；通根条件为${rootTendency}；成局、明根明透及中余气合看为${structureTendency}`,
+        '先看得令，再看地支明根，最后比较成局、明透本气与中余气；不把旺相休囚死或司令关系换算成小数总分',
       ],
     },
   };

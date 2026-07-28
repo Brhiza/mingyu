@@ -299,7 +299,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
 
   if (includeWuxing && baziResult.wuxingStrength) {
     result += '\n【五行】\n';
-    result += `出现:${baziResult.wuxingStrength.present.join('、') || '无'} | 规则下相对突出:${baziResult.wuxingStrength.dominantByRule.join('、') || '无'}`;
+    result += `出现:${baziResult.wuxingStrength.present.join('、') || '无'} | 结构比较优先:${baziResult.wuxingStrength.dominantByRule.join('、') || '无'}`;
     if (baziResult.wuxingStrength.missing?.length) {
       result += ` | 缺失:${baziResult.wuxingStrength.missing.join(',')}`;
     }

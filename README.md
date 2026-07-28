@@ -52,7 +52,7 @@ OpenAPI：[https://aov.cc/api/v1/openapi.json](https://aov.cc/api/v1/openapi.jso
 <summary>公共地基工具</summary>
 
 - 干支：十天干、十二地支、六十甲子、六旬旬首、纳音、藏干、阴阳五行、合冲刑害破、三合三会统一真相源。
-- 五行：统一生克、月令旺相休囚死和天干地支权重统计，可选计入藏干。
+- 五行：统一生克、月令旺相休囚死和天干地支结构出现统计，可选计入藏干。
 - 八字、六爻、奇门、六壬等旧模块统一复用公共地基，旧导入路径仅保留兼容转发。
 - 核心包提供 `mingyu-core/foundation`，线上提供 `/foundation/capabilities`、`/foundation/ganzhi`、`/foundation/wuxing`、`/foundation/direction`、`/foundation/shensha`；通用神煞入口会严格核验完整四柱，逐项返回空亡、驿马、桃花的起法、目标地支、命中柱位、来源声明和解释限制，能力目录本身也返回稳定事实、来源、证据汇总与解释限制。
 - 真太阳时统一提升到 `mingyu-core/calendar`，线上提供 `/calendar/true-solar-time` 便捷换算接口。

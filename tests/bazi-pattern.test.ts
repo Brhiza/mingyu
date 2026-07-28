@@ -188,6 +188,20 @@ test('巳酉丑金局成势且月令司权异党时，不应因丑中一点印�
   assert.match(result.basis || '', /同党余气未至破格/);
 });
 
+test('特殊格主气判断不应被任意数值缩放或七成阈值左右', () => {
+  const mixedOppositePillars: Pillars = {
+    year: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+    month: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    day: { gan: '甲', zhi: '午', ganZhi: '甲午' },
+    hour: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+  };
+
+  const result = determinePattern(mixedOppositePillars, '极弱', getTenGod);
+
+  assert.equal(result.isSpecial, false);
+  assert.doesNotMatch(result.pattern, /^从/);
+});
+
 test('格局判定应拒绝不存在的六十甲子，避免测试夹具污染算法', () => {
   assert.throws(
     () =>

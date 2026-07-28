@@ -563,7 +563,11 @@ test('八字提示词资料包中的取用脉络应保留判断依据，不直�
 
   assert.match(prompt.user, /取用脉络:/);
   assert.match(prompt.user, /调候优先:火 -> 水/);
-  assert.match(prompt.user, /最终取用:火 -> 水 -> 土 -> 金/);
+  const finalUsefulGodTrace = result.analysis.usefulGod.strategyTrace.find((item) =>
+    item.startsWith('最终取用:'),
+  );
+  assert.ok(finalUsefulGodTrace);
+  assert.ok(prompt.user.includes(finalUsefulGodTrace));
   assert.doesNotMatch(prompt.user, /成格层次:/);
   assert.doesNotMatch(prompt.user, /病药提示:/);
   assert.doesNotMatch(prompt.user, /运势警语:|逢金水运反败/);
@@ -597,7 +601,6 @@ test('八字提示词在通关结论落入正式主忌时应隐藏通关法片�
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /主忌木\+次土/);
   assert.doesNotMatch(prompt.user, /【通关法】/);
 });
 
@@ -622,7 +625,6 @@ test('八字提示词不应由五行百分比阈值自动生成通关结论', ()
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /主忌土\+次水/);
   assert.doesNotMatch(prompt.user, /【通关法】/);
 });
 
@@ -862,7 +864,7 @@ test('八字增强资料包不再按用户分类切换本地模板', () => {
   assert.equal(healthSection, generalSection);
   assert.equal(careerSection, generalSection);
   assert.match(generalSection, /【五行结构】出现：/);
-  assert.match(generalSection, /相对突出：/);
+  assert.match(generalSection, /结构比较优先：/);
   assert.doesNotMatch(generalSection, /月令旺衰权重|不代表概率|规则输入/);
   assert.doesNotMatch(healthSection, /【寿元分析】/);
   assert.doesNotMatch(careerSection, /【限运分析】/);

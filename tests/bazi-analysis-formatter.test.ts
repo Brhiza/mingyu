@@ -32,7 +32,7 @@ test('核心判断依据会输出旺衰条件与十神归类，不把内部权�
   assert.match(text, /忌(比劫|食伤|财星|官杀|印星)/);
   assert.doesNotMatch(text, /十神归类: 喜(正印|偏印|正官|七杀|正财|偏财|食神|伤官|比肩|劫财) /);
   assert.doesNotMatch(text, /忌(正印|偏印|正官|七杀|正财|偏财|食神|伤官|比肩|劫财)\n/);
-  assert.match(text, /出现:.+ \| 规则下相对突出:/);
+  assert.match(text, /出现:.+ \| 结构比较优先:/);
   assert.doesNotMatch(text, /五行[\s\S]{0,80}\d+%/);
 });
 
