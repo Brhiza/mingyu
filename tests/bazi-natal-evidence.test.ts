@@ -115,6 +115,34 @@ test('月令藏干兼透时格局应作为资料缺口贯穿证据与最终提�
   assert.doesNotMatch(prompt, /格局: (?:杂气)?伤官格/);
 });
 
+test('月令单透比肩时不得被未透司令覆盖，格局应贯穿证据与最终提示词', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1980,
+    month: 1,
+    day: 7,
+    timeIndex: 0,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['己未', '丁丑', '己卯', '甲子'],
+  );
+  assert.equal(result.monthCommander, '癸');
+  assert.equal(result.analysis.mingGe.pattern, '杂气比肩格');
+  assert.match(result.analysis.mingGe.basis || '', /己为月令藏干，单独透于年干/);
+  assert.match(result.analysis.mingGe.basis || '', /癸司权另作月令得时事实，不覆盖已透藏干/);
+  assert.ok(result.evidenceAnalysis);
+
+  const patternFact = result.evidenceAnalysis.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.status, '已记录');
+  assert.equal(patternFact?.result, '杂气比肩格');
+
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 杂气比肩格/);
+  assert.doesNotMatch(prompt, /格局: 偏财格/);
+});
+
 test('八字真太阳时本命证据应引用校正后的唯一时间并采用唯一校正时刻', () => {
   const result = baziCalculator.calculateBazi({
     year: 1990,

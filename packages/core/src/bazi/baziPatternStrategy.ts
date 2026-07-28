@@ -171,19 +171,6 @@ function collectExposedMonthStems(monthStems: string[], pillars: Pillars): strin
   return monthStems.filter((stem) => exposedStems.has(stem));
 }
 
-function resolveExposedPatternStem(
-  monthStems: string[],
-  pillars: Pillars,
-  dayMaster: string,
-  getTenGod: GetTenGodFn,
-): string | null {
-  return (
-    collectExposedMonthStems(monthStems, pillars).find(
-      (stem) => !isSamePartyTenGod(getTenGod(stem, dayMaster)),
-    ) || null
-  );
-}
-
 const TEN_GOD_TO_SUB_PATTERN: Record<string, 'wealth' | 'officer' | 'output'> = {
   正财: 'wealth',
   偏财: 'wealth',
@@ -334,6 +321,24 @@ export function determinePattern(
       patternName = '劫财格';
       basis = `月令本气为${monthPrincipalStem}，对应劫财，日主${dayMaster}为阴干无真刃，按劫财格处理`;
     }
+  } else if (exposedMonthStems.length === 1) {
+    const exposedPatternStem = exposedMonthStems[0];
+    const tenGod = getTenGod(exposedPatternStem, dayMaster);
+    const prefix = monthCommander && exposedPatternStem !== activeMonthStem ? '杂气' : '';
+    patternName = `${prefix}${tenGod}格`;
+    const exposedPosition =
+      pillars.month.gan === exposedPatternStem
+        ? '月干'
+        : pillars.hour.gan === exposedPatternStem
+          ? '时干'
+          : '年干';
+    const commanderBoundary =
+      monthCommander && monthCommander !== exposedPatternStem
+        ? `；${monthCommander}司权另作月令得时事实，不覆盖已透藏干的格局名称`
+        : monthCommander === exposedPatternStem
+          ? '，且与当前司权一致'
+          : '';
+    basis = `${exposedPatternStem}为月令藏干，单独透于${exposedPosition}，按“一透则一用”取格${commanderBoundary}`;
   } else if (monthCommander && exposedStems.includes(monthCommander)) {
     patternName = getPatternNameByTenGod(monthMainGod, dayMaster, monthBranch);
     basis = `月令司权为${monthCommander}，且已透干，按司令十神取格`;
@@ -350,23 +355,10 @@ export function determinePattern(
       basis = `月令主气为${activeMonthStem}，对应劫财，日主${dayMaster}为阴干无真刃，按劫财格处理`;
     }
   } else {
-    const exposedPatternStem = resolveExposedPatternStem(monthStems, pillars, dayMaster, getTenGod);
-
-    if (exposedPatternStem) {
-      const tenGod = getTenGod(exposedPatternStem, dayMaster);
-      const prefix = monthCommander && exposedPatternStem !== activeMonthStem ? '杂气' : '';
-      patternName = `${prefix}${tenGod}格`;
-      const exposedPosition =
-        pillars.month.gan === exposedPatternStem
-          ? '月干'
-          : pillars.hour.gan === exposedPatternStem
-            ? '时干'
-            : '年干';
-      basis = `${exposedPatternStem}为月令藏干，单独透于${exposedPosition}，按“一透则一用”取格`;
-    } else {
-      patternName = getPatternNameByTenGod(monthMainGod, dayMaster, monthBranch);
-      basis = `月令主气为${activeMonthStem}，未见更优透干，按月令本气取格`;
-    }
+    patternName = getPatternNameByTenGod(monthMainGod, dayMaster, monthBranch);
+    basis = monthCommander
+      ? `月令藏干未透，当前${monthCommander}司权，暂按司令十神取格`
+      : `月令藏干未透，按月令本气${activeMonthStem}取格`;
   }
 
   return {

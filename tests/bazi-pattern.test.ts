@@ -217,6 +217,37 @@ test('月令藏干只有一项透出时仍按一透一用取格', () => {
   assert.match(result.basis || '', /一透则一用/);
 });
 
+test('甲生辰月单透乙劫财时应按一透一用，不得跳过同党透干退回未透本气', () => {
+  const pillars: Pillars = {
+    year: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
+    month: { gan: '庚', zhi: '辰', ganZhi: '庚辰' },
+    day: { gan: '甲', zhi: '寅', ganZhi: '甲寅' },
+    hour: { gan: '庚', zhi: '午', ganZhi: '庚午' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod, '戊');
+
+  assert.equal(result.pattern, '杂气劫财格');
+  assert.match(result.basis || '', /乙为月令藏干，单独透于年干/);
+  assert.match(result.basis || '', /一透则一用/);
+  assert.match(result.basis || '', /戊司权另作月令得时事实，不覆盖已透藏干/);
+});
+
+test('庚生午月单透己印时应以透干定格，丁司令只作得时事实', () => {
+  const pillars: Pillars = {
+    year: { gan: '己', zhi: '未', ganZhi: '己未' },
+    month: { gan: '庚', zhi: '午', ganZhi: '庚午' },
+    day: { gan: '庚', zhi: '辰', ganZhi: '庚辰' },
+    hour: { gan: '辛', zhi: '巳', ganZhi: '辛巳' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod, '丁');
+
+  assert.equal(result.pattern, '杂气正印格');
+  assert.match(result.basis || '', /己为月令藏干，单独透于年干/);
+  assert.match(result.basis || '', /丁司权另作月令得时事实，不覆盖已透藏干/);
+});
+
 test('特殊格判断应把月令司权计入，不应只看月支藏干整体属性', () => {
   const pillars: Pillars = {
     year: { gan: '壬', zhi: '子', ganZhi: '壬子' },
