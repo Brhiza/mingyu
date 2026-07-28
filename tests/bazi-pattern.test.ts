@@ -367,7 +367,7 @@ test('乙生寅月藏干全不透而会午戌时应由月劫改按食伤会支�
   assert.doesNotMatch(result.pattern, /劫财格/);
 });
 
-test('建禄固定入口仍优先于无透干会支，不在本轮扩写为格局变化', () => {
+test('建禄遇月支完整会局时应保留月令底格并补充格外取用事实', () => {
   const pillars: Pillars = {
     year: { gan: '壬', zhi: '戌', ganZhi: '壬戌' },
     month: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
@@ -378,7 +378,45 @@ test('建禄固定入口仍优先于无透干会支，不在本轮扩写为格�
   const result = determinePattern(pillars, '待综合判断', getTenGod);
 
   assert.equal(result.pattern, '建禄格');
-  assert.match(result.basis || '', /禄位/);
+  assert.match(result.basis || '', /月令底格仍按建禄格/);
+  assert.match(result.basis || '', /月支寅参与地支寅午戌完整三合火结构（火食伤）/);
+  assert.match(result.basis || '', /年干壬（偏印）、月干壬（偏印）、时干壬（偏印）明透/);
+  assert.match(result.basis || '', /透干会支，另取用神/);
+  assert.match(result.basis || '', /不据三支齐全直接宣称已经合化、化劫、成格或破格/);
+});
+
+test('建禄会财且财官伤并透时不得只报固定格名而漏掉取用条件', () => {
+  const pillars: Pillars = {
+    year: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
+    month: { gan: '癸', zhi: '巳', ganZhi: '癸巳' },
+    day: { gan: '丙', zhi: '戌', ganZhi: '丙戌' },
+    hour: { gan: '己', zhi: '丑', ganZhi: '己丑' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod, '戊');
+
+  assert.equal(result.pattern, '建禄格');
+  assert.match(result.basis || '', /月支巳参与地支巳酉丑完整三合金结构（金财星）/);
+  assert.match(result.basis || '', /年干辛（正财）、月干癸（正官）、时干己（伤官）明透/);
+  assert.match(result.basis || '', /当前戊司权另作得时事实/);
+});
+
+test('月刃遇会印并见杀财伤时应保留制刃配合事实而不提前判成败', () => {
+  const pillars: Pillars = {
+    year: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
+    month: { gan: '甲', zhi: '午', ganZhi: '甲午' },
+    day: { gan: '戊', zhi: '寅', ganZhi: '戊寅' },
+    hour: { gan: '壬', zhi: '戌', ganZhi: '壬戌' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod, '丁');
+
+  assert.equal(result.pattern, '月刃格');
+  assert.match(result.basis || '', /月令底格仍按月刃格/);
+  assert.match(result.basis || '', /月支午参与地支寅午戌完整三合火结构（火印星）/);
+  assert.match(result.basis || '', /年干辛（伤官）、月干甲（七杀）、时干壬（偏财）明透/);
+  assert.match(result.basis || '', /阳刃喜官杀制伏，并须合看财印、伤食配合/);
+  assert.match(result.basis || '', /不据三支齐全直接宣称已经合化、化刃、成格或破格/);
 });
 
 test('不含月支的局外完整会局不得冒充无透干会支取用', () => {

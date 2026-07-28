@@ -263,6 +263,76 @@ test('真实无透干会支排盘应按会支取用贯穿格局证据与最终�
   assert.doesNotMatch(prompt, /格局: 劫财格/);
 });
 
+test('真实建禄会财排盘应把会支及财官伤明透贯穿证据与最终提示词', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1981,
+    month: 5,
+    day: 8,
+    timeIndex: 1,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['辛酉', '癸巳', '丙戌', '己丑'],
+  );
+  assert.equal(result.monthCommander, '戊');
+  assert.equal(result.analysis.mingGe.pattern, '建禄格');
+  assert.match(result.analysis.mingGe.basis || '', /月令底格仍按建禄格/);
+  assert.match(result.analysis.mingGe.basis || '', /巳酉丑完整三合金结构（金财星）/);
+  assert.match(
+    result.analysis.mingGe.basis || '',
+    /年干辛（正财）、月干癸（正官）、时干己（伤官）明透/,
+  );
+  assert.match(result.analysis.mingGe.basis || '', /透干会支，另取用神/);
+
+  const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.status, '已记录');
+  assert.equal(patternFact?.result, '建禄格');
+  assert.match(patternFact?.promptText || '', /巳酉丑完整三合金结构（金财星）/);
+  assert.match(patternFact?.promptText || '', /透干会支，另取用神/);
+
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 建禄格/);
+  assert.match(prompt, /巳酉丑完整三合金结构（金财星）/);
+  assert.match(prompt, /年干辛（正财）、月干癸（正官）、时干己（伤官）明透/);
+});
+
+test('真实月刃会印排盘应把杀财伤配合贯穿证据与最终提示词', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1981,
+    month: 6,
+    day: 29,
+    timeIndex: 10,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['辛酉', '甲午', '戊寅', '壬戌'],
+  );
+  assert.equal(result.monthCommander, '丁');
+  assert.equal(result.analysis.mingGe.pattern, '月刃格');
+  assert.match(result.analysis.mingGe.basis || '', /月令底格仍按月刃格/);
+  assert.match(result.analysis.mingGe.basis || '', /寅午戌完整三合火结构（火印星）/);
+  assert.match(
+    result.analysis.mingGe.basis || '',
+    /年干辛（伤官）、月干甲（七杀）、时干壬（偏财）明透/,
+  );
+  assert.match(result.analysis.mingGe.basis || '', /阳刃喜官杀制伏/);
+
+  const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.status, '已记录');
+  assert.equal(patternFact?.result, '月刃格');
+  assert.match(patternFact?.promptText || '', /寅午戌完整三合火结构（火印星）/);
+  assert.match(patternFact?.promptText || '', /阳刃喜官杀制伏/);
+
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 月刃格/);
+  assert.match(prompt, /寅午戌完整三合火结构（火印星）/);
+  assert.match(prompt, /年干辛（伤官）、月干甲（七杀）、时干壬（偏财）明透/);
+});
+
 test('八字真太阳时本命证据应引用校正后的唯一时间并采用唯一校正时刻', () => {
   const result = baziCalculator.calculateBazi({
     year: 1990,

@@ -3,6 +3,7 @@ import {
   collectCompleteBranchFormations,
   collectEstablishedBranchFormations,
   getRepresentativeStemByWuxing,
+  type CompleteBranchFormation,
 } from './baziFormationUtils';
 import { getStemWuxing, getWuxingTenGodCategory } from './baziRuleMatcher/helpers';
 import type { PatternAnalysis, Pillars, Wuxing } from './baziTypes';
@@ -178,6 +179,54 @@ function getFormationUseLabel(wuxing: Wuxing, dayMaster: string): string {
   return `${wuxing}${tenGodGroup}`;
 }
 
+const LU_REN_RELATED_EXPOSED_GODS = new Set([
+  '正财',
+  '偏财',
+  '正官',
+  '七杀',
+  '食神',
+  '伤官',
+  '正印',
+  '偏印',
+]);
+
+function buildLuRenFormationBasis(
+  pillars: Pillars,
+  dayMaster: string,
+  monthBranch: string,
+  patternName: '建禄格' | '月刃格',
+  formations: CompleteBranchFormation[],
+  getTenGod: GetTenGodFn,
+  commanderFact: string,
+): string {
+  const positionLabels = {
+    year: '年干',
+    month: '月干',
+    hour: '时干',
+  } as const;
+  const exposedUseFacts = (['year', 'month', 'hour'] as const).flatMap((position) => {
+    const stem = pillars[position].gan;
+    const tenGod = getTenGod(stem, dayMaster);
+    return LU_REN_RELATED_EXPOSED_GODS.has(tenGod)
+      ? [`${positionLabels[position]}${stem}（${tenGod}）`]
+      : [];
+  });
+  const formationUses = formations.map(
+    (formation) =>
+      `月支${monthBranch}参与地支${formation.branches.join('')}完整${formation.type}${formation.wuxing}结构（${getFormationUseLabel(formation.wuxing, dayMaster)}）`,
+  );
+  const exposedFact = exposedUseFacts.length
+    ? `；另见${exposedUseFacts.join('、')}明透，均作为格外取用相关事实`
+    : '';
+  const ruleBoundary =
+    patternName === '建禄格'
+      ? '《子平真诠》称建禄月劫须从四柱财官煞食“透干会支，另取用神”'
+      : '《子平真诠》称阳刃喜官杀制伏，并须合看财印、伤食配合';
+  const changeBoundary = patternName === '建禄格' ? '化劫' : '化刃';
+
+  return `月令${monthBranch}为日主${dayMaster}之${patternName === '建禄格' ? '禄位' : '羊刃位'}，月令底格仍按${patternName}处理；${formationUses.join('；')}${exposedFact}；${ruleBoundary}，故不能只报固定格名而漏掉格外取用；当前只记录完整会支及相关明透，不据三支齐全直接宣称已经合化、${changeBoundary}、成格或破格${commanderFact}`;
+}
+
 const FORMATION_PATTERN_NAME_BY_TEN_GOD_CATEGORY: Record<string, string> = {
   比劫: '比劫格',
   食伤: '食伤格',
@@ -328,10 +377,40 @@ export function determinePattern(
 
   if (LU_BRANCH_MAP[dayMaster] === monthBranch) {
     patternName = '建禄格';
-    basis = `月令${monthBranch}为日主${dayMaster}之禄位，按建禄格处理`;
+    const commanderFact = monthCommander
+      ? !commanderIsMonthStem
+        ? `；${monthCommander}为交节过渡气${commanderIsExposed ? '且已透干' : ''}，只作司权${commanderIsExposed ? '与透干' : ''}事实`
+        : `；当前${monthCommander}司权另作得时事实`
+      : '';
+    basis = monthBranchFormations.length
+      ? buildLuRenFormationBasis(
+          pillars,
+          dayMaster,
+          monthBranch,
+          '建禄格',
+          monthBranchFormations,
+          getTenGod,
+          commanderFact,
+        )
+      : `月令${monthBranch}为日主${dayMaster}之禄位，按建禄格处理`;
   } else if (REN_BRANCH_MAP[dayMaster] === monthBranch) {
     patternName = '月刃格';
-    basis = `月令${monthBranch}为日主${dayMaster}之羊刃位，按月刃格处理`;
+    const commanderFact = monthCommander
+      ? !commanderIsMonthStem
+        ? `；${monthCommander}为交节过渡气${commanderIsExposed ? '且已透干' : ''}，只作司权${commanderIsExposed ? '与透干' : ''}事实`
+        : `；当前${monthCommander}司权另作得时事实`
+      : '';
+    basis = monthBranchFormations.length
+      ? buildLuRenFormationBasis(
+          pillars,
+          dayMaster,
+          monthBranch,
+          '月刃格',
+          monthBranchFormations,
+          getTenGod,
+          commanderFact,
+        )
+      : `月令${monthBranch}为日主${dayMaster}之羊刃位，按月刃格处理`;
   } else if (exposedMonthStems.length > 0 && monthBranchFormations.length > 0) {
     const exposedUses = exposedMonthStems.map((stem) => `${stem}（${getTenGod(stem, dayMaster)}）`);
     const formationUses = monthBranchFormations.map(
