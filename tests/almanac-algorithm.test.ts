@@ -9,6 +9,38 @@ import {
   getAlmanacTwentyEightStarDetail,
 } from '../packages/core/src/divination/algorithms/almanac.ts';
 
+const ALMANAC_CROSS_CENTURY_TRUTH = [
+  ['1900-01-01', '己亥', '丙子', '甲戌'],
+  ['1900-01-31', '己亥', '丁丑', '甲辰'],
+  ['1900-02-04', '己亥', '丁丑', '戊申'],
+  ['1950-02-04', '己丑', '丁丑', '庚午'],
+  ['2000-02-04', '己卯', '丁丑', '壬辰'],
+  ['2024-02-04', '癸卯', '乙丑', '戊戌'],
+  ['2024-02-05', '甲辰', '丙寅', '己亥'],
+  ['2024-02-29', '甲辰', '丙寅', '癸亥'],
+  ['2026-03-05', '丙午', '庚寅', '戊寅'],
+  ['2050-02-03', '己巳', '丁丑', '甲寅'],
+  ['2050-02-04', '庚午', '戊寅', '乙卯'],
+  ['2099-12-31', '己未', '丙子', '壬寅'],
+  ['2100-12-31', '庚申', '戊子', '丁未'],
+] as const;
+
+const HOUR_BRANCHES = [
+  '子',
+  '丑',
+  '寅',
+  '卯',
+  '辰',
+  '巳',
+  '午',
+  '未',
+  '申',
+  '酉',
+  '戌',
+  '亥',
+  '子',
+];
+
 test('黄历基础资料缺失或输入非法时应明确报错', () => {
   assert.throws(() => getAlmanacTwentyEightStarDetail('未知宿'), /二十八宿资料缺失/);
   assert.throws(() => getAlmanacNineStarDetail('十白'), /九星资料缺失/);
@@ -17,7 +49,7 @@ test('黄历基础资料缺失或输入非法时应明确报错', () => {
   assert.throws(() => getAlmanacAnnualDirectionGods('无'), /年支无效/);
 });
 
-test('黄历择日：tyme4ts 返回九星短名时也应补出九星详情', () => {
+test('黄历择日：二十八宿与九星详情应直接来自 tyme4ts 原生属性', () => {
   const result = generateAlmanacSelection({
     topic: 'move',
     startDate: '2026-06-01',
@@ -31,7 +63,11 @@ test('黄历择日：tyme4ts 返回九星短名时也应补出九星详情', () 
     assert.ok(day.moonPhaseEvidence.phaseAngleDegrees < 360);
     assert.ok(day.nineStar, `${day.date} 应有九星名称`);
     assert.ok(day.nineStarDetail, `${day.date} 的九星 ${day.nineStar} 应有详情`);
-    assert.match(day.nineStarDetail.meaning, new RegExp(`^${day.nineStar}`));
+    assert.match(day.nineStarDetail.fullName, new RegExp(`^${day.nineStar}`));
+    assert.equal(day.nineStarDetail.source, 'tyme4ts NineStar 原生属性');
+    assert.ok(day.twentyEightStarDetail);
+    assert.match(day.twentyEightStarDetail.fullName, new RegExp(`^${day.twentyEightStar}`));
+    assert.equal(day.twentyEightStarDetail.source, 'tyme4ts TwentyEightStar 原生属性');
   }
 });
 
@@ -47,7 +83,7 @@ test('黄历择日：同一吉神不应因配置重复而重复加分和重复�
   assert.doesNotMatch(day.highlights.join('；'), /天德合、天德合/);
 });
 
-test('黄历择日：建除十二神不应把除成开日误判为忌出行', () => {
+test('黄历择日：建除值日只保留原生值日事实，不再叠加本地事项硬表', () => {
   const result = generateAlmanacSelection({
     topic: 'travel',
     startDate: '2026-06-01',
@@ -64,12 +100,13 @@ test('黄历择日：建除十二神不应把除成开日误判为忌出行', ()
     const day = result.days.find((candidate) => candidate.date === item.date);
     assert.ok(day, `${item.date} 应在候选日期中`);
     assert.equal(day.dayOfficer, item.officer);
-    assert.match(day.highlights.join('；'), new RegExp(`执日${item.officer}宜出行赴任`));
-    assert.doesNotMatch(day.cautions.join('；'), new RegExp(`执日${item.officer}.*出行`));
+    assert.ok(day.topicMatchFacts?.every((fact) => !fact.key.includes(':topic:rule-')));
+    assert.doesNotMatch(day.highlights.join('；'), /事项规则支持执日|执日.*宜出行赴任/);
+    assert.doesNotMatch(day.cautions.join('；'), /事项规则限制执日/);
   }
 });
 
-test('黄历择日：破日求医不应被建除表无条件扣分', () => {
+test('黄历择日：破日求医只采用 tyme4ts 原始宜忌，不泛化为所有医疗首选', () => {
   const result = generateAlmanacSelection({
     topic: 'medical',
     startDate: '2026-06-07',
@@ -78,8 +115,9 @@ test('黄历择日：破日求医不应被建除表无条件扣分', () => {
   const day = result.days[0];
 
   assert.equal(day.dayOfficer, '破');
-  assert.match(day.highlights.join('；'), /执日破宜就医手术/);
-  assert.doesNotMatch(day.cautions.join('；'), /执日破/);
+  assert.ok(!day.recommends.some((item) => item.includes('求医') || item.includes('治病')));
+  assert.doesNotMatch(day.highlights.join('；'), /黄历宜项命中就医手术/);
+  assert.doesNotMatch(day.highlights.join('；'), /执日破宜就医手术|事项规则/);
 });
 
 test('黄历择日：岁支十二神方位应从年支起太岁顺排', () => {
@@ -110,8 +148,7 @@ test('黄历择日：岁支十二神方位应从年支起太岁顺排', () => {
   );
   assert.equal(day.annualDirectionGods?.find((item) => item.god === '太岁')?.direction, '正南');
   assert.equal(day.annualDirectionGods?.find((item) => item.god === '岁破')?.direction, '正北');
-  assert.equal(day.annualDirectionGods?.find((item) => item.god === '福德')?.fortune, '吉');
-  assert.equal(day.annualDirectionGods?.find((item) => item.god === '病符')?.fortune, '凶');
+  assert.ok(day.annualDirectionGods?.every((item) => Object.keys(item).length === 3));
 });
 
 test('黄历择日：交节当天年柱月柱按正午精确干支历显示', () => {
@@ -334,6 +371,63 @@ test('黄历择日：每个候选日应给出完整时辰并排除诸事不宜�
         [...hour.recommends, ...hour.avoids, ...hour.cautions].join('；'),
         /诸事不宜/,
       );
+    }
+  }
+});
+
+test('黄历择日：跨世纪与交节日期应符合独立历法真值', () => {
+  for (const [date, year, month, day] of ALMANAC_CROSS_CENTURY_TRUTH) {
+    const candidate = generateAlmanacSelection({
+      topic: 'custom',
+      startDate: date,
+      endDate: date,
+    }).days[0];
+
+    assert.deepEqual(candidate.ganzhi, { year, month, day }, `${date} 正午干支错误`);
+    assert.equal(
+      candidate.annualDirectionGods?.find((item) => item.god === '太岁')?.branch,
+      year[1],
+    );
+    assert.deepEqual(
+      candidate.hours?.map((hour) => hour.branch),
+      HOUR_BRANCHES,
+    );
+    assert.ok(candidate.hours?.every((hour) => hour.ganzhi.endsWith(hour.branch)));
+    assert.match(candidate.pengZuGan || '', new RegExp(`^${day[0]}`));
+    assert.match(candidate.pengZuZhi || '', new RegExp(`^${day[1]}`));
+  }
+});
+
+test('黄历择日：1900 至 2100 每年四个关键日期的日课资料链不得断裂', () => {
+  for (let year = 1900; year <= 2100; year += 1) {
+    for (const monthDay of ['01-01', '02-04', '07-01', '12-31']) {
+      const date = `${year}-${monthDay}`;
+      const result = generateAlmanacSelection({
+        topic: 'custom',
+        startDate: date,
+        endDate: date,
+      });
+      const candidate = result.days[0];
+      const calendarFact = result.evidenceAnalysis?.candidates[0]?.calendarFact;
+
+      assert.equal(candidate.date, date);
+      assert.match(candidate.ganzhi.year, /^[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]$/);
+      assert.match(candidate.ganzhi.month, /^[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]$/);
+      assert.match(candidate.ganzhi.day, /^[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]$/);
+      assert.ok(candidate.lunarDate);
+      assert.equal(candidate.hours?.length, 13);
+      assert.deepEqual(
+        candidate.hours?.map((hour) => hour.branch),
+        HOUR_BRANCHES,
+      );
+      assert.equal(candidate.annualDirectionGods?.length, 12);
+      assert.equal(
+        candidate.annualDirectionGods?.find((item) => item.god === '太岁')?.branch,
+        candidate.ganzhi.year[1],
+      );
+      assert.match(calendarFact?.promptText || '', new RegExp(`年柱${candidate.ganzhi.year}`));
+      assert.match(calendarFact?.promptText || '', new RegExp(`月柱${candidate.ganzhi.month}`));
+      assert.match(calendarFact?.promptText || '', new RegExp(`日柱${candidate.ganzhi.day}`));
     }
   }
 });

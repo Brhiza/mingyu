@@ -202,20 +202,38 @@ export interface SeasonInfo {
 }
 
 export interface RootAnalysis {
-  roots: { position: string; branch: string; strength: number }[];
+  roots: {
+    position: string;
+    branch: string;
+    /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
+    strength: number;
+  }[];
+  /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
   totalStrength: number;
   hasRoot: boolean;
   strongRoot: boolean;
 }
 
 export interface SupportAnalysis {
-  supporters: { position: string; stem: string; strength: number }[];
+  supporters: {
+    position: string;
+    stem: string;
+    /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
+    strength: number;
+  }[];
+  /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
   totalStrength: number;
   hasSupport: boolean;
 }
 
 export interface ConstraintAnalysis {
-  constraints: { position: string; stem: string; strength: number }[];
+  constraints: {
+    position: string;
+    stem: string;
+    /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
+    strength: number;
+  }[];
+  /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
   totalStrength: number;
   hasConstraint: boolean;
 }
@@ -331,7 +349,7 @@ export interface BaziChartResult {
   hiddenStems: HiddenStems;
   /** 藏干的十神 */
   hiddenTenGods: Record<string, string[]>;
-  /** 五行强度详细分析 */
+  /** 五行结构出现情况；字段名为旧版兼容名称，不表示百分比力量。 */
   wuxingStrength: WuxingStrengthDetails;
   /** 大运信息（起运时间、各步大运干支） */
   luckInfo: LuckInfo;

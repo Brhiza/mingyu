@@ -1,6 +1,7 @@
 import type { LiurenClassicalRule } from '../../../../types/divination';
 
 const MAIN_SOURCE = '《大六壬大全》九宗门取传法';
+const SHEHAI_SOURCE = '《六壬粹言》涉害第六及《大六壬大全》涉害课';
 
 const RULES: Array<LiurenClassicalRule & { match: RegExp }> = [
   {
@@ -11,18 +12,26 @@ const RULES: Array<LiurenClassicalRule & { match: RegExp }> = [
     summary: '天盘与地盘相冲为返吟；若四课见下贼上，仍从重审口径取发用。',
   },
   {
-    match: /返吟/,
+    match: /返吟(?!重审)/,
     source: MAIN_SOURCE,
     rule: '返吟',
     category: '返吟课',
-    summary: '天盘与地盘相冲，主反复动荡；有克先依克取传，无克则从驿马发用。',
+    summary: '天盘十二位与地盘逐位相冲；有克仍依贼克取传，无克另按井栏射取传。',
   },
   {
     match: /伏吟/,
     source: MAIN_SOURCE,
     rule: '伏吟',
     category: '伏吟课',
-    summary: '天盘与地盘同位，主伏而不动；阳日从干上发用，阴日多从支上取用。',
+    summary: '天盘十二位与地盘同位；有克仍依贼克取传，无克按刚日取干上、柔日取支上起传。',
+  },
+  {
+    match: /遥克/,
+    source: MAIN_SOURCE,
+    rule: '遥克',
+    category: '遥克法',
+    summary:
+      '四课无直接上下克时，取二三四课上神与日干遥相克者，再依克日、日克及比用涉害次序取发用。',
   },
   {
     match: /重审/,
@@ -50,21 +59,15 @@ const RULES: Array<LiurenClassicalRule & { match: RegExp }> = [
     source: MAIN_SOURCE,
     rule: '知一/比用',
     category: '知一法',
-    summary: '多处贼克时，先取与日干阴阳同类者；若形成知一变格，则按变格取用。',
+    summary: '贼克或遥克候选不止一处时，取与日干阴阳同类的上神发用。',
   },
   {
     match: /涉害/,
-    source: MAIN_SOURCE,
+    source: SHEHAI_SOURCE,
     rule: '涉害',
     category: '涉害法',
-    summary: '多处贼克且比用不能独定时，比较涉害深浅，并参考孟仲季位置取发用。',
-  },
-  {
-    match: /遥克/,
-    source: MAIN_SOURCE,
-    rule: '遥克',
-    category: '遥克法',
-    summary: '四课无直接上下克时，取二三四课上神与日干遥相克者发用。',
+    summary:
+      '多处贼克且阴阳比用不能独定时，从上神所临地盘之后历归本家，先比受克深浅，再依孟仲季及刚日干上、柔日支上取用；不另用“择比”改传。',
   },
   {
     match: /昴星/,

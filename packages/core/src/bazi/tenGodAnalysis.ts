@@ -1,28 +1,17 @@
 /**
  * @file 十神结构与流动关系分析
- * @description 统计四柱天干与地支藏干的十神分布，按五大家族聚合，
- *   并识别十神之间的生克流动链条。
+ * @description 分别统计四柱天干透出与地支藏干的十神分布，按五大家族聚合，
+ *   并识别十神之间的生克流动链条；不以自定权重裁定十神强弱。
  * @古籍依据 《渊海子平》"论十神"、《子平真诠》"论用神成败"
- *
- * 评分口径（沿用 vibebazi/tyme4ts 量化方案）：
- *   - 透干（天干）每见 +1 分
- *   - 藏干本气 +0.8，中气 +0.5，余气 +0.3
- *   - 状态：缺位 / 潜藏 / 有力 / 偏重
  */
 import type {
   TenGodDistributionItem,
+  TenGodFamilyDistribution,
+  TenGodPresenceStatus,
   TenGodStructureProfile,
   TenGodFlowItem,
   TenGodFlowProfile,
 } from '../types/analysis';
-
-type ScoredTenGodDistributionItem = TenGodDistributionItem & { score: number };
-type ScoredFamilyDistribution = {
-  family: string;
-  totalCount: number;
-  score: number;
-  status: string;
-};
 
 const TEN_GODS = [
   '比肩',
@@ -52,38 +41,15 @@ const TEN_GOD_TO_FAMILY: Record<string, string> = {
 
 const TEN_GOD_FAMILY_ORDER = ['比劫', '印绶', '食伤', '财才', '官杀'];
 
-function getHiddenTenGodScore(index: number): number {
-  if (index === 0) return 0.8; // 本气
-  if (index === 1) return 0.5; // 中气
-  return 0.3; // 余气
-}
-
-function roundScore(value: number): number {
-  return Math.round(value * 10) / 10;
-}
-
-/** 单个十神分布状态 */
-function resolveTenGodStatus(item: {
-  totalCount: number;
-  score: number;
+/** 只按是否透干、是否藏支形成可直接复核的出现状态。 */
+function resolvePresenceStatus(item: {
   visibleCount: number;
-}): TenGodDistributionItem['status'] {
-  if (item.totalCount === 0) return '缺位';
-  if (item.score >= 2 || item.totalCount >= 3) return '偏重';
-  if (item.visibleCount > 0 || item.score >= 1) return '有力';
-  return '潜藏';
-}
-
-/** 十神家族（如比劫、印绶等）状态 */
-function resolveFamilyStatus(item: {
-  totalCount: number;
-  score: number;
-  visibleCount: number;
-}): '偏重' | '有力' | '偏弱' | '缺位' {
-  if (item.totalCount === 0) return '缺位';
-  if (item.score >= 3 || item.totalCount >= 5) return '偏重';
-  if (item.visibleCount > 0 || item.score >= 1.6) return '有力';
-  return '偏弱';
+  hiddenCount: number;
+}): TenGodPresenceStatus {
+  if (item.visibleCount === 0 && item.hiddenCount === 0) return '缺位';
+  if (item.visibleCount === 0) return '仅藏';
+  if (item.hiddenCount === 0) return '透出';
+  return '透藏并见';
 }
 
 export function analyzeTenGodStructure(
@@ -91,9 +57,9 @@ export function analyzeTenGodStructure(
   dayMaster: string,
   getTenGod: (g: string, d: string) => string,
 ): TenGodStructureProfile {
-  const distributionMap = new Map<string, ScoredTenGodDistributionItem>();
+  const distributionMap = new Map<string, TenGodDistributionItem>();
 
-  const ensure = (tenGod: string): ScoredTenGodDistributionItem => {
+  const ensure = (tenGod: string): TenGodDistributionItem => {
     let item = distributionMap.get(tenGod);
     if (!item) {
       item = {
@@ -101,7 +67,6 @@ export function analyzeTenGodStructure(
         visibleCount: 0,
         hiddenCount: 0,
         totalCount: 0,
-        score: 0,
         status: '缺位',
       };
       distributionMap.set(tenGod, item);
@@ -117,33 +82,34 @@ export function analyzeTenGodStructure(
       const item = ensure(tg);
       item.visibleCount += 1;
       item.totalCount += 1;
-      item.score += 1; // 透干每见 +1
     }
-    (p.hiddenStems || []).forEach((stem, index) => {
+    (p.hiddenStems || []).forEach((stem) => {
       const ht = getTenGod(stem, dayMaster);
-      if (!ht || ht === '未知') return;
+      if (!ht || ht === '未知' || ht === '日主') return;
       const item = ensure(ht);
       item.hiddenCount += 1;
       item.totalCount += 1;
-      item.score += getHiddenTenGodScore(index);
     });
   });
 
   distributionMap.forEach((item) => {
-    item.score = roundScore(item.score);
-    item.status = resolveTenGodStatus(item);
+    item.status = resolvePresenceStatus(item);
   });
 
   const distributions = [...distributionMap.values()].sort((a, b) => {
     if (b.totalCount !== a.totalCount) return b.totalCount - a.totalCount;
-    if (b.score !== a.score) return b.score - a.score;
+    if (b.visibleCount !== a.visibleCount) return b.visibleCount - a.visibleCount;
+    if (b.hiddenCount !== a.hiddenCount) return b.hiddenCount - a.hiddenCount;
     return a.tenGod.localeCompare(b.tenGod, 'zh-Hans-CN');
   });
 
   // Family aggregation
-  const familyMap = new Map<string, { totalCount: number; score: number; visibleCount: number }>();
+  const familyMap = new Map<
+    string,
+    { totalCount: number; visibleCount: number; hiddenCount: number }
+  >();
   TEN_GOD_FAMILY_ORDER.forEach((f) =>
-    familyMap.set(f, { totalCount: 0, score: 0, visibleCount: 0 }),
+    familyMap.set(f, { totalCount: 0, visibleCount: 0, hiddenCount: 0 }),
   );
   distributions.forEach((d) => {
     const f = TEN_GOD_TO_FAMILY[d.tenGod];
@@ -151,25 +117,24 @@ export function analyzeTenGodStructure(
     const fam = familyMap.get(f);
     if (!fam) return;
     fam.totalCount += d.totalCount;
-    fam.score += d.score;
     fam.visibleCount += d.visibleCount;
+    fam.hiddenCount += d.hiddenCount;
   });
-  const scoredFamilyDistributions: ScoredFamilyDistribution[] = TEN_GOD_FAMILY_ORDER.map(
-    (family) => {
-      const v = familyMap.get(family)!;
-      return {
-        family,
-        totalCount: v.totalCount,
-        score: roundScore(v.score),
-        status: resolveFamilyStatus(v),
-      };
-    },
-  );
+  const familyDistributions: TenGodFamilyDistribution[] = TEN_GOD_FAMILY_ORDER.map((family) => {
+    const value = familyMap.get(family)!;
+    return {
+      family,
+      visibleCount: value.visibleCount,
+      hiddenCount: value.hiddenCount,
+      totalCount: value.totalCount,
+      status: resolvePresenceStatus(value),
+    };
+  });
 
   return {
-    distributions: distributions.map(({ score: _score, ...item }) => item),
-    familyDistributions: scoredFamilyDistributions.map(({ score: _score, ...item }) => item),
-    summary: '十神分布分析',
+    distributions,
+    familyDistributions,
+    summary: '十神透干与藏支分布',
   };
 }
 

@@ -107,9 +107,9 @@
 | `analyzeStemRootProfile(pillars, dayMaster, getWuxing, getTenGod)` | 四柱、日干、五行函数、十神函数 | `StemRootProfile` | 透干通根分析（本根/同气根/无根） |
 | `analyzeExposedStemProfile(pillars, dayMaster, getWuxing, getTenGod, commanderStem?, monthBranch?)` | 同上 + 司令、月支 | `ExposedStemProfile` | 透干月令地位与力量 |
 | `analyzeRelationStructure(pillars)` | 四柱 | `RelationStructureProfile` | 地支关系（三合/三会/半合/六合/六冲/六害/三刑/相破） |
-| `assessAllHarmonyTransforms(pillars, monthBranch?)` | 四柱、可选月支 | `HarmonyTransformProfile[]` | 自动扫描天干五合、地支六合并评估合化程度 |
-| `assessStemHarmonyTransform(stem1, pillar1, stem2, pillar2, monthBranch, allPillars)` | 天干、柱位、月支、四柱 | `HarmonyTransformProfile` | 单组天干五合合化评分 |
-| `assessBranchHarmonyTransform(branch1, pillar1, branch2, pillar2, monthBranch, allPillars)` | 地支、柱位、月支、四柱 | `HarmonyTransformProfile` | 单组地支六合合化评分 |
+| `assessAllHarmonyTransforms(pillars, monthBranch?)` | 四柱、可选月支 | `HarmonyTransformProfile[]` | 自动扫描天干五合、地支六合并核验条件 |
+| `assessStemHarmonyTransform(stem1, pillar1, stem2, pillar2, monthBranch, allPillars)` | 天干、柱位、月支、四柱 | `HarmonyTransformProfile` | 按日干、紧贴、规定月令、克破与争合核验天干成化 |
+| `assessBranchHarmonyTransform(branch1, pillar1, branch2, pillar2, monthBranch, allPillars)` | 地支、柱位、月支、四柱 | `HarmonyTransformProfile` | 评估地支六合及冲破；地支不直接按化神五行成化 |
 | `analyzeKongWangProfile(pillars, dayMasterStem)` | 四柱、日干 | `KongWangProfile` | 空亡全分析 |
 | `analyzeTombStorage(pillars, dayMaster, getWuxing, getTenGod)` | 四柱、日干、五行函数、十神函数 | `TombStorageProfile` | 辰戌丑未墓库分析 |
 | `analyzeLifeStageProfile(pillars)` | 四柱 | `LifeStageItem[]` | 各柱十二长生 |
@@ -148,7 +148,7 @@
 | `voidBranches` | `string[]` | 旬空地支 |
 | `palace` | `{ name, wuxing }` | 所属宫位 |
 | `palaceStage` | `LiuyaoPalaceStage?` | 八宫卦序位置（首卦、一世至五世、游魂、归魂） |
-| `yaosDetail` | `LiuyaoYaoDetail[]` | 每爻详细（含月破/日破/暗动/回头生克/化进退神等） |
+| `yaosDetail` | `LiuyaoYaoDetail[]` | 每爻详细；`changeRelations` 分别保存可并见的回头冲、五行生克/比泄耗与化空，`changeRelation` 仅为旧版单值兼容字段；另含月破、日破、暗动、化进退神等 |
 | `hiddenSpirits` | `LiuyaoHiddenSpirit[]?` | 伏神（本宫首卦补未现六亲） |
 | `hexagramRelations` | `LiuyaoHexagramRelations?` | 整卦六合/六冲及六冲变六合、六合变六冲等卦变关系 |
 | `fanfuRelations` | `LiuyaoFanFuRelations?` | 卦变反吟/伏吟结构，含卦反吟、爻反吟、内外伏吟等标签 |
@@ -175,7 +175,7 @@
 | `seed` | `string \| number` | 随机起卦时可选；同一 seed 可复现同一组随机卦数 |
 | `rng` | `() => number` | 随机起卦时可选；自定义随机源，返回 0 到 1 之间的数 |
 
-**返回 `MeihuaData`：** 含主卦/互卦/变卦、体用关系（tiGua/yongGua）、四时旺衰、应期估算、体用生克分析（tiYongRelation/inter1Relation/changedRelation/yingQi）。
+**返回 `MeihuaData`：** 含主卦/互卦/变卦、体用关系（`tiGua`/`yongGua`）、按原体方位确定的体互与用互（`interTiGua`/`interYongGua`）、四时旺衰、应期触发条件，以及体用生克分析（`tiYongRelation`、体互/用互对原体关系、`changedRelation`、`yingQi`）。
 
 ---
 
@@ -201,7 +201,7 @@
 
 ### `createQimenPriorityPalaces(data)`
 
-根据 `QimenData` 里的宫位洞察、经典格局、干关系和方位数据生成重点宫位候选，不再依赖前端解析格局文字标签。
+根据 `QimenData` 里的宫位洞察、经典格局、干关系和方位数据生成重点宫位候选，不再依赖前端解析格局文字标签，也不把不同证据折算成总分。返回项中的旧版 `score` 兼容字段固定为 `0`，已弃用，不代表宫位强弱。
 
 ---
 
@@ -226,7 +226,7 @@
 - `number?: number`
 - `customDate?: Date`
 
-**返回 `XiaoliurenData`：** 含三宫（起因 start/过程 process/结果 result，各为大安/留连/速喜/赤口/小吉/空亡）、五行生克分析、月令旺衰、应期估算。
+**返回 `XiaoliurenData`：** 含月宫、日宫、时宫顺数轨迹（大安/留连/速喜/赤口/小吉/空亡）、时宫主证、通行歌诀、逐步计算参数及来源、历法和解释限制。
 
 ---
 
@@ -318,10 +318,10 @@
 | `buildAstrolabeFromInput(input)` | 由 ChartInput 构建 iztro 盘 |
 | `buildHoroscope(astrolabe, dateStr, hourIndex)` | 构建运限盘 |
 | `buildAnalysisPayloadV1({astrolabe, horoscope, currentScope})` | 构建分析数据载荷 |
-| `detectPatterns({palaces})` | 检测 35 种传统紫微格局 |
+| `detectPatterns({palaces})` | 评估当前 55 条可复算格局；每项返回固定古籍版本、卷次、原文、命中条件与解释边界 |
 | `buildEvidencePool({astrolabe, horoscope, currentScope, palaces})` | 构建证据池 |
 
-依赖 `iztro`。返回类型见 `mingyu-core/types` 的 `analysis.ts`。
+依赖 `iztro`。十二宫、星曜、亮度、三方四正、运限宫位、运限星曜、四化、自化与宫干飞化均直接读取 `iztro` 原生对象；公开链路与内部完整盘共用同一载荷构建器。原 84 条自定义格局因缺少逐条版本、卷页、原文和独立例盘已整体退役；当前固定版本传统目录登记 87 项，其中 55 条具备卷次、原文和可复算条件，32 项因原文含糊或依赖运限只登记边界、不伪造命中。空列表只表示当前可复算规则未命中，不表示命盘没有其他传统格局。返回类型见 `mingyu-core/types` 的 `analysis.ts`。
 
 ---
 

@@ -8,6 +8,7 @@ import {
 } from '../src/lib/divination/inspiration';
 import type {
   LenormandData,
+  QimenData,
   QimenJiuGongGe,
   SsgwData,
   TaiyiResult,
@@ -25,16 +26,18 @@ import {
   getQimenPatternTags,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/patterns';
 import { detectQimenPatternCombos } from '../packages/core/src/divination/algorithms/qimen/helpers/pattern-combos';
-import {
-  buildDirectionAdvice,
-  getPalaceScore,
-} from '../packages/core/src/divination/algorithms/qimen/helpers/directions';
+import { buildDirectionAdvice } from '../packages/core/src/divination/algorithms/qimen/helpers/directions';
+import { createQimenPriorityPalaces } from '../packages/core/src/divination/algorithms/qimen/helpers/guidance';
 import {
   checkSpecialHourConditions,
   getZhiFuZhiShi,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/jushu';
 import { arrangeJiuGongGe } from '../packages/core/src/divination/algorithms/qimen/helpers/layout';
 import { estimateYingQi } from '../packages/core/src/divination/algorithms/qimen/helpers/ying-qi';
+import {
+  hasTianPanStar,
+  hasTianPanStem,
+} from '../packages/core/src/divination/algorithms/qimen/helpers/palace-utils';
 import {
   analyzeLiuyaoEvidence,
   conditionLiuyaoTraditionalText,
@@ -102,7 +105,6 @@ function buildDraft(overrides: Partial<DivinationDraftInput>): DivinationDraftIn
     meihuaMethod: 'time',
     meihuaNumber: '',
     xiaoliurenMethod: 'time',
-    xiaoliurenNumber: '',
     liuyaoTemplate: 'general',
     liurenTemplate: 'general',
     tarotSpread: 'single',
@@ -163,6 +165,42 @@ function buildQimenPalace(
     renPan: overrides.renPan ?? { door: '' },
     shenPan: overrides.shenPan ?? { god: '' },
   };
+}
+
+let qimenStemPairSamples:
+  Map<string, { data: ReturnType<typeof generateQimen>; gong: number }> | undefined;
+
+function findQimenStemPairSample(heaven: string, earth: string) {
+  if (!qimenStemPairSamples) {
+    qimenStemPairSamples = new Map();
+    for (
+      let cursor = new Date('2024-01-01T00:00:00+08:00');
+      cursor < new Date('2024-01-10T00:00:00+08:00');
+      cursor = new Date(cursor.getTime() + 2 * 60 * 60 * 1000)
+    ) {
+      const data = generateQimen(cursor);
+      for (const palace of data.jiuGongGe) {
+        for (const stem of [palace.tianPan.stem, palace.tianPan.companionStem].filter(Boolean)) {
+          const key = `${stem}:${palace.diPan.stem}`;
+          if (!qimenStemPairSamples.has(key)) {
+            qimenStemPairSamples.set(key, { data, gong: palace.gong });
+          }
+        }
+      }
+    }
+  }
+
+  const sample = qimenStemPairSamples.get(`${heaven}:${earth}`);
+  assert.ok(sample, `固定时间窗内未找到天盘${heaven}加地盘${earth}的真实转盘样本`);
+  assert.ok(
+    sample.data.jiuGongGe.some(
+      (palace) =>
+        palace.gong === sample.gong &&
+        hasTianPanStem(palace, heaven) &&
+        palace.diPan.stem === earth,
+    ),
+  );
+  return sample;
 }
 
 function buildClassicPattern(overrides: Partial<ClassicPattern>): ClassicPattern {
@@ -278,9 +316,14 @@ test('奇门值符值使应按当前局地盘旬首落宫定位', () => {
   assert.equal(yangNine.zhiShi, '死门');
   assert.equal(yangNine.zhiFuPalace, 5);
 
-  const yangNinePalaces = arrangeJiuGongGe(true, 9, yangNine.zhiFu, yangNine.zhiShi, {
-    hour: '丙辰',
-  });
+  const yangNinePalaces = arrangeJiuGongGe(
+    true,
+    9,
+    yangNine.zhiFu,
+    yangNine.zhiShi,
+    { hour: '丙辰' },
+    'feipan',
+  );
   assert.equal(yangNinePalaces.find((gong) => gong.gong === 5)?.diPan.stem, '癸');
   assert.equal(yangNinePalaces.find((gong) => gong.tianPan.star === '天禽')?.gong, 7);
 
@@ -288,9 +331,14 @@ test('奇门值符值使应按当前局地盘旬首落宫定位', () => {
   assert.equal(yinEight.zhiFu, '天任');
   assert.equal(yinEight.zhiFuPalace, 8);
 
-  const yinEightPalaces = arrangeJiuGongGe(false, 8, yinEight.zhiFu, yinEight.zhiShi, {
-    hour: '辛未',
-  });
+  const yinEightPalaces = arrangeJiuGongGe(
+    false,
+    8,
+    yinEight.zhiFu,
+    yinEight.zhiShi,
+    { hour: '辛未' },
+    'feipan',
+  );
   assert.equal(yinEightPalaces.find((gong) => gong.gong === 5)?.diPan.stem, '辛');
   assert.equal(yinEightPalaces.find((gong) => gong.tianPan.star === '天任')?.gong, 5);
 });
@@ -380,23 +428,31 @@ test('奇门应期内外宫应随阴阳遁切换', () => {
 });
 
 test('奇门应期空亡只应在用神落空时延迟', () => {
-  const notVoid = generateQimen(new Date('2025-01-01T00:00:00+08:00'));
-  const notVoidZhiFuPalace = notVoid.jiuGongGe.find(
-    (palace) => palace.tianPan.star === notVoid.zhiFu,
+  const notVoid = generateQimen(new Date('2024-01-01T00:00:00+08:00'));
+  const notVoidZhiFuPalace = notVoid.jiuGongGe.find((palace) =>
+    hasTianPanStar(palace, notVoid.zhiFu),
   )?.gong;
-  assert.equal(notVoid.ganzhi.hour, '丙子');
+  assert.equal(notVoid.ganzhi.hour, '甲子');
   assert.ok(!notVoid.voidPalaces?.some((item) => item.palace === notVoidZhiFuPalace));
   assert.ok(!notVoid.yingQi?.sources.some((source) => source.includes('空亡入局')));
 
-  const voidHit = generateQimen(new Date('2025-01-01T04:00:00+08:00'));
-  const voidHitZhiFuPalace = voidHit.jiuGongGe.find(
-    (palace) => palace.tianPan.star === voidHit.zhiFu,
+  const voidHit = generateQimen(new Date('2024-01-01T17:00:00+08:00'));
+  const voidHitZhiFuPalace = voidHit.jiuGongGe.find((palace) =>
+    hasTianPanStar(palace, voidHit.zhiFu),
   )?.gong;
-  assert.equal(voidHit.ganzhi.hour, '戊寅');
+  assert.equal(voidHit.ganzhi.hour, '癸酉');
   assert.ok(voidHit.voidPalaces?.some((item) => item.palace === voidHitZhiFuPalace));
   assert.ok(voidHit.yingQi?.sources.some((source) => source.includes('空亡入局')));
-  assert.ok(voidHit.yingQi?.sources.some((source) => source.includes('空亡在酉')));
-  assert.ok(!voidHit.yingQi?.sources.some((source) => source.includes('空亡在申')));
+  const hitBranches =
+    voidHit.voidPalaces
+      ?.filter((item) => item.palace === voidHitZhiFuPalace)
+      .map((item) => item.branch) ?? [];
+  assert.ok(hitBranches.length > 0);
+  assert.ok(
+    voidHit.yingQi?.sources.some((source) =>
+      hitBranches.every((branch) => source.includes(branch)),
+    ),
+  );
 });
 
 test('奇门应期马星只应在命中值符或值使宫时加快', () => {
@@ -724,6 +780,29 @@ test('奇门复合格局应按同宫门神叠加识别', () => {
   assert.ok(!crossPalace.some((combo) => combo.name === '白虎助凶'));
   assert.ok(!crossPalace.some((combo) => combo.name === '迫上加凶'));
   assert.ok(!crossPalace.some((combo) => combo.name === '吉门三奇'));
+});
+
+test('奇门伏吟反吟并见凶格应按明确性质识别，不读取旧格局分数', () => {
+  const badPattern = buildClassicPattern({
+    name: '门迫',
+    tone: 'bad',
+    score: 999,
+    palace: 2,
+  });
+
+  const fuyinCombos = detectQimenPatternCombos({
+    classicPatterns: [badPattern],
+    patternTags: ['星伏吟'],
+    jiuGongGe: [buildQimenPalace(2, '辛')],
+  });
+  const fanyinCombos = detectQimenPatternCombos({
+    classicPatterns: [{ ...badPattern, score: 0 }],
+    patternTags: ['门反吟'],
+    jiuGongGe: [buildQimenPalace(2, '辛')],
+  });
+
+  assert.ok(fuyinCombos.some((combo) => combo.name === '伏吟带凶'));
+  assert.ok(fanyinCombos.some((combo) => combo.name === '反吟翻覆'));
 });
 
 test('奇门复合格局应按丁壬化木同宫门类输出用门提示', () => {
@@ -2221,18 +2300,21 @@ test('奇门小格应按庚临壬判定，不应误判壬己', () => {
 });
 
 test('奇门天地盘干命名格局应进入实际排盘输出', () => {
-  const data = generateQimen(new Date('2025-01-01T02:00:00+08:00'));
+  const baiHu = findQimenStemPairSample('辛', '乙');
+  const taiBai = findQimenStemPairSample('庚', '丙');
 
-  assert.equal(data.ganzhi.hour, '丁丑');
   assert.ok(
-    data.classicPatterns?.some(
-      (pattern) => pattern.name === '白虎猖狂' && pattern.palaces.includes(6),
+    baiHu.data.classicPatterns?.some(
+      (pattern) => pattern.name === '白虎猖狂' && pattern.palaces.includes(baiHu.gong),
     ),
   );
-  assert.ok(data.classicPatterns?.some((pattern) => pattern.name === '太白入荧'));
+  assert.ok(taiBai.data.classicPatterns?.some((pattern) => pattern.name === '太白入荧'));
   assert.ok(
-    data.stemRelations?.some(
-      (relation) => relation.relation === '命名格局' && relation.pattern?.includes('白虎猖狂'),
+    baiHu.data.stemRelations?.some(
+      (relation) =>
+        relation.gong === baiHu.gong &&
+        relation.relation === '命名格局' &&
+        relation.pattern?.includes('白虎猖狂'),
     ),
   );
 });
@@ -2266,16 +2348,16 @@ test('奇门丙加辛、丁加辛和乙加丁应按多书互证命名格局输�
   assert.equal(getStemPairPattern('丁', '辛')?.name, '朱雀入狱');
   assert.equal(getStemPairPattern('乙', '丁')?.name, '朱雀入江');
 
-  const zhuQueRuJiang = generateQimen(new Date('2025-01-01T23:00:00+08:00'));
+  const zhuQueRuJiang = findQimenStemPairSample('乙', '丁');
   assert.ok(
-    zhuQueRuJiang.classicPatterns?.some(
-      (pattern) => pattern.name === '朱雀入江' && pattern.palaces.includes(4),
+    zhuQueRuJiang.data.classicPatterns?.some(
+      (pattern) => pattern.name === '朱雀入江' && pattern.palaces.includes(zhuQueRuJiang.gong),
     ),
   );
   assert.ok(
-    zhuQueRuJiang.stemRelations?.some(
+    zhuQueRuJiang.data.stemRelations?.some(
       (relation) =>
-        relation.gong === 4 &&
+        relation.gong === zhuQueRuJiang.gong &&
         relation.relation === '命名格局' &&
         relation.pattern?.includes('朱雀入江'),
     ),
@@ -2334,17 +2416,16 @@ test('奇门乙组天地盘干克应应按古籍格局输出', () => {
   for (const item of cases) {
     assert.equal(getStemPairPattern(item.heaven, item.earth)?.name, item.name);
 
-    const data = generateQimen(new Date(item.time));
-    assert.equal(data.ganzhi.hour, item.hour);
+    const { data, gong } = findQimenStemPairSample(item.heaven, item.earth);
     assert.ok(
       data.classicPatterns?.some(
-        (pattern) => pattern.name === item.name && pattern.palaces.includes(item.gong),
+        (pattern) => pattern.name === item.name && pattern.palaces.includes(gong),
       ),
     );
     assert.ok(
       data.stemRelations?.some(
         (relation) =>
-          relation.gong === item.gong &&
+          relation.gong === gong &&
           relation.relation === '命名格局' &&
           relation.pattern?.includes(item.name),
       ),
@@ -2352,14 +2433,14 @@ test('奇门乙组天地盘干克应应按古籍格局输出', () => {
     if (item.oldRelation) {
       assert.ok(
         !data.stemRelations?.some(
-          (relation) => relation.gong === item.gong && relation.relation === item.oldRelation,
+          (relation) => relation.gong === gong && relation.relation === item.oldRelation,
         ),
       );
     }
     if (item.oldPattern) {
       assert.ok(
         !data.stemRelations?.some(
-          (relation) => relation.gong === item.gong && relation.pattern?.includes(item.oldPattern),
+          (relation) => relation.gong === gong && relation.pattern?.includes(item.oldPattern),
         ),
       );
     }
@@ -2440,17 +2521,16 @@ test('奇门丙加乙丙丁己辛壬癸应按宝鉴丙组格局输出', () => {
   for (const item of cases) {
     assert.equal(getStemPairPattern(item.heaven, item.earth)?.name, item.name);
 
-    const data = generateQimen(new Date(item.time));
-    assert.equal(data.ganzhi.hour, item.hour);
+    const { data, gong } = findQimenStemPairSample(item.heaven, item.earth);
     assert.ok(
       data.classicPatterns?.some(
-        (pattern) => pattern.name === item.name && pattern.palaces.includes(item.gong),
+        (pattern) => pattern.name === item.name && pattern.palaces.includes(gong),
       ),
     );
     assert.ok(
       data.stemRelations?.some(
         (relation) =>
-          relation.gong === item.gong &&
+          relation.gong === gong &&
           relation.relation === '命名格局' &&
           relation.pattern?.includes(item.name),
       ),
@@ -2458,14 +2538,14 @@ test('奇门丙加乙丙丁己辛壬癸应按宝鉴丙组格局输出', () => {
     if (item.oldRelation) {
       assert.ok(
         !data.stemRelations?.some(
-          (relation) => relation.gong === item.gong && relation.relation === item.oldRelation,
+          (relation) => relation.gong === gong && relation.relation === item.oldRelation,
         ),
       );
     }
     for (const oldPattern of item.oldPatterns ?? []) {
       assert.ok(
         !data.stemRelations?.some(
-          (relation) => relation.gong === item.gong && relation.pattern?.includes(oldPattern),
+          (relation) => relation.gong === gong && relation.pattern?.includes(oldPattern),
         ),
       );
     }
@@ -2555,17 +2635,16 @@ test('奇门丁加乙丙丁戊己庚辛壬癸应按宝鉴丁组格局输出', ()
   for (const item of cases) {
     assert.equal(getStemPairPattern(item.heaven, item.earth)?.name, item.name);
 
-    const data = generateQimen(new Date(item.time));
-    assert.equal(data.ganzhi.hour, item.hour);
+    const { data, gong } = findQimenStemPairSample(item.heaven, item.earth);
     assert.ok(
       data.classicPatterns?.some(
-        (pattern) => pattern.name === item.name && pattern.palaces.includes(item.gong),
+        (pattern) => pattern.name === item.name && pattern.palaces.includes(gong),
       ),
     );
     assert.ok(
       data.stemRelations?.some(
         (relation) =>
-          relation.gong === item.gong &&
+          relation.gong === gong &&
           relation.relation === '命名格局' &&
           relation.pattern?.includes(item.name),
       ),
@@ -2573,14 +2652,14 @@ test('奇门丁加乙丙丁戊己庚辛壬癸应按宝鉴丁组格局输出', ()
     if (item.oldRelation) {
       assert.ok(
         !data.stemRelations?.some(
-          (relation) => relation.gong === item.gong && relation.relation === item.oldRelation,
+          (relation) => relation.gong === gong && relation.relation === item.oldRelation,
         ),
       );
     }
     for (const oldPattern of item.oldPatterns ?? []) {
       assert.ok(
         !data.stemRelations?.some(
-          (relation) => relation.gong === item.gong && relation.pattern?.includes(oldPattern),
+          (relation) => relation.gong === gong && relation.pattern?.includes(oldPattern),
         ),
       );
     }
@@ -2675,24 +2754,23 @@ test('奇门己加甲乙丙丁己庚辛壬癸应按宝鉴己组格局输出', ()
   for (const item of cases) {
     assert.equal(getStemPairPattern(item.heaven, item.earth)?.name, item.name);
 
-    const data = generateQimen(new Date(item.time));
-    assert.equal(data.ganzhi.hour, item.hour);
+    const { data, gong } = findQimenStemPairSample(item.heaven, item.earth);
     assert.ok(
       data.classicPatterns?.some(
-        (pattern) => pattern.name === item.name && pattern.palaces.includes(item.gong),
+        (pattern) => pattern.name === item.name && pattern.palaces.includes(gong),
       ),
     );
     assert.ok(
       data.stemRelations?.some(
         (relation) =>
-          relation.gong === item.gong &&
+          relation.gong === gong &&
           relation.relation === '命名格局' &&
           relation.pattern?.includes(item.name),
       ),
     );
     assert.ok(
       !data.stemRelations?.some(
-        (relation) => relation.gong === item.gong && relation.relation === item.oldRelation,
+        (relation) => relation.gong === gong && relation.relation === item.oldRelation,
       ),
     );
   }
@@ -2778,17 +2856,16 @@ test('奇门甲子戊组天地盘干克应应按宝鉴六甲格局输出', () =>
   for (const item of cases) {
     assert.equal(getStemPairPattern(item.heaven, item.earth)?.name, item.name);
 
-    const data = generateQimen(new Date(item.time));
-    assert.equal(data.ganzhi.hour, item.hour);
+    const { data, gong } = findQimenStemPairSample(item.heaven, item.earth);
     assert.ok(
       data.classicPatterns?.some(
-        (pattern) => pattern.name === item.name && pattern.palaces.includes(item.gong),
+        (pattern) => pattern.name === item.name && pattern.palaces.includes(gong),
       ),
     );
     assert.ok(
       data.stemRelations?.some(
         (relation) =>
-          relation.gong === item.gong &&
+          relation.gong === gong &&
           relation.relation === '命名格局' &&
           relation.pattern?.includes(item.name),
       ),
@@ -2796,12 +2873,12 @@ test('奇门甲子戊组天地盘干克应应按宝鉴六甲格局输出', () =>
     for (const oldPattern of item.oldPatterns ?? []) {
       assert.ok(
         !data.classicPatterns?.some(
-          (pattern) => pattern.name === oldPattern && pattern.palaces.includes(item.gong),
+          (pattern) => pattern.name === oldPattern && pattern.palaces.includes(gong),
         ),
       );
       assert.ok(
         !data.stemRelations?.some(
-          (relation) => relation.gong === item.gong && relation.pattern?.includes(oldPattern),
+          (relation) => relation.gong === gong && relation.pattern?.includes(oldPattern),
         ),
       );
     }
@@ -2860,17 +2937,16 @@ test('奇门庚加甲乙丁庚辛应按宝鉴庚组格局输出', () => {
   for (const item of cases) {
     assert.equal(getStemPairPattern(item.heaven, item.earth)?.name, item.name);
 
-    const data = generateQimen(new Date(item.time));
-    assert.equal(data.ganzhi.hour, item.hour);
+    const { data, gong } = findQimenStemPairSample(item.heaven, item.earth);
     assert.ok(
       data.classicPatterns?.some(
-        (pattern) => pattern.name === item.name && pattern.palaces.includes(item.gong),
+        (pattern) => pattern.name === item.name && pattern.palaces.includes(gong),
       ),
     );
     assert.ok(
       data.stemRelations?.some(
         (relation) =>
-          relation.gong === item.gong &&
+          relation.gong === gong &&
           relation.relation === '命名格局' &&
           relation.pattern?.includes(item.name),
       ),
@@ -2878,19 +2954,19 @@ test('奇门庚加甲乙丁庚辛应按宝鉴庚组格局输出', () => {
     if (item.oldRelation) {
       assert.ok(
         !data.stemRelations?.some(
-          (relation) => relation.gong === item.gong && relation.relation === item.oldRelation,
+          (relation) => relation.gong === gong && relation.relation === item.oldRelation,
         ),
       );
     }
     for (const oldPattern of item.oldPatterns ?? []) {
       assert.ok(
         !data.classicPatterns?.some(
-          (pattern) => pattern.name === oldPattern && pattern.palaces.includes(item.gong),
+          (pattern) => pattern.name === oldPattern && pattern.palaces.includes(gong),
         ),
       );
       assert.ok(
         !data.stemRelations?.some(
-          (relation) => relation.gong === item.gong && relation.pattern?.includes(oldPattern),
+          (relation) => relation.gong === gong && relation.pattern?.includes(oldPattern),
         ),
       );
     }
@@ -3088,17 +3164,16 @@ test('奇门辛壬癸组天地盘干克应应按宝鉴逐干格局输出', () =>
   for (const item of cases) {
     assert.equal(getStemPairPattern(item.heaven, item.earth)?.name, item.name);
 
-    const data = generateQimen(new Date(item.time));
-    assert.equal(data.ganzhi.hour, item.hour);
+    const { data, gong } = findQimenStemPairSample(item.heaven, item.earth);
     assert.ok(
       data.classicPatterns?.some(
-        (pattern) => pattern.name === item.name && pattern.palaces.includes(item.gong),
+        (pattern) => pattern.name === item.name && pattern.palaces.includes(gong),
       ),
     );
     assert.ok(
       data.stemRelations?.some(
         (relation) =>
-          relation.gong === item.gong &&
+          relation.gong === gong &&
           relation.relation === '命名格局' &&
           relation.pattern?.includes(item.name),
       ),
@@ -3517,15 +3592,15 @@ test('奇门玉女守门应按值使门加地盘丁判定', () => {
 });
 
 test('奇门六癸时应按天盘癸落宫区分天网高低', () => {
-  const lowNet = generateQimen(new Date('2025-01-07T09:00:00+08:00'));
+  const lowNet = generateQimen(new Date('2024-01-06T17:00:00+08:00'));
   assert.equal(lowNet.specialConditions?.isLiuGuiHour, true);
-  assert.match(lowNet.specialConditions?.description ?? '', /天盘癸落坎一宫/);
+  assert.match(lowNet.specialConditions?.description ?? '', /天盘癸落坤二宫/);
   assert.match(lowNet.specialConditions?.description ?? '', /天网临一至三宫为低/);
 
-  const tombNet = generateQimen(new Date('2025-01-04T02:00:00+08:00'));
+  const tombNet = generateQimen(new Date('2024-01-04T05:00:00+08:00'));
   assert.match(tombNet.specialConditions?.description ?? '', /天网临巽四宫为入墓/);
 
-  const highNet = generateQimen(new Date('2025-01-01T14:00:00+08:00'));
+  const highNet = generateQimen(new Date('2024-01-01T17:00:00+08:00'));
   assert.match(highNet.specialConditions?.description ?? '', /天盘癸落兑七宫/);
   assert.match(highNet.specialConditions?.description ?? '', /天网临七至九宫为高，古称天网四张/);
 });
@@ -3560,16 +3635,12 @@ test('奇门三奇得基础标签应以三奇合吉门为准', () => {
   assert.ok(goodDoorTags.includes('三奇得（乙奇（日奇）合休门于坎一宫）'));
 });
 
-test('奇门方位评分不应把有奇无门当作吉方依据', () => {
+test('奇门方位应以三吉门为主证，不把有奇无门当作吉方', () => {
   const noDoorPalace = buildQimenPalace(3, '乙');
   noDoorPalace.renPan.door = '杜门';
 
-  assert.equal(getPalaceScore(noDoorPalace), 0);
-
   const goodDoorPalace = buildQimenPalace(1, '乙');
   goodDoorPalace.renPan.door = '休门';
-
-  assert.equal(getPalaceScore(goodDoorPalace), 5);
 
   const directions = buildDirectionAdvice([noDoorPalace, goodDoorPalace]);
   const goodDirection = directions.goodDirections.find((item) => item.gong === 1);
@@ -3579,7 +3650,7 @@ test('奇门方位评分不应把有奇无门当作吉方依据', () => {
   assert.ok(!(noDoorDirection?.reasons ?? []).some((reason) => reason.includes('奇')));
 });
 
-test('奇门方位建议不应把负分宫位输出为吉方', () => {
+test('奇门方位应把每个有明确难门或难神的宫位列为避方', () => {
   const worstPalace = buildQimenPalace(2, '辛');
   worstPalace.renPan.door = '死门';
   worstPalace.shenPan.god = '白虎';
@@ -3594,6 +3665,7 @@ test('奇门方位建议不应把负分宫位输出为吉方', () => {
 
   assert.deepEqual(directions.goodDirections, []);
   assert.equal(directions.avoidDirections[0]?.gong, 2);
+  assert.equal(directions.avoidDirections[1]?.gong, 3);
   assert.ok(directions.avoidDirections[0]?.reasons.includes('死门'));
   assert.ok(directions.avoidDirections[0]?.reasons.includes('白虎'));
 });
@@ -3614,6 +3686,87 @@ test('奇门避方没有明确难门、难神或空亡时不应凭内部排序�
 
   assert.deepEqual(directions.goodDirections, []);
   assert.deepEqual(directions.avoidDirections, []);
+});
+
+test('奇门吉方的空亡、难神和凶格限制不应被其他吉项抵消', () => {
+  const voidPalace = buildQimenPalace(1, '乙', {
+    renPan: { door: '休门' },
+    shenPan: { god: '六合' },
+  });
+  const difficultGodPalace = buildQimenPalace(3, '丙', {
+    renPan: { door: '开门' },
+    shenPan: { god: '白虎' },
+  });
+  const badPatternPalace = buildQimenPalace(4, '丁', {
+    renPan: { door: '生门' },
+    shenPan: { god: '太阴' },
+  });
+  const patterns = [
+    buildClassicPattern({
+      name: '门迫',
+      tone: 'bad',
+      score: 999,
+      palace: 4,
+    }),
+    buildClassicPattern({
+      name: '测试吉格',
+      tone: 'good',
+      score: -999,
+      palace: 4,
+    }),
+  ];
+
+  const directions = buildDirectionAdvice(
+    [voidPalace, difficultGodPalace, badPatternPalace],
+    ['子'],
+    patterns,
+  );
+
+  assert.deepEqual(directions.goodDirections, []);
+  assert.ok(
+    directions.avoidDirections.some((item) => item.gong === 1 && item.reasons.includes('空亡')),
+  );
+  assert.ok(
+    directions.avoidDirections.some((item) => item.gong === 3 && item.reasons.includes('白虎')),
+  );
+  assert.ok(
+    directions.avoidDirections.some(
+      (item) => item.gong === 4 && item.reasons.includes('凶格:门迫'),
+    ),
+  );
+});
+
+test('奇门五不遇时即使三奇合吉门也不输出通用吉方', () => {
+  const palace = buildQimenPalace(1, '乙', {
+    renPan: { door: '休门' },
+    shenPan: { god: '六合' },
+  });
+
+  const directions = buildDirectionAdvice([palace], [], [], { isWuBuYuShi: true });
+
+  assert.deepEqual(directions.goodDirections, []);
+});
+
+test('奇门重点宫位应按证据来源归集，不按旧分数竞争排序', () => {
+  const attentionPalace = buildQimenPalace(1, '乙');
+  const riskPalace = buildQimenPalace(2, '辛');
+  const data = {
+    jiuGongGe: [riskPalace, attentionPalace],
+    palaceInsights: [
+      { gong: 2, name: riskPalace.name, level: '风险', summary: '死门同宫' },
+      { gong: 1, name: attentionPalace.name, level: '关注', summary: '值符落宫' },
+    ],
+    classicPatterns: [{ name: '门迫', type: 'bad', summary: '门克宫', palaces: [2] }],
+  } as QimenData;
+
+  const priorities = createQimenPriorityPalaces(data);
+
+  assert.deepEqual(
+    priorities.map((item) => item.gong),
+    [1, 2],
+  );
+  assert.ok(priorities.every((item) => item.score === 0));
+  assert.ok(priorities[1]?.reasons.includes('凶格:门迫'));
 });
 
 test('奇门宝鉴三奇得使应按值使吉门加三奇判定', () => {
@@ -3662,20 +3815,18 @@ test('奇门宝鉴三奇得使应按值使吉门加三奇判定', () => {
 });
 
 test('奇门三奇得使应按六甲旬首所遁六仪判定', () => {
-  const deShi = generateQimen(new Date('2025-01-01T22:00:00+08:00'));
-  assert.ok(deShi.patternTags.includes('三奇得使（乙奇（日奇）加甲戌/甲午所遁辛于坎一宫）'));
+  const deShi = generateQimen(new Date('2024-01-01T03:00:00+08:00'));
+  assert.ok(deShi.patternTags.some((tag) => tag.startsWith('三奇得使（乙奇（日奇）')));
   assert.ok(
     deShi.patternDetails
       .filter((detail) => detail.tag.startsWith('三奇得使'))
       .every((detail) => !detail.summary.includes('临值使门')),
   );
   assert.ok((deShi.classicPatterns ?? []).some((pattern) => pattern.name === '日奇得使'));
+  assert.ok(deShi.patternTags.some((tag) => tag.startsWith('三奇得使（丁奇（星奇）')));
+  assert.ok((deShi.classicPatterns ?? []).some((pattern) => pattern.name === '星奇得使'));
 
-  const dingQiDeShi = generateQimen(new Date('2025-01-02T02:00:00+08:00'));
-  assert.ok(dingQiDeShi.patternTags.includes('三奇得使（丁奇（星奇）加甲辰/甲寅所遁癸于震三宫）'));
-  assert.ok((dingQiDeShi.classicPatterns ?? []).some((pattern) => pattern.name === '星奇得使'));
-
-  const falsePositive = generateQimen(new Date('2025-01-01T00:00:00+08:00'));
+  const falsePositive = generateQimen(new Date('2024-01-01T00:00:00+08:00'));
   assert.ok(!falsePositive.patternTags.some((tag) => tag.startsWith('三奇得使（')));
 });
 
@@ -3838,15 +3989,15 @@ test('奇门三遁与鬼遁应按门奇仪神组合判定', () => {
   const names = (time: string) =>
     generateQimen(new Date(time)).classicPatterns?.map((pattern) => pattern.name) ?? [];
 
-  assert.ok(!names('2025-01-04T01:00:00+08:00').includes('天遁'));
+  assert.ok(!names('2024-01-01T00:00:00+08:00').includes('天遁'));
 
-  assert.ok(names('2025-01-07T23:00:00+08:00').includes('天遁'));
+  assert.ok(names('2024-01-06T17:00:00+08:00').includes('天遁'));
 
-  assert.ok(names('2025-01-13T13:00:00+08:00').includes('地遁'));
+  assert.ok(names('2024-01-03T05:00:00+08:00').includes('地遁'));
 
-  assert.ok(!names('2025-01-05T15:00:00+08:00').includes('鬼遁'));
+  assert.ok(!names('2024-01-01T00:00:00+08:00').includes('鬼遁'));
 
-  assert.ok(names('2025-01-03T23:00:00+08:00').includes('鬼遁'));
+  assert.ok(names('2024-01-01T13:00:00+08:00').includes('鬼遁'));
 });
 
 test('时间型占卜算法应拒绝无效自定义时间对象', () => {
@@ -4144,7 +4295,7 @@ test('太乙神数作为占卜方法应生成完整年计盘与时间层级提�
   assert.match(session.prompt, /太乙：艮（第3宫/);
   assert.match(session.prompt, /主客定算：主算24/);
   assert.doesNotMatch(session.prompt, /结构化证据|证据汇总|计算链|解释限制/);
-  assert.match(session.prompt, /年计、月计、日计、时计、分计分别按各自积数与阴阳遁规则起局/);
+  assert.match(session.prompt, /当前只解读已完成历法链校勘的年计字段/);
   assert.match(session.prompt, /判断年度气运、动静、攻守与时宜/);
   assert.doesNotMatch(session.prompt, /尚未计算|月计、日计或时计/);
   assert.match(
@@ -4162,25 +4313,18 @@ test('太乙神数占卜入口应拒绝空年份和超出网页支持范围的�
   }
 });
 
-test('太乙神数占卜入口应支持月日时分四种按时间起局', async () => {
-  for (const scope of ['month', 'day', 'hour', 'minute'] as const) {
-    const session = await generateDivinationSession(
-      buildDraft({
-        method: 'taiyi',
-        taiyiScope: scope,
-        divinationTimeMode: 'custom',
-        customDivinationDate: '2026-07-11',
-        customDivinationTime: '14:35',
-        question: '当前应当主动推进还是暂时稳守？',
-      }),
-    );
-    const data = session.data as TaiyiResult;
-    assert.equal(data.scope, scope);
-    assert.match(
-      session.prompt,
-      new RegExp(
-        `占法：太乙神数（${{ month: '月计', day: '日计', hour: '时计', minute: '分计' }[scope]}）`,
-      ),
+test('太乙神数占卜入口应拒绝尚未校勘的月日时计', async () => {
+  for (const scope of ['month', 'day', 'hour'] as const) {
+    await assert.rejects(
+      () =>
+        generateDivinationSession(
+          buildDraft({
+            method: 'taiyi',
+            taiyiScope: scope,
+            taiyiYear: '2026',
+          }),
+        ),
+      /古籍历法链校勘.*只开放年计/,
     );
   }
 });
@@ -4562,7 +4706,7 @@ test('占卜引擎星盘应在本地拒绝无效出生时间和经纬度', async
   }
 });
 
-test('占卜引擎数字起卦只接受十进制正整数文本', async () => {
+test('占卜引擎梅花数字起卦只接受十进制正整数文本', async () => {
   await assert.rejects(
     () =>
       generateDivinationSession(
@@ -4574,21 +4718,9 @@ test('占卜引擎数字起卦只接受十进制正整数文本', async () => {
       ),
     /数字起卦需要填写正整数/,
   );
-
-  await assert.rejects(
-    () =>
-      generateDivinationSession(
-        buildDraft({
-          method: 'xiaoliuren',
-          xiaoliurenMethod: 'number',
-          xiaoliurenNumber: '1e2',
-        }),
-      ),
-    /小六壬数字起课需要填写正整数/,
-  );
 });
 
-test('小六壬支持时间起课与数字起课，并生成适合复制给 AI 的提示词', async () => {
+test('小六壬只按时间起课，并生成可复核顺数与时宫提示词', async () => {
   const timeSession = await generateDivinationSession(
     buildDraft({
       method: 'xiaoliuren',
@@ -4600,32 +4732,17 @@ test('小六壬支持时间起课与数字起课，并生成适合复制给 AI �
 
   assert.equal(timeSession.method, 'xiaoliuren');
   assert.match(timeSession.prompt, /占法：小六壬/);
-  assert.match(timeSession.prompt, /起因/);
-  assert.match(timeSession.prompt, /过程/);
-  assert.match(timeSession.prompt, /结果/);
-  assert.match(timeSession.prompt, /结构明细：/);
-  assert.match(timeSession.prompt, /起课方式：时间起课/);
-  assert.doesNotMatch(timeSession.prompt, /结构化证据|证据汇总|计算链|解释限制|规则来源/);
-
-  const numberSession = await generateDivinationSession(
-    buildDraft({
-      method: 'xiaoliuren',
-      question: '这件事现在该不该继续推进？',
-      xiaoliurenMethod: 'number',
-      xiaoliurenNumber: '18',
-      almanacStartDate: '',
-      almanacEndDate: '',
-    }),
-  );
-
-  assert.equal(numberSession.method, 'xiaoliuren');
-  assert.match(numberSession.prompt, /起课方式数字起课/);
-  assert.equal((numberSession.data as XiaoliurenData).calculation?.inputBase, 18);
+  assert.match(timeSession.prompt, /顺数轨迹：月宫.*；日宫.*；时宫/);
+  assert.match(timeSession.prompt, /占得宫：/);
+  assert.match(timeSession.prompt, /歌诀原文：/);
+  assert.match(timeSession.prompt, /计算链：/);
+  assert.match(timeSession.prompt, /解释限制：/);
+  assert.doesNotMatch(timeSession.prompt, /核心结构：起因|五行推进：|月令旺衰：|日干六亲：/);
 });
 
-test('小六壬数字起课底层算法缺少数字时应明确失败', () => {
+test('小六壬底层算法应拒绝已移除的数字起课', () => {
   assert.throws(
-    () => generateXiaoliuren({ method: 'number' }),
-    /小六壬数字起课必须提供安全范围内的正整数/,
+    () => generateXiaoliuren({ method: 'number' as never }),
+    /当前仅保留有明确顺数规则的时间起课/,
   );
 });

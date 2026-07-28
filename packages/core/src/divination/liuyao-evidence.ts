@@ -1,4 +1,9 @@
-import type { LiuyaoData, LiuyaoHiddenSpirit, LiuyaoYaoDetail } from '../types/divination';
+import type {
+  LiuyaoChangeRelation,
+  LiuyaoData,
+  LiuyaoHiddenSpirit,
+  LiuyaoYaoDetail,
+} from '../types/divination';
 import { isKe, isLiuhai, isLiuhe, isSanxing, isSheng } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
@@ -38,6 +43,7 @@ export interface LiuyaoYaoReference {
     wuxing: string;
     isVoid: boolean;
     relation: LiuyaoYaoDetail['changeRelation'];
+    relations: LiuyaoChangeRelation[];
     direction: LiuyaoYaoDetail['changeDirection'];
   };
 }
@@ -124,6 +130,7 @@ export interface LiuyaoLineFact {
     wuxing: string;
     isVoid: boolean;
     relation: LiuyaoYaoDetail['changeRelation'];
+    relations: LiuyaoChangeRelation[];
     direction: LiuyaoYaoDetail['changeDirection'];
   };
   promptText: string;
@@ -393,9 +400,18 @@ function branchOf(ganzhi: string) {
   return ganzhi.slice(1, 2);
 }
 
+function getChangeRelations(yao: LiuyaoYaoDetail): LiuyaoChangeRelation[] {
+  const relations = yao.changeRelations?.length
+    ? yao.changeRelations
+    : yao.changeRelation
+      ? [yao.changeRelation]
+      : [];
+  return [...new Set(relations)];
+}
+
 function formatYao(reference: LiuyaoYaoReference) {
   const changed = reference.changedYao
-    ? `→${reference.changedYao.sixRelative}${reference.changedYao.branch}${reference.changedYao.wuxing}${reference.changedYao.relation ? `（${reference.changedYao.relation}）` : ''}${reference.changedYao.direction ? `（${reference.changedYao.direction}）` : ''}${reference.changedYao.isVoid ? '（变爻空亡）' : ''}`
+    ? `→${reference.changedYao.sixRelative}${reference.changedYao.branch}${reference.changedYao.wuxing}${reference.changedYao.relations.length ? `（${reference.changedYao.relations.join('、')}）` : reference.changedYao.isVoid ? '（变爻空亡）' : ''}${reference.changedYao.direction ? `（${reference.changedYao.direction}）` : ''}`
     : '';
   return `${reference.source}${reference.position}爻${reference.sixRelative}${reference.branch}${reference.wuxing}${changed}`;
 }
@@ -451,6 +467,7 @@ function buildVisibleReference(
   monthBranch: string,
   dayBranch: string,
 ): LiuyaoYaoReference {
+  const changeRelations = getChangeRelations(yao);
   const support = [
     yao.isWorld ? '临世' : '',
     yao.isResponse ? '临应' : '',
@@ -461,7 +478,7 @@ function buildVisibleReference(
     yao.najiaDizhi === dayBranch ? '值日辰' : '',
     isLiuhe(yao.najiaDizhi, monthBranch) ? '合月建' : '',
     isLiuhe(yao.najiaDizhi, dayBranch) ? '合日辰' : '',
-    yao.changeRelation === '回头生' ? '回头生' : '',
+    changeRelations.includes('回头生') ? '回头生' : '',
     yao.changeDirection === '化进神' ? '化进神' : '',
   ].filter(Boolean);
   const constraints = [
@@ -473,9 +490,9 @@ function buildVisibleReference(
       : '',
     yao.isYueMu ? '入月墓' : '',
     yao.isRiMu ? '入日墓' : '',
-    yao.changeRelation === '回头克' ? '回头克' : '',
-    yao.changeRelation === '回头冲' ? '回头冲' : '',
-    yao.changeRelation === '化空' || yao.changedYao?.isVoid ? '变爻空亡' : '',
+    changeRelations.includes('回头克') ? '回头克' : '',
+    changeRelations.includes('回头冲') ? '回头冲' : '',
+    changeRelations.includes('化空') || yao.changedYao?.isVoid ? '变爻空亡' : '',
     yao.changeDirection === '化退神' ? '化退神' : '',
   ].filter(Boolean);
   return {
@@ -501,6 +518,7 @@ function buildVisibleReference(
             wuxing: yao.changedYao.wuxing,
             isVoid: yao.changedYao.isVoid,
             relation: yao.changeRelation,
+            relations: changeRelations,
             direction: yao.changeDirection,
           },
         }
@@ -567,6 +585,7 @@ function buildLineFacts(
       : yao.isHiddenMove
         ? '暗动'
         : '静爻';
+    const changeRelations = getChangeRelations(yao);
     const changedYao = yao.changedYao
       ? {
           sixRelative: yao.changedYao.liuqin,
@@ -574,6 +593,7 @@ function buildLineFacts(
           wuxing: yao.changedYao.wuxing,
           isVoid: yao.changedYao.isVoid,
           relation: yao.changeRelation,
+          relations: changeRelations,
           direction: yao.changeDirection,
         }
       : undefined;
@@ -588,7 +608,7 @@ function buildLineFacts(
       yao.isVoid ? '本爻空亡' : '',
       yao.shiErGong ? `十二宫${yao.shiErGong}` : '',
       changedYao
-        ? `化${changedYao.sixRelative}${changedYao.branch}${changedYao.wuxing}${changedYao.direction ? `、${changedYao.direction}` : ''}${changedYao.relation ? `、${changedYao.relation}` : ''}${changedYao.isVoid ? '、变爻空亡' : ''}`
+        ? `化${changedYao.sixRelative}${changedYao.branch}${changedYao.wuxing}${changedYao.direction ? `、${changedYao.direction}` : ''}${changedYao.relations.length ? `、${changedYao.relations.join('、')}` : changedYao.isVoid ? '、变爻空亡' : ''}`
         : '',
     ]
       .filter(Boolean)

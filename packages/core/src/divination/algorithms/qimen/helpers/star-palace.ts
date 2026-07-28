@@ -27,6 +27,7 @@
 import { starElements } from './_constants';
 import { isGenerating, isControlling } from './_constants';
 import { WUXING } from '../../../../wuxing';
+import { getTianPanStars, hasTianPanStar } from './palace-utils';
 
 const WUXING_ELEMENTS = new Set<string>(WUXING);
 
@@ -96,7 +97,7 @@ export interface StarPalaceInput {
   jiuGongGe: Array<{
     gong: number;
     element: string;
-    tianPan: { star: string };
+    tianPan: { star: string; companionStar?: string };
   }>;
 }
 
@@ -216,11 +217,13 @@ export function evaluateStarPalaces(result: StarPalaceInput): StarPalaceResult[]
   const results: StarPalaceResult[] = [];
 
   for (const palace of result.jiuGongGe) {
-    if (!palace.tianPan.star) {
-      throw new Error(`第 ${palace.gong} 宫缺少九星，不能评估整盘旺衰。`);
+    for (const star of getTianPanStars(palace)) {
+      results.push(evaluateSingleStar(star, palace.gong, palace.element));
     }
+  }
 
-    results.push(evaluateSingleStar(palace.tianPan.star, palace.gong, palace.element));
+  if (results.length !== 9) {
+    throw new Error(`整盘应有九星，实际读取到 ${results.length} 星。`);
   }
 
   return results;
@@ -267,7 +270,7 @@ export function getZhiFuStarJudgement(result: ZhiFuJudgementInput): StarPalaceRe
   }
 
   // 找到值符星的落宫
-  const palace = jiuGongGe.find((g) => g.tianPan.star === zhiFu);
+  const palace = jiuGongGe.find((g) => hasTianPanStar(g, zhiFu));
   if (!palace) {
     throw new Error(`找不到值符星 "${zhiFu}" 的落宫。`);
   }

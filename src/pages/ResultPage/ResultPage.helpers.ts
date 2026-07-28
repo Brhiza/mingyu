@@ -252,11 +252,15 @@ export function formatBaziFullFortuneText(result: BaziChartResult) {
 
 function formatZiweiMutagenMap(payload: AnalysisPayloadV1) {
   const items = payload.active_scope.mutagen_map
-    .map((item) =>
-      [item.star ? `${item.star}化${item.mutagen}` : `化${item.mutagen}`, item.palace_name]
+    .map((item) => {
+      const base = [
+        item.star ? `${item.star}化${item.mutagen}` : `化${item.mutagen}`,
+        item.palace_name,
+      ]
         .filter(Boolean)
-        .join('入'),
-    )
+        .join('入');
+      return item.dynamic_palace_name ? `${base}（动态${item.dynamic_palace_name}宫）` : base;
+    })
     .filter(Boolean);
 
   return items.length ? items.join('；') : '未标出当前四化';
@@ -523,12 +527,13 @@ export function findZiweiDecadalIndexByDate(
   }
 
   for (let index = decadalOptions.length - 1; index >= 0; index -= 1) {
-    if (dateStr >= decadalOptions[index].dateStr) {
+    const option = decadalOptions[index];
+    if (dateStr >= option.dateStr && (!option.endDateStr || dateStr <= option.endDateStr)) {
       return index;
     }
   }
 
-  return 0;
+  return fallbackIndex;
 }
 
 export function findZiweiYearOptionDate(yearOptions: ZiweiYearOption[], dateStr: string) {

@@ -5,7 +5,13 @@ import {
   buildCombinedZiweiCompatibilityPrompt,
   buildCombinedZiweiPrompt,
 } from '../src/lib/full-chart-engine/ziwei';
-import { buildEvidenceAnalysis, buildEvidencePool, buildPatternAnalysis } from '@core/ziwei/iztro';
+import {
+  buildEvidenceAnalysis,
+  buildEvidencePool,
+  buildPatternAnalysis,
+  detectPatterns,
+  DEFAULT_ZIWEI_CALCULATION_CONFIG,
+} from '@core/ziwei/iztro';
 import { buildEvidenceSummary, buildPalaceSummary } from '../src/lib/ziwei-prompts/builders';
 import { buildZiweiReadableSnapshot } from '../src/lib/ziwei-prompts/snapshot';
 import type { PromptContext } from '../src/lib/ziwei-prompts/types';
@@ -72,6 +78,7 @@ function createPayload(): AnalysisPayloadV1 {
   return {
     payload_version: 'analysis_payload_v1',
     language: 'zh-CN',
+    calculation_config: DEFAULT_ZIWEI_CALCULATION_CONFIG,
     basic_info: {
       gender: '男',
       solar_date: '1990-05-15',
@@ -130,7 +137,7 @@ function createReportContext(overrides: Partial<PromptContext> = {}): PromptCont
   };
 }
 
-test('紫微提示词快照应输出已检测出的命盘格局', () => {
+test('紫微提示词快照不得重新接入未校勘的旧格局数据', () => {
   const payload = createPayload();
   payload.pattern_analysis = buildPatternAnalysis({
     patterns: payload.patterns ?? [],
@@ -146,15 +153,98 @@ test('紫微提示词快照应输出已检测出的命盘格局', () => {
     }),
   });
 
-  assert.match(snapshot, /【命盘格局】/);
-  assert.match(snapshot, /紫府同宫/);
-  assert.match(snapshot, /紫微与天府同坐命宫/);
-  assert.match(snapshot, /命中条件：/);
-  assert.match(snapshot, /传统释义：主格局稳重/);
+  assert.doesNotMatch(snapshot, /【命盘格局】/);
+  assert.doesNotMatch(snapshot, /紫府同宫/);
+  assert.doesNotMatch(snapshot, /紫微与天府同坐命宫/);
   assert.doesNotMatch(snapshot, /证据状态|已检格局规则|未命中规则|解释边界|非事实结论/);
   assert.doesNotMatch(snapshot, /命语|iztro|本项目|项目统一|工程|接口|API|MCP/);
   assert.doesNotMatch(snapshot, /星座|金牛座/);
   assert.match(snapshot, /【十二宫资料】/);
+});
+
+test('紫微提示词快照应输出已校勘格局的条件、古籍依据与判断边界', () => {
+  const payload = createPayload();
+  payload.patterns = detectPatterns({ palaces: payload.palaces });
+  payload.pattern_analysis = buildPatternAnalysis({
+    patterns: payload.patterns,
+    palaces: payload.palaces,
+  });
+  const snapshot = buildZiweiReadableSnapshot({
+    payload,
+    reportContext: createReportContext(),
+  });
+
+  assert.match(snapshot, /【命盘格局】/);
+  assert.match(snapshot, /格局：紫府同宫/);
+  assert.match(snapshot, /命中条件：紫微与天府同坐命宫/);
+  assert.match(snapshot, /古籍依据：《紫微斗数全书》卷一/);
+  assert.match(snapshot, /只表示盘面满足该条登记条件/);
+  assert.doesNotMatch(snapshot, /因此必然|命盘总分|保证实现/);
+});
+
+test('紫微提示词快照不得接受只伪造登记前缀的格局', () => {
+  const payload = createPayload();
+  payload.patterns = [
+    {
+      id: 'forged',
+      stable_key: 'ziwei:verified-pattern:not-registered',
+      key: 'ziwei:verified-pattern:not-registered',
+      status: '已命中',
+      name: '伪造格局',
+      kind: 'auspicious',
+      description: '不应进入提示词',
+      palace_indexes: [0],
+      palace_names: ['命宫'],
+      star_names: ['紫微'],
+      matched_conditions: ['伪造条件'],
+      sources: ['伪造来源'],
+    },
+  ];
+
+  const snapshot = buildZiweiReadableSnapshot({
+    payload,
+    reportContext: createReportContext(),
+  });
+
+  assert.doesNotMatch(snapshot, /【命盘格局】|伪造格局|伪造条件|伪造来源/);
+});
+
+test('紫微提示词快照应按登记稳定键去重', () => {
+  const payload = createPayload();
+  const verified = detectPatterns({ palaces: payload.palaces })[0];
+  payload.patterns = [verified, { ...verified }];
+
+  const snapshot = buildZiweiReadableSnapshot({
+    payload,
+    reportContext: createReportContext(),
+  });
+
+  assert.equal(snapshot.match(/格局：紫府同宫/g)?.length, 1);
+});
+
+test('紫微提示词快照应从十二宫重建登记内容，不信任带合法键的篡改字段', () => {
+  const payload = createPayload();
+  const verified = detectPatterns({ palaces: payload.palaces })[0];
+  payload.patterns = [
+    {
+      ...verified,
+      name: '篡改格局',
+      matched_conditions: ['篡改条件'],
+      palace_names: ['篡改宫位'],
+      star_names: ['篡改星曜'],
+      sources: ['篡改来源'],
+    },
+  ];
+
+  const snapshot = buildZiweiReadableSnapshot({
+    payload,
+    reportContext: createReportContext(),
+  });
+
+  assert.match(snapshot, /格局：紫府同宫/);
+  assert.match(snapshot, /命中条件：紫微与天府同坐命宫/);
+  assert.match(snapshot, /古籍依据：《紫微斗数全书》卷一/);
+  assert.doesNotMatch(snapshot, /篡改格局|篡改条件|篡改宫位|篡改星曜|篡改来源/);
 });
 
 test('紫微重点宫位资料展示三方四正时应排除本宫', () => {
@@ -288,6 +378,7 @@ test('紫微提示词快照应单独输出运限落宫与当前四化飞入结�
         mutagen: '禄',
         palace_index: 4,
         palace_name: '财帛',
+        dynamic_palace_name: '命宫',
       },
       {
         star: '文昌',
@@ -326,6 +417,7 @@ test('紫微提示词快照应单独输出运限落宫与当前四化飞入结�
   assert.match(snapshot, /类型：当前四化飞入/);
   assert.match(snapshot, /天同/);
   assert.match(snapshot, /飞入宫位：财帛宫/);
+  assert.match(snapshot, /动态飞入宫位：命宫/);
   assert.doesNotMatch(snapshot, /【主证】|【辅证】|【应期】|【限制】|证据汇总|解释边界/);
 });
 
@@ -358,7 +450,7 @@ test('紫微运限提示词应保留分析对象和简短任务', () => {
   assert.doesNotMatch(prompt, /【分析框架】/);
   assert.match(
     prompt,
-    /【任务】\n请结合宫位、星曜、四化、格局和三方四正直接回答【问题】，并给出现实建议。/,
+    /【任务】\n请结合宫位、星曜、四化和三方四正直接回答【问题】，并给出现实建议。/,
   );
   assert.match(
     prompt,
@@ -411,6 +503,10 @@ test('紫微合盘内嵌盘面资料不应重复使用顶层 section 标题', ()
 
 test('紫微证据池应输出大限流年流月流日落宫与运限四化飞入证据', () => {
   const palaces = createPayload().palaces;
+  palaces[1] = {
+    ...palaces[1],
+    scope_stars: [{ name: '天同', kind: 'major', scope: 'yearly' }],
+  };
   palaces[4] = {
     ...palaces[4],
     major_stars: [{ name: '天同', kind: 'major' }],
@@ -421,7 +517,18 @@ test('紫微证据池应输出大限流年流月流日落宫与运限四化飞�
   };
 
   const astrolabe = {
-    palace: () => ({}),
+    palace: (nameOrIndex: string | number) =>
+      typeof nameOrIndex === 'number'
+        ? palaces[nameOrIndex]
+        : palaces.find((item) => item.name === nameOrIndex),
+    star: (starName: string) => ({
+      palace: () =>
+        palaces.find((item) =>
+          [...item.major_stars, ...item.minor_stars, ...item.other_stars].some(
+            (star) => star.name === starName,
+          ),
+        ),
+    }),
     surroundedPalaces: (name: string) => {
       const palace = palaces.find((item) => item.name === name) ?? palaces[0];
       return {
@@ -448,7 +555,7 @@ test('紫微证据池应输出大限流年流月流日落宫与运限四化飞�
       name: '丙午流年',
       heavenlyStem: '丙',
       earthlyBranch: '午',
-      palaceNames: [],
+      palaceNames: palaces.map((_, index) => palaces[(index + 8) % 12].name),
       mutagen: ['天同', '天机', '文昌', '廉贞'],
       yearlyDecStar: {
         jiangqian12: [],
@@ -488,7 +595,29 @@ test('紫微证据池应输出大限流年流月流日落宫与运限四化飞�
       mutagen: [],
       nominalAge: 37,
     },
+    palace: (_palaceName: string, scope: 'decadal' | 'yearly' | 'monthly' | 'daily' | 'hourly') =>
+      palaces[
+        {
+          decadal: 8,
+          yearly: 4,
+          monthly: 2,
+          daily: 6,
+          hourly: 1,
+        }[scope]
+      ],
+    agePalace: () => palaces[0],
   } as never;
+
+  const legacyTarget = palaces.find((palace) =>
+    [
+      ...palace.major_stars,
+      ...palace.minor_stars,
+      ...palace.other_stars,
+      ...palace.scope_stars,
+    ].some((star) => star.name === '天同'),
+  );
+  assert.equal(legacyTarget?.index, 1, '旧遍历会先命中兄弟宫的同名流耀');
+  assert.equal(astrolabe.star('天同').palace()?.index, 4, '原生星曜对象应定位本命财帛宫');
 
   const evidence = buildEvidencePool({
     astrolabe,
@@ -499,14 +628,15 @@ test('紫微证据池应输出大限流年流月流日落宫与运限四化飞�
   const titles = evidence.map((item) => item.title).join('\n');
   const descriptions = evidence.map((item) => item.description).join('\n');
 
-  assert.match(titles, /大限（壬申大限）落入官禄/);
-  assert.match(titles, /流年（丙午流年）落入财帛/);
-  assert.match(titles, /流月（甲午流月）落入夫妻/);
-  assert.match(titles, /流日（乙丑流日）落入迁移/);
-  assert.match(titles, /流年（丙午流年）天同化禄入财帛/);
-  assert.match(titles, /流年（丙午流年）文昌化科入官禄/);
+  assert.match(titles, /大限（壬申大限）落入本命官禄宫/);
+  assert.match(titles, /流年（丙午流年）落入本命财帛宫/);
+  assert.match(titles, /流月（甲午流月）落入本命夫妻宫/);
+  assert.match(titles, /流日（乙丑流日）落入本命迁移宫/);
+  assert.match(titles, /流年（丙午流年）天同化禄入本命财帛宫（当前流年（丙午流年）命宫）/);
+  assert.match(titles, /流年（丙午流年）文昌化科入本命官禄宫/);
+  assert.doesNotMatch(titles, /天同化禄入本命兄弟宫/);
   assert.match(descriptions, /流年（丙午流年）干支为丙午/);
-  assert.match(descriptions, /运限本身落于财帛/);
+  assert.match(descriptions, /运限命宫落于本命财帛宫/);
   assert.ok(evidence.every((item) => item.level === '主证' || item.level === '辅证'));
   assert.ok(evidence.every((item) => item.source?.includes('紫微')));
   assert.ok(evidence.every((item) => item.calculation));
@@ -583,8 +713,8 @@ test('紫微证据池应输出大限流年流月流日落宫与运限四化飞�
     }),
   });
   assert.match(snapshot, /【关键判断线索】/);
-  assert.match(snapshot, /流年（丙午流年）天同化禄入财帛/);
-  assert.match(snapshot, /流年（丙午流年）落入财帛/);
+  assert.match(snapshot, /流年（丙午流年）天同化禄入本命财帛宫/);
+  assert.match(snapshot, /流年（丙午流年）落入本命财帛宫/);
   assert.doesNotMatch(snapshot, /【证据汇总】|证据状态|资料缺口：|解释边界/);
   assert.doesNotMatch(snapshot, /命语|iztro|本项目|项目统一|工程|接口|API|MCP/);
 });

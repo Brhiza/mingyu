@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  buildDecadalTimelineOptions,
   findCurrentDecadalOption,
   formatDecadalAgeRange,
   getDefaultHoroscopeContext,
@@ -8,6 +7,7 @@ import {
 import { type ZiweiScopeMode } from '@/lib/query-state';
 import type { AnalysisPayloadV1, ScopeType } from '@/types/analysis';
 import type { ChartInput } from '@/types/chart';
+import type { DecadalTimelineOption } from '@core/ziwei/iztro';
 import { ziweiScopeLabelMap } from '../ResultPage.constants';
 import { useZiweiFortuneOptionsWorker } from '../hooks/useZiweiFortuneOptionsWorker';
 import {
@@ -24,31 +24,33 @@ import { BaziFortuneLoadingCard } from './skeletons';
 export function ZiweiScopeModal(props: {
   chartInput: ChartInput;
   payloadByScope: Record<ScopeType, AnalysisPayloadV1>;
+  decadalTimeline: DecadalTimelineOption[];
   selectedScope: ZiweiScopeMode;
   selectedDateStr: string;
   onApply: (scope: ZiweiScopeMode, dateStr: string) => void;
   onClose: () => void;
 }) {
-  const { chartInput, payloadByScope, selectedScope, selectedDateStr, onApply, onClose } = props;
+  const {
+    chartInput,
+    payloadByScope,
+    decadalTimeline,
+    selectedScope,
+    selectedDateStr,
+    onApply,
+    onClose,
+  } = props;
   const defaultContext = useMemo(() => getDefaultHoroscopeContext(), []);
   const normalizedSelectedScope: Exclude<ZiweiScopeMode, 'hourly'> =
     selectedScope === 'hourly' ? 'daily' : selectedScope;
   const originPayload = payloadByScope.origin;
   const birthSolarDate = originPayload.basic_info.solar_date;
-  const decadalOptions = useMemo(
-    () => buildDecadalTimelineOptions(originPayload.palaces, birthSolarDate),
-    [birthSolarDate, originPayload.palaces],
-  );
+  const decadalOptions = decadalTimeline;
   const currentDecadal = useMemo(
     () => findCurrentDecadalOption(decadalOptions, payloadByScope.yearly.active_scope.nominal_age),
     [decadalOptions, payloadByScope.yearly.active_scope.nominal_age],
   );
   const currentDecadalIndex = useMemo(
-    () =>
-      Math.max(
-        0,
-        decadalOptions.findIndex((item) => item === currentDecadal),
-      ),
+    () => decadalOptions.findIndex((item) => item === currentDecadal),
     [currentDecadal, decadalOptions],
   );
   const fallbackScopeDateStr =
@@ -77,7 +79,7 @@ export function ZiweiScopeModal(props: {
     setDraftDayDateStr(fallbackScopeDateStr);
   }, [fallbackScopeDateStr, initialDecadalIndex, normalizedSelectedScope]);
 
-  const selectedDecadal = decadalOptions[draftDecadalIndex] ?? decadalOptions[0] ?? null;
+  const selectedDecadal = decadalOptions[draftDecadalIndex] ?? null;
   const selectedDecadalForWorker = selectedDecadal
     ? {
         startAge: selectedDecadal.startAge,
@@ -290,7 +292,7 @@ export function ZiweiScopeModal(props: {
                 >
                   <strong>{formatDecadalAgeRange(item)}岁</strong>
                   <span>{item.label}</span>
-                  <span>{item.dateStr} 起</span>
+                  <span>{item.dateStr} 取盘</span>
                 </button>
               ))}
             </div>

@@ -1,9 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ChildLimit, Gender, SolarTime } from 'tyme4ts';
+import { ChildLimit, China95ChildLimitProvider, Gender, SolarTime } from 'tyme4ts';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { TIME_MAP } from '@core/bazi/baziDisplayData';
 import { buildLuckDirectionProfile } from '@core/bazi/luckDetails';
+import { CHILD_LIMIT_METHOD, createChildLimit } from '@core/bazi/childLimit';
+
+function toDateTimeParts(time: ReturnType<ReturnType<typeof createChildLimit>['getEndTime']>) {
+  return {
+    year: time.getYear(),
+    month: time.getMonth(),
+    day: time.getDay(),
+    hour: time.getHour(),
+    minute: time.getMinute(),
+    second: time.getSecond(),
+  };
+}
 
 function collectXiaoyunByAge(result: ReturnType<typeof baziCalculator.calculateBazi>) {
   const ageMap = new Map<number, string>();
@@ -198,6 +210,84 @@ test('女命大运逆行序列应与 tyme4ts 官方 DecadeFortune 保持一致',
     dayunCycles.map((cycle) => ({ age: cycle.age, ganZhi: cycle.ganZhi })),
     expected.cycles,
   );
+});
+
+test('三日一岁起运法应符合固定人工真值', () => {
+  const cases = [
+    {
+      birth: [1981, 1, 29, 23, 37, 0] as const,
+      gender: Gender.WOMAN,
+      counts: [8, 0, 27, 0, 44] as const,
+      handover: [1989, 2, 26, 0, 21, 0] as const,
+      firstAge: 9,
+      firstDayun: '戊子',
+    },
+    {
+      birth: [1990, 1, 1, 23, 0, 0] as const,
+      gender: Gender.MAN,
+      counts: [8, 5, 28, 6, 6] as const,
+      handover: [1998, 6, 30, 5, 6, 0] as const,
+      firstAge: 9,
+      firstDayun: '乙亥',
+    },
+    {
+      birth: [2012, 12, 21, 5, 0, 0] as const,
+      gender: Gender.WOMAN,
+      counts: [4, 8, 18, 10, 8] as const,
+      handover: [2017, 9, 8, 15, 8, 0] as const,
+      firstAge: 6,
+      firstDayun: '辛亥',
+    },
+  ];
+
+  for (const item of cases) {
+    const childLimit = createChildLimit(SolarTime.fromYmdHms(...item.birth), item.gender);
+    const firstDayun = childLimit.getStartDecadeFortune();
+
+    assert.deepEqual(
+      [
+        childLimit.getYearCount(),
+        childLimit.getMonthCount(),
+        childLimit.getDayCount(),
+        childLimit.getHourCount(),
+        childLimit.getMinuteCount(),
+      ],
+      item.counts,
+    );
+    assert.deepEqual(toDateTimeParts(childLimit.getEndTime()), {
+      year: item.handover[0],
+      month: item.handover[1],
+      day: item.handover[2],
+      hour: item.handover[3],
+      minute: item.handover[4],
+      second: item.handover[5],
+    });
+    assert.equal(firstDayun.getStartAge(), item.firstAge);
+    assert.equal(firstDayun.getName(), item.firstDayun);
+  }
+});
+
+test('项目起运结果不应受 tyme4ts 全局 provider 影响', () => {
+  const originalProvider = ChildLimit.provider;
+  const externalProvider = new China95ChildLimitProvider();
+  ChildLimit.provider = externalProvider;
+
+  try {
+    const childLimit = createChildLimit(SolarTime.fromYmdHms(1990, 1, 1, 23, 0, 0), Gender.MAN);
+
+    assert.deepEqual(toDateTimeParts(childLimit.getEndTime()), {
+      year: 1998,
+      month: 6,
+      day: 30,
+      hour: 5,
+      minute: 6,
+      second: 0,
+    });
+    assert.equal(ChildLimit.provider, externalProvider, '项目计算后必须恢复调用方的全局配置');
+    assert.equal(CHILD_LIMIT_METHOD, '按实际节气时刻计算，三日折一年');
+  } finally {
+    ChildLimit.provider = originalProvider;
+  }
 });
 
 test('扁平流年数组中的交运年份应去重，并默认以后一步大运为准', () => {

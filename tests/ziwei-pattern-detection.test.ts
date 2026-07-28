@@ -1,1679 +1,921 @@
-import { test } from 'node:test';
-import { strict as assert } from 'node:assert';
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
 import {
   buildPatternAnalysis,
   detectPatterns,
-} from '../packages/core/src/ziwei/iztro/pattern-detection.ts';
-import type { PalaceFact, StarFact } from '../packages/core/src/types/analysis.ts';
+  VERIFIED_ZIWEI_PATTERN_RULE_COUNT,
+  ZIWEI_PATTERN_AUDIT_NOTICE,
+  ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES,
+  ZIWEI_TRADITIONAL_PATTERN_CATALOG_COUNT,
+} from '@core/ziwei/iztro';
+import type { PalaceFact, StarFact } from '../packages/core/src/types/analysis';
 
-const branches = ['寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥', '子', '丑'];
+const PALACE_NAMES = [
+  '命宫',
+  '兄弟',
+  '夫妻',
+  '子女',
+  '财帛',
+  '疾厄',
+  '迁移',
+  '交友',
+  '官禄',
+  '田宅',
+  '福德',
+  '父母',
+] as const;
+const BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
 
-function star(name: string, birthMutagen?: StarFact['birth_mutagen']): StarFact {
-  return {
+function createPalaces(): PalaceFact[] {
+  return PALACE_NAMES.map((name, index) => ({
+    index,
     name,
-    kind: 'major',
-    scope: 'origin',
-    birth_mutagen: birthMutagen,
-  };
+    is_body_palace: index === 4,
+    is_original_palace: index === 8,
+    heavenly_stem: '甲',
+    earthly_branch: BRANCHES[index],
+    major_stars: [],
+    minor_stars: [],
+    other_stars: [],
+    scope_stars: [],
+    changsheng12: '长生',
+    boshi12: '博士',
+    base_jiangqian12: '岁驿',
+    base_suiqian12: '岁建',
+    decadal_range: [1, 10],
+    ages: [],
+    scope_hits: [],
+    empty_state: true,
+    opposite_palace_index: (index + 6) % 12,
+    surrounded_palace_indexes: [index, (index + 4) % 12, (index + 6) % 12, (index + 8) % 12],
+    summary_tags: [],
+  }));
 }
 
-function createPalaces(mingBranch: string, mingStars: StarFact[]): PalaceFact[] {
-  const mingIndex = branches.indexOf(mingBranch);
-  if (mingIndex < 0) {
-    throw new Error(`未知地支：${mingBranch}`);
-  }
+function addStar(
+  palaces: PalaceFact[],
+  palaceIndex: number,
+  name: string,
+  kind: 'major' | 'minor' | 'other' | 'scope' = 'major',
+  extra: Partial<StarFact> = {},
+): void {
+  const star: StarFact = { name, kind, ...extra };
+  const palace = palaces[palaceIndex];
+  if (kind === 'major') palace.major_stars.push(star);
+  else if (kind === 'minor') palace.minor_stars.push(star);
+  else if (kind === 'other') palace.other_stars.push(star);
+  else palace.scope_stars.push(star);
+  palace.empty_state = palace.major_stars.length === 0;
+}
 
-  return branches.map((branch, index) => {
-    const isMing = index === mingIndex;
-    const oppositeIndex = (index + 6) % 12;
-    const surroundedIndexes = Array.from(
-      new Set([index, oppositeIndex, (index + 4) % 12, (index + 8) % 12]),
-    );
+function detectedNames(palaces: PalaceFact[]): string[] {
+  return detectPatterns({ palaces }).map((pattern) => pattern.name);
+}
 
-    return {
-      index,
-      name: isMing ? '命宫' : `宫${index}`,
-      is_body_palace: false,
-      is_original_palace: false,
-      heavenly_stem: '',
-      earthly_branch: branch,
-      major_stars: isMing ? mingStars : [],
-      minor_stars: [],
-      other_stars: [],
-      scope_stars: [],
-      changsheng12: '',
-      boshi12: '',
-      base_jiangqian12: '',
-      base_suiqian12: '',
-      decadal_range: [0, 0],
-      ages: [],
-      scope_hits: [],
-      empty_state: mingStars.length === 0,
-      opposite_palace_index: oppositeIndex,
-      surrounded_palace_indexes: surroundedIndexes,
-      summary_tags: [],
-    };
+test('紫微格局检测仍应拒绝不完整或索引损坏的十二宫资料', () => {
+  assert.throws(() => detectPatterns({ palaces: [] }), /需要完整 12 宫数据/);
+
+  const duplicateIndex = createPalaces();
+  duplicateIndex[1].index = 0;
+  assert.throws(() => detectPatterns({ palaces: duplicateIndex }), /宫位索引 0 重复/);
+
+  const invalidSurroundedIndex = createPalaces();
+  invalidSurroundedIndex[0].surrounded_palace_indexes = [0, 4, 6, 12];
+  assert.throws(() => detectPatterns({ palaces: invalidSurroundedIndex }), /三方四正宫位索引无效/);
+});
+
+test('紫微传统格局目录应完整区分可复算规则与原典边界', () => {
+  assert.equal(VERIFIED_ZIWEI_PATTERN_RULE_COUNT, 55);
+  assert.equal(ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES.length, 32);
+  assert.equal(ZIWEI_TRADITIONAL_PATTERN_CATALOG_COUNT, 87);
+  assert.match(ZIWEI_PATTERN_AUDIT_NOTICE, /原有84条.*已全部退役/);
+  assert.match(ZIWEI_PATTERN_AUDIT_NOTICE, /传统目录现登记87项.*55条.*32项/);
+  assert.ok(
+    ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES.every(
+      (item) => item.name && item.quote && item.reason && /oldid=\d+/.test(item.source),
+    ),
+  );
+  const boundaryNames = new Set(ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES.map((item) => item.name));
+  [
+    '昌曲夹命',
+    '日月夹命',
+    '羊刃入庙',
+    '左辅文昌',
+    '贪铃并守',
+    '廉杀巳亥',
+    '日月反背',
+    '日照雷门',
+    '金舆扶驾',
+    '科权禄拱命',
+    '荫印拱身',
+    '财印夹禄',
+    '马头带剑',
+    '紫禄同宫',
+    '廉杀庙旺',
+  ].forEach((name) => assert.ok(boundaryNames.has(name), `${name}应登记为原典边界`));
+});
+
+test('原有仍可复算的紫微格局应按各自盘面条件命中', () => {
+  const cases: Array<{ name: string; arrange: (palaces: PalaceFact[]) => void }> = [
+    {
+      name: '紫府同宫',
+      arrange(palaces) {
+        addStar(palaces, 0, '紫微');
+        addStar(palaces, 0, '天府');
+      },
+    },
+    {
+      name: '辅弼拱主',
+      arrange(palaces) {
+        addStar(palaces, 0, '紫微');
+        addStar(palaces, 4, '左辅', 'minor');
+        addStar(palaces, 8, '右弼', 'minor');
+      },
+    },
+    {
+      name: '君臣庆会',
+      arrange(palaces) {
+        addStar(palaces, 0, '紫微');
+        addStar(palaces, 0, '左辅', 'minor');
+        addStar(palaces, 0, '右弼', 'minor');
+      },
+    },
+    {
+      name: '左右夹命',
+      arrange(palaces) {
+        addStar(palaces, 11, '左辅', 'minor');
+        addStar(palaces, 1, '右弼', 'minor');
+      },
+    },
+    {
+      name: '坐贵向贵',
+      arrange(palaces) {
+        addStar(palaces, 0, '天魁', 'minor');
+        addStar(palaces, 6, '天钺', 'minor');
+      },
+    },
+    {
+      name: '兼文武',
+      arrange(palaces) {
+        addStar(palaces, 4, '武曲');
+        addStar(palaces, 4, '文曲', 'minor');
+      },
+    },
+    {
+      name: '两重华盖',
+      arrange(palaces) {
+        addStar(palaces, 0, '禄存', 'minor');
+        addStar(palaces, 0, '廉贞', 'major', { birth_mutagen: '禄' });
+        addStar(palaces, 0, '地空', 'other');
+      },
+    },
+    {
+      name: '月朗天门',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '亥';
+        addStar(palaces, 0, '太阴');
+      },
+    },
+    {
+      name: '月生沧海',
+      arrange(palaces) {
+        palaces[9].earthly_branch = '子';
+        addStar(palaces, 9, '太阴');
+      },
+    },
+    {
+      name: '金灿光辉',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '午';
+        addStar(palaces, 0, '太阳');
+      },
+    },
+    {
+      name: '日出扶桑',
+      arrange(palaces) {
+        palaces[8].earthly_branch = '卯';
+        addStar(palaces, 8, '太阳');
+      },
+    },
+    {
+      name: '皇殿朝班',
+      arrange(palaces) {
+        addStar(palaces, 8, '太阳');
+        addStar(palaces, 8, '文昌', 'minor');
+      },
+    },
+    {
+      name: '禄马交驰',
+      arrange(palaces) {
+        addStar(palaces, 4, '禄存', 'minor');
+        addStar(palaces, 4, '天马', 'other');
+      },
+    },
+    {
+      name: '财禄夹马',
+      arrange(palaces) {
+        addStar(palaces, 0, '天马', 'other');
+        addStar(palaces, 11, '武曲');
+        addStar(palaces, 1, '禄存', 'minor');
+      },
+    },
+    {
+      name: '日月照璧',
+      arrange(palaces) {
+        addStar(palaces, 9, '太阳');
+        addStar(palaces, 9, '太阴');
+      },
+    },
+    {
+      name: '石中隐玉',
+      arrange(palaces) {
+        addStar(palaces, 0, '巨门');
+      },
+    },
+  ];
+
+  cases.forEach(({ name, arrange }) => {
+    const palaces = createPalaces();
+    arrange(palaces);
+    const pattern = detectPatterns({ palaces }).find((item) => item.name === name);
+    assert.ok(pattern, `${name}应命中`);
+    assert.equal(pattern.status, '已命中');
+    assert.match(pattern.stable_key ?? '', /^ziwei:verified-pattern:/);
+    assert.ok(pattern.matched_conditions?.length);
+    assert.equal(pattern.calculationStepKey, 'ziwei:pattern:calculation:matched-facts');
+    assert.deepEqual(pattern.dependsOnStepKeys, ['ziwei:pattern:calculation:rule-evaluation']);
+    assert.ok(pattern.sources?.[0].includes('《紫微斗数全书》'));
+    assert.match(pattern.source ?? '', /oldid=\d+/);
+    assert.match(pattern.limitation ?? '', /不得.*现实因果|不得被反向/);
   });
-}
+});
 
-test('紫微格局检测应拒绝不完整或结构错误的宫位数据', () => {
-  assert.throws(() => detectPatterns({ palaces: [] }), /紫微格局检测需要完整 12 宫数据/);
+test('新增仍可复算的传统格局应逐条满足完整原文条件', () => {
+  const cases: Array<{
+    name: string;
+    arrange: (palaces: PalaceFact[]) => void;
+    params?: Omit<Parameters<typeof detectPatterns>[0], 'palaces'>;
+  }> = [
+    {
+      name: '紫府夹命',
+      arrange(palaces) {
+        addStar(palaces, 11, '紫微');
+        addStar(palaces, 1, '天府');
+      },
+    },
+    {
+      name: '机月同梁',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '寅';
+        addStar(palaces, 0, '天机');
+        addStar(palaces, 4, '太阴');
+        addStar(palaces, 6, '天同');
+        addStar(palaces, 8, '天梁');
+      },
+    },
+    {
+      name: '府相朝垣',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '申';
+        addStar(palaces, 4, '天府');
+        addStar(palaces, 8, '天相');
+      },
+    },
+    {
+      name: '魁钺夹命',
+      arrange(palaces) {
+        addStar(palaces, 11, '天魁', 'minor');
+        addStar(palaces, 1, '天钺', 'minor');
+      },
+    },
+    {
+      name: '玉袖天香',
+      arrange(palaces) {
+        addStar(palaces, 10, '文昌', 'minor');
+        addStar(palaces, 10, '文曲', 'minor');
+      },
+    },
+    {
+      name: '蟾宫折桂',
+      arrange(palaces) {
+        addStar(palaces, 2, '太阴');
+        addStar(palaces, 2, '文曲', 'minor');
+      },
+    },
+    {
+      name: '日月并明',
+      arrange(palaces) {
+        addStar(palaces, 4, '太阳', 'major', { brightness: '庙' });
+        addStar(palaces, 8, '太阴', 'major', { brightness: '旺' });
+      },
+    },
+    {
+      name: '左右朝垣',
+      arrange(palaces) {
+        addStar(palaces, 4, '左辅', 'minor');
+        addStar(palaces, 8, '右弼', 'minor');
+      },
+    },
+    {
+      name: '文星朝命',
+      arrange(palaces) {
+        addStar(palaces, 0, '文昌', 'minor');
+        addStar(palaces, 0, '文曲', 'minor');
+      },
+    },
+    {
+      name: '对面朝斗',
+      arrange(palaces) {
+        palaces[6].earthly_branch = '午';
+        addStar(palaces, 6, '禄存', 'minor');
+      },
+    },
+    {
+      name: '日月夹财',
+      arrange(palaces) {
+        addStar(palaces, 0, '武曲');
+        addStar(palaces, 11, '太阳');
+        addStar(palaces, 1, '太阴');
+      },
+    },
+    {
+      name: '七杀朝斗',
+      arrange(palaces) {
+        addStar(palaces, 0, '七杀');
+      },
+    },
+    {
+      name: '贪火相逢',
+      arrange(palaces) {
+        addStar(palaces, 0, '贪狼', 'major', { brightness: '庙' });
+        addStar(palaces, 0, '火星', 'other', { brightness: '旺' });
+      },
+    },
+    {
+      name: '武曲守垣',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '卯';
+        addStar(palaces, 0, '武曲');
+      },
+    },
+    {
+      name: '权禄生逢',
+      arrange(palaces) {
+        addStar(palaces, 0, '破军', 'major', { birth_mutagen: '权', brightness: '庙' });
+        addStar(palaces, 0, '廉贞', 'major', { birth_mutagen: '禄', brightness: '旺' });
+      },
+    },
+    {
+      name: '刑囚夹印',
+      arrange(palaces) {
+        addStar(palaces, 4, '天刑', 'other');
+        addStar(palaces, 4, '廉贞');
+      },
+    },
+    {
+      name: '雄宿朝元',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '申';
+        addStar(palaces, 0, '廉贞');
+      },
+    },
+    {
+      name: '破军子午',
+      arrange(palaces) {
+        addStar(palaces, 0, '破军');
+      },
+    },
+    {
+      name: '生不逢时',
+      arrange(palaces) {
+        addStar(palaces, 0, '廉贞');
+        addStar(palaces, 0, '空亡', 'other');
+      },
+    },
+    {
+      name: '禄逢两杀',
+      arrange(palaces) {
+        addStar(palaces, 4, '禄存', 'minor');
+        addStar(palaces, 4, '空亡', 'other');
+        addStar(palaces, 4, '地空', 'other');
+      },
+    },
+    {
+      name: '马落空亡',
+      arrange(palaces) {
+        addStar(palaces, 4, '天马', 'other');
+        addStar(palaces, 4, '旬空', 'other');
+      },
+    },
+    {
+      name: '日月藏辉',
+      arrange(palaces) {
+        palaces[4].earthly_branch = '戌';
+        palaces[8].earthly_branch = '辰';
+        addStar(palaces, 4, '太阳');
+        addStar(palaces, 8, '太阴');
+        addStar(palaces, 6, '巨门');
+      },
+    },
+    {
+      name: '财与囚仇',
+      arrange(palaces) {
+        addStar(palaces, 0, '武曲');
+        addStar(palaces, 4, '廉贞');
+      },
+    },
+    {
+      name: '一生孤贫',
+      arrange(palaces) {
+        addStar(palaces, 0, '破军', 'major', { brightness: '陷' });
+      },
+    },
+    {
+      name: '君子在野',
+      arrange(palaces) {
+        addStar(palaces, 4, '火星', 'other', { brightness: '陷' });
+      },
+    },
+    {
+      name: '羊陀夹忌',
+      arrange(palaces) {
+        addStar(palaces, 0, '廉贞', 'major', { birth_mutagen: '忌' });
+        addStar(palaces, 11, '擎羊', 'minor');
+        addStar(palaces, 1, '陀罗', 'minor');
+      },
+    },
+    {
+      name: '火铃夹命',
+      arrange(palaces) {
+        addStar(palaces, 11, '火星', 'other');
+        addStar(palaces, 1, '铃星', 'other');
+      },
+    },
+    {
+      name: '空劫夹命',
+      arrange(palaces) {
+        addStar(palaces, 11, '地空', 'other');
+        addStar(palaces, 1, '地劫', 'other');
+      },
+    },
+    {
+      name: '泛水桃花',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '亥';
+        addStar(palaces, 0, '贪狼');
+        addStar(palaces, 0, '陀罗', 'minor');
+      },
+    },
+    {
+      name: '水澄桂萼',
+      arrange(palaces) {
+        addStar(palaces, 0, '太阴');
+      },
+    },
+    {
+      name: '天梁居午',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '午';
+        addStar(palaces, 0, '天梁');
+      },
+    },
+    {
+      name: '梁昌庙旺',
+      arrange(palaces) {
+        addStar(palaces, 0, '天梁', 'major', { brightness: '庙' });
+        addStar(palaces, 0, '文昌', 'minor', { brightness: '旺' });
+      },
+    },
+    {
+      name: '阳梁昌禄',
+      arrange(palaces) {
+        addStar(palaces, 0, '太阳');
+        addStar(palaces, 4, '天梁');
+        addStar(palaces, 6, '文昌', 'minor');
+        addStar(palaces, 8, '禄存', 'minor');
+      },
+    },
+    {
+      name: '巨日同宫',
+      arrange(palaces) {
+        addStar(palaces, 0, '巨门');
+        addStar(palaces, 0, '太阳');
+      },
+    },
+    {
+      name: '巨火擎羊',
+      arrange(palaces) {
+        addStar(palaces, 0, '巨门');
+        addStar(palaces, 4, '火星', 'other');
+        addStar(palaces, 6, '擎羊', 'minor');
+        addStar(palaces, 8, '陀罗', 'minor');
+      },
+    },
+    {
+      name: '武贪同行',
+      arrange(palaces) {
+        addStar(palaces, 0, '武曲');
+        addStar(palaces, 0, '贪狼');
+      },
+    },
+    {
+      name: '火贵格',
+      arrange(palaces) {
+        addStar(palaces, 4, '贪狼');
+        addStar(palaces, 8, '火星', 'other');
+      },
+    },
+    {
+      name: '风流彩杖',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '寅';
+        addStar(palaces, 0, '贪狼');
+        addStar(palaces, 0, '陀罗', 'minor');
+      },
+    },
+    {
+      name: '巨机居卯',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '卯';
+        addStar(palaces, 0, '巨门');
+        addStar(palaces, 0, '天机');
+      },
+      params: { birthYearHeavenlyStem: '乙' },
+    },
+  ];
 
-  const duplicateIndex = createPalaces('寅', []);
-  duplicateIndex[1] = { ...duplicateIndex[1], index: 0 };
-  assert.throws(() => detectPatterns({ palaces: duplicateIndex }), /紫微格局检测宫位索引 0 重复/);
+  assert.equal(cases.length, VERIFIED_ZIWEI_PATTERN_RULE_COUNT - 16);
+  assert.equal(new Set(cases.map((item) => item.name)).size, cases.length);
 
-  const invalidSurroundedIndex = createPalaces('寅', []);
-  invalidSurroundedIndex[0] = {
-    ...invalidSurroundedIndex[0],
-    surrounded_palace_indexes: [0, 1, 2, 99],
-  };
-  assert.throws(
-    () => detectPatterns({ palaces: invalidSurroundedIndex }),
-    /紫微格局检测命宫三方四正宫位索引无效/,
+  cases.forEach(({ name, arrange, params }) => {
+    const palaces = createPalaces();
+    arrange(palaces);
+    const pattern = detectPatterns({ palaces, ...params }).find((item) => item.name === name);
+    assert.ok(pattern, `${name}应命中`);
+    assert.ok(pattern.matched_conditions?.length, `${name}应登记实际命中条件`);
+    assert.match(pattern.source ?? '', /oldid=\d+/, `${name}应固定古籍版本`);
+    assert.ok(pattern.calculation, `${name}应说明可复算步骤`);
+    assert.equal(pattern.calculationStepKey, 'ziwei:pattern:calculation:matched-facts');
+
+    const essentialStar = pattern.star_names[0]?.replace(/化[禄权科忌]$/, '');
+    assert.ok(essentialStar, `${name}应登记必要星曜`);
+    palaces.forEach((palace) => {
+      palace.major_stars = palace.major_stars.filter((star) => star.name !== essentialStar);
+      palace.minor_stars = palace.minor_stars.filter((star) => star.name !== essentialStar);
+      palace.other_stars = palace.other_stars.filter((star) => star.name !== essentialStar);
+    });
+    assert.ok(
+      !detectPatterns({ palaces, ...params }).some((item) => item.name === name),
+      `${name}缺少必要星曜${essentialStar}时不应命中`,
+    );
+  });
+});
+
+test('条件不闭合或当前安星体系不可达的格局不得用人工拼盘伪造成可执行规则', () => {
+  const palaces = createPalaces();
+  palaces[0].earthly_branch = '巳';
+  addStar(palaces, 0, '廉贞');
+  addStar(palaces, 0, '七杀');
+  addStar(palaces, 0, '左辅', 'minor');
+  addStar(palaces, 0, '文昌', 'minor');
+  addStar(palaces, 11, '太阳');
+  addStar(palaces, 1, '太阴');
+
+  const names = detectedNames(palaces);
+  ['廉杀巳亥', '左辅文昌', '日月夹命'].forEach((name) => {
+    assert.ok(!names.includes(name), `${name}只应保留在原典边界目录`);
+  });
+});
+
+test('羊陀夹忌只核对命宫，不得把其他宫位化忌误识别为夹忌', () => {
+  const palaces = createPalaces();
+  addStar(palaces, 5, '贪狼', 'major', { birth_mutagen: '忌' });
+  addStar(palaces, 4, '擎羊', 'minor');
+  addStar(palaces, 6, '陀罗', 'minor');
+
+  assert.ok(!detectedNames(palaces).includes('羊陀夹忌'));
+});
+
+test('火贵格应分别核对命宫与身宫三方，不得跨目标拼接条件', () => {
+  const bodyMatch = createPalaces();
+  addStar(bodyMatch, 8, '贪狼');
+  addStar(bodyMatch, 10, '火星', 'other');
+  const pattern = detectPatterns({ palaces: bodyMatch }).find((item) => item.name === '火贵格');
+  assert.ok(pattern);
+  assert.ok(pattern.palace_indexes.includes(4));
+  assert.match(pattern.matched_conditions?.join('；') ?? '', /身宫/);
+
+  const crossTarget = createPalaces();
+  addStar(crossTarget, 4, '贪狼');
+  addStar(crossTarget, 10, '火星', 'other');
+  assert.ok(!detectedNames(crossTarget).includes('火贵格'));
+});
+
+test('带有吉曜转化条件的传统结构不得固定标为纯凶格', () => {
+  const fireBell = createPalaces();
+  addStar(fireBell, 11, '火星', 'other');
+  addStar(fireBell, 1, '铃星', 'other');
+  assert.equal(
+    detectPatterns({ palaces: fireBell }).find((item) => item.name === '火铃夹命')?.kind,
+    'neutral',
+  );
+
+  const peach = createPalaces();
+  peach[0].earthly_branch = '亥';
+  addStar(peach, 0, '贪狼');
+  addStar(peach, 0, '陀罗', 'minor');
+  assert.equal(
+    detectPatterns({ palaces: peach }).find((item) => item.name === '泛水桃花')?.kind,
+    'neutral',
   );
 });
 
-test('紫微格局分析应输出规则覆盖、未命中反证与可追溯限制', () => {
-  const palaces = createPalaces('亥', [star('太阴')]);
-  const patterns = detectPatterns({ palaces });
-  const analysis = buildPatternAnalysis({ patterns, palaces });
+test('紫微第二批九条格局不得省略宫位、地支、单守、同宫或夹宫条件', () => {
+  const nearMisses: Array<{ name: string; arrange: (palaces: PalaceFact[]) => void }> = [
+    {
+      name: '月朗天门',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '戌';
+        addStar(palaces, 0, '太阴');
+      },
+    },
+    {
+      name: '月生沧海',
+      arrange(palaces) {
+        palaces[9].earthly_branch = '丑';
+        addStar(palaces, 9, '太阴');
+      },
+    },
+    {
+      name: '金灿光辉',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '午';
+        addStar(palaces, 0, '太阳');
+        addStar(palaces, 0, '武曲');
+      },
+    },
+    {
+      name: '日出扶桑',
+      arrange(palaces) {
+        palaces[4].earthly_branch = '卯';
+        addStar(palaces, 4, '太阳');
+      },
+    },
+    {
+      name: '皇殿朝班',
+      arrange(palaces) {
+        addStar(palaces, 8, '太阳');
+        addStar(palaces, 0, '文昌', 'minor');
+      },
+    },
+    {
+      name: '禄马交驰',
+      arrange(palaces) {
+        addStar(palaces, 0, '天马', 'other');
+        addStar(palaces, 1, '禄存', 'minor');
+      },
+    },
+    {
+      name: '财禄夹马',
+      arrange(palaces) {
+        addStar(palaces, 0, '天马', 'other');
+        addStar(palaces, 1, '武曲');
+        addStar(palaces, 1, '禄存', 'minor');
+      },
+    },
+    {
+      name: '日月照璧',
+      arrange(palaces) {
+        addStar(palaces, 9, '太阳');
+        addStar(palaces, 0, '太阴');
+      },
+    },
+    {
+      name: '石中隐玉',
+      arrange(palaces) {
+        palaces[0].earthly_branch = '丑';
+        addStar(palaces, 0, '巨门');
+      },
+    },
+  ];
 
-  assert.equal(analysis.key, 'ziwei:patterns');
-  assert.equal(analysis.status, '已计算');
-  assert.equal(analysis.calculationSteps.length, 4);
-  assert.equal(analysis.summaryFact.evaluatedRuleCount, analysis.summaryFact.registeredRuleCount);
-  assert.equal(analysis.summaryFact.unevaluatedRuleCount, 0);
-  assert.equal(analysis.summaryFact.matchedPatternCount, patterns.length);
-  assert.equal(
-    analysis.summaryFact.unmatchedRuleCount,
-    analysis.summaryFact.registeredRuleCount - patterns.length,
-  );
+  nearMisses.forEach(({ name, arrange }) => {
+    const palaces = createPalaces();
+    arrange(palaces);
+    assert.ok(!detectedNames(palaces).includes(name), `${name}不应因近似条件误命中`);
+  });
+});
+
+test('禄马交驰应同时登记命宫与身宫的实际命中', () => {
+  const palaces = createPalaces();
+  addStar(palaces, 0, '禄存', 'minor');
+  addStar(palaces, 0, '天马', 'other');
+  palaces[4].is_body_palace = true;
+  addStar(palaces, 4, '禄存', 'minor');
+  addStar(palaces, 4, '天马', 'other');
+
+  const pattern = detectPatterns({ palaces }).find((item) => item.name === '禄马交驰');
+  assert.ok(pattern);
+  assert.deepEqual(pattern.palace_names, ['命宫', '财帛']);
+  assert.deepEqual(pattern.matched_conditions, ['禄存与天马同坐命宫', '禄存与天马同坐身宫']);
+});
+
+test('紫微格局只读取原局星曜和生年四化，不得混入运限星曜', () => {
+  const palaces = createPalaces();
+  addStar(palaces, 0, '紫微', 'scope');
+  addStar(palaces, 0, '天府', 'scope');
+  addStar(palaces, 0, '廉贞', 'major', { horoscope_mutagen: '禄' });
+  addStar(palaces, 4, '破军', 'major', { active_scope_mutagen: '权' });
+  addStar(palaces, 8, '武曲', 'scope', { birth_mutagen: '科' });
+
+  assert.deepEqual(detectPatterns({ palaces }), []);
+});
+
+test('辅弼拱主不得把三方拱照与相邻夹命拼成混合条件', () => {
+  const mixed = createPalaces();
+  addStar(mixed, 0, '紫微');
+  addStar(mixed, 4, '左辅', 'minor');
+  addStar(mixed, 1, '右弼', 'minor');
+  assert.ok(!detectedNames(mixed).includes('辅弼拱主'));
+
+  const flanked = createPalaces();
+  addStar(flanked, 0, '紫微');
+  addStar(flanked, 11, '左辅', 'minor');
+  addStar(flanked, 1, '右弼', 'minor');
+  const pattern = detectPatterns({ palaces: flanked }).find((item) => item.name === '辅弼拱主');
+  assert.match(pattern?.matched_conditions?.join('；') ?? '', /前后夹命/);
+});
+
+test('生年天干条件应贯穿格局检测、证据重建与评估覆盖统计', () => {
+  const yearStem = createPalaces();
+  yearStem[0].earthly_branch = '卯';
+  addStar(yearStem, 0, '巨门');
+  addStar(yearStem, 0, '天机');
+  const yearStemPatterns = detectPatterns({ palaces: yearStem, birthYearHeavenlyStem: '乙' });
+  assert.ok(yearStemPatterns.some((item) => item.name === '巨机居卯'));
   assert.ok(
-    patterns.every(
-      (item) =>
-        item.stable_key &&
-        item.key === `ziwei:pattern:${item.stable_key}` &&
-        item.status === '已命中' &&
-        item.sources?.length &&
-        item.calculationStepKey === 'ziwei:pattern:calculation:matched-facts' &&
-        item.dependsOnStepKeys?.includes(item.calculationStepKey) &&
-        item.promptText &&
-        item.limitation,
+    !detectPatterns({ palaces: yearStem, birthYearHeavenlyStem: '甲' }).some(
+      (item) => item.name === '巨机居卯',
     ),
   );
-  const factKeys = new Set([analysis.summaryFact.key, ...analysis.summaryFact.factKeys]);
+  assert.equal(
+    buildPatternAnalysis({
+      patterns: yearStemPatterns,
+      palaces: yearStem,
+      birthYearHeavenlyStem: '乙',
+    }).summaryFact.matchedPatternCount,
+    yearStemPatterns.length,
+  );
+
+  const missingInput = buildPatternAnalysis({
+    patterns: detectPatterns({ palaces: yearStem }),
+    palaces: yearStem,
+  });
+  assert.equal(missingInput.summaryFact.registeredRuleCount, 55);
+  assert.equal(missingInput.summaryFact.evaluatedRuleCount, 54);
+  assert.equal(missingInput.summaryFact.unevaluatedRuleCount, 1);
+  assert.equal(missingInput.status, '资料不足');
+  assert.equal(missingInput.summaryFact.status, '资料不足');
+  assert.equal(
+    missingInput.calculationSteps.find((step) => step.stage === '格局规则评估')?.status,
+    '资料不足',
+  );
+  assert.match(missingInput.promptText, /1条因必要输入不足未评估/);
+
+  const completeInput = buildPatternAnalysis({
+    patterns: yearStemPatterns,
+    palaces: yearStem,
+    birthYearHeavenlyStem: '乙',
+  });
+  assert.equal(completeInput.summaryFact.evaluatedRuleCount, 55);
+  assert.equal(completeInput.summaryFact.unevaluatedRuleCount, 0);
+});
+
+test('紫微格局证据应汇总登记、命中、未命中与覆盖边界', () => {
+  const palaces = createPalaces();
+  addStar(palaces, 0, '紫微');
+  addStar(palaces, 0, '天府');
+  const patterns = detectPatterns({ palaces, birthYearHeavenlyStem: '甲' });
+  const analysis = buildPatternAnalysis({ patterns, palaces, birthYearHeavenlyStem: '甲' });
+
+  assert.equal(analysis.status, '已计算');
+  assert.equal(analysis.summaryFact.status, '已完成');
+  assert.equal(analysis.summaryFact.registeredRuleCount, 55);
+  assert.equal(analysis.summaryFact.evaluatedRuleCount, 55);
+  assert.equal(analysis.summaryFact.unevaluatedRuleCount, 0);
+  assert.equal(analysis.summaryFact.matchedPatternCount, 1);
+  assert.equal(analysis.summaryFact.unmatchedRuleCount, 54);
+  assert.match(analysis.promptText, /固定古籍版本逐条评估55条可复算规则/);
+  assert.match(analysis.promptText, /32项.*边界|不代表命盘没有其他传统格局/);
+
+  const knownFactKeys = new Set([analysis.summaryFact.key, ...analysis.summaryFact.factKeys]);
   assert.ok(
     [...analysis.counterEvidenceFacts, ...analysis.limitationFacts].every(
       (item) =>
-        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
+        item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => knownFactKeys.has(key)),
     ),
   );
-  assert.match(analysis.promptText, /计算链：[\s\S]*反证核验：[\s\S]*证据汇总：[\s\S]*解释限制：/);
-  assert.doesNotMatch(
-    analysis.promptText,
-    /命语|iztro|本项目|项目统一|工程|接口|API|MCP|ziwei:pattern:/,
-  );
+});
 
-  const emptyPalaces = createPalaces('寅', []);
-  const unmatched = buildPatternAnalysis({
-    patterns: detectPatterns({ palaces: emptyPalaces }),
-    palaces: emptyPalaces,
+test('旧调用方标记来源未校勘时不得把注入数据纳入格局证据', () => {
+  const palaces = createPalaces();
+  const analysis = buildPatternAnalysis({
+    patterns: [
+      {
+        id: 'legacy',
+        name: '旧规则',
+        kind: 'auspicious',
+        description: '旧数据',
+        palace_indexes: [0],
+        palace_names: ['命宫'],
+        star_names: ['紫微'],
+      },
+    ],
+    palaces,
+    sourceUnverified: true,
   });
-  assert.equal(unmatched.status, '未命中');
-  assert.equal(unmatched.summaryFact.matchedPatternCount, 0);
-  assert.equal(unmatched.summaryFact.unmatchedRuleCount, unmatched.summaryFact.registeredRuleCount);
-  assert.match(unmatched.counterEvidence.join('；'), /不等于不存在其他传统格局/);
 
-  const skipped = buildPatternAnalysis({ patterns: [], palaces, skipped: true });
+  assert.equal(analysis.status, '未生成');
+  assert.equal(analysis.summaryFact.registeredRuleCount, 0);
+  assert.equal(analysis.summaryFact.matchedPatternCount, 0);
+  assert.match(analysis.promptText, /原有84条.*已全部退役/);
+  assert.match(analysis.promptText, /不得把空结果解释为没有传统格局/);
+});
+
+test('格局证据汇总应主动过滤非登记稳定键', () => {
+  const analysis = buildPatternAnalysis({
+    patterns: [
+      {
+        id: 'manual',
+        stable_key: 'manual-pattern',
+        key: 'manual-pattern',
+        status: '已命中',
+        name: '手工注入规则',
+        kind: 'auspicious',
+        description: '未登记数据',
+        palace_indexes: [0],
+        palace_names: ['命宫'],
+        star_names: ['紫微'],
+      },
+    ],
+    palaces: createPalaces(),
+  });
+
+  assert.equal(analysis.summaryFact.matchedPatternCount, 0);
+  assert.ok(!analysis.summaryFact.factKeys.includes('manual-pattern'));
+  assert.doesNotMatch(analysis.promptText, /手工注入规则/);
+});
+
+test('格局证据汇总应拒绝伪造登记前缀并按稳定键去重', () => {
+  const palaces = createPalaces();
+  addStar(palaces, 0, '紫微');
+  addStar(palaces, 0, '天府');
+  const verified = detectPatterns({ palaces })[0];
+  const analysis = buildPatternAnalysis({
+    patterns: [
+      verified,
+      { ...verified, key: 'manual-shadow-key' },
+      {
+        ...verified,
+        id: 'forged',
+        stable_key: 'ziwei:verified-pattern:not-registered',
+        key: 'ziwei:verified-pattern:not-registered',
+        name: '伪造格局',
+      },
+    ],
+    palaces,
+    birthYearHeavenlyStem: '甲',
+  });
+
+  assert.equal(analysis.summaryFact.matchedPatternCount, 1);
+  assert.equal(analysis.summaryFact.unmatchedRuleCount, 54);
+  assert.ok(!analysis.summaryFact.factKeys.includes('manual-shadow-key'));
+  assert.ok(!analysis.summaryFact.factKeys.includes('ziwei:verified-pattern:not-registered'));
+  assert.doesNotMatch(analysis.promptText, /伪造格局/);
+});
+
+test('格局证据汇总应拒绝冲突键、跳过状态与损坏的十二宫', () => {
+  const palaces = createPalaces();
+  addStar(palaces, 0, '紫微');
+  addStar(palaces, 0, '天府');
+  const verified = detectPatterns({ palaces })[0];
+
+  const conflicting = buildPatternAnalysis({
+    patterns: [{ ...verified, key: 'manual-shadow-key' }],
+    palaces,
+  });
+  assert.equal(conflicting.summaryFact.matchedPatternCount, 0);
+
+  const skipped = buildPatternAnalysis({ patterns: [verified], palaces, skipped: true });
   assert.equal(skipped.status, '未生成');
   assert.equal(skipped.summaryFact.evaluatedRuleCount, 0);
-  assert.equal(skipped.summaryFact.unevaluatedRuleCount, skipped.summaryFact.registeredRuleCount);
-  assert.match(skipped.promptText, /明确跳过格局规则评估/);
-});
-
-test('紫微格局：按实际地支和昼夜判断月朗天门和日照雷门，不依赖宫位数字索引', () => {
-  const yueLang = detectPatterns({ palaces: createPalaces('亥', [star('太阴')]) });
-  const yueLangPattern = yueLang.find((item) => item.name === '月朗天门');
-  assert.ok(yueLangPattern);
-  assert.ok(yueLangPattern.matched_conditions?.some((item) => item.includes('实际命中宫位')));
-  assert.match(yueLangPattern.source || '', /传统紫微格局规则/);
-  assert.match(yueLangPattern.calculation || '', /逐项核对/);
-  assert.ok(yueLangPattern.limitations?.some((item) => item.includes('不证明传统释义必然发生')));
-  assert.doesNotMatch(yueLangPattern.description, /主清贵|主富贵|主灾/);
-
-  const wrongYueLang = detectPatterns({ palaces: createPalaces('丑', [star('太阴')]) });
-  assert.equal(
-    wrongYueLang.some((item) => item.name === '月朗天门'),
-    false,
-  );
-
-  const riZhaoMao = detectPatterns({
-    palaces: createPalaces('卯', [star('太阳')]),
-    birthTimeLabel: '午时',
-  });
-  assert.ok(riZhaoMao.some((item) => item.name === '日照雷门'));
-
-  const riZhaoChen = detectPatterns({
-    palaces: createPalaces('辰', [star('太阳')]),
-    birthTimeLabel: '卯时',
-  });
-  assert.ok(riZhaoChen.some((item) => item.name === '日照雷门'));
-
-  const riZhaoZiByRange = detectPatterns({
-    palaces: createPalaces('子', [star('太阳')]),
-    birthTimeRange: '09:00-10:59',
-  });
-  assert.equal(
-    riZhaoZiByRange.some((item) => item.name === '日照雷门'),
-    false,
-  );
-
-  const nightRiZhao = detectPatterns({
-    palaces: createPalaces('卯', [star('太阳')]),
-    birthTimeLabel: '酉时',
-  });
-  assert.equal(
-    nightRiZhao.some((item) => item.name === '日照雷门'),
-    false,
-  );
-
-  const unknownTimeRiZhao = detectPatterns({ palaces: createPalaces('卯', [star('太阳')]) });
-  assert.equal(
-    unknownTimeRiZhao.some((item) => item.name === '日照雷门'),
-    false,
-  );
-
-  const wrongRiZhao = detectPatterns({
-    palaces: createPalaces('巳', [star('太阳')]),
-    birthTimeLabel: '午时',
-  });
-  assert.equal(
-    wrongRiZhao.some((item) => item.name === '日照雷门'),
-    false,
-  );
-});
-
-test('紫微格局：金灿光辉日出扶桑月生沧海按古籍限定宫位判断', () => {
-  const jinCan = createPalaces('午', [star('太阳')]);
-  jinCan[4].minor_stars.push(star('文昌'));
-  assert.ok(detectPatterns({ palaces: jinCan }).some((item) => item.name === '金灿光辉'));
-
-  const notSingleSun = createPalaces('午', [star('太阳'), star('天梁')]);
-  assert.equal(
-    detectPatterns({ palaces: notSingleSun }).some((item) => item.name === '金灿光辉'),
-    false,
-  );
-
-  const fuSangMing = createPalaces('卯', [star('太阳')]);
-  assert.ok(detectPatterns({ palaces: fuSangMing }).some((item) => item.name === '日出扶桑'));
-
-  const fuSangGuanLu = createPalaces('寅', []);
-  fuSangGuanLu[1].name = '官禄';
-  fuSangGuanLu[1].major_stars.push(star('太阳'));
-  assert.ok(detectPatterns({ palaces: fuSangGuanLu }).some((item) => item.name === '日出扶桑'));
-
-  const wrongFuSangBranch = createPalaces('辰', [star('太阳')]);
-  assert.equal(
-    detectPatterns({ palaces: wrongFuSangBranch }).some((item) => item.name === '日出扶桑'),
-    false,
-  );
-
-  const cangHai = createPalaces('寅', []);
-  cangHai[10].name = '田宅';
-  cangHai[10].major_stars.push(star('太阴'));
-  assert.ok(detectPatterns({ palaces: cangHai }).some((item) => item.name === '月生沧海'));
-
-  const wrongCangHaiBranch = createPalaces('寅', []);
-  wrongCangHaiBranch[9].name = '田宅';
-  wrongCangHaiBranch[9].major_stars.push(star('太阴'));
-  assert.equal(
-    detectPatterns({ palaces: wrongCangHaiBranch }).some((item) => item.name === '月生沧海'),
-    false,
-  );
-});
-
-test('紫微格局：水澄桂萼按太阴子宫守命判断', () => {
-  const shuiChengGuiE = createPalaces('子', [star('太阴')]);
-  assert.ok(detectPatterns({ palaces: shuiChengGuiE }).some((item) => item.name === '水澄桂萼'));
-
-  const wrongBranch = createPalaces('亥', [star('太阴')]);
-  assert.equal(
-    detectPatterns({ palaces: wrongBranch }).some((item) => item.name === '水澄桂萼'),
-    false,
-  );
-});
-
-test('紫微格局：魁钺同行按天魁天钺同守命宫判断', () => {
-  const kuiYueTongXing = createPalaces('辰', [star('天魁'), star('天钺')]);
-  assert.ok(detectPatterns({ palaces: kuiYueTongXing }).some((item) => item.name === '魁钺同行'));
-
-  const kuiYueJiaMing = createPalaces('辰', []);
-  kuiYueJiaMing[1].minor_stars.push(star('天魁'));
-  kuiYueJiaMing[3].minor_stars.push(star('天钺'));
-  assert.equal(
-    detectPatterns({ palaces: kuiYueJiaMing }).some((item) => item.name === '魁钺同行'),
-    false,
-  );
-});
-
-test('紫微格局：天梁居午按天梁午宫守命判断', () => {
-  const tianLiangJuWu = createPalaces('午', [star('天梁')]);
-  assert.ok(detectPatterns({ palaces: tianLiangJuWu }).some((item) => item.name === '天梁居午'));
-
-  const wrongBranch = createPalaces('子', [star('天梁')]);
-  assert.equal(
-    detectPatterns({ palaces: wrongBranch }).some((item) => item.name === '天梁居午'),
-    false,
-  );
-});
-
-test('紫微格局：玉袖天香按文昌文曲同居福德宫判断', () => {
-  const yuXiuTianXiang = createPalaces('寅', []);
-  yuXiuTianXiang[4].name = '福德';
-  yuXiuTianXiang[4].minor_stars.push(star('文昌'), star('文曲'));
-  assert.ok(detectPatterns({ palaces: yuXiuTianXiang }).some((item) => item.name === '玉袖天香'));
-
-  const missingWenQu = createPalaces('寅', []);
-  missingWenQu[4].name = '福德';
-  missingWenQu[4].minor_stars.push(star('文昌'));
-  assert.equal(
-    detectPatterns({ palaces: missingWenQu }).some((item) => item.name === '玉袖天香'),
-    false,
-  );
-
-  const changQuInMing = createPalaces('寅', [star('文昌'), star('文曲')]);
-  assert.equal(
-    detectPatterns({ palaces: changQuInMing }).some((item) => item.name === '玉袖天香'),
-    false,
-  );
-});
-
-test('紫微格局：皇殿朝班按太阳文昌同居官禄宫判断', () => {
-  const huangDianChaoBan = createPalaces('寅', []);
-  huangDianChaoBan[4].name = '官禄';
-  huangDianChaoBan[4].major_stars.push(star('太阳'));
-  huangDianChaoBan[4].minor_stars.push(star('文昌'));
-  assert.ok(detectPatterns({ palaces: huangDianChaoBan }).some((item) => item.name === '皇殿朝班'));
-
-  const missingWenChang = createPalaces('寅', []);
-  missingWenChang[4].name = '官禄';
-  missingWenChang[4].major_stars.push(star('太阳'));
-  assert.equal(
-    detectPatterns({ palaces: missingWenChang }).some((item) => item.name === '皇殿朝班'),
-    false,
-  );
-
-  const inMing = createPalaces('寅', [star('太阳'), star('文昌')]);
-  assert.equal(
-    detectPatterns({ palaces: inMing }).some((item) => item.name === '皇殿朝班'),
-    false,
-  );
-});
-
-test('紫微格局：财居财位按武曲守财帛且不坐空亡判断', () => {
-  const caiJuCaiWei = createPalaces('寅', []);
-  caiJuCaiWei[4].name = '财帛';
-  caiJuCaiWei[4].major_stars.push(star('武曲'));
-  assert.ok(detectPatterns({ palaces: caiJuCaiWei }).some((item) => item.name === '财居财位'));
-
-  const wuQuInMing = createPalaces('寅', [star('武曲')]);
-  assert.equal(
-    detectPatterns({ palaces: wuQuInMing }).some((item) => item.name === '财居财位'),
-    false,
-  );
-
-  const sitsVoid = createPalaces('寅', []);
-  sitsVoid[4].name = '财帛';
-  sitsVoid[4].major_stars.push(star('武曲'));
-  sitsVoid[4].other_stars.push(star('空亡'));
-  assert.equal(
-    detectPatterns({ palaces: sitsVoid }).some((item) => item.name === '财居财位'),
-    false,
-  );
-});
-
-test('紫微格局：左辅文昌按左辅文昌同守命宫判断', () => {
-  const zuoFuWenChang = createPalaces('寅', [star('左辅'), star('文昌')]);
-  assert.ok(detectPatterns({ palaces: zuoFuWenChang }).some((item) => item.name === '左辅文昌'));
-
-  const separated = createPalaces('寅', [star('左辅')]);
-  separated[4].minor_stars.push(star('文昌'));
-  assert.equal(
-    detectPatterns({ palaces: separated }).some((item) => item.name === '左辅文昌'),
-    false,
-  );
-});
-
-test('紫微格局：文昌武曲按文昌武曲同在命宫或身宫判断', () => {
-  const mingWenChangWuQu = createPalaces('寅', [star('文昌'), star('武曲')]);
-  assert.ok(detectPatterns({ palaces: mingWenChangWuQu }).some((item) => item.name === '文昌武曲'));
-
-  const shenWenChangWuQu = createPalaces('寅', []);
-  shenWenChangWuQu[4].is_body_palace = true;
-  shenWenChangWuQu[4].major_stars.push(star('文昌'), star('武曲'));
-  assert.ok(detectPatterns({ palaces: shenWenChangWuQu }).some((item) => item.name === '文昌武曲'));
-
-  const separated = createPalaces('寅', [star('文昌')]);
-  separated[4].major_stars.push(star('武曲'));
-  assert.equal(
-    detectPatterns({ palaces: separated }).some((item) => item.name === '文昌武曲'),
-    false,
-  );
-});
-
-test('紫微格局：蟾宫折桂按太阴同昌曲居夫妻宫判断', () => {
-  const wenQuInSpouse = createPalaces('寅', []);
-  wenQuInSpouse[4].name = '夫妻';
-  wenQuInSpouse[4].major_stars.push(star('太阴'));
-  wenQuInSpouse[4].minor_stars.push(star('文曲'));
-  assert.ok(detectPatterns({ palaces: wenQuInSpouse }).some((item) => item.name === '蟾宫折桂'));
-
-  const wenChangInSpouse = createPalaces('寅', []);
-  wenChangInSpouse[4].name = '夫妻';
-  wenChangInSpouse[4].major_stars.push(star('太阴'));
-  wenChangInSpouse[4].minor_stars.push(star('文昌'));
-  assert.ok(detectPatterns({ palaces: wenChangInSpouse }).some((item) => item.name === '蟾宫折桂'));
-
-  const inMing = createPalaces('寅', [star('太阴'), star('文曲')]);
-  assert.equal(
-    detectPatterns({ palaces: inMing }).some((item) => item.name === '蟾宫折桂'),
-    false,
-  );
-
-  const missingTaiYin = createPalaces('寅', []);
-  missingTaiYin[4].name = '夫妻';
-  missingTaiYin[4].minor_stars.push(star('文曲'));
-  assert.equal(
-    detectPatterns({ palaces: missingTaiYin }).some((item) => item.name === '蟾宫折桂'),
-    false,
-  );
-});
-
-test('紫微格局：泛水桃花按贪狼遇羊陀居亥子命宫判断', () => {
-  const yangAtHai = createPalaces('亥', [star('贪狼'), star('擎羊')]);
-  assert.ok(detectPatterns({ palaces: yangAtHai }).some((item) => item.name === '泛水桃花'));
-
-  const tuoAtZi = createPalaces('子', [star('贪狼'), star('陀罗')]);
-  assert.ok(detectPatterns({ palaces: tuoAtZi }).some((item) => item.name === '泛水桃花'));
-
-  const wrongBranch = createPalaces('寅', [star('贪狼'), star('擎羊')]);
-  assert.equal(
-    detectPatterns({ palaces: wrongBranch }).some((item) => item.name === '泛水桃花'),
-    false,
-  );
-
-  const missingSha = createPalaces('亥', [star('贪狼')]);
-  assert.equal(
-    detectPatterns({ palaces: missingSha }).some((item) => item.name === '泛水桃花'),
-    false,
-  );
-});
-
-test('紫微格局：廉杀巳亥按廉贞七杀同守巳亥命宫判断', () => {
-  const lianShaAtSi = createPalaces('巳', [star('廉贞'), star('七杀')]);
-  assert.ok(detectPatterns({ palaces: lianShaAtSi }).some((item) => item.name === '廉杀巳亥'));
-
-  const wrongBranch = createPalaces('申', [star('廉贞'), star('七杀')]);
-  assert.equal(
-    detectPatterns({ palaces: wrongBranch }).some((item) => item.name === '廉杀巳亥'),
-    false,
-  );
-
-  const miaoWang = createPalaces('巳', [
-    { ...star('廉贞'), brightness: '庙' },
-    { ...star('七杀'), brightness: '旺' },
-  ]);
-  assert.equal(
-    detectPatterns({ palaces: miaoWang }).some((item) => item.name === '廉杀巳亥'),
-    false,
-  );
-});
-
-test('紫微格局：曲遇梁星按天梁文曲同守命宫且庙旺判断', () => {
-  const quYuLiang = createPalaces('寅', [
-    { ...star('天梁'), brightness: '庙' },
-    { ...star('文曲'), brightness: '旺' },
-  ]);
-  assert.ok(detectPatterns({ palaces: quYuLiang }).some((item) => item.name === '曲遇梁星'));
-
-  const missingBrightness = createPalaces('寅', [star('天梁'), star('文曲')]);
-  assert.equal(
-    detectPatterns({ palaces: missingBrightness }).some((item) => item.name === '曲遇梁星'),
-    false,
-  );
-
-  const wenChangInstead = createPalaces('寅', [
-    { ...star('天梁'), brightness: '庙' },
-    { ...star('文昌'), brightness: '旺' },
-  ]);
-  assert.equal(
-    detectPatterns({ palaces: wenChangInstead }).some((item) => item.name === '曲遇梁星'),
-    false,
-  );
-});
-
-test('紫微格局：机月同梁只按寅申命宫三方四正判断', () => {
-  const jiYueYin = createPalaces('寅', [star('天同')]);
-  jiYueYin[4].major_stars.push(star('天机'));
-  jiYueYin[6].major_stars.push(star('太阴'));
-  jiYueYin[8].major_stars.push(star('天梁'));
-  assert.ok(detectPatterns({ palaces: jiYueYin }).some((item) => item.name === '机月同梁'));
-
-  const jiYueShen = createPalaces('申', [star('太阴')]);
-  jiYueShen[0].major_stars.push(star('天机'));
-  jiYueShen[2].major_stars.push(star('天同'));
-  jiYueShen[10].major_stars.push(star('天梁'));
-  assert.ok(detectPatterns({ palaces: jiYueShen }).some((item) => item.name === '机月同梁'));
-
-  const jiYueWrongBranch = createPalaces('辰', [star('天同')]);
-  jiYueWrongBranch[6].major_stars.push(star('太阴'));
-  jiYueWrongBranch[8].major_stars.push(star('天机'));
-  jiYueWrongBranch[10].major_stars.push(star('天梁'));
-  assert.equal(
-    detectPatterns({ palaces: jiYueWrongBranch }).some((item) => item.name === '机月同梁'),
-    false,
-  );
-});
-
-test('紫微格局：禄马交驰只按禄存与天马判断，不用化禄代替禄存', () => {
-  const onlyHuaLuAndMa = createPalaces('寅', [star('天机', '禄')]);
-  onlyHuaLuAndMa[4].minor_stars.push(star('天马'));
-  assert.equal(
-    detectPatterns({ palaces: onlyHuaLuAndMa }).some((item) => item.name === '禄马交驰'),
-    false,
-  );
-
-  const luCunAndMa = createPalaces('寅', []);
-  luCunAndMa[4].minor_stars.push(star('禄存'));
-  luCunAndMa[6].minor_stars.push(star('天马'));
-  assert.ok(detectPatterns({ palaces: luCunAndMa }).some((item) => item.name === '禄马交驰'));
-});
-
-test('紫微格局：财禄夹马按天马守命武曲禄存前后夹命判断', () => {
-  const caiLuJiaMa = createPalaces('丑', [star('天马')]);
-  caiLuJiaMa[10].major_stars.push(star('武曲'));
-  caiLuJiaMa[0].minor_stars.push(star('禄存'));
-  assert.ok(detectPatterns({ palaces: caiLuJiaMa }).some((item) => item.name === '财禄夹马'));
-
-  const caiLuReverse = createPalaces('丑', [star('天马')]);
-  caiLuReverse[10].minor_stars.push(star('禄存'));
-  caiLuReverse[0].major_stars.push(star('武曲'));
-  assert.ok(detectPatterns({ palaces: caiLuReverse }).some((item) => item.name === '财禄夹马'));
-
-  const caiLuSameSide = createPalaces('丑', [star('天马')]);
-  caiLuSameSide[0].major_stars.push(star('武曲'));
-  caiLuSameSide[0].minor_stars.push(star('禄存'));
-  assert.equal(
-    detectPatterns({ palaces: caiLuSameSide }).some((item) => item.name === '财禄夹马'),
-    false,
-  );
-});
-
-test('紫微格局：阳梁昌禄只按禄存判断，不用化禄代替禄存', () => {
-  const onlyHuaLu = createPalaces('寅', [star('天机', '禄')]);
-  onlyHuaLu[4].major_stars.push(star('太阳'));
-  onlyHuaLu[6].major_stars.push(star('天梁'));
-  onlyHuaLu[8].minor_stars.push(star('文昌'));
-  assert.equal(
-    detectPatterns({ palaces: onlyHuaLu }).some((item) => item.name === '阳梁昌禄'),
-    false,
-  );
-
-  const withLuCun = createPalaces('寅', []);
-  withLuCun[4].major_stars.push(star('太阳'));
-  withLuCun[6].major_stars.push(star('天梁'));
-  withLuCun[8].minor_stars.push(star('文昌'));
-  withLuCun[8].minor_stars.push(star('禄存'));
-  assert.ok(detectPatterns({ palaces: withLuCun }).some((item) => item.name === '阳梁昌禄'));
-});
-
-test('紫微格局：财荫夹印按天相坐命田宅一侧天梁另一侧巨门宫见禄判断', () => {
-  // 天相坐命，一邻宫天梁（荫），另一邻宫（巨门宫）见禄存（财）
-  const mingJiaYin = createPalaces('寅', [star('天相')]);
-  mingJiaYin[11].major_stars.push(star('巨门'), star('禄存'));
-  mingJiaYin[1].major_stars.push(star('天梁'));
-  assert.ok(detectPatterns({ palaces: mingJiaYin }).some((item) => item.name === '财荫夹印'));
-
-  // 巨门宫改以生年化禄夹拱亦成格
-  const mingHuaLu = createPalaces('寅', [star('天相')]);
-  mingHuaLu[11].major_stars.push(star('巨门', '禄'));
-  mingHuaLu[1].major_stars.push(star('天梁'));
-  assert.ok(detectPatterns({ palaces: mingHuaLu }).some((item) => item.name === '财荫夹印'));
-
-  // 田宅宫天相同理成格
-  const tianZhaiJiaYin = createPalaces('寅', []);
-  tianZhaiJiaYin[4].name = '田宅';
-  tianZhaiJiaYin[4].major_stars.push(star('天相'));
-  tianZhaiJiaYin[3].major_stars.push(star('天梁'));
-  tianZhaiJiaYin[5].major_stars.push(star('巨门'), star('禄存'));
-  assert.ok(detectPatterns({ palaces: tianZhaiJiaYin }).some((item) => item.name === '财荫夹印'));
-
-  // 巨门宫无禄星（无财）不成格
-  const noCai = createPalaces('寅', [star('天相')]);
-  noCai[11].major_stars.push(star('巨门'));
-  noCai[1].major_stars.push(star('天梁'));
-  assert.equal(
-    detectPatterns({ palaces: noCai }).some((item) => item.name === '财荫夹印'),
-    false,
-  );
-});
-
-test('紫微格局：日月夹财按武曲守命宫或财帛宫日月前后夹判断', () => {
-  const mingJiaCai = createPalaces('丑', [star('武曲')]);
-  mingJiaCai[10].major_stars.push(star('太阳'));
-  mingJiaCai[0].major_stars.push(star('太阴'));
-  assert.ok(detectPatterns({ palaces: mingJiaCai }).some((item) => item.name === '日月夹财'));
-
-  const caiBoJiaCai = createPalaces('寅', []);
-  caiBoJiaCai[4].name = '财帛';
-  caiBoJiaCai[4].major_stars.push(star('天府'));
-  caiBoJiaCai[3].major_stars.push(star('太阴'));
-  caiBoJiaCai[5].major_stars.push(star('太阳'));
-  assert.ok(detectPatterns({ palaces: caiBoJiaCai }).some((item) => item.name === '日月夹财'));
-
-  const sameSideSunMoon = createPalaces('丑', [star('武曲')]);
-  sameSideSunMoon[0].major_stars.push(star('太阳'), star('太阴'));
-  assert.equal(
-    detectPatterns({ palaces: sameSideSunMoon }).some((item) => item.name === '日月夹财'),
-    false,
-  );
-});
-
-test('紫微格局：日月夹命按日月前后夹命且命宫有吉不坐空亡判断', () => {
-  const riYueJiaMing = createPalaces('丑', [star('禄存')]);
-  riYueJiaMing[10].major_stars.push(star('太阳'));
-  riYueJiaMing[0].major_stars.push(star('太阴'));
-  assert.ok(detectPatterns({ palaces: riYueJiaMing }).some((item) => item.name === '日月夹命'));
-
-  const noJiXing = createPalaces('丑', []);
-  noJiXing[10].major_stars.push(star('太阳'));
-  noJiXing[0].major_stars.push(star('太阴'));
-  assert.equal(
-    detectPatterns({ palaces: noJiXing }).some((item) => item.name === '日月夹命'),
-    false,
-  );
-
-  const mingSitsVoid = createPalaces('丑', [star('天魁')]);
-  mingSitsVoid[10].major_stars.push(star('太阳'));
-  mingSitsVoid[0].major_stars.push(star('太阴'));
-  mingSitsVoid[11].other_stars.push(star('空亡'));
-  assert.equal(
-    detectPatterns({ palaces: mingSitsVoid }).some((item) => item.name === '日月夹命'),
-    false,
-  );
-
-  const sameSideSunMoon = createPalaces('丑', [star('天魁')]);
-  sameSideSunMoon[0].major_stars.push(star('太阳'), star('太阴'));
-  assert.equal(
-    detectPatterns({ palaces: sameSideSunMoon }).some((item) => item.name === '日月夹命'),
-    false,
-  );
-});
-
-test('紫微格局：日月照璧按太阳太阴同临田宅宫判断', () => {
-  const riYueZhaoBi = createPalaces('寅', []);
-  riYueZhaoBi[11].name = '田宅';
-  riYueZhaoBi[11].major_stars.push(star('太阳'), star('太阴'));
-  assert.ok(detectPatterns({ palaces: riYueZhaoBi }).some((item) => item.name === '日月照璧'));
-
-  const onlySunInTianZhai = createPalaces('寅', []);
-  onlySunInTianZhai[11].name = '田宅';
-  onlySunInTianZhai[11].major_stars.push(star('太阳'));
-  assert.equal(
-    detectPatterns({ palaces: onlySunInTianZhai }).some((item) => item.name === '日月照璧'),
-    false,
-  );
-
-  const sunMoonInOtherPalace = createPalaces('寅', [star('太阳'), star('太阴')]);
-  assert.equal(
-    detectPatterns({ palaces: sunMoonInOtherPalace }).some((item) => item.name === '日月照璧'),
-    false,
-  );
-});
-
-test('紫微格局：荫印拱身按身宫临田宅且梁相拱冲、不坐空亡判断', () => {
-  const yinYinGongShen = createPalaces('寅', []);
-  yinYinGongShen[4].name = '田宅';
-  yinYinGongShen[4].is_body_palace = true;
-  yinYinGongShen[8].major_stars.push(star('天梁'));
-  yinYinGongShen[10].major_stars.push(star('天相'));
-  assert.ok(detectPatterns({ palaces: yinYinGongShen }).some((item) => item.name === '荫印拱身'));
-
-  const bodyNotTianZhai = createPalaces('寅', []);
-  bodyNotTianZhai[4].is_body_palace = true;
-  bodyNotTianZhai[8].major_stars.push(star('天梁'));
-  bodyNotTianZhai[10].major_stars.push(star('天相'));
-  assert.equal(
-    detectPatterns({ palaces: bodyNotTianZhai }).some((item) => item.name === '荫印拱身'),
-    false,
-  );
-
-  const shenSitsVoid = createPalaces('寅', []);
-  shenSitsVoid[4].name = '田宅';
-  shenSitsVoid[4].is_body_palace = true;
-  shenSitsVoid[4].other_stars.push(star('空亡'));
-  shenSitsVoid[8].major_stars.push(star('天梁'));
-  shenSitsVoid[10].major_stars.push(star('天相'));
-  assert.equal(
-    detectPatterns({ palaces: shenSitsVoid }).some((item) => item.name === '荫印拱身'),
-    false,
-  );
-});
-
-test('紫微格局：财印夹禄按禄存守命宫或财帛宫武相前后夹判断', () => {
-  const mingJiaLu = createPalaces('丑', [star('禄存')]);
-  mingJiaLu[10].major_stars.push(star('武曲'));
-  mingJiaLu[0].major_stars.push(star('天相'));
-  assert.ok(detectPatterns({ palaces: mingJiaLu }).some((item) => item.name === '财印夹禄'));
-
-  const caiBoJiaLu = createPalaces('寅', []);
-  caiBoJiaLu[4].name = '财帛';
-  caiBoJiaLu[4].minor_stars.push(star('禄存'));
-  caiBoJiaLu[3].major_stars.push(star('天相'));
-  caiBoJiaLu[5].major_stars.push(star('武曲'));
-  assert.ok(detectPatterns({ palaces: caiBoJiaLu }).some((item) => item.name === '财印夹禄'));
-
-  const sameSideWuXiang = createPalaces('丑', [star('禄存')]);
-  sameSideWuXiang[0].major_stars.push(star('武曲'), star('天相'));
-  assert.equal(
-    detectPatterns({ palaces: sameSideWuXiang }).some((item) => item.name === '财印夹禄'),
-    false,
-  );
-
-  // 天梁天相夹禄不再成格（天梁天相恒相邻、无法夹宫，非通行口径）
-  const liangXiangInstead = createPalaces('丑', [star('禄存')]);
-  liangXiangInstead[10].major_stars.push(star('天梁'));
-  liangXiangInstead[0].major_stars.push(star('天相'));
-  assert.equal(
-    detectPatterns({ palaces: liangXiangInstead }).some((item) => item.name === '财印夹禄'),
-    false,
-  );
-});
-
-test('紫微格局：对面朝斗按子午命宫逢禄存判断', () => {
-  const ziLuCun = createPalaces('子', [star('禄存')]);
-  assert.ok(detectPatterns({ palaces: ziLuCun }).some((item) => item.name === '对面朝斗'));
-
-  const wuLuCun = createPalaces('午', [star('禄存')]);
-  assert.ok(detectPatterns({ palaces: wuLuCun }).some((item) => item.name === '对面朝斗'));
-
-  const maoLuCun = createPalaces('卯', [star('禄存')]);
-  assert.equal(
-    detectPatterns({ palaces: maoLuCun }).some((item) => item.name === '对面朝斗'),
-    false,
-  );
-
-  const ziWithoutLuCun = createPalaces('子', []);
-  assert.equal(
-    detectPatterns({ palaces: ziWithoutLuCun }).some((item) => item.name === '对面朝斗'),
-    false,
-  );
-});
-
-test('紫微格局：兼文武按文曲武曲同在命宫或身宫判断', () => {
-  const mingWenWu = createPalaces('寅', [star('武曲'), star('文曲')]);
-  assert.ok(detectPatterns({ palaces: mingWenWu }).some((item) => item.name === '兼文武'));
-
-  const shenWenWu = createPalaces('寅', []);
-  shenWenWu[3].is_body_palace = true;
-  shenWenWu[3].major_stars.push(star('武曲'));
-  shenWenWu[3].minor_stars.push(star('文曲'));
-  assert.ok(detectPatterns({ palaces: shenWenWu }).some((item) => item.name === '兼文武'));
-
-  const separatedWenWu = createPalaces('寅', [star('武曲')]);
-  separatedWenWu[3].is_body_palace = true;
-  separatedWenWu[3].minor_stars.push(star('文曲'));
-  assert.equal(
-    detectPatterns({ palaces: separatedWenWu }).some((item) => item.name === '兼文武'),
-    false,
-  );
-});
-
-test('紫微格局：禄马佩印按马前禄存天相同宫判断', () => {
-  const luMaPeiYin = createPalaces('寅', []);
-  luMaPeiYin[4].minor_stars.push(star('天马'));
-  luMaPeiYin[5].minor_stars.push(star('禄存'));
-  luMaPeiYin[5].major_stars.push(star('天相'));
-  assert.ok(detectPatterns({ palaces: luMaPeiYin }).some((item) => item.name === '禄马佩印'));
-
-  const luYinBehindMa = createPalaces('寅', []);
-  luYinBehindMa[4].minor_stars.push(star('天马'));
-  luYinBehindMa[3].minor_stars.push(star('禄存'));
-  luYinBehindMa[3].major_stars.push(star('天相'));
-  assert.equal(
-    detectPatterns({ palaces: luYinBehindMa }).some((item) => item.name === '禄马佩印'),
-    false,
-  );
-
-  const luYinNotSamePalace = createPalaces('寅', []);
-  luYinNotSamePalace[4].minor_stars.push(star('天马'));
-  luYinNotSamePalace[5].minor_stars.push(star('禄存'));
-  luYinNotSamePalace[6].major_stars.push(star('天相'));
-  assert.equal(
-    detectPatterns({ palaces: luYinNotSamePalace }).some((item) => item.name === '禄马佩印'),
-    false,
-  );
-});
-
-test('紫微格局：贪火相逢按火星贪狼同守命宫且同居庙旺判断', () => {
-  const tanHuoMiaoWang = createPalaces('寅', [
-    { ...star('贪狼'), brightness: '庙' },
-    { ...star('火星'), brightness: '旺' },
-  ]);
-  assert.ok(detectPatterns({ palaces: tanHuoMiaoWang }).some((item) => item.name === '贪火相逢'));
-
-  const huoTanSanFang = createPalaces('寅', []);
-  huoTanSanFang[4].major_stars.push({ ...star('贪狼'), brightness: '庙' });
-  huoTanSanFang[4].minor_stars.push({ ...star('火星'), brightness: '旺' });
-  assert.equal(
-    detectPatterns({ palaces: huoTanSanFang }).some((item) => item.name === '贪火相逢'),
-    false,
-  );
-
-  const tanHuoXian = createPalaces('寅', [
-    { ...star('贪狼'), brightness: '庙' },
-    { ...star('火星'), brightness: '陷' },
-  ]);
-  assert.equal(
-    detectPatterns({ palaces: tanHuoXian }).some((item) => item.name === '贪火相逢'),
-    false,
-  );
-});
-
-test('紫微格局：权禄生逢按生年化权化禄同守命宫且庙旺判断', () => {
-  const quanLuMiaoWang = createPalaces('寅', [
-    { ...star('天机', '禄'), brightness: '庙' },
-    { ...star('武曲', '权'), brightness: '旺' },
-  ]);
-  assert.ok(detectPatterns({ palaces: quanLuMiaoWang }).some((item) => item.name === '权禄生逢'));
-
-  const quanLuSanFang = createPalaces('寅', [{ ...star('天机', '禄'), brightness: '庙' }]);
-  quanLuSanFang[4].major_stars.push({ ...star('武曲', '权'), brightness: '旺' });
-  assert.equal(
-    detectPatterns({ palaces: quanLuSanFang }).some((item) => item.name === '权禄生逢'),
-    false,
-  );
-
-  const quanLuXian = createPalaces('寅', [
-    { ...star('天机', '禄'), brightness: '庙' },
-    { ...star('武曲', '权'), brightness: '陷' },
-  ]);
-  assert.equal(
-    detectPatterns({ palaces: quanLuXian }).some((item) => item.name === '权禄生逢'),
-    false,
-  );
-});
-
-test('紫微格局：羊刃入庙按辰戌丑未命宫擎羊遇吉判断', () => {
-  const yangRenRuMiao = createPalaces('辰', [star('擎羊'), star('天魁')]);
-  assert.ok(detectPatterns({ palaces: yangRenRuMiao }).some((item) => item.name === '羊刃入庙'));
-
-  const yangRenWithHuaKe = createPalaces('戌', [star('擎羊'), star('文昌', '科')]);
-  assert.ok(detectPatterns({ palaces: yangRenWithHuaKe }).some((item) => item.name === '羊刃入庙'));
-
-  const yangRenNoJi = createPalaces('辰', [star('擎羊')]);
-  assert.equal(
-    detectPatterns({ palaces: yangRenNoJi }).some((item) => item.name === '羊刃入庙'),
-    false,
-  );
-
-  const yangRenWrongBranch = createPalaces('子', [star('擎羊'), star('天魁')]);
-  assert.equal(
-    detectPatterns({ palaces: yangRenWrongBranch }).some((item) => item.name === '羊刃入庙'),
-    false,
-  );
-});
-
-test('紫微格局：左右夹命按左辅右弼前后夹命判断', () => {
-  const zuoYouJiaMing = createPalaces('辰', []);
-  zuoYouJiaMing[1].minor_stars.push(star('左辅'));
-  zuoYouJiaMing[3].minor_stars.push(star('右弼'));
-  assert.ok(detectPatterns({ palaces: zuoYouJiaMing }).some((item) => item.name === '左右夹命'));
-
-  const zuoYouReverse = createPalaces('辰', []);
-  zuoYouReverse[1].minor_stars.push(star('右弼'));
-  zuoYouReverse[3].minor_stars.push(star('左辅'));
-  assert.ok(detectPatterns({ palaces: zuoYouReverse }).some((item) => item.name === '左右夹命'));
-
-  const zuoYouSameSide = createPalaces('辰', []);
-  zuoYouSameSide[1].minor_stars.push(star('左辅'), star('右弼'));
-  assert.equal(
-    detectPatterns({ palaces: zuoYouSameSide }).some((item) => item.name === '左右夹命'),
-    false,
-  );
-});
-
-test('紫微格局：仰面朝斗按紫微子午守命且科权禄三方照判断', () => {
-  const yangMianChaoDou = createPalaces('子', [star('紫微')]);
-  yangMianChaoDou[2].major_stars.push(star('武曲', '科'));
-  yangMianChaoDou[4].major_stars.push(star('天机', '禄'));
-  yangMianChaoDou[6].major_stars.push(star('太阳', '权'));
-  assert.ok(detectPatterns({ palaces: yangMianChaoDou }).some((item) => item.name === '仰面朝斗'));
-
-  const noZiWei = createPalaces('子', []);
-  noZiWei[2].major_stars.push(star('武曲', '科'));
-  noZiWei[4].major_stars.push(star('天机', '禄'));
-  noZiWei[6].major_stars.push(star('太阳', '权'));
-  assert.equal(
-    detectPatterns({ palaces: noZiWei }).some((item) => item.name === '仰面朝斗'),
-    false,
-  );
-
-  const wrongBranch = createPalaces('卯', [star('紫微')]);
-  wrongBranch[0].major_stars.push(star('武曲', '科'));
-  wrongBranch[4].major_stars.push(star('天机', '禄'));
-  wrongBranch[8].major_stars.push(star('太阳', '权'));
-  assert.equal(
-    detectPatterns({ palaces: wrongBranch }).some((item) => item.name === '仰面朝斗'),
-    false,
-  );
-
-  const missingHuaKe = createPalaces('午', [star('紫微')]);
-  missingHuaKe[0].major_stars.push(star('天机', '禄'));
-  missingHuaKe[2].major_stars.push(star('太阳', '权'));
-  assert.equal(
-    detectPatterns({ palaces: missingHuaKe }).some((item) => item.name === '仰面朝斗'),
-    false,
-  );
-});
-
-test('紫微格局：紫禄同宫按紫微禄存同守命且日月三方照判断', () => {
-  const ziLuTongGong = createPalaces('寅', [star('紫微'), star('禄存')]);
-  ziLuTongGong[4].major_stars.push(star('太阳'));
-  ziLuTongGong[8].major_stars.push(star('太阴'));
-  assert.ok(detectPatterns({ palaces: ziLuTongGong }).some((item) => item.name === '紫禄同宫'));
-
-  const noSunMoon = createPalaces('寅', [star('紫微'), star('禄存')]);
-  assert.equal(
-    detectPatterns({ palaces: noSunMoon }).some((item) => item.name === '紫禄同宫'),
-    false,
-  );
-
-  const noLuCun = createPalaces('寅', [star('紫微')]);
-  noLuCun[4].major_stars.push(star('太阳'));
-  noLuCun[8].major_stars.push(star('太阴'));
-  assert.equal(
-    detectPatterns({ palaces: noLuCun }).some((item) => item.name === '紫禄同宫'),
-    false,
-  );
-
-  const sunMoonOutsideSanFang = createPalaces('寅', [star('紫微'), star('禄存')]);
-  sunMoonOutsideSanFang[1].major_stars.push(star('太阳'));
-  sunMoonOutsideSanFang[3].major_stars.push(star('太阴'));
-  assert.equal(
-    detectPatterns({ palaces: sunMoonOutsideSanFang }).some((item) => item.name === '紫禄同宫'),
-    false,
-  );
-});
-
-test('紫微格局：巨机居卯按天机巨门同守卯宫命判断', () => {
-  const juJiJuMao = createPalaces('卯', [star('天机'), star('巨门')]);
-  assert.ok(detectPatterns({ palaces: juJiJuMao }).some((item) => item.name === '巨机居卯'));
-
-  const wrongBranch = createPalaces('辰', [star('天机'), star('巨门')]);
-  assert.equal(
-    detectPatterns({ palaces: wrongBranch }).some((item) => item.name === '巨机居卯'),
-    false,
-  );
-
-  const yangRenBreaks = createPalaces('卯', [star('天机'), star('巨门'), star('擎羊')]);
-  assert.equal(
-    detectPatterns({ palaces: yangRenBreaks }).some((item) => item.name === '巨机居卯'),
-    false,
-  );
-});
-
-test('紫微格局：左右朝垣按左辅右弼三方四正朝命判断', () => {
-  const zuoYouChaoYuan = createPalaces('辰', []);
-  zuoYouChaoYuan[6].minor_stars.push(star('左辅'));
-  zuoYouChaoYuan[10].minor_stars.push(star('右弼'));
-  assert.ok(detectPatterns({ palaces: zuoYouChaoYuan }).some((item) => item.name === '左右朝垣'));
-
-  const missingYouBi = createPalaces('辰', []);
-  missingYouBi[6].minor_stars.push(star('左辅'));
-  assert.equal(
-    detectPatterns({ palaces: missingYouBi }).some((item) => item.name === '左右朝垣'),
-    false,
-  );
-
-  const onlyJiaMing = createPalaces('辰', []);
-  onlyJiaMing[1].minor_stars.push(star('左辅'));
-  onlyJiaMing[3].minor_stars.push(star('右弼'));
-  assert.equal(
-    detectPatterns({ palaces: onlyJiaMing }).some((item) => item.name === '左右朝垣'),
-    false,
-  );
-});
-
-test('紫微格局：文星朝命按文昌文曲三方四正朝命判断', () => {
-  const wenXingChaoMing = createPalaces('辰', []);
-  wenXingChaoMing[6].minor_stars.push(star('文昌'));
-  wenXingChaoMing[10].minor_stars.push(star('文曲'));
-  assert.ok(detectPatterns({ palaces: wenXingChaoMing }).some((item) => item.name === '文星朝命'));
-
-  const missingWenQu = createPalaces('辰', []);
-  missingWenQu[6].minor_stars.push(star('文昌'));
-  assert.equal(
-    detectPatterns({ palaces: missingWenQu }).some((item) => item.name === '文星朝命'),
-    false,
-  );
-
-  const onlyJiaMing = createPalaces('辰', []);
-  onlyJiaMing[1].minor_stars.push(star('文昌'));
-  onlyJiaMing[3].minor_stars.push(star('文曲'));
-  assert.equal(
-    detectPatterns({ palaces: onlyJiaMing }).some((item) => item.name === '文星朝命'),
-    false,
-  );
-});
-
-test('紫微格局：紫破加吉按紫微破军四墓守命且同宫有吉判断', () => {
-  const ziPoJiaJi = createPalaces('辰', [star('紫微'), star('破军'), star('天魁')]);
-  assert.ok(detectPatterns({ palaces: ziPoJiaJi }).some((item) => item.name === '紫破加吉'));
-
-  const noJiYao = createPalaces('辰', [star('紫微'), star('破军')]);
-  assert.equal(
-    detectPatterns({ palaces: noJiYao }).some((item) => item.name === '紫破加吉'),
-    false,
-  );
-
-  const wrongBranch = createPalaces('子', [star('紫微'), star('破军'), star('天魁')]);
-  assert.equal(
-    detectPatterns({ palaces: wrongBranch }).some((item) => item.name === '紫破加吉'),
-    false,
-  );
-});
-
-test('紫微格局：破军子午按破军子午守命且三方四正无四杀判断', () => {
-  const poJunZiWu = createPalaces('子', [star('破军')]);
-  assert.ok(detectPatterns({ palaces: poJunZiWu }).some((item) => item.name === '破军子午'));
-
-  const wrongBranch = createPalaces('卯', [star('破军')]);
-  assert.equal(
-    detectPatterns({ palaces: wrongBranch }).some((item) => item.name === '破军子午'),
-    false,
-  );
-
-  const withSha = createPalaces('午', [star('破军')]);
-  withSha[4].minor_stars.push(star('擎羊'));
-  assert.equal(
-    detectPatterns({ palaces: withSha }).some((item) => item.name === '破军子午'),
-    false,
-  );
-});
-
-test('紫微格局：雄宿朝元按廉贞申未守命且同宫无四杀判断', () => {
-  const lianZhenShen = createPalaces('申', [star('廉贞')]);
-  assert.ok(detectPatterns({ palaces: lianZhenShen }).some((item) => item.name === '雄宿朝元'));
-
-  const lianZhenWei = createPalaces('未', [star('廉贞')]);
-  assert.ok(detectPatterns({ palaces: lianZhenWei }).some((item) => item.name === '雄宿朝元'));
-
-  const wrongBranch = createPalaces('亥', [star('廉贞')]);
-  assert.equal(
-    detectPatterns({ palaces: wrongBranch }).some((item) => item.name.includes('雄宿')),
-    false,
-  );
-
-  const withSha = createPalaces('申', [star('廉贞'), star('擎羊')]);
-  assert.equal(
-    detectPatterns({ palaces: withSha }).some((item) => item.name === '雄宿朝元'),
-    false,
-  );
-});
-
-test('紫微格局：机梁加吉按天机天梁同守命且同宫有吉判断', () => {
-  const jiLiangJiaJi = createPalaces('辰', [star('天机'), star('天梁'), star('天魁')]);
-  assert.ok(detectPatterns({ palaces: jiLiangJiaJi }).some((item) => item.name === '机梁加吉'));
-
-  const noJiYao = createPalaces('辰', [star('天机'), star('天梁')]);
-  assert.equal(
-    detectPatterns({ palaces: noJiYao }).some((item) => item.name === '机梁加吉'),
-    false,
-  );
-
-  const withJi = createPalaces('辰', [
-    star('天机'),
-    star('天梁'),
-    star('天魁'),
-    star('廉贞', '忌'),
-  ]);
-  assert.equal(
-    detectPatterns({ palaces: withJi }).some((item) => item.name === '机梁加吉'),
-    false,
-  );
-});
-
-test('紫微格局：梁昌庙旺按天梁文昌同守命且同居庙旺判断', () => {
-  const liangChangMiaoWang = createPalaces('午', [
-    { ...star('天梁'), brightness: '庙' },
-    { ...star('文昌'), brightness: '旺' },
-  ]);
-  assert.ok(
-    detectPatterns({ palaces: liangChangMiaoWang }).some((item) => item.name === '梁昌庙旺'),
-  );
-
-  const wenChangXian = createPalaces('午', [
-    { ...star('天梁'), brightness: '庙' },
-    { ...star('文昌'), brightness: '陷' },
-  ]);
-  assert.equal(
-    detectPatterns({ palaces: wenChangXian }).some((item) => item.name === '梁昌庙旺'),
-    false,
-  );
-});
-
-test('紫微格局：廉杀庙旺按廉贞七杀同守丑未命宫且无生年化忌判断', () => {
-  // 廉贞七杀同宫仅见于丑未，按宫位直接判庙地（该位廉贞亮度仅为「利」）
-  const lianShaWei = createPalaces('未', [star('廉贞'), star('七杀')]);
-  assert.ok(detectPatterns({ palaces: lianShaWei }).some((item) => item.name === '廉杀庙旺'));
-
-  const lianShaChou = createPalaces('丑', [star('廉贞'), star('七杀')]);
-  assert.ok(detectPatterns({ palaces: lianShaChou }).some((item) => item.name === '廉杀庙旺'));
-
-  // 见生年化忌不成积富之格
-  const withHuaJi = createPalaces('未', [star('廉贞', '忌'), star('七杀')]);
-  assert.equal(
-    detectPatterns({ palaces: withHuaJi }).some((item) => item.name === '廉杀庙旺'),
-    false,
-  );
-
-  // 非丑未宫位（真实盘不会出现廉杀同宫于他宫，此处防御性校验）
-  const wrongBranch = createPalaces('申', [star('廉贞'), star('七杀')]);
-  assert.equal(
-    detectPatterns({ palaces: wrongBranch }).some((item) => item.name === '廉杀庙旺'),
-    false,
-  );
-});
-
-test('紫微格局：君臣庆会按紫微左右同守命判断，不用魁钺昌曲替代', () => {
-  const ziWeiZuoYou = createPalaces('寅', [star('紫微'), star('左辅'), star('右弼')]);
-  assert.ok(detectPatterns({ palaces: ziWeiZuoYou }).some((item) => item.name === '君臣庆会'));
-
-  const kuiYueInstead = createPalaces('寅', [star('紫微')]);
-  kuiYueInstead[4].minor_stars.push(star('天魁'));
-  kuiYueInstead[8].minor_stars.push(star('天钺'));
-  assert.equal(
-    detectPatterns({ palaces: kuiYueInstead }).some((item) => item.name === '君臣庆会'),
-    false,
-  );
-
-  const zuoYouGongZhao = createPalaces('寅', [star('紫微')]);
-  zuoYouGongZhao[4].minor_stars.push(star('左辅'));
-  zuoYouGongZhao[8].minor_stars.push(star('右弼'));
-  assert.equal(
-    detectPatterns({ palaces: zuoYouGongZhao }).some((item) => item.name === '君臣庆会'),
-    false,
-  );
-});
-
-test('紫微格局：辅弼拱主按紫微守命左右来拱或夹命判断', () => {
-  const gongZhu = createPalaces('寅', [star('紫微')]);
-  gongZhu[4].minor_stars.push(star('左辅'));
-  gongZhu[8].minor_stars.push(star('右弼'));
-  assert.ok(detectPatterns({ palaces: gongZhu }).some((item) => item.name === '辅弼拱主'));
-
-  const jiaMing = createPalaces('寅', [star('紫微')]);
-  jiaMing[11].minor_stars.push(star('左辅'));
-  jiaMing[1].minor_stars.push(star('右弼'));
-  assert.ok(detectPatterns({ palaces: jiaMing }).some((item) => item.name === '辅弼拱主'));
-
-  const tongShouMing = createPalaces('寅', [star('紫微'), star('左辅'), star('右弼')]);
-  assert.equal(
-    detectPatterns({ palaces: tongShouMing }).some((item) => item.name === '辅弼拱主'),
-    false,
-  );
-
-  const noZiWei = createPalaces('寅', []);
-  noZiWei[4].minor_stars.push(star('左辅'));
-  noZiWei[8].minor_stars.push(star('右弼'));
-  assert.equal(
-    detectPatterns({ palaces: noZiWei }).some((item) => item.name === '辅弼拱主'),
-    false,
-  );
-});
-
-test('紫微格局：魁钺夹命按天魁天钺前后夹命判断', () => {
-  const kuiYueJia = createPalaces('辰', []);
-  kuiYueJia[1].minor_stars.push(star('天魁'));
-  kuiYueJia[3].minor_stars.push(star('天钺'));
-  assert.ok(detectPatterns({ palaces: kuiYueJia }).some((item) => item.name === '魁钺夹命'));
-
-  const kuiYueReverse = createPalaces('辰', []);
-  kuiYueReverse[1].minor_stars.push(star('天钺'));
-  kuiYueReverse[3].minor_stars.push(star('天魁'));
-  assert.ok(detectPatterns({ palaces: kuiYueReverse }).some((item) => item.name === '魁钺夹命'));
-
-  const kuiYueSameSide = createPalaces('辰', []);
-  kuiYueSameSide[1].minor_stars.push(star('天魁'), star('天钺'));
-  assert.equal(
-    detectPatterns({ palaces: kuiYueSameSide }).some((item) => item.name === '魁钺夹命'),
-    false,
-  );
-});
-
-test('紫微格局：昌曲夹命按文昌文曲前后夹命判断', () => {
-  const changQuJia = createPalaces('丑', []);
-  changQuJia[10].minor_stars.push(star('文曲'));
-  changQuJia[0].minor_stars.push(star('文昌'));
-  assert.ok(detectPatterns({ palaces: changQuJia }).some((item) => item.name === '昌曲夹命'));
-
-  const changQuReverse = createPalaces('丑', []);
-  changQuReverse[10].minor_stars.push(star('文昌'));
-  changQuReverse[0].minor_stars.push(star('文曲'));
-  assert.ok(detectPatterns({ palaces: changQuReverse }).some((item) => item.name === '昌曲夹命'));
-
-  const changQuSameSide = createPalaces('丑', []);
-  changQuSameSide[0].minor_stars.push(star('文昌'), star('文曲'));
-  assert.equal(
-    detectPatterns({ palaces: changQuSameSide }).some((item) => item.name === '昌曲夹命'),
-    false,
-  );
-});
-
-test('紫微格局：紫府夹命按紫微天府前后夹命判断', () => {
-  const ziFuJia = createPalaces('丑', []);
-  ziFuJia[10].major_stars.push(star('紫微'));
-  ziFuJia[0].major_stars.push(star('天府'));
-  assert.ok(detectPatterns({ palaces: ziFuJia }).some((item) => item.name === '紫府夹命'));
-
-  const ziFuReverse = createPalaces('丑', []);
-  ziFuReverse[10].major_stars.push(star('天府'));
-  ziFuReverse[0].major_stars.push(star('紫微'));
-  assert.ok(detectPatterns({ palaces: ziFuReverse }).some((item) => item.name === '紫府夹命'));
-
-  const ziFuSameSide = createPalaces('丑', []);
-  ziFuSameSide[0].major_stars.push(star('紫微'), star('天府'));
-  assert.equal(
-    detectPatterns({ palaces: ziFuSameSide }).some((item) => item.name === '紫府夹命'),
-    false,
-  );
-});
-
-test('紫微格局：坐贵向贵按魁钺一坐命一拱照判断', () => {
-  const kuiMingYueXiang = createPalaces('寅', []);
-  kuiMingYueXiang[0].minor_stars.push(star('天魁'));
-  kuiMingYueXiang[6].minor_stars.push(star('天钺'));
-  assert.ok(detectPatterns({ palaces: kuiMingYueXiang }).some((item) => item.name === '坐贵向贵'));
-
-  const yueMingKuiXiang = createPalaces('寅', []);
-  yueMingKuiXiang[0].minor_stars.push(star('天钺'));
-  yueMingKuiXiang[6].minor_stars.push(star('天魁'));
-  assert.ok(detectPatterns({ palaces: yueMingKuiXiang }).some((item) => item.name === '坐贵向贵'));
-
-  const kuiYueSanFang = createPalaces('寅', []);
-  kuiYueSanFang[0].minor_stars.push(star('天魁'));
-  kuiYueSanFang[4].minor_stars.push(star('天钺'));
-  assert.equal(
-    detectPatterns({ palaces: kuiYueSanFang }).some((item) => item.name === '坐贵向贵'),
-    false,
-  );
-});
-
-test('紫微格局：武曲守垣和金舆扶驾按古籍限定判断', () => {
-  // 《全书》"武曲庙垣，威名赫奕"——庙垣为辰戌丑未四墓地
-  for (const branch of ['辰', '戌', '丑', '未']) {
-    const wuQuMu = createPalaces(branch, [star('武曲')]);
-    assert.ok(
-      detectPatterns({ palaces: wuQuMu }).some((item) => item.name === '武曲守垣'),
-      `武曲守命${branch}宫应成武曲守垣`,
-    );
-  }
-
-  // 卯宫武曲必与七杀同度，古籍作"木压雷惊"凶论，不入此格
-  const wuQuMao = createPalaces('卯', [star('武曲'), star('七杀')]);
-  assert.equal(
-    detectPatterns({ palaces: wuQuMao }).some((item) => item.name === '武曲守垣'),
-    false,
-  );
-
-  const jinYu = createPalaces('寅', [star('紫微')]);
-  jinYu[11].major_stars.push(star('太阳'));
-  jinYu[1].major_stars.push(star('太阴'));
-  assert.ok(detectPatterns({ palaces: jinYu }).some((item) => item.name === '金舆扶驾'));
-
-  const jinYuReverse = createPalaces('寅', [star('紫微')]);
-  jinYuReverse[11].major_stars.push(star('太阴'));
-  jinYuReverse[1].major_stars.push(star('太阳'));
-  assert.ok(detectPatterns({ palaces: jinYuReverse }).some((item) => item.name === '金舆扶驾'));
-
-  const noZiWei = createPalaces('寅', []);
-  noZiWei[11].major_stars.push(star('太阳'));
-  noZiWei[1].major_stars.push(star('太阴'));
-  assert.equal(
-    detectPatterns({ palaces: noZiWei }).some((item) => item.name === '金舆扶驾'),
-    false,
-  );
-});
-
-test('紫微格局：刑囚夹印按天相廉贞同守再会擎羊或天刑判断', () => {
-  // 《全书》"刑囚夹印，刑杖惟司"：天相为印、廉贞为囚，再见擎羊/天刑为刑
-  const xingQiuMing = createPalaces('子', [star('廉贞'), star('天相'), star('天刑')]);
-  assert.ok(detectPatterns({ palaces: xingQiuMing }).some((item) => item.name === '刑囚夹印'));
-
-  const withQingYang = createPalaces('午', [star('廉贞'), star('天相')]);
-  withQingYang[0].minor_stars.push(star('擎羊'));
-  assert.equal(
-    detectPatterns({ palaces: withQingYang }).some((item) => item.name === '刑囚夹印'),
-    false,
-  );
-  withQingYang[0].minor_stars.pop();
-  const mingIdx = withQingYang.findIndex((palace) => palace.name === '命宫');
-  withQingYang[mingIdx].minor_stars.push(star('擎羊'));
-  assert.ok(detectPatterns({ palaces: withQingYang }).some((item) => item.name === '刑囚夹印'));
-
-  const xingQiuShen = createPalaces('寅', []);
-  xingQiuShen[3].is_body_palace = true;
-  xingQiuShen[3].major_stars.push(star('廉贞'), star('天相'));
-  xingQiuShen[3].minor_stars.push(star('天刑'));
-  assert.ok(detectPatterns({ palaces: xingQiuShen }).some((item) => item.name === '刑囚夹印'));
-
-  // 缺天相（印）不成格
-  const noTianXiang = createPalaces('寅', [star('廉贞'), star('天刑')]);
-  assert.equal(
-    detectPatterns({ palaces: noTianXiang }).some((item) => item.name === '刑囚夹印'),
-    false,
-  );
-
-  // 缺刑星不成格
-  const noXing = createPalaces('寅', [star('廉贞'), star('天相')]);
-  assert.equal(
-    detectPatterns({ palaces: noXing }).some((item) => item.name === '刑囚夹印'),
-    false,
-  );
-});
-
-test('紫微格局：财与囚仇按武曲廉贞分守命宫与身宫判断', () => {
-  // 武曲守命、廉贞守身（安星规律决定二星永不同宫）
-  const wuMingLianShen = createPalaces('寅', [star('武曲')]);
-  wuMingLianShen[4].is_body_palace = true;
-  wuMingLianShen[4].major_stars.push(star('廉贞'));
-  assert.ok(detectPatterns({ palaces: wuMingLianShen }).some((item) => item.name === '财与囚仇'));
-
-  // 廉贞守命、武曲守身亦成格
-  const lianMingWuShen = createPalaces('寅', [star('廉贞')]);
-  lianMingWuShen[4].is_body_palace = true;
-  lianMingWuShen[4].major_stars.push(star('武曲'));
-  assert.ok(detectPatterns({ palaces: lianMingWuShen }).some((item) => item.name === '财与囚仇'));
-
-  // 命身同宫时不按分守论
-  const sameBodyPalace = createPalaces('寅', [star('武曲'), star('廉贞')]);
-  const mingIndex = sameBodyPalace.findIndex((palace) => palace.name === '命宫');
-  sameBodyPalace[mingIndex].is_body_palace = true;
-  assert.equal(
-    detectPatterns({ palaces: sameBodyPalace }).some((item) => item.name === '财与囚仇'),
-    false,
-  );
-
-  // 廉贞不在身宫不成格
-  const separatedCaiQiu = createPalaces('寅', [star('武曲')]);
-  separatedCaiQiu[4].major_stars.push(star('廉贞'));
-  assert.equal(
-    detectPatterns({ palaces: separatedCaiQiu }).some((item) => item.name === '财与囚仇'),
-    false,
-  );
-});
-
-test('紫微格局：一生孤贫按破军陷地守命判断', () => {
-  const poJunXian = createPalaces('寅', [{ ...star('破军'), brightness: '陷' }]);
-  assert.ok(detectPatterns({ palaces: poJunXian }).some((item) => item.name === '一生孤贫'));
-
-  const poJunMiao = createPalaces('寅', [{ ...star('破军'), brightness: '庙' }]);
-  assert.equal(
-    detectPatterns({ palaces: poJunMiao }).some((item) => item.name === '一生孤贫'),
-    false,
-  );
-
-  const poJunXianOtherPalace = createPalaces('寅', []);
-  poJunXianOtherPalace[4].major_stars.push({ ...star('破军'), brightness: '陷' });
-  assert.equal(
-    detectPatterns({ palaces: poJunXianOtherPalace }).some((item) => item.name === '一生孤贫'),
-    false,
-  );
-});
-
-test('紫微格局：君子在野按落陷四杀守命宫或身宫判断', () => {
-  const huoXingXianMing = createPalaces('寅', [{ ...star('火星'), brightness: '陷' }]);
-  assert.ok(detectPatterns({ palaces: huoXingXianMing }).some((item) => item.name === '君子在野'));
-
-  const tuoLuoXianShen = createPalaces('寅', []);
-  tuoLuoXianShen[3].is_body_palace = true;
-  tuoLuoXianShen[3].minor_stars.push({ ...star('陀罗'), brightness: '陷' });
-  assert.ok(detectPatterns({ palaces: tuoLuoXianShen }).some((item) => item.name === '君子在野'));
-
-  const huoXingMiao = createPalaces('寅', [{ ...star('火星'), brightness: '庙' }]);
-  assert.equal(
-    detectPatterns({ palaces: huoXingMiao }).some((item) => item.name === '君子在野'),
-    false,
-  );
-
-  const yangRenXianOtherPalace = createPalaces('寅', []);
-  yangRenXianOtherPalace[4].minor_stars.push({ ...star('擎羊'), brightness: '陷' });
-  assert.equal(
-    detectPatterns({ palaces: yangRenXianOtherPalace }).some((item) => item.name === '君子在野'),
-    false,
-  );
-});
-
-test('紫微格局：马头带箭按擎羊坐守午宫命宫判断', () => {
-  // 《全书》"马头带箭，镇御边疆"：擎羊守命午宫（午为马、擎羊为箭）
-  const yangInWu = createPalaces('午', [star('天同'), star('太阴')]);
-  const wuMingIdx = yangInWu.findIndex((palace) => palace.name === '命宫');
-  yangInWu[wuMingIdx].minor_stars.push(star('擎羊'));
-  assert.ok(detectPatterns({ palaces: yangInWu }).some((item) => item.name === '马头带箭'));
-
-  // 擎羊单守午宫亦成格（无同度主星）
-  const yangAlone = createPalaces('午', []);
-  const aloneIdx = yangAlone.findIndex((palace) => palace.name === '命宫');
-  yangAlone[aloneIdx].minor_stars.push(star('擎羊'));
-  assert.ok(detectPatterns({ palaces: yangAlone }).some((item) => item.name === '马头带箭'));
-
-  // 非午宫不成格
-  const yangInZi = createPalaces('子', [star('天同')]);
-  const ziMingIdx = yangInZi.findIndex((palace) => palace.name === '命宫');
-  yangInZi[ziMingIdx].minor_stars.push(star('擎羊'));
-  assert.equal(
-    detectPatterns({ palaces: yangInZi }).some((item) => item.name === '马头带箭'),
-    false,
-  );
-
-  // 午宫无擎羊不成格；天马+擎羊同宫不再按此格论
-  const maTouMing = createPalaces('寅', [star('天马'), star('擎羊')]);
-  assert.equal(
-    detectPatterns({ palaces: maTouMing }).some((item) => item.name === '马头带箭'),
-    false,
-  );
-});
-
-test('紫微格局：火铃夹命和空劫夹命必须前后夹命', () => {
-  const huoLingFlanked = createPalaces('寅', []);
-  huoLingFlanked[11].minor_stars.push(star('火星'));
-  huoLingFlanked[1].minor_stars.push(star('铃星'));
-  assert.ok(detectPatterns({ palaces: huoLingFlanked }).some((item) => item.name === '火铃夹命'));
-
-  const huoLingSameSide = createPalaces('寅', []);
-  huoLingSameSide[11].minor_stars.push(star('火星'), star('铃星'));
-  assert.equal(
-    detectPatterns({ palaces: huoLingSameSide }).some((item) => item.name === '火铃夹命'),
-    false,
-  );
-
-  const kongJieFlanked = createPalaces('寅', []);
-  kongJieFlanked[11].minor_stars.push(star('地劫'));
-  kongJieFlanked[1].minor_stars.push(star('地空'));
-  assert.ok(detectPatterns({ palaces: kongJieFlanked }).some((item) => item.name === '空劫夹命'));
-
-  const kongJieSameSide = createPalaces('寅', []);
-  kongJieSameSide[1].minor_stars.push(star('地空'), star('地劫'));
-  assert.equal(
-    detectPatterns({ palaces: kongJieSameSide }).some((item) => item.name === '空劫夹命'),
-    false,
-  );
-});
-
-test('紫微格局：两重华盖按禄存化禄坐命遇空劫判断', () => {
-  const liangChongHuaGai = createPalaces('寅', [star('天机', '禄'), star('禄存')]);
-  liangChongHuaGai[0].minor_stars.push(star('地空'));
-  assert.ok(detectPatterns({ palaces: liangChongHuaGai }).some((item) => item.name === '两重华盖'));
-
-  const noHuaLu = createPalaces('寅', [star('禄存')]);
-  noHuaLu[0].minor_stars.push(star('地空'));
-  assert.equal(
-    detectPatterns({ palaces: noHuaLu }).some((item) => item.name === '两重华盖'),
-    false,
-  );
-
-  const kongJieNotInMing = createPalaces('寅', [star('天机', '禄'), star('禄存')]);
-  kongJieNotInMing[4].minor_stars.push(star('地劫'));
-  assert.equal(
-    detectPatterns({ palaces: kongJieNotInMing }).some((item) => item.name === '两重华盖'),
-    false,
-  );
-});
-
-test('紫微格局：生不逢时按命宫空亡逢廉贞判断', () => {
-  const lianZhenKongWang = createPalaces('寅', [star('廉贞')]);
-  lianZhenKongWang[0].other_stars.push(star('空亡'));
-  assert.ok(detectPatterns({ palaces: lianZhenKongWang }).some((item) => item.name === '生不逢时'));
-
-  const lianZhenXunKong = createPalaces('寅', [star('廉贞')]);
-  lianZhenXunKong[0].other_stars.push(star('旬空'));
-  assert.ok(detectPatterns({ palaces: lianZhenXunKong }).some((item) => item.name === '生不逢时'));
-
-  const lianZhenWithoutVoid = createPalaces('寅', [star('廉贞')]);
-  assert.equal(
-    detectPatterns({ palaces: lianZhenWithoutVoid }).some((item) => item.name === '生不逢时'),
-    false,
-  );
-
-  const voidWithoutLianZhen = createPalaces('寅', []);
-  voidWithoutLianZhen[0].other_stars.push(star('空亡'));
-  assert.equal(
-    detectPatterns({ palaces: voidWithoutLianZhen }).some((item) => item.name === '生不逢时'),
-    false,
-  );
-});
-
-test('紫微格局：禄逢两杀按禄存坐空亡又逢空劫判断', () => {
-  const luCunVoidKongJie = createPalaces('寅', [star('禄存')]);
-  luCunVoidKongJie[0].other_stars.push(star('空亡'));
-  luCunVoidKongJie[0].minor_stars.push(star('地空'));
-  assert.ok(detectPatterns({ palaces: luCunVoidKongJie }).some((item) => item.name === '禄逢两杀'));
-
-  const luCunVoidWithoutKongJie = createPalaces('寅', [star('禄存')]);
-  luCunVoidWithoutKongJie[0].other_stars.push(star('空亡'));
-  assert.equal(
-    detectPatterns({ palaces: luCunVoidWithoutKongJie }).some((item) => item.name === '禄逢两杀'),
-    false,
-  );
-
-  const luCunKongJieWithoutVoid = createPalaces('寅', [star('禄存')]);
-  luCunKongJieWithoutVoid[0].minor_stars.push(star('地劫'));
-  assert.equal(
-    detectPatterns({ palaces: luCunKongJieWithoutVoid }).some((item) => item.name === '禄逢两杀'),
-    false,
-  );
-});
-
-test('紫微格局：马落空亡按命宫三方四正天马落空亡判断', () => {
-  const maVoidInSanFang = createPalaces('寅', []);
-  maVoidInSanFang[4].minor_stars.push(star('天马'));
-  maVoidInSanFang[4].other_stars.push(star('空亡'));
-  assert.ok(detectPatterns({ palaces: maVoidInSanFang }).some((item) => item.name === '马落空亡'));
-
-  const maXunKongInMing = createPalaces('寅', [star('天马')]);
-  maXunKongInMing[0].other_stars.push(star('旬空'));
-  assert.ok(detectPatterns({ palaces: maXunKongInMing }).some((item) => item.name === '马落空亡'));
-
-  const maWithoutVoid = createPalaces('寅', [star('天马')]);
-  assert.equal(
-    detectPatterns({ palaces: maWithoutVoid }).some((item) => item.name === '马落空亡'),
-    false,
-  );
-
-  const maVoidOutsideSanFang = createPalaces('寅', []);
-  maVoidOutsideSanFang[1].minor_stars.push(star('天马'));
-  maVoidOutsideSanFang[1].other_stars.push(star('空亡'));
-  assert.equal(
-    detectPatterns({ palaces: maVoidOutsideSanFang }).some((item) => item.name === '马落空亡'),
-    false,
-  );
-});
-
-test('紫微格局：火贪格按火星与贪狼同宫三合照命判断', () => {
-  const huoTanSanHe = createPalaces('寅', []);
-  huoTanSanHe[4].major_stars.push(star('贪狼'));
-  huoTanSanHe[4].minor_stars.push(star('火星'));
-  assert.ok(detectPatterns({ palaces: huoTanSanHe }).some((item) => item.name === '火贪格'));
-
-  const separatedHuoTan = createPalaces('寅', []);
-  separatedHuoTan[4].major_stars.push(star('贪狼'));
-  separatedHuoTan[8].minor_stars.push(star('火星'));
-  assert.equal(
-    detectPatterns({ palaces: separatedHuoTan }).some((item) => item.name === '火贪格'),
-    false,
-  );
-});
-
-test('紫微格局：铃贪格按铃星与贪狼同宫三合照命判断', () => {
-  const lingTanSanHe = createPalaces('寅', []);
-  lingTanSanHe[4].major_stars.push(star('贪狼'));
-  lingTanSanHe[4].minor_stars.push(star('铃星'));
-  assert.ok(detectPatterns({ palaces: lingTanSanHe }).some((item) => item.name === '铃贪格'));
-
-  const separatedLingTan = createPalaces('寅', []);
-  separatedLingTan[4].major_stars.push(star('贪狼'));
-  separatedLingTan[8].minor_stars.push(star('铃星'));
-  assert.equal(
-    detectPatterns({ palaces: separatedLingTan }).some((item) => item.name === '铃贪格'),
-    false,
-  );
-});
-
-test('紫微格局：武贪同行兼取命宫守照身宫与财宅位', () => {
-  const wuTanSanHe = createPalaces('寅', []);
-  wuTanSanHe[4].major_stars.push(star('武曲'));
-  wuTanSanHe[4].major_stars.push(star('贪狼'));
-  assert.ok(detectPatterns({ palaces: wuTanSanHe }).some((item) => item.name === '武贪同行'));
-
-  const wuTanBody = createPalaces('寅', []);
-  wuTanBody[3].is_body_palace = true;
-  wuTanBody[3].major_stars.push(star('武曲'));
-  wuTanBody[3].major_stars.push(star('贪狼'));
-  assert.ok(detectPatterns({ palaces: wuTanBody }).some((item) => item.name === '武贪同行'));
-
-  const wuTanTianZhai = createPalaces('寅', []);
-  wuTanTianZhai[2].name = '田宅';
-  wuTanTianZhai[2].major_stars.push(star('武曲'));
-  wuTanTianZhai[2].major_stars.push(star('贪狼'));
-  assert.ok(detectPatterns({ palaces: wuTanTianZhai }).some((item) => item.name === '武贪同行'));
-
-  const separatedWuTan = createPalaces('寅', []);
-  separatedWuTan[4].major_stars.push(star('武曲'));
-  separatedWuTan[8].major_stars.push(star('贪狼'));
-  assert.equal(
-    detectPatterns({ palaces: separatedWuTan }).some((item) => item.name === '武贪同行'),
-    false,
-  );
-});
-
-test('紫微格局：巨日同宫按巨门太阳同守寅申命宫判断', () => {
-  // 《全书》"巨日同宫，官封三代"专指巨日同宫坐命于寅（申次之）
-  const juRiYin = createPalaces('寅', [star('巨门'), star('太阳')]);
-  assert.ok(detectPatterns({ palaces: juRiYin }).some((item) => item.name === '巨日同宫'));
-
-  const juRiShen = createPalaces('申', [star('巨门'), star('太阳')]);
-  assert.ok(detectPatterns({ palaces: juRiShen }).some((item) => item.name === '巨日同宫'));
-
-  // 非寅申宫不成格
-  const juRiSi = createPalaces('巳', [star('巨门'), star('太阳')]);
-  assert.equal(
-    detectPatterns({ palaces: juRiSi }).some((item) => item.name === '巨日同宫'),
-    false,
-  );
-
-  // 三方拱照（非同宫坐命）不再按此格论
-  const juRiGongZhao = createPalaces('寅', []);
-  juRiGongZhao[4].major_stars.push(star('太阳'));
-  juRiGongZhao[8].major_stars.push(star('巨门'));
-  assert.equal(
-    detectPatterns({ palaces: juRiGongZhao }).some((item) => item.name === '巨日同宫'),
-    false,
-  );
-});
-
-test('紫微格局：天罗地网需命主星落陷或会煞方成，日月反背按辰戌地支判断', () => {
-  // 命坐辰戌但无落陷主星、无煞不输出（辰戌仅为宫位属性）
-  const plainChen = detectPatterns({ palaces: createPalaces('辰', [star('紫微')]) });
-  assert.equal(
-    plainChen.some((item) => item.name === '天罗地网'),
-    false,
-  );
-
-  // 命宫见落陷主星成格
-  const fallenMajor = detectPatterns({
-    palaces: createPalaces('辰', [{ ...star('天机'), brightness: '陷' }]),
-  });
-  assert.ok(fallenMajor.some((item) => item.name === '天罗地网'));
-
-  // 命宫会煞成格
-  const withSha = createPalaces('戌', [star('紫微')]);
-  const shaIdx = withSha.findIndex((palace) => palace.name === '命宫');
-  withSha[shaIdx].minor_stars.push(star('擎羊'));
-  assert.ok(detectPatterns({ palaces: withSha }).some((item) => item.name === '天罗地网'));
-
-  // 非辰戌不成格
-  const wrongBranch = detectPatterns({
-    palaces: createPalaces('子', [{ ...star('天机'), brightness: '陷' }]),
-  });
-  assert.equal(
-    wrongBranch.some((item) => item.name === '天罗地网'),
-    false,
-  );
-
-  const riFanBei = detectPatterns({ palaces: createPalaces('戌', [star('太阳')]) });
-  assert.ok(riFanBei.some((item) => item.name === '日月反背'));
-
-  const yueFanBei = detectPatterns({ palaces: createPalaces('辰', [star('太阴')]) });
-  assert.ok(yueFanBei.some((item) => item.name === '日月反背'));
-});
-
-test('紫微格局：日月藏辉按日月反背又逢巨门判断', () => {
-  const sunFanBeiWithJuMen = createPalaces('戌', [star('太阳')]);
-  sunFanBeiWithJuMen[4].major_stars.push(star('巨门'));
-  assert.ok(
-    detectPatterns({ palaces: sunFanBeiWithJuMen }).some((item) => item.name === '日月藏辉'),
-  );
-
-  const moonFanBeiWithJuMen = createPalaces('辰', [star('太阴')]);
-  moonFanBeiWithJuMen[8].major_stars.push(star('巨门'));
-  assert.ok(
-    detectPatterns({ palaces: moonFanBeiWithJuMen }).some((item) => item.name === '日月藏辉'),
-  );
-
-  const fanBeiWithoutJuMen = createPalaces('戌', [star('太阳')]);
-  assert.equal(
-    detectPatterns({ palaces: fanBeiWithoutJuMen }).some((item) => item.name === '日月藏辉'),
-    false,
-  );
-
-  const wrongSunBranchWithJuMen = createPalaces('辰', [star('太阳')]);
-  wrongSunBranchWithJuMen[8].major_stars.push(star('巨门'));
-  assert.equal(
-    detectPatterns({ palaces: wrongSunBranchWithJuMen }).some((item) => item.name === '日月藏辉'),
-    false,
-  );
-});
-
-test('紫微格局：子午寅申亥未等地支规则不受 iztro 索引起点影响', () => {
-  const shiZhong = createPalaces('子', [star('巨门')]);
-  shiZhong[10].major_stars[0].birth_mutagen = '禄';
-  assert.ok(detectPatterns({ palaces: shiZhong }).some((item) => item.name === '石中隐玉'));
-
-  const maTou = createPalaces('午', [star('天马'), star('擎羊')]);
-  assert.ok(detectPatterns({ palaces: maTou }).some((item) => item.name === '马头带箭'));
-
-  const qiShaYin = detectPatterns({ palaces: createPalaces('寅', [star('七杀')]) });
-  assert.ok(qiShaYin.some((item) => item.name === '七杀朝斗'));
-
-  const qiShaChen = detectPatterns({ palaces: createPalaces('辰', [star('七杀')]) });
-  assert.equal(
-    qiShaChen.some((item) => item.name === '七杀朝斗'),
-    false,
-  );
-
-  const mingZhu = createPalaces('未', []);
-  mingZhu[11].name = '迁移';
-  mingZhu[1].major_stars.push(star('太阳'));
-  mingZhu[9].major_stars.push(star('太阴'));
-  assert.ok(detectPatterns({ palaces: mingZhu }).some((item) => item.name === '明珠出海'));
-
-  const mingZhuWrongSunMoon = createPalaces('未', []);
-  mingZhuWrongSunMoon[1].major_stars.push(star('太阴'));
-  mingZhuWrongSunMoon[9].major_stars.push(star('太阳'));
-  assert.equal(
-    detectPatterns({ palaces: mingZhuWrongSunMoon }).some((item) => item.name === '明珠出海'),
-    false,
-  );
+  assert.equal(skipped.summaryFact.matchedPatternCount, 0);
+
+  const damaged = createPalaces();
+  damaged[0].surrounded_palace_indexes = [];
+  const insufficient = buildPatternAnalysis({ patterns: [verified], palaces: damaged });
+  assert.equal(insufficient.status, '资料不足');
+  assert.equal(insufficient.summaryFact.evaluatedRuleCount, 0);
+  assert.equal(insufficient.summaryFact.matchedPatternCount, 0);
 });

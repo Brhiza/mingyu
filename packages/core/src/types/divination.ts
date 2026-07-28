@@ -28,10 +28,7 @@ export type DivinationType =
 
 export type MeihuaDivinationMethod = 'time' | 'number' | 'random' | 'timeTrigram';
 
-export type XiaoliurenDivinationMethod = 'time' | 'number' | 'random';
-
-/** 小六壬流派：standard 为现行通行掌诀；huashan 为华山派完整时间课。 */
-export type XiaoliurenSchool = 'standard' | 'huashan';
+export type XiaoliurenDivinationMethod = 'time';
 
 export interface MeihuaSettings extends RandomOptions {
   method?: MeihuaDivinationMethod;
@@ -41,118 +38,41 @@ export interface MeihuaSettings extends RandomOptions {
 export interface XiaoliurenPalaceDetail {
   name: '大安' | '留连' | '速喜' | '赤口' | '小吉' | '空亡';
   index: number;
-  element: '木' | '火' | '土' | '金' | '水';
-  meaning: string;
-  keywords: string[];
-  tendency: '宜推进' | '宜等待' | '易反复' | '易争执' | '有助力' | '易落空';
-  advice: string;
-  direction?: string;
-  shenSha?: string;
-  yinYang?: '阳' | '阴';
-  number?: string;
-  seasonProsper?: string;
-  bodyPart?: string;
-  fortune?: string;
-  timing?: string;
-}
-
-export interface XiaoliurenStageChart {
-  stage: '起因' | '过程' | '结果';
-  role: string;
-  palace: XiaoliurenPalaceDetail;
-  seasonState: string;
-  relative: string;
-  relationToDay: string;
-  isVoid: boolean;
-  hasYiMa: boolean;
-  hasTaoHua: boolean;
-  support: string[];
-  constraints: string[];
-  promptText: string;
+  verse: string;
 }
 
 export interface XiaoliurenData {
   meta?: CoreResultMeta;
   method: XiaoliurenDivinationMethod;
   methodLabel: string;
-  /** 流派口径：默认 standard；huashan 仅支持时间起课并输出完整课盘。 */
-  school: XiaoliurenSchool;
-  schoolLabel: string;
   timestamp: number;
   lunarMonth: number;
   lunarDay: number;
+  isLeapMonth: boolean;
   hourIndex: number;
   hourLabel: string;
-  /** 起课时间干支与课盘附属资料；华山派完整课必备。 */
-  ganzhi?: { year: string; month: string; day: string; hour: string };
-  dayNight?: '昼占' | '夜占';
-  xunKong?: string[];
-  yiMa?: string;
-  taoHua?: string;
-  mainLine?: string;
+  ganzhi: { year: string; month: string; day: string; hour: string };
   /** 起课输入、逐宫顺数与六宫归一的可复核计算过程。 */
-  calculation?: {
-    inputBase: number;
-    inputBaseSource: '农历月数' | '用户数字' | '随机取数';
+  calculation: {
+    lunarMonth: number;
     lunarDay: number;
     hourNumber: number;
-    startSeed: number;
-    processSeed: number;
-    resultSeed: number;
-    startPalaceIndex: number;
-    processPalaceIndex: number;
-    resultPalaceIndex: number;
-    school: XiaoliurenSchool;
-    schoolLabel: string;
-    dayStem?: string;
-    dayBranch?: string;
-    hourBranch?: string;
+    monthSeed: number;
+    daySeed: number;
+    hourSeed: number;
+    monthPalaceIndex: number;
+    dayPalaceIndex: number;
+    hourPalaceIndex: number;
+    dayBoundary: '东八区民用日零点换日';
+    leapMonthRule: '闰月沿用同名月序';
   };
   sequence: {
-    start: XiaoliurenPalaceDetail;
-    process: XiaoliurenPalaceDetail;
-    result: XiaoliurenPalaceDetail;
+    month: XiaoliurenPalaceDetail;
+    day: XiaoliurenPalaceDetail;
+    hour: XiaoliurenPalaceDetail;
   };
-  /** 华山派完整三宫课象，含六亲、空亡、驿马、桃花与旺衰。 */
-  stageCharts?: {
-    start: XiaoliurenStageChart;
-    process: XiaoliurenStageChart;
-    result: XiaoliurenStageChart;
-  };
-  /** 六宫环位，便于复核月日时顺数路径。 */
-  sixPalaceRing?: XiaoliurenPalaceDetail[];
-  wuxingRelations: {
-    startToProcess: string;
-    processToResult: string;
-    description: string;
-  };
+  palaceOrder: XiaoliurenPalaceDetail[];
   primary: XiaoliurenPalaceDetail;
-  tendency: XiaoliurenPalaceDetail['tendency'];
-  questionHint: string;
-  seasonStates?: {
-    start: string;
-    process: string;
-    result: string;
-  };
-  yingQi?: string;
-  timingEvidence?: {
-    rhythm: '偏快' | '平稳' | '偏缓' | '反复' | '不定';
-    primaryBasis: string[];
-    triggerConditions: string[];
-    limitations: string[];
-  };
-  focusEvidence?: Array<{
-    target: string;
-    role: string;
-    level: '主证' | '辅证';
-    evidence: string[];
-    limitations: string[];
-  }>;
-  direction?: string;
-  shenSha?: string;
-  fortune?: string;
-  timing?: string;
-  bodyPart?: string;
   evidenceAnalysis?: import('../divination/xiaoliuren-evidence').XiaoliurenEvidenceAnalysis;
 }
 
@@ -160,18 +80,33 @@ export type JinkoujueDivinationMethod = 'time' | 'number' | 'random';
 
 export type JinkoujuePositionName = '地分' | '将神' | '贵神' | '人元';
 
+export type JinkoujueYinYang = '阳' | '阴';
+
 export interface JinkoujueFourPosition {
   name: JinkoujuePositionName;
   role: string;
   branch: string;
   stem?: string;
+  stemElement?: string;
   god?: string;
   element: string;
+  elementBasis: '地分支' | '月将支' | '贵神本属' | '人元干';
+  yinYang: JinkoujueYinYang;
   seasonState: string;
   isVoid: boolean;
   support: string[];
   constraints: string[];
   promptText: string;
+}
+
+export interface JinkoujueMovement {
+  category: '五动' | '三动';
+  name: '妻动' | '官动' | '贼动' | '财动' | '鬼动' | '父母动' | '子孙动' | '兄弟动';
+  from: JinkoujuePositionName;
+  to: JinkoujuePositionName;
+  relation: '克' | '生' | '比和';
+  trigger: string;
+  source: string;
 }
 
 export interface JinkoujueData {
@@ -199,6 +134,15 @@ export interface JinkoujueData {
     renToDi: string;
     guiToDi: string;
   };
+  yinYangUse: {
+    pattern: '三阴一阳' | '三阳一阴' | '二阴二阳' | '纯阴' | '纯阳';
+    yinCount: number;
+    yangCount: number;
+    usePosition: JinkoujuePositionName;
+    rule: string;
+    isVoid: boolean;
+  };
+  movements: JinkoujueMovement[];
   mainLine: string;
   calculation: {
     method: JinkoujueDivinationMethod;
@@ -208,7 +152,10 @@ export interface JinkoujueData {
     diFenNote: string;
     monthLeaderRule: string;
     yuanDunRule: string;
+    dayNightRule: string;
     noblemanRule: string;
+    noblemanDirection: '顺布' | '逆布';
+    guiShenRule: string;
   };
   focusEvidence?: Array<{
     target: string;
@@ -235,6 +182,9 @@ export interface BaseYaoDetail {
   isChanging: boolean;
 }
 
+export type LiuyaoChangeRelation =
+  '回头生' | '回头克' | '回头冲' | '化空' | '比和' | '化泄' | '化耗';
+
 export interface LiuyaoYaoDetail extends BaseYaoDetail {
   rawValue: number;
   changeType: string;
@@ -250,7 +200,10 @@ export interface LiuyaoYaoDetail extends BaseYaoDetail {
   isHiddenMove?: boolean;
   seasonState?: '旺' | '相' | '休' | '囚' | '死' | '平';
   changeDirection?: '化进神' | '化退神' | null;
-  changeRelation?: '回头生' | '回头克' | '回头冲' | '化空' | '比和' | '化泄' | '化耗' | null;
+  /** 旧版单值字段：变爻空亡时仍优先返回“化空”，新代码应读取 changeRelations。 */
+  changeRelation?: LiuyaoChangeRelation | null;
+  /** 动变五行/冲关系与化空可以并见，按原关系在前、化空在后保存。 */
+  changeRelations?: LiuyaoChangeRelation[];
   changedYao?: {
     dizhi: string;
     wuxing: string;
@@ -453,6 +406,18 @@ export interface MeihuaData extends BaseHexagramData {
     element: string;
     nature: string;
   } | null;
+  /** 互卦中与原体卦同处上/下方位的体互。 */
+  interTiGua?: {
+    name: string;
+    element: string;
+    nature: string;
+  } | null;
+  /** 互卦中与原用卦同处上/下方位的用互。 */
+  interYongGua?: {
+    name: string;
+    element: string;
+    nature: string;
+  } | null;
   /** 动爻位置与描述 */
   movingYao: {
     position: number;
@@ -462,10 +427,16 @@ export interface MeihuaData extends BaseHexagramData {
   /** 体用生克综合分析 */
   analysis: {
     season: '春' | '夏' | '秋' | '冬';
+    /** 旺相休囚死采用的月建地支；旧结果可能缺失。 */
+    monthBranch?: string;
+    /** 月建本气五行；旧结果可能缺失。 */
+    monthElement?: string;
     tiYongRelation: string;
     tiSeasonState: string;
     yongSeasonState: string;
+    /** 体互与原体的五行关系；字段名为兼容既有结果保留。 */
     inter1Relation: string;
+    /** 用互与原体的五行关系；字段名为兼容既有结果保留。 */
     inter2Relation: string;
     changedRelation: string;
     changedTiYongRelation: string;
@@ -517,6 +488,10 @@ export interface QimenJiuGongGe {
   tianPan: {
     star: string;
     stem: string;
+    /** 转盘法中天禽随天芮同宫时的随行星。 */
+    companionStar?: string;
+    /** 随行星所携带的中宫地盘干。 */
+    companionStem?: string;
   };
   diPan: {
     stem: string;
@@ -538,7 +513,10 @@ export interface QimenSpecialConditions {
 }
 
 export interface QimenTimeInfo {
+  /** 排盘时刻实际所处的天文节气。 */
   solarTerm: string;
+  /** 拆补/置闰法实际采用的定局节气；置闰法下可能与 solarTerm 不同。 */
+  juTerm: string;
   epoch: string;
   [key: string]: string;
 }
@@ -728,6 +706,30 @@ export interface LiurenClassicalRule {
   summary: string;
 }
 
+export interface LiurenGuaTiFact {
+  id: string;
+  stableKey: string;
+  name: string;
+  category: '三传支类' | '三合成局' | '发用临地' | '岁将贵人' | '四课关系' | '贵人临地';
+  branches: string[];
+  matchedConditions: string[];
+  sourceTitle: string;
+  sourceUrl: string;
+  sourceQuote: string;
+}
+
+export interface LiurenShenShaFact {
+  name: string;
+  target: string;
+  targetType: '天干' | '地支';
+  category: '十天干神煞' | '十二地支神煞' | '逐月神煞' | '罗网神煞';
+  basis: '日干' | '日支' | '月建';
+  input: string;
+  rule: string;
+  sources: string[];
+  limitations: string[];
+}
+
 export interface LiurenData {
   /** 四课取传、三传推进、旺衰空亡及反证限制。 */
   evidenceAnalysis?: import('../divination/liuren-evidence').LiurenEvidenceAnalysis;
@@ -741,8 +743,8 @@ export interface LiurenData {
   monthLeader: string;
   /** 占时地支（起课时辰） */
   divinationBranch: string;
-  /** 日上官贵（日干对应贵人） */
-  dayOfficer: string;
+  /** @deprecated 旧版误设字段，无独立六壬含义；新结果不再生成。 */
+  dayOfficer?: string;
   /** 贵人临支 */
   noblemanBranch?: string;
   /** 贵人所临地盘 */
@@ -775,8 +777,12 @@ export interface LiurenData {
   transmissionSummary?: string;
   /** 课体名称列表 */
   guaTi?: string[];
+  /** 逐项登记、可复算且带固定古籍来源的课体事实 */
+  guaTiFacts?: LiurenGuaTiFact[];
   /** 神煞汇总 */
   shenShaSummary?: string[];
+  /** 可逐项复算的神煞定位事实 */
+  shenShaFacts?: LiurenShenShaFact[];
   /** 天将属性详情 */
   tianJiangProps?: Record<
     string,
@@ -784,12 +790,7 @@ export interface LiurenData {
       wuxing: string;
       yinYang: string;
       category: string;
-      color?: string;
-      flavor?: string;
-      number?: number;
-      terrain?: string;
       description?: string;
-      bodyPart?: string;
     }
   >;
   focusEvidence?: Array<{
@@ -895,8 +896,6 @@ export interface AlmanacAnnualDirectionGod {
   branch: string;
   direction: string;
   god: string;
-  fortune: '吉' | '凶' | '平';
-  meaning: string;
 }
 
 export type AlmanacRuleFactStatus = '支持' | '限制' | '中性' | '未采用';
@@ -958,15 +957,21 @@ export interface AlmanacDayCandidate {
   twelveStar: string;
   twentyEightStar: string;
   twentyEightStarDetail?: {
-    wuxing: string;
+    fullName: string;
+    sevenStar: string;
+    animal: string;
+    zone: string;
     fortune: string;
-    meaning: string;
+    source: string;
   } | null;
   nineStar: string;
   nineStarDetail?: {
+    fullName: string;
+    color: string;
     wuxing: string;
-    fortune: string;
-    meaning: string;
+    dipper: string;
+    direction: string;
+    source: string;
   } | null;
   gods: string[];
   recommends: string[];
@@ -1289,7 +1294,7 @@ export interface AstrolabeSynastryData {
   timestamp: number;
 }
 
-export type TaiyiScope = 'year' | 'month' | 'day' | 'hour' | 'minute';
+export type TaiyiScope = 'year' | 'month' | 'day' | 'hour';
 
 export interface TaiyiModelInfo {
   id: string;
@@ -1304,11 +1309,13 @@ export interface TaiyiResult {
   ganZhi: string;
   dateTime: string;
   accumulatedValue: number;
-  accumulatedLabel: '积年' | '积月' | '积日' | '积时' | '积分';
+  accumulatedLabel: '积年' | '积月' | '积日' | '积时';
   /** @deprecated 年家兼容字段；其他计式与 accumulatedValue 相同。 */
   accumulatedYears: number;
   entryYears: number;
+  /** @deprecated 360 周期内的 72 数段序号，不等同于已经统一版本口径的“元”。 */
   yuan: number;
+  /** @deprecated 360 周期内的 60 数段序号，不等同于已经统一版本口径的“纪”。 */
   ji: number;
   yinYang: '阳遁' | '阴遁';
   bureau: number;

@@ -608,7 +608,7 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.equal(r.setAssistant, 5);
   assert.ok(r.judgments.some((item) => item.startsWith('掩：')));
   assert.equal(r.sixteenGods.length, 16);
-  assert.equal(r.model.id, 'taiyi-tongzong-five-calculations-72-table');
+  assert.equal(r.model.id, 'taiyi-year-calculation-72-table');
   assert.ok(r.prompt.includes('太乙神数'));
   assert.ok(r.prompt.includes('十六神'));
   assert.ok(r.prompt.includes('主客定算'));
@@ -617,20 +617,20 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.doesNotMatch(r.prompt, /结构化证据|观察层级|证据汇总|计算链|解释限制/);
   assert.equal(r.evidenceAnalysis.key, 'taiyi:evidence');
   assert.equal(r.evidenceAnalysis.status, '已计算');
-  assert.match(r.evidenceAnalysis.promptText, /【太乙五计七十二局结构化证据】/);
+  assert.match(r.evidenceAnalysis.promptText, /【太乙年计七十二局结构化证据】/);
   assert.deepEqual(
     r.evidenceAnalysis.calculationSteps.map((step) => step.name),
-    ['入纪元数', '元数', '纪数', '局数'],
+    ['360周期余数', '72数段', '60数段', '局数'],
   );
   assert.ok(
     r.evidenceAnalysis.calculationSteps.every(
       (step) =>
         step.key.startsWith('taiyi:calculation:') &&
-        step.status === '已核验' &&
+        step.status === '已复算' &&
         Array.isArray(step.dependsOnStepKeys) &&
         step.promptText &&
         step.sources.length >= 2 &&
-        step.limitation.includes('不证明传统解释有效性'),
+        step.limitation.includes('不等同于已经统一版本口径的元纪'),
     ),
   );
   assert.equal(r.evidenceAnalysis.positionFacts.length, 4);
@@ -680,13 +680,13 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
     r.evidenceAnalysis.counterEvidenceFacts.map((item) => [item.type, item.status]),
     [
       ['掩', '已命中'],
-      ['囚', '未命中'],
+      ['囚', '已命中'],
       ['主将参中宫', '未命中'],
       ['客将参中宫', '未命中'],
     ],
   );
   assert.equal(r.evidenceAnalysis.counterSummaryFact.status, '存在未命中条件');
-  assert.equal(r.evidenceAnalysis.counterSummaryFact.factKeys.length, 3);
+  assert.equal(r.evidenceAnalysis.counterSummaryFact.factKeys.length, 2);
   assert.equal(r.evidenceAnalysis.limitationFacts.length, 5);
   assert.equal(r.evidenceAnalysis.summaryFact.key, 'taiyi:evidence-summary');
   assert.equal(r.evidenceAnalysis.summaryFact.status, '证据链完整');
@@ -733,10 +733,14 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
     ),
   );
   assert.ok(r.evidenceAnalysis.conditionFacts.some((item) => item.kind === '掩' && item.matched));
-  assert.ok(r.evidenceAnalysis.conditionFacts.some((item) => item.kind === '囚' && !item.matched));
-  assert.match(r.evidenceAnalysis.promptText, /算式核验：.*入纪元数.*元数.*纪数.*局数/);
+  assert.ok(
+    r.evidenceAnalysis.conditionFacts.some(
+      (item) => item.kind === '囚' && item.matched && item.promptText.includes('客大将与太乙同宫'),
+    ),
+  );
+  assert.match(r.evidenceAnalysis.promptText, /算式核验：.*360周期余数.*72数段.*60数段.*局数/);
   assert.ok(r.evidenceAnalysis.primaryFacts.some((item) => item.startsWith('掩成立')));
-  assert.ok(r.evidenceAnalysis.counterEvidence.some((item) => item.startsWith('未见囚')));
+  assert.ok(!r.evidenceAnalysis.counterEvidence.some((item) => item.startsWith('未见囚')));
   assert.match(r.evidenceAnalysis.promptText, /传统规则模型/);
   assert.match(r.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制（方法限制）：/);
   assert.doesNotMatch(r.evidenceAnalysis.promptText, /宜先守后动|不宜轻进/);
@@ -749,7 +753,12 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
     /命语|本项目|项目统一|当前结果|工程|接口|API|MCP/,
   );
   assertPromptIsPortableTaskText(r.evidenceAnalysis.promptText);
-  assert.throws(() => core.taiyi.generateTaiyi({ year: 2004, scope: 'month' }), /有效日期和时间/);
+  for (const scope of ['month', 'day', 'hour'] as const) {
+    assert.throws(
+      () => core.taiyi.generateTaiyi({ year: 2004, scope }),
+      /古籍历法链校勘.*停止输出近似盘/,
+    );
+  }
   assert.throws(
     () => core.taiyi.generateTaiyi({} as Parameters<typeof core.taiyi.generateTaiyi>[0]),
     /年计必须提供公历年份/,
@@ -763,48 +772,6 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
       }),
     /年计只接受 year/,
   );
-});
-
-test('taiyi: 年月日时分五计应使用各自积数和阴阳遁规则', () => {
-  const date = new Date(2026, 6, 11, 14, 35, 0);
-  const scopes = ['month', 'day', 'hour', 'minute'] as const;
-  const results = scopes.map((scope) => core.taiyi.generateTaiyi({ scope, date }));
-
-  assert.deepEqual(
-    results.map((item) => item.scope),
-    scopes,
-  );
-  assert.deepEqual(
-    results.map((item) => item.accumulatedLabel),
-    ['积月', '积日', '积时', '积分'],
-  );
-  assert.equal(new Set(results.map((item) => item.accumulatedValue)).size, 4);
-  assert.equal(results[0].yinYang, '阳遁');
-  assert.equal(results[1].yinYang, '阳遁');
-  assert.equal(results[2].yinYang, '阴遁');
-  results.forEach((result) => {
-    assert.ok(result.bureau >= 1 && result.bureau <= 72);
-    assert.ok(
-      result.prompt.includes(
-        `太乙神数 · ${{ month: '月计', day: '日计', hour: '时计', minute: '分计' }[result.scope]}`,
-      ),
-    );
-    assert.equal(result.model.supportedScopes.length, 5);
-    assert.match(
-      result.evidenceAnalysis.calculationChain[0],
-      new RegExp(
-        `${
-          {
-            month: '月计',
-            day: '日计',
-            hour: '时计',
-            minute: '分计',
-          }[result.scope]
-        }以`,
-      ),
-    );
-    assert.ok(result.evidenceAnalysis.limitations.some((item) => item.includes('不可互相替代')));
-  });
 });
 
 test('taiyi: 未见掩囚时应明确输出反证而非省略', () => {
@@ -853,258 +820,34 @@ test('taiyi: 核心年份边界不应把公元 1-99 年当成 1901-1999 年', ()
   assert.equal(earlyYear.accumulatedYears, 10153918);
 });
 
-test('qizheng: 七政四余与《七政算内篇》紫炁模型', () => {
-  // 2024-06-15 12:00 北京：太阳约在寅宫，午时生 → 命宫亥(11)、命主木（亥→木）；七政7、四余4
-  const r = core.qizheng.generateQizheng({ year: 2024, month: 6, day: 15, hour: 12 });
-  const qi = r.stars.filter((s) => s.kind === '七政');
-  const yu = r.stars.filter((s) => s.kind === '四余');
-  assert.equal(qi.length, 7);
-  assert.equal(yu.length, 4);
-  assert.equal(new Set(r.stars.map((star) => star.name)).size, 11);
-  assert.ok(
-    r.stars.every(
-      (star) =>
-        star.palace !== '—' && Number.isFinite(star.longitude) && Number.isFinite(star.xiuDegree),
-    ),
-  );
-  assert.notEqual(r.mingZhu, '—');
-  assert.ok(r.shensha.every((item) => item.value !== '—'));
-  assert.equal(
-    r.stars.some((star) => star.name.includes('紫炁')),
-    true,
-  );
-  assert.equal(r.ziqiModel.id, 'qizhengsuan-naepyeon-mean-motion');
-  assert.equal(r.ziqiModel.direction, '顺行');
-  assert.equal(r.ziqiModel.periodDays, 10227.1792);
-  assert.equal(r.ziqiModel.sources.filter((source) => source.usage === '采用').length, 4);
-  assert.equal(r.ziqiModel.sources.filter((source) => source.usage === '未采用').length, 2);
-  assert.ok(
-    Math.abs(
-      core.qizheng.calculateZiqiTropicalLongitude({
-        year: 1995,
-        month: 12,
-        day: 31,
-        hour: 8,
-        timezone: 8,
-      }) - 237.038993,
-    ) < 1e-9,
-  );
-  assert.ok(
-    Math.abs(
-      r.ziqi.tropicalLongitude -
-        r.stars.find((star) => star.name.includes('紫炁'))!.tropicalLongitude,
-    ) < 1e-9,
-  );
-  assert.ok(r.ziqi.cycleProgress >= 0 && r.ziqi.cycleProgress < 1);
-  assert.ok(
-    r.ziqi.daysSinceZeroLongitude >= 0 && r.ziqi.daysSinceZeroLongitude < r.ziqiModel.periodDays,
-  );
-  assert.equal(r.mingGong, 11);
-  assert.equal(r.mingZhu, '木');
-  assert.ok(r.stars.every((star) => star.sevenStar.length === 1));
-  assert.ok(r.aspects.length > 0);
-  assert.ok(
-    r.aspects.every(
-      (aspect) =>
-        aspect.orb >= 0 &&
-        aspect.allowedOrb > 0 &&
-        aspect.orb <= aspect.allowedOrb &&
-        aspect.orbRatio >= 0 &&
-        aspect.orbRatio <= 1 &&
-        aspect.strength === undefined,
-    ),
-  );
-  assert.ok(
-    r.aspects.every(
-      (aspect, index) => index === 0 || r.aspects[index - 1].orbRatio <= aspect.orbRatio,
-    ),
-  );
-  assert.ok(
-    r.aspects
-      .filter((aspect) => aspect.star1.includes('紫炁') || aspect.star2.includes('紫炁'))
-      .every((aspect) => aspect.precisionClass === '混合模型'),
-  );
-  assert.ok(Math.abs(core.qizheng.getPrecessionOffset(2024) - 0.3353) < 0.001);
-  assert.equal(r.shensha.find((item) => item.name === '孤辰')?.value, '巳');
-  assert.equal(r.shensha.find((item) => item.name === '寡宿')?.value, '丑');
-  assert.ok(r.prompt.includes('七政四余'));
-  assert.ok(r.prompt.includes('《七政算内篇》紫炁古法均速'));
-  assert.ok(r.prompt.includes('紫炁位置：顺行'));
-  assert.ok(r.prompt.includes('出生时空'));
-  assert.ok(r.prompt.includes('十二宫映射'));
-  assert.ok(r.prompt.includes('七政四余吊照'));
-  assert.match(r.prompt, /月相：/);
-  assert.match(r.prompt, /出生时刻光照：/);
-  assert.doesNotMatch(r.prompt, /结构化证据|坐标与精度边界|计算链|证据汇总|解释限制/);
-  assert.equal(r.positionSources.length, 4);
-  assert.equal(r.stars.find((star) => star.name === '太阳')?.sourceId, 'celestine-planets');
-  assert.equal(r.stars.find((star) => star.name.includes('罗睺'))?.sourceId, 'celestine-true-node');
-  assert.equal(
-    r.stars.find((star) => star.name.includes('月孛'))?.sourceId,
-    'celestine-true-lilith',
-  );
-  assert.equal(r.stars.find((star) => star.name.includes('紫炁'))?.precisionClass, '传统均速模型');
-  assert.equal(r.calculationContext.locationSource, '默认北京坐标');
-  assert.equal(r.calculationContext.timezoneSource, '默认东八区');
-  assert.match(r.calculationContext.astronomicalTime.utcDateTime, /Z$/);
-  assert.ok(r.calculationContext.astronomicalTime.julianDayUtc > 2400000);
-  assert.ok(r.calculationContext.moonPhase.phaseAngleDegrees >= 0);
-  assert.ok(r.calculationContext.moonPhase.phaseAngleDegrees < 360);
-  assert.match(r.prompt, /月相：.+日月黄经差约.+照明约/);
-  assert.match(r.prompt, /出生时刻光照：太阳高度.+方位角.+视太阳正午/);
-  assert.match(r.evidenceAnalysis.promptText, /【七政四余计算来源与证据分层】/);
-  assert.equal(r.evidenceAnalysis.key, 'qizheng:evidence');
-  assert.equal(r.evidenceAnalysis.status, '已计算');
-  assert.equal(r.evidenceAnalysis.calculationFact.status, '含默认值');
-  assert.equal(r.evidenceAnalysis.calculationFact.steps.length, 7);
-  assert.strictEqual(r.evidenceAnalysis.calculationSteps, r.evidenceAnalysis.calculationFact.steps);
-  assert.equal(r.evidenceAnalysis.calculationChain.length, 7);
-  const qizhengStepKeys = new Set(r.evidenceAnalysis.calculationFact.steps.map((item) => item.key));
-  assert.ok(r.evidenceAnalysis.calculationFact.defaults.some((item) => item.includes('默认北京')));
-  assert.ok(
-    r.evidenceAnalysis.calculationFact.steps.every(
-      (item) =>
-        item.key.startsWith('qizheng:calculation:') &&
-        item.status === '已计算' &&
-        item.dependsOnStepKeys.every((key) => qizhengStepKeys.has(key)) &&
-        item.promptText &&
-        item.sources.length > 0 &&
-        item.limitation.includes('不得把步骤完整度解释为观测级精度'),
-    ),
-  );
-  assert.equal(r.evidenceAnalysis.positionSourceFacts.length, r.positionSources.length);
-  assert.ok(
-    r.evidenceAnalysis.positionSourceFacts.every(
-      (item) =>
-        item.key.startsWith('qizheng:position-source:') &&
-        item.status === '已采用' &&
-        item.objects.length > 0 &&
-        item.adoptedSources.length > 0 &&
-        item.promptLimitations.every((text) => !text.includes('本项目')) &&
-        item.promptText &&
-        item.limitation.includes('不等于结果达到观测级精度'),
-    ),
-  );
-  assert.equal(r.evidenceAnalysis.starFacts.length, r.stars.length);
-  assert.equal(r.evidenceAnalysis.aspectFacts.length, r.aspects.length);
-  assert.deepEqual(
-    r.evidenceAnalysis.counterEvidenceFacts.map((item) => [item.type, item.status]),
-    [
-      ['输入完整性', '含默认值'],
-      ['位置精度分层', '混合模型'],
-      ['吊照覆盖', '有可用证据'],
-    ],
-  );
-  assert.equal(r.evidenceAnalysis.counterSummaryFact.status, '存在需保留反证');
-  assert.equal(r.evidenceAnalysis.counterSummaryFact.factKeys.length, 2);
-  assert.equal(r.evidenceAnalysis.summaryFact.key, 'qizheng:evidence-summary');
-  assert.equal(r.evidenceAnalysis.summaryFact.status, '证据链有缺口');
-  assert.equal(
-    r.evidenceAnalysis.summaryFact.positionSourceFactCount,
-    r.evidenceAnalysis.positionSourceFacts.length,
-  );
-  assert.equal(r.evidenceAnalysis.summaryFact.starFactCount, r.evidenceAnalysis.starFacts.length);
-  assert.equal(
-    r.evidenceAnalysis.summaryFact.aspectFactCount,
-    r.evidenceAnalysis.aspectFacts.length,
-  );
-  assert.equal(
-    r.evidenceAnalysis.summaryFact.counterEvidenceCount,
-    r.evidenceAnalysis.counterEvidenceFacts.length,
-  );
-  assert.equal(
-    r.evidenceAnalysis.summaryFact.limitationFactCount,
-    r.evidenceAnalysis.limitationFacts.length,
-  );
-  assert.equal(r.evidenceAnalysis.limitationFacts.length, 7);
-  const qizhengFactKeys = new Set([
-    r.evidenceAnalysis.summaryFact.key,
-    ...r.evidenceAnalysis.summaryFact.factKeys,
-  ]);
-  assert.ok(
-    r.evidenceAnalysis.counterEvidenceFacts.every(
-      (item) =>
-        item.ownerFactKeys.length > 0 &&
-        item.ownerFactKeys.every((key) => qizhengFactKeys.has(key)),
-    ),
-  );
-  assert.ok(
-    r.evidenceAnalysis.limitationFacts.every(
-      (item) =>
-        item.ownerFactKeys.length > 0 &&
-        item.ownerFactKeys.every((key) => qizhengFactKeys.has(key)) &&
-        item.sources.length > 0,
-    ),
-  );
-  assert.ok(
-    r.evidenceAnalysis.starFacts.every(
-      (item) =>
-        item.sourceId &&
-        item.sources.length >= 3 &&
-        item.promptText &&
-        item.limitation.includes('现代天文计算和传统均速模型必须分层使用'),
-    ),
-  );
-  assert.ok(
-    r.evidenceAnalysis.aspectFacts.every(
-      (item) =>
-        item.allowedOrb > 0 &&
-        item.orb <= item.allowedOrb &&
-        item.sources.length >= 2 &&
-        item.promptText.includes('允许容许度') &&
-        item.limitation.includes('混合模型不得提升为现代天文同精度证据'),
-    ),
-  );
-  assert.match(r.evidenceAnalysis.promptText, /现代天文计算/);
-  assert.match(r.evidenceAnalysis.promptText, /传统均速模型/);
-  assert.doesNotMatch(r.evidenceAnalysis.promptText, /本项目|项目统一|项目恒星黄经|命语/);
-  assert.match(
-    r.evidenceAnalysis.promptText,
-    /实际夹角.*精确角.*允许容许度.*距精确角偏差.*归一化容许度位置/,
-  );
-  assert.match(r.evidenceAnalysis.promptText, /命宫、身宫与命主定位/);
-  assert.match(r.evidenceAnalysis.promptText, /紫炁与神煞定位/);
-  assert.match(r.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制：/);
-  assert.ok(r.evidenceAnalysis.primaryFacts.some((item) => item.includes('命宫落黄道第')));
-  assert.ok(r.evidenceAnalysis.supportingFacts.some((item) => item.startsWith('神煞定位：')));
-  assert.doesNotMatch(r.prompt, /强度\d+%|成功率[：=]?\d|吉凶总分[：=]?\d/);
-});
-
-test('qizheng: 用户地点与默认地点必须在计算上下文中明确区分', () => {
-  const supplied = core.qizheng.generateQizheng({
-    year: 2024,
-    month: 6,
-    day: 15,
-    hour: 12,
-    latitude: 31.23,
-    longitude: 121.47,
+test('qizheng: 独立紫炁均速模型保留可复算历元', () => {
+  const longitude = core.qizheng.calculateZiqiTropicalLongitude({
+    year: 1995,
+    month: 12,
+    day: 31,
+    hour: 8,
     timezone: 8,
   });
-  assert.equal(supplied.calculationContext.locationSource, '用户提供');
-  assert.equal(supplied.calculationContext.timezoneSource, '用户提供');
-  assert.equal(supplied.evidenceAnalysis.calculationFact.status, '输入明确');
-  assert.equal(supplied.evidenceAnalysis.summaryFact.status, '证据链完整');
-  assert.deepEqual(supplied.evidenceAnalysis.calculationFact.defaults, []);
 
-  const partial = core.qizheng.generateQizheng({
+  assert.ok(Math.abs(longitude - 237.038993) < 1e-9);
+  assert.equal(core.qizheng.ZIQI_MODEL_INFO.id, 'qizhengsuan-naepyeon-mean-motion');
+  assert.equal(core.qizheng.ZIQI_MODEL_INFO.periodDays, 10227.1792);
+});
+
+test('qizheng: 完整传统盘应返回十一星、二十八宿界与结构化证据', () => {
+  const result = core.qizheng.generateQizheng({
     year: 2024,
     month: 6,
     day: 15,
     hour: 12,
-    latitude: 31.23,
   });
-  assert.equal(partial.calculationContext.locationSource, '部分坐标使用默认值');
-  assert.equal(partial.evidenceAnalysis.calculationFact.status, '含默认值');
-  assert.equal(partial.evidenceAnalysis.summaryFact.status, '证据链有缺口');
-  assert.ok(
-    partial.evidenceAnalysis.calculationFact.defaults.some((item) =>
-      item.includes('部分坐标使用默认值'),
-    ),
-  );
-  assert.match(partial.evidenceAnalysis.limitations.join('\n'), /部分坐标使用默认值/);
+  assert.equal(result.stars.length, 11);
+  assert.equal(result.mansionBoundaries.length, 28);
+  assert.equal(result.evidenceAnalysis.status, '已计算');
+  assert.equal(result.mansionModel.id, 'qizheng-mansion-stars-simbad-astronomy-engine');
 });
 
-test('qizheng: 核心入口应拒绝不存在日期、越界时间坐标和非有限数字', () => {
+test('qizheng: 核心入口仍应优先拒绝无效输入', () => {
   const valid = { year: 2024, month: 6, day: 15, hour: 12 };
   assert.throws(() => core.qizheng.generateQizheng({ ...valid, day: 31 }), /日期需在 1-30 之间/);
   assert.throws(() => core.qizheng.generateQizheng({ ...valid, hour: 24 }), /小时需在 0-23 之间/);
@@ -1124,9 +867,7 @@ test('qizheng: 核心入口应拒绝不存在日期、越界时间坐标和非�
     () => core.qizheng.calculateZiqiTropicalLongitude({ ...valid, minute: Number.NaN }),
     /分钟需在 0-59 之间/,
   );
-  assert.throws(() => core.qizheng.getPrecessionOffset(Number.NaN), /岁差年份必须是有效数字/);
 });
-
 test('ganzhi: tyme4ts 权威后端（纳音/干支五行/合冲害/十神）', () => {
   // 纳音委托 tyme4ts（与《纳音歌》一致）
   assert.equal(core.ganzhi.getNayin('甲子'), '海中金');

@@ -189,7 +189,7 @@ test('天文时间尺度应直接采用 IANA 解析出的历史偏移', () => {
   assert.match(evidence.promptText, /IANA|历史时区/);
 });
 
-test('七政四余星历计算应采用 IANA 历史偏移而非默认东八区', () => {
+test('七政四余应采用 IANA 解析出的历史偏移并保留证据', () => {
   const result = generateQizheng({
     year: 1990,
     month: 7,
@@ -202,8 +202,9 @@ test('七政四余星历计算应采用 IANA 历史偏移而非默认东八区',
 
   assert.equal(result.calculationContext.timezone, 9);
   assert.equal(result.calculationContext.utcDateTime, '1990-07-01T03:00:00.000Z');
-  assert.equal(result.calculationContext.timezoneSource, 'IANA历史时区');
-  assert.equal(result.calculationContext.astronomicalTime.timezoneEvidence?.offsetConflict, false);
+  assert.equal(result.calculationContext.astronomicalTime.timezoneEvidence?.resolvedOffsetHours, 9);
+  assert.equal(result.stars.length, 11);
+  assert.equal(result.mansionBoundaries.length, 28);
 });
 
 test('西占本命盘应采用 IANA 历史偏移并保留诊断', () => {

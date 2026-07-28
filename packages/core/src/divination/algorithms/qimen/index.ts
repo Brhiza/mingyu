@@ -44,6 +44,7 @@ import { estimateYingQi } from './helpers/ying-qi';
 import { buildSeasonality } from './helpers/seasonality';
 import { detectQimenPatternCombos } from './helpers/pattern-combos';
 import { analyzeQimenEvidence } from '../../qimen-evidence';
+import { hasTianPanStar, hasTianPanStem } from './helpers/palace-utils';
 
 export { createQimenPriorityPalaces } from './helpers/guidance';
 export type { QimenPriorityPalace } from './helpers/guidance';
@@ -140,14 +141,13 @@ function assertQimenScope(scope: QimenScope): void {
 function mapClassicPatterns(
   patterns: ClassicPattern[],
 ): Exclude<QimenData['classicPatterns'], undefined> {
-  return [...patterns]
-    .sort((a, b) => Math.abs(b.score) - Math.abs(a.score))
-    .map((p) => ({
-      name: p.name,
-      type: p.tone,
-      summary: p.summary,
-      palaces: p.palace ? [p.palace] : [],
-    }));
+  // 检测器本身按传统格局类别依次输出；不再用任意分值重排“影响强度”。
+  return patterns.map((p) => ({
+    name: p.name,
+    type: p.tone,
+    summary: p.summary,
+    palaces: p.palace ? [p.palace] : [],
+  }));
 }
 
 /**
@@ -292,7 +292,7 @@ export function generateQimen(
   const horseBranch = getHorseBranch(activeZhi);
   const horsePalace = horseBranch ? resolveQimenBranchPalace(horseBranch, jiuGongGe) : null;
 
-  const zhiFuLandingPalace = jiuGongGe.find((gong) => gong.tianPan.star === zhiFu)?.gong;
+  const zhiFuLandingPalace = jiuGongGe.find((gong) => hasTianPanStar(gong, zhiFu))?.gong;
   if (zhiFuLandingPalace === undefined) {
     throw new Error(`找不到值符星 "${zhiFu}" 落宫。`);
   }
@@ -301,6 +301,7 @@ export function generateQimen(
     zhiShi,
     activeGanZhi,
     zhiFuPalace,
+    method,
   );
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -360,7 +361,7 @@ export function generateQimen(
     timeInfo.solar.hour ?? 0,
     timeInfo.solar.minute ?? 0,
   );
-  const seasonality = buildSeasonality(ganzhi, jushuResult.jieQi || jieQi, seasonalityDate);
+  const seasonality = buildSeasonality(ganzhi, jushuResult.actualJieQi || jieQi, seasonalityDate);
 
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 11：宫位洞察
@@ -375,7 +376,12 @@ export function generateQimen(
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 12：方位建议
   // ──────────────────────────────────────────────────────────────────────────
-  const directions = buildDirectionAdvice(jiuGongGe, voidBranches, classicPatternsRaw);
+  const directions = buildDirectionAdvice(
+    jiuGongGe,
+    voidBranches,
+    classicPatternsRaw,
+    specialConditions,
+  );
 
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 13：应期估算
@@ -424,10 +430,6 @@ export function generateQimen(
     jiuGongGe,
   });
   const publicPatternCombos = patternCombos.map(({ score: _score, ...combo }) => combo);
-  const publicDirections = {
-    goodDirections: directions.goodDirections.map(({ score: _score, ...item }) => item),
-    avoidDirections: directions.avoidDirections.map(({ score: _score, ...item }) => item),
-  };
 
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 15：返回完整 QimenData
@@ -437,7 +439,8 @@ export function generateQimen(
     scope,
     juMethod: jushuResult.juMethod,
     timeInfo: {
-      solarTerm: jushuResult.jieQi || jieQi,
+      solarTerm: jushuResult.actualJieQi || jieQi,
+      juTerm: jushuResult.jieQi || jieQi,
       epoch: jushuResult.yuan,
       juMethod: jushuResult.juMethod,
       ...(jushuResult.fuTou ? { fuTou: jushuResult.fuTou } : {}),
@@ -463,7 +466,7 @@ export function generateQimen(
     classicPatterns,
     stemRelations,
     patternCombos: publicPatternCombos,
-    directions: publicDirections,
+    directions,
     yingQi,
     timestamp,
   };
@@ -635,7 +638,7 @@ function enrichLiuGuiTianWang(
 ): void {
   if (!conditions?.isLiuGuiHour) return;
 
-  const guiPalace = jiuGongGe.find((palace) => palace.tianPan.stem === '癸');
+  const guiPalace = jiuGongGe.find((palace) => hasTianPanStem(palace, '癸'));
   if (!guiPalace) return;
 
   switch (guiPalace.gong) {

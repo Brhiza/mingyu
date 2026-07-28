@@ -29,7 +29,7 @@
 | 奇门遁甲 | 《烟波钓叟歌》《遁甲演义》《奇门遁甲秘籍大全》   |
 | 大六壬   | 《大六壬大全》《大六壬指南》                     |
 | 择日     | 《协纪辨方书》《象吉通书》                       |
-| 紫微斗数 | 《紫微斗数全书》                                 |
+| 紫微斗数 | 基础排盘委托 `iztro`；固定版本传统目录登记 87 项，其中 55 条可复算、32 项只登记原典边界 |
 
 ---
 
@@ -48,12 +48,13 @@ yarn add mingyu-core
 - `tyme4ts`（历法计算，作为依赖自动安装）
 - `iztro`（紫微斗数，可选，使用紫微模块时需要）
 - `celestine`（西洋占星，可选，使用星盘模块时需要）
+- 七政四余距星坐标换算内置与 Astronomy Engine 2.1.19 同口径的 IAU 2006/2000B 变换，不依赖特定运行时的模块兼容行为
 
 ---
 
 ## 统一出生档案与能力发现
 
-应用可以只维护一份 `BirthProfile`，再按需要转换为八字、星盘或择日的既有输入。八字、紫微等时辰级算法可直接提供明确的 `timeIndex`；需要真太阳时、星盘或七政四余时，才必须提供完整 `hour`、`minute` 和所需地点资料：
+应用可以只维护一份 `BirthProfile`，再按需要转换为八字、星盘或择日的既有输入。八字、紫微等时辰级算法可直接提供明确的 `timeIndex`；需要真太阳时、星盘或七政四余时，必须提供完整 `hour`、`minute` 和所需地点资料：
 
 ```ts
 import { normalizeBirthProfile, getCapabilities } from 'mingyu-core';
@@ -136,8 +137,8 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **塔罗 Tarot**         | `mingyu-core/divination/tarot`                                                                                                                | 塔罗抽牌、牌阵、关键字                                                                                 |
 | **塔罗牌数据**         | `mingyu-core/divination/tarot-data`                                                                                                           | 塔罗牌定义与牌阵配置                                                                                   |
 | **占卜辅助工具**       | `mingyu-core/divination/divination-helpers`                                                                                                   | 占卜通用格式与计算工具                                                                                 |
-| **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | iztro 封装、35 格局检测、证据池、大限时间线                                                            |
-| **七政四余 Qizheng**   | `mingyu-core/qizheng`                                                                                                                         | 七政、四余、二十八宿与十二宫；逐星保留来源、坐标链路和精度等级，紫炁采用《七政算内篇》单一古法均速模型 |
+| **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | iztro 十二宫、星曜、四化、证据池与大限时间线；评估 55 条可复算格局并登记 32 项原典边界                  |
+| **七政四余 Qizheng**   | `mingyu-core/qizheng`                                                                                                                         | 十一星、真实距星二十八宿界、命身十二宫、庙旺吊照、天文事实与分层精度证据                              |
 
 ---
 
@@ -346,15 +347,12 @@ const yearlyAstrolabe = buildAstrolabeScopeContext(natalAstrolabe, 'yearly', '20
 console.log(yearlyAstrolabe.displayText, yearlyAstrolabe.promptText);
 const zodiacYear = zodiac.getZodiacYearFortune('午', '甲辰');
 const taiyiChart = taiyi.generateTaiyi({ year: 2004, scope: 'year' });
-const taiyiHourChart = taiyi.generateTaiyi({
-  scope: 'hour',
-  date: new Date('2026-07-11T14:35:00+08:00'),
-});
 const qizhengChart = qizheng.generateQizheng({
   year: 2024,
   month: 6,
   day: 15,
   hour: 12,
+  minute: 0,
   latitude: 39.9,
   longitude: 116.4,
   timezone: 8,
@@ -375,8 +373,8 @@ console.log(ganzhi.getXunHead('乙丑')); // 甲子
 console.log(foundation.analyzeWuxing(['甲', '子', '丙', '午']));
 console.log(direction.getEightMansion('坎'));
 console.log(shensha.getHuangliShensha(2026, 7, 10));
-console.log(qizhengChart.ziqi); // 紫炁回归/恒星黄经、顺行速度与周天进度
-console.log(qizhengChart.ziqiModel.sources); // 古籍、开源复原及未采用对照来源
+console.log(qizhengChart.stars.length, qizhengChart.mansionBoundaries.length); // 11 星、28 宿界
+console.log(qizhengChart.positionSources); // 现代天文与传统均速来源分层
 ```
 
 ### 八字增强分析（从 vibebazi 整合）
@@ -386,7 +384,7 @@ import {
   analyzeTenGodStructure, // 十神结构分布
   analyzeStemRootProfile, // 透干通根
   analyzeRelationStructure, // 地支关系（三合/三会/六合/六冲/六害/三刑/相破）
-  assessAllHarmonyTransforms, // 天干五合、地支六合的合化程度评分
+  assessAllHarmonyTransforms, // 天干成化条件与地支六合关系
   calculateMingGua, // 命卦（东四命/西四命）
   buildLuckDirectionProfile, // 大运顺逆方向
 } from 'mingyu-core/bazi';
@@ -397,6 +395,8 @@ const harmony = assessAllHarmonyTransforms(pillars);
 const mingGua = calculateMingGua(1990, 'male'); // { number:1, gua:'坎', eastWest:'东四命' }
 const luckDir = buildLuckDirectionProfile('male', '庚'); // { direction:'顺行' }
 ```
+
+`analyzeTenGodStructure` 分别返回透干、藏支和合计次数；状态只标记“缺位、仅藏、透出、透藏并见”，不再用隐藏权重推断“有力”或“偏重”。
 
 ### 历法工具
 
@@ -421,9 +421,9 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `analyzeStemRootProfile`        | 函数 | 透干通根分析                             |
 | `analyzeExposedStemProfile`     | 函数 | 透干综合画像                             |
 | `analyzeRelationStructure`      | 函数 | 地支关系完整评估                         |
-| `assessAllHarmonyTransforms`    | 函数 | 自动扫描天干五合、地支六合并评估合化程度 |
-| `assessStemHarmonyTransform`    | 函数 | 评估单组天干五合的成化程度               |
-| `assessBranchHarmonyTransform`  | 函数 | 评估单组地支六合的成化程度               |
+| `assessAllHarmonyTransforms`    | 函数 | 自动扫描天干五合、地支六合并核验条件     |
+| `assessStemHarmonyTransform`    | 函数 | 核验单组天干五合是否符合成化条件         |
+| `assessBranchHarmonyTransform`  | 函数 | 评估单组地支六合及冲破，不直接裁定成化   |
 | `analyzeKongWangProfile`        | 函数 | 空亡全分析                               |
 | `analyzeTombStorage`            | 函数 | 辰戌丑未墓库分析                         |
 | `analyzeLifeStageProfile`       | 函数 | 十二长生分布                             |
@@ -445,7 +445,7 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `analyzeMeihuaEvidence(data)`                                        | 主卦、互卦、变卦逐阶段体用、旺衰与支持/限制证据                              |
 | `generateQimen(date?, method?, scope?)`                              | 奇门遁甲排盘，并内置用神宫与宫间作用结构化证据                               |
 | `analyzeQimenEvidence(data)`                                         | 值符值使、日时干候选宫及门星神干、反证和触发条件                             |
-| `createQimenPriorityPalaces(data)`                                   | 兼容旧版内部排序的奇门重点宫位候选                                           |
+| `createQimenPriorityPalaces(data)`                                   | 按值符、宫位洞察、格局等证据来源归集奇门重点宫位候选                         |
 | `generateLiuren(date?)`                                              | 大六壬排盘                                                                   |
 | `analyzeLiurenEvidence(data)`                                        | 四课取传、初传发用、三传旺衰空亡及反证限制                                   |
 | `generateXiaoliuren(params?)`                                        | 小六壬起课                                                                   |

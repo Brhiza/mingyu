@@ -11,22 +11,15 @@ import {
 import { analyzeMonthQiProfile } from '@core/bazi/monthCommand';
 import { analyzeTenGodStructure } from '@core/bazi/tenGodAnalysis';
 import { getSeasonStatus, getWuxing } from '@core/bazi/baziUtils';
-import { SEASON_STATUS, WUXING_MONTH_WEIGHTS } from '@core/bazi/baziDefinitions';
+import { SEASON_STATUS } from '@core/bazi/baziDefinitions';
 import type { Wuxing } from '@core/bazi/baziTypes';
 import {
   collectCompleteBranchFormations,
   collectEstablishedBranchFormations,
 } from '@core/bazi/baziFormationUtils';
+import { WuxingCalculator } from '@core/bazi/WuxingCalculator';
 
-const SEASON_STATUS_RANK: Record<string, number> = {
-  旺: 5,
-  相: 4,
-  休: 3,
-  囚: 2,
-  死: 1,
-};
-
-test('月令司令天干应进入日主旺衰评分，避免辰戌丑未只按月支本气粗断', () => {
+test('月令司令天干应进入日主旺衰条件判断，避免辰戌丑未只按月支本气粗断', () => {
   const seasonalStatus = analyzeSeasonalStatus(
     '甲',
     '辰',
@@ -59,15 +52,15 @@ test('月令司令天干应进入日主旺衰评分，避免辰戌丑未只按�
   );
 });
 
-test('月令气数应输出状态、规则权重构成和司令依据，不公开内部评分', () => {
+test('月令气数应输出状态和司令依据，不伪造五行力量百分比', () => {
   const profile = analyzeMonthQiProfile('辰', '乙');
   const wood = profile.items.find((item) => item.element === '木');
 
   assert.ok(
     profile.items.some(
       (item) =>
-        item.weightSharePercent > 0 &&
         item.ruleBasis.length > 0 &&
+        !('weightSharePercent' in item) &&
         item.score === undefined &&
         item.percent === undefined,
     ),
@@ -77,7 +70,44 @@ test('月令气数应输出状态、规则权重构成和司令依据，不公�
   assert.ok((wood?.count ?? 0) >= 2);
   assert.equal(wood?.commanderApplied, true);
   assert.match(wood?.summary ?? '', /乙司令/);
-  assert.match(wood?.summary ?? '', /不代表概率、吉凶或现实结果/);
+  assert.match(wood?.summary ?? '', /不换算百分比/);
+});
+
+test('五行结构相对突出不应被无古籍依据的司令百分比加成改变', () => {
+  const calculator = new WuxingCalculator();
+  const pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
+    day: { gan: '戊', zhi: '寅', ganZhi: '戊寅' },
+    hour: { gan: '庚', zhi: '午', ganZhi: '庚午' },
+  };
+
+  const withoutCommander = calculator.calculateWuxingStrength(pillars);
+  const withCommander = calculator.calculateWuxingStrength(pillars, '癸');
+
+  assert.deepEqual(withCommander.dominantByRule, withoutCommander.dominantByRule);
+  assert.equal(withCommander.commanderElement, '水');
+  assert.ok(withCommander.ruleBasis.some((item) => item.includes('不额外增加五行比例')));
+});
+
+test('五行结构入口应拒绝非法四柱和非法司令，不静默降级为未知五行', () => {
+  const calculator = new WuxingCalculator();
+  const pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
+    day: { gan: '戊', zhi: '寅', ganZhi: '戊寅' },
+    hour: { gan: '庚', zhi: '午', ganZhi: '庚午' },
+  };
+
+  assert.throws(
+    () =>
+      calculator.calculateWuxingStrength({
+        ...pillars,
+        day: { gan: '甲', zhi: '丑', ganZhi: '甲丑' },
+      }),
+    /day柱不是有效六十甲子/,
+  );
+  assert.throws(() => calculator.calculateWuxingStrength(pillars, 'A'), /月令司权天干无效/);
 });
 
 test('月令气数应拒绝非法月支和司令天干，不应降级成平气', () => {
@@ -85,7 +115,7 @@ test('月令气数应拒绝非法月支和司令天干，不应降级成平气',
   assert.throws(() => analyzeMonthQiProfile('辰', '不存在'), /司令天干无效/);
 });
 
-test('十神结构应保留出现次数和状态，不公开启发式分值', () => {
+test('十神结构应按透干与藏支事实分类，不以隐藏权重裁定强弱', () => {
   const profile = analyzeTenGodStructure(
     [
       { gan: '甲', zhi: '子', hiddenStems: ['癸'] },
@@ -102,25 +132,19 @@ test('十神结构应保留出现次数和状态，不公开启发式分值', ()
   assert.ok(profile.distributions.every((item) => item.totalCount >= 0));
   assert.ok(profile.distributions.every((item) => !('score' in item)));
   assert.ok(profile.familyDistributions.every((item) => !('score' in item)));
-});
-
-test('五行月令展示权重应与旺相休囚死顺序一致', () => {
-  Object.entries(SEASON_STATUS).forEach(([monthBranch, statusByElement]) => {
-    const weights = WUXING_MONTH_WEIGHTS[monthBranch];
-
-    Object.entries(statusByElement).forEach(([leftElement, leftStatus]) => {
-      Object.entries(statusByElement).forEach(([rightElement, rightStatus]) => {
-        if (SEASON_STATUS_RANK[leftStatus] <= SEASON_STATUS_RANK[rightStatus]) {
-          return;
-        }
-
-        assert.ok(
-          weights[leftElement] > weights[rightElement],
-          `${monthBranch}月${leftElement}${leftStatus}权重应大于${rightElement}${rightStatus}`,
-        );
-      });
-    });
-  });
+  assert.ok(profile.distributions.every((item) => item.tenGod !== '日主'));
+  assert.equal(profile.distributions.find((item) => item.tenGod === '正印')?.status, '仅藏');
+  assert.equal(profile.distributions.find((item) => item.tenGod === '食神')?.status, '透藏并见');
+  assert.deepEqual(
+    profile.familyDistributions.find((item) => item.family === '印绶'),
+    {
+      family: '印绶',
+      visibleCount: 0,
+      hiddenCount: 1,
+      totalCount: 1,
+      status: '仅藏',
+    },
+  );
 });
 
 test('无根失令但仍有帮扶时，不应直接判为极弱', () => {
@@ -152,6 +176,53 @@ test('无根失令且无帮扶时，仍应判为极弱', () => {
 
   assert.equal(result.status, '极弱');
   assert.ok(!('score' in result));
+});
+
+test('旺衰分类只读逐项条件，不应被同一证据的任意小数缩放改变', () => {
+  const args = {
+    seasonalStatus: {
+      status: '囚',
+      score: -2,
+      baseScore: -2,
+      commanderScore: 1.5,
+      commanderEffect: '助身' as const,
+      isTimely: false,
+    },
+    formationAnalysis: { formations: [], totalStrength: 0 },
+    rootAnalysis: {
+      roots: [{ position: 'day', branch: '寅', strength: 2 }],
+      totalStrength: 2,
+      hasRoot: true,
+      strongRoot: true,
+    },
+    supportAnalysis: {
+      supporters: [{ position: 'hour', stem: '壬', strength: 1 }],
+      totalStrength: 1,
+      hasSupport: true,
+    },
+    constraintAnalysis: {
+      constraints: [{ position: 'year', stem: '庚', strength: 1.4 }],
+      totalStrength: 1.4,
+      hasConstraint: true,
+    },
+  };
+  const baseline = analyzeDayMasterStrength(
+    args.seasonalStatus,
+    args.formationAnalysis,
+    args.rootAnalysis,
+    args.supportAnalysis,
+    args.constraintAnalysis,
+  );
+  const rescaled = analyzeDayMasterStrength(
+    { ...args.seasonalStatus, score: -200, baseScore: -200, commanderScore: 150 },
+    { ...args.formationAnalysis, totalStrength: 99 },
+    { ...args.rootAnalysis, totalStrength: 200 },
+    { ...args.supportAnalysis, totalStrength: 100 },
+    { ...args.constraintAnalysis, totalStrength: 140 },
+  );
+
+  assert.equal(rescaled.status, baseline.status);
+  assert.deepEqual(rescaled.details, baseline.details);
 });
 
 test('印星落在地支主气或藏干时，也应计入帮扶，但不应把主气与同支本气重复计分', () => {
@@ -288,7 +359,7 @@ test('极强判断不能无视克泄耗重压', () => {
   assert.equal(result.details.hasConstraint, true);
 });
 
-test('三合三会成局时，旺衰评分应额外计入成局助势，而不是只按单个地支零散计数', () => {
+test('三合三会成局时，旺衰条件应记录成局助势，而不是只按单个地支零散看待', () => {
   const result = analyzeFormation(
     '甲',
     {
@@ -365,7 +436,7 @@ test('三合三会被局外地支冲破时，只记录结构，不应计入成�
   });
 });
 
-test('克泄耗一方三合成局时，旺衰评分也应计入成局破势，不应仍按普通身弱看待', () => {
+test('克泄耗一方三合成局时，旺衰条件也应计入成局破势，不应仍按普通身弱看待', () => {
   const formation = analyzeFormation(
     '甲',
     {

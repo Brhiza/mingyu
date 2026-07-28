@@ -89,6 +89,7 @@ export {
 export type { BoundaryCheckInput } from './paipanWarnings';
 export { buildBaziWarningEvidence } from './paipanWarnings';
 export { LuckCalculator } from './LuckCalculator';
+export { CHILD_LIMIT_METHOD, createChildLimit } from './childLimit';
 export {
   formatSolarDateTime,
   getLuckCycleForDate,

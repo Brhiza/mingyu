@@ -253,10 +253,10 @@ export function ResultPage() {
         : baziResult.solarDate),
       hour: selectedHour ?? 12,
       minute: inputState.birthMinute === '' ? 0 : Number(inputState.birthMinute),
-      gender: inputState.gender,
       latitude: inputState.birthLatitude ? Number(inputState.birthLatitude) : undefined,
       longitude: inputState.birthLongitude ? Number(inputState.birthLongitude) : undefined,
       timezone: 8,
+      useTrueSolarTime: inputState.useTrueSolarTime,
     };
   }, [baziResult, hasPreciseBirthData, inputState]);
   const residentialBirthData = useMemo(() => {
@@ -674,16 +674,7 @@ export function ResultPage() {
     if (!shouldCalculateQizheng || !sharedBirthData) return { data: null, error: '' };
     try {
       return {
-        data: generateQizheng({
-          year: sharedBirthData.year,
-          month: sharedBirthData.month,
-          day: sharedBirthData.day,
-          hour: sharedBirthData.hour,
-          minute: sharedBirthData.minute,
-          latitude: sharedBirthData.latitude,
-          longitude: sharedBirthData.longitude,
-          timezone: sharedBirthData.timezone,
-        }),
+        data: generateQizheng(sharedBirthData),
         error: '',
       };
     } catch (error) {
@@ -762,12 +753,16 @@ export function ResultPage() {
   function computeZiweiPromptText(question: string): string {
     if (promptState.tab !== 'prompt') return '';
     if (inputState.analysisMode === 'compatibility') {
-      if (!currentZiweiPayload || !partnerZiweiPayload) return '';
+      if (!currentZiweiPayload || !partnerZiweiPayload || !ziweiRuntime || !partnerZiweiRuntime) {
+        return '';
+      }
       return buildCombinedZiweiCompatibilityPrompt({
         primaryPayload: currentZiweiPayload,
         partnerPayload: partnerZiweiPayload,
-        primaryTrueSolarEvidence: ziweiRuntime?.trueSolarEvidence,
-        partnerTrueSolarEvidence: partnerZiweiRuntime?.trueSolarEvidence,
+        primaryAstrolabe: ziweiRuntime.astrolabe,
+        partnerAstrolabe: partnerZiweiRuntime.astrolabe,
+        primaryTrueSolarEvidence: ziweiRuntime.trueSolarEvidence,
+        partnerTrueSolarEvidence: partnerZiweiRuntime.trueSolarEvidence,
         topic: promptState.ziweiTopic,
         question,
         isCustomQuestion: activeZiweiShortcutMode === '自定义',
@@ -1360,6 +1355,25 @@ export function ResultPage() {
         </div>
 
         <div
+          className={`result-tab-pane ${promptState.tab === 'qizheng' ? 'is-active' : 'is-inactive'}`}
+          aria-hidden={promptState.tab !== 'qizheng'}
+        >
+          {hasAstrolabeChart && mountedTabs.qizheng ? (
+            qizhengCalculation.error ? (
+              <p className="error-text">{qizhengCalculation.error}</p>
+            ) : qizhengCalculation.data ? (
+              <QizhengBoard
+                title="七政四余本命盘"
+                name={inputState.name || '本人'}
+                data={qizhengCalculation.data}
+              />
+            ) : (
+              <InlineSkeleton />
+            )
+          ) : null}
+        </div>
+
+        <div
           className={`result-tab-pane ${promptState.tab === 'ziwei' ? 'is-active' : 'is-inactive'}`}
           aria-hidden={promptState.tab !== 'ziwei'}
         >
@@ -1433,25 +1447,6 @@ export function ResultPage() {
                 ) : null}
               </section>
             </div>
-          ) : null}
-        </div>
-
-        <div
-          className={`result-tab-pane ${promptState.tab === 'qizheng' ? 'is-active' : 'is-inactive'}`}
-          aria-hidden={promptState.tab !== 'qizheng'}
-        >
-          {hasAstrolabeChart && mountedTabs.qizheng ? (
-            qizhengCalculation.error ? (
-              <p className="error-text">{qizhengCalculation.error}</p>
-            ) : qizhengCalculation.data ? (
-              <QizhengBoard
-                title="七政四余本命盘"
-                name={inputState.name || '本人'}
-                data={qizhengCalculation.data}
-              />
-            ) : (
-              <InlineSkeleton />
-            )
           ) : null}
         </div>
 
@@ -1951,10 +1946,11 @@ export function ResultPage() {
         </Suspense>
       ) : null}
 
-      {isZiweiScopeModalOpen && primaryZiweiInput && activeZiweiPayloadByScope ? (
+      {isZiweiScopeModalOpen && primaryZiweiInput && activeZiweiPayloadByScope && ziweiRuntime ? (
         <ZiweiScopeModal
           chartInput={primaryZiweiInput}
           payloadByScope={activeZiweiPayloadByScope}
+          decadalTimeline={ziweiRuntime.decadalTimeline}
           selectedScope={promptState.ziweiScope}
           selectedDateStr={promptState.ziweiScopeDate}
           onClose={() => setIsZiweiScopeModalOpen(false)}

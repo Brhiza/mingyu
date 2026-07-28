@@ -5,6 +5,7 @@ export type MutagenName = '禄' | '权' | '科' | '忌';
 export type AnalysisPayloadV1 = {
   payload_version: 'analysis_payload_v1';
   language: 'zh-CN';
+  calculation_config: ZiweiCalculationConfig;
   basic_info: BasicInfo;
   active_scope: ActiveScopeInfo;
   palaces: PalaceFact[];
@@ -12,6 +13,23 @@ export type AnalysisPayloadV1 = {
   evidence_analysis?: ZiweiEvidenceAnalysis;
   patterns?: PatternFact[];
   pattern_analysis?: ZiweiPatternAnalysis;
+};
+
+export type ZiweiCalculationConfig = {
+  engine: 'iztro';
+  algorithm: 'default' | 'zhongzhou';
+  algorithm_basis: string;
+  fix_leap: boolean;
+  leap_month_rule: string;
+  year_divide: 'normal' | 'exact';
+  year_divide_rule: string;
+  horoscope_divide: 'normal' | 'exact';
+  horoscope_divide_rule: string;
+  age_divide: 'normal' | 'birthday';
+  age_divide_rule: string;
+  day_divide: 'current' | 'forward';
+  late_zi_rule: string;
+  limitation: string;
 };
 
 export type FourPillars = {
@@ -26,8 +44,6 @@ export type HiddenPalaces = {
   body_palace_name?: string;
   original_palace_index?: number;
   original_palace_name?: string;
-  anhe_palace_index?: number;
-  anhe_palace_name?: string;
 };
 
 export type BasicInfo = {
@@ -55,6 +71,7 @@ export type ActiveScopeInfo = {
   lunar_date: string;
   nominal_age: number;
   palace_index?: number;
+  palace_name?: string;
   heavenly_stem?: string;
   earthly_branch?: string;
   mutagen_map: ScopeMutagenItem[];
@@ -65,6 +82,7 @@ export type ScopeMutagenItem = {
   star: string;
   palace_index?: number;
   palace_name?: string;
+  dynamic_palace_name?: string;
 };
 
 export type MutagedPlaceItem = {
@@ -332,16 +350,26 @@ export interface ExposedStemProfile {
   items: ExposedStemItem[];
   summary: string;
 }
+export type TenGodPresenceStatus = '缺位' | '仅藏' | '透出' | '透藏并见';
+
 export interface TenGodDistributionItem {
   tenGod: string;
   visibleCount: number;
   hiddenCount: number;
   totalCount: number;
-  status: string;
+  status: TenGodPresenceStatus;
+}
+
+export interface TenGodFamilyDistribution {
+  family: string;
+  visibleCount: number;
+  hiddenCount: number;
+  totalCount: number;
+  status: TenGodPresenceStatus;
 }
 export interface TenGodStructureProfile {
   distributions: TenGodDistributionItem[];
-  familyDistributions: Array<{ family: string; totalCount: number; status: string }>;
+  familyDistributions: TenGodFamilyDistribution[];
   summary: string;
 }
 export interface TenGodFlowItem {
@@ -356,8 +384,7 @@ export interface TenGodFlowProfile {
 export interface MonthQiElementItem {
   element: string;
   seasonStatus: string;
-  /** 传统月令状态与司令规则的归一化构成占比，不是概率或吉凶比例。 */
-  weightSharePercent: number;
+  /** 月令状态与司令两项事实的登记数量，不表示力量比例。 */
   count: number;
   commanderApplied: boolean;
   ruleBasis: string[];
@@ -381,9 +408,9 @@ export interface RelationStructureProfile {
   items: RelationStructureItem[];
   summary: string;
 }
-export type HarmonyTransformLevel = '完全合化' | '大部分化' | '半化半绊' | '合而不化' | '纯粹牵绊';
+export type HarmonyTransformLevel = '成化' | '合而不化' | '争合不专' | '逢冲破合' | '隔位不合';
 export type HarmonyTransformType = '天干五合' | '地支六合';
-export type HarmonyTransformDirection = '向化' | '合绊' | '合去';
+export type HarmonyTransformDirection = '向化' | '合绊' | '破合' | '不合';
 export interface HarmonyTransformProfile {
   type: HarmonyTransformType;
   participants: string[];
@@ -391,6 +418,8 @@ export interface HarmonyTransformProfile {
   transformStem?: string;
   level: HarmonyTransformLevel;
   direction: HarmonyTransformDirection;
+  dayStemInvolved?: boolean;
+  participantsAdjacent: boolean;
   monthSupported: boolean;
   transformStemVisible: boolean;
   transformRooted: boolean;

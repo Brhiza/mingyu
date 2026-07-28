@@ -10,6 +10,7 @@ import { ChildLimit, Gender, SolarTime } from 'tyme4ts';
 import type { XiaoYunItem, XiaoYunProfile, LuckDirectionProfile } from '../types/analysis';
 import { assertBaziGender, assertHeavenlyStem } from './baziUtils';
 import { HEAVENLY_STEMS } from '../ganzhi/data';
+import { createChildLimit } from './childLimit';
 
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 type LuckGender = Parameters<typeof ChildLimit.fromSolarTime>[1];
@@ -64,7 +65,7 @@ export function calculateXiaoYunProfile(
   assertBaziGender(gender);
   assertHeavenlyStem(dayMasterGan, '日主');
 
-  const childLimit = ChildLimit.fromSolarTime(
+  const childLimit = createChildLimit(
     solarTime,
     (gender === 'male' ? Gender.MAN : Gender.WOMAN) as LuckGender,
   );

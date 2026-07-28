@@ -17,7 +17,7 @@ import type { MeihuaData, MeihuaSettings } from '../../../types/divination';
 import { trigramsByIndex } from '../../../divination/hexagram-data';
 import { MeihuaHelpers } from '../../../divination/divination-helpers';
 import { getDivinationTime } from '../../../calendar/timeManager';
-import { getSeasonState, isSheng, isKe } from '../../../ganzhi';
+import { getBranchWuxing, getSeasonState, isSheng, isKe } from '../../../ganzhi';
 import { assertOptionalRecord } from '../../../shared/validation';
 import { findHexagramByTrigrams, resolveTiYongByMovingYao } from './helpers/hexagram';
 import {
@@ -48,6 +48,26 @@ function getTiYongRelation(yongElement: string, tiElement: string): string {
   if (isKe(yongElement, tiElement)) return '用克体';
   if (isKe(tiElement, yongElement)) return '体克用';
   return '杂';
+}
+
+function getInterRelationToOriginalTi(
+  sourceLabel: '体互' | '用互',
+  sourceElement: string,
+  originalTiElement: string,
+): string {
+  if (!VALID_WUXING.has(sourceElement) || !VALID_WUXING.has(originalTiElement)) {
+    throw new Error(
+      `梅花易数互卦五行无效：${sourceLabel}${sourceElement || '空'}、原体${originalTiElement || '空'}。`,
+    );
+  }
+  if (sourceElement === originalTiElement) return `${sourceLabel}与原体比和`;
+  if (isSheng(sourceElement, originalTiElement)) return `${sourceLabel}生原体`;
+  if (isSheng(originalTiElement, sourceElement)) return `原体生${sourceLabel}`;
+  if (isKe(sourceElement, originalTiElement)) return `${sourceLabel}克原体`;
+  if (isKe(originalTiElement, sourceElement)) return `原体克${sourceLabel}`;
+  throw new Error(
+    `梅花易数无法判断${sourceLabel}${sourceElement}与原体${originalTiElement}的关系。`,
+  );
 }
 
 /**
@@ -163,25 +183,18 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   }
   const mainHexagram = findHexagramByTrigrams(upperTrigramIndex, lowerTrigramIndex);
 
-  const toBottomUpLines = (lines: number[]) => [...lines].reverse();
-  const toStoredLines = (bottomUpLines: number[]) => [...bottomUpLines].reverse();
-
-  const mainLines = [
-    ...toBottomUpLines(lowerTrigram.lines),
-    ...toBottomUpLines(upperTrigram.lines),
-  ];
+  const mainLines = [...lowerTrigram.lines, ...upperTrigram.lines];
 
   const interLowerLines = mainLines.slice(1, 4);
   const interUpperLines = mainLines.slice(2, 5);
 
   const findTrigramByBottomUpLines = (lines: number[]) => {
-    const storedLines = toStoredLines(lines);
     for (let i = 1; i <= 8; i++) {
       const trigram = trigrams[i];
-      if (trigram && trigram.lines.length === storedLines.length) {
+      if (trigram && trigram.lines.length === lines.length) {
         let match = true;
-        for (let j = 0; j < storedLines.length; j++) {
-          if (trigram.lines[j] !== storedLines[j]) {
+        for (let j = 0; j < lines.length; j++) {
+          if (trigram.lines[j] !== lines[j]) {
             match = false;
             break;
           }
@@ -223,6 +236,13 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   // 动爻在四、五、上爻时，上卦为用、下卦为体；反之则下卦为用、上卦为体。
   const { tiGua, yongGua } = resolveTiYongByMovingYao(upperTrigram, lowerTrigram, movingYaoIndex);
 
+  // 《梅花易数》卷三《体用互变之诀》明定：
+  // 体在上，则上互为体互、下互为用互；体在下，则下互为体互、上互为用互。
+  // 动爻在下卦时原体在上，动爻在上卦时原体在下，互卦角色必须沿用原体所在方位。
+  const movingInLower = movingYaoIndex <= 3;
+  const interTiGua = movingInLower ? interUpperResult.trigram : interLowerResult.trigram;
+  const interYongGua = movingInLower ? interLowerResult.trigram : interUpperResult.trigram;
+
   const changedTiYong = resolveTiYongByMovingYao(
     changedUpperResult.trigram,
     changedLowerResult.trigram,
@@ -248,6 +268,7 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   // 四时旺衰：按《梅花易数》以月建地支定旺相休囚死，比季节粗分更精确。
   // 复用六爻的 getSeasonState（同令→旺，令生我→相，我生令→休，我克令→囚，令克我→死）。
   const monthBranch = ganzhi.month.slice(-1);
+  const monthElement = getBranchWuxing(monthBranch);
   const tiSeasonState = getSeasonState(tiGua.element, monthBranch);
   const yongSeasonState = getSeasonState(yongGua.element, monthBranch);
   const seasonByJieQi = MeihuaHelpers.getSeasonByJieQi(timeInfo.jieQi);
@@ -273,6 +294,16 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
       name: changedTiYong.yongGua.name,
       element: changedTiYong.yongGua.element,
       nature: changedTiYong.yongGua.nature,
+    },
+    interTiGua: {
+      name: interTiGua.name,
+      element: interTiGua.element,
+      nature: interTiGua.nature,
+    },
+    interYongGua: {
+      name: interYongGua.name,
+      element: interYongGua.element,
+      nature: interYongGua.nature,
     },
 
     // 卦象详情
@@ -314,22 +345,14 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
 
     analysis: {
       season,
+      monthBranch,
+      monthElement,
       tiYongRelation: MeihuaHelpers.getElementRelation(yongGua.element, tiGua.element),
       tiSeasonState,
       yongSeasonState,
-      // 传统梅花互卦体用定法（《梅花易数》原旨）：
-      // 原动爻在下卦（1/2/3爻）→互卦的下卦为互体、上卦为互用；
-      // 原动爻在上卦（4/5/6爻）→互卦的上卦为互体、下卦为互用。
-      // 以互用对互体论生克，反映事态发展过程中的关键关系。
-      inter1Relation: MeihuaHelpers.getElementRelation(
-        movingYaoIndex <= 3 ? interUpperResult.trigram.element : interLowerResult.trigram.element,
-        movingYaoIndex <= 3 ? interLowerResult.trigram.element : interUpperResult.trigram.element,
-      ),
-      // 另一互卦经卦对原体卦的辅助关系（非正统，仅作参考）
-      inter2Relation: MeihuaHelpers.getElementRelation(
-        interUpperResult.trigram.element,
-        tiGua.element,
-      ),
+      // 体互最紧、用互次之，二者分别与原体核验，不把上下互的位置写反。
+      inter1Relation: getInterRelationToOriginalTi('体互', interTiGua.element, tiGua.element),
+      inter2Relation: getInterRelationToOriginalTi('用互', interYongGua.element, tiGua.element),
       changedRelation: MeihuaHelpers.getElementRelation(
         changedTiYong.yongGua.element,
         changedTiYong.tiGua.element,

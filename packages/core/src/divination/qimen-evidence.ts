@@ -1,6 +1,12 @@
 import type { QimenData, QimenJiuGongGe } from '../types/divination';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
+import {
+  formatTianPanStars,
+  formatTianPanStems,
+  hasTianPanStar,
+  hasTianPanStem,
+} from './algorithms/qimen/helpers/palace-utils';
 
 export type QimenCandidateSource =
   '值符落宫' | '值使落宫' | '日干落宫' | '时干落宫' | '盘面洞察' | '经典格局';
@@ -457,11 +463,11 @@ function collectCandidateSources(data: QimenData) {
   const dayStem = data.ganzhi.day.charAt(0);
   const hourStem = data.ganzhi.hour.charAt(0);
   data.jiuGongGe.forEach((palace) => {
-    if (palace.tianPan.star === data.zhiFu) add(palace.gong, '值符落宫');
+    if (hasTianPanStar(palace, data.zhiFu)) add(palace.gong, '值符落宫');
     if (palace.renPan.door === data.zhiShi) add(palace.gong, '值使落宫');
-    if (palace.tianPan.stem === dayStem || palace.diPan.stem === dayStem)
+    if (hasTianPanStem(palace, dayStem) || palace.diPan.stem === dayStem)
       add(palace.gong, '日干落宫');
-    if (palace.tianPan.stem === hourStem || palace.diPan.stem === hourStem)
+    if (hasTianPanStem(palace, hourStem) || palace.diPan.stem === hourStem)
       add(palace.gong, '时干落宫');
   });
   data.palaceInsights?.forEach((item) => add(item.gong, '盘面洞察'));
@@ -572,8 +578,8 @@ function buildPalaceFact(
     .filter((item) => item.palaces.includes(palace.gong))
     .map((item) => item.key);
   const promptText = [
-    `${palace.name}（${palace.direction}，五行${palace.element}）：天盘${palace.tianPan.stem || '无干'}${palace.tianPan.star || '无星'}，地盘${palace.diPan.stem || '无干'}，人盘${palace.renPan.door || '无门'}，神盘${palace.shenPan.god || '无神'}`,
-    `组件索引门${palace.renPan.door || '无门'}、星${palace.tianPan.star || '无星'}、神${palace.shenPan.god || '无神'}、天盘${palace.tianPan.stem || '无干'}、地盘${palace.diPan.stem || '无干'}`,
+    `${palace.name}（${palace.direction}，五行${palace.element}）：天盘干${formatTianPanStems(palace) || '无干'}，九星${formatTianPanStars(palace) || '无星'}，地盘${palace.diPan.stem || '无干'}，人盘${palace.renPan.door || '无门'}，神盘${palace.shenPan.god || '无神'}`,
+    `组件索引门${palace.renPan.door || '无门'}、星${formatTianPanStars(palace) || '无星'}、神${palace.shenPan.god || '无神'}、天盘${formatTianPanStems(palace) || '无干'}、地盘${palace.diPan.stem || '无干'}`,
     evidence.stemRelations.length ? `天地盘干${evidence.stemRelations.join('、')}` : '',
     evidence.patterns.length ? `规则命中${evidence.patterns.join('、')}` : '',
     evidence.isVoid ? `空亡${voidBranches.join('、') || '命中但地支未列'}` : '',
@@ -824,8 +830,9 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
   const juMethod =
     data.juMethod ?? (data.timeInfo?.juMethod as 'chaibu' | 'zhirun' | undefined) ?? 'chaibu';
   const juMethodLabel = juMethod === 'zhirun' ? '置闰法' : '拆补法';
+  const juTerm = data.timeInfo.juTerm || data.timeInfo.solarTerm;
   const activeGanZhi = getActiveGanZhi(data);
-  const zhiFuPalace = data.jiuGongGe.find((item) => item.tianPan.star === data.zhiFu);
+  const zhiFuPalace = data.jiuGongGe.find((item) => hasTianPanStar(item, data.zhiFu));
   const zhiShiPalace = data.jiuGongGe.find((item) => item.renPan.door === data.zhiShi);
   const ruleSourceFacts: QimenRuleSourceFact[] = [
     {
@@ -889,11 +896,12 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
       status: '已确定',
       inputs: {
         solarTerm: data.timeInfo.solarTerm,
+        juTerm,
         epoch: data.timeInfo.epoch,
         activeGanZhi,
       },
       result: { isYangDun: data.isYangDun, juShu: data.juShu },
-      promptText: `定局结果：${data.timeInfo.solarTerm}${data.timeInfo.epoch}，${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局`,
+      promptText: `定局结果：${juTerm}${data.timeInfo.epoch}，${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局${juTerm !== data.timeInfo.solarTerm ? `；排盘时实际节气为${data.timeInfo.solarTerm}` : ''}`,
       sourceKeys: ['rule:qimen:setup'],
       limitation: CALCULATION_FACT_LIMITATION,
     },

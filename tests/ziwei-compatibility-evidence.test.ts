@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { analyzeZiweiCompatibility } from '../packages/core/src/ziwei/iztro/compatibility-evidence';
+import {
+  buildAstrolabeFromInput,
+  buildAnalysisPayloadV1,
+  buildHoroscope,
+  DEFAULT_ZIWEI_CALCULATION_CONFIG,
+} from '../packages/core/src/ziwei/iztro';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 import type {
   AnalysisPayloadV1,
@@ -58,6 +64,7 @@ function createPayload(offset: number, mutagen: MutagenName): AnalysisPayloadV1 
   return {
     payload_version: 'analysis_payload_v1',
     language: 'zh-CN',
+    calculation_config: DEFAULT_ZIWEI_CALCULATION_CONFIG,
     basic_info: {
       gender: '男',
       solar_date: '1990-05-15',
@@ -177,6 +184,73 @@ test('紫微双盘应生成生年四化来源到对方落宫链路', () => {
   assert.match(placement.limitation, /不直接等于关系吉凶/);
   assert.equal(result.summaryFact.crossMutagenPlacementCount, result.crossMutagenPlacements.length);
   assert.ok(result.summaryFact.mutagenCounts.禄);
+});
+
+test('紫微双盘真实星盘应以 iztro 原生星曜对象定位跨盘四化', async () => {
+  const chartInput1 = {
+    name: '甲方',
+    dateType: 'solar' as const,
+    birthDate: '1990-05-15',
+    birthTimeIndex: 1,
+    gender: '男' as const,
+  };
+  const chartInput2 = {
+    name: '乙方',
+    dateType: 'solar' as const,
+    birthDate: '1993-11-08',
+    birthTimeIndex: 7,
+    gender: '女' as const,
+  };
+  const astrolabe1 = await buildAstrolabeFromInput(chartInput1);
+  const astrolabe2 = await buildAstrolabeFromInput(chartInput2);
+  const payload1 = buildAnalysisPayloadV1({
+    astrolabe: astrolabe1,
+    horoscope: buildHoroscope(astrolabe1, '2026-07-27', 6),
+    currentScope: 'origin',
+    skipAnalysis: true,
+  });
+  const payload2 = buildAnalysisPayloadV1({
+    astrolabe: astrolabe2,
+    horoscope: buildHoroscope(astrolabe2, '2026-07-27', 6),
+    currentScope: 'origin',
+    skipAnalysis: true,
+  });
+
+  let targetStarLookupCount = 0;
+  const originalTargetStar = astrolabe2.star;
+  astrolabe2.star = ((starName) => {
+    targetStarLookupCount += 1;
+    return originalTargetStar(starName);
+  }) as typeof astrolabe2.star;
+
+  const result = analyzeZiweiCompatibility(payload1, payload2, {
+    person1Name: '甲方',
+    person2Name: '乙方',
+    astrolabe1,
+    astrolabe2,
+  });
+  const placement = result.crossMutagenPlacements.find((item) => item.sourcePerson === 'person1');
+
+  assert.ok(targetStarLookupCount > 0);
+  assert.ok(placement);
+  assert.ok(placement.sources.some((source) => source.includes('star().palace()')));
+  assert.match(placement.calculation, /iztro 原生星曜对象/);
+  assert.match(result.methodology.notes.join('\n'), /star\(\)\.palace\(\)/);
+  assert.deepEqual(
+    { name: placement.targetPalace, branch: placement.targetEarthlyBranch },
+    {
+      name: (() => {
+        const palace = astrolabe2.star(placement.star as never).palace();
+        assert.ok(palace);
+        const payloadPalace = payload2.palaces.find((item) => item.index === palace.index);
+        assert.ok(payloadPalace);
+        return payloadPalace.is_body_palace
+          ? `${payloadPalace.name}（身宫同宫）`
+          : payloadPalace.name;
+      })(),
+      branch: astrolabe2.star(placement.star as never).palace()?.earthlyBranch,
+    },
+  );
 });
 
 test('紫微双盘提示词应包含主证、限制且不输出匹配总分', () => {

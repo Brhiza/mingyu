@@ -6,7 +6,7 @@ export interface TaiyiEvidenceInput {
   scope: TaiyiScope;
   dateTime: string;
   ganZhi: string;
-  accumulatedLabel: '积年' | '积月' | '积日' | '积时' | '积分';
+  accumulatedLabel: '积年' | '积月' | '积日' | '积时';
   accumulatedValue: number;
   entryYears: number;
   yuan: number;
@@ -115,8 +115,8 @@ export interface TaiyiConditionFact {
 
 export interface TaiyiCalculationStep {
   key: string;
-  name: '入纪元数' | '元数' | '纪数' | '局数';
-  status: '已核验';
+  name: '360周期余数' | '72数段' | '60数段' | '局数';
+  status: '已复算';
   input: number;
   operation: string;
   result: number;
@@ -124,7 +124,7 @@ export interface TaiyiCalculationStep {
   basis: string;
   promptText: string;
   sources: string[];
-  limitation: '积数算式只证明本计积数如何折算入纪元数、元数、纪数与七十二局，不证明传统解释有效性、现实胜负、吉凶比例、人物强弱或固定应期';
+  limitation: '积数算式只证明本计积数如何折算360周期余数、72数段、60数段与七十二局；数段序号不等同于已经统一版本口径的元纪，也不证明传统解释有效性、现实胜负、吉凶比例、人物强弱或固定应期';
 }
 
 export interface TaiyiCounterEvidenceFact {
@@ -154,7 +154,7 @@ export interface TaiyiLimitationFact {
   ownerFactKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '限制事实用于约束太乙五计、七十二局、主客定算和十六神可以支持的解释范围，不得被反向当作现实结果或概率证据';
+  limitation: '限制事实用于约束太乙年计、七十二局、主客定算和十六神可以支持的解释范围，不得被反向当作现实结果或概率证据';
 }
 
 export interface TaiyiSummaryFact {
@@ -184,13 +184,13 @@ const SIXTEEN_GOD_FACT_LIMITATION =
 const CONDITION_FACT_LIMITATION =
   '掩、囚与将参中宫只证明盘面满足对应位置条件；传统动静或攻守解释须结合所问事项与现实资料，不代表必然结果' as const;
 const CALCULATION_STEP_LIMITATION =
-  '积数算式只证明本计积数如何折算入纪元数、元数、纪数与七十二局，不证明传统解释有效性、现实胜负、吉凶比例、人物强弱或固定应期' as const;
+  '积数算式只证明本计积数如何折算360周期余数、72数段、60数段与七十二局；数段序号不等同于已经统一版本口径的元纪，也不证明传统解释有效性、现实胜负、吉凶比例、人物强弱或固定应期' as const;
 const COUNTER_FACT_LIMITATION =
   '反证事实只记录掩、囚与主客将参中宫条件是否命中；未命中不代表现实有利，命中也不证明攻守、胜负或固定应期' as const;
 const COUNTER_SUMMARY_LIMITATION =
   '反证汇总只说明传统条件覆盖情况；不得据命中数量生成吉凶总分、成功率、人物强弱或固定应期' as const;
 const LIMITATION_FACT_LIMITATION =
-  '限制事实用于约束太乙五计、七十二局、主客定算和十六神可以支持的解释范围，不得被反向当作现实结果或概率证据' as const;
+  '限制事实用于约束太乙年计、七十二局、主客定算和十六神可以支持的解释范围，不得被反向当作现实结果或概率证据' as const;
 const SUMMARY_FACT_LIMITATION =
   '太乙证据汇总只统计积数计算、核心定位、主客定算、十六神、条件、反证与限制覆盖；不得按数量生成吉凶总分、成功率、人物强弱、攻守胜负或固定应期' as const;
 
@@ -199,7 +199,6 @@ const SCOPE_LABELS: Record<TaiyiScope, string> = {
   month: '月计',
   day: '日计',
   hour: '时计',
-  minute: '分计',
 };
 
 function palaceText(position: string, palace: number) {
@@ -266,6 +265,13 @@ function buildSixteenGodFacts(data: TaiyiEvidenceInput): TaiyiSixteenGodFact[] {
 }
 
 function buildConditionFacts(data: TaiyiEvidenceInput): TaiyiConditionFact[] {
+  const imprisonedRoles = [
+    data.wenChangPalace === data.taiyiPalace ? '文昌' : undefined,
+    data.lordGeneral === data.taiyiPalace ? '主大将' : undefined,
+    data.lordAssistant === data.taiyiPalace ? '主参将' : undefined,
+    data.guestGeneral === data.taiyiPalace ? '客大将' : undefined,
+    data.guestAssistant === data.taiyiPalace ? '客参将' : undefined,
+  ].filter((item): item is string => item !== undefined);
   const facts: Array<{
     kind: TaiyiConditionFact['kind'];
     matched: boolean;
@@ -282,10 +288,10 @@ function buildConditionFacts(data: TaiyiEvidenceInput): TaiyiConditionFact[] {
     },
     {
       kind: '囚',
-      matched: data.wenChangPalace === data.taiyiPalace,
-      calculationText: `文昌第${data.wenChangPalace}宫与太乙第${data.taiyiPalace}宫比较`,
-      matchedText: '文昌与太乙同宫，传统称囚；只作为主目与太乙位置重合的条件提示',
-      unmatchedText: '文昌与太乙不同宫，未形成囚的位置条件',
+      matched: imprisonedRoles.length > 0,
+      calculationText: `文昌第${data.wenChangPalace}宫、主将参第${data.lordGeneral}/${data.lordAssistant}宫、客将参第${data.guestGeneral}/${data.guestAssistant}宫与太乙第${data.taiyiPalace}宫逐项比较`,
+      matchedText: `${imprisonedRoles.join('、')}与太乙同宫，传统称囚；只作为对应目将与太乙位置重合的条件提示`,
+      unmatchedText: '文昌、主客大小将均与太乙不同宫，未形成囚的位置条件',
     },
     {
       kind: '主将参中宫',
@@ -351,7 +357,6 @@ function buildCounterSummaryFact(
 }
 
 function buildLimitationFacts(
-  data: TaiyiEvidenceInput,
   calculationSteps: TaiyiCalculationStep[],
   positionFacts: TaiyiPositionFact[],
   forceFacts: TaiyiForceFact[],
@@ -370,8 +375,9 @@ function buildLimitationFacts(
       key: 'taiyi:limitation:time-scale',
       type: '时间尺度边界',
       ownerFactKeys: calculationSteps.map((item) => item.key),
-      promptText: `${SCOPE_LABELS[data.scope]}只适用于${SCOPE_LABELS[data.scope]}时间尺度，年、月、日、时、分五计的积数与阴阳遁规则不可互相替代`,
-      sources: ['太乙五计时间尺度与独立积数规则'],
+      promptText:
+        '年计只适用于年度时间尺度；月、日、时计尚未完成节气时刻、章月、月法、日法、气应与小余的古籍历法链校勘，当前不得据年计结果替代推断',
+      sources: ['《太乙金镜式经》卷一年计积年及月日时计历法条文'],
     },
     {
       key: 'taiyi:limitation:traditional-model',
@@ -458,7 +464,12 @@ function buildSummaryFact(args: {
 export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnalysis {
   const scopeLabel = SCOPE_LABELS[data.scope];
   const isCover = data.shiJiPalace === data.taiyiPalace;
-  const isImprison = data.wenChangPalace === data.taiyiPalace;
+  const isImprison =
+    data.wenChangPalace === data.taiyiPalace ||
+    data.lordGeneral === data.taiyiPalace ||
+    data.lordAssistant === data.taiyiPalace ||
+    data.guestGeneral === data.taiyiPalace ||
+    data.guestAssistant === data.taiyiPalace;
   const positionFacts = buildPositionFacts(data);
   const forceFacts = buildForceFacts(data);
   const sixteenGodFacts = buildSixteenGodFacts(data);
@@ -466,47 +477,48 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
   const calculationSteps: TaiyiCalculationStep[] = [
     {
       key: 'taiyi:calculation:entry',
-      name: '入纪元数',
-      status: '已核验',
+      name: '360周期余数',
+      status: '已复算',
       input: data.accumulatedValue,
       operation: `(${data.accumulatedValue} - 1) mod 360 + 1`,
       result: data.entryYears,
       dependsOnStepKeys: [],
-      basis: '积数按三百六十数循环，余零按三百六十计',
-      promptText: `入纪元数：${data.accumulatedValue}按三百六十循环得${data.entryYears}`,
+      basis:
+        '积数按三百六十数循环，余零按三百六十计；这里只记录周期余数，不命名为统一版本的入纪元数',
+      promptText: `360周期余数：${data.accumulatedValue}按三百六十循环得${data.entryYears}`,
       sources: [`${scopeLabel}${data.accumulatedLabel}规则`, '太乙三百六十数入纪循环规则'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
       key: 'taiyi:calculation:yuan',
-      name: '元数',
-      status: '已核验',
+      name: '72数段',
+      status: '已复算',
       input: data.entryYears,
       operation: `ceil(${data.entryYears} / 72)`,
       result: data.yuan,
       dependsOnStepKeys: ['taiyi:calculation:entry'],
-      basis: '入纪元数每七十二数为一元',
-      promptText: `元数：入纪元数${data.entryYears}每七十二数一元，得第${data.yuan}元`,
-      sources: ['太乙七十二数一元规则', data.model.name],
+      basis: '三百六十周期余数每七十二数分段；不据此宣称已经统一“元”的版本口径',
+      promptText: `72数段：360周期余数${data.entryYears}落在第${data.yuan}段`,
+      sources: ['太乙七十二局循环规则', data.model.name],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
       key: 'taiyi:calculation:ji',
-      name: '纪数',
-      status: '已核验',
+      name: '60数段',
+      status: '已复算',
       input: data.entryYears,
       operation: `ceil(${data.entryYears} / 60)`,
       result: data.ji,
       dependsOnStepKeys: ['taiyi:calculation:entry'],
-      basis: '入纪元数每六十数为一纪',
-      promptText: `纪数：入纪元数${data.entryYears}每六十数一纪，得第${data.ji}纪`,
-      sources: ['太乙六十数一纪规则', data.model.name],
+      basis: '三百六十周期余数每六十数分段；不据此宣称已经统一“纪”的版本口径',
+      promptText: `60数段：360周期余数${data.entryYears}落在第${data.ji}段`,
+      sources: ['太乙六十数循环规则', data.model.name],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
       key: 'taiyi:calculation:bureau',
       name: '局数',
-      status: '已核验',
+      status: '已复算',
       input: data.accumulatedValue,
       operation: `(${data.accumulatedValue} - 1) mod 72 + 1`,
       result: data.bureau,
@@ -523,12 +535,12 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     Math.ceil(data.entryYears / 60) !== data.ji ||
     positiveOneBased(data.accumulatedValue, 72) !== data.bureau
   ) {
-    throw new Error('太乙积数、入纪元数、元纪或局数计算链不一致。');
+    throw new Error('太乙积数、360周期余数、数段或局数计算链不一致。');
   }
   const calculationChain = [
     `${scopeLabel}以${data.dateTime}及本计干支${data.ganZhi}作为时间输入`,
-    `按${scopeLabel}独立规则得到${data.accumulatedLabel}${data.accumulatedValue}，折入纪元数${data.entryYears}`,
-    `积数按三百六十循环得到入纪元数${data.entryYears}，再分别按七十二数一元、六十数一纪定位第${data.yuan}元、第${data.ji}纪`,
+    `按${scopeLabel}独立规则得到${data.accumulatedLabel}${data.accumulatedValue}，折算360周期余数${data.entryYears}`,
+    `360周期余数${data.entryYears}分别落在第${data.yuan}个72数段、第${data.ji}个60数段；数段不冒充已统一口径的元纪`,
     `积数按七十二局循环定位${data.yinYang}第${data.bureau}局`,
     '按对应阴阳遁七十二局立成表读取太乙、文昌、始击及主客定算',
     '由主客定算余数定位主客定大将与参将，计神及十六神作为辅助定位资料',
@@ -540,7 +552,7 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     `主大将${data.lordGeneral}宫、主参将${data.lordAssistant}宫；客大将${data.guestGeneral}宫、客参将${data.guestAssistant}宫；定大将${data.setGeneral}宫、定参将${data.setAssistant}宫`,
   ];
   if (isCover) primaryFacts.push('掩成立：始击与太乙同宫');
-  if (isImprison) primaryFacts.push('囚成立：文昌与太乙同宫');
+  if (isImprison) primaryFacts.push('囚成立：文昌或主客大小将至少一项与太乙同宫');
 
   const supportingFacts = [
     `计神在${palaceText(data.jiShenPosition, data.jiShenPalace)}`,
@@ -552,7 +564,6 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     .filter((item) => item.status === '未命中')
     .map((item) => item.promptText);
   const limitationFacts = buildLimitationFacts(
-    data,
     calculationSteps,
     positionFacts,
     forceFacts,
@@ -624,18 +635,18 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     },
     {
       level: '限制',
-      title: '太乙五计解释边界',
+      title: '太乙年计解释边界',
       detail: `${limitations.join('；')}；边界：${LIMITATION_FACT_LIMITATION}`,
       source: Array.from(new Set(limitationFacts.flatMap((item) => item.sources))).join('、'),
       tags: ['传统模型', '证据边界'],
     },
   ];
   const evidence: PromptEvidenceBundle = {
-    title: '太乙五计七十二局结构化证据',
+    title: '太乙年计七十二局结构化证据',
     items,
   };
   const promptText = [
-    '【太乙五计七十二局结构化证据】',
+    '【太乙年计七十二局结构化证据】',
     ...formatPromptEvidenceBundle(evidence),
     `计算链：${calculationChain.join(' → ')}。`,
     `算式核验：${calculationSteps.map((step) => `${step.key} ${step.name}${step.operation}=${step.result}`).join('；')}。`,
@@ -664,7 +675,7 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     evidence,
     promptText,
     methodology: [
-      '先按所选计式独立计算积数、入纪元数、元纪、阴阳遁与七十二局。',
+      '先按所选计式独立计算积数、360周期余数、72/60数段、阴阳遁与七十二局；数段只用于复算，不替代尚未统一版本口径的元纪。',
       '再读取太乙、文昌、始击及主客定算立成，比较同宫结构并定位将参。',
       '计神和十六神只列为辅助定位，不覆盖局数、主客目与主客定算主线。',
       '同时输出成立与不成立的结构，避免只罗列支持证据。',

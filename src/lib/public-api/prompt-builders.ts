@@ -13,7 +13,7 @@ import {
   formatZiweiTrueSolarEvidence,
   type ZiweiRuntime,
 } from '../full-chart-engine/ziwei';
-import { mapScopeLabel, mapTopicLabel } from '../ziwei-prompts/labels';
+import { formatPalaceName, mapScopeLabel, mapTopicLabel } from '../ziwei-prompts/labels';
 import { formatPromptCurrentTime } from '../prompt-time';
 import { buildPromptGuidanceSections, insertPromptSectionBeforeHeading } from '../prompt-guidance';
 
@@ -113,11 +113,11 @@ const BAZI_SCHOOL_GUIDANCE: Record<BaziSchool, string> = {
 
 const ZIWEI_SCHOOL_GUIDANCE: Record<ZiweiSchool, string> = {
   sanhe:
-    '紫微流派：三合派。主线固定为命身宫位—主星庙旺—对宫与三方四正—已列格局；四化只作牵引，不改三方会照主轴。',
+    '紫微解读侧重点：三合派。主线固定为命身宫位—主星庙旺—对宫与三方四正；四化只作牵引，不改三方会照主轴，不自行补造格局。此选项不改变排盘信息中列明的基础安星口径。',
   feixing:
-    '紫微流派：飞星派。主线固定为生年四化与当前运限四化飞入链路—自化与飞化落宫—宫干飞化与对宫回冲；三方四正只作会照辅证，不得另立无飞化依据的主断。',
+    '紫微解读侧重点：飞星派。主线固定为盘面已提供的生年四化、当前运限四化、自化与飞化落宫；三方四正只作会照辅证，不得补造未提供的宫干飞化或格局。此选项不改变排盘信息中列明的基础安星口径。',
   sihua:
-    '紫微流派：四化派。主线固定为生年四化定位—宫干四化—运限四化触发—禄权科忌对宫位主题的牵动顺序；星曜庙旺与三方只解释四化条件，不替代四化主线。',
+    '紫微解读侧重点：四化派。主线固定为盘面已提供的生年四化定位、运限四化触发与禄权科忌落宫；星曜庙旺与三方只解释四化条件，不补造未提供的宫干四化。此选项不改变排盘信息中列明的基础安星口径。',
 };
 
 export function getBaziSchoolGuidance(school?: BaziSchool) {
@@ -234,11 +234,24 @@ export function buildSerializableZiweiResult(result: ZiweiRuntime) {
 
   return {
     basicInfo: originPayload.basic_info,
+    calculationConfig: originPayload.calculation_config,
     scopeNames: Object.keys(result.payloadByScope),
     payloadByScope: result.payloadByScope,
     trueSolarEvidence: result.trueSolarEvidence,
     ...compatibility,
   };
+}
+
+function formatPublicZiweiCalculationConfig(payload: AnalysisPayloadV1) {
+  const config = payload.calculation_config;
+  return [
+    `基础安星：${config.algorithm_basis.replace(/^iztro\s*/i, '')}`,
+    `闰月：${config.leap_month_rule}`,
+    `分年：${config.year_divide_rule}`,
+    `运限月份：${config.horoscope_divide_rule}`,
+    `小限年龄：${config.age_divide_rule}`,
+    `晚子时：${config.late_zi_rule}`,
+  ].join('；');
 }
 
 export function getZiweiPromptCalculationScopes(scope: ZiweiPromptScope): ScopeType[] {
@@ -254,11 +267,14 @@ function mapZiweiPromptScopeLabel(scope: ZiweiPromptScope | ScopeType) {
 
 function formatPublicZiweiMutagenMap(payload: AnalysisPayloadV1) {
   const items = payload.active_scope.mutagen_map
-    .map((item) =>
-      [item.star ? `${item.star}化${item.mutagen}` : `化${item.mutagen}`, item.palace_name]
-        .filter(Boolean)
-        .join('入'),
-    )
+    .map((item) => {
+      const star = item.star ? `${item.star}化${item.mutagen}` : `化${item.mutagen}`;
+      const natalPalace = item.palace_name ? `入本命${formatPalaceName(item.palace_name)}` : '';
+      const dynamicPalace = item.dynamic_palace_name
+        ? `（动态${formatPalaceName(item.dynamic_palace_name)}）`
+        : '';
+      return `${star}${natalPalace}${dynamicPalace}`;
+    })
     .filter(Boolean);
 
   return items.length > 0 ? items.join('；') : '未标出当前四化';
@@ -495,11 +511,16 @@ export function buildPublicZiweiPromptForRuntime(params: {
   const mutagenText =
     payload.active_scope.mutagen_map.length > 0
       ? payload.active_scope.mutagen_map
-          .map((item) =>
-            [item.star ? `${item.star}化${item.mutagen}` : `化${item.mutagen}`, item.palace_name]
-              .filter(Boolean)
-              .join('入'),
-          )
+          .map((item) => {
+            const star = item.star ? `${item.star}化${item.mutagen}` : `化${item.mutagen}`;
+            const natalPalace = item.palace_name
+              ? `入本命${formatPalaceName(item.palace_name)}`
+              : '';
+            const dynamicPalace = item.dynamic_palace_name
+              ? `（动态${formatPalaceName(item.dynamic_palace_name)}）`
+              : '';
+            return `${star}${natalPalace}${dynamicPalace}`;
+          })
           .join('；')
       : '';
   const trueSolarEvidenceText = formatZiweiTrueSolarEvidence(params.result.trueSolarEvidence);
@@ -513,6 +534,7 @@ export function buildPublicZiweiPromptForRuntime(params: {
       : '',
     activePalace ? `当前落宫：${activePalace.name}` : '',
     mutagenText ? `当前四化：${mutagenText}` : '',
+    `排盘口径：${formatPublicZiweiCalculationConfig(payload)}`,
   ].filter(Boolean);
   const prompt = [
     buildPromptGuidanceSections('ziwei'),
@@ -546,7 +568,7 @@ export function buildPublicZiweiPromptForRuntime(params: {
     '',
     `【任务】\n${buildPublicZiweiTaskText()}`,
     '',
-    '【输出要求】\n先直接回答【问题】，再说明宫位主线、四化触发、格局与三方四正、应期条件和现实建议。',
+    '【输出要求】\n先直接回答【问题】，再说明宫位主线、四化触发、三方四正、应期条件和现实建议；不得把未提供的传统格局补造成盘面事实。',
   ].join('\n');
 }
 
@@ -579,11 +601,16 @@ function formatPublicZiweiEvidenceText(params: {
   const mutagenText =
     payload.active_scope.mutagen_map.length > 0
       ? payload.active_scope.mutagen_map
-          .map((item) =>
-            [item.star ? `${item.star}化${item.mutagen}` : `化${item.mutagen}`, item.palace_name]
-              .filter(Boolean)
-              .join('入'),
-          )
+          .map((item) => {
+            const star = item.star ? `${item.star}化${item.mutagen}` : `化${item.mutagen}`;
+            const natalPalace = item.palace_name
+              ? `入本命${formatPalaceName(item.palace_name)}`
+              : '';
+            const dynamicPalace = item.dynamic_palace_name
+              ? `（动态${formatPalaceName(item.dynamic_palace_name)}）`
+              : '';
+            return `${star}${natalPalace}${dynamicPalace}`;
+          })
           .join('；')
       : '';
   const trueSolarEvidenceText = formatZiweiTrueSolarEvidence(params.result.trueSolarEvidence);
@@ -603,6 +630,7 @@ function formatPublicZiweiEvidenceText(params: {
       : '',
     activePalace ? `当前落宫：${activePalace.name}` : '',
     mutagenText ? `当前四化：${mutagenText}` : '',
+    `排盘口径：${formatPublicZiweiCalculationConfig(payload)}`,
     trueSolarEvidenceText ? `出生时间校正：\n${trueSolarEvidenceText}` : '',
     buildPublicZiweiKeyPalaceSection({
       palaces: payload.palaces,

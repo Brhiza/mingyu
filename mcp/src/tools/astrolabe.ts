@@ -40,7 +40,10 @@ const astrolabeSchema = z.object({
     .optional()
     .describe('IANA 历史时区，例如 Asia/Shanghai；推荐用于历史出生时间和夏令时地区'),
   locationName: z.string().optional().describe('出生地点名称'),
-  useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时校正'),
+  useTrueSolarTime: z
+    .boolean()
+    .optional()
+    .describe('是否附带真太阳时参考证据；不改变现代星历采用的实际出生瞬间'),
 });
 
 const astrolabePromptScopes = ['natal', 'full', 'yearly', 'monthly', 'daily'] as const;
@@ -181,7 +184,7 @@ export function registerAstrolabeTool(server: McpServer) {
     'divine_astrolabe',
     {
       description:
-        '星盘生成：根据出生时间、经纬度和时区生成星体、宫位、相位、元素模式及结构化证据；启用真太阳时时附带统一校正计算链、事实、汇总与限制',
+        '星盘生成：根据民用出生时间、经纬度和时区生成星体、宫位、相位、元素模式及结构化证据；可附带真太阳时参考，但不改写现代星历时刻',
       inputSchema: astrolabeSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -199,7 +202,7 @@ export function registerAstrolabeTool(server: McpServer) {
     'astrolabe_prompt',
     {
       description:
-        '星盘生成并生成结构化 AI 解读提示词：返回星盘结果、结构化证据和可直接复制给 AI 的提示词，并将真太阳时校正证据纳入证据包',
+        '星盘生成并生成结构化 AI 解读提示词：返回星盘结果、结构化证据和可直接复制给 AI 的提示词；真太阳时仅作为参考证据，不改写现代星历时刻',
       inputSchema: astrolabePromptSchema.shape,
       outputSchema: {
         result: z.unknown().describe('星盘结果'),

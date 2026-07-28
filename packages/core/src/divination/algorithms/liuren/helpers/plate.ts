@@ -13,7 +13,7 @@ const VALID_WUXING = new Set(['木', '火', '土', '金', '水']);
 /**
  * 十二天将（《大六壬大全》天将体系）：
  * 贵人、螣蛇、朱雀、六合、勾陈、青龙、天空、白虎、太常、玄武、太阴、天后。
- * 十二天将分属各支，各有五行、分野、人事、颜色等属性。
+ * 十二天将分属各干支，以下只保留可由《天将总论》《十二将释》直接核验的属性。
  */
 export const TIANJIANG = [
   '贵人',
@@ -33,10 +33,10 @@ export const TIANJIANG = [
 export type TianJiangName = (typeof TIANJIANG)[number];
 
 /**
- * 十二天将完整属性（《大六壬大全》卷六《天将总论》及《大六壬指南》首卷天将章）：
+ * 十二天将基础属性（《大六壬大全》卷二《天将总论》《十二将释》）：
  *
- * 十二天将各配五行、阴阳、颜色、五味、主数、人事分类、分野地形及身体部位。
- * 大六壬断课中，天将入传或临干支，按其属性与五行生克综合断事。
+ * 五行、阴阳由各将所配天干地支确定，类象取自十二将释。
+ * 五味、主数、身体等属于十二月将/地支神类象，不能移植到十二天将。
  *
  * 各将属性来源：
  * - 贵人：己丑土，《大全》"贵人己丑旺，主官爵印信，紫衣"
@@ -57,159 +57,81 @@ export const TIANJIANG_ATTRIBUTES: Record<
   {
     wuxing: string; // 天将五行
     yinYang: '阳' | '阴';
-    color: string; // 传统服色
-    flavor: string; // 五味
-    number: number; // 主数
     category: string; // 人事分类
-    terrain: string; // 分野地形
-    description: string; // 性格/事象描述
-    direction: string; // 方向倾向
-    bodyPart: string; // 身体部位
+    description: string; // 传统类象摘要
   }
 > = {
   贵人: {
     wuxing: '土',
-    yinYang: '阳',
-    color: '紫',
-    flavor: '甘',
-    number: 8,
-    category: '尊贵/助力',
-    terrain: '朝廷/官府',
-    description: '至尊之神，主贵气、助力、提携、官禄',
-    direction: '中',
-    bodyPart: '心',
+    yinYang: '阴',
+    category: '贵人/官长',
+    description: '神将之主，传统类神为贵人、官长',
   },
   螣蛇: {
     wuxing: '火',
     yinYang: '阴',
-    color: '赤',
-    flavor: '苦',
-    number: 4,
-    category: '虚惊/怪异',
-    terrain: '道路/旷野',
-    description: '虚惊怪异之神，主惊疑、梦魇、缠绕、变幻',
-    direction: '南',
-    bodyPart: '血脉',
+    category: '惊恐/怪异',
+    description: '传统类象为惊恐、怪异',
   },
   朱雀: {
     wuxing: '火',
     yinYang: '阳',
-    color: '赤黑',
-    flavor: '苦',
-    number: 9,
     category: '文书/口舌',
-    terrain: '衙门/炉冶',
-    description: '文书口舌之神，主消息、书信、言语、考试',
-    direction: '南',
-    bodyPart: '口舌',
+    description: '传统类象为文书、信息、口舌',
   },
   六合: {
     wuxing: '木',
-    yinYang: '阳',
-    color: '青',
-    flavor: '酸',
-    number: 6,
+    yinYang: '阴',
     category: '和合/婚姻',
-    terrain: '关津/林木',
-    description: '和合之神，主婚姻、合作、合同、中介、子息',
-    direction: '东',
-    bodyPart: '手足',
+    description: '传统类象为婚姻、喜庆、交易、媒妁',
   },
   勾陈: {
     wuxing: '土',
     yinYang: '阳',
-    color: '青黄',
-    flavor: '甘',
-    number: 5,
-    category: '纠纷/争斗',
-    terrain: '田土/牢狱',
-    description: '争斗纠纷之神，主官非、土地、契约、争执',
-    direction: '中',
-    bodyPart: '脾',
+    category: '斗讼/勾留',
+    description: '传统类象为斗讼、勾连、迟滞',
   },
   青龙: {
     wuxing: '木',
     yinYang: '阳',
-    color: '青绿',
-    flavor: '酸',
-    number: 7,
     category: '财帛/喜庆',
-    terrain: '山林/官府',
-    description: '财喜之神，主升迁、钱财、喜事、贵人、仁德',
-    direction: '东',
-    bodyPart: '肝胆',
+    description: '传统类象为财帛、文字、官府、升迁、喜庆',
   },
   天空: {
     wuxing: '土',
     yinYang: '阳',
-    color: '黄灰',
-    flavor: '甘',
-    number: 3,
-    category: '虚诈/孤独',
-    terrain: '市井/空旷',
-    description: '虚诈孤独之神，主空亡、欺骗、孤寡、无成',
-    direction: '中',
-    bodyPart: '脾胃',
+    category: '虚空/欺诈',
+    description: '传统类象为虚空、欺诈',
   },
   白虎: {
     wuxing: '金',
     yinYang: '阳',
-    color: '白',
-    flavor: '辛',
-    number: 7,
-    category: '凶丧/疾病',
-    terrain: '道路/兵戈',
-    description: '凶丧之神，主疾病、死丧、血光、刀兵、破财',
-    direction: '西',
-    bodyPart: '肺',
+    category: '疾病/道路',
+    description: '传统类象为疾病、孝服、道路、刑伤',
   },
   太常: {
     wuxing: '土',
     yinYang: '阴',
-    color: '黄',
-    flavor: '甘',
-    number: 5,
     category: '宴乐/印绶',
-    terrain: '祠庙/筵席',
-    description: '宴乐印绶之神，主喜宴、赏赐、印信、孝服',
-    direction: '中',
-    bodyPart: '肉',
+    description: '传统类象为文章、印绶、衣服、酒食、宴乐',
   },
   玄武: {
     wuxing: '水',
     yinYang: '阴',
-    color: '黑',
-    flavor: '咸',
-    number: 6,
-    category: '盗贼/隐秘',
-    terrain: '江河/井池',
-    description: '盗贼隐秘之神，主失窃、欺骗、隐私、阴私',
-    direction: '北',
-    bodyPart: '肾',
+    category: '盗贼/遗亡',
+    description: '传统类象为盗贼、遗亡、隐秘',
   },
   太阴: {
     wuxing: '金',
     yinYang: '阴',
-    color: '灰白',
-    flavor: '辛',
-    number: 6,
     category: '阴私/暗助',
-    terrain: '宫室/内室',
-    description: '阴私之神，主暗中相助、儿媳、阴人、内事',
-    direction: '西',
-    bodyPart: '肺',
+    description: '传统类象为阴私、暗中相助',
   },
   天后: {
     wuxing: '水',
-    yinYang: '阴',
-    color: '蓝黑',
-    flavor: '咸',
-    number: 8,
-    category: '恩泽/婚姻',
-    terrain: '江湖/宫廷',
-    description: '恩泽之神，主婚姻、恩宠、庇护、女性、长辈',
-    direction: '北',
-    bodyPart: '肾',
+    yinYang: '阳',
+    category: '妇人/恩泽',
+    description: '传统类象为宫廷、妇人、婚姻、恩泽',
   },
 };
 

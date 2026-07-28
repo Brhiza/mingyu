@@ -172,6 +172,23 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
   assert.match(incomplete.hiddenSpiritCoverageFact.promptText, /不得反推伏神位置/);
 });
 
+test('六爻证据应同时保留基础动变关系与化空条件', () => {
+  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: [6, 6, 6, 6, 6, 6],
+  });
+  const changedLine = data.yaosDetail[5];
+  const changedFact = data.evidenceAnalysis?.lineFacts[5];
+
+  assert.deepEqual(changedLine.changeRelations, ['回头生', '化空']);
+  assert.equal(changedLine.changeRelation, '化空');
+  assert.deepEqual(changedFact?.changedYao?.relations, ['回头生', '化空']);
+  assert.ok(changedFact?.support.includes('回头生'));
+  assert.ok(changedFact?.constraints.includes('变爻空亡'));
+  assert.match(changedFact?.promptText || '', /回头生、化空/);
+  assert.doesNotMatch(changedFact?.promptText || '', /化空.*变爻空亡|变爻空亡.*化空/);
+});
+
 test('六爻原神忌神仇神应按生克作用链推导', () => {
   const data = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
   const evidence = analyzeLiuyaoEvidence(data, { topic: 'shiye' });

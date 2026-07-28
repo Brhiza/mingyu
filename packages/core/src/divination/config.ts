@@ -7,7 +7,6 @@ import type {
   MeihuaDivinationMethod,
   TarotSpreadType,
   XiaoliurenDivinationMethod,
-  XiaoliurenSchool,
   JinkoujueDivinationMethod,
 } from '../types/divination';
 
@@ -117,19 +116,7 @@ export const MEIHUA_METHOD_OPTIONS: Array<{
 export const XIAOLIUREN_METHOD_OPTIONS: Array<{
   value: XiaoliurenDivinationMethod;
   label: string;
-}> = [
-  { value: 'time', label: '时间起课' },
-  { value: 'number', label: '数字起课' },
-  { value: 'random', label: '随机起课' },
-];
-
-export const XIAOLIUREN_SCHOOL_OPTIONS: Array<{
-  value: XiaoliurenSchool;
-  label: string;
-}> = [
-  { value: 'standard', label: '通行掌诀' },
-  { value: 'huashan', label: '华山派' },
-];
+}> = [{ value: 'time', label: '时间起课' }];
 
 export const JINKOUJUE_METHOD_OPTIONS: Array<{
   value: JinkoujueDivinationMethod;

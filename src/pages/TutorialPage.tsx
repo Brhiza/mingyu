@@ -19,8 +19,8 @@ const workflowSteps = [
 const modeGuides = [
   {
     title: '排盘模式',
-    description: '查看个人命盘、住宅八宅或七政四余。',
-    bullets: ['八字 / 紫微填写出生信息', '八宅填写房屋朝向度数', '七政四余填写出生时间和地点'],
+    description: '查看个人命盘或住宅风水。',
+    bullets: ['八字 / 紫微填写出生信息', '住宅风水填写出生年份、性别和房屋朝向资料'],
   },
   {
     title: '合盘模式',

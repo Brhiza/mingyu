@@ -1,4 +1,5 @@
 import type { AnalysisPayloadV1 } from '../../types/analysis';
+import { selectVerifiedZiweiPatterns } from '@core/ziwei/iztro';
 import {
   buildEvidenceSummary,
   buildPalaceIndex,
@@ -34,7 +35,11 @@ function buildTaskBookAnalysisObject(payload: AnalysisPayloadV1) {
       currentMutagens.length > 0
         ? currentMutagens.map((item) =>
             item.palace_name
-              ? `${item.star}化${item.mutagen}→${formatPalaceName(item.palace_name)}`
+              ? `${item.star}化${item.mutagen}→${formatPalaceName(item.palace_name)}${
+                  item.dynamic_palace_name
+                    ? `（动态${formatPalaceName(item.dynamic_palace_name)}）`
+                    : ''
+                }`
               : `${item.star}化${item.mutagen}`,
           )
         : undefined,
@@ -62,33 +67,41 @@ function buildTaskBookBasicInfo(payload: AnalysisPayloadV1) {
     来因宫: hiddenPalaces?.original_palace_name
       ? formatPalaceName(hiddenPalaces.original_palace_name)
       : undefined,
-    暗合宫: hiddenPalaces?.anhe_palace_name
-      ? formatPalaceName(hiddenPalaces.anhe_palace_name)
-      : undefined,
+  };
+}
+
+function buildCalculationConfigSummary(payload: AnalysisPayloadV1) {
+  const config = payload.calculation_config;
+  return {
+    安星口径: config.algorithm_basis.replace(/^iztro\s*/i, ''),
+    闰月口径: config.leap_month_rule,
+    分年口径: config.year_divide_rule,
+    运限月份: config.horoscope_divide_rule,
+    小限年龄: config.age_divide_rule,
+    晚子时: config.late_zi_rule,
   };
 }
 
 function buildPatternSummary(payload: AnalysisPayloadV1) {
-  return (payload.patterns ?? []).slice(0, 4).map((item) => {
-    const markerIndex = item.description.search(/[，；。]主/);
-    const legacyCondition =
-      markerIndex >= 0 ? item.description.slice(0, markerIndex) : item.description;
-    const legacyInterpretation =
-      markerIndex >= 0 ? item.description.slice(markerIndex + 1).trim() : undefined;
-
-    return {
-      传统格局: item.name,
-      命中条件: item.matched_conditions ?? [
-        `规则条件：${legacyCondition}`,
-        `实际命中宫位：${item.palace_names.join('、') || '未登记独立宫位'}`,
-        `实际命中星曜：${item.star_names.join('、') || '未登记独立星曜'}`,
-      ],
-      关联宫位: item.palace_names.map((name) => formatPalaceName(name)),
-      关联星曜: item.star_names,
-      事实说明: item.promptText,
-      传统释义: item.traditional_interpretation || legacyInterpretation,
-    };
+  const verifiedPatterns = selectVerifiedZiweiPatterns({
+    patterns: payload.patterns ?? [],
+    palaces: payload.palaces,
   });
+
+  return verifiedPatterns.map((pattern) => ({
+    格局: pattern.name,
+    传统分类:
+      pattern.kind === 'auspicious'
+        ? '传统吉格'
+        : pattern.kind === 'inauspicious'
+          ? '传统凶格'
+          : '传统中性格',
+    命中条件: pattern.matched_conditions?.join('；'),
+    涉及宫位: pattern.palace_names.join('、'),
+    涉及星曜: pattern.star_names.join('、'),
+    古籍依据: pattern.sources?.[0],
+    判断边界: '只表示盘面满足该条登记条件，须结合全盘与现实资料，不代表必然结果',
+  }));
 }
 
 export function buildPromptContextSnapshot(params: {
@@ -103,6 +116,7 @@ export function buildPromptContextSnapshot(params: {
 
   return {
     命主基础信息: buildTaskBookBasicInfo(payload),
+    排盘口径: buildCalculationConfigSummary(payload),
     当前运限信息: {
       时限类型: mapScopeLabel(payload.active_scope.scope),
       时限标签: payload.active_scope.label,
@@ -113,7 +127,11 @@ export function buildPromptContextSnapshot(params: {
         currentMutagens.length > 0
           ? currentMutagens.map((item) =>
               item.palace_name
-                ? `${item.star}化${item.mutagen}→${formatPalaceName(item.palace_name)}`
+                ? `${item.star}化${item.mutagen}→${formatPalaceName(item.palace_name)}${
+                    item.dynamic_palace_name
+                      ? `（动态${formatPalaceName(item.dynamic_palace_name)}）`
+                      : ''
+                  }`
                 : `${item.star}化${item.mutagen}`,
             )
           : undefined,
@@ -132,6 +150,9 @@ export function buildZiweiReadableSnapshot(params: {
   reportContext: PromptContext;
 }) {
   const snapshot = buildPromptContextSnapshot(params);
+  const patternSection = snapshot.命盘格局.length
+    ? ['', '【命盘格局】', formatObjectList(snapshot.命盘格局)]
+    : [];
 
   return [
     '【分析背景】',
@@ -146,14 +167,15 @@ export function buildZiweiReadableSnapshot(params: {
     '【本命资料】',
     formatKeyValueBlock(snapshot.命主基础信息),
     '',
+    '【排盘口径】',
+    formatKeyValueBlock(snapshot.排盘口径),
+    '',
     '【分析对象】',
     formatKeyValueBlock(snapshot.当前运限信息),
     '',
     '【运限重点】',
     formatObjectList(snapshot.运限命中摘要.map((line) => ({ 摘要: line }))),
-    '',
-    '【命盘格局】',
-    formatObjectList(snapshot.命盘格局),
+    ...patternSection,
     '',
     '【运限资料】',
     formatObjectList(snapshot.运限结构),
@@ -178,6 +200,7 @@ export function buildZiweiTaskBookSnapshot(params: {
   const focusPalaces = focusTaskBundle.focusPalaces.slice(0, 4);
   const isOrigin = params.payload.active_scope.scope === 'origin';
   const evidenceSummary = buildEvidenceSummary(payload, focusPalaces, reportContext).slice(0, 6);
+  const patternSummary = buildPatternSummary(payload);
 
   const sections = [
     '【分析背景】',
@@ -190,11 +213,12 @@ export function buildZiweiTaskBookSnapshot(params: {
     '【本命资料】',
     formatKeyValueBlock(buildTaskBookBasicInfo(payload)),
     '',
+    '【排盘口径】',
+    formatKeyValueBlock(buildCalculationConfigSummary(payload)),
+    '',
     '【分析对象】',
     formatKeyValueBlock(buildTaskBookAnalysisObject(payload)),
-    '',
-    '【命盘格局】',
-    formatObjectList(buildPatternSummary(payload)),
+    ...(patternSummary.length ? ['', '【命盘格局】', formatObjectList(patternSummary)] : []),
     '',
     '【重点宫位资料】',
     formatObjectList(focusPalaces.map((item) => buildPalaceSummary(payload, item))),

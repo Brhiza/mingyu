@@ -31,7 +31,7 @@ export function registerQizhengTool(server: McpServer) {
     'metaphysics_qizheng',
     {
       description:
-        '七政四余（果老星宗）：计算日月五星、罗睺、计都、月孛及《七政算内篇》古法紫炁，立命身宫、排十二宫、二十八宿宿度与庙旺神煞',
+        '七政四余（果老星宗）：计算十一星、真实距星二十八宿界、命身十二宫、庙旺、吊照及分层天文证据',
       inputSchema: qiZhengSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -61,7 +61,7 @@ export function registerQizhengTool(server: McpServer) {
   server.registerTool(
     'qizheng_prompt',
     {
-      description: '七政四余排盘并生成结构化 AI 解读提示词',
+      description: '七政四余排盘并生成可直接复制给 AI 的结构化提示词',
       inputSchema: qiZhengSchema.shape,
       outputSchema: promptOutputSchema,
     },

@@ -28,7 +28,7 @@ import type { RandomOptions, RandomTrace } from '../../shared/random';
 import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
 import { analyzeLiuyaoEvidence } from '../liuyao-evidence';
-import type { LiuyaoData } from '../../types/divination';
+import type { LiuyaoChangeRelation, LiuyaoData } from '../../types/divination';
 import {
   isSheng,
   isKe,
@@ -162,7 +162,35 @@ export function getLiuyaoChangeRelation(
   originalBranch: string,
   changedBranch: string,
   changedIsVoid: boolean,
-): '回头生' | '回头克' | '回头冲' | '化空' | '比和' | '化泄' | '化耗' {
+): LiuyaoChangeRelation {
+  const relations = getLiuyaoChangeRelations(
+    originalWuxing,
+    changedWuxing,
+    originalBranch,
+    changedBranch,
+    changedIsVoid,
+  );
+  if (changedIsVoid) return '化空';
+  const relation = relations[0];
+  if (!relation) {
+    throw new Error(`动变五行关系无法判定：${originalWuxing}→${changedWuxing}`);
+  }
+  return relation;
+}
+
+/**
+ * 返回动变条件的完整并见列表。
+ * 《增删卜易》分别论回头生克冲、化空、进退等条件；化空描述变爻旬空，
+ * 不会抹掉变爻对本爻原有的生、克、冲或比泄耗关系。卷二《六冲章》又以
+ * “酉金化卯冲世而不克世”明确区分冲与克，故相冲和五行关系也分别保存。
+ */
+export function getLiuyaoChangeRelations(
+  originalWuxing: string,
+  changedWuxing: string,
+  originalBranch: string,
+  changedBranch: string,
+  changedIsVoid: boolean,
+): LiuyaoChangeRelation[] {
   if (!VALID_LIUYAO_WUXING.has(originalWuxing) || !VALID_LIUYAO_WUXING.has(changedWuxing)) {
     throw new Error(`六爻动变五行无效：${originalWuxing || '空'}→${changedWuxing || '空'}`);
   }
@@ -172,14 +200,24 @@ export function getLiuyaoChangeRelation(
   if (typeof changedIsVoid !== 'boolean') {
     throw new Error('六爻变爻旬空标记必须是布尔值');
   }
-  if (changedIsVoid) return '化空';
-  if (isLiuchong(originalBranch, changedBranch)) return '回头冲';
-  if (isSheng(changedWuxing, originalWuxing)) return '回头生';
-  if (isKe(changedWuxing, originalWuxing)) return '回头克';
-  if (originalWuxing === changedWuxing) return '比和';
-  if (isSheng(originalWuxing, changedWuxing)) return '化泄';
-  if (isKe(originalWuxing, changedWuxing)) return '化耗';
-  throw new Error(`动变五行关系无法判定：${originalWuxing}→${changedWuxing}`);
+  const wuxingRelation: LiuyaoChangeRelation = isSheng(changedWuxing, originalWuxing)
+    ? '回头生'
+    : isKe(changedWuxing, originalWuxing)
+      ? '回头克'
+      : originalWuxing === changedWuxing
+        ? '比和'
+        : isSheng(originalWuxing, changedWuxing)
+          ? '化泄'
+          : isKe(originalWuxing, changedWuxing)
+            ? '化耗'
+            : (() => {
+                throw new Error(`动变五行关系无法判定：${originalWuxing}→${changedWuxing}`);
+              })();
+  const relations: LiuyaoChangeRelation[] = isLiuchong(originalBranch, changedBranch)
+    ? ['回头冲', wuxingRelation]
+    : [wuxingRelation];
+  if (changedIsVoid) relations.push('化空');
+  return relations;
 }
 
 const SHI_YANG_TO_GUA_SHEN: Record<number, string> = {
@@ -866,6 +904,18 @@ function resolveRawYaos(
   return { yaos, generation: { method: 'manual' } };
 }
 
+function toHexagramBinary(yaos: string[]): string {
+  if (yaos.length !== 6) {
+    throw new Error(`六爻卦象必须恰好包含 6 爻，实际 ${yaos.length} 爻。`);
+  }
+  if (!yaos.every((yao) => yao === '阳' || yao === '阴')) {
+    throw new Error('六爻卦象只能包含阴爻或阳爻。');
+  }
+  const lines = yaos.map((yao) => (yao === '阳' ? '1' : '0'));
+  // 六十四卦编码按“上卦、下卦”，每个经卦内部仍按初爻到三爻排列。
+  return [...lines.slice(3, 6), ...lines.slice(0, 3)].join('');
+}
+
 export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOptions) {
   // 1. 获取占卜时间的干支信息
   const { ganzhi, timestamp } = getDivinationTime(customDate);
@@ -879,14 +929,8 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     return mainYaos[index];
   });
 
-  const mainBinary = mainYaos
-    .map((y) => (y === '阳' ? '1' : '0'))
-    .reverse()
-    .join('');
-  const changedBinary = changedYaos
-    .map((y) => (y === '阳' ? '1' : '0'))
-    .reverse()
-    .join('');
+  const mainBinary = toHexagramBinary(mainYaos);
+  const changedBinary = toHexagramBinary(changedYaos);
 
   const getInterHexagram = (yaos: string[]) => {
     const interLower = yaos.slice(1, 4);
@@ -894,10 +938,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     return [...interLower, ...interUpper];
   };
   const interYaos = getInterHexagram(mainYaos);
-  const interBinary = interYaos
-    .map((y) => (y === '阳' ? '1' : '0'))
-    .reverse()
-    .join('');
+  const interBinary = toHexagramBinary(interYaos);
 
   const mainHexagram = hexagramsData.find((h) => h.binarySymbol === mainBinary);
   const changedHexagram = hexagramsData.find((h) => h.binarySymbol === changedBinary);
@@ -973,6 +1014,15 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
           voids.includes(changedInfo.dizhi),
         )
       : null;
+    const changeRelations = changedInfo
+      ? getLiuyaoChangeRelations(
+          info.wuxing,
+          changedInfo.wuxing,
+          info.dizhi,
+          changedInfo.dizhi,
+          voids.includes(changedInfo.dizhi),
+        )
+      : [];
 
     return {
       position: index + 1,
@@ -993,6 +1043,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
       seasonState: seasonState,
       changeDirection: changeDirection,
       changeRelation: changeRelation,
+      changeRelations,
       // 新增长支关系检测
       isSanxing: isSanxing(info.dizhi, dayBranch) || isSanxing(info.dizhi, monthBranch),
       sanxingType: getSanxingType(info.dizhi) || undefined,

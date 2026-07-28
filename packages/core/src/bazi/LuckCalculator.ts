@@ -2,6 +2,7 @@ import { SolarTime, ChildLimit } from 'tyme4ts';
 import { assertHeavenlyStem, getTenGod, getTenGodForBranch } from './baziUtils';
 import type { LuckInfo, LuckCycle, LiunianInfo, SolarDateTimeInfo, XiaoyunInfo } from './baziTypes';
 import { formatSolarDateTime, shiftSolarDateTimeYears, toSolarDateTimeInfo } from './luckTiming';
+import { CHILD_LIMIT_METHOD, createChildLimit } from './childLimit';
 
 type SolarTimeInstance = ReturnType<typeof SolarTime.fromYmdHms>;
 type LuckGender = Parameters<typeof ChildLimit.fromSolarTime>[1];
@@ -25,7 +26,7 @@ export class LuckCalculator {
     assertHeavenlyStem(dayMaster, '日主');
 
     // 1. 计算童限 (起运前)
-    const childLimit = ChildLimit.fromSolarTime(solarTime, gender);
+    const childLimit = createChildLimit(solarTime, gender);
     const startAge = childLimit.getYearCount(); // 起运岁数
     const startMonth = childLimit.getMonthCount();
     const startDay = childLimit.getDayCount();
@@ -247,7 +248,7 @@ export class LuckCalculator {
       baseParts.push(`${startMinute} 分`);
     }
 
-    baseParts.push('起运');
+    baseParts.push(`起运（${CHILD_LIMIT_METHOD}）`);
     return baseParts.join(' ');
   }
 }

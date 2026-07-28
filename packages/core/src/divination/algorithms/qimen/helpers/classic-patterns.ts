@@ -26,7 +26,13 @@ import {
 } from './_constants';
 import { isKe, SIX_XUN_HEADS } from '../../../../ganzhi';
 import { getNamedStemPairPattern } from './stem-pair-patterns';
-import { getDunJiaStem } from './palace-utils';
+import {
+  getDunJiaStem,
+  getTianPanStemForStar,
+  getTianPanStems,
+  hasTianPanStar,
+  hasTianPanStem,
+} from './palace-utils';
 
 // ============================================================================
 // 类型定义
@@ -341,7 +347,7 @@ function findStemPalace(
   position: 'tianPan' | 'diPan' = 'tianPan',
 ): QimenJiuGongGe | undefined {
   return jiuGongGe.find((p) =>
-    position === 'tianPan' ? p.tianPan.stem === stem : p.diPan.stem === stem,
+    position === 'tianPan' ? hasTianPanStem(p, stem) : p.diPan.stem === stem,
   );
 }
 
@@ -366,7 +372,6 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
 
   jiuGongGe.forEach((palace) => {
     const door = palace.renPan.door;
-    const heaven = palace.tianPan.stem;
     const earth = palace.diPan.stem;
     const god = palace.shenPan.god;
     const gong = palace.gong;
@@ -375,7 +380,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
     // ── 天遁 ──
     // 《遁甲演义》：「上盘六丙，中盘生门，下盘六丁」
     // 《奇门遁甲统宗》另有「生丙临戊」口径，故兼收地盘丁/戊。
-    if (door === '生门' && heaven === '丙' && (earth === '丁' || earth === '戊')) {
+    if (door === '生门' && hasTianPanStem(palace, '丙') && (earth === '丁' || earth === '戊')) {
       out.push({
         key: `pattern:tianDun:${gong}`,
         name: '天遁',
@@ -392,7 +397,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
 
     // ── 地遁 ──
     // 《遁甲演义》：「上盘六乙，中盘开门，下盘六己」
-    if (door === '开门' && heaven === '乙' && earth === '己') {
+    if (door === '开门' && hasTianPanStem(palace, '乙') && earth === '己') {
       out.push({
         key: `pattern:diDun:${gong}`,
         name: '地遁',
@@ -408,7 +413,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
 
     // ── 人遁 ──
     // 《遁甲演义》：休门+太阴+丁奇 同宫，主低调得人和、暗中得助
-    if (door === '休门' && god === '太阴' && heaven === '丁') {
+    if (door === '休门' && god === '太阴' && hasTianPanStem(palace, '丁')) {
       out.push({
         key: `pattern:renDun:${gong}`,
         name: '人遁',
@@ -424,7 +429,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
 
     // ── 神遁 ──
     // 《奇门遁甲秘籍大全》：生门+丙奇+九天 同宫，主神助、机缘自显
-    if (door === '生门' && heaven === '丙' && god === '九天') {
+    if (door === '生门' && hasTianPanStem(palace, '丙') && god === '九天') {
       out.push({
         key: `pattern:shenDun:${gong}`,
         name: '神遁',
@@ -442,11 +447,15 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
     // 《遁甲演义》：乙奇合九地临杜门；丁奇与休门相合下临九地；
     // 又曰乙奇与开门相合下临九地。
     // 主暗中操作、私下成事
-    if (
-      (door === '杜门' && heaven === '乙' && god === '九地') ||
-      (door === '休门' && heaven === '丁' && god === '九地') ||
-      (door === '开门' && heaven === '乙' && god === '九地')
-    ) {
+    const guiDunStem =
+      god === '九地' &&
+      ((door === '休门' && hasTianPanStem(palace, '丁')) ||
+        ((door === '杜门' || door === '开门') && hasTianPanStem(palace, '乙')))
+        ? door === '休门'
+          ? '丁'
+          : '乙'
+        : '';
+    if (guiDunStem) {
       out.push({
         key: `pattern:guiDun:${gong}`,
         name: '鬼遁',
@@ -456,7 +465,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         modern: '今天用私下沟通、内部协调的方式更容易成事，别公开摊牌。',
         manifestation: '暗中成事、私下沟通有效',
         palace: gong,
-        tokens: [heaven, god, door],
+        tokens: [guiDunStem, god, door],
       });
     }
 
@@ -464,7 +473,8 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
     // 《烟波钓叟歌》：乙+癸+休门/开门 或 休门+乙+坎一宫
     // 主深藏蓄势、暗助得力
     if (
-      ((heaven === '乙' && earth === '癸') || (heaven === '癸' && earth === '乙')) &&
+      ((hasTianPanStem(palace, '乙') && earth === '癸') ||
+        (hasTianPanStem(palace, '癸') && earth === '乙')) &&
       (door === '休门' || door === '开门')
     ) {
       // 乙癸同宫 + 休门/开门
@@ -479,7 +489,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         palace: gong,
         tokens: ['乙', '癸', door],
       });
-    } else if (door === '休门' && heaven === '乙' && gong === 1) {
+    } else if (door === '休门' && hasTianPanStem(palace, '乙') && gong === 1) {
       // 休门+乙+坎一宫（水宫为龙）
       out.push({
         key: `pattern:longDun:${gong}`,
@@ -497,7 +507,11 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
     // ── 虎遁 ──
     // 《烟波钓叟歌》：辛+生门/休门+艮宫 或 生门+乙+艮八宫
     // 主威严稳固、资源回归
-    if ((heaven === '辛' || earth === '辛') && (door === '生门' || door === '休门') && gong === 8) {
+    if (
+      (hasTianPanStem(palace, '辛') || earth === '辛') &&
+      (door === '生门' || door === '休门') &&
+      gong === 8
+    ) {
       out.push({
         key: `pattern:huDun:${gong}`,
         name: '虎遁',
@@ -509,7 +523,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         palace: gong,
         tokens: ['辛', door, '艮八'],
       });
-    } else if (door === '生门' && heaven === '乙' && gong === 8) {
+    } else if (door === '生门' && hasTianPanStem(palace, '乙') && gong === 8) {
       out.push({
         key: `pattern:huDun:${gong}`,
         name: '虎遁',
@@ -526,7 +540,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
     // ── 风遁 ──
     // 《烟波钓叟歌》：乙+杜门+巽宫 或 开门+乙+巽四宫
     // 主消息流通、文书传递
-    if (heaven === '乙' && door === '杜门' && gong === 4) {
+    if (hasTianPanStem(palace, '乙') && door === '杜门' && gong === 4) {
       out.push({
         key: `pattern:fengDun:${gong}`,
         name: '风遁',
@@ -538,7 +552,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         palace: gong,
         tokens: ['乙', '杜门', '巽四'],
       });
-    } else if (door === '开门' && heaven === '乙' && gong === 4) {
+    } else if (door === '开门' && hasTianPanStem(palace, '乙') && gong === 4) {
       out.push({
         key: `pattern:fengDun:${gong}`,
         name: '风遁',
@@ -555,7 +569,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
     // ── 云遁 ──
     // 《烟波钓叟歌》：乙+辛+开门 或 开门+乙+坎一宫
     // 主升迁、求职、上行通达
-    if (door === '开门' && heaven === '乙' && earth === '辛') {
+    if (door === '开门' && hasTianPanStem(palace, '乙') && earth === '辛') {
       out.push({
         key: `pattern:yunDun:${gong}`,
         name: '云遁',
@@ -567,7 +581,7 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         palace: gong,
         tokens: ['开门', '乙', '辛'],
       });
-    } else if (door === '开门' && heaven === '乙' && gong === 1) {
+    } else if (door === '开门' && hasTianPanStem(palace, '乙') && gong === 1) {
       out.push({
         key: `pattern:yunDun:${gong}`,
         name: '云遁',
@@ -602,36 +616,37 @@ function getSanQiDeShiPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
   const out: ClassicPattern[] = [];
 
   jiuGongGe.forEach((palace) => {
-    const heavenStem = palace.tianPan.stem;
     const earthStem = palace.diPan.stem;
-    const config = sanQiDeShiConfig[heavenStem];
-    if (!config || !config.earthStems.includes(earthStem)) return;
+    for (const heavenStem of getTianPanStems(palace)) {
+      const config = sanQiDeShiConfig[heavenStem];
+      if (!config || !config.earthStems.includes(earthStem)) continue;
 
-    out.push({
-      key: `pattern:${config.key}:${palace.gong}`,
-      name: config.name,
-      tone: 'good',
-      score: 8,
-      summary: `${heavenStem}奇加地盘${earthStem}（${config.xunShouText}所遁）于${palace.name}，乃${config.name}之格。`,
-      modern: config.modern,
-      manifestation: config.manifestation,
-      palace: palace.gong,
-      tokens: [heavenStem, earthStem],
-    });
-
-    if (auspiciousDoors.includes(palace.renPan.door)) {
-      const qiNameMap: Record<string, string> = { 乙: '日奇', 丙: '月奇', 丁: '星奇' };
       out.push({
-        key: `pattern:deShiPlusGoodDoor:${palace.gong}`,
-        name: `${qiNameMap[heavenStem]}得地`,
+        key: `pattern:${config.key}:${palace.gong}`,
+        name: config.name,
         tone: 'good',
-        score: 11,
-        summary: `${qiNameMap[heavenStem]}得使又临吉门${palace.renPan.door}，得门得使，双重吉利。`,
-        modern: '今天关键事有特别好的入口，资源、信息、关键人同时到位，别错过机会窗口。',
-        manifestation: '机会窗口打开、资源到位、关键人配合',
+        score: 8,
+        summary: `${heavenStem}奇加地盘${earthStem}（${config.xunShouText}所遁）于${palace.name}，乃${config.name}之格。`,
+        modern: config.modern,
+        manifestation: config.manifestation,
         palace: palace.gong,
-        tokens: [heavenStem, earthStem, palace.renPan.door],
+        tokens: [heavenStem, earthStem],
       });
+
+      if (auspiciousDoors.includes(palace.renPan.door)) {
+        const qiNameMap: Record<string, string> = { 乙: '日奇', 丙: '月奇', 丁: '星奇' };
+        out.push({
+          key: `pattern:deShiPlusGoodDoor:${palace.gong}:${heavenStem}`,
+          name: `${qiNameMap[heavenStem]}得地`,
+          tone: 'good',
+          score: 11,
+          summary: `${qiNameMap[heavenStem]}得使又临吉门${palace.renPan.door}，得门得使，双重吉利。`,
+          modern: '今天关键事有特别好的入口，资源、信息、关键人同时到位，别错过机会窗口。',
+          manifestation: '机会窗口打开、资源到位、关键人配合',
+          palace: palace.gong,
+          tokens: [heavenStem, earthStem, palace.renPan.door],
+        });
+      }
     }
   });
 
@@ -651,10 +666,11 @@ function getBaoJianSanQiDeShiPatterns(
   if (!zhiShi || !auspiciousDoors.includes(zhiShi)) return [];
 
   const palace = findDoorPalace(jiuGongGe, zhiShi);
-  if (!palace || !sanQi.includes(palace.tianPan.stem)) return [];
+  const qiStem = palace ? getTianPanStems(palace).find((stem) => sanQi.includes(stem)) : undefined;
+  if (!palace || !qiStem) return [];
 
   const qiNameMap: Record<string, string> = { 乙: '日奇', 丙: '月奇', 丁: '星奇' };
-  const qiName = qiNameMap[palace.tianPan.stem] || `${palace.tianPan.stem}奇`;
+  const qiName = qiNameMap[qiStem] || `${qiStem}奇`;
 
   return [
     {
@@ -662,11 +678,11 @@ function getBaoJianSanQiDeShiPatterns(
       name: '宝鉴三奇得使',
       tone: 'good',
       score: 9,
-      summary: `值使${zhiShi}为三吉门，直使加天盘${palace.tianPan.stem}奇于${palace.name}，合《奇门宝鉴御定》“得三吉门、直使加奇”为三奇得使，谋为尤利。`,
+      summary: `值使${zhiShi}为三吉门，直使加天盘${qiStem}奇于${palace.name}，合《奇门宝鉴御定》“得三吉门、直使加奇”为三奇得使，谋为尤利。`,
       modern: `值使门本身带${qiName}，关键入口和关键资源重合，适合推进重要谋划。`,
       manifestation: '关键入口得奇、谋事尤利、资源与行动窗口重合',
       palace: palace.gong,
-      tokens: [zhiShi, palace.tianPan.stem],
+      tokens: [zhiShi, qiStem],
     },
   ];
 }
@@ -683,11 +699,11 @@ function getBaoJianSanQiDeShiPatterns(
 function getSanQiYouLiuYiPatterns(jiuGongGe: QimenJiuGongGe[], zhiFu: string): ClassicPattern[] {
   if (!zhiFu) return [];
 
-  const zhiFuPalace = jiuGongGe.find((palace) => palace.tianPan.star === zhiFu);
+  const zhiFuPalace = jiuGongGe.find((palace) => hasTianPanStar(palace, zhiFu));
   if (!zhiFuPalace) return [];
 
   const qi = zhiFuPalace.diPan.stem;
-  const zhiFuStem = zhiFuPalace.tianPan.stem;
+  const zhiFuStem = getTianPanStemForStar(zhiFuPalace, zhiFu) || '';
   const config = sanQiYouLiuYiConfig[qi]?.[zhiFuStem];
   if (!config) return [];
 
@@ -729,11 +745,11 @@ function getSanZhaPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
   const out: ClassicPattern[] = [];
 
   jiuGongGe.forEach((palace) => {
-    const heaven = palace.tianPan.stem;
     const door = palace.renPan.door;
     const god = palace.shenPan.god;
+    const heaven = getTianPanStems(palace).find((stem) => sanQi.includes(stem));
 
-    if (!sanQi.includes(heaven) || !auspiciousDoors.includes(door)) return;
+    if (!heaven || !auspiciousDoors.includes(door)) return;
 
     const config = sanZhaGodConfig[god];
     if (!config) return;
@@ -789,30 +805,35 @@ function getJiaPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
   };
 
   jiuGongGe.forEach((palace) => {
-    const heaven = palace.tianPan.stem;
+    const heavenStems = getTianPanStems(palace);
     const earth = palace.diPan.stem;
     const door = palace.renPan.door;
     const god = palace.shenPan.god;
     const gong = palace.gong;
 
-    if (!heaven || !door || !god) return;
+    if (!heavenStems.length || !door || !god) return;
 
-    if (door === '景门' && sanQi.includes(heaven) && (god === '九天' || god === '九地')) {
+    const tianJiaStem = heavenStems.find((stem) => sanQi.includes(stem));
+    if (door === '景门' && tianJiaStem && (god === '九天' || god === '九地')) {
       pushPattern(
         palace,
         'tianJia',
         '天假',
-        `景门、${heaven}奇、${god}同宫于${palace.name}，合天假（一作天诈）之格，主进谒干贵、消息通达。`,
+        `景门、${tianJiaStem}奇、${god}同宫于${palace.name}，合天假（一作天诈）之格，主进谒干贵、消息通达。`,
         '适合拜访关键人物、递交诉求、公开表达，外部回应会比平时顺。',
         '贵人接洽顺利、消息有回应、求见更容易',
-        [door, heaven, god],
+        [door, tianJiaStem, god],
       );
     }
 
-    const isWuJiaThingByDu = door === '杜门' && heaven === '丁' && earth === '己' && god === '太阴';
+    const isWuJiaThingByDu =
+      door === '杜门' && hasTianPanStem(palace, '丁') && earth === '己' && god === '太阴';
+    const diJiaStem = heavenStems.find(
+      (stem) => wuJiaControlStems.includes(stem) && !(isWuJiaThingByDu && stem === '丁'),
+    );
     if (
       door === '杜门' &&
-      wuJiaControlStems.includes(heaven) &&
+      diJiaStem &&
       ['九地', '太阴', '六合'].includes(god) &&
       !isWuJiaThingByDu
     ) {
@@ -820,14 +841,14 @@ function getJiaPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         palace,
         'diJia',
         '地假',
-        `杜门、${heaven}、${god}同宫于${palace.name}，合地假之格，主伏藏逃避、潜伏蓄势。`,
+        `杜门、${diJiaStem}、${god}同宫于${palace.name}，合地假之格，主伏藏逃避、潜伏蓄势。`,
         '适合低调处理、保存实力、避开正面冲突，先藏住再行动更稳。',
         '潜伏避险、暗中准备、失物寻人有线索',
-        [door, heaven, god],
+        [door, diJiaStem, god],
       );
     }
 
-    if (door === '惊门' && heaven === '壬' && (gong === 2 || god === '九天')) {
+    if (door === '惊门' && hasTianPanStem(palace, '壬') && (gong === 2 || god === '九天')) {
       pushPattern(
         palace,
         'renJia',
@@ -835,17 +856,15 @@ function getJiaPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         `壬、惊门${gong === 2 ? '临坤二宫' : `合${god}`}于${palace.name}，合人假之格，主掩捕追寻。`,
         '适合处理追踪、调查、找人找物这类事，但仍要避开强冲硬碰。',
         '追寻有路、掩捕得机、调查推进',
-        [heaven, door, gong === 2 ? '坤二' : god],
+        ['壬', door, gong === 2 ? '坤二' : god],
       );
     }
 
-    if (
-      isWuJiaThingByDu ||
-      (door === '伤门' && god === '六合' && wuJiaThingStems.includes(heaven))
-    ) {
+    const wuJiaStem = heavenStems.find((stem) => wuJiaThingStems.includes(stem));
+    if (isWuJiaThingByDu || (door === '伤门' && god === '六合' && Boolean(wuJiaStem))) {
       const source = isWuJiaThingByDu
         ? `丁奇、太阴、杜门下临地盘己于${palace.name}`
-        : `${heaven}、伤门、六合同宫于${palace.name}`;
+        : `${wuJiaStem}、伤门、六合同宫于${palace.name}`;
       pushPattern(
         palace,
         'wuJia',
@@ -853,23 +872,24 @@ function getJiaPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         `${source}，合物假之格，主阴私谋密、暗中筹划。`,
         '适合处理私下协商、保密筹划和不宜公开的安排。',
         '私下谋划有进展、隐秘事务可推进',
-        isWuJiaThingByDu ? ['丁', '太阴', '杜门', '己'] : [heaven, door, god],
+        isWuJiaThingByDu ? ['丁', '太阴', '杜门', '己'] : [wuJiaStem!, door, god],
       );
     }
 
-    if (door === '死门' && wuJiaControlStems.includes(heaven) && god === '九地') {
+    const guiJiaStem = heavenStems.find((stem) => wuJiaControlStems.includes(stem));
+    if (door === '死门' && guiJiaStem && god === '九地') {
       pushPattern(
         palace,
         'guiJia',
         '鬼假',
-        `死门、${heaven}、九地同宫于${palace.name}，合鬼假之格，主安葬荐度、处理沉滞旧事。`,
+        `死门、${guiJiaStem}、九地同宫于${palace.name}，合鬼假之格，主安葬荐度、处理沉滞旧事。`,
         '适合收尾、整理旧账、处理长期搁置或需要安顿的事情，不宜当作开创新局的信号。',
         '旧事收束、沉滞事务可安顿',
-        [door, heaven, god],
+        [door, guiJiaStem, god],
       );
     }
 
-    if (door === '伤门' && heaven === '庚' && gong === 4) {
+    if (door === '伤门' && hasTianPanStem(palace, '庚') && gong === 4) {
       pushPattern(
         palace,
         'shenJia',
@@ -905,7 +925,7 @@ function getSanQiShengDianPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[
     if (!allowedGongs) return;
 
     // 天盘或地盘落升殿宫都算升殿（以天盘为准，地盘为辅）
-    const palace = jiuGongGe.find((p) => p.tianPan.stem === qi && allowedGongs.includes(p.gong));
+    const palace = jiuGongGe.find((p) => hasTianPanStem(p, qi) && allowedGongs.includes(p.gong));
     if (!palace) return;
 
     const qiNameMap: Record<string, string> = {
@@ -959,24 +979,25 @@ function getSanQiRuMuPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
   const out: ClassicPattern[] = [];
 
   jiuGongGe.forEach((palace) => {
-    const heaven = palace.tianPan.stem;
     const gong = palace.gong;
-    const config = sanQiRuMuConfig[heaven];
-    const tomb = sanQiRuMuTombMap[heaven];
+    for (const heaven of getTianPanStems(palace)) {
+      const config = sanQiRuMuConfig[heaven];
+      const tomb = sanQiRuMuTombMap[heaven];
 
-    if (!config || !tomb || tomb.palace !== gong) return;
+      if (!config || !tomb || tomb.palace !== gong) continue;
 
-    out.push({
-      key: `pattern:${config.key}:${gong}`,
-      name: config.name,
-      tone: 'bad',
-      score: config.score,
-      summary: `${heaven}奇入${palace.name}（三奇墓在${tomb.branch}），${config.name}，${config.result}。`,
-      modern: config.modern,
-      manifestation: config.manifestation,
-      palace: gong,
-      tokens: [heaven, palace.name],
-    });
+      out.push({
+        key: `pattern:${config.key}:${gong}`,
+        name: config.name,
+        tone: 'bad',
+        score: config.score,
+        summary: `${heaven}奇入${palace.name}（三奇墓在${tomb.branch}），${config.name}，${config.result}。`,
+        modern: config.modern,
+        manifestation: config.manifestation,
+        palace: gong,
+        tokens: [heaven, palace.name],
+      });
+    }
   });
 
   return out;
@@ -995,22 +1016,23 @@ function getSanQiShouZhiPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] 
   const out: ClassicPattern[] = [];
 
   jiuGongGe.forEach((palace) => {
-    const heaven = palace.tianPan.stem;
-    const config = sanQiShouZhiConfig[heaven];
+    for (const heaven of getTianPanStems(palace)) {
+      const config = sanQiShouZhiConfig[heaven];
 
-    if (!config || !config.gongs.includes(palace.gong)) return;
+      if (!config || !config.gongs.includes(palace.gong)) continue;
 
-    out.push({
-      key: `pattern:${config.key}:${palace.gong}`,
-      name: config.name,
-      tone: 'bad',
-      score: config.score,
-      summary: `${heaven}奇临${palace.name}，${config.reason}，为三奇受制，${config.result}。`,
-      modern: config.modern,
-      manifestation: config.manifestation,
-      palace: palace.gong,
-      tokens: [heaven, palace.name, config.reason],
-    });
+      out.push({
+        key: `pattern:${config.key}:${palace.gong}`,
+        name: config.name,
+        tone: 'bad',
+        score: config.score,
+        summary: `${heaven}奇临${palace.name}，${config.reason}，为三奇受制，${config.result}。`,
+        modern: config.modern,
+        manifestation: config.manifestation,
+        palace: palace.gong,
+        tokens: [heaven, palace.name, config.reason],
+      });
+    }
   });
 
   return out;
@@ -1071,7 +1093,7 @@ function getZhiFuZhiShiPatterns(
 
   if (!zhiFu || !zhiShi) return out;
 
-  const fuPalace = jiuGongGe.find((p) => p.tianPan.star === zhiFu);
+  const fuPalace = jiuGongGe.find((p) => hasTianPanStar(p, zhiFu));
   const shiPalace = findDoorPalace(jiuGongGe, zhiShi);
 
   // 符使同宫
@@ -1111,7 +1133,7 @@ function getXiangZuoShouHuPatterns(
   const out: ClassicPattern[] = [];
 
   if (zhiFu) {
-    const fuPalace = jiuGongGe.find((p) => p.tianPan.star === zhiFu);
+    const fuPalace = jiuGongGe.find((p) => hasTianPanStar(p, zhiFu));
     if (fuPalace && (fuPalace.diPan.stem === '丙' || fuPalace.diPan.stem === '丁')) {
       out.push({
         key: `pattern:xiangZuo:${fuPalace.gong}`,
@@ -1163,8 +1185,8 @@ function getTianYiGongGePatterns(jiuGongGe: QimenJiuGongGe[], zhiFu: string): Cl
 
   if (!zhiFu) return out;
 
-  const tianYiPal = jiuGongGe.find((palace) => palace.tianPan.star === zhiFu);
-  const tianYiStem = tianYiPal?.tianPan.stem;
+  const tianYiPal = jiuGongGe.find((palace) => hasTianPanStar(palace, zhiFu));
+  const tianYiStem = tianYiPal ? getTianPanStemForStar(tianYiPal, zhiFu) : undefined;
 
   if (!tianYiStem || tianYiStem === '庚') return out;
 
@@ -1219,13 +1241,13 @@ function getGengZhiFuBoGePatterns(jiuGongGe: QimenJiuGongGe[], zhiFu: string): C
 
   if (!zhiFu) return out;
 
-  const tianYiPal = jiuGongGe.find((palace) => palace.tianPan.star === zhiFu);
-  if (!tianYiPal || tianYiPal.tianPan.stem !== '庚') {
+  const tianYiPal = jiuGongGe.find((palace) => hasTianPanStar(palace, zhiFu));
+  if (!tianYiPal || getTianPanStemForStar(tianYiPal, zhiFu) !== '庚') {
     return out;
   }
 
   const boGePal = jiuGongGe.find(
-    (palace) => palace.tianPan.stem === '丙' && palace.diPan.stem === '庚',
+    (palace) => hasTianPanStem(palace, '丙') && palace.diPan.stem === '庚',
   );
   if (boGePal) {
     out.push({
@@ -1292,7 +1314,7 @@ function getDayGanFeiFuPatterns(
   if (!qimenDayStem) return out;
 
   const fuGanPalace = jiuGongGe.find(
-    (palace) => palace.tianPan.stem === '庚' && palace.diPan.stem === qimenDayStem,
+    (palace) => hasTianPanStem(palace, '庚') && palace.diPan.stem === qimenDayStem,
   );
   if (fuGanPalace) {
     out.push({
@@ -1309,7 +1331,7 @@ function getDayGanFeiFuPatterns(
   }
 
   const feiGanPalace = jiuGongGe.find(
-    (palace) => palace.tianPan.stem === qimenDayStem && palace.diPan.stem === '庚',
+    (palace) => hasTianPanStem(palace, qimenDayStem) && palace.diPan.stem === '庚',
   );
   if (feiGanPalace && feiGanPalace.gong !== fuGanPalace?.gong) {
     out.push({
@@ -1378,7 +1400,7 @@ function getGengTemporalGePatterns(
     if (!qimenStem) continue;
 
     const palace = jiuGongGe.find(
-      (item) => item.tianPan.stem === '庚' && item.diPan.stem === qimenStem,
+      (item) => hasTianPanStem(item, '庚') && item.diPan.stem === qimenStem,
     );
     if (!palace) continue;
 
@@ -1456,7 +1478,7 @@ function getBingTemporalBoGePatterns(
     if (!qimenStem) continue;
 
     const palace = jiuGongGe.find(
-      (item) => item.tianPan.stem === '丙' && item.diPan.stem === qimenStem,
+      (item) => hasTianPanStem(item, '丙') && item.diPan.stem === qimenStem,
     );
     if (!palace) continue;
 
@@ -1493,7 +1515,7 @@ function getRenTemporalDiLuoPatterns(
   if (!qimenStem) return [];
 
   const palace = jiuGongGe.find(
-    (item) => item.tianPan.stem === '壬' && item.diPan.stem === qimenStem,
+    (item) => hasTianPanStem(item, '壬') && item.diPan.stem === qimenStem,
   );
   if (!palace) return [];
 
@@ -1761,25 +1783,24 @@ function getJiXingPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
   const out: ClassicPattern[] = [];
 
   jiuGongGe.forEach((palace) => {
-    const heaven = palace.tianPan.stem;
     const gong = palace.gong;
 
-    if (!heaven) return;
-
-    const xingGongs = stemJiXingPalace[heaven];
-    if (xingGongs && xingGongs.includes(gong)) {
-      // 特别标注甲遁戊（地盘甲震3宫击刑已在戊处理）
-      out.push({
-        key: `pattern:jiXing:${palace.gong}`,
-        name: `${heaven}击刑`,
-        tone: 'bad',
-        score: -4,
-        summary: `${heaven}在${palace.name}击刑（${heaven}在此宫落于相刑之位），主规则、口舌、文书方面要小心。`,
-        modern: `天盘${heaven}落${palace.name}为击刑位，今天与${heaven}相关的事要注意规则风险和口舌是非。`,
-        manifestation: '规则约束、口舌是非、压力增大',
-        palace: gong,
-        tokens: [heaven, palace.name],
-      });
+    for (const heaven of getTianPanStems(palace)) {
+      const xingGongs = stemJiXingPalace[heaven];
+      if (xingGongs && xingGongs.includes(gong)) {
+        // 特别标注甲遁戊（地盘甲震3宫击刑已在戊处理）
+        out.push({
+          key: `pattern:jiXing:${heaven}:${palace.gong}`,
+          name: `${heaven}击刑`,
+          tone: 'bad',
+          score: -4,
+          summary: `${heaven}在${palace.name}击刑（${heaven}在此宫落于相刑之位），主规则、口舌、文书方面要小心。`,
+          modern: `天盘${heaven}落${palace.name}为击刑位，今天与${heaven}相关的事要注意规则风险和口舌是非。`,
+          manifestation: '规则约束、口舌是非、压力增大',
+          palace: gong,
+          tokens: [heaven, palace.name],
+        });
+      }
     }
   });
 
@@ -1812,25 +1833,27 @@ function getRuMuPatterns(
   const out: ClassicPattern[] = [];
 
   jiuGongGe.forEach((palace) => {
-    const stem = position === 'tianPan' ? palace.tianPan.stem : palace.diPan.stem;
-    if (!stem) return;
+    const stems = position === 'tianPan' ? getTianPanStems(palace) : [palace.diPan.stem];
+    for (const stem of stems) {
+      if (!stem) continue;
 
-    const muGong = getStemTombPalace(stem);
-    if (!muGong) return;
+      const muGong = getStemTombPalace(stem);
+      if (!muGong) continue;
 
-    if (muGong === palace.gong) {
-      const tombBranch = getStemTombBranch(stem);
-      out.push({
-        key: `pattern:ruMu:${stem}:${palace.gong}:${position === 'diPan' ? 'di' : 'tian'}`,
-        name: `${stem}入墓`,
-        tone: 'bad',
-        score: -3,
-        summary: `${stem}在${palace.name}入墓${tombBranch ? `（墓在${tombBranch}）` : ''}，主能量收敛、事情停滞或难以施展。`,
-        modern: `${stem}相关的方面今天劲使不出来，建议先做其他准备，等时机转好再推。`,
-        manifestation: '能量收敛、进展缓慢',
-        palace: palace.gong,
-        tokens: [stem, palace.name],
-      });
+      if (muGong === palace.gong) {
+        const tombBranch = getStemTombBranch(stem);
+        out.push({
+          key: `pattern:ruMu:${stem}:${palace.gong}:${position === 'diPan' ? 'di' : 'tian'}`,
+          name: `${stem}入墓`,
+          tone: 'bad',
+          score: -3,
+          summary: `${stem}在${palace.name}入墓${tombBranch ? `（墓在${tombBranch}）` : ''}，主能量收敛、事情停滞或难以施展。`,
+          modern: `${stem}相关的方面今天劲使不出来，建议先做其他准备，等时机转好再推。`,
+          manifestation: '能量收敛、进展缓慢',
+          palace: palace.gong,
+          tokens: [stem, palace.name],
+        });
+      }
     }
   });
 
@@ -1845,24 +1868,25 @@ function getStemPairNamedPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[]
   const out: ClassicPattern[] = [];
 
   jiuGongGe.forEach((palace) => {
-    const heaven = palace.tianPan.stem;
     const earth = palace.diPan.stem;
-    if (!heaven || !earth) return;
+    if (!earth) return;
 
-    const pattern = getNamedStemPairPattern(heaven, earth);
-    if (!pattern) return;
+    for (const heaven of getTianPanStems(palace)) {
+      const pattern = getNamedStemPairPattern(heaven, earth);
+      if (!pattern) continue;
 
-    out.push({
-      key: `pattern:stemPair:${heaven}_${earth}:${palace.gong}`,
-      name: pattern.name,
-      tone: pattern.type,
-      score: pattern.score,
-      summary: `天盘${heaven}加地盘${earth}于${palace.name}，${pattern.summary}`,
-      modern: pattern.interpretation,
-      manifestation: pattern.manifestation,
-      palace: palace.gong,
-      tokens: [heaven, earth],
-    });
+      out.push({
+        key: `pattern:stemPair:${heaven}_${earth}:${palace.gong}`,
+        name: pattern.name,
+        tone: pattern.type,
+        score: pattern.score,
+        summary: `天盘${heaven}加地盘${earth}于${palace.name}，${pattern.summary}`,
+        modern: pattern.interpretation,
+        manifestation: pattern.manifestation,
+        palace: palace.gong,
+        tokens: [heaven, earth],
+      });
+    }
   });
 
   return out;
@@ -1883,120 +1907,121 @@ export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
   const relations: StemRelation[] = [];
 
   jiuGongGe.forEach((palace) => {
-    const heaven = palace.tianPan.stem;
     const earth = palace.diPan.stem;
-    if (!heaven || !earth) return;
+    if (!earth) return;
 
-    const he = stemElements[heaven];
-    const ee = stemElements[earth];
+    for (const heaven of getTianPanStems(palace)) {
+      const he = stemElements[heaven];
+      const ee = stemElements[earth];
 
-    const namedPattern = getNamedStemPairPattern(heaven, earth);
-    if (namedPattern) {
-      relations.push({
-        heaven,
-        earth,
-        palace: palace.gong,
-        type: '命名格局',
-        note: `${namedPattern.name}：${namedPattern.summary}`,
-      });
-      return;
-    }
-
-    // 入墓判断：天盘干落入统一入墓表对应墓宫（入墓与击刑可同宫并存，均独立判定）
-    const tombPalace = getStemTombPalace(heaven);
-    const tombBranch = getStemTombBranch(heaven);
-    let muHit = false;
-    if (tombPalace === palace.gong) {
-      muHit = true;
-      relations.push({
-        heaven,
-        earth,
-        palace: palace.gong,
-        type: '入墓',
-        note: `${heaven}入${palace.name}墓库${tombBranch ? `（墓在${tombBranch}）` : ''}，能量收敛，事情容易停在原地`,
-      });
-    }
-
-    // 击刑：天盘干落入特定宫（独立判定，不被入墓抢先）
-    let xingHit = false;
-    if (stemJiXingPalace[heaven]?.includes(palace.gong)) {
-      xingHit = true;
-      relations.push({
-        heaven,
-        earth,
-        palace: palace.gong,
-        type: '击刑',
-        note: `${heaven}在${palace.name}击刑，规则、口舌、文书方面要小心`,
-      });
-    }
-
-    // 入墓或击刑命中后，不再输出五行生克/奇仪相合（避免同宫关系过多）
-    if (muHit || xingHit) return;
-
-    // 奇仪相合
-    const heAndPairs: Array<[string, string, string]> = [
-      ['乙', '己', '乙己合（日月相合，主合作得宜）'],
-      ['丙', '辛', '丙辛合（威制之合，主达成共识）'],
-      ['丁', '壬', '丁壬合（仁义之合，主关系巩固）'],
-      ['戊', '癸', '戊癸合（无情之合，要看后续诚意）'],
-      ['甲', '己', '甲己合（中正之合，主稳定推进）'],
-    ];
-    const hePair = heAndPairs.find(
-      ([a, b]) => (heaven === a && earth === b) || (heaven === b && earth === a),
-    );
-    if (hePair) {
-      relations.push({
-        heaven,
-        earth,
-        palace: palace.gong,
-        type: '奇仪相合',
-        note: `${palace.name}见${hePair[2]}`,
-      });
-      return;
-    }
-
-    // 五行生克
-    if (he && ee) {
-      if (he === ee) {
+      const namedPattern = getNamedStemPairPattern(heaven, earth);
+      if (namedPattern) {
         relations.push({
           heaven,
           earth,
           palace: palace.gong,
-          type: '比和',
-          note: `${palace.name}天地干同气${heaven}，事情稳但不易变`,
+          type: '命名格局',
+          note: `${namedPattern.name}：${namedPattern.summary}`,
         });
-      } else if (isControlling(he, ee)) {
+        continue;
+      }
+
+      // 入墓判断：天盘干落入统一入墓表对应墓宫（入墓与击刑可同宫并存，均独立判定）
+      const tombPalace = getStemTombPalace(heaven);
+      const tombBranch = getStemTombBranch(heaven);
+      let muHit = false;
+      if (tombPalace === palace.gong) {
+        muHit = true;
         relations.push({
           heaven,
           earth,
           palace: palace.gong,
-          type: '克下',
-          note: `${heaven}克${earth}（${palace.name}天克地，主上压下，可主动出手，但要顾及承接）`,
+          type: '入墓',
+          note: `${heaven}入${palace.name}墓库${tombBranch ? `（墓在${tombBranch}）` : ''}，能量收敛，事情容易停在原地`,
         });
-      } else if (isControlling(ee, he)) {
+      }
+
+      // 击刑：天盘干落入特定宫（独立判定，不被入墓抢先）
+      let xingHit = false;
+      if (stemJiXingPalace[heaven]?.includes(palace.gong)) {
+        xingHit = true;
         relations.push({
           heaven,
           earth,
           palace: palace.gong,
-          type: '克上',
-          note: `${earth}克${heaven}（${palace.name}地克天，主下顶上，外部环境压制，要先稳后动）`,
+          type: '击刑',
+          note: `${heaven}在${palace.name}击刑，规则、口舌、文书方面要小心`,
         });
-      } else if (isGenerating(he, ee)) {
+      }
+
+      // 入墓或击刑命中后，不再输出五行生克/奇仪相合（避免同宫关系过多）
+      if (muHit || xingHit) continue;
+
+      // 奇仪相合
+      const heAndPairs: Array<[string, string, string]> = [
+        ['乙', '己', '乙己合（日月相合，主合作得宜）'],
+        ['丙', '辛', '丙辛合（威制之合，主达成共识）'],
+        ['丁', '壬', '丁壬合（仁义之合，主关系巩固）'],
+        ['戊', '癸', '戊癸合（无情之合，要看后续诚意）'],
+        ['甲', '己', '甲己合（中正之合，主稳定推进）'],
+      ];
+      const hePair = heAndPairs.find(
+        ([a, b]) => (heaven === a && earth === b) || (heaven === b && earth === a),
+      );
+      if (hePair) {
         relations.push({
           heaven,
           earth,
           palace: palace.gong,
-          type: '生下',
-          note: `${heaven}生${earth}（${palace.name}天生地，主上助下，资源能落地）`,
+          type: '奇仪相合',
+          note: `${palace.name}见${hePair[2]}`,
         });
-      } else if (isGenerating(ee, he)) {
-        relations.push({
-          heaven,
-          earth,
-          palace: palace.gong,
-          type: '生上',
-          note: `${earth}生${heaven}（${palace.name}地生天，主下托上，根基会给力）`,
-        });
+        continue;
+      }
+
+      // 五行生克
+      if (he && ee) {
+        if (he === ee) {
+          relations.push({
+            heaven,
+            earth,
+            palace: palace.gong,
+            type: '比和',
+            note: `${palace.name}天地干同气${heaven}，事情稳但不易变`,
+          });
+        } else if (isControlling(he, ee)) {
+          relations.push({
+            heaven,
+            earth,
+            palace: palace.gong,
+            type: '克下',
+            note: `${heaven}克${earth}（${palace.name}天克地，主上压下，可主动出手，但要顾及承接）`,
+          });
+        } else if (isControlling(ee, he)) {
+          relations.push({
+            heaven,
+            earth,
+            palace: palace.gong,
+            type: '克上',
+            note: `${earth}克${heaven}（${palace.name}地克天，主下顶上，外部环境压制，要先稳后动）`,
+          });
+        } else if (isGenerating(he, ee)) {
+          relations.push({
+            heaven,
+            earth,
+            palace: palace.gong,
+            type: '生下',
+            note: `${heaven}生${earth}（${palace.name}天生地，主上助下，资源能落地）`,
+          });
+        } else if (isGenerating(ee, he)) {
+          relations.push({
+            heaven,
+            earth,
+            palace: palace.gong,
+            type: '生上',
+            note: `${earth}生${heaven}（${palace.name}地生天，主下托上，根基会给力）`,
+          });
+        }
       }
     }
   });

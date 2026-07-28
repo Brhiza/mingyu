@@ -48,7 +48,7 @@ export interface AlmanacCandidateDecisionFact {
   strongConstraintTexts: string[];
   promptText: string;
   sources: string[];
-  limitation: '候选状态只按明确事项忌项、传统限制、参与人关系和可用时辰分组；不公开内部排序分值，不把候选等级解释为成功率或现实吉凶保证';
+  limitation: '候选状态只按明确事项忌项、参与人直接关系和可用时辰分组；算法不设置吉凶总分，不把候选等级解释为成功率或现实吉凶保证';
 }
 
 export interface AlmanacTraditionalFact {
@@ -233,7 +233,7 @@ const HOUR_FACT_LIMITATION =
 const RAW_TABOO_FACT_LIMITATION =
   '原始宜忌只保留历书列项及其是否命中当前事项；未列不等于适宜，列出也不等于现实事项必然成功或失败' as const;
 const DECISION_FACT_LIMITATION =
-  '候选状态只按明确事项忌项、传统限制、参与人关系和可用时辰分组；不公开内部排序分值，不把候选等级解释为成功率或现实吉凶保证' as const;
+  '候选状态只按明确事项忌项、参与人直接关系和可用时辰分组；算法不设置吉凶总分，不把候选等级解释为成功率或现实吉凶保证' as const;
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只证明候选范围、历法字段、事项宜忌、神煞、参与人关系、逐时时课与候选分组如何形成当前证据；不证明现实吉凶、成功率、个人结果或必然适宜' as const;
 const COUNTER_FACT_LIMITATION =
@@ -310,28 +310,31 @@ export function conditionAlmanacTraditionalText(text: string): string {
 function buildTraditionalFacts(day: AlmanacDayCandidate): AlmanacTraditionalFact[] {
   const facts: AlmanacTraditionalFact[] = [];
   if (day.twentyEightStarDetail) {
+    const detail = day.twentyEightStarDetail;
+    const originalText = `${detail.fullName}，${detail.zone}方七宿，tyme4ts 原生吉凶属性${detail.fortune}`;
     facts.push({
       key: `${day.date}:twenty-eight-star:${day.twentyEightStar}`,
       date: day.date,
       kind: '二十八宿',
       name: day.twentyEightStar,
-      originalText: day.twentyEightStarDetail.meaning,
-      promptText: `${day.twentyEightStar}宿五行${day.twentyEightStarDetail.wuxing}，传统属性${day.twentyEightStarDetail.fortune}；${conditionAlmanacTraditionalText(day.twentyEightStarDetail.meaning)}`,
-      sources: ['《象吉通书》卷一二十八宿值日、清代《择日全纪》'],
-      fortune: day.twentyEightStarDetail.fortune,
+      originalText,
+      promptText: originalText,
+      sources: [detail.source],
+      fortune: detail.fortune,
       limitation: TRADITIONAL_FACT_LIMITATION,
     });
   }
   if (day.nineStarDetail) {
+    const detail = day.nineStarDetail;
+    const originalText = `${detail.fullName}，北斗${detail.dipper}，方位${detail.direction}`;
     facts.push({
       key: `${day.date}:nine-star:${day.nineStar}`,
       date: day.date,
       kind: '九星',
       name: day.nineStar,
-      originalText: day.nineStarDetail.meaning,
-      promptText: `${day.nineStar}五行${day.nineStarDetail.wuxing}，传统属性${day.nineStarDetail.fortune}；${conditionAlmanacTraditionalText(day.nineStarDetail.meaning)}`,
-      sources: ['传统紫白九星值日表'],
-      fortune: day.nineStarDetail.fortune,
+      originalText,
+      promptText: originalText,
+      sources: [detail.source],
       limitation: TRADITIONAL_FACT_LIMITATION,
     });
   }
@@ -341,10 +344,9 @@ function buildTraditionalFacts(day: AlmanacDayCandidate): AlmanacTraditionalFact
       date: day.date,
       kind: '全年方位神',
       name: item.god,
-      originalText: item.meaning,
-      promptText: `${item.god}在${item.branch}${item.direction}，传统属性${item.fortune}；${conditionAlmanacTraditionalText(item.meaning)}`,
+      originalText: `${item.god}在${item.branch}${item.direction}`,
+      promptText: `${item.god}在${item.branch}${item.direction}；当前只保留方位，不附未经逐条校勘的吉凶断语`,
       sources: ['岁支起太岁顺排十二神方位表'],
-      fortune: item.fortune,
       branch: item.branch,
       direction: item.direction,
       limitation: TRADITIONAL_FACT_LIMITATION,
@@ -855,7 +857,7 @@ function buildCandidateDecisionFact(params: {
           : '未见明确传统限制',
       promptText:
         params.traditionalConstraints.join('；') || '未见明确传统限制，不据此保证现实适宜',
-      sources: ['当日事项忌项、建除值日、神煞与传统规则核验'],
+      sources: ['当日原始事项忌项、逐时宜忌与参与人直接关系核验'],
     },
     {
       key: `${params.date}:decision:hours`,
@@ -1419,7 +1421,7 @@ function buildLimitationFacts(params: {
         ]),
       ]),
       promptText:
-        '逐时时课只用于候选日内比较，候选状态只按明确忌项、传统限制、参与人关系和可用时辰分组；不公开内部排序分值，不把候选等级解释为成功率、现实吉凶保证或唯一最佳日期',
+        '逐时时课只用于候选日内比较，候选状态只按明确忌项、参与人直接关系和可用时辰分组；算法不设置吉凶总分，不把候选等级解释为成功率、现实吉凶保证或唯一最佳日期',
       sources: ['逐时时课事实与七步候选状态形成链'],
     },
     {
@@ -1473,7 +1475,7 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
   const hardConstraints = unique([
     `只比较${data.startDate}至${data.endDate}范围内的候选日期`,
     `事项限定为${data.topicLabel}，不得把其他事项宜忌直接替代当前事项规则`,
-    '命中当前事项明确忌项、诸事不宜或参与人直接刑冲破害时列为慎用候选，不因内部排序靠前而覆盖',
+    '命中当前事项明确忌项、诸事不宜或参与人直接刑冲破害时列为慎用候选；同组仅按明确宜项数量和日期稳定排列',
     '没有参与人资料时不得编造个人适配结论',
   ]);
   const realityConstraints = [

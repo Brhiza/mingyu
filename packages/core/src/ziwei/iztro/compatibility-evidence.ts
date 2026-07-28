@@ -1,12 +1,15 @@
 import { formatPromptEvidenceBundle } from '../../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../../prompt-evidence/types';
 import type { AnalysisPayloadV1, MutagenName, PalaceFact, StarFact } from '../../types/analysis';
+import type { IztroAstrolabe, IztroPalace, IztroStar } from '../../types/iztro';
 
 const KEY_PALACES = new Set(['命宫', '身宫', '夫妻', '官禄', '财帛', '福德', '迁移']);
 
 export interface ZiweiCompatibilityOptions {
   person1Name?: string;
   person2Name?: string;
+  astrolabe1?: IztroAstrolabe;
+  astrolabe2?: IztroAstrolabe;
 }
 
 export interface ZiweiPalaceOverlay {
@@ -141,6 +144,10 @@ function allStars(palace: PalaceFact): StarFact[] {
   return [...palace.major_stars, ...palace.minor_stars, ...palace.other_stars];
 }
 
+function allIztroStars(palace: IztroPalace): IztroStar[] {
+  return [...palace.majorStars, ...palace.minorStars, ...palace.adjectiveStars];
+}
+
 function assertPayload(payload: AnalysisPayloadV1, label: string) {
   if (!payload || !Array.isArray(payload.palaces) || payload.palaces.length !== 12) {
     throw new Error(`${label}必须包含完整十二宫资料。`);
@@ -204,7 +211,21 @@ function calculateCrossMutagens(
   source: AnalysisPayloadV1,
   target: AnalysisPayloadV1,
   people: ZiweiCompatibilityEvidenceResult['people'],
+  sourceAstrolabe?: IztroAstrolabe,
+  targetAstrolabe?: IztroAstrolabe,
 ) {
+  if (sourceAstrolabe && targetAstrolabe) {
+    return calculateCrossMutagensWithIztro(
+      sourcePerson,
+      targetPerson,
+      source,
+      target,
+      people,
+      sourceAstrolabe,
+      targetAstrolabe,
+    );
+  }
+
   const targetStars = new Map<string, PalaceFact>();
   target.palaces.forEach((palace) => {
     allStars(palace).forEach((star) => {
@@ -239,6 +260,72 @@ function calculateCrossMutagens(
       });
     });
   });
+  return placements;
+}
+
+function calculateCrossMutagensWithIztro(
+  sourcePerson: 'person1' | 'person2',
+  targetPerson: 'person1' | 'person2',
+  source: AnalysisPayloadV1,
+  target: AnalysisPayloadV1,
+  people: ZiweiCompatibilityEvidenceResult['people'],
+  sourceAstrolabe: IztroAstrolabe,
+  targetAstrolabe: IztroAstrolabe,
+) {
+  const placements: ZiweiCrossMutagenPlacement[] = [];
+
+  sourceAstrolabe.palaces.forEach((sourceIztroPalace) => {
+    const sourcePalace = source.palaces.find((palace) => palace.index === sourceIztroPalace.index);
+    if (!sourcePalace) {
+      throw new Error(`iztro 来源盘第 ${sourceIztroPalace.index} 宫无法映射到结构化十二宫。`);
+    }
+
+    allIztroStars(sourceIztroPalace).forEach((sourceStar) => {
+      const mutagen = sourceStar.mutagen as MutagenName | undefined;
+      if (!mutagen) return;
+      if (!sourceStar.withMutagen(mutagen as never)) {
+        throw new Error(`iztro 星曜 ${sourceStar.name} 的四化属性与原生判断不一致。`);
+      }
+
+      let targetIztroPalace: IztroPalace | undefined;
+      try {
+        targetIztroPalace = targetAstrolabe.star(sourceStar.name).palace();
+      } catch {
+        throw new Error(`iztro 目标盘无法定位四化星曜 ${sourceStar.name}。`);
+      }
+      if (!targetIztroPalace) {
+        throw new Error(`iztro 目标盘星曜 ${sourceStar.name} 未返回所在宫位。`);
+      }
+      const targetPalace = target.palaces.find(
+        (palace) => palace.index === targetIztroPalace.index,
+      );
+      if (!targetPalace) {
+        throw new Error(`iztro 目标盘第 ${targetIztroPalace.index} 宫无法映射到结构化十二宫。`);
+      }
+
+      const sourcePalaceName = palaceDisplayName(sourcePalace);
+      const targetPalaceName = palaceDisplayName(targetPalace);
+      placements.push({
+        key: `跨盘四化:${sourcePerson}:${sourceStar.name}:化${mutagen}:${targetPerson}:${targetPalace.index}`,
+        status: '已命中',
+        sourcePerson,
+        targetPerson,
+        star: sourceStar.name,
+        mutagen,
+        sourcePalace: sourcePalaceName,
+        targetPalace: targetPalaceName,
+        targetEarthlyBranch: targetPalace.earthly_branch,
+        sourcePalaceKey: palaceFactKey(sourcePerson, sourcePalace),
+        targetPalaceKey: palaceFactKey(targetPerson, targetPalace),
+        calculationStepKey: 'ziwei:compatibility:calculation:cross-mutagens',
+        sources: ['iztro 来源方本命星曜原生四化属性', 'iztro 目标方 star().palace() 原生定位'],
+        calculation: `读取 iztro 原生星曜对象确认${people[sourcePerson]}${sourcePalaceName}的${sourceStar.name}生年化${mutagen}，再以目标盘 star().palace() 定位同名${sourceStar.name}到${people[targetPerson]}${targetPalaceName}（${targetPalace.earthly_branch}）`,
+        promptText: `${people[sourcePerson]}${sourcePalaceName}的${sourceStar.name}生年化${mutagen}，同名${sourceStar.name}由 iztro 定位于${people[targetPerson]}盘${targetPalaceName}（${targetPalace.earthly_branch}）`,
+        limitation: CROSS_MUTAGEN_LIMITATION,
+      });
+    });
+  });
+
   return placements;
 }
 
@@ -616,6 +703,9 @@ export function analyzeZiweiCompatibility(
 ): ZiweiCompatibilityEvidenceResult {
   assertPayload(payload1, '第一人紫微盘');
   assertPayload(payload2, '第二人紫微盘');
+  if (Boolean(options.astrolabe1) !== Boolean(options.astrolabe2)) {
+    throw new Error('紫微双盘原生计算必须同时提供双方 iztro 星盘。');
+  }
   const people = {
     person1: options.person1Name?.trim() || '第一人',
     person2: options.person2Name?.trim() || '第二人',
@@ -625,8 +715,24 @@ export function analyzeZiweiCompatibility(
     ...calculateOverlays('person2', 'person1', payload2, payload1, people),
   ];
   const crossMutagenPlacements = [
-    ...calculateCrossMutagens('person1', 'person2', payload1, payload2, people),
-    ...calculateCrossMutagens('person2', 'person1', payload2, payload1, people),
+    ...calculateCrossMutagens(
+      'person1',
+      'person2',
+      payload1,
+      payload2,
+      people,
+      options.astrolabe1,
+      options.astrolabe2,
+    ),
+    ...calculateCrossMutagens(
+      'person2',
+      'person1',
+      payload2,
+      payload1,
+      people,
+      options.astrolabe2,
+      options.astrolabe1,
+    ),
   ];
   const calculationSteps = buildBaseCalculationSteps({
     people,
@@ -707,7 +813,9 @@ export function analyzeZiweiCompatibility(
     methodology: {
       notes: [
         '宫位叠盘按十二宫地支位置一一映射，重点保留命宫、身宫、夫妻、官禄、财帛、福德与迁移轴。',
-        '跨盘四化由一方本命盘已标注的生年四化星曜出发，定位同名星曜在另一方命盘的宫位。',
+        options.astrolabe1 && options.astrolabe2
+          ? '跨盘四化直接读取 iztro 原生星曜四化属性，并以目标盘 star().palace() 定位同名星曜所在宫位。'
+          : '兼容模式下，跨盘四化由结构化本命盘已标注的生年四化星曜出发，定位同名星曜在另一方命盘的宫位。',
         '静态本命双盘只描述长期结构，不生成具体年份应期；应期需要双方大限、流年等同层级资料。',
         '化星与宫位关系不压缩为匹配总分，也不把单一化禄或化忌解释为必然结果。',
       ],

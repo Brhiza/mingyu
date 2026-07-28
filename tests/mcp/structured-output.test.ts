@@ -165,7 +165,6 @@ const toolCalls: Array<[string, Record<string, unknown>]> = [
   ['metaphysics_xuankong', { year: 2024, facingDegree: 0 }],
   ['metaphysics_zodiac', { zodiac: '鼠', year: 2024 }],
   ['metaphysics_taiyi', { year: 2004, scope: 'year' }],
-  ['metaphysics_qizheng', { year: 2024, month: 6, day: 15, hour: 12 }],
   [
     'astrolabe_synastry',
     {
@@ -303,7 +302,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
   [
     'xiaoliuren_prompt',
     { customDate: '2025-01-01T08:00:00+08:00', question: '这件事接下来如何推进？' },
-    /应期触发条件：[\s\S]*不换算固定日数[\s\S]*【问题】\n这件事接下来如何推进？/,
+    /顺数轨迹：[\s\S]*占得宫：小吉[\s\S]*【问题】\n这件事接下来如何推进？[\s\S]*不得自行补造[\s\S]*固定应期/,
   ],
   [
     'qimen_prompt',
@@ -348,20 +347,6 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
     { zodiac: '马', yearGanZhi: '庚子', question: '今年应注意什么？' },
     /【生肖与流年关系简析】[\s\S]*马（午）遇庚子年[\s\S]*【问题】\n今年应注意什么？/,
   ],
-  [
-    'qizheng_prompt',
-    {
-      year: 2024,
-      month: 6,
-      day: 15,
-      hour: 12,
-      latitude: 31.23,
-      longitude: 121.47,
-      timezone: 8,
-      question: '请分析本命结构。',
-    },
-    /【七政四余 · 果老星宗】[\s\S]*出生时空：[\s\S]*七政四余吊照：[\s\S]*【问题】\n请分析本命结构。/,
-  ],
 ];
 
 const promptToolNames = [
@@ -386,7 +371,6 @@ const promptToolNames = [
   'residential_prompt',
   'zodiac_prompt',
   'taiyi_prompt',
-  'qizheng_prompt',
 ];
 
 async function withMcpClient<T>(callback: (client: Client) => Promise<T>) {
@@ -833,7 +817,7 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         assert.ok(
           origin?.patterns?.every(
             (item) =>
-              item.key?.startsWith('ziwei:pattern:') &&
+              item.key?.startsWith('ziwei:verified-pattern:') &&
               item.status === '已命中' &&
               origin.pattern_analysis?.calculationSteps?.some(
                 (step) => step.key === item.calculationStepKey,
@@ -841,240 +825,6 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
           ),
         );
         assertEvidenceOwnerReferences(origin?.pattern_analysis);
-      }
-      if (name === 'metaphysics_qizheng') {
-        const chart = (
-          result.structuredContent as {
-            result?: {
-              stars?: unknown[];
-              aspects?: Array<{ strength?: number; allowedOrb?: number }>;
-              calculationContext?: {
-                astronomicalTime?: {
-                  status: string;
-                  calculationSteps: unknown[];
-                  calculationChain: string[];
-                  limitations: string[];
-                  limitationFacts: unknown[];
-                };
-                moonPhase?: {
-                  status: string;
-                  calculationSteps: unknown[];
-                  calculationChain: string[];
-                  previousPrincipalPhase?: { key: string; sources: string[] };
-                  nextPrincipalPhase?: { key: string; limitation: string };
-                  eventSummaryFact: { previousEventKey: string; nextEventKey: string };
-                  limitations: string[];
-                  limitationFacts: unknown[];
-                };
-                solarIllumination?: {
-                  status: string;
-                  calculationSteps: unknown[];
-                  calculationChain: string[];
-                  astronomicalTime: { status: string };
-                  limitations: string[];
-                  limitationFacts: unknown[];
-                };
-              };
-              evidenceAnalysis?: {
-                key?: string;
-                status?: string;
-                calculationFact?: {
-                  status: string;
-                  defaults: string[];
-                  steps: Array<{
-                    key: string;
-                    status: string;
-                    promptText: string;
-                    sources: string[];
-                    dependsOnStepKeys: string[];
-                    limitation: string;
-                  }>;
-                };
-                calculationSteps?: Array<{
-                  key: string;
-                  status: string;
-                  promptText: string;
-                  sources: string[];
-                  dependsOnStepKeys: string[];
-                  limitation: string;
-                }>;
-                calculationChain?: string[];
-                positionSourceFacts?: Array<{
-                  key: string;
-                  status: string;
-                  adoptedSources: string[];
-                  promptLimitations: string[];
-                  limitation: string;
-                }>;
-                starFacts?: Array<{ sources: string[]; limitation: string }>;
-                aspectFacts?: Array<{ allowedOrb: number; limitation: string }>;
-                counterEvidenceFacts?: Array<{
-                  type: string;
-                  status: string;
-                  ownerFactKeys: string[];
-                }>;
-                counterSummaryFact?: { status: string; factKeys: string[] };
-                limitationFacts?: Array<{
-                  ownerFactKeys: string[];
-                  sources: string[];
-                }>;
-                summaryFact?: {
-                  key: string;
-                  status: string;
-                  factKeys: string[];
-                  positionSourceFactCount: number;
-                  starFactCount: number;
-                  aspectFactCount: number;
-                  counterEvidenceCount: number;
-                  limitationFactCount: number;
-                };
-                promptText?: string;
-              };
-            };
-          }
-        ).result;
-        for (const aspect of chart?.aspects ?? []) {
-          assert.equal(aspect.strength, undefined);
-          assert.equal(typeof aspect.allowedOrb, 'number');
-        }
-        assert.equal(chart?.evidenceAnalysis?.starFacts?.length, chart?.stars?.length);
-        assert.equal(chart?.evidenceAnalysis?.aspectFacts?.length, chart?.aspects?.length);
-        assert.equal(chart?.evidenceAnalysis?.key, 'qizheng:evidence');
-        assert.equal(chart?.evidenceAnalysis?.status, '已计算');
-        assert.equal(chart?.evidenceAnalysis?.calculationFact?.status, '含默认值');
-        assert.equal(chart?.evidenceAnalysis?.calculationFact?.steps.length, 7);
-        assert.deepEqual(
-          chart?.evidenceAnalysis?.calculationSteps,
-          chart?.evidenceAnalysis?.calculationFact?.steps,
-        );
-        assert.equal(chart?.evidenceAnalysis?.calculationChain?.length, 7);
-        const qizhengStepKeys = new Set(
-          chart?.evidenceAnalysis?.calculationFact?.steps.map((item) => item.key),
-        );
-        assert.ok(
-          chart?.evidenceAnalysis?.calculationFact?.steps.every(
-            (item) =>
-              item.key.startsWith('qizheng:calculation:') &&
-              item.status === '已计算' &&
-              item.dependsOnStepKeys.every((key) => qizhengStepKeys.has(key)) &&
-              item.promptText &&
-              item.sources.length > 0 &&
-              item.limitation.includes('不得把步骤完整度解释为观测级精度'),
-          ),
-        );
-        assert.equal(chart?.evidenceAnalysis?.positionSourceFacts?.length, 4);
-        assert.ok(
-          chart?.evidenceAnalysis?.positionSourceFacts?.every(
-            (item) =>
-              item.key.startsWith('qizheng:position-source:') &&
-              item.status === '已采用' &&
-              item.adoptedSources.length > 0 &&
-              item.promptLimitations.every((text) => !text.includes('本项目')) &&
-              item.limitation.includes('不等于结果达到观测级精度'),
-          ),
-        );
-        assert.doesNotMatch(
-          String(chart?.evidenceAnalysis?.promptText ?? ''),
-          /本项目|项目统一|项目恒星黄经|命语/,
-        );
-        assert.match(
-          chart?.calculationContext?.moonPhase?.previousPrincipalPhase?.key ?? '',
-          /^四正月相:/,
-        );
-        assert.ok(
-          (chart?.calculationContext?.moonPhase?.previousPrincipalPhase?.sources.length ?? 0) >= 2,
-        );
-        assert.match(
-          chart?.calculationContext?.moonPhase?.nextPrincipalPhase?.limitation ?? '',
-          /不等于观测级精度/,
-        );
-        assert.equal(chart?.calculationContext?.astronomicalTime?.status, '已计算');
-        assert.equal(chart?.calculationContext?.astronomicalTime?.calculationSteps.length, 5);
-        assert.equal(chart?.calculationContext?.astronomicalTime?.calculationChain.length, 5);
-        assert.equal(
-          chart?.calculationContext?.astronomicalTime?.limitations.length,
-          chart?.calculationContext?.astronomicalTime?.limitationFacts.length,
-        );
-        assert.equal(chart?.calculationContext?.moonPhase?.status, '已计算');
-        assert.equal(chart?.calculationContext?.moonPhase?.calculationSteps.length, 4);
-        assert.equal(chart?.calculationContext?.moonPhase?.calculationChain.length, 4);
-        assert.equal(
-          chart?.calculationContext?.moonPhase?.eventSummaryFact.previousEventKey,
-          chart?.calculationContext?.moonPhase?.previousPrincipalPhase?.key,
-        );
-        assert.equal(
-          chart?.calculationContext?.moonPhase?.eventSummaryFact.nextEventKey,
-          chart?.calculationContext?.moonPhase?.nextPrincipalPhase?.key,
-        );
-        assert.equal(
-          chart?.calculationContext?.moonPhase?.limitations.length,
-          chart?.calculationContext?.moonPhase?.limitationFacts.length,
-        );
-        assert.equal(
-          chart?.calculationContext?.solarIllumination?.astronomicalTime.status,
-          '已计算',
-        );
-        assert.equal(chart?.calculationContext?.solarIllumination?.calculationSteps.length, 4);
-        assert.equal(chart?.calculationContext?.solarIllumination?.calculationChain.length, 4);
-        assert.equal(
-          chart?.calculationContext?.solarIllumination?.limitations.length,
-          chart?.calculationContext?.solarIllumination?.limitationFacts.length,
-        );
-        assert.ok(
-          chart?.evidenceAnalysis?.starFacts?.every(
-            (item) => item.sources.length >= 3 && item.limitation.includes('必须分层使用'),
-          ),
-        );
-        assert.ok(
-          chart?.evidenceAnalysis?.aspectFacts?.every(
-            (item) => item.allowedOrb > 0 && item.limitation.includes('混合模型不得提升为现代天文'),
-          ),
-        );
-        assert.equal(chart?.evidenceAnalysis?.counterEvidenceFacts?.length, 3);
-        assert.equal(chart?.evidenceAnalysis?.counterSummaryFact?.status, '存在需保留反证');
-        assert.equal(chart?.evidenceAnalysis?.counterSummaryFact?.factKeys.length, 2);
-        assert.equal(chart?.evidenceAnalysis?.summaryFact?.key, 'qizheng:evidence-summary');
-        assert.equal(chart?.evidenceAnalysis?.summaryFact?.status, '证据链有缺口');
-        assert.equal(
-          chart?.evidenceAnalysis?.summaryFact?.positionSourceFactCount,
-          chart?.evidenceAnalysis?.positionSourceFacts?.length,
-        );
-        assert.equal(
-          chart?.evidenceAnalysis?.summaryFact?.starFactCount,
-          chart?.evidenceAnalysis?.starFacts?.length,
-        );
-        assert.equal(
-          chart?.evidenceAnalysis?.summaryFact?.aspectFactCount,
-          chart?.evidenceAnalysis?.aspectFacts?.length,
-        );
-        assert.equal(
-          chart?.evidenceAnalysis?.summaryFact?.counterEvidenceCount,
-          chart?.evidenceAnalysis?.counterEvidenceFacts?.length,
-        );
-        assert.equal(chart?.evidenceAnalysis?.limitationFacts?.length, 7);
-        assert.equal(
-          chart?.evidenceAnalysis?.summaryFact?.limitationFactCount,
-          chart?.evidenceAnalysis?.limitationFacts?.length,
-        );
-        const qizhengFactKeys = new Set([
-          chart?.evidenceAnalysis?.summaryFact?.key,
-          ...(chart?.evidenceAnalysis?.summaryFact?.factKeys ?? []),
-        ]);
-        assert.ok(
-          chart?.evidenceAnalysis?.counterEvidenceFacts?.every(
-            (item) =>
-              item.ownerFactKeys.length > 0 &&
-              item.ownerFactKeys.every((key) => qizhengFactKeys.has(key)),
-          ),
-        );
-        assert.ok(
-          chart?.evidenceAnalysis?.limitationFacts?.every(
-            (item) =>
-              item.ownerFactKeys.length > 0 &&
-              item.ownerFactKeys.every((key) => qizhengFactKeys.has(key)),
-          ),
-        );
-        assert.match(chart?.evidenceAnalysis?.promptText ?? '', /证据汇总：[\s\S]*解释限制：/);
       }
       if (name === 'metaphysics_bazhai') {
         const chart = (
@@ -1458,6 +1208,9 @@ test('MCP 一站式提示词工具应同时返回结果和 prompt', async () => 
       assert.ok(result.structuredContent?.result, `${name} 应返回 result`);
       const prompt = String(result.structuredContent?.prompt);
       assert.match(prompt, promptPattern, `${name} prompt 格式不正确`);
+      if (name === 'xiaoliuren_prompt') {
+        assert.doesNotMatch(prompt, /应期触发条件：|换算固定日数/);
+      }
       assertPromptIsPortableTaskText(prompt);
 
       const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
@@ -1730,7 +1483,9 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
               fact.status === '已读取' &&
               fact.sources.length >= 2,
           ) &&
-          item.topicMatchFacts.length >= 4 &&
+          item.topicMatchFacts.length === 2 &&
+          item.topicMatchFacts.some((fact) => fact.key === `${item.date}:topic:day-recommends`) &&
+          item.topicMatchFacts.some((fact) => fact.key === `${item.date}:topic:day-avoids`) &&
           item.topicMatchFacts.every(
             (fact) =>
               fact.key.startsWith(`${item.date}:topic:`) &&
@@ -1741,7 +1496,7 @@ test('MCP 黄历择日提示词应允许省略问题', async () => {
           item.decisionFact.key === `${item.date}:decision` &&
           item.decisionFact.steps.length === 7 &&
           item.decisionFact.steps.at(-1)?.result === item.decisionFact.status &&
-          item.decisionFact.limitation.includes('不公开内部排序分值') &&
+          item.decisionFact.limitation.includes('不设置吉凶总分') &&
           item.moonPhaseFact.previousPrincipalPhase.sources.length >= 2 &&
           item.moonPhaseFact.nextPrincipalPhase.calculation.includes('二分求根') &&
           item.usableHours.every(
@@ -2355,7 +2110,9 @@ test('MCP 提示词工具应支持 custom 模式，并与页面和 API 保持一
     const ziweiFrameworkPrompt = String(ziweiFrameworkResult.structuredContent?.prompt);
     assert.match(ziweiFrameworkPrompt, /分析主题：人生解析/);
     assert.match(ziweiFrameworkPrompt, /【重点宫位资料】/);
-    assert.match(ziweiFrameworkPrompt, /【任务】[\s\S]*请结合宫位、星曜、四化、格局和三方四正/);
+    assert.match(ziweiFrameworkPrompt, /基础十二宫、星曜、四化与运限由 iztro 排盘资料提供/);
+    assert.match(ziweiFrameworkPrompt, /【任务】[\s\S]*请结合宫位、星曜、四化和三方四正/);
+    assert.doesNotMatch(ziweiFrameworkPrompt, /四化、格局和三方四正/);
     assert.doesNotMatch(ziweiFrameworkPrompt, /自由问答先判断问题落在哪些宫位/);
     assertPromptIsPortableTaskText(ziweiFrameworkPrompt);
   });
@@ -3181,6 +2938,53 @@ test('MCP 八字与紫微工具应拒绝不存在的出生日期', async () => {
   });
 });
 
+test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提示词', async () => {
+  await withMcpClient(async (client) => {
+    const arguments_ = {
+      year: 2024,
+      month: 6,
+      day: 15,
+      hour: 12,
+      minute: 0,
+      latitude: 39.9,
+      longitude: 116.4,
+      timezone: 8,
+    };
+    const chartResponse = await client.callTool({
+      name: 'metaphysics_qizheng',
+      arguments: arguments_,
+    });
+    assert.equal(chartResponse.isError, undefined);
+    const chart = (
+      chartResponse.structuredContent as {
+        result: {
+          stars: Array<{ precisionClass: string }>;
+          mansionBoundaries: unknown[];
+          mansionModel: { id: string };
+          evidenceAnalysis: { status: string; summaryFact: { status: string } };
+        };
+      }
+    ).result;
+    assert.equal(chart.stars.length, 11);
+    assert.equal(chart.mansionBoundaries.length, 28);
+    assert.equal(chart.mansionModel.id, 'qizheng-mansion-stars-simbad-astronomy-engine');
+    assert.ok(chart.stars.some((star) => star.precisionClass === '现代天文计算'));
+    assert.ok(chart.stars.some((star) => star.precisionClass === '传统均速模型'));
+    assert.equal(chart.evidenceAnalysis.status, '已计算');
+    assert.equal(chart.evidenceAnalysis.summaryFact.status, '证据链完整');
+
+    const promptResponse = await client.callTool({
+      name: 'qizheng_prompt',
+      arguments: { ...arguments_, question: '请分析本命结构。' },
+    });
+    assert.equal(promptResponse.isError, undefined);
+    const prompt = String(promptResponse.structuredContent?.prompt);
+    assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.qizheng);
+    assert.match(prompt, /【七政四余 · 果老星宗】[\s\S]*宿界模型[\s\S]*【问题】\n请分析本命结构。/);
+    assertPromptIsPortableTaskText(prompt);
+  });
+});
+
 test('MCP 七政四余应拒绝不存在日期和越界坐标时区', async () => {
   await withMcpClient(async (client) => {
     const invalidCalls: Array<[Record<string, unknown>, RegExp | null]> = [
@@ -3203,7 +3007,7 @@ test('MCP 七政四余应拒绝不存在日期和越界坐标时区', async () =
   });
 });
 
-test('MCP 七政、太乙和玄空不得补造缺失时间或返回替卦伪盘', async () => {
+test('MCP 七政、太乙和玄空不得补造缺失必填参数', async () => {
   await withMcpClient(async (client) => {
     const calls: Array<[string, Record<string, unknown>, RegExp | null]> = [
       ['metaphysics_qizheng', { month: 6, day: 15, hour: 12 }, null],
@@ -3211,17 +3015,13 @@ test('MCP 七政、太乙和玄空不得补造缺失时间或返回替卦伪盘'
       ['metaphysics_qizheng', { year: 2024, month: 6, hour: 12 }, null],
       ['metaphysics_qizheng', { year: 2024, month: 6, day: 15 }, null],
       ['metaphysics_taiyi', { scope: 'year' }, /年计必须提供公历年份/],
-      [
-        'metaphysics_taiyi',
-        { scope: 'hour', dateTime: '2026-07-11' },
-        /包含具体时分的有效 dateTime/,
-      ],
+      ['metaphysics_taiyi', { scope: 'month', year: 2026 }, null],
+      ['metaphysics_taiyi', { scope: 'day', year: 2026 }, null],
+      ['metaphysics_taiyi', { scope: 'hour', year: 2026 }, null],
+      ['taiyi_prompt', { scope: 'month', year: 2026 }, null],
+      ['taiyi_prompt', { scope: 'day', year: 2026 }, null],
+      ['taiyi_prompt', { scope: 'hour', year: 2026 }, null],
       ['metaphysics_xuankong', { sitMountain: '子' }, null],
-      [
-        'metaphysics_xuankong',
-        { year: 2008, sitMountain: '子', guaType: '替卦' },
-        /当前只支持下卦/,
-      ],
     ];
 
     for (const [name, args, messagePattern] of calls) {
@@ -3234,6 +3034,61 @@ test('MCP 七政、太乙和玄空不得补造缺失时间或返回替卦伪盘'
         );
       }
     }
+  });
+});
+
+test('MCP 玄空应返回可核验替卦和替星过程', async () => {
+  await withMcpClient(async (client) => {
+    const response = await client.callTool({
+      name: 'metaphysics_xuankong',
+      arguments: { year: 2008, sitMountain: '子', guaType: '替卦' },
+    });
+    assert.equal(response.isError, undefined);
+    const chart = (
+      response.structuredContent as {
+        result: {
+          guaType: string;
+          replacementApplied: boolean;
+          replacement: {
+            mountain: {
+              originalCenterStar: number;
+              referenceMountain: string;
+              replacementStar: number;
+              direction: string;
+            };
+            facing: {
+              originalCenterStar: number;
+              referenceMountain: string;
+              replacementStar: number;
+              direction: string;
+            };
+            verificationSourceUrl: string;
+          };
+          engine: { mode: string };
+          evidenceAnalysis: { promptText: string };
+        };
+      }
+    ).result;
+    assert.equal(chart.guaType, '替卦');
+    assert.equal(chart.replacementApplied, true);
+    assert.deepEqual(chart.replacement.mountain, {
+      originalCenterStar: 4,
+      referenceMountain: '巽',
+      replacementStar: 6,
+      direction: '顺飞',
+    });
+    assert.deepEqual(chart.replacement.facing, {
+      originalCenterStar: 3,
+      referenceMountain: '卯',
+      replacementStar: 2,
+      direction: '逆飞',
+    });
+    assert.match(
+      chart.replacement.verificationSourceUrl,
+      /324623c5460b035d537a8ff2da6b6567f9b85e9e/,
+    );
+    assert.equal(chart.engine.mode, '替卦');
+    assert.match(chart.evidenceAnalysis.promptText, /替星|巽山替为6顺飞|卯山替为2逆飞/);
   });
 });
 
@@ -3548,98 +3403,23 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
   });
 });
 
-test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', async () => {
+test('MCP 小六壬排盘与提示词应返回时间顺数结构化证据', async () => {
   await withMcpClient(async (client) => {
     const chart = await client.callTool({
       name: 'divine_xiaoliuren',
       arguments: {
-        xiaoliurenMethod: 'number',
-        xiaoliurenNumber: 18,
-        customDate: '2025-01-01T08:00:00+08:00',
+        xiaoliurenMethod: 'time',
+        customDate: '2025-06-29T08:00:00+08:00',
       },
     });
-    const result = (
-      chart.structuredContent as {
-        result: {
-          evidenceAnalysis: {
-            key: string;
-            status: string;
-            calculationSteps: Array<{
-              key: string;
-              dependsOnStepKeys: string[];
-            }>;
-            stages: Array<{
-              key: string;
-              status: string;
-              stage: string;
-              promptText: string;
-              sources: string[];
-              limitation: string;
-            }>;
-            transitions: string[];
-            transitionFacts: Array<{
-              key: string;
-              fromStageKey: string;
-              toStageKey: string;
-              sources: string[];
-              limitation: string;
-            }>;
-            counterEvidence: string[];
-            counterEvidenceFacts: Array<{ key: string; status: string; limitation: string }>;
-            counterSummaryFact: { key: string; factKeys: string[] };
-            timingBasisFacts: Array<{
-              key: string;
-              promptText: string;
-              sources: string[];
-              limitation: string;
-            }>;
-            triggerConditionFacts: Array<{
-              key: string;
-              promptText: string;
-              sources: string[];
-              limitation: string;
-            }>;
-            timingSummaryFact: {
-              key: string;
-              basisFactKeys: string[];
-              triggerFactKeys: string[];
-            };
-            limitations: string[];
-            limitationFacts: Array<{ ownerFactKeys: string[] }>;
-            summaryFact: {
-              key: string;
-              status: string;
-              stageFactCount: number;
-              transitionFactCount: number;
-            };
-            calculationFact: {
-              key: string;
-              status: string;
-              steps: Array<{
-                key: string;
-                stage: string;
-                expression: string;
-                modulo: number;
-                palaceIndex: number;
-                promptText: string;
-              }>;
-            };
-            randomFact: { key: string; status: string };
-            traditionalFacts: Array<{
-              key: string;
-              kind: string;
-              originalText: string;
-              promptText: string;
-              sources: string[];
-              limitation: string;
-            }>;
-          };
-        };
-      }
-    ).result;
+    const result = (chart.structuredContent as { result: any }).result;
+    assert.equal(result.sequence.month.name, '空亡');
+    assert.equal(result.sequence.day.name, '赤口');
+    assert.equal(result.sequence.hour.name, '留连');
+    assert.equal(result.primary.name, '留连');
     assert.equal(result.evidenceAnalysis.key, 'xiaoliuren:evidence');
     assert.equal(result.evidenceAnalysis.status, '已计算');
-    assert.equal(result.evidenceAnalysis.calculationSteps.length, 6);
+    assert.equal(result.evidenceAnalysis.calculationSteps.length, 3);
     const calculationStepKeys = new Set(
       result.evidenceAnalysis.calculationSteps.map((item) => item.key),
     );
@@ -3649,51 +3429,12 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
       ),
     );
     assert.deepEqual(
-      result.evidenceAnalysis.stages.map((item) => item.stage),
-      ['起因', '过程', '结果'],
-    );
-    assert.equal(result.evidenceAnalysis.transitions.length, 2);
-    assert.ok(
-      result.evidenceAnalysis.stages.every(
-        (item) =>
-          item.key.startsWith('xiaoliuren:stage:') &&
-          item.status === '已计算' &&
-          item.promptText &&
-          item.sources.length > 0 &&
-          item.limitation.includes('不得直接解释为现实起因'),
-      ),
-    );
-    assert.equal(result.evidenceAnalysis.transitionFacts.length, 2);
-    assert.ok(
-      result.evidenceAnalysis.transitionFacts.every(
-        (item) =>
-          item.key.startsWith('xiaoliuren:transition:') &&
-          item.fromStageKey &&
-          item.toStageKey &&
-          item.sources.length > 0 &&
-          item.limitation.includes('现实事件必然顺利'),
-      ),
-    );
-    assert.equal(
-      result.evidenceAnalysis.counterSummaryFact.factKeys.length,
-      result.evidenceAnalysis.counterEvidenceFacts.length,
-    );
-    assert.equal(
-      result.evidenceAnalysis.timingSummaryFact.basisFactKeys.length,
-      result.evidenceAnalysis.timingBasisFacts.length,
-    );
-    assert.equal(
-      result.evidenceAnalysis.timingSummaryFact.triggerFactKeys.length,
-      result.evidenceAnalysis.triggerConditionFacts.length,
-    );
-    assert.ok(
-      result.evidenceAnalysis.triggerConditionFacts.every(
-        (item) =>
-          item.key.startsWith('xiaoliuren:trigger:') &&
-          item.promptText &&
-          item.sources.length > 0 &&
-          item.limitation.includes('不得由宫数'),
-      ),
+      result.evidenceAnalysis.palaceFacts.map((item) => [item.role, item.level]),
+      [
+        ['月宫', '计算轨迹'],
+        ['日宫', '计算轨迹'],
+        ['时宫', '主证'],
+      ],
     );
     assert.equal(result.evidenceAnalysis.calculationFact.status, '完整');
     assert.equal(result.evidenceAnalysis.calculationFact.steps.length, 3);
@@ -3702,40 +3443,31 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
         (item) =>
           item.key &&
           item.stage &&
-          item.expression &&
-          item.modulo === 6 &&
-          typeof item.palaceIndex === 'number' &&
-          item.promptText,
+          item.formula &&
+          item.status === '已计算' &&
+          item.palace &&
+          item.source &&
+          item.limitation,
       ),
     );
-    assert.equal(result.evidenceAnalysis.randomFact.status, '不适用');
     assert.equal(result.evidenceAnalysis.summaryFact.status, '证据链完整');
     assert.equal(
-      result.evidenceAnalysis.summaryFact.stageFactCount,
-      result.evidenceAnalysis.stages.length,
+      result.evidenceAnalysis.summaryFact.calculationStepCount,
+      result.evidenceAnalysis.calculationSteps.length,
     );
     assert.equal(
-      result.evidenceAnalysis.summaryFact.transitionFactCount,
-      result.evidenceAnalysis.transitionFacts.length,
+      result.evidenceAnalysis.summaryFact.palaceFactCount,
+      result.evidenceAnalysis.palaceFacts.length,
     );
-    assert.equal(result.evidenceAnalysis.limitationFacts.length, 6);
+    assert.equal(result.evidenceAnalysis.limitationFacts.length, 5);
     assert.equal(
       result.evidenceAnalysis.limitations.length,
       result.evidenceAnalysis.limitationFacts.length,
     );
     const factKeys = new Set([
       result.evidenceAnalysis.calculationFact.key,
-      result.evidenceAnalysis.randomFact.key,
       ...result.evidenceAnalysis.calculationSteps.map((item) => item.key),
-      ...result.evidenceAnalysis.stages.map((item) => item.key),
-      ...result.evidenceAnalysis.transitionFacts.map((item) => item.key),
-      ...result.evidenceAnalysis.traditionalFacts.map((item) => item.key),
-      result.evidenceAnalysis.counterSummaryFact.key,
-      ...result.evidenceAnalysis.counterEvidenceFacts.map((item) => item.key),
-      result.evidenceAnalysis.timingSummaryFact.key,
-      ...result.evidenceAnalysis.timingBasisFacts.map((item) => item.key),
-      ...result.evidenceAnalysis.triggerConditionFacts.map((item) => item.key),
-      result.evidenceAnalysis.summaryFact.key,
+      ...result.evidenceAnalysis.palaceFacts.map((item) => item.key),
     ]);
     assert.ok(
       result.evidenceAnalysis.limitationFacts.every(
@@ -3743,33 +3475,24 @@ test('MCP 小六壬排盘与提示词应返回三宫推进结构化证据', asyn
           item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
       ),
     );
-    assert.ok(Array.isArray(result.evidenceAnalysis.counterEvidence));
-    assert.ok(result.evidenceAnalysis.traditionalFacts.length > 0);
-    assert.ok(
-      result.evidenceAnalysis.traditionalFacts.every(
-        (item) =>
-          (item as Record<string, unknown>).status === '已映射' &&
-          item.originalText &&
-          item.promptText &&
-          item.sources.length > 0 &&
-          item.limitation.includes('不证明现实中'),
-      ),
-    );
+    assert.match(result.evidenceAnalysis.promptText, /署名不作为已证实的古籍归属/);
 
     const promptResult = await client.callTool({
       name: 'xiaoliuren_prompt',
       arguments: {
-        xiaoliurenMethod: 'number',
-        xiaoliurenNumber: 18,
-        customDate: '2025-01-01T08:00:00+08:00',
+        xiaoliurenMethod: 'time',
+        customDate: '2025-06-29T08:00:00+08:00',
         question: '这件事应如何推进？',
       },
     });
     const prompt = String(promptResult.structuredContent?.prompt);
     assert.match(prompt, /占法：小六壬/);
-    assert.match(prompt, /核心结构：起因[\s\S]*过程[\s\S]*结果[\s\S]*结构明细：/);
-    assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
-    assert.doesNotMatch(prompt, /事情整体可成|容易白忙一场|凶（大凶）/);
+    assert.match(prompt, /顺数轨迹：月宫空亡；日宫赤口；时宫留连/);
+    assert.match(prompt, /占得宫：留连/);
+    assert.match(prompt, /歌诀原文：留连事难成/);
+    assert.match(prompt, /计算链：/);
+    assert.match(prompt, /解释限制：/);
+    assert.doesNotMatch(prompt, /核心结构：起因|五行推进：|月令旺衰：|日干六亲：/);
     assert.doesNotMatch(prompt, /\d+(?:\.\d+)?%|成功率(?:为|：)|吉凶总分(?:为|：)|\d+日内|\d+周内/);
     assertPromptIsPortableTaskText(prompt);
   });
@@ -3804,7 +3527,7 @@ test('MCP 时间型占卜工具应拒绝无效 customDate', async () => {
   });
 });
 
-test('MCP 数字起卦起课应要求提供对应数字', async () => {
+test('MCP 梅花数字起卦应要求提供对应数字', async () => {
   await withMcpClient(async (client) => {
     for (const name of ['divine_meihua', 'meihua_prompt']) {
       const result = await client.callTool({
@@ -3820,40 +3543,36 @@ test('MCP 数字起卦起课应要求提供对应数字', async () => {
         'number 必须是正整数。',
       );
     }
-
-    for (const name of ['divine_xiaoliuren', 'xiaoliuren_prompt']) {
-      const result = await client.callTool({
-        name,
-        arguments: {
-          xiaoliurenMethod: 'number',
-          ...(name.endsWith('_prompt') ? { question: '今年事业如何？' } : {}),
-        },
-      });
-      assert.equal(result.isError, true, `${name} 缺少数字时应返回错误`);
-      assert.equal(
-        (result.structuredContent as { error?: string } | undefined)?.error,
-        'xiaoliurenNumber 必须是正整数。',
-      );
-    }
   });
 });
 
-test('MCP 数字起卦起课应拒绝超出安全整数范围的数字', async () => {
+test('MCP 梅花数字起卦应拒绝超出安全整数范围的数字', async () => {
   await withMcpClient(async (client) => {
     const unsafeInteger = Number.MAX_SAFE_INTEGER + 1;
     const cases: Array<[string, Record<string, unknown>, string]> = [
       ['divine_meihua', { method: 'number', number: unsafeInteger }, 'number 必须是正整数。'],
-      [
-        'divine_xiaoliuren',
-        { xiaoliurenMethod: 'number', xiaoliurenNumber: unsafeInteger },
-        'xiaoliurenNumber 必须是正整数。',
-      ],
     ];
 
     for (const [name, args, message] of cases) {
       const result = await client.callTool({ name, arguments: args });
       assert.equal(result.isError, true, `${name} 超出安全整数范围时应返回错误`);
       assert.equal((result.structuredContent as { error?: string } | undefined)?.error, message);
+    }
+  });
+});
+
+test('MCP 小六壬应拒绝已移除的数字起课方式', async () => {
+  await withMcpClient(async (client) => {
+    for (const name of ['divine_xiaoliuren', 'xiaoliuren_prompt']) {
+      const result = await client.callTool({
+        name,
+        arguments: {
+          xiaoliurenMethod: 'number',
+          xiaoliurenNumber: 18,
+          ...(name.endsWith('_prompt') ? { question: '今年事业如何？' } : {}),
+        },
+      });
+      assert.equal(result.isError, true, `${name} 应拒绝已移除的数字起课方式`);
     }
   });
 });
@@ -4622,7 +4341,7 @@ test('MCP 生肖工具返回三会固定关系且不改写为贵人或吉凶', a
   });
 });
 
-test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
+test('MCP 太乙工具返回年计七十二局结构化证据', async () => {
   await withMcpClient(async (client) => {
     const result = await client.callTool({
       name: 'taiyi_prompt',
@@ -4699,7 +4418,7 @@ test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
       chart.evidenceAnalysis.calculationSteps.every(
         (item) =>
           item.key.startsWith('taiyi:calculation:') &&
-          item.status === '已核验' &&
+          item.status === '已复算' &&
           Array.isArray(item.dependsOnStepKeys) &&
           item.promptText &&
           item.sources.length >= 2 &&
@@ -4713,7 +4432,7 @@ test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
     assert.equal(chart.evidenceAnalysis.conditionFacts.length, 4);
     assert.equal(chart.evidenceAnalysis.counterEvidenceFacts.length, 4);
     assert.equal(chart.evidenceAnalysis.counterSummaryFact.status, '存在未命中条件');
-    assert.equal(chart.evidenceAnalysis.counterSummaryFact.factKeys.length, 3);
+    assert.equal(chart.evidenceAnalysis.counterSummaryFact.factKeys.length, 2);
     assert.equal(chart.evidenceAnalysis.limitationFacts.length, 5);
     assert.equal(chart.evidenceAnalysis.summaryFact.key, 'taiyi:evidence-summary');
     assert.equal(chart.evidenceAnalysis.summaryFact.status, '证据链完整');
@@ -4773,7 +4492,11 @@ test('MCP 太乙工具返回五计七十二局结构化证据', async () => {
           item.limitation.includes('不直接证明现实胜负'),
       ),
     );
-    assert.ok(chart.evidenceAnalysis.counterEvidence.some((item) => item.startsWith('未见囚')));
+    assert.ok(
+      chart.evidenceAnalysis.conditionFacts.some(
+        (item) => item.kind === '囚' && item.status === '已命中',
+      ),
+    );
     assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.taiyi);
     assert.match(prompt, /【太乙神数 · 年计】/);
     assert.match(prompt, /核心宫位：[\s\S]*主客定算：[\s\S]*将参：/);

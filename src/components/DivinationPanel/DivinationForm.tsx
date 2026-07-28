@@ -6,8 +6,6 @@ import {
   LIUREN_TEMPLATE_OPTIONS,
   MEIHUA_METHOD_OPTIONS,
   TAROT_SPREAD_OPTIONS,
-  XIAOLIUREN_METHOD_OPTIONS,
-  XIAOLIUREN_SCHOOL_OPTIONS,
   JINKOUJUE_METHOD_OPTIONS,
 } from '@core/divination/config';
 import { resolveInteractiveTarotCards, tarotSpreads } from '@core/divination/tarot';
@@ -24,8 +22,6 @@ import {
   meihuaMethodLabelMap,
   methodLabelMap,
   tarotSpreadLabelMap,
-  xiaoliurenMethodLabelMap,
-  xiaoliurenSchoolLabelMap,
   jinkoujueMethodLabelMap,
 } from './constants';
 
@@ -76,8 +72,6 @@ function isTimeBasedDivinationDraft(draft: DivinationDraft) {
   if (draft.method === 'meihua' || draft.method === 'xiaoliuren' || draft.method === 'jinkoujue') {
     return true;
   }
-
-  if (draft.method === 'taiyi' && (draft.taiyiScope ?? 'year') !== 'year') return true;
 
   return false;
 }
@@ -338,64 +332,6 @@ export function DivinationForm({
                       </div>
                     ) : null}
 
-                    {draft.method === 'xiaoliuren' ? (
-                      <div className="form-item divination-inline-field">
-                        <label htmlFor="xiaoliuren-school-select">流派</label>
-                        <div className="divination-select-shell divination-desktop-select-shell">
-                          <span className="divination-trigger-text">
-                            {xiaoliurenSchoolLabelMap[draft.xiaoliurenSchool]}
-                          </span>
-                          <select
-                            id="xiaoliuren-school-select"
-                            value={draft.xiaoliurenSchool}
-                            className="form-input divination-overlay-select"
-                            onChange={(event) => {
-                              const school = event.target
-                                .value as DivinationDraft['xiaoliurenSchool'];
-                              updateDraft('xiaoliurenSchool', school);
-                              if (school === 'huashan') {
-                                updateDraft('xiaoliurenMethod', 'time');
-                              }
-                            }}
-                          >
-                            {XIAOLIUREN_SCHOOL_OPTIONS.map((item) => (
-                              <option key={item.value} value={item.value}>
-                                {item.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {draft.method === 'xiaoliuren' && draft.xiaoliurenSchool !== 'huashan' ? (
-                      <div className="form-item divination-inline-field">
-                        <label htmlFor="xiaoliuren-method-select">起课方式</label>
-                        <div className="divination-select-shell divination-desktop-select-shell">
-                          <span className="divination-trigger-text">
-                            {xiaoliurenMethodLabelMap[draft.xiaoliurenMethod]}
-                          </span>
-                          <select
-                            id="xiaoliuren-method-select"
-                            value={draft.xiaoliurenMethod}
-                            className="form-input divination-overlay-select"
-                            onChange={(event) =>
-                              updateDraft(
-                                'xiaoliurenMethod',
-                                event.target.value as DivinationDraft['xiaoliurenMethod'],
-                              )
-                            }
-                          >
-                            {XIAOLIUREN_METHOD_OPTIONS.map((item) => (
-                              <option key={item.value} value={item.value}>
-                                {item.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    ) : null}
-
                     {draft.method === 'jinkoujue' ? (
                       <div className="form-item divination-inline-field">
                         <label htmlFor="jinkoujue-method-select">起课方式</label>
@@ -436,26 +372,6 @@ export function DivinationForm({
                           value={draft.meihuaNumber}
                           onChange={(event) =>
                             updateDraft('meihuaNumber', event.target.value.replace(/[^\d]/g, ''))
-                          }
-                        />
-                      </div>
-                    ) : null}
-
-                    {draft.method === 'xiaoliuren' && draft.xiaoliurenMethod === 'number' ? (
-                      <div className="form-item divination-inline-field divination-inline-number-field">
-                        <label htmlFor="xiaoliuren-number-input">起课数字</label>
-                        <input
-                          id="xiaoliuren-number-input"
-                          type="text"
-                          inputMode="numeric"
-                          className="form-input"
-                          placeholder="例如 18"
-                          value={draft.xiaoliurenNumber}
-                          onChange={(event) =>
-                            updateDraft(
-                              'xiaoliurenNumber',
-                              event.target.value.replace(/[^\d]/g, ''),
-                            )
                           }
                         />
                       </div>
@@ -691,7 +607,6 @@ export function DivinationForm({
                 className={`divination-mobile-control-row ${
                   draft.method === 'meihua' ||
                   draft.method === 'liuyao' ||
-                  draft.method === 'xiaoliuren' ||
                   draft.method === 'jinkoujue' ||
                   draft.method === 'liuren' ||
                   draft.method === 'tarot' ||
@@ -740,31 +655,6 @@ export function DivinationForm({
                       }
                     >
                       {MEIHUA_METHOD_OPTIONS.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : null}
-
-                {draft.method === 'xiaoliuren' ? (
-                  <div className="divination-mobile-secondary-picker">
-                    <span className="divination-mobile-trigger-text divination-trigger-text">
-                      {xiaoliurenMethodLabelMap[draft.xiaoliurenMethod]}
-                    </span>
-                    <select
-                      aria-label="起课方式"
-                      value={draft.xiaoliurenMethod}
-                      className="form-input divination-mobile-method-select divination-overlay-select"
-                      onChange={(event) =>
-                        updateDraft(
-                          'xiaoliurenMethod',
-                          event.target.value as DivinationDraft['xiaoliurenMethod'],
-                        )
-                      }
-                    >
-                      {XIAOLIUREN_METHOD_OPTIONS.map((item) => (
                         <option key={item.value} value={item.value}>
                           {item.label}
                         </option>
@@ -995,25 +885,6 @@ export function DivinationForm({
                   value={draft.meihuaNumber}
                   onChange={(event) =>
                     updateDraft('meihuaNumber', event.target.value.replace(/[^\d]/g, ''))
-                  }
-                />
-              </div>
-            </div>
-          ) : null}
-
-          {draft.method === 'xiaoliuren' && draft.xiaoliurenMethod === 'number' ? (
-            <div className="form-row divination-mobile-only">
-              <div className="form-item">
-                <label htmlFor="xiaoliuren-number-input-mobile">起课数字</label>
-                <input
-                  id="xiaoliuren-number-input-mobile"
-                  type="text"
-                  inputMode="numeric"
-                  className="form-input"
-                  placeholder="例如 18"
-                  value={draft.xiaoliurenNumber}
-                  onChange={(event) =>
-                    updateDraft('xiaoliurenNumber', event.target.value.replace(/[^\d]/g, ''))
                   }
                 />
               </div>
@@ -1320,41 +1191,19 @@ export function DivinationForm({
             <div className="divination-extra-panel">
               <div className="form-row">
                 <div className="form-item">
-                  <label htmlFor="taiyi-scope-select">太乙计式</label>
-                  <select
-                    id="taiyi-scope-select"
+                  <label htmlFor="taiyi-year-input">年计年份</label>
+                  <input
+                    id="taiyi-year-input"
+                    type="text"
+                    inputMode="numeric"
                     className="form-input"
-                    value={draft.taiyiScope ?? 'year'}
+                    placeholder="例如 2026"
+                    value={draft.taiyiYear}
                     onChange={(event) =>
-                      updateDraft('taiyiScope', event.target.value as DivinationDraft['taiyiScope'])
+                      updateDraft('taiyiYear', event.target.value.replace(/[^\d]/g, ''))
                     }
-                  >
-                    <option value="year">年计</option>
-                    <option value="month">月计</option>
-                    <option value="day">日计</option>
-                    <option value="hour">时计</option>
-                    <option value="minute">分计</option>
-                  </select>
+                  />
                 </div>
-                {(draft.taiyiScope ?? 'year') === 'year' ? (
-                  <div className="form-item">
-                    <label htmlFor="taiyi-year-input">要观察的年份</label>
-                    <input
-                      id="taiyi-year-input"
-                      type="text"
-                      inputMode="numeric"
-                      className="form-input"
-                      placeholder="例如 2026"
-                      value={draft.taiyiYear}
-                      onChange={(event) =>
-                        updateDraft('taiyiYear', event.target.value.replace(/[^\d]/g, ''))
-                      }
-                    />
-                  </div>
-                ) : null}
-              </div>
-              <div className="birth-time-hint">
-                年计看年度，月计看月度，日计看当天，时计看时辰，分计细化到当前分钟；各计式按自己的积数与阴阳遁起局。
               </div>
             </div>
           ) : null}

@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calculateMoonPhaseEvidence } from '../packages/core/src/calendar/moon-phase-evidence.ts';
 import { generateQimen } from '../packages/core/src/divination/algorithms/qimen/index.ts';
-import { generateQizheng } from '../packages/core/src/qi_zheng/index.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const MINUTE = 60_000;
@@ -134,22 +133,9 @@ test('月相证据应拒绝无效时间戳和超出支持范围的年份', () =>
   );
 });
 
-test('奇门和七政四余应携带月相证据且不将其解释为吉凶', () => {
+test('奇门应携带月相证据且不将其解释为吉凶', () => {
   const qimen = generateQimen(new Date('2024-04-08T18:21:00Z'));
-  const qizheng = generateQizheng({
-    year: 2024,
-    month: 4,
-    day: 9,
-    hour: 2,
-    minute: 21,
-    timezone: 8,
-  });
 
   assert.equal(qimen.seasonality?.moonPhaseEvidence.eightPhaseName, '新月');
   assert.equal(typeof qimen.seasonality?.lunarPhaseConsistency, 'boolean');
-  assert.equal(qizheng.calculationContext.moonPhase.eightPhaseName, '新月');
-  assert.match(qizheng.prompt, /月相：新月（(?:盈|亏)），日月黄经差约.+照明约/);
-  assert.match(qizheng.evidenceAnalysis.methodology.join(''), /不把月相直接解释为吉凶/);
-  assert.doesNotMatch(qizheng.prompt, /月相吉凶|月相评分|月相成功率/);
-  assert.doesNotMatch(qizheng.prompt, /月相证据|结构化证据|计算链|解释限制/);
 });

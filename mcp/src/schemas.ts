@@ -11,6 +11,7 @@ export const promptOutputSchema = {
 
 export const ziweiOutputSchema = {
   basicInfo: z.record(z.string(), z.unknown()).describe('紫微命盘基础信息'),
+  calculationConfig: z.record(z.string(), z.unknown()).describe('本次实际采用的紫微排盘口径'),
   scopeNames: z.array(z.string()).describe('本次返回包含的运限范围'),
   payloadByScope: z.record(z.string(), z.unknown()).describe('按运限范围组织的紫微分析载荷'),
   birthMutagens: z.record(z.string(), z.string()).optional().describe('生年四化'),

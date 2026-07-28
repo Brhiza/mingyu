@@ -3,10 +3,17 @@ import assert from 'node:assert/strict';
 
 import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
 import { PROMPT_GUIDANCE_TEXT, type MetaphysicsPromptMethod } from '../src/lib/prompt-guidance';
+import {
+  VERIFIED_ZIWEI_PATTERN_RULE_COUNT,
+  ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES,
+  ZIWEI_TRADITIONAL_PATTERN_CATALOG_COUNT,
+} from '@core/ziwei/iztro';
 import { assertPromptHasSingleRole } from './prompt-assertions';
 
 test('全部角色开场、解读主线和输出结构不包含伪系统控制话术', () => {
   Object.entries(PROMPT_GUIDANCE_TEXT).forEach(([method, guidance]) => {
+    if (method === 'qizheng') return;
+
     assert.match(guidance.identity, /^请以.+视角完成解读。$/, `${method} 应使用自然的角色开场`);
     assert.doesNotMatch(
       [guidance.identity, guidance.analysis, guidance.output].join('\n'),
@@ -23,7 +30,7 @@ test('全部体系都提供传统判断规则与传统依据', () => {
     assert.match(String(guidance.tradition), /./);
     assert.match(
       String(guidance.sources),
-      /《.+》|Rider-Waite|Lenormand|Petit|现代西方占星|潮汕|公开资料|通行/,
+      /《.+》|Rider-Waite|Lenormand|Petit|现代西方占星|潮汕|公开资料|通行|iztro/,
     );
   });
 });
@@ -32,13 +39,12 @@ test('核心传统术数包含判断优先级、冲突处理和流派边界', ()
   const expectedTerms = {
     bazi: ['月令', '格局', '调候', '不同取法', '神煞只作旁证'],
     liuyao: ['确定用神', '月建', '动爻', '多条信息冲突', '六神和卦名辅助'],
-    ziwei: ['问题对应宫位', '三方会照', '生年四化', '不同流派', '单个格局'],
+    ziwei: ['问题对应宫位', '三方会照', '生年四化', '不同流派', '单颗星', '不.*补造.*格局'],
     qimen: ['选取日干', '值符值使', '空亡', '吉门吉星', '方向和时机'],
     liuren: ['四课', '取传规则', '初传看发端', '课传主线', '神煞作为补充'],
     meihua: ['本卦', '体用', '互卦', '变卦', '四时旺衰'],
-    taiyi: ['五计', '阴阳遁', '七十二局', '主客定算', '不可互相替代'],
+    taiyi: ['年计', '阳遁', '七十二局', '主客定算', '年计范围'],
     bazhai: ['命卦', '宅卦', '东四西四', '测量', '边界'],
-    qizheng: ['命宫', '身宫', '真太阳时', '紫炁', '混合'],
     xuankong: ['三元九运', '山向', '运盘', '下卦', '元龙阴阳'],
     residential: ['宅运', '人宅', '合参', '分述', '边界'],
     almanac: ['事项宜忌', '建除', '参与人', '可用', '慎用'],
@@ -52,13 +58,20 @@ test('核心传统术数包含判断优先级、冲突处理和流派边界', ()
   });
 });
 
-test('八宅、住宅风水、生肖、太乙、七政与玄空提示词使用各自角色', () => {
+test('紫微提示指引中的格局目录数量应与核心登记同步', () => {
+  const sources = PROMPT_GUIDANCE_TEXT.ziwei.sources;
+
+  assert.match(sources, new RegExp(`登记 ${ZIWEI_TRADITIONAL_PATTERN_CATALOG_COUNT} 项`));
+  assert.match(sources, new RegExp(`${VERIFIED_ZIWEI_PATTERN_RULE_COUNT} 条条件闭合规则`));
+  assert.match(sources, new RegExp(`${ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES.length} 项.*边界`));
+});
+
+test('八宅、住宅风水、生肖、太乙与玄空提示词使用各自角色', () => {
   const methods: MetaphysicsPromptMethod[] = [
     'bazhai',
     'residential',
     'zodiac',
     'taiyi',
-    'qizheng',
     'xuankong',
   ];
 
@@ -73,4 +86,15 @@ test('八宅、住宅风水、生肖、太乙、七政与玄空提示词使用�
     assert.match(prompt, /【传统判断规则】/);
     assert.match(prompt, /【传统依据】/);
   });
+});
+
+test('七政四余提示词指引应约束真实距星宿界与混合精度', () => {
+  const guidance = PROMPT_GUIDANCE_TEXT.qizheng;
+
+  assert.match(guidance.identity, /果老星宗.*现代天文坐标证据/);
+  assert.match(guidance.analysis, /精度层级/);
+  assert.match(guidance.analysis, /十一星宿度与庙旺/);
+  assert.match(guidance.tradition, /真实距星黄经划界.*真太阳时只用于传统命身十二宫/);
+  assert.match(guidance.sources, /SIMBAD.*Astronomy Engine/);
+  assert.match(guidance.output, /反证与限制/);
 });

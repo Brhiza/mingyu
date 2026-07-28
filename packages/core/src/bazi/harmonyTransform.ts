@@ -1,6 +1,6 @@
 /**
- * @file 合化程度评分
- * @description 在已识别天干五合、地支六合的基础上，按月令、透干、根气、冲破、清杂、争合给出结构化评分。
+ * @file 干支相合与天干成化条件
+ * @description 依据《三命通会》可复核条件区分成化、合而不化、争合与破合，不使用百分制权重。
  */
 import type {
   HarmonyTransformDirection,
@@ -11,6 +11,7 @@ import { WUXING, type Wuxing } from './baziTypes';
 import { SEASON_STATUS } from './baziElementData';
 import { BASIC_MAPPINGS, HIDDEN_STEMS } from './baziMappingsData';
 import { assertEarthlyBranch, assertHeavenlyStem } from './baziUtils';
+import { BRANCH_WUXING } from '../ganzhi/relations';
 
 export interface HarmonyPillarInput {
   label?: string;
@@ -59,6 +60,14 @@ const ELEMENT_STEMS: Record<Wuxing, string[]> = {
   水: ['壬', '癸'],
 };
 
+const TRANSFORM_MONTHS: Record<Wuxing, { principal: string[]; secondary: string[] }> = {
+  木: { principal: ['亥', '卯', '未'], secondary: ['寅'] },
+  火: { principal: ['寅', '午', '戌'], secondary: ['巳'] },
+  土: { principal: ['辰', '戌', '丑', '未'], secondary: ['午'] },
+  金: { principal: ['巳', '酉', '丑'], secondary: ['申'] },
+  水: { principal: ['申', '子', '辰'], secondary: ['亥'] },
+};
+
 function assertWuxing(value: string, label: string): asserts value is Wuxing {
   if (!(WUXING as readonly string[]).includes(value)) {
     throw new Error(`${label}五行无效：${value}`);
@@ -70,7 +79,7 @@ function normalizePillars(pillars: HarmonyPillarInput[]): NormalizedHarmonyPilla
     throw new Error(`四柱数量无效：${pillars.length}`);
   }
 
-  return pillars
+  const normalized = pillars
     .map((pillar, index) => ({
       label: pillar.label || PILLAR_LABELS[index] || `pillar${index + 1}`,
       gan: pillar.gan,
@@ -83,33 +92,38 @@ function normalizePillars(pillars: HarmonyPillarInput[]): NormalizedHarmonyPilla
       pillar.hiddenStems.forEach((stem) => assertHeavenlyStem(stem, `${pillar.label}藏干`));
       return pillar;
     });
+
+  const labels = normalized.map((pillar) => pillar.label);
+  if (new Set(labels).size !== labels.length) {
+    throw new Error('四柱标签不可重复');
+  }
+
+  return normalized;
 }
 
-function getMonthSupport(monthBranch: string, element: Wuxing): number {
+function getMonthCondition(
+  monthBranch: string,
+  element: Wuxing,
+): {
+  supported: boolean;
+  evidence: string;
+} {
   assertEarthlyBranch(monthBranch, '月支');
   assertWuxing(element, '化神');
   const status = SEASON_STATUS[monthBranch]?.[element];
   if (!status) {
     throw new Error(`月令旺衰数据缺失：${monthBranch}/${element}`);
   }
-  const scoreMap: Record<string, number> = {
-    旺: 40,
-    相: 30,
-    休: 15,
-    囚: 8,
-    死: 0,
+  const months = TRANSFORM_MONTHS[element];
+  const isPrincipal = months.principal.includes(monthBranch);
+  const isSecondary = months.secondary.includes(monthBranch);
+  const supported = isPrincipal || isSecondary;
+  const sourceCondition = isPrincipal ? '正令' : isSecondary ? '次令' : '不在规定月令';
+
+  return {
+    supported,
+    evidence: `月令${monthBranch}对化神${element}为${status}，${sourceCondition}`,
   };
-  return scoreMap[status || ''] ?? 0;
-}
-
-function buildMonthSupportEvidence(monthBranch: string, element: Wuxing, _score: number): string {
-  assertEarthlyBranch(monthBranch, '月支');
-  assertWuxing(element, '化神');
-  const status = SEASON_STATUS[monthBranch]?.[element];
-  if (!status) {
-    throw new Error(`月令旺衰数据缺失：${monthBranch}/${element}`);
-  }
-  return `月令${monthBranch}对化神${element}为${status}`;
 }
 
 function getControllingElement(element: Wuxing): Wuxing | undefined {
@@ -117,51 +131,58 @@ function getControllingElement(element: Wuxing): Wuxing | undefined {
     Wuxing | undefined;
 }
 
-function getStemRootScore(element: Wuxing, pillars: NormalizedHarmonyPillar[]): number {
+function getStemRootCount(element: Wuxing, pillars: NormalizedHarmonyPillar[]): number {
   const stems = ELEMENT_STEMS[element];
-  const rootCount = pillars.filter((pillar) =>
+  return pillars.filter((pillar) =>
     pillar.hiddenStems.some((hiddenStem) => stems.includes(hiddenStem)),
   ).length;
-
-  if (rootCount >= 3) return 20;
-  if (rootCount === 2) return 15;
-  if (rootCount === 1) return 8;
-  return 0;
 }
 
-function buildRootEvidence(
-  element: Wuxing,
-  _score: number,
-  pillars: NormalizedHarmonyPillar[],
-): string {
-  const stems = ELEMENT_STEMS[element];
-  const rootCount = pillars.filter((pillar) =>
-    pillar.hiddenStems.some((hiddenStem) => stems.includes(hiddenStem)),
-  ).length;
+function buildRootEvidence(element: Wuxing, pillars: NormalizedHarmonyPillar[]): string {
+  const rootCount = getStemRootCount(element, pillars);
 
   return rootCount > 0 ? `化神${element}在${rootCount}支有根` : `化神${element}无根`;
 }
 
-function resolveLevel(score: number): HarmonyTransformLevel {
-  if (score >= 95) return '完全合化';
-  if (score >= 80) return '大部分化';
-  if (score >= 60) return '半化半绊';
-  if (score >= 40) return '合而不化';
-  return '纯粹牵绊';
+function findParticipantIndex(
+  pillars: NormalizedHarmonyPillar[],
+  label: string,
+  value: string,
+  key: 'gan' | 'zhi',
+): number {
+  const index = pillars.findIndex((pillar) => pillar.label === label && pillar[key] === value);
+  if (index < 0) {
+    throw new Error(`${label}${value}不在所给四柱中`);
+  }
+  return index;
 }
 
-function resolveDirection(
-  score: number,
-  clashPenalty: number,
-  competitionPenalty: number,
-): HarmonyTransformDirection {
-  if (score >= 80 && clashPenalty === 0 && competitionPenalty === 0) return '向化';
-  if (score >= 40) return '合绊';
-  return '合去';
+function resolveStemLevel(conditions: {
+  isDayStemPair: boolean;
+  isAdjacent: boolean;
+  monthSupported: boolean;
+  hasClashBreak: boolean;
+  hasControllingElement: boolean;
+  hasCompetition: boolean;
+}): HarmonyTransformLevel {
+  if (conditions.hasClashBreak) return '逢冲破合';
+  if (conditions.hasCompetition) return '争合不专';
+  if (
+    conditions.isDayStemPair &&
+    conditions.isAdjacent &&
+    conditions.monthSupported &&
+    !conditions.hasControllingElement
+  ) {
+    return '成化';
+  }
+  return '合而不化';
 }
 
-function clampScore(score: number): number {
-  return Math.max(0, Math.min(100, score));
+function resolveDirection(level: HarmonyTransformLevel): HarmonyTransformDirection {
+  if (level === '成化') return '向化';
+  if (level === '逢冲破合') return '破合';
+  if (level === '隔位不合') return '不合';
+  return '合绊';
 }
 
 function buildConsequences(
@@ -169,27 +190,24 @@ function buildConsequences(
   participant1: string,
   participant2: string,
   transformElement: Wuxing,
-  score: number,
+  level: HarmonyTransformLevel,
 ): string[] {
-  if (score >= 80) {
+  if (level === '成化') {
     return [
-      `${participant1}与${participant2}${typeLabel}化${transformElement}力量较足`,
+      `${participant1}与${participant2}${typeLabel}成化${transformElement}`,
       `原组合可按化神${transformElement}参与后续结构判断`,
     ];
   }
-  if (score >= 60) {
+  if (level === '争合不专') {
     return [
-      `${participant1}与${participant2}${typeLabel}半化半绊`,
-      '双方仍保留原有属性，岁运补足月令、透干或根气时再复核',
+      `${participant1}与${participant2}${typeLabel}见争合，合意不专`,
+      '不按成化处理，仍须保留各干原有属性',
     ];
   }
-  if (score >= 40) {
-    return [`${participant1}与${participant2}${typeLabel}合而不化`, '主要表现为相互牵制'];
+  if (level === '逢冲破合') {
+    return [`${participant1}与${participant2}${typeLabel}受冲破`, '不按成化处理'];
   }
-  return [
-    `${participant1}与${participant2}${typeLabel}纯粹牵绊`,
-    '化神力量不足，不宜直接按成化处理',
-  ];
+  return [`${participant1}与${participant2}${typeLabel}合而不化`, '保留原有属性，只论相合牵制'];
 }
 
 export function assessStemHarmonyTransform(
@@ -210,76 +228,92 @@ export function assessStemHarmonyTransform(
   }
 
   const pillars = normalizePillars(allPillars);
+  const participantIndex1 = findParticipantIndex(pillars, pillar1, stem1, 'gan');
+  const participantIndex2 = findParticipantIndex(pillars, pillar2, stem2, 'gan');
+  const participantIndexes = [participantIndex1, participantIndex2];
   const evidence: string[] = [`${stem1}${stem2}合化${rule.element}，化神为${rule.stem}`];
-  const monthSupport = getMonthSupport(monthBranch, rule.element);
-  evidence.push(buildMonthSupportEvidence(monthBranch, rule.element, monthSupport));
+  const monthCondition = getMonthCondition(monthBranch, rule.element);
+  evidence.push(monthCondition.evidence);
 
-  const transformStemPillar = pillars.find((pillar) => pillar.gan === rule.stem);
-  const stemScore = transformStemPillar ? 20 : 0;
+  const isDayStemPair = participantIndexes.includes(2);
+  const isAdjacent = Math.abs(participantIndex1 - participantIndex2) === 1;
+  evidence.push(
+    isDayStemPair ? '日干参与五合' : '非日干配合，只记相合，不作化气',
+    isAdjacent ? '两干紧贴' : '两干隔位，不作成化',
+  );
+
+  const transformStemPillar = pillars.find(
+    (pillar, index) => !participantIndexes.includes(index) && pillar.gan === rule.stem,
+  );
   evidence.push(
     transformStemPillar
       ? `化神${rule.stem}透出于${transformStemPillar.label}`
       : `化神${rule.stem}未透干`,
   );
 
-  const rootScore = getStemRootScore(rule.element, pillars);
-  evidence.push(buildRootEvidence(rule.element, rootScore, pillars));
+  const rootCount = getStemRootCount(rule.element, pillars);
+  evidence.push(buildRootEvidence(rule.element, pillars));
 
-  let clashPenalty = 0;
+  const clashEvidence: string[] = [];
   const clash1 = BASIC_MAPPINGS.TIAN_GAN_CHONG[stem1];
   const clash2 = BASIC_MAPPINGS.TIAN_GAN_CHONG[stem2];
   if (
     clash1 &&
-    pillars.some((pillar) => pillar.gan === clash1 && ![pillar1, pillar2].includes(pillar.label))
+    pillars.some((pillar, index) => pillar.gan === clash1 && !participantIndexes.includes(index))
   ) {
-    clashPenalty -= 15;
-    evidence.push(`${stem1}被${clash1}相冲，构成冲破条件`);
+    clashEvidence.push(`${stem1}被${clash1}相冲，构成冲破条件`);
   }
   if (
     clash2 &&
-    pillars.some((pillar) => pillar.gan === clash2 && ![pillar1, pillar2].includes(pillar.label))
+    pillars.some((pillar, index) => pillar.gan === clash2 && !participantIndexes.includes(index))
   ) {
-    clashPenalty -= 15;
-    evidence.push(`${stem2}被${clash2}相冲，构成冲破条件`);
+    clashEvidence.push(`${stem2}被${clash2}相冲，构成冲破条件`);
   }
+  evidence.push(...clashEvidence);
 
   const controllingElement = getControllingElement(rule.element);
   const controllingStems = controllingElement ? ELEMENT_STEMS[controllingElement] : [];
   const hasControl = pillars.some(
-    (pillar) => controllingStems.includes(pillar.gan) && ![pillar1, pillar2].includes(pillar.label),
+    (pillar, index) =>
+      (!participantIndexes.includes(index) && controllingStems.includes(pillar.gan)) ||
+      BRANCH_WUXING[pillar.zhi] === controllingElement,
   );
-  const purityScore = hasControl ? 5 : 20;
   evidence.push(
     hasControl
       ? `有${controllingElement}克制化神${rule.element}`
       : `无明显五行克制化神${rule.element}`,
   );
 
-  let competitionPenalty = 0;
   const hasCompetitionWithStem1 = pillars.some(
-    (pillar) =>
-      ![pillar1, pillar2].includes(pillar.label) &&
+    (pillar, index) =>
+      !participantIndexes.includes(index) &&
+      Math.abs(index - participantIndex1) === 1 &&
       STEM_TRANSFORM_RULES[pillar.gan]?.partner === stem1,
   );
   const hasCompetitionWithStem2 = pillars.some(
-    (pillar) =>
-      ![pillar1, pillar2].includes(pillar.label) &&
+    (pillar, index) =>
+      !participantIndexes.includes(index) &&
+      Math.abs(index - participantIndex2) === 1 &&
       STEM_TRANSFORM_RULES[pillar.gan]?.partner === stem2,
   );
   if (hasCompetitionWithStem1) {
-    competitionPenalty -= 10;
     evidence.push(`有其他天干争合${stem1}`);
   }
   if (hasCompetitionWithStem2) {
-    competitionPenalty -= 10;
     evidence.push(`有其他天干争合${stem2}`);
   }
 
-  const score = clampScore(
-    monthSupport + stemScore + rootScore + clashPenalty + purityScore + competitionPenalty,
-  );
-  const level = resolveLevel(score);
-  const direction = resolveDirection(score, clashPenalty, competitionPenalty);
+  const hasClashBreak = clashEvidence.length > 0;
+  const hasCompetition = hasCompetitionWithStem1 || hasCompetitionWithStem2;
+  const level = resolveStemLevel({
+    isDayStemPair,
+    isAdjacent,
+    monthSupported: monthCondition.supported,
+    hasClashBreak,
+    hasControllingElement: hasControl,
+    hasCompetition,
+  });
+  const direction = resolveDirection(level);
   const participants = [`${pillar1}${stem1}`, `${pillar2}${stem2}`];
 
   return {
@@ -289,15 +323,17 @@ export function assessStemHarmonyTransform(
     transformStem: rule.stem,
     level,
     direction,
-    monthSupported: monthSupport > 0,
-    transformStemVisible: stemScore > 0,
-    transformRooted: rootScore > 0,
-    hasClashBreak: clashPenalty < 0,
+    dayStemInvolved: isDayStemPair,
+    participantsAdjacent: isAdjacent,
+    monthSupported: monthCondition.supported,
+    transformStemVisible: Boolean(transformStemPillar),
+    transformRooted: rootCount > 0,
+    hasClashBreak,
     hasControllingElement: hasControl,
-    hasCompetition: competitionPenalty < 0,
+    hasCompetition,
     evidence,
-    isTransformed: score >= 80,
-    consequences: buildConsequences('合', participants[0], participants[1], rule.element, score),
+    isTransformed: level === '成化',
+    consequences: buildConsequences('合', participants[0], participants[1], rule.element, level),
   };
 }
 
@@ -319,54 +355,51 @@ export function assessBranchHarmonyTransform(
   }
 
   const pillars = normalizePillars(allPillars);
-  const evidence: string[] = [`${branch1}${branch2}六合化${rule.element}`];
-  const monthSupport = getMonthSupport(monthBranch, rule.element);
-  evidence.push(buildMonthSupportEvidence(monthBranch, rule.element, monthSupport));
+  const participantIndex1 = findParticipantIndex(pillars, pillar1, branch1, 'zhi');
+  const participantIndex2 = findParticipantIndex(pillars, pillar2, branch2, 'zhi');
+  const participantIndexes = [participantIndex1, participantIndex2];
+  const isAdjacent = Math.abs(participantIndex1 - participantIndex2) === 1;
+  const evidence: string[] = [
+    isAdjacent
+      ? `${branch1}${branch2}紧贴，构成地支六合`
+      : `${branch1}${branch2}隔位，只记六合对应关系，不作有效相合`,
+    `地支藏干复杂，只论相合，不直接作化${rule.element}论`,
+  ];
 
-  const transformStems = ELEMENT_STEMS[rule.element];
-  const transformStemVisible = pillars.find((pillar) => transformStems.includes(pillar.gan));
-  const stemScore = transformStemVisible ? 20 : 0;
-  evidence.push(
-    transformStemVisible
-      ? `化神${rule.element}透出于${transformStemVisible.label}`
-      : `化神${rule.element}未透干`,
-  );
-
-  const rootScore = 15;
-  evidence.push('六合地支本身带有化神根气');
-
-  let clashPenalty = 0;
+  const clashEvidence: string[] = [];
   const clash1 = BASIC_MAPPINGS.DI_ZHI_CHONG[branch1];
   const clash2 = BASIC_MAPPINGS.DI_ZHI_CHONG[branch2];
   if (
     clash1 &&
-    pillars.some((pillar) => pillar.zhi === clash1 && ![pillar1, pillar2].includes(pillar.label))
+    pillars.some((pillar, index) => pillar.zhi === clash1 && !participantIndexes.includes(index))
   ) {
-    clashPenalty -= 15;
-    evidence.push(`${branch1}被${clash1}相冲，构成冲破条件`);
+    clashEvidence.push(`${branch1}被${clash1}相冲，构成冲破条件`);
   }
   if (
     clash2 &&
-    pillars.some((pillar) => pillar.zhi === clash2 && ![pillar1, pillar2].includes(pillar.label))
+    pillars.some((pillar, index) => pillar.zhi === clash2 && !participantIndexes.includes(index))
   ) {
-    clashPenalty -= 15;
-    evidence.push(`${branch2}被${clash2}相冲，构成冲破条件`);
+    clashEvidence.push(`${branch2}被${clash2}相冲，构成冲破条件`);
   }
+  evidence.push(...clashEvidence);
 
-  const controllingElement = getControllingElement(rule.element);
-  const controllingStems = controllingElement ? ELEMENT_STEMS[controllingElement] : [];
-  const hasControl = pillars.some((pillar) => controllingStems.includes(pillar.gan));
-  const purityScore = hasControl ? 5 : 20;
-  evidence.push(
-    hasControl
-      ? `有${controllingElement}克制化神${rule.element}`
-      : `无明显五行克制化神${rule.element}`,
+  const hasCompetition = pillars.some(
+    (pillar, index) =>
+      !participantIndexes.includes(index) &&
+      ((pillar.zhi === branch1 && Math.abs(index - participantIndex2) === 1) ||
+        (pillar.zhi === branch2 && Math.abs(index - participantIndex1) === 1)),
   );
+  if (hasCompetition) evidence.push('六合另见相同地支争合，合意不专');
 
-  const competitionPenalty = 0;
-  const score = clampScore(monthSupport + stemScore + rootScore + clashPenalty + purityScore);
-  const level = resolveLevel(score);
-  const direction = resolveDirection(score, clashPenalty, competitionPenalty);
+  const hasClashBreak = clashEvidence.length > 0;
+  const level: HarmonyTransformLevel = !isAdjacent
+    ? '隔位不合'
+    : hasClashBreak
+      ? '逢冲破合'
+      : hasCompetition
+        ? '争合不专'
+        : '合而不化';
+  const direction = resolveDirection(level);
   const participants = [`${pillar1}${branch1}`, `${pillar2}${branch2}`];
 
   return {
@@ -375,15 +408,26 @@ export function assessBranchHarmonyTransform(
     transformElement: rule.element,
     level,
     direction,
-    monthSupported: monthSupport > 0,
-    transformStemVisible: stemScore > 0,
-    transformRooted: rootScore > 0,
-    hasClashBreak: clashPenalty < 0,
-    hasControllingElement: hasControl,
-    hasCompetition: false,
+    participantsAdjacent: isAdjacent,
+    monthSupported: false,
+    transformStemVisible: false,
+    transformRooted: false,
+    hasClashBreak,
+    hasControllingElement: false,
+    hasCompetition,
     evidence,
-    isTransformed: score >= 80,
-    consequences: buildConsequences('六合', participants[0], participants[1], rule.element, score),
+    isTransformed: false,
+    consequences:
+      level === '逢冲破合'
+        ? [`${participants[0]}与${participants[1]}六合受冲破`, '只记录冲合并见，不作成化处理']
+        : level === '隔位不合'
+          ? [`${participants[0]}与${participants[1]}隔位`, '只记六合对应关系，不作有效相合']
+          : level === '争合不专'
+            ? [`${participants[0]}与${participants[1]}六合见争合`, '只记录合意不专，不作成化处理']
+            : [
+                `${participants[0]}与${participants[1]}构成六合`,
+                '地支只论相合，不直接改按化神五行',
+              ],
   };
 }
 
@@ -435,19 +479,32 @@ export function assessAllHarmonyTransforms(
 
 export function formatHarmonyTransformProfile(profile: HarmonyTransformProfile): string[] {
   const conditions = [
-    `月令条件：${profile.evidence.find((item) => item.startsWith('月令')) ?? '未记录'}`,
-    `月令支持：${profile.monthSupported ? '有' : '无'}`,
-    `化神透干：${profile.transformStemVisible ? '有' : '无'}`,
-    `化神根气：${profile.transformRooted ? '有' : '无'}`,
+    `月令条件：${
+      profile.type === '天干五合'
+        ? (profile.evidence.find((item) => item.startsWith('月令')) ?? '未记录')
+        : '地支六合不以化气月令裁定'
+    }`,
+    `规定月令：${
+      profile.type === '天干五合' ? (profile.monthSupported ? '符合' : '不符合') : '不适用'
+    }`,
+    ...(profile.type === '天干五合'
+      ? [
+          `化神透干：${profile.transformStemVisible ? '有' : '无'}`,
+          `化神根气：${profile.transformRooted ? '有' : '无'}`,
+        ]
+      : []),
     `冲破：${profile.hasClashBreak ? '有' : '无'}`,
     `争合：${profile.hasCompetition ? '有' : '无'}`,
+    `位置：${profile.participantsAdjacent ? '紧贴' : '隔位'}`,
   ];
   return [
-    `【${profile.type}】${profile.participants.join('与')}化${profile.transformElement}${
-      profile.transformStem ? `（化神${profile.transformStem}）` : ''
-    }`,
-    `合化程度：${profile.level}`,
-    `合化方向：${profile.direction}`,
+    profile.type === '天干五合'
+      ? `【${profile.type}】${profile.participants.join('与')}化${profile.transformElement}${
+          profile.transformStem ? `（化神${profile.transformStem}）` : ''
+        }`
+      : `【${profile.type}】${profile.participants.join('与')}（不直接作化${profile.transformElement}论）`,
+    `条件判定：${profile.level}`,
+    `相合作用：${profile.direction}`,
     `条件明细：${conditions.join('；')}`,
     `评估依据：${profile.evidence.join('；')}`,
     `后续影响：${profile.consequences.join('；')}`,

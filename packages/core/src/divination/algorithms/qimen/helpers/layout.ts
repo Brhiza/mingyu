@@ -34,8 +34,7 @@ import type { QimenJiuGongGe } from '../../../../types/divination';
 const { palaceStars, palaceDoors, yangGods, yinGods, ninePositions } = qimen;
 
 const luoShuDoorPath = [1, 8, 3, 4, 9, 2, 7, 6];
-const feipanStarOrder = ['天蓬', '天任', '天冲', '天辅', '天英', '天芮', '天柱', '天心', '天禽'];
-const feipanStarPath = [1, 8, 3, 4, 5, 9, 2, 7, 6];
+const zhuanpanStarOrder = ['天蓬', '天任', '天冲', '天辅', '天英', '天芮', '天柱', '天心'];
 const starHomePalace: Record<string, number> = {
   天蓬: 1,
   天芮: 2,
@@ -88,22 +87,10 @@ function getGanZhiStepInXun(ganZhi: string): number {
   return ganIndex;
 }
 
-function getStarHomeStem(
-  star: string,
-  jiuGong: QimenJiuGongGe[],
-  centerJiGongStem: string,
-): string {
+function getStarHomeStem(star: string, jiuGong: QimenJiuGongGe[]): string {
   const homePalace = starHomePalace[star];
   if (!homePalace) {
     throw new Error(`找不到九星 "${star}" 的本宫。`);
-  }
-
-  if (star === '天禽' && centerJiGongStem) {
-    return centerJiGongStem;
-  }
-
-  if (homePalace === 5 && !jiuGong[4].diPan.stem) {
-    return jiuGong[1].diPan.stem;
   }
 
   return jiuGong[homePalace - 1].diPan.stem;
@@ -114,13 +101,16 @@ export function resolveZhiShiLandingPalace(
   zhiShi: string,
   ganZhi: string,
   startPalace?: number,
+  method: QimenMethod = 'zhuanpan',
 ): number {
+  assertQimenMethod(method);
   const zhiShiDoorIndex = palaceDoors.indexOf(zhiShi);
   if (zhiShiDoorIndex === -1) {
     throw new Error(`找不到值使门 "${zhiShi}"，请检查八门数据。`);
   }
 
-  const start = startPalace ?? luoShuDoorPath[zhiShiDoorIndex];
+  const rawStart = startPalace ?? luoShuDoorPath[zhiShiDoorIndex];
+  const start = method === 'zhuanpan' ? normalizeNoDoorPalace(rawStart) : rawStart;
   const steps = getGanZhiStepInXun(ganZhi);
   return normalizeNoDoorPalace(advanceNinePalace(start, steps, isYangDun));
 }
@@ -185,19 +175,9 @@ export function arrangeJiuGongGe(
   // 固定顺序：戊 → 己 → 庚 → 辛 → 壬 → 癸 → 丁 → 丙 → 乙
   // 阳遁：从局数宫位起，顺九宫序布列
   // 阴遁：从局数宫位起，逆九宫序布列
-  // 戊土居中五宫，中五无专位，寄于坤二宫。
-  let centerJiGongStem = ''; // 中五宫戊土寄宫记录
-
   for (let i = 0; i < 9; i++) {
     const palaceNum = isYangDun ? ((juShu + i - 1 + 9) % 9) + 1 : ((juShu - i - 1 + 9) % 9) + 1;
     jiuGong[palaceNum - 1].diPan.stem = sanQiLiuYi[i];
-  }
-
-  // 戊土寄宫：中五宫戊土寄于坤二宫
-  // 中五宫有戊土时，将戊土寄至坤二，中五宫地盘不再布干
-  if (jiuGong[4].diPan.stem === '戊') {
-    centerJiGongStem = '戊';
-    jiuGong[4].diPan.stem = '';
   }
 
   // ──────────────────────────────────────────────
@@ -225,18 +205,15 @@ export function arrangeJiuGongGe(
     }
   }
 
-  // 若时干遁干为戊且戊寄于坤二宫，则在坤二宫查找
-  if (zhiFuLandingPalace === -1) {
-    if (centerJiGongStem && hourGanForFind === centerJiGongStem) {
-      zhiFuLandingPalace = 2; // 坤二宫
-    }
-  }
-
-  // 兜底：仍然找不到则报错
   if (zhiFuLandingPalace === -1) {
     throw new Error(
       `找不到时干 "${ganzhi.hour}" 遁干 "${hourGanForFind}" 在地盘的落宫，请检查地盘排布逻辑。`,
     );
+  }
+
+  // 转盘中宫无专位，天盘值符落中时寄坤二；飞盘按九宫飞布，保留中宫落点。
+  if (method === 'zhuanpan' && zhiFuLandingPalace === 5) {
+    zhiFuLandingPalace = 2;
   }
 
   // ── 3b. 定值使落宫 ──
@@ -245,6 +222,7 @@ export function arrangeJiuGongGe(
     zhiShi,
     ganzhi.hour,
     zhiFuHomePalace,
+    method,
   );
 
   // ──────────────────────────────────────────────
@@ -264,44 +242,41 @@ export function arrangeJiuGongGe(
   //   天禽→中五、天心→乾六、天柱→兑七、天任→艮八、天英→离九
 
   if (method === 'zhuanpan') {
-    // ── 转盘法：九星整体旋转 ──
-    // 值符星为"把手"，从值符落宫开始，按九宫序（阳顺阴逆）放置九星，
-    // 星序保持原固定位顺序（天蓬→天芮→天冲→...→天英）。
-    const zhiFuStarIndex = palaceStars.indexOf(zhiFu);
+    // ── 转盘法：外八宫整体旋转，天禽随天芮 ──
+    const effectiveZhiFu = zhiFu === '天禽' ? '天芮' : zhiFu;
+    const zhiFuStarIndex = zhuanpanStarOrder.indexOf(effectiveZhiFu);
     if (zhiFuStarIndex === -1) {
       throw new Error(`找不到值符星 "${zhiFu}"，请检查九星数据。`);
     }
+    const zhiFuPathIndex = luoShuDoorPath.indexOf(zhiFuLandingPalace);
+    if (zhiFuPathIndex === -1) {
+      throw new Error(`值符落宫 "${zhiFuLandingPalace}" 不在转盘外八宫路径中。`);
+    }
 
-    for (let i = 0; i < 9; i++) {
-      // 目标宫位：从值符落宫开始，阳遁顺排（+i），阴遁逆排（-i）
-      const palaceIndex = (zhiFuLandingPalace - 1 + (isYangDun ? i : -i) + 9) % 9;
+    for (let i = 0; i < 8; i++) {
+      const palaceNum = luoShuDoorPath[(zhiFuPathIndex + i) % 8];
+      const star = zhuanpanStarOrder[(zhiFuStarIndex + i) % 8];
+      jiuGong[palaceNum - 1].tianPan.star = star;
+      jiuGong[palaceNum - 1].tianPan.stem = getStarHomeStem(star, jiuGong);
 
-      // 星索引：从值符星开始，始终按星序递增（阳阴都是正序取星）
-      const starIndex = (zhiFuStarIndex + i + 9) % 9;
-      const star = palaceStars[starIndex];
-      jiuGong[palaceIndex].tianPan.star = star;
-
-      jiuGong[palaceIndex].tianPan.stem = getStarHomeStem(star, jiuGong, centerJiGongStem);
+      if (star === '天芮') {
+        jiuGong[palaceNum - 1].tianPan.companionStar = '天禽';
+        jiuGong[palaceNum - 1].tianPan.companionStem = getStarHomeStem('天禽', jiuGong);
+      }
     }
   } else {
-    // ── 飞盘法：九星按洛书飞宫路径飞布，包含天禽中五 ──
-    const zhiFuStarIndex = feipanStarOrder.indexOf(zhiFu);
+    // ── 飞盘法：九星按一至九宫顺逆飞布，包含天禽中五 ──
+    const zhiFuStarIndex = palaceStars.indexOf(zhiFu);
     if (zhiFuStarIndex === -1) {
       throw new Error(`找不到值符星 "${zhiFu}"，请检查飞盘九星数据。`);
     }
 
-    const zhiFuFeipanPathIndex = feipanStarPath.indexOf(zhiFuLandingPalace);
-    if (zhiFuFeipanPathIndex === -1) {
-      throw new Error(`值符落宫 "${zhiFuLandingPalace}" 不在飞盘九宫路径中。`);
-    }
-
     for (let i = 0; i < 9; i++) {
       const starIndex = (zhiFuStarIndex + i + 9) % 9;
-      const pathIndex = (zhiFuFeipanPathIndex + (isYangDun ? i : -i) + 9) % 9;
-      const palaceNum = feipanStarPath[pathIndex];
-      const star = feipanStarOrder[starIndex];
+      const palaceNum = ((zhiFuLandingPalace - 1 + (isYangDun ? i : -i) + 9) % 9) + 1;
+      const star = palaceStars[starIndex];
       jiuGong[palaceNum - 1].tianPan.star = star;
-      jiuGong[palaceNum - 1].tianPan.stem = getStarHomeStem(star, jiuGong, centerJiGongStem);
+      jiuGong[palaceNum - 1].tianPan.stem = getStarHomeStem(star, jiuGong);
     }
   }
 
@@ -314,7 +289,7 @@ export function arrangeJiuGongGe(
   //
   // 值使门为八门之主，从值使落宫开始，按洛书轨迹排布八门。
   // 洛书轨迹：1(坎) → 8(艮) → 3(震) → 4(巽) → 9(离) → 2(坤) → 7(兑) → 6(乾)
-  // 阳遁顺转（沿洛书轨迹正向），阴遁逆转（沿洛书轨迹反向）。
+  // 八门盘保持固定相对结构，阴阳遁只影响值使按时序的落宫。
   // 中五宫无门位，八门只布于八宫。
   //
   // 门序（对应洛书轨迹）：休门→生门→伤门→杜门→景门→死门→惊门→开门
@@ -330,8 +305,7 @@ export function arrangeJiuGongGe(
   }
 
   for (let i = 0; i < 8; i++) {
-    // 目标宫位的洛书索引：从值使落宫开始，阳顺阴逆沿洛书轨迹
-    const targetLuoShuIndex = (zhiShiLuoShuIndex + (isYangDun ? i : -i) + 8) % 8;
+    const targetLuoShuIndex = (zhiShiLuoShuIndex + i) % 8;
     const targetPalace = luoShuDoorPath[targetLuoShuIndex];
 
     // 门索引：从值使门开始，始终按门序正序递增

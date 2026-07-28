@@ -11,6 +11,7 @@
 
 import { palaceBranches } from './_constants';
 import { LIUCHONG_MAP } from '../../../../ganzhi';
+import { hasTianPanStem } from './palace-utils';
 
 // ============================================================================
 // 常量
@@ -268,7 +269,7 @@ export function estimateYingQi(
         } else {
           sources.push(`庚落${gongNum}宫（阴宫），应期以月计`);
         }
-      } else if (!isYangDay && gong.tianPan.stem === '庚') {
+      } else if (!isYangDay && hasTianPanStem(gong, '庚')) {
         // 阴日：看庚上（天盘庚）
         const gongNum = gong.gong;
         const branches = palaceBranches[gongNum] || [];

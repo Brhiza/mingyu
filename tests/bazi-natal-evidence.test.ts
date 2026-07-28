@@ -114,13 +114,49 @@ test('八字真太阳时本命证据应引用校正后的唯一时间并采用�
   );
   assert.match(analysis.calculationSteps[0].promptText, /经真太阳时校正后采用/);
   assert.equal(analysis.calculationSteps[0].inputs.trueSolarTimeEnabled, true);
-  assert.match(
-    analysis.promptText,
-    /当前命盘只采用明确时辰或真太阳时校正后的唯一时刻/,
-  );
+  assert.match(analysis.promptText, /当前命盘只采用明确时辰或真太阳时校正后的唯一时刻/);
   assert.doesNotMatch(analysis.promptText, /候选盘\d|候选时辰为/);
   const prompt = formatBaziForPrompt(result);
   assert.match(prompt, /真太阳时: 1990年4月14日 22:13 \| 出生地:新疆喀什 \| 经度:73\.5/);
   assert.match(prompt, /基本信息: 乾造 \| 1990年4月14日 亥时/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|候选盘|出生时间敏感性/);
+});
+
+test('丁火生巳月案例的劫财格应贯穿取用、证据与最终提示词，不得回退为正财格', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 2002,
+    month: 5,
+    day: 19,
+    timeIndex: 0,
+    gender: 'female',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: true,
+    birthHour: 6,
+    birthMinute: 23,
+    birthPlace: '上海',
+    birthLongitude: 121.4737,
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['壬午', '乙巳', '丁亥', '癸卯'],
+  );
+  assert.equal(result.monthCommander, '庚');
+  assert.equal(result.analysis.mingGe.pattern, '劫财格');
+  assert.match(result.analysis.mingGe.basis || '', /月令本气为丙/);
+  assert.ok(
+    result.analysis.usefulGod.strategyTrace?.some((item) => item.includes('普通格局:劫财格')),
+  );
+  assert.ok(result.evidenceAnalysis);
+
+  const patternFact = result.evidenceAnalysis.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.result, '劫财格');
+  assert.match(patternFact?.promptText || '', /格局：劫财格/);
+
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 劫财格/);
+  assert.match(prompt, /取用脉络: 普通格局:劫财格/);
+  assert.doesNotMatch(JSON.stringify(result), /正财格/);
+  assert.doesNotMatch(prompt, /正财格/);
 });
