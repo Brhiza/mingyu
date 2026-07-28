@@ -5,7 +5,6 @@ export const GENG_XU_CLIMATE_RULES: ClimateRule[] = [
     id: 'xu-month-geng-ding-jia-first',
     label: '庚日戌月先丁后甲壬规则',
     description: '庚金生戌月，秋深气寒，需丁火温暖、甲木裁抑、壬水洗涤，方能成器。',
-    priority: 120,
     months: ['戌'],
     dayMasters: ['金'],
     dayStems: ['庚'],
@@ -18,7 +17,6 @@ export const GENG_XU_CLIMATE_RULES: ClimateRule[] = [
     label: '庚日戌月甲壬并用规则',
     description:
       '庚金生戌月，土厚金埋，甲木疏土为先，壬水洗金为后。甲壬两透，科甲可期，不宜仍按秋金泛断。',
-    priority: 119,
     months: ['戌'],
     dayMasters: ['金'],
     dayStems: ['庚'],

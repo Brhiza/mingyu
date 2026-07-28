@@ -6,7 +6,6 @@ export const REN_ZI_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日子月戊丙并用规则',
     description:
       '壬水生子月，寒旺需堤，戊土止流为先，丙火暖局为后。戊丙两透，富贵可期，不宜仍按冬水只取火概之。',
-    priority: 118,
     months: ['子'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -19,7 +18,6 @@ export const REN_ZI_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日子月有戊无丙富真贵假规则',
     description:
       '壬水生子月，若戊透而丙不出，虽能止流却寒气不解，较合原文"有戊无丙，富真贵假"；不应仍按戊丙两透富贵上断。',
-    priority: 122,
     months: ['子'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -35,7 +33,6 @@ export const REN_ZI_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日子月有丙无戊虚名规则',
     description:
       '壬水生子月，若丙透而戊不出，虽能暖局却无堤防，较合原文"有丙无戊，虚名虚利"；不应仍按戊丙两透富贵论。',
-    priority: 122,
     months: ['子'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -51,7 +48,6 @@ export const REN_ZI_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日子月戊丙俱无泛滥规则',
     description:
       '壬水生子月，水旺无堤无暖，泛滥成灾，较合原文"戊丙俱无，泛滥无依"；不应仍按冬水泛化处理。',
-    priority: 121,
     months: ['子'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -66,7 +62,6 @@ export const REN_ZI_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日子月水局无火润下贫寒规则',
     description:
       '壬水生子月，若地支成水局而丙丁全无，水势纯旺无制，较合原文"支成水局，无丙丁出干，润下格贫寒"；不应仍按水旺喜火泛断。',
-    priority: 123,
     months: ['子'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -82,7 +77,6 @@ export const REN_ZI_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日子月火局戊透富贵规则',
     description:
       '壬水生子月，若地支成火局而戊土透干，水火既济、财官有根，较合原文"支成火局，有戊出干，富贵双全"。',
-    priority: 124,
     months: ['子'],
     dayMasters: ['水'],
     dayStems: ['壬'],

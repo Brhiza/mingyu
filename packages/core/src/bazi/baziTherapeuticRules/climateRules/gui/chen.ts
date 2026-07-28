@@ -5,7 +5,6 @@ export const GUI_CHEN_CLIMATE_RULES: ClimateRule[] = [
     id: 'chen-month-gui-qingming-bing-only',
     label: '癸日辰月清明后专丙规则',
     description: '癸水生辰月，清明后火气未炽，传统多专用丙火调和阴阳，不宜提前把辛甲并列为先。',
-    priority: 122,
     months: ['辰'],
     dayMasters: ['水'],
     dayStems: ['癸'],
@@ -19,7 +18,6 @@ export const GUI_CHEN_CLIMATE_RULES: ClimateRule[] = [
     label: '癸日辰月谷雨后丙辛甲并参规则',
     description:
       '癸水生辰月，谷雨后土气转重，传统仍以丙火为主，但需辛金、甲木参用，不宜仍按清明后单取丙火。',
-    priority: 123,
     months: ['辰'],
     dayMasters: ['水'],
     dayStems: ['癸'],

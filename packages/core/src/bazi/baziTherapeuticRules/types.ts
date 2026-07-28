@@ -2,7 +2,6 @@ export interface ClimateRule {
   id: string;
   label: string;
   description: string;
-  priority?: number;
   yearStems?: string[];
   months: string[];
   hourBranches?: string[];
@@ -123,7 +122,6 @@ export interface StrengthHintRule {
   id: string;
   label: string;
   description: string;
-  priority?: number;
   strengths: string[];
   hint: string;
 }
@@ -132,7 +130,6 @@ export interface TherapeuticPriorityRule {
   id: string;
   label: string;
   description: string;
-  priority?: number;
   months: string[];
   strengths: string[];
   dayMasters?: string[];

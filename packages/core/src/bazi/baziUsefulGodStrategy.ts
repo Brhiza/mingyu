@@ -5,48 +5,33 @@ import {
   applyTherapeuticPriority,
   resolveClimateFavorableOrder,
   resolveClimateUsefulWuxing,
-  resolveTherapeuticHint,
-  resolveTherapeuticHintRuleId,
   resolveTherapeuticPriorityWuxing,
 } from './baziTherapeuticStrategy';
 import { BASE_USEFUL_GOD_RULES, type UsefulGodWuxingBundle } from './baziUsefulGodRules';
 import { matchFirstRule, type HiddenStemSource, type VisibleStemSource } from './baziRuleMatcher';
 import { assertEarthlyBranch, assertHeavenlyStem } from './baziUtils';
-import {
-  CLIMATE_RULES,
-  STRENGTH_HINT_RULES,
-  THERAPEUTIC_PRIORITY_RULES,
-} from './baziTherapeuticRules';
-// ---- 规则元数据目录（从 baziRuleCatalog 合并） ----
+import { CLIMATE_RULES, THERAPEUTIC_PRIORITY_RULES } from './baziTherapeuticRules';
 
 interface RuleMetadata {
   id: string;
-  label: string;
-  description: string;
-}
-
-const RULE_CATALOG = [
-  ...BASE_USEFUL_GOD_RULES,
-  ...CLIMATE_RULES,
-  ...STRENGTH_HINT_RULES,
-  ...THERAPEUTIC_PRIORITY_RULES,
-].reduce<Record<string, RuleMetadata>>((catalog, rule) => {
-  catalog[rule.id] = {
-    id: rule.id,
-    label: rule.label,
-    description: rule.description,
-  };
-  return catalog;
-}, {});
-
-function resolveRuleMetadata(ruleId: string): RuleMetadata | null {
-  return RULE_CATALOG[ruleId] || null;
 }
 
 function resolveRuleMetadataList(ruleIds: string[]): RuleMetadata[] {
-  return ruleIds
-    .map((ruleId) => resolveRuleMetadata(ruleId))
-    .filter((rule): rule is RuleMetadata => Boolean(rule));
+  return ruleIds.map((id) => ({ id }));
+}
+
+const NON_DECISION_TRACE_PREFIXES = [
+  '成格层次:',
+  '成格转轻:',
+  '病药提示:',
+  '运势警语:',
+  '传统成格原文:',
+] as const;
+
+function filterDecisionTrace(trace: string[]): string[] {
+  return trace.filter(
+    (item) => !NON_DECISION_TRACE_PREFIXES.some((prefix) => item.trim().startsWith(prefix)),
+  );
 }
 
 // ---- 用神决策逻辑 ----
@@ -318,7 +303,7 @@ function finalizeUsefulGodAnalysis(
     secondaryUnfavorableWuxing,
     primaryUseful: usefulGod,
     primaryAvoid: avoidGod,
-    strategyTrace: state.trace,
+    strategyTrace: filterDecisionTrace(state.trace),
     primaryReason: state.primaryReason,
     matchedRules: resolveRuleMetadataList(state.matchedRuleIds),
   };
@@ -451,49 +436,11 @@ export function determineUsefulGod(
     therapeuticDecision.state.matchedRuleIds.push(therapeuticRule.id);
   }
 
-  const therapeuticHint = resolveTherapeuticHint(
-    strengthStatus,
-    dmWuxing,
-    yearStem,
-    dayMasterStem,
-    monthBranch,
-    hourBranch,
-    currentJieqi,
-    visibleStems,
-    visibleStemSources,
-    hiddenStems,
-    hiddenStemSources,
-    formationWuxings,
-    wuxingCounts,
-  );
-  const therapeuticHintRuleId = resolveTherapeuticHintRuleId(
-    strengthStatus,
-    dmWuxing,
-    yearStem,
-    dayMasterStem,
-    monthBranch,
-    hourBranch,
-    currentJieqi,
-    visibleStems,
-    visibleStemSources,
-    hiddenStems,
-    hiddenStemSources,
-    formationWuxings,
-    wuxingCounts,
-  );
-  if (
-    therapeuticHintRuleId &&
-    !therapeuticDecision.state.matchedRuleIds.includes(therapeuticHintRuleId)
-  ) {
-    therapeuticDecision.state.matchedRuleIds.push(therapeuticHintRuleId);
-  }
-
   return finalizeUsefulGodAnalysis(
     {
       ...therapeuticDecision.state,
       trace: [
         ...therapeuticDecision.state.trace,
-        ...(therapeuticHint ? [`病药提示:${therapeuticHint}`] : []),
         `最终取用:${therapeuticDecision.state.favorableWuxing.join(' -> ')}`,
       ],
     },

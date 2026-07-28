@@ -5,7 +5,6 @@ export const REN_WU_CLIMATE_RULES: ClimateRule[] = [
     id: 'wu-month-ren-gui-geng',
     label: '壬日午月癸庚并用规则',
     description: '壬水生午月，丁火当令，传统以癸水为用、庚金为佐，不宜仅按夏水泛化为比劫或印星。',
-    priority: 118,
     months: ['午'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -17,7 +16,6 @@ export const REN_WU_CLIMATE_RULES: ClimateRule[] = [
     id: 'wu-month-ren-bing-first',
     label: '壬日午月先丙后辛规则',
     description: '壬水生午月，丁火司权，传统多以丙火制刃为先、辛金发源为佐，较夏水泛化更细。',
-    priority: 120,
     months: ['午'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -30,7 +28,6 @@ export const REN_WU_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日午月丙辛两透富贵规则',
     description:
       '壬水生午月，若丙辛两透，较合原文"壬水生午月，身强才旺有根，丙辛两透，定主雁塔有名"。',
-    priority: 123,
     months: ['午'],
     dayMasters: ['水'],
     dayStems: ['壬'],

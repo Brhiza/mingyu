@@ -6,7 +6,6 @@ export const DING_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '丁日卯月庚乙俱透贪合规则',
     description:
       '丁火生卯月，若庚乙俱透，庚必输情于乙，传统多断贪合而贫，不宜仍与庚透乙藏之富贵路数同论。',
-    priority: 122,
     months: ['卯'],
     dayMasters: ['火'],
     dayStems: ['丁'],
@@ -20,7 +19,6 @@ export const DING_MAO_CLIMATE_RULES: ClimateRule[] = [
     id: 'mao-month-ding-jia-geng-first',
     label: '丁日卯月先甲后庚规则',
     description: '丁火生卯月，印星当令，传统多以甲木泄秀、庚金裁抑，先后有序。',
-    priority: 118,
     months: ['卯'],
     dayMasters: ['火'],
     dayStems: ['丁'],

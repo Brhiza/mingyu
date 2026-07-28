@@ -40,6 +40,26 @@ function assertEvidenceOwnerReferences(evidence: unknown) {
   );
 }
 
+function assertUsefulGodDecisionOutput(usefulGod: unknown) {
+  const data = usefulGod as {
+    strategyTrace?: string[];
+    matchedRules?: Array<Record<string, unknown>>;
+  };
+  const omittedPrefixes = ['成格层次:', '成格转轻:', '病药提示:', '运势警语:', '传统成格原文:'];
+  const realWorldOutcomePattern =
+    /富贵|贫贱|贫寒|贫苦|孤贫|孤苦|科甲|功名|鼎甲|金榜|衣锦|衣禄|显达|发达|荣华|恩荣|廪贡|生员|秀才|仕途|官位|禄位|夭折|寿夭|遭凶|僧道|常人|平人|下流|下品|愚顽|愚懦|奸诈|仁义|劳碌|奔波|漂泊|安乐|聪明|艺术|才略|名臣|一生|荣显|成名|题名|云程|雁塔|衣食|千金|虚名|虚利|名利|显贵|清贵|浊富|略富|家富|困顿|发福|减贵|定主|必主|多主|可期|堪图|可许|极品|之人|之士|之客|之流/;
+
+  assert.ok(data.strategyTrace?.length);
+  assert.ok(
+    data.strategyTrace?.every((item) =>
+      omittedPrefixes.every((prefix) => !item.trim().startsWith(prefix)),
+    ),
+  );
+  assert.doesNotMatch(data.strategyTrace?.join('\n') || '', realWorldOutcomePattern);
+  assert.ok(data.matchedRules?.length);
+  assert.ok(data.matchedRules?.every((rule) => Object.keys(rule).join(',') === 'id'));
+}
+
 const toolCalls: Array<[string, Record<string, unknown>]> = [
   ['foundation_capabilities', {}],
   ['foundation_ganzhi', { ganZhi: '甲子' }],
@@ -722,6 +742,7 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
               };
               limitationFacts?: Array<{ ownerFactKeys?: string[] }>;
             };
+            analysis?: { usefulGod?: unknown };
           };
         };
         const analysis = chart.result?.evidenceAnalysis;
@@ -738,6 +759,7 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         );
         assert.equal(analysis?.key, 'bazi:natal:evidence');
         assert.equal(analysis?.calculationSteps?.length, 5);
+        assertUsefulGodDecisionOutput(chart.result?.analysis?.usefulGod);
         assert.equal(analysis?.pillarFacts?.length, 4);
         assert.equal(analysis?.analysisFacts?.length, 3);
         assert.equal(analysis?.summaryFact?.pillarFactCount, analysis?.pillarFacts?.length);

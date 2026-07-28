@@ -6,7 +6,6 @@ export const BING_WEI_CLIMATE_RULES: ClimateRule[] = [
     label: '丙日未月庚壬两透名宦规则',
     description:
       '丙火生未月，若庚壬两透而不见戊己混杂，传统多断贴身相生，可云科甲名宦，不宜与无庚单壬同论。',
-    priority: 123,
     months: ['未'],
     dayMasters: ['火'],
     dayStems: ['丙'],
@@ -22,7 +21,6 @@ export const BING_WEI_CLIMATE_RULES: ClimateRule[] = [
     label: '丙日未月无庚有壬小贵规则',
     description:
       '丙火生未月，无庚而有壬，且不见戊土制壬时，传统多主小富小贵，不宜拔高到庚壬两透层次。',
-    priority: 120,
     months: ['未'],
     dayMasters: ['火'],
     dayStems: ['丙'],
@@ -37,7 +35,6 @@ export const BING_WEI_CLIMATE_RULES: ClimateRule[] = [
     id: 'wei-month-bing-ren-wu-no-geng',
     label: '丙日未月无庚有壬见戊规则',
     description: '丙火生未月，无庚而有壬，若再见戊土制壬，传统多断为贤而已，层次低于庚壬贴身相生。',
-    priority: 120,
     months: ['未'],
     dayMasters: ['火'],
     dayStems: ['丙'],
@@ -53,7 +50,6 @@ export const BING_WEI_CLIMATE_RULES: ClimateRule[] = [
     label: '丙日未月己土混杂庸俗规则',
     description:
       '丙火生未月，原以壬水为用；若己土出干混杂，传统多断庸夫俗子，不宜仍按壬庚贴身相生上断。',
-    priority: 121,
     months: ['未'],
     dayMasters: ['火'],
     dayStems: ['丙'],

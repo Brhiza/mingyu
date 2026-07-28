@@ -5,7 +5,6 @@ export const GENG_MAO_CLIMATE_RULES: ClimateRule[] = [
     id: 'mao-month-geng-bing-ding',
     label: '庚日卯月丙丁并用规则',
     description: '庚金生卯月，木旺金衰，丙暖丁炼并用。丙丁两透，富贵双全，不宜仍泛以春金扶抑概之。',
-    priority: 118,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['庚'],
@@ -18,7 +17,6 @@ export const GENG_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '庚日卯月丁透无丙异路功名规则',
     description:
       '庚金生卯月，若丁火透干而丙火不出，较合原文"有丁无丙，异路功名"；不应仍按丙丁并用富贵上断。',
-    priority: 122,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['庚'],
@@ -34,7 +32,6 @@ export const GENG_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '庚日卯月无火常人规则',
     description:
       '庚金生卯月，木旺金绝，火为锻炼之要；若丙丁全无，较合原文"无丙丁者，常人"；不应仍泛以春金扶抑概之。',
-    priority: 121,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['庚'],
@@ -49,7 +46,6 @@ export const GENG_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '庚日卯月木局丁透名臣规则',
     description:
       '庚金生卯月，若地支成木局，本属财旺身弱；但丁火出干炼金，较合原文"支成木局，有丁出干，名臣之格"。',
-    priority: 123,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['庚'],
@@ -65,7 +61,6 @@ export const GENG_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '庚日卯月水局戊透制水平人规则',
     description:
       '庚金生卯月，若地支成水局，泄金太过；得戊土出干制水，较合原文"支成水局，有戊制之，衣禄无亏，无戊平人"。',
-    priority: 122,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['庚'],
@@ -80,7 +75,6 @@ export const GENG_MAO_CLIMATE_RULES: ClimateRule[] = [
     id: 'mao-month-geng-water-formation-no-wu',
     label: '庚日卯月水局无戊平人规则',
     description: '庚金生卯月，若地支成水局而戊土不出，泄金太过而无可堤防，较合原文"无戊平人"。',
-    priority: 121.5,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['庚'],

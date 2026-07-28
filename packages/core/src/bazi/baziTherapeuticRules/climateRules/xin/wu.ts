@@ -6,7 +6,6 @@ export const XIN_WU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日午月壬己两透支见癸显达规则',
     description:
       '辛金生午月，若壬己两透，而癸水只在地支暗见且不落子支冲月，较合原文"壬己两透，支见癸水，不冲，定主显达"；此类既得湖海润沙，又有余润潜藏，不应仍按普通夏辛己壬并用泛断。',
-    priority: 124,
     months: ['午'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -28,7 +27,6 @@ export const XIN_WU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日午月壬透己藏支见癸廪贡规则',
     description:
       '辛金生午月，若壬水透干，而己土不透只藏支内，地支又见癸水且不落子支冲月，层次虽低于壬己两透，仍较合原文"即己藏支，亦有廪贡"之意，不应退回普通午月辛金。',
-    priority: 123,
     months: ['午'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -50,7 +48,6 @@ export const XIN_WU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日午月癸出有庚衣锦规则',
     description:
       '辛金生午月，无壬而癸出，本已较壬力浅；但若再得庚金发源，较合原文"癸出有庚，必主衣锦，叨受恩荣"，不应仍与普通癸水权代或无壬异途同断。',
-    priority: 123,
     months: ['午'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -68,7 +65,6 @@ export const XIN_WU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日午月无壬癸戊并见有辛不孤规则',
     description:
       '辛金生午月，若无壬而癸戊并见，本属燥泥埋金；但若天干再有一二重辛金比肩，较合原文"有一二重比肩，不致孤独"，仍主僧道之流，只是孤寒之象稍减，不应仍按全无比肩孤独论。',
-    priority: 123,
     months: ['午'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -93,7 +89,6 @@ export const XIN_WU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日午月无壬癸戊并见僧道规则',
     description:
       '辛金生午月，若无壬而癸见戊，虽有午中己土亦成燥泥成灰，较合原文"癸见戊，虽有午宫己土，燥泥成灰，金必煆熔，反遭埋没，必为僧道"，不应仍误提到恩荣层次。',
-    priority: 122,
     months: ['午'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -112,7 +107,6 @@ export const XIN_WU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日午月无壬有己异途规则',
     description:
       '辛金生午月，壬水为正用；若全局并无壬水而唯见己土透干，较合原文"无壬有己，须得异途"，只能在旁门别径中求取层次，不应仍按壬己并用显达论。',
-    priority: 121,
     months: ['午'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -131,7 +125,6 @@ export const XIN_WU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日午月无壬癸权代规则',
     description:
       '辛金生午月，壬水本为正用；若壬水不见而癸水透出，局中仍存己土承接，则可按原文"无壬，癸亦可用，但癸力小"作权代处理。此类可用而不及壬水正用，不应仍停留在泛化夏金先水的粗判断。',
-    priority: 122,
     months: ['午'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -153,7 +146,6 @@ export const XIN_WU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日午月火局壬透破火生员规则',
     description:
       '辛金生午月，若地支火局已成，即便癸水重见，亦难济烈火；必须壬水透干破火，方较合原文"得壬透破火方可，必主生员"之旨，不应仍把癸水权代误当足用。',
-    priority: 124,
     months: ['午'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -169,7 +161,6 @@ export const XIN_WU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日午月火局重癸无壬不济规则',
     description:
       '辛金生午月，若地支火局已成而壬水不透，即便癸水重见，仍较合原文"重见癸出，亦不济"之旨。此条应高于一般无壬癸可权代的宽规则，避免把火局烈势误作可用之水。',
-    priority: 123,
     months: ['午'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -190,7 +181,6 @@ export const XIN_WU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日午月水土多见甲方妙规则',
     description:
       '辛金生午月，若全局水土并重，泥滞流壅，传统总以甲木疏土引流为妙；此条只是调剂转换，不应压过壬己两透、癸庚恩荣等更明确的偏式判断。',
-    priority: 120,
     months: ['午'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -221,7 +211,6 @@ export const XIN_WU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日午月木火过盛无金水运败规则',
     description:
       '辛金生午月，若木多火多而全局别无金水扶救，传统多作败象看待；原文并云"逢金水运必败"，此属从势失衡后的反向败应。该条重在补充传统警语依据，不另改前面更明确偏式的本命取用层级。',
-    priority: 121,
     months: ['午'],
     dayMasters: ['金'],
     dayStems: ['辛'],

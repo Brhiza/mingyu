@@ -6,7 +6,6 @@ export const XIN_HAI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日亥月壬丙两透金榜规则',
     description:
       '辛金生亥月，渐寒而未极，传统明言先用壬水、次取丙火；若壬丙两透，最合"金白水清"之象，多主金榜题名，不应仍按普通冬金泛论。',
-    priority: 124,
     months: ['亥'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -21,7 +20,6 @@ export const XIN_HAI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日亥月丙透壬藏采芹规则',
     description:
       '辛金生亥月，若丙火透干而壬水只藏支内，仍得暖金润金之机；较合原文"丙透壬藏，采芹之造"，层次低于壬丙并透，但不应退回常格。',
-    priority: 123,
     months: ['亥'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -38,7 +36,6 @@ export const XIN_HAI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日亥月壬透丙藏千金规则',
     description:
       '辛金生亥月，若壬水透干而丙火只藏支内，寒金得洗而暗有温气，较合原文"丙藏壬透，富有千金"；此类重在壬为主用，不应误降到普通积蓄之人。',
-    priority: 123,
     months: ['亥'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -55,7 +52,6 @@ export const XIN_HAI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日亥月壬丙在支聪明规则',
     description:
       '辛金生亥月，若壬丙二神皆不透而同在支内，仍有内藏润暖之机；较合原文"壬丙在支，聪明之士"，虽不及透干显达，亦不应混入寒湿偏枯之局。',
-    priority: 122,
     months: ['亥'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -82,7 +78,6 @@ export const XIN_HAI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日亥月壬多无戊汪洋贫贱规则',
     description:
       '辛金生亥月，若壬水偏多而全局不见戊土为岸，较合原文"壬多无戊，名辛水汪洋，反成贫贱"；此时水势漫流，不应仍按壬水为尊简单上断。',
-    priority: 121,
     months: ['亥'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -102,7 +97,6 @@ export const XIN_HAI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日亥月戊壬并存积蓄规则',
     description:
       '辛金生亥月，若戊壬二神并存于柱，既得壬水洗淘，又有戊土节制，较合原文"戊壬存柱，积蓄之人"；此类重在财蓄成局，不应仍按壬多汪洋或两透科名混断。',
-    priority: 122,
     months: ['亥'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -121,7 +115,6 @@ export const XIN_HAI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日亥月戊多壬少成名规则',
     description:
       '辛金生亥月，若戊土偏多而壬水偏少，较合原文"戊多壬少，又主成名"；此时堤岸有力而秀气不绝，层次高于单纯戊壬并存的积蓄之人。',
-    priority: 123,
     months: ['亥'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -143,7 +136,6 @@ export const XIN_HAI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日亥月甲多戊少艺术蓄金规则',
     description:
       '辛金生亥月，若甲木偏多而戊土偏少，较合原文"甲多戊少，因艺术而蓄金"；此类重在木气灵动、土不壅塞，多以技艺营财，不应仍混入积蓄或成名格。',
-    priority: 122,
     months: ['亥'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -163,7 +155,6 @@ export const XIN_HAI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日亥月己多有戊诚实规则',
     description:
       '辛金生亥月，若己土偏多而又见戊土，且壬水尚存，较合原文"己多有戊，壬水被困，金被埋，不过诚实之人"；此类土重埋金，层次不高，不应误抬到成名或积蓄格。',
-    priority: 123,
     months: ['亥'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -185,7 +176,6 @@ export const XIN_HAI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日亥月壬癸多无戊丙劳碌规则',
     description:
       '辛金生亥月，若壬癸偏多而戊丙全无，寒湿泛滥无制无暖，较合原文"壬癸多无戊丙者，劳碌辛苦"；不应仍把见壬见癸简单上提为金白水清。',
-    priority: 122,
     months: ['亥'],
     dayMasters: ['金'],
     dayStems: ['辛'],

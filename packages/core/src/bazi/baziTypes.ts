@@ -269,8 +269,6 @@ export interface UsefulGodAnalysis {
   primaryReason?: string;
   matchedRules?: {
     id: string;
-    label: string;
-    description: string;
   }[];
 }
 

@@ -6,7 +6,6 @@ export const GUI_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '癸日卯月庚辛为先规则',
     description:
       '癸水生卯月，木旺泄水，传统常先取庚金发源，辛金次之，不宜只按一般身弱扶抑或泛取火土。',
-    priority: 116,
     months: ['卯'],
     dayMasters: ['水'],
     dayStems: ['癸'],

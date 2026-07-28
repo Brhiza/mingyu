@@ -5,7 +5,6 @@ export const REN_XU_CLIMATE_RULES: ClimateRule[] = [
     id: 'xu-month-ren-bing-jia-first',
     label: '壬日戌月先丙后甲规则',
     description: '壬水生戌月，秋深金衰，传统多以丙火调候、甲木疏通，较秋水泛化更合原法。',
-    priority: 120,
     months: ['戌'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -17,7 +16,6 @@ export const REN_XU_CLIMATE_RULES: ClimateRule[] = [
     id: 'xu-month-ren-bing-jia-xin-all',
     label: '壬日戌月丙甲辛全透极品规则',
     description: '壬水生戌月，丙甲辛三者全透，较合原文"壬水生戌月，三者全透，鼎甲可期"。',
-    priority: 126,
     months: ['戌'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -32,7 +30,6 @@ export const REN_XU_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日戌月甲丙并用规则',
     description:
       '壬水生戌月，土厚水弱，甲木疏土为先，丙火暖局为后。甲丙两透，富贵可期，不宜仍按秋水泛断。',
-    priority: 118,
     months: ['戌'],
     dayMasters: ['水'],
     dayStems: ['壬'],

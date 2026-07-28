@@ -6,20 +6,6 @@ export const REN_CHEN_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日辰月甲庚并用规则',
     description:
       '壬水生辰月，土旺水衰，甲木疏土为先，庚金发源为后。甲庚两透，科甲可期，不宜仍按春水扶抑泛断。',
-    priority: 118,
-    months: ['辰'],
-    dayMasters: ['水'],
-    dayStems: ['壬'],
-    usefulWuxing: '木',
-    favorableOrder: ['木', '金'],
-    hint: '壬水辰月，甲先庚后，甲庚两透科甲',
-  },
-  {
-    id: 'chen-month-ren-jia-geng',
-    label: '壬日辰月甲庚并用规则',
-    description:
-      '壬水生辰月，土旺水衰，甲木疏土为先，庚金发源为后。甲庚两透，科甲可期，不宜仍按春水扶抑泛断。',
-    priority: 118,
     months: ['辰'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -32,7 +18,6 @@ export const REN_CHEN_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日辰月甲透无庚异路规则',
     description:
       '壬水生辰月，甲木疏土为急；若甲透而庚不出，疏土有余而发源不足，较合原文"有甲无庚，异路功名"。',
-    priority: 122,
     months: ['辰'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -47,7 +32,6 @@ export const REN_CHEN_CLIMATE_RULES: ClimateRule[] = [
     id: 'chen-month-ren-no-jia-geng',
     label: '壬日辰月甲庚俱无常人规则',
     description: '壬水生辰月，土厚水弱，甲疏庚源缺一不可；若甲庚俱无，较合原文"甲庚俱无，常人"。',
-    priority: 121,
     months: ['辰'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -62,7 +46,6 @@ export const REN_CHEN_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日辰月水局戊透制水平人规则',
     description:
       '壬水生辰月，若地支成水局而戊土出干制水，虽可免泛滥，仍较合原文"支成水局，有戊制之，衣禄无亏"。',
-    priority: 122,
     months: ['辰'],
     dayMasters: ['水'],
     dayStems: ['壬'],

@@ -5,7 +5,6 @@ export const GENG_WU_CLIMATE_RULES: ClimateRule[] = [
     id: 'wu-month-geng-bing-ren-jia-all',
     label: '庚日午月丙壬甲全透富贵规则',
     description: '庚金生午月，丙火当令，壬水为佐，甲木为使；若三者全透，多主富贵双全。',
-    priority: 125,
     months: ['午'],
     dayMasters: ['金'],
     dayStems: ['庚'],
@@ -19,7 +18,6 @@ export const GENG_WU_CLIMATE_RULES: ClimateRule[] = [
     id: 'wu-month-geng-bing-jia-first',
     label: '庚日午月先丙后甲壬规则',
     description: '庚金生午月，火烈金熔，传统多先取丙火制刃，次甲木裁抑，壬水洗涤，方可成器。',
-    priority: 122,
     months: ['午'],
     dayMasters: ['金'],
     dayStems: ['庚'],
@@ -32,7 +30,6 @@ export const GENG_WU_CLIMATE_RULES: ClimateRule[] = [
     label: '庚日午月壬透丁佐规则',
     description:
       '庚金生午月，火烈金熔，壬水为救，丁火炼金为佐。壬透丁佐，科甲可期，不宜仍按夏金泛化扶抑。',
-    priority: 119,
     months: ['午'],
     dayMasters: ['金'],
     dayStems: ['庚'],

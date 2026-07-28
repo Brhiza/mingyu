@@ -5,7 +5,6 @@ export const BING_YOU_CLIMATE_RULES: ClimateRule[] = [
     id: 'you-month-bing-metal-formation-no-xin',
     label: '丙日酉月金局无辛饿莩规则',
     description: '丙火生酉月，若地支已成金局而辛金不透，传统多断朱门饿莩，不应误作从才富贵。',
-    priority: 127,
     months: ['酉'],
     dayMasters: ['火'],
     dayStems: ['丙'],
@@ -29,7 +28,6 @@ export const BING_YOU_CLIMATE_RULES: ClimateRule[] = [
     label: '丙日酉月金局辛透从才规则',
     description:
       '丙火生酉月，若地支成金局且辛金透干，天干又不见比劫助身，传统多按从才格看，反主富贵。',
-    priority: 127,
     months: ['酉'],
     dayMasters: ['火'],
     dayStems: ['丙'],
@@ -53,7 +51,6 @@ export const BING_YOU_CLIMATE_RULES: ClimateRule[] = [
     label: '丙日酉月戊多困水假斯文规则',
     description:
       '丙火生酉月，若壬水已透而戊土偏多困水，传统多断假作斯文，不宜仍按一壬高透富贵上断。',
-    priority: 126,
     months: ['酉'],
     dayMasters: ['火'],
     dayStems: ['丙'],
@@ -69,7 +66,6 @@ export const BING_YOU_CLIMATE_RULES: ClimateRule[] = [
     label: '丙日酉月一壬高透富贵规则',
     description:
       '丙火生酉月，若局中多丙而一壬高透，传统多断登科及第、富贵双全，不应仍按普通秋火衰退收束。',
-    priority: 125,
     months: ['酉'],
     dayMasters: ['火'],
     dayStems: ['丙'],
@@ -85,7 +81,6 @@ export const BING_YOU_CLIMATE_RULES: ClimateRule[] = [
     id: 'you-month-bing-hidden-ren-xiucai',
     label: '丙日酉月壬藏支秀才规则',
     description: '丙火生酉月，若壬水不透而仅藏支，传统多断秀才，不宜与一壬高透或癸水权代同论。',
-    priority: 124,
     months: ['酉'],
     dayMasters: ['火'],
     dayStems: ['丙'],
@@ -109,7 +104,6 @@ export const BING_YOU_CLIMATE_RULES: ClimateRule[] = [
     label: '丙日酉月丁制辛奸诈规则',
     description:
       '丙火生酉月，若辛透而再见一丁制辛，传统多断为人奸诈，不识高低，层次又低于单纯辛透贫困。',
-    priority: 123,
     months: ['酉'],
     dayMasters: ['火'],
     dayStems: ['丙'],
@@ -132,7 +126,6 @@ export const BING_YOU_CLIMATE_RULES: ClimateRule[] = [
     label: '丙日酉月辛透贫苦规则',
     description:
       '丙火生酉月，若辛金透干而不能从化，传统多断贫苦到老，不应仍退回普通扶抑或泛化秋火衰退。',
-    priority: 122,
     months: ['酉'],
     dayMasters: ['火'],
     dayStems: ['丙'],
@@ -155,7 +148,6 @@ export const BING_YOU_CLIMATE_RULES: ClimateRule[] = [
     label: '丙日酉月无壬用癸规则',
     description:
       '丙火生酉月，仍以壬水辅映为先；若无壬而癸透，传统亦可权代，但多主功名不久，不宜与壬水正用同断。',
-    priority: 121,
     months: ['酉'],
     dayMasters: ['火'],
     dayStems: ['丙'],

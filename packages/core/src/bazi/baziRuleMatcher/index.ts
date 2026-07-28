@@ -215,7 +215,5 @@ export function matchFirstRule<T extends MatchableRule>(
   rules: T[],
   context: RuleMatchContext,
 ): T | undefined {
-  return [...rules]
-    .sort((left, right) => (right.priority || 0) - (left.priority || 0))
-    .find((rule) => matchesRule(rule, context));
+  return rules.find((rule) => matchesRule(rule, context));
 }

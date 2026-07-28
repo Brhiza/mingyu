@@ -6,7 +6,6 @@ export const JI_CHOU_CLIMATE_RULES: ClimateRule[] = [
     label: '己日丑月先丙后甲规则',
     description:
       '己土生丑月，寒湿土冻，传统多以丙火暖局、甲木疏土，先后有序，不宜只取冬土通用火候。',
-    priority: 120,
     months: ['丑'],
     dayMasters: ['土'],
     dayStems: ['己'],
@@ -18,7 +17,6 @@ export const JI_CHOU_CLIMATE_RULES: ClimateRule[] = [
     id: 'chou-month-ji-bing-jia-geng-all',
     label: '己日丑月丙甲庚全透极品规则',
     description: '己土生丑月，丙甲庚三者全透，较合原文"己土生丑月，三者全透，鼎甲可期"。',
-    priority: 126,
     months: ['丑'],
     dayMasters: ['土'],
     dayStems: ['己'],

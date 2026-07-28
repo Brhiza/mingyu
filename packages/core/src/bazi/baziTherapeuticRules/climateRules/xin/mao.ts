@@ -6,7 +6,6 @@ export const XIN_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日卯月壬甲两透贵显规则',
     description:
       '辛金生卯月，壬水为尊，甲木佐之；若壬甲两透，较合原文"有壬甲透者贵显"，不应仍停留在泛化春金先壬后甲层面。',
-    priority: 124,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -21,7 +20,6 @@ export const XIN_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日卯月壬坐亥支不见土出小康规则',
     description:
       '辛金生卯月，若壬水明透且坐亥支，而天干不见戊己之土混浊，较合原文"壬坐亥支，不见土出，家亦小康"；此类应与一般有壬、无壬或病药未配之局分开。',
-    priority: 123,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -42,7 +40,6 @@ export const XIN_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日卯月得申中壬异途名望规则',
     description:
       '辛金生卯月，若壬水不透，而申中暗得壬源，较合原文"得申中之壬者，异途名望"；此类不应被无壬常人或泛化春金规则吞没。',
-    priority: 123,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -65,7 +62,6 @@ export const XIN_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日卯月壬戊透甲不出平常规则',
     description:
       '辛金生卯月，若壬戊并透而甲木不出，较合原文"壬戊透，甲不出干，此为病不遇药，平常之人"；此类病药不配，不应误抬到贵显层次。',
-    priority: 123,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -81,7 +77,6 @@ export const XIN_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日卯月乙破戊衣衿假利规则',
     description:
       '辛金生卯月，若壬戊并透而乙木再出破戊，较合原文"得乙破戊，颇有衣衿，但假名假利，刻薄乖张"；此类不应仍按平常或贵显两端粗断。',
-    priority: 124,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -97,7 +92,6 @@ export const XIN_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日卯月壬水重重得戊反吉规则',
     description:
       '辛金生卯月，若壬水重重，本有淘洗太过之患；但一得戊土培堤中和，较合原文"壬水重重，得戊反吉"，应高于泛泛的壬水汪洋无作为之断。',
-    priority: 126,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -115,7 +109,6 @@ export const XIN_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日卯月壬水汪洋无戊无为规则',
     description:
       '辛金生卯月，若壬水重重而无戊土堤防，较合原文"一派壬水汪洋，金水淘洗太过，不得中和，略有衣食，全无作为"；此类应高于一般有壬平断，但低于得戊反吉之局。',
-    priority: 125,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -135,7 +128,6 @@ export const XIN_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日卯月无壬常人规则',
     description:
       '辛金生卯月，壬水为尊；若全局并无壬水，较合原文"无壬者常人"，不应仍按壬甲得用或异途名望上断。',
-    priority: 122,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -152,7 +144,6 @@ export const XIN_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日卯月木局见庚富贵规则',
     description:
       '辛金生卯月，若地支成木局，泄尽壬水，本属险局；但一见庚金，较合原文"有庚富贵"，不应仍按木局无庚平人处理。',
-    priority: 125,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -170,7 +161,6 @@ export const XIN_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日卯月木局无庚平人规则',
     description:
       '辛金生卯月，若地支成木局而不见庚金，较合原文"无庚平人"；此类不应误抬到木局有庚的富贵层次。',
-    priority: 125,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -188,7 +178,6 @@ export const XIN_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日卯月火局二壬制火富贵反奇规则',
     description:
       '辛金生卯月，若地支成火局，官印相争、金水两伤，本属下流；但若两壬出干制火，较合原文"得二壬出制，富贵反奇"，不应仍按火局下流处理。',
-    priority: 125,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -206,7 +195,6 @@ export const XIN_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日卯月火局官印相争下流规则',
     description:
       '辛金生卯月，若地支成火局，原文先断"官印相争，金水两伤，下流之格"；只有二壬明透制火，方可翻成"富贵反奇"。故凡火局而未得两壬出制者，不应仍留在普通平常层次，更不应误抬到富贵反奇。',
-    priority: 124.8,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -224,7 +212,6 @@ export const XIN_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日卯月纯壬无丙显达规则',
     description:
       '辛金生卯月，原文有"辛金生于春季，一派壬水，而无丙水，即能显达，家无宿舂"之语。为避免与"壬水重重无戊全无作为"冲突，这里将"一派壬水"保守收束为壬水纯一而不过汪洋、并且不夹甲木戊己之病药支线；此类虽不及壬丙齐透的大富大贵，仍较一般平常层次为高。',
-    priority: 124.5,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -256,7 +243,6 @@ export const XIN_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日卯月壬丙齐透大富大贵规则',
     description:
       '辛金生卯月，原文明言"得壬丙齐透，方许大富大贵"。此条层级应高于单纯壬甲两透的贵显，不应仍停留在一般春辛先壬后甲的泛化判断。',
-    priority: 126,
     months: ['卯'],
     dayMasters: ['金'],
     dayStems: ['辛'],

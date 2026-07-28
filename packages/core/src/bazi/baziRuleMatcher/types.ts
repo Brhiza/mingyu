@@ -65,7 +65,6 @@ export interface HiddenStemBranchPairRule {
 
 export interface MatchableRule {
   id: string;
-  priority?: number;
   strengths?: string[];
   yearStems?: string[];
   months?: string[];

@@ -6,7 +6,6 @@ export const BING_XU_CLIMATE_RULES: ClimateRule[] = [
     label: '丙日戌月壬癸藏支页监规则',
     description:
       '丙火生戌月，若壬癸仅藏支而不透，传统多断页监而已，不宜误判为甲壬富贵或甲壬癸俱无下格。',
-    priority: 122,
     months: ['戌'],
     dayMasters: ['火'],
     dayStems: ['丙'],
@@ -32,7 +31,6 @@ export const BING_XU_CLIMATE_RULES: ClimateRule[] = [
     label: '丙日戌月庚戊困木水庸才规则',
     description:
       '丙火生戌月，若甲木壬癸本可为用，却又见庚戊同透困其水木，传统多断庸才，不宜仍按甲壬并透上格直断。',
-    priority: 124,
     months: ['戌'],
     dayMasters: ['火'],
     dayStems: ['丙'],
@@ -54,7 +52,6 @@ export const BING_XU_CLIMATE_RULES: ClimateRule[] = [
     label: '丙日戌月甲藏壬透秀才规则',
     description:
       '丙火生戌月，若甲木藏支、壬水透干，且不见庚金破甲，传统多许秀才，不宜与甲壬两透之富贵层次混同。',
-    priority: 123,
     months: ['戌'],
     dayMasters: ['火'],
     dayStems: ['丙'],
@@ -79,7 +76,6 @@ export const BING_XU_CLIMATE_RULES: ClimateRule[] = [
     label: '丙日戌月甲壬两透富贵规则',
     description:
       '丙火生戌月，传统必须先用甲木，次取壬水；若甲壬两透，多断富贵非凡，不宜仍按普通衰火泛论。',
-    priority: 123,
     months: ['戌'],
     dayMasters: ['火'],
     dayStems: ['丙'],
@@ -100,7 +96,6 @@ export const BING_XU_CLIMATE_RULES: ClimateRule[] = [
     label: '丙日戌月有甲无壬得癸规则',
     description:
       '丙火生戌月，若甲木已透而壬水不见，得癸透干亦可权代，传统多断异路功名，不宜误提到甲壬两透之层次。',
-    priority: 122,
     months: ['戌'],
     dayMasters: ['火'],
     dayStems: ['丙'],
@@ -122,7 +117,6 @@ export const BING_XU_CLIMATE_RULES: ClimateRule[] = [
     id: 'xu-month-bing-no-jia-no-ren-no-gui',
     label: '丙日戌月无甲壬癸下格规则',
     description: '丙火生戌月，若甲壬癸俱无，传统直断下格，不应仍退回普通病药提示收束。',
-    priority: 124,
     months: ['戌'],
     dayMasters: ['火'],
     dayStems: ['丙'],

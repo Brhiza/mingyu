@@ -6,7 +6,6 @@ export const REN_WEI_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日未月先辛后甲规则',
     description:
       '壬水生未月，土旺水衰，传统多先辛金发源，次甲木劈土，再酌癸水扶助，较简单扶抑更合原法。',
-    priority: 120,
     months: ['未'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -19,7 +18,6 @@ export const REN_WEI_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日未月甲辛并用规则',
     description:
       '壬水生未月，土旺水衰，甲木疏土为先，辛金发源为佐。甲辛两透，富贵可期，不宜仍按土旺扶抑泛论。',
-    priority: 118,
     months: ['未'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -32,7 +30,6 @@ export const REN_WEI_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日未月甲透无辛异路规则',
     description:
       '壬水生未月，甲木疏土为急；若甲透而辛不出，疏土有余而发源不足，较合原文"有甲无辛，异路功名"。',
-    priority: 122,
     months: ['未'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -47,7 +44,6 @@ export const REN_WEI_CLIMATE_RULES: ClimateRule[] = [
     id: 'wei-month-ren-no-jia-xin',
     label: '壬日未月甲辛俱无常人规则',
     description: '壬水生未月，土厚水弱，甲疏辛源缺一不可；若甲辛俱无，较合原文"甲辛俱无，常人"。',
-    priority: 121,
     months: ['未'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -62,7 +58,6 @@ export const REN_WEI_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日未月火局甲透反贵规则',
     description:
       '壬水生未月，若地支成火局，财旺身弱；但甲木出干化水生火、流通有情，较合原文"支成火局，有甲出干，反主富贵"。',
-    priority: 123,
     months: ['未'],
     dayMasters: ['水'],
     dayStems: ['壬'],

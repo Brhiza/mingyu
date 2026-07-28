@@ -6,7 +6,6 @@ export const REN_HAI_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日亥月戊丙并用规则',
     description:
       '壬水生亥月，水旺需堤，戊土为岸为先，丙火佐暖为后。戊丙两透，富贵可期，不宜仍按冬水泛取火概之。',
-    priority: 118,
     months: ['亥'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -19,7 +18,6 @@ export const REN_HAI_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日亥月有戊无丙异路规则',
     description:
       '壬水生亥月，若戊透而丙不出，虽能止流却不能暖局，较合原文"有戊无丙，异路功名"；不应仍按戊丙两透富贵上断。',
-    priority: 122,
     months: ['亥'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -35,7 +33,6 @@ export const REN_HAI_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日亥月戊丙俱无奔流规则',
     description:
       '壬水生亥月，水旺无堤无暖，泛滥奔流，较合原文"戊丙俱无，奔流下贱"；不应仍按冬水泛取火概之。',
-    priority: 121,
     months: ['亥'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -50,7 +47,6 @@ export const REN_HAI_CLIMATE_RULES: ClimateRule[] = [
     label: '壬日亥月木局戊透衣禄规则',
     description:
       '壬水生亥月，若地支成木局，泄水太过；得戊土出干止流，较合原文"支成木局，有戊制之，衣禄可求"。',
-    priority: 122,
     months: ['亥'],
     dayMasters: ['水'],
     dayStems: ['壬'],

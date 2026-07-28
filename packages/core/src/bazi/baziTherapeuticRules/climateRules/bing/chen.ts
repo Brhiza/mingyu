@@ -6,7 +6,6 @@ export const BING_CHEN_CLIMATE_RULES: ClimateRule[] = [
     label: '丙日辰月有甲无壬浊富规则',
     description:
       '丙火生辰月，传统以壬水为本、甲木为辅；若有甲而无壬，仅主劳碌浊富，不宜误判为富贵格。',
-    priority: 121,
     months: ['辰'],
     dayMasters: ['火'],
     dayStems: ['丙'],

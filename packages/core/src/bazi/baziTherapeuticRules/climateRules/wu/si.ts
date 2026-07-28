@@ -6,7 +6,6 @@ export const WU_SI_CLIMATE_RULES: ClimateRule[] = [
     label: '戊日巳月先壬后甲规则',
     description:
       '戊土生巳月，夏燥土焦，《穷通宝鉴》以壬水润燥为先、甲木疏土为佐，戊土高燥喜壬不喜癸。',
-    priority: 120,
     months: ['巳'],
     dayMasters: ['土'],
     dayStems: ['戊'],
@@ -18,7 +17,6 @@ export const WU_SI_CLIMATE_RULES: ClimateRule[] = [
     id: 'si-month-wu-gui-bing-xin-all',
     label: '戊日巳月壬甲齐透鼎甲可期规则',
     description: '戊土生巳月，壬水润燥与甲木疏土齐透，壬甲相辅成格，主鼎甲可期。',
-    priority: 126,
     months: ['巳'],
     dayMasters: ['土'],
     dayStems: ['戊'],

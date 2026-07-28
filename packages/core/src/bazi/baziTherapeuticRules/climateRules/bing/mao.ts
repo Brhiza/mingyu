@@ -6,7 +6,6 @@ export const BING_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '丙日卯月无壬己土姑用规则',
     description:
       '丙火生卯月，原法端用壬水；若壬水不透而己土透，可姑取己土调剂，但仅主才学衣食，难言成名。',
-    priority: 120,
     months: ['卯'],
     dayMasters: ['火'],
     dayStems: ['丙'],

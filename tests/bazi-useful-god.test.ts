@@ -7,10 +7,26 @@ import {
   getDrainWuxing,
 } from '@core/bazi/baziEnhancement/useGodRules';
 import { determineUsefulGod } from '@core/bazi/baziUsefulGodStrategy';
+import { CLIMATE_RULES } from '@core/bazi/baziTherapeuticRules';
 import type { PatternAnalysis } from '@core/bazi/baziTypes';
 
 // 用神策略测试 - 数据驱动参数化
 // 共 281 个测试用例
+
+const OMITTED_TRACE_PREFIXES = [
+  '成格层次:',
+  '成格转轻:',
+  '病药提示:',
+  '运势警语:',
+  '传统成格原文:',
+];
+
+const REAL_WORLD_OUTCOME_PATTERN =
+  /富贵|贫贱|贫寒|贫苦|孤贫|孤苦|科甲|功名|鼎甲|金榜|衣锦|衣禄|显达|发达|荣华|恩荣|廪贡|生员|秀才|仕途|官位|禄位|夭折|寿夭|遭凶|僧道|常人|平人|下流|下品|愚顽|愚懦|奸诈|仁义|劳碌|奔波|漂泊|安乐|聪明|艺术|才略|名臣|一生|荣显|成名|题名|云程|雁塔|衣食|千金|虚名|虚利|名利|显贵|清贵|浊富|略富|家富|困顿|发福|减贵|定主|必主|多主|可期|堪图|可许|极品|之人|之士|之客|之流/;
+
+function isDecisionTraceExpectation(value: unknown): boolean {
+  return !OMITTED_TRACE_PREFIXES.some((prefix) => String(value).startsWith(prefix));
+}
 
 function runAssertions(
   result: ReturnType<typeof determineUsefulGod>,
@@ -47,9 +63,9 @@ function runAssertions(
   if ('traceMatch' in expected)
     assert.match(result.strategyTrace?.[0] || '', expected.traceMatch as RegExp);
   if ('traceIncludes' in expected) {
-    const items = Array.isArray(expected.traceIncludes)
-      ? expected.traceIncludes
-      : [expected.traceIncludes];
+    const items = (
+      Array.isArray(expected.traceIncludes) ? expected.traceIncludes : [expected.traceIncludes]
+    ).filter(isDecisionTraceExpectation);
     for (const item of items)
       assert.ok(result.strategyTrace?.some((t) => t.includes(item as string)));
   }
@@ -68,7 +84,29 @@ function runAssertions(
     const items = Array.isArray(expected.ruleNotHas) ? expected.ruleNotHas : [expected.ruleNotHas];
     for (const item of items) assert.ok(!result.matchedRules?.some((r) => r.id === item));
   }
+
+  assert.ok(
+    result.strategyTrace?.every((item) =>
+      OMITTED_TRACE_PREFIXES.every((prefix) => !item.startsWith(prefix)),
+    ),
+  );
+  assert.doesNotMatch(result.strategyTrace?.join('\n') || '', REAL_WORLD_OUTCOME_PATTERN);
+  for (const rule of result.matchedRules ?? []) assert.deepEqual(Object.keys(rule), ['id']);
 }
+
+test('调候规则使用显式冲突顺序且不再携带数值优先级', () => {
+  assert.equal(CLIMATE_RULES.length, 406);
+  assert.equal(new Set(CLIMATE_RULES.map((rule) => rule.id)).size, CLIMATE_RULES.length);
+  assert.ok(CLIMATE_RULES.every((rule) => !('priority' in rule)));
+});
+
+test('调候正式轨迹只保留可核验的取用与条件信息', () => {
+  const retainedTraceHints = CLIMATE_RULES.flatMap((rule) => rule.traceHints ?? []).filter(
+    (item) => !OMITTED_TRACE_PREFIXES.some((prefix) => item.startsWith(prefix)),
+  );
+
+  assert.doesNotMatch(retainedTraceHints.join('\n'), REAL_WORLD_OUTCOME_PATTERN);
+});
 
 const testCases: Array<{
   name: string;
@@ -4940,7 +4978,7 @@ const testCases: Array<{
       favorableFirst: '金',
       traceIncludes: [
         '取用层次:三辛一壬，甲多得庚',
-        '破格因素:见丁火而减贵',
+        '破格因素:见丁火改变原取用条件',
         '成格层次:风雅清高，衣食饶裕',
       ],
       ruleHas: 'you-month-xin-three-xin-single-ren-many-jia-geng-ding-refined',

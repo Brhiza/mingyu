@@ -6,7 +6,6 @@ export const XIN_ZI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日子月壬丙两透不见戊癸衣锦规则',
     description:
       '辛金生子月，寒冬雨露，传统强调须丙温暖；若壬丙两透，而天干不杂戊癸，较合原文"壬丙两透，不见戊癸，衣锦腰金"，不应仍按普通冬辛喜火喜水泛断。',
-    priority: 124,
     months: ['子'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -22,7 +21,6 @@ export const XIN_ZI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日子月壬藏丙透一榜规则',
     description:
       '辛金生子月，若壬水不透只藏支内，而丙火明透解寒，较合原文"即壬藏丙透，一榜堪图"；此类虽不及壬丙并透，仍不应退回常格。',
-    priority: 123,
     months: ['子'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -39,7 +37,6 @@ export const XIN_ZI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日子月癸出困丙规则',
     description:
       '辛金生子月，若癸水透出而丙火亦透、却无壬水统摄，较合原文"切忌癸出冻金，而困丙火"；此类寒湿上凌，丙火受困，不应仍按壬丙并透或壬藏丙透高断。',
-    priority: 122,
     months: ['子'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -57,7 +54,6 @@ export const XIN_ZI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日子月壬多有戊丙甲出干青云规则',
     description:
       '辛金生子月，若壬水偏多而有戊土为堤，天干又见丙甲并透，既得温暖又得疏导，较合原文"壬多有戊，丙甲出干者，青云之客"；不应仍按壬多寒儒一概下断。',
-    priority: 123,
     months: ['子'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -76,7 +72,6 @@ export const XIN_ZI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日子月壬多无戊丙寒儒规则',
     description:
       '辛金生子月，若壬水偏多而戊丙皆无，寒湿太过，较合原文"壬多无戊丙者，泄金太过，定主寒儒"；此时不应仍把多壬简单当成有源有用。',
-    priority: 121,
     months: ['子'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -97,7 +92,6 @@ export const XIN_ZI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日子月壬多甲乙重无丙贫寒规则',
     description:
       '辛金生子月，若壬水偏多，甲乙并重而又无丙火温暖，较合原文"壬多，甲乙重重，无丙火者，贫寒"；此类较寒儒更带木泄之病，不应仍与青云或润下同断。',
-    priority: 122,
     months: ['子'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -126,7 +120,6 @@ export const XIN_ZI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日子月水局癸透二戊制富贵规则',
     description:
       '辛金生子月，若地支水局已成而癸水透干，再得二戊制水，较合原文"支成水局，癸水出干，有二戊制者，富贵恩荣"；此类不应仍按一般冬水过旺轻断。',
-    priority: 123,
     months: ['子'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -145,7 +138,6 @@ export const XIN_ZI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日子月水局癸透无戊常人规则',
     description:
       '辛金生子月，若地支水局成势而癸水透干，却不见戊土制流，较合原文"无戊者常人"；此类虽有水势，却非高格，不应误抬到恩荣层次。',
-    priority: 122,
     months: ['子'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -164,7 +156,6 @@ export const XIN_ZI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日子月亥子丑全比劫透润下规则',
     description:
       '辛金生子月，若地支全见亥子丑，天干又有庚辛比劫透出，且不见丙火，较合原文"名润下格，富贵双全"；此类是从水趋势，不应仍按普通寒儒或水局癸透处理。',
-    priority: 123,
     months: ['子'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -194,7 +185,6 @@ export const XIN_ZI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日子月亥子丑全无庚辛见甲乙僧道规则',
     description:
       '辛金生子月，若地支全见亥子丑，而天干不见庚辛比劫，反见甲乙，又无戊丙挽救，较合原文"若无庚辛，又出甲乙，无戊丙者，必主僧道"；此类不应误按润下格富贵处理。',
-    priority: 122,
     months: ['子'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -229,7 +219,6 @@ export const XIN_ZI_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日子月木局丁戊同见功名规则',
     description:
       '辛金生子月，若地支成木局，而丁火透干并见戊土，既得温金又得培根，较合原文"支成木局，有丁出干，又见戊者，功名特达"；不应仍按冬金木旺受克下断。',
-    priority: 122,
     months: ['子'],
     dayMasters: ['金'],
     dayStems: ['辛'],

@@ -6,7 +6,6 @@ export const XIN_YIN_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日寅月己壬两透支见庚制甲科甲规则',
     description:
       '辛金生寅月，寒未尽退，传统以己为君、壬为臣；若己壬两透，而地支又见庚金制甲，较合原文"己壬两透，支见庚制甲，科甲定然"，不应仍停留在一般春金调候层。',
-    priority: 124,
     months: ['寅'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -22,7 +21,6 @@ export const XIN_YIN_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日寅月己透支有甲异路恩荣规则',
     description:
       '辛金生寅月，若己土透干，而甲木只在地支暗见，较合原文"己土透干，支中有甲，异路恩荣"；此类层次低于己壬两透科甲，但不应误落到贫贱或富贵难全。',
-    priority: 123,
     months: ['寅'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -39,7 +37,6 @@ export const XIN_YIN_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日寅月见壬无己庚贫贱规则',
     description:
       '辛金生寅月，若只见壬水而全无己土、庚金为辅，较合原文"或见壬，无己庚者，贫贱之徒"；此时臣有而君佐俱失，不应误按壬水得用上断。',
-    priority: 122,
     months: ['寅'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -58,7 +55,6 @@ export const XIN_YIN_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日寅月壬透庚存己不全难全规则',
     description:
       '辛金生寅月，原文于己壬两透与无己庚贫贱之间，另有"己土不全，号曰君臣失势，富贵难全"一层。依上下文推断，若壬水已透、庚金尚存，而己土不透，则较合此象：较贫贱为高，却不足以入科甲恩荣。',
-    priority: 122.5,
     months: ['寅'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -77,7 +73,6 @@ export const XIN_YIN_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日寅月丙透武学规则',
     description:
       '辛金生寅月，原文明言"或有丙火出干，亦主武学"。此条不宜与己壬两透科甲或见壬无己庚贫贱混断，应单列为偏武职、偏技艺进身的一层。',
-    priority: 121.5,
     months: ['寅'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -93,7 +88,6 @@ export const XIN_YIN_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日寅月火局壬透不克己常人规则',
     description:
       '辛金生寅月，若地支火局已成，即便壬水出干，仍不能克制己土燥势，较合原文"支成火局，即壬水出干，不克己土，亦寻常之人"；不应误把见壬当作足以破局。',
-    priority: 125,
     months: ['寅'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -113,7 +107,6 @@ export const XIN_YIN_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日寅月火局庚壬两透显达规则',
     description:
       '辛金生寅月，若地支火局成势，而庚壬两透协力破局制火，较合原文"庚壬两透，破局制火，必为显达之人"；此类明显高于火局见壬常人。',
-    priority: 125,
     months: ['寅'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -129,7 +122,6 @@ export const XIN_YIN_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日寅月水局无丙沉寒平常规则',
     description:
       '辛金生寅月，若地支成水局而不见丙火透出，较合原文"金弱沉寒，平常之士"；此类寒气到底，不应仍按水局有情上断。',
-    priority: 125,
     months: ['寅'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -145,7 +137,6 @@ export const XIN_YIN_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日寅月水局得丙照暖富贵规则',
     description:
       '辛金生寅月，若地支成水局而丙火透干照暖，较合原文"得丙透照暖，反主富贵"；此类不应仍按沉寒平常处理。',
-    priority: 125,
     months: ['寅'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -161,7 +152,6 @@ export const XIN_YIN_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日寅月卯日子时朝阳规则',
     description:
       '辛金生寅月，原文明言"辛逢卯日，子时，名曰朝阳"。此条属于直接点名的日时格象，应以日支卯、时支子为核心判据；因条文未另明示病药次序，这里只将其作为高优先级格象提示，不把它泛化成普通寅月辛金的通用取用逻辑。',
-    priority: 126,
     months: ['寅'],
     dayMasters: ['金'],
     dayStems: ['辛'],

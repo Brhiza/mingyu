@@ -6,7 +6,6 @@ export const JI_MAO_CLIMATE_RULES: ClimateRule[] = [
     label: '己日卯月无比印从杀贵规则',
     description:
       '己土生卯月，木势偏盛而比劫印星明暗皆不见时，传统有"无比印，从杀者贵"之论，不宜仍按普通春土调候一概处理。',
-    priority: 124,
     months: ['卯'],
     dayMasters: ['土'],
     dayStems: ['己'],
@@ -22,7 +21,6 @@ export const JI_MAO_CLIMATE_RULES: ClimateRule[] = [
     id: 'mao-month-ji-bing-jia-first',
     label: '己日卯月先丙后甲规则',
     description: '己土生卯月，春湿土润，传统多以丙火暖局、甲木疏土，先后有序。',
-    priority: 119,
     months: ['卯'],
     dayMasters: ['土'],
     dayStems: ['己'],

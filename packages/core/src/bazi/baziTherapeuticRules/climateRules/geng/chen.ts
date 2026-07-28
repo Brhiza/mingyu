@@ -6,7 +6,6 @@ export const GENG_CHEN_CLIMATE_RULES: ClimateRule[] = [
     label: '庚日辰月甲先丙后规则',
     description:
       '庚金生辰月，土旺金相，甲先疏土、丙后暖金。甲丙两透，科甲可期，不宜仍按春金一概先火。',
-    priority: 119,
     months: ['辰'],
     dayMasters: ['金'],
     dayStems: ['庚'],
@@ -19,7 +18,6 @@ export const GENG_CHEN_CLIMATE_RULES: ClimateRule[] = [
     label: '庚日辰月有甲无丙异路规则',
     description:
       '庚金生辰月，甲木疏土为急；若甲透而丙不出，较合原文"有甲无丙，异路功名"；不应仍按甲丙两透科甲论。',
-    priority: 122,
     months: ['辰'],
     dayMasters: ['金'],
     dayStems: ['庚'],
@@ -35,7 +33,6 @@ export const GENG_CHEN_CLIMATE_RULES: ClimateRule[] = [
     label: '庚日辰月无甲丙常人规则',
     description:
       '庚金生辰月，土厚金埋，甲疏丙暖缺一不可；若甲丙俱无，较合原文"甲丙俱无，常人"；不应仍泛以土旺扶抑概之。',
-    priority: 121,
     months: ['辰'],
     dayMasters: ['金'],
     dayStems: ['庚'],
@@ -50,7 +47,6 @@ export const GENG_CHEN_CLIMATE_RULES: ClimateRule[] = [
     label: '庚日辰月水局见戊清贵规则',
     description:
       '庚金生辰月，若地支成水局而戊土出干制水，金水得以清平，较合原文"支成水局，得戊制水，清贵"。',
-    priority: 122,
     months: ['辰'],
     dayMasters: ['金'],
     dayStems: ['庚'],

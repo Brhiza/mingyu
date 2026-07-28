@@ -6,7 +6,6 @@ export const DING_YOU_CLIMATE_RULES: ClimateRule[] = [
     label: '丁日酉月辛金从才规则',
     description:
       '丁火生酉月，若金气成势而辛金透出，不见庚金，又无比劫透干，传统多按弃命从才论，富而且贵，虽不科甲亦有异途。',
-    priority: 127,
     months: ['酉'],
     dayMasters: ['火'],
     dayStems: ['丁'],

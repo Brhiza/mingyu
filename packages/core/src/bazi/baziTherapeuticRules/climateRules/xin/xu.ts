@@ -6,7 +6,6 @@ export const XIN_XU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日戌月壬甲两透桃洞规则',
     description:
       '辛金生戌月，土厚金埋，传统先壬后甲；若壬甲两透，正合洗金疏土之法，多主清贵上达，不应仍按普通秋金论。',
-    priority: 123,
     months: ['戌'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -27,7 +26,6 @@ export const XIN_XU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日戌月甲透壬藏异途规则',
     description:
       '辛金生戌月，若甲木透干、壬水藏支，传统多许异途之仕；此仍属壬甲有情，不应误作壬甲两无。',
-    priority: 122,
     months: ['戌'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -51,7 +49,6 @@ export const XIN_XU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日戌月壬透甲藏又见戊平人规则',
     description:
       '辛金生戌月，若壬水透干、甲木只藏支内，而戊土又出天干，较合核校后原文"壬透甲藏，又见戊者，平人"；此时壬虽能洗金，终被戊土壅塞，不能仍按桃洞或异途之仕高断。',
-    priority: 121,
     months: ['戌'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -68,7 +65,6 @@ export const XIN_XU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日戌月土厚甲不透壬出富可求规则',
     description:
       '辛金生戌月，若土势偏厚，甲木不出而只藏支内，壬水一透洗土助甲，较合原文"土太多，甲不出干，一壬出，虽不发达，富而可求"；此类不应误混入桃洞或平人之断。',
-    priority: 120,
     months: ['戌'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -88,7 +84,6 @@ export const XIN_XU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日戌月木多土厚无水常人规则',
     description:
       '辛金生戌月，若木多而土亦厚，却全无壬癸润洗，较合原文"木多土厚，无水者常人"；此类不应仍按木土两旺便许富贵。',
-    priority: 123,
     months: ['戌'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -118,7 +113,6 @@ export const XIN_XU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日戌月木土厚重癸重见富而辛苦规则',
     description:
       '辛金生戌月，若木多土厚，本非上格；但天干重见癸水，虽无壬水淘洗之功，仍有清金之用，较合原文"干上重见癸水，此命主富，辛苦"，不应仍按无水常人处理。',
-    priority: 124,
     months: ['戌'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -142,7 +136,6 @@ export const XIN_XU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日戌月己透无壬有癸衣衿规则',
     description:
       '辛金生戌月，若己土透干而无壬、有癸，较合原文"己透无壬有癸，亦能滋生金力，衣衿之贵"；此类属于癸水权代，不应仍按无水常人论。',
-    priority: 123,
     months: ['戌'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -161,7 +154,6 @@ export const XIN_XU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日戌月己多无壬有癸浊富规则',
     description:
       '辛金生戌月，若己土偏多而壬水不见，仅赖癸水权代，较合原文"但恐己多，不免浊富"；此类应低于衣衿之贵，高于无水常人。',
-    priority: 124,
     months: ['戌'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -180,7 +172,6 @@ export const XIN_XU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日戌月土多无壬甲丙辛略贵规则',
     description:
       '辛金生戌月，若土势偏厚而壬甲全无，但月时又多透丙辛，较合原文"土多无壬甲，时月多透丙辛者，略贵"；此类虽非上格，却高于纯粹土厚埋金之常局。',
-    priority: 122,
     months: ['戌'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -211,7 +202,6 @@ export const XIN_XU_CLIMATE_RULES: ClimateRule[] = [
     label: '辛日戌月土多无壬甲丙辛见辰荣显规则',
     description:
       '辛金生戌月，承上式若再见辰字在支，较合原文"加以辰字在支，则荣显莫及"；此条应高于仅作略贵之断，不可仍与前式并论。',
-    priority: 123,
     months: ['戌'],
     dayMasters: ['金'],
     dayStems: ['辛'],

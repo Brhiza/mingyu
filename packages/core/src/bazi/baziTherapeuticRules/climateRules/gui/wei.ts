@@ -2,26 +2,10 @@ import type { ClimateRule } from '../../types';
 
 export const GUI_WEI_CLIMATE_RULES: ClimateRule[] = [
   {
-    id: 'wu-wei-month-gui-metal-water-summer-rich',
-    label: '癸日午未月金水会夏天规则',
-    description:
-      '癸水生午未月，本弱而畏火，若庚辛透干又见壬癸相扶，正合传统"金水会夏天"之论，多主富贵，不应仍按普通夏水身弱泛断。',
-    priority: 123,
-    months: ['午', '未'],
-    dayMasters: ['水'],
-    dayStems: ['癸'],
-    minTenGodCategoryVisibleCounts: { 印星: 1, 比劫: 1 },
-    usefulWuxing: '金',
-    favorableOrder: ['金', '水'],
-    traceHints: ['取用层次:金水会夏天', '成格层次:富贵永无边'],
-    hint: '癸水午未月庚辛透而又见壬癸，可按金水会夏天论富贵',
-  },
-  {
     id: 'wei-month-gui-xiaoshu-metal-water-rich',
     label: '癸日未月小暑后庚辛比劫同扶规则',
     description:
       '癸水生未月上半月，小暑后庚辛休囚，传统谓必须庚辛透干，又得比劫扶身，方可言富贵；不应仍与下半月庚辛有气同断。',
-    priority: 126,
     months: ['未'],
     dayMasters: ['水'],
     dayStems: ['癸'],
@@ -39,7 +23,6 @@ export const GUI_WEI_CLIMATE_RULES: ClimateRule[] = [
     label: '癸日未月大暑后庚辛有气规则',
     description:
       '癸水生未月下半月，大暑后庚辛有气，传统谓即无比劫亦可；只要庚辛得用而无丁火破局，便不应仍拘于上半月必须比劫同扶的条件。',
-    priority: 125,
     months: ['未'],
     dayMasters: ['水'],
     dayStems: ['癸'],
@@ -56,7 +39,6 @@ export const GUI_WEI_CLIMATE_RULES: ClimateRule[] = [
     label: '癸日未月丁火破金不吉规则',
     description:
       '癸水生未月，无论上半月或下半月，传统都忌丁火透出；即便丁火藏支亦不吉。若庚辛本可为用而又见丁，则不应仍按金水会夏天或庚辛有气上断。',
-    priority: 127,
     months: ['未'],
     dayMasters: ['水'],
     dayStems: ['癸'],
