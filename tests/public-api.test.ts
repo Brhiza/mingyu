@@ -1958,6 +1958,7 @@ test('公开 API 紫微排盘接口支持按需返回指定范围', async () => 
     body.data.payloadByScope.monthly.evidence_pool.every(
       (item: Record<string, unknown>) =>
         !('priority' in item) &&
+        !('level' in item) &&
         String(item.key).startsWith('ziwei:evidence:') &&
         (item.status === '已记录' || item.status === '资料缺口') &&
         Array.isArray(item.sources) &&
@@ -1972,6 +1973,8 @@ test('公开 API 紫微排盘接口支持按需返回指定范围', async () => 
     evidenceAnalysis.summaryFact.evidenceFactCount,
     body.data.payloadByScope.monthly.evidence_pool.length,
   );
+  assert.ok(!('primaryFactCount' in evidenceAnalysis.summaryFact));
+  assert.ok(!('supportingFactCount' in evidenceAnalysis.summaryFact));
   assert.equal(evidenceAnalysis.counterEvidenceFacts.length, 3);
   assert.equal(evidenceAnalysis.limitationFacts.length, 5);
   assertEvidenceOwnerReferences(evidenceAnalysis);

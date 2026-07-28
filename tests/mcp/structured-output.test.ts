@@ -759,13 +759,21 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
                 key?: string;
                 status?: string;
                 calculationStepKey?: string;
+                level?: unknown;
+                priority?: unknown;
               }>;
               evidence_analysis?: {
                 key?: string;
                 status?: string;
                 calculationSteps?: Array<{ key: string }>;
                 counterEvidenceFacts?: Array<{ key?: string; ownerFactKeys?: string[] }>;
-                summaryFact?: { key?: string; factKeys?: string[]; evidenceFactCount?: number };
+                summaryFact?: {
+                  key?: string;
+                  factKeys?: string[];
+                  evidenceFactCount?: number;
+                  primaryFactCount?: unknown;
+                  supportingFactCount?: unknown;
+                };
                 limitationFacts?: Array<{ ownerFactKeys?: string[] }>;
               };
               patterns?: Array<{
@@ -795,6 +803,8 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         assert.ok(
           origin?.evidence_pool?.every(
             (item) =>
+              !('priority' in item) &&
+              !('level' in item) &&
               item.key?.startsWith('ziwei:evidence:') &&
               item.status &&
               origin.evidence_analysis?.calculationSteps?.some(
@@ -808,6 +818,8 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
           origin?.evidence_analysis?.summaryFact?.evidenceFactCount,
           origin?.evidence_pool?.length,
         );
+        assert.ok(!('primaryFactCount' in (origin?.evidence_analysis?.summaryFact ?? {})));
+        assert.ok(!('supportingFactCount' in (origin?.evidence_analysis?.summaryFact ?? {})));
         assertEvidenceOwnerReferences(origin?.evidence_analysis);
         assert.equal(origin?.pattern_analysis?.key, 'ziwei:patterns');
         assert.equal(origin?.pattern_analysis?.calculationSteps?.length, 4);

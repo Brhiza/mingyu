@@ -13,7 +13,10 @@ import {
   DEFAULT_ZIWEI_CALCULATION_CONFIG,
 } from '@core/ziwei/iztro';
 import { buildEvidenceSummary, buildPalaceSummary } from '../src/lib/ziwei-prompts/builders';
-import { buildZiweiReadableSnapshot } from '../src/lib/ziwei-prompts/snapshot';
+import {
+  buildPromptContextSnapshot,
+  buildZiweiReadableSnapshot,
+} from '../src/lib/ziwei-prompts/snapshot';
 import type { PromptContext } from '../src/lib/ziwei-prompts/types';
 import {
   assertPromptCurrentTimeHasGanzhiCalendar,
@@ -637,7 +640,7 @@ test('紫微证据池应输出大限流年流月流日落宫与运限四化飞�
   assert.doesNotMatch(titles, /天同化禄入本命兄弟宫/);
   assert.match(descriptions, /流年（丙午流年）干支为丙午/);
   assert.match(descriptions, /运限命宫落于本命财帛宫/);
-  assert.ok(evidence.every((item) => item.level === '主证' || item.level === '辅证'));
+  assert.ok(evidence.every((item) => !('level' in item)));
   assert.ok(evidence.every((item) => item.source?.includes('紫微')));
   assert.ok(evidence.every((item) => item.calculation));
   assert.ok(
@@ -677,6 +680,10 @@ test('紫微证据池应输出大限流年流月流日落宫与运限四化飞�
   assert.equal(analysis.summaryFact.evidenceFactCount, evidence.length);
   assert.equal(analysis.summaryFact.counterEvidenceCount, analysis.counterEvidenceFacts.length);
   assert.equal(analysis.summaryFact.limitationFactCount, analysis.limitationFacts.length);
+  assert.ok(!('primaryFactCount' in analysis.summaryFact));
+  assert.ok(!('supportingFactCount' in analysis.summaryFact));
+  assert.ok(!('primaryFactCount' in (analysis.calculationSteps.at(-1)?.result ?? {})));
+  assert.doesNotMatch(analysis.summaryFact.promptText, /主证|辅证/);
   assert.ok(
     analysis.counterEvidenceFacts.every(
       (item) =>
@@ -785,6 +792,68 @@ test('紫微关键判断线索在原始资料缺少关联星曜与关联四化�
   assert.ok(!('数据来源' in (summary[0] ?? {})));
   assert.ok(!('计算依据' in (summary[0] ?? {})));
   assert.ok(!('适用边界' in (summary[0] ?? {})));
+});
+
+test('紫微关键判断线索应保留主题范围内全部事实而不按采集顺序截断', () => {
+  const payload = createPayload();
+  payload.evidence_pool = Array.from({ length: 10 }, (_, index) => ({
+    id: `E${index + 1}`,
+    stable_key: `focus-evidence-${index + 1}`,
+    type: 'palace_major_stars',
+    title: `命宫线索${index + 1}`,
+    scope: 'origin' as const,
+    palace_indexes: [0],
+    palace_names: ['命宫'],
+    star_names: [],
+    mutagens: [],
+    description: `命宫结构化事实${index + 1}。`,
+  }));
+  const reportContext = createReportContext();
+
+  const summary = buildEvidenceSummary(payload, [payload.palaces[0]], reportContext);
+  const snapshot = buildPromptContextSnapshot({ payload, reportContext });
+  const readable = buildZiweiReadableSnapshot({ payload, reportContext });
+
+  assert.equal(summary.length, 10);
+  assert.equal(snapshot.关键证据摘要.length, 10);
+  assert.equal(summary.at(-1)?.判断线索, '命宫线索10');
+  assert.match(readable, /判断线索：命宫线索10/);
+});
+
+test('紫微提示词应保留专题已选重点宫位而不再二次截断', () => {
+  const payload = createPayload();
+  payload.palaces = payload.palaces.map((palace, index) =>
+    index < 5
+      ? {
+          ...palace,
+          major_stars: [{ name: `四化星${index + 1}`, kind: 'major', birth_mutagen: '禄' }],
+        }
+      : palace,
+  );
+  payload.evidence_pool = payload.palaces.slice(0, 5).map((palace, index) => ({
+    id: `E${index + 1}`,
+    stable_key: `mutagen-palace-${index + 1}`,
+    type: 'palace_birth_mutagen',
+    title: `${palace.name}见生年化禄`,
+    scope: 'origin' as const,
+    palace_indexes: [palace.index],
+    palace_names: [palace.name],
+    star_names: [`四化星${index + 1}`],
+    mutagens: ['禄'],
+    description: `${palace.name}登记生年化禄。`,
+  }));
+  const reportContext = createReportContext({
+    report_key: 'feixing-sihua',
+    report_title: '飞星四化专题',
+    report_type: 'mutagen',
+    selected_topic: '飞星四化',
+  });
+
+  const snapshot = buildPromptContextSnapshot({ payload, reportContext });
+
+  assert.equal(snapshot.重点宫位摘要.length, 5);
+  assert.equal(snapshot.关键证据摘要.length, 5);
+  assert.equal(snapshot.关键证据摘要.at(-1)?.判断线索, '财帛见生年化禄');
 });
 
 test('紫微本命提示词不应混入大限流年流月流日运限结构', () => {

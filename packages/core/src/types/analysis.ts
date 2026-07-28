@@ -144,7 +144,6 @@ export type EvidenceFact = {
   star_names: string[];
   mutagens: string[];
   description: string;
-  level?: '主证' | '辅证' | '反证';
   source?: string;
   sources?: string[];
   calculation?: string;
@@ -184,8 +183,6 @@ export type ZiweiEvidenceSummaryFact = {
   evidenceFactCount: number;
   natalFactCount: number;
   scopeFactCount: number;
-  primaryFactCount: number;
-  supportingFactCount: number;
   missingFactCount: number;
   counterEvidenceCount: number;
   limitationFactCount: number;

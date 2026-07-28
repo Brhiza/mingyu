@@ -236,7 +236,7 @@ export function buildEvidenceSummary(
 
   evidencePool.forEach((item) => {
     const key = item.stable_key || item.id;
-    if (seen.has(key) || picked.length >= 8) {
+    if (seen.has(key)) {
       return;
     }
     seen.add(key);

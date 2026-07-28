@@ -111,7 +111,7 @@ export function buildPromptContextSnapshot(params: {
   const { payload, reportContext } = params;
   const focusTaskBundle = buildFocusTaskBundle(payload, reportContext);
   const currentPalace = getPalaceByIndex(payload, payload.active_scope.palace_index);
-  const focusPalaces = focusTaskBundle.focusPalaces.slice(0, 4);
+  const focusPalaces = focusTaskBundle.focusPalaces;
   const currentMutagens = payload.active_scope.mutagen_map ?? [];
 
   return {
@@ -140,7 +140,7 @@ export function buildPromptContextSnapshot(params: {
     运限命中摘要: buildScopeHitSummary(payload),
     运限结构: buildScopeStructureSummary(payload).slice(0, 8),
     重点宫位摘要: focusPalaces.map((item) => buildPalaceSummary(payload, item)),
-    关键证据摘要: buildEvidenceSummary(payload, focusPalaces, reportContext).slice(0, 6),
+    关键证据摘要: buildEvidenceSummary(payload, focusPalaces, reportContext),
     全盘宫位索引: buildPalaceIndex(payload),
   };
 }
@@ -197,9 +197,9 @@ export function buildZiweiTaskBookSnapshot(params: {
 }) {
   const { payload, reportContext } = params;
   const focusTaskBundle = buildFocusTaskBundle(payload, reportContext);
-  const focusPalaces = focusTaskBundle.focusPalaces.slice(0, 4);
+  const focusPalaces = focusTaskBundle.focusPalaces;
   const isOrigin = params.payload.active_scope.scope === 'origin';
-  const evidenceSummary = buildEvidenceSummary(payload, focusPalaces, reportContext).slice(0, 6);
+  const evidenceSummary = buildEvidenceSummary(payload, focusPalaces, reportContext);
   const patternSummary = buildPatternSummary(payload);
 
   const sections = [
