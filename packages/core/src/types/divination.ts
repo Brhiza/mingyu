@@ -1015,7 +1015,7 @@ export interface AlmanacHourCandidate {
 }
 
 export interface AlmanacData {
-  /** 日期约束、传统宜忌、参与人冲突、时辰条件与现实限制。 */
+  /** 日期约束、传统宜忌、参与人关系参考、时辰条件与现实限制。 */
   evidenceAnalysis?: import('../divination/almanac-evidence').AlmanacEvidenceAnalysis;
   topic: AlmanacTopic;
   topicLabel: string;

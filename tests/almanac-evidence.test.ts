@@ -122,7 +122,7 @@ test('黄历择日应内置透明约束与候选证据', () => {
   );
   assert.match(
     evidence.limitationFacts.find((item) => item.type === '参与人适配边界')?.promptText ?? '',
-    /不把候选时支类推为同一强限制/,
+    /不自动改变候选分组.*不类推候选时支/,
   );
   assert.match(evidence.promptText, /计算链：[\s\S]*反证汇总：[\s\S]*证据汇总：[\s\S]*解释限制：/);
   assert.doesNotMatch(evidence.promptText, /评分[：=]?\d|\d+分|成功率[：=]?\d|匹配率[：=]?\d/);
@@ -230,7 +230,7 @@ test('逐时时课应忽略旧结果中的参与人时支冲突', () => {
   assert.deepEqual(evidenceHour.participantSupport, []);
   assert.doesNotMatch(evidenceHour.constraints.join('；'), /旧结果中的时支冲突/);
   assert.ok(evidenceHour.sources.some((source) => source.includes('原生黄黑道属性')));
-  assert.match(evidenceHour.limitation, /参与人刑冲破害只核验候选日/);
+  assert.match(evidenceHour.limitation, /仅在候选日层记录参考/);
   const hourDecisionStep = evidence.candidates[0].decisionFact.steps.find(
     (item) => item.stage === '可用时辰',
   );
@@ -303,7 +303,12 @@ test('择日证据在缺少参与人时不得编造个人适配', () => {
   assert.match(evidence.promptText, /不合成为成功率或吉凶总分/);
 });
 
-test('择日参与人支持与冲突应保留逐项结构化依据', () => {
+test('择日参与人刑冲破害应保留逐项结构化依据但不作为候选限制', () => {
+  const baseline = generateAlmanacSelection({
+    topic: 'marriage',
+    startDate: '2026-06-01',
+    endDate: '2026-06-12',
+  });
   const result = generateAlmanacSelection({
     topic: 'marriage',
     startDate: '2026-06-01',
@@ -349,15 +354,121 @@ test('择日参与人支持与冲突应保留逐项结构化依据', () => {
     ),
   );
   assert.ok(directConflictCandidates && directConflictCandidates.length > 0);
+  const baselineByDate = new Map(
+    baseline.evidenceAnalysis?.candidates.map((candidate) => [candidate.date, candidate.status]),
+  );
   assert.ok(
     directConflictCandidates.every(
       (candidate) =>
-        candidate.status === '慎用候选' &&
+        candidate.participantRelationFacts
+          .filter(
+            (item) =>
+              item.relation === '冲' ||
+              item.relation === '刑' ||
+              item.relation === '害' ||
+              item.relation === '破',
+          )
+          .every((item) => item.status === '未采用') &&
+        candidate.participantConflicts.length === 0 &&
+        candidate.status === baselineByDate.get(candidate.date) &&
         candidate.decisionFact.steps.find((step) => step.stage === '参与人关系')?.status ===
-          '触发慎用',
+          '通过' &&
+        candidate.decisionFact.limitingFactKeys.every((key) => !key.includes(':participant:')),
     ),
   );
   assert.doesNotMatch(JSON.stringify(facts), /"score"\s*:/);
+});
+
+test('旧结果中的参与人刑冲破害不得继续把候选降为慎用', () => {
+  const createLegacyData = () =>
+    generateAlmanacSelection({
+      topic: 'custom',
+      startDate: '2026-01-03',
+      endDate: '2026-01-03',
+    });
+  const baseline = analyzeAlmanacEvidence(createLegacyData());
+
+  const structuredData = createLegacyData();
+  const structuredDay = structuredData.days[0];
+  structuredDay.participantNotes = ['旧参与人：候选日地支丑害生肖/年支午，需谨慎'];
+  structuredDay.participantRelationFacts = [
+    {
+      key: `${structuredDay.date}:participant:legacy-person:year:害`,
+      participantId: 'legacy-person',
+      participantName: '旧参与人',
+      scope: '候选日',
+      basis: '年支',
+      candidateValue: '丑',
+      participantValues: ['午'],
+      relation: '害',
+      status: '限制',
+      promptText: '旧参与人：日支丑与其年支午害',
+      sources: ['旧结果'],
+      limitation: '旧结果',
+    },
+  ];
+  const structuredEvidence = analyzeAlmanacEvidence(structuredData);
+  const structuredCandidate = structuredEvidence.candidates[0];
+
+  assert.equal(structuredCandidate.status, baseline.candidates[0].status);
+  assert.equal(structuredCandidate.participantRelationFacts[0].status, '未采用');
+  assert.match(structuredCandidate.participantRelationFacts[0].promptText, /不自动改变候选分组/);
+  assert.deepEqual(structuredCandidate.participantConflicts, []);
+  assert.ok(
+    structuredCandidate.decisionFact.limitingFactKeys.every(
+      (key) => !key.includes(':participant:'),
+    ),
+  );
+
+  const textData = createLegacyData();
+  const textDay = textData.days[0];
+  textDay.participantRelationFacts = undefined;
+  textDay.participantNotes = ['旧参与人：候选日地支丑害生肖/年支午，需谨慎'];
+  const textCandidate = analyzeAlmanacEvidence(textData).candidates[0];
+
+  assert.equal(textCandidate.status, baseline.candidates[0].status);
+  assert.equal(textCandidate.participantRelationFacts[0].status, '未采用');
+  assert.match(textCandidate.participantRelationFacts[0].promptText, /不自动改变候选分组/);
+  assert.deepEqual(textCandidate.participantConflicts, []);
+});
+
+test('旧结果中的参与人简单喜忌支持只保留为未采用参考', () => {
+  const data = generateAlmanacSelection({
+    topic: 'custom',
+    startDate: '2026-01-03',
+    endDate: '2026-01-03',
+  });
+  const day = data.days[0];
+  day.participantNotes = ['旧参与人：候选日五行命中喜用火，辅助支持'];
+  day.participantRelationFacts = [
+    {
+      key: `${day.date}:participant:legacy-person:preference`,
+      participantId: 'legacy-person',
+      participantName: '旧参与人',
+      scope: '候选日',
+      basis: '整体',
+      candidateValue: day.ganzhi.day,
+      participantValues: ['火'],
+      relation: '命中喜用',
+      status: '支持',
+      promptText: '旧参与人：候选日五行命中喜用火，辅助支持',
+      sources: ['旧结果'],
+      limitation: '旧结果',
+    },
+  ];
+
+  const candidate = analyzeAlmanacEvidence(data).candidates[0];
+
+  assert.equal(candidate.participantRelationFacts[0].status, '未采用');
+  assert.match(candidate.participantRelationFacts[0].promptText, /仅保留原说明供核对/);
+  assert.deepEqual(candidate.participantSupport, []);
+  assert.ok(
+    candidate.decisionFact.supportingFactKeys.every((key) => !key.includes(':participant:')),
+  );
+  assert.equal(
+    candidate.decisionFact.steps.find((step) => step.stage === '参与人关系')?.status,
+    '通过',
+  );
 });
 
 test('择日不应把候选日干支五行简单命中喜忌作为限制或支持', () => {

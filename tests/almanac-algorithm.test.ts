@@ -175,7 +175,7 @@ test('黄历择日：交节当天年柱月柱按正午精确干支历显示', ()
   assert.equal(jingzhe.ganzhi.month, '庚寅');
 });
 
-test('黄历择日：参与人适配应覆盖本命日支刑冲破害', () => {
+test('黄历择日：参与人刑冲破害应保留关系事实但不自动改变候选分组', () => {
   const withoutParticipant = generateAlmanacSelection({
     topic: 'move',
     startDate: '2026-06-10',
@@ -209,9 +209,21 @@ test('黄历择日：参与人适配应覆盖本命日支刑冲破害', () => {
   assert.equal(day.score, undefined);
   assert.equal(noParticipant.score, undefined);
   assert.ok(
-    result.evidenceAnalysis?.candidates[0].participantConflicts.length >
-      (withoutParticipant.evidenceAnalysis?.candidates[0].participantConflicts.length ?? 0),
+    day.participantRelationFacts
+      ?.filter((fact) => fact.relation === '破' || fact.relation === '刑')
+      .every((fact) => fact.status === '未采用'),
   );
+  assert.equal(
+    result.evidenceAnalysis?.candidates[0].status,
+    withoutParticipant.evidenceAnalysis?.candidates[0].status,
+  );
+  assert.deepEqual(result.evidenceAnalysis?.candidates[0].participantConflicts, []);
+  assert.ok(
+    result.evidenceAnalysis?.candidates[0].decisionFact.limitingFactKeys.every(
+      (key) => !key.includes(':participant:'),
+    ),
+  );
+  assert.match(participantText, /仅作关系参考/);
   assert.doesNotMatch(participantText, /未见直接/);
 });
 
@@ -406,7 +418,7 @@ test('黄历择日：逐时十二神应采用 tyme4ts 原生黄黑道及吉凶�
   }
 });
 
-test('黄历择日：参与人刑冲破害只核验候选日，不类推到候选时支', () => {
+test('黄历择日：参与人刑冲破害只在候选日层记录参考，不类推到候选时支', () => {
   const day = generateAlmanacSelection({
     topic: 'move',
     startDate: '2026-06-10',

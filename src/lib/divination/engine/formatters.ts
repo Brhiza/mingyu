@@ -842,7 +842,7 @@ function formatAlmanacInfo(data: AlmanacData) {
   const preferred = evidenceAnalysis.preferredDates || [];
   const conditional = evidenceAnalysis.conditionalDates || [];
   const caution = evidenceAnalysis.cautionDates || [];
-  const mainLine = `事项主线：围绕${data.topicLabel}，先核对原始宜忌与参与人年支、日支刑冲破害，再并列查看建除、神煞与冲煞；可用候选${preferred.join('、') || '暂无'}，条件候选${conditional.join('、') || '暂无'}，慎用候选${caution.join('、') || '暂无'}；同组按日期先后列出，不按证据数量生成名次`;
+  const mainLine = `事项主线：围绕${data.topicLabel}，先核对原始宜忌，再并列查看建除、神煞、冲煞与参与人年支、日支刑冲破害参考关系；参与人双支关系不自动改变分组；可用候选${preferred.join('、') || '暂无'}，条件候选${conditional.join('、') || '暂无'}，慎用候选${caution.join('、') || '暂无'}；同组按日期先后列出，不按证据数量生成名次`;
   const participantLines = data.participants.map((item) => {
     const usefulEvidenceAvailable =
       item.usefulGods.length > 0 && item.usefulGods.length <= 3 && item.avoidGods.length > 0;
@@ -907,7 +907,7 @@ function formatAlmanacInfo(data: AlmanacData) {
           const usefulText = usefulEvidenceAvailable
             ? `喜用资料${participant.usefulGods.join('、')}，忌神资料${participant.avoidGods.join('、')}（不用于本次简单加权）`
             : '本次不采用喜忌五行作简单加权';
-          return `${participant.name}：日主${participant.dayMaster}${participant.dayMasterElement}，${usefulText}；${relatedNotes.join('；') || '候选日期未见直接参与人刑冲破害提醒'}`;
+          return `${participant.name}：日主${participant.dayMaster}${participant.dayMasterElement}，${usefulText}；${relatedNotes.join('；') || '候选日期未见参与人刑冲破害参考关系'}`;
         })
         .join('；')
     : '';
