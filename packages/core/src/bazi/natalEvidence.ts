@@ -16,7 +16,7 @@ const CALCULATION_STEP_LIMITATION =
 const PILLAR_FACT_LIMITATION =
   '四柱事实只记录干支、十神、藏干、纳音、十二运、自坐与旬空等传统盘面资料；不得由单柱直接推出性格、六亲、健康、财富或事件结果' as const;
 const ANALYSIS_FACT_LIMITATION =
-  '旺衰、格局与取用事实只记录当前规则链的分类结果和依据；不同传统流派可能采用不同权重与次序，不得转写为绝对命格、成功率、疾病判断或现实保证' as const;
+  '旺衰、格局与取用事实只记录当前规则链已经闭合的分类结果和依据；证据并见而不能定向时必须保留待定，不得补造数量权重，也不得转写为绝对命格、成功率、疾病判断或现实保证' as const;
 const RELATION_FACT_LIMITATION =
   '伏吟、反吟及合冲刑害破只证明原局柱间存在对应干支结构；不直接证明现实事件性质、发生时间、人物意图或吉凶结果' as const;
 const COUNTER_FACT_LIMITATION =
@@ -274,7 +274,10 @@ function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
   return [
     {
       key: 'bazi:natal:analysis:day-master-strength',
-      status: hasText(strength.status) && strength.status !== '未知' ? '已记录' : '资料缺口',
+      status:
+        hasText(strength.status) && strength.status !== '未知' && strength.status !== '待综合判断'
+          ? '已记录'
+          : '资料缺口',
       type: '日主旺衰',
       result: strength.status,
       basis: strengthBasis,

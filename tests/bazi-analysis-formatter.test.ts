@@ -5,7 +5,7 @@ import { baziCalculator } from '@core/bazi/baziCalculator';
 import { formatBaziForPrompt } from '@core/bazi/baziAnalysisFormatter';
 import { analyzeShenShaWithTenGod } from '@core/bazi/baziShenSha/helpers/tenGodAnalysis';
 
-test('核心判断依据会输出旺衰条件与十神归类，不把内部权重外显为吉凶分', () => {
+test('核心判断依据会输出旺衰条件，待定时不伪造扶抑喜忌', () => {
   const result = baziCalculator.calculateBazi({
     year: 1995,
     month: 8,
@@ -23,15 +23,9 @@ test('核心判断依据会输出旺衰条件与十神归类，不把内部权�
   assert.match(text, /旺衰依据: 月令.+ \| 司令.+ \| 成局.+ \| 通根.+ \| 帮扶.+ \| 克泄耗.+/);
   assert.doesNotMatch(text, /旺衰[^\n]*得分|旺衰拆分:[^\n]*[+-]?\d/);
   assert.match(text, /格局依据: /);
-  assert.match(text, /用神: 主用/);
-  assert.match(text, /主忌/);
-  assert.match(text, /喜忌五行:/);
-  assert.match(text, /喜忌十神:/);
-  assert.match(text, /十神归类: 喜/);
-  assert.match(text, /十神归类: 喜(比劫|食伤|财星|官杀|印星)/);
-  assert.match(text, /忌(比劫|食伤|财星|官杀|印星)/);
-  assert.doesNotMatch(text, /十神归类: 喜(正印|偏印|正官|七杀|正财|偏财|食神|伤官|比肩|劫财) /);
-  assert.doesNotMatch(text, /忌(正印|偏印|正官|七杀|正财|偏财|食神|伤官|比肩|劫财)\n/);
+  assert.match(text, /旺衰: 待综合判断/);
+  assert.match(text, /用神: 旺衰尚待综合，暂不作单向扶抑取用/);
+  assert.doesNotMatch(text, /用神: 主用|主忌|喜忌五行:|喜忌十神:|十神归类:/);
   assert.match(text, /【五行】\n出现:/);
   assert.doesNotMatch(text, /结构比较优先/);
   assert.doesNotMatch(text, /五行[\s\S]{0,80}\d+%/);

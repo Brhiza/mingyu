@@ -113,44 +113,6 @@ function isDirectEvidence(value: string): boolean {
   return !value.includes('(');
 }
 
-function compareEvidenceCount(supporting: number, constraining: number): StrengthTendency {
-  if (supporting > constraining) return '扶身';
-  if (constraining > supporting) return '制身';
-  return '相持';
-}
-
-function resolveStructureTendency(
-  formationAnalysis: FormationAnalysis,
-  rootAnalysis: RootAnalysis,
-  supportAnalysis: SupportAnalysis,
-  constraintAnalysis: ConstraintAnalysis,
-): StrengthTendency {
-  const supportingFormations = formationAnalysis.formations.filter((formation) =>
-    SUPPORTING_FORMATION_EFFECTS.has(formation.effect),
-  ).length;
-  const constrainingFormations = formationAnalysis.formations.length - supportingFormations;
-
-  if (supportingFormations !== constrainingFormations) {
-    return compareEvidenceCount(supportingFormations, constrainingFormations);
-  }
-
-  const directSupporting =
-    rootAnalysis.roots.filter((root) => isDirectEvidence(root.branch)).length +
-    supportAnalysis.supporters.filter((supporter) => isDirectEvidence(supporter.stem)).length;
-  const directConstraining = constraintAnalysis.constraints.filter((constraint) =>
-    isDirectEvidence(constraint.stem),
-  ).length;
-
-  if (directSupporting !== directConstraining) {
-    return compareEvidenceCount(directSupporting, directConstraining);
-  }
-
-  const hiddenSupporting =
-    rootAnalysis.roots.length + supportAnalysis.supporters.length - directSupporting;
-  const hiddenConstraining = constraintAnalysis.constraints.length - directConstraining;
-  return compareEvidenceCount(hiddenSupporting, hiddenConstraining);
-}
-
 export function analyzeRoot(
   dayMaster: string,
   pillars: Pillars,
@@ -410,15 +372,6 @@ export function analyzeDayMasterStrength(
     : rootAnalysis.hasRoot
       ? '相持'
       : '制身';
-  const structureTendency = resolveStructureTendency(
-    formationAnalysis,
-    rootAnalysis,
-    supportAnalysis,
-    constraintAnalysis,
-  );
-  const tendencies = [monthTendency, rootTendency, structureTendency];
-  const supportingConditions = tendencies.filter((item) => item === '扶身').length;
-  const constrainingConditions = tendencies.filter((item) => item === '制身').length;
   const hasSupportingFormation = formationAnalysis.formations.some((formation) =>
     SUPPORTING_FORMATION_EFFECTS.has(formation.effect),
   );
@@ -426,11 +379,10 @@ export function analyzeDayMasterStrength(
     (formation) => !SUPPORTING_FORMATION_EFFECTS.has(formation.effect),
   );
 
-  let status: DayMasterStrengthAnalysis['status'] = '中和';
+  let status: DayMasterStrengthAnalysis['status'] = '待综合判断';
   if (
     monthTendency === '扶身' &&
     rootAnalysis.strongRoot &&
-    structureTendency === '扶身' &&
     constraintAnalysis.constraints.length === 0 &&
     !hasConstrainingFormation
   ) {
@@ -438,20 +390,12 @@ export function analyzeDayMasterStrength(
   } else if (
     !rootAnalysis.hasRoot &&
     monthTendency !== '扶身' &&
-    (supportAnalysis.supporters.length === 0 || hasConstrainingFormation) &&
+    supportAnalysis.supporters.length === 0 &&
     !hasSupportingFormation
   ) {
     status = '极弱';
-  } else if (!rootAnalysis.hasRoot && monthTendency !== '扶身') {
+  } else if (!rootAnalysis.hasRoot && monthTendency !== '扶身' && !hasSupportingFormation) {
     status = '身弱';
-  } else if (supportingConditions >= 2 && constrainingConditions === 0) {
-    status = '身强';
-  } else if (supportingConditions > constrainingConditions) {
-    status = '偏强';
-  } else if (constrainingConditions >= 2 && supportingConditions === 0) {
-    status = '身弱';
-  } else if (constrainingConditions > supportingConditions) {
-    status = '偏弱';
   }
 
   return {
@@ -477,8 +421,8 @@ export function analyzeDayMasterStrength(
       hasSupport: supportAnalysis.hasSupport,
       hasConstraint: constraintAnalysis.hasConstraint,
       ruleBasis: [
-        `月令与司令合看为${monthTendency}；通根条件为${rootTendency}；成局、明根明透及中余气合看为${structureTendency}`,
-        '先看得令，再看地支明根，最后比较成局、明透本气与中余气；不把旺相休囚死或司令关系换算成小数总分',
+        `月令与司令合看为${monthTendency}；通根条件为${rootTendency}；成局、帮扶与克泄耗分别登记`,
+        '无根失令且未见扶身成局时按身弱处理；扶身或制身条件单向闭合时可判极端状态；其余证据并见时保留待综合判断，不按成局、明根明透或中余气的出现数量裁定胜负',
       ],
     },
   };

@@ -197,7 +197,10 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   if (analysis.mingGe.basis) {
     result += `格局依据: ${analysis.mingGe.basis}\n`;
   }
-  if (analysis.usefulGod) {
+  const hasUsefulGodDecision = Boolean(
+    analysis.usefulGod.primaryFavorableWuxing || analysis.usefulGod.favorableWuxing?.length,
+  );
+  if (hasUsefulGodDecision) {
     const primaryFavorableWuxing =
       analysis.usefulGod.primaryFavorableWuxing || analysis.usefulGod.favorableWuxing?.[0] || '无';
     const secondaryFavorableWuxing =
@@ -232,6 +235,8 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     if (includeRules && promptStrategyTrace.length) {
       result += `取用脉络: ${promptStrategyTrace.join(' -> ')}\n`;
     }
+  } else {
+    result += '用神: 旺衰尚待综合，暂不作单向扶抑取用\n';
   }
 
   result += '\n【定盘口径】\n';
@@ -242,7 +247,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   } else {
     result += '时间口径: 采用明确传统时辰排盘\n';
   }
-  result += '解读口径: 旺衰、格局、用神均按本次盘面字段与既定规则链直接裁定\n';
+  result += '解读口径: 按本次盘面逐项记录旺衰、格局与取用条件；证据未闭合者保留待定\n';
 
   result += '\n【四柱】\n';
   const pillarNames = ['年柱', '月柱', '日柱', '时柱'] as const;

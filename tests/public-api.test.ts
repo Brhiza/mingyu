@@ -983,7 +983,8 @@ test('公开 API 应支持八字排盘', async () => {
   assert.equal(body.data.evidenceAnalysis.analysisFacts.length, 3);
   assert.equal(body.data.evidenceAnalysis.counterEvidenceFacts.length, 4);
   assert.equal(body.data.evidenceAnalysis.limitationFacts.length, 6);
-  assert.equal(body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(body.data.analysis.dayMasterStrength.status, '待综合判断');
+  assert.equal(body.data.evidenceAnalysis.summaryFact.status, '证据链有缺口');
   assert.equal(
     body.data.evidenceAnalysis.summaryFact.warningFactCount,
     body.data.warningFacts.length,

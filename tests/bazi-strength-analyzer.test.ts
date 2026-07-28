@@ -196,7 +196,7 @@ test('无根失令且无帮扶时，仍应判为极弱', () => {
   assert.ok(!('score' in result));
 });
 
-test('旺衰分类只读逐项结构条件，不要求任何数值权重', () => {
+test('根、透、克泄耗证据并见时不应按出现数量多数决', () => {
   const args = {
     seasonalStatus: {
       status: '囚',
@@ -226,9 +226,10 @@ test('旺衰分类只读逐项结构条件，不要求任何数值权重', () =>
     args.constraintAnalysis,
   );
 
-  assert.equal(result.status, '身强');
+  assert.equal(result.status, '待综合判断');
   assert.ok(Object.values(args).every((analysis) => !('score' in analysis)));
   assert.ok(Object.values(args).every((analysis) => !('totalStrength' in analysis)));
+  assert.ok(result.details.ruleBasis.some((item) => item.includes('不按成局')));
 });
 
 test('印星落在地支主气或藏干时，也应计入帮扶，但不应把主气与同支本气重复计分', () => {
@@ -443,7 +444,7 @@ test('三合三会被局外地支冲破时，只记录结构，不应计入成�
   });
 });
 
-test('克泄耗一方三合成局时，旺衰条件也应计入成局破势，不应仍按普通身弱看待', () => {
+test('克泄耗一方三合成局不能抹去已经存在的帮扶证据', () => {
   const formation = analyzeFormation(
     '甲',
     {
@@ -496,7 +497,32 @@ test('克泄耗一方三合成局时，旺衰条件也应计入成局破势，�
   assert.ok(formation.formations.every((item) => !('strength' in item)));
   assert.ok(!('totalStrength' in formation));
   assert.equal(result.details.formationEffect, '削弱');
-  assert.equal(result.status, '极弱');
+  assert.equal(result.status, '身弱');
+});
+
+test('无根失令但扶身一方已经成局时，应保留综合判断而不直接判弱', () => {
+  const result = analyzeDayMasterStrength(
+    { status: '死', isTimely: false },
+    {
+      formations: [
+        {
+          type: '三合',
+          branches: ['申', '子', '辰'],
+          wuxing: '水',
+          effect: '生身',
+        },
+      ],
+    },
+    { roots: [], hasRoot: false, strongRoot: false },
+    { supporters: [], hasSupport: false },
+    {
+      constraints: [{ position: 'year', stem: '庚' }],
+      hasConstraint: true,
+    },
+  );
+
+  assert.equal(result.status, '待综合判断');
+  assert.equal(result.details.formationEffect, '支持');
 });
 
 test('财官食伤在天干地支成势时，也应计入克泄耗', () => {

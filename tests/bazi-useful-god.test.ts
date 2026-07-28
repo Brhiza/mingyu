@@ -114,6 +114,31 @@ const testCases: Array<{
   expected: Record<string, unknown>;
 }> = [
   {
+    name: '旺衰待综合判断时，不应静默按身强默认取泄耗克',
+    args: ['待综合判断', { pattern: '偏财格', isSpecial: false }, '火'],
+    expected: {
+      favorableEq: [],
+      unfavorableEq: [],
+      useful: '',
+      avoid: '',
+      primaryReason: '旺衰待定',
+      traceIncludes: '扶抑方向待定',
+      traceNotIncludes: '默认取泄耗克',
+    },
+  },
+  {
+    name: '中和状态没有单向扶抑结论时，不应静默按身强处理',
+    args: ['中和', { pattern: '正官格', isSpecial: false }, '木'],
+    expected: {
+      favorableEq: [],
+      unfavorableEq: [],
+      useful: '',
+      avoid: '',
+      primaryReason: '旺衰待定',
+      traceIncludes: '旺衰未形成单向扶抑结论',
+    },
+  },
+  {
     name: '普通偏财格但身弱时，喜忌仍先按扶抑取印比',
     args: ['身弱', { pattern: '偏财格', isSpecial: false }, '火'],
     expected: {

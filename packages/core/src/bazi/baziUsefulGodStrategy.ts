@@ -137,15 +137,17 @@ function buildBaseDecisionState(
 
   const ordinaryPatternTrace = pattern.isSpecial
     ? []
-    : [`普通格局:${pattern.pattern}，喜忌先按${strengthStatus}扶抑，不因格名直接改判`];
+    : strengthStatus === '待综合判断' || strengthStatus === '中和'
+      ? [`普通格局:${pattern.pattern}；旺衰未形成单向扶抑结论`]
+      : [`普通格局:${pattern.pattern}，喜忌先按${strengthStatus}扶抑，不因格名直接改判`];
   const matchedRule = resolveBaseUsefulGodRule(strengthStatus, pattern);
 
   if (!matchedRule) {
     return {
-      favorableWuxing: bundles.output_wealth_officer,
-      unfavorableWuxing: bundles.resource_companion,
-      trace: [...ordinaryPatternTrace, '默认取泄耗克'],
-      primaryReason: '扶抑',
+      favorableWuxing: [],
+      unfavorableWuxing: [],
+      trace: [...ordinaryPatternTrace, '扶抑方向待定'],
+      primaryReason: '旺衰待定',
       matchedRuleIds: [],
     };
   }
@@ -281,10 +283,10 @@ function finalizeUsefulGodAnalysis(
   );
   const usefulGod = primaryFavorableWuxing
     ? resolveTenGodCategoryLabel(dmWuxing, primaryFavorableWuxing)
-    : '暂无';
+    : '';
   const avoidGod = primaryUnfavorableWuxing
     ? resolveTenGodCategoryLabel(dmWuxing, primaryUnfavorableWuxing)
-    : '暂无';
+    : '';
 
   return {
     favorable: favorableGods,
