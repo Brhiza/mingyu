@@ -29,7 +29,7 @@
 | 奇门遁甲 | 《烟波钓叟歌》《遁甲演义》《奇门遁甲秘籍大全》   |
 | 大六壬   | 《大六壬大全》《大六壬指南》                     |
 | 择日     | 《协纪辨方书》《象吉通书》                       |
-| 紫微斗数 | 基础排盘委托 `iztro`；当前 18 条格局按《紫微斗数全书》固定版本逐条登记原文与条件 |
+| 紫微斗数 | 基础排盘委托 `iztro`；固定版本传统目录登记 87 项，其中 55 条可复算、32 项只登记原典边界 |
 
 ---
 
@@ -137,7 +137,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **塔罗 Tarot**         | `mingyu-core/divination/tarot`                                                                                                                | 塔罗抽牌、牌阵、关键字                                                                                 |
 | **塔罗牌数据**         | `mingyu-core/divination/tarot-data`                                                                                                           | 塔罗牌定义与牌阵配置                                                                                   |
 | **占卜辅助工具**       | `mingyu-core/divination/divination-helpers`                                                                                                   | 占卜通用格式与计算工具                                                                                 |
-| **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | iztro 十二宫、星曜、四化、证据池与大限时间线；输出当前 18 条已校勘格局，未登记格局不作判断               |
+| **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | iztro 十二宫、星曜、四化、证据池与大限时间线；评估 55 条可复算格局并登记 32 项原典边界                  |
 | **七政四余 Qizheng**   | `mingyu-core/qizheng`                                                                                                                         | 十一星、真实距星二十八宿界、命身十二宫、庙旺吊照、天文事实与分层精度证据                              |
 
 ---
@@ -395,6 +395,8 @@ const harmony = assessAllHarmonyTransforms(pillars);
 const mingGua = calculateMingGua(1990, 'male'); // { number:1, gua:'坎', eastWest:'东四命' }
 const luckDir = buildLuckDirectionProfile('male', '庚'); // { direction:'顺行' }
 ```
+
+`analyzeTenGodStructure` 分别返回透干、藏支和合计次数；状态只标记“缺位、仅藏、透出、透藏并见”，不再用隐藏权重推断“有力”或“偏重”。
 
 ### 历法工具
 

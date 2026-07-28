@@ -3,6 +3,11 @@ import assert from 'node:assert/strict';
 
 import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
 import { PROMPT_GUIDANCE_TEXT, type MetaphysicsPromptMethod } from '../src/lib/prompt-guidance';
+import {
+  VERIFIED_ZIWEI_PATTERN_RULE_COUNT,
+  ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES,
+  ZIWEI_TRADITIONAL_PATTERN_CATALOG_COUNT,
+} from '@core/ziwei/iztro';
 import { assertPromptHasSingleRole } from './prompt-assertions';
 
 test('全部角色开场、解读主线和输出结构不包含伪系统控制话术', () => {
@@ -51,6 +56,14 @@ test('核心传统术数包含判断优先级、冲突处理和流派边界', ()
     assert.ok('sources' in guidance, `${method} 应提供传统依据`);
     terms.forEach((term) => assert.match(guidance.tradition, new RegExp(term)));
   });
+});
+
+test('紫微提示指引中的格局目录数量应与核心登记同步', () => {
+  const sources = PROMPT_GUIDANCE_TEXT.ziwei.sources;
+
+  assert.match(sources, new RegExp(`登记 ${ZIWEI_TRADITIONAL_PATTERN_CATALOG_COUNT} 项`));
+  assert.match(sources, new RegExp(`${VERIFIED_ZIWEI_PATTERN_RULE_COUNT} 条条件闭合规则`));
+  assert.match(sources, new RegExp(`${ZIWEI_TRADITIONAL_PATTERN_BOUNDARIES.length} 项.*边界`));
 });
 
 test('八宅、住宅风水、生肖、太乙与玄空提示词使用各自角色', () => {

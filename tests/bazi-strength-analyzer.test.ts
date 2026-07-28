@@ -115,7 +115,7 @@ test('月令气数应拒绝非法月支和司令天干，不应降级成平气',
   assert.throws(() => analyzeMonthQiProfile('辰', '不存在'), /司令天干无效/);
 });
 
-test('十神结构应保留出现次数和状态，不公开启发式分值', () => {
+test('十神结构应按透干与藏支事实分类，不以隐藏权重裁定强弱', () => {
   const profile = analyzeTenGodStructure(
     [
       { gan: '甲', zhi: '子', hiddenStems: ['癸'] },
@@ -132,6 +132,19 @@ test('十神结构应保留出现次数和状态，不公开启发式分值', ()
   assert.ok(profile.distributions.every((item) => item.totalCount >= 0));
   assert.ok(profile.distributions.every((item) => !('score' in item)));
   assert.ok(profile.familyDistributions.every((item) => !('score' in item)));
+  assert.ok(profile.distributions.every((item) => item.tenGod !== '日主'));
+  assert.equal(profile.distributions.find((item) => item.tenGod === '正印')?.status, '仅藏');
+  assert.equal(profile.distributions.find((item) => item.tenGod === '食神')?.status, '透藏并见');
+  assert.deepEqual(
+    profile.familyDistributions.find((item) => item.family === '印绶'),
+    {
+      family: '印绶',
+      visibleCount: 0,
+      hiddenCount: 1,
+      totalCount: 1,
+      status: '仅藏',
+    },
+  );
 });
 
 test('无根失令但仍有帮扶时，不应直接判为极弱', () => {

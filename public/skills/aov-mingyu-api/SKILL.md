@@ -327,7 +327,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 
 紫微排盘结果以 `payloadByScope.origin.palaces` 为主结构；接口同时提供 `四化`、`fourMutagens`、`birthMutagens` 和 `gongList`，方便 agent 直接读取生年四化和十二宫星曜。
 
-紫微 `patterns` 当前评估 18 条已按《紫微斗数全书》固定版本登记的规则，每项包含卷次、原文、命中条件和解释边界，`pattern_analysis` 汇总登记数、评估数与命中数。原 84 条未校勘规则继续停用；空列表只表示当前 18 条规则未命中，不表示命盘没有其他传统格局，也不要自行补造未登记格局。
+紫微 `patterns` 当前评估 55 条已按《紫微斗数全书》固定版本登记且可复算的规则，每项包含卷次、原文、命中条件和解释边界；另有 32 项原典边界不伪造命中，`pattern_analysis` 汇总 87 项固定目录的登记数、评估数与命中数。原 84 条未校勘项目规则继续停用；空列表只表示当前可复算规则未命中，不表示命盘没有其他传统格局，也不要自行补造目录外格局。
 
 八字紫微合参 `/bazi-ziwei/prompt` 使用同一份出生信息，支持 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope`、`promptMode`、`baziSchool`、`ziweiSchool`、`responseMode`。默认返回 `data.resultSummary.bazi`、`data.resultSummary.ziwei` 和 `data.prompt`；需要完整双盘时传 `responseMode: "full"`。
 

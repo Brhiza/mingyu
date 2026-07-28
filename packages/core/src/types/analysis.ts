@@ -350,16 +350,26 @@ export interface ExposedStemProfile {
   items: ExposedStemItem[];
   summary: string;
 }
+export type TenGodPresenceStatus = '缺位' | '仅藏' | '透出' | '透藏并见';
+
 export interface TenGodDistributionItem {
   tenGod: string;
   visibleCount: number;
   hiddenCount: number;
   totalCount: number;
-  status: string;
+  status: TenGodPresenceStatus;
+}
+
+export interface TenGodFamilyDistribution {
+  family: string;
+  visibleCount: number;
+  hiddenCount: number;
+  totalCount: number;
+  status: TenGodPresenceStatus;
 }
 export interface TenGodStructureProfile {
   distributions: TenGodDistributionItem[];
-  familyDistributions: Array<{ family: string; totalCount: number; status: string }>;
+  familyDistributions: TenGodFamilyDistribution[];
   summary: string;
 }
 export interface TenGodFlowItem {

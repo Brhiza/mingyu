@@ -377,7 +377,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 紫微 `promptScope` 支持 `origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`；`full` 会返回并写入本命、大限、流年、流月、流日、流时资料。
 - 紫微公开 API 默认只返回 `origin`（本命）范围；如果请求传入 `promptScope`，接口会返回 `origin` 加指定范围。各范围统一读取 `iztro` 原生宫位对象与运限对象，包含落宫、动态宫名、运限星曜、四化、自化、宫干飞化和三方四正，不再另建一份简化盘面。
 - 紫微排盘结果以 `payloadByScope.origin.palaces` 为主结构；同时提供 `四化`、`fourMutagens`、`birthMutagens` 和 `gongList`，方便 agent 直接读取生年四化和十二宫星曜。本命 `active_scope.palace_index` / `palace_name` 明确指向 `iztro` 的命宫，不使用宫位数组首项代替。
-- 紫微 `patterns` 当前评估 18 条已登记规则，每条附《紫微斗数全书》固定版本、卷次、原文、命中条件与解释边界；`pattern_analysis` 汇总登记数、评估数、命中数和未命中边界。原 84 条未校勘规则继续停用；空列表只表示当前登记规则未命中，不表示命盘没有其他传统格局。十二宫、星曜、四化、三方四正和运限不受影响。
+- 紫微 `patterns` 当前评估 55 条可复算规则，每条附《紫微斗数全书》固定版本、卷次、原文、命中条件与解释边界；另有 32 项因原文含糊或依赖运限只登记为不可唯一复算边界。`pattern_analysis` 汇总 87 项固定目录的登记数、评估数、命中数和未命中边界。原 84 条未校勘项目规则继续停用；空列表只表示当前可复算规则未命中，不表示命盘没有其他传统格局。十二宫、星曜、四化、三方四正和运限不受影响。
 - 八字提示词选择 `baziFortuneScope` 后，`data.resultSummary.fortuneSelection.promptPayload.triggerEvidence` 会返回原局、大运、流年、流月、流日逐层关系，包括同干、五合、相冲、同支、六合、六冲、刑、害、破、岁运并临与天克地冲。它只表示触发结构和时间层级，不直接表示吉凶或事件必然发生。
 - 八字出生时间必须满足接口输入约束后才会进入排盘；接口不接受模糊时间误差范围，也不会基于误差范围继续排盘。
 - 八字紫微合参接口为 `POST /bazi-ziwei/prompt`，使用同一份出生信息，同时计算八字和紫微，默认返回 `data.resultSummary.bazi`、`data.resultSummary.ziwei` 和 `data.prompt`；传 `responseMode: "full"` 可返回完整双盘。该接口使用 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope` 区分两套体系的分析范围。

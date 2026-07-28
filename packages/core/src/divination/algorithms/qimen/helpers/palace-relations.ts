@@ -285,23 +285,24 @@ export function analyzePalaceRelations(
     description: buildPairDescription(star, starElem, god, godElem, starGodRel),
   };
 
-  // 仅用三组关系的分类计数确定描述标签；score 只为旧调用兼容保留。
+  // 仅用三组关系是否全部同向确定描述标签；score 只为旧调用兼容保留。
   const relations = [doorStarRel, doorGodRel, starGodRel];
   const relationCounts = {
     supporting: relations.filter((relation) => relation !== '相克').length,
     controlling: relations.filter((relation) => relation === '相克').length,
   };
-  const score = relationCounts.supporting - relationCounts.controlling;
 
-  // 判定和谐等级
+  // 生助/比和与相克并见时保留两边事实，不用加减分阈值压成单一结论。
   let harmony: '和谐' | '有拉扯' | '冲突';
-  if (score >= 2) {
+  if (relationCounts.controlling === 0) {
     harmony = '和谐';
-  } else if (score <= -2) {
+  } else if (relationCounts.supporting === 0) {
     harmony = '冲突';
   } else {
     harmony = '有拉扯';
   }
+
+  const score = relationCounts.supporting - relationCounts.controlling;
 
   // 构建综合描述
   const description = buildOverallDescription(

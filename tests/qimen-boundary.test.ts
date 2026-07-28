@@ -134,6 +134,7 @@ test('奇门门星神关系应返回逐项关系与计数，不展示综合评�
     ['比和', '相克', '相克'],
   );
   assert.deepEqual(result.relationCounts, { supporting: 1, controlling: 2 });
+  assert.equal(result.harmony, '有拉扯');
   assert.doesNotMatch(result.description, /综合评分|\d+\s*\/\s*3/);
   assert.match(result.description, /不能压缩成单一吉凶结论/);
 });
