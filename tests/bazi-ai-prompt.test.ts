@@ -388,12 +388,16 @@ test('八字经典格局多选一条件应任一命中，不应要求全部同�
   );
 });
 
-test('八字经典格局应识别子午双包格的两子与子午各二条件', () => {
-  const twoZiPillars = {
+test('八字经典格局应按古籍识别子午双包，并排除只有两个子的误报', () => {
+  const twoZiOneWuPillars = {
     year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
-    month: { gan: '丙', zhi: '申', ganZhi: '丙申' },
+    month: { gan: '丙', zhi: '午', ganZhi: '丙午' },
     day: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
     hour: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+  };
+  const onlyTwoZiPillars = {
+    ...twoZiOneWuPillars,
+    month: { gan: '丙', zhi: '申', ganZhi: '丙申' },
   };
   const ziWuBothPillars = {
     year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
@@ -403,7 +407,7 @@ test('八字经典格局应识别子午双包格的两子与子午各二条件',
   };
   const hiddenStems = {
     year: ['癸'],
-    month: ['庚', '壬', '戊'],
+    month: ['丁', '己'],
     day: ['戊', '乙', '癸'],
     hour: ['癸'],
   };
@@ -415,11 +419,15 @@ test('八字经典格局应识别子午双包格的两子与子午各二条件',
 
   for (const identifyClassicPattern of [identifyClassicPatternLocal, identifyClassicPatternCore]) {
     assert.equal(
-      identifyClassicPattern('甲', '申', twoZiPillars, hiddenStems, '正印格')?.name,
+      identifyClassicPattern('甲', '午', twoZiOneWuPillars, hiddenStems, '正印格')?.name,
       '子午双包格',
     );
     assert.equal(
       identifyClassicPattern('甲', '午', ziWuBothPillars, ziWuHiddenStems, '偏财格')?.name,
+      '子午双包格',
+    );
+    assert.notEqual(
+      identifyClassicPattern('甲', '申', onlyTwoZiPillars, hiddenStems, '正印格')?.name,
       '子午双包格',
     );
   }
@@ -503,18 +511,18 @@ test('八字经典外格应按古籍口径限制关键成格条件', () => {
   }
 });
 
-test('八字经典格局提示词应统一收敛剩余主字类断语', () => {
+test('八字经典格局提示词应保留福德秀气的成格边界，不输出统一强断', () => {
   const chartResult = {
     pillars: {
-      year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
-      month: { gan: '丙', zhi: '子', ganZhi: '丙子' },
-      day: { gan: '甲', zhi: '申', ganZhi: '甲申' },
+      year: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
+      month: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+      day: { gan: '乙', zhi: '巳', ganZhi: '乙巳' },
       hour: { gan: '己', zhi: '丑', ganZhi: '己丑' },
     },
     hiddenStems: {
-      year: ['癸'],
-      month: ['癸'],
-      day: ['庚', '壬', '戊'],
+      year: ['辛'],
+      month: ['甲', '丙', '戊'],
+      day: ['丙', '戊', '庚'],
       hour: ['己', '癸', '辛'],
     },
     analysis: {
@@ -524,9 +532,10 @@ test('八字经典格局提示词应统一收敛剩余主字类断语', () => {
 
   const section = generateEnhancedAnalysisSection(chartResult as any, 'general');
 
-  assert.match(section, /【经典格局】福德格（传统等级参考：中等，以成败条件裁定）/);
-  assert.match(section, /传统多取象为一生福禄厚重，并按原局成败与岁运同看/);
-  assert.doesNotMatch(section, /主一生福禄厚重|主人聪明智慧|多主武贵|主辛苦创业|主艺术才华/);
+  assert.match(section, /【经典格局】福德秀气格（传统等级参考：中等，以成败条件裁定）/);
+  assert.match(section, /专取乙、丁、己、辛、癸五阴干/);
+  assert.match(section, /只识别共同结构，不统一强断/);
+  assert.doesNotMatch(section, /主一生福禄厚重|主人聪明智慧/);
 });
 
 test('八字提示词资料包中的取用脉络应保留判断依据，不直出内部成格强断语', () => {

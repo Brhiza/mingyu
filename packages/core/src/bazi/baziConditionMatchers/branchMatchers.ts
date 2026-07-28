@@ -25,6 +25,12 @@ export const noJianZhiMatcher: Matcher = ({ condition, allBranches }) => {
 };
 
 export const diZhiDuoMatcher: Matcher = ({ condition, allBranches }) => {
+  if (condition === '子午双包') {
+    const ziCount = allBranches.filter((branch) => branch === '子').length;
+    const wuCount = allBranches.filter((branch) => branch === '午').length;
+    return (ziCount >= 2 && wuCount >= 1) || (ziCount >= 1 && wuCount >= 2);
+  }
+
   if (condition.includes('子午各二')) {
     return (
       allBranches.filter((branch) => branch === '子').length >= 2 &&

@@ -6,7 +6,7 @@
  * 格局分类：
  * - 专旺格：曲直(木)/炎上(火)/稼穑(土)/从革(金)/润下(水)
  * - 化气格：甲己化土/乙庚化金/丙辛化水/丁壬化木/戊癸化火
- * - 特殊日格：魁罡/金神/日贵/日德/福德/子午双包/沐浴
+ * - 特殊结构：金神/日贵/日德/福德秀气/子午双包
  * - 逸格局：井栏叉格/壬骑龙背/六阴朝阳/飞天禄马等
  */
 
@@ -14,7 +14,7 @@ import type { BaziChartResult } from '../baziTypes';
 import { checkCondition } from '../baziConditionMatchers';
 import { HEAVENLY_STEMS } from '../../ganzhi/data';
 
-interface ClassicPattern {
+export interface ClassicPattern {
   id: string;
   name: string;
   description: string;
@@ -29,6 +29,11 @@ interface ClassicPattern {
   favorableWuxing: string[];
   unfavorableWuxing: string[];
   level: '极品' | '上等' | '中等';
+  source?: {
+    title: string;
+    quote: string;
+    url: string;
+  };
 }
 
 const CLASSIC_PATTERNS: ClassicPattern[] = [
@@ -76,17 +81,40 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
   },
 
   {
-    id: 'jin-shen',
+    id: 'jin-shen-jia',
     name: '金神格',
     description:
-      '甲己日生乙丑、己巳、癸酉三时。金神入格，性情刚烈，多主武贵。忌火乡运行，喜水木运。',
+      '甲日生乙丑、己巳、癸酉三时，为金神格的基本结构。古籍以火制金神为成格关键，明言喜火乡、惧水乡；这里只识别原局结构，最终成败仍须结合火局与岁运。',
     conditions: {
-      dayStems: ['甲', '己'],
+      dayStems: ['甲'],
       anyConditions: ['时柱为乙丑', '时柱为己巳', '时柱为癸酉'],
     },
-    favorableWuxing: ['水', '木'],
-    unfavorableWuxing: ['火'],
+    favorableWuxing: ['火'],
+    unfavorableWuxing: ['水'],
     level: '上等',
+    source: {
+      title: '《渊海子平·论金神》',
+      quote: '金神乃破败之神，要制伏，入火乡为胜；惧水乡，则非福矣。',
+      url: 'https://zh.wikisource.org/wiki/淵海子平',
+    },
+  },
+  {
+    id: 'jin-shen-ji',
+    name: '金神格',
+    description:
+      '己日生乙丑、己巳、癸酉三时，为金神格的基本结构。古籍另有“己日金神何劳火制”之辨，己日不能照搬甲日一概定为喜火或忌水，须结合身旺与金气轻重裁定。',
+    conditions: {
+      dayStems: ['己'],
+      anyConditions: ['时柱为乙丑', '时柱为己巳', '时柱为癸酉'],
+    },
+    favorableWuxing: [],
+    unfavorableWuxing: [],
+    level: '上等',
+    source: {
+      title: '《三命通会·卷六》',
+      quote: '甲日金神偏宜火地，己日金神何劳火制。',
+      url: 'https://zh.wikisource.org/wiki/三命通會/卷六',
+    },
   },
 
   {
@@ -100,19 +128,6 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     favorableWuxing: ['水', '木'],
     unfavorableWuxing: ['火', '土'],
     level: '极品',
-  },
-
-  {
-    id: 'gui-ding',
-    name: '癸丁格',
-    description: '癸日见丁巳时。癸水遇丁火财星坐巳，财官双美。忌亥冲巳破局，喜金水相辅。',
-    conditions: {
-      dayStems: ['癸'],
-      otherConditions: ['时柱为丁巳'],
-    },
-    favorableWuxing: ['金', '水'],
-    unfavorableWuxing: ['木', '土'],
-    level: '上等',
   },
 
   {
@@ -138,21 +153,6 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     },
     favorableWuxing: ['金', '水'],
     unfavorableWuxing: ['火', '午'],
-    level: '上等',
-  },
-
-  {
-    id: 'ren-zhe-bian-de',
-    name: '仁者变德格',
-    description:
-      '甲己日见亥月，亥为甲木长生、己土胞胎。甲己合而化德，仁而有守。忌刑冲破害，喜官印相生。',
-    conditions: {
-      dayStems: ['甲', '己'],
-      monthBranch: ['亥'],
-      otherConditions: ['亥中壬水发用', '亥水当令'],
-    },
-    favorableWuxing: ['水', '木'],
-    unfavorableWuxing: ['金'],
     level: '上等',
   },
 
@@ -267,31 +267,31 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
   },
 
   {
-    id: 'yi-ji-shu-gui',
-    name: '乙己鼠贵格',
+    id: 'liu-yi-shu-gui',
+    name: '六乙鼠贵格',
     description:
-      '乙日或己日见丙子时。乙己阴柔，夜生得子时为贵。忌午冲子破局，忌丑合子散局。主名利双收。',
+      '乙日见丙子时，为六乙鼠贵的基本结构；须避午冲、丑绊、卯刑，并避申庚、酉辛显露破格。月令另有财官印可取时，仍应先按正常格局论。',
     conditions: {
-      dayStems: ['乙', '己'],
-      otherConditions: ['时柱为丙子'],
+      dayStems: ['乙'],
+      otherConditions: [
+        '时柱为丙子',
+        '不见地支午',
+        '不见地支丑',
+        '不见地支卯',
+        '不见地支申',
+        '不见地支酉',
+        '不见天干庚',
+        '不见天干辛',
+      ],
     },
-    favorableWuxing: ['水', '木'],
-    unfavorableWuxing: ['火', '午'],
+    favorableWuxing: [],
+    unfavorableWuxing: ['午', '丑', '卯', '申', '酉', '庚', '辛'],
     level: '上等',
-  },
-
-  {
-    id: 'xing-chong-de-lu',
-    name: '刑冲得禄格',
-    description:
-      '日干禄神逢刑冲而得用。如甲日见寅被申冲，反得申中庚金为官。刑冲得禄，因祸得福。忌禄神被合住失效。',
-    conditions: {
-      dayStems: [...HEAVENLY_STEMS],
-      otherConditions: ['禄神逢冲'],
+    source: {
+      title: '《三命通会·卷六》',
+      quote: '乙木生临丙子时，要无午破卯刑之；乙日生人得子时，名为鼠贵最为奇。',
+      url: 'https://zh.wikisource.org/wiki/三命通會/卷六',
     },
-    favorableWuxing: ['官', '杀'],
-    unfavorableWuxing: ['比', '劫'],
-    level: '上等',
   },
 
   {
@@ -320,19 +320,6 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     favorableWuxing: ['火', '木'],
     unfavorableWuxing: ['水'],
     level: '上等',
-  },
-
-  {
-    id: 'jia-qiu',
-    name: '夹丘格',
-    description: '戊己日生辰戌时或丑未时，两库夹日。土得库藏，财富丰厚。忌木来克破，喜火生土。',
-    conditions: {
-      dayStems: ['戊', '己'],
-      anyConditions: ['时支见辰', '时支见戌', '时支见丑', '时支见未'],
-    },
-    favorableWuxing: ['火', '土'],
-    unfavorableWuxing: ['木'],
-    level: '中等',
   },
 
   {
@@ -409,14 +396,19 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
     id: 'ri-gui',
     name: '日贵格',
     description:
-      '丁酉日或癸巳日生，夜生更贵。丁酉日贵人在酉，癸巳日贵人在巳。主人聪慧温和，多得贵人相助。忌午冲子破。',
+      '日贵只有丁酉、丁亥、癸巳、癸卯四日。古籍另分昼夜：癸卯、丁亥宜日生，癸巳、丁酉宜夜生；当前仅识别日柱结构，昼夜加强条件不在此处代判。',
     conditions: {
       dayStems: ['丁', '癸'],
-      anyConditions: ['日柱为丁酉', '日柱为癸巳'],
+      anyConditions: ['日柱为丁酉', '日柱为丁亥', '日柱为癸巳', '日柱为癸卯'],
     },
-    favorableWuxing: ['金', '水'],
-    unfavorableWuxing: ['火', '午'],
+    favorableWuxing: [],
+    unfavorableWuxing: [],
     level: '上等',
+    source: {
+      title: '《三命通会·卷六》',
+      quote: '此格只有四日：丁酉、丁亥、癸巳、癸卯。日生要癸卯、丁亥，夜生要癸巳、丁酉。',
+      url: 'https://zh.wikisource.org/wiki/三命通會/卷六',
+    },
   },
   {
     id: 'ri-de',
@@ -433,53 +425,56 @@ const CLASSIC_PATTERNS: ClassicPattern[] = [
   },
   {
     id: 'fu-de',
-    name: '福德格',
+    name: '福德秀气格',
     description:
-      '甲申、乙酉、丙子、丁亥、戊午、己巳、庚辰、辛卯、壬寅、癸丑十位日柱。福德入命，主一生福禄厚重。忌刑冲破害。',
+      '福德秀气专取乙、丁、己、辛、癸五阴干，日支坐巳、酉、丑之一，并须四柱会齐巳酉丑金局。各日干的成败与喜忌不同，此处只识别共同结构，不统一强断。',
     conditions: {
-      dayStems: [...HEAVENLY_STEMS],
+      dayStems: ['乙', '丁', '己', '辛', '癸'],
       anyConditions: [
-        '日柱为甲申',
+        '日柱为乙巳',
         '日柱为乙酉',
-        '日柱为丙子',
-        '日柱为丁亥',
-        '日柱为戊午',
+        '日柱为乙丑',
+        '日柱为丁巳',
+        '日柱为丁酉',
+        '日柱为丁丑',
         '日柱为己巳',
-        '日柱为庚辰',
-        '日柱为辛卯',
-        '日柱为壬寅',
+        '日柱为己酉',
+        '日柱为己丑',
+        '日柱为辛巳',
+        '日柱为辛酉',
+        '日柱为辛丑',
+        '日柱为癸巳',
+        '日柱为癸酉',
         '日柱为癸丑',
       ],
+      otherConditions: ['巳酉丑三合金局'],
     },
-    favorableWuxing: ['财', '官'],
-    unfavorableWuxing: ['刑', '冲'],
+    favorableWuxing: [],
+    unfavorableWuxing: [],
     level: '中等',
+    source: {
+      title: '《三命通会·卷六》',
+      quote: '此格专以巳酉丑金局而看所得天干。',
+      url: 'https://zh.wikisource.org/wiki/三命通會/卷六',
+    },
   },
   {
     id: 'zi-wu-shuang-bao',
     name: '子午双包格',
     description:
-      '四柱中有两子、两午，或子午各二。子午为坎离水火，子午双包主阴阳调和、水火既济。忌丑未破局。主人聪明智慧。',
+      '四柱须同时见子、午，并构成两子包一午、两午包一子或两子两午；只有两个子或只有两个午均不成格。这里只识别古籍所列的支数结构。',
     conditions: {
       dayStems: [...HEAVENLY_STEMS],
-      anyConditions: ['地支有两子', '地支有两午', '子午各二'],
+      otherConditions: ['子午双包'],
     },
-    favorableWuxing: ['水', '火'],
-    unfavorableWuxing: ['土'],
+    favorableWuxing: [],
+    unfavorableWuxing: [],
     level: '上等',
-  },
-  {
-    id: 'mu-yu',
-    name: '沐浴格/败地逢生格',
-    description:
-      '日主坐沐浴（败）地，如甲子、乙巳、庚午、辛亥等。沐浴又名败地，但逢合则化凶为吉。主艺术才华。',
-    conditions: {
-      dayStems: ['甲', '乙', '庚', '辛'],
-      anyConditions: ['日柱为甲子', '日柱为乙巳', '日柱为庚午', '日柱为辛亥'],
+    source: {
+      title: '《三命通会·卷六》',
+      quote: '或两子两午，或两午包一子，或两子包一午。',
+      url: 'https://zh.wikisource.org/wiki/三命通會/卷六',
     },
-    favorableWuxing: ['印', '官'],
-    unfavorableWuxing: ['比', '劫'],
-    level: '中等',
   },
 ];
 

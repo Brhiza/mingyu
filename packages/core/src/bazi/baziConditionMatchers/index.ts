@@ -11,7 +11,6 @@ import {
   noTouGanMatcher,
 } from './stemMatchers';
 import { strengthMatcher } from './strengthMatchers';
-import { luShenChongMatcher } from './miscMatchers';
 import type { CheckContext, Matcher } from './types';
 
 export { branchesContain } from './helpers';
@@ -33,7 +32,6 @@ const MATCHERS: Matcher[] = [
   strengthMatcher,
   tianGanDuoMatcher,
   noTouGanMatcher,
-  luShenChongMatcher,
   diZhiDuoMatcher,
   wuHeMatcher,
   noZhengHeMatcher,
