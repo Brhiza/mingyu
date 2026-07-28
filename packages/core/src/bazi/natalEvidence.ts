@@ -288,7 +288,10 @@ function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
     },
     {
       key: 'bazi:natal:analysis:pattern',
-      status: hasText(pattern.pattern) && pattern.pattern !== '未知' ? '已记录' : '资料缺口',
+      status:
+        hasText(pattern.pattern) && pattern.pattern !== '未知' && pattern.pattern !== '待综合判断'
+          ? '已记录'
+          : '资料缺口',
       type: '格局',
       result: pattern.pattern,
       basis: [

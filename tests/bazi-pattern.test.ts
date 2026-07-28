@@ -184,7 +184,7 @@ test('交节初段的上一月余气司权即使不在本月藏干中，也应�
   assert.match(result.basis || '', /司权为甲/);
 });
 
-test('杂气多透时本气优先于透干柱位，不应只按透干柱位优先定格', () => {
+test('月令藏干兼透时不得按藏干次序或透干柱位强定单一格局', () => {
   const pillars: Pillars = {
     year: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
     month: { gan: '甲', zhi: '戌', ganZhi: '甲戌' },
@@ -195,8 +195,26 @@ test('杂气多透时本气优先于透干柱位，不应只按透干柱位优�
   const result = determinePattern(pillars, '身强', getTenGod, '戊');
 
   assert.equal(result.isSpecial, false);
+  assert.equal(result.pattern, '待综合判断');
+  assert.match(result.basis || '', /辛（正官）、丁（伤官）同时透出/);
+  assert.match(result.basis || '', /一透则一用，兼透则兼用/);
+  assert.match(result.basis || '', /不按藏干次序、重复透出次数或年、月、时柱位强定/);
+});
+
+test('月令藏干只有一项透出时仍按一透一用取格', () => {
+  const pillars: Pillars = {
+    year: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
+    month: { gan: '甲', zhi: '戌', ganZhi: '甲戌' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '壬', zhi: '申', ganZhi: '壬申' },
+  };
+
+  const result = determinePattern(pillars, '身强', getTenGod, '戊');
+
+  assert.equal(result.isSpecial, false);
   assert.equal(result.pattern, '杂气正官格');
-  assert.match(result.basis || '', /透干/);
+  assert.match(result.basis || '', /辛为月令藏干，单独透于年干/);
+  assert.match(result.basis || '', /一透则一用/);
 });
 
 test('特殊格判断应把月令司权计入，不应只看月支藏干整体属性', () => {

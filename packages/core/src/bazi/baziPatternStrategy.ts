@@ -7,7 +7,6 @@ import type { PatternAnalysis, Pillars } from './baziTypes';
 import { assertHeavenlyStem, assertPillars } from './baziUtils';
 
 type GetTenGodFn = (gan: string, dayMaster: string) => string;
-type PillarPosition = 'year' | 'month' | 'hour';
 type HiddenStemPosition = keyof Pillars;
 
 interface SpecialPatternForceSummary {
@@ -24,10 +23,6 @@ interface SpecialPatternForceSummary {
 }
 
 const SAME_PARTY_GODS = ['比肩', '劫财', '正印', '偏印'];
-
-function isSamePartyGod(tenGod: string) {
-  return SAME_PARTY_GODS.includes(tenGod);
-}
 
 function getPatternNameByTenGod(tenGod: string, dayMaster: string, monthBranch: string) {
   // 建禄格/月刃格需要精确校验月支是否为禄/刃位
@@ -171,58 +166,22 @@ function collectSpecialPatternForce(
   };
 }
 
-function resolveExposedStemPriority(
+function collectExposedMonthStems(monthStems: string[], pillars: Pillars): string[] {
+  const exposedStems = new Set([pillars.year.gan, pillars.month.gan, pillars.hour.gan]);
+  return monthStems.filter((stem) => exposedStems.has(stem));
+}
+
+function resolveExposedPatternStem(
   monthStems: string[],
   pillars: Pillars,
   dayMaster: string,
   getTenGod: GetTenGodFn,
 ): string | null {
-  const exposedStemByPosition: Array<{ position: PillarPosition; stem: string }> = [
-    { position: 'year', stem: pillars.year.gan },
-    { position: 'month', stem: pillars.month.gan },
-    { position: 'hour', stem: pillars.hour.gan },
-  ];
-  const positionRank: Record<PillarPosition, number> = {
-    month: 0,
-    hour: 1,
-    year: 2,
-  };
-
-  const candidates = monthStems
-    .filter((stem) => {
-      const tenGod = getTenGod(stem, dayMaster);
-      return !isSamePartyGod(tenGod) && exposedStemByPosition.some((item) => item.stem === stem);
-    })
-    .map((stem, stemIndex) => {
-      const exposures = exposedStemByPosition.filter((item) => item.stem === stem);
-      const bestPositionRank = Math.min(...exposures.map((item) => positionRank[item.position]));
-
-      return {
-        stem,
-        stemIndex,
-        exposureCount: exposures.length,
-        bestPositionRank,
-      };
-    });
-
-  if (candidates.length === 0) {
-    return null;
-  }
-
-  candidates.sort((left, right) => {
-    // 本气/中气/余气层次优先（《子平真诠》本气透干优先取格）
-    if (left.stemIndex !== right.stemIndex) {
-      return left.stemIndex - right.stemIndex;
-    }
-    // 层次相同时透干次数多者优先
-    if (left.exposureCount !== right.exposureCount) {
-      return right.exposureCount - left.exposureCount;
-    }
-    // 再按透干柱位（月干 > 时干 > 年干）
-    return left.bestPositionRank - right.bestPositionRank;
-  });
-
-  return candidates[0].stem;
+  return (
+    collectExposedMonthStems(monthStems, pillars).find(
+      (stem) => !isSamePartyTenGod(getTenGod(stem, dayMaster)),
+    ) || null
+  );
 }
 
 const TEN_GOD_TO_SUB_PATTERN: Record<string, 'wealth' | 'officer' | 'output'> = {
@@ -354,6 +313,7 @@ export function determinePattern(
   const monthPrincipalGod = getTenGod(monthPrincipalStem, dayMaster);
   const activeMonthStem = monthCommander || monthStems[0];
   const monthMainGod = getTenGod(activeMonthStem, dayMaster);
+  const exposedMonthStems = collectExposedMonthStems(monthStems, pillars);
   let basis: string;
 
   if (LU_BRANCH_MAP[dayMaster] === monthBranch) {
@@ -362,6 +322,10 @@ export function determinePattern(
   } else if (REN_BRANCH_MAP[dayMaster] === monthBranch) {
     patternName = '月刃格';
     basis = `月令${monthBranch}为日主${dayMaster}之羊刃位，按月刃格处理`;
+  } else if (exposedMonthStems.length > 1) {
+    const exposedUses = exposedMonthStems.map((stem) => `${stem}（${getTenGod(stem, dayMaster)}）`);
+    patternName = '待综合判断';
+    basis = `月令藏干${exposedUses.join('、')}同时透出；《子平真诠》称“一透则一用，兼透则兼用”，须再结合各用神相互关系判断成败，不按藏干次序、重复透出次数或年、月、时柱位强定单一格局`;
   } else if (monthPrincipalGod === '劫财') {
     if (REN_BRANCH_MAP[dayMaster]) {
       patternName = '劫财格';
@@ -386,19 +350,19 @@ export function determinePattern(
       basis = `月令主气为${activeMonthStem}，对应劫财，日主${dayMaster}为阴干无真刃，按劫财格处理`;
     }
   } else {
-    const prioritizedStem = resolveExposedStemPriority(monthStems, pillars, dayMaster, getTenGod);
+    const exposedPatternStem = resolveExposedPatternStem(monthStems, pillars, dayMaster, getTenGod);
 
-    if (prioritizedStem) {
-      const tenGod = getTenGod(prioritizedStem, dayMaster);
-      const prefix = monthCommander && prioritizedStem !== activeMonthStem ? '杂气' : '';
+    if (exposedPatternStem) {
+      const tenGod = getTenGod(exposedPatternStem, dayMaster);
+      const prefix = monthCommander && exposedPatternStem !== activeMonthStem ? '杂气' : '';
       patternName = `${prefix}${tenGod}格`;
       const exposedPosition =
-        pillars.month.gan === prioritizedStem
+        pillars.month.gan === exposedPatternStem
           ? '月干'
-          : pillars.hour.gan === prioritizedStem
+          : pillars.hour.gan === exposedPatternStem
             ? '时干'
             : '年干';
-      basis = `${prioritizedStem}为月令藏干，透于${exposedPosition}，按透干优先取格`;
+      basis = `${exposedPatternStem}为月令藏干，单独透于${exposedPosition}，按“一透则一用”取格`;
     } else {
       patternName = getPatternNameByTenGod(monthMainGod, dayMaster, monthBranch);
       basis = `月令主气为${activeMonthStem}，未见更优透干，按月令本气取格`;

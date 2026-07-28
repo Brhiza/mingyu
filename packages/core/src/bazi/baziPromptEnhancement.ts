@@ -1,6 +1,6 @@
 /**
  * AI 提示词增强模块
- * 整合病药法、通关法、经典格局与可由盘面证明的传统旁证。
+ * 整合经典格局与可由盘面证明的传统旁证。
  */
 
 import type { BaziChartResult } from './baziTypes';

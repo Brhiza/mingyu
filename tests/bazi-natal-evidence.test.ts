@@ -87,6 +87,34 @@ test('八字本命提示词应保留用户选择的传统时辰且不混入工�
   assert.doesNotMatch(prompt, /出生时间敏感性|候选时柱|缺少时柱/);
 });
 
+test('月令藏干兼透时格局应作为资料缺口贯穿证据与最终提示词', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1980,
+    month: 1,
+    day: 6,
+    timeIndex: 9,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['己未', '丁丑', '戊寅', '辛酉'],
+  );
+  assert.equal(result.monthCommander, '癸');
+  assert.equal(result.analysis.mingGe.pattern, '待综合判断');
+  assert.match(result.analysis.mingGe.basis || '', /己（劫财）、辛（伤官）同时透出/);
+  assert.match(result.analysis.mingGe.basis || '', /兼透则兼用/);
+  assert.ok(result.evidenceAnalysis);
+
+  const patternFact = result.evidenceAnalysis.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.status, '资料缺口');
+  assert.equal(patternFact?.result, '待综合判断');
+
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 待综合判断/);
+  assert.doesNotMatch(prompt, /格局: (?:杂气)?伤官格/);
+});
+
 test('八字真太阳时本命证据应引用校正后的唯一时间并采用唯一校正时刻', () => {
   const result = baziCalculator.calculateBazi({
     year: 1990,

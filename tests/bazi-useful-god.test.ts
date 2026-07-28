@@ -1,11 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import {
-  detectDiseaseMedicine,
-  detectTongguanNeed,
-  getDrainWuxing,
-} from '@core/bazi/baziEnhancement/useGodRules';
 import { determineUsefulGod } from '@core/bazi/baziUsefulGodStrategy';
 import { CLIMATE_RULES } from '@core/bazi/baziTherapeuticRules';
 import type { PatternAnalysis } from '@core/bazi/baziTypes';
@@ -6311,16 +6306,4 @@ test('用神策略应拒绝非法五行和干支，不应输出待定结果掩�
       }),
     /五行统计五行无效/,
   );
-});
-
-test('病药与通关规则应拒绝非法五行，不应返回空字符串或待定', () => {
-  const pattern: PatternAnalysis = { pattern: '正官格', isSpecial: false };
-
-  assert.equal(getDrainWuxing('土'), '金');
-  assert.throws(() => getDrainWuxing('风'), /泄化五行无效/);
-  assert.throws(
-    () => detectDiseaseMedicine({ 木: 45, 风: 1 }, pattern, '身强'),
-    /五行统计五行无效/,
-  );
-  assert.throws(() => detectTongguanNeed({ 木: 30, 金: 30 }, ['木'], ['风']), /忌用五行无效/);
 });
