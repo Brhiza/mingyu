@@ -2,11 +2,82 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { ShenShaCalculator as CoreShenShaCalculator } from '../packages/core/src/bazi/baziShenSha';
+import { baziCalculator } from '@core/bazi/baziCalculator';
 import { ShenShaCalculator } from '@core/bazi/baziShenSha';
+import type { ShenShaVariantConfig } from '@core/bazi/baziShenSha';
 
 function createCalculators(options?: ConstructorParameters<typeof CoreShenShaCalculator>[0]) {
   return [new ShenShaCalculator(options), new CoreShenShaCalculator(options)];
 }
+
+test('切换神煞争议口径只能改变旁证，不得改写旺衰、格局、取用与核心证据', () => {
+  const inputs = [
+    {
+      year: 1980,
+      month: 1,
+      day: 1,
+      timeIndex: 0,
+      gender: 'male' as const,
+      isLunar: false,
+      isLeapMonth: false,
+      useTrueSolarTime: false,
+    },
+    {
+      year: 1980,
+      month: 1,
+      day: 1,
+      timeIndex: 5,
+      gender: 'male' as const,
+      isLunar: false,
+      isLeapMonth: false,
+      useTrueSolarTime: false,
+    },
+  ];
+  const variantConfigs: Array<Partial<ShenShaVariantConfig>> = [];
+
+  for (const kongWangBasis of ['day', 'day-and-year'] as const) {
+    for (const yangRenMode of ['yang-stems-only', 'include-yin-ren'] as const) {
+      for (const tongZiScope of ['day-hour', 'all-pillars'] as const) {
+        variantConfigs.push({ kongWangBasis, yangRenMode, tongZiScope });
+      }
+    }
+  }
+
+  for (const input of inputs) {
+    const baseline = baziCalculator.calculateBazi(input);
+
+    for (const shenShaVariants of variantConfigs) {
+      const result = baziCalculator.calculateBazi({ ...input, shenShaVariants });
+      const label = `${JSON.stringify(input)} / ${JSON.stringify(shenShaVariants)}`;
+
+      assert.deepEqual(result.analysis, baseline.analysis, label);
+      assert.deepEqual(
+        result.evidenceAnalysis?.analysisFacts,
+        baseline.evidenceAnalysis?.analysisFacts,
+        label,
+      );
+    }
+  }
+
+  const midnightBaseline = baziCalculator.calculateBazi(inputs[0]);
+  const alternateKongWang = baziCalculator.calculateBazi({
+    ...inputs[0],
+    shenShaVariants: { kongWangBasis: 'day-and-year' },
+  });
+  const alternateTongZi = baziCalculator.calculateBazi({
+    ...inputs[0],
+    shenShaVariants: { tongZiScope: 'all-pillars' },
+  });
+  const siHourBaseline = baziCalculator.calculateBazi(inputs[1]);
+  const alternateYangRen = baziCalculator.calculateBazi({
+    ...inputs[1],
+    shenShaVariants: { yangRenMode: 'include-yin-ren' },
+  });
+
+  assert.notDeepEqual(alternateKongWang.shensha, midnightBaseline.shensha);
+  assert.notDeepEqual(alternateTongZi.shensha, midnightBaseline.shensha);
+  assert.notDeepEqual(alternateYangRen.shensha, siHourBaseline.shensha);
+});
 
 test('神煞计算应先拒绝不完整四柱、非法干支和非法性别', () => {
   for (const calculator of createCalculators()) {
