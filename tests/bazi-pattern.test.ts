@@ -359,6 +359,140 @@ test('壬印透而不露丙又逢辰戌冲应按原典记录有情卒无情', ()
   assert.match(result.basis || '', /有情而卒成无情/);
 });
 
+test('四墓月令相冲都只记录冲动，不得据冲宣称开库或自动成格', () => {
+  const cases: Array<{ pillars: Pillars; pattern: string; clash: string }> = [
+    {
+      pillars: {
+        year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+        month: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+        day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+        hour: { gan: '甲', zhi: '戌', ganZhi: '甲戌' },
+      },
+      pattern: '偏财格',
+      clash: '辰与戌相冲',
+    },
+    {
+      pillars: {
+        year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+        month: { gan: '甲', zhi: '戌', ganZhi: '甲戌' },
+        day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+        hour: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+      },
+      pattern: '偏财格',
+      clash: '戌与辰相冲',
+    },
+    {
+      pillars: {
+        year: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
+        month: { gan: '己', zhi: '丑', ganZhi: '己丑' },
+        day: { gan: '壬', zhi: '申', ganZhi: '壬申' },
+        hour: { gan: '丁', zhi: '未', ganZhi: '丁未' },
+      },
+      pattern: '正官格',
+      clash: '丑与未相冲',
+    },
+    {
+      pillars: {
+        year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+        month: { gan: '辛', zhi: '未', ganZhi: '辛未' },
+        day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+        hour: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
+      },
+      pattern: '劫财格',
+      clash: '未与丑相冲',
+    },
+  ];
+
+  cases.forEach(({ pillars, pattern, clash }) => {
+    const result = determinePattern(pillars, '待综合判断', getTenGod);
+
+    assert.equal(result.pattern, pattern);
+    assert.match(result.basis || '', new RegExp(clash));
+    assert.match(result.basis || '', /四墓不忌刑冲，刑冲未必成格/);
+    assert.match(result.basis || '', /不据此宣称开库、出库或自动成格/);
+    assert.match(result.basis || '', /仍以透干、会支取清用/);
+    assert.match(result.basis || '', /不改变既有格名/);
+  });
+});
+
+test('甲辰财透或未透遇戌冲时应按原典区分取清边界', () => {
+  const exposedWealth: Pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '甲', zhi: '戌', ganZhi: '甲戌' },
+  };
+  const hiddenWealth: Pillars = {
+    year: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
+    month: { gan: '庚', zhi: '辰', ganZhi: '庚辰' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '甲', zhi: '戌', ganZhi: '甲戌' },
+  };
+
+  const exposedResult = determinePattern(exposedWealth, '待综合判断', getTenGod);
+  const hiddenResult = determinePattern(hiddenWealth, '待综合判断', getTenGod);
+
+  assert.equal(exposedResult.pattern, '偏财格');
+  assert.match(exposedResult.basis || '', /戊财已透为干头清用/);
+  assert.match(exposedResult.basis || '', /辰戌冲不是取财的必要条件/);
+  assert.equal(hiddenResult.pattern, '劫财格');
+  assert.match(hiddenResult.basis || '', /戊财未透/);
+  assert.match(hiddenResult.basis || '', /仅见辰戌冲仍不能据此取为清财格/);
+});
+
+test('原典明举的墓库透干遇冲应分别记录官印财的局部影响', () => {
+  const resourceClashed: Pillars = {
+    year: { gan: '壬', zhi: '戌', ganZhi: '壬戌' },
+    month: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+  };
+  const officerAlreadyExposed: Pillars = {
+    year: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
+    month: { gan: '己', zhi: '丑', ganZhi: '己丑' },
+    day: { gan: '壬', zhi: '申', ganZhi: '壬申' },
+    hour: { gan: '丁', zhi: '未', ganZhi: '丁未' },
+  };
+  const wealthHarmed: Pillars = {
+    year: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    month: { gan: '壬', zhi: '辰', ganZhi: '壬辰' },
+    day: { gan: '己', zhi: '巳', ganZhi: '己巳' },
+    hour: { gan: '甲', zhi: '戌', ganZhi: '甲戌' },
+  };
+  const officerHarmed: Pillars = {
+    year: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    month: { gan: '壬', zhi: '辰', ganZhi: '壬辰' },
+    day: { gan: '丁', zhi: '卯', ganZhi: '丁卯' },
+    hour: { gan: '庚', zhi: '戌', ganZhi: '庚戌' },
+  };
+  const officerNotAutomaticallyBroken: Pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    day: { gan: '癸', zhi: '酉', ganZhi: '癸酉' },
+    hour: { gan: '壬', zhi: '戌', ganZhi: '壬戌' },
+  };
+
+  const resourceResult = determinePattern(resourceClashed, '待综合判断', getTenGod);
+  const exposedOfficerResult = determinePattern(officerAlreadyExposed, '待综合判断', getTenGod);
+  const wealthResult = determinePattern(wealthHarmed, '待综合判断', getTenGod);
+  const harmedOfficerResult = determinePattern(officerHarmed, '待综合判断', getTenGod);
+  const preservedOfficerResult = determinePattern(
+    officerNotAutomaticallyBroken,
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.match(resourceResult.basis || '', /壬印透出又遇辰戌冲/);
+  assert.match(resourceResult.basis || '', /冲动月令土而累印/);
+  assert.match(resourceResult.basis || '', /不得解释为冲开印库/);
+  assert.match(exposedOfficerResult.basis || '', /己官已透为干头清用/);
+  assert.match(exposedOfficerResult.basis || '', /丑未冲不是取官的必要条件/);
+  assert.match(wealthResult.basis || '', /戌中土劫随冲而动，对水财无益/);
+  assert.match(harmedOfficerResult.basis || '', /戌中戊土伤官随冲而动，对壬官有害/);
+  assert.match(preservedOfficerResult.basis || '', /辰戌冲只作四墓冲动/);
+  assert.match(preservedOfficerResult.basis || '', /不据此单独判定破格/);
+});
+
 test('官制月劫与食神制杀应按原典记录无情终转有情', () => {
   const officerControlsRobbery: Pillars = {
     year: { gan: '甲', zhi: '子', ganZhi: '甲子' },

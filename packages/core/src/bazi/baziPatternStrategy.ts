@@ -8,6 +8,7 @@ import {
 import { getStemWuxing, getWuxingTenGodCategory } from './baziRuleMatcher/helpers';
 import type { PatternAnalysis, Pillars, Wuxing } from './baziTypes';
 import { assertHeavenlyStem, assertPillars } from './baziUtils';
+import { LIUCHONG_MAP } from '../ganzhi/relations';
 
 type GetTenGodFn = (gan: string, dayMaster: string) => string;
 type HiddenStemPosition = keyof Pillars;
@@ -304,6 +305,55 @@ function collectExplicitUseRelationshipNotes(
   return notes;
 }
 
+/**
+ * 只复算《子平真诠》“论墓库刑冲之说”逐条明举的四墓相冲关系。
+ * 刑冲只作为局部事实，不据此宣称开库、出库、自动成格或直接判定最终成败。
+ */
+function collectTombClashNotes(pillars: Pillars): string[] {
+  const dayMaster = pillars.day.gan;
+  const monthBranch = pillars.month.zhi;
+  const oppositeBranch = LIUCHONG_MAP[monthBranch];
+  const branches = new Set(Object.values(pillars).map((pillar) => pillar.zhi));
+  const visibleStems = new Set([pillars.year.gan, pillars.month.gan, pillars.hour.gan]);
+
+  if (!['辰', '戌', '丑', '未'].includes(monthBranch) || !branches.has(oppositeBranch)) {
+    return [];
+  }
+
+  const notes = [
+    `月令${monthBranch}与${oppositeBranch}相冲；《子平真诠》称“四墓不忌刑冲，刑冲未必成格”，当前只记录墓支冲动，不据此宣称开库、出库或自动成格，仍以透干、会支取清用`,
+  ];
+
+  if (dayMaster === '甲' && monthBranch === '辰') {
+    if (visibleStems.has('戊')) {
+      notes.push('甲日辰月戊财已透为干头清用，辰戌冲不是取财的必要条件');
+    } else {
+      notes.push('甲日辰月戊财未透，仅见辰戌冲仍不能据此取为清财格');
+    }
+    if (visibleStems.has('壬')) {
+      notes.push('甲日辰月壬印透出又遇辰戌冲，原典称冲动月令土而累印，不得解释为冲开印库');
+    }
+  }
+
+  if (dayMaster === '壬' && monthBranch === '丑' && visibleStems.has('己')) {
+    notes.push('壬日丑月己官已透为干头清用，丑未冲不是取官的必要条件');
+  }
+
+  if (dayMaster === '己' && monthBranch === '辰' && visibleStems.has('壬')) {
+    notes.push('己日辰月壬财透出又遇戌冲，戌中土劫随冲而动，对水财无益');
+  }
+
+  if (dayMaster === '丁' && monthBranch === '辰' && visibleStems.has('壬')) {
+    notes.push('丁日辰月壬官透出又遇戌冲，戌中戊土伤官随冲而动，对壬官有害');
+  }
+
+  if (dayMaster === '癸' && monthBranch === '辰' && visibleStems.has('戊')) {
+    notes.push('癸日辰月戊官已透，辰戌冲只作四墓冲动，不据此单独判定破格');
+  }
+
+  return notes;
+}
+
 const FORMATION_PATTERN_NAME_BY_TEN_GOD_CATEGORY: Record<string, string> = {
   比劫: '比劫格',
   食伤: '食伤格',
@@ -452,6 +502,7 @@ export function determinePattern(
     pillars,
     monthBranchFormations,
   );
+  const tombClashNotes = collectTombClashNotes(pillars);
   const commanderIsMonthStem = Boolean(monthCommander && monthStems.includes(monthCommander));
   const commanderIsExposed = Boolean(monthCommander && exposedStems.includes(monthCommander));
   let basis: string;
@@ -599,6 +650,10 @@ export function determinePattern(
 
   if (explicitRelationshipNotes.length > 0) {
     basis += `；古籍同型关系：${explicitRelationshipNotes.join('；')}；以上只闭合原典明举的局部有情、无情或转化关系，其他兼透、刑冲、合化、清浊与救应仍可能改变整体结果，不据此直接判定最终成败`;
+  }
+
+  if (tombClashNotes.length > 0) {
+    basis += `；墓库刑冲边界：${tombClashNotes.join('；')}；以上只闭合原典明举的四墓刑冲关系，不改变既有格名，也不据此直接判定最终成败`;
   }
 
   return {

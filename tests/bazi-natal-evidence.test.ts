@@ -411,6 +411,84 @@ test('真实食神制杀排盘应把无情终有情关系贯穿证据与最终�
   assert.match(prompt, /食神制杀各得其用/);
 });
 
+test('真实甲辰财未透仅逢戌冲时不得借开库名义强定财格', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1980,
+    month: 4,
+    day: 11,
+    timeIndex: 10,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['庚申', '庚辰', '甲寅', '甲戌'],
+  );
+  assert.equal(result.analysis.mingGe.pattern, '待综合判断');
+  assert.match(result.analysis.mingGe.basis || '', /四墓不忌刑冲，刑冲未必成格/);
+  assert.match(result.analysis.mingGe.basis || '', /戊财未透/);
+  assert.match(result.analysis.mingGe.basis || '', /仅见辰戌冲仍不能据此取为清财格/);
+
+  const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.status, '资料缺口');
+  assert.match(patternFact?.promptText || '', /不据此宣称开库、出库或自动成格/);
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 待综合判断/);
+  assert.match(prompt, /仅见辰戌冲仍不能据此取为清财格/);
+  assert.doesNotMatch(prompt, /格局: (?:杂气)?偏财格/);
+});
+
+test('真实丁辰官透遇戌冲时应把伤官受冲关系贯穿证据与最终提示词', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1981,
+    month: 4,
+    day: 9,
+    timeIndex: 10,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['辛酉', '壬辰', '丁巳', '庚戌'],
+  );
+  assert.equal(result.analysis.mingGe.pattern, '待综合判断');
+  assert.match(result.analysis.mingGe.basis || '', /丁日辰月壬官透出又遇戌冲/);
+  assert.match(result.analysis.mingGe.basis || '', /戌中戊土伤官随冲而动，对壬官有害/);
+
+  const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.status, '资料缺口');
+  assert.match(patternFact?.promptText || '', /戌中戊土伤官随冲而动，对壬官有害/);
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 待综合判断/);
+  assert.match(prompt, /戌中戊土伤官随冲而动，对壬官有害/);
+});
+
+test('真实癸辰官透遇戌冲时应保留官格且不得仅据四墓冲判破格', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1982,
+    month: 4,
+    day: 10,
+    timeIndex: 6,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['壬戌', '甲辰', '癸亥', '戊午'],
+  );
+  assert.equal(result.analysis.mingGe.pattern, '杂气正官格');
+  assert.match(result.analysis.mingGe.basis || '', /辰戌冲只作四墓冲动/);
+  assert.match(result.analysis.mingGe.basis || '', /不据此单独判定破格/);
+
+  const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.status, '已记录');
+  assert.equal(patternFact?.result, '杂气正官格');
+  assert.match(patternFact?.promptText || '', /不改变既有格名/);
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 杂气正官格/);
+  assert.match(prompt, /不据此单独判定破格/);
+});
+
 test('八字真太阳时本命证据应引用校正后的唯一时间并采用唯一校正时刻', () => {
   const result = baziCalculator.calculateBazi({
     year: 1990,
