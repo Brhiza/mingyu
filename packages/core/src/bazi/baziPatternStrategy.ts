@@ -361,6 +361,107 @@ function isNamedPattern(patternName: string, names: string[]): boolean {
   );
 }
 
+type ExposedGodOrder = 'left-before-right' | 'right-before-left' | 'interleaved';
+
+function getExposedGodOrder(
+  pillars: Pillars,
+  getTenGod: GetTenGodFn,
+  leftGods: string[],
+  rightGods: string[],
+): ExposedGodOrder | undefined {
+  const dayMaster = pillars.day.gan;
+  const positions = ['year', 'month', 'hour'] as const;
+  const leftPositions = positions.flatMap((position, index) =>
+    leftGods.includes(getTenGod(pillars[position].gan, dayMaster)) ? [index] : [],
+  );
+  const rightPositions = positions.flatMap((position, index) =>
+    rightGods.includes(getTenGod(pillars[position].gan, dayMaster)) ? [index] : [],
+  );
+
+  if (leftPositions.length === 0 || rightPositions.length === 0) return undefined;
+  if (Math.max(...leftPositions) < Math.min(...rightPositions)) return 'left-before-right';
+  if (Math.max(...rightPositions) < Math.min(...leftPositions)) return 'right-before-left';
+  return 'interleaved';
+}
+
+/**
+ * 只复算《子平真诠》“论生克先后分吉凶”明举的外干先后与三个精确隔位例型。
+ * 同类重复而位置交错时不强定先后；原文的富贵、寿夭、子嗣等强断不进入算法。
+ */
+function collectGenerationOrderNotes(
+  pillars: Pillars,
+  patternName: string,
+  getTenGod: GetTenGodFn,
+): string[] {
+  const notes: string[] = [];
+
+  if (isNamedPattern(patternName, ['正官'])) {
+    const order = getExposedGodOrder(pillars, getTenGod, ['伤官'], ['正财', '偏财']);
+    if (order === 'left-before-right') {
+      notes.push('正官格所见伤官全部先于财星明透，后财可作解伤护官的局部制化');
+    } else if (order === 'right-before-left') {
+      notes.push('正官格所见财星全部先于伤官明透，后伤仍构成损官的局部因素');
+    }
+  }
+
+  if (isNamedPattern(patternName, ['正印', '偏印', '印'])) {
+    const order = getExposedGodOrder(pillars, getTenGod, ['正财', '偏财'], ['正印', '偏印']);
+    if (order === 'left-before-right') {
+      notes.push('印格所见财星全部先于印星明透，后印承接月令用神，财印冲突须按此先后复核');
+    } else if (order === 'right-before-left') {
+      notes.push('印格所见印星全部先于财星明透，后财构成坏印的局部因素');
+    }
+  }
+
+  if (isNamedPattern(patternName, ['食神'])) {
+    const order = getExposedGodOrder(pillars, getTenGod, ['偏印'], ['正财', '偏财']);
+    if (order === 'left-before-right') {
+      notes.push('食神格所见偏印全部先于财星明透，后财可作制枭护食的局部制化');
+    } else if (order === 'right-before-left') {
+      notes.push('食神格所见财星全部先于偏印明透，后枭仍构成夺食的局部因素');
+    }
+  }
+
+  if (isNamedPattern(patternName, ['七杀'])) {
+    const order = getExposedGodOrder(pillars, getTenGod, ['正财', '偏财'], ['食神']);
+    if (order === 'left-before-right') {
+      notes.push('七杀格所见财星全部先于食神明透，后食可作制杀的局部制化');
+    } else if (order === 'right-before-left') {
+      notes.push('七杀格所见食神全部先于财星明透，后财仍有泄食生杀的局部影响');
+    }
+  }
+
+  if (
+    pillars.day.gan === '丙' &&
+    pillars.month.ganZhi === '甲寅' &&
+    pillars.year.gan === '癸' &&
+    pillars.hour.gan === '戊'
+  ) {
+    notes.push('丙日甲寅月年癸时戊，月干甲隔于癸官、戊食之间，只记录戊不越甲合癸的原典隔位关系');
+  }
+
+  if (
+    pillars.day.gan === '丙' &&
+    pillars.month.ganZhi === '辛酉' &&
+    pillars.year.gan === '癸' &&
+    pillars.hour.gan === '己'
+  ) {
+    notes.push('丙日辛酉月年癸时己，月干辛财隔于癸官、己伤之间，只记录财间伤官的原典隔位关系');
+  }
+
+  if (
+    pillars.day.gan === '辛' &&
+    pillars.month.zhi === '申' &&
+    pillars.year.gan === '壬' &&
+    pillars.month.gan === '戊' &&
+    pillars.hour.gan === '丙'
+  ) {
+    notes.push('辛日申月年壬月戊时丙，月干戊印隔于壬伤、丙官之间，只记录印隔伤官的原典隔位关系');
+  }
+
+  return notes;
+}
+
 /**
  * 只复算《子平真诠》“论四吉神能破格”中月令用神已经明确、冲突十神又明透的关系。
  * 这里只记录原典所称带忌或破格因素，强弱、位置、先后与救应仍须另行复核。
@@ -798,6 +899,11 @@ export function determinePattern(
   const inauspiciousFormingNotes = collectInauspiciousFormingNotes(pillars, patternName, getTenGod);
   if (inauspiciousFormingNotes.length > 0) {
     basis += `；四凶神能成格边界：${inauspiciousFormingNotes.join('；')}；以上只记录月令用神明确且原典条件可闭合时的局部成格或救应因素，其他强弱、根气、生克先后、位置、会合与其他救应仍可能改变整体结果，不改变既有格名，也不据此直接判定最终成败`;
+  }
+
+  const generationOrderNotes = collectGenerationOrderNotes(pillars, patternName, getTenGod);
+  if (generationOrderNotes.length > 0) {
+    basis += `；生克先后边界：${generationOrderNotes.join('；')}；以上只记录原典明确的外干先后与精确隔位关系；同类重复而交错时不强定先后，强弱、根气、地支、合化及其他救应仍须综合，不改变既有格名，也不据此推导富贵、寿夭、子嗣或最终成败`;
   }
 
   return {

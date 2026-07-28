@@ -17,6 +17,15 @@ function createPillar(match: (ganZhi: string) => boolean): Pillar {
   return { gan: ganZhi[0], zhi: ganZhi[1], ganZhi };
 }
 
+function createPillars(year: string, month: string, day: string, hour: string): Pillars {
+  return {
+    year: createPillar((ganZhi) => ganZhi === year),
+    month: createPillar((ganZhi) => ganZhi === month),
+    day: createPillar((ganZhi) => ganZhi === day),
+    hour: createPillar((ganZhi) => ganZhi === hour),
+  };
+}
+
 function createPatternPillars(
   dayMaster: string,
   monthBranch: string,
@@ -680,6 +689,115 @@ test('印格见杀但根轻条件未闭合时不得硬判杀能成格', () => {
   assert.equal(result.pattern, '正印格');
   assert.doesNotMatch(result.basis || '', /四凶神能成格边界/);
   assert.doesNotMatch(result.basis || '', /根轻|杀能成格|煞能成格/);
+});
+
+test('正官印食杀四格应按全部明透位置记录原典先后关系', () => {
+  const cases = [
+    {
+      pillars: createPillars('甲子', '戊辰', '癸酉', '丙辰'),
+      pattern: '正官格',
+      expected: /伤官全部先于财星明透，后财可作解伤护官/,
+    },
+    {
+      pillars: createPillars('丙寅', '戊戌', '癸酉', '甲寅'),
+      pattern: '正官格',
+      expected: /财星全部先于伤官明透，后伤仍构成损官/,
+    },
+    {
+      pillars: createPillars('甲子', '戊辰', '庚午', '丙子'),
+      pattern: '偏印格',
+      expected: /财星全部先于印星明透，后印承接月令用神/,
+    },
+    {
+      pillars: createPillars('甲子', '丁卯', '丙寅', '庚寅'),
+      pattern: '正印格',
+      expected: /印星全部先于财星明透，后财构成坏印/,
+    },
+    {
+      pillars: createPillars('甲子', '戊辰', '丙寅', '庚寅'),
+      pattern: '食神格',
+      expected: /偏印全部先于财星明透，后财可作制枭护食/,
+    },
+    {
+      pillars: createPillars('甲子', '丁卯', '癸酉', '辛酉'),
+      pattern: '食神格',
+      expected: /财星全部先于偏印明透，后枭仍构成夺食/,
+    },
+    {
+      pillars: createPillars('乙丑', '癸未', '己巳', '辛未'),
+      pattern: '七杀格',
+      expected: /财星全部先于食神明透，后食可作制杀/,
+    },
+    {
+      pillars: createPillars('甲子', '戊辰', '壬午', '丙午'),
+      pattern: '七杀格',
+      expected: /食神全部先于财星明透，后财仍有泄食生杀/,
+    },
+  ];
+
+  cases.forEach(({ pillars, pattern, expected }) => {
+    const result = determinePattern(pillars, '待综合判断', getTenGod);
+    assert.equal(result.pattern, pattern);
+    assert.match(result.basis || '', /生克先后边界/);
+    assert.match(result.basis || '', expected);
+    assert.match(result.basis || '', /不改变既有格名/);
+    assert.doesNotMatch(result.basis || '', /必亨|大贵|萧索|难永寿|子嗣亦难|晚景亦悴/);
+  });
+});
+
+test('同类明透分居另一类前后时不得硬判单一生克先后', () => {
+  const cases = [
+    createPillars('丁卯', '己酉', '甲子', '丁卯'),
+    createPillars('甲子', '戊辰', '辛未', '甲午'),
+    createPillars('丙寅', '辛卯', '癸酉', '丙辰'),
+    createPillars('丁卯', '己酉', '乙丑', '丁丑'),
+  ];
+
+  cases.forEach((pillars) => {
+    const result = determinePattern(pillars, '待综合判断', getTenGod);
+    assert.doesNotMatch(result.basis || '', /生克先后边界/);
+  });
+});
+
+test('原典三个合法隔位例型只记录精确位置关系且不改变格名', () => {
+  const cases = [
+    {
+      pillars: createPillars('癸酉', '甲寅', '丙寅', '戊子'),
+      pattern: '待综合判断',
+      expected: /月干甲隔于癸官、戊食之间，只记录戊不越甲合癸/,
+    },
+    {
+      pillars: createPillars('癸酉', '辛酉', '丙寅', '己丑'),
+      pattern: '正财格',
+      expected: /月干辛财隔于癸官、己伤之间，只记录财间伤官/,
+    },
+    {
+      pillars: createPillars('壬申', '戊申', '辛丑', '丙申'),
+      pattern: '待综合判断',
+      expected: /月干戊印隔于壬伤、丙官之间，只记录印隔伤官/,
+    },
+  ];
+
+  cases.forEach(({ pillars, pattern, expected }) => {
+    const result = determinePattern(pillars, '待综合判断', getTenGod);
+    assert.equal(result.pattern, pattern);
+    assert.match(result.basis || '', /生克先后边界/);
+    assert.match(result.basis || '', expected);
+    assert.doesNotMatch(result.basis || '', /大贵|小贵|格尽破|无望其贵/);
+  });
+});
+
+test('隔位例型缺少原典指定年干时不得按相似位置泛化', () => {
+  const cases = [
+    createPillars('戊子', '甲寅', '丙寅', '戊子'),
+    createPillars('戊子', '辛酉', '丙寅', '己丑'),
+    createPillars('丁卯', '戊申', '辛丑', '丙申'),
+  ];
+
+  cases.forEach((pillars) => {
+    const result = determinePattern(pillars, '待综合判断', getTenGod);
+    assert.doesNotMatch(result.basis || '', /原典隔位关系/);
+  });
 });
 
 test('官制月劫与食神制杀应按原典记录无情终转有情', () => {
