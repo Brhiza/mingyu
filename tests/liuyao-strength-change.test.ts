@@ -4,6 +4,7 @@ import {
   generateLiuyao,
   getLiuyaoChangeDirection,
   getLiuyaoChangeRelation,
+  getLiuyaoChangeRelations,
   getLiuyaoFanFuRelations,
   getLiuyaoGuaShenBranch,
   getLiuyaoHexagramRelation,
@@ -98,8 +99,32 @@ test('六爻：动爻变爻应完整输出回头、化泄、化耗等五行关�
         ),
         `第${yao.position}爻 changeRelation 值非法：${yao.changeRelation}`,
       );
+      assert.ok(yao.changeRelations?.length, `第${yao.position}爻应输出完整 changeRelations`);
+      assert.ok(
+        yao.changeRelations?.includes(yao.changeRelation!),
+        `第${yao.position}爻兼容单值应包含在完整关系列表中`,
+      );
     }
   }
+});
+
+test('六爻：变爻旬空与回头生克等基础动变条件可以并见', () => {
+  assert.deepEqual(getLiuyaoChangeRelations('木', '水', '寅', '子', true), ['回头生', '化空']);
+  assert.deepEqual(getLiuyaoChangeRelations('木', '金', '卯', '酉', true), [
+    '回头冲',
+    '回头克',
+    '化空',
+  ]);
+  assert.deepEqual(getLiuyaoChangeRelations('木', '土', '寅', '辰', true), ['化耗', '化空']);
+
+  // 旧单值入口继续保持既有口径，避免已有调用方升级后结果突变。
+  assert.equal(getLiuyaoChangeRelation('木', '水', '寅', '子', true), '化空');
+});
+
+test('六爻：回头冲与五行生克应分别保存', () => {
+  assert.deepEqual(getLiuyaoChangeRelations('木', '金', '卯', '酉', false), ['回头冲', '回头克']);
+  assert.deepEqual(getLiuyaoChangeRelations('金', '木', '酉', '卯', false), ['回头冲', '化耗']);
+  assert.equal(getLiuyaoChangeRelation('金', '木', '酉', '卯', false), '回头冲');
 });
 
 test('六爻：进退神按增删卜易明表判定，不按地支循环外推', () => {

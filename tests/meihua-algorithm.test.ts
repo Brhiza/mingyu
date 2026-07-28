@@ -48,6 +48,10 @@ test('梅花：互卦应取二三四爻为下互、三四五爻为上互', () =>
   assert.equal(data.interName, '水山蹇');
   assert.equal(data.interHexagram?.upper, '坎');
   assert.equal(data.interHexagram?.lower, '艮');
+  assert.equal(data.interTiGua?.name, '坎');
+  assert.equal(data.interYongGua?.name, '艮');
+  assert.equal(data.analysis.inter1Relation, '体互克原体');
+  assert.equal(data.analysis.inter2Relation, '原体生用互');
 });
 
 test('梅花：天泽履二爻动应变天雷无妄，不得错认成天山遁', () => {

@@ -1338,18 +1338,20 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     : undefined;
   if (interUpper && interLower) {
     const movingInLower = data.movingYao.position <= 3;
+    const interTi = data.interTiGua ?? (movingInLower ? interUpper : interLower);
+    const interYong = data.interYongGua ?? (movingInLower ? interLower : interUpper);
     stages.push(
       createStage({
         stage: 'process',
         label: '过程',
         hexagram: data.interHexagram?.name || data.interName || '互卦',
         hexagramFactKey: 'meihua:hexagram:process',
-        ti: movingInLower ? interLower : interUpper,
-        yong: movingInLower ? interUpper : interLower,
+        ti: interTi,
+        yong: interYong,
         monthBranch,
         basis: movingInLower
-          ? '原动爻在下卦，互卦以下互为体、上互为用。'
-          : '原动爻在上卦，互卦以上互为体、下互为用。',
+          ? '原动爻在下卦、原体在上，依《梅花易数》卷三取上互为体互、下互为用互。'
+          : '原动爻在上卦、原体在下，依《梅花易数》卷三取下互为体互、上互为用互。',
       }),
     );
   }
@@ -1545,14 +1547,25 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       source: fact.sources.join('、'),
       tags: ['阶段推进', fact.status, fact.toStage],
     })),
+    ...(data.analysis.inter1Relation && data.analysis.inter1Relation !== '无'
+      ? [
+          {
+            level: '辅证' as const,
+            title: '体互对原体关系',
+            detail: `${data.analysis.inter1Relation}；《梅花易数》卷三称“体互最紧”，仍须与主卦体用、用互和变卦并看。`,
+            source: '《梅花易数》卷三《体用互变之诀》体互、用互方位规则',
+            tags: ['体互', '原体', '过程主线'],
+          },
+        ]
+      : []),
     ...(data.analysis.inter2Relation && data.analysis.inter2Relation !== '无'
       ? [
           {
             level: '辅证' as const,
-            title: '互卦对原体辅助关系',
-            detail: `辅助关系为${data.analysis.inter2Relation}；该关系不是主互卦体用主线，只作为补充取象。`,
-            source: '互卦上卦与原体卦五行关系',
-            tags: ['互卦辅助', '非主线'],
+            title: '用互对原体关系',
+            detail: `${data.analysis.inter2Relation}；《梅花易数》卷三称“用互次之”，不得脱离体互与变卦单断。`,
+            source: '《梅花易数》卷三《体用互变之诀》体互、用互方位规则',
+            tags: ['用互', '原体', '过程辅证'],
           },
         ]
       : []),

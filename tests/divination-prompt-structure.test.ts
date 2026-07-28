@@ -398,14 +398,16 @@ function createData(method: FixtureMethod): DivinationData {
         yongGua: { name: '震', element: '木', nature: '动' },
         changedTiGua: { name: '坤', element: '土', nature: '顺' },
         changedYongGua: { name: '离', element: '火', nature: '明' },
+        interTiGua: { name: '兑', element: '金', nature: '泽' },
+        interYongGua: { name: '巽', element: '木', nature: '风' },
         movingYao: { position: 3, description: '三爻发动', yaoName: '九三' },
         analysis: {
           season: '春',
           tiYongRelation: '用生体，主有助力',
           tiSeasonState: '相',
           yongSeasonState: '旺',
-          inter1Relation: '比和',
-          inter2Relation: '生',
+          inter1Relation: '原体克体互',
+          inter2Relation: '用互生原体',
           changedRelation: '体生变，后续需付出',
           changedTiYongRelation: '体克用',
         },
@@ -1141,7 +1143,7 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   );
 
   assert.match(prompt, /体用：体卦离（火）；用卦震（木）；动爻第3爻；体用关系用生体/);
-  assert.match(prompt, /互卦：泽风大过；互卦体用比和；互上辅助生/);
+  assert.match(prompt, /互卦：泽风大过；体互兑（金）；用互巽（木）；原体克体互；用互生原体/);
   assert.match(prompt, /变卦：地火明夷；变后体卦坤（土）；变后用卦离（火）；变后体用体克用/);
   assert.match(prompt, /月令与起卦：春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
   assert.match(prompt, /应期资料：动爻第3爻：对应阶段、层位或触发点/);

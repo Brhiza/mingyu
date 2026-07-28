@@ -76,16 +76,33 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assertPromptIsPortableTaskText(evidence.promptText);
 });
 
-test('梅花互卦过程体用应按原动爻所在上下卦确定', () => {
+test('梅花体互用互应沿用原体所在方位，不得上下颠倒', () => {
   const lowerMoving = generateMeihua(fixedDate, { method: 'number', number: 123 });
   const lowerProcess = analyzeMeihuaEvidence(lowerMoving).stages.find(
     (item) => item.stage === 'process',
   );
 
   assert.equal(lowerMoving.movingYao.position <= 3, true);
-  assert.equal(lowerProcess?.ti.name, lowerMoving.interHexagram?.lower);
-  assert.equal(lowerProcess?.yong.name, lowerMoving.interHexagram?.upper);
-  assert.match(lowerProcess?.basis ?? '', /下互为体、上互为用/);
+  assert.equal(lowerMoving.interTiGua?.name, lowerMoving.interHexagram?.upper);
+  assert.equal(lowerMoving.interYongGua?.name, lowerMoving.interHexagram?.lower);
+  assert.equal(lowerProcess?.ti.name, lowerMoving.interHexagram?.upper);
+  assert.equal(lowerProcess?.yong.name, lowerMoving.interHexagram?.lower);
+  assert.equal(lowerProcess?.relation, '用克体');
+  assert.equal(lowerMoving.analysis.inter1Relation, '体互克原体');
+  assert.equal(lowerMoving.analysis.inter2Relation, '原体生用互');
+  assert.match(lowerProcess?.basis ?? '', /原体在上.*上互为体互、下互为用互/);
+
+  const upperMoving = generateMeihua(fixedDate, { method: 'number', number: 5 });
+  const upperProcess = analyzeMeihuaEvidence(upperMoving).stages.find(
+    (item) => item.stage === 'process',
+  );
+
+  assert.equal(upperMoving.movingYao.position >= 4, true);
+  assert.equal(upperMoving.interTiGua?.name, upperMoving.interHexagram?.lower);
+  assert.equal(upperMoving.interYongGua?.name, upperMoving.interHexagram?.upper);
+  assert.equal(upperProcess?.ti.name, upperMoving.interHexagram?.lower);
+  assert.equal(upperProcess?.yong.name, upperMoving.interHexagram?.upper);
+  assert.match(upperProcess?.basis ?? '', /原体在下.*下互为体互、上互为用互/);
 });
 
 test('梅花证据只给触发层位，不把动爻和卦数换算成绝对日期', () => {
@@ -117,7 +134,8 @@ test('梅花起卦算式、六爻结构、卦象来源和已有应期条件应�
   assert.ok(items.some((item) => item.title === '六爻阴阳与体用归属'));
   assert.ok(items.some((item) => item.tags?.includes('动爻爻辞')));
   assert.equal(items.filter((item) => item.tags?.includes('阶段推进')).length, 2);
-  assert.ok(items.some((item) => item.title === '互卦对原体辅助关系'));
+  assert.ok(items.some((item) => item.title === '体互对原体关系'));
+  assert.ok(items.some((item) => item.title === '用互对原体关系'));
   assert.ok(items.some((item) => item.level === '应期' && item.title.includes('触发')));
   assert.equal(evidence.transitionFacts.length, 2);
   assert.ok(

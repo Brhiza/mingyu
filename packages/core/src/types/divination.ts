@@ -182,6 +182,9 @@ export interface BaseYaoDetail {
   isChanging: boolean;
 }
 
+export type LiuyaoChangeRelation =
+  '回头生' | '回头克' | '回头冲' | '化空' | '比和' | '化泄' | '化耗';
+
 export interface LiuyaoYaoDetail extends BaseYaoDetail {
   rawValue: number;
   changeType: string;
@@ -197,7 +200,10 @@ export interface LiuyaoYaoDetail extends BaseYaoDetail {
   isHiddenMove?: boolean;
   seasonState?: '旺' | '相' | '休' | '囚' | '死' | '平';
   changeDirection?: '化进神' | '化退神' | null;
-  changeRelation?: '回头生' | '回头克' | '回头冲' | '化空' | '比和' | '化泄' | '化耗' | null;
+  /** 旧版单值字段：变爻空亡时仍优先返回“化空”，新代码应读取 changeRelations。 */
+  changeRelation?: LiuyaoChangeRelation | null;
+  /** 动变五行/冲关系与化空可以并见，按原关系在前、化空在后保存。 */
+  changeRelations?: LiuyaoChangeRelation[];
   changedYao?: {
     dizhi: string;
     wuxing: string;
@@ -400,6 +406,18 @@ export interface MeihuaData extends BaseHexagramData {
     element: string;
     nature: string;
   } | null;
+  /** 互卦中与原体卦同处上/下方位的体互。 */
+  interTiGua?: {
+    name: string;
+    element: string;
+    nature: string;
+  } | null;
+  /** 互卦中与原用卦同处上/下方位的用互。 */
+  interYongGua?: {
+    name: string;
+    element: string;
+    nature: string;
+  } | null;
   /** 动爻位置与描述 */
   movingYao: {
     position: number;
@@ -416,7 +434,9 @@ export interface MeihuaData extends BaseHexagramData {
     tiYongRelation: string;
     tiSeasonState: string;
     yongSeasonState: string;
+    /** 体互与原体的五行关系；字段名为兼容既有结果保留。 */
     inter1Relation: string;
+    /** 用互与原体的五行关系；字段名为兼容既有结果保留。 */
     inter2Relation: string;
     changedRelation: string;
     changedTiYongRelation: string;

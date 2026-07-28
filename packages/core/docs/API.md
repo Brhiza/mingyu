@@ -148,7 +148,7 @@
 | `voidBranches` | `string[]` | 旬空地支 |
 | `palace` | `{ name, wuxing }` | 所属宫位 |
 | `palaceStage` | `LiuyaoPalaceStage?` | 八宫卦序位置（首卦、一世至五世、游魂、归魂） |
-| `yaosDetail` | `LiuyaoYaoDetail[]` | 每爻详细（含月破/日破/暗动/回头生克/化进退神等） |
+| `yaosDetail` | `LiuyaoYaoDetail[]` | 每爻详细；`changeRelations` 分别保存可并见的回头冲、五行生克/比泄耗与化空，`changeRelation` 仅为旧版单值兼容字段；另含月破、日破、暗动、化进退神等 |
 | `hiddenSpirits` | `LiuyaoHiddenSpirit[]?` | 伏神（本宫首卦补未现六亲） |
 | `hexagramRelations` | `LiuyaoHexagramRelations?` | 整卦六合/六冲及六冲变六合、六合变六冲等卦变关系 |
 | `fanfuRelations` | `LiuyaoFanFuRelations?` | 卦变反吟/伏吟结构，含卦反吟、爻反吟、内外伏吟等标签 |
@@ -175,7 +175,7 @@
 | `seed` | `string \| number` | 随机起卦时可选；同一 seed 可复现同一组随机卦数 |
 | `rng` | `() => number` | 随机起卦时可选；自定义随机源，返回 0 到 1 之间的数 |
 
-**返回 `MeihuaData`：** 含主卦/互卦/变卦、体用关系（tiGua/yongGua）、四时旺衰、应期估算、体用生克分析（tiYongRelation/inter1Relation/changedRelation/yingQi）。
+**返回 `MeihuaData`：** 含主卦/互卦/变卦、体用关系（`tiGua`/`yongGua`）、按原体方位确定的体互与用互（`interTiGua`/`interYongGua`）、四时旺衰、应期触发条件，以及体用生克分析（`tiYongRelation`、体互/用互对原体关系、`changedRelation`、`yingQi`）。
 
 ---
 
