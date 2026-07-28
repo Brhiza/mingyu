@@ -74,7 +74,6 @@ export interface HiddenStems {
 export interface WuxingStrengthDetails {
   missing: string[];
   present: string[];
-  dominantByRule: string[];
   ruleBasis: string[];
   commanderElement?: string;
 }

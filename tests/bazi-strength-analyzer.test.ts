@@ -76,21 +76,37 @@ test('月令气数应输出状态和司令依据，不伪造五行力量百分�
   assert.match(wood?.summary ?? '', /不换算百分比/);
 });
 
-test('五行结构相对突出不应被无古籍依据的司令百分比加成改变', () => {
+test('五行出现与缺失只登记天干和全部藏干事实，不输出任意结构优先结论', () => {
   const calculator = new WuxingCalculator();
   const pillars = {
     year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
-    month: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
-    day: { gan: '戊', zhi: '寅', ganZhi: '戊寅' },
-    hour: { gan: '庚', zhi: '午', ganZhi: '庚午' },
+    month: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    day: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    hour: { gan: '丁', zhi: '巳', ganZhi: '丁巳' },
   };
 
-  const withoutCommander = calculator.calculateWuxingStrength(pillars);
   const withCommander = calculator.calculateWuxingStrength(pillars, '癸');
 
-  assert.deepEqual(withCommander.dominantByRule, withoutCommander.dominantByRule);
+  assert.deepEqual(withCommander.present, ['木', '火', '土', '金', '水']);
+  assert.deepEqual(withCommander.missing, []);
+  assert.ok(!('dominantByRule' in withCommander));
   assert.equal(withCommander.commanderElement, '水');
+  assert.ok(withCommander.ruleBasis.some((item) => item.includes('全部藏干')));
+  assert.ok(withCommander.ruleBasis.some((item) => item.includes('不据出现次数比较强弱')));
   assert.ok(withCommander.ruleBasis.some((item) => item.includes('不额外增加五行比例')));
+});
+
+test('藏干中未见的五行应明确列为缺失', () => {
+  const result = new WuxingCalculator().calculateWuxingStrength({
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    day: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    hour: { gan: '丁', zhi: '卯', ganZhi: '丁卯' },
+  });
+
+  assert.deepEqual(result.present, ['木', '火', '土', '水']);
+  assert.deepEqual(result.missing, ['金']);
+  assert.equal(result.commanderElement, undefined);
 });
 
 test('五行结构入口应拒绝非法四柱和非法司令，不静默降级为未知五行', () => {

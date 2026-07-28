@@ -411,7 +411,6 @@ export class BaziCalculator {
       wuxingStrength: {
         missing: [],
         present: [],
-        dominantByRule: [],
         ruleBasis: [],
       },
       mingGong: '',

@@ -269,7 +269,7 @@ export function generateEnhancedAnalysisSection(
   const wuxingEvidence = chartResult.wuxingStrength;
   if (wuxingEvidence) {
     sections.push(
-      `【五行结构】出现：${wuxingEvidence.present.join('、') || '无'}；结构比较优先：${wuxingEvidence.dominantByRule.join('、') || '无'}；缺失：${wuxingEvidence.missing.join('、') || '无'}。`,
+      `【五行结构】出现：${wuxingEvidence.present.join('、') || '无'}；缺失：${wuxingEvidence.missing.join('、') || '无'}。`,
     );
   }
   const classicSection = generateClassicPatternSection(chartResult);
