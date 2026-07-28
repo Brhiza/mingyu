@@ -342,23 +342,20 @@ export function determinePattern(
   } else if (monthCommander && exposedStems.includes(monthCommander)) {
     patternName = getPatternNameByTenGod(monthMainGod, dayMaster, monthBranch);
     basis = `月令司权为${monthCommander}，且已透干，按司令十神取格`;
-  } else if (monthMainGod === '比肩') {
-    // 月令主气虽为比肩，但月支非禄位（如杂气中比肩透出），按普通比肩格处理
-    patternName = '比肩格';
-    basis = `月令主气为${activeMonthStem}，对应比肩，但月支${monthBranch}非${dayMaster}禄位，按比肩格处理`;
-  } else if (monthMainGod === '劫财') {
-    // 阳干但月支非刃位，或阴干，一律按劫财格处理
-    patternName = '劫财格';
-    if (REN_BRANCH_MAP[dayMaster] && REN_BRANCH_MAP[dayMaster] !== monthBranch) {
-      basis = `月令主气为${activeMonthStem}，对应劫财，但月支${monthBranch}非${dayMaster}刃位（刃在${REN_BRANCH_MAP[dayMaster]}），按劫财格处理`;
-    } else {
-      basis = `月令主气为${activeMonthStem}，对应劫财，日主${dayMaster}为阴干无真刃，按劫财格处理`;
-    }
+  } else if (monthStems.length === 1) {
+    const soleMonthStem = monthStems[0];
+    const soleMonthGod = getTenGod(soleMonthStem, dayMaster);
+    patternName = getPatternNameByTenGod(soleMonthGod, dayMaster, monthBranch);
+    const commanderBoundary =
+      monthCommander && monthCommander !== soleMonthStem
+        ? `；当前${monthCommander}司权另作月令得时事实，不替换本月唯一藏干`
+        : '';
+    basis = `月令只有${soleMonthStem}一项藏干，虽未透干，但不存在多项月内人元取舍，按${soleMonthStem}（${soleMonthGod}）记录格名${commanderBoundary}`;
   } else {
-    patternName = getPatternNameByTenGod(monthMainGod, dayMaster, monthBranch);
-    basis = monthCommander
-      ? `月令藏干未透，当前${monthCommander}司权，暂按司令十神取格`
-      : `月令藏干未透，按月令本气${activeMonthStem}取格`;
+    const hiddenUses = monthStems.map((stem) => `${stem}（${getTenGod(stem, dayMaster)}）`);
+    const commanderFact = monthCommander ? `，当前${monthCommander}司权只作得时事实` : '';
+    patternName = '待综合判断';
+    basis = `月令藏干${hiddenUses.join('、')}均未透出${commanderFact}；《千里命稿》要求比较月内人元轻重、有力程度及克合后取舍，当前条件未闭合，不只凭司令阶段或藏干数组本气强定单一格局`;
   }
 
   return {

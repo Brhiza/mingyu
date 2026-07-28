@@ -184,6 +184,39 @@ test('交节初段的上一月余气司权即使不在本月藏干中，也应�
   assert.match(result.basis || '', /司权为甲/);
 });
 
+test('月令多项藏干全不透时不得只凭未透司令强定单一格局', () => {
+  const pillars: Pillars = {
+    year: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+    month: { gan: '庚', zhi: '辰', ganZhi: '庚辰' },
+    day: { gan: '戊', zhi: '申', ganZhi: '戊申' },
+    hour: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod, '乙');
+
+  assert.equal(result.pattern, '待综合判断');
+  assert.match(result.basis || '', /戊（比肩）、乙（正官）、癸（正财）均未透出/);
+  assert.match(result.basis || '', /乙司权只作得时事实/);
+  assert.match(result.basis || '', /轻重、有力程度及克合后取舍/);
+  assert.match(result.basis || '', /不只凭司令阶段或藏干数组本气强定/);
+});
+
+test('月令只有一项藏干且未透时仍可取格，未透交节余气司令不得替换格名', () => {
+  const pillars: Pillars = {
+    year: { gan: '丙', zhi: '子', ganZhi: '丙子' },
+    month: { gan: '丁', zhi: '卯', ganZhi: '丁卯' },
+    day: { gan: '癸', zhi: '酉', ganZhi: '癸酉' },
+    hour: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod, '甲');
+
+  assert.equal(result.pattern, '食神格');
+  assert.match(result.basis || '', /月令只有乙一项藏干/);
+  assert.match(result.basis || '', /按乙（食神）记录格名/);
+  assert.match(result.basis || '', /甲司权另作月令得时事实，不替换本月唯一藏干/);
+});
+
 test('月令藏干兼透时不得按藏干次序或透干柱位强定单一格局', () => {
   const pillars: Pillars = {
     year: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
