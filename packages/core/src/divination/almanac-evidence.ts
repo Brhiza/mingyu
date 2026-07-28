@@ -731,14 +731,12 @@ function buildCandidateDecisionFact(params: {
 }): AlmanacCandidateDecisionFact {
   const supportingFactKeys = [
     ...params.topicMatchFacts.filter((item) => item.status === '支持').map((item) => item.key),
-    ...params.godFacts.filter((item) => item.classification === '吉神').map((item) => item.key),
     ...params.participantRelationFacts
       .filter((item) => item.status === '支持')
       .map((item) => item.key),
   ];
   const limitingFactKeys = [
     ...params.topicMatchFacts.filter((item) => item.status === '限制').map((item) => item.key),
-    ...params.godFacts.filter((item) => item.classification === '凶神').map((item) => item.key),
     ...params.participantRelationFacts
       .filter((item) => item.status === '限制')
       .map((item) => item.key),
@@ -789,13 +787,7 @@ function buildCandidateDecisionFact(params: {
     {
       key: `${params.date}:decision:gods`,
       stage: '值日神煞',
-      status: params.godFacts.some((item) => item.classification === '凶神')
-        ? '有限制'
-        : params.godFacts.some((item) => item.classification === '吉神')
-          ? '有支持'
-          : params.godFacts.length
-            ? '通过'
-            : '未提供',
+      status: params.godFacts.length ? '通过' : '未提供',
       factKeys: params.godFacts.map((item) => item.key),
       inputs: params.godFacts.map((item) => item.name),
       result: `吉神${params.godFacts.filter((item) => item.classification === '吉神').length}项，凶神${params.godFacts.filter((item) => item.classification === '凶神').length}项，未分级${params.godFacts.filter((item) => item.classification === '未分级').length}项`,
@@ -1383,8 +1375,8 @@ function buildLimitationFacts(params: {
         ),
       ]),
       promptText:
-        '参与人关系只核验已提供资料中的年支、日支、喜用五行与候选日时关系；没有参与人资料时不得编造个人适配结论，已有关系也不证明个人现实结果',
-      sources: ['参与人出生资料与逐日逐时关系事实'],
+        '参与人关系只核验已提供资料中的年支、日支与候选日支刑冲破害；不采用喜用五行简单命中，也不把候选时支类推为同一强限制；没有参与人资料时不得编造个人适配结论，已有关系也不证明个人现实结果',
+      sources: ['参与人出生资料与候选日关系事实'],
     },
     {
       key: 'almanac:limitation:hours-grouping',
@@ -1402,7 +1394,7 @@ function buildLimitationFacts(params: {
         ]),
       ]),
       promptText:
-        '逐时时课只用于候选日内比较，候选状态只按明确忌项、参与人直接关系和可用时辰分组；算法不设置吉凶总分，不把候选等级解释为成功率、现实吉凶保证或唯一最佳日期',
+        '逐时时课只用于候选日内比较，候选状态只按明确忌项、候选日参与人直接关系和可用时辰分组；算法不设置吉凶总分，不把候选等级解释为成功率、现实吉凶保证或唯一最佳日期',
       sources: ['逐时时课事实与七步候选状态形成链'],
     },
     {

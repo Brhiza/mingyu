@@ -114,6 +114,16 @@ test('黄历择日应内置透明约束与候选证据', () => {
         item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
     ),
   );
+  assert.doesNotMatch(
+    evidence.limitationFacts
+      .map((item) => `${item.promptText}；${item.sources.join('、')}`)
+      .join('；'),
+    /候选日时关系|逐日逐时关系事实/,
+  );
+  assert.match(
+    evidence.limitationFacts.find((item) => item.type === '参与人适配边界')?.promptText ?? '',
+    /不把候选时支类推为同一强限制/,
+  );
   assert.match(evidence.promptText, /计算链：[\s\S]*反证汇总：[\s\S]*证据汇总：[\s\S]*解释限制：/);
   assert.doesNotMatch(evidence.promptText, /评分[：=]?\d|\d+分|成功率[：=]?\d|匹配率[：=]?\d/);
 });
@@ -254,6 +264,29 @@ test('择日证据应让明确事项忌项决定慎用分组', () => {
   assert.equal(candidate?.status, '慎用候选');
   assert.ok(evidence.cautionDates.includes(target.date));
   assert.match(evidence.promptText, new RegExp(`${target.date}慎用候选`));
+});
+
+test('值日神煞吉凶只作辅助事实，不冒充候选分组的支持或限制', () => {
+  const evidence = analyzeAlmanacEvidence(
+    generateAlmanacSelection({
+      topic: 'custom',
+      startDate: '2026-01-01',
+      endDate: '2026-01-01',
+    }),
+  );
+  const candidate = evidence.candidates[0];
+  const godStep = candidate.decisionFact.steps.find((item) => item.stage === '值日神煞');
+  const finalStep = candidate.decisionFact.steps.find((item) => item.stage === '候选分组');
+
+  assert.equal(candidate.status, '可用候选');
+  assert.ok(candidate.godFacts.some((item) => item.classification === '吉神'));
+  assert.ok(candidate.godFacts.some((item) => item.classification === '凶神'));
+  assert.equal(godStep?.status, '通过');
+  assert.match(godStep?.result ?? '', /吉神\d+项，凶神\d+项/);
+  assert.ok(candidate.decisionFact.supportingFactKeys.every((key) => !key.includes(':god:')));
+  assert.ok(candidate.decisionFact.limitingFactKeys.every((key) => !key.includes(':god:')));
+  assert.equal(finalStep?.promptText, '未见明确限制，归入可用候选');
+  assert.ok(evidence.counterEvidenceFacts.every((item) => item.date !== candidate.date));
 });
 
 test('择日证据在缺少参与人时不得编造个人适配', () => {
