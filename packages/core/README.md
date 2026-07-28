@@ -443,7 +443,7 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `analyzeMeihuaEvidence(data)`                                        | 主卦、互卦、变卦逐阶段体用、旺衰与支持/限制证据                              |
 | `generateQimen(date?, method?, scope?)`                              | 奇门遁甲排盘，并内置用神宫与宫间作用结构化证据                               |
 | `analyzeQimenEvidence(data)`                                         | 值符值使、日时干候选宫及门星神干、反证和触发条件                             |
-| `createQimenPriorityPalaces(data)`                                   | 兼容旧版内部排序的奇门重点宫位候选                                           |
+| `createQimenPriorityPalaces(data)`                                   | 按值符、宫位洞察、格局等证据来源归集奇门重点宫位候选                         |
 | `generateLiuren(date?)`                                              | 大六壬排盘                                                                   |
 | `analyzeLiurenEvidence(data)`                                        | 四课取传、初传发用、三传旺衰空亡及反证限制                                   |
 | `generateXiaoliuren(params?)`                                        | 小六壬起课                                                                   |

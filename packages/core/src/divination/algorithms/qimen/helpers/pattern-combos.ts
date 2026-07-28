@@ -974,41 +974,27 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
     });
   }
 
-  if (
-    hasTag(tags, '伏吟') &&
-    patterns.some((pattern) => pattern.tone === 'bad' && Math.abs(pattern.score) >= 7)
-  ) {
+  // 伏吟、反吟与凶格的并见关系按明确 tone 归集，不再以任意绝对分阈值筛“大凶格”。
+  const badPatterns = patterns.filter((pattern) => pattern.tone === 'bad');
+  if (hasTag(tags, '伏吟') && badPatterns.length > 0) {
     out.push({
       key: 'combo:fuyinPlusBad',
       name: '伏吟带凶',
       tone: 'super-bad',
       score: -8,
-      summary: '伏吟主迟滞，叠加大凶格，阻滞之象加重。',
-      sources: [
-        '伏吟',
-        ...patterns
-          .filter((pattern) => pattern.tone === 'bad' && Math.abs(pattern.score) >= 7)
-          .map((pattern) => pattern.name),
-      ],
+      summary: '伏吟主迟滞，又见明确凶格，阻滞与凶象并见。',
+      sources: ['伏吟', ...badPatterns.map((pattern) => pattern.name)],
     });
   }
 
-  if (
-    hasTag(tags, '反吟') &&
-    patterns.some((pattern) => pattern.tone === 'bad' && Math.abs(pattern.score) >= 8)
-  ) {
+  if (hasTag(tags, '反吟') && badPatterns.length > 0) {
     out.push({
       key: 'combo:fanyinPlusBad',
       name: '反吟翻覆',
       tone: 'super-bad',
       score: -9,
-      summary: '反吟主反复变动，叠加大凶格，翻覆之象加重。',
-      sources: [
-        '反吟',
-        ...patterns
-          .filter((pattern) => pattern.tone === 'bad' && Math.abs(pattern.score) >= 8)
-          .map((pattern) => pattern.name),
-      ],
+      summary: '反吟主反复变动，又见明确凶格，翻覆与凶象并见。',
+      sources: ['反吟', ...badPatterns.map((pattern) => pattern.name)],
     });
   }
 

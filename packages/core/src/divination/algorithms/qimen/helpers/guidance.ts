@@ -3,10 +3,17 @@ import type { QimenData } from '../../../../types/divination';
 export interface QimenPriorityPalace {
   gong: number;
   name: string;
+  /** @deprecated 旧版排序兼容字段，固定为 0；重点宫位不再按总分判断。 */
   score: number;
   reasons: string[];
 }
 
+/**
+ * 汇总需要重点查看的宫位。
+ *
+ * 输出顺序是可解释的证据来源顺序：值符相关洞察、值使/其他有利洞察、风险洞察、
+ * 经典格局、天地盘干关系、方位事实。这里只归集候选，不把不同性质的证据换算为总分。
+ */
 export function createQimenPriorityPalaces(data: QimenData): QimenPriorityPalace[] {
   const palaceMap = new Map<number, QimenPriorityPalace>();
 
@@ -31,23 +38,26 @@ export function createQimenPriorityPalaces(data: QimenData): QimenPriorityPalace
     return created;
   };
 
-  const addReason = (gong: number, score: number, reason: string) => {
+  const addReason = (gong: number, reason: string) => {
     const palace = ensurePalace(gong);
     if (!palace) {
       return;
     }
-    palace.score += score;
-    palace.reasons.push(reason);
+    if (!palace.reasons.includes(reason)) {
+      palace.reasons.push(reason);
+    }
   };
 
-  data.palaceInsights?.forEach((insight) => {
-    addReason(insight.gong, getInsightScore(insight.level), `${insight.level}:${insight.summary}`);
-  });
+  const insights = data.palaceInsights ?? [];
+  for (const level of ['关注', '有利', '风险'] as const) {
+    insights
+      .filter((insight) => insight.level === level)
+      .forEach((insight) => addReason(insight.gong, `${insight.level}:${insight.summary}`));
+  }
 
   data.classicPatterns?.forEach((pattern) => {
-    const score = getPatternPriority(pattern.type);
     pattern.palaces.forEach((gong) => {
-      addReason(gong, score, `${pattern.type === 'bad' ? '凶格' : '格局'}:${pattern.name}`);
+      addReason(gong, `${pattern.type === 'bad' ? '凶格' : '格局'}:${pattern.name}`);
     });
   });
 
@@ -55,40 +65,15 @@ export function createQimenPriorityPalaces(data: QimenData): QimenPriorityPalace
     if (!relation.pattern) {
       return;
     }
-    addReason(relation.gong, 12, `干关系:${relation.pattern}`);
+    addReason(relation.gong, `干关系:${relation.pattern}`);
   });
 
   data.directions?.goodDirections.forEach((direction) => {
-    addReason(direction.gong, 8, `吉方:${direction.direction}`);
+    addReason(direction.gong, `吉方:${direction.direction}`);
   });
   data.directions?.avoidDirections.forEach((direction) => {
-    addReason(direction.gong, 8, `避方:${direction.direction}`);
+    addReason(direction.gong, `避方:${direction.direction}`);
   });
 
-  return Array.from(palaceMap.values())
-    .map((item) => ({
-      ...item,
-      reasons: Array.from(new Set(item.reasons)),
-    }))
-    .sort((a, b) => {
-      if (b.score !== a.score) {
-        return b.score - a.score;
-      }
-      return a.gong - b.gong;
-    });
-}
-
-function getInsightScore(level: '有利' | '风险' | '关注'): number {
-  switch (level) {
-    case '关注':
-      return 28;
-    case '有利':
-      return 24;
-    case '风险':
-      return 20;
-  }
-}
-
-function getPatternPriority(type: 'good' | 'bad' | 'neutral'): number {
-  return type === 'neutral' ? 12 : 18;
+  return Array.from(palaceMap.values());
 }

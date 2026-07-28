@@ -1,19 +1,18 @@
 /**
- * @file 方位指引（《奇门遁甲秘籍大全》方位章）
- * @description 通过门、星、神、干五位一体综合评估九宫吉凶，提供行动方位建议。
+ * @file 方位指引
+ * @description 依据三吉门及其明确限制条件生成方位候选，不把门、星、神和格局折算为总分。
  *
  * 古籍依据：
- *   - 《奇门遁甲秘籍大全》：「生门求财，开门求官，休门休养，值符见贵」
- *   - 《烟波钓叟歌》：「八门若遇开休生，诸事逢之总称情」
- *   - 《遁甲演义》：「三奇得使最为良，玉女守门喜非常」
+ *   - 《奇门宝鉴御定》：「吉门若遇开休生，诸事逢之总情」
+ *   - 《奇门遁甲秘笈大全》：「开休生门为上吉」
+ *   - 《遁甲符应经》：「若吉门被迫，则吉事不成」
+ *   - 《奇门遁甲秘笈大全》：「纵有奇门皆不利」（五不遇时）
+ *   - 《奇门遁甲秘笈大全》：「时遇空亡，吉凶不成」
  *
- * 评分体系（分数为正即吉，负即凶，绝对值越大影响越强）：
- *   门分：开/生/休=+3，景=+1，杜=0，死/惊=-2，伤=-1
- *   神分：值符/太阴/六合/九天=+2，九地=+1，螣蛇=-1，白虎=-2，玄武=-2
- *   星分：天心/天辅=+2，天禽/天任=+1，天冲/天英=0，天蓬/天芮/天柱=-1
- *   三奇合吉门加分：天盘乙/丙/丁同宫开/休/生=+2
- *   空亡扣分：-3
- *   格局调整：每个吉格+2，每个凶格-2
+ * 古籍给出的是成立条件、用途和限制，并没有可通用于各门星神的加减分表。因此：
+ *   - 开、休、生三吉门是通用吉方的主证；三奇、吉神与吉格只补充依据，不单独造吉方。
+ *   - 空亡、难神、门迫及其他宫位凶格是明确限制，不能被吉项“加分抵消”。
+ *   - 避方只按明确不利事实生成，不再从全盘中机械选一个“最低分”。
  */
 
 import {
@@ -29,7 +28,7 @@ import {
 // 类型定义
 // ============================================================================
 
-/** 单个宫位评分输入 */
+/** 单个宫位方位判断输入 */
 export interface PalaceScoreInput {
   gong: number;
   name: string;
@@ -46,52 +45,23 @@ export interface DirectionAdvice {
   gong: number;
   name: string;
   direction: string;
-  /** @deprecated 仅用于旧版排序兼容，不代表方位吉凶强度。 */
-  score: number;
   use: string;
   reasons: string[];
 }
 
-// ============================================================================
-// 评分常量表
-// ============================================================================
+interface DirectionPatternInput {
+  name: string;
+  tone: 'good' | 'bad' | 'neutral';
+  palace?: number;
+  palaces?: number[];
+  /** @deprecated 旧版格局评分仅作输入兼容，方位判断不会读取。 */
+  score?: number;
+}
 
-/** 门评分（《奇门遁甲秘籍大全》八门吉凶章） */
-const DOOR_SCORES: Record<string, number> = {
-  休门: 3,
-  生门: 3,
-  开门: 3,
-  景门: 1,
-  杜门: 0,
-  伤门: -1,
-  死门: -2,
-  惊门: -2,
-};
-
-/** 神评分（《奇门遁甲秘籍大全》八神吉凶章） */
-const GOD_SCORES: Record<string, number> = {
-  值符: 2,
-  太阴: 2,
-  六合: 2,
-  九天: 2,
-  九地: 1,
-  螣蛇: -1,
-  白虎: -2,
-  玄武: -2,
-};
-
-/** 星评分（《奇门遁甲秘籍大全》九星吉凶章） */
-const STAR_SCORES: Record<string, number> = {
-  天心: 2,
-  天辅: 2,
-  天禽: 1,
-  天任: 1,
-  天冲: 0,
-  天英: 0,
-  天蓬: -1,
-  天芮: -1,
-  天柱: -1,
-};
+interface DirectionConditionsInput {
+  /** 五不遇时为全局举事限制，纵有三奇吉门也不输出通用吉方。 */
+  isWuBuYuShi?: boolean;
+}
 
 function hasSanQiWithAuspiciousDoor(palace: Pick<PalaceScoreInput, 'tianPan' | 'renPan'>): boolean {
   return (
@@ -101,65 +71,24 @@ function hasSanQiWithAuspiciousDoor(palace: Pick<PalaceScoreInput, 'tianPan' | '
   );
 }
 
-// ============================================================================
-// getPalaceScore
-// ============================================================================
+function getPatternPalaces(pattern: DirectionPatternInput): number[] {
+  return pattern.palaces ?? (pattern.palace ? [pattern.palace] : []);
+}
 
-/**
- * 计算单个宫位的综合得分
- *
- * 评分维度（按古籍《奇门遁甲秘籍大全》）：
- *   1. 门分：吉门加分，凶门减分。开/生/休为三吉门各+3，景门+1，杜门中平0，
- *      死/惊各-2，伤门-1。
- *   2. 神分：值符/太阴/六合/九天四吉神各+2，九地+1，螣蛇-1，白虎/玄武各-2。
- *   3. 星分：天心/天辅各+2，天禽/天任各+1，天冲/天英中平0，天蓬/天芮/天柱各-1。
- *   4. 三奇合吉门加分：天盘干为乙/丙/丁（日/月/星三奇），且同宫开/休/生三吉门 +2。
- *   5. 空亡扣分：宫位逢空亡-3（能量虚浮，不宜行动）。
- *   6. 经典格局调整：每个吉格（如九遁、三奇得使）+2，每个凶格（如门迫、击刑）-2。
- *
- * @param palace             - 宫位数据
- * @param isVoid             - 宫位是否空亡（默认 false）
- * @param patternAdjustment  - 经典格局净调整值（正数=加分，负数=扣分，默认 0）
- * @returns 综合得分（正数越吉，负数越凶）
- */
-export function getPalaceScore(
-  palace: PalaceScoreInput,
-  isVoid: boolean = false,
-  patternAdjustment: number = 0,
-): number {
-  let score = 0;
+function buildPatternMap(
+  patterns: DirectionPatternInput[] | undefined,
+  tone: DirectionPatternInput['tone'],
+): Map<number, string[]> {
+  const result = new Map<number, string[]>();
 
-  // 1. 门分
-  if (palace.renPan.door && DOOR_SCORES[palace.renPan.door] !== undefined) {
-    score += DOOR_SCORES[palace.renPan.door];
+  for (const pattern of patterns ?? []) {
+    if (pattern.tone !== tone) continue;
+    for (const gong of getPatternPalaces(pattern)) {
+      result.set(gong, [...(result.get(gong) ?? []), pattern.name]);
+    }
   }
 
-  // 2. 神分
-  if (palace.shenPan.god && GOD_SCORES[palace.shenPan.god] !== undefined) {
-    score += GOD_SCORES[palace.shenPan.god];
-  }
-
-  // 3. 星分
-  for (const star of [palace.tianPan.star, palace.tianPan.companionStar]) {
-    if (star && STAR_SCORES[star] !== undefined) score += STAR_SCORES[star];
-  }
-
-  // 4. 三奇合吉门加分。古籍以「奇门会合」为用，单见天盘三奇不单独加分。
-  if (hasSanQiWithAuspiciousDoor(palace)) {
-    score += 2;
-  }
-
-  // 5. 空亡扣分
-  if (isVoid) {
-    score -= 3;
-  }
-
-  // 6. 经典格局调整
-  if (patternAdjustment !== 0) {
-    score += patternAdjustment;
-  }
-
-  return score;
+  return result;
 }
 
 // ============================================================================
@@ -167,29 +96,25 @@ export function getPalaceScore(
 // ============================================================================
 
 /**
- * 根据八门和值符确定宫位推荐用途
- *
- * 古籍核心对应（《奇门遁甲秘籍大全》方位章）：
- *   生门 → 求财方位
- *   开门 → 求官/事业方位
- *   值符 → 见贵人方位
- *   休门 → 休养安宁方位
+ * 根据三吉门确定传统用途；值符同宫仅补充急难、见贵用途，不替代吉门条件。
  */
 function getDirectionUse(door: string, god: string): string {
-  // 值符见贵不受门限制
-  if (god === '值符') return '见贵人方位';
+  let use: string;
   switch (door) {
     case '开门':
-      return '求官/事业/求职';
+      use = '求官/事业/求职';
+      break;
     case '生门':
-      return '求财/合作/投资';
+      use = '求财/合作/投资';
+      break;
     case '休门':
-      return '休养/安宁/关系';
-    case '景门':
-      return '文书/考试/宣传';
+      use = '休养/安宁/关系';
+      break;
     default:
-      return '综合吉利方位';
+      use = '按门类用途审慎取用';
   }
+
+  return god === '值符' ? `${use}/急难见贵` : use;
 }
 
 // ============================================================================
@@ -197,120 +122,82 @@ function getDirectionUse(door: string, god: string): string {
 // ============================================================================
 
 /**
- * 生成方位建议
+ * 生成方位建议。
  *
- * 评估所有非中五宫位，按得分排序返回正分 top 3 吉方和 1 个避方。
- * 若全盘方位均为非正分，则不强行输出吉方。
- * 每个方位条目包含宫位名、方向、评分、推荐用途和判断原因。
- *
- * @param jiuGongGe       - 九宫格数据
- * @param voidBranches    - 空亡地支数组（如 ['寅', '卯']），用于判定宫位是否逢空
- * @param classicPatterns - 经典格局列表（用于格局调整评分），每项需含 score 和 palace/palaces
- * @returns 吉方与避方建议
+ * 吉方必须先见开、休、生三吉门，并排除空亡、难神和宫位凶格；三奇、吉神与吉格
+ * 只作为加强依据。五不遇时属于全局限制，命中时不输出通用吉方。避方则保留所有
+ * 具备难门、难神、空亡或宫位凶格的方位，不再按总分强选唯一方位。
  */
 export function buildDirectionAdvice(
   jiuGongGe: PalaceScoreInput[],
   voidBranches?: string[],
-  classicPatterns?: Array<{
-    name: string;
-    score: number;
-    palace?: number;
-    palaces?: number[];
-  }>,
+  classicPatterns?: DirectionPatternInput[],
+  conditions?: DirectionConditionsInput,
 ): { goodDirections: DirectionAdvice[]; avoidDirections: DirectionAdvice[] } {
-  // ── 1. 确定空亡宫位集合 ──
   const voidGongs = new Set<number>();
-  if (voidBranches) {
-    for (const vb of voidBranches) {
-      const g = diPanPalaces[vb];
-      if (g) voidGongs.add(g);
-    }
+  for (const branch of voidBranches ?? []) {
+    const gong = diPanPalaces[branch];
+    if (gong) voidGongs.add(gong);
   }
 
-  // ── 2. 计算每个宫位的经典格局净调整值 ──
-  // 每有一个吉格（score>0）该宫 +2，每有一个凶格（score<0）该宫 -2
-  const patternAdjustmentMap = new Map<number, number>();
-  if (classicPatterns) {
-    for (const pat of classicPatterns) {
-      if (pat.score === 0) continue; // 中性格局不影响评分
-      const affectedPalaces = pat.palaces ?? (pat.palace ? [pat.palace] : []);
-      const delta = pat.score > 0 ? 2 : -2;
-      for (const g of affectedPalaces) {
-        patternAdjustmentMap.set(g, (patternAdjustmentMap.get(g) ?? 0) + delta);
-      }
-    }
-  }
+  const goodPatternMap = buildPatternMap(classicPatterns, 'good');
+  const badPatternMap = buildPatternMap(classicPatterns, 'bad');
+  const directionalPalaces = jiuGongGe.filter((palace) => palace.gong !== 5);
 
-  // ── 3. 逐宫评分 ──
-  const scored = jiuGongGe
-    .filter((p) => p.gong !== 5) // 中五宫无方向，不参与评分
-    .map((palace) => {
-      const isVoid = voidGongs.has(palace.gong);
-      const patAdj = patternAdjustmentMap.get(palace.gong) ?? 0;
-      const score = getPalaceScore(palace, isVoid, patAdj);
-      return { ...palace, score };
-    })
-    .sort((a, b) => b.score - a.score); // 降序：最高分在前
+  const goodDirections: DirectionAdvice[] = conditions?.isWuBuYuShi
+    ? []
+    : directionalPalaces
+        .filter((palace) => {
+          const hasMainEvidence = auspiciousDoors.includes(palace.renPan.door);
+          const hasExplicitBlock =
+            voidGongs.has(palace.gong) ||
+            difficultGods.includes(palace.shenPan.god) ||
+            (badPatternMap.get(palace.gong)?.length ?? 0) > 0;
+          return hasMainEvidence && !hasExplicitBlock;
+        })
+        .map((palace) => {
+          const reasons = [palace.renPan.door];
 
-  // ── 4. 吉方：仅取正分 top 3 ──
-  const goodDirections: DirectionAdvice[] = scored
-    .filter((p) => p.score > 0)
-    .slice(0, 3)
-    .map((p) => {
+          if (supportiveGods.includes(palace.shenPan.god)) {
+            reasons.push(`值${palace.shenPan.god}`);
+          }
+          if (hasSanQiWithAuspiciousDoor(palace)) {
+            const qi = [palace.tianPan.stem, palace.tianPan.companionStem].find((stem) =>
+              sanQiStems.includes(stem || ''),
+            );
+            reasons.push(`${qi}奇合${palace.renPan.door}`);
+          }
+          for (const patternName of goodPatternMap.get(palace.gong) ?? []) {
+            reasons.push(`吉格:${patternName}`);
+          }
+
+          return {
+            gong: palace.gong,
+            name: palace.name,
+            direction: palace.direction,
+            use: getDirectionUse(palace.renPan.door, palace.shenPan.god),
+            reasons: Array.from(new Set(reasons)),
+          };
+        });
+
+  const avoidDirections: DirectionAdvice[] = directionalPalaces
+    .map((palace): DirectionAdvice | null => {
       const reasons: string[] = [];
 
-      if (auspiciousDoors.includes(p.renPan.door)) {
-        reasons.push(p.renPan.door);
-      }
-      if (supportiveGods.includes(p.shenPan.god)) {
-        reasons.push(`值${p.shenPan.god}`);
-      }
-      if (hasSanQiWithAuspiciousDoor(p)) {
-        const qi = [p.tianPan.stem, p.tianPan.companionStem].find((stem) =>
-          sanQiStems.includes(stem || ''),
-        );
-        reasons.push(`${qi}奇合${p.renPan.door}`);
-      }
-      for (const star of [p.tianPan.star, p.tianPan.companionStar]) {
-        if (star && STAR_SCORES[star] >= 2) reasons.push(`${star}到宫`);
-      }
-
-      return {
-        gong: p.gong,
-        name: p.name,
-        direction: p.direction,
-        score: p.score,
-        use: getDirectionUse(p.renPan.door, p.shenPan.god),
-        reasons,
-      };
-    });
-
-  // ── 5. 避方：取得分最低的 1 个（排除已推吉方） ──
-  const goodGongs = new Set(goodDirections.map((g) => g.gong));
-  const avoidDirections: DirectionAdvice[] = scored
-    .filter((p) => !goodGongs.has(p.gong))
-    .slice(-1) // 降序排列中最后一个即最低分
-    .map((p) => {
-      const reasons: string[] = [];
-
-      if (difficultDoors.includes(p.renPan.door)) {
-        reasons.push(p.renPan.door);
-      }
-      if (difficultGods.includes(p.shenPan.god)) {
-        reasons.push(p.shenPan.god);
-      }
-      if (voidGongs.has(p.gong)) {
-        reasons.push('空亡');
+      if (difficultDoors.includes(palace.renPan.door)) reasons.push(palace.renPan.door);
+      if (difficultGods.includes(palace.shenPan.god)) reasons.push(palace.shenPan.god);
+      if (voidGongs.has(palace.gong)) reasons.push('空亡');
+      for (const patternName of badPatternMap.get(palace.gong) ?? []) {
+        reasons.push(`凶格:${patternName}`);
       }
       if (reasons.length === 0) return null;
 
       return {
-        gong: p.gong,
-        name: p.name,
-        direction: p.direction,
-        score: p.score,
+        gong: palace.gong,
+        name: palace.name,
+        direction: palace.direction,
         use: '宜避之方',
-        reasons,
+        reasons: Array.from(new Set(reasons)),
       };
     })
     .filter((item): item is DirectionAdvice => Boolean(item));

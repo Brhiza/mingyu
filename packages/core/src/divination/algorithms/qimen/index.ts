@@ -141,14 +141,13 @@ function assertQimenScope(scope: QimenScope): void {
 function mapClassicPatterns(
   patterns: ClassicPattern[],
 ): Exclude<QimenData['classicPatterns'], undefined> {
-  return [...patterns]
-    .sort((a, b) => Math.abs(b.score) - Math.abs(a.score))
-    .map((p) => ({
-      name: p.name,
-      type: p.tone,
-      summary: p.summary,
-      palaces: p.palace ? [p.palace] : [],
-    }));
+  // 检测器本身按传统格局类别依次输出；不再用任意分值重排“影响强度”。
+  return patterns.map((p) => ({
+    name: p.name,
+    type: p.tone,
+    summary: p.summary,
+    palaces: p.palace ? [p.palace] : [],
+  }));
 }
 
 /**
@@ -377,7 +376,12 @@ export function generateQimen(
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 12：方位建议
   // ──────────────────────────────────────────────────────────────────────────
-  const directions = buildDirectionAdvice(jiuGongGe, voidBranches, classicPatternsRaw);
+  const directions = buildDirectionAdvice(
+    jiuGongGe,
+    voidBranches,
+    classicPatternsRaw,
+    specialConditions,
+  );
 
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 13：应期估算
@@ -426,10 +430,6 @@ export function generateQimen(
     jiuGongGe,
   });
   const publicPatternCombos = patternCombos.map(({ score: _score, ...combo }) => combo);
-  const publicDirections = {
-    goodDirections: directions.goodDirections.map(({ score: _score, ...item }) => item),
-    avoidDirections: directions.avoidDirections.map(({ score: _score, ...item }) => item),
-  };
 
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 15：返回完整 QimenData
@@ -466,7 +466,7 @@ export function generateQimen(
     classicPatterns,
     stemRelations,
     patternCombos: publicPatternCombos,
-    directions: publicDirections,
+    directions,
     yingQi,
     timestamp,
   };

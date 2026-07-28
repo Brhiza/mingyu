@@ -8,6 +8,7 @@ import {
 } from '../src/lib/divination/inspiration';
 import type {
   LenormandData,
+  QimenData,
   QimenJiuGongGe,
   SsgwData,
   TaiyiResult,
@@ -25,10 +26,8 @@ import {
   getQimenPatternTags,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/patterns';
 import { detectQimenPatternCombos } from '../packages/core/src/divination/algorithms/qimen/helpers/pattern-combos';
-import {
-  buildDirectionAdvice,
-  getPalaceScore,
-} from '../packages/core/src/divination/algorithms/qimen/helpers/directions';
+import { buildDirectionAdvice } from '../packages/core/src/divination/algorithms/qimen/helpers/directions';
+import { createQimenPriorityPalaces } from '../packages/core/src/divination/algorithms/qimen/helpers/guidance';
 import {
   checkSpecialHourConditions,
   getZhiFuZhiShi,
@@ -781,6 +780,29 @@ test('奇门复合格局应按同宫门神叠加识别', () => {
   assert.ok(!crossPalace.some((combo) => combo.name === '白虎助凶'));
   assert.ok(!crossPalace.some((combo) => combo.name === '迫上加凶'));
   assert.ok(!crossPalace.some((combo) => combo.name === '吉门三奇'));
+});
+
+test('奇门伏吟反吟并见凶格应按明确性质识别，不读取旧格局分数', () => {
+  const badPattern = buildClassicPattern({
+    name: '门迫',
+    tone: 'bad',
+    score: 999,
+    palace: 2,
+  });
+
+  const fuyinCombos = detectQimenPatternCombos({
+    classicPatterns: [badPattern],
+    patternTags: ['星伏吟'],
+    jiuGongGe: [buildQimenPalace(2, '辛')],
+  });
+  const fanyinCombos = detectQimenPatternCombos({
+    classicPatterns: [{ ...badPattern, score: 0 }],
+    patternTags: ['门反吟'],
+    jiuGongGe: [buildQimenPalace(2, '辛')],
+  });
+
+  assert.ok(fuyinCombos.some((combo) => combo.name === '伏吟带凶'));
+  assert.ok(fanyinCombos.some((combo) => combo.name === '反吟翻覆'));
 });
 
 test('奇门复合格局应按丁壬化木同宫门类输出用门提示', () => {
@@ -3613,16 +3635,12 @@ test('奇门三奇得基础标签应以三奇合吉门为准', () => {
   assert.ok(goodDoorTags.includes('三奇得（乙奇（日奇）合休门于坎一宫）'));
 });
 
-test('奇门方位评分不应把有奇无门当作吉方依据', () => {
+test('奇门方位应以三吉门为主证，不把有奇无门当作吉方', () => {
   const noDoorPalace = buildQimenPalace(3, '乙');
   noDoorPalace.renPan.door = '杜门';
 
-  assert.equal(getPalaceScore(noDoorPalace), 0);
-
   const goodDoorPalace = buildQimenPalace(1, '乙');
   goodDoorPalace.renPan.door = '休门';
-
-  assert.equal(getPalaceScore(goodDoorPalace), 5);
 
   const directions = buildDirectionAdvice([noDoorPalace, goodDoorPalace]);
   const goodDirection = directions.goodDirections.find((item) => item.gong === 1);
@@ -3632,7 +3650,7 @@ test('奇门方位评分不应把有奇无门当作吉方依据', () => {
   assert.ok(!(noDoorDirection?.reasons ?? []).some((reason) => reason.includes('奇')));
 });
 
-test('奇门方位建议不应把负分宫位输出为吉方', () => {
+test('奇门方位应把每个有明确难门或难神的宫位列为避方', () => {
   const worstPalace = buildQimenPalace(2, '辛');
   worstPalace.renPan.door = '死门';
   worstPalace.shenPan.god = '白虎';
@@ -3647,6 +3665,7 @@ test('奇门方位建议不应把负分宫位输出为吉方', () => {
 
   assert.deepEqual(directions.goodDirections, []);
   assert.equal(directions.avoidDirections[0]?.gong, 2);
+  assert.equal(directions.avoidDirections[1]?.gong, 3);
   assert.ok(directions.avoidDirections[0]?.reasons.includes('死门'));
   assert.ok(directions.avoidDirections[0]?.reasons.includes('白虎'));
 });
@@ -3667,6 +3686,87 @@ test('奇门避方没有明确难门、难神或空亡时不应凭内部排序�
 
   assert.deepEqual(directions.goodDirections, []);
   assert.deepEqual(directions.avoidDirections, []);
+});
+
+test('奇门吉方的空亡、难神和凶格限制不应被其他吉项抵消', () => {
+  const voidPalace = buildQimenPalace(1, '乙', {
+    renPan: { door: '休门' },
+    shenPan: { god: '六合' },
+  });
+  const difficultGodPalace = buildQimenPalace(3, '丙', {
+    renPan: { door: '开门' },
+    shenPan: { god: '白虎' },
+  });
+  const badPatternPalace = buildQimenPalace(4, '丁', {
+    renPan: { door: '生门' },
+    shenPan: { god: '太阴' },
+  });
+  const patterns = [
+    buildClassicPattern({
+      name: '门迫',
+      tone: 'bad',
+      score: 999,
+      palace: 4,
+    }),
+    buildClassicPattern({
+      name: '测试吉格',
+      tone: 'good',
+      score: -999,
+      palace: 4,
+    }),
+  ];
+
+  const directions = buildDirectionAdvice(
+    [voidPalace, difficultGodPalace, badPatternPalace],
+    ['子'],
+    patterns,
+  );
+
+  assert.deepEqual(directions.goodDirections, []);
+  assert.ok(
+    directions.avoidDirections.some((item) => item.gong === 1 && item.reasons.includes('空亡')),
+  );
+  assert.ok(
+    directions.avoidDirections.some((item) => item.gong === 3 && item.reasons.includes('白虎')),
+  );
+  assert.ok(
+    directions.avoidDirections.some(
+      (item) => item.gong === 4 && item.reasons.includes('凶格:门迫'),
+    ),
+  );
+});
+
+test('奇门五不遇时即使三奇合吉门也不输出通用吉方', () => {
+  const palace = buildQimenPalace(1, '乙', {
+    renPan: { door: '休门' },
+    shenPan: { god: '六合' },
+  });
+
+  const directions = buildDirectionAdvice([palace], [], [], { isWuBuYuShi: true });
+
+  assert.deepEqual(directions.goodDirections, []);
+});
+
+test('奇门重点宫位应按证据来源归集，不按旧分数竞争排序', () => {
+  const attentionPalace = buildQimenPalace(1, '乙');
+  const riskPalace = buildQimenPalace(2, '辛');
+  const data = {
+    jiuGongGe: [riskPalace, attentionPalace],
+    palaceInsights: [
+      { gong: 2, name: riskPalace.name, level: '风险', summary: '死门同宫' },
+      { gong: 1, name: attentionPalace.name, level: '关注', summary: '值符落宫' },
+    ],
+    classicPatterns: [{ name: '门迫', type: 'bad', summary: '门克宫', palaces: [2] }],
+  } as QimenData;
+
+  const priorities = createQimenPriorityPalaces(data);
+
+  assert.deepEqual(
+    priorities.map((item) => item.gong),
+    [1, 2],
+  );
+  assert.ok(priorities.every((item) => item.score === 0));
+  assert.ok(priorities[1]?.reasons.includes('凶格:门迫'));
 });
 
 test('奇门宝鉴三奇得使应按值使吉门加三奇判定', () => {
