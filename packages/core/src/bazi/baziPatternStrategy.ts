@@ -227,6 +227,83 @@ function buildLuRenFormationBasis(
   return `月令${monthBranch}为日主${dayMaster}之${patternName === '建禄格' ? '禄位' : '羊刃位'}，月令底格仍按${patternName}处理；${formationUses.join('；')}${exposedFact}；${ruleBoundary}，故不能只报固定格名而漏掉格外取用；当前只记录完整会支及相关明透，不据三支齐全直接宣称已经合化、${changeBoundary}、成格或破格${commanderFact}`;
 }
 
+/**
+ * 只复算《子平真诠》“杂气如何取用”逐条明举的透干、会支关系。
+ * 这里记录局部有情、无情及转化，不把单层生克泛化成通用成败规则。
+ */
+function collectExplicitUseRelationshipNotes(
+  pillars: Pillars,
+  formations: CompleteBranchFormation[],
+): string[] {
+  const dayMaster = pillars.day.gan;
+  const monthBranch = pillars.month.zhi;
+  const visibleStems = new Set([pillars.year.gan, pillars.month.gan, pillars.hour.gan]);
+  const branches = new Set(Object.values(pillars).map((pillar) => pillar.zhi));
+  const hasVisibleStems = (...stems: string[]) => stems.every((stem) => visibleStems.has(stem));
+  const hasFormation = (wuxing: Wuxing) =>
+    formations.some((formation) => formation.wuxing === wuxing);
+  const notes: string[] = [];
+
+  if (dayMaster === '丙' && monthBranch === '辰' && hasVisibleStems('癸', '乙')) {
+    notes.push('丙日辰月癸官与乙印同透，官印相生且乙制辰中戊土，原典列为“合而有情”');
+  }
+
+  if (
+    dayMaster === '甲' &&
+    monthBranch === '丑' &&
+    visibleStems.has('己') &&
+    (visibleStems.has('辛') || hasFormation('金'))
+  ) {
+    notes.push(
+      visibleStems.has('辛')
+        ? '甲日丑月己财与辛官同透，财能生官，原典列为“合而有情”'
+        : '甲日丑月己财透出且巳酉丑会金官，财能生官，原典列为“合而有情”',
+    );
+  }
+
+  if (dayMaster === '壬' && monthBranch === '未' && visibleStems.has('己') && hasFormation('木')) {
+    notes.push('壬日未月己官透出而亥卯未会木伤官，官与伤官相背，原典列为“合而无情”');
+  }
+
+  if (dayMaster === '甲' && monthBranch === '辰' && hasVisibleStems('戊', '癸')) {
+    notes.push('甲日辰月戊财与癸印同透，戊癸相合使财印两失，原典列为“合而无情”');
+  }
+
+  if (dayMaster === '甲' && monthBranch === '辰' && hasVisibleStems('戊', '壬')) {
+    notes.push('甲日辰月戊财与壬印同透，财印相克而贪财坏印，原典列为“合而无情”');
+  }
+
+  if (dayMaster === '甲' && monthBranch === '辰' && hasVisibleStems('壬', '丙')) {
+    notes.push(
+      hasFormation('水')
+        ? '甲日辰月壬印与丙食同透且申子辰会水扶印，原典说明丙食不再碍印，局部关系仍有情'
+        : '甲日辰月壬印与丙食同透而未会申子水局，丙火反生辰中戊土使印格不清，原典列为“有情而卒成无情”',
+    );
+  }
+
+  if (
+    dayMaster === '甲' &&
+    monthBranch === '辰' &&
+    visibleStems.has('壬') &&
+    !visibleStems.has('丙') &&
+    branches.has('戌')
+  ) {
+    notes.push(
+      '甲日辰月壬印透出、不露丙而又见戌冲辰，月令土动使壬印难通月令，原典列为“有情而卒成无情”',
+    );
+  }
+
+  if (dayMaster === '癸' && monthBranch === '辰' && visibleStems.has('戊') && hasFormation('水')) {
+    notes.push('癸日辰月戊官透出而申子辰会水劫，官制月劫正合所用，原典列为“无情而终为有情”');
+  }
+
+  if (dayMaster === '丙' && monthBranch === '辰' && hasVisibleStems('戊', '壬')) {
+    notes.push('丙日辰月戊食与壬杀同透，食神制杀各得其用，原典列为“无情而终为有情”');
+  }
+
+  return notes;
+}
+
 const FORMATION_PATTERN_NAME_BY_TEN_GOD_CATEGORY: Record<string, string> = {
   比劫: '比劫格',
   食伤: '食伤格',
@@ -371,6 +448,10 @@ export function determinePattern(
   const monthBranchFormations = collectCompleteBranchFormations(pillars).filter(
     (formation) => formation.includesMonthBranch,
   );
+  const explicitRelationshipNotes = collectExplicitUseRelationshipNotes(
+    pillars,
+    monthBranchFormations,
+  );
   const commanderIsMonthStem = Boolean(monthCommander && monthStems.includes(monthCommander));
   const commanderIsExposed = Boolean(monthCommander && exposedStems.includes(monthCommander));
   let basis: string;
@@ -514,6 +595,10 @@ export function determinePattern(
       : '';
     patternName = '待综合判断';
     basis = `月令藏干${hiddenUses.join('、')}均未透出${commanderFact}；《千里命稿》要求比较月内人元轻重、有力程度及克合后取舍，当前条件未闭合，不只凭司令阶段或藏干数组本气强定单一格局`;
+  }
+
+  if (explicitRelationshipNotes.length > 0) {
+    basis += `；古籍同型关系：${explicitRelationshipNotes.join('；')}；以上只闭合原典明举的局部有情、无情或转化关系，其他兼透、刑冲、合化、清浊与救应仍可能改变整体结果，不据此直接判定最终成败`;
   }
 
   return {

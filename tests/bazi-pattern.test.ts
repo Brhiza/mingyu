@@ -266,6 +266,124 @@ test('月令藏干兼透时不得按藏干次序或透干柱位强定单一格�
   assert.match(result.basis || '', /辛（正官）、丁（伤官）同时透出/);
   assert.match(result.basis || '', /一透则一用，兼透则兼用/);
   assert.match(result.basis || '', /不按藏干次序、重复透出次数或年、月、时柱位强定/);
+  assert.doesNotMatch(result.basis || '', /古籍同型关系/);
+});
+
+test('原典明举的官印相生与财生官兼透应记录局部有情', () => {
+  const officerResource: Pillars = {
+    year: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
+    month: { gan: '庚', zhi: '辰', ganZhi: '庚辰' },
+    day: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    hour: { gan: '癸', zhi: '巳', ganZhi: '癸巳' },
+  };
+  const wealthOfficer: Pillars = {
+    year: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
+    month: { gan: '己', zhi: '丑', ganZhi: '己丑' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '辛', zhi: '未', ganZhi: '辛未' },
+  };
+
+  const officerResourceResult = determinePattern(officerResource, '待综合判断', getTenGod);
+  const wealthOfficerResult = determinePattern(wealthOfficer, '待综合判断', getTenGod);
+
+  assert.equal(officerResourceResult.pattern, '待综合判断');
+  assert.match(officerResourceResult.basis || '', /癸官与乙印同透/);
+  assert.match(officerResourceResult.basis || '', /官印相生且乙制辰中戊土/);
+  assert.match(officerResourceResult.basis || '', /合而有情/);
+  assert.equal(wealthOfficerResult.pattern, '待综合判断');
+  assert.match(wealthOfficerResult.basis || '', /己财与辛官同透/);
+  assert.match(wealthOfficerResult.basis || '', /财能生官/);
+  assert.match(wealthOfficerResult.basis || '', /合而有情/);
+});
+
+test('原典明举的财印相合与相克应记录局部无情', () => {
+  const wealthResourceCombined: Pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '癸', zhi: '酉', ganZhi: '癸酉' },
+  };
+  const wealthResourceClashed: Pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '壬', zhi: '申', ganZhi: '壬申' },
+  };
+
+  const combinedResult = determinePattern(wealthResourceCombined, '待综合判断', getTenGod);
+  const clashedResult = determinePattern(wealthResourceClashed, '待综合判断', getTenGod);
+
+  assert.match(combinedResult.basis || '', /戊癸相合使财印两失/);
+  assert.match(combinedResult.basis || '', /合而无情/);
+  assert.match(clashedResult.basis || '', /财印相克而贪财坏印/);
+  assert.match(clashedResult.basis || '', /合而无情/);
+});
+
+test('壬印丙食是否会水应按原典区分有情终变', () => {
+  const withoutWaterFormation: Pillars = {
+    year: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    month: { gan: '壬', zhi: '辰', ganZhi: '壬辰' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '甲', zhi: '戌', ganZhi: '甲戌' },
+  };
+  const withWaterFormation: Pillars = {
+    year: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    month: { gan: '壬', zhi: '辰', ganZhi: '壬辰' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '壬', zhi: '申', ganZhi: '壬申' },
+  };
+
+  const withoutWaterResult = determinePattern(withoutWaterFormation, '待综合判断', getTenGod);
+  const withWaterResult = determinePattern(withWaterFormation, '待综合判断', getTenGod);
+
+  assert.match(withoutWaterResult.basis || '', /未会申子水局/);
+  assert.match(withoutWaterResult.basis || '', /有情而卒成无情/);
+  assert.doesNotMatch(withoutWaterResult.basis || '', /壬印透出、不露丙而又见戌冲辰/);
+  assert.match(withWaterResult.basis || '', /申子辰会水扶印/);
+  assert.match(withWaterResult.basis || '', /丙食不再碍印，局部关系仍有情/);
+});
+
+test('壬印透而不露丙又逢辰戌冲应按原典记录有情卒无情', () => {
+  const pillars: Pillars = {
+    year: { gan: '壬', zhi: '戌', ganZhi: '壬戌' },
+    month: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod);
+
+  assert.equal(result.pattern, '待综合判断');
+  assert.match(result.basis || '', /壬印透出、不露丙而又见戌冲辰/);
+  assert.match(result.basis || '', /月令土动使壬印难通月令/);
+  assert.match(result.basis || '', /有情而卒成无情/);
+});
+
+test('官制月劫与食神制杀应按原典记录无情终转有情', () => {
+  const officerControlsRobbery: Pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    day: { gan: '癸', zhi: '酉', ganZhi: '癸酉' },
+    hour: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+  };
+  const outputControlsKiller: Pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    day: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    hour: { gan: '壬', zhi: '辰', ganZhi: '壬辰' },
+  };
+
+  const officerResult = determinePattern(officerControlsRobbery, '待综合判断', getTenGod);
+  const outputResult = determinePattern(outputControlsKiller, '待综合判断', getTenGod);
+
+  assert.match(officerResult.basis || '', /戊官透出而申子辰会水劫/);
+  assert.match(officerResult.basis || '', /官制月劫正合所用/);
+  assert.match(officerResult.basis || '', /无情而终为有情/);
+  assert.equal(outputResult.pattern, '食神格');
+  assert.match(outputResult.basis || '', /戊食与壬杀同透/);
+  assert.match(outputResult.basis || '', /食神制杀各得其用/);
+  assert.match(outputResult.basis || '', /无情而终为有情/);
+  assert.match(outputResult.basis || '', /不据此直接判定最终成败/);
 });
 
 test('月令单透同时会支时必须透与会并用，不得只按透干强定单格', () => {
@@ -285,7 +403,7 @@ test('月令单透同时会支时必须透与会并用，不得只按透干强�
   assert.match(result.basis || '', /有情无情判断成败/);
 });
 
-test('透干与会支关系未自动裁定时必须保留待定，不得擅写有情或无情', () => {
+test('壬生未月己官透而会亥卯木伤官时应按原典记录局部无情', () => {
   const pillars: Pillars = {
     year: { gan: '己', zhi: '亥', ganZhi: '己亥' },
     month: { gan: '辛', zhi: '未', ganZhi: '辛未' },
@@ -298,8 +416,10 @@ test('透干与会支关系未自动裁定时必须保留待定，不得擅写�
   assert.equal(result.pattern, '待综合判断');
   assert.match(result.basis || '', /己（正官）透出/);
   assert.match(result.basis || '', /月支未参与地支亥卯未完整三合木结构（木食伤）/);
-  assert.match(result.basis || '', /有情无情判断成败/);
-  assert.doesNotMatch(result.basis || '', /合而有情|合而无情/);
+  assert.match(result.basis || '', /己官透出而亥卯未会木伤官/);
+  assert.match(result.basis || '', /官与伤官相背/);
+  assert.match(result.basis || '', /合而无情/);
+  assert.match(result.basis || '', /不据此直接判定最终成败/);
 });
 
 test('月令兼透又会支时必须把会支一并写入综合判断依据', () => {
