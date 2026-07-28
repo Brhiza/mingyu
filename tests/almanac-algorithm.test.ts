@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { SolarDay } from 'tyme4ts';
 
 import {
   generateAlmanacSelection,
@@ -382,6 +383,55 @@ test('黄历择日：每个候选日应完整保留逐时时辰与全部无强�
       );
     }
   }
+});
+
+test('黄历择日：逐时十二神应采用 tyme4ts 原生黄黑道及吉凶属性', () => {
+  const day = generateAlmanacSelection({
+    topic: 'contract',
+    startDate: '2026-06-01',
+    endDate: '2026-06-01',
+  }).days[0];
+  const sourceHours = SolarDay.fromYmd(2026, 6, 1).getLunarDay().getHours();
+
+  assert.equal(day.hours?.length, sourceHours.length);
+  for (const [index, hour] of (day.hours ?? []).entries()) {
+    const sourceEcliptic = sourceHours[index].getTwelveStar().getEcliptic();
+    assert.equal(hour.ecliptic, sourceEcliptic.getName());
+    assert.equal(hour.eclipticLuck, sourceEcliptic.getLuck().getName());
+    const twelveStarFact = hour.topicMatchFacts?.find((fact) => fact.sourceType === '十二神');
+    assert.deepEqual(twelveStarFact?.sources, [
+      'tyme4ts TwelveStar.getEcliptic()',
+      'tyme4ts Ecliptic.getLuck()',
+    ]);
+  }
+});
+
+test('黄历择日：参与人刑冲破害只核验候选日，不类推到候选时支', () => {
+  const day = generateAlmanacSelection({
+    topic: 'move',
+    startDate: '2026-06-10',
+    endDate: '2026-06-10',
+    participants: [
+      {
+        id: 'owner',
+        name: '屋主',
+        gender: '男',
+        year: '1990',
+        month: '2',
+        day: '4',
+        timeIndex: '6',
+        dateType: 'solar',
+      },
+    ],
+  }).days[0];
+
+  assert.ok((day.participantRelationFacts?.length ?? 0) > 0);
+  assert.ok(day.participantNotes.length > 0);
+  assert.ok(
+    day.hours?.every(
+      (hour) => hour.participantNotes.length === 0 && hour.participantRelationFacts?.length === 0,
+    ),
+  );
 });
 
 test('黄历择日：跨世纪与交节日期应符合独立历法真值', () => {

@@ -2,6 +2,19 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { generateAlmanacSelection } from '../packages/core/src/divination/algorithms/almanac.ts';
 
+const DIRECT_TOPIC_KEYWORDS = {
+  move: ['入宅', '移徙'],
+  marriage: ['嫁娶', '纳采', '订盟'],
+  opening: ['开市'],
+  contract: ['交易', '立券'],
+  travel: ['出行', '赴任'],
+  medical: ['求医', '治病'],
+  study: ['入学'],
+  burial: ['安葬', '修坟', '启钻'],
+  renovation: ['修造', '动土'],
+  custom: [],
+} as const;
+
 test('黄历择日：事项匹配只映射 tyme4ts 原始宜忌，不生成本地硬规则事实', () => {
   const result = generateAlmanacSelection({
     topic: 'marriage',
@@ -21,6 +34,45 @@ test('黄历择日：事项匹配只映射 tyme4ts 原始宜忌，不生成本�
         ),
     ),
   );
+});
+
+test('黄历择日：每类事项的宜忌应共用同一组直接对应词', () => {
+  for (const [topic, expectedKeywords] of Object.entries(DIRECT_TOPIC_KEYWORDS)) {
+    const day = generateAlmanacSelection({
+      topic: topic as keyof typeof DIRECT_TOPIC_KEYWORDS,
+      startDate: '2026-01-03',
+      endDate: '2026-01-03',
+    }).days[0];
+    const dayRecommendFact = day.topicMatchFacts?.find((fact) => fact.sourceType === '原始宜项');
+    const dayAvoidFact = day.topicMatchFacts?.find((fact) => fact.sourceType === '原始忌项');
+
+    assert.deepEqual(dayRecommendFact?.keywords, expectedKeywords);
+    assert.deepEqual(dayAvoidFact?.keywords, expectedKeywords);
+    for (const hour of day.hours ?? []) {
+      const hourRecommendFact = hour.topicMatchFacts?.find(
+        (fact) => fact.sourceType === '原始宜项',
+      );
+      const hourAvoidFact = hour.topicMatchFacts?.find((fact) => fact.sourceType === '原始忌项');
+      assert.deepEqual(hourRecommendFact?.keywords, expectedKeywords);
+      assert.deepEqual(hourAvoidFact?.keywords, [...expectedKeywords, '诸事不宜']);
+    }
+  }
+});
+
+test('黄历择日：祭祀祈福不得跨事项作为考试学习支持', () => {
+  const day = generateAlmanacSelection({
+    topic: 'study',
+    startDate: '2026-01-03',
+    endDate: '2026-01-03',
+  }).days[0];
+  const recommendFact = day.topicMatchFacts?.find((fact) => fact.sourceType === '原始宜项');
+
+  assert.ok(day.recommends.includes('祭祀'));
+  assert.ok(day.recommends.includes('祈福'));
+  assert.deepEqual(recommendFact?.keywords, ['入学']);
+  assert.deepEqual(recommendFact?.matchedItems, []);
+  assert.equal(recommendFact?.status, '中性');
+  assert.doesNotMatch(day.highlights.join('；'), /黄历宜项命中考试学习/);
 });
 
 test('黄历择日：神煞吉凶直接采用 tyme4ts 原生属性并分别保留', () => {

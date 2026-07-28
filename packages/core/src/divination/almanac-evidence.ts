@@ -72,6 +72,8 @@ export interface AlmanacHourEvidence {
   ganzhi: string;
   branch: string;
   twelveStar: string;
+  ecliptic?: '黄道' | '黑道';
+  eclipticLuck?: '吉' | '凶';
   status: AlmanacCandidateStatus;
   recommends: string[];
   avoids: string[];
@@ -83,7 +85,7 @@ export interface AlmanacHourEvidence {
   participantRelationFacts: AlmanacParticipantRelationFact[];
   promptText: string;
   sources: string[];
-  limitation: '逐时时课只用于当前候选日内比较事项宜忌、十二神与参与人冲突，不证明该时辰必然成功、吉利或适合所有人';
+  limitation: '逐时时课只用于当前候选日内比较事项宜忌与十二神原生黄黑道属性；参与人刑冲破害只核验候选日，不类推到时支；不证明该时辰必然成功、吉利或适合所有人';
 }
 
 export interface AlmanacCalendarFact {
@@ -229,7 +231,7 @@ const TRADITIONAL_FACT_LIMITATION =
 const CALENDAR_FACT_LIMITATION =
   '公历、农历、干支、建除、十二神与冲煞是当前候选日的历法和规则字段，只用于确定比较条件，不单独证明现实吉凶或事项结果' as const;
 const HOUR_FACT_LIMITATION =
-  '逐时时课只用于当前候选日内比较事项宜忌、十二神与参与人冲突，不证明该时辰必然成功、吉利或适合所有人' as const;
+  '逐时时课只用于当前候选日内比较事项宜忌与十二神原生黄黑道属性；参与人刑冲破害只核验候选日，不类推到时支；不证明该时辰必然成功、吉利或适合所有人' as const;
 const RAW_TABOO_FACT_LIMITATION =
   '原始宜忌只保留历书列项及其是否命中当前事项；未列不等于适宜，列出也不等于现实事项必然成功或失败' as const;
 const DECISION_FACT_LIMITATION =
@@ -443,25 +445,15 @@ export function classifyAlmanacHourCandidate(hour: AlmanacHourCandidate): {
   constraintTexts: string[];
 } {
   const topicConstraints = (hour.topicMatchFacts ?? []).filter((item) => item.status === '限制');
-  const participantConstraints = getParticipantConstraintTexts(
-    hour.participantRelationFacts,
-    hour.participantNotes,
-  );
-  const directParticipantConflicts = getDirectParticipantConflictTexts(
-    hour.participantRelationFacts,
-    hour.participantNotes,
-  );
   const strongConstraintTexts = unique([
     ...topicConstraints
       .filter((item) => /:topic:avoids$/.test(item.key))
       .map((item) => item.promptText),
-    ...directParticipantConflicts,
     ...(hour.avoids.includes('诸事不宜') ? ['时辰明列诸事不宜'] : []),
   ]);
   const constraintTexts = unique([
     ...hour.cautions,
     ...topicConstraints.map((item) => item.promptText),
-    ...participantConstraints,
   ]);
   return {
     status: strongConstraintTexts.length
@@ -685,35 +677,23 @@ function buildHourEvidence(
       highlights: hour.highlights,
       cautions: hour.cautions,
     });
-  const participantRelationFacts =
-    hour.participantRelationFacts?.map((item) => ({ ...item })) ??
-    buildCompatibleParticipantFacts({
-      keyPrefix,
-      scope: '时辰',
-      candidateValue: hour.branch,
-      notes: hour.participantNotes,
-    });
-  const participantSupport = getParticipantSupportTexts(
-    participantRelationFacts,
-    hour.participantNotes,
-  );
-  const participantConstraints = getParticipantConstraintTexts(
-    participantRelationFacts,
-    hour.participantNotes,
-  );
+  // 现有择日来源只明确要求候选日避参与人年支、日支刑冲破害，
+  // 不把旧结果中的时支关系继续类推为逐时强限制。
+  const participantRelationFacts: AlmanacParticipantRelationFact[] = [];
+  const participantSupport: string[] = [];
   const classification = classifyAlmanacHourCandidate({
     ...hour,
     topicMatchFacts,
-    participantRelationFacts,
   });
   const constraints = unique([
     ...classification.constraintTexts,
-    ...participantConstraints,
     ...(hour.avoids.includes('诸事不宜') ? ['时辰明列诸事不宜'] : []),
   ]);
   const support = unique([...hour.highlights, ...participantSupport]);
   const status = classification.status;
-  const promptText = `${hour.name}${hour.range}，${hour.ganzhi}（${hour.branch}支）、${hour.twelveStar}；${status}；宜${recommends.join('、') || '未列'}；忌${avoids.join('、') || '未列'}；支持${support.join('、') || '未见额外支持'}；限制${constraints.join('、') || '未见明确冲突'}`;
+  const eclipticText =
+    hour.ecliptic && hour.eclipticLuck ? `、${hour.ecliptic}${hour.eclipticLuck}` : '';
+  const promptText = `${hour.name}${hour.range}，${hour.ganzhi}（${hour.branch}支）、${hour.twelveStar}${eclipticText}；${status}；宜${recommends.join('、') || '未列'}；忌${avoids.join('、') || '未列'}；支持${support.join('、') || '未见额外支持'}；限制${constraints.join('、') || '未见明确冲突'}`;
   return {
     key: keyPrefix,
     name: hour.name,
@@ -721,6 +701,8 @@ function buildHourEvidence(
     ganzhi: hour.ganzhi,
     branch: hour.branch,
     twelveStar: hour.twelveStar,
+    ecliptic: hour.ecliptic,
+    eclipticLuck: hour.eclipticLuck,
     status,
     recommends,
     avoids,
@@ -731,7 +713,7 @@ function buildHourEvidence(
     topicMatchFacts,
     participantRelationFacts,
     promptText,
-    sources: ['逐时时柱与十二神计算', '当前事项时辰宜忌与参与人刑冲破害核验'],
+    sources: ['逐时时柱与十二神计算', '当前事项时辰宜忌与原生黄黑道属性'],
     limitation: HOUR_FACT_LIMITATION,
   };
 }

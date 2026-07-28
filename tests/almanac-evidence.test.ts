@@ -5,6 +5,7 @@ import {
   conditionAlmanacTraditionalText,
   generateAlmanacSelection,
 } from 'mingyu-core/divination/almanac';
+import { classifyAlmanacHourCandidate } from '../packages/core/src/divination/almanac-evidence.ts';
 
 test('黄历择日应内置透明约束与候选证据', () => {
   const data = generateAlmanacSelection({
@@ -162,6 +163,9 @@ test('择日证据应保留日课、宿曜、九星、百忌、方位神与逐�
         item.ganzhi &&
         item.branch &&
         item.twelveStar &&
+        item.ecliptic &&
+        item.eclipticLuck &&
+        item.promptText.includes(`${item.ecliptic}${item.eclipticLuck}`) &&
         item.promptText.includes(item.ganzhi) &&
         item.sources.length >= 2 &&
         item.rawTabooFact.key.startsWith(item.key) &&
@@ -176,6 +180,46 @@ test('择日证据应保留日课、宿曜、九星、百忌、方位神与逐�
     JSON.stringify(result.evidenceAnalysis?.evidence),
     /"score"\s*:|成功率[：=]?\s*\d|吉凶总分[：=]?\s*\d/,
   );
+});
+
+test('逐时时课应忽略旧结果中的参与人时支冲突', () => {
+  const result = generateAlmanacSelection({
+    topic: 'move',
+    startDate: '2026-06-10',
+    endDate: '2026-06-10',
+  });
+  const hour = result.days[0].bestHours?.[0];
+  assert.ok(hour);
+  const originalStatus = classifyAlmanacHourCandidate(hour).status;
+  hour.participantNotes = ['旧结果：候选时支与参与人年支相冲'];
+  hour.participantRelationFacts = [
+    {
+      key: 'legacy-hour-participant-conflict',
+      scope: '时辰',
+      participantId: 'legacy-person',
+      participantName: '旧参与人',
+      basis: '年支',
+      candidateValue: hour.branch,
+      participantValues: ['午'],
+      relation: '冲',
+      status: '限制',
+      detail: '旧结果中的时支冲突',
+      promptText: '旧结果中的时支冲突',
+      sources: ['旧结果'],
+      limitation: '旧结果',
+    },
+  ];
+
+  assert.equal(classifyAlmanacHourCandidate(hour).status, originalStatus);
+  const evidenceHour = analyzeAlmanacEvidence(result).candidates[0].usableHours.find((item) =>
+    item.key.includes(`:${hour.ganzhi}:${hour.name}`),
+  );
+  assert.ok(evidenceHour);
+  assert.deepEqual(evidenceHour.participantRelationFacts, []);
+  assert.deepEqual(evidenceHour.participantSupport, []);
+  assert.doesNotMatch(evidenceHour.constraints.join('；'), /旧结果中的时支冲突/);
+  assert.ok(evidenceHour.sources.some((source) => source.includes('原生黄黑道属性')));
+  assert.match(evidenceHour.limitation, /参与人刑冲破害只核验候选日/);
 });
 
 test('择日证据应让明确事项忌项决定慎用分组', () => {

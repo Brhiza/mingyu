@@ -1001,6 +1001,10 @@ export interface AlmanacHourCandidate {
   ganzhi: string;
   branch: string;
   twelveStar: string;
+  /** tyme4ts TwelveStar.getEcliptic() 原生黄黑道属性。 */
+  ecliptic?: '黄道' | '黑道';
+  /** tyme4ts Ecliptic.getLuck() 原生吉凶属性。 */
+  eclipticLuck?: '吉' | '凶';
   recommends: string[];
   avoids: string[];
   highlights: string[];

@@ -28,7 +28,10 @@ import type {
 
 interface AlmanacLunarHourSource {
   getSixtyCycle(): { getName(): string };
-  getTwelveStar(): { getName(): string };
+  getTwelveStar(): {
+    getName(): string;
+    getEcliptic(): { getName(): string; getLuck(): { getName(): string } };
+  };
   getRecommends(): Array<{ getName(): string }>;
   getAvoids(): Array<{ getName(): string }>;
 }
@@ -59,29 +62,18 @@ export const ALMANAC_TOPIC_LABELS: Record<AlmanacTopic, string> = {
   custom: '自定义事项',
 };
 
-const TOPIC_RECOMMEND_KEYWORDS: Record<AlmanacTopic, string[]> = {
-  move: ['入宅', '移徙', '安床', '修造', '动土'],
-  marriage: ['嫁娶', '纳采', '订盟', '会亲友', '冠笄', '成服', '安床'],
-  opening: ['开市', '交易', '立券', '纳财', '开仓', '出货财', '挂匾'],
-  contract: ['交易', '立券', '纳财', '会亲友'],
-  travel: ['出行', '赴任', '移徙'],
-  medical: ['求医', '治病', '解除'],
-  study: ['入学', '求嗣', '祭祀', '祈福'],
-  burial: ['安葬', '修坟', '启钻', '立碑', '入殓', '移柩', '成服', '除服'],
-  renovation: ['修造', '动土', '竖柱', '上梁', '盖屋', '起基'],
-  custom: [],
-};
-
-const TOPIC_AVOID_KEYWORDS: Record<AlmanacTopic, string[]> = {
-  move: ['入宅', '移徙', '安床'],
+// 产品事项只映射历书中的同名或直接对应词，宜、忌使用同一张表。
+// 安床、修造、祭祀、祈福、会亲友等相关但不同的事项不作跨事项推断。
+const TOPIC_ACTIVITY_KEYWORDS: Record<AlmanacTopic, string[]> = {
+  move: ['入宅', '移徙'],
   marriage: ['嫁娶', '纳采', '订盟'],
-  opening: ['开市', '交易', '立券'],
+  opening: ['开市'],
   contract: ['交易', '立券'],
   travel: ['出行', '赴任'],
   medical: ['求医', '治病'],
-  study: ['入学', '求嗣'],
+  study: ['入学'],
   burial: ['安葬', '修坟', '启钻'],
-  renovation: ['修造', '动土', '竖柱', '上梁'],
+  renovation: ['修造', '动土'],
   custom: [],
 };
 
@@ -93,7 +85,6 @@ function assertAlmanacTopic(topic: AlmanacTopic): void {
 
 const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
 const MAX_ALMANAC_PARTICIPANTS = 30;
-const AUSPICIOUS_HOUR_STARS = new Set(['青龙', '明堂', '金匮', '天德', '玉堂', '司命']);
 type ParticipantBranchConflictType = '冲' | '刑' | '害' | '破';
 
 const BRANCH_DIRECTIONS: Record<string, string> = {
@@ -161,11 +152,11 @@ function findKeywordMatches(values: string[], keywords: string[]) {
 }
 
 const TOPIC_MATCH_LIMITATION =
-  '事项命中事实只说明当前事项关键词是否出现在原始宜忌、建除值日或十二神规则中，不证明事项必然成功，也不得替代现实条件核验';
+  '事项命中事实只核对当前产品事项与历书同名或直接对应词，不扩展相关但不同事项；逐时十二神只读取原生黄黑道属性，不证明事项必然成功，也不得替代现实条件核验';
 const GOD_FACT_LIMITATION =
   '值日神煞分类只作为传统择日辅助证据，不单独证明现实吉凶、成功率或具体事件结果';
 const PARTICIPANT_FACT_LIMITATION =
-  '参与人关系只核验候选日支或时支与参与人年支、日支的刑冲破害，以及已有喜忌五行是否命中；不证明个人结果，也不得替代完整命盘研判';
+  '参与人关系只核验候选日支与参与人年支、日支的刑冲破害；不把候选时支类推为同一强限制，不证明个人结果，也不得替代完整命盘研判';
 
 function buildTopicMatchFact(params: {
   key: string;
@@ -589,10 +580,9 @@ function buildDayFacts(params: {
   const participantNotes: string[] = [];
   const topicMatchFacts: AlmanacTopicMatchFact[] = [];
   const participantRelationFacts: AlmanacParticipantRelationFact[] = [];
-  const recommendKeywords = TOPIC_RECOMMEND_KEYWORDS[params.topic];
-  const avoidKeywords = TOPIC_AVOID_KEYWORDS[params.topic];
-  const recommendMatches = findKeywordMatches(params.recommends, recommendKeywords);
-  const avoidMatches = findKeywordMatches(params.avoids, avoidKeywords);
+  const activityKeywords = TOPIC_ACTIVITY_KEYWORDS[params.topic];
+  const recommendMatches = findKeywordMatches(params.recommends, activityKeywords);
+  const avoidMatches = findKeywordMatches(params.avoids, activityKeywords);
 
   topicMatchFacts.push(
     buildTopicMatchFact({
@@ -602,12 +592,12 @@ function buildDayFacts(params: {
       sourceType: '原始宜项',
       status: recommendMatches.length ? '支持' : '中性',
       inputItems: [...params.recommends],
-      keywords: [...recommendKeywords],
+      keywords: [...activityKeywords],
       matchedItems: recommendMatches,
       promptText: recommendMatches.length
         ? `原始宜项命中${ALMANAC_TOPIC_LABELS[params.topic]}：${recommendMatches.join('、')}`
         : `原始宜项未命中${ALMANAC_TOPIC_LABELS[params.topic]}关键词`,
-      sources: ['tyme4ts 当日宜项', '当前事项宜用关键词表'],
+      sources: ['tyme4ts 当日宜项', '当前产品事项直接对应词表'],
     }),
     buildTopicMatchFact({
       key: `${params.dateKey}:topic:day-avoids`,
@@ -616,12 +606,12 @@ function buildDayFacts(params: {
       sourceType: '原始忌项',
       status: avoidMatches.length ? '限制' : '中性',
       inputItems: [...params.avoids],
-      keywords: [...avoidKeywords],
+      keywords: [...activityKeywords],
       matchedItems: avoidMatches,
       promptText: avoidMatches.length
         ? `原始忌项触及${ALMANAC_TOPIC_LABELS[params.topic]}：${avoidMatches.join('、')}`
         : `原始忌项未触及${ALMANAC_TOPIC_LABELS[params.topic]}关键词`,
-      sources: ['tyme4ts 当日忌项', '当前事项避忌关键词表'],
+      sources: ['tyme4ts 当日忌项', '当前产品事项直接对应词表'],
     }),
   );
 
@@ -690,10 +680,8 @@ function buildHourCandidates(
   dateKey: string,
   lunarDay: AlmanacLunarDaySource,
   topic: AlmanacTopic,
-  participants: AlmanacParticipantProfile[],
 ): AlmanacHourCandidate[] {
-  const recommendKeywords = TOPIC_RECOMMEND_KEYWORDS[topic];
-  const avoidKeywords = TOPIC_AVOID_KEYWORDS[topic];
+  const activityKeywords = TOPIC_ACTIVITY_KEYWORDS[topic];
   const lunarHours = lunarDay.getHours();
   if (lunarHours.length !== SHICHEN_PERIODS.length) {
     throw new Error(
@@ -710,22 +698,30 @@ function buildHourCandidates(
     if (branch !== period.branch) {
       throw new Error(`黄历第${index + 1}个时辰地支与时段不一致：${ganzhi}对应${period.name}`);
     }
-    const twelveStar = hour.getTwelveStar().getName();
+    const hourName = period.name;
+    const twelveStarSource = hour.getTwelveStar();
+    const twelveStar = twelveStarSource.getName();
+    const eclipticSource = twelveStarSource.getEcliptic();
+    const ecliptic = eclipticSource.getName();
+    const eclipticLuck = eclipticSource.getLuck().getName();
+    if (ecliptic !== '黄道' && ecliptic !== '黑道') {
+      throw new Error(`黄历${hourName}十二神黄黑道属性异常：${ecliptic}`);
+    }
+    if (eclipticLuck !== '吉' && eclipticLuck !== '凶') {
+      throw new Error(`黄历${hourName}十二神吉凶属性异常：${eclipticLuck}`);
+    }
     const recommends = normalizeTaboos(hour.getRecommends());
     const avoids = normalizeTaboos(hour.getAvoids());
     const highlights: string[] = [];
     const cautions: string[] = [];
-    const participantNotes: string[] = [];
     const topicMatchFacts: AlmanacTopicMatchFact[] = [];
-    const participantRelationFacts: AlmanacParticipantRelationFact[] = [];
-    const hourName = period.name;
     const hourKey = `${dateKey}:hour:${ganzhi}:${hourName}`;
-    const recommendMatches = findKeywordMatches(recommends, recommendKeywords);
-    const avoidMatches = findKeywordMatches(avoids, [...avoidKeywords, '诸事不宜']);
-    if (AUSPICIOUS_HOUR_STARS.has(twelveStar)) {
-      highlights.push(`${twelveStar}黄道时`);
+    const recommendMatches = findKeywordMatches(recommends, activityKeywords);
+    const avoidMatches = findKeywordMatches(avoids, [...activityKeywords, '诸事不宜']);
+    if (eclipticLuck === '吉') {
+      highlights.push(`${twelveStar}${ecliptic}时`);
     } else {
-      cautions.push(`${twelveStar}时须结合时辰宜忌慎用`);
+      cautions.push(`${twelveStar}${ecliptic}时须结合时辰宜忌慎用`);
     }
     topicMatchFacts.push(
       buildTopicMatchFact({
@@ -735,12 +731,12 @@ function buildHourCandidates(
         sourceType: '原始宜项',
         status: recommendMatches.length ? '支持' : '中性',
         inputItems: [...recommends],
-        keywords: [...recommendKeywords],
+        keywords: [...activityKeywords],
         matchedItems: recommendMatches,
         promptText: recommendMatches.length
           ? `时辰宜项命中${ALMANAC_TOPIC_LABELS[topic]}：${recommendMatches.join('、')}`
           : `时辰宜项未命中${ALMANAC_TOPIC_LABELS[topic]}关键词`,
-        sources: ['tyme4ts 时辰宜项', '当前事项宜用关键词表'],
+        sources: ['tyme4ts 时辰宜项', '当前产品事项直接对应词表'],
       }),
       buildTopicMatchFact({
         key: `${hourKey}:topic:avoids`,
@@ -749,26 +745,27 @@ function buildHourCandidates(
         sourceType: '原始忌项',
         status: avoidMatches.length ? '限制' : '中性',
         inputItems: [...avoids],
-        keywords: [...avoidKeywords, '诸事不宜'],
+        keywords: [...activityKeywords, '诸事不宜'],
         matchedItems: avoidMatches,
         promptText: avoidMatches.length
           ? `时辰忌项触及${ALMANAC_TOPIC_LABELS[topic]}或广泛避忌：${avoidMatches.join('、')}`
           : `时辰忌项未触及${ALMANAC_TOPIC_LABELS[topic]}关键词`,
-        sources: ['tyme4ts 时辰忌项', '当前事项避忌关键词表'],
+        sources: ['tyme4ts 时辰忌项', '当前产品事项直接对应词表'],
       }),
       buildTopicMatchFact({
         key: `${hourKey}:topic:twelve-star`,
         scope: '时辰',
         topic,
         sourceType: '十二神',
-        status: AUSPICIOUS_HOUR_STARS.has(twelveStar) ? '支持' : '限制',
-        inputItems: [twelveStar],
-        keywords: [...AUSPICIOUS_HOUR_STARS],
-        matchedItems: AUSPICIOUS_HOUR_STARS.has(twelveStar) ? [twelveStar] : [],
-        promptText: AUSPICIOUS_HOUR_STARS.has(twelveStar)
-          ? `${twelveStar}列入黄道时辅助支持`
-          : `${twelveStar}不在当前黄道时集合，须结合具体宜忌`,
-        sources: ['逐时十二神', '常用黄道时集合'],
+        status: eclipticLuck === '吉' ? '支持' : '限制',
+        inputItems: [twelveStar, ecliptic, eclipticLuck],
+        keywords: ['黄道', '黑道'],
+        matchedItems: [ecliptic],
+        promptText:
+          eclipticLuck === '吉'
+            ? `${twelveStar}原生属性为${ecliptic}${eclipticLuck}，作为时辰辅助支持`
+            : `${twelveStar}原生属性为${ecliptic}${eclipticLuck}，须结合具体宜忌`,
+        sources: ['tyme4ts TwelveStar.getEcliptic()', 'tyme4ts Ecliptic.getLuck()'],
       }),
     );
     if (recommendMatches.length) {
@@ -779,36 +776,21 @@ function buildHourCandidates(
     } else if (avoidMatches.length) {
       cautions.push(`时辰忌项触及${ALMANAC_TOPIC_LABELS[topic]}`);
     }
-    participants.forEach((participant) => {
-      const conflict = getParticipantBranchConflictSummary(branch, participant);
-      participantRelationFacts.push(
-        ...buildParticipantConflictFacts({
-          keyPrefix: hourKey,
-          scope: '时辰',
-          candidateBranch: branch,
-          participant,
-          relations: conflict.relations,
-        }),
-      );
-      if (conflict.text) {
-        participantNotes.push(
-          `${participant.name}：时支${conflict.text.replace('候选日地支', '')}`,
-        );
-      }
-    });
     return {
       name: hourName,
       range: period.range,
       ganzhi,
       branch,
       twelveStar,
+      ecliptic,
+      eclipticLuck,
       recommends,
       avoids,
       highlights,
       cautions,
-      participantNotes,
+      participantNotes: [],
       topicMatchFacts,
-      participantRelationFacts,
+      participantRelationFacts: [],
     };
   });
 }
@@ -852,7 +834,7 @@ function buildDayCandidate(
   const twentyEightStar = lunarDay.getTwentyEightStar().getName();
   const nineStar = lunarDay.getNineStar().getName();
   const pengZuDetails = getAlmanacPengZuDetails(dayStemName, dayZhiName);
-  const hours = buildHourCandidates(dateKey, lunarDay, topic, participants);
+  const hours = buildHourCandidates(dateKey, lunarDay, topic);
   // bestHours 是兼容既有调用方的字段名，不表示算法裁定了唯一“最佳时辰”。
   // 仅按可复核的状态分组：先列无明确限制时辰，再列有条件时辰；组内保持自然时序，
   // 慎用时辰仍完整保留在 hours 中，不用支持项数量生成综合排名，也不任意截断前三项。
