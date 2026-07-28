@@ -298,9 +298,9 @@ export function determinePattern(
 
   const monthPrincipalStem = monthStems[0];
   const monthPrincipalGod = getTenGod(monthPrincipalStem, dayMaster);
-  const activeMonthStem = monthCommander || monthStems[0];
-  const monthMainGod = getTenGod(activeMonthStem, dayMaster);
   const exposedMonthStems = collectExposedMonthStems(monthStems, pillars);
+  const commanderIsMonthStem = Boolean(monthCommander && monthStems.includes(monthCommander));
+  const commanderIsExposed = Boolean(monthCommander && exposedStems.includes(monthCommander));
   let basis: string;
 
   if (LU_BRANCH_MAP[dayMaster] === monthBranch) {
@@ -324,7 +324,7 @@ export function determinePattern(
   } else if (exposedMonthStems.length === 1) {
     const exposedPatternStem = exposedMonthStems[0];
     const tenGod = getTenGod(exposedPatternStem, dayMaster);
-    const prefix = monthCommander && exposedPatternStem !== activeMonthStem ? '杂气' : '';
+    const prefix = commanderIsMonthStem && exposedPatternStem !== monthCommander ? '杂气' : '';
     patternName = `${prefix}${tenGod}格`;
     const exposedPosition =
       pillars.month.gan === exposedPatternStem
@@ -333,27 +333,32 @@ export function determinePattern(
           ? '时干'
           : '年干';
     const commanderBoundary =
-      monthCommander && monthCommander !== exposedPatternStem
-        ? `；${monthCommander}司权另作月令得时事实，不覆盖已透藏干的格局名称`
-        : monthCommander === exposedPatternStem
-          ? '，且与当前司权一致'
-          : '';
+      monthCommander && !commanderIsMonthStem
+        ? `；${monthCommander}为交节过渡气${commanderIsExposed ? '且已透干' : ''}，只作司权${commanderIsExposed ? '与透干' : ''}事实，不替换当前月支藏干格名`
+        : monthCommander && monthCommander !== exposedPatternStem
+          ? `；${monthCommander}司权另作月令得时事实，不覆盖已透藏干的格局名称`
+          : monthCommander === exposedPatternStem
+            ? '，且与当前司权一致'
+            : '';
     basis = `${exposedPatternStem}为月令藏干，单独透于${exposedPosition}，按“一透则一用”取格${commanderBoundary}`;
-  } else if (monthCommander && exposedStems.includes(monthCommander)) {
-    patternName = getPatternNameByTenGod(monthMainGod, dayMaster, monthBranch);
-    basis = `月令司权为${monthCommander}，且已透干，按司令十神取格`;
   } else if (monthStems.length === 1) {
     const soleMonthStem = monthStems[0];
     const soleMonthGod = getTenGod(soleMonthStem, dayMaster);
     patternName = getPatternNameByTenGod(soleMonthGod, dayMaster, monthBranch);
     const commanderBoundary =
-      monthCommander && monthCommander !== soleMonthStem
-        ? `；当前${monthCommander}司权另作月令得时事实，不替换本月唯一藏干`
-        : '';
+      monthCommander && !commanderIsMonthStem
+        ? `；${monthCommander}为交节过渡气${commanderIsExposed ? '且已透干' : ''}，只作司权${commanderIsExposed ? '与透干' : ''}事实，不替换本月唯一藏干`
+        : monthCommander && monthCommander !== soleMonthStem
+          ? `；当前${monthCommander}司权另作月令得时事实，不替换本月唯一藏干`
+          : '';
     basis = `月令只有${soleMonthStem}一项藏干，虽未透干，但不存在多项月内人元取舍，按${soleMonthStem}（${soleMonthGod}）记录格名${commanderBoundary}`;
   } else {
     const hiddenUses = monthStems.map((stem) => `${stem}（${getTenGod(stem, dayMaster)}）`);
-    const commanderFact = monthCommander ? `，当前${monthCommander}司权只作得时事实` : '';
+    const commanderFact = monthCommander
+      ? commanderIsMonthStem
+        ? `，当前${monthCommander}司权只作得时事实`
+        : `，${monthCommander}为交节过渡气${commanderIsExposed ? '且已透干' : ''}，只作司权${commanderIsExposed ? '与透干' : ''}事实，不替换当前月支藏干取格边界`
+      : '';
     patternName = '待综合判断';
     basis = `月令藏干${hiddenUses.join('、')}均未透出${commanderFact}；《千里命稿》要求比较月内人元轻重、有力程度及克合后取舍，当前条件未闭合，不只凭司令阶段或藏干数组本气强定单一格局`;
   }

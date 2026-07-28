@@ -161,8 +161,13 @@ function buildBaseDecisionState(
   };
 }
 
-function resolveCommanderWuxing(monthCommander?: string, isPatternSpecial?: boolean): string {
-  if (!monthCommander || isPatternSpecial) {
+function resolveCommanderWuxing(
+  monthCommander?: string,
+  visibleStems?: string[],
+  isPatternSpecial?: boolean,
+): string {
+  // 司令只在天干已有明确出现证据时辅助调整喜用顺序；缺少明透上下文时保守不调整。
+  if (!monthCommander || !visibleStems?.includes(monthCommander) || isPatternSpecial) {
     return '';
   }
 
@@ -400,7 +405,7 @@ export function determineUsefulGod(
     climateDecision.state.trace.push(...climateRule.traceHints);
   }
 
-  const commanderWuxing = resolveCommanderWuxing(monthCommander, isPatternSpecial);
+  const commanderWuxing = resolveCommanderWuxing(monthCommander, visibleStems, isPatternSpecial);
   const commanderDecision = applyCommanderAdjustment(
     climateDecision.state,
     commanderWuxing,

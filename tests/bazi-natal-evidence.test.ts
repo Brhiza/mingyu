@@ -171,6 +171,36 @@ test('月令多项藏干全不透时格局应保留待定并贯穿证据与最�
   assert.doesNotMatch(prompt, /格局: 正官格/);
 });
 
+test('真实交节排盘中外部过渡气即使透干也不得改写格局、证据与最终提示词', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1980,
+    month: 3,
+    day: 15,
+    timeIndex: 4,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['庚申', '己卯', '丁亥', '甲辰'],
+  );
+  assert.deepEqual(result.hiddenStems.month, ['乙']);
+  assert.equal(result.monthCommander, '甲');
+  assert.equal(result.analysis.mingGe.pattern, '偏印格');
+  assert.match(result.analysis.mingGe.basis || '', /月令只有乙一项藏干/);
+  assert.match(result.analysis.mingGe.basis || '', /甲为交节过渡气且已透干/);
+  assert.match(result.analysis.mingGe.basis || '', /不替换本月唯一藏干/);
+
+  const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.result, '偏印格');
+  assert.match(patternFact?.promptText || '', /格局：偏印格/);
+  assert.doesNotMatch(patternFact?.promptText || '', /格局：正印格/);
+
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 偏印格/);
+  assert.doesNotMatch(prompt, /格局: 正印格/);
+});
+
 test('八字真太阳时本命证据应引用校正后的唯一时间并采用唯一校正时刻', () => {
   const result = baziCalculator.calculateBazi({
     year: 1990,

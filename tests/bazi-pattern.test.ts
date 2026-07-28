@@ -176,12 +176,46 @@ test('丁火生巳月时不应被透出的庚金误判为正财格', () => {
   assert.match(result.basis || '', /月令本气为丙/);
 });
 
-test('交节初段的上一月余气司权即使不在本月藏干中，也应按实际司令十神取格', () => {
+test('交节过渡气即使透干也只保留司权事实，不得替换本月唯一藏干格名', () => {
   const pillars = createPatternPillars('癸', '卯', '甲');
   const result = determinePattern(pillars, '身强', getTenGod, '甲');
 
-  assert.equal(result.pattern, '伤官格');
-  assert.match(result.basis || '', /司权为甲/);
+  assert.equal(result.pattern, '食神格');
+  assert.match(result.basis || '', /月令只有乙一项藏干/);
+  assert.match(result.basis || '', /甲为交节过渡气且已透干/);
+  assert.match(result.basis || '', /不替换本月唯一藏干/);
+});
+
+test('交节过渡气透干时不得替月内多项未透藏干强定单一格局', () => {
+  const pillars: Pillars = {
+    year: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+    month: { gan: '壬', zhi: '午', ganZhi: '壬午' },
+    day: { gan: '乙', zhi: '卯', ganZhi: '乙卯' },
+    hour: { gan: '丙', zhi: '戌', ganZhi: '丙戌' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod, '丙');
+
+  assert.equal(result.pattern, '待综合判断');
+  assert.match(result.basis || '', /丁（食神）、己（偏财）均未透出/);
+  assert.match(result.basis || '', /丙为交节过渡气且已透干/);
+  assert.match(result.basis || '', /不替换当前月支藏干取格边界/);
+});
+
+test('外部交节过渡气不得给当前月支单透藏干无来源地增加杂气前缀', () => {
+  const pillars: Pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '丁', zhi: '卯', ganZhi: '丁卯' },
+    day: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    hour: { gan: '乙', zhi: '未', ganZhi: '乙未' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod, '甲');
+
+  assert.equal(result.pattern, '正印格');
+  assert.match(result.basis || '', /乙为月令藏干，单独透于时干/);
+  assert.match(result.basis || '', /甲为交节过渡气且已透干/);
+  assert.doesNotMatch(result.pattern, /^杂气/);
 });
 
 test('月令多项藏干全不透时不得只凭未透司令强定单一格局', () => {
@@ -214,7 +248,7 @@ test('月令只有一项藏干且未透时仍可取格，未透交节余气司�
   assert.equal(result.pattern, '食神格');
   assert.match(result.basis || '', /月令只有乙一项藏干/);
   assert.match(result.basis || '', /按乙（食神）记录格名/);
-  assert.match(result.basis || '', /甲司权另作月令得时事实，不替换本月唯一藏干/);
+  assert.match(result.basis || '', /甲为交节过渡气，只作司权事实，不替换本月唯一藏干/);
 });
 
 test('月令藏干兼透时不得按藏干次序或透干柱位强定单一格局', () => {

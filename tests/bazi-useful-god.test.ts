@@ -6,7 +6,7 @@ import { CLIMATE_RULES } from '@core/bazi/baziTherapeuticRules';
 import type { PatternAnalysis } from '@core/bazi/baziTypes';
 
 // 用神策略测试 - 数据驱动参数化
-// 共 281 个测试用例
+// 共 282 个测试用例
 
 const OMITTED_TRACE_PREFIXES = [
   '成格层次:',
@@ -163,8 +163,26 @@ const testCases: Array<{
     },
   },
   {
-    name: '土月病药疏泄规则不应一刀切覆盖非土日主的司令取用',
+    name: '未提供司令透干证据时不得自动把司令五行移到喜用首位',
     args: ['身强', { pattern: '伤官格', isSpecial: false }, '火', '戌', '辛'],
+    expected: {
+      favorableEq: ['土', '金', '水'],
+      useful: '食伤',
+      primaryReason: '扶抑',
+      traceNotIncludes: ['司令排序:金', '病药优先:土'],
+    },
+  },
+  {
+    name: '司令已透干时才可在不覆盖调候的前提下辅助调整喜用顺序',
+    args: [
+      '身强',
+      { pattern: '伤官格', isSpecial: false },
+      '火',
+      '戌',
+      '辛',
+      undefined,
+      { visibleStems: ['辛'] },
+    ],
     expected: {
       favorableEq: ['金', '土', '水'],
       useful: '财星',
