@@ -208,7 +208,6 @@ function buildClassicPattern(overrides: Partial<ClassicPattern>): ClassicPattern
     key: 'test-pattern',
     name: '测试格局',
     tone: 'neutral',
-    score: 0,
     summary: '',
     modern: '',
     ...overrides,
@@ -742,14 +741,12 @@ test('奇门复合格局应按同宫门神叠加识别', () => {
     key: 'pattern:baihu:2',
     name: '白虎猖狂',
     tone: 'bad',
-    score: -8,
     palace: 2,
   });
   const deShiPattern = buildClassicPattern({
     key: 'pattern:deShi:1',
     name: '日奇得使',
     tone: 'good',
-    score: 8,
     palace: 1,
   });
 
@@ -771,6 +768,7 @@ test('奇门复合格局应按同宫门神叠加识别', () => {
   assert.ok(combos.some((combo) => combo.name === '白虎助凶' && combo.palace === 2));
   assert.ok(combos.some((combo) => combo.name === '迫上加凶' && combo.palace === 2));
   assert.ok(combos.some((combo) => combo.name === '吉门三奇' && combo.palace === 1));
+  assert.ok(combos.every((combo) => !('score' in combo)));
 
   const crossPalace = detectQimenPatternCombos({
     classicPatterns: [baihuPattern, deShiPattern],
@@ -803,7 +801,6 @@ test('奇门复合格局不应按同宫吉凶格数量创造三吉三凶名称',
         key: `pattern:${tone}:${index}`,
         name,
         tone,
-        score: tone === 'good' ? 1 : -1,
         palace: 2,
       }),
     );
@@ -817,11 +814,10 @@ test('奇门复合格局不应按同宫吉凶格数量创造三吉三凶名称',
   }
 });
 
-test('奇门伏吟反吟并见凶格应按明确性质识别，不读取旧格局分数', () => {
+test('奇门伏吟反吟并见凶格应按明确性质识别', () => {
   const badPattern = buildClassicPattern({
     name: '门迫',
     tone: 'bad',
-    score: 999,
     palace: 2,
   });
 
@@ -831,7 +827,7 @@ test('奇门伏吟反吟并见凶格应按明确性质识别，不读取旧格�
     jiuGongGe: [buildQimenPalace(2, '辛')],
   });
   const fanyinCombos = detectQimenPatternCombos({
-    classicPatterns: [{ ...badPattern, score: 0 }],
+    classicPatterns: [badPattern],
     patternTags: ['门反吟'],
     jiuGongGe: [buildQimenPalace(2, '辛')],
   });
@@ -848,7 +844,6 @@ test('奇门复合格局应按丁壬化木同宫门类输出用门提示', () =>
           key: `pattern:dingRen:${door}`,
           name: '丁壬化木',
           tone: 'good',
-          score: 4,
           palace,
         }),
       ],
@@ -884,7 +879,6 @@ test('奇门复合格局应按白虎猖狂同宫门类输出强弱提示', () =>
           key: `pattern:baihu:${door}`,
           name: '白虎猖狂',
           tone: 'bad',
-          score: -8,
           palace,
         }),
       ],
@@ -918,7 +912,6 @@ test('奇门复合格局应按青龙返首飞鸟跌穴输出主客与生门提�
       buildClassicPattern({
         name: '青龙返首',
         tone: 'good',
-        score: 8,
         palace: 3,
       }),
     ],
@@ -933,7 +926,6 @@ test('奇门复合格局应按青龙返首飞鸟跌穴输出主客与生门提�
       buildClassicPattern({
         name: '飞鸟跌穴',
         tone: 'good',
-        score: 8,
         palace: 4,
       }),
     ],
@@ -950,7 +942,6 @@ test('奇门复合格局应按青龙返首飞鸟跌穴输出主客与生门提�
       buildClassicPattern({
         name: '飞鸟跌穴',
         tone: 'good',
-        score: 8,
         palace: 4,
       }),
     ],
@@ -966,7 +957,6 @@ test('奇门复合格局应按朱雀投江螣蛇夭矫输出主客守避提示',
       buildClassicPattern({
         name: '朱雀投江',
         tone: 'bad',
-        score: -7,
         palace: 7,
       }),
     ],
@@ -981,7 +971,6 @@ test('奇门复合格局应按朱雀投江螣蛇夭矫输出主客守避提示',
       buildClassicPattern({
         name: '螣蛇夭矫',
         tone: 'bad',
-        score: -7,
         palace: 1,
       }),
     ],
@@ -2201,10 +2190,10 @@ test('奇门三奇入墓应使用三奇专门墓宫', () => {
 
 test('奇门三奇受制应按乙临金宫与丙丁临坎宫判定', () => {
   const cases = [
-    { gong: 6, stem: '乙', name: '日奇受制', score: -4, reason: '木入金乡' },
-    { gong: 7, stem: '乙', name: '日奇受制', score: -4, reason: '木入金乡' },
-    { gong: 1, stem: '丙', name: '月奇受制', score: -5, reason: '火入水乡' },
-    { gong: 1, stem: '丁', name: '星奇受制', score: -4, reason: '火入水乡' },
+    { gong: 6, stem: '乙', name: '日奇受制', reason: '木入金乡' },
+    { gong: 7, stem: '乙', name: '日奇受制', reason: '木入金乡' },
+    { gong: 1, stem: '丙', name: '月奇受制', reason: '火入水乡' },
+    { gong: 1, stem: '丁', name: '星奇受制', reason: '火入水乡' },
   ];
 
   for (const item of cases) {
@@ -2218,7 +2207,6 @@ test('奇门三奇受制应按乙临金宫与丙丁临坎宫判定', () => {
         (pattern) =>
           pattern.name === item.name &&
           pattern.palace === item.gong &&
-          pattern.score === item.score &&
           pattern.summary.includes(item.reason),
       ),
       `${item.stem}奇落${item.gong}宫应输出${item.name}`,
@@ -3454,7 +3442,7 @@ test('奇门六庚值符临丙应输出格勃而不替代太白入荧', () => {
 
   const geBo = patterns.find((pattern) => pattern.name === '格勃');
   assert.equal(geBo?.tone, 'bad');
-  assert.equal(geBo?.score, -8);
+  assert.ok(geBo && !('score' in geBo));
   assert.equal(geBo?.palace, 2);
   assert.match(geBo?.summary || '', /值符天芮携六庚加地盘丙/);
   assert.match(geBo?.summary || '', /飞勃/);
@@ -3503,7 +3491,7 @@ test('奇门六庚值符遇丙加庚应输出勃格而不替代荧入太白', ()
 
   const boGe = patterns.find((pattern) => pattern.name === '勃格');
   assert.equal(boGe?.tone, 'bad');
-  assert.equal(boGe?.score, -8);
+  assert.ok(boGe && !('score' in boGe));
   assert.equal(boGe?.palace, 6);
   assert.match(boGe?.summary || '', /天盘丙加地盘直符庚/);
   assert.match(boGe?.summary || '', /值符天芮携六庚/);
@@ -3740,13 +3728,11 @@ test('奇门吉方的空亡、难神和凶格限制不应被其他吉项抵消',
     buildClassicPattern({
       name: '门迫',
       tone: 'bad',
-      score: 999,
       palace: 4,
     }),
     buildClassicPattern({
       name: '测试吉格',
       tone: 'good',
-      score: -999,
       palace: 4,
     }),
   ];
@@ -3782,7 +3768,7 @@ test('奇门五不遇时即使三奇合吉门也不输出通用吉方', () => {
   assert.deepEqual(directions.goodDirections, []);
 });
 
-test('奇门重点宫位应按证据来源归集，不按旧分数竞争排序', () => {
+test('奇门重点宫位应按证据来源归集，不生成综合分数', () => {
   const attentionPalace = buildQimenPalace(1, '乙');
   const riskPalace = buildQimenPalace(2, '辛');
   const data = {
@@ -3800,7 +3786,7 @@ test('奇门重点宫位应按证据来源归集，不按旧分数竞争排序',
     priorities.map((item) => item.gong),
     [1, 2],
   );
-  assert.ok(priorities.every((item) => item.score === 0));
+  assert.ok(priorities.every((item) => !('score' in item)));
   assert.ok(priorities[1]?.reasons.includes('凶格:门迫'));
 });
 
@@ -3837,7 +3823,7 @@ test('奇门宝鉴三奇得使应按值使吉门加三奇判定', () => {
     zhiShi: '休门',
   });
   const baoJianPattern = classicPatterns.find((pattern) => pattern.name === '宝鉴三奇得使');
-  assert.equal(baoJianPattern?.score, 9);
+  assert.ok(baoJianPattern && !('score' in baoJianPattern));
   assert.match(baoJianPattern?.summary || '', /得三吉门、直使加奇/);
   assert.match(baoJianPattern?.summary || '', /谋为尤利/);
 

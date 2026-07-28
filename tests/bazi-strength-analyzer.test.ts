@@ -29,14 +29,17 @@ test('月令司令天干应进入日主旺衰条件判断，避免辰戌丑未�
   );
   const result = analyzeDayMasterStrength(
     seasonalStatus,
-    { formations: [], totalStrength: 0 },
-    { roots: [], totalStrength: 0, hasRoot: false, strongRoot: false },
-    { supporters: [], totalStrength: 0, hasSupport: false },
-    { constraints: [], totalStrength: 0, hasConstraint: false },
+    { formations: [] },
+    { roots: [], hasRoot: false, strongRoot: false },
+    { supporters: [], hasSupport: false },
+    { constraints: [], hasConstraint: false },
   );
 
   assert.equal(seasonalStatus.status, '囚');
-  assert.ok((seasonalStatus.commanderScore ?? 0) > 0);
+  assert.equal(seasonalStatus.commanderEffect, '助身');
+  assert.ok(!('score' in seasonalStatus));
+  assert.ok(!('baseScore' in seasonalStatus));
+  assert.ok(!('commanderScore' in seasonalStatus));
   assert.equal(result.details.seasonalEffect, '削弱');
   assert.equal(result.details.commanderEffect, '助身');
   assert.ok(!('score' in result));
@@ -149,15 +152,14 @@ test('十神结构应按透干与藏支事实分类，不以隐藏权重裁定�
 
 test('无根失令但仍有帮扶时，不应直接判为极弱', () => {
   const result = analyzeDayMasterStrength(
-    { status: '休', score: 0, isTimely: false },
-    { formations: [], totalStrength: 0 },
-    { roots: [], totalStrength: 0, hasRoot: false, strongRoot: false },
+    { status: '休', isTimely: false },
+    { formations: [] },
+    { roots: [], hasRoot: false, strongRoot: false },
     {
-      supporters: [{ position: 'hour', stem: '丁', strength: 1 }],
-      totalStrength: 1,
+      supporters: [{ position: 'hour', stem: '丁' }],
       hasSupport: true,
     },
-    { constraints: [], totalStrength: 0, hasConstraint: false },
+    { constraints: [], hasConstraint: false },
   );
 
   assert.equal(result.status, '身弱');
@@ -167,62 +169,50 @@ test('无根失令但仍有帮扶时，不应直接判为极弱', () => {
 
 test('无根失令且无帮扶时，仍应判为极弱', () => {
   const result = analyzeDayMasterStrength(
-    { status: '休', score: 0, isTimely: false },
-    { formations: [], totalStrength: 0 },
-    { roots: [], totalStrength: 0, hasRoot: false, strongRoot: false },
-    { supporters: [], totalStrength: 0, hasSupport: false },
-    { constraints: [], totalStrength: 0, hasConstraint: false },
+    { status: '休', isTimely: false },
+    { formations: [] },
+    { roots: [], hasRoot: false, strongRoot: false },
+    { supporters: [], hasSupport: false },
+    { constraints: [], hasConstraint: false },
   );
 
   assert.equal(result.status, '极弱');
   assert.ok(!('score' in result));
 });
 
-test('旺衰分类只读逐项条件，不应被同一证据的任意小数缩放改变', () => {
+test('旺衰分类只读逐项结构条件，不要求任何数值权重', () => {
   const args = {
     seasonalStatus: {
       status: '囚',
-      score: -2,
-      baseScore: -2,
-      commanderScore: 1.5,
       commanderEffect: '助身' as const,
       isTimely: false,
     },
-    formationAnalysis: { formations: [], totalStrength: 0 },
+    formationAnalysis: { formations: [] },
     rootAnalysis: {
-      roots: [{ position: 'day', branch: '寅', strength: 2 }],
-      totalStrength: 2,
+      roots: [{ position: 'day', branch: '寅' }],
       hasRoot: true,
       strongRoot: true,
     },
     supportAnalysis: {
-      supporters: [{ position: 'hour', stem: '壬', strength: 1 }],
-      totalStrength: 1,
+      supporters: [{ position: 'hour', stem: '壬' }],
       hasSupport: true,
     },
     constraintAnalysis: {
-      constraints: [{ position: 'year', stem: '庚', strength: 1.4 }],
-      totalStrength: 1.4,
+      constraints: [{ position: 'year', stem: '庚' }],
       hasConstraint: true,
     },
   };
-  const baseline = analyzeDayMasterStrength(
+  const result = analyzeDayMasterStrength(
     args.seasonalStatus,
     args.formationAnalysis,
     args.rootAnalysis,
     args.supportAnalysis,
     args.constraintAnalysis,
   );
-  const rescaled = analyzeDayMasterStrength(
-    { ...args.seasonalStatus, score: -200, baseScore: -200, commanderScore: 150 },
-    { ...args.formationAnalysis, totalStrength: 99 },
-    { ...args.rootAnalysis, totalStrength: 200 },
-    { ...args.supportAnalysis, totalStrength: 100 },
-    { ...args.constraintAnalysis, totalStrength: 140 },
-  );
 
-  assert.equal(rescaled.status, baseline.status);
-  assert.deepEqual(rescaled.details, baseline.details);
+  assert.equal(result.status, '身强');
+  assert.ok(Object.values(args).every((analysis) => !('score' in analysis)));
+  assert.ok(Object.values(args).every((analysis) => !('totalStrength' in analysis)));
 });
 
 test('印星落在地支主气或藏干时，也应计入帮扶，但不应把主气与同支本气重复计分', () => {
@@ -271,7 +261,9 @@ test('印星落在地支主气或藏干时，也应计入帮扶，但不应把�
   );
 
   assert.equal(result.hasSupport, true);
-  assert.equal(result.totalStrength, 1.5);
+  assert.equal(result.supporters.length, 2);
+  assert.ok(result.supporters.every((item) => !('strength' in item)));
+  assert.ok(!('totalStrength' in result));
   assert.ok(result.supporters.some((item) => item.stem === '申(壬)'));
   assert.ok(result.supporters.some((item) => item.stem === '亥'));
   assert.ok(!result.supporters.some((item) => item.stem === '亥(壬)'));
@@ -323,7 +315,9 @@ test('日支印星应计入帮扶，但日干自身不应重复计入', () => {
   );
 
   assert.equal(result.hasSupport, true);
-  assert.equal(result.totalStrength, 1.5);
+  assert.equal(result.supporters.length, 2);
+  assert.ok(result.supporters.every((item) => !('strength' in item)));
+  assert.ok(!('totalStrength' in result));
   assert.ok(result.supporters.some((item) => item.position === 'day' && item.stem === '子'));
   assert.ok(result.supporters.some((item) => item.stem === '申(壬)'));
   assert.ok(!result.supporters.some((item) => item.position === 'day' && item.stem === '甲'));
@@ -332,25 +326,23 @@ test('日支印星应计入帮扶，但日干自身不应重复计入', () => {
 
 test('极强判断不能无视克泄耗重压', () => {
   const result = analyzeDayMasterStrength(
-    { status: '旺', score: 4, isTimely: true },
-    { formations: [], totalStrength: 0 },
+    { status: '旺', isTimely: true },
+    { formations: [] },
     {
       roots: [
-        { position: 'month', branch: '寅', strength: 2 },
-        { position: 'day', branch: '卯', strength: 2 },
+        { position: 'month', branch: '寅' },
+        { position: 'day', branch: '卯' },
       ],
-      totalStrength: 4,
       hasRoot: true,
       strongRoot: true,
     },
-    { supporters: [], totalStrength: 0, hasSupport: false },
+    { supporters: [], hasSupport: false },
     {
       constraints: [
-        { position: 'year', stem: '庚', strength: 1.6 },
-        { position: 'hour', stem: '辛', strength: 1.6 },
-        { position: 'year', stem: '申', strength: 1.6 },
+        { position: 'year', stem: '庚' },
+        { position: 'hour', stem: '辛' },
+        { position: 'year', stem: '申' },
       ],
-      totalStrength: 4.8,
       hasConstraint: true,
     },
   );
@@ -401,7 +393,8 @@ test('三合三会成局时，旺衰条件应记录成局助势，而不是只�
   assert.equal(result.formations.length, 1);
   assert.equal(result.formations[0]?.type, '三合');
   assert.equal(result.formations[0]?.effect, '助身');
-  assert.ok(result.totalStrength > 0);
+  assert.ok(result.formations.every((item) => !('strength' in item)));
+  assert.ok(!('totalStrength' in result));
 });
 
 test('三合三会三支齐全但月令不支持时，只记录结构，不应计入成势力量', () => {
@@ -416,7 +409,6 @@ test('三合三会三支齐全但月令不支持时，只记录结构，不应�
   assert.equal(collectEstablishedBranchFormations(pillars).length, 0);
   assert.deepEqual(analyzeFormation('丁', pillars, getWuxing as (value: string) => Wuxing), {
     formations: [],
-    totalStrength: 0,
   });
 });
 
@@ -432,7 +424,6 @@ test('三合三会被局外地支冲破时，只记录结构，不应计入成�
   assert.equal(collectEstablishedBranchFormations(pillars).length, 0);
   assert.deepEqual(analyzeFormation('辛', pillars, getWuxing as (value: string) => Wuxing), {
     formations: [],
-    totalStrength: 0,
   });
 });
 
@@ -475,18 +466,19 @@ test('克泄耗一方三合成局时，旺衰条件也应计入成局破势，�
     },
   );
   const result = analyzeDayMasterStrength(
-    { status: '休', score: 0, isTimely: false },
+    { status: '休', isTimely: false },
     formation,
-    { roots: [], totalStrength: 0, hasRoot: false, strongRoot: false },
+    { roots: [], hasRoot: false, strongRoot: false },
     {
-      supporters: [{ position: 'month', stem: '己', strength: 1 }],
-      totalStrength: 1,
+      supporters: [{ position: 'month', stem: '己' }],
       hasSupport: true,
     },
-    { constraints: [], totalStrength: 0, hasConstraint: false },
+    { constraints: [], hasConstraint: false },
   );
 
-  assert.ok(formation.totalStrength < 0);
+  assert.equal(formation.formations[0]?.effect, '克身');
+  assert.ok(formation.formations.every((item) => !('strength' in item)));
+  assert.ok(!('totalStrength' in formation));
   assert.equal(result.details.formationEffect, '削弱');
   assert.equal(result.status, '极弱');
 });
@@ -537,7 +529,8 @@ test('财官食伤在天干地支成势时，也应计入克泄耗', () => {
   );
 
   assert.equal(result.hasConstraint, true);
-  assert.ok(result.totalStrength > 0);
+  assert.ok(result.constraints.every((item) => !('strength' in item)));
+  assert.ok(!('totalStrength' in result));
   assert.ok(result.constraints.some((item) => item.stem === '庚'));
   assert.ok(result.constraints.some((item) => item.stem === '申'));
   assert.ok(result.constraints.some((item) => item.stem === '午'));

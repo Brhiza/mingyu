@@ -3,8 +3,6 @@ import type { QimenData } from '../../../../types/divination';
 export interface QimenPriorityPalace {
   gong: number;
   name: string;
-  /** @deprecated 旧版排序兼容字段，固定为 0；重点宫位不再按总分判断。 */
-  score: number;
   reasons: string[];
 }
 
@@ -31,7 +29,6 @@ export function createQimenPriorityPalaces(data: QimenData): QimenPriorityPalace
     const created: QimenPriorityPalace = {
       gong,
       name: found.name,
-      score: 0,
       reasons: [],
     };
     palaceMap.set(gong, created);

@@ -117,12 +117,20 @@ test('奇门转盘天禽值符应随天芮落宫并保留自己所携中宫干',
 
   const starStates = evaluateStarPalaces({ jiuGongGe: palaces });
   assert.equal(starStates.length, 9);
+  assert.ok(starStates.every((item) => !('score' in item)));
   assert.equal(new Set(starStates.map((item) => item.star)).size, 9);
   assert.equal(starStates.find((item) => item.star === '天禽')?.gong, zhiFuPalace?.gong);
   assert.equal(
     getZhiFuStarJudgement({ jiuGongGe: palaces, zhiFu: '天禽' })?.gong,
     zhiFuPalace?.gong,
   );
+
+  const classicPatterns = getClassicPatterns({
+    jiuGongGe: palaces,
+    zhiFu: setup.zhiFu,
+    zhiShi: setup.zhiShi,
+  });
+  assert.ok(classicPatterns.every((item) => !('score' in item)));
 });
 
 test('奇门转盘中宫干随天禽时应参与三奇、入墓、击刑与天地盘格局判断', () => {

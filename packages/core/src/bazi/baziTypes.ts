@@ -205,11 +205,7 @@ export interface RootAnalysis {
   roots: {
     position: string;
     branch: string;
-    /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
-    strength: number;
   }[];
-  /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
-  totalStrength: number;
   hasRoot: boolean;
   strongRoot: boolean;
 }
@@ -218,11 +214,7 @@ export interface SupportAnalysis {
   supporters: {
     position: string;
     stem: string;
-    /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
-    strength: number;
   }[];
-  /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
-  totalStrength: number;
   hasSupport: boolean;
 }
 
@@ -230,11 +222,7 @@ export interface ConstraintAnalysis {
   constraints: {
     position: string;
     stem: string;
-    /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
-    strength: number;
   }[];
-  /** @deprecated 仅为兼容旧调用方保留，不参与正式旺衰、格局或用神裁定。 */
-  totalStrength: number;
   hasConstraint: boolean;
 }
 

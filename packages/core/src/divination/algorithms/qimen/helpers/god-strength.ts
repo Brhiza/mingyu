@@ -11,6 +11,7 @@
  */
 
 import { isGenerating, isControlling, diPanPalaces } from './_constants';
+import { WUXING } from '../../../../wuxing';
 
 /** 八神五行 */
 export const GOD_WUXING: Record<string, string> = {
@@ -31,7 +32,6 @@ export interface GodStrengthResult {
   palace: number;
   gong: number;
   strength: GodStrength;
-  score: number;
 }
 
 /**
@@ -43,52 +43,50 @@ export function evaluateSingleGodStrength(
   palaceElement: string,
   isVoid?: boolean,
 ): GodStrengthResult {
+  if (!Number.isInteger(gong) || gong < 1 || gong > 9 || gong === 5) {
+    throw new Error(`宫位 "${gong}" 无效，八神落宫必须是 1-9 之间的外宫。`);
+  }
+  if (!(WUXING as readonly string[]).includes(palaceElement)) {
+    throw new Error(`宫位五行 "${palaceElement}" 无法识别，不能评估八神旺衰。`);
+  }
   const godElement = GOD_WUXING[god];
   if (!godElement) {
-    return { god, palace: gong, gong, strength: '中', score: 0 };
+    throw new Error(`八神 "${god}" 无法识别，不能评估旺衰。`);
   }
 
   let base: GodStrength = '中';
-  let score = 0;
 
   // 比和：神与宫同五行
   if (godElement === palaceElement) {
     base = '强';
-    score = 2;
   }
   // 神克宫
   else if (isControlling(godElement, palaceElement)) {
     base = '强';
-    score = 2;
   }
   // 宫生神
   else if (isGenerating(palaceElement, godElement)) {
     base = '中';
-    score = 0;
   }
   // 神生宫
   else if (isGenerating(godElement, palaceElement)) {
     base = '弱';
-    score = -1;
   }
   // 宫克神
   else if (isControlling(palaceElement, godElement)) {
     base = '弱';
-    score = -1;
   }
 
   // 空亡降低一级：强→中，中→弱，弱不变
   if (isVoid) {
     if (base === '强') {
       base = '中';
-      score = 0;
     } else if (base === '中') {
       base = '弱';
-      score = -1;
     }
   }
 
-  return { god, palace: gong, gong, strength: base, score };
+  return { god, palace: gong, gong, strength: base };
 }
 
 /**

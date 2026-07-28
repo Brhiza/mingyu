@@ -563,9 +563,14 @@ test('奇门十二长生应与 tyme4ts 十干十二运保持一致', () => {
     for (const [palace, branch] of Object.entries(palaceBranches)) {
       const expected = HeavenStem.fromName(stem).getTerrain(EarthBranch.fromName(branch)).getName();
 
-      assert.equal(evaluateChangSheng(stem, Number(palace)).stage, expected);
+      const result = evaluateChangSheng(stem, Number(palace));
+      assert.equal(result.stage, expected);
+      assert.ok(!('scoreFactor' in result));
     }
   }
+
+  assert.throws(() => evaluateChangSheng('风', 1), /天干 "风" 无法识别/);
+  assert.throws(() => evaluateChangSheng('甲', 10), /宫位 "10" 无效/);
 });
 
 test('占法共享月令旺衰应按古籍口径区分囚死', () => {

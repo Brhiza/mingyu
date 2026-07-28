@@ -1,6 +1,6 @@
 /**
  * @file 十二长生（12 growth cycles）评估
- * @description 实现奇门遁甲中十二长生的判断与评分。
+ * @description 实现奇门遁甲中十二长生阶段的判断。
  * 十二长生代表事物从发生到消亡的十二个阶段，
  * 用于评估天干在特定宫位的旺衰状态。
  *
@@ -28,21 +28,13 @@ import type { QimenJiuGongGe } from '../../../../types/divination';
 /**
  * 十二长生阶段评估结果
  *
- * 包含阶段名称、索引和评分系数，用于奇门断局中
- * 量化评估天干在某宫位的能量状态。
+ * 包含阶段名称与索引，用于保留天干在某宫位的传统阶段事实。
  */
 export interface ChangShengStage {
   /** 十二长生阶段名称（长生/沐浴/冠带/临官/帝旺/衰/病/死/墓/绝/胎/养） */
   stage: string;
   /** 阶段索引（0-11，对应 TWELVE_STAGES 数组顺序） */
   index: number;
-  /**
-   * 评分系数，用于评估该位置的旺衰力量：
-   * - 1.2：旺（临官、帝旺）
-   * - 1.0：平（长生、沐浴、冠带、衰、病、死、胎、养）
-   * - 0.6：弱（墓、绝）
-   */
-  scoreFactor: number;
 }
 
 // ============================================================================
@@ -93,39 +85,7 @@ const PALACE_MAIN_BRANCH: Record<number, string> = {
 const TWELVE_STAGES_LIST: readonly string[] = CHANG_SHENG_STAGES;
 
 // ============================================================================
-// 3. 评分系数
-// ============================================================================
-
-/** 临官、帝旺 → 旺相，评分系数提升至 1.2 */
-const STRONG_FACTOR = 1.2;
-/** 入墓、绝 → 能量受困或断绝，评分系数降至 0.6 */
-const WEAK_FACTOR = 0.6;
-/** 其余阶段 → 正常评分 1.0 */
-const NORMAL_FACTOR = 1.0;
-
-/** 旺相阶段集合（临官、帝旺：能量最盛，事体处于上升或顶峰） */
-const STRONG_STAGES = new Set(['临官', '帝旺']);
-/** 入墓/绝阶段集合（墓：能量入藏受困；绝：能量断绝） */
-const WEAK_STAGES = new Set(['墓', '绝']);
-
-/**
- * 根据十二长生阶段获取评分系数
- *
- * - 临官、帝旺 → 1.2（旺相，能量最盛，事体强力推进）
- * - 墓、绝     → 0.6（能量受困或断绝，事体停滞或消失）
- * - 其余阶段   → 1.0（正常）
- *
- * @param stage 十二长生阶段名称
- * @returns 评分系数
- */
-function getScoreFactor(stage: string): number {
-  if (STRONG_STAGES.has(stage)) return STRONG_FACTOR;
-  if (WEAK_STAGES.has(stage)) return WEAK_FACTOR;
-  return NORMAL_FACTOR;
-}
-
-// ============================================================================
-// 4. 核心函数：getChangSheng
+// 3. 核心函数：getChangSheng
 // ============================================================================
 
 /**
@@ -143,22 +103,22 @@ function getScoreFactor(stage: string): number {
  * @param startBranch 长生起始地支（如木为 "亥"、火为 "寅"）
  * @param targetBranch 要判断的目标地支
  * @param isYang 是否为阳干（true=阳干顺行，false=阴干逆行）；默认 true
- * @returns 十二长生阶段结果，包含阶段名、索引（0-11）和评分系数。
- *          参数不合法时返回 stage=''、index=-1、scoreFactor=1.0 的空结果。
+ * @returns 十二长生阶段结果，包含阶段名与索引（0-11）。
+ * @throws 参数五行或地支不合法时明确报错。
  *
  * @example
  * ```ts
  * // 甲木（阳）长生在亥，看寅位 → 临官（旺相）
  * getChangSheng('木', '亥', '寅');
- * // => { stage: '临官', index: 3, scoreFactor: 1.2 }
+ * // => { stage: '临官', index: 3 }
  *
  * // 乙木（阴）长生在午，看寅位 → 帝旺（逆行 4 位）
  * getChangSheng('木', '午', '寅', false);
- * // => { stage: '帝旺', index: 4, scoreFactor: 1.2 }
+ * // => { stage: '帝旺', index: 4 }
  *
  * // 甲木在未位 → 墓
  * getChangSheng('木', '亥', '未');
- * // => { stage: '墓', index: 8, scoreFactor: 0.6 }
+ * // => { stage: '墓', index: 8 }
  * ```
  */
 export function getChangSheng(
@@ -169,14 +129,14 @@ export function getChangSheng(
 ): ChangShengStage {
   // 校验五行是否在已知范围内（借用 WUXING_CHANGSHENG_START 做允许列表）
   if (!WUXING_CHANGSHENG_START[stemWuxing]) {
-    return { stage: '', index: -1, scoreFactor: NORMAL_FACTOR };
+    throw new Error(`天干五行 "${stemWuxing}" 无法识别，不能计算十二长生。`);
   }
 
   const startIdx = branchIndex[startBranch];
   const targetIdx = branchIndex[targetBranch];
 
   if (startIdx === undefined || targetIdx === undefined) {
-    return { stage: '', index: -1, scoreFactor: NORMAL_FACTOR };
+    throw new Error(`十二长生地支无效：${startBranch}/${targetBranch}`);
   }
 
   // 阳干：从起始地支向前数（顺时针）到目标地支
@@ -184,13 +144,11 @@ export function getChangSheng(
   const offset = isYang ? (targetIdx - startIdx + 12) % 12 : (startIdx - targetIdx + 12) % 12;
 
   const stage = TWELVE_STAGES_LIST[offset];
-  const scoreFactor = getScoreFactor(stage);
-
-  return { stage, index: offset, scoreFactor };
+  return { stage, index: offset };
 }
 
 // ============================================================================
-// 5. evaluateChangSheng：天干在宫位的十二长生
+// 4. evaluateChangSheng：天干在宫位的十二长生
 // ============================================================================
 
 /**
@@ -212,31 +170,31 @@ export function getChangSheng(
  * ```ts
  * // 甲木在震三宫（卯位）→ 帝旺（旺相，峰值）
  * evaluateChangSheng('甲', 3);
- * // => { stage: '帝旺', index: 4, scoreFactor: 1.2 }
+ * // => { stage: '帝旺', index: 4 }
  *
  * // 甲木在乾六宫（戌位）→ 养（能量蓄积期）
  * evaluateChangSheng('甲', 6);
- * // => { stage: '养', index: 11, scoreFactor: 1.0 }
+ * // => { stage: '养', index: 11 }
  *
  * // 乙木在坎一宫（子位）→ 病（能量衰退）
  * evaluateChangSheng('乙', 1);
- * // => { stage: '病', index: 6, scoreFactor: 1.0 }
+ * // => { stage: '病', index: 6 }
  * ```
  */
 export function evaluateChangSheng(stem: string, palaceGong: number): ChangShengStage {
   const stemWuxing = stemElements[stem];
   if (!stemWuxing) {
-    return { stage: '', index: -1, scoreFactor: NORMAL_FACTOR };
+    throw new Error(`天干 "${stem}" 无法识别，不能评估十二长生。`);
   }
 
   // 中五宫无专属地支，无法判断长生状态
   if (palaceGong === 5) {
-    return { stage: '', index: -1, scoreFactor: NORMAL_FACTOR };
+    return { stage: '', index: -1 };
   }
 
   const targetBranch = PALACE_MAIN_BRANCH[palaceGong];
   if (!targetBranch) {
-    return { stage: '', index: -1, scoreFactor: NORMAL_FACTOR };
+    throw new Error(`宫位 "${palaceGong}" 无效，必须是 1-9 的整数。`);
   }
 
   const stemTerrain = HeavenStem.fromName(stem)
@@ -247,7 +205,6 @@ export function evaluateChangSheng(stem: string, palaceGong: number): ChangSheng
   return {
     stage: stemTerrain,
     index,
-    scoreFactor: getScoreFactor(stemTerrain),
   };
 }
 
@@ -276,7 +233,8 @@ export function evaluateChangSheng(stem: string, palaceGong: number): ChangSheng
  * @param result 包含九宫格和值符信息的结果对象
  * @param result.jiuGongGe 九宫格数据（每宫含 tianPan 天盘、diPan 地盘）
  * @param result.zhiFu 值符星名（如 "天蓬"、"天芮"）
- * @returns 十二长生阶段结果。若找不到值符星或其原宫无干，返回空结果。
+ * @returns 十二长生阶段结果。值符落中五宫时返回空结果。
+ * @throws 值符名称无效、原宫数据残缺或盘中找不到值符当前落宫时明确报错。
  *
  * @example
  * ```ts
@@ -295,20 +253,26 @@ export function evaluateZhiFuChangSheng(result: {
   // 1. 找到值符星在九星中的序号 → 原宫位（序号+1）
   const zhiFuStarIndex = palaceStars.indexOf(zhiFu);
   if (zhiFuStarIndex === -1) {
-    return { stage: '', index: -1, scoreFactor: NORMAL_FACTOR };
+    throw new Error(`值符星 "${zhiFu}" 无法识别，不能评估十二长生。`);
   }
 
   // 2. 值符星原宫的地盘干 = 值符所带天干
   //    《遁甲演义》：「星带干飞」，天盘干即该星原地盘干
-  const originalStem = jiuGongGe[zhiFuStarIndex]?.diPan?.stem;
+  const originalGong = zhiFuStarIndex + 1;
+  const originalPalace = jiuGongGe.find((palace) => palace.gong === originalGong);
+  if (!originalPalace) {
+    throw new Error(`值符星 "${zhiFu}" 的原宫 ${originalGong} 宫缺失，无法评估十二长生。`);
+  }
+
+  const originalStem = originalPalace.diPan?.stem;
   if (!originalStem) {
-    return { stage: '', index: -1, scoreFactor: NORMAL_FACTOR };
+    throw new Error(`值符星 "${zhiFu}" 的原宫 ${originalGong} 宫缺少地盘干。`);
   }
 
   // 3. 找到值符星的当前落宫（天盘中该星所在宫位）
   const currentGong = jiuGongGe.find((g) => hasTianPanStar(g, zhiFu));
   if (!currentGong) {
-    return { stage: '', index: -1, scoreFactor: NORMAL_FACTOR };
+    throw new Error(`九宫盘中找不到值符星 "${zhiFu}" 的当前落宫。`);
   }
 
   // 4. 评估该天干在当前宫位的十二长生
@@ -337,12 +301,13 @@ export function evaluateZhiFuChangSheng(result: {
  *   1. 优先在天盘（tianPan.stem）中查找时干（遁干）落宫。
  *   2. 若天盘未找到，则在地盘（diPan.stem）中查找。
  *      （如中五宫寄宫等特殊情况）
- *   3. 均未找到则返回空结果。
+ *   3. 均未找到说明排盘数据残缺，明确报错。
  *
  * @param result 包含九宫格和时辰干支的结果对象
  * @param result.jiuGongGe 九宫格数据（每宫含 tianPan 天盘、diPan 地盘）
  * @param result.ganzhi 时辰干支，含 hour 字段（如 { hour: '甲子' }）
- * @returns 十二长生阶段结果。若找不到时干落宫，返回空结果。
+ * @returns 十二长生阶段结果。时干落中五宫时返回空结果。
+ * @throws 时辰干支无效或盘中找不到时干（遁干）落宫时明确报错。
  *
  * @example
  * ```ts
@@ -359,7 +324,7 @@ export function evaluateHourStemChangSheng(result: {
   const { jiuGongGe, ganzhi } = result;
 
   if (!ganzhi?.hour || ganzhi.hour.length < 2) {
-    return { stage: '', index: -1, scoreFactor: NORMAL_FACTOR };
+    throw new Error(`时辰干支 "${ganzhi?.hour ?? ''}" 无法识别。`);
   }
 
   const hourGanZhi = ganzhi.hour;
@@ -382,6 +347,5 @@ export function evaluateHourStemChangSheng(result: {
     return evaluateChangSheng(hourGan, inDiPan.gong);
   }
 
-  // 时干未在盘中显位，返回空结果
-  return { stage: '', index: -1, scoreFactor: NORMAL_FACTOR };
+  throw new Error(`九宫盘中找不到时干遁干 "${hourGan}" 的落宫。`);
 }

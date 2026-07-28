@@ -46,8 +46,6 @@ export interface ClassicPattern {
   name: string;
   /** 吉/凶/中 */
   tone: 'good' | 'bad' | 'neutral';
-  /** 评分增减（吉为正，凶为负，绝对值越大影响越强） */
-  score: number;
   /** 简要说明 */
   summary: string;
   /** 现代解读 */
@@ -114,7 +112,6 @@ const sanQiRuMuConfig: Record<
   {
     key: string;
     name: string;
-    score: number;
     result: string;
     modern: string;
     manifestation: string;
@@ -123,7 +120,6 @@ const sanQiRuMuConfig: Record<
   乙: {
     key: 'yiRuMu',
     name: '日奇入墓',
-    score: -4,
     result: '主协商不力',
     modern: '柔和的事今天发挥不出来，遇到顺势就走，别强求。',
     manifestation: '协商和文书发挥不出来、柔和方式效果弱',
@@ -131,7 +127,6 @@ const sanQiRuMuConfig: Record<
   丙: {
     key: 'bingRuMu',
     name: '月奇入墓',
-    score: -5,
     result: '主展示不显',
     modern: '今天对外推广、表达类的事难显效，先做内部准备。',
     manifestation: '展示和表达类事难显效、对内准备更好',
@@ -139,7 +134,6 @@ const sanQiRuMuConfig: Record<
   丁: {
     key: 'dingRuMu',
     name: '星奇入墓',
-    score: -4,
     result: '主智不展',
     modern: '今天精细工作和暗中协调发挥不出来，劲使在能落地的事上。',
     manifestation: '精细工作发挥不出来、暗中协调效果弱',
@@ -152,7 +146,6 @@ const sanQiShouZhiConfig: Record<
     key: string;
     name: string;
     gongs: number[];
-    score: number;
     reason: string;
     result: string;
     modern: string;
@@ -163,7 +156,6 @@ const sanQiShouZhiConfig: Record<
     key: 'yiShouZhi',
     name: '日奇受制',
     gongs: [6, 7],
-    score: -4,
     reason: '木入金乡',
     result: '主协商文书受制',
     modern: '今天柔性沟通、文书推进容易被规则或强势对象压住，先避开硬碰硬。',
@@ -173,7 +165,6 @@ const sanQiShouZhiConfig: Record<
     key: 'bingShouZhi',
     name: '月奇受制',
     gongs: [1],
-    score: -5,
     reason: '火入水乡',
     result: '主展示表达受制',
     modern: '今天公开表达、曝光和推进容易被冷处理或阻断，先收束火力。',
@@ -183,7 +174,6 @@ const sanQiShouZhiConfig: Record<
     key: 'dingShouZhi',
     name: '星奇受制',
     gongs: [1],
-    score: -4,
     reason: '火入水乡',
     result: '主暗助文书受制',
     modern: '今天精细沟通、内部协调和暗线帮助容易发挥不出来，适合先保存证据。',
@@ -258,7 +248,6 @@ const sanZhaGodConfig: Record<
   {
     key: string;
     name: string;
-    score: number;
     summary: string;
     modern: string;
     manifestation: string;
@@ -267,7 +256,6 @@ const sanZhaGodConfig: Record<
   太阴: {
     key: 'zhenZha',
     name: '真诈',
-    score: 7,
     summary: '三奇、吉门、太阴同宫，乃真诈之格，主隐蔽得助、柔性成事。',
     modern: '适合用低调、柔和、私下沟通的方式推进，越是不张扬越容易成。',
     manifestation: '私下沟通顺利、暗中有人配合、柔性推进见效',
@@ -275,7 +263,6 @@ const sanZhaGodConfig: Record<
   九地: {
     key: 'zhongZha',
     name: '重诈',
-    score: 7,
     summary: '三奇、吉门、九地同宫，乃重诈之格，主伏藏蓄势、稳中取利。',
     modern: '适合先藏住底牌、稳扎稳打地争取资源，不宜急着公开摊牌。',
     manifestation: '资源暗中积累、稳步取利、伏藏后发',
@@ -283,7 +270,6 @@ const sanZhaGodConfig: Record<
   六合: {
     key: 'xiuZha',
     name: '休诈',
-    score: 7,
     summary: '三奇、吉门、六合同宫，乃休诈之格，主和合调停、协作成事。',
     modern: '适合谈合作、做协调、修复关系，借助中间人或团队配合更顺。',
     manifestation: '合作达成、关系缓和、调停有效',
@@ -385,7 +371,6 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         key: `pattern:tianDun:${gong}`,
         name: '天遁',
         tone: 'good',
-        score: 9,
         summary: `生门、丙奇、地盘${earth}同宫，乃天遁之格，主上升机会与天助。`,
         modern:
           '特别难得的机会窗口，主动出击都顺，关键沟通和签约都有利。但出手要果断，拖久了就凉了。',
@@ -402,7 +387,6 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         key: `pattern:diDun:${gong}`,
         name: '地遁',
         tone: 'good',
-        score: 8,
         summary: '开门、乙奇、地盘己同宫，乃地遁之格，主稳健长远、地利相助。',
         modern: '适合做需要稳扎稳打的事，比如基础准备、长期布局。',
         manifestation: '基础扎实、长期项目推进顺利',
@@ -418,7 +402,6 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         key: `pattern:renDun:${gong}`,
         name: '人遁',
         tone: 'good',
-        score: 8,
         summary: '休门、太阴、丁奇同宫，乃人遁之格，主低调得人和、暗中得助。',
         modern: '今天靠人脉、私下沟通会比公开推进更有效，关键人物愿意帮你。',
         manifestation: '关键人主动伸手、私下消息利好',
@@ -434,7 +417,6 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         key: `pattern:shenDun:${gong}`,
         name: '神遁',
         tone: 'good',
-        score: 9,
         summary: '生门、丙奇、九天同宫，乃神遁之格，主神助、机缘自显、谋为成功。',
         modern: '今天关键事会有意外的助力出现，对外推进比预期顺，可以大胆推进重要的事。',
         manifestation: '关键事情顺利、助力出现、好消息传来',
@@ -460,7 +442,6 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         key: `pattern:guiDun:${gong}`,
         name: '鬼遁',
         tone: 'good',
-        score: 8,
         summary: '乙/丁、九地与杜门/开门同宫，乃鬼遁之格，主暗中操作、私下成事。',
         modern: '今天用私下沟通、内部协调的方式更容易成事，别公开摊牌。',
         manifestation: '暗中成事、私下沟通有效',
@@ -482,7 +463,6 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         key: `pattern:longDun:${gong}`,
         name: '龙遁',
         tone: 'good',
-        score: 9,
         summary: `乙癸同宫见${door}于${name}，乃龙遁之格，主深藏蓄势、暗助得力。`,
         modern: '今天适合做需要隐忍、需要靠潜在资源的事，明面慢但底牌强。',
         manifestation: '深层资源被调动、暗中有人帮忙',
@@ -495,7 +475,6 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         key: `pattern:longDun:${gong}`,
         name: '龙遁',
         tone: 'good',
-        score: 9,
         summary: '休门、乙奇落坎一宫，乃龙遁之格，主深藏蓄势、暗助得力。',
         modern: '今天适合做需要隐忍、需要靠潜在资源的事，明面慢但底牌强。',
         manifestation: '深层资源被调动、暗中有人帮忙',
@@ -516,7 +495,6 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         key: `pattern:huDun:${gong}`,
         name: '虎遁',
         tone: 'good',
-        score: 8,
         summary: `辛见${door}落艮八宫，乃虎遁之格，主威严稳固、资源回归。`,
         modern: '今天适合做需要稳扎稳打、积累资源的事，越是低调越能成。',
         manifestation: '积累见成效、资源稳步回归',
@@ -528,7 +506,6 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         key: `pattern:huDun:${gong}`,
         name: '虎遁',
         tone: 'good',
-        score: 8,
         summary: '生门、乙奇落艮八宫，乃虎遁之格，主威严稳固、资源回归。',
         modern: '今天适合做需要稳扎稳打、积累资源的事，越是低调越能成。',
         manifestation: '积累见成效、资源稳步回归',
@@ -545,7 +522,6 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         key: `pattern:fengDun:${gong}`,
         name: '风遁',
         tone: 'good',
-        score: 8,
         summary: '乙奇、杜门落巽四宫，乃风遁之格，主消息流通、文书传递。',
         modern: '今天适合发文、传话、撮合，沟通的事会比平时顺很多。',
         manifestation: '消息传得快、文书和沟通特别顺',
@@ -557,7 +533,6 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         key: `pattern:fengDun:${gong}`,
         name: '风遁',
         tone: 'good',
-        score: 8,
         summary: '开门、乙奇落巽四宫，乃风遁之格，主消息流通、文书传递。',
         modern: '今天适合发文、传话、撮合，沟通的事会比平时顺很多。',
         manifestation: '消息传得快、文书和沟通特别顺',
@@ -574,7 +549,6 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         key: `pattern:yunDun:${gong}`,
         name: '云遁',
         tone: 'good',
-        score: 7,
         summary: '开门、乙奇加天盘辛，乃云遁之格，主升迁、求职、上行通达。',
         modern: '今天适合求贵人、跑升职、谈进阶，向上的事会有回应。',
         manifestation: '机会向上升、贵人从远方来',
@@ -586,7 +560,6 @@ function getDunPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         key: `pattern:yunDun:${gong}`,
         name: '云遁',
         tone: 'good',
-        score: 7,
         summary: '开门、乙奇落坎一宫，乃云遁之格，主升迁、求职、上行通达。',
         modern: '今天适合求贵人、跑升职、谈进阶，向上的事会有回应。',
         manifestation: '机会向上升、贵人从远方来',
@@ -625,7 +598,6 @@ function getSanQiDeShiPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         key: `pattern:${config.key}:${palace.gong}`,
         name: config.name,
         tone: 'good',
-        score: 8,
         summary: `${heavenStem}奇加地盘${earthStem}（${config.xunShouText}所遁）于${palace.name}，乃${config.name}之格。`,
         modern: config.modern,
         manifestation: config.manifestation,
@@ -639,7 +611,6 @@ function getSanQiDeShiPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
           key: `pattern:deShiPlusGoodDoor:${palace.gong}:${heavenStem}`,
           name: `${qiNameMap[heavenStem]}得地`,
           tone: 'good',
-          score: 11,
           summary: `${qiNameMap[heavenStem]}得使又临吉门${palace.renPan.door}，得门得使，双重吉利。`,
           modern: '今天关键事有特别好的入口，资源、信息、关键人同时到位，别错过机会窗口。',
           manifestation: '机会窗口打开、资源到位、关键人配合',
@@ -677,7 +648,6 @@ function getBaoJianSanQiDeShiPatterns(
       key: `pattern:baoJianSanQiDeShi:${palace.gong}`,
       name: '宝鉴三奇得使',
       tone: 'good',
-      score: 9,
       summary: `值使${zhiShi}为三吉门，直使加天盘${qiStem}奇于${palace.name}，合《奇门宝鉴御定》“得三吉门、直使加奇”为三奇得使，谋为尤利。`,
       modern: `值使门本身带${qiName}，关键入口和关键资源重合，适合推进重要谋划。`,
       manifestation: '关键入口得奇、谋事尤利、资源与行动窗口重合',
@@ -717,7 +687,6 @@ function getSanQiYouLiuYiPatterns(jiuGongGe: QimenJiuGongGe[], zhiFu: string): C
       key: `pattern:sanQiYouLiuYi:${qi}:${zhiFuPalace.gong}`,
       name: '三奇游六仪',
       tone: 'good',
-      score: 8,
       summary: `${config.xunShou}${zhiFuStem}值符加地盘${qi}奇于${zhiFuPalace.name}，${qiNameMap[qi] || qi}游于${config.targetXunShou}${config.targetStem}，合“三奇游六仪”之格；古法主百事可为。${goodDoorText}`,
       modern: '今天关键资源能借势转换，适合请托、宴会、协商和争取机会；若同宫得吉门，推进更顺。',
       manifestation: '关键资源转换成助力、请托协商顺利、人情往来得便',
@@ -758,7 +727,6 @@ function getSanZhaPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
       key: `pattern:${config.key}:${palace.gong}`,
       name: config.name,
       tone: 'good',
-      score: config.score,
       summary: `${heaven}奇、${door}、${god}同宫于${palace.name}，${config.summary}`,
       modern: config.modern,
       manifestation: config.manifestation,
@@ -795,7 +763,6 @@ function getJiaPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
       key: `pattern:${key}:${palace.gong}`,
       name,
       tone: 'good',
-      score: 6,
       summary,
       modern,
       manifestation,
@@ -944,7 +911,6 @@ function getSanQiShengDianPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[
       key: `pattern:${qi}ShengDian:${palace.gong}`,
       name: shengDianName[qi],
       tone: 'good',
-      score: 5,
       summary: `${qiDisplay}入${palace.name}，得本气之地，升殿得位。`,
       modern:
         qi === '乙'
@@ -990,7 +956,6 @@ function getSanQiRuMuPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         key: `pattern:${config.key}:${gong}`,
         name: config.name,
         tone: 'bad',
-        score: config.score,
         summary: `${heaven}奇入${palace.name}（三奇墓在${tomb.branch}），${config.name}，${config.result}。`,
         modern: config.modern,
         manifestation: config.manifestation,
@@ -1025,7 +990,6 @@ function getSanQiShouZhiPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] 
         key: `pattern:${config.key}:${palace.gong}`,
         name: config.name,
         tone: 'bad',
-        score: config.score,
         summary: `${heaven}奇临${palace.name}，${config.reason}，为三奇受制，${config.result}。`,
         modern: config.modern,
         manifestation: config.manifestation,
@@ -1058,7 +1022,6 @@ function getSanQiHuiJiaPattern(jiuGongGe: QimenJiuGongGe[], dayStem: string): Cl
       key: 'pattern:sanQiHuiJia',
       name: '三奇会甲',
       tone: 'good',
-      score: 7,
       summary: '甲（己）日三奇乙丙丁齐显，主贵人助力、机会汇聚。',
       modern: '今天三奇都在盘上，主线很容易找到帮忙的人和机会，重要的事可以出手。',
       manifestation: '贵人助力汇聚、主线方向有人支持',
@@ -1102,7 +1065,6 @@ function getZhiFuZhiShiPatterns(
       key: `pattern:fuShiTongGong:${fuPalace.gong}`,
       name: '符使同宫',
       tone: 'good',
-      score: 6,
       summary: `值符${zhiFu}与值使${zhiShi}同落${fuPalace.name}，乃符使同宫之格，事情有极强的集中力量。`,
       modern: '今天想做一件具体的事，力量非常集中，容易出结果。但也要注意过于偏执。',
       manifestation: '专注的事情容易出成果',
@@ -1139,7 +1101,6 @@ function getXiangZuoShouHuPatterns(
         key: `pattern:xiangZuo:${fuPalace.gong}`,
         name: '相佐',
         tone: 'good',
-        score: 4,
         summary: `值符${zhiFu}加地盘${fuPalace.diPan.stem}于${fuPalace.name}，合“符加丙丁为相佐”，主助力相辅。`,
         modern: '今天关键人或关键资源有辅助作用，适合借力推进，但仍要结合门星吉凶判断力度。',
         manifestation: '贵人助力、关键资源配合、推进有人相帮',
@@ -1156,7 +1117,6 @@ function getXiangZuoShouHuPatterns(
         key: `pattern:shouHu:${shiPalace.gong}`,
         name: '守户',
         tone: 'good',
-        score: 4,
         summary: `值使${zhiShi}加地盘丁奇于${shiPalace.name}，合“使加六丁为守户”，主门户得护。`,
         modern: '今天行动入口、沟通窗口或办事通道有保护与缓冲，适合稳住关键环节后再推进。',
         manifestation: '入口得护、手续有缓冲、关键通道较稳',
@@ -1196,7 +1156,6 @@ function getTianYiGongGePatterns(jiuGongGe: QimenJiuGongGe[], zhiFu: string): Cl
       key: `pattern:tianYiFeiGongGe:${tianYiPal.gong}`,
       name: '天乙飞宫格',
       tone: 'bad',
-      score: -6,
       summary: `值符${zhiFu}所携${tianYiStem}加地盘庚于${tianYiPal.name}，名天乙飞宫格，亦名天乙行符与太白格，主值符力量被冲。`,
       modern: '今天贵人运受阻，想帮你的人也不好出手，关键事先靠自己。',
       manifestation: '贵人使不上力、求援被拒',
@@ -1212,7 +1171,6 @@ function getTianYiGongGePatterns(jiuGongGe: QimenJiuGongGe[], zhiFu: string): Cl
       key: `pattern:tianYiFuGongGe:${gengPal.gong}`,
       name: '天乙伏宫格',
       tone: 'bad',
-      score: -7,
       summary: `天盘庚加地盘值符${zhiFu}所携${tianYiStem}于${gengPal.name}，名天乙伏宫格，亦名天乙留符格，主贵人受困。`,
       modern: '今天想帮你的人自己也有事缠身，重大支持的渠道先确认再依赖。',
       manifestation: '贵人自顾不暇、支持渠道不畅',
@@ -1254,7 +1212,6 @@ function getGengZhiFuBoGePatterns(jiuGongGe: QimenJiuGongGe[], zhiFu: string): C
       key: `pattern:gengZhiFuBoGe:${boGePal.gong}`,
       name: '勃格',
       tone: 'bad',
-      score: -8,
       summary: `天盘丙加地盘直符庚于${boGePal.name}，值符${zhiFu}携六庚，名勃格，主纲纪紊乱、勃逆难成。`,
       modern: '今天关键推动力容易与规则压力正面相冲，贸然推进会把局面搅乱，先稳住秩序更合适。',
       manifestation: '纲纪紊乱、推进失序、事多反覆',
@@ -1268,7 +1225,6 @@ function getGengZhiFuBoGePatterns(jiuGongGe: QimenJiuGongGe[], zhiFu: string): C
       key: `pattern:gengZhiFuGeBo:${tianYiPal.gong}`,
       name: '格勃',
       tone: 'bad',
-      score: -8,
       summary: `值符${zhiFu}携六庚加地盘丙于${tianYiPal.name}，名飞勃，亦为格勃；古法忌把六庚值符临丙误作吉格。`,
       modern: '今天关键主事力量被冲动和阻隔牵制，不宜硬推或主动开战，先守住局面再等转机。',
       manifestation: '主事受阻、强推易生冲突、原本可动之事转为宜守',
@@ -1321,7 +1277,6 @@ function getDayGanFeiFuPatterns(
       key: `pattern:dayFuGan:${fuGanPalace.gong}`,
       name: '伏干格',
       tone: 'bad',
-      score: -6,
       summary: `天盘庚加日干${dayStem || qimenDayStem}${dayGanZhi?.startsWith('甲') ? `（${dayGanZhi}遁${qimenDayStem}）` : ''}于${fuGanPalace.name}，合“六庚加日干为伏干格”，主日事受太白阻隔。`,
       modern: '今天与自身、当日主事相关的事项容易被规则、冲突或外部阻力压住，不宜硬闯。',
       manifestation: '当日主事受阻、求见不顺、对抗压力增加',
@@ -1338,7 +1293,6 @@ function getDayGanFeiFuPatterns(
       key: `pattern:dayFeiGan:${feiGanPalace.gong}`,
       name: '飞干格',
       tone: 'bad',
-      score: -5,
       summary: `日干${dayStem || qimenDayStem}${dayGanZhi?.startsWith('甲') ? `（${dayGanZhi}遁${qimenDayStem}）` : ''}加地盘庚于${feiGanPalace.name}，合“日干加六庚为飞干格”，主日事反临太白，主客两伤。`,
       modern: '今天主动推进时容易撞上阻隔和争执，先确认规则边界与对方态度，再行动更稳。',
       manifestation: '主动推进受阻、主客两伤、争执反复',
@@ -1368,7 +1322,6 @@ function getGengTemporalGePatterns(
       name: '岁格',
       label: '岁干',
       ganZhi: params.yearGanZhi,
-      score: -7,
       modern: '今天的大环境或上级规则容易形成阻隔，重大事项宜先确认外部限制。',
       manifestation: '年度背景受阻、上层规则牵制、长期事项难推',
     },
@@ -1377,7 +1330,6 @@ function getGengTemporalGePatterns(
       name: '月格',
       label: '月干',
       ganZhi: params.monthGanZhi,
-      score: -6,
       modern: '今天阶段性计划、团队协作或月内安排容易卡住，适合先补流程和资源。',
       manifestation: '阶段计划受阻、协作卡顿、月内事项不顺',
     },
@@ -1386,7 +1338,6 @@ function getGengTemporalGePatterns(
       name: '时格',
       label: '时干',
       ganZhi: params.hourGanZhi,
-      score: -6,
       modern: '当前时点阻力较重，临时行动不宜硬推，先守住局面再择机推进。',
       manifestation: '当下行动受阻、临时冲突增加、宜守不宜攻',
     },
@@ -1409,7 +1360,6 @@ function getGengTemporalGePatterns(
       key: `pattern:${spec.keyPrefix}:${palace.gong}`,
       name: spec.name,
       tone: 'bad',
-      score: spec.score,
       summary: `天盘庚加${target}于${palace.name}，合“六庚加${spec.label}为${spec.name}”，主事有阻格。`,
       modern: spec.modern,
       manifestation: spec.manifestation,
@@ -1437,7 +1387,6 @@ function getBingTemporalBoGePatterns(
       name: '岁干勃格',
       label: '岁干',
       ganZhi: params.yearGanZhi,
-      score: -6,
       modern: '今天的大环境容易出现临时扰动或规则反复，重大事项先稳住节奏。',
       manifestation: '年度背景扰动、上层规则反复、长期事项易乱',
     },
@@ -1446,7 +1395,6 @@ function getBingTemporalBoGePatterns(
       name: '月干勃格',
       label: '月干',
       ganZhi: params.monthGanZhi,
-      score: -5,
       modern: '阶段性计划容易被突发沟通、文书或流程打乱，适合先理顺材料。',
       manifestation: '阶段计划扰动、文书流程反复、协作易乱',
     },
@@ -1455,7 +1403,6 @@ function getBingTemporalBoGePatterns(
       name: '日干勃格',
       label: '日干',
       ganZhi: params.dayGanZhi,
-      score: -6,
       modern: '当天主事容易被突发变动牵动，不宜靠临场冲劲硬推。',
       manifestation: '当日主事紊乱、临场变动增多、执行反复',
     },
@@ -1464,7 +1411,6 @@ function getBingTemporalBoGePatterns(
       name: '时干勃格',
       label: '时干',
       ganZhi: params.hourGanZhi,
-      score: -6,
       modern: '当前时点容易出现节奏失控或临时反复，先控风险再行动。',
       manifestation: '当下行动紊乱、临时反复增加、宜先稳后动',
     },
@@ -1487,7 +1433,6 @@ function getBingTemporalBoGePatterns(
       key: `pattern:${spec.keyPrefix}:${palace.gong}`,
       name: spec.name,
       tone: 'bad',
-      score: spec.score,
       summary: `天盘丙加${target}于${palace.name}，合“丙奇临${spec.label}名为勃格”，主纲纪紊乱、行动逆乱。`,
       modern: spec.modern,
       manifestation: spec.manifestation,
@@ -1525,7 +1470,6 @@ function getRenTemporalDiLuoPatterns(
       key: `pattern:diLuoZheBi:${palace.gong}`,
       name: '地罗遮蔽',
       tone: 'bad',
-      score: -5,
       summary: `天盘壬加${target}于${palace.name}，合“六壬临时干”为地罗遮蔽，亦称地网，主前路遮障、行动受困。`,
       modern: '当前时点容易被隐性阻碍、拖延或环境不明卡住，出行和推进先查清路线与条件。',
       manifestation: '前路遮障、信息不明、行动受困、推进迟滞',
@@ -1566,7 +1510,6 @@ function getTianFuShiPattern(dayStem: string, hourGanZhi: string): ClassicPatter
       key: 'pattern:tianFuShi',
       name: '天辅时',
       tone: 'good',
-      score: 6,
       summary: `${hourGanZhi}时，合《奇门宝鉴御定》六甲天辅时，主解厄助成、诸事可谋。`,
       modern: '今天有解围和推进的机会，适合处理解释、协调、申诉、化解类事务。',
       manifestation: '解厄助成、贵人护持',
@@ -1593,7 +1536,6 @@ function getTianFuShiPattern(dayStem: string, hourGanZhi: string): ClassicPatter
       key: 'pattern:tianFuShiVariant',
       name: '天辅时（别传）',
       tone: 'good',
-      score: 4,
       summary: `${dayStem}日${hourGanZhi}时，合《遁甲演义》别传天辅时，主解厄助成，但与《宝鉴》六甲天辅时分列。`,
       modern: '今天可借助协调和缓冲来推进事情，但仍要结合门星格局判断，不宜只凭此格定吉。',
       manifestation: '别传吉时、解厄助成',
@@ -1607,7 +1549,6 @@ function getTianFuShiPattern(dayStem: string, hourGanZhi: string): ClassicPatter
       key: `pattern:wuHeShi:${dayStem}:${hourGanZhi}`,
       name: '五合时',
       tone: 'good',
-      score: 5,
       summary: `${dayStem}日${hourGanZhi}时，日干与时干五合，合《奇门宝鉴御定》五合时；其吉与天辅时同，但宜谋和合、隐秘诸事，不宜专作雪冤解释。`,
       modern:
         '今天适合谈合作、修复关系、暗中协调和处理需要保密推进的事情，但不宜只凭此格处理申诉辩白类事务。',
@@ -1649,7 +1590,6 @@ function getYuNvShouMenPattern(jiuGongGe: QimenJiuGongGe[], zhiShi: string): Cla
       key: `pattern:yunvShoumen:${zhiShiPal.gong}`,
       name: '玉女守门',
       tone: 'good',
-      score: isGoodDoor ? 8 : 4,
       summary: `值使${zhiShi}加地盘丁奇于${zhiShiPal.name}，合《奇门宝鉴御定》“地盘六丁守直使之门”为玉女守门；${doorText}`,
       modern: isGoodDoor
         ? '今天适合柔性协商、和合关系、处理文书或需要保密推进的事。'
@@ -1694,7 +1634,6 @@ function getMenPoPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
         key: `pattern:menPo:${palace.gong}`,
         name: '门迫',
         tone: 'bad',
-        score: -4,
         summary: `${door}（${doorEl}）克${palace.name}（${palaceEl}），乃门迫之格，主此宫事务受阻。`,
         modern: `在${palace.name}方位的相关事情容易遇到阻力，做事要多做预案。`,
         manifestation: '行动受阻、推进困难',
@@ -1734,7 +1673,6 @@ function getMenGongXiangShengPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPatte
         key: `pattern:gongShengMen:${palace.gong}`,
         name: '宫生门',
         tone: 'good',
-        score: 3,
         summary: `${palace.name}（${palaceEl}）生${door}（${doorEl}），此地利助事之象。`,
         modern: `在${palace.name}方位的相关事情能得到环境支持，比较顺利。`,
         manifestation: '环境支持、阻力小',
@@ -1749,7 +1687,6 @@ function getMenGongXiangShengPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPatte
         key: `pattern:menShengGong:${palace.gong}`,
         name: '门生宫',
         tone: 'good',
-        score: 3,
         summary: `${door}（${doorEl}）生${palace.name}（${palaceEl}），此事有利该宫方位。`,
         modern: `在${palace.name}方位做与${door}相关的事，容易得到滋养和助力。`,
         manifestation: '做事顺畅、有助力',
@@ -1793,7 +1730,6 @@ function getJiXingPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
           key: `pattern:jiXing:${heaven}:${palace.gong}`,
           name: `${heaven}击刑`,
           tone: 'bad',
-          score: -4,
           summary: `${heaven}在${palace.name}击刑（${heaven}在此宫落于相刑之位），主规则、口舌、文书方面要小心。`,
           modern: `天盘${heaven}落${palace.name}为击刑位，今天与${heaven}相关的事要注意规则风险和口舌是非。`,
           manifestation: '规则约束、口舌是非、压力增大',
@@ -1846,7 +1782,6 @@ function getRuMuPatterns(
           key: `pattern:ruMu:${stem}:${palace.gong}:${position === 'diPan' ? 'di' : 'tian'}`,
           name: `${stem}入墓`,
           tone: 'bad',
-          score: -3,
           summary: `${stem}在${palace.name}入墓${tombBranch ? `（墓在${tombBranch}）` : ''}，主能量收敛、事情停滞或难以施展。`,
           modern: `${stem}相关的方面今天劲使不出来，建议先做其他准备，等时机转好再推。`,
           manifestation: '能量收敛、进展缓慢',
@@ -1879,7 +1814,6 @@ function getStemPairNamedPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[]
         key: `pattern:stemPair:${heaven}_${earth}:${palace.gong}`,
         name: pattern.name,
         tone: pattern.type,
-        score: pattern.score,
         summary: `天盘${heaven}加地盘${earth}于${palace.name}，${pattern.summary}`,
         modern: pattern.interpretation,
         manifestation: pattern.manifestation,

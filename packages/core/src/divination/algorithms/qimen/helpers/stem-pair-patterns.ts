@@ -34,8 +34,6 @@ export interface StemPairPattern {
   name: string;
   /** 吉凶类型 */
   type: 'good' | 'bad' | 'neutral';
-  /** 评分 -10 ~ +10（负数越凶、正数越吉） */
-  score: number;
   /** 传统描述 */
   summary: string;
   /** 现代解读 */
@@ -75,7 +73,6 @@ function getAutoPattern(heavenStem: string, earthStem: string): StemPairPattern 
     return {
       name: '比和',
       type: 'neutral',
-      score: 0,
       summary:
         `天盘${heavenStem}（${heavenElem}）与地盘${earthStem}（${earthElem}）` +
         `五行相同，比和相助。`,
@@ -91,7 +88,6 @@ function getAutoPattern(heavenStem: string, earthStem: string): StemPairPattern 
     return {
       name: '冲',
       type: 'bad',
-      score: -2,
       summary:
         `天盘${heavenStem}（${heavenElem}）克地盘${earthStem}（${earthElem}），` +
         `天盘压制地盘，强行突破之象。`,
@@ -110,7 +106,6 @@ function getAutoPattern(heavenStem: string, earthStem: string): StemPairPattern 
     return {
       name: '受阻',
       type: 'bad',
-      score: -1,
       summary:
         `地盘${earthStem}（${earthElem}）克天盘${heavenStem}（${heavenElem}），` +
         `根基反制行动，阻力来自内部。`,
@@ -129,7 +124,6 @@ function getAutoPattern(heavenStem: string, earthStem: string): StemPairPattern 
     return {
       name: '泄',
       type: 'bad',
-      score: -1,
       summary:
         `天盘${heavenStem}（${heavenElem}）生地盘${earthStem}（${earthElem}），` +
         `天盘能量被泄，付出较多。`,
@@ -148,7 +142,6 @@ function getAutoPattern(heavenStem: string, earthStem: string): StemPairPattern 
     return {
       name: '生',
       type: 'good',
-      score: 1,
       summary:
         `地盘${earthStem}（${earthElem}）生天盘${heavenStem}（${heavenElem}），` +
         `根基滋养行动，有后盾之象。`,
@@ -165,7 +158,6 @@ function getAutoPattern(heavenStem: string, earthStem: string): StemPairPattern 
   return {
     name: '平',
     type: 'neutral',
-    score: 0,
     summary: `天盘${heavenStem}与地盘${earthStem}关系平和。`,
     interpretation: '暂无明确生克判断。',
     manifestation: '需结合其他宫位信息综合判断。',
@@ -184,7 +176,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   戊_戊: {
     name: '青龙出地',
     type: 'good',
-    score: 4,
     summary: '六甲加甲为青龙出地；排盘时以甲子戊代甲，故戊加地盘戊按此格论，主喜信财至。',
     interpretation:
       '青龙出地取甲木青龙从本位显现之象。甲在奇门中遁藏于六仪，甲子遁于戊，' +
@@ -198,7 +189,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   戊_乙: {
     name: '青龙入云',
     type: 'good',
-    score: 4,
     summary: '六甲加乙为青龙入云，三奇门交则名誉、文书、后继之喜可成。',
     interpretation:
       '青龙入云取甲子戊青龙得乙日奇承接而上升之象。甲主生发、财喜和贵人，' +
@@ -212,7 +202,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   戊_丙: {
     name: '青龙返首',
     type: 'good',
-    score: 8,
     summary: '戊为青龙天乙，丙为月奇朱雀，丙火生戊土，龙回之首，百事吉昌。',
     interpretation:
       '青龙返首是奇门中最吉利的格局之一。戊为青龙、为钱财、为贵人，丙为月奇、为希望。' +
@@ -226,7 +215,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   戊_丁: {
     name: '青龙耀明',
     type: 'good',
-    score: 5,
     summary: '六甲加丁为青龙耀明，三门合吉，宜谒贵人、改官迁职，主名声显达。',
     interpretation:
       '青龙耀明取丁星奇照临甲子戊青龙之象。戊代表甲子所遁的青龙根基，' +
@@ -240,7 +228,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   戊_己: {
     name: '青龙合灵',
     type: 'good',
-    score: 4,
     summary: '六甲加己为青龙合灵，吉星主财，吉门事成，星门不合则徒费精神。',
     interpretation:
       '青龙合灵取甲子戊青龙与己土地户相合之象。戊为甲子青龙、财喜和根基，' +
@@ -254,7 +241,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丙_戊: {
     name: '飞鸟跌穴',
     type: 'good',
-    score: 8,
     summary: '丙为朱雀飞鸟，戊为土穴金窟，飞鸟归巢，百事顺遂。',
     interpretation:
       '飞鸟跌穴与青龙返首并称奇门两大吉格。丙为月奇飞鸟，戊为青龙之土穴，' +
@@ -267,7 +253,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丙_乙: {
     name: '月奇浮云',
     type: 'good',
-    score: 4,
     summary: '丙加地盘乙为月奇浮云，主印信可陈，公私利亨，百事称心。',
     interpretation:
       '月奇浮云取丙月奇得乙日奇柔木承载之象，光明可以借文书、印信、' +
@@ -281,7 +266,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丙_辛: {
     name: '月精合佑',
     type: 'good',
-    score: 4,
     summary: '丙加地盘辛为月精合佑，主久病得救，文状入官亦能成就。',
     interpretation:
       '月精合佑取丙辛相合而有救应之象。丙为月奇、光明与行动，辛为天庭、' +
@@ -295,7 +279,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丁_乙: {
     name: '为人遁',
     type: 'good',
-    score: 5,
     summary: '丁加地盘乙为为人遁，主喜庆非常，荐论改禄受权。',
     interpretation:
       '为人遁取丁星奇与乙日奇相合之象，文书、荐举、贵人言路和职位机会互相成就。' +
@@ -309,7 +292,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丁_丁: {
     name: '奇入太阴',
     type: 'good',
-    score: 4,
     summary: '丁加地盘丁为奇入太阴，主文书可至，两重文意，凡百遂心。',
     interpretation:
       '奇入太阴取丁星奇重临而文意深藏之象。丁主文书、消息、灵感和细节，' +
@@ -323,7 +305,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丁_戊: {
     name: '青龙得光',
     type: 'good',
-    score: 5,
     summary: '丁加地盘戊为青龙得光，主贵人迁职，常人得良，喜美非常。',
     interpretation:
       '青龙得光取丁星奇照临甲子戊青龙之象。丁主文书、消息与灵光，戊主天乙、' +
@@ -337,7 +318,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丁_壬: {
     name: '丁壬化木',
     type: 'good',
-    score: 4,
     summary: '丁加地盘壬为丁壬化木，主财利得多，贵人赐禄，文状平和。',
     interpretation:
       '丁壬化木取丁壬相合化生之象，火水不作冲突死局，而转为文书、财利和名禄的生发。' +
@@ -355,7 +335,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   乙_乙: {
     name: '日奇伏刑',
     type: 'bad',
-    score: -4,
     summary: '乙为日奇，乙乙重逢为日奇伏刑格，主才名受困、求名不利。',
     interpretation:
       '日奇伏刑主能力和名声被压住，想靠才华、资历或名义直接打开局面会比较吃力。' +
@@ -369,7 +348,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   乙_丁: {
     name: '朱雀入江',
     type: 'bad',
-    score: -4,
     summary: '乙加地盘丁为朱雀入江格，主文书迟滞、消息受阻，得吉星可减轻。',
     interpretation:
       '朱雀入江代表文书、消息和表达事务被水势拖住。乙为日奇，丁为朱雀星奇，' +
@@ -383,7 +361,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   乙_戊: {
     name: '阴中返阳',
     type: 'bad',
-    score: -3,
     summary: '乙加地盘甲为阴中返阳；排盘时以甲子戊代甲，故乙加地盘戊按此格论。',
     interpretation:
       '阴中返阳取乙日奇临甲子戊青龙之象。甲在奇门中遁藏于六仪，甲子遁于戊，' +
@@ -398,7 +375,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   乙_庚: {
     name: '日奇受刑',
     type: 'bad',
-    score: -5,
     summary: '乙加地盘庚为日奇受刑，主争财成讼，财事、合约和权益争夺易起纠纷。',
     interpretation:
       '日奇受刑代表柔顺的计划、文书和财物权益被庚金刑制。乙为日奇，主才华、' +
@@ -412,7 +388,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   乙_辛: {
     name: '青龙逃走',
     type: 'bad',
-    score: -8,
     summary: '乙为青龙日奇，辛为白虎，金克木，青龙受制而逃，主破败损失。',
     interpretation:
       '青龙逃走是大凶之格。乙为日奇青龙，代表人才、财物、计划；' +
@@ -426,7 +401,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   乙_壬: {
     name: '万事皆屯',
     type: 'bad',
-    score: -5,
     summary: '乙加地盘壬为万事皆屯，主事务停滞不前，阳人失财，阴人有病。',
     interpretation:
       '万事皆屯表示事情像屯卦初难一样卡住。乙为日奇，壬为大水，' +
@@ -440,7 +414,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   乙_癸: {
     name: '日入天网',
     type: 'bad',
-    score: -6,
     summary: '乙加地盘癸为日入天网，主官事破财，万事破伤。',
     interpretation:
       '日入天网代表日奇被癸水天网困住，明面计划进入规则、手续或纠纷网罗。' +
@@ -454,7 +427,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   辛_乙: {
     name: '白虎猖狂',
     type: 'bad',
-    score: -8,
     summary: '辛为白虎，乙为青龙，金克木，白虎势盛而猖狂，主争斗破坏。',
     interpretation:
       '白虎猖狂是大凶之格，与青龙逃走相对。辛金白虎恃强克制乙木青龙，' +
@@ -468,7 +440,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   辛_戊: {
     name: '龙困遭伤',
     type: 'bad',
-    score: -4,
     summary: '辛加地盘甲为龙困遭伤；排盘时以甲子戊代甲，故辛加地盘戊按此格论。',
     interpretation:
       '龙困遭伤取辛白虎临甲青龙之象。甲为青龙、财源与生发，辛为阴金白虎，' +
@@ -482,7 +453,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   辛_丙: {
     name: '干合荧惑',
     type: 'bad',
-    score: -3,
     summary: '辛加地盘丙为干合荧惑，主文状虚词、竞争财物，门星不合则暗昧屈厄。',
     interpretation:
       '干合荧惑取辛金合丙火而被火势扰动之象。辛主白虎、刑责和细密，丙为荧惑、明火与争端，' +
@@ -496,7 +466,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   辛_丁: {
     name: '狱神入奇',
     type: 'neutral',
-    score: 0,
     summary: '辛加地盘丁为狱神入奇，主远行经商利倍得迟，门星不吉则夫妇分离。',
     interpretation:
       '狱神入奇取辛白虎临丁星奇之象。丁主文书、消息和细微机会，辛主刑狱、规则与迟滞，' +
@@ -510,7 +479,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   辛_己: {
     name: '刑狱之格',
     type: 'bad',
-    score: -5,
     summary: '辛加地盘己为刑狱之格，主奴婢欺主、先自刑克，门吉星强方可虚成。',
     interpretation:
       '刑狱之格取辛白虎临己地户之象。己主阴私、遮蔽与内部牵连，辛主刑伤与规则压力，' +
@@ -524,7 +492,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   辛_庚: {
     name: '白虎伤格',
     type: 'bad',
-    score: -5,
     summary: '辛加地盘庚为白虎伤格，主争夺、酒色是非，星合门凶则丑声难塞。',
     interpretation:
       '白虎伤格取辛庚两金相争之象。辛为白虎，庚为太白，金气过重则刑伤、争夺和声名损害并见。' +
@@ -537,7 +504,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   辛_辛: {
     name: '狱入自刑',
     type: 'bad',
-    score: -4,
     summary: '辛加地盘辛为狱入自刑，主自我牵制，阴人求财可喜，阳主动用多有灾害。',
     interpretation:
       '狱入自刑取两辛重逢之象。辛为白虎、刑狱、精细规则，两辛并临则压力内转，' +
@@ -551,7 +517,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   辛_壬: {
     name: '蛇入狱刑',
     type: 'bad',
-    score: -5,
     summary: '辛加地盘壬为蛇入狱刑，主两男争女、讼逼难停，门符合吉亦有刑责余波。',
     interpretation:
       '蛇入狱刑取辛白虎临壬螣蛇之象。壬主隐伏、流动和疑惑，辛主刑责与约束，' +
@@ -565,7 +530,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   辛_癸: {
     name: '直格华盖',
     type: 'good',
-    score: 2,
     summary: '辛加地盘癸为直格华盖，阴人用之无灾无害，吉门吉星则阳人得财有喜。',
     interpretation:
       '直格华盖取辛白虎临癸华盖天网之象。辛有规则和收束之力，癸有隐伏、文书和网罗之象，' +
@@ -579,7 +543,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丁_癸: {
     name: '朱雀投江',
     type: 'bad',
-    score: -7,
     summary: '丁为朱雀星奇，癸为江河之水，水克火，朱雀入水而灭，主文书消息断绝。',
     interpretation:
       '朱雀投江为凶格。丁为文书、消息、才华、希望，' +
@@ -593,7 +556,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   癸_丁: {
     name: '螣蛇夭矫',
     type: 'bad',
-    score: -7,
     summary: '癸为螣蛇阴水，丁为星奇之火，水克火，蛇遇火而夭矫不安，主虚惊怪异。',
     interpretation:
       '螣蛇夭矫主虚惊怪异、反复无常。癸水螣蛇为阴暗之事，丁为火为文明，' +
@@ -606,7 +568,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丙_庚: {
     name: '荧入太白',
     type: 'bad',
-    score: -7,
     summary: '丙为荧惑（火星），庚为太白（金星），火克金，荧入太白，主贼盗破财。',
     interpretation:
       '荧入太白（全称"荧惑入太白"）是奇门凶格之一。' +
@@ -619,7 +580,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   庚_丙: {
     name: '太白入荧',
     type: 'bad',
-    score: -7,
     summary: '庚为太白（金星），丙为荧惑（火星），火克金，太白受制于荧惑，主客来欺主。',
     interpretation:
       '太白入荧（全称"太白入荧惑"）与荧入太白相对，同为大凶之格。' +
@@ -633,7 +593,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   庚_乙: {
     name: '日合六格',
     type: 'neutral',
-    score: 1,
     summary: '庚加地盘乙为日合六格，主百事安然，但须缄默谨慎，门星乘凶则官事刑迫。',
     interpretation:
       '日合六格取庚金临乙日奇之象。乙为日奇、柔顺与文书，庚为太白、刑杀与阻隔，' +
@@ -647,7 +606,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   庚_丁: {
     name: '亭亭',
     type: 'bad',
-    score: -3,
     summary: '庚加地盘丁名为亭亭，主文状争论、私匿之情，门符逆背则词讼难成。',
     interpretation:
       '亭亭取庚太白临丁星奇之象。丁主文书、消息和隐情，庚主刑杀、争执与阻隔，' +
@@ -661,7 +619,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   庚_癸: {
     name: '大格',
     type: 'bad',
-    score: -7,
     summary: '庚为太白阻隔之神，癸为螣蛇天网，金入水乡，主大凶、出行阻隔。',
     interpretation:
       '大格是奇门中最凶的出行格局之一。庚为阻碍、为道路断绝，' +
@@ -675,7 +632,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   庚_壬: {
     name: '小格',
     type: 'bad',
-    score: -6,
     summary: '庚为太白阻隔之神，壬为玄武水势，庚临壬为小格，主阻隔迁延。',
     interpretation:
       '小格为奇门凶格之一，古籍取庚加壬或庚临壬。' +
@@ -688,7 +644,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   庚_己: {
     name: '刑格',
     type: 'bad',
-    score: -7,
     summary: '庚为太白刑杀之神，己为地户阴私，金土相遇，主刑罚官非、身体伤害。',
     interpretation:
       '刑格是奇门凶格中最为凶险的格局之一。庚为刀兵刑杀，己为地户阴暗，' +
@@ -702,7 +657,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   庚_庚: {
     name: '太白',
     type: 'bad',
-    score: -4,
     summary: '庚加地盘庚为太白，主官事并发、狱禁牵连，凶期百日而后或有舒情。',
     interpretation:
       '太白取两庚重逢之象。庚为刑杀、阻隔、刀兵与制度压力，两庚并临则阻力加重，' +
@@ -716,7 +670,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   庚_辛: {
     name: '干格白虎',
     type: 'bad',
-    score: -6,
     summary: '庚加地盘辛为干格白虎，主道路伤亡、失伴难休，客主之势多有争执。',
     interpretation:
       '干格白虎取庚辛两金相并之象。庚为太白刑杀，辛为白虎肃杀，' +
@@ -730,7 +683,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   癸_癸: {
     name: '天网四张',
     type: 'bad',
-    score: -10,
     summary: '癸为天网，双癸重逢如天网四张，主困厄至极、大凶。',
     interpretation:
       '天网四张是奇门中最凶的格局，没有之一。双癸重叠，天网重重，' +
@@ -744,7 +696,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   癸_戊: {
     name: '罗网青龙',
     type: 'neutral',
-    score: 1,
     summary: '癸加地盘甲为罗网青龙；排盘时以甲子戊代甲，故癸加地盘戊按此格论。',
     interpretation:
       '罗网青龙取癸天网临甲青龙之象。甲主财喜、姻亲和生发，癸主罗网、隐忧与规则，' +
@@ -758,7 +709,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   癸_乙: {
     name: '华盖逢星',
     type: 'neutral',
-    score: 1,
     summary: '癸加地盘乙为华盖逢星，贵人主宠禄权位，常人主怪异口舌。',
     interpretation:
       '华盖逢星取癸华盖临乙日奇之象。乙为文书、贵人和柔性资源，癸为华盖、隐伏与网罗，' +
@@ -772,7 +722,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   癸_丙: {
     name: '盖遇孛师',
     type: 'neutral',
-    score: 1,
     summary: '癸加地盘丙为盖遇孛师，贵人受官，小人得依，占文状可得门眉。',
     interpretation:
       '盖遇孛师取癸华盖临丙月奇之象。丙主公开、文书和名位，癸主隐伏、规则和华盖，' +
@@ -786,7 +735,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   癸_己: {
     name: '华盖地户',
     type: 'neutral',
-    score: 0,
     summary: '癸加地盘己为华盖地户，主阴人问夫、求至居住，门顺入室，门逆夫殆。',
     interpretation:
       '华盖地户取癸华盖临己地户之象。癸主隐伏与网罗，己主家宅、内情和遮蔽，' +
@@ -799,7 +747,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   癸_庚: {
     name: '大格飞名',
     type: 'neutral',
-    score: 0,
     summary: '癸加地盘庚为大格飞名，只宜上官握柄，公事得迟，钱财则有争。',
     interpretation:
       '大格飞名取癸天网临庚太白之象。癸主罗网，庚主权柄、阻隔和刑杀，' +
@@ -813,7 +760,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   癸_辛: {
     name: '狱入天牢',
     type: 'bad',
-    score: -5,
     summary: '癸加地盘辛为狱入天牢，主军吏遭系、罪恐难逃，门吉星吉则虚禁无劳。',
     interpretation:
       '狱入天牢取癸天网临辛白虎之象。癸为网，辛为刑狱，网罗与刑责相叠，' +
@@ -827,7 +773,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   癸_壬: {
     name: '复见螣蛇',
     type: 'bad',
-    score: -4,
     summary: '癸加地盘壬为复见螣蛇，主家不和、离散与私情牵连，星门俱吉则信息可通。',
     interpretation:
       '复见螣蛇取癸壬两水相并之象。壬癸皆主隐伏、疑惑和流动，叠见则虚惊、猜疑、' +
@@ -840,7 +785,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   壬_壬: {
     name: '地网四张',
     type: 'bad',
-    score: -8,
     summary: '壬为地网，双壬重逢如地网四张，主沉沦停滞、陷入僵局。',
     interpretation:
       '地网四张与天网四张类似，主被困于僵局之中。双壬为水，泛滥不可收拾。' +
@@ -854,7 +798,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   壬_戊: {
     name: '蛇化为龙',
     type: 'good',
-    score: 2,
     summary: '壬加地盘甲为蛇化为龙；排盘时以甲子戊代甲，故壬加地盘戊按此格论。',
     interpretation:
       '蛇化为龙取壬螣蛇临甲青龙之象。壬主隐伏、流动和机变，甲主青龙、生发和财喜，' +
@@ -868,7 +811,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   壬_乙: {
     name: '小蛇',
     type: 'neutral',
-    score: 1,
     summary: '壬加地盘乙格名小蛇，阴人伏灾，阳人伤嗟，孕生贵子，禄马光华。',
     interpretation:
       '小蛇取壬水临乙日奇之象。壬为螣蛇、隐伏与流动，乙为柔木、文书和生机，' +
@@ -881,7 +823,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   壬_丙: {
     name: '蛇入冶炉',
     type: 'bad',
-    score: -4,
     summary: '壬加地盘丙为蛇入冶炉，主词讼争端、空事无图，遇刑禁则出而招徒。',
     interpretation:
       '蛇入冶炉取壬水螣蛇临丙火冶炉之象。水火相激，隐情遇明火，' +
@@ -895,7 +836,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   壬_丁: {
     name: '干合蛇刑',
     type: 'neutral',
-    score: 1,
     summary: '壬加地盘丁为干合蛇刑，主文书财喜，宜阴人，贵人官禄，常人平平。',
     interpretation:
       '干合蛇刑取壬丁相合而带螣蛇刑象。丁主文书、消息和细节，壬主隐伏、流动和机变，' +
@@ -908,7 +848,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   壬_己: {
     name: '蛇凶入狱',
     type: 'bad',
-    score: -5,
     summary: '壬加地盘己为蛇凶入狱，主大祸将成、夫妻不睦，若有刑象则罪责牵连。',
     interpretation:
       '蛇凶入狱取壬螣蛇临己地户之象。壬主隐情与流动，己主阴私、家宅和滞碍，' +
@@ -921,7 +860,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   壬_庚: {
     name: '太白骑蛇',
     type: 'bad',
-    score: -3,
     summary: '壬加地盘庚为太白骑蛇，刑狱公明，好分正邪，如逢伤死则刑戮无差。',
     interpretation:
       '太白骑蛇取壬螣蛇临庚太白之象。庚主刑杀、规则和决断，壬主疑惑、隐情和流动，' +
@@ -935,7 +873,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   壬_辛: {
     name: '螣蛇格干',
     type: 'bad',
-    score: -4,
     summary: '壬加地盘辛为螣蛇格干，符门虽吉亦不可安，谋事内生欺瞒。',
     interpretation:
       '螣蛇格干取壬螣蛇临辛白虎之象。壬主隐伏，辛主细密、刑责和白虎，' +
@@ -948,7 +885,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   壬_癸: {
     name: '螣蛇飞空',
     type: 'bad',
-    score: -3,
     summary: '壬加地盘癸为螣蛇飞空，主家不和睦、私情牵连，星门俱吉则信息可通。',
     interpretation:
       '螣蛇飞空取壬癸两水相并而壬临癸网之象。事情容易虚浮、飘忽、难落地，' +
@@ -962,7 +898,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丙_癸: {
     name: '华盖孛师',
     type: 'bad',
-    score: -4,
     summary: '丙加地盘癸为华盖孛师，主词讼灾祸相随，后势仍有转圜。',
     interpretation:
       '华盖孛师代表明处行动被阴水词讼牵入暗处。丙为月奇、文采与公开行动，' +
@@ -976,7 +911,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丙_丙: {
     name: '月奇勃格',
     type: 'bad',
-    score: -4,
     summary: '丙加地盘丙为月奇勃格，主两重文书皆遭障格，门逆财亡，门顺虚迫。',
     interpretation:
       '月奇勃格取丙月奇重临而火势过盛之象。丙主光明、名位、文书和行动，' +
@@ -990,7 +924,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   戊_庚: {
     name: '青龙符格',
     type: 'bad',
-    score: -5,
     summary: '六甲加庚为青龙符格，起咎成凶，即使星吉门顺亦宜静默。',
     interpretation:
       '青龙符格取甲子戊青龙遇庚太白刑冲之象。甲主生发、财喜和贵人，' +
@@ -1004,7 +937,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   戊_壬: {
     name: '青龙网罗',
     type: 'bad',
-    score: -4,
     summary: '六甲加壬为青龙网罗，阴私事多灾祸，阳动求事也主诡谲不和。',
     interpretation:
       '青龙网罗取甲子戊青龙入壬水罗网之象。戊为甲子青龙、财喜和生发，' +
@@ -1018,7 +950,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   庚_戊: {
     name: '刑青龙格',
     type: 'neutral',
-    score: 1,
     summary: '庚加地盘甲为刑青龙格；排盘时以甲子戊代甲，故庚加地盘戊按此格论。',
     interpretation:
       '刑青龙格取庚太白临甲青龙之象。甲在奇门中遁藏于六仪，甲子遁于戊，' +
@@ -1032,7 +963,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   乙_己: {
     name: '日奇入雾',
     type: 'bad',
-    score: -4,
     summary: '乙为日奇（太阳），己为地户土雾，日入雾中，主被遮蔽、才能难伸。',
     interpretation:
       '日奇入雾代表才能被埋没、计划被拖延。乙为日奇（太阳、才华、希望），' +
@@ -1046,7 +976,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丙_己: {
     name: '火孛入刑',
     type: 'bad',
-    score: -5,
     summary: '丙加地盘己为火孛入刑，主文书不来，刑名官非受阻。',
     interpretation:
       '火孛入刑代表丙月奇落入己土地户刑滞之中。丙主文书、光明和公开行动，' +
@@ -1060,7 +989,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丙_壬: {
     name: '孛乱来临',
     type: 'bad',
-    score: -5,
     summary: '丙加地盘壬为孛乱来临，主文讼公庭，庶人流离，贵人失名。',
     interpretation:
       '孛乱来临代表丙火公开之事被壬水流荡搅乱。丙主名位、文书和行动，' +
@@ -1074,7 +1002,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丁_辛: {
     name: '朱雀入狱',
     type: 'bad',
-    score: -6,
     summary: '丁加地盘辛为朱雀入狱，主官人刑囚剥落，常人枷锁受制。',
     interpretation:
       '朱雀入狱代表丁火文书消息被辛金刑狱约束。丁主文书、言语、消息和才华，' +
@@ -1088,7 +1015,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丁_己: {
     name: '火入勾神',
     type: 'bad',
-    score: -5,
     summary: '丁加地盘己为火入勾神，主文状词凶，私中有私，往则刑名。',
     interpretation:
       '火入勾神代表丁火文书落入己土勾陈纠缠。丁主文状、消息、言语和细节，' +
@@ -1102,7 +1028,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丁_庚: {
     name: '织女寻牛',
     type: 'bad',
-    score: -5,
     summary: '丁加地盘庚为织女寻牛，主私情冤仇，阴人无理，刑禁官囚。',
     interpretation:
       '织女寻牛取丁火文书情意遇庚金阻隔刑杀之象。丁主消息、情意、文书与细节，' +
@@ -1116,7 +1041,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   己_乙: {
     name: '墓入不明',
     type: 'bad',
-    score: -3,
     summary: '己加地盘乙为墓入不明，星门合吉尚可平稳，不合则事难成。',
     interpretation:
       '墓入不明代表己土地户遮住乙日奇。己主阴私、滞碍、责任和旧事，' +
@@ -1130,7 +1054,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   己_丁: {
     name: '奇入墓',
     type: 'bad',
-    score: -4,
     summary: '己加地盘丁为奇入墓，主文书诉讼先有理、后受惩。',
     interpretation:
       '奇入墓代表丁星奇文书落入己土地户墓滞。丁主文状、消息、细节和灵感，' +
@@ -1144,7 +1067,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   己_己: {
     name: '地户逢鬼',
     type: 'bad',
-    score: -3,
     summary: '己加地盘己为地户逢鬼，主阴信难明，远近消息真假难委。',
     interpretation:
       '地户逢鬼取双己重叠，阴私、滞碍和疑虑加重。己为地户，重见则事在暗处盘绕，' +
@@ -1158,7 +1080,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   己_庚: {
     name: '刑格',
     type: 'bad',
-    score: -6,
     summary: '己加地盘庚为刑格，主阴私发用、阳人宜静，刑禁官囚之象。',
     interpretation:
       '己加庚的刑格强调己土地户引动庚金刑杀。己主阴私、旧事、责任牵连，' +
@@ -1172,7 +1093,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   己_辛: {
     name: '魂神入墓',
     type: 'bad',
-    score: -4,
     summary: '己加地盘辛为魂神入墓，主家中阴事、惊忧入户，小口灾遇。',
     interpretation:
       '魂神入墓代表己土地户与辛金白虎刑狱相缠。己主宅内、隐情和旧滞，' +
@@ -1186,7 +1106,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   己_壬: {
     name: '刑网高张',
     type: 'bad',
-    score: -6,
     summary: '己加地盘壬为刑网高张，主阴人奸恶、阳人遭伤，门迫星凶则两伤。',
     interpretation:
       '刑网高张代表己土地户把壬水罗网拉高，暗处纠缠转为显性约束。己主私隐、' +
@@ -1200,7 +1119,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   己_癸: {
     name: '地刑玄武',
     type: 'bad',
-    score: -5,
     summary: '己加地盘癸为地刑玄武，主灾病沉吟，星门虽扶亦多疾苦。',
     interpretation:
       '地刑玄武代表己土地户压住癸水玄武，暗处病忧、隐情和责任负担加重。' +
@@ -1218,7 +1136,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   戊_辛: {
     name: '青龙失惊',
     type: 'neutral',
-    score: 0,
     summary: '六甲加辛为青龙失惊，门中一合可顺心，凶星上立则财利亡倾。',
     interpretation:
       '青龙失惊取甲子戊青龙遇辛金白虎惊惧之象。戊主财喜、贵人和根基，' +
@@ -1232,7 +1149,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   戊_癸: {
     name: '青龙华盖',
     type: 'neutral',
-    score: 2,
     summary: '六甲加癸为青龙华盖，门合吉星则无灾，逢伤死门则阴私牵连。',
     interpretation:
       '青龙华盖取甲子戊青龙覆于癸水华盖天网之下。戊主财喜、生发和贵人，' +
@@ -1246,7 +1162,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   己_戊: {
     name: '伏格青龙',
     type: 'neutral',
-    score: 2,
     summary: '己加地盘甲（甲遁戊）为伏格青龙，门合吉星则财利隆，门逆凶星则所干成空。',
     interpretation:
       '伏格青龙对应六己加甲，奇门中甲遁于戊，故以己加地盘戊输出。' +
@@ -1260,7 +1175,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   己_丙: {
     name: '孛师',
     type: 'neutral',
-    score: 1,
     summary: '己加地盘丙为孛师，阳人可得宣赐爵禄，阴人则忌奸乱乘违。',
     interpretation:
       '孛师代表己土地户遇丙月奇，暗处问题被光明照见。对职位、官面、奖赏、' +
@@ -1274,7 +1188,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丁_丙: {
     name: '加中复奇',
     type: 'neutral',
-    score: 1,
     summary: '丁加地盘丙为加中复奇，主口舌跷蹊，贵招官禄，常人防刑。',
     interpretation:
       '加中复奇取丁星奇加临丙月奇之象，文书、消息、名位和行动互相照见。' +
@@ -1288,7 +1201,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   乙_丙: {
     name: '奇仪得顺',
     type: 'neutral',
-    score: 2,
     summary: '乙加地盘丙为奇仪得顺格，逢吉星有迁官之兆，但问夫妻事主离别之忧。',
     interpretation:
       '奇仪得顺代表日奇得丙火明照，计划和文书顺势展开。乙为日奇，丙为月奇之光，' +
@@ -1302,7 +1214,6 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
   丙_丁: {
     name: '奇入朱雀',
     type: 'neutral',
-    score: 2,
     summary: '丙加地盘丁为奇入朱雀，主文书亨通，贵占权握，常人衣禄退剥。',
     interpretation:
       '奇入朱雀取丙月奇入丁星奇文书之象。丙主公开行动、名位与光明，' +
@@ -1332,13 +1243,10 @@ const NAMED_PATTERNS: Record<string, StemPairPattern> = {
  * @example
  * ```ts
  * getStemPairPattern('戊', '丙');
- * // { name: '青龙返首', type: 'good', score: 8, ... }
  *
  * getStemPairPattern('乙', '辛');
- * // { name: '青龙逃走', type: 'bad', score: -8, ... }
  *
  * getStemPairPattern('壬', '癸');
- * // { name: '比和', type: 'neutral', score: 0, ... }
  * ```
  */
 export function getStemPairPattern(heavenStem: string, earthStem: string): StemPairPattern {

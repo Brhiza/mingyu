@@ -28,7 +28,6 @@ export interface QimenPatternCombo {
   key: string;
   name: string;
   tone: 'super-good' | 'super-bad' | 'mixed';
-  score: number;
   summary: string;
   palace?: number;
   sources: string[];
@@ -754,7 +753,6 @@ function pushPalaceCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): v
         key: `combo:mixed:${palace}`,
         name: `${palaceName}吉凶混杂`,
         tone: 'mixed',
-        score: 0,
         summary: `${palaceName}同时见吉格与凶格，气机不纯，需分清主次。`,
         palace,
         sources: [...goodPatterns, ...badPatterns].map((pattern) => pattern.name),
@@ -766,7 +764,6 @@ function pushPalaceCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): v
         key: `combo:goodVoid:${palace}`,
         name: `${palaceName}吉格逢空`,
         tone: 'mixed',
-        score: -Math.round(goodPatterns.reduce((sum, pattern) => sum + pattern.score, 0) / 2),
         summary: `${palaceName}虽见吉格，但宫位逢空亡，吉象有落空之忧。`,
         palace,
         sources: goodPatterns.map((pattern) => pattern.name),
@@ -788,7 +785,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
       key: 'combo:sanQiAllGood',
       name: '三奇齐升',
       tone: 'super-good',
-      score: 12,
       summary: '乙、丙、丁三奇同时升殿得位，三奇之气齐显。',
       sources: ['乙奇升殿', '丙奇升殿', '丁奇升殿'],
     });
@@ -802,7 +798,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
       key: 'combo:sanQiAllBad',
       name: '三奇齐困',
       tone: 'super-bad',
-      score: -12,
       summary: '乙、丙、丁三奇同时受困，三奇之力闭塞。',
       sources: patterns
         .filter((pattern) => pattern.name.includes('奇') && pattern.tone === 'bad')
@@ -818,7 +813,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
       key: 'combo:dunPlusReturning',
       name: '遁格返首叠加',
       tone: 'super-good',
-      score: 10,
       summary: '遁格与青龙返首或飞鸟跌穴同盘，吉格叠加。',
       sources: patterns
         .filter(
@@ -839,7 +833,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
       key: 'combo:baihuPlusKill',
       name: '白虎助凶',
       tone: 'super-bad',
-      score: -12,
       summary: `${palace?.name || ''}白虎猖狂叠加凶门凶神，凶象加重。`,
       palace: baihuBad.palace,
       sources: ['白虎猖狂', palace ? getDoorGodSource(palace) : '凶门凶神'],
@@ -857,7 +850,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
         key: `combo:baihuKaiJing:${palace.gong}`,
         name: '白虎会开惊',
         tone: 'mixed',
-        score: 0,
         summary: `${palace.name}白虎猖狂同宫${door}，合“会开惊动神位”，辛金得门气助，客势更锐；偏兵事强攻参考，不替代通用吉凶评分。`,
         palace: palace.gong,
         sources: ['白虎猖狂', `${palace.name}${door}`],
@@ -870,7 +862,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
         key: `combo:baihuXiuMen:${palace.gong}`,
         name: '白虎逢休门',
         tone: 'mixed',
-        score: 0,
         summary: `${palace.name}白虎猖狂同宫休门，乙奇得水助而辛金泄气，主客交锋胜败趋平；偏兵事缓和参考，不替代通用吉凶评分。`,
         palace: palace.gong,
         sources: ['白虎猖狂', `${palace.name}休门`],
@@ -883,7 +874,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
       key: 'combo:bingDoubleBad',
       name: '月奇双困',
       tone: 'super-bad',
-      score: -10,
       summary: '丙奇既悖师又入墓，公开表达与外显之力受困。',
       sources: ['月奇悖师', '月奇入墓'],
     });
@@ -894,7 +884,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
       key: 'combo:bingGengDual',
       name: '主客互攻',
       tone: 'super-bad',
-      score: -10,
       summary: '太白入荧与荧入太白同盘，主客互克互攻。',
       sources: ['太白入荧', '荧入太白'],
     });
@@ -913,7 +902,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
         key: `combo:dingRenBlocked:${palace.gong}`,
         name: '丁壬逢伤杜',
         tone: 'mixed',
-        score: 0,
         summary: `${palace.name}丁壬化木同宫${door}，虽曰相生，但${door === '伤门' ? '防伤害牵连' : '防闭塞难通'}，不宜强用；偏逃亡、隐遁和兵事用门参考，不作通用吉凶评分。`,
         palace: palace.gong,
         sources: ['丁壬化木', `${palace.name}${door}`],
@@ -926,7 +914,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
         key: `combo:dingRenShengMen:${palace.gong}`,
         name: '丁壬生门利遁',
         tone: 'mixed',
-        score: 0,
         summary: `${palace.name}丁壬化木同宫生门，合“逃亡绝迹者逢之最利，生门吉助足成功”；偏逃亡、隐遁和避难参考，不作通用吉凶评分。`,
         palace: palace.gong,
         sources: ['丁壬化木', `${palace.name}生门`],
@@ -942,7 +929,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
       key: 'combo:yunvPlusYinDe',
       name: '阴德相扶',
       tone: 'super-good',
-      score: 9,
       summary: '玉女守门遇人遁或地遁，柔顺与暗助之象叠加。',
       sources: patterns
         .filter((pattern) => ['玉女守门', '人遁', '地遁'].includes(pattern.name))
@@ -957,7 +943,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
       key: 'combo:fuyinPlusBad',
       name: '伏吟带凶',
       tone: 'super-bad',
-      score: -8,
       summary: '伏吟主迟滞，又见明确凶格，阻滞与凶象并见。',
       sources: ['伏吟', ...badPatterns.map((pattern) => pattern.name)],
     });
@@ -968,7 +953,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
       key: 'combo:fanyinPlusBad',
       name: '反吟翻覆',
       tone: 'super-bad',
-      score: -9,
       summary: '反吟主反复变动，又见明确凶格，翻覆与凶象并见。',
       sources: ['反吟', ...badPatterns.map((pattern) => pattern.name)],
     });
@@ -984,7 +968,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
       key: 'combo:menpoPlusBad',
       name: '迫上加凶',
       tone: 'super-bad',
-      score: -9,
       summary: `${menPoBadPalace.name}门迫叠加凶门凶神，行动受压且环境不利。`,
       palace: menPoBadPalace.gong,
       sources: ['门迫', getDoorGodSource(menPoBadPalace)],
@@ -1005,7 +988,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
       key: 'combo:luckPlusQi',
       name: '吉门三奇',
       tone: 'super-good',
-      score: 12,
       summary: `${palace?.name || ''}吉门吉神叠三奇得使，助力与关键资源同时出现。`,
       palace: luckyQi.palace,
       sources: [palace ? getDoorGodSource(palace) : '吉门吉神', luckyQi.name],
@@ -1017,7 +999,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
       key: 'combo:fuyinPlusHorse',
       name: '静中藏动',
       tone: 'mixed',
-      score: 0,
       summary: '伏吟主静，驿马主动，表面停滞而内有变化。',
       sources: ['伏吟', '驿马'],
     });
@@ -1028,7 +1009,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
       key: 'combo:fanyinPlusHorse',
       name: '动荡翻滚',
       tone: 'super-bad',
-      score: -8,
       summary: '反吟叠驿马，变动与反复之象并见。',
       sources: ['反吟', '驿马'],
     });
@@ -1045,7 +1025,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
       key: `combo:qinglongReturningHost:${palace.gong}`,
       name: '青龙返首利主',
       tone: 'mixed',
-      score: 0,
       summary: `${palace.name}青龙返首，合“甲加丙利为主”，宜后应、伏藏、暗渡；偏兵事主客参考，不替代通用吉格评分。`,
       palace: palace.gong,
       sources: ['青龙返首', `${palace.name}`],
@@ -1063,7 +1042,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
       key: `combo:flyingBirdGuest:${palace.gong}`,
       name: '飞鸟跌穴利客',
       tone: 'mixed',
-      score: 0,
       summary: `${palace.name}飞鸟跌穴，合“丙加甲利为客”，宜主动前征、扬势而进；偏兵事主客参考，不替代通用吉格评分。`,
       palace: palace.gong,
       sources: ['飞鸟跌穴', `${palace.name}`],
@@ -1074,7 +1052,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
         key: `combo:flyingBirdShengMen:${palace.gong}`,
         name: '飞鸟会生门',
         tone: 'mixed',
-        score: 0,
         summary: `${palace.name}飞鸟跌穴同宫生门，合“会合生门相助，则坐生击死，一战百胜”；偏兵事助胜参考，不重复加算通用吉格评分。`,
         palace: palace.gong,
         sources: ['飞鸟跌穴', `${palace.name}生门`],
@@ -1093,7 +1070,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
       key: `combo:zhuqueToujiangHost:${palace.gong}`,
       name: '朱雀投江利主',
       tone: 'mixed',
-      score: 0,
       summary: `${palace.name}朱雀投江，合“遇交战，主胜客败”；若先发攻人而转为客，则防强行取败、将士刑伤。偏兵事主客参考，不替代通用凶格评分。`,
       palace: palace.gong,
       sources: ['朱雀投江', `${palace.name}`],
@@ -1113,7 +1089,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
       key: `combo:tengsheYaoyaoHold:${palace.gong}`,
       name: '螣蛇夭矫宜守',
       tone: 'mixed',
-      score: 0,
       summary: `${palace.name}螣蛇夭矫，合“主军宜固守”；遇敌勿轻战，亦合“蛇矫为客者不害”的活诀，偏兵事主客与守避参考，不替代通用凶格评分。`,
       palace: palace.gong,
       sources: ['螣蛇夭矫', `${palace.name}`],
@@ -1124,7 +1099,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
         key: `combo:tengsheMoveWuJi:${palace.gong}:${wuPalace.gong}:${jiPalace.gong}`,
         name: '螣蛇迁戊己',
         tone: 'mixed',
-        score: 0,
         summary: `${palace.name}螣蛇夭矫，古法急迁甲子戊、甲戌己两土宫；本盘取天盘戊所在${wuPalace.name}、天盘己所在${jiPalace.name}，以土制癸水，偏避兵迁营参考，不作通用吉凶评分。`,
         palace: palace.gong,
         sources: ['螣蛇夭矫', `甲子戊：天盘戊${wuPalace.name}`, `甲戌己：天盘己${jiPalace.name}`],
@@ -1155,7 +1129,6 @@ function pushXingDeKaiHeCombo(ctx: PatternComboContext, out: QimenPatternCombo[]
     key: `combo:xingDeKaiHe:${ctx.solarTerm}:${ctx.hourBranch}:${ctx.zhiFu}`,
     name: '刑德开阖',
     tone: 'mixed',
-    score: 0,
     summary: `${ctx.solarTerm}属${xingDe.baseTerm}三气，德在${xingDe.deBranch}、刑在${xingDe.xingBranch}；${sanJiaText}${hourLabel}支${ctx.hourBranch}为${state.gateState}，值符${ctx.zhiFu}为${polarity}，判为${state.openClose}，${state.advice}。坐阳德取${xingDe.deBranch}支${dePalace.name}，击阴刑取${xingDe.xingBranch}支${xingPalace.name}；偏三甲兵事、主客与动静参考，不作通用吉凶评分。`,
     sources: [
       `${ctx.solarTerm}属${xingDe.baseTerm}三气：德在${xingDe.deBranch}、刑在${xingDe.xingBranch}`,
@@ -1263,7 +1236,6 @@ function pushStarPalaceHostGuestCombo(ctx: PatternComboContext, out: QimenPatter
       .join(':')}`,
     name: '星宫主客',
     tone: 'mixed',
-    score: 0,
     summary: `九星与落宫形成主客取向：${entryTexts.join('；')}。宫为主，星为客；此为兵事主客强弱参考，不作通用吉凶评分。`,
     palace: entries.length === 1 ? entries[0].gong : undefined,
     sources: entryTexts,
@@ -1362,7 +1334,6 @@ function pushDoorPalaceHostGuestCombo(ctx: PatternComboContext, out: QimenPatter
       .join(':')}`,
     name: '门宫主客',
     tone: 'mixed',
-    score: 0,
     summary: `八门与落宫形成主客取向：${entryTexts.join('；')}。宫为主，门为客；此为兵事主客强弱参考，不作通用吉凶评分。`,
     palace: entries.length === 1 ? entries[0].gong : undefined,
     sources: entryTexts,
@@ -1418,7 +1389,6 @@ function pushStarDoorHostGuestInjuryCombo(
     key: `combo:starDoorHostGuestInjury:${injuryEntries.map((entry) => entry.gong).join(':')}`,
     name: '星门主客互伤',
     tone: 'mixed',
-    score: 0,
     summary: `同宫星门与宫形成一克一生：${entryTexts.join('；')}。宫为主，星门为客；合“一克一生，主客互伤”，偏兵事主客冲突参考，不作通用吉凶评分。`,
     palace: injuryEntries.length === 1 ? injuryEntries[0].gong : undefined,
     sources: entryTexts,
@@ -1448,7 +1418,6 @@ function pushDoorSeasonQiCombo(ctx: PatternComboContext, out: QimenPatternCombo[
     key: `combo:doorSeasonQi:${ctx.monthBranch}:${entries.map((entry) => entry.gong).join(':')}`,
     name: '八门余气',
     tone: 'mixed',
-    score: 0,
     summary: `${ctx.monthBranch}月属${monthElement}，八门余气为：${entries
       .map((entry) => entry.text)
       .join(
@@ -1489,7 +1458,6 @@ function pushObjectClueCombo(ctx: PatternComboContext, out: QimenPatternCombo[])
     key: `combo:objectClues:${entries.map((entry) => entry.key).join(':')}`,
     name: '射覆物象克应',
     tone: 'mixed',
-    score: 0,
     summary: `按天盘干、九星、八神、八门取射覆物象：${entries
       .map((entry) => entry.text)
       .join('；')}。偏物形、颜色、材质、状态线索参考，不作通用吉凶评分。`,
@@ -1519,7 +1487,6 @@ function pushStemPressureCombo(ctx: PatternComboContext, out: QimenPatternCombo[
     key: `combo:stemPressure:${entries.map((entry) => entry.gong).join(':')}`,
     name: '十干迫制',
     tone: 'mixed',
-    score: 0,
     summary: `奇仪临受克之宫：${entries
       .map((entry) => entry.text)
       .join(
@@ -1553,7 +1520,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
         key: `combo:zhiFuOpenClose:${tianYiPalace.gong}`,
         name: '值符开通闭塞',
         tone: 'mixed',
-        score: 0,
         summary: `值符星${ctx.zhiFu}落${tianYiPalace.name}，符临${tianYiPalace.gong}宫为${openCloseState.name}；${openCloseState.advice}。此为《奇门宝鉴御定》开合时机参考，不作通用吉凶评分。`,
         palace: tianYiPalace.gong,
         sources: [
@@ -1569,7 +1535,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:sanShengDi',
       name: '三胜地',
       tone: 'super-good',
-      score: 10,
       summary: `值符星落${tianYiPalace.name}、九天在${jiuTianPalace.name}、生门在${shengMenPalace.name}，为三胜所取之地，可作为争取主动与择方参考。`,
       sources: [
         `值符星${ctx.zhiFu}落${tianYiPalace.name}`,
@@ -1587,7 +1552,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:tianYiJiChong',
       name: '天乙击冲',
       tone: 'mixed',
-      score: 0,
       summary: `值符星${ctx.zhiFu}落${tianYiPalace.name}为天乙宫，兵事宜居其方、击其对冲${tianYiOppositePalace.name}；此为坐击取向参考，不作通用吉凶评分。`,
       palace: tianYiPalace.gong,
       sources: [`天乙宫：${tianYiPalace.name}`, `对冲：${tianYiOppositePalace.name}`],
@@ -1602,7 +1566,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:wuBuJi',
       name: '五不击',
       tone: 'mixed',
-      score: 0,
       summary:
         '值符星、九天、生门、九地和值使所在宫为五不击，偏兵事攻守禁忌；宜据守借势，不宜把这些方位作为攻击对象。',
       sources: [
@@ -1620,7 +1583,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:quSan',
       name: '趋三',
       tone: 'super-good',
-      score: 6,
       summary: `值使${ctx.zhiShi}到${zhiShiPalace.name}，合“值使到震宜向之”之法，可作为取向与出行择方参考。`,
       palace: zhiShiPalace.gong,
       sources: [`值使${ctx.zhiShi}落${zhiShiPalace.name}`],
@@ -1632,7 +1594,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:biWu',
       name: '避五',
       tone: 'mixed',
-      score: 0,
       summary: `值使${ctx.zhiShi}到${zhiShiPalace.name}，合“值使到巽宫宜去之”之法，偏择方避让参考，不作通用凶方扣分。`,
       palace: zhiShiPalace.gong,
       sources: [`值使${ctx.zhiShi}落${zhiShiPalace.name}`],
@@ -1644,7 +1605,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: `combo:baJiangHuiMen:${zhiShiPalace.gong}`,
       name: '八将会门',
       tone: 'mixed',
-      score: 0,
       summary: `值使${ctx.zhiShi}落${zhiShiPalace.name}，上临${zhiShiPalace.shenPan.god}，为${zhiShiPalace.shenPan.god}会${ctx.zhiShi}；古法收用天盘不用地盘，偏天时、行兵、捕捉等场景参考，不作通用吉凶评分。`,
       palace: zhiShiPalace.gong,
       sources: [
@@ -1664,7 +1624,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:youDuLuDu',
       name: '游都鲁都',
       tone: 'mixed',
-      score: 0,
       summary: `${ctx.dayStem}日游都在${youDuBranch}支${youDuPalace.name}，对冲鲁都在${luDuBranch}支${luDuPalace.name}，偏兵事背击与择方参考，不作通用吉凶评分。`,
       sources: [
         `${ctx.dayStem}日游都：${youDuBranch}支${youDuPalace.name}`,
@@ -1686,7 +1645,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:tianMuDiEr',
       name: '天目地耳',
       tone: 'mixed',
-      score: 0,
       summary: `${ctx.activeGanZhi}属${xunShouGanZhi}旬，天目为${tianMuDiEr.tianMu.ganZhi}（${tianMuPalace.name}），地耳为${tianMuDiEr.diEr.ganZhi}（${diErPalace.name}），偏兵事“背天目击地耳”参考，不作通用吉凶评分。`,
       sources: [
         `${xunShouGanZhi}旬天目：${tianMuDiEr.tianMu.ganZhi}${tianMuPalace.name}`,
@@ -1703,7 +1661,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:xunGuXu',
       name: '孤虚',
       tone: 'mixed',
-      score: 0,
       summary: `${ctx.activeGanZhi}属${xunShouGanZhi}旬，孤在${guLabels.join('、')}，虚在${xuLabels.join('、')}；偏兵事“背孤击虚”、博弈坐向与远行避忌参考，不作通用吉凶评分。`,
       sources: [
         `${xunShouGanZhi}旬孤：${guLabels.join('、')}`,
@@ -1718,7 +1675,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:tianMaDirection',
       name: '天马方',
       tone: 'mixed',
-      score: 0,
       summary: `${ctx.monthBranch}月${ctx.hourBranch}时以月将${tianMa.monthGeneral}加时支，顺数至卯为太冲天马方：${tianMa.labels.join('、')}；偏急难逃避与出行择方参考，不作通用吉凶评分。`,
       sources: [`天马方：${tianMa.labels.join('、')}`],
     });
@@ -1730,7 +1686,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:tianGangTime',
       name: '天罡时',
       tone: 'mixed',
-      score: 0,
       summary: `${ctx.monthBranch}月${ctx.hourBranch}时以月将${tianGang.monthGeneral}加时支，上盘天罡所临为斗星方：${tianGang.labels.join('、')}；偏行兵破阵与择方参考，不作通用吉凶评分。`,
       sources: [`斗星方：${tianGang.labels.join('、')}`],
     });
@@ -1753,7 +1708,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:lostRoute',
       name: '迷路法',
       tone: 'mixed',
-      score: 0,
       summary: `${ctx.monthBranch}月${ctx.hourBranch}时以月将${tianGang.monthGeneral}加时支，天罡临${tianGangBranch}支${tianGangPalace.name}，属${lostRoute.position}位，${lostRoute.route}；偏行军迷路、择道参考，不作通用吉凶评分。`,
       palace: tianGangPalace.gong,
       sources: [
@@ -1771,7 +1725,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:tianSanMenDiSiHu',
       name: '天三门地四户',
       tone: 'mixed',
-      score: 0,
       summary: `${ctx.monthBranch}月${ctx.hourBranch}时以月将${tianSanMen.monthGeneral}加时支，天三门为${tianSanMen.labels.join('、')}；以月建加时支，地四户为${diSiHuLabels.join('、')}；偏出行、避难与择方参考，遇三奇吉门更佳，不作通用吉凶评分。`,
       sources: [`天三门：${tianSanMen.labels.join('、')}`, `地四户：${diSiHuLabels.join('、')}`],
     });
@@ -1791,7 +1744,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:earthPrivateDoor',
       name: '地私门',
       tone: 'mixed',
-      score: 0,
       summary: `${dayStem}${dayBranch}日取${earthPrivateDoor.nobleType}${earthPrivateDoor.nobleBranch}，${ctx.monthBranch}月${ctx.hourBranch}时以月将${earthPrivateDoor.monthGeneral}加时支，贵人落${earthPrivateDoor.nobleGroundBranch}支${earthPrivateDoor.nobleGroundPalace.name}，${earthPrivateDoor.direction}排十二天将，地私门为${earthPrivateDoor.labels.join('、')}；偏出行、隐避与败军出走参考，遇奇门相照更佳，不作通用吉凶评分。`,
       sources: [
         `${dayStem}${dayBranch}日${earthPrivateDoor.nobleType}${earthPrivateDoor.nobleBranch}`,
@@ -1807,7 +1759,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:tingTingBaiJian',
       name: '亭亭白奸',
       tone: 'mixed',
-      score: 0,
       summary: `${ctx.monthBranch}月${ctx.hourBranch}时以月将${tingTingBaiJian.monthGeneral}加时支，神后所临为亭亭方：${tingTingBaiJian.tingTing.join('、')}；功曹、胜光、天罡所临为白奸方：${tingTingBaiJian.baiJian.join('、')}；合于巳亥宜战，格于寅申宜守，其余偏“背亭亭击白奸”参考，不作通用吉凶评分。`,
       sources: [
         `亭亭方：${tingTingBaiJian.tingTing.join('、')}`,
@@ -1834,7 +1785,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:tianMenDiHuTaiYinQingLong',
       name: '天门地户太阴青龙',
       tone: 'mixed',
-      score: 0,
       summary: `${ctx.activeGanZhi}属${xunShouGanZhi}旬，出天门取天盘戊所在${tianMenPalace.name}，入地户取天盘己所在${diHuPalace.name}，过太阴取天盘丁所在${guoTaiYinPalace.name}，居青龙取本旬六甲遁${qingLongStem}所在${qingLongPalace.name}；偏出行避难与兵事用方参考，不作通用吉凶评分。`,
       sources: [
         `天门：天盘戊${tianMenPalace.name}`,
@@ -1870,7 +1820,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:campLayout',
       name: '下营法',
       tone: 'mixed',
-      score: 0,
       summary: `${ctx.activeGanZhi}属${xunShouGanZhi}旬，${roleLabels.join('，')}；偏行军下营分工参考，不作通用吉凶评分。`,
       sources: roleLabels,
     });
@@ -1882,7 +1831,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:yangYinHourHostGuest',
       name: '五阳五阴主客',
       tone: 'mixed',
-      score: 0,
       summary: isYangHour
         ? `${ctx.hourStem}时属五阳时，兵事利客、宜先举；用局重看天盘奇仪星门是否强盛，不作通用吉凶评分。`
         : `${ctx.hourStem}时属五阴时，兵事利主、宜后应；用局重看地盘奇仪星门是否强盛，不作通用吉凶评分。`,
@@ -1900,7 +1848,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:xunZhongDiBingDay',
       name: '旬中地丙日',
       tone: 'mixed',
-      score: 0,
       summary: `${dayGanZhi}为${diBing.xun}${diBing.branch}日，合“旬中地丙日”，偏兵事用日避忌；将兵者不宜用，不作通用吉凶评分。`,
       sources: [`${diBing.xun}${diBing.branch}日：旬中地丙日`],
     });
@@ -1917,7 +1864,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:daJiangJunDirection',
       name: '大将军方',
       tone: 'mixed',
-      score: 0,
       summary: `${ctx.yearBranch}年大将军在${daJiangJunBranch}支${daJiangJunPalace.name}，偏兵事背击与避犯参考，不作通用吉凶评分。`,
       palace: daJiangJunPalace.gong,
       sources: [`${ctx.yearBranch}年大将军：${daJiangJunBranch}支${daJiangJunPalace.name}`],
@@ -1932,7 +1878,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:taiSuiDirection',
       name: '太岁方',
       tone: 'mixed',
-      score: 0,
       summary: `${ctx.yearBranch}年太岁在地盘${ctx.yearBranch}支${taiSuiPalace.name}，偏兵事背击与避犯参考，不作通用吉凶评分。`,
       palace: taiSuiPalace.gong,
       sources: [`太岁：地盘${ctx.yearBranch}支${taiSuiPalace.name}`],
@@ -1947,7 +1892,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:yueJianDirection',
       name: '月建方',
       tone: 'mixed',
-      score: 0,
       summary: `${ctx.monthBranch}月月建在地盘${ctx.monthBranch}支${yueJianPalace.name}，偏兵事背击与避犯参考，不作通用吉凶评分。`,
       palace: yueJianPalace.gong,
       sources: [`月建：地盘${ctx.monthBranch}支${yueJianPalace.name}`],
@@ -1960,7 +1904,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:taiYinDirection',
       name: '太阴方',
       tone: 'mixed',
-      score: 0,
       summary: `八神太阴在${taiYinPalace.name}，偏兵事背击、伏藏与避犯参考，不作通用吉凶评分。`,
       palace: taiYinPalace.gong,
       sources: [`太阴：八神太阴宫${taiYinPalace.name}`],
@@ -1973,7 +1916,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:fourGodDirections',
       name: '四神用方',
       tone: 'mixed',
-      score: 0,
       summary: `九天在${jiuTianPalace.name}宜扬兵，九地在${jiuDiPalace.name}宜潜藏立营，太阴在${taiYinPalace.name}宜伏兵，六合在${liuHePalace.name}宜逃形谋议；偏兵事与隐遁取向参考，不作通用吉凶评分。`,
       sources: [
         `九天：${jiuTianPalace.name}扬兵`,
@@ -1990,7 +1932,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:heKuiDirection',
       name: '河魁方',
       tone: 'mixed',
-      score: 0,
       summary: `河魁为戌支，落地盘戌支${heKuiPalace.name}，偏兵事背击与避犯参考，不作通用吉凶评分。`,
       palace: heKuiPalace.gong,
       sources: [`河魁：戌支${heKuiPalace.name}`],
@@ -2004,7 +1945,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:wuJiangDirection',
       name: '五将方',
       tone: 'mixed',
-      score: 0,
       summary: `${ctx.dayBranch}日五将方在${wuJiang.direction}（${palaceName}），偏兵事遇敌避犯与择利反击参考，不作通用吉凶评分。`,
       palace: wuJiang.palace,
       sources: [`${ctx.dayBranch}日五将方：${wuJiang.direction}${palaceName}`],
@@ -2017,7 +1957,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:shiZhongJiangXing',
       name: '时中将星',
       tone: 'mixed',
-      score: 0,
       summary: `${ctx.dayBranch}日逢${ctx.hourBranch}时，为时中将星，偏兵事择时参考，不作通用吉凶评分。`,
       sources: [`${ctx.dayBranch}日${ctx.hourBranch}时：时中将星`],
     });
@@ -2033,7 +1972,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:xiongCiDirection',
       name: '雄雌方',
       tone: 'mixed',
-      score: 0,
       summary: `${ctx.monthBranch}月以${xiongBranch}支${xiongPalace.name}为雄，对冲${ciBranch}支${ciPalace.name}为雌，偏兵事“背雄击雌”参考，不作通用吉凶评分。`,
       sources: [
         `${ctx.monthBranch}月雄方：${xiongBranch}支${xiongPalace.name}`,
@@ -2051,7 +1989,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
       key: 'combo:dayStemAttackAvoidance',
       name: '日干攻方避忌',
       tone: 'mixed',
-      score: 0,
       summary: `${ctx.dayStem}日不宜攻${attackAvoidance.direction}（${palaceNames.join('、')}），偏兵事攻方避忌；只作攻守参考，不作通用吉凶评分。`,
       sources: [
         `${ctx.dayStem}日不宜攻${attackAvoidance.direction}`,

@@ -14,6 +14,11 @@ import {
   evaluateSingleStar,
   getZhiFuStarJudgement,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/star-palace.ts';
+import { evaluateSingleGodStrength } from '../packages/core/src/divination/algorithms/qimen/helpers/god-strength.ts';
+import {
+  evaluateHourStemChangSheng,
+  evaluateZhiFuChangSheng,
+} from '../packages/core/src/divination/algorithms/qimen/helpers/chang-sheng.ts';
 import {
   getDayOfficerInfo,
   getDaySeasonRelation,
@@ -140,7 +145,9 @@ test('奇门门星神关系应返回逐项关系与计数，不展示综合评�
 });
 
 test('奇门九星旺衰：未知星或非法宫位应明确报错，不应默认休囚', () => {
-  assert.equal(evaluateSingleStar('天蓬', 1, '水').state, '旺');
+  const result = evaluateSingleStar('天蓬', 1, '水');
+  assert.equal(result.state, '旺');
+  assert.ok(!('score' in result));
   assert.throws(() => evaluateSingleStar('假星', 1, '水'), /九星 "假星" 无法识别/);
   assert.throws(() => evaluateSingleStar('天蓬', 10, '水'), /宫位 "10" 无效/);
   assert.throws(() => evaluateSingleStar('天蓬', 1, '风'), /宫位五行 "风" 无法识别/);
@@ -151,6 +158,67 @@ test('奇门九星旺衰：未知星或非法宫位应明确报错，不应默�
         jiuGongGe: [{ gong: 1, element: '水', tianPan: { star: '天蓬' } }],
       }),
     /找不到值符星 "天英" 的落宫/,
+  );
+});
+
+test('奇门八神旺衰只返回传统状态，并拒绝未知神煞、宫位和五行', () => {
+  const result = evaluateSingleGodStrength('值符', 2, '土');
+
+  assert.equal(result.strength, '强');
+  assert.ok(!('score' in result));
+  assert.throws(() => evaluateSingleGodStrength('假神', 2, '土'), /八神 "假神" 无法识别/);
+  assert.throws(() => evaluateSingleGodStrength('值符', 5, '土'), /八神落宫必须是/);
+  assert.throws(() => evaluateSingleGodStrength('值符', 2, '风'), /宫位五行 "风" 无法识别/);
+});
+
+test('奇门值符与时干十二长生应区分中宫无专属地支和残缺排盘', () => {
+  const chart = generateQimen(new Date('2024-06-15T14:30:00+08:00'));
+  const zhiFuStage = evaluateZhiFuChangSheng(chart);
+  const hourStemStage = evaluateHourStemChangSheng(chart);
+
+  assert.ok(zhiFuStage.index >= -1);
+  assert.ok(hourStemStage.index >= -1);
+  assert.ok(!('scoreFactor' in zhiFuStage));
+  assert.ok(!('scoreFactor' in hourStemStage));
+
+  assert.throws(
+    () => evaluateZhiFuChangSheng({ jiuGongGe: chart.jiuGongGe, zhiFu: '假星' }),
+    /值符星 "假星" 无法识别/,
+  );
+
+  const palaceStars = ['天蓬', '天芮', '天冲', '天辅', '天禽', '天心', '天柱', '天任', '天英'];
+  const originalGong = palaceStars.indexOf(chart.zhiFu) + 1;
+  assert.throws(
+    () =>
+      evaluateZhiFuChangSheng({
+        jiuGongGe: chart.jiuGongGe.filter((palace) => palace.gong !== originalGong),
+        zhiFu: chart.zhiFu,
+      }),
+    /原宫 .* 宫缺失/,
+  );
+
+  const withoutZhiFu = chart.jiuGongGe.map((palace) => ({
+    ...palace,
+    tianPan: {
+      ...palace.tianPan,
+      star: palace.tianPan.star === chart.zhiFu ? '' : palace.tianPan.star,
+      companionStar:
+        palace.tianPan.companionStar === chart.zhiFu ? undefined : palace.tianPan.companionStar,
+    },
+  }));
+  assert.throws(
+    () => evaluateZhiFuChangSheng({ jiuGongGe: withoutZhiFu, zhiFu: chart.zhiFu }),
+    /找不到值符星 .* 的当前落宫/,
+  );
+
+  const withoutHourStem = chart.jiuGongGe.map((palace) => ({
+    ...palace,
+    tianPan: { ...palace.tianPan, stem: '', companionStem: undefined },
+    diPan: { stem: '' },
+  }));
+  assert.throws(
+    () => evaluateHourStemChangSheng({ jiuGongGe: withoutHourStem, ganzhi: chart.ganzhi }),
+    /找不到时干遁干 .* 的落宫/,
   );
 });
 
@@ -203,7 +271,9 @@ test('奇门月相与建除映射缺失时应报错，不得默认新月或平',
 });
 
 test('奇门十干格局应正常返回合法组合并拒绝非法输入', () => {
-  assert.ok(getStemPairPattern('壬', '癸'));
+  const pattern = getStemPairPattern('壬', '癸');
+  assert.ok(pattern);
+  assert.ok(!('score' in pattern));
   assert.equal(getStemPairPattern('甲', '癸').name, '生');
   assert.equal(getNamedStemPairPattern('壬', '癸')?.name, '螣蛇飞空');
   assert.throws(() => getStemPairPattern('A', '癸'), /合法十天干/);

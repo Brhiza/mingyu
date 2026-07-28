@@ -76,15 +76,6 @@ export interface StarPalaceResult {
   gong: number;
   /** 旺衰状态 */
   state: StarState;
-  /**
-   * 评分：
-   *   旺 = 3  （本宫，最强）
-   *   相 = 2  （得生助或同气）
-   *   休 = 0  （泄气，能量输出）
-   *   囚 = -1 （克宫耗力）
-   *   死 = -2 （受制最弱）
-   */
-  score: number;
   /** 详细描述 */
   detail: string;
   /** 值符星特殊判断（仅值符星有此字段） */
@@ -115,12 +106,12 @@ export interface ZhiFuJudgementInput extends StarPalaceInput {
  * 评估单个九星在宫位中的旺衰状态
  *
  * 判断逻辑（按优先级）：
- *   1. 本宫（同宫）           → 旺（score: 3）
- *   2. 比和（同五行，非本宫）   → 相（score: 2）
- *   3. 宫生星（旺地）          → 相（score: 2）
- *   4. 星生宫（生地）          → 休（score: 0）
- *   5. 星克宫（囚地）          → 囚（score: -1）
- *   6. 宫克星（受克）          → 死（score: -2）
+ *   1. 本宫（同宫）           → 旺
+ *   2. 比和（同五行，非本宫）   → 相
+ *   3. 宫生星（旺地）          → 相
+ *   4. 星生宫（生地）          → 休
+ *   5. 星克宫（囚地）          → 囚
+ *   6. 宫克星（受克）          → 死
  *
  * 比和（五行相同）在传统奇门中属同气得助，故归为"相"。
  * 本宫则固有"旺"，不受五行规则约束。
@@ -152,41 +143,34 @@ export function evaluateSingleStar(
   }
 
   let state: StarState;
-  let score: number;
 
   // 1. 本宫 → 旺
   if (currentGong === originalPalace) {
     state = '旺';
-    score = 3;
   }
   // 2. 比和：星与宫同五行（非本宫）→ 相
   else if (starWuxing === palaceElement) {
     state = '相';
-    score = 2;
   }
   // 3. 宫生星 → 相
   else if (isGenerating(palaceElement, starWuxing)) {
     state = '相';
-    score = 2;
   }
   // 4. 星生宫 → 休
   else if (isGenerating(starWuxing, palaceElement)) {
     state = '休';
-    score = 0;
   }
   // 5. 星克宫 → 囚
   else if (isControlling(starWuxing, palaceElement)) {
     state = '囚';
-    score = -1;
   }
   // 6. 宫克星 → 死（五行循环的剩余组合只有此情况）
   else {
     state = '死';
-    score = -2;
   }
 
   const detail = `${star}落${currentGong}宫（${state}）`;
-  return { star, originalPalace, gong: currentGong, state, score, detail };
+  return { star, originalPalace, gong: currentGong, state, detail };
 }
 
 // ============================================================================
@@ -208,8 +192,8 @@ export function evaluateSingleStar(
  * const starResults = evaluateStarPalaces({ jiuGongGe: qimenResult.jiuGongGe });
  * // 结果示例：
  * // [
- * //   { star: '天蓬', originalPalace: 1, gong: 6, state: '相', score: 2, detail: '天蓬落6宫（相）' },
- * //   { star: '天芮', originalPalace: 2, gong: 2, state: '旺', score: 3, detail: '天芮落2宫（旺）' },
+ * //   { star: '天蓬', originalPalace: 1, gong: 6, state: '相', detail: '天蓬落6宫（相）' },
+ * //   { star: '天芮', originalPalace: 2, gong: 2, state: '旺', detail: '天芮落2宫（旺）' },
  * // ]
  * ```
  */
@@ -256,7 +240,7 @@ export function evaluateStarPalaces(result: StarPalaceInput): StarPalaceResult[]
  *   jiuGongGe: qimenResult.jiuGongGe,
  *   zhiFu: qimenResult.zhiFu,
  * });
- * // => { star: '天蓬', gong: 6, state: '相', score: 2, specialJudgement: '值符得助，吉事加持' }
+ * // => { star: '天蓬', gong: 6, state: '相', specialJudgement: '值符得助，吉事加持' }
  * ```
  */
 export function getZhiFuStarJudgement(result: ZhiFuJudgementInput): StarPalaceResult | null {

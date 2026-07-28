@@ -151,8 +151,6 @@ export interface PalaceRelationsResult {
   harmony: '和谐' | '有拉扯' | '冲突';
   /** 三组可复核关系的分类计数。 */
   relationCounts: { supporting: number; controlling: number };
-  /** @deprecated 仅为兼容旧调用保留；解释与提示词不得展示为吉凶强度。 */
-  score: number;
   /** 整体关系的中文描述 */
   description: string;
 }
@@ -228,7 +226,7 @@ function buildPairDescription(
  *   - 冲突：多数为相克，矛盾突出，在该宫方位易生阻碍
  *
  * @param palace 宫位数据（须含 renPan.door、tianPan.star、shenPan.god）
- * @returns 包含三对关系详情、综合等级和评分的结果对象
+ * @returns 包含三对关系详情与综合等级的结果对象
  *
  * @example
  * ```ts
@@ -236,7 +234,6 @@ function buildPairDescription(
  * // {
  * //   doorStar: { first: '休门', second: '天蓬', firstElement: '水', secondElement: '水', relation: '比和', description: '...' },
  * //   harmony: '和谐',
- * //   score: 3,
  * //   description: '该宫门星神三者关系和谐，利于行事。'
  * // }
  * ```
@@ -285,7 +282,7 @@ export function analyzePalaceRelations(
     description: buildPairDescription(star, starElem, god, godElem, starGodRel),
   };
 
-  // 仅用三组关系是否全部同向确定描述标签；score 只为旧调用兼容保留。
+  // 仅用三组关系是否全部同向确定描述标签。
   const relations = [doorStarRel, doorGodRel, starGodRel];
   const relationCounts = {
     supporting: relations.filter((relation) => relation !== '相克').length,
@@ -302,8 +299,6 @@ export function analyzePalaceRelations(
     harmony = '有拉扯';
   }
 
-  const score = relationCounts.supporting - relationCounts.controlling;
-
   // 构建综合描述
   const description = buildOverallDescription(
     door,
@@ -316,7 +311,7 @@ export function analyzePalaceRelations(
     relations,
   );
 
-  return { doorStar, doorGod, starGod, harmony, relationCounts, score, description };
+  return { doorStar, doorGod, starGod, harmony, relationCounts, description };
 }
 
 /**
@@ -358,32 +353,22 @@ function buildOverallDescription(
 }
 
 // ============================================================================
-// 6. 宫位和谐总分
+// 6. 宫位和谐分类
 // ============================================================================
 
 /**
- * 获取宫位门星神三者的整体和谐评分
- *
- * 评分规则（-3 ~ +3，整数）：
- *   门-星：比和 +1 | 相生 +1 | 相克 -1
- *   门-神：比和 +1 | 相生 +1 | 相克 -1
- *   星-神：比和 +1 | 相生 +1 | 相克 -1
- *
- * 分值含义：
- *   +3 ~ +2：能量协同，吉顺
- *   +1 ~ -1：有拉扯，需具体分析
- *   -2 ~ -3：能量冲突，多阻碍
+ * 获取宫位门星神三者的整体和谐分类。
  *
  * @param palace 宫位数据（须含 renPan.door、tianPan.star、shenPan.god）
- * @returns 和谐评分，-3（最冲突）到 +3（最和谐）
+ * @returns 和谐、有拉扯或冲突
  *
  * @example
  * ```ts
- * const score = getPalaceHarmony(jiuGongGe[1]); // 返回 -1, 2, 等
+ * const harmony = getPalaceHarmony(jiuGongGe[1]);
  * ```
  */
 export function getPalaceHarmony(
   palace: Pick<QimenJiuGongGe, 'renPan' | 'tianPan' | 'shenPan'>,
-): number {
-  return analyzePalaceRelations(palace).score;
+): PalaceRelationsResult['harmony'] {
+  return analyzePalaceRelations(palace).harmony;
 }

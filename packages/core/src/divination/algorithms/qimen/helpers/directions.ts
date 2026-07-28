@@ -29,7 +29,7 @@ import {
 // ============================================================================
 
 /** 单个宫位方位判断输入 */
-export interface PalaceScoreInput {
+export interface PalaceDirectionInput {
   gong: number;
   name: string;
   direction: string;
@@ -54,8 +54,6 @@ interface DirectionPatternInput {
   tone: 'good' | 'bad' | 'neutral';
   palace?: number;
   palaces?: number[];
-  /** @deprecated 旧版格局评分仅作输入兼容，方位判断不会读取。 */
-  score?: number;
 }
 
 interface DirectionConditionsInput {
@@ -63,7 +61,9 @@ interface DirectionConditionsInput {
   isWuBuYuShi?: boolean;
 }
 
-function hasSanQiWithAuspiciousDoor(palace: Pick<PalaceScoreInput, 'tianPan' | 'renPan'>): boolean {
+function hasSanQiWithAuspiciousDoor(
+  palace: Pick<PalaceDirectionInput, 'tianPan' | 'renPan'>,
+): boolean {
   return (
     [palace.tianPan.stem, palace.tianPan.companionStem].some(
       (stem) => Boolean(stem) && sanQiStems.includes(stem as string),
@@ -129,7 +129,7 @@ function getDirectionUse(door: string, god: string): string {
  * 具备难门、难神、空亡或宫位凶格的方位，不再按总分强选唯一方位。
  */
 export function buildDirectionAdvice(
-  jiuGongGe: PalaceScoreInput[],
+  jiuGongGe: PalaceDirectionInput[],
   voidBranches?: string[],
   classicPatterns?: DirectionPatternInput[],
   conditions?: DirectionConditionsInput,

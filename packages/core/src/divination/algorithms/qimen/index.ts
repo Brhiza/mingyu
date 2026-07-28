@@ -429,7 +429,6 @@ export function generateQimen(
     hourBranch,
     jiuGongGe,
   });
-  const publicPatternCombos = patternCombos.map(({ score: _score, ...combo }) => combo);
 
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 15：返回完整 QimenData
@@ -465,7 +464,7 @@ export function generateQimen(
     jiuGongGe,
     classicPatterns,
     stemRelations,
-    patternCombos: publicPatternCombos,
+    patternCombos,
     directions,
     yingQi,
     timestamp,
