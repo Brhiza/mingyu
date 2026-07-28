@@ -44,12 +44,68 @@ test('特殊从格判断不能忽略地支副气里的印比', () => {
   assert.match(result.pattern, /^(?!从)/); // 不应是从格（从财/从杀/从儿/从势）
 });
 
+test('异党会局不能掩盖明透印星，日主有直接生扶时不得按从格处理', () => {
+  const pillars: Pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '壬', zhi: '申', ganZhi: '壬申' },
+    day: { gan: '丙', zhi: '子', ganZhi: '丙子' },
+    hour: { gan: '壬', zhi: '辰', ganZhi: '壬辰' },
+  };
+
+  const result = determinePattern(pillars, '极弱', getTenGod);
+
+  assert.equal(result.isSpecial, false);
+  assert.doesNotMatch(result.pattern, /^从/);
+});
+
+test('异党会局不能掩盖局外本气根，日主有根时不得按从格处理', () => {
+  const pillars: Pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    day: { gan: '癸', zhi: '卯', ganZhi: '癸卯' },
+    hour: { gan: '丙', zhi: '辰', ganZhi: '丙辰' },
+  };
+
+  const result = determinePattern(pillars, '极弱', getTenGod);
+
+  assert.equal(result.isSpecial, false);
+  assert.doesNotMatch(result.pattern, /^从/);
+});
+
 test('专旺格判断不能忽略地支副气里的财官食伤', () => {
   const pillars: Pillars = {
     year: { gan: '甲', zhi: '寅', ganZhi: '甲寅' },
     month: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
     day: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
     hour: { gan: '甲', zhi: '寅', ganZhi: '甲寅' },
+  };
+
+  const result = determinePattern(pillars, '极强', getTenGod);
+
+  assert.equal(result.isSpecial, false);
+  assert.notEqual(result.pattern, '专旺格');
+});
+
+test('同党会局不能掩盖明透官星，存在直接逆势克制时不得按专旺格处理', () => {
+  const pillars: Pillars = {
+    year: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    month: { gan: '甲', zhi: '午', ganZhi: '甲午' },
+    day: { gan: '己', zhi: '未', ganZhi: '己未' },
+    hour: { gan: '己', zhi: '巳', ganZhi: '己巳' },
+  };
+
+  const result = determinePattern(pillars, '极强', getTenGod);
+
+  assert.equal(result.isSpecial, false);
+  assert.notEqual(result.pattern, '专旺格');
+});
+
+test('同党会局不能掩盖局外官杀本气，存在直接逆势克制时不得按专旺格处理', () => {
+  const pillars: Pillars = {
+    year: { gan: '己', zhi: '巳', ganZhi: '己巳' },
+    month: { gan: '丙', zhi: '午', ganZhi: '丙午' },
+    day: { gan: '戊', zhi: '寅', ganZhi: '戊寅' },
+    hour: { gan: '己', zhi: '未', ganZhi: '己未' },
   };
 
   const result = determinePattern(pillars, '极强', getTenGod);
@@ -169,7 +225,7 @@ test('亥卯未木局成势且月令司权同党时，不应因未中副气而�
 
   assert.equal(result.isSpecial, true);
   assert.equal(result.pattern, '专旺格');
-  assert.match(result.basis || '', /副气未至破格/);
+  assert.match(result.basis || '', /局外未见明透或本气破格/);
 });
 
 test('巳酉丑金局成势且月令司权异党时，不应因丑中一点印星而漏判从格', () => {
@@ -185,7 +241,7 @@ test('巳酉丑金局成势且月令司权异党时，不应因丑中一点印�
   assert.equal(result.isSpecial, true);
   // 从格已细分为从财格/从杀格/从儿格/从势格，此局金旺克甲木为官杀，应为从杀格
   assert.match(result.pattern, /^从(财|杀|儿|势|格)格?$/);
-  assert.match(result.basis || '', /同党余气未至破格/);
+  assert.match(result.basis || '', /局外未见明透或本气扶身/);
 });
 
 test('特殊格主气判断不应被任意数值缩放或七成阈值左右', () => {

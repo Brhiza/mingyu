@@ -11,8 +11,12 @@ type PillarPosition = 'year' | 'month' | 'hour';
 type HiddenStemPosition = keyof Pillars;
 
 interface SpecialPatternForceSummary {
-  samePartyDirectCount: number;
-  oppositePartyDirectCount: number;
+  samePartyExposedCount: number;
+  oppositePartyExposedCount: number;
+  samePartyPrincipalInsideFormationCount: number;
+  oppositePartyPrincipalInsideFormationCount: number;
+  samePartyPrincipalOutsideFormationCount: number;
+  oppositePartyPrincipalOutsideFormationCount: number;
   samePartyResidualPositions: Set<HiddenStemPosition>;
   oppositePartyResidualPositions: Set<HiddenStemPosition>;
   hasSamePartyFormation: boolean;
@@ -51,26 +55,49 @@ function collectSpecialPatternForce(
   dayMaster: string,
   getTenGod: GetTenGodFn,
 ): SpecialPatternForceSummary {
-  let samePartyDirectCount = 0;
-  let oppositePartyDirectCount = 0;
+  let samePartyExposedCount = 0;
+  let oppositePartyExposedCount = 0;
+  let samePartyPrincipalInsideFormationCount = 0;
+  let oppositePartyPrincipalInsideFormationCount = 0;
+  let samePartyPrincipalOutsideFormationCount = 0;
+  let oppositePartyPrincipalOutsideFormationCount = 0;
   const samePartyResidualPositions = new Set<HiddenStemPosition>();
   const oppositePartyResidualPositions = new Set<HiddenStemPosition>();
 
-  const addEvidence = (stem: string, position?: HiddenStemPosition, isResidual = false) => {
-    const tenGod = getTenGod(stem, dayMaster);
-    if (isSamePartyTenGod(tenGod)) {
-      if (isResidual && position) {
-        samePartyResidualPositions.add(position);
+  const establishedFormations = collectEstablishedBranchFormations(pillars);
+  const samePartyFormationBranches = new Set<string>();
+  const oppositePartyFormationBranches = new Set<string>();
+  // 会局只解释组成支自身本气与化神之间的表面冲突；明透和局外本气仍是直接反证。
+  establishedFormations.forEach((formation) => {
+    const representativeStem = getRepresentativeStemByWuxing(formation.wuxing);
+    const branches = isSamePartyTenGod(getTenGod(representativeStem, dayMaster))
+      ? samePartyFormationBranches
+      : oppositePartyFormationBranches;
+    formation.branches.forEach((branch) => branches.add(branch));
+  });
+
+  const addPrincipalEvidence = (stem: string, branch: string) => {
+    if (isSamePartyTenGod(getTenGod(stem, dayMaster))) {
+      if (oppositePartyFormationBranches.has(branch)) {
+        samePartyPrincipalInsideFormationCount += 1;
       } else {
-        samePartyDirectCount += 1;
+        samePartyPrincipalOutsideFormationCount += 1;
       }
       return;
     }
 
-    if (isResidual && position) {
-      oppositePartyResidualPositions.add(position);
+    if (samePartyFormationBranches.has(branch)) {
+      oppositePartyPrincipalInsideFormationCount += 1;
     } else {
-      oppositePartyDirectCount += 1;
+      oppositePartyPrincipalOutsideFormationCount += 1;
+    }
+  };
+
+  const addResidualEvidence = (stem: string, position: HiddenStemPosition) => {
+    if (isSamePartyTenGod(getTenGod(stem, dayMaster))) {
+      samePartyResidualPositions.add(position);
+    } else {
+      oppositePartyResidualPositions.add(position);
     }
   };
 
@@ -81,29 +108,34 @@ function collectSpecialPatternForce(
       ['hour', pillars.hour],
     ] as const
   ).forEach(([position, pillar]) => {
-    addEvidence(pillar.gan);
+    if (isSamePartyTenGod(getTenGod(pillar.gan, dayMaster))) {
+      samePartyExposedCount += 1;
+    } else {
+      oppositePartyExposedCount += 1;
+    }
+
     const hiddenStems = HIDDEN_STEMS[pillar.zhi] || [];
     hiddenStems.forEach((stem, index) => {
       if (index === 0) {
-        addEvidence(stem);
+        addPrincipalEvidence(stem, pillar.zhi);
         return;
       }
 
-      addEvidence(stem, position, true);
+      addResidualEvidence(stem, position);
     });
   });
 
   const dayHiddenStems = HIDDEN_STEMS[pillars.day.zhi] || [];
   dayHiddenStems.forEach((stem, index) => {
     if (index === 0) {
-      addEvidence(stem);
+      addPrincipalEvidence(stem, pillars.day.zhi);
       return;
     }
 
-    addEvidence(stem, 'day', true);
+    addResidualEvidence(stem, 'day');
   });
 
-  const formationSummary = collectEstablishedBranchFormations(pillars).reduce(
+  const formationSummary = establishedFormations.reduce(
     (summary, formation) => {
       const representativeStem = getRepresentativeStemByWuxing(formation.wuxing);
       const tenGod = getTenGod(representativeStem, dayMaster);
@@ -126,8 +158,12 @@ function collectSpecialPatternForce(
   );
 
   return {
-    samePartyDirectCount,
-    oppositePartyDirectCount,
+    samePartyExposedCount,
+    oppositePartyExposedCount,
+    samePartyPrincipalInsideFormationCount,
+    oppositePartyPrincipalInsideFormationCount,
+    samePartyPrincipalOutsideFormationCount,
+    oppositePartyPrincipalOutsideFormationCount,
     samePartyResidualPositions,
     oppositePartyResidualPositions,
     hasSamePartyFormation: formationSummary.hasSamePartyFormation,
@@ -279,15 +315,15 @@ export function determinePattern(
   const commanderSupportsOppositeParty = !monthCommander || !isSamePartyTenGod(commanderGod);
   const specialPatternForce = collectSpecialPatternForce(pillars, dayMaster, getTenGod);
   const canTreatAsSpecialStrong =
-    (specialPatternForce.oppositePartyDirectCount === 0 ||
-      (specialPatternForce.hasSamePartyFormation &&
-        specialPatternForce.oppositePartyDirectCount <= 1)) &&
+    specialPatternForce.oppositePartyExposedCount === 0 &&
+    specialPatternForce.oppositePartyPrincipalInsideFormationCount <= 1 &&
+    specialPatternForce.oppositePartyPrincipalOutsideFormationCount === 0 &&
     (specialPatternForce.oppositePartyResidualPositions.size <= 1 ||
       specialPatternForce.hasSamePartyFormation);
   const canTreatAsSpecialWeak =
-    (specialPatternForce.samePartyDirectCount === 0 ||
-      (specialPatternForce.hasOppositePartyFormation &&
-        specialPatternForce.samePartyDirectCount <= 1)) &&
+    specialPatternForce.samePartyExposedCount === 0 &&
+    specialPatternForce.samePartyPrincipalInsideFormationCount <= 1 &&
+    specialPatternForce.samePartyPrincipalOutsideFormationCount === 0 &&
     (specialPatternForce.samePartyResidualPositions.size <= 1 ||
       specialPatternForce.hasOppositePartyFormation);
 
@@ -297,7 +333,7 @@ export function determinePattern(
     (isPureSameParty || canTreatAsSpecialStrong)
   ) {
     const basis = specialPatternForce.hasSamePartyFormation
-      ? '主气与会局同党成势，副气未至破格，且日主极强，按专旺格处理'
+      ? '会局同党成势，局外未见明透或本气破格，且日主极强，按专旺格处理'
       : '全局印比成势，且日主极强，按专旺格处理';
     return { pattern: '专旺格', isSpecial: true, basis };
   }
@@ -309,7 +345,7 @@ export function determinePattern(
     // 从格细分只读主气类别是否纯一，不比较自定义力量分数。
     const subPattern = resolveSubPattern(pillars, dayMaster, getTenGod);
     const basis = specialPatternForce.hasOppositePartyFormation
-      ? `主气与会局异党成势，同党余气未至破格，且日主极弱，按${subPattern}处理`
+      ? `会局异党成势，局外未见明透或本气扶身，且日主极弱，按${subPattern}处理`
       : `全局财官食伤成势，且日主极弱，按${subPattern}处理`;
     return { pattern: subPattern, isSpecial: true, basis };
   }
