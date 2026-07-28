@@ -21,7 +21,10 @@ import {
   analyzeQimenEvidence,
   conditionQimenTraditionalText,
 } from '@core/divination/algorithms/qimen';
-import { analyzeAlmanacEvidence } from '@core/divination/algorithms/almanac';
+import {
+  analyzeAlmanacEvidence,
+  isDeprecatedAlmanacTopicRuleText,
+} from '@core/divination/algorithms/almanac';
 import { LIUCHONG_MAP } from '@core/ganzhi';
 import type { DivinationMethodId } from '@core/divination/config';
 import {
@@ -812,6 +815,27 @@ function formatAlmanacAnnualDirectionGods(
   return `岁支十二神方位${gods.map((god) => `${god.name}${god.branch}${god.direction}`).join('、')}（只列方位，不据此判吉凶）`;
 }
 
+function formatAlmanacGodFacts(
+  facts: NonNullable<AlmanacData['days'][number]['godFacts']> | undefined,
+  fallbackGods: string[],
+) {
+  if (!facts?.length) {
+    return fallbackGods.length
+      ? `值日神煞：${fallbackGods.join('、')}（旧结果未保存原生吉凶分类）`
+      : '';
+  }
+
+  const groups: Array<[string, string[]]> = [
+    ['吉神', facts.filter((item) => item.classification === '吉神').map((item) => item.name)],
+    ['凶神', facts.filter((item) => item.classification === '凶神').map((item) => item.name)],
+    ['未分级', facts.filter((item) => item.classification === '未分级').map((item) => item.name)],
+  ];
+  const parts = groups
+    .filter(([, names]) => names.length > 0)
+    .map(([label, names]) => `${label}${names.join('、')}`);
+  return parts.length ? `值日神煞：${parts.join('；')}` : '';
+}
+
 function formatAlmanacInfo(data: AlmanacData) {
   const evidenceAnalysis = analyzeAlmanacEvidence(data);
   const candidateDays = data.days;
@@ -843,15 +867,17 @@ function formatAlmanacInfo(data: AlmanacData) {
       : item.nineStarDetail
         ? `（${item.nineStarDetail.fullName}，北斗${item.nineStarDetail.dipper}，方位${item.nineStarDetail.direction}）`
         : '';
-    const godText = item.gods.length ? `吉神${item.gods.join('、')}` : '';
+    const godText = formatAlmanacGodFacts(item.godFacts, item.gods);
     const annualDirectionGodsText = formatAlmanacAnnualDirectionGods(candidate);
+    const highlights = item.highlights.filter((text) => !isDeprecatedAlmanacTopicRuleText(text));
+    const cautions = item.cautions.filter((text) => !isDeprecatedAlmanacTopicRuleText(text));
     const evidence = [
       `宜${item.recommends.join('、') || '无'}`,
       `忌${item.avoids.join('、') || '无'}`,
       godText,
       annualDirectionGodsText,
-      item.highlights.length ? `支持${item.highlights.join('、')}` : '',
-      item.cautions.length ? `风险${item.cautions.join('、')}` : '',
+      highlights.length ? `支持${highlights.join('、')}` : '',
+      cautions.length ? `风险${cautions.join('、')}` : '',
       item.participantNotes.length ? `参与人${item.participantNotes.join('；')}` : '',
       item.bestHours?.length
         ? `无强冲突时辰${item.bestHours

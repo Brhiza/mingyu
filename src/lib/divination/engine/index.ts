@@ -164,7 +164,7 @@ export function buildDivinationPrompt(
   const outputRequirementText = isSsgw
     ? '直接回答【问题】，依次说明签诗主旨、典故启示、事项判断和行动建议。'
     : isAlmanac
-      ? '给出首选日期、备选日期和慎用日期，说明取舍依据与执行建议。'
+      ? '按可用候选、条件候选和慎用候选分组说明；同组按日期先后，不生成首选、备选或唯一最佳结论；说明取舍依据与执行建议。'
       : '使用简体中文，先回答【问题】，再说明主要依据、时机条件和行动建议。';
   const liurenTemplateSection =
     method === 'liuren'

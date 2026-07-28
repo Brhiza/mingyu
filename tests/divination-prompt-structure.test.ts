@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { taiyi } from 'mingyu-core';
+import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
@@ -897,6 +898,48 @@ test('择日提示词保留候选日期、事项和参与人资料', () => {
   assert.match(prompt, /黄历忌项触及搬家入宅/);
   assert.doesNotMatch(prompt, /事项权重|优先匹配宜项|事项忌项命中|评分42|高分日期/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|反证|解释边界/);
+});
+
+test('择日提示词按原生分类列值日神煞且不要求无依据名次', () => {
+  const data = generateAlmanacSelection({
+    topic: 'custom',
+    startDate: '2026-01-01',
+    endDate: '2026-01-01',
+  });
+  const day = data.days[0];
+  const auspiciousGods =
+    day.godFacts?.filter((fact) => fact.classification === '吉神').map((fact) => fact.name) ?? [];
+  const inauspiciousGods =
+    day.godFacts?.filter((fact) => fact.classification === '凶神').map((fact) => fact.name) ?? [];
+  const prompt = buildDivinationPrompt('almanac', '', data);
+
+  assert.ok(auspiciousGods.length > 0);
+  assert.ok(inauspiciousGods.length > 0);
+  assert.ok(
+    prompt.includes(
+      `值日神煞：吉神${auspiciousGods.join('、')}；凶神${inauspiciousGods.join('、')}`,
+    ),
+  );
+  assert.doesNotMatch(prompt, /建除神煞硬规则|给出首选日期|先给优先日/);
+  assert.match(prompt, /按可用候选、条件候选和慎用候选分组/);
+  assert.match(prompt, /不生成首选、备选或唯一最佳结论/);
+});
+
+test('旧择日结果未保存神煞原生分类时不得依据旧事项规则反推吉凶', () => {
+  const data = generateAlmanacSelection({
+    topic: 'custom',
+    startDate: '2026-01-01',
+    endDate: '2026-01-01',
+  });
+  const day = data.days[0];
+  day.godFacts = undefined;
+  day.highlights = ['事项规则命中喜神四相'];
+  day.cautions = ['事项规则触及忌神游祸'];
+
+  const prompt = buildDivinationPrompt('almanac', '', data);
+
+  assert.match(prompt, new RegExp(`值日神煞：${day.gods.join('、')}（旧结果未保存原生吉凶分类）`));
+  assert.doesNotMatch(prompt, /吉神四相|凶神游祸|事项规则命中喜神|事项规则触及忌神/);
 });
 
 test('择日提示词应保留用户补充诉求但不强制输出问题 section', () => {

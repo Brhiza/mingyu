@@ -226,6 +226,24 @@ function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+const DEPRECATED_TOPIC_RULE_KEY_PATTERN =
+  /:topic:(?:rule-day-officer|rule-gods-support|rule-gods-constraint|day-officer-support|day-officer-constraint)$/;
+
+export function isDeprecatedAlmanacTopicRuleText(text: string): boolean {
+  return (
+    /事项规则(?:支持|限制)执日|事项规则(?:命中喜神|触及忌神)/.test(text) ||
+    /^执日[建除满平定执破危成收开闭]/.test(text)
+  );
+}
+
+function isDeprecatedAlmanacTopicRuleFact(fact: AlmanacTopicMatchFact): boolean {
+  return (
+    fact.sourceType === '建除值日' ||
+    DEPRECATED_TOPIC_RULE_KEY_PATTERN.test(fact.key) ||
+    isDeprecatedAlmanacTopicRuleText(fact.promptText)
+  );
+}
+
 const TRADITIONAL_FACT_LIMITATION =
   '传统择日资料只用于当前事项的候选比较，不证明现实中的疾病、死亡、灾祸、官非、财损、婚姻或生育结果' as const;
 const CALENDAR_FACT_LIMITATION =
@@ -431,12 +449,7 @@ function getParticipantSupportTexts(
 }
 
 function isStrongTopicConstraint(fact: AlmanacTopicMatchFact): boolean {
-  return (
-    fact.status === '限制' &&
-    /:topic:(?:day-avoids|rule-day-officer|rule-gods-constraint|day-officer-constraint)$/.test(
-      fact.key,
-    )
-  );
+  return fact.status === '限制' && /:topic:day-avoids$/.test(fact.key);
 }
 
 export function classifyAlmanacHourCandidate(hour: AlmanacHourCandidate): {
@@ -471,7 +484,10 @@ export function classifyAlmanacCandidate(day: AlmanacDayCandidate): {
   strongConstraintTexts: string[];
   constraintTexts: string[];
 } {
-  const topicConstraints = (day.topicMatchFacts ?? []).filter((item) => item.status === '限制');
+  const topicConstraints = (day.topicMatchFacts ?? []).filter(
+    (item) => item.status === '限制' && !isDeprecatedAlmanacTopicRuleFact(item),
+  );
+  const applicableCautions = day.cautions.filter((item) => !isDeprecatedAlmanacTopicRuleText(item));
   const participantConstraints = getParticipantConstraintTexts(
     day.participantRelationFacts,
     day.participantNotes,
@@ -484,16 +500,14 @@ export function classifyAlmanacCandidate(day: AlmanacDayCandidate): {
     ...topicConstraints.filter(isStrongTopicConstraint).map((item) => item.promptText),
     ...directParticipantConflicts,
     ...(day.avoids.includes('诸事不宜') ? ['候选日明列诸事不宜'] : []),
-    ...day.cautions.filter((item) =>
-      /黄历忌项触及|事项规则限制执日|事项规则触及忌神|执日.*(?:不宜|忌)|诸事不宜/.test(item),
-    ),
+    ...applicableCautions.filter((item) => /黄历忌项触及|诸事不宜/.test(item)),
   ]);
   const hasHourData = Array.isArray(day.hours) && day.hours.length > 0;
   const usableHourCount = hasHourData
     ? day.hours!.filter((hour) => classifyAlmanacHourCandidate(hour).status !== '慎用候选').length
     : 0;
   const constraintTexts = unique([
-    ...day.cautions,
+    ...applicableCautions,
     ...topicConstraints.map((item) => item.promptText),
     ...participantConstraints,
     ...(hasHourData && usableHourCount === 0 ? ['未筛出无强冲突时辰'] : []),
@@ -563,15 +577,19 @@ function buildCompatibleTopicMatchFacts(params: {
   highlights: string[];
   cautions: string[];
 }): AlmanacTopicMatchFact[] {
-  const support = params.highlights.filter((item) => /宜项命中|执日.*宜/.test(item));
-  const limits = params.cautions.filter((item) => /忌项触及|执日/.test(item));
+  const support = params.highlights.filter(
+    (item) => /宜项命中/.test(item) && !isDeprecatedAlmanacTopicRuleText(item),
+  );
+  const limits = params.cautions.filter(
+    (item) => /忌项触及/.test(item) && !isDeprecatedAlmanacTopicRuleText(item),
+  );
   return [
     ...support.map((text, index): AlmanacTopicMatchFact => ({
       key: `${params.keyPrefix}:legacy-topic:support:${index}`,
       scope: params.scope,
       topic: params.topic,
       topicLabel: params.topicLabel,
-      sourceType: text.includes('执日') ? '建除值日' : '原始宜项',
+      sourceType: '原始宜项',
       status: '支持',
       inputItems: [text],
       keywords: [],
@@ -586,7 +604,7 @@ function buildCompatibleTopicMatchFacts(params: {
       scope: params.scope,
       topic: params.topic,
       topicLabel: params.topicLabel,
-      sourceType: text.includes('执日') ? '建除值日' : '原始忌项',
+      sourceType: '原始忌项',
       status: '限制',
       inputItems: [text],
       keywords: [],
@@ -601,18 +619,15 @@ function buildCompatibleTopicMatchFacts(params: {
 
 function buildCompatibleGodFacts(day: AlmanacDayCandidate): AlmanacGodFact[] {
   return day.gods.map((name, index) => {
-    const support = day.highlights.some((item) => item.includes(name));
-    const constraint = day.cautions.some((item) => item.includes(name));
-    const classification = support ? '吉神' : constraint ? '凶神' : '未分级';
     return {
       key: `${day.date}:legacy-god:${index}:${name}`,
       name,
-      classification,
+      classification: '未分级',
       status: '已读取',
-      promptText: `${name}列为${classification}`,
-      sources: ['兼容旧结果中的值日神煞与支持、限制说明'],
+      promptText: `${name}未保存原生吉凶分类`,
+      sources: ['兼容旧结果中的值日神煞名称；未保存原生吉凶分类'],
       limitation:
-        '旧结果未保存独立神煞分类参数时，只按已有支持或限制说明归类；未分级不等于吉凶中性，也不证明现实结果',
+        '旧结果未保存独立神煞分类参数时不依据支持或限制说明反推吉凶；未分级不等于吉凶中性，也不证明现实结果',
     };
   });
 }
@@ -902,7 +917,9 @@ function buildCandidateEvidence(
   });
   const godFacts = day.godFacts?.map((item) => ({ ...item })) ?? buildCompatibleGodFacts(day);
   const topicMatchFacts =
-    day.topicMatchFacts?.map((item) => ({ ...item })) ??
+    day.topicMatchFacts
+      ?.filter((item) => !isDeprecatedAlmanacTopicRuleFact(item))
+      .map((item) => ({ ...item })) ??
     buildCompatibleTopicMatchFacts({
       keyPrefix: day.date,
       scope: '候选日',
@@ -927,9 +944,19 @@ function buildCandidateEvidence(
     participantRelationFacts,
     day.participantNotes,
   );
-  const traditionalConstraints = unique(day.cautions);
-  const topicMatches = unique(day.highlights.filter((item) => /宜项命中|执日.*宜/.test(item)));
-  const traditionalSupport = unique(day.highlights.filter((item) => !topicMatches.includes(item)));
+  const traditionalConstraints = unique(
+    day.cautions.filter((item) => !isDeprecatedAlmanacTopicRuleText(item)),
+  );
+  const topicMatches = unique(
+    day.highlights.filter(
+      (item) => /宜项命中/.test(item) && !isDeprecatedAlmanacTopicRuleText(item),
+    ),
+  );
+  const traditionalSupport = unique(
+    day.highlights.filter(
+      (item) => !topicMatches.includes(item) && !isDeprecatedAlmanacTopicRuleText(item),
+    ),
+  );
   const traditionalFacts = buildTraditionalFacts(day);
   const directionConstraints = traditionalFacts
     .filter((item) => item.kind === '全年方位神' && item.fortune === '凶')
@@ -1362,7 +1389,7 @@ function buildLimitationFacts(params: {
         ]),
       ]),
       promptText:
-        '原始宜忌只保留历书列项，事项命中和神煞分类只用于当前事项比较；未列不等于适宜，命中也不等于现实必然成功或失败',
+        '原始宜忌只保留历书列项，事项命中只用于当前事项比较；值日神煞原生分类仅作辅助事实，不进入候选支持、限制或反证；未列不等于适宜，命中也不等于现实必然成功或失败',
       sources: ['原始宜忌、事项关键词命中与值日神煞事实'],
     },
     {

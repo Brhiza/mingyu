@@ -410,6 +410,8 @@ test('旧黄历字符串结果应生成兼容事实且不反推缺失参数', ()
   const candidate = evidence.candidates[0];
   assert.ok(candidate.topicMatchFacts.every((item) => item.key.includes(':legacy-topic:')));
   assert.ok(candidate.godFacts.every((item) => item.key.includes(':legacy-god:')));
+  assert.ok(candidate.godFacts.every((item) => item.classification === '未分级'));
+  assert.ok(candidate.godFacts.every((item) => /未保存原生吉凶分类/.test(item.promptText)));
   assert.ok(
     candidate.topicMatchFacts.every((item) =>
       item.sources.some((source) => source.includes('未保存原始关键词匹配参数')),
@@ -418,6 +420,69 @@ test('旧黄历字符串结果应生成兼容事实且不反推缺失参数', ()
   assert.ok(
     candidate.usableHours.every((hour) =>
       hour.topicMatchFacts.every((item) => item.key.includes(':legacy-topic:')),
+    ),
+  );
+});
+
+test('旧结果中的已删除建除与神煞事项硬规则不得继续改变候选分类', () => {
+  const legacyTextData = generateAlmanacSelection({
+    topic: 'custom',
+    startDate: '2026-01-01',
+    endDate: '2026-01-01',
+  });
+  const legacyTextDay = legacyTextData.days[0];
+  legacyTextDay.topicMatchFacts = undefined;
+  legacyTextDay.highlights = ['事项规则支持执日闭', '执日闭宜自定义事项'];
+  legacyTextDay.cautions = [
+    '事项规则限制执日闭',
+    '事项规则触及忌神游祸',
+    '执日闭宜收敛修补安床，忌出行动土移徙',
+  ];
+
+  const legacyTextEvidence = analyzeAlmanacEvidence(legacyTextData);
+  const legacyTextCandidate = legacyTextEvidence.candidates[0];
+  assert.equal(legacyTextCandidate.status, '可用候选');
+  assert.equal(legacyTextCandidate.topicMatchFacts.length, 0);
+  assert.doesNotMatch(
+    [
+      ...legacyTextCandidate.traditionalSupport,
+      ...legacyTextCandidate.traditionalConstraints,
+      legacyTextCandidate.decisionFact.promptText,
+      legacyTextEvidence.promptText,
+    ].join('；'),
+    /事项规则(?:支持|限制)执日|事项规则(?:命中喜神|触及忌神)|执日闭/,
+  );
+
+  const legacyFactData = generateAlmanacSelection({
+    topic: 'custom',
+    startDate: '2026-01-01',
+    endDate: '2026-01-01',
+  });
+  const legacyFactDay = legacyFactData.days[0];
+  legacyFactDay.cautions = [];
+  legacyFactDay.topicMatchFacts = [
+    ...(legacyFactDay.topicMatchFacts ?? []),
+    {
+      key: '2026-01-01:topic:rule-day-officer',
+      scope: '候选日',
+      topic: 'custom',
+      topicLabel: '自定义事项',
+      sourceType: '建除值日',
+      status: '限制',
+      inputItems: ['闭'],
+      keywords: ['闭'],
+      matchedItems: ['闭'],
+      promptText: '事项规则限制执日闭',
+      sources: ['旧事项硬规则表'],
+      limitation: '旧结果兼容样本',
+    },
+  ];
+
+  const legacyFactCandidate = analyzeAlmanacEvidence(legacyFactData).candidates[0];
+  assert.equal(legacyFactCandidate.status, '可用候选');
+  assert.ok(
+    legacyFactCandidate.topicMatchFacts.every(
+      (fact) => fact.sourceType !== '建除值日' && !fact.key.includes(':topic:rule-'),
     ),
   );
 });

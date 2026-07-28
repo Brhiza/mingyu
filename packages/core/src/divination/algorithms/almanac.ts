@@ -954,7 +954,11 @@ export function generateAlmanacSelection(params: {
   return { ...result, evidenceAnalysis };
 }
 
-export { analyzeAlmanacEvidence, conditionAlmanacTraditionalText } from '../almanac-evidence';
+export {
+  analyzeAlmanacEvidence,
+  conditionAlmanacTraditionalText,
+  isDeprecatedAlmanacTopicRuleText,
+} from '../almanac-evidence';
 export type {
   AlmanacCandidateEvidence,
   AlmanacCandidateDecisionFact,
