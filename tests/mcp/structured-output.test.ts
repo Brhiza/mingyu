@@ -531,8 +531,10 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
           calculationChain: string[];
           itemFacts: Array<{
             item: string;
+            primaryContribution: number;
             hiddenContributions: Array<{ stem: string; wuxing: string; weight: number }>;
           }>;
+          counts: Record<string, number>;
           dominantElements: string[];
           weakestElements: string[];
           summaryFact: { itemFactCount: number; limitationFactCount: number };
@@ -550,11 +552,14 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         assert.deepEqual(analysis.itemFacts[1]?.hiddenContributions, [
           { stem: '癸', wuxing: '水', weight: 1, rank: '本气' },
         ]);
+        assert.equal(analysis.itemFacts[1]?.primaryContribution, 0);
+        assert.deepEqual(analysis.counts, { 木: 1, 火: 2, 土: 1, 金: 0, 水: 1 });
         assert.deepEqual(analysis.dominantElements, ['火']);
         assert.deepEqual(analysis.weakestElements, ['金']);
         assert.equal(analysis.summaryFact.itemFactCount, analysis.itemFacts.length);
         assert.equal(analysis.summaryFact.limitationFactCount, analysis.limitationFacts.length);
         assert.match(analysis.promptText, /不是命理吉凶评分/);
+        assert.doesNotMatch(analysis.promptText, /0\.5|0\.3|本气1、中气|加权汇总/);
       }
       if (name === 'foundation_direction') {
         const direction = result.structuredContent.result as {

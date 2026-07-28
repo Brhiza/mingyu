@@ -996,7 +996,10 @@ export function getPublicApiOpenApiDocument(
               items: { type: 'string' },
               description: '天干或地支数组，如 [“甲”,“子”,“丙”,“午”]',
             },
-            weightHidden: { type: 'boolean', description: '是否对地支藏干加权，默认 true' },
+            weightHidden: {
+              type: 'boolean',
+              description: '是否展开地支藏干计数，默认 true；字段名为兼容保留，不进行数值加权',
+            },
           },
         },
         FoundationDirectionRequest: {

@@ -749,30 +749,6 @@ function pushPalaceCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): v
     const badPatterns = list.filter((pattern) => pattern.tone === 'bad');
     const palaceIsVoid = voidPalaces.has(palace);
 
-    if (goodPatterns.length >= 3 && badPatterns.length === 0 && !palaceIsVoid) {
-      out.push({
-        key: `combo:triGood:${palace}`,
-        name: `${palaceName}三吉聚气`,
-        tone: 'super-good',
-        score: 14,
-        summary: `${palaceName}聚集${goodPatterns.length}个吉格，吉象叠加。`,
-        palace,
-        sources: goodPatterns.map((pattern) => pattern.name),
-      });
-    }
-
-    if (badPatterns.length >= 3 && goodPatterns.length === 0) {
-      out.push({
-        key: `combo:triBad:${palace}`,
-        name: `${palaceName}三凶集结`,
-        tone: 'super-bad',
-        score: -14,
-        summary: `${palaceName}聚集${badPatterns.length}个凶格，凶象叠加。`,
-        palace,
-        sources: badPatterns.map((pattern) => pattern.name),
-      });
-    }
-
     if (goodPatterns.length > 0 && badPatterns.length > 0) {
       out.push({
         key: `combo:mixed:${palace}`,

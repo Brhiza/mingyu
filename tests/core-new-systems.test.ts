@@ -28,11 +28,13 @@ test('ganzhi: 干支关系复用', () => {
 });
 
 test('wuxing: 五行统计', () => {
-  // 甲(木) 子(水+藏癸水) 丙(火) 午(火+藏丁火+藏己土)
+  // 展开藏干后，地支主五行不再与本气藏干重复累计。
   const counts = core.wuxing.tallyWuxing(['甲', '子', '丙', '午'], { weightHidden: true });
   assert.equal(counts['木'], 1);
-  assert.equal(counts['水'], 2);
-  assert.equal(counts['火'], 3);
+  assert.equal(counts['水'], 1);
+  assert.equal(counts['火'], 2);
+  assert.equal(counts['土'], 1);
+  assert.throws(() => core.wuxing.tallyWuxing(['未知']), /五行统计输入无效/);
 });
 
 test('ganzhi: 十二长生（土长生在寅，与八字/奇门一致）', () => {
@@ -84,6 +86,36 @@ test('shensha: 可扩展 registry（不破坏既有系统）', () => {
   });
   assert.deepEqual(jiaXu[0].value, ['申', '酉']);
   assert.deepEqual(jiaShen[0].value, ['午', '未']);
+  assert.throws(
+    () =>
+      core.shensha.computeShensha(['unknown'], {
+        yearGanZhi: '甲子',
+        monthGanZhi: '乙丑',
+        dayGanZhi: '甲申',
+        hourGanZhi: '丁卯',
+      }),
+    /未注册神煞/,
+  );
+  assert.throws(
+    () =>
+      core.shensha.computeShensha(['kongwang'], {
+        yearGanZhi: '甲丑',
+        monthGanZhi: '乙丑',
+        dayGanZhi: '甲申',
+        hourGanZhi: '丁卯',
+      }),
+    /年柱必须是有效六十甲子/,
+  );
+  assert.throws(
+    () =>
+      core.shensha.computeShensha([], {
+        yearGanZhi: '甲子',
+        monthGanZhi: '乙丑',
+        dayGanZhi: '甲申',
+        hourGanZhi: '丁卯',
+      }),
+    /至少需要查询一个神煞/,
+  );
   // 自定义神煞可自由注册（地基可继续拓展）
   core.shensha.registerShensha({
     id: 'demo',

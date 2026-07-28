@@ -95,7 +95,7 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 - `POST /calendar/true-solar-time`：把当地钟表时间换算为真太阳时，返回修正明细、跨日状态和对应时辰；可用 `applyChinaDst` 校正中国 1986–1991 历史夏令时。
 - `GET /foundation/capabilities`：公共地基能力、常量与可复用模块目录。
 - `POST /foundation/ganzhi`：查询六十甲子的纳音、藏干、五行和合冲刑害破。
-- `POST /foundation/wuxing`：统计天干地支五行分布，可选计入藏干权重。
+- `POST /foundation/wuxing`：统计天干地支五行分布，可选逐项展开藏干，不设置强度权重。
 - `POST /foundation/direction`：把罗盘度数换算为二十四山坐向、后天八卦与分界状态。
 - `POST /foundation/shensha`：严格核验完整四柱，返回空亡、驿马、桃花的起法、目标地支、命中柱位、来源声明与解释限制。
 - `POST /bazi/calculate`：八字排盘。
@@ -228,7 +228,7 @@ curl -X POST https://aov.cc/api/v1/divination/qimen/prompt \
   -d '{"qimenMethod":"feipan","question":"项目现在能推进吗？"}'
 ```
 
-奇门排盘结果包含 `seasonality`（节气三元、节气五行、月相、建除十二神、四柱干支互动）和 `patternCombos`（吉凶叠加、吉格逢空、伏吟反吟叠马星等复合格局）。使用 `/prompt` 时，这些字段会进入提示词证据区；直接排盘可传 `detailMode: "compact"` 获取轻量结构。轻量结构只保留核心盘面、方位和少量高权重组合，并返回完整数量，适合上游 AI 代理按需拆成多次请求。
+奇门排盘结果包含 `seasonality`（节气三元、节气五行、月相、建除十二神、四柱干支互动）和 `patternCombos`（吉凶同宫、吉格逢空、伏吟反吟叠马星等可复核的复合格局）。使用 `/prompt` 时，这些字段会进入提示词证据区；直接排盘可传 `detailMode: "compact"` 获取轻量结构。轻量结构只保留核心盘面、方位和少量关键组合，并返回完整数量，适合上游 AI 代理按需拆成多次请求。
 
 如果调用方确实需要完整排盘和提示词同时返回，显式传 `responseMode: "full"`：
 

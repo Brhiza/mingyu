@@ -1,9 +1,9 @@
 /**
  * @file 五行生克模块（地基层）
- * @description 五行生克乘侮、旺相休囚死、五行强度统计等可复用基础能力。
+ * @description 五行生克乘侮、旺相休囚死、五行分布统计等可复用基础能力。
  *
  * 深度整合 tyme4ts：五行生克（生我/我生/克我/我克）委托 tyme4ts 的 `Element`
- * （权威经典实现）；旺相休囚死(getSeasonState)、五行强度统计(tallyWuxing)保留本库实现。
+ * （权威经典实现）；旺相休囚死(getSeasonState)、五行分布统计(tallyWuxing)保留本库实现。
  */
 import { Element } from 'tyme4ts';
 import {
@@ -36,8 +36,8 @@ export { BRANCH_WUXING, MONTH_LING_WUXING, getSeasonState, getBranchWuxing };
 /**
  * 统计一组干支的五行分布
  * @param items 天干或地支数组（混合亦可）
- * @param options.weightHidden 是否把地支藏干计入（本气权重 1，中气 0.5，余气 0.3）
- * @returns 各五行加权计数
+ * @param options.weightHidden 是否展开地支藏干计数；字段名为兼容旧调用保留，不再采用任意权重
+ * @returns 各五行出现次数；展开藏干时，地支本身不再与本气藏干重复计数
  */
 export function tallyWuxing(
   items: readonly string[],
@@ -49,16 +49,18 @@ export function tallyWuxing(
       const w = STEM_WUXING[item];
       if (w) result[w] += 1;
     } else if (BRANCH_ORDER.includes(item as (typeof BRANCH_ORDER)[number])) {
-      const main = BRANCH_WUXING[item];
-      if (main) result[main] += 1;
       if (options.weightHidden) {
         const hidden = BRANCH_HIDDEN_STEMS[item] || [];
-        const weights = [1, 0.5, 0.3];
-        hidden.forEach((stem, i) => {
+        hidden.forEach((stem) => {
           const w = STEM_WUXING[stem];
-          if (w) result[w] += weights[i] ?? 0.3;
+          if (w) result[w] += 1;
         });
+      } else {
+        const main = BRANCH_WUXING[item];
+        if (main) result[main] += 1;
       }
+    } else {
+      throw new Error(`五行统计输入无效：${item}`);
     }
   }
   return result;
@@ -108,12 +110,12 @@ function buildStrengthProfile(counts: Record<string, number>): WuxingStrengthPro
 
 export interface WuxingCalculationStep {
   key: string;
-  stage: '输入核验' | '逐项五行映射' | '加权汇总' | '分布摘要';
+  stage: '输入核验' | '逐项五行映射' | '计数汇总' | '分布摘要';
   status: '已核验' | '已映射' | '已统计' | '已汇总';
   dependsOnStepKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '五行统计步骤只证明输入符号如何按天干、地支及可选藏干权重形成当前计数；不得把计数、步骤数量或并列顺序解释为命局旺衰、吉凶分数、事件概率或现实结论';
+  limitation: '五行统计步骤只证明输入符号如何按天干、地支及可选藏干展开形成当前计数；不得把计数、步骤数量或并列顺序解释为命局旺衰、吉凶分数、事件概率或现实结论';
 }
 
 export interface WuxingHiddenContribution {
@@ -135,18 +137,18 @@ export interface WuxingItemFact {
   ownerStepKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '逐项五行事实只记录当前符号对统计结果的公开贡献；藏干权重是本工具的明确统计口径，不等同于月令司权、日主旺衰、格局成败或现实吉凶';
+  limitation: '逐项五行事实只记录当前符号对统计结果的公开贡献；藏干展开只表示本气、中气、余气各出现一次，不等同于月令司权、日主旺衰、格局成败或现实吉凶';
 }
 
 export interface WuxingLimitationFact {
   key: string;
-  type: '统计范围边界' | '藏干权重边界' | '并列结果边界';
+  type: '统计范围边界' | '藏干计数边界' | '并列结果边界';
   status: '适用';
   ownerFactKeys: string[];
   ownerStepKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '五行限制事实用于约束加权计数的解释范围，不得被反向当作命局强弱、用神、健康、财富、职业或事件结果的证据';
+  limitation: '五行限制事实用于约束构成计数的解释范围，不得被反向当作命局强弱、用神、健康、财富、职业或事件结果的证据';
 }
 
 export interface WuxingSummaryFact {
@@ -158,7 +160,7 @@ export interface WuxingSummaryFact {
   limitationFactCount: number;
   promptText: string;
   sources: string[];
-  limitation: '五行证据汇总只统计输入映射、公开权重、计数结果、并列情况与解释边界的覆盖，不表示已完成八字旺衰、格局、取用或现实预测';
+  limitation: '五行证据汇总只统计输入映射、藏干展开、计数结果、并列情况与解释边界的覆盖，不表示已完成八字旺衰、格局、取用或现实预测';
 }
 
 export interface WuxingEvidenceFields {
@@ -176,17 +178,18 @@ export interface WuxingEvidenceFields {
 
 export interface WuxingAnalysis extends WuxingStrengthProfile, WuxingEvidenceFields {
   items: string[];
+  /** @deprecated 字段名仅为兼容旧调用保留；true 表示展开藏干等次，不再表示数值加权。 */
   weightHidden: boolean;
 }
 
 const WUXING_STEP_LIMITATION =
-  '五行统计步骤只证明输入符号如何按天干、地支及可选藏干权重形成当前计数；不得把计数、步骤数量或并列顺序解释为命局旺衰、吉凶分数、事件概率或现实结论' as const;
+  '五行统计步骤只证明输入符号如何按天干、地支及可选藏干展开形成当前计数；不得把计数、步骤数量或并列顺序解释为命局旺衰、吉凶分数、事件概率或现实结论' as const;
 const WUXING_ITEM_FACT_LIMITATION =
-  '逐项五行事实只记录当前符号对统计结果的公开贡献；藏干权重是本工具的明确统计口径，不等同于月令司权、日主旺衰、格局成败或现实吉凶' as const;
+  '逐项五行事实只记录当前符号对统计结果的公开贡献；藏干展开只表示本气、中气、余气各出现一次，不等同于月令司权、日主旺衰、格局成败或现实吉凶' as const;
 const WUXING_LIMITATION_FACT_LIMITATION =
-  '五行限制事实用于约束加权计数的解释范围，不得被反向当作命局强弱、用神、健康、财富、职业或事件结果的证据' as const;
+  '五行限制事实用于约束构成计数的解释范围，不得被反向当作命局强弱、用神、健康、财富、职业或事件结果的证据' as const;
 const WUXING_SUMMARY_LIMITATION =
-  '五行证据汇总只统计输入映射、公开权重、计数结果、并列情况与解释边界的覆盖，不表示已完成八字旺衰、格局、取用或现实预测' as const;
+  '五行证据汇总只统计输入映射、藏干展开、计数结果、并列情况与解释边界的覆盖，不表示已完成八字旺衰、格局、取用或现实预测' as const;
 
 function buildWuxingEvidence(params: {
   items: readonly string[];
@@ -197,7 +200,6 @@ function buildWuxingEvidence(params: {
   const mappingStepKey = 'foundation:wuxing:calculation:item-mapping';
   const tallyStepKey = 'foundation:wuxing:calculation:tally';
   const summaryStepKey = 'foundation:wuxing:calculation:summary';
-  const hiddenWeights = [1, 0.5, 0.3] as const;
   const hiddenRanks = ['本气', '中气', '余气'] as const;
   const itemFacts: WuxingItemFact[] = params.items.map((item, itemIndex) => {
     const isStem = STEM_ORDER.includes(item as (typeof STEM_ORDER)[number]);
@@ -211,14 +213,14 @@ function buildWuxingEvidence(params: {
             return {
               stem,
               wuxing,
-              weight: hiddenWeights[index] ?? 0.3,
+              weight: 1,
               rank: hiddenRanks[index] ?? '余气',
             };
           })
         : [];
     const hiddenText =
       hiddenContributions.length > 0
-        ? `；另计藏干${hiddenContributions.map((entry) => `${entry.rank}${entry.stem}${entry.wuxing}×${entry.weight}`).join('、')}`
+        ? `；按藏干展开为${hiddenContributions.map((entry) => `${entry.rank}${entry.stem}${entry.wuxing}计1`).join('、')}，地支主五行不另重复计数`
         : '';
     return {
       key: `foundation:wuxing:fact:item:${itemIndex}:${item}`,
@@ -227,13 +229,13 @@ function buildWuxingEvidence(params: {
       item,
       itemType: isStem ? '天干' : '地支',
       primaryWuxing,
-      primaryContribution: 1,
+      primaryContribution: !isStem && params.weightHidden ? 0 : 1,
       hiddenContributions,
       ownerStepKeys: [mappingStepKey, tallyStepKey],
-      promptText: `第${itemIndex + 1}项${item}为${isStem ? '天干' : '地支'}，主五行${primaryWuxing}计1${hiddenText}`,
+      promptText: `第${itemIndex + 1}项${item}为${isStem ? '天干' : '地支'}，主五行${primaryWuxing}${!isStem && params.weightHidden ? '仅作属性记录' : '计1'}${hiddenText}`,
       sources: isStem
         ? ['公共天干五行表']
-        : ['公共地支五行与藏干顺序表', '藏干权重本气1、中气0.5、余气0.3'],
+        : ['公共地支五行与藏干顺序表', '藏干本气、中气、余气等次展开计数'],
       limitation: WUXING_ITEM_FACT_LIMITATION,
     };
   });
@@ -244,7 +246,7 @@ function buildWuxingEvidence(params: {
       stage: '输入核验',
       status: '已核验',
       dependsOnStepKeys: [],
-      promptText: `核验${params.items.length}个天干或地支输入；${params.weightHidden ? '启用' : '关闭'}藏干加权`,
+      promptText: `核验${params.items.length}个天干或地支输入；${params.weightHidden ? '启用' : '关闭'}藏干展开`,
       sources: ['公共天干、地支目录与输入范围校验'],
       limitation: WUXING_STEP_LIMITATION,
     },
@@ -259,11 +261,11 @@ function buildWuxingEvidence(params: {
     },
     {
       key: tallyStepKey,
-      stage: '加权汇总',
+      stage: '计数汇总',
       status: '已统计',
       dependsOnStepKeys: [mappingStepKey],
-      promptText: `按公开贡献相加得到${countText}`,
-      sources: ['逐项主五行贡献与可选藏干权重汇总'],
+      promptText: `按逐项贡献相加得到${countText}`,
+      sources: ['逐项主五行贡献与可选藏干展开汇总'],
       limitation: WUXING_STEP_LIMITATION,
     },
     {
@@ -278,7 +280,7 @@ function buildWuxingEvidence(params: {
   ];
   const limitations = [
     '本结果只统计输入天干、地支及可选藏干的五行贡献，不包含月令司权、季节旺衰、日主、格局、合化或运限。',
-    '启用藏干时采用本气1、中气0.5、余气0.3的公开统计权重；该权重用于展示构成，不是命理吉凶评分。',
+    '启用藏干时按本气、中气、余气各出现一次展开，地支主五行不再与本气藏干重复累计；这只是构成计数，不是命理吉凶评分。',
     '最高或最低计数可能并列；dominantElements 与 weakestElements 保留全部并列项，单数 dominant 与 weakest 仅按木火土金水固定顺序返回首项以兼容旧调用。',
   ];
   const hiddenOwnerFactKeys = itemFacts
@@ -297,13 +299,13 @@ function buildWuxingEvidence(params: {
     },
     {
       key: 'foundation:wuxing:limitation:hidden-weight',
-      type: '藏干权重边界',
+      type: '藏干计数边界',
       status: '适用',
       ownerFactKeys:
         hiddenOwnerFactKeys.length > 0 ? hiddenOwnerFactKeys : itemFacts.map((item) => item.key),
       ownerStepKeys: [mappingStepKey, tallyStepKey],
       promptText: limitations[1],
-      sources: ['藏干本气、中气、余气公开权重口径'],
+      sources: ['藏干本气、中气、余气逐项展开口径'],
       limitation: WUXING_LIMITATION_FACT_LIMITATION,
     },
     {
@@ -329,11 +331,11 @@ function buildWuxingEvidence(params: {
     itemFactCount: itemFacts.length,
     limitationFactCount: limitationFacts.length,
     promptText: `五行分布证据链完整：计算步骤${calculationSteps.length}项、逐项事实${itemFacts.length}项、限制${limitationFacts.length}项`,
-    sources: ['输入映射、公开权重、计数分布、并列状态与解释边界汇总'],
+    sources: ['输入映射、藏干展开、计数分布、并列状态与解释边界汇总'],
     limitation: WUXING_SUMMARY_LIMITATION,
   };
   const source =
-    '天干五行、地支五行与藏干顺序来自公共干支单一真相源；藏干加权采用公开的本气1、中气0.5、余气0.3统计口径';
+    '天干五行、地支五行与藏干顺序来自公共干支单一真相源；藏干仅按本气、中气、余气逐项展开，不设置强度权重';
 
   return {
     key: `foundation:wuxing:${params.weightHidden ? 'with-hidden' : 'surface'}:${params.items.join('-')}`,

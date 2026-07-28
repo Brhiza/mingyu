@@ -427,6 +427,20 @@ test('奇门应期内外宫应随阴阳遁切换', () => {
   assert.match(yangOuter.description, /外宫用神/);
 });
 
+test('奇门应期快慢条件并见时应保留冲突并返回中等节奏', () => {
+  const result = estimateYingQi([], 9, {
+    isYangDun: true,
+    zhiFuLandingPalace: 8,
+    isFuyin: true,
+  });
+
+  assert.equal(result.rhythm, '中');
+  assert.ok(result.sources.some((source) => source.includes('外宫迟应')));
+  assert.ok(result.sources.some((source) => source.includes('值符落8宫')));
+  assert.ok(result.sources.some((source) => source.includes('伏吟局')));
+  assert.doesNotMatch(result.description, /事在近期|事在远日|应期较快/);
+});
+
 test('奇门应期空亡只应在用神落空时延迟', () => {
   const notVoid = generateQimen(new Date('2024-01-01T00:00:00+08:00'));
   const notVoidZhiFuPalace = notVoid.jiuGongGe.find((palace) =>
@@ -780,6 +794,27 @@ test('奇门复合格局应按同宫门神叠加识别', () => {
   assert.ok(!crossPalace.some((combo) => combo.name === '白虎助凶'));
   assert.ok(!crossPalace.some((combo) => combo.name === '迫上加凶'));
   assert.ok(!crossPalace.some((combo) => combo.name === '吉门三奇'));
+});
+
+test('奇门复合格局不应按同宫吉凶格数量创造三吉三凶名称', () => {
+  const buildPatterns = (tone: 'good' | 'bad') =>
+    ['甲格', '乙格', '丙格'].map((name, index) =>
+      buildClassicPattern({
+        key: `pattern:${tone}:${index}`,
+        name,
+        tone,
+        score: tone === 'good' ? 1 : -1,
+        palace: 2,
+      }),
+    );
+
+  for (const classicPatterns of [buildPatterns('good'), buildPatterns('bad')]) {
+    const combos = detectQimenPatternCombos({
+      classicPatterns,
+      jiuGongGe: [buildQimenPalace(2, '辛')],
+    });
+    assert.ok(!combos.some((combo) => /三吉聚气|三凶集结/.test(combo.name)));
+  }
 });
 
 test('奇门伏吟反吟并见凶格应按明确性质识别，不读取旧格局分数', () => {

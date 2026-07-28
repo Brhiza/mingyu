@@ -137,7 +137,7 @@ test('六十甲子工具应返回完整序列与结构化关系', () => {
   );
 });
 
-test('统一五行分析应严格校验输入并支持藏干权重', () => {
+test('统一五行分析应严格校验输入并逐项展开藏干', () => {
   const result = core.foundation.analyzeWuxing(['甲', '子', '丙', '午']);
   assert.equal(result.weightHidden, true);
   assert.ok(result.counts.木 > 0);
@@ -155,11 +155,19 @@ test('统一五行分析应严格校验输入并支持藏干权重', () => {
   assert.deepEqual(result.itemFacts[1]?.hiddenContributions, [
     { stem: '癸', wuxing: '水', weight: 1, rank: '本气' },
   ]);
+  assert.equal(result.itemFacts[1]?.primaryContribution, 0);
+  assert.deepEqual(result.itemFacts[3]?.hiddenContributions, [
+    { stem: '丁', wuxing: '火', weight: 1, rank: '本气' },
+    { stem: '己', wuxing: '土', weight: 1, rank: '中气' },
+  ]);
+  assert.equal(result.itemFacts[3]?.primaryContribution, 0);
+  assert.deepEqual(result.counts, { 木: 1, 火: 2, 土: 1, 金: 0, 水: 1 });
   assert.deepEqual(result.dominantElements, ['火']);
   assert.deepEqual(result.weakestElements, ['金']);
   assert.equal(result.summaryFact.itemFactCount, result.itemFacts.length);
   assert.equal(result.summaryFact.limitationFactCount, result.limitationFacts.length);
-  assert.match(result.promptText, /本气1、中气0.5、余气0.3/);
+  assert.match(result.promptText, /本气、中气、余气各出现一次/);
+  assert.doesNotMatch(result.promptText, /0\.5|0\.3|本气1、中气|加权汇总/);
   assert.doesNotMatch(result.promptText, /命局旺衰已确定|用神为|吉凶评分[：=]?\d/);
   assert.doesNotMatch(result.promptText, /mingyu-core|命语|本项目|工程|接口|API|MCP/);
 

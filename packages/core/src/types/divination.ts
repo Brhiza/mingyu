@@ -528,7 +528,7 @@ export interface QimenBranchPalace {
 }
 
 export interface QimenGanzhiInteraction {
-  type: '六合' | '三合' | '半合' | '六冲' | '相刑' | '相害' | '天干五合' | '天干相冲';
+  type: '六合' | '三合' | '半合' | '拱局' | '六冲' | '相刑' | '相害' | '天干五合' | '天干相冲';
   pillars: string[];
   values: string[];
   description: string;

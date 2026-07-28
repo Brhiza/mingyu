@@ -1,6 +1,6 @@
 /**
  * @file 干支与五行关系公共库
- * @description 提供五行生克、地支六合/三合/半合/六冲/六害/六破/三刑/三会/藏干等完整关系。
+ * @description 提供五行生克、地支六合/三合/半合/拱局/六冲/六害/六破/三刑/三会/藏干等完整关系。
  * 本文件属于公共地基层，八字、六爻、奇门、六壬等统一复用。
  * @古籍依据 《渊海子平》《三命通会》《协纪辨方书》《蠡海集》
  */
@@ -102,14 +102,31 @@ export const BRANCH_SANHE: Record<string, { group: string; partners: string[] }>
 };
 
 /**
- * 地支半合 — 三合中缺一
- * 如有申子而无辰，为水局半合，合而不全
+ * 地支半合 — 三合局两支同见，且包含帝旺支。
+ * 如申子、子辰为水局半合；申辰缺少帝旺支子，只能另记为拱局。
  */
 export function isHalfSanhe(branches: string[]): string | null {
   const uniqueBranches = Array.from(new Set(branches));
   for (const [group, members] of Object.entries(SANHE_GROUPS)) {
     const present = uniqueBranches.filter((b) => members.includes(b));
-    if (present.length === 2) {
+    const prosperityBranch = members[1];
+    if (present.length === 2 && present.includes(prosperityBranch)) {
+      return group;
+    }
+  }
+  return null;
+}
+
+/**
+ * 地支拱局 — 三合局的生地与墓库同见，但缺少居中的帝旺支。
+ * 如申辰拱水、亥未拱木、寅戌拱火、巳丑拱金；不得与带帝旺支的半合等同。
+ */
+export function isSanheArch(branches: string[]): string | null {
+  const uniqueBranches = Array.from(new Set(branches));
+  for (const [group, members] of Object.entries(SANHE_GROUPS)) {
+    const present = uniqueBranches.filter((b) => members.includes(b));
+    const prosperityBranch = members[1];
+    if (present.length === 2 && !present.includes(prosperityBranch)) {
       return group;
     }
   }

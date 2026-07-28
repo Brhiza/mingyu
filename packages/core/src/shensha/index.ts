@@ -192,10 +192,11 @@ export function listShenshaCatalog(scope?: ShenshaScope): ShenshaCatalogItem[] {
 
 /** 计算指定神煞 */
 export function computeShensha(ids: string[], ctx: ShenshaContext): ShenshaResult[] {
+  validateShenshaContext(ctx);
+  const requestedIds = normalizeRequestedShenshaIds(ids);
   const out: ShenshaResult[] = [];
-  for (const id of ids) {
-    const def = REGISTRY.get(id);
-    if (!def) continue;
+  for (const id of requestedIds) {
+    const def = REGISTRY.get(id)!;
     const r = def.compute(ctx);
     if (r) out.push(r);
   }

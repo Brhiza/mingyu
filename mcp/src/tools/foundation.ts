@@ -20,7 +20,10 @@ const ganZhiSchema = z.object({
 
 const wuxingSchema = z.object({
   items: z.array(z.string()).min(1).max(32).describe('天干或地支数组，如 [“甲”,“子”,“丙”,“午”]'),
-  weightHidden: z.boolean().optional().describe('是否计入地支藏干权重，默认 true'),
+  weightHidden: z
+    .boolean()
+    .optional()
+    .describe('是否展开地支藏干计数，默认 true；字段名为兼容保留，不进行数值加权'),
 });
 
 const directionSchema = z.object({
@@ -74,7 +77,7 @@ export function registerFoundationTools(server: McpServer) {
     'foundation_wuxing',
     {
       description:
-        '统计天干地支的五行分布，可选计入地支藏干权重，并返回逐项贡献、并列最高最低五行、计算链、证据汇总和解释限制',
+        '统计天干地支的五行分布，可选展开地支藏干，并返回逐项贡献、并列最高最低五行、计算链、证据汇总和解释限制；不生成强度权重',
       inputSchema: wuxingSchema.shape,
       outputSchema: resultOutputSchema,
     },

@@ -26,7 +26,7 @@ function getTripleGathering(b1: string, b2: string, b3: string): string | null {
   }
   return null;
 }
-function getHalfCombination(b1: string, b2: string): { element: string; type: string } | null {
+function getPartialCombination(b1: string, b2: string): { element: string; type: string } | null {
   const p = [b1, b2]
     .sort((left, right) => BRANCH_ORDER.indexOf(left) - BRANCH_ORDER.indexOf(right))
     .join('');
@@ -39,6 +39,10 @@ function getHalfCombination(b1: string, b2: string): { element: string; type: st
     丑酉: { element: '金', type: '墓地半合' },
     子申: { element: '水', type: '生地半合' },
     子辰: { element: '水', type: '墓地半合' },
+    亥未: { element: '木', type: '生墓拱局' },
+    寅戌: { element: '火', type: '生墓拱局' },
+    巳丑: { element: '金', type: '生墓拱局' },
+    申辰: { element: '水', type: '生墓拱局' },
   };
   return map[p] || null;
 }
@@ -81,15 +85,15 @@ export function analyzeRelationStructure(
 
   for (let i = 0; i < 4; i++) {
     for (let j = i + 1; j < 4; j++) {
-      const half = getHalfCombination(branches[i], branches[j]);
-      if (half)
+      const partial = getPartialCombination(branches[i], branches[j]);
+      if (partial)
         items.push({
           category: '半合拱局',
-          name: half.type,
-          element: half.element,
+          name: partial.type,
+          element: partial.element,
           pillars: [pillarNames[i], pillarNames[j]],
           values: [branches[i], branches[j]],
-          evidence: branches[i] + '与' + branches[j] + half.type,
+          evidence: branches[i] + '与' + branches[j] + partial.type,
         });
     }
   }

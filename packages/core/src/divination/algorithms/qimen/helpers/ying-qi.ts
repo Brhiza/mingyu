@@ -163,11 +163,11 @@ export function estimateYingQi(
     assertPalaceNumber(palace.gong, '九宫格宫位');
   }
   const baseDistance = getPalaceDistance(baseGong, options?.isYangDun);
-  let fastSignals = 0;
-  let slowSignals = 0;
+  let hasFastSignal = false;
+  let hasSlowSignal = false;
 
   if (baseDistance === 'inner') {
-    fastSignals += 1;
+    hasFastSignal = true;
     sources.push(
       `用神落${baseGong}宫（${getPalaceDistanceLabel(baseDistance, options?.isYangDun)}速应取象），盘内远近取象偏近`,
     );
@@ -176,7 +176,7 @@ export function estimateYingQi(
       `用神落${baseGong}宫（${getPalaceDistanceLabel(baseDistance, options?.isYangDun)}），盘内远近取象居中`,
     );
   } else {
-    slowSignals += 1;
+    hasSlowSignal = true;
     sources.push(
       `用神落${baseGong}宫（${getPalaceDistanceLabel(baseDistance, options?.isYangDun)}迟应取象），盘内远近取象偏远`,
     );
@@ -191,14 +191,14 @@ export function estimateYingQi(
     const fuGong = options.zhiFuLandingPalace;
     const fuDistance = getPalaceDistance(fuGong, options.isYangDun);
     if (fuDistance === 'inner') {
-      fastSignals += 1;
+      hasFastSignal = true;
       sources.push(
-        `值符落${fuGong}宫（${getPalaceDistanceLabel(fuDistance, options.isYangDun)}），应期偏快`,
+        `值符落${fuGong}宫（${getPalaceDistanceLabel(fuDistance, options.isYangDun)}），构成偏快取象`,
       );
     } else if (fuDistance === 'outer') {
-      slowSignals += 1;
+      hasSlowSignal = true;
       sources.push(
-        `值符落${fuGong}宫（${getPalaceDistanceLabel(fuDistance, options.isYangDun)}），应期偏缓`,
+        `值符落${fuGong}宫（${getPalaceDistanceLabel(fuDistance, options.isYangDun)}），构成偏迟取象`,
       );
     } else {
       sources.push(
@@ -215,14 +215,14 @@ export function estimateYingQi(
     const shiGong = options.zhiShiLandingPalace;
     const shiDistance = getPalaceDistance(shiGong, options.isYangDun);
     if (shiDistance === 'inner') {
-      fastSignals += 1;
+      hasFastSignal = true;
       sources.push(
-        `值使落${shiGong}宫（${getPalaceDistanceLabel(shiDistance, options.isYangDun)}），应期略快`,
+        `值使落${shiGong}宫（${getPalaceDistanceLabel(shiDistance, options.isYangDun)}），构成偏快取象`,
       );
     } else if (shiDistance === 'outer') {
-      slowSignals += 1;
+      hasSlowSignal = true;
       sources.push(
-        `值使落${shiGong}宫（${getPalaceDistanceLabel(shiDistance, options.isYangDun)}），应期略迟`,
+        `值使落${shiGong}宫（${getPalaceDistanceLabel(shiDistance, options.isYangDun)}），构成偏迟取象`,
       );
     }
   }
@@ -299,11 +299,11 @@ export function estimateYingQi(
   // ==========================================================================
 
   if (options?.isFuyin) {
-    slowSignals += 2;
+    hasSlowSignal = true;
     sources.push('伏吟局，事势迟滞，需等待重复推动或外部条件改变');
   }
   if (options?.isFanyin) {
-    fastSignals += 1;
+    hasFastSignal = true;
     sources.push('反吟局，事势反复，应期虽快但不稳定，需防变数');
   }
 
@@ -312,7 +312,7 @@ export function estimateYingQi(
   // ==========================================================================
 
   if (options?.hasHorse) {
-    fastSignals += 1;
+    hasFastSignal = true;
     sources.push('驿马发动，出现行动、迁移、消息流转时更容易触发进展');
   }
 
@@ -321,8 +321,8 @@ export function estimateYingQi(
   // ==========================================================================
 
   if (options?.hasVoid) {
-    slowSignals += 2;
-    sources.push('空亡入局，需填实或冲实之月日方应，应期偏迟');
+    hasSlowSignal = true;
+    sources.push('空亡入局，需填实或冲实之月日方应，构成偏迟条件');
 
     if (options?.voidBranches && options.voidBranches.length > 0) {
       const voidDesc = options.voidBranches
@@ -347,12 +347,14 @@ export function estimateYingQi(
     const badCount = badPatterns.length;
 
     if (goodCount > 0 && badCount === 0) {
-      fastSignals += 1;
-      sources.push(`支持格局较集中（${goodCount}项），条件具备时较易推进`);
+      hasFastSignal = true;
+      sources.push(`只见支持类格局（${goodCount}项），条件具备时构成偏快条件`);
     } else if (badCount > 0 && goodCount === 0) {
-      slowSignals += 1;
-      sources.push(`限制格局较集中（${badCount}项），需先处理阻滞条件`);
+      hasSlowSignal = true;
+      sources.push(`只见限制类格局（${badCount}项），构成偏迟条件，需先处理阻滞`);
     } else if (goodCount > 0 && badCount > 0) {
+      hasFastSignal = true;
+      hasSlowSignal = true;
       sources.push(
         `支持与限制并见（支持${goodCount}项、限制${badCount}项），快慢取决于哪类条件先落实`,
       );
@@ -370,7 +372,7 @@ export function estimateYingQi(
   // ==========================================================================
 
   const rhythm: '快' | '中' | '慢' =
-    slowSignals >= fastSignals + 2 ? '慢' : fastSignals >= slowSignals + 2 ? '快' : '中';
+    hasFastSignal === hasSlowSignal ? '中' : hasFastSignal ? '快' : '慢';
 
   // ==========================================================================
   // 10. 综合描述
@@ -390,21 +392,21 @@ export function estimateYingQi(
   const parts: string[] = [`盘内应期节奏为${rhythm}，不机械换算固定天数。`];
 
   if (options?.hasHorse) {
-    parts.push('马星冲动，应期较快，宜主动把握时机。');
+    parts.push('马星冲动，构成偏快触发条件，仍需与偏迟条件合看。');
   }
   if (options?.hasVoid) {
-    parts.push('空亡填实/冲实后方应，需耐心等待相应月日。');
+    parts.push('空亡填实/冲实后方应，构成偏迟触发条件。');
   }
   if (options?.isFuyin) {
-    parts.push('伏吟局主迟滞，需反复推动或等待外因触发。');
+    parts.push('伏吟局构成偏迟条件，需反复推动或等待外因触发。');
   }
   if (options?.isFanyin) {
-    parts.push('反吟局主反复，虽快但易生变数，多做预案。');
+    parts.push('反吟局构成偏快但不稳定的条件，需防反复变数。');
   }
-  if (baseDistance === 'inner' && !options?.hasVoid && !options?.isFuyin) {
+  if (rhythm === '快' && baseDistance === 'inner') {
     parts.push('内宫用神，事在近期，果断推进即可。');
   }
-  if (baseDistance === 'outer' && !options?.hasHorse && !options?.isFanyin) {
+  if (rhythm === '慢' && baseDistance === 'outer') {
     parts.push('外宫用神，事在远日，宜耐心布局。');
   }
 

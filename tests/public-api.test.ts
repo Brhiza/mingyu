@@ -786,7 +786,7 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   });
   assert.equal(wuxing.response.status, 200);
   assert.equal(wuxing.body.data.weightHidden, true);
-  assert.ok(wuxing.body.data.counts.火 > 0);
+  assert.deepEqual(wuxing.body.data.counts, { 木: 1, 火: 2, 土: 1, 金: 0, 水: 1 });
   assert.equal(wuxing.body.data.status, '已统计');
   assert.equal(wuxing.body.data.calculationSteps.length, 4);
   assert.equal(wuxing.body.data.itemFacts.length, 4);
@@ -794,6 +794,7 @@ test('公开 API 应提供公共地基能力、六十甲子与五行接口', asy
   assert.deepEqual(wuxing.body.data.weakestElements, ['金']);
   assert.equal(wuxing.body.data.summaryFact.itemFactCount, wuxing.body.data.itemFacts.length);
   assert.match(wuxing.body.data.promptText, /不包含月令司权、季节旺衰、日主、格局/);
+  assert.doesNotMatch(wuxing.body.data.promptText, /0\.5|0\.3|本气1、中气|加权汇总/);
 
   const direction = await callApi('foundation/direction', {
     method: 'POST',

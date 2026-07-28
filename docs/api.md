@@ -114,7 +114,7 @@
 | 换算真太阳时                       | `POST /calendar/true-solar-time`             | `localDateTime`、`longitude`，可选 `timezone`、`applyChinaDst`                                                                                              | 默认 UTC+8，返回修正明细、跨日状态和对应时辰                                     |
 | 计算太阳光照证据                   | `POST /calendar/solar-illumination`          | `year`、`month`、`day`、`latitude`、`longitude`，并提供 `timezone` 或 `timeZoneId`；可选参考时分秒                                                          | 返回太阳高度、方位、视太阳正午、日出日落与三类曙暮光                             |
 | 查六十甲子、纳音、藏干和合冲       | `POST /foundation/ganzhi`                    | `ganZhi`，如“甲子”                                                                                                                                          | 返回统一公共地基资料，不需重复实现                                               |
-| 统计天干地支五行分布               | `POST /foundation/wuxing`                    | `items`、可选 `weightHidden`                                                                                                                                | 默认计入地支藏干权重                                                             |
+| 统计天干地支五行分布               | `POST /foundation/wuxing`                    | `items`、可选 `weightHidden`                                                                                                                                | 默认逐项展开地支藏干，不设置强度权重，也不重复累计地支主五行与本气藏干           |
 | 核验通用神煞命中                   | `POST /foundation/shensha`                   | 完整年、月、日、时四柱干支；可选 `ids`                                                                                                                      | 返回空亡、驿马、桃花的固定起法、目标地支、命中柱位、来源与限制                   |
 | 整体人生、长期事业、财运、婚恋     | `POST /bazi-ziwei/prompt`                    | `baziPromptTopic`、`ziweiPromptTopic` 按主题填写，`promptScope: "full"` 或 `"origin"`                                                                       | 有完整出生信息时优先合参；想看完整阶段时用 `full`                                |
 | 今年、某一年、当前阶段运势         | `POST /bazi-ziwei/prompt`                    | `promptScope: "yearly"`，主题填事业、财运、感情等                                                                                                           | 八字看岁运触发，紫微看流年落宫与四化                                             |
@@ -313,7 +313,7 @@ curl -X POST https://aov.cc/api/v1/divination/qimen/prompt \
   -d '{"qimenMethod":"feipan","question":"项目现在能推进吗？"}'
 ```
 
-奇门排盘结果会包含 `seasonality` 和 `patternCombos`：前者给出节气三元、节气五行、历法八相、日月黄经月相证据、建除十二神和四柱干支互动，并保留历法八相与天文八分法是否一致；后者给出吉凶叠加、吉格逢空、伏吟反吟叠马星等复合格局。提示词接口会把这些字段写入证据区，方便 AI 解读时引用。直接排盘接口可传 `detailMode: "compact"` 获取轻量结构；轻量结构只保留核心盘面、方位和少量高权重组合，并返回完整数量，适合上游 AI 代理按需拆成多次请求。
+奇门排盘结果会包含 `seasonality` 和 `patternCombos`：前者给出节气三元、节气五行、历法八相、日月黄经月相证据、建除十二神和四柱干支互动，并保留历法八相与天文八分法是否一致；后者给出吉凶同宫、吉格逢空、伏吟反吟叠马星等可复核的复合格局。提示词接口会把这些字段写入证据区，方便 AI 解读时引用。直接排盘接口可传 `detailMode: "compact"` 获取轻量结构；轻量结构只保留核心盘面、方位和少量关键组合，并返回完整数量，适合上游 AI 代理按需拆成多次请求。
 
 需要完整排盘和提示词同时返回：
 

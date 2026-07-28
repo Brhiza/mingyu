@@ -25,6 +25,7 @@ import {
   getHiddenMainStem,
   getSeasonState,
   isHalfSanhe,
+  isSanheArch,
   isLiupo,
   isSanxing,
   getWuxingChangSheng,
@@ -364,6 +365,28 @@ test('八字关系结构应识别寅午火局生地半合', () => {
   );
 });
 
+test('八字关系结构应把生地与墓库记为拱局而非半合', () => {
+  const relation = analyzeRelationStructure([
+    { zhi: '寅' },
+    { zhi: '戌' },
+    { zhi: '子' },
+    { zhi: '丑' },
+  ]);
+
+  assert.ok(
+    relation.items.some(
+      (item) =>
+        item.category === '半合拱局' &&
+        item.name === '生墓拱局' &&
+        item.element === '火' &&
+        item.values.join('') === '寅戌',
+    ),
+  );
+  assert.ok(
+    !relation.items.some((item) => item.name.includes('半合') && item.values.join('') === '寅戌'),
+  );
+});
+
 test('八字透干通根应扫描四柱地支，不应只看本柱坐支', () => {
   const profile = analyzeStemRootProfile(
     [
@@ -417,8 +440,30 @@ test('八字透干通根应扫描四柱地支，不应只看本柱坐支', () =>
 
 test('占法共享半合判断不应把重复地支当作两个成员', () => {
   assert.equal(isHalfSanhe(['申', '子']), '水局');
+  assert.equal(isHalfSanhe(['申', '辰']), null);
   assert.equal(isHalfSanhe(['申', '申']), null);
   assert.equal(isHalfSanhe(['寅', '寅', '午']), '火局');
+  assert.equal(isSanheArch(['申', '辰']), '水局');
+  assert.equal(isSanheArch(['申', '子']), null);
+});
+
+test('奇门干支互动应区分含帝旺支的半合与缺帝旺支的拱局', () => {
+  const arch = analyzeCoreQimenGanzhi({
+    year: '甲寅',
+    month: '甲戌',
+    day: '甲子',
+    hour: '乙丑',
+  });
+  assert.ok(arch.some((item) => item.type === '拱局' && item.values.join('') === '寅戌'));
+  assert.ok(!arch.some((item) => item.type === '半合' && item.values.join('') === '寅戌'));
+
+  const half = analyzeCoreQimenGanzhi({
+    year: '甲寅',
+    month: '庚午',
+    day: '甲子',
+    hour: '乙丑',
+  });
+  assert.ok(half.some((item) => item.type === '半合' && item.values.join('') === '寅午'));
 });
 
 test('占法共享三刑关系应按同组三刑互见判断，不因传入顺序漏判', () => {

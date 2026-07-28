@@ -2,7 +2,7 @@
  * @file 节令背景（Seasonal Context）分析
  * @description 奇门遁甲节气背景分析：二十四节气五行属性映射、
  * 节气三元阶段判定、日干与节令五行的旺相关系、月相、
- * 十二建除、以及干支互动（六合/三合/半合/六冲/相刑/相害）。
+ * 十二建除、以及干支互动（六合/三合/半合/拱局/六冲/相刑/相害）。
  *
  * 古籍依据：
  *   - 《协纪辨方书》卷三"二十四节气"篇：「立春寅月节……大寒丑月中」
@@ -473,7 +473,7 @@ export function buildSeasonality(ganzhi: BaseGanZhi, jieQi: string, date: Date):
  */
 export interface GanzhiInteraction {
   /** 互动类型 */
-  type: '六合' | '三合' | '半合' | '六冲' | '相刑' | '相害' | '天干五合' | '天干相冲';
+  type: '六合' | '三合' | '半合' | '拱局' | '六冲' | '相刑' | '相害' | '天干五合' | '天干相冲';
   /** 涉及的四柱字段（如 "year"、"month"、"day"、"hour"） */
   pillars: string[];
   /** 涉及的具体干支值 */
@@ -496,7 +496,7 @@ const PILLAR_LABELS: Record<string, string> = {
  * 分析四柱干支之间的互动关系
  *
  * 涵盖：
- *   地支：六合、三合、半合、六冲、相刑、相害
+ *   地支：六合、三合、半合、拱局、六冲、相刑、相害
  *   天干：天干五合、天干相冲
  *
  * 《协纪辨方书》论三合六合：
@@ -601,7 +601,7 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
     }
   }
 
-  // ── 三合、半合（需要两两配对后聚合成组） ──
+  // ── 三合、半合与拱局（需要两两配对后聚合成组） ──
   const branchValues = pillars.map((p) => p.zhi);
   const pillarByBranch = Object.fromEntries(pillars.map((p) => [p.zhi, p.key]));
 
@@ -617,16 +617,19 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
     });
   }
 
-  // 半合（排除已被三合覆盖的组合）
+  // 半合与拱局（排除已被三合覆盖的组合）
   const sanheMembers = new Set(completeSanhe.flatMap((s) => s.members));
-  const halfSanhe = findHalfSanhe(branchValues.filter((b) => !sanheMembers.has(b)));
-  for (const { group, members } of halfSanhe) {
+  const partialSanhe = findPartialSanhe(branchValues.filter((b) => !sanheMembers.has(b)));
+  for (const { group, members, type } of partialSanhe) {
     const pillarKeys = members.map((b) => pillarByBranch[b]).filter(Boolean);
     interactions.push({
-      type: '半合',
+      type,
       pillars: pillarKeys,
       values: members,
-      description: `${members.join('、')}半合${group}，合而不全，有合作之意但力未足。`,
+      description:
+        type === '半合'
+          ? `${members.join('、')}半合${group}，两支含帝旺支，只记录三合缺一的结构。`
+          : `${members.join('、')}拱${group}，生地与墓库同见而缺帝旺支，只记拱局候选，不与半合等同。`,
     });
   }
 
@@ -654,10 +657,13 @@ function findCompleteSanhe(branches: string[]): Array<{ group: string; members: 
 }
 
 /**
- * 查找四柱中构成半合（三合缺一）的地支组合
+ * 查找四柱中构成半合或拱局的地支组合。
+ * 三合组按生地、帝旺、墓库排列：含帝旺支为半合；缺帝旺支为拱局。
  */
-function findHalfSanhe(branches: string[]): Array<{ group: string; members: string[] }> {
-  const results: Array<{ group: string; members: string[] }> = [];
+function findPartialSanhe(
+  branches: string[],
+): Array<{ group: string; members: string[]; type: '半合' | '拱局' }> {
+  const results: Array<{ group: string; members: string[]; type: '半合' | '拱局' }> = [];
   const usedGroups = new Set<string>();
 
   // 对每个三合局检查是否有两个地支出现
@@ -665,7 +671,11 @@ function findHalfSanhe(branches: string[]): Array<{ group: string; members: stri
     const membersArr = members as string[];
     const present = membersArr.filter((m) => branches.includes(m));
     if (present.length === 2 && !usedGroups.has(group)) {
-      results.push({ group, members: present });
+      results.push({
+        group,
+        members: present,
+        type: present.includes(membersArr[1]) ? '半合' : '拱局',
+      });
       usedGroups.add(group);
     }
   }
