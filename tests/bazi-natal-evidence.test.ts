@@ -567,6 +567,89 @@ test('真实财生官露食排盘应保留财格并贯穿食能破格边界', ()
   assert.match(prompt, /食能破格/);
 });
 
+test('真实财逢比劫透伤官排盘应保留财格并贯穿化劫生财救应', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1984,
+    month: 4,
+    day: 10,
+    timeIndex: 3,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['甲子', '戊辰', '甲戌', '丁卯'],
+  );
+  assert.equal(result.analysis.mingGe.pattern, '杂气偏财格');
+  assert.match(result.analysis.mingGe.basis || '', /财畏比劫/);
+  assert.match(result.analysis.mingGe.basis || '', /比肩与伤官同见明透/);
+  assert.match(result.analysis.mingGe.basis || '', /伤官可化劫生财/);
+  assert.match(result.analysis.mingGe.basis || '', /不改变既有格名/);
+
+  const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.result, '杂气偏财格');
+  assert.match(patternFact?.promptText || '', /四凶神能成格边界/);
+  assert.match(patternFact?.promptText || '', /伤官可化劫生财/);
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 杂气偏财格/);
+  assert.match(prompt, /伤官可化劫生财/);
+});
+
+test('真实食神带杀无财透枭排盘应保留食神格并贯穿弃食就杀救应', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1984,
+    month: 4,
+    day: 12,
+    timeIndex: 4,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['甲子', '戊辰', '丙子', '壬辰'],
+  );
+  assert.equal(result.analysis.mingGe.pattern, '杂气食神格');
+  assert.match(result.analysis.mingGe.basis || '', /食畏印夺/);
+  assert.match(result.analysis.mingGe.basis || '', /年、月、时干及四支藏干均无正偏财/);
+  assert.match(result.analysis.mingGe.basis || '', /食带煞而无财，弃食就煞而透印/);
+  assert.match(result.analysis.mingGe.basis || '', /枭可作为局部救应/);
+
+  const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.result, '杂气食神格');
+  assert.match(patternFact?.promptText || '', /四凶神能成格边界/);
+  assert.match(patternFact?.promptText || '', /弃食就煞而透印/);
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 杂气食神格/);
+  assert.match(prompt, /弃食就煞而透印/);
+});
+
+test('真实财逢七杀见阳刃排盘应保留财格并贯穿刃可解厄救应', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1984,
+    month: 1,
+    day: 5,
+    timeIndex: 6,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['癸亥', '甲子', '戊戌', '戊午'],
+  );
+  assert.equal(result.analysis.mingGe.pattern, '正财格');
+  assert.match(result.analysis.mingGe.basis || '', /七杀明透及日主阳刃支午/);
+  assert.match(result.analysis.mingGe.basis || '', /财逢七煞，刃可解厄/);
+  assert.match(result.analysis.mingGe.basis || '', /不改变既有格名/);
+
+  const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.result, '正财格');
+  assert.match(patternFact?.promptText || '', /四凶神能成格边界/);
+  assert.match(patternFact?.promptText || '', /刃可解厄/);
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 正财格/);
+  assert.match(prompt, /刃可解厄/);
+});
+
 test('八字真太阳时本命证据应引用校正后的唯一时间并采用唯一校正时刻', () => {
   const result = baziCalculator.calculateBazi({
     year: 1990,

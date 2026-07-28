@@ -596,6 +596,92 @@ test('春木见火与官但火旺条件未闭合时不得硬套四吉神破格�
   assert.doesNotMatch(result.basis || '', /见官则忌/);
 });
 
+test('财格逢比劫并透伤官时应记录化劫生财的局部救应', () => {
+  const pillars: Pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '丁', zhi: '卯', ganZhi: '丁卯' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod);
+
+  assert.equal(result.pattern, '偏财格');
+  assert.match(result.basis || '', /四吉神能破格边界/);
+  assert.match(result.basis || '', /财畏比劫/);
+  assert.match(result.basis || '', /四凶神能成格边界/);
+  assert.match(result.basis || '', /比肩与伤官同见明透/);
+  assert.match(result.basis || '', /伤官可化劫生财/);
+  assert.match(result.basis || '', /不改变既有格名，也不据此直接判定最终成败/);
+});
+
+test('食神带杀无财透枭时应记录弃食就杀边界，支藏财则不得套用', () => {
+  const noWealth: Pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    day: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    hour: { gan: '壬', zhi: '辰', ganZhi: '壬辰' },
+  };
+  const hiddenWealth: Pillars = {
+    ...noWealth,
+    year: { gan: '甲', zhi: '申', ganZhi: '甲申' },
+  };
+
+  const noWealthResult = determinePattern(noWealth, '待综合判断', getTenGod);
+  const hiddenWealthResult = determinePattern(hiddenWealth, '待综合判断', getTenGod);
+
+  assert.equal(noWealthResult.pattern, '食神格');
+  assert.match(noWealthResult.basis || '', /食畏印夺/);
+  assert.match(noWealthResult.basis || '', /七杀与偏印同见明透/);
+  assert.match(noWealthResult.basis || '', /年、月、时干及四支藏干均无正偏财/);
+  assert.match(noWealthResult.basis || '', /食带煞而无财，弃食就煞而透印/);
+  assert.match(noWealthResult.basis || '', /枭可作为局部救应/);
+  assert.equal(hiddenWealthResult.pattern, '食神格');
+  assert.match(hiddenWealthResult.basis || '', /食畏印夺/);
+  assert.doesNotMatch(hiddenWealthResult.basis || '', /弃食就煞而透印/);
+  assert.doesNotMatch(hiddenWealthResult.basis || '', /枭可作为局部救应/);
+});
+
+test('财格见杀只在五阳干实际出现阳刃支时记录刃可解厄', () => {
+  const yangBlade: Pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '壬', zhi: '申', ganZhi: '壬申' },
+    day: { gan: '戊', zhi: '午', ganZhi: '戊午' },
+    hour: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+  };
+  const yinPeak: Pillars = {
+    year: { gan: '癸', zhi: '卯', ganZhi: '癸卯' },
+    month: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
+    day: { gan: '丁', zhi: '巳', ganZhi: '丁巳' },
+    hour: { gan: '庚', zhi: '子', ganZhi: '庚子' },
+  };
+
+  const yangResult = determinePattern(yangBlade, '待综合判断', getTenGod);
+  const yinResult = determinePattern(yinPeak, '待综合判断', getTenGod);
+
+  assert.equal(yangResult.pattern, '偏财格');
+  assert.match(yangResult.basis || '', /七杀明透及日主阳刃支午/);
+  assert.match(yangResult.basis || '', /财逢七煞，刃可解厄/);
+  assert.equal(yinResult.pattern, '偏财格');
+  assert.doesNotMatch(yinResult.basis || '', /四凶神能成格边界/);
+  assert.doesNotMatch(yinResult.basis || '', /刃可解厄/);
+});
+
+test('印格见杀但根轻条件未闭合时不得硬判杀能成格', () => {
+  const pillars: Pillars = {
+    year: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
+    month: { gan: '丁', zhi: '卯', ganZhi: '丁卯' },
+    day: { gan: '丙', zhi: '子', ganZhi: '丙子' },
+    hour: { gan: '壬', zhi: '辰', ganZhi: '壬辰' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod);
+
+  assert.equal(result.pattern, '正印格');
+  assert.doesNotMatch(result.basis || '', /四凶神能成格边界/);
+  assert.doesNotMatch(result.basis || '', /根轻|杀能成格|煞能成格/);
+});
+
 test('官制月劫与食神制杀应按原典记录无情终转有情', () => {
   const officerControlsRobbery: Pillars = {
     year: { gan: '甲', zhi: '子', ganZhi: '甲子' },

@@ -433,6 +433,61 @@ function collectAuspiciousBreakingNotes(
   return notes;
 }
 
+/**
+ * 只复算《子平真诠》“论四凶神能成格”中月令用神明确、且客观条件可以闭合的关系。
+ * “印绶根轻”没有无争议的二元门槛，故不在这里按根数或自定义分值硬判。
+ */
+function collectInauspiciousFormingNotes(
+  pillars: Pillars,
+  patternName: string,
+  getTenGod: GetTenGodFn,
+): string[] {
+  const dayMaster = pillars.day.gan;
+  const visibleGods = new Set(
+    [pillars.year.gan, pillars.month.gan, pillars.hour.gan].map((stem) =>
+      getTenGod(stem, dayMaster),
+    ),
+  );
+  const allGods = [
+    ...visibleGods,
+    ...Object.values(pillars).flatMap((pillar) =>
+      (HIDDEN_STEMS[pillar.zhi] || []).map((stem) => getTenGod(stem, dayMaster)),
+    ),
+  ];
+  const visibleAmong = (...gods: string[]) => gods.filter((god) => visibleGods.has(god));
+  const usesWealth = isNamedPattern(patternName, ['正财', '偏财', '财']);
+  const usesFood = isNamedPattern(patternName, ['食神']);
+  const notes: string[] = [];
+
+  const visiblePeers = visibleAmong('比肩', '劫财');
+  if (usesWealth && visiblePeers.length > 0 && visibleGods.has('伤官')) {
+    notes.push(
+      `财星为当前月令所用，${visiblePeers.join('、')}与伤官同见明透；伤官可化劫生财，原典列为“财逢比劫”的局部救应`,
+    );
+  }
+
+  const hasWealthAnywhere = allGods.some((god) => god === '正财' || god === '偏财');
+  if (usesFood && visibleGods.has('七杀') && visibleGods.has('偏印') && !hasWealthAnywhere) {
+    notes.push(
+      '食神为当前月令所用，七杀与偏印同见明透，且年、月、时干及四支藏干均无正偏财；闭合原典“食带煞而无财，弃食就煞而透印”条件，枭可作为局部救应',
+    );
+  }
+
+  const bladeBranch = REN_BRANCH_MAP[dayMaster];
+  if (
+    usesWealth &&
+    visibleGods.has('七杀') &&
+    bladeBranch &&
+    Object.values(pillars).some((pillar) => pillar.zhi === bladeBranch)
+  ) {
+    notes.push(
+      `财星为当前月令所用，又见七杀明透及日主阳刃支${bladeBranch}；原典列“财逢七煞，刃可解厄”，只记录阳刃的局部救应`,
+    );
+  }
+
+  return notes;
+}
+
 const FORMATION_PATTERN_NAME_BY_TEN_GOD_CATEGORY: Record<string, string> = {
   比劫: '比劫格',
   食伤: '食伤格',
@@ -738,6 +793,11 @@ export function determinePattern(
   const auspiciousBreakingNotes = collectAuspiciousBreakingNotes(pillars, patternName, getTenGod);
   if (auspiciousBreakingNotes.length > 0) {
     basis += `；四吉神能破格边界：${auspiciousBreakingNotes.join('；')}；以上只记录月令用神明确且冲突十神明透时的原典带忌或破格因素，其他强弱、根气、生克先后、位置、会合与救应仍可能改变整体结果，不改变既有格名，也不据此直接判定最终成败`;
+  }
+
+  const inauspiciousFormingNotes = collectInauspiciousFormingNotes(pillars, patternName, getTenGod);
+  if (inauspiciousFormingNotes.length > 0) {
+    basis += `；四凶神能成格边界：${inauspiciousFormingNotes.join('；')}；以上只记录月令用神明确且原典条件可闭合时的局部成格或救应因素，其他强弱、根气、生克先后、位置、会合与其他救应仍可能改变整体结果，不改变既有格名，也不据此直接判定最终成败`;
   }
 
   return {
