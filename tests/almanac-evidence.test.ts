@@ -211,7 +211,8 @@ test('逐时时课应忽略旧结果中的参与人时支冲突', () => {
   ];
 
   assert.equal(classifyAlmanacHourCandidate(hour).status, originalStatus);
-  const evidenceHour = analyzeAlmanacEvidence(result).candidates[0].usableHours.find((item) =>
+  const evidence = analyzeAlmanacEvidence(result);
+  const evidenceHour = evidence.candidates[0].usableHours.find((item) =>
     item.key.includes(`:${hour.ganzhi}:${hour.name}`),
   );
   assert.ok(evidenceHour);
@@ -220,6 +221,20 @@ test('逐时时课应忽略旧结果中的参与人时支冲突', () => {
   assert.doesNotMatch(evidenceHour.constraints.join('；'), /旧结果中的时支冲突/);
   assert.ok(evidenceHour.sources.some((source) => source.includes('原生黄黑道属性')));
   assert.match(evidenceHour.limitation, /参与人刑冲破害只核验候选日/);
+  const hourDecisionStep = evidence.candidates[0].decisionFact.steps.find(
+    (item) => item.stage === '可用时辰',
+  );
+  const hourCalculationStep = evidence.calculationSteps.find(
+    (item) => item.stage === '逐时时课核验',
+  );
+  assert.ok(hourDecisionStep);
+  assert.ok(hourCalculationStep);
+  assert.doesNotMatch(hourDecisionStep.sources.join('；'), /参与人/);
+  assert.doesNotMatch(
+    [hourCalculationStep.promptText, ...hourCalculationStep.sources].join('；'),
+    /参与人/,
+  );
+  assert.match(hourCalculationStep.promptText, /十二神原生黄黑道属性/);
 });
 
 test('择日证据应让明确事项忌项决定慎用分组', () => {

@@ -839,7 +839,7 @@ function buildCandidateDecisionFact(params: {
           : '未见明确传统限制',
       promptText:
         params.traditionalConstraints.join('；') || '未见明确传统限制，不据此保证现实适宜',
-      sources: ['当日原始事项忌项、逐时宜忌与参与人直接关系核验'],
+      sources: ['当日原始事项忌项与参与人候选日直接关系核验'],
     },
     {
       key: `${params.date}:decision:hours`,
@@ -853,7 +853,7 @@ function buildCandidateDecisionFact(params: {
       promptText: params.usableHours.length
         ? `可用时辰：${params.usableHours.map((item) => `${item.name}${item.range}`).join('、')}`
         : '未筛出无明显冲突的时辰，不硬指定吉时',
-      sources: ['逐时时柱、十二神、事项宜忌与参与人关系核验'],
+      sources: ['逐时时柱、十二神原生黄黑道属性与事项宜忌核验'],
     },
     {
       key: `${params.date}:decision:status`,
@@ -1282,9 +1282,9 @@ function buildCalculationSteps(params: {
       inputs: { candidateCount },
       result: { usableHourFactCount },
       dependsOnStepKeys: ['almanac:calculation:participants-reality'],
-      promptText: `逐日比较时柱、十二神、事项宜忌与参与人关系，保留${usableHourFactCount}个无强冲突时辰；未筛出时不硬指定吉时`,
+      promptText: `逐日比较时柱、十二神原生黄黑道属性与事项宜忌，保留${usableHourFactCount}个无强冲突时辰；未筛出时不硬指定吉时`,
       sources: unique([
-        '逐时时柱、十二神、事项宜忌与参与人关系完整性检查',
+        '逐时时柱、十二神原生黄黑道属性与事项宜忌完整性检查',
         ...params.candidates.flatMap((item) => item.usableHours.flatMap((hour) => hour.sources)),
       ]),
       limitation: CALCULATION_STEP_LIMITATION,
