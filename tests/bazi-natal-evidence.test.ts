@@ -148,13 +148,13 @@ test('月令多项藏干全不透时格局应保留待定并贯穿证据与最�
     year: 1980,
     month: 4,
     day: 5,
-    timeIndex: 0,
+    timeIndex: 2,
     gender: 'male',
   });
 
   assert.deepEqual(
     Object.values(result.pillars).map((pillar) => pillar.ganZhi),
-    ['庚申', '庚辰', '戊申', '壬子'],
+    ['庚申', '庚辰', '戊申', '甲寅'],
   );
   assert.equal(result.monthCommander, '乙');
   assert.equal(result.analysis.mingGe.pattern, '待综合判断');
@@ -230,6 +230,37 @@ test('真实透而又会排盘必须把透干和会支共同贯穿格局证据�
   assert.match(prompt, /格局: 待综合判断/);
   assert.match(prompt, /透而又会，则透与会并用/);
   assert.doesNotMatch(prompt, /格局: 杂气偏印格/);
+});
+
+test('真实无透干会支排盘应按会支取用贯穿格局证据与最终提示词', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1982,
+    month: 2,
+    day: 11,
+    timeIndex: 6,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['壬戌', '壬寅', '乙丑', '壬午'],
+  );
+  assert.deepEqual(result.hiddenStems.month, ['甲', '丙', '戊']);
+  assert.equal(result.monthCommander, '戊');
+  assert.equal(result.analysis.mingGe.pattern, '食伤格');
+  assert.match(result.analysis.mingGe.basis || '', /月令藏干均未透出/);
+  assert.match(result.analysis.mingGe.basis || '', /月支寅参与地支寅午戌完整三合火结构（火食伤）/);
+  assert.match(result.analysis.mingGe.basis || '', /何谓会支/);
+
+  const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.status, '已记录');
+  assert.equal(patternFact?.result, '食伤格');
+  assert.match(patternFact?.promptText || '', /寅午戌完整三合火结构（火食伤）/);
+
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 食伤格/);
+  assert.match(prompt, /何谓会支/);
+  assert.doesNotMatch(prompt, /格局: 劫财格/);
 });
 
 test('八字真太阳时本命证据应引用校正后的唯一时间并采用唯一校正时刻', () => {

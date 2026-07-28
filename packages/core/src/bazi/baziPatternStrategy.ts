@@ -4,7 +4,7 @@ import {
   collectEstablishedBranchFormations,
   getRepresentativeStemByWuxing,
 } from './baziFormationUtils';
-import { getWuxingTenGodCategory } from './baziRuleMatcher/helpers';
+import { getStemWuxing, getWuxingTenGodCategory } from './baziRuleMatcher/helpers';
 import type { PatternAnalysis, Pillars, Wuxing } from './baziTypes';
 import { assertHeavenlyStem, assertPillars } from './baziUtils';
 
@@ -178,6 +178,19 @@ function getFormationUseLabel(wuxing: Wuxing, dayMaster: string): string {
   return `${wuxing}${tenGodGroup}`;
 }
 
+const FORMATION_PATTERN_NAME_BY_TEN_GOD_CATEGORY: Record<string, string> = {
+  比劫: '比劫格',
+  食伤: '食伤格',
+  财星: '财格',
+  官杀: '官杀格',
+  印星: '印格',
+};
+
+function getFormationPatternName(wuxing: Wuxing, dayMaster: string): string {
+  const tenGodCategory = getWuxingTenGodCategory(dayMaster, wuxing);
+  return FORMATION_PATTERN_NAME_BY_TEN_GOD_CATEGORY[tenGodCategory] || '待综合判断';
+}
+
 const TEN_GOD_TO_SUB_PATTERN: Record<string, 'wealth' | 'officer' | 'output'> = {
   正财: 'wealth',
   偏财: 'wealth',
@@ -336,6 +349,44 @@ export function determinePattern(
     const exposedUses = exposedMonthStems.map((stem) => `${stem}（${getTenGod(stem, dayMaster)}）`);
     patternName = '待综合判断';
     basis = `月令藏干${exposedUses.join('、')}同时透出；《子平真诠》称“一透则一用，兼透则兼用”，须再结合各用神相互关系判断成败，不按藏干次序、重复透出次数或年、月、时柱位强定单一格局`;
+  } else if (monthBranchFormations.length > 0) {
+    const formationUses = monthBranchFormations.map(
+      (formation) =>
+        `月支${monthBranch}参与地支${formation.branches.join('')}完整${formation.type}${formation.wuxing}结构（${getFormationUseLabel(formation.wuxing, dayMaster)}）`,
+    );
+    const formationPatterns = [
+      ...new Set(
+        monthBranchFormations.map((formation) =>
+          getFormationPatternName(formation.wuxing, dayMaster),
+        ),
+      ),
+    ];
+    const commanderFact = monthCommander
+      ? !commanderIsMonthStem
+        ? `；${monthCommander}为交节过渡气${commanderIsExposed ? '且已透干' : ''}，只作司权${commanderIsExposed ? '与透干' : ''}事实，不覆盖会支取用`
+        : `；当前${monthCommander}司权另作得时事实，不覆盖会支取用`
+      : '';
+
+    const soleMonthStem = monthStems.length === 1 ? monthStems[0] : undefined;
+    const formationMatchesSoleMonthStem = Boolean(
+      soleMonthStem &&
+      monthBranchFormations.every((formation) => formation.wuxing === getStemWuxing(soleMonthStem)),
+    );
+
+    if (formationMatchesSoleMonthStem && soleMonthStem) {
+      patternName = getPatternNameByTenGod(
+        getTenGod(soleMonthStem, dayMaster),
+        dayMaster,
+        monthBranch,
+      );
+      basis = `月令只有${soleMonthStem}一项藏干且未透出，同时${formationUses.join('；')}；唯一藏干与会局五行一致，《子平真诠》所述会支取用没有引入第二类别，故仍按${soleMonthStem}记录为${patternName}，并把完整会支列入依据，格局成败仍须结合全局复核${commanderFact}`;
+    } else if (formationPatterns.length === 1 && formationPatterns[0] !== '待综合判断') {
+      patternName = formationPatterns[0];
+      basis = `月令藏干均未透出，但${formationUses.join('；')}；《子平真诠》称“何谓会支”，并以完整会局直接取用，故按会支的宽口径十神类别记录为${patternName}，不凭会局五行补造正偏极性，格局成败仍须结合全局复核${commanderFact}`;
+    } else {
+      patternName = '待综合判断';
+      basis = `月令藏干均未透出，但${formationUses.join('；')}；会支取用出现多个类别或十神类别未闭合，不能强定单一格局${commanderFact}`;
+    }
   } else if (monthPrincipalGod === '劫财') {
     if (REN_BRANCH_MAP[dayMaster]) {
       patternName = '劫财格';

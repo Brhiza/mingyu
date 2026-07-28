@@ -222,8 +222,8 @@ test('月令多项藏干全不透时不得只凭未透司令强定单一格局',
   const pillars: Pillars = {
     year: { gan: '庚', zhi: '申', ganZhi: '庚申' },
     month: { gan: '庚', zhi: '辰', ganZhi: '庚辰' },
-    day: { gan: '戊', zhi: '申', ganZhi: '戊申' },
-    hour: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+    day: { gan: '戊', zhi: '午', ganZhi: '戊午' },
+    hour: { gan: '壬', zhi: '戌', ganZhi: '壬戌' },
   };
 
   const result = determinePattern(pillars, '待综合判断', getTenGod, '乙');
@@ -316,6 +316,84 @@ test('月令兼透又会支时必须把会支一并写入综合判断依据', ()
   assert.match(result.basis || '', /戊（偏财）、辛（正官）透出/);
   assert.match(result.basis || '', /月支戌参与地支寅午戌完整三合火结构（火食伤）/);
   assert.match(result.basis || '', /透而又会，则透与会并用/);
+});
+
+test('甲生辰月藏干全不透而会申子时应按水印会支取用', () => {
+  const pillars: Pillars = {
+    year: { gan: '壬', zhi: '申', ganZhi: '壬申' },
+    month: { gan: '庚', zhi: '辰', ganZhi: '庚辰' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod);
+
+  assert.equal(result.pattern, '印格');
+  assert.match(result.basis || '', /月令藏干均未透出/);
+  assert.match(result.basis || '', /月支辰参与地支申子辰完整三合水结构（水印星）/);
+  assert.match(result.basis || '', /何谓会支/);
+  assert.match(result.basis || '', /不凭会局五行补造正偏极性/);
+});
+
+test('月令只有一项藏干且会局同类时应保留正偏格名并补全会支依据', () => {
+  const pillars: Pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '丁', zhi: '卯', ganZhi: '丁卯' },
+    day: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    hour: { gan: '壬', zhi: '辰', ganZhi: '壬辰' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod);
+
+  assert.equal(result.pattern, '正印格');
+  assert.match(result.basis || '', /月令只有乙一项藏干且未透出/);
+  assert.match(result.basis || '', /月支卯参与地支寅卯辰完整三会木结构（木印星）/);
+  assert.match(result.basis || '', /唯一藏干与会局五行一致/);
+});
+
+test('乙生寅月藏干全不透而会午戌时应由月劫改按食伤会支取用', () => {
+  const pillars: Pillars = {
+    year: { gan: '壬', zhi: '戌', ganZhi: '壬戌' },
+    month: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
+    day: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
+    hour: { gan: '壬', zhi: '午', ganZhi: '壬午' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod, '戊');
+
+  assert.equal(result.pattern, '食伤格');
+  assert.match(result.basis || '', /月支寅参与地支寅午戌完整三合火结构（火食伤）/);
+  assert.match(result.basis || '', /当前戊司权另作得时事实，不覆盖会支取用/);
+  assert.doesNotMatch(result.pattern, /劫财格/);
+});
+
+test('建禄固定入口仍优先于无透干会支，不在本轮扩写为格局变化', () => {
+  const pillars: Pillars = {
+    year: { gan: '壬', zhi: '戌', ganZhi: '壬戌' },
+    month: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '壬', zhi: '午', ganZhi: '壬午' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod);
+
+  assert.equal(result.pattern, '建禄格');
+  assert.match(result.basis || '', /禄位/);
+});
+
+test('不含月支的局外完整会局不得冒充无透干会支取用', () => {
+  const pillars: Pillars = {
+    year: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    month: { gan: '庚', zhi: '辰', ganZhi: '庚辰' },
+    day: { gan: '甲', zhi: '午', ganZhi: '甲午' },
+    hour: { gan: '庚', zhi: '戌', ganZhi: '庚戌' },
+  };
+
+  const result = determinePattern(pillars, '待综合判断', getTenGod);
+
+  assert.equal(result.pattern, '待综合判断');
+  assert.match(result.basis || '', /月令藏干戊（偏财）、乙（劫财）、癸（正印）均未透出/);
+  assert.doesNotMatch(result.basis || '', /何谓会支/);
 });
 
 test('完整会局未包含月支时不得冒充月令会支改写单透格局', () => {
