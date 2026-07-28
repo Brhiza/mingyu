@@ -817,7 +817,7 @@ test('八字提示词的刑冲合会破段应直接写入盘面证据', () => {
   assert.match(prompt.user, /年柱卯与月柱子刑/);
 });
 
-test('八字提示词会节选合化结构，避免把合化结构直接当成成化', () => {
+test('八字提示词输出全部相合条件，避免把相合结构直接当成成化', () => {
   const result = baziCalculator.calculateBazi({
     year: 1988,
     month: 1,
@@ -838,9 +838,10 @@ test('八字提示词会节选合化结构，避免把合化结构直接当成�
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /【合化程度】命盘见合化结构：/);
-  assert.match(prompt.user, /天干五合年柱丁与月柱壬化木：合而不化，方向合绊/);
-  assert.doesNotMatch(prompt.user, /合化结构：[^\n]*\d+分|【合化程度】合化评分|80分以下/);
+  assert.match(prompt.user, /【干支相合条件】命盘见相合结构：/);
+  assert.match(prompt.user, /天干五合年柱丁与月柱壬化木：逢冲破合，作用破合/);
+  assert.match(prompt.user, /非日干配合，只记相合，不作化气/);
+  assert.doesNotMatch(prompt.user, /相合结构：[^\n]*\d+分|合化评分|80分以下/);
   assert.doesNotMatch(prompt.user, /概率或吉凶分/);
   assert.doesNotMatch(prompt.user, /原组合可按化神木参与后续结构判断/);
 });

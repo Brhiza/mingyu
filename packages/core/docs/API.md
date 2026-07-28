@@ -107,9 +107,9 @@
 | `analyzeStemRootProfile(pillars, dayMaster, getWuxing, getTenGod)` | 四柱、日干、五行函数、十神函数 | `StemRootProfile` | 透干通根分析（本根/同气根/无根） |
 | `analyzeExposedStemProfile(pillars, dayMaster, getWuxing, getTenGod, commanderStem?, monthBranch?)` | 同上 + 司令、月支 | `ExposedStemProfile` | 透干月令地位与力量 |
 | `analyzeRelationStructure(pillars)` | 四柱 | `RelationStructureProfile` | 地支关系（三合/三会/半合/六合/六冲/六害/三刑/相破） |
-| `assessAllHarmonyTransforms(pillars, monthBranch?)` | 四柱、可选月支 | `HarmonyTransformProfile[]` | 自动扫描天干五合、地支六合并评估合化程度 |
-| `assessStemHarmonyTransform(stem1, pillar1, stem2, pillar2, monthBranch, allPillars)` | 天干、柱位、月支、四柱 | `HarmonyTransformProfile` | 单组天干五合合化评分 |
-| `assessBranchHarmonyTransform(branch1, pillar1, branch2, pillar2, monthBranch, allPillars)` | 地支、柱位、月支、四柱 | `HarmonyTransformProfile` | 单组地支六合合化评分 |
+| `assessAllHarmonyTransforms(pillars, monthBranch?)` | 四柱、可选月支 | `HarmonyTransformProfile[]` | 自动扫描天干五合、地支六合并核验条件 |
+| `assessStemHarmonyTransform(stem1, pillar1, stem2, pillar2, monthBranch, allPillars)` | 天干、柱位、月支、四柱 | `HarmonyTransformProfile` | 按日干、紧贴、规定月令、克破与争合核验天干成化 |
+| `assessBranchHarmonyTransform(branch1, pillar1, branch2, pillar2, monthBranch, allPillars)` | 地支、柱位、月支、四柱 | `HarmonyTransformProfile` | 评估地支六合及冲破；地支不直接按化神五行成化 |
 | `analyzeKongWangProfile(pillars, dayMasterStem)` | 四柱、日干 | `KongWangProfile` | 空亡全分析 |
 | `analyzeTombStorage(pillars, dayMaster, getWuxing, getTenGod)` | 四柱、日干、五行函数、十神函数 | `TombStorageProfile` | 辰戌丑未墓库分析 |
 | `analyzeLifeStageProfile(pillars)` | 四柱 | `LifeStageItem[]` | 各柱十二长生 |

@@ -243,25 +243,17 @@ function generateHarmonyTransformSection(chartResult: BaziChartResult): string {
 
   if (!profiles.length) return '';
 
-  const strongestProfiles = profiles
-    .sort((a, b) => {
-      if (a.isTransformed !== b.isTransformed) return a.isTransformed ? -1 : 1;
-      const evidenceCount = (profile: (typeof profiles)[number]) =>
-        Number(profile.monthSupported) +
-        Number(profile.transformStemVisible) +
-        Number(profile.transformRooted) -
-        Number(profile.hasClashBreak) -
-        Number(profile.hasCompetition);
-      return evidenceCount(b) - evidenceCount(a);
-    })
-    .slice(0, 2);
-  const evidence = strongestProfiles
+  const evidence = profiles
     .map((profile) => {
-      return `${profile.type}${profile.participants.join('与')}化${profile.transformElement}：${profile.level}，方向${profile.direction}（${profile.evidence.join('、')}）`;
+      const relation =
+        profile.type === '天干五合'
+          ? `${profile.participants.join('与')}化${profile.transformElement}`
+          : `${profile.participants.join('与')}（地支只论相合）`;
+      return `${profile.type}${relation}：${profile.level}，作用${profile.direction}（${profile.evidence.join('、')}）`;
     })
     .join('；');
 
-  return buildEvidenceDrivenHintSection('合化程度', `命盘见合化结构：${evidence}`);
+  return buildEvidenceDrivenHintSection('干支相合条件', `命盘见相合结构：${evidence}`);
 }
 
 /**

@@ -384,7 +384,7 @@ import {
   analyzeTenGodStructure, // 十神结构分布
   analyzeStemRootProfile, // 透干通根
   analyzeRelationStructure, // 地支关系（三合/三会/六合/六冲/六害/三刑/相破）
-  assessAllHarmonyTransforms, // 天干五合、地支六合的合化程度评分
+  assessAllHarmonyTransforms, // 天干成化条件与地支六合关系
   calculateMingGua, // 命卦（东四命/西四命）
   buildLuckDirectionProfile, // 大运顺逆方向
 } from 'mingyu-core/bazi';
@@ -419,9 +419,9 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `analyzeStemRootProfile`        | 函数 | 透干通根分析                             |
 | `analyzeExposedStemProfile`     | 函数 | 透干综合画像                             |
 | `analyzeRelationStructure`      | 函数 | 地支关系完整评估                         |
-| `assessAllHarmonyTransforms`    | 函数 | 自动扫描天干五合、地支六合并评估合化程度 |
-| `assessStemHarmonyTransform`    | 函数 | 评估单组天干五合的成化程度               |
-| `assessBranchHarmonyTransform`  | 函数 | 评估单组地支六合的成化程度               |
+| `assessAllHarmonyTransforms`    | 函数 | 自动扫描天干五合、地支六合并核验条件     |
+| `assessStemHarmonyTransform`    | 函数 | 核验单组天干五合是否符合成化条件         |
+| `assessBranchHarmonyTransform`  | 函数 | 评估单组地支六合及冲破，不直接裁定成化   |
 | `analyzeKongWangProfile`        | 函数 | 空亡全分析                               |
 | `analyzeTombStorage`            | 函数 | 辰戌丑未墓库分析                         |
 | `analyzeLifeStageProfile`       | 函数 | 十二长生分布                             |

@@ -398,9 +398,9 @@ export interface RelationStructureProfile {
   items: RelationStructureItem[];
   summary: string;
 }
-export type HarmonyTransformLevel = '完全合化' | '大部分化' | '半化半绊' | '合而不化' | '纯粹牵绊';
+export type HarmonyTransformLevel = '成化' | '合而不化' | '争合不专' | '逢冲破合' | '隔位不合';
 export type HarmonyTransformType = '天干五合' | '地支六合';
-export type HarmonyTransformDirection = '向化' | '合绊' | '合去';
+export type HarmonyTransformDirection = '向化' | '合绊' | '破合' | '不合';
 export interface HarmonyTransformProfile {
   type: HarmonyTransformType;
   participants: string[];
@@ -408,6 +408,8 @@ export interface HarmonyTransformProfile {
   transformStem?: string;
   level: HarmonyTransformLevel;
   direction: HarmonyTransformDirection;
+  dayStemInvolved?: boolean;
+  participantsAdjacent: boolean;
   monthSupported: boolean;
   transformStemVisible: boolean;
   transformRooted: boolean;
