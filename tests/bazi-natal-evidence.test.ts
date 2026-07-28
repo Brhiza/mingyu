@@ -489,6 +489,84 @@ test('真实癸辰官透遇戌冲时应保留官格且不得仅据四墓冲判�
   assert.match(prompt, /不据此单独判定破格/);
 });
 
+test('真实正官见食伤排盘应保留官格并贯穿四吉神带忌边界', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1980,
+    month: 1,
+    day: 3,
+    timeIndex: 12,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['己未', '丙子', '丙子', '戊子'],
+  );
+  assert.equal(result.analysis.mingGe.pattern, '正官格');
+  assert.match(result.analysis.mingGe.basis || '', /正官为当前月令所用，又见食神、伤官明透/);
+  assert.match(result.analysis.mingGe.basis || '', /须继续核对财印、合伤等救应/);
+  assert.match(result.analysis.mingGe.basis || '', /不改变既有格名/);
+
+  const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.result, '正官格');
+  assert.match(patternFact?.promptText || '', /四吉神能破格边界/);
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 正官格/);
+  assert.match(prompt, /官忌食伤/);
+});
+
+test('真实食神带杀透财排盘应保留食神格并贯穿财能破格边界', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1980,
+    month: 2,
+    day: 13,
+    timeIndex: 4,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['庚申', '戊寅', '丙辰', '壬辰'],
+  );
+  assert.equal(result.analysis.mingGe.pattern, '杂气食神格');
+  assert.match(result.analysis.mingGe.basis || '', /七杀与偏财同见明透/);
+  assert.match(result.analysis.mingGe.basis || '', /财能生杀而妨碍食神制杀/);
+  assert.match(result.analysis.mingGe.basis || '', /不改变既有格名/);
+
+  const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.result, '杂气食神格');
+  assert.match(patternFact?.promptText || '', /财能破格/);
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 杂气食神格/);
+  assert.match(prompt, /财能破格/);
+});
+
+test('真实财生官露食排盘应保留财格并贯穿食能破格边界', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1980,
+    month: 1,
+    day: 13,
+    timeIndex: 4,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['己未', '丁丑', '乙酉', '庚辰'],
+  );
+  assert.equal(result.analysis.mingGe.pattern, '杂气偏财格');
+  assert.match(result.analysis.mingGe.basis || '', /正官与食神同见明透/);
+  assert.match(result.analysis.mingGe.basis || '', /财能生官而又露食使结构混杂/);
+  assert.match(result.analysis.mingGe.basis || '', /不改变既有格名/);
+
+  const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.result, '杂气偏财格');
+  assert.match(patternFact?.promptText || '', /食能破格/);
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 杂气偏财格/);
+  assert.match(prompt, /食能破格/);
+});
+
 test('八字真太阳时本命证据应引用校正后的唯一时间并采用唯一校正时刻', () => {
   const result = baziCalculator.calculateBazi({
     year: 1990,

@@ -354,6 +354,85 @@ function collectTombClashNotes(pillars: Pillars): string[] {
   return notes;
 }
 
+function isNamedPattern(patternName: string, names: string[]): boolean {
+  return names.some(
+    (name) =>
+      patternName === `${name}格` || patternName === `杂气${name}格` || patternName === name,
+  );
+}
+
+/**
+ * 只复算《子平真诠》“论四吉神能破格”中月令用神已经明确、冲突十神又明透的关系。
+ * 这里只记录原典所称带忌或破格因素，强弱、位置、先后与救应仍须另行复核。
+ */
+function collectAuspiciousBreakingNotes(
+  pillars: Pillars,
+  patternName: string,
+  getTenGod: GetTenGodFn,
+): string[] {
+  const dayMaster = pillars.day.gan;
+  const visibleGods = new Set(
+    [pillars.year.gan, pillars.month.gan, pillars.hour.gan].map((stem) =>
+      getTenGod(stem, dayMaster),
+    ),
+  );
+  const visibleAmong = (...gods: string[]) => gods.filter((god) => visibleGods.has(god));
+  const usesOfficer = isNamedPattern(patternName, ['正官']);
+  const usesWealth = isNamedPattern(patternName, ['正财', '偏财', '财']);
+  const usesResource = isNamedPattern(patternName, ['正印', '偏印', '印']);
+  const usesFood = isNamedPattern(patternName, ['食神']);
+  const usesKiller = isNamedPattern(patternName, ['七杀']);
+  const notes: string[] = [];
+
+  const visibleOutputs = visibleAmong('食神', '伤官');
+  if (usesOfficer && visibleOutputs.length > 0) {
+    notes.push(
+      `正官为当前月令所用，又见${visibleOutputs.join('、')}明透；原典提醒“官忌食伤”，须继续核对财印、合伤等救应`,
+    );
+  }
+
+  const visiblePeers = visibleAmong('比肩', '劫财');
+  if (usesWealth && visiblePeers.length > 0) {
+    notes.push(
+      `财星为当前月令所用，又见${visiblePeers.join('、')}明透；原典提醒“财畏比劫”，须继续核对财之轻重及食官等救应`,
+    );
+  }
+
+  const visibleWealth = visibleAmong('正财', '偏财');
+  if (usesResource && visibleWealth.length > 0) {
+    notes.push(
+      `印星为当前月令所用，又见${visibleWealth.join('、')}明透；原典提醒“印惧财破”，须继续核对印之轻重、财根与透干位置`,
+    );
+  }
+
+  const visibleResources = visibleAmong('正印', '偏印');
+  if (usesFood && visibleResources.length > 0) {
+    notes.push(
+      `食神为当前月令所用，又见${visibleResources.join('、')}明透；原典提醒“食畏印夺”，须继续核对制化与护食救应`,
+    );
+  }
+
+  if (usesFood && visibleGods.has('七杀') && visibleWealth.length > 0) {
+    notes.push(
+      `食神为当前月令所用，七杀与${visibleWealth.join('、')}同见明透；财能生杀而妨碍食神制杀，原典列为“财能破格”的带忌条件`,
+    );
+  }
+
+  if (usesKiller && visibleGods.has('食神') && visibleResources.length > 0) {
+    notes.push(
+      `七杀为当前月令所用，食神与${visibleResources.join('、')}同见明透；印来护杀并妨碍食神制杀，原典列为“印能破格”的带忌条件`,
+    );
+  }
+
+  if (usesWealth && visibleGods.has('正官') && visibleGods.has('食神')) {
+    notes.push(
+      '财星为当前月令所用，正官与食神同见明透；财能生官而又露食使结构混杂，原典列为“食能破格”的带忌条件',
+    );
+  }
+
+  return notes;
+}
+
 const FORMATION_PATTERN_NAME_BY_TEN_GOD_CATEGORY: Record<string, string> = {
   比劫: '比劫格',
   食伤: '食伤格',
@@ -654,6 +733,11 @@ export function determinePattern(
 
   if (tombClashNotes.length > 0) {
     basis += `；墓库刑冲边界：${tombClashNotes.join('；')}；以上只闭合原典明举的四墓刑冲关系，不改变既有格名，也不据此直接判定最终成败`;
+  }
+
+  const auspiciousBreakingNotes = collectAuspiciousBreakingNotes(pillars, patternName, getTenGod);
+  if (auspiciousBreakingNotes.length > 0) {
+    basis += `；四吉神能破格边界：${auspiciousBreakingNotes.join('；')}；以上只记录月令用神明确且冲突十神明透时的原典带忌或破格因素，其他强弱、根气、生克先后、位置、会合与救应仍可能改变整体结果，不改变既有格名，也不据此直接判定最终成败`;
   }
 
   return {
