@@ -533,7 +533,7 @@ test('真实正官见食伤排盘应保留官格并贯穿四吉神带忌边界',
   assert.match(prompt, /年支未与月令子相害/);
 });
 
-test('真实食神带杀透财排盘应保留食神格并贯穿财能破格边界', () => {
+test('真实食神带杀透财排盘应贯穿财能破格与财先食间杀后边界', () => {
   const result = baziCalculator.calculateBazi({
     year: 1980,
     month: 2,
@@ -549,14 +549,25 @@ test('真实食神带杀透财排盘应保留食神格并贯穿财能破格边�
   assert.equal(result.analysis.mingGe.pattern, '杂气食神格');
   assert.match(result.analysis.mingGe.basis || '', /七杀与偏财同见明透/);
   assert.match(result.analysis.mingGe.basis || '', /财能生杀而妨碍食神制杀/);
+  assert.match(result.analysis.mingGe.basis || '', /食神格成败边界/);
+  assert.match(
+    result.analysis.mingGe.basis || '',
+    /年干庚偏财在先、月干戊食神居中、时干壬七杀在后/,
+  );
+  assert.match(result.analysis.mingGe.basis || '', /财先杀后、食以间之/);
   assert.match(result.analysis.mingGe.basis || '', /不改变既有格名/);
 
   const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
   assert.equal(patternFact?.result, '杂气食神格');
   assert.match(patternFact?.promptText || '', /财能破格/);
+  assert.match(patternFact?.promptText || '', /食神格成败边界/);
+  assert.match(patternFact?.promptText || '', /财先杀后、食以间之/);
   const prompt = formatBaziForPrompt(result);
   assert.match(prompt, /格局: 杂气食神格/);
   assert.match(prompt, /财能破格/);
+  assert.match(prompt, /食神格成败边界/);
+  assert.match(prompt, /财先杀后、食以间之/);
+  assert.doesNotMatch(prompt, /判定为(?:富贵|贫贱)|格局评分|成功率/);
 });
 
 test('真实财生官露食排盘应保留财格并贯穿食能破格边界', () => {

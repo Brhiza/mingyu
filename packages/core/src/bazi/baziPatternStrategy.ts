@@ -7,6 +7,7 @@ import {
 } from './baziFormationUtils';
 import { canUseExternalPattern } from './baziExternalPatternEligibility';
 import { analyzeOfficerPatternStructure } from './baziOfficerPattern';
+import { analyzeFoodPatternStructure } from './baziFoodPattern';
 import { analyzeResourcePatternStructure } from './baziResourcePattern';
 import { getStemWuxing, getWuxingTenGodCategory } from './baziRuleMatcher/helpers';
 import type { PatternAnalysis, Pillars, Wuxing } from './baziTypes';
@@ -1001,6 +1002,195 @@ function collectResourcePatternNotes(
   return notes;
 }
 
+/**
+ * 复算《子平真诠》“论食神”中能够由四柱闭合的财根、明透、气候类别、位置与取清组件。
+ * 身强、食旺、火炎木焦、食神有气及最终成败均不以十神数量或单一关系代替。
+ */
+function collectFoodPatternNotes(
+  pillars: Pillars,
+  patternName: string,
+  getTenGod: GetTenGodFn,
+): string[] {
+  const structure = analyzeFoodPatternStructure(pillars, patternName, getTenGod);
+  const notes: string[] = [];
+  const isExact = (year: string, month: string, day: string, hour: string) =>
+    pillars.year.ganZhi === year &&
+    pillars.month.ganZhi === month &&
+    pillars.day.ganZhi === day &&
+    pillars.hour.ganZhi === hour;
+  const formatStems = (facts: typeof structure.exposedStems) =>
+    facts.map((fact) => `${fact.label}${fact.stem}${fact.tenGod}`).join('、');
+
+  const exactExamples: Array<{
+    pillars: [string, string, string, string];
+    note: string;
+  }> = [
+    {
+      pillars: ['丁未', '癸卯', '癸亥', '癸丑'],
+      note: '原典梁丞相精确例型丁未、癸卯、癸亥、癸丑，卯中乙食神当令而丁偏财明透且在未中有根；只保存食神生财与财根事实，不据此判断身强食旺或富贵',
+    },
+    {
+      pillars: ['己未', '壬申', '戊子', '庚申'],
+      note: '原典谢阁老精确例型己未、壬申、戊子、庚申，申中庚食神与壬偏财兼透；只保存食神、财星并用事实，不覆盖兼透则兼用的格名边界',
+    },
+    {
+      pillars: ['丁亥', '癸卯', '癸卯', '甲寅'],
+      note: '原典沈路分精确例型丁亥、癸卯、癸卯、甲寅，卯中乙食神藏而甲伤官露；只保存藏食露伤结构，不推导性情',
+    },
+    {
+      pillars: ['甲午', '丁卯', '癸丑', '丙辰'],
+      note: '原典龚知县精确例型甲午、丁卯、癸丑、丙辰，卯中乙食神藏而甲伤官露，丙正财、丁偏财同透；只保存藏食露伤与正偏财叠出事实，不推导富贵等级',
+    },
+    {
+      pillars: ['己未', '己巳', '甲寅', '丙寅'],
+      note: '原典黄都督精确例型己未、己巳、甲寅、丙寅，原文月柱“已巳”按干支语义校作己巳；只保存夏木食神用财结构，火炎土燥与武职结论不由此硬判',
+    },
+    {
+      pillars: ['辛卯', '辛卯', '癸酉', '己未'],
+      note: '原典常国公精确例型辛卯、辛卯、癸酉、己未，辛偏印两透、己七杀明透而无财星明透；只保存食神就杀印的组成事实，不据此推导威权富贵',
+    },
+    {
+      pillars: ['戊戌', '壬戌', '丙子', '戊戌'],
+      note: '原典胡会元精确例型戊戌、壬戌、丙子、戊戌，壬七杀单露、无印财明透而戊食神明透；只保存无印单露七杀且无财透的结构，不推导贵格结论',
+    },
+    {
+      pillars: ['丁亥', '壬子', '辛巳', '丁酉'],
+      note: '原典舒尚书精确例型丁亥、壬子、辛巳、丁酉，辛金生子月而丁七杀两透；只保存金水食神用杀的气候类别与明透事实，不推导贵秀',
+    },
+    {
+      pillars: ['丙午', '癸巳', '甲子', '丙寅'],
+      note: '原典钱参政精确例型丙午、癸巳、甲子、丙寅，夏木食神格透癸正印；只保存夏木透印的调候候选，火炎木焦是否成立仍须复核',
+    },
+    {
+      pillars: ['癸酉', '辛酉', '己卯', '乙亥'],
+      note: '原典刘提台精确例型癸酉、辛酉、己卯、乙亥，癸偏财在年、辛食神在月、乙七杀在时；只保存财先、食间、杀后的精确位置关系，不推导富贵',
+    },
+  ];
+  exactExamples.forEach((example) => {
+    if (isExact(...example.pillars)) notes.push(example.note);
+  });
+
+  if (!structure.isFoodPattern) return notes;
+
+  if (structure.wealthStems.length > 0) {
+    const rootDetail =
+      structure.wealthRootFacts.length > 0
+        ? `财五行在${structure.wealthRootFacts
+            .map(
+              (fact) =>
+                `${fact.label}${fact.branch}藏${fact.hiddenWealthStems.join('、')}（${fact.hiddenWealthStems
+                  .map((stem) => getTenGod(stem, pillars.day.gan))
+                  .join('、')}）`,
+            )
+            .join('、')}见根气；这里只证明有财根，不把支数或藏干层级换算为根深财旺`
+        : '四支藏干未见正偏财根；这里只记录财透而当前无财根，不据此单独定成败';
+    const polarityBoundary =
+      structure.directWealthStems.length > 0 && structure.indirectWealthStems.length > 0
+        ? `；${formatStems(structure.directWealthStems)}与${formatStems(structure.indirectWealthStems)}同见，形成正偏财叠出结构，但不推导富贵等级`
+        : '；当前只见一类正偏财明透，原典已明言食神生财不必正偏叠出，不以未叠出视作不足';
+    notes.push(
+      `食神格见${formatStems(structure.wealthStems)}明透，具“食神生财”的局部结构；${rootDetail}${polarityBoundary}；身强、食旺与财的实际轻重仍须全局复核`,
+    );
+  }
+
+  if (structure.monthHiddenFoodStems.length > 0 && structure.hurtStems.length > 0) {
+    notes.push(
+      `月令藏${structure.monthHiddenFoodStems.join('、')}食神而外干见${formatStems(structure.hurtStems)}，形成“藏食露伤”的客观结构；只记录食伤并见，不据此推导性情`,
+    );
+  }
+
+  if (structure.isSummerWoodFood && structure.wealthStems.length > 0) {
+    notes.push(
+      `木日主生${pillars.month.zhi}月而见${formatStems(structure.wealthStems)}明透，列为“夏木用财”的气候候选；火炎土燥是否成立仍须结合全局复核，不推导武职或贵贱`,
+    );
+  }
+
+  if (
+    structure.killerStems.length > 0 &&
+    structure.resourceStems.length > 0 &&
+    structure.wealthStems.length === 0
+  ) {
+    notes.push(
+      `食神格见${formatStems(structure.killerStems)}与${formatStems(structure.resourceStems)}明透而无财星明透，具“不用财而就杀印”的局部结构；杀印食与身的强弱及最终取舍仍须复核`,
+    );
+  }
+
+  if (
+    structure.killerStems.length === 1 &&
+    structure.officerStems.length === 0 &&
+    structure.resourceStems.length === 0 &&
+    structure.wealthStems.length === 0
+  ) {
+    notes.push(
+      `食神格${formatStems(structure.killerStems)}单露，未见正官、印星或财星明透，闭合“无印而单露偏官、无财透”的客观条件；只列食神用杀候选，不据此认定贵格`,
+    );
+  }
+
+  if (structure.isMetalWaterFood && structure.killerStems.length > 0) {
+    notes.push(
+      `金日主以月令水食神取格，又见${formatStems(structure.killerStems)}明透，列为“金水食神用杀”的气候类别候选；寒暖燥湿、制杀力度与最终成败仍须另审`,
+    );
+  }
+
+  if (structure.isSummerWoodFood && structure.resourceStems.length > 0) {
+    notes.push(
+      `夏月木日主食神格见${formatStems(structure.resourceStems)}明透，列为“夏火太炎、透印不碍”的调候候选；火炎木焦不能由月份或印星数量单独闭合`,
+    );
+  }
+
+  if (structure.isMetalWaterFood && structure.officerStems.length > 0) {
+    notes.push(
+      `金日主以月令水食神取格，又见${formatStems(structure.officerStems)}明透，列为“金水食神见官不忌”的气候例外候选；财印辅助、寒暖与官食强弱仍须复核`,
+    );
+  }
+
+  if (structure.resourceStems.length > 0 && structure.wealthStems.length > 0) {
+    notes.push(
+      `食神格见${formatStems(structure.resourceStems)}与${formatStems(structure.wealthStems)}同时明透，具“印来夺食、透财以解”的局部救应候选；财能否实际制印护食仍须结合根气强弱复核`,
+    );
+  }
+
+  if (structure.officerStems.length > 0 && structure.killerStems.length > 0) {
+    notes.push(
+      `食神格见${formatStems(structure.officerStems)}与${formatStems(structure.killerStems)}同时明透，形成官杀竞出结构；原典只说明亦可成局，当前不抢先认定已经取清或最终成败`,
+    );
+  }
+
+  if (structure.killerCombinations.length > 0 && structure.wealthRootFacts.length > 0) {
+    notes.push(
+      `${structure.killerCombinations
+        .map(
+          ({ killer, partner }) =>
+            `${killer.label}${killer.stem}七杀与${partner.label}${partner.stem}${partner.tenGod}相邻五合`,
+        )
+        .join('、')}，同时财五行在${structure.wealthRootFacts
+        .map((fact) => `${fact.label}${fact.branch}`)
+        .join('、')}有根，列为食神格“合杀存财”的局部取清候选；五合不等于已经合化或最终取清`,
+    );
+  }
+
+  if (structure.killerStems.length > 0 && structure.wealthStems.length > 0) {
+    if (structure.wealthFoodKillerOrderFacts.length > 0) {
+      notes.push(
+        `${structure.wealthFoodKillerOrderFacts
+          .map(
+            ({ wealth, food, killer }) =>
+              `${wealth.label}${wealth.stem}${wealth.tenGod}在先、${food.label}${food.stem}食神居中、${killer.label}${killer.stem}七杀在后`,
+          )
+          .join(
+            '、',
+          )}，闭合“财先杀后、食以间之”的精确位置候选；只记录财不直接越食党杀的排列，不据此推导贵贱`,
+      );
+    } else {
+      notes.push(
+        `食神格见${formatStems(structure.killerStems)}与${formatStems(structure.wealthStems)}同透，但未形成外干财先、食间、杀后的排列；保留财生杀而妨碍食神制杀的局部带忌，其他取清救应仍须复核`,
+      );
+    }
+  }
+
+  return notes;
+}
+
 function isNamedPattern(patternName: string, names: string[]): boolean {
   return names.some(
     (name) =>
@@ -1582,6 +1772,11 @@ export function determinePattern(
   );
   if (resourcePatternNotes.length > 0) {
     basis += `；印格成败边界：${resourcePatternNotes.join('；')}；以上只记录《子平真诠》“论印”中能够由当前四柱闭合的明透、财根、完整会局、固定制约与取清组件，不改变既有格名；身旺身弱、身印财轻重、财根深浅、五合或半合成化及最终取舍仍须全局复核，也不推导富贵贫贱、官职、灾祸、现实财富婚姻、分数或概率`;
+  }
+
+  const foodPatternNotes = collectFoodPatternNotes(pillars, patternName, getTenGod);
+  if (foodPatternNotes.length > 0) {
+    basis += `；食神格成败边界：${foodPatternNotes.join('；')}；以上只记录《子平真诠》“论食神”中能够由当前四柱闭合的财根、明透、气候类别、位置与取清组件，不改变既有格名；身强身弱、食旺食轻、火炎木焦、食神有气、财官杀印强弱及最终取舍仍须全局复核，也不推导性情、职业、富贵贫贱、现实财富、分数或概率`;
   }
 
   return {

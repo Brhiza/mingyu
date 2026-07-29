@@ -1511,3 +1511,160 @@ test('格局判定应拒绝不存在的六十甲子，避免测试夹具污染�
     /day柱不是有效六十甲子/,
   );
 });
+
+test('食神生财应记录财透与财根且不强求正偏财叠出', () => {
+  const singleWealth = determinePattern(
+    createPillars('丁未', '癸卯', '癸亥', '癸丑'),
+    '待综合判断',
+    getTenGod,
+  );
+  const mixedWealth = determinePattern(
+    createPillars('甲午', '丁卯', '癸丑', '丙辰'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.equal(singleWealth.pattern, '食神格');
+  assert.match(singleWealth.basis || '', /食神生财.*局部结构/);
+  assert.match(singleWealth.basis || '', /年支未藏丁.*见根气/);
+  assert.match(singleWealth.basis || '', /不必正偏叠出/);
+  assert.match(singleWealth.basis || '', /身强、食旺与财的实际轻重仍须全局复核/);
+  assert.equal(mixedWealth.pattern, '食神格');
+  assert.match(mixedWealth.basis || '', /丙正财、丁偏财同透/);
+  assert.match(mixedWealth.basis || '', /正偏财叠出结构/);
+  assert.match(mixedWealth.basis || '', /不推导富贵等级/);
+});
+
+test('食神格藏食露伤只记录客观结构而不推导性情', () => {
+  const result = determinePattern(
+    createPillars('丁亥', '癸卯', '癸卯', '甲寅'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.equal(result.pattern, '食神格');
+  assert.match(result.basis || '', /月令藏乙食神而外干见时干甲伤官/);
+  assert.match(result.basis || '', /藏食露伤.*客观结构/);
+  assert.match(result.basis || '', /不据此推导性情/);
+  assert.doesNotMatch(result.basis || '', /性刚|性情刚强/);
+});
+
+test('食神用杀应区分杀印并见与无印无财单露七杀', () => {
+  const killerResource = determinePattern(
+    createPillars('辛卯', '辛卯', '癸酉', '己未'),
+    '待综合判断',
+    getTenGod,
+  );
+  const killerOnly = determinePattern(
+    createPillars('戊戌', '壬戌', '丙子', '戊戌'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.equal(killerResource.pattern, '食神格');
+  assert.match(killerResource.basis || '', /不用财而就杀印.*局部结构/);
+  assert.match(killerResource.basis || '', /无财星明透/);
+  assert.doesNotMatch(killerResource.basis || '', /无印而单露偏官/);
+  assert.equal(killerOnly.pattern, '食神格');
+  assert.match(killerOnly.basis || '', /月干壬七杀单露/);
+  assert.match(killerOnly.basis || '', /无印而单露偏官、无财透/);
+  assert.match(killerOnly.basis || '', /不据此认定贵格/);
+});
+
+test('食神格气候例外应保留金水与夏木前提而不以月份代判调候成败', () => {
+  const summerWealth = determinePattern(
+    createPillars('己未', '己巳', '甲寅', '丙寅'),
+    '待综合判断',
+    getTenGod,
+  );
+  const summerResource = determinePattern(
+    createPillars('丙午', '癸巳', '甲子', '丙寅'),
+    '待综合判断',
+    getTenGod,
+  );
+  const metalWaterKiller = determinePattern(
+    createPillars('丁亥', '壬子', '辛巳', '丁酉'),
+    '待综合判断',
+    getTenGod,
+  );
+  const metalWaterOfficer = determinePattern(
+    createPillars('壬申', '壬子', '辛巳', '丙申'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.match(summerWealth.basis || '', /夏木用财.*气候候选/);
+  assert.match(summerWealth.basis || '', /火炎土燥是否成立仍须结合全局复核/);
+  assert.match(summerResource.basis || '', /夏火太炎、透印不碍.*调候候选/);
+  assert.match(summerResource.basis || '', /火炎木焦不能由月份或印星数量单独闭合/);
+  assert.match(metalWaterKiller.basis || '', /金水食神用杀.*气候类别候选/);
+  assert.match(metalWaterOfficer.basis || '', /金水食神见官不忌.*气候例外候选/);
+  assert.doesNotMatch(
+    [summerWealth, summerResource, metalWaterKiller, metalWaterOfficer]
+      .map((item) => item.basis)
+      .join('\n'),
+    /判定为(?:贵格|富贵)|必贵|武职已定/,
+  );
+});
+
+test('食神格应区分财解夺食、官杀竞出、合杀存财与财食杀位置', () => {
+  const wealthSavesFood = determinePattern(
+    createPillars('甲子', '丁卯', '癸酉', '庚申'),
+    '待综合判断',
+    getTenGod,
+  );
+  const officerKiller = determinePattern(
+    createPillars('庚申', '己卯', '癸酉', '戊午'),
+    '待综合判断',
+    getTenGod,
+  );
+  const combinedKiller = determinePattern(
+    createPillars('丁卯', '壬子', '辛未', '戊子'),
+    '待综合判断',
+    getTenGod,
+  );
+  const ordered = determinePattern(
+    createPillars('癸酉', '辛酉', '己卯', '乙亥'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.match(wealthSavesFood.basis || '', /印来夺食、透财以解.*局部救应候选/);
+  assert.match(wealthSavesFood.basis || '', /财能否实际制印护食仍须.*复核/);
+  assert.match(officerKiller.basis || '', /官杀竞出结构/);
+  assert.match(officerKiller.basis || '', /不抢先认定已经取清或最终成败/);
+  assert.match(combinedKiller.basis || '', /年干丁七杀与月干壬伤官相邻五合/);
+  assert.match(combinedKiller.basis || '', /食神格“合杀存财”的局部取清候选/);
+  assert.match(ordered.basis || '', /年干癸偏财在先、月干辛食神居中、时干乙七杀在后/);
+  assert.match(ordered.basis || '', /财先杀后、食以间之/);
+  assert.match(ordered.basis || '', /不据此推导贵贱/);
+});
+
+test('论食神十个原典例型应保留结构事实且不覆盖既有格名边界', () => {
+  const examples: Array<{
+    pillars: [string, string, string, string];
+    marker: RegExp;
+  }> = [
+    { pillars: ['丁未', '癸卯', '癸亥', '癸丑'], marker: /原典梁丞相精确例型/ },
+    { pillars: ['己未', '壬申', '戊子', '庚申'], marker: /原典谢阁老精确例型/ },
+    { pillars: ['丁亥', '癸卯', '癸卯', '甲寅'], marker: /原典沈路分精确例型/ },
+    { pillars: ['甲午', '丁卯', '癸丑', '丙辰'], marker: /原典龚知县精确例型/ },
+    { pillars: ['己未', '己巳', '甲寅', '丙寅'], marker: /原典黄都督精确例型/ },
+    { pillars: ['辛卯', '辛卯', '癸酉', '己未'], marker: /原典常国公精确例型/ },
+    { pillars: ['戊戌', '壬戌', '丙子', '戊戌'], marker: /原典胡会元精确例型/ },
+    { pillars: ['丁亥', '壬子', '辛巳', '丁酉'], marker: /原典舒尚书精确例型/ },
+    { pillars: ['丙午', '癸巳', '甲子', '丙寅'], marker: /原典钱参政精确例型/ },
+    { pillars: ['癸酉', '辛酉', '己卯', '乙亥'], marker: /原典刘提台精确例型/ },
+  ];
+
+  examples.forEach(({ pillars, marker }) => {
+    const result = determinePattern(createPillars(...pillars), '待综合判断', getTenGod);
+    assert.match(result.basis || '', marker);
+    assert.doesNotMatch(result.basis || '', /格局评分|成功率|现实财富必然/);
+  });
+  assert.equal(
+    determinePattern(createPillars('己未', '壬申', '戊子', '庚申'), '待综合判断', getTenGod)
+      .pattern,
+    '待综合判断',
+  );
+});
