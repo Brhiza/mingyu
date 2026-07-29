@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { analyzeBladePatternStructure } from '@core/bazi/baziBladePattern';
 import { analyzeHurtPatternStructure } from '@core/bazi/baziHurtPattern';
 import { determinePattern } from '@core/bazi/baziPatternStrategy';
 import { analyzeKillerPatternStructure } from '@core/bazi/baziKillerPattern';
@@ -1988,6 +1989,154 @@ test('论七杀八个原典例型应保存结构事实并禁止高风险强断',
     assert.doesNotMatch(
       result.basis || '',
       /判定为(?:贵格|富贵|贫贱)|必贵|大贵已定|官品|格局评分|成功率/,
+    );
+  });
+});
+
+test('月刃官杀制伏应区分明透、藏根与财印相随，不按数量判高低', () => {
+  const exposedPillars = createPillars('己酉', '丙子', '壬寅', '丙午');
+  const exposed = determinePattern(exposedPillars, '待综合判断', getTenGod);
+  const hiddenPillars = createPillars('甲午', '癸酉', '庚寅', '戊寅');
+  const hidden = determinePattern(hiddenPillars, '待综合判断', getTenGod);
+
+  assert.equal(exposed.pattern, '月刃格');
+  assert.match(exposed.basis || '', /阳刃格成败边界/);
+  assert.match(exposed.basis || '', /日主壬为五阳干.*月支子确为其真阳刃位/);
+  assert.match(exposed.basis || '', /年干己正官明透.*官杀制刃的组成候选/);
+  assert.match(exposed.basis || '', /只证明存在官杀同类藏根.*不按根数或藏干层级判“根深”/);
+  assert.match(exposed.basis || '', /官杀制刃候选同时见月干丙偏财、时干丙偏财.*财印相随/);
+  assert.match(hidden.basis || '', /外干未见官杀/);
+  assert.match(hidden.basis || '', /午藏丁正官.*寅藏丙七杀/);
+  assert.match(hidden.basis || '', /只闭合“官杀藏而不露”的客观类别/);
+  assert.equal(
+    analyzeBladePatternStructure(exposedPillars, exposed.pattern, getTenGod).isBladePattern,
+    true,
+  );
+  assert.doesNotMatch(exposed.basis || '', /判定为(?:大贵|小贵|贵格)|官品已定/);
+});
+
+test('阳刃透出应区分用官不虑与用杀五合冲突，并禁止自动认定贪合无成', () => {
+  const officerPillars = createPillars('丁酉', '丙午', '丙申', '癸巳');
+  const officer = determinePattern(officerPillars, '待综合判断', getTenGod);
+  const killerPillars = createPillars('丁酉', '丙午', '丙申', '壬辰');
+  const killer = determinePattern(killerPillars, '待综合判断', getTenGod);
+  const killerStructure = analyzeBladePatternStructure(killerPillars, killer.pattern, getTenGod);
+
+  assert.match(officer.basis || '', /阳刃用官候选另见年干丁劫财透出/);
+  assert.match(officer.basis || '', /“透刃不虑”的局部边界/);
+  assert.match(killer.basis || '', /年干丁刃星与时干壬七杀构成天干五合固定关系/);
+  assert.match(killer.basis || '', /“贪合忘克”的冲突候选/);
+  assert.match(killer.basis || '', /不等于已经合化、七杀必然失去制刃作用或格局无成/);
+  assert.equal(killerStructure.bladeKillerCombinationFacts.length, 1);
+  assert.doesNotMatch(killer.basis || '', /七杀已经贪合忘克|判定为无成|已合化/);
+});
+
+test('官杀制刃带伤食应保留印护、裁损与留杀取清三个条件方向', () => {
+  const protectedResult = determinePattern(
+    createPillars('甲午', '癸酉', '庚寅', '戊寅'),
+    '待综合判断',
+    getTenGod,
+  );
+  const reduced = determinePattern(
+    createPillars('甲寅', '庚午', '戊申', '甲寅'),
+    '待综合判断',
+    getTenGod,
+  );
+  const clearedPillars = createPillars('丙戌', '丁酉', '庚申', '壬午');
+  const cleared = determinePattern(clearedPillars, '待综合判断', getTenGod);
+
+  assert.match(protectedResult.basis || '', /戊偏印与癸伤官五合/);
+  assert.match(protectedResult.basis || '', /印护固定组件/);
+  assert.match(protectedResult.basis || '', /不认定五合已经成化、官星已获保护/);
+  assert.match(reduced.basis || '', /庚食神明透.*食神制杀的裁损组件/);
+  assert.match(reduced.basis || '', /杀太重、根太重与制杀适度均须全局复核/);
+  assert.match(cleared.basis || '', /丙七杀、丁正官、壬食神并透/);
+  assert.match(cleared.basis || '', /壬与丁五合/);
+  assert.match(cleared.basis || '', /阳刃格利留杀的取清组件候选/);
+  assert.match(cleared.basis || '', /不等于官星已去、七杀已留或清格完成/);
+  assert.ok(
+    analyzeBladePatternStructure(clearedPillars, cleared.pattern, getTenGod).clearingComponents
+      .length > 0,
+  );
+});
+
+test('官杀并透没有实际制合组件时应保持混杂，不因月刃喜杀自动取清', () => {
+  const result = determinePattern(
+    createPillars('壬子', '丙午', '丙申', '癸巳'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.equal(result.pattern, '月刃格');
+  assert.match(result.basis || '', /时干癸正官与年干壬七杀并透/);
+  assert.match(result.basis || '', /未见伤官制官或食伤五合正官的实际取清组件/);
+  assert.match(result.basis || '', /保持官杀混杂/);
+  assert.match(result.basis || '', /不因月刃喜杀直接宣称已经留杀取清/);
+});
+
+test('戊午透丙会火只列化刃为印候选，财杀并露不得套作生杀制刃', () => {
+  const transformedPillars = createPillars('丙戌', '甲午', '戊申', '甲寅');
+  const transformed = determinePattern(transformedPillars, '待综合判断', getTenGod);
+  const conflictedPillars = createPillars('丙寅', '甲午', '戊申', '壬戌');
+  const conflicted = determinePattern(conflictedPillars, '待综合判断', getTenGod);
+  const conflictedStructure = analyzeBladePatternStructure(
+    conflictedPillars,
+    conflicted.pattern,
+    getTenGod,
+  );
+
+  assert.match(transformed.basis || '', /戊日生午月.*透丙偏印/);
+  assert.match(transformed.basis || '', /寅午戌三合火固定结构.*“化刃为印”的固定结构候选/);
+  assert.match(transformed.basis || '', /不等于已经合化或刃已转印/);
+  assert.match(transformed.basis || '', /“去刃存印”的进一步复核方向/);
+  assert.match(conflicted.basis || '', /财杀并露/);
+  assert.match(conflicted.basis || '', /财坏印、财生杀与杀制刃之间的冲突/);
+  assert.match(conflicted.basis || '', /不得直接套作“生杀制刃”或输出富贵两空结论/);
+  assert.equal(conflictedStructure.hasWuFireTransformationCandidate, true);
+  assert.doesNotMatch(conflicted.basis || '', /已经化刃为印|判定为富贵两空/);
+});
+
+test('阳刃用财应区分伤食转关与刃财相搏，财根深仍须全局复核', () => {
+  const redirected = determinePattern(
+    createPillars('辛酉', '甲午', '戊寅', '壬戌'),
+    '待综合判断',
+    getTenGod,
+  );
+  const conflicted = determinePattern(
+    createPillars('辛酉', '甲午', '丙申', '壬辰'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.match(redirected.basis || '', /财星取用事实/);
+  assert.match(redirected.basis || '', /四支未见财星藏干.*“财根深”前提尚未闭合/);
+  assert.match(redirected.basis || '', /伤食来源.*“转刃生财”的组成候选/);
+  assert.match(redirected.basis || '', /不据此直接认定财根深、已经转生、取贵或就富/);
+  assert.match(conflicted.basis || '', /只证明存在财根.*不按支数或藏干层级判“财根深”/);
+  assert.match(conflicted.basis || '', /未见伤食明透或完整会局作为转关组件/);
+  assert.match(conflicted.basis || '', /保存刃财相搏的局部冲突/);
+  assert.match(conflicted.basis || '', /不据单项直接宣称不成局/);
+});
+
+test('论阳刃五个原典例型应保存精确结构并禁止高风险强断', () => {
+  const examples: Array<{
+    pillars: [string, string, string, string];
+    marker: RegExp;
+  }> = [
+    { pillars: ['己酉', '丙子', '壬寅', '丙午'], marker: /原典阳刃用官精确例型/ },
+    { pillars: ['辛酉', '甲午', '丙申', '壬辰'], marker: /原典阳刃露杀精确例型/ },
+    { pillars: ['甲午', '癸酉', '庚寅', '戊寅'], marker: /原典穆同知精确例型/ },
+    { pillars: ['甲寅', '庚午', '戊申', '甲寅'], marker: /原典贾平章精确例型/ },
+    { pillars: ['丙戌', '丁酉', '庚申', '壬午'], marker: /原典阳刃官杀取清精确例型/ },
+  ];
+
+  examples.forEach(({ pillars, marker }) => {
+    const result = determinePattern(createPillars(...pillars), '待综合判断', getTenGod);
+    assert.equal(result.pattern, '月刃格');
+    assert.match(result.basis || '', marker);
+    assert.doesNotMatch(
+      result.basis || '',
+      /判定为(?:成格|破格|富贵|贫贱|贵格)|必贵|大贵已定|官品已定|格局评分|成功率/,
     );
   });
 });

@@ -6,6 +6,7 @@ import {
   type CompleteBranchFormation,
 } from './baziFormationUtils';
 import { canUseExternalPattern } from './baziExternalPatternEligibility';
+import { analyzeBladePatternStructure } from './baziBladePattern';
 import { analyzeHurtPatternStructure } from './baziHurtPattern';
 import { analyzeKillerPatternStructure } from './baziKillerPattern';
 import { analyzeOfficerPatternStructure } from './baziOfficerPattern';
@@ -1422,6 +1423,225 @@ function collectHurtPatternNotes(
 }
 
 /**
+ * 复算《子平真诠》“论阳刃”中能够由四柱闭合的真刃、官杀制刃、透刃五合、
+ * 财印伤食配合、化刃为印固定结构与用财转生组件。
+ * 根深、轻重、合化、制刃力度、贪合忘克及贵贱均不由数量或单项关系代替。
+ */
+function collectBladePatternNotes(
+  pillars: Pillars,
+  patternName: string,
+  getTenGod: GetTenGodFn,
+): string[] {
+  const structure = analyzeBladePatternStructure(pillars, patternName, getTenGod);
+  const notes: string[] = [];
+  const dayMaster = pillars.day.gan;
+  const isExact = (year: string, month: string, day: string, hour: string) =>
+    pillars.year.ganZhi === year &&
+    pillars.month.ganZhi === month &&
+    pillars.day.ganZhi === day &&
+    pillars.hour.ganZhi === hour;
+  const formatStems = (facts: typeof structure.exposedStems) =>
+    facts.map((fact) => `${fact.label}${fact.stem}${fact.tenGod}`).join('、');
+  const formatHiddenFacts = (facts: typeof structure.officerKillerHiddenFacts) =>
+    facts
+      .map(
+        (fact) =>
+          `${fact.label}${fact.branch}藏${fact.hiddenStems
+            .map((stem) => `${stem}${getTenGod(stem, dayMaster)}`)
+            .join('、')}`,
+      )
+      .join('、');
+  const formatFormations = (facts: typeof structure.fireFormationFacts) =>
+    facts.map((fact) => `${fact.branches.join('')}${fact.type}${fact.wuxing}固定结构`).join('、');
+
+  const exactExamples: Array<{
+    pillars: [string, string, string, string];
+    note: string;
+  }> = [
+    {
+      pillars: ['己酉', '丙子', '壬寅', '丙午'],
+      note: '原典阳刃用官精确例型己酉、丙子、壬寅、丙午，壬日子月真刃，己正官与丙偏财明透并见午中丁财；只保存官透、财助及官杀根气待审的组成事实，不以财数或支数判官根深、贵格大小',
+    },
+    {
+      pillars: ['辛酉', '甲午', '丙申', '壬辰'],
+      note: '原典阳刃露杀精确例型辛酉、甲午、丙申、壬辰，丙日午月真刃，壬七杀、辛正财与甲偏印明透，申中藏壬七杀而辰中藏癸正官；只保存杀透、财印相随及官杀藏根事实，不以藏根支数、层级或明透数量判根浅与贵格',
+    },
+    {
+      pillars: ['甲午', '癸酉', '庚寅', '戊寅'],
+      note: '原典穆同知精确例型甲午、癸酉、庚寅、戊寅，庚日酉月真刃，癸伤官明透而午藏丁官，戊偏印与癸伤官五合；只保存伤食见官与印护固定组件，不认定五合已经成化、官星已获保护或贵格成立',
+    },
+    {
+      pillars: ['甲寅', '庚午', '戊申', '甲寅'],
+      note: '原典贾平章精确例型甲寅、庚午、戊申、甲寅，戊日午月真刃，甲七杀两透并在寅中有根、庚食神明透；只保存食神制杀的裁损组件，杀太重、根太重与制杀适度均须全局复核',
+    },
+    {
+      pillars: ['丙戌', '丁酉', '庚申', '壬午'],
+      note: '原典阳刃官杀取清精确例型丙戌、丁酉、庚申、壬午，庚日酉月真刃，丙七杀、丁正官、壬食神并透，壬与丁五合；只保存合官留杀的固定取清组件，五合不等于已经合化、官杀已清或贵格成立',
+    },
+  ];
+  exactExamples.forEach((example) => {
+    if (isExact(...example.pillars)) notes.push(example.note);
+  });
+
+  if (!structure.isBladePattern) return notes;
+
+  notes.push(
+    `日主${dayMaster}为五阳干，月支${pillars.month.zhi}确为其真阳刃位${structure.bladeStem ? `且藏${structure.bladeStem}劫财` : ''}；当前只核验官杀伏制、财印伤食配合与固定取清组件，不把阳刃本身直接判成凶吉、贵贱或现实事件`,
+  );
+
+  const controlStems = [...structure.officerStems, ...structure.killerStems].sort(
+    (left, right) => left.columnIndex - right.columnIndex,
+  );
+  if (controlStems.length > 0) {
+    const rootBoundary = structure.officerKillerHiddenFacts.length
+      ? `；四支另见${formatHiddenFacts(structure.officerKillerHiddenFacts)}，只证明存在官杀同类藏根，不按根数或藏干层级判“根深”`
+      : '；四支未见官杀同类藏干，但“根浅”及制刃力度仍不能仅由当前缺项直接定案';
+    notes.push(
+      `月刃格见${formatStems(controlStems)}明透，列官杀制刃的组成候选${rootBoundary}；官杀有力、藏露高低及最终成败仍须全局复核`,
+    );
+  } else if (structure.officerKillerHiddenFacts.length > 0) {
+    notes.push(
+      `外干未见官杀，四支见${formatHiddenFacts(structure.officerKillerHiddenFacts)}，只闭合“官杀藏而不露”的客观类别；不据藏干数量判根深、贵格高低或已经制刃`,
+    );
+  }
+
+  if (
+    controlStems.length > 0 &&
+    (structure.wealthStems.length > 0 || structure.resourceStems.length > 0)
+  ) {
+    const accompanying = [...structure.wealthStems, ...structure.resourceStems].sort(
+      (left, right) => left.columnIndex - right.columnIndex,
+    );
+    notes.push(
+      `官杀制刃候选同时见${formatStems(accompanying)}明透，列“财印相随”的客观配合；财能否生官杀、印能否护制及实际轻重不得由同见直接闭合`,
+    );
+  }
+
+  if (structure.officerStems.length > 0 && structure.bladeStems.length > 0) {
+    notes.push(
+      `阳刃用官候选另见${formatStems(structure.bladeStems)}透出；对应原典“透刃不虑”的局部边界，但官星根气、受合受制与全局配合仍须另审`,
+    );
+  }
+
+  if (structure.bladeKillerCombinationFacts.length > 0) {
+    notes.push(
+      `${structure.bladeKillerCombinationFacts
+        .map(
+          ({ left, right }) =>
+            `${left.label}${left.stem}刃星与${right.label}${right.stem}七杀构成天干五合固定关系`,
+        )
+        .join(
+          '、',
+        )}；列阳刃露杀又透刃时“贪合忘克”的冲突候选，五合事实不等于已经合化、七杀必然失去制刃作用或格局无成`,
+    );
+  }
+
+  if (controlStems.length > 0 && structure.outputStems.length > 0) {
+    notes.push(
+      `官杀制刃候选同时见${formatStems(structure.outputStems)}明透，形成制刃带伤食结构；只在印护、官杀太重需裁损或官杀轻需取清等条件另经全局成立时复核，不据伤食同见直接定成败`,
+    );
+    if (structure.resourceStems.length > 0) {
+      const combinationBoundary = structure.resourceOutputCombinationFacts.length
+        ? `，其中${structure.resourceOutputCombinationFacts
+            .map(
+              ({ left, right }) =>
+                `${left.label}${left.stem}${left.tenGod}与${right.label}${right.stem}${right.tenGod}有天干五合固定关系`,
+            )
+            .join('、')}`
+        : '';
+      notes.push(
+        `${formatStems(structure.resourceStems)}与伤食同见${combinationBoundary}，列“印护”候选；五合、制伤或护官杀结果均不得由同见直接认定`,
+      );
+    }
+    if (structure.killerStems.length > 0) {
+      notes.push(
+        `${formatStems(structure.killerStems)}与${formatStems(structure.outputStems)}同透，只在七杀太重另经全局成立时列伤食裁损候选；不以七杀透出次数、藏根支数或单一食伤判杀重与制伏适度`,
+      );
+    }
+  }
+
+  if (structure.hasOfficerKillerMixture) {
+    if (structure.clearingComponents.length > 0) {
+      notes.push(
+        `${formatStems(structure.officerStems)}与${formatStems(structure.killerStems)}并透，另见${structure.clearingComponents
+          .map(({ method, officer, output }) =>
+            method === '伤官制官'
+              ? `${output.label}${output.stem}伤官制${officer.label}${officer.stem}正官`
+              : `${output.label}${output.stem}${output.tenGod}与${officer.label}${officer.stem}正官五合`,
+          )
+          .join('、')}，列阳刃格利留杀的取清组件候选；制合事实不等于官星已去、七杀已留或清格完成`,
+      );
+    } else {
+      notes.push(
+        `${formatStems(structure.officerStems)}与${formatStems(structure.killerStems)}并透，但外干未见伤官制官或食伤五合正官的实际取清组件；保持官杀混杂，不因月刃喜杀直接宣称已经留杀取清`,
+      );
+    }
+  }
+
+  if (
+    structure.isBingWuBlade &&
+    (controlStems.length > 0 || structure.officerKillerHiddenFacts.length > 0)
+  ) {
+    const supportFacts = [...structure.wealthStems, ...structure.resourceStems].sort(
+      (left, right) => left.columnIndex - right.columnIndex,
+    );
+    const supportBoundary =
+      supportFacts.length > 0
+        ? `；另见${formatStems(supportFacts)}，保存带财佩印的配合事实`
+        : '；外干财印配合尚未出现';
+    notes.push(
+      `丙日生午月，月令午内藏己伤官，对水官杀存在局部制约${supportBoundary}；水火轻重、己土是否实际克水及财印能否救应均须全局复核`,
+    );
+  }
+
+  if (structure.hasWuFireTransformationCandidate) {
+    notes.push(
+      `戊日生午月，外干透丙偏印且月支参与${formatFormations(structure.fireFormationFacts)}，列“化刃为印”的固定结构候选；三支齐全与丙印明透均不等于已经合化或刃已转印`,
+    );
+    if (controlStems.length > 0) {
+      notes.push(
+        `化刃为印候选同时见${formatStems(controlStems)}明透，列“去刃存印”的进一步复核方向；官杀强弱、会局成化与清格结果仍不得提前闭合`,
+      );
+    }
+    if (structure.wealthStems.length > 0 && structure.killerStems.length > 0) {
+      notes.push(
+        `化刃为印候选又见${formatStems(structure.wealthStems)}与${formatStems(structure.killerStems)}财杀并露，保存财坏印、财生杀与杀制刃之间的冲突；不得直接套作“生杀制刃”或输出富贵两空结论`,
+      );
+    }
+  }
+
+  const wealthUseSources = [
+    ...(structure.wealthStems.length > 0 ? [formatStems(structure.wealthStems)] : []),
+    ...(structure.wealthFormationFacts.length > 0
+      ? [formatFormations(structure.wealthFormationFacts)]
+      : []),
+  ];
+  if (wealthUseSources.length > 0) {
+    const wealthRootBoundary =
+      structure.wealthHiddenFacts.length > 0
+        ? `；四支见${formatHiddenFacts(structure.wealthHiddenFacts)}，只证明存在财根，不按支数或藏干层级判“财根深”`
+        : '；四支未见财星藏干，原典“财根深”前提尚未闭合';
+    const outputUseSources = [
+      ...(structure.outputStems.length > 0 ? [formatStems(structure.outputStems)] : []),
+      ...(structure.outputFormationFacts.length > 0
+        ? [formatFormations(structure.outputFormationFacts)]
+        : []),
+    ];
+    if (outputUseSources.length > 0) {
+      notes.push(
+        `月刃格见${wealthUseSources.join('、')}财星取用事实${wealthRootBoundary}；另见${outputUseSources.join('、')}伤食来源，列“转刃生财”的组成候选，不据此直接认定财根深、已经转生、取贵或就富`,
+      );
+    } else {
+      notes.push(
+        `月刃格见${wealthUseSources.join('、')}财星取用事实${wealthRootBoundary}，但未见伤食明透或完整会局作为转关组件；保存刃财相搏的局部冲突，不据单项直接宣称不成局`,
+      );
+    }
+  }
+
+  return notes;
+}
+
+/**
  * 复算《子平真诠》“论七杀”中能够由四柱闭合的食伤制杀、杀印、财印食取清、
  * 杂气无财透与官杀去留组件。强弱、合化、取清结果及贵贱均不由单项结构代替。
  */
@@ -2200,6 +2420,11 @@ export function determinePattern(
   const hurtPatternNotes = collectHurtPatternNotes(pillars, patternName, getTenGod);
   if (hurtPatternNotes.length > 0) {
     basis += `；伤官格成败边界：${hurtPatternNotes.join('；')}；以上只记录《子平真诠》“论伤官”中能够由当前四柱闭合的明透、月令同根、财印隔位、气候类别、固定会合关系与取清组件，不改变既有格名；伤身财印官杀强弱、根深、财旺、印重、合化结果及最终取舍仍须全局复核，也不推导才学、职业、富贵贫贱、官职品级、现实事件、分数或概率`;
+  }
+
+  const bladePatternNotes = collectBladePatternNotes(pillars, patternName, getTenGod);
+  if (bladePatternNotes.length > 0) {
+    basis += `；阳刃格成败边界：${bladePatternNotes.join('；')}；以上只记录《子平真诠》“论阳刃”中能够由当前四柱闭合的真刃、官杀藏透、财印伤食、天干五合、完整会局与取清组件，不改变既有格名；官杀财印伤食轻重、根深根浅、制刃力度、贪合忘克、会合成化及最终取舍仍须全局复核，也不推导性情、职业、富贵贫贱、官职品级、现实事件、分数或概率`;
   }
 
   const killerPatternNotes = collectKillerPatternNotes(pillars, patternName, getTenGod);

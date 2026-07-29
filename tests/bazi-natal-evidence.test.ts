@@ -333,17 +333,29 @@ test('真实月刃会印排盘应把杀财伤配合贯穿证据与最终提示�
     /年干辛（伤官）、月干甲（七杀）、时干壬（偏财）明透/,
   );
   assert.match(result.analysis.mingGe.basis || '', /阳刃喜官杀制伏/);
+  assert.match(result.analysis.mingGe.basis || '', /阳刃格成败边界/);
+  assert.match(result.analysis.mingGe.basis || '', /月干甲七杀明透.*官杀制刃的组成候选/);
+  assert.match(result.analysis.mingGe.basis || '', /年干辛伤官.*制刃带伤食结构/);
+  assert.match(result.analysis.mingGe.basis || '', /时干壬偏财.*财印相随/);
+  assert.match(result.analysis.mingGe.basis || '', /“转刃生财”的组成候选/);
 
   const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
   assert.equal(patternFact?.status, '已记录');
   assert.equal(patternFact?.result, '月刃格');
   assert.match(patternFact?.promptText || '', /寅午戌完整三合火结构（火印星）/);
   assert.match(patternFact?.promptText || '', /阳刃喜官杀制伏/);
+  assert.match(patternFact?.promptText || '', /阳刃格成败边界/);
+  assert.match(patternFact?.promptText || '', /官杀制刃的组成候选/);
+  assert.match(patternFact?.promptText || '', /“转刃生财”的组成候选/);
 
   const prompt = formatBaziForPrompt(result);
   assert.match(prompt, /格局: 月刃格/);
   assert.match(prompt, /寅午戌完整三合火结构（火印星）/);
   assert.match(prompt, /年干辛（伤官）、月干甲（七杀）、时干壬（偏财）明透/);
+  assert.match(prompt, /阳刃格成败边界/);
+  assert.match(prompt, /制刃带伤食结构/);
+  assert.match(prompt, /“转刃生财”的组成候选/);
+  assert.doesNotMatch(prompt, /判定为(?:富贵|贫贱)|格局评分|成功率/);
 });
 
 test('真实官印有情排盘应把原典同型关系贯穿证据与最终提示词', () => {
