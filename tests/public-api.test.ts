@@ -1998,6 +1998,7 @@ test('公开 API 紫微排盘接口支持按需返回指定范围', async () => 
   assert.ok(monthlyPalaces.every((palace) => palace.dynamic_scope_name));
   assert.ok(monthlyPalaces.some((palace) => palace.scope_stars.length > 0));
   assert.ok(monthlyPalaces.some((palace) => palace.scope_hits.includes('流月落宫')));
+  assert.ok(monthlyPalaces.every((palace) => palace.scope_hits.every((hit) => hit === '流月落宫')));
   assert.ok(monthlyPalaces.every((palace) => palace.mutaged_palaces?.length === 4));
   assert.ok(monthlyPalaces.every((palace) => Array.isArray(palace.self_mutagens)));
   const activeMonthlyPalace = monthlyPalaces.find(

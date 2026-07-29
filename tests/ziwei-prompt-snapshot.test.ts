@@ -504,7 +504,7 @@ test('紫微合盘内嵌盘面资料不应重复使用顶层 section 标题', ()
   assert.match(prompt, /重点宫位资料：\n/);
 });
 
-test('紫微证据池应输出大限流年流月流日落宫与运限四化飞入证据', () => {
+test('紫微证据池只应输出所选流年层级的落宫与运限四化飞入证据', () => {
   const palaces = createPayload().palaces;
   palaces[1] = {
     ...palaces[1],
@@ -631,15 +631,22 @@ test('紫微证据池应输出大限流年流月流日落宫与运限四化飞�
   const titles = evidence.map((item) => item.title).join('\n');
   const descriptions = evidence.map((item) => item.description).join('\n');
 
-  assert.match(titles, /大限（壬申大限）落入本命官禄宫/);
   assert.match(titles, /流年（丙午流年）落入本命财帛宫/);
-  assert.match(titles, /流月（甲午流月）落入本命夫妻宫/);
-  assert.match(titles, /流日（乙丑流日）落入本命迁移宫/);
+  assert.doesNotMatch(titles, /大限（壬申大限）落入/);
+  assert.doesNotMatch(titles, /流月（甲午流月）落入/);
+  assert.doesNotMatch(titles, /流日（乙丑流日）落入/);
+  assert.doesNotMatch(titles, /流时（丙子流时）落入/);
+  assert.doesNotMatch(titles, /小限落入/);
   assert.match(titles, /流年（丙午流年）天同化禄入本命财帛宫（当前流年（丙午流年）命宫）/);
   assert.match(titles, /流年（丙午流年）文昌化科入本命官禄宫/);
   assert.doesNotMatch(titles, /天同化禄入本命兄弟宫/);
   assert.match(descriptions, /流年（丙午流年）干支为丙午/);
   assert.match(descriptions, /运限命宫落于本命财帛宫/);
+  assert.ok(
+    evidence
+      .filter((item) => item.type.startsWith('scope_') || item.type === 'palace_scope_mutagen')
+      .every((item) => item.scope === 'yearly'),
+  );
   assert.ok(evidence.every((item) => !('level' in item)));
   assert.ok(evidence.every((item) => item.source?.includes('紫微')));
   assert.ok(evidence.every((item) => item.calculation));

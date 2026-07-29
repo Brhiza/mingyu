@@ -71,3 +71,20 @@ export function getCurrentScopeItem(
       return undefined;
   }
 }
+
+export function getCurrentScopeLandingPalace(horoscope: IztroHoroscope, currentScope: ScopeType) {
+  assertScopeType(currentScope);
+
+  switch (currentScope) {
+    case 'decadal':
+    case 'yearly':
+    case 'monthly':
+    case 'daily':
+    case 'hourly':
+      return horoscope.palace('命宫', currentScope);
+    case 'age':
+      return horoscope.agePalace();
+    case 'origin':
+      return undefined;
+  }
+}

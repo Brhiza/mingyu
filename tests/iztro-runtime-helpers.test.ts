@@ -406,6 +406,39 @@ test('紫微分析载荷应拒绝非法分析范围和不完整宫位', async ()
   );
 });
 
+test('紫微各分析载荷只保留当前明确选择的运限层级', async () => {
+  const astrolabe = await buildAstrolabeFromInput(DEFAULT_CHART_INPUT);
+  const horoscope = buildHoroscope(astrolabe, '2024-02-29', 6);
+  const cases = [
+    ['origin', undefined],
+    ['decadal', `${horoscope.decadal.name || '大限'}落宫`],
+    ['yearly', '流年落宫'],
+    ['monthly', '流月落宫'],
+    ['daily', '流日落宫'],
+    ['hourly', '流时落宫'],
+    ['age', '小限落宫'],
+  ] as const;
+
+  cases.forEach(([scope, expectedHit]) => {
+    const payload = buildAnalysisPayloadV1({ astrolabe, horoscope, currentScope: scope });
+    const scopeHits = payload.palaces.flatMap((palace) => palace.scope_hits);
+    const scopeFacts = payload.evidence_pool.filter(
+      (item) => item.type.startsWith('scope_') || item.type === 'palace_scope_mutagen',
+    );
+
+    assert.deepEqual(scopeHits, expectedHit ? [expectedHit] : [], `${scope} 宫位命中层级错误`);
+    assert.ok(
+      scopeFacts.every((item) => item.scope === scope),
+      `${scope} 证据池混入了其他运限层级`,
+    );
+    assert.equal(
+      scopeFacts.filter((item) => item.type === 'scope_landing').length,
+      scope === 'origin' ? 0 : 1,
+      `${scope} 运限落宫数量错误`,
+    );
+  });
+});
+
 test('紫微分析载荷应评估已登记格局并明确轻量模式未生成状态', async () => {
   const astrolabe = await buildAstrolabeFromInput(DEFAULT_CHART_INPUT);
   const horoscope = buildHoroscope(astrolabe, '2024-02-29', 6);

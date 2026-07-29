@@ -15,7 +15,7 @@ import type {
   PalaceFact,
   ScopeType,
 } from '../../../../types/analysis';
-import { resolveScopeLabel, type HoroscopeScopeItem } from './scope';
+import { getCurrentScopeLandingPalace, resolveScopeLabel, type HoroscopeScopeItem } from './scope';
 import { MUTAGEN_ORDER, mapScopeMutagenMap, mapStarFact } from './mappers';
 
 function buildFourPillars(astrolabe: IztroAstrolabe): FourPillars | undefined {
@@ -153,9 +153,7 @@ export function buildActiveScope(params: {
   const landingPalace =
     currentScope === 'origin'
       ? astrolabe.palace('命宫' as never)
-      : currentScope === 'age'
-        ? horoscope.agePalace()
-        : horoscope.palace('命宫' as never, currentScope);
+      : getCurrentScopeLandingPalace(horoscope, currentScope);
 
   return {
     scope: currentScope,
@@ -175,20 +173,23 @@ export function buildActiveScope(params: {
   };
 }
 
-function buildScopeHits(horoscope: IztroHoroscope, palaceIndex: number): string[] {
-  const hits: string[] = [];
-  const decadalLabel = horoscope.decadal.name || '大限';
-
-  if (horoscope.palace('命宫' as never, 'decadal')?.index === palaceIndex) {
-    hits.push(`${decadalLabel}落宫`);
+function buildScopeHits(
+  horoscope: IztroHoroscope,
+  currentScope: ScopeType,
+  palaceIndex: number,
+): string[] {
+  if (currentScope === 'origin') {
+    return [];
   }
-  if (horoscope.agePalace()?.index === palaceIndex) hits.push('小限落宫');
-  if (horoscope.palace('命宫' as never, 'yearly')?.index === palaceIndex) hits.push('流年落宫');
-  if (horoscope.palace('命宫' as never, 'monthly')?.index === palaceIndex) hits.push('流月落宫');
-  if (horoscope.palace('命宫' as never, 'daily')?.index === palaceIndex) hits.push('流日落宫');
-  if (horoscope.palace('命宫' as never, 'hourly')?.index === palaceIndex) hits.push('流时落宫');
 
-  return hits;
+  const landingPalace = getCurrentScopeLandingPalace(horoscope, currentScope);
+  if (landingPalace?.index !== palaceIndex) {
+    return [];
+  }
+
+  const label =
+    currentScope === 'decadal' ? horoscope.decadal.name || '大限' : resolveScopeLabel(currentScope);
+  return [`${label}落宫`];
 }
 
 function buildMutagedPlaces(palace: IztroPalace): MutagedPlaceItem[] {
@@ -283,7 +284,7 @@ export function buildPalaceFacts(params: {
     const scopeStarsRaw = currentScopeItem?.stars?.[palace.index] ?? [];
     const mutagedPlaces = buildMutagedPlaces(palace);
     const selfMutagens = buildSelfMutagens(palace);
-    const scopeHits = buildScopeHits(horoscope, palace.index);
+    const scopeHits = buildScopeHits(horoscope, params.currentScope, palace.index);
 
     return {
       index: palace.index,
