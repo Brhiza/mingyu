@@ -121,6 +121,7 @@ test('选择大运时会附带该大运下的全部流年', () => {
   assert.ok(context.promptPayload.triggerEvidence?.calculationSteps.length);
   assert.ok(context.promptPayload.triggerEvidence?.relationSummaryFact.relationCount);
   assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.wealthPatternRuleFacts));
+  assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.resourcePatternRuleFacts));
   assert.ok(
     context.promptPayload.triggerEvidence?.limitationFacts.some(
       (item) => item.type === '层级应期边界',

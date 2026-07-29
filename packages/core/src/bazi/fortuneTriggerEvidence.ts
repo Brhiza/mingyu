@@ -1,5 +1,6 @@
 import { BASIC_MAPPINGS, HIDDEN_STEMS } from './baziMappingsData';
 import { analyzeOfficerPatternStructure } from './baziOfficerPattern';
+import { analyzeResourcePatternStructure } from './baziResourcePattern';
 import { analyzeWealthPatternStructure } from './baziWealthPattern';
 import type { BaziChartResult } from './baziTypes';
 import { assertGanZhiPair, getTenGod } from './baziUtils';
@@ -57,6 +58,7 @@ export interface FortuneTriggerCalculationStep {
     | '藏干透出对应核验'
     | '正官取运核验'
     | '财格取运核验'
+    | '印格取运核验'
     | '关系汇总';
   status: '已计算';
   inputs: Record<string, string | number | boolean | string[]>;
@@ -182,6 +184,31 @@ export interface FortuneWealthPatternRuleFact {
   limitation: '财格取运事实只把原局已闭合的子结构与当前运字逐项对应；财旺、身旺、身轻、财食轻重与印旺仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件';
 }
 
+export type FortuneResourcePatternRuleType =
+  | '印用官取运候选'
+  | '印用官带伤食取运候选'
+  | '印用伤食取运候选'
+  | '印用七杀取运候选'
+  | '印用杀兼伤食取运候选'
+  | '印绶遇财取运候选'
+  | '印格官杀竞透取运候选';
+
+export interface FortuneResourcePatternRuleFact {
+  key: string;
+  status: '支持候选' | '带忌候选' | '条件待复核';
+  type: FortuneResourcePatternRuleType;
+  layerKey: string;
+  layerLabel: string;
+  ganZhi: string;
+  natalStructure: string;
+  trigger: string;
+  calculationStepKey: string;
+  dependsOnFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '印格取运事实只把原局已闭合的子结构与当前运字逐项对应；印重、印轻、身旺、官旺、财印轻重与各方是否有力仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件';
+}
+
 export interface FortuneTriggerFormationFact {
   key: string;
   status: '已命中';
@@ -265,6 +292,7 @@ export interface FortuneTriggerLimitationFact {
     | '成格变格边界'
     | '正官取运边界'
     | '财格取运边界'
+    | '印格取运边界'
     | '高风险输出边界';
   status: '适用';
   ownerFactKeys: string[];
@@ -283,6 +311,7 @@ export interface FortuneTriggerEvidenceResult {
   hiddenStemRevealFacts: FortuneHiddenStemRevealFact[];
   officerPatternRuleFacts: FortuneOfficerPatternRuleFact[];
   wealthPatternRuleFacts: FortuneWealthPatternRuleFact[];
+  resourcePatternRuleFacts: FortuneResourcePatternRuleFact[];
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   primaryRelations: FortuneTriggerRelation[];
@@ -320,6 +349,8 @@ const OFFICER_PATTERN_RULE_LIMITATION =
   '正官取运事实只把原局已闭合的子结构与当前运字逐项对应；身轻、官轻、财轻、官重、身旺及合化成败仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件' as const;
 const WEALTH_PATTERN_RULE_LIMITATION =
   '财格取运事实只把原局已闭合的子结构与当前运字逐项对应；财旺、身旺、身轻、财食轻重与印旺仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件' as const;
+const RESOURCE_PATTERN_RULE_LIMITATION =
+  '印格取运事实只把原局已闭合的子结构与当前运字逐项对应；印重、印轻、身旺、官旺、财印轻重与各方是否有力仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件' as const;
 const HIDDEN_STEM_RANKS = ['本气', '中气', '余气'] as const;
 const WUXING_VALUES = new Set(['木', '火', '土', '金', '水']);
 
@@ -1342,6 +1373,400 @@ function buildWealthPatternRuleAnalysis(params: {
   return { facts, calculationStep, applicable: true };
 }
 
+function buildResourcePatternRuleAnalysis(params: {
+  result: BaziChartResult;
+  layerStructureFacts: FortuneLayerStructureFact[];
+}): {
+  facts: FortuneResourcePatternRuleFact[];
+  calculationStep?: FortuneTriggerCalculationStep;
+  applicable: boolean;
+} {
+  const patternName = params.result.analysis?.mingGe?.pattern ?? '';
+  const structure = analyzeResourcePatternStructure(params.result.pillars, patternName);
+  if (!structure.isResourcePattern) return { facts: [], applicable: false };
+
+  const facts: FortuneResourcePatternRuleFact[] = [];
+  const calculationStepKey = 'bazi:fortune-trigger:calculation:resource-pattern-rules';
+  const addFact = (
+    layer: FortuneLayerStructureFact,
+    slug: string,
+    type: FortuneResourcePatternRuleType,
+    status: FortuneResourcePatternRuleFact['status'],
+    natalStructure: string,
+    trigger: string,
+  ) => {
+    facts.push({
+      key: `bazi:fortune-trigger:resource-pattern:${layer.layerType}:${layer.layerId}:${slug}`,
+      status,
+      type,
+      layerKey: layer.layerKey,
+      layerLabel: layer.layerLabel,
+      ganZhi: layer.ganZhi,
+      natalStructure,
+      trigger,
+      calculationStepKey,
+      dependsOnFactKeys: [layer.key],
+      promptText: `${layer.layerLabel}${layer.ganZhi}：${natalStructure}；${trigger}，列为${status}`,
+      sources: ['《子平真诠评注》“印格取运”', '原局印格子结构与岁运干支分层事实逐项核验'],
+      limitation: RESOURCE_PATTERN_RULE_LIMITATION,
+    });
+  };
+
+  const natalOfficers = formatNatalStems(structure.officerStems);
+  const natalKillers = formatNatalStems(structure.killerStems);
+  const natalWealth = formatNatalStems(structure.wealthStems);
+  const natalOutputs = [
+    formatNatalStems(structure.outputStems),
+    ...structure.outputFormations.map(
+      (formation) => `${formation.branches.join('')}完整${formation.type}${formation.wuxing}局`,
+    ),
+  ]
+    .filter(Boolean)
+    .join('、');
+  const hasOutput = structure.outputStems.length > 0 || structure.outputFormations.length > 0;
+  const hasOfficerWithoutKiller =
+    structure.officerStems.length > 0 && structure.killerStems.length === 0;
+  const hasKillerWithoutOfficer =
+    structure.killerStems.length > 0 && structure.officerStems.length === 0;
+  const hasMixedOfficerKiller =
+    structure.officerStems.length > 0 && structure.killerStems.length > 0;
+  const hasPureOutput =
+    hasOutput && structure.officerStems.length === 0 && structure.killerStems.length === 0;
+
+  params.layerStructureFacts.forEach((layer) => {
+    const resourceTriggers = describeLayerTenGods(layer, ['正印', '偏印']);
+    const peerTriggers = describeLayerTenGods(layer, ['比肩', '劫财']);
+    const robberyTriggers = describeLayerTenGods(layer, ['劫财']);
+    const outputTriggers = describeLayerTenGods(layer, ['食神', '伤官']);
+    const wealthTriggers = describeLayerTenGods(layer, ['正财', '偏财']);
+    const officerTriggers = describeLayerTenGods(layer, ['正官']);
+    const killerTriggers = describeLayerTenGods(layer, ['七杀']);
+
+    if (hasOfficerWithoutKiller && !hasOutput) {
+      const natalStructure = `原局${natalOfficers}明透且未见七杀、食伤明透或成局，具印用官局部结构`;
+      if (wealthTriggers.length > 0) {
+        addFact(
+          layer,
+          'officer-wealth',
+          '印用官取运候选',
+          '条件待复核',
+          natalStructure,
+          `${wealthTriggers.join('、')}只在“官露印重”另经全局闭合时，对应财运反吉候选`,
+        );
+      }
+      if (outputTriggers.length > 0) {
+        addFact(
+          layer,
+          'officer-output',
+          '印用官取运候选',
+          '条件待复核',
+          natalStructure,
+          `${outputTriggers.join('、')}只在“官露印重”另经全局闭合时，对应伤食有利候选`,
+        );
+      }
+    }
+
+    if (hasOfficerWithoutKiller && hasOutput) {
+      const natalStructure = `原局${natalOfficers}与${natalOutputs}同见，具印用官带伤食局部结构`;
+      if (officerTriggers.length > 0) {
+        addFact(
+          layer,
+          'officer-output-officer',
+          '印用官带伤食取运候选',
+          '条件待复核',
+          natalStructure,
+          `${officerTriggers.join('、')}只作官旺方向组件，单个官星运字不直接证明官旺`,
+        );
+      }
+      if (resourceTriggers.length > 0) {
+        addFact(
+          layer,
+          'officer-output-resource',
+          '印用官带伤食取运候选',
+          '支持候选',
+          natalStructure,
+          `${resourceTriggers.join('、')}对应原典所喜印绶之乡`,
+        );
+      }
+      if (outputTriggers.length > 0) {
+        addFact(
+          layer,
+          'officer-output-output',
+          '印用官带伤食取运候选',
+          '带忌候选',
+          natalStructure,
+          `${outputTriggers.join('、')}对应原典“伤食为害”`,
+        );
+      }
+      if (killerTriggers.length > 0) {
+        addFact(
+          layer,
+          'officer-output-killer',
+          '印用官带伤食取运候选',
+          '支持候选',
+          natalStructure,
+          `${killerTriggers.join('、')}对应原典“逢煞不忌”的局部候选`,
+        );
+      }
+    }
+
+    if (hasPureOutput) {
+      const natalStructure = `原局${natalOutputs}明透或成完整会局且未见官杀明透，具印用伤食局部结构`;
+      if (wealthTriggers.length > 0) {
+        addFact(
+          layer,
+          'output-wealth',
+          '印用伤食取运候选',
+          '支持候选',
+          natalStructure,
+          `${wealthTriggers.join('、')}对应原典一般所喜财运`,
+        );
+        addFact(
+          layer,
+          'output-light-resource-wealth',
+          '印用伤食取运候选',
+          '条件待复核',
+          natalStructure,
+          `${wealthTriggers.join('、')}在“印轻”另经全局闭合时转为不利见财边界；与一般财运支持候选并存`,
+        );
+      }
+      if (outputTriggers.length > 0) {
+        addFact(
+          layer,
+          'output-output',
+          '印用伤食取运候选',
+          '支持候选',
+          natalStructure,
+          `${outputTriggers.join('、')}对应原典伤食亦利`,
+        );
+      }
+      if (officerTriggers.length > 0) {
+        addFact(
+          layer,
+          'output-officer',
+          '印用伤食取运候选',
+          '带忌候选',
+          natalStructure,
+          `${officerTriggers.join('、')}对应原典所不利官运`,
+        );
+      }
+      if (killerTriggers.length > 0) {
+        addFact(
+          layer,
+          'output-killer',
+          '印用伤食取运候选',
+          '支持候选',
+          natalStructure,
+          `${killerTriggers.join('、')}对应原典七杀反能为福的局部候选`,
+        );
+      }
+    }
+
+    if (hasKillerWithoutOfficer && !hasOutput) {
+      const natalStructure = `原局${natalKillers}明透且未见官星、食伤明透或成局，具印用七杀局部结构`;
+      if (outputTriggers.length > 0) {
+        addFact(
+          layer,
+          'killer-output',
+          '印用七杀取运候选',
+          '支持候选',
+          natalStructure,
+          `${outputTriggers.join('、')}对应原典所喜伤食`,
+        );
+      }
+      if (peerTriggers.length > 0) {
+        addFact(
+          layer,
+          'killer-peer',
+          '印用七杀取运候选',
+          '条件待复核',
+          natalStructure,
+          `${peerTriggers.join('、')}只作身旺方向组件，单个比劫运字不直接证明身旺`,
+        );
+      }
+      if (wealthTriggers.length > 0) {
+        addFact(
+          layer,
+          'killer-wealth',
+          '印用七杀取运候选',
+          '带忌候选',
+          natalStructure,
+          `${wealthTriggers.join('、')}对应原典所忌财乡`,
+        );
+      }
+    }
+
+    if (hasKillerWithoutOfficer && hasOutput) {
+      const natalStructure = `原局${natalKillers}与${natalOutputs}同见，具印用杀兼伤食局部结构`;
+      if (peerTriggers.length > 0) {
+        addFact(
+          layer,
+          'killer-output-peer',
+          '印用杀兼伤食取运候选',
+          '条件待复核',
+          natalStructure,
+          `${peerTriggers.join('、')}只作身旺方向组件，单个比劫运字不直接证明身旺`,
+        );
+      }
+      if (resourceTriggers.length > 0) {
+        addFact(
+          layer,
+          'killer-output-resource',
+          '印用杀兼伤食取运候选',
+          '支持候选',
+          natalStructure,
+          `${resourceTriggers.join('、')}对应原典所喜印绶之方`,
+        );
+      }
+      if (outputTriggers.length > 0) {
+        addFact(
+          layer,
+          'killer-output-output',
+          '印用杀兼伤食取运候选',
+          '支持候选',
+          natalStructure,
+          `${outputTriggers.join('、')}对应原典伤食亦美`,
+        );
+      }
+      if (officerTriggers.length > 0) {
+        addFact(
+          layer,
+          'killer-output-officer',
+          '印用杀兼伤食取运候选',
+          '带忌候选',
+          natalStructure,
+          `${officerTriggers.join('、')}对应原典所不利官运`,
+        );
+      }
+      if (wealthTriggers.length > 0) {
+        addFact(
+          layer,
+          'killer-output-wealth',
+          '印用杀兼伤食取运候选',
+          '带忌候选',
+          natalStructure,
+          `${wealthTriggers.join('、')}对应原典所不利财运`,
+        );
+      }
+    }
+
+    if (structure.wealthStems.length > 0) {
+      const natalStructure = `原局${natalWealth}明透，具印绶遇财、印多用财的条件结构`;
+      if (robberyTriggers.length > 0) {
+        addFact(
+          layer,
+          'wealth-robbery',
+          '印绶遇财取运候选',
+          '支持候选',
+          natalStructure,
+          `${robberyTriggers.join('、')}对应原典所喜劫地`,
+        );
+      }
+      const officerResourceTriggers = [...officerTriggers, ...resourceTriggers];
+      if (officerResourceTriggers.length > 0) {
+        addFact(
+          layer,
+          'wealth-officer-resource',
+          '印绶遇财取运候选',
+          '支持候选',
+          natalStructure,
+          `${officerResourceTriggers.join('、')}对应原典官印亦亨的局部候选`,
+        );
+      }
+      if (wealthTriggers.length > 0) {
+        addFact(
+          layer,
+          'wealth-wealth',
+          '印绶遇财取运候选',
+          '带忌候选',
+          natalStructure,
+          `${wealthTriggers.join('、')}对应原典所忌财乡`,
+        );
+      }
+    }
+
+    if (hasMixedOfficerKiller) {
+      const natalStructure = `原局${natalOfficers}与${natalKillers}竞透，具印格官杀混杂待取清结构`;
+      if (outputTriggers.length > 0) {
+        addFact(
+          layer,
+          'mixed-output',
+          '印格官杀竞透取运候选',
+          '支持候选',
+          natalStructure,
+          `${outputTriggers.join('、')}对应原典所喜食神伤官`,
+        );
+      }
+      if (resourceTriggers.length > 0) {
+        addFact(
+          layer,
+          'mixed-resource',
+          '印格官杀竞透取运候选',
+          '条件待复核',
+          natalStructure,
+          `${resourceTriggers.join('、')}只作印旺方向组件，单个印星运字不直接证明印旺`,
+        );
+      }
+      if (peerTriggers.length > 0) {
+        addFact(
+          layer,
+          'mixed-peer',
+          '印格官杀竞透取运候选',
+          '条件待复核',
+          natalStructure,
+          `${peerTriggers.join('、')}只作身旺方向组件，单个比劫运字不直接证明身旺`,
+        );
+      }
+      const officerKillerTriggers = [...officerTriggers, ...killerTriggers];
+      if (officerKillerTriggers.length > 0) {
+        addFact(
+          layer,
+          'mixed-officer-killer',
+          '印格官杀竞透取运候选',
+          '带忌候选',
+          natalStructure,
+          `${officerKillerTriggers.join('、')}构成官杀再见候选，对应原典所忌再透官杀边界`,
+        );
+      }
+      if (wealthTriggers.length > 0) {
+        addFact(
+          layer,
+          'mixed-wealth',
+          '印格官杀竞透取运候选',
+          '带忌候选',
+          natalStructure,
+          `${wealthTriggers.join('、')}对应原典所不利财运`,
+        );
+      }
+    }
+  });
+
+  const calculationStep: FortuneTriggerCalculationStep = {
+    key: calculationStepKey,
+    stage: '印格取运核验',
+    status: '已计算',
+    inputs: {
+      patternName,
+      activeLayerKeys: params.layerStructureFacts.map((item) => item.layerKey),
+      natalExposedTenGods: structure.exposedStems.map((item) => item.tenGod),
+      hasOutputFormation: structure.outputFormations.length > 0,
+      hasMixedOfficerKiller,
+      hasExposedWealth: structure.wealthStems.length > 0,
+    },
+    result: {
+      candidateCount: facts.length,
+      candidateKeys: facts.map((item) => item.key),
+    },
+    dependsOnStepKeys: params.layerStructureFacts.map((item) => item.calculationStepKey),
+    promptText: facts.length
+      ? `已按印格原局子结构逐字核验所选岁运，记录${facts.length}项支持、带忌或条件待复核候选`
+      : '已按印格原局子结构逐字核验所选岁运，当前未命中可客观闭合的专属取运候选',
+    sources: ['《子平真诠评注》“印格取运”', '原局印格子结构与岁运干支分层事实'],
+    limitation: CALCULATION_STEP_LIMITATION,
+  };
+  return { facts, calculationStep, applicable: true };
+}
+
 function relation(
   type: FortuneTriggerRelationType,
   label: string,
@@ -1748,6 +2173,7 @@ function buildRelationSummaryFact(params: {
   hiddenStemRevealFacts: FortuneHiddenStemRevealFact[];
   officerPatternRuleFacts: FortuneOfficerPatternRuleFact[];
   wealthPatternRuleFacts: FortuneWealthPatternRuleFact[];
+  resourcePatternRuleFacts: FortuneResourcePatternRuleFact[];
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   comparisonSteps: FortuneTriggerCalculationStep[];
@@ -1777,6 +2203,7 @@ function buildRelationSummaryFact(params: {
       ...params.hiddenStemRevealFacts.map((item) => item.key),
       ...params.officerPatternRuleFacts.map((item) => item.key),
       ...params.wealthPatternRuleFacts.map((item) => item.key),
+      ...params.resourcePatternRuleFacts.map((item) => item.key),
       ...params.relations.map((item) => item.key),
       ...params.formations.map((item) => item.key),
       ...params.counterEvidenceFacts.map((item) => item.key),
@@ -1808,6 +2235,8 @@ function buildLimitationFacts(params: {
   officerPatternRulesApplicable: boolean;
   wealthPatternRuleFacts: FortuneWealthPatternRuleFact[];
   wealthPatternRulesApplicable: boolean;
+  resourcePatternRuleFacts: FortuneResourcePatternRuleFact[];
+  resourcePatternRulesApplicable: boolean;
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   counterEvidenceFacts: FortuneTriggerCounterEvidenceFact[];
@@ -1820,6 +2249,7 @@ function buildLimitationFacts(params: {
   const revealKeys = params.hiddenStemRevealFacts.map((item) => item.key);
   const officerRuleKeys = params.officerPatternRuleFacts.map((item) => item.key);
   const wealthRuleKeys = params.wealthPatternRuleFacts.map((item) => item.key);
+  const resourceRuleKeys = params.resourcePatternRuleFacts.map((item) => item.key);
   const definitions: Array<
     Pick<FortuneTriggerLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
   > = [
@@ -1908,6 +2338,18 @@ function buildLimitationFacts(params: {
           },
         ]
       : []),
+    ...(params.resourcePatternRulesApplicable
+      ? [
+          {
+            key: 'bazi:fortune-trigger:limitation:resource-pattern-rules',
+            type: '印格取运边界' as const,
+            ownerFactKeys: [params.relationSummaryFact.key, ...resourceRuleKeys],
+            promptText:
+              '印格取运只能按当前八字已经闭合的用官、伤食、七杀、财星或官杀竞透子结构逐字研究；印重、印轻、身旺、官旺、财印轻重及各方是否有力均不得用十神数量或单个运字硬判，多个子结构候选相反时须全部保留并结合全局取舍，不得定成最终喜忌',
+            sources: ['《子平真诠评注》“印格取运”及“即以印格所成之局，分而配之”'],
+          },
+        ]
+      : []),
     {
       key: 'bazi:fortune-trigger:limitation:high-risk-output',
       type: '高风险输出边界',
@@ -1930,6 +2372,7 @@ function buildEvidence(params: {
   hiddenStemRevealFacts: FortuneHiddenStemRevealFact[];
   officerPatternRuleFacts: FortuneOfficerPatternRuleFact[];
   wealthPatternRuleFacts: FortuneWealthPatternRuleFact[];
+  resourcePatternRuleFacts: FortuneResourcePatternRuleFact[];
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   counterEvidenceFacts: FortuneTriggerCounterEvidenceFact[];
@@ -1999,6 +2442,24 @@ function buildEvidence(params: {
               new Set(params.wealthPatternRuleFacts.flatMap((item) => item.sources)),
             ).join('、'),
             tags: ['八字岁运', '财格', '逐字取运候选'],
+          } satisfies PromptEvidenceItem,
+        ]
+      : []),
+    ...(params.resourcePatternRuleFacts.length
+      ? [
+          {
+            level: '主证',
+            title: '印格逐字取运候选',
+            detail: `${params.resourcePatternRuleFacts
+              .map(
+                (item) =>
+                  `${item.layerLabel}${item.ganZhi}${item.type}：${item.trigger}（${item.status}）`,
+              )
+              .join('；')}。统一边界：${RESOURCE_PATTERN_RULE_LIMITATION}`,
+            source: Array.from(
+              new Set(params.resourcePatternRuleFacts.flatMap((item) => item.sources)),
+            ).join('、'),
+            tags: ['八字岁运', '印格', '逐字取运候选'],
           } satisfies PromptEvidenceItem,
         ]
       : []),
@@ -2140,12 +2601,21 @@ export function analyzeFortuneTriggers(
   if (wealthPatternRuleAnalysis.calculationStep) {
     calculationSteps.push(wealthPatternRuleAnalysis.calculationStep);
   }
+  const resourcePatternRuleAnalysis = buildResourcePatternRuleAnalysis({
+    result,
+    layerStructureFacts,
+  });
+  const resourcePatternRuleFacts = resourcePatternRuleAnalysis.facts;
+  if (resourcePatternRuleAnalysis.calculationStep) {
+    calculationSteps.push(resourcePatternRuleAnalysis.calculationStep);
+  }
   const relationSummaryFact = buildRelationSummaryFact({
     calculationSteps,
     layerStructureFacts,
     hiddenStemRevealFacts,
     officerPatternRuleFacts,
     wealthPatternRuleFacts,
+    resourcePatternRuleFacts,
     relations,
     formations,
     comparisonSteps,
@@ -2181,6 +2651,8 @@ export function analyzeFortuneTriggers(
     officerPatternRulesApplicable: officerPatternRuleAnalysis.applicable,
     wealthPatternRuleFacts,
     wealthPatternRulesApplicable: wealthPatternRuleAnalysis.applicable,
+    resourcePatternRuleFacts,
+    resourcePatternRulesApplicable: resourcePatternRuleAnalysis.applicable,
     relations,
     formations,
     counterEvidenceFacts,
@@ -2196,6 +2668,7 @@ export function analyzeFortuneTriggers(
     hiddenStemRevealFacts,
     officerPatternRuleFacts,
     wealthPatternRuleFacts,
+    resourcePatternRuleFacts,
     relations,
     formations,
     counterEvidenceFacts,
@@ -2207,7 +2680,7 @@ export function analyzeFortuneTriggers(
   const calculationChain = calculationSteps.map((item) => item.promptText);
   const noMajorFacts = counterEvidenceFacts.filter((item) => item.status === '未见主要关系');
   const noMajorWithSupporting = noMajorFacts.filter((item) => item.supportingRelationKeys.length);
-  const calculationOverview = `已校验${layers.length}个原局与岁运层级，形成${layerStructureFacts.length}项岁运干支分层事实、${hiddenStemRevealFacts.length}项藏干透出对应候选、${officerPatternRuleFacts.length}项正官取运候选、${wealthPatternRuleFacts.length}项财格取运候选，完成${comparisonSteps.length}组逐项比对和三合三会汇总核验；${relationSummaryFact.promptText}`;
+  const calculationOverview = `已校验${layers.length}个原局与岁运层级，形成${layerStructureFacts.length}项岁运干支分层事实、${hiddenStemRevealFacts.length}项藏干透出对应候选、${officerPatternRuleFacts.length}项正官取运候选、${wealthPatternRuleFacts.length}项财格取运候选、${resourcePatternRuleFacts.length}项印格取运候选，完成${comparisonSteps.length}组逐项比对和三合三会汇总核验；${relationSummaryFact.promptText}`;
   const counterOverview = noMajorFacts.length
     ? `共${noMajorFacts.length}组层级未见岁运并临、天克地冲或同柱伏吟，其中${noMajorWithSupporting.length}组仍有辅助关系；未见主要关系不等于没有较弱关系、没有现实触发或必然平稳`
     : '所有已比较层级均已记录主要关系；仍不得据命中数量生成吉凶或概率结论';
@@ -2221,6 +2694,7 @@ export function analyzeFortuneTriggers(
     hiddenStemRevealFacts,
     officerPatternRuleFacts,
     wealthPatternRuleFacts,
+    resourcePatternRuleFacts,
     relations,
     formations,
     primaryRelations,

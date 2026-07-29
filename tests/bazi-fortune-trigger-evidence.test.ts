@@ -30,6 +30,7 @@ function assertEvidenceReferences(result: ReturnType<typeof analyzeFortuneTrigge
     ...result.hiddenStemRevealFacts.map((item) => item.key),
     ...result.officerPatternRuleFacts.map((item) => item.key),
     ...result.wealthPatternRuleFacts.map((item) => item.key),
+    ...result.resourcePatternRuleFacts.map((item) => item.key),
     ...result.relations.map((item) => item.key),
     ...result.formations.map((item) => item.key),
     ...result.counterEvidenceFacts.map((item) => item.key),
@@ -63,6 +64,14 @@ function createWealthResult(pillars: Pillars): BaziChartResult {
   result.pillars = pillars;
   result.dayMaster = { gan: pillars.day.gan } as BaziChartResult['dayMaster'];
   result.analysis.mingGe = { pattern: '正财格', isSpecial: false };
+  return result;
+}
+
+function createResourceResult(pillars: Pillars): BaziChartResult {
+  const result = createResult();
+  result.pillars = pillars;
+  result.dayMaster = { gan: pillars.day.gan } as BaziChartResult['dayMaster'];
+  result.analysis.mingGe = { pattern: '正印格', isSpecial: false };
   return result;
 }
 
@@ -661,5 +670,160 @@ test('财用杀印应把印旺留待复核、财列带忌且不把伤食任意�
   assert.doesNotMatch(
     result.promptText,
     /判定为最终喜运|判定为最终忌运|匹配总分：|财富概率：\d|婚姻事件必然|成功率：\d/,
+  );
+});
+
+test('印用官应把印重条件留待全局复核，带伤食时另按官印食杀分列', () => {
+  const officerOnly = createResourceResult({
+    year: { gan: '辛', zhi: '卯', ganZhi: '辛卯' },
+    month: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+    day: { gan: '甲', zhi: '午', ganZhi: '甲午' },
+    hour: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+  });
+  const withOutput = createResourceResult({
+    year: { gan: '辛', zhi: '巳', ganZhi: '辛巳' },
+    month: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+    day: { gan: '甲', zhi: '午', ganZhi: '甲午' },
+    hour: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+  });
+  const officerOnlyResult = analyzeFortuneTriggers(officerOnly, [
+    { id: 'wealth', type: 'dayun', label: '戊辰大运', ganZhi: '戊辰' },
+    { id: 'output', type: 'year', label: '丙寅流年', ganZhi: '丙寅' },
+  ]);
+  const withOutputResult = analyzeFortuneTriggers(withOutput, [
+    { id: 'officer', type: 'dayun', label: '辛酉大运', ganZhi: '辛酉' },
+    { id: 'resource', type: 'year', label: '壬申流年', ganZhi: '壬申' },
+    { id: 'output', type: 'month', label: '丙寅流月', ganZhi: '丙寅' },
+    { id: 'killer', type: 'day', label: '庚申流日', ganZhi: '庚申' },
+  ]);
+
+  const officerFacts = officerOnlyResult.resourcePatternRuleFacts.filter(
+    (item) => item.type === '印用官取运候选',
+  );
+  assert.ok(officerFacts.some((item) => item.trigger.includes('官露印重')));
+  assert.ok(officerFacts.every((item) => item.status === '条件待复核'));
+  const withOutputFacts = withOutputResult.resourcePatternRuleFacts.filter(
+    (item) => item.type === '印用官带伤食取运候选',
+  );
+  assert.ok(withOutputFacts.some((item) => item.status === '条件待复核'));
+  assert.ok(withOutputFacts.some((item) => item.status === '支持候选'));
+  assert.ok(withOutputFacts.some((item) => item.status === '带忌候选'));
+  assert.ok(withOutputFacts.some((item) => item.trigger.includes('逢煞不忌')));
+  assertEvidenceReferences(withOutputResult);
+});
+
+test('印用伤食应保留一般喜财与印轻忌财的相反边界', () => {
+  const natal = createResourceResult({
+    year: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    month: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+    day: { gan: '甲', zhi: '午', ganZhi: '甲午' },
+    hour: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+  });
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'wealth', type: 'dayun', label: '戊辰大运', ganZhi: '戊辰' },
+    { id: 'output', type: 'year', label: '丁卯流年', ganZhi: '丁卯' },
+    { id: 'officer', type: 'month', label: '辛酉流月', ganZhi: '辛酉' },
+    { id: 'killer', type: 'day', label: '庚申流日', ganZhi: '庚申' },
+  ]);
+  const facts = result.resourcePatternRuleFacts.filter((item) => item.type === '印用伤食取运候选');
+
+  assert.ok(
+    facts.some((item) => item.status === '支持候选' && item.trigger.includes('一般所喜财运')),
+  );
+  assert.ok(facts.some((item) => item.status === '条件待复核' && item.trigger.includes('印轻')));
+  assert.ok(facts.some((item) => item.status === '带忌候选' && item.trigger.includes('官运')));
+  assert.ok(facts.some((item) => item.status === '支持候选' && item.trigger.includes('七杀')));
+});
+
+test('印用七杀与杀兼伤食应按原局是否带伤食分别取运', () => {
+  const killerOnly = createResourceResult({
+    year: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+    month: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+    day: { gan: '甲', zhi: '午', ganZhi: '甲午' },
+    hour: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+  });
+  const withOutput = createResourceResult({
+    year: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+    month: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+    day: { gan: '甲', zhi: '午', ganZhi: '甲午' },
+    hour: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+  });
+  const killerOnlyResult = analyzeFortuneTriggers(killerOnly, [
+    { id: 'output', type: 'dayun', label: '丙寅大运', ganZhi: '丙寅' },
+    { id: 'peer', type: 'year', label: '甲子流年', ganZhi: '甲子' },
+    { id: 'wealth', type: 'month', label: '戊辰流月', ganZhi: '戊辰' },
+  ]);
+  const withOutputResult = analyzeFortuneTriggers(withOutput, [
+    { id: 'peer', type: 'dayun', label: '乙卯大运', ganZhi: '乙卯' },
+    { id: 'resource', type: 'year', label: '壬申流年', ganZhi: '壬申' },
+    { id: 'output', type: 'month', label: '丁卯流月', ganZhi: '丁卯' },
+    { id: 'officer', type: 'day', label: '辛酉流日', ganZhi: '辛酉' },
+    { id: 'wealth', type: 'hour', label: '戊辰流时', ganZhi: '戊辰' },
+  ]);
+
+  const killerFacts = killerOnlyResult.resourcePatternRuleFacts.filter(
+    (item) => item.type === '印用七杀取运候选',
+  );
+  assert.ok(killerFacts.some((item) => item.status === '支持候选'));
+  assert.ok(killerFacts.some((item) => item.status === '条件待复核'));
+  assert.ok(killerFacts.some((item) => item.status === '带忌候选'));
+  const combinedFacts = withOutputResult.resourcePatternRuleFacts.filter(
+    (item) => item.type === '印用杀兼伤食取运候选',
+  );
+  assert.ok(combinedFacts.some((item) => item.status === '支持候选'));
+  assert.ok(combinedFacts.some((item) => item.status === '条件待复核'));
+  assert.ok(combinedFacts.some((item) => item.status === '带忌候选'));
+});
+
+test('印绶遇财与官杀竞透应保留各自相反候选和强弱边界', () => {
+  const wealthNatal = createResourceResult({
+    year: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    month: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+    day: { gan: '甲', zhi: '午', ganZhi: '甲午' },
+    hour: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+  });
+  const mixedNatal = createResourceResult({
+    year: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
+    month: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+    day: { gan: '甲', zhi: '午', ganZhi: '甲午' },
+    hour: { gan: '庚', zhi: '午', ganZhi: '庚午' },
+  });
+  const wealthResult = analyzeFortuneTriggers(wealthNatal, [
+    { id: 'robbery', type: 'dayun', label: '乙卯大运', ganZhi: '乙卯' },
+    { id: 'officer', type: 'year', label: '辛酉流年', ganZhi: '辛酉' },
+    { id: 'resource', type: 'month', label: '癸酉流月', ganZhi: '癸酉' },
+    { id: 'wealth', type: 'day', label: '戊辰流日', ganZhi: '戊辰' },
+  ]);
+  const mixedResult = analyzeFortuneTriggers(mixedNatal, [
+    { id: 'output', type: 'dayun', label: '丙寅大运', ganZhi: '丙寅' },
+    { id: 'resource', type: 'year', label: '壬申流年', ganZhi: '壬申' },
+    { id: 'peer', type: 'month', label: '甲子流月', ganZhi: '甲子' },
+    { id: 'officer', type: 'day', label: '辛酉流日', ganZhi: '辛酉' },
+    { id: 'wealth', type: 'hour', label: '戊辰流时', ganZhi: '戊辰' },
+  ]);
+
+  const wealthFacts = wealthResult.resourcePatternRuleFacts.filter(
+    (item) => item.type === '印绶遇财取运候选',
+  );
+  assert.ok(wealthFacts.some((item) => item.trigger.includes('所喜劫地')));
+  assert.ok(wealthFacts.some((item) => item.trigger.includes('官印亦亨')));
+  assert.ok(wealthFacts.some((item) => item.status === '带忌候选'));
+  const mixedFacts = mixedResult.resourcePatternRuleFacts.filter(
+    (item) => item.type === '印格官杀竞透取运候选',
+  );
+  assert.ok(mixedFacts.some((item) => item.status === '支持候选'));
+  assert.ok(mixedFacts.some((item) => item.trigger.includes('印旺方向')));
+  assert.ok(mixedFacts.some((item) => item.trigger.includes('身旺方向')));
+  assert.ok(mixedFacts.some((item) => item.status === '带忌候选'));
+  assert.ok(
+    mixedResult.limitationFacts.some(
+      (item) => item.type === '印格取运边界' && item.promptText.includes('不得定成最终喜忌'),
+    ),
+  );
+  assert.ok(mixedResult.calculationSteps.some((item) => item.stage === '印格取运核验'));
+  assertEvidenceReferences(mixedResult);
+  assert.doesNotMatch(
+    mixedResult.promptText,
+    /判定为最终喜运|判定为最终忌运|匹配总分：|富贵概率：\d|灾祸必然|成功率：\d/,
   );
 });
