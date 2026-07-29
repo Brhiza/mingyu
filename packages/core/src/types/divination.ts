@@ -190,6 +190,8 @@ export interface LiuyaoYaoDetail extends BaseYaoDetail {
   changeType: string;
   sixGod: string;
   sixRelative: string;
+  /** 纳甲天干；旧结果可能没有此字段。 */
+  najiaTiangan?: string;
   najiaDizhi: string;
   wuxing: string;
   isWorld: boolean;
@@ -205,6 +207,7 @@ export interface LiuyaoYaoDetail extends BaseYaoDetail {
   /** 动变五行/冲关系与化空可以并见，按原关系在前、化空在后保存。 */
   changeRelations?: LiuyaoChangeRelation[];
   changedYao?: {
+    tiangan?: string;
     dizhi: string;
     wuxing: string;
     liuqin: string;
@@ -224,12 +227,15 @@ export interface LiuyaoYaoDetail extends BaseYaoDetail {
 export interface LiuyaoHiddenSpirit {
   sixRelative: string;
   position: number;
+  /** 伏神纳甲天干；旧结果可能没有此字段。 */
+  najiaTiangan?: string;
   najiaDizhi: string;
   wuxing: string;
   isVoid: boolean;
   underYao: {
     position: number;
     sixRelative: string;
+    najiaTiangan?: string;
     najiaDizhi: string;
     wuxing: string;
   };
@@ -310,6 +316,8 @@ export interface LiuyaoData extends BaseHexagramData {
   sixRelatives: string[];
   /** 纳甲地支：各爻对应的十二地支 */
   najiaDizhi: string[];
+  /** 纳甲天干：内外经卦各三爻所纳天干；旧结果可能没有此字段。 */
+  najiaTiangan?: string[];
   /** 各爻的五行属性 */
   wuxing: string[];
   /** 世应位置：[世爻位置, 应爻位置] */

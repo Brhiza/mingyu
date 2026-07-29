@@ -1,7 +1,11 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { getSixAnimals } from '../packages/core/src/calendar/lunar.ts';
-import { hexagramNaJia as coreHexagramNaJia } from '../packages/core/src/divination/divination-data.ts';
+import {
+  hexagramNaJia as coreHexagramNaJia,
+  trigramNaJiaTiangan,
+} from '../packages/core/src/divination/divination-data.ts';
+import { getLiuyaoNaJiaTiangan } from '../packages/core/src/divination/algorithms/liuyao.ts';
 
 /**
  * 六爻纳甲回归：下三爻按下经卦所属八纯卦纳支，上三爻按上经卦所属八纯卦纳支。
@@ -103,6 +107,31 @@ test('六爻纳甲：核心包全 64 卦按上下经卦所属纯卦分别纳甲'
       coreHexagramNaJia[name],
       expected,
       `${name} 纳甲不符规则（上${upper}下${lower}）：应为 ${expected.join('')}，实际 ${coreHexagramNaJia[name].join('')}`,
+    );
+  }
+});
+
+test('六爻纳甲：全 64 卦按内外经卦完整装入纳甲天干', () => {
+  assert.deepEqual(trigramNaJiaTiangan, {
+    乾: { lower: '甲', upper: '壬' },
+    坎: { lower: '戊', upper: '戊' },
+    艮: { lower: '丙', upper: '丙' },
+    震: { lower: '庚', upper: '庚' },
+    巽: { lower: '辛', upper: '辛' },
+    离: { lower: '己', upper: '己' },
+    坤: { lower: '乙', upper: '癸' },
+    兑: { lower: '丁', upper: '丁' },
+  });
+
+  for (const [name, [upper, lower]] of Object.entries(trigrams)) {
+    const expected = [
+      ...Array(3).fill(trigramNaJiaTiangan[lower].lower),
+      ...Array(3).fill(trigramNaJiaTiangan[upper].upper),
+    ];
+    assert.deepEqual(
+      getLiuyaoNaJiaTiangan(name),
+      expected,
+      `${name} 纳甲天干不符规则（上${upper}下${lower}）`,
     );
   }
 });

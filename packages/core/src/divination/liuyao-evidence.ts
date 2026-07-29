@@ -29,6 +29,7 @@ export interface LiuyaoYaoReference {
   status: '已匹配';
   position: number;
   sixRelative: string;
+  stem?: string;
   branch: string;
   wuxing: string;
   isWorld?: boolean;
@@ -39,6 +40,7 @@ export interface LiuyaoYaoReference {
   constraints: string[];
   changedYao?: {
     sixRelative: string;
+    stem?: string;
     branch: string;
     wuxing: string;
     isVoid: boolean;
@@ -100,6 +102,7 @@ export interface LiuyaoLineFact {
   sixGod: string;
   sixRelative: string;
   najia: {
+    stem?: string;
     branch: string;
     wuxing: string;
   };
@@ -126,6 +129,7 @@ export interface LiuyaoLineFact {
   constraints: string[];
   changedYao?: {
     sixRelative: string;
+    stem?: string;
     branch: string;
     wuxing: string;
     isVoid: boolean;
@@ -144,6 +148,7 @@ export interface LiuyaoHiddenSpiritFact {
   position: number;
   sixRelative: string;
   najia: {
+    stem?: string;
     branch: string;
     wuxing: string;
   };
@@ -409,11 +414,15 @@ function getChangeRelations(yao: LiuyaoYaoDetail): LiuyaoChangeRelation[] {
   return [...new Set(relations)];
 }
 
+function formatNaJia(stem: string | undefined, branch: string) {
+  return `${stem ?? ''}${branch}`;
+}
+
 function formatYao(reference: LiuyaoYaoReference) {
   const changed = reference.changedYao
-    ? `→${reference.changedYao.sixRelative}${reference.changedYao.branch}${reference.changedYao.wuxing}${reference.changedYao.relations.length ? `（${reference.changedYao.relations.join('、')}）` : reference.changedYao.isVoid ? '（变爻空亡）' : ''}${reference.changedYao.direction ? `（${reference.changedYao.direction}）` : ''}`
+    ? `→${reference.changedYao.sixRelative}${formatNaJia(reference.changedYao.stem, reference.changedYao.branch)}${reference.changedYao.wuxing}${reference.changedYao.relations.length ? `（${reference.changedYao.relations.join('、')}）` : reference.changedYao.isVoid ? '（变爻空亡）' : ''}${reference.changedYao.direction ? `（${reference.changedYao.direction}）` : ''}`
     : '';
-  return `${reference.source}${reference.position}爻${reference.sixRelative}${reference.branch}${reference.wuxing}${changed}`;
+  return `${reference.source}${reference.position}爻${reference.sixRelative}${formatNaJia(reference.stem, reference.branch)}${reference.wuxing}${changed}`;
 }
 
 function buildGenerationFact(data: LiuyaoData): LiuyaoGenerationFact {
@@ -502,6 +511,7 @@ function buildVisibleReference(
     status: '已匹配',
     position: yao.position,
     sixRelative: yao.sixRelative,
+    stem: yao.najiaTiangan,
     branch: yao.najiaDizhi,
     wuxing: yao.wuxing,
     isWorld: yao.isWorld,
@@ -514,6 +524,7 @@ function buildVisibleReference(
       ? {
           changedYao: {
             sixRelative: yao.changedYao.liuqin,
+            stem: yao.changedYao.tiangan,
             branch: yao.changedYao.dizhi,
             wuxing: yao.changedYao.wuxing,
             isVoid: yao.changedYao.isVoid,
@@ -534,13 +545,14 @@ function buildHiddenReference(spirit: LiuyaoHiddenSpirit): LiuyaoYaoReference {
     status: '已匹配',
     position: spirit.position,
     sixRelative: spirit.sixRelative,
+    stem: spirit.najiaTiangan,
     branch: spirit.najiaDizhi,
     wuxing: spirit.wuxing,
     isVoid: spirit.isVoid,
     support: [],
     constraints: [
       '伏藏待透',
-      `受飞神${spirit.underYao.sixRelative}${spirit.underYao.najiaDizhi}${spirit.underYao.wuxing}覆盖`,
+      `受飞神${spirit.underYao.sixRelative}${formatNaJia(spirit.underYao.najiaTiangan, spirit.underYao.najiaDizhi)}${spirit.underYao.wuxing}覆盖`,
       spirit.isVoid ? '伏神空亡' : '',
     ].filter(Boolean),
   };
@@ -589,6 +601,7 @@ function buildLineFacts(
     const changedYao = yao.changedYao
       ? {
           sixRelative: yao.changedYao.liuqin,
+          stem: yao.changedYao.tiangan,
           branch: yao.changedYao.dizhi,
           wuxing: yao.changedYao.wuxing,
           isVoid: yao.changedYao.isVoid,
@@ -598,7 +611,7 @@ function buildLineFacts(
         }
       : undefined;
     const promptText = [
-      `第${yao.position}爻${yao.sixRelative}${yao.najiaDizhi}${yao.wuxing}`,
+      `第${yao.position}爻${yao.sixRelative}${formatNaJia(yao.najiaTiangan, yao.najiaDizhi)}${yao.wuxing}`,
       `六神${yao.sixGod}`,
       roles.length ? roles.join('、') : '',
       activity,
@@ -608,7 +621,7 @@ function buildLineFacts(
       yao.isVoid ? '本爻空亡' : '',
       yao.shiErGong ? `十二宫${yao.shiErGong}` : '',
       changedYao
-        ? `化${changedYao.sixRelative}${changedYao.branch}${changedYao.wuxing}${changedYao.direction ? `、${changedYao.direction}` : ''}${changedYao.relations.length ? `、${changedYao.relations.join('、')}` : changedYao.isVoid ? '、变爻空亡' : ''}`
+        ? `化${changedYao.sixRelative}${formatNaJia(changedYao.stem, changedYao.branch)}${changedYao.wuxing}${changedYao.direction ? `、${changedYao.direction}` : ''}${changedYao.relations.length ? `、${changedYao.relations.join('、')}` : changedYao.isVoid ? '、变爻空亡' : ''}`
         : '',
     ]
       .filter(Boolean)
@@ -622,7 +635,7 @@ function buildLineFacts(
       changeType: yao.changeType,
       sixGod: yao.sixGod,
       sixRelative: yao.sixRelative,
-      najia: { branch: yao.najiaDizhi, wuxing: yao.wuxing },
+      najia: { stem: yao.najiaTiangan, branch: yao.najiaDizhi, wuxing: yao.wuxing },
       roles,
       activity,
       monthState: {
@@ -661,12 +674,16 @@ function buildHiddenSpiritFacts(data: LiuyaoData): LiuyaoHiddenSpiritFact[] {
       status: '已计算',
       position: spirit.position,
       sixRelative: spirit.sixRelative,
-      najia: { branch: spirit.najiaDizhi, wuxing: spirit.wuxing },
+      najia: {
+        stem: spirit.najiaTiangan,
+        branch: spirit.najiaDizhi,
+        wuxing: spirit.wuxing,
+      },
       isVoid: spirit.isVoid,
       coveringLine: spirit.underYao,
       support: reference.support,
       constraints: reference.constraints,
-      promptText: `第${spirit.position}爻伏神${spirit.sixRelative}${spirit.najiaDizhi}${spirit.wuxing}，飞神${spirit.underYao.sixRelative}${spirit.underYao.najiaDizhi}${spirit.underYao.wuxing}覆盖${spirit.isVoid ? '，伏神空亡' : ''}`,
+      promptText: `第${spirit.position}爻伏神${spirit.sixRelative}${formatNaJia(spirit.najiaTiangan, spirit.najiaDizhi)}${spirit.wuxing}，飞神${spirit.underYao.sixRelative}${formatNaJia(spirit.underYao.najiaTiangan, spirit.underYao.najiaDizhi)}${spirit.underYao.wuxing}覆盖${spirit.isVoid ? '，伏神空亡' : ''}`,
       sources: ['本宫首卦六亲全集与当前本卦六亲差集', '当前爻位飞伏配对与旬空计算'],
       limitation: HIDDEN_SPIRIT_FACT_LIMITATION,
     };
@@ -1342,7 +1359,7 @@ export function analyzeLiuyaoEvidence(
         type: '动爻触发',
         sourceStatus: '由盘面生成',
         ownerFactKeys: [item.key],
-        promptText: `第${item.position}爻${item.sixRelative}${item.najia.branch}发动${item.changedYao ? `化${item.changedYao.sixRelative}${item.changedYao.branch}` : ''}`,
+        promptText: `第${item.position}爻${item.sixRelative}${formatNaJia(item.najia.stem, item.najia.branch)}发动${item.changedYao ? `化${item.changedYao.sixRelative}${formatNaJia(item.changedYao.stem, item.changedYao.branch)}` : ''}`,
         sources: ['当前逐爻明动与变爻事实'],
         limitation: TIMING_FACT_LIMITATION,
       }),

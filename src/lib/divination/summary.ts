@@ -85,7 +85,7 @@ function formatLiuyaoHiddenSpiritSummary(data: DivinationData) {
   return `伏神：${data.hiddenSpirits
     .map(
       (item) =>
-        `${item.sixRelative}伏第${item.position}爻${item.najiaDizhi}${item.wuxing}${item.isVoid ? '（空）' : ''}`,
+        `${item.sixRelative}伏第${item.position}爻${item.najiaTiangan ?? ''}${item.najiaDizhi}${item.wuxing}${item.isVoid ? '（空）' : ''}`,
     )
     .join('；')}`;
 }

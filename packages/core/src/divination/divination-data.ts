@@ -45,6 +45,23 @@ export const palaces = {
   坤: { name: '坤', wuxing: '土' },
 };
 
+/**
+ * 八经卦纳甲天干。
+ *
+ * 内卦取 lower，外卦取 upper；每个经卦的三个爻共用同一天干。
+ * 乾、坤内外分纳甲壬、乙癸，其余六卦内外同干。
+ */
+export const trigramNaJiaTiangan: Record<string, { lower: string; upper: string }> = {
+  乾: { lower: '甲', upper: '壬' },
+  坎: { lower: '戊', upper: '戊' },
+  艮: { lower: '丙', upper: '丙' },
+  震: { lower: '庚', upper: '庚' },
+  巽: { lower: '辛', upper: '辛' },
+  离: { lower: '己', upper: '己' },
+  坤: { lower: '乙', upper: '癸' },
+  兑: { lower: '丁', upper: '丁' },
+};
+
 // 按京房八宫卦序排列的卦象
 // 此顺序定义了“世”在卦中位置的演进规则，是安世应的基础。
 // 顺序：八纯卦（首卦，世在六）、一世卦、二世卦、三世卦、四世卦、五世卦、游魂卦（四世）、归魂卦（三世）。
@@ -70,13 +87,12 @@ export const hexagramPalaceMap: { [key: string]: string } = Object.entries(palac
   {} as { [key: string]: string },
 );
 
-// 64卦纳甲 - 严格遵循京房八宫纳甲法
-// 此为六爻预测之基石，为每个爻位配上地支，从而定五行、推六亲。
+// 64卦纳甲地支 - 严格遵循京房八宫纳甲法
+// 此表为每个爻位配上地支，从而定五行、推六亲；纳甲天干另见 trigramNaJiaTiangan。
 // 规则：
-// 1. 八纯卦纳甲：乾纳甲壬，坤纳乙癸，震纳庚，巽纳辛，坎纳戊，离纳己，艮纳丙，兑纳丁。
+// 1. 八纯卦纳甲：乾内甲外壬，坤内乙外癸，震纳庚，巽纳辛，坎纳戊，离纳己，艮纳丙，兑纳丁。
 // 2. 阳四宫（乾坎艮震）地支顺行，阴四宫（坤巽离兑）地支逆行。
 // 3. 内外卦地支遵循其所属八纯卦的规则。
-// 4. 游魂卦、归魂卦有特殊变化规则。
 export const hexagramNaJia: { [key: string]: string[] } = {
   // 乾宫 (金)
   乾为天: ['子', '寅', '辰', '午', '申', '戌'],

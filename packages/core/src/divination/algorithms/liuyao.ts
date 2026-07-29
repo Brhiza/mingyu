@@ -21,6 +21,7 @@ import {
   palaces,
   hexagramPalaceMap,
   palaceHexagrams,
+  trigramNaJiaTiangan,
 } from '../../divination/divination-data';
 import { getDivinationTime } from '../../calendar/timeManager';
 import { assertOptionalRecord } from '../../shared/validation';
@@ -439,6 +440,28 @@ function getRequiredHexagramData(hexagramName: string) {
   return hexagram;
 }
 
+/**
+ * 取得六爻浑天纳甲的六个天干。
+ * 《卜筮正宗》《卜筮全书》纳甲装卦歌均以经卦区分内外：
+ * 乾内甲外壬、坤内乙外癸，其余六卦内外同干。
+ */
+export function getLiuyaoNaJiaTiangan(hexagramName: string): string[] {
+  const hexagram = getRequiredHexagramData(hexagramName);
+  const lowerRule = trigramNaJiaTiangan[hexagram.lower];
+  const upperRule = trigramNaJiaTiangan[hexagram.upper];
+  if (!lowerRule || !upperRule) {
+    throw new Error(`找不到卦象 "${hexagramName}" 的纳甲天干信息。`);
+  }
+  return [
+    lowerRule.lower,
+    lowerRule.lower,
+    lowerRule.lower,
+    upperRule.upper,
+    upperRule.upper,
+    upperRule.upper,
+  ];
+}
+
 function getNaJiaBranches(hexagramName: string) {
   getRequiredHexagramData(hexagramName);
   const branches = hexagramNaJia[hexagramName];
@@ -602,18 +625,28 @@ function findPalace(hexagramName: string) {
  * 纳甲与安六亲
  * @param mainHexagramName 主卦卦名
  * @param palace 主卦所属宫位
- * @returns 返回一个包含六个爻的地支、五行、六亲信息的数组
+ * @returns 返回一个包含六个爻的天干、地支、五行、六亲信息的数组
  */
 function getNaJiaAndLiuQin(mainHexagramName: string, palace: { name: string; wuxing: string }) {
-  const yaosWithInfo: Array<{ dizhi: string; wuxing: string; liuqin: string }> = [];
+  const yaosWithInfo: Array<{
+    tiangan: string;
+    dizhi: string;
+    wuxing: string;
+    liuqin: string;
+  }> = [];
   const najiaDizhiArray = hexagramNaJia[mainHexagramName];
+  const najiaTianganArray = getLiuyaoNaJiaTiangan(mainHexagramName);
 
-  if (!najiaDizhiArray) {
+  if (!najiaDizhiArray || najiaDizhiArray.length !== 6) {
     throw new Error(`找不到卦象 "${mainHexagramName}" 的纳甲信息。`);
   }
 
   for (let i = 0; i < 6; i++) {
     const dizhi = najiaDizhiArray[i];
+    const tiangan = najiaTianganArray[i];
+    if (!tiangan) {
+      throw new Error(`找不到卦象 "${mainHexagramName}" 第${i + 1}爻的纳甲天干。`);
+    }
     const yaoWuxing = Object.keys(wuxing).find((key) =>
       wuxing[key as keyof typeof wuxing].includes(dizhi),
     );
@@ -628,7 +661,7 @@ function getNaJiaAndLiuQin(mainHexagramName: string, palace: { name: string; wux
     if (!liuqin) {
       throw new Error(`找不到 "${palace.wuxing}" 与 "${yaoWuxing}" 的六亲关系。`);
     }
-    yaosWithInfo.push({ dizhi, wuxing: yaoWuxing, liuqin });
+    yaosWithInfo.push({ tiangan, dizhi, wuxing: yaoWuxing, liuqin });
   }
   return yaosWithInfo;
 }
@@ -639,6 +672,7 @@ function buildHiddenSpirits(params: {
   yaosDetail: Array<{
     position: number;
     sixRelative: string;
+    najiaTiangan: string;
     najiaDizhi: string;
     wuxing: string;
   }>;
@@ -658,12 +692,14 @@ function buildHiddenSpirits(params: {
     .map((homeYao, index) => ({
       sixRelative: homeYao.liuqin,
       position: index + 1,
+      najiaTiangan: homeYao.tiangan,
       najiaDizhi: homeYao.dizhi,
       wuxing: homeYao.wuxing,
       isVoid: voidBranches.includes(homeYao.dizhi),
       underYao: {
         position: yaosDetail[index].position,
         sixRelative: yaosDetail[index].sixRelative,
+        najiaTiangan: yaosDetail[index].najiaTiangan,
         najiaDizhi: yaosDetail[index].najiaDizhi,
         wuxing: yaosDetail[index].wuxing,
       },
@@ -1032,6 +1068,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
       changeType: rawYaos[index] === 6 ? '老阴' : rawYaos[index] === 9 ? '老阳' : '静爻',
       sixGod: animals[index],
       sixRelative: info.liuqin,
+      najiaTiangan: info.tiangan,
       najiaDizhi: info.dizhi,
       wuxing: info.wuxing,
       isWorld: shiYing.shi === index + 1,
@@ -1060,6 +1097,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
       isRiMu: isRiMu(info.dizhi, dayBranch),
       changedYao: changedInfo
         ? {
+            tiangan: changedInfo.tiangan,
             dizhi: changedInfo.dizhi,
             wuxing: changedInfo.wuxing,
             liuqin: changedInfo.liuqin,
@@ -1114,6 +1152,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     changingYaos: changingYaosResult,
     sixGods: animals,
     sixRelatives: yaosInfo.map((info) => info.liuqin),
+    najiaTiangan: yaosInfo.map((info) => info.tiangan),
     najiaDizhi: yaosInfo.map((info) => info.dizhi),
     wuxing: yaosInfo.map((info) => info.wuxing),
     worldAndResponse: getWorldAndResponseArray(shiYing),

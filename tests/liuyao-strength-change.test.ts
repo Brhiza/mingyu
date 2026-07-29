@@ -9,6 +9,7 @@ import {
   getLiuyaoGuaShenBranch,
   getLiuyaoHexagramRelation,
   getLiuyaoHexagramRelations,
+  getLiuyaoNaJiaTiangan,
   getLiuyaoPalaceStage,
 } from 'mingyu-core/divination/liuyao';
 import type { LiuyaoYaoDetail } from 'mingyu-core/types';
@@ -46,6 +47,32 @@ test('六爻：各爻输出月令旺相休囚死状态', () => {
       assert.equal(yao.seasonState, '囚', `第${yao.position}爻土在子月应囚`);
     }
   }
+});
+
+test('六爻：主卦、动变与伏神均应保留完整纳甲干支', () => {
+  const data = generateSampleLiuyao([9, 6, 9, 8, 8, 7]);
+
+  assert.equal(data.originalName, '山火贲');
+  assert.deepEqual(data.najiaTiangan, ['己', '己', '己', '丙', '丙', '丙']);
+  assert.deepEqual(
+    data.yaosDetail.map((yao) => `${yao.najiaTiangan}${yao.najiaDizhi}`),
+    ['己卯', '己丑', '己亥', '丙戌', '丙子', '丙寅'],
+  );
+  assert.ok(
+    data.yaosDetail
+      .filter((yao) => yao.isChanging)
+      .every((yao) => yao.changedYao?.tiangan && yao.changedYao.dizhi),
+  );
+  assert.deepEqual(
+    data.hiddenSpirits?.map((item) => ({
+      najia: `${item.najiaTiangan}${item.najiaDizhi}`,
+      flying: `${item.underYao.najiaTiangan}${item.underYao.najiaDizhi}`,
+    })),
+    [
+      { najia: '丙午', flying: '己丑' },
+      { najia: '丙申', flying: '己亥' },
+    ],
+  );
 });
 
 test('六爻：爻内三刑汇总应按共享三刑口径识别两支互见', () => {
@@ -183,7 +210,8 @@ test('六爻：整卦六合六冲应按初四二五三上爻支成组判断', ()
   assert.equal(data.hexagramRelations?.original, '六冲卦');
 });
 
-test('六爻：公开关系助手应拒绝未知卦名，不应返回空关系掩盖输入错误', () => {
+test('六爻：公开卦名助手应拒绝未知卦名，不应返回空结果掩盖输入错误', () => {
+  assert.throws(() => getLiuyaoNaJiaTiangan('不存在的卦'), /找不到卦象/);
   assert.throws(() => getLiuyaoHexagramRelation('不存在的卦'), /找不到卦象/);
   assert.throws(() => getLiuyaoHexagramRelations('不存在的卦', '乾为天', true), /找不到卦象/);
   assert.throws(() => getLiuyaoFanFuRelations('乾为天', '不存在的卦', true), /找不到卦象/);

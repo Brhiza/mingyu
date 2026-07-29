@@ -175,11 +175,11 @@ function getMeihuaMethodLabel(
 }
 
 function formatLiuyaoYaoBrief(item: LiuyaoData['yaosDetail'][number]) {
-  return `第${item.position}爻${item.sixRelative}${item.najiaDizhi}${item.wuxing}`;
+  return `第${item.position}爻${item.sixRelative}${item.najiaTiangan ?? ''}${item.najiaDizhi}${item.wuxing}`;
 }
 
 function formatHiddenSpirit(item: NonNullable<LiuyaoData['hiddenSpirits']>[number]) {
-  return `${item.sixRelative}伏第${item.position}爻${item.najiaDizhi}${item.wuxing}${item.isVoid ? '（空）' : ''}，伏于${item.underYao.sixRelative}${item.underYao.najiaDizhi}${item.underYao.wuxing}下`;
+  return `${item.sixRelative}伏第${item.position}爻${item.najiaTiangan ?? ''}${item.najiaDizhi}${item.wuxing}${item.isVoid ? '（空）' : ''}，伏于${item.underYao.sixRelative}${item.underYao.najiaTiangan ?? ''}${item.underYao.najiaDizhi}${item.underYao.wuxing}下`;
 }
 
 function formatLiuyaoHexagramRelation(data: LiuyaoData) {
@@ -244,7 +244,7 @@ function createLiuyaoTimingEvidence(data: LiuyaoData) {
     .filter((item) => item.isChanging)
     .map(
       (item) =>
-        `${formatLiuyaoYaoBrief(item)}动${item.changedYao ? `化${item.changedYao.liuqin}${item.changedYao.dizhi}` : ''}`,
+        `${formatLiuyaoYaoBrief(item)}动${item.changedYao ? `化${item.changedYao.liuqin}${item.changedYao.tiangan ?? ''}${item.changedYao.dizhi}` : ''}`,
     )
     .join('、');
   const voidText = data.voidBranches?.length
@@ -316,7 +316,7 @@ function formatLiuyaoInfo(
           ? [item.changeRelation]
           : [];
       const changedText = item.changedYao
-        ? `化${item.changedYao.liuqin}${item.changedYao.dizhi}${item.changedYao.wuxing}${changeRelations.length ? `（${changeRelations.join('、')}）` : item.changedYao.isVoid ? '（变空）' : ''}${item.changeDirection ? `（${item.changeDirection}）` : ''}`
+        ? `化${item.changedYao.liuqin}${item.changedYao.tiangan ?? ''}${item.changedYao.dizhi}${item.changedYao.wuxing}${changeRelations.length ? `（${changeRelations.join('、')}）` : item.changedYao.isVoid ? '（变空）' : ''}${item.changeDirection ? `（${item.changeDirection}）` : ''}`
         : '无变爻资料';
       const breakText = item.isDayBreak
         ? item.isHiddenMove
@@ -346,13 +346,13 @@ function formatLiuyaoInfo(
     (item) => item.key === evidenceAnalysis.selectionFact.selectedCandidateKey,
   );
   const usefulGodMainLine = selectedUsefulGod
-    ? `用神主线：${selectedUsefulGod.label}${selectedUsefulGod.relative ? `（${selectedUsefulGod.relative}）` : ''}；${selectedUsefulGod.reason}；盘面匹配${selectedUsefulGod.references.map((item) => `${item.source === '伏神' ? '伏神' : ''}第${item.position}爻${item.sixRelative}${item.branch}${item.wuxing}`).join('、') || '无'}；支持${selectedUsefulGod.support.join('、') || '盘面平稳'}；限制${selectedUsefulGod.constraints.join('、') || '未见明显空破墓退'}`
+    ? `用神主线：${selectedUsefulGod.label}${selectedUsefulGod.relative ? `（${selectedUsefulGod.relative}）` : ''}；${selectedUsefulGod.reason}；盘面匹配${selectedUsefulGod.references.map((item) => `${item.source === '伏神' ? '伏神' : ''}第${item.position}爻${item.sixRelative}${item.stem ?? ''}${item.branch}${item.wuxing}`).join('、') || '无'}；支持${selectedUsefulGod.support.join('、') || '盘面平稳'}；限制${selectedUsefulGod.constraints.join('、') || '未见明显空破墓退'}`
     : `用神主线：${evidenceAnalysis.selectionFact.promptText}`;
   const godChainText = evidenceAnalysis.godChain.length
     ? `作用链：${evidenceAnalysis.godChain
         .map(
           (item) =>
-            `${item.role}${item.wuxing || ''}${item.status === '盘中有对应' ? `见${item.references.map((ref) => `第${ref.position}爻${ref.sixRelative}${ref.branch}${ref.wuxing}`).join('、')}` : '未见'}`,
+            `${item.role}${item.wuxing || ''}${item.status === '盘中有对应' ? `见${item.references.map((ref) => `第${ref.position}爻${ref.sixRelative}${ref.stem ?? ''}${ref.branch}${ref.wuxing}`).join('、')}` : '未见'}`,
         )
         .join('；')}`
     : '';
