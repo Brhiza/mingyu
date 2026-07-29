@@ -6,6 +6,7 @@ import {
   type CompleteBranchFormation,
 } from './baziFormationUtils';
 import { canUseExternalPattern } from './baziExternalPatternEligibility';
+import { analyzeKillerPatternStructure } from './baziKillerPattern';
 import { analyzeOfficerPatternStructure } from './baziOfficerPattern';
 import { analyzeFoodPatternStructure } from './baziFoodPattern';
 import { analyzeResourcePatternStructure } from './baziResourcePattern';
@@ -1191,6 +1192,194 @@ function collectFoodPatternNotes(
   return notes;
 }
 
+/**
+ * 复算《子平真诠》“论七杀”中能够由四柱闭合的食伤制杀、杀印、财印食取清、
+ * 杂气无财透与官杀去留组件。强弱、合化、取清结果及贵贱均不由单项结构代替。
+ */
+function collectKillerPatternNotes(
+  pillars: Pillars,
+  patternName: string,
+  getTenGod: GetTenGodFn,
+): string[] {
+  const structure = analyzeKillerPatternStructure(pillars, patternName, getTenGod);
+  const notes: string[] = [];
+  const isExact = (year: string, month: string, day: string, hour: string) =>
+    pillars.year.ganZhi === year &&
+    pillars.month.ganZhi === month &&
+    pillars.day.ganZhi === day &&
+    pillars.hour.ganZhi === hour;
+  const formatStems = (facts: typeof structure.exposedStems) =>
+    facts.map((fact) => `${fact.label}${fact.stem}${fact.tenGod}`).join('、');
+
+  const exactExamples: Array<{
+    pillars: [string, string, string, string];
+    note: string;
+  }> = [
+    {
+      pillars: ['乙亥', '乙酉', '乙卯', '丁丑'],
+      note: '原典七杀食制精确例型乙亥、乙酉、乙卯、丁丑，酉中辛七杀当令而丁食神明透；只保存杀用食制的组成事实，杀旺、食强、身健及贵格结论均须另审',
+    },
+    {
+      pillars: ['壬辰', '甲辰', '丙戌', '戊戌'],
+      note: '原典脱丞相精确例型壬辰、甲辰、丙戌、戊戌，原文称辰中暗杀而年干壬七杀透出，戊食神透时且甲偏印在月；只保存印先食后及印制食的局部关系，不把壬列作标准辰支藏干，也不以戊土数量判食太重',
+    },
+    {
+      pillars: ['丙寅', '戊戌', '壬戌', '辛丑'],
+      note: '原典何参政精确例型丙寅、戊戌、壬戌、辛丑，戌中戊七杀与辛正印分别透于月、时，同通月令；只保存杀印有情的局部结构，不据此判断贵格',
+    },
+    {
+      pillars: ['戊戌', '甲子', '丁未', '庚戌'],
+      note: '原典周丞相精确例型戊戌、甲子、丁未、庚戌，戊伤官、甲正印与庚正财同透；只保存财去印存食伤的取清候选，伤官在本例作为制杀输出，不由此判杀食轻重或大贵',
+    },
+    {
+      pillars: ['甲申', '乙亥', '丙戌', '庚寅'],
+      note: '原典刘运使精确例型甲申、乙亥、丙戌、庚寅，甲乙印星与庚偏财明透且寅亥六合；只保存身重杀轻、杀化印若成立时借财清格的条件候选，寅亥六合不等于已经化木',
+    },
+    {
+      pillars: ['癸卯', '丁巳', '庚寅', '庚辰'],
+      note: '原典岳统制精确例型癸卯、丁巳、庚寅、庚辰，巳中丙七杀当令、丁正官与癸伤官明透；只保存伤官去官留杀的取清候选，不宣称已经取清',
+    },
+    {
+      pillars: ['丙子', '甲午', '辛亥', '辛卯'],
+      note: '原典沈郎中精确例型丙子、甲午、辛亥、辛卯，午中丁七杀当令、丙正官明透且子午相冲，子中癸食神克杀；只保存去杀留官的取清候选，不以一冲直接判定取清完成',
+    },
+    {
+      pillars: ['戊辰', '甲寅', '戊寅', '戊午'],
+      note: '原典赵员外精确例型戊辰、甲寅、戊寅、戊午，甲七杀明透而外干无食伤，寅午均藏丙偏印；只保存无食制而用印的组成事实，印是否用当仍须全局复核',
+    },
+  ];
+  exactExamples.forEach((example) => {
+    if (isExact(...example.pillars)) notes.push(example.note);
+  });
+
+  if (!structure.isKillerPattern) return notes;
+
+  if (structure.outputStems.length > 0) {
+    const hurtBoundary =
+      structure.hurtStems.length > 0
+        ? '；其中伤官只按周丞相原例保留为食伤输出，不把伤官与食神机械视为完全相同'
+        : '';
+    notes.push(
+      `七杀格见${formatStems(structure.outputStems)}明透，列“杀用食制”的局部结构${hurtBoundary}；杀旺、食强、身健与制杀力度均须全局复核`,
+    );
+  }
+
+  if (structure.outputStems.length > 0 && structure.wealthStems.length > 0) {
+    notes.push(
+      `${formatStems(structure.outputStems)}与${formatStems(structure.wealthStems)}同见，保留财泄食伤、生杀而妨碍制杀的一般冲突`,
+    );
+    if (structure.wealthOutputOrder === 'left-before-right') {
+      notes.push(
+        `所见财星全部先于食伤明透，后食伤仍可制杀，列“财先食后”的先后候选；该候选与财生杀的一般冲突并存`,
+      );
+    } else if (structure.wealthOutputOrder === 'right-before-left') {
+      notes.push('所见食伤全部先于财星明透，后财仍有泄食伤、生杀的局部影响');
+    } else if (structure.wealthOutputOrder === 'interleaved') {
+      notes.push('财星与食伤外干位置交错，不强定“财先食后”或“食先财后”');
+    }
+  }
+
+  if (structure.outputStems.length > 0 && structure.resourceStems.length > 0) {
+    notes.push(
+      `${formatStems(structure.outputStems)}与${formatStems(structure.resourceStems)}同见，保留印制食伤、护杀而妨碍制杀的一般冲突`,
+    );
+    if (structure.resourceOutputOrder === 'left-before-right') {
+      notes.push(
+        '所见印星全部先于食伤明透；仅在食伤太旺另经全局成立时，后食与先印可列“印损太过”的条件例外，不据此直接成格',
+      );
+    } else if (structure.resourceOutputOrder === 'right-before-left') {
+      notes.push('所见食伤全部先于印星明透，后印仍有制食伤、护杀的局部影响');
+    } else if (structure.resourceOutputOrder === 'interleaved') {
+      notes.push('印星与食伤外干位置交错，不强定“印先食后”或“食先印后”');
+    }
+  }
+
+  if (structure.killerStems.length > 0 && structure.resourceStems.length > 0) {
+    if (structure.killerResourceShareMonth) {
+      notes.push(
+        `${formatStems(structure.killerStemsFromMonth)}与${formatStems(structure.resourceStemsFromMonth)}均由月令藏干透出，构成“杀印同通月令”的局部有情结构`,
+      );
+    } else {
+      notes.push(
+        `${formatStems(structure.killerStems)}与${formatStems(structure.resourceStems)}明透，但未闭合杀印同通月令；仅在杀重身轻另经全局成立时，保留转而就印的条件候选`,
+      );
+    }
+  }
+
+  if (
+    structure.outputStems.length > 0 &&
+    structure.resourceStems.length > 0 &&
+    structure.wealthStems.length > 0
+  ) {
+    notes.push(
+      '食伤、印星与财星同时明透；在印制食伤的一般冲突之外，另列财去印、保存食伤制杀的救应候选，财印食杀实际强弱仍须复核',
+    );
+  }
+
+  if (
+    structure.outputStems.length === 0 &&
+    structure.resourceStems.length > 0 &&
+    structure.wealthStems.length > 0
+  ) {
+    const combinationBoundary =
+      structure.branchCombinationFacts.length > 0
+        ? `；地支另见${structure.branchCombinationFacts
+            .map(
+              (fact) =>
+                `${fact.leftLabel}${fact.leftBranch}与${fact.rightLabel}${fact.rightBranch}六合`,
+            )
+            .join('、')}，六合只记对应关系，不认定已经成化`
+        : '；当前没有固定事实足以闭合“杀化印”';
+    notes.push(
+      `${formatStems(structure.resourceStems)}与${formatStems(structure.wealthStems)}明透而无食伤明透，列身重杀轻、杀化印若成立时借财清格的待复核方向${combinationBoundary}`,
+    );
+  }
+
+  if (structure.isMixedKillerPattern && structure.wealthStems.length === 0) {
+    notes.push(
+      '杂气七杀格外干未见正偏财，只记录“干头不透财”的客观条件；原典虽列可取贵，本算法不据此判清格或富贵',
+    );
+  }
+
+  if (structure.hasOfficerKillerMixture) {
+    notes.push(
+      `${formatStems(structure.officerStems)}与月令七杀或外干七杀并见，形成官杀混杂待复核，不因官杀同见就宣称已经取清`,
+    );
+    if (structure.hurtStems.length > 0) {
+      notes.push(
+        `${formatStems(structure.hurtStems)}与正官明透，列伤官去官留杀的局部取清候选；是否真正去官仍须全局复核`,
+      );
+    }
+    if (structure.clashingOutputFacts.length > 0) {
+      notes.push(
+        `${structure.clashingOutputFacts
+          .map(
+            (fact) =>
+              `${fact.label}${fact.branch}冲月令${pillars.month.zhi}且藏${fact.hiddenStems.join('、')}食伤`,
+          )
+          .join('、')}，列冲杀而去杀留官的局部候选；六冲事实不等于取清已经完成`,
+      );
+    }
+  }
+
+  if (
+    structure.outputStems.length === 0 &&
+    (structure.resourceStems.length > 0 || structure.resourceHiddenFacts.length > 0)
+  ) {
+    const resourceSources = [
+      ...(structure.resourceStems.length > 0 ? [formatStems(structure.resourceStems)] : []),
+      ...structure.resourceHiddenFacts.map(
+        (fact) => `${fact.label}${fact.branch}藏${fact.hiddenStems.join('、')}印星`,
+      ),
+    ];
+    notes.push(
+      `七杀格外干无食伤明透而见${resourceSources.join('、')}，列“无食制而用印”的局部候选；印是否用当及杀身轻重仍须全局复核`,
+    );
+  }
+
+  return notes;
+}
+
 function isNamedPattern(patternName: string, names: string[]): boolean {
   return names.some(
     (name) =>
@@ -1777,6 +1966,11 @@ export function determinePattern(
   const foodPatternNotes = collectFoodPatternNotes(pillars, patternName, getTenGod);
   if (foodPatternNotes.length > 0) {
     basis += `；食神格成败边界：${foodPatternNotes.join('；')}；以上只记录《子平真诠》“论食神”中能够由当前四柱闭合的财根、明透、气候类别、位置与取清组件，不改变既有格名；身强身弱、食旺食轻、火炎木焦、食神有气、财官杀印强弱及最终取舍仍须全局复核，也不推导性情、职业、富贵贫贱、现实财富、分数或概率`;
+  }
+
+  const killerPatternNotes = collectKillerPatternNotes(pillars, patternName, getTenGod);
+  if (killerPatternNotes.length > 0) {
+    basis += `；七杀格成败边界：${killerPatternNotes.join('；')}；以上只记录《子平真诠》“论七杀”中能够由当前四柱闭合的明透、月令藏干、外干先后、地支固定关系与取清组件，不改变既有格名；杀食身印财强弱、制杀太过、五合六合成化及最终取舍仍须全局复核，也不推导富贵贫贱、官职品级、现实事件、分数或概率`;
   }
 
   return {

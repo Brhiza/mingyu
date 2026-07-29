@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { determinePattern } from '@core/bazi/baziPatternStrategy';
+import { analyzeKillerPatternStructure } from '@core/bazi/baziKillerPattern';
 import {
   HIDDEN_STEMS,
   LU_BRANCH_MAP,
@@ -1667,4 +1668,162 @@ test('论食神十个原典例型应保留结构事实且不覆盖既有格名�
       .pattern,
     '待综合判断',
   );
+});
+
+test('七杀用食制只记录局部结构，不以十神数量代判强弱贵贱', () => {
+  const result = determinePattern(
+    createPillars('乙亥', '乙酉', '乙卯', '丁丑'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.equal(result.pattern, '七杀格');
+  assert.match(result.basis || '', /七杀格成败边界/);
+  assert.match(result.basis || '', /时干丁食神明透.*杀用食制.*局部结构/);
+  assert.match(result.basis || '', /杀旺、食强、身健与制杀力度均须全局复核/);
+  assert.doesNotMatch(result.basis || '', /判定为(?:贵格|富贵)|极等之贵|王侯将相/);
+});
+
+test('七杀食制见财应让一般冲突与财食先后候选并存', () => {
+  const wealthBeforeOutput = determinePattern(
+    createPillars('乙丑', '壬午', '辛未', '丁酉'),
+    '待综合判断',
+    getTenGod,
+  );
+  const outputBeforeWealth = determinePattern(
+    createPillars('甲子', '丁丑', '癸酉', '己未'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.match(wealthBeforeOutput.basis || '', /财泄食伤、生杀而妨碍制杀的一般冲突/);
+  assert.match(wealthBeforeOutput.basis || '', /财星全部先于食伤明透/);
+  assert.match(wealthBeforeOutput.basis || '', /财先食后.*与财生杀的一般冲突并存/);
+  assert.match(outputBeforeWealth.basis || '', /食伤全部先于财星明透/);
+  assert.match(outputBeforeWealth.basis || '', /后财仍有泄食伤、生杀的局部影响/);
+});
+
+test('七杀食制见印应保留印护杀冲突及印先食后的条件例外', () => {
+  const result = determinePattern(
+    createPillars('甲子', '丙子', '丁卯', '戊申'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.equal(result.pattern, '七杀格');
+  assert.match(result.basis || '', /印制食伤、护杀而妨碍制杀的一般冲突/);
+  assert.match(result.basis || '', /印星全部先于食伤明透/);
+  assert.match(result.basis || '', /食伤太旺另经全局成立/);
+  assert.match(result.basis || '', /不据此直接成格/);
+});
+
+test('七杀用印应区分同通月令与未同通月令的转印条件', () => {
+  const sharedMonthPillars = createPillars('丙寅', '戊戌', '壬戌', '辛丑');
+  const sharedMonth = determinePattern(sharedMonthPillars, '待综合判断', getTenGod);
+  const notSharedMonth = determinePattern(
+    createPillars('甲子', '丙子', '丁卯', '癸卯'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.match(sharedMonth.basis || '', /戊七杀与辛正印.*同通月令/);
+  assert.match(sharedMonth.basis || '', /杀印有情.*局部结构/);
+  assert.equal(
+    analyzeKillerPatternStructure(sharedMonthPillars, sharedMonth.pattern, getTenGod)
+      .killerResourceShareMonth,
+    true,
+  );
+  assert.match(notSharedMonth.basis || '', /但未闭合杀印同通月令/);
+  assert.match(notSharedMonth.basis || '', /杀重身轻另经全局成立.*转而就印/);
+});
+
+test('七杀格食印财同透与无食伤印财同透应保留不同取清方向', () => {
+  const wealthRemovesResource = determinePattern(
+    createPillars('乙丑', '戊子', '丁卯', '庚子'),
+    '待综合判断',
+    getTenGod,
+  );
+  const wealthClearsTransformedKiller = determinePattern(
+    createPillars('甲子', '丙子', '丁卯', '庚子'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.match(wealthRemovesResource.basis || '', /食伤、印星与财星同时明透/);
+  assert.match(wealthRemovesResource.basis || '', /财去印、保存食伤制杀.*救应候选/);
+  assert.match(wealthClearsTransformedKiller.basis || '', /无食伤明透/);
+  assert.match(wealthClearsTransformedKiller.basis || '', /杀化印若成立时借财清格/);
+  assert.match(wealthClearsTransformedKiller.basis || '', /没有固定事实足以闭合“杀化印”/);
+});
+
+test('杂气七杀无财透与官杀两类取清均不得直接闭合结果', () => {
+  const mixedKiller = determinePattern(
+    createPillars('甲子', '丁丑', '乙丑', '辛巳'),
+    '待综合判断',
+    getTenGod,
+    '己',
+  );
+  const removeOfficer = determinePattern(
+    createPillars('癸卯', '丁巳', '庚寅', '庚辰'),
+    '待综合判断',
+    getTenGod,
+  );
+  const removeKiller = determinePattern(
+    createPillars('丙子', '甲午', '辛亥', '辛卯'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.equal(mixedKiller.pattern, '杂气七杀格');
+  assert.match(mixedKiller.basis || '', /干头不透财.*客观条件/);
+  assert.match(mixedKiller.basis || '', /不据此判清格或富贵/);
+  assert.match(removeOfficer.basis || '', /伤官去官留杀.*取清候选/);
+  assert.match(removeOfficer.basis || '', /不宣称已经取清/);
+  assert.match(removeKiller.basis || '', /子午相冲.*子中癸食神克杀/);
+  assert.match(removeKiller.basis || '', /去杀留官.*取清候选/);
+  assert.match(removeKiller.basis || '', /不以一冲直接判定取清完成/);
+});
+
+test('七杀无食制用印及杀化印均不得由藏印或六合自动定案', () => {
+  const usesResource = determinePattern(
+    createPillars('戊辰', '甲寅', '戊寅', '戊午'),
+    '待综合判断',
+    getTenGod,
+  );
+  const branchCombination = determinePattern(
+    createPillars('甲申', '乙亥', '丙戌', '庚寅'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.match(usesResource.basis || '', /外干无食伤.*寅午均藏丙偏印/);
+  assert.match(usesResource.basis || '', /无食制而用印.*组成事实/);
+  assert.match(usesResource.basis || '', /印是否用当仍须全局复核/);
+  assert.match(branchCombination.basis || '', /寅亥六合不等于已经化木/);
+  assert.doesNotMatch(branchCombination.basis || '', /已经化印|已化木成格/);
+});
+
+test('论七杀八个原典例型应保存结构事实并禁止高风险强断', () => {
+  const examples: Array<{
+    pillars: [string, string, string, string];
+    marker: RegExp;
+  }> = [
+    { pillars: ['乙亥', '乙酉', '乙卯', '丁丑'], marker: /原典七杀食制精确例型/ },
+    { pillars: ['壬辰', '甲辰', '丙戌', '戊戌'], marker: /原典脱丞相精确例型/ },
+    { pillars: ['丙寅', '戊戌', '壬戌', '辛丑'], marker: /原典何参政精确例型/ },
+    { pillars: ['戊戌', '甲子', '丁未', '庚戌'], marker: /原典周丞相精确例型/ },
+    { pillars: ['甲申', '乙亥', '丙戌', '庚寅'], marker: /原典刘运使精确例型/ },
+    { pillars: ['癸卯', '丁巳', '庚寅', '庚辰'], marker: /原典岳统制精确例型/ },
+    { pillars: ['丙子', '甲午', '辛亥', '辛卯'], marker: /原典沈郎中精确例型/ },
+    { pillars: ['戊辰', '甲寅', '戊寅', '戊午'], marker: /原典赵员外精确例型/ },
+  ];
+
+  examples.forEach(({ pillars, marker }) => {
+    const result = determinePattern(createPillars(...pillars), '待综合判断', getTenGod);
+    assert.match(result.basis || '', marker);
+    assert.doesNotMatch(
+      result.basis || '',
+      /判定为(?:贵格|富贵|贫贱)|必贵|大贵已定|官品|格局评分|成功率/,
+    );
+  });
 });

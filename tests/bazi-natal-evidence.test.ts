@@ -570,6 +570,36 @@ test('真实食神带杀透财排盘应贯穿财能破格与财先食间杀后�
   assert.doesNotMatch(prompt, /判定为(?:富贵|贫贱)|格局评分|成功率/);
 });
 
+test('真实七杀食制见财排盘应贯穿一般冲突与强弱边界', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1980,
+    month: 1,
+    day: 4,
+    timeIndex: 12,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['己未', '丙子', '丁丑', '庚子'],
+  );
+  assert.equal(result.analysis.mingGe.pattern, '七杀格');
+  assert.match(result.analysis.mingGe.basis || '', /七杀格成败边界/);
+  assert.match(result.analysis.mingGe.basis || '', /年干己食神明透.*杀用食制/);
+  assert.match(result.analysis.mingGe.basis || '', /财泄食伤、生杀而妨碍制杀的一般冲突/);
+  assert.match(result.analysis.mingGe.basis || '', /杀旺、食强、身健与制杀力度均须全局复核/);
+
+  const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.result, '七杀格');
+  assert.match(patternFact?.promptText || '', /七杀格成败边界/);
+  assert.match(patternFact?.promptText || '', /财泄食伤、生杀而妨碍制杀/);
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 七杀格/);
+  assert.match(prompt, /七杀格成败边界/);
+  assert.match(prompt, /杀用食制/);
+  assert.doesNotMatch(prompt, /判定为(?:富贵|贫贱|贵格)|格局评分|成功率/);
+});
+
 test('真实财生官露食排盘应保留财格并贯穿食能破格边界', () => {
   const result = baziCalculator.calculateBazi({
     year: 1980,
