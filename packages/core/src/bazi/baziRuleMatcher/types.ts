@@ -1,4 +1,5 @@
 export interface RuleMatchContext {
+  externalPatternEligible?: boolean;
   strengthStatus?: string;
   yearStem?: string;
   monthBranch?: string;
@@ -65,6 +66,7 @@ export interface HiddenStemBranchPairRule {
 
 export interface MatchableRule {
   id: string;
+  requiresExternalPatternEligibility?: boolean;
   strengths?: string[];
   yearStems?: string[];
   months?: string[];

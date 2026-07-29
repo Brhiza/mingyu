@@ -631,6 +631,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-wuzi-chaoyang-authority',
+    requiresExternalPatternEligibility: true,
     label: '辛日酉月戊子时巳酉丑全位重权高规则',
     description:
       '辛金生酉月，若辛日而时上戊子成六阴朝阳，又见巳酉丑金局全、庚辛并见，则较单纯朝阳更进一层，对应原文"庚辛局全巳酉丑，位重权高"；这里将"局全"落为支见巳酉丑全备，并保留庚辛同见作为成局标志。',
@@ -667,6 +668,7 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'you-month-xin-wuzi-chaoyang',
+    requiresExternalPatternEligibility: true,
     label: '辛日酉月戊子时六阴朝阳规则',
     description:
       '辛金生酉月，若辛日时上戊子而不见丙丁离位，合乎原文"六辛日透戊子时，运喜西方，阴若朝阳"；该条属于更窄的时柱格象，应高于一般酉月辛金常规格局。',

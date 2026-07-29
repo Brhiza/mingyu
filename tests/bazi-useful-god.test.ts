@@ -90,7 +90,7 @@ function runAssertions(
 }
 
 test('调候规则使用显式冲突顺序且不再携带数值优先级', () => {
-  assert.equal(CLIMATE_RULES.length, 406);
+  assert.equal(CLIMATE_RULES.length, 405);
   assert.equal(new Set(CLIMATE_RULES.map((rule) => rule.id)).size, CLIMATE_RULES.length);
   assert.ok(CLIMATE_RULES.every((rule) => !('priority' in rule)));
 });
@@ -3144,7 +3144,7 @@ const testCases: Array<{
     },
   },
   {
-    name: '辛日寅月逢卯日子时，应标记朝阳格象，不应仍只按普通寅月辛金判断',
+    name: '辛日寅月逢卯日子时且明透丁火时，不应舍月令财官取用误套朝阳名目',
     args: [
       '身强',
       { pattern: '偏印格', isSpecial: false },
@@ -3165,9 +3165,8 @@ const testCases: Array<{
       },
     ],
     expected: {
-      favorableFirst: '土',
-      traceIncludes: ['特殊格象:辛逢卯日，子时', '成格名目:名曰朝阳'],
-      ruleHas: 'yin-month-xin-mao-day-zi-hour-chaoyang',
+      ruleNotHas: 'yin-month-xin-mao-day-zi-hour-chaoyang',
+      traceNotIncludes: ['特殊格象:辛逢卯日，子时', '成格名目:名曰朝阳'],
     },
   },
   {
@@ -5498,6 +5497,7 @@ const testCases: Array<{
       undefined,
       '辛',
       {
+        externalPatternEligible: true,
         hourBranch: '子',
         visibleStems: ['戊', '辛', '辛', '戊'],
         visibleStemSources: [
@@ -5530,6 +5530,7 @@ const testCases: Array<{
       undefined,
       '辛',
       {
+        externalPatternEligible: true,
         hourBranch: '子',
         visibleStems: ['庚', '辛', '辛', '戊'],
         visibleStemSources: [
@@ -5553,6 +5554,38 @@ const testCases: Array<{
       traceIncludes: ['取象依据:六阴朝阳', '成格关键:庚辛并见，巳酉丑全', '成格层次:位重权高'],
       ruleHas: 'you-month-xin-wuzi-chaoyang-authority',
       ruleNotHas: 'you-month-xin-wuzi-chaoyang',
+    },
+  },
+  {
+    name: '辛日酉月戊子时不具备外格资格时，不应由调候管道误入六阴朝阳',
+    args: [
+      '身强',
+      { pattern: '正财格', isSpecial: false },
+      '金',
+      '酉',
+      undefined,
+      '辛',
+      {
+        externalPatternEligible: false,
+        hourBranch: '子',
+        visibleStems: ['甲', '辛', '辛', '戊'],
+        visibleStemSources: [
+          { pillar: 'year', stem: '甲' },
+          { pillar: 'month', stem: '辛' },
+          { pillar: 'day', stem: '辛' },
+          { pillar: 'hour', stem: '戊' },
+        ],
+        hiddenStems: ['辛', '癸'],
+        hiddenStemSources: [
+          { pillar: 'month', branch: '酉', stems: ['辛'] },
+          { pillar: 'hour', branch: '子', stems: ['癸'] },
+        ],
+        wuxingCounts: { 木: 1, 火: 0, 土: 1, 金: 3, 水: 1 },
+      },
+    ],
+    expected: {
+      ruleNotHas: ['you-month-xin-wuzi-chaoyang', 'you-month-xin-wuzi-chaoyang-authority'],
+      traceNotIncludes: '取象依据:六阴朝阳',
     },
   },
   {

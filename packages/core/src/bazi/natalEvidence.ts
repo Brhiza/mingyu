@@ -577,7 +577,8 @@ function buildLimitationFacts(args: {
         data.warningSummaryFact.key,
         ...data.warningFacts.map((item) => item.key),
       ],
-      promptText: '当前命盘只采用明确时辰或真太阳时校正后的唯一时刻',
+      promptText:
+        '当前命盘只采用明确时辰或真太阳时校正后的唯一时刻；不得根据现实身份、富贵经历、传闻或格局名反推出生时辰，也不得为凑格补造时柱',
       sources: ['出生时间输入规则、真太阳时与排盘边界事实'],
     },
     {
@@ -596,7 +597,7 @@ function buildLimitationFacts(args: {
         ...analysisFacts.map((item) => item.key),
       ],
       promptText:
-        '旺衰、格局与用神必须分别列出依据并交叉复核；不得用五行数量、单一格局名或单一用神标签替代完整判断链',
+        '旺衰、格局与用神必须分别列出依据并交叉复核；月令已有正格用神时，调候、外格或日时名目不得覆盖月令取用；不得用五行数量、单一格局名或单一用神标签替代完整判断链',
       sources: ['旺衰、格局与取用分层原则'],
     },
     {

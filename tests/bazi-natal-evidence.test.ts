@@ -71,6 +71,9 @@ test('八字本命旺衰未闭合时应在统一证据链中保留资料缺口',
     /命语|本项目|当前项目|项目统一|工程|接口|API|MCP|内部权重|bazi:natal:/,
   );
   assert.match(analysis.promptText, /只采用明确时辰或真太阳时校正后的唯一时刻/);
+  assert.match(analysis.promptText, /不得根据现实身份、富贵经历、传闻或格局名反推出生时辰/);
+  assert.match(analysis.promptText, /不得为凑格补造时柱/);
+  assert.match(analysis.promptText, /月令已有正格用神时，调候、外格或日时名目不得覆盖月令取用/);
   assert.equal(analysis.evidence.title, '八字本命四柱与核心判断结构化证据');
 });
 

@@ -3,6 +3,17 @@ import assert from 'node:assert/strict';
 
 import { matchesRule } from '@core/bazi/baziRuleMatcher';
 
+test('要求外格资格的规则只有在统一资格明确成立时才可命中', () => {
+  const rule = {
+    id: 'external-pattern-only',
+    requiresExternalPatternEligibility: true,
+  };
+
+  assert.equal(matchesRule(rule, {}), false);
+  assert.equal(matchesRule(rule, { externalPatternEligible: false }), false);
+  assert.equal(matchesRule(rule, { externalPatternEligible: true }), true);
+});
+
 test('十神类别透干计数中，比劫不应把日主自身算作额外比劫', () => {
   const rule = {
     id: 'no-extra-companion',

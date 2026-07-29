@@ -17,7 +17,7 @@ export const CLIMATE_RULE_PRECEDENCE = `
   wu-month-ji-gui-bing-xin-all shen-month-ji-bing-jia-geng-all xu-month-ji-bing-jia-geng-all hai-month-ji-bing-jia-geng-all
   zi-month-ji-bing-jia-geng-all chou-month-ji-bing-jia-geng-all si-month-geng-bing-ren-jia-all zi-month-geng-bing-ding-all
   chen-month-xin-double-bing-with-gui-scholarly chen-month-xin-fire-many-with-gui-relief chen-month-xin-companions-heavy-water-weak-jia-noble you-month-xin-metal-formation-ren-high
-  yin-month-xin-mao-day-zi-hour-chaoyang mao-month-xin-ren-flood-with-wu-auspicious mao-month-xin-ren-bing-all-great-wealth si-month-ren-bing-jia-xin-all
+  mao-month-xin-ren-flood-with-wu-auspicious mao-month-xin-ren-bing-all-great-wealth si-month-ren-bing-jia-xin-all
   shen-month-ren-wu-ding-jia-all you-month-ren-bing-jia-geng-all xu-month-ren-bing-jia-xin-all si-month-gui-bing-xin-geng-all
   wu-month-gui-ji-pure-follow-kill wei-month-gui-xiaoshu-metal-water-rich shen-month-gui-bing-xin-geng-all xu-month-gui-bing-xin-geng-all
   hai-month-gui-bing-xin-geng-all chou-month-gui-water-formation-no-bing you-month-bing-one-ren-rich chen-month-wu-officer-party-no-geng

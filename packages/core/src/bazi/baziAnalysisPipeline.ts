@@ -14,6 +14,7 @@ import type {
 import { WUXING } from './baziTypes';
 import type { FormationAnalysis, SeasonalStatusAnalysis } from './baziStrengthAnalyzer';
 import { collectEstablishedBranchFormations } from './baziFormationUtils';
+import { canUseExternalPattern } from './baziExternalPatternEligibility';
 import type { HiddenStemSource, VisibleStemSource } from './baziRuleMatcher';
 import { assertHeavenlyStem, assertHiddenStemsMatchPillars } from './baziUtils';
 
@@ -72,6 +73,7 @@ export interface BaziAnalysisPipelineDeps {
     monthCommander?: string,
     dayMasterStem?: string,
     climateContext?: {
+      externalPatternEligible?: boolean;
       yearStem?: string;
       hourBranch?: string;
       currentJieqi?: string;
@@ -193,6 +195,7 @@ function buildPipelineState(
   const hiddenStemSources = buildHiddenStemSources(pillars, hiddenStems);
   const formationWuxings = buildFormationWuxings(pillars);
   const wuxingCounts = buildWuxingCounts(pillars, deps.getWuxing);
+  const externalPatternEligible = canUseExternalPattern(pillars, deps.getTenGod);
 
   const rootAnalysis = deps.analyzeRoot(dayMaster, pillars, hiddenStems, deps.getWuxing);
   const formationAnalysis = deps.analyzeFormation(dayMaster, pillars, deps.getWuxing);
@@ -231,6 +234,7 @@ function buildPipelineState(
     monthCommander,
     dayMaster,
     {
+      externalPatternEligible,
       yearStem: pillars.year.gan,
       hourBranch: pillars.hour.zhi,
       currentJieqi: seasonInfo?.currentJieqi,

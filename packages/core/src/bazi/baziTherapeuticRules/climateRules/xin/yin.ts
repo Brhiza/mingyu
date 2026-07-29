@@ -147,24 +147,4 @@ export const XIN_YIN_CLIMATE_RULES: ClimateRule[] = [
     traceHints: ['取用层次:支成水局，得丙透照暖', '成格层次:反主富贵'],
     hint: '辛金寅月水局成势而丙透照暖，反主富贵',
   },
-  {
-    id: 'yin-month-xin-mao-day-zi-hour-chaoyang',
-    label: '辛日寅月卯日子时朝阳规则',
-    description:
-      '辛金生寅月，原文明言"辛逢卯日，子时，名曰朝阳"。此条属于直接点名的日时格象，应以日支卯、时支子为核心判据；因条文未另明示病药次序，这里只将其作为高优先级格象提示，不把它泛化成普通寅月辛金的通用取用逻辑。',
-    months: ['寅'],
-    dayMasters: ['金'],
-    dayStems: ['辛'],
-    hourBranches: ['子'],
-    requiredBranchPillarPairs: [
-      {
-        branch: '卯',
-        pillars: ['day'],
-      },
-    ],
-    usefulWuxing: '土',
-    favorableOrder: ['土', '水', '金'],
-    traceHints: ['特殊格象:辛逢卯日，子时', '成格名目:名曰朝阳'],
-    hint: '辛金寅月而日坐卯、时逢子，多成朝阳之象',
-  },
 ];

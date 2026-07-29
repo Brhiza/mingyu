@@ -1,5 +1,6 @@
 export interface ClimateRule {
   id: string;
+  requiresExternalPatternEligibility?: boolean;
   label: string;
   description: string;
   yearStems?: string[];

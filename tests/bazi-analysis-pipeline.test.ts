@@ -71,7 +71,7 @@ function createValidationPipeline(overrides: Partial<BaziAnalysisPipelineDeps> =
 }
 
 test('分析管道应把当前节气传入取用判断，避免节后分段规则在整链路中失效', () => {
-  const captured: { currentJieqi?: string } = {};
+  const captured: { currentJieqi?: string; externalPatternEligible?: boolean } = {};
   const pipeline = createBaziAnalysisPipeline({
     getWuxing: () => '水' as Wuxing,
     getTenGod: () => '比肩',
@@ -109,6 +109,7 @@ test('分析管道应把当前节气传入取用判断，避免节后分段规�
       climateContext,
     ) => {
       captured.currentJieqi = climateContext?.currentJieqi;
+      captured.externalPatternEligible = climateContext?.externalPatternEligible;
       return {
         favorable: [],
         unfavorable: [],
@@ -143,6 +144,7 @@ test('分析管道应把当前节气传入取用判断，避免节后分段规�
   });
 
   assert.equal(captured.currentJieqi, '谷雨');
+  assert.equal(captured.externalPatternEligible, true);
 });
 
 test('分析管道应把藏干来源与成局五行传入取用判断，避免按支取象的规则在整链路中失效', () => {

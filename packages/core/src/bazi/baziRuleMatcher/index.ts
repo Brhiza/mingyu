@@ -67,6 +67,7 @@ export function matchesRule<T extends MatchableRule>(rule: T, context: RuleMatch
   );
 
   return (
+    (!rule.requiresExternalPatternEligibility || context.externalPatternEligible === true) &&
     includesOrWildcard(rule.strengths, context.strengthStatus) &&
     includesOrWildcard(rule.yearStems, context.yearStem) &&
     includesOrWildcard(rule.months, context.monthBranch) &&

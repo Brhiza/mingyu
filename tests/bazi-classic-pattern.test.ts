@@ -79,6 +79,28 @@ test('月令已有用神时不以六乙鼠贵另立外格', () => {
   }
 });
 
+test('乙生寅月丙子时有月令用神时不作六乙鼠贵', () => {
+  const pillars: Pillars = {
+    year: { gan: '癸', zhi: '亥', ganZhi: '癸亥' },
+    month: { gan: '甲', zhi: '寅', ganZhi: '甲寅' },
+    day: { gan: '乙', zhi: '未', ganZhi: '乙未' },
+    hour: { gan: '丙', zhi: '子', ganZhi: '丙子' },
+  };
+
+  assert.notEqual(identify(pillars)?.name, '六乙鼠贵格');
+});
+
+test('辛日透丙且得戊子时有官印结构时不作六阴朝阳', () => {
+  const pillars: Pillars = {
+    year: { gan: '丙', zhi: '午', ganZhi: '丙午' },
+    month: { gan: '丁', zhi: '酉', ganZhi: '丁酉' },
+    day: { gan: '辛', zhi: '卯', ganZhi: '辛卯' },
+    hour: { gan: '戊', zhi: '子', ganZhi: '戊子' },
+  };
+
+  assert.notEqual(identify(pillars)?.name, '六阴朝阳格');
+});
+
 test('月令无用时日贵格应完整识别四日，并把昼夜保留为未代判的加强条件', () => {
   for (const dayGanZhi of ['丁酉', '丁亥', '癸巳', '癸卯']) {
     const isDingDay = dayGanZhi.startsWith('丁');

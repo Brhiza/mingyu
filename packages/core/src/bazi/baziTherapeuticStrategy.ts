@@ -27,12 +27,14 @@ function resolveTherapeuticHintRule(
   hiddenStemSources?: HiddenStemSource[],
   formationWuxings?: string[],
   wuxingCounts?: Record<string, number>,
+  externalPatternEligible?: boolean,
 ) {
   if (!monthBranch) {
     return null;
   }
 
   const climateRule = matchFirstRule(CLIMATE_RULES, {
+    externalPatternEligible,
     yearStem,
     monthBranch,
     hourBranch,
@@ -71,6 +73,7 @@ export function resolveTherapeuticHint(
   hiddenStemSources?: HiddenStemSource[],
   formationWuxings?: string[],
   wuxingCounts?: Record<string, number>,
+  externalPatternEligible?: boolean,
 ): string {
   return (
     resolveTherapeuticHintRule(
@@ -87,6 +90,7 @@ export function resolveTherapeuticHint(
       hiddenStemSources,
       formationWuxings,
       wuxingCounts,
+      externalPatternEligible,
     )?.hint || ''
   );
 }
@@ -105,6 +109,7 @@ export function resolveTherapeuticHintRuleId(
   hiddenStemSources?: HiddenStemSource[],
   formationWuxings?: string[],
   wuxingCounts?: Record<string, number>,
+  externalPatternEligible?: boolean,
 ): string {
   return (
     resolveTherapeuticHintRule(
@@ -121,6 +126,7 @@ export function resolveTherapeuticHintRuleId(
       hiddenStemSources,
       formationWuxings,
       wuxingCounts,
+      externalPatternEligible,
     )?.id || ''
   );
 }
@@ -143,12 +149,14 @@ function matchClimateRule(
   hiddenStemSources?: HiddenStemSource[],
   formationWuxings?: string[],
   wuxingCounts?: Record<string, number>,
+  externalPatternEligible?: boolean,
 ): ClimateRule | undefined {
   if (!monthBranch || isPatternSpecial) {
     return undefined;
   }
 
   return matchFirstRule(CLIMATE_RULES, {
+    externalPatternEligible,
     yearStem,
     monthBranch,
     hourBranch,
@@ -208,6 +216,7 @@ export function resolveClimateUsefulWuxing(
   hiddenStemSources?: HiddenStemSource[],
   formationWuxings?: string[],
   wuxingCounts?: Record<string, number>,
+  externalPatternEligible?: boolean,
 ): string {
   return (
     resolveClimateFavorableOrder(
@@ -224,6 +233,7 @@ export function resolveClimateUsefulWuxing(
       hiddenStemSources,
       formationWuxings,
       wuxingCounts,
+      externalPatternEligible,
     )[0] || ''
   );
 }
@@ -242,6 +252,7 @@ export function resolveClimateFavorableOrder(
   hiddenStemSources?: HiddenStemSource[],
   formationWuxings?: string[],
   wuxingCounts?: Record<string, number>,
+  externalPatternEligible?: boolean,
 ): string[] {
   const climateRule = matchClimateRule(
     dmWuxing,
@@ -257,6 +268,7 @@ export function resolveClimateFavorableOrder(
     hiddenStemSources,
     formationWuxings,
     wuxingCounts,
+    externalPatternEligible,
   );
   if (!climateRule) {
     return [];

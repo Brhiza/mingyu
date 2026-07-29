@@ -45,6 +45,7 @@ interface UsefulGodDecisionState {
 }
 
 interface UsefulGodClimateContext {
+  externalPatternEligible?: boolean;
   yearStem?: string;
   hourBranch?: string;
   currentJieqi?: string;
@@ -69,6 +70,13 @@ function assertWuxingList(values: string[] | undefined, label: string): void {
 function assertUsefulGodClimateContext(context?: UsefulGodClimateContext): void {
   if (!context) {
     return;
+  }
+
+  if (
+    context.externalPatternEligible !== undefined &&
+    typeof context.externalPatternEligible !== 'boolean'
+  ) {
+    throw new Error('外格资格标记无效');
   }
 
   if (context.yearStem) assertHeavenlyStem(context.yearStem, '年干');
@@ -338,6 +346,7 @@ export function determineUsefulGod(
 
   const isPatternSpecial = pattern.isSpecial;
   const baseState = buildBaseDecisionState(strengthStatus, pattern, dmWuxing);
+  const externalPatternEligible = climateContext?.externalPatternEligible;
   const yearStem = climateContext?.yearStem;
   const hourBranch = climateContext?.hourBranch;
   const currentJieqi = climateContext?.currentJieqi;
@@ -348,6 +357,7 @@ export function determineUsefulGod(
   const formationWuxings = climateContext?.formationWuxings;
   const wuxingCounts = climateContext?.wuxingCounts;
   const climateRule = matchFirstRule(CLIMATE_RULES, {
+    externalPatternEligible,
     yearStem,
     monthBranch,
     hourBranch,
@@ -375,6 +385,7 @@ export function determineUsefulGod(
     hiddenStemSources,
     formationWuxings,
     wuxingCounts,
+    externalPatternEligible,
   );
   const climateUsefulWuxing =
     climateFavorableOrder[0] ||
@@ -392,6 +403,7 @@ export function determineUsefulGod(
       hiddenStemSources,
       formationWuxings,
       wuxingCounts,
+      externalPatternEligible,
     );
   const climateDecision = applyClimateAdjustment(baseState, climateFavorableOrder);
   if (
