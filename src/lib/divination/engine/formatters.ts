@@ -300,6 +300,7 @@ function formatLiuyaoInfo(
   data: LiuyaoData,
   topic: 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen' = 'general',
 ) {
+  const dayBranch = getGanzhiBranch(data.ganzhi.day);
   const movingYaos = data.changingYaos?.length
     ? data.changingYaos
         .map((item) => `第${item.position}爻${item.type ? `（${item.type}）` : ''}`)
@@ -318,14 +319,19 @@ function formatLiuyaoInfo(
       const changedText = item.changedYao
         ? `化${item.changedYao.liuqin}${item.changedYao.tiangan ?? ''}${item.changedYao.dizhi}${item.changedYao.wuxing}${changeRelations.length ? `（${changeRelations.join('、')}）` : item.changedYao.isVoid ? '（变空）' : ''}${item.changeDirection ? `（${item.changeDirection}）` : ''}`
         : '无变爻资料';
-      const breakText = item.isDayBreak
-        ? item.isHiddenMove
-          ? '（暗动）'
-          : '（日破）'
-        : item.isMonthBreak
-          ? '（月破）'
-          : '';
-      return `${formatLiuyaoYaoBrief(item)}${item.isVoid ? '（空）' : ''}${breakText}${changedText}`;
+      const hasDayClash = item.isDayClash ?? LIUCHONG_MAP[dayBranch] === item.najiaDizhi;
+      const stateText = [
+        item.isVoid ? '空' : '',
+        item.isHiddenMove
+          ? '暗动'
+          : item.isDayBreak && !item.isChanging
+            ? '日破'
+            : hasDayClash
+              ? '与日辰相冲'
+              : '',
+        item.isMonthBreak ? '月破' : '',
+      ].filter(Boolean);
+      return `${formatLiuyaoYaoBrief(item)}${stateText.length ? `（${stateText.join('、')}）` : ''}${changedText}`;
     });
   const voidYaoText = data.yaosDetail
     .filter((item) => item.isVoid || item.changedYao?.isVoid)

@@ -4,7 +4,7 @@ import type {
   LiuyaoHiddenSpirit,
   LiuyaoYaoDetail,
 } from '../types/divination';
-import { isKe, isLiuhai, isLiuhe, isSanxing, isSheng } from '../ganzhi';
+import { isKe, isLiuchong, isLiuhai, isLiuhe, isSanxing, isSheng } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import {
@@ -493,7 +493,7 @@ function buildVisibleReference(
   const constraints = [
     yao.isVoid ? '本爻空亡' : '',
     yao.isMonthBreak ? '月破' : '',
-    yao.isDayBreak && !yao.isHiddenMove ? '日破' : '',
+    yao.isDayBreak && !yao.isHiddenMove && !yao.isChanging ? '日破' : '',
     yao.seasonState === '休' || yao.seasonState === '囚' || yao.seasonState === '死'
       ? `月令${yao.seasonState}`
       : '',
@@ -587,7 +587,13 @@ function buildLineFacts(
     const dayRelations = [
       yao.najiaDizhi === dayBranch ? '值日辰' : '',
       isLiuhe(yao.najiaDizhi, dayBranch) ? '合日辰' : '',
-      yao.isHiddenMove ? '日冲暗动' : yao.isDayBreak ? '日冲成破' : '',
+      yao.isHiddenMove
+        ? '日冲暗动'
+        : yao.isDayBreak && !yao.isChanging
+          ? '日冲成破'
+          : isLiuchong(yao.najiaDizhi, dayBranch)
+            ? '与日辰相冲'
+            : '',
       yao.isRiMu ? '入日墓' : '',
       isLiuhai(yao.najiaDizhi, dayBranch) ? '与日辰相害' : '',
       isSanxing(yao.najiaDizhi, dayBranch) ? '与日辰成刑' : '',

@@ -142,7 +142,7 @@ function checkSanheWithTrigger(
   return null;
 }
 
-// 六合月日暗助检测（已在 yaosDetail 中通过 seasonState + isDayBreak + isChanging 实现暗动判定）
+// 六合月日暗助检测（已在 yaosDetail 中通过 seasonState + isDayClash + isChanging 实现暗动判定）
 
 /**
  * 回头生克冲：动爻变出之爻对动爻本身的关系。
@@ -253,10 +253,8 @@ export function getLiuyaoGuaShenBranch(shiPosition: number, shiYaoIsYang: boolea
   return branch;
 }
 
-/**
- * 判断是否为日破：爻的地支被日辰地支冲克
- */
-function isDayBreak(branch: string, dayBranch: string): boolean {
+/** 判断爻支是否与日辰相冲；日冲还须按动静与旺衰再分暗动、日破。 */
+function isDayClash(branch: string, dayBranch: string): boolean {
   return isLiuchong(branch, dayBranch);
 }
 
@@ -1028,7 +1026,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
   const yaosDetail = yaosInfo.map((info, index) => {
     const isChanging = rawYaos[index] === 6 || rawYaos[index] === 9;
     const changedInfo = isChanging ? changedYaosInfo[index] : null;
-    const isDayBreakFlag = isDayBreak(info.dizhi, dayBranch);
+    const isDayClashFlag = isDayClash(info.dizhi, dayBranch);
     const isMonthBreakFlag = isMonthBreak(info.dizhi, monthBranch);
     const changeDirection = changedInfo
       ? getLiuyaoChangeDirection(info.dizhi, changedInfo.dizhi)
@@ -1036,10 +1034,11 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
 
     // 月令旺衰：按月建定爻之五行的旺相休囚死。旺相为有力，休囚死为无力。
     const seasonState = getSeasonState(info.wuxing, monthBranch);
-    // 暗动：静爻被日辰冲为暗动（旺相有力，暗中发动）；休囚被日冲为日破（无力）。
-    // 与 isDayBreak 互补：日冲静爻按旺衰区分暗动（有力可用）与日破（无力）。
+    // 《增删卜易·日辰章、暗动章》：旺相静爻日冲为暗动，休囚静爻日冲为日破。
+    // 明动爻即使与日辰相冲，也只保留日冲事实，不冒充静爻日破。
     const isHiddenMove =
-      !isChanging && isDayBreakFlag && (seasonState === '旺' || seasonState === '相');
+      !isChanging && isDayClashFlag && (seasonState === '旺' || seasonState === '相');
+    const isDayBreakFlag = !isChanging && isDayClashFlag && !isHiddenMove;
     // 回头生克冲：动爻变出之爻对动爻本身的关系（仅动爻有变爻时计算）。
     const changeRelation = changedInfo
       ? getLiuyaoChangeRelation(
@@ -1074,6 +1073,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
       isWorld: shiYing.shi === index + 1,
       isResponse: shiYing.ying === index + 1,
       isVoid: voids.includes(info.dizhi),
+      isDayClash: isDayClashFlag,
       isDayBreak: isDayBreakFlag,
       isMonthBreak: isMonthBreakFlag,
       isHiddenMove: isHiddenMove,

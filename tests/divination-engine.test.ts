@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateDivinationSession } from '../src/lib/divination/engine';
-import { buildTimeInfoText } from '../src/lib/divination/engine/formatters';
+import { buildTimeInfoText, formatDivinationInfo } from '../src/lib/divination/engine/formatters';
 import {
   TAROT_SPREAD_INSPIRATION_QUESTIONS,
   resolveDivinationInspiredDraftPatch,
@@ -261,6 +261,30 @@ test('六爻证据应把六亲类象与现实结论分离', () => {
     conditionLiuyaoTraditionalText('官鬼持世，主压力、疾病与官非，事体不虚'),
     '官鬼持世，传统类象提示压力、疾病与官非，传统上可作为事项线索',
   );
+});
+
+test('六爻页面资料不应把明动爻与日辰相冲写成日破', () => {
+  const data = generateLiuyao(new Date('2025-05-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: [8, 7, 8, 8, 7, 6],
+  });
+  const text = formatDivinationInfo('liuyao', data, '');
+  const legacyText = formatDivinationInfo(
+    'liuyao',
+    {
+      ...data,
+      yaosDetail: data.yaosDetail.map((item, index) =>
+        index === 5 ? { ...item, isDayClash: undefined, isDayBreak: true } : item,
+      ),
+      evidenceAnalysis: undefined,
+    },
+    '',
+  );
+
+  assert.match(text, /第6爻.*（与日辰相冲）/);
+  assert.doesNotMatch(text, /日破/);
+  assert.match(legacyText, /第6爻.*（与日辰相冲）/);
+  assert.doesNotMatch(legacyText, /日破/);
 });
 
 test('奇门算法会补出时旬空亡与马星落宫', () => {

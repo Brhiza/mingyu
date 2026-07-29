@@ -197,8 +197,12 @@ export interface LiuyaoYaoDetail extends BaseYaoDetail {
   isWorld: boolean;
   isResponse: boolean;
   isVoid: boolean;
+  /** 是否与日辰地支相冲；这是原始冲关系，不等同于日破。 */
+  isDayClash?: boolean;
+  /** 静爻休囚受日辰冲时为日破；旺相静爻日冲另记为暗动。 */
   isDayBreak?: boolean;
   isMonthBreak?: boolean;
+  /** 旺相静爻受日辰冲时为暗动。 */
   isHiddenMove?: boolean;
   seasonState?: '旺' | '相' | '休' | '囚' | '死' | '平';
   changeDirection?: '化进神' | '化退神' | null;

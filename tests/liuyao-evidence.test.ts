@@ -172,6 +172,49 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
   assert.match(incomplete.hiddenSpiritCoverageFact.promptText, /不得反推伏神位置/);
 });
 
+test('六爻证据应区分日冲暗动、静爻日破与明动爻日冲', () => {
+  const staticYaos = [8, 7, 8, 8, 7, 8] as const;
+  const strongStatic = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: staticYaos,
+  }).evidenceAnalysis?.lineFacts[5];
+  const weakStatic = generateLiuyao(new Date('2025-05-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: staticYaos,
+  }).evidenceAnalysis?.lineFacts[5];
+  const weakMovingData = generateLiuyao(new Date('2025-05-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: [8, 7, 8, 8, 7, 6],
+  });
+  const weakMoving = weakMovingData.evidenceAnalysis?.lineFacts[5];
+
+  assert.equal(strongStatic?.activity, '暗动');
+  assert.ok(strongStatic?.dayState.relations.includes('日冲暗动'));
+  assert.ok(strongStatic?.support.includes('暗动'));
+  assert.ok(!strongStatic?.constraints.includes('日破'));
+
+  assert.equal(weakStatic?.activity, '静爻');
+  assert.ok(weakStatic?.dayState.relations.includes('日冲成破'));
+  assert.ok(weakStatic?.constraints.includes('日破'));
+
+  assert.equal(weakMoving?.activity, '明动');
+  assert.ok(weakMoving?.dayState.relations.includes('与日辰相冲'));
+  assert.ok(!weakMoving?.dayState.relations.includes('日冲成破'));
+  assert.ok(!weakMoving?.constraints.includes('日破'));
+  assert.ok(!weakMovingData.evidenceAnalysis?.candidates[0]?.constraints.includes('日破'));
+
+  const legacyMoving = analyzeLiuyaoEvidence({
+    ...weakMovingData,
+    yaosDetail: weakMovingData.yaosDetail.map((item, index) =>
+      index === 5 ? { ...item, isDayClash: undefined, isDayBreak: true } : item,
+    ),
+    evidenceAnalysis: undefined,
+  }).lineFacts[5];
+  assert.ok(legacyMoving.dayState.relations.includes('与日辰相冲'));
+  assert.ok(!legacyMoving.dayState.relations.includes('日冲成破'));
+  assert.ok(!legacyMoving.constraints.includes('日破'));
+});
+
 test('六爻证据应同时保留基础动变关系与化空条件', () => {
   const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
     method: 'manual',

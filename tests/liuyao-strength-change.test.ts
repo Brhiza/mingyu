@@ -14,7 +14,7 @@ import {
 } from 'mingyu-core/divination/liuyao';
 import type { LiuyaoYaoDetail } from 'mingyu-core/types';
 
-// 2025-01-01 农历为丙子月（子月：水旺木相金休土囚火死）、丙寅日（日支寅）
+// 2025-01-01 排盘为丙子月（子月：水旺木相金休土囚火死）、庚午日（日支午）
 // 该日期的卦象固定，用于回归月令旺衰、暗动、回头生克冲的字段输出。
 const SAMPLE_DATE = new Date('2025-01-01T08:00:00+08:00');
 const SHAN_HUO_BI_YAOS = [7, 8, 7, 8, 8, 7] as const;
@@ -90,24 +90,69 @@ test('六爻：爻内三刑汇总应按共享三刑口径识别两支互见', ()
   );
 });
 
-test('六爻：静爻被日冲且旺相标记为暗动，休囚标记为日破', () => {
-  const data = generateSampleLiuyao();
-  const dayBranch = data.ganzhi.day.slice(1);
+test('六爻：日冲原始事实应与暗动、日破互斥分类', () => {
+  const strongStatic = generateSampleLiuyao(KAN_WEI_SHUI_YAOS).yaosDetail[5];
+  const weakStatic = generateLiuyao(new Date('2025-05-01T08:00:00+08:00'), {
+    yaos: KAN_WEI_SHUI_YAOS,
+  }).yaosDetail[5];
+  const weakMoving = generateLiuyao(new Date('2025-05-01T08:00:00+08:00'), {
+    yaos: [8, 7, 8, 8, 7, 6],
+  }).yaosDetail[5];
 
-  // 暗动与日破互斥：暗动要求静爻(非动)且被日冲且旺相
-  for (const yao of data.yaosDetail) {
-    if (yao.isHiddenMove) {
-      assert.ok(!yao.isChanging, `第${yao.position}爻暗动应为静爻`);
-      assert.ok(yao.isDayBreak, `第${yao.position}爻暗动应被日冲`);
-      assert.ok(
-        yao.seasonState === '旺' || yao.seasonState === '相',
-        `第${yao.position}爻暗动应旺相，实际 ${yao.seasonState}`,
-      );
-    }
-    // 日破与暗动不同时成立
-    assert.ok(!(yao.isDayBreak && yao.isHiddenMove) || yao.isHiddenMove, '');
-  }
-  void dayBranch;
+  assert.deepEqual(
+    {
+      branch: strongStatic.najiaDizhi,
+      season: strongStatic.seasonState,
+      changing: strongStatic.isChanging,
+      dayClash: strongStatic.isDayClash,
+      hiddenMove: strongStatic.isHiddenMove,
+      dayBreak: strongStatic.isDayBreak,
+    },
+    {
+      branch: '子',
+      season: '旺',
+      changing: false,
+      dayClash: true,
+      hiddenMove: true,
+      dayBreak: false,
+    },
+  );
+  assert.deepEqual(
+    {
+      branch: weakStatic.najiaDizhi,
+      season: weakStatic.seasonState,
+      changing: weakStatic.isChanging,
+      dayClash: weakStatic.isDayClash,
+      hiddenMove: weakStatic.isHiddenMove,
+      dayBreak: weakStatic.isDayBreak,
+    },
+    {
+      branch: '子',
+      season: '死',
+      changing: false,
+      dayClash: true,
+      hiddenMove: false,
+      dayBreak: true,
+    },
+  );
+  assert.deepEqual(
+    {
+      branch: weakMoving.najiaDizhi,
+      season: weakMoving.seasonState,
+      changing: weakMoving.isChanging,
+      dayClash: weakMoving.isDayClash,
+      hiddenMove: weakMoving.isHiddenMove,
+      dayBreak: weakMoving.isDayBreak,
+    },
+    {
+      branch: '子',
+      season: '死',
+      changing: true,
+      dayClash: true,
+      hiddenMove: false,
+      dayBreak: false,
+    },
+  );
 });
 
 test('六爻：动爻变爻应完整输出回头、化泄、化耗等五行关系', () => {
