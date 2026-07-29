@@ -125,6 +125,7 @@ test('选择大运时会附带该大运下的全部流年', () => {
   assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.foodPatternRuleFacts));
   assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.killerPatternRuleFacts));
   assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.hurtPatternRuleFacts));
+  assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.bladePatternRuleFacts));
   assert.ok(
     context.promptPayload.triggerEvidence?.limitationFacts.some(
       (item) => item.type === '层级应期边界',
@@ -285,6 +286,57 @@ test('真实金水伤官排盘应把佩印与用官的相反取运候选贯穿�
   assert.match(evidenceText, /伤食不碍.*支持候选/);
   assert.match(evidenceText, /不利食伤.*带忌候选/);
   assert.match(evidenceText, /相反候选须全部保留/);
+  assert.match(evidenceText, /不得把单项候选定为最终喜运、忌运、吉凶或现实事件/);
+});
+
+test('真实月刃格排盘应把用杀的相反逐字取运候选贯穿到提示资料', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1981,
+    month: 6,
+    day: 29,
+    timeIndex: 10,
+    gender: 'male',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['辛酉', '甲午', '戊寅', '壬戌'],
+  );
+  assert.equal(result.analysis.mingGe.pattern, '月刃格');
+
+  const context = buildFortuneSelectionContext(result, {
+    scope: 'dayun',
+    cycleIndex: 4,
+  });
+
+  assert.ok(context);
+  assert.equal(context.displayLabel, '庚寅运');
+  const bladeFacts = context.promptPayload.triggerEvidence.bladePatternRuleFacts;
+  assert.ok(
+    bladeFacts.some(
+      (item) => item.type === '阳刃用杀取运候选' && item.trigger.includes('杀不甚旺'),
+    ),
+  );
+  assert.ok(
+    bladeFacts.some((item) => item.trigger.includes('杀太重') && item.trigger.includes('身旺')),
+  );
+  assert.ok(
+    bladeFacts.some((item) => item.trigger.includes('杀太重') && item.trigger.includes('印绶')),
+  );
+  assert.ok(
+    bladeFacts.some(
+      (item) => item.trigger.includes('杀太重') && item.trigger.includes('伤食亦不为忌'),
+    ),
+  );
+  assert.ok(bladeFacts.every((item) => item.status === '条件待复核'));
+
+  const evidenceText = context.promptPayload.evidenceLines?.join('\n') ?? '';
+  assert.match(evidenceText, /【主证】阳刃格逐字取运候选/);
+  assert.match(evidenceText, /杀不甚旺.*助杀方向.*条件待复核/);
+  assert.match(evidenceText, /杀太重.*伤食亦不为忌.*条件待复核/);
   assert.match(evidenceText, /不得把单项候选定为最终喜运、忌运、吉凶或现实事件/);
 });
 

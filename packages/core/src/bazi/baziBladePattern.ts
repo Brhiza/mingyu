@@ -45,6 +45,8 @@ export interface BladePatternStructureSummary {
   outputStems: PatternExposedStemFact[];
   officerStems: PatternExposedStemFact[];
   killerStems: PatternExposedStemFact[];
+  officerHiddenFacts: BladePatternHiddenFact[];
+  killerHiddenFacts: BladePatternHiddenFact[];
   officerKillerHiddenFacts: BladePatternHiddenFact[];
   wealthHiddenFacts: BladePatternHiddenFact[];
   bladeKillerCombinationFacts: BladePatternStemCombinationFact[];
@@ -128,6 +130,8 @@ export function analyzeBladePatternStructure(
   );
   const officerStems = select('正官');
   const killerStems = select('七杀');
+  const officerHiddenFacts = collectHiddenFacts(pillars, getTenGodFn, ['正官']);
+  const killerHiddenFacts = collectHiddenFacts(pillars, getTenGodFn, ['七杀']);
   const officerKillerHiddenFacts = collectHiddenFacts(pillars, getTenGodFn, ['正官', '七杀']);
   const wealthHiddenFacts = collectHiddenFacts(pillars, getTenGodFn, ['正财', '偏财']);
   const completeFormations = collectCompleteBranchFormations(pillars);
@@ -184,6 +188,8 @@ export function analyzeBladePatternStructure(
     outputStems,
     officerStems,
     killerStems,
+    officerHiddenFacts,
+    killerHiddenFacts,
     officerKillerHiddenFacts,
     wealthHiddenFacts,
     bladeKillerCombinationFacts,

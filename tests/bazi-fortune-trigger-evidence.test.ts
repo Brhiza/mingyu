@@ -34,6 +34,7 @@ function assertEvidenceReferences(result: ReturnType<typeof analyzeFortuneTrigge
     ...result.foodPatternRuleFacts.map((item) => item.key),
     ...result.killerPatternRuleFacts.map((item) => item.key),
     ...result.hurtPatternRuleFacts.map((item) => item.key),
+    ...result.bladePatternRuleFacts.map((item) => item.key),
     ...result.relations.map((item) => item.key),
     ...result.formations.map((item) => item.key),
     ...result.counterEvidenceFacts.map((item) => item.key),
@@ -99,6 +100,14 @@ function createHurtResult(pillars: Pillars): BaziChartResult {
   result.pillars = pillars;
   result.dayMaster = { gan: pillars.day.gan } as BaziChartResult['dayMaster'];
   result.analysis.mingGe = { pattern: '伤官格', isSpecial: false };
+  return result;
+}
+
+function createBladeResult(pillars: Pillars): BaziChartResult {
+  const result = createResult();
+  result.pillars = pillars;
+  result.dayMaster = { gan: pillars.day.gan } as BaziChartResult['dayMaster'];
+  result.analysis.mingGe = { pattern: '月刃格', isSpecial: false };
   return result;
 }
 
@@ -1305,6 +1314,104 @@ test('金水伤官用官应保留财印支持、食伤不利及财印两旺例�
   assertEvidenceReferences(helperResult);
   assert.doesNotMatch(
     helperResult.promptText,
+    /判定为最终喜运|判定为最终忌运|匹配总分：|富贵概率：\d|灾祸必然|成功率：\d/,
+  );
+});
+
+test('阳刃用官应区分助官、根深例外、伤食与运干合官边界', () => {
+  const natal = createBladeResult({
+    year: { gan: '己', zhi: '酉', ganZhi: '己酉' },
+    month: { gan: '丙', zhi: '子', ganZhi: '丙子' },
+    day: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
+    hour: { gan: '丙', zhi: '午', ganZhi: '丙午' },
+  });
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'officer', type: 'dayun', label: '己丑大运', ganZhi: '己丑' },
+    { id: 'resource', type: 'year', label: '庚申流年', ganZhi: '庚申' },
+    { id: 'peer', type: 'month', label: '壬子流月', ganZhi: '壬子' },
+    { id: 'food-combine', type: 'day', label: '甲寅流日', ganZhi: '甲寅' },
+  ]);
+  const facts = result.bladePatternRuleFacts.filter((item) => item.type === '阳刃用官取运候选');
+
+  assert.ok(facts.some((item) => item.status === '支持候选' && item.trigger.includes('运喜助官')));
+  assert.ok(
+    facts.some((item) => item.status === '条件待复核' && item.trigger.includes('官星根深')),
+  );
+  assert.ok(facts.some((item) => item.status === '带忌候选' && item.trigger.includes('不喜伤食')));
+  assert.ok(
+    facts.some(
+      (item) =>
+        item.status === '带忌候选' &&
+        item.trigger.includes('运干甲食神') &&
+        item.trigger.includes('五合固定关系') &&
+        item.trigger.includes('不等于已经合化'),
+    ),
+  );
+  assert.ok(facts.every((item) => item.natalStructure.includes('不按支数或藏干层级判“根深”')));
+});
+
+test('阳刃用杀应让杀不旺与杀太重的相反方向并存且均保留强弱条件', () => {
+  const natal = createBladeResult({
+    year: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
+    month: { gan: '甲', zhi: '午', ganZhi: '甲午' },
+    day: { gan: '丙', zhi: '申', ganZhi: '丙申' },
+    hour: { gan: '壬', zhi: '辰', ganZhi: '壬辰' },
+  });
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'killer', type: 'dayun', label: '壬辰大运', ganZhi: '壬辰' },
+    { id: 'peer', type: 'year', label: '丙寅流年', ganZhi: '丙寅' },
+    { id: 'resource', type: 'month', label: '甲寅流月', ganZhi: '甲寅' },
+    { id: 'output', type: 'day', label: '戊戌流日', ganZhi: '戊戌' },
+  ]);
+  const facts = result.bladePatternRuleFacts.filter((item) => item.type === '阳刃用杀取运候选');
+
+  assert.ok(
+    facts.some((item) => item.trigger.includes('杀不甚旺') && item.trigger.includes('助杀')),
+  );
+  assert.ok(facts.some((item) => item.trigger.includes('杀太重') && item.trigger.includes('身旺')));
+  assert.ok(facts.some((item) => item.trigger.includes('杀太重') && item.trigger.includes('印绶')));
+  assert.ok(
+    facts.some((item) => item.trigger.includes('杀太重') && item.trigger.includes('伤食亦不为忌')),
+  );
+  assert.ok(facts.every((item) => item.status === '条件待复核'));
+  assert.match(facts[0]?.natalStructure ?? '', /未由明透数量、藏根支数判定/);
+});
+
+test('阳刃官杀并出应保留制伏、身旺及财地官乡相反方向，不提前认定去留', () => {
+  const natal = createBladeResult({
+    year: { gan: '丙', zhi: '戌', ganZhi: '丙戌' },
+    month: { gan: '丁', zhi: '酉', ganZhi: '丁酉' },
+    day: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+    hour: { gan: '壬', zhi: '午', ganZhi: '壬午' },
+  });
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'output', type: 'dayun', label: '壬午大运', ganZhi: '壬午' },
+    { id: 'peer', type: 'year', label: '庚申流年', ganZhi: '庚申' },
+    { id: 'wealth', type: 'month', label: '甲寅流月', ganZhi: '甲寅' },
+    { id: 'officer', type: 'day', label: '丁丑流日', ganZhi: '丁丑' },
+  ]);
+  const facts = result.bladePatternRuleFacts.filter((item) => item.type === '阳刃官杀并出取运候选');
+
+  assert.ok(facts.some((item) => item.status === '支持候选' && item.trigger.includes('运喜制伏')));
+  assert.ok(
+    facts.some((item) => item.status === '条件待复核' && item.trigger.includes('身旺亦利')),
+  );
+  assert.ok(
+    facts.some((item) => item.status === '带忌候选' && item.trigger.includes('财地反为不吉')),
+  );
+  assert.ok(
+    facts.some((item) => item.status === '带忌候选' && item.trigger.includes('官乡反为不吉')),
+  );
+  assert.ok(facts.every((item) => item.natalStructure.includes('不认定官杀已经去留取清')));
+  assert.ok(
+    result.limitationFacts.some(
+      (item) => item.type === '阳刃格取运边界' && item.promptText.includes('取清组件'),
+    ),
+  );
+  assert.ok(result.calculationSteps.some((item) => item.stage === '阳刃格取运核验'));
+  assertEvidenceReferences(result);
+  assert.doesNotMatch(
+    result.promptText,
     /判定为最终喜运|判定为最终忌运|匹配总分：|富贵概率：\d|灾祸必然|成功率：\d/,
   );
 });
