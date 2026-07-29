@@ -156,12 +156,14 @@
 | `sanheWithDay` | `{group,members,description,formationKey?,status?,participants?,issues?}?` | 由完整三合结构派生的日辰补局兼容字段 |
 | `sanheWithMonth` | `{group,members,description,formationKey?,status?,participants?,issues?}?` | 由完整三合结构派生的月建补局兼容字段 |
 | `sanheFormations` | `LiuyaoSanheFormation[]?` | 三爻齐动、两动一静、初三/四六爻动变、日月补局及虚一待用；保存参与爻、缺支和空破墓待值状态 |
-| `sanxingInYaos` | `Array<{branches,type}>?` | 三刑检测 |
+| `sanxingInYaos` | `LiuyaoSanxingFormation[]?` | 满足完整支组与发动条件的卦内三刑结构，含类型、参与爻、活动状态、世应标记与活动爻位 |
 | `evidenceAnalysis` | `LiuyaoEvidenceAnalysis?` | 分层用神、作用链、逐引用有力/无力条件、活动状态、反证与病药应期证据 |
 | `ganzhi` | `BaseGanZhi` | 起卦时间干支 |
 | `timestamp` | `number` | 时间戳 |
 
 `analyzeLiuyaoSanheFormations(yaosDetail, monthBranch, dayBranch)` 可从完整六爻重算上述三合结构。日辰或月建补局时，另两支必须来自两个不同的明动或暗动爻位，同一爻的本支与变支不能冒充两个活动爻；初三、四六爻动变成局仍允许各活动爻的本支与变支共同提供成员。空亡、月破、日破、入墓和静爻待值只形成 `status`、`issues` 条件，不直接裁成吉凶或固定日期。静爻逢月日六合记合起，明动或暗动逢合记合绊，两活动爻相合记合好，本位动化六合另记化扶；整卦六合六冲与三合均须结合事项、用忌、世爻和旺衰辨向。
+
+`analyzeLiuyaoSanxingFormations(yaosDetail, monthBranch, dayBranch)` 从本卦六爻重算三刑。寅巳申、丑戌未须三支齐备且至少两个不同爻位明动或暗动；子卯相刑须两支齐备且至少一爻发动；辰午酉亥自刑须同支出现两次且至少一爻发动。变爻不跨位加入三刑，静爻同盘、三支不全或发动不足均不登记为成立事实；结果只保存结构及参与爻，不直接裁成纠纷或吉凶。
 
 `analyzeLiuyaoEvidence(data, options?)` 的 `godChain[].effectFacts` 按每个用神、原神、忌神引用返回 `activity`、`supportingConditions`、`blockingConditions` 与条件并见状态。静爻旺相只表示得时，不等于已经生用或克用；原忌同动、忌仇同动只按重算后的明动或暗动成立，条件数量不能换算最终有效性、吉凶或概率。
 

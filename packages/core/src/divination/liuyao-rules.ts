@@ -3,6 +3,7 @@ import {
   BRANCH_WUXING,
   CHANGSHENG_ORDER,
   SANHE_GROUPS,
+  getSanxingType,
   getSeasonState,
   isKe,
   isLiuchong,
@@ -18,6 +19,8 @@ import type {
   LiuyaoSanheParticipant,
   LiuyaoSanhePattern,
   LiuyaoSanheStatus,
+  LiuyaoSanxingFormation,
+  LiuyaoSanxingParticipant,
   LiuyaoYaoDetail,
 } from '../types/divination';
 
@@ -406,6 +409,124 @@ export function analyzeLiuyaoSanheFormations(
     }
   }
   return formations;
+}
+
+const LIUYAO_SANXING_GROUPS: Array<{
+  members: string[];
+  pattern: LiuyaoSanxingFormation['pattern'];
+}> = [
+  { members: ['寅', '巳', '申'], pattern: '三支齐备' },
+  { members: ['丑', '戌', '未'], pattern: '三支齐备' },
+  { members: ['子', '卯'], pattern: '子卯相刑' },
+];
+
+function buildSanxingParticipant(
+  yao: LiuyaoYaoDetail,
+  monthBranch: string,
+  dayBranch: string,
+): LiuyaoSanxingParticipant {
+  return {
+    position: yao.position,
+    branch: yao.najiaDizhi,
+    activity: getLineActivity(yao, monthBranch, dayBranch),
+    isWorld: yao.isWorld,
+    isResponse: yao.isResponse,
+  };
+}
+
+function enumerateSanxingAssignments(
+  members: string[],
+  participants: LiuyaoSanxingParticipant[],
+): LiuyaoSanxingParticipant[][] {
+  const assignments: LiuyaoSanxingParticipant[][] = [];
+  const walk = (index: number, selected: LiuyaoSanxingParticipant[]) => {
+    if (index === members.length) {
+      if (new Set(selected.map((item) => item.position)).size === selected.length) {
+        assignments.push(selected);
+      }
+      return;
+    }
+    for (const participant of participants.filter((item) => item.branch === members[index])) {
+      walk(index + 1, [...selected, participant]);
+    }
+  };
+  walk(0, []);
+  return assignments;
+}
+
+function buildSanxingFormation(
+  pattern: LiuyaoSanxingFormation['pattern'],
+  participants: LiuyaoSanxingParticipant[],
+): LiuyaoSanxingFormation {
+  const branches = participants.map((item) => item.branch);
+  const type = getSanxingType(branches[0]);
+  if (!type) throw new Error(`六爻三刑类型无法判定：${branches.join('、')}`);
+  const activePositions = unique(
+    participants.filter((item) => item.activity !== '静爻').map((item) => String(item.position)),
+  )
+    .map(Number)
+    .sort((left, right) => left - right);
+  const participantText = participants
+    .map((item) => `第${item.position}爻${item.branch}（${item.activity}）`)
+    .join('、');
+  const participantKey = participants
+    .map((item) => `${item.position}:${item.branch}`)
+    .sort()
+    .join('|');
+  return {
+    key: `liuyao:sanxing:${type}:${pattern}:${participantKey}`,
+    type,
+    branches,
+    pattern,
+    status: '作用待辨',
+    participants,
+    activePositions,
+    description: `${participantText}构成${type}（${pattern}）；须结合所问事项、用神、世应、旺衰及旁爻制化辨明刑我刑他，不由刑名直接定吉凶`,
+  };
+}
+
+/**
+ * 复核《卜筮全书·天玄赋》“三刑须全”及“须见两爻动，刑得一爻起”：
+ * 寅巳申、丑戌未须三支齐备且至少两爻明动或暗动；子卯相刑与重复自刑
+ * 至少须有一爻实际发动。静爻仅同盘或三支不全时不登记为已成立三刑。
+ */
+export function analyzeLiuyaoSanxingFormations(
+  yaosDetail: LiuyaoYaoDetail[],
+  monthBranch: string,
+  dayBranch: string,
+): LiuyaoSanxingFormation[] {
+  getBranchElement(monthBranch, '六爻月建');
+  getBranchElement(dayBranch, '六爻日辰');
+  if (yaosDetail.length !== 6) throw new Error('六爻三刑分析必须提供完整六爻。');
+  const participants = yaosDetail.map((yao) => {
+    getBranchElement(yao.najiaDizhi, `六爻第${yao.position}爻`);
+    return buildSanxingParticipant(yao, monthBranch, dayBranch);
+  });
+  const formations = new Map<string, LiuyaoSanxingFormation>();
+
+  for (const group of LIUYAO_SANXING_GROUPS) {
+    for (const assignment of enumerateSanxingAssignments(group.members, participants)) {
+      const activeCount = assignment.filter((item) => item.activity !== '静爻').length;
+      const requiredActiveCount = group.pattern === '三支齐备' ? 2 : 1;
+      if (activeCount < requiredActiveCount) continue;
+      const formation = buildSanxingFormation(group.pattern, assignment);
+      formations.set(formation.key, formation);
+    }
+  }
+
+  for (const branch of ['辰', '午', '酉', '亥']) {
+    const matches = participants.filter((item) => item.branch === branch);
+    for (let left = 0; left < matches.length; left += 1) {
+      for (let right = left + 1; right < matches.length; right += 1) {
+        const assignment = [matches[left], matches[right]];
+        if (assignment.every((item) => item.activity === '静爻')) continue;
+        const formation = buildSanxingFormation('重复自刑', assignment);
+        formations.set(formation.key, formation);
+      }
+    }
+  }
+
+  return [...formations.values()];
 }
 
 function addLineRelation(

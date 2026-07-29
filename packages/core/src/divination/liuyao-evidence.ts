@@ -10,6 +10,7 @@ import type {
 } from '../types/divination';
 import {
   getBranchWuxing,
+  getSanxingType,
   isKe,
   isLiuchong,
   isLiuhai,
@@ -22,6 +23,7 @@ import {
   analyzeLiuyaoHiddenSpiritConditions,
   analyzeLiuyaoLineStrength,
   analyzeLiuyaoSanheFormations,
+  analyzeLiuyaoSanxingFormations,
   getLiuyaoChangeDirection,
 } from './liuyao-rules';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
@@ -354,7 +356,14 @@ export interface LiuyaoTimingFact {
 export interface LiuyaoHexagramStructureFact {
   key: string;
   kind:
-    '整卦六合六冲' | '反吟伏吟' | '特殊卦象' | '卦内三合' | '日辰三合' | '月建三合' | '虚一待用';
+    | '整卦六合六冲'
+    | '反吟伏吟'
+    | '特殊卦象'
+    | '卦内三合'
+    | '日辰三合'
+    | '月建三合'
+    | '虚一待用'
+    | '卦内三刑';
   status: '已计算';
   sanheFormationKey?: string;
   sanhePattern?: LiuyaoSanhePattern;
@@ -365,7 +374,7 @@ export interface LiuyaoHexagramStructureFact {
   originalText: string;
   promptText: string;
   sources: string[];
-  limitation: '整卦六合六冲、反吟伏吟、特殊卦象与三合只描述已计算的结构及成立条件；必须结合用忌、世爻、旺衰与空破墓辨向，不得直接写成现实和合、冲散、成功、失败或固定应期';
+  limitation: '整卦六合六冲、反吟伏吟、特殊卦象、三合与三刑只描述已计算的结构及成立条件；必须结合用忌、世爻、旺衰、空破墓与制化辨向，不得直接写成现实和合、冲散、纠纷、成败或固定应期';
 }
 
 export interface LiuyaoTimingSummaryFact {
@@ -500,7 +509,7 @@ const TIMING_FACT_LIMITATION =
 const TIMING_SUMMARY_LIMITATION =
   '应期汇总只说明当前盘面保存了哪些触发与边界条件；不得按条件数量、爻位或地支序换算固定天数、绝对日期或事件概率' as const;
 const HEXAGRAM_STRUCTURE_FACT_LIMITATION =
-  '整卦六合六冲、反吟伏吟、特殊卦象与三合只描述已计算的结构及成立条件；必须结合用忌、世爻、旺衰与空破墓辨向，不得直接写成现实和合、冲散、成功、失败或固定应期' as const;
+  '整卦六合六冲、反吟伏吟、特殊卦象、三合与三刑只描述已计算的结构及成立条件；必须结合用忌、世爻、旺衰、空破墓与制化辨向，不得直接写成现实和合、冲散、纠纷、成败或固定应期' as const;
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只证明起卦来源、逐爻、伏神、用神候选、五行作用链、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期' as const;
 const SUMMARY_FACT_LIMITATION =
@@ -1618,7 +1627,7 @@ function buildLineFacts(
       isLiuchong(yao.najiaDizhi, monthBranch) ? '月破' : '',
       strengthAnalysis.monthStage === '墓' ? '入月墓' : '',
       isLiuhai(yao.najiaDizhi, monthBranch) ? '与月建相害' : '',
-      isSanxing(yao.najiaDizhi, monthBranch) ? '与月建成刑' : '',
+      isSanxing(yao.najiaDizhi, monthBranch) ? '与月建有三刑支关系' : '',
     ].filter(Boolean);
     const dayRelations = [
       yao.najiaDizhi === dayBranch ? '值日辰' : '',
@@ -1636,7 +1645,7 @@ function buildLineFacts(
             : '',
       strengthAnalysis.dayStage === '墓' ? '入日墓' : '',
       isLiuhai(yao.najiaDizhi, dayBranch) ? '与日辰相害' : '',
-      isSanxing(yao.najiaDizhi, dayBranch) ? '与日辰成刑' : '',
+      isSanxing(yao.najiaDizhi, dayBranch) ? '与日辰有三刑支关系' : '',
     ].filter(Boolean);
     const changeRelations = getChangeRelations(yao);
     const changedYao = yao.changedYao
@@ -1688,9 +1697,16 @@ function buildLineFacts(
       },
       dayState: { branch: dayBranch, relations: dayRelations },
       traditionalRelations: {
-        sanxingType: yao.isSanxing ? yao.sanxingType : undefined,
-        liuhePartner: yao.isLiuhe ? yao.liuhePartner : undefined,
-        isLiuhai: Boolean(yao.isLiuhai),
+        sanxingType:
+          isSanxing(yao.najiaDizhi, monthBranch) || isSanxing(yao.najiaDizhi, dayBranch)
+            ? (getSanxingType(yao.najiaDizhi) ?? undefined)
+            : undefined,
+        liuhePartner: isLiuhe(yao.najiaDizhi, dayBranch)
+          ? dayBranch
+          : isLiuhe(yao.najiaDizhi, monthBranch)
+            ? monthBranch
+            : undefined,
+        isLiuhai: isLiuhai(yao.najiaDizhi, monthBranch) || isLiuhai(yao.najiaDizhi, dayBranch),
         isRuMu: Boolean(yao.isRuMu),
       },
       isVoid: yao.isVoid,
@@ -1847,6 +1863,7 @@ function buildHexagramStructureFacts(
   usefulElement: string,
   monthBranch: string,
   dayBranch: string,
+  selectedReferenceKey: string | null,
 ): LiuyaoHexagramStructureFact[] {
   const facts: LiuyaoHexagramStructureFact[] = [];
   const add = (
@@ -1950,6 +1967,31 @@ function buildHexagramStructureFacts(
         ),
         ...(formation.missingBranch ? { missingBranch: formation.missingBranch } : {}),
       },
+    );
+  });
+  const sanxingFormations =
+    data.yaosDetail.length === 6
+      ? analyzeLiuyaoSanxingFormations(data.yaosDetail, monthBranch, dayBranch)
+      : [];
+  sanxingFormations.forEach((formation) => {
+    const referenceKeys = formation.participants.map(
+      (item) => `liuyao:reference:line:${item.position}`,
+    );
+    const roles = uniqueStrings([
+      ...(selectedReferenceKey && referenceKeys.includes(selectedReferenceKey) ? ['当前用神'] : []),
+      ...(formation.participants.some((item) => item.isWorld) ? ['世爻'] : []),
+      ...(formation.participants.some((item) => item.isResponse) ? ['应爻'] : []),
+    ]);
+    add(
+      `liuyao:structure:sanxing:${formation.key}`,
+      '卦内三刑',
+      `${formation.description}；${roles.length ? `关系涉及${roles.join('、')}` : '当前未直接落到已定用神或世应'}；静爻仅同盘、三支不全或发动条件不足时不立三刑事实`,
+      [
+        '《卜筮全书·天玄赋》三刑须全、两爻动刑起一静与动静刑冲边界',
+        '《断易天机》刑我刑他、旺衰与旁爻制化边界',
+        '当前六爻地支、明动暗动、世应与已定用神逐项重算',
+      ],
+      { referenceKeys },
     );
   });
   return facts;
@@ -2685,7 +2727,13 @@ export function analyzeLiuyaoEvidence(
       limitation: '六亲只提供随问题变化的事项候选，不证明现实身份、疾病、官非、财运或关系结果',
     };
   });
-  const structureFacts = buildHexagramStructureFacts(data, usefulElement, monthBranch, dayBranch);
+  const structureFacts = buildHexagramStructureFacts(
+    data,
+    usefulElement,
+    monthBranch,
+    dayBranch,
+    selectionFact.selectedReferenceKey,
+  );
   const generationFact = buildGenerationFact(data);
   const generationMethod = data.generation?.method;
   const methodLabel = generationFact.methodLabel;
@@ -3107,7 +3155,7 @@ export function analyzeLiuyaoEvidence(
     methodology: [
       '先按具体问题与求测关系确定六亲用神；通用或关系语义不足时保留待定，世应与动爻只作辅助观察。',
       '用神六亲明确后依次核验本卦明现、变爻显出、月日入用与伏神检索，不跨层混取；同层多现未能闭合时不按数组顺序强选。',
-      '逐爻保留世应、发动、暗动、月令、月日同支合冲、空破墓、回头生克和进退神证据。',
+      '逐爻保留世应、发动、暗动、月令、月日同支合冲刑害、空破墓、回头生克和进退神证据；卦内三刑须按完整支组与发动条件另行成立。',
       '原神取生用神者，忌神取克用神者，仇神取生忌神并克原神者。',
       '按月日、真实明暗动、符合条件的旺相静爻、本位动变与飞伏生克重算直接及接续路径；路径允许并见，不按条数裁定最终强弱或吉凶。',
       '全局作用态只按生扶侧、克制侧与制化侧归组，并结合用神有气无根条件明确返回待综合判断或资料不足，不用多数票冒充最终可用性。',

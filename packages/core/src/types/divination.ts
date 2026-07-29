@@ -221,6 +221,27 @@ export interface LiuyaoSanheFormation {
   description: string;
 }
 
+export type LiuyaoSanxingPattern = '三支齐备' | '子卯相刑' | '重复自刑';
+
+export interface LiuyaoSanxingParticipant {
+  position: number;
+  branch: string;
+  activity: '明动' | '暗动' | '静爻';
+  isWorld: boolean;
+  isResponse: boolean;
+}
+
+export interface LiuyaoSanxingFormation {
+  key: string;
+  type: string;
+  branches: string[];
+  pattern: LiuyaoSanxingPattern;
+  status: '作用待辨';
+  participants: LiuyaoSanxingParticipant[];
+  activePositions: number[];
+  description: string;
+}
+
 export interface LiuyaoLineStrengthAnalysis {
   /** 本爻按月令所得旺相休囚死。 */
   seasonState: '旺' | '相' | '休' | '囚' | '死';
@@ -454,11 +475,8 @@ export interface LiuyaoData extends BaseHexagramData {
   } | null;
   /** 卦内成局、日月补局及虚一待用的完整三合结构。 */
   sanheFormations?: LiuyaoSanheFormation[];
-  /** 爻中的三刑 */
-  sanxingInYaos?: Array<{
-    branches: string[];
-    type: string;
-  }>;
+  /** 卦内已满足支组与发动条件的三刑结构；旧结果可能只有 branches/type。 */
+  sanxingInYaos?: LiuyaoSanxingFormation[];
   /** 卦神（卦身）信息 */
   guaShen?: {
     branch: string;

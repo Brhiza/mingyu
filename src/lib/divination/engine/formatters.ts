@@ -357,9 +357,10 @@ function formatLiuyaoInfo(
     .filter((item) => ['卦内三合', '日辰三合', '月建三合', '虚一待用'].includes(item.kind))
     .map((item) => item.promptText);
   const sanheDetail = sanheParts.length ? `三合结构：${sanheParts.join('；')}` : null;
-  const sanxingDetail = data.sanxingInYaos?.length
-    ? `三刑：${data.sanxingInYaos.map((s) => `${s.branches.join('、')}构成${s.type}`).join('；')}；传统类象为纠缠、对立或反复`
-    : null;
+  const sanxingParts = evidenceAnalysis.structureFacts
+    .filter((item) => item.kind === '卦内三刑')
+    .map((item) => item.promptText);
+  const sanxingDetail = sanxingParts.length ? `三刑结构：${sanxingParts.join('；')}` : null;
   const guaShenDetail = data.guaShen
     ? `卦身：月卦身在${data.guaShen.branch}，${data.guaShen.sixRelative}临第${data.guaShen.position}爻`
     : null;

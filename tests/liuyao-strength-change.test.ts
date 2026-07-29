@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
   analyzeLiuyaoLineStrength,
+  analyzeLiuyaoSanxingFormations,
   generateLiuyao,
   getLiuyaoChangeDirection,
   getLiuyaoChangeRelation,
@@ -26,6 +27,7 @@ const FENG_SHUI_HUAN_YAOS = [8, 7, 8, 8, 7, 7] as const;
 const KAN_WEI_SHUI_YAOS = [8, 7, 8, 8, 7, 8] as const;
 const TIAN_FENG_GOU_YAOS = [8, 7, 7, 7, 7, 7] as const;
 const TIAN_SHAN_DUN_YAOS = [8, 8, 7, 7, 7, 7] as const;
+const LEI_SHUI_JIE_YAOS = [8, 7, 8, 7, 8, 8] as const;
 
 function generateSampleLiuyao(yaos: readonly number[] = SHAN_HUO_BI_YAOS) {
   return generateLiuyao(SAMPLE_DATE, { yaos });
@@ -237,7 +239,32 @@ test('六爻：原典姤遁例应分别识别飞来生伏与飞来克伏', () =>
   assert.ok(dunChild?.conditionAnalysis?.support.includes('飞神月令囚'));
 });
 
-test('六爻：爻内三刑汇总应按共享三刑口径识别两支互见', () => {
+test('六爻：寅巳申与丑戌未须三支齐备且至少两爻发动', () => {
+  const complete = [
+    makeYao(1, '寅', '木', { isChanging: true }),
+    makeYao(2, '巳', '火', { isChanging: true }),
+    makeYao(3, '申', '金'),
+    makeYao(4, '丑', '土', { isChanging: true }),
+    makeYao(5, '戌', '土', { isChanging: true }),
+    makeYao(6, '未', '土'),
+  ];
+  const incomplete = complete.map((item) =>
+    item.position === 6 ? { ...item, najiaDizhi: '酉', wuxing: '金' } : item,
+  );
+  const staticLines = complete.map((item) => ({ ...item, isChanging: false }));
+
+  assert.deepEqual(
+    analyzeLiuyaoSanxingFormations(complete, '子', '辰').map((item) => item.type),
+    ['无恩之刑', '恃势之刑'],
+  );
+  assert.deepEqual(
+    analyzeLiuyaoSanxingFormations(incomplete, '子', '辰').map((item) => item.type),
+    ['无恩之刑'],
+  );
+  assert.deepEqual(analyzeLiuyaoSanxingFormations(staticLines, '子', '辰'), []);
+});
+
+test('六爻：静态两支互见不得冒充恃势之刑', () => {
   const data = generateSampleLiuyao();
 
   assert.equal(data.originalName, '山火贲');
@@ -245,11 +272,34 @@ test('六爻：爻内三刑汇总应按共享三刑口径识别两支互见', ()
     data.yaosDetail.map((yao) => yao.najiaDizhi),
     ['卯', '丑', '亥', '戌', '子', '寅'],
   );
-  assert.ok(
-    data.sanxingInYaos?.some(
-      (item) => item.type === '恃势之刑' && item.branches.join('') === '丑戌',
-    ),
+  assert.ok(!data.sanxingInYaos?.some((item) => item.type === '恃势之刑'));
+});
+
+test('六爻：子卯相刑须至少一爻明动或暗动并回指参与爻', () => {
+  const data = generateSampleLiuyao([9, 8, 7, 8, 8, 7]);
+  const formation = data.sanxingInYaos?.find((item) => item.pattern === '子卯相刑');
+
+  assert.deepEqual(formation?.branches, ['子', '卯']);
+  assert.deepEqual(
+    formation?.participants.map((item) => [item.position, item.branch, item.activity]),
+    [
+      [5, '子', '暗动'],
+      [1, '卯', '明动'],
+    ],
   );
+  assert.deepEqual(formation?.activePositions, [1, 5]);
+});
+
+test('六爻：重复自刑须同支两爻且至少一爻发动', () => {
+  const staticData = generateSampleLiuyao(LEI_SHUI_JIE_YAOS);
+  const movingData = generateSampleLiuyao([8, 7, 6, 7, 8, 8]);
+  const formation = movingData.sanxingInYaos?.find((item) => item.pattern === '重复自刑');
+
+  assert.equal(staticData.originalName, '雷水解');
+  assert.ok(!staticData.sanxingInYaos?.some((item) => item.pattern === '重复自刑'));
+  assert.equal(formation?.type, '自刑');
+  assert.deepEqual(formation?.branches, ['午', '午']);
+  assert.deepEqual(formation?.activePositions, [3]);
 });
 
 test('六爻：日冲原始事实应与暗动、日破互斥分类', () => {
@@ -609,6 +659,24 @@ test('六爻：动变关系与月卦身应拒绝非法资料', () => {
   assert.throws(() => getLiuyaoGuaShenBranch(0, true), /世爻位置无效/);
   assert.throws(() => getLiuyaoGuaShenBranch(7, false), /世爻位置无效/);
   assert.throws(() => getLiuyaoGuaShenBranch(1, undefined as never), /阴阳标记必须是布尔值/);
+  assert.throws(
+    () =>
+      analyzeLiuyaoSanxingFormations(
+        Array.from({ length: 5 }, (_, i) => makeYao(i + 1, '子', '水')),
+        '子',
+        '午',
+      ),
+    /必须提供完整六爻/,
+  );
+  assert.throws(
+    () =>
+      analyzeLiuyaoSanxingFormations(
+        Array.from({ length: 6 }, (_, i) => makeYao(i + 1, i === 0 ? '无' : '子', '水')),
+        '子',
+        '午',
+      ),
+    /第1爻地支无效/,
+  );
 });
 
 test('六爻：手工三钱法爻值应严格校验长度与取值', () => {

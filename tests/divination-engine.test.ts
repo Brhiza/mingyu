@@ -316,6 +316,19 @@ test('六爻页面资料不应把明动爻与日辰相冲写成日破', () => {
   assert.doesNotMatch(legacyText, /日破/);
 });
 
+test('六爻页面资料只输出满足边界的三刑结构，不附加强现实类象', () => {
+  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: [9, 8, 7, 8, 8, 7],
+  });
+  const text = formatDivinationInfo('liuyao', data, '');
+
+  assert.match(text, /三刑结构：/);
+  assert.match(text, /子卯相刑/);
+  assert.match(text, /关系涉及世爻/);
+  assert.doesNotMatch(text, /传统类象为纠缠、对立或反复/);
+});
+
 test('奇门算法会补出时旬空亡与马星落宫', () => {
   const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'));
 

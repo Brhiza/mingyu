@@ -984,6 +984,56 @@ test('六爻结构事实应重新计算三合并忽略旧派生字段', () => {
   assert.ok(evidence.timingFacts.some((item) => item.type === '反吟伏吟节奏'));
 });
 
+test('六爻结构事实应重算三刑、回指参与爻并忽略旧派生字段', () => {
+  const movingData = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: [9, 8, 7, 8, 8, 7],
+  });
+  const forgedSanxing: NonNullable<typeof movingData.sanxingInYaos>[number] = {
+    key: 'liuyao:sanxing:伪造',
+    type: '伪造恃势之刑',
+    branches: ['丑', '戌'],
+    pattern: '三支齐备',
+    status: '作用待辨',
+    participants: [],
+    activePositions: [],
+    description: '伪造纠缠、对立或反复',
+  };
+  const current = analyzeLiuyaoEvidence(
+    { ...movingData, evidenceAnalysis: undefined },
+    { usefulGodRelative: '官鬼' },
+  );
+  const tampered = analyzeLiuyaoEvidence(
+    {
+      ...movingData,
+      sanxingInYaos: [forgedSanxing],
+      evidenceAnalysis: undefined,
+    },
+    { usefulGodRelative: '官鬼' },
+  );
+  const sanxingFact = current.structureFacts.find((item) => item.kind === '卦内三刑');
+
+  assert.deepEqual(tampered.structureFacts, current.structureFacts);
+  assert.deepEqual(sanxingFact?.referenceKeys, [
+    'liuyao:reference:line:5',
+    'liuyao:reference:line:1',
+  ]);
+  assert.match(sanxingFact?.originalText ?? '', /关系涉及当前用神、世爻/);
+  assert.match(sanxingFact?.originalText ?? '', /完整|三支不全|发动条件不足/);
+  assert.doesNotMatch(tampered.promptText, /伪造|纠缠、对立或反复/);
+
+  const staticData = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: [8, 7, 8, 7, 8, 8],
+  });
+  const staticEvidence = analyzeLiuyaoEvidence({
+    ...staticData,
+    sanxingInYaos: [forgedSanxing],
+    evidenceAnalysis: undefined,
+  });
+  assert.ok(!staticEvidence.structureFacts.some((item) => item.kind === '卦内三刑'));
+});
+
 test('鬼神怪异主题必须保留现实解释限制', () => {
   const data = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
   const evidence = analyzeLiuyaoEvidence(data, { topic: 'guaishen' });

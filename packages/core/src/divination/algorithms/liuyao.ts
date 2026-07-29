@@ -33,6 +33,7 @@ import {
   analyzeLiuyaoHiddenSpiritConditions,
   analyzeLiuyaoLineStrength,
   analyzeLiuyaoSanheFormations,
+  analyzeLiuyaoSanxingFormations,
   getLiuyaoChangeDirection,
   getLiuyaoTwelveStage,
   isLiuyaoElementInTomb,
@@ -294,42 +295,6 @@ export function getLiuyaoHexagramRelations(
     changed,
     transition,
   };
-}
-
-function collectSanxingInBranches(branches: string[]): Array<{ branches: string[]; type: string }> {
-  const uniqueBranches = Array.from(new Set(branches));
-  const result: Array<{ branches: string[]; type: string }> = [];
-  const mutualGroups = [
-    ['寅', '巳', '申'],
-    ['丑', '戌', '未'],
-    ['子', '卯'],
-  ];
-
-  for (const group of mutualGroups) {
-    const present = group.filter((branch) => uniqueBranches.includes(branch));
-    if (
-      present.length >= 2 &&
-      present.some((branch, index) =>
-        present.slice(index + 1).some((other) => isSanxing(branch, other)),
-      )
-    ) {
-      const type = getSanxingType(present[0]);
-      if (type) {
-        result.push({ branches: present, type });
-      }
-    }
-  }
-
-  for (const branch of ['辰', '午', '酉', '亥'] as const) {
-    if (branches.filter((item) => item === branch).length >= 2 && isSanxing(branch, branch)) {
-      const type = getSanxingType(branch);
-      if (type) {
-        result.push({ branches: [branch, branch], type });
-      }
-    }
-  }
-
-  return result;
 }
 
 function getHexagramDataByName(hexagramName: string) {
@@ -1031,7 +996,6 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     dayBranch,
   });
 
-  const yaoBranches = yaosInfo.map((i) => i.dizhi);
   const sanheFormations = analyzeLiuyaoSanheFormations(yaosDetail, monthBranch, dayBranch);
   const dayFormation = sanheFormations.find((item) => item.pattern === '日辰补局');
   const monthFormation = sanheFormations.find((item) => item.pattern === '月建补局');
@@ -1050,7 +1014,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
   const sanheWithDay = toTriggeredSanhe(dayFormation);
   const sanheWithMonth = toTriggeredSanhe(monthFormation);
 
-  const sanxingInYaos = collectSanxingInBranches(yaoBranches);
+  const sanxingInYaos = analyzeLiuyaoSanxingFormations(yaosDetail, monthBranch, dayBranch);
 
   // 月卦身（按六爻传统“阳世从子月起，阴世从午月生，从初数至世方真”）：
   // 阳世：初爻子、二爻丑、三爻寅、四爻卯、五爻辰、六爻巳
@@ -1121,6 +1085,7 @@ export {
   analyzeLiuyaoHiddenSpiritConditions,
   analyzeLiuyaoLineStrength,
   analyzeLiuyaoSanheFormations,
+  analyzeLiuyaoSanxingFormations,
   getLiuyaoChangeDirection,
   getLiuyaoFlyingHiddenRelation,
   getLiuyaoTwelveStage,
