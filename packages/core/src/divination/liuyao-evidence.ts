@@ -1,4 +1,5 @@
 import type {
+  LiuyaoActivityPatternKind,
   LiuyaoChangeRelation,
   LiuyaoData,
   LiuyaoHiddenSpirit,
@@ -20,6 +21,7 @@ import {
 } from '../ganzhi';
 import { liuqinRelations } from './divination-data';
 import {
+  analyzeLiuyaoActivityPattern,
   analyzeLiuyaoHiddenSpiritConditions,
   analyzeLiuyaoLineStrength,
   analyzeLiuyaoSanheFormations,
@@ -358,7 +360,7 @@ export interface LiuyaoHexagramStructureFact {
   kind:
     | '整卦六合六冲'
     | '反吟伏吟'
-    | '特殊卦象'
+    | '动静结构'
     | '卦内三合'
     | '日辰三合'
     | '月建三合'
@@ -369,12 +371,17 @@ export interface LiuyaoHexagramStructureFact {
   sanhePattern?: LiuyaoSanhePattern;
   sanheStatus?: LiuyaoSanheStatus;
   sanheRole?: LiuyaoSanheGodRole;
+  activityPattern?: LiuyaoActivityPatternKind;
+  movingCount?: number;
+  movingPositions?: number[];
+  stillPositions?: number[];
+  scriptureReference?: '乾卦用九' | '坤卦用六';
   referenceKeys?: string[];
   missingBranch?: string;
   originalText: string;
   promptText: string;
   sources: string[];
-  limitation: '整卦六合六冲、反吟伏吟、特殊卦象、三合与三刑只描述已计算的结构及成立条件；必须结合用忌、世爻、旺衰、空破墓与制化辨向，不得直接写成现实和合、冲散、纠纷、成败或固定应期';
+  limitation: '整卦六合六冲、反吟伏吟、动静结构、三合与三刑只描述已计算的结构及成立条件；必须结合用忌、世爻、旺衰、空破墓与制化辨向，不得直接写成现实和合、冲散、纠纷、成败或固定应期';
 }
 
 export interface LiuyaoTimingSummaryFact {
@@ -509,7 +516,7 @@ const TIMING_FACT_LIMITATION =
 const TIMING_SUMMARY_LIMITATION =
   '应期汇总只说明当前盘面保存了哪些触发与边界条件；不得按条件数量、爻位或地支序换算固定天数、绝对日期或事件概率' as const;
 const HEXAGRAM_STRUCTURE_FACT_LIMITATION =
-  '整卦六合六冲、反吟伏吟、特殊卦象、三合与三刑只描述已计算的结构及成立条件；必须结合用忌、世爻、旺衰、空破墓与制化辨向，不得直接写成现实和合、冲散、纠纷、成败或固定应期' as const;
+  '整卦六合六冲、反吟伏吟、动静结构、三合与三刑只描述已计算的结构及成立条件；必须结合用忌、世爻、旺衰、空破墓与制化辨向，不得直接写成现实和合、冲散、纠纷、成败或固定应期' as const;
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只证明起卦来源、逐爻、伏神、用神候选、五行作用链、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期' as const;
 const SUMMARY_FACT_LIMITATION =
@@ -1871,7 +1878,7 @@ function buildHexagramStructureFacts(
     kind: LiuyaoHexagramStructureFact['kind'],
     originalText: string,
     sources: string[],
-    sanheDetails: Pick<
+    structureDetails: Pick<
       LiuyaoHexagramStructureFact,
       | 'sanheFormationKey'
       | 'sanhePattern'
@@ -1879,6 +1886,11 @@ function buildHexagramStructureFacts(
       | 'sanheRole'
       | 'referenceKeys'
       | 'missingBranch'
+      | 'activityPattern'
+      | 'movingCount'
+      | 'movingPositions'
+      | 'stillPositions'
+      | 'scriptureReference'
     > = {},
   ) => {
     if (!originalText.trim()) return;
@@ -1886,7 +1898,7 @@ function buildHexagramStructureFacts(
       key,
       kind,
       status: '已计算',
-      ...sanheDetails,
+      ...structureDetails,
       originalText,
       promptText: conditionLiuyaoTraditionalText(originalText),
       sources,
@@ -1917,19 +1929,29 @@ function buildHexagramStructureFacts(
         ['主卦与变卦内外卦纳甲地支反吟伏吟核验'],
       ),
   );
-  if (data.specialPattern) {
-    add(
-      `liuyao:structure:special:${data.specialPattern}`,
-      '特殊卦象',
-      `${data.specialPattern}${data.specialAdvice ? `：${data.specialAdvice}` : ''}`,
-      ['六爻动静数量、乾坤用爻与特殊卦象核验'],
-    );
-  }
-  if (data.isChaotic || data.chaoticReason) {
-    add('liuyao:structure:chaotic', '特殊卦象', data.chaoticReason || '当前卦象标记为乱动结构', [
-      '动爻数量与乱动条件核验',
-    ]);
-  }
+  const activityPattern = analyzeLiuyaoActivityPattern(data.yaoArray, data.originalName);
+  add(
+    `liuyao:structure:activity:${activityPattern.kind}:${activityPattern.movingCount}`,
+    '动静结构',
+    `${activityPattern.kind}：${activityPattern.guidance}`,
+    [
+      '《增删卜易·独发章》独发、独静定义及不得舍用神执结构断事',
+      activityPattern.kind === '静卦'
+        ? '《卜筮正宗·六爻安静诀》用神、日辰与世应核验'
+        : activityPattern.kind === '全动卦'
+          ? '《断易天机·六爻俱动类》六爻俱动仍须看用神'
+          : activityPattern.kind === '多爻发动'
+            ? '《火珠林》与《增删卜易》乱动描述边界核验'
+            : '当前原始六爻明动数量与爻位重算',
+    ],
+    {
+      activityPattern: activityPattern.kind,
+      movingCount: activityPattern.movingCount,
+      movingPositions: activityPattern.movingPositions,
+      stillPositions: activityPattern.stillPositions,
+      scriptureReference: activityPattern.scriptureReference,
+    },
+  );
   const sanheFormations =
     data.yaosDetail.length === 6
       ? analyzeLiuyaoSanheFormations(data.yaosDetail, monthBranch, dayBranch)
@@ -2472,7 +2494,7 @@ function buildLimitationFacts(params: {
         ...params.traditionalSymbols.map((item) => item.key),
       ],
       promptText:
-        '整卦六合六冲、反吟伏吟、三合、特殊卦象与六亲类象只提供盘内结构和传统事项候选；不得直接写成现实和合冲散、疾病官非、财运关系或固定应期',
+        '整卦六合六冲、反吟伏吟、三合、动静结构与六亲类象只提供盘内结构和传统事项候选；不得直接写成现实和合冲散、疾病官非、财运关系或固定应期',
       sources: ['卦内结构事实与传统六亲类象条件化映射'],
     },
     {

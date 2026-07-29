@@ -29,7 +29,6 @@ import { LIUCHONG_MAP } from '@core/ganzhi';
 import type { DivinationMethodId } from '@core/divination/config';
 import {
   analyzeLiuyaoEvidence,
-  conditionLiuyaoTraditionalText,
   getLiuyaoFlyingHiddenRelation,
 } from '@core/divination/algorithms/liuyao';
 import { analyzeMeihuaEvidence } from '@core/divination/algorithms/meihua';
@@ -361,6 +360,7 @@ function formatLiuyaoInfo(
     .filter((item) => item.kind === '卦内三刑')
     .map((item) => item.promptText);
   const sanxingDetail = sanxingParts.length ? `三刑结构：${sanxingParts.join('；')}` : null;
+  const activityFact = evidenceAnalysis.structureFacts.find((item) => item.kind === '动静结构');
   const guaShenDetail = data.guaShen
     ? `卦身：月卦身在${data.guaShen.branch}，${data.guaShen.sixRelative}临第${data.guaShen.position}爻`
     : null;
@@ -371,7 +371,7 @@ function formatLiuyaoInfo(
     '占法：六爻',
     `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
     `核心结构：主卦${data.originalName}${data.palace?.name ? `（${data.palace.name}宫）` : ''}；变卦${data.changedName || '无'}；互卦${data.interName || '无'}`,
-    `关键提示：空亡${data.voidBranches?.join('、') || '无'}；动爻${movingYaos}；世应${worldYao ? `世爻在第${worldYao.position}爻` : '世爻未列'}、${responseYao ? `应爻在第${responseYao.position}爻` : '应爻未列'}；特殊卦式${data.specialPattern || '常规卦'}`,
+    `关键提示：空亡${data.voidBranches?.join('、') || '无'}；动爻${movingYaos}；世应${worldYao ? `世爻在第${worldYao.position}爻` : '世爻未列'}、${responseYao ? `应爻在第${responseYao.position}爻` : '应爻未列'}；动静结构${activityFact?.activityPattern || '资料不足'}`,
     data.palaceStage ? `八宫卦位：${data.palaceStage}` : '',
     hexagramRelationText ? `整卦关系：${hexagramRelationText}` : '',
     fanfuRelationText ? `反伏关系：${fanfuRelationText}` : '',
@@ -384,7 +384,7 @@ function formatLiuyaoInfo(
     `空亡与伏神：${voidYaoText.length ? `空亡爻位${voidYaoText.join('、')}` : `空亡${data.voidBranches?.join('、') || '无'}未直接落到本卦爻位`}；伏神${hiddenSpiritText}`,
     `月日触发：${monthDayEvidence}`,
     `应期资料：${timingEvidence}`,
-    data.specialAdvice ? `补充提示：${conditionLiuyaoTraditionalText(data.specialAdvice)}` : '',
+    activityFact ? `动静结构：${activityFact.promptText}` : '',
     sanheDetail || sanxingDetail || guaShenDetail ? '组合时机：' : '',
     sanheDetail ? sanheDetail : '',
     sanxingDetail ? sanxingDetail : '',

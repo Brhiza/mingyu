@@ -21,7 +21,10 @@ import {
   conditionLenormandTraditionalText,
 } from 'mingyu-core/divination/lenormand';
 import { analyzeXiaoliurenEvidence } from 'mingyu-core/divination/xiaoliuren';
-import { getLiuyaoFlyingHiddenRelation } from 'mingyu-core/divination/liuyao';
+import {
+  analyzeLiuyaoActivityPattern,
+  getLiuyaoFlyingHiddenRelation,
+} from 'mingyu-core/divination/liuyao';
 import { resolveSsgwStoryContent } from './ssgw-content';
 
 export interface DivinationSummaryBlocks {
@@ -294,6 +297,7 @@ export function getDivinationSummaryBlocks(
       const liuyao = data as LiuyaoData;
       const hexagramRelationText = formatLiuyaoHexagramRelationSummary(liuyao);
       const fanfuRelationText = formatLiuyaoFanFuRelationSummary(liuyao);
+      const activityPattern = analyzeLiuyaoActivityPattern(liuyao.yaoArray, liuyao.originalName);
       return {
         title: '六爻起卦结果',
         tags: [
@@ -308,7 +312,7 @@ export function getDivinationSummaryBlocks(
         lines: [
           wrapMainEvidence(formatLiuyaoFocusSummary(liuyao)),
           `宫位：${liuyao.palace?.name ? `${liuyao.palace.name}宫` : '未知'}`,
-          `特殊卦式：${liuyao.specialPattern || '常规卦'}`,
+          `动静结构：${activityPattern.kind}${activityPattern.scriptureReference ? `（${activityPattern.scriptureReference}经文参考）` : ''}`,
           `空亡：${liuyao.voidBranches?.length ? liuyao.voidBranches.join('、') : '无'}`,
           formatLiuyaoHiddenSpiritSummary(liuyao),
         ].filter(Boolean),

@@ -387,6 +387,19 @@ export interface LiuyaoFanFuRelations {
 export type LiuyaoPalaceStage =
   '首卦' | '一世' | '二世' | '三世' | '四世' | '五世' | '游魂' | '归魂';
 
+export type LiuyaoActivityPatternKind = '静卦' | '独发卦' | '多爻发动' | '独静卦' | '全动卦';
+
+/** 六爻明动数量形成的客观结构；不直接裁定吉凶、成败或应期。 */
+export interface LiuyaoActivityPattern {
+  kind: LiuyaoActivityPatternKind;
+  movingCount: number;
+  movingPositions: number[];
+  stillPositions: number[];
+  /** 乾坤全动时保留的《周易》经文参考，不替代纳甲用神分析。 */
+  scriptureReference?: '乾卦用九' | '坤卦用六';
+  guidance: string;
+}
+
 export interface MeihuaYaoDetail extends BaseYaoDetail {
   tiYong: '体' | '用';
 }
@@ -448,10 +461,15 @@ export interface LiuyaoData extends BaseHexagramData {
   hexagramRelations?: LiuyaoHexagramRelations;
   /** 六爻卦变反吟/伏吟结构 */
   fanfuRelations?: LiuyaoFanFuRelations;
-  /** 特殊卦象标记：静卦、独静卦、全动卦、乾卦用九、坤卦用六 */
-  specialPattern?: '静卦' | '独静卦' | '全动卦' | '乾卦用九' | '坤卦用六';
+  /** 从原始爻值计算的动静结构；旧结果可能没有此字段。 */
+  activityPattern?: LiuyaoActivityPattern;
+  /** @deprecated 旧版特殊卦式兼容字段，请改用 activityPattern。 */
+  specialPattern?: '静卦' | '独发卦' | '独静卦' | '全动卦' | '乾卦用九' | '坤卦用六';
+  /** @deprecated 旧版说明兼容字段，请改用 activityPattern.guidance。 */
   specialAdvice?: string;
+  /** @deprecated “乱动”无跨原典一致的客观阈值，保留字段只为兼容。 */
   isChaotic?: boolean;
+  /** @deprecated “乱动”无跨原典一致的客观阈值，保留字段只为兼容。 */
   chaoticReason?: string;
   /** 与日支的三合局 */
   sanheWithDay?: {

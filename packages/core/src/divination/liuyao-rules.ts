@@ -11,6 +11,7 @@ import {
   isSheng,
 } from '../ganzhi';
 import type {
+  LiuyaoActivityPattern,
   LiuyaoFlyingHiddenRelation,
   LiuyaoHiddenSpirit,
   LiuyaoHiddenSpiritConditionAnalysis,
@@ -25,6 +26,67 @@ import type {
 } from '../types/divination';
 
 const LIUYAO_ELEMENTS = new Set(['木', '火', '土', '金', '水']);
+
+/**
+ * 从原始爻值重算明动结构。
+ *
+ * 《增删卜易·独发章》以一动为独发、五动为独静，并明确不得舍用神执结构断事；
+ * 对两至四爻只登记“多爻发动”，不把不同原典中的“乱动”描述硬编码成数值阈值。
+ */
+export function analyzeLiuyaoActivityPattern(
+  yaoArray: readonly number[],
+  originalName = '',
+): LiuyaoActivityPattern {
+  if (
+    yaoArray.length !== 6 ||
+    yaoArray.some((value) => !Number.isInteger(value) || ![6, 7, 8, 9].includes(value))
+  ) {
+    throw new Error('六爻动静结构需要六个有效爻值（6、7、8、9）。');
+  }
+
+  const movingPositions = yaoArray
+    .map((value, index) => (value === 6 || value === 9 ? index + 1 : 0))
+    .filter((position) => position > 0);
+  const stillPositions = yaoArray
+    .map((value, index) => (value === 7 || value === 8 ? index + 1 : 0))
+    .filter((position) => position > 0);
+  const movingCount = movingPositions.length;
+  const kind: LiuyaoActivityPattern['kind'] =
+    movingCount === 0
+      ? '静卦'
+      : movingCount === 1
+        ? '独发卦'
+        : movingCount === 5
+          ? '独静卦'
+          : movingCount === 6
+            ? '全动卦'
+            : '多爻发动';
+  const scriptureReference =
+    movingCount === 6 && originalName === '乾为天'
+      ? ('乾卦用九' as const)
+      : movingCount === 6 && originalName === '坤为地'
+        ? ('坤卦用六' as const)
+        : undefined;
+  const guidance =
+    kind === '静卦'
+      ? '六爻无明动，先核对用神、月日、世应、日冲暗动与空亡；无明动爻时不立变爻作用。'
+      : kind === '独发卦'
+        ? `仅第${movingPositions[0]}爻明动，属于独发结构；动爻可作动变重点，但成败与应期仍须回到用神、月日、世应及生克制化。`
+        : kind === '独静卦'
+          ? `仅第${stillPositions[0]}爻不动，属于独静结构；不得舍用神而仅凭独静爻裁定成败或应期。`
+          : kind === '全动卦'
+            ? `六爻俱动，须从用神、月日、世应及各爻动变生克综合辨向${scriptureReference ? `；${scriptureReference}只作《周易》经文参考` : ''}，不得仅凭全动结构裁定吉凶。`
+            : `${movingCount}爻明动，只登记多爻发动事实；“乱动”在不同原典中没有一致的数值阈值，不据动爻数量直接裁断。`;
+
+  return {
+    kind,
+    movingCount,
+    movingPositions,
+    stillPositions,
+    scriptureReference,
+    guidance,
+  };
+}
 
 /** 《卜筮正宗·墓库章》《增删卜易·入墓》所用五行墓支。 */
 export const LIUYAO_ELEMENT_TOMB_BRANCH: Record<string, string> = {

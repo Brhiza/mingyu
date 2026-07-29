@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
+  analyzeLiuyaoActivityPattern,
   analyzeLiuyaoLineStrength,
   analyzeLiuyaoSanxingFormations,
   generateLiuyao,
@@ -32,6 +33,55 @@ const LEI_SHUI_JIE_YAOS = [8, 7, 8, 7, 8, 8] as const;
 function generateSampleLiuyao(yaos: readonly number[] = SHAN_HUO_BI_YAOS) {
   return generateLiuyao(SAMPLE_DATE, { yaos });
 }
+
+test('六爻：动静结构应区分静卦、独发、独静和全动，不硬设乱动阈值', () => {
+  const staticPattern = analyzeLiuyaoActivityPattern([7, 8, 7, 8, 7, 8]);
+  const singlePattern = analyzeLiuyaoActivityPattern([7, 8, 9, 8, 7, 8]);
+  const multiplePattern = analyzeLiuyaoActivityPattern([6, 8, 9, 8, 7, 8]);
+  const singleStillPattern = analyzeLiuyaoActivityPattern([6, 9, 6, 9, 7, 9]);
+  const fullyMovingPattern = analyzeLiuyaoActivityPattern([9, 9, 9, 9, 9, 9], '乾为天');
+
+  assert.deepEqual(staticPattern, {
+    kind: '静卦',
+    movingCount: 0,
+    movingPositions: [],
+    stillPositions: [1, 2, 3, 4, 5, 6],
+    scriptureReference: undefined,
+    guidance: '六爻无明动，先核对用神、月日、世应、日冲暗动与空亡；无明动爻时不立变爻作用。',
+  });
+  assert.equal(singlePattern.kind, '独发卦');
+  assert.deepEqual(singlePattern.movingPositions, [3]);
+  assert.match(singlePattern.guidance, /成败与应期仍须回到用神/);
+  assert.equal(multiplePattern.kind, '多爻发动');
+  assert.equal(multiplePattern.movingCount, 2);
+  assert.match(multiplePattern.guidance, /没有一致的数值阈值/);
+  assert.equal(singleStillPattern.kind, '独静卦');
+  assert.deepEqual(singleStillPattern.stillPositions, [5]);
+  assert.match(singleStillPattern.guidance, /不得舍用神/);
+  assert.equal(fullyMovingPattern.kind, '全动卦');
+  assert.equal(fullyMovingPattern.scriptureReference, '乾卦用九');
+  assert.match(fullyMovingPattern.guidance, /只作《周易》经文参考/);
+  assert.match(fullyMovingPattern.guidance, /不得仅凭全动结构裁定吉凶/);
+  assert.throws(() => analyzeLiuyaoActivityPattern([7, 8, 7]), /需要六个有效爻值/);
+});
+
+test('六爻：排盘应输出动静结构并保留克制的旧字段兼容值', () => {
+  const single = generateSampleLiuyao([7, 8, 9, 8, 7, 8]);
+  const qian = generateSampleLiuyao([9, 9, 9, 9, 9, 9]);
+  const kun = generateSampleLiuyao([6, 6, 6, 6, 6, 6]);
+
+  assert.equal(single.activityPattern?.kind, '独发卦');
+  assert.equal(single.specialPattern, '独发卦');
+  assert.equal(single.isChaotic, false);
+  assert.equal(single.chaoticReason, undefined);
+  assert.equal(qian.activityPattern?.kind, '全动卦');
+  assert.equal(qian.activityPattern?.scriptureReference, '乾卦用九');
+  assert.equal(qian.specialPattern, '乾卦用九');
+  assert.doesNotMatch(qian.specialAdvice ?? '', /为主|不按常规/);
+  assert.equal(kun.activityPattern?.scriptureReference, '坤卦用六');
+  assert.equal(kun.specialPattern, '坤卦用六');
+  assert.equal(kun.isChaotic, false);
+});
 
 function makeYao(
   position: number,

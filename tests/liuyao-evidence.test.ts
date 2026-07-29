@@ -921,7 +921,7 @@ test('六爻伏神与取用未定时不得泛化套用透出和空破应期', ()
   assert.match(pending.timingConditions.join('；'), /未闭合唯一用神前/);
 });
 
-test('六爻结构事实应重新计算三合并忽略旧派生字段', () => {
+test('六爻结构事实应重新计算动静与三合并忽略旧派生字段', () => {
   const data = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
   const evidence = analyzeLiuyaoEvidence({
     ...data,
@@ -943,7 +943,16 @@ test('六爻结构事实应重新计算三合并忽略旧派生字段', () => {
       labels: ['内卦反吟'],
     },
     specialPattern: '全动卦',
-    specialAdvice: '只作动爻密集结构参考',
+    specialAdvice: '伪造的旧说明',
+    isChaotic: true,
+    chaoticReason: '伪造的乱动结论',
+    activityPattern: {
+      kind: '全动卦',
+      movingCount: 6,
+      movingPositions: [1, 2, 3, 4, 5, 6],
+      stillPositions: [],
+      guidance: '伪造的新派生说明',
+    },
     sanheWithDay: {
       group: '申子辰水局',
       members: ['申', '子', '辰'],
@@ -954,8 +963,13 @@ test('六爻结构事实应重新计算三合并忽略旧派生字段', () => {
 
   assert.deepEqual(
     new Set(evidence.structureFacts.map((item) => item.kind)),
-    new Set(['整卦六合六冲', '反吟伏吟', '特殊卦象', '卦内三合']),
+    new Set(['整卦六合六冲', '反吟伏吟', '动静结构', '卦内三合']),
   );
+  const activityFact = evidence.structureFacts.find((item) => item.kind === '动静结构');
+  assert.equal(activityFact?.activityPattern, '多爻发动');
+  assert.equal(activityFact?.movingCount, 2);
+  assert.deepEqual(activityFact?.movingPositions, [3, 4]);
+  assert.doesNotMatch(evidence.promptText, /伪造的旧说明|伪造的乱动结论|伪造的新派生说明/);
   assert.doesNotMatch(evidence.promptText, /动变支与日支组成申子辰三合/);
   const sanheFacts = evidence.structureFacts.filter((item) => item.kind === '卦内三合');
   assert.ok(sanheFacts.length > 0);

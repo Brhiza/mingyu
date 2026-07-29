@@ -316,6 +316,35 @@ test('六爻页面资料不应把明动爻与日辰相冲写成日破', () => {
   assert.doesNotMatch(legacyText, /日破/);
 });
 
+test('六爻页面资料与摘要应重算动静结构并忽略派生字段污染', () => {
+  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: [9, 8, 6, 8, 7, 8],
+  });
+  const tampered = {
+    ...data,
+    activityPattern: {
+      kind: '全动卦' as const,
+      movingCount: 6,
+      movingPositions: [1, 2, 3, 4, 5, 6],
+      stillPositions: [],
+      guidance: '伪造的新派生说明',
+    },
+    specialPattern: '乾卦用九' as const,
+    specialAdvice: '伪造的旧派生说明',
+    isChaotic: true,
+    chaoticReason: '伪造的乱动结论',
+    evidenceAnalysis: undefined,
+  };
+  const info = formatDivinationInfo('liuyao', tampered, '');
+  const summary = getDivinationSummaryBlocks('liuyao', tampered);
+
+  assert.match(info, /动静结构多爻发动/);
+  assert.match(info, /2爻明动，只登记多爻发动事实/);
+  assert.ok(summary.lines.includes('动静结构：多爻发动'));
+  assert.doesNotMatch([info, ...summary.lines].join('\n'), /伪造|乾卦用九|全动卦|乱动结论/);
+});
+
 test('六爻页面资料只输出满足边界的三刑结构，不附加强现实类象', () => {
   const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
     method: 'manual',
