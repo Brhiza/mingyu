@@ -31,6 +31,7 @@ function assertEvidenceReferences(result: ReturnType<typeof analyzeFortuneTrigge
     ...result.officerPatternRuleFacts.map((item) => item.key),
     ...result.wealthPatternRuleFacts.map((item) => item.key),
     ...result.resourcePatternRuleFacts.map((item) => item.key),
+    ...result.foodPatternRuleFacts.map((item) => item.key),
     ...result.relations.map((item) => item.key),
     ...result.formations.map((item) => item.key),
     ...result.counterEvidenceFacts.map((item) => item.key),
@@ -72,6 +73,14 @@ function createResourceResult(pillars: Pillars): BaziChartResult {
   result.pillars = pillars;
   result.dayMaster = { gan: pillars.day.gan } as BaziChartResult['dayMaster'];
   result.analysis.mingGe = { pattern: '正印格', isSpecial: false };
+  return result;
+}
+
+function createFoodResult(pillars: Pillars): BaziChartResult {
+  const result = createResult();
+  result.pillars = pillars;
+  result.dayMaster = { gan: pillars.day.gan } as BaziChartResult['dayMaster'];
+  result.analysis.mingGe = { pattern: '食神格', isSpecial: false };
   return result;
 }
 
@@ -824,6 +833,142 @@ test('印绶遇财与官杀竞透应保留各自相反候选和强弱边界', ()
   assertEvidenceReferences(mixedResult);
   assert.doesNotMatch(
     mixedResult.promptText,
+    /判定为最终喜运|判定为最终忌运|匹配总分：|富贵概率：\d|灾祸必然|成功率：\d/,
+  );
+});
+
+test('食神生财取运应保留财食轻重分叉并列官杀带忌', () => {
+  const natal = createFoodResult({
+    year: { gan: '丁', zhi: '未', ganZhi: '丁未' },
+    month: { gan: '癸', zhi: '卯', ganZhi: '癸卯' },
+    day: { gan: '癸', zhi: '亥', ganZhi: '癸亥' },
+    hour: { gan: '癸', zhi: '丑', ganZhi: '癸丑' },
+  });
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'wealth-food', type: 'dayun', label: '丁卯大运', ganZhi: '丁卯' },
+    { id: 'peer', type: 'year', label: '癸亥流年', ganZhi: '癸亥' },
+    { id: 'officer', type: 'month', label: '戊辰流月', ganZhi: '戊辰' },
+    { id: 'killer', type: 'day', label: '己未流日', ganZhi: '己未' },
+  ]);
+  const facts = result.foodPatternRuleFacts.filter((item) => item.type === '食神生财取运候选');
+
+  assert.ok(facts.some((item) => item.trigger.includes('财食轻')));
+  assert.ok(facts.some((item) => item.trigger.includes('财食重')));
+  assert.ok(facts.some((item) => item.status === '带忌候选' && item.trigger.includes('官煞之方')));
+  assert.ok(
+    facts
+      .filter((item) => item.trigger.includes('财食'))
+      .every((item) => item.status === '条件待复核'),
+  );
+});
+
+test('食用杀印应分别保留印旺、身旺条件与财忌官杀吉候选', () => {
+  const natal = createFoodResult({
+    year: { gan: '辛', zhi: '卯', ganZhi: '辛卯' },
+    month: { gan: '辛', zhi: '卯', ganZhi: '辛卯' },
+    day: { gan: '癸', zhi: '酉', ganZhi: '癸酉' },
+    hour: { gan: '己', zhi: '未', ganZhi: '己未' },
+  });
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'resource', type: 'dayun', label: '辛酉大运', ganZhi: '辛酉' },
+    { id: 'output', type: 'year', label: '乙卯流年', ganZhi: '乙卯' },
+    { id: 'wealth', type: 'month', label: '丁巳流月', ganZhi: '丁巳' },
+    { id: 'officer', type: 'day', label: '戊辰流日', ganZhi: '戊辰' },
+    { id: 'killer', type: 'hour', label: '己未流时', ganZhi: '己未' },
+  ]);
+  const facts = result.foodPatternRuleFacts.filter((item) => item.type === '食用杀印取运候选');
+
+  assert.ok(facts.some((item) => item.trigger.includes('单个印星运字不直接证明印旺')));
+  assert.ok(facts.some((item) => item.trigger.includes('身旺') && item.status === '条件待复核'));
+  assert.ok(facts.some((item) => item.trigger.includes('切忌财乡') && item.status === '带忌候选'));
+  assert.ok(
+    facts.some((item) => item.trigger.includes('行官行杀亦吉') && item.status === '支持候选'),
+  );
+});
+
+test('食伤带杀应让一般忌财与食重杀轻时逢财反吉并存', () => {
+  const natal = createFoodResult({
+    year: { gan: '戊', zhi: '戌', ganZhi: '戊戌' },
+    month: { gan: '壬', zhi: '戌', ganZhi: '壬戌' },
+    day: { gan: '丙', zhi: '子', ganZhi: '丙子' },
+    hour: { gan: '戊', zhi: '戌', ganZhi: '戊戌' },
+  });
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'resource', type: 'dayun', label: '甲寅大运', ganZhi: '甲寅' },
+    { id: 'output', type: 'year', label: '戊戌流年', ganZhi: '戊戌' },
+    { id: 'wealth', type: 'month', label: '庚申流月', ganZhi: '庚申' },
+  ]);
+  const facts = result.foodPatternRuleFacts.filter((item) => item.type === '食伤带杀取运候选');
+  const wealthFacts = facts.filter((item) => item.layerKey.endsWith(':month:wealth'));
+
+  assert.ok(facts.some((item) => item.status === '支持候选' && item.trigger.includes('喜印绶')));
+  assert.ok(facts.some((item) => item.trigger.includes('身旺') && item.status === '条件待复核'));
+  assert.ok(
+    wealthFacts.some((item) => item.status === '带忌候选' && item.trigger.includes('财则最忌')),
+  );
+  assert.ok(
+    wealthFacts.some((item) => item.status === '条件待复核' && item.trigger.includes('逢财反吉')),
+  );
+});
+
+test('食旺带印与食印透财应区分强弱前提和可直接闭合方向', () => {
+  const resourceOnly = createFoodResult({
+    year: { gan: '丙', zhi: '午', ganZhi: '丙午' },
+    month: { gan: '癸', zhi: '巳', ganZhi: '癸巳' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+  });
+  const resourceWealth = createFoodResult({
+    year: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
+    month: { gan: '丁', zhi: '卯', ganZhi: '丁卯' },
+    day: { gan: '癸', zhi: '亥', ganZhi: '癸亥' },
+    hour: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+  });
+  const layers = [
+    { id: 'wealth', type: 'dayun' as const, label: '戊辰大运', ganZhi: '戊辰' },
+    { id: 'output', type: 'year' as const, label: '丙寅流年', ganZhi: '丙寅' },
+    { id: 'resource', type: 'month' as const, label: '壬申流月', ganZhi: '壬申' },
+    { id: 'officer', type: 'day' as const, label: '辛酉流日', ganZhi: '辛酉' },
+    { id: 'killer', type: 'hour' as const, label: '庚申流时', ganZhi: '庚申' },
+  ];
+  const resourceOnlyResult = analyzeFortuneTriggers(resourceOnly, layers);
+  const resourceWealthResult = analyzeFortuneTriggers(resourceWealth, [
+    { id: 'wealth', type: 'dayun', label: '丁卯大运', ganZhi: '丁卯' },
+    { id: 'output', type: 'year', label: '乙卯流年', ganZhi: '乙卯' },
+    { id: 'resource', type: 'month', label: '辛酉流月', ganZhi: '辛酉' },
+    { id: 'officer', type: 'day', label: '戊辰流日', ganZhi: '戊辰' },
+    { id: 'killer', type: 'hour', label: '己未流时', ganZhi: '己未' },
+  ]);
+
+  const heavyFacts = resourceOnlyResult.foodPatternRuleFacts.filter(
+    (item) => item.type === '食旺带印取运候选',
+  );
+  assert.ok(heavyFacts.length > 0);
+  assert.ok(heavyFacts.every((item) => item.status === '条件待复核'));
+  assert.ok(
+    heavyFacts.every(
+      (item) => item.natalStructure.includes('食神太旺') && item.trigger.includes('食神太旺'),
+    ),
+  );
+  const solvedFacts = resourceWealthResult.foodPatternRuleFacts.filter(
+    (item) => item.type === '食印透财取运候选',
+  );
+  assert.ok(solvedFacts.some((item) => item.trigger.includes('单个财星运字不直接证明财旺')));
+  assert.ok(
+    solvedFacts.some((item) => item.status === '支持候选' && item.trigger.includes('食伤亦吉')),
+  );
+  assert.ok(
+    solvedFacts.some((item) => item.status === '带忌候选' && item.trigger.includes('官杀皆忌')),
+  );
+  assert.ok(
+    resourceWealthResult.limitationFacts.some(
+      (item) => item.type === '食神格取运边界' && item.promptText.includes('逢财反吉'),
+    ),
+  );
+  assert.ok(resourceWealthResult.calculationSteps.some((item) => item.stage === '食神格取运核验'));
+  assertEvidenceReferences(resourceWealthResult);
+  assert.doesNotMatch(
+    resourceWealthResult.promptText,
     /判定为最终喜运|判定为最终忌运|匹配总分：|富贵概率：\d|灾祸必然|成功率：\d/,
   );
 });

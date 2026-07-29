@@ -1,4 +1,5 @@
 import { BASIC_MAPPINGS, HIDDEN_STEMS } from './baziMappingsData';
+import { analyzeFoodPatternStructure } from './baziFoodPattern';
 import { analyzeOfficerPatternStructure } from './baziOfficerPattern';
 import { analyzeResourcePatternStructure } from './baziResourcePattern';
 import { analyzeWealthPatternStructure } from './baziWealthPattern';
@@ -59,6 +60,7 @@ export interface FortuneTriggerCalculationStep {
     | '正官取运核验'
     | '财格取运核验'
     | '印格取运核验'
+    | '食神格取运核验'
     | '关系汇总';
   status: '已计算';
   inputs: Record<string, string | number | boolean | string[]>;
@@ -209,6 +211,29 @@ export interface FortuneResourcePatternRuleFact {
   limitation: '印格取运事实只把原局已闭合的子结构与当前运字逐项对应；印重、印轻、身旺、官旺、财印轻重与各方是否有力仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件';
 }
 
+export type FortuneFoodPatternRuleType =
+  | '食神生财取运候选'
+  | '食用杀印取运候选'
+  | '食伤带杀取运候选'
+  | '食旺带印取运候选'
+  | '食印透财取运候选';
+
+export interface FortuneFoodPatternRuleFact {
+  key: string;
+  status: '支持候选' | '带忌候选' | '条件待复核';
+  type: FortuneFoodPatternRuleType;
+  layerKey: string;
+  layerLabel: string;
+  ganZhi: string;
+  natalStructure: string;
+  trigger: string;
+  calculationStepKey: string;
+  dependsOnFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '食神格取运事实只把原局已闭合的生财、杀印、带杀、带印或财解夺食子结构与当前运字逐项对应；财食轻重、身旺、食神太旺、七杀轻重、印旺与财旺仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件';
+}
+
 export interface FortuneTriggerFormationFact {
   key: string;
   status: '已命中';
@@ -293,6 +318,7 @@ export interface FortuneTriggerLimitationFact {
     | '正官取运边界'
     | '财格取运边界'
     | '印格取运边界'
+    | '食神格取运边界'
     | '高风险输出边界';
   status: '适用';
   ownerFactKeys: string[];
@@ -312,6 +338,7 @@ export interface FortuneTriggerEvidenceResult {
   officerPatternRuleFacts: FortuneOfficerPatternRuleFact[];
   wealthPatternRuleFacts: FortuneWealthPatternRuleFact[];
   resourcePatternRuleFacts: FortuneResourcePatternRuleFact[];
+  foodPatternRuleFacts: FortuneFoodPatternRuleFact[];
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   primaryRelations: FortuneTriggerRelation[];
@@ -351,6 +378,8 @@ const WEALTH_PATTERN_RULE_LIMITATION =
   '财格取运事实只把原局已闭合的子结构与当前运字逐项对应；财旺、身旺、身轻、财食轻重与印旺仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件' as const;
 const RESOURCE_PATTERN_RULE_LIMITATION =
   '印格取运事实只把原局已闭合的子结构与当前运字逐项对应；印重、印轻、身旺、官旺、财印轻重与各方是否有力仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件' as const;
+const FOOD_PATTERN_RULE_LIMITATION =
+  '食神格取运事实只把原局已闭合的生财、杀印、带杀、带印或财解夺食子结构与当前运字逐项对应；财食轻重、身旺、食神太旺、七杀轻重、印旺与财旺仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件' as const;
 const HIDDEN_STEM_RANKS = ['本气', '中气', '余气'] as const;
 const WUXING_VALUES = new Set(['木', '火', '土', '金', '水']);
 
@@ -1767,6 +1796,325 @@ function buildResourcePatternRuleAnalysis(params: {
   return { facts, calculationStep, applicable: true };
 }
 
+function buildFoodPatternRuleAnalysis(params: {
+  result: BaziChartResult;
+  layerStructureFacts: FortuneLayerStructureFact[];
+}): {
+  facts: FortuneFoodPatternRuleFact[];
+  calculationStep?: FortuneTriggerCalculationStep;
+  applicable: boolean;
+} {
+  const patternName = params.result.analysis?.mingGe?.pattern ?? '';
+  const structure = analyzeFoodPatternStructure(params.result.pillars, patternName);
+  if (!structure.isFoodPattern) return { facts: [], applicable: false };
+
+  const facts: FortuneFoodPatternRuleFact[] = [];
+  const calculationStepKey = 'bazi:fortune-trigger:calculation:food-pattern-rules';
+  const addFact = (
+    layer: FortuneLayerStructureFact,
+    slug: string,
+    type: FortuneFoodPatternRuleType,
+    status: FortuneFoodPatternRuleFact['status'],
+    natalStructure: string,
+    trigger: string,
+  ) => {
+    facts.push({
+      key: `bazi:fortune-trigger:food-pattern:${layer.layerType}:${layer.layerId}:${slug}`,
+      status,
+      type,
+      layerKey: layer.layerKey,
+      layerLabel: layer.layerLabel,
+      ganZhi: layer.ganZhi,
+      natalStructure,
+      trigger,
+      calculationStepKey,
+      dependsOnFactKeys: [layer.key],
+      promptText: `${layer.layerLabel}${layer.ganZhi}：${natalStructure}；${trigger}，列为${status}`,
+      sources: ['《子平真诠评注》“食神取运”', '原局食神格子结构与岁运干支分层事实逐项核验'],
+      limitation: FOOD_PATTERN_RULE_LIMITATION,
+    });
+  };
+
+  const natalWealth = formatNatalStems(structure.wealthStems);
+  const natalResources = formatNatalStems(structure.resourceStems);
+  const natalKillers = formatNatalStems(structure.killerStems);
+  const natalFood = structure.monthHiddenFoodStems.length
+    ? `月令藏${structure.monthHiddenFoodStems.join('、')}食神取格`
+    : '原局以食神取格';
+  const hasFoodGeneratingWealth = structure.wealthStems.length > 0;
+  const hasKillerResourceWithoutWealth =
+    structure.killerStems.length > 0 &&
+    structure.resourceStems.length > 0 &&
+    structure.wealthStems.length === 0;
+  const hasKillerWithoutResourceWealth =
+    structure.killerStems.length > 0 &&
+    structure.officerStems.length === 0 &&
+    structure.resourceStems.length === 0 &&
+    structure.wealthStems.length === 0;
+  const hasResourceWithoutWealthOfficerKiller =
+    structure.resourceStems.length > 0 &&
+    structure.wealthStems.length === 0 &&
+    structure.officerStems.length === 0 &&
+    structure.killerStems.length === 0;
+  const hasResourceWithWealth =
+    structure.resourceStems.length > 0 && structure.wealthStems.length > 0;
+
+  params.layerStructureFacts.forEach((layer) => {
+    const resourceTriggers = describeLayerTenGods(layer, ['正印', '偏印']);
+    const peerTriggers = describeLayerTenGods(layer, ['比肩', '劫财']);
+    const outputTriggers = describeLayerTenGods(layer, ['食神', '伤官']);
+    const foodTriggers = describeLayerTenGods(layer, ['食神']);
+    const wealthTriggers = describeLayerTenGods(layer, ['正财', '偏财']);
+    const officerTriggers = describeLayerTenGods(layer, ['正官']);
+    const killerTriggers = describeLayerTenGods(layer, ['七杀']);
+    const officerKillerTriggers = [...officerTriggers, ...killerTriggers];
+
+    if (hasFoodGeneratingWealth) {
+      const natalStructure = `${natalFood}，又见${natalWealth}明透，具食神生财局部结构`;
+      const wealthFoodTriggers = [...wealthTriggers, ...foodTriggers];
+      if (wealthFoodTriggers.length > 0) {
+        addFact(
+          layer,
+          'wealth-light-wealth-food',
+          '食神生财取运候选',
+          '条件待复核',
+          natalStructure,
+          `${wealthFoodTriggers.join('、')}只在“财食轻”另经全局闭合时，对应仍行财食方向`,
+        );
+      }
+      if (peerTriggers.length > 0) {
+        addFact(
+          layer,
+          'wealth-heavy-peer',
+          '食神生财取运候选',
+          '条件待复核',
+          natalStructure,
+          `${peerTriggers.join('、')}只在“财食重”另经全局闭合时，对应帮身方向`,
+        );
+      }
+      if (officerKillerTriggers.length > 0) {
+        addFact(
+          layer,
+          'wealth-officer-killer',
+          '食神生财取运候选',
+          '带忌候选',
+          natalStructure,
+          `${officerKillerTriggers.join('、')}对应原典“官煞之方俱为不美”的一般边界`,
+        );
+      }
+    }
+
+    if (hasKillerResourceWithoutWealth) {
+      const natalStructure = `${natalFood}，见${natalKillers}与${natalResources}明透而无财星明透，具食用杀印局部结构`;
+      if (resourceTriggers.length > 0) {
+        addFact(
+          layer,
+          'killer-resource-resource',
+          '食用杀印取运候选',
+          '条件待复核',
+          natalStructure,
+          `${resourceTriggers.join('、')}只作印旺方向组件，单个印星运字不直接证明印旺`,
+        );
+      }
+      if (wealthTriggers.length > 0) {
+        addFact(
+          layer,
+          'killer-resource-wealth',
+          '食用杀印取运候选',
+          '带忌候选',
+          natalStructure,
+          `${wealthTriggers.join('、')}对应原典“切忌财乡”`,
+        );
+      }
+      if (outputTriggers.length > 0) {
+        addFact(
+          layer,
+          'killer-resource-output',
+          '食用杀印取运候选',
+          '条件待复核',
+          natalStructure,
+          `${outputTriggers.join('、')}只在“身旺”另经全局闭合时，对应食伤福运候选`,
+        );
+      }
+      if (officerKillerTriggers.length > 0) {
+        addFact(
+          layer,
+          'killer-resource-officer-killer',
+          '食用杀印取运候选',
+          '支持候选',
+          natalStructure,
+          `${officerKillerTriggers.join('、')}对应原典行官行杀亦吉的局部候选`,
+        );
+      }
+    }
+
+    if (hasKillerWithoutResourceWealth) {
+      const natalStructure = `${natalFood}，见${natalKillers}明透而未见官星、印星或财星明透，具食伤带杀局部结构`;
+      if (resourceTriggers.length > 0) {
+        addFact(
+          layer,
+          'killer-resource',
+          '食伤带杀取运候选',
+          '支持候选',
+          natalStructure,
+          `${resourceTriggers.join('、')}对应原典一般所喜印绶`,
+        );
+        addFact(
+          layer,
+          'killer-heavy-food-light-killer-resource',
+          '食伤带杀取运候选',
+          '条件待复核',
+          natalStructure,
+          `${resourceTriggers.join('、')}在“食太重而杀轻”另经全局闭合时，对应印运最利的加强候选`,
+        );
+      }
+      if (outputTriggers.length > 0) {
+        addFact(
+          layer,
+          'killer-output',
+          '食伤带杀取运候选',
+          '条件待复核',
+          natalStructure,
+          `${outputTriggers.join('、')}只在“身旺”另经全局闭合时，对应食伤美运候选`,
+        );
+      }
+      if (wealthTriggers.length > 0) {
+        addFact(
+          layer,
+          'killer-wealth',
+          '食伤带杀取运候选',
+          '带忌候选',
+          natalStructure,
+          `${wealthTriggers.join('、')}对应原典一般“财则最忌”`,
+        );
+        addFact(
+          layer,
+          'killer-heavy-food-light-killer-wealth',
+          '食伤带杀取运候选',
+          '条件待复核',
+          natalStructure,
+          `${wealthTriggers.join('、')}在“食太重而杀轻”另经全局闭合时，另列逢财反吉例外；与一般财运带忌候选并存`,
+        );
+      }
+    }
+
+    if (hasResourceWithoutWealthOfficerKiller) {
+      const natalStructure = `${natalFood}，见${natalResources}明透而未见财官杀明透，具食神带印局部结构；“食神太旺”尚未闭合`;
+      if (wealthTriggers.length > 0) {
+        addFact(
+          layer,
+          'heavy-resource-wealth',
+          '食旺带印取运候选',
+          '条件待复核',
+          natalStructure,
+          `${wealthTriggers.join('、')}只在“食神太旺”另经全局闭合时，对应最利财运候选`,
+        );
+      }
+      if (outputTriggers.length > 0) {
+        addFact(
+          layer,
+          'heavy-resource-output',
+          '食旺带印取运候选',
+          '条件待复核',
+          natalStructure,
+          `${outputTriggers.join('、')}只在“食神太旺”另经全局闭合时，对应食伤亦吉候选`,
+        );
+      }
+      if (resourceTriggers.length > 0) {
+        addFact(
+          layer,
+          'heavy-resource-resource',
+          '食旺带印取运候选',
+          '条件待复核',
+          natalStructure,
+          `${resourceTriggers.join('、')}只在“食神太旺”另经全局闭合时，对应印运最忌边界`,
+        );
+      }
+      if (officerKillerTriggers.length > 0) {
+        addFact(
+          layer,
+          'heavy-resource-officer-killer',
+          '食旺带印取运候选',
+          '条件待复核',
+          natalStructure,
+          `${officerKillerTriggers.join('、')}只在“食神太旺”另经全局闭合时，对应官杀皆不吉边界`,
+        );
+      }
+    }
+
+    if (hasResourceWithWealth) {
+      const natalStructure = `${natalFood}，见${natalResources}与${natalWealth}同时明透，具食神带印、透财以解局部结构`;
+      if (wealthTriggers.length > 0) {
+        addFact(
+          layer,
+          'resource-wealth-wealth',
+          '食印透财取运候选',
+          '条件待复核',
+          natalStructure,
+          `${wealthTriggers.join('、')}只作财旺方向组件，单个财星运字不直接证明财旺`,
+        );
+      }
+      if (outputTriggers.length > 0) {
+        addFact(
+          layer,
+          'resource-wealth-output',
+          '食印透财取运候选',
+          '支持候选',
+          natalStructure,
+          `${outputTriggers.join('、')}对应原典食伤亦吉`,
+        );
+      }
+      if (resourceTriggers.length > 0) {
+        addFact(
+          layer,
+          'resource-wealth-resource',
+          '食印透财取运候选',
+          '带忌候选',
+          natalStructure,
+          `${resourceTriggers.join('、')}对应原典所忌印运`,
+        );
+      }
+      if (officerKillerTriggers.length > 0) {
+        addFact(
+          layer,
+          'resource-wealth-officer-killer',
+          '食印透财取运候选',
+          '带忌候选',
+          natalStructure,
+          `${officerKillerTriggers.join('、')}对应原典官杀皆忌`,
+        );
+      }
+    }
+  });
+
+  const calculationStep: FortuneTriggerCalculationStep = {
+    key: calculationStepKey,
+    stage: '食神格取运核验',
+    status: '已计算',
+    inputs: {
+      patternName,
+      activeLayerKeys: params.layerStructureFacts.map((item) => item.layerKey),
+      natalExposedTenGods: structure.exposedStems.map((item) => item.tenGod),
+      hasFoodGeneratingWealth,
+      hasKillerResourceWithoutWealth,
+      hasKillerWithoutResourceWealth,
+      hasResourceWithoutWealthOfficerKiller,
+      hasResourceWithWealth,
+    },
+    result: {
+      candidateCount: facts.length,
+      candidateKeys: facts.map((item) => item.key),
+    },
+    dependsOnStepKeys: params.layerStructureFacts.map((item) => item.calculationStepKey),
+    promptText: facts.length
+      ? `已按食神格原局子结构逐字核验所选岁运，记录${facts.length}项支持、带忌或条件待复核候选`
+      : '已按食神格原局子结构逐字核验所选岁运，当前未命中可客观闭合的专属取运候选',
+    sources: ['《子平真诠评注》“食神取运”', '原局食神格子结构与岁运干支分层事实'],
+    limitation: CALCULATION_STEP_LIMITATION,
+  };
+  return { facts, calculationStep, applicable: true };
+}
+
 function relation(
   type: FortuneTriggerRelationType,
   label: string,
@@ -2174,6 +2522,7 @@ function buildRelationSummaryFact(params: {
   officerPatternRuleFacts: FortuneOfficerPatternRuleFact[];
   wealthPatternRuleFacts: FortuneWealthPatternRuleFact[];
   resourcePatternRuleFacts: FortuneResourcePatternRuleFact[];
+  foodPatternRuleFacts: FortuneFoodPatternRuleFact[];
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   comparisonSteps: FortuneTriggerCalculationStep[];
@@ -2204,6 +2553,7 @@ function buildRelationSummaryFact(params: {
       ...params.officerPatternRuleFacts.map((item) => item.key),
       ...params.wealthPatternRuleFacts.map((item) => item.key),
       ...params.resourcePatternRuleFacts.map((item) => item.key),
+      ...params.foodPatternRuleFacts.map((item) => item.key),
       ...params.relations.map((item) => item.key),
       ...params.formations.map((item) => item.key),
       ...params.counterEvidenceFacts.map((item) => item.key),
@@ -2237,6 +2587,8 @@ function buildLimitationFacts(params: {
   wealthPatternRulesApplicable: boolean;
   resourcePatternRuleFacts: FortuneResourcePatternRuleFact[];
   resourcePatternRulesApplicable: boolean;
+  foodPatternRuleFacts: FortuneFoodPatternRuleFact[];
+  foodPatternRulesApplicable: boolean;
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   counterEvidenceFacts: FortuneTriggerCounterEvidenceFact[];
@@ -2250,6 +2602,7 @@ function buildLimitationFacts(params: {
   const officerRuleKeys = params.officerPatternRuleFacts.map((item) => item.key);
   const wealthRuleKeys = params.wealthPatternRuleFacts.map((item) => item.key);
   const resourceRuleKeys = params.resourcePatternRuleFacts.map((item) => item.key);
+  const foodRuleKeys = params.foodPatternRuleFacts.map((item) => item.key);
   const definitions: Array<
     Pick<FortuneTriggerLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
   > = [
@@ -2350,6 +2703,18 @@ function buildLimitationFacts(params: {
           },
         ]
       : []),
+    ...(params.foodPatternRulesApplicable
+      ? [
+          {
+            key: 'bazi:fortune-trigger:limitation:food-pattern-rules',
+            type: '食神格取运边界' as const,
+            ownerFactKeys: [params.relationSummaryFact.key, ...foodRuleKeys],
+            promptText:
+              '食神格取运只能按当前八字已经闭合的生财、杀印、带杀、带印或透财解印子结构逐字研究；财食轻重、身旺、食神太旺、七杀轻重、印旺与财旺均不得用十神数量或单个运字硬判，一般财运带忌与“食重杀轻时逢财反吉”等相反候选必须并存，不得定成最终喜忌',
+            sources: ['《子平真诠评注》“食神取运”及“即以食神所成之局，分而配之”'],
+          },
+        ]
+      : []),
     {
       key: 'bazi:fortune-trigger:limitation:high-risk-output',
       type: '高风险输出边界',
@@ -2373,6 +2738,7 @@ function buildEvidence(params: {
   officerPatternRuleFacts: FortuneOfficerPatternRuleFact[];
   wealthPatternRuleFacts: FortuneWealthPatternRuleFact[];
   resourcePatternRuleFacts: FortuneResourcePatternRuleFact[];
+  foodPatternRuleFacts: FortuneFoodPatternRuleFact[];
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   counterEvidenceFacts: FortuneTriggerCounterEvidenceFact[];
@@ -2460,6 +2826,24 @@ function buildEvidence(params: {
               new Set(params.resourcePatternRuleFacts.flatMap((item) => item.sources)),
             ).join('、'),
             tags: ['八字岁运', '印格', '逐字取运候选'],
+          } satisfies PromptEvidenceItem,
+        ]
+      : []),
+    ...(params.foodPatternRuleFacts.length
+      ? [
+          {
+            level: '主证',
+            title: '食神格逐字取运候选',
+            detail: `${params.foodPatternRuleFacts
+              .map(
+                (item) =>
+                  `${item.layerLabel}${item.ganZhi}${item.type}：${item.trigger}（${item.status}）`,
+              )
+              .join('；')}。统一边界：${FOOD_PATTERN_RULE_LIMITATION}`,
+            source: Array.from(
+              new Set(params.foodPatternRuleFacts.flatMap((item) => item.sources)),
+            ).join('、'),
+            tags: ['八字岁运', '食神格', '逐字取运候选'],
           } satisfies PromptEvidenceItem,
         ]
       : []),
@@ -2609,6 +2993,14 @@ export function analyzeFortuneTriggers(
   if (resourcePatternRuleAnalysis.calculationStep) {
     calculationSteps.push(resourcePatternRuleAnalysis.calculationStep);
   }
+  const foodPatternRuleAnalysis = buildFoodPatternRuleAnalysis({
+    result,
+    layerStructureFacts,
+  });
+  const foodPatternRuleFacts = foodPatternRuleAnalysis.facts;
+  if (foodPatternRuleAnalysis.calculationStep) {
+    calculationSteps.push(foodPatternRuleAnalysis.calculationStep);
+  }
   const relationSummaryFact = buildRelationSummaryFact({
     calculationSteps,
     layerStructureFacts,
@@ -2616,6 +3008,7 @@ export function analyzeFortuneTriggers(
     officerPatternRuleFacts,
     wealthPatternRuleFacts,
     resourcePatternRuleFacts,
+    foodPatternRuleFacts,
     relations,
     formations,
     comparisonSteps,
@@ -2653,6 +3046,8 @@ export function analyzeFortuneTriggers(
     wealthPatternRulesApplicable: wealthPatternRuleAnalysis.applicable,
     resourcePatternRuleFacts,
     resourcePatternRulesApplicable: resourcePatternRuleAnalysis.applicable,
+    foodPatternRuleFacts,
+    foodPatternRulesApplicable: foodPatternRuleAnalysis.applicable,
     relations,
     formations,
     counterEvidenceFacts,
@@ -2669,6 +3064,7 @@ export function analyzeFortuneTriggers(
     officerPatternRuleFacts,
     wealthPatternRuleFacts,
     resourcePatternRuleFacts,
+    foodPatternRuleFacts,
     relations,
     formations,
     counterEvidenceFacts,
@@ -2680,7 +3076,7 @@ export function analyzeFortuneTriggers(
   const calculationChain = calculationSteps.map((item) => item.promptText);
   const noMajorFacts = counterEvidenceFacts.filter((item) => item.status === '未见主要关系');
   const noMajorWithSupporting = noMajorFacts.filter((item) => item.supportingRelationKeys.length);
-  const calculationOverview = `已校验${layers.length}个原局与岁运层级，形成${layerStructureFacts.length}项岁运干支分层事实、${hiddenStemRevealFacts.length}项藏干透出对应候选、${officerPatternRuleFacts.length}项正官取运候选、${wealthPatternRuleFacts.length}项财格取运候选、${resourcePatternRuleFacts.length}项印格取运候选，完成${comparisonSteps.length}组逐项比对和三合三会汇总核验；${relationSummaryFact.promptText}`;
+  const calculationOverview = `已校验${layers.length}个原局与岁运层级，形成${layerStructureFacts.length}项岁运干支分层事实、${hiddenStemRevealFacts.length}项藏干透出对应候选、${officerPatternRuleFacts.length}项正官取运候选、${wealthPatternRuleFacts.length}项财格取运候选、${resourcePatternRuleFacts.length}项印格取运候选、${foodPatternRuleFacts.length}项食神格取运候选，完成${comparisonSteps.length}组逐项比对和三合三会汇总核验；${relationSummaryFact.promptText}`;
   const counterOverview = noMajorFacts.length
     ? `共${noMajorFacts.length}组层级未见岁运并临、天克地冲或同柱伏吟，其中${noMajorWithSupporting.length}组仍有辅助关系；未见主要关系不等于没有较弱关系、没有现实触发或必然平稳`
     : '所有已比较层级均已记录主要关系；仍不得据命中数量生成吉凶或概率结论';
@@ -2695,6 +3091,7 @@ export function analyzeFortuneTriggers(
     officerPatternRuleFacts,
     wealthPatternRuleFacts,
     resourcePatternRuleFacts,
+    foodPatternRuleFacts,
     relations,
     formations,
     primaryRelations,
@@ -2722,6 +3119,8 @@ export function analyzeFortuneTriggers(
         '逐支核验藏干与原局、所选岁运明透天干是否同字，只记录透出对应候选，不直接认定透清、成格或变格。',
         '正官格另按原局用财、佩印、带伤食用印、带杀及合杀结构逐字列取运候选；无法客观闭合的强弱条件保留待复核，不固化为喜忌表。',
         '财格另按财生官、用食生、佩印、用食印、带伤官、带七杀及用杀印结构逐字列取运候选；财旺、身旺、身轻、财食轻重与印旺保留待复核，不以数量硬判。',
+        '印格另按用官、用伤食、用七杀、杀兼伤食、遇财及官杀竞透结构逐字列取运候选；印重、印轻、身旺、官旺与财印轻重保留待复核，不以数量硬判。',
+        '食神格另按生财、用杀印、带杀、食旺带印及透财解印结构逐字列取运候选；财食轻重、身旺、食杀轻重、印旺与财旺保留待复核，相反候选并存。',
         '运干与运支分别保留，地支关系与三合三会另行核验；同五行或同十神不得据此机械等价。',
         '每个层级和关系均保留稳定键、计算步骤依赖及来源层级，未见主要关系时保留反证，不补造候选应期。',
         '关系成立与吉凶解释分离，不对不同关系设置命运总分，也不从单条关系直接推断事件。',

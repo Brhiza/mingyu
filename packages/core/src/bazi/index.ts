@@ -139,6 +139,8 @@ export type {
   FortuneLayerComponentFact,
   FortuneLayerHiddenStemFact,
   FortuneLayerStructureFact,
+  FortuneFoodPatternRuleFact,
+  FortuneFoodPatternRuleType,
   FortuneOfficerPatternRuleFact,
   FortuneOfficerPatternRuleType,
   FortuneResourcePatternRuleFact,

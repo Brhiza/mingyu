@@ -122,12 +122,56 @@ test('选择大运时会附带该大运下的全部流年', () => {
   assert.ok(context.promptPayload.triggerEvidence?.relationSummaryFact.relationCount);
   assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.wealthPatternRuleFacts));
   assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.resourcePatternRuleFacts));
+  assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.foodPatternRuleFacts));
   assert.ok(
     context.promptPayload.triggerEvidence?.limitationFacts.some(
       (item) => item.type === '层级应期边界',
     ),
   );
   assert.match(context.promptPayload.evidenceLines?.join('\n') ?? '', /【八字岁运触发结构化证据】/);
+});
+
+test('真实食神格排盘应把逐字取运事实贯穿到岁运提示资料', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1980,
+    month: 2,
+    day: 13,
+    timeIndex: 4,
+    gender: 'male',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['庚申', '戊寅', '丙辰', '壬辰'],
+  );
+  assert.equal(result.analysis.mingGe.pattern, '杂气食神格');
+
+  const context = buildFortuneSelectionContext(result, {
+    scope: 'dayun',
+    cycleIndex: 4,
+  });
+
+  assert.ok(context);
+  assert.equal(context.displayLabel, '壬午运');
+  const foodFacts = context.promptPayload.triggerEvidence.foodPatternRuleFacts;
+  assert.deepEqual(
+    foodFacts.map((item) => [item.type, item.status]),
+    [
+      ['食神生财取运候选', '条件待复核'],
+      ['食神生财取运候选', '带忌候选'],
+    ],
+  );
+  assert.match(foodFacts[0]?.trigger ?? '', /财食重.*帮身方向/);
+  assert.match(foodFacts[1]?.trigger ?? '', /官煞之方俱为不美/);
+
+  const evidenceText = context.promptPayload.evidenceLines?.join('\n') ?? '';
+  assert.match(evidenceText, /【主证】食神格逐字取运候选/);
+  assert.match(evidenceText, /财食重.*条件待复核/);
+  assert.match(evidenceText, /官煞之方俱为不美.*带忌候选/);
+  assert.match(evidenceText, /不得把单项候选定为最终喜运、忌运、吉凶或现实事件/);
 });
 
 test('选择流年时会附带该流年下的全部流月', () => {
