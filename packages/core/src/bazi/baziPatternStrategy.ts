@@ -6,6 +6,7 @@ import {
   type CompleteBranchFormation,
 } from './baziFormationUtils';
 import { canUseExternalPattern } from './baziExternalPatternEligibility';
+import { analyzeHurtPatternStructure } from './baziHurtPattern';
 import { analyzeKillerPatternStructure } from './baziKillerPattern';
 import { analyzeOfficerPatternStructure } from './baziOfficerPattern';
 import { analyzeFoodPatternStructure } from './baziFoodPattern';
@@ -1193,6 +1194,234 @@ function collectFoodPatternNotes(
 }
 
 /**
+ * 复算《子平真诠》“论伤官”中能够由四柱闭合的生财、佩印、财印隔位、
+ * 杀印无财、气候类别、固定会合关系与官杀取清组件。
+ * 强弱、旺衰、根深、合化结果及贵贱均不由十神数量或单一关系代替。
+ */
+function collectHurtPatternNotes(
+  pillars: Pillars,
+  patternName: string,
+  getTenGod: GetTenGodFn,
+): string[] {
+  const structure = analyzeHurtPatternStructure(pillars, patternName, getTenGod);
+  const notes: string[] = [];
+  const isExact = (year: string, month: string, day: string, hour: string) =>
+    pillars.year.ganZhi === year &&
+    pillars.month.ganZhi === month &&
+    pillars.day.ganZhi === day &&
+    pillars.hour.ganZhi === hour;
+  const formatStems = (facts: typeof structure.exposedStems) =>
+    facts.map((fact) => `${fact.label}${fact.stem}${fact.tenGod}`).join('、');
+  const formatHiddenFacts = (facts: typeof structure.resourceHiddenFacts, label: string) =>
+    facts
+      .map((fact) => `${fact.label}${fact.branch}藏${fact.hiddenStems.join('、')}${label}`)
+      .join('、');
+
+  const exactExamples: Array<{
+    pillars: [string, string, string, string];
+    note: string;
+  }> = [
+    {
+      pillars: ['壬午', '己酉', '戊午', '庚申'],
+      note: '原典史春芳精确例型壬午、己酉、戊午、庚申，酉中辛伤官当令而壬偏财、庚食神明透；只保存伤官生财的组成事实，身强有根与贵格结论均须另审',
+    },
+    {
+      pillars: ['甲子', '乙亥', '辛未', '戊子'],
+      note: '原典罗状元精确例型甲子、乙亥、辛未、戊子，亥中壬伤官与甲财同藏，亥未为三合拱木固定关系；只列化伤为财候选，不因拱局直接认定已经化木或推导功名',
+    },
+    {
+      pillars: ['己卯', '丁丑', '丙寅', '庚寅'],
+      note: '原典秦龙图精确例型己卯、丁丑、丙寅、庚寅，己伤官与庚偏财明透，丑月藏己伤官及辛正财；只保存财伤同根月令的类别事实，不据此推导贵秀',
+    },
+    {
+      pillars: ['壬申', '丙午', '甲午', '壬申'],
+      note: '原典孛罗平章精确例型壬申、丙午、甲午、壬申，午中丁伤官当令而壬偏印两透并在申中有根；只保存夏木伤官佩印结构，不以印的数量判根深、身弱或富贵',
+    },
+    {
+      pillars: ['丁酉', '己酉', '戊子', '壬子'],
+      note: '原典都统制精确例型丁酉、己酉、戊子、壬子，丁正印在年、壬偏财在时，中隔己与戊而不相邻；只保存财印隔位两清与秋金水寒见火的条件事实，不判财太重或调候成败',
+    },
+    {
+      pillars: ['壬戌', '己酉', '戊午', '丁巳'],
+      note: '原典丞相精确例型壬戌、己酉、戊午、丁巳，壬偏财在年、丁正印在时，中隔己与戊而不相邻；只保存财印隔位两清事实，不判印太重或贵格',
+    },
+    {
+      pillars: ['己未', '丙子', '庚子', '丙子'],
+      note: '原典蔡贵妃精确例型己未、丙子、庚子、丙子，子中癸伤官当令、丙七杀两透，未中藏己正印并同时藏乙正财；只保存杀生印、印制伤的条件组件，并明确本例不能闭合全局无财',
+    },
+    {
+      pillars: ['戊申', '甲子', '庚午', '丁丑'],
+      note: '原典金水伤官用官精确例型戊申、甲子、庚午、丁丑，子中癸伤官藏而不透，丁正官、甲偏财、戊偏印明透；只保存财印辅官且官伤不并透的客观条件，不推导官禄贵格',
+    },
+    {
+      pillars: ['丙申', '己亥', '辛未', '己亥'],
+      note: '原典郑丞相精确例型丙申、己亥、辛未、己亥，冬金亥月藏壬伤官，丙正官明透且亥未为三合拱木固定关系；只保存用官兼化伤为财候选，不认定拱局已经化木或推导富贵',
+    },
+    {
+      pillars: ['甲子', '壬申', '己亥', '辛未'],
+      note: '原典章丞相精确例型甲子、壬申、己亥、辛未，非金日主申月藏庚伤官，申子半合水为财星固定关系且甲正官明透；只保存化伤为财若成立后转按财生官复核的条件，不直接排除伤官见官或推导贵格',
+    },
+  ];
+  exactExamples.forEach((example) => {
+    if (isExact(...example.pillars)) notes.push(example.note);
+  });
+
+  if (!structure.isHurtPattern) return notes;
+
+  notes.push(
+    '伤官格变化较多，气候、强弱、喜忌与纯杂均须全局审查；当前只记录能够客观闭合的条件事实，不以任一单项关系执定成败',
+  );
+
+  if (structure.wealthStems.length > 0) {
+    notes.push(
+      `伤官格见${formatStems(structure.wealthStems)}明透，具“伤官生财”的局部结构；身强且有根、伤财实际强弱与最终取舍仍须全局复核`,
+    );
+  }
+
+  if (structure.wealthTransformationFacts.length > 0) {
+    notes.push(
+      `${structure.wealthTransformationFacts
+        .map(
+          (fact) =>
+            `月支${pillars.month.zhi}参与${fact.branches.join('')}${fact.type}${fact.wuxing}（财星五行）固定关系`,
+        )
+        .join(
+          '、',
+        )}，列“化伤为财”的关系候选；三合、三会、半合、拱局或六合事实均不等于已经合化，财旺与生官结果亦须另审`,
+    );
+  }
+
+  if (structure.hurtWealthShareMonth) {
+    notes.push(
+      `月令${pillars.month.zhi}同时藏${structure.monthHiddenHurtStems.join('、')}伤官与${structure.monthHiddenWealthStems.join('、')}财星，外干又见${formatStems(structure.hurtStems)}及${formatStems(structure.wealthStems)}，闭合“财伤同根月令”的类别事实；不以藏干层级或数量推导秀气与贵贱`,
+    );
+  }
+
+  const exposedResourceSources =
+    structure.resourceStems.length > 0 ? [formatStems(structure.resourceStems)] : [];
+  const resourceSources = [
+    ...exposedResourceSources,
+    ...(structure.resourceHiddenFacts.length > 0
+      ? [formatHiddenFacts(structure.resourceHiddenFacts, '印星')]
+      : []),
+  ];
+  if (exposedResourceSources.length > 0) {
+    notes.push(
+      `伤官格见${exposedResourceSources.join('、')}，列“伤官佩印”的局部结构；伤旺、身稍弱、印旺根深及制伤力度均须全局复核，不按印星数量直接定成败`,
+    );
+  }
+
+  if (structure.hasMixedResources) {
+    notes.push(
+      `${formatStems(structure.directResourceStems)}与${formatStems(structure.indirectResourceStems)}同见，形成偏正印叠出结构；原典所说“不秀”仍以印旺极深、伤轻身重等强弱条件为前提，当前不由叠出数量直接判定`,
+    );
+  }
+
+  if (structure.wealthResourcePairs.length > 0) {
+    if (structure.hasSeparatedWealthResources) {
+      notes.push(
+        `${structure.wealthResourcePairs
+          .map(
+            ({ wealth, resource }) =>
+              `${wealth.label}${wealth.stem}${wealth.tenGod}与${resource.label}${resource.stem}${resource.tenGod}外干隔位`,
+          )
+          .join(
+            '、',
+          )}，闭合伤官兼用财印的“干头两清而不相碍”客观位置条件；财太旺而带印或印太重而带财均不能由数量代判`,
+      );
+    } else if (structure.hasAdjacentWealthResourceConflict) {
+      notes.push(
+        `${structure.wealthResourcePairs
+          .filter((pair) => pair.isAdjacent)
+          .map(
+            ({ wealth, resource }) =>
+              `${wealth.label}${wealth.stem}${wealth.tenGod}与${resource.label}${resource.stem}${resource.tenGod}相邻`,
+          )
+          .join(
+            '、',
+          )}，财克印在干头直接相碍，当前不能闭合“两清不相碍”；其他隔位组合与强弱调停仍须另审`,
+      );
+    }
+  }
+
+  if (structure.killerStems.length > 0 && resourceSources.length > 0) {
+    const hasNoWealth =
+      structure.wealthStems.length === 0 && structure.wealthHiddenFacts.length === 0;
+    const wealthBoundary = hasNoWealth
+      ? '；四柱明透及藏干均未见财星，闭合“无财”的客观边界'
+      : `；另见${[
+          ...(structure.wealthStems.length > 0 ? [formatStems(structure.wealthStems)] : []),
+          ...(structure.wealthHiddenFacts.length > 0
+            ? [formatHiddenFacts(structure.wealthHiddenFacts, '财星')]
+            : []),
+        ].join('、')}，未闭合“无财”边界`;
+    notes.push(
+      `伤官格见${formatStems(structure.killerStems)}与${resourceSources.join('、')}，具“伤官用杀印”的组成候选${wealthBoundary}；伤多身弱、杀生印与印帮身制伤的实际力度仍须复核`,
+    );
+  }
+
+  if (structure.isSummerWoodHurt && exposedResourceSources.length > 0) {
+    notes.push(
+      `夏月木日主以火伤官取格，又见${exposedResourceSources.join('、')}水印，列“夏木见水”的调候类别候选；火炎木燥、身弱印深及调候成败均不能由月份或印数单独闭合`,
+    );
+  }
+
+  if (structure.isMetalWaterHurt && structure.officerStems.length > 0) {
+    const helperBoundary =
+      structure.wealthStems.length > 0 && structure.resourceStems.length > 0
+        ? `，同时${formatStems(structure.wealthStems)}与${formatStems(structure.resourceStems)}明透为财印辅助`
+        : '，但财印是否俱备的辅助条件尚未闭合';
+    const hurtBoundary =
+      structure.hurtStems.length === 0
+        ? '，且伤官藏而未透，闭合官伤不并透条件'
+        : `，另见${formatStems(structure.hurtStems)}伤官明透，未闭合官伤不并透条件`;
+    notes.push(
+      `金日主以月令水伤官取格而见${formatStems(structure.officerStems)}明透，列“金水伤官用官”的气候类别候选${helperBoundary}${hurtBoundary}；不据此直接认定清格或贵格`,
+    );
+  }
+
+  if (
+    structure.isMetalWaterHurt &&
+    structure.officerStems.length > 0 &&
+    structure.wealthTransformationFacts.length > 0
+  ) {
+    notes.push(
+      '冬金用官同时见化伤为财的固定关系候选；合化、财旺与官星得用均须分别复核，不因会合关系直接定成败',
+    );
+  }
+
+  if (
+    !structure.isMetalWaterHurt &&
+    structure.officerStems.length > 0 &&
+    structure.wealthTransformationFacts.length > 0
+  ) {
+    notes.push(
+      '非金水伤官见官而同时具化伤为财的固定关系候选；只有合化另经全局成立后，方可转按财旺生官复核，当前不直接排除伤官见官冲突',
+    );
+  }
+
+  if (structure.hasOfficerKillerMixture) {
+    if (structure.clearingComponents.length > 0) {
+      notes.push(
+        `${formatStems(structure.officerStems)}与${formatStems(structure.killerStems)}并透，另见${structure.clearingComponents
+          .map(({ method, target, partner }) =>
+            method === '伤官制官'
+              ? `${partner.label}${partner.stem}伤官制${target.label}${target.stem}正官`
+              : `${target.label}${target.stem}${target.tenGod}与${partner.label}${partner.stem}${partner.tenGod}相邻五合`,
+          )
+          .join('、')}作为干头取清组件候选；制、合事实均不等于官杀已经取清`,
+      );
+    } else {
+      notes.push(
+        `${formatStems(structure.officerStems)}与${formatStems(structure.killerStems)}并透，但外干未见伤官制官或相邻五合取清组件；金水伤官亦不能仅凭官杀同见宣称已经取清`,
+      );
+    }
+  }
+
+  return notes;
+}
+
+/**
  * 复算《子平真诠》“论七杀”中能够由四柱闭合的食伤制杀、杀印、财印食取清、
  * 杂气无财透与官杀去留组件。强弱、合化、取清结果及贵贱均不由单项结构代替。
  */
@@ -1966,6 +2195,11 @@ export function determinePattern(
   const foodPatternNotes = collectFoodPatternNotes(pillars, patternName, getTenGod);
   if (foodPatternNotes.length > 0) {
     basis += `；食神格成败边界：${foodPatternNotes.join('；')}；以上只记录《子平真诠》“论食神”中能够由当前四柱闭合的财根、明透、气候类别、位置与取清组件，不改变既有格名；身强身弱、食旺食轻、火炎木焦、食神有气、财官杀印强弱及最终取舍仍须全局复核，也不推导性情、职业、富贵贫贱、现实财富、分数或概率`;
+  }
+
+  const hurtPatternNotes = collectHurtPatternNotes(pillars, patternName, getTenGod);
+  if (hurtPatternNotes.length > 0) {
+    basis += `；伤官格成败边界：${hurtPatternNotes.join('；')}；以上只记录《子平真诠》“论伤官”中能够由当前四柱闭合的明透、月令同根、财印隔位、气候类别、固定会合关系与取清组件，不改变既有格名；伤身财印官杀强弱、根深、财旺、印重、合化结果及最终取舍仍须全局复核，也不推导才学、职业、富贵贫贱、官职品级、现实事件、分数或概率`;
   }
 
   const killerPatternNotes = collectKillerPatternNotes(pillars, patternName, getTenGod);

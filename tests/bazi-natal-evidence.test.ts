@@ -718,6 +718,38 @@ test('真实财逢七杀见阳刃排盘应保留财格并贯穿刃可解厄救�
   assert.doesNotMatch(prompt, /判定为(?:富贵|贫贱)|格局评分|成功率/);
 });
 
+test('真实金水伤官见官排盘应贯穿财印未俱与官伤不并透边界', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1980,
+    month: 12,
+    day: 13,
+    timeIndex: 1,
+    gender: 'male',
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['庚申', '戊子', '庚申', '丁丑'],
+  );
+  assert.equal(result.monthCommander, '壬');
+  assert.equal(result.analysis.mingGe.pattern, '伤官格');
+  assert.match(result.analysis.mingGe.basis || '', /伤官格成败边界/);
+  assert.match(result.analysis.mingGe.basis || '', /金水伤官用官.*气候类别候选/);
+  assert.match(result.analysis.mingGe.basis || '', /财印是否俱备的辅助条件尚未闭合/);
+  assert.match(result.analysis.mingGe.basis || '', /伤官藏而未透.*官伤不并透条件/);
+  assert.match(result.analysis.mingGe.basis || '', /不据此直接认定清格或贵格/);
+
+  const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
+  assert.equal(patternFact?.result, '伤官格');
+  assert.match(patternFact?.promptText || '', /伤官格成败边界/);
+  assert.match(patternFact?.promptText || '', /金水伤官用官/);
+  const prompt = formatBaziForPrompt(result);
+  assert.match(prompt, /格局: 伤官格/);
+  assert.match(prompt, /财印是否俱备的辅助条件尚未闭合/);
+  assert.match(prompt, /官伤不并透条件/);
+  assert.doesNotMatch(prompt, /判定为(?:富贵|贫贱)|官职已定|格局评分|成功率/);
+});
+
 test('八字真太阳时本命证据应引用校正后的唯一时间并采用唯一校正时刻', () => {
   const result = baziCalculator.calculateBazi({
     year: 1990,

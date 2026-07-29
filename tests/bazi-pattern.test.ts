@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { analyzeHurtPatternStructure } from '@core/bazi/baziHurtPattern';
 import { determinePattern } from '@core/bazi/baziPatternStrategy';
 import { analyzeKillerPatternStructure } from '@core/bazi/baziKillerPattern';
 import {
@@ -1667,6 +1668,169 @@ test('论食神十个原典例型应保留结构事实且不覆盖既有格名�
     determinePattern(createPillars('己未', '壬申', '戊子', '庚申'), '待综合判断', getTenGod)
       .pattern,
     '待综合判断',
+  );
+});
+
+test('伤官生财、财伤同根与化伤为财应分别保留客观结构和合化边界', () => {
+  const sharedMonthPillars = createPillars('己卯', '丁丑', '丙寅', '庚寅');
+  const sharedMonth = determinePattern(sharedMonthPillars, '待综合判断', getTenGod);
+  const transformedPillars = createPillars('甲子', '丁卯', '壬申', '庚戌');
+  const transformed = determinePattern(transformedPillars, '待综合判断', getTenGod);
+
+  assert.equal(sharedMonth.pattern, '伤官格');
+  assert.match(sharedMonth.basis || '', /伤官生财.*局部结构/);
+  assert.match(sharedMonth.basis || '', /财伤同根月令.*类别事实/);
+  assert.match(sharedMonth.basis || '', /不以藏干层级或数量推导秀气与贵贱/);
+  assert.equal(transformed.pattern, '伤官格');
+  assert.match(transformed.basis || '', /卯戌六合火.*财星五行.*固定关系/);
+  assert.match(transformed.basis || '', /化伤为财.*关系候选/);
+  assert.match(transformed.basis || '', /不等于已经合化/);
+  assert.equal(
+    analyzeHurtPatternStructure(transformedPillars, transformed.pattern, getTenGod)
+      .wealthTransformationFacts[0]?.type,
+    '六合',
+  );
+  assert.doesNotMatch(transformed.basis || '', /六合已经化火|已化财成格/);
+});
+
+test('伤官佩印与财印兼用应区分偏正叠出、隔位两清和相邻相碍', () => {
+  const mixedResource = determinePattern(
+    createPillars('乙丑', '戊子', '庚午', '己卯'),
+    '待综合判断',
+    getTenGod,
+  );
+  const separated = determinePattern(
+    createPillars('丁酉', '己酉', '戊子', '壬子'),
+    '待综合判断',
+    getTenGod,
+  );
+  const obstructed = determinePattern(
+    createPillars('甲子', '辛未', '丙寅', '己丑'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.match(mixedResource.basis || '', /伤官佩印.*局部结构/);
+  assert.match(mixedResource.basis || '', /偏正印叠出结构/);
+  assert.match(mixedResource.basis || '', /不由叠出数量直接判定/);
+  assert.match(separated.basis || '', /壬偏财与年干丁正印外干隔位/);
+  assert.match(separated.basis || '', /干头两清而不相碍.*客观位置条件/);
+  assert.match(separated.basis || '', /财太旺而带印或印太重而带财均不能由数量代判/);
+  assert.match(obstructed.basis || '', /辛正财与年干甲偏印相邻/);
+  assert.match(obstructed.basis || '', /财克印在干头直接相碍/);
+  assert.match(obstructed.basis || '', /不能闭合“两清不相碍”/);
+});
+
+test('伤官用杀印应把无财作为全局藏透边界而不由杀印数量代判强弱', () => {
+  const noWealthPillars = createPillars('乙丑', '己卯', '壬申', '戊申');
+  const noWealth = determinePattern(noWealthPillars, '待综合判断', getTenGod);
+  const hiddenWealth = determinePattern(
+    createPillars('己未', '丙子', '庚子', '丙子'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.match(noWealth.basis || '', /伤官用杀印.*组成候选/);
+  assert.match(noWealth.basis || '', /明透及藏干均未见财星.*“无财”.*客观边界/);
+  assert.match(noWealth.basis || '', /伤多身弱.*实际力度仍须复核/);
+  assert.equal(
+    analyzeHurtPatternStructure(noWealthPillars, noWealth.pattern, getTenGod).wealthHiddenFacts
+      .length,
+    0,
+  );
+  assert.match(hiddenWealth.basis || '', /未中.*藏乙正财/);
+  assert.match(hiddenWealth.basis || '', /未闭合“无财”边界/);
+  assert.doesNotMatch(hiddenWealth.basis || '', /无财条件已经成立|判定为贵格/);
+});
+
+test('伤官格气候类别应区分夏木见水、金水用官与非金水化财见官', () => {
+  const summerWood = determinePattern(
+    createPillars('乙丑', '壬午', '甲子', '丁卯'),
+    '待综合判断',
+    getTenGod,
+  );
+  const metalWater = determinePattern(
+    createPillars('戊申', '甲子', '庚午', '丁丑'),
+    '待综合判断',
+    getTenGod,
+  );
+  const nonMetalTransformed = determinePattern(
+    createPillars('甲子', '丁卯', '壬戌', '己酉'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.match(summerWood.basis || '', /夏木见水.*调候类别候选/);
+  assert.match(summerWood.basis || '', /不能由月份或印数单独闭合/);
+  assert.match(metalWater.basis || '', /金水伤官用官.*气候类别候选/);
+  assert.match(metalWater.basis || '', /财印辅助/);
+  assert.match(metalWater.basis || '', /伤官藏而未透.*官伤不并透/);
+  assert.match(nonMetalTransformed.basis || '', /非金水伤官见官/);
+  assert.match(nonMetalTransformed.basis || '', /只有合化另经全局成立后.*财旺生官/);
+  assert.match(nonMetalTransformed.basis || '', /不直接排除伤官见官冲突/);
+});
+
+test('伤官格官杀并透必须有实际干头组件才可列取清候选', () => {
+  const withoutComponent = determinePattern(
+    createPillars('甲子', '丙子', '庚午', '丁丑'),
+    '待综合判断',
+    getTenGod,
+  );
+  const withComponentPillars = createPillars('乙丑', '己卯', '壬申', '戊申');
+  const withComponent = determinePattern(withComponentPillars, '待综合判断', getTenGod);
+
+  assert.match(withoutComponent.basis || '', /正官与月干丙七杀并透/);
+  assert.match(withoutComponent.basis || '', /未见伤官制官或相邻五合取清组件/);
+  assert.match(withoutComponent.basis || '', /不能仅凭官杀同见宣称已经取清/);
+  assert.equal(
+    analyzeHurtPatternStructure(
+      createPillars('甲子', '丙子', '庚午', '丁丑'),
+      withoutComponent.pattern,
+      getTenGod,
+    ).clearingComponents.length,
+    0,
+  );
+  assert.match(withComponent.basis || '', /年干乙伤官制月干己正官/);
+  assert.match(withComponent.basis || '', /干头取清组件候选/);
+  assert.match(withComponent.basis || '', /不等于官杀已经取清/);
+  assert.ok(
+    analyzeHurtPatternStructure(withComponentPillars, withComponent.pattern, getTenGod)
+      .clearingComponents.length > 0,
+  );
+});
+
+test('论伤官十个完整原典例型应保存结构事实并排除残缺三柱伪例', () => {
+  const examples: Array<{
+    pillars: [string, string, string, string];
+    marker: RegExp;
+  }> = [
+    { pillars: ['壬午', '己酉', '戊午', '庚申'], marker: /原典史春芳精确例型/ },
+    { pillars: ['甲子', '乙亥', '辛未', '戊子'], marker: /原典罗状元精确例型/ },
+    { pillars: ['己卯', '丁丑', '丙寅', '庚寅'], marker: /原典秦龙图精确例型/ },
+    { pillars: ['壬申', '丙午', '甲午', '壬申'], marker: /原典孛罗平章精确例型/ },
+    { pillars: ['丁酉', '己酉', '戊子', '壬子'], marker: /原典都统制精确例型/ },
+    { pillars: ['壬戌', '己酉', '戊午', '丁巳'], marker: /原典丞相精确例型/ },
+    { pillars: ['己未', '丙子', '庚子', '丙子'], marker: /原典蔡贵妃精确例型/ },
+    { pillars: ['戊申', '甲子', '庚午', '丁丑'], marker: /原典金水伤官用官精确例型/ },
+    { pillars: ['丙申', '己亥', '辛未', '己亥'], marker: /原典郑丞相精确例型/ },
+    { pillars: ['甲子', '壬申', '己亥', '辛未'], marker: /原典章丞相精确例型/ },
+  ];
+
+  examples.forEach(({ pillars, marker }) => {
+    const result = determinePattern(createPillars(...pillars), '待综合判断', getTenGod);
+    assert.match(result.basis || '', marker);
+    assert.doesNotMatch(
+      result.basis || '',
+      /判定为(?:贵格|富贵|贫贱)|必贵|大贵已定|官品已定|格局评分|成功率/,
+    );
+  });
+  assert.doesNotMatch(
+    examples
+      .map(
+        ({ pillars }) => determinePattern(createPillars(...pillars), '待综合判断', getTenGod).basis,
+      )
+      .join('\n'),
+    /夏阁老精确例型|壬寅、丁未、丙寅、[甲乙丙丁戊己庚辛壬癸]/,
   );
 });
 
