@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { analyzeFortuneTriggers } from '@core/bazi/fortuneTriggerEvidence';
-import type { BaziChartResult } from '@core/bazi/baziTypes';
+import type { BaziChartResult, Pillars } from '@core/bazi/baziTypes';
 
 function createResult(): BaziChartResult {
   return {
@@ -28,6 +28,7 @@ function assertEvidenceReferences(result: ReturnType<typeof analyzeFortuneTrigge
     ...result.layers.map((item) => item.key),
     ...result.layerStructureFacts.map((item) => item.key),
     ...result.hiddenStemRevealFacts.map((item) => item.key),
+    ...result.officerPatternRuleFacts.map((item) => item.key),
     ...result.relations.map((item) => item.key),
     ...result.formations.map((item) => item.key),
     ...result.counterEvidenceFacts.map((item) => item.key),
@@ -46,6 +47,14 @@ function assertEvidenceReferences(result: ReturnType<typeof analyzeFortuneTrigge
         item.ownerFactKeys.length > 0 && item.ownerFactKeys.every((key) => factKeys.has(key)),
     ),
   );
+}
+
+function createOfficerResult(pillars: Pillars): BaziChartResult {
+  const result = createResult();
+  result.pillars = pillars;
+  result.dayMaster = { gan: pillars.day.gan } as BaziChartResult['dayMaster'];
+  result.analysis.mingGe = { pattern: '正官格', isSpecial: false };
+  return result;
 }
 
 test('岁运触发证据应逐层保留原局、大运和流年关系来源', () => {
@@ -323,4 +332,126 @@ test('原局已经完整成局时不应重复报告为岁运补全', () => {
   );
   assert.equal(result.relationSummaryFact.formationCount, 0);
   assertEvidenceReferences(result);
+});
+
+test('正官取运应记录官星逢合、复露七杀、重官及运支刑冲月令候选', () => {
+  const natal = createOfficerResult({
+    year: { gan: '辛', zhi: '卯', ganZhi: '辛卯' },
+    month: { gan: '癸', zhi: '酉', ganZhi: '癸酉' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+  });
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'combine', type: 'dayun', label: '丙午大运', ganZhi: '丙午' },
+    { id: 'killer', type: 'year', label: '庚寅流年', ganZhi: '庚寅' },
+    { id: 'officer', type: 'month', label: '辛卯流月', ganZhi: '辛卯' },
+  ]);
+
+  assert.ok(result.officerPatternRuleFacts.some((item) => item.type === '官星逢合候选'));
+  assert.ok(result.officerPatternRuleFacts.some((item) => item.type === '七杀复露候选'));
+  assert.ok(result.officerPatternRuleFacts.some((item) => item.type === '正官重露候选'));
+  assert.ok(
+    result.officerPatternRuleFacts.some(
+      (item) => item.type === '正官月令刑冲候选' && item.trigger.includes('相冲'),
+    ),
+  );
+  assert.ok(
+    result.limitationFacts.some(
+      (item) => item.type === '正官取运边界' && item.promptText.includes('不可拘泥'),
+    ),
+  );
+  assertEvidenceReferences(result);
+  assert.doesNotMatch(result.promptText, /认定已经合化|判定为最终喜运|判定为最终忌运/);
+});
+
+test('正官用财与佩印并见时应保留相反候选并等待全局取舍', () => {
+  const natal = createOfficerResult({
+    year: { gan: '甲', zhi: '申', ganZhi: '甲申' },
+    month: { gan: '癸', zhi: '酉', ganZhi: '癸酉' },
+    day: { gan: '甲', zhi: '午', ganZhi: '甲午' },
+    hour: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+  });
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'dayun', type: 'dayun', label: '丁亥大运', ganZhi: '丁亥' },
+  ]);
+  const outputFacts = result.officerPatternRuleFacts.filter((item) =>
+    item.trigger.includes('运干丁伤官'),
+  );
+
+  assert.ok(
+    outputFacts.some((item) => item.type === '正官用财取运候选' && item.status === '带忌候选'),
+  );
+  assert.ok(
+    outputFacts.some((item) => item.type === '正官佩印取运候选' && item.status === '支持候选'),
+  );
+  assert.ok(
+    result.officerPatternRuleFacts.some(
+      (item) =>
+        item.type === '正官用财印取运候选' &&
+        item.status === '条件待复核' &&
+        item.trigger.includes('身稍轻'),
+    ),
+  );
+  assert.match(result.promptText, /多个子结构候选相反时须保留冲突/);
+  assert.doesNotMatch(result.promptText, /匹配总分|成功率|判定为喜运|判定为忌运/);
+});
+
+test('正官带伤食用印遇财时应区分一般带忌与印绶叠出例外', () => {
+  const natal = createOfficerResult({
+    year: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
+    month: { gan: '丁', zhi: '卯', ganZhi: '丁卯' },
+    day: { gan: '戊', zhi: '午', ganZhi: '戊午' },
+    hour: { gan: '丙', zhi: '辰', ganZhi: '丙辰' },
+  });
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'dayun', type: 'dayun', label: '壬子大运', ganZhi: '壬子' },
+  ]);
+  const fact = result.officerPatternRuleFacts.find(
+    (item) => item.type === '带伤食用印取运候选' && item.trigger.includes('印绶两处以上明透'),
+  );
+
+  assert.ok(fact);
+  assert.equal(fact.status, '条件待复核');
+  assert.match(fact.promptText, /印绶叠出，财运无害/);
+  assert.doesNotMatch(fact.promptText, /财运必吉|财运无害已定/);
+});
+
+test('劫财合杀与伤官合杀应分别套用取运边界', () => {
+  const robberyCombined = createOfficerResult({
+    year: { gan: '庚', zhi: '寅', ganZhi: '庚寅' },
+    month: { gan: '乙', zhi: '酉', ganZhi: '乙酉' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+  });
+  const hurtCombined = createOfficerResult({
+    year: { gan: '辛', zhi: '巳', ganZhi: '辛巳' },
+    month: { gan: '丙', zhi: '申', ganZhi: '丙申' },
+    day: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
+    hour: { gan: '庚', zhi: '辰', ganZhi: '庚辰' },
+  });
+  const robberyResult = analyzeFortuneTriggers(robberyCombined, [
+    { id: 'dayun', type: 'dayun', label: '丁亥大运', ganZhi: '丁亥' },
+  ]);
+  const hurtResult = analyzeFortuneTriggers(hurtCombined, [
+    { id: 'dayun', type: 'dayun', label: '壬午大运', ganZhi: '壬午' },
+  ]);
+
+  assert.ok(
+    robberyResult.officerPatternRuleFacts.some(
+      (item) =>
+        item.type === '劫财合杀取运候选' &&
+        item.trigger.includes('可行印运') &&
+        item.trigger.includes('复露七杀'),
+    ),
+  );
+  assert.ok(
+    hurtResult.officerPatternRuleFacts.some(
+      (item) => item.type === '伤官合杀取运候选' && item.status === '带忌候选',
+    ),
+  );
+  assert.ok(
+    hurtResult.officerPatternRuleFacts.some(
+      (item) => item.type === '伤官合杀取运候选' && item.status === '支持候选',
+    ),
+  );
 });

@@ -1521,6 +1521,7 @@ test('公开 API 八字年限提示词保留岁运资料但不拼接工程证据
     ),
   );
   assert.ok(Array.isArray(triggerEvidence.hiddenStemRevealFacts));
+  assert.ok(Array.isArray(triggerEvidence.officerPatternRuleFacts));
   assert.ok(triggerEvidence.relations.length > 0);
   assert.ok(
     triggerEvidence.relations.every(

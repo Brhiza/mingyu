@@ -139,6 +139,8 @@ export type {
   FortuneLayerComponentFact,
   FortuneLayerHiddenStemFact,
   FortuneLayerStructureFact,
+  FortuneOfficerPatternRuleFact,
+  FortuneOfficerPatternRuleType,
   FortuneTriggerEvidenceResult,
   FortuneTriggerFormationFact,
   FortuneTriggerLayer,

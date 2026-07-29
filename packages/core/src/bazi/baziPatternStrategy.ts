@@ -6,18 +6,11 @@ import {
   type CompleteBranchFormation,
 } from './baziFormationUtils';
 import { canUseExternalPattern } from './baziExternalPatternEligibility';
+import { analyzeOfficerPatternStructure } from './baziOfficerPattern';
 import { getStemWuxing, getWuxingTenGodCategory } from './baziRuleMatcher/helpers';
 import type { PatternAnalysis, Pillars, Wuxing } from './baziTypes';
 import { assertHeavenlyStem, assertPillars } from './baziUtils';
-import {
-  LIUCHONG_MAP,
-  isKe,
-  isLiuchong,
-  isLiuhai,
-  isLiupo,
-  isSanxing,
-  isTianGanHe,
-} from '../ganzhi/relations';
+import { LIUCHONG_MAP, isLiuchong, isLiuhai, isLiupo, isSanxing } from '../ganzhi/relations';
 
 type GetTenGodFn = (gan: string, dayMaster: string) => string;
 type HiddenStemPosition = keyof Pillars;
@@ -363,44 +356,6 @@ function collectTombClashNotes(pillars: Pillars): string[] {
   return notes;
 }
 
-type ExposedStemPosition = 'year' | 'month' | 'hour';
-
-interface ExposedStemFact {
-  position: ExposedStemPosition;
-  columnIndex: number;
-  label: string;
-  stem: string;
-  tenGod: string;
-}
-
-const EXPOSED_STEM_POSITIONS: Array<{
-  position: ExposedStemPosition;
-  columnIndex: number;
-  label: string;
-}> = [
-  { position: 'year', columnIndex: 0, label: '年干' },
-  { position: 'month', columnIndex: 1, label: '月干' },
-  { position: 'hour', columnIndex: 3, label: '时干' },
-];
-
-function collectExposedStemFacts(pillars: Pillars, getTenGod: GetTenGodFn): ExposedStemFact[] {
-  const dayMaster = pillars.day.gan;
-  return EXPOSED_STEM_POSITIONS.map(({ position, columnIndex, label }) => {
-    const stem = pillars[position].gan;
-    return {
-      position,
-      columnIndex,
-      label,
-      stem,
-      tenGod: getTenGod(stem, dayMaster),
-    };
-  });
-}
-
-function areAdjacentStemColumns(left: ExposedStemFact, right: ExposedStemFact): boolean {
-  return Math.abs(left.columnIndex - right.columnIndex) === 1;
-}
-
 /**
  * 只复算《子平真诠》“论正官”中可以由四柱客观闭合的刑冲破害、财印位置、
  * 遇伤佩印、官杀取清与财印伤官救应。这里只记录局部结构，不据此改格或判贵。
@@ -438,8 +393,11 @@ function collectOfficerPatternNotes(
 
   if (!isNamedPattern(patternName, ['正官'])) return notes;
 
-  const dayMaster = pillars.day.gan;
-  const exposedFacts = collectExposedStemFacts(pillars, getTenGod);
+  const structure = analyzeOfficerPatternStructure(pillars, patternName, formations, getTenGod);
+  const wealthFacts = structure.wealthStems;
+  const resourceFacts = structure.resourceStems;
+  const hurtFacts = structure.hurtStems;
+  const killerFacts = structure.killerStems;
   const positionLabels = { year: '年支', day: '日支', hour: '时支' } as const;
   const branchRelations: string[] = [];
 
@@ -463,22 +421,9 @@ function collectOfficerPatternNotes(
     );
   }
 
-  const wealthFacts = exposedFacts.filter((fact) => ['正财', '偏财'].includes(fact.tenGod));
-  const resourceFacts = exposedFacts.filter((fact) => ['正印', '偏印'].includes(fact.tenGod));
   if (wealthFacts.length > 0 && resourceFacts.length > 0) {
-    const pairs = wealthFacts.flatMap((wealth) =>
-      resourceFacts.map((resource) => ({ wealth, resource })),
-    );
-    const combinedPairs = pairs.filter(
-      ({ wealth, resource }) =>
-        areAdjacentStemColumns(wealth, resource) && isTianGanHe(wealth.stem, resource.stem),
-    );
-    const controllingPairs = pairs.filter(
-      ({ wealth, resource }) =>
-        areAdjacentStemColumns(wealth, resource) &&
-        !isTianGanHe(wealth.stem, resource.stem) &&
-        isKe(getStemWuxing(wealth.stem), getStemWuxing(resource.stem)),
-    );
+    const combinedPairs = structure.wealthResourceCombinedPairs;
+    const controllingPairs = structure.wealthResourceControllingPairs;
 
     if (combinedPairs.length > 0) {
       notes.push(
@@ -507,10 +452,7 @@ function collectOfficerPatternNotes(
     }
   }
 
-  const hurtFacts = exposedFacts.filter((fact) => fact.tenGod === '伤官');
-  const hurtFormations = formations.filter(
-    (formation) => getTenGod(getRepresentativeStemByWuxing(formation.wuxing), dayMaster) === '伤官',
-  );
+  const hurtFormations = structure.hurtFormations;
   if ((hurtFacts.length > 0 || hurtFormations.length > 0) && resourceFacts.length > 0) {
     const hurtSources = [
       ...hurtFacts.map((fact) => `${fact.label}${fact.stem}伤官明透`),
@@ -524,19 +466,10 @@ function collectOfficerPatternNotes(
     );
   }
 
-  const killerFacts = exposedFacts.filter((fact) => fact.tenGod === '七杀');
   if (killerFacts.length > 0) {
-    const combinedKillerFacts = killerFacts.flatMap((killer) => {
-      const partner = exposedFacts.find(
-        (fact) =>
-          fact.position !== killer.position &&
-          areAdjacentStemColumns(killer, fact) &&
-          isTianGanHe(killer.stem, fact.stem),
-      );
-      return partner ? [{ killer, partner }] : [];
-    });
+    const combinedKillerFacts = structure.killerCombinations;
 
-    if (combinedKillerFacts.length === killerFacts.length) {
+    if (structure.unresolvedKillerStems.length === 0) {
       notes.push(
         `正官格又见${combinedKillerFacts
           .map(
