@@ -345,6 +345,37 @@ test('六爻页面资料与摘要应重算动静结构并忽略派生字段污�
   assert.doesNotMatch([info, ...summary.lines].join('\n'), /伪造|乾卦用九|全动卦|乱动结论/);
 });
 
+test('六爻页面资料与摘要应重算反吟伏吟并忽略派生字段污染', () => {
+  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: [9, 7, 7, 9, 7, 7],
+  });
+  const tampered = {
+    ...data,
+    changingYaos: [],
+    fanfuRelations: {
+      fanyin: [],
+      fuyin: [
+        {
+          kind: '伏吟' as const,
+          scope: '内卦' as const,
+          label: '伪造伏吟',
+          description: '伪造的反吟伏吟说明',
+        },
+      ],
+      labels: ['伪造伏吟'],
+    },
+    evidenceAnalysis: undefined,
+  };
+  const info = formatDivinationInfo('liuyao', tampered, '');
+  const summary = getDivinationSummaryBlocks('liuyao', tampered);
+  const combined = [info, ...summary.tags, ...summary.lines].join('\n');
+
+  assert.match(info, /内外反吟（内卦乾变巽，外卦乾变巽/);
+  assert.ok(summary.tags.includes('反伏：内外反吟'));
+  assert.doesNotMatch(combined, /伪造伏吟|伪造的反吟伏吟说明/);
+});
+
 test('六爻页面资料应显示月卦身不入卦与同支多现，并忽略派生字段污染', () => {
   const date = new Date('2025-01-01T08:00:00+08:00');
   const qian = generateLiuyao(date, {

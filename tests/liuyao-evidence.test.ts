@@ -963,7 +963,7 @@ test('六爻结构事实应重新计算动静与三合并忽略旧派生字段',
 
   assert.deepEqual(
     new Set(evidence.structureFacts.map((item) => item.kind)),
-    new Set(['整卦六合六冲', '反吟伏吟', '动静结构', '月卦身', '卦内三合']),
+    new Set(['整卦六合六冲', '动静结构', '月卦身', '卦内三合']),
   );
   const activityFact = evidence.structureFacts.find((item) => item.kind === '动静结构');
   assert.equal(activityFact?.activityPattern, '多爻发动');
@@ -971,6 +971,7 @@ test('六爻结构事实应重新计算动静与三合并忽略旧派生字段',
   assert.deepEqual(activityFact?.movingPositions, [3, 4]);
   assert.doesNotMatch(evidence.promptText, /伪造的旧说明|伪造的乱动结论|伪造的新派生说明/);
   assert.doesNotMatch(evidence.promptText, /动变支与日支组成申子辰三合/);
+  assert.doesNotMatch(evidence.promptText, /内卦反吟|内卦主变地支相冲/);
   const sanheFacts = evidence.structureFacts.filter((item) => item.kind === '卦内三合');
   assert.ok(sanheFacts.length > 0);
   assert.ok(
@@ -995,6 +996,39 @@ test('六爻结构事实应重新计算动静与三合并忽略旧派生字段',
         item.limitation.includes('不得直接写成现实和合'),
     ),
   );
+  assert.ok(evidence.timingFacts.every((item) => item.type !== '反吟伏吟节奏'));
+});
+
+test('六爻证据应从主变卦与原始爻值重算反吟伏吟', () => {
+  const data = generateLiuyao(fixedDate, {
+    method: 'manual',
+    yaos: [9, 7, 7, 9, 7, 7],
+  });
+  assert.equal(data.originalName, '乾为天');
+  assert.equal(data.changedName, '巽为风');
+  const evidence = analyzeLiuyaoEvidence({
+    ...data,
+    changingYaos: [],
+    fanfuRelations: {
+      fanyin: [],
+      fuyin: [
+        {
+          kind: '伏吟',
+          scope: '内卦',
+          label: '伪造伏吟',
+          description: '伪造的反吟伏吟说明',
+        },
+      ],
+      labels: ['伪造伏吟'],
+    },
+    evidenceAnalysis: undefined,
+  });
+  const fanfuFacts = evidence.structureFacts.filter((item) => item.kind === '反吟伏吟');
+
+  assert.equal(fanfuFacts.length, 1);
+  assert.match(fanfuFacts[0].originalText, /内外反吟/);
+  assert.match(fanfuFacts[0].originalText, /内卦乾变巽，外卦乾变巽/);
+  assert.doesNotMatch(evidence.promptText, /伪造伏吟|伪造的反吟伏吟说明/);
   assert.ok(evidence.timingFacts.some((item) => item.type === '反吟伏吟节奏'));
 });
 

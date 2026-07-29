@@ -29,6 +29,7 @@ import { LIUCHONG_MAP } from '@core/ganzhi';
 import type { DivinationMethodId } from '@core/divination/config';
 import {
   analyzeLiuyaoEvidence,
+  analyzeLiuyaoFanFuRelations,
   getLiuyaoFlyingHiddenRelation,
 } from '@core/divination/algorithms/liuyao';
 import { analyzeMeihuaEvidence } from '@core/divination/algorithms/meihua';
@@ -202,7 +203,7 @@ function formatLiuyaoHexagramRelation(data: LiuyaoData) {
 }
 
 function formatLiuyaoFanFuRelation(data: LiuyaoData) {
-  const relations = data.fanfuRelations;
+  const relations = analyzeLiuyaoFanFuRelations(data);
   if (!relations?.labels?.length) {
     return '';
   }

@@ -23,6 +23,7 @@ import {
 import { analyzeXiaoliurenEvidence } from 'mingyu-core/divination/xiaoliuren';
 import {
   analyzeLiuyaoActivityPattern,
+  analyzeLiuyaoFanFuRelations,
   getLiuyaoFlyingHiddenRelation,
 } from 'mingyu-core/divination/liuyao';
 import { resolveSsgwStoryContent } from './ssgw-content';
@@ -73,7 +74,7 @@ function formatLiuyaoHexagramRelationSummary(data: LiuyaoData) {
 }
 
 function formatLiuyaoFanFuRelationSummary(data: LiuyaoData) {
-  const labels = data.fanfuRelations?.labels;
+  const labels = analyzeLiuyaoFanFuRelations(data).labels;
   return labels?.length ? labels.join('；') : '';
 }
 

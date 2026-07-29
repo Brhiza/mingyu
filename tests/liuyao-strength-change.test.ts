@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
   analyzeLiuyaoActivityPattern,
+  analyzeLiuyaoFanFuRelations,
   analyzeLiuyaoLineStrength,
   analyzeLiuyaoMonthGuaShen,
   analyzeLiuyaoSanxingFormations,
@@ -17,6 +18,9 @@ import {
   getLiuyaoNaJiaTiangan,
   getLiuyaoPalaceStage,
 } from 'mingyu-core/divination/liuyao';
+import { hexagramNaJia } from 'mingyu-core/divination/divination-data';
+import { hexagramsData } from 'mingyu-core/divination/hexagram-data';
+import { LIUCHONG_MAP } from 'mingyu-core/ganzhi';
 import type { LiuyaoYaoDetail } from 'mingyu-core/types';
 
 // 2025-01-01 排盘为丙子月（子月：水旺木相金休土囚火死）、庚午日（日支午）
@@ -563,9 +567,132 @@ test('六爻：反吟伏吟应按卦变和纳甲地支判断', () => {
   const staticHexagram = getLiuyaoFanFuRelations('乾为天', '乾为天', false);
   assert.deepEqual(staticHexagram.labels, []);
 
+  const classicalExamples: Array<[string, string, string[]]> = [
+    ['水地比', '水风井', ['内卦爻反吟']],
+    ['地泽临', '风泽中孚', ['外卦爻反吟']],
+    ['山地剥', '坤为地', ['外卦反吟']],
+    ['风天小畜', '乾为天', ['外卦反吟']],
+    ['巽为风', '地风升', ['外卦爻反吟']],
+    ['天风姤', '雷风恒', ['外卦伏吟']],
+    ['天雷无妄', '雷天大壮', ['内外伏吟']],
+  ];
+  for (const [originalName, changedName, labels] of classicalExamples) {
+    assert.deepEqual(
+      getLiuyaoFanFuRelations(originalName, changedName, true).labels,
+      labels,
+      `${originalName}→${changedName}`,
+    );
+  }
+
   const data = generateSampleLiuyao();
   assert.ok(data.fanfuRelations);
   assert.ok(Array.isArray(data.fanfuRelations.labels));
+});
+
+test('六爻：反吟伏吟应穷举覆盖六十四卦主变组合并保持内外混合结构', () => {
+  const trigramFanyinPairs: Record<string, string> = {
+    乾: '巽',
+    巽: '乾',
+    坎: '离',
+    离: '坎',
+    震: '兑',
+    兑: '震',
+    坤: '艮',
+    艮: '坤',
+  };
+  const counts = new Map<string, number>();
+
+  for (const original of hexagramsData) {
+    for (const changed of hexagramsData) {
+      const hasChangingYaos = original.name !== changed.name;
+      const originalBranches = hexagramNaJia[original.name];
+      const changedBranches = hexagramNaJia[changed.name];
+      const scopeMatch = (
+        start: number,
+        predicate: (originalBranch: string, changedBranch: string) => boolean,
+      ) =>
+        originalBranches
+          .slice(start, start + 3)
+          .every((branch, index) => predicate(branch, changedBranches[start + index]));
+      const lowerYaoFanyin =
+        hasChangingYaos && scopeMatch(0, (left, right) => LIUCHONG_MAP[left] === right);
+      const upperYaoFanyin =
+        hasChangingYaos && scopeMatch(3, (left, right) => LIUCHONG_MAP[left] === right);
+      const lowerGuaFanyin =
+        hasChangingYaos && trigramFanyinPairs[original.lower] === changed.lower;
+      const upperGuaFanyin =
+        hasChangingYaos && trigramFanyinPairs[original.upper] === changed.upper;
+      const lowerFuyin =
+        hasChangingYaos &&
+        original.lower !== changed.lower &&
+        scopeMatch(0, (left, right) => left === right);
+      const upperFuyin =
+        hasChangingYaos &&
+        original.upper !== changed.upper &&
+        scopeMatch(3, (left, right) => left === right);
+      const expected = [
+        lowerYaoFanyin ? '爻反吟:内卦' : lowerGuaFanyin ? '卦反吟:内卦' : '',
+        upperYaoFanyin ? '爻反吟:外卦' : upperGuaFanyin ? '卦反吟:外卦' : '',
+        lowerFuyin ? '伏吟:内卦' : '',
+        upperFuyin ? '伏吟:外卦' : '',
+      ].filter(Boolean);
+      const actual = getLiuyaoFanFuRelations(original.name, changed.name, hasChangingYaos);
+      const expanded = [...actual.fanyin, ...actual.fuyin].flatMap((item) =>
+        item.scope === '内外'
+          ? [`${item.kind}:内卦`, `${item.kind}:外卦`]
+          : [`${item.kind}:${item.scope}`],
+      );
+
+      assert.deepEqual(expanded, expected, `${original.name}→${changed.name}`);
+      assert.deepEqual(
+        actual.labels,
+        [...actual.fanyin, ...actual.fuyin].map((item) => item.label),
+      );
+      assert.ok(!(lowerYaoFanyin && lowerGuaFanyin));
+      assert.ok(!(upperYaoFanyin && upperGuaFanyin));
+      if (lowerYaoFanyin) {
+        assert.deepEqual(new Set([original.lower, changed.lower]), new Set(['坤', '巽']));
+      }
+      if (upperYaoFanyin) {
+        assert.deepEqual(new Set([original.upper, changed.upper]), new Set(['坤', '巽']));
+      }
+      for (const item of [...actual.fanyin, ...actual.fuyin]) {
+        const key = `${item.kind}:${item.scope}`;
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+    }
+  }
+
+  assert.deepEqual(Object.fromEntries(counts), {
+    '卦反吟:内卦': 448,
+    '卦反吟:外卦': 448,
+    '伏吟:内卦': 124,
+    '伏吟:外卦': 124,
+    '伏吟:内外': 4,
+    '卦反吟:内外': 64,
+    '爻反吟:内卦': 124,
+    '爻反吟:外卦': 124,
+    '爻反吟:内外': 4,
+  });
+
+  const mixed = getLiuyaoFanFuRelations('乾为天', '雷风恒', true);
+  assert.deepEqual(mixed.labels, ['内卦反吟', '外卦伏吟']);
+  assert.deepEqual(
+    analyzeLiuyaoFanFuRelations({
+      originalName: '乾为天',
+      changedName: '雷风恒',
+      yaoArray: [9, 7, 7, 7, 9, 9],
+    }),
+    mixed,
+  );
+  assert.deepEqual(
+    analyzeLiuyaoFanFuRelations({
+      originalName: '乾为天',
+      changedName: '雷风恒',
+      yaoArray: [7, 7, 7, 7, 7, 7],
+    }).labels,
+    [],
+  );
 });
 
 test('六爻：八宫卦位应输出首卦一世游魂归魂等卦序', () => {

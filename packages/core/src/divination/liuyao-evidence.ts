@@ -23,6 +23,7 @@ import {
 import { liuqinRelations } from './divination-data';
 import {
   analyzeLiuyaoActivityPattern,
+  analyzeLiuyaoFanFuRelations,
   analyzeLiuyaoHiddenSpiritConditions,
   analyzeLiuyaoLineStrength,
   analyzeLiuyaoMonthGuaShen,
@@ -1935,14 +1936,14 @@ function buildHexagramStructureFacts(
       ['主卦与变卦六支六合、六冲完整性核验'],
     );
   }
-  [...(data.fanfuRelations?.fanyin ?? []), ...(data.fanfuRelations?.fuyin ?? [])].forEach(
-    (item, index) =>
-      add(
-        `liuyao:structure:fanfu:${index + 1}:${item.kind}:${item.scope}`,
-        '反吟伏吟',
-        `${item.label}：${item.description}`,
-        ['主卦与变卦内外卦纳甲地支反吟伏吟核验'],
-      ),
+  const fanfuRelations = analyzeLiuyaoFanFuRelations(data);
+  [...fanfuRelations.fanyin, ...fanfuRelations.fuyin].forEach((item, index) =>
+    add(
+      `liuyao:structure:fanfu:${index + 1}:${item.kind}:${item.scope}`,
+      '反吟伏吟',
+      `${item.label}：${item.description}`,
+      ['主卦与变卦内外卦纳甲地支反吟伏吟核验'],
+    ),
   );
   const activityPattern = analyzeLiuyaoActivityPattern(data.yaoArray, data.originalName);
   add(

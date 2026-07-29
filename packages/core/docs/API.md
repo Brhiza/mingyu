@@ -151,7 +151,7 @@
 | `yaosDetail` | `LiuyaoYaoDetail[]` | 每爻详细；`changeRelations` 分别保存可并见的回头冲、五行生克/比泄耗、化扶与化空，`changeRelation` 仅为旧版单值兼容字段；另含月破、日破、暗动、化进退神等 |
 | `hiddenSpirits` | `LiuyaoHiddenSpirit[]?` | 伏神（本宫首卦补未现六亲） |
 | `hexagramRelations` | `LiuyaoHexagramRelations?` | 整卦六合/六冲及六冲变六合、六合变六冲等卦变关系 |
-| `fanfuRelations` | `LiuyaoFanFuRelations?` | 卦变反吟/伏吟结构，含卦反吟、爻反吟、内外伏吟等标签 |
+| `fanfuRelations` | `LiuyaoFanFuRelations?` | 卦变反吟/伏吟兼容字段，含卦反吟、爻反吟、内外伏吟等标签；证据与展示会从原始盘面重算，不采信传入值 |
 | `activityPattern` | `LiuyaoActivityPattern?` | 从 `yaoArray` 计算的动静结构，含明动数量、动静爻位及乾坤全动经文参考 |
 | `specialPattern` | `'静卦' \| '独发卦' \| '独静卦' \| '全动卦' \| '乾卦用九' \| '坤卦用六'?` | 旧版兼容字段；新代码使用 `activityPattern` |
 | `sanheWithDay` | `{group,members,description,formationKey?,status?,participants?,issues?}?` | 由完整三合结构派生的日辰补局兼容字段 |
@@ -168,6 +168,8 @@
 `analyzeLiuyaoSanxingFormations(yaosDetail, monthBranch, dayBranch)` 从本卦六爻重算三刑。寅巳申、丑戌未须三支齐备且至少两个不同爻位明动或暗动；子卯相刑须两支齐备且至少一爻发动；辰午酉亥自刑须同支出现两次且至少一爻发动。变爻不跨位加入三刑，静爻同盘、三支不全或发动不足均不登记为成立事实；结果只保存结构及参与爻，不直接裁成纠纷或吉凶。
 
 `analyzeLiuyaoActivityPattern(yaoArray, originalName?)` 从六个原始爻值重算动静结构：0 动为静卦、1 动为独发、5 动为独静、6 动为全动，2 至 4 动只登记多爻发动，不硬设“乱动”阈值。乾坤全动时分别保留用九、用六为《周易》经文参考，但不得替代纳甲体系中的用神、月日、世应与动变生克分析。`specialPattern`、`specialAdvice`、`isChaotic`、`chaoticReason` 仅为旧版兼容字段，证据分析不采信这些派生值。
+
+`analyzeLiuyaoFanFuRelations({ originalName, changedName, yaoArray })` 从主卦、变卦与原始爻值重算反吟伏吟。卦反吟按乾巽、坎离、震兑、坤艮相变，爻反吟按对应纳甲地支逐位六冲，伏吟按经卦已经动变但三爻纳甲地支逐位不变；可分别登记内卦、外卦或内外，也允许内外出现不同类型。静卦不登记，是否存在动爻以 `yaoArray` 为准，不采信 `changingYaos`；`fanfuRelations` 只作兼容字段，反伏证据、页面资料和摘要均从原始盘面重算。结构只提示反复、往返或停滞，仍须结合用神旺衰与动变生克辨向。
 
 `analyzeLiuyaoMonthGuaShen(yaosDetail)` 按“阳世从子、阴世从午，自初爻数至世爻”重算月卦身。月卦身先定地支，再核对是否落入本卦；`status='不入卦'` 时仍保留 `branch`，同支两现时 `matches` 保存全部爻位。`position`、`sixRelative` 只作为旧版首个命中的兼容字段，证据分析不采信传入的 `guaShen` 派生值。
 

@@ -37,6 +37,7 @@ import {
   analyzeLiuyaoSanheFormations,
   analyzeLiuyaoSanxingFormations,
   getLiuyaoChangeDirection,
+  getLiuyaoFanFuRelations,
   getLiuyaoTwelveStage,
   isLiuyaoElementInTomb,
 } from '../liuyao-rules';
@@ -180,24 +181,6 @@ function isMonthBreak(branch: string, monthBranch: string): boolean {
 }
 
 export type LiuyaoHexagramRelation = '六合卦' | '六冲卦';
-export type LiuyaoFanFuScope = '内卦' | '外卦' | '内外';
-export type LiuyaoFanFuKind = '卦反吟' | '爻反吟' | '伏吟';
-
-export interface LiuyaoFanFuRelationItem {
-  kind: LiuyaoFanFuKind;
-  scope: LiuyaoFanFuScope;
-  label: string;
-  description: string;
-}
-
-export interface LiuyaoFanFuRelations {
-  /** 反吟结构，可能同时存在内卦、外卦不同类型 */
-  fanyin: LiuyaoFanFuRelationItem[];
-  /** 伏吟结构，按动变后纳甲地支不变识别 */
-  fuyin: LiuyaoFanFuRelationItem[];
-  /** 便于前端与提示词直接展示的标签 */
-  labels: string[];
-}
 
 export type LiuyaoPalaceStage =
   '首卦' | '一世' | '二世' | '三世' | '四世' | '五世' | '游魂' | '归魂';
@@ -207,17 +190,6 @@ const WHOLE_HEXAGRAM_PAIR_INDEXES: Array<[number, number]> = [
   [1, 4],
   [2, 5],
 ];
-
-const LIUYAO_FANYIN_TRIGRAM_PAIRS: Record<string, string> = {
-  乾: '巽',
-  巽: '乾',
-  坎: '离',
-  离: '坎',
-  震: '兑',
-  兑: '震',
-  坤: '艮',
-  艮: '坤',
-};
 
 function trimHexagramRelationSuffix(relation: LiuyaoHexagramRelation) {
   return relation.replace(/卦$/, '');
@@ -308,142 +280,6 @@ function getNaJiaBranches(hexagramName: string) {
     throw new Error(`找不到卦象 "${hexagramName}" 的完整纳甲信息。`);
   }
   return branches;
-}
-
-function isTrigramFanyin(originalTrigram: string, changedTrigram: string) {
-  return LIUYAO_FANYIN_TRIGRAM_PAIRS[originalTrigram] === changedTrigram;
-}
-
-function getScope(lowerMatched: boolean, upperMatched: boolean): LiuyaoFanFuScope | null {
-  if (lowerMatched && upperMatched) return '内外';
-  if (lowerMatched) return '内卦';
-  if (upperMatched) return '外卦';
-  return null;
-}
-
-function getScopes(scope: LiuyaoFanFuScope): Array<'内卦' | '外卦'> {
-  return scope === '内外' ? ['内卦', '外卦'] : [scope];
-}
-
-function buildFanyinLabel(kind: Exclude<LiuyaoFanFuKind, '伏吟'>, scope: LiuyaoFanFuScope) {
-  if (kind === '爻反吟') {
-    return scope === '内外' ? '内外爻反吟' : `${scope}爻反吟`;
-  }
-  return scope === '内外' ? '内外反吟' : `${scope}反吟`;
-}
-
-function buildFanyinDescription(
-  kind: Exclude<LiuyaoFanFuKind, '伏吟'>,
-  scope: LiuyaoFanFuScope,
-  original: { upper: string; lower: string },
-  changed: { upper: string; lower: string },
-) {
-  const parts = getScopes(scope).map((item) =>
-    item === '内卦'
-      ? `内卦${original.lower}变${changed.lower}`
-      : `外卦${original.upper}变${changed.upper}`,
-  );
-  const rule = kind === '爻反吟' ? '对应纳甲地支逐位相冲' : '按乾巽、坎离、震兑、坤艮相变';
-  return `${parts.join('，')}，${rule}`;
-}
-
-function buildFuyinDescription(
-  scope: LiuyaoFanFuScope,
-  original: { upper: string; lower: string },
-  changed: { upper: string; lower: string },
-) {
-  const parts = getScopes(scope).map((item) =>
-    item === '内卦'
-      ? `内卦${original.lower}变${changed.lower}`
-      : `外卦${original.upper}变${changed.upper}`,
-  );
-  return `${parts.join('，')}，动变后纳甲地支不变`;
-}
-
-function pushFanyinItem(
-  items: LiuyaoFanFuRelationItem[],
-  kind: Exclude<LiuyaoFanFuKind, '伏吟'> | null,
-  scope: LiuyaoFanFuScope | null,
-  original: { upper: string; lower: string },
-  changed: { upper: string; lower: string },
-) {
-  if (!kind || !scope) {
-    return;
-  }
-  items.push({
-    kind,
-    scope,
-    label: buildFanyinLabel(kind, scope),
-    description: buildFanyinDescription(kind, scope, original, changed),
-  });
-}
-
-/**
- * 判断六爻卦变层面的反吟、伏吟。
- *
- * 《增删卜易》“反吟伏吟”：
- * - 卦反吟：乾巽、坎离、震兑、坤艮相变。
- * - 爻反吟：对应爻纳甲地支逐位相冲。
- * - 伏吟：卦有动变，但变后六爻纳甲地支不变，并分内卦、外卦、内外。
- */
-export function getLiuyaoFanFuRelations(
-  originalName: string,
-  changedName: string | undefined,
-  hasChangingYaos: boolean,
-): LiuyaoFanFuRelations {
-  const empty: LiuyaoFanFuRelations = { fanyin: [], fuyin: [], labels: [] };
-  const original = getRequiredHexagramData(originalName);
-  const originalBranches = getNaJiaBranches(originalName);
-
-  if (!hasChangingYaos || !changedName) {
-    return empty;
-  }
-
-  const changed = getRequiredHexagramData(changedName);
-  const changedBranches = getNaJiaBranches(changedName);
-
-  const lowerYaoFanyin = originalBranches
-    .slice(0, 3)
-    .every((branch, index) => isLiuchong(branch, changedBranches[index]));
-  const upperYaoFanyin = originalBranches
-    .slice(3)
-    .every((branch, index) => isLiuchong(branch, changedBranches[index + 3]));
-  const lowerGuaFanyin = isTrigramFanyin(original.lower, changed.lower);
-  const upperGuaFanyin = isTrigramFanyin(original.upper, changed.upper);
-
-  const lowerFanyinKind = lowerYaoFanyin ? '爻反吟' : lowerGuaFanyin ? '卦反吟' : null;
-  const upperFanyinKind = upperYaoFanyin ? '爻反吟' : upperGuaFanyin ? '卦反吟' : null;
-  const fanyin: LiuyaoFanFuRelationItem[] = [];
-  if (lowerFanyinKind && lowerFanyinKind === upperFanyinKind) {
-    pushFanyinItem(fanyin, lowerFanyinKind, '内外', original, changed);
-  } else {
-    pushFanyinItem(fanyin, lowerFanyinKind, lowerFanyinKind ? '内卦' : null, original, changed);
-    pushFanyinItem(fanyin, upperFanyinKind, upperFanyinKind ? '外卦' : null, original, changed);
-  }
-
-  const lowerFuyin =
-    original.lower !== changed.lower &&
-    originalBranches.slice(0, 3).every((branch, index) => branch === changedBranches[index]);
-  const upperFuyin =
-    original.upper !== changed.upper &&
-    originalBranches.slice(3).every((branch, index) => branch === changedBranches[index + 3]);
-  const fuyinScope = getScope(lowerFuyin, upperFuyin);
-  const fuyin: LiuyaoFanFuRelationItem[] = fuyinScope
-    ? [
-        {
-          kind: '伏吟',
-          scope: fuyinScope,
-          label: fuyinScope === '内外' ? '内外伏吟' : `${fuyinScope}伏吟`,
-          description: buildFuyinDescription(fuyinScope, original, changed),
-        },
-      ]
-    : [];
-
-  return {
-    fanyin,
-    fuyin,
-    labels: [...fanyin, ...fuyin].map((item) => item.label),
-  };
 }
 
 /**
@@ -982,18 +818,24 @@ export { buildHiddenSpirits };
 export { analyzeLiuyaoEvidence, conditionLiuyaoTraditionalText } from '../liuyao-evidence';
 export {
   analyzeLiuyaoActivityPattern,
+  analyzeLiuyaoFanFuRelations,
   analyzeLiuyaoHiddenSpiritConditions,
   analyzeLiuyaoLineStrength,
   analyzeLiuyaoMonthGuaShen,
   analyzeLiuyaoSanheFormations,
   analyzeLiuyaoSanxingFormations,
   getLiuyaoChangeDirection,
+  getLiuyaoFanFuRelations,
   getLiuyaoFlyingHiddenRelation,
   getLiuyaoGuaShenBranch,
   getLiuyaoTwelveStage,
   isLiuyaoElementInTomb,
 } from '../liuyao-rules';
 export type {
+  LiuyaoFanFuKind,
+  LiuyaoFanFuRelationItem,
+  LiuyaoFanFuRelations,
+  LiuyaoFanFuScope,
   LiuyaoLineStrengthAnalysis,
   LiuyaoMonthGuaShenAnalysis,
   LiuyaoMonthGuaShenMatch,

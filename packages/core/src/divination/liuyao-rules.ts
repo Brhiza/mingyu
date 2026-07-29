@@ -10,8 +10,15 @@ import {
   isLiuhe,
   isSheng,
 } from '../ganzhi';
+import { hexagramsData } from './hexagram-data';
+import { hexagramNaJia } from './divination-data';
 import type {
   LiuyaoActivityPattern,
+  LiuyaoData,
+  LiuyaoFanFuKind,
+  LiuyaoFanFuRelationItem,
+  LiuyaoFanFuRelations,
+  LiuyaoFanFuScope,
   LiuyaoFlyingHiddenRelation,
   LiuyaoHiddenSpirit,
   LiuyaoHiddenSpiritConditionAnalysis,
@@ -27,6 +34,169 @@ import type {
 } from '../types/divination';
 
 const LIUYAO_ELEMENTS = new Set(['木', '火', '土', '金', '水']);
+
+const LIUYAO_FANYIN_TRIGRAM_PAIRS: Record<string, string> = {
+  乾: '巽',
+  巽: '乾',
+  坎: '离',
+  离: '坎',
+  震: '兑',
+  兑: '震',
+  坤: '艮',
+  艮: '坤',
+};
+
+function getRequiredFanFuHexagramData(hexagramName: string) {
+  const hexagram = hexagramsData.find((item) => item.name === hexagramName);
+  if (!hexagram) {
+    throw new Error(`找不到卦象 "${hexagramName}"。`);
+  }
+  return hexagram;
+}
+
+function getFanFuNaJiaBranches(hexagramName: string) {
+  getRequiredFanFuHexagramData(hexagramName);
+  const branches = hexagramNaJia[hexagramName];
+  if (!branches || branches.length !== 6) {
+    throw new Error(`找不到卦象 "${hexagramName}" 的完整纳甲信息。`);
+  }
+  return branches;
+}
+
+function getFanFuScope(lowerMatched: boolean, upperMatched: boolean): LiuyaoFanFuScope | null {
+  if (lowerMatched && upperMatched) return '内外';
+  if (lowerMatched) return '内卦';
+  if (upperMatched) return '外卦';
+  return null;
+}
+
+function getFanFuScopes(scope: LiuyaoFanFuScope): Array<'内卦' | '外卦'> {
+  return scope === '内外' ? ['内卦', '外卦'] : [scope];
+}
+
+function buildFanyinLabel(kind: Exclude<LiuyaoFanFuKind, '伏吟'>, scope: LiuyaoFanFuScope) {
+  if (kind === '爻反吟') {
+    return scope === '内外' ? '内外爻反吟' : `${scope}爻反吟`;
+  }
+  return scope === '内外' ? '内外反吟' : `${scope}反吟`;
+}
+
+function buildFanyinDescription(
+  kind: Exclude<LiuyaoFanFuKind, '伏吟'>,
+  scope: LiuyaoFanFuScope,
+  original: { upper: string; lower: string },
+  changed: { upper: string; lower: string },
+) {
+  const parts = getFanFuScopes(scope).map((item) =>
+    item === '内卦'
+      ? `内卦${original.lower}变${changed.lower}`
+      : `外卦${original.upper}变${changed.upper}`,
+  );
+  const rule = kind === '爻反吟' ? '对应纳甲地支逐位相冲' : '按乾巽、坎离、震兑、坤艮相变';
+  return `${parts.join('，')}，${rule}`;
+}
+
+function buildFuyinDescription(
+  scope: LiuyaoFanFuScope,
+  original: { upper: string; lower: string },
+  changed: { upper: string; lower: string },
+) {
+  const parts = getFanFuScopes(scope).map((item) =>
+    item === '内卦'
+      ? `内卦${original.lower}变${changed.lower}`
+      : `外卦${original.upper}变${changed.upper}`,
+  );
+  return `${parts.join('，')}，动变后纳甲地支不变`;
+}
+
+function pushFanyinItem(
+  items: LiuyaoFanFuRelationItem[],
+  kind: Exclude<LiuyaoFanFuKind, '伏吟'> | null,
+  scope: LiuyaoFanFuScope | null,
+  original: { upper: string; lower: string },
+  changed: { upper: string; lower: string },
+) {
+  if (!kind || !scope) return;
+  items.push({
+    kind,
+    scope,
+    label: buildFanyinLabel(kind, scope),
+    description: buildFanyinDescription(kind, scope, original, changed),
+  });
+}
+
+/**
+ * 判断六爻卦变层面的反吟、伏吟。
+ *
+ * 《增删卜易》“反吟伏吟”：
+ * - 卦反吟：乾巽、坎离、震兑、坤艮相变。
+ * - 爻反吟：对应爻纳甲地支逐位相冲。
+ * - 伏吟：卦有动变，但变后六爻纳甲地支不变，并分内卦、外卦、内外。
+ */
+export function getLiuyaoFanFuRelations(
+  originalName: string,
+  changedName: string | undefined,
+  hasChangingYaos: boolean,
+): LiuyaoFanFuRelations {
+  const empty: LiuyaoFanFuRelations = { fanyin: [], fuyin: [], labels: [] };
+  const original = getRequiredFanFuHexagramData(originalName);
+  const originalBranches = getFanFuNaJiaBranches(originalName);
+
+  if (!hasChangingYaos || !changedName) return empty;
+
+  const changed = getRequiredFanFuHexagramData(changedName);
+  const changedBranches = getFanFuNaJiaBranches(changedName);
+  const lowerYaoFanyin = originalBranches
+    .slice(0, 3)
+    .every((branch, index) => isLiuchong(branch, changedBranches[index]));
+  const upperYaoFanyin = originalBranches
+    .slice(3)
+    .every((branch, index) => isLiuchong(branch, changedBranches[index + 3]));
+  const lowerGuaFanyin = LIUYAO_FANYIN_TRIGRAM_PAIRS[original.lower] === changed.lower;
+  const upperGuaFanyin = LIUYAO_FANYIN_TRIGRAM_PAIRS[original.upper] === changed.upper;
+  const lowerFanyinKind = lowerYaoFanyin ? '爻反吟' : lowerGuaFanyin ? '卦反吟' : null;
+  const upperFanyinKind = upperYaoFanyin ? '爻反吟' : upperGuaFanyin ? '卦反吟' : null;
+  const fanyin: LiuyaoFanFuRelationItem[] = [];
+
+  if (lowerFanyinKind && lowerFanyinKind === upperFanyinKind) {
+    pushFanyinItem(fanyin, lowerFanyinKind, '内外', original, changed);
+  } else {
+    pushFanyinItem(fanyin, lowerFanyinKind, lowerFanyinKind ? '内卦' : null, original, changed);
+    pushFanyinItem(fanyin, upperFanyinKind, upperFanyinKind ? '外卦' : null, original, changed);
+  }
+
+  const lowerFuyin =
+    original.lower !== changed.lower &&
+    originalBranches.slice(0, 3).every((branch, index) => branch === changedBranches[index]);
+  const upperFuyin =
+    original.upper !== changed.upper &&
+    originalBranches.slice(3).every((branch, index) => branch === changedBranches[index + 3]);
+  const fuyinScope = getFanFuScope(lowerFuyin, upperFuyin);
+  const fuyin: LiuyaoFanFuRelationItem[] = fuyinScope
+    ? [
+        {
+          kind: '伏吟',
+          scope: fuyinScope,
+          label: fuyinScope === '内外' ? '内外伏吟' : `${fuyinScope}伏吟`,
+          description: buildFuyinDescription(fuyinScope, original, changed),
+        },
+      ]
+    : [];
+
+  return { fanyin, fuyin, labels: [...fanyin, ...fuyin].map((item) => item.label) };
+}
+
+/** 从主卦、变卦和原始爻值重算反吟伏吟，不采信缓存的动爻或反吟伏吟字段。 */
+export function analyzeLiuyaoFanFuRelations(
+  data: Pick<LiuyaoData, 'originalName' | 'changedName' | 'yaoArray'>,
+): LiuyaoFanFuRelations {
+  const activityPattern = analyzeLiuyaoActivityPattern(data.yaoArray, data.originalName);
+  return getLiuyaoFanFuRelations(
+    data.originalName,
+    data.changedName,
+    activityPattern.movingCount > 0,
+  );
+}
 
 const SHI_YANG_TO_GUA_SHEN: Record<number, string> = {
   1: '子',
