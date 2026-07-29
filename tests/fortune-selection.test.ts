@@ -124,6 +124,7 @@ test('选择大运时会附带该大运下的全部流年', () => {
   assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.resourcePatternRuleFacts));
   assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.foodPatternRuleFacts));
   assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.killerPatternRuleFacts));
+  assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.hurtPatternRuleFacts));
   assert.ok(
     context.promptPayload.triggerEvidence?.limitationFacts.some(
       (item) => item.type === '层级应期边界',
@@ -226,6 +227,64 @@ test('真实七杀格排盘应把相反逐字取运候选贯穿到岁运提示�
   assert.match(evidenceText, /印绶夺食.*带忌候选/);
   assert.match(evidenceText, /财已足/);
   assert.match(evidenceText, /财未足/);
+  assert.match(evidenceText, /不得把单项候选定为最终喜运、忌运、吉凶或现实事件/);
+});
+
+test('真实金水伤官排盘应把佩印与用官的相反取运候选贯穿到提示资料', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1980,
+    month: 12,
+    day: 13,
+    timeIndex: 1,
+    gender: 'male',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['庚申', '戊子', '庚申', '丁丑'],
+  );
+  assert.equal(result.analysis.mingGe.pattern, '伤官格');
+
+  const context = buildFortuneSelectionContext(result, {
+    scope: 'dayun',
+    cycleIndex: 5,
+  });
+
+  assert.ok(context);
+  assert.equal(context.displayLabel, '癸巳运');
+  const hurtFacts = context.promptPayload.triggerEvidence.hurtPatternRuleFacts;
+  assert.ok(
+    hurtFacts.some(
+      (item) =>
+        item.type === '伤官佩印取运候选' &&
+        item.status === '支持候选' &&
+        item.trigger.includes('伤食不碍'),
+    ),
+  );
+  assert.ok(
+    hurtFacts.some(
+      (item) =>
+        item.type === '伤官用官取运候选' &&
+        item.status === '带忌候选' &&
+        item.trigger.includes('不利食伤'),
+    ),
+  );
+  assert.ok(
+    hurtFacts.every(
+      (item) =>
+        item.natalStructure.includes('伤官、日主与印星实际轻重') ||
+        item.natalStructure.includes('财印明透尚未俱备'),
+    ),
+  );
+
+  const evidenceText = context.promptPayload.evidenceLines?.join('\n') ?? '';
+  assert.match(evidenceText, /【主证】伤官格逐字取运候选/);
+  assert.match(evidenceText, /伤食不碍.*支持候选/);
+  assert.match(evidenceText, /不利食伤.*带忌候选/);
+  assert.match(evidenceText, /相反候选须全部保留/);
   assert.match(evidenceText, /不得把单项候选定为最终喜运、忌运、吉凶或现实事件/);
 });
 

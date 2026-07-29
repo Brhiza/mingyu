@@ -1294,6 +1294,7 @@ test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
             resourcePatternRuleFacts?: unknown[];
             foodPatternRuleFacts?: unknown[];
             killerPatternRuleFacts?: unknown[];
+            hurtPatternRuleFacts?: unknown[];
             relations?: Array<{
               key?: string;
               status?: string;
@@ -1330,6 +1331,7 @@ test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
     assert.ok(Array.isArray(triggerEvidence?.resourcePatternRuleFacts));
     assert.ok(Array.isArray(triggerEvidence?.foodPatternRuleFacts));
     assert.ok(Array.isArray(triggerEvidence?.killerPatternRuleFacts));
+    assert.ok(Array.isArray(triggerEvidence?.hurtPatternRuleFacts));
     assert.ok(triggerEvidence?.relations?.length);
     assert.ok(
       triggerEvidence?.relations?.every(
