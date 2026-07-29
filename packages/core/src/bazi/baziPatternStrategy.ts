@@ -9,7 +9,15 @@ import { canUseExternalPattern } from './baziExternalPatternEligibility';
 import { getStemWuxing, getWuxingTenGodCategory } from './baziRuleMatcher/helpers';
 import type { PatternAnalysis, Pillars, Wuxing } from './baziTypes';
 import { assertHeavenlyStem, assertPillars } from './baziUtils';
-import { LIUCHONG_MAP } from '../ganzhi/relations';
+import {
+  LIUCHONG_MAP,
+  isKe,
+  isLiuchong,
+  isLiuhai,
+  isLiupo,
+  isSanxing,
+  isTianGanHe,
+} from '../ganzhi/relations';
 
 type GetTenGodFn = (gan: string, dayMaster: string) => string;
 type HiddenStemPosition = keyof Pillars;
@@ -350,6 +358,205 @@ function collectTombClashNotes(pillars: Pillars): string[] {
 
   if (dayMaster === '癸' && monthBranch === '辰' && visibleStems.has('戊')) {
     notes.push('癸日辰月戊官已透，辰戌冲只作四墓冲动，不据此单独判定破格');
+  }
+
+  return notes;
+}
+
+type ExposedStemPosition = 'year' | 'month' | 'hour';
+
+interface ExposedStemFact {
+  position: ExposedStemPosition;
+  columnIndex: number;
+  label: string;
+  stem: string;
+  tenGod: string;
+}
+
+const EXPOSED_STEM_POSITIONS: Array<{
+  position: ExposedStemPosition;
+  columnIndex: number;
+  label: string;
+}> = [
+  { position: 'year', columnIndex: 0, label: '年干' },
+  { position: 'month', columnIndex: 1, label: '月干' },
+  { position: 'hour', columnIndex: 3, label: '时干' },
+];
+
+function collectExposedStemFacts(pillars: Pillars, getTenGod: GetTenGodFn): ExposedStemFact[] {
+  const dayMaster = pillars.day.gan;
+  return EXPOSED_STEM_POSITIONS.map(({ position, columnIndex, label }) => {
+    const stem = pillars[position].gan;
+    return {
+      position,
+      columnIndex,
+      label,
+      stem,
+      tenGod: getTenGod(stem, dayMaster),
+    };
+  });
+}
+
+function areAdjacentStemColumns(left: ExposedStemFact, right: ExposedStemFact): boolean {
+  return Math.abs(left.columnIndex - right.columnIndex) === 1;
+}
+
+/**
+ * 只复算《子平真诠》“论正官”中可以由四柱客观闭合的刑冲破害、财印位置、
+ * 遇伤佩印、官杀取清与财印伤官救应。这里只记录局部结构，不据此改格或判贵。
+ */
+function collectOfficerPatternNotes(
+  pillars: Pillars,
+  patternName: string,
+  formations: CompleteBranchFormation[],
+  getTenGod: GetTenGodFn,
+): string[] {
+  const exactFanTaifuExample =
+    pillars.year.ganZhi === '丁丑' &&
+    pillars.month.ganZhi === '壬寅' &&
+    pillars.day.ganZhi === '己巳' &&
+    pillars.hour.ganZhi === '丙寅';
+  const exactXuanCanguoExample =
+    pillars.year.ganZhi === '己卯' &&
+    pillars.month.ganZhi === '辛未' &&
+    pillars.day.ganZhi === '壬寅' &&
+    pillars.hour.ganZhi === '辛亥';
+  const notes: string[] = [];
+
+  // 两个原例会因“透而又会”或“一透则一用”保留其他格名，仍须保存正官章的精确关系。
+  if (exactXuanCanguoExample) {
+    notes.push(
+      '原典宣参国精确例型己卯、辛未、壬寅、辛亥，未中己官透干且亥卯未完整三合木局成伤官结构，两辛印明透制伤；只记录“遇伤佩印”的局部救应，不覆盖透干会支并用的格名边界',
+    );
+  }
+
+  if (exactFanTaifuExample) {
+    notes.push(
+      '原典范太傅精确例型丁丑、壬寅、己巳、丙寅，巳丑拱金为伤官结构而丙丁双印明透；丁壬五合与另一丙印制伤分工并存，只作为财、印、伤同见时的特殊救应，不泛化为官格逢财皆有救',
+    );
+  }
+
+  if (!isNamedPattern(patternName, ['正官'])) return notes;
+
+  const dayMaster = pillars.day.gan;
+  const exposedFacts = collectExposedStemFacts(pillars, getTenGod);
+  const positionLabels = { year: '年支', day: '日支', hour: '时支' } as const;
+  const branchRelations: string[] = [];
+
+  (['year', 'day', 'hour'] as const).forEach((position) => {
+    const branch = pillars[position].zhi;
+    const relations = [
+      ...(isSanxing(pillars.month.zhi, branch) ? ['相刑'] : []),
+      ...(isLiuchong(pillars.month.zhi, branch) ? ['相冲'] : []),
+      ...(isLiupo(pillars.month.zhi, branch) ? ['相破'] : []),
+      ...(isLiuhai(pillars.month.zhi, branch) ? ['相害'] : []),
+    ];
+    if (relations.length > 0) {
+      branchRelations.push(
+        `${positionLabels[position]}${branch}与月令${pillars.month.zhi}${relations.join('、')}`,
+      );
+    }
+  });
+  if (branchRelations.length > 0) {
+    notes.push(
+      `${branchRelations.join('；')}；原典以正官月令受刑冲破害为局部带忌，但单项关系不直接等同于破格`,
+    );
+  }
+
+  const wealthFacts = exposedFacts.filter((fact) => ['正财', '偏财'].includes(fact.tenGod));
+  const resourceFacts = exposedFacts.filter((fact) => ['正印', '偏印'].includes(fact.tenGod));
+  if (wealthFacts.length > 0 && resourceFacts.length > 0) {
+    const pairs = wealthFacts.flatMap((wealth) =>
+      resourceFacts.map((resource) => ({ wealth, resource })),
+    );
+    const combinedPairs = pairs.filter(
+      ({ wealth, resource }) =>
+        areAdjacentStemColumns(wealth, resource) && isTianGanHe(wealth.stem, resource.stem),
+    );
+    const controllingPairs = pairs.filter(
+      ({ wealth, resource }) =>
+        areAdjacentStemColumns(wealth, resource) &&
+        !isTianGanHe(wealth.stem, resource.stem) &&
+        isKe(getStemWuxing(wealth.stem), getStemWuxing(resource.stem)),
+    );
+
+    if (combinedPairs.length > 0) {
+      notes.push(
+        `财印并透，其中${combinedPairs
+          .map(
+            ({ wealth, resource }) =>
+              `${wealth.label}${wealth.stem}（${wealth.tenGod}）与${resource.label}${resource.stem}（${resource.tenGod}）相邻五合`,
+          )
+          .join('、')}；属于财印直接相合的相碍事实，不能仍按财印互不相碍解释`,
+      );
+    }
+    if (controllingPairs.length > 0) {
+      notes.push(
+        `财印并透，其中${controllingPairs
+          .map(
+            ({ wealth, resource }) =>
+              `${wealth.label}${wealth.stem}（${wealth.tenGod}）与${resource.label}${resource.stem}（${resource.tenGod}）相邻，财五行直接克印五行`,
+          )
+          .join('、')}；属于财印直接相碍的局部冲突`,
+      );
+    }
+    if (combinedPairs.length === 0 && controllingPairs.length === 0) {
+      notes.push(
+        `财印并透，但${wealthFacts.map((fact) => `${fact.label}${fact.stem}（${fact.tenGod}）`).join('、')}与${resourceFacts.map((fact) => `${fact.label}${fact.stem}（${fact.tenGod}）`).join('、')}均有其他柱干隔开，未见相邻五合或财直接克印；只记录原典“财印不相碍”的柱位候选`,
+      );
+    }
+  }
+
+  const hurtFacts = exposedFacts.filter((fact) => fact.tenGod === '伤官');
+  const hurtFormations = formations.filter(
+    (formation) => getTenGod(getRepresentativeStemByWuxing(formation.wuxing), dayMaster) === '伤官',
+  );
+  if ((hurtFacts.length > 0 || hurtFormations.length > 0) && resourceFacts.length > 0) {
+    const hurtSources = [
+      ...hurtFacts.map((fact) => `${fact.label}${fact.stem}伤官明透`),
+      ...hurtFormations.map(
+        (formation) =>
+          `${formation.branches.join('')}完整${formation.type}${formation.wuxing}局成伤官结构`,
+      ),
+    ];
+    notes.push(
+      `${hurtSources.join('、')}，同时${resourceFacts.map((fact) => `${fact.label}${fact.stem}${fact.tenGod}`).join('、')}明透；印克伤官五行，构成“遇伤佩印”的局部救应候选`,
+    );
+  }
+
+  const killerFacts = exposedFacts.filter((fact) => fact.tenGod === '七杀');
+  if (killerFacts.length > 0) {
+    const combinedKillerFacts = killerFacts.flatMap((killer) => {
+      const partner = exposedFacts.find(
+        (fact) =>
+          fact.position !== killer.position &&
+          areAdjacentStemColumns(killer, fact) &&
+          isTianGanHe(killer.stem, fact.stem),
+      );
+      return partner ? [{ killer, partner }] : [];
+    });
+
+    if (combinedKillerFacts.length === killerFacts.length) {
+      notes.push(
+        `正官格又见${combinedKillerFacts
+          .map(
+            ({ killer, partner }) =>
+              `${killer.label}${killer.stem}七杀与${partner.label}${partner.stem}（${partner.tenGod}）相邻五合`,
+          )
+          .join('、')}；构成“合杀留官”的局部取清候选，五合事实本身不证明已经合化或最终取清`,
+      );
+    } else {
+      const combinedBoundary = combinedKillerFacts.length
+        ? `；虽有${combinedKillerFacts.map(({ killer }) => `${killer.label}${killer.stem}`).join('、')}见相邻五合，仍有其他七杀未合`
+        : '';
+      notes.push(`正官格又见七杀明透，形成官杀混杂待复核${combinedBoundary}`);
+    }
+  }
+
+  if (hurtFacts.length > 0 && resourceFacts.length > 0 && wealthFacts.length > 0) {
+    notes.push(
+      '正官格见伤官、印星、财星同时明透；原典以财去印而护伤为一般带忌条件，须另查合财与是否尚有另一印星制伤，不能仅凭见印视为救应已经闭合',
+    );
   }
 
   return notes;
@@ -731,7 +938,8 @@ export function determinePattern(
   const monthPrincipalStem = monthStems[0];
   const monthPrincipalGod = getTenGod(monthPrincipalStem, dayMaster);
   const exposedMonthStems = collectExposedMonthStems(monthStems, pillars);
-  const monthBranchFormations = collectCompleteBranchFormations(pillars).filter(
+  const completeBranchFormations = collectCompleteBranchFormations(pillars);
+  const monthBranchFormations = completeBranchFormations.filter(
     (formation) => formation.includesMonthBranch,
   );
   const explicitRelationshipNotes = collectExplicitUseRelationshipNotes(
@@ -905,6 +1113,16 @@ export function determinePattern(
   const generationOrderNotes = collectGenerationOrderNotes(pillars, patternName, getTenGod);
   if (generationOrderNotes.length > 0) {
     basis += `；生克先后边界：${generationOrderNotes.join('；')}；以上只记录原典明确的外干先后与精确隔位关系；同类重复而交错时不强定先后，强弱、根气、地支、合化及其他救应仍须综合，不改变既有格名，也不据此推导富贵、寿夭、子嗣或最终成败`;
+  }
+
+  const officerPatternNotes = collectOfficerPatternNotes(
+    pillars,
+    patternName,
+    completeBranchFormations,
+    getTenGod,
+  );
+  if (officerPatternNotes.length > 0) {
+    basis += `；正官格成败边界：${officerPatternNotes.join('；')}；以上只记录《子平真诠》“论正官”中能够由当前四柱闭合的局部带忌、相碍与救应条件，不改变既有格名，不把刑冲破害、财印位置、佩印或合杀单独当作最终成败，也不推导富贵、官职、品级、分数或概率`;
   }
 
   return {

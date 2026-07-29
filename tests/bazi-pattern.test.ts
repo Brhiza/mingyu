@@ -567,6 +567,98 @@ test('官财印食为明确月令用神时应记录对应明透冲突与救应�
   assert.match(foodResult.basis || '', /制化与护食救应/);
 });
 
+test('正官月令所受刑冲破害应逐柱记录且不直接等同破格', () => {
+  const clashBreakHarm = createPillars('丁卯', '癸酉', '甲子', '甲戌');
+  const selfPunishment = createPillars('辛酉', '癸酉', '甲子', '戊辰');
+
+  const relationResult = determinePattern(clashBreakHarm, '待综合判断', getTenGod);
+  const punishmentResult = determinePattern(selfPunishment, '待综合判断', getTenGod);
+
+  assert.equal(relationResult.pattern, '正官格');
+  assert.match(relationResult.basis || '', /年支卯与月令酉相冲/);
+  assert.match(relationResult.basis || '', /日支子与月令酉相破/);
+  assert.match(relationResult.basis || '', /时支戌与月令酉相害/);
+  assert.match(relationResult.basis || '', /单项关系不直接等同于破格/);
+  assert.equal(punishmentResult.pattern, '正官格');
+  assert.match(punishmentResult.basis || '', /年支酉与月令酉相刑/);
+  assert.match(punishmentResult.basis || '', /正官格成败边界/);
+});
+
+test('正官格财印并透应按相隔、相邻五合与直接相克区分相碍关系', () => {
+  const separated = createPillars('甲申', '癸酉', '甲午', '戊辰');
+  const combined = createPillars('壬戌', '丁卯', '戊午', '乙卯');
+  const controlled = createPillars('己未', '癸酉', '甲午', '戊辰');
+
+  const separatedResult = determinePattern(separated, '待综合判断', getTenGod);
+  const combinedResult = determinePattern(combined, '待综合判断', getTenGod);
+  const controlledResult = determinePattern(controlled, '待综合判断', getTenGod);
+
+  assert.equal(separatedResult.pattern, '正官格');
+  assert.match(separatedResult.basis || '', /月干癸（正印）/);
+  assert.match(separatedResult.basis || '', /时干戊（偏财）/);
+  assert.match(separatedResult.basis || '', /均有其他柱干隔开/);
+  assert.match(separatedResult.basis || '', /财印不相碍.*柱位候选/);
+  assert.equal(combinedResult.pattern, '正官格');
+  assert.match(combinedResult.basis || '', /年干壬（偏财）与月干丁（正印）相邻五合/);
+  assert.match(combinedResult.basis || '', /财印直接相合的相碍事实/);
+  assert.equal(controlledResult.pattern, '正官格');
+  assert.match(controlledResult.basis || '', /年干己（正财）与月干癸（正印）相邻/);
+  assert.match(controlledResult.basis || '', /财五行直接克印五行/);
+  assert.match(controlledResult.basis || '', /财印直接相碍的局部冲突/);
+});
+
+test('正官遇伤佩印应同时识别伤官明透与完整会局伤官结构', () => {
+  const exposedHurt = createPillars('辛酉', '丁卯', '戊午', '壬子');
+  const formedHurt = createPillars('己卯', '辛未', '壬寅', '辛亥');
+
+  const exposedResult = determinePattern(exposedHurt, '待综合判断', getTenGod);
+  const formedResult = determinePattern(formedHurt, '待综合判断', getTenGod);
+
+  assert.equal(exposedResult.pattern, '正官格');
+  assert.match(exposedResult.basis || '', /年干辛伤官明透/);
+  assert.match(exposedResult.basis || '', /遇伤佩印.*局部救应候选/);
+  assert.equal(formedResult.pattern, '待综合判断');
+  assert.match(formedResult.basis || '', /原典宣参国精确例型己卯、辛未、壬寅、辛亥/);
+  assert.match(formedResult.basis || '', /亥卯未完整三合木局成伤官结构/);
+  assert.match(formedResult.basis || '', /两辛印明透制伤/);
+  assert.match(formedResult.basis || '', /不覆盖透干会支并用的格名边界/);
+});
+
+test('正官格混杀应区分相邻五合取清候选与未合官杀混杂', () => {
+  const killerCombined = createPillars('庚寅', '乙酉', '甲子', '戊辰');
+  const killerUnresolved = createPillars('庚寅', '丁酉', '甲子', '戊辰');
+
+  const combinedResult = determinePattern(killerCombined, '待综合判断', getTenGod);
+  const unresolvedResult = determinePattern(killerUnresolved, '待综合判断', getTenGod);
+
+  assert.equal(combinedResult.pattern, '正官格');
+  assert.match(combinedResult.basis || '', /年干庚七杀与月干乙（劫财）相邻五合/);
+  assert.match(combinedResult.basis || '', /合杀留官.*局部取清候选/);
+  assert.match(combinedResult.basis || '', /不证明已经合化或最终取清/);
+  assert.equal(unresolvedResult.pattern, '正官格');
+  assert.match(unresolvedResult.basis || '', /七杀明透，形成官杀混杂待复核/);
+  assert.doesNotMatch(unresolvedResult.basis || '', /合杀留官/);
+});
+
+test('官伤印财同透应记录一般带忌并保留原典双印分工例外', () => {
+  const generalConflict = createPillars('辛酉', '丁卯', '戊午', '壬子');
+  const fanTaifuExample = createPillars('丁丑', '壬寅', '己巳', '丙寅');
+
+  const conflictResult = determinePattern(generalConflict, '待综合判断', getTenGod);
+  const exceptionResult = determinePattern(fanTaifuExample, '待综合判断', getTenGod);
+
+  assert.equal(conflictResult.pattern, '正官格');
+  assert.match(conflictResult.basis || '', /伤官、印星、财星同时明透/);
+  assert.match(conflictResult.basis || '', /财去印而护伤为一般带忌条件/);
+  assert.match(conflictResult.basis || '', /是否尚有另一印星制伤/);
+  assert.equal(exceptionResult.pattern, '正印格');
+  assert.match(exceptionResult.basis || '', /原典范太傅精确例型丁丑、壬寅、己巳、丙寅/);
+  assert.match(exceptionResult.basis || '', /巳丑拱金为伤官结构而丙丁双印明透/);
+  assert.match(exceptionResult.basis || '', /丁壬五合与另一丙印制伤分工并存/);
+  assert.match(exceptionResult.basis || '', /不改变既有格名/);
+  assert.match(exceptionResult.basis || '', /不推导富贵、官职、品级、分数或概率/);
+});
+
 test('食神制杀透财、杀逢食制透印与财生官露食应记录原典带忌条件', () => {
   const foodKillerWealth: Pillars = {
     year: { gan: '甲', zhi: '子', ganZhi: '甲子' },

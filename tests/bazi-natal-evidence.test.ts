@@ -510,14 +510,19 @@ test('真实正官见食伤排盘应保留官格并贯穿四吉神带忌边界',
   assert.equal(result.analysis.mingGe.pattern, '正官格');
   assert.match(result.analysis.mingGe.basis || '', /正官为当前月令所用，又见食神、伤官明透/);
   assert.match(result.analysis.mingGe.basis || '', /须继续核对财印、合伤等救应/);
+  assert.match(result.analysis.mingGe.basis || '', /年支未与月令子相害/);
+  assert.match(result.analysis.mingGe.basis || '', /单项关系不直接等同于破格/);
   assert.match(result.analysis.mingGe.basis || '', /不改变既有格名/);
 
   const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
   assert.equal(patternFact?.result, '正官格');
   assert.match(patternFact?.promptText || '', /四吉神能破格边界/);
+  assert.match(patternFact?.promptText || '', /正官格成败边界/);
+  assert.match(patternFact?.promptText || '', /年支未与月令子相害/);
   const prompt = formatBaziForPrompt(result);
   assert.match(prompt, /格局: 正官格/);
   assert.match(prompt, /官忌食伤/);
+  assert.match(prompt, /年支未与月令子相害/);
 });
 
 test('真实食神带杀透财排盘应保留食神格并贯穿财能破格边界', () => {
