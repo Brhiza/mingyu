@@ -35,6 +35,10 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
   assert.ok(evidence.candidates.every((item) => item.candidateRole === '辅助观察'));
   assert.equal(evidence.godChain.length, 0);
   assert.equal(evidence.godInteractionFacts.length, 0);
+  assert.equal(evidence.godInteractionAssessmentFact.status, '资料不足');
+  assert.equal(evidence.godInteractionAssessmentFact.balanceStatus, '用神未定');
+  assert.deepEqual(evidence.godInteractionAssessmentFact.supportingFactKeys, []);
+  assert.deepEqual(evidence.godInteractionAssessmentFact.restrainingFactKeys, []);
   assert.equal(evidence.lineCoverageFact.status, '完整');
   assert.deepEqual(evidence.lineCoverageFact.actualPositions, [1, 2, 3, 4, 5, 6]);
   assert.equal(evidence.lineFacts.length, 6);
@@ -297,6 +301,8 @@ test('六爻明确六亲后应按本卦、变爻、月日、伏神逐层取用',
       ['月日直接入用', ['liuyao:reference:calendar:日辰']],
     ],
   );
+  assert.equal(calendarPair.godInteractionAssessmentFact.status, '待综合判断');
+  assert.equal(calendarPair.godInteractionAssessmentFact.balanceStatus, '月日直接入用');
 
   assert.equal(hidden.selectionFact.matchingTier, '伏神检索');
   assert.equal(hidden.selectionFact.selectedReferenceKey, 'liuyao:reference:hidden:2:妻财');
@@ -634,8 +640,26 @@ test('六爻生克制化应登记碎金赋四类闭合路径并允许并见', ()
       evidence.godInteractionFacts.some((item) => item.kind === kind),
     ),
   );
+  const assessment = evidence.godInteractionAssessmentFact;
+  assert.equal(assessment.status, '待综合判断');
+  assert.equal(assessment.balanceStatus, '生扶克制并见');
+  assert.ok(
+    assessment.supportingFactKeys.every((key) =>
+      evidence.godInteractionFacts.some((item) => item.key === key),
+    ),
+  );
+  assert.ok(
+    assessment.restrainingFactKeys.every((key) =>
+      evidence.godInteractionFacts.some((item) => item.key === key),
+    ),
+  );
+  assert.ok(assessment.transformationFactKeys.includes(continuousGeneration?.key ?? ''));
+  assert.ok(assessment.unresolvedFactKeys.length > 0);
+  assert.match(assessment.promptText, /可用性待综合判断/);
+  assert.match(assessment.promptText, /须先逐项消解/);
   assert.equal(evidence.summaryFact.godInteractionFactCount, evidence.godInteractionFacts.length);
   assert.match(evidence.promptText, /生克制化路径/);
+  assert.match(evidence.promptText, /全局生克作用态/);
   assert.match(evidence.promptText, /忌原接续相生/);
   assert.ok(
     evidence.limitationFacts
@@ -643,9 +667,50 @@ test('六爻生克制化应登记碎金赋四类闭合路径并允许并见', ()
       ?.ownerFactKeys.includes(continuousGeneration?.key ?? ''),
   );
   assert.doesNotMatch(
-    JSON.stringify(evidence.godInteractionFacts),
+    JSON.stringify([evidence.godInteractionFacts, assessment]),
     /score|weight|rating|probability|总分|概率|最终吉凶|最终强弱[^、或]/i,
   );
+});
+
+test('六爻全局作用态应分类生扶克制并明确保留可用性待综合', () => {
+  const date = new Date('2025-01-01T08:00:00+08:00');
+  const analyze = (yaos: number[], month: string, day: string, usefulGodRelative: string) => {
+    const data = generateLiuyao(date, { method: 'manual', yaos });
+    return analyzeLiuyaoEvidence(
+      {
+        ...data,
+        ganzhi: { ...data.ganzhi, month, day },
+        evidenceAnalysis: undefined,
+      },
+      { usefulGodRelative },
+    );
+  };
+  const noPath = analyze([7, 7, 7, 7, 7, 7], '甲子', '甲子', '兄弟');
+  const mixed = analyze([7, 7, 7, 7, 7, 7], '甲子', '甲子', '官鬼');
+  const supportOnly = analyze([7, 7, 7, 7, 7, 7], '甲子', '甲子', '妻财');
+  const restraintOnly = analyze([7, 7, 7, 7, 7, 7], '甲子', '己巳', '兄弟');
+  const calendarIngress = analyze([8, 7, 7, 7, 7, 7], '甲子', '丙寅', '妻财');
+
+  assert.deepEqual(
+    [noPath, mixed, supportOnly, restraintOnly, calendarIngress].map(
+      (item) => item.godInteractionAssessmentFact.balanceStatus,
+    ),
+    ['未见生克路径', '生扶克制并见', '仅见生扶路径', '仅见克制路径', '月日直接入用'],
+  );
+  assert.ok(
+    [noPath, mixed, supportOnly, restraintOnly, calendarIngress].every(
+      (item) => item.godInteractionAssessmentFact.status === '待综合判断',
+    ),
+  );
+  assert.deepEqual(noPath.godInteractionAssessmentFact.supportingFactKeys, []);
+  assert.deepEqual(noPath.godInteractionAssessmentFact.restrainingFactKeys, []);
+  assert.ok(mixed.godInteractionAssessmentFact.supportingFactKeys.length > 0);
+  assert.ok(mixed.godInteractionAssessmentFact.restrainingFactKeys.length > 0);
+  assert.ok(supportOnly.godInteractionAssessmentFact.supportingFactKeys.length > 0);
+  assert.deepEqual(supportOnly.godInteractionAssessmentFact.restrainingFactKeys, []);
+  assert.deepEqual(restraintOnly.godInteractionAssessmentFact.supportingFactKeys, []);
+  assert.ok(restraintOnly.godInteractionAssessmentFact.restrainingFactKeys.length > 0);
+  assert.ok(calendarIngress.godInteractionFacts.every((item) => item.kind === '月日直接入用'));
 });
 
 test('六爻生克制化路径应覆盖月日、明暗动、旺相静爻、本位变爻与伏神来源', () => {
@@ -757,6 +822,7 @@ test('六爻生克制化路径应从原始盘面重算并忽略旧派生字段',
   );
 
   assert.deepEqual(tampered.godInteractionFacts, current.godInteractionFacts);
+  assert.deepEqual(tampered.godInteractionAssessmentFact, current.godInteractionAssessmentFact);
   assert.doesNotMatch(JSON.stringify(tampered.godInteractionFacts), /伪造支持|伪造限制/);
 });
 

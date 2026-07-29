@@ -1134,6 +1134,8 @@ export type {
   LiuyaoEvidenceOptions,
   LiuyaoEvidenceTopic,
   LiuyaoGodEffectStatus,
+  LiuyaoGodInteractionAssessmentFact,
+  LiuyaoGodInteractionBalanceStatus,
   LiuyaoGodInteractionFact,
   LiuyaoGodInteractionKind,
   LiuyaoGodInteractionPathStep,
