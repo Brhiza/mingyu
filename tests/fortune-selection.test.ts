@@ -123,6 +123,7 @@ test('选择大运时会附带该大运下的全部流年', () => {
   assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.wealthPatternRuleFacts));
   assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.resourcePatternRuleFacts));
   assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.foodPatternRuleFacts));
+  assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.killerPatternRuleFacts));
   assert.ok(
     context.promptPayload.triggerEvidence?.limitationFacts.some(
       (item) => item.type === '层级应期边界',
@@ -171,6 +172,60 @@ test('真实食神格排盘应把逐字取运事实贯穿到岁运提示资料',
   assert.match(evidenceText, /【主证】食神格逐字取运候选/);
   assert.match(evidenceText, /财食重.*条件待复核/);
   assert.match(evidenceText, /官煞之方俱为不美.*带忌候选/);
+  assert.match(evidenceText, /不得把单项候选定为最终喜运、忌运、吉凶或现实事件/);
+});
+
+test('真实七杀格排盘应把相反逐字取运候选贯穿到岁运提示资料', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1980,
+    month: 1,
+    day: 4,
+    timeIndex: 12,
+    gender: 'male',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['己未', '丙子', '丁丑', '庚子'],
+  );
+  assert.equal(result.analysis.mingGe.pattern, '七杀格');
+
+  const context = buildFortuneSelectionContext(result, {
+    scope: 'dayun',
+    cycleIndex: 5,
+  });
+
+  assert.ok(context);
+  assert.equal(context.displayLabel, '辛未运');
+  const killerFacts = context.promptPayload.triggerEvidence.killerPatternRuleFacts;
+  assert.ok(
+    killerFacts.some(
+      (item) => item.type === '杀用食制取运候选' && item.trigger.includes('杀重食轻'),
+    ),
+  );
+  assert.ok(
+    killerFacts.some((item) => item.status === '带忌候选' && item.trigger.includes('印绶夺食')),
+  );
+  assert.ok(
+    killerFacts.some(
+      (item) => item.type === '七杀用财助杀取运候选' && item.trigger.includes('财已足'),
+    ),
+  );
+  assert.ok(
+    killerFacts.some(
+      (item) => item.type === '七杀用财助杀取运候选' && item.trigger.includes('财未足'),
+    ),
+  );
+
+  const evidenceText = context.promptPayload.evidenceLines?.join('\n') ?? '';
+  assert.match(evidenceText, /【主证】七杀格逐字取运候选/);
+  assert.match(evidenceText, /杀重食轻.*条件待复核/);
+  assert.match(evidenceText, /印绶夺食.*带忌候选/);
+  assert.match(evidenceText, /财已足/);
+  assert.match(evidenceText, /财未足/);
   assert.match(evidenceText, /不得把单项候选定为最终喜运、忌运、吉凶或现实事件/);
 });
 

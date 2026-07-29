@@ -1,5 +1,6 @@
-import { BASIC_MAPPINGS, HIDDEN_STEMS } from './baziMappingsData';
+import { BASIC_MAPPINGS, HIDDEN_STEMS, REN_BRANCH_MAP } from './baziMappingsData';
 import { analyzeFoodPatternStructure } from './baziFoodPattern';
+import { analyzeKillerPatternStructure } from './baziKillerPattern';
 import { analyzeOfficerPatternStructure } from './baziOfficerPattern';
 import { analyzeResourcePatternStructure } from './baziResourcePattern';
 import { analyzeWealthPatternStructure } from './baziWealthPattern';
@@ -61,6 +62,7 @@ export interface FortuneTriggerCalculationStep {
     | '财格取运核验'
     | '印格取运核验'
     | '食神格取运核验'
+    | '七杀格取运核验'
     | '关系汇总';
   status: '已计算';
   inputs: Record<string, string | number | boolean | string[]>;
@@ -234,6 +236,30 @@ export interface FortuneFoodPatternRuleFact {
   limitation: '食神格取运事实只把原局已闭合的生财、杀印、带杀、带印或财解夺食子结构与当前运字逐项对应；财食轻重、身旺、食神太旺、七杀轻重、印旺与财旺仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件';
 }
 
+export type FortuneKillerPatternRuleType =
+  | '杀用食制取运候选'
+  | '杀用印绶取运候选'
+  | '七杀用财去印存食取运候选'
+  | '七杀用财助杀取运候选'
+  | '杀带正官取运候选'
+  | '七杀用刃取运候选';
+
+export interface FortuneKillerPatternRuleFact {
+  key: string;
+  status: '支持候选' | '带忌候选' | '条件待复核';
+  type: FortuneKillerPatternRuleType;
+  layerKey: string;
+  layerLabel: string;
+  ganZhi: string;
+  natalStructure: string;
+  trigger: string;
+  calculationStepKey: string;
+  dependsOnFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '七杀格取运事实只把原局已闭合的食制、印绶、财去印存食、财助杀、官杀混杂或无食用刃子结构与当前运字逐项对应；杀食轻重、日主根轻、身轻、财足不足、印身旺衰与刃杀轻重仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件';
+}
+
 export interface FortuneTriggerFormationFact {
   key: string;
   status: '已命中';
@@ -319,6 +345,7 @@ export interface FortuneTriggerLimitationFact {
     | '财格取运边界'
     | '印格取运边界'
     | '食神格取运边界'
+    | '七杀格取运边界'
     | '高风险输出边界';
   status: '适用';
   ownerFactKeys: string[];
@@ -339,6 +366,7 @@ export interface FortuneTriggerEvidenceResult {
   wealthPatternRuleFacts: FortuneWealthPatternRuleFact[];
   resourcePatternRuleFacts: FortuneResourcePatternRuleFact[];
   foodPatternRuleFacts: FortuneFoodPatternRuleFact[];
+  killerPatternRuleFacts: FortuneKillerPatternRuleFact[];
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   primaryRelations: FortuneTriggerRelation[];
@@ -380,6 +408,8 @@ const RESOURCE_PATTERN_RULE_LIMITATION =
   '印格取运事实只把原局已闭合的子结构与当前运字逐项对应；印重、印轻、身旺、官旺、财印轻重与各方是否有力仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件' as const;
 const FOOD_PATTERN_RULE_LIMITATION =
   '食神格取运事实只把原局已闭合的生财、杀印、带杀、带印或财解夺食子结构与当前运字逐项对应；财食轻重、身旺、食神太旺、七杀轻重、印旺与财旺仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件' as const;
+const KILLER_PATTERN_RULE_LIMITATION =
+  '七杀格取运事实只把原局已闭合的食制、印绶、财去印存食、财助杀、官杀混杂或无食用刃子结构与当前运字逐项对应；杀食轻重、日主根轻、身轻、财足不足、印身旺衰与刃杀轻重仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件' as const;
 const HIDDEN_STEM_RANKS = ['本气', '中气', '余气'] as const;
 const WUXING_VALUES = new Set(['木', '火', '土', '金', '水']);
 
@@ -2115,6 +2145,401 @@ function buildFoodPatternRuleAnalysis(params: {
   return { facts, calculationStep, applicable: true };
 }
 
+function buildKillerPatternRuleAnalysis(params: {
+  result: BaziChartResult;
+  layerStructureFacts: FortuneLayerStructureFact[];
+}): {
+  facts: FortuneKillerPatternRuleFact[];
+  calculationStep?: FortuneTriggerCalculationStep;
+  applicable: boolean;
+} {
+  const patternName = params.result.analysis?.mingGe?.pattern ?? '';
+  const structure = analyzeKillerPatternStructure(params.result.pillars, patternName);
+  if (!structure.isKillerPattern) return { facts: [], applicable: false };
+
+  const facts: FortuneKillerPatternRuleFact[] = [];
+  const calculationStepKey = 'bazi:fortune-trigger:calculation:killer-pattern-rules';
+  const addFact = (
+    layer: FortuneLayerStructureFact,
+    slug: string,
+    type: FortuneKillerPatternRuleType,
+    status: FortuneKillerPatternRuleFact['status'],
+    natalStructure: string,
+    trigger: string,
+  ) => {
+    facts.push({
+      key: `bazi:fortune-trigger:killer-pattern:${layer.layerType}:${layer.layerId}:${slug}`,
+      status,
+      type,
+      layerKey: layer.layerKey,
+      layerLabel: layer.layerLabel,
+      ganZhi: layer.ganZhi,
+      natalStructure,
+      trigger,
+      calculationStepKey,
+      dependsOnFactKeys: [layer.key],
+      promptText: `${layer.layerLabel}${layer.ganZhi}：${natalStructure}；${trigger}，列为${status}`,
+      sources: ['《子平真诠评注》“偏官取运”', '原局七杀格子结构与岁运干支分层事实逐项核验'],
+      limitation: KILLER_PATTERN_RULE_LIMITATION,
+    });
+  };
+
+  const natalOutput = formatNatalStems(structure.outputStems);
+  const natalResources = formatNatalStems(structure.resourceStems);
+  const natalWealth = formatNatalStems(structure.wealthStems);
+  const natalOfficers = formatNatalStems(structure.officerStems);
+  const resourceSources = [
+    ...(natalResources ? [natalResources] : []),
+    ...structure.resourceHiddenFacts.map(
+      (fact) => `${fact.label}${fact.branch}藏${fact.hiddenStems.join('、')}印星`,
+    ),
+  ];
+  const bladeBranch = REN_BRANCH_MAP[params.result.pillars.day.gan];
+  const hasNatalBlade = Boolean(
+    bladeBranch &&
+    Object.values(params.result.pillars).some((pillar) => pillar.zhi === bladeBranch),
+  );
+  const hasFoodControl = structure.outputStems.length > 0;
+  const hasResourceUse =
+    structure.outputStems.length === 0 &&
+    (structure.resourceStems.length > 0 || structure.resourceHiddenFacts.length > 0);
+  const hasWealthRemovingResource =
+    structure.outputStems.length > 0 &&
+    structure.resourceStems.length > 0 &&
+    structure.wealthStems.length > 0;
+  const hasWealthAidingKiller = structure.wealthStems.length > 0 && !hasWealthRemovingResource;
+  const hasOfficerKillerMixture = structure.hasOfficerKillerMixture;
+  const hasBladeAgainstKiller = structure.outputStems.length === 0 && hasNatalBlade;
+  const clearingComponents = [
+    ...(structure.hurtStems.length > 0
+      ? [`${formatNatalStems(structure.hurtStems)}伤官去官候选`]
+      : []),
+    ...structure.clashingOutputFacts.map(
+      (fact) => `${fact.label}${fact.branch}冲月令且藏${fact.hiddenStems.join('、')}食伤的去杀候选`,
+    ),
+  ];
+
+  params.layerStructureFacts.forEach((layer) => {
+    const resourceTriggers = describeLayerTenGods(layer, ['正印', '偏印']);
+    const peerTriggers = describeLayerTenGods(layer, ['比肩', '劫财']);
+    const robberTriggers = describeLayerTenGods(layer, ['劫财']);
+    const outputTriggers = describeLayerTenGods(layer, ['食神', '伤官']);
+    const foodTriggers = describeLayerTenGods(layer, ['食神']);
+    const hurtTriggers = describeLayerTenGods(layer, ['伤官']);
+    const wealthTriggers = describeLayerTenGods(layer, ['正财', '偏财']);
+    const officerTriggers = describeLayerTenGods(layer, ['正官']);
+    const killerTriggers = describeLayerTenGods(layer, ['七杀']);
+
+    if (hasFoodControl) {
+      const natalStructure = `七杀格见${natalOutput}明透，具杀用食制局部结构；杀食轻重与日主根轻均未由数量判定`;
+      if (foodTriggers.length > 0) {
+        addFact(
+          layer,
+          'food-control-killer-heavy-food-light',
+          '杀用食制取运候选',
+          '条件待复核',
+          natalStructure,
+          `${foodTriggers.join('、')}只在“杀重食轻”另经全局闭合时，对应助食方向`,
+        );
+      }
+      if (killerTriggers.length > 0) {
+        addFact(
+          layer,
+          'food-control-killer-light-food-heavy',
+          '杀用食制取运候选',
+          '条件待复核',
+          natalStructure,
+          `${killerTriggers.join('、')}只在“杀轻食重”另经全局闭合时，对应助杀方向`,
+        );
+      }
+      if (peerTriggers.length > 0) {
+        addFact(
+          layer,
+          'food-control-balanced-root-light',
+          '杀用食制取运候选',
+          '条件待复核',
+          natalStructure,
+          `${peerTriggers.join('、')}只在“杀食均而日主根轻”另经全局闭合时，对应助身方向`,
+        );
+      }
+      if (officerTriggers.length > 0) {
+        addFact(
+          layer,
+          'food-control-officer-mixture',
+          '杀用食制取运候选',
+          '带忌候选',
+          natalStructure,
+          `${officerTriggers.join('、')}对应原典所忌正官混杂的一般边界`,
+        );
+      }
+      if (resourceTriggers.length > 0) {
+        addFact(
+          layer,
+          'food-control-resource-robs-food',
+          '杀用食制取运候选',
+          '带忌候选',
+          natalStructure,
+          `${resourceTriggers.join('、')}对应原典所畏印绶夺食的一般边界`,
+        );
+      }
+    }
+
+    if (hasResourceUse) {
+      const natalStructure = `七杀格外干无食伤明透而见${resourceSources.join('、')}，具无食制而用印的局部候选；印是否用当仍须全局复核`;
+      if (wealthTriggers.length > 0) {
+        addFact(
+          layer,
+          'resource-wealth',
+          '杀用印绶取运候选',
+          '带忌候选',
+          natalStructure,
+          `${wealthTriggers.join('、')}对应原典“不利财乡”`,
+        );
+      }
+      if (hurtTriggers.length > 0) {
+        addFact(
+          layer,
+          'resource-hurt',
+          '杀用印绶取运候选',
+          '支持候选',
+          natalStructure,
+          `${hurtTriggers.join('、')}对应原典“伤官为美”的局部方向`,
+        );
+      }
+      if (resourceTriggers.length > 0) {
+        addFact(
+          layer,
+          'resource-resource',
+          '杀用印绶取运候选',
+          '支持候选',
+          natalStructure,
+          `${resourceTriggers.join('、')}对应原典印绶福地方向；印是否过旺仍须另审`,
+        );
+      }
+      if (peerTriggers.length > 0) {
+        addFact(
+          layer,
+          'resource-body-strong',
+          '杀用印绶取运候选',
+          '条件待复核',
+          natalStructure,
+          `${peerTriggers.join('、')}只作身旺方向组件，单个比劫运字不直接证明身旺`,
+        );
+      }
+    }
+
+    if (hasWealthRemovingResource) {
+      const natalStructure = `七杀格见${natalOutput}、${natalResources}与${natalWealth}同时明透，具财去印存食的局部候选`;
+      if (robberTriggers.length > 0) {
+        addFact(
+          layer,
+          'wealth-remove-resource-robber',
+          '七杀用财去印存食取运候选',
+          '带忌候选',
+          natalStructure,
+          `${robberTriggers.join('、')}对应原典“不利劫财”`,
+        );
+      }
+      if (outputTriggers.length > 0) {
+        addFact(
+          layer,
+          'wealth-remove-resource-output',
+          '七杀用财去印存食取运候选',
+          '支持候选',
+          natalStructure,
+          `${outputTriggers.join('、')}对应原典“伤食皆吉”`,
+        );
+      }
+      if (wealthTriggers.length > 0) {
+        addFact(
+          layer,
+          'wealth-remove-resource-wealth',
+          '七杀用财去印存食取运候选',
+          '支持候选',
+          natalStructure,
+          `${wealthTriggers.join('、')}对应原典“喜财”`,
+        );
+      }
+      if (resourceTriggers.length > 0) {
+        addFact(
+          layer,
+          'wealth-remove-resource-resource',
+          '七杀用财去印存食取运候选',
+          '带忌候选',
+          natalStructure,
+          `${resourceTriggers.join('、')}对应原典“怕印”`,
+        );
+      }
+      if (killerTriggers.length > 0) {
+        addFact(
+          layer,
+          'wealth-remove-resource-killer',
+          '七杀用财去印存食取运候选',
+          '支持候选',
+          natalStructure,
+          `${killerTriggers.join('、')}对应原典“透杀亦顺”的局部方向`,
+        );
+      }
+    }
+
+    if (hasWealthAidingKiller) {
+      const natalStructure = `七杀格见${natalWealth}明透而未闭合财去印存食三透结构，列财助杀不及的条件候选；财已足或未足尚未闭合`;
+      if (foodTriggers.length > 0) {
+        addFact(
+          layer,
+          'wealth-aid-killer-enough-food',
+          '七杀用财助杀取运候选',
+          '条件待复核',
+          natalStructure,
+          `${foodTriggers.join('、')}只在“财已足”另经全局闭合时，对应喜食方向`,
+        );
+      }
+      if (resourceTriggers.length > 0) {
+        addFact(
+          layer,
+          'wealth-aid-killer-enough-resource',
+          '七杀用财助杀取运候选',
+          '条件待复核',
+          natalStructure,
+          `${resourceTriggers.join('、')}只在“财已足”另经全局闭合时，对应喜印方向`,
+        );
+      }
+      if (peerTriggers.length > 0) {
+        addFact(
+          layer,
+          'wealth-aid-killer-enough-peer',
+          '七杀用财助杀取运候选',
+          '条件待复核',
+          natalStructure,
+          `${peerTriggers.join('、')}只在“财已足”另经全局闭合时，对应帮身方向`,
+        );
+      }
+      if (wealthTriggers.length > 0) {
+        addFact(
+          layer,
+          'wealth-aid-killer-not-enough-wealth',
+          '七杀用财助杀取运候选',
+          '条件待复核',
+          natalStructure,
+          `${wealthTriggers.join('、')}只在“财未足”另经全局闭合时，对应财旺方向；单个财星运字不直接证明财旺`,
+        );
+      }
+      if (killerTriggers.length > 0) {
+        addFact(
+          layer,
+          'wealth-aid-killer-not-enough-killer',
+          '七杀用财助杀取运候选',
+          '条件待复核',
+          natalStructure,
+          `${killerTriggers.join('、')}只在“财未足”另经全局闭合时，对应露杀方向`,
+        );
+      }
+    }
+
+    if (hasOfficerKillerMixture) {
+      const clearingBoundary = clearingComponents.length
+        ? `；原局另见${clearingComponents.join('、')}，岁运单字不得据此宣称已去掉取清组件或已伤害制杀之神`
+        : '；当前只闭合官杀混杂，不假定已有取清组件，也不把岁运单字解释成自动取清';
+      const natalStructure = `七杀格见${natalOfficers}与月令或外干七杀并存，具杀带正官结构${clearingBoundary}`;
+      if (peerTriggers.length > 0 || resourceTriggers.length > 0) {
+        const bodyTriggers = [...peerTriggers, ...resourceTriggers];
+        addFact(
+          layer,
+          'officer-mixture-body-light',
+          '杀带正官取运候选',
+          '条件待复核',
+          natalStructure,
+          `${bodyTriggers.join('、')}只在“身轻”另经全局闭合时，对应助身方向`,
+        );
+      }
+      if (foodTriggers.length > 0) {
+        addFact(
+          layer,
+          'officer-mixture-food-light',
+          '杀带正官取运候选',
+          '条件待复核',
+          natalStructure,
+          `${foodTriggers.join('、')}只在“食轻”另经全局闭合时，对应助食方向`,
+        );
+      }
+    }
+
+    if (hasBladeAgainstKiller) {
+      const natalStructure = `七杀格外干无食伤明透，日主${params.result.pillars.day.gan}为阳干且原局见真正阳刃支${bladeBranch}，具无食制而用刃当杀的局部结构；杀刃轻重未由数量判定`;
+      if (killerTriggers.length > 0) {
+        addFact(
+          layer,
+          'blade-killer-light-blade-heavy',
+          '七杀用刃取运候选',
+          '条件待复核',
+          natalStructure,
+          `${killerTriggers.join('、')}只在“杀轻刃重”另经全局闭合时，对应助杀方向`,
+        );
+      }
+      if (foodTriggers.length > 0) {
+        addFact(
+          layer,
+          'blade-blade-light-killer-heavy',
+          '七杀用刃取运候选',
+          '条件待复核',
+          natalStructure,
+          `${foodTriggers.join('、')}只在“刃轻杀重”另经全局闭合时，对应制伏方向`,
+        );
+      }
+      if (resourceTriggers.length > 0) {
+        addFact(
+          layer,
+          'blade-resource-no-food-to-rob',
+          '七杀用刃取运候选',
+          '条件待复核',
+          natalStructure,
+          `${resourceTriggers.join('、')}对应“无食可夺，印运何伤”的非固定带忌边界；不据此直接列为最终喜运`,
+        );
+      }
+      if (!hasOfficerKillerMixture && officerTriggers.length > 0) {
+        addFact(
+          layer,
+          'blade-pure-killer-officer',
+          '七杀用刃取运候选',
+          '带忌候选',
+          natalStructure,
+          `${officerTriggers.join('、')}对应原典“七杀既纯，杂官不利”`,
+        );
+      }
+    }
+  });
+
+  const calculationStep: FortuneTriggerCalculationStep = {
+    key: calculationStepKey,
+    stage: '七杀格取运核验',
+    status: '已计算',
+    inputs: {
+      patternName,
+      activeLayerKeys: params.layerStructureFacts.map((item) => item.layerKey),
+      natalExposedTenGods: structure.exposedStems.map((item) => item.tenGod),
+      hasFoodControl,
+      hasResourceUse,
+      hasWealthRemovingResource,
+      hasWealthAidingKiller,
+      hasOfficerKillerMixture,
+      hasBladeAgainstKiller,
+      bladeBranch: bladeBranch ?? '',
+      clearingComponents,
+    },
+    result: {
+      candidateCount: facts.length,
+      candidateKeys: facts.map((item) => item.key),
+    },
+    dependsOnStepKeys: params.layerStructureFacts.map((item) => item.calculationStepKey),
+    promptText: facts.length
+      ? `已按七杀格原局子结构逐字核验所选岁运，记录${facts.length}项支持、带忌或条件待复核候选`
+      : '已按七杀格原局子结构逐字核验所选岁运，当前未命中可客观闭合的专属取运候选',
+    sources: ['《子平真诠评注》“偏官取运”', '原局七杀格子结构与岁运干支分层事实'],
+    limitation: CALCULATION_STEP_LIMITATION,
+  };
+  return { facts, calculationStep, applicable: true };
+}
+
 function relation(
   type: FortuneTriggerRelationType,
   label: string,
@@ -2523,6 +2948,7 @@ function buildRelationSummaryFact(params: {
   wealthPatternRuleFacts: FortuneWealthPatternRuleFact[];
   resourcePatternRuleFacts: FortuneResourcePatternRuleFact[];
   foodPatternRuleFacts: FortuneFoodPatternRuleFact[];
+  killerPatternRuleFacts: FortuneKillerPatternRuleFact[];
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   comparisonSteps: FortuneTriggerCalculationStep[];
@@ -2554,6 +2980,7 @@ function buildRelationSummaryFact(params: {
       ...params.wealthPatternRuleFacts.map((item) => item.key),
       ...params.resourcePatternRuleFacts.map((item) => item.key),
       ...params.foodPatternRuleFacts.map((item) => item.key),
+      ...params.killerPatternRuleFacts.map((item) => item.key),
       ...params.relations.map((item) => item.key),
       ...params.formations.map((item) => item.key),
       ...params.counterEvidenceFacts.map((item) => item.key),
@@ -2589,6 +3016,8 @@ function buildLimitationFacts(params: {
   resourcePatternRulesApplicable: boolean;
   foodPatternRuleFacts: FortuneFoodPatternRuleFact[];
   foodPatternRulesApplicable: boolean;
+  killerPatternRuleFacts: FortuneKillerPatternRuleFact[];
+  killerPatternRulesApplicable: boolean;
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   counterEvidenceFacts: FortuneTriggerCounterEvidenceFact[];
@@ -2603,6 +3032,7 @@ function buildLimitationFacts(params: {
   const wealthRuleKeys = params.wealthPatternRuleFacts.map((item) => item.key);
   const resourceRuleKeys = params.resourcePatternRuleFacts.map((item) => item.key);
   const foodRuleKeys = params.foodPatternRuleFacts.map((item) => item.key);
+  const killerRuleKeys = params.killerPatternRuleFacts.map((item) => item.key);
   const definitions: Array<
     Pick<FortuneTriggerLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
   > = [
@@ -2715,6 +3145,18 @@ function buildLimitationFacts(params: {
           },
         ]
       : []),
+    ...(params.killerPatternRulesApplicable
+      ? [
+          {
+            key: 'bazi:fortune-trigger:limitation:killer-pattern-rules',
+            type: '七杀格取运边界' as const,
+            ownerFactKeys: [params.relationSummaryFact.key, ...killerRuleKeys],
+            promptText:
+              '七杀格取运只能按当前八字已经闭合的食制、印绶、财去印存食、财助杀、官杀混杂或无食用刃子结构逐字研究；杀食轻重、日主根轻、身轻、财已足或未足、印身旺衰与刃杀轻重均不得用十神数量、支数、藏干层级或单个运字硬判；去官留杀、去杀留官的取清组件也不得被岁运单字自动视为已去掉或已受伤，相反候选须全部保留，不得定成最终喜忌',
+            sources: ['《子平真诠评注》“偏官取运”及“即以偏官所成之局分而配之”'],
+          },
+        ]
+      : []),
     {
       key: 'bazi:fortune-trigger:limitation:high-risk-output',
       type: '高风险输出边界',
@@ -2739,6 +3181,7 @@ function buildEvidence(params: {
   wealthPatternRuleFacts: FortuneWealthPatternRuleFact[];
   resourcePatternRuleFacts: FortuneResourcePatternRuleFact[];
   foodPatternRuleFacts: FortuneFoodPatternRuleFact[];
+  killerPatternRuleFacts: FortuneKillerPatternRuleFact[];
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   counterEvidenceFacts: FortuneTriggerCounterEvidenceFact[];
@@ -2844,6 +3287,24 @@ function buildEvidence(params: {
               new Set(params.foodPatternRuleFacts.flatMap((item) => item.sources)),
             ).join('、'),
             tags: ['八字岁运', '食神格', '逐字取运候选'],
+          } satisfies PromptEvidenceItem,
+        ]
+      : []),
+    ...(params.killerPatternRuleFacts.length
+      ? [
+          {
+            level: '主证',
+            title: '七杀格逐字取运候选',
+            detail: `${params.killerPatternRuleFacts
+              .map(
+                (item) =>
+                  `${item.layerLabel}${item.ganZhi}${item.type}：${item.trigger}（${item.status}）`,
+              )
+              .join('；')}。统一边界：${KILLER_PATTERN_RULE_LIMITATION}`,
+            source: Array.from(
+              new Set(params.killerPatternRuleFacts.flatMap((item) => item.sources)),
+            ).join('、'),
+            tags: ['八字岁运', '七杀格', '逐字取运候选'],
           } satisfies PromptEvidenceItem,
         ]
       : []),
@@ -3001,6 +3462,14 @@ export function analyzeFortuneTriggers(
   if (foodPatternRuleAnalysis.calculationStep) {
     calculationSteps.push(foodPatternRuleAnalysis.calculationStep);
   }
+  const killerPatternRuleAnalysis = buildKillerPatternRuleAnalysis({
+    result,
+    layerStructureFacts,
+  });
+  const killerPatternRuleFacts = killerPatternRuleAnalysis.facts;
+  if (killerPatternRuleAnalysis.calculationStep) {
+    calculationSteps.push(killerPatternRuleAnalysis.calculationStep);
+  }
   const relationSummaryFact = buildRelationSummaryFact({
     calculationSteps,
     layerStructureFacts,
@@ -3009,6 +3478,7 @@ export function analyzeFortuneTriggers(
     wealthPatternRuleFacts,
     resourcePatternRuleFacts,
     foodPatternRuleFacts,
+    killerPatternRuleFacts,
     relations,
     formations,
     comparisonSteps,
@@ -3048,6 +3518,8 @@ export function analyzeFortuneTriggers(
     resourcePatternRulesApplicable: resourcePatternRuleAnalysis.applicable,
     foodPatternRuleFacts,
     foodPatternRulesApplicable: foodPatternRuleAnalysis.applicable,
+    killerPatternRuleFacts,
+    killerPatternRulesApplicable: killerPatternRuleAnalysis.applicable,
     relations,
     formations,
     counterEvidenceFacts,
@@ -3065,6 +3537,7 @@ export function analyzeFortuneTriggers(
     wealthPatternRuleFacts,
     resourcePatternRuleFacts,
     foodPatternRuleFacts,
+    killerPatternRuleFacts,
     relations,
     formations,
     counterEvidenceFacts,
@@ -3076,7 +3549,7 @@ export function analyzeFortuneTriggers(
   const calculationChain = calculationSteps.map((item) => item.promptText);
   const noMajorFacts = counterEvidenceFacts.filter((item) => item.status === '未见主要关系');
   const noMajorWithSupporting = noMajorFacts.filter((item) => item.supportingRelationKeys.length);
-  const calculationOverview = `已校验${layers.length}个原局与岁运层级，形成${layerStructureFacts.length}项岁运干支分层事实、${hiddenStemRevealFacts.length}项藏干透出对应候选、${officerPatternRuleFacts.length}项正官取运候选、${wealthPatternRuleFacts.length}项财格取运候选、${resourcePatternRuleFacts.length}项印格取运候选、${foodPatternRuleFacts.length}项食神格取运候选，完成${comparisonSteps.length}组逐项比对和三合三会汇总核验；${relationSummaryFact.promptText}`;
+  const calculationOverview = `已校验${layers.length}个原局与岁运层级，形成${layerStructureFacts.length}项岁运干支分层事实、${hiddenStemRevealFacts.length}项藏干透出对应候选、${officerPatternRuleFacts.length}项正官取运候选、${wealthPatternRuleFacts.length}项财格取运候选、${resourcePatternRuleFacts.length}项印格取运候选、${foodPatternRuleFacts.length}项食神格取运候选、${killerPatternRuleFacts.length}项七杀格取运候选，完成${comparisonSteps.length}组逐项比对和三合三会汇总核验；${relationSummaryFact.promptText}`;
   const counterOverview = noMajorFacts.length
     ? `共${noMajorFacts.length}组层级未见岁运并临、天克地冲或同柱伏吟，其中${noMajorWithSupporting.length}组仍有辅助关系；未见主要关系不等于没有较弱关系、没有现实触发或必然平稳`
     : '所有已比较层级均已记录主要关系；仍不得据命中数量生成吉凶或概率结论';
@@ -3092,6 +3565,7 @@ export function analyzeFortuneTriggers(
     wealthPatternRuleFacts,
     resourcePatternRuleFacts,
     foodPatternRuleFacts,
+    killerPatternRuleFacts,
     relations,
     formations,
     primaryRelations,
@@ -3121,6 +3595,7 @@ export function analyzeFortuneTriggers(
         '财格另按财生官、用食生、佩印、用食印、带伤官、带七杀及用杀印结构逐字列取运候选；财旺、身旺、身轻、财食轻重与印旺保留待复核，不以数量硬判。',
         '印格另按用官、用伤食、用七杀、杀兼伤食、遇财及官杀竞透结构逐字列取运候选；印重、印轻、身旺、官旺与财印轻重保留待复核，不以数量硬判。',
         '食神格另按生财、用杀印、带杀、食旺带印及透财解印结构逐字列取运候选；财食轻重、身旺、食杀轻重、印旺与财旺保留待复核，相反候选并存。',
+        '七杀格另按食制、印绶、财去印存食、财助杀、官杀混杂及无食用刃结构逐字列取运候选；杀食轻重、根轻身轻、财足不足、印身旺衰与刃杀轻重保留待复核，取清组件不由岁运单字自动判为去除或受伤。',
         '运干与运支分别保留，地支关系与三合三会另行核验；同五行或同十神不得据此机械等价。',
         '每个层级和关系均保留稳定键、计算步骤依赖及来源层级，未见主要关系时保留反证，不补造候选应期。',
         '关系成立与吉凶解释分离，不对不同关系设置命运总分，也不从单条关系直接推断事件。',
