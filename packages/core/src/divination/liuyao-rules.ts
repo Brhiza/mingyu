@@ -5,12 +5,14 @@ import {
   getSeasonState,
   isKe,
   isLiuchong,
+  isLiuhe,
   isSheng,
 } from '../ganzhi';
 import type {
   LiuyaoFlyingHiddenRelation,
   LiuyaoHiddenSpirit,
   LiuyaoHiddenSpiritConditionAnalysis,
+  LiuyaoLineStrengthAnalysis,
   LiuyaoYaoDetail,
 } from '../types/divination';
 
@@ -31,6 +33,26 @@ const LIUYAO_CHANGSHENG_START: Record<string, string> = {
   火: '寅',
   水: '申',
   土: '申',
+};
+
+const LIUYAO_ADVANCING_CHANGE: Record<string, string> = {
+  亥: '子',
+  寅: '卯',
+  巳: '午',
+  申: '酉',
+  丑: '辰',
+  辰: '未',
+  未: '戌',
+};
+
+const LIUYAO_RETREATING_CHANGE: Record<string, string> = {
+  子: '亥',
+  卯: '寅',
+  午: '巳',
+  酉: '申',
+  辰: '丑',
+  未: '辰',
+  戌: '未',
 };
 
 function assertElement(element: string, label: string) {
@@ -67,6 +89,18 @@ export function isLiuyaoElementInTomb(element: string, branch: string): boolean 
   return LIUYAO_ELEMENT_TOMB_BRANCH[element] === branch;
 }
 
+/** 《增删卜易·进神退神章》明表，不按十二地支循环外推。 */
+export function getLiuyaoChangeDirection(
+  originalBranch: string,
+  changedBranch: string,
+): '化进神' | '化退神' | null {
+  getBranchElement(originalBranch, '六爻动爻');
+  getBranchElement(changedBranch, '六爻变爻');
+  if (LIUYAO_ADVANCING_CHANGE[originalBranch] === changedBranch) return '化进神';
+  if (LIUYAO_RETREATING_CHANGE[originalBranch] === changedBranch) return '化退神';
+  return null;
+}
+
 /**
  * 《增删卜易·飞伏神章》以“飞来生伏”“飞来克伏”说明飞伏关系。
  * 其余方向按同一五行生克主客完整登记，但不由关系名称直接推出吉凶。
@@ -90,6 +124,194 @@ function unique(items: string[]) {
 
 function isWeakSeason(state: string) {
   return state === '休' || state === '囚' || state === '死';
+}
+
+function isStrongSeason(state: string) {
+  return state === '旺' || state === '相';
+}
+
+function hasHiddenMove(
+  yao: Pick<LiuyaoYaoDetail, 'isChanging' | 'najiaDizhi' | 'wuxing'>,
+  monthBranch: string,
+  dayBranch: string,
+) {
+  return (
+    !yao.isChanging &&
+    isLiuchong(yao.najiaDizhi, dayBranch) &&
+    isStrongSeason(getSeasonState(yao.wuxing, monthBranch))
+  );
+}
+
+function addLineRelation(
+  source: LiuyaoYaoDetail,
+  target: LiuyaoYaoDetail,
+  label: string,
+  support: string[],
+  constraints: string[],
+) {
+  if (isSheng(source.wuxing, target.wuxing)) support.push(`${label}生本爻`);
+  if (source.wuxing === target.wuxing) support.push(`${label}比扶本爻`);
+  if (isLiuhe(source.najiaDizhi, target.najiaDizhi)) support.push(`${label}合本爻`);
+  if (isKe(source.wuxing, target.wuxing)) constraints.push(`${label}克本爻`);
+  if (isLiuchong(source.najiaDizhi, target.najiaDizhi)) constraints.push(`${label}冲本爻`);
+}
+
+/**
+ * 逐层登记《增删卜易·动静生克章》《月将章》《日辰章》及长生墓绝、动变规则。
+ *
+ * 本函数只给出可复核的支持与限制条件：条件允许并见，不按数量打分，也不据此
+ * 直接裁定最终强弱、用神有无效、吉凶或应期。变爻只作用本位动爻。
+ */
+export function analyzeLiuyaoLineStrength(
+  yao: LiuyaoYaoDetail,
+  monthBranch: string,
+  dayBranch: string,
+  yaosDetail: LiuyaoYaoDetail[],
+): LiuyaoLineStrengthAnalysis {
+  const monthElement = getBranchElement(monthBranch, '六爻月建');
+  const dayElement = getBranchElement(dayBranch, '六爻日辰');
+  assertElement(yao.wuxing, `六爻第${yao.position}爻`);
+  getBranchElement(yao.najiaDizhi, `六爻第${yao.position}爻`);
+
+  const seasonState = getSeasonState(yao.wuxing, monthBranch);
+  const monthStage = getLiuyaoTwelveStage(yao.wuxing, monthBranch);
+  const dayStage = getLiuyaoTwelveStage(yao.wuxing, dayBranch);
+  const selfSupport: string[] = [];
+  const selfConstraints: string[] = [];
+  const calendarSupport: string[] = [];
+  const calendarConstraints: string[] = [];
+  const lineSupport: string[] = [];
+  const lineConstraints: string[] = [];
+  const changeSupport: string[] = [];
+  const changeConstraints: string[] = [];
+
+  const hiddenMove = hasHiddenMove(yao, monthBranch, dayBranch);
+  if (yao.isChanging) selfSupport.push('明动');
+  if (hiddenMove) selfSupport.push('暗动');
+  if (yao.isVoid) selfConstraints.push('本爻空亡');
+
+  if (isStrongSeason(seasonState)) calendarSupport.push(`月令${seasonState}`);
+  if (isWeakSeason(seasonState)) calendarConstraints.push(`月令${seasonState}`);
+
+  const addCalendarRelation = (
+    label: '月建' | '日辰',
+    branch: string,
+    element: string,
+    stage: string,
+  ) => {
+    if (yao.najiaDizhi === branch) calendarSupport.push(`值${label}`);
+    if (isSheng(element, yao.wuxing)) calendarSupport.push(`${label}生本爻`);
+    if (element === yao.wuxing) calendarSupport.push(`${label}比扶本爻`);
+    if (isLiuhe(yao.najiaDizhi, branch)) calendarSupport.push(`合${label}`);
+    if (stage === '长生' || stage === '帝旺') calendarSupport.push(`${label}为${stage}`);
+    if (isKe(element, yao.wuxing)) calendarConstraints.push(`${label}克本爻`);
+    if (stage === '墓') calendarConstraints.push(`入${label === '月建' ? '月' : '日'}墓`);
+    if (stage === '绝') calendarConstraints.push(`绝于${label}`);
+  };
+  addCalendarRelation('月建', monthBranch, monthElement, monthStage);
+  addCalendarRelation('日辰', dayBranch, dayElement, dayStage);
+
+  if (isLiuchong(yao.najiaDizhi, monthBranch)) calendarConstraints.push('月破');
+  if (isLiuchong(yao.najiaDizhi, dayBranch)) {
+    if (hiddenMove) {
+      calendarSupport.push('日冲暗动');
+    } else if (!yao.isChanging) {
+      calendarConstraints.push('日破');
+    } else {
+      calendarConstraints.push('日辰冲本爻');
+    }
+  }
+
+  const targetIsWeakStatic = isWeakSeason(seasonState) && !yao.isChanging && !hiddenMove;
+  for (const source of yaosDetail) {
+    if (source.position === yao.position) continue;
+    assertElement(source.wuxing, `六爻第${source.position}爻`);
+    getBranchElement(source.najiaDizhi, `六爻第${source.position}爻`);
+    const sourceHiddenMove = hasHiddenMove(source, monthBranch, dayBranch);
+    if (source.isChanging || sourceHiddenMove) {
+      addLineRelation(
+        source,
+        yao,
+        `第${source.position}爻${source.isChanging ? '明动' : '暗动'}`,
+        lineSupport,
+        lineConstraints,
+      );
+      continue;
+    }
+
+    const sourceSeasonState = getSeasonState(source.wuxing, monthBranch);
+    if (!targetIsWeakStatic || !isStrongSeason(sourceSeasonState)) continue;
+    const label = `第${source.position}爻旺相静爻`;
+    if (isSheng(source.wuxing, yao.wuxing)) lineSupport.push(`${label}生本爻`);
+    if (isKe(source.wuxing, yao.wuxing)) lineConstraints.push(`${label}克本爻`);
+  }
+
+  let changedStage: string | undefined;
+  if (yao.isChanging && yao.changedYao) {
+    assertElement(yao.changedYao.wuxing, `六爻第${yao.position}爻变爻`);
+    getBranchElement(yao.changedYao.dizhi, `六爻第${yao.position}爻变爻`);
+    changedStage = getLiuyaoTwelveStage(yao.wuxing, yao.changedYao.dizhi);
+    const changeDirection = getLiuyaoChangeDirection(yao.najiaDizhi, yao.changedYao.dizhi);
+    if (isSheng(yao.changedYao.wuxing, yao.wuxing)) changeSupport.push('回头生');
+    if (yao.changedYao.wuxing === yao.wuxing) changeSupport.push('比和');
+    if (changeDirection === '化进神') changeSupport.push('化进神');
+    if (changedStage === '长生' || changedStage === '帝旺') {
+      changeSupport.push(`化${changedStage}`);
+    }
+    if (isKe(yao.changedYao.wuxing, yao.wuxing)) changeConstraints.push('回头克');
+    if (isLiuchong(yao.changedYao.dizhi, yao.najiaDizhi)) changeConstraints.push('回头冲');
+    if (isSheng(yao.wuxing, yao.changedYao.wuxing)) changeConstraints.push('化泄');
+    if (isKe(yao.wuxing, yao.changedYao.wuxing)) changeConstraints.push('化耗');
+    if (yao.changedYao.isVoid) changeConstraints.push('化空');
+    if (changeDirection === '化退神') changeConstraints.push('化退神');
+    if (changedStage === '墓' || changedStage === '绝') {
+      changeConstraints.push(`化${changedStage}`);
+    }
+  }
+
+  const normalizedSelfSupport = unique(selfSupport);
+  const normalizedSelfConstraints = unique(selfConstraints);
+  const normalizedCalendarSupport = unique(calendarSupport);
+  const normalizedCalendarConstraints = unique(calendarConstraints);
+  const normalizedLineSupport = unique(lineSupport);
+  const normalizedLineConstraints = unique(lineConstraints);
+  const normalizedChangeSupport = unique(changeSupport);
+  const normalizedChangeConstraints = unique(changeConstraints);
+  const support = unique([
+    ...normalizedSelfSupport,
+    ...normalizedCalendarSupport,
+    ...normalizedLineSupport,
+    ...normalizedChangeSupport,
+  ]);
+  const constraints = unique([
+    ...normalizedSelfConstraints,
+    ...normalizedCalendarConstraints,
+    ...normalizedLineConstraints,
+    ...normalizedChangeConstraints,
+  ]);
+
+  return {
+    seasonState,
+    monthStage,
+    dayStage,
+    ...(changedStage ? { changedStage } : {}),
+    selfSupport: normalizedSelfSupport,
+    selfConstraints: normalizedSelfConstraints,
+    calendarSupport: normalizedCalendarSupport,
+    calendarConstraints: normalizedCalendarConstraints,
+    lineSupport: normalizedLineSupport,
+    lineConstraints: normalizedLineConstraints,
+    changeSupport: normalizedChangeSupport,
+    changeConstraints: normalizedChangeConstraints,
+    support,
+    constraints,
+    status:
+      support.length && constraints.length
+        ? '支持与限制并见'
+        : support.length
+          ? '仅见支持条件'
+          : '仅见限制条件',
+  };
 }
 
 /**

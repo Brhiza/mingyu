@@ -3,10 +3,15 @@ import type {
   LiuyaoData,
   LiuyaoHiddenSpirit,
   LiuyaoHiddenSpiritConditionAnalysis,
+  LiuyaoLineStrengthAnalysis,
   LiuyaoYaoDetail,
 } from '../types/divination';
 import { isKe, isLiuchong, isLiuhai, isLiuhe, isSanxing, isSheng } from '../ganzhi';
-import { analyzeLiuyaoHiddenSpiritConditions } from './liuyao-rules';
+import {
+  analyzeLiuyaoHiddenSpiritConditions,
+  analyzeLiuyaoLineStrength,
+  getLiuyaoChangeDirection,
+} from './liuyao-rules';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import {
@@ -38,6 +43,7 @@ export interface LiuyaoYaoReference {
   isResponse?: boolean;
   isChanging?: boolean;
   isVoid: boolean;
+  strengthAnalysis?: LiuyaoLineStrengthAnalysis;
   support: string[];
   constraints: string[];
   changedYao?: {
@@ -120,13 +126,13 @@ export interface LiuyaoLineFact {
     relations: string[];
   };
   traditionalRelations: {
-    twelveStage?: string;
     sanxingType?: string;
     liuhePartner?: string;
     isLiuhai: boolean;
     isRuMu: boolean;
   };
   isVoid: boolean;
+  strengthAnalysis: LiuyaoLineStrengthAnalysis;
   support: string[];
   constraints: string[];
   changedYao?: {
@@ -141,7 +147,7 @@ export interface LiuyaoLineFact {
   };
   promptText: string;
   sources: string[];
-  limitation: '逐爻字段是纳甲、世应、月日旺衰与动变规则的计算事实，只限定六爻取证条件，不单独证明现实吉凶、事件、身份、疾病、官非、关系或财务结果';
+  limitation: '逐爻字段只登记纳甲、世应、月日、其他爻与本位动变的支持和限制条件；条件可以并见且不得按数量打分，不据此裁定最终强弱或用神有无效，也不单独证明现实吉凶、应期或结果';
 }
 
 export interface LiuyaoHiddenSpiritFact {
@@ -354,7 +360,7 @@ export interface LiuyaoEvidenceAnalysis {
 const ELEMENTS = ['木', '火', '土', '金', '水'];
 
 const LINE_FACT_LIMITATION =
-  '逐爻字段是纳甲、世应、月日旺衰与动变规则的计算事实，只限定六爻取证条件，不单独证明现实吉凶、事件、身份、疾病、官非、关系或财务结果' as const;
+  '逐爻字段只登记纳甲、世应、月日、其他爻与本位动变的支持和限制条件；条件可以并见且不得按数量打分，不据此裁定最终强弱或用神有无效，也不单独证明现实吉凶、应期或结果' as const;
 
 const HIDDEN_SPIRIT_FACT_LIMITATION =
   '伏神事实只记录伏藏位置、飞伏生克及月日动爻空破墓绝条件；支持与限制可以并见，不得按条件数量直接宣布出伏、有用无用、吉凶或现实结果' as const;
@@ -409,12 +415,22 @@ function branchOf(ganzhi: string) {
 }
 
 function getChangeRelations(yao: LiuyaoYaoDetail): LiuyaoChangeRelation[] {
-  const relations = yao.changeRelations?.length
-    ? yao.changeRelations
-    : yao.changeRelation
-      ? [yao.changeRelation]
-      : [];
-  return [...new Set(relations)];
+  if (!yao.isChanging || !yao.changedYao) return [];
+  const wuxingRelation: LiuyaoChangeRelation = isSheng(yao.changedYao.wuxing, yao.wuxing)
+    ? '回头生'
+    : isKe(yao.changedYao.wuxing, yao.wuxing)
+      ? '回头克'
+      : yao.changedYao.wuxing === yao.wuxing
+        ? '比和'
+        : isSheng(yao.wuxing, yao.changedYao.wuxing)
+          ? '化泄'
+          : '化耗';
+  return [
+    ...(isLiuchong(yao.najiaDizhi, yao.changedYao.dizhi)
+      ? (['回头冲', wuxingRelation] as const)
+      : [wuxingRelation]),
+    ...(yao.changedYao.isVoid ? (['化空'] as const) : []),
+  ];
 }
 
 function formatNaJia(stem: string | undefined, branch: string) {
@@ -478,35 +494,10 @@ function buildVisibleReference(
   yao: LiuyaoYaoDetail,
   monthBranch: string,
   dayBranch: string,
+  yaosDetail: LiuyaoYaoDetail[],
 ): LiuyaoYaoReference {
   const changeRelations = getChangeRelations(yao);
-  const support = [
-    yao.isWorld ? '临世' : '',
-    yao.isResponse ? '临应' : '',
-    yao.isChanging ? '发动' : '',
-    yao.isHiddenMove ? '暗动' : '',
-    yao.seasonState === '旺' || yao.seasonState === '相' ? `月令${yao.seasonState}` : '',
-    yao.najiaDizhi === monthBranch ? '值月建' : '',
-    yao.najiaDizhi === dayBranch ? '值日辰' : '',
-    isLiuhe(yao.najiaDizhi, monthBranch) ? '合月建' : '',
-    isLiuhe(yao.najiaDizhi, dayBranch) ? '合日辰' : '',
-    changeRelations.includes('回头生') ? '回头生' : '',
-    yao.changeDirection === '化进神' ? '化进神' : '',
-  ].filter(Boolean);
-  const constraints = [
-    yao.isVoid ? '本爻空亡' : '',
-    yao.isMonthBreak ? '月破' : '',
-    yao.isDayBreak && !yao.isHiddenMove && !yao.isChanging ? '日破' : '',
-    yao.seasonState === '休' || yao.seasonState === '囚' || yao.seasonState === '死'
-      ? `月令${yao.seasonState}`
-      : '',
-    yao.isYueMu ? '入月墓' : '',
-    yao.isRiMu ? '入日墓' : '',
-    changeRelations.includes('回头克') ? '回头克' : '',
-    changeRelations.includes('回头冲') ? '回头冲' : '',
-    changeRelations.includes('化空') || yao.changedYao?.isVoid ? '变爻空亡' : '',
-    yao.changeDirection === '化退神' ? '化退神' : '',
-  ].filter(Boolean);
+  const strengthAnalysis = analyzeLiuyaoLineStrength(yao, monthBranch, dayBranch, yaosDetail);
   return {
     key: `liuyao:reference:line:${yao.position}`,
     factKey: `本卦:第${yao.position}爻`,
@@ -521,8 +512,9 @@ function buildVisibleReference(
     isResponse: yao.isResponse,
     isChanging: yao.isChanging,
     isVoid: yao.isVoid,
-    support,
-    constraints,
+    strengthAnalysis,
+    support: strengthAnalysis.support,
+    constraints: strengthAnalysis.constraints,
     ...(yao.changedYao
       ? {
           changedYao: {
@@ -531,9 +523,9 @@ function buildVisibleReference(
             branch: yao.changedYao.dizhi,
             wuxing: yao.changedYao.wuxing,
             isVoid: yao.changedYao.isVoid,
-            relation: yao.changeRelation,
+            relation: yao.changedYao.isVoid ? '化空' : (changeRelations[0] ?? null),
             relations: changeRelations,
-            direction: yao.changeDirection,
+            direction: getLiuyaoChangeDirection(yao.najiaDizhi, yao.changedYao.dizhi),
           },
         }
       : {}),
@@ -562,7 +554,9 @@ function buildHiddenReference(
 
 function allReferences(data: LiuyaoData, monthBranch: string, dayBranch: string) {
   return [
-    ...data.yaosDetail.map((yao) => buildVisibleReference(yao, monthBranch, dayBranch)),
+    ...data.yaosDetail.map((yao) =>
+      buildVisibleReference(yao, monthBranch, dayBranch, data.yaosDetail),
+    ),
     ...(data.hiddenSpirits ?? []).map((spirit) =>
       buildHiddenReference(
         spirit,
@@ -578,7 +572,11 @@ function buildLineFacts(
   dayBranch: string,
 ): LiuyaoLineFact[] {
   return data.yaosDetail.map((yao) => {
-    const reference = buildVisibleReference(yao, monthBranch, dayBranch);
+    const reference = buildVisibleReference(yao, monthBranch, dayBranch, data.yaosDetail);
+    const strengthAnalysis = reference.strengthAnalysis;
+    if (!strengthAnalysis) {
+      throw new Error(`六爻第${yao.position}爻综合旺衰条件重算失败。`);
+    }
     const roles: LiuyaoLineFact['roles'] = [
       ...(yao.isWorld ? (['世爻'] as const) : []),
       ...(yao.isResponse ? (['应爻'] as const) : []),
@@ -586,28 +584,28 @@ function buildLineFacts(
     const monthRelations = [
       yao.najiaDizhi === monthBranch ? '值月建' : '',
       isLiuhe(yao.najiaDizhi, monthBranch) ? '合月建' : '',
-      yao.isMonthBreak ? '月破' : '',
-      yao.isYueMu ? '入月墓' : '',
+      isLiuchong(yao.najiaDizhi, monthBranch) ? '月破' : '',
+      strengthAnalysis.monthStage === '墓' ? '入月墓' : '',
       isLiuhai(yao.najiaDizhi, monthBranch) ? '与月建相害' : '',
       isSanxing(yao.najiaDizhi, monthBranch) ? '与月建成刑' : '',
     ].filter(Boolean);
     const dayRelations = [
       yao.najiaDizhi === dayBranch ? '值日辰' : '',
       isLiuhe(yao.najiaDizhi, dayBranch) ? '合日辰' : '',
-      yao.isHiddenMove
+      strengthAnalysis.selfSupport.includes('暗动')
         ? '日冲暗动'
-        : yao.isDayBreak && !yao.isChanging
+        : strengthAnalysis.calendarConstraints.includes('日破')
           ? '日冲成破'
           : isLiuchong(yao.najiaDizhi, dayBranch)
             ? '与日辰相冲'
             : '',
-      yao.isRiMu ? '入日墓' : '',
+      strengthAnalysis.dayStage === '墓' ? '入日墓' : '',
       isLiuhai(yao.najiaDizhi, dayBranch) ? '与日辰相害' : '',
       isSanxing(yao.najiaDizhi, dayBranch) ? '与日辰成刑' : '',
     ].filter(Boolean);
     const activity: LiuyaoLineFact['activity'] = yao.isChanging
       ? '明动'
-      : yao.isHiddenMove
+      : strengthAnalysis.selfSupport.includes('暗动')
         ? '暗动'
         : '静爻';
     const changeRelations = getChangeRelations(yao);
@@ -618,9 +616,9 @@ function buildLineFacts(
           branch: yao.changedYao.dizhi,
           wuxing: yao.changedYao.wuxing,
           isVoid: yao.changedYao.isVoid,
-          relation: yao.changeRelation,
+          relation: yao.changedYao.isVoid ? '化空' : (changeRelations[0] ?? null),
           relations: changeRelations,
-          direction: yao.changeDirection,
+          direction: getLiuyaoChangeDirection(yao.najiaDizhi, yao.changedYao.dizhi),
         }
       : undefined;
     const promptText = [
@@ -628,14 +626,16 @@ function buildLineFacts(
       `六神${yao.sixGod}`,
       roles.length ? roles.join('、') : '',
       activity,
-      yao.seasonState ? `月令${yao.seasonState}` : '',
+      `月令${strengthAnalysis.seasonState}`,
       monthRelations.join('、'),
       dayRelations.join('、'),
       yao.isVoid ? '本爻空亡' : '',
-      yao.shiErGong ? `十二宫${yao.shiErGong}` : '',
       changedYao
         ? `化${changedYao.sixRelative}${formatNaJia(changedYao.stem, changedYao.branch)}${changedYao.wuxing}${changedYao.direction ? `、${changedYao.direction}` : ''}${changedYao.relations.length ? `、${changedYao.relations.join('、')}` : changedYao.isVoid ? '、变爻空亡' : ''}`
         : '',
+      `综合旺衰条件${strengthAnalysis.status}`,
+      `支持${strengthAnalysis.support.join('、') || '未见'}`,
+      `限制${strengthAnalysis.constraints.join('、') || '未见'}`,
     ]
       .filter(Boolean)
       .join('；');
@@ -653,18 +653,18 @@ function buildLineFacts(
       activity,
       monthState: {
         branch: monthBranch,
-        seasonState: yao.seasonState,
+        seasonState: strengthAnalysis.seasonState,
         relations: monthRelations,
       },
       dayState: { branch: dayBranch, relations: dayRelations },
       traditionalRelations: {
-        twelveStage: yao.shiErGong,
         sanxingType: yao.isSanxing ? yao.sanxingType : undefined,
         liuhePartner: yao.isLiuhe ? yao.liuhePartner : undefined,
         isLiuhai: Boolean(yao.isLiuhai),
         isRuMu: Boolean(yao.isRuMu),
       },
       isVoid: yao.isVoid,
+      strengthAnalysis,
       support: reference.support,
       constraints: reference.constraints,
       ...(changedYao ? { changedYao } : {}),
@@ -672,7 +672,7 @@ function buildLineFacts(
       sources: [
         '京房八宫纳甲与六亲排布',
         '日干起六神与八宫安世应',
-        '起卦月建、日辰、旬空与动变计算',
+        '起卦月建、日辰、旬空、其他爻作用与本位动变计算',
       ],
       limitation: LINE_FACT_LIMITATION,
     };

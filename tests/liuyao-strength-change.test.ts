@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
+  analyzeLiuyaoLineStrength,
   generateLiuyao,
   getLiuyaoChangeDirection,
   getLiuyaoChangeRelation,
@@ -30,6 +31,29 @@ function generateSampleLiuyao(yaos: readonly number[] = SHAN_HUO_BI_YAOS) {
   return generateLiuyao(SAMPLE_DATE, { yaos });
 }
 
+function makeYao(
+  position: number,
+  branch: string,
+  wuxing: string,
+  overrides: Partial<LiuyaoYaoDetail> = {},
+): LiuyaoYaoDetail {
+  return {
+    position,
+    rawValue: 7,
+    yaoType: '阳',
+    isChanging: false,
+    changeType: '静爻',
+    sixGod: '青龙',
+    sixRelative: '兄弟',
+    najiaDizhi: branch,
+    wuxing,
+    isWorld: false,
+    isResponse: false,
+    isVoid: false,
+    ...overrides,
+  };
+}
+
 test('六爻：各爻输出月令旺相休囚死状态', () => {
   const data = generateSampleLiuyao();
   const monthBranch = data.ganzhi.month.slice(1);
@@ -50,6 +74,89 @@ test('六爻：各爻输出月令旺相休囚死状态', () => {
       assert.equal(yao.seasonState, '囚', `第${yao.position}爻土在子月应囚`);
     }
   }
+});
+
+test('六爻：月生日克与月克日生应保留为支持、限制并见', () => {
+  const wood = makeYao(1, '卯', '木');
+  const monthSupports = analyzeLiuyaoLineStrength(wood, '亥', '酉', [wood]);
+  const daySupports = analyzeLiuyaoLineStrength(wood, '申', '子', [wood]);
+
+  assert.ok(monthSupports.calendarSupport.includes('月建生本爻'));
+  assert.ok(monthSupports.calendarConstraints.includes('日辰克本爻'));
+  assert.equal(monthSupports.status, '支持与限制并见');
+  assert.ok(daySupports.calendarConstraints.includes('月建克本爻'));
+  assert.ok(daySupports.calendarSupport.includes('日辰生本爻'));
+  assert.equal(daySupports.status, '支持与限制并见');
+});
+
+test('六爻：休囚动爻仍能克旺相爻，旺相静爻也能生休囚静爻', () => {
+  const strongWater = makeYao(1, '亥', '水');
+  const weakMovingEarth = makeYao(2, '辰', '土', {
+    rawValue: 9,
+    isChanging: true,
+    changeType: '老阳',
+  });
+  const strongTarget = analyzeLiuyaoLineStrength(strongWater, '子', '卯', [
+    strongWater,
+    weakMovingEarth,
+  ]);
+  assert.ok(strongTarget.lineConstraints.includes('第2爻明动克本爻'));
+
+  const weakFire = makeYao(1, '巳', '火');
+  const strongStaticWood = makeYao(2, '卯', '木');
+  const weakTarget = analyzeLiuyaoLineStrength(weakFire, '子', '辰', [weakFire, strongStaticWood]);
+  assert.ok(weakTarget.lineSupport.includes('第2爻旺相静爻生本爻'));
+});
+
+test('六爻：变爻只作用本位动爻，且化长生、化墓与基础关系可并见', () => {
+  const targetWood = makeYao(1, '卯', '木');
+  const movingWater = makeYao(2, '子', '水', {
+    rawValue: 9,
+    isChanging: true,
+    changeType: '老阳',
+    changedYao: {
+      dizhi: '酉',
+      wuxing: '金',
+      liuqin: '父母',
+      isVoid: false,
+    },
+  });
+  const targetAnalysis = analyzeLiuyaoLineStrength(targetWood, '亥', '辰', [
+    targetWood,
+    movingWater,
+  ]);
+  assert.ok(targetAnalysis.lineSupport.includes('第2爻明动生本爻'));
+  assert.ok(!targetAnalysis.lineConstraints.some((item) => item.includes('变爻')));
+
+  const growingWood = makeYao(1, '卯', '木', {
+    rawValue: 9,
+    isChanging: true,
+    changeType: '老阳',
+    changedYao: {
+      dizhi: '亥',
+      wuxing: '水',
+      liuqin: '父母',
+      isVoid: false,
+    },
+  });
+  const growingAnalysis = analyzeLiuyaoLineStrength(growingWood, '寅', '子', [growingWood]);
+  assert.deepEqual(growingAnalysis.changeSupport, ['回头生', '化长生']);
+
+  const tombWood = makeYao(1, '卯', '木', {
+    rawValue: 9,
+    isChanging: true,
+    changeType: '老阳',
+    changedYao: {
+      dizhi: '未',
+      wuxing: '土',
+      liuqin: '妻财',
+      isVoid: false,
+    },
+  });
+  const tombAnalysis = analyzeLiuyaoLineStrength(tombWood, '亥', '子', [tombWood]);
+  assert.ok(tombAnalysis.calendarSupport.includes('月建生本爻'));
+  assert.deepEqual(tombAnalysis.changeConstraints, ['化耗', '化墓']);
+  assert.equal(tombAnalysis.status, '支持与限制并见');
 });
 
 test('六爻：主卦、动变与伏神均应保留完整纳甲干支', () => {

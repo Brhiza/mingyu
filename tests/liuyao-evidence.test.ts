@@ -51,6 +51,9 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
         item.najia.wuxing &&
         item.monthState.branch &&
         item.dayState.branch &&
+        item.strengthAnalysis &&
+        item.support.length === item.strengthAnalysis.support.length &&
+        item.constraints.length === item.strengthAnalysis.constraints.length &&
         item.promptText &&
         item.sources.length >= 3 &&
         item.limitation.includes('不单独证明现实吉凶'),
@@ -147,6 +150,8 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
   assert.match(evidence.promptText, /证据汇总：/);
   assert.match(evidence.promptText, /解释限制：/);
   assert.match(evidence.promptText, /六爻取用与作用链解释边界/);
+  assert.match(evidence.promptText, /综合旺衰条件(?:仅见支持条件|仅见限制条件|支持与限制并见)/);
+  assert.doesNotMatch(evidence.promptText, /十二宫/);
   const changingReference = evidence.candidates
     .flatMap((candidate) => candidate.references)
     .find((reference) => reference.isChanging);
@@ -278,9 +283,69 @@ test('六爻证据应同时保留基础动变关系与化空条件', () => {
   assert.equal(changedLine.changeRelation, '化空');
   assert.deepEqual(changedFact?.changedYao?.relations, ['回头生', '化空']);
   assert.ok(changedFact?.support.includes('回头生'));
-  assert.ok(changedFact?.constraints.includes('变爻空亡'));
+  assert.ok(changedFact?.constraints.includes('化空'));
   assert.match(changedFact?.promptText || '', /回头生、化空/);
   assert.doesNotMatch(changedFact?.promptText || '', /化空.*变爻空亡|变爻空亡.*化空/);
+});
+
+test('六爻证据应从原始盘面重算综合旺衰并兼容旧结果', () => {
+  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: [9, 8, 7, 6, 7, 8],
+  });
+  const current = analyzeLiuyaoEvidence(data);
+  const legacy = analyzeLiuyaoEvidence({
+    ...data,
+    yaosDetail: data.yaosDetail.map((item) => {
+      const oldItem = { ...item };
+      delete oldItem.strengthAnalysis;
+      return oldItem;
+    }),
+    evidenceAnalysis: undefined,
+  });
+  const tampered = analyzeLiuyaoEvidence({
+    ...data,
+    yaosDetail: data.yaosDetail.map((item) => ({
+      ...item,
+      seasonState: '旺',
+      isHiddenMove: false,
+      isDayBreak: true,
+      changeRelation: item.changedYao ? '比和' : item.changeRelation,
+      changeRelations: item.changedYao ? ['比和'] : item.changeRelations,
+      changeDirection: item.changedYao ? null : item.changeDirection,
+      strengthAnalysis: item.strengthAnalysis
+        ? {
+            ...item.strengthAnalysis,
+            support: ['伪造支持条件'],
+            constraints: ['伪造限制条件'],
+          }
+        : undefined,
+    })),
+    evidenceAnalysis: undefined,
+  });
+
+  assert.deepEqual(
+    legacy.lineFacts.map((item) => item.strengthAnalysis),
+    current.lineFacts.map((item) => item.strengthAnalysis),
+  );
+  assert.deepEqual(
+    legacy.lineFacts.map((item) => [item.support, item.constraints]),
+    current.lineFacts.map((item) => [item.support, item.constraints]),
+  );
+  assert.ok(
+    tampered.lineFacts.every(
+      (item) =>
+        !item.support.includes('伪造支持条件') && !item.constraints.includes('伪造限制条件'),
+    ),
+  );
+  assert.deepEqual(
+    tampered.lineFacts.map((item) => item.changedYao),
+    current.lineFacts.map((item) => item.changedYao),
+  );
+  assert.doesNotMatch(
+    JSON.stringify(current.lineFacts.map((item) => item.strengthAnalysis)),
+    /score|rating|probability|总分|概率|最终强弱|吉凶结论/,
+  );
 });
 
 test('六爻原神忌神仇神应按生克作用链推导', () => {

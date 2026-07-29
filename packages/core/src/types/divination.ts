@@ -185,6 +185,31 @@ export interface BaseYaoDetail {
 export type LiuyaoChangeRelation =
   '回头生' | '回头克' | '回头冲' | '化空' | '比和' | '化泄' | '化耗';
 
+export interface LiuyaoLineStrengthAnalysis {
+  /** 本爻按月令所得旺相休囚死。 */
+  seasonState: '旺' | '相' | '休' | '囚' | '死';
+  /** 本爻五行在月建、日辰及本位变爻地支上的长生阶段。 */
+  monthStage: string;
+  dayStage: string;
+  changedStage?: string;
+  /** 本爻自身的发动、暗动、旬空等条件。 */
+  selfSupport: string[];
+  selfConstraints: string[];
+  /** 月建、日辰对本爻的生克比合冲及长生墓绝条件。 */
+  calendarSupport: string[];
+  calendarConstraints: string[];
+  /** 其他明动、暗动爻及符合条件的旺相静爻对本爻的作用。 */
+  lineSupport: string[];
+  lineConstraints: string[];
+  /** 本位变爻只对原动爻产生的回头生克、进退、空墓绝等条件。 */
+  changeSupport: string[];
+  changeConstraints: string[];
+  /** 各分层条件按固定顺序去重汇总；不按数量换算分数或强弱结论。 */
+  support: string[];
+  constraints: string[];
+  status: '仅见支持条件' | '仅见限制条件' | '支持与限制并见';
+}
+
 export interface LiuyaoYaoDetail extends BaseYaoDetail {
   rawValue: number;
   changeType: string;
@@ -226,6 +251,8 @@ export interface LiuyaoYaoDetail extends BaseYaoDetail {
   shiErGong?: string;
   isYueMu?: boolean;
   isRiMu?: boolean;
+  /** 月日、其他爻及本位动变的综合旺衰条件；旧结果可能没有此字段。 */
+  strengthAnalysis?: LiuyaoLineStrengthAnalysis;
 }
 
 export type LiuyaoFlyingHiddenRelation =

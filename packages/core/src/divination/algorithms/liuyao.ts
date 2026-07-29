@@ -31,6 +31,8 @@ import { attachResultMeta } from '../../shared/result';
 import { analyzeLiuyaoEvidence } from '../liuyao-evidence';
 import {
   analyzeLiuyaoHiddenSpiritConditions,
+  analyzeLiuyaoLineStrength,
+  getLiuyaoChangeDirection,
   getLiuyaoTwelveStage,
   isLiuyaoElementInTomb,
 } from '../liuyao-rules';
@@ -230,43 +232,6 @@ function isDayClash(branch: string, dayBranch: string): boolean {
  */
 function isMonthBreak(branch: string, monthBranch: string): boolean {
   return isLiuchong(branch, monthBranch);
-}
-
-const LIUYAO_ADVANCING_CHANGE: Record<string, string> = {
-  亥: '子',
-  寅: '卯',
-  巳: '午',
-  申: '酉',
-  丑: '辰',
-  辰: '未',
-  未: '戌',
-};
-
-const LIUYAO_RETREATING_CHANGE: Record<string, string> = {
-  子: '亥',
-  卯: '寅',
-  午: '巳',
-  酉: '申',
-  辰: '丑',
-  未: '辰',
-  戌: '未',
-};
-
-/**
- * 判断化进神/退神。
- * 按《增删卜易》进神退神章明表取用，不按十二地支循环外推。
- */
-export function getLiuyaoChangeDirection(
-  originalBranch: string,
-  changedBranch: string,
-): '化进神' | '化退神' | null {
-  if (LIUYAO_ADVANCING_CHANGE[originalBranch] === changedBranch) {
-    return '化进神';
-  }
-  if (LIUYAO_RETREATING_CHANGE[originalBranch] === changedBranch) {
-    return '化退神';
-  }
-  return null;
 }
 
 export type LiuyaoHexagramRelation = '六合卦' | '六冲卦';
@@ -996,7 +961,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     changedHexagram.name,
     changingYaosResult.length > 0,
   );
-  const yaosDetail = yaosInfo.map((info, index) => {
+  const baseYaosDetail: LiuyaoYaoDetail[] = yaosInfo.map((info, index) => {
     const isChanging = rawYaos[index] === 6 || rawYaos[index] === 9;
     const changedInfo = isChanging ? changedYaosInfo[index] : null;
     const isDayClashFlag = isDayClash(info.dizhi, dayBranch);
@@ -1079,6 +1044,10 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
         : null,
     };
   });
+  const yaosDetail: LiuyaoYaoDetail[] = baseYaosDetail.map((yao) => ({
+    ...yao,
+    strengthAnalysis: analyzeLiuyaoLineStrength(yao, monthBranch, dayBranch, baseYaosDetail),
+  }));
   const hiddenSpirits = buildHiddenSpirits({
     originalName: mainHexagram.name,
     palace,
@@ -1167,10 +1136,13 @@ export { buildHiddenSpirits };
 export { analyzeLiuyaoEvidence, conditionLiuyaoTraditionalText } from '../liuyao-evidence';
 export {
   analyzeLiuyaoHiddenSpiritConditions,
+  analyzeLiuyaoLineStrength,
+  getLiuyaoChangeDirection,
   getLiuyaoFlyingHiddenRelation,
   getLiuyaoTwelveStage,
   isLiuyaoElementInTomb,
 } from '../liuyao-rules';
+export type { LiuyaoLineStrengthAnalysis } from '../../types/divination';
 export type {
   LiuyaoCounterEvidenceFact,
   LiuyaoCounterSummaryFact,
