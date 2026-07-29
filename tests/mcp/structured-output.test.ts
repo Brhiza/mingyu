@@ -3250,6 +3250,8 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               key: string;
               status: string;
               stage: string;
+              support: string[];
+              constraints: string[];
               promptText: string;
               sources: string[];
               limitation: string;
@@ -3258,6 +3260,13 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
             yaoCoverageFact: { status: string };
             hexagramStructureFacts: unknown[];
             yaoStructureFacts: unknown[];
+            interResponseFacts: Array<{
+              role: string;
+              relation: string;
+              support: string[];
+              constraints: string[];
+              originalTi: { name: string };
+            }>;
             transitionFacts: Array<{
               key: string;
               status: string;
@@ -3349,6 +3358,14 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
         (item) => item.originalTi.name === result.tiGua.name && item.relation.includes('原体'),
       ),
     );
+    const resultStage = result.evidenceAnalysis.stages.find((item) => item.stage === 'result');
+    assert.ok(resultStage?.constraints.includes('用卦克体且月令旺，克体之气有力'));
+    assert.ok(!resultStage?.support.includes('用卦得月令旺'));
+    const tiInterResponse = result.evidenceAnalysis.interResponseFacts.find(
+      (item) => item.role === '体互',
+    );
+    assert.ok(tiInterResponse?.constraints.includes('体互克原体且月令旺，克体之气有力'));
+    assert.ok(!tiInterResponse?.support.includes('体互得月令旺'));
     assert.ok(
       result.evidenceAnalysis.stages.every(
         (item) =>

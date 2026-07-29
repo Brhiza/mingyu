@@ -4187,6 +4187,16 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     chart.body.data.evidenceAnalysis.interResponseFacts.map((item: { role: string }) => item.role),
     ['体互', '用互'],
   );
+  const resultStage = chart.body.data.evidenceAnalysis.stages.find(
+    (item: { stage: string }) => item.stage === 'result',
+  );
+  assert.ok(resultStage.constraints.includes('用卦克体且月令旺，克体之气有力'));
+  assert.ok(!resultStage.support.includes('用卦得月令旺'));
+  const tiInterResponse = chart.body.data.evidenceAnalysis.interResponseFacts.find(
+    (item: { role: string }) => item.role === '体互',
+  );
+  assert.ok(tiInterResponse.constraints.includes('体互克原体且月令旺，克体之气有力'));
+  assert.ok(!tiInterResponse.support.includes('体互得月令旺'));
   assert.ok(
     chart.body.data.evidenceAnalysis.stages.every(
       (item: Record<string, unknown>) =>

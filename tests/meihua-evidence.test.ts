@@ -258,6 +258,146 @@ test('梅花六十四卦六动爻的原体、体互、用互与变卦体位应�
   assert.equal(checked, 384);
 });
 
+test('梅花体用旺衰应按生体克体方向合看，不得把应卦旺衰独立判为支持或限制', () => {
+  const strongStates = new Set(['旺', '相']);
+  const weakStates = new Set(['休', '囚', '死']);
+  const allStates = [...strongStates, ...weakStates];
+  const mainRelations = ['体克用', '体生用', '比和', '用克体', '用生体'];
+  const interRelations = ['原体克应卦', '原体生应卦', '应卦与原体比和', '应卦克原体', '应卦生原体'];
+  const expectedMainCoverage = mainRelations.flatMap((relation) =>
+    allStates.map((state) => `${relation}|${state}`),
+  );
+  const expectedInterCoverage = interRelations.flatMap((relation) =>
+    allStates.map((state) => `${relation}|${state}`),
+  );
+  const mainCoverage = new Set<string>();
+  const interCoverage = new Set<string>();
+  let checked = 0;
+
+  for (let month = 0; month < 12; month += 1) {
+    const date = new Date(Date.UTC(2026, month, 15, 4));
+    for (let number = 1; number <= 192; number += 1) {
+      const evidence = generateMeihua(date, { method: 'number', number }).evidenceAnalysis;
+      assert.ok(evidence);
+
+      for (const stage of evidence.stages.filter((item) => item.kind === '体用关系')) {
+        assert.ok(stage.ti && stage.yong && stage.relation);
+        const tiState = stage.ti.seasonState;
+        const yongState = stage.yong.seasonState;
+        mainCoverage.add(`${stage.relation}|${yongState}`);
+
+        if (strongStates.has(tiState)) {
+          assert.ok(stage.support.includes(`体卦得月令${tiState}`));
+        } else {
+          assert.ok(weakStates.has(tiState));
+          assert.ok(stage.constraints.includes(`体卦月令${tiState}`));
+        }
+        assert.ok(!stage.support.includes(`用卦得月令${yongState}`));
+        assert.ok(!stage.constraints.includes(`用卦月令${yongState}`));
+
+        if (stage.relation !== '用生体' && stage.relation !== '用克体') {
+          if (strongStates.has(yongState)) {
+            assert.ok(stage.support.includes(`用卦月令${yongState}且不克体，响应之气有力`));
+          } else {
+            assert.ok(![...stage.support, ...stage.constraints].includes(`用卦月令${yongState}`));
+          }
+        }
+
+        if (stage.relation === '用生体') {
+          if (strongStates.has(yongState)) {
+            assert.ok(stage.support.includes(`用卦生体且月令${yongState}，生体之气有力`));
+          } else {
+            assert.ok(stage.constraints.includes(`用卦生体但月令${yongState}，生体之力受月令限制`));
+          }
+        } else if (stage.relation === '用克体') {
+          if (strongStates.has(yongState)) {
+            assert.ok(stage.constraints.includes(`用卦克体且月令${yongState}，克体之气有力`));
+          } else {
+            assert.ok(stage.support.includes(`用卦克体但月令${yongState}，克体之气受月令限制`));
+          }
+        } else if (stage.relation === '体生用') {
+          assert.ok(stage.constraints.includes('体卦生用卦，体卦存在泄耗'));
+          assert.ok(!stage.support.some((item) => item.includes('体卦向事项一方投入')));
+        } else if (stage.relation === '体克用') {
+          assert.ok(stage.support.includes('体卦对用卦具有制约能力'));
+          assert.ok(!stage.constraints.some((item) => item.includes('主动推进可能伴随消耗')));
+        } else {
+          assert.ok(stage.support.includes('体用同五行，关系同气'));
+          assert.ok(!stage.constraints.some((item) => item.includes('仍须结合旺衰')));
+        }
+      }
+
+      for (const fact of evidence.interResponseFacts) {
+        const originalTiState = fact.originalTi.seasonState;
+        const responseState = fact.response.seasonState;
+        const normalizedRelation = fact.relation
+          .replace(new RegExp(`^${fact.role}`), '应卦')
+          .replace(new RegExp(`${fact.role}$`), '应卦');
+        interCoverage.add(`${normalizedRelation}|${responseState}`);
+
+        if (strongStates.has(originalTiState)) {
+          assert.ok(fact.support.includes(`原体得月令${originalTiState}`));
+        } else {
+          assert.ok(weakStates.has(originalTiState));
+          assert.ok(fact.constraints.includes(`原体月令${originalTiState}`));
+        }
+        assert.ok(!fact.support.includes(`${fact.role}得月令${responseState}`));
+        assert.ok(!fact.constraints.includes(`${fact.role}月令${responseState}`));
+
+        if (fact.relation !== `${fact.role}生原体` && fact.relation !== `${fact.role}克原体`) {
+          if (strongStates.has(responseState)) {
+            assert.ok(
+              fact.support.includes(`${fact.role}月令${responseState}且不克原体，响应之气有力`),
+            );
+          } else {
+            assert.ok(
+              ![...fact.support, ...fact.constraints].includes(`${fact.role}月令${responseState}`),
+            );
+          }
+        }
+
+        if (fact.relation === `${fact.role}生原体`) {
+          if (strongStates.has(responseState)) {
+            assert.ok(
+              fact.support.includes(`${fact.role}生原体且月令${responseState}，生体之气有力`),
+            );
+          } else {
+            assert.ok(
+              fact.constraints.includes(
+                `${fact.role}生原体但月令${responseState}，生体之力受月令限制`,
+              ),
+            );
+          }
+        } else if (fact.relation === `${fact.role}克原体`) {
+          if (strongStates.has(responseState)) {
+            assert.ok(
+              fact.constraints.includes(`${fact.role}克原体且月令${responseState}，克体之气有力`),
+            );
+          } else {
+            assert.ok(
+              fact.support.includes(`${fact.role}克原体但月令${responseState}，克体之气受月令限制`),
+            );
+          }
+        } else if (fact.relation === `原体生${fact.role}`) {
+          assert.ok(fact.constraints.includes(`原体生${fact.role}，原体存在泄耗`));
+          assert.ok(!fact.support.includes(`原体生${fact.role}`));
+        } else if (fact.relation === `原体克${fact.role}`) {
+          assert.ok(fact.support.includes(`原体对${fact.role}具有制约能力`));
+          assert.ok(!fact.constraints.some((item) => item.includes('主动制约可能伴随消耗')));
+        } else {
+          assert.ok(fact.support.includes(`${fact.role}与原体同五行`));
+          assert.ok(!fact.constraints.some((item) => item.includes('仍须结合旺衰')));
+        }
+      }
+      checked += 1;
+    }
+  }
+
+  assert.equal(checked, 2304);
+  assert.deepEqual([...mainCoverage].sort(), expectedMainCoverage.sort());
+  assert.deepEqual([...interCoverage].sort(), expectedInterCoverage.sort());
+});
+
 test('梅花证据应重算主互变关系，不采信伪造的体用与互卦派生字段', () => {
   const data = generateMeihua(fixedDate, { method: 'number', number: 123 });
   const fake = { name: '乾', element: '金', nature: '天' };

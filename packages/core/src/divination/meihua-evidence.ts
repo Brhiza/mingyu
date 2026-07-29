@@ -22,7 +22,7 @@ export interface MeihuaInterResponseEvidence {
   basis: string;
   promptText: string;
   sources: string[];
-  limitation: '互卦响应事实只描述体互、用互分别对原体的五行关系与月令旺衰；不得把体互与用互重新组成一对体用，也不得直接解释为现实吉凶、成败或概率';
+  limitation: '互卦响应事实只描述体互、用互分别对原体的五行关系，并按生体宜旺、克体宜衰及非克体应卦乘旺核验月令旺衰；不得把体互与用互重新组成一对体用，也不得直接解释为现实吉凶、成败或概率';
 }
 
 export interface MeihuaStageEvidence {
@@ -43,7 +43,7 @@ export interface MeihuaStageEvidence {
   basis: string;
   promptText: string;
   sources: string[];
-  limitation: '阶段关系事实只描述主卦与变卦体用，或互卦体互、用互分别对原体的五行关系与月令旺衰；阶段标签、支持或限制不得直接解释为现实起因、过程、结果、吉凶或成功率';
+  limitation: '阶段关系事实只描述主卦与变卦体用，或互卦体互、用互分别对原体的五行关系，并按体宜旺、生体宜旺、克体宜衰及非克体应卦乘旺核验月令旺衰；阶段标签、支持或限制不得直接解释为现实起因、过程、结果、吉凶或成功率';
 }
 
 export interface MeihuaHexagramFact {
@@ -133,7 +133,7 @@ export interface MeihuaCounterEvidenceFact {
   detail: string;
   promptText: string;
   sources: string[];
-  limitation: '反证事实只表示某一阶段存在泄耗、受克、休囚死或待现实复核等限制；不得把单项反证直接写成现实失败、灾祸、伤病、损失或必然结果';
+  limitation: '反证事实只表示某一阶段存在体卦衰弱、体卦泄耗、生体之卦无力、克体之卦有力或关系未定等限制；不得把单项反证直接写成现实失败、灾祸、伤病、损失或必然结果';
 }
 
 export interface MeihuaCounterSummaryFact {
@@ -310,9 +310,9 @@ const TRADITIONAL_FACT_LIMITATION =
 const CALCULATION_FACT_LIMITATION =
   '取数算式只证明当前上下卦与动爻索引如何由输入或随机取数得到，不证明卦象预测有效性、现实吉凶或固定应期' as const;
 const STAGE_FACT_LIMITATION =
-  '阶段关系事实只描述主卦与变卦体用，或互卦体互、用互分别对原体的五行关系与月令旺衰；阶段标签、支持或限制不得直接解释为现实起因、过程、结果、吉凶或成功率' as const;
+  '阶段关系事实只描述主卦与变卦体用，或互卦体互、用互分别对原体的五行关系，并按体宜旺、生体宜旺、克体宜衰及非克体应卦乘旺核验月令旺衰；阶段标签、支持或限制不得直接解释为现实起因、过程、结果、吉凶或成功率' as const;
 const INTER_RESPONSE_FACT_LIMITATION =
-  '互卦响应事实只描述体互、用互分别对原体的五行关系与月令旺衰；不得把体互与用互重新组成一对体用，也不得直接解释为现实吉凶、成败或概率' as const;
+  '互卦响应事实只描述体互、用互分别对原体的五行关系，并按生体宜旺、克体宜衰及非克体应卦乘旺核验月令旺衰；不得把体互与用互重新组成一对体用，也不得直接解释为现实吉凶、成败或概率' as const;
 const HEXAGRAM_FACT_LIMITATION =
   '主互变卦象事实只记录当前上下经卦、卦名与卦符；不得由卦名或阶段位置直接推断现实事件、人物、吉凶、成败或应期' as const;
 const YAO_FACT_LIMITATION =
@@ -324,7 +324,7 @@ const STAGE_COVERAGE_LIMITATION =
 const TRANSITION_FACT_LIMITATION =
   '阶段推进事实只比较相邻已记录阶段的主变体用或互卦响应关系变化；不得把卦内先后直接写成现实事件必然按同样顺序发生，跨阶段缺口时更不得补造中间过程' as const;
 const COUNTER_FACT_LIMITATION =
-  '反证事实只表示某一阶段存在泄耗、受克、休囚死或待现实复核等限制；不得把单项反证直接写成现实失败、灾祸、伤病、损失或必然结果' as const;
+  '反证事实只表示某一阶段存在体卦衰弱、体卦泄耗、生体之卦无力、克体之卦有力或关系未定等限制；不得把单项反证直接写成现实失败、灾祸、伤病、损失或必然结果' as const;
 const COUNTER_SUMMARY_LIMITATION =
   '反证汇总只说明当前阶段核验是否发现明确限制；未见明确反证不代表现实风险为零，也不得按反证数量换算吉凶总分或成功率' as const;
 const TIMING_FACT_LIMITATION =
@@ -498,25 +498,63 @@ function relationOf(yong: string, ti: string) {
 function relationEvidence(relation: string) {
   switch (relation) {
     case '用生体':
-      return { support: ['外部条件生扶体卦'], constraints: [] };
+      return { support: ['用卦生扶体卦'], constraints: [] };
     case '比和':
-      return { support: ['体用同五行，关系同气'], constraints: ['仍须结合旺衰与现实条件'] };
+      return { support: ['体用同五行，关系同气'], constraints: [] };
     case '体克用':
-      return { support: ['体卦对用卦具有制约能力'], constraints: ['主动推进可能伴随消耗'] };
+      return { support: ['体卦对用卦具有制约能力'], constraints: [] };
     case '体生用':
-      return { support: ['体卦向事项一方投入'], constraints: ['体卦存在泄耗'] };
+      return { support: [], constraints: ['体卦生用卦，体卦存在泄耗'] };
     case '用克体':
-      return { support: [], constraints: ['外部事项对体卦形成压力'] };
+      return { support: [], constraints: ['用卦克体，克体关系成立'] };
     default:
       return { support: [], constraints: ['现有资料不足以确定五行关系'] };
   }
 }
 
-function stateEvidence(role: '体' | '用', state: string) {
+function bodyStateEvidence(label: '体卦' | '原体', state: string) {
   if (state === '旺' || state === '相')
-    return { support: [`${role}卦得月令${state}`], constraints: [] };
+    return { support: [`${label}得月令${state}`], constraints: [] };
   if (state === '休' || state === '囚' || state === '死') {
-    return { support: [], constraints: [`${role}卦月令${state}`] };
+    return { support: [], constraints: [`${label}月令${state}`] };
+  }
+  return { support: [], constraints: [] };
+}
+
+function responseStateEvidence(params: {
+  relation: '生体' | '克体' | '不克体';
+  responseLabel: '用卦' | '体互' | '用互';
+  bodyLabel: '体' | '原体';
+  state: string;
+}) {
+  const relationText = `${params.responseLabel}${params.relation === '生体' ? '生' : '克'}${params.bodyLabel}`;
+  if (params.state === '旺' || params.state === '相') {
+    if (params.relation === '生体') {
+      return { support: [`${relationText}且月令${params.state}，生体之气有力`], constraints: [] };
+    }
+    if (params.relation === '克体') {
+      return { support: [], constraints: [`${relationText}且月令${params.state}，克体之气有力`] };
+    }
+    return {
+      support: [
+        `${params.responseLabel}月令${params.state}且不克${params.bodyLabel}，响应之气有力`,
+      ],
+      constraints: [],
+    };
+  }
+  if (params.state === '休' || params.state === '囚' || params.state === '死') {
+    if (params.relation === '生体') {
+      return {
+        support: [],
+        constraints: [`${relationText}但月令${params.state}，生体之力受月令限制`],
+      };
+    }
+    if (params.relation === '克体') {
+      return {
+        support: [`${relationText}但月令${params.state}，克体之气受月令限制`],
+        constraints: [],
+      };
+    }
   }
   return { support: [], constraints: [] };
 }
@@ -535,8 +573,23 @@ function createTiYongStage(params: {
   const relationItems = relationEvidence(relation);
   const tiState = getSeasonState(params.ti.element, params.monthBranch);
   const yongState = getSeasonState(params.yong.element, params.monthBranch);
-  const tiItems = stateEvidence('体', tiState);
-  const yongItems = stateEvidence('用', yongState);
+  const tiItems = bodyStateEvidence('体卦', tiState);
+  const yongRelation =
+    relation === '用生体'
+      ? '生体'
+      : relation === '用克体'
+        ? '克体'
+        : relation === '比和' || relation === '体生用' || relation === '体克用'
+          ? '不克体'
+          : undefined;
+  const yongItems = yongRelation
+    ? responseStateEvidence({
+        relation: yongRelation,
+        responseLabel: '用卦',
+        bodyLabel: '体',
+        state: yongState,
+      })
+    : { support: [], constraints: [] };
   const stage: MeihuaStageEvidence = {
     key: `meihua:stage:${params.stage}`,
     status: params.hexagramFactKey ? '已计算' : '卦象资料缺失',
@@ -555,6 +608,7 @@ function createTiYongStage(params: {
     sources: [
       '动爻所在经卦定体用规则',
       '主卦与变卦上下经卦五行',
+      '《梅花易数》卷三《体用衰旺之诀》体宜旺、生体宜旺、克体宜衰及用互变非克体者乘旺',
       `月建${params.monthBranch}与五行旺相休囚死关系`,
     ],
     limitation: STAGE_FACT_LIMITATION,
@@ -586,16 +640,16 @@ function relationToOriginalTi(
 function interResponseEvidence(relation: string, role: MeihuaInterResponseEvidence['role']) {
   if (relation === `${role}生原体`) return { support: [`${role}生扶原体`], constraints: [] };
   if (relation === `${role}与原体比和`) {
-    return { support: [`${role}与原体同五行`], constraints: ['仍须结合旺衰与现实条件'] };
+    return { support: [`${role}与原体同五行`], constraints: [] };
   }
   if (relation === `原体克${role}`) {
-    return { support: [`原体对${role}具有制约能力`], constraints: ['主动制约可能伴随消耗'] };
+    return { support: [`原体对${role}具有制约能力`], constraints: [] };
   }
   if (relation === `原体生${role}`) {
-    return { support: [`原体生${role}`], constraints: ['原体存在泄耗'] };
+    return { support: [], constraints: [`原体生${role}，原体存在泄耗`] };
   }
   if (relation === `${role}克原体`) {
-    return { support: [], constraints: [`${role}对原体形成压力`] };
+    return { support: [], constraints: [`${role}克原体，克体关系成立`] };
   }
   return { support: [], constraints: [`${role}与原体的五行关系未定`] };
 }
@@ -615,28 +669,42 @@ function createInterResponseFact(params: {
   const relationItems = interResponseEvidence(relation, params.role);
   const originalTiState = getSeasonState(params.originalTi.element, params.monthBranch);
   const responseState = getSeasonState(params.response.element, params.monthBranch);
-  const originalTiItems = stateEvidence('体', originalTiState);
-  const responseItems = stateEvidence('用', responseState);
+  const originalTiItems = bodyStateEvidence('原体', originalTiState);
+  const responseRelation =
+    relation === `${params.role}生原体`
+      ? '生体'
+      : relation === `${params.role}克原体`
+        ? '克体'
+        : relation === `${params.role}与原体比和` ||
+            relation === `原体生${params.role}` ||
+            relation === `原体克${params.role}`
+          ? '不克体'
+          : undefined;
+  const responseItems = responseRelation
+    ? responseStateEvidence({
+        relation: responseRelation,
+        responseLabel: params.role,
+        bodyLabel: '原体',
+        state: responseState,
+      })
+    : { support: [], constraints: [] };
   const fact: MeihuaInterResponseEvidence = {
     key: `meihua:inter-response:${params.role === '体互' ? 'ti' : 'yong'}`,
     role: params.role,
     response: { ...params.response, seasonState: responseState },
     originalTi: { ...params.originalTi, seasonState: originalTiState },
     relation,
-    support: [
-      ...relationItems.support,
-      ...originalTiItems.support,
-      ...responseItems.support.map((item) => item.replace('用卦', `${params.role}`)),
-    ],
+    support: [...relationItems.support, ...originalTiItems.support, ...responseItems.support],
     constraints: [
       ...relationItems.constraints,
       ...originalTiItems.constraints,
-      ...responseItems.constraints.map((item) => item.replace('用卦', `${params.role}`)),
+      ...responseItems.constraints,
     ],
     basis: params.basis,
     promptText: '',
     sources: [
       '《梅花易数》卷三《体用互变之诀》体互、用互方位规则',
+      '《梅花易数》卷三《体用衰旺之诀》体宜旺、生体宜旺、克体宜衰及用互变非克体者乘旺',
       `月建${params.monthBranch}与五行旺相休囚死关系`,
     ],
     limitation: INTER_RESPONSE_FACT_LIMITATION,
@@ -1091,13 +1159,13 @@ function classifyCounterType(
   detail: string,
   stageKind: MeihuaStageEvidence['kind'],
 ): MeihuaCounterEvidenceFact['type'] {
-  if (detail.startsWith('体卦月令')) return '体卦月令限制';
-  if (detail.startsWith('用卦月令')) return '用卦月令限制';
+  if (/^(体卦|原体)月令/.test(detail)) return '体卦月令限制';
+  if (stageKind === '体用关系' && detail.startsWith('用卦') && detail.includes('月令')) {
+    return '用卦月令限制';
+  }
   if (/现实|仍须|核验/.test(detail)) return '现实复核限制';
   if (stageKind === '互卦响应关系') {
-    return detail.startsWith('体互月令') || detail.startsWith('用互月令')
-      ? '互卦响应月令限制'
-      : '互卦响应关系限制';
+    return detail.includes('月令') ? '互卦响应月令限制' : '互卦响应关系限制';
   }
   return '体用关系限制';
 }
@@ -1112,7 +1180,7 @@ function buildCounterEvidenceFacts(stages: MeihuaStageEvidence[]): MeihuaCounter
       status: '已触发',
       detail,
       promptText: `${stage.label}${stage.hexagram}：${detail}`,
-      sources: ['对应阶段主变体用或互卦响应关系与月令旺衰核验'],
+      sources: ['对应阶段主变体用或互卦响应关系，并按体宜旺、生体宜旺、克体宜衰核验月令旺衰'],
       limitation: COUNTER_FACT_LIMITATION,
     })),
   );
@@ -1477,7 +1545,7 @@ function buildLimitationFacts(params: {
         ...params.counterEvidenceFacts.map((item) => item.key),
       ],
       promptText:
-        '阶段推进只比较相邻主变体用或互卦响应关系变化，阶段缺口时不得补造中间过程；泄耗、受克、休囚死等反证须与支持条件并列，不得直接写成现实失败、灾祸或损失',
+        '阶段推进只比较相邻主变体用或互卦响应关系变化，阶段缺口时不得补造中间过程；体卦衰弱、泄耗、生体之卦无力和克体之卦有力等反证须与支持条件并列，不得直接写成现实失败、灾祸或损失',
       sources: ['阶段推进事实与逐阶段反证汇总'],
     },
     {
