@@ -35,6 +35,7 @@ function assertEvidenceReferences(result: ReturnType<typeof analyzeFortuneTrigge
     ...result.killerPatternRuleFacts.map((item) => item.key),
     ...result.hurtPatternRuleFacts.map((item) => item.key),
     ...result.bladePatternRuleFacts.map((item) => item.key),
+    ...result.luPatternRuleFacts.map((item) => item.key),
     ...result.relations.map((item) => item.key),
     ...result.formations.map((item) => item.key),
     ...result.counterEvidenceFacts.map((item) => item.key),
@@ -108,6 +109,17 @@ function createBladeResult(pillars: Pillars): BaziChartResult {
   result.pillars = pillars;
   result.dayMaster = { gan: pillars.day.gan } as BaziChartResult['dayMaster'];
   result.analysis.mingGe = { pattern: '月刃格', isSpecial: false };
+  return result;
+}
+
+function createLuResult(
+  pillars: Pillars,
+  pattern: '建禄格' | '劫财格' = '建禄格',
+): BaziChartResult {
+  const result = createResult();
+  result.pillars = pillars;
+  result.dayMaster = { gan: pillars.day.gan } as BaziChartResult['dayMaster'];
+  result.analysis.mingGe = { pattern, isSpecial: false };
   return result;
 }
 
@@ -1409,6 +1421,246 @@ test('阳刃官杀并出应保留制伏、身旺及财地官乡相反方向，�
     ),
   );
   assert.ok(result.calculationSteps.some((item) => item.stage === '阳刃格取运核验'));
+  assertEvidenceReferences(result);
+  assert.doesNotMatch(
+    result.promptText,
+    /判定为最终喜运|判定为最终忌运|匹配总分：|富贵概率：\d|灾祸必然|成功率：\d/,
+  );
+});
+
+test('禄劫用官应区分印护与财生，并严格分开运干合官和运支植根', () => {
+  const protectedNatal = createLuResult({
+    year: { gan: '庚', zhi: '戌', ganZhi: '庚戌' },
+    month: { gan: '戊', zhi: '子', ganZhi: '戊子' },
+    day: { gan: '癸', zhi: '酉', ganZhi: '癸酉' },
+    hour: { gan: '癸', zhi: '亥', ganZhi: '癸亥' },
+  });
+  const financedNatal = createLuResult({
+    year: { gan: '丁', zhi: '酉', ganZhi: '丁酉' },
+    month: { gan: '丙', zhi: '午', ganZhi: '丙午' },
+    day: { gan: '丁', zhi: '巳', ganZhi: '丁巳' },
+    hour: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
+  });
+  const protectedResult = analyzeFortuneTriggers(protectedNatal, [
+    { id: 'wealth', type: 'dayun', label: '丁巳大运', ganZhi: '丁巳' },
+    { id: 'combine', type: 'year', label: '癸亥流年', ganZhi: '癸亥' },
+    { id: 'hidden-combine', type: 'month', label: '甲子流月', ganZhi: '甲子' },
+    { id: 'killer', type: 'day', label: '己未流日', ganZhi: '己未' },
+    { id: 'output', type: 'hour', label: '甲寅流时', ganZhi: '甲寅' },
+  ]);
+  const financedResult = analyzeFortuneTriggers(financedNatal, [
+    { id: 'resource', type: 'dayun', label: '甲寅大运', ganZhi: '甲寅' },
+    { id: 'root', type: 'year', label: '乙亥流年', ganZhi: '乙亥' },
+    { id: 'stem-officer', type: 'month', label: '壬辰流月', ganZhi: '壬辰' },
+    { id: 'output', type: 'day', label: '戊戌流日', ganZhi: '戊戌' },
+    { id: 'killer', type: 'hour', label: '癸亥流时', ganZhi: '癸亥' },
+  ]);
+  const protectedFacts = protectedResult.luPatternRuleFacts.filter(
+    (item) => item.type === '禄劫用官印护取运候选',
+  );
+  const financedFacts = financedResult.luPatternRuleFacts.filter(
+    (item) => item.type === '禄劫用官财生取运候选',
+  );
+  const combineFacts = protectedFacts.filter((item) => item.key.endsWith('combine-officer'));
+  const rootFacts = financedFacts.filter((item) => item.key.endsWith('officer-wealth-root'));
+
+  assert.ok(protectedFacts.some((item) => item.trigger.includes('印护者喜财')));
+  assert.ok(protectedFacts.some((item) => item.trigger.includes('畏七杀相乘')));
+  assert.ok(protectedFacts.some((item) => item.trigger.includes('伤食不能为害')));
+  assert.ok(protectedFacts.some((item) => item.trigger.includes('劫比未即为凶')));
+  assert.equal(combineFacts.length, 1);
+  assert.equal(combineFacts[0]?.ganZhi, '癸亥');
+  assert.match(combineFacts[0]?.trigger ?? '', /运干癸.*五合.*不等于已经合化/);
+  assert.ok(financedFacts.some((item) => item.trigger.includes('财生喜印')));
+  assert.ok(financedFacts.some((item) => item.trigger.includes('畏伤食相侮')));
+  assert.ok(financedFacts.some((item) => item.trigger.includes('杂杀岂能无碍')));
+  assert.equal(rootFacts.length, 2);
+  assert.ok(rootFacts.every((item) => item.ganZhi.endsWith('亥')));
+  assert.ok(
+    rootFacts.every((item) => /运支亥.*藏干壬正官.*不把运干正官误作根气/.test(item.trigger)),
+  );
+  assert.ok(!rootFacts.some((item) => item.ganZhi === '壬辰'));
+});
+
+test('月劫用财带伤食应让财食轻重相反方向并存，并保留官杀边界', () => {
+  const natal = createLuResult(
+    {
+      year: { gan: '己', zhi: '未', ganZhi: '己未' },
+      month: { gan: '己', zhi: '巳', ganZhi: '己巳' },
+      day: { gan: '丁', zhi: '未', ganZhi: '丁未' },
+      hour: { gan: '辛', zhi: '丑', ganZhi: '辛丑' },
+    },
+    '劫财格',
+  );
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'resource', type: 'dayun', label: '甲寅大运', ganZhi: '甲寅' },
+    { id: 'peer', type: 'year', label: '丁巳流年', ganZhi: '丁巳' },
+    { id: 'wealth', type: 'month', label: '辛丑流月', ganZhi: '辛丑' },
+    { id: 'killer', type: 'day', label: '癸亥流日', ganZhi: '癸亥' },
+    { id: 'officer', type: 'hour', label: '壬子流时', ganZhi: '壬子' },
+  ]);
+  const facts = result.luPatternRuleFacts.filter((item) => item.type === '禄劫用财带伤食取运候选');
+
+  assert.ok(facts.some((item) => item.trigger.includes('财食重') && item.trigger.includes('喜印')));
+  assert.ok(
+    facts.some((item) => item.trigger.includes('财食轻') && item.trigger.includes('不喜印')),
+  );
+  assert.ok(
+    facts.some((item) => item.trigger.includes('财食重') && item.trigger.includes('不忌比肩')),
+  );
+  assert.ok(
+    facts.some((item) => item.trigger.includes('财食轻') && item.trigger.includes('不喜印比')),
+  );
+  assert.ok(facts.some((item) => item.trigger.includes('财食轻') && item.trigger.includes('助财')));
+  assert.ok(facts.some((item) => item.status === '支持候选' && item.trigger.includes('逢杀无伤')));
+  assert.ok(facts.some((item) => item.status === '带忌候选' && item.trigger.includes('遇官非福')));
+  assert.match(facts[0]?.natalStructure ?? '', /不得由明透、藏干或会合数量硬判/);
+});
+
+test('禄劫用杀食制应让食重杀轻与食轻杀重方向并存', () => {
+  const natal = createLuResult({
+    year: { gan: '丁', zhi: '巳', ganZhi: '丁巳' },
+    month: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+    day: { gan: '癸', zhi: '卯', ganZhi: '癸卯' },
+    hour: { gan: '己', zhi: '未', ganZhi: '己未' },
+  });
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'killer', type: 'dayun', label: '己未大运', ganZhi: '己未' },
+    { id: 'output', type: 'year', label: '甲寅流年', ganZhi: '甲寅' },
+  ]);
+  const facts = result.luPatternRuleFacts.filter((item) => item.type === '禄劫用杀食制取运候选');
+
+  assert.ok(
+    facts.some((item) => item.trigger.includes('食重杀轻') && item.trigger.includes('助杀')),
+  );
+  assert.ok(
+    facts.some((item) => item.trigger.includes('食轻杀重') && item.trigger.includes('助食')),
+  );
+  assert.ok(facts.every((item) => item.status === '条件待复核'));
+  assert.ok(facts.every((item) => item.natalStructure.includes('不得由数量硬判')));
+});
+
+test('禄劫用杀带财应区分合杀存财与合财存杀，不提前认定五合去留', () => {
+  const preservedWealthNatal = createLuResult({
+    year: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    month: { gan: '癸', zhi: '亥', ganZhi: '癸亥' },
+    day: { gan: '壬', zhi: '午', ganZhi: '壬午' },
+    hour: { gan: '丙', zhi: '午', ganZhi: '丙午' },
+  });
+  const preservedKillerNatal = createLuResult({
+    year: { gan: '丁', zhi: '巳', ganZhi: '丁巳' },
+    month: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+    day: { gan: '癸', zhi: '卯', ganZhi: '癸卯' },
+    hour: { gan: '己', zhi: '未', ganZhi: '己未' },
+  });
+  const preservedWealthResult = analyzeFortuneTriggers(preservedWealthNatal, [
+    { id: 'output', type: 'dayun', label: '甲寅大运', ganZhi: '甲寅' },
+    { id: 'wealth', type: 'year', label: '丙辰流年', ganZhi: '丙辰' },
+    { id: 'officer', type: 'month', label: '己未流月', ganZhi: '己未' },
+    { id: 'peer', type: 'day', label: '壬子流日', ganZhi: '壬子' },
+  ]);
+  const preservedKillerResult = analyzeFortuneTriggers(preservedKillerNatal, [
+    { id: 'killer', type: 'dayun', label: '己未大运', ganZhi: '己未' },
+    { id: 'output', type: 'year', label: '甲寅流年', ganZhi: '甲寅' },
+  ]);
+  const preservedWealthFacts = preservedWealthResult.luPatternRuleFacts.filter(
+    (item) => item.type === '禄劫用杀带财取运候选',
+  );
+  const preservedKillerFacts = preservedKillerResult.luPatternRuleFacts.filter(
+    (item) => item.type === '禄劫用杀带财取运候选',
+  );
+
+  assert.ok(preservedWealthFacts.some((item) => item.trigger.includes('伤食为宜')));
+  assert.ok(preservedWealthFacts.some((item) => item.trigger.includes('财运不忌')));
+  assert.ok(preservedWealthFacts.some((item) => item.trigger.includes('透官无虑')));
+  assert.ok(preservedWealthFacts.some((item) => item.trigger.includes('身旺亦亨')));
+  assert.ok(
+    preservedWealthFacts.every((item) => item.natalStructure.includes('五合不等于七杀已去')),
+  );
+  assert.ok(
+    preservedKillerFacts.some(
+      (item) => item.trigger.includes('杀轻') && item.trigger.includes('助杀'),
+    ),
+  );
+  assert.ok(
+    preservedKillerFacts.some(
+      (item) => item.trigger.includes('食轻') && item.trigger.includes('助食'),
+    ),
+  );
+  assert.ok(
+    preservedKillerFacts.every((item) => item.natalStructure.includes('五合不等于财星已去')),
+  );
+});
+
+test('禄劫用伤食应保留印运一般带忌与伤食太重例外', () => {
+  const natal = createLuResult({
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+  });
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'wealth', type: 'dayun', label: '戊辰大运', ganZhi: '戊辰' },
+    { id: 'killer', type: 'year', label: '庚申流年', ganZhi: '庚申' },
+    { id: 'resource', type: 'month', label: '壬子流月', ganZhi: '壬子' },
+    { id: 'officer', type: 'day', label: '辛酉流日', ganZhi: '辛酉' },
+    { id: 'hidden-officer', type: 'hour', label: '乙酉流时', ganZhi: '乙酉' },
+  ]);
+  const facts = result.luPatternRuleFacts.filter((item) => item.type === '禄劫用伤食取运候选');
+
+  assert.ok(facts.some((item) => item.status === '支持候选' && item.trigger.includes('财运最宜')));
+  assert.ok(facts.some((item) => item.status === '支持候选' && item.trigger.includes('杀亦不忌')));
+  assert.ok(facts.some((item) => item.status === '带忌候选' && item.trigger.includes('行印非吉')));
+  assert.ok(
+    facts.some(
+      (item) =>
+        item.status === '条件待复核' &&
+        item.trigger.includes('伤食太重') &&
+        item.trigger.includes('印亦不忌'),
+    ),
+  );
+  const officerFacts = facts.filter((item) => item.trigger.includes('透官不美'));
+  assert.equal(officerFacts.length, 1);
+  assert.equal(officerFacts[0]?.ganZhi, '辛酉');
+  assert.match(officerFacts[0]?.trigger ?? '', /运干辛正官明透/);
+  assert.ok(facts.every((item) => !(item.ganZhi === '乙酉' && item.trigger.includes('透官不美'))));
+});
+
+test('禄劫官杀并出应保留伤食比肩与财印官运相反方向，不提前认定取清', () => {
+  const natal = createLuResult({
+    year: { gan: '辛', zhi: '丑', ganZhi: '辛丑' },
+    month: { gan: '庚', zhi: '寅', ganZhi: '庚寅' },
+    day: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
+    hour: { gan: '乙', zhi: '亥', ganZhi: '乙亥' },
+  });
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'output', type: 'dayun', label: '丙寅大运', ganZhi: '丙寅' },
+    { id: 'peer', type: 'year', label: '乙卯流年', ganZhi: '乙卯' },
+    { id: 'resource', type: 'month', label: '壬子流月', ganZhi: '壬子' },
+    { id: 'wealth', type: 'day', label: '戊辰流日', ganZhi: '戊辰' },
+    { id: 'officer', type: 'hour', label: '辛酉流时', ganZhi: '辛酉' },
+  ]);
+  const facts = result.luPatternRuleFacts.filter((item) => item.type === '禄劫官杀并出取运候选');
+
+  assert.ok(facts.some((item) => item.status === '支持候选' && item.trigger.includes('运喜伤食')));
+  assert.ok(facts.some((item) => item.status === '支持候选' && item.trigger.includes('比肩亦宜')));
+  assert.ok(
+    facts.some((item) => item.status === '带忌候选' && item.trigger.includes('印绶未为良图')),
+  );
+  assert.ok(
+    facts.some((item) => item.status === '带忌候选' && item.trigger.includes('财运亦非福')),
+  );
+  assert.ok(
+    facts.some((item) => item.status === '带忌候选' && item.trigger.includes('官运亦非福')),
+  );
+  assert.ok(facts.every((item) => item.natalStructure.includes('不认定官杀已经去留取清')));
+  assert.ok(
+    result.limitationFacts.some(
+      (item) =>
+        item.type === '建禄月劫取运边界' && item.promptText.includes('官星植根只接受运支实际藏官'),
+    ),
+  );
+  assert.ok(result.calculationSteps.some((item) => item.stage === '建禄月劫取运核验'));
   assertEvidenceReferences(result);
   assert.doesNotMatch(
     result.promptText,

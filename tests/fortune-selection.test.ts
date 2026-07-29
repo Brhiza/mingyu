@@ -126,6 +126,7 @@ test('选择大运时会附带该大运下的全部流年', () => {
   assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.killerPatternRuleFacts));
   assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.hurtPatternRuleFacts));
   assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.bladePatternRuleFacts));
+  assert.ok(Array.isArray(context.promptPayload.triggerEvidence?.luPatternRuleFacts));
   assert.ok(
     context.promptPayload.triggerEvidence?.limitationFacts.some(
       (item) => item.type === '层级应期边界',
@@ -337,6 +338,53 @@ test('真实月刃格排盘应把用杀的相反逐字取运候选贯穿到提�
   assert.match(evidenceText, /【主证】阳刃格逐字取运候选/);
   assert.match(evidenceText, /杀不甚旺.*助杀方向.*条件待复核/);
   assert.match(evidenceText, /杀太重.*伤食亦不为忌.*条件待复核/);
+  assert.match(evidenceText, /不得把单项候选定为最终喜运、忌运、吉凶或现实事件/);
+});
+
+test('真实建禄格排盘应把用官与用财的逐字取运候选贯穿到提示资料', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1981,
+    month: 5,
+    day: 8,
+    timeIndex: 1,
+    gender: 'male',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['辛酉', '癸巳', '丙戌', '己丑'],
+  );
+  assert.equal(result.analysis.mingGe.pattern, '建禄格');
+
+  const context = buildFortuneSelectionContext(result, {
+    scope: 'dayun',
+    cycleIndex: 1,
+  });
+
+  assert.ok(context);
+  assert.equal(context.displayLabel, '壬辰运');
+  const luFacts = context.promptPayload.triggerEvidence.luPatternRuleFacts;
+  assert.equal(luFacts.length, 8);
+  assert.ok(luFacts.some((item) => item.trigger.includes('财生喜印')));
+  assert.ok(luFacts.some((item) => item.trigger.includes('运支官星植根候选')));
+  assert.ok(luFacts.some((item) => item.trigger.includes('畏伤食相侮')));
+  assert.ok(luFacts.some((item) => item.trigger.includes('杂杀岂能无碍')));
+  assert.ok(
+    luFacts.some((item) => item.trigger.includes('财食重') && item.trigger.includes('喜印')),
+  );
+  assert.ok(
+    luFacts.some((item) => item.trigger.includes('财食轻') && item.trigger.includes('不喜印')),
+  );
+  assert.ok(luFacts.some((item) => item.trigger.includes('逢杀无伤')));
+  assert.ok(luFacts.some((item) => item.trigger.includes('遇官非福')));
+
+  const evidenceText = context.promptPayload.evidenceLines?.join('\n') ?? '';
+  assert.match(evidenceText, /【主证】建禄月劫逐字取运候选/);
+  assert.match(evidenceText, /财食重.*喜印.*条件待复核/);
+  assert.match(evidenceText, /财食轻.*不喜印.*条件待复核/);
   assert.match(evidenceText, /不得把单项候选定为最终喜运、忌运、吉凶或现实事件/);
 });
 
