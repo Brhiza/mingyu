@@ -3338,6 +3338,15 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.equal(result.evidenceAnalysis.yaoCoverageFact.status, '完整');
     assert.equal(result.evidenceAnalysis.hexagramStructureFacts.length, 3);
     assert.equal(result.evidenceAnalysis.yaoStructureFacts.length, 6);
+    assert.deepEqual(
+      result.evidenceAnalysis.interResponseFacts.map((item) => item.role),
+      ['体互', '用互'],
+    );
+    assert.ok(
+      result.evidenceAnalysis.interResponseFacts.every(
+        (item) => item.originalTi.name === result.tiGua.name && item.relation.includes('原体'),
+      ),
+    );
     assert.ok(
       result.evidenceAnalysis.stages.every(
         (item) =>
@@ -3387,6 +3396,10 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       result.evidenceAnalysis.stages.length,
     );
     assert.equal(
+      result.evidenceAnalysis.summaryFact.interResponseFactCount,
+      result.evidenceAnalysis.interResponseFacts.length,
+    );
+    assert.equal(
       result.evidenceAnalysis.summaryFact.transitionFactCount,
       result.evidenceAnalysis.transitionFacts.length,
     );
@@ -3428,7 +3441,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
           item.limitation.includes('不得把单项反证直接写成现实失败'),
       ),
     );
-    assert.match(result.evidenceAnalysis.promptText, /【梅花体用阶段推进结构化证据】/);
+    assert.match(result.evidenceAnalysis.promptText, /【梅花主互变关系推进结构化证据】/);
     assert.match(result.evidenceAnalysis.promptText, /证据汇总：/);
     assert.match(result.evidenceAnalysis.promptText, /解释限制：/);
     assertPromptIsPortableTaskText(result.evidenceAnalysis.promptText);

@@ -205,6 +205,8 @@
 
 **返回 `MeihuaData`：** 含主卦/互卦/变卦、体用关系（`tiGua`/`yongGua`）、按原体方位确定的体互与用互（`interTiGua`/`interYongGua`）、四时旺衰、应期触发条件，以及体用生克分析（`tiYongRelation`、体互/用互对原体关系、`changedRelation`、`yingQi`）。
 
+`evidenceAnalysis` 中，主卦与变卦阶段保存各自体用关系；互卦过程保存原体及两项 `responses`，顶层 `interResponseFacts` 同步列出体互、用互分别对原体的关系，不把二者在互卦内部重新分成体用。证据层会根据主卦、互卦、变卦和动爻重新计算这些关系，旧结果的 `interTiGua`、`interYongGua`、`changedTiGua`、`changedYongGua` 与 `analysis.inter*Relation` 仅作兼容数据，不作为证据来源。
+
 ---
 
 ## 奇门遁甲 Qimen

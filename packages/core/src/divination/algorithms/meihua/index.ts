@@ -393,6 +393,7 @@ export type {
   MeihuaEvidenceAnalysis,
   MeihuaEvidenceStageKey,
   MeihuaHexagramFact,
+  MeihuaInterResponseEvidence,
   MeihuaStageEvidence,
   MeihuaStageCoverageFact,
   MeihuaTimingFact,

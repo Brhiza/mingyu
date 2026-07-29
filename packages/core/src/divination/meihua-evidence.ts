@@ -11,22 +11,39 @@ import {
 
 export type MeihuaEvidenceStageKey = 'origin' | 'process' | 'result';
 
-export interface MeihuaStageEvidence {
+export interface MeihuaInterResponseEvidence {
   key: string;
-  status: '已计算' | '卦象资料缺失';
-  stage: MeihuaEvidenceStageKey;
-  label: string;
-  hexagram: string;
-  hexagramFactKey: string | null;
-  ti: { name: string; element: string; seasonState: string };
-  yong: { name: string; element: string; seasonState: string };
+  role: '体互' | '用互';
+  response: { name: string; element: string; seasonState: string };
+  originalTi: { name: string; element: string; seasonState: string };
   relation: string;
   support: string[];
   constraints: string[];
   basis: string;
   promptText: string;
   sources: string[];
-  limitation: '阶段体用事实只描述主卦、互卦或变卦中的体用五行关系与月令旺衰；阶段标签、支持或限制不得直接解释为现实起因、过程、结果、吉凶或成功率';
+  limitation: '互卦响应事实只描述体互、用互分别对原体的五行关系与月令旺衰；不得把体互与用互重新组成一对体用，也不得直接解释为现实吉凶、成败或概率';
+}
+
+export interface MeihuaStageEvidence {
+  key: string;
+  status: '已计算' | '卦象资料缺失';
+  stage: MeihuaEvidenceStageKey;
+  kind: '体用关系' | '互卦响应关系';
+  label: string;
+  hexagram: string;
+  hexagramFactKey: string | null;
+  ti?: { name: string; element: string; seasonState: string };
+  yong?: { name: string; element: string; seasonState: string };
+  relation?: string;
+  originalTi?: { name: string; element: string; seasonState: string };
+  responses?: MeihuaInterResponseEvidence[];
+  support: string[];
+  constraints: string[];
+  basis: string;
+  promptText: string;
+  sources: string[];
+  limitation: '阶段关系事实只描述主卦与变卦体用，或互卦体互、用互分别对原体的五行关系与月令旺衰；阶段标签、支持或限制不得直接解释为现实起因、过程、结果、吉凶或成功率';
 }
 
 export interface MeihuaHexagramFact {
@@ -80,7 +97,7 @@ export interface MeihuaStageCoverageFact {
   stageFactKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '阶段覆盖状态只说明主卦、互卦、变卦体用事实是否齐全；阶段缺失或卦象资料不完整时不得反推互卦过程、变卦结果、卦名或上下经卦';
+  limitation: '阶段覆盖状态只说明主卦体用、互卦响应与变卦体用事实是否齐全；阶段缺失或卦象资料不完整时不得反推互卦过程、变卦结果、卦名或上下经卦';
 }
 
 export interface MeihuaTransitionFact {
@@ -90,18 +107,28 @@ export interface MeihuaTransitionFact {
   toStageKey: string;
   fromStage: MeihuaEvidenceStageKey;
   toStage: MeihuaEvidenceStageKey;
+  /** 兼容旧消费者；多项关系以分号连接，正式结构请读取 fromRelations。 */
   fromRelation: string;
+  /** 兼容旧消费者；多项关系以分号连接，正式结构请读取 toRelations。 */
   toRelation: string;
+  fromRelations: string[];
+  toRelations: string[];
   promptText: string;
   sources: string[];
-  limitation: '阶段推进事实只比较相邻已记录阶段的体用关系变化；不得把卦内先后直接写成现实事件必然按同样顺序发生，跨阶段缺口时更不得补造中间过程';
+  limitation: '阶段推进事实只比较相邻已记录阶段的主变体用或互卦响应关系变化；不得把卦内先后直接写成现实事件必然按同样顺序发生，跨阶段缺口时更不得补造中间过程';
 }
 
 export interface MeihuaCounterEvidenceFact {
   key: string;
   ownerStageKey: string;
   stage: MeihuaEvidenceStageKey;
-  type: '体用关系限制' | '体卦月令限制' | '用卦月令限制' | '现实复核限制';
+  type:
+    | '体用关系限制'
+    | '体卦月令限制'
+    | '用卦月令限制'
+    | '互卦响应关系限制'
+    | '互卦响应月令限制'
+    | '现实复核限制';
   status: '已触发';
   detail: string;
   promptText: string;
@@ -188,7 +215,7 @@ export interface MeihuaEvidenceCalculationStep {
     | '起卦取数核验'
     | '主互变卦象构造'
     | '六爻与动爻核验'
-    | '阶段体用计算'
+    | '阶段关系计算'
     | '阶段推进核验'
     | '反证与应期核验'
     | '证据汇总';
@@ -198,7 +225,7 @@ export interface MeihuaEvidenceCalculationStep {
   dependsOnStepKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '计算步骤只证明起卦取数、主互变卦象、六爻动爻、阶段体用、推进、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期';
+  limitation: '计算步骤只证明起卦取数、主互变卦象、六爻动爻、主变体用、互卦响应、推进、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期';
 }
 
 export interface MeihuaSummaryFact {
@@ -208,13 +235,14 @@ export interface MeihuaSummaryFact {
   hexagramFactCount: number;
   yaoFactCount: number;
   stageFactCount: number;
+  interResponseFactCount: number;
   transitionFactCount: number;
   traditionalFactCount: number;
   counterEvidenceCount: number;
   timingFactCount: number;
   promptText: string;
   sources: string[];
-  limitation: '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、阶段体用、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图或唯一日期';
+  limitation: '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图或唯一日期';
 }
 
 export interface MeihuaLimitationFact {
@@ -222,7 +250,7 @@ export interface MeihuaLimitationFact {
   type:
     | '起卦与随机来源边界'
     | '卦象与逐爻资料边界'
-    | '阶段体用边界'
+    | '阶段关系边界'
     | '阶段推进与反证边界'
     | '应期边界'
     | '传统文本与高风险输出边界';
@@ -249,6 +277,7 @@ export interface MeihuaEvidenceAnalysis {
   movingYao: number;
   stageCoverageFact: MeihuaStageCoverageFact;
   stages: MeihuaStageEvidence[];
+  interResponseFacts: MeihuaInterResponseEvidence[];
   transitionFacts: MeihuaTransitionFact[];
   transitions: string[];
   timingFacts: MeihuaTimingFact[];
@@ -273,7 +302,9 @@ const TRADITIONAL_FACT_LIMITATION =
 const CALCULATION_FACT_LIMITATION =
   '取数算式只证明当前上下卦与动爻索引如何由输入或随机取数得到，不证明卦象预测有效性、现实吉凶或固定应期' as const;
 const STAGE_FACT_LIMITATION =
-  '阶段体用事实只描述主卦、互卦或变卦中的体用五行关系与月令旺衰；阶段标签、支持或限制不得直接解释为现实起因、过程、结果、吉凶或成功率' as const;
+  '阶段关系事实只描述主卦与变卦体用，或互卦体互、用互分别对原体的五行关系与月令旺衰；阶段标签、支持或限制不得直接解释为现实起因、过程、结果、吉凶或成功率' as const;
+const INTER_RESPONSE_FACT_LIMITATION =
+  '互卦响应事实只描述体互、用互分别对原体的五行关系与月令旺衰；不得把体互与用互重新组成一对体用，也不得直接解释为现实吉凶、成败或概率' as const;
 const HEXAGRAM_FACT_LIMITATION =
   '主互变卦象事实只记录当前上下经卦、卦名与卦符；不得由卦名或阶段位置直接推断现实事件、人物、吉凶、成败或应期' as const;
 const YAO_FACT_LIMITATION =
@@ -281,9 +312,9 @@ const YAO_FACT_LIMITATION =
 const YAO_COVERAGE_LIMITATION =
   '六爻覆盖状态只说明当前主卦是否完整保存初爻至上爻且仅有一个动爻；缺少、重复、越界或动爻异常时不得补造阴阳、体用归属、互卦或变卦' as const;
 const STAGE_COVERAGE_LIMITATION =
-  '阶段覆盖状态只说明主卦、互卦、变卦体用事实是否齐全；阶段缺失或卦象资料不完整时不得反推互卦过程、变卦结果、卦名或上下经卦' as const;
+  '阶段覆盖状态只说明主卦体用、互卦响应与变卦体用事实是否齐全；阶段缺失或卦象资料不完整时不得反推互卦过程、变卦结果、卦名或上下经卦' as const;
 const TRANSITION_FACT_LIMITATION =
-  '阶段推进事实只比较相邻已记录阶段的体用关系变化；不得把卦内先后直接写成现实事件必然按同样顺序发生，跨阶段缺口时更不得补造中间过程' as const;
+  '阶段推进事实只比较相邻已记录阶段的主变体用或互卦响应关系变化；不得把卦内先后直接写成现实事件必然按同样顺序发生，跨阶段缺口时更不得补造中间过程' as const;
 const COUNTER_FACT_LIMITATION =
   '反证事实只表示某一阶段存在泄耗、受克、休囚死或待现实复核等限制；不得把单项反证直接写成现实失败、灾祸、伤病、损失或必然结果' as const;
 const COUNTER_SUMMARY_LIMITATION =
@@ -293,9 +324,9 @@ const TIMING_FACT_LIMITATION =
 const TIMING_SUMMARY_LIMITATION =
   '应期汇总只说明当前保存了哪些相对触发与期限边界；不得按条件数量、动爻、卦数或旺衰生成固定天数、绝对日期或事件概率' as const;
 const CALCULATION_STEP_LIMITATION =
-  '计算步骤只证明起卦取数、主互变卦象、六爻动爻、阶段体用、推进、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期' as const;
+  '计算步骤只证明起卦取数、主互变卦象、六爻动爻、主变体用、互卦响应、推进、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期' as const;
 const SUMMARY_FACT_LIMITATION =
-  '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、阶段体用、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图或唯一日期' as const;
+  '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图或唯一日期' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束梅花起卦、卦象、逐爻、体用、推进、传统卦爻辞与应期资料能够支持的解释范围，不得被反向当作现实吉凶、婚育疾病、伤亡诉讼、事件概率或固定应期的证据' as const;
 
@@ -482,8 +513,8 @@ function stateEvidence(role: '体' | '用', state: string) {
   return { support: [], constraints: [] };
 }
 
-function createStage(params: {
-  stage: MeihuaEvidenceStageKey;
+function createTiYongStage(params: {
+  stage: 'origin' | 'result';
   label: string;
   hexagram: string;
   hexagramFactKey: string | null;
@@ -502,6 +533,7 @@ function createStage(params: {
     key: `meihua:stage:${params.stage}`,
     status: params.hexagramFactKey ? '已计算' : '卦象资料缺失',
     stage: params.stage,
+    kind: '体用关系',
     label: params.label,
     hexagram: params.hexagram,
     hexagramFactKey: params.hexagramFactKey,
@@ -514,7 +546,7 @@ function createStage(params: {
     promptText: '',
     sources: [
       '动爻所在经卦定体用规则',
-      '主卦、互卦、变卦上下经卦五行',
+      '主卦与变卦上下经卦五行',
       `月建${params.monthBranch}与五行旺相休囚死关系`,
     ],
     limitation: STAGE_FACT_LIMITATION,
@@ -524,7 +556,135 @@ function createStage(params: {
 }
 
 function formatStage(stage: MeihuaStageEvidence) {
-  return `${stage.label}${stage.hexagram}：体卦${stage.ti.name}${stage.ti.element}（月令${stage.ti.seasonState}），用卦${stage.yong.name}${stage.yong.element}（月令${stage.yong.seasonState}），关系${stage.relation}`;
+  if (stage.kind === '互卦响应关系') {
+    return `${stage.label}${stage.hexagram}：原体${stage.originalTi?.name}${stage.originalTi?.element}（月令${stage.originalTi?.seasonState}）；${(stage.responses ?? []).map((item) => `${item.role}${item.response.name}${item.response.element}（月令${item.response.seasonState}），${item.relation}`).join('；')}`;
+  }
+  return `${stage.label}${stage.hexagram}：体卦${stage.ti?.name}${stage.ti?.element}（月令${stage.ti?.seasonState}），用卦${stage.yong?.name}${stage.yong?.element}（月令${stage.yong?.seasonState}），关系${stage.relation}`;
+}
+
+function relationToOriginalTi(
+  role: MeihuaInterResponseEvidence['role'],
+  responseElement: string,
+  originalTiElement: string,
+) {
+  if (responseElement === originalTiElement) return `${role}与原体比和`;
+  if (isSheng(responseElement, originalTiElement)) return `${role}生原体`;
+  if (isSheng(originalTiElement, responseElement)) return `原体生${role}`;
+  if (isKe(responseElement, originalTiElement)) return `${role}克原体`;
+  if (isKe(originalTiElement, responseElement)) return `原体克${role}`;
+  return `${role}与原体关系未定`;
+}
+
+function interResponseEvidence(relation: string, role: MeihuaInterResponseEvidence['role']) {
+  if (relation === `${role}生原体`) return { support: [`${role}生扶原体`], constraints: [] };
+  if (relation === `${role}与原体比和`) {
+    return { support: [`${role}与原体同五行`], constraints: ['仍须结合旺衰与现实条件'] };
+  }
+  if (relation === `原体克${role}`) {
+    return { support: [`原体对${role}具有制约能力`], constraints: ['主动制约可能伴随消耗'] };
+  }
+  if (relation === `原体生${role}`) {
+    return { support: [`原体生${role}`], constraints: ['原体存在泄耗'] };
+  }
+  if (relation === `${role}克原体`) {
+    return { support: [], constraints: [`${role}对原体形成压力`] };
+  }
+  return { support: [], constraints: [`${role}与原体的五行关系未定`] };
+}
+
+function createInterResponseFact(params: {
+  role: MeihuaInterResponseEvidence['role'];
+  response: { name: string; element: string };
+  originalTi: { name: string; element: string };
+  monthBranch: string;
+  basis: string;
+}): MeihuaInterResponseEvidence {
+  const relation = relationToOriginalTi(
+    params.role,
+    params.response.element,
+    params.originalTi.element,
+  );
+  const relationItems = interResponseEvidence(relation, params.role);
+  const originalTiState = getSeasonState(params.originalTi.element, params.monthBranch);
+  const responseState = getSeasonState(params.response.element, params.monthBranch);
+  const originalTiItems = stateEvidence('体', originalTiState);
+  const responseItems = stateEvidence('用', responseState);
+  const fact: MeihuaInterResponseEvidence = {
+    key: `meihua:inter-response:${params.role === '体互' ? 'ti' : 'yong'}`,
+    role: params.role,
+    response: { ...params.response, seasonState: responseState },
+    originalTi: { ...params.originalTi, seasonState: originalTiState },
+    relation,
+    support: [
+      ...relationItems.support,
+      ...originalTiItems.support,
+      ...responseItems.support.map((item) => item.replace('用卦', `${params.role}`)),
+    ],
+    constraints: [
+      ...relationItems.constraints,
+      ...originalTiItems.constraints,
+      ...responseItems.constraints.map((item) => item.replace('用卦', `${params.role}`)),
+    ],
+    basis: params.basis,
+    promptText: '',
+    sources: [
+      '《梅花易数》卷三《体用互变之诀》体互、用互方位规则',
+      `月建${params.monthBranch}与五行旺相休囚死关系`,
+    ],
+    limitation: INTER_RESPONSE_FACT_LIMITATION,
+  };
+  fact.promptText = `${fact.role}${fact.response.name}${fact.response.element}（月令${fact.response.seasonState}）对原体${fact.originalTi.name}${fact.originalTi.element}（月令${fact.originalTi.seasonState}）：${fact.relation}；依据：${fact.basis}；支持：${fact.support.join('、') || '未见额外增强'}；限制：${fact.constraints.join('、') || '未见明确盘内限制'}`;
+  return fact;
+}
+
+function createProcessStage(params: {
+  hexagram: string;
+  originalTi: { name: string; element: string };
+  responses: MeihuaInterResponseEvidence[];
+  basis: string;
+}): MeihuaStageEvidence {
+  const originalTi = params.responses[0]?.originalTi ?? {
+    ...params.originalTi,
+    seasonState: '未知',
+  };
+  const stage: MeihuaStageEvidence = {
+    key: 'meihua:stage:process',
+    status: '已计算',
+    stage: 'process',
+    kind: '互卦响应关系',
+    label: '过程',
+    hexagram: params.hexagram,
+    hexagramFactKey: 'meihua:hexagram:process',
+    originalTi,
+    responses: params.responses,
+    support: unique(params.responses.flatMap((item) => item.support)),
+    constraints: unique(params.responses.flatMap((item) => item.constraints)),
+    basis: params.basis,
+    promptText: '',
+    sources: unique(params.responses.flatMap((item) => item.sources)),
+    limitation: STAGE_FACT_LIMITATION,
+  };
+  stage.promptText = `${formatStage(stage)}；依据：${stage.basis}；支持：${stage.support.join('、') || '未见额外增强'}；限制：${stage.constraints.join('、') || '未见明确盘内限制'}；体互与用互均为应，分别对原体核验，不在互卦内部重分体用`;
+  return stage;
+}
+
+function stageRelations(stage: MeihuaStageEvidence) {
+  return stage.kind === '互卦响应关系'
+    ? (stage.responses ?? []).map((item) => item.relation)
+    : stage.relation
+      ? [stage.relation]
+      : [];
+}
+
+function stageOriginalTi(stage: MeihuaStageEvidence) {
+  return stage.originalTi ?? stage.ti;
+}
+
+function resolveTiYongFromHexagram(hexagram: { upper: string; lower: string }, movingYao: number) {
+  const upper = trigramByName.get(hexagram.upper);
+  const lower = trigramByName.get(hexagram.lower);
+  if (!upper || !lower) return undefined;
+  return movingYao <= 3 ? { ti: upper, yong: lower } : { ti: lower, yong: upper };
 }
 
 function hasFiniteNumber(value: unknown): value is number {
@@ -887,11 +1047,11 @@ function buildStageCoverageFact(stages: MeihuaStageEvidence[]): MeihuaStageCover
     stageFactKeys: stages.map((item) => item.key),
     promptText:
       status === '阶段缺失'
-        ? `主互变阶段资料缺少${missingStages.map((stage) => ({ origin: '主卦起因', process: '互卦过程', result: '变卦结果' })[stage]).join('、')}，不得反推缺失阶段体用关系`
+        ? `主互变阶段资料缺少${missingStages.map((stage) => ({ origin: '主卦起因', process: '互卦过程', result: '变卦结果' })[stage]).join('、')}，不得反推缺失阶段关系`
         : status === '阶段资料不完整'
           ? `${incompleteStages.map((stage) => ({ origin: '主卦起因', process: '互卦过程', result: '变卦结果' })[stage]).join('、')}缺少对应卦象结构资料，不得补造卦名、卦符或上下经卦`
-          : '主卦起因、互卦过程、变卦结果三阶段体用资料完整，可逐段核验',
-    sources: ['主卦、互卦、变卦及其体用资料完整性核验'],
+          : '主卦体用、互卦响应、变卦体用三阶段关系资料完整，可逐段核验',
+    sources: ['主卦体用、互卦响应、变卦体用资料完整性核验'],
     limitation: STAGE_COVERAGE_LIMITATION,
   };
 }
@@ -901,6 +1061,10 @@ function buildTransitionFacts(stages: MeihuaStageEvidence[]): MeihuaTransitionFa
   return stages.slice(1).map((stage, index) => {
     const previous = stages[index];
     const status = order[stage.stage] - order[previous.stage] === 1 ? '连续' : '跨阶段缺口';
+    const fromRelations = stageRelations(previous);
+    const toRelations = stageRelations(stage);
+    const fromRelation = fromRelations.join('；');
+    const toRelation = toRelations.join('；');
     return {
       key: `meihua:transition:${previous.stage}:${stage.stage}`,
       status,
@@ -908,19 +1072,29 @@ function buildTransitionFacts(stages: MeihuaStageEvidence[]): MeihuaTransitionFa
       toStageKey: stage.key,
       fromStage: previous.stage,
       toStage: stage.stage,
-      fromRelation: previous.relation,
-      toRelation: stage.relation,
-      promptText: `${previous.label}${previous.relation} → ${stage.label}${stage.relation}${status === '跨阶段缺口' ? '；中间阶段资料缺失，不补造过程' : ''}`,
-      sources: ['已记录阶段顺序与各阶段体用五行关系比较'],
+      fromRelation,
+      toRelation,
+      fromRelations,
+      toRelations,
+      promptText: `${previous.label}${fromRelation || '关系资料缺失'} → ${stage.label}${toRelation || '关系资料缺失'}${status === '跨阶段缺口' ? '；中间阶段资料缺失，不补造过程' : ''}`,
+      sources: ['已记录阶段顺序与主卦、变卦体用及互卦响应关系比较'],
       limitation: TRANSITION_FACT_LIMITATION,
     } satisfies MeihuaTransitionFact;
   });
 }
 
-function classifyCounterType(detail: string): MeihuaCounterEvidenceFact['type'] {
+function classifyCounterType(
+  detail: string,
+  stageKind: MeihuaStageEvidence['kind'],
+): MeihuaCounterEvidenceFact['type'] {
   if (detail.startsWith('体卦月令')) return '体卦月令限制';
   if (detail.startsWith('用卦月令')) return '用卦月令限制';
   if (/现实|仍须|核验/.test(detail)) return '现实复核限制';
+  if (stageKind === '互卦响应关系') {
+    return detail.startsWith('体互月令') || detail.startsWith('用互月令')
+      ? '互卦响应月令限制'
+      : '互卦响应关系限制';
+  }
   return '体用关系限制';
 }
 
@@ -930,11 +1104,11 @@ function buildCounterEvidenceFacts(stages: MeihuaStageEvidence[]): MeihuaCounter
       key: `meihua:counter:${stage.stage}:${index + 1}`,
       ownerStageKey: stage.key,
       stage: stage.stage,
-      type: classifyCounterType(detail),
+      type: classifyCounterType(detail, stage.kind),
       status: '已触发',
       detail,
       promptText: `${stage.label}${stage.hexagram}：${detail}`,
-      sources: ['对应阶段体用生克关系与月令旺衰核验'],
+      sources: ['对应阶段主变体用或互卦响应关系与月令旺衰核验'],
       limitation: COUNTER_FACT_LIMITATION,
     })),
   );
@@ -984,20 +1158,23 @@ function buildTimingFacts(
     type: '月建旺衰',
     sourceStatus: '由盘面补齐',
     ownerFactKeys: stages.map((item) => item.key),
-    promptText: `月建${monthBranch}只用于校验各阶段体用旺衰，并作为相对快慢与阻力条件`,
-    sources: ['月支与五行旺相休囚死关系'],
+    promptText: `月建${monthBranch}只用于校验主变体用、原体与互卦响应的旺衰，并作为相对快慢与阻力条件`,
+    sources: ['月支与主变体用、互卦响应五行旺相休囚死关系'],
     limitation: TIMING_FACT_LIMITATION,
   });
-  const weakStages = stages.filter((item) => ['休', '囚', '死'].includes(item.ti.seasonState));
+  const weakStages = stages.filter((item) => {
+    const originalTi = stageOriginalTi(item);
+    return originalTi ? ['休', '囚', '死'].includes(originalTi.seasonState) : false;
+  });
   add({
     key: 'meihua:timing:body-state',
     type: '体卦状态',
     sourceStatus: '由盘面补齐',
     ownerFactKeys: (weakStages.length ? weakStages : stages).map((item) => item.key),
     promptText: weakStages.length
-      ? `体卦在${weakStages.map((item) => `${item.label}${item.ti.seasonState}`).join('、')}，须先观察现实阻力缓解或外部条件改变再验`
+      ? `原体在${weakStages.map((item) => `${item.label}${stageOriginalTi(item)?.seasonState}`).join('、')}，须先观察现实阻力缓解或外部条件改变再验`
       : '体卦各阶段未见休囚死，仍须等待现实事件验证，不能据此断定快速实现',
-    sources: ['各阶段体卦月令旺衰状态'],
+    sources: ['各阶段原体月令旺衰状态'],
     limitation: TIMING_FACT_LIMITATION,
   });
   add({
@@ -1021,6 +1198,7 @@ function buildSummaryFact(params: {
   yaoStructureFacts: MeihuaYaoFact[];
   stageCoverageFact: MeihuaStageCoverageFact;
   stages: MeihuaStageEvidence[];
+  interResponseFacts: MeihuaInterResponseEvidence[];
   transitionFacts: MeihuaTransitionFact[];
   traditionalFacts: MeihuaTraditionalFact[];
   counterEvidenceFacts: MeihuaCounterEvidenceFact[];
@@ -1037,6 +1215,7 @@ function buildSummaryFact(params: {
       ...params.yaoStructureFacts.map((item) => item.key),
       params.stageCoverageFact.key,
       ...params.stages.map((item) => item.key),
+      ...params.interResponseFacts.map((item) => item.key),
       ...params.transitionFacts.map((item) => item.key),
       ...params.traditionalFacts.map((item) => item.key),
       params.counterSummaryFact.key,
@@ -1059,12 +1238,15 @@ function buildSummaryFact(params: {
     hexagramFactCount: params.hexagramStructureFacts.length,
     yaoFactCount: params.yaoStructureFacts.length,
     stageFactCount: params.stages.length,
+    interResponseFactCount: params.interResponseFacts.length,
     transitionFactCount: params.transitionFacts.length,
     traditionalFactCount: params.traditionalFacts.length,
     counterEvidenceCount: params.counterEvidenceFacts.length,
     timingFactCount: params.timingFacts.length,
-    promptText: `证据状态${status}：主互变卦象${params.hexagramStructureFacts.length}项、逐爻${params.yaoStructureFacts.length}项、体用阶段${params.stages.length}项、阶段推进${params.transitionFacts.length}项、传统卦爻辞${params.traditionalFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
-    sources: ['全部起卦、主互变卦象、逐爻、阶段体用、推进、传统文本、反证与应期事实逐项汇总'],
+    promptText: `证据状态${status}：主互变卦象${params.hexagramStructureFacts.length}项、逐爻${params.yaoStructureFacts.length}项、阶段关系${params.stages.length}项、互卦响应${params.interResponseFacts.length}项、阶段推进${params.transitionFacts.length}项、传统卦爻辞${params.traditionalFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
+    sources: [
+      '全部起卦、主互变卦象、逐爻、主变体用、互卦响应、推进、传统文本、反证与应期事实逐项汇总',
+    ],
     limitation: SUMMARY_FACT_LIMITATION,
   };
 }
@@ -1143,7 +1325,7 @@ function buildCalculationSteps(params: {
     },
     {
       key: 'meihua:calculation:stages',
-      stage: '阶段体用计算',
+      stage: '阶段关系计算',
       status: params.stageCoverageFact.status === '完整' ? '已计算' : '资料不足',
       inputs: {
         hexagramFactCount: params.hexagramStructureFacts.length,
@@ -1155,8 +1337,8 @@ function buildCalculationSteps(params: {
         incompleteStages: params.stageCoverageFact.incompleteStages,
       },
       dependsOnStepKeys: ['meihua:calculation:hexagrams', 'meihua:calculation:yaos'],
-      promptText: `${params.stageCoverageFact.promptText}；逐阶段计算体用五行关系与月令旺衰`,
-      sources: ['主卦、互卦、变卦上下经卦与原动爻所在经卦的体用规则'],
+      promptText: `${params.stageCoverageFact.promptText}；计算主变体用及体互、用互分别对原体的五行关系与月令旺衰`,
+      sources: ['主卦、互卦、变卦上下经卦与原动爻所在经卦的体用、体互、用互规则'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
@@ -1176,7 +1358,7 @@ function buildCalculationSteps(params: {
       promptText: params.transitionFacts.length
         ? params.transitionFacts.map((item) => item.promptText).join('；')
         : '当前只有主卦阶段，未形成可核验推进链',
-      sources: ['相邻阶段体用关系与阶段完整性逐项比较'],
+      sources: ['相邻阶段主变体用、互卦响应关系与阶段完整性逐项比较'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
@@ -1190,7 +1372,7 @@ function buildCalculationSteps(params: {
       },
       dependsOnStepKeys: ['meihua:calculation:stages', 'meihua:calculation:transitions'],
       promptText: `逐项核验阶段限制${params.counterEvidenceFacts.length}项，并记录相对触发与期限边界${params.timingFacts.length}项`,
-      sources: ['阶段体用限制、月令旺衰、动爻层位与现实触发条件'],
+      sources: ['阶段关系限制、月令旺衰、动爻层位与现实触发条件'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
@@ -1202,6 +1384,7 @@ function buildCalculationSteps(params: {
         summaryStatus: params.summaryFact.status,
         hexagramFactCount: params.summaryFact.hexagramFactCount,
         stageFactCount: params.summaryFact.stageFactCount,
+        interResponseFactCount: params.summaryFact.interResponseFactCount,
         transitionFactCount: params.summaryFact.transitionFactCount,
         counterEvidenceCount: params.summaryFact.counterEvidenceCount,
         timingFactCount: params.summaryFact.timingFactCount,
@@ -1229,6 +1412,7 @@ function buildLimitationFacts(params: {
   yaoStructureFacts: MeihuaYaoFact[];
   stageCoverageFact: MeihuaStageCoverageFact;
   stages: MeihuaStageEvidence[];
+  interResponseFacts: MeihuaInterResponseEvidence[];
   transitionFacts: MeihuaTransitionFact[];
   traditionalFacts: MeihuaTraditionalFact[];
   counterEvidenceFacts: MeihuaCounterEvidenceFact[];
@@ -1262,11 +1446,15 @@ function buildLimitationFacts(params: {
     },
     {
       key: 'meihua:limitation:stages',
-      type: '阶段体用边界',
-      ownerFactKeys: [params.stageCoverageFact.key, ...params.stages.map((item) => item.key)],
+      type: '阶段关系边界',
+      ownerFactKeys: [
+        params.stageCoverageFact.key,
+        ...params.stages.map((item) => item.key),
+        ...params.interResponseFacts.map((item) => item.key),
+      ],
       promptText:
         '体用生克只描述卦内关系，不直接等于现实吉凶；起因、过程和结果标签只表示主卦、互卦、变卦的分析层级，不证明现实必然按同样阶段发生',
-      sources: ['主互变阶段覆盖与逐阶段体用月令事实'],
+      sources: ['主变体用、互卦响应与逐阶段月令事实'],
     },
     {
       key: 'meihua:limitation:transitions-counters',
@@ -1277,7 +1465,7 @@ function buildLimitationFacts(params: {
         ...params.counterEvidenceFacts.map((item) => item.key),
       ],
       promptText:
-        '阶段推进只比较相邻体用关系变化，阶段缺口时不得补造中间过程；泄耗、受克、休囚死等反证须与支持条件并列，不得直接写成现实失败、灾祸或损失',
+        '阶段推进只比较相邻主变体用或互卦响应关系变化，阶段缺口时不得补造中间过程；泄耗、受克、休囚死等反证须与支持条件并列，不得直接写成现实失败、灾祸或损失',
       sources: ['阶段推进事实与逐阶段反证汇总'],
     },
     {
@@ -1305,8 +1493,8 @@ function buildLimitationFacts(params: {
 }
 
 export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis {
-  if (!data?.tiGua || !data?.yongGua || !data?.movingYao) {
-    throw new Error('梅花体用推进证据缺少完整体用或动爻资料。');
+  if (!data?.mainHexagram || !data?.movingYao || !data?.ganzhi?.month) {
+    throw new Error('梅花关系推进证据缺少主卦、动爻或月建资料。');
   }
   const monthBranch = data.ganzhi.month.slice(-1);
   const calculationFact = buildMeihuaCalculationFact(data);
@@ -1317,14 +1505,18 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
   const yaoStructureFacts = buildYaoStructureFacts(data);
   const yaoCoverageFact = buildYaoCoverageFact(yaoStructureFacts, data.movingYao.position);
   const yaoFacts = yaoStructureFacts.map((item) => item.promptText);
+  const mainTiYong = resolveTiYongFromHexagram(data.mainHexagram, data.movingYao.position);
+  if (!mainTiYong) {
+    throw new Error('梅花关系推进证据无法从主卦上下经卦与动爻重算原体、原用。');
+  }
   const stages: MeihuaStageEvidence[] = [
-    createStage({
+    createTiYongStage({
       stage: 'origin',
       label: '起因',
-      hexagram: data.originalName,
+      hexagram: data.mainHexagram.name,
       hexagramFactKey: 'meihua:hexagram:origin',
-      ti: data.tiGua,
-      yong: data.yongGua,
+      ti: mainTiYong.ti,
+      yong: mainTiYong.yong,
       monthBranch,
       basis: '主卦以动爻所在经卦为用、另一经卦为体。',
     }),
@@ -1336,37 +1528,54 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
   const interLower = data.interHexagram?.lower
     ? trigramByName.get(data.interHexagram.lower)
     : undefined;
+  const interResponseFacts: MeihuaInterResponseEvidence[] = [];
   if (interUpper && interLower) {
     const movingInLower = data.movingYao.position <= 3;
-    const interTi = data.interTiGua ?? (movingInLower ? interUpper : interLower);
-    const interYong = data.interYongGua ?? (movingInLower ? interLower : interUpper);
-    stages.push(
-      createStage({
-        stage: 'process',
-        label: '过程',
-        hexagram: data.interHexagram?.name || data.interName || '互卦',
-        hexagramFactKey: 'meihua:hexagram:process',
-        ti: interTi,
-        yong: interYong,
+    const interTi = movingInLower ? interUpper : interLower;
+    const interYong = movingInLower ? interLower : interUpper;
+    const basis = movingInLower
+      ? '原动爻在下卦、原体在上，依《梅花易数》卷三取上互为体互、下互为用互。'
+      : '原动爻在上卦、原体在下，依《梅花易数》卷三取下互为体互、上互为用互。';
+    interResponseFacts.push(
+      createInterResponseFact({
+        role: '体互',
+        response: interTi,
+        originalTi: mainTiYong.ti,
         monthBranch,
-        basis: movingInLower
-          ? '原动爻在下卦、原体在上，依《梅花易数》卷三取上互为体互、下互为用互。'
-          : '原动爻在上卦、原体在下，依《梅花易数》卷三取下互为体互、上互为用互。',
+        basis,
+      }),
+      createInterResponseFact({
+        role: '用互',
+        response: interYong,
+        originalTi: mainTiYong.ti,
+        monthBranch,
+        basis,
+      }),
+    );
+    stages.push(
+      createProcessStage({
+        hexagram: data.interHexagram?.name || '互卦',
+        originalTi: mainTiYong.ti,
+        responses: interResponseFacts,
+        basis,
       }),
     );
   }
 
-  if (data.changedTiGua && data.changedYongGua) {
+  const changedTiYong = data.changedHexagram
+    ? resolveTiYongFromHexagram(data.changedHexagram, data.movingYao.position)
+    : undefined;
+  if (data.changedHexagram && changedTiYong) {
     stages.push(
-      createStage({
+      createTiYongStage({
         stage: 'result',
         label: '结果',
-        hexagram: data.changedHexagram?.name || data.changedName || '变卦',
-        hexagramFactKey: data.changedHexagram ? 'meihua:hexagram:result' : null,
-        ti: data.changedTiGua,
-        yong: data.changedYongGua,
+        hexagram: data.changedHexagram.name,
+        hexagramFactKey: 'meihua:hexagram:result',
+        ti: changedTiYong.ti,
+        yong: changedTiYong.yong,
         monthBranch,
-        basis: '变卦沿用原动爻所在经卦为用、另一经卦为体，观察变化后的关系。',
+        basis: '变卦沿用原动爻所在经卦为用、另一经卦为体；原体所在经卦不动，始终为主。',
       }),
     );
   }
@@ -1402,7 +1611,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     promptText: counterEvidenceFacts.length
       ? `当前${stages.length}个阶段共记录${counterEvidenceFacts.length}项明确限制，须逐项与现实条件复核`
       : '当前阶段未见明确体用或月令限制，但仍须核实现实风险与外部条件',
-    sources: ['各阶段限制条件与体用月令事实逐项汇总'],
+    sources: ['各阶段主变体用、互卦响应与月令限制逐项汇总'],
     limitation: COUNTER_SUMMARY_LIMITATION,
   };
   const isRandomMethod = data.calculation?.methodKey === 'random';
@@ -1423,6 +1632,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     yaoStructureFacts,
     stageCoverageFact,
     stages,
+    interResponseFacts,
     transitionFacts,
     traditionalFacts,
     counterEvidenceFacts,
@@ -1454,6 +1664,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     yaoStructureFacts,
     stageCoverageFact,
     stages,
+    interResponseFacts,
     transitionFacts,
     traditionalFacts,
     counterEvidenceFacts,
@@ -1538,37 +1749,22 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       title: `${stage.label}阶段`,
       detail: `${stage.promptText}；边界：${stage.limitation}`,
       source: stage.sources.join('、'),
-      tags: [stage.stage, stage.relation],
+      tags: [stage.stage, ...stageRelations(stage)],
     })),
     ...transitionFacts.map((fact): PromptEvidenceItem => ({
       level: fact.status === '连续' ? '辅证' : '反证',
-      title: `${{ origin: '起因', process: '过程', result: '结果' }[fact.fromStage]}至${{ origin: '起因', process: '过程', result: '结果' }[fact.toStage]}体用转变`,
+      title: `${{ origin: '起因', process: '过程', result: '结果' }[fact.fromStage]}至${{ origin: '起因', process: '过程', result: '结果' }[fact.toStage]}关系推进`,
       detail: `${fact.promptText}；边界：${fact.limitation}`,
       source: fact.sources.join('、'),
       tags: ['阶段推进', fact.status, fact.toStage],
     })),
-    ...(data.analysis.inter1Relation && data.analysis.inter1Relation !== '无'
-      ? [
-          {
-            level: '辅证' as const,
-            title: '体互对原体关系',
-            detail: `${data.analysis.inter1Relation}；《梅花易数》卷三称“体互最紧”，仍须与主卦体用、用互和变卦并看。`,
-            source: '《梅花易数》卷三《体用互变之诀》体互、用互方位规则',
-            tags: ['体互', '原体', '过程主线'],
-          },
-        ]
-      : []),
-    ...(data.analysis.inter2Relation && data.analysis.inter2Relation !== '无'
-      ? [
-          {
-            level: '辅证' as const,
-            title: '用互对原体关系',
-            detail: `${data.analysis.inter2Relation}；《梅花易数》卷三称“用互次之”，不得脱离体互与变卦单断。`,
-            source: '《梅花易数》卷三《体用互变之诀》体互、用互方位规则',
-            tags: ['用互', '原体', '过程辅证'],
-          },
-        ]
-      : []),
+    ...interResponseFacts.map((fact): PromptEvidenceItem => ({
+      level: '辅证',
+      title: `${fact.role}对原体关系`,
+      detail: `${fact.promptText}；${fact.role === '体互' ? '《梅花易数》卷三称“体互最紧”，仍须与主卦体用、用互和变卦并看' : '《梅花易数》卷三称“用互次之”，不得脱离体互与变卦单断'}；边界：${fact.limitation}`,
+      source: fact.sources.join('、'),
+      tags: [fact.role, '原体', fact.relation],
+    })),
     {
       level: '应期',
       title: '变化触发与应期条件',
@@ -1578,14 +1774,14 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     },
     {
       level: counterSummaryFact.status === '有明确反证' ? '反证' : '辅证',
-      title: '体用反证覆盖状态',
+      title: '阶段关系反证覆盖状态',
       detail: `${counterSummaryFact.promptText}；边界：${counterSummaryFact.limitation}`,
       source: counterSummaryFact.sources.join('、'),
       tags: ['反证汇总', counterSummaryFact.status],
     },
     ...counterEvidenceFacts.map((fact, index): PromptEvidenceItem => ({
       level: '反证',
-      title: `体用限制核验${index + 1}`,
+      title: `阶段关系限制核验${index + 1}`,
       detail: `${fact.promptText}；边界：${fact.limitation}`,
       source: fact.sources.join('、'),
       tags: ['反证', fact.type, fact.stage],
@@ -1615,10 +1811,10 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       source: Array.from(new Set(limitationFacts.flatMap((item) => item.sources))).join('、'),
     },
   );
-  const evidence: PromptEvidenceBundle = { title: '梅花体用阶段推进结构化证据', items };
+  const evidence: PromptEvidenceBundle = { title: '梅花主互变关系推进结构化证据', items };
   const calculationChain = calculationSteps.map((item) => item.promptText);
   const promptText = [
-    '【梅花体用阶段推进结构化证据】',
+    '【梅花主互变关系推进结构化证据】',
     ...formatPromptEvidenceBundle(evidence),
     `计算链：${calculationChain.join(' → ')}。`,
     `证据汇总：${summaryFact.promptText}。`,
@@ -1642,6 +1838,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     movingYao: data.movingYao.position,
     stageCoverageFact,
     stages,
+    interResponseFacts,
     transitionFacts,
     transitions,
     timingFacts,
@@ -1659,9 +1856,9 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     evidence,
     promptText,
     methodology: [
-      '主卦定起因与当前体用，互卦定过程，变卦定变化后的结果关系。',
+      '主卦定起因与当前体用，互卦以体互、用互分别响应原体表示过程，变卦定变化后的体用关系。',
       '起卦输入、取余算式、六爻阴阳、互卦构造和动爻翻转均作为可复核计算事实保留。',
-      '每个阶段分别计算体用生克和月建旺衰，不把某一阶段扩大为全局结论。',
+      '主卦与变卦计算体用生克，互卦分别计算体互、用互对原体的关系与月建旺衰，不在互卦内部重分体用。',
       '动爻只标记变化层位与触发顺序，卦数只保留原始计算资料，不机械换算绝对日期。',
       '只输出支持、反证、限制和触发条件，不生成吉凶总分或成功率。',
     ],

@@ -5,10 +5,92 @@ import {
   conditionMeihuaTraditionalText,
   generateMeihua,
 } from 'mingyu-core/divination/meihua';
-import { hexagramsData } from '../packages/core/src/divination/hexagram-data.ts';
+import { hexagramsData, trigramsByIndex } from '../packages/core/src/divination/hexagram-data.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const fixedDate = new Date('2025-01-01T08:00:00+08:00');
+const trigrams = Object.values(trigramsByIndex);
+const trigramByName = new Map(trigrams.map((item) => [item.name, item]));
+const trigramByLines = new Map(trigrams.map((item) => [item.lines.join(''), item]));
+const hexagramByTrigrams = new Map(
+  hexagramsData.map((item) => [`${item.upper}:${item.lower}`, item]),
+);
+
+function expectedInterRelation(role: '体互' | '用互', response: string, originalTi: string) {
+  const generates: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
+  const controls: Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+  if (response === originalTi) return `${role}与原体比和`;
+  if (generates[response] === originalTi) return `${role}生原体`;
+  if (generates[originalTi] === response) return `原体生${role}`;
+  if (controls[response] === originalTi) return `${role}克原体`;
+  if (controls[originalTi] === response) return `原体克${role}`;
+  throw new Error(`无法核对${role}${response}与原体${originalTi}的五行关系`);
+}
+
+function buildMeihuaCase(
+  base: ReturnType<typeof generateMeihua>,
+  main: (typeof hexagramsData)[number],
+  movingYao: number,
+) {
+  const upper = trigramByName.get(main.upper);
+  const lower = trigramByName.get(main.lower);
+  assert.ok(upper && lower);
+  const mainLines = [...lower.lines, ...upper.lines];
+  const interLower = trigramByLines.get(mainLines.slice(1, 4).join(''));
+  const interUpper = trigramByLines.get(mainLines.slice(2, 5).join(''));
+  const changedLines = [...mainLines];
+  changedLines[movingYao - 1] = changedLines[movingYao - 1] === 1 ? 0 : 1;
+  const changedLower = trigramByLines.get(changedLines.slice(0, 3).join(''));
+  const changedUpper = trigramByLines.get(changedLines.slice(3, 6).join(''));
+  assert.ok(interLower && interUpper && changedLower && changedUpper);
+  const inter = hexagramByTrigrams.get(`${interUpper.name}:${interLower.name}`);
+  const changed = hexagramByTrigrams.get(`${changedUpper.name}:${changedLower.name}`);
+  assert.ok(inter && changed);
+  const movingInLower = movingYao <= 3;
+  const ti = movingInLower ? upper : lower;
+  const yong = movingInLower ? lower : upper;
+  const changedTi = movingInLower ? changedUpper : changedLower;
+  const changedYong = movingInLower ? changedLower : changedUpper;
+  const interTi = movingInLower ? interUpper : interLower;
+  const interYong = movingInLower ? interLower : interUpper;
+  const toHexagram = (item: (typeof hexagramsData)[number]) => ({
+    name: item.name,
+    symbol: item.symbol,
+    upper: item.upper,
+    lower: item.lower,
+    description: item.description,
+    yaoCi: item.yaoCi,
+    yongCi: item.yongCi,
+  });
+
+  return {
+    ...base,
+    originalName: main.name,
+    interName: inter.name,
+    changedName: changed.name,
+    tiGua: ti,
+    yongGua: yong,
+    interTiGua: interTi,
+    interYongGua: interYong,
+    changedTiGua: changedTi,
+    changedYongGua: changedYong,
+    mainHexagram: toHexagram(main),
+    interHexagram: toHexagram(inter),
+    changedHexagram: toHexagram(changed),
+    movingYao: {
+      position: movingYao,
+      description: `第${movingYao}爻动`,
+      yaoName: ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'][movingYao - 1],
+    },
+    yaosDetail: mainLines.map((line, index) => ({
+      position: index + 1,
+      yaoType: (line === 1 ? '阳' : '阴') as '阳' | '阴',
+      isChanging: index === movingYao - 1,
+      tiYong: (index < 3 ? lower.name : upper.name) === ti.name ? ('体' as const) : ('用' as const),
+    })),
+    evidenceAnalysis: undefined,
+  };
+}
 
 test('梅花排盘应内置主互变三阶段结构化证据', () => {
   const data = generateMeihua(fixedDate, { method: 'number', number: 123 });
@@ -54,10 +136,16 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.equal(evidence.summaryFact.hexagramFactCount, evidence.hexagramStructureFacts.length);
   assert.equal(evidence.summaryFact.yaoFactCount, evidence.yaoStructureFacts.length);
   assert.equal(evidence.summaryFact.stageFactCount, evidence.stages.length);
+  assert.equal(evidence.summaryFact.interResponseFactCount, evidence.interResponseFacts.length);
   assert.equal(evidence.summaryFact.transitionFactCount, evidence.transitionFacts.length);
   assert.equal(evidence.summaryFact.traditionalFactCount, evidence.traditionalFacts.length);
   assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
   assert.equal(evidence.summaryFact.timingFactCount, evidence.timingFacts.length);
+  const processCounterTypes = evidence.counterEvidenceFacts
+    .filter((item) => item.stage === 'process')
+    .map((item) => item.type);
+  assert.ok(processCounterTypes.includes('互卦响应关系限制'));
+  assert.ok(processCounterTypes.includes('互卦响应月令限制'));
   assert.equal(evidence.limitationFacts.length, 6);
   assert.deepEqual(
     evidence.limitations,
@@ -67,7 +155,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.ok(
     evidence.limitationFacts.every((item) => item.ownerFactKeys.every((key) => factKeys.has(key))),
   );
-  assert.match(evidence.promptText, /【梅花体用阶段推进结构化证据】/);
+  assert.match(evidence.promptText, /【梅花主互变关系推进结构化证据】/);
   assert.match(evidence.promptText, /计算链：/);
   assert.match(evidence.promptText, /证据汇总：/);
   assert.match(evidence.promptText, /解释限制：/);
@@ -76,7 +164,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assertPromptIsPortableTaskText(evidence.promptText);
 });
 
-test('梅花体互用互应沿用原体所在方位，不得上下颠倒', () => {
+test('梅花互卦过程应让体互、用互分别响应原体，不得在互卦内部重分体用', () => {
   const lowerMoving = generateMeihua(fixedDate, { method: 'number', number: 123 });
   const lowerProcess = analyzeMeihuaEvidence(lowerMoving).stages.find(
     (item) => item.stage === 'process',
@@ -85,9 +173,18 @@ test('梅花体互用互应沿用原体所在方位，不得上下颠倒', () =>
   assert.equal(lowerMoving.movingYao.position <= 3, true);
   assert.equal(lowerMoving.interTiGua?.name, lowerMoving.interHexagram?.upper);
   assert.equal(lowerMoving.interYongGua?.name, lowerMoving.interHexagram?.lower);
-  assert.equal(lowerProcess?.ti.name, lowerMoving.interHexagram?.upper);
-  assert.equal(lowerProcess?.yong.name, lowerMoving.interHexagram?.lower);
-  assert.equal(lowerProcess?.relation, '用克体');
+  assert.equal(lowerProcess?.kind, '互卦响应关系');
+  assert.equal(lowerProcess?.ti, undefined);
+  assert.equal(lowerProcess?.yong, undefined);
+  assert.equal(lowerProcess?.relation, undefined);
+  assert.equal(lowerProcess?.originalTi?.name, lowerMoving.tiGua.name);
+  assert.deepEqual(
+    lowerProcess?.responses?.map((item) => [item.role, item.response.name, item.relation]),
+    [
+      ['体互', lowerMoving.interHexagram?.upper, '体互克原体'],
+      ['用互', lowerMoving.interHexagram?.lower, '原体生用互'],
+    ],
+  );
   assert.equal(lowerMoving.analysis.inter1Relation, '体互克原体');
   assert.equal(lowerMoving.analysis.inter2Relation, '原体生用互');
   assert.match(lowerProcess?.basis ?? '', /原体在上.*上互为体互、下互为用互/);
@@ -100,9 +197,104 @@ test('梅花体互用互应沿用原体所在方位，不得上下颠倒', () =>
   assert.equal(upperMoving.movingYao.position >= 4, true);
   assert.equal(upperMoving.interTiGua?.name, upperMoving.interHexagram?.lower);
   assert.equal(upperMoving.interYongGua?.name, upperMoving.interHexagram?.upper);
-  assert.equal(upperProcess?.ti.name, upperMoving.interHexagram?.lower);
-  assert.equal(upperProcess?.yong.name, upperMoving.interHexagram?.upper);
+  assert.equal(upperProcess?.originalTi?.name, upperMoving.tiGua.name);
+  assert.deepEqual(
+    upperProcess?.responses?.map((item) => [item.role, item.response.name]),
+    [
+      ['体互', upperMoving.interHexagram?.lower],
+      ['用互', upperMoving.interHexagram?.upper],
+    ],
+  );
   assert.match(upperProcess?.basis ?? '', /原体在下.*下互为体互、上互为用互/);
+  assert.doesNotMatch(lowerProcess?.promptText ?? '', /体卦坎水.*用卦艮土.*用克体/);
+});
+
+test('梅花六十四卦六动爻的原体、体互、用互与变卦体位应逐案一致', () => {
+  const base = generateMeihua(fixedDate, { method: 'number', number: 123 });
+  let checked = 0;
+
+  for (const main of hexagramsData) {
+    for (let movingYao = 1; movingYao <= 6; movingYao += 1) {
+      const data = buildMeihuaCase(base, main, movingYao);
+      const evidence = analyzeMeihuaEvidence(data);
+      const origin = evidence.stages.find((item) => item.stage === 'origin');
+      const process = evidence.stages.find((item) => item.stage === 'process');
+      const result = evidence.stages.find((item) => item.stage === 'result');
+      const movingInLower = movingYao <= 3;
+      const expectedOriginalTi = movingInLower ? main.upper : main.lower;
+      const expectedInterTi = movingInLower ? data.interHexagram?.upper : data.interHexagram?.lower;
+      const expectedInterYong = movingInLower
+        ? data.interHexagram?.lower
+        : data.interHexagram?.upper;
+      const originalTiElement = trigramByName.get(expectedOriginalTi)?.element;
+      const interTiElement = trigramByName.get(expectedInterTi ?? '')?.element;
+      const interYongElement = trigramByName.get(expectedInterYong ?? '')?.element;
+      assert.ok(originalTiElement && interTiElement && interYongElement);
+
+      assert.equal(origin?.ti?.name, expectedOriginalTi);
+      assert.equal(process?.originalTi?.name, expectedOriginalTi);
+      assert.equal(result?.ti?.name, expectedOriginalTi);
+      assert.deepEqual(
+        process?.responses?.map((item) => [item.role, item.response.name, item.relation]),
+        [
+          [
+            '体互',
+            expectedInterTi,
+            expectedInterRelation('体互', interTiElement, originalTiElement),
+          ],
+          [
+            '用互',
+            expectedInterYong,
+            expectedInterRelation('用互', interYongElement, originalTiElement),
+          ],
+        ],
+      );
+      assert.equal(process?.relation, undefined);
+      assert.equal(evidence.interResponseFacts.length, 2);
+      checked += 1;
+    }
+  }
+
+  assert.equal(checked, 384);
+});
+
+test('梅花证据应重算主互变关系，不采信伪造的体用与互卦派生字段', () => {
+  const data = generateMeihua(fixedDate, { method: 'number', number: 123 });
+  const fake = { name: '乾', element: '金', nature: '天' };
+  const rebuilt = analyzeMeihuaEvidence({
+    ...data,
+    tiGua: fake,
+    yongGua: fake,
+    interTiGua: fake,
+    interYongGua: fake,
+    changedTiGua: fake,
+    changedYongGua: fake,
+    analysis: {
+      ...data.analysis,
+      tiYongRelation: '伪造主卦关系',
+      inter1Relation: '伪造体互关系',
+      inter2Relation: '伪造用互关系',
+      changedRelation: '伪造变卦关系',
+      changedTiYongRelation: '伪造变卦体用关系',
+    },
+    evidenceAnalysis: undefined,
+  });
+  const origin = rebuilt.stages.find((item) => item.stage === 'origin');
+  const process = rebuilt.stages.find((item) => item.stage === 'process');
+  const result = rebuilt.stages.find((item) => item.stage === 'result');
+
+  assert.equal(origin?.ti?.name, '离');
+  assert.equal(origin?.yong?.name, '坤');
+  assert.equal(process?.originalTi?.name, '离');
+  assert.deepEqual(
+    rebuilt.interResponseFacts.map((item) => [item.role, item.response.name, item.relation]),
+    [
+      ['体互', '坎', '体互克原体'],
+      ['用互', '艮', '原体生用互'],
+    ],
+  );
+  assert.equal(result?.ti?.name, '离');
+  assert.doesNotMatch(rebuilt.promptText, /伪造/);
 });
 
 test('梅花证据只给触发层位，不把动爻和卦数换算成绝对日期', () => {
@@ -206,7 +398,7 @@ test('梅花旧结果缺少逐爻或互卦阶段时应明确标记缺口且不�
     '资料不足',
   );
   assert.match(rebuilt.transitionFacts[0].promptText, /不补造过程/);
-  assert.match(rebuilt.promptText, /不得反推缺失阶段体用关系/);
+  assert.match(rebuilt.promptText, /不得反推缺失阶段关系/);
 
   const incompleteResult = analyzeMeihuaEvidence({
     ...data,
@@ -214,11 +406,10 @@ test('梅花旧结果缺少逐爻或互卦阶段时应明确标记缺口且不�
     evidenceAnalysis: undefined,
   });
   const resultStage = incompleteResult.stages.find((item) => item.stage === 'result');
-  assert.equal(incompleteResult.stageCoverageFact.status, '阶段资料不完整');
-  assert.deepEqual(incompleteResult.stageCoverageFact.incompleteStages, ['result']);
-  assert.equal(resultStage?.status, '卦象资料缺失');
-  assert.equal(resultStage?.hexagramFactKey, null);
-  assert.match(resultStage?.promptText ?? '', /不得补造卦名、卦符或上下经卦/);
+  assert.equal(incompleteResult.stageCoverageFact.status, '阶段缺失');
+  assert.deepEqual(incompleteResult.stageCoverageFact.missingStages, ['result']);
+  assert.equal(resultStage, undefined);
+  assert.match(incompleteResult.stageCoverageFact.promptText, /不得反推缺失阶段关系/);
 
   const duplicateYao = analyzeMeihuaEvidence({
     ...data,
