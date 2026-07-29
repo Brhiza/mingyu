@@ -59,9 +59,9 @@ export const REN_ZI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'zi-month-ren-water-formation-no-fire',
-    label: '壬日子月水局无火润下贫寒规则',
+    label: '壬日子月水局无火偏旺限制规则',
     description:
-      '壬水生子月，若地支成水局而丙丁全无，水势纯旺无制，较合原文"支成水局，无丙丁出干，润下格贫寒"；不应仍按水旺喜火泛断。',
+      '壬水生子月，若地支成水局而丙丁全无，只能登记水势偏旺且缺少火暖的结构限制；润下是否成立须交由严格外格条件复核，不得从此处推断贫富层次。',
     months: ['子'],
     dayMasters: ['水'],
     dayStems: ['壬'],
@@ -69,8 +69,11 @@ export const REN_ZI_CLIMATE_RULES: ClimateRule[] = [
     maxStemTotalCounts: { 丙: 0, 丁: 0 },
     usefulWuxing: '火',
     favorableOrder: ['火', '土'],
-    traceHints: ['破格因素:支成水局而无丙丁', '成格层次:润下格贫寒'],
-    hint: '壬水子月水局成势而无丙丁，多作润下贫寒',
+    traceHints: [
+      '破格因素:支成水局而无丙丁',
+      '结构限制:水势偏旺且缺火暖，不据此推断润下成败或贫富层次',
+    ],
+    hint: '壬水子月水局成势而无丙丁，列水旺缺暖限制',
   },
   {
     id: 'zi-month-ren-fire-formation-wu',

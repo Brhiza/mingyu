@@ -632,9 +632,9 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
   {
     id: 'you-month-xin-wuzi-chaoyang-authority',
     requiresExternalPatternEligibility: true,
-    label: '辛日酉月戊子时巳酉丑全位重权高规则',
+    label: '辛日酉月戊子时巳酉丑全补充结构规则',
     description:
-      '辛金生酉月，若辛日而时上戊子成六阴朝阳，又见巳酉丑金局全、庚辛并见，则较单纯朝阳更进一层，对应原文"庚辛局全巳酉丑，位重权高"；这里将"局全"落为支见巳酉丑全备，并保留庚辛同见作为成局标志。',
+      '辛金生酉月，若辛日而时上戊子具六阴朝阳候选，又见巳酉丑金局全、庚辛并见，只登记朝阳与金局同时存在的补充结构；不得由局全与庚辛同见推断权位或贵贱层次。',
     months: ['酉'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -663,15 +663,19 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
     ],
     usefulWuxing: '土',
     favorableOrder: ['土', '金', '水'],
-    traceHints: ['取象依据:六阴朝阳', '成格关键:庚辛并见，巳酉丑全', '成格层次:位重权高'],
-    hint: '辛金酉月戊子时而巳酉丑金局全、庚辛并见，多主位重权高',
+    traceHints: [
+      '取象依据:六阴朝阳候选',
+      '成格关键:庚辛并见，巳酉丑全',
+      '结构候选:朝阳兼巳酉丑金局，不据此推断权位层次',
+    ],
+    hint: '辛金酉月戊子时而巳酉丑金局全、庚辛并见，列朝阳兼金局候选',
   },
   {
     id: 'you-month-xin-wuzi-chaoyang',
     requiresExternalPatternEligibility: true,
     label: '辛日酉月戊子时六阴朝阳规则',
     description:
-      '辛金生酉月，若辛日时上戊子而不见丙丁离位，合乎原文"六辛日透戊子时，运喜西方，阴若朝阳"；该条属于更窄的时柱格象，应高于一般酉月辛金常规格局。',
+      '辛金生酉月，若辛日时上戊子而不见丙丁离位，只登记六阴朝阳结构候选与西方同类方向；该候选仍须服从严格外格资格，不据此推断成格层次。',
     months: ['酉'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -685,7 +689,11 @@ export const XIN_YOU_CLIMATE_RULES: ClimateRule[] = [
     forbiddenVisibleStems: ['丙', '丁'],
     usefulWuxing: '土',
     favorableOrder: ['土', '金', '水'],
-    traceHints: ['取象依据:六阴朝阳', '成格关键:时上戊子而不见丙丁', '成格层次:阴若朝阳'],
-    hint: '辛金酉月辛日得戊子时而不见丙丁离位，多成六阴朝阳',
+    traceHints: [
+      '取象依据:六阴朝阳候选',
+      '成格关键:时上戊子而不见丙丁',
+      '结构候选:六阴朝阳，不据此推断成格层次',
+    ],
+    hint: '辛金酉月辛日得戊子时而不见丙丁离位，列六阴朝阳候选',
   },
 ];

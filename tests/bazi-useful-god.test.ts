@@ -2598,7 +2598,7 @@ const testCases: Array<{
     },
   },
   {
-    name: '辛日子月壬多而甲乙重重、又无丙时，应标记贫寒，不应仍只按寒儒处理',
+    name: '辛日子月壬多而甲乙重重、又无丙时，应登记寒湿木泄限制而不推断贫富',
     args: [
       '身强',
       { pattern: '偏财格', isSpecial: false },
@@ -2619,7 +2619,10 @@ const testCases: Array<{
     ],
     expected: {
       favorableFirst: '火',
-      traceIncludes: ['破格因素:壬多而甲乙重重，无丙火温暖', '成格层次:多主贫寒'],
+      traceIncludes: [
+        '破格因素:壬多而甲乙重重，无丙火温暖',
+        '结构限制:寒湿木泄偏重，不据此推断贫富层次',
+      ],
       ruleHas: 'zi-month-xin-ren-many-jia-yi-heavy-no-bing',
     },
   },
@@ -2672,7 +2675,7 @@ const testCases: Array<{
     },
   },
   {
-    name: '辛日子月亥子丑全而比劫透出、又无丙时，应标记润下格富贵双全，不应把日主自身误当唯一比劫',
+    name: '辛日子月亥子丑全而比劫透出、又无丙时，应登记水势候选且不把日主自身误当额外比劫',
     args: [
       '身强',
       { pattern: '偏印格', isSpecial: false },
@@ -2695,8 +2698,8 @@ const testCases: Array<{
       favorableFirst: '水',
       traceIncludes: [
         '取用层次:支见亥子丑，干出比劫，无丙',
-        '成格层次:润下格，富贵双全',
-        '运势警语:运喜西北',
+        '结构候选:亥子丑水势偏旺',
+        '运势边界:西北同类方向仍须结合全局复核',
       ],
       ruleHas: 'zi-month-xin-run-down-prosper',
     },
@@ -2724,7 +2727,7 @@ const testCases: Array<{
     expected: { ruleNotHas: 'zi-month-xin-run-down-prosper' },
   },
   {
-    name: '辛日子月亥子丑全而无庚辛、反见甲乙且无戊丙时，应标记僧道，不应误按润下格富贵处理',
+    name: '辛日子月亥子丑全而无额外庚辛、反见甲乙且无戊丙时，应登记寒湿失衡而不推断职业',
     args: [
       '身强',
       { pattern: '偏印格', isSpecial: false },
@@ -2744,7 +2747,10 @@ const testCases: Array<{
       },
     ],
     expected: {
-      traceIncludes: ['破格因素:亥子丑全而无庚辛，反见甲乙', '成格层次:必主僧道'],
+      traceIncludes: [
+        '破格因素:亥子丑全而无额外庚辛，反见甲乙',
+        '结构限制:金少木泄且无戊丙调节，不据此推断职业身份',
+      ],
       ruleHas: 'zi-month-xin-run-down-no-metal-monastic',
       ruleNotHas: 'zi-month-xin-run-down-prosper',
     },
@@ -5516,12 +5522,16 @@ const testCases: Array<{
     ],
     expected: {
       favorableFirst: '土',
-      traceIncludes: ['取象依据:六阴朝阳', '成格关键:时上戊子而不见丙丁', '成格层次:阴若朝阳'],
+      traceIncludes: [
+        '取象依据:六阴朝阳候选',
+        '成格关键:时上戊子而不见丙丁',
+        '结构候选:六阴朝阳，不据此推断成格层次',
+      ],
       ruleHas: 'you-month-xin-wuzi-chaoyang',
     },
   },
   {
-    name: '辛日酉月辛日得戊子时又成巳酉丑全、庚辛并见时，应提升为位重权高',
+    name: '辛日酉月辛日得戊子时又成巳酉丑全、庚辛并见时，应登记朝阳兼金局而不推断权位',
     args: [
       '身强',
       { pattern: '正印格', isSpecial: false },
@@ -5551,7 +5561,11 @@ const testCases: Array<{
     ],
     expected: {
       favorableFirst: '土',
-      traceIncludes: ['取象依据:六阴朝阳', '成格关键:庚辛并见，巳酉丑全', '成格层次:位重权高'],
+      traceIncludes: [
+        '取象依据:六阴朝阳候选',
+        '成格关键:庚辛并见，巳酉丑全',
+        '结构候选:朝阳兼巳酉丑金局，不据此推断权位层次',
+      ],
       ruleHas: 'you-month-xin-wuzi-chaoyang-authority',
       ruleNotHas: 'you-month-xin-wuzi-chaoyang',
     },

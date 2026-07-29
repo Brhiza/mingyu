@@ -7,6 +7,8 @@ import { analyzeLuPatternStructure } from './baziLuPattern';
 import { analyzeOfficerPatternStructure } from './baziOfficerPattern';
 import { analyzeResourcePatternStructure } from './baziResourcePattern';
 import { analyzeWealthPatternStructure } from './baziWealthPattern';
+import { identifyClassicPattern } from './baziEnhancement/classicPatterns';
+import type { ClassicPattern } from './baziEnhancement/classicPatterns';
 import type { BaziChartResult } from './baziTypes';
 import { assertGanZhiPair, getTenGod } from './baziUtils';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
@@ -69,6 +71,7 @@ export interface FortuneTriggerCalculationStep {
     | '伤官格取运核验'
     | '阳刃格取运核验'
     | '建禄月劫取运核验'
+    | '杂格取运核验'
     | '关系汇总';
   status: '已计算';
   inputs: Record<string, string | number | boolean | string[]>;
@@ -334,6 +337,39 @@ export interface FortuneLuPatternRuleFact {
   limitation: '建禄月劫取运事实只把原局已闭合的用官印护、用官财生、用财带伤食、用杀食制、用杀带财、用伤食或官杀并出子结构与当前运字逐项对应；财食杀伤轻重、身旺、官星植根、制伏力度及合化去留仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件';
 }
 
+export type FortuneMiscPatternRuleType =
+  | '五行一方秀气取运候选'
+  | '化气取运候选'
+  | '戊日倒冲徐注改释取运候选'
+  | '丙日倒冲徐注改释取运候选'
+  | '六阴朝阳徐注改释取运候选'
+  | '戊日合禄徐注改释取运候选'
+  | '癸日合禄月令格复核'
+  | '从财取运候选'
+  | '从杀取运候选'
+  | '井栏徐注改释取运候选'
+  | '辛丑遥合徐注改释取运候选'
+  | '刑合徐注改释取运候选';
+
+export interface FortuneMiscPatternRuleFact {
+  key: string;
+  status: '支持候选' | '带忌候选' | '条件待复核';
+  type: FortuneMiscPatternRuleType;
+  patternId: string;
+  patternName: string;
+  sourceRole: '《子平真诠》杂格候选' | '《子平真诠》杂格原例复核' | '《子平真诠》从格取运';
+  layerKey: string;
+  layerLabel: string;
+  ganZhi: string;
+  natalStructure: string;
+  trigger: string;
+  calculationStepKey: string;
+  dependsOnFactKeys: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '杂格取运事实只把《子平真诠》已识别结构或现有从格结果与当前运干、运支藏干逐字对应；徐注改释只作为来源明确的复核事实，不覆盖现有月令格局；干支组合条件、从格真伪、化气成败及全局顺逆仍须另审，不得把单项候选定为最终喜忌、吉凶、贵贱或现实事件';
+}
+
 export interface FortuneTriggerFormationFact {
   key: string;
   status: '已命中';
@@ -423,6 +459,7 @@ export interface FortuneTriggerLimitationFact {
     | '伤官格取运边界'
     | '阳刃格取运边界'
     | '建禄月劫取运边界'
+    | '杂格取运边界'
     | '高风险输出边界';
   status: '适用';
   ownerFactKeys: string[];
@@ -447,6 +484,7 @@ export interface FortuneTriggerEvidenceResult {
   hurtPatternRuleFacts: FortuneHurtPatternRuleFact[];
   bladePatternRuleFacts: FortuneBladePatternRuleFact[];
   luPatternRuleFacts: FortuneLuPatternRuleFact[];
+  miscPatternRuleFacts: FortuneMiscPatternRuleFact[];
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   primaryRelations: FortuneTriggerRelation[];
@@ -496,6 +534,8 @@ const BLADE_PATTERN_RULE_LIMITATION =
   '阳刃格取运事实只把原局已闭合的用官、用杀或官杀并出子结构与当前运字逐项对应；官星根深、七杀旺衰、身旺及制伏力度仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件' as const;
 const LU_PATTERN_RULE_LIMITATION =
   '建禄月劫取运事实只把原局已闭合的用官印护、用官财生、用财带伤食、用杀食制、用杀带财、用伤食或官杀并出子结构与当前运字逐项对应；财食杀伤轻重、身旺、官星植根、制伏力度及合化去留仍须按全局另审，不得把单项候选定为最终喜运、忌运、吉凶或现实事件' as const;
+const MISC_PATTERN_RULE_LIMITATION =
+  '杂格取运事实只把《子平真诠》已识别结构或现有从格结果与当前运干、运支藏干逐字对应；徐注改释只作为来源明确的复核事实，不覆盖现有月令格局；干支组合条件、从格真伪、化气成败及全局顺逆仍须另审，不得把单项候选定为最终喜忌、吉凶、贵贱或现实事件' as const;
 const HIDDEN_STEM_RANKS = ['本气', '中气', '余气'] as const;
 const WUXING_VALUES = new Set(['木', '火', '土', '金', '水']);
 
@@ -3737,6 +3777,570 @@ function buildLuPatternRuleAnalysis(params: {
   return { facts, calculationStep, applicable: true };
 }
 
+const WUXING_GENERATES: Record<string, string> = {
+  木: '火',
+  火: '土',
+  土: '金',
+  金: '水',
+  水: '木',
+};
+const WUXING_RESOURCE: Record<string, string> = {
+  木: '水',
+  火: '木',
+  土: '火',
+  金: '土',
+  水: '金',
+};
+const WUXING_CONTROLS: Record<string, string> = {
+  木: '土',
+  火: '金',
+  土: '水',
+  金: '木',
+  水: '火',
+};
+const WUXING_CONTROLLER: Record<string, string> = {
+  木: '金',
+  火: '水',
+  土: '木',
+  金: '火',
+  水: '土',
+};
+
+function describeLayerWuxing(fact: FortuneLayerStructureFact, wuxings: string[]): string[] {
+  return [
+    ...(wuxings.includes(fact.stem.wuxing) ? [`运干${fact.stem.symbol}${fact.stem.wuxing}`] : []),
+    ...fact.branch.hiddenStems
+      .filter((item) => wuxings.includes(item.wuxing))
+      .map((item) => `运支${fact.branch.symbol}${item.rank}藏干${item.symbol}${item.wuxing}`),
+  ];
+}
+
+function describeLayerMainWuxing(fact: FortuneLayerStructureFact, wuxing: string): string[] {
+  return [
+    ...(fact.stem.wuxing === wuxing ? [`运干${fact.stem.symbol}${wuxing}`] : []),
+    ...(fact.branch.wuxing === wuxing ? [`运支${fact.branch.symbol}主五行${wuxing}`] : []),
+  ];
+}
+
+function resolveZhenQuanClassicPattern(result: BaziChartResult): ClassicPattern | null {
+  const hiddenStems: BaziChartResult['hiddenStems'] = result.hiddenStems ?? {
+    year: HIDDEN_STEMS[result.pillars.year.zhi] ?? [],
+    month: HIDDEN_STEMS[result.pillars.month.zhi] ?? [],
+    day: HIDDEN_STEMS[result.pillars.day.zhi] ?? [],
+    hour: HIDDEN_STEMS[result.pillars.hour.zhi] ?? [],
+  };
+  const pattern = identifyClassicPattern(
+    result.pillars.day.gan,
+    result.pillars.month.zhi,
+    result.pillars,
+    hiddenStems,
+    result.analysis?.mingGe?.pattern,
+  );
+  return pattern?.sourceRole === '《子平真诠》杂格候选' ? pattern : null;
+}
+
+function buildMiscPatternRuleAnalysis(params: {
+  result: BaziChartResult;
+  layerStructureFacts: FortuneLayerStructureFact[];
+}): {
+  facts: FortuneMiscPatternRuleFact[];
+  calculationStep?: FortuneTriggerCalculationStep;
+  applicable: boolean;
+} {
+  const currentPattern = params.result.analysis?.mingGe?.pattern ?? '';
+  const classicPattern = resolveZhenQuanClassicPattern(params.result);
+  const subPattern =
+    currentPattern === '从财格' || currentPattern === '从杀格' ? currentPattern : null;
+  const reviewMonthPrincipal = HIDDEN_STEMS[params.result.pillars.month.zhi]?.[0];
+  const heLuGuiReviewEligible =
+    params.result.pillars.day.gan === '癸' &&
+    params.result.pillars.hour.ganZhi === '庚申' &&
+    !!reviewMonthPrincipal &&
+    getTenGod(reviewMonthPrincipal, params.result.pillars.day.gan) === '七杀' &&
+    ['正印', '偏印'].includes(
+      getTenGod(params.result.pillars.hour.gan, params.result.pillars.day.gan),
+    );
+  if (!classicPattern && !subPattern && !heLuGuiReviewEligible) {
+    return { facts: [], applicable: false };
+  }
+
+  const patternId = classicPattern?.id
+    ? classicPattern.id
+    : subPattern === '从财格'
+      ? 'cong-cai'
+      : subPattern === '从杀格'
+        ? 'cong-sha'
+        : 'he-lu-gui-review';
+  const patternName = classicPattern?.name ?? subPattern ?? '癸日合禄原例复核';
+  const sourceRole: FortuneMiscPatternRuleFact['sourceRole'] = classicPattern
+    ? '《子平真诠》杂格候选'
+    : subPattern
+      ? '《子平真诠》从格取运'
+      : '《子平真诠》杂格原例复核';
+  const facts: FortuneMiscPatternRuleFact[] = [];
+  const calculationStepKey = 'bazi:fortune-trigger:calculation:misc-pattern-rules';
+  const sourceTitle = '《子平真诠评注》“附论杂格取运”';
+  const addFact = (
+    layer: FortuneLayerStructureFact,
+    slug: string,
+    type: FortuneMiscPatternRuleType,
+    status: FortuneMiscPatternRuleFact['status'],
+    natalStructure: string,
+    trigger: string,
+  ) => {
+    facts.push({
+      key: `bazi:fortune-trigger:misc-pattern:${patternId}:${layer.layerType}:${layer.layerId}:${slug}`,
+      status,
+      type,
+      patternId,
+      patternName,
+      sourceRole,
+      layerKey: layer.layerKey,
+      layerLabel: layer.layerLabel,
+      ganZhi: layer.ganZhi,
+      natalStructure,
+      trigger,
+      calculationStepKey,
+      dependsOnFactKeys: [layer.key],
+      promptText: `${layer.layerLabel}${layer.ganZhi}：${natalStructure}；${trigger}，列为${status}`,
+      sources: [sourceTitle, '原局杂格或从格结构与岁运干支分层事实逐项核验'],
+      limitation: MISC_PATTERN_RULE_LIMITATION,
+    });
+  };
+  const addElementFact = (
+    layer: FortuneLayerStructureFact,
+    slug: string,
+    type: FortuneMiscPatternRuleType,
+    status: FortuneMiscPatternRuleFact['status'],
+    natalStructure: string,
+    wuxings: string[],
+    explanation: string,
+  ) => {
+    const triggers = describeLayerWuxing(layer, wuxings);
+    if (triggers.length) {
+      addFact(layer, slug, type, status, natalStructure, `${triggers.join('、')}${explanation}`);
+    }
+  };
+
+  params.layerStructureFacts.forEach((layer) => {
+    if (
+      classicPattern &&
+      ['qu-zhi', 'yan-shang', 'cong-ge', 'run-xia', 'jia-se'].includes(patternId)
+    ) {
+      const dominantWuxing: Record<string, string> = {
+        'qu-zhi': '木',
+        'yan-shang': '火',
+        'cong-ge': '金',
+        'run-xia': '水',
+        'jia-se': '土',
+      };
+      const dominant = dominantWuxing[patternId];
+      const natalStructure = `${patternName}已按得令且完整三合或三会列入五行一方秀气候选；只采用附论所列顺势方向，不重判体纯或成格`;
+      addElementFact(
+        layer,
+        'follow-flow',
+        '五行一方秀气取运候选',
+        '支持候选',
+        natalStructure,
+        [WUXING_RESOURCE[dominant], dominant, WUXING_GENERATES[dominant]],
+        '对应化神印绶、同类或泄秀的顺势方向',
+      );
+      addElementFact(
+        layer,
+        'officer-killer',
+        '五行一方秀气取运候选',
+        '带忌候选',
+        natalStructure,
+        [WUXING_CONTROLLER[dominant]],
+        '对应附论“官杀运最忌”的逆势方向',
+      );
+      addElementFact(
+        layer,
+        'wealth',
+        '五行一方秀气取运候选',
+        '带忌候选',
+        natalStructure,
+        [WUXING_CONTROLS[dominant]],
+        '对应徐注“财运亦不宜”的方向',
+      );
+      return;
+    }
+
+    if (classicPattern && patternId.startsWith('hua-qi-')) {
+      const transformedWuxing: Record<string, string> = {
+        'hua-qi-tu': '土',
+        'hua-qi-jin': '金',
+        'hua-qi-shui': '水',
+        'hua-qi-mu': '木',
+        'hua-qi-huo': '火',
+      };
+      const transformed = transformedWuxing[patternId];
+      const natalStructure = `${patternName}只按得令、完整会局且无争合列为化气候选；真正成化及不同化气差异仍须全局复核`;
+      addElementFact(
+        layer,
+        'transformed-or-resource',
+        '化气取运候选',
+        '支持候选',
+        natalStructure,
+        [transformed, WUXING_RESOURCE[transformed]],
+        '对应“化神旺地及化神印绶”的局部方向',
+      );
+      addElementFact(
+        layer,
+        'controller',
+        '化气取运候选',
+        '带忌候选',
+        natalStructure,
+        [WUXING_CONTROLLER[transformed]],
+        '对应克制化神的官杀方向',
+      );
+      const dayMasterWuxing = STEM_WUXING[params.result.pillars.day.gan];
+      addElementFact(
+        layer,
+        'day-master-restoration',
+        '化气取运候选',
+        '条件待复核',
+        natalStructure,
+        dayMasterWuxing ? [dayMasterWuxing] : [],
+        '同时触及日主本五行，只登记“日主还原之地亦忌”的复核条件；若又属于化神印绶方向，两项候选并存，不机械取舍',
+      );
+      return;
+    }
+
+    if (classicPattern && patternId === 'dao-chong-wu') {
+      const natalStructure =
+        '戊日四午倒冲候选按徐注复核为火土偏旺、以金泄土；不再按遥冲财星直接定取运';
+      addElementFact(
+        layer,
+        'metal',
+        '戊日倒冲徐注改释取运候选',
+        '支持候选',
+        natalStructure,
+        ['金'],
+        '对应金泄土气的方向',
+      );
+      addElementFact(
+        layer,
+        'water',
+        '戊日倒冲徐注改释取运候选',
+        '带忌候选',
+        natalStructure,
+        ['水'],
+        '对应“一杯水救车薪”及填实边界，水不能机械列吉',
+      );
+      addElementFact(
+        layer,
+        'wood',
+        '戊日倒冲徐注改释取运候选',
+        '带忌候选',
+        natalStructure,
+        ['木'],
+        '对应逆土并增火的方向',
+      );
+      if (layer.ganZhi === '庚辰' || layer.ganZhi === '辛丑') {
+        addFact(
+          layer,
+          'water-bearing-earth-exact',
+          '戊日倒冲徐注改释取运候选',
+          '支持候选',
+          natalStructure,
+          `${layer.ganZhi}逐柱闭合徐注点名的“带水之土”例型；只认该干支例型，不扩成所有土运或水运`,
+        );
+      } else {
+        const earth = describeLayerWuxing(layer, ['土']);
+        if (earth.length)
+          addFact(
+            layer,
+            'other-earth',
+            '戊日倒冲徐注改释取运候选',
+            '条件待复核',
+            natalStructure,
+            `${earth.join('、')}只属土组件，未闭合徐注点名的庚辰、辛丑例型，不直接定为最佳`,
+          );
+      }
+      return;
+    }
+
+    if (classicPattern && patternId === 'dao-chong-bing') {
+      const natalStructure =
+        '丙日三午倒冲候选按徐注复核为木火偏旺、格近炎上；不再按遥冲官星直接定取运';
+      addElementFact(
+        layer,
+        'earth',
+        '丙日倒冲徐注改释取运候选',
+        '支持候选',
+        natalStructure,
+        ['土'],
+        '对应土泄火气的明确方向；其余五行未由本段形成固定结论',
+      );
+      return;
+    }
+
+    if (classicPattern && patternId === 'liu-yin-chao-yang') {
+      const natalStructure =
+        '六阴朝阳候选按徐注复核为金水伤官、气偏金水；朝阳名目不代表已经取得官星';
+      addElementFact(
+        layer,
+        'earth-metal-water',
+        '六阴朝阳徐注改释取运候选',
+        '支持候选',
+        natalStructure,
+        ['土', '金', '水'],
+        '对应顺金水气势的明确方向',
+      );
+      addElementFact(
+        layer,
+        'fire',
+        '六阴朝阳徐注改释取运候选',
+        '带忌候选',
+        natalStructure,
+        ['火'],
+        '对应逆金水气势的方向',
+      );
+      const wood = describeLayerMainWuxing(layer, '木');
+      if (wood.length) {
+        const hasWaterPair = layer.stem.wuxing === '水' || layer.branch.wuxing === '水';
+        const hasFirePair = layer.stem.wuxing === '火' || layer.branch.wuxing === '火';
+        addFact(
+          layer,
+          hasWaterPair ? 'wood-with-water' : hasFirePair ? 'wood-with-fire' : 'wood-unresolved',
+          '六阴朝阳徐注改释取运候选',
+          hasWaterPair ? '支持候选' : hasFirePair ? '带忌候选' : '条件待复核',
+          natalStructure,
+          hasWaterPair
+            ? `${wood.join('、')}与同柱水五行逐柱闭合“带水之木尚可”`
+            : hasFirePair
+              ? `${wood.join('、')}与同柱火五行逐柱闭合“带火之木不宜”`
+              : `${wood.join('、')}未与同柱水或火主五行闭合，不把木机械定为喜忌`,
+        );
+      }
+      return;
+    }
+
+    if (classicPattern && patternId === 'he-lu-wu') {
+      const natalStructure =
+        '戊日庚申时合禄候选按徐注复核为土金食神结构；庚合乙只保留名目来源，不代表乙官已出现';
+      addElementFact(
+        layer,
+        'metal-water',
+        '戊日合禄徐注改释取运候选',
+        '支持候选',
+        natalStructure,
+        ['金', '水'],
+        '对应金泄土及水承金的明确方向',
+      );
+      addElementFact(
+        layer,
+        'fire-wood',
+        '戊日合禄徐注改释取运候选',
+        '带忌候选',
+        natalStructure,
+        ['火', '木'],
+        '对应火助土燥、土盛木折的方向',
+      );
+      return;
+    }
+
+    if (patternId === 'he-lu-gui' || patternId === 'he-lu-gui-review') {
+      const monthPrincipal = HIDDEN_STEMS[params.result.pillars.month.zhi]?.[0];
+      const monthTenGod = monthPrincipal
+        ? getTenGod(monthPrincipal, params.result.pillars.day.gan)
+        : '';
+      const hourTenGod = getTenGod(params.result.pillars.hour.gan, params.result.pillars.day.gan);
+      if (monthTenGod === '七杀' && (hourTenGod === '正印' || hourTenGod === '偏印')) {
+        addFact(
+          layer,
+          'month-killer-resource-review',
+          '癸日合禄月令格复核',
+          '条件待复核',
+          `癸日庚申时合禄候选同时闭合月令本气${monthPrincipal}七杀、时干${params.result.pillars.hour.gan}${hourTenGod}；徐注把原例归回月令七杀配印`,
+          '当前运柱不采用另造的合禄固定喜忌，继续交由现有七杀格证据链逐字复核；本事实不覆盖当前月令格局结果',
+        );
+      }
+      return;
+    }
+
+    if (subPattern === '从财格') {
+      const natalStructure =
+        '现有格局管道已识别从财格；附论原例的土金水、火木方向只换算为相对十神组件，不照搬成所有命局固定五行表，也不重判从格真伪';
+      const favorable = describeLayerTenGods(layer, [
+        '食神',
+        '伤官',
+        '正财',
+        '偏财',
+        '正官',
+        '七杀',
+      ]);
+      if (favorable.length)
+        addFact(
+          layer,
+          'output-wealth-officer',
+          '从财取运候选',
+          '支持候选',
+          natalStructure,
+          `${favorable.join('、')}对应食伤生财、财星同类或财生官杀的顺势组件`,
+        );
+      const unfavorable = describeLayerTenGods(layer, ['比肩', '劫财', '正印', '偏印']);
+      if (unfavorable.length)
+        addFact(
+          layer,
+          'peer-resource',
+          '从财取运候选',
+          '带忌候选',
+          natalStructure,
+          `${unfavorable.join('、')}对应比印扶身、逆从财气势的组件`,
+        );
+      return;
+    }
+
+    if (subPattern === '从杀格') {
+      const natalStructure =
+        '现有格局管道已识别从杀格；附论原例的金水土、木火方向只换算为相对十神组件，不照搬成所有命局固定五行表，也不重判从格真伪';
+      const favorable = describeLayerTenGods(layer, [
+        '正官',
+        '七杀',
+        '正财',
+        '偏财',
+        '正印',
+        '偏印',
+      ]);
+      if (favorable.length)
+        addFact(
+          layer,
+          'officer-wealth-resource',
+          '从杀取运候选',
+          '支持候选',
+          natalStructure,
+          `${favorable.join('、')}对应官杀同类、财生官杀或印随杀势的顺势组件`,
+        );
+      const unfavorable = describeLayerTenGods(layer, ['比肩', '劫财', '食神', '伤官']);
+      if (unfavorable.length)
+        addFact(
+          layer,
+          'peer-output',
+          '从杀取运候选',
+          '带忌候选',
+          natalStructure,
+          `${unfavorable.join('、')}对应日主逢根或食伤逆制官杀的组件`,
+        );
+      return;
+    }
+
+    if (classicPattern && patternId === 'jing-lan-cha') {
+      const natalStructure =
+        '井栏候选按徐注复核为庚金乘旺、申子辰水局泄秀，气偏金水；不把遥冲寅午戌当作财官印已经出现';
+      addElementFact(
+        layer,
+        'earth-metal-water',
+        '井栏徐注改释取运候选',
+        '支持候选',
+        natalStructure,
+        ['土', '金', '水'],
+        '对应顺金水气势的明确方向',
+      );
+      addElementFact(
+        layer,
+        'wood',
+        '井栏徐注改释取运候选',
+        '支持候选',
+        natalStructure,
+        ['木'],
+        '对应徐注明列“木运亦可”的局部方向',
+      );
+      addElementFact(
+        layer,
+        'fire',
+        '井栏徐注改释取运候选',
+        '带忌候选',
+        natalStructure,
+        ['火'],
+        '对应逆金水气势的方向',
+      );
+      return;
+    }
+
+    if (classicPattern && patternId === 'yao-he-xin-chou') {
+      const natalStructure =
+        '辛丑遥合候选按徐注复核为土金成局、气偏土金；不把遥会巳官当作已经取得官星';
+      addElementFact(
+        layer,
+        'earth-metal-water',
+        '辛丑遥合徐注改释取运候选',
+        '支持候选',
+        natalStructure,
+        ['土', '金', '水'],
+        '对应顺土金并泄秀的明确方向',
+      );
+      addElementFact(
+        layer,
+        'wood-fire',
+        '辛丑遥合徐注改释取运候选',
+        '带忌候选',
+        natalStructure,
+        ['木', '火'],
+        '对应逆土金气势的方向',
+      );
+      return;
+    }
+
+    if (classicPattern && patternId === 'xing-he') {
+      const natalStructure =
+        '癸日甲寅时刑合候选按徐注复核为从儿结构；寅刑巳名目不代表巳中财官已经出现，也不覆盖现有格局结果';
+      addElementFact(
+        layer,
+        'wood-fire',
+        '刑合徐注改释取运候选',
+        '支持候选',
+        natalStructure,
+        ['木', '火'],
+        '对应食伤引化及顺木生火的明确方向',
+      );
+      addElementFact(
+        layer,
+        'earth-metal',
+        '刑合徐注改释取运候选',
+        '带忌候选',
+        natalStructure,
+        ['土', '金'],
+        '对应官杀与印运的明确带忌方向',
+      );
+      addElementFact(
+        layer,
+        'water',
+        '刑合徐注改释取运候选',
+        '条件待复核',
+        natalStructure,
+        ['水'],
+        '对应“从儿有食伤引化，不忌比劫”的非固定带忌边界；不等于比劫必为最终喜运',
+      );
+    }
+  });
+
+  const calculationStep: FortuneTriggerCalculationStep = {
+    key: calculationStepKey,
+    stage: '杂格取运核验',
+    status: '已计算',
+    inputs: {
+      patternId,
+      patternName,
+      sourceRole,
+      currentPattern,
+      activeLayerKeys: params.layerStructureFacts.map((item) => item.layerKey),
+    },
+    result: {
+      candidateCount: facts.length,
+      candidateKeys: facts.map((item) => item.key),
+    },
+    dependsOnStepKeys: params.layerStructureFacts.map((item) => item.calculationStepKey),
+    promptText: facts.length
+      ? `已按${patternName}的附论来源边界逐字核验所选岁运，记录${facts.length}项支持、带忌或条件待复核候选`
+      : `已核验${patternName}的附论来源边界，当前未命中可客观闭合的专属取运候选`,
+    sources: [sourceTitle, '原局杂格或从格结构与岁运干支分层事实'],
+    limitation: CALCULATION_STEP_LIMITATION,
+  };
+  return { facts, calculationStep, applicable: true };
+}
+
 function relation(
   type: FortuneTriggerRelationType,
   label: string,
@@ -4149,6 +4753,7 @@ function buildRelationSummaryFact(params: {
   hurtPatternRuleFacts: FortuneHurtPatternRuleFact[];
   bladePatternRuleFacts: FortuneBladePatternRuleFact[];
   luPatternRuleFacts: FortuneLuPatternRuleFact[];
+  miscPatternRuleFacts: FortuneMiscPatternRuleFact[];
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   comparisonSteps: FortuneTriggerCalculationStep[];
@@ -4184,6 +4789,7 @@ function buildRelationSummaryFact(params: {
       ...params.hurtPatternRuleFacts.map((item) => item.key),
       ...params.bladePatternRuleFacts.map((item) => item.key),
       ...params.luPatternRuleFacts.map((item) => item.key),
+      ...params.miscPatternRuleFacts.map((item) => item.key),
       ...params.relations.map((item) => item.key),
       ...params.formations.map((item) => item.key),
       ...params.counterEvidenceFacts.map((item) => item.key),
@@ -4227,6 +4833,8 @@ function buildLimitationFacts(params: {
   bladePatternRulesApplicable: boolean;
   luPatternRuleFacts: FortuneLuPatternRuleFact[];
   luPatternRulesApplicable: boolean;
+  miscPatternRuleFacts: FortuneMiscPatternRuleFact[];
+  miscPatternRulesApplicable: boolean;
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   counterEvidenceFacts: FortuneTriggerCounterEvidenceFact[];
@@ -4245,6 +4853,7 @@ function buildLimitationFacts(params: {
   const hurtRuleKeys = params.hurtPatternRuleFacts.map((item) => item.key);
   const bladeRuleKeys = params.bladePatternRuleFacts.map((item) => item.key);
   const luRuleKeys = params.luPatternRuleFacts.map((item) => item.key);
+  const miscRuleKeys = params.miscPatternRuleFacts.map((item) => item.key);
   const definitions: Array<
     Pick<FortuneTriggerLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
   > = [
@@ -4405,6 +5014,18 @@ function buildLimitationFacts(params: {
           },
         ]
       : []),
+    ...(params.miscPatternRulesApplicable
+      ? [
+          {
+            key: 'bazi:fortune-trigger:limitation:misc-pattern-rules',
+            type: '杂格取运边界' as const,
+            ownerFactKeys: [params.relationSummaryFact.key, ...miscRuleKeys],
+            promptText:
+              '杂格取运只能按《子平真诠》已经闭合的杂格候选或现有从格结果逐字研究；五行一方秀气、化气、倒冲、朝阳、合禄、井栏、遥合与刑合仍须分别服从自身结构，徐注对倒冲、朝阳、合禄、井栏、遥合、刑合及原例月令格的改释只作为复核事实，不得悄悄覆盖现有格局；带水之木、带火之木、庚辰辛丑等干支组合只按实际组合闭合，化气成败、从格真伪与日主还原不得由单个运字硬判，不得定成最终喜忌',
+            sources: ['《子平真诠评注》“附论杂格取运”'],
+          },
+        ]
+      : []),
     {
       key: 'bazi:fortune-trigger:limitation:high-risk-output',
       type: '高风险输出边界',
@@ -4433,6 +5054,7 @@ function buildEvidence(params: {
   hurtPatternRuleFacts: FortuneHurtPatternRuleFact[];
   bladePatternRuleFacts: FortuneBladePatternRuleFact[];
   luPatternRuleFacts: FortuneLuPatternRuleFact[];
+  miscPatternRuleFacts: FortuneMiscPatternRuleFact[];
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   counterEvidenceFacts: FortuneTriggerCounterEvidenceFact[];
@@ -4610,6 +5232,24 @@ function buildEvidence(params: {
               new Set(params.luPatternRuleFacts.flatMap((item) => item.sources)),
             ).join('、'),
             tags: ['八字岁运', '建禄月劫', '逐字取运候选'],
+          } satisfies PromptEvidenceItem,
+        ]
+      : []),
+    ...(params.miscPatternRuleFacts.length
+      ? [
+          {
+            level: '主证',
+            title: '杂格逐字取运与徐注复核事实',
+            detail: `${params.miscPatternRuleFacts
+              .map(
+                (item) =>
+                  `${item.layerLabel}${item.ganZhi}${item.patternName}${item.type}：${item.trigger}（${item.status}）`,
+              )
+              .join('；')}。统一边界：${MISC_PATTERN_RULE_LIMITATION}`,
+            source: Array.from(
+              new Set(params.miscPatternRuleFacts.flatMap((item) => item.sources)),
+            ).join('、'),
+            tags: ['八字岁运', '杂格', '徐注复核', '逐字取运候选'],
           } satisfies PromptEvidenceItem,
         ]
       : []),
@@ -4799,6 +5439,14 @@ export function analyzeFortuneTriggers(
   if (luPatternRuleAnalysis.calculationStep) {
     calculationSteps.push(luPatternRuleAnalysis.calculationStep);
   }
+  const miscPatternRuleAnalysis = buildMiscPatternRuleAnalysis({
+    result,
+    layerStructureFacts,
+  });
+  const miscPatternRuleFacts = miscPatternRuleAnalysis.facts;
+  if (miscPatternRuleAnalysis.calculationStep) {
+    calculationSteps.push(miscPatternRuleAnalysis.calculationStep);
+  }
   const relationSummaryFact = buildRelationSummaryFact({
     calculationSteps,
     layerStructureFacts,
@@ -4811,6 +5459,7 @@ export function analyzeFortuneTriggers(
     hurtPatternRuleFacts,
     bladePatternRuleFacts,
     luPatternRuleFacts,
+    miscPatternRuleFacts,
     relations,
     formations,
     comparisonSteps,
@@ -4858,6 +5507,8 @@ export function analyzeFortuneTriggers(
     bladePatternRulesApplicable: bladePatternRuleAnalysis.applicable,
     luPatternRuleFacts,
     luPatternRulesApplicable: luPatternRuleAnalysis.applicable,
+    miscPatternRuleFacts,
+    miscPatternRulesApplicable: miscPatternRuleAnalysis.applicable,
     relations,
     formations,
     counterEvidenceFacts,
@@ -4879,6 +5530,7 @@ export function analyzeFortuneTriggers(
     hurtPatternRuleFacts,
     bladePatternRuleFacts,
     luPatternRuleFacts,
+    miscPatternRuleFacts,
     relations,
     formations,
     counterEvidenceFacts,
@@ -4890,7 +5542,7 @@ export function analyzeFortuneTriggers(
   const calculationChain = calculationSteps.map((item) => item.promptText);
   const noMajorFacts = counterEvidenceFacts.filter((item) => item.status === '未见主要关系');
   const noMajorWithSupporting = noMajorFacts.filter((item) => item.supportingRelationKeys.length);
-  const calculationOverview = `已校验${layers.length}个原局与岁运层级，形成${layerStructureFacts.length}项岁运干支分层事实、${hiddenStemRevealFacts.length}项藏干透出对应候选、${officerPatternRuleFacts.length}项正官取运候选、${wealthPatternRuleFacts.length}项财格取运候选、${resourcePatternRuleFacts.length}项印格取运候选、${foodPatternRuleFacts.length}项食神格取运候选、${killerPatternRuleFacts.length}项七杀格取运候选、${hurtPatternRuleFacts.length}项伤官格取运候选、${bladePatternRuleFacts.length}项阳刃格取运候选、${luPatternRuleFacts.length}项建禄月劫取运候选，完成${comparisonSteps.length}组逐项比对和三合三会汇总核验；${relationSummaryFact.promptText}`;
+  const calculationOverview = `已校验${layers.length}个原局与岁运层级，形成${layerStructureFacts.length}项岁运干支分层事实、${hiddenStemRevealFacts.length}项藏干透出对应候选、${officerPatternRuleFacts.length}项正官取运候选、${wealthPatternRuleFacts.length}项财格取运候选、${resourcePatternRuleFacts.length}项印格取运候选、${foodPatternRuleFacts.length}项食神格取运候选、${killerPatternRuleFacts.length}项七杀格取运候选、${hurtPatternRuleFacts.length}项伤官格取运候选、${bladePatternRuleFacts.length}项阳刃格取运候选、${luPatternRuleFacts.length}项建禄月劫取运候选、${miscPatternRuleFacts.length}项杂格取运与徐注复核事实，完成${comparisonSteps.length}组逐项比对和三合三会汇总核验；${relationSummaryFact.promptText}`;
   const counterOverview = noMajorFacts.length
     ? `共${noMajorFacts.length}组层级未见岁运并临、天克地冲或同柱伏吟，其中${noMajorWithSupporting.length}组仍有辅助关系；未见主要关系不等于没有较弱关系、没有现实触发或必然平稳`
     : '所有已比较层级均已记录主要关系；仍不得据命中数量生成吉凶或概率结论';
@@ -4910,6 +5562,7 @@ export function analyzeFortuneTriggers(
     hurtPatternRuleFacts,
     bladePatternRuleFacts,
     luPatternRuleFacts,
+    miscPatternRuleFacts,
     relations,
     formations,
     primaryRelations,
@@ -4943,6 +5596,7 @@ export function analyzeFortuneTriggers(
         '伤官格另按用财、佩印、财印隔位并用、杀印、带杀及金水用官结构逐字列取运候选；身财印伤官杀轻重、财印两旺与合化结果保留待复核，一般方向和条件例外并存。',
         '阳刃格另按用官、用杀及官杀并出结构逐字列取运候选；官星根深、七杀旺衰、身旺及制伏力度保留待复核，伤食与合官分别核验，取清结果不由岁运单字提前认定。',
         '建禄月劫另按用官印护、用官财生、用财带伤食、用杀食制、用杀带财、用伤食及官杀并出结构逐字列取运候选；财食杀伤轻重、身旺、制伏与合化去留保留待复核，官星植根和逢合分别按运支藏官与运干五合核验。',
+        '杂格另按《子平真诠》候选来源及现有从财、从杀结果逐字列取运候选；徐注改释只登记复核事实，不覆盖月令格局，带水之木、带火之木、庚辰辛丑等组合只按实际干支闭合，具体命例大运不扩成固定五行表。',
         '运干与运支分别保留，地支关系与三合三会另行核验；同五行或同十神不得据此机械等价。',
         '每个层级和关系均保留稳定键、计算步骤依赖及来源层级，未见主要关系时保留反证，不补造候选应期。',
         '关系成立与吉凶解释分离，不对不同关系设置命运总分，也不从单条关系直接推断事件。',

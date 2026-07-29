@@ -89,9 +89,9 @@ export const XIN_ZI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'zi-month-xin-ren-many-jia-yi-heavy-no-bing',
-    label: '辛日子月壬多甲乙重无丙贫寒规则',
+    label: '辛日子月壬多甲乙重无丙失衡规则',
     description:
-      '辛金生子月，若壬水偏多，甲乙并重而又无丙火温暖，较合原文"壬多，甲乙重重，无丙火者，贫寒"；此类较寒儒更带木泄之病，不应仍与青云或润下同断。',
+      '辛金生子月，若壬水偏多，甲乙并重而又无丙火温暖，只能登记寒湿、木泄与失暖同时存在的结构限制；原文身份与贫富层次不得由这些字数条件直接推出。',
     months: ['子'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -112,8 +112,11 @@ export const XIN_ZI_CLIMATE_RULES: ClimateRule[] = [
     },
     usefulWuxing: '火',
     favorableOrder: ['火', '土'],
-    traceHints: ['破格因素:壬多而甲乙重重，无丙火温暖', '成格层次:多主贫寒'],
-    hint: '辛金子月壬多而甲乙重重、又无丙火，多主贫寒',
+    traceHints: [
+      '破格因素:壬多而甲乙重重，无丙火温暖',
+      '结构限制:寒湿木泄偏重，不据此推断贫富层次',
+    ],
+    hint: '辛金子月壬多而甲乙重重、又无丙火，寒湿木泄偏重',
   },
   {
     id: 'zi-month-xin-water-formation-gui-two-wu',
@@ -153,9 +156,9 @@ export const XIN_ZI_CLIMATE_RULES: ClimateRule[] = [
   },
   {
     id: 'zi-month-xin-run-down-prosper',
-    label: '辛日子月亥子丑全比劫透润下规则',
+    label: '辛日子月亥子丑全比劫透水势规则',
     description:
-      '辛金生子月，若地支全见亥子丑，天干又有庚辛比劫透出，且不见丙火，较合原文"名润下格，富贵双全"；此类是从水趋势，不应仍按普通寒儒或水局癸透处理。',
+      '辛金生子月，若地支全见亥子丑，天干又有庚辛比劫透出，且不见丙火，只登记水势偏旺与西北同类方向候选；辛日不冒充壬癸日润下格，也不据此推断贵贱层次。',
     months: ['子'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -175,16 +178,16 @@ export const XIN_ZI_CLIMATE_RULES: ClimateRule[] = [
     favorableOrder: ['水', '金'],
     traceHints: [
       '取用层次:支见亥子丑，干出比劫，无丙',
-      '成格层次:润下格，富贵双全',
-      '运势警语:运喜西北',
+      '结构候选:亥子丑水势偏旺',
+      '运势边界:西北同类方向仍须结合全局复核',
     ],
-    hint: '辛金子月亥子丑全而比劫透出、又无丙火，可按润下格论',
+    hint: '辛金子月亥子丑全而比劫透出、又无丙火，列水势偏旺候选',
   },
   {
     id: 'zi-month-xin-run-down-no-metal-monastic',
-    label: '辛日子月亥子丑全无庚辛见甲乙僧道规则',
+    label: '辛日子月亥子丑全无庚辛见甲乙限制规则',
     description:
-      '辛金生子月，若地支全见亥子丑，而天干不见庚辛比劫，反见甲乙，又无戊丙挽救，较合原文"若无庚辛，又出甲乙，无戊丙者，必主僧道"；此类不应误按润下格富贵处理。',
+      '辛金生子月，若地支全见亥子丑，而天干不见额外庚辛比劫，反见甲乙，又无戊丙调节，只登记金少、木泄、寒湿无救的结构限制；不得据此推断职业、身份或贵贱。',
     months: ['子'],
     dayMasters: ['金'],
     dayStems: ['辛'],
@@ -211,8 +214,11 @@ export const XIN_ZI_CLIMATE_RULES: ClimateRule[] = [
     },
     usefulWuxing: '金',
     favorableOrder: ['金', '火'],
-    traceHints: ['破格因素:亥子丑全而无庚辛，反见甲乙', '成格层次:必主僧道'],
-    hint: '辛金子月亥子丑全而无庚辛、又见甲乙且无戊丙，多主僧道',
+    traceHints: [
+      '破格因素:亥子丑全而无额外庚辛，反见甲乙',
+      '结构限制:金少木泄且无戊丙调节，不据此推断职业身份',
+    ],
+    hint: '辛金子月亥子丑全而无额外庚辛、又见甲乙且无戊丙，列寒湿失衡限制',
   },
   {
     id: 'zi-month-xin-wood-formation-ding-wu-merit',

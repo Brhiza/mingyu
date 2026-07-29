@@ -36,6 +36,7 @@ function assertEvidenceReferences(result: ReturnType<typeof analyzeFortuneTrigge
     ...result.hurtPatternRuleFacts.map((item) => item.key),
     ...result.bladePatternRuleFacts.map((item) => item.key),
     ...result.luPatternRuleFacts.map((item) => item.key),
+    ...result.miscPatternRuleFacts.map((item) => item.key),
     ...result.relations.map((item) => item.key),
     ...result.formations.map((item) => item.key),
     ...result.counterEvidenceFacts.map((item) => item.key),
@@ -120,6 +121,14 @@ function createLuResult(
   result.pillars = pillars;
   result.dayMaster = { gan: pillars.day.gan } as BaziChartResult['dayMaster'];
   result.analysis.mingGe = { pattern, isSpecial: false };
+  return result;
+}
+
+function createMiscResult(pillars: Pillars, pattern = '正印格'): BaziChartResult {
+  const result = createResult();
+  result.pillars = pillars;
+  result.dayMaster = { gan: pillars.day.gan } as BaziChartResult['dayMaster'];
+  result.analysis.mingGe = { pattern, isSpecial: pattern.startsWith('从') };
   return result;
 }
 
@@ -1665,5 +1674,313 @@ test('禄劫官杀并出应保留伤食比肩与财印官运相反方向，不�
   assert.doesNotMatch(
     result.promptText,
     /判定为最终喜运|判定为最终忌运|匹配总分：|富贵概率：\d|灾祸必然|成功率：\d/,
+  );
+});
+
+test('五行一方秀气只对《子平真诠》候选输出顺势逐字事实，其他古籍名目不进入本链', () => {
+  const quZhi = createMiscResult({
+    year: { gan: '癸', zhi: '亥', ganZhi: '癸亥' },
+    month: { gan: '乙', zhi: '卯', ganZhi: '乙卯' },
+    day: { gan: '乙', zhi: '未', ganZhi: '乙未' },
+    hour: { gan: '壬', zhi: '午', ganZhi: '壬午' },
+  });
+  const result = analyzeFortuneTriggers(quZhi, [
+    { id: 'follow', type: 'dayun', label: '丙子大运', ganZhi: '丙子' },
+    { id: 'reverse', type: 'year', label: '庚申流年', ganZhi: '庚申' },
+  ]);
+  const facts = result.miscPatternRuleFacts;
+
+  assert.ok(
+    facts.some(
+      (item) =>
+        item.patternId === 'qu-zhi' &&
+        item.status === '支持候选' &&
+        item.trigger.includes('运干丙火') &&
+        item.trigger.includes('运支子本气藏干癸水'),
+    ),
+  );
+  assert.ok(
+    facts.some(
+      (item) =>
+        item.patternId === 'qu-zhi' &&
+        item.status === '带忌候选' &&
+        item.trigger.includes('官杀运最忌'),
+    ),
+  );
+  assert.ok(
+    result.limitationFacts.some(
+      (item) => item.type === '杂格取运边界' && item.promptText.includes('不得悄悄覆盖现有格局'),
+    ),
+  );
+  assertEvidenceReferences(result);
+
+  const externalResult = analyzeFortuneTriggers(
+    createMiscResult({
+      year: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
+      month: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
+      day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+      hour: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
+    }),
+    [{ id: 'fire', type: 'dayun', label: '丙午大运', ganZhi: '丙午' }],
+  );
+  assert.deepEqual(externalResult.miscPatternRuleFacts, []);
+  assert.ok(!externalResult.calculationSteps.some((item) => item.stage === '杂格取运核验'));
+});
+
+test('化气取运应并存化神印绶、官杀与日主还原复核，不把同元素冲突提前取舍', () => {
+  const natal = createMiscResult({
+    year: { gan: '甲', zhi: '戌', ganZhi: '甲戌' },
+    month: { gan: '丁', zhi: '卯', ganZhi: '丁卯' },
+    day: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
+    hour: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
+  });
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'water', type: 'dayun', label: '壬子大运', ganZhi: '壬子' },
+    { id: 'metal', type: 'year', label: '庚申流年', ganZhi: '庚申' },
+  ]);
+  const facts = result.miscPatternRuleFacts.filter((item) => item.patternId === 'hua-qi-mu');
+
+  assert.ok(
+    facts.some(
+      (item) =>
+        item.ganZhi === '壬子' &&
+        item.status === '支持候选' &&
+        item.trigger.includes('化神旺地及化神印绶'),
+    ),
+  );
+  assert.ok(
+    facts.some(
+      (item) =>
+        item.ganZhi === '壬子' &&
+        item.status === '条件待复核' &&
+        item.trigger.includes('日主还原') &&
+        item.trigger.includes('两项候选并存'),
+    ),
+  );
+  assert.ok(
+    facts.some(
+      (item) =>
+        item.ganZhi === '庚申' && item.status === '带忌候选' && item.trigger.includes('克制化神'),
+    ),
+  );
+});
+
+test('戊日倒冲只把庚辰辛丑闭合为带水之土例型，水运不机械列吉', () => {
+  const natal = createMiscResult({
+    year: { gan: '戊', zhi: '午', ganZhi: '戊午' },
+    month: { gan: '戊', zhi: '午', ganZhi: '戊午' },
+    day: { gan: '戊', zhi: '午', ganZhi: '戊午' },
+    hour: { gan: '戊', zhi: '午', ganZhi: '戊午' },
+  });
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'exact', type: 'dayun', label: '庚辰大运', ganZhi: '庚辰' },
+    { id: 'water', type: 'year', label: '壬子流年', ganZhi: '壬子' },
+    { id: 'earth', type: 'month', label: '戊戌流月', ganZhi: '戊戌' },
+  ]);
+  const facts = result.miscPatternRuleFacts.filter((item) => item.patternId === 'dao-chong-wu');
+
+  assert.ok(
+    facts.some(
+      (item) =>
+        item.ganZhi === '庚辰' &&
+        item.status === '支持候选' &&
+        item.trigger.includes('带水之土') &&
+        item.trigger.includes('不扩成所有土运或水运'),
+    ),
+  );
+  assert.ok(
+    facts.some(
+      (item) =>
+        item.ganZhi === '壬子' &&
+        item.status === '带忌候选' &&
+        item.trigger.includes('水不能机械列吉'),
+    ),
+  );
+  assert.ok(
+    facts.some(
+      (item) =>
+        item.ganZhi === '戊戌' &&
+        item.status === '条件待复核' &&
+        item.trigger.includes('未闭合徐注点名'),
+    ),
+  );
+});
+
+test('六阴朝阳的带水木、带火木应按同柱主五行闭合，其余木保留待复核', () => {
+  const natal = createMiscResult({
+    year: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    month: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
+    day: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
+    hour: { gan: '戊', zhi: '子', ganZhi: '戊子' },
+  });
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'water-wood', type: 'dayun', label: '甲子大运', ganZhi: '甲子' },
+    { id: 'fire-wood', type: 'year', label: '丙寅流年', ganZhi: '丙寅' },
+    { id: 'earth-wood', type: 'month', label: '乙丑流月', ganZhi: '乙丑' },
+  ]);
+  const facts = result.miscPatternRuleFacts.filter(
+    (item) => item.patternId === 'liu-yin-chao-yang',
+  );
+
+  assert.ok(
+    facts.some(
+      (item) =>
+        item.ganZhi === '甲子' &&
+        item.status === '支持候选' &&
+        item.trigger.includes('带水之木尚可'),
+    ),
+  );
+  assert.ok(
+    facts.some(
+      (item) =>
+        item.ganZhi === '丙寅' &&
+        item.status === '带忌候选' &&
+        item.trigger.includes('带火之木不宜'),
+    ),
+  );
+  assert.ok(
+    facts.some(
+      (item) =>
+        item.ganZhi === '乙丑' &&
+        item.status === '条件待复核' &&
+        item.trigger.includes('不把木机械定为喜忌'),
+    ),
+  );
+});
+
+test('癸日合禄原例应登记月令七杀配印复核，但不覆盖现有格局', () => {
+  const natal = createMiscResult(
+    {
+      year: { gan: '己', zhi: '酉', ganZhi: '己酉' },
+      month: { gan: '辛', zhi: '未', ganZhi: '辛未' },
+      day: { gan: '癸', zhi: '未', ganZhi: '癸未' },
+      hour: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+    },
+    '七杀格',
+  );
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'fortune', type: 'dayun', label: '庚午大运', ganZhi: '庚午' },
+  ]);
+  const facts = result.miscPatternRuleFacts.filter((item) => item.type === '癸日合禄月令格复核');
+
+  assert.equal(facts.length, 1);
+  assert.equal(facts[0]?.sourceRole, '《子平真诠》杂格原例复核');
+  assert.match(facts[0]?.natalStructure ?? '', /月令本气己七杀.*时干庚正印/);
+  assert.match(facts[0]?.trigger ?? '', /不采用另造的合禄固定喜忌.*不覆盖当前月令格局/);
+  assert.ok(result.killerPatternRuleFacts.length > 0);
+});
+
+test('从财从杀只按现有格局结果换算相对十神，不照搬原例固定五行', () => {
+  const pillars: Pillars = {
+    year: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+    month: { gan: '乙', zhi: '酉', ganZhi: '乙酉' },
+    day: { gan: '丙', zhi: '申', ganZhi: '丙申' },
+    hour: { gan: '己', zhi: '丑', ganZhi: '己丑' },
+  };
+  const wealthResult = analyzeFortuneTriggers(createMiscResult(pillars, '从财格'), [
+    { id: 'fortune', type: 'dayun', label: '甲午大运', ganZhi: '甲午' },
+  ]);
+  assert.ok(
+    wealthResult.miscPatternRuleFacts.some(
+      (item) =>
+        item.type === '从财取运候选' &&
+        item.status === '带忌候选' &&
+        item.trigger.includes('比印扶身'),
+    ),
+  );
+  assert.ok(
+    wealthResult.miscPatternRuleFacts.every((item) =>
+      item.natalStructure.includes('不照搬成所有命局固定五行表'),
+    ),
+  );
+
+  const killerResult = analyzeFortuneTriggers(
+    createMiscResult(
+      {
+        year: { gan: '乙', zhi: '酉', ganZhi: '乙酉' },
+        month: { gan: '乙', zhi: '酉', ganZhi: '乙酉' },
+        day: { gan: '乙', zhi: '酉', ganZhi: '乙酉' },
+        hour: { gan: '甲', zhi: '申', ganZhi: '甲申' },
+      },
+      '从杀格',
+    ),
+    [{ id: 'fortune', type: 'dayun', label: '丙午大运', ganZhi: '丙午' }],
+  );
+  assert.ok(
+    killerResult.miscPatternRuleFacts.some(
+      (item) =>
+        item.type === '从杀取运候选' &&
+        item.status === '带忌候选' &&
+        item.trigger.includes('食伤逆制官杀'),
+    ),
+  );
+});
+
+test('井栏、辛丑遥合与刑合应采用徐注改释方向并保留非固定边界', () => {
+  const jingLanResult = analyzeFortuneTriggers(
+    createMiscResult({
+      year: { gan: '戊', zhi: '子', ganZhi: '戊子' },
+      month: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+      day: { gan: '庚', zhi: '申', ganZhi: '庚申' },
+      hour: { gan: '庚', zhi: '辰', ganZhi: '庚辰' },
+    }),
+    [{ id: 'fortune', type: 'dayun', label: '丙寅大运', ganZhi: '丙寅' }],
+  );
+  assert.ok(
+    jingLanResult.miscPatternRuleFacts.some(
+      (item) => item.type === '井栏徐注改释取运候选' && item.status === '支持候选',
+    ),
+  );
+  assert.ok(
+    jingLanResult.miscPatternRuleFacts.some(
+      (item) => item.type === '井栏徐注改释取运候选' && item.status === '带忌候选',
+    ),
+  );
+
+  const yaoHeResult = analyzeFortuneTriggers(
+    createMiscResult({
+      year: { gan: '辛', zhi: '丑', ganZhi: '辛丑' },
+      month: { gan: '辛', zhi: '丑', ganZhi: '辛丑' },
+      day: { gan: '辛', zhi: '丑', ganZhi: '辛丑' },
+      hour: { gan: '庚', zhi: '寅', ganZhi: '庚寅' },
+    }),
+    [{ id: 'fortune', type: 'dayun', label: '甲午大运', ganZhi: '甲午' }],
+  );
+  assert.ok(
+    yaoHeResult.miscPatternRuleFacts.some(
+      (item) => item.type === '辛丑遥合徐注改释取运候选' && item.status === '带忌候选',
+    ),
+  );
+
+  const xingHeResult = analyzeFortuneTriggers(
+    createMiscResult({
+      year: { gan: '乙', zhi: '未', ganZhi: '乙未' },
+      month: { gan: '癸', zhi: '卯', ganZhi: '癸卯' },
+      day: { gan: '癸', zhi: '卯', ganZhi: '癸卯' },
+      hour: { gan: '甲', zhi: '寅', ganZhi: '甲寅' },
+    }),
+    [
+      { id: 'wood', type: 'dayun', label: '甲寅大运', ganZhi: '甲寅' },
+      { id: 'water', type: 'year', label: '壬子流年', ganZhi: '壬子' },
+      { id: 'metal', type: 'month', label: '庚申流月', ganZhi: '庚申' },
+    ],
+  );
+  assert.ok(
+    xingHeResult.miscPatternRuleFacts.some(
+      (item) => item.type === '刑合徐注改释取运候选' && item.status === '支持候选',
+    ),
+  );
+  assert.ok(
+    xingHeResult.miscPatternRuleFacts.some(
+      (item) =>
+        item.type === '刑合徐注改释取运候选' &&
+        item.status === '条件待复核' &&
+        item.trigger.includes('不忌比劫'),
+    ),
+  );
+  assert.ok(
+    xingHeResult.miscPatternRuleFacts.some(
+      (item) => item.type === '刑合徐注改释取运候选' && item.status === '带忌候选',
+    ),
   );
 });
