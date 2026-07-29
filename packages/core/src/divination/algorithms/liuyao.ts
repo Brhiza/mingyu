@@ -1160,6 +1160,7 @@ export type {
   LiuyaoTimingSummaryFact,
   LiuyaoTraditionalSymbolFact,
   LiuyaoUsefulGodCandidate,
+  LiuyaoUsefulGodMatchingTier,
   LiuyaoUsefulGodSelectionFact,
   LiuyaoYaoReference,
 } from '../liuyao-evidence';

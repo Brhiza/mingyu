@@ -3,7 +3,7 @@ import type { DivinationMethodId } from '../config';
 export function buildTaskText(method: Exclude<DivinationMethodId, 'random'>) {
   switch (method) {
     case 'liuyao':
-      return '请严格围绕已给出的用神主线、世应、动变、伏神、空亡、月日与作用链作答；用神已定时不得改换他爻为主断，直接给出判断、时机与行动建议。';
+      return '请先核对已给出的用神选择状态：取用范围或爻位待定时须明确保留待定，不得以世应、动爻或候选顺序硬取；用神已选定时再严格围绕该用神、世应、动变、月日、伏神、空亡与作用链作答，不得擅自改换他爻为主断。';
     case 'meihua':
       return '请严格围绕已给出的体用关系、互卦过程、变卦结果和四时旺衰作答，直接给出判断与应对建议。';
     case 'xiaoliuren':

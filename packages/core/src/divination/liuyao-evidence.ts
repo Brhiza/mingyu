@@ -6,7 +6,16 @@ import type {
   LiuyaoLineStrengthAnalysis,
   LiuyaoYaoDetail,
 } from '../types/divination';
-import { isKe, isLiuchong, isLiuhai, isLiuhe, isSanxing, isSheng } from '../ganzhi';
+import {
+  getBranchWuxing,
+  isKe,
+  isLiuchong,
+  isLiuhai,
+  isLiuhe,
+  isSanxing,
+  isSheng,
+} from '../ganzhi';
+import { liuqinRelations } from './divination-data';
 import {
   analyzeLiuyaoHiddenSpiritConditions,
   analyzeLiuyaoLineStrength,
@@ -22,6 +31,7 @@ import {
 
 export type LiuyaoEvidenceTopic = 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen';
 export type LiuyaoGodRole = '用神' | '原神' | '忌神' | '仇神';
+export type LiuyaoUsefulGodMatchingTier = '本卦明现' | '变爻显出' | '月日入用' | '伏神检索';
 
 export interface LiuyaoEvidenceOptions {
   topic?: LiuyaoEvidenceTopic;
@@ -32,9 +42,9 @@ export interface LiuyaoEvidenceOptions {
 export interface LiuyaoYaoReference {
   key: string;
   factKey: string;
-  source: '本卦' | '伏神';
+  source: '本卦' | '变爻' | '月建' | '日辰' | '伏神';
   status: '已匹配';
-  position: number;
+  position?: number;
   sixRelative: string;
   stem?: string;
   branch: string;
@@ -62,6 +72,8 @@ export interface LiuyaoUsefulGodCandidate {
   key: string;
   status: '已匹配' | '未匹配';
   sourceStatus: '用户指定' | '主题默认' | '盘面补齐';
+  candidateRole: '用神候选' | '辅助观察';
+  matchingTier: LiuyaoUsefulGodMatchingTier | null;
   label: string;
   relative?: string;
   position?: number;
@@ -72,20 +84,20 @@ export interface LiuyaoUsefulGodCandidate {
   constraints: string[];
   promptText: string;
   sources: string[];
-  limitation: '用神候选只记录由明确指定、问题主题或世应动爻提出的取用范围及其盘面匹配；候选不等于已证明现实事项，也不得按候选顺序、数量或匹配数量换算吉凶分与成功率';
+  limitation: '用神候选区分真正的六亲取用与世应、动爻等辅助观察，并按本卦明现、变爻显出、月日入用、伏神检索的层级匹配；候选不等于已证明现实事项，也不得按候选顺序、数量或匹配数量换算吉凶分与成功率';
 }
 
 export interface LiuyaoGodChainItem {
   key: string;
   role: LiuyaoGodRole;
-  status: '盘中有对应' | '盘中未见';
+  status: '当前资料有对应' | '当前资料未见';
   wuxing: string;
   relation: string;
   references: LiuyaoYaoReference[];
   referenceKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '原神、忌神与仇神只按已选候选五行的生克链定义，并记录盘中是否有对应爻；盘中有无对应不直接证明现实助力、阻碍、吉凶或结果';
+  limitation: '原神、忌神与仇神只按已明确的用神六亲五行建立生克链，并记录本卦、变爻、月日与伏神中是否有对应；资料有无对应不直接证明现实助力、阻碍、吉凶或结果';
 }
 
 export interface LiuyaoTraditionalSymbolFact {
@@ -209,14 +221,17 @@ export interface LiuyaoHiddenSpiritCoverageFact {
 
 export interface LiuyaoUsefulGodSelectionFact {
   key: 'liuyao:useful-god-selection';
-  status: '已选定候选' | '缺少可用候选';
+  status: '已选定候选' | '用神爻位待择' | '取用范围待定' | '缺少可用候选';
   topic: LiuyaoEvidenceTopic;
   requestedRelative: string | null;
+  targetRelative: string | null;
+  matchingTier: LiuyaoUsefulGodMatchingTier | null;
   selectedCandidateKey: string | null;
+  selectedReferenceKey: string | null;
   candidateKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '用神选择状态只说明当前候选是否在本卦或伏神中找到匹配；缺少匹配时不得硬取用神，已有匹配也仍须结合具体问题语义、求测者身份与现实资料复核';
+  limitation: '用神选择状态按本卦明现、变爻显出、月日入用、伏神检索的层级记录当前取用；问题关系不足、多现未能闭合或各层均无匹配时不得硬取，也不得把世应、动爻或数组顺序冒充唯一用神';
 }
 
 export interface LiuyaoCounterEvidenceFact {
@@ -290,7 +305,7 @@ export interface LiuyaoCalculationStep {
 
 export interface LiuyaoSummaryFact {
   key: 'liuyao:evidence-summary';
-  status: '证据链完整' | '部分资料缺失' | '缺少可用候选';
+  status: '证据链完整' | '部分资料缺失' | '用神取用待定' | '缺少可用候选';
   factKeys: string[];
   lineFactCount: number;
   hiddenSpiritFactCount: number;
@@ -367,15 +382,15 @@ const HIDDEN_SPIRIT_FACT_LIMITATION =
 const GENERATION_FACT_LIMITATION =
   '起卦来源只说明卦象如何生成以及六个爻值如何录入或生成，不提高卦象证据等级，也不证明预测有效性或现实结果' as const;
 const CANDIDATE_FACT_LIMITATION =
-  '用神候选只记录由明确指定、问题主题或世应动爻提出的取用范围及其盘面匹配；候选不等于已证明现实事项，也不得按候选顺序、数量或匹配数量换算吉凶分与成功率' as const;
+  '用神候选区分真正的六亲取用与世应、动爻等辅助观察，并按本卦明现、变爻显出、月日入用、伏神检索的层级匹配；候选不等于已证明现实事项，也不得按候选顺序、数量或匹配数量换算吉凶分与成功率' as const;
 const GOD_CHAIN_FACT_LIMITATION =
-  '原神、忌神与仇神只按已选候选五行的生克链定义，并记录盘中是否有对应爻；盘中有无对应不直接证明现实助力、阻碍、吉凶或结果' as const;
+  '原神、忌神与仇神只按已明确的用神六亲五行建立生克链，并记录本卦、变爻、月日与伏神中是否有对应；资料有无对应不直接证明现实助力、阻碍、吉凶或结果' as const;
 const LINE_COVERAGE_FACT_LIMITATION =
   '六爻覆盖状态只说明当前结果能否完整核验初爻至上爻；缺少、重复或越界爻位时不得反推纳甲、六亲、六神、世应、空破墓或动变内容' as const;
 const HIDDEN_SPIRIT_COVERAGE_FACT_LIMITATION =
   '伏神覆盖状态只说明当前结果是否明确保存伏神数组以及是否检出伏神；字段缺失时不得把无记录解释为无伏神，也不得反推伏神位置与六亲' as const;
 const SELECTION_FACT_LIMITATION =
-  '用神选择状态只说明当前候选是否在本卦或伏神中找到匹配；缺少匹配时不得硬取用神，已有匹配也仍须结合具体问题语义、求测者身份与现实资料复核' as const;
+  '用神选择状态按本卦明现、变爻显出、月日入用、伏神检索的层级记录当前取用；问题关系不足、多现未能闭合或各层均无匹配时不得硬取，也不得把世应、动爻或数组顺序冒充唯一用神' as const;
 const COUNTER_FACT_LIMITATION =
   '反证事实只表示候选用神命中空亡、月破、日破、休囚死、入墓、回头克冲、化空、化退或未匹配等限制；不得把单项反证直接写成现实失败、灾祸或必然结果' as const;
 const COUNTER_SUMMARY_LIMITATION =
@@ -400,6 +415,7 @@ const TRADITIONAL_RELATIVE_IMAGES: Record<string, string> = {
   妻财: '传统常取财物、交易、资源、伴侣或关系对象等类象',
   子孙: '传统常取产出、子女、放松、解忧、医药、财源等类象',
 };
+const LIUYAO_RELATIVES = new Set(Object.keys(TRADITIONAL_RELATIVE_IMAGES));
 
 export function conditionLiuyaoTraditionalText(text: string): string {
   return text
@@ -438,10 +454,13 @@ function formatNaJia(stem: string | undefined, branch: string) {
 }
 
 function formatYao(reference: LiuyaoYaoReference) {
+  if (reference.source === '月建' || reference.source === '日辰') {
+    return `${reference.source}${formatNaJia(reference.stem, reference.branch)}${reference.sixRelative}${reference.wuxing}`;
+  }
   const changed = reference.changedYao
     ? `→${reference.changedYao.sixRelative}${formatNaJia(reference.changedYao.stem, reference.changedYao.branch)}${reference.changedYao.wuxing}${reference.changedYao.relations.length ? `（${reference.changedYao.relations.join('、')}）` : reference.changedYao.isVoid ? '（变爻空亡）' : ''}${reference.changedYao.direction ? `（${reference.changedYao.direction}）` : ''}`
     : '';
-  return `${reference.source}${reference.position}爻${reference.sixRelative}${formatNaJia(reference.stem, reference.branch)}${reference.wuxing}${changed}`;
+  return `${reference.source}第${reference.position}爻${reference.sixRelative}${formatNaJia(reference.stem, reference.branch)}${reference.wuxing}${changed}`;
 }
 
 function buildGenerationFact(data: LiuyaoData): LiuyaoGenerationFact {
@@ -552,18 +571,89 @@ function buildHiddenReference(
   };
 }
 
-function allReferences(data: LiuyaoData, monthBranch: string, dayBranch: string) {
-  return [
-    ...data.yaosDetail.map((yao) =>
-      buildVisibleReference(yao, monthBranch, dayBranch, data.yaosDetail),
-    ),
-    ...(data.hiddenSpirits ?? []).map((spirit) =>
-      buildHiddenReference(
-        spirit,
-        analyzeLiuyaoHiddenSpiritConditions(spirit, monthBranch, dayBranch, data.yaosDetail),
-      ),
-    ),
+function buildChangedReference(yao: LiuyaoYaoDetail): LiuyaoYaoReference | null {
+  if (!yao.isChanging || !yao.changedYao) return null;
+  return {
+    key: `liuyao:reference:changed:${yao.position}`,
+    factKey: `本卦:第${yao.position}爻`,
+    source: '变爻',
+    status: '已匹配',
+    position: yao.position,
+    sixRelative: yao.changedYao.liuqin,
+    stem: yao.changedYao.tiangan,
+    branch: yao.changedYao.dizhi,
+    wuxing: yao.changedYao.wuxing,
+    isChanging: true,
+    isVoid: yao.changedYao.isVoid,
+    support: ['变爻显出'],
+    constraints: yao.changedYao.isVoid ? ['变爻空亡'] : [],
+  };
+}
+
+function buildCalendarReference(
+  data: LiuyaoData,
+  source: '月建' | '日辰',
+  ganzhi: string,
+): LiuyaoYaoReference {
+  const branch = branchOf(ganzhi);
+  const wuxing = getBranchWuxing(branch);
+  const relationMap = liuqinRelations[data.palace.wuxing as keyof typeof liuqinRelations] as
+    Record<string, string> | undefined;
+  const relative = relationMap?.[wuxing];
+  if (!relative) {
+    throw new Error(`${source}${ganzhi}无法按${data.palace?.name ?? '未知'}宫五行确定六亲。`);
+  }
+  return {
+    key: `liuyao:reference:calendar:${source}`,
+    factKey: `liuyao:calendar:${source}`,
+    source,
+    status: '已匹配',
+    sixRelative: relative,
+    stem: ganzhi.slice(0, 1),
+    branch,
+    wuxing,
+    isVoid: false,
+    support: [`${source}入用`],
+    constraints: [],
+  };
+}
+
+interface LiuyaoReferenceGroups {
+  visible: LiuyaoYaoReference[];
+  changed: LiuyaoYaoReference[];
+  calendar: LiuyaoYaoReference[];
+  hidden: LiuyaoYaoReference[];
+  all: LiuyaoYaoReference[];
+}
+
+function buildReferenceGroups(
+  data: LiuyaoData,
+  monthBranch: string,
+  dayBranch: string,
+): LiuyaoReferenceGroups {
+  const visible = data.yaosDetail.map((yao) =>
+    buildVisibleReference(yao, monthBranch, dayBranch, data.yaosDetail),
+  );
+  const changed = data.yaosDetail
+    .map(buildChangedReference)
+    .filter((item): item is LiuyaoYaoReference => Boolean(item));
+  const calendar = [
+    buildCalendarReference(data, '月建', data.ganzhi.month),
+    buildCalendarReference(data, '日辰', data.ganzhi.day),
   ];
+  const hidden = (data.hiddenSpirits ?? []).map((spirit) =>
+    buildHiddenReference(
+      spirit,
+      analyzeLiuyaoHiddenSpiritConditions(spirit, monthBranch, dayBranch, data.yaosDetail),
+    ),
+  );
+  return {
+    visible,
+    changed,
+    calendar,
+    hidden,
+    all: [...visible, ...changed, ...calendar, ...hidden],
+  };
 }
 
 function buildLineFacts(
@@ -855,7 +945,15 @@ function findControllingElement(target: string) {
   return ELEMENTS.find((element) => isKe(element, target)) ?? '';
 }
 
-function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions) {
+interface LiuyaoCandidateSpec {
+  label: string;
+  relative?: string;
+  position?: number;
+  candidateRole: LiuyaoUsefulGodCandidate['candidateRole'];
+  reason: string;
+}
+
+function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions): LiuyaoCandidateSpec[] {
   const topic = options.topic ?? 'general';
   const world = data.yaosDetail.find((item) => item.isWorld);
   const response = data.yaosDetail.find((item) => item.isResponse);
@@ -864,20 +962,41 @@ function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions) {
       {
         label: '指定用神',
         relative: options.usefulGodRelative,
+        candidateRole: '用神候选' as const,
         reason: '按明确指定的六亲取用，并以盘面检索结果裁定。',
       },
     ];
   }
   if (topic === 'shiye') {
     return [
-      { label: '事业用神', relative: '官鬼', reason: '事业工作以官鬼为用神。' },
-      { label: '文书辅证', relative: '父母', reason: '父母爻作为文书、单位与消息辅证。' },
+      {
+        label: '事业用神',
+        relative: '官鬼',
+        candidateRole: '用神候选' as const,
+        reason: '事业职位与工作事项按官鬼取用。',
+      },
+      {
+        label: '文书辅证',
+        relative: '父母',
+        candidateRole: '辅助观察' as const,
+        reason: '父母爻只作为文书、单位与消息的辅助观察。',
+      },
     ];
   }
   if (topic === 'caifu') {
     return [
-      { label: '财运用神', relative: '妻财', reason: '财运交易以妻财为用神。' },
-      { label: '财源辅证', relative: '子孙', reason: '子孙爻作为财源与经营能力辅证。' },
+      {
+        label: '财运用神',
+        relative: '妻财',
+        candidateRole: '用神候选' as const,
+        reason: '钱财与交易事项按妻财取用。',
+      },
+      {
+        label: '财源辅证',
+        relative: '子孙',
+        candidateRole: '辅助观察' as const,
+        reason: '子孙爻只作为财源与产出的辅助观察。',
+      },
     ];
   }
   if (topic === 'guaishen') {
@@ -885,6 +1004,7 @@ function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions) {
       {
         label: '怪异事项候选',
         relative: '官鬼',
+        candidateRole: '用神候选' as const,
         reason: '仅按传统取官鬼为候选，不能据此证明超自然原因。',
       },
       ...(world
@@ -892,6 +1012,7 @@ function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions) {
             {
               label: '求测者主轴',
               position: world.position,
+              candidateRole: '辅助观察' as const,
               reason: '仍须先检查世爻状态与现实因素。',
             },
           ]
@@ -900,11 +1021,24 @@ function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions) {
   }
   if (topic === 'ganqing') {
     return [
+      {
+        label: '关系对象候选（妻财）',
+        relative: '妻财',
+        candidateRole: '用神候选' as const,
+        reason: '传统关系取用可能落在妻财，须结合求测者身份与所问对象确认。',
+      },
+      {
+        label: '关系对象候选（官鬼）',
+        relative: '官鬼',
+        candidateRole: '用神候选' as const,
+        reason: '传统关系取用可能落在官鬼，须结合求测者身份与所问对象确认。',
+      },
       ...(world
         ? [
             {
               label: '关系我方',
               position: world.position,
+              candidateRole: '辅助观察' as const,
               reason: '感情关系以世爻为我方。',
             },
           ]
@@ -914,6 +1048,7 @@ function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions) {
             {
               label: '关系对方',
               position: response.position,
+              candidateRole: '辅助观察' as const,
               reason: '感情关系以应爻为对方。',
             },
           ]
@@ -926,22 +1061,56 @@ function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions) {
           {
             label: '通用主轴',
             position: world.position,
-            reason: '未另指定用神时，以世爻为求测者主轴。',
+            candidateRole: '辅助观察' as const,
+            reason: '未按具体事项确定用神时，世爻只作为求测者主轴。',
           },
         ]
       : []),
     ...(response
-      ? [{ label: '应爻辅轴', position: response.position, reason: '应爻用于观察对方与外部条件。' }]
+      ? [
+          {
+            label: '应爻辅轴',
+            position: response.position,
+            candidateRole: '辅助观察' as const,
+            reason: '应爻只用于观察对方与外部条件。',
+          },
+        ]
       : []),
     ...data.yaosDetail
       .filter((item) => item.isChanging)
-      .slice(0, 2)
       .map((item) => ({
         label: `动爻触发第${item.position}爻`,
         position: item.position,
-        reason: '动爻作为事件变化触发点，并回扣世应主线。',
+        candidateRole: '辅助观察' as const,
+        reason: '动爻只作为事件变化触发点，并回扣世应与已定用神。',
       })),
   ];
+}
+
+function matchCandidateSpec(
+  spec: LiuyaoCandidateSpec,
+  groups: LiuyaoReferenceGroups,
+): { references: LiuyaoYaoReference[]; matchingTier: LiuyaoUsefulGodMatchingTier | null } {
+  if (spec.candidateRole === '辅助观察') {
+    const references = spec.position
+      ? groups.visible.filter((reference) => reference.position === spec.position)
+      : groups.visible
+          .concat(groups.hidden)
+          .filter((reference) => reference.sixRelative === spec.relative);
+    return { references, matchingTier: null };
+  }
+
+  const tiers: Array<[LiuyaoUsefulGodMatchingTier, LiuyaoYaoReference[]]> = [
+    ['本卦明现', groups.visible],
+    ['变爻显出', groups.changed],
+    ['月日入用', groups.calendar],
+    ['伏神检索', groups.hidden],
+  ];
+  for (const [matchingTier, references] of tiers) {
+    const matched = references.filter((reference) => reference.sixRelative === spec.relative);
+    if (matched.length) return { references: matched, matchingTier };
+  }
+  return { references: [], matchingTier: null };
 }
 
 function buildSummaryFact(params: {
@@ -987,7 +1156,9 @@ function buildSummaryFact(params: {
       ? '部分资料缺失'
       : params.selectionFact.status === '缺少可用候选'
         ? '缺少可用候选'
-        : '证据链完整';
+        : params.selectionFact.status === '已选定候选'
+          ? '证据链完整'
+          : '用神取用待定';
   const matchedCandidateCount = params.candidates.filter((item) => item.status === '已匹配').length;
   return {
     key: 'liuyao:evidence-summary',
@@ -1087,6 +1258,7 @@ function buildCalculationSteps(params: {
         selectionStatus: params.selectionFact.status,
         matchedCandidateCount: params.candidates.filter((item) => item.status === '已匹配').length,
         selectedCandidateKey: params.selectionFact.selectedCandidateKey ?? '无',
+        selectedReferenceKey: params.selectionFact.selectedReferenceKey ?? '无',
       },
       dependsOnStepKeys: ['liuyao:calculation:lines', 'liuyao:calculation:hidden-spirits'],
       promptText: params.selectionFact.promptText,
@@ -1104,9 +1276,9 @@ function buildCalculationSteps(params: {
       },
       dependsOnStepKeys: ['liuyao:calculation:candidates'],
       promptText: params.godChain.length
-        ? `按所选候选五行建立${params.godChain.map((item) => item.role).join('、')}作用链`
-        : '当前没有可用候选，未强定原神、忌神与仇神',
-      sources: ['所选候选五行与五行生克关系', '本卦与伏神逐项五行匹配'],
+        ? `按已明确的用神六亲五行建立${params.godChain.map((item) => item.role).join('、')}作用链`
+        : '当前用神六亲尚未明确或各层均无匹配，未强定原神、忌神与仇神',
+      sources: ['已明确的用神六亲五行与五行生克关系', '本卦、变爻、月日与伏神逐项五行匹配'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
@@ -1208,8 +1380,8 @@ function buildLimitationFacts(params: {
         ...params.godChain.map((item) => item.key),
       ],
       promptText:
-        '主题默认用神只是候选；实际问题语义、求测者身份与所问对象可能改变取用。原神、忌神和仇神只按候选五行建立盘内关系，不证明现实助力、阻碍或结果',
-      sources: ['用神候选来源、候选匹配与五行生克作用链'],
+        '先按具体问题与求测关系确定六亲用神，再依本卦明现、变爻显出、月日入用、伏神检索逐层查找；世应和动爻本身不是通用用神。多现未能闭合时保留待择，不按数组顺序强选；原神、忌神和仇神只按已明确的用神五行建立关系，不证明现实助力、阻碍或结果',
+      sources: ['六亲取用、世应分工、用神层级匹配、多现边界与五行生克作用链'],
     },
     {
       key: 'liuyao:limitation:structure-tradition',
@@ -1256,10 +1428,14 @@ export function analyzeLiuyaoEvidence(
   options: LiuyaoEvidenceOptions = {},
 ): LiuyaoEvidenceAnalysis {
   if (!data?.yaosDetail?.length) throw new Error('六爻证据分析缺少完整爻位资料。');
+  if (options.usefulGodRelative && !LIUYAO_RELATIVES.has(options.usefulGodRelative)) {
+    throw new Error('六爻指定用神六亲只能是父母、兄弟、官鬼、妻财或子孙。');
+  }
   const topic = options.topic ?? 'general';
   const monthBranch = branchOf(data.ganzhi.month);
   const dayBranch = branchOf(data.ganzhi.day);
-  const references = allReferences(data, monthBranch, dayBranch);
+  const referenceGroups = buildReferenceGroups(data, monthBranch, dayBranch);
+  const references = referenceGroups.all;
   const lineFacts = buildLineFacts(data, monthBranch, dayBranch);
   const hiddenSpiritFacts = buildHiddenSpiritFacts(data);
   const lineCoverageFact = buildLineCoverageFact(lineFacts);
@@ -1270,46 +1446,102 @@ export function analyzeLiuyaoEvidence(
       ? '盘面补齐'
       : '主题默认';
   const candidates = candidateSpecs(data, options).map((spec, index): LiuyaoUsefulGodCandidate => {
-    const matched = references.filter((reference) =>
-      spec.position
-        ? reference.position === spec.position && reference.source === '本卦'
-        : reference.sixRelative === spec.relative,
-    );
+    const { references: matched, matchingTier } = matchCandidateSpec(spec, referenceGroups);
     const constraints = matched.length
       ? Array.from(new Set(matched.flatMap((item) => item.constraints)))
-      : [`${spec.relative ?? '指定爻位'}未在本卦或伏神中找到，不能硬取为主证`];
+      : [
+          spec.candidateRole === '用神候选'
+            ? `${spec.relative ?? '指定六亲'}在本卦、变爻、月日与伏神中均未找到，不能硬取用神`
+            : `${spec.relative ?? `第${spec.position}爻`}未在当前辅助观察范围中找到`,
+        ];
     const support = Array.from(new Set(matched.flatMap((item) => item.support)));
     return {
       key: `liuyao:candidate:${index + 1}:${spec.label}`,
       status: matched.length ? '已匹配' : '未匹配',
       sourceStatus: candidateSourceStatus,
       ...spec,
+      matchingTier,
       references: matched,
       referenceKeys: matched.map((item) => item.key),
       support,
       constraints,
       promptText: matched.length
-        ? `${spec.label}由${candidateSourceStatus}提出：${spec.reason}；匹配${matched.map(formatYao).join('、')}；支持${support.join('、') || '未见额外增强'}；限制${constraints.join('、') || '未见明显空破墓退'}`
+        ? `${spec.label}由${candidateSourceStatus}提出，性质为${spec.candidateRole}${matchingTier ? `，按${matchingTier}匹配` : ''}：${spec.reason}；匹配${matched.map(formatYao).join('、')}；支持${support.join('、') || '未见额外增强'}；限制${constraints.join('、') || '未见明显空破墓退'}`
         : `${spec.label}由${candidateSourceStatus}提出：${spec.reason}；${constraints.join('、')}`,
-      sources: ['当前问题取用范围', '本卦与伏神六亲、爻位及五行逐项匹配'],
+      sources: [
+        '《增删卜易》《卜筮正宗》六亲取用与世应分工',
+        '本卦明现、变爻显出、月日入用、伏神检索逐层核验',
+      ],
       limitation: CANDIDATE_FACT_LIMITATION,
     };
   });
-  const selectedCandidate = candidates[0]?.references.length ? candidates[0] : null;
+  const usefulGodCandidates = candidates.filter((item) => item.candidateRole === '用神候选');
+  const soleUsefulGodCandidate = usefulGodCandidates.length === 1 ? usefulGodCandidates[0] : null;
+  let selectedCandidate: LiuyaoUsefulGodCandidate | null = null;
+  let selectedReference: LiuyaoYaoReference | null = null;
+  let selectionStatus: LiuyaoUsefulGodSelectionFact['status'];
+  if (!usefulGodCandidates.length || usefulGodCandidates.length > 1) {
+    selectionStatus = '取用范围待定';
+  } else if (!soleUsefulGodCandidate?.references.length) {
+    selectionStatus = '缺少可用候选';
+  } else if (
+    soleUsefulGodCandidate.matchingTier === '本卦明现' &&
+    soleUsefulGodCandidate.references.length > 1
+  ) {
+    const movingReferences = soleUsefulGodCandidate.references.filter(
+      (reference) => reference.source === '本卦' && reference.isChanging,
+    );
+    if (movingReferences.length === 1) {
+      selectionStatus = '已选定候选';
+      selectedCandidate = soleUsefulGodCandidate;
+      selectedReference = movingReferences[0];
+    } else {
+      selectionStatus = '用神爻位待择';
+    }
+  } else if (
+    (soleUsefulGodCandidate.matchingTier === '变爻显出' ||
+      soleUsefulGodCandidate.matchingTier === '伏神检索') &&
+    soleUsefulGodCandidate.references.length > 1
+  ) {
+    selectionStatus = '用神爻位待择';
+  } else {
+    selectionStatus = '已选定候选';
+    selectedCandidate = soleUsefulGodCandidate;
+    selectedReference =
+      soleUsefulGodCandidate.references.length === 1 ? soleUsefulGodCandidate.references[0] : null;
+  }
+  const targetRelative = soleUsefulGodCandidate?.relative ?? null;
+  const selectionPrompt =
+    selectionStatus === '已选定候选' && selectedCandidate
+      ? selectedReference
+        ? `本次用神取${selectedCandidate.label}（${targetRelative}），按${selectedCandidate.matchingTier}确定为${formatYao(selectedReference)}`
+        : `本次用神取${selectedCandidate.label}（${targetRelative}），按${selectedCandidate.matchingTier}以${selectedCandidate.references.map(formatYao).join('、')}入用`
+      : selectionStatus === '用神爻位待择' && soleUsefulGodCandidate
+        ? `本次用神六亲已确定为${targetRelative}，按${soleUsefulGodCandidate.matchingTier}见${soleUsefulGodCandidate.references.map(formatYao).join('、')}；同层多现且现有条件不能闭合唯一爻位，不按数组顺序强选`
+        : selectionStatus === '取用范围待定'
+          ? topic === 'ganqing'
+            ? '感情主题尚缺求测者身份与所问对象关系；妻财、官鬼只列取用范围，世应只列双方位置，当前不硬定唯一用神'
+            : '通用主题尚未按具体问题与求测关系确定六亲用神；世爻、应爻和动爻只作辅助观察，当前不冒充唯一用神'
+          : `本次用神六亲取${targetRelative ?? '未定'}，但本卦、变爻、月日与伏神各层均未见匹配，不改以世应或动爻硬取`;
   const selectionFact: LiuyaoUsefulGodSelectionFact = {
     key: 'liuyao:useful-god-selection',
-    status: selectedCandidate ? '已选定候选' : '缺少可用候选',
+    status: selectionStatus,
     topic,
     requestedRelative: options.usefulGodRelative ?? null,
+    targetRelative,
+    matchingTier: soleUsefulGodCandidate?.matchingTier ?? null,
     selectedCandidateKey: selectedCandidate?.key ?? null,
+    selectedReferenceKey: selectedReference?.key ?? null,
     candidateKeys: candidates.map((item) => item.key),
-    promptText: selectedCandidate
-      ? `本次用神取${selectedCandidate.label}；盘面匹配${selectedCandidate.references.map(formatYao).join('、')}`
-      : '本次按既定取用规则检索后，本卦与伏神均未见对应用神爻，改以世应与动变主线裁定',
-    sources: ['候选顺序、匹配状态与逐爻引用核验'],
+    promptText: selectionPrompt,
+    sources: [
+      '《增删卜易·用神章、两现章、飞伏神章》',
+      '《卜筮正宗·用神分类定例、世应论用神、伏神正传》',
+      '当前取用主题与本卦、变爻、月日、伏神逐层匹配',
+    ],
     limitation: SELECTION_FACT_LIMITATION,
   };
-  const usefulElement = selectedCandidate?.references[0]?.wuxing ?? '';
+  const usefulElement = soleUsefulGodCandidate?.references[0]?.wuxing ?? '';
   const sourceElement = usefulElement ? findGeneratingElement(usefulElement) : '';
   const tabooElement = usefulElement ? findControllingElement(usefulElement) : '';
   const enemyElement = tabooElement ? findGeneratingElement(tabooElement) : '';
@@ -1322,38 +1554,48 @@ export function analyzeLiuyaoEvidence(
       ]
     : [];
   const godChain = chainSpecs.map(([role, wuxing, relation]): LiuyaoGodChainItem => {
-    const matched = references.filter((item) => item.wuxing === wuxing);
+    const matched =
+      role === '用神' && selectedReference
+        ? [selectedReference]
+        : role === '用神' && soleUsefulGodCandidate
+          ? soleUsefulGodCandidate.references
+          : references.filter((item) => item.wuxing === wuxing);
     return {
       key: `liuyao:god-chain:${role}`,
       role,
-      status: matched.length ? '盘中有对应' : '盘中未见',
+      status: matched.length ? '当前资料有对应' : '当前资料未见',
       wuxing,
       relation,
       references: matched,
       referenceKeys: matched.map((item) => item.key),
-      promptText: `${role}${wuxing}：${relation}；${matched.length ? `盘中对应${matched.map(formatYao).join('、')}` : '盘中未见对应爻'}`,
-      sources: ['当前选定候选五行', '五行生克公共关系', '本卦与伏神逐爻五行'],
+      promptText: `${role}${wuxing}：${relation}；${matched.length ? `当前资料对应${matched.map(formatYao).join('、')}` : '当前资料未见对应'}`,
+      sources: [
+        '当前已明确的用神六亲五行',
+        '五行生克公共关系',
+        '本卦、变爻、月日与伏神五行逐项匹配',
+      ],
       limitation: GOD_CHAIN_FACT_LIMITATION,
     };
   });
-  const traditionalSymbols = Array.from(new Set(references.map((item) => item.sixRelative))).map(
-    (relative): LiuyaoTraditionalSymbolFact => {
-      const originalText = TRADITIONAL_RELATIVE_IMAGES[relative] ?? '传统类象未单列';
-      return {
-        key: `liuyao:traditional-symbol:${relative}`,
-        status: '已映射',
-        relative,
-        positions: references
-          .filter((item) => item.sixRelative === relative)
-          .map((item) => item.position),
-        originalText,
-        promptText: `${originalText}；须先结合问题主题、求测者身份、世应、动变、月日旺衰与空破墓判断`,
-        source: '传统六亲类象表与当前六亲排布',
-        sources: ['传统六亲类象表', '当前本卦与伏神六亲排布'],
-        limitation: '六亲只提供随问题变化的事项候选，不证明现实身份、疾病、官非、财运或关系结果',
-      };
-    },
-  );
+  const symbolReferences = [...referenceGroups.visible, ...referenceGroups.hidden];
+  const traditionalSymbols = Array.from(
+    new Set(symbolReferences.map((item) => item.sixRelative)),
+  ).map((relative): LiuyaoTraditionalSymbolFact => {
+    const originalText = TRADITIONAL_RELATIVE_IMAGES[relative] ?? '传统类象未单列';
+    return {
+      key: `liuyao:traditional-symbol:${relative}`,
+      status: '已映射',
+      relative,
+      positions: symbolReferences
+        .filter((item) => item.sixRelative === relative)
+        .flatMap((item) => (item.position ? [item.position] : [])),
+      originalText,
+      promptText: `${originalText}；须先结合问题主题、求测者身份、世应、动变、月日旺衰与空破墓判断`,
+      source: '传统六亲类象表与当前六亲排布',
+      sources: ['传统六亲类象表', '当前本卦与伏神六亲排布'],
+      limitation: '六亲只提供随问题变化的事项候选，不证明现实身份、疾病、官非、财运或关系结果',
+    };
+  });
   const structureFacts = buildHexagramStructureFacts(data);
   const generationFact = buildGenerationFact(data);
   const generationMethod = data.generation?.method;
@@ -1458,8 +1700,9 @@ export function analyzeLiuyaoEvidence(
     sources: ['逐项应期事实汇总'],
     limitation: TIMING_SUMMARY_LIMITATION,
   };
-  const counterEvidenceFacts: LiuyaoCounterEvidenceFact[] = candidates.flatMap(
-    (candidate, candidateIndex) =>
+  const counterEvidenceFacts: LiuyaoCounterEvidenceFact[] = candidates
+    .filter((candidate) => candidate.candidateRole === '用神候选')
+    .flatMap((candidate, candidateIndex) =>
       candidate.constraints.map((detail, index) => ({
         key: `liuyao:counter:${candidateIndex + 1}:${index + 1}`,
         ownerCandidateKey: candidate.key,
@@ -1468,10 +1711,10 @@ export function analyzeLiuyaoEvidence(
         detail,
         referenceKeys: candidate.referenceKeys,
         promptText: `${candidate.label}限制：${detail}`,
-        sources: ['当前用神候选匹配结果', '对应本卦或伏神支持与限制字段'],
+        sources: ['当前用神候选匹配结果', '对应本卦、变爻、月日或伏神支持与限制字段'],
         limitation: COUNTER_FACT_LIMITATION,
       })),
-  );
+    );
   const counterEvidence = Array.from(new Set(counterEvidenceFacts.map((item) => item.detail)));
   const counterSummaryFact: LiuyaoCounterSummaryFact = {
     key: 'liuyao:counter-summary',
@@ -1536,12 +1779,23 @@ export function analyzeLiuyaoEvidence(
     summaryFact,
   });
   const limitations = limitationFacts.map((item) => item.promptText);
-  const items: PromptEvidenceItem[] = candidates.map((candidate, index) => ({
-    level: candidate.references.length ? (index === 0 ? '主证' : '辅证') : '限制',
+  const items: PromptEvidenceItem[] = candidates.map((candidate) => ({
+    level:
+      candidate.key === selectedCandidate?.key
+        ? '主证'
+        : candidate.references.length
+          ? '辅证'
+          : '限制',
     title: candidate.label,
     detail: `${candidate.promptText}；边界：${candidate.limitation}`,
     source: candidate.sources.join('、'),
-    tags: [candidate.relative ?? '爻位候选', candidate.status, candidate.sourceStatus],
+    tags: [
+      candidate.relative ?? '爻位候选',
+      candidate.candidateRole,
+      candidate.matchingTier ?? '辅助观察',
+      candidate.status,
+      candidate.sourceStatus,
+    ],
   }));
   items.push(
     {
@@ -1680,7 +1934,7 @@ export function analyzeLiuyaoEvidence(
     `证据汇总：${summaryFact.promptText}。`,
     godChain.length
       ? `作用链：${godChain.map((item) => item.promptText).join('；')}`
-      : '作用链：本次未见可匹配用神爻，按世应与动变主线裁定。',
+      : '作用链：当前用神六亲尚未明确或各层均无匹配，不以世应、动爻或数组顺序硬定原神、忌神与仇神。',
     `触发条件：${timingConditions.join('；')}`,
     `解释限制：${limitations.join('；')}。`,
   ].join('\n');
@@ -1718,7 +1972,8 @@ export function analyzeLiuyaoEvidence(
     evidence,
     promptText,
     methodology: [
-      '先由明确指定或问题主题提出用神候选，再在本卦与伏神中检索，不把候选当成已证实结论。',
+      '先按具体问题与求测关系确定六亲用神；通用或关系语义不足时保留待定，世应与动爻只作辅助观察。',
+      '用神六亲明确后依次核验本卦明现、变爻显出、月日入用与伏神检索，不跨层混取；同层多现未能闭合时不按数组顺序强选。',
       '逐爻保留世应、发动、暗动、月令、月日同支合冲、空破墓、回头生克和进退神证据。',
       '原神取生用神者，忌神取克用神者，仇神取生忌神并克原神者。',
       '六亲类象保留传统原始范围，提示词只把它作为随问题变化的候选，不把单一持世六亲写成现实事件。',

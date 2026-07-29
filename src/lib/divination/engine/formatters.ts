@@ -355,14 +355,18 @@ function formatLiuyaoInfo(
   const selectedUsefulGod = evidenceAnalysis.candidates.find(
     (item) => item.key === evidenceAnalysis.selectionFact.selectedCandidateKey,
   );
-  const usefulGodMainLine = selectedUsefulGod
-    ? `用神主线：${selectedUsefulGod.label}${selectedUsefulGod.relative ? `（${selectedUsefulGod.relative}）` : ''}；${selectedUsefulGod.reason}；盘面匹配${selectedUsefulGod.references.map((item) => `${item.source === '伏神' ? '伏神' : ''}第${item.position}爻${item.sixRelative}${item.stem ?? ''}${item.branch}${item.wuxing}`).join('、') || '无'}；支持${selectedUsefulGod.support.join('、') || '盘面平稳'}；限制${selectedUsefulGod.constraints.join('、') || '未见明显空破墓退'}`
-    : `用神主线：${evidenceAnalysis.selectionFact.promptText}`;
+  const pendingUsefulGod = evidenceAnalysis.candidates.find(
+    (item) =>
+      item.candidateRole === '用神候选' &&
+      item.relative === evidenceAnalysis.selectionFact.targetRelative,
+  );
+  const usefulGodCandidate = selectedUsefulGod ?? pendingUsefulGod;
+  const usefulGodMainLine = `用神主线：${evidenceAnalysis.selectionFact.promptText}${usefulGodCandidate ? `；候选支持${usefulGodCandidate.support.join('、') || '未见额外增强'}；候选限制${usefulGodCandidate.constraints.join('、') || '未见明显空破墓退'}` : ''}`;
   const godChainText = evidenceAnalysis.godChain.length
     ? `作用链：${evidenceAnalysis.godChain
         .map(
           (item) =>
-            `${item.role}${item.wuxing || ''}${item.status === '盘中有对应' ? `见${item.references.map((ref) => `第${ref.position}爻${ref.sixRelative}${ref.stem ?? ''}${ref.branch}${ref.wuxing}`).join('、')}` : '未见'}`,
+            `${item.role}${item.wuxing || ''}${item.status === '当前资料有对应' ? `见${item.references.map((ref) => `${ref.source === '月建' || ref.source === '日辰' ? ref.source : `${ref.source}第${ref.position}爻`}${ref.sixRelative}${ref.stem ?? ''}${ref.branch}${ref.wuxing}`).join('、')}` : '未见'}`,
         )
         .join('；')}`
     : '';

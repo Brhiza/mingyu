@@ -4612,12 +4612,21 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
           key: string;
           status: string;
           sourceStatus: string;
+          candidateRole: string;
+          matchingTier: string | null;
           referenceKeys: string[];
           promptText: string;
           sources: string[];
           limitation: string;
         }>;
-        selectionFact: { status: string; selectedCandidateKey: string | null };
+        selectionFact: {
+          status: string;
+          targetRelative: string | null;
+          selectedCandidateKey: string | null;
+          selectedReferenceKey: string | null;
+        };
+        selectedCandidate: unknown | null;
+        godChain: unknown[];
         lineCoverageFact: { status: string; actualPositions: number[] };
         lineFacts: Array<{ status: string; sources: string[]; limitation: string }>;
         counterEvidenceFacts: Array<{
@@ -4684,7 +4693,12 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
       ),
     );
     assert.ok(firstResult.evidenceAnalysis.candidates.length > 0);
-    assert.equal(firstResult.evidenceAnalysis.selectionFact.status, '已选定候选');
+    assert.equal(firstResult.evidenceAnalysis.selectionFact.status, '取用范围待定');
+    assert.equal(firstResult.evidenceAnalysis.selectionFact.targetRelative, null);
+    assert.equal(firstResult.evidenceAnalysis.selectionFact.selectedCandidateKey, null);
+    assert.equal(firstResult.evidenceAnalysis.selectionFact.selectedReferenceKey, null);
+    assert.equal(firstResult.evidenceAnalysis.selectedCandidate, null);
+    assert.equal(firstResult.evidenceAnalysis.godChain.length, 0);
     assert.equal(firstResult.evidenceAnalysis.lineCoverageFact.status, '完整');
     assert.deepEqual(
       firstResult.evidenceAnalysis.lineCoverageFact.actualPositions,
@@ -4714,6 +4728,8 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
           item.key.startsWith('liuyao:candidate:') &&
           item.status &&
           item.sourceStatus &&
+          item.candidateRole === '辅助观察' &&
+          item.matchingTier === null &&
           item.referenceKeys.length >= 0 &&
           item.promptText &&
           item.sources.length > 0 &&
@@ -4738,7 +4754,7 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
       firstResult.evidenceAnalysis.timingSummaryFact.factKeys.length,
       firstResult.evidenceAnalysis.timingFacts.length,
     );
-    assert.equal(firstResult.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(firstResult.evidenceAnalysis.summaryFact.status, '用神取用待定');
     assert.equal(
       firstResult.evidenceAnalysis.summaryFact.lineFactCount,
       firstResult.evidenceAnalysis.lineFacts.length,

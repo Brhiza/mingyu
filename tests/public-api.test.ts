@@ -2787,7 +2787,12 @@ test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', asy
   assert.equal(first.body.data.evidenceAnalysis.calculationSteps.length, 7);
   assert.equal(first.body.data.evidenceAnalysis.calculationChain.length, 7);
   assert.ok(first.body.data.evidenceAnalysis.candidates.length > 0);
-  assert.equal(first.body.data.evidenceAnalysis.selectionFact.status, '已选定候选');
+  assert.equal(first.body.data.evidenceAnalysis.selectionFact.status, '取用范围待定');
+  assert.equal(first.body.data.evidenceAnalysis.selectionFact.targetRelative, null);
+  assert.equal(first.body.data.evidenceAnalysis.selectionFact.selectedCandidateKey, null);
+  assert.equal(first.body.data.evidenceAnalysis.selectionFact.selectedReferenceKey, null);
+  assert.equal(first.body.data.evidenceAnalysis.selectedCandidate, null);
+  assert.equal(first.body.data.evidenceAnalysis.godChain.length, 0);
   assert.equal(first.body.data.evidenceAnalysis.lineCoverageFact.status, '完整');
   assert.deepEqual(
     first.body.data.evidenceAnalysis.lineCoverageFact.actualPositions,
@@ -2814,6 +2819,8 @@ test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', asy
         String(item.key).startsWith('liuyao:candidate:') &&
         item.status &&
         item.sourceStatus &&
+        item.candidateRole === '辅助观察' &&
+        item.matchingTier === null &&
         Array.isArray(item.referenceKeys) &&
         item.promptText &&
         Array.isArray(item.sources) &&
@@ -2838,7 +2845,7 @@ test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', asy
     first.body.data.evidenceAnalysis.timingSummaryFact.factKeys.length,
     first.body.data.evidenceAnalysis.timingFacts.length,
   );
-  assert.equal(first.body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(first.body.data.evidenceAnalysis.summaryFact.status, '用神取用待定');
   assert.equal(
     first.body.data.evidenceAnalysis.summaryFact.lineFactCount,
     first.body.data.evidenceAnalysis.lineFacts.length,

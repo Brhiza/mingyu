@@ -27,9 +27,13 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
     ),
   );
   assert.ok(evidence.candidates.length > 0);
-  assert.ok(evidence.selectedCandidate);
-  assert.equal(evidence.selectionFact.status, '已选定候选');
-  assert.equal(evidence.selectionFact.selectedCandidateKey, evidence.selectedCandidate.key);
+  assert.equal(evidence.selectedCandidate, null);
+  assert.equal(evidence.selectionFact.status, '取用范围待定');
+  assert.equal(evidence.selectionFact.targetRelative, null);
+  assert.equal(evidence.selectionFact.selectedCandidateKey, null);
+  assert.equal(evidence.selectionFact.selectedReferenceKey, null);
+  assert.ok(evidence.candidates.every((item) => item.candidateRole === '辅助观察'));
+  assert.equal(evidence.godChain.length, 0);
   assert.equal(evidence.lineCoverageFact.status, '完整');
   assert.deepEqual(evidence.lineCoverageFact.actualPositions, [1, 2, 3, 4, 5, 6]);
   assert.equal(evidence.lineFacts.length, 6);
@@ -123,7 +127,7 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
         item.limitation.includes('不得把爻位'),
     ),
   );
-  assert.equal(evidence.summaryFact.status, '证据链完整');
+  assert.equal(evidence.summaryFact.status, '用神取用待定');
   assert.equal(evidence.summaryFact.lineFactCount, evidence.lineFacts.length);
   assert.equal(evidence.summaryFact.hiddenSpiritFactCount, evidence.hiddenSpiritFacts.length);
   assert.equal(evidence.summaryFact.candidateCount, evidence.candidates.length);
@@ -150,6 +154,7 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
   assert.match(evidence.promptText, /证据汇总：/);
   assert.match(evidence.promptText, /解释限制：/);
   assert.match(evidence.promptText, /六爻取用与作用链解释边界/);
+  assert.match(evidence.promptText, /世爻、应爻和动爻只作辅助观察/);
   assert.match(evidence.promptText, /综合旺衰条件(?:仅见支持条件|仅见限制条件|支持与限制并见)/);
   assert.doesNotMatch(evidence.promptText, /十二宫/);
   const changingReference = evidence.candidates
@@ -177,6 +182,148 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
     '资料不足',
   );
   assert.match(incomplete.hiddenSpiritCoverageFact.promptText, /不得反推伏神位置/);
+});
+
+test('六爻通用与感情主题在关系语义不足时不得硬取用神', () => {
+  const data = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
+  const general = analyzeLiuyaoEvidence(data);
+  const relationship = analyzeLiuyaoEvidence(data, { topic: 'ganqing' });
+
+  assert.equal(general.selectionFact.status, '取用范围待定');
+  assert.equal(general.selectedCandidate, null);
+  assert.equal(general.godChain.length, 0);
+  assert.ok(general.candidates.every((item) => item.candidateRole === '辅助观察'));
+  assert.deepEqual(
+    new Set(general.candidates.map((item) => item.label)),
+    new Set(['通用主轴', '应爻辅轴', '动爻触发第3爻', '动爻触发第4爻']),
+  );
+
+  assert.equal(relationship.selectionFact.status, '取用范围待定');
+  assert.equal(relationship.selectionFact.targetRelative, null);
+  assert.equal(relationship.selectedCandidate, null);
+  assert.equal(relationship.godChain.length, 0);
+  assert.deepEqual(
+    relationship.candidates
+      .filter((item) => item.candidateRole === '用神候选')
+      .map((item) => item.relative),
+    ['妻财', '官鬼'],
+  );
+  assert.deepEqual(
+    relationship.candidates
+      .filter((item) => item.candidateRole === '辅助观察')
+      .map((item) => item.label),
+    ['关系我方', '关系对方'],
+  );
+  assert.match(relationship.selectionFact.promptText, /尚缺求测者身份与所问对象关系/);
+
+  assert.throws(
+    () => analyzeLiuyaoEvidence(data, { usefulGodRelative: '世爻' }),
+    /只能是父母、兄弟、官鬼、妻财或子孙/,
+  );
+});
+
+test('六爻明确六亲后应按本卦、变爻、月日、伏神逐层取用', () => {
+  const date = new Date('2025-01-01T08:00:00+08:00');
+  const visible = analyzeLiuyaoEvidence(
+    generateLiuyao(date, { method: 'manual', yaos: [7, 7, 9, 7, 7, 7] }),
+    { usefulGodRelative: '父母' },
+  );
+  const changed = analyzeLiuyaoEvidence(
+    generateLiuyao(date, { method: 'manual', yaos: [6, 8, 7, 7, 7, 7] }),
+    { usefulGodRelative: '妻财' },
+  );
+  const hiddenData = generateLiuyao(date, {
+    method: 'manual',
+    yaos: [8, 7, 7, 7, 7, 7],
+  });
+  const calendar = analyzeLiuyaoEvidence(
+    {
+      ...hiddenData,
+      ganzhi: { ...hiddenData.ganzhi, month: '甲寅' },
+      evidenceAnalysis: undefined,
+    },
+    { usefulGodRelative: '妻财' },
+  );
+  const calendarPair = analyzeLiuyaoEvidence(
+    {
+      ...hiddenData,
+      ganzhi: { ...hiddenData.ganzhi, month: '甲寅', day: '乙卯' },
+      evidenceAnalysis: undefined,
+    },
+    { usefulGodRelative: '妻财' },
+  );
+  const hidden = analyzeLiuyaoEvidence(hiddenData, { usefulGodRelative: '妻财' });
+  const missing = analyzeLiuyaoEvidence(
+    { ...hiddenData, hiddenSpirits: [], evidenceAnalysis: undefined },
+    { usefulGodRelative: '妻财' },
+  );
+
+  assert.equal(visible.selectionFact.matchingTier, '本卦明现');
+  assert.equal(visible.selectionFact.selectedReferenceKey, 'liuyao:reference:line:3');
+  assert.ok(visible.candidates[0].references.every((item) => item.source === '本卦'));
+
+  assert.equal(changed.selectionFact.matchingTier, '变爻显出');
+  assert.equal(changed.selectionFact.selectedReferenceKey, 'liuyao:reference:changed:1');
+  assert.deepEqual(
+    changed.candidates[0].references.map((item) => item.source),
+    ['变爻'],
+  );
+  assert.equal(changed.candidates[0].references[0].branch, '卯');
+  assert.ok(!changed.candidates[0].references.some((item) => item.source === '伏神'));
+
+  assert.equal(calendar.selectionFact.matchingTier, '月日入用');
+  assert.equal(calendar.selectionFact.selectedReferenceKey, 'liuyao:reference:calendar:月建');
+  assert.deepEqual(
+    calendar.candidates[0].references.map((item) => item.source),
+    ['月建'],
+  );
+  assert.ok(!calendar.candidates[0].references.some((item) => item.source === '伏神'));
+
+  assert.equal(calendarPair.selectionFact.status, '已选定候选');
+  assert.equal(calendarPair.selectionFact.matchingTier, '月日入用');
+  assert.equal(calendarPair.selectionFact.selectedReferenceKey, null);
+  assert.deepEqual(
+    calendarPair.candidates[0].references.map((item) => item.source),
+    ['月建', '日辰'],
+  );
+
+  assert.equal(hidden.selectionFact.matchingTier, '伏神检索');
+  assert.equal(hidden.selectionFact.selectedReferenceKey, 'liuyao:reference:hidden:2:妻财');
+  assert.deepEqual(
+    hidden.candidates[0].references.map((item) => item.source),
+    ['伏神'],
+  );
+
+  assert.equal(missing.selectionFact.status, '缺少可用候选');
+  assert.equal(missing.selectionFact.matchingTier, null);
+  assert.equal(missing.selectedCandidate, null);
+  assert.equal(missing.godChain.length, 0);
+});
+
+test('六爻同一六亲多现时仅唯一明动爻可直接选定', () => {
+  const date = new Date('2025-01-01T08:00:00+08:00');
+  const analyzeParents = (yaos: [number, number, number, number, number, number]) =>
+    analyzeLiuyaoEvidence(generateLiuyao(date, { method: 'manual', yaos }), {
+      usefulGodRelative: '父母',
+    });
+  const staticLines = analyzeParents([7, 7, 7, 7, 7, 7]);
+  const soleMoving = analyzeParents([7, 7, 9, 7, 7, 7]);
+  const bothMoving = analyzeParents([7, 7, 9, 7, 7, 9]);
+
+  assert.equal(staticLines.selectionFact.status, '用神爻位待择');
+  assert.equal(staticLines.selectionFact.selectedCandidateKey, null);
+  assert.equal(staticLines.selectionFact.selectedReferenceKey, null);
+  assert.equal(staticLines.godChain.length, 4);
+
+  assert.equal(soleMoving.selectionFact.status, '已选定候选');
+  assert.equal(soleMoving.selectionFact.selectedReferenceKey, 'liuyao:reference:line:3');
+  assert.deepEqual(soleMoving.godChain.find((item) => item.role === '用神')?.referenceKeys, [
+    'liuyao:reference:line:3',
+  ]);
+
+  assert.equal(bothMoving.selectionFact.status, '用神爻位待择');
+  assert.equal(bothMoving.selectionFact.selectedReferenceKey, null);
+  assert.match(bothMoving.selectionFact.promptText, /不按数组顺序强选/);
 });
 
 test('六爻伏神证据应重算飞伏生克与得助受制条件并兼容旧结果', () => {
@@ -362,7 +509,7 @@ test('六爻原神忌神仇神应按生克作用链推导', () => {
   assert.equal(isKe(taboo.wuxing, useful.wuxing), true);
   assert.equal(isSheng(enemy.wuxing, taboo.wuxing), true);
   assert.equal(isKe(enemy.wuxing, source.wuxing), true);
-  assert.ok(evidence.godChain.every((item) => item.status === '盘中有对应'));
+  assert.ok(evidence.godChain.every((item) => item.status === '当前资料有对应'));
 });
 
 test('六爻整卦关系、反吟伏吟与三合应形成独立结构事实', () => {
