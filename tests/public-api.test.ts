@@ -2793,6 +2793,8 @@ test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', asy
   assert.equal(first.body.data.evidenceAnalysis.selectionFact.selectedReferenceKey, null);
   assert.equal(first.body.data.evidenceAnalysis.selectedCandidate, null);
   assert.equal(first.body.data.evidenceAnalysis.godChain.length, 0);
+  assert.equal(first.body.data.evidenceAnalysis.godInteractionFacts.length, 0);
+  assert.equal(first.body.data.evidenceAnalysis.summaryFact.godInteractionFactCount, 0);
   assert.equal(first.body.data.evidenceAnalysis.lineCoverageFact.status, '完整');
   assert.deepEqual(
     first.body.data.evidenceAnalysis.lineCoverageFact.actualPositions,

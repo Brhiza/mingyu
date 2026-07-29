@@ -442,7 +442,7 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | -------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | `generateLiuyao(date?, options?)`                                    | 六爻时间、手工或模拟三钱起卦，并保留投掷轨迹                                 |
 | `analyzeLiuyaoSanheFormations(yaosDetail, monthBranch, dayBranch)`   | 重算三合参与爻、成立模式、月日补局、虚一待用及空破墓状态                     |
-| `analyzeLiuyaoEvidence(data, options?)`                              | 六爻分层用神候选、原神忌神仇神、逐引用效力条件、逐爻支持/反证及按角色辨向的病药应期证据      |
+| `analyzeLiuyaoEvidence(data, options?)`                              | 六爻分层用神候选、原忌效力条件、生克制化路径、逐爻支持/反证及病药应期证据                  |
 | `generateMeihua(date?, settings?)`                                   | 梅花易数起卦                                                                 |
 | `analyzeMeihuaEvidence(data)`                                        | 主卦、互卦、变卦逐阶段体用、旺衰与支持/限制证据                              |
 | `generateQimen(date?, method?, scope?)`                              | 奇门遁甲排盘，并内置用神宫与宫间作用结构化证据                               |

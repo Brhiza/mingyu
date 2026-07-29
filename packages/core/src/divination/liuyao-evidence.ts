@@ -38,6 +38,17 @@ export type LiuyaoGodEffectStatus =
   '仅见有力条件' | '仅见无力条件' | '有力无力条件并见' | '资料不足';
 export type LiuyaoGodReferenceActivity =
   '月日直接作用' | '明动' | '暗动' | '静爻' | '伏藏待透' | '本位变爻待验';
+export type LiuyaoGodInteractionKind =
+  | '月日直接入用'
+  | '直接生扶用神'
+  | '直接克制用神'
+  | '忌原接续相生'
+  | '生扶原神'
+  | '克制原神'
+  | '生扶忌神'
+  | '克制忌神';
+export type LiuyaoGodInteractionRole = LiuyaoGodRole | '用神所生' | '其他作用爻';
+export type LiuyaoGodInteractionRelation = '生' | '克' | '比扶';
 export type LiuyaoSanheGodRole =
   '用神局' | '原神局' | '忌神局' | '仇神局' | '用神所生' | '用神未定';
 export type LiuyaoUsefulGodMatchingTier = '本卦明现' | '变爻显出' | '月日入用' | '伏神检索';
@@ -122,6 +133,27 @@ export interface LiuyaoGodChainItem {
   promptText: string;
   sources: string[];
   limitation: '原神、忌神与仇神只按已明确的用神六亲五行建立生克链，并记录本卦、月日与伏神中能直接参与作用的对应；变爻只通过本位动爻形成回头生克冲、进退空墓等条件，不跨位充当独立原忌仇神；资料有无对应不直接证明现实助力、阻碍、吉凶或结果';
+}
+
+export interface LiuyaoGodInteractionPathStep {
+  referenceKey: string;
+  role: LiuyaoGodInteractionRole;
+  activity: LiuyaoGodReferenceActivity;
+  wuxing: string;
+  relationToNext: LiuyaoGodInteractionRelation | null;
+}
+
+export interface LiuyaoGodInteractionFact {
+  key: string;
+  kind: LiuyaoGodInteractionKind;
+  status: '关系路径已闭合';
+  targetReferenceKey: string;
+  referenceKeys: string[];
+  path: LiuyaoGodInteractionPathStep[];
+  conditions: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '生克制化路径只按当前月日、真实明暗动、符合条件的旺相静爻、本位动变及伏神飞伏事实重算；路径可以并见且可能互相制化，不得按路径数量、多数票或顺序裁定最终强弱、用神有效性、吉凶或结果';
 }
 
 export interface LiuyaoTraditionalSymbolFact {
@@ -356,6 +388,7 @@ export interface LiuyaoSummaryFact {
   candidateCount: number;
   matchedCandidateCount: number;
   godChainFactCount: number;
+  godInteractionFactCount: number;
   structureFactCount: number;
   counterEvidenceCount: number;
   timingFactCount: number;
@@ -389,6 +422,7 @@ export interface LiuyaoEvidenceAnalysis {
   candidates: LiuyaoUsefulGodCandidate[];
   selectedCandidate: LiuyaoUsefulGodCandidate | null;
   godChain: LiuyaoGodChainItem[];
+  godInteractionFacts: LiuyaoGodInteractionFact[];
   traditionalSymbols: LiuyaoTraditionalSymbolFact[];
   structureFacts: LiuyaoHexagramStructureFact[];
   lineCoverageFact: LiuyaoLineCoverageFact;
@@ -429,6 +463,8 @@ const CANDIDATE_FACT_LIMITATION =
   '用神候选区分真正的六亲取用与世应、动爻等辅助观察，并按本卦明现、变爻显出、月日入用、伏神检索的层级匹配；候选不等于已证明现实事项，也不得按候选顺序、数量或匹配数量换算吉凶分与成功率' as const;
 const GOD_CHAIN_FACT_LIMITATION =
   '原神、忌神与仇神只按已明确的用神六亲五行建立生克链，并记录本卦、月日与伏神中能直接参与作用的对应；变爻只通过本位动爻形成回头生克冲、进退空墓等条件，不跨位充当独立原忌仇神；资料有无对应不直接证明现实助力、阻碍、吉凶或结果' as const;
+const GOD_INTERACTION_FACT_LIMITATION =
+  '生克制化路径只按当前月日、真实明暗动、符合条件的旺相静爻、本位动变及伏神飞伏事实重算；路径可以并见且可能互相制化，不得按路径数量、多数票或顺序裁定最终强弱、用神有效性、吉凶或结果' as const;
 const LINE_COVERAGE_FACT_LIMITATION =
   '六爻覆盖状态只说明当前结果能否完整核验初爻至上爻；缺少、重复或越界爻位时不得反推纳甲、六亲、六神、世应、空破墓或动变内容' as const;
 const HIDDEN_SPIRIT_COVERAGE_FACT_LIMITATION =
@@ -716,6 +752,275 @@ function buildGodReferenceEffectFact(params: {
     limitation:
       '原神、忌神效力与用神有气条件只逐项登记原典中能由当前月日、动静、空破墓绝、动变及原忌仇同动闭合的事实；条件可以并见，静爻有得力条件不等于已经作用，也不得按条件数量裁定有效无效、吉凶或结果',
   };
+}
+
+interface LiuyaoDirectInfluenceEdge {
+  actor: LiuyaoYaoReference;
+  recipient: LiuyaoYaoReference;
+  relation: LiuyaoGodInteractionRelation;
+  condition: string;
+}
+
+function findInfluenceActorReference(
+  condition: string,
+  recipient: LiuyaoYaoReference,
+  groups: LiuyaoReferenceGroups,
+) {
+  if (condition.startsWith('月建')) {
+    return groups.calendar.find((item) => item.source === '月建') ?? null;
+  }
+  if (condition.startsWith('日辰')) {
+    return groups.calendar.find((item) => item.source === '日辰') ?? null;
+  }
+  const lineMatch = condition.match(/第(\d+)爻/);
+  if (lineMatch) {
+    const position = Number(lineMatch[1]);
+    return groups.visible.find((item) => item.position === position) ?? null;
+  }
+  if (/^(?:回头生|回头克|比和)$/.test(condition)) {
+    return groups.changed.find((item) => item.position === recipient.position) ?? null;
+  }
+  if (/飞来|飞神克伏/.test(condition)) {
+    return groups.visible.find((item) => item.position === recipient.position) ?? null;
+  }
+  return null;
+}
+
+function buildDirectInfluenceEdges(recipient: LiuyaoYaoReference, groups: LiuyaoReferenceGroups) {
+  const edges: LiuyaoDirectInfluenceEdge[] = [];
+  const addEdge = (condition: string, relation: LiuyaoGodInteractionRelation) => {
+    const actor = findInfluenceActorReference(condition, recipient, groups);
+    if (!actor || actor.key === recipient.key) return;
+    edges.push({ actor, recipient, relation, condition });
+  };
+
+  if (recipient.source === '本卦' && recipient.strengthAnalysis) {
+    const strength = recipient.strengthAnalysis;
+    for (const condition of [
+      ...strength.calendarSupport,
+      ...strength.lineSupport,
+      ...strength.changeSupport,
+    ]) {
+      if (/生本爻$|^回头生$/.test(condition)) addEdge(condition, '生');
+      if (/比扶本爻$|^比和$/.test(condition)) addEdge(condition, '比扶');
+    }
+    for (const condition of [
+      ...strength.calendarConstraints,
+      ...strength.lineConstraints,
+      ...strength.changeConstraints,
+    ]) {
+      if (/克本爻$|^回头克$/.test(condition)) addEdge(condition, '克');
+    }
+  } else if (recipient.source === '伏神') {
+    for (const condition of recipient.support) {
+      if (/生伏神$|^飞来生伏$/.test(condition)) addEdge(condition, '生');
+    }
+    for (const condition of recipient.constraints) {
+      if (/克伏神|飞神克伏/.test(condition)) addEdge(condition, '克');
+    }
+    for (const actor of groups.visible.filter(isGodReferenceMoving)) {
+      const activity = getGodReferenceActivity(actor);
+      if (isSheng(actor.wuxing, recipient.wuxing)) {
+        addEdge(`第${actor.position}爻${activity}生伏神`, '生');
+      } else if (isKe(actor.wuxing, recipient.wuxing)) {
+        addEdge(`第${actor.position}爻${activity}克伏神`, '克');
+      }
+    }
+  } else if (recipient.source === '变爻') {
+    for (const actor of groups.calendar) {
+      if (isSheng(actor.wuxing, recipient.wuxing)) {
+        edges.push({
+          actor,
+          recipient,
+          relation: '生',
+          condition: `${actor.source}生变爻`,
+        });
+      } else if (actor.wuxing === recipient.wuxing) {
+        edges.push({
+          actor,
+          recipient,
+          relation: '比扶',
+          condition: `${actor.source}比扶变爻`,
+        });
+      } else if (isKe(actor.wuxing, recipient.wuxing)) {
+        edges.push({
+          actor,
+          recipient,
+          relation: '克',
+          condition: `${actor.source}克变爻`,
+        });
+      }
+    }
+  }
+
+  return Array.from(
+    new Map(
+      edges.map((edge) => [
+        `${edge.actor.key}|${edge.recipient.key}|${edge.relation}|${edge.condition}`,
+        edge,
+      ]),
+    ).values(),
+  );
+}
+
+function getGodInteractionRole(params: {
+  wuxing: string;
+  usefulElement: string;
+  sourceElement: string;
+  tabooElement: string;
+  enemyElement: string;
+}): LiuyaoGodInteractionRole {
+  const { wuxing, usefulElement, sourceElement, tabooElement, enemyElement } = params;
+  if (wuxing === usefulElement) return '用神';
+  if (wuxing === sourceElement) return '原神';
+  if (wuxing === tabooElement) return '忌神';
+  if (wuxing === enemyElement) return '仇神';
+  if (isSheng(usefulElement, wuxing)) return '用神所生';
+  return '其他作用爻';
+}
+
+function buildGodInteractionFacts(params: {
+  selectionFact: LiuyaoUsefulGodSelectionFact;
+  targetReferences: LiuyaoYaoReference[];
+  referenceGroups: LiuyaoReferenceGroups;
+  usefulElement: string;
+  sourceElement: string;
+  tabooElement: string;
+  enemyElement: string;
+}): LiuyaoGodInteractionFact[] {
+  const {
+    selectionFact,
+    targetReferences,
+    referenceGroups,
+    usefulElement,
+    sourceElement,
+    tabooElement,
+    enemyElement,
+  } = params;
+  if (selectionFact.status !== '已选定候选' || !targetReferences.length) return [];
+
+  const facts = new Map<string, LiuyaoGodInteractionFact>();
+  const roleOf = (reference: LiuyaoYaoReference) =>
+    getGodInteractionRole({
+      wuxing: reference.wuxing,
+      usefulElement,
+      sourceElement,
+      tabooElement,
+      enemyElement,
+    });
+  const addFact = (
+    kind: LiuyaoGodInteractionKind,
+    target: LiuyaoYaoReference,
+    pathEntries: Array<{
+      reference: LiuyaoYaoReference;
+      relationToNext: LiuyaoGodInteractionRelation | null;
+    }>,
+    conditions: string[],
+  ) => {
+    const normalizedConditions = uniqueStrings(conditions);
+    const referenceKeys = pathEntries.map((item) => item.reference.key);
+    const identity = `${kind}|${referenceKeys.join('>')}|${normalizedConditions.join('|')}`;
+    if (facts.has(identity)) return;
+    const path = pathEntries.map(({ reference, relationToNext }): LiuyaoGodInteractionPathStep => ({
+      referenceKey: reference.key,
+      role: roleOf(reference),
+      activity: getGodReferenceActivity(reference),
+      wuxing: reference.wuxing,
+      relationToNext,
+    }));
+    const pathText = pathEntries
+      .map(
+        ({ reference, relationToNext }) =>
+          `${formatYao(reference)}（${getGodReferenceActivity(reference)}）${relationToNext ? `${relationToNext}→` : ''}`,
+      )
+      .join('');
+    facts.set(identity, {
+      key: `liuyao:god-interaction:${facts.size + 1}`,
+      kind,
+      status: '关系路径已闭合',
+      targetReferenceKey: target.key,
+      referenceKeys,
+      path,
+      conditions: normalizedConditions,
+      promptText: `${kind}：${pathText}；依据${normalizedConditions.join('、')}；只登记可复核路径，不按路径数量裁定最终强弱或吉凶`,
+      sources: [
+        '《增删卜易·五行相生章、五行相克章、克处逢生章、动静生克章、月将章、日辰章》',
+        '《卜筮正宗·碎金赋生克制化注、原忌仇神论》',
+        '当前月日、真实明暗动、旺相静爻、本位动变及飞伏生克重算',
+      ],
+      limitation: GOD_INTERACTION_FACT_LIMITATION,
+    });
+  };
+
+  for (const target of targetReferences) {
+    if (target.source === '月建' || target.source === '日辰') {
+      addFact(
+        '月日直接入用',
+        target,
+        [{ reference: target, relationToNext: null }],
+        [`${target.source}直接充当用神五行`],
+      );
+      continue;
+    }
+
+    const directEdges = buildDirectInfluenceEdges(target, referenceGroups);
+    for (const edge of directEdges) {
+      addFact(
+        edge.relation === '克' ? '直接克制用神' : '直接生扶用神',
+        target,
+        [
+          { reference: edge.actor, relationToNext: edge.relation },
+          { reference: target, relationToNext: null },
+        ],
+        [edge.condition],
+      );
+    }
+
+    for (const directEdge of directEdges) {
+      const directActorRole = roleOf(directEdge.actor);
+      if (directActorRole === '原神' && directEdge.relation === '生') {
+        for (const incomingEdge of buildDirectInfluenceEdges(directEdge.actor, referenceGroups)) {
+          const incomingRole = roleOf(incomingEdge.actor);
+          const isContinuousGeneration =
+            incomingEdge.relation === '生' &&
+            incomingRole === '忌神' &&
+            isGodReferenceMoving(incomingEdge.actor) &&
+            isGodReferenceMoving(directEdge.actor);
+          addFact(
+            isContinuousGeneration
+              ? '忌原接续相生'
+              : incomingEdge.relation === '克'
+                ? '克制原神'
+                : '生扶原神',
+            target,
+            [
+              { reference: incomingEdge.actor, relationToNext: incomingEdge.relation },
+              { reference: directEdge.actor, relationToNext: '生' },
+              { reference: target, relationToNext: null },
+            ],
+            [incomingEdge.condition, directEdge.condition],
+          );
+        }
+      }
+
+      if (directActorRole === '忌神' && directEdge.relation === '克') {
+        for (const incomingEdge of buildDirectInfluenceEdges(directEdge.actor, referenceGroups)) {
+          addFact(
+            incomingEdge.relation === '克' ? '克制忌神' : '生扶忌神',
+            target,
+            [
+              { reference: incomingEdge.actor, relationToNext: incomingEdge.relation },
+              { reference: directEdge.actor, relationToNext: '克' },
+              { reference: target, relationToNext: null },
+            ],
+            [incomingEdge.condition, directEdge.condition],
+          );
+        }
+      }
+    }
+  }
+
+  return Array.from(facts.values());
 }
 
 function formatTimingReference(reference: LiuyaoYaoReference) {
@@ -1722,6 +2027,7 @@ function buildSummaryFact(params: {
   candidates: LiuyaoUsefulGodCandidate[];
   selectionFact: LiuyaoUsefulGodSelectionFact;
   godChain: LiuyaoGodChainItem[];
+  godInteractionFacts: LiuyaoGodInteractionFact[];
   traditionalSymbols: LiuyaoTraditionalSymbolFact[];
   structureFacts: LiuyaoHexagramStructureFact[];
   counterEvidenceFacts: LiuyaoCounterEvidenceFact[];
@@ -1740,6 +2046,7 @@ function buildSummaryFact(params: {
       params.selectionFact.key,
       ...params.candidates.flatMap((item) => [item.key, ...item.referenceKeys]),
       ...params.godChain.flatMap((item) => [item.key, ...item.referenceKeys]),
+      ...params.godInteractionFacts.flatMap((item) => [item.key, ...item.referenceKeys]),
       ...params.traditionalSymbols.map((item) => item.key),
       ...params.structureFacts.map((item) => item.key),
       params.counterSummaryFact.key,
@@ -1768,11 +2075,14 @@ function buildSummaryFact(params: {
     candidateCount: params.candidates.length,
     matchedCandidateCount,
     godChainFactCount: params.godChain.length,
+    godInteractionFactCount: params.godInteractionFacts.length,
     structureFactCount: params.structureFacts.length,
     counterEvidenceCount: params.counterEvidenceFacts.length,
     timingFactCount: params.timingFacts.length,
-    promptText: `证据状态${status}：逐爻${params.lineFacts.length}项、伏神${params.hiddenSpiritFacts.length}项、用神候选${params.candidates.length}项（匹配${matchedCandidateCount}项）、五行作用链${params.godChain.length}项、卦内结构${params.structureFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
-    sources: ['全部起卦、逐爻、伏神、候选、五行作用链、卦内结构、反证与应期事实逐项汇总'],
+    promptText: `证据状态${status}：逐爻${params.lineFacts.length}项、伏神${params.hiddenSpiritFacts.length}项、用神候选${params.candidates.length}项（匹配${matchedCandidateCount}项）、五行作用链${params.godChain.length}项、生克制化路径${params.godInteractionFacts.length}项、卦内结构${params.structureFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
+    sources: [
+      '全部起卦、逐爻、伏神、候选、五行作用链、生克制化路径、卦内结构、反证与应期事实逐项汇总',
+    ],
     limitation: SUMMARY_FACT_LIMITATION,
   };
 }
@@ -1787,6 +2097,7 @@ function buildCalculationSteps(params: {
   candidates: LiuyaoUsefulGodCandidate[];
   selectionFact: LiuyaoUsefulGodSelectionFact;
   godChain: LiuyaoGodChainItem[];
+  godInteractionFacts: LiuyaoGodInteractionFact[];
   counterEvidenceFacts: LiuyaoCounterEvidenceFact[];
   timingFacts: LiuyaoTimingFact[];
   summaryFact: LiuyaoSummaryFact;
@@ -1871,15 +2182,17 @@ function buildCalculationSteps(params: {
       inputs: { selectionStatus: params.selectionFact.status },
       result: {
         godChainFactCount: params.godChain.length,
+        godInteractionFactCount: params.godInteractionFacts.length,
         roles: params.godChain.map((item) => item.role),
       },
       dependsOnStepKeys: ['liuyao:calculation:candidates'],
       promptText: params.godChain.length
-        ? `按已明确的用神六亲五行建立${params.godChain.map((item) => item.role).join('、')}作用链`
+        ? `按已明确的用神六亲五行建立${params.godChain.map((item) => item.role).join('、')}作用链，并重算${params.godInteractionFacts.length}条生克制化路径`
         : '当前用神六亲尚未明确或各层均无匹配，未强定原神、忌神与仇神',
       sources: [
         '已明确的用神六亲五行与五行生克关系',
         '本卦、月日与伏神逐项五行匹配；变爻仅回头作用本位动爻',
+        '当前月日、真实明暗动、旺相静爻、本位动变与飞伏生克路径重算',
       ],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -1913,6 +2226,7 @@ function buildCalculationSteps(params: {
         summaryStatus: params.summaryFact.status,
         lineFactCount: params.summaryFact.lineFactCount,
         candidateCount: params.summaryFact.candidateCount,
+        godInteractionFactCount: params.summaryFact.godInteractionFactCount,
         counterEvidenceCount: params.summaryFact.counterEvidenceCount,
         timingFactCount: params.summaryFact.timingFactCount,
       },
@@ -1941,6 +2255,7 @@ function buildLimitationFacts(params: {
   candidates: LiuyaoUsefulGodCandidate[];
   selectionFact: LiuyaoUsefulGodSelectionFact;
   godChain: LiuyaoGodChainItem[];
+  godInteractionFacts: LiuyaoGodInteractionFact[];
   traditionalSymbols: LiuyaoTraditionalSymbolFact[];
   structureFacts: LiuyaoHexagramStructureFact[];
   counterEvidenceFacts: LiuyaoCounterEvidenceFact[];
@@ -1980,10 +2295,11 @@ function buildLimitationFacts(params: {
         params.selectionFact.key,
         ...params.candidates.map((item) => item.key),
         ...params.godChain.map((item) => item.key),
+        ...params.godInteractionFacts.map((item) => item.key),
       ],
       promptText:
-        '先按具体问题与求测关系确定六亲用神，再依本卦明现、变爻显出、月日入用、伏神检索逐层查找；世应和动爻本身不是通用用神。多现未能闭合时保留待择，不按数组顺序强选；原神、忌神和仇神只按已明确的用神五行建立关系，不证明现实助力、阻碍或结果',
-      sources: ['六亲取用、世应分工、用神层级匹配、多现边界与五行生克作用链'],
+        '先按具体问题与求测关系确定六亲用神，再依本卦明现、变爻显出、月日入用、伏神检索逐层查找；世应和动爻本身不是通用用神。多现未能闭合时保留待择，不按数组顺序强选；原神、忌神和仇神只按已明确的用神五行建立关系。生克制化路径允许并见，不按路径数量、多数票或顺序证明最终强弱、用神有效性、现实助力、阻碍或结果',
+      sources: ['六亲取用、世应分工、用神层级匹配、多现边界、五行生克作用链与生克制化路径'],
     },
     {
       key: 'liuyao:limitation:structure-tradition',
@@ -2207,6 +2523,23 @@ export function analyzeLiuyaoEvidence(
       limitation: GOD_CHAIN_FACT_LIMITATION,
     };
   });
+  const godInteractionTargets =
+    selectionFact.status !== '已选定候选' || !selectedCandidate
+      ? []
+      : selectedReference
+        ? [selectedReference]
+        : selectedCandidate.references.filter(
+            (reference) => reference.source === '月建' || reference.source === '日辰',
+          );
+  const godInteractionFacts = buildGodInteractionFacts({
+    selectionFact,
+    targetReferences: godInteractionTargets,
+    referenceGroups,
+    usefulElement,
+    sourceElement,
+    tabooElement,
+    enemyElement,
+  });
   const symbolReferences = [...referenceGroups.visible, ...referenceGroups.hidden];
   const traditionalSymbols = Array.from(
     new Set(symbolReferences.map((item) => item.sixRelative)),
@@ -2371,6 +2704,7 @@ export function analyzeLiuyaoEvidence(
     candidates,
     selectionFact,
     godChain,
+    godInteractionFacts,
     traditionalSymbols,
     structureFacts,
     counterEvidenceFacts,
@@ -2388,6 +2722,7 @@ export function analyzeLiuyaoEvidence(
     candidates,
     selectionFact,
     godChain,
+    godInteractionFacts,
     counterEvidenceFacts,
     timingFacts,
     summaryFact,
@@ -2405,6 +2740,7 @@ export function analyzeLiuyaoEvidence(
     candidates,
     selectionFact,
     godChain,
+    godInteractionFacts,
     traditionalSymbols,
     structureFacts,
     counterEvidenceFacts,
@@ -2514,6 +2850,22 @@ export function analyzeLiuyaoEvidence(
           },
         ]
       : []),
+    ...(godInteractionFacts.length
+      ? [
+          {
+            level: '辅证' as const,
+            title: '用神生克制化可追踪路径',
+            detail: `${godInteractionFacts.map((item) => item.promptText).join('；')}；统一边界：${GOD_INTERACTION_FACT_LIMITATION}`,
+            source: Array.from(new Set(godInteractionFacts.flatMap((item) => item.sources))).join(
+              '、',
+            ),
+            tags: [
+              '生克制化路径',
+              ...Array.from(new Set(godInteractionFacts.map((item) => item.kind))),
+            ],
+          },
+        ]
+      : []),
     {
       level: generationFact.status === '可核验' ? '辅证' : '反证',
       title: generationFact.status === '可核验' ? `起卦来源：${methodLabel}` : '起卦来源缺失',
@@ -2570,6 +2922,9 @@ export function analyzeLiuyaoEvidence(
     godChain.length
       ? `作用链：${godChain.map((item) => item.promptText).join('；')}`
       : '作用链：当前用神六亲尚未明确或各层均无匹配，不以世应、动爻或数组顺序硬定原神、忌神与仇神。',
+    godInteractionFacts.length
+      ? `生克制化路径：${godInteractionFacts.map((item) => item.promptText).join('；')}`
+      : '生克制化路径：当前用神尚未选定，或月日直接入用外未见可闭合路径，不补造作用关系。',
     `触发条件：${timingConditions.join('；')}`,
     `解释限制：${limitations.join('；')}。`,
   ].join('\n');
@@ -2582,6 +2937,7 @@ export function analyzeLiuyaoEvidence(
     candidates,
     selectedCandidate,
     godChain,
+    godInteractionFacts,
     traditionalSymbols,
     structureFacts,
     lineCoverageFact,
@@ -2611,6 +2967,7 @@ export function analyzeLiuyaoEvidence(
       '用神六亲明确后依次核验本卦明现、变爻显出、月日入用与伏神检索，不跨层混取；同层多现未能闭合时不按数组顺序强选。',
       '逐爻保留世应、发动、暗动、月令、月日同支合冲、空破墓、回头生克和进退神证据。',
       '原神取生用神者，忌神取克用神者，仇神取生忌神并克原神者。',
+      '按月日、真实明暗动、符合条件的旺相静爻、本位动变与飞伏生克重算直接及接续路径；路径允许并见，不按条数裁定最终强弱或吉凶。',
       '六亲类象保留传统原始范围，提示词只把它作为随问题变化的候选，不把单一持世六亲写成现实事件。',
       '只输出支持、反证、限制和触发条件，不生成吉凶总分或成功率。',
     ],

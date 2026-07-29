@@ -165,6 +165,8 @@
 
 `analyzeLiuyaoEvidence(data, options?)` 的 `godChain[].effectFacts` 按每个用神、原神、忌神引用返回 `activity`、`supportingConditions`、`blockingConditions` 与条件并见状态。静爻旺相只表示得时，不等于已经生用或克用；原忌同动、忌仇同动只按重算后的明动或暗动成立，条件数量不能换算最终有效性、吉凶或概率。
 
+`godInteractionFacts` 返回以 `referenceKeys` 和 `path` 闭合的生克制化路径，包括直接生扶或克制用神、忌原接续相生、原神受制或得助、忌神受制或得助。路径只从月日、真实明暗动、共享旺衰规则允许的旺相静爻、本位动变及飞伏关系重算；变爻不跨位接受其他爻作用，路径数量不用于计票、打分或裁定最终用神有效性。
+
 ---
 
 ## 梅花易数 Meihua

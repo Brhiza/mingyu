@@ -4627,6 +4627,7 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
         };
         selectedCandidate: unknown | null;
         godChain: unknown[];
+        godInteractionFacts: unknown[];
         lineCoverageFact: { status: string; actualPositions: number[] };
         lineFacts: Array<{ status: string; sources: string[]; limitation: string }>;
         counterEvidenceFacts: Array<{
@@ -4652,6 +4653,7 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
           candidateCount: number;
           matchedCandidateCount: number;
           godChainFactCount: number;
+          godInteractionFactCount: number;
           structureFactCount: number;
           counterEvidenceCount: number;
           timingFactCount: number;
@@ -4699,6 +4701,8 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
     assert.equal(firstResult.evidenceAnalysis.selectionFact.selectedReferenceKey, null);
     assert.equal(firstResult.evidenceAnalysis.selectedCandidate, null);
     assert.equal(firstResult.evidenceAnalysis.godChain.length, 0);
+    assert.equal(firstResult.evidenceAnalysis.godInteractionFacts.length, 0);
+    assert.equal(firstResult.evidenceAnalysis.summaryFact.godInteractionFactCount, 0);
     assert.equal(firstResult.evidenceAnalysis.lineCoverageFact.status, '完整');
     assert.deepEqual(
       firstResult.evidenceAnalysis.lineCoverageFact.actualPositions,

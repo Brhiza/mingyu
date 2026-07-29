@@ -34,6 +34,7 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
   assert.equal(evidence.selectionFact.selectedReferenceKey, null);
   assert.ok(evidence.candidates.every((item) => item.candidateRole === '辅助观察'));
   assert.equal(evidence.godChain.length, 0);
+  assert.equal(evidence.godInteractionFacts.length, 0);
   assert.equal(evidence.lineCoverageFact.status, '完整');
   assert.deepEqual(evidence.lineCoverageFact.actualPositions, [1, 2, 3, 4, 5, 6]);
   assert.equal(evidence.lineFacts.length, 6);
@@ -289,6 +290,13 @@ test('六爻明确六亲后应按本卦、变爻、月日、伏神逐层取用',
     calendarPair.candidates[0].references.map((item) => item.source),
     ['月建', '日辰'],
   );
+  assert.deepEqual(
+    calendarPair.godInteractionFacts.map((item) => [item.kind, item.referenceKeys]),
+    [
+      ['月日直接入用', ['liuyao:reference:calendar:月建']],
+      ['月日直接入用', ['liuyao:reference:calendar:日辰']],
+    ],
+  );
 
   assert.equal(hidden.selectionFact.matchingTier, '伏神检索');
   assert.equal(hidden.selectionFact.selectedReferenceKey, 'liuyao:reference:hidden:2:妻财');
@@ -317,6 +325,7 @@ test('六爻同一六亲多现时仅唯一明动爻可直接选定', () => {
   assert.equal(staticLines.selectionFact.selectedCandidateKey, null);
   assert.equal(staticLines.selectionFact.selectedReferenceKey, null);
   assert.equal(staticLines.godChain.length, 4);
+  assert.equal(staticLines.godInteractionFacts.length, 0);
 
   assert.equal(soleMoving.selectionFact.status, '已选定候选');
   assert.equal(soleMoving.selectionFact.selectedReferenceKey, 'liuyao:reference:line:3');
@@ -326,6 +335,7 @@ test('六爻同一六亲多现时仅唯一明动爻可直接选定', () => {
 
   assert.equal(bothMoving.selectionFact.status, '用神爻位待择');
   assert.equal(bothMoving.selectionFact.selectedReferenceKey, null);
+  assert.equal(bothMoving.godInteractionFacts.length, 0);
   assert.match(bothMoving.selectionFact.promptText, /不按数组顺序强选/);
 });
 
@@ -553,6 +563,201 @@ test('六爻原神忌神效力应逐爻并列有力无力条件与真实活动�
     JSON.stringify(evidence.godChain.map((item) => [item.effectStatus, item.effectFacts])),
     /score|rating|probability|总分|概率|最终吉凶/,
   );
+});
+
+test('六爻生克制化应登记碎金赋四类闭合路径并允许并见', () => {
+  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: [6, 6, 6, 6, 6, 6],
+  });
+  const evidence = analyzeLiuyaoEvidence(data, { usefulGodRelative: '父母' });
+  const findPath = (kind: string, referenceKeys: string[]) =>
+    evidence.godInteractionFacts.find(
+      (item) => item.kind === kind && item.referenceKeys.join('|') === referenceKeys.join('|'),
+    );
+
+  const sourceControlled = findPath('克制原神', [
+    'liuyao:reference:line:6',
+    'liuyao:reference:line:3',
+    'liuyao:reference:line:2',
+  ]);
+  const tabooControlled = findPath('克制忌神', [
+    'liuyao:reference:line:1',
+    'liuyao:reference:line:5',
+    'liuyao:reference:line:2',
+  ]);
+  const continuousGeneration = findPath('忌原接续相生', [
+    'liuyao:reference:line:5',
+    'liuyao:reference:line:3',
+    'liuyao:reference:line:2',
+  ]);
+  const tabooSupported = findPath('生扶忌神', [
+    'liuyao:reference:line:6',
+    'liuyao:reference:line:5',
+    'liuyao:reference:line:2',
+  ]);
+
+  assert.deepEqual(
+    sourceControlled?.path.map((item) => [item.role, item.relationToNext]),
+    [
+      ['仇神', '克'],
+      ['原神', '生'],
+      ['用神', null],
+    ],
+  );
+  assert.deepEqual(
+    tabooControlled?.path.map((item) => [item.role, item.relationToNext]),
+    [
+      ['用神所生', '克'],
+      ['忌神', '克'],
+      ['用神', null],
+    ],
+  );
+  assert.deepEqual(
+    continuousGeneration?.path.map((item) => [item.role, item.relationToNext]),
+    [
+      ['忌神', '生'],
+      ['原神', '生'],
+      ['用神', null],
+    ],
+  );
+  assert.deepEqual(
+    tabooSupported?.path.map((item) => [item.role, item.relationToNext]),
+    [
+      ['仇神', '生'],
+      ['忌神', '克'],
+      ['用神', null],
+    ],
+  );
+  assert.ok(
+    ['直接生扶用神', '直接克制用神', '忌原接续相生', '生扶忌神', '克制忌神'].every((kind) =>
+      evidence.godInteractionFacts.some((item) => item.kind === kind),
+    ),
+  );
+  assert.equal(evidence.summaryFact.godInteractionFactCount, evidence.godInteractionFacts.length);
+  assert.match(evidence.promptText, /生克制化路径/);
+  assert.match(evidence.promptText, /忌原接续相生/);
+  assert.ok(
+    evidence.limitationFacts
+      .find((item) => item.key === 'liuyao:limitation:candidates-god-chain')
+      ?.ownerFactKeys.includes(continuousGeneration?.key ?? ''),
+  );
+  assert.doesNotMatch(
+    JSON.stringify(evidence.godInteractionFacts),
+    /score|weight|rating|probability|总分|概率|最终吉凶|最终强弱[^、或]/i,
+  );
+});
+
+test('六爻生克制化路径应覆盖月日、明暗动、旺相静爻、本位变爻与伏神来源', () => {
+  const date = new Date('2025-01-01T08:00:00+08:00');
+  const allMoving = analyzeLiuyaoEvidence(
+    generateLiuyao(date, { method: 'manual', yaos: [6, 6, 6, 6, 6, 6] }),
+    { usefulGodRelative: '父母' },
+  );
+  const hiddenMove = analyzeLiuyaoEvidence(
+    generateLiuyao(date, { method: 'manual', yaos: [7, 6, 6, 6, 6, 6] }),
+    { usefulGodRelative: '官鬼' },
+  );
+  const strongStatic = analyzeLiuyaoEvidence(
+    generateLiuyao(date, { method: 'manual', yaos: [7, 7, 6, 6, 6, 6] }),
+    { usefulGodRelative: '父母' },
+  );
+  const hiddenSpirit = analyzeLiuyaoEvidence(
+    generateLiuyao(date, { method: 'manual', yaos: [8, 6, 7, 6, 6, 6] }),
+    { usefulGodRelative: '妻财' },
+  );
+  const activities = new Set(
+    [allMoving, hiddenMove, strongStatic, hiddenSpirit].flatMap((item) =>
+      item.godInteractionFacts.flatMap((fact) => fact.path.map((step) => step.activity)),
+    ),
+  );
+
+  assert.deepEqual(
+    [...activities].sort(),
+    ['伏藏待透', '明动', '暗动', '月日直接作用', '本位变爻待验', '静爻'].sort(),
+  );
+  assert.ok(
+    strongStatic.godInteractionFacts.some((item) =>
+      item.conditions.includes('第2爻旺相静爻生本爻'),
+    ),
+  );
+  assert.ok(
+    hiddenSpirit.godInteractionFacts.some(
+      (item) =>
+        item.targetReferenceKey === 'liuyao:reference:hidden:2:妻财' &&
+        item.conditions.includes('月建生伏神'),
+    ),
+  );
+  assert.ok(
+    hiddenSpirit.godInteractionFacts.some(
+      (item) =>
+        item.kind === '直接克制用神' &&
+        item.referenceKeys.join('|') === 'liuyao:reference:line:6|liuyao:reference:hidden:2:妻财' &&
+        item.conditions.includes('第6爻明动克伏神'),
+    ),
+  );
+});
+
+test('六爻变爻只受月日或本位动爻路径，不跨位接受其他爻作用', () => {
+  const date = new Date('2025-01-01T08:00:00+08:00');
+  const selectedChanged = analyzeLiuyaoEvidence(
+    generateLiuyao(date, { method: 'manual', yaos: [6, 8, 7, 7, 7, 7] }),
+    { usefulGodRelative: '妻财' },
+  );
+  const allMoving = analyzeLiuyaoEvidence(
+    generateLiuyao(date, { method: 'manual', yaos: [6, 6, 6, 6, 6, 6] }),
+    { usefulGodRelative: '父母' },
+  );
+
+  assert.ok(
+    selectedChanged.godInteractionFacts.every(
+      (item) =>
+        item.targetReferenceKey === 'liuyao:reference:changed:1' &&
+        item.path.length === 2 &&
+        item.path[0].activity === '月日直接作用',
+    ),
+  );
+  for (const fact of allMoving.godInteractionFacts) {
+    fact.path.forEach((step, index) => {
+      if (step.activity !== '本位变爻待验') return;
+      const changedPosition = step.referenceKey.match(/changed:(\d+)$/)?.[1];
+      const nextPosition = fact.path[index + 1]?.referenceKey.match(/line:(\d+)$/)?.[1];
+      assert.equal(nextPosition, changedPosition);
+    });
+  }
+});
+
+test('六爻生克制化路径应从原始盘面重算并忽略旧派生字段', () => {
+  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: [9, 8, 7, 6, 7, 8],
+  });
+  const current = analyzeLiuyaoEvidence(data, { usefulGodRelative: '子孙' });
+  const tampered = analyzeLiuyaoEvidence(
+    {
+      ...data,
+      yaosDetail: data.yaosDetail.map((item) => ({
+        ...item,
+        seasonState: '旺',
+        isHiddenMove: !item.isHiddenMove,
+        isDayBreak: !item.isDayBreak,
+        strengthAnalysis: item.strengthAnalysis
+          ? {
+              ...item.strengthAnalysis,
+              support: ['伪造支持条件'],
+              constraints: ['伪造限制条件'],
+              lineSupport: ['第6爻明动生本爻'],
+              lineConstraints: ['第1爻明动克本爻'],
+            }
+          : undefined,
+      })),
+      evidenceAnalysis: undefined,
+    },
+    { usefulGodRelative: '子孙' },
+  );
+
+  assert.deepEqual(tampered.godInteractionFacts, current.godInteractionFacts);
+  assert.doesNotMatch(JSON.stringify(tampered.godInteractionFacts), /伪造支持|伪造限制/);
 });
 
 test('六爻旺相静爻只记录得力条件，不冒充已经作用', () => {
