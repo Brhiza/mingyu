@@ -195,15 +195,23 @@ test('真实交节排盘中外部过渡气即使透干也不得改写格局、�
   assert.match(result.analysis.mingGe.basis || '', /月令只有乙一项藏干/);
   assert.match(result.analysis.mingGe.basis || '', /甲为交节过渡气且已透干/);
   assert.match(result.analysis.mingGe.basis || '', /不替换本月唯一藏干/);
+  assert.match(result.analysis.mingGe.basis || '', /印格成败边界/);
+  assert.match(result.analysis.mingGe.basis || '', /印、财、食神同见/);
+  assert.match(result.analysis.mingGe.basis || '', /保留三者混合结构待复核/);
 
   const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
   assert.equal(patternFact?.result, '偏印格');
   assert.match(patternFact?.promptText || '', /格局：偏印格/);
+  assert.match(patternFact?.promptText || '', /印格成败边界/);
+  assert.match(patternFact?.promptText || '', /保留三者混合结构待复核/);
   assert.doesNotMatch(patternFact?.promptText || '', /格局：正印格/);
 
   const prompt = formatBaziForPrompt(result);
   assert.match(prompt, /格局: 偏印格/);
+  assert.match(prompt, /印格成败边界/);
+  assert.match(prompt, /保留三者混合结构待复核/);
   assert.doesNotMatch(prompt, /格局: 正印格/);
+  assert.doesNotMatch(prompt, /判定为(?:富贵|贫贱)|格局评分|成功率/);
 });
 
 test('真实透而又会排盘必须把透干和会支共同贯穿格局证据与最终提示词', () => {

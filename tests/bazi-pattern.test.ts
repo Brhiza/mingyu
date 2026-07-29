@@ -937,6 +937,123 @@ test('论财五个原典例型只保存精确结构且不强改现有格名', ()
   });
 });
 
+test('印格官、食伤与七杀只记录局部结构并保留身印强弱分叉', () => {
+  const cases = [
+    {
+      pillars: createPillars('丙寅', '戊戌', '辛酉', '戊子'),
+      pattern: '正印格',
+      expected: [/“印用官”的官清纯客观部分/, /身旺、印强、官清及三者实际轻重仍须全局复核/],
+    },
+    {
+      pillars: createPillars('丙戌', '戊戌', '辛未', '壬辰'),
+      pattern: '正印格',
+      expected: [/印制食伤以护官的局部结构/, /“印用食伤”以泄秀的局部结构/],
+    },
+    {
+      pillars: createPillars('庚寅', '丙子', '甲辰', '丙寅'),
+      pattern: '正印格',
+      expected: [/“印用七杀”的局部结构/, /杀有食伤制、印生身而食伤泄身的局部制泄结构/],
+    },
+  ];
+
+  cases.forEach(({ pillars, pattern, expected }) => {
+    const result = determinePattern(pillars, '待综合判断', getTenGod);
+    assert.equal(result.pattern, pattern);
+    assert.match(result.basis || '', /印格成败边界/);
+    expected.forEach((marker) => assert.match(result.basis || '', marker));
+    assert.match(result.basis || '', /不以明透或藏干数量硬判|不能由十神数量直接判定|全局复核/);
+    assert.doesNotMatch(
+      result.basis || '',
+      /判定为(?:富贵|贫贱)|必(?:富|贵|贫|败)|格局评分|成功率/,
+    );
+  });
+});
+
+test('印财食同见应区分食合印、财合印和无相邻五合三类', () => {
+  const cases = [
+    {
+      pillars: createPillars('庚寅', '乙酉', '癸亥', '丙辰'),
+      pattern: '偏印格',
+      expected: [/食合印存财.*局部取清候选/, /五合事实不证明已经合化/],
+    },
+    {
+      pillars: createPillars('己未', '甲戌', '辛未', '癸巳'),
+      pattern: '待综合判断',
+      expected: [/财合印存食.*局部取清候选/, /不认定已经合化|五合不等于已经合化/],
+    },
+    {
+      pillars: createPillars('甲子', '戊戌', '辛未', '癸巳'),
+      pattern: '正印格',
+      expected: [/印、财、食神同见/, /保留三者混合结构待复核/],
+    },
+  ];
+
+  cases.forEach(({ pillars, pattern, expected }) => {
+    const result = determinePattern(pillars, '待综合判断', getTenGod);
+    assert.equal(result.pattern, pattern);
+    assert.match(result.basis || '', /印格成败边界/);
+    expected.forEach((marker) => assert.match(result.basis || '', marker));
+    assert.match(result.basis || '', /财根|无财根/);
+    assert.doesNotMatch(result.basis || '', /已经合化.*成立|根深已定|印重已定|财轻已定/);
+  });
+});
+
+test('印格官杀竞透应区分合杀、食伤制与未取清，并记录劫财存杀印候选', () => {
+  const cases = [
+    {
+      pillars: createPillars('乙丑', '庚子', '甲辰', '辛巳'),
+      expected: [/“合杀留官”的局部取清候选/, /五合不等于已经合化或最终取清/],
+    },
+    {
+      pillars: createPillars('壬子', '癸卯', '丙子', '己亥'),
+      expected: [/食伤制官杀的局部取清候选/, /是否尽制及最终留官留杀仍须复核/],
+    },
+    {
+      pillars: createPillars('辛酉', '庚子', '甲辰', '戊辰'),
+      expected: [/官杀竞透而未见相邻五合或食伤明透、成局的取清组件/, /官杀混杂待复核/],
+    },
+    {
+      pillars: createPillars('庚戌', '戊子', '甲戌', '乙亥'),
+      expected: [/劫财制财以存杀印的局部救应候选/, /财劫杀印强弱与最终取舍仍须全局复核/],
+    },
+  ];
+
+  cases.forEach(({ pillars, expected }) => {
+    const result = determinePattern(pillars, '待综合判断', getTenGod);
+    assert.equal(result.pattern, '正印格');
+    assert.match(result.basis || '', /印格成败边界/);
+    expected.forEach((marker) => assert.match(result.basis || '', marker));
+  });
+});
+
+test('论印十三个原典例型只保存精确结构且半合不得自动化印为劫', () => {
+  const cases = [
+    ['丙寅', '戊戌', '辛酉', '戊子', /原典张参政精确例型.*印用官/],
+    ['丙戌', '戊戌', '辛未', '壬辰', /原典朱尚书精确例型.*印制伤官以护官/],
+    ['乙亥', '己卯', '丁酉', '壬寅', /原典临淮侯精确例型.*印用食神/],
+    ['戊戌', '乙卯', '丙午', '乙亥', /原典李状元精确例型.*不以印星数量判印旺身强/],
+    ['己巳', '癸酉', '癸未', '庚申', /原典茅状元精确例型.*印用七杀/],
+    ['壬寅', '戊申', '壬辰', '壬寅', /原典马参政精确例型.*不以比肩数量/],
+    ['辛酉', '丙申', '壬申', '辛亥', /原典汪侍郎精确例型.*印多用财/],
+    ['庚寅', '乙酉', '癸亥', '丙辰', /原典牛监簿精确例型.*食合印存财/],
+    ['己未', '甲戌', '辛未', '癸巳', /原典合财存食精确例型.*财合印存食/],
+    ['辛亥', '庚子', '甲辰', '乙亥', /原典合杀留官精确例型.*合杀留官候选/],
+    ['壬子', '癸卯', '丙子', '己亥', /原典官杀有制精确例型.*食伤制官杀/],
+    ['丙午', '庚寅', '丙午', '癸巳', /原典化印为劫精确例型.*半合不作为完整三合火局运行/],
+    ['庚戌', '戊子', '甲戌', '乙亥', /原典劫财存杀印精确例型.*劫财制财以存杀印/],
+  ] as const;
+
+  cases.forEach(([year, month, day, hour, expected]) => {
+    const result = determinePattern(createPillars(year, month, day, hour), '待综合判断', getTenGod);
+    assert.match(result.basis || '', expected);
+    assert.match(result.basis || '', /不改变既有格名/);
+    assert.doesNotMatch(
+      result.basis || '',
+      /印已化劫(?:成立|成功)|弃印就财官(?:成立|成功)|判定为(?:富贵|贫贱)|格局评分|成功率/,
+    );
+  });
+});
+
 test('印格见杀但根轻条件未闭合时不得硬判杀能成格', () => {
   const pillars: Pillars = {
     year: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
