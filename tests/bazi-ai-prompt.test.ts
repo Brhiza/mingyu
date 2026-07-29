@@ -315,7 +315,7 @@ test('八字提示词不应把五行构成阈值包装为过强过弱病药断�
   assert.doesNotMatch(prompt.user, /【病药法】|过弱为病|过旺为病/);
 });
 
-test('八字提示词中的经典格局片段不应再单列独立喜忌，避免与正式主线冲突', () => {
+test('月令正官已有用时不应再附加丙辛化水外格', () => {
   const result = baziCalculator.calculateBazi({
     year: 1990,
     month: 1,
@@ -336,15 +336,11 @@ test('八字提示词中的经典格局片段不应再单列独立喜忌，避�
     { isCustomQuestion: false },
   );
 
-  assert.match(
-    prompt.user,
-    /【经典格局】丙辛化水格（传统等级参考：极品，以成败条件裁定） \| 丙辛合化水/,
-  );
-  assert.doesNotMatch(prompt.user, /【经典格局】[^\n]* \| 喜:/);
-  assert.doesNotMatch(prompt.user, /【经典格局】[^\n]* 忌:/);
+  assert.match(prompt.user, /格局: 正官格/);
+  assert.doesNotMatch(prompt.user, /【经典外格】丙辛化水格/);
 });
 
-test('八字提示词中的经典格局片段应收起传统强断语，避免直接带偏在线 AI', () => {
+test('月令兼透且干头已有七杀时不应再附加壬骑龙背外格', () => {
   const result = baziCalculator.calculateBazi({
     year: 1988,
     month: 2,
@@ -365,23 +361,23 @@ test('八字提示词中的经典格局片段应收起传统强断语，避免�
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /【经典格局】壬骑龙背格（传统等级参考：极品，以成败条件裁定）/);
-  assert.match(prompt.user, /壬辰日生，地支多辰，取辰多冲戌中官星。忌戌字填实冲破。/);
-  assert.doesNotMatch(prompt.user, /主大富大贵/);
+  assert.match(prompt.user, /格局: 待综合判断/);
+  assert.match(prompt.user, /戊（七杀）同时透出/);
+  assert.doesNotMatch(prompt.user, /【经典外格】壬骑龙背格/);
 });
 
-test('八字经典格局多选一条件应任一命中，不应要求全部同时成立', () => {
+test('八字经典格局多选一条件在外格前提成立后应任一命中', () => {
   const pillars = {
-    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
-    month: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    year: { gan: '丙', zhi: '子', ganZhi: '丙子' },
+    month: { gan: '甲', zhi: '午', ganZhi: '甲午' },
     day: { gan: '丁', zhi: '酉', ganZhi: '丁酉' },
-    hour: { gan: '己', zhi: '丑', ganZhi: '己丑' },
+    hour: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
   };
   const hiddenStems = {
     year: ['癸'],
-    month: ['甲', '丙', '戊'],
+    month: ['丁', '己'],
     day: ['辛'],
-    hour: ['己', '癸', '辛'],
+    hour: ['戊', '乙', '癸'],
   };
 
   assert.equal(
@@ -394,28 +390,28 @@ test('八字经典格局多选一条件应任一命中，不应要求全部同�
   );
 });
 
-test('八字经典格局应按古籍识别子午双包，并排除只有两个子的误报', () => {
+test('八字经典格局只有在月令无用时才识别子午双包', () => {
   const twoZiOneWuPillars = {
-    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
-    month: { gan: '丙', zhi: '午', ganZhi: '丙午' },
-    day: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
-    hour: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+    year: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+    month: { gan: '庚', zhi: '子', ganZhi: '庚子' },
+    day: { gan: '壬', zhi: '午', ganZhi: '壬午' },
+    hour: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
   };
   const onlyTwoZiPillars = {
     ...twoZiOneWuPillars,
-    month: { gan: '丙', zhi: '申', ganZhi: '丙申' },
+    day: { gan: '壬', zhi: '辰', ganZhi: '壬辰' },
   };
   const ziWuBothPillars = {
-    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
-    month: { gan: '丙', zhi: '午', ganZhi: '丙午' },
-    day: { gan: '甲', zhi: '午', ganZhi: '甲午' },
-    hour: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+    year: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+    month: { gan: '庚', zhi: '子', ganZhi: '庚子' },
+    day: { gan: '壬', zhi: '午', ganZhi: '壬午' },
+    hour: { gan: '甲', zhi: '午', ganZhi: '甲午' },
   };
   const hiddenStems = {
     year: ['癸'],
-    month: ['丁', '己'],
-    day: ['戊', '乙', '癸'],
-    hour: ['癸'],
+    month: ['癸'],
+    day: ['丁', '己'],
+    hour: ['戊', '乙', '癸'],
   };
   const ziWuHiddenStems = {
     ...hiddenStems,
@@ -425,21 +421,21 @@ test('八字经典格局应按古籍识别子午双包，并排除只有两个�
 
   for (const identifyClassicPattern of [identifyClassicPatternLocal, identifyClassicPatternCore]) {
     assert.equal(
-      identifyClassicPattern('甲', '午', twoZiOneWuPillars, hiddenStems, '正印格')?.name,
+      identifyClassicPattern('壬', '子', twoZiOneWuPillars, hiddenStems, '建禄格')?.name,
       '子午双包格',
     );
     assert.equal(
-      identifyClassicPattern('甲', '午', ziWuBothPillars, ziWuHiddenStems, '偏财格')?.name,
+      identifyClassicPattern('壬', '子', ziWuBothPillars, ziWuHiddenStems, '建禄格')?.name,
       '子午双包格',
     );
     assert.notEqual(
-      identifyClassicPattern('甲', '申', onlyTwoZiPillars, hiddenStems, '正印格')?.name,
+      identifyClassicPattern('壬', '子', onlyTwoZiPillars, hiddenStems, '建禄格')?.name,
       '子午双包格',
     );
   }
 });
 
-test('八字经典外格应按古籍口径限制关键成格条件', () => {
+test('八字经典外格应先服从月令用神，不以局外名目覆盖正格', () => {
   const emptyHiddenStems = {
     year: [],
     month: [],
@@ -509,9 +505,9 @@ test('八字经典外格应按古籍口径限制关键成格条件', () => {
       '正印格',
     );
 
-    assert.equal(jingLanCha?.name, '井栏叉格');
-    assert.equal(renQiLong?.name, '壬骑龙背格');
-    assert.equal(feiTianLuMa?.name, '飞天禄马格');
+    assert.notEqual(jingLanCha?.name, '井栏叉格');
+    assert.notEqual(renQiLong?.name, '壬骑龙背格');
+    assert.notEqual(feiTianLuMa?.name, '飞天禄马格');
     assert.notEqual(oldFeiTianFalsePositive?.name, '飞天禄马格');
     assert.notEqual(singleChenRenFalsePositive?.name, '壬骑龙背格');
   }
@@ -520,10 +516,10 @@ test('八字经典外格应按古籍口径限制关键成格条件', () => {
 test('八字经典格局提示词应保留福德秀气的成格边界，不输出统一强断', () => {
   const chartResult = {
     pillars: {
-      year: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
-      month: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+      year: { gan: '癸', zhi: '酉', ganZhi: '癸酉' },
+      month: { gan: '甲', zhi: '寅', ganZhi: '甲寅' },
       day: { gan: '乙', zhi: '巳', ganZhi: '乙巳' },
-      hour: { gan: '己', zhi: '丑', ganZhi: '己丑' },
+      hour: { gan: '丁', zhi: '丑', ganZhi: '丁丑' },
     },
     hiddenStems: {
       year: ['辛'],
@@ -532,16 +528,48 @@ test('八字经典格局提示词应保留福德秀气的成格边界，不输�
       hour: ['己', '癸', '辛'],
     },
     analysis: {
-      mingGe: { pattern: '正印格', isSpecial: false },
+      mingGe: { pattern: '劫财格', isSpecial: false },
     },
   };
 
   const section = generateEnhancedAnalysisSection(chartResult as any, 'general');
 
-  assert.match(section, /【经典格局】福德秀气格（传统等级参考：中等，以成败条件裁定）/);
+  assert.match(section, /【经典外格】福德秀气格（传统等级参考：中等，以成败条件裁定）/);
+  assert.match(section, /取用前提：月令本气与日主同类，未另取到透干或会支之用，且干头无财官七杀/);
   assert.match(section, /专取乙、丁、己、辛、癸五阴干/);
   assert.match(section, /只识别共同结构，不统一强断/);
   assert.doesNotMatch(section, /主一生福禄厚重|主人聪明智慧/);
+});
+
+test('月令确无用且干头无财官七杀时，真实排盘仍可输出经典外格', () => {
+  const result = baziCalculator.calculateBazi({
+    year: 1902,
+    month: 2,
+    day: 10,
+    timeIndex: 1,
+    gender: 'male',
+    isLunar: false,
+    isLeapMonth: false,
+    useTrueSolarTime: false,
+  });
+
+  assert.deepEqual(
+    Object.values(result.pillars).map((pillar) => pillar.ganZhi),
+    ['壬寅', '壬寅', '甲子', '乙丑'],
+  );
+  assert.equal(result.analysis.mingGe.pattern, '建禄格');
+
+  const prompt = buildPromptFromConfig(
+    '请分析整体命局。',
+    { id: 'ai-mingge-zonglun', prompt: '测试', scopeLabel: '通用' },
+    result,
+    null,
+    '通用',
+    { isCustomQuestion: false },
+  );
+
+  assert.match(prompt.user, /【经典外格】金神格/);
+  assert.match(prompt.user, /取用前提：月令本气与日主同类/);
 });
 
 test('八字提示词资料包中的取用脉络应保留判断依据，不直出内部成格强断语', () => {

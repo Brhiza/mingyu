@@ -24,16 +24,16 @@ function identify(pillars: Pillars) {
 
 test('金神格应纠正甲日喜火惧水，并保留己日喜忌分歧', () => {
   const jiaPattern = identify({
-    year: { gan: '丁', zhi: '亥', ganZhi: '丁亥' },
-    month: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
-    day: { gan: '甲', zhi: '寅', ganZhi: '甲寅' },
+    year: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
+    month: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
     hour: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
   });
   const jiPattern = identify({
-    year: { gan: '丁', zhi: '亥', ganZhi: '丁亥' },
-    month: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+    year: { gan: '庚', zhi: '子', ganZhi: '庚子' },
+    month: { gan: '丁', zhi: '丑', ganZhi: '丁丑' },
     day: { gan: '己', zhi: '卯', ganZhi: '己卯' },
-    hour: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
+    hour: { gan: '己', zhi: '巳', ganZhi: '己巳' },
   });
 
   assert.equal(jiaPattern?.name, '金神格');
@@ -47,7 +47,7 @@ test('金神格应纠正甲日喜火惧水，并保留己日喜忌分歧', () =>
   assert.match(jiPattern?.description ?? '', /不能照搬甲日/);
 });
 
-test('六乙鼠贵只取乙日丙子时，并排除古籍所列破格条件', () => {
+test('月令已有用神时不以六乙鼠贵另立外格', () => {
   const basePillars: Pillars = {
     year: { gan: '癸', zhi: '亥', ganZhi: '癸亥' },
     month: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
@@ -55,7 +55,7 @@ test('六乙鼠贵只取乙日丙子时，并排除古籍所列破格条件', ()
     hour: { gan: '丙', zhi: '子', ganZhi: '丙子' },
   };
 
-  assert.equal(identify(basePillars)?.name, '六乙鼠贵格');
+  assert.notEqual(identify(basePillars)?.name, '六乙鼠贵格');
   assert.notEqual(
     identify({
       ...basePillars,
@@ -79,13 +79,18 @@ test('六乙鼠贵只取乙日丙子时，并排除古籍所列破格条件', ()
   }
 });
 
-test('日贵格应完整识别四日，并把昼夜保留为未代判的加强条件', () => {
+test('月令无用时日贵格应完整识别四日，并把昼夜保留为未代判的加强条件', () => {
   for (const dayGanZhi of ['丁酉', '丁亥', '癸巳', '癸卯']) {
+    const isDingDay = dayGanZhi.startsWith('丁');
     const pattern = identify({
-      year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
-      month: { gan: '丙', zhi: '申', ganZhi: '丙申' },
+      year: isDingDay
+        ? { gan: '丙', zhi: '子', ganZhi: '丙子' }
+        : { gan: '壬', zhi: '午', ganZhi: '壬午' },
+      month: isDingDay
+        ? { gan: '甲', zhi: '午', ganZhi: '甲午' }
+        : { gan: '庚', zhi: '子', ganZhi: '庚子' },
       day: { gan: dayGanZhi[0], zhi: dayGanZhi[1], ganZhi: dayGanZhi },
-      hour: { gan: '戊', zhi: '辰', ganZhi: '戊辰' },
+      hour: { gan: '甲', zhi: isDingDay ? '辰' : '寅', ganZhi: `甲${isDingDay ? '辰' : '寅'}` },
     });
 
     assert.equal(pattern?.name, '日贵格', dayGanZhi);
@@ -95,10 +100,10 @@ test('日贵格应完整识别四日，并把昼夜保留为未代判的加强�
 
 test('福德秀气应要求阴干日坐巳酉丑且会齐金局，旧十日规则不再误报', () => {
   const valid = identify({
-    year: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
-    month: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    year: { gan: '癸', zhi: '酉', ganZhi: '癸酉' },
+    month: { gan: '甲', zhi: '寅', ganZhi: '甲寅' },
     day: { gan: '乙', zhi: '巳', ganZhi: '乙巳' },
-    hour: { gan: '己', zhi: '丑', ganZhi: '己丑' },
+    hour: { gan: '丁', zhi: '丑', ganZhi: '丁丑' },
   });
   const incomplete = identify({
     year: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
@@ -119,42 +124,99 @@ test('福德秀气应要求阴干日坐巳酉丑且会齐金局，旧十日规�
   assert.notEqual(oldFalsePositive?.name, '福德秀气格');
 });
 
-test('子午双包须一方至少两见且另一方同时出现', () => {
-  const cases: Array<[string[], boolean]> = [
-    [['子', '午', '辰', '子'], true],
-    [['午', '子', '辰', '午'], true],
-    [['子', '午', '午', '子'], true],
-    [['子', '申', '辰', '子'], false],
-    [['午', '申', '辰', '午'], false],
-    [['子', '午', '辰', '亥'], false],
+test('子午双包须先满足外格前提，再要求一方至少两见且另一方同时出现', () => {
+  const cases: Array<[Pillars, boolean]> = [
+    [
+      {
+        year: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+        month: { gan: '庚', zhi: '子', ganZhi: '庚子' },
+        day: { gan: '壬', zhi: '午', ganZhi: '壬午' },
+        hour: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
+      },
+      true,
+    ],
+    [
+      {
+        year: { gan: '戊', zhi: '子', ganZhi: '戊子' },
+        month: { gan: '丙', zhi: '辰', ganZhi: '丙辰' },
+        day: { gan: '戊', zhi: '午', ganZhi: '戊午' },
+        hour: { gan: '戊', zhi: '午', ganZhi: '戊午' },
+      },
+      true,
+    ],
+    [
+      {
+        year: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+        month: { gan: '庚', zhi: '子', ganZhi: '庚子' },
+        day: { gan: '壬', zhi: '午', ganZhi: '壬午' },
+        hour: { gan: '甲', zhi: '午', ganZhi: '甲午' },
+      },
+      true,
+    ],
+    [
+      {
+        year: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+        month: { gan: '庚', zhi: '子', ganZhi: '庚子' },
+        day: { gan: '壬', zhi: '辰', ganZhi: '壬辰' },
+        hour: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
+      },
+      false,
+    ],
+    [
+      {
+        year: { gan: '壬', zhi: '亥', ganZhi: '壬亥' },
+        month: { gan: '辛', zhi: '亥', ganZhi: '辛亥' },
+        day: { gan: '壬', zhi: '午', ganZhi: '壬午' },
+        hour: { gan: '甲', zhi: '午', ganZhi: '甲午' },
+      },
+      false,
+    ],
+    [
+      {
+        year: { gan: '壬', zhi: '子', ganZhi: '壬子' },
+        month: { gan: '辛', zhi: '亥', ganZhi: '辛亥' },
+        day: { gan: '壬', zhi: '午', ganZhi: '壬午' },
+        hour: { gan: '甲', zhi: '辰', ganZhi: '甲辰' },
+      },
+      false,
+    ],
   ];
-  const validStemByBranch: Record<string, string> = {
-    子: '甲',
-    丑: '乙',
-    寅: '丙',
-    卯: '丁',
-    辰: '戊',
-    巳: '己',
-    午: '庚',
-    未: '辛',
-    申: '壬',
-    酉: '癸',
-    戌: '甲',
-    亥: '乙',
+
+  for (const [pillars, expected] of cases) {
+    assert.equal(identify(pillars)?.name === '子午双包格', expected);
+  }
+});
+
+test('月令本气有用、藏干透出、会支取用或干头见财官时均不得另寻外格', () => {
+  const eligible: Pillars = {
+    year: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
+    month: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
+    day: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    hour: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
   };
+  assert.equal(identify(eligible)?.name, '金神格');
 
-  for (const [branches, expected] of cases) {
-    const yearStem = validStemByBranch[branches[0]];
-    const monthStem = validStemByBranch[branches[1]];
-    const hourStem = validStemByBranch[branches[3]];
-    const pattern = identify({
-      year: { gan: yearStem, zhi: branches[0], ganZhi: `${yearStem}${branches[0]}` },
-      month: { gan: monthStem, zhi: branches[1], ganZhi: `${monthStem}${branches[1]}` },
-      day: { gan: '甲', zhi: branches[2], ganZhi: `甲${branches[2]}` },
-      hour: { gan: hourStem, zhi: branches[3], ganZhi: `${hourStem}${branches[3]}` },
-    });
+  const rejected: Pillars[] = [
+    { ...eligible, month: { gan: '辛', zhi: '亥', ganZhi: '辛亥' } },
+    {
+      ...eligible,
+      hour: { gan: '庚', zhi: '午', ganZhi: '庚午' },
+    },
+    {
+      ...eligible,
+      year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+      month: { gan: '丙', zhi: '寅', ganZhi: '丙寅' },
+    },
+    {
+      year: { gan: '壬', zhi: '午', ganZhi: '壬午' },
+      month: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
+      day: { gan: '甲', zhi: '戌', ganZhi: '甲戌' },
+      hour: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },
+    },
+  ];
 
-    assert.equal(pattern?.name === '子午双包格', expected, branches.join(''));
+  for (const pillars of rejected) {
+    assert.equal(identify(pillars), null);
   }
 });
 

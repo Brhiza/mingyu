@@ -26,6 +26,22 @@ function createPillars(year: string, month: string, day: string, hour: string): 
   };
 }
 
+test('魁罡外格标记也须服从月令用舍前提', () => {
+  const eligible = determinePattern(
+    createPillars('壬子', '辛亥', '壬辰', '庚子'),
+    '平衡',
+    getTenGod,
+  );
+  const monthUseAlreadyAvailable = determinePattern(
+    createPillars('戊辰', '甲寅', '壬辰', '庚子'),
+    '平衡',
+    getTenGod,
+  );
+
+  assert.equal(eligible.isKuiGang, true);
+  assert.equal(monthUseAlreadyAvailable.isKuiGang, false);
+});
+
 function createPatternPillars(
   dayMaster: string,
   monthBranch: string,

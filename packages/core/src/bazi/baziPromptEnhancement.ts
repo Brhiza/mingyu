@@ -1,6 +1,6 @@
 /**
  * AI 提示词增强模块
- * 整合经典格局与可由盘面证明的传统旁证。
+ * 整合经典外格与可由盘面证明的传统旁证。
  */
 
 import type { BaziChartResult } from './baziTypes';
@@ -145,7 +145,7 @@ export function analyzePillarRelations(
 }
 
 /**
- * 生成经典格局分析片段
+ * 生成经典外格分析片段
  */
 function generateClassicPatternSection(chartResult: BaziChartResult): string {
   if (!chartResult.pillars) return '';
@@ -163,7 +163,7 @@ function generateClassicPatternSection(chartResult: BaziChartResult): string {
 
   if (!classicPattern) return '';
 
-  return `【经典格局】${classicPattern.name}（传统等级参考：${classicPattern.level}，以成败条件裁定） | ${toClassicPatternPromptDescription(classicPattern.description)}`;
+  return `【经典外格】${classicPattern.name}（传统等级参考：${classicPattern.level}，以成败条件裁定） | 取用前提：月令本气与日主同类，未另取到透干或会支之用，且干头无财官七杀 | ${toClassicPatternPromptDescription(classicPattern.description)}`;
 }
 
 /**

@@ -1,6 +1,6 @@
 /**
- * @file 经典格局库与识别函数
- * @description 八字经典格局体系扩充，按《渊海子平》《三命通会》《子平真诠》收录传统外格。
+ * @file 经典外格库与识别函数
+ * @description 八字经典外格体系扩充，按《渊海子平》《三命通会》《子平真诠》收录传统外格。
  * @古籍依据 《渊海子平》卷二"论外格"、《三命通会》卷六"论诸格"
  *
  * 格局分类：
@@ -12,6 +12,8 @@
 
 import type { BaziChartResult } from '../baziTypes';
 import { checkCondition } from '../baziConditionMatchers';
+import { canUseExternalPattern } from '../baziExternalPatternEligibility';
+import { getTenGod } from '../baziUtils';
 import { HEAVENLY_STEMS } from '../../ganzhi/data';
 
 export interface ClassicPattern {
@@ -37,49 +39,6 @@ export interface ClassicPattern {
 }
 
 const CLASSIC_PATTERNS: ClassicPattern[] = [
-  {
-    id: 'lu-ren-yang',
-    name: '阳刃格',
-    description:
-      '甲羊刃在卯，丙戊羊刃在午，庚羊刃在酉，壬羊刃在子。阴干不论阳刃。羊刃帮身有力，但需官杀制伏方为贵。',
-    conditions: {
-      dayStems: ['甲', '丙', '戊', '庚', '壬'],
-      monthBranch: ['卯', '午', '酉', '子'],
-      exactMonthBranchMap: { 甲: '卯', 丙: '午', 戊: '午', 庚: '酉', 壬: '子' },
-      otherConditions: ['羊刃透出', '羊刃当令'],
-      excludePatterns: ['从财格', '从杀格', '从儿格', '从势格'],
-    },
-    favorableWuxing: ['官', '杀'],
-    unfavorableWuxing: ['刃', '比'],
-    level: '上等',
-  },
-  {
-    id: 'lu-ren-lu',
-    name: '建禄格',
-    description: '日干与月支同气，如甲木生寅月。建禄自旺，不祖则兄，主辛苦创业。',
-    conditions: {
-      dayStems: [...HEAVENLY_STEMS],
-      monthBranch: ['寅', '卯', '巳', '午', '申', '酉', '亥', '子'],
-      exactMonthBranchMap: {
-        甲: '寅',
-        乙: '卯',
-        丙: '巳',
-        丁: '午',
-        戊: '巳',
-        己: '午',
-        庚: '申',
-        辛: '酉',
-        壬: '亥',
-        癸: '子',
-      },
-      otherConditions: ['日干与月支同气', '月令司权'],
-      excludePatterns: ['从财格', '从杀格', '从儿格', '从势格'],
-    },
-    favorableWuxing: ['财', '官', '食'],
-    unfavorableWuxing: ['印', '比'],
-    level: '中等',
-  },
-
   {
     id: 'jin-shen-jia',
     name: '金神格',
@@ -485,6 +444,8 @@ export function identifyClassicPattern(
   hiddenStems: BaziChartResult['hiddenStems'],
   currentPattern?: string,
 ): ClassicPattern | null {
+  if (!canUseExternalPattern(pillars, getTenGod)) return null;
+
   for (const pattern of CLASSIC_PATTERNS) {
     if (pattern.conditions.dayStems && !pattern.conditions.dayStems.includes(dayStem)) {
       continue;

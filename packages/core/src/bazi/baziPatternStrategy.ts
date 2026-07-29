@@ -5,6 +5,7 @@ import {
   getRepresentativeStemByWuxing,
   type CompleteBranchFormation,
 } from './baziFormationUtils';
+import { canUseExternalPattern } from './baziExternalPatternEligibility';
 import { getStemWuxing, getWuxingTenGodCategory } from './baziRuleMatcher/helpers';
 import type { PatternAnalysis, Pillars, Wuxing } from './baziTypes';
 import { assertHeavenlyStem, assertPillars } from './baziUtils';
@@ -910,7 +911,9 @@ export function determinePattern(
     pattern: patternName || '杂气格',
     isSpecial: false,
     basis,
-    // 魁罡日（庚辰/壬辰/戊戌/庚戌）为重要外格，日柱判定后即标出，供 AI 参照《三命通会》
-    isKuiGang: ['庚辰', '壬辰', '戊戌', '庚戌'].includes(pillars.day.gan + pillars.day.zhi),
+    // 魁罡属于外格名目；月令已有用神或干头已有财官七杀时，不进入正式格局字段。
+    isKuiGang:
+      canUseExternalPattern(pillars, getTenGod) &&
+      ['庚辰', '壬辰', '戊戌', '庚戌'].includes(pillars.day.gan + pillars.day.zhi),
   };
 }
