@@ -649,15 +649,24 @@ test('真实财逢七杀见阳刃排盘应保留财格并贯穿刃可解厄救�
   assert.equal(result.analysis.mingGe.pattern, '正财格');
   assert.match(result.analysis.mingGe.basis || '', /七杀明透及日主阳刃支午/);
   assert.match(result.analysis.mingGe.basis || '', /财逢七煞，刃可解厄/);
+  assert.match(result.analysis.mingGe.basis || '', /财格成败边界/);
+  assert.match(result.analysis.mingGe.basis || '', /“透一位以清用”的数量候选/);
+  assert.match(result.analysis.mingGe.basis || '', /“弃财就杀”的条件候选/);
+  assert.match(result.analysis.mingGe.basis || '', /另一候选并存复核/);
   assert.match(result.analysis.mingGe.basis || '', /不改变既有格名/);
 
   const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
   assert.equal(patternFact?.result, '正财格');
   assert.match(patternFact?.promptText || '', /四凶神能成格边界/);
   assert.match(patternFact?.promptText || '', /刃可解厄/);
+  assert.match(patternFact?.promptText || '', /财格成败边界/);
+  assert.match(patternFact?.promptText || '', /“弃财就杀”的条件候选/);
   const prompt = formatBaziForPrompt(result);
   assert.match(prompt, /格局: 正财格/);
   assert.match(prompt, /刃可解厄/);
+  assert.match(prompt, /财格成败边界/);
+  assert.match(prompt, /“弃财就杀”的条件候选/);
+  assert.doesNotMatch(prompt, /判定为(?:富贵|贫贱)|格局评分|成功率/);
 });
 
 test('八字真太阳时本命证据应引用校正后的唯一时间并采用唯一校正时刻', () => {

@@ -784,6 +784,159 @@ test('财格见杀只在五阳干实际出现阳刃支时记录刃可解厄', ()
   assert.doesNotMatch(yinResult.basis || '', /刃可解厄/);
 });
 
+test('财格根气、明透数量与财生官只记录客观候选，不替代强弱判断', () => {
+  const cases = [
+    {
+      pillars: createPillars('甲子', '丙子', '戊辰', '壬子'),
+      pattern: '正财格',
+      expected: [/“寅透乙、卯透甲”类一位不为太露/, /这里只证明有财根/, /“透一位以清用”的数量候选/],
+    },
+    {
+      pillars: createPillars('甲子', '丁卯', '庚午', '甲申'),
+      pattern: '正财格',
+      expected: [/多露可有例外/, /具“财旺生官”的客观部分/, /不能直接判多露无碍/],
+    },
+    {
+      pillars: createPillars('甲子', '丁卯', '辛未', '甲午'),
+      pattern: '偏财格',
+      expected: [/“不宜太露”的数量带忌候选/, /根深、财旺及是否另有官护仍须全局复核/],
+    },
+  ];
+
+  cases.forEach(({ pillars, pattern, expected }) => {
+    const result = determinePattern(pillars, '待综合判断', getTenGod);
+    assert.equal(result.pattern, pattern);
+    assert.match(result.basis || '', /财格成败边界/);
+    expected.forEach((marker) => assert.match(result.basis || '', marker));
+    assert.doesNotMatch(
+      result.basis || '',
+      /判定为(?:富贵|贫贱)|必(?:富|贵|贫|败)|妻妾(?:必|定)|格局评分|成功率/,
+    );
+  });
+});
+
+test('财格食官印组合应区分隔位、相碍、暗官与会局边界', () => {
+  const cases = [
+    {
+      pillars: createPillars('甲子', '丙子', '戊辰', '庚申'),
+      expected: [
+        /具“财用食生”的局部结构/,
+        /财用食印时食印相克的位置冲突/,
+        /“制杀生财”的局部取清候选/,
+      ],
+    },
+    {
+      pillars: createPillars('甲子', '丙子', '己巳', '辛未'),
+      expected: [/财用食生结构又见.*正官明透/, /不把官星单独判为格坏/],
+    },
+    {
+      pillars: createPillars('乙丑', '己卯', '庚午', '丙子'),
+      expected: [/财格佩印时财印相碍/, /年干乙正财与月干己正印相邻且财克印/],
+    },
+    {
+      pillars: createPillars('甲子', '癸酉', '丙寅', '戊子'),
+      expected: [/“财格佩印、财印不相碍”/, /“食与印两不相碍”的精确位置候选/],
+    },
+    {
+      pillars: createPillars('甲子', '庚午', '壬申', '丁未'),
+      expected: [/印去食护暗官的局部候选/, /“单透财而月令有暗官”的结构事实/],
+    },
+    {
+      pillars: createPillars('乙丑', '己卯', '庚子', '丁亥'),
+      expected: [/完整三会水局成食神结构/, /会局食神不能套用外干年时隔位/],
+    },
+  ];
+
+  cases.forEach(({ pillars, expected }) => {
+    const result = determinePattern(pillars, '待综合判断', getTenGod);
+    assert.match(result.pattern, /财格$/);
+    expected.forEach((marker) => assert.match(result.basis || '', marker));
+    assert.match(result.basis || '', /身强弱|身强|强弱/);
+    assert.doesNotMatch(result.basis || '', /已经合化|判定为(?:富贵|贫贱)|格局评分|成功率/);
+  });
+});
+
+test('财格带伤杀及杀印应并列取清与冲突候选，不抢先定案', () => {
+  const cases = [
+    {
+      pillars: createPillars('甲子', '丙子', '戊辰', '辛酉'),
+      expected: [/财带伤官的条件待复核/],
+    },
+    {
+      pillars: createPillars('甲子', '丁丑', '甲子', '己巳'),
+      expected: [/具伤官化劫生财的局部候选/],
+    },
+    {
+      pillars: createPillars('甲子', '己巳', '癸酉', '丙辰'),
+      expected: [/“合杀存财”的局部取清候选/, /五合不等于已经合化或最终取清/],
+    },
+    {
+      pillars: createPillars('甲子', '丙子', '戊辰', '壬子'),
+      expected: [/保留财带七杀待复核/, /财、杀、印同时明透/],
+    },
+    {
+      pillars: createPillars('甲子', '丙子', '戊辰', '甲寅'),
+      expected: [/“财用杀印、印化杀”的局部候选/, /未见财星明透/],
+    },
+    {
+      pillars: createPillars('甲子', '丙子', '戊辰', '戊午'),
+      expected: [/“弃财就杀”的条件候选/, /另一候选并存复核/],
+    },
+    {
+      pillars: createPillars('甲子', '己巳', '壬申', '丙午'),
+      expected: [/“弃杀就财”的局部取舍候选/, /是否真正存财弃杀仍须结合全局复核/],
+    },
+  ];
+
+  cases.forEach(({ pillars, expected }) => {
+    const result = determinePattern(pillars, '待综合判断', getTenGod);
+    expected.forEach((marker) => assert.match(result.basis || '', marker));
+    assert.match(result.basis || '', /最终取舍仍须全局复核/);
+    assert.doesNotMatch(result.basis || '', /判定为(?:富贵|贫贱)|必(?:富|贵|贫|败)|分数或概率.*\d/);
+  });
+});
+
+test('论财五个原典例型只保存精确结构且不强改现有格名', () => {
+  const cases = [
+    {
+      pillars: createPillars('壬寅', '壬寅', '庚辰', '辛巳'),
+      pattern: '待综合判断',
+      expected: /原典杨待郎精确例型.*略带一位比劫/,
+    },
+    {
+      pillars: createPillars('壬辰', '乙巳', '癸巳', '辛酉'),
+      pattern: '待综合判断',
+      expected: /原典平江伯精确例型.*印制食以护暗官/,
+    },
+    {
+      pillars: createPillars('甲子', '辛未', '辛酉', '壬辰'),
+      pattern: '待综合判断',
+      expected: /原典汪学士精确例型.*伤官化劫生财/,
+    },
+    {
+      pillars: createPillars('乙酉', '庚辰', '甲午', '戊辰'),
+      pattern: '待综合判断',
+      expected: /原典毛状元精确例型.*合杀存财/,
+    },
+    {
+      pillars: createPillars('丙辰', '丙申', '丙午', '壬辰'),
+      pattern: '七杀格',
+      expected: /原典尚书精确例型.*弃财就杀例型/,
+    },
+  ];
+
+  cases.forEach(({ pillars, pattern, expected }) => {
+    const result = determinePattern(pillars, '待综合判断', getTenGod);
+    assert.equal(result.pattern, pattern);
+    assert.match(result.basis || '', expected);
+    assert.match(result.basis || '', /不改变既有格名/);
+    assert.doesNotMatch(
+      result.basis || '',
+      /判定为(?:富贵|贫贱)|必(?:富|贵|贫|败)|妻妾(?:必|定)|格局评分|成功率/,
+    );
+  });
+});
+
 test('印格见杀但根轻条件未闭合时不得硬判杀能成格', () => {
   const pillars: Pillars = {
     year: { gan: '乙', zhi: '丑', ganZhi: '乙丑' },

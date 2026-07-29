@@ -3,20 +3,20 @@ import {
   getRepresentativeStemByWuxing,
   type CompleteBranchFormation,
 } from './baziFormationUtils';
+import {
+  areAdjacentPatternStemColumns,
+  collectPatternExposedStemFacts,
+  type PatternExposedStemFact,
+  type PatternExposedStemPosition,
+  type PatternGetTenGodFn,
+} from './baziPatternStemFacts';
 import { getStemWuxing } from './baziRuleMatcher/helpers';
 import type { Pillars } from './baziTypes';
 import { getTenGod } from './baziUtils';
 import { isKe, isTianGanHe } from '../ganzhi/relations';
 
-export type OfficerExposedStemPosition = 'year' | 'month' | 'hour';
-
-export interface OfficerExposedStemFact {
-  position: OfficerExposedStemPosition;
-  columnIndex: number;
-  label: string;
-  stem: string;
-  tenGod: string;
-}
+export type OfficerExposedStemPosition = PatternExposedStemPosition;
+export type OfficerExposedStemFact = PatternExposedStemFact;
 
 export interface OfficerWealthResourcePairFact {
   wealth: OfficerExposedStemFact;
@@ -50,17 +50,7 @@ export interface OfficerPatternStructureSummary {
   hasStackedResources: boolean;
 }
 
-type GetTenGodFn = (gan: string, dayMaster: string) => string;
-
-const EXPOSED_STEM_POSITIONS: Array<{
-  position: OfficerExposedStemPosition;
-  columnIndex: number;
-  label: string;
-}> = [
-  { position: 'year', columnIndex: 0, label: '年干' },
-  { position: 'month', columnIndex: 1, label: '月干' },
-  { position: 'hour', columnIndex: 3, label: '时干' },
-];
+type GetTenGodFn = PatternGetTenGodFn;
 
 export function isOfficerPatternName(patternName: string): boolean {
   return ['正官格', '杂气正官格', '正官'].includes(patternName);
@@ -70,21 +60,7 @@ export function areAdjacentOfficerStemColumns(
   left: OfficerExposedStemFact,
   right: OfficerExposedStemFact,
 ): boolean {
-  return Math.abs(left.columnIndex - right.columnIndex) === 1;
-}
-
-function collectExposedStems(pillars: Pillars, getTenGodFn: GetTenGodFn): OfficerExposedStemFact[] {
-  const dayMaster = pillars.day.gan;
-  return EXPOSED_STEM_POSITIONS.map(({ position, columnIndex, label }) => {
-    const stem = pillars[position].gan;
-    return {
-      position,
-      columnIndex,
-      label,
-      stem,
-      tenGod: getTenGodFn(stem, dayMaster),
-    };
-  });
+  return areAdjacentPatternStemColumns(left, right);
 }
 
 /**
@@ -97,7 +73,7 @@ export function analyzeOfficerPatternStructure(
   formations: CompleteBranchFormation[] = collectCompleteBranchFormations(pillars),
   getTenGodFn: GetTenGodFn = getTenGod,
 ): OfficerPatternStructureSummary {
-  const exposedStems = collectExposedStems(pillars, getTenGodFn);
+  const exposedStems = collectPatternExposedStemFacts(pillars, getTenGodFn);
   const select = (...tenGods: string[]) =>
     exposedStems.filter((fact) => tenGods.includes(fact.tenGod));
   const officerStems = select('正官');

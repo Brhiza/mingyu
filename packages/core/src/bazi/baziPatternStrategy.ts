@@ -10,6 +10,7 @@ import { analyzeOfficerPatternStructure } from './baziOfficerPattern';
 import { getStemWuxing, getWuxingTenGodCategory } from './baziRuleMatcher/helpers';
 import type { PatternAnalysis, Pillars, Wuxing } from './baziTypes';
 import { assertHeavenlyStem, assertPillars } from './baziUtils';
+import { analyzeWealthPatternStructure } from './baziWealthPattern';
 import { LIUCHONG_MAP, isLiuchong, isLiuhai, isLiupo, isSanxing } from '../ganzhi/relations';
 
 type GetTenGodFn = (gan: string, dayMaster: string) => string;
@@ -489,6 +490,277 @@ function collectOfficerPatternNotes(
   if (hurtFacts.length > 0 && resourceFacts.length > 0 && wealthFacts.length > 0) {
     notes.push(
       '正官格见伤官、印星、财星同时明透；原典以财去印而护伤为一般带忌条件，须另查合财与是否尚有另一印星制伤，不能仅凭见印视为救应已经闭合',
+    );
+  }
+
+  return notes;
+}
+
+/**
+ * 复算《子平真诠》“论财”中可以由四柱闭合的明透、根气、食官印杀与取清组件。
+ * 根深、财旺、身强、印强弱和劫刃太重仍保留待复核，不以数量替代全局判断。
+ */
+function collectWealthPatternNotes(
+  pillars: Pillars,
+  patternName: string,
+  formations: CompleteBranchFormation[],
+  getTenGod: GetTenGodFn,
+): string[] {
+  const structure = analyzeWealthPatternStructure(pillars, patternName, formations, getTenGod);
+  const notes: string[] = [];
+  const isExact = (year: string, month: string, day: string, hour: string) =>
+    pillars.year.ganZhi === year &&
+    pillars.month.ganZhi === month &&
+    pillars.day.ganZhi === day &&
+    pillars.hour.ganZhi === hour;
+  const formatStems = (facts: typeof structure.exposedStems) =>
+    facts.map((fact) => `${fact.label}${fact.stem}${fact.tenGod}`).join('、');
+  const formatFormations = (items: CompleteBranchFormation[], tenGod: string) =>
+    items
+      .map(
+        (formation) =>
+          `${formation.branches.join('')}完整${formation.type}${formation.wuxing}局成${tenGod}结构`,
+      )
+      .join('、');
+
+  // 下列原例因月令多藏干无透或兼透，现有取格会保留待综合或其他格名；只保存精确关系。
+  if (isExact('壬寅', '壬寅', '庚辰', '辛巳')) {
+    notes.push(
+      '原典杨待郎精确例型壬寅、壬寅、庚辰、辛巳，寅中甲财为月令财根，壬食两透而辛劫一位；只记录财用食生及略带一位比劫的局部结构，不覆盖多藏干无透时的格名边界',
+    );
+  }
+  if (isExact('壬辰', '乙巳', '癸巳', '辛酉')) {
+    notes.push(
+      '原典平江伯精确例型壬辰、乙巳、癸巳、辛酉，巳中丙财与戊暗官同在月令，乙食与辛印明透；只记录印制食以护暗官的局部候选，不据此强改现有待综合格名',
+    );
+  }
+  if (isExact('甲子', '辛未', '辛酉', '壬辰')) {
+    notes.push(
+      '原典汪学士精确例型甲子、辛未、辛酉、壬辰，未中乙财有甲财明透，辛劫与壬伤同见；只记录财轻逢劫时伤官化劫生财的原例结构，财轻与比强仍须另审',
+    );
+  }
+  if (isExact('乙酉', '庚辰', '甲午', '戊辰')) {
+    notes.push(
+      '原典毛状元精确例型乙酉、庚辰、甲午、戊辰，辰中戊财明透，庚杀与乙劫相邻五合；只记录合杀存财的局部取清候选，不证明已经合化或最终成格',
+    );
+  }
+  if (isExact('丙辰', '丙申', '丙午', '壬辰')) {
+    notes.push(
+      '原典尚书精确例型丙辰、丙申、丙午、壬辰，申中庚财当令，丙比肩两透、午为阳刃且壬杀明透；只闭合弃财就杀例型的组成事实，不以两处比肩和一处阳刃直接判定劫刃太重',
+    );
+  }
+
+  const nonMonthRootedSingleWealth =
+    structure.wealthStems.length === 1 &&
+    structure.monthHiddenWealthStems.length > 0 &&
+    !structure.monthHiddenStems.includes(structure.wealthStems[0].stem);
+  if (nonMonthRootedSingleWealth) {
+    const wealth = structure.wealthStems[0];
+    notes.push(
+      `月支${pillars.month.zhi}藏${structure.monthHiddenWealthStems.join('、')}财根，${wealth.label}${wealth.stem}${wealth.tenGod}虽非月令藏干同字但只明透一位；对应原典“寅透乙、卯透甲”类一位不为太露的边界，只记录同五行根气与明透数量，不改变既有格名`,
+    );
+  }
+
+  if (
+    structure.monthHiddenWealthStems.length > 0 &&
+    structure.killerStems.length > 0 &&
+    structure.peerStems.length > 0 &&
+    structure.hasBladeBranch
+  ) {
+    notes.push(
+      `月令含${structure.monthHiddenWealthStems.join('、')}财根，同时${formatStems(structure.peerStems)}明透、${formatStems(structure.killerStems)}明透并见日主阳刃支${structure.bladeBranch}；只列“弃财就杀”的条件候选，是否劫刃太重不能由明透数量或单支阳刃硬判，且须与财逢杀时阳刃可作救应的另一候选并存复核`,
+    );
+  }
+
+  if (!structure.isWealthPattern) return notes;
+
+  if (structure.wealthRootFacts.length > 0) {
+    notes.push(
+      `财五行在${structure.wealthRootFacts
+        .map(
+          (fact) =>
+            `${fact.label}${fact.branch}藏${fact.hiddenWealthStems.join('、')}（${fact.hiddenWealthStems
+              .map((stem) => getTenGod(stem, pillars.day.gan))
+              .join('、')}）`,
+        )
+        .join('、')}见根气；这里只证明有财根，不把支数、藏干层级或同类数量直接换算为“根深、财旺”`,
+    );
+  }
+
+  if (structure.wealthStems.length === 1) {
+    notes.push(
+      `${formatStems(structure.wealthStems)}仅一位财星明透，列为原典“透一位以清用”的数量候选；清用仍须结合月令取用、根气、合冲与全局复核`,
+    );
+  } else if (structure.wealthStems.length > 1) {
+    if (structure.officerStems.length > 0) {
+      notes.push(
+        `${formatStems(structure.wealthStems)}共${structure.wealthStems.length}位财星明透，同时${formatStems(structure.officerStems)}明透；原典称财旺生官时多露可有例外，但财旺、身强及官能护财均未由数量闭合，不能直接判多露无碍`,
+      );
+    } else {
+      notes.push(
+        `${formatStems(structure.wealthStems)}共${structure.wealthStems.length}位财星明透，列为“不宜太露”的数量带忌候选；根深、财旺及是否另有官护仍须全局复核`,
+      );
+    }
+  }
+
+  if (
+    structure.officerStems.length > 0 &&
+    structure.hurtStems.length === 0 &&
+    structure.killerStems.length === 0
+  ) {
+    notes.push(
+      `财格又见${formatStems(structure.officerStems)}明透，且未见伤官或七杀明透，具“财旺生官”的客观部分；财旺、身强及官星清纯仍须另审，不据此直接判定成败`,
+    );
+  }
+
+  const foodSources = [
+    ...(structure.foodStems.length > 0 ? [formatStems(structure.foodStems)] : []),
+    ...(structure.foodFormations.length > 0
+      ? [formatFormations(structure.foodFormations, '食神')]
+      : []),
+  ];
+  const hasFood = foodSources.length > 0;
+  if (hasFood) {
+    if (structure.officerStems.length === 0) {
+      const peerBoundary =
+        structure.peerStems.length === 1
+          ? `，另${formatStems(structure.peerStems)}恰一位明透，对应“略带一位比劫”候选`
+          : structure.peerStems.length > 1
+            ? `，另有${structure.peerStems.length}位比劫明透，不等同原典“略带一位”`
+            : '，未见比劫明透';
+      notes.push(
+        `财格见${foodSources.join('、')}且未见正官明透，具“财用食生”的局部结构${peerBoundary}；身强与财食轻重仍须全局复核`,
+      );
+    } else {
+      notes.push(
+        `财用食生结构又见${formatStems(structure.officerStems)}明透；原典只有“透官”与“身弱”同时成立时才列带忌，当前只记录官露事实，不把官星单独判为格坏`,
+      );
+    }
+  }
+
+  if (structure.resourceStems.length > 0) {
+    const impededPairs = [
+      ...structure.wealthResourceCombinedPairs.map(
+        ({ left, right }) =>
+          `${left.label}${left.stem}${left.tenGod}与${right.label}${right.stem}${right.tenGod}相邻五合`,
+      ),
+      ...structure.wealthResourceControllingPairs.map(
+        ({ left, right }) =>
+          `${left.label}${left.stem}${left.tenGod}与${right.label}${right.stem}${right.tenGod}相邻且财克印`,
+      ),
+    ];
+    if (impededPairs.length > 0) {
+      notes.push(
+        `财格见${formatStems(structure.resourceStems)}明透，但${impededPairs.join('、')}，列为财格佩印时财印相碍的局部事实；是否另有隔位财印或帮身作用仍须复核`,
+      );
+    } else {
+      notes.push(
+        `财格见${formatStems(structure.resourceStems)}明透，未见外干财印相邻五合或财直接克印，列为“财格佩印、财印不相碍”的位置候选；身强弱与印是否实际得用仍须另审`,
+      );
+    }
+  }
+
+  if (structure.foodStems.length > 0 && structure.resourceStems.length > 0) {
+    if (
+      structure.foodResourceCloserPairs.length === 0 &&
+      structure.foodResourceTwoSeparatorPairs.length > 0
+    ) {
+      notes.push(
+        `${formatStems(structure.foodStems)}与${formatStems(structure.resourceStems)}分居年、时干，中隔月干与日干两柱，列为原典“食与印两不相碍”的精确位置候选`,
+      );
+    } else if (structure.foodResourceCloserPairs.length > 0) {
+      const closerPairs = structure.foodResourceCloserPairs
+        .map(
+          ({ left, right }) =>
+            `${left.label}${left.stem}${left.tenGod}与${right.label}${right.stem}${right.tenGod}`,
+        )
+        .join('、');
+      if (structure.monthHiddenOfficerStems.length > 0) {
+        notes.push(
+          `${closerPairs}未达到年、时两干隔开的距离，同时月令藏${structure.monthHiddenOfficerStems.join('、')}正官；列为食印相克而印去食护暗官的局部候选，不把暗官存在直接等同取用成功`,
+        );
+      } else {
+        notes.push(
+          `${closerPairs}未达到年、时两干隔开的距离，列为财用食印时食印相克的位置冲突；没有暗官护用等条件时仍须复核，不直接推导结果`,
+        );
+      }
+    }
+  } else if (structure.foodFormations.length > 0 && structure.resourceStems.length > 0) {
+    notes.push(
+      `${formatFormations(structure.foodFormations, '食神')}与${formatStems(structure.resourceStems)}同见；会局食神不能套用外干年时隔位，食印是否相碍及能否护官须另行复核`,
+    );
+  }
+
+  if (structure.hurtStems.length > 0) {
+    if (structure.peerStems.length > 0) {
+      notes.push(
+        `财格见${formatStems(structure.hurtStems)}与${formatStems(structure.peerStems)}同时明透，具伤官化劫生财的局部候选；财轻、比强与“一位伤官”是否满足仍不能由数量直接定案`,
+      );
+    } else {
+      notes.push(
+        `财格见${formatStems(structure.hurtStems)}明透而未见比劫明透；原典的带忌例还要求财旺无劫，当前财旺未闭合，只列财带伤官的条件待复核`,
+      );
+    }
+  }
+
+  if (structure.killerStems.length > 0) {
+    if (structure.killerCombinations.length > 0) {
+      notes.push(
+        `${structure.killerCombinations
+          .map(
+            ({ killer, partner }) =>
+              `${killer.label}${killer.stem}七杀与${partner.label}${partner.stem}${partner.tenGod}相邻五合`,
+          )
+          .join('、')}，列为财带七杀时“合杀存财”的局部取清候选；五合不等于已经合化或最终取清`,
+      );
+    }
+    if (hasFood) {
+      notes.push(
+        `${foodSources.join('、')}与${formatStems(structure.killerStems)}同见，列为财带七杀时“制杀生财”的局部取清候选；食神是否有力与财杀强弱仍须另审`,
+      );
+    }
+    if (structure.killerCombinations.length === 0 && !hasFood) {
+      notes.push(
+        `财格见${formatStems(structure.killerStems)}明透，但未见相邻五合或食神明透、成局的取清组件，保留财带七杀待复核`,
+      );
+    }
+  }
+
+  if (structure.killerStems.length > 0 && structure.resourceStems.length > 0) {
+    if (structure.wealthStems.length === 0) {
+      notes.push(
+        `财格见${formatStems(structure.killerStems)}与${formatStems(structure.resourceStems)}明透而未见财星明透，具“财用杀印、印化杀”的局部候选；印强弱、调候与是否另有财杂印仍须复核`,
+      );
+    } else {
+      notes.push(
+        `财、杀、印同时明透，其中财可克印又生杀，列为财用杀印时的局部冲突；印的强弱与根气未闭合，不据明透数量直接判定结果`,
+      );
+    }
+  }
+
+  const singleExposedMonthWealth =
+    structure.wealthStems.length === 1 &&
+    structure.exposedMonthHiddenStems.length === 1 &&
+    ['正财', '偏财'].includes(getTenGod(structure.exposedMonthHiddenStems[0], pillars.day.gan));
+  if (
+    singleExposedMonthWealth &&
+    structure.officerStems.length === 0 &&
+    structure.killerStems.length === 0 &&
+    ((pillars.day.gan === '壬' && pillars.month.zhi === '午') ||
+      (pillars.day.gan === '癸' && pillars.month.zhi === '巳'))
+  ) {
+    notes.push(
+      `${pillars.day.gan}日生${pillars.month.zhi}月，仅月令财星${structure.exposedMonthHiddenStems[0]}明透，月令另藏${structure.monthHiddenOfficerStems.join('、')}正官未透；闭合原典“单透财而月令有暗官”的结构事实，不推导最终成败`,
+    );
+  }
+  if (
+    singleExposedMonthWealth &&
+    pillars.day.gan === '壬' &&
+    pillars.month.zhi === '巳' &&
+    structure.killerStems.length === 0
+  ) {
+    notes.push(
+      `壬日巳月仅丙财明透而巳中戊杀未透，列为原典“弃杀就财”的局部取舍候选；是否真正存财弃杀仍须结合全局复核`,
     );
   }
 
@@ -1056,6 +1328,16 @@ export function determinePattern(
   );
   if (officerPatternNotes.length > 0) {
     basis += `；正官格成败边界：${officerPatternNotes.join('；')}；以上只记录《子平真诠》“论正官”中能够由当前四柱闭合的局部带忌、相碍与救应条件，不改变既有格名，不把刑冲破害、财印位置、佩印或合杀单独当作最终成败，也不推导富贵、官职、品级、分数或概率`;
+  }
+
+  const wealthPatternNotes = collectWealthPatternNotes(
+    pillars,
+    patternName,
+    completeBranchFormations,
+    getTenGod,
+  );
+  if (wealthPatternNotes.length > 0) {
+    basis += `；财格成败边界：${wealthPatternNotes.join('；')}；以上只记录《子平真诠》“论财”中能够由当前四柱闭合的根气、明透、位置、暗官及取清组件，不改变既有格名；根深、财旺、身强、印强弱、劫刃太重与最终取舍仍须全局复核，也不推导财富、婚姻、才能、迁动、富贵贫贱、分数或概率`;
   }
 
   return {
