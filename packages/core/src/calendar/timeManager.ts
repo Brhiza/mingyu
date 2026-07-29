@@ -143,7 +143,7 @@ export class TimeManager {
   }
 
   /**
-   * 基于时间生成爻象
+   * 以时间戳固定随机种子，再按三钱概率生成爻象。
    * @param timestamp 时间戳
    * @param count 爻象数量
    * @returns 爻象数组
@@ -154,7 +154,7 @@ export class TimeManager {
     const rng = createRandomSource({ seed: `时间起卦:${timestamp}` });
     const yaos: number[] = [];
     for (let i = 0; i < count; i++) {
-      // 同一时间戳建立一个稳定随机流，再依次抽取三枚铜钱，避免逐币线性种子造成比特相关。
+      // 同一时间戳建立一个稳定随机流，再依次模拟三枚铜钱，避免逐币线性种子造成比特相关。
       yaos.push(this.generateYaoByCoinMethod(() => randomInt(2, rng)));
     }
     return yaos;
@@ -176,7 +176,7 @@ export class TimeManager {
   }
 
   /**
-   * 使用三钱法起一爻：正面记 3，反面记 2，三枚铜钱合计得 6/7/8/9。
+   * 使用三钱法起一爻：字面记 2，背面记 3，三枚铜钱合计得 6/7/8/9。
    */
   private static generateYaoByCoinMethod(getCoinBit: (coinIndex: number) => number): number {
     let total = 0;

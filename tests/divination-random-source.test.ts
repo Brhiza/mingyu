@@ -43,7 +43,7 @@ test('塔罗抽牌应拒绝未知牌阵和未知牌名，不应用泛化关键�
   assert.throws(() => getCardKeywords('不存在的牌'), /未知的塔罗牌名/);
 });
 
-test('时间起卦随机工具应拒绝非法范围和数量，避免返回空结果或 NaN', () => {
+test('时间种子模拟工具应拒绝非法范围和数量，避免返回空结果或 NaN', () => {
   assert.throws(() => TimeManager.getSeededRandom(Number.NaN, 6), /随机种子时间戳必须是有效数字/);
   assert.throws(
     () => TimeManager.getSeededRandom(DATE.getTime(), 0),

@@ -25,7 +25,7 @@
 | `ziwei_compatibility`        | 紫微双盘     | 返回双方本命盘、关键宫位叠盘、生年四化跨盘落宫与证据包                         |
 | `ziwei_compatibility_prompt` | 双盘提示词   | 紫微双盘计算并返回可直接用于 AI 解读的完整证据任务书                           |
 | `bazi_ziwei_prompt`          | 八字紫微合参 | 同一出生信息同时返回八字、紫微数据和合参解读提示词                             |
-| `divine_liuyao`              | 六爻起卦     | 基于当前时间或自定义时间生成完整六爻卦象                                       |
+| `divine_liuyao`              | 六爻起卦     | 支持时间种子模拟、手工爻值和逐爻三钱记录                                       |
 | `liuyao_prompt`              | 六爻提示词   | 六爻起卦并返回用神作用链、逐爻证据及可直接用于 AI 解读的结构化提示词           |
 | `divine_meihua`              | 梅花易数起卦 | 支持时间/数字/随机三种起卦方式，兼容旧 timeTrigram 参数                        |
 | `meihua_prompt`              | 梅花提示词   | 梅花起卦并返回主互变体用推进证据及可直接用于 AI 解读的结构化提示词             |
@@ -173,7 +173,7 @@ npm run mcp
 
 ### 起卦与排盘时间参数
 
-六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬工具默认使用当前时间。需要复盘历史时刻、按用户指定时间起卦，或让本地 MCP 与网页端自定时间保持一致时，传入 `customDate`。
+六爻、梅花易数、小六壬、金口诀、奇门遁甲、大六壬工具默认使用当前时间。六爻的 `time` 是兼容方法名，实际以该时间戳固定种子模拟三钱，并非传统历数起卦；其他方法按各自时间规则排盘。需要复盘历史时刻或让本地 MCP 与网页端自定时间保持一致时，传入 `customDate`。
 
 `customDate` 必须是带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:30:00+08:00`。适用工具包括 `divine_liuyao`、`liuyao_prompt`、`divine_meihua`、`meihua_prompt`、`divine_xiaoliuren`、`xiaoliuren_prompt`、`divine_qimen`、`qimen_prompt`、`divine_liuren`、`liuren_prompt`。
 

@@ -223,7 +223,7 @@ const DIVINATION_REQUEST_PROPERTIES = {
     type: 'string',
     format: 'date-time',
     description:
-      '时间类占卜的自定义起卦或排盘时间，支持六爻、梅花易数、小六壬、奇门遁甲、大六壬；不传则使用当前时间。',
+      '时间类占卜的自定义起卦或排盘时间；六爻 time 方法会把该时间戳作为固定三钱模拟的种子，不传则使用当前时间。',
   },
   seed: {
     oneOf: [{ type: 'string' }, { type: 'number' }],
@@ -237,7 +237,8 @@ const DIVINATION_REQUEST_PROPERTIES = {
   },
   liuyaoMethod: {
     enum: ['time', 'manual', 'coins'],
-    description: '六爻起卦方式：时间起卦、手工爻值或模拟三钱投掷。',
+    description:
+      '六爻起卦方式：time=时间戳固定种子的三钱模拟（兼容名），manual=手工爻值，coins=三钱记录或随机模拟。',
   },
   yaos: {
     type: 'array',
@@ -245,6 +246,26 @@ const DIVINATION_REQUEST_PROPERTIES = {
     maxItems: 6,
     items: { type: 'integer', minimum: 6, maximum: 9 },
     description: '手工六爻值，按初爻至上爻传入 6、7、8、9。',
+  },
+  coinThrows: {
+    type: 'array',
+    minItems: 6,
+    maxItems: 6,
+    items: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['coins', 'total'],
+      properties: {
+        coins: {
+          type: 'array',
+          minItems: 3,
+          maxItems: 3,
+          items: { enum: [2, 3] },
+        },
+        total: { type: 'integer', minimum: 6, maximum: 9 },
+      },
+    },
+    description: '逐爻三钱记录，按初爻至上爻传入；每爻三枚钱按字面 2、背面 3 计值。',
   },
   qimenMethod: {
     enum: ['zhuanpan', 'feipan'],
@@ -2541,12 +2562,14 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
 function calculateLiuyao(input: JsonRecord) {
   const method = readOptionalEnum(input, 'liuyaoMethod', ['time', 'manual', 'coins'] as const);
   const yaos = readOptionalIntegerArray(input, 'yaos', 6, 6, 9);
+  const coinThrows = readOptionalLiuyaoCoinThrows(input);
   const randomOptions = readRandomOptions(input);
   const options: LiuyaoGenerationOptions | undefined =
-    method || yaos || randomOptions
+    method || yaos || coinThrows || randomOptions
       ? {
           method,
           yaos,
+          coinThrows,
           ...randomOptions,
         }
       : undefined;
@@ -3432,6 +3455,36 @@ function readOptionalIntegerArray(
       throw new ApiError(400, 'BAD_REQUEST', `${key}[${index}] 必须是 ${min}-${max} 之间的整数。`);
     }
     return item;
+  });
+}
+
+function readOptionalLiuyaoCoinThrows(
+  input: JsonRecord,
+): LiuyaoGenerationOptions['coinThrows'] | undefined {
+  const value = input.coinThrows;
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length !== 6) {
+    throw new ApiError(400, 'BAD_REQUEST', 'coinThrows 必须恰好包含 6 爻三钱记录。');
+  }
+  return value.map((item, index) => {
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) {
+      throw new ApiError(400, 'BAD_REQUEST', `coinThrows[${index}] 必须是对象。`);
+    }
+    const record = item as JsonRecord;
+    const coins = record.coins;
+    if (
+      !Array.isArray(coins) ||
+      coins.length !== 3 ||
+      !coins.every((coin) => coin === 2 || coin === 3)
+    ) {
+      throw new ApiError(400, 'BAD_REQUEST', `coinThrows[${index}].coins 必须包含三个 2 或 3。`);
+    }
+    const normalizedCoins = [...coins] as [2 | 3, 2 | 3, 2 | 3];
+    const total = normalizedCoins.reduce<number>((sum, coin) => sum + coin, 0) as 6 | 7 | 8 | 9;
+    if (record.total !== total) {
+      throw new ApiError(400, 'BAD_REQUEST', `coinThrows[${index}].total 与三枚钱的合计不一致。`);
+    }
+    return { coins: normalizedCoins, total };
   });
 }
 

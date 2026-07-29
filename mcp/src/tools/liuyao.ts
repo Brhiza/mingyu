@@ -16,16 +16,32 @@ const liuyaoSchema = z.object({
   method: z
     .enum(['time', 'manual', 'coins'])
     .optional()
-    .describe('起卦方式：time=时间，manual=手工爻值，coins=模拟三钱投掷'),
+    .describe(
+      '起卦方式：time=时间戳固定种子的三钱模拟（兼容名），manual=手工爻值，coins=三钱记录或随机模拟',
+    ),
   yaos: z
     .array(z.number().int().min(6).max(9))
     .length(6)
     .optional()
     .describe('手工六爻值，按初爻至上爻传入 6、7、8、9'),
+  coinThrows: z
+    .array(
+      z.object({
+        coins: z.tuple([
+          z.union([z.literal(2), z.literal(3)]),
+          z.union([z.literal(2), z.literal(3)]),
+          z.union([z.literal(2), z.literal(3)]),
+        ]),
+        total: z.union([z.literal(6), z.literal(7), z.literal(8), z.literal(9)]),
+      }),
+    )
+    .length(6)
+    .optional()
+    .describe('逐爻三钱记录，按初爻至上爻传入；每爻三枚钱按字面 2、背面 3 计值'),
   customDate: z
     .string()
     .optional()
-    .describe('自定义起卦时间（ISO 8601 格式），不提供则使用当前时间'),
+    .describe('自定义时间（ISO 8601 格式）；time 方法会把时间戳作为固定三钱模拟的种子'),
   liuyaoTemplate: z
     .enum(['general', 'ganqing', 'shiye', 'caifu', 'guaishen'])
     .optional()
@@ -40,6 +56,7 @@ function buildLiuyaoResult(args: z.infer<typeof liuyaoSchema>) {
   return generateLiuyao(readMcpCustomDate(args.customDate), {
     method: args.method,
     yaos: args.yaos,
+    coinThrows: args.coinThrows,
     ...readMcpRandomOptions(args),
   });
 }
@@ -49,7 +66,7 @@ export function registerLiuyaoTool(server: McpServer) {
     'divine_liuyao',
     {
       description:
-        '六爻起卦：基于当前时间或自定义时间生成六爻卦象，包含纳甲、六亲、六神、世应、动变、空亡等完整信息',
+        '六爻起卦：支持时间种子模拟三钱、手工爻值和逐爻三钱记录，包含纳甲、六亲、六神、世应、动变、空亡等完整信息',
       inputSchema: liuyaoSchema.shape,
       outputSchema: resultOutputSchema,
     },

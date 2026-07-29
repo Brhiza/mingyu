@@ -31,8 +31,8 @@ const DIVINATION_TIME_MODE_OPTIONS = [
 ] as const;
 
 const LIUYAO_METHOD_OPTIONS = [
-  { value: 'time', label: '时间起卦' },
-  { value: 'coins', label: '手摇' },
+  { value: 'time', label: '按时间模拟三钱' },
+  { value: 'coins', label: '模拟三钱' },
   { value: 'manual', label: '手动录入' },
 ] as const;
 
@@ -51,8 +51,8 @@ const MANUAL_METHOD_OPTIONS = [
 ] as const;
 
 const liuyaoMethodLabelMap: Record<NonNullable<DivinationDraft['liuyaoMethod']>, string> = {
-  time: '时间起卦',
-  coins: '手摇',
+  time: '按时间模拟三钱',
+  coins: '模拟三钱',
   manual: '手动录入',
 };
 
@@ -980,7 +980,7 @@ export function DivinationForm({
                     className="primary-button liuyao-shake-button"
                     onClick={shakeLiuyaoYao}
                   >
-                    手摇一爻
+                    模拟一爻
                   </button>
                 ) : null}
                 {visibleLiuyaoYaos.length > 0 ? (

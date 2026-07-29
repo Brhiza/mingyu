@@ -192,16 +192,23 @@ test('塔罗、雷诺曼、灵签和梅花可由结果元数据完整重放', ()
   assert.equal(meihuaReplay.meta?.resultId, meihua.meta?.resultId);
 });
 
-test('六爻保留时间、手工和模拟三钱三种来源及逐币轨迹', () => {
+test('六爻区分时间种子模拟、手工爻值、三钱记录与随机模拟来源', () => {
   const time = generateLiuyao(DATE);
   assert.equal(time.generation.method, 'time');
+  assert.equal(time.generation.source, 'time-seeded-coin-simulation');
   assert.equal(time.generation.coinThrows?.length, 6);
   assert.deepEqual(time.yaoArray, TimeManager.generateYaosByTime(DATE.getTime(), 6));
+  assert.ok(
+    time.evidenceAnalysis?.evidence.items.some(
+      (item) => item.title === '起卦来源：时间种子模拟三钱',
+    ),
+  );
 
   const manualYaos = [7, 8, 9, 6, 7, 8] as const;
   const manual = generateLiuyao(DATE, { method: 'manual', yaos: manualYaos });
   assert.deepEqual(manual.yaoArray, manualYaos);
   assert.equal(manual.generation.method, 'manual');
+  assert.equal(manual.generation.source, 'manual-yao-values');
   assert.equal(manual.meta.random, undefined);
 
   const coins = generateLiuyao(DATE, { method: 'coins', seed: '三钱样例' });
@@ -211,6 +218,7 @@ test('六爻保留时间、手工和模拟三钱三种来源及逐币轨迹', ()
   });
   assert.deepEqual(replay.yaoArray, coins.yaoArray);
   assert.deepEqual(replay.generation.coinThrows, coins.generation.coinThrows);
+  assert.equal(coins.generation.source, 'random-coin-simulation');
   assert.equal(replay.meta.resultId, coins.meta.resultId);
   assert.equal(coins.generation.coinThrows?.flatMap((item) => item.coins).length, 18);
   const sourceItem = coins.evidenceAnalysis?.evidence.items.find(
@@ -261,13 +269,25 @@ test('六爻保留时间、手工和模拟三钱三种来源及逐币轨迹', ()
     { coins: [2, 3, 3], total: 8 },
   ] as const;
   const handShaken = generateLiuyao(DATE, {
-    method: 'coins',
     coinThrows: handShakenCoinThrows,
   });
   assert.deepEqual(handShaken.yaoArray, [6, 7, 8, 9, 7, 8]);
+  assert.equal(handShaken.generation.method, 'coins');
+  assert.equal(handShaken.generation.source, 'provided-coin-throws');
   assert.deepEqual(handShaken.generation.coinThrows, handShakenCoinThrows);
   assert.equal(handShaken.meta.random, undefined);
   assert.equal(handShaken.evidenceAnalysis?.generationFact.status, '可核验');
+  assert.equal(handShaken.evidenceAnalysis?.generationFact.methodLabel, '逐爻三钱记录');
+  assert.equal(handShaken.evidenceAnalysis?.randomFact.status, '不适用');
+  assert.ok(
+    !handShaken.evidenceAnalysis?.evidence.items.some((item) => item.title === '随机轨迹缺失'),
+  );
+  const alternativeRecord = handShakenCoinThrows.map(() => ({
+    coins: [3, 3, 3] as const,
+    total: 9 as const,
+  }));
+  const alternative = generateLiuyao(DATE, { coinThrows: alternativeRecord });
+  assert.notEqual(alternative.meta.resultId, handShaken.meta.resultId);
   assert.throws(
     () =>
       generateLiuyao(DATE, {
@@ -275,6 +295,18 @@ test('六爻保留时间、手工和模拟三钱三种来源及逐币轨迹', ()
         coinThrows: handShakenCoinThrows.slice(0, -1),
       }),
     /必须恰好包含 6 爻/,
+  );
+  assert.throws(
+    () =>
+      generateLiuyao(DATE, {
+        method: 'coins',
+        coinThrows: [null, ...handShakenCoinThrows.slice(1)] as never,
+      }),
+    /第1爻三钱记录必须是对象/,
+  );
+  assert.throws(
+    () => generateLiuyao(DATE, { method: 'manual', yaos: {} as never }),
+    /手工爻值必须是数组/,
   );
 });
 

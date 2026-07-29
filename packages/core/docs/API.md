@@ -127,9 +127,17 @@
 
 导入：`import { generateLiuyao } from 'mingyu-core/divination/liuyao'`
 
-### `generateLiuyao(customDate?)`
+### `generateLiuyao(customDate?, options?)`
 
-**参数：** `customDate?: Date` — 起卦时间，默认当前时间
+**参数：**
+
+- `customDate?: Date`：起卦记录时间；`time` 方法会把该时间戳作为固定三钱模拟的种子，默认当前时间。
+- `options.method?: 'time' | 'manual' | 'coins'`：`time` 是历史兼容名，实际为时间种子模拟三钱；`manual` 读取六个爻值；`coins` 读取三钱记录或执行随机模拟。
+- `options.yaos?: number[]`：按初爻至上爻传入六个 6、7、8、9。
+- `options.coinThrows?: Array<{ coins: [2 | 3, 2 | 3, 2 | 3]; total: 6 | 7 | 8 | 9 }>`：按初爻至上爻传入六组三钱记录，字面记 2、背面记 3。
+- `options.seed` / `options.replay`：仅 `coins` 随机模拟使用，可保存并重放投掷轨迹。
+
+未指定 `method` 时，传入 `yaos` 自动采用 `manual`，传入 `coinThrows` 自动采用 `coins`，两者都未传则采用兼容的 `time` 方法。传统三钱法的六次记录顺序为初爻至上爻。
 
 **返回 `LiuyaoData`：**
 
@@ -139,6 +147,7 @@
 | `changedName` | `string` | 变卦名 |
 | `interName` | `string` | 互卦名 |
 | `yaoArray` | `number[]` | 六爻数值（6/7/8/9，老阴老阳少阴少阳） |
+| `generation` | `object` | 兼容方法名、实际生成来源与逐爻三钱记录；可区分时间种子模拟、随机模拟、外部记录和手工爻值 |
 | `changingYaos` | `Array<{position,isChanging,type}>` | 动爻 |
 | `sixGods` | `string[]` | 六神（按起卦日干起例，从初爻至上爻排列青龙/朱雀/勾陈/螣蛇/白虎/玄武） |
 | `sixRelatives` | `string[]` | 六亲（父母/兄弟/子孙/妻财/官鬼） |

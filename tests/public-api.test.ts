@@ -2781,6 +2781,7 @@ test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', asy
   });
   assert.equal(first.response.status, 200);
   assert.equal(first.body.data.generation.method, 'coins');
+  assert.equal(first.body.data.generation.source, 'random-coin-simulation');
   assert.equal(first.body.data.generation.coinThrows.length, 6);
   assert.equal(first.body.data.evidenceAnalysis.key, 'liuyao:evidence');
   assert.equal(first.body.data.evidenceAnalysis.status, '已计算');
@@ -2906,6 +2907,40 @@ test('公开 API 六爻支持模拟三钱投掷并可按随机轨迹重放', asy
   });
   assert.equal(conflict.response.status, 400);
   assert.match(conflict.body.error.message, /seed 与 replay 只能提供一个/);
+
+  const coinThrows = [
+    { coins: [2, 2, 2], total: 6 },
+    { coins: [2, 2, 3], total: 7 },
+    { coins: [2, 3, 3], total: 8 },
+    { coins: [3, 3, 3], total: 9 },
+    { coins: [2, 2, 3], total: 7 },
+    { coins: [2, 3, 3], total: 8 },
+  ];
+  const recorded = await callApi('divination/liuyao', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customDate: input.customDate, coinThrows }),
+  });
+  assert.equal(recorded.response.status, 200);
+  assert.equal(recorded.body.data.generation.method, 'coins');
+  assert.equal(recorded.body.data.generation.source, 'provided-coin-throws');
+  assert.deepEqual(recorded.body.data.yaoArray, [6, 7, 8, 9, 7, 8]);
+  assert.equal(recorded.body.data.meta.random, undefined);
+  assert.equal(recorded.body.data.evidenceAnalysis.randomFact.status, '不适用');
+  assert.notEqual(recorded.body.data.meta.resultId, first.body.data.meta.resultId);
+
+  const badRecord = await callApi('divination/liuyao', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      customDate: input.customDate,
+      coinThrows: coinThrows.map((item, index) =>
+        index === 0 ? { coins: item.coins, total: 7 } : item,
+      ),
+    }),
+  });
+  assert.equal(badRecord.response.status, 400);
+  assert.match(badRecord.body.error.message, /total 与三枚钱的合计不一致/);
 });
 
 test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async () => {

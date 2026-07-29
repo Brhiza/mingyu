@@ -242,10 +242,10 @@ const result = baziCalculator.calculateBazi({
 ### 占卜算法
 
 ```typescript
-// 六爻（默认当前时间起卦）
+// 六爻（默认以当前时间戳固定种子模拟三钱；time 是兼容方法名，并非传统历数起卦）
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 const liuyao = generateLiuyao();
-// 也可指定时间: generateLiuyao(new Date('2025-01-01T10:00:00'))
+// 也可指定模拟种子时间: generateLiuyao(new Date('2025-01-01T10:00:00'))
 const coinLiuyao = generateLiuyao(undefined, { method: 'coins', seed: '本次投掷' });
 console.log(coinLiuyao.generation.coinThrows); // 六爻逐爻、每爻三枚铜钱的完整轨迹
 console.log(coinLiuyao.sanheFormations); // 卦内成局、月日补局、虚一待用及空破墓条件
@@ -440,7 +440,7 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 
 | 导出                                                                 | 说明                                                                         |
 | -------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `generateLiuyao(date?, options?)`                                    | 六爻时间、手工或模拟三钱起卦，并保留投掷轨迹                                 |
+| `generateLiuyao(date?, options?)`                                    | 六爻时间种子模拟、手工爻值或三钱记录/模拟，并保留来源轨迹                     |
 | `analyzeLiuyaoSanheFormations(yaosDetail, monthBranch, dayBranch)`   | 重算三合参与爻、成立模式、月日补局、虚一待用及空破墓状态                     |
 | `analyzeLiuyaoEvidence(data, options?)`                              | 六爻分层用神候选、原忌效力条件、生克制化路径、逐爻支持/反证及病药应期证据                  |
 | `generateMeihua(date?, settings?)`                                   | 梅花易数起卦                                                                 |

@@ -439,6 +439,14 @@ export interface LiuyaoData extends BaseHexagramData {
   /** 起卦来源与三钱投掷轨迹。 */
   generation?: {
     method: 'time' | 'manual' | 'coins';
+    /**
+     * 六个爻值的实际来源；`time` 只是历史兼容方法名，实际使用时间戳固定种子模拟三钱。
+     */
+    source?:
+      | 'time-seeded-coin-simulation'
+      | 'manual-yao-values'
+      | 'provided-coin-throws'
+      | 'random-coin-simulation';
     coinThrows?: Array<{
       coins: [2 | 3, 2 | 3, 2 | 3];
       total: 6 | 7 | 8 | 9;

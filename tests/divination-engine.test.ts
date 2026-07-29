@@ -4438,7 +4438,7 @@ test('占卜时间格式化遇到无法转换为 Date 的时间戳时应回退�
   );
 });
 
-test('前端占卜草稿可把自定北京时间传给按时间起卦的方法', async () => {
+test('前端占卜草稿可把自定北京时间传给时间种子模拟方法', async () => {
   const session = await generateDivinationSession(
     buildDraft({
       method: 'qimen',

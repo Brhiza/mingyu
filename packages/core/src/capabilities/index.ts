@@ -348,7 +348,7 @@ const systems: SystemCapability[] = [
     name: '六爻',
     category: 'divination',
     methods: options([
-      { value: 'time', label: '时间起卦' },
+      { value: 'time', label: '时间种子模拟三钱（兼容方法名）' },
       { value: 'manual', label: '手工六爻' },
       { value: 'coins', label: '模拟三钱投掷' },
     ]),
@@ -360,6 +360,13 @@ const systems: SystemCapability[] = [
         type: 'array',
         required: false,
         description: '按初爻至上爻传入 6、7、8、9。',
+      },
+      {
+        id: 'coinThrows',
+        label: '逐爻三钱记录',
+        type: 'array',
+        required: false,
+        description: '按初爻至上爻传入六组三枚铜钱及合计，字面记 2、背面记 3。',
       },
       {
         id: 'template',
@@ -391,7 +398,10 @@ const systems: SystemCapability[] = [
       birthTimeRequired: false,
       batch: false,
     },
-    notes: ['现实投掷建议直接传入六次爻值，可完整复现。'],
+    notes: [
+      '`time` 是兼容方法名，实际为时间戳固定种子的三钱模拟，并非传统历数起卦。',
+      '现实投掷可传入六次爻值或逐爻三钱记录。',
+    ],
   },
   {
     id: 'meihua',

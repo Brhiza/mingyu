@@ -3,7 +3,7 @@
  * @description 基于京房八宫法，实现六爻卦象的完整排盘。
  * @流派 京房易
  * @核心思想
- * 1. 时间起卦：通过时间获取卦象的六个爻。
+ * 1. 起卦来源：兼容时间种子模拟三钱、手工六爻值与三钱记录/模拟。
  * 2. 卦象转换：将主卦、变卦、互卦转换为二进制表示，并从数据中查找对应卦象。
  * 3. 安世应：根据主卦在其所属八宫中的位置（首卦、一世、二世...归魂）来确定世爻和应爻。
  * 4. 纳甲：为六个爻配上天干地支，此为定五行、六亲之本。
@@ -454,7 +454,8 @@ function getWorldAndResponseArray(shiYing: { shi: number; ying: number }): strin
 /**
  * 生成六爻卦盘
  *
- * 使用京房八宫法，按时间起卦。支持传入自定义时间，不传则使用当前时间。
+ * 使用京房八宫法排盘。兼容 `time` 方法名，但该方法并非传统历数起卦，
+ * 而是以当前或自定义时间戳固定随机种子，再按三钱概率生成六爻。
  * 返回完整的六爻卦盘，包含主卦、变卦、互卦、世应、纳甲、六亲、六神等信息。
  *
  * @param customDate 自定义起卦时间（可选），若不提供则使用当前时间。
@@ -470,11 +471,11 @@ function getWorldAndResponseArray(shiYing: { shi: number; ying: number }): strin
 export type LiuyaoGenerationMethod = 'time' | 'manual' | 'coins';
 
 export interface LiuyaoGenerationOptions extends RandomOptions {
-  /** 起卦方式；默认有 yaos 时为 manual，否则为 time。 */
+  /** 起卦方式；默认有 yaos 时为 manual，有 coinThrows 时为 coins，否则为 time。 */
   method?: LiuyaoGenerationMethod;
   /** 可选手工三钱法爻值，按初爻到上爻传入 6、7、8、9。 */
   yaos?: readonly number[];
-  /** 用户逐爻手摇得到的三钱记录，按初爻到上爻传入。 */
+  /** 调用方提供的逐爻三钱记录，按初爻到上爻传入；字面记 2，背面记 3。 */
   coinThrows?: readonly {
     coins: readonly (2 | 3)[];
     total: 6 | 7 | 8 | 9;
@@ -506,7 +507,11 @@ function generateCoinYaos(
   }
   return {
     yaos,
-    generation: { method, coinThrows },
+    generation: {
+      method,
+      source: method === 'time' ? 'time-seeded-coin-simulation' : 'random-coin-simulation',
+      coinThrows,
+    },
     randomTrace: context.getTrace(),
   };
 }
@@ -516,26 +521,39 @@ function resolveRawYaos(
   options?: LiuyaoGenerationOptions,
 ): { yaos: number[]; generation: LiuyaoGeneration; randomTrace?: RandomTrace } {
   assertOptionalRecord(options, '六爻起卦设置');
-  const method = options?.method ?? (options?.yaos !== undefined ? 'manual' : 'time');
+  const method =
+    options?.method ??
+    (options?.yaos !== undefined ? 'manual' : options?.coinThrows !== undefined ? 'coins' : 'time');
   if (!['time', 'manual', 'coins'].includes(method)) {
     throw new Error(`未知的六爻起卦方式: ${method}`);
   }
   const usesRandomOptions = hasRandomOptions(options);
   if (method === 'time') {
-    if (options?.yaos !== undefined) throw new Error('六爻时间起卦不能同时提供手工爻值。');
-    if (options?.coinThrows !== undefined) throw new Error('六爻时间起卦不能同时提供手摇记录。');
-    if (usesRandomOptions) throw new Error('六爻时间起卦不接受额外随机选项。');
+    if (options?.yaos !== undefined) throw new Error('六爻时间种子模拟不能同时提供手工爻值。');
+    if (options?.coinThrows !== undefined)
+      throw new Error('六爻时间种子模拟不能同时提供三钱记录。');
+    if (usesRandomOptions) throw new Error('六爻时间种子模拟不接受额外随机选项。');
     return generateCoinYaos('time', { seed: `时间起卦:${timestamp}` });
   }
   if (method === 'coins') {
     if (options?.yaos !== undefined) throw new Error('六爻模拟投掷不能同时提供手工爻值。');
     if (options?.coinThrows !== undefined) {
-      if (usesRandomOptions) throw new Error('六爻手摇记录不能同时提供随机选项。');
+      if (usesRandomOptions) throw new Error('六爻三钱记录不能同时提供随机选项。');
+      if (!Array.isArray(options.coinThrows)) {
+        throw new Error('六爻三钱记录必须是数组。');
+      }
       if (options.coinThrows.length !== 6) {
-        throw new Error('六爻手摇记录必须恰好包含 6 爻。');
+        throw new Error('六爻三钱记录必须恰好包含 6 爻。');
       }
       const coinThrows = options.coinThrows.map((item, index) => {
-        if (item.coins.length !== 3 || !item.coins.every((coin) => coin === 2 || coin === 3)) {
+        if (item === null || typeof item !== 'object' || Array.isArray(item)) {
+          throw new Error(`第${index + 1}爻三钱记录必须是对象。`);
+        }
+        if (
+          !Array.isArray(item.coins) ||
+          item.coins.length !== 3 ||
+          !item.coins.every((coin: unknown) => coin === 2 || coin === 3)
+        ) {
           throw new Error(`第${index + 1}爻必须包含三枚有效铜钱。`);
         }
         const coins = [...item.coins] as [2 | 3, 2 | 3, 2 | 3];
@@ -547,14 +565,17 @@ function resolveRawYaos(
       });
       return {
         yaos: coinThrows.map((item) => item.total),
-        generation: { method: 'coins', coinThrows },
+        generation: { method: 'coins', source: 'provided-coin-throws', coinThrows },
       };
     }
     return generateCoinYaos('coins', options ?? {});
   }
-  if (options?.coinThrows !== undefined) throw new Error('六爻手工起卦不能同时提供手摇记录。');
+  if (options?.coinThrows !== undefined) throw new Error('六爻手工起卦不能同时提供三钱记录。');
   if (usesRandomOptions) throw new Error('六爻手工起卦不接受随机选项。');
   if (options?.yaos === undefined) throw new Error('六爻手工起卦必须提供六个爻值。');
+  if (!Array.isArray(options.yaos)) {
+    throw new Error('六爻手工爻值必须是数组。');
+  }
   if (options.yaos.length !== 6) {
     throw new Error('六爻手工爻值必须恰好包含 6 爻。');
   }
@@ -562,7 +583,7 @@ function resolveRawYaos(
   if (!yaos.every((value) => Number.isInteger(value) && value >= 6 && value <= 9)) {
     throw new Error('六爻手工爻值只能是 6、7、8、9。');
   }
-  return { yaos, generation: { method: 'manual' } };
+  return { yaos, generation: { method: 'manual', source: 'manual-yao-values' } };
 }
 
 function toHexagramBinary(yaos: string[]): string {
@@ -805,8 +826,13 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     algorithm: 'liuyao',
     input: {
       method: resolvedGeneration.generation.method,
+      source: resolvedGeneration.generation.source,
       timestamp,
       yaos: resolvedGeneration.generation.method === 'manual' ? rawYaos : undefined,
+      coinThrows:
+        resolvedGeneration.generation.source === 'provided-coin-throws'
+          ? resolvedGeneration.generation.coinThrows
+          : undefined,
     },
     calculatedAt: timestamp,
     random: resolvedGeneration.randomTrace,

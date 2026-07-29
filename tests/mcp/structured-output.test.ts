@@ -4596,7 +4596,7 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
     });
     assert.equal(first.isError, undefined);
     type LiuyaoReplayResult = {
-      generation: { method: string; coinThrows: unknown[] };
+      generation: { method: string; source: string; coinThrows: unknown[] };
       yaoArray: number[];
       evidenceAnalysis: {
         key: string;
@@ -4682,6 +4682,7 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
     };
     const firstResult = (first.structuredContent as { result: LiuyaoReplayResult }).result;
     assert.equal(firstResult.generation.method, 'coins');
+    assert.equal(firstResult.generation.source, 'random-coin-simulation');
     assert.equal(firstResult.generation.coinThrows.length, 6);
     assert.equal(firstResult.evidenceAnalysis.key, 'liuyao:evidence');
     assert.equal(firstResult.evidenceAnalysis.status, '已计算');
@@ -4822,5 +4823,28 @@ test('MCP 六爻支持模拟三钱投掷与随机轨迹重放', async () => {
     const replayResult = (replay.structuredContent as { result: LiuyaoReplayResult }).result;
     assert.deepEqual(replayResult.yaoArray, firstResult.yaoArray);
     assert.equal(replayResult.meta.resultId, firstResult.meta.resultId);
+
+    const coinThrows = [
+      { coins: [2, 2, 2], total: 6 },
+      { coins: [2, 2, 3], total: 7 },
+      { coins: [2, 3, 3], total: 8 },
+      { coins: [3, 3, 3], total: 9 },
+      { coins: [2, 2, 3], total: 7 },
+      { coins: [2, 3, 3], total: 8 },
+    ];
+    const recorded = await client.callTool({
+      name: 'divine_liuyao',
+      arguments: {
+        customDate: '2025-01-01T08:00:00+08:00',
+        coinThrows,
+      },
+    });
+    assert.equal(recorded.isError, undefined);
+    const recordedResult = (recorded.structuredContent as { result: LiuyaoReplayResult }).result;
+    assert.equal(recordedResult.generation.method, 'coins');
+    assert.equal(recordedResult.generation.source, 'provided-coin-throws');
+    assert.deepEqual(recordedResult.yaoArray, [6, 7, 8, 9, 7, 8]);
+    assert.equal(recordedResult.meta.random, undefined);
+    assert.notEqual(recordedResult.meta.resultId, firstResult.meta.resultId);
   });
 });

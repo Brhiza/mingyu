@@ -1423,13 +1423,17 @@ function buildMovingTimingFact(
 
 function buildGenerationFact(data: LiuyaoData): LiuyaoGenerationFact {
   const method = data.generation?.method ?? '未记录';
+  const generationSource = data.generation?.source;
+  const hasRandomTrace = data.meta?.random !== undefined;
   const methodLabel =
     method === 'coins'
-      ? '模拟三钱起卦'
+      ? generationSource === 'provided-coin-throws' || (!generationSource && !hasRandomTrace)
+        ? '逐爻三钱记录'
+        : '模拟三钱起卦'
       : method === 'manual'
         ? '手工录入六爻值'
         : method === 'time'
-          ? '时间起卦'
+          ? '时间种子模拟三钱'
           : '旧结果未记录起卦方式';
   const coinThrows = (data.generation?.coinThrows ?? []).map((item) => ({
     coins: [...item.coins] as [2 | 3, 2 | 3, 2 | 3],
@@ -1460,7 +1464,13 @@ function buildGenerationFact(data: LiuyaoData): LiuyaoGenerationFact {
     recordedLineCount,
     promptText: `起卦方式为${methodLabel}；${detail}${status === '来源链缺失' ? `；当前仅记录${recordedLineCount}/6爻来源，不能完整核验起卦链` : ''}`,
     sources: [
-      method === 'manual' ? '调用方手工录入的六个爻值' : '六爻逐爻三钱生成记录',
+      method === 'manual'
+        ? '调用方手工录入的六个爻值'
+        : generationSource === 'provided-coin-throws'
+          ? '调用方提供的逐爻三钱记录'
+          : generationSource === 'time-seeded-coin-simulation' || method === 'time'
+            ? '以起卦时间戳固定随机种子的逐爻三钱模拟记录'
+            : '程序逐爻模拟的三钱记录',
       '六爻起卦方式与原始爻值结果',
     ],
     limitation: GENERATION_FACT_LIMITATION,
@@ -2796,6 +2806,7 @@ export function analyzeLiuyaoEvidence(
   );
   const generationFact = buildGenerationFact(data);
   const generationMethod = data.generation?.method;
+  const generationSource = data.generation?.source;
   const methodLabel = generationFact.methodLabel;
   const generationFacts = [
     `起卦方式：${methodLabel}`,
@@ -2806,7 +2817,10 @@ export function analyzeLiuyaoEvidence(
     generationMethod === 'manual' ? `手工爻值：${data.yaoArray.join('、')}` : '',
   ].filter(Boolean);
   const trace = data.meta?.random;
-  const expectsRandomTrace = generationMethod === 'coins' || generationMethod === 'time';
+  const expectsRandomTrace =
+    generationSource === 'time-seeded-coin-simulation' ||
+    generationSource === 'random-coin-simulation' ||
+    (!generationSource && (generationMethod === 'time' || trace !== undefined));
   const randomFact = buildRandomTraceFact({
     key: `random:liuyao:${generationMethod ?? 'unknown'}`,
     applicable: expectsRandomTrace,
