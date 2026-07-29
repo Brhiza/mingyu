@@ -393,7 +393,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 金口诀 `jinkoujueMethod` 支持 `time`、`number`、`random`，数字起课时使用 `jinkoujueNumber`；排盘结果含地分、将神、贵神、人元四位、取用主线与结构化证据。
 - 塔罗 `spreadType` 支持 `single`、`three`、`love`、`career`、`decision`、`celtic`、`chakra`、`year`、`mindBodySpirit`、`horseshoe`。
 - 六爻 `liuyaoTemplate` 支持 `general`、`ganqing`、`shiye`、`caifu`、`guaishen`。
-- 六爻排盘结果的 `evidenceAnalysis` 返回用神候选、本卦与伏神爻位、原神忌神仇神作用链、月日和动变支持、空破墓退反证及触发条件。提示词会按 `liuyaoTemplate` 重新选择对应主题候选；候选不等于已定用神，也不输出吉凶总分或成功率。
+- 六爻排盘结果的 `evidenceAnalysis` 返回分层用神候选、本卦与伏神爻位、原神忌神仇神作用链、月日和动变支持、空破墓退反证及病药触发条件。变爻只通过本位动爻形成回头生克冲、进退空墓等条件，不跨位充当独立原忌仇神；应期事实用 `role`、`effect` 和 `referenceKeys` 区分用神受制待解、原神助用待验、忌神制化待辨及边界。提示词会按 `liuyaoTemplate` 重新选择对应主题候选；取用未闭合时不套空破合冲公式，也不输出吉凶总分、成功率或固定日期。
 - 大六壬 `liurenTemplate` 支持 `general`、`ganqing`、`shiye`、`caifu`。
 - 大六壬排盘结果的 `evidenceAnalysis` 返回四课上下关系、九宗门取传规则、初传来源、初中末三传推进、天将、月令旺衰、旬空、日支关系、反证与触发条件。未按问题选择类神时会明确保留限制，不把日支或神煞固定当作用神，也不输出数字权重、吉凶总分或成功率。
 - 奇门排盘结果的 `evidenceAnalysis` 返回值符、值使、日干、时干对应的用神宫候选，以及逐宫门、星、神、天地盘干、空亡、马星、格局、宫间生克、反证、方位条件和时间触发条件。候选不等于已经按具体问题选定用神；核心结果、公开 API、MCP 与提示词均不返回内部宫位、格局或方位排序分数，也不机械换算绝对日期。

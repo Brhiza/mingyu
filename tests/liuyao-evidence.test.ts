@@ -122,6 +122,9 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
     evidence.timingFacts.every(
       (item) =>
         item.key.startsWith('liuyao:timing:') &&
+        item.role &&
+        item.effect &&
+        Array.isArray(item.referenceKeys) &&
         item.promptText &&
         item.sources.length > 0 &&
         item.limitation.includes('不得把爻位'),
@@ -510,6 +513,60 @@ test('六爻原神忌神仇神应按生克作用链推导', () => {
   assert.equal(isSheng(enemy.wuxing, taboo.wuxing), true);
   assert.equal(isKe(enemy.wuxing, source.wuxing), true);
   assert.ok(evidence.godChain.every((item) => item.status === '当前资料有对应'));
+});
+
+test('六爻应期应按用神原神忌神辨明病药方向', () => {
+  const date = new Date('2025-01-01T08:00:00+08:00');
+  const data = generateLiuyao(date, { method: 'manual', yaos: [6, 6, 6, 6, 6, 6] });
+  const parent = analyzeLiuyaoEvidence(data, { usefulGodRelative: '父母' });
+  const wealth = analyzeLiuyaoEvidence(data, { usefulGodRelative: '妻财' });
+
+  assert.equal(parent.selectionFact.status, '已选定候选');
+  assert.ok(
+    parent.godChain
+      .filter((item) => item.role !== '用神')
+      .every((item) => item.references.every((reference) => reference.source !== '变爻')),
+  );
+  const tabooFact = parent.timingFacts.find((item) => item.type === '忌神制化');
+  assert.equal(tabooFact?.role, '忌神');
+  assert.equal(tabooFact?.effect, '制忌待辨');
+  assert.match(tabooFact?.promptText ?? '', /反可能恢复为忌/);
+  assert.match(tabooFact?.promptText ?? '', /不得把解除忌神限制一律当有利应期/);
+
+  const usefulFact = wealth.timingFacts.find((item) => item.type === '用神病药');
+  assert.equal(usefulFact?.role, '用神');
+  assert.equal(usefulFact?.effect, '受制待解');
+  assert.match(usefulFact?.promptText ?? '', /空亡确为当前之病/);
+  assert.match(usefulFact?.promptText ?? '', /若填实后反受克，不作有利应期/);
+  assert.doesNotMatch(wealth.timingConditions.join('；'), /空亡.+须待出空、冲实或透出再验/);
+});
+
+test('六爻伏神与取用未定时不得泛化套用透出和空破应期', () => {
+  const date = new Date('2025-01-01T08:00:00+08:00');
+  const hidden = analyzeLiuyaoEvidence(
+    generateLiuyao(date, { method: 'manual', yaos: [8, 6, 7, 6, 6, 6] }),
+    { usefulGodRelative: '妻财' },
+  );
+  const pending = analyzeLiuyaoEvidence(
+    generateLiuyao(date, { method: 'manual', yaos: [6, 6, 6, 6, 6, 6] }),
+    { usefulGodRelative: '兄弟' },
+  );
+
+  const hiddenTiming = hidden.timingFacts.find((item) => item.type === '伏神透出');
+  assert.equal(hidden.selectionFact.status, '已选定候选');
+  assert.equal(hiddenTiming?.role, '用神');
+  assert.match(hiddenTiming?.promptText ?? '', /仅在伏神有用、飞神确实松动时/);
+  assert.match(hiddenTiming?.promptText ?? '', /不能见伏神便固定取透出日/);
+
+  assert.equal(pending.selectionFact.status, '用神爻位待择');
+  assert.equal(pending.timingSummaryFact.status, '仅有边界');
+  assert.ok(pending.timingFacts.some((item) => item.type === '取用边界'));
+  assert.ok(
+    pending.timingFacts.every(
+      (item) => !['用神病药', '原神病药', '忌神制化', '伏神透出'].includes(item.type),
+    ),
+  );
+  assert.match(pending.timingConditions.join('；'), /未闭合唯一用神前/);
 });
 
 test('六爻整卦关系、反吟伏吟与三合应形成独立结构事实', () => {

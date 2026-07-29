@@ -243,28 +243,8 @@ function createLiuyaoMonthDayEvidence(data: LiuyaoData) {
   ].join('；');
 }
 
-function createLiuyaoTimingEvidence(data: LiuyaoData) {
-  const movingText = data.yaosDetail
-    .filter((item) => item.isChanging)
-    .map(
-      (item) =>
-        `${formatLiuyaoYaoBrief(item)}动${item.changedYao ? `化${item.changedYao.liuqin}${item.changedYao.tiangan ?? ''}${item.changedYao.dizhi}` : ''}`,
-    )
-    .join('、');
-  const voidText = data.voidBranches?.length
-    ? `空亡${data.voidBranches.join('、')}：逢出空、冲实或用神透出时才可作为应期`
-    : '';
-  const hiddenText = data.hiddenSpirits?.length
-    ? `伏神${data.hiddenSpirits.map(formatHiddenSpirit).join('；')}：待伏神透出、飞神受冲或用神得力时再看应期`
-    : '';
-
-  return [
-    movingText ? `动变触发：${movingText}` : '静卦：先以世应、用神旺衰、月日冲合定快慢',
-    voidText,
-    hiddenText,
-  ]
-    .filter(Boolean)
-    .join('；');
+function createLiuyaoTimingEvidence(evidenceAnalysis: ReturnType<typeof analyzeLiuyaoEvidence>) {
+  return evidenceAnalysis.timingFacts.map((item) => item.promptText).join('；');
 }
 
 function createMeihuaTimingEvidence(data: MeihuaData) {
@@ -371,7 +351,7 @@ function formatLiuyaoInfo(
         .join('；')}`
     : '';
   const monthDayEvidence = createLiuyaoMonthDayEvidence(data);
-  const timingEvidence = createLiuyaoTimingEvidence(data);
+  const timingEvidence = createLiuyaoTimingEvidence(evidenceAnalysis);
   const sanheParts = [
     data.sanheWithDay
       ? `日辰${getGanzhiBranch(data.ganzhi.day)}引动${data.sanheWithDay.group}（${data.sanheWithDay.members.join('、')}）`

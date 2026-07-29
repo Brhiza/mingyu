@@ -1114,7 +1114,9 @@ test('六爻提示词会保留世应、动变、空亡、伏神和月日资料',
     prompt,
     /月日触发：月建丑：未直接同支入爻；日辰寅：同支第2爻子孙寅木，冲第5爻父母申金/,
   );
-  assert.match(prompt, /应期资料：动变触发：第1爻兄弟子水动/);
+  assert.match(prompt, /应期资料：动爻作用：第1爻兄弟子发动，用神爻位尚未闭合，仅作变化点/);
+  assert.match(prompt, /当前问题关系不足，尚未确定用神六亲/);
+  assert.doesNotMatch(prompt, /逢出空、冲实或用神透出时才可作为应期/);
   assert.match(prompt, /用神主线：/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界|只使用上方/);
   assert.doesNotMatch(prompt, /课传|盘局|牌阵|签诗|牌位/);

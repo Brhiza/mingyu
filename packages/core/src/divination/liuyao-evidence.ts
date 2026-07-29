@@ -97,7 +97,7 @@ export interface LiuyaoGodChainItem {
   referenceKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '原神、忌神与仇神只按已明确的用神六亲五行建立生克链，并记录本卦、变爻、月日与伏神中是否有对应；资料有无对应不直接证明现实助力、阻碍、吉凶或结果';
+  limitation: '原神、忌神与仇神只按已明确的用神六亲五行建立生克链，并记录本卦、月日与伏神中能直接参与作用的对应；变爻只通过本位动爻形成回头生克冲、进退空墓等条件，不跨位充当独立原忌仇神；资料有无对应不直接证明现实助力、阻碍、吉凶或结果';
 }
 
 export interface LiuyaoTraditionalSymbolFact {
@@ -257,12 +257,25 @@ export interface LiuyaoCounterSummaryFact {
 
 export interface LiuyaoTimingFact {
   key: string;
-  type: '动爻触发' | '空亡填实' | '伏神透出' | '反吟伏吟节奏' | '静卦边界' | '期限边界';
+  type:
+    | '动爻触发'
+    | '空亡填实'
+    | '用神病药'
+    | '原神病药'
+    | '忌神制化'
+    | '伏神透出'
+    | '反吟伏吟节奏'
+    | '取用边界'
+    | '静卦边界'
+    | '期限边界';
   sourceStatus: '由盘面生成' | '统一边界';
+  role: LiuyaoGodRole | '未定' | '整卦';
+  effect: '变化点待回扣' | '助用待验' | '受制待解' | '制忌待辨' | '节奏边界' | '解释边界';
   ownerFactKeys: string[];
+  referenceKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '六爻应期事实只提供动爻、出空冲实、伏神透出与静卦复核等触发条件；未给期限时不得把爻位、支序或卦数换算唯一日期，也不证明事件必然发生';
+  limitation: '六爻应期事实只围绕已定用神、原神、忌神的病药关系及卦内节奏提供条件；同一空破合冲须按角色辨向，未给期限时不得把爻位、支序或卦数换算唯一日期，也不证明事件必然发生';
 }
 
 export interface LiuyaoHexagramStructureFact {
@@ -384,7 +397,7 @@ const GENERATION_FACT_LIMITATION =
 const CANDIDATE_FACT_LIMITATION =
   '用神候选区分真正的六亲取用与世应、动爻等辅助观察，并按本卦明现、变爻显出、月日入用、伏神检索的层级匹配；候选不等于已证明现实事项，也不得按候选顺序、数量或匹配数量换算吉凶分与成功率' as const;
 const GOD_CHAIN_FACT_LIMITATION =
-  '原神、忌神与仇神只按已明确的用神六亲五行建立生克链，并记录本卦、变爻、月日与伏神中是否有对应；资料有无对应不直接证明现实助力、阻碍、吉凶或结果' as const;
+  '原神、忌神与仇神只按已明确的用神六亲五行建立生克链，并记录本卦、月日与伏神中能直接参与作用的对应；变爻只通过本位动爻形成回头生克冲、进退空墓等条件，不跨位充当独立原忌仇神；资料有无对应不直接证明现实助力、阻碍、吉凶或结果' as const;
 const LINE_COVERAGE_FACT_LIMITATION =
   '六爻覆盖状态只说明当前结果能否完整核验初爻至上爻；缺少、重复或越界爻位时不得反推纳甲、六亲、六神、世应、空破墓或动变内容' as const;
 const HIDDEN_SPIRIT_COVERAGE_FACT_LIMITATION =
@@ -396,7 +409,7 @@ const COUNTER_FACT_LIMITATION =
 const COUNTER_SUMMARY_LIMITATION =
   '反证汇总只说明当前候选核验是否发现明确限制；未见明确反证不代表现实风险为零，也不得按反证数量换算吉凶分或成功率' as const;
 const TIMING_FACT_LIMITATION =
-  '六爻应期事实只提供动爻、出空冲实、伏神透出与静卦复核等触发条件；未给期限时不得把爻位、支序或卦数换算唯一日期，也不证明事件必然发生' as const;
+  '六爻应期事实只围绕已定用神、原神、忌神的病药关系及卦内节奏提供条件；同一空破合冲须按角色辨向，未给期限时不得把爻位、支序或卦数换算唯一日期，也不证明事件必然发生' as const;
 const TIMING_SUMMARY_LIMITATION =
   '应期汇总只说明当前盘面保存了哪些触发与边界条件；不得按条件数量、爻位或地支序换算固定天数、绝对日期或事件概率' as const;
 const HEXAGRAM_STRUCTURE_FACT_LIMITATION =
@@ -461,6 +474,262 @@ function formatYao(reference: LiuyaoYaoReference) {
     ? `→${reference.changedYao.sixRelative}${formatNaJia(reference.changedYao.stem, reference.changedYao.branch)}${reference.changedYao.wuxing}${reference.changedYao.relations.length ? `（${reference.changedYao.relations.join('、')}）` : reference.changedYao.isVoid ? '（变爻空亡）' : ''}${reference.changedYao.direction ? `（${reference.changedYao.direction}）` : ''}`
     : '';
   return `${reference.source}第${reference.position}爻${reference.sixRelative}${formatNaJia(reference.stem, reference.branch)}${reference.wuxing}${changed}`;
+}
+
+function formatTimingReference(reference: LiuyaoYaoReference) {
+  if (reference.source === '月建' || reference.source === '日辰') {
+    return `${reference.source}${formatNaJia(reference.stem, reference.branch)}${reference.sixRelative}${reference.wuxing}`;
+  }
+  return `${reference.source}第${reference.position}爻${reference.sixRelative}${formatNaJia(reference.stem, reference.branch)}${reference.wuxing}`;
+}
+
+function hasTimingCondition(reference: LiuyaoYaoReference, pattern: RegExp) {
+  return [...reference.support, ...reference.constraints].some((item) => pattern.test(item));
+}
+
+function isTimingReferenceActive(reference: LiuyaoYaoReference) {
+  return Boolean(
+    reference.source === '本卦' &&
+    (reference.isChanging || reference.strengthAnalysis?.selfSupport.includes('暗动')),
+  );
+}
+
+function hasMaterialTimingConstraint(reference: LiuyaoYaoReference) {
+  return (
+    reference.isVoid ||
+    hasTimingCondition(
+      reference,
+      /空|月破|日破|日辰冲本爻|墓|绝|回头克|回头冲|化退|伏藏待透|飞来克伏/,
+    )
+  );
+}
+
+function hasTabooWeakeningCondition(reference: LiuyaoYaoReference) {
+  return (
+    reference.isVoid ||
+    hasTimingCondition(reference, /空|月破|日破|墓|绝|回头克|化退|化泄|化耗|飞来克伏/)
+  );
+}
+
+function buildUsefulOrSourceTimingConditions(
+  role: '用神' | '原神',
+  references: LiuyaoYaoReference[],
+) {
+  const conditions: string[] = [];
+  for (const reference of references) {
+    const label = formatTimingReference(reference);
+    const roleCondition = role === '原神' ? '能实际生到用神' : '本爻有气或得生扶';
+    const active = isTimingReferenceActive(reference);
+    if (reference.source === '月建' || reference.source === '日辰') {
+      conditions.push(
+        `${label}仅是${role}由月日入用的时令事实，不能冒充卦内爻位，也不直接拿当前月日机械定期`,
+      );
+      continue;
+    }
+    if (reference.source === '变爻') {
+      conditions.push(
+        `${label}只在变爻显出，须由本位原爻发动及变爻状态共同验证，不直接套原爻或变爻地支为日期`,
+      );
+    }
+    if (reference.source === '伏神') {
+      conditions.push(
+        `${label}伏藏；仅在伏神有用、飞神确实松动时，才候透出、飞神受冲克或伏神得生，不能见伏神便固定取透出日`,
+      );
+    }
+    if (active) {
+      conditions.push(
+        `${label}发动；传统可候值、合或变爻触发，但须先排除合住、空破与回头克等当前之病，不直接按动爻位置定期`,
+      );
+    } else if (role === '用神' && reference.source === '本卦') {
+      conditions.push(
+        `${label}安静；${roleCondition}时才可把逢值或日冲视为候选触发，衰静受日冲可能成日破，不能见冲即定期`,
+      );
+    }
+    if (reference.isVoid || hasTimingCondition(reference, /本爻空亡|伏神旬空/)) {
+      conditions.push(
+        `${label}见空；仅在${roleCondition}、空亡确为当前之病时，才候出空或受日辰冲实；若填实后反受克，不作有利应期`,
+      );
+    }
+    if (hasTimingCondition(reference, /化空|变爻空亡/)) {
+      conditions.push(
+        `${label}本位变爻见空；化空须与回头生克冲、进退等基础动变并看，只有它确为当前之病时才候变爻出空或冲实`,
+      );
+    }
+    if (hasTimingCondition(reference, /月破/)) {
+      conditions.push(
+        `${label}见月破；动而有用或得生扶者可候出破、填实或合破，静衰且受克者不能只凭填实硬断`,
+      );
+    }
+    if (hasTimingCondition(reference, /日破|日辰冲本爻/)) {
+      conditions.push(
+        `${label}受日冲；须先分旺相静爻暗动、衰静日破或动爻受冲，不把日冲统一解释成冲实或冲散`,
+      );
+    }
+    if (hasTimingCondition(reference, /墓/)) {
+      conditions.push(
+        `${label}见墓；只有墓确成${role}当前之病时才候冲墓，仍须并看旺衰、生克与是否随墓`,
+      );
+    }
+    if (hasTimingCondition(reference, /绝/)) {
+      conditions.push(
+        `${label}见绝；须先核验是否得生扶及${roleCondition}，不能只按长生支序补出唯一日期`,
+      );
+    }
+    if (hasTimingCondition(reference, /回头克/)) {
+      conditions.push(
+        `${label}受回头克；若这是${role}当前关键受制，可候冲去克神或其他动爻制化克神，并确认其确能解除`,
+      );
+    }
+    if (hasTimingCondition(reference, /回头冲/)) {
+      conditions.push(
+        `${label}见回头冲；须结合五行生克以及冲中逢合、合处逢冲再辨，不单凭相冲定吉凶或日期`,
+      );
+    }
+    if (hasTimingCondition(reference, /化退神/)) {
+      conditions.push(
+        `${label}化退神；近事得旺相生扶可能暂不退，衰时或空破填实后才可能应退，不按地支先后固定取期`,
+      );
+    }
+    if (hasTimingCondition(reference, /化进神/)) {
+      conditions.push(`${label}化进神；须辨旺相即进、待旺而进或空破填实后进，不固定套逢值逢合`);
+    }
+    if (
+      active &&
+      (reference.strengthAnalysis?.calendarSupport.some((item) => /^合(?:月建|日辰)$/.test(item)) ??
+        false)
+    ) {
+      conditions.push(
+        `${label}发动而与月日相合；若该合确成合住之病，可候冲开，若为生合扶助则不作受制`,
+      );
+    }
+  }
+  return Array.from(new Set(conditions));
+}
+
+function buildTabooTimingConditions(references: LiuyaoYaoReference[]) {
+  const conditions: string[] = [];
+  for (const reference of references) {
+    const label = formatTimingReference(reference);
+    const active = isTimingReferenceActive(reference);
+    const restrained = hasTabooWeakeningCondition(reference);
+    if (reference.source === '月建' || reference.source === '日辰') {
+      conditions.push(
+        `${label}临月日只说明忌神五行得时，仍须确认其能否实际克到用神，不能按当前月日直接断凶或定期`,
+      );
+      continue;
+    }
+    if (active) {
+      conditions.push(
+        `${label}发动；仅在其确能克到用神时才构成当前之病，可候制忌、冲去克神或扶起用神，不能把忌神发动日直接当应期`,
+      );
+    }
+    if (restrained) {
+      conditions.push(
+        `${label}自身见空破墓绝、回头克、化泄耗或化退等削弱条件；这可能减轻其克用，出空填实、冲墓或得生反可能恢复为忌，不得把解除忌神限制一律当有利应期`,
+      );
+    }
+    if (hasTimingCondition(reference, /回头冲|日辰冲本爻/)) {
+      conditions.push(
+        `${label}受冲；须结合旺衰、动静、五行生克及冲中逢合辨明是冲动、冲实还是受损，不能先把相冲当作制住忌神`,
+      );
+    }
+    if (
+      active &&
+      (reference.strengthAnalysis?.calendarSupport.some((item) => /^合(?:月建|日辰)$/.test(item)) ??
+        false)
+    ) {
+      conditions.push(
+        `${label}发动而被月日合住；合住可能暂缓克用，后逢冲开反可能成病，不能把冲开一律当作有利触发`,
+      );
+    }
+    if (hasTimingCondition(reference, /月令旺|月建生本爻|日辰生本爻|回头生|化进神/) && !active) {
+      conditions.push(
+        `${label}见旺相、生扶或化进条件；只有忌神实际被引动并克用时才作为病，不因单项得力直接补造日期`,
+      );
+    }
+  }
+  return Array.from(new Set(conditions));
+}
+
+function buildRoleTimingFact(
+  role: '用神' | '原神' | '忌神',
+  chainItem: LiuyaoGodChainItem | undefined,
+  selectionFact: LiuyaoUsefulGodSelectionFact,
+): LiuyaoTimingFact | null {
+  if (!chainItem?.references.length) return null;
+  const conditions =
+    role === '忌神'
+      ? buildTabooTimingConditions(chainItem.references)
+      : buildUsefulOrSourceTimingConditions(role, chainItem.references);
+  if (!conditions.length) return null;
+  const hasConstraint = chainItem.references.some(hasMaterialTimingConstraint);
+  const type: LiuyaoTimingFact['type'] =
+    role === '忌神'
+      ? '忌神制化'
+      : role === '原神'
+        ? '原神病药'
+        : chainItem.references.some((item) => item.source === '伏神')
+          ? '伏神透出'
+          : '用神病药';
+  const effect: LiuyaoTimingFact['effect'] =
+    role === '忌神' ? '制忌待辨' : hasConstraint ? '受制待解' : '助用待验';
+  return {
+    key: `liuyao:timing:role:${role}`,
+    type,
+    sourceStatus: '由盘面生成',
+    role,
+    effect,
+    ownerFactKeys: Array.from(
+      new Set([
+        selectionFact.key,
+        chainItem.key,
+        ...chainItem.references
+          .filter((item) => item.source !== '月建' && item.source !== '日辰')
+          .map((item) => item.factKey),
+      ]),
+    ),
+    referenceKeys: chainItem.referenceKeys,
+    promptText: `${role}${role === '忌神' ? '制化辨向' : '病药条件'}：${conditions.join('；')}`,
+    sources: [
+      '《增删卜易·元神忌神衰旺章、日辰章、进神退神章、各门类应期总注》',
+      `当前${role}作用链对应爻、月日与动变条件`,
+    ],
+    limitation: TIMING_FACT_LIMITATION,
+  };
+}
+
+function buildMovingTimingFact(
+  lineFacts: LiuyaoLineFact[],
+  godChain: LiuyaoGodChainItem[],
+  selectionFact: LiuyaoUsefulGodSelectionFact,
+): LiuyaoTimingFact | null {
+  const moving = lineFacts.filter((item) => item.activity === '明动');
+  if (!moving.length) return null;
+  const detail = moving.map((item) => {
+    const referenceKey = `liuyao:reference:line:${item.position}`;
+    const roles = godChain
+      .filter((chainItem) => chainItem.referenceKeys.includes(referenceKey))
+      .map((chainItem) => chainItem.role);
+    const roleText =
+      selectionFact.status === '已选定候选'
+        ? roles.length
+          ? `，作用链角色${roles.join('、')}`
+          : '，作用链外仅作变化点'
+        : '，用神爻位尚未闭合，仅作变化点';
+    return `第${item.position}爻${item.sixRelative}${formatNaJia(item.najia.stem, item.najia.branch)}发动${item.changedYao ? `化${item.changedYao.sixRelative}${formatNaJia(item.changedYao.stem, item.changedYao.branch)}` : ''}${roleText}`;
+  });
+  return {
+    key: 'liuyao:timing:changing-lines',
+    type: '动爻触发',
+    sourceStatus: '由盘面生成',
+    role: selectionFact.status === '已选定候选' ? '整卦' : '未定',
+    effect: '变化点待回扣',
+    ownerFactKeys: moving.map((item) => item.key),
+    referenceKeys: moving.map((item) => `liuyao:reference:line:${item.position}`),
+    promptText: `动爻作用：${detail.join('；')}；动爻只表示变化来源，须按用神、原神、忌神角色及实际生克回扣，不凭爻位或动爻数量定应期`,
+    sources: ['当前逐爻明动、本位变爻与用原忌作用链对应关系'],
+    limitation: TIMING_FACT_LIMITATION,
+  };
 }
 
 function buildGenerationFact(data: LiuyaoData): LiuyaoGenerationFact {
@@ -623,7 +892,6 @@ interface LiuyaoReferenceGroups {
   changed: LiuyaoYaoReference[];
   calendar: LiuyaoYaoReference[];
   hidden: LiuyaoYaoReference[];
-  all: LiuyaoYaoReference[];
 }
 
 function buildReferenceGroups(
@@ -652,7 +920,6 @@ function buildReferenceGroups(
     changed,
     calendar,
     hidden,
-    all: [...visible, ...changed, ...calendar, ...hidden],
   };
 }
 
@@ -1278,7 +1545,10 @@ function buildCalculationSteps(params: {
       promptText: params.godChain.length
         ? `按已明确的用神六亲五行建立${params.godChain.map((item) => item.role).join('、')}作用链`
         : '当前用神六亲尚未明确或各层均无匹配，未强定原神、忌神与仇神',
-      sources: ['已明确的用神六亲五行与五行生克关系', '本卦、变爻、月日与伏神逐项五行匹配'],
+      sources: [
+        '已明确的用神六亲五行与五行生克关系',
+        '本卦、月日与伏神逐项五行匹配；变爻仅回头作用本位动爻',
+      ],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
@@ -1404,8 +1674,8 @@ function buildLimitationFacts(params: {
         ...params.timingFacts.map((item) => item.key),
       ],
       promptText:
-        '空亡、月破、日破、休囚死、入墓、回头克冲、化空化退等反证须与支持证据并列；应期只保留触发条件，未给期限时不得换算唯一日期或事件概率',
-      sources: ['候选反证汇总、逐项应期触发与期限边界'],
+        '空亡、月破、日破、休囚死、入墓、回头克冲、化空化退等条件须与支持证据并列；应期先按用神、原神、忌神辨明病药方向，同一出空、填实、冲开不得无条件套用，未给期限时不得换算唯一日期或事件概率',
+      sources: ['候选反证汇总、用原忌病药触发与期限边界'],
     },
     {
       key: 'liuyao:limitation:high-risk',
@@ -1435,7 +1705,11 @@ export function analyzeLiuyaoEvidence(
   const monthBranch = branchOf(data.ganzhi.month);
   const dayBranch = branchOf(data.ganzhi.day);
   const referenceGroups = buildReferenceGroups(data, monthBranch, dayBranch);
-  const references = referenceGroups.all;
+  const directlyActingReferences = [
+    ...referenceGroups.visible,
+    ...referenceGroups.calendar,
+    ...referenceGroups.hidden,
+  ];
   const lineFacts = buildLineFacts(data, monthBranch, dayBranch);
   const hiddenSpiritFacts = buildHiddenSpiritFacts(data);
   const lineCoverageFact = buildLineCoverageFact(lineFacts);
@@ -1559,7 +1833,7 @@ export function analyzeLiuyaoEvidence(
         ? [selectedReference]
         : role === '用神' && soleUsefulGodCandidate
           ? soleUsefulGodCandidate.references
-          : references.filter((item) => item.wuxing === wuxing);
+          : directlyActingReferences.filter((item) => item.wuxing === wuxing);
     return {
       key: `liuyao:god-chain:${role}`,
       role,
@@ -1572,7 +1846,7 @@ export function analyzeLiuyaoEvidence(
       sources: [
         '当前已明确的用神六亲五行',
         '五行生克公共关系',
-        '本卦、变爻、月日与伏神五行逐项匹配',
+        '本卦、月日与伏神五行逐项匹配；变爻仅回头作用本位动爻',
       ],
       limitation: GOD_CHAIN_FACT_LIMITATION,
     };
@@ -1619,41 +1893,33 @@ export function analyzeLiuyaoEvidence(
   });
   const randomFacts = formatLegacyRandomFacts(randomFact);
   const timingFacts: LiuyaoTimingFact[] = [];
-  lineFacts
-    .filter((item) => item.activity === '明动')
-    .forEach((item) =>
-      timingFacts.push({
-        key: `liuyao:timing:changing-line:${item.position}`,
-        type: '动爻触发',
-        sourceStatus: '由盘面生成',
-        ownerFactKeys: [item.key],
-        promptText: `第${item.position}爻${item.sixRelative}${formatNaJia(item.najia.stem, item.najia.branch)}发动${item.changedYao ? `化${item.changedYao.sixRelative}${formatNaJia(item.changedYao.stem, item.changedYao.branch)}` : ''}`,
-        sources: ['当前逐爻明动与变爻事实'],
-        limitation: TIMING_FACT_LIMITATION,
-      }),
-    );
-  if (data.voidBranches?.length) {
+  const movingTimingFact = buildMovingTimingFact(lineFacts, godChain, selectionFact);
+  if (movingTimingFact) timingFacts.push(movingTimingFact);
+  if (selectionFact.status === '已选定候选') {
+    for (const role of ['用神', '原神', '忌神'] as const) {
+      const fact = buildRoleTimingFact(
+        role,
+        godChain.find((item) => item.role === role),
+        selectionFact,
+      );
+      if (fact) timingFacts.push(fact);
+    }
+  } else {
     timingFacts.push({
-      key: 'liuyao:timing:void',
-      type: '空亡填实',
-      sourceStatus: '由盘面生成',
-      ownerFactKeys: [
-        ...lineFacts.filter((item) => item.isVoid).map((item) => item.key),
-        ...hiddenSpiritFacts.filter((item) => item.isVoid).map((item) => item.key),
-      ],
-      promptText: `空亡${data.voidBranches.join('、')}须待出空、冲实或透出再验`,
-      sources: ['日柱旬空地支', '本卦与伏神空亡标记'],
-      limitation: TIMING_FACT_LIMITATION,
-    });
-  }
-  if (hiddenSpiritFacts.length) {
-    timingFacts.push({
-      key: 'liuyao:timing:hidden-spirit',
-      type: '伏神透出',
-      sourceStatus: '由盘面生成',
-      ownerFactKeys: hiddenSpiritFacts.map((item) => item.key),
-      promptText: '伏神须待透出、飞神受冲或得月日生扶再验',
-      sources: ['伏神与飞神配对事实', '伏神透出及得助触发口径'],
+      key: 'liuyao:timing:selection-boundary',
+      type: '取用边界',
+      sourceStatus: '统一边界',
+      role: '未定',
+      effect: '解释边界',
+      ownerFactKeys: [selectionFact.key, ...selectionFact.candidateKeys],
+      referenceKeys: candidates.flatMap((item) => item.referenceKeys),
+      promptText:
+        selectionFact.status === '用神爻位待择'
+          ? `用神六亲虽已确定为${selectionFact.targetRelative ?? '未定'}，但同层多现且爻位待择；未闭合唯一用神前，不把任一候选的空破合冲单独换成应期`
+          : selectionFact.status === '缺少可用候选'
+            ? `当前盘面各层未找到${selectionFact.targetRelative ?? '所问事项'}用神；缺少用神时不以世应、动爻、空亡或伏神替代并补造应期`
+            : '当前问题关系不足，尚未确定用神六亲；动爻、空亡、月破、伏神与反吟伏吟只能保留为盘面事实，不能先套应期公式',
+      sources: ['当前用神选择状态与候选层级核验'],
       limitation: TIMING_FACT_LIMITATION,
     });
   }
@@ -1663,9 +1929,13 @@ export function analyzeLiuyaoEvidence(
       key: 'liuyao:timing:fanfu',
       type: '反吟伏吟节奏',
       sourceStatus: '由盘面生成',
+      role: '整卦',
+      effect: '节奏边界',
       ownerFactKeys: fanfuFacts.map((item) => item.key),
-      promptText: `反吟伏吟只提示反复、停滞或原地重复的传统节奏，须由现实进展复核`,
-      sources: ['当前反吟伏吟结构事实'],
+      referenceKeys: [],
+      promptText:
+        '反吟伏吟只保留反复、往返或停滞的传统节奏；实际应期仍回到已定用神的病药，不能把反吟伏吟本身换算日期',
+      sources: ['当前反吟伏吟结构事实', '《增删卜易·反伏章、各门类应期总注》'],
       limitation: TIMING_FACT_LIMITATION,
     });
   }
@@ -1674,9 +1944,13 @@ export function analyzeLiuyaoEvidence(
       key: 'liuyao:timing:static',
       type: '静卦边界',
       sourceStatus: '由盘面生成',
+      role: selectionFact.status === '已选定候选' ? '整卦' : '未定',
+      effect: '节奏边界',
       ownerFactKeys: lineFacts.map((item) => item.key),
-      promptText: '静卦先看世应用神与月日旺衰，不补造动爻触发或绝对日期',
-      sources: ['当前六爻动静状态'],
+      referenceKeys: lineFacts.map((item) => `liuyao:reference:line:${item.position}`),
+      promptText:
+        '静卦不补造动爻触发；只有已定用神有气且无关键受制时，才把逢值或日冲列为候选，衰静日冲可能成破',
+      sources: ['当前六爻动静状态', '《增删卜易·日辰章、各门类应期总注》'],
       limitation: TIMING_FACT_LIMITATION,
     });
   }
@@ -1684,7 +1958,10 @@ export function analyzeLiuyaoEvidence(
     key: 'liuyao:timing:deadline-boundary',
     type: '期限边界',
     sourceStatus: '统一边界',
+    role: '整卦',
+    effect: '解释边界',
     ownerFactKeys: [],
+    referenceKeys: [],
     promptText: '未给现实期限时，不把爻位、地支序、卦数或旬空机械换算成唯一日期',
     sources: ['盘内触发条件与现实日期分离原则'],
     limitation: TIMING_FACT_LIMITATION,
@@ -1692,7 +1969,9 @@ export function analyzeLiuyaoEvidence(
   const timingConditions = timingFacts.map((item) => item.promptText);
   const timingSummaryFact: LiuyaoTimingSummaryFact = {
     key: 'liuyao:timing-summary',
-    status: timingFacts.some((item) => !['静卦边界', '期限边界'].includes(item.type))
+    status: timingFacts.some((item) =>
+      ['用神病药', '原神病药', '忌神制化', '伏神透出', '空亡填实'].includes(item.type),
+    )
       ? '已提供触发条件'
       : '仅有边界',
     factKeys: timingFacts.map((item) => item.key),
