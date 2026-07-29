@@ -30,7 +30,7 @@ function createPillars(year: string, month: string, day: string, hour: string): 
   };
 }
 
-test('魁罡外格标记也须服从月令用舍前提', () => {
+test('魁罡被《子平真诠》本章明确不取，不再进入正式格局标记', () => {
   const eligible = determinePattern(
     createPillars('壬子', '辛亥', '壬辰', '庚子'),
     '平衡',
@@ -42,7 +42,7 @@ test('魁罡外格标记也须服从月令用舍前提', () => {
     getTenGod,
   );
 
-  assert.equal(eligible.isKuiGang, true);
+  assert.equal(eligible.isKuiGang, false);
   assert.equal(monthUseAlreadyAvailable.isKuiGang, false);
 });
 
@@ -1468,7 +1468,7 @@ test('亥卯未木局成势且月令司权同党时，不应因未中副气而�
   assert.match(result.basis || '', /局外未见明透或本气破格/);
 });
 
-test('巳酉丑金局成势且月令司权异党时，不应因丑中一点印星而漏判从格', () => {
+test('从杀见丑中印星即保留不从反证，不以会局掩盖印星', () => {
   const pillars: Pillars = {
     year: { gan: '辛', zhi: '酉', ganZhi: '辛酉' },
     month: { gan: '己', zhi: '丑', ganZhi: '己丑' },
@@ -1478,10 +1478,33 @@ test('巳酉丑金局成势且月令司权异党时，不应因丑中一点印�
 
   const result = determinePattern(pillars, '极弱', getTenGod, '己');
 
-  assert.equal(result.isSpecial, true);
-  // 从格已细分为从财格/从杀格/从儿格/从势格，此局金旺克甲木为官杀，应为从杀格
-  assert.match(result.pattern, /^从(财|杀|儿|势|格)格?$/);
-  assert.match(result.basis || '', /局外未见明透或本气扶身/);
+  assert.equal(result.isSpecial, false);
+  assert.doesNotMatch(result.pattern, /^从/);
+});
+
+test('从财从杀须排除本章明列的印、官杀或食伤反证', () => {
+  const pureWealth = createPillars('壬子', '壬子', '戊子', '壬子');
+  const wealthWithOfficer = createPillars('庚戌', '戊戌', '甲戌', '戊戌');
+  const wealthWithResidualKiller = createPillars('壬子', '壬子', '戊子', '癸亥');
+  const wealthWithHiddenResource = createPillars('戊辰', '己丑', '甲戌', '己未');
+  const pureKiller = createPillars('辛酉', '辛酉', '乙酉', '辛酉');
+  const killerWithFood = createPillars('丁酉', '辛酉', '乙酉', '辛酉');
+  const killerWithResource = createPillars('癸酉', '辛酉', '乙酉', '辛酉');
+
+  assert.equal(determinePattern(pureWealth, '极弱', getTenGod).pattern, '从财格');
+  assert.notEqual(determinePattern(wealthWithOfficer, '极弱', getTenGod).pattern, '从财格');
+  assert.equal(determinePattern(wealthWithResidualKiller, '极弱', getTenGod).pattern, '从势格');
+
+  const hiddenResourceResult = determinePattern(wealthWithHiddenResource, '极弱', getTenGod);
+  assert.equal(hiddenResourceResult.isSpecial, false);
+  assert.doesNotMatch(hiddenResourceResult.pattern, /^从/);
+
+  assert.equal(determinePattern(pureKiller, '极弱', getTenGod).pattern, '从杀格');
+  assert.notEqual(determinePattern(killerWithFood, '极弱', getTenGod).pattern, '从杀格');
+
+  const resourceResult = determinePattern(killerWithResource, '极弱', getTenGod);
+  assert.equal(resourceResult.isSpecial, false);
+  assert.doesNotMatch(resourceResult.pattern, /^从/);
 });
 
 test('特殊格主气判断不应被任意数值缩放或七成阈值左右', () => {

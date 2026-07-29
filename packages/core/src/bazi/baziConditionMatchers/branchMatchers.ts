@@ -5,6 +5,7 @@ const JIAN_ZHI_REGEX = /见([子丑寅卯辰巳午未申酉戌亥])/;
 const NO_JIAN_ZHI_REGEX = /不见地支([子丑寅卯辰巳午未申酉戌亥])/;
 const DI_ZHI_DUO_REGEX = /地支多([子丑寅卯辰巳午未申酉戌亥])/;
 const DI_ZHI_TWO_REGEX = /地支有两([子丑寅卯辰巳午未申酉戌亥])/;
+const DI_ZHI_EXACT_COUNT_REGEX = /地支([三四])([子丑寅卯辰巳午未申酉戌亥])/;
 
 export const chongMatcher: Matcher = ({ condition, allBranches }) => {
   const match = condition.match(CHONG_REGEX);
@@ -36,6 +37,12 @@ export const diZhiDuoMatcher: Matcher = ({ condition, allBranches }) => {
       allBranches.filter((branch) => branch === '子').length >= 2 &&
       allBranches.filter((branch) => branch === '午').length >= 2
     );
+  }
+
+  const exactCountMatch = condition.match(DI_ZHI_EXACT_COUNT_REGEX);
+  if (exactCountMatch) {
+    const expectedCount = exactCountMatch[1] === '四' ? 4 : 3;
+    return allBranches.filter((branch) => branch === exactCountMatch[2]).length >= expectedCount;
   }
 
   const match = condition.match(DI_ZHI_DUO_REGEX) || condition.match(DI_ZHI_TWO_REGEX);

@@ -163,7 +163,16 @@ function generateClassicPatternSection(chartResult: BaziChartResult): string {
 
   if (!classicPattern) return '';
 
-  return `【经典外格】${classicPattern.name}（传统等级参考：${classicPattern.level}，以成败条件裁定） | 取用前提：月令本气与日主同类，未另取到透干或会支之用，且干头无财官七杀 | ${toClassicPatternPromptDescription(classicPattern.description)}`;
+  const title =
+    classicPattern.sourceRole === '《子平真诠》杂格候选'
+      ? '《子平真诠》杂格候选'
+      : '其他古籍外格名目参考';
+  const eligibilityBoundary =
+    classicPattern.sourceRole === '《子平真诠》杂格候选'
+      ? '共同边界：干头见官杀即不取；财透两位或单财有根时以财为重，只有单一无根财透不直接阻断；月令另有透干或会支之用仍须优先复核'
+      : '来源边界：只按所引古籍保留结构名目，并服从月令无用、干头无财官杀的严格外格前提；不得冒充《子平真诠》本章认可的正式杂格';
+
+  return `【${title}】${classicPattern.name} | 来源：${classicPattern.source.title} | ${eligibilityBoundary} | ${toClassicPatternPromptDescription(classicPattern.description)}`;
 }
 
 /**

@@ -244,7 +244,7 @@ export interface PatternAnalysis {
   pattern: string;
   isSpecial: boolean;
   basis?: string;
-  /** 魁罡日（日柱庚辰/壬辰/戊戌/庚戌为外格，《三命通会》） */
+  /** @deprecated 《子平真诠》“论杂格”不取魁罡，正式格局管道固定为 false。 */
   isKuiGang?: boolean;
 }
 

@@ -5,7 +5,6 @@ import {
   getRepresentativeStemByWuxing,
   type CompleteBranchFormation,
 } from './baziFormationUtils';
-import { canUseExternalPattern } from './baziExternalPatternEligibility';
 import { analyzeBladePatternStructure } from './baziBladePattern';
 import { analyzeLuPatternStructure } from './baziLuPattern';
 import { analyzeHurtPatternStructure } from './baziHurtPattern';
@@ -2372,7 +2371,8 @@ const SUB_PATTERN_CATEGORY_TO_LABEL: Record<string, string> = {
 
 /**
  * 从格细分：根据明透、本气与已成立会合局的类别是否纯一，判断从财/从杀/从儿。
- * 类别混杂时保守返回从势格，不按自定义分数或比例选出单一类别。
+ * 从财另须排除中余气官杀，从杀另须排除中余气食伤；类别混杂时保守返回从势格，
+ * 不按自定义分数或比例选出单一类别。
  */
 function resolveSubPattern(pillars: Pillars, dayMaster: string, getTenGod: GetTenGodFn): string {
   const directCategories = new Set<string>();
@@ -2407,6 +2407,17 @@ function resolveSubPattern(pillars: Pillars, dayMaster: string, getTenGod: GetTe
 
   if (directCategories.size !== 1) return '从势格';
   const [category] = directCategories;
+
+  const allHiddenGods = Object.values(pillars).flatMap((pillar) =>
+    (HIDDEN_STEMS[pillar.zhi] || []).map((stem) => getTenGod(stem, dayMaster)),
+  );
+  if (category === 'wealth' && allHiddenGods.some((god) => god === '正官' || god === '七杀')) {
+    return '从势格';
+  }
+  if (category === 'officer' && allHiddenGods.some((god) => god === '食神' || god === '伤官')) {
+    return '从势格';
+  }
+
   return SUB_PATTERN_CATEGORY_TO_LABEL[category] || '从势格';
 }
 
@@ -2452,10 +2463,9 @@ export function determinePattern(
       specialPatternForce.hasSamePartyFormation);
   const canTreatAsSpecialWeak =
     specialPatternForce.samePartyExposedCount === 0 &&
-    specialPatternForce.samePartyPrincipalInsideFormationCount <= 1 &&
+    specialPatternForce.samePartyPrincipalInsideFormationCount === 0 &&
     specialPatternForce.samePartyPrincipalOutsideFormationCount === 0 &&
-    (specialPatternForce.samePartyResidualPositions.size <= 1 ||
-      specialPatternForce.hasOppositePartyFormation);
+    specialPatternForce.samePartyResidualPositions.size === 0;
 
   if (
     strengthStatus === '极强' &&
@@ -2719,9 +2729,8 @@ export function determinePattern(
     pattern: patternName || '杂气格',
     isSpecial: false,
     basis,
-    // 魁罡属于外格名目；月令已有用神或干头已有财官七杀时，不进入正式格局字段。
-    isKuiGang:
-      canUseExternalPattern(pillars, getTenGod) &&
-      ['庚辰', '壬辰', '戊戌', '庚戌'].includes(pillars.day.gan + pillars.day.zhi),
+    // 《子平真诠》“论杂格”明确把魁罡列为“既置勿取”，不再写入正式格局标记。
+    // 其他古籍若需保留该名目，应另以带来源的参考事实表达，不能混入月令格局字段。
+    isKuiGang: false,
   };
 }
