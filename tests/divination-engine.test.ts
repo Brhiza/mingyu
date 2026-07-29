@@ -345,6 +345,35 @@ test('六爻页面资料与摘要应重算动静结构并忽略派生字段污�
   assert.doesNotMatch([info, ...summary.lines].join('\n'), /伪造|乾卦用九|全动卦|乱动结论/);
 });
 
+test('六爻页面资料应显示月卦身不入卦与同支多现，并忽略派生字段污染', () => {
+  const date = new Date('2025-01-01T08:00:00+08:00');
+  const qian = generateLiuyao(date, {
+    method: 'manual',
+    yaos: [7, 7, 7, 7, 7, 7],
+  });
+  const lin = generateLiuyao(date, {
+    method: 'manual',
+    yaos: [7, 7, 8, 8, 8, 8],
+  });
+  const tamperedQian = {
+    ...qian,
+    guaShen: {
+      branch: '伪',
+      status: '入卦' as const,
+      matches: [{ position: 1, sixRelative: '伪造六亲' }],
+      position: 1,
+      sixRelative: '伪造六亲',
+    },
+    evidenceAnalysis: undefined,
+  };
+  const qianText = formatDivinationInfo('liuyao', tamperedQian, '');
+  const linText = formatDivinationInfo('liuyao', lin, '');
+
+  assert.match(qianText, /月卦身为巳.+不入卦/);
+  assert.doesNotMatch(qianText, /月卦身为伪|伪造六亲/);
+  assert.match(linText, /月卦身为丑，入卦于第3、4爻/);
+});
+
 test('六爻页面资料只输出满足边界的三刑结构，不附加强现实类象', () => {
   const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
     method: 'manual',

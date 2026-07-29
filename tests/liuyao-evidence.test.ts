@@ -963,7 +963,7 @@ test('六爻结构事实应重新计算动静与三合并忽略旧派生字段',
 
   assert.deepEqual(
     new Set(evidence.structureFacts.map((item) => item.kind)),
-    new Set(['整卦六合六冲', '反吟伏吟', '动静结构', '卦内三合']),
+    new Set(['整卦六合六冲', '反吟伏吟', '动静结构', '月卦身', '卦内三合']),
   );
   const activityFact = evidence.structureFacts.find((item) => item.kind === '动静结构');
   assert.equal(activityFact?.activityPattern, '多爻发动');
@@ -996,6 +996,37 @@ test('六爻结构事实应重新计算动静与三合并忽略旧派生字段',
     ),
   );
   assert.ok(evidence.timingFacts.some((item) => item.type === '反吟伏吟节奏'));
+});
+
+test('六爻证据应从日干与本卦重算六神、月卦身并忽略伪造派生字段', () => {
+  const data = generateLiuyao(fixedDate, { method: 'manual', yaos: [7, 7, 8, 8, 8, 8] });
+  assert.equal(data.originalName, '地泽临');
+  const current = analyzeLiuyaoEvidence({ ...data, evidenceAnalysis: undefined });
+  const tampered = analyzeLiuyaoEvidence({
+    ...data,
+    sixGods: Array.from({ length: 6 }, () => '伪造六神'),
+    guaShen: {
+      branch: '伪',
+      status: '入卦',
+      matches: [{ position: 1, sixRelative: '伪造六亲' }],
+      position: 1,
+      sixRelative: '伪造六亲',
+    },
+    yaosDetail: data.yaosDetail.map((item) => ({ ...item, sixGod: '伪造六神' })),
+    evidenceAnalysis: undefined,
+  });
+
+  assert.deepEqual(
+    tampered.lineFacts.map((item) => item.sixGod),
+    current.lineFacts.map((item) => item.sixGod),
+  );
+  const currentGuaShen = current.structureFacts.find((item) => item.kind === '月卦身');
+  const tamperedGuaShen = tampered.structureFacts.find((item) => item.kind === '月卦身');
+  assert.deepEqual(tamperedGuaShen, currentGuaShen);
+  assert.equal(tamperedGuaShen?.guaShenBranch, '丑');
+  assert.equal(tamperedGuaShen?.guaShenStatus, '入卦');
+  assert.deepEqual(tamperedGuaShen?.guaShenPositions, [3, 4]);
+  assert.doesNotMatch(tampered.promptText, /伪造六神|伪造六亲|月卦身为伪/);
 });
 
 test('六爻结构事实应重算三刑、回指参与爻并忽略旧派生字段', () => {

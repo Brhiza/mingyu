@@ -400,6 +400,26 @@ export interface LiuyaoActivityPattern {
   guidance: string;
 }
 
+export type LiuyaoMonthGuaShenStatus = '入卦' | '不入卦';
+
+export interface LiuyaoMonthGuaShenMatch {
+  position: number;
+  sixRelative: string;
+  najiaTiangan?: string;
+}
+
+export interface LiuyaoMonthGuaShenAnalysis {
+  /** 按世爻阴阳与爻位推得的月卦身地支；即使不入本卦也必须保留。 */
+  branch: string;
+  status: LiuyaoMonthGuaShenStatus;
+  /** 本卦中所有同支爻位；同一月卦身可能同时临两爻。 */
+  matches: LiuyaoMonthGuaShenMatch[];
+  /** @deprecated 旧版单一命中兼容字段；新代码使用 matches。 */
+  sixRelative?: string;
+  /** @deprecated 旧版单一命中兼容字段；新代码使用 matches。 */
+  position?: number;
+}
+
 export interface MeihuaYaoDetail extends BaseYaoDetail {
   tiYong: '体' | '用';
 }
@@ -495,12 +515,8 @@ export interface LiuyaoData extends BaseHexagramData {
   sanheFormations?: LiuyaoSanheFormation[];
   /** 卦内已满足支组与发动条件的三刑结构；旧结果可能只有 branches/type。 */
   sanxingInYaos?: LiuyaoSanxingFormation[];
-  /** 卦神（卦身）信息 */
-  guaShen?: {
-    branch: string;
-    sixRelative: string;
-    position: number;
-  } | null;
+  /** 月卦身；新结果即使不入本卦也保留地支与“不入卦”状态。 */
+  guaShen?: LiuyaoMonthGuaShenAnalysis | null;
 }
 
 export interface MeihuaCalculation {

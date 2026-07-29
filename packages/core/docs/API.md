@@ -140,7 +140,7 @@
 | `interName` | `string` | 互卦名 |
 | `yaoArray` | `number[]` | 六爻数值（6/7/8/9，老阴老阳少阴少阳） |
 | `changingYaos` | `Array<{position,isChanging,type}>` | 动爻 |
-| `sixGods` | `string[]` | 六神（青龙/朱雀/勾陈/螣蛇/白虎/玄武） |
+| `sixGods` | `string[]` | 六神（按起卦日干起例，从初爻至上爻排列青龙/朱雀/勾陈/螣蛇/白虎/玄武） |
 | `sixRelatives` | `string[]` | 六亲（父母/兄弟/子孙/妻财/官鬼） |
 | `najiaDizhi` | `string[]` | 纳甲地支 |
 | `wuxing` | `string[]` | 各爻五行 |
@@ -158,6 +158,7 @@
 | `sanheWithMonth` | `{group,members,description,formationKey?,status?,participants?,issues?}?` | 由完整三合结构派生的月建补局兼容字段 |
 | `sanheFormations` | `LiuyaoSanheFormation[]?` | 三爻齐动、两动一静、初三/四六爻动变、日月补局及虚一待用；保存参与爻、缺支和空破墓待值状态 |
 | `sanxingInYaos` | `LiuyaoSanxingFormation[]?` | 满足完整支组与发动条件的卦内三刑结构，含类型、参与爻、活动状态、世应标记与活动爻位 |
+| `guaShen` | `LiuyaoMonthGuaShenAnalysis?` | 月卦身地支、入卦状态与全部同支爻位；不入卦时仍保留地支，同支两现时不只取第一爻 |
 | `evidenceAnalysis` | `LiuyaoEvidenceAnalysis?` | 分层用神、作用链、逐引用有力/无力条件、活动状态、反证与病药应期证据 |
 | `ganzhi` | `BaseGanZhi` | 起卦时间干支 |
 | `timestamp` | `number` | 时间戳 |
@@ -167,6 +168,8 @@
 `analyzeLiuyaoSanxingFormations(yaosDetail, monthBranch, dayBranch)` 从本卦六爻重算三刑。寅巳申、丑戌未须三支齐备且至少两个不同爻位明动或暗动；子卯相刑须两支齐备且至少一爻发动；辰午酉亥自刑须同支出现两次且至少一爻发动。变爻不跨位加入三刑，静爻同盘、三支不全或发动不足均不登记为成立事实；结果只保存结构及参与爻，不直接裁成纠纷或吉凶。
 
 `analyzeLiuyaoActivityPattern(yaoArray, originalName?)` 从六个原始爻值重算动静结构：0 动为静卦、1 动为独发、5 动为独静、6 动为全动，2 至 4 动只登记多爻发动，不硬设“乱动”阈值。乾坤全动时分别保留用九、用六为《周易》经文参考，但不得替代纳甲体系中的用神、月日、世应与动变生克分析。`specialPattern`、`specialAdvice`、`isChaotic`、`chaoticReason` 仅为旧版兼容字段，证据分析不采信这些派生值。
+
+`analyzeLiuyaoMonthGuaShen(yaosDetail)` 按“阳世从子、阴世从午，自初爻数至世爻”重算月卦身。月卦身先定地支，再核对是否落入本卦；`status='不入卦'` 时仍保留 `branch`，同支两现时 `matches` 保存全部爻位。`position`、`sixRelative` 只作为旧版首个命中的兼容字段，证据分析不采信传入的 `guaShen` 派生值。
 
 `analyzeLiuyaoEvidence(data, options?)` 的 `godChain[].effectFacts` 按每个用神、原神、忌神引用返回 `activity`、`supportingConditions`、`blockingConditions` 与条件并见状态。静爻旺相只表示得时，不等于已经生用或克用；原忌同动、忌仇同动只按重算后的明动或暗动成立，条件数量不能换算最终有效性、吉凶或概率。
 

@@ -361,9 +361,8 @@ function formatLiuyaoInfo(
     .map((item) => item.promptText);
   const sanxingDetail = sanxingParts.length ? `三刑结构：${sanxingParts.join('；')}` : null;
   const activityFact = evidenceAnalysis.structureFacts.find((item) => item.kind === '动静结构');
-  const guaShenDetail = data.guaShen
-    ? `卦身：月卦身在${data.guaShen.branch}，${data.guaShen.sixRelative}临第${data.guaShen.position}爻`
-    : null;
+  const guaShenFact = evidenceAnalysis.structureFacts.find((item) => item.kind === '月卦身');
+  const guaShenDetail = guaShenFact ? `卦身：${guaShenFact.promptText}` : null;
   const worldSymbol = worldYao
     ? evidenceAnalysis.traditionalSymbols.find((item) => item.relative === worldYao.sixRelative)
     : undefined;

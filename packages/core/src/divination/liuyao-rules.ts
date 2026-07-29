@@ -16,6 +16,7 @@ import type {
   LiuyaoHiddenSpirit,
   LiuyaoHiddenSpiritConditionAnalysis,
   LiuyaoLineStrengthAnalysis,
+  LiuyaoMonthGuaShenAnalysis,
   LiuyaoSanheFormation,
   LiuyaoSanheParticipant,
   LiuyaoSanhePattern,
@@ -26,6 +27,87 @@ import type {
 } from '../types/divination';
 
 const LIUYAO_ELEMENTS = new Set(['木', '火', '土', '金', '水']);
+
+const SHI_YANG_TO_GUA_SHEN: Record<number, string> = {
+  1: '子',
+  2: '丑',
+  3: '寅',
+  4: '卯',
+  5: '辰',
+  6: '巳',
+};
+
+const SHI_YIN_TO_GUA_SHEN: Record<number, string> = {
+  1: '午',
+  2: '未',
+  3: '申',
+  4: '酉',
+  5: '戌',
+  6: '亥',
+};
+
+/** 《卜筮全书·起月卦身诀》：阳世从子、阴世从午，自初爻数至世爻。 */
+export function getLiuyaoGuaShenBranch(shiPosition: number, shiYaoIsYang: boolean): string {
+  if (!Number.isInteger(shiPosition) || shiPosition < 1 || shiPosition > 6) {
+    throw new Error(`六爻世爻位置无效：${shiPosition}`);
+  }
+  if (typeof shiYaoIsYang !== 'boolean') {
+    throw new Error('六爻世爻阴阳标记必须是布尔值');
+  }
+  const branch = (shiYaoIsYang ? SHI_YANG_TO_GUA_SHEN : SHI_YIN_TO_GUA_SHEN)[shiPosition];
+  if (!branch) {
+    throw new Error(`六爻月卦身资料缺失：世爻${shiPosition}，${shiYaoIsYang ? '阳' : '阴'}`);
+  }
+  return branch;
+}
+
+/**
+ * 从完整本卦重算月卦身，并保留不入卦及同支多现状态。
+ *
+ * 月卦身先由世爻阴阳与爻位定支，再查本卦同支爻位；“不入卦”不等于没有月卦身，
+ * 同支两现时也不得只取数组中的第一爻。
+ */
+export function analyzeLiuyaoMonthGuaShen(
+  yaosDetail: readonly LiuyaoYaoDetail[],
+): LiuyaoMonthGuaShenAnalysis {
+  if (
+    yaosDetail.length !== 6 ||
+    new Set(yaosDetail.map((item) => item.position)).size !== 6 ||
+    yaosDetail.some(
+      (item) =>
+        !Number.isInteger(item.position) ||
+        item.position < 1 ||
+        item.position > 6 ||
+        !BRANCH_ORDER.includes(item.najiaDizhi),
+    )
+  ) {
+    throw new Error('六爻月卦身需要初爻至上爻六个有效本卦爻位。');
+  }
+  const worldYaos = yaosDetail.filter((item) => item.isWorld);
+  if (worldYaos.length !== 1) {
+    throw new Error(`六爻月卦身需要唯一世爻，实际 ${worldYaos.length} 个。`);
+  }
+  const worldYao = worldYaos[0];
+  if (worldYao.yaoType !== '阳' && worldYao.yaoType !== '阴') {
+    throw new Error(`六爻世爻资料缺失：第${worldYao.position}爻`);
+  }
+  const branch = getLiuyaoGuaShenBranch(worldYao.position, worldYao.yaoType === '阳');
+  const matches = yaosDetail
+    .filter((item) => item.najiaDizhi === branch)
+    .sort((left, right) => left.position - right.position)
+    .map((item) => ({
+      position: item.position,
+      sixRelative: item.sixRelative,
+      ...(item.najiaTiangan ? { najiaTiangan: item.najiaTiangan } : {}),
+    }));
+  const firstMatch = matches[0];
+  return {
+    branch,
+    status: matches.length ? '入卦' : '不入卦',
+    matches,
+    ...(firstMatch ? { position: firstMatch.position, sixRelative: firstMatch.sixRelative } : {}),
+  };
+}
 
 /**
  * 从原始爻值重算明动结构。

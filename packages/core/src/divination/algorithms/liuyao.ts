@@ -33,6 +33,7 @@ import {
   analyzeLiuyaoActivityPattern,
   analyzeLiuyaoHiddenSpiritConditions,
   analyzeLiuyaoLineStrength,
+  analyzeLiuyaoMonthGuaShen,
   analyzeLiuyaoSanheFormations,
   analyzeLiuyaoSanxingFormations,
   getLiuyaoChangeDirection,
@@ -164,38 +165,6 @@ export function getLiuyaoChangeRelations(
   if (isLiuhe(originalBranch, changedBranch)) relations.push('化扶');
   if (changedIsVoid) relations.push('化空');
   return relations;
-}
-
-const SHI_YANG_TO_GUA_SHEN: Record<number, string> = {
-  1: '子',
-  2: '丑',
-  3: '寅',
-  4: '卯',
-  5: '辰',
-  6: '巳',
-};
-
-const SHI_YIN_TO_GUA_SHEN: Record<number, string> = {
-  1: '午',
-  2: '未',
-  3: '申',
-  4: '酉',
-  5: '戌',
-  6: '亥',
-};
-
-export function getLiuyaoGuaShenBranch(shiPosition: number, shiYaoIsYang: boolean): string {
-  if (!Number.isInteger(shiPosition) || shiPosition < 1 || shiPosition > 6) {
-    throw new Error(`六爻世爻位置无效：${shiPosition}`);
-  }
-  if (typeof shiYaoIsYang !== 'boolean') {
-    throw new Error('六爻世爻阴阳标记必须是布尔值');
-  }
-  const branch = (shiYaoIsYang ? SHI_YANG_TO_GUA_SHEN : SHI_YIN_TO_GUA_SHEN)[shiPosition];
-  if (!branch) {
-    throw new Error(`六爻月卦身资料缺失：世爻${shiPosition}，${shiYaoIsYang ? '阳' : '阴'}`);
-  }
-  return branch;
 }
 
 /** 判断爻支是否与日辰相冲；日冲还须按动静与旺衰再分暗动、日破。 */
@@ -962,23 +931,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
 
   const sanxingInYaos = analyzeLiuyaoSanxingFormations(yaosDetail, monthBranch, dayBranch);
 
-  // 月卦身（按六爻传统“阳世从子月起，阴世从午月生，从初数至世方真”）：
-  // 阳世：初爻子、二爻丑、三爻寅、四爻卯、五爻辰、六爻巳
-  // 阴世：初爻午、二爻未、三爻申、四爻酉、五爻戌、六爻亥
-  // 世爻的阴阳决定卦身取阳表还是阴表
-  const shiYaoType = mainYaos[shiYing.shi - 1];
-  if (shiYaoType !== '阳' && shiYaoType !== '阴') {
-    throw new Error(`六爻世爻资料缺失：第${shiYing.shi}爻`);
-  }
-  const guaShenBranch = getLiuyaoGuaShenBranch(shiYing.shi, shiYaoType === '阳');
-  const guaShenYao = yaosInfo.find((i) => i.dizhi === guaShenBranch);
-  const guaShen = guaShenYao
-    ? {
-        branch: guaShenBranch,
-        sixRelative: guaShenYao.liuqin,
-        position: yaosInfo.indexOf(guaShenYao) + 1,
-      }
-    : null;
+  const guaShen = analyzeLiuyaoMonthGuaShen(yaosDetail);
 
   const result: LiuyaoData = {
     originalName: mainHexagram.name,
@@ -1031,14 +984,21 @@ export {
   analyzeLiuyaoActivityPattern,
   analyzeLiuyaoHiddenSpiritConditions,
   analyzeLiuyaoLineStrength,
+  analyzeLiuyaoMonthGuaShen,
   analyzeLiuyaoSanheFormations,
   analyzeLiuyaoSanxingFormations,
   getLiuyaoChangeDirection,
   getLiuyaoFlyingHiddenRelation,
+  getLiuyaoGuaShenBranch,
   getLiuyaoTwelveStage,
   isLiuyaoElementInTomb,
 } from '../liuyao-rules';
-export type { LiuyaoLineStrengthAnalysis } from '../../types/divination';
+export type {
+  LiuyaoLineStrengthAnalysis,
+  LiuyaoMonthGuaShenAnalysis,
+  LiuyaoMonthGuaShenMatch,
+  LiuyaoMonthGuaShenStatus,
+} from '../../types/divination';
 export type {
   LiuyaoCounterEvidenceFact,
   LiuyaoCounterSummaryFact,

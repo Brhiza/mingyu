@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert';
 import {
   analyzeLiuyaoActivityPattern,
   analyzeLiuyaoLineStrength,
+  analyzeLiuyaoMonthGuaShen,
   analyzeLiuyaoSanxingFormations,
   generateLiuyao,
   getLiuyaoChangeDirection,
@@ -699,6 +700,62 @@ test('六爻：月卦身应按阳世起子、阴世起午逐爻顺数', () => {
   assert.equal(yinShi.guaShen?.position, 4);
 });
 
+test('六爻：六十四卦月卦身应保留不入卦状态与全部同支爻位', () => {
+  const yangBranches = ['子', '丑', '寅', '卯', '辰', '巳'];
+  const yinBranches = ['午', '未', '申', '酉', '戌', '亥'];
+  let entered = 0;
+  let absent = 0;
+  let multiple = 0;
+
+  for (let mask = 0; mask < 64; mask += 1) {
+    const yaos = Array.from({ length: 6 }, (_, index) => ((mask >> index) & 1 ? 7 : 8));
+    const chart = generateLiuyao(SAMPLE_DATE, { method: 'manual', yaos });
+    const world = chart.yaosDetail.find((item) => item.isWorld);
+    assert.ok(world, `${chart.originalName}缺少世爻`);
+    const expectedBranch = (world.yaoType === '阳' ? yangBranches : yinBranches)[
+      world.position - 1
+    ];
+    const expectedMatches = chart.yaosDetail
+      .filter((item) => item.najiaDizhi === expectedBranch)
+      .sort((left, right) => left.position - right.position);
+    const guaShen = chart.guaShen;
+
+    assert.ok(guaShen, `${chart.originalName}应保留月卦身结果`);
+    assert.equal(guaShen.branch, expectedBranch);
+    assert.equal(guaShen.status, expectedMatches.length ? '入卦' : '不入卦');
+    assert.deepEqual(
+      guaShen.matches.map((item) => item.position),
+      expectedMatches.map((item) => item.position),
+    );
+    assert.equal(guaShen.position, expectedMatches[0]?.position);
+    assert.equal(guaShen.sixRelative, expectedMatches[0]?.sixRelative);
+
+    if (expectedMatches.length) entered += 1;
+    else absent += 1;
+    if (expectedMatches.length > 1) multiple += 1;
+  }
+
+  assert.deepEqual({ entered, absent, multiple }, { entered: 31, absent: 33, multiple: 3 });
+
+  const qian = generateLiuyao(SAMPLE_DATE, {
+    method: 'manual',
+    yaos: [7, 7, 7, 7, 7, 7],
+  });
+  assert.equal(qian.originalName, '乾为天');
+  assert.deepEqual(qian.guaShen, { branch: '巳', status: '不入卦', matches: [] });
+
+  const lin = generateLiuyao(SAMPLE_DATE, {
+    method: 'manual',
+    yaos: [7, 7, 8, 8, 8, 8],
+  });
+  assert.equal(lin.originalName, '地泽临');
+  assert.equal(lin.guaShen?.branch, '丑');
+  assert.deepEqual(
+    lin.guaShen?.matches.map((item) => item.position),
+    [3, 4],
+  );
+});
+
 test('六爻：动变关系与月卦身应拒绝非法资料', () => {
   assert.throws(() => getLiuyaoChangeRelation('', '火', '子', '午', false), /动变五行无效/);
   assert.throws(() => getLiuyaoChangeRelation('水', '火', '无', '午', false), /动变地支无效/);
@@ -709,6 +766,19 @@ test('六爻：动变关系与月卦身应拒绝非法资料', () => {
   assert.throws(() => getLiuyaoGuaShenBranch(0, true), /世爻位置无效/);
   assert.throws(() => getLiuyaoGuaShenBranch(7, false), /世爻位置无效/);
   assert.throws(() => getLiuyaoGuaShenBranch(1, undefined as never), /阴阳标记必须是布尔值/);
+  const validYaos = generateSampleLiuyao().yaosDetail;
+  assert.throws(() => analyzeLiuyaoMonthGuaShen(validYaos.slice(0, 5)), /需要初爻至上爻六个/);
+  assert.throws(
+    () =>
+      analyzeLiuyaoMonthGuaShen(
+        validYaos.map((item, index) => (index === 5 ? { ...item, position: 5 } : item)),
+      ),
+    /需要初爻至上爻六个/,
+  );
+  assert.throws(
+    () => analyzeLiuyaoMonthGuaShen(validYaos.map((item) => ({ ...item, isWorld: false }))),
+    /需要唯一世爻，实际 0 个/,
+  );
   assert.throws(
     () =>
       analyzeLiuyaoSanxingFormations(

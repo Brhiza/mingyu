@@ -5,6 +5,7 @@ import type {
   LiuyaoHiddenSpirit,
   LiuyaoHiddenSpiritConditionAnalysis,
   LiuyaoLineStrengthAnalysis,
+  LiuyaoMonthGuaShenStatus,
   LiuyaoSanhePattern,
   LiuyaoSanheStatus,
   LiuyaoYaoDetail,
@@ -24,10 +25,12 @@ import {
   analyzeLiuyaoActivityPattern,
   analyzeLiuyaoHiddenSpiritConditions,
   analyzeLiuyaoLineStrength,
+  analyzeLiuyaoMonthGuaShen,
   analyzeLiuyaoSanheFormations,
   analyzeLiuyaoSanxingFormations,
   getLiuyaoChangeDirection,
 } from './liuyao-rules';
+import { getSixAnimals } from '../calendar/lunar';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import {
@@ -361,6 +364,7 @@ export interface LiuyaoHexagramStructureFact {
     | '整卦六合六冲'
     | '反吟伏吟'
     | '动静结构'
+    | '月卦身'
     | '卦内三合'
     | '日辰三合'
     | '月建三合'
@@ -376,12 +380,15 @@ export interface LiuyaoHexagramStructureFact {
   movingPositions?: number[];
   stillPositions?: number[];
   scriptureReference?: '乾卦用九' | '坤卦用六';
+  guaShenBranch?: string;
+  guaShenStatus?: LiuyaoMonthGuaShenStatus;
+  guaShenPositions?: number[];
   referenceKeys?: string[];
   missingBranch?: string;
   originalText: string;
   promptText: string;
   sources: string[];
-  limitation: '整卦六合六冲、反吟伏吟、动静结构、三合与三刑只描述已计算的结构及成立条件；必须结合用忌、世爻、旺衰、空破墓与制化辨向，不得直接写成现实和合、冲散、纠纷、成败或固定应期';
+  limitation: '整卦六合六冲、反吟伏吟、动静结构、月卦身、三合与三刑只描述已计算的结构及成立条件；必须结合用忌、世爻、旺衰、空破墓与制化辨向，不得直接写成现实和合、冲散、纠纷、成败或固定应期';
 }
 
 export interface LiuyaoTimingSummaryFact {
@@ -516,7 +523,7 @@ const TIMING_FACT_LIMITATION =
 const TIMING_SUMMARY_LIMITATION =
   '应期汇总只说明当前盘面保存了哪些触发与边界条件；不得按条件数量、爻位或地支序换算固定天数、绝对日期或事件概率' as const;
 const HEXAGRAM_STRUCTURE_FACT_LIMITATION =
-  '整卦六合六冲、反吟伏吟、动静结构、三合与三刑只描述已计算的结构及成立条件；必须结合用忌、世爻、旺衰、空破墓与制化辨向，不得直接写成现实和合、冲散、纠纷、成败或固定应期' as const;
+  '整卦六合六冲、反吟伏吟、动静结构、月卦身、三合与三刑只描述已计算的结构及成立条件；必须结合用忌、世爻、旺衰、空破墓与制化辨向，不得直接写成现实和合、冲散、纠纷、成败或固定应期' as const;
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只证明起卦来源、逐爻、伏神、用神候选、五行作用链、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期' as const;
 const SUMMARY_FACT_LIMITATION =
@@ -1609,7 +1616,12 @@ function buildLineFacts(
   monthBranch: string,
   dayBranch: string,
 ): LiuyaoLineFact[] {
+  const sixGods = getSixAnimals(data.ganzhi.day.slice(0, 1));
   return data.yaosDetail.map((yao) => {
+    const sixGod = sixGods[yao.position - 1];
+    if (!sixGod) {
+      throw new Error(`六爻第${yao.position}爻六神重算失败。`);
+    }
     const reference = buildVisibleReference(yao, monthBranch, dayBranch, data.yaosDetail);
     const strengthAnalysis = reference.strengthAnalysis;
     if (!strengthAnalysis) {
@@ -1669,7 +1681,7 @@ function buildLineFacts(
       : undefined;
     const promptText = [
       `第${yao.position}爻${yao.sixRelative}${formatNaJia(yao.najiaTiangan, yao.najiaDizhi)}${yao.wuxing}`,
-      `六神${yao.sixGod}`,
+      `六神${sixGod}`,
       roles.length ? roles.join('、') : '',
       activity,
       `月令${strengthAnalysis.seasonState}`,
@@ -1692,7 +1704,7 @@ function buildLineFacts(
       rawValue: yao.rawValue,
       yaoType: yao.yaoType,
       changeType: yao.changeType,
-      sixGod: yao.sixGod,
+      sixGod,
       sixRelative: yao.sixRelative,
       najia: { stem: yao.najiaTiangan, branch: yao.najiaDizhi, wuxing: yao.wuxing },
       roles,
@@ -1891,6 +1903,9 @@ function buildHexagramStructureFacts(
       | 'movingPositions'
       | 'stillPositions'
       | 'scriptureReference'
+      | 'guaShenBranch'
+      | 'guaShenStatus'
+      | 'guaShenPositions'
     > = {},
   ) => {
     if (!originalText.trim()) return;
@@ -1952,6 +1967,28 @@ function buildHexagramStructureFacts(
       scriptureReference: activityPattern.scriptureReference,
     },
   );
+  if (data.yaosDetail.length === 6) {
+    const guaShen = analyzeLiuyaoMonthGuaShen(data.yaosDetail);
+    const guaShenPositions = guaShen.matches.map((item) => item.position);
+    add(
+      `liuyao:structure:month-gua-shen:${guaShen.branch}:${guaShen.status}`,
+      '月卦身',
+      guaShen.status === '入卦'
+        ? `月卦身为${guaShen.branch}，入卦于第${guaShenPositions.join('、')}爻；同支多现时保留全部爻位，不按数组顺序只取一爻`
+        : `月卦身为${guaShen.branch}，当前六爻无${guaShen.branch}支，登记为不入卦；不入卦不等于没有月卦身，也不直接裁定吉凶`,
+      [
+        '《卜筮全书·起月卦身诀》阳世从子、阴世从午，自初爻数至世爻',
+        '《卜筮全书》六十四卦例中月卦身入卦、不入卦及同支多现记录',
+        '当前世爻阴阳、世爻位置与本卦六支重算',
+      ],
+      {
+        guaShenBranch: guaShen.branch,
+        guaShenStatus: guaShen.status,
+        guaShenPositions,
+        referenceKeys: guaShenPositions.map((position) => `liuyao:reference:line:${position}`),
+      },
+    );
+  }
   const sanheFormations =
     data.yaosDetail.length === 6
       ? analyzeLiuyaoSanheFormations(data.yaosDetail, monthBranch, dayBranch)
