@@ -159,6 +159,23 @@ test('六爻：变爻只作用本位动爻，且化长生、化墓与基础关�
   assert.equal(tombAnalysis.status, '支持与限制并见');
 });
 
+test('六爻：变爻受月建冲应重算为化破', () => {
+  const movingWater = makeYao(1, '子', '水', {
+    rawValue: 9,
+    isChanging: true,
+    changeType: '老阳',
+    changedYao: {
+      dizhi: '午',
+      wuxing: '火',
+      liuqin: '妻财',
+      isVoid: false,
+    },
+  });
+  const analysis = analyzeLiuyaoLineStrength(movingWater, '子', '辰', [movingWater]);
+
+  assert.ok(analysis.changeConstraints.includes('化破'));
+});
+
 test('六爻：主卦、动变与伏神均应保留完整纳甲干支', () => {
   const data = generateSampleLiuyao([9, 6, 9, 8, 8, 7]);
 

@@ -34,6 +34,10 @@ import {
 
 export type LiuyaoEvidenceTopic = 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen';
 export type LiuyaoGodRole = '用神' | '原神' | '忌神' | '仇神';
+export type LiuyaoGodEffectStatus =
+  '仅见有力条件' | '仅见无力条件' | '有力无力条件并见' | '资料不足';
+export type LiuyaoGodReferenceActivity =
+  '月日直接作用' | '明动' | '暗动' | '静爻' | '伏藏待透' | '本位变爻待验';
 export type LiuyaoSanheGodRole =
   '用神局' | '原神局' | '忌神局' | '仇神局' | '用神所生' | '用神未定';
 export type LiuyaoUsefulGodMatchingTier = '本卦明现' | '变爻显出' | '月日入用' | '伏神检索';
@@ -92,6 +96,19 @@ export interface LiuyaoUsefulGodCandidate {
   limitation: '用神候选区分真正的六亲取用与世应、动爻等辅助观察，并按本卦明现、变爻显出、月日入用、伏神检索的层级匹配；候选不等于已证明现实事项，也不得按候选顺序、数量或匹配数量换算吉凶分与成功率';
 }
 
+export interface LiuyaoGodReferenceEffectFact {
+  key: string;
+  role: LiuyaoGodRole;
+  referenceKey: string;
+  activity: LiuyaoGodReferenceActivity;
+  status: LiuyaoGodEffectStatus;
+  supportingConditions: string[];
+  blockingConditions: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '原神、忌神效力与用神有气条件只逐项登记原典中能由当前月日、动静、空破墓绝、动变及原忌仇同动闭合的事实；条件可以并见，静爻有得力条件不等于已经作用，也不得按条件数量裁定有效无效、吉凶或结果';
+}
+
 export interface LiuyaoGodChainItem {
   key: string;
   role: LiuyaoGodRole;
@@ -100,6 +117,8 @@ export interface LiuyaoGodChainItem {
   relation: string;
   references: LiuyaoYaoReference[];
   referenceKeys: string[];
+  effectStatus: LiuyaoGodEffectStatus;
+  effectFacts: LiuyaoGodReferenceEffectFact[];
   promptText: string;
   sources: string[];
   limitation: '原神、忌神与仇神只按已明确的用神六亲五行建立生克链，并记录本卦、月日与伏神中能直接参与作用的对应；变爻只通过本位动爻形成回头生克冲、进退空墓等条件，不跨位充当独立原忌仇神；资料有无对应不直接证明现实助力、阻碍、吉凶或结果';
@@ -487,6 +506,216 @@ function formatYao(reference: LiuyaoYaoReference) {
     ? `→${reference.changedYao.sixRelative}${formatNaJia(reference.changedYao.stem, reference.changedYao.branch)}${reference.changedYao.wuxing}${reference.changedYao.relations.length ? `（${reference.changedYao.relations.join('、')}）` : reference.changedYao.isVoid ? '（变爻空亡）' : ''}${reference.changedYao.direction ? `（${reference.changedYao.direction}）` : ''}`
     : '';
   return `${reference.source}第${reference.position}爻${reference.sixRelative}${formatNaJia(reference.stem, reference.branch)}${reference.wuxing}${changed}`;
+}
+
+function uniqueStrings(items: string[]) {
+  return Array.from(new Set(items));
+}
+
+function getGodReferenceActivity(reference: LiuyaoYaoReference): LiuyaoGodReferenceActivity {
+  if (reference.source === '月建' || reference.source === '日辰') return '月日直接作用';
+  if (reference.source === '伏神') return '伏藏待透';
+  if (reference.source === '变爻') return '本位变爻待验';
+  if (reference.isChanging) return '明动';
+  if (reference.strengthAnalysis?.selfSupport.includes('暗动')) return '暗动';
+  return '静爻';
+}
+
+function isGodReferenceMoving(reference: LiuyaoYaoReference) {
+  const activity = getGodReferenceActivity(reference);
+  return activity === '明动' || activity === '暗动';
+}
+
+function getGodEffectStatus(
+  supportingConditions: string[],
+  blockingConditions: string[],
+): LiuyaoGodEffectStatus {
+  if (supportingConditions.length && blockingConditions.length) return '有力无力条件并见';
+  if (supportingConditions.length) return '仅见有力条件';
+  if (blockingConditions.length) return '仅见无力条件';
+  return '资料不足';
+}
+
+function buildGodReferenceEffectFact(params: {
+  role: LiuyaoGodRole;
+  reference: LiuyaoYaoReference;
+  sourceReferences: LiuyaoYaoReference[];
+  tabooReferences: LiuyaoYaoReference[];
+  enemyReferences: LiuyaoYaoReference[];
+}): LiuyaoGodReferenceEffectFact {
+  const { role, reference, sourceReferences, tabooReferences, enemyReferences } = params;
+  const activity = getGodReferenceActivity(reference);
+  const supportingConditions: string[] = [];
+  const blockingConditions: string[] = [];
+  const strength = reference.strengthAnalysis;
+  const label = formatYao(reference);
+
+  if (reference.source === '月建' || reference.source === '日辰') {
+    supportingConditions.push(`${reference.source}直接充当${role}五行`);
+  } else if (reference.source === '伏神') {
+    supportingConditions.push(
+      ...reference.support.filter((item) =>
+        /伏神月令[旺相]|(?:月建|日辰|明动|暗动).*生伏神|飞来生伏/.test(item),
+      ),
+    );
+    blockingConditions.push(
+      '伏藏待透',
+      ...reference.constraints.filter((item) =>
+        /伏神月令[休囚死]|伏神旬空|伏神月破|克伏|伏神.*(?:墓|绝)/.test(item),
+      ),
+    );
+  } else if (strength) {
+    const strongSeason = strength.seasonState === '旺' || strength.seasonState === '相';
+    const weakSeason = ['休', '囚', '死'].includes(strength.seasonState);
+    const moving = isGodReferenceMoving(reference);
+    const calendarSupport = strength.calendarSupport.filter((item) =>
+      /^(?:值月建|值日辰|月建生本爻|月建比扶本爻|日辰生本爻|日辰比扶本爻|日辰为长生|日辰为帝旺)$/.test(
+        item,
+      ),
+    );
+    const movingLineSupport = strength.lineSupport.filter((item) =>
+      /第\d+爻(?:明动|暗动).*(?:生本爻|比扶本爻)$/.test(item),
+    );
+    const materialHarm = [
+      ...strength.calendarConstraints,
+      ...strength.lineConstraints,
+      ...strength.changeConstraints,
+    ].filter((item) => /克本爻|回头克/.test(item));
+    const voidOrBreak = [...strength.selfConstraints, ...strength.calendarConstraints].filter(
+      (item) => /空亡|月破/.test(item),
+    );
+    const tombConditions = [...strength.calendarConstraints, ...strength.changeConstraints].filter(
+      (item) => /墓/.test(item),
+    );
+    const absoluteConditions = [
+      ...strength.calendarConstraints,
+      ...strength.changeConstraints,
+    ].filter((item) => /绝/.test(item));
+
+    if (strongSeason) supportingConditions.push(`月令${strength.seasonState}`);
+    supportingConditions.push(...calendarSupport, ...movingLineSupport);
+    if (moving) {
+      supportingConditions.push(
+        ...strength.changeSupport.filter((item) => /^(?:回头生|化进神)$/.test(item)),
+      );
+    }
+
+    if (role === '用神') {
+      if (weakSeason) blockingConditions.push(`月令${strength.seasonState}`);
+      blockingConditions.push(
+        ...strength.selfConstraints.filter((item) => /空亡/.test(item)),
+        ...strength.calendarConstraints.filter((item) => /月破|日破|克本爻|墓|绝/.test(item)),
+        ...strength.lineConstraints.filter((item) => /克本爻/.test(item)),
+        ...strength.changeConstraints.filter((item) =>
+          /回头克|回头冲|化退神|化泄|化耗|化破|化绝|化墓/.test(item),
+        ),
+      );
+      if (
+        strength.calendarConstraints.includes('月破') &&
+        strength.calendarConstraints.includes('日辰克本爻')
+      ) {
+        blockingConditions.push('月破且受日辰克，见原典“用神无根”同类条件');
+      }
+    } else if (role === '原神' || role === '忌神') {
+      if (weakSeason && !moving) blockingConditions.push(`月令${strength.seasonState}且安静`);
+      if (weakSeason && moving && materialHarm.length) {
+        blockingConditions.push(
+          `月令${strength.seasonState}且发动受克：${materialHarm.join('、')}`,
+        );
+      }
+      if (weakSeason && voidOrBreak.length) {
+        blockingConditions.push(`月令${strength.seasonState}且见${voidOrBreak.join('、')}`);
+      }
+      if (weakSeason && moving && strength.changeConstraints.includes('化退神')) {
+        blockingConditions.push(`月令${strength.seasonState}且化退神`);
+      }
+      if (weakSeason && absoluteConditions.length) {
+        blockingConditions.push(`月令${strength.seasonState}且见${absoluteConditions.join('、')}`);
+      }
+      blockingConditions.push(...tombConditions.map((item) => `见入墓条件：${item}`));
+      if (moving) {
+        blockingConditions.push(
+          ...strength.changeConstraints.filter((item) => /^(?:回头克|化破|化绝)$/.test(item)),
+        );
+      }
+
+      const calendarRestraints = strength.calendarConstraints.filter((item) =>
+        /^(?:月建克本爻|日辰克本爻|月破|日破|日辰冲本爻)$/.test(item),
+      );
+      const movingLineRestraints = strength.lineConstraints.filter((item) =>
+        /第\d+爻(?:明动|暗动).*克本爻$/.test(item),
+      );
+      if (role === '原神') {
+        blockingConditions.push(
+          ...calendarRestraints,
+          ...movingLineRestraints,
+          ...strength.changeConstraints.filter((item) =>
+            /^(?:回头克|化退神|化破|化绝)$/.test(item),
+          ),
+        );
+      } else {
+        if (!moving) {
+          blockingConditions.push(
+            ...strength.selfConstraints.filter((item) => /空亡/.test(item)),
+            ...strength.calendarConstraints.filter((item) => /月破|日破/.test(item)),
+          );
+        }
+        blockingConditions.push(
+          ...calendarRestraints,
+          ...movingLineRestraints,
+          ...strength.changeConstraints.filter((item) =>
+            /^(?:回头克|化退神|化破|化绝)$/.test(item),
+          ),
+        );
+      }
+
+      if (
+        moving &&
+        strongSeason &&
+        (reference.isVoid || strength.changeConstraints.includes('化空'))
+      ) {
+        supportingConditions.push(
+          reference.isVoid
+            ? '旺相发动而临空，保留出空冲实后作用条件'
+            : '旺相发动而化空，保留变爻出空后作用条件',
+        );
+      }
+      if (role === '原神' && moving && tabooReferences.some(isGodReferenceMoving)) {
+        supportingConditions.push('原神与忌神同动，忌神贪生原神');
+      }
+      if (role === '忌神' && moving && sourceReferences.some(isGodReferenceMoving)) {
+        blockingConditions.push('忌神与原神同动，须辨贪生忘克');
+      }
+      if (role === '忌神' && moving && enemyReferences.some(isGodReferenceMoving)) {
+        supportingConditions.push('忌神与仇神同动，得仇神生扶');
+      }
+      if (role === '原神' && enemyReferences.some(isGodReferenceMoving)) {
+        blockingConditions.push('仇神发动克原神');
+      }
+    }
+  }
+
+  const normalizedSupporting = uniqueStrings(supportingConditions);
+  const normalizedBlocking = uniqueStrings(blockingConditions);
+  const status = getGodEffectStatus(normalizedSupporting, normalizedBlocking);
+  const roleTerms = role === '用神' ? ['有气', '无根'] : ['有力', '无力'];
+  return {
+    key: `liuyao:god-effect:${role}:${reference.key}`,
+    role,
+    referenceKey: reference.key,
+    activity,
+    status,
+    supportingConditions: normalizedSupporting,
+    blockingConditions: normalizedBlocking,
+    promptText: `${label}活动状态${activity}；${roleTerms[0]}条件${normalizedSupporting.join('、') || '当前资料未闭合'}；${roleTerms[1]}条件${normalizedBlocking.join('、') || '当前资料未闭合'}；条件只并列复核，不按数量裁定${role === '用神' ? '最终是否可用' : '能否实际作用'}`,
+    sources: [
+      '《增删卜易·元神忌神衰旺章》',
+      '《卜筮正宗·原忌仇神论》',
+      '当前月日、动静、空破墓绝、动变及原忌仇同动事实',
+    ],
+    limitation:
+      '原神、忌神效力与用神有气条件只逐项登记原典中能由当前月日、动静、空破墓绝、动变及原忌仇同动闭合的事实；条件可以并见，静爻有得力条件不等于已经作用，也不得按条件数量裁定有效无效、吉凶或结果',
+  };
 }
 
 function formatTimingReference(reference: LiuyaoYaoReference) {
@@ -1930,13 +2159,35 @@ export function analyzeLiuyaoEvidence(
         ['仇神', enemyElement, `${enemyElement}生${tabooElement}并克${sourceElement}`],
       ]
     : [];
+  const chainMatches = new Map<LiuyaoGodRole, LiuyaoYaoReference[]>(
+    chainSpecs.map(([role, wuxing]) => {
+      const matched =
+        role === '用神' && selectedReference
+          ? [selectedReference]
+          : role === '用神' && soleUsefulGodCandidate
+            ? soleUsefulGodCandidate.references
+            : directlyActingReferences.filter((item) => item.wuxing === wuxing);
+      return [role, matched];
+    }),
+  );
   const godChain = chainSpecs.map(([role, wuxing, relation]): LiuyaoGodChainItem => {
-    const matched =
-      role === '用神' && selectedReference
-        ? [selectedReference]
-        : role === '用神' && soleUsefulGodCandidate
-          ? soleUsefulGodCandidate.references
-          : directlyActingReferences.filter((item) => item.wuxing === wuxing);
+    const matched = chainMatches.get(role) ?? [];
+    const effectFacts =
+      role === '仇神'
+        ? []
+        : matched.map((reference) =>
+            buildGodReferenceEffectFact({
+              role,
+              reference,
+              sourceReferences: chainMatches.get('原神') ?? [],
+              tabooReferences: chainMatches.get('忌神') ?? [],
+              enemyReferences: chainMatches.get('仇神') ?? [],
+            }),
+          );
+    const effectStatus = getGodEffectStatus(
+      effectFacts.flatMap((item) => item.supportingConditions),
+      effectFacts.flatMap((item) => item.blockingConditions),
+    );
     return {
       key: `liuyao:god-chain:${role}`,
       role,
@@ -1945,7 +2196,9 @@ export function analyzeLiuyaoEvidence(
       relation,
       references: matched,
       referenceKeys: matched.map((item) => item.key),
-      promptText: `${role}${wuxing}：${relation}；${matched.length ? `当前资料对应${matched.map(formatYao).join('、')}` : '当前资料未见对应'}`,
+      effectStatus,
+      effectFacts,
+      promptText: `${role}${wuxing}：${relation}；${matched.length ? `当前资料对应${matched.map(formatYao).join('、')}；效力条件状态${effectStatus}；${effectFacts.map((item) => item.promptText).join('；')}` : '当前资料未见对应；效力条件状态资料不足'}`,
       sources: [
         '当前已明确的用神六亲五行',
         '五行生克公共关系',

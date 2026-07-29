@@ -539,6 +539,7 @@ export function analyzeLiuyaoLineStrength(
     if (isSheng(yao.wuxing, yao.changedYao.wuxing)) changeConstraints.push('化泄');
     if (isKe(yao.wuxing, yao.changedYao.wuxing)) changeConstraints.push('化耗');
     if (yao.changedYao.isVoid) changeConstraints.push('化空');
+    if (isLiuchong(yao.changedYao.dizhi, monthBranch)) changeConstraints.push('化破');
     if (changeDirection === '化退神') changeConstraints.push('化退神');
     if (changedStage === '墓' || changedStage === '绝') {
       changeConstraints.push(`化${changedStage}`);
@@ -645,7 +646,8 @@ export function analyzeLiuyaoHiddenSpiritConditions(
   addCalendarRelations('日辰', dayBranch, dayElement);
 
   for (const yao of yaosDetail) {
-    if (!yao.isChanging && !yao.isHiddenMove) continue;
+    const hiddenMove = hasHiddenMove(yao, monthBranch, dayBranch);
+    if (!yao.isChanging && !hiddenMove) continue;
     const label = `第${yao.position}爻${yao.isChanging ? '明动' : '暗动'}`;
     if (isSheng(yao.wuxing, spirit.wuxing)) support.push(`${label}生伏神`);
     if (isLiuchong(yao.najiaDizhi, spirit.underYao.najiaDizhi)) {

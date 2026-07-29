@@ -363,6 +363,7 @@ test('六爻伏神证据应重算飞伏生克与得助受制条件并兼容旧�
 
   const legacyGou = {
     ...gou,
+    yaosDetail: gou.yaosDetail.map((item) => ({ ...item, isHiddenMove: true })),
     hiddenSpirits: gou.hiddenSpirits?.map((item) => {
       const legacyItem = { ...item };
       delete legacyItem.conditionAnalysis;
@@ -376,6 +377,7 @@ test('六爻伏神证据应重算飞伏生克与得助受制条件并兼容旧�
   assert.deepEqual(legacyFact?.conditionAnalysis, gouWealth?.conditionAnalysis);
   assert.deepEqual(legacyFact?.support, gouWealth?.support);
   assert.deepEqual(legacyFact?.constraints, gouWealth?.constraints);
+  assert.ok(!legacyFact?.support.some((item) => item.includes('暗动生伏')));
 });
 
 test('六爻证据应区分日冲暗动、静爻日破与明动爻日冲', () => {
@@ -513,6 +515,85 @@ test('六爻原神忌神仇神应按生克作用链推导', () => {
   assert.equal(isSheng(enemy.wuxing, taboo.wuxing), true);
   assert.equal(isKe(enemy.wuxing, source.wuxing), true);
   assert.ok(evidence.godChain.every((item) => item.status === '当前资料有对应'));
+});
+
+test('六爻原神忌神效力应逐爻并列有力无力条件与真实活动状态', () => {
+  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: [6, 6, 6, 6, 6, 6],
+  });
+  const evidence = analyzeLiuyaoEvidence(data, { usefulGodRelative: '父母' });
+  const useful = evidence.godChain.find((item) => item.role === '用神');
+  const source = evidence.godChain.find((item) => item.role === '原神');
+  const taboo = evidence.godChain.find((item) => item.role === '忌神');
+  const enemy = evidence.godChain.find((item) => item.role === '仇神');
+  const usefulLine = useful?.effectFacts.find(
+    (item) => item.referenceKey === 'liuyao:reference:line:2',
+  );
+  const sourceLine = source?.effectFacts.find(
+    (item) => item.referenceKey === 'liuyao:reference:line:3',
+  );
+  const tabooLine = taboo?.effectFacts.find(
+    (item) => item.referenceKey === 'liuyao:reference:line:5',
+  );
+
+  assert.equal(usefulLine?.activity, '明动');
+  assert.equal(usefulLine?.status, '有力无力条件并见');
+  assert.ok(usefulLine?.supportingConditions.includes('回头生'));
+  assert.ok(usefulLine?.blockingConditions.includes('月令死'));
+  assert.ok(sourceLine?.supportingConditions.includes('原神与忌神同动，忌神贪生原神'));
+  assert.ok(sourceLine?.blockingConditions.includes('仇神发动克原神'));
+  assert.ok(tabooLine?.supportingConditions.includes('忌神与仇神同动，得仇神生扶'));
+  assert.ok(tabooLine?.blockingConditions.includes('忌神与原神同动，须辨贪生忘克'));
+  assert.equal(source?.effectStatus, '有力无力条件并见');
+  assert.equal(taboo?.effectStatus, '有力无力条件并见');
+  assert.equal(enemy?.effectStatus, '资料不足');
+  assert.deepEqual(enemy?.effectFacts, []);
+  assert.doesNotMatch(
+    JSON.stringify(evidence.godChain.map((item) => [item.effectStatus, item.effectFacts])),
+    /score|rating|probability|总分|概率|最终吉凶/,
+  );
+});
+
+test('六爻旺相静爻只记录得力条件，不冒充已经作用', () => {
+  const evidence = analyzeLiuyaoEvidence(
+    generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+      method: 'manual',
+      yaos: [7, 7, 7, 7, 7, 7],
+    }),
+    { usefulGodRelative: '父母' },
+  );
+  const tabooLine = evidence.godChain
+    .find((item) => item.role === '忌神')
+    ?.effectFacts.find((item) => item.referenceKey === 'liuyao:reference:line:2');
+
+  assert.equal(tabooLine?.activity, '静爻');
+  assert.ok(tabooLine?.supportingConditions.includes('月令相'));
+  assert.match(tabooLine?.promptText ?? '', /活动状态静爻/);
+  assert.match(tabooLine?.promptText ?? '', /不按数量裁定能否实际作用/);
+});
+
+test('六爻用神月破又受日克时应保留无根同类条件', () => {
+  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: [6, 6, 6, 6, 6, 6],
+  });
+  const evidence = analyzeLiuyaoEvidence(
+    {
+      ...data,
+      ganzhi: { ...data.ganzhi, month: '乙亥', day: '甲子' },
+      evidenceAnalysis: undefined,
+    },
+    { usefulGodRelative: '父母' },
+  );
+  const usefulLine = evidence.godChain
+    .find((item) => item.role === '用神')
+    ?.effectFacts.find((item) => item.referenceKey === 'liuyao:reference:line:2');
+
+  assert.ok(usefulLine?.blockingConditions.includes('月破'));
+  assert.ok(usefulLine?.blockingConditions.includes('日辰克本爻'));
+  assert.ok(usefulLine?.blockingConditions.includes('月破且受日辰克，见原典“用神无根”同类条件'));
+  assert.match(usefulLine?.promptText ?? '', /条件只并列复核/);
 });
 
 test('六爻应期应按用神原神忌神辨明病药方向', () => {
