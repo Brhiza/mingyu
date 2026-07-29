@@ -6,20 +6,48 @@ export const TEN_GODS_DEFINITIONS: Record<
   string,
   { wuxing: string; yinyang: string; description: string }
 > = {
-  比肩: { wuxing: '同我', yinyang: '同性', description: '代表兄弟、朋友、同事，主自尊、独立。' },
-  劫财: { wuxing: '同我', yinyang: '异性', description: '代表姐妹、异性朋友，主竞争、合作。' },
+  比肩: {
+    wuxing: '同我',
+    yinyang: '同性',
+    description: '传统可取兄弟、同辈类象；具体关系须结合宫位、格局与喜忌。',
+  },
+  劫财: {
+    wuxing: '同我',
+    yinyang: '异性',
+    description: '传统可取同辈、竞争者类象；不按十神名称直接断定现实关系。',
+  },
   食神: { wuxing: '我生', yinyang: '同性', description: '代表福气、才华、口福，主温和、享受。' },
   伤官: { wuxing: '我生', yinyang: '异性', description: '代表智慧、技艺、叛逆，主聪明、傲气。' },
   偏财: {
     wuxing: '我克',
     yinyang: '同性',
-    description: '代表父亲、情人、意外之财，主大方、投机。',
+    description: '传统可取父亲星与偏财类象；须结合宫位、格局与喜忌。',
   },
-  正财: { wuxing: '我克', yinyang: '异性', description: '代表妻子、稳定收入，主勤劳、踏实。' },
-  七杀: { wuxing: '克我', yinyang: '同性', description: '代表小人、压力、权威，主刚强、果断。' },
-  正官: { wuxing: '克我', yinyang: '异性', description: '代表上司、事业、名誉，主正直、自律。' },
-  偏印: { wuxing: '生我', yinyang: '同性', description: '代表继母、偏门学问，主孤独、敏感。' },
-  正印: { wuxing: '生我', yinyang: '异性', description: '代表母亲、正统学问，主仁慈、善良。' },
+  正财: {
+    wuxing: '我克',
+    yinyang: '异性',
+    description: '男命传统可取妻星与正财类象；女命配偶取象须另按对应口径复核。',
+  },
+  七杀: {
+    wuxing: '克我',
+    yinyang: '同性',
+    description: '传统官杀可取子女星及压力、约束类象；不得据单一十神直接断事。',
+  },
+  正官: {
+    wuxing: '克我',
+    yinyang: '异性',
+    description: '传统官杀可取子女星及秩序、约束类象；不得据单一十神直接断事。',
+  },
+  偏印: {
+    wuxing: '生我',
+    yinyang: '同性',
+    description: '传统可取偏印与非正统资源类象；不固定等同于某一现实亲属。',
+  },
+  正印: {
+    wuxing: '生我',
+    yinyang: '异性',
+    description: '传统可取母亲星与正印类象；须结合宫位、格局与喜忌。',
+  },
 };
 
 export const SEASON_STATUS: Record<string, Record<string, string>> = {

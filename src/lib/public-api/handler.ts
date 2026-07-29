@@ -3052,6 +3052,7 @@ function buildCompactBaziResult(result: BaziChartResult) {
           calculationSteps: result.evidenceAnalysis.calculationSteps,
           pillarFacts: result.evidenceAnalysis.pillarFacts,
           analysisFacts: result.evidenceAnalysis.analysisFacts,
+          kinshipFacts: result.evidenceAnalysis.kinshipFacts,
           relationFacts: result.evidenceAnalysis.relationFacts,
           counterEvidenceFacts: result.evidenceAnalysis.counterEvidenceFacts,
           counterSummaryFact: result.evidenceAnalysis.counterSummaryFact,

@@ -21,10 +21,12 @@ test('八字本命旺衰未闭合时应在统一证据链中保留资料缺口',
   assert.equal(analysis.calculationChain.length, analysis.calculationSteps.length);
   assert.equal(analysis.pillarFacts.length, 4);
   assert.equal(analysis.analysisFacts.length, 3);
+  assert.equal(analysis.kinshipFacts.length, 9);
   assert.equal(analysis.counterEvidenceFacts.length, 4);
-  assert.equal(analysis.limitationFacts.length, 6);
+  assert.equal(analysis.limitationFacts.length, 7);
   assert.equal(analysis.summaryFact.pillarFactCount, analysis.pillarFacts.length);
   assert.equal(analysis.summaryFact.analysisFactCount, analysis.analysisFacts.length);
+  assert.equal(analysis.summaryFact.kinshipFactCount, analysis.kinshipFacts.length);
   assert.equal(analysis.summaryFact.relationFactCount, analysis.relationFacts.length);
   assert.equal(analysis.summaryFact.warningFactCount, result.warningFacts.length);
   assert.equal(analysis.summaryFact.missingFactCount, 1);

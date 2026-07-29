@@ -1,4 +1,5 @@
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
+import { analyzeBaziKinship, KINSHIP_FACT_LIMITATION, type BaziKinshipFact } from './baziKinship';
 import type { BaziChartResult } from './baziTypes';
 
 type PillarKey = 'year' | 'month' | 'day' | 'hour';
@@ -22,7 +23,7 @@ const RELATION_FACT_LIMITATION =
 const COUNTER_FACT_LIMITATION =
   '八字本命反证只记录四柱与核心分析资料是否完整、柱间主要关系是否命中以及排盘边界是否有提示；未命中不代表现实有利或不利，资料完整也不证明结论必然成立' as const;
 const SUMMARY_FACT_LIMITATION =
-  '八字本命证据汇总只统计计算步骤、四柱、旺衰格局取用、柱间关系、排盘边界与限制覆盖；不得按数量生成命盘总分、可信度、吉凶概率、疾病概率、财富幅度或唯一应期' as const;
+  '八字本命证据汇总只统计计算步骤、四柱、旺衰格局取用、六亲取象、柱间关系、排盘边界与限制覆盖；不得按数量生成命盘总分、可信度、吉凶概率、疾病概率、财富幅度或唯一应期' as const;
 const LIMITATION_FACT_LIMITATION =
   '八字本命限制事实用于约束四柱、旺衰、格局、取用、神煞与柱间关系可以支持的解释范围，不得被反向当作现实因果、人物命运、概率或保证有效建议的证据' as const;
 
@@ -107,6 +108,7 @@ export interface BaziNatalLimitationFact {
     | '出生时间边界'
     | '传统模型边界'
     | '旺衰格局取用边界'
+    | '六亲取象边界'
     | '神煞与单项关系边界'
     | '本命应期边界'
     | '高风险输出边界';
@@ -124,6 +126,7 @@ export interface BaziNatalSummaryFact {
   calculationStepCount: number;
   pillarFactCount: number;
   analysisFactCount: number;
+  kinshipFactCount: number;
   relationFactCount: number;
   warningFactCount: number;
   missingFactCount: number;
@@ -141,6 +144,7 @@ export interface BaziNatalEvidenceAnalysis {
   calculationChain: string[];
   pillarFacts: BaziNatalPillarFact[];
   analysisFacts: BaziNatalAnalysisFact[];
+  kinshipFacts: BaziKinshipFact[];
   relationFacts: BaziNatalRelationFact[];
   primaryFacts: string[];
   supportingFacts: string[];
@@ -345,9 +349,10 @@ function buildCalculationSteps(args: {
   data: BaziChartResult;
   pillarFacts: BaziNatalPillarFact[];
   analysisFacts: BaziNatalAnalysisFact[];
+  kinshipFacts: BaziKinshipFact[];
   relationFacts: BaziNatalRelationFact[];
 }): BaziNatalCalculationStep[] {
-  const { data, pillarFacts, analysisFacts, relationFacts } = args;
+  const { data, pillarFacts, analysisFacts, kinshipFacts, relationFacts } = args;
   const correctedTime = data.timing?.enabled
     ? `${data.timing.correctedTime.year}-${String(data.timing.correctedTime.month).padStart(2, '0')}-${String(data.timing.correctedTime.day).padStart(2, '0')} ${String(data.timing.correctedTime.hour).padStart(2, '0')}:${String(data.timing.correctedTime.minute).padStart(2, '0')}`
     : '';
@@ -410,10 +415,11 @@ function buildCalculationSteps(args: {
           0,
         ),
         relationFactCount: relationFacts.length,
+        kinshipFactCount: kinshipFacts.length,
         presentWuxing: data.wuxingStrength.present,
       },
       dependsOnStepKeys: ['bazi:natal:calculation:pillars'],
-      promptText: `由四柱和日主推导月令司权${data.monthCommander || '未记录'}、十神、藏干、纳音、十二运、自坐、旬空、五行出现情况及${relationFacts.length}项柱间关系事实`,
+      promptText: `由四柱和日主推导月令司权${data.monthCommander || '未记录'}、十神、藏干、纳音、十二运、自坐、旬空、五行出现情况、${kinshipFacts.length}项六亲宫星取象及${relationFacts.length}项柱间关系事实`,
       sources: ['藏干表、十神生克、纳音、十二长生、旬空与干支关系公共规则'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -444,6 +450,7 @@ function buildCalculationSteps(args: {
       inputs: {
         pillarFactCount: pillarFacts.length,
         analysisFactCount: analysisFacts.length,
+        kinshipFactCount: kinshipFacts.length,
         relationFactCount: relationFacts.length,
         warningFactCount: data.warningFacts.length,
       },
@@ -451,7 +458,7 @@ function buildCalculationSteps(args: {
         missingFactCount: missingPillarCount + missingAnalysisCount,
       },
       dependsOnStepKeys: ['bazi:natal:calculation:core-analysis'],
-      promptText: `汇总四柱${pillarFacts.length}项、核心判断${analysisFacts.length}项、柱间关系${relationFacts.length}项、排盘边界${data.warningFacts.length}项，资料缺口${missingPillarCount + missingAnalysisCount}项`,
+      promptText: `汇总四柱${pillarFacts.length}项、核心判断${analysisFacts.length}项、六亲取象${kinshipFacts.length}项、柱间关系${relationFacts.length}项、排盘边界${data.warningFacts.length}项，资料缺口${missingPillarCount + missingAnalysisCount}项`,
       sources: ['出生时间、四柱、派生资料、核心判断与排盘边界逐项汇总'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -547,13 +554,16 @@ function buildLimitationFacts(args: {
   data: BaziChartResult;
   pillarFacts: BaziNatalPillarFact[];
   analysisFacts: BaziNatalAnalysisFact[];
+  kinshipFacts: BaziKinshipFact[];
   relationFacts: BaziNatalRelationFact[];
   counterEvidenceFacts: BaziNatalCounterEvidenceFact[];
 }): BaziNatalLimitationFact[] {
-  const { data, pillarFacts, analysisFacts, relationFacts, counterEvidenceFacts } = args;
+  const { data, pillarFacts, analysisFacts, kinshipFacts, relationFacts, counterEvidenceFacts } =
+    args;
   const ownerKeys = [
     ...pillarFacts.map((item) => item.key),
     ...analysisFacts.map((item) => item.key),
+    ...kinshipFacts.map((item) => item.key),
     ...relationFacts.map((item) => item.key),
   ];
   const definitions: Array<
@@ -588,6 +598,13 @@ function buildLimitationFacts(args: {
       promptText:
         '旺衰、格局与用神必须分别列出依据并交叉复核；不得用五行数量、单一格局名或单一用神标签替代完整判断链',
       sources: ['旺衰、格局与取用分层原则'],
+    },
+    {
+      key: 'bazi:natal:limitation:kinship',
+      type: '六亲取象边界',
+      ownerFactKeys: kinshipFacts.map((item) => item.key),
+      promptText: KINSHIP_FACT_LIMITATION,
+      sources: ['《子平真诠评注》宫分、六亲星与格局喜忌合参原则'],
     },
     {
       key: 'bazi:natal:limitation:single-symbol',
@@ -634,6 +651,7 @@ function buildEvidenceBundle(args: {
   calculationSteps: BaziNatalCalculationStep[];
   pillarFacts: BaziNatalPillarFact[];
   analysisFacts: BaziNatalAnalysisFact[];
+  kinshipFacts: BaziKinshipFact[];
   relationFacts: BaziNatalRelationFact[];
   counterEvidenceFacts: BaziNatalCounterEvidenceFact[];
   counterSummaryFact: BaziNatalCounterSummaryFact;
@@ -661,6 +679,13 @@ function buildEvidenceBundle(args: {
       detail: `${item.promptText}；边界：${item.limitation}`,
       source: item.sources.join('、'),
       tags: [item.type, item.status],
+    })),
+    ...args.kinshipFacts.map((item): PromptEvidenceItem => ({
+      level: '辅证',
+      title: `${item.subject}${item.kind}取象`,
+      detail: `${item.promptText}；边界：${item.limitation}`,
+      source: item.sources.join('、'),
+      tags: ['六亲', item.kind, item.subject, item.status],
     })),
     ...args.relationFacts.map((item): PromptEvidenceItem => ({
       level: '辅证',
@@ -707,11 +732,13 @@ function buildEvidenceBundle(args: {
 export function analyzeBaziNatalEvidence(data: BaziChartResult): BaziNatalEvidenceAnalysis {
   const pillarFacts = buildPillarFacts(data);
   const analysisFacts = buildAnalysisFacts(data);
+  const kinshipFacts = analyzeBaziKinship(data);
   const relationFacts = buildRelationFacts(data);
   const calculationSteps = buildCalculationSteps({
     data,
     pillarFacts,
     analysisFacts,
+    kinshipFacts,
     relationFacts,
   });
   const counterEvidenceFacts = buildCounterEvidenceFacts({
@@ -725,6 +752,7 @@ export function analyzeBaziNatalEvidence(data: BaziChartResult): BaziNatalEviden
     data,
     pillarFacts,
     analysisFacts,
+    kinshipFacts,
     relationFacts,
     counterEvidenceFacts,
   });
@@ -738,6 +766,7 @@ export function analyzeBaziNatalEvidence(data: BaziChartResult): BaziNatalEviden
       ...calculationSteps.map((item) => item.key),
       ...pillarFacts.map((item) => item.key),
       ...analysisFacts.map((item) => item.key),
+      ...kinshipFacts.map((item) => item.key),
       ...relationFacts.map((item) => item.key),
       data.warningSummaryFact.key,
       ...data.warningFacts.map((item) => item.key),
@@ -747,13 +776,16 @@ export function analyzeBaziNatalEvidence(data: BaziChartResult): BaziNatalEviden
     calculationStepCount: calculationSteps.length,
     pillarFactCount: pillarFacts.length,
     analysisFactCount: analysisFacts.length,
+    kinshipFactCount: kinshipFacts.length,
     relationFactCount: relationFacts.length,
     warningFactCount: data.warningFacts.length,
     missingFactCount,
     counterEvidenceCount: counterEvidenceFacts.length,
     limitationFactCount: limitationFacts.length,
-    promptText: `八字本命证据状态为${missingFactCount ? '证据链有缺口' : '证据链完整'}；记录计算步骤${calculationSteps.length}项、四柱事实${pillarFacts.length}项、核心判断${analysisFacts.length}项、柱间关系${relationFacts.length}项、排盘边界${data.warningFacts.length}项、资料缺口${missingFactCount}项、限制${limitationFacts.length}项`,
-    sources: ['出生时间、四柱干支、节令、十神藏干、旺衰格局取用、柱间关系与排盘边界逐项汇总'],
+    promptText: `八字本命证据状态为${missingFactCount ? '证据链有缺口' : '证据链完整'}；记录计算步骤${calculationSteps.length}项、四柱事实${pillarFacts.length}项、核心判断${analysisFacts.length}项、六亲取象${kinshipFacts.length}项、柱间关系${relationFacts.length}项、排盘边界${data.warningFacts.length}项、资料缺口${missingFactCount}项、限制${limitationFacts.length}项`,
+    sources: [
+      '出生时间、四柱干支、节令、十神藏干、旺衰格局取用、六亲宫星、柱间关系与排盘边界逐项汇总',
+    ],
     limitation: SUMMARY_FACT_LIMITATION,
   };
   const limitations = limitationFacts.map((item) => item.promptText);
@@ -764,6 +796,7 @@ export function analyzeBaziNatalEvidence(data: BaziChartResult): BaziNatalEviden
     calculationSteps,
     pillarFacts,
     analysisFacts,
+    kinshipFacts,
     relationFacts,
     counterEvidenceFacts,
     counterSummaryFact,
@@ -774,7 +807,10 @@ export function analyzeBaziNatalEvidence(data: BaziChartResult): BaziNatalEviden
     ...pillarFacts.map((item) => item.promptText),
     ...analysisFacts.map((item) => item.promptText),
   ];
-  const supportingFacts = relationFacts.map((item) => item.promptText);
+  const supportingFacts = [
+    ...kinshipFacts.map((item) => item.promptText),
+    ...relationFacts.map((item) => item.promptText),
+  ];
   const calculationChain = calculationSteps.map((item) => item.promptText);
 
   return {
@@ -784,6 +820,7 @@ export function analyzeBaziNatalEvidence(data: BaziChartResult): BaziNatalEviden
     calculationChain,
     pillarFacts,
     analysisFacts,
+    kinshipFacts,
     relationFacts,
     primaryFacts,
     supportingFacts,
@@ -797,7 +834,7 @@ export function analyzeBaziNatalEvidence(data: BaziChartResult): BaziNatalEviden
     promptText: [
       '【八字本命四柱与核心判断结构化证据】',
       `计算链：${calculationChain.join(' → ')}。`,
-      `事实覆盖：四柱事实${pillarFacts.length}项、核心判断${analysisFacts.length}项、柱间关系${relationFacts.length}项；具体事实保留在对应结构化对象中，不按数量生成评分。`,
+      `事实覆盖：四柱事实${pillarFacts.length}项、核心判断${analysisFacts.length}项、六亲取象${kinshipFacts.length}项、柱间关系${relationFacts.length}项；具体事实保留在对应结构化对象中，不按数量生成评分。`,
       `反证汇总：${counterSummaryFact.promptText}。`,
       `证据汇总：${summaryFact.promptText}。`,
       `解释限制：${limitations.join('；')}。`,
@@ -805,6 +842,7 @@ export function analyzeBaziNatalEvidence(data: BaziChartResult): BaziNatalEviden
     methodology: [
       '先按明确传统时辰，或按精准时分与出生地校正后的真太阳时确定唯一排盘时刻。',
       '按节气换年换月、当前换日口径与六十甲子生成四柱，再派生十神、藏干、纳音、十二运、旬空与柱间关系。',
+      '六亲先分别登记年、月、日支、时支宫位与对应十神位置，再结合月令格局、喜忌和刑冲会合复核，不由单柱或缺位直接断事。',
       '旺衰、格局与用神取忌分别登记结果和依据，不用五行数量或单一标签替代完整判断链。',
       '本命原局只描述长期结构与触发条件，具体时间必须另行引用明确选择的岁运证据。',
     ],

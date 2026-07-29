@@ -50,6 +50,21 @@ function formatWuxingSeasonStatus(baziResult: BaziChartResult): string {
     .join(' ');
 }
 
+function formatKinshipSection(baziResult: BaziChartResult): string {
+  const facts = baziResult.evidenceAnalysis?.kinshipFacts ?? [];
+  if (!facts.length) return '';
+
+  const palaceFacts = facts.filter((item) => item.kind === '宫位');
+  const tenGodFacts = facts.filter((item) => item.kind === '十神');
+  const lines = ['【六亲宫星取象】'];
+  if (palaceFacts.length) {
+    lines.push(`宫分: ${palaceFacts.map((item) => item.promptText).join(' | ')}`);
+  }
+  tenGodFacts.forEach((item) => lines.push(`十神: ${item.promptText}`));
+  lines.push(`边界: ${facts[0].limitation}`);
+  return lines.join('\n');
+}
+
 function filterPromptStrategyTrace(strategyTrace: string[] | undefined): string[] {
   if (!strategyTrace?.length) return [];
 
@@ -301,6 +316,9 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   if (!includeShensha && includeShenShaAnalysis && globalShenShaExplain) {
     result += `全局传统旁证: ${globalShenShaExplain}\n`;
   }
+
+  const kinshipSection = formatKinshipSection(baziResult);
+  if (kinshipSection) result += `\n${kinshipSection}\n`;
 
   if (includeWuxing && baziResult.wuxingStrength) {
     result += '\n【五行】\n';
