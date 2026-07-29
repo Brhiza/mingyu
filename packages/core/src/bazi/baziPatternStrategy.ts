@@ -7,6 +7,7 @@ import {
 } from './baziFormationUtils';
 import { canUseExternalPattern } from './baziExternalPatternEligibility';
 import { analyzeBladePatternStructure } from './baziBladePattern';
+import { analyzeLuPatternStructure } from './baziLuPattern';
 import { analyzeHurtPatternStructure } from './baziHurtPattern';
 import { analyzeKillerPatternStructure } from './baziKillerPattern';
 import { analyzeOfficerPatternStructure } from './baziOfficerPattern';
@@ -1423,6 +1424,283 @@ function collectHurtPatternNotes(
 }
 
 /**
+ * 复算《子平真诠》“论建禄月劫”中能够由四柱闭合的财官杀食取用、
+ * 财印相随、固定会合、制伏与取清组件。
+ * 根多、轻重、合化、去留、制伏力度及贵贱均不由数量或单项关系代替。
+ */
+function collectLuPatternNotes(
+  pillars: Pillars,
+  patternName: string,
+  getTenGod: GetTenGodFn,
+): string[] {
+  const structure = analyzeLuPatternStructure(pillars, patternName, getTenGod);
+  const notes: string[] = [];
+  const dayMaster = pillars.day.gan;
+  const isExact = (year: string, month: string, day: string, hour: string) =>
+    pillars.year.ganZhi === year &&
+    pillars.month.ganZhi === month &&
+    pillars.day.ganZhi === day &&
+    pillars.hour.ganZhi === hour;
+  const formatStems = (facts: typeof structure.exposedStems) =>
+    facts.map((fact) => `${fact.label}${fact.stem}${fact.tenGod}`).join('、');
+  const formatHiddenFacts = (facts: typeof structure.wealthHiddenFacts) =>
+    facts
+      .map(
+        (fact) =>
+          `${fact.label}${fact.branch}藏${fact.hiddenStems
+            .map((stem) => `${stem}${getTenGod(stem, dayMaster)}`)
+            .join('、')}`,
+      )
+      .join('、');
+  const formatFormations = (facts: typeof structure.wealthFormationFacts) =>
+    facts.map((fact) => `${fact.branches.join('')}${fact.type}${fact.wuxing}固定关系`).join('、');
+  const exactExamples: Array<{
+    pillars: [string, string, string, string];
+    note: string;
+  }> = [
+    {
+      pillars: ['庚戌', '戊子', '癸酉', '癸亥'],
+      note: '原典建禄用官印护精确例型庚戌、戊子、癸酉、癸亥，癸日子月真禄，戊正官与庚正印明透；只保存官印相随的组成事实，不据同见直接判印已护官或贵格成立',
+    },
+    {
+      pillars: ['丁酉', '丙午', '丁巳', '壬寅'],
+      note: '原典建禄用官财助精确例型丁酉、丙午、丁巳、壬寅，丁日午月真禄，壬正官明透且酉藏辛偏财；只保存官透与财根相随事实，不据藏根数量判财旺、官旺或贵格成立',
+    },
+    {
+      pillars: ['庚午', '戊子', '癸卯', '丁巳'],
+      note: '原典建禄官隔财印精确例型庚午、戊子、癸卯、丁巳，癸日子月真禄，年干庚印、月干戊官、时干丁财依次明透且官居财印之间；只保存外干实际隔位关系，不据排列直接判财印两不相碍或格局成立',
+    },
+    {
+      pillars: ['甲子', '丙子', '癸丑', '壬子'],
+      note: '原典建禄用财带伤食精确例型甲子、丙子、癸丑、壬子，癸日子月真禄，丙正财与甲伤官明透；当前《子平真诠评注》底本文字作壬辰，但癸日辰时依法应为丙辰，《神峰通考》同一张都统命两处均作合法的壬子，故按壬子校勘；只保存食伤转劫生财的组成候选，不据同见直接判转关成功',
+    },
+    {
+      pillars: ['己未', '己巳', '丁未', '辛丑'],
+      note: '原典建禄化劫为财精确例型己未、己巳、丁未、辛丑，丁日巳月本气丙为劫财，属于月劫而非禄位，巳丑构成拱金固定关系且辛偏财明透；只保存化劫为财候选，不认定拱局已经合化',
+    },
+    {
+      pillars: ['庚子', '甲申', '庚子', '甲申'],
+      note: '原典建禄化劫为生精确例型庚子、甲申、庚子、甲申，庚日申月真禄，申子半合水食神并见甲偏财明透；只保存化劫为生及食神生财候选，不认定半合已经合化',
+    },
+    {
+      pillars: ['丁巳', '壬子', '癸卯', '己未'],
+      note: '原典建禄用杀制伏精确例型丁巳、壬子、癸卯、己未，癸日子月真禄，己七杀明透、卯未半合木食伤且丁财与壬劫财五合；只保存制杀与财被合的固定组件，不认定半合或五合已经成化',
+    },
+    {
+      pillars: ['戊辰', '癸亥', '壬午', '丙午'],
+      note: '原典建禄合杀存财精确例型戊辰、癸亥、壬午、丙午，壬日亥月真禄，戊七杀与丙偏财明透且戊癸五合；只保存财党杀冲突与合杀存财候选，不认定七杀已合去或财星已留',
+    },
+    {
+      pillars: ['甲子', '丙寅', '甲子', '丙寅'],
+      note: '原典春木建禄用食神精确例型甲子、丙寅、甲子、丙寅，甲日寅月真禄，丙食神两透而无财官杀明透；只保存春木用食神的气候类别，不据明透次数判食神有力或贵格成立',
+    },
+    {
+      pillars: ['癸卯', '庚申', '庚子', '庚辰'],
+      note: '原典秋金建禄用伤官精确例型癸卯、庚申、庚子、庚辰，庚日申月真禄，癸伤官明透而无财官杀明透；只保存秋金用伤官的气候类别，不据申子辰三合直接认定合化或格局成立',
+    },
+    {
+      pillars: ['辛丑', '庚寅', '甲辰', '乙亥'],
+      note: '原典建禄合杀留官精确例型辛丑、庚寅、甲辰、乙亥，甲日寅月真禄，辛正官、庚七杀并透且乙劫财与庚七杀五合；只保存合杀留官候选，不认定七杀已合去、官杀已清或贵格成立',
+    },
+    {
+      pillars: ['辛亥', '庚寅', '甲申', '丙寅'],
+      note: '原典建禄制杀留官精确例型辛亥、庚寅、甲申、丙寅，甲日寅月真禄，辛正官、庚七杀与丙食神并透；只保存食神制杀留官候选，不据同见直接判制伏适度或官杀已清',
+    },
+    {
+      pillars: ['己酉', '乙亥', '壬戌', '庚子'],
+      note: '原典建禄合伤存官精确例型己酉、乙亥、壬戌、庚子，壬日亥月真禄，己正官、乙伤官、庚偏印并透且乙庚五合；只保存官伤冲突与合伤存官候选，不认定伤官已合去或官星已存',
+    },
+  ];
+  exactExamples.forEach((example) => {
+    if (isExact(...example.pillars)) notes.push(example.note);
+  });
+
+  if (!structure.isLuMonthRobPattern) return notes;
+
+  notes.push(
+    structure.isLuPattern
+      ? `日主${dayMaster}月支${pillars.month.zhi}确为禄位，建禄本身不直接充当用神；当前只从财官杀食的明透、会支及固定制合关系列取用候选，不把建禄本身或单项关系直接判成凶吉、贵贱和现实事件`
+      : `日主${dayMaster}月支${pillars.month.zhi}本气为劫财，确属月劫而非阳刃；月劫本身不直接充当用神，当前只从财官杀食的明透、会支及固定制合关系列取用候选，不把月劫本身或单项关系直接判成凶吉、贵贱和现实事件`,
+  );
+
+  if (structure.officerStems.length > 0) {
+    const resourceAssist =
+      structure.resourceStems.length > 0 || structure.resourceHiddenFacts.length > 0;
+    const wealthAssist = structure.wealthStems.length > 0 || structure.wealthHiddenFacts.length > 0;
+    const assistFacts = [
+      structure.resourceStems.length > 0 ? formatStems(structure.resourceStems) : '',
+      structure.resourceHiddenFacts.length > 0
+        ? formatHiddenFacts(structure.resourceHiddenFacts)
+        : '',
+      structure.wealthStems.length > 0 ? formatStems(structure.wealthStems) : '',
+      structure.wealthHiddenFacts.length > 0 ? formatHiddenFacts(structure.wealthHiddenFacts) : '',
+    ].filter(Boolean);
+    if (resourceAssist || wealthAssist) {
+      const methods = [resourceAssist ? '印护官' : '', wealthAssist ? '财助官' : ''].filter(
+        Boolean,
+      );
+      notes.push(
+        `禄劫用官候选见${formatStems(structure.officerStems)}明透，并见${assistFacts.join('、')}，列${methods.join('、')}的“财印相随”组件；藏根只证明同类存在，能否护官、生官及实际轻重仍须全局复核`,
+      );
+    } else {
+      notes.push(
+        `禄劫用官候选见${formatStems(structure.officerStems)}明透，但外干及四支均未见财印同类事实，列“孤官无辅”的缺项候选；不据当前缺项直接判定破格或贫贱`,
+      );
+    }
+
+    if (structure.officerSeparationFacts.length > 0) {
+      notes.push(
+        `${structure.officerSeparationFacts
+          .map(
+            ({ wealth, officer, resource }) =>
+              `${officer.label}${officer.stem}正官位于${wealth.label}${wealth.stem}${wealth.tenGod}与${resource.label}${resource.stem}${resource.tenGod}之间`,
+          )
+          .join('、')}，闭合原典“官隔财印”的外干位置事实；隔位不等于财印必然两不相碍或格局已经成立`,
+      );
+    }
+
+    if (structure.hurtStems.length > 0) {
+      const combinationFacts = structure.resourceHurtCombinationFacts;
+      notes.push(
+        `禄劫用官候选同时见${formatStems(structure.hurtStems)}明透，列官伤冲突${
+          combinationFacts.length > 0
+            ? `；另见${combinationFacts
+                .map(
+                  ({ target, partner }) =>
+                    `${target.label}${target.stem}伤官与${partner.label}${partner.stem}${partner.tenGod}五合`,
+                )
+                .join('、')}，作为“合伤存官”的固定救应候选`
+            : '，且未见印星五合伤官的固定救应组件'
+        }；不据五合直接认定伤官已去、官星已存或全局破格`,
+      );
+    }
+  }
+
+  const completeMonthWealthFormations = structure.wealthFormationFacts.filter(
+    (fact) => fact.includesMonthBranch && (fact.type === '三合' || fact.type === '三会'),
+  );
+  const hasWealthUse = structure.wealthStems.length > 0 || completeMonthWealthFormations.length > 0;
+  if (hasWealthUse) {
+    const wealthUseFacts = [
+      structure.wealthStems.length > 0 ? formatStems(structure.wealthStems) : '',
+      completeMonthWealthFormations.length > 0
+        ? formatFormations(completeMonthWealthFormations)
+        : '',
+    ].filter(Boolean);
+    const outputFacts = [
+      structure.outputStems.length > 0 ? formatStems(structure.outputStems) : '',
+      structure.outputFormationFacts.length > 0
+        ? formatFormations(structure.outputFormationFacts)
+        : '',
+    ].filter(Boolean);
+    if (outputFacts.length > 0) {
+      notes.push(
+        `禄劫用财候选见${wealthUseFacts.join('、')}，并见${outputFacts.join('、')}，列食伤转劫生财的组成候选；食伤轻重、会合成化与转关是否有效仍须全局复核`,
+      );
+    } else {
+      notes.push(
+        `禄劫用财候选见${wealthUseFacts.join('、')}，但未见食伤明透或固定会合关系，列“用财无食伤”的转关缺项；不据缺项直接判定破格或贫贱`,
+      );
+    }
+  }
+
+  if (structure.monthWealthTransformationFacts.length > 0) {
+    notes.push(
+      `${structure.isLuPattern ? '月支禄位' : '月劫月支'}参与${formatFormations(structure.monthWealthTransformationFacts)}，列“化劫为财”的固定结构候选；半合、拱局或三支齐全都不等于已经合化、财格成立或最终取用完成`,
+    );
+  }
+  if (structure.monthOutputTransformationFacts.length > 0) {
+    notes.push(
+      `${structure.isLuPattern ? '月支禄位' : '月劫月支'}参与${formatFormations(structure.monthOutputTransformationFacts)}，列“化劫为生”的固定结构候选；半合、拱局或三支齐全都不等于已经合化、食伤有力或最终取用完成`,
+    );
+  }
+
+  if (structure.killerStems.length > 0) {
+    const controlFacts = [
+      structure.outputStems.length > 0 ? formatStems(structure.outputStems) : '',
+      structure.outputFormationFacts.length > 0
+        ? formatFormations(structure.outputFormationFacts)
+        : '',
+    ].filter(Boolean);
+    if (controlFacts.length > 0) {
+      notes.push(
+        `禄劫用杀候选见${formatStems(structure.killerStems)}明透，并见${controlFacts.join('、')}，列食伤制伏七杀的组成候选；制杀力度、杀食轻重与制伏是否适度仍须全局复核`,
+      );
+    } else {
+      notes.push(
+        `禄劫用杀候选见${formatStems(structure.killerStems)}明透，但未见食伤明透或固定会合关系，列“用杀无制伏”的冲突候选；不据当前缺项直接判定七杀重、身危或全局破格`,
+      );
+    }
+
+    if (structure.wealthStems.length > 0) {
+      notes.push(
+        `${formatStems(structure.killerStems)}与${formatStems(structure.wealthStems)}同透，列“财党杀”的冲突候选；财杀轻重及是否转为相生有情不能由同见直接认定`,
+      );
+      if (structure.killerCombinationFacts.length > 0) {
+        notes.push(
+          `${structure.killerCombinationFacts
+            .map(
+              ({ target, partner }) =>
+                `${target.label}${target.stem}七杀与${partner.label}${partner.stem}${partner.tenGod}五合`,
+            )
+            .join(
+              '、',
+            )}，并见财星明透，列“合杀存财”的固定取清候选；五合不等于七杀已去、财星已存或格局已经取清`,
+        );
+      }
+    }
+  }
+
+  const hasControlUse = structure.officerStems.length > 0 || structure.killerStems.length > 0;
+  if (!hasWealthUse && !hasControlUse && structure.outputStems.length > 0) {
+    const climateFacts = [
+      structure.isSpringWood && structure.foodStems.length > 0 ? '春木用食神' : '',
+      structure.isAutumnMetal && structure.hurtStems.length > 0 ? '秋金用伤官' : '',
+    ].filter(Boolean);
+    notes.push(
+      `外干未见财官杀且月支未参与财类完整会局，另见${formatStems(structure.outputStems)}明透，列“无财官而用伤食”的候选${climateFacts.length > 0 ? `，并闭合${climateFacts.join('、')}气候类别` : ''}；气候类别不等于食伤有力、调候完成或贵格成立`,
+    );
+  }
+
+  if (structure.hasOfficerKillerMixture) {
+    const clearingFacts = [
+      structure.killerCombinationFacts.length > 0 ? '五合七杀，候选合杀留官' : '',
+      structure.outputStems.length > 0 ? '食伤明透，候选制杀留官' : '',
+    ].filter(Boolean);
+    notes.push(
+      `${formatStems(structure.officerStems)}与${formatStems(structure.killerStems)}并透，${
+        clearingFacts.length > 0
+          ? `另见${clearingFacts.join('、')}的取清组件`
+          : '但未见五合七杀或食伤明透的取清组件，官杀混杂待复核'
+      }；制合事实不等于已经取清，留官留杀与最终成败仍须全局复核`,
+    );
+  }
+
+  if (structure.officerStems.length >= 2) {
+    notes.push(
+      `${formatStems(structure.officerStems)}两处以上正官竞出，${
+        structure.hurtStems.length > 0
+          ? `另见${formatStems(structure.hurtStems)}明透，列伤官制伏竞官的组成候选`
+          : '未见伤官明透，列“两官竞出无伤制伏”的冲突候选'
+      }；不据官星数量或单一伤官直接判定官重、制伏适度或最终成败`,
+    );
+  }
+
+  const controlStems = [...structure.officerStems, ...structure.killerStems];
+  if (
+    controlStems.length >= 2 &&
+    structure.outputStems.length === 0 &&
+    structure.outputFormationFacts.length === 0
+  ) {
+    notes.push(
+      `${formatStems(controlStems)}同见而未见食伤制伏组件；只记录“官杀多见且无制伏”的客观边界，不据数量直接称官杀重、日主弱、身危、破格或贫贱`,
+    );
+  }
+
+  return notes;
+}
+
+/**
  * 复算《子平真诠》“论阳刃”中能够由四柱闭合的真刃、官杀制刃、透刃五合、
  * 财印伤食配合、化刃为印固定结构与用财转生组件。
  * 根深、轻重、合化、制刃力度、贪合忘克及贵贱均不由数量或单项关系代替。
@@ -2420,6 +2698,11 @@ export function determinePattern(
   const hurtPatternNotes = collectHurtPatternNotes(pillars, patternName, getTenGod);
   if (hurtPatternNotes.length > 0) {
     basis += `；伤官格成败边界：${hurtPatternNotes.join('；')}；以上只记录《子平真诠》“论伤官”中能够由当前四柱闭合的明透、月令同根、财印隔位、气候类别、固定会合关系与取清组件，不改变既有格名；伤身财印官杀强弱、根深、财旺、印重、合化结果及最终取舍仍须全局复核，也不推导才学、职业、富贵贫贱、官职品级、现实事件、分数或概率`;
+  }
+
+  const luPatternNotes = collectLuPatternNotes(pillars, patternName, getTenGod);
+  if (luPatternNotes.length > 0) {
+    basis += `；建禄月劫成败边界：${luPatternNotes.join('；')}；以上只记录《子平真诠》“论建禄月劫”中能够由当前四柱闭合的真禄、财官杀食明透、财印藏根、半合拱局、完整会支、天干五合与取清组件，不改变既有格名；财官杀食印轻重、根多根少、制伏力度、合化去留及最终取舍仍须全局复核，也不推导性情、职业、富贵贫贱、官职品级、现实事件、分数或概率`;
   }
 
   const bladePatternNotes = collectBladePatternNotes(pillars, patternName, getTenGod);

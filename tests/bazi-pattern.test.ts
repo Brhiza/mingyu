@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { analyzeBladePatternStructure } from '@core/bazi/baziBladePattern';
 import { analyzeHurtPatternStructure } from '@core/bazi/baziHurtPattern';
+import { analyzeLuPatternStructure } from '@core/bazi/baziLuPattern';
 import { determinePattern } from '@core/bazi/baziPatternStrategy';
 import { analyzeKillerPatternStructure } from '@core/bazi/baziKillerPattern';
 import {
@@ -2134,6 +2135,213 @@ test('论阳刃五个原典例型应保存精确结构并禁止高风险强断',
     const result = determinePattern(createPillars(...pillars), '待综合判断', getTenGod);
     assert.equal(result.pattern, '月刃格');
     assert.match(result.basis || '', marker);
+    assert.doesNotMatch(
+      result.basis || '',
+      /判定为(?:成格|破格|富贵|贫贱|贵格)|必贵|大贵已定|官品已定|格局评分|成功率/,
+    );
+  });
+});
+
+test('建禄结构分析应区分完整会支、半合拱局、外干隔位与固定五合', () => {
+  const separatedPillars = createPillars('庚午', '戊子', '癸卯', '丁巳');
+  const separated = analyzeLuPatternStructure(separatedPillars, '建禄格', getTenGod);
+  const arched = analyzeLuPatternStructure(
+    createPillars('己未', '己巳', '丁未', '辛丑'),
+    '建禄格',
+    getTenGod,
+  );
+  const halfCombined = analyzeLuPatternStructure(
+    createPillars('庚子', '甲申', '庚子', '甲申'),
+    '建禄格',
+    getTenGod,
+  );
+  const hurtCombined = analyzeLuPatternStructure(
+    createPillars('己酉', '乙亥', '壬戌', '庚子'),
+    '建禄格',
+    getTenGod,
+  );
+
+  assert.equal(separated.isLuPattern, true);
+  assert.equal(separated.officerSeparationFacts.length, 1);
+  assert.equal(arched.monthWealthTransformationFacts[0]?.type, '拱局');
+  assert.deepEqual(arched.monthWealthTransformationFacts[0]?.branches, ['巳', '丑']);
+  assert.equal(halfCombined.monthOutputTransformationFacts[0]?.type, '半合');
+  assert.deepEqual(halfCombined.monthOutputTransformationFacts[0]?.branches, ['申', '子']);
+  assert.equal(hurtCombined.resourceHurtCombinationFacts.length, 1);
+});
+
+test('建禄用官应区分印护、财助、官隔财印、孤官及官伤救应', () => {
+  const protectedOfficer = determinePattern(
+    createPillars('庚戌', '戊子', '癸酉', '癸亥'),
+    '待综合判断',
+    getTenGod,
+  );
+  const financedOfficer = determinePattern(
+    createPillars('丁酉', '丙午', '丁巳', '壬寅'),
+    '待综合判断',
+    getTenGod,
+  );
+  const separatedOfficer = determinePattern(
+    createPillars('庚午', '戊子', '癸卯', '丁巳'),
+    '待综合判断',
+    getTenGod,
+  );
+  const loneOfficer = determinePattern(
+    createPillars('壬子', '戊子', '癸卯', '癸亥'),
+    '待综合判断',
+    getTenGod,
+  );
+  const combinedHurt = determinePattern(
+    createPillars('己酉', '乙亥', '壬戌', '庚子'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.match(protectedOfficer.basis || '', /庚正印明透.*印护官.*财印相随/);
+  assert.match(financedOfficer.basis || '', /酉藏辛偏财.*财助官.*财印相随/);
+  assert.match(separatedOfficer.basis || '', /官隔财印.*外干位置事实/);
+  assert.match(loneOfficer.basis || '', /孤官无辅.*不据当前缺项直接判定破格或贫贱/);
+  assert.match(combinedHurt.basis || '', /官伤冲突/);
+  assert.match(combinedHurt.basis || '', /乙伤官与时干庚偏印五合.*合伤存官/);
+  assert.match(combinedHurt.basis || '', /不据五合直接认定伤官已去、官星已存或全局破格/);
+});
+
+test('建禄用财应区分食伤转关、转关缺项、化劫为财与化劫为生', () => {
+  const redirected = determinePattern(
+    createPillars('甲子', '丙子', '癸丑', '壬子'),
+    '待综合判断',
+    getTenGod,
+  );
+  const missingOutput = determinePattern(
+    createPillars('丁酉', '壬子', '癸丑', '癸亥'),
+    '待综合判断',
+    getTenGod,
+  );
+  const transformedWealth = determinePattern(
+    createPillars('己未', '己巳', '丁未', '辛丑'),
+    '待综合判断',
+    getTenGod,
+  );
+  const transformedOutput = determinePattern(
+    createPillars('庚子', '甲申', '庚子', '甲申'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.match(redirected.basis || '', /食伤转劫生财的组成候选/);
+  assert.match(missingOutput.basis || '', /用财无食伤.*转关缺项/);
+  assert.match(transformedWealth.basis || '', /巳丑拱局金固定关系.*化劫为财/);
+  assert.match(transformedWealth.basis || '', /不等于已经合化/);
+  assert.match(transformedOutput.basis || '', /申子半合水固定关系.*化劫为生/);
+  assert.match(transformedOutput.basis || '', /不等于已经合化、食伤有力或最终取用完成/);
+});
+
+test('建禄用杀应保留制伏、财党杀、合杀存财及无制伏边界', () => {
+  const controlled = determinePattern(
+    createPillars('丁巳', '壬子', '癸卯', '己未'),
+    '待综合判断',
+    getTenGod,
+  );
+  const preservedWealth = determinePattern(
+    createPillars('戊辰', '癸亥', '壬午', '丙午'),
+    '待综合判断',
+    getTenGod,
+  );
+  const uncontrolled = determinePattern(
+    createPillars('丁酉', '壬子', '癸丑', '己未'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.match(controlled.basis || '', /卯未半合木固定关系.*食伤制伏七杀/);
+  assert.match(controlled.basis || '', /制杀力度、杀食轻重与制伏是否适度仍须全局复核/);
+  assert.match(preservedWealth.basis || '', /财党杀.*冲突候选/);
+  assert.match(preservedWealth.basis || '', /戊七杀与月干癸劫财五合.*合杀存财/);
+  assert.match(uncontrolled.basis || '', /用杀无制伏.*不据当前缺项直接判定七杀重、身危/);
+  assert.match(preservedWealth.basis || '', /五合不等于七杀已去、财星已存或格局已经取清/);
+});
+
+test('建禄无财官用伤食应保留春木秋金类别，不把气候类别当成格局结论', () => {
+  const springWood = determinePattern(
+    createPillars('甲子', '丙寅', '甲子', '丙寅'),
+    '待综合判断',
+    getTenGod,
+  );
+  const autumnMetal = determinePattern(
+    createPillars('癸卯', '庚申', '庚子', '庚辰'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.match(springWood.basis || '', /无财官而用伤食.*春木用食神气候类别/);
+  assert.match(autumnMetal.basis || '', /无财官而用伤食.*秋金用伤官气候类别/);
+  assert.match(autumnMetal.basis || '', /气候类别不等于食伤有力、调候完成或贵格成立/);
+});
+
+test('建禄官杀竞出及两官竞出应只列固定取清和制伏候选', () => {
+  const combinedKiller = determinePattern(
+    createPillars('辛丑', '庚寅', '甲辰', '乙亥'),
+    '待综合判断',
+    getTenGod,
+  );
+  const controlledKiller = determinePattern(
+    createPillars('辛亥', '庚寅', '甲申', '丙寅'),
+    '待综合判断',
+    getTenGod,
+  );
+  const uncleared = determinePattern(
+    createPillars('辛丑', '庚寅', '甲辰', '甲子'),
+    '待综合判断',
+    getTenGod,
+  );
+  const twoOfficers = determinePattern(
+    createPillars('戊辰', '戊子', '癸酉', '甲寅'),
+    '待综合判断',
+    getTenGod,
+  );
+  const twoUncontrolledOfficers = determinePattern(
+    createPillars('戊辰', '戊子', '癸酉', '癸亥'),
+    '待综合判断',
+    getTenGod,
+  );
+
+  assert.match(combinedKiller.basis || '', /五合七杀，候选合杀留官/);
+  assert.match(controlledKiller.basis || '', /食伤明透，候选制杀留官/);
+  assert.match(uncleared.basis || '', /官杀混杂待复核/);
+  assert.match(twoOfficers.basis || '', /两处以上正官竞出.*伤官制伏竞官/);
+  assert.match(twoUncontrolledOfficers.basis || '', /两官竞出无伤制伏/);
+  assert.match(twoUncontrolledOfficers.basis || '', /不据数量直接称官杀重、日主弱、身危/);
+  assert.match(combinedKiller.basis || '', /制合事实不等于已经取清/);
+  assert.match(controlledKiller.basis || '', /制伏是否适度仍须全局复核/);
+  assert.match(twoOfficers.basis || '', /不据官星数量或单一伤官直接判定官重/);
+});
+
+test('论建禄月劫十三个原典例型应唯一保存精确结构并禁止高风险强断', () => {
+  const examples: Array<{
+    pillars: [string, string, string, string];
+    marker: RegExp;
+  }> = [
+    { pillars: ['庚戌', '戊子', '癸酉', '癸亥'], marker: /原典建禄用官印护精确例型/ },
+    { pillars: ['丁酉', '丙午', '丁巳', '壬寅'], marker: /原典建禄用官财助精确例型/ },
+    { pillars: ['庚午', '戊子', '癸卯', '丁巳'], marker: /原典建禄官隔财印精确例型/ },
+    { pillars: ['甲子', '丙子', '癸丑', '壬子'], marker: /原典建禄用财带伤食精确例型/ },
+    { pillars: ['己未', '己巳', '丁未', '辛丑'], marker: /原典建禄化劫为财精确例型/ },
+    { pillars: ['庚子', '甲申', '庚子', '甲申'], marker: /原典建禄化劫为生精确例型/ },
+    { pillars: ['丁巳', '壬子', '癸卯', '己未'], marker: /原典建禄用杀制伏精确例型/ },
+    { pillars: ['戊辰', '癸亥', '壬午', '丙午'], marker: /原典建禄合杀存财精确例型/ },
+    { pillars: ['甲子', '丙寅', '甲子', '丙寅'], marker: /原典春木建禄用食神精确例型/ },
+    { pillars: ['癸卯', '庚申', '庚子', '庚辰'], marker: /原典秋金建禄用伤官精确例型/ },
+    { pillars: ['辛丑', '庚寅', '甲辰', '乙亥'], marker: /原典建禄合杀留官精确例型/ },
+    { pillars: ['辛亥', '庚寅', '甲申', '丙寅'], marker: /原典建禄制杀留官精确例型/ },
+    { pillars: ['己酉', '乙亥', '壬戌', '庚子'], marker: /原典建禄合伤存官精确例型/ },
+  ];
+
+  examples.forEach(({ pillars, marker }) => {
+    const result = determinePattern(createPillars(...pillars), '待综合判断', getTenGod);
+    const exactMarkers = result.basis?.match(/原典[^；]+精确例型/g) ?? [];
+    assert.equal(result.pattern, pillars[1] === '己巳' ? '劫财格' : '建禄格');
+    assert.match(result.basis || '', marker);
+    assert.equal(exactMarkers.length, 1, `${pillars.join('、')}只应命中一个原典例型`);
     assert.doesNotMatch(
       result.basis || '',
       /判定为(?:成格|破格|富贵|贫贱|贵格)|必贵|大贵已定|官品已定|格局评分|成功率/,

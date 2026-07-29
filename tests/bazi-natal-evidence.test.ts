@@ -298,17 +298,31 @@ test('真实建禄会财排盘应把会支及财官伤明透贯穿证据与最�
     /年干辛（正财）、月干癸（正官）、时干己（伤官）明透/,
   );
   assert.match(result.analysis.mingGe.basis || '', /透干会支，另取用神/);
+  assert.match(result.analysis.mingGe.basis || '', /建禄月劫成败边界/);
+  assert.match(result.analysis.mingGe.basis || '', /正财.*财助官.*财印相随/);
+  assert.match(result.analysis.mingGe.basis || '', /伤官明透，列官伤冲突/);
+  assert.match(result.analysis.mingGe.basis || '', /食伤转劫生财的组成候选/);
+  assert.match(result.analysis.mingGe.basis || '', /巳酉丑三合金固定关系.*化劫为财/);
+  assert.match(result.analysis.mingGe.basis || '', /不据数量|不等于已经合化/);
 
   const patternFact = result.evidenceAnalysis?.analysisFacts.find((item) => item.type === '格局');
   assert.equal(patternFact?.status, '已记录');
   assert.equal(patternFact?.result, '建禄格');
   assert.match(patternFact?.promptText || '', /巳酉丑完整三合金结构（金财星）/);
   assert.match(patternFact?.promptText || '', /透干会支，另取用神/);
+  assert.match(patternFact?.promptText || '', /建禄月劫成败边界/);
+  assert.match(patternFact?.promptText || '', /财助官/);
+  assert.match(patternFact?.promptText || '', /官伤冲突/);
+  assert.match(patternFact?.promptText || '', /食伤转劫生财/);
 
   const prompt = formatBaziForPrompt(result);
   assert.match(prompt, /格局: 建禄格/);
   assert.match(prompt, /巳酉丑完整三合金结构（金财星）/);
   assert.match(prompt, /年干辛（正财）、月干癸（正官）、时干己（伤官）明透/);
+  assert.match(prompt, /建禄月劫成败边界/);
+  assert.match(prompt, /财助官/);
+  assert.match(prompt, /官伤冲突/);
+  assert.match(prompt, /食伤转劫生财/);
 });
 
 test('真实月刃会印排盘应把杀财伤配合贯穿证据与最终提示词', () => {
