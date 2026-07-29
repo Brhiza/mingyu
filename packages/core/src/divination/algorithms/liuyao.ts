@@ -32,6 +32,7 @@ import { analyzeLiuyaoEvidence } from '../liuyao-evidence';
 import {
   analyzeLiuyaoHiddenSpiritConditions,
   analyzeLiuyaoLineStrength,
+  analyzeLiuyaoSanheFormations,
   getLiuyaoChangeDirection,
   getLiuyaoTwelveStage,
   isLiuyaoElementInTomb,
@@ -48,7 +49,6 @@ import {
   isLiuchong,
   BRANCH_ORDER,
   BRANCH_WUXING,
-  SANHE_GROUPS,
 } from '../../ganzhi';
 
 /**
@@ -82,33 +82,6 @@ function isYueMu(branch: string, monthBranch: string): boolean {
 function isRiMu(branch: string, dayBranch: string): boolean {
   const wuxing = BRANCH_WUXING[branch];
   return isLiuyaoElementInTomb(wuxing, dayBranch);
-}
-
-/**
- * 检测月建/日辰对爻的三合局触发（《卜筮正宗》卷三《三合局章》）：
- * 若月建或日辰为三合局中一支，再有两爻相配，即为完整三合局。
- * "三合主久远、多人协力，事势增强，吉凶随局而定。"
- */
-function checkSanheWithTrigger(
-  activeBranches: string[],
-  triggerBranch: string,
-  triggerLabel: '日辰' | '月建',
-): { group: string; members: string[]; description: string } | null {
-  const activeBranchSet = new Set(activeBranches);
-  for (const [group, members] of Object.entries(SANHE_GROUPS)) {
-    if (!members.includes(triggerBranch)) {
-      continue;
-    }
-    const requiredYaoBranches = members.filter((member) => member !== triggerBranch);
-    if (requiredYaoBranches.every((member) => activeBranchSet.has(member))) {
-      return {
-        group,
-        members,
-        description: `${triggerLabel}${triggerBranch}引动三合${group}，三合局成，事势增强`,
-      };
-    }
-  }
-  return null;
 }
 
 // 六合月日暗助检测（已在 yaosDetail 中通过 seasonState + isDayClash + isChanging 实现暗动判定）
@@ -186,6 +159,7 @@ export function getLiuyaoChangeRelations(
   const relations: LiuyaoChangeRelation[] = isLiuchong(originalBranch, changedBranch)
     ? ['回头冲', wuxingRelation]
     : [wuxingRelation];
+  if (isLiuhe(originalBranch, changedBranch)) relations.push('化扶');
   if (changedIsVoid) relations.push('化空');
   return relations;
 }
@@ -1057,16 +1031,24 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     dayBranch,
   });
 
-  // 三合局只取明动、暗动及其变爻；静态纳甲支不能自行凑局。
   const yaoBranches = yaosInfo.map((i) => i.dizhi);
-  const activeBranches = yaosDetail.flatMap((yao) => {
-    if (!yao.isChanging && !yao.isHiddenMove) {
-      return [];
-    }
-    return yao.changedYao ? [yao.najiaDizhi, yao.changedYao.dizhi] : [yao.najiaDizhi];
-  });
-  const sanheWithDay = checkSanheWithTrigger(activeBranches, dayBranch, '日辰');
-  const sanheWithMonth = checkSanheWithTrigger(activeBranches, monthBranch, '月建');
+  const sanheFormations = analyzeLiuyaoSanheFormations(yaosDetail, monthBranch, dayBranch);
+  const dayFormation = sanheFormations.find((item) => item.pattern === '日辰补局');
+  const monthFormation = sanheFormations.find((item) => item.pattern === '月建补局');
+  const toTriggeredSanhe = (formation: typeof dayFormation) =>
+    formation
+      ? {
+          group: formation.group,
+          members: formation.members,
+          description: formation.description,
+          formationKey: formation.key,
+          status: formation.status,
+          participants: formation.participants,
+          issues: formation.issues,
+        }
+      : null;
+  const sanheWithDay = toTriggeredSanhe(dayFormation);
+  const sanheWithMonth = toTriggeredSanhe(monthFormation);
 
   const sanxingInYaos = collectSanxingInBranches(yaoBranches);
 
@@ -1114,6 +1096,7 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     fanfuRelations,
     sanheWithDay,
     sanheWithMonth,
+    sanheFormations,
     sanxingInYaos,
     guaShen,
     generation: resolvedGeneration.generation,
@@ -1137,6 +1120,7 @@ export { analyzeLiuyaoEvidence, conditionLiuyaoTraditionalText } from '../liuyao
 export {
   analyzeLiuyaoHiddenSpiritConditions,
   analyzeLiuyaoLineStrength,
+  analyzeLiuyaoSanheFormations,
   getLiuyaoChangeDirection,
   getLiuyaoFlyingHiddenRelation,
   getLiuyaoTwelveStage,

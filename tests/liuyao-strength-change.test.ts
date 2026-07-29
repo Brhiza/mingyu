@@ -311,7 +311,7 @@ test('六爻：动爻变爻应完整输出回头、化泄、化耗等五行关�
         `第${yao.position}爻动变应输出 changeRelation，实际 ${yao.changeRelation}`,
       );
       assert.ok(
-        ['回头生', '回头克', '回头冲', '化空', '比和', '化泄', '化耗'].includes(
+        ['回头生', '回头克', '回头冲', '化扶', '化空', '比和', '化泄', '化耗'].includes(
           yao.changeRelation!,
         ),
         `第${yao.position}爻 changeRelation 值非法：${yao.changeRelation}`,
@@ -342,6 +342,11 @@ test('六爻：回头冲与五行生克应分别保存', () => {
   assert.deepEqual(getLiuyaoChangeRelations('木', '金', '卯', '酉', false), ['回头冲', '回头克']);
   assert.deepEqual(getLiuyaoChangeRelations('金', '木', '酉', '卯', false), ['回头冲', '化耗']);
   assert.equal(getLiuyaoChangeRelation('金', '木', '酉', '卯', false), '回头冲');
+});
+
+test('六爻：动爻化六合应在基础五行关系外另记化扶', () => {
+  assert.deepEqual(getLiuyaoChangeRelations('水', '土', '子', '丑', false), ['回头克', '化扶']);
+  assert.equal(getLiuyaoChangeRelation('水', '土', '子', '丑', false), '回头克');
 });
 
 test('六爻：进退神按增删卜易明表判定，不按地支循环外推', () => {
@@ -471,9 +476,10 @@ test('六爻：静卦不能仅凭静态纳甲支凑成三合局', () => {
   assert.equal(data.changingYaos.length, 0);
   assert.equal(data.sanheWithDay, null);
   assert.equal(data.sanheWithMonth, null);
+  assert.deepEqual(data.sanheFormations, []);
 });
 
-test('六爻：动爻的变爻可以与日辰补成完整三合局', () => {
+test('六爻：两个不同动爻的变爻可以与日辰补成三合并保留空破条件', () => {
   const data = generateLiuyao(new Date('2025-01-01T00:00:00+08:00'), {
     yaos: [7, 6, 7, 7, 7, 6],
   });
@@ -492,8 +498,68 @@ test('六爻：动爻的变爻可以与日辰补成完整三合局', () => {
   );
   assert.equal(data.sanheWithDay?.group, '火局');
   assert.deepEqual(data.sanheWithDay?.members, ['寅', '午', '戌']);
-  assert.match(data.sanheWithDay?.description || '', /日辰午引动三合火局/);
+  assert.match(data.sanheWithDay?.description || '', /日辰午补足寅、午、戌火局/);
+  assert.equal(data.sanheWithDay?.status, '待填实');
+  assert.deepEqual(
+    data.sanheWithDay?.participants?.map((item) => item.position),
+    [2, 6],
+  );
   assert.equal(data.sanheWithMonth, null);
+});
+
+test('六爻：同一动爻的本支变支不得冒充日月补局所需的两个活动爻', () => {
+  const dayCase = generateLiuyao(new Date('2024-01-03T12:00:00+08:00'), {
+    method: 'manual',
+    yaos: [6, 6, 6, 6, 6, 7],
+  });
+  const monthCase = generateLiuyao(new Date('2024-02-05T12:00:00+08:00'), {
+    method: 'manual',
+    yaos: [6, 6, 6, 6, 6, 7],
+  });
+
+  assert.equal(dayCase.sanheWithDay, null);
+  assert.equal(monthCase.sanheWithMonth, null);
+});
+
+test('六爻：两动一静及初三四六动变应分别识别为卦内三合', () => {
+  const twoMovingOneStatic = generateLiuyao(new Date('2024-01-01T12:00:00+08:00'), {
+    method: 'manual',
+    yaos: [7, 6, 6, 6, 6, 6],
+  });
+  const trigramChange = generateLiuyao(new Date('2024-01-01T12:00:00+08:00'), {
+    method: 'manual',
+    yaos: [9, 7, 6, 6, 6, 6],
+  });
+
+  const twoMovingFormation = twoMovingOneStatic.sanheFormations?.find(
+    (item) => item.group === '水局' && item.pattern === '两动一静',
+  );
+  assert.ok(twoMovingFormation);
+  assert.equal(twoMovingFormation.status, '成立待静爻逢值');
+  assert.ok(twoMovingFormation.participants.some((item) => item.activity === '静爻'));
+
+  const trigramFormation = trigramChange.sanheFormations?.find(
+    (item) => item.group === '金局' && item.pattern === '初三爻动变成局',
+  );
+  assert.ok(trigramFormation);
+  assert.deepEqual(
+    new Set(trigramFormation.participants.map((item) => item.position)),
+    new Set([1, 3]),
+  );
+  assert.ok(trigramFormation.participants.some((item) => item.source === '变爻'));
+});
+
+test('六爻：静爻逢月日合为合起，明暗动爻逢合为合绊', () => {
+  const date = new Date('2025-01-01T00:00:00+08:00');
+  const moving = generateLiuyao(date, { method: 'manual', yaos: [6, 6, 6, 6, 6, 6] });
+  const staticChart = generateLiuyao(date, { method: 'manual', yaos: [8, 8, 8, 8, 8, 8] });
+  const movingChou = moving.yaosDetail.find((item) => item.najiaDizhi === '丑');
+  const staticChou = staticChart.yaosDetail.find((item) => item.najiaDizhi === '丑');
+
+  assert.ok(movingChou?.strengthAnalysis?.calendarConstraints.includes('月建合绊本爻'));
+  assert.ok(!movingChou?.strengthAnalysis?.calendarSupport.includes('静爻逢月建合起'));
+  assert.ok(staticChou?.strengthAnalysis?.calendarSupport.includes('静爻逢月建合起'));
+  assert.ok(!staticChou?.strengthAnalysis?.calendarConstraints.includes('月建合绊本爻'));
 });
 
 test('六爻：月卦身应按阳世起子、阴世起午逐爻顺数', () => {

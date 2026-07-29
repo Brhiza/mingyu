@@ -2,6 +2,7 @@ import {
   BRANCH_ORDER,
   BRANCH_WUXING,
   CHANGSHENG_ORDER,
+  SANHE_GROUPS,
   getSeasonState,
   isKe,
   isLiuchong,
@@ -13,6 +14,10 @@ import type {
   LiuyaoHiddenSpirit,
   LiuyaoHiddenSpiritConditionAnalysis,
   LiuyaoLineStrengthAnalysis,
+  LiuyaoSanheFormation,
+  LiuyaoSanheParticipant,
+  LiuyaoSanhePattern,
+  LiuyaoSanheStatus,
   LiuyaoYaoDetail,
 } from '../types/divination';
 
@@ -142,16 +147,281 @@ function hasHiddenMove(
   );
 }
 
+function getLineActivity(
+  yao: LiuyaoYaoDetail,
+  monthBranch: string,
+  dayBranch: string,
+): LiuyaoSanheParticipant['activity'] {
+  if (yao.isChanging) return '明动';
+  return hasHiddenMove(yao, monthBranch, dayBranch) ? '暗动' : '静爻';
+}
+
+function getSanheParticipantConditions(
+  participant: Pick<
+    LiuyaoSanheParticipant,
+    'source' | 'position' | 'branch' | 'activity' | 'isVoid'
+  >,
+  element: string,
+  monthBranch: string,
+  dayBranch: string,
+) {
+  const label = `${participant.source}第${participant.position}爻${participant.branch}`;
+  const conditions: string[] = [];
+  if (participant.isVoid) conditions.push(`${label}空亡`);
+  if (isLiuchong(participant.branch, monthBranch)) conditions.push(`${label}月破`);
+  if (
+    participant.source === '本卦' &&
+    participant.activity === '静爻' &&
+    isLiuchong(participant.branch, dayBranch)
+  ) {
+    conditions.push(`${label}日破`);
+  }
+  if (isLiuyaoElementInTomb(element, monthBranch)) conditions.push(`${label}入月墓`);
+  if (isLiuyaoElementInTomb(element, dayBranch)) conditions.push(`${label}入日墓`);
+  if (participant.activity === '静爻') conditions.push(`${label}静爻待值`);
+  return conditions;
+}
+
+function buildSanheParticipants(
+  yaosDetail: LiuyaoYaoDetail[],
+  monthBranch: string,
+  dayBranch: string,
+) {
+  return yaosDetail.flatMap((yao): LiuyaoSanheParticipant[] => {
+    const activity = getLineActivity(yao, monthBranch, dayBranch);
+    const original: LiuyaoSanheParticipant = {
+      source: '本卦',
+      position: yao.position,
+      branch: yao.najiaDizhi,
+      activity,
+      isVoid: yao.isVoid,
+      conditions: [],
+    };
+    original.conditions = getSanheParticipantConditions(
+      original,
+      getBranchElement(original.branch, `六爻第${yao.position}爻`),
+      monthBranch,
+      dayBranch,
+    );
+    if (!yao.changedYao || yao.changedYao.dizhi === yao.najiaDizhi) return [original];
+    const changed: LiuyaoSanheParticipant = {
+      source: '变爻',
+      position: yao.position,
+      branch: yao.changedYao.dizhi,
+      activity,
+      isVoid: yao.changedYao.isVoid,
+      conditions: [],
+    };
+    changed.conditions = getSanheParticipantConditions(
+      changed,
+      getBranchElement(changed.branch, `六爻第${yao.position}爻变爻`),
+      monthBranch,
+      dayBranch,
+    );
+    return [original, changed];
+  });
+}
+
+function enumerateSanheAssignments(
+  members: string[],
+  participants: LiuyaoSanheParticipant[],
+): LiuyaoSanheParticipant[][] {
+  const assignments: LiuyaoSanheParticipant[][] = [];
+  const walk = (index: number, selected: LiuyaoSanheParticipant[]) => {
+    if (index === members.length) {
+      assignments.push(selected);
+      return;
+    }
+    for (const participant of participants.filter((item) => item.branch === members[index])) {
+      walk(index + 1, [...selected, participant]);
+    }
+  };
+  walk(0, []);
+  return assignments;
+}
+
+function getSanhePattern(
+  participants: LiuyaoSanheParticipant[],
+): Exclude<LiuyaoSanhePattern, '日辰补局' | '月建补局' | '虚一待用'> | null {
+  const positions = new Set(participants.map((item) => item.position));
+  const activePositions = new Set(
+    participants.filter((item) => item.activity !== '静爻').map((item) => item.position),
+  );
+  if (positions.size === 3 && activePositions.size >= 2) {
+    return activePositions.size === 3 ? '三爻齐动' : '两动一静';
+  }
+  const positionKey = [...positions].sort((left, right) => left - right).join(',');
+  if (
+    activePositions.size === 2 &&
+    participants.some((item) => item.source === '变爻') &&
+    positionKey === '1,3'
+  ) {
+    return '初三爻动变成局';
+  }
+  if (
+    activePositions.size === 2 &&
+    participants.some((item) => item.source === '变爻') &&
+    positionKey === '4,6'
+  ) {
+    return '四六爻动变成局';
+  }
+  return null;
+}
+
+function getSanheStatus(
+  pattern: LiuyaoSanhePattern,
+  participants: LiuyaoSanheParticipant[],
+): { status: LiuyaoSanheStatus; issues: string[] } {
+  const issues = unique(participants.flatMap((item) => item.conditions));
+  if (pattern === '虚一待用') return { status: '虚一待补', issues };
+  const needsFilling = issues.some((item) => /空亡|月破|日破/.test(item));
+  const needsOpeningTomb = issues.some((item) => /墓/.test(item));
+  if (needsFilling && needsOpeningTomb) return { status: '待填实并冲墓', issues };
+  if (needsFilling) return { status: '待填实', issues };
+  if (needsOpeningTomb) return { status: '待冲墓', issues };
+  if (issues.some((item) => /静爻待值/.test(item))) {
+    return { status: '成立待静爻逢值', issues };
+  }
+  return { status: '成立', issues };
+}
+
+function formatSanheParticipant(participant: LiuyaoSanheParticipant) {
+  return `${participant.source}第${participant.position}爻${participant.branch}（${participant.activity}）`;
+}
+
+function buildSanheFormation(params: {
+  group: string;
+  members: string[];
+  pattern: LiuyaoSanhePattern;
+  participants: LiuyaoSanheParticipant[];
+  trigger?: LiuyaoSanheFormation['trigger'];
+  missingBranch?: string;
+}): LiuyaoSanheFormation {
+  const { group, members, pattern, participants, trigger, missingBranch } = params;
+  const { status, issues: participantIssues } = getSanheStatus(pattern, participants);
+  const issues = unique([
+    ...participantIssues,
+    ...(missingBranch ? [`缺${missingBranch}支，须待月日补入`] : []),
+  ]);
+  const participantText = participants.map(formatSanheParticipant).join('、');
+  const baseDescription =
+    pattern === '虚一待用'
+      ? `${participantText}已见${participants.map((item) => item.branch).join('、')}，${group}缺${missingBranch}支，列为虚一待用`
+      : trigger
+        ? `${trigger.source}${trigger.branch}补足${members.join('、')}${group}，另两支来自${participantText}`
+        : `${participantText}组成${members.join('、')}${group}（${pattern}）`;
+  const participantKey = participants
+    .map((item) => `${item.source}:${item.position}:${item.branch}`)
+    .sort()
+    .join('|');
+  return {
+    key: `liuyao:sanhe:${group}:${pattern}:${trigger ? `${trigger.source}${trigger.branch}` : '卦内'}:${missingBranch ?? '齐'}:${participantKey}`,
+    group,
+    element: group.slice(0, 1),
+    members: [...members],
+    pattern,
+    status,
+    participants,
+    ...(trigger ? { trigger } : {}),
+    ...(missingBranch ? { missingBranch } : {}),
+    issues,
+    description: `${baseDescription}；状态${status}${issues.length ? `；条件${issues.join('、')}` : ''}`,
+  };
+}
+
+/**
+ * 复核《增删卜易·六合章》四类三合与“虚一待用”：
+ * 三爻齐动、两动一静、初三或四六爻动变成局，以及两活动爻由日月补足。
+ * 同一动爻的本支与变支可以参加初三/四六动变成局，但不能冒充日月补局所需的
+ * 两个不同活动爻；空破墓与静爻待值只记录成立条件，不直接换算吉凶或日期。
+ */
+export function analyzeLiuyaoSanheFormations(
+  yaosDetail: LiuyaoYaoDetail[],
+  monthBranch: string,
+  dayBranch: string,
+): LiuyaoSanheFormation[] {
+  getBranchElement(monthBranch, '六爻月建');
+  getBranchElement(dayBranch, '六爻日辰');
+  if (yaosDetail.length !== 6) throw new Error('六爻三合分析必须提供完整六爻。');
+  const participants = buildSanheParticipants(yaosDetail, monthBranch, dayBranch);
+  const formations: LiuyaoSanheFormation[] = [];
+  const formationKeys = new Set<string>();
+  const addFormation = (formation: LiuyaoSanheFormation) => {
+    if (formationKeys.has(formation.key)) return;
+    formationKeys.add(formation.key);
+    formations.push(formation);
+  };
+
+  for (const [group, members] of Object.entries(SANHE_GROUPS)) {
+    for (const assignment of enumerateSanheAssignments(members, participants)) {
+      const pattern = getSanhePattern(assignment);
+      if (!pattern) continue;
+      addFormation(buildSanheFormation({ group, members, pattern, participants: assignment }));
+    }
+  }
+
+  for (const [source, triggerBranch, pattern] of [
+    ['日辰', dayBranch, '日辰补局'],
+    ['月建', monthBranch, '月建补局'],
+  ] as const) {
+    for (const [group, members] of Object.entries(SANHE_GROUPS)) {
+      if (!members.includes(triggerBranch)) continue;
+      const requiredMembers = members.filter((member) => member !== triggerBranch);
+      for (const assignment of enumerateSanheAssignments(requiredMembers, participants)) {
+        if (assignment.some((item) => item.activity === '静爻')) continue;
+        if (new Set(assignment.map((item) => item.position)).size !== 2) continue;
+        addFormation(
+          buildSanheFormation({
+            group,
+            members,
+            pattern,
+            participants: assignment,
+            trigger: { source, branch: triggerBranch },
+          }),
+        );
+      }
+    }
+  }
+
+  const completedGroups = new Set(
+    formations.filter((item) => item.pattern !== '虚一待用').map((item) => item.group),
+  );
+  for (const [group, members] of Object.entries(SANHE_GROUPS)) {
+    if (completedGroups.has(group)) continue;
+    for (const missingBranch of members) {
+      const presentMembers = members.filter((member) => member !== missingBranch);
+      for (const assignment of enumerateSanheAssignments(presentMembers, participants)) {
+        if (assignment.some((item) => item.activity === '静爻')) continue;
+        if (new Set(assignment.map((item) => item.position)).size !== 2) continue;
+        addFormation(
+          buildSanheFormation({
+            group,
+            members,
+            pattern: '虚一待用',
+            participants: assignment,
+            missingBranch,
+          }),
+        );
+      }
+    }
+  }
+  return formations;
+}
+
 function addLineRelation(
   source: LiuyaoYaoDetail,
   target: LiuyaoYaoDetail,
   label: string,
+  sourceIsActive: boolean,
+  targetIsActive: boolean,
   support: string[],
   constraints: string[],
 ) {
   if (isSheng(source.wuxing, target.wuxing)) support.push(`${label}生本爻`);
   if (source.wuxing === target.wuxing) support.push(`${label}比扶本爻`);
-  if (isLiuhe(source.najiaDizhi, target.najiaDizhi)) support.push(`${label}合本爻`);
+  if (isLiuhe(source.najiaDizhi, target.najiaDizhi)) {
+    support.push(sourceIsActive && targetIsActive ? `${label}与本爻合好` : `${label}合起本爻`);
+  }
   if (isKe(source.wuxing, target.wuxing)) constraints.push(`${label}克本爻`);
   if (isLiuchong(source.najiaDizhi, target.najiaDizhi)) constraints.push(`${label}冲本爻`);
 }
@@ -202,7 +472,10 @@ export function analyzeLiuyaoLineStrength(
     if (yao.najiaDizhi === branch) calendarSupport.push(`值${label}`);
     if (isSheng(element, yao.wuxing)) calendarSupport.push(`${label}生本爻`);
     if (element === yao.wuxing) calendarSupport.push(`${label}比扶本爻`);
-    if (isLiuhe(yao.najiaDizhi, branch)) calendarSupport.push(`合${label}`);
+    if (isLiuhe(yao.najiaDizhi, branch)) {
+      if (yao.isChanging || hiddenMove) calendarConstraints.push(`${label}合绊本爻`);
+      else calendarSupport.push(`静爻逢${label}合起`);
+    }
     if (stage === '长生' || stage === '帝旺') calendarSupport.push(`${label}为${stage}`);
     if (isKe(element, yao.wuxing)) calendarConstraints.push(`${label}克本爻`);
     if (stage === '墓') calendarConstraints.push(`入${label === '月建' ? '月' : '日'}墓`);
@@ -233,6 +506,8 @@ export function analyzeLiuyaoLineStrength(
         source,
         yao,
         `第${source.position}爻${source.isChanging ? '明动' : '暗动'}`,
+        true,
+        yao.isChanging || hiddenMove,
         lineSupport,
         lineConstraints,
       );
@@ -254,6 +529,7 @@ export function analyzeLiuyaoLineStrength(
     const changeDirection = getLiuyaoChangeDirection(yao.najiaDizhi, yao.changedYao.dizhi);
     if (isSheng(yao.changedYao.wuxing, yao.wuxing)) changeSupport.push('回头生');
     if (yao.changedYao.wuxing === yao.wuxing) changeSupport.push('比和');
+    if (isLiuhe(yao.najiaDizhi, yao.changedYao.dizhi)) changeSupport.push('化扶');
     if (changeDirection === '化进神') changeSupport.push('化进神');
     if (changedStage === '长生' || changedStage === '帝旺') {
       changeSupport.push(`化${changedStage}`);

@@ -183,7 +183,43 @@ export interface BaseYaoDetail {
 }
 
 export type LiuyaoChangeRelation =
-  '回头生' | '回头克' | '回头冲' | '化空' | '比和' | '化泄' | '化耗';
+  '回头生' | '回头克' | '回头冲' | '化扶' | '化空' | '比和' | '化泄' | '化耗';
+
+export type LiuyaoSanhePattern =
+  | '三爻齐动'
+  | '两动一静'
+  | '初三爻动变成局'
+  | '四六爻动变成局'
+  | '日辰补局'
+  | '月建补局'
+  | '虚一待用';
+
+export type LiuyaoSanheStatus =
+  '成立' | '成立待静爻逢值' | '待填实' | '待冲墓' | '待填实并冲墓' | '虚一待补';
+
+export interface LiuyaoSanheParticipant {
+  /** 本卦原支或本位变爻，不把同一爻的本变支冒充两个活动爻。 */
+  source: '本卦' | '变爻';
+  position: number;
+  branch: string;
+  activity: '明动' | '暗动' | '静爻';
+  isVoid: boolean;
+  conditions: string[];
+}
+
+export interface LiuyaoSanheFormation {
+  key: string;
+  group: string;
+  element: string;
+  members: string[];
+  pattern: LiuyaoSanhePattern;
+  status: LiuyaoSanheStatus;
+  participants: LiuyaoSanheParticipant[];
+  trigger?: { source: '日辰' | '月建'; branch: string };
+  missingBranch?: string;
+  issues: string[];
+  description: string;
+}
 
 export interface LiuyaoLineStrengthAnalysis {
   /** 本爻按月令所得旺相休囚死。 */
@@ -401,13 +437,23 @@ export interface LiuyaoData extends BaseHexagramData {
     group: string;
     members: string[];
     description: string;
+    formationKey?: string;
+    status?: LiuyaoSanheStatus;
+    participants?: LiuyaoSanheParticipant[];
+    issues?: string[];
   } | null;
   /** 与月建的三合局 */
   sanheWithMonth?: {
     group: string;
     members: string[];
     description: string;
+    formationKey?: string;
+    status?: LiuyaoSanheStatus;
+    participants?: LiuyaoSanheParticipant[];
+    issues?: string[];
   } | null;
+  /** 卦内成局、日月补局及虚一待用的完整三合结构。 */
+  sanheFormations?: LiuyaoSanheFormation[];
   /** 爻中的三刑 */
   sanxingInYaos?: Array<{
     branches: string[];

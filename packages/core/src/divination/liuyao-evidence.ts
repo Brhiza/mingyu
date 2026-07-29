@@ -4,6 +4,8 @@ import type {
   LiuyaoHiddenSpirit,
   LiuyaoHiddenSpiritConditionAnalysis,
   LiuyaoLineStrengthAnalysis,
+  LiuyaoSanhePattern,
+  LiuyaoSanheStatus,
   LiuyaoYaoDetail,
 } from '../types/divination';
 import {
@@ -19,6 +21,7 @@ import { liuqinRelations } from './divination-data';
 import {
   analyzeLiuyaoHiddenSpiritConditions,
   analyzeLiuyaoLineStrength,
+  analyzeLiuyaoSanheFormations,
   getLiuyaoChangeDirection,
 } from './liuyao-rules';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
@@ -31,6 +34,8 @@ import {
 
 export type LiuyaoEvidenceTopic = 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen';
 export type LiuyaoGodRole = '用神' | '原神' | '忌神' | '仇神';
+export type LiuyaoSanheGodRole =
+  '用神局' | '原神局' | '忌神局' | '仇神局' | '用神所生' | '用神未定';
 export type LiuyaoUsefulGodMatchingTier = '本卦明现' | '变爻显出' | '月日入用' | '伏神检索';
 
 export interface LiuyaoEvidenceOptions {
@@ -280,12 +285,19 @@ export interface LiuyaoTimingFact {
 
 export interface LiuyaoHexagramStructureFact {
   key: string;
-  kind: '整卦六合六冲' | '反吟伏吟' | '特殊卦象' | '日辰三合' | '月建三合';
+  kind:
+    '整卦六合六冲' | '反吟伏吟' | '特殊卦象' | '卦内三合' | '日辰三合' | '月建三合' | '虚一待用';
   status: '已计算';
+  sanheFormationKey?: string;
+  sanhePattern?: LiuyaoSanhePattern;
+  sanheStatus?: LiuyaoSanheStatus;
+  sanheRole?: LiuyaoSanheGodRole;
+  referenceKeys?: string[];
+  missingBranch?: string;
   originalText: string;
   promptText: string;
   sources: string[];
-  limitation: '整卦六合六冲、反吟伏吟、特殊卦象与日月三合只描述已计算的卦内结构；不得直接写成现实和合、冲散、反复、成功、失败或固定应期';
+  limitation: '整卦六合六冲、反吟伏吟、特殊卦象与三合只描述已计算的结构及成立条件；必须结合用忌、世爻、旺衰与空破墓辨向，不得直接写成现实和合、冲散、成功、失败或固定应期';
 }
 
 export interface LiuyaoTimingSummaryFact {
@@ -413,7 +425,7 @@ const TIMING_FACT_LIMITATION =
 const TIMING_SUMMARY_LIMITATION =
   '应期汇总只说明当前盘面保存了哪些触发与边界条件；不得按条件数量、爻位或地支序换算固定天数、绝对日期或事件概率' as const;
 const HEXAGRAM_STRUCTURE_FACT_LIMITATION =
-  '整卦六合六冲、反吟伏吟、特殊卦象与日月三合只描述已计算的卦内结构；不得直接写成现实和合、冲散、反复、成功、失败或固定应期' as const;
+  '整卦六合六冲、反吟伏吟、特殊卦象与三合只描述已计算的结构及成立条件；必须结合用忌、世爻、旺衰与空破墓辨向，不得直接写成现实和合、冲散、成功、失败或固定应期' as const;
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只证明起卦来源、逐爻、伏神、用神候选、五行作用链、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期' as const;
 const SUMMARY_FACT_LIMITATION =
@@ -458,6 +470,7 @@ function getChangeRelations(yao: LiuyaoYaoDetail): LiuyaoChangeRelation[] {
     ...(isLiuchong(yao.najiaDizhi, yao.changedYao.dizhi)
       ? (['回头冲', wuxingRelation] as const)
       : [wuxingRelation]),
+    ...(isLiuhe(yao.najiaDizhi, yao.changedYao.dizhi) ? (['化扶'] as const) : []),
     ...(yao.changedYao.isVoid ? (['化空'] as const) : []),
   ];
 }
@@ -595,11 +608,13 @@ function buildUsefulOrSourceTimingConditions(
     }
     if (
       active &&
-      (reference.strengthAnalysis?.calendarSupport.some((item) => /^合(?:月建|日辰)$/.test(item)) ??
+      (reference.strengthAnalysis?.calendarConstraints.some((item) =>
+        /^(?:月建|日辰)合绊本爻$/.test(item),
+      ) ??
         false)
     ) {
       conditions.push(
-        `${label}发动而与月日相合；若该合确成合住之病，可候冲开，若为生合扶助则不作受制`,
+        `${label}发动而被月日合绊；若合绊确为当前之病，可候冲开，仍须结合用神有气、冲中逢合与其他生克，不把冲开一律写成有利`,
       );
     }
   }
@@ -635,7 +650,9 @@ function buildTabooTimingConditions(references: LiuyaoYaoReference[]) {
     }
     if (
       active &&
-      (reference.strengthAnalysis?.calendarSupport.some((item) => /^合(?:月建|日辰)$/.test(item)) ??
+      (reference.strengthAnalysis?.calendarConstraints.some((item) =>
+        /^(?:月建|日辰)合绊本爻$/.test(item),
+      ) ??
         false)
     ) {
       conditions.push(
@@ -938,9 +955,18 @@ function buildLineFacts(
       ...(yao.isWorld ? (['世爻'] as const) : []),
       ...(yao.isResponse ? (['应爻'] as const) : []),
     ];
+    const activity: LiuyaoLineFact['activity'] = yao.isChanging
+      ? '明动'
+      : strengthAnalysis.selfSupport.includes('暗动')
+        ? '暗动'
+        : '静爻';
     const monthRelations = [
       yao.najiaDizhi === monthBranch ? '值月建' : '',
-      isLiuhe(yao.najiaDizhi, monthBranch) ? '合月建' : '',
+      isLiuhe(yao.najiaDizhi, monthBranch)
+        ? activity === '静爻'
+          ? '静爻逢月建合起'
+          : '月建合绊'
+        : '',
       isLiuchong(yao.najiaDizhi, monthBranch) ? '月破' : '',
       strengthAnalysis.monthStage === '墓' ? '入月墓' : '',
       isLiuhai(yao.najiaDizhi, monthBranch) ? '与月建相害' : '',
@@ -948,7 +974,11 @@ function buildLineFacts(
     ].filter(Boolean);
     const dayRelations = [
       yao.najiaDizhi === dayBranch ? '值日辰' : '',
-      isLiuhe(yao.najiaDizhi, dayBranch) ? '合日辰' : '',
+      isLiuhe(yao.najiaDizhi, dayBranch)
+        ? activity === '静爻'
+          ? '静爻逢日辰合起'
+          : '日辰合绊'
+        : '',
       strengthAnalysis.selfSupport.includes('暗动')
         ? '日冲暗动'
         : strengthAnalysis.calendarConstraints.includes('日破')
@@ -960,11 +990,6 @@ function buildLineFacts(
       isLiuhai(yao.najiaDizhi, dayBranch) ? '与日辰相害' : '',
       isSanxing(yao.najiaDizhi, dayBranch) ? '与日辰成刑' : '',
     ].filter(Boolean);
-    const activity: LiuyaoLineFact['activity'] = yao.isChanging
-      ? '明动'
-      : strengthAnalysis.selfSupport.includes('暗动')
-        ? '暗动'
-        : '静爻';
     const changeRelations = getChangeRelations(yao);
     const changedYao = yao.changedYao
       ? {
@@ -1136,19 +1161,67 @@ function buildHiddenSpiritCoverageFact(
   };
 }
 
-function buildHexagramStructureFacts(data: LiuyaoData): LiuyaoHexagramStructureFact[] {
+function getSanheGodRole(
+  element: string,
+  usefulElement: string,
+): { role: LiuyaoSanheGodRole; description: string } {
+  if (!usefulElement) {
+    return {
+      role: '用神未定',
+      description: '当前用神五行未定，不判原神、用神、忌神或仇神方向',
+    };
+  }
+  if (element === usefulElement) {
+    return { role: '用神局', description: `局五行${element}与当前用神同类，列为用神局结构` };
+  }
+  if (isSheng(element, usefulElement)) {
+    return { role: '原神局', description: `局五行${element}生当前用神，列为原神局结构` };
+  }
+  if (isKe(element, usefulElement)) {
+    return { role: '忌神局', description: `局五行${element}克当前用神，列为忌神局结构` };
+  }
+  const tabooElement = findControllingElement(usefulElement);
+  const sourceElement = findGeneratingElement(usefulElement);
+  if (isSheng(element, tabooElement) && isKe(element, sourceElement)) {
+    return {
+      role: '仇神局',
+      description: `局五行${element}生忌神并克原神，列为仇神局结构`,
+    };
+  }
+  return {
+    role: '用神所生',
+    description: `局五行${element}由当前用神所生，不硬归入原用忌仇四类`,
+  };
+}
+
+function buildHexagramStructureFacts(
+  data: LiuyaoData,
+  usefulElement: string,
+  monthBranch: string,
+  dayBranch: string,
+): LiuyaoHexagramStructureFact[] {
   const facts: LiuyaoHexagramStructureFact[] = [];
   const add = (
     key: string,
     kind: LiuyaoHexagramStructureFact['kind'],
     originalText: string,
     sources: string[],
+    sanheDetails: Pick<
+      LiuyaoHexagramStructureFact,
+      | 'sanheFormationKey'
+      | 'sanhePattern'
+      | 'sanheStatus'
+      | 'sanheRole'
+      | 'referenceKeys'
+      | 'missingBranch'
+    > = {},
   ) => {
     if (!originalText.trim()) return;
     facts.push({
       key,
       kind,
       status: '已计算',
+      ...sanheDetails,
       originalText,
       promptText: conditionLiuyaoTraditionalText(originalText),
       sources,
@@ -1163,6 +1236,7 @@ function buildHexagramStructureFacts(data: LiuyaoData): LiuyaoHexagramStructureF
         data.hexagramRelations.original ? `主卦${data.hexagramRelations.original}` : '',
         data.hexagramRelations.changed ? `变卦${data.hexagramRelations.changed}` : '',
         data.hexagramRelations.transition ?? '',
+        '整卦冲合只定卦体结构，须结合所问事项、用忌神与旺衰辨向',
       ]
         .filter(Boolean)
         .join('；'),
@@ -1191,16 +1265,45 @@ function buildHexagramStructureFacts(data: LiuyaoData): LiuyaoHexagramStructureF
       '动爻数量与乱动条件核验',
     ]);
   }
-  if (data.sanheWithDay) {
-    add('liuyao:structure:sanhe-day', '日辰三合', data.sanheWithDay.description, [
-      '当前动爻、变爻与日支三合成员完整性核验',
-    ]);
-  }
-  if (data.sanheWithMonth) {
-    add('liuyao:structure:sanhe-month', '月建三合', data.sanheWithMonth.description, [
-      '当前动爻、变爻与月支三合成员完整性核验',
-    ]);
-  }
+  const sanheFormations =
+    data.yaosDetail.length === 6
+      ? analyzeLiuyaoSanheFormations(data.yaosDetail, monthBranch, dayBranch)
+      : [];
+  sanheFormations.forEach((formation, index) => {
+    const kind: LiuyaoHexagramStructureFact['kind'] =
+      formation.pattern === '日辰补局'
+        ? '日辰三合'
+        : formation.pattern === '月建补局'
+          ? '月建三合'
+          : formation.pattern === '虚一待用'
+            ? '虚一待用'
+            : '卦内三合';
+    const godRole = getSanheGodRole(formation.element, usefulElement);
+    add(
+      `liuyao:structure:sanhe:${index + 1}:${formation.key}`,
+      kind,
+      `${formation.description}；${godRole.description}；仍须核验世爻是否在局及局对世用的生克`,
+      [
+        '《增删卜易·六合章》三爻齐动、两动一静、初三四六动变成局与虚一待用',
+        '当前本卦、变爻、明动暗动、月日及空破墓逐项核验',
+      ],
+      {
+        sanheFormationKey: formation.key,
+        sanhePattern: formation.pattern,
+        sanheStatus: formation.status,
+        sanheRole: godRole.role,
+        referenceKeys: Array.from(
+          new Set(
+            formation.participants.map(
+              (participant) =>
+                `liuyao:reference:${participant.source === '本卦' ? 'line' : 'changed'}:${participant.position}`,
+            ),
+          ),
+        ),
+        ...(formation.missingBranch ? { missingBranch: formation.missingBranch } : {}),
+      },
+    );
+  });
   return facts;
 }
 
@@ -1870,7 +1973,7 @@ export function analyzeLiuyaoEvidence(
       limitation: '六亲只提供随问题变化的事项候选，不证明现实身份、疾病、官非、财运或关系结果',
     };
   });
-  const structureFacts = buildHexagramStructureFacts(data);
+  const structureFacts = buildHexagramStructureFacts(data, usefulElement, monthBranch, dayBranch);
   const generationFact = buildGenerationFact(data);
   const generationMethod = data.generation?.method;
   const methodLabel = generationFact.methodLabel;
@@ -2141,7 +2244,7 @@ export function analyzeLiuyaoEvidence(
       tags: ['六亲类象', '条件化表达', '非事实结论'],
     },
     ...structureFacts.map((fact): PromptEvidenceItem => ({
-      level: fact.kind === '日辰三合' || fact.kind === '月建三合' ? '辅证' : '限制',
+      level: ['卦内三合', '日辰三合', '月建三合', '虚一待用'].includes(fact.kind) ? '辅证' : '限制',
       title: `${fact.kind}结构事实`,
       detail: `${fact.promptText}；边界：${fact.limitation}`,
       source: fact.sources.join('、'),

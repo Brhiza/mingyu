@@ -569,7 +569,7 @@ test('六爻伏神与取用未定时不得泛化套用透出和空破应期', ()
   assert.match(pending.timingConditions.join('；'), /未闭合唯一用神前/);
 });
 
-test('六爻整卦关系、反吟伏吟与三合应形成独立结构事实', () => {
+test('六爻结构事实应重新计算三合并忽略旧派生字段', () => {
   const data = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
   const evidence = analyzeLiuyaoEvidence({
     ...data,
@@ -602,7 +602,21 @@ test('六爻整卦关系、反吟伏吟与三合应形成独立结构事实', ()
 
   assert.deepEqual(
     new Set(evidence.structureFacts.map((item) => item.kind)),
-    new Set(['整卦六合六冲', '反吟伏吟', '特殊卦象', '日辰三合']),
+    new Set(['整卦六合六冲', '反吟伏吟', '特殊卦象', '卦内三合']),
+  );
+  assert.doesNotMatch(evidence.promptText, /动变支与日支组成申子辰三合/);
+  const sanheFacts = evidence.structureFacts.filter((item) => item.kind === '卦内三合');
+  assert.ok(sanheFacts.length > 0);
+  assert.ok(
+    sanheFacts.every(
+      (item) =>
+        item.sanheFormationKey?.startsWith('liuyao:sanhe:') &&
+        item.sanhePattern &&
+        item.sanheStatus &&
+        item.sanheRole === '用神未定' &&
+        item.referenceKeys?.length &&
+        item.originalText.includes('仍须核验世爻是否在局及局对世用的生克'),
+    ),
   );
   assert.ok(
     evidence.structureFacts.every(

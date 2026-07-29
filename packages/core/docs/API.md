@@ -148,15 +148,19 @@
 | `voidBranches` | `string[]` | 旬空地支 |
 | `palace` | `{ name, wuxing }` | 所属宫位 |
 | `palaceStage` | `LiuyaoPalaceStage?` | 八宫卦序位置（首卦、一世至五世、游魂、归魂） |
-| `yaosDetail` | `LiuyaoYaoDetail[]` | 每爻详细；`changeRelations` 分别保存可并见的回头冲、五行生克/比泄耗与化空，`changeRelation` 仅为旧版单值兼容字段；另含月破、日破、暗动、化进退神等 |
+| `yaosDetail` | `LiuyaoYaoDetail[]` | 每爻详细；`changeRelations` 分别保存可并见的回头冲、五行生克/比泄耗、化扶与化空，`changeRelation` 仅为旧版单值兼容字段；另含月破、日破、暗动、化进退神等 |
 | `hiddenSpirits` | `LiuyaoHiddenSpirit[]?` | 伏神（本宫首卦补未现六亲） |
 | `hexagramRelations` | `LiuyaoHexagramRelations?` | 整卦六合/六冲及六冲变六合、六合变六冲等卦变关系 |
 | `fanfuRelations` | `LiuyaoFanFuRelations?` | 卦变反吟/伏吟结构，含卦反吟、爻反吟、内外伏吟等标签 |
 | `specialPattern` | `'静卦' \| '独静卦' \| '全动卦' \| '乾卦用九' \| '坤卦用六'?` | 特殊卦型 |
-| `sanheWithDay` | `{group,members,description}?` | 日辰引动三合局 |
+| `sanheWithDay` | `{group,members,description,formationKey?,status?,participants?,issues?}?` | 由完整三合结构派生的日辰补局兼容字段 |
+| `sanheWithMonth` | `{group,members,description,formationKey?,status?,participants?,issues?}?` | 由完整三合结构派生的月建补局兼容字段 |
+| `sanheFormations` | `LiuyaoSanheFormation[]?` | 三爻齐动、两动一静、初三/四六爻动变、日月补局及虚一待用；保存参与爻、缺支和空破墓待值状态 |
 | `sanxingInYaos` | `Array<{branches,type}>?` | 三刑检测 |
 | `ganzhi` | `BaseGanZhi` | 起卦时间干支 |
 | `timestamp` | `number` | 时间戳 |
+
+`analyzeLiuyaoSanheFormations(yaosDetail, monthBranch, dayBranch)` 可从完整六爻重算上述三合结构。日辰或月建补局时，另两支必须来自两个不同的明动或暗动爻位，同一爻的本支与变支不能冒充两个活动爻；初三、四六爻动变成局仍允许各活动爻的本支与变支共同提供成员。空亡、月破、日破、入墓和静爻待值只形成 `status`、`issues` 条件，不直接裁成吉凶或固定日期。静爻逢月日六合记合起，明动或暗动逢合记合绊，两活动爻相合记合好，本位动化六合另记化扶；整卦六合六冲与三合均须结合事项、用忌、世爻和旺衰辨向。
 
 ---
 

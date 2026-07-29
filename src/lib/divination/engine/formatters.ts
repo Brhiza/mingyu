@@ -196,6 +196,7 @@ function formatLiuyaoHexagramRelation(data: LiuyaoData) {
     relations.original ? `主卦${relations.original}` : '',
     relations.changed ? `变卦${relations.changed}` : '',
     relations.transition || '',
+    '只定卦体冲合结构，须结合所问事项、用忌神与旺衰辨向',
   ]
     .filter(Boolean)
     .join('；');
@@ -352,17 +353,10 @@ function formatLiuyaoInfo(
     : '';
   const monthDayEvidence = createLiuyaoMonthDayEvidence(data);
   const timingEvidence = createLiuyaoTimingEvidence(evidenceAnalysis);
-  const sanheParts = [
-    data.sanheWithDay
-      ? `日辰${getGanzhiBranch(data.ganzhi.day)}引动${data.sanheWithDay.group}（${data.sanheWithDay.members.join('、')}）`
-      : '',
-    data.sanheWithMonth
-      ? `月建${getGanzhiBranch(data.ganzhi.month)}引动${data.sanheWithMonth.group}（${data.sanheWithMonth.members.join('、')}）`
-      : '',
-  ].filter(Boolean);
-  const sanheDetail = sanheParts.length
-    ? `三合局：${sanheParts.join('；')}；传统上视为合局条件较集中`
-    : null;
+  const sanheParts = evidenceAnalysis.structureFacts
+    .filter((item) => ['卦内三合', '日辰三合', '月建三合', '虚一待用'].includes(item.kind))
+    .map((item) => item.promptText);
+  const sanheDetail = sanheParts.length ? `三合结构：${sanheParts.join('；')}` : null;
   const sanxingDetail = data.sanxingInYaos?.length
     ? `三刑：${data.sanxingInYaos.map((s) => `${s.branches.join('、')}构成${s.type}`).join('；')}；传统类象为纠缠、对立或反复`
     : null;

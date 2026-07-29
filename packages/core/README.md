@@ -114,7 +114,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | **八字 Bazi**          | `mingyu-core/bazi`                                                                                                                            | 四柱排盘、神煞、调候用神、格局、大运、五行强度，含透干根气、十神结构、合化评估、命卦、小运等增强分析   |
 | **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | 十二宫、星曜、四化、运限、证据池，以及双盘宫位叠盘与生年四化跨盘落点                                   |
-| **六爻 Liuyao**        | `mingyu-core/divination/liuyao`                                                                                                               | 京房八宫法、纳甲、世应、六亲六神、月破日破、化进退神、分层用神作用链与病药应期证据                     |
+| **六爻 Liuyao**        | `mingyu-core/divination/liuyao`                                                                                                               | 京房八宫法、纳甲、世应、六亲六神、月破日破、化进退神、合起合绊化扶、三合成立条件、分层用神作用链与病药应期证据 |
 | **梅花易数 Meihua**    | `mingyu-core/divination/meihua`                                                                                                               | 时间/数字/随机起卦，timeTrigram 兼容、体用生克与主互变阶段推进证据                                     |
 | **奇门遁甲 Qimen**     | `mingyu-core/divination/qimen`                                                                                                                | 转盘法、拆补定局、经典格局、节令背景、节气黄经核验、复合格局、方位与条件触发式应期证据                 |
 | **大六壬 Liuren**      | `mingyu-core/divination/liuren`                                                                                                               | 月将、贵人、九宗门取传、三传、天将、神煞及四课取传与三传推进证据                                       |
@@ -248,6 +248,7 @@ const liuyao = generateLiuyao();
 // 也可指定时间: generateLiuyao(new Date('2025-01-01T10:00:00'))
 const coinLiuyao = generateLiuyao(undefined, { method: 'coins', seed: '本次投掷' });
 console.log(coinLiuyao.generation.coinThrows); // 六爻逐爻、每爻三枚铜钱的完整轨迹
+console.log(coinLiuyao.sanheFormations); // 卦内成局、月日补局、虚一待用及空破墓条件
 
 // 梅花易数（数字起卦）
 import { generateMeihua } from 'mingyu-core/divination/meihua';
@@ -440,6 +441,7 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | 导出                                                                 | 说明                                                                         |
 | -------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | `generateLiuyao(date?, options?)`                                    | 六爻时间、手工或模拟三钱起卦，并保留投掷轨迹                                 |
+| `analyzeLiuyaoSanheFormations(yaosDetail, monthBranch, dayBranch)`   | 重算三合参与爻、成立模式、月日补局、虚一待用及空破墓状态                     |
 | `analyzeLiuyaoEvidence(data, options?)`                              | 六爻分层用神候选、原神忌神仇神、逐爻支持/反证及按角色辨向的病药应期证据      |
 | `generateMeihua(date?, settings?)`                                   | 梅花易数起卦                                                                 |
 | `analyzeMeihuaEvidence(data)`                                        | 主卦、互卦、变卦逐阶段体用、旺衰与支持/限制证据                              |
