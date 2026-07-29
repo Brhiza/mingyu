@@ -11,6 +11,13 @@ function createResult(): BaziChartResult {
       day: { gan: '庚', zhi: '申', ganZhi: '庚申' },
       hour: { gan: '丁', zhi: '卯', ganZhi: '丁卯' },
     },
+    dayMaster: { gan: '庚' },
+    analysis: {
+      usefulGod: {
+        favorableWuxing: ['木', '火'],
+        unfavorableWuxing: ['金'],
+      },
+    },
   } as BaziChartResult;
 }
 
@@ -19,6 +26,8 @@ function assertEvidenceReferences(result: ReturnType<typeof analyzeFortuneTrigge
     result.relationSummaryFact.key,
     ...result.calculationSteps.map((item) => item.key),
     ...result.layers.map((item) => item.key),
+    ...result.layerStructureFacts.map((item) => item.key),
+    ...result.hiddenStemRevealFacts.map((item) => item.key),
     ...result.relations.map((item) => item.key),
     ...result.formations.map((item) => item.key),
     ...result.counterEvidenceFacts.map((item) => item.key),
@@ -92,6 +101,93 @@ test('岁运触发证据应逐层保留原局、大运和流年关系来源', ()
   assert.match(result.promptText, /岁运并临/);
   assert.match(result.promptText, /只表示干支关系成立及其所在时间层级/);
   assert.match(result.promptText, /岁运层级与应期边界/);
+});
+
+test('岁运证据应把天干、地支主五行与全部藏干分层并只列喜忌候选', () => {
+  const result = analyzeFortuneTriggers(createResult(), [
+    { id: 'dayun', type: 'dayun', label: '丁亥大运', ganZhi: '丁亥' },
+  ]);
+  const fact = result.layerStructureFacts[0];
+
+  assert.ok(fact);
+  assert.equal(fact.layerType, 'dayun');
+  assert.deepEqual(fact.stem, {
+    symbol: '丁',
+    wuxing: '火',
+    tenGod: '正官',
+    directPreference: '喜用五行直接对应候选',
+  });
+  assert.equal(fact.branch.symbol, '亥');
+  assert.equal(fact.branch.wuxing, '水');
+  assert.equal(fact.branch.mainHiddenStem.symbol, '壬');
+  assert.deepEqual(
+    fact.branch.hiddenStems.map((item) => [item.rank, item.symbol, item.tenGod]),
+    [
+      ['本气', '壬', '食神'],
+      ['中气', '甲', '偏财'],
+    ],
+  );
+  assert.equal(fact.branch.hiddenStems[1]?.directPreference, '喜用五行直接对应候选');
+  assert.ok(
+    result.limitationFacts.some(
+      (item) => item.type === '喜忌候选边界' && item.promptText.includes('似喜实忌'),
+    ),
+  );
+  assert.match(result.promptText, /岁运干支分层与喜忌候选/);
+  assert.doesNotMatch(result.promptText, /判定为喜运|判定为忌运/);
+});
+
+test('同一运柱的运干与运支应分别保留十神和原局关系，不得机械等价', () => {
+  const natal = createResult();
+  natal.pillars.month = { gan: '壬', zhi: '子', ganZhi: '壬子' };
+  natal.pillars.day = { gan: '丙', zhi: '寅', ganZhi: '丙寅' };
+  natal.dayMaster = { gan: '丙' } as BaziChartResult['dayMaster'];
+  natal.analysis.usefulGod.favorableWuxing = ['火'];
+  natal.analysis.usefulGod.unfavorableWuxing = ['水'];
+
+  const result = analyzeFortuneTriggers(natal, [
+    { id: 'dayun', type: 'dayun', label: '丙午大运', ganZhi: '丙午' },
+  ]);
+  const fact = result.layerStructureFacts[0];
+
+  assert.equal(fact?.stem.tenGod, '比肩');
+  assert.deepEqual(
+    fact?.branch.hiddenStems.map((item) => [item.symbol, item.tenGod]),
+    [
+      ['丁', '劫财'],
+      ['己', '伤官'],
+    ],
+  );
+  assert.ok(
+    result.relations.some(
+      (item) => item.type === 'branch-clash' && item.target.id === 'natal-month',
+    ),
+  );
+  assert.ok(
+    result.limitationFacts.some(
+      (item) => item.type === '干支分看边界' && item.promptText.includes('不得机械视为'),
+    ),
+  );
+});
+
+test('藏干与明透天干同字时只记录透出对应候选，不直接认定透清或成格变格', () => {
+  const result = analyzeFortuneTriggers(createResult(), [
+    { id: 'dayun', type: 'dayun', label: '丁亥大运', ganZhi: '丁亥' },
+  ]);
+  const reveal = result.hiddenStemRevealFacts.find(
+    (item) => item.branchLayerKey.endsWith(':dayun:dayun') && item.hiddenStem === '甲',
+  );
+
+  assert.ok(reveal);
+  assert.equal(reveal.hiddenStemRank, '中气');
+  assert.ok(reveal.visibleLayerKeys.some((key) => key.endsWith(':natal:natal-year')));
+  assert.match(reveal.limitation, /是否透清/);
+  assert.ok(
+    result.limitationFacts.some(
+      (item) => item.type === '成格变格边界' && item.promptText.includes('不得直接认定'),
+    ),
+  );
+  assert.doesNotMatch(result.promptText, /已经透清|已经成格|已经变格/);
 });
 
 test('岁运触发证据应识别天克地冲但不直接给出吉凶', () => {

@@ -1,9 +1,10 @@
-import { BASIC_MAPPINGS } from './baziMappingsData';
+import { BASIC_MAPPINGS, HIDDEN_STEMS } from './baziMappingsData';
 import type { BaziChartResult } from './baziTypes';
-import { assertGanZhiPair } from './baziUtils';
+import { assertGanZhiPair, getTenGod } from './baziUtils';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
-import { SANHE_GROUPS, SANHUI_GROUPS } from '../ganzhi/relations';
+import { STEM_WUXING } from '../ganzhi/data';
+import { BRANCH_WUXING, SANHE_GROUPS, SANHUI_GROUPS } from '../ganzhi/relations';
 
 export type FortuneLayerType = 'natal' | 'dayun' | 'year' | 'month' | 'day' | 'hour';
 export type FortuneTriggerRelationType =
@@ -39,7 +40,13 @@ export interface FortuneTriggerResolvedLayer extends FortuneTriggerLayer {
 
 export interface FortuneTriggerCalculationStep {
   key: string;
-  stage: '层级干支校验' | '层级关系比对' | '三支成局核验' | '关系汇总';
+  stage:
+    | '层级干支校验'
+    | '干支分层核验'
+    | '层级关系比对'
+    | '三支成局核验'
+    | '藏干透出对应核验'
+    | '关系汇总';
   status: '已计算';
   inputs: Record<string, string | number | boolean | string[]>;
   result: Record<string, string | number | boolean | string[]>;
@@ -47,6 +54,65 @@ export interface FortuneTriggerCalculationStep {
   promptText: string;
   sources: string[];
   limitation: '计算步骤只证明所列干支经过固定关系表逐项比对并形成关系事实，不证明关系对应现实事件、吉凶方向、发生概率或固定应期';
+}
+
+export type FortuneDirectPreference =
+  | '喜用五行直接对应候选'
+  | '忌神五行直接对应候选'
+  | '喜忌五行同时列入待复核'
+  | '未列入原局直接喜忌候选'
+  | '原局喜忌资料不足';
+
+export interface FortuneLayerComponentFact {
+  symbol: string;
+  wuxing: string;
+  tenGod: string;
+  directPreference: FortuneDirectPreference;
+}
+
+export interface FortuneLayerHiddenStemFact extends FortuneLayerComponentFact {
+  rank: '本气' | '中气' | '余气';
+}
+
+export interface FortuneLayerStructureFact {
+  key: string;
+  status: '已计算';
+  type: '岁运干支分层';
+  layerKey: string;
+  layerId: string;
+  layerType: Exclude<FortuneLayerType, 'natal'>;
+  layerLabel: string;
+  ganZhi: string;
+  stem: FortuneLayerComponentFact;
+  branch: {
+    symbol: string;
+    wuxing: string;
+    directPreference: FortuneDirectPreference;
+    mainHiddenStem: FortuneLayerHiddenStemFact;
+    hiddenStems: FortuneLayerHiddenStemFact[];
+  };
+  calculationStepKey: string;
+  promptText: string;
+  sources: string[];
+  limitation: '分层事实只记录岁运天干、地支主五行与全部藏干的固定映射及原局喜忌五行直接对应候选；不得把运干、运支或同类五行机械等价，也不得据单项候选判定最终喜忌、成格变格、现实事件或吉凶';
+}
+
+export interface FortuneHiddenStemRevealFact {
+  key: string;
+  status: '已命中';
+  type: '藏干透出对应候选';
+  branchLayerKey: string;
+  branchLayerLabel: string;
+  branch: string;
+  hiddenStem: string;
+  hiddenStemRank: '本气' | '中气' | '余气';
+  visibleLayerKeys: string[];
+  visibleLayerLabels: string[];
+  activeLayerKeys: string[];
+  calculationStepKey: string;
+  promptText: string;
+  sources: string[];
+  limitation: '透出对应候选只证明某支藏干与原局或所选岁运明透天干同字；是否透清、能否发用及其喜忌仍须结合月令格局、合冲会局与全局复核，不得直接认定成格、变格或吉凶';
 }
 
 export interface FortuneTriggerFormationFact {
@@ -122,7 +188,15 @@ export interface FortuneTriggerRelationSummaryFact {
 
 export interface FortuneTriggerLimitationFact {
   key: string;
-  type: '关系解释边界' | '层级应期边界' | '反证边界' | '上下文边界' | '高风险输出边界';
+  type:
+    | '关系解释边界'
+    | '层级应期边界'
+    | '反证边界'
+    | '上下文边界'
+    | '喜忌候选边界'
+    | '干支分看边界'
+    | '成格变格边界'
+    | '高风险输出边界';
   status: '适用';
   ownerFactKeys: string[];
   promptText: string;
@@ -136,6 +210,8 @@ export interface FortuneTriggerEvidenceResult {
   calculationSteps: FortuneTriggerCalculationStep[];
   calculationChain: string[];
   layers: FortuneTriggerResolvedLayer[];
+  layerStructureFacts: FortuneLayerStructureFact[];
+  hiddenStemRevealFacts: FortuneHiddenStemRevealFact[];
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   primaryRelations: FortuneTriggerRelation[];
@@ -165,6 +241,12 @@ const RELATION_SUMMARY_LIMITATION =
   '关系汇总只统计固定干支关系的命中与层级覆盖，不得按关系数量生成命运总分、吉凶概率、事件概率或唯一应期' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束岁运干支关系能够支持的解释范围，不得被反向当作现实事件、必然吉凶、发生概率或固定应期的证据' as const;
+const LAYER_STRUCTURE_LIMITATION =
+  '分层事实只记录岁运天干、地支主五行与全部藏干的固定映射及原局喜忌五行直接对应候选；不得把运干、运支或同类五行机械等价，也不得据单项候选判定最终喜忌、成格变格、现实事件或吉凶' as const;
+const HIDDEN_STEM_REVEAL_LIMITATION =
+  '透出对应候选只证明某支藏干与原局或所选岁运明透天干同字；是否透清、能否发用及其喜忌仍须结合月令格局、合冲会局与全局复核，不得直接认定成格、变格或吉凶' as const;
+const HIDDEN_STEM_RANKS = ['本气', '中气', '余气'] as const;
+const WUXING_VALUES = new Set(['木', '火', '土', '金', '水']);
 
 function splitGanZhi(ganZhi: string) {
   if (ganZhi.length !== 2) throw new Error(`岁运干支必须是两个字符：${ganZhi}`);
@@ -185,6 +267,205 @@ function resolveLayer(layer: FortuneTriggerLayer): FortuneTriggerResolvedLayer {
     ...layer,
     key: getLayerKey(layer),
     status: '已计算',
+  };
+}
+
+function resolveUsefulWuxing(result: BaziChartResult) {
+  const usefulGod = result.analysis?.usefulGod;
+  const favorableAvailable = Array.isArray(usefulGod?.favorableWuxing);
+  const unfavorableAvailable = Array.isArray(usefulGod?.unfavorableWuxing);
+  return {
+    available: favorableAvailable && unfavorableAvailable,
+    favorable: new Set(
+      favorableAvailable
+        ? usefulGod.favorableWuxing?.filter((item) => WUXING_VALUES.has(item))
+        : [],
+    ),
+    unfavorable: new Set(
+      unfavorableAvailable
+        ? usefulGod.unfavorableWuxing?.filter((item) => WUXING_VALUES.has(item))
+        : [],
+    ),
+  };
+}
+
+function resolveDirectPreference(
+  wuxing: string,
+  usefulWuxing: ReturnType<typeof resolveUsefulWuxing>,
+): FortuneDirectPreference {
+  if (!usefulWuxing.available) return '原局喜忌资料不足';
+  const favorable = usefulWuxing.favorable.has(wuxing);
+  const unfavorable = usefulWuxing.unfavorable.has(wuxing);
+  if (favorable && unfavorable) return '喜忌五行同时列入待复核';
+  if (favorable) return '喜用五行直接对应候选';
+  if (unfavorable) return '忌神五行直接对应候选';
+  return '未列入原局直接喜忌候选';
+}
+
+function resolveTenGod(symbol: string, result: BaziChartResult) {
+  const dayMaster = result.dayMaster?.gan;
+  return dayMaster && BASIC_MAPPINGS.HEAVENLY_STEMS.some((stem) => stem === dayMaster)
+    ? getTenGod(symbol, dayMaster)
+    : '日主资料不足';
+}
+
+function buildLayerStructureFact(
+  result: BaziChartResult,
+  layer: FortuneTriggerResolvedLayer,
+  usefulWuxing: ReturnType<typeof resolveUsefulWuxing>,
+): FortuneLayerStructureFact {
+  if (layer.type === 'natal') throw new Error('原局层级不得生成岁运干支分层事实');
+  const { gan, zhi } = splitGanZhi(layer.ganZhi);
+  const hiddenStems = HIDDEN_STEMS[zhi];
+  if (!hiddenStems?.length) throw new Error(`岁运地支藏干数据缺失：${zhi}`);
+  const hiddenStemFacts = hiddenStems.map((symbol, index): FortuneLayerHiddenStemFact => {
+    const wuxing = STEM_WUXING[symbol];
+    if (!wuxing) throw new Error(`岁运藏干五行数据缺失：${symbol}`);
+    return {
+      rank: HIDDEN_STEM_RANKS[index] ?? '余气',
+      symbol,
+      wuxing,
+      tenGod: resolveTenGod(symbol, result),
+      directPreference: resolveDirectPreference(wuxing, usefulWuxing),
+    };
+  });
+  const stemWuxing = STEM_WUXING[gan];
+  const branchWuxing = BRANCH_WUXING[zhi];
+  if (!stemWuxing) throw new Error(`岁运天干五行数据缺失：${gan}`);
+  if (!branchWuxing) throw new Error(`岁运地支五行数据缺失：${zhi}`);
+  const stem: FortuneLayerComponentFact = {
+    symbol: gan,
+    wuxing: stemWuxing,
+    tenGod: resolveTenGod(gan, result),
+    directPreference: resolveDirectPreference(stemWuxing, usefulWuxing),
+  };
+  const calculationStepKey = `bazi:fortune-trigger:calculation:structure:${layer.type}:${layer.id}`;
+  const hiddenText = hiddenStemFacts
+    .map(
+      (item) =>
+        `${item.rank}${item.symbol}${item.wuxing}（${item.tenGod}，${item.directPreference}）`,
+    )
+    .join('、');
+  return {
+    key: `bazi:fortune-trigger:structure:${layer.type}:${layer.id}`,
+    status: '已计算',
+    type: '岁运干支分层',
+    layerKey: layer.key,
+    layerId: layer.id,
+    layerType: layer.type,
+    layerLabel: layer.label,
+    ganZhi: layer.ganZhi,
+    stem,
+    branch: {
+      symbol: zhi,
+      wuxing: branchWuxing,
+      directPreference: resolveDirectPreference(branchWuxing, usefulWuxing),
+      mainHiddenStem: hiddenStemFacts[0],
+      hiddenStems: hiddenStemFacts,
+    },
+    calculationStepKey,
+    promptText: `${layer.label}${layer.ganZhi}分层：天干${gan}${stemWuxing}为${stem.tenGod}（${stem.directPreference}）；地支${zhi}主五行${branchWuxing}（${resolveDirectPreference(branchWuxing, usefulWuxing)}），藏干${hiddenText}`,
+    sources: ['天干地支五行与地支藏干固定表', '十神固定映射', '原局结构化喜忌五行'],
+    limitation: LAYER_STRUCTURE_LIMITATION,
+  };
+}
+
+function buildLayerStructureCalculationStep(
+  fact: FortuneLayerStructureFact,
+): FortuneTriggerCalculationStep {
+  return {
+    key: fact.calculationStepKey,
+    stage: '干支分层核验',
+    status: '已计算',
+    inputs: {
+      layerKey: fact.layerKey,
+      ganZhi: fact.ganZhi,
+    },
+    result: {
+      stem: fact.stem.symbol,
+      stemWuxing: fact.stem.wuxing,
+      stemTenGod: fact.stem.tenGod,
+      branch: fact.branch.symbol,
+      branchWuxing: fact.branch.wuxing,
+      hiddenStems: fact.branch.hiddenStems.map((item) => item.symbol),
+      hiddenTenGods: fact.branch.hiddenStems.map((item) => item.tenGod),
+    },
+    dependsOnStepKeys: [`bazi:fortune-trigger:calculation:layer:${fact.layerType}:${fact.layerId}`],
+    promptText: `${fact.promptText}；天干、地支与藏干已分开保留，不作机械等价`,
+    sources: fact.sources,
+    limitation: CALCULATION_STEP_LIMITATION,
+  };
+}
+
+function buildHiddenStemRevealFacts(params: {
+  layers: FortuneTriggerResolvedLayer[];
+  activeLayers: FortuneTriggerResolvedLayer[];
+  calculationStepKey: string;
+}): FortuneHiddenStemRevealFact[] {
+  const activeLayerKeys = new Set(params.activeLayers.map((layer) => layer.key));
+  return params.layers.flatMap((branchLayer) => {
+    const { zhi } = splitGanZhi(branchLayer.ganZhi);
+    return (HIDDEN_STEMS[zhi] ?? []).flatMap((hiddenStem, index) => {
+      const visibleLayers = params.layers.filter(
+        (candidate) => splitGanZhi(candidate.ganZhi).gan === hiddenStem,
+      );
+      if (!visibleLayers.length) return [];
+      const activeParticipants = new Set<string>();
+      if (activeLayerKeys.has(branchLayer.key)) activeParticipants.add(branchLayer.key);
+      visibleLayers.forEach((layer) => {
+        if (activeLayerKeys.has(layer.key)) activeParticipants.add(layer.key);
+      });
+      if (!activeParticipants.size) return [];
+      const hiddenStemRank = HIDDEN_STEM_RANKS[index] ?? '余气';
+      const visibleLayerLabels = visibleLayers.map((layer) => `${layer.label}${layer.ganZhi[0]}`);
+      return [
+        {
+          key: `bazi:fortune-trigger:hidden-reveal:${branchLayer.type}:${branchLayer.id}:${hiddenStem}`,
+          status: '已命中' as const,
+          type: '藏干透出对应候选' as const,
+          branchLayerKey: branchLayer.key,
+          branchLayerLabel: branchLayer.label,
+          branch: zhi,
+          hiddenStem,
+          hiddenStemRank,
+          visibleLayerKeys: visibleLayers.map((layer) => layer.key),
+          visibleLayerLabels,
+          activeLayerKeys: [...activeParticipants],
+          calculationStepKey: params.calculationStepKey,
+          promptText: `${branchLayer.label}${zhi}所藏${hiddenStemRank}${hiddenStem}，与${visibleLayerLabels.join('、')}同字，列为藏干透出对应候选`,
+          sources: ['地支藏干固定表', '原局与所选岁运明透天干逐层核验'],
+          limitation: HIDDEN_STEM_REVEAL_LIMITATION,
+        },
+      ];
+    });
+  });
+}
+
+function buildHiddenStemRevealCalculationStep(params: {
+  layers: FortuneTriggerResolvedLayer[];
+  facts: FortuneHiddenStemRevealFact[];
+}): FortuneTriggerCalculationStep {
+  return {
+    key: 'bazi:fortune-trigger:calculation:hidden-reveal-scan',
+    stage: '藏干透出对应核验',
+    status: '已计算',
+    inputs: {
+      layerKeys: params.layers.map((layer) => layer.key),
+      visibleStems: params.layers.map((layer) => splitGanZhi(layer.ganZhi).gan),
+      branches: params.layers.map((layer) => splitGanZhi(layer.ganZhi).zhi),
+    },
+    result: {
+      candidateCount: params.facts.length,
+      candidateKeys: params.facts.map((item) => item.key),
+    },
+    dependsOnStepKeys: params.layers.map(
+      (layer) => `bazi:fortune-trigger:calculation:layer:${layer.type}:${layer.id}`,
+    ),
+    promptText: params.facts.length
+      ? `已逐支展开藏干并与全部明透天干核验，记录${params.facts.length}项涉及所选岁运的透出对应候选`
+      : '已逐支展开藏干并与全部明透天干核验，未见涉及所选岁运的透出对应候选',
+    sources: ['地支藏干固定表', '原局与所选岁运明透天干逐层核验'],
+    limitation: CALCULATION_STEP_LIMITATION,
   };
 }
 
@@ -590,6 +871,8 @@ function buildFormationCalculationStep(params: {
 
 function buildRelationSummaryFact(params: {
   calculationSteps: FortuneTriggerCalculationStep[];
+  layerStructureFacts: FortuneLayerStructureFact[];
+  hiddenStemRevealFacts: FortuneHiddenStemRevealFact[];
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   comparisonSteps: FortuneTriggerCalculationStep[];
@@ -615,6 +898,8 @@ function buildRelationSummaryFact(params: {
     status,
     factKeys: [
       ...params.calculationSteps.map((item) => item.key),
+      ...params.layerStructureFacts.map((item) => item.key),
+      ...params.hiddenStemRevealFacts.map((item) => item.key),
       ...params.relations.map((item) => item.key),
       ...params.formations.map((item) => item.key),
       ...params.counterEvidenceFacts.map((item) => item.key),
@@ -640,6 +925,8 @@ function buildRelationSummaryFact(params: {
 }
 
 function buildLimitationFacts(params: {
+  layerStructureFacts: FortuneLayerStructureFact[];
+  hiddenStemRevealFacts: FortuneHiddenStemRevealFact[];
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   counterEvidenceFacts: FortuneTriggerCounterEvidenceFact[];
@@ -648,6 +935,8 @@ function buildLimitationFacts(params: {
   const relationKeys = params.relations.map((item) => item.key);
   const formationKeys = params.formations.map((item) => item.key);
   const counterKeys = params.counterEvidenceFacts.map((item) => item.key);
+  const structureKeys = params.layerStructureFacts.map((item) => item.key);
+  const revealKeys = params.hiddenStemRevealFacts.map((item) => item.key);
   const definitions: Array<
     Pick<FortuneTriggerLimitationFact, 'key' | 'type' | 'ownerFactKeys' | 'promptText' | 'sources'>
   > = [
@@ -684,6 +973,35 @@ function buildLimitationFacts(params: {
       sources: ['八字原局、岁运层级与现实问题联合解释要求'],
     },
     {
+      key: 'bazi:fortune-trigger:limitation:direct-preference',
+      type: '喜忌候选边界',
+      ownerFactKeys: [params.relationSummaryFact.key, ...structureKeys],
+      promptText:
+        '岁运五行与原局喜用或忌神五行直接同类，只能列为待复核候选；似喜实忌、似忌实喜均可能存在，不得据单个五行、十神、运干或运支直接标成最终喜运或忌运',
+      sources: ['《子平真诠评注》“论行运”与原局结构化喜忌五行'],
+    },
+    {
+      key: 'bazi:fortune-trigger:limitation:stem-branch-separation',
+      type: '干支分看边界',
+      ownerFactKeys: [params.relationSummaryFact.key, ...structureKeys, ...revealKeys],
+      promptText:
+        '岁运天干主动明透，地支包含本气、中气、余气并须结合合冲会局或透出对应复核；同五行、同十神的运干与运支也不得机械视为同一作用或同一结果',
+      sources: ['《子平真诠评注》“论喜忌干支有别”“论支中喜忌逢运透清”'],
+    },
+    {
+      key: 'bazi:fortune-trigger:limitation:pattern-transformation',
+      type: '成格变格边界',
+      ownerFactKeys: [
+        params.relationSummaryFact.key,
+        ...formationKeys,
+        ...structureKeys,
+        ...revealKeys,
+      ],
+      promptText:
+        '岁运补全三合三会、藏干见同字或五行对应只证明局部结构；成格、变格及其最终喜忌必须重新结合月令格局、原局透藏与全局制化核验，当前证据不得直接认定成格或变格',
+      sources: ['《子平真诠评注》“论行运成格变格”与岁运结构事实'],
+    },
+    {
       key: 'bazi:fortune-trigger:limitation:high-risk-output',
       type: '高风险输出边界',
       ownerFactKeys: [params.relationSummaryFact.key, ...params.relationSummaryFact.factKeys],
@@ -701,6 +1019,8 @@ function buildLimitationFacts(params: {
 
 function buildEvidence(params: {
   calculationSteps: FortuneTriggerCalculationStep[];
+  layerStructureFacts: FortuneLayerStructureFact[];
+  hiddenStemRevealFacts: FortuneHiddenStemRevealFact[];
   relations: FortuneTriggerRelation[];
   formations: FortuneTriggerFormationFact[];
   counterEvidenceFacts: FortuneTriggerCounterEvidenceFact[];
@@ -723,6 +1043,28 @@ function buildEvidence(params: {
         '、',
       ),
       tags: ['八字岁运', '计算链'],
+    },
+    ...(params.layerStructureFacts.length
+      ? [
+          {
+            level: '主证',
+            title: '岁运干支分层与喜忌候选',
+            detail: `${params.layerStructureFacts.map((item) => item.promptText).join('；')}。统一边界：${LAYER_STRUCTURE_LIMITATION}`,
+            source: Array.from(
+              new Set(params.layerStructureFacts.flatMap((item) => item.sources)),
+            ).join('、'),
+            tags: ['八字岁运', '干支分层', '喜忌候选'],
+          } satisfies PromptEvidenceItem,
+        ]
+      : []),
+    {
+      level: params.hiddenStemRevealFacts.length ? '辅证' : '反证',
+      title: '藏干透出对应候选',
+      detail: params.hiddenStemRevealFacts.length
+        ? `${params.hiddenStemRevealFacts.map((item) => item.promptText).join('；')}。统一边界：${HIDDEN_STEM_REVEAL_LIMITATION}`
+        : `当前所选岁运与原局未见藏干和明透天干同字的透出对应候选；未见候选不等于地支不起作用，也不代表已经完成格局喜忌判断。统一边界：${HIDDEN_STEM_REVEAL_LIMITATION}`,
+      source: '地支藏干固定表、原局与所选岁运明透天干逐层核验',
+      tags: ['八字岁运', '藏干', '透出对应候选'],
     },
     ...params.relations.map((item): PromptEvidenceItem => ({
       level: MAJOR_RELATION_TYPES.has(item.type) ? '主证' : '辅证',
@@ -790,6 +1132,11 @@ export function analyzeFortuneTriggers(
   });
 
   const calculationSteps: FortuneTriggerCalculationStep[] = layers.map(buildLayerCalculationStep);
+  const usefulWuxing = resolveUsefulWuxing(result);
+  const layerStructureFacts = resolvedActiveLayers.map((layer) =>
+    buildLayerStructureFact(result, layer, usefulWuxing),
+  );
+  calculationSteps.push(...layerStructureFacts.map(buildLayerStructureCalculationStep));
   const relations: FortuneTriggerRelation[] = [];
   const comparisonFacts: Array<{
     source: FortuneTriggerResolvedLayer;
@@ -823,8 +1170,19 @@ export function analyzeFortuneTriggers(
     calculationStepKey: formationCalculationStepKey,
   });
   calculationSteps.push(buildFormationCalculationStep({ layers, formations }));
+  const hiddenStemRevealCalculationStepKey = 'bazi:fortune-trigger:calculation:hidden-reveal-scan';
+  const hiddenStemRevealFacts = buildHiddenStemRevealFacts({
+    layers,
+    activeLayers: resolvedActiveLayers,
+    calculationStepKey: hiddenStemRevealCalculationStepKey,
+  });
+  calculationSteps.push(
+    buildHiddenStemRevealCalculationStep({ layers, facts: hiddenStemRevealFacts }),
+  );
   const relationSummaryFact = buildRelationSummaryFact({
     calculationSteps,
+    layerStructureFacts,
+    hiddenStemRevealFacts,
     relations,
     formations,
     comparisonSteps,
@@ -854,6 +1212,8 @@ export function analyzeFortuneTriggers(
   });
 
   const limitationFacts = buildLimitationFacts({
+    layerStructureFacts,
+    hiddenStemRevealFacts,
     relations,
     formations,
     counterEvidenceFacts,
@@ -865,6 +1225,8 @@ export function analyzeFortuneTriggers(
     .map((item) => item.promptText);
   const evidence = buildEvidence({
     calculationSteps,
+    layerStructureFacts,
+    hiddenStemRevealFacts,
     relations,
     formations,
     counterEvidenceFacts,
@@ -876,7 +1238,7 @@ export function analyzeFortuneTriggers(
   const calculationChain = calculationSteps.map((item) => item.promptText);
   const noMajorFacts = counterEvidenceFacts.filter((item) => item.status === '未见主要关系');
   const noMajorWithSupporting = noMajorFacts.filter((item) => item.supportingRelationKeys.length);
-  const calculationOverview = `已校验${layers.length}个原局与岁运层级，完成${comparisonSteps.length}组逐项比对和三合三会汇总核验；${relationSummaryFact.promptText}`;
+  const calculationOverview = `已校验${layers.length}个原局与岁运层级，形成${layerStructureFacts.length}项岁运干支分层事实、${hiddenStemRevealFacts.length}项藏干透出对应候选，完成${comparisonSteps.length}组逐项比对和三合三会汇总核验；${relationSummaryFact.promptText}`;
   const counterOverview = noMajorFacts.length
     ? `共${noMajorFacts.length}组层级未见岁运并临、天克地冲或同柱伏吟，其中${noMajorWithSupporting.length}组仍有辅助关系；未见主要关系不等于没有较弱关系、没有现实触发或必然平稳`
     : '所有已比较层级均已记录主要关系；仍不得据命中数量生成吉凶或概率结论';
@@ -886,6 +1248,8 @@ export function analyzeFortuneTriggers(
     calculationSteps,
     calculationChain,
     layers,
+    layerStructureFacts,
+    hiddenStemRevealFacts,
     relations,
     formations,
     primaryRelations,
@@ -909,6 +1273,9 @@ export function analyzeFortuneTriggers(
         '原局四柱与所选大运、流年、流月、流日逐层比对天干同干、五合、相冲及地支同支、六合、六冲、刑、害、破。',
         '大运与流年干支完全相同时单列岁运并临；两层天干相冲且地支相冲时单列天克地冲。',
         '汇总原局与所选岁运层级的地支；仅在原局尚未完整、岁运补齐第三支时记录完整三合或三会结构，不据此断定成化。',
+        '所选岁运逐层拆分天干、地支主五行与全部藏干，分别记录十神及与原局喜忌五行的直接对应候选；候选不等于最终喜运或忌运。',
+        '逐支核验藏干与原局、所选岁运明透天干是否同字，只记录透出对应候选，不直接认定透清、成格或变格。',
+        '运干与运支分别保留，地支关系与三合三会另行核验；同五行或同十神不得据此机械等价。',
         '每个层级和关系均保留稳定键、计算步骤依赖及来源层级，未见主要关系时保留反证，不补造候选应期。',
         '关系成立与吉凶解释分离，不对不同关系设置命运总分，也不从单条关系直接推断事件。',
       ],

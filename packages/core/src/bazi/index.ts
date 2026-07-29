@@ -134,6 +134,11 @@ export type {
 } from './natalEvidence';
 export type {
   FortuneLayerType,
+  FortuneDirectPreference,
+  FortuneHiddenStemRevealFact,
+  FortuneLayerComponentFact,
+  FortuneLayerHiddenStemFact,
+  FortuneLayerStructureFact,
   FortuneTriggerEvidenceResult,
   FortuneTriggerFormationFact,
   FortuneTriggerLayer,

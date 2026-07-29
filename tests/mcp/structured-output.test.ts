@@ -1284,6 +1284,11 @@ test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
             key?: string;
             status?: string;
             layers?: Array<{ key?: string; status?: string }>;
+            layerStructureFacts?: Array<{
+              stem?: { symbol?: string; tenGod?: string; directPreference?: string };
+              branch?: { symbol?: string; hiddenStems?: unknown[] };
+            }>;
+            hiddenStemRevealFacts?: unknown[];
             relations?: Array<{
               key?: string;
               status?: string;
@@ -1303,6 +1308,18 @@ test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
     assert.equal(triggerEvidence?.key, 'bazi:fortune-trigger:evidence');
     assert.equal(triggerEvidence?.status, '已计算');
     assert.ok(triggerEvidence?.layers?.every((item) => item.key && item.status === '已计算'));
+    assert.equal(triggerEvidence?.layerStructureFacts?.length, 2);
+    assert.ok(
+      triggerEvidence?.layerStructureFacts?.every(
+        (item) =>
+          item.stem?.symbol &&
+          item.stem.tenGod &&
+          item.stem.directPreference?.includes('候选') &&
+          item.branch?.symbol &&
+          item.branch.hiddenStems?.length,
+      ),
+    );
+    assert.ok(Array.isArray(triggerEvidence?.hiddenStemRevealFacts));
     assert.ok(triggerEvidence?.relations?.length);
     assert.ok(
       triggerEvidence?.relations?.every(
@@ -1320,6 +1337,8 @@ test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
     );
     assert.ok(triggerEvidence?.counterEvidenceFacts?.length);
     assert.ok(triggerEvidence?.limitationFacts?.some((item) => item.type === '层级应期边界'));
+    assert.ok(triggerEvidence?.limitationFacts?.some((item) => item.type === '干支分看边界'));
+    assert.ok(triggerEvidence?.limitationFacts?.some((item) => item.type === '成格变格边界'));
     assertEvidenceOwnerReferences(triggerEvidence);
     const prompt = String(response.structuredContent?.prompt);
     assert.match(prompt, /【分析对象】[\s\S]*分析对象：1997年流年/);

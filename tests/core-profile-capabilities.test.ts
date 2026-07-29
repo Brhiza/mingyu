@@ -188,11 +188,11 @@ test('能力清单可序列化且返回副本', () => {
   first.systems[0]!.name = '已修改';
   assert.notEqual(second.systems[0]!.name, '已修改');
   assert.equal(getSystemCapability('bazhai')?.inputs[1]?.id, 'doorToInteriorDegree');
-  assert.equal(getSystemCapability('bazi')?.supports.birthTimeRequired, true);
-  assert.deepEqual(getSystemCapability('bazi')?.supports.birthTimeModes, [
-    'traditional-shichen',
-    'precise-clock-time',
-  ]);
+  const bazi = getSystemCapability('bazi');
+  assert.equal(bazi?.supports.birthTimeRequired, true);
+  assert.deepEqual(bazi?.supports.birthTimeModes, ['traditional-shichen', 'precise-clock-time']);
+  assert.ok(bazi?.outputs.includes('岁运天干、地支与藏干分层喜忌候选'));
+  assert.ok(bazi?.outputs.includes('岁运藏干透出对应候选'));
   assert.deepEqual(getSystemCapability('astrolabe')?.supports.birthTimeModes, [
     'precise-clock-time',
   ]);

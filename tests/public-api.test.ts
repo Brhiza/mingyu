@@ -1506,6 +1506,21 @@ test('公开 API 八字年限提示词保留岁运资料但不拼接工程证据
     ),
   );
   assert.ok(triggerEvidence.calculationSteps.length > triggerEvidence.layers.length);
+  assert.equal(triggerEvidence.layerStructureFacts.length, 2);
+  assert.ok(
+    triggerEvidence.layerStructureFacts.every(
+      (item: {
+        stem?: { symbol?: string; tenGod?: string; directPreference?: string };
+        branch?: { symbol?: string; hiddenStems?: unknown[] };
+      }) =>
+        item.stem?.symbol &&
+        item.stem.tenGod &&
+        item.stem.directPreference?.includes('候选') &&
+        item.branch?.symbol &&
+        item.branch.hiddenStems?.length,
+    ),
+  );
+  assert.ok(Array.isArray(triggerEvidence.hiddenStemRevealFacts));
   assert.ok(triggerEvidence.relations.length > 0);
   assert.ok(
     triggerEvidence.relations.every(
@@ -1529,6 +1544,12 @@ test('公开 API 八字年限提示词保留岁运资料但不拼接工程证据
   assert.ok(triggerEvidence.counterEvidenceFacts.length > 0);
   assert.ok(
     triggerEvidence.limitationFacts.some((item: { type: string }) => item.type === '层级应期边界'),
+  );
+  assert.ok(
+    triggerEvidence.limitationFacts.some((item: { type: string }) => item.type === '干支分看边界'),
+  );
+  assert.ok(
+    triggerEvidence.limitationFacts.some((item: { type: string }) => item.type === '成格变格边界'),
   );
   assertEvidenceOwnerReferences(triggerEvidence);
   assert.match(body.data.prompt, /【分析对象】/);
