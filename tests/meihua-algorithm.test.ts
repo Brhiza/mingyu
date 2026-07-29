@@ -110,14 +110,41 @@ test('梅花：爻位详情应从初爻往上排列并准确标出动爻', () =>
   );
 });
 
-test('梅花：用生体应期描述应保留验证条件且不带多余标点', () => {
+test('梅花：应期字段只登记盘面事实，不把体用生克或旺衰直接裁定为快慢', () => {
   const data = generateMeihua(SAMPLE_DATE, { method: 'number', number: 1 });
 
   assert.equal(data.analysis.tiYongRaw, '用生体');
   assert.ok(
-    data.analysis.yingQi?.includes('用生体，外部条件对体卦有生扶，可观察助力实际出现时的进展'),
+    data.analysis.yingQi?.includes('主卦体用关系为用生体，只作生克事实，不单独裁定应期快慢'),
   );
-  assert.ok(data.analysis.yingQi?.every((item) => !item.includes('顺势）')));
+  assert.ok(data.analysis.yingQi?.includes('体卦月令状态为旺，只作盛衰事实，不单独裁定应期快慢'));
+  assert.ok(data.analysis.yingQi?.some((item) => item.includes('不能单独计算传统克应')));
+  assert.doesNotMatch(data.analysis.yingQi?.join('\n') ?? '', /应期快于常规|应期迟缓/);
+});
+
+test('梅花：六个动爻与五种月令状态均不得套用固定现实阶段或统一迟速', () => {
+  const movingYaoPositions = new Set<number>();
+  const seasonStates = new Set<string>();
+
+  for (let number = 1; number <= 192; number += 1) {
+    const data = generateMeihua(SAMPLE_DATE, { method: 'number', number });
+    const timingText = data.analysis.yingQi?.join('\n') ?? '';
+
+    movingYaoPositions.add(data.movingYao.position);
+    seasonStates.add(data.analysis.tiSeasonState);
+    assert.match(timingText, new RegExp(`第${data.movingYao.position}爻为变化层位`));
+    assert.match(timingText, /不能单独计算传统克应/);
+    assert.doesNotMatch(
+      timingText,
+      /事情刚开始|基层条件|内部配合|近端条件|由内向外|外部环境开始介入|核心决策|主导条件|事情末端|退出|重新定局|应期快于常规|应期迟缓/,
+    );
+  }
+
+  assert.deepEqual(
+    [...movingYaoPositions].sort((a, b) => a - b),
+    [1, 2, 3, 4, 5, 6],
+  );
+  assert.deepEqual([...seasonStates].sort(), ['休', '囚', '旺', '死', '相'].sort());
 });
 
 test('梅花：timeTrigram 兼容入口应回到年月日时起卦', () => {

@@ -71,8 +71,11 @@ function getInterRelationToOriginalTi(
 }
 
 /**
- * 应期判断（按《梅花易数》动静应期法）：
- * 根据动爻数、卦数、体用旺衰综合判断应期范围
+ * 整理应期可用事实与资料边界。
+ *
+ * 《梅花易数》的克应须先区分事件远近与年、月、日、时尺度，并结合求测者
+ * 行卧坐立或外应动静。当前排盘没有这些结构化输入，因此这里只登记盘面事实，
+ * 不计算统一快慢或具体日期。
  */
 function estimateYingQi(params: {
   movingYaoIndex: number;
@@ -92,38 +95,27 @@ function estimateYingQi(params: {
     seasonState,
   } = params;
 
-  // 1. 动爻只定阶段和层位，不机械换算具体日、周、月、年。
-  const yaoPeriodMap: Record<number, string> = {
-    1: '初爻动，先观察事情刚开始或基层条件的变化',
-    2: '二爻动，先观察内部配合与近端条件的变化',
-    3: '三爻动，先观察由内向外过渡时的变化',
-    4: '四爻动，先观察外部环境开始介入时的变化',
-    5: '五爻动，先观察核心决策与主导条件的变化',
-    6: '上爻动，先观察事情末端、退出或重新定局的变化',
-  };
-  periods.push(yaoPeriodMap[movingYaoIndex] || '触发层位须结合实际事件再验');
+  // 1. 动爻只登记变化层位，不附会固定的现实事件阶段。
+  periods.push(
+    `第${movingYaoIndex}爻为变化层位；爻位不固定对应现实事件的起步、内部、决策或结束阶段`,
+  );
 
-  // 2. 卦数只保留为起卦结构旁证，不直接映射时间单位。
+  // 2. 卦数须先结合事件远近和时间尺度，不能单独换算日期。
   const guaSum = upperTrigramIndex + lowerTrigramIndex;
-  periods.push(`上下卦数和为${guaSum}，只作取数来源旁证，不换算绝对日期`);
+  periods.push(
+    `上下卦数和为${guaSum}，只登记取数结果；传统克应仍须先确定事件远近与年、月、日、时尺度`,
+  );
 
-  // 3. 体用生克只作快慢与阻力条件，不直接等于事件成败。
-  if (yongElement === tiElement) {
-    periods.push('体用比和，关系同气，可优先观察条件同步时的进展');
-  } else if (isSheng(yongElement, tiElement)) {
-    periods.push('用生体，外部条件对体卦有生扶，可观察助力实际出现时的进展');
-  } else if (isKe(yongElement, tiElement)) {
-    periods.push('用克体，外部事项对体卦形成压力，须先观察阻力是否缓解');
-  } else if (isKe(tiElement, yongElement)) {
-    periods.push('体克用，体卦能够制约事项，但须核验投入和消耗是否可承受');
-  }
+  // 3. 体用生克属于卦内关系，不单独裁定克应迟速。
+  const tiYongRelation = getTiYongRelation(yongElement, tiElement);
+  periods.push(`主卦体用关系为${tiYongRelation}，只作生克事实，不单独裁定应期快慢`);
 
-  // 4. 旺衰定迟速
-  if (seasonState === '旺' || seasonState === '相') {
-    periods.push('体卦旺相，应期快于常规');
-  } else if (seasonState === '休' || seasonState === '囚' || seasonState === '死') {
-    periods.push('体卦休囚，应期迟缓');
-  }
+  // 4. 旺衰只登记体卦盛衰，不把旺相、休囚死机械等同于快慢。
+  periods.push(`体卦月令状态为${seasonState}，只作盛衰事实，不单独裁定应期快慢`);
+
+  periods.push(
+    '现有盘面未含求测者行卧坐立或外应动静、事件远近及年/月/日/时尺度，不能单独计算传统克应',
+  );
 
   return periods;
 }

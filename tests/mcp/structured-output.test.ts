@@ -3268,11 +3268,13 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
             }>;
             timingFacts: Array<{
               key: string;
+              type: string;
+              sourceStatus: string;
               promptText: string;
               sources: string[];
               limitation: string;
             }>;
-            timingSummaryFact: { factKeys: string[] };
+            timingSummaryFact: { status: string; factKeys: string[] };
             counterEvidenceFacts: Array<{
               key: string;
               status: string;
@@ -3372,6 +3374,12 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.equal(
       result.evidenceAnalysis.timingSummaryFact.factKeys.length,
       result.evidenceAnalysis.timingFacts.length,
+    );
+    assert.equal(result.evidenceAnalysis.timingSummaryFact.status, '资料不足');
+    assert.ok(
+      result.evidenceAnalysis.timingFacts.some(
+        (item) => item.type === '克应资料覆盖' && item.sourceStatus === '资料不足',
+      ),
     );
     assert.ok(
       result.evidenceAnalysis.timingFacts.every(
@@ -3486,9 +3494,14 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     const promptText = String(prompt.structuredContent?.prompt);
     assert.match(promptText, /占法：梅花易数/);
     assert.match(promptText, /核心结构：主卦[\s\S]*体用：[\s\S]*结构明细：/);
+    assert.match(promptText, /应期资料：应期状态：待补充现实条件/);
+    assert.match(promptText, /不能单独计算传统克应/);
     assert.doesNotMatch(promptText, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
     assert.doesNotMatch(promptText, /妇三岁不孕|焚如，死如|至于八月有凶/);
-    assert.doesNotMatch(promptText, /体用评分：|类象权重：|\d+日内|\d+月左右/);
+    assert.doesNotMatch(
+      promptText,
+      /体用评分：|类象权重：|事情刚开始|内部配合|核心决策|应期快于常规|应期迟缓|\d+日内|\d+月左右/,
+    );
   });
 });
 

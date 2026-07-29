@@ -297,16 +297,41 @@ test('梅花证据应重算主互变关系，不采信伪造的体用与互卦�
   assert.doesNotMatch(rebuilt.promptText, /伪造/);
 });
 
-test('梅花证据只给触发层位，不把动爻和卦数换算成绝对日期', () => {
+test('梅花克应资料不足时只登记盘面事实，不把动爻和卦数换算成现实阶段或日期', () => {
   const data = generateMeihua(fixedDate, { method: 'number', number: 123 });
   const evidence = analyzeMeihuaEvidence(data);
 
-  assert.match(evidence.promptText, /只用于先后、层次和触发条件/);
-  assert.match(evidence.promptText, /不能据此换算绝对日期/);
-  assert.doesNotMatch(evidence.promptText, /\d+日内|\d+月左右|成功率[：=]?\d/);
+  assert.equal(evidence.timingSummaryFact.status, '资料不足');
+  assert.ok(
+    evidence.timingFacts.some(
+      (item) => item.type === '克应资料覆盖' && item.sourceStatus === '资料不足',
+    ),
+  );
+  assert.match(evidence.promptText, /行卧坐立或外应动静、事件远近和时间尺度/);
+  assert.match(evidence.promptText, /不能计算具体日期或统一快慢/);
+  assert.doesNotMatch(
+    evidence.promptText,
+    /事情刚开始|内部配合|核心决策|应期快于常规|应期迟缓|\d+日内|\d+月左右|成功率[：=]?\d/,
+  );
 });
 
-test('梅花起卦算式、六爻结构、卦象来源和已有应期条件应进入统一证据', () => {
+test('梅花旧结果中的机械应期文字不得重新进入结构化证据', () => {
+  const data = generateMeihua(fixedDate, { method: 'number', number: 123 });
+  const evidence = analyzeMeihuaEvidence({
+    ...data,
+    evidenceAnalysis: undefined,
+    analysis: {
+      ...data.analysis,
+      yingQi: ['初爻动，先观察事情刚开始或基层条件的变化', '体卦旺相，应期快于常规'],
+    },
+  });
+
+  assert.equal(evidence.timingSummaryFact.status, '资料不足');
+  assert.doesNotMatch(evidence.promptText, /事情刚开始|基层条件|应期快于常规/);
+  assert.ok(evidence.timingFacts.every((item) => item.sourceStatus !== '原结果提供'));
+});
+
+test('梅花起卦算式、六爻结构、卦象来源和克应资料边界应进入统一证据', () => {
   const data = generateMeihua(fixedDate, { method: 'number', number: 123 });
   const evidence = data.evidenceAnalysis;
   const items = evidence?.evidence.items ?? [];
@@ -328,7 +353,7 @@ test('梅花起卦算式、六爻结构、卦象来源和已有应期条件应�
   assert.equal(items.filter((item) => item.tags?.includes('阶段推进')).length, 2);
   assert.ok(items.some((item) => item.title === '体互对原体关系'));
   assert.ok(items.some((item) => item.title === '用互对原体关系'));
-  assert.ok(items.some((item) => item.level === '应期' && item.title.includes('触发')));
+  assert.ok(items.some((item) => item.level === '应期' && item.title.includes('资料覆盖')));
   assert.equal(evidence.transitionFacts.length, 2);
   assert.ok(
     evidence.transitionFacts.every(
@@ -366,8 +391,8 @@ test('梅花起卦算式、六爻结构、卦象来源和已有应期条件应�
     ),
   );
   assert.ok(
-    (data.analysis.yingQi ?? []).every((condition) =>
-      items.some((item) => item.level === '应期' && item.detail?.includes(condition)),
+    evidence.timingFacts.every((fact) =>
+      items.some((item) => item.level === '应期' && item.detail?.includes(fact.promptText)),
     ),
   );
   assert.ok(evidence.counterEvidence.length === 0 || items.some((item) => item.level === '反证'));
@@ -439,7 +464,7 @@ test('梅花四种起卦入口都应生成完整可移植的对象化证据', ()
     assert.equal(evidence.stageCoverageFact.status, '完整');
     assert.equal(evidence.yaoCoverageFact.status, '完整');
     assert.equal(evidence.transitionFacts.length, 2);
-    assert.equal(evidence.timingSummaryFact.status, '已提供触发条件');
+    assert.equal(evidence.timingSummaryFact.status, '资料不足');
     assert.equal(evidence.counterSummaryFact.factKeys.length, evidence.counterEvidenceFacts.length);
     assert.equal(evidence.summaryFact.status, '证据链完整');
     assert.equal(evidence.calculationSteps.length, 7);

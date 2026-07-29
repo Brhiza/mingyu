@@ -1192,12 +1192,17 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /互卦：泽风大过；体互兑（金）；用互巽（木）；原体克体互；用互生原体/);
   assert.match(prompt, /变卦：地火明夷；变后体卦坤（土）；变后用卦离（火）；变后体用体克用/);
   assert.match(prompt, /月令与起卦：春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
-  assert.match(prompt, /应期资料：动爻第3爻：对应阶段、层位或触发点/);
+  assert.match(prompt, /应期资料：应期状态：待补充现实条件/);
+  assert.match(prompt, /第3爻为变化层位/);
+  assert.match(prompt, /不能单独计算传统克应/);
   assert.match(prompt, /主卦卦辞分类：.*(?:传统.*标签|未见明确吉凶或进退标签)/);
   assert.match(prompt, /动爻传统辅助：.*当前爻位已发动/);
   assert.match(prompt, /未发动，不展开爻辞解释/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界/);
-  assert.doesNotMatch(prompt, /体用评分：|类象权重：|\d+日内|\d+月左右/);
+  assert.doesNotMatch(
+    prompt,
+    /体用评分：|类象权重：|事情刚开始|内部配合|核心决策|应期快于常规|应期迟缓|\d+日内|\d+月左右/,
+  );
   const meihua = createData('meihua') as MeihuaData;
   assert.doesNotMatch(
     prompt,

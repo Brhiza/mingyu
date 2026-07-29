@@ -248,37 +248,11 @@ function createLiuyaoTimingEvidence(evidenceAnalysis: ReturnType<typeof analyzeL
   return evidenceAnalysis.timingFacts.map((item) => item.promptText).join('；');
 }
 
-function createMeihuaTimingEvidence(data: MeihuaData) {
-  const calculation = data.calculation;
-  const methodLabel = getMeihuaMethodLabel(calculation);
-  const numberEvidence =
-    typeof calculation?.number === 'number'
-      ? `起卦数字${calculation.number}可作卦数旁证`
-      : calculation?.numbers?.length
-        ? `起卦数字${calculation.numbers.join('、')}可作卦数旁证`
-        : '';
-  const timeEvidence = [
-    calculation?.month ? `月数${calculation.month}` : '',
-    calculation?.day ? `日数${calculation.day}` : '',
-    calculation?.timeZhi ? `时支${calculation.timeZhi}` : '',
-  ]
-    .filter(Boolean)
-    .join('、');
-  const seasonBasis =
-    data.analysis.monthBranch && data.analysis.monthElement
-      ? `${data.analysis.monthBranch}月（${data.analysis.monthElement}令）`
-      : `${data.analysis.season}季`;
-
+function createMeihuaTimingEvidence(evidenceAnalysis: ReturnType<typeof analyzeMeihuaEvidence>) {
   return [
-    `动爻第${data.movingYao.position}爻：对应阶段、层位或触发点`,
-    `${seasonBasis}体卦${data.analysis.tiSeasonState}、用卦${data.analysis.yongSeasonState}`,
-    `互卦${data.interName || data.interHexagram?.name || '无'}主过程，变卦${data.changedName || data.changedHexagram?.name || '无'}主结果`,
-    numberEvidence,
-    timeEvidence ? `时间数：${timeEvidence}` : '',
-    `起卦法：${methodLabel}`,
-  ]
-    .filter(Boolean)
-    .join('；');
+    evidenceAnalysis.timingSummaryFact.promptText,
+    ...evidenceAnalysis.timingFacts.map((item) => item.promptText),
+  ].join('；');
 }
 
 function formatLiuyaoInfo(
@@ -407,10 +381,10 @@ function formatMeihuaInfo(data: MeihuaData) {
     data.changedTiGua && data.changedYongGua
       ? `；变后体卦${data.changedTiGua.name}（${data.changedTiGua.element}）；变后用卦${data.changedYongGua.name}（${data.changedYongGua.element}）；变后体用${data.analysis.changedTiYongRelation}`
       : '';
-  const timingEvidence = createMeihuaTimingEvidence(data);
   const evidenceAnalysis = data.evidenceAnalysis?.traditionalFacts
     ? data.evidenceAnalysis
     : analyzeMeihuaEvidence(data);
+  const timingEvidence = createMeihuaTimingEvidence(evidenceAnalysis);
   const yaoLines = [...data.yaosDetail]
     .sort((a, b) => b.position - a.position)
     .map((item) => {

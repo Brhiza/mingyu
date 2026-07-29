@@ -148,22 +148,30 @@ export interface MeihuaCounterSummaryFact {
 export interface MeihuaTimingFact {
   key: string;
   order: number;
-  type: '动爻层位' | '月建旺衰' | '体卦状态' | '原应期条件' | '期限边界';
-  sourceStatus: '原结果提供' | '由盘面补齐' | '统一边界';
+  type:
+    | '动爻层位'
+    | '卦数资料'
+    | '体用生克'
+    | '月建旺衰'
+    | '体卦状态'
+    | '原应期条件'
+    | '克应资料覆盖'
+    | '期限边界';
+  sourceStatus: '原结果提供' | '由盘面补齐' | '资料不足' | '统一边界';
   ownerFactKeys: string[];
   rawText?: string;
   promptText: string;
   sources: string[];
-  limitation: '应期事实只提供动爻层位、体用生克、月令旺衰与现实条件的相对触发；不得把爻位、卦数、阶段数量或旺衰换算唯一日期，也不证明事件必然发生';
+  limitation: '应期事实只登记动爻层位、卦数、体用生克、月令旺衰及传统克应所缺现实条件；不得把爻位、卦数、体用生克、阶段数量或旺衰单独换算唯一日期或统一快慢，也不证明事件必然发生';
 }
 
 export interface MeihuaTimingSummaryFact {
   key: 'meihua:timing-summary';
-  status: '已提供触发条件' | '仅有期限边界';
+  status: '已提供触发条件' | '仅有期限边界' | '资料不足';
   factKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '应期汇总只说明当前保存了哪些相对触发与期限边界；不得按条件数量、动爻、卦数或旺衰生成固定天数、绝对日期或事件概率';
+  limitation: '应期汇总只说明当前保存了哪些盘面事实以及还缺哪些传统克应条件；必要条件未齐时不得按条件数量、动爻、卦数、体用生克或旺衰生成统一快慢、固定天数、绝对日期或事件概率';
 }
 
 export interface MeihuaTraditionalFact {
@@ -320,9 +328,9 @@ const COUNTER_FACT_LIMITATION =
 const COUNTER_SUMMARY_LIMITATION =
   '反证汇总只说明当前阶段核验是否发现明确限制；未见明确反证不代表现实风险为零，也不得按反证数量换算吉凶总分或成功率' as const;
 const TIMING_FACT_LIMITATION =
-  '应期事实只提供动爻层位、体用生克、月令旺衰与现实条件的相对触发；不得把爻位、卦数、阶段数量或旺衰换算唯一日期，也不证明事件必然发生' as const;
+  '应期事实只登记动爻层位、卦数、体用生克、月令旺衰及传统克应所缺现实条件；不得把爻位、卦数、体用生克、阶段数量或旺衰单独换算唯一日期或统一快慢，也不证明事件必然发生' as const;
 const TIMING_SUMMARY_LIMITATION =
-  '应期汇总只说明当前保存了哪些相对触发与期限边界；不得按条件数量、动爻、卦数或旺衰生成固定天数、绝对日期或事件概率' as const;
+  '应期汇总只说明当前保存了哪些盘面事实以及还缺哪些传统克应条件；必要条件未齐时不得按条件数量、动爻、卦数、体用生克或旺衰生成统一快慢、固定天数、绝对日期或事件概率' as const;
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只证明起卦取数、主互变卦象、六爻动爻、主变体用、互卦响应、推进、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期' as const;
 const SUMMARY_FACT_LIMITATION =
@@ -674,10 +682,6 @@ function stageRelations(stage: MeihuaStageEvidence) {
     : stage.relation
       ? [stage.relation]
       : [];
-}
-
-function stageOriginalTi(stage: MeihuaStageEvidence) {
-  return stage.originalTi ?? stage.ti;
 }
 
 function resolveTiYongFromHexagram(hexagram: { upper: string; lower: string }, movingYao: number) {
@@ -1127,18 +1131,6 @@ function buildTimingFacts(
     if (facts.some((item) => item.promptText === fact.promptText)) return;
     facts.push({ ...fact, order: facts.length + 1 });
   };
-  (data.analysis.yingQi ?? []).forEach((promptText, index) =>
-    add({
-      key: `meihua:timing:input:${index + 1}`,
-      type: '原应期条件',
-      sourceStatus: '原结果提供',
-      ownerFactKeys: [calculationFact.key, ...stages.map((item) => item.key)],
-      rawText: promptText,
-      promptText,
-      sources: ['当前排盘保存的动爻、卦数、体用与旺衰条件'],
-      limitation: TIMING_FACT_LIMITATION,
-    }),
-  );
   add({
     key: 'meihua:timing:moving-yao',
     type: '动爻层位',
@@ -1149,32 +1141,50 @@ function buildTimingFacts(
         .filter((item) => item.position === data.movingYao.position && item.isChanging)
         .map((item) => item.key),
     ],
-    promptText: `第${data.movingYao.position}爻为变化触发层位，只用于先后、层次和触发条件，并须由现实进展验证`,
+    promptText: `第${data.movingYao.position}爻为变化层位；爻位不固定对应现实事件的起步、内部、决策或结束阶段`,
     sources: ['当前动爻位置与六爻覆盖核验'],
+    limitation: TIMING_FACT_LIMITATION,
+  });
+  const upperTrigramIndex = data.calculation?.upperTrigramIndex;
+  const lowerTrigramIndex = data.calculation?.lowerTrigramIndex;
+  if (typeof upperTrigramIndex === 'number' && typeof lowerTrigramIndex === 'number') {
+    add({
+      key: 'meihua:timing:gua-number',
+      type: '卦数资料',
+      sourceStatus: '由盘面补齐',
+      ownerFactKeys: [calculationFact.key],
+      promptText: `上下卦数和为${upperTrigramIndex + lowerTrigramIndex}，只登记取数结果；传统克应仍须先确定事件远近与年、月、日、时尺度`,
+      sources: ['当前上下卦索引与起卦算式'],
+      limitation: TIMING_FACT_LIMITATION,
+    });
+  }
+  const originStage = stages.find((item) => item.stage === 'origin');
+  add({
+    key: 'meihua:timing:ti-yong',
+    type: '体用生克',
+    sourceStatus: '由盘面补齐',
+    ownerFactKeys: originStage ? [originStage.key] : [calculationFact.key],
+    promptText: `主卦体用关系为${data.analysis.tiYongRaw ?? data.analysis.tiYongRelation}，只作生克事实，不单独裁定应期快慢`,
+    sources: ['当前主卦体用五行生克关系'],
     limitation: TIMING_FACT_LIMITATION,
   });
   add({
     key: 'meihua:timing:month-state',
     type: '月建旺衰',
     sourceStatus: '由盘面补齐',
-    ownerFactKeys: stages.map((item) => item.key),
-    promptText: `月建${monthBranch}只用于校验主变体用、原体与互卦响应的旺衰，并作为相对快慢与阻力条件`,
-    sources: ['月支与主变体用、互卦响应五行旺相休囚死关系'],
+    ownerFactKeys: originStage ? [originStage.key] : stages.map((item) => item.key),
+    promptText: `月建${monthBranch}下体卦为${data.analysis.tiSeasonState}，只作盛衰事实，不单独裁定应期快慢`,
+    sources: ['月支与主卦体卦五行旺相休囚死关系'],
     limitation: TIMING_FACT_LIMITATION,
   });
-  const weakStages = stages.filter((item) => {
-    const originalTi = stageOriginalTi(item);
-    return originalTi ? ['休', '囚', '死'].includes(originalTi.seasonState) : false;
-  });
   add({
-    key: 'meihua:timing:body-state',
-    type: '体卦状态',
-    sourceStatus: '由盘面补齐',
-    ownerFactKeys: (weakStages.length ? weakStages : stages).map((item) => item.key),
-    promptText: weakStages.length
-      ? `原体在${weakStages.map((item) => `${item.label}${stageOriginalTi(item)?.seasonState}`).join('、')}，须先观察现实阻力缓解或外部条件改变再验`
-      : '体卦各阶段未见休囚死，仍须等待现实事件验证，不能据此断定快速实现',
-    sources: ['各阶段原体月令旺衰状态'],
+    key: 'meihua:timing:input-coverage',
+    type: '克应资料覆盖',
+    sourceStatus: '资料不足',
+    ownerFactKeys: [calculationFact.key],
+    promptText:
+      '现有盘面未含求测者行卧坐立或外应动静、事件远近及年/月/日/时尺度，不能单独计算传统克应',
+    sources: ['当前起卦输入与传统克应必要条件逐项对照'],
     limitation: TIMING_FACT_LIMITATION,
   });
   add({
@@ -1183,8 +1193,8 @@ function buildTimingFacts(
     sourceStatus: '统一边界',
     ownerFactKeys: [calculationFact.key, yaoCoverageFact.key],
     promptText:
-      '动爻、卦数与旺衰不能据此换算绝对日期；未给目标期限时，不把阶段数量或盘内条件换算唯一日期',
-    sources: ['相对触发条件与现实日期分离原则'],
+      '克应资料补足前，只能保留动爻、卦数、体用和月令盘面事实，不能计算具体日期或统一快慢',
+    sources: ['盘面事实与传统克应条件分离原则'],
     limitation: TIMING_FACT_LIMITATION,
   });
   return facts;
@@ -1364,15 +1374,17 @@ function buildCalculationSteps(params: {
     {
       key: 'meihua:calculation:counter-timing',
       stage: '反证与应期核验',
-      status: '已计算',
+      status: params.timingFacts.some((item) => item.sourceStatus === '资料不足')
+        ? '资料不足'
+        : '已计算',
       inputs: { stageFactCount: params.stages.length },
       result: {
         counterEvidenceCount: params.counterEvidenceFacts.length,
         timingFactCount: params.timingFacts.length,
       },
       dependsOnStepKeys: ['meihua:calculation:stages', 'meihua:calculation:transitions'],
-      promptText: `逐项核验阶段限制${params.counterEvidenceFacts.length}项，并记录相对触发与期限边界${params.timingFacts.length}项`,
-      sources: ['阶段关系限制、月令旺衰、动爻层位与现实触发条件'],
+      promptText: `逐项核验阶段限制${params.counterEvidenceFacts.length}项，并登记应期盘面事实、所缺克应条件与期限边界${params.timingFacts.length}项`,
+      sources: ['阶段关系限制、月令旺衰、动爻层位与传统克应资料覆盖'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
@@ -1473,8 +1485,8 @@ function buildLimitationFacts(params: {
       type: '应期边界',
       ownerFactKeys: [params.timingSummaryFact.key, ...params.timingFacts.map((item) => item.key)],
       promptText:
-        '动爻、卦数、阶段数量、体用生克与月令旺衰只提供相对层位和触发条件；未给目标期限时不得换算唯一日期、固定天数或事件概率',
-      sources: ['动爻层位、月令旺衰、体用状态与期限边界'],
+        '动爻、卦数、体用生克与月令旺衰只是盘面事实；缺少行卧坐立或外应动静、事件远近和时间尺度时，不能形成完整传统克应判断，不得裁定统一快慢或换算唯一日期',
+      sources: ['动爻层位、卦数、月令旺衰、体用关系、克应资料覆盖与期限边界'],
     },
     {
       key: 'meihua:limitation:tradition-risk',
@@ -1594,12 +1606,10 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
   const timingConditions = timingFacts.map((item) => item.promptText);
   const timingSummaryFact: MeihuaTimingSummaryFact = {
     key: 'meihua:timing-summary',
-    status: timingFacts.some((item) => item.type !== '期限边界')
-      ? '已提供触发条件'
-      : '仅有期限边界',
+    status: '资料不足',
     factKeys: timingFacts.map((item) => item.key),
-    promptText: `应期状态：已记录${timingFacts.length}项相对触发与期限边界条件`,
-    sources: ['逐项动爻、月令、体用与原应期条件汇总'],
+    promptText: `应期状态：待补充现实条件；已登记${timingFacts.length}项盘面、资料覆盖与期限边界事实，待结合行卧坐立或外应动静、事件远近和时间尺度再论传统克应`,
+    sources: ['逐项动爻、卦数、月令、体用、克应资料覆盖与期限边界汇总'],
     limitation: TIMING_SUMMARY_LIMITATION,
   };
   const counterEvidenceFacts = buildCounterEvidenceFacts(stages);
@@ -1767,10 +1777,10 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     })),
     {
       level: '应期',
-      title: '变化触发与应期条件',
+      title: '应期资料覆盖与边界',
       detail: `${timingSummaryFact.promptText}；${timingFacts.map((item) => item.promptText).join('；')}；统一边界：${timingSummaryFact.limitation}`,
       source: Array.from(new Set(timingFacts.flatMap((item) => item.sources))).join('、'),
-      tags: ['应期', '触发条件', '不换算绝对日期'],
+      tags: ['应期', timingSummaryFact.status, '不裁定统一快慢', '不换算绝对日期'],
     },
     {
       level: counterSummaryFact.status === '有明确反证' ? '反证' : '辅证',
@@ -1819,7 +1829,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     `计算链：${calculationChain.join(' → ')}。`,
     `证据汇总：${summaryFact.promptText}。`,
     `推进关系：${transitionFacts.map((item) => item.promptText).join('；') || '只有主卦阶段，未形成可核验的互变推进链'}`,
-    `触发条件：${timingFacts.map((item) => item.promptText).join('；')}`,
+    `应期资料：${timingFacts.map((item) => item.promptText).join('；')}`,
     `解释限制：${limitations.join('；')}。`,
   ].join('\n');
   return {
@@ -1859,8 +1869,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       '主卦定起因与当前体用，互卦以体互、用互分别响应原体表示过程，变卦定变化后的体用关系。',
       '起卦输入、取余算式、六爻阴阳、互卦构造和动爻翻转均作为可复核计算事实保留。',
       '主卦与变卦计算体用生克，互卦分别计算体互、用互对原体的关系与月建旺衰，不在互卦内部重分体用。',
-      '动爻只标记变化层位与触发顺序，卦数只保留原始计算资料，不机械换算绝对日期。',
-      '只输出支持、反证、限制和触发条件，不生成吉凶总分或成功率。',
+      '动爻只标记变化层位，卦数只保留原始计算资料；缺少行卧坐立或外应动静、事件远近和时间尺度时，不裁定统一快慢或换算绝对日期。',
+      '只输出支持、反证、盘面事实与资料边界，不生成吉凶总分、成功率或无依据应期。',
     ],
   };
 }

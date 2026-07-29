@@ -4213,6 +4213,13 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     chart.body.data.evidenceAnalysis.timingSummaryFact.factKeys.length,
     chart.body.data.evidenceAnalysis.timingFacts.length,
   );
+  assert.equal(chart.body.data.evidenceAnalysis.timingSummaryFact.status, '资料不足');
+  assert.ok(
+    chart.body.data.evidenceAnalysis.timingFacts.some(
+      (item: Record<string, unknown>) =>
+        item.type === '克应资料覆盖' && item.sourceStatus === '资料不足',
+    ),
+  );
   assert.ok(
     chart.body.data.evidenceAnalysis.timingFacts.every(
       (item: Record<string, unknown>) =>
@@ -4307,9 +4314,14 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.match(prompt.body.data.prompt, /互卦/);
   assert.match(prompt.body.data.prompt, /变卦/);
   assert.match(prompt.body.data.prompt, /体用：/);
+  assert.match(prompt.body.data.prompt, /应期资料：应期状态：待补充现实条件/);
+  assert.match(prompt.body.data.prompt, /不能单独计算传统克应/);
   assert.doesNotMatch(prompt.body.data.prompt, /结构化证据|计算链|证据汇总|解释边界/);
   assert.doesNotMatch(prompt.body.data.prompt, /妇三岁不孕|焚如，死如|至于八月有凶/);
-  assert.doesNotMatch(prompt.body.data.prompt, /体用评分：|类象权重：|\d+日内|\d+月左右/);
+  assert.doesNotMatch(
+    prompt.body.data.prompt,
+    /体用评分：|类象权重：|事情刚开始|内部配合|核心决策|应期快于常规|应期迟缓|\d+日内|\d+月左右/,
+  );
 });
 
 test('公开 API 六爻与大六壬提示词接口保留用户模板范围', async () => {
