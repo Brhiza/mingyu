@@ -2,9 +2,11 @@ import type {
   LiuyaoChangeRelation,
   LiuyaoData,
   LiuyaoHiddenSpirit,
+  LiuyaoHiddenSpiritConditionAnalysis,
   LiuyaoYaoDetail,
 } from '../types/divination';
 import { isKe, isLiuchong, isLiuhai, isLiuhe, isSanxing, isSheng } from '../ganzhi';
+import { analyzeLiuyaoHiddenSpiritConditions } from './liuyao-rules';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import {
@@ -154,11 +156,12 @@ export interface LiuyaoHiddenSpiritFact {
   };
   isVoid: boolean;
   coveringLine: LiuyaoHiddenSpirit['underYao'];
+  conditionAnalysis: LiuyaoHiddenSpiritConditionAnalysis;
   support: string[];
   constraints: string[];
   promptText: string;
   sources: string[];
-  limitation: '伏神结构只证明本卦六亲排布中存在伏藏关系；透出、受制或得助仍须结合飞神、月日、动变与现实进展复核';
+  limitation: '伏神事实只记录伏藏位置、飞伏生克及月日动爻空破墓绝条件；支持与限制可以并见，不得按条件数量直接宣布出伏、有用无用、吉凶或现实结果';
 }
 
 export interface LiuyaoGenerationFact {
@@ -354,7 +357,7 @@ const LINE_FACT_LIMITATION =
   '逐爻字段是纳甲、世应、月日旺衰与动变规则的计算事实，只限定六爻取证条件，不单独证明现实吉凶、事件、身份、疾病、官非、关系或财务结果' as const;
 
 const HIDDEN_SPIRIT_FACT_LIMITATION =
-  '伏神结构只证明本卦六亲排布中存在伏藏关系；透出、受制或得助仍须结合飞神、月日、动变与现实进展复核' as const;
+  '伏神事实只记录伏藏位置、飞伏生克及月日动爻空破墓绝条件；支持与限制可以并见，不得按条件数量直接宣布出伏、有用无用、吉凶或现实结果' as const;
 const GENERATION_FACT_LIMITATION =
   '起卦来源只说明卦象如何生成以及六个爻值如何录入或生成，不提高卦象证据等级，也不证明预测有效性或现实结果' as const;
 const CANDIDATE_FACT_LIMITATION =
@@ -537,7 +540,10 @@ function buildVisibleReference(
   };
 }
 
-function buildHiddenReference(spirit: LiuyaoHiddenSpirit): LiuyaoYaoReference {
+function buildHiddenReference(
+  spirit: LiuyaoHiddenSpirit,
+  conditionAnalysis: LiuyaoHiddenSpiritConditionAnalysis,
+): LiuyaoYaoReference {
   return {
     key: `liuyao:reference:hidden:${spirit.position}:${spirit.sixRelative}`,
     factKey: `伏神:第${spirit.position}爻:${spirit.sixRelative}`,
@@ -549,19 +555,20 @@ function buildHiddenReference(spirit: LiuyaoHiddenSpirit): LiuyaoYaoReference {
     branch: spirit.najiaDizhi,
     wuxing: spirit.wuxing,
     isVoid: spirit.isVoid,
-    support: [],
-    constraints: [
-      '伏藏待透',
-      `受飞神${spirit.underYao.sixRelative}${formatNaJia(spirit.underYao.najiaTiangan, spirit.underYao.najiaDizhi)}${spirit.underYao.wuxing}覆盖`,
-      spirit.isVoid ? '伏神空亡' : '',
-    ].filter(Boolean),
+    support: conditionAnalysis.support,
+    constraints: ['伏藏待透', ...conditionAnalysis.constraints],
   };
 }
 
 function allReferences(data: LiuyaoData, monthBranch: string, dayBranch: string) {
   return [
     ...data.yaosDetail.map((yao) => buildVisibleReference(yao, monthBranch, dayBranch)),
-    ...(data.hiddenSpirits ?? []).map(buildHiddenReference),
+    ...(data.hiddenSpirits ?? []).map((spirit) =>
+      buildHiddenReference(
+        spirit,
+        analyzeLiuyaoHiddenSpiritConditions(spirit, monthBranch, dayBranch, data.yaosDetail),
+      ),
+    ),
   ];
 }
 
@@ -673,8 +680,16 @@ function buildLineFacts(
 }
 
 function buildHiddenSpiritFacts(data: LiuyaoData): LiuyaoHiddenSpiritFact[] {
+  const monthBranch = data.ganzhi.month.slice(1);
+  const dayBranch = data.ganzhi.day.slice(1);
   return (data.hiddenSpirits ?? []).map((spirit) => {
-    const reference = buildHiddenReference(spirit);
+    const conditionAnalysis = analyzeLiuyaoHiddenSpiritConditions(
+      spirit,
+      monthBranch,
+      dayBranch,
+      data.yaosDetail,
+    );
+    const reference = buildHiddenReference(spirit, conditionAnalysis);
     return {
       key: `伏神:第${spirit.position}爻:${spirit.sixRelative}`,
       status: '已计算',
@@ -687,10 +702,15 @@ function buildHiddenSpiritFacts(data: LiuyaoData): LiuyaoHiddenSpiritFact[] {
       },
       isVoid: spirit.isVoid,
       coveringLine: spirit.underYao,
+      conditionAnalysis,
       support: reference.support,
       constraints: reference.constraints,
-      promptText: `第${spirit.position}爻伏神${spirit.sixRelative}${formatNaJia(spirit.najiaTiangan, spirit.najiaDizhi)}${spirit.wuxing}，飞神${spirit.underYao.sixRelative}${formatNaJia(spirit.underYao.najiaTiangan, spirit.underYao.najiaDizhi)}${spirit.underYao.wuxing}覆盖${spirit.isVoid ? '，伏神空亡' : ''}`,
-      sources: ['本宫首卦六亲全集与当前本卦六亲差集', '当前爻位飞伏配对与旬空计算'],
+      promptText: `第${spirit.position}爻伏神${spirit.sixRelative}${formatNaJia(spirit.najiaTiangan, spirit.najiaDizhi)}${spirit.wuxing}，飞神${spirit.underYao.sixRelative}${formatNaJia(spirit.underYao.najiaTiangan, spirit.underYao.najiaDizhi)}${spirit.underYao.wuxing}；飞伏关系${conditionAnalysis.flyingRelation}；支持${conditionAnalysis.support.join('、') || '未见明确得助或飞神松动条件'}；限制${conditionAnalysis.constraints.join('、') || '未见明确衰空破墓绝或飞克条件'}`,
+      sources: [
+        '本宫首卦六亲全集与当前本卦六亲差集',
+        '《增删卜易·飞伏神章》飞伏生克与有用无用条件',
+        '当前月建、日辰、动爻、旬空、月破、旺衰、墓绝逐项计算',
+      ],
       limitation: HIDDEN_SPIRIT_FACT_LIMITATION,
     };
   });

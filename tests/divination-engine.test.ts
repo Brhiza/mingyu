@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateDivinationSession } from '../src/lib/divination/engine';
 import { buildTimeInfoText, formatDivinationInfo } from '../src/lib/divination/engine/formatters';
+import { getDivinationSummaryBlocks } from '../src/lib/divination/summary';
 import {
   TAROT_SPREAD_INSPIRATION_QUESTIONS,
   resolveDivinationInspiredDraftPatch,
@@ -228,6 +229,34 @@ test('六爻算法会补出伏神结构，供提示词直接引用', () => {
         item.underYao,
     ),
   );
+});
+
+test('六爻页面资料与摘要应显示飞伏关系并兼容旧结果', () => {
+  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: [8, 7, 7, 7, 7, 7],
+  });
+  const info = formatDivinationInfo('liuyao', data, '');
+  const summary = getDivinationSummaryBlocks('liuyao', data);
+
+  assert.match(info, /妻财伏第2爻.*伏于子孙辛亥水下（飞来生伏）/);
+  assert.ok(summary.lines.some((line) => /妻财伏第2爻.*（飞来生伏）/.test(line)));
+
+  const legacyData = {
+    ...data,
+    hiddenSpirits: data.hiddenSpirits?.map((item) => {
+      const legacyItem = { ...item };
+      delete legacyItem.conditionAnalysis;
+      return legacyItem;
+    }),
+  };
+  const legacyInfo = formatDivinationInfo('liuyao', legacyData, '');
+  const legacySummary = getDivinationSummaryBlocks('liuyao', legacyData);
+
+  assert.match(legacyInfo, /妻财伏第2爻.*（飞来生伏）/);
+  assert.ok(legacySummary.lines.some((line) => /妻财伏第2爻.*（飞来生伏）/.test(line)));
+  assert.doesNotMatch(legacyInfo, /undefined/);
+  assert.ok(legacySummary.lines.every((line) => !line.includes('undefined')));
 });
 
 test('六爻证据应把六亲类象与现实结论分离', () => {

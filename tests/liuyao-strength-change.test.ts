@@ -6,6 +6,7 @@ import {
   getLiuyaoChangeRelation,
   getLiuyaoChangeRelations,
   getLiuyaoFanFuRelations,
+  getLiuyaoFlyingHiddenRelation,
   getLiuyaoGuaShenBranch,
   getLiuyaoHexagramRelation,
   getLiuyaoHexagramRelations,
@@ -22,6 +23,8 @@ const XUN_WEI_FENG_YAOS = [8, 7, 7, 8, 7, 7] as const;
 const DUI_WEI_ZE_YAOS = [7, 7, 8, 7, 7, 8] as const;
 const FENG_SHUI_HUAN_YAOS = [8, 7, 8, 8, 7, 7] as const;
 const KAN_WEI_SHUI_YAOS = [8, 7, 8, 8, 7, 8] as const;
+const TIAN_FENG_GOU_YAOS = [8, 7, 7, 7, 7, 7] as const;
+const TIAN_SHAN_DUN_YAOS = [8, 8, 7, 7, 7, 7] as const;
 
 function generateSampleLiuyao(yaos: readonly number[] = SHAN_HUO_BI_YAOS) {
   return generateLiuyao(SAMPLE_DATE, { yaos });
@@ -73,6 +76,41 @@ test('六爻：主卦、动变与伏神均应保留完整纳甲干支', () => {
       { najia: '丙申', flying: '己亥' },
     ],
   );
+});
+
+test('六爻：飞伏五行关系应完整区分主客方向', () => {
+  assert.equal(getLiuyaoFlyingHiddenRelation('木', '水'), '飞来生伏');
+  assert.equal(getLiuyaoFlyingHiddenRelation('水', '土'), '飞来克伏');
+  assert.equal(getLiuyaoFlyingHiddenRelation('水', '木'), '伏去生飞');
+  assert.equal(getLiuyaoFlyingHiddenRelation('土', '水'), '伏克飞神');
+  assert.equal(getLiuyaoFlyingHiddenRelation('金', '金'), '飞伏比和');
+  assert.throws(() => getLiuyaoFlyingHiddenRelation('风', '水'), /伏神五行无效/);
+});
+
+test('六爻：原典姤遁例应分别识别飞来生伏与飞来克伏', () => {
+  const gou = generateSampleLiuyao(TIAN_FENG_GOU_YAOS);
+  const dun = generateSampleLiuyao(TIAN_SHAN_DUN_YAOS);
+  const gouWealth = gou.hiddenSpirits?.find((item) => item.sixRelative === '妻财');
+  const dunChild = dun.hiddenSpirits?.find((item) => item.sixRelative === '子孙');
+
+  assert.equal(gou.originalName, '天风姤');
+  assert.equal(gouWealth?.position, 2);
+  assert.equal(gouWealth?.najiaDizhi, '寅');
+  assert.equal(gouWealth?.underYao.najiaDizhi, '亥');
+  assert.equal(gouWealth?.conditionAnalysis?.flyingRelation, '飞来生伏');
+  assert.ok(gouWealth?.conditionAnalysis?.support.includes('飞来生伏'));
+  assert.ok(gouWealth?.conditionAnalysis?.support.includes('月建生伏神'));
+  assert.ok(gouWealth?.conditionAnalysis?.support.includes('伏神月令相'));
+  assert.ok(!gouWealth?.conditionAnalysis?.constraints.some((item) => item.includes('飞神克伏')));
+
+  assert.equal(dun.originalName, '天山遁');
+  assert.equal(dunChild?.position, 1);
+  assert.equal(dunChild?.najiaDizhi, '子');
+  assert.equal(dunChild?.underYao.najiaDizhi, '辰');
+  assert.equal(dunChild?.conditionAnalysis?.flyingRelation, '飞来克伏');
+  assert.ok(dunChild?.conditionAnalysis?.constraints.includes('飞来克伏（月令囚）'));
+  assert.ok(dunChild?.conditionAnalysis?.constraints.includes('日辰冲伏神'));
+  assert.ok(dunChild?.conditionAnalysis?.support.includes('飞神月令囚'));
 });
 
 test('六爻：爻内三刑汇总应按共享三刑口径识别两支互见', () => {

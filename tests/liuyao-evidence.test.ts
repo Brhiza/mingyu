@@ -59,7 +59,9 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
   assert.ok(
     evidence.hiddenSpiritFacts.every(
       (item) =>
-        item.status === '已计算' && item.sources.length > 0 && item.limitation.includes('伏藏关系'),
+        item.status === '已计算' &&
+        item.sources.length > 0 &&
+        item.limitation.includes('不得按条件数量直接宣布出伏'),
     ),
   );
   assert.ok(
@@ -170,6 +172,55 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
     '资料不足',
   );
   assert.match(incomplete.hiddenSpiritCoverageFact.promptText, /不得反推伏神位置/);
+});
+
+test('六爻伏神证据应重算飞伏生克与得助受制条件并兼容旧结果', () => {
+  const date = new Date('2025-01-01T08:00:00+08:00');
+  const gou = generateLiuyao(date, {
+    method: 'manual',
+    yaos: [8, 7, 7, 7, 7, 7],
+  });
+  const dun = generateLiuyao(date, {
+    method: 'manual',
+    yaos: [8, 8, 7, 7, 7, 7],
+  });
+  const gouEvidence = analyzeLiuyaoEvidence(gou, { usefulGodRelative: '妻财' });
+  const dunEvidence = analyzeLiuyaoEvidence(dun);
+  const gouWealth = gouEvidence.hiddenSpiritFacts.find((item) => item.sixRelative === '妻财');
+  const dunChild = dunEvidence.hiddenSpiritFacts.find((item) => item.sixRelative === '子孙');
+
+  assert.equal(gouWealth?.conditionAnalysis.flyingRelation, '飞来生伏');
+  assert.ok(gouWealth?.support.includes('飞来生伏'));
+  assert.ok(gouWealth?.support.includes('月建生伏神'));
+  assert.ok(!gouWealth?.constraints.some((item) => item.includes('受飞神')));
+  assert.match(gouWealth?.promptText ?? '', /飞伏关系飞来生伏/);
+  assert.match(gouWealth?.promptText ?? '', /支持.*飞来生伏/);
+  assert.equal(dunChild?.conditionAnalysis.flyingRelation, '飞来克伏');
+  assert.ok(dunChild?.constraints.includes('飞来克伏（月令囚）'));
+  assert.ok(dunChild?.constraints.includes('日辰冲伏神'));
+  assert.match(dunChild?.promptText ?? '', /限制.*飞来克伏/);
+
+  const hiddenReference = gouEvidence.candidates
+    .flatMap((candidate) => candidate.references)
+    .find((reference) => reference.key === 'liuyao:reference:hidden:2:妻财');
+  assert.ok(hiddenReference?.support.includes('飞来生伏'));
+  assert.ok(!hiddenReference?.constraints.some((item) => item.includes('受飞神')));
+
+  const legacyGou = {
+    ...gou,
+    hiddenSpirits: gou.hiddenSpirits?.map((item) => {
+      const legacyItem = { ...item };
+      delete legacyItem.conditionAnalysis;
+      return legacyItem;
+    }),
+    evidenceAnalysis: undefined,
+  };
+  const legacyFact = analyzeLiuyaoEvidence(legacyGou).hiddenSpiritFacts.find(
+    (item) => item.sixRelative === '妻财',
+  );
+  assert.deepEqual(legacyFact?.conditionAnalysis, gouWealth?.conditionAnalysis);
+  assert.deepEqual(legacyFact?.support, gouWealth?.support);
+  assert.deepEqual(legacyFact?.constraints, gouWealth?.constraints);
 });
 
 test('六爻证据应区分日冲暗动、静爻日破与明动爻日冲', () => {

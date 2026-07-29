@@ -21,6 +21,7 @@ import {
   conditionLenormandTraditionalText,
 } from 'mingyu-core/divination/lenormand';
 import { analyzeXiaoliurenEvidence } from 'mingyu-core/divination/xiaoliuren';
+import { getLiuyaoFlyingHiddenRelation } from 'mingyu-core/divination/liuyao';
 import { resolveSsgwStoryContent } from './ssgw-content';
 
 export interface DivinationSummaryBlocks {
@@ -85,7 +86,7 @@ function formatLiuyaoHiddenSpiritSummary(data: DivinationData) {
   return `伏神：${data.hiddenSpirits
     .map(
       (item) =>
-        `${item.sixRelative}伏第${item.position}爻${item.najiaTiangan ?? ''}${item.najiaDizhi}${item.wuxing}${item.isVoid ? '（空）' : ''}`,
+        `${item.sixRelative}伏第${item.position}爻${item.najiaTiangan ?? ''}${item.najiaDizhi}${item.wuxing}${item.isVoid ? '（空）' : ''}（${item.conditionAnalysis?.flyingRelation ?? getLiuyaoFlyingHiddenRelation(item.wuxing, item.underYao.wuxing)}）`,
     )
     .join('；')}`;
 }

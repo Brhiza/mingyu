@@ -30,6 +30,7 @@ import type { DivinationMethodId } from '@core/divination/config';
 import {
   analyzeLiuyaoEvidence,
   conditionLiuyaoTraditionalText,
+  getLiuyaoFlyingHiddenRelation,
 } from '@core/divination/algorithms/liuyao';
 import { analyzeMeihuaEvidence } from '@core/divination/algorithms/meihua';
 import {
@@ -179,7 +180,10 @@ function formatLiuyaoYaoBrief(item: LiuyaoData['yaosDetail'][number]) {
 }
 
 function formatHiddenSpirit(item: NonNullable<LiuyaoData['hiddenSpirits']>[number]) {
-  return `${item.sixRelative}伏第${item.position}爻${item.najiaTiangan ?? ''}${item.najiaDizhi}${item.wuxing}${item.isVoid ? '（空）' : ''}，伏于${item.underYao.sixRelative}${item.underYao.najiaTiangan ?? ''}${item.underYao.najiaDizhi}${item.underYao.wuxing}下`;
+  const flyingRelation =
+    item.conditionAnalysis?.flyingRelation ??
+    getLiuyaoFlyingHiddenRelation(item.wuxing, item.underYao.wuxing);
+  return `${item.sixRelative}伏第${item.position}爻${item.najiaTiangan ?? ''}${item.najiaDizhi}${item.wuxing}${item.isVoid ? '（空）' : ''}，伏于${item.underYao.sixRelative}${item.underYao.najiaTiangan ?? ''}${item.underYao.najiaDizhi}${item.underYao.wuxing}下（${flyingRelation}）`;
 }
 
 function formatLiuyaoHexagramRelation(data: LiuyaoData) {

@@ -29,7 +29,12 @@ import type { RandomOptions, RandomTrace } from '../../shared/random';
 import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';
 import { attachResultMeta } from '../../shared/result';
 import { analyzeLiuyaoEvidence } from '../liuyao-evidence';
-import type { LiuyaoChangeRelation, LiuyaoData } from '../../types/divination';
+import {
+  analyzeLiuyaoHiddenSpiritConditions,
+  getLiuyaoTwelveStage,
+  isLiuyaoElementInTomb,
+} from '../liuyao-rules';
+import type { LiuyaoChangeRelation, LiuyaoData, LiuyaoYaoDetail } from '../../types/divination';
 import {
   isSheng,
   isKe,
@@ -41,23 +46,8 @@ import {
   isLiuchong,
   BRANCH_ORDER,
   BRANCH_WUXING,
-  CHANGSHENG_ORDER,
   SANHE_GROUPS,
 } from '../../ganzhi';
-
-/**
- * 五行入墓支（《卜筮正宗》卷三《墓库章》、《增删卜易·入墓》定例）：
- * 金墓在丑、木墓在未、火墓在戌、水土墓在辰。
- * 入墓主事物被收藏、束缚、限制或结束。
- * 爻值月墓为月建入墓，值日墓为日辰入墓，二者皆主该爻气运被压抑。
- */
-const WUXING_RUMU: Record<string, string> = {
-  金: '丑',
-  木: '未',
-  火: '戌',
-  水: '辰',
-  土: '辰',
-};
 
 /**
  * 五行十二宫（《三命通会》卷三论五行旺相、《卜筮正宗》卷四十二宫）：
@@ -72,35 +62,12 @@ const WUXING_RUMU: Record<string, string> = {
  * - 土长生在申（水土共长生，《三命通会》卷三）
  */
 function getShiErGong(wuxing: string, branch: string): string {
-  // 五行各局的长生位：
-  const ZHANG_SHENG_START: Record<string, string> = {
-    金: '巳', // 金长生在巳
-    木: '亥', // 木长生在亥
-    火: '寅', // 火长生在寅
-    水: '申', // 水长生在申
-    土: '申', // 土长生在申（与火不同，按《三命通会》水土共长生）
-  };
-  const startBranch = ZHANG_SHENG_START[wuxing];
-  if (!startBranch) {
-    throw new Error(`六爻十二长生无法识别五行 "${wuxing}"。`);
-  }
-  const startIndex = BRANCH_ORDER.indexOf(startBranch);
-  const branchIndex = BRANCH_ORDER.indexOf(branch);
-  if (startIndex === -1 || branchIndex === -1) {
-    throw new Error(`六爻十二长生无法识别地支 "${branch}"。`);
-  }
-  const offset = (((branchIndex - startIndex) % 12) + 12) % 12;
-  const stage = CHANGSHENG_ORDER[offset];
-  if (!stage) {
-    throw new Error(`六爻十二长生无法定位 ${wuxing} 在 ${branch} 支的状态。`);
-  }
-  return stage;
+  return getLiuyaoTwelveStage(wuxing, branch);
 }
 
 /** 判断爻之地支是否入墓（按地支五行入墓支） */
 function isRuMu(branchWuxing: string, monthBranch: string): boolean {
-  const muBranch = WUXING_RUMU[branchWuxing];
-  return muBranch === monthBranch;
+  return isLiuyaoElementInTomb(branchWuxing, monthBranch);
 }
 
 /** 判断爻之地支是否在当月为月墓 */
@@ -112,7 +79,7 @@ function isYueMu(branch: string, monthBranch: string): boolean {
 /** 判断爻之地支是否入日墓 */
 function isRiMu(branch: string, dayBranch: string): boolean {
   const wuxing = BRANCH_WUXING[branch];
-  return WUXING_RUMU[wuxing] === dayBranch;
+  return isLiuyaoElementInTomb(wuxing, dayBranch);
 }
 
 /**
@@ -667,16 +634,12 @@ function getNaJiaAndLiuQin(mainHexagramName: string, palace: { name: string; wux
 function buildHiddenSpirits(params: {
   originalName: string;
   palace: { name: string; wuxing: string };
-  yaosDetail: Array<{
-    position: number;
-    sixRelative: string;
-    najiaTiangan: string;
-    najiaDizhi: string;
-    wuxing: string;
-  }>;
+  yaosDetail: LiuyaoYaoDetail[];
   voidBranches: string[];
+  monthBranch: string;
+  dayBranch: string;
 }) {
-  const { originalName, palace, yaosDetail, voidBranches } = params;
+  const { originalName, palace, yaosDetail, voidBranches, monthBranch, dayBranch } = params;
   const homeHexagramName = palaceHexagrams[palace.name as keyof typeof palaceHexagrams]?.[0];
 
   if (!homeHexagramName || homeHexagramName === originalName) {
@@ -686,7 +649,7 @@ function buildHiddenSpirits(params: {
   const appearedRelatives = new Set(yaosDetail.map((item) => item.sixRelative));
   const homeYaos = getNaJiaAndLiuQin(homeHexagramName, palace);
 
-  return homeYaos
+  const hiddenSpirits = homeYaos
     .map((homeYao, index) => ({
       sixRelative: homeYao.liuqin,
       position: index + 1,
@@ -703,6 +666,16 @@ function buildHiddenSpirits(params: {
       },
     }))
     .filter((item) => !appearedRelatives.has(item.sixRelative));
+
+  return hiddenSpirits.map((spirit) => ({
+    ...spirit,
+    conditionAnalysis: analyzeLiuyaoHiddenSpiritConditions(
+      spirit,
+      monthBranch,
+      dayBranch,
+      yaosDetail,
+    ),
+  }));
 }
 
 /**
@@ -1111,6 +1084,8 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     palace,
     yaosDetail,
     voidBranches: voids,
+    monthBranch,
+    dayBranch,
   });
 
   // 三合局只取明动、暗动及其变爻；静态纳甲支不能自行凑局。
@@ -1190,6 +1165,12 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
 
 export { buildHiddenSpirits };
 export { analyzeLiuyaoEvidence, conditionLiuyaoTraditionalText } from '../liuyao-evidence';
+export {
+  analyzeLiuyaoHiddenSpiritConditions,
+  getLiuyaoFlyingHiddenRelation,
+  getLiuyaoTwelveStage,
+  isLiuyaoElementInTomb,
+} from '../liuyao-rules';
 export type {
   LiuyaoCounterEvidenceFact,
   LiuyaoCounterSummaryFact,

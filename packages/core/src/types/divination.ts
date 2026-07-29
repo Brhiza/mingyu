@@ -228,6 +228,25 @@ export interface LiuyaoYaoDetail extends BaseYaoDetail {
   isRiMu?: boolean;
 }
 
+export type LiuyaoFlyingHiddenRelation =
+  '飞来生伏' | '飞来克伏' | '伏去生飞' | '伏克飞神' | '飞伏比和';
+
+export interface LiuyaoHiddenSpiritConditionAnalysis {
+  /** 飞神与伏神之间的固定五行生克关系。 */
+  flyingRelation: LiuyaoFlyingHiddenRelation;
+  hiddenSeasonState: '旺' | '相' | '休' | '囚' | '死';
+  hiddenMonthStage: string;
+  hiddenDayStage: string;
+  hiddenFlyingStage: string;
+  flyingSeasonState: '旺' | '相' | '休' | '囚' | '死';
+  flyingMonthStage: string;
+  flyingDayStage: string;
+  /** 有利于伏神得助或飞神松动的客观条件，不等于已经出伏或现实吉利。 */
+  support: string[];
+  /** 伏神受制、衰空破墓绝等客观条件，不等于现实凶险或必然无用。 */
+  constraints: string[];
+}
+
 export interface LiuyaoHiddenSpirit {
   sixRelative: string;
   position: number;
@@ -243,6 +262,8 @@ export interface LiuyaoHiddenSpirit {
     najiaDizhi: string;
     wuxing: string;
   };
+  /** 飞伏生克、月日动爻与空破墓绝条件；旧结果可能没有此字段。 */
+  conditionAnalysis?: LiuyaoHiddenSpiritConditionAnalysis;
 }
 
 export type LiuyaoHexagramRelation = '六合卦' | '六冲卦';
