@@ -957,7 +957,7 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
         item.rule &&
         item.sources.length > 0 &&
         item.limitations.length >= 4 &&
-        item.limitations.some((limitation) => limitation.includes('七十七项可复算神煞规则')),
+        item.limitations.some((limitation) => limitation.includes('七十九项可复算神煞规则')),
     ),
   );
 });
@@ -1466,6 +1466,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     '受死',
     '罪至',
     '血忌',
+    '天巫',
+    '游煞',
   ];
   const addedMonthFactNames = [
     '天合',
@@ -1499,20 +1501,22 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     '受死',
     '罪至',
     '血忌',
+    '天巫',
+    '游煞',
   ];
   const addedMonthTargets: Record<string, readonly string[]> = {
-    寅: ['戌', '巳', '辰', '未', '亥', '亥', '戌', '午', '丑'],
-    卯: ['戌', '巳', '辰', '辰', '子', '巳', '辰', '子', '未'],
-    辰: ['戌', '巳', '辰', '丑', '丑', '子', '亥', '未', '寅'],
-    巳: ['丑', '申', '未', '戌', '寅', '午', '巳', '丑', '申'],
-    午: ['丑', '申', '未', '未', '卯', '丑', '子', '申', '卯'],
-    未: ['丑', '申', '未', '辰', '辰', '未', '午', '寅', '酉'],
-    申: ['辰', '亥', '戌', '丑', '巳', '寅', '丑', '酉', '辰'],
-    酉: ['辰', '亥', '戌', '戌', '午', '申', '未', '卯', '戌'],
-    戌: ['辰', '亥', '戌', '未', '未', '卯', '寅', '戌', '巳'],
-    亥: ['未', '寅', '丑', '辰', '申', '酉', '申', '辰', '亥'],
-    子: ['未', '寅', '丑', '丑', '酉', '辰', '卯', '亥', '午'],
-    丑: ['未', '寅', '丑', '戌', '戌', '戌', '酉', '巳', '子'],
+    寅: ['戌', '巳', '辰', '未', '亥', '亥', '戌', '午', '丑', '辰', '卯'],
+    卯: ['戌', '巳', '辰', '辰', '子', '巳', '辰', '子', '未', '巳', '辰'],
+    辰: ['戌', '巳', '辰', '丑', '丑', '子', '亥', '未', '寅', '午', '巳'],
+    巳: ['丑', '申', '未', '戌', '寅', '午', '巳', '丑', '申', '未', '午'],
+    午: ['丑', '申', '未', '未', '卯', '丑', '子', '申', '卯', '申', '未'],
+    未: ['丑', '申', '未', '辰', '辰', '未', '午', '寅', '酉', '酉', '申'],
+    申: ['辰', '亥', '戌', '丑', '巳', '寅', '丑', '酉', '辰', '戌', '酉'],
+    酉: ['辰', '亥', '戌', '戌', '午', '申', '未', '卯', '戌', '亥', '戌'],
+    戌: ['辰', '亥', '戌', '未', '未', '卯', '寅', '戌', '巳', '子', '亥'],
+    亥: ['未', '寅', '丑', '辰', '申', '酉', '申', '辰', '亥', '丑', '子'],
+    子: ['未', '寅', '丑', '丑', '酉', '辰', '卯', '亥', '午', '寅', '丑'],
+    丑: ['未', '寅', '丑', '戌', '戌', '戌', '酉', '巳', '子', '卯', '寅'],
   };
 
   for (const [date, monthBranch, expectedTargets, expectedTianHe] of monthCases) {
@@ -1563,6 +1567,10 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       '血支',
       '玉字',
       '金堂',
+      '梦神',
+      '月破',
+      '天医',
+      '地医',
     ]) {
       assert.equal(facts.has(deferredName), false, `${deferredName}暂缓或异名不应重复登记`);
     }
@@ -1672,6 +1680,16 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
   assert.match(
     boundaryFacts.get('血忌')?.limitations.join('；') ?? '',
     /胎神、养神、蛇虎、刑煞、日辰、年命/,
+  );
+  assert.match(boundaryFacts.get('天巫')?.rule ?? '', /正月从辰起逐月顺行/);
+  assert.match(boundaryFacts.get('天巫')?.sources.join('；') ?? '', /六壬秘本.+六壬存验/);
+  assert.match(boundaryFacts.get('天巫')?.limitations.join('；') ?? '', /不因单项出现自动判断婚姻/);
+  assert.match(boundaryFacts.get('游煞')?.rule ?? '', /正月从卯起逐月顺行/);
+  assert.match(boundaryFacts.get('游煞')?.sources.join('；') ?? '', /六壬秘本.+六壬指南注解/);
+  assert.match(boundaryFacts.get('游煞')?.limitations.join('；') ?? '', /游煞、游神与游魂分层登记/);
+  assert.match(
+    boundaryFacts.get('游煞')?.limitations.join('；') ?? '',
+    /伏吟、刚柔日、旬丁、驿马、进退传/,
   );
 
   const tianSheCases = [
@@ -1791,8 +1809,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const hasTianShe = facts.has('天赦');
     assert.equal(
       shenShaFacts.length,
-      75 + Number(hasTianHe) + Number(hasTianShe),
-      `${result.ganzhi.day}应有七十五项固定神煞及条件性天合、天赦`,
+      77 + Number(hasTianHe) + Number(hasTianShe),
+      `${result.ganzhi.day}应有七十七项固定神煞及条件性天合、天赦`,
     );
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(
