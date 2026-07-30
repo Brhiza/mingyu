@@ -190,6 +190,74 @@ test('大六壬证据应公开起盘口径主版本、异说与底本文字边�
   assert.ok(evidence.limitationFacts.some((item) => item.ownerFactKeys.includes(fact.key)));
 });
 
+test('大六壬证据应公开四课与九宗门取传主版本、异说和整体重排边界', () => {
+  const evidence = generateLiuren(fixedDate).evidenceAnalysis;
+
+  assert.ok(evidence);
+  const fact = evidence.transmissionConventionFact;
+  assert.equal(fact.key, 'liuren:transmission-convention');
+  assert.equal(fact.status, '已登记版本边界');
+  assert.match(fact.adoptedVersion, /《六壬粹言》《大六壬大全》正文及《六壬指南》/);
+  assert.deepEqual(
+    fact.lessonRules.map((item) => `${item.lesson}:${item.lowerRule}->${item.upperRule}`),
+    [
+      '一课:日干->日干寄宫上神',
+      '二课:一课上神->一课上神再取上神',
+      '三课:日支->日支上神',
+      '四课:三课上神->三课上神再取上神',
+    ],
+  );
+  assert.deepEqual(fact.methodOrder, [
+    '贼克',
+    '比用',
+    '涉害',
+    '遥克',
+    '昴星',
+    '别责',
+    '八专',
+    '伏吟',
+    '返吟',
+  ]);
+  assert.match(fact.directKeRule, /先取下贼上，后取上克下/);
+  assert.match(fact.repeatedUpperRule, /同一上神.*只按一处/);
+  assert.match(fact.biYongRule, /与日干阴阳相同/);
+  assert.match(fact.sheHaiRule.depthRule, /所临地盘之后起数/);
+  assert.match(fact.sheHaiRule.tieBreakRule, /同深先孟、无孟取仲/);
+  assert.equal(fact.sheHaiRule.useZeBi, false);
+  assert.match(fact.remoteKeRule, /只检查二、三、四课/);
+  assert.ok(
+    fact.specialMethodRules.some((item) => item.method === '昴星' && /地盘酉上神/.test(item.rule)),
+  );
+  assert.ok(
+    fact.specialMethodRules.some(
+      (item) => item.method === '别责' && /合干寄宫上神/.test(item.rule),
+    ),
+  );
+  assert.ok(
+    fact.specialMethodRules.some(
+      (item) => item.method === '八专' && /癸丑.*无克不取遥克/.test(item.rule),
+    ),
+  );
+  assert.ok(
+    fact.specialMethodRules.some(
+      (item) => item.method === '伏吟' && /六乙、六癸.*杜传/.test(item.rule),
+    ),
+  );
+  assert.ok(
+    fact.specialMethodRules.some((item) => item.method === '返吟' && /无亲.*无依/.test(item.rule)),
+  );
+  assert.ok(fact.alternativeVersionFields.some((item) => /《六壬指南》.*直接依孟仲/.test(item)));
+  assert.ok(fact.alternativeVersionFields.some((item) => /《大六壬大全》.*择比/.test(item)));
+  assert.match(fact.limitation, /异说不得与主版本拼接使用/);
+  assert.match(fact.limitation, /初传发用到中末传整体重排/);
+  assert.equal(evidence.summaryFact.transmissionConventionFactCount, 1);
+  assert.ok(evidence.summaryFact.factKeys.includes(fact.key));
+  assert.ok(evidence.evidence.items.some((item) => item.title === '大六壬四课与取传口径版本边界'));
+  assert.match(evidence.promptText, /四课与取传口径版本边界：/);
+  assert.match(evidence.promptText, /换用其他版本须从初传到中末传整体重排/);
+  assert.ok(evidence.limitationFacts.some((item) => item.ownerFactKeys.includes(fact.key)));
+});
+
 test('大六壬证据应以旬空地支复核三传空亡，避免冗余字段冲突', () => {
   const data = generateLiuren(fixedDate);
   const initialBranch = data.threeTransmissions[0].branch;

@@ -180,6 +180,28 @@ export interface LiurenFoundationConventionFact {
   limitation: '起盘口径事实只声明本结果采用的月将、昼夜贵人、天将顺逆与十干寄宫版本；异说不得与主版本拼接使用，若改用其他贵人表或换将口径，必须从贵人定位、十二天将、四课到三传整体重排，不得只替换单项结论';
 }
 
+export interface LiurenTransmissionConventionFact {
+  key: 'liuren:transmission-convention';
+  status: '已登记版本边界';
+  adoptedVersion: string;
+  lessonRules: Array<{ lesson: LiurenLesson['name']; lowerRule: string; upperRule: string }>;
+  methodOrder: string[];
+  directKeRule: string;
+  repeatedUpperRule: string;
+  biYongRule: string;
+  sheHaiRule: {
+    depthRule: string;
+    tieBreakRule: string;
+    useZeBi: false;
+  };
+  remoteKeRule: string;
+  specialMethodRules: Array<{ method: string; rule: string }>;
+  alternativeVersionFields: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '四课与取传口径事实只声明本结果采用的四课递取、贼克比用、涉害古法及九宗门特殊取法版本；异说不得与主版本拼接使用，若改用直接取孟仲或择比等其他版本，必须从初传发用到中末传整体重排，不得只替换课名或单支';
+}
+
 export interface LiurenPlateFact {
   key: string;
   index: number;
@@ -236,9 +258,10 @@ export interface LiurenSummaryFact {
   focusFactCount: number;
   traditionalFactCount: number;
   foundationConventionFactCount: 1;
+  transmissionConventionFactCount: 1;
   promptText: string;
   sources: string[];
-  limitation: '大六壬证据汇总只统计起盘口径与版本、天地盘、四课取传、三传推进、反证、类神、应期与传统资料的覆盖情况；不得按数量生成吉凶总分、成功率、人物身份、事件保证或唯一日期';
+  limitation: '大六壬证据汇总只统计起盘口径与版本、四课取传口径与版本、天地盘、四课取传、三传推进、反证、类神、应期与传统资料的覆盖情况；不得按数量生成吉凶总分、成功率、人物身份、事件保证或唯一日期';
 }
 
 export interface LiurenLimitationFact {
@@ -262,6 +285,7 @@ export interface LiurenEvidenceAnalysis {
   status: '已计算';
   calculationFact: LiurenCalculationFact;
   foundationConventionFact: LiurenFoundationConventionFact;
+  transmissionConventionFact: LiurenTransmissionConventionFact;
   calculationFacts: string[];
   calculationSteps: LiurenEvidenceCalculationStep[];
   calculationChain: string[];
@@ -302,6 +326,8 @@ const CALCULATION_FACT_LIMITATION =
   '起盘参数只记录占时四柱、月将加时、昼夜贵人、日干寄宫与旬空的计算输入和结果，不单独证明现实事件、吉凶或应期' as const;
 const FOUNDATION_CONVENTION_FACT_LIMITATION =
   '起盘口径事实只声明本结果采用的月将、昼夜贵人、天将顺逆与十干寄宫版本；异说不得与主版本拼接使用，若改用其他贵人表或换将口径，必须从贵人定位、十二天将、四课到三传整体重排，不得只替换单项结论' as const;
+const TRANSMISSION_CONVENTION_FACT_LIMITATION =
+  '四课与取传口径事实只声明本结果采用的四课递取、贼克比用、涉害古法及九宗门特殊取法版本；异说不得与主版本拼接使用，若改用直接取孟仲或择比等其他版本，必须从初传发用到中末传整体重排，不得只替换课名或单支' as const;
 const PLATE_FACT_LIMITATION =
   '天地盘逐位字段只证明月将加时与十二天将排布后的对应关系，不单独证明现实吉凶、人物身份、事件或方位结果' as const;
 const PLATE_COVERAGE_LIMITATION =
@@ -329,7 +355,7 @@ const FOCUS_SUMMARY_LIMITATION =
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只证明占时参数、天地盘、四课、取传、三传、反证、类神与应期条件如何形成当前证据；不证明现实吉凶、事件概率、人物身份或固定应期' as const;
 const SUMMARY_FACT_LIMITATION =
-  '大六壬证据汇总只统计起盘口径与版本、天地盘、四课取传、三传推进、反证、类神、应期与传统资料的覆盖情况；不得按数量生成吉凶总分、成功率、人物身份、事件保证或唯一日期' as const;
+  '大六壬证据汇总只统计起盘口径与版本、四课取传口径与版本、天地盘、四课取传、三传推进、反证、类神、应期与传统资料的覆盖情况；不得按数量生成吉凶总分、成功率、人物身份、事件保证或唯一日期' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束大六壬占时、天地盘、四课取传、三传、类神、课体、天将、神煞与应期资料能够支持的解释范围，不得被反向当作现实吉凶、人物身份、疾病灾祸、事件概率或固定应期的证据' as const;
 
@@ -813,6 +839,71 @@ function buildFoundationConventionFact(): LiurenFoundationConventionFact {
   };
 }
 
+function buildTransmissionConventionFact(): LiurenTransmissionConventionFact {
+  return {
+    key: 'liuren:transmission-convention',
+    status: '已登记版本边界',
+    adoptedVersion:
+      '四课、贼克比用、遥克及特殊取法采用《六壬粹言》《大六壬大全》正文及《六壬指南》可互证口径；涉害单独采用《六壬粹言》《大六壬大全》所载先计实际深浅古法，不采用《六壬指南》直接依孟仲或《大六壬大全》择比异说',
+    lessonRules: [
+      { lesson: '一课', lowerRule: '日干', upperRule: '日干寄宫上神' },
+      { lesson: '二课', lowerRule: '一课上神', upperRule: '一课上神再取上神' },
+      { lesson: '三课', lowerRule: '日支', upperRule: '日支上神' },
+      { lesson: '四课', lowerRule: '三课上神', upperRule: '三课上神再取上神' },
+    ],
+    methodOrder: ['贼克', '比用', '涉害', '遥克', '昴星', '别责', '八专', '伏吟', '返吟'],
+    directKeRule:
+      '四课先取下贼上，后取上克下；只有一处时分别为重审、元首，多处再依比用与涉害定发用',
+    repeatedUpperRule: '同一上神在重复课中只按一处克候选计算',
+    biYongRule: '多处候选先取上神与日干阴阳相同者；仍不唯一再进入涉害',
+    sheHaiRule: {
+      depthRule:
+        '从候选上神所临地盘之后起数，行至该上神本家前停止，起点与本家均不计，比较沿途实际受克深浅',
+      tieBreakRule: '同深先孟、无孟取仲，复等时阳日取干上、阴日取支上',
+      useZeBi: false,
+    },
+    remoteKeRule:
+      '四课无直接克时只检查二、三、四课；先取上神克日为蒿矢，再取日克上神为弹射，多候选仍依比用、涉害',
+    specialMethodRules: [
+      {
+        method: '昴星',
+        rule: '无克无遥克且四课俱备时，阳日取地盘酉上神为初、支上为中、干上为末；阴日取天盘酉下神为初、干上为中、支上为末',
+      },
+      {
+        method: '别责',
+        rule: '四课不备而三课异时，阳日取合干寄宫上神，阴日直接取日支三合前一支，中末均取干上神',
+      },
+      {
+        method: '八专',
+        rule: '甲寅、庚申、丁未、己未、癸丑五日有克仍从克法；无克不取遥克，阳日从干阳神顺数第三位、阴日从支阴神逆数第三位发用，中末均取干上神',
+      },
+      {
+        method: '伏吟',
+        rule: '六乙、六癸虽有课内克仍分别从辰、丑发用，六乙按杜传推进；其余无克阳日自任取干上、阴日自信取支上，再依三刑及自刑杜传口径推进',
+      },
+      {
+        method: '返吟',
+        rule: '有克仍从贼克；无克取日支驿马发用，中取支上、末取干上，主标签无亲，井栏射为同法名，无依兼见作返吟总称',
+      },
+    ],
+    alternativeVersionFields: [
+      '《六壬指南》涉害正文更接近不先计实际深浅、直接依孟仲选择；本结果不与深浅古法拼接',
+      '《大六壬大全》另载涉害后避开被日干所克者的“择比”法；《六壬粹言》明确谓不可从，本结果不采用',
+      '返吟无克又称井栏射；《六壬粹言》《大六壬大全》可称无亲，《大六壬大全》《六壬指南》又以无依概括返吟，名称边界不改变三传数值',
+    ],
+    promptText:
+      '四课依日干寄宫、日支各取上下二课；取传先下贼上、后上克下，多克先比用再涉害，重复上神只计一处。涉害先比实际深浅，再依孟仲与阳干阴支复等，不采用择比；遥克只看二三四课；昴星、别责、五个八专日、伏吟与返吟均按已登记主版本整体取三传',
+    sources: [
+      '《六壬粹言》卷首四课与九宗门、辨非涉害别责八专条',
+      '《大六壬大全》卷一九宗门、涉害课、八专课、伏吟课与返吟课',
+      '《六壬指南》卷一四课与九宗门',
+      '《六壬指南注解》卷一四课与九宗门注解',
+      '《六壬寻源》卷一九宗门取传次序参校',
+    ],
+    limitation: TRANSMISSION_CONVENTION_FACT_LIMITATION,
+  };
+}
+
 function buildCalculationFact(data: LiurenData, xunKong: string[]): LiurenCalculationFact {
   const dayStem = data.ganzhi.day.charAt(0);
   return {
@@ -871,6 +962,7 @@ function buildPlateCoverageFact(positions: LiurenPlateFact[]): LiurenPlateCovera
 function buildSummaryFact(params: {
   calculationFact: LiurenCalculationFact;
   foundationConventionFact: LiurenFoundationConventionFact;
+  transmissionConventionFact: LiurenTransmissionConventionFact;
   plateFact: LiurenPlateCoverageFact;
   platePositionFacts: LiurenPlateFact[];
   transmissionRuleFact: LiurenTransmissionRuleFact;
@@ -888,6 +980,7 @@ function buildSummaryFact(params: {
     new Set([
       params.calculationFact.key,
       params.foundationConventionFact.key,
+      params.transmissionConventionFact.key,
       params.plateFact.key,
       ...params.platePositionFacts.map((item) => item.key),
       params.transmissionRuleFact.key,
@@ -929,8 +1022,11 @@ function buildSummaryFact(params: {
     focusFactCount: params.focusFacts.length,
     traditionalFactCount: params.traditionalFacts.length,
     foundationConventionFactCount: 1,
-    promptText: `证据链状态：${status}；起盘口径与版本边界1项、天地盘${params.platePositionFacts.length}/12位、四课${params.lessons.length}项、三传${params.transmissions.length}项、推进${params.transitionFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项、类神焦点${params.focusFacts.length}项、传统资料${params.traditionalFacts.length}项`,
-    sources: ['全部起盘口径与版本、天地盘、四课取传、三传、反证、类神、应期与传统事实逐项汇总'],
+    transmissionConventionFactCount: 1,
+    promptText: `证据链状态：${status}；起盘口径与版本边界1项、四课取传口径与版本边界1项、天地盘${params.platePositionFacts.length}/12位、四课${params.lessons.length}项、三传${params.transmissions.length}项、推进${params.transitionFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项、类神焦点${params.focusFacts.length}项、传统资料${params.traditionalFacts.length}项`,
+    sources: [
+      '全部起盘口径与版本、四课取传口径与版本、天地盘、四课取传、三传、反证、类神、应期与传统事实逐项汇总',
+    ],
     limitation: SUMMARY_FACT_LIMITATION,
   };
 }
@@ -938,6 +1034,7 @@ function buildSummaryFact(params: {
 function buildCalculationSteps(params: {
   calculationFact: LiurenCalculationFact;
   foundationConventionFact: LiurenFoundationConventionFact;
+  transmissionConventionFact: LiurenTransmissionConventionFact;
   plateFact: LiurenPlateCoverageFact;
   platePositionFacts: LiurenPlateFact[];
   lessons: LiurenLessonEvidence[];
@@ -1036,8 +1133,13 @@ function buildCalculationSteps(params: {
         initialGod: params.transmissionRuleFact.initialGod,
       },
       dependsOnStepKeys: ['liuren:calculation:lessons'],
-      promptText: params.transmissionRuleFact.promptText,
-      sources: params.transmissionRuleFact.sources,
+      promptText: `${params.transmissionConventionFact.promptText}；${params.transmissionRuleFact.promptText}`,
+      sources: Array.from(
+        new Set([
+          ...params.transmissionConventionFact.sources,
+          ...params.transmissionRuleFact.sources,
+        ]),
+      ),
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
@@ -1117,6 +1219,7 @@ function buildCalculationSteps(params: {
 function buildLimitationFacts(params: {
   calculationFact: LiurenCalculationFact;
   foundationConventionFact: LiurenFoundationConventionFact;
+  transmissionConventionFact: LiurenTransmissionConventionFact;
   plateFact: LiurenPlateCoverageFact;
   platePositionFacts: LiurenPlateFact[];
   lessons: LiurenLessonEvidence[];
@@ -1156,10 +1259,11 @@ function buildLimitationFacts(params: {
           ...item.relationFacts.map((fact) => fact.key),
         ]),
         params.transmissionRuleFact.key,
+        params.transmissionConventionFact.key,
       ],
       promptText:
-        '四课记录上下神、乘将、生克、旬空和初传来源，九宗门规则只说明如何发用取传；缺少规则名时不得按结果反推，已有规则也不单独证明现实成败',
-      sources: ['四课关系事实、初传来源与九宗门取传结果'],
+        '四课与九宗门采用已登记的递取、贼克比用、涉害古法及特殊取法主版本；直接取孟仲、择比与返吟名称异说不得拼接，换版本须从初传到中末传整体重排。四课记录上下神、乘将、生克、旬空和初传来源，取传规则只说明如何发用；缺少规则名时不得按结果反推，已有规则也不单独证明现实成败',
+      sources: ['四课取传口径版本事实、四课关系事实、初传来源与九宗门取传结果'],
     },
     {
       key: 'liuren:limitation:transmissions',
@@ -1221,8 +1325,10 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
   const xunKong = data.xunKong ?? [];
   const calculationFact = buildCalculationFact(data, xunKong);
   const foundationConventionFact = buildFoundationConventionFact();
+  const transmissionConventionFact = buildTransmissionConventionFact();
   const calculationFacts = [
     `起盘口径：${foundationConventionFact.promptText}`,
+    `四课取传口径：${transmissionConventionFact.promptText}`,
     `四柱干支：年${calculationFact.ganzhi.year}、月${calculationFact.ganzhi.month}、日${calculationFact.ganzhi.day}、时${calculationFact.ganzhi.hour}`,
     `月将加时：月将${calculationFact.monthLeader}加占时${calculationFact.divinationBranch}`,
     `贵人定位：${calculationFact.dayNight}，日干贵人${calculationFact.noblemanBranch ?? '未列'}${calculationFact.noblemanGroundBranch ? `临地盘${calculationFact.noblemanGroundBranch}` : ''}`,
@@ -1355,6 +1461,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
   const summaryFact = buildSummaryFact({
     calculationFact,
     foundationConventionFact,
+    transmissionConventionFact,
     plateFact,
     platePositionFacts,
     transmissionRuleFact,
@@ -1371,6 +1478,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
   const calculationSteps = buildCalculationSteps({
     calculationFact,
     foundationConventionFact,
+    transmissionConventionFact,
     plateFact,
     platePositionFacts,
     lessons,
@@ -1391,6 +1499,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
   const limitationFacts = buildLimitationFacts({
     calculationFact,
     foundationConventionFact,
+    transmissionConventionFact,
     plateFact,
     platePositionFacts,
     lessons,
@@ -1427,6 +1536,13 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
       detail: `${foundationConventionFact.promptText}；主版本：${foundationConventionFact.adoptedVersion}；异说：${foundationConventionFact.alternativeVersionFields.join('；')}；底本文字差异：${foundationConventionFact.textualVariantFields.join('；')}；边界：${foundationConventionFact.limitation}`,
       source: foundationConventionFact.sources.join('、'),
       tags: ['起盘口径', '月将', '昼夜贵人', '天将顺逆', '十干寄宫', '版本边界'],
+    },
+    {
+      level: '辅证',
+      title: '大六壬四课与取传口径版本边界',
+      detail: `${transmissionConventionFact.promptText}；主版本：${transmissionConventionFact.adoptedVersion}；异说：${transmissionConventionFact.alternativeVersionFields.join('；')}；边界：${transmissionConventionFact.limitation}`,
+      source: transmissionConventionFact.sources.join('、'),
+      tags: ['四课', '九宗门', '涉害', '八专', '伏吟', '返吟', '版本边界'],
     },
     {
       level: '辅证',
@@ -1590,6 +1706,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     '【大六壬四课取传与三传推进结构化证据】',
     ...formatPromptEvidenceBundle(evidence),
     `起盘口径与版本边界：${foundationConventionFact.promptText}；主版本：${foundationConventionFact.adoptedVersion}；异说不得混用，换用其他版本须整盘重排；边界：${foundationConventionFact.limitation}`,
+    `四课与取传口径版本边界：${transmissionConventionFact.promptText}；主版本：${transmissionConventionFact.adoptedVersion}；异说不得混用，换用其他版本须从初传到中末传整体重排；边界：${transmissionConventionFact.limitation}`,
     `取传规则事实：${transmissionRuleFact.promptText}；边界：${transmissionRuleFact.limitation}`,
     `推进关系：${transitionFacts.map((item) => item.promptText).join('；')}`,
     `反证限制：${counterSummaryFact.promptText}${counterEvidenceFacts.length ? `；明细${counterEvidenceFacts.map((item) => item.promptText).join('；')}` : ''}；边界：${counterSummaryFact.limitation}`,
@@ -1605,6 +1722,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     status: '已计算',
     calculationFact,
     foundationConventionFact,
+    transmissionConventionFact,
     calculationFacts,
     calculationSteps,
     calculationChain,
@@ -1638,7 +1756,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     promptText,
     methodology: [
       '先确认当前课盘采用十二中气实际交节换将、固定地支分昼夜、通行贵人表和贵人临地顺逆布将的主版本；《六壬寻源》先后天贵人等异说只登记边界，不与当前课盘混用，换版本须整盘重排。',
-      '先核验四课上下关系，再按已计算的九宗门规则确认初传发用。',
+      '再按日干寄宫与日支递取四课，依贼克、比用、涉害古法及九宗门特殊取法确认初传；直接取孟仲、择比等异说不得拼接，换版本须从初传到中末传整体重排。',
       '初传、中传、末传分别作为起点、过程、落点，逐传保留天将、旺衰、旬空和日支关系。',
       '月将加时、昼夜贵人、天地盘、日干寄宫、课体、神煞与天将属性均保留为结构化辅证。',
       '课体与神煞只作辅助标签，不覆盖发用和三传主线。',

@@ -247,6 +247,7 @@ test('能力清单可序列化且返回副本', () => {
   );
   assert.ok(getSystemCapability('meihua')?.outputs.includes('反对性情综错卦、抽象卦义与版本边界'));
   assert.ok(getSystemCapability('liuren')?.outputs.includes('月将、昼夜贵人及天将顺逆版本边界'));
+  assert.ok(getSystemCapability('liuren')?.outputs.includes('四课与九宗门取传主版本、异说及边界'));
   const packageJson = JSON.parse(
     readFileSync(new URL('../packages/core/package.json', import.meta.url), 'utf8'),
   ) as { version: string };

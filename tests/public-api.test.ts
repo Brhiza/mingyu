@@ -4911,6 +4911,37 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
     liurenFoundationFact.textualVariantFields.some((item: string) => item.includes('大雪')),
   );
   assert.match(liurenFoundationFact.limitation, /异说不得与主版本拼接使用.*整体重排/);
+  const liurenTransmissionConventionFact =
+    liurenChart.body.data.evidenceAnalysis.transmissionConventionFact;
+  assert.equal(liurenTransmissionConventionFact.key, 'liuren:transmission-convention');
+  assert.equal(liurenTransmissionConventionFact.status, '已登记版本边界');
+  assert.equal(liurenTransmissionConventionFact.lessonRules.length, 4);
+  assert.deepEqual(liurenTransmissionConventionFact.methodOrder, [
+    '贼克',
+    '比用',
+    '涉害',
+    '遥克',
+    '昴星',
+    '别责',
+    '八专',
+    '伏吟',
+    '返吟',
+  ]);
+  assert.equal(liurenTransmissionConventionFact.sheHaiRule.useZeBi, false);
+  assert.match(liurenTransmissionConventionFact.sheHaiRule.depthRule, /实际受克深浅/);
+  assert.match(liurenTransmissionConventionFact.remoteKeRule, /二、三、四课/);
+  assert.ok(
+    liurenTransmissionConventionFact.specialMethodRules.some(
+      (item: { method: string; rule: string }) =>
+        item.method === '八专' && item.rule.includes('癸丑'),
+    ),
+  );
+  assert.ok(
+    liurenTransmissionConventionFact.alternativeVersionFields.some((item: string) =>
+      item.includes('择比'),
+    ),
+  );
+  assert.match(liurenTransmissionConventionFact.limitation, /初传发用到中末传整体重排/);
   assert.equal(liurenChart.body.data.evidenceAnalysis.plateFact.status, '完整');
   assert.equal(liurenChart.body.data.evidenceAnalysis.plateFact.actualCount, 12);
   assert.equal(liurenChart.body.data.evidenceAnalysis.platePositionFacts.length, 12);
@@ -4945,6 +4976,10 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
     liurenChart.body.data.evidenceAnalysis.transitionFacts.length,
   );
   assert.equal(liurenChart.body.data.evidenceAnalysis.summaryFact.foundationConventionFactCount, 1);
+  assert.equal(
+    liurenChart.body.data.evidenceAnalysis.summaryFact.transmissionConventionFactCount,
+    1,
+  );
   assert.equal(liurenChart.body.data.evidenceAnalysis.limitationFacts.length, 6);
   assert.equal(
     liurenChart.body.data.evidenceAnalysis.limitations.length,
@@ -4953,6 +4988,7 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
   const liurenFactKeys = new Set([
     liurenChart.body.data.evidenceAnalysis.calculationFact.key,
     liurenChart.body.data.evidenceAnalysis.foundationConventionFact.key,
+    liurenChart.body.data.evidenceAnalysis.transmissionConventionFact.key,
     liurenChart.body.data.evidenceAnalysis.plateFact.key,
     ...liurenChart.body.data.evidenceAnalysis.platePositionFacts.map(
       (item: { key: string }) => item.key,
@@ -5014,6 +5050,7 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
   assert.ok(traditionalFacts.some((item) => item.kind === '神煞'));
   assert.match(liuren.body.data.prompt, /课传主线：/);
   assert.match(liuren.body.data.prompt, /起盘口径：/);
+  assert.match(liuren.body.data.prompt, /四课取传口径：/);
   assert.match(liuren.body.data.prompt, /《六壬寻源》先后天贵人异说/);
   assert.match(liuren.body.data.prompt, /四课：/);
   assert.match(liuren.body.data.prompt, /三传：/);

@@ -1,6 +1,6 @@
 import type { LiurenClassicalRule } from '../../../../types/divination';
 
-const MAIN_SOURCE = '《大六壬大全》九宗门取传法';
+const MAIN_SOURCE = '《六壬粹言》《大六壬大全》《六壬指南》九宗门取传法';
 const SHEHAI_SOURCE = '《六壬粹言》涉害第六及《大六壬大全》涉害课';
 
 const RULES: Array<LiurenClassicalRule & { match: RegExp }> = [
@@ -16,14 +16,16 @@ const RULES: Array<LiurenClassicalRule & { match: RegExp }> = [
     source: MAIN_SOURCE,
     rule: '返吟',
     category: '返吟课',
-    summary: '天盘十二位与地盘逐位相冲；有克仍依贼克取传，无克另按井栏射取传。',
+    summary:
+      '天盘十二位与地盘逐位相冲；有克仍依贼克取传，无克以日支驿马发用，称无亲或井栏射；“无依”兼见作返吟总称。',
   },
   {
     match: /伏吟/,
     source: MAIN_SOURCE,
     rule: '伏吟',
     category: '伏吟课',
-    summary: '天盘十二位与地盘同位；有克仍依贼克取传，无克按刚日取干上、柔日取支上起传。',
+    summary:
+      '天盘十二位与地盘同位；六乙、六癸虽有克仍分别从辰、丑发用，六乙按杜传推进；其余无克课刚日自任取干上、柔日自信取支上。',
   },
   {
     match: /遥克/,
@@ -88,7 +90,8 @@ const RULES: Array<LiurenClassicalRule & { match: RegExp }> = [
     source: MAIN_SOURCE,
     rule: '八专',
     category: '八专法',
-    summary: '干支同位、四课不全时，按八专阳顺阴逆取发用。',
+    summary:
+      '甲寅、庚申、丁未、己未、癸丑五日干支同位；有克仍从克法，无克不取遥克，按阳顺阴逆第三位发用。',
   },
 ];
 

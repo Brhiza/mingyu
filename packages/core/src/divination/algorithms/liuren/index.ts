@@ -628,6 +628,7 @@ export type {
   LiurenRelationEvidenceFact,
   LiurenTimingFact,
   LiurenTraditionalFact,
+  LiurenTransmissionConventionFact,
   LiurenTransitionFact,
   LiurenTransmissionEvidence,
   LiurenTransmissionRuleFact,

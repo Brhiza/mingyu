@@ -27,7 +27,7 @@
 | 六爻     | 《卜筮正宗》《增删卜易》                         |
 | 梅花易数 | 《梅花易数》                                     |
 | 奇门遁甲 | 《烟波钓叟歌》《遁甲演义》《奇门遁甲秘籍大全》   |
-| 大六壬   | 《大六壬大全》《大六壬指南》                     |
+| 大六壬   | 《六壬粹言》《大六壬大全》《六壬指南》           |
 | 择日     | 《协纪辨方书》《象吉通书》                       |
 | 紫微斗数 | 基础排盘委托 `iztro`；固定版本传统目录登记 87 项，其中 55 条可复算、32 项只登记原典边界 |
 
@@ -117,7 +117,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **六爻 Liuyao**        | `mingyu-core/divination/liuyao`                                                                                                               | 京房八宫法、纳甲、世应、六亲六神、月破日破、化进退神、合起合绊化扶、三合成立条件、分层用神作用链、原忌效力条件与病药应期证据 |
 | **梅花易数 Meihua**    | `mingyu-core/divination/meihua`                                                                                                               | 时间/数字/随机起卦，timeTrigram 兼容、体用生克与主互变阶段推进证据                                     |
 | **奇门遁甲 Qimen**     | `mingyu-core/divination/qimen`                                                                                                                | 转盘法、拆补定局、经典格局、节令背景、节气黄经核验、复合格局、方位与条件触发式应期证据                 |
-| **大六壬 Liuren**      | `mingyu-core/divination/liuren`                                                                                                               | 月将、贵人、九宗门取传、三传、天将、神煞及四课取传与三传推进证据                                       |
+| **大六壬 Liuren**      | `mingyu-core/divination/liuren`                                                                                                               | 月将、贵人、四课与九宗门版本边界、三传、天将、神煞及取传推进证据                                       |
 | **小六壬 Xiaoliuren**  | `mingyu-core/divination/xiaoliuren`                                                                                                           | 六宫掌诀、通行/华山流派、五行生克、完整课象、月令旺衰                                                   |
 | **择日 Almanac**       | `mingyu-core/divination/almanac`                                                                                                              | 黄历宜忌、参与人冲突、候选时辰、透明约束证据、二十八宿与彭祖百忌                                       |
 | **灵签 SSGW**          | `mingyu-core/divination/ssgw`                                                                                                                 | 三山国王 92 签、掷筊确认、随机重放与文本证据分层                                                       |
@@ -449,7 +449,7 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `analyzeQimenEvidence(data)`                                         | 值符值使、日时干候选宫及门星神干、反证和触发条件                             |
 | `createQimenPriorityPalaces(data)`                                   | 按值符、宫位洞察、格局等证据来源归集奇门重点宫位候选                         |
 | `generateLiuren(date?)`                                              | 大六壬排盘                                                                   |
-| `analyzeLiurenEvidence(data)`                                        | 四课取传、初传发用、三传旺衰空亡及反证限制                                   |
+| `analyzeLiurenEvidence(data)`                                        | 起盘与取传版本、初传发用、三传旺衰空亡及反证限制                             |
 | `generateXiaoliuren(params?)`                                        | 小六壬起课                                                                   |
 | `generateAlmanacSelection(params)`                                   | 黄历择日，并内置透明约束与候选证据                                           |
 | `analyzeAlmanacEvidence(data)`                                       | 日期分组、事项宜忌、参与人冲突、时辰与现实约束证据                           |

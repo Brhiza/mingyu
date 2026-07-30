@@ -25,7 +25,7 @@ import {
 
 const YANG_STEMS = new Set(['甲', '丙', '戊', '庚', '壬']);
 const YANG_BRANCHES = new Set(['子', '寅', '辰', '午', '申', '戌']);
-const BAZHUAN_DAYS = new Set(['甲寅', '庚申', '丁未', '己未']);
+const BAZHUAN_DAYS = new Set(['甲寅', '庚申', '丁未', '己未', '癸丑']);
 const STEM_RESIDENCE_MAP = DAY_STEM_RESIDENCE_MAP;
 // POST_HORSE_MAP / LIUCHONG_MAP / SANXING_MAP / STEM_HE_MAP 已复用公共干支数据
 const MENG_BRANCHES = new Set(['寅', '巳', '申', '亥']);
@@ -458,7 +458,14 @@ function resolveFuyinTransmission(
     initial,
     branches: [initial, middle, final],
     rule: '伏吟法',
-    tag: isYangDay ? '自任' : '自信',
+    tag:
+      context.dayStem === '乙'
+        ? '杜传'
+        : context.dayStem === '癸'
+          ? '伏吟有克'
+          : isYangDay
+            ? '自任'
+            : '自信',
   };
 }
 
@@ -494,7 +501,7 @@ function resolveFanyinTransmission(
     initial,
     branches: [initial, sanKeUpper, yiKeUpper],
     rule: '返吟法',
-    tag: '无依',
+    tag: '无亲',
   };
 }
 

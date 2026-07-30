@@ -4347,6 +4347,19 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
               sources: string[];
               limitation: string;
             };
+            transmissionConventionFact: {
+              key: string;
+              status: string;
+              lessonRules: Array<{ lesson: string; lowerRule: string; upperRule: string }>;
+              methodOrder: string[];
+              sheHaiRule: { depthRule: string; tieBreakRule: string; useZeBi: boolean };
+              remoteKeRule: string;
+              specialMethodRules: Array<{ method: string; rule: string }>;
+              alternativeVersionFields: string[];
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            };
             plateFact: { key: string; status: string; actualCount: number; limitation: string };
             platePositionFacts: Array<{
               key: string;
@@ -4375,6 +4388,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
               transmissionFactCount: number;
               transitionFactCount: number;
               foundationConventionFactCount: number;
+              transmissionConventionFactCount: number;
             };
           };
         };
@@ -4514,6 +4528,33 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
       liurenData.evidenceAnalysis.foundationConventionFact.limitation,
       /异说不得与主版本拼接使用.*整体重排/,
     );
+    const transmissionConventionFact = liurenData.evidenceAnalysis.transmissionConventionFact;
+    assert.equal(transmissionConventionFact.key, 'liuren:transmission-convention');
+    assert.equal(transmissionConventionFact.status, '已登记版本边界');
+    assert.equal(transmissionConventionFact.lessonRules.length, 4);
+    assert.deepEqual(transmissionConventionFact.methodOrder, [
+      '贼克',
+      '比用',
+      '涉害',
+      '遥克',
+      '昴星',
+      '别责',
+      '八专',
+      '伏吟',
+      '返吟',
+    ]);
+    assert.equal(transmissionConventionFact.sheHaiRule.useZeBi, false);
+    assert.match(transmissionConventionFact.sheHaiRule.depthRule, /实际受克深浅/);
+    assert.match(transmissionConventionFact.remoteKeRule, /二、三、四课/);
+    assert.ok(
+      transmissionConventionFact.specialMethodRules.some(
+        (item) => item.method === '八专' && item.rule.includes('癸丑'),
+      ),
+    );
+    assert.ok(
+      transmissionConventionFact.alternativeVersionFields.some((item) => item.includes('择比')),
+    );
+    assert.match(transmissionConventionFact.limitation, /初传发用到中末传整体重排/);
     assert.equal(liurenData.evidenceAnalysis.plateFact.status, '完整');
     assert.equal(liurenData.evidenceAnalysis.plateFact.actualCount, 12);
     assert.equal(liurenData.evidenceAnalysis.platePositionFacts.length, 12);
@@ -4547,6 +4588,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
       liurenData.evidenceAnalysis.transitionFacts.length,
     );
     assert.equal(liurenData.evidenceAnalysis.summaryFact.foundationConventionFactCount, 1);
+    assert.equal(liurenData.evidenceAnalysis.summaryFact.transmissionConventionFactCount, 1);
     assert.equal(liurenData.evidenceAnalysis.limitationFacts.length, 6);
     assert.equal(
       liurenData.evidenceAnalysis.limitations.length,
@@ -4555,6 +4597,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     const factKeys = new Set([
       liurenData.evidenceAnalysis.calculationFact.key,
       liurenData.evidenceAnalysis.foundationConventionFact.key,
+      liurenData.evidenceAnalysis.transmissionConventionFact.key,
       liurenData.evidenceAnalysis.plateFact.key,
       ...liurenData.evidenceAnalysis.platePositionFacts.map((item) => item.key),
       liurenData.evidenceAnalysis.transmissionRuleFact.key,
@@ -4599,6 +4642,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     assert.match(liurenPrompt, /古籍依据：/);
     assert.match(liurenPrompt, /应期资料：/);
     assert.match(liurenPrompt, /起盘口径：/);
+    assert.match(liurenPrompt, /四课取传口径：/);
     assert.doesNotMatch(liurenPrompt, /【分析思路】/);
     assert.doesNotMatch(liurenPrompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
     assertPromptIsPortableTaskText(liurenPrompt);

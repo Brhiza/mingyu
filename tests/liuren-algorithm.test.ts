@@ -91,6 +91,7 @@ test('大六壬应输出分层取用与应期证据', () => {
   const factKeys = new Set([
     evidence.calculationFact.key,
     evidence.foundationConventionFact.key,
+    evidence.transmissionConventionFact.key,
     evidence.plateFact.key,
     ...evidence.platePositionFacts.map((item) => item.key),
     evidence.transmissionRuleFact.key,
@@ -574,7 +575,10 @@ test('大六壬传统样例会按月将加占时生成天盘、四课与三传',
     ['一课申甲', '二课寅申', '三课申寅', '四课寅申'],
   );
   assert.equal(result.transmissionRule, '返吟重审法');
-  assert.match(result.classicalRules?.[0]?.source || '', /《大六壬大全》九宗门取传法/);
+  assert.match(
+    result.classicalRules?.[0]?.source || '',
+    /《六壬粹言》《大六壬大全》《六壬指南》九宗门取传法/,
+  );
   assert.deepEqual(
     result.threeTransmissions.map((item) => item.branch),
     ['寅', '申', '寅'],
@@ -1037,7 +1041,7 @@ test('大六壬伏吟课按三刑推进三传，不再简单重复同一上神',
   assert.deepEqual(result.branches, ['寅', '巳', '申']);
 });
 
-test('大六壬伏吟六乙六癸从干上传发用，但柔日课名仍为自信', () => {
+test('大六壬六乙伏吟从辰发用并标为杜传，不误归为自信', () => {
   const result = resolveInitialTransmission(
     [
       createLesson('辰', '辰'),
@@ -1054,8 +1058,29 @@ test('大六壬伏吟六乙六癸从干上传发用，但柔日课名仍为自�
   );
 
   assert.equal(result.rule, '伏吟法');
-  assert.equal(result.tag, '自信');
+  assert.equal(result.tag, '杜传');
   assert.deepEqual(result.branches, ['辰', '丑', '戌']);
+});
+
+test('大六壬六癸伏吟从丑发用并标为伏吟有克，不误归为自信', () => {
+  const result = resolveInitialTransmission(
+    [
+      createLesson('丑', '丑'),
+      createLesson('丑', '丑'),
+      createLesson('丑', '丑'),
+      createLesson('丑', '丑'),
+    ],
+    createResolveContext({
+      dayStem: '癸',
+      dayBranch: '丑',
+      dayStemResidence: '丑',
+      heavenlyPlate: FUYIN_PLATE,
+    }),
+  );
+
+  assert.equal(result.rule, '伏吟法');
+  assert.equal(result.tag, '伏吟有克');
+  assert.deepEqual(result.branches, ['丑', '戌', '未']);
 });
 
 test('大六壬伏吟普通阴日按自信从支上传发用', () => {
@@ -1096,6 +1121,7 @@ test('大六壬返吟无克时以日支驿马发用，并以支上干上成中�
   );
 
   assert.equal(result.rule, '返吟法');
+  assert.equal(result.tag, '无亲');
   assert.deepEqual(result.branches, ['亥', '未', '丑']);
 });
 
@@ -1114,23 +1140,35 @@ test('大六壬阴日八专从支阴神逆数三位发用', () => {
   assert.deepEqual(result.branches, ['丑', '巳', '巳']);
 });
 
-test('大六壬非八专日即使干支同寄宫，也不能误判为八专法', () => {
+test('大六壬癸丑属于八专日，但有课内克时仍先按克法取传', () => {
+  const result = buildReferenceLiurenPlate({
+    day: '癸丑',
+    hour: '癸丑',
+    monthLeader: '子',
+  });
+
+  assert.equal(result.initial.rule, '重审法');
+  assert.equal(result.initial.initial, '子');
+});
+
+test('大六壬癸丑无课内克时不取遥克，按八专阴日逆数发用', () => {
   const result = resolveInitialTransmission(
     [
-      createLesson('丑', '丑'),
-      createLesson('丑', '丑'),
-      createLesson('丑', '丑'),
-      createLesson('丑', '丑'),
+      createLesson('寅', '卯'),
+      createLesson('辰', '丑'),
+      createLesson('子', '亥'),
+      createLesson('卯', '寅'),
     ],
     createResolveContext({
       dayStem: '癸',
       dayBranch: '丑',
       dayStemResidence: '丑',
-      heavenlyPlate: FUYIN_PLATE,
     }),
   );
 
-  assert.notEqual(result.rule, '八专法');
+  assert.equal(result.rule, '八专法');
+  assert.equal(result.tag, '八专');
+  assert.deepEqual(result.branches, ['丑', '寅', '寅']);
 });
 
 test('大六壬应与传统排盘样本的申将午时天地盘和十二天将一致', () => {
