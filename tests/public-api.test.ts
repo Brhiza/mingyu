@@ -4327,6 +4327,43 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   ]) {
     assert.equal(key in topicResponse, false);
   }
+  const dispositionFacts = chart.body.data.evidenceAnalysis.hexagramDispositionFacts;
+  const dispositionVersion = chart.body.data.evidenceAnalysis.hexagramDispositionVersionFact;
+  assert.equal(dispositionFacts.length, 3);
+  assert.deepEqual(
+    dispositionFacts.map((item: { label: string }) => item.label),
+    ['主卦', '互卦', '变卦'],
+  );
+  assert.ok(
+    dispositionFacts.every(
+      (item: Record<string, unknown>) =>
+        item.status === '已计算' &&
+        String(item.binarySymbol).length === 6 &&
+        item.reversedHexagram &&
+        item.oppositeHexagram &&
+        item.dispositionGloss &&
+        String(item.limitation).includes('不等同于现实人物性格'),
+    ),
+  );
+  assert.equal(dispositionVersion.status, '底本异文待校');
+  assert.equal(dispositionVersion.canonicalGlossCount, 64);
+  assert.equal(dispositionVersion.reversedGroupCount, 36);
+  assert.equal(dispositionVersion.sourceLineFields.length, 18);
+  assert.equal(dispositionVersion.unresolvedRuleFields.length, 8);
+  for (const fact of [...dispositionFacts, dispositionVersion]) {
+    for (const key of [
+      'personality',
+      'motive',
+      'psychology',
+      'event',
+      'result',
+      'score',
+      'weight',
+      'probability',
+    ]) {
+      assert.equal(key in fact, false);
+    }
+  }
   const resultStage = chart.body.data.evidenceAnalysis.stages.find(
     (item: { stage: string }) => item.stage === 'result',
   );
@@ -4443,10 +4480,15 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.equal(chart.body.data.evidenceAnalysis.summaryFact.objectContextFactCount, 1);
   assert.equal(chart.body.data.evidenceAnalysis.summaryFact.topicResponseContextFactCount, 1);
   assert.equal(
+    chart.body.data.evidenceAnalysis.summaryFact.hexagramDispositionFactCount,
+    dispositionFacts.length,
+  );
+  assert.equal(chart.body.data.evidenceAnalysis.summaryFact.hexagramDispositionVersionFactCount, 1);
+  assert.equal(
     chart.body.data.evidenceAnalysis.summaryFact.transitionFactCount,
     chart.body.data.evidenceAnalysis.transitionFacts.length,
   );
-  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 12);
+  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 13);
   assert.equal(
     chart.body.data.evidenceAnalysis.limitations.length,
     chart.body.data.evidenceAnalysis.limitationFacts.length,
@@ -4469,6 +4511,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.match(chart.body.data.evidenceAnalysis.promptText, /饮食专项：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /观物专项：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /诸事响应专项：/);
+  assert.match(chart.body.data.evidenceAnalysis.promptText, /反对性情资料：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /解释限制：/);
   assertPromptIsPortableTaskText(chart.body.data.evidenceAnalysis.promptText);
   assert.equal(chart.body.data.evidenceAnalysis.calculationFact.status, '完整');

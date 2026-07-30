@@ -3338,6 +3338,26 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               unresolvedRuleFields: string[];
               promptText: string;
             };
+            hexagramDispositionFacts: Array<{
+              status: string;
+              stage: string;
+              label: string;
+              hexagram: string;
+              binarySymbol: string;
+              reversedHexagram: string;
+              reversedRelation: string;
+              oppositeHexagram: string;
+              dispositionGloss: string;
+              limitation: string;
+            }>;
+            hexagramDispositionVersionFact: {
+              status: string;
+              canonicalGlossCount: number;
+              reversedGroupCount: number;
+              sourceLineFields: string[];
+              unresolvedRuleFields: string[];
+              limitation: string;
+            };
             transitionFacts: Array<{
               key: string;
               status: string;
@@ -3378,6 +3398,8 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               foodContextFactCount: number;
               objectContextFactCount: number;
               topicResponseContextFactCount: number;
+              hexagramDispositionFactCount: number;
+              hexagramDispositionVersionFactCount: number;
               transitionFactCount: number;
               traditionalFactCount: number;
               counterEvidenceCount: number;
@@ -3574,6 +3596,43 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     ]) {
       assert.equal(key in topicResponse, false);
     }
+    const dispositionFacts = result.evidenceAnalysis.hexagramDispositionFacts;
+    const dispositionVersion = result.evidenceAnalysis.hexagramDispositionVersionFact;
+    assert.equal(dispositionFacts.length, 3);
+    assert.deepEqual(
+      dispositionFacts.map((item) => item.label),
+      ['主卦', '互卦', '变卦'],
+    );
+    assert.ok(
+      dispositionFacts.every(
+        (item) =>
+          item.status === '已计算' &&
+          item.binarySymbol.length === 6 &&
+          item.reversedHexagram &&
+          item.oppositeHexagram &&
+          item.dispositionGloss &&
+          item.limitation.includes('不等同于现实人物性格'),
+      ),
+    );
+    assert.equal(dispositionVersion.status, '底本异文待校');
+    assert.equal(dispositionVersion.canonicalGlossCount, 64);
+    assert.equal(dispositionVersion.reversedGroupCount, 36);
+    assert.equal(dispositionVersion.sourceLineFields.length, 18);
+    assert.equal(dispositionVersion.unresolvedRuleFields.length, 8);
+    for (const fact of [...dispositionFacts, dispositionVersion]) {
+      for (const key of [
+        'personality',
+        'motive',
+        'psychology',
+        'event',
+        'result',
+        'score',
+        'weight',
+        'probability',
+      ]) {
+        assert.equal(key in fact, false);
+      }
+    }
     assert.ok(
       result.evidenceAnalysis.interResponseFacts.every(
         (item) => item.originalTi.name === result.tiGua.name && item.relation.includes('原体'),
@@ -3684,6 +3743,11 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.equal(result.evidenceAnalysis.summaryFact.objectContextFactCount, 1);
     assert.equal(result.evidenceAnalysis.summaryFact.topicResponseContextFactCount, 1);
     assert.equal(
+      result.evidenceAnalysis.summaryFact.hexagramDispositionFactCount,
+      dispositionFacts.length,
+    );
+    assert.equal(result.evidenceAnalysis.summaryFact.hexagramDispositionVersionFactCount, 1);
+    assert.equal(
       result.evidenceAnalysis.summaryFact.transitionFactCount,
       result.evidenceAnalysis.transitionFacts.length,
     );
@@ -3695,7 +3759,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       result.evidenceAnalysis.summaryFact.timingFactCount,
       result.evidenceAnalysis.timingFacts.length,
     );
-    assert.equal(result.evidenceAnalysis.limitationFacts.length, 12);
+    assert.equal(result.evidenceAnalysis.limitationFacts.length, 13);
     assert.equal(
       result.evidenceAnalysis.limitations.length,
       result.evidenceAnalysis.limitationFacts.length,
@@ -3730,6 +3794,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.match(result.evidenceAnalysis.promptText, /体用党与应卦制化：/);
     assert.match(result.evidenceAnalysis.promptText, /体用动静：/);
     assert.match(result.evidenceAnalysis.promptText, /万物外应：/);
+    assert.match(result.evidenceAnalysis.promptText, /反对性情资料：/);
     assert.match(result.evidenceAnalysis.promptText, /解释限制：/);
     assertPromptIsPortableTaskText(result.evidenceAnalysis.promptText);
     assert.equal(result.evidenceAnalysis.calculationFact.status, '完整');
@@ -3777,6 +3842,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.match(promptText, /外应动静：当前输入未记录起卦现场/);
     assert.match(promptText, /坐端应兆：当前输入未记录以求测者所在处为中心/);
     assert.match(promptText, /万物外应：当前输入未记录耳闻目见的现场原始事实/);
+    assert.match(promptText, /反对性情资料：/);
     assert.match(promptText, /应期资料：应期状态：待补充事项情境/);
     assert.match(promptText, /全卦克应候选：/);
     assert.match(promptText, /资料未齐时不能计算传统克应/);

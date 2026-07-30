@@ -1,5 +1,5 @@
 import type { MeihuaData, MeihuaDivinationMethod } from '../types/divination';
-import { trigramsByIndex } from './hexagram-data';
+import { hexagramsData, trigramsByIndex } from './hexagram-data';
 import { getSeasonState, isKe, isSheng } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
@@ -179,6 +179,34 @@ export interface MeihuaTopicResponseContextFact {
   promptText: string;
   sources: string[];
   limitation: '《诸事响应歌》按天气、人事、家宅、生产、婚姻、饮食、求谋、求名、求财、交易、出行、行人、谒人、疾病、公讼与墓穴等不同事项分别立意；同一体用关系跨事项可能含义相反，问题关键词和通用盘面不能自动确定事项、判断目标、现实状态或角色。当前入口没有结构化专项情境，且“比和凶则有救星”句义未完成独立版本互证，不得套用事项歌诀生成胎儿性别、疾病诊断、药物冷热温补处方、鬼神或自伤落水血刃原因、诉讼胜负、确定婚姻财务结果、吉凶评分、权重或概率';
+}
+
+export interface MeihuaHexagramDispositionFact {
+  key: string;
+  status: '已计算';
+  stage: MeihuaEvidenceStageKey;
+  label: '主卦' | '互卦' | '变卦';
+  hexagram: string;
+  binarySymbol: string;
+  reversedHexagram: string;
+  reversedRelation: '自身综卦' | '另卦相综';
+  oppositeHexagram: string;
+  dispositionGloss: string;
+  promptText: string;
+  sources: string[];
+  limitation: '《诸卦反对性情》与《杂卦传》卦义只登记当前卦、综卦、错卦和传统抽象标签；综卦、错卦是卦画结构关系，刚柔、忧乐、灾困等词是古籍卦义，不等同于现实人物性格、动机、心理状态、事件、吉凶、成败或概率';
+}
+
+export interface MeihuaHexagramDispositionVersionFact {
+  key: 'meihua:hexagram-disposition-version';
+  status: '底本异文待校';
+  canonicalGlossCount: 64;
+  reversedGroupCount: 36;
+  sourceLineFields: string[];
+  unresolvedRuleFields: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '《诸卦反对性情》当前底本与通行《杂卦传》存在错名、漏名、重名和句义移位；未完成独立版本校勘的诗句不得覆盖可复算卦画或通行卦义，也不得据异文补造人物性格、动机、现实事件、确定吉凶、评分、权重或概率';
 }
 
 export interface MeihuaStageEvidence {
@@ -430,13 +458,15 @@ export interface MeihuaSummaryFact {
   foodContextFactCount: number;
   objectContextFactCount: number;
   topicResponseContextFactCount: number;
+  hexagramDispositionFactCount: number;
+  hexagramDispositionVersionFactCount: number;
   transitionFactCount: number;
   traditionalFactCount: number;
   counterEvidenceCount: number;
   timingFactCount: number;
   promptText: string;
   sources: string[];
-  limitation: '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、事项响应情境、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图、身体病位、具体物件、专项现实结论或唯一日期';
+  limitation: '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、事项响应情境、反对性情卦画与版本、推进、传统文本、反证与应期事实的覆盖情况；不得按数量或卦义标签生成吉凶总分、成功率、人物性格、动机、身体病位、具体物件、专项现实结论或唯一日期';
 }
 
 export interface MeihuaLimitationFact {
@@ -451,6 +481,7 @@ export interface MeihuaLimitationFact {
     | '饮食专项边界'
     | '观物专项边界'
     | '事项响应情境边界'
+    | '反对性情资料边界'
     | '阶段推进与反证边界'
     | '应期边界'
     | '传统文本与高风险输出边界';
@@ -488,6 +519,8 @@ export interface MeihuaEvidenceAnalysis {
   foodContextFact: MeihuaFoodContextFact;
   objectContextFact: MeihuaObjectContextFact;
   topicResponseContextFact: MeihuaTopicResponseContextFact;
+  hexagramDispositionFacts: MeihuaHexagramDispositionFact[];
+  hexagramDispositionVersionFact: MeihuaHexagramDispositionVersionFact;
   transitionFacts: MeihuaTransitionFact[];
   transitions: string[];
   timingFacts: MeihuaTimingFact[];
@@ -533,6 +566,10 @@ const OBJECT_CONTEXT_FACT_LIMITATION =
   '《观物玄妙歌诀》只适用于明确的观物、射覆或具体物件辨识，并须先确定待辨对象范围、起卦取象来源及体用互变的观物取主口径；问题关键词和通用盘面不能自动补齐专项方法。当前通行底本将山石、土瓦、门途等艮象段题作“离”，且未见另一卦的完整独立段落；在与后续《占物类例》《观物看变爻为主》等规则合校前，不得据此生成物件种类、材质、形状、颜色、气味、软硬、动静、位置、完整缺损、价值、可用可食或数量等结论' as const;
 const TOPIC_RESPONSE_CONTEXT_FACT_LIMITATION =
   '《诸事响应歌》按天气、人事、家宅、生产、婚姻、饮食、求谋、求名、求财、交易、出行、行人、谒人、疾病、公讼与墓穴等不同事项分别立意；同一体用关系跨事项可能含义相反，问题关键词和通用盘面不能自动确定事项、判断目标、现实状态或角色。当前入口没有结构化专项情境，且“比和凶则有救星”句义未完成独立版本互证，不得套用事项歌诀生成胎儿性别、疾病诊断、药物冷热温补处方、鬼神或自伤落水血刃原因、诉讼胜负、确定婚姻财务结果、吉凶评分、权重或概率' as const;
+const HEXAGRAM_DISPOSITION_FACT_LIMITATION =
+  '《诸卦反对性情》与《杂卦传》卦义只登记当前卦、综卦、错卦和传统抽象标签；综卦、错卦是卦画结构关系，刚柔、忧乐、灾困等词是古籍卦义，不等同于现实人物性格、动机、心理状态、事件、吉凶、成败或概率' as const;
+const HEXAGRAM_DISPOSITION_VERSION_LIMITATION =
+  '《诸卦反对性情》当前底本与通行《杂卦传》存在错名、漏名、重名和句义移位；未完成独立版本校勘的诗句不得覆盖可复算卦画或通行卦义，也不得据异文补造人物性格、动机、现实事件、确定吉凶、评分、权重或概率' as const;
 const HEXAGRAM_FACT_LIMITATION =
   '主互变卦象事实只记录当前上下经卦、卦名与卦符；不得由卦名或阶段位置直接推断现实事件、人物、吉凶、成败或应期' as const;
 const YAO_FACT_LIMITATION =
@@ -562,13 +599,112 @@ const TIMING_REQUIRED_CONTEXT_FIELDS = [
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只证明起卦取数、主互变卦象、六爻动爻、主变体用、互卦响应、推进、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期' as const;
 const SUMMARY_FACT_LIMITATION =
-  '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、事项响应情境、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图、身体病位、具体物件、专项现实结论或唯一日期' as const;
+  '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、事项响应情境、反对性情卦画与版本、推进、传统文本、反证与应期事实的覆盖情况；不得按数量或卦义标签生成吉凶总分、成功率、人物性格、动机、身体病位、具体物件、专项现实结论或唯一日期' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束梅花起卦、卦象、逐爻、体用、推进、传统卦爻辞与应期资料能够支持的解释范围，不得被反向当作现实吉凶、婚育疾病、伤亡诉讼、事件概率或固定应期的证据' as const;
 
 function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
+
+const HEXAGRAM_DISPOSITION_GLOSSES: Record<number, string> = {
+  1: '刚',
+  2: '柔',
+  3: '见而不失其居',
+  4: '杂而著',
+  5: '不进',
+  6: '不亲',
+  7: '忧',
+  8: '乐',
+  9: '寡',
+  10: '不处',
+  11: '与否反其类',
+  12: '与泰反其类',
+  13: '亲',
+  14: '众',
+  15: '轻',
+  16: '怠',
+  17: '无故',
+  18: '饬',
+  19: '与观之义，或与或求',
+  20: '与临之义，或与或求',
+  21: '食',
+  22: '无色',
+  23: '烂',
+  24: '反',
+  25: '灾',
+  26: '时',
+  27: '养正',
+  28: '颠',
+  29: '下',
+  30: '上',
+  31: '速',
+  32: '久',
+  33: '退',
+  34: '止',
+  35: '昼',
+  36: '诛',
+  37: '内',
+  38: '外',
+  39: '难',
+  40: '缓',
+  41: '盛衰之始',
+  42: '盛衰之始',
+  43: '决，刚决柔',
+  44: '遇，柔遇刚',
+  45: '聚',
+  46: '不来',
+  47: '相遇',
+  48: '通',
+  49: '去故',
+  50: '取新',
+  51: '起',
+  52: '止',
+  53: '女归待男行',
+  54: '女之终',
+  55: '多故',
+  56: '亲寡',
+  57: '伏',
+  58: '见',
+  59: '离',
+  60: '止',
+  61: '信',
+  62: '过',
+  63: '定',
+  64: '男之穷',
+};
+
+const HEXAGRAM_DISPOSITION_SOURCE_LINES = [
+  '干刚坤柔反其义，比卦欢欣困忧虑。',
+  '临逢百物观求之，蒙卦难明屯不失。',
+  '大畜其卦福之生，无妄若遇祸之始。',
+  '升者去而不复回，萃者聚而终不去。',
+  '谦卦自尊豫怠人，震则动而艮则止。',
+  '兑主外遇祸之藏，随前坎后偷安矣。',
+  '剥体消烂复自生，蛊改前非而已矣。',
+  '明夷内朗又逢伤，晋主外明并通理。',
+  '益拟茂盛损象衰，咸速恒迟涣远遁。',
+  '同人内亲睽外疏，解卦从容蹇难启。',
+  '离文美丽艮光明，遁退回身姤相遇。',
+  '大有曰众丰曰多，坎卦履险震卦起。',
+  '需不进兮讼不宁，既济一定无后虑。',
+  '未济之卦男之终，归妹之辞归之始。',
+  '否遭大往而小来，泰卦大来而小去。',
+  '革去旧故鼎从新，小畜曰寡噬嗑食。',
+  '旅羁其外大过颠，夬卦分明曰快利。',
+  '要将字字考精详，杂卦性情反对是。',
+] as const;
+
+const HEXAGRAM_DISPOSITION_VERSION_ISSUES = [
+  '“比卦欢欣困忧虑”与通行《杂卦传》“比乐师忧”不合，师、困卦名不能互换',
+  '“兑主外遇祸之藏，随前坎后偷安矣”未能稳定对应“兑见而巽伏、随无故、蛊则饬”',
+  '“益拟茂盛损象衰，咸速恒迟涣远遁”混入遁而未清楚保留节，且恒迟与通行“恒久”不合',
+  '“同人内亲睽外疏”把通行“同人亲、家人内、睽外”的卦名与句义合并移位',
+  '“离文美丽艮光明”及后句“坎卦履险震卦起”重复艮震，未闭合通行“离上而坎下”',
+  '“未济之卦男之终，归妹之辞归之始”与通行“未济男之穷、归妹女之终”不合',
+  '当前诗句未完整、无歧义地覆盖师、巽、节、家人、履、中孚、小过、渐、颐等通行卦义',
+  '通行《杂卦传》自大过以下的次序本有错简争议，当前底本改写不能作为唯一裁定依据',
+] as const;
 
 function classifyTraditionalSignals(text: string): string[] {
   const riskText = text.replace(/无咎|无悔|悔亡|无不利/g, '');
@@ -713,6 +849,8 @@ const trigramByName = new Map(
     .filter(Boolean)
     .map((item) => [item.name, item]),
 );
+const hexagramByName = new Map(hexagramsData.map((item) => [item.name, item]));
+const hexagramByBinary = new Map(hexagramsData.map((item) => [item.binarySymbol, item]));
 
 function relationOf(yong: string, ti: string) {
   if (yong === ti) return '比和';
@@ -1422,6 +1560,84 @@ function buildTopicResponseContextFact(): MeihuaTopicResponseContextFact {
   };
 }
 
+function buildHexagramDispositionFacts(data: MeihuaData): MeihuaHexagramDispositionFact[] {
+  const stages = [
+    { stage: 'origin', label: '主卦', hexagram: data.mainHexagram },
+    { stage: 'process', label: '互卦', hexagram: data.interHexagram },
+    { stage: 'result', label: '变卦', hexagram: data.changedHexagram },
+  ] as const;
+
+  return stages.flatMap(({ stage, label, hexagram }) => {
+    if (!hexagram) return [];
+    const source = hexagramByName.get(hexagram.name);
+    if (!source) {
+      throw new Error(`梅花反对性情资料找不到当前${label}${hexagram.name}的六十四卦原始记录。`);
+    }
+    const reversed = hexagramByBinary.get([...source.binarySymbol].reverse().join(''));
+    const opposite = hexagramByBinary.get(
+      [...source.binarySymbol].map((line) => (line === '1' ? '0' : '1')).join(''),
+    );
+    const dispositionGloss = HEXAGRAM_DISPOSITION_GLOSSES[source.id];
+    if (!reversed || !opposite || !dispositionGloss) {
+      throw new Error(`梅花反对性情资料无法闭合${label}${hexagram.name}的综卦、错卦或卦义标签。`);
+    }
+    const reversedRelation = reversed.name === source.name ? '自身综卦' : '另卦相综';
+    return [
+      {
+        key: `meihua:hexagram-disposition:${stage}`,
+        status: '已计算',
+        stage,
+        label,
+        hexagram: source.name,
+        binarySymbol: source.binarySymbol,
+        reversedHexagram: reversed.name,
+        reversedRelation,
+        oppositeHexagram: opposite.name,
+        dispositionGloss,
+        promptText: `${label}${source.name}的综卦为${reversed.name}（${reversedRelation}），错卦为${opposite.name}；通行《杂卦传》抽象卦义标签为“${dispositionGloss}”。这些只是不随问题变化的卦画和古籍标签，不描述现实人物性格、动机、心理、事件或吉凶`,
+        sources: [
+          '当前六十四卦阴阳卦画逐爻反转与逐爻取反计算',
+          '通行《杂卦传》六十四卦抽象卦义',
+          '《梅花易数》卷三《诸卦反对性情》底本异文对照',
+        ],
+        limitation: HEXAGRAM_DISPOSITION_FACT_LIMITATION,
+      },
+    ];
+  });
+}
+
+function buildHexagramDispositionVersionFact(): MeihuaHexagramDispositionVersionFact {
+  const canonicalGlossCount = Object.keys(HEXAGRAM_DISPOSITION_GLOSSES).length;
+  const reversedGroupCount = new Set(
+    hexagramsData.map((item) => {
+      const reversed = hexagramByBinary.get([...item.binarySymbol].reverse().join(''));
+      if (!reversed) throw new Error(`六十四卦资料无法找到${item.name}的综卦。`);
+      return [item.id, reversed.id].sort((left, right) => left - right).join(':');
+    }),
+  ).size;
+  if (canonicalGlossCount !== 64 || reversedGroupCount !== 36) {
+    throw new Error(
+      `梅花反对性情基础资料不完整：卦义${canonicalGlossCount}项、综卦组${reversedGroupCount}组。`,
+    );
+  }
+  return {
+    key: 'meihua:hexagram-disposition-version',
+    status: '底本异文待校',
+    canonicalGlossCount: 64,
+    reversedGroupCount: 36,
+    sourceLineFields: [...HEXAGRAM_DISPOSITION_SOURCE_LINES],
+    unresolvedRuleFields: [...HEXAGRAM_DISPOSITION_VERSION_ISSUES],
+    promptText:
+      '《诸卦反对性情》当前底本第917至934行已完整留档，但与通行《杂卦传》相比存在师误作困、巽节家人等卦名缺漏、同人家人句义合并、离坎与未济归妹句义移位等问题。现以卦画复算综卦和错卦，以通行《杂卦传》保存64项抽象标签；底本诗句只登记版本差异，不覆盖可复算结构，也不用于推断人物性格、动机、现实事件或确定吉凶',
+    sources: [
+      '《梅花易数》卷三《诸卦反对性情》第917至934行',
+      '《周易·杂卦传》六十四卦抽象卦义',
+      '《周易浅述》卷八《杂卦传》反覆、错综与篇末错简说明',
+    ],
+    limitation: HEXAGRAM_DISPOSITION_VERSION_LIMITATION,
+  };
+}
+
 function stageRelations(stage: MeihuaStageEvidence) {
   return stage.kind === '互卦响应关系'
     ? (stage.responses ?? []).map((item) => item.relation)
@@ -2068,6 +2284,8 @@ function buildSummaryFact(params: {
   foodContextFact: MeihuaFoodContextFact;
   objectContextFact: MeihuaObjectContextFact;
   topicResponseContextFact: MeihuaTopicResponseContextFact;
+  hexagramDispositionFacts: MeihuaHexagramDispositionFact[];
+  hexagramDispositionVersionFact: MeihuaHexagramDispositionVersionFact;
   transitionFacts: MeihuaTransitionFact[];
   traditionalFacts: MeihuaTraditionalFact[];
   counterEvidenceFacts: MeihuaCounterEvidenceFact[];
@@ -2094,6 +2312,8 @@ function buildSummaryFact(params: {
       params.foodContextFact.key,
       params.objectContextFact.key,
       params.topicResponseContextFact.key,
+      ...params.hexagramDispositionFacts.map((item) => item.key),
+      params.hexagramDispositionVersionFact.key,
       ...params.transitionFacts.map((item) => item.key),
       ...params.traditionalFacts.map((item) => item.key),
       params.counterSummaryFact.key,
@@ -2125,13 +2345,15 @@ function buildSummaryFact(params: {
     foodContextFactCount: 1,
     objectContextFactCount: 1,
     topicResponseContextFactCount: 1,
+    hexagramDispositionFactCount: params.hexagramDispositionFacts.length,
+    hexagramDispositionVersionFactCount: 1,
     transitionFactCount: params.transitionFacts.length,
     traditionalFactCount: params.traditionalFacts.length,
     counterEvidenceCount: params.counterEvidenceFacts.length,
     timingFactCount: params.timingFacts.length,
-    promptText: `证据状态${status}：主互变卦象${params.hexagramStructureFacts.length}项、逐爻${params.yaoStructureFacts.length}项、阶段关系${params.stages.length}项、互卦响应${params.interResponseFacts.length}项、体用党1项、应卦制化${params.responseInteractionFacts.length}项、内外动静2项、坐端应兆1项、万物耳目外应1项、饮食专项1项、观物专项1项、事项响应情境1项、阶段推进${params.transitionFacts.length}项、传统卦爻辞${params.traditionalFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
+    promptText: `证据状态${status}：主互变卦象${params.hexagramStructureFacts.length}项、逐爻${params.yaoStructureFacts.length}项、阶段关系${params.stages.length}项、互卦响应${params.interResponseFacts.length}项、体用党1项、应卦制化${params.responseInteractionFacts.length}项、内外动静2项、坐端应兆1项、万物耳目外应1项、饮食专项1项、观物专项1项、事项响应情境1项、反对性情卦画${params.hexagramDispositionFacts.length}项与版本1项、阶段推进${params.transitionFacts.length}项、传统卦爻辞${params.traditionalFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
     sources: [
-      '全部起卦、主互变卦象、逐爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、事项响应情境、推进、传统文本、反证与应期事实逐项汇总',
+      '全部起卦、主互变卦象、逐爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、事项响应情境、反对性情卦画与版本、推进、传统文本、反证与应期事实逐项汇总',
     ],
     limitation: SUMMARY_FACT_LIMITATION,
   };
@@ -2154,6 +2376,8 @@ function buildCalculationSteps(params: {
   foodContextFact: MeihuaFoodContextFact;
   objectContextFact: MeihuaObjectContextFact;
   topicResponseContextFact: MeihuaTopicResponseContextFact;
+  hexagramDispositionFacts: MeihuaHexagramDispositionFact[];
+  hexagramDispositionVersionFact: MeihuaHexagramDispositionVersionFact;
   transitionFacts: MeihuaTransitionFact[];
   counterEvidenceFacts: MeihuaCounterEvidenceFact[];
   timingFacts: MeihuaTimingFact[];
@@ -2240,11 +2464,13 @@ function buildCalculationSteps(params: {
         foodContextStatus: params.foodContextFact.status,
         objectContextStatus: params.objectContextFact.status,
         topicResponseContextStatus: params.topicResponseContextFact.status,
+        hexagramDispositionFactCount: params.hexagramDispositionFacts.length,
+        hexagramDispositionVersionStatus: params.hexagramDispositionVersionFact.status,
       },
       dependsOnStepKeys: ['meihua:calculation:hexagrams', 'meihua:calculation:yaos'],
-      promptText: `${params.stageCoverageFact.promptText}；计算主变体用、体互与用互对原体的关系、体用党、应卦间制化路径及内卦动静分工；外应动静、坐端八方应兆、万物耳目外应、饮食专项、观物专项与事项响应情境保持资料不足`,
+      promptText: `${params.stageCoverageFact.promptText}；计算主变体用、体互与用互对原体的关系、体用党、应卦间制化路径、内卦动静分工及主互变综卦、错卦与抽象卦义；外应动静、坐端八方应兆、万物耳目外应、饮食专项、观物专项与事项响应情境保持资料不足，《诸卦反对性情》底本异文另行保留`,
       sources: [
-        '主卦、互卦、变卦上下经卦与原动爻所在经卦的体用、体互、用互、体用党、应卦制化、体用动静及现场坐端、耳目外应资料边界',
+        '主卦、互卦、变卦上下经卦、综卦、错卦、抽象卦义与原动爻所在经卦的体用、体互、用互、体用党、应卦制化、体用动静及现场坐端、耳目外应资料边界',
       ],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -2302,6 +2528,8 @@ function buildCalculationSteps(params: {
         foodContextFactCount: params.summaryFact.foodContextFactCount,
         objectContextFactCount: params.summaryFact.objectContextFactCount,
         topicResponseContextFactCount: params.summaryFact.topicResponseContextFactCount,
+        hexagramDispositionFactCount: params.summaryFact.hexagramDispositionFactCount,
+        hexagramDispositionVersionFactCount: params.summaryFact.hexagramDispositionVersionFactCount,
         transitionFactCount: params.summaryFact.transitionFactCount,
         counterEvidenceCount: params.summaryFact.counterEvidenceCount,
         timingFactCount: params.summaryFact.timingFactCount,
@@ -2339,6 +2567,8 @@ function buildLimitationFacts(params: {
   foodContextFact: MeihuaFoodContextFact;
   objectContextFact: MeihuaObjectContextFact;
   topicResponseContextFact: MeihuaTopicResponseContextFact;
+  hexagramDispositionFacts: MeihuaHexagramDispositionFact[];
+  hexagramDispositionVersionFact: MeihuaHexagramDispositionVersionFact;
   transitionFacts: MeihuaTransitionFact[];
   traditionalFacts: MeihuaTraditionalFact[];
   counterEvidenceFacts: MeihuaCounterEvidenceFact[];
@@ -2431,6 +2661,17 @@ function buildLimitationFacts(params: {
       promptText:
         '《诸事响应歌》须先明确事项类别与具体对象、精确判断目标、现实状态及角色关系；当前四项情境均未输入，同一“体克用”在一般人事和行人归期等事项又有不同语义，天气也须区分问晴或问雨并核对特定经卦，“比和凶则有救星”句义尚未独立互证。不得靠问题关键词或通用体用套用事项歌诀，更不得输出胎儿性别、疾病诊断或用药、鬼神或自伤事故原因、诉讼胜负、确定婚姻财务结果及任意量化结论',
       sources: ['《梅花易数》卷三《诸事响应歌》与当前事项响应情境资料覆盖'],
+    },
+    {
+      key: 'meihua:limitation:hexagram-disposition',
+      type: '反对性情资料边界',
+      ownerFactKeys: [
+        ...params.hexagramDispositionFacts.map((item) => item.key),
+        params.hexagramDispositionVersionFact.key,
+      ],
+      promptText:
+        '《诸卦反对性情》只把主卦、互卦、变卦的综卦、错卦与通行《杂卦传》抽象卦义作为可核资料；当前底本存在师困、兑巽、同人家人、离坎、未济归妹等错名、漏名和句义移位，异文不覆盖卦画计算。不得把“刚、柔、忧、灾、困”等卦义词直接写成人物性格、动机、心理状态、现实事件、确定吉凶或任意量化结论',
+      sources: ['《梅花易数》卷三《诸卦反对性情》底本、通行《杂卦传》与六十四卦卦画复算'],
     },
     {
       key: 'meihua:limitation:transitions-counters',
@@ -2570,6 +2811,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
   const foodContextFact = buildFoodContextFact();
   const objectContextFact = buildObjectContextFact();
   const topicResponseContextFact = buildTopicResponseContextFact();
+  const hexagramDispositionFacts = buildHexagramDispositionFacts(data);
+  const hexagramDispositionVersionFact = buildHexagramDispositionVersionFact();
   const stageCoverageFact = buildStageCoverageFact(stages);
   const transitionFacts = buildTransitionFacts(stages);
   const transitions = transitionFacts.map((item) => item.promptText);
@@ -2638,6 +2881,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     foodContextFact,
     objectContextFact,
     topicResponseContextFact,
+    hexagramDispositionFacts,
+    hexagramDispositionVersionFact,
     transitionFacts,
     traditionalFacts,
     counterEvidenceFacts,
@@ -2662,6 +2907,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     foodContextFact,
     objectContextFact,
     topicResponseContextFact,
+    hexagramDispositionFacts,
+    hexagramDispositionVersionFact,
     transitionFacts,
     counterEvidenceFacts,
     timingFacts,
@@ -2688,6 +2935,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     foodContextFact,
     objectContextFact,
     topicResponseContextFact,
+    hexagramDispositionFacts,
+    hexagramDispositionVersionFact,
     transitionFacts,
     traditionalFacts,
     counterEvidenceFacts,
@@ -2858,6 +3107,26 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
         topicResponseContextFact.status,
       ],
     },
+    ...hexagramDispositionFacts.map((fact): PromptEvidenceItem => ({
+      level: '辅证',
+      title: `${fact.label}${fact.hexagram}反对性情卦画资料`,
+      detail: `${fact.promptText}；边界：${fact.limitation}`,
+      source: fact.sources.join('、'),
+      tags: ['诸卦反对性情', fact.label, fact.reversedRelation, '综卦', '错卦', '抽象卦义'],
+    })),
+    {
+      level: '限制',
+      title: '诸卦反对性情底本异文边界',
+      detail: `${hexagramDispositionVersionFact.promptText}；边界：${hexagramDispositionVersionFact.limitation}`,
+      source: hexagramDispositionVersionFact.sources.join('、'),
+      tags: [
+        '诸卦反对性情',
+        '杂卦传',
+        '底本异文',
+        '版本校勘',
+        hexagramDispositionVersionFact.status,
+      ],
+    },
     {
       level: '应期',
       title: '应期资料覆盖与边界',
@@ -2918,6 +3187,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     `饮食专项：${foodContextFact.promptText}。`,
     `观物专项：${objectContextFact.promptText}。`,
     `诸事响应专项：${topicResponseContextFact.promptText}。`,
+    `反对性情资料：${hexagramDispositionFacts.map((item) => item.promptText).join('；')}；${hexagramDispositionVersionFact.promptText}。`,
     `推进关系：${transitionFacts.map((item) => item.promptText).join('；') || '只有主卦阶段，未形成可核验的互变推进链'}`,
     `应期资料：${timingFacts.map((item) => item.promptText).join('；')}`,
     `解释限制：${limitations.join('；')}。`,
@@ -2949,6 +3219,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     foodContextFact,
     objectContextFact,
     topicResponseContextFact,
+    hexagramDispositionFacts,
+    hexagramDispositionVersionFact,
     transitionFacts,
     transitions,
     timingFacts,
@@ -2976,6 +3248,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       '《饮食篇》只用于明确的具体饮食、宴请、食物或能否得食之占；须另行明确判断对象、己人客酒食物专项角色、动静所指与原始记录、宴食时间及主客关系，且在艮、坎段落与末段句读完成版本校勘前不生成具体饮食或宾主结论。',
       '《观物玄妙歌诀》只用于明确的观物、射覆或具体物件辨识；须另行明确待辨对象范围、可见遮覆状态和所需属性范围。通行底本艮离段落未闭合，且本篇未独立交代体用互变的观物取主顺序，因此在与后续占物规则合校前不生成具体物件、形色材质、状态、用途或数量。',
       '《诸事响应歌》必须先明确事项类别、具体对象、精确判断目标、现实状态及角色；同一体用关系在不同事项可有不同含义，天气另须区分问晴或问雨并核对特定经卦。当前情境不足且“比和凶则有救星”句义未独立互证时，不套用专项歌诀，不生成胎儿性别、疾病与用药、鬼神或自伤事故原因、诉讼胜负、确定婚姻财务结果或任意量化结论。',
+      '《诸卦反对性情》只保留主互变卦画可复算的综卦、错卦及通行《杂卦传》抽象卦义；当前底本错名、漏名、重名与句义移位单独登记，不覆盖卦画计算，也不把刚柔忧乐灾困等词解释成人物性格、动机、心理、现实事件、吉凶或概率。',
       '动爻只标记变化层位，卦数只保留原始计算资料；主卦用卦、体互、用互、变卦用卦的生克只作传统应验方向候选，并须合看旺衰与制化。',
       '事项类型、是否确需刻期、自然期限、材质、远近、时间尺度、数克或理克口径及应验方向未齐时，不从问题关键词猜测，不裁定时间单位、统一快慢或换算绝对日期。',
       '只输出支持、反证、盘面事实与资料边界，不生成吉凶总分、成功率或无依据应期。',

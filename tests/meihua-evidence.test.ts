@@ -29,6 +29,7 @@ const elementControls: Record<string, string> = {
 const hexagramByTrigrams = new Map(
   hexagramsData.map((item) => [`${item.upper}:${item.lower}`, item]),
 );
+const hexagramByBinary = new Map(hexagramsData.map((item) => [item.binarySymbol, item]));
 
 function expectedInterRelation(role: '体互' | '用互', response: string, originalTi: string) {
   if (response === originalTi) return `${role}与原体比和`;
@@ -174,6 +175,11 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.equal(evidence.summaryFact.foodContextFactCount, 1);
   assert.equal(evidence.summaryFact.objectContextFactCount, 1);
   assert.equal(evidence.summaryFact.topicResponseContextFactCount, 1);
+  assert.equal(
+    evidence.summaryFact.hexagramDispositionFactCount,
+    evidence.hexagramDispositionFacts.length,
+  );
+  assert.equal(evidence.summaryFact.hexagramDispositionVersionFactCount, 1);
   assert.equal(evidence.internalMotionFact.status, '已计算');
   assert.deepEqual(
     evidence.internalMotionFact.references.map((item) => [item.role, item.motion]),
@@ -304,6 +310,44 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   ]) {
     assert.equal(key in evidence.topicResponseContextFact, false);
   }
+  assert.equal(evidence.hexagramDispositionFacts.length, 3);
+  assert.deepEqual(
+    evidence.hexagramDispositionFacts.map((item) => item.label),
+    ['主卦', '互卦', '变卦'],
+  );
+  assert.ok(
+    evidence.hexagramDispositionFacts.every(
+      (item) =>
+        item.status === '已计算' &&
+        item.binarySymbol.length === 6 &&
+        item.reversedHexagram &&
+        item.oppositeHexagram &&
+        item.dispositionGloss &&
+        item.limitation.includes('不等同于现实人物性格'),
+    ),
+  );
+  assert.equal(evidence.hexagramDispositionVersionFact.status, '底本异文待校');
+  assert.equal(evidence.hexagramDispositionVersionFact.canonicalGlossCount, 64);
+  assert.equal(evidence.hexagramDispositionVersionFact.reversedGroupCount, 36);
+  assert.equal(evidence.hexagramDispositionVersionFact.sourceLineFields.length, 18);
+  assert.equal(evidence.hexagramDispositionVersionFact.unresolvedRuleFields.length, 8);
+  for (const fact of [
+    ...evidence.hexagramDispositionFacts,
+    evidence.hexagramDispositionVersionFact,
+  ]) {
+    for (const key of [
+      'personality',
+      'motive',
+      'psychology',
+      'event',
+      'result',
+      'score',
+      'weight',
+      'probability',
+    ]) {
+      assert.equal(key in fact, false);
+    }
+  }
   assert.equal(evidence.summaryFact.transitionFactCount, evidence.transitionFacts.length);
   assert.equal(evidence.summaryFact.traditionalFactCount, evidence.traditionalFacts.length);
   assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
@@ -313,7 +357,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     .map((item) => item.type);
   assert.ok(processCounterTypes.includes('互卦响应关系限制'));
   assert.ok(processCounterTypes.includes('互卦响应月令限制'));
-  assert.equal(evidence.limitationFacts.length, 12);
+  assert.equal(evidence.limitationFacts.length, 13);
   assert.deepEqual(
     evidence.limitations,
     evidence.limitationFacts.map((item) => item.promptText),
@@ -331,6 +375,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.match(evidence.promptText, /饮食专项：/);
   assert.match(evidence.promptText, /观物专项：/);
   assert.match(evidence.promptText, /诸事响应专项：/);
+  assert.match(evidence.promptText, /反对性情资料：/);
   assert.match(evidence.promptText, /解释限制：/);
   assert.match(evidence.promptText, /起因.*→.*过程.*；.*过程.*→.*结果/);
   assert.doesNotMatch(evidence.promptText, /权重[：=]?\d|总分[：=]?\d|成功率[：=]?\d/);
@@ -429,6 +474,48 @@ test('梅花六十四卦六动爻的原体、体互、用互与变卦体位应�
   }
 
   assert.equal(checked, 384);
+});
+
+test('梅花六十四卦反对性情资料应完整闭合综卦、错卦与版本边界', () => {
+  const base = generateMeihua(fixedDate, { method: 'number', number: 123 });
+  const mainHexagrams = new Set<string>();
+  const reversedGroups = new Set<string>();
+  let selfReversedCount = 0;
+
+  for (const main of hexagramsData) {
+    const evidence = analyzeMeihuaEvidence(buildMeihuaCase(base, main, 1));
+    const fact = evidence.hexagramDispositionFacts.find((item) => item.stage === 'origin');
+    assert.ok(fact);
+    const reversed = hexagramByBinary.get([...main.binarySymbol].reverse().join(''));
+    const opposite = hexagramByBinary.get(
+      [...main.binarySymbol].map((line) => (line === '1' ? '0' : '1')).join(''),
+    );
+    assert.ok(reversed && opposite);
+
+    mainHexagrams.add(fact.hexagram);
+    reversedGroups.add([main.id, reversed.id].sort((left, right) => left - right).join(':'));
+    if (reversed.id === main.id) selfReversedCount += 1;
+    assert.equal(fact.binarySymbol, main.binarySymbol);
+    assert.equal(fact.reversedHexagram, reversed.name);
+    assert.equal(fact.reversedRelation, reversed.id === main.id ? '自身综卦' : '另卦相综');
+    assert.equal(fact.oppositeHexagram, opposite.name);
+    assert.ok(fact.dispositionGloss);
+
+    const reversedTwice = hexagramByBinary.get([...reversed.binarySymbol].reverse().join(''));
+    const oppositeTwice = hexagramByBinary.get(
+      [...opposite.binarySymbol].map((line) => (line === '1' ? '0' : '1')).join(''),
+    );
+    assert.equal(reversedTwice?.id, main.id);
+    assert.equal(oppositeTwice?.id, main.id);
+    assert.equal(evidence.hexagramDispositionVersionFact.canonicalGlossCount, 64);
+    assert.equal(evidence.hexagramDispositionVersionFact.reversedGroupCount, 36);
+    assert.equal(evidence.hexagramDispositionVersionFact.sourceLineFields.length, 18);
+    assert.equal(evidence.hexagramDispositionVersionFact.unresolvedRuleFields.length, 8);
+  }
+
+  assert.equal(mainHexagrams.size, 64);
+  assert.equal(reversedGroups.size, 36);
+  assert.equal(selfReversedCount, 8);
 });
 
 test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补造现场外应', () => {
@@ -1082,6 +1169,8 @@ test('梅花起卦算式、六爻结构、卦象来源和克应资料边界应�
   assert.ok(items.some((item) => item.title === '万物耳目外应资料覆盖'));
   assert.ok(items.some((item) => item.title === '观物专项资料与版本覆盖'));
   assert.ok(items.some((item) => item.title === '诸事响应专项情境与风险边界'));
+  assert.equal(items.filter((item) => item.title.includes('反对性情卦画资料')).length, 3);
+  assert.ok(items.some((item) => item.title === '诸卦反对性情底本异文边界'));
   assert.equal(
     items.filter((item) => item.tags?.includes('应卦制化')).length,
     evidence.responseInteractionFacts.length,
@@ -1211,7 +1300,9 @@ test('梅花四种起卦入口都应生成完整可移植的对象化证据', ()
     assert.equal(evidence.counterSummaryFact.factKeys.length, evidence.counterEvidenceFacts.length);
     assert.equal(evidence.summaryFact.status, '证据链完整');
     assert.equal(evidence.calculationSteps.length, 7);
-    assert.equal(evidence.limitationFacts.length, 12);
+    assert.equal(evidence.hexagramDispositionFacts.length, 3);
+    assert.equal(evidence.hexagramDispositionVersionFact.status, '底本异文待校');
+    assert.equal(evidence.limitationFacts.length, 13);
     assertPromptIsPortableTaskText(evidence.promptText);
   }
 });

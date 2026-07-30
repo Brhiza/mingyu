@@ -23,6 +23,8 @@
  *    艮离段落未闭合，且后续占物规则尚待合校，不从通用盘面生成具体物件属性。
  * 9. 诸事响应：须先明确事项、对象、判断目标、现实状态与角色；同一体用关系跨事项
  *    可有不同含义，医疗、生育、法律与安全类歌诀只登记边界，不生成现实结论。
+ * 10. 反对性情：主互变卦分别复算综卦与错卦，并保存通行《杂卦传》抽象卦义；
+ *    当前底本异文单独登记，不由卦义词推断人物性格、动机、事件或吉凶。
  */
 
 import type { MeihuaData, MeihuaSettings } from '../../../types/divination';
@@ -441,6 +443,8 @@ export type {
   MeihuaFoodContextFact,
   MeihuaObjectContextFact,
   MeihuaTopicResponseContextFact,
+  MeihuaHexagramDispositionFact,
+  MeihuaHexagramDispositionVersionFact,
   MeihuaInternalMotionFact,
   MeihuaInternalMotionReference,
   MeihuaInternalMotionRole,

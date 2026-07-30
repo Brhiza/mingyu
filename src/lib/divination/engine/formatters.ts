@@ -390,6 +390,8 @@ function formatMeihuaInfo(data: MeihuaData) {
     data.evidenceAnalysis.foodContextFact &&
     data.evidenceAnalysis.objectContextFact &&
     data.evidenceAnalysis.topicResponseContextFact &&
+    data.evidenceAnalysis.hexagramDispositionFacts?.length &&
+    data.evidenceAnalysis.hexagramDispositionVersionFact &&
     data.evidenceAnalysis.timingFacts?.some((item) => item.type === '全卦克应关系') &&
     data.evidenceAnalysis.timingFacts.some(
       (item) => item.type === '克应资料覆盖' && item.requiredContextFields?.length,
@@ -439,6 +441,7 @@ function formatMeihuaInfo(data: MeihuaData) {
     `饮食专项：${evidenceAnalysis.foodContextFact.promptText}`,
     `观物专项：${evidenceAnalysis.objectContextFact.promptText}`,
     `诸事响应专项：${evidenceAnalysis.topicResponseContextFact.promptText}`,
+    `反对性情资料：${evidenceAnalysis.hexagramDispositionFacts.map((item) => item.promptText).join('；')}；${evidenceAnalysis.hexagramDispositionVersionFact.promptText}`,
     `应期资料：${timingEvidence}`,
     '结构明细：',
     `- 月令旺衰：${seasonBasis}，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}`,
