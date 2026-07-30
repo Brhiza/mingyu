@@ -169,6 +169,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     evidence.responseInteractionFacts.length,
   );
   assert.equal(evidence.summaryFact.motionFactCount, 2);
+  assert.equal(evidence.summaryFact.spatialOmenFactCount, 1);
   assert.equal(evidence.internalMotionFact.status, '已计算');
   assert.deepEqual(
     evidence.internalMotionFact.references.map((item) => [item.role, item.motion]),
@@ -185,6 +186,12 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     evidence.externalMotionFact.missingObservationFields,
     evidence.externalMotionFact.requiredObservationFields,
   );
+  assert.equal(evidence.spatialOmenFact.status, '资料不足');
+  assert.deepEqual(evidence.spatialOmenFact.availableObservationFields, []);
+  assert.deepEqual(
+    evidence.spatialOmenFact.missingObservationFields,
+    evidence.spatialOmenFact.requiredObservationFields,
+  );
   assert.equal(evidence.summaryFact.transitionFactCount, evidence.transitionFacts.length);
   assert.equal(evidence.summaryFact.traditionalFactCount, evidence.traditionalFacts.length);
   assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
@@ -194,7 +201,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     .map((item) => item.type);
   assert.ok(processCounterTypes.includes('互卦响应关系限制'));
   assert.ok(processCounterTypes.includes('互卦响应月令限制'));
-  assert.equal(evidence.limitationFacts.length, 7);
+  assert.equal(evidence.limitationFacts.length, 8);
   assert.deepEqual(
     evidence.limitations,
     evidence.limitationFacts.map((item) => item.promptText),
@@ -207,6 +214,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.match(evidence.promptText, /计算链：/);
   assert.match(evidence.promptText, /证据汇总：/);
   assert.match(evidence.promptText, /体用动静：/);
+  assert.match(evidence.promptText, /坐端应兆：/);
   assert.match(evidence.promptText, /解释限制：/);
   assert.match(evidence.promptText, /起因.*→.*过程.*；.*过程.*→.*结果/);
   assert.doesNotMatch(evidence.promptText, /权重[：=]?\d|总分[：=]?\d|成功率[：=]?\d/);
@@ -355,6 +363,24 @@ test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补�
         evidence.externalMotionFact.promptText,
         /不得把数字、时间、随机方式、问题文本或卦内动爻补写成外应/,
       );
+      assert.equal(evidence.spatialOmenFact.status, '资料不足');
+      assert.deepEqual(evidence.spatialOmenFact.availableObservationFields, []);
+      assert.deepEqual(
+        evidence.spatialOmenFact.missingObservationFields,
+        evidence.spatialOmenFact.requiredObservationFields,
+      );
+      assert.deepEqual(evidence.spatialOmenFact.requiredObservationFields, [
+        '以求测者所在处为中心的现场观察基准',
+        '现场应兆实际出现的八方方位',
+        '该方位真实出现的人事、器物或环境兆象',
+      ]);
+      assert.match(
+        evidence.spatialOmenFact.promptText,
+        /不得把主卦、互卦、变卦、体用、数字、时间、问题文本、设备方位或行政地名补写成坐端八方应兆/,
+      );
+      assert.equal('direction' in evidence.spatialOmenFact, false);
+      assert.equal('familyMember' in evidence.spatialOmenFact, false);
+      assert.equal('bodyPart' in evidence.spatialOmenFact, false);
       assert.doesNotMatch(
         JSON.stringify({ motion, external: evidence.externalMotionFact }),
         /"score"\s*:|"probability"\s*:|应吉之速|应凶之速|应期快于|应期迟缓/,
@@ -807,6 +833,7 @@ test('梅花起卦算式、六爻结构、卦象来源和克应资料边界应�
   assert.ok(items.some((item) => item.title === '体党与用党'));
   assert.ok(items.some((item) => item.title === '内卦体用动静分工'));
   assert.ok(items.some((item) => item.title === '外应动静资料覆盖'));
+  assert.ok(items.some((item) => item.title === '坐端八方应兆资料覆盖'));
   assert.equal(
     items.filter((item) => item.tags?.includes('应卦制化')).length,
     evidence.responseInteractionFacts.length,
@@ -883,6 +910,7 @@ test('梅花旧结果缺少逐爻或互卦阶段时应明确标记缺口且不�
   assert.equal(rebuilt.internalMotionFact.status, '资料不足');
   assert.deepEqual(rebuilt.internalMotionFact.missingRoles, ['体互', '用互']);
   assert.equal(rebuilt.externalMotionFact.status, '资料不足');
+  assert.equal(rebuilt.spatialOmenFact.status, '资料不足');
   assert.equal(
     rebuilt.calculationSteps.find((item) => item.stage === '阶段推进核验')?.status,
     '资料不足',
@@ -935,7 +963,7 @@ test('梅花四种起卦入口都应生成完整可移植的对象化证据', ()
     assert.equal(evidence.counterSummaryFact.factKeys.length, evidence.counterEvidenceFacts.length);
     assert.equal(evidence.summaryFact.status, '证据链完整');
     assert.equal(evidence.calculationSteps.length, 7);
-    assert.equal(evidence.limitationFacts.length, 7);
+    assert.equal(evidence.limitationFacts.length, 8);
     assertPromptIsPortableTaskText(evidence.promptText);
   }
 });

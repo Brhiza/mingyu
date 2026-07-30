@@ -3295,6 +3295,13 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               availableObservationFields: string[];
               missingObservationFields: string[];
             };
+            spatialOmenFact: {
+              status: string;
+              requiredObservationFields: string[];
+              availableObservationFields: string[];
+              missingObservationFields: string[];
+              promptText: string;
+            };
             transitionFacts: Array<{
               key: string;
               status: string;
@@ -3429,6 +3436,16 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       result.evidenceAnalysis.externalMotionFact.missingObservationFields,
       result.evidenceAnalysis.externalMotionFact.requiredObservationFields,
     );
+    assert.equal(result.evidenceAnalysis.spatialOmenFact.status, '资料不足');
+    assert.deepEqual(result.evidenceAnalysis.spatialOmenFact.availableObservationFields, []);
+    assert.deepEqual(
+      result.evidenceAnalysis.spatialOmenFact.missingObservationFields,
+      result.evidenceAnalysis.spatialOmenFact.requiredObservationFields,
+    );
+    assert.match(
+      result.evidenceAnalysis.spatialOmenFact.promptText,
+      /不得把主卦、互卦、变卦、体用、数字、时间、问题文本、设备方位或行政地名补写成坐端八方应兆/,
+    );
     assert.ok(
       result.evidenceAnalysis.interResponseFacts.every(
         (item) => item.originalTi.name === result.tiGua.name && item.relation.includes('原体'),
@@ -3531,7 +3548,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       result.evidenceAnalysis.summaryFact.timingFactCount,
       result.evidenceAnalysis.timingFacts.length,
     );
-    assert.equal(result.evidenceAnalysis.limitationFacts.length, 7);
+    assert.equal(result.evidenceAnalysis.limitationFacts.length, 8);
     assert.equal(
       result.evidenceAnalysis.limitations.length,
       result.evidenceAnalysis.limitationFacts.length,
@@ -3610,6 +3627,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.match(promptText, /核心结构：主卦[\s\S]*体用：[\s\S]*结构明细：/);
     assert.match(promptText, /体用动静：卦内动静分工/);
     assert.match(promptText, /外应动静：当前输入未记录起卦现场/);
+    assert.match(promptText, /坐端应兆：当前输入未记录以求测者所在处为中心/);
     assert.match(promptText, /应期资料：应期状态：待补充现实条件/);
     assert.match(promptText, /不能单独计算传统克应/);
     assert.doesNotMatch(promptText, /结构化证据|计算链|证据汇总|解释限制|解释边界/);

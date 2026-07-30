@@ -384,7 +384,8 @@ function formatMeihuaInfo(data: MeihuaData) {
   const evidenceAnalysis =
     data.evidenceAnalysis?.traditionalFacts &&
     data.evidenceAnalysis.internalMotionFact &&
-    data.evidenceAnalysis.externalMotionFact
+    data.evidenceAnalysis.externalMotionFact &&
+    data.evidenceAnalysis.spatialOmenFact
       ? data.evidenceAnalysis
       : analyzeMeihuaEvidence(data);
   const timingEvidence = createMeihuaTimingEvidence(evidenceAnalysis);
@@ -425,6 +426,7 @@ function formatMeihuaInfo(data: MeihuaData) {
     `月令与起卦：${seasonBasis}，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}；起卦法${methodLabel}${typeof calculation?.number === 'number' ? `；起卦数字${calculation.number}` : ''}`,
     `体用动静：${evidenceAnalysis.internalMotionFact.promptText}`,
     `外应动静：${evidenceAnalysis.externalMotionFact.promptText}`,
+    `坐端应兆：${evidenceAnalysis.spatialOmenFact.promptText}`,
     `应期资料：${timingEvidence}`,
     '结构明细：',
     `- 月令旺衰：${seasonBasis}，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}`,

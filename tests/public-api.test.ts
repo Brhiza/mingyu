@@ -4226,6 +4226,16 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     chart.body.data.evidenceAnalysis.externalMotionFact.missingObservationFields,
     chart.body.data.evidenceAnalysis.externalMotionFact.requiredObservationFields,
   );
+  assert.equal(chart.body.data.evidenceAnalysis.spatialOmenFact.status, '资料不足');
+  assert.deepEqual(chart.body.data.evidenceAnalysis.spatialOmenFact.availableObservationFields, []);
+  assert.deepEqual(
+    chart.body.data.evidenceAnalysis.spatialOmenFact.missingObservationFields,
+    chart.body.data.evidenceAnalysis.spatialOmenFact.requiredObservationFields,
+  );
+  assert.match(
+    chart.body.data.evidenceAnalysis.spatialOmenFact.promptText,
+    /不得把主卦、互卦、变卦、体用、数字、时间、问题文本、设备方位或行政地名补写成坐端八方应兆/,
+  );
   const resultStage = chart.body.data.evidenceAnalysis.stages.find(
     (item: { stage: string }) => item.stage === 'result',
   );
@@ -4326,7 +4336,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     chart.body.data.evidenceAnalysis.summaryFact.transitionFactCount,
     chart.body.data.evidenceAnalysis.transitionFacts.length,
   );
-  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 7);
+  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 8);
   assert.equal(
     chart.body.data.evidenceAnalysis.limitations.length,
     chart.body.data.evidenceAnalysis.limitationFacts.length,
@@ -4394,6 +4404,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.match(prompt.body.data.prompt, /体用：/);
   assert.match(prompt.body.data.prompt, /体用动静：卦内动静分工/);
   assert.match(prompt.body.data.prompt, /外应动静：当前输入未记录起卦现场/);
+  assert.match(prompt.body.data.prompt, /坐端应兆：当前输入未记录以求测者所在处为中心/);
   assert.match(prompt.body.data.prompt, /应期资料：应期状态：待补充现实条件/);
   assert.match(prompt.body.data.prompt, /不能单独计算传统克应/);
   assert.doesNotMatch(prompt.body.data.prompt, /结构化证据|计算链|证据汇总|解释边界/);
