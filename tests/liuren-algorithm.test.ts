@@ -957,7 +957,7 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
         item.rule &&
         item.sources.length > 0 &&
         item.limitations.length >= 4 &&
-        item.limitations.some((limitation) => limitation.includes('一百零六项可复算神煞规则')),
+        item.limitations.some((limitation) => limitation.includes('一百一十六项可复算神煞规则')),
     ),
   );
 });
@@ -1588,21 +1588,51 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     子: ['亥', '亥', '亥', '丑', '寅', '戌', '戌'],
     丑: ['亥', '亥', '亥', '丑', '寅', '戌', '戌'],
   };
+  const currentAuditedMonthFactNames = [
+    '风伯',
+    '战雌',
+    '迷惑',
+    '枯骨',
+    '上丧',
+    '哭神',
+    '病煞',
+    '阳煞',
+    '天鸡',
+    '月厌',
+  ];
+  const currentAuditedMonthTargets: Record<string, readonly string[]> = {
+    寅: ['申', '申', '丑', '未', '辰', '未', '亥', '亥', '酉', '戌'],
+    卯: ['未', '申', '戌', '申', '未', '未', '子', '寅', '申', '酉'],
+    辰: ['午', '申', '未', '酉', '戌', '未', '丑', '巳', '未', '申'],
+    巳: ['巳', '亥', '辰', '戌', '丑', '戌', '寅', '申', '午', '未'],
+    午: ['辰', '亥', '丑', '亥', '辰', '戌', '卯', '亥', '巳', '午'],
+    未: ['卯', '亥', '戌', '子', '未', '戌', '辰', '寅', '辰', '巳'],
+    申: ['寅', '寅', '未', '丑', '戌', '丑', '巳', '巳', '卯', '辰'],
+    酉: ['丑', '寅', '辰', '寅', '丑', '丑', '午', '申', '寅', '卯'],
+    戌: ['子', '寅', '丑', '卯', '辰', '丑', '未', '亥', '丑', '寅'],
+    亥: ['亥', '巳', '戌', '辰', '未', '辰', '申', '寅', '子', '丑'],
+    子: ['戌', '巳', '未', '巳', '戌', '辰', '酉', '巳', '亥', '子'],
+    丑: ['酉', '巳', '辰', '午', '丑', '辰', '戌', '申', '戌', '亥'],
+  };
 
   for (const [date, monthBranch, expectedTargets, expectedTianHe] of monthCases) {
     const result = generateLiuren(new Date(date));
     const facts = new Map(result.shenShaFacts?.map((item) => [item.name, item]));
     assert.equal(result.ganzhi.month.charAt(1), monthBranch, date);
     assert.deepEqual(
-      [...monthFactNames, ...newlyAuditedMonthFactNames, ...latestAuditedMonthFactNames].map(
-        (name) => facts.get(name)?.target,
-      ),
+      [
+        ...monthFactNames,
+        ...newlyAuditedMonthFactNames,
+        ...latestAuditedMonthFactNames,
+        ...currentAuditedMonthFactNames,
+      ].map((name) => facts.get(name)?.target),
       [
         ...expectedTargets,
         ...addedMonthTargets[monthBranch],
         ...auditedMonthTargets[monthBranch],
         ...newlyAuditedMonthTargets[monthBranch],
         ...latestAuditedMonthTargets[monthBranch],
+        ...currentAuditedMonthTargets[monthBranch],
       ],
       `${monthBranch}月逐月神煞表`,
     );
@@ -1615,6 +1645,7 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       ...addedMonthFactNames,
       ...newlyAuditedMonthFactNames,
       ...latestAuditedMonthFactNames,
+      ...currentAuditedMonthFactNames,
     ]) {
       const fact = facts.get(name);
       if (name === '天合' && expectedTianHe === undefined) {
@@ -1670,6 +1701,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       '市曹',
       '绳索',
       '索煞',
+      '天目',
+      '盗神',
       '凤辇',
       '銮舆',
       '风煞',
@@ -1969,6 +2002,80 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     boundaryFacts.get('寡宿')?.limitations.join('；') ?? '',
     /旬空天盘、四时孤寡.+不无条件生成旬空或课体事实/,
   );
+  assert.match(boundaryFacts.get('风伯')?.rule ?? '', /正月从申起逐月逆行/);
+  assert.match(
+    boundaryFacts.get('风伯')?.sources.join('；') ?? '',
+    /六壬大全.+六壬兵占.+六壬粹言.+六壬存验.+六壬指南注解/,
+  );
+  assert.match(
+    boundaryFacts.get('风伯')?.limitations.join('；') ?? '',
+    /未固定称风伯.+不合并固定类象/,
+  );
+  assert.match(
+    boundaryFacts.get('风伯')?.limitations.join('；') ?? '',
+    /固定未位、正申逆十二及借风煞起风伯三说.+采用.+逐月表/,
+  );
+  assert.match(boundaryFacts.get('战雌')?.rule ?? '', /春申、夏亥、秋寅、冬巳.+战雄.+对冲/);
+  assert.match(
+    boundaryFacts.get('战雌')?.sources.join('；') ?? '',
+    /六壬指南注解.+六壬大全.+六壬兵占/,
+  );
+  assert.match(
+    boundaryFacts.get('战雌')?.limitations.join('；') ?? '',
+    /临日干、支辰、课传及主客位置.+不因单项出现自动判断军事行动/,
+  );
+  assert.match(boundaryFacts.get('迷惑')?.rule ?? '', /正丑逆四季/);
+  assert.match(
+    boundaryFacts.get('迷惑')?.limitations.join('；') ?? '',
+    /正月戌逆十二.+正丑逆四季者是、逆十二者非.+不混合两表/,
+  );
+  assert.match(boundaryFacts.get('枯骨')?.rule ?? '', /正月从未起逐月顺行/);
+  assert.match(
+    boundaryFacts.get('枯骨')?.limitations.join('；') ?? '',
+    /正未顺十二者是.+正申、正辰两说俱非.+不混合异表/,
+  );
+  assert.match(boundaryFacts.get('上丧')?.rule ?? '', /辰未戌丑三轮/);
+  assert.match(
+    boundaryFacts.get('上丧')?.limitations.join('；') ?? '',
+    /“上人服”.+与下丧、丧门.+分层/,
+  );
+  assert.match(boundaryFacts.get('哭神')?.rule ?? '', /春未、夏戌、秋丑、冬辰/);
+  assert.match(
+    boundaryFacts.get('哭神')?.sources.join('；') ?? '',
+    /六壬指南注解.+六壬大全.+六壬粹言.+六壬秘本/,
+  );
+  assert.match(
+    boundaryFacts.get('哭神')?.limitations.join('；') ?? '',
+    /五墓与哭神同表.+不另重复生成/,
+  );
+  assert.match(
+    boundaryFacts.get('哭神')?.limitations.join('；') ?? '',
+    /加亥子.+白虎、死气、日辰年命/,
+  );
+  assert.match(boundaryFacts.get('病煞')?.rule ?? '', /正月从亥起逐月顺行/);
+  assert.match(
+    boundaryFacts.get('病煞')?.limitations.join('；') ?? '',
+    /支病符.+长生十二宫.+不同规则.+分层登记/,
+  );
+  assert.match(boundaryFacts.get('阳煞')?.rule ?? '', /正亥顺四孟/);
+  assert.match(
+    boundaryFacts.get('阳煞')?.limitations.join('；') ?? '',
+    /不因原典单项释义自动判断男性口舌/,
+  );
+  assert.match(boundaryFacts.get('天鸡')?.rule ?? '', /正月从酉起逐月逆行/);
+  assert.match(
+    boundaryFacts.get('天鸡')?.limitations.join('；') ?? '',
+    /朱雀、信神、二马、课传、旺衰及空陷/,
+  );
+  assert.match(boundaryFacts.get('月厌')?.rule ?? '', /正月从戌起逐月逆行/);
+  assert.match(
+    boundaryFacts.get('月厌')?.sources.join('；') ?? '',
+    /六壬心镜.+六壬大全.+六壬秘本.+六壬神课金口诀古本/,
+  );
+  assert.match(
+    boundaryFacts.get('月厌')?.limitations.join('；') ?? '',
+    /螣蛇、白虎、朱雀、勾陈、玄武、丁符/,
+  );
 
   const tianSheCases = [
     ['2020-02-05T12:00:00+08:00', '寅', '戊寅', '寅'],
@@ -2087,8 +2194,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const hasTianShe = facts.has('天赦');
     assert.equal(
       shenShaFacts.length,
-      104 + Number(hasTianHe) + Number(hasTianShe),
-      `${result.ganzhi.day}应有一百零四项固定神煞及条件性天合、天赦`,
+      114 + Number(hasTianHe) + Number(hasTianShe),
+      `${result.ganzhi.day}应有一百一十四项固定神煞及条件性天合、天赦`,
     );
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(
