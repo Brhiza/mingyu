@@ -1197,7 +1197,8 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /万物外应：当前输入未记录耳闻目见的现场原始事实/);
   assert.match(prompt, /饮食专项：当前输入未明确饮食专项所需情境/);
   assert.match(prompt, /观物专项：当前输入未明确观物专项所需情境/);
-  assert.match(prompt, /观物趣时诀.*第946至947行已留档/);
+  assert.match(prompt, /观物用易例.*第948至950行已留档/);
+  assert.match(prompt, /两例只作历史资料.*不得自动匹配案例/);
   assert.match(prompt, /诸事响应专项：当前输入只有起卦方式/);
   assert.match(prompt, /反对性情资料：主卦.*综卦为.*错卦为/);
   assert.match(prompt, /月令与起卦：春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
@@ -1229,7 +1230,7 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /第3爻.*动.*属用/);
 });
 
-test('梅花旧缓存缺少全卦克应、占物、物数为体、变爻、现场克应与趣时字段时应自动重建', () => {
+test('梅花旧缓存缺少全卦克应、占物、物数为体、变爻、现场克应、趣时与用易实例字段时应自动重建', () => {
   const data = createData('meihua') as MeihuaData;
   const evidence = analyzeMeihuaEvidence(data);
   data.evidenceAnalysis = {
@@ -1246,6 +1247,7 @@ test('梅花旧缓存缺少全卦克应、占物、物数为体、变爻、现�
       changeObservationRuleFields: undefined,
       responseOmenRuleFields: undefined,
       seasonalObservationRuleFields: undefined,
+      usageExampleFields: undefined,
       sourceLineFields: undefined,
     },
     topicResponseContextFact: undefined,
@@ -1278,7 +1280,8 @@ test('梅花旧缓存缺少全卦克应、占物、物数为体、变爻、现�
   assert.match(prompt, /万物外应：当前输入未记录耳闻目见的现场原始事实/);
   assert.match(prompt, /饮食专项：当前输入未明确饮食专项所需情境/);
   assert.match(prompt, /观物专项：当前输入未明确观物专项所需情境/);
-  assert.match(prompt, /观物趣时诀.*第946至947行已留档/);
+  assert.match(prompt, /观物用易例.*第948至950行已留档/);
+  assert.match(prompt, /两例只作历史资料.*不得自动匹配案例/);
   assert.match(prompt, /诸事响应专项：当前输入只有起卦方式/);
   assert.match(prompt, /反对性情资料：主卦.*综卦为.*错卦为/);
 });

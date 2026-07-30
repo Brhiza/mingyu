@@ -3331,6 +3331,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               changeObservationRuleFields: string[];
               responseOmenRuleFields: string[];
               seasonalObservationRuleFields: string[];
+              usageExampleFields: string[];
               sourceLineFields: string[];
               unresolvedRuleFields: string[];
               promptText: string;
@@ -3566,16 +3567,25 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.equal(result.evidenceAnalysis.objectContextFact.changeObservationRuleFields.length, 5);
     assert.equal(result.evidenceAnalysis.objectContextFact.responseOmenRuleFields.length, 6);
     assert.equal(result.evidenceAnalysis.objectContextFact.seasonalObservationRuleFields.length, 7);
-    assert.equal(result.evidenceAnalysis.objectContextFact.sourceLineFields.length, 8);
-    assert.equal(result.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 24);
-    assert.match(result.evidenceAnalysis.objectContextFact.promptText, /观物趣时诀.*第946至947行/);
+    assert.equal(result.evidenceAnalysis.objectContextFact.usageExampleFields.length, 7);
+    assert.equal(result.evidenceAnalysis.objectContextFact.sourceLineFields.length, 10);
+    assert.equal(result.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 36);
+    assert.match(
+      result.evidenceAnalysis.objectContextFact.promptText,
+      /观物用易例.*第948至950行.*历史实例/,
+    );
     for (const key of [
+      'matchedHistoricalExample',
+      'predictedObject',
+      'revealedObject',
       'observedObject',
       'externalObject',
       'object',
       'material',
       'shape',
       'color',
+      'root',
+      'sound',
       'smell',
       'hardness',
       'decay',
@@ -3584,6 +3594,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       'damage',
       'value',
       'use',
+      'utility',
       'edible',
       'count',
       'bodyCandidate',

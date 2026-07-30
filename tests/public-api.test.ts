@@ -4300,19 +4300,25 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     chart.body.data.evidenceAnalysis.objectContextFact.seasonalObservationRuleFields.length,
     7,
   );
-  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.sourceLineFields.length, 8);
-  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 24);
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.usageExampleFields.length, 7);
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.sourceLineFields.length, 10);
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 36);
   assert.match(
     chart.body.data.evidenceAnalysis.objectContextFact.promptText,
-    /观物趣时诀.*第946至947行/,
+    /观物用易例.*第948至950行.*历史实例/,
   );
   for (const key of [
+    'matchedHistoricalExample',
+    'predictedObject',
+    'revealedObject',
     'observedObject',
     'externalObject',
     'object',
     'material',
     'shape',
     'color',
+    'root',
+    'sound',
     'smell',
     'hardness',
     'decay',
@@ -4321,6 +4327,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     'damage',
     'value',
     'use',
+    'utility',
     'edible',
     'count',
     'bodyCandidate',

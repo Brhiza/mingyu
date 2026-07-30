@@ -314,8 +314,22 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     evidence.objectContextFact.seasonalObservationRuleFields[6] ?? '',
     /未列卦象.*不得类推/,
   );
-  assert.equal(evidence.objectContextFact.sourceLineFields.length, 8);
-  assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 24);
+  assert.equal(evidence.objectContextFact.usageExampleFields.length, 7);
+  assert.match(
+    evidence.objectContextFact.usageExampleFields[0] ?? '',
+    /历史命中案例.*不构成.*通用规则表/,
+  );
+  assert.match(evidence.objectContextFact.usageExampleFields[1] ?? '', /地天泰.*草木.*新采/);
+  assert.match(evidence.objectContextFact.usageExampleFields[2] ?? '', /泰初爻.*地风升.*雷泽归妹/);
+  assert.match(evidence.objectContextFact.usageExampleFields[3] ?? '', /干根.*清色.*兑.*黄根/);
+  assert.match(evidence.objectContextFact.usageExampleFields[4] ?? '', /火风鼎.*雷风恒.*玉绦环/);
+  assert.match(evidence.objectContextFact.usageExampleFields[5] ?? '', /鼎上爻.*雷风恒.*泽天夬/);
+  assert.match(
+    evidence.objectContextFact.usageExampleFields[6] ?? '',
+    /声价气势.*锺覆物.*历史实例/,
+  );
+  assert.equal(evidence.objectContextFact.sourceLineFields.length, 10);
+  assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 36);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[0] ?? '', /艮象.*题作“离”/);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[1] ?? '', /困于株林.*困于株木/);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[2] ?? '', /体生方圆曲直/);
@@ -358,13 +372,33 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.match(evidence.objectContextFact.unresolvedRuleFields[21] ?? '', /冬坤.*旺衰.*体用生克/);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[22] ?? '', /节气.*农历月.*月建地支/);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[23] ?? '', /其他卦象.*完整规则表/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[24] ?? '', /起卦时间.*不能复现/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[25] ?? '', /初变升.*初爻/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[26] ?? '', /干根.*新采于土中/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[27] ?? '', /清色.*青色.*现代改写/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[28] ?? '', /兑为黄根.*白色类象/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[29] ?? '', /没有明写上爻动.*反推/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[30] ?? '', /声价气势.*身价气势/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[31] ?? '', /锺覆物.*外部容器/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[32] ?? '', /虽圆面毁.*而毁/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[33] ?? '', /玉绦环.*分别来自/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[34] ?? '', /成功案例.*不能推广/);
+  assert.match(
+    evidence.objectContextFact.unresolvedRuleFields[35] ?? '',
+    /合并及优先顺序.*自动匹配/,
+  );
   for (const key of [
+    'matchedHistoricalExample',
+    'predictedObject',
+    'revealedObject',
     'observedObject',
     'externalObject',
     'object',
     'material',
     'shape',
     'color',
+    'root',
+    'sound',
     'smell',
     'hardness',
     'decay',
@@ -373,6 +407,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     'damage',
     'value',
     'use',
+    'utility',
     'edible',
     'count',
     'bodyCandidate',
@@ -493,6 +528,40 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.match(evidence.promptText, /起因.*→.*过程.*；.*过程.*→.*结果/);
   assert.doesNotMatch(evidence.promptText, /权重[：=]?\d|总分[：=]?\d|成功率[：=]?\d/);
   assertPromptIsPortableTaskText(evidence.promptText);
+});
+
+test('观物用易两则历史实例的主互变卦与所引爻辞应可复算', () => {
+  const base = generateMeihua(fixedDate, { method: 'number', number: 123 });
+  const cases = [
+    {
+      mainName: '地天泰',
+      movingYao: 1,
+      interName: '雷泽归妹',
+      changedName: '地风升',
+      yaoCi: /拔茅茹以其汇，征吉/,
+      usage: /泰初爻.*地风升.*雷泽归妹/,
+    },
+    {
+      mainName: '火风鼎',
+      movingYao: 6,
+      interName: '泽天夬',
+      changedName: '雷风恒',
+      yaoCi: /鼎玉铉，大吉无不利/,
+      usage: /鼎上爻.*雷风恒.*泽天夬/,
+    },
+  ] as const;
+
+  for (const item of cases) {
+    const main = hexagramsData.find((hexagram) => hexagram.name === item.mainName);
+    assert.ok(main);
+    const chart = buildMeihuaCase(base, main, item.movingYao);
+    const evidence = analyzeMeihuaEvidence(chart);
+
+    assert.equal(chart.interHexagram.name, item.interName);
+    assert.equal(chart.changedHexagram.name, item.changedName);
+    assert.match(chart.mainHexagram.yaoCi?.[item.movingYao - 1] ?? '', item.yaoCi);
+    assert.ok(evidence.objectContextFact.usageExampleFields.some((line) => item.usage.test(line)));
+  }
 });
 
 test('梅花互卦过程应让体互、用互分别响应原体，不得在互卦内部重分体用', () => {
@@ -746,15 +815,21 @@ test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补�
       assert.equal(evidence.objectContextFact.changeObservationRuleFields.length, 5);
       assert.equal(evidence.objectContextFact.responseOmenRuleFields.length, 6);
       assert.equal(evidence.objectContextFact.seasonalObservationRuleFields.length, 7);
-      assert.equal(evidence.objectContextFact.sourceLineFields.length, 8);
-      assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 24);
+      assert.equal(evidence.objectContextFact.usageExampleFields.length, 7);
+      assert.equal(evidence.objectContextFact.sourceLineFields.length, 10);
+      assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 36);
       for (const key of [
+        'matchedHistoricalExample',
+        'predictedObject',
+        'revealedObject',
         'observedObject',
         'externalObject',
         'object',
         'material',
         'shape',
         'color',
+        'root',
+        'sound',
         'smell',
         'hardness',
         'decay',
@@ -763,6 +838,7 @@ test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补�
         'damage',
         'value',
         'use',
+        'utility',
         'edible',
         'count',
         'bodyCandidate',
@@ -1304,7 +1380,8 @@ test('梅花起卦算式、六爻结构、卦象来源和克应资料边界应�
   assert.ok(items.some((item) => item.title === '万物耳目外应资料覆盖'));
   assert.ok(
     items.some(
-      (item) => item.title === '观物专项、占物类例、物数为体、变爻、现场克应与趣时取象版本覆盖',
+      (item) =>
+        item.title === '观物专项、占物类例、物数为体、变爻、现场克应、趣时与用易实例版本覆盖',
     ),
   );
   assert.ok(items.some((item) => item.title === '诸事响应专项情境与风险边界'));
