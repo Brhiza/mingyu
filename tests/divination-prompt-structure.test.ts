@@ -1200,6 +1200,10 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /万物戏验.*第951至952行已留档/);
   assert.match(prompt, /不得自动猜手中物/);
   assert.match(prompt, /诸事响应专项：当前输入只有起卦方式/);
+  assert.match(prompt, /占卜十应：《占卜十应诀》第954至978行/);
+  assert.match(prompt, /正应、互应、变应三项只回指/);
+  assert.match(prompt, /日支虽已记录，但不能自动生成日应吉凶/);
+  assert.match(prompt, /疾病末段不得生成诊断、痊愈或生死结论/);
   assert.match(prompt, /反对性情资料：主卦.*综卦为.*错卦为/);
   assert.match(prompt, /月令与起卦：春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
   assert.match(prompt, /应期资料：应期状态：待补充事项情境/);
@@ -1230,7 +1234,7 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /第3爻.*动.*属用/);
 });
 
-test('梅花旧缓存缺少全卦克应、占物、物数为体、变爻、现场克应、趣时与用易实例字段时应自动重建', () => {
+test('梅花旧缓存缺少全卦克应、观物与占卜十应字段时应自动重建', () => {
   const data = createData('meihua') as MeihuaData;
   const evidence = analyzeMeihuaEvidence(data);
   data.evidenceAnalysis = {
@@ -1252,6 +1256,7 @@ test('梅花旧缓存缺少全卦克应、占物、物数为体、变爻、现�
       sourceLineFields: undefined,
     },
     topicResponseContextFact: undefined,
+    tenResponseContextFact: undefined,
     hexagramDispositionFacts: undefined,
     hexagramDispositionVersionFact: undefined,
     timingFacts: evidence.timingFacts
@@ -1284,6 +1289,8 @@ test('梅花旧缓存缺少全卦克应、占物、物数为体、变爻、现�
   assert.match(prompt, /万物戏验.*第951至952行已留档/);
   assert.match(prompt, /不得自动猜手中物/);
   assert.match(prompt, /诸事响应专项：当前输入只有起卦方式/);
+  assert.match(prompt, /占卜十应：《占卜十应诀》第954至978行/);
+  assert.match(prompt, /日支虽已记录，但不能自动生成日应吉凶/);
   assert.match(prompt, /反对性情资料：主卦.*综卦为.*错卦为/);
 });
 

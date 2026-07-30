@@ -4381,6 +4381,37 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   ]) {
     assert.equal(key in topicResponse, false);
   }
+  const tenResponse = chart.body.data.evidenceAnalysis.tenResponseContextFact;
+  assert.equal(tenResponse.status, '资料不足');
+  assert.deepEqual(tenResponse.availableContextFields, []);
+  assert.deepEqual(tenResponse.missingContextFields, tenResponse.requiredContextFields);
+  assert.equal(tenResponse.responseCatalogFields.length, 10);
+  assert.equal(tenResponse.reusedInternalResponseFields.length, 3);
+  assert.equal(tenResponse.requiredContextFields.length, 8);
+  assert.equal(tenResponse.availableChartFields.length, 5);
+  assert.equal(tenResponse.sourceLineFields.length, 25);
+  assert.equal(tenResponse.unresolvedRuleFields.length, 8);
+  assert.equal(tenResponse.highRiskRuleFields.length, 4);
+  assert.match(tenResponse.promptText, /日支虽已记录，但不能自动生成日应吉凶/);
+  for (const key of [
+    'direction',
+    'visitorDirection',
+    'dayResponse',
+    'timeOmen',
+    'externalOmen',
+    'weatherOmen',
+    'geographyOmen',
+    'humanOmen',
+    'illnessOutcome',
+    'recovery',
+    'death',
+    'auspicious',
+    'score',
+    'weight',
+    'probability',
+  ]) {
+    assert.equal(key in tenResponse, false);
+  }
   const dispositionFacts = chart.body.data.evidenceAnalysis.hexagramDispositionFacts;
   const dispositionVersion = chart.body.data.evidenceAnalysis.hexagramDispositionVersionFact;
   assert.equal(dispositionFacts.length, 3);
@@ -4533,6 +4564,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.equal(chart.body.data.evidenceAnalysis.summaryFact.foodContextFactCount, 1);
   assert.equal(chart.body.data.evidenceAnalysis.summaryFact.objectContextFactCount, 1);
   assert.equal(chart.body.data.evidenceAnalysis.summaryFact.topicResponseContextFactCount, 1);
+  assert.equal(chart.body.data.evidenceAnalysis.summaryFact.tenResponseContextFactCount, 1);
   assert.equal(
     chart.body.data.evidenceAnalysis.summaryFact.hexagramDispositionFactCount,
     dispositionFacts.length,
@@ -4542,7 +4574,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     chart.body.data.evidenceAnalysis.summaryFact.transitionFactCount,
     chart.body.data.evidenceAnalysis.transitionFacts.length,
   );
-  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 13);
+  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 14);
   assert.equal(
     chart.body.data.evidenceAnalysis.limitations.length,
     chart.body.data.evidenceAnalysis.limitationFacts.length,
@@ -4565,6 +4597,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.match(chart.body.data.evidenceAnalysis.promptText, /饮食专项：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /观物专项：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /诸事响应专项：/);
+  assert.match(chart.body.data.evidenceAnalysis.promptText, /占卜十应：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /反对性情资料：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /解释限制：/);
   assertPromptIsPortableTaskText(chart.body.data.evidenceAnalysis.promptText);
@@ -4617,6 +4650,8 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.match(prompt.body.data.prompt, /外应动静：当前输入未记录起卦现场/);
   assert.match(prompt.body.data.prompt, /坐端应兆：当前输入未记录以求测者所在处为中心/);
   assert.match(prompt.body.data.prompt, /万物外应：当前输入未记录耳闻目见的现场原始事实/);
+  assert.match(prompt.body.data.prompt, /占卜十应：《占卜十应诀》第954至978行/);
+  assert.match(prompt.body.data.prompt, /疾病末段不得生成诊断、痊愈或生死结论/);
   assert.match(prompt.body.data.prompt, /应期资料：应期状态：待补充事项情境/);
   assert.match(prompt.body.data.prompt, /全卦克应候选：/);
   assert.match(prompt.body.data.prompt, /资料未齐时不能计算传统克应/);

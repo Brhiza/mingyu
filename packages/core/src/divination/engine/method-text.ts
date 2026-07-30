@@ -1,6 +1,6 @@
 import type { DivinationMethodId } from '../config';
 
-export function buildTaskText(method: Exclude<DivinationMethodId, 'random'>) {
+function buildBaseTaskText(method: Exclude<DivinationMethodId, 'random'>) {
   switch (method) {
     case 'liuyao':
       return '请先核对已给出的用神选择状态：取用范围或爻位待定时须明确保留待定，不得以世应、动爻或候选顺序硬取；用神已选定时再严格围绕该用神、世应、动变、月日、伏神、空亡与作用链作答。变爻只回头作用本位动爻；应期须按用神、原神、忌神病药辨向，不得擅自改换他爻为主断或无条件套用出空、填实、冲开。';
@@ -29,4 +29,10 @@ export function buildTaskText(method: Exclude<DivinationMethodId, 'random'>) {
     default:
       return '请结合占卜信息直接回答问题，并给出明确建议。';
   }
+}
+
+export function buildTaskText(method: Exclude<DivinationMethodId, 'random'>) {
+  const baseText = buildBaseTaskText(method);
+  if (method !== 'meihua') return baseText;
+  return `${baseText}《占卜十应诀》只把正、互、变三应回指现有主卦体用、体互与用互对原体、变卦用卦对原体事实，不重复计证；方、日、刻、外、天时、地理、人事七应须另有现场资料与闭合日应算法。现场记录与算法条件未齐时，方应不得等同既有坐端应兆，日支不得自动生成日应吉凶，“火见雷为比和”不得覆盖公共五行关系，“并为体卦”不得擅改，诸应重叠不得自行设优先级，疾病末段不得生成诊断、痊愈或生死结论。`;
 }

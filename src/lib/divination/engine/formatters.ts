@@ -401,6 +401,12 @@ function formatMeihuaInfo(data: MeihuaData) {
     data.evidenceAnalysis.objectContextFact.handGuessRuleFields?.length &&
     data.evidenceAnalysis.objectContextFact.sourceLineFields?.length &&
     data.evidenceAnalysis.topicResponseContextFact &&
+    data.evidenceAnalysis.tenResponseContextFact &&
+    data.evidenceAnalysis.tenResponseContextFact.responseCatalogFields?.length === 10 &&
+    data.evidenceAnalysis.tenResponseContextFact.reusedInternalResponseFields?.length === 3 &&
+    data.evidenceAnalysis.tenResponseContextFact.sourceLineFields?.length === 25 &&
+    data.evidenceAnalysis.tenResponseContextFact.unresolvedRuleFields?.length &&
+    data.evidenceAnalysis.tenResponseContextFact.highRiskRuleFields?.length &&
     data.evidenceAnalysis.hexagramDispositionFacts?.length &&
     data.evidenceAnalysis.hexagramDispositionVersionFact &&
     data.evidenceAnalysis.timingFacts?.some((item) => item.type === '全卦克应关系') &&
@@ -452,6 +458,7 @@ function formatMeihuaInfo(data: MeihuaData) {
     `饮食专项：${evidenceAnalysis.foodContextFact.promptText}`,
     `观物专项：${evidenceAnalysis.objectContextFact.promptText}`,
     `诸事响应专项：${evidenceAnalysis.topicResponseContextFact.promptText}`,
+    `占卜十应：${evidenceAnalysis.tenResponseContextFact.promptText}`,
     `反对性情资料：${evidenceAnalysis.hexagramDispositionFacts.map((item) => item.promptText).join('；')}；${evidenceAnalysis.hexagramDispositionVersionFact.promptText}`,
     `应期资料：${timingEvidence}`,
     '结构明细：',

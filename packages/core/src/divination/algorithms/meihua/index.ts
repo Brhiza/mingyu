@@ -443,6 +443,7 @@ export type {
   MeihuaFoodContextFact,
   MeihuaObjectContextFact,
   MeihuaTopicResponseContextFact,
+  MeihuaTenResponseContextFact,
   MeihuaHexagramDispositionFact,
   MeihuaHexagramDispositionVersionFact,
   MeihuaInternalMotionFact,
