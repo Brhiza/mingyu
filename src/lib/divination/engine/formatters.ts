@@ -388,6 +388,7 @@ function formatMeihuaInfo(data: MeihuaData) {
     data.evidenceAnalysis.spatialOmenFact &&
     data.evidenceAnalysis.sensoryOmenFact &&
     data.evidenceAnalysis.foodContextFact &&
+    data.evidenceAnalysis.objectContextFact &&
     data.evidenceAnalysis.timingFacts?.some((item) => item.type === '全卦克应关系') &&
     data.evidenceAnalysis.timingFacts.some(
       (item) => item.type === '克应资料覆盖' && item.requiredContextFields?.length,
@@ -435,6 +436,7 @@ function formatMeihuaInfo(data: MeihuaData) {
     `坐端应兆：${evidenceAnalysis.spatialOmenFact.promptText}`,
     `万物外应：${evidenceAnalysis.sensoryOmenFact.promptText}`,
     `饮食专项：${evidenceAnalysis.foodContextFact.promptText}`,
+    `观物专项：${evidenceAnalysis.objectContextFact.promptText}`,
     `应期资料：${timingEvidence}`,
     '结构明细：',
     `- 月令旺衰：${seasonBasis}，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}`,

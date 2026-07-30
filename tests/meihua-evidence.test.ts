@@ -172,6 +172,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.equal(evidence.summaryFact.spatialOmenFactCount, 1);
   assert.equal(evidence.summaryFact.sensoryOmenFactCount, 1);
   assert.equal(evidence.summaryFact.foodContextFactCount, 1);
+  assert.equal(evidence.summaryFact.objectContextFactCount, 1);
   assert.equal(evidence.internalMotionFact.status, '已计算');
   assert.deepEqual(
     evidence.internalMotionFact.references.map((item) => [item.role, item.motion]),
@@ -240,6 +241,36 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   ]) {
     assert.equal(key in evidence.foodContextFact, false);
   }
+  assert.equal(evidence.objectContextFact.status, '资料不足');
+  assert.deepEqual(evidence.objectContextFact.availableContextFields, []);
+  assert.deepEqual(
+    evidence.objectContextFact.missingContextFields,
+    evidence.objectContextFact.requiredContextFields,
+  );
+  assert.equal(evidence.objectContextFact.requiredContextFields.length, 3);
+  assert.equal(evidence.objectContextFact.availableChartFields.length, 4);
+  assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 2);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[0] ?? '', /艮象.*题作“离”/);
+  for (const key of [
+    'object',
+    'material',
+    'shape',
+    'color',
+    'smell',
+    'hardness',
+    'motion',
+    'position',
+    'damage',
+    'value',
+    'use',
+    'edible',
+    'count',
+    'score',
+    'weight',
+    'probability',
+  ]) {
+    assert.equal(key in evidence.objectContextFact, false);
+  }
   assert.equal(evidence.summaryFact.transitionFactCount, evidence.transitionFacts.length);
   assert.equal(evidence.summaryFact.traditionalFactCount, evidence.traditionalFacts.length);
   assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
@@ -249,7 +280,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     .map((item) => item.type);
   assert.ok(processCounterTypes.includes('互卦响应关系限制'));
   assert.ok(processCounterTypes.includes('互卦响应月令限制'));
-  assert.equal(evidence.limitationFacts.length, 10);
+  assert.equal(evidence.limitationFacts.length, 11);
   assert.deepEqual(
     evidence.limitations,
     evidence.limitationFacts.map((item) => item.promptText),
@@ -265,6 +296,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.match(evidence.promptText, /坐端应兆：/);
   assert.match(evidence.promptText, /万物外应：/);
   assert.match(evidence.promptText, /饮食专项：/);
+  assert.match(evidence.promptText, /观物专项：/);
   assert.match(evidence.promptText, /解释限制：/);
   assert.match(evidence.promptText, /起因.*→.*过程.*；.*过程.*→.*结果/);
   assert.doesNotMatch(evidence.promptText, /权重[：=]?\d|总分[：=]?\d|成功率[：=]?\d/);
@@ -464,12 +496,42 @@ test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补�
       ]) {
         assert.equal(key in evidence.foodContextFact, false);
       }
+      assert.equal(evidence.objectContextFact.status, '资料不足');
+      assert.deepEqual(evidence.objectContextFact.availableContextFields, []);
+      assert.deepEqual(
+        evidence.objectContextFact.missingContextFields,
+        evidence.objectContextFact.requiredContextFields,
+      );
+      assert.equal(evidence.objectContextFact.requiredContextFields.length, 3);
+      assert.equal(evidence.objectContextFact.availableChartFields.length, 4);
+      assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 2);
+      for (const key of [
+        'object',
+        'material',
+        'shape',
+        'color',
+        'smell',
+        'hardness',
+        'motion',
+        'position',
+        'damage',
+        'value',
+        'use',
+        'edible',
+        'count',
+        'score',
+        'weight',
+        'probability',
+      ]) {
+        assert.equal(key in evidence.objectContextFact, false);
+      }
       assert.doesNotMatch(
         JSON.stringify({
           motion,
           external: evidence.externalMotionFact,
           sensory: evidence.sensoryOmenFact,
           food: evidence.foodContextFact,
+          object: evidence.objectContextFact,
         }),
         /"score"\s*:|"probability"\s*:|应吉之速|应凶之速|应期快于|应期迟缓/,
       );
@@ -957,6 +1019,7 @@ test('梅花起卦算式、六爻结构、卦象来源和克应资料边界应�
   assert.ok(items.some((item) => item.title === '外应动静资料覆盖'));
   assert.ok(items.some((item) => item.title === '坐端八方应兆资料覆盖'));
   assert.ok(items.some((item) => item.title === '万物耳目外应资料覆盖'));
+  assert.ok(items.some((item) => item.title === '观物专项资料与版本覆盖'));
   assert.equal(
     items.filter((item) => item.tags?.includes('应卦制化')).length,
     evidence.responseInteractionFacts.length,
@@ -1086,7 +1149,7 @@ test('梅花四种起卦入口都应生成完整可移植的对象化证据', ()
     assert.equal(evidence.counterSummaryFact.factKeys.length, evidence.counterEvidenceFacts.length);
     assert.equal(evidence.summaryFact.status, '证据链完整');
     assert.equal(evidence.calculationSteps.length, 7);
-    assert.equal(evidence.limitationFacts.length, 10);
+    assert.equal(evidence.limitationFacts.length, 11);
     assertPromptIsPortableTaskText(evidence.promptText);
   }
 });

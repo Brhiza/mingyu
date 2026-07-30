@@ -4272,6 +4272,35 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   ]) {
     assert.equal(key in chart.body.data.evidenceAnalysis.foodContextFact, false);
   }
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.status, '资料不足');
+  assert.deepEqual(chart.body.data.evidenceAnalysis.objectContextFact.availableContextFields, []);
+  assert.deepEqual(
+    chart.body.data.evidenceAnalysis.objectContextFact.missingContextFields,
+    chart.body.data.evidenceAnalysis.objectContextFact.requiredContextFields,
+  );
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.requiredContextFields.length, 3);
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.availableChartFields.length, 4);
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 2);
+  for (const key of [
+    'object',
+    'material',
+    'shape',
+    'color',
+    'smell',
+    'hardness',
+    'motion',
+    'position',
+    'damage',
+    'value',
+    'use',
+    'edible',
+    'count',
+    'score',
+    'weight',
+    'probability',
+  ]) {
+    assert.equal(key in chart.body.data.evidenceAnalysis.objectContextFact, false);
+  }
   const resultStage = chart.body.data.evidenceAnalysis.stages.find(
     (item: { stage: string }) => item.stage === 'result',
   );
@@ -4385,11 +4414,12 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.equal(chart.body.data.evidenceAnalysis.summaryFact.motionFactCount, 2);
   assert.equal(chart.body.data.evidenceAnalysis.summaryFact.sensoryOmenFactCount, 1);
   assert.equal(chart.body.data.evidenceAnalysis.summaryFact.foodContextFactCount, 1);
+  assert.equal(chart.body.data.evidenceAnalysis.summaryFact.objectContextFactCount, 1);
   assert.equal(
     chart.body.data.evidenceAnalysis.summaryFact.transitionFactCount,
     chart.body.data.evidenceAnalysis.transitionFacts.length,
   );
-  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 10);
+  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 11);
   assert.equal(
     chart.body.data.evidenceAnalysis.limitations.length,
     chart.body.data.evidenceAnalysis.limitationFacts.length,
@@ -4410,6 +4440,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.match(chart.body.data.evidenceAnalysis.promptText, /体用动静：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /万物外应：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /饮食专项：/);
+  assert.match(chart.body.data.evidenceAnalysis.promptText, /观物专项：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /解释限制：/);
   assertPromptIsPortableTaskText(chart.body.data.evidenceAnalysis.promptText);
   assert.equal(chart.body.data.evidenceAnalysis.calculationFact.status, '完整');

@@ -19,6 +19,8 @@
  *    对象类别与实际状态后，才能与原卦及所占事项合参；当前输入不含这些资料。
  * 7. 占饮食：须另行确认具体饮食或宴请之占、判断对象、专项角色、动静原始记录、
  *    宴食时间及主客关系；当前底本句读尚待校勘，不从通用体用与卦内动爻套结论。
+ * 8. 察物类：观物、射覆须另行确认待辨对象范围与专项取主口径；当前通行底本的
+ *    艮离段落未闭合，且后续占物规则尚待合校，不从通用盘面生成具体物件属性。
  */
 
 import type { MeihuaData, MeihuaSettings } from '../../../types/divination';
@@ -435,6 +437,7 @@ export type {
   MeihuaHexagramFact,
   MeihuaExternalMotionFact,
   MeihuaFoodContextFact,
+  MeihuaObjectContextFact,
   MeihuaInternalMotionFact,
   MeihuaInternalMotionReference,
   MeihuaInternalMotionRole,
