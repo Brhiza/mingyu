@@ -40,6 +40,12 @@ test('梅花：变卦应按初爻到上爻的传统爻位计算', () => {
     ),
   );
   assert.match(data.evidenceAnalysis?.calculationFact.limitation || '', /不证明卦象预测有效性/);
+  assert.equal(data.evidenceAnalysis?.sensoryOmenFact.status, '资料不足');
+  assert.equal(data.evidenceAnalysis?.sensoryOmenFact.requiredObservationFields.length, 7);
+  assert.deepEqual(
+    data.evidenceAnalysis?.sensoryOmenFact.missingObservationFields,
+    data.evidenceAnalysis?.sensoryOmenFact.requiredObservationFields,
+  );
 });
 
 test('梅花：互卦应取二三四爻为下互、三四五爻为上互', () => {

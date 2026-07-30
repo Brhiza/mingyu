@@ -4236,6 +4236,19 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     chart.body.data.evidenceAnalysis.spatialOmenFact.promptText,
     /不得把主卦、互卦、变卦、体用、数字、时间、问题文本、设备方位或行政地名补写成坐端八方应兆/,
   );
+  assert.equal(chart.body.data.evidenceAnalysis.sensoryOmenFact.status, '资料不足');
+  assert.deepEqual(chart.body.data.evidenceAnalysis.sensoryOmenFact.availableObservationFields, []);
+  assert.deepEqual(
+    chart.body.data.evidenceAnalysis.sensoryOmenFact.missingObservationFields,
+    chart.body.data.evidenceAnalysis.sensoryOmenFact.requiredObservationFields,
+  );
+  assert.equal(
+    chart.body.data.evidenceAnalysis.sensoryOmenFact.requiredObservationFields.length,
+    7,
+  );
+  for (const key of ['eventPhase', 'omen', 'date', 'score', 'weight', 'probability']) {
+    assert.equal(key in chart.body.data.evidenceAnalysis.sensoryOmenFact, false);
+  }
   const resultStage = chart.body.data.evidenceAnalysis.stages.find(
     (item: { stage: string }) => item.stage === 'result',
   );
@@ -4347,11 +4360,12 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     chart.body.data.evidenceAnalysis.responseInteractionFacts.length,
   );
   assert.equal(chart.body.data.evidenceAnalysis.summaryFact.motionFactCount, 2);
+  assert.equal(chart.body.data.evidenceAnalysis.summaryFact.sensoryOmenFactCount, 1);
   assert.equal(
     chart.body.data.evidenceAnalysis.summaryFact.transitionFactCount,
     chart.body.data.evidenceAnalysis.transitionFacts.length,
   );
-  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 8);
+  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 9);
   assert.equal(
     chart.body.data.evidenceAnalysis.limitations.length,
     chart.body.data.evidenceAnalysis.limitationFacts.length,
@@ -4370,6 +4384,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.match(chart.body.data.evidenceAnalysis.promptText, /证据汇总：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /体用党与应卦制化：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /体用动静：/);
+  assert.match(chart.body.data.evidenceAnalysis.promptText, /万物外应：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /解释限制：/);
   assertPromptIsPortableTaskText(chart.body.data.evidenceAnalysis.promptText);
   assert.equal(chart.body.data.evidenceAnalysis.calculationFact.status, '完整');
@@ -4420,6 +4435,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.match(prompt.body.data.prompt, /体用动静：卦内动静分工/);
   assert.match(prompt.body.data.prompt, /外应动静：当前输入未记录起卦现场/);
   assert.match(prompt.body.data.prompt, /坐端应兆：当前输入未记录以求测者所在处为中心/);
+  assert.match(prompt.body.data.prompt, /万物外应：当前输入未记录耳闻目见的现场原始事实/);
   assert.match(prompt.body.data.prompt, /应期资料：应期状态：待补充事项情境/);
   assert.match(prompt.body.data.prompt, /全卦克应候选：/);
   assert.match(prompt.body.data.prompt, /资料未齐时不能计算传统克应/);

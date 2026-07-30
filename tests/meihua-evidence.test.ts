@@ -170,6 +170,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   );
   assert.equal(evidence.summaryFact.motionFactCount, 2);
   assert.equal(evidence.summaryFact.spatialOmenFactCount, 1);
+  assert.equal(evidence.summaryFact.sensoryOmenFactCount, 1);
   assert.equal(evidence.internalMotionFact.status, '已计算');
   assert.deepEqual(
     evidence.internalMotionFact.references.map((item) => [item.role, item.motion]),
@@ -192,6 +193,24 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     evidence.spatialOmenFact.missingObservationFields,
     evidence.spatialOmenFact.requiredObservationFields,
   );
+  assert.equal(evidence.sensoryOmenFact.status, '资料不足');
+  assert.deepEqual(evidence.sensoryOmenFact.availableObservationFields, []);
+  assert.deepEqual(
+    evidence.sensoryOmenFact.missingObservationFields,
+    evidence.sensoryOmenFact.requiredObservationFields,
+  );
+  assert.deepEqual(evidence.sensoryOmenFact.requiredObservationFields, [
+    '耳闻目见的现场原始记录',
+    '观察发生在成卦前或成卦后',
+    '观察发生的准确时间或先后次序',
+    '声音、言语、人物、器物、鸟兽、饮食或环境等对象类别',
+    '对象实际内容、形态、完整缺损及来往动静',
+    '求测者当时明确指向或关注的对象',
+    '所占事项与该观察的现实关联',
+  ]);
+  for (const key of ['eventPhase', 'omen', 'date', 'score', 'weight', 'probability']) {
+    assert.equal(key in evidence.sensoryOmenFact, false);
+  }
   assert.equal(evidence.summaryFact.transitionFactCount, evidence.transitionFacts.length);
   assert.equal(evidence.summaryFact.traditionalFactCount, evidence.traditionalFacts.length);
   assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
@@ -201,7 +220,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     .map((item) => item.type);
   assert.ok(processCounterTypes.includes('互卦响应关系限制'));
   assert.ok(processCounterTypes.includes('互卦响应月令限制'));
-  assert.equal(evidence.limitationFacts.length, 8);
+  assert.equal(evidence.limitationFacts.length, 9);
   assert.deepEqual(
     evidence.limitations,
     evidence.limitationFacts.map((item) => item.promptText),
@@ -215,6 +234,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.match(evidence.promptText, /证据汇总：/);
   assert.match(evidence.promptText, /体用动静：/);
   assert.match(evidence.promptText, /坐端应兆：/);
+  assert.match(evidence.promptText, /万物外应：/);
   assert.match(evidence.promptText, /解释限制：/);
   assert.match(evidence.promptText, /起因.*→.*过程.*；.*过程.*→.*结果/);
   assert.doesNotMatch(evidence.promptText, /权重[：=]?\d|总分[：=]?\d|成功率[：=]?\d/);
@@ -381,8 +401,22 @@ test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补�
       assert.equal('direction' in evidence.spatialOmenFact, false);
       assert.equal('familyMember' in evidence.spatialOmenFact, false);
       assert.equal('bodyPart' in evidence.spatialOmenFact, false);
+      assert.equal(evidence.sensoryOmenFact.status, '资料不足');
+      assert.deepEqual(evidence.sensoryOmenFact.availableObservationFields, []);
+      assert.deepEqual(
+        evidence.sensoryOmenFact.missingObservationFields,
+        evidence.sensoryOmenFact.requiredObservationFields,
+      );
+      assert.equal(evidence.sensoryOmenFact.requiredObservationFields.length, 7);
+      for (const key of ['eventPhase', 'omen', 'date', 'score', 'weight', 'probability']) {
+        assert.equal(key in evidence.sensoryOmenFact, false);
+      }
       assert.doesNotMatch(
-        JSON.stringify({ motion, external: evidence.externalMotionFact }),
+        JSON.stringify({
+          motion,
+          external: evidence.externalMotionFact,
+          sensory: evidence.sensoryOmenFact,
+        }),
         /"score"\s*:|"probability"\s*:|应吉之速|应凶之速|应期快于|应期迟缓/,
       );
       checked += 1;
@@ -868,6 +902,7 @@ test('梅花起卦算式、六爻结构、卦象来源和克应资料边界应�
   assert.ok(items.some((item) => item.title === '内卦体用动静分工'));
   assert.ok(items.some((item) => item.title === '外应动静资料覆盖'));
   assert.ok(items.some((item) => item.title === '坐端八方应兆资料覆盖'));
+  assert.ok(items.some((item) => item.title === '万物耳目外应资料覆盖'));
   assert.equal(
     items.filter((item) => item.tags?.includes('应卦制化')).length,
     evidence.responseInteractionFacts.length,
@@ -997,7 +1032,7 @@ test('梅花四种起卦入口都应生成完整可移植的对象化证据', ()
     assert.equal(evidence.counterSummaryFact.factKeys.length, evidence.counterEvidenceFacts.length);
     assert.equal(evidence.summaryFact.status, '证据链完整');
     assert.equal(evidence.calculationSteps.length, 7);
-    assert.equal(evidence.limitationFacts.length, 8);
+    assert.equal(evidence.limitationFacts.length, 9);
     assertPromptIsPortableTaskText(evidence.promptText);
   }
 });

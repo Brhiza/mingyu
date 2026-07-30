@@ -3302,6 +3302,13 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               missingObservationFields: string[];
               promptText: string;
             };
+            sensoryOmenFact: {
+              status: string;
+              requiredObservationFields: string[];
+              availableObservationFields: string[];
+              missingObservationFields: string[];
+              promptText: string;
+            };
             transitionFacts: Array<{
               key: string;
               status: string;
@@ -3338,6 +3345,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               partyFactCount: number;
               responseInteractionFactCount: number;
               motionFactCount: number;
+              sensoryOmenFactCount: number;
               transitionFactCount: number;
               traditionalFactCount: number;
               counterEvidenceCount: number;
@@ -3446,6 +3454,16 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       result.evidenceAnalysis.spatialOmenFact.promptText,
       /不得把主卦、互卦、变卦、体用、数字、时间、问题文本、设备方位或行政地名补写成坐端八方应兆/,
     );
+    assert.equal(result.evidenceAnalysis.sensoryOmenFact.status, '资料不足');
+    assert.deepEqual(result.evidenceAnalysis.sensoryOmenFact.availableObservationFields, []);
+    assert.deepEqual(
+      result.evidenceAnalysis.sensoryOmenFact.missingObservationFields,
+      result.evidenceAnalysis.sensoryOmenFact.requiredObservationFields,
+    );
+    assert.equal(result.evidenceAnalysis.sensoryOmenFact.requiredObservationFields.length, 7);
+    for (const key of ['eventPhase', 'omen', 'date', 'score', 'weight', 'probability']) {
+      assert.equal(key in result.evidenceAnalysis.sensoryOmenFact, false);
+    }
     assert.ok(
       result.evidenceAnalysis.interResponseFacts.every(
         (item) => item.originalTi.name === result.tiGua.name && item.relation.includes('原体'),
@@ -3551,6 +3569,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       result.evidenceAnalysis.responseInteractionFacts.length,
     );
     assert.equal(result.evidenceAnalysis.summaryFact.motionFactCount, 2);
+    assert.equal(result.evidenceAnalysis.summaryFact.sensoryOmenFactCount, 1);
     assert.equal(
       result.evidenceAnalysis.summaryFact.transitionFactCount,
       result.evidenceAnalysis.transitionFacts.length,
@@ -3563,7 +3582,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       result.evidenceAnalysis.summaryFact.timingFactCount,
       result.evidenceAnalysis.timingFacts.length,
     );
-    assert.equal(result.evidenceAnalysis.limitationFacts.length, 8);
+    assert.equal(result.evidenceAnalysis.limitationFacts.length, 9);
     assert.equal(
       result.evidenceAnalysis.limitations.length,
       result.evidenceAnalysis.limitationFacts.length,
@@ -3597,6 +3616,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.match(result.evidenceAnalysis.promptText, /证据汇总：/);
     assert.match(result.evidenceAnalysis.promptText, /体用党与应卦制化：/);
     assert.match(result.evidenceAnalysis.promptText, /体用动静：/);
+    assert.match(result.evidenceAnalysis.promptText, /万物外应：/);
     assert.match(result.evidenceAnalysis.promptText, /解释限制：/);
     assertPromptIsPortableTaskText(result.evidenceAnalysis.promptText);
     assert.equal(result.evidenceAnalysis.calculationFact.status, '完整');
@@ -3643,6 +3663,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.match(promptText, /体用动静：卦内动静分工/);
     assert.match(promptText, /外应动静：当前输入未记录起卦现场/);
     assert.match(promptText, /坐端应兆：当前输入未记录以求测者所在处为中心/);
+    assert.match(promptText, /万物外应：当前输入未记录耳闻目见的现场原始事实/);
     assert.match(promptText, /应期资料：应期状态：待补充事项情境/);
     assert.match(promptText, /全卦克应候选：/);
     assert.match(promptText, /资料未齐时不能计算传统克应/);

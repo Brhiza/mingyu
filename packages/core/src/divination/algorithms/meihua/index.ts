@@ -15,6 +15,8 @@
  *    需要另有观察输入，不能由动爻、数字或时间起卦方式反推。
  * 5. 察坐端：八方应兆须以求测者所在处为中心，另有现场实际方位与真实兆象记录；
  *    当前输入不含这些资料，不由主互变卦方位、题目文字、设备位置或行政地名补造。
+ * 6. 察万物外应：耳闻目见须保留现场原始记录，区分成卦前后、观察时序、
+ *    对象类别与实际状态后，才能与原卦及所占事项合参；当前输入不含这些资料。
  */
 
 import type { MeihuaData, MeihuaSettings } from '../../../types/divination';
@@ -438,6 +440,8 @@ export type {
   MeihuaResponseInteractionFact,
   MeihuaResponseReference,
   MeihuaResponseRole,
+  MeihuaSensoryOmenFact,
+  MeihuaSpatialOmenFact,
   MeihuaStageEvidence,
   MeihuaStageCoverageFact,
   MeihuaTimingFact,
