@@ -4187,6 +4187,23 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     chart.body.data.evidenceAnalysis.interResponseFacts.map((item: { role: string }) => item.role),
     ['体互', '用互'],
   );
+  assert.deepEqual(
+    chart.body.data.evidenceAnalysis.responseReferences.map((item: { role: string }) => item.role),
+    ['主卦用卦', '体互', '用互', '变卦用卦'],
+  );
+  assert.equal(chart.body.data.evidenceAnalysis.partyFact.status, '已计算');
+  assert.equal(chart.body.data.evidenceAnalysis.partyFact.classification, '体用党均未达多项');
+  assert.equal(chart.body.data.evidenceAnalysis.partyFact.tiPartyCount, 0);
+  assert.equal(chart.body.data.evidenceAnalysis.partyFact.yongPartyCount, 1);
+  assert.equal(chart.body.data.evidenceAnalysis.responseInteractionFacts.length, 4);
+  assert.ok(
+    chart.body.data.evidenceAnalysis.responseInteractionFacts.every(
+      (item: Record<string, unknown>) =>
+        item.status === '路径成立' &&
+        item.effectDirection === '克体之患受制' &&
+        String(item.promptText).includes('实际效力仍须合看旺衰与其他应卦路径'),
+    ),
+  );
   const resultStage = chart.body.data.evidenceAnalysis.stages.find(
     (item: { stage: string }) => item.stage === 'result',
   );
@@ -4277,6 +4294,11 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     chart.body.data.evidenceAnalysis.summaryFact.interResponseFactCount,
     chart.body.data.evidenceAnalysis.interResponseFacts.length,
   );
+  assert.equal(chart.body.data.evidenceAnalysis.summaryFact.partyFactCount, 1);
+  assert.equal(
+    chart.body.data.evidenceAnalysis.summaryFact.responseInteractionFactCount,
+    chart.body.data.evidenceAnalysis.responseInteractionFacts.length,
+  );
   assert.equal(
     chart.body.data.evidenceAnalysis.summaryFact.transitionFactCount,
     chart.body.data.evidenceAnalysis.transitionFacts.length,
@@ -4298,6 +4320,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   );
   assert.match(chart.body.data.evidenceAnalysis.promptText, /【梅花主互变关系推进结构化证据】/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /证据汇总：/);
+  assert.match(chart.body.data.evidenceAnalysis.promptText, /体用党与应卦制化：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /解释限制：/);
   assertPromptIsPortableTaskText(chart.body.data.evidenceAnalysis.promptText);
   assert.equal(chart.body.data.evidenceAnalysis.calculationFact.status, '完整');

@@ -3267,6 +3267,21 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               constraints: string[];
               originalTi: { name: string };
             }>;
+            responseReferences: Array<{
+              role: string;
+              relationToOriginalTi: string;
+            }>;
+            partyFact: {
+              status: string;
+              classification: string;
+              tiPartyCount: number;
+              yongPartyCount: number;
+            };
+            responseInteractionFacts: Array<{
+              status: string;
+              effectDirection: string;
+              promptText: string;
+            }>;
             transitionFacts: Array<{
               key: string;
               status: string;
@@ -3299,6 +3314,9 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               hexagramFactCount: number;
               yaoFactCount: number;
               stageFactCount: number;
+              interResponseFactCount: number;
+              partyFactCount: number;
+              responseInteractionFactCount: number;
               transitionFactCount: number;
               traditionalFactCount: number;
               counterEvidenceCount: number;
@@ -3353,6 +3371,23 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.deepEqual(
       result.evidenceAnalysis.interResponseFacts.map((item) => item.role),
       ['体互', '用互'],
+    );
+    assert.deepEqual(
+      result.evidenceAnalysis.responseReferences.map((item) => item.role),
+      ['主卦用卦', '体互', '用互', '变卦用卦'],
+    );
+    assert.equal(result.evidenceAnalysis.partyFact.status, '已计算');
+    assert.equal(result.evidenceAnalysis.partyFact.classification, '体用党均未达多项');
+    assert.equal(result.evidenceAnalysis.partyFact.tiPartyCount, 0);
+    assert.equal(result.evidenceAnalysis.partyFact.yongPartyCount, 1);
+    assert.equal(result.evidenceAnalysis.responseInteractionFacts.length, 4);
+    assert.ok(
+      result.evidenceAnalysis.responseInteractionFacts.every(
+        (item) =>
+          item.status === '路径成立' &&
+          item.effectDirection === '克体之患受制' &&
+          item.promptText.includes('实际效力仍须合看旺衰与其他应卦路径'),
+      ),
     );
     assert.ok(
       result.evidenceAnalysis.interResponseFacts.every(
@@ -3438,6 +3473,11 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       result.evidenceAnalysis.summaryFact.interResponseFactCount,
       result.evidenceAnalysis.interResponseFacts.length,
     );
+    assert.equal(result.evidenceAnalysis.summaryFact.partyFactCount, 1);
+    assert.equal(
+      result.evidenceAnalysis.summaryFact.responseInteractionFactCount,
+      result.evidenceAnalysis.responseInteractionFacts.length,
+    );
     assert.equal(
       result.evidenceAnalysis.summaryFact.transitionFactCount,
       result.evidenceAnalysis.transitionFacts.length,
@@ -3482,6 +3522,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     );
     assert.match(result.evidenceAnalysis.promptText, /【梅花主互变关系推进结构化证据】/);
     assert.match(result.evidenceAnalysis.promptText, /证据汇总：/);
+    assert.match(result.evidenceAnalysis.promptText, /体用党与应卦制化：/);
     assert.match(result.evidenceAnalysis.promptText, /解释限制：/);
     assertPromptIsPortableTaskText(result.evidenceAnalysis.promptText);
     assert.equal(result.evidenceAnalysis.calculationFact.status, '完整');

@@ -25,6 +25,60 @@ export interface MeihuaInterResponseEvidence {
   limitation: '互卦响应事实只描述体互、用互分别对原体的五行关系，并按生体宜旺、克体宜衰及非克体应卦乘旺核验响应卦月令旺衰；原体月令旺衰只由主卦体卦事实登记一次，不在每项响应中重复计证；不得把体互与用互重新组成一对体用，也不得直接解释为现实吉凶、成败或概率';
 }
 
+export type MeihuaResponseRole = '主卦用卦' | '体互' | '用互' | '变卦用卦';
+
+export interface MeihuaResponseReference {
+  key: string;
+  ownerFactKey: string;
+  stage: MeihuaEvidenceStageKey;
+  role: MeihuaResponseRole;
+  name: string;
+  element: string;
+  seasonState: string;
+  relationToOriginalTi: '生体' | '克体' | '与体比和' | '体生应卦' | '体克应卦';
+}
+
+export interface MeihuaPartyFact {
+  key: 'meihua:party';
+  status: '已计算' | '资料不足';
+  classification:
+    | '仅见体党较多'
+    | '仅见用党较多'
+    | '体党与用党均较多'
+    | '体用同五行，党类重合'
+    | '体用党均未达多项'
+    | '资料不足';
+  originalTi: { name: string; element: string };
+  originalYong: { name: string; element: string };
+  expectedResponseRoles: Array<'体互' | '用互' | '变卦用卦'>;
+  actualResponseRoles: Array<'体互' | '用互' | '变卦用卦'>;
+  missingResponseRoles: Array<'体互' | '用互' | '变卦用卦'>;
+  tiPartyMembers: MeihuaResponseReference[];
+  yongPartyMembers: MeihuaResponseReference[];
+  tiPartyCount: number;
+  yongPartyCount: number;
+  support: string[];
+  constraints: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '体党、用党事实只比较体互、用互、变卦用卦与原体、原用是否同五行；两项及以上才登记“党多”方向，资料缺失或体用同五行时不作相反裁断，也不得按党数换算强弱分数、吉凶或成功率';
+}
+
+export interface MeihuaResponseInteractionFact {
+  key: string;
+  status: '路径成立';
+  controller: MeihuaResponseReference;
+  target: MeihuaResponseReference;
+  relation: string;
+  targetEffect: '生体' | '克体';
+  effectDirection: '生体之助受制' | '克体之患受制';
+  support: string[];
+  constraints: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '应卦制化事实只登记用卦、互卦、变卦之间可复算的五行克制路径，以及其削弱生体之助或缓解克体之患的方向；月令旺衰与其他路径仍须并看，不得按路径数量、多数票或先后顺序裁定最终强弱、现实吉凶或成功率';
+}
+
 export interface MeihuaStageEvidence {
   key: string;
   status: '已计算' | '卦象资料缺失';
@@ -128,6 +182,8 @@ export interface MeihuaCounterEvidenceFact {
     | '用卦月令限制'
     | '互卦响应关系限制'
     | '互卦响应月令限制'
+    | '用党限制'
+    | '应卦制化限制'
     | '现实复核限制';
   status: '已触发';
   detail: string;
@@ -244,13 +300,15 @@ export interface MeihuaSummaryFact {
   yaoFactCount: number;
   stageFactCount: number;
   interResponseFactCount: number;
+  partyFactCount: number;
+  responseInteractionFactCount: number;
   transitionFactCount: number;
   traditionalFactCount: number;
   counterEvidenceCount: number;
   timingFactCount: number;
   promptText: string;
   sources: string[];
-  limitation: '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图或唯一日期';
+  limitation: '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图或唯一日期';
 }
 
 export interface MeihuaLimitationFact {
@@ -286,6 +344,9 @@ export interface MeihuaEvidenceAnalysis {
   stageCoverageFact: MeihuaStageCoverageFact;
   stages: MeihuaStageEvidence[];
   interResponseFacts: MeihuaInterResponseEvidence[];
+  responseReferences: MeihuaResponseReference[];
+  partyFact: MeihuaPartyFact;
+  responseInteractionFacts: MeihuaResponseInteractionFact[];
   transitionFacts: MeihuaTransitionFact[];
   transitions: string[];
   timingFacts: MeihuaTimingFact[];
@@ -313,6 +374,10 @@ const STAGE_FACT_LIMITATION =
   '阶段关系事实只描述主卦与变卦体用，或互卦体互、用互分别对原体的五行关系，并按体宜旺、生体宜旺、克体宜衰及非克体应卦乘旺核验月令旺衰；同一原体的月令旺衰只由主卦体卦事实登记一次，不随阶段或响应数量重复计证；阶段标签、支持或限制不得直接解释为现实起因、过程、结果、吉凶或成功率' as const;
 const INTER_RESPONSE_FACT_LIMITATION =
   '互卦响应事实只描述体互、用互分别对原体的五行关系，并按生体宜旺、克体宜衰及非克体应卦乘旺核验响应卦月令旺衰；原体月令旺衰只由主卦体卦事实登记一次，不在每项响应中重复计证；不得把体互与用互重新组成一对体用，也不得直接解释为现实吉凶、成败或概率' as const;
+const PARTY_FACT_LIMITATION =
+  '体党、用党事实只比较体互、用互、变卦用卦与原体、原用是否同五行；两项及以上才登记“党多”方向，资料缺失或体用同五行时不作相反裁断，也不得按党数换算强弱分数、吉凶或成功率' as const;
+const RESPONSE_INTERACTION_FACT_LIMITATION =
+  '应卦制化事实只登记用卦、互卦、变卦之间可复算的五行克制路径，以及其削弱生体之助或缓解克体之患的方向；月令旺衰与其他路径仍须并看，不得按路径数量、多数票或先后顺序裁定最终强弱、现实吉凶或成功率' as const;
 const HEXAGRAM_FACT_LIMITATION =
   '主互变卦象事实只记录当前上下经卦、卦名与卦符；不得由卦名或阶段位置直接推断现实事件、人物、吉凶、成败或应期' as const;
 const YAO_FACT_LIMITATION =
@@ -334,7 +399,7 @@ const TIMING_SUMMARY_LIMITATION =
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只证明起卦取数、主互变卦象、六爻动爻、主变体用、互卦响应、推进、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期' as const;
 const SUMMARY_FACT_LIMITATION =
-  '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图或唯一日期' as const;
+  '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图或唯一日期' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束梅花起卦、卦象、逐爻、体用、推进、传统卦爻辞与应期资料能够支持的解释范围，不得被反向当作现实吉凶、婚育疾病、伤亡诉讼、事件概率或固定应期的证据' as const;
 
@@ -744,6 +809,178 @@ function createProcessStage(params: {
   };
   stage.promptText = `${formatStage(stage)}；依据：${stage.basis}；支持：${stage.support.join('、') || '未见额外增强'}；限制：${stage.constraints.join('、') || '未见明确盘内限制'}；体互与用互均为应，分别对原体核验，不在互卦内部重分体用`;
   return stage;
+}
+
+function relationToOriginalBody(
+  responseElement: string,
+  originalTiElement: string,
+): MeihuaResponseReference['relationToOriginalTi'] {
+  if (responseElement === originalTiElement) return '与体比和';
+  if (isSheng(responseElement, originalTiElement)) return '生体';
+  if (isSheng(originalTiElement, responseElement)) return '体生应卦';
+  if (isKe(responseElement, originalTiElement)) return '克体';
+  return '体克应卦';
+}
+
+function buildResponseReferences(
+  stages: MeihuaStageEvidence[],
+  interResponseFacts: MeihuaInterResponseEvidence[],
+): MeihuaResponseReference[] {
+  const origin = stages.find((item) => item.stage === 'origin');
+  const result = stages.find((item) => item.stage === 'result');
+  const originalTiElement = origin?.ti?.element;
+  if (!origin?.yong || !originalTiElement) return [];
+
+  const references: MeihuaResponseReference[] = [
+    {
+      key: 'meihua:response:origin-yong',
+      ownerFactKey: origin.key,
+      stage: 'origin',
+      role: '主卦用卦',
+      name: origin.yong.name,
+      element: origin.yong.element,
+      seasonState: origin.yong.seasonState,
+      relationToOriginalTi: relationToOriginalBody(origin.yong.element, originalTiElement),
+    },
+    ...interResponseFacts.map((fact): MeihuaResponseReference => ({
+      key: `meihua:response:${fact.role === '体互' ? 'inter-ti' : 'inter-yong'}`,
+      ownerFactKey: fact.key,
+      stage: 'process',
+      role: fact.role,
+      name: fact.response.name,
+      element: fact.response.element,
+      seasonState: fact.response.seasonState,
+      relationToOriginalTi: relationToOriginalBody(fact.response.element, originalTiElement),
+    })),
+  ];
+  if (result?.yong) {
+    references.push({
+      key: 'meihua:response:result-yong',
+      ownerFactKey: result.key,
+      stage: 'result',
+      role: '变卦用卦',
+      name: result.yong.name,
+      element: result.yong.element,
+      seasonState: result.yong.seasonState,
+      relationToOriginalTi: relationToOriginalBody(result.yong.element, originalTiElement),
+    });
+  }
+  return references;
+}
+
+function buildPartyFact(
+  stages: MeihuaStageEvidence[],
+  responseReferences: MeihuaResponseReference[],
+): MeihuaPartyFact {
+  const origin = stages.find((item) => item.stage === 'origin');
+  if (!origin?.ti || !origin.yong) {
+    throw new Error('梅花体党、用党事实缺少主卦原体或原用资料。');
+  }
+  const expectedResponseRoles = ['体互', '用互', '变卦用卦'] as const;
+  const partyCandidates = responseReferences.filter(
+    (item): item is MeihuaResponseReference & { role: (typeof expectedResponseRoles)[number] } =>
+      item.role !== '主卦用卦',
+  );
+  const actualResponseRoles = expectedResponseRoles.filter((role) =>
+    partyCandidates.some((item) => item.role === role),
+  );
+  const missingResponseRoles = expectedResponseRoles.filter(
+    (role) => !actualResponseRoles.includes(role),
+  );
+  const tiPartyMembers = partyCandidates.filter((item) => item.element === origin.ti?.element);
+  const yongPartyMembers = partyCandidates.filter((item) => item.element === origin.yong?.element);
+  const status = missingResponseRoles.length ? '资料不足' : '已计算';
+  const sameElement = origin.ti.element === origin.yong.element;
+  const tiPartyIsMultiple = tiPartyMembers.length >= 2;
+  const yongPartyIsMultiple = yongPartyMembers.length >= 2;
+  const classification: MeihuaPartyFact['classification'] =
+    status === '资料不足'
+      ? '资料不足'
+      : sameElement
+        ? '体用同五行，党类重合'
+        : tiPartyIsMultiple && yongPartyIsMultiple
+          ? '体党与用党均较多'
+          : tiPartyIsMultiple
+            ? '仅见体党较多'
+            : yongPartyIsMultiple
+              ? '仅见用党较多'
+              : '体用党均未达多项';
+  const support =
+    status === '已计算' && !sameElement && tiPartyIsMultiple
+      ? [`体党${tiPartyMembers.length}项，原体同党较多`]
+      : [];
+  const constraints =
+    status === '已计算' && !sameElement && yongPartyIsMultiple
+      ? [`用党${yongPartyMembers.length}项，原用同党较多，体势受用党牵制`]
+      : [];
+  const fact: MeihuaPartyFact = {
+    key: 'meihua:party',
+    status,
+    classification,
+    originalTi: { name: origin.ti.name, element: origin.ti.element },
+    originalYong: { name: origin.yong.name, element: origin.yong.element },
+    expectedResponseRoles: [...expectedResponseRoles],
+    actualResponseRoles,
+    missingResponseRoles,
+    tiPartyMembers,
+    yongPartyMembers,
+    tiPartyCount: tiPartyMembers.length,
+    yongPartyCount: yongPartyMembers.length,
+    support,
+    constraints,
+    promptText: '',
+    sources: [
+      '《梅花易数》卷二《体用总诀》体党多而体势盛、用党多则体势衰',
+      '主卦原体、原用与体互、用互、变卦用卦五行逐项比较',
+    ],
+    limitation: PARTY_FACT_LIMITATION,
+  };
+  const tiMembers = fact.tiPartyMembers.map((item) => `${item.role}${item.name}${item.element}`);
+  const yongMembers = fact.yongPartyMembers.map(
+    (item) => `${item.role}${item.name}${item.element}`,
+  );
+  fact.promptText =
+    status === '资料不足'
+      ? `体用党资料不完整：缺少${missingResponseRoles.join('、')}，现有体党${tiMembers.join('、') || '未见'}、用党${yongMembers.join('、') || '未见'}，不得据缺失资料裁定党多`
+      : `体党${fact.tiPartyCount}项（${tiMembers.join('、') || '未见'}），用党${fact.yongPartyCount}项（${yongMembers.join('、') || '未见'}），归类为${classification}；支持：${support.join('、') || '未形成体党多方向'}；限制：${constraints.join('、') || '未形成用党多方向'}`;
+  return fact;
+}
+
+function buildResponseInteractionFacts(
+  responseReferences: MeihuaResponseReference[],
+): MeihuaResponseInteractionFact[] {
+  const facts: MeihuaResponseInteractionFact[] = [];
+  for (const target of responseReferences) {
+    if (target.relationToOriginalTi !== '生体' && target.relationToOriginalTi !== '克体') {
+      continue;
+    }
+    for (const controller of responseReferences) {
+      if (controller.key === target.key || !isKe(controller.element, target.element)) continue;
+      const easesConstraint = target.relationToOriginalTi === '克体';
+      const direction = easesConstraint ? '克体之患受制' : '生体之助受制';
+      const detail = `${direction}：${controller.role}${controller.name}${controller.element}克${target.role}${target.name}${target.element}`;
+      const fact: MeihuaResponseInteractionFact = {
+        key: `meihua:response-interaction:${controller.key.split(':').at(-1)}:${target.key.split(':').at(-1)}`,
+        status: '路径成立',
+        controller,
+        target,
+        relation: `${controller.role}克${target.role}`,
+        targetEffect: target.relationToOriginalTi,
+        effectDirection: direction,
+        support: easesConstraint ? [detail] : [],
+        constraints: easesConstraint ? [] : [detail],
+        promptText: '',
+        sources: [
+          '《梅花易数》卷三《体用》生体之卦受克则其吉受制、克体之卦受克则其患稍解',
+          '《梅花易数》卷三《衰旺论》生克仍须合看各卦月令盛衰',
+        ],
+        limitation: RESPONSE_INTERACTION_FACT_LIMITATION,
+      };
+      fact.promptText = `${detail}；制化方月令${controller.seasonState}，被制方月令${target.seasonState}；这里只登记制化方向，实际效力仍须合看旺衰与其他应卦路径`;
+      facts.push(fact);
+    }
+  }
+  return facts;
 }
 
 function stageRelations(stage: MeihuaStageEvidence) {
@@ -1172,8 +1409,12 @@ function classifyCounterType(
   return '体用关系限制';
 }
 
-function buildCounterEvidenceFacts(stages: MeihuaStageEvidence[]): MeihuaCounterEvidenceFact[] {
-  return stages.flatMap((stage) =>
+function buildCounterEvidenceFacts(
+  stages: MeihuaStageEvidence[],
+  partyFact: MeihuaPartyFact,
+  responseInteractionFacts: MeihuaResponseInteractionFact[],
+): MeihuaCounterEvidenceFact[] {
+  const stageFacts: MeihuaCounterEvidenceFact[] = stages.flatMap((stage) =>
     unique(stage.constraints).map((detail, index) => ({
       key: `meihua:counter:${stage.stage}:${index + 1}`,
       ownerStageKey: stage.key,
@@ -1186,6 +1427,32 @@ function buildCounterEvidenceFacts(stages: MeihuaStageEvidence[]): MeihuaCounter
       limitation: COUNTER_FACT_LIMITATION,
     })),
   );
+  const originStage = stages.find((item) => item.stage === 'origin');
+  const partyFacts: MeihuaCounterEvidenceFact[] = partyFact.constraints.map((detail, index) => ({
+    key: `meihua:counter:party:${index + 1}`,
+    ownerStageKey: originStage?.key ?? 'meihua:stage:origin',
+    stage: 'origin',
+    type: '用党限制',
+    status: '已触发',
+    detail,
+    promptText: `体用党合看：${detail}`,
+    sources: partyFact.sources,
+    limitation: COUNTER_FACT_LIMITATION,
+  }));
+  const interactionFacts: MeihuaCounterEvidenceFact[] = responseInteractionFacts.flatMap((fact) =>
+    fact.constraints.map((detail, index) => ({
+      key: `meihua:counter:response-interaction:${responseInteractionFacts.indexOf(fact) + 1}:${index + 1}`,
+      ownerStageKey: `meihua:stage:${fact.target.stage}`,
+      stage: fact.target.stage,
+      type: '应卦制化限制' as const,
+      status: '已触发' as const,
+      detail,
+      promptText: fact.promptText,
+      sources: fact.sources,
+      limitation: COUNTER_FACT_LIMITATION,
+    })),
+  );
+  return [...stageFacts, ...partyFacts, ...interactionFacts];
 }
 
 function buildTimingFacts(
@@ -1279,6 +1546,8 @@ function buildSummaryFact(params: {
   stageCoverageFact: MeihuaStageCoverageFact;
   stages: MeihuaStageEvidence[];
   interResponseFacts: MeihuaInterResponseEvidence[];
+  partyFact: MeihuaPartyFact;
+  responseInteractionFacts: MeihuaResponseInteractionFact[];
   transitionFacts: MeihuaTransitionFact[];
   traditionalFacts: MeihuaTraditionalFact[];
   counterEvidenceFacts: MeihuaCounterEvidenceFact[];
@@ -1296,6 +1565,8 @@ function buildSummaryFact(params: {
       params.stageCoverageFact.key,
       ...params.stages.map((item) => item.key),
       ...params.interResponseFacts.map((item) => item.key),
+      params.partyFact.key,
+      ...params.responseInteractionFacts.map((item) => item.key),
       ...params.transitionFacts.map((item) => item.key),
       ...params.traditionalFacts.map((item) => item.key),
       params.counterSummaryFact.key,
@@ -1319,13 +1590,15 @@ function buildSummaryFact(params: {
     yaoFactCount: params.yaoStructureFacts.length,
     stageFactCount: params.stages.length,
     interResponseFactCount: params.interResponseFacts.length,
+    partyFactCount: 1,
+    responseInteractionFactCount: params.responseInteractionFacts.length,
     transitionFactCount: params.transitionFacts.length,
     traditionalFactCount: params.traditionalFacts.length,
     counterEvidenceCount: params.counterEvidenceFacts.length,
     timingFactCount: params.timingFacts.length,
-    promptText: `证据状态${status}：主互变卦象${params.hexagramStructureFacts.length}项、逐爻${params.yaoStructureFacts.length}项、阶段关系${params.stages.length}项、互卦响应${params.interResponseFacts.length}项、阶段推进${params.transitionFacts.length}项、传统卦爻辞${params.traditionalFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
+    promptText: `证据状态${status}：主互变卦象${params.hexagramStructureFacts.length}项、逐爻${params.yaoStructureFacts.length}项、阶段关系${params.stages.length}项、互卦响应${params.interResponseFacts.length}项、体用党1项、应卦制化${params.responseInteractionFacts.length}项、阶段推进${params.transitionFacts.length}项、传统卦爻辞${params.traditionalFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
     sources: [
-      '全部起卦、主互变卦象、逐爻、主变体用、互卦响应、推进、传统文本、反证与应期事实逐项汇总',
+      '全部起卦、主互变卦象、逐爻、主变体用、互卦响应、体用党、应卦制化、推进、传统文本、反证与应期事实逐项汇总',
     ],
     limitation: SUMMARY_FACT_LIMITATION,
   };
@@ -1339,6 +1612,8 @@ function buildCalculationSteps(params: {
   yaoStructureFacts: MeihuaYaoFact[];
   stageCoverageFact: MeihuaStageCoverageFact;
   stages: MeihuaStageEvidence[];
+  partyFact: MeihuaPartyFact;
+  responseInteractionFacts: MeihuaResponseInteractionFact[];
   transitionFacts: MeihuaTransitionFact[];
   counterEvidenceFacts: MeihuaCounterEvidenceFact[];
   timingFacts: MeihuaTimingFact[];
@@ -1415,10 +1690,12 @@ function buildCalculationSteps(params: {
         coverageStatus: params.stageCoverageFact.status,
         stageFactCount: params.stages.length,
         incompleteStages: params.stageCoverageFact.incompleteStages,
+        partyStatus: params.partyFact.status,
+        responseInteractionFactCount: params.responseInteractionFacts.length,
       },
       dependsOnStepKeys: ['meihua:calculation:hexagrams', 'meihua:calculation:yaos'],
-      promptText: `${params.stageCoverageFact.promptText}；计算主变体用及体互、用互分别对原体的五行关系与月令旺衰`,
-      sources: ['主卦、互卦、变卦上下经卦与原动爻所在经卦的体用、体互、用互规则'],
+      promptText: `${params.stageCoverageFact.promptText}；计算主变体用、体互与用互对原体的关系、体用党及应卦间制化路径`,
+      sources: ['主卦、互卦、变卦上下经卦与原动爻所在经卦的体用、体互、用互、体用党和应卦制化规则'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
@@ -1467,6 +1744,8 @@ function buildCalculationSteps(params: {
         hexagramFactCount: params.summaryFact.hexagramFactCount,
         stageFactCount: params.summaryFact.stageFactCount,
         interResponseFactCount: params.summaryFact.interResponseFactCount,
+        partyFactCount: params.summaryFact.partyFactCount,
+        responseInteractionFactCount: params.summaryFact.responseInteractionFactCount,
         transitionFactCount: params.summaryFact.transitionFactCount,
         counterEvidenceCount: params.summaryFact.counterEvidenceCount,
         timingFactCount: params.summaryFact.timingFactCount,
@@ -1495,6 +1774,8 @@ function buildLimitationFacts(params: {
   stageCoverageFact: MeihuaStageCoverageFact;
   stages: MeihuaStageEvidence[];
   interResponseFacts: MeihuaInterResponseEvidence[];
+  partyFact: MeihuaPartyFact;
+  responseInteractionFacts: MeihuaResponseInteractionFact[];
   transitionFacts: MeihuaTransitionFact[];
   traditionalFacts: MeihuaTraditionalFact[];
   counterEvidenceFacts: MeihuaCounterEvidenceFact[];
@@ -1533,10 +1814,12 @@ function buildLimitationFacts(params: {
         params.stageCoverageFact.key,
         ...params.stages.map((item) => item.key),
         ...params.interResponseFacts.map((item) => item.key),
+        params.partyFact.key,
+        ...params.responseInteractionFacts.map((item) => item.key),
       ],
       promptText:
-        '体用生克只描述卦内关系，不直接等于现实吉凶；起因、过程和结果标签只表示主卦、互卦、变卦的分析层级，不证明现实必然按同样阶段发生',
-      sources: ['主变体用、互卦响应与逐阶段月令事实'],
+        '体用生克、体用党与应卦制化只描述卦内关系和方向，不按同党数、制化路径数或阶段先后裁定最终强弱与现实吉凶；起因、过程和结果标签只表示分析层级，不证明现实必然按同样阶段发生',
+      sources: ['主变体用、互卦响应、体用党、应卦制化与逐阶段月令事实'],
     },
     {
       key: 'meihua:limitation:transitions-counters',
@@ -1662,6 +1945,9 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     );
   }
 
+  const responseReferences = buildResponseReferences(stages, interResponseFacts);
+  const partyFact = buildPartyFact(stages, responseReferences);
+  const responseInteractionFacts = buildResponseInteractionFacts(responseReferences);
   const stageCoverageFact = buildStageCoverageFact(stages);
   const transitionFacts = buildTransitionFacts(stages);
   const transitions = transitionFacts.map((item) => item.promptText);
@@ -1682,7 +1968,11 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     sources: ['逐项动爻、卦数、月令、体用、克应资料覆盖与期限边界汇总'],
     limitation: TIMING_SUMMARY_LIMITATION,
   };
-  const counterEvidenceFacts = buildCounterEvidenceFacts(stages);
+  const counterEvidenceFacts = buildCounterEvidenceFacts(
+    stages,
+    partyFact,
+    responseInteractionFacts,
+  );
   const counterEvidence = unique(counterEvidenceFacts.map((item) => item.detail));
   const counterSummaryFact: MeihuaCounterSummaryFact = {
     key: 'meihua:counter-summary',
@@ -1691,7 +1981,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     promptText: counterEvidenceFacts.length
       ? `当前${stages.length}个阶段共记录${counterEvidenceFacts.length}项明确限制，须逐项与现实条件复核`
       : '当前阶段未见明确体用或月令限制，但仍须核实现实风险与外部条件',
-    sources: ['主卦原体月令条件单次登记，以及各阶段主变体用与互卦响应限制逐项汇总'],
+    sources: ['主卦原体月令条件单次登记，以及各阶段主变体用、互卦响应、用党和应卦制化限制逐项汇总'],
     limitation: COUNTER_SUMMARY_LIMITATION,
   };
   const isRandomMethod = data.calculation?.methodKey === 'random';
@@ -1713,6 +2003,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     stageCoverageFact,
     stages,
     interResponseFacts,
+    partyFact,
+    responseInteractionFacts,
     transitionFacts,
     traditionalFacts,
     counterEvidenceFacts,
@@ -1728,6 +2020,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     yaoStructureFacts,
     stageCoverageFact,
     stages,
+    partyFact,
+    responseInteractionFacts,
     transitionFacts,
     counterEvidenceFacts,
     timingFacts,
@@ -1745,6 +2039,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     stageCoverageFact,
     stages,
     interResponseFacts,
+    partyFact,
+    responseInteractionFacts,
     transitionFacts,
     traditionalFacts,
     counterEvidenceFacts,
@@ -1846,6 +2142,20 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       tags: [fact.role, '原体', fact.relation],
     })),
     {
+      level: partyFact.constraints.length ? '限制' : '辅证',
+      title: '体党与用党',
+      detail: `${partyFact.promptText}；边界：${partyFact.limitation}`,
+      source: partyFact.sources.join('、'),
+      tags: ['体党', '用党', partyFact.status, partyFact.classification],
+    },
+    ...responseInteractionFacts.map((fact): PromptEvidenceItem => ({
+      level: fact.effectDirection === '生体之助受制' ? '限制' : '辅证',
+      title: `${fact.controller.role}制${fact.target.role}`,
+      detail: `${fact.promptText}；边界：${fact.limitation}`,
+      source: fact.sources.join('、'),
+      tags: ['应卦制化', fact.effectDirection, fact.controller.role, fact.target.role],
+    })),
+    {
       level: '应期',
       title: '应期资料覆盖与边界',
       detail: `${timingSummaryFact.promptText}；${timingFacts.map((item) => item.promptText).join('；')}；统一边界：${timingSummaryFact.limitation}`,
@@ -1898,6 +2208,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     ...formatPromptEvidenceBundle(evidence),
     `计算链：${calculationChain.join(' → ')}。`,
     `证据汇总：${summaryFact.promptText}。`,
+    `体用党与应卦制化：${partyFact.promptText}；${responseInteractionFacts.map((item) => item.promptText).join('；') || '未见生体或克体应卦被其他应卦克制的路径'}。`,
     `推进关系：${transitionFacts.map((item) => item.promptText).join('；') || '只有主卦阶段，未形成可核验的互变推进链'}`,
     `应期资料：${timingFacts.map((item) => item.promptText).join('；')}`,
     `解释限制：${limitations.join('；')}。`,
@@ -1919,6 +2230,9 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     stageCoverageFact,
     stages,
     interResponseFacts,
+    responseReferences,
+    partyFact,
+    responseInteractionFacts,
     transitionFacts,
     transitions,
     timingFacts,
@@ -1939,6 +2253,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       '主卦定起因与当前体用，互卦以体互、用互分别响应原体表示过程，变卦定变化后的体用关系。',
       '起卦输入、取余算式、六爻阴阳、互卦构造和动爻翻转均作为可复核计算事实保留。',
       '主卦与变卦计算体用生克，互卦分别计算体互、用互对原体的关系与月建旺衰，不在互卦内部重分体用。',
+      '体党、用党只比较体互、用互和变卦用卦与原体、原用的同五行聚集；应卦制化逐项登记其他应卦对生体、克体之卦的克制路径，并保留月令强弱待综合。',
       '动爻只标记变化层位，卦数只保留原始计算资料；缺少行卧坐立或外应动静、事件远近和时间尺度时，不裁定统一快慢或换算绝对日期。',
       '只输出支持、反证、盘面事实与资料边界，不生成吉凶总分、成功率或无依据应期。',
     ],

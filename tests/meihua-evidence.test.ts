@@ -12,19 +12,39 @@ const fixedDate = new Date('2025-01-01T08:00:00+08:00');
 const trigrams = Object.values(trigramsByIndex);
 const trigramByName = new Map(trigrams.map((item) => [item.name, item]));
 const trigramByLines = new Map(trigrams.map((item) => [item.lines.join(''), item]));
+const elementGenerates: Record<string, string> = {
+  木: '火',
+  火: '土',
+  土: '金',
+  金: '水',
+  水: '木',
+};
+const elementControls: Record<string, string> = {
+  木: '土',
+  土: '水',
+  水: '火',
+  火: '金',
+  金: '木',
+};
 const hexagramByTrigrams = new Map(
   hexagramsData.map((item) => [`${item.upper}:${item.lower}`, item]),
 );
 
 function expectedInterRelation(role: '体互' | '用互', response: string, originalTi: string) {
-  const generates: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
-  const controls: Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
   if (response === originalTi) return `${role}与原体比和`;
-  if (generates[response] === originalTi) return `${role}生原体`;
-  if (generates[originalTi] === response) return `原体生${role}`;
-  if (controls[response] === originalTi) return `${role}克原体`;
-  if (controls[originalTi] === response) return `原体克${role}`;
+  if (elementGenerates[response] === originalTi) return `${role}生原体`;
+  if (elementGenerates[originalTi] === response) return `原体生${role}`;
+  if (elementControls[response] === originalTi) return `${role}克原体`;
+  if (elementControls[originalTi] === response) return `原体克${role}`;
   throw new Error(`无法核对${role}${response}与原体${originalTi}的五行关系`);
+}
+
+function expectedResponseRelation(response: string, originalTi: string) {
+  if (response === originalTi) return '与体比和';
+  if (elementGenerates[response] === originalTi) return '生体';
+  if (elementGenerates[originalTi] === response) return '体生应卦';
+  if (elementControls[response] === originalTi) return '克体';
+  return '体克应卦';
 }
 
 function buildMeihuaCase(
@@ -137,6 +157,11 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.equal(evidence.summaryFact.yaoFactCount, evidence.yaoStructureFacts.length);
   assert.equal(evidence.summaryFact.stageFactCount, evidence.stages.length);
   assert.equal(evidence.summaryFact.interResponseFactCount, evidence.interResponseFacts.length);
+  assert.equal(evidence.summaryFact.partyFactCount, 1);
+  assert.equal(
+    evidence.summaryFact.responseInteractionFactCount,
+    evidence.responseInteractionFacts.length,
+  );
   assert.equal(evidence.summaryFact.transitionFactCount, evidence.transitionFacts.length);
   assert.equal(evidence.summaryFact.traditionalFactCount, evidence.traditionalFacts.length);
   assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
@@ -415,6 +440,173 @@ test('梅花体用旺衰应按生克方向合看且同一原体月令只登记�
   assert.deepEqual([...interCoverage].sort(), expectedInterCoverage.sort());
 });
 
+test('梅花体党用党与应卦制化应从互变五行逐项重算且不得按数量裁定最终强弱', () => {
+  const base = generateMeihua(fixedDate, { method: 'number', number: 123 });
+  const partyCoverage = new Set<string>();
+  const interactionCoverage = new Set<string>();
+  let checked = 0;
+
+  for (const main of hexagramsData) {
+    for (let movingYao = 1; movingYao <= 6; movingYao += 1) {
+      const data = buildMeihuaCase(base, main, movingYao);
+      const evidence = analyzeMeihuaEvidence(data);
+      const origin = evidence.stages.find((item) => item.stage === 'origin');
+      assert.ok(origin?.ti && origin.yong);
+      assert.equal(evidence.responseReferences.length, 4);
+      assert.deepEqual(
+        evidence.responseReferences.map((item) => item.role),
+        ['主卦用卦', '体互', '用互', '变卦用卦'],
+      );
+      assert.ok(
+        evidence.responseReferences.every(
+          (item) =>
+            item.relationToOriginalTi ===
+            expectedResponseRelation(item.element, origin.ti?.element ?? ''),
+        ),
+      );
+
+      const partyCandidates = evidence.responseReferences.filter(
+        (item) => item.role !== '主卦用卦',
+      );
+      const expectedTiPartyKeys = partyCandidates
+        .filter((item) => item.element === origin.ti?.element)
+        .map((item) => item.key);
+      const expectedYongPartyKeys = partyCandidates
+        .filter((item) => item.element === origin.yong?.element)
+        .map((item) => item.key);
+      assert.equal(evidence.partyFact.status, '已计算');
+      assert.deepEqual(evidence.partyFact.missingResponseRoles, []);
+      assert.deepEqual(
+        evidence.partyFact.tiPartyMembers.map((item) => item.key),
+        expectedTiPartyKeys,
+      );
+      assert.deepEqual(
+        evidence.partyFact.yongPartyMembers.map((item) => item.key),
+        expectedYongPartyKeys,
+      );
+      assert.equal(evidence.partyFact.tiPartyCount, expectedTiPartyKeys.length);
+      assert.equal(evidence.partyFact.yongPartyCount, expectedYongPartyKeys.length);
+      const sameElement = origin.ti.element === origin.yong.element;
+      const tiPartyIsMultiple = expectedTiPartyKeys.length >= 2;
+      const yongPartyIsMultiple = expectedYongPartyKeys.length >= 2;
+      const expectedPartyClassification = sameElement
+        ? '体用同五行，党类重合'
+        : tiPartyIsMultiple && yongPartyIsMultiple
+          ? '体党与用党均较多'
+          : tiPartyIsMultiple
+            ? '仅见体党较多'
+            : yongPartyIsMultiple
+              ? '仅见用党较多'
+              : '体用党均未达多项';
+      assert.equal(evidence.partyFact.classification, expectedPartyClassification);
+      assert.equal(evidence.partyFact.support.length, !sameElement && tiPartyIsMultiple ? 1 : 0);
+      assert.equal(
+        evidence.partyFact.constraints.length,
+        !sameElement && yongPartyIsMultiple ? 1 : 0,
+      );
+      partyCoverage.add(evidence.partyFact.classification);
+
+      const expectedInteractions = evidence.responseReferences.flatMap((target) => {
+        if (target.relationToOriginalTi !== '生体' && target.relationToOriginalTi !== '克体') {
+          return [];
+        }
+        return evidence.responseReferences
+          .filter(
+            (controller) =>
+              controller.key !== target.key &&
+              elementControls[controller.element] === target.element,
+          )
+          .map(
+            (controller) =>
+              `${controller.key}>${target.key}:${target.relationToOriginalTi === '克体' ? '克体之患受制' : '生体之助受制'}`,
+          );
+      });
+      const actualInteractions = evidence.responseInteractionFacts.map(
+        (item) => `${item.controller.key}>${item.target.key}:${item.effectDirection}`,
+      );
+      assert.deepEqual(actualInteractions, expectedInteractions);
+      assert.equal(
+        new Set(evidence.responseInteractionFacts.map((item) => item.key)).size,
+        actualInteractions.length,
+      );
+      assert.ok(
+        evidence.responseInteractionFacts.every(
+          (item) =>
+            item.status === '路径成立' &&
+            item.controller.seasonState &&
+            item.target.seasonState &&
+            item.promptText.includes('实际效力仍须合看旺衰与其他应卦路径') &&
+            item.limitation.includes('不得按路径数量、多数票或先后顺序'),
+        ),
+      );
+      for (const item of evidence.responseInteractionFacts) {
+        interactionCoverage.add(item.effectDirection);
+        assert.equal(item.support.length, item.effectDirection === '克体之患受制' ? 1 : 0);
+        assert.equal(item.constraints.length, item.effectDirection === '生体之助受制' ? 1 : 0);
+      }
+      assert.deepEqual(
+        evidence.counterEvidenceFacts
+          .filter((item) => item.type === '用党限制')
+          .map((item) => item.detail),
+        evidence.partyFact.constraints,
+      );
+      assert.deepEqual(
+        evidence.counterEvidenceFacts
+          .filter((item) => item.type === '应卦制化限制')
+          .map((item) => item.detail),
+        evidence.responseInteractionFacts.flatMap((item) => item.constraints),
+      );
+      assert.equal(evidence.summaryFact.partyFactCount, 1);
+      assert.equal(
+        evidence.summaryFact.responseInteractionFactCount,
+        evidence.responseInteractionFacts.length,
+      );
+      assert.ok(evidence.summaryFact.factKeys.includes(evidence.partyFact.key));
+      assert.ok(
+        evidence.responseInteractionFacts.every((item) =>
+          evidence.summaryFact.factKeys.includes(item.key),
+        ),
+      );
+      checked += 1;
+    }
+  }
+
+  assert.equal(checked, 384);
+  assert.deepEqual([...partyCoverage].sort(), [
+    '仅见体党较多',
+    '仅见用党较多',
+    '体用党均未达多项',
+    '体用同五行，党类重合',
+  ]);
+  assert.deepEqual([...interactionCoverage].sort(), ['克体之患受制', '生体之助受制']);
+});
+
+test('梅花固定反例应保留六项不同限制并登记克体应卦受制路径', () => {
+  const evidence = generateMeihua(new Date('2026-01-15T12:00:00+08:00'), {
+    method: 'number',
+    number: 15,
+  }).evidenceAnalysis;
+  assert.ok(evidence);
+  assert.equal(evidence.counterEvidenceFacts.length, 6);
+  assert.deepEqual(
+    evidence.responseInteractionFacts.map((item) => [
+      item.controller.role,
+      item.target.role,
+      item.effectDirection,
+    ]),
+    [
+      ['体互', '主卦用卦', '克体之患受制'],
+      ['体互', '用互', '克体之患受制'],
+    ],
+  );
+  assert.equal(
+    evidence.counterEvidenceFacts.filter((item) => item.type === '应卦制化限制').length,
+    0,
+  );
+  assert.match(evidence.promptText, /体互震木克主卦用卦艮土/);
+  assert.match(evidence.promptText, /体互震木克用互坤土/);
+});
+
 test('梅花证据应重算主互变关系，不采信伪造的体用与互卦派生字段', () => {
   const data = generateMeihua(fixedDate, { method: 'number', number: 123 });
   const fake = { name: '乾', element: '金', nature: '天' };
@@ -510,6 +702,11 @@ test('梅花起卦算式、六爻结构、卦象来源和克应资料边界应�
   assert.equal(items.filter((item) => item.tags?.includes('阶段推进')).length, 2);
   assert.ok(items.some((item) => item.title === '体互对原体关系'));
   assert.ok(items.some((item) => item.title === '用互对原体关系'));
+  assert.ok(items.some((item) => item.title === '体党与用党'));
+  assert.equal(
+    items.filter((item) => item.tags?.includes('应卦制化')).length,
+    evidence.responseInteractionFacts.length,
+  );
   assert.ok(items.some((item) => item.level === '应期' && item.title.includes('资料覆盖')));
   assert.equal(evidence.transitionFacts.length, 2);
   assert.ok(
@@ -575,6 +772,10 @@ test('梅花旧结果缺少逐爻或互卦阶段时应明确标记缺口且不�
   assert.equal(rebuilt.transitionFacts.length, 1);
   assert.equal(rebuilt.transitionFacts[0].status, '跨阶段缺口');
   assert.equal(rebuilt.summaryFact.status, '部分资料缺失');
+  assert.equal(rebuilt.partyFact.status, '资料不足');
+  assert.deepEqual(rebuilt.partyFact.missingResponseRoles, ['体互', '用互']);
+  assert.deepEqual(rebuilt.partyFact.support, []);
+  assert.deepEqual(rebuilt.partyFact.constraints, []);
   assert.equal(
     rebuilt.calculationSteps.find((item) => item.stage === '阶段推进核验')?.status,
     '资料不足',
