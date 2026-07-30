@@ -47,7 +47,7 @@ function buildShenShaFacts(
     '只定位神煞所在干支',
     '须核对是否入课、入传或临干支',
     '不得单项定吉凶',
-    '当前只登记四十五项可复算神煞，不代表《六壬大全》神煞总目录已经穷尽',
+    '当前只登记五十一项可复算神煞规则；天合在天德落地支的月份无目标，不代表《六壬大全》神煞总目录已经穷尽',
   ];
   const addFact = (
     fact: Omit<LiurenShenShaFact, 'sources' | 'limitations'> & {
@@ -397,6 +397,34 @@ function buildShenShaFacts(
     });
   }
 
+  const stemCombinationMap: Record<string, string> = {
+    甲: '己',
+    己: '甲',
+    乙: '庚',
+    庚: '乙',
+    丙: '辛',
+    辛: '丙',
+    丁: '壬',
+    壬: '丁',
+    戊: '癸',
+    癸: '戊',
+  };
+  const tianHeMarker = tianDeMarker ? stemCombinationMap[tianDeMarker] : undefined;
+  if (tianHeMarker) {
+    const tianHe = getDayStemResidence(tianHeMarker);
+    addFact({
+      name: '天合',
+      target: tianHe,
+      targetType: '地支',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: `天德${tianDeMarker}取五合${tianHeMarker}，依十干寄宫落${tianHe}`,
+      source: '《六壬指南注解》卷四“月煞”天合表与“天德合干神五合”起法',
+      extraLimitations: ['天德落申、亥、寅、巳四个地支的月份没有天合表值，本结果不补造目标'],
+    });
+  }
+
   const yueDeMap: Record<string, string> = {
     寅: '丙',
     午: '丙',
@@ -423,6 +451,20 @@ function buildShenShaFacts(
       input: monthBranch,
       rule: `寅午戌月丙、申子辰月壬、亥卯未月甲、巳酉丑月庚；${yueDeMarker}依十干寄宫落${yueDe}`,
       source: '《六壬大全》卷首“逐月神煞”表与卷七“德庆课”',
+    });
+
+    const yueHeMarker = stemCombinationMap[yueDeMarker];
+    const yueHe = getDayStemResidence(yueHeMarker);
+    addFact({
+      name: '月合',
+      target: yueHe,
+      targetType: '地支',
+      category: '逐月神煞',
+      basis: '月建',
+      input: monthBranch,
+      rule: `月德${yueDeMarker}取五合${yueHeMarker}，依十干寄宫落${yueHe}`,
+      source: '《六壬指南注解》卷四“月煞”月合表与“月德合干神五合”起法',
+      extraSources: ['《六壬大全》卷一“逐月神煞”月合表'],
     });
   }
 
@@ -452,6 +494,77 @@ function buildShenShaFacts(
       rule: '正月午起，逐月顺行两支',
       source: '《六壬大全》卷一“逐月神煞”表',
     });
+  }
+
+  const monthShenShaOrder = [
+    '寅',
+    '卯',
+    '辰',
+    '巳',
+    '午',
+    '未',
+    '申',
+    '酉',
+    '戌',
+    '亥',
+    '子',
+    '丑',
+  ];
+  const monthShenShaIndex = monthShenShaOrder.indexOf(monthBranch);
+  if (monthShenShaIndex >= 0) {
+    const monthShenShaTables = [
+      {
+        name: '会神',
+        targets: ['未', '戌', '寅', '亥', '酉', '子', '丑', '午', '巳', '卯', '申', '辰'],
+        rule: '正月至十二月依次取未、戌、寅、亥、酉、子、丑、午、巳、卯、申、辰',
+        source: '《六壬指南注解》卷四“月煞”会神表与歌诀',
+        extraSources: ['《六壬大全》卷一“逐月神煞”会神表', '《六壬粹言》“趋谒”会神十二月表'],
+      },
+      {
+        name: '信神',
+        targets: ['申', '戌', '寅', '丑', '亥', '辰', '巳', '未', '巳', '未', '申', '戌'],
+        rule: '正月至十二月依次取申、戌、寅、丑、亥、辰、巳、未、巳、未、申、戌',
+        source: '《六壬指南注解》卷四“月煞”信神表与歌诀',
+        extraSources: ['《六壬大全》卷一“逐月神煞”信神表'],
+        extraLimitations: [
+          '《六壬大全》另列酉起顺十二的“信煞”，《六壬粹言》则称该项为“信神”；本结果采用《大六壬神煞指南》固定信神表，不合并两套同名近名规则',
+        ],
+      },
+      {
+        name: '游神',
+        targets: ['丑', '丑', '丑', '子', '子', '子', '亥', '亥', '亥', '戌', '戌', '戌'],
+        rule: '春丑、夏子、秋亥、冬戌',
+        source: '《六壬指南注解》卷四“月煞”游神表',
+        extraSources: ['《六壬大全》卷七正文游神四季表', '《六壬粹言》“行人”游神四季表'],
+        extraLimitations: [
+          '《六壬大全》卷首简表另见“秋戌冬亥”的次序差异；本结果采用《六壬指南注解》《六壬粹言》及《六壬大全》正文一致的秋亥冬戌版本',
+          '只登记游神所在支，不因单项出现自动判断行人已归、将归或不归',
+        ],
+      },
+      {
+        name: '戏神',
+        targets: ['巳', '巳', '巳', '子', '子', '子', '酉', '酉', '酉', '辰', '辰', '辰'],
+        rule: '春巳、夏子、秋酉、冬辰',
+        source: '《六壬指南注解》卷四“月煞”戏神表',
+        extraSources: ['《六壬大全》卷一“逐月神煞”戏神表', '《六壬粹言》“行人”戏神四季表'],
+        extraLimitations: ['只登记戏神所在支，不因单项出现自动判断亲友或行人到达时间'],
+      },
+    ] as const;
+
+    for (const table of monthShenShaTables) {
+      addFact({
+        name: table.name,
+        target: table.targets[monthShenShaIndex],
+        targetType: '地支',
+        category: '逐月神煞',
+        basis: '月建',
+        input: monthBranch,
+        rule: table.rule,
+        source: table.source,
+        extraSources: [...table.extraSources],
+        extraLimitations: 'extraLimitations' in table ? [...table.extraLimitations] : [],
+      });
+    }
   }
 
   const riDeMap: Record<string, string> = {
