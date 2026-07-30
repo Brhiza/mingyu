@@ -4283,11 +4283,19 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.selectionOrderFields.length, 4);
   assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.relationRuleFields.length, 5);
   assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.quantityRuleFields.length, 6);
-  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.sourceLineFields.length, 3);
-  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 6);
+  assert.equal(
+    chart.body.data.evidenceAnalysis.objectContextFact.bodySelectionRuleFields.length,
+    5,
+  );
+  assert.equal(
+    chart.body.data.evidenceAnalysis.objectContextFact.lineStructureRuleFields.length,
+    3,
+  );
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.sourceLineFields.length, 5);
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 10);
   assert.match(
     chart.body.data.evidenceAnalysis.objectContextFact.promptText,
-    /占物类例.*第935至938行/,
+    /物数为体诀.*第939至941行/,
   );
   for (const key of [
     'object',
@@ -4303,6 +4311,12 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     'use',
     'edible',
     'count',
+    'bodyCandidate',
+    'dominantTrigram',
+    'dominantElement',
+    'yangCount',
+    'yinCount',
+    'flying',
     'score',
     'weight',
     'probability',

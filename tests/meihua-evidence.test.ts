@@ -259,14 +259,20 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.equal(evidence.objectContextFact.selectionOrderFields.length, 4);
   assert.equal(evidence.objectContextFact.relationRuleFields.length, 5);
   assert.equal(evidence.objectContextFact.quantityRuleFields.length, 6);
-  assert.equal(evidence.objectContextFact.sourceLineFields.length, 3);
-  assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 6);
+  assert.equal(evidence.objectContextFact.bodySelectionRuleFields.length, 5);
+  assert.equal(evidence.objectContextFact.lineStructureRuleFields.length, 3);
+  assert.equal(evidence.objectContextFact.sourceLineFields.length, 5);
+  assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 10);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[0] ?? '', /艮象.*题作“离”/);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[1] ?? '', /困于株林.*困于株木/);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[2] ?? '', /体生方圆曲直/);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[3] ?? '', /用变互卦/);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[4] ?? '', /互卦数例/);
-  assert.match(evidence.objectContextFact.unresolvedRuleFields[5] ?? '', /观物看变爻为主/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[5] ?? '', /凡卦之多者/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[6] ?? '', /非金非石/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[7] ?? '', /不入五行物/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[8] ?? '', /阳爻多/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[9] ?? '', /观物看变爻为主/);
   for (const key of [
     'object',
     'material',
@@ -281,6 +287,12 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     'use',
     'edible',
     'count',
+    'bodyCandidate',
+    'dominantTrigram',
+    'dominantElement',
+    'yangCount',
+    'yinCount',
+    'flying',
     'score',
     'weight',
     'probability',
@@ -637,8 +649,10 @@ test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补�
       assert.equal(evidence.objectContextFact.selectionOrderFields.length, 4);
       assert.equal(evidence.objectContextFact.relationRuleFields.length, 5);
       assert.equal(evidence.objectContextFact.quantityRuleFields.length, 6);
-      assert.equal(evidence.objectContextFact.sourceLineFields.length, 3);
-      assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 6);
+      assert.equal(evidence.objectContextFact.bodySelectionRuleFields.length, 5);
+      assert.equal(evidence.objectContextFact.lineStructureRuleFields.length, 3);
+      assert.equal(evidence.objectContextFact.sourceLineFields.length, 5);
+      assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 10);
       for (const key of [
         'object',
         'material',
@@ -653,6 +667,12 @@ test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补�
         'use',
         'edible',
         'count',
+        'bodyCandidate',
+        'dominantTrigram',
+        'dominantElement',
+        'yangCount',
+        'yinCount',
+        'flying',
         'score',
         'weight',
         'probability',
@@ -1180,7 +1200,7 @@ test('梅花起卦算式、六爻结构、卦象来源和克应资料边界应�
   assert.ok(items.some((item) => item.title === '外应动静资料覆盖'));
   assert.ok(items.some((item) => item.title === '坐端八方应兆资料覆盖'));
   assert.ok(items.some((item) => item.title === '万物耳目外应资料覆盖'));
-  assert.ok(items.some((item) => item.title === '观物专项、占物类例与版本覆盖'));
+  assert.ok(items.some((item) => item.title === '观物专项、占物类例、物数为体与版本覆盖'));
   assert.ok(items.some((item) => item.title === '诸事响应专项情境与风险边界'));
   assert.equal(items.filter((item) => item.title.includes('反对性情卦画资料')).length, 3);
   assert.ok(items.some((item) => item.title === '诸卦反对性情底本异文边界'));

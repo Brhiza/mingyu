@@ -3326,6 +3326,8 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               selectionOrderFields: string[];
               relationRuleFields: string[];
               quantityRuleFields: string[];
+              bodySelectionRuleFields: string[];
+              lineStructureRuleFields: string[];
               sourceLineFields: string[];
               unresolvedRuleFields: string[];
               promptText: string;
@@ -3556,9 +3558,11 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.equal(result.evidenceAnalysis.objectContextFact.selectionOrderFields.length, 4);
     assert.equal(result.evidenceAnalysis.objectContextFact.relationRuleFields.length, 5);
     assert.equal(result.evidenceAnalysis.objectContextFact.quantityRuleFields.length, 6);
-    assert.equal(result.evidenceAnalysis.objectContextFact.sourceLineFields.length, 3);
-    assert.equal(result.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 6);
-    assert.match(result.evidenceAnalysis.objectContextFact.promptText, /占物类例.*第935至938行/);
+    assert.equal(result.evidenceAnalysis.objectContextFact.bodySelectionRuleFields.length, 5);
+    assert.equal(result.evidenceAnalysis.objectContextFact.lineStructureRuleFields.length, 3);
+    assert.equal(result.evidenceAnalysis.objectContextFact.sourceLineFields.length, 5);
+    assert.equal(result.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 10);
+    assert.match(result.evidenceAnalysis.objectContextFact.promptText, /物数为体诀.*第939至941行/);
     for (const key of [
       'object',
       'material',
@@ -3573,6 +3577,12 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       'use',
       'edible',
       'count',
+      'bodyCandidate',
+      'dominantTrigram',
+      'dominantElement',
+      'yangCount',
+      'yinCount',
+      'flying',
       'score',
       'weight',
       'probability',

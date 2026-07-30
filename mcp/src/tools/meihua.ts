@@ -50,7 +50,7 @@ export function registerMeihuaTool(server: McpServer) {
     'divine_meihua',
     {
       description:
-        '梅花易数起卦：支持时间起卦、数字起卦、随机起卦，timeTrigram 作为兼容旧参数按时间起卦计算，生成主卦、互卦、变卦、体用生克分析、坐端与万物耳目外应资料边界、饮食、观物占物规则及诸事响应专项情境与风险边界、反对性情综错卦、抽象卦义与版本边界、全卦克应候选及事项情境边界',
+        '梅花易数起卦：支持时间起卦、数字起卦、随机起卦，timeTrigram 作为兼容旧参数按时间起卦计算，生成主卦、互卦、变卦、体用生克分析、坐端与万物耳目外应资料边界、饮食、观物占物与物数为体规则及诸事响应专项情境与风险边界、反对性情综错卦、抽象卦义与版本边界、全卦克应候选及事项情境边界',
       inputSchema: meihuaSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -69,7 +69,7 @@ export function registerMeihuaTool(server: McpServer) {
     'meihua_prompt',
     {
       description:
-        '梅花易数起卦并生成结构化 AI 解读提示词：一次调用返回卦盘数据（含主互变卦、体用生克、坐端与万物耳目外应资料边界、饮食、观物占物规则及诸事响应专项情境与风险边界、反对性情综错卦、抽象卦义与版本边界、全卦克应候选与事项情境边界）和可直接复制给 AI 的提示词',
+        '梅花易数起卦并生成结构化 AI 解读提示词：一次调用返回卦盘数据（含主互变卦、体用生克、坐端与万物耳目外应资料边界、饮食、观物占物与物数为体规则及诸事响应专项情境与风险边界、反对性情综错卦、抽象卦义与版本边界、全卦克应候选与事项情境边界）和可直接复制给 AI 的提示词',
       inputSchema: meihuaPromptSchema.shape,
       outputSchema: {
         result: z.unknown().describe('梅花易数卦盘数据'),
