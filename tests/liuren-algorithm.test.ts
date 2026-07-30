@@ -957,7 +957,7 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
         item.rule &&
         item.sources.length > 0 &&
         item.limitations.length >= 4 &&
-        item.limitations.some((limitation) => limitation.includes('一百一十六项可复算神煞规则')),
+        item.limitations.some((limitation) => limitation.includes('一百一十九项可复算神煞规则')),
     ),
   );
 });
@@ -1614,6 +1614,21 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     子: ['戌', '巳', '未', '巳', '戌', '辰', '酉', '巳', '亥', '子'],
     丑: ['酉', '巳', '辰', '午', '丑', '辰', '戌', '申', '戌', '亥'],
   };
+  const nextAuditedMonthFactNames = ['谩语', '信煞', '天鼠'];
+  const nextAuditedMonthTargets: Record<string, readonly string[]> = {
+    寅: ['午', '酉', '子'],
+    卯: ['未', '戌', '亥'],
+    辰: ['申', '亥', '戌'],
+    巳: ['酉', '子', '酉'],
+    午: ['戌', '丑', '申'],
+    未: ['亥', '寅', '未'],
+    申: ['子', '卯', '午'],
+    酉: ['丑', '辰', '巳'],
+    戌: ['寅', '巳', '辰'],
+    亥: ['卯', '午', '卯'],
+    子: ['辰', '未', '寅'],
+    丑: ['巳', '申', '丑'],
+  };
 
   for (const [date, monthBranch, expectedTargets, expectedTianHe] of monthCases) {
     const result = generateLiuren(new Date(date));
@@ -1625,6 +1640,7 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
         ...newlyAuditedMonthFactNames,
         ...latestAuditedMonthFactNames,
         ...currentAuditedMonthFactNames,
+        ...nextAuditedMonthFactNames,
       ].map((name) => facts.get(name)?.target),
       [
         ...expectedTargets,
@@ -1633,6 +1649,7 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
         ...newlyAuditedMonthTargets[monthBranch],
         ...latestAuditedMonthTargets[monthBranch],
         ...currentAuditedMonthTargets[monthBranch],
+        ...nextAuditedMonthTargets[monthBranch],
       ],
       `${monthBranch}月逐月神煞表`,
     );
@@ -1646,6 +1663,7 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       ...newlyAuditedMonthFactNames,
       ...latestAuditedMonthFactNames,
       ...currentAuditedMonthFactNames,
+      ...nextAuditedMonthFactNames,
     ]) {
       const fact = facts.get(name);
       if (name === '天合' && expectedTianHe === undefined) {
@@ -1712,6 +1730,12 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       '天转',
       '地转',
       '四废',
+      '雌虎',
+      '天猴',
+      '天牛',
+      '大煞',
+      '转煞',
+      '进爵',
     ]) {
       assert.equal(facts.has(deferredName), false, `${deferredName}暂缓或异名不应重复登记`);
     }
@@ -2076,6 +2100,38 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     boundaryFacts.get('月厌')?.limitations.join('；') ?? '',
     /螣蛇、白虎、朱雀、勾陈、玄武、丁符/,
   );
+  assert.match(boundaryFacts.get('谩语')?.rule ?? '', /正月从午起逐月顺行/);
+  assert.match(
+    boundaryFacts.get('谩语')?.sources.join('；') ?? '',
+    /六壬大全.+六壬秘本.+六壬指南注解/,
+  );
+  assert.match(
+    boundaryFacts.get('谩语')?.limitations.join('；') ?? '',
+    /天空、太阴、朱雀、刑害、空亡及课传.+不因单项出现自动判断现实人物撒谎/,
+  );
+  assert.match(boundaryFacts.get('信煞')?.rule ?? '', /正月从酉起逐月顺行/);
+  assert.match(
+    boundaryFacts.get('信煞')?.sources.join('；') ?? '',
+    /六壬大全.+六壬粹言.+六壬管辂神书/,
+  );
+  assert.match(
+    boundaryFacts.get('信煞')?.limitations.join('；') ?? '',
+    /酉顺十二表称为“信神”.+另有申、戌、寅.+主名“信煞”.+与现有信神分层/,
+  );
+  assert.match(
+    boundaryFacts.get('信煞')?.limitations.join('；') ?? '',
+    /朱雀、天鸡、二马、课传、旺衰、刑冲破害及空亡.+不因单项出现自动判断来信/,
+  );
+  assert.match(boundaryFacts.get('天鼠')?.rule ?? '', /正月从子起逐月逆行/);
+  assert.match(boundaryFacts.get('天鼠')?.sources.join('；') ?? '', /六壬秘本.+六壬指南注解.+壬归/);
+  assert.match(
+    boundaryFacts.get('天鼠')?.limitations.join('；') ?? '',
+    /天鼠即小耗.+岁煞小耗另依太岁定位.+不生成或合并岁煞小耗/,
+  );
+  assert.match(
+    boundaryFacts.get('天鼠')?.limitations.join('；') ?? '',
+    /临支、月厌、螣蛇、白虎、空亡.+不因单项出现自动判断鼠患/,
+  );
 
   const tianSheCases = [
     ['2020-02-05T12:00:00+08:00', '寅', '戊寅', '寅'],
@@ -2194,8 +2250,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const hasTianShe = facts.has('天赦');
     assert.equal(
       shenShaFacts.length,
-      114 + Number(hasTianHe) + Number(hasTianShe),
-      `${result.ganzhi.day}应有一百一十四项固定神煞及条件性天合、天赦`,
+      117 + Number(hasTianHe) + Number(hasTianShe),
+      `${result.ganzhi.day}应有一百一十七项固定神煞及条件性天合、天赦`,
     );
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(
