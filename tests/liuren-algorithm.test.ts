@@ -957,7 +957,7 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
         item.rule &&
         item.sources.length > 0 &&
         item.limitations.length >= 4 &&
-        item.limitations.some((limitation) => limitation.includes('一百二十三项可复算神煞规则')),
+        item.limitations.some((limitation) => limitation.includes('一百二十四项可复算神煞规则')),
     ),
   );
 });
@@ -1629,20 +1629,20 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     子: ['辰', '未', '寅'],
     丑: ['巳', '申', '丑'],
   };
-  const finalAuditedMonthFactNames = ['下丧', '灭门', '转煞', '四废'];
+  const finalAuditedMonthFactNames = ['下丧', '灭门', '转煞', '四废', '死别'];
   const finalAuditedMonthTargets: Record<string, readonly string[]> = {
-    寅: ['未', '亥', '卯', '酉'],
-    卯: ['辰', '午', '卯', '酉'],
-    辰: ['丑', '丑', '卯', '酉'],
-    巳: ['戌', '申', '午', '子'],
-    午: ['未', '卯', '午', '子'],
-    未: ['辰', '戌', '午', '子'],
-    申: ['丑', '巳', '酉', '卯'],
-    酉: ['戌', '子', '酉', '卯'],
-    戌: ['未', '未', '酉', '卯'],
-    亥: ['辰', '寅', '子', '午'],
-    子: ['丑', '酉', '子', '午'],
-    丑: ['戌', '辰', '子', '午'],
+    寅: ['未', '亥', '卯', '酉', '戌'],
+    卯: ['辰', '午', '卯', '酉', '戌'],
+    辰: ['丑', '丑', '卯', '酉', '戌'],
+    巳: ['戌', '申', '午', '子', '未'],
+    午: ['未', '卯', '午', '子', '未'],
+    未: ['辰', '戌', '午', '子', '未'],
+    申: ['丑', '巳', '酉', '卯', '辰'],
+    酉: ['戌', '子', '酉', '卯', '辰'],
+    戌: ['未', '未', '酉', '卯', '辰'],
+    亥: ['辰', '寅', '子', '午', '丑'],
+    子: ['丑', '酉', '子', '午', '丑'],
+    丑: ['戌', '辰', '子', '午', '丑'],
   };
 
   for (const [date, monthBranch, expectedTargets, expectedTianHe] of monthCases) {
@@ -1697,7 +1697,6 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       '地解',
       '皇恩',
       '大德',
-      '死别',
       '天贼',
       '忧神',
       '相负',
@@ -2104,6 +2103,23 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     boundaryFacts.get('四废')?.limitations.join('；') ?? '',
     /四时冲破、天刑或丧车.+四废、门神、丧车、天刑并列.+不据同值表补造其他名称/,
   );
+  assert.match(boundaryFacts.get('死别')?.rule ?? '', /春戌、夏未、秋辰、冬丑.+春戌逆行四季/);
+  assert.match(
+    boundaryFacts.get('死别')?.sources.join('；') ?? '',
+    /六壬指南注解.+壬归.+八月丁巳日.+末传辰/,
+  );
+  assert.match(
+    boundaryFacts.get('死别')?.limitations.join('；') ?? '',
+    /六壬大全.+生分死别.+六壬秘本.+六壬管辂神书.+普通断语或组合结果.+不作为死别神煞起法/,
+  );
+  assert.match(
+    boundaryFacts.get('死别')?.limitations.join('；') ?? '',
+    /类神三传、月建、天将、旺衰、墓绝及其他神煞.+只登记死别所在支/,
+  );
+  assert.match(
+    boundaryFacts.get('死别')?.limitations.join('；') ?? '',
+    /不因单项出现自动判断分离、婚姻、亲属、疾病、死亡或其他现实结果/,
+  );
   assert.match(boundaryFacts.get('迷惑')?.rule ?? '', /正丑逆四季/);
   assert.match(
     boundaryFacts.get('迷惑')?.limitations.join('；') ?? '',
@@ -2328,8 +2344,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const hasTianShe = facts.has('天赦');
     assert.equal(
       shenShaFacts.length,
-      121 + Number(hasTianHe) + Number(hasTianShe),
-      `${result.ganzhi.day}应有一百二十一项固定神煞及条件性天合、天赦`,
+      122 + Number(hasTianHe) + Number(hasTianShe),
+      `${result.ganzhi.day}应有一百二十二项固定神煞及条件性天合、天赦`,
     );
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(
