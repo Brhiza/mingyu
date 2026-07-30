@@ -33,7 +33,7 @@ import {
 import { analyzeLiurenEvidence } from '../../liuren-evidence';
 
 /**
- * 按《六壬大全》分层计算无需本命资料即可确定的月煞和日煞。
+ * 按《六壬大全》《六壬粹言》分层计算当前已登记、无需本命资料即可确定的月煞和日煞。
  * 每项保留起法输入与来源，避免把八字常用的年、日支起法混入六壬逐月神煞。
  */
 function buildShenShaFacts(
@@ -46,14 +46,21 @@ function buildShenShaFacts(
     '只定位神煞所在干支',
     '须核对是否入课、入传或临干支',
     '不得单项定吉凶',
+    '当前只登记十三项可复算神煞，不代表《六壬大全》神煞总目录已经穷尽',
   ];
   const addFact = (
     fact: Omit<LiurenShenShaFact, 'sources' | 'limitations'> & {
       source: string;
+      extraSources?: string[];
+      extraLimitations?: string[];
     },
   ) => {
-    const { source, ...rest } = fact;
-    facts.push({ ...rest, sources: [source], limitations: [...commonLimitations] });
+    const { source, extraSources = [], extraLimitations = [], ...rest } = fact;
+    facts.push({
+      ...rest,
+      sources: [source, ...extraSources],
+      limitations: [...commonLimitations, ...extraLimitations],
+    });
   };
 
   const branchHorse = getYiMa(dayBranch);
@@ -198,19 +205,25 @@ function buildShenShaFacts(
     });
   }
 
+  const dayStemResidence = getDayStemResidence(dayStem);
+  const dayStemResidenceIndex = DIZHI.findIndex((branch) => branch === dayStemResidence);
   const dayBranchIndex = DIZHI.findIndex((branch) => branch === dayBranch);
-  if (dayBranchIndex >= 0) {
-    const tianLuo = DIZHI[(dayBranchIndex + 1) % DIZHI.length];
-    const diWang = DIZHI[(dayBranchIndex + 7) % DIZHI.length];
+  if (dayStemResidenceIndex >= 0 && dayBranchIndex >= 0) {
+    const tianLuo = DIZHI[(dayStemResidenceIndex + 1) % DIZHI.length];
+    const diWang = DIZHI[(dayBranchIndex + 1) % DIZHI.length];
+    const variantLimitation =
+      '《六壬大全》卷七《订讹》另载地网取天罗对冲的异说；本结果采用《六壬粹言》干前、支前主版本';
     addFact({
       name: '天罗',
       target: tianLuo,
       targetType: '地支',
       category: '罗网神煞',
-      basis: '日支',
-      input: dayBranch,
-      rule: '日前一支为天罗',
-      source: '《六壬大全》卷七“天罗地网卦”',
+      basis: '日干',
+      input: dayStem,
+      rule: '日干寄宫前一支为天罗',
+      source: '《六壬粹言》“所谋多拙逢罗网”注：干前一位为天罗',
+      extraSources: ['《六壬大全》卷首“十天干神煞”天罗表'],
+      extraLimitations: [variantLimitation],
     });
     addFact({
       name: '地网',
@@ -219,8 +232,10 @@ function buildShenShaFacts(
       category: '罗网神煞',
       basis: '日支',
       input: dayBranch,
-      rule: '天罗对冲之支为地网',
-      source: '《六壬大全》卷七“天罗地网卦”',
+      rule: '日支前一支为地网',
+      source: '《六壬粹言》“所谋多拙逢罗网”注：支前一位为地网',
+      extraSources: ['《六壬大全》卷七《订讹》所载罗网异说'],
+      extraLimitations: [variantLimitation],
     });
   }
 
@@ -238,16 +253,19 @@ function buildShenShaFacts(
     子: '巳',
     丑: '庚',
   };
-  const tianDe = tianDeMap[monthBranch];
-  if (tianDe) {
+  const tianDeMarker = tianDeMap[monthBranch];
+  if (tianDeMarker) {
+    const tianDe = DIZHI.includes(tianDeMarker as (typeof DIZHI)[number])
+      ? tianDeMarker
+      : getDayStemResidence(tianDeMarker);
     addFact({
       name: '天德',
       target: tianDe,
-      targetType: DIZHI.includes(tianDe as (typeof DIZHI)[number]) ? '地支' : '天干',
+      targetType: '地支',
       category: '逐月神煞',
       basis: '月建',
       input: monthBranch,
-      rule: '按十二月天德表定位',
+      rule: `按十二月天德表取${tianDeMarker}${tianDeMarker === tianDe ? '' : `，依十干寄宫落${tianDe}`}`,
       source: '《六壬大全》卷一“逐月神煞”表',
     });
   }
@@ -266,17 +284,18 @@ function buildShenShaFacts(
     酉: '庚',
     丑: '庚',
   };
-  const yueDe = yueDeMap[monthBranch];
-  if (yueDe) {
+  const yueDeMarker = yueDeMap[monthBranch];
+  if (yueDeMarker) {
+    const yueDe = getDayStemResidence(yueDeMarker);
     addFact({
       name: '月德',
       target: yueDe,
-      targetType: '天干',
+      targetType: '地支',
       category: '逐月神煞',
       basis: '月建',
       input: monthBranch,
-      rule: '寅午戌月丙、申子辰月壬、亥卯未月甲、巳酉丑月庚',
-      source: '《六壬大全》卷一“逐月神煞”表',
+      rule: `寅午戌月丙、申子辰月壬、亥卯未月甲、巳酉丑月庚；${yueDeMarker}依十干寄宫落${yueDe}`,
+      source: '《六壬大全》卷首“逐月神煞”表与卷七“德庆课”',
     });
   }
 

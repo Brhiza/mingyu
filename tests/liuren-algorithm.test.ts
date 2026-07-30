@@ -953,23 +953,141 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
   assert.ok(result.shenShaSummary?.every((item) => !item.startsWith('桃花')));
   assert.ok(
     result.shenShaFacts?.every(
-      (item) => item.rule && item.sources.length > 0 && item.limitations.length >= 3,
+      (item) =>
+        item.rule &&
+        item.sources.length > 0 &&
+        item.limitations.length >= 4 &&
+        item.limitations.some((limitation) => limitation.includes('十三项可复算神煞')),
     ),
   );
 });
 
-test('大六壬罗网应按日支前一辰与对冲定位，不误用流年冒充本命', () => {
+test('大六壬罗网应按日干寄宫前一支与日支前一支定位，并保留异说边界', () => {
   const haiDay = generateLiuren(new Date('2026-01-01T12:00:00+08:00'));
   const ziDay = generateLiuren(new Date('2026-01-02T12:00:00+08:00'));
+  const haiFacts = new Map(haiDay.shenShaFacts?.map((item) => [item.name, item]));
+  const ziFacts = new Map(ziDay.shenShaFacts?.map((item) => [item.name, item]));
 
   assert.equal(haiDay.ganzhi.day, '乙亥');
-  assert.ok(haiDay.shenShaSummary?.includes('天罗在子'));
-  assert.ok(haiDay.shenShaSummary?.includes('地网在午'));
+  assert.deepEqual(
+    [haiFacts.get('天罗')?.target, haiFacts.get('天罗')?.basis, haiFacts.get('天罗')?.input],
+    ['巳', '日干', '乙'],
+  );
+  assert.deepEqual(
+    [haiFacts.get('地网')?.target, haiFacts.get('地网')?.basis, haiFacts.get('地网')?.input],
+    ['子', '日支', '亥'],
+  );
+  assert.match(haiFacts.get('天罗')?.sources.join('；') ?? '', /十天干神煞/);
+  assert.match(haiFacts.get('地网')?.limitations.join('；') ?? '', /地网取天罗对冲的异说/);
 
   assert.equal(ziDay.ganzhi.day, '丙子');
-  assert.ok(ziDay.shenShaSummary?.includes('天罗在丑'));
-  assert.ok(ziDay.shenShaSummary?.includes('地网在未'));
+  assert.deepEqual(
+    [ziFacts.get('天罗')?.target, ziFacts.get('天罗')?.basis, ziFacts.get('天罗')?.input],
+    ['午', '日干', '丙'],
+  );
+  assert.deepEqual(
+    [ziFacts.get('地网')?.target, ziFacts.get('地网')?.basis, ziFacts.get('地网')?.input],
+    ['丑', '日支', '子'],
+  );
   assert.ok(ziDay.shenShaSummary?.every((item) => !item.startsWith('命带')));
+});
+
+test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', () => {
+  const monthCases: Array<
+    [string, string, [string, string, string, string, string, string, string, string]]
+  > = [
+    ['2026-02-19T12:00:00+08:00', '寅', ['申', '亥', '巳', '卯', '酉', '未', '巳', '午']],
+    ['2026-03-21T12:00:00+08:00', '卯', ['巳', '申', '寅', '子', '巳', '申', '寅', '申']],
+    ['2026-04-21T12:00:00+08:00', '辰', ['寅', '巳', '亥', '酉', '丑', '亥', '亥', '戌']],
+    ['2026-05-22T12:00:00+08:00', '巳', ['亥', '寅', '申', '午', '酉', '戌', '申', '子']],
+    ['2026-06-22T12:00:00+08:00', '午', ['申', '亥', '巳', '卯', '巳', '亥', '巳', '寅']],
+    ['2026-07-24T12:00:00+08:00', '未', ['巳', '申', '寅', '子', '丑', '寅', '寅', '辰']],
+    ['2026-08-24T12:00:00+08:00', '申', ['寅', '巳', '亥', '酉', '酉', '丑', '亥', '午']],
+    ['2026-09-24T12:00:00+08:00', '酉', ['亥', '寅', '申', '午', '巳', '寅', '申', '申']],
+    ['2026-10-24T12:00:00+08:00', '戌', ['申', '亥', '巳', '卯', '丑', '巳', '巳', '戌']],
+    ['2026-11-23T12:00:00+08:00', '亥', ['巳', '申', '寅', '子', '酉', '辰', '寅', '子']],
+    ['2026-12-23T12:00:00+08:00', '子', ['寅', '巳', '亥', '酉', '巳', '巳', '亥', '寅']],
+    ['2027-01-21T12:00:00+08:00', '丑', ['亥', '寅', '申', '午', '丑', '申', '申', '辰']],
+  ];
+  const monthFactNames = ['驿马', '劫煞', '亡神', '咸池', '破碎', '天德', '月德', '天马'];
+
+  for (const [date, monthBranch, expectedTargets] of monthCases) {
+    const result = generateLiuren(new Date(date));
+    const facts = new Map(result.shenShaFacts?.map((item) => [item.name, item]));
+    assert.equal(result.ganzhi.month.charAt(1), monthBranch, date);
+    assert.deepEqual(
+      monthFactNames.map((name) => facts.get(name)?.target),
+      expectedTargets,
+      `${monthBranch}月逐月神煞表`,
+    );
+    assert.ok(monthFactNames.every((name) => facts.get(name)?.basis === '月建'));
+    assert.ok(monthFactNames.every((name) => facts.get(name)?.targetType === '地支'));
+    assert.match(facts.get('天德')?.rule ?? '', /天德表取.+(?:依十干寄宫落.)?/);
+    assert.match(facts.get('月德')?.rule ?? '', /依十干寄宫落/);
+  }
+
+  const branchHorse: Record<string, string> = {
+    子: '寅',
+    丑: '亥',
+    寅: '申',
+    卯: '巳',
+    辰: '寅',
+    巳: '亥',
+    午: '申',
+    未: '巳',
+    申: '寅',
+    酉: '亥',
+    戌: '申',
+    亥: '巳',
+  };
+  const dayVirtue: Record<string, string> = {
+    甲: '寅',
+    乙: '申',
+    丙: '巳',
+    丁: '亥',
+    戊: '巳',
+    己: '寅',
+    庚: '申',
+    辛: '巳',
+    壬: '亥',
+    癸: '巳',
+  };
+  const daySalary: Record<string, string> = {
+    甲: '寅',
+    乙: '卯',
+    丙: '巳',
+    丁: '午',
+    戊: '巳',
+    己: '午',
+    庚: '申',
+    辛: '酉',
+    壬: '亥',
+    癸: '子',
+  };
+  const start = new Date('2026-01-01T12:00:00+08:00').getTime();
+  for (let dayOffset = 0; dayOffset < 60; dayOffset += 1) {
+    const result = generateLiuren(new Date(start + dayOffset * 86_400_000));
+    const dayStem = result.ganzhi.day.charAt(0);
+    const dayBranch = result.ganzhi.day.charAt(1);
+    const facts = new Map(result.shenShaFacts?.map((item) => [item.name, item]));
+    const stemResidenceIndex = DIZHI.indexOf(
+      getDayStemResidence(dayStem) as (typeof DIZHI)[number],
+    );
+    const dayBranchIndex = DIZHI.indexOf(dayBranch as (typeof DIZHI)[number]);
+
+    assert.equal(facts.size, 13, `${result.ganzhi.day}应有十三项已登记神煞`);
+    assert.deepEqual(
+      ['支马', '天罗', '地网', '日德', '日禄'].map((name) => facts.get(name)?.target),
+      [
+        branchHorse[dayBranch],
+        DIZHI[(stemResidenceIndex + 1) % DIZHI.length],
+        DIZHI[(dayBranchIndex + 1) % DIZHI.length],
+        dayVirtue[dayStem],
+        daySalary[dayStem],
+      ],
+      `${result.ganzhi.day}日支与日干神煞表`,
+    );
+  }
 });
 
 test('大六壬课注传注只描述盘面关系，不提前生成现实结论或建议', () => {
