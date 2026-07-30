@@ -389,6 +389,10 @@ function formatMeihuaInfo(data: MeihuaData) {
     data.evidenceAnalysis.sensoryOmenFact &&
     data.evidenceAnalysis.foodContextFact &&
     data.evidenceAnalysis.objectContextFact &&
+    data.evidenceAnalysis.objectContextFact.selectionOrderFields?.length &&
+    data.evidenceAnalysis.objectContextFact.relationRuleFields?.length &&
+    data.evidenceAnalysis.objectContextFact.quantityRuleFields?.length &&
+    data.evidenceAnalysis.objectContextFact.sourceLineFields?.length &&
     data.evidenceAnalysis.topicResponseContextFact &&
     data.evidenceAnalysis.hexagramDispositionFacts?.length &&
     data.evidenceAnalysis.hexagramDispositionVersionFact &&

@@ -3323,6 +3323,10 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               availableContextFields: string[];
               missingContextFields: string[];
               availableChartFields: string[];
+              selectionOrderFields: string[];
+              relationRuleFields: string[];
+              quantityRuleFields: string[];
+              sourceLineFields: string[];
               unresolvedRuleFields: string[];
               promptText: string;
             };
@@ -3549,7 +3553,12 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     );
     assert.equal(result.evidenceAnalysis.objectContextFact.requiredContextFields.length, 3);
     assert.equal(result.evidenceAnalysis.objectContextFact.availableChartFields.length, 4);
-    assert.equal(result.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 2);
+    assert.equal(result.evidenceAnalysis.objectContextFact.selectionOrderFields.length, 4);
+    assert.equal(result.evidenceAnalysis.objectContextFact.relationRuleFields.length, 5);
+    assert.equal(result.evidenceAnalysis.objectContextFact.quantityRuleFields.length, 6);
+    assert.equal(result.evidenceAnalysis.objectContextFact.sourceLineFields.length, 3);
+    assert.equal(result.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 6);
+    assert.match(result.evidenceAnalysis.objectContextFact.promptText, /占物类例.*第935至938行/);
     for (const key of [
       'object',
       'material',

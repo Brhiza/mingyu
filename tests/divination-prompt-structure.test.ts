@@ -1197,6 +1197,7 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /万物外应：当前输入未记录耳闻目见的现场原始事实/);
   assert.match(prompt, /饮食专项：当前输入未明确饮食专项所需情境/);
   assert.match(prompt, /观物专项：当前输入未明确观物专项所需情境/);
+  assert.match(prompt, /占物类例.*第935至938行已留档/);
   assert.match(prompt, /诸事响应专项：当前输入只有起卦方式/);
   assert.match(prompt, /反对性情资料：主卦.*综卦为.*错卦为/);
   assert.match(prompt, /月令与起卦：春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
@@ -1228,14 +1229,20 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /第3爻.*动.*属用/);
 });
 
-test('梅花旧缓存缺少全卦克应、情境字段与反对性情资料时应自动重建', () => {
+test('梅花旧缓存缺少全卦克应、占物类例字段与反对性情资料时应自动重建', () => {
   const data = createData('meihua') as MeihuaData;
   const evidence = analyzeMeihuaEvidence(data);
   data.evidenceAnalysis = {
     ...evidence,
     sensoryOmenFact: undefined,
     foodContextFact: undefined,
-    objectContextFact: undefined,
+    objectContextFact: {
+      ...evidence.objectContextFact,
+      selectionOrderFields: undefined,
+      relationRuleFields: undefined,
+      quantityRuleFields: undefined,
+      sourceLineFields: undefined,
+    },
     topicResponseContextFact: undefined,
     hexagramDispositionFacts: undefined,
     hexagramDispositionVersionFact: undefined,
@@ -1266,6 +1273,7 @@ test('梅花旧缓存缺少全卦克应、情境字段与反对性情资料时�
   assert.match(prompt, /万物外应：当前输入未记录耳闻目见的现场原始事实/);
   assert.match(prompt, /饮食专项：当前输入未明确饮食专项所需情境/);
   assert.match(prompt, /观物专项：当前输入未明确观物专项所需情境/);
+  assert.match(prompt, /占物类例.*第935至938行已留档/);
   assert.match(prompt, /诸事响应专项：当前输入只有起卦方式/);
   assert.match(prompt, /反对性情资料：主卦.*综卦为.*错卦为/);
 });
