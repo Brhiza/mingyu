@@ -957,7 +957,7 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
         item.rule &&
         item.sources.length > 0 &&
         item.limitations.length >= 4 &&
-        item.limitations.some((limitation) => limitation.includes('七十九项可复算神煞规则')),
+        item.limitations.some((limitation) => limitation.includes('八十四项可复算神煞规则')),
     ),
   );
 });
@@ -1468,6 +1468,11 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     '血忌',
     '天巫',
     '游煞',
+    '天书',
+    '天厕',
+    '月害',
+    '井煞',
+    '天坑',
   ];
   const addedMonthFactNames = [
     '天合',
@@ -1503,6 +1508,11 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     '血忌',
     '天巫',
     '游煞',
+    '天书',
+    '天厕',
+    '月害',
+    '井煞',
+    '天坑',
   ];
   const addedMonthTargets: Record<string, readonly string[]> = {
     寅: ['戌', '巳', '辰', '未', '亥', '亥', '戌', '午', '丑', '辰', '卯'],
@@ -1518,6 +1528,20 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     子: ['未', '寅', '丑', '丑', '酉', '辰', '卯', '亥', '午', '寅', '丑'],
     丑: ['未', '寅', '丑', '戌', '戌', '戌', '酉', '巳', '子', '卯', '寅'],
   };
+  const auditedMonthTargets: Record<string, readonly string[]> = {
+    寅: ['戌', '寅', '巳', '未', '丑'],
+    卯: ['亥', '巳', '辰', '申', '寅'],
+    辰: ['子', '申', '卯', '酉', '卯'],
+    巳: ['丑', '亥', '寅', '戌', '辰'],
+    午: ['寅', '寅', '丑', '亥', '巳'],
+    未: ['卯', '巳', '子', '子', '午'],
+    申: ['辰', '申', '亥', '丑', '未'],
+    酉: ['巳', '亥', '戌', '寅', '申'],
+    戌: ['午', '寅', '酉', '卯', '酉'],
+    亥: ['未', '巳', '申', '辰', '戌'],
+    子: ['申', '申', '未', '巳', '亥'],
+    丑: ['酉', '亥', '午', '午', '子'],
+  };
 
   for (const [date, monthBranch, expectedTargets, expectedTianHe] of monthCases) {
     const result = generateLiuren(new Date(date));
@@ -1525,7 +1549,7 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     assert.equal(result.ganzhi.month.charAt(1), monthBranch, date);
     assert.deepEqual(
       monthFactNames.map((name) => facts.get(name)?.target),
-      [...expectedTargets, ...addedMonthTargets[monthBranch]],
+      [...expectedTargets, ...addedMonthTargets[monthBranch], ...auditedMonthTargets[monthBranch]],
       `${monthBranch}月逐月神煞表`,
     );
     assert.ok(monthFactNames.every((name) => facts.get(name)?.basis === '月建'));
@@ -1571,6 +1595,10 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       '月破',
       '天医',
       '地医',
+      '长绳',
+      '白浪',
+      '覆舟',
+      '飞横',
     ]) {
       assert.equal(facts.has(deferredName), false, `${deferredName}暂缓或异名不应重复登记`);
     }
@@ -1691,6 +1719,34 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     boundaryFacts.get('游煞')?.limitations.join('；') ?? '',
     /伏吟、刚柔日、旬丁、驿马、进退传/,
   );
+  assert.match(boundaryFacts.get('天书')?.rule ?? '', /正月从戌起逐月顺行/);
+  assert.match(boundaryFacts.get('天书')?.sources.join('；') ?? '', /六壬大全.+六壬指南注解/);
+  assert.match(boundaryFacts.get('天书')?.limitations.join('；') ?? '', /不因单项出现自动判断升迁/);
+  assert.match(boundaryFacts.get('天厕')?.rule ?? '', /寅巳申亥三轮/);
+  assert.match(boundaryFacts.get('天厕')?.sources.join('；') ?? '', /六壬大全.+六壬指南注解/);
+  assert.match(
+    boundaryFacts.get('天厕')?.limitations.join('；') ?? '',
+    /不因单项出现自动判断现实人物的品行/,
+  );
+  assert.match(boundaryFacts.get('月害')?.rule ?? '', /正月从巳起逐月逆行/);
+  assert.match(boundaryFacts.get('月害')?.sources.join('；') ?? '', /六壬大全.+六壬指南注解/);
+  assert.match(
+    boundaryFacts.get('月害')?.limitations.join('；') ?? '',
+    /不因单项出现自动判断婚姻、医疗/,
+  );
+  assert.match(boundaryFacts.get('井煞')?.rule ?? '', /正月从未起逐月顺行/);
+  assert.match(
+    boundaryFacts.get('井煞')?.sources.join('；') ?? '',
+    /六壬秘本.+六壬大全.+六壬指南注解/,
+  );
+  assert.match(boundaryFacts.get('井煞')?.limitations.join('；') ?? '', /白虎、天魁、六害、克日/);
+  assert.match(boundaryFacts.get('井煞')?.limitations.join('；') ?? '', /不因单项出现自动判断落井/);
+  assert.match(boundaryFacts.get('天坑')?.rule ?? '', /正月从丑起逐月顺行/);
+  assert.match(boundaryFacts.get('天坑')?.sources.join('；') ?? '', /六壬大全.+六壬指南注解/);
+  assert.match(
+    boundaryFacts.get('天坑')?.limitations.join('；') ?? '',
+    /不因单项出现自动判断出行损害、交通事故/,
+  );
 
   const tianSheCases = [
     ['2020-02-05T12:00:00+08:00', '寅', '戊寅', '寅'],
@@ -1809,8 +1865,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const hasTianShe = facts.has('天赦');
     assert.equal(
       shenShaFacts.length,
-      77 + Number(hasTianHe) + Number(hasTianShe),
-      `${result.ganzhi.day}应有七十七项固定神煞及条件性天合、天赦`,
+      82 + Number(hasTianHe) + Number(hasTianShe),
+      `${result.ganzhi.day}应有八十二项固定神煞及条件性天合、天赦`,
     );
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(
