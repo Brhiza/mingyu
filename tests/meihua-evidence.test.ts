@@ -258,7 +258,7 @@ test('梅花六十四卦六动爻的原体、体互、用互与变卦体位应�
   assert.equal(checked, 384);
 });
 
-test('梅花体用旺衰应按生体克体方向合看，不得把应卦旺衰独立判为支持或限制', () => {
+test('梅花体用旺衰应按生克方向合看且同一原体月令只登记一次', () => {
   const strongStates = new Set(['旺', '相']);
   const weakStates = new Set(['休', '囚', '死']);
   const allStates = [...strongStates, ...weakStates];
@@ -286,11 +286,16 @@ test('梅花体用旺衰应按生体克体方向合看，不得把应卦旺衰�
         const yongState = stage.yong.seasonState;
         mainCoverage.add(`${stage.relation}|${yongState}`);
 
-        if (strongStates.has(tiState)) {
-          assert.ok(stage.support.includes(`体卦得月令${tiState}`));
+        if (stage.stage === 'origin') {
+          if (strongStates.has(tiState)) {
+            assert.ok(stage.support.includes(`体卦得月令${tiState}`));
+          } else {
+            assert.ok(weakStates.has(tiState));
+            assert.ok(stage.constraints.includes(`体卦月令${tiState}`));
+          }
         } else {
-          assert.ok(weakStates.has(tiState));
-          assert.ok(stage.constraints.includes(`体卦月令${tiState}`));
+          assert.ok(!stage.support.includes(`体卦得月令${tiState}`));
+          assert.ok(!stage.constraints.includes(`体卦月令${tiState}`));
         }
         assert.ok(!stage.support.includes(`用卦得月令${yongState}`));
         assert.ok(!stage.constraints.includes(`用卦月令${yongState}`));
@@ -335,12 +340,8 @@ test('梅花体用旺衰应按生体克体方向合看，不得把应卦旺衰�
           .replace(new RegExp(`${fact.role}$`), '应卦');
         interCoverage.add(`${normalizedRelation}|${responseState}`);
 
-        if (strongStates.has(originalTiState)) {
-          assert.ok(fact.support.includes(`原体得月令${originalTiState}`));
-        } else {
-          assert.ok(weakStates.has(originalTiState));
-          assert.ok(fact.constraints.includes(`原体月令${originalTiState}`));
-        }
+        assert.ok(!fact.support.includes(`原体得月令${originalTiState}`));
+        assert.ok(!fact.constraints.includes(`原体月令${originalTiState}`));
         assert.ok(!fact.support.includes(`${fact.role}得月令${responseState}`));
         assert.ok(!fact.constraints.includes(`${fact.role}月令${responseState}`));
 
@@ -389,6 +390,22 @@ test('梅花体用旺衰应按生体克体方向合看，不得把应卦旺衰�
           assert.ok(!fact.constraints.some((item) => item.includes('仍须结合旺衰')));
         }
       }
+
+      const origin = evidence.stages.find((item) => item.stage === 'origin');
+      const bodyState = origin?.ti?.seasonState;
+      assert.ok(bodyState && allStates.includes(bodyState));
+      const expectedBodyEvidence = strongStates.has(bodyState)
+        ? `体卦得月令${bodyState}`
+        : `体卦月令${bodyState}`;
+      const bodyEvidence = [
+        ...evidence.stages.flatMap((item) => [...item.support, ...item.constraints]),
+        ...evidence.interResponseFacts.flatMap((item) => [...item.support, ...item.constraints]),
+      ].filter((item) => /^(体卦得月令|体卦月令|原体得月令|原体月令)/.test(item));
+      assert.deepEqual(bodyEvidence, [expectedBodyEvidence]);
+      assert.equal(
+        evidence.counterEvidenceFacts.filter((item) => item.type === '体卦月令限制').length,
+        weakStates.has(bodyState) ? 1 : 0,
+      );
       checked += 1;
     }
   }

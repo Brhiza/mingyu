@@ -3286,6 +3286,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
             timingSummaryFact: { status: string; factKeys: string[] };
             counterEvidenceFacts: Array<{
               key: string;
+              type: string;
               status: string;
               ownerStageKey: string;
               sources: string[];
@@ -3366,6 +3367,19 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     );
     assert.ok(tiInterResponse?.constraints.includes('体互克原体且月令旺，克体之气有力'));
     assert.ok(!tiInterResponse?.support.includes('体互得月令旺'));
+    const bodyStateEvidence = [
+      ...result.evidenceAnalysis.stages.flatMap((item) => [...item.support, ...item.constraints]),
+      ...result.evidenceAnalysis.interResponseFacts.flatMap((item) => [
+        ...item.support,
+        ...item.constraints,
+      ]),
+    ].filter((item) => /^(体卦得月令|体卦月令|原体得月令|原体月令)/.test(item));
+    assert.deepEqual(bodyStateEvidence, ['体卦月令死']);
+    assert.equal(
+      result.evidenceAnalysis.counterEvidenceFacts.filter((item) => item.type === '体卦月令限制')
+        .length,
+      1,
+    );
     assert.ok(
       result.evidenceAnalysis.stages.every(
         (item) =>

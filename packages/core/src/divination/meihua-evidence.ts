@@ -22,7 +22,7 @@ export interface MeihuaInterResponseEvidence {
   basis: string;
   promptText: string;
   sources: string[];
-  limitation: '互卦响应事实只描述体互、用互分别对原体的五行关系，并按生体宜旺、克体宜衰及非克体应卦乘旺核验月令旺衰；不得把体互与用互重新组成一对体用，也不得直接解释为现实吉凶、成败或概率';
+  limitation: '互卦响应事实只描述体互、用互分别对原体的五行关系，并按生体宜旺、克体宜衰及非克体应卦乘旺核验响应卦月令旺衰；原体月令旺衰只由主卦体卦事实登记一次，不在每项响应中重复计证；不得把体互与用互重新组成一对体用，也不得直接解释为现实吉凶、成败或概率';
 }
 
 export interface MeihuaStageEvidence {
@@ -43,7 +43,7 @@ export interface MeihuaStageEvidence {
   basis: string;
   promptText: string;
   sources: string[];
-  limitation: '阶段关系事实只描述主卦与变卦体用，或互卦体互、用互分别对原体的五行关系，并按体宜旺、生体宜旺、克体宜衰及非克体应卦乘旺核验月令旺衰；阶段标签、支持或限制不得直接解释为现实起因、过程、结果、吉凶或成功率';
+  limitation: '阶段关系事实只描述主卦与变卦体用，或互卦体互、用互分别对原体的五行关系，并按体宜旺、生体宜旺、克体宜衰及非克体应卦乘旺核验月令旺衰；同一原体的月令旺衰只由主卦体卦事实登记一次，不随阶段或响应数量重复计证；阶段标签、支持或限制不得直接解释为现实起因、过程、结果、吉凶或成功率';
 }
 
 export interface MeihuaHexagramFact {
@@ -142,7 +142,7 @@ export interface MeihuaCounterSummaryFact {
   factKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '反证汇总只说明当前阶段核验是否发现明确限制；未见明确反证不代表现实风险为零，也不得按反证数量换算吉凶总分或成功率';
+  limitation: '反证汇总只说明当前阶段核验是否发现明确限制；同一原体月令条件只登记一次，未见明确反证不代表现实风险为零，也不得按反证数量换算吉凶总分或成功率';
 }
 
 export interface MeihuaTimingFact {
@@ -310,9 +310,9 @@ const TRADITIONAL_FACT_LIMITATION =
 const CALCULATION_FACT_LIMITATION =
   '取数算式只证明当前上下卦与动爻索引如何由输入或随机取数得到，不证明卦象预测有效性、现实吉凶或固定应期' as const;
 const STAGE_FACT_LIMITATION =
-  '阶段关系事实只描述主卦与变卦体用，或互卦体互、用互分别对原体的五行关系，并按体宜旺、生体宜旺、克体宜衰及非克体应卦乘旺核验月令旺衰；阶段标签、支持或限制不得直接解释为现实起因、过程、结果、吉凶或成功率' as const;
+  '阶段关系事实只描述主卦与变卦体用，或互卦体互、用互分别对原体的五行关系，并按体宜旺、生体宜旺、克体宜衰及非克体应卦乘旺核验月令旺衰；同一原体的月令旺衰只由主卦体卦事实登记一次，不随阶段或响应数量重复计证；阶段标签、支持或限制不得直接解释为现实起因、过程、结果、吉凶或成功率' as const;
 const INTER_RESPONSE_FACT_LIMITATION =
-  '互卦响应事实只描述体互、用互分别对原体的五行关系，并按生体宜旺、克体宜衰及非克体应卦乘旺核验月令旺衰；不得把体互与用互重新组成一对体用，也不得直接解释为现实吉凶、成败或概率' as const;
+  '互卦响应事实只描述体互、用互分别对原体的五行关系，并按生体宜旺、克体宜衰及非克体应卦乘旺核验响应卦月令旺衰；原体月令旺衰只由主卦体卦事实登记一次，不在每项响应中重复计证；不得把体互与用互重新组成一对体用，也不得直接解释为现实吉凶、成败或概率' as const;
 const HEXAGRAM_FACT_LIMITATION =
   '主互变卦象事实只记录当前上下经卦、卦名与卦符；不得由卦名或阶段位置直接推断现实事件、人物、吉凶、成败或应期' as const;
 const YAO_FACT_LIMITATION =
@@ -326,7 +326,7 @@ const TRANSITION_FACT_LIMITATION =
 const COUNTER_FACT_LIMITATION =
   '反证事实只表示某一阶段存在体卦衰弱、体卦泄耗、生体之卦无力、克体之卦有力或关系未定等限制；不得把单项反证直接写成现实失败、灾祸、伤病、损失或必然结果' as const;
 const COUNTER_SUMMARY_LIMITATION =
-  '反证汇总只说明当前阶段核验是否发现明确限制；未见明确反证不代表现实风险为零，也不得按反证数量换算吉凶总分或成功率' as const;
+  '反证汇总只说明当前阶段核验是否发现明确限制；同一原体月令条件只登记一次，未见明确反证不代表现实风险为零，也不得按反证数量换算吉凶总分或成功率' as const;
 const TIMING_FACT_LIMITATION =
   '应期事实只登记动爻层位、卦数、体用生克、月令旺衰及传统克应所缺现实条件；不得把爻位、卦数、体用生克、阶段数量或旺衰单独换算唯一日期或统一快慢，也不证明事件必然发生' as const;
 const TIMING_SUMMARY_LIMITATION =
@@ -573,7 +573,12 @@ function createTiYongStage(params: {
   const relationItems = relationEvidence(relation);
   const tiState = getSeasonState(params.ti.element, params.monthBranch);
   const yongState = getSeasonState(params.yong.element, params.monthBranch);
-  const tiItems = bodyStateEvidence('体卦', tiState);
+  // 原体在主、互、变中始终不变，月令旺衰只归主卦登记一次；
+  // 变卦仍保留体卦 seasonState 供核验，但不把同一条件再次计作支持或限制。
+  const tiItems =
+    params.stage === 'origin'
+      ? bodyStateEvidence('体卦', tiState)
+      : { support: [], constraints: [] };
   const yongRelation =
     relation === '用生体'
       ? '生体'
@@ -669,7 +674,6 @@ function createInterResponseFact(params: {
   const relationItems = interResponseEvidence(relation, params.role);
   const originalTiState = getSeasonState(params.originalTi.element, params.monthBranch);
   const responseState = getSeasonState(params.response.element, params.monthBranch);
-  const originalTiItems = bodyStateEvidence('原体', originalTiState);
   const responseRelation =
     relation === `${params.role}生原体`
       ? '生体'
@@ -694,12 +698,10 @@ function createInterResponseFact(params: {
     response: { ...params.response, seasonState: responseState },
     originalTi: { ...params.originalTi, seasonState: originalTiState },
     relation,
-    support: [...relationItems.support, ...originalTiItems.support, ...responseItems.support],
-    constraints: [
-      ...relationItems.constraints,
-      ...originalTiItems.constraints,
-      ...responseItems.constraints,
-    ],
+    // 原体旺衰已由主卦体卦事实统一登记；每项互卦响应只登记自身关系与旺衰，
+    // 避免同一原体条件随响应数量重复成为多条支持或反证。
+    support: [...relationItems.support, ...responseItems.support],
+    constraints: [...relationItems.constraints, ...responseItems.constraints],
     basis: params.basis,
     promptText: '',
     sources: [
@@ -1689,7 +1691,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     promptText: counterEvidenceFacts.length
       ? `当前${stages.length}个阶段共记录${counterEvidenceFacts.length}项明确限制，须逐项与现实条件复核`
       : '当前阶段未见明确体用或月令限制，但仍须核实现实风险与外部条件',
-    sources: ['各阶段主变体用、互卦响应与月令限制逐项汇总'],
+    sources: ['主卦原体月令条件单次登记，以及各阶段主变体用与互卦响应限制逐项汇总'],
     limitation: COUNTER_SUMMARY_LIMITATION,
   };
   const isRandomMethod = data.calculation?.methodKey === 'random';
