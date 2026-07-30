@@ -4291,11 +4291,15 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     chart.body.data.evidenceAnalysis.objectContextFact.lineStructureRuleFields.length,
     3,
   );
-  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.sourceLineFields.length, 5);
-  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 10);
+  assert.equal(
+    chart.body.data.evidenceAnalysis.objectContextFact.changeObservationRuleFields.length,
+    5,
+  );
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.sourceLineFields.length, 6);
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 13);
   assert.match(
     chart.body.data.evidenceAnalysis.objectContextFact.promptText,
-    /物数为体诀.*第939至941行/,
+    /观物看变爻为主.*第942至943行/,
   );
   for (const key of [
     'object',
@@ -4314,6 +4318,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     'bodyCandidate',
     'dominantTrigram',
     'dominantElement',
+    'changedObservation',
     'yangCount',
     'yinCount',
     'flying',

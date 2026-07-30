@@ -3328,6 +3328,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               quantityRuleFields: string[];
               bodySelectionRuleFields: string[];
               lineStructureRuleFields: string[];
+              changeObservationRuleFields: string[];
               sourceLineFields: string[];
               unresolvedRuleFields: string[];
               promptText: string;
@@ -3560,9 +3561,13 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.equal(result.evidenceAnalysis.objectContextFact.quantityRuleFields.length, 6);
     assert.equal(result.evidenceAnalysis.objectContextFact.bodySelectionRuleFields.length, 5);
     assert.equal(result.evidenceAnalysis.objectContextFact.lineStructureRuleFields.length, 3);
-    assert.equal(result.evidenceAnalysis.objectContextFact.sourceLineFields.length, 5);
-    assert.equal(result.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 10);
-    assert.match(result.evidenceAnalysis.objectContextFact.promptText, /物数为体诀.*第939至941行/);
+    assert.equal(result.evidenceAnalysis.objectContextFact.changeObservationRuleFields.length, 5);
+    assert.equal(result.evidenceAnalysis.objectContextFact.sourceLineFields.length, 6);
+    assert.equal(result.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 13);
+    assert.match(
+      result.evidenceAnalysis.objectContextFact.promptText,
+      /观物看变爻为主.*第942至943行/,
+    );
     for (const key of [
       'object',
       'material',
@@ -3580,6 +3585,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       'bodyCandidate',
       'dominantTrigram',
       'dominantElement',
+      'changedObservation',
       'yangCount',
       'yinCount',
       'flying',

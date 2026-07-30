@@ -261,8 +261,20 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.equal(evidence.objectContextFact.quantityRuleFields.length, 6);
   assert.equal(evidence.objectContextFact.bodySelectionRuleFields.length, 5);
   assert.equal(evidence.objectContextFact.lineStructureRuleFields.length, 3);
-  assert.equal(evidence.objectContextFact.sourceLineFields.length, 5);
-  assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 10);
+  assert.equal(evidence.objectContextFact.changeObservationRuleFields.length, 5);
+  assert.match(
+    evidence.objectContextFact.changeObservationRuleFields[0] ?? '',
+    /凡观物.*不是所有梅花问题/,
+  );
+  assert.match(
+    evidence.objectContextFact.changeObservationRuleFields[1] ?? '',
+    /不直接覆盖普通体用主线/,
+  );
+  assert.match(evidence.objectContextFact.changeObservationRuleFields[2] ?? '', /乾变巽.*天风姤/);
+  assert.match(evidence.objectContextFact.changeObservationRuleFields[3] ?? '', /乾变离.*天火同人/);
+  assert.match(evidence.objectContextFact.changeObservationRuleFields[4] ?? '', /乾变兑.*天泽履/);
+  assert.equal(evidence.objectContextFact.sourceLineFields.length, 6);
+  assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 13);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[0] ?? '', /艮象.*题作“离”/);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[1] ?? '', /困于株林.*困于株木/);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[2] ?? '', /体生方圆曲直/);
@@ -272,7 +284,16 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.match(evidence.objectContextFact.unresolvedRuleFields[6] ?? '', /非金非石/);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[7] ?? '', /不入五行物/);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[8] ?? '', /阳爻多/);
-  assert.match(evidence.objectContextFact.unresolvedRuleFields[9] ?? '', /观物看变爻为主/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[9] ?? '', /三种取主口径/);
+  assert.match(
+    evidence.objectContextFact.unresolvedRuleFields[10] ?? '',
+    /标题作“观物看变爻为主”.*正文却作“以变卦为主”/,
+  );
+  assert.match(
+    evidence.objectContextFact.unresolvedRuleFields[11] ?? '',
+    /巽、离、兑.*姤、同人、履/,
+  );
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[12] ?? '', /只列纯乾卦初至三爻/);
   for (const key of [
     'object',
     'material',
@@ -290,6 +311,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     'bodyCandidate',
     'dominantTrigram',
     'dominantElement',
+    'changedObservation',
     'yangCount',
     'yinCount',
     'flying',
@@ -651,8 +673,9 @@ test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补�
       assert.equal(evidence.objectContextFact.quantityRuleFields.length, 6);
       assert.equal(evidence.objectContextFact.bodySelectionRuleFields.length, 5);
       assert.equal(evidence.objectContextFact.lineStructureRuleFields.length, 3);
-      assert.equal(evidence.objectContextFact.sourceLineFields.length, 5);
-      assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 10);
+      assert.equal(evidence.objectContextFact.changeObservationRuleFields.length, 5);
+      assert.equal(evidence.objectContextFact.sourceLineFields.length, 6);
+      assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 13);
       for (const key of [
         'object',
         'material',
@@ -670,6 +693,7 @@ test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补�
         'bodyCandidate',
         'dominantTrigram',
         'dominantElement',
+        'changedObservation',
         'yangCount',
         'yinCount',
         'flying',
@@ -1200,7 +1224,9 @@ test('梅花起卦算式、六爻结构、卦象来源和克应资料边界应�
   assert.ok(items.some((item) => item.title === '外应动静资料覆盖'));
   assert.ok(items.some((item) => item.title === '坐端八方应兆资料覆盖'));
   assert.ok(items.some((item) => item.title === '万物耳目外应资料覆盖'));
-  assert.ok(items.some((item) => item.title === '观物专项、占物类例、物数为体与版本覆盖'));
+  assert.ok(
+    items.some((item) => item.title === '观物专项、占物类例、物数为体、变爻取象与版本覆盖'),
+  );
   assert.ok(items.some((item) => item.title === '诸事响应专项情境与风险边界'));
   assert.equal(items.filter((item) => item.title.includes('反对性情卦画资料')).length, 3);
   assert.ok(items.some((item) => item.title === '诸卦反对性情底本异文边界'));
