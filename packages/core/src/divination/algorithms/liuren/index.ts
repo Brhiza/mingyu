@@ -47,7 +47,7 @@ function buildShenShaFacts(
     '只定位神煞所在干支',
     '须核对是否入课、入传或临干支',
     '不得单项定吉凶',
-    '当前只登记五十一项可复算神煞规则；天合在天德落地支的月份无目标，不代表《六壬大全》神煞总目录已经穷尽',
+    '当前只登记五十七项可复算神煞规则；天合及天赦均为条件性事实，不代表《六壬大全》神煞总目录已经穷尽',
   ];
   const addFact = (
     fact: Omit<LiurenShenShaFact, 'sources' | 'limitations'> & {
@@ -549,6 +549,59 @@ function buildShenShaFacts(
         extraSources: ['《六壬大全》卷一“逐月神煞”戏神表', '《六壬粹言》“行人”戏神四季表'],
         extraLimitations: ['只登记戏神所在支，不因单项出现自动判断亲友或行人到达时间'],
       },
+      {
+        name: '天解',
+        targets: ['申', '未', '午', '巳', '辰', '卯', '寅', '丑', '子', '亥', '戌', '酉'],
+        rule: '正月从申起逐月逆行一支',
+        source: '《六壬指南注解》卷四《大六壬神煞指南》“天解正申逆十二”',
+        extraSources: ['《六壬粹言》“论讼”天解申逆十二'],
+        extraLimitations: [
+          '《六壬大全》卷首另列申、戌、子、寅、辰、午重复两轮的天解表；本结果采用《六壬指南注解》《六壬粹言》一致的申起逐月逆行版本，不合并两表',
+          '只登记天解所在支，不因单项出现自动判断灾祸或诉讼已经解除',
+        ],
+      },
+      {
+        name: '解神',
+        targets: ['申', '申', '酉', '酉', '戌', '戌', '亥', '亥', '午', '午', '未', '未'],
+        rule: '正二月申、三四月酉、五六月戌、七八月亥、九十月午、冬腊月未',
+        source: '《六壬大全》卷一“逐月神煞”解神表',
+        extraSources: [
+          '《六壬心镜》“论讼”解神十二月表',
+          '《六壬秘本》解神正二申、三四酉、五六戌、七八亥、九十午、十一十二未',
+        ],
+        extraLimitations: [
+          '《六壬指南注解》表中把本组数值题作“地解”，另列申申戌戌子子寅寅辰辰午午为“解神”；本结果采用《六壬大全》《六壬心镜》及《六壬秘本》一致的解神主版本，不另生成地解',
+          '《六壬秘本》另处又见九十月子、冬腊月丑的异表；本结果不混合该版本',
+          '只登记解神所在支，不因单项出现自动判断囚禁、疾病或其他现实事项已经解除',
+        ],
+      },
+      {
+        name: '飞祸',
+        targets: ['申', '申', '申', '寅', '寅', '寅', '巳', '巳', '巳', '亥', '亥', '亥'],
+        rule: '春申、夏寅、秋巳、冬亥',
+        source: '《六壬指南注解》卷四《大六壬神煞指南》四时飞祸表与歌诀',
+        extraSources: [
+          '《六壬大全》卷一与卷七飞祸四时表',
+          '《六壬秘本》飞祸春申、夏寅、秋巳、冬亥',
+        ],
+        extraLimitations: ['只登记飞祸所在支，不因单项出现自动判断灾祸、出行或求事结果'],
+      },
+      {
+        name: '奸神',
+        targets: ['寅', '寅', '寅', '亥', '亥', '亥', '申', '申', '申', '巳', '巳', '巳'],
+        rule: '春寅、夏亥、秋申、冬巳',
+        source: '《六壬指南注解》卷四《大六壬神煞指南》四时奸神表与歌诀',
+        extraSources: ['《六壬大全》卷一与卷七奸神四时表'],
+        extraLimitations: ['只登记奸神所在支，不因单项出现自动判断奸私、婚恋或诉讼事实'],
+      },
+      {
+        name: '时盗',
+        targets: ['巳', '巳', '巳', '卯', '卯', '卯', '酉', '酉', '酉', '子', '子', '子'],
+        rule: '春巳、夏卯、秋酉、冬子',
+        source: '《六壬指南注解》卷四《大六壬神煞指南》四时时盗表与歌诀',
+        extraSources: ['《六壬大全》卷一“逐月神煞”时盗四时表'],
+        extraLimitations: ['只登记时盗所在支，不因单项出现自动判断盗窃已经发生或必将发生'],
+      },
     ] as const;
 
     for (const table of monthShenShaTables) {
@@ -563,6 +616,37 @@ function buildShenShaFacts(
         source: table.source,
         extraSources: [...table.extraSources],
         extraLimitations: 'extraLimitations' in table ? [...table.extraLimitations] : [],
+      });
+    }
+
+    const tianSheDay =
+      monthShenShaIndex <= 2
+        ? '戊寅'
+        : monthShenShaIndex <= 5
+          ? '甲午'
+          : monthShenShaIndex <= 8
+            ? '戊申'
+            : '甲子';
+    const dayGanzhi = `${dayStem}${dayBranch}`;
+    if (dayGanzhi === tianSheDay) {
+      addFact({
+        name: '天赦',
+        target: dayBranch,
+        targetType: '地支',
+        category: '四时神煞',
+        basis: '月建与日柱',
+        input: `${monthBranch}月${dayGanzhi}日`,
+        rule: '春戊寅日、夏甲午日、秋戊申日、冬甲子日才成立',
+        source: '《六壬指南注解》卷四《大六壬神煞指南》天赦四时日柱歌诀',
+        extraSources: [
+          '《六壬大全》卷一与卷七天赦四时日柱规则',
+          '《六壬存验》天赦春戊寅、夏甲午、秋戊申、冬甲子',
+          '《六壬粹言》“仕宦门”与“论讼”天赦日柱说明',
+        ],
+        extraLimitations: [
+          '天赦须季节与完整日柱同时符合；只见寅、午、申、子日支或神盘上出现该支均不足以成立',
+          '只登记天赦条件成立，不因单项出现自动判断刑禁、灾祸或诉讼已经解除',
+        ],
       });
     }
   }

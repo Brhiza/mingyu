@@ -957,7 +957,7 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
         item.rule &&
         item.sources.length > 0 &&
         item.limitations.length >= 4 &&
-        item.limitations.some((limitation) => limitation.includes('五十一项可复算神煞规则')),
+        item.limitations.some((limitation) => limitation.includes('五十七项可复算神煞规则')),
     ),
   );
 });
@@ -997,73 +997,301 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     [
       '2026-02-19T12:00:00+08:00',
       '寅',
-      ['申', '亥', '巳', '卯', '酉', '未', '巳', '午', '戌', '未', '申', '丑', '巳'],
+      [
+        '申',
+        '亥',
+        '巳',
+        '卯',
+        '酉',
+        '未',
+        '巳',
+        '午',
+        '戌',
+        '未',
+        '申',
+        '丑',
+        '巳',
+        '申',
+        '申',
+        '申',
+        '寅',
+        '巳',
+      ],
       '亥',
     ],
     [
       '2026-03-21T12:00:00+08:00',
       '卯',
-      ['巳', '申', '寅', '子', '巳', '申', '寅', '申', '未', '戌', '戌', '丑', '巳'],
+      [
+        '巳',
+        '申',
+        '寅',
+        '子',
+        '巳',
+        '申',
+        '寅',
+        '申',
+        '未',
+        '戌',
+        '戌',
+        '丑',
+        '巳',
+        '未',
+        '申',
+        '申',
+        '寅',
+        '巳',
+      ],
       undefined,
     ],
     [
       '2026-04-21T12:00:00+08:00',
       '辰',
-      ['寅', '巳', '亥', '酉', '丑', '亥', '亥', '戌', '未', '寅', '寅', '丑', '巳'],
+      [
+        '寅',
+        '巳',
+        '亥',
+        '酉',
+        '丑',
+        '亥',
+        '亥',
+        '戌',
+        '未',
+        '寅',
+        '寅',
+        '丑',
+        '巳',
+        '午',
+        '酉',
+        '申',
+        '寅',
+        '巳',
+      ],
       '未',
     ],
     [
       '2026-05-22T12:00:00+08:00',
       '巳',
-      ['亥', '寅', '申', '午', '酉', '戌', '申', '子', '辰', '亥', '丑', '子', '子'],
+      [
+        '亥',
+        '寅',
+        '申',
+        '午',
+        '酉',
+        '戌',
+        '申',
+        '子',
+        '辰',
+        '亥',
+        '丑',
+        '子',
+        '子',
+        '巳',
+        '酉',
+        '寅',
+        '亥',
+        '卯',
+      ],
       '巳',
     ],
     [
       '2026-06-22T12:00:00+08:00',
       '午',
-      ['申', '亥', '巳', '卯', '巳', '亥', '巳', '寅', '戌', '酉', '亥', '子', '子'],
+      [
+        '申',
+        '亥',
+        '巳',
+        '卯',
+        '巳',
+        '亥',
+        '巳',
+        '寅',
+        '戌',
+        '酉',
+        '亥',
+        '子',
+        '子',
+        '辰',
+        '戌',
+        '寅',
+        '亥',
+        '卯',
+      ],
       undefined,
     ],
     [
       '2026-07-24T12:00:00+08:00',
       '未',
-      ['巳', '申', '寅', '子', '丑', '寅', '寅', '辰', '未', '子', '辰', '子', '子'],
+      [
+        '巳',
+        '申',
+        '寅',
+        '子',
+        '丑',
+        '寅',
+        '寅',
+        '辰',
+        '未',
+        '子',
+        '辰',
+        '子',
+        '子',
+        '卯',
+        '戌',
+        '寅',
+        '亥',
+        '卯',
+      ],
       '未',
     ],
     [
       '2026-08-24T12:00:00+08:00',
       '申',
-      ['寅', '巳', '亥', '酉', '酉', '丑', '亥', '午', '未', '丑', '巳', '亥', '酉'],
+      [
+        '寅',
+        '巳',
+        '亥',
+        '酉',
+        '酉',
+        '丑',
+        '亥',
+        '午',
+        '未',
+        '丑',
+        '巳',
+        '亥',
+        '酉',
+        '寅',
+        '亥',
+        '巳',
+        '申',
+        '酉',
+      ],
       '巳',
     ],
     [
       '2026-09-24T12:00:00+08:00',
       '酉',
-      ['亥', '寅', '申', '午', '巳', '寅', '申', '申', '辰', '午', '未', '亥', '酉'],
+      [
+        '亥',
+        '寅',
+        '申',
+        '午',
+        '巳',
+        '寅',
+        '申',
+        '申',
+        '辰',
+        '午',
+        '未',
+        '亥',
+        '酉',
+        '丑',
+        '亥',
+        '巳',
+        '申',
+        '酉',
+      ],
       undefined,
     ],
     [
       '2026-10-24T12:00:00+08:00',
       '戌',
-      ['申', '亥', '巳', '卯', '丑', '巳', '巳', '戌', '戌', '巳', '巳', '亥', '酉'],
+      [
+        '申',
+        '亥',
+        '巳',
+        '卯',
+        '丑',
+        '巳',
+        '巳',
+        '戌',
+        '戌',
+        '巳',
+        '巳',
+        '亥',
+        '酉',
+        '子',
+        '午',
+        '巳',
+        '申',
+        '酉',
+      ],
       '戌',
     ],
     [
       '2026-11-23T12:00:00+08:00',
       '亥',
-      ['巳', '申', '寅', '子', '酉', '辰', '寅', '子', '未', '卯', '未', '戌', '辰'],
+      [
+        '巳',
+        '申',
+        '寅',
+        '子',
+        '酉',
+        '辰',
+        '寅',
+        '子',
+        '未',
+        '卯',
+        '未',
+        '戌',
+        '辰',
+        '亥',
+        '午',
+        '亥',
+        '巳',
+        '子',
+      ],
       '申',
     ],
     [
       '2026-12-23T12:00:00+08:00',
       '子',
-      ['寅', '巳', '亥', '酉', '巳', '巳', '亥', '寅', '未', '申', '申', '戌', '辰'],
+      [
+        '寅',
+        '巳',
+        '亥',
+        '酉',
+        '巳',
+        '巳',
+        '亥',
+        '寅',
+        '未',
+        '申',
+        '申',
+        '戌',
+        '辰',
+        '戌',
+        '未',
+        '亥',
+        '巳',
+        '子',
+      ],
       undefined,
     ],
     [
       '2027-01-21T12:00:00+08:00',
       '丑',
-      ['亥', '寅', '申', '午', '丑', '申', '申', '辰', '辰', '辰', '戌', '戌', '辰'],
+      [
+        '亥',
+        '寅',
+        '申',
+        '午',
+        '丑',
+        '申',
+        '申',
+        '辰',
+        '辰',
+        '辰',
+        '戌',
+        '戌',
+        '辰',
+        '酉',
+        '未',
+        '亥',
+        '巳',
+        '子',
+      ],
       '辰',
     ],
   ];
@@ -1081,8 +1309,25 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     '信神',
     '游神',
     '戏神',
+    '天解',
+    '解神',
+    '飞祸',
+    '奸神',
+    '时盗',
   ];
-  const addedMonthFactNames = ['天合', '月合', '会神', '信神', '游神', '戏神'];
+  const addedMonthFactNames = [
+    '天合',
+    '月合',
+    '会神',
+    '信神',
+    '游神',
+    '戏神',
+    '天解',
+    '解神',
+    '飞祸',
+    '奸神',
+    '时盗',
+  ];
 
   for (const [date, monthBranch, expectedTargets, expectedTianHe] of monthCases) {
     const result = generateLiuren(new Date(date));
@@ -1109,7 +1354,7 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       assert.equal(fact?.input, monthBranch, `${monthBranch}月${name}输入`);
       assert.equal(fact?.targetType, '地支', `${monthBranch}月${name}目标类型`);
     }
-    for (const deferredName of ['地解', '解神', '皇恩', '大德']) {
+    for (const deferredName of ['地解', '皇恩', '大德', '天车', '死别']) {
       assert.equal(facts.has(deferredName), false, `${deferredName}异本未闭合，不应提前登记`);
     }
   }
@@ -1125,6 +1370,37 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
   assert.match(boundaryFacts.get('游神')?.limitations.join('；') ?? '', /秋戌冬亥/);
   assert.match(boundaryFacts.get('游神')?.limitations.join('；') ?? '', /不因单项出现自动判断行人/);
   assert.match(boundaryFacts.get('戏神')?.limitations.join('；') ?? '', /不因单项出现自动判断/);
+  assert.match(boundaryFacts.get('天解')?.limitations.join('；') ?? '', /申、戌、子.+不合并两表/);
+  assert.match(boundaryFacts.get('解神')?.limitations.join('；') ?? '', /题作“地解”.+不另生成地解/);
+  assert.match(boundaryFacts.get('飞祸')?.limitations.join('；') ?? '', /不因单项出现自动判断灾祸/);
+  assert.match(boundaryFacts.get('奸神')?.limitations.join('；') ?? '', /不因单项出现自动判断奸私/);
+  assert.match(boundaryFacts.get('时盗')?.limitations.join('；') ?? '', /不因单项出现自动判断盗窃/);
+
+  const tianSheCases = [
+    ['2020-02-05T12:00:00+08:00', '寅', '戊寅', '寅'],
+    ['2020-06-20T12:00:00+08:00', '午', '甲午', '午'],
+    ['2020-09-02T12:00:00+08:00', '申', '戊申', '申'],
+    ['2020-01-22T12:00:00+08:00', '丑', '甲子', '子'],
+  ];
+  for (const [date, monthBranch, dayGanzhi, target] of tianSheCases) {
+    const result = generateLiuren(new Date(date));
+    const tianShe = result.shenShaFacts?.find((item) => item.name === '天赦');
+    assert.equal(result.ganzhi.month.charAt(1), monthBranch, date);
+    assert.equal(result.ganzhi.day, dayGanzhi, date);
+    assert.deepEqual(
+      [tianShe?.target, tianShe?.category, tianShe?.basis, tianShe?.input, tianShe?.targetType],
+      [target, '四时神煞', '月建与日柱', `${monthBranch}月${dayGanzhi}日`, '地支'],
+      `${date}天赦须按季节与完整日柱成立`,
+    );
+    assert.match(tianShe?.limitations.join('；') ?? '', /完整日柱.+均不足以成立/);
+    assert.match(tianShe?.limitations.join('；') ?? '', /不因单项出现自动判断刑禁/);
+  }
+  const sameBranchWrongStem = generateLiuren(new Date('2020-02-17T12:00:00+08:00'));
+  assert.equal(sameBranchWrongStem.ganzhi.month.charAt(1), '寅');
+  assert.equal(sameBranchWrongStem.ganzhi.day.charAt(1), '寅');
+  assert.notEqual(sameBranchWrongStem.ganzhi.day, '戊寅');
+  assert.ok(sameBranchWrongStem.shenShaFacts?.every((item) => item.name !== '天赦'));
+  assert.ok(boundaryFacts.has('天赦') === false, '春季甲子日不得套用冬季天赦');
 
   const branchHorse: Record<string, string> = {
     子: '寅',
@@ -1214,10 +1490,11 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const dayStemIndex = TIANGAN.indexOf(dayStem as (typeof TIANGAN)[number]);
 
     const hasTianHe = facts.has('天合');
+    const hasTianShe = facts.has('天赦');
     assert.equal(
       shenShaFacts.length,
-      hasTianHe ? 51 : 50,
-      `${result.ganzhi.day}应有五十项固定神煞及条件性天合`,
+      55 + Number(hasTianHe) + Number(hasTianShe),
+      `${result.ganzhi.day}应有五十五项固定神煞及条件性天合、天赦`,
     );
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(
@@ -1271,7 +1548,6 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
         '仪神',
         '天盗',
         '天贼',
-        '天解',
         '死神',
         '病符',
         '雨师',
