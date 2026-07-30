@@ -2,7 +2,7 @@ import type { LiurenData, LiurenShenShaFact, LiurenTransmission } from '../../..
 import { getDivinationTime } from '../../../calendar/timeManager';
 import { getVoidBranches } from '../../../calendar/lunar';
 import { SolarTerm, SolarTime } from 'tyme4ts';
-import { getBranchWuxing, getSeasonState, getYiMa } from '../../../ganzhi';
+import { getBranchWuxing, getOppositeBranch, getSeasonState, getYiMa } from '../../../ganzhi';
 import {
   buildHeavenlyPlate,
   DIZHI,
@@ -13,6 +13,7 @@ import {
   getUpperByUnder,
   LIUREN_DAYTIME_BRANCHES,
   LIUREN_MONTH_LEADER_BY_ZHONGQI,
+  TIANGAN,
   TIANJIANG_ATTRIBUTES,
   type TianJiangName,
 } from './helpers/plate';
@@ -46,7 +47,7 @@ function buildShenShaFacts(
     '只定位神煞所在干支',
     '须核对是否入课、入传或临干支',
     '不得单项定吉凶',
-    '当前只登记十三项可复算神煞，不代表《六壬大全》神煞总目录已经穷尽',
+    '当前只登记二十四项可复算神煞，不代表《六壬大全》神煞总目录已经穷尽',
   ];
   const addFact = (
     fact: Omit<LiurenShenShaFact, 'sources' | 'limitations'> & {
@@ -377,6 +378,121 @@ function buildShenShaFacts(
       rule: '甲寅、乙卯、丙戊巳、丁己午、庚申、辛酉、壬亥、癸子',
       source: '《六壬大全》卷一“十天干神煞”日禄表',
     });
+  }
+
+  const dayStemIndex = TIANGAN.findIndex((stem) => stem === dayStem);
+  if (dayStemIndex >= 0) {
+    const dayStemShenShaTables = [
+      {
+        name: '干奇',
+        targets: ['午', '巳', '辰', '卯', '寅', '丑', '未', '申', '酉', '戌'],
+        rule: '甲日午起逆行至己日丑，庚日未起顺行至癸日戌',
+        extraLimitations: [
+          '《六壬大全》卷首表作“仪神”；本结果依《大六壬神煞指南》定名“干奇”，两名指同一十干表',
+        ],
+      },
+      {
+        name: '日解',
+        targets: ['亥', '申', '未', '丑', '酉', '亥', '申', '未', '丑', '酉'],
+        rule: '甲亥、乙申、丙未、丁丑、戊酉，己至癸同甲至戊',
+        extraLimitations: [
+          '《六壬大全》卷首同表值的末项表头缺字；本结果依《大六壬神煞指南》定名“日解”',
+        ],
+      },
+      {
+        name: '日医',
+        targets: ['卯', '亥', '丑', '未', '巳', '卯', '亥', '丑', '未', '巳'],
+        rule: '甲卯、乙亥、丙丑、丁未、戊巳，己至癸同甲至戊',
+      },
+      {
+        name: '福星',
+        targets: ['子', '丑', '子', '子', '未', '未', '丑', '丑', '巳', '巳'],
+        rule: '甲子、乙丑、丙子、丁子、戊未、己未、庚丑、辛丑、壬巳、癸巳',
+      },
+      {
+        name: '飞符',
+        targets: ['巳', '辰', '卯', '寅', '丑', '午', '未', '申', '酉', '戌'],
+        rule: '甲日巳起逆行至戊日丑，己日午起顺行至癸日戌',
+        extraLimitations: [
+          '《六壬大全》卷首表作“直符”；本结果依《大六壬神煞指南》定名“飞符”，两名指同一十干表',
+        ],
+      },
+      {
+        name: '羊刃',
+        targets: ['卯', '辰', '午', '未', '午', '未', '酉', '戌', '子', '丑'],
+        rule: '日禄前一支为羊刃：甲卯、乙辰、丙午、丁未、戊午、己未、庚酉、辛戌、壬子、癸丑',
+      },
+      {
+        name: '游都',
+        targets: ['丑', '子', '寅', '巳', '申', '丑', '子', '寅', '巳', '申'],
+        rule: '甲己丑、乙庚子、丙辛寅、丁壬巳、戊癸申',
+      },
+      {
+        name: '日贼',
+        targets: ['辰', '午', '申', '亥', '寅', '辰', '午', '申', '亥', '寅'],
+        rule: '甲辰、乙午、丙申、丁亥、戊寅，己至癸同甲至戊',
+        extraLimitations: [
+          '《六壬大全》卷首表作“天贼”；本结果依《大六壬神煞指南》定名“日贼”，避免与逐月同名项混淆',
+        ],
+      },
+      {
+        name: '日盗',
+        targets: ['子', '亥', '卯', '申', '巳', '子', '亥', '卯', '申', '巳'],
+        rule: '甲子、乙亥、丙卯、丁申、戊巳，己至癸同甲至戊',
+        extraLimitations: [
+          '《六壬大全》卷首表作“天盗”；本结果依《大六壬神煞指南》定名“日盗”，避免与逐月同名项混淆',
+        ],
+      },
+    ] as const;
+    const source = '《六壬指南注解》卷四《大六壬神煞指南》“干煞”表与歌诀';
+    const extraSources = ['《六壬大全》卷一“十天干神煞”表'];
+
+    for (const table of dayStemShenShaTables) {
+      addFact({
+        name: table.name,
+        target: table.targets[dayStemIndex],
+        targetType: '地支',
+        category: '十天干神煞',
+        basis: '日干',
+        input: dayStem,
+        rule: table.rule,
+        source,
+        extraSources,
+        extraLimitations: 'extraLimitations' in table ? [...table.extraLimitations] : [],
+      });
+    }
+
+    const dayStemFacts = new Map(
+      facts
+        .filter((fact) => fact.category === '十天干神煞')
+        .map((fact) => [fact.name, fact] as const),
+    );
+    const youDu = dayStemFacts.get('游都')?.target;
+    if (youDu) {
+      addFact({
+        name: '鲁都',
+        target: getOppositeBranch(youDu),
+        targetType: '地支',
+        category: '十天干神煞',
+        basis: '日干',
+        input: dayStem,
+        rule: '游都对冲为鲁都',
+        source: '《六壬指南注解》卷四《大六壬神煞指南》“游都冲处鲁都求”',
+      });
+    }
+    const yangRen = dayStemFacts.get('羊刃')?.target;
+    if (yangRen) {
+      addFact({
+        name: '飞刃',
+        target: getOppositeBranch(yangRen),
+        targetType: '地支',
+        category: '十天干神煞',
+        basis: '日干',
+        input: dayStem,
+        rule: '羊刃对冲为飞刃',
+        source: '《六壬指南注解》卷四《大六壬神煞指南》“禄前羊刃对飞安”',
+      });
+    }
   }
 
   return facts;
