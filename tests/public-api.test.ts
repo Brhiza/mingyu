@@ -4412,6 +4412,50 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   ]) {
     assert.equal(key in tenResponse, false);
   }
+  const matterTenResponse = chart.body.data.evidenceAnalysis.matterTenResponseContextFact;
+  assert.equal(matterTenResponse.status, '资料不足');
+  assert.deepEqual(matterTenResponse.availableContextFields, []);
+  assert.deepEqual(matterTenResponse.missingContextFields, matterTenResponse.requiredContextFields);
+  assert.deepEqual(matterTenResponse.responseCatalogFields, [
+    '行',
+    '立',
+    '坐',
+    '卧',
+    '担',
+    '券',
+    '裹头',
+    '跣足',
+    '喜',
+    '怒',
+  ]);
+  assert.equal(matterTenResponse.requiredContextFields.length, 8);
+  assert.equal(matterTenResponse.availableChartFields.length, 3);
+  assert.equal(matterTenResponse.sourceLineFields.length, 11);
+  assert.equal(matterTenResponse.unresolvedRuleFields.length, 10);
+  assert.equal(matterTenResponse.highRiskRuleFields.length, 6);
+  assert.match(matterTenResponse.promptText, /现有日干支、月令旺衰、主互变卦/);
+  for (const key of [
+    'matterResponse',
+    'observedResponse',
+    'dayElement',
+    'dayStrength',
+    'legalOutcome',
+    'financialOutcome',
+    'visitorArrival',
+    'documentArrival',
+    'illness',
+    'fever',
+    'treatment',
+    'prognosis',
+    'spiritCause',
+    'mourning',
+    'auspicious',
+    'score',
+    'weight',
+    'probability',
+  ]) {
+    assert.equal(key in matterTenResponse, false);
+  }
   const dispositionFacts = chart.body.data.evidenceAnalysis.hexagramDispositionFacts;
   const dispositionVersion = chart.body.data.evidenceAnalysis.hexagramDispositionVersionFact;
   assert.equal(dispositionFacts.length, 3);
@@ -4565,6 +4609,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.equal(chart.body.data.evidenceAnalysis.summaryFact.objectContextFactCount, 1);
   assert.equal(chart.body.data.evidenceAnalysis.summaryFact.topicResponseContextFactCount, 1);
   assert.equal(chart.body.data.evidenceAnalysis.summaryFact.tenResponseContextFactCount, 1);
+  assert.equal(chart.body.data.evidenceAnalysis.summaryFact.matterTenResponseContextFactCount, 1);
   assert.equal(
     chart.body.data.evidenceAnalysis.summaryFact.hexagramDispositionFactCount,
     dispositionFacts.length,
@@ -4574,7 +4619,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     chart.body.data.evidenceAnalysis.summaryFact.transitionFactCount,
     chart.body.data.evidenceAnalysis.transitionFacts.length,
   );
-  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 14);
+  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 15);
   assert.equal(
     chart.body.data.evidenceAnalysis.limitations.length,
     chart.body.data.evidenceAnalysis.limitationFacts.length,
@@ -4598,6 +4643,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.match(chart.body.data.evidenceAnalysis.promptText, /观物专项：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /诸事响应专项：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /占卜十应：/);
+  assert.match(chart.body.data.evidenceAnalysis.promptText, /论事十大应：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /反对性情资料：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /解释限制：/);
   assertPromptIsPortableTaskText(chart.body.data.evidenceAnalysis.promptText);
@@ -4652,6 +4698,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.match(prompt.body.data.prompt, /万物外应：当前输入未记录耳闻目见的现场原始事实/);
   assert.match(prompt.body.data.prompt, /占卜十应：《占卜十应诀》第954至978行/);
   assert.match(prompt.body.data.prompt, /疾病末段不得生成诊断、痊愈或生死结论/);
+  assert.match(prompt.body.data.prompt, /论事十大应：《论事十大应（论日辰秘文）》第979至989行/);
   assert.match(prompt.body.data.prompt, /应期资料：应期状态：待补充事项情境/);
   assert.match(prompt.body.data.prompt, /全卦克应候选：/);
   assert.match(prompt.body.data.prompt, /资料未齐时不能计算传统克应/);

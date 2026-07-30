@@ -176,6 +176,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.equal(evidence.summaryFact.objectContextFactCount, 1);
   assert.equal(evidence.summaryFact.topicResponseContextFactCount, 1);
   assert.equal(evidence.summaryFact.tenResponseContextFactCount, 1);
+  assert.equal(evidence.summaryFact.matterTenResponseContextFactCount, 1);
   assert.equal(
     evidence.summaryFact.hexagramDispositionFactCount,
     evidence.hexagramDispositionFacts.length,
@@ -551,6 +552,56 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   ]) {
     assert.equal(key in evidence.tenResponseContextFact, false);
   }
+  assert.equal(evidence.matterTenResponseContextFact.status, '资料不足');
+  assert.deepEqual(evidence.matterTenResponseContextFact.responseCatalogFields, [
+    '行',
+    '立',
+    '坐',
+    '卧',
+    '担',
+    '券',
+    '裹头',
+    '跣足',
+    '喜',
+    '怒',
+  ]);
+  assert.deepEqual(evidence.matterTenResponseContextFact.availableContextFields, []);
+  assert.deepEqual(
+    evidence.matterTenResponseContextFact.missingContextFields,
+    evidence.matterTenResponseContextFact.requiredContextFields,
+  );
+  assert.equal(evidence.matterTenResponseContextFact.requiredContextFields.length, 8);
+  assert.equal(evidence.matterTenResponseContextFact.availableChartFields.length, 3);
+  assert.equal(evidence.matterTenResponseContextFact.sourceLineFields.length, 11);
+  assert.equal(evidence.matterTenResponseContextFact.unresolvedRuleFields.length, 10);
+  assert.equal(evidence.matterTenResponseContextFact.highRiskRuleFields.length, 6);
+  assert.match(evidence.matterTenResponseContextFact.sourceLineFields[0] ?? '', /论日辰秘文/);
+  assert.match(evidence.matterTenResponseContextFact.sourceLineFields[5] ?? '', /五担/);
+  assert.match(evidence.matterTenResponseContextFact.sourceLineFields[6] ?? '', /六券/);
+  assert.match(evidence.matterTenResponseContextFact.sourceLineFields[8] ?? '', /病有孝至/);
+  assert.match(evidence.matterTenResponseContextFact.promptText, /现有日干支、月令旺衰/);
+  for (const key of [
+    'matterResponse',
+    'observedResponse',
+    'dayElement',
+    'dayStrength',
+    'legalOutcome',
+    'financialOutcome',
+    'visitorArrival',
+    'documentArrival',
+    'illness',
+    'fever',
+    'treatment',
+    'prognosis',
+    'spiritCause',
+    'mourning',
+    'auspicious',
+    'score',
+    'weight',
+    'probability',
+  ]) {
+    assert.equal(key in evidence.matterTenResponseContextFact, false);
+  }
   assert.equal(evidence.hexagramDispositionFacts.length, 3);
   assert.deepEqual(
     evidence.hexagramDispositionFacts.map((item) => item.label),
@@ -598,7 +649,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     .map((item) => item.type);
   assert.ok(processCounterTypes.includes('互卦响应关系限制'));
   assert.ok(processCounterTypes.includes('互卦响应月令限制'));
-  assert.equal(evidence.limitationFacts.length, 14);
+  assert.equal(evidence.limitationFacts.length, 15);
   assert.deepEqual(
     evidence.limitations,
     evidence.limitationFacts.map((item) => item.promptText),
@@ -616,6 +667,8 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.match(evidence.promptText, /饮食专项：/);
   assert.match(evidence.promptText, /观物专项：/);
   assert.match(evidence.promptText, /诸事响应专项：/);
+  assert.match(evidence.promptText, /占卜十应：/);
+  assert.match(evidence.promptText, /论事十大应：/);
   assert.match(evidence.promptText, /反对性情资料：/);
   assert.match(evidence.promptText, /解释限制：/);
   assert.match(evidence.promptText, /起因.*→.*过程.*；.*过程.*→.*结果/);
@@ -1015,6 +1068,38 @@ test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补�
       ]) {
         assert.equal(key in evidence.tenResponseContextFact, false);
       }
+      assert.equal(evidence.matterTenResponseContextFact.status, '资料不足');
+      assert.deepEqual(evidence.matterTenResponseContextFact.availableContextFields, []);
+      assert.deepEqual(
+        evidence.matterTenResponseContextFact.missingContextFields,
+        evidence.matterTenResponseContextFact.requiredContextFields,
+      );
+      assert.equal(evidence.matterTenResponseContextFact.responseCatalogFields.length, 10);
+      assert.equal(evidence.matterTenResponseContextFact.sourceLineFields.length, 11);
+      assert.equal(evidence.matterTenResponseContextFact.unresolvedRuleFields.length, 10);
+      assert.equal(evidence.matterTenResponseContextFact.highRiskRuleFields.length, 6);
+      for (const key of [
+        'matterResponse',
+        'observedResponse',
+        'dayElement',
+        'dayStrength',
+        'legalOutcome',
+        'financialOutcome',
+        'visitorArrival',
+        'documentArrival',
+        'illness',
+        'fever',
+        'treatment',
+        'prognosis',
+        'spiritCause',
+        'mourning',
+        'auspicious',
+        'score',
+        'weight',
+        'probability',
+      ]) {
+        assert.equal(key in evidence.matterTenResponseContextFact, false);
+      }
       assert.doesNotMatch(
         JSON.stringify({
           motion,
@@ -1024,6 +1109,7 @@ test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补�
           object: evidence.objectContextFact,
           topicResponse: evidence.topicResponseContextFact,
           tenResponse: evidence.tenResponseContextFact,
+          matterTenResponse: evidence.matterTenResponseContextFact,
         }),
         /"score"\s*:|"probability"\s*:|应吉之速|应凶之速|应期快于|应期迟缓/,
       );
@@ -1651,7 +1737,7 @@ test('梅花四种起卦入口都应生成完整可移植的对象化证据', ()
     assert.equal(evidence.calculationSteps.length, 7);
     assert.equal(evidence.hexagramDispositionFacts.length, 3);
     assert.equal(evidence.hexagramDispositionVersionFact.status, '底本异文待校');
-    assert.equal(evidence.limitationFacts.length, 14);
+    assert.equal(evidence.limitationFacts.length, 15);
     assertPromptIsPortableTaskText(evidence.promptText);
   }
 });

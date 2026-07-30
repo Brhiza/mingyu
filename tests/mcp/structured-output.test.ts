@@ -3362,6 +3362,18 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               highRiskRuleFields: string[];
               promptText: string;
             };
+            matterTenResponseContextFact: {
+              status: string;
+              responseCatalogFields: string[];
+              requiredContextFields: string[];
+              availableContextFields: string[];
+              missingContextFields: string[];
+              availableChartFields: string[];
+              sourceLineFields: string[];
+              unresolvedRuleFields: string[];
+              highRiskRuleFields: string[];
+              promptText: string;
+            };
             hexagramDispositionFacts: Array<{
               status: string;
               stage: string;
@@ -3423,6 +3435,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               objectContextFactCount: number;
               topicResponseContextFactCount: number;
               tenResponseContextFactCount: number;
+              matterTenResponseContextFactCount: number;
               hexagramDispositionFactCount: number;
               hexagramDispositionVersionFactCount: number;
               transitionFactCount: number;
@@ -3694,6 +3707,53 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     ]) {
       assert.equal(key in tenResponse, false);
     }
+    const matterTenResponse = result.evidenceAnalysis.matterTenResponseContextFact;
+    assert.equal(matterTenResponse.status, '资料不足');
+    assert.deepEqual(matterTenResponse.availableContextFields, []);
+    assert.deepEqual(
+      matterTenResponse.missingContextFields,
+      matterTenResponse.requiredContextFields,
+    );
+    assert.deepEqual(matterTenResponse.responseCatalogFields, [
+      '行',
+      '立',
+      '坐',
+      '卧',
+      '担',
+      '券',
+      '裹头',
+      '跣足',
+      '喜',
+      '怒',
+    ]);
+    assert.equal(matterTenResponse.requiredContextFields.length, 8);
+    assert.equal(matterTenResponse.availableChartFields.length, 3);
+    assert.equal(matterTenResponse.sourceLineFields.length, 11);
+    assert.equal(matterTenResponse.unresolvedRuleFields.length, 10);
+    assert.equal(matterTenResponse.highRiskRuleFields.length, 6);
+    assert.match(matterTenResponse.promptText, /现有日干支、月令旺衰、主互变卦/);
+    for (const key of [
+      'matterResponse',
+      'observedResponse',
+      'dayElement',
+      'dayStrength',
+      'legalOutcome',
+      'financialOutcome',
+      'visitorArrival',
+      'documentArrival',
+      'illness',
+      'fever',
+      'treatment',
+      'prognosis',
+      'spiritCause',
+      'mourning',
+      'auspicious',
+      'score',
+      'weight',
+      'probability',
+    ]) {
+      assert.equal(key in matterTenResponse, false);
+    }
     const dispositionFacts = result.evidenceAnalysis.hexagramDispositionFacts;
     const dispositionVersion = result.evidenceAnalysis.hexagramDispositionVersionFact;
     assert.equal(dispositionFacts.length, 3);
@@ -3841,6 +3901,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.equal(result.evidenceAnalysis.summaryFact.objectContextFactCount, 1);
     assert.equal(result.evidenceAnalysis.summaryFact.topicResponseContextFactCount, 1);
     assert.equal(result.evidenceAnalysis.summaryFact.tenResponseContextFactCount, 1);
+    assert.equal(result.evidenceAnalysis.summaryFact.matterTenResponseContextFactCount, 1);
     assert.equal(
       result.evidenceAnalysis.summaryFact.hexagramDispositionFactCount,
       dispositionFacts.length,
@@ -3858,7 +3919,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       result.evidenceAnalysis.summaryFact.timingFactCount,
       result.evidenceAnalysis.timingFacts.length,
     );
-    assert.equal(result.evidenceAnalysis.limitationFacts.length, 14);
+    assert.equal(result.evidenceAnalysis.limitationFacts.length, 15);
     assert.equal(
       result.evidenceAnalysis.limitations.length,
       result.evidenceAnalysis.limitationFacts.length,
@@ -3894,6 +3955,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.match(result.evidenceAnalysis.promptText, /体用动静：/);
     assert.match(result.evidenceAnalysis.promptText, /万物外应：/);
     assert.match(result.evidenceAnalysis.promptText, /占卜十应：/);
+    assert.match(result.evidenceAnalysis.promptText, /论事十大应：/);
     assert.match(result.evidenceAnalysis.promptText, /反对性情资料：/);
     assert.match(result.evidenceAnalysis.promptText, /解释限制：/);
     assertPromptIsPortableTaskText(result.evidenceAnalysis.promptText);
@@ -3944,6 +4006,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.match(promptText, /万物外应：当前输入未记录耳闻目见的现场原始事实/);
     assert.match(promptText, /占卜十应：《占卜十应诀》第954至978行/);
     assert.match(promptText, /疾病末段不得生成诊断、痊愈或生死结论/);
+    assert.match(promptText, /论事十大应：《论事十大应（论日辰秘文）》第979至989行/);
     assert.match(promptText, /反对性情资料：/);
     assert.match(promptText, /应期资料：应期状态：待补充事项情境/);
     assert.match(promptText, /全卦克应候选：/);

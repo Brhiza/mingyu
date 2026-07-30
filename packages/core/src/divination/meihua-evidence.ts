@@ -209,6 +209,22 @@ export interface MeihuaTenResponseContextFact {
   limitation: '《占卜十应诀》只把正应、互应、变应回指当前已经结构化的主卦体用、体互与用互对原体、变卦用卦对原体事实，不重复计算或累计证据；方应、日应、刻应、外应、天时应、地理应与人事应必须另有现场方位、日应口径、耳闻目见、外物、天气、地点和人事原始记录。当前底本存在目录漏列方应、“此二卦之诀”、“火见雷为比和”、“并为体卦”、日应映卦与衰旺、诸应重叠及无限类推等未决问题，不得擅改原文或据此生成现场外应、日应吉凶、疾病诊断、痊愈、生死、评分、权重或概率';
 }
 
+export interface MeihuaMatterTenResponseContextFact {
+  key: 'meihua:matter-ten-response-context';
+  status: '资料不足';
+  responseCatalogFields: string[];
+  requiredContextFields: string[];
+  availableContextFields: string[];
+  missingContextFields: string[];
+  availableChartFields: string[];
+  sourceLineFields: string[];
+  unresolvedRuleFields: string[];
+  highRiskRuleFields: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '《论事十大应》只保存行、立、坐、卧、担、券、裹头、跣足、喜、怒十项目录及原文资料；这些项目依赖起卦现场真实观察、被观察者身份、观察时序、明确所问事项，以及“属木、属火、金水土”和“旺木”等日辰口径。当前输入与底本均不足以闭合分类、五行绑定、旺衰、句读、冲突或优先级规则，不得从问题关键词、日干支、月令旺衰、主互变卦或前节占卜十应补造现场应兆，也不得生成法律结果、财务得失、贵人访客、文书发动、疾病诊断或预后、鬼神因果、吉凶、评分、权重、概率或确定应期';
+}
+
 export interface MeihuaHexagramDispositionFact {
   key: string;
   status: '已计算';
@@ -487,6 +503,7 @@ export interface MeihuaSummaryFact {
   objectContextFactCount: number;
   topicResponseContextFactCount: number;
   tenResponseContextFactCount: number;
+  matterTenResponseContextFactCount: number;
   hexagramDispositionFactCount: number;
   hexagramDispositionVersionFactCount: number;
   transitionFactCount: number;
@@ -495,7 +512,7 @@ export interface MeihuaSummaryFact {
   timingFactCount: number;
   promptText: string;
   sources: string[];
-  limitation: '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、事项响应情境、十应目录与资料边界、反对性情卦画与版本、推进、传统文本、反证与应期事实的覆盖情况；不得按数量或卦义标签生成吉凶总分、成功率、人物性格、动机、身体病位、具体物件、专项现实结论或唯一日期';
+  limitation: '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、事项响应情境、占卜十应、论事十大应资料边界、反对性情卦画与版本、推进、传统文本、反证与应期事实的覆盖情况；不得按数量或卦义标签生成吉凶总分、成功率、人物性格、动机、身体病位、具体物件、专项现实结论或唯一日期';
 }
 
 export interface MeihuaLimitationFact {
@@ -511,6 +528,7 @@ export interface MeihuaLimitationFact {
     | '观物专项边界'
     | '事项响应情境边界'
     | '占卜十应边界'
+    | '论事十大应边界'
     | '反对性情资料边界'
     | '阶段推进与反证边界'
     | '应期边界'
@@ -550,6 +568,7 @@ export interface MeihuaEvidenceAnalysis {
   objectContextFact: MeihuaObjectContextFact;
   topicResponseContextFact: MeihuaTopicResponseContextFact;
   tenResponseContextFact: MeihuaTenResponseContextFact;
+  matterTenResponseContextFact: MeihuaMatterTenResponseContextFact;
   hexagramDispositionFacts: MeihuaHexagramDispositionFact[];
   hexagramDispositionVersionFact: MeihuaHexagramDispositionVersionFact;
   transitionFacts: MeihuaTransitionFact[];
@@ -599,6 +618,8 @@ const TOPIC_RESPONSE_CONTEXT_FACT_LIMITATION =
   '《诸事响应歌》按天气、人事、家宅、生产、婚姻、饮食、求谋、求名、求财、交易、出行、行人、谒人、疾病、公讼与墓穴等不同事项分别立意；同一体用关系跨事项可能含义相反，问题关键词和通用盘面不能自动确定事项、判断目标、现实状态或角色。当前入口没有结构化专项情境，且“比和凶则有救星”句义未完成独立版本互证，不得套用事项歌诀生成胎儿性别、疾病诊断、药物冷热温补处方、鬼神或自伤落水血刃原因、诉讼胜负、确定婚姻财务结果、吉凶评分、权重或概率' as const;
 const TEN_RESPONSE_CONTEXT_FACT_LIMITATION =
   '《占卜十应诀》只把正应、互应、变应回指当前已经结构化的主卦体用、体互与用互对原体、变卦用卦对原体事实，不重复计算或累计证据；方应、日应、刻应、外应、天时应、地理应与人事应必须另有现场方位、日应口径、耳闻目见、外物、天气、地点和人事原始记录。当前底本存在目录漏列方应、“此二卦之诀”、“火见雷为比和”、“并为体卦”、日应映卦与衰旺、诸应重叠及无限类推等未决问题，不得擅改原文或据此生成现场外应、日应吉凶、疾病诊断、痊愈、生死、评分、权重或概率' as const;
+const MATTER_TEN_RESPONSE_CONTEXT_FACT_LIMITATION =
+  '《论事十大应》只保存行、立、坐、卧、担、券、裹头、跣足、喜、怒十项目录及原文资料；这些项目依赖起卦现场真实观察、被观察者身份、观察时序、明确所问事项，以及“属木、属火、金水土”和“旺木”等日辰口径。当前输入与底本均不足以闭合分类、五行绑定、旺衰、句读、冲突或优先级规则，不得从问题关键词、日干支、月令旺衰、主互变卦或前节占卜十应补造现场应兆，也不得生成法律结果、财务得失、贵人访客、文书发动、疾病诊断或预后、鬼神因果、吉凶、评分、权重、概率或确定应期' as const;
 const HEXAGRAM_DISPOSITION_FACT_LIMITATION =
   '《诸卦反对性情》与《杂卦传》卦义只登记当前卦、综卦、错卦和传统抽象标签；综卦、错卦是卦画结构关系，刚柔、忧乐、灾困等词是古籍卦义，不等同于现实人物性格、动机、心理状态、事件、吉凶、成败或概率' as const;
 const HEXAGRAM_DISPOSITION_VERSION_LIMITATION =
@@ -632,7 +653,7 @@ const TIMING_REQUIRED_CONTEXT_FIELDS = [
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只证明起卦取数、主互变卦象、六爻动爻、主变体用、互卦响应、推进、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期' as const;
 const SUMMARY_FACT_LIMITATION =
-  '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、事项响应情境、十应目录与资料边界、反对性情卦画与版本、推进、传统文本、反证与应期事实的覆盖情况；不得按数量或卦义标签生成吉凶总分、成功率、人物性格、动机、身体病位、具体物件、专项现实结论或唯一日期' as const;
+  '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、事项响应情境、占卜十应、论事十大应资料边界、反对性情卦画与版本、推进、传统文本、反证与应期事实的覆盖情况；不得按数量或卦义标签生成吉凶总分、成功率、人物性格、动机、身体病位、具体物件、专项现实结论或唯一日期' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束梅花起卦、卦象、逐爻、体用、推进、传统卦爻辞与应期资料能够支持的解释范围，不得被反向当作现实吉凶、婚育疾病、伤亡诉讼、事件概率或固定应期的证据' as const;
 
@@ -1860,6 +1881,78 @@ function buildTenResponseContextFact(
   };
 }
 
+function buildMatterTenResponseContextFact(data: MeihuaData): MeihuaMatterTenResponseContextFact {
+  const responseCatalogFields = ['行', '立', '坐', '卧', '担', '券', '裹头', '跣足', '喜', '怒'];
+  const requiredContextFields = [
+    '现场实际观察到的行为、姿态、装束或情绪原始记录',
+    '被观察者身份及其与求测者的关系',
+    '观察发生在起卦前、起卦中还是起卦后',
+    '准确观察时间、多项观察先后与持续情况',
+    '官事、财、信、客、文书、疾病等明确事项、具体对象与判断目标',
+    '“属木、属火、金水土”所指日干、日支、纳音、卦象或其他对象的版本口径',
+    '“旺木”等日辰旺衰算法及其与现有月令旺衰的关系',
+    '多项观察并见、冲突、重复时的去重、优先级与适用规则',
+  ];
+  const sourceLineFields = [
+    '论事十大应（论日辰秘文）',
+    '一行：问官事，属木，旺木有文书；属火，有官司；财金，财有至。有客至问病，人火潮热，金水米浆。',
+    '二立：官司不发，木土无金，大小口舌，病不凶。财水土，有贵人至，文书发动。',
+    '三坐：问官司，有讼不成。主财属火，主和劝。金败财，木得财。病却月，又有犯林木神，有祸不凶。',
+    '四卧：问官司侧睡者，欲起必作，主阴人事。金有财，火事发破财。土水无财难就。土木有财。',
+    '五担：官司被人自惊，与面说人成口舌。问信见水土得财。金木客至。病有犯，四肢沉重不能起。',
+    '六券：官司不成，火有财，水土有灾。心下不安，有贵人，主口舌，不凶。',
+    '七裹头：官司立见口舌。火，大官司；水土比和。财无，小人分上。口舌呕气。病主阴人小口灾。',
+    '八跣足：官司破财，外人欺，心下惊慌。火主破财，土不凶。病有孝至。',
+    '九喜：官司自己无主，外人有请，劝官司。有酒肉，别人事。口舌纷纷，求财不许。不凶。',
+    '十怒：官司主外人欺凌，不见官，主破财。倚人脱卸，火惊病凶。',
+  ];
+  const unresolvedRuleFields = [
+    '本节与前一节《占卜十应诀》的关系、适用先后及是否同属现场克应未说明，不能合并为同一套十应',
+    '标题“论日辰秘文”未说明具体使用日干、日支、纳音、干支五行、日卦或其他日辰层级',
+    '担、券、裹头、跣足等十项究竟指现场动作、姿态、装束、情绪还是其他分类，底本未给定义',
+    '各行句读、主语、事项分段以及木火金水土与前后短句的绑定范围不明',
+    '官事、官司、口舌等名目是否属于同一事项，以及各自适用条件不明',
+    '财、信、客、文书、疾病等分句的起止与适用范围不明，不能从词序重组算法',
+    '“病却月”“犯林木神”“阴人小口灾”“病有孝至”等句义及版本均未闭合',
+    '多项动作、姿态、装束或情绪并见时，没有去重、冲突、重复或优先级规则',
+    '现代转录所见“行、立、坐、卧、语、默、喜、怒、得、失”目录缺少可靠版本来源，不能覆盖当前底本',
+    '多个公开转录明显沿用同一电子底本，不能据其一致性证明担、券等底本文字无误',
+  ];
+  const highRiskRuleFields = [
+    '不得生成官司是否发生、胜负、是否见官、受欺凌或破财等法律与财务结果',
+    '不得生成贵人、客人到来、文书发动、口舌或他人行为等现实事件',
+    '不得生成潮热、四肢沉重、病凶、痊愈或其他疾病诊断、治疗与预后结论',
+    '不得把“犯林木神”“阴人小口灾”“病有孝至”等解释为鬼神、性别年龄或丧事因果',
+    '不得从现有日干支、月令旺衰、主互变卦或问题关键词自动选择十应、事项或五行条件',
+    '不得把目录、原文或缺失资料换算为吉凶、评分、权重、概率或确定应期',
+  ];
+  return {
+    key: 'meihua:matter-ten-response-context',
+    status: '资料不足',
+    responseCatalogFields,
+    requiredContextFields,
+    availableContextFields: [],
+    missingContextFields: [...requiredContextFields],
+    availableChartFields: [
+      `起卦日干支${data.ganzhi.day}及日支${data.ganzhi.day.slice(-1)}，只作原始日期资料，不能据此确定本节五行口径`,
+      `月支${data.ganzhi.month.slice(-1)}及现有四时旺衰，只作月令资料，不能替代标题所称日辰旺衰`,
+      `主卦${data.mainHexagram.name}、互卦${data.interHexagram?.name ?? '缺失'}、变卦${data.changedHexagram?.name ?? '缺失'}，只作盘面资料，不能补造现场十应`,
+    ],
+    sourceLineFields,
+    unresolvedRuleFields,
+    highRiskRuleFields,
+    promptText:
+      '《论事十大应（论日辰秘文）》第979至989行及行、立、坐、卧、担、券、裹头、跣足、喜、怒十项目录已完整留档。当前没有现场行为、姿态、装束或情绪原始记录、被观察者身份、观察时序和明确专项事项；底本也没有闭合“属木、属火、金水土”的所指、“旺木”等日辰旺衰、句读绑定及多项并见规则。现有日干支、月令旺衰、主互变卦、问题关键词与前节占卜十应均不能替代这些资料，不生成现场应兆、法律或财务结果、贵人访客、文书发动、疾病诊断或预后、鬼神因果、吉凶、评分、权重、概率或确定应期',
+    sources: [
+      '《梅花易数》卷三《论事十大应（论日辰秘文）》第979至989行',
+      '多个公开转录对担、券、裹头、跣足等字样的交叉核对；公开文本明显同源，不能替代独立版本校勘',
+      '现代“行立坐卧语默喜怒得失”目录与当前底本对照；因无可靠版本来源，不据其校改原文',
+      '当前梅花输入、日干支、月令旺衰、主互变盘面与现场专项资料逐项对照',
+    ],
+    limitation: MATTER_TEN_RESPONSE_CONTEXT_FACT_LIMITATION,
+  };
+}
+
 function buildHexagramDispositionFacts(data: MeihuaData): MeihuaHexagramDispositionFact[] {
   const stages = [
     { stage: 'origin', label: '主卦', hexagram: data.mainHexagram },
@@ -2585,6 +2678,7 @@ function buildSummaryFact(params: {
   objectContextFact: MeihuaObjectContextFact;
   topicResponseContextFact: MeihuaTopicResponseContextFact;
   tenResponseContextFact: MeihuaTenResponseContextFact;
+  matterTenResponseContextFact: MeihuaMatterTenResponseContextFact;
   hexagramDispositionFacts: MeihuaHexagramDispositionFact[];
   hexagramDispositionVersionFact: MeihuaHexagramDispositionVersionFact;
   transitionFacts: MeihuaTransitionFact[];
@@ -2614,6 +2708,7 @@ function buildSummaryFact(params: {
       params.objectContextFact.key,
       params.topicResponseContextFact.key,
       params.tenResponseContextFact.key,
+      params.matterTenResponseContextFact.key,
       ...params.hexagramDispositionFacts.map((item) => item.key),
       params.hexagramDispositionVersionFact.key,
       ...params.transitionFacts.map((item) => item.key),
@@ -2648,15 +2743,16 @@ function buildSummaryFact(params: {
     objectContextFactCount: 1,
     topicResponseContextFactCount: 1,
     tenResponseContextFactCount: 1,
+    matterTenResponseContextFactCount: 1,
     hexagramDispositionFactCount: params.hexagramDispositionFacts.length,
     hexagramDispositionVersionFactCount: 1,
     transitionFactCount: params.transitionFacts.length,
     traditionalFactCount: params.traditionalFacts.length,
     counterEvidenceCount: params.counterEvidenceFacts.length,
     timingFactCount: params.timingFacts.length,
-    promptText: `证据状态${status}：主互变卦象${params.hexagramStructureFacts.length}项、逐爻${params.yaoStructureFacts.length}项、阶段关系${params.stages.length}项、互卦响应${params.interResponseFacts.length}项、体用党1项、应卦制化${params.responseInteractionFacts.length}项、内外动静2项、坐端应兆1项、万物耳目外应1项、饮食专项1项、观物专项1项、事项响应情境1项、十应目录与资料边界1项、反对性情卦画${params.hexagramDispositionFacts.length}项与版本1项、阶段推进${params.transitionFacts.length}项、传统卦爻辞${params.traditionalFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
+    promptText: `证据状态${status}：主互变卦象${params.hexagramStructureFacts.length}项、逐爻${params.yaoStructureFacts.length}项、阶段关系${params.stages.length}项、互卦响应${params.interResponseFacts.length}项、体用党1项、应卦制化${params.responseInteractionFacts.length}项、内外动静2项、坐端应兆1项、万物耳目外应1项、饮食专项1项、观物专项1项、事项响应情境1项、占卜十应1项、论事十大应资料边界1项、反对性情卦画${params.hexagramDispositionFacts.length}项与版本1项、阶段推进${params.transitionFacts.length}项、传统卦爻辞${params.traditionalFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
     sources: [
-      '全部起卦、主互变卦象、逐爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、事项响应情境、十应目录与资料边界、反对性情卦画与版本、推进、传统文本、反证与应期事实逐项汇总',
+      '全部起卦、主互变卦象、逐爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、事项响应情境、占卜十应、论事十大应资料边界、反对性情卦画与版本、推进、传统文本、反证与应期事实逐项汇总',
     ],
     limitation: SUMMARY_FACT_LIMITATION,
   };
@@ -2680,6 +2776,7 @@ function buildCalculationSteps(params: {
   objectContextFact: MeihuaObjectContextFact;
   topicResponseContextFact: MeihuaTopicResponseContextFact;
   tenResponseContextFact: MeihuaTenResponseContextFact;
+  matterTenResponseContextFact: MeihuaMatterTenResponseContextFact;
   hexagramDispositionFacts: MeihuaHexagramDispositionFact[];
   hexagramDispositionVersionFact: MeihuaHexagramDispositionVersionFact;
   transitionFacts: MeihuaTransitionFact[];
@@ -2772,11 +2869,14 @@ function buildCalculationSteps(params: {
         tenResponseCatalogCount: params.tenResponseContextFact.responseCatalogFields.length,
         reusedInternalResponseCount:
           params.tenResponseContextFact.reusedInternalResponseFields.length,
+        matterTenResponseStatus: params.matterTenResponseContextFact.status,
+        matterTenResponseCatalogCount:
+          params.matterTenResponseContextFact.responseCatalogFields.length,
         hexagramDispositionFactCount: params.hexagramDispositionFacts.length,
         hexagramDispositionVersionStatus: params.hexagramDispositionVersionFact.status,
       },
       dependsOnStepKeys: ['meihua:calculation:hexagrams', 'meihua:calculation:yaos'],
-      promptText: `${params.stageCoverageFact.promptText}；计算主变体用、体互与用互对原体的关系、体用党、应卦间制化路径、内卦动静分工及主互变综卦、错卦与抽象卦义；《占卜十应诀》的正互变三应只回指这些既有事实，方、日、刻、外、天时、地理、人事七应与其他外应、饮食、观物、事项响应情境保持资料不足，《诸卦反对性情》底本异文另行保留`,
+      promptText: `${params.stageCoverageFact.promptText}；计算主变体用、体互与用互对原体的关系、体用党、应卦间制化路径、内卦动静分工及主互变综卦、错卦与抽象卦义；《占卜十应诀》的正互变三应只回指这些既有事实，方、日、刻、外、天时、地理、人事七应与其他外应、饮食、观物、事项响应情境保持资料不足；《论事十大应》只留档目录与原文，现场观察及日辰口径不足时不执行；《诸卦反对性情》底本异文另行保留`,
       sources: [
         '主卦、互卦、变卦上下经卦、综卦、错卦、抽象卦义与原动爻所在经卦的体用、体互、用互、体用党、应卦制化、体用动静及现场坐端、耳目外应资料边界',
       ],
@@ -2837,6 +2937,7 @@ function buildCalculationSteps(params: {
         objectContextFactCount: params.summaryFact.objectContextFactCount,
         topicResponseContextFactCount: params.summaryFact.topicResponseContextFactCount,
         tenResponseContextFactCount: params.summaryFact.tenResponseContextFactCount,
+        matterTenResponseContextFactCount: params.summaryFact.matterTenResponseContextFactCount,
         hexagramDispositionFactCount: params.summaryFact.hexagramDispositionFactCount,
         hexagramDispositionVersionFactCount: params.summaryFact.hexagramDispositionVersionFactCount,
         transitionFactCount: params.summaryFact.transitionFactCount,
@@ -2877,6 +2978,7 @@ function buildLimitationFacts(params: {
   objectContextFact: MeihuaObjectContextFact;
   topicResponseContextFact: MeihuaTopicResponseContextFact;
   tenResponseContextFact: MeihuaTenResponseContextFact;
+  matterTenResponseContextFact: MeihuaMatterTenResponseContextFact;
   hexagramDispositionFacts: MeihuaHexagramDispositionFact[];
   hexagramDispositionVersionFact: MeihuaHexagramDispositionVersionFact;
   transitionFacts: MeihuaTransitionFact[];
@@ -2982,6 +3084,16 @@ function buildLimitationFacts(params: {
         '《占卜十应诀》十项目录只完整留档原文层级：正、互、变三应回指既有盘面事实，不重复计证；方、日、刻、外、天时、地理、人事七应因现场与日应算法资料不足而不计算。目录漏列方应、“此二卦之诀”、“火见雷为比和”、“并为体卦”及诸应重叠等问题未完成独立版本互证，不擅改、不类推；疾病末段不得生成诊断、痊愈或生死结论',
       sources: [
         '《梅花易数》卷三《占卜十应诀》第954至978行、前文《十应奥论》《十应目论》与当前资料覆盖',
+      ],
+    },
+    {
+      key: 'meihua:limitation:matter-ten-response-context',
+      type: '论事十大应边界',
+      ownerFactKeys: [params.matterTenResponseContextFact.key],
+      promptText:
+        '《论事十大应》仅完整留档行、立、坐、卧、担、券、裹头、跣足、喜、怒及第979至989行原文。当前没有现场观察、被观察者身份、观察时序和明确专项事项，底本也没有闭合五行所指、日辰旺衰、句读绑定及多项并见规则；不得从日干支、月令、卦象、问题关键词或前节占卜十应补造应兆，更不得生成法律财务、贵人访客、文书、疾病、鬼神因果或量化结论',
+      sources: [
+        '《梅花易数》卷三《论事十大应（论日辰秘文）》第979至989行与当前现场、事项及日辰口径资料覆盖',
       ],
     },
     {
@@ -3134,6 +3246,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
   const objectContextFact = buildObjectContextFact();
   const topicResponseContextFact = buildTopicResponseContextFact();
   const tenResponseContextFact = buildTenResponseContextFact(data, stages, interResponseFacts);
+  const matterTenResponseContextFact = buildMatterTenResponseContextFact(data);
   const hexagramDispositionFacts = buildHexagramDispositionFacts(data);
   const hexagramDispositionVersionFact = buildHexagramDispositionVersionFact();
   const stageCoverageFact = buildStageCoverageFact(stages);
@@ -3205,6 +3318,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     objectContextFact,
     topicResponseContextFact,
     tenResponseContextFact,
+    matterTenResponseContextFact,
     hexagramDispositionFacts,
     hexagramDispositionVersionFact,
     transitionFacts,
@@ -3232,6 +3346,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     objectContextFact,
     topicResponseContextFact,
     tenResponseContextFact,
+    matterTenResponseContextFact,
     hexagramDispositionFacts,
     hexagramDispositionVersionFact,
     transitionFacts,
@@ -3261,6 +3376,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     objectContextFact,
     topicResponseContextFact,
     tenResponseContextFact,
+    matterTenResponseContextFact,
     hexagramDispositionFacts,
     hexagramDispositionVersionFact,
     transitionFacts,
@@ -3465,6 +3581,21 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
         tenResponseContextFact.status,
       ],
     },
+    {
+      level: '限制',
+      title: '论事十大应目录、现场资料与日辰口径边界',
+      detail: `${matterTenResponseContextFact.promptText}；边界：${matterTenResponseContextFact.limitation}`,
+      source: matterTenResponseContextFact.sources.join('、'),
+      tags: [
+        '论事十大应',
+        '论日辰秘文',
+        '现场观察资料不足',
+        '日辰口径未闭合',
+        '法律财务疾病高风险边界',
+        '版本互证',
+        matterTenResponseContextFact.status,
+      ],
+    },
     ...hexagramDispositionFacts.map((fact): PromptEvidenceItem => ({
       level: '辅证',
       title: `${fact.label}${fact.hexagram}反对性情卦画资料`,
@@ -3546,6 +3677,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     `观物专项：${objectContextFact.promptText}。`,
     `诸事响应专项：${topicResponseContextFact.promptText}。`,
     `占卜十应：${tenResponseContextFact.promptText}。`,
+    `论事十大应：${matterTenResponseContextFact.promptText}。`,
     `反对性情资料：${hexagramDispositionFacts.map((item) => item.promptText).join('；')}；${hexagramDispositionVersionFact.promptText}。`,
     `推进关系：${transitionFacts.map((item) => item.promptText).join('；') || '只有主卦阶段，未形成可核验的互变推进链'}`,
     `应期资料：${timingFacts.map((item) => item.promptText).join('；')}`,
@@ -3579,6 +3711,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     objectContextFact,
     topicResponseContextFact,
     tenResponseContextFact,
+    matterTenResponseContextFact,
     hexagramDispositionFacts,
     hexagramDispositionVersionFact,
     transitionFacts,
@@ -3609,6 +3742,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       '《观物玄妙歌诀》《占物类例》《物数为体诀》《观物看变爻为主》《观物克应法》《观物趣时诀》《观物用易例》与《万物戏验》只用于明确的观物、射覆或具体物件辨识；《万物戏验》更须明确确为“猜手中物”，并另行提供待辨对象范围、可见遮覆手持状态、所需属性范围及现场原始观察。这里只登记规则目录、现场与四时候选、两则历史实例及手中物目录的资料层级；“有气”、卦象相遇、“离色亦”、季节“否则”及“六虚冲破”等条件未闭合前，不自动匹配历史实例或猜物，也不生成物件种类、形色材质、根部、声响、软硬、湿烂焚毁、破损开口、价值、用途、可食性、空手与否、成败结果或精确数量。',
       '《诸事响应歌》必须先明确事项类别、具体对象、精确判断目标、现实状态及角色；同一体用关系在不同事项可有不同含义，天气另须区分问晴或问雨并核对特定经卦。当前情境不足且“比和凶则有救星”句义未独立互证时，不套用专项歌诀，不生成胎儿性别、疾病与用药、鬼神或自伤事故原因、诉讼胜负、确定婚姻财务结果或任意量化结论。',
       '《占卜十应诀》完整保存正、互、变、方、日、刻、外、天时、地理、人事十项目录与第954至978行原文；正、互、变三应只回指现有主卦体用、体互与用互对原体、变卦用卦对原体事实，不重复计算或累计证据。方、日、刻、外、天时、地理、人事七应所需现场资料与日应算法未齐时不计算；方应不等同既有坐端应兆，日支不自动生成日应吉凶，“火见雷为比和”不覆盖公共五行关系，“并为体卦”不擅改，诸应重叠不自行设优先级，疾病末段只留档而不生成诊断、痊愈或生死结论。',
+      '《论事十大应（论日辰秘文）》完整保存行、立、坐、卧、担、券、裹头、跣足、喜、怒十项目录与第979至989行原文；只在另有现场真实观察、被观察者身份与关系、观察时序、明确事项，以及五行所指和日辰旺衰版本口径时才可能进一步校核。当前资料不足且句读、绑定、多项并见与现代异目录均未闭合，不从问题关键词、日干支、月令、主互变卦或前节占卜十应补造应兆，也不生成法律财务、贵人访客、文书、疾病、鬼神因果、吉凶或任意量化结论。',
       '《诸卦反对性情》只保留主互变卦画可复算的综卦、错卦及通行《杂卦传》抽象卦义；当前底本错名、漏名、重名与句义移位单独登记，不覆盖卦画计算，也不把刚柔忧乐灾困等词解释成人物性格、动机、心理、现实事件、吉凶或概率。',
       '动爻只标记变化层位，卦数只保留原始计算资料；主卦用卦、体互、用互、变卦用卦的生克只作传统应验方向候选，并须合看旺衰与制化。',
       '事项类型、是否确需刻期、自然期限、材质、远近、时间尺度、数克或理克口径及应验方向未齐时，不从问题关键词猜测，不裁定时间单位、统一快慢或换算绝对日期。',
