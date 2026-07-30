@@ -1195,6 +1195,7 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /变卦：地火明夷；变后体卦坤（土）；变后用卦离（火）；变后体用体克用/);
   assert.match(prompt, /坐端应兆：当前输入未记录以求测者所在处为中心/);
   assert.match(prompt, /万物外应：当前输入未记录耳闻目见的现场原始事实/);
+  assert.match(prompt, /饮食专项：当前输入未明确饮食专项所需情境/);
   assert.match(prompt, /月令与起卦：春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
   assert.match(prompt, /应期资料：应期状态：待补充事项情境/);
   assert.match(prompt, /第3爻为变化层位/);
@@ -1224,12 +1225,13 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /第3爻.*动.*属用/);
 });
 
-test('梅花旧缓存缺少全卦克应、情境字段与万物外应时应自动重建', () => {
+test('梅花旧缓存缺少全卦克应、情境字段、万物外应与饮食专项时应自动重建', () => {
   const data = createData('meihua') as MeihuaData;
   const evidence = analyzeMeihuaEvidence(data);
   data.evidenceAnalysis = {
     ...evidence,
     sensoryOmenFact: undefined,
+    foodContextFact: undefined,
     timingFacts: evidence.timingFacts
       .filter((item) => item.type !== '全卦克应关系')
       .map((item) =>
@@ -1255,6 +1257,7 @@ test('梅花旧缓存缺少全卦克应、情境字段与万物外应时应自�
   assert.match(prompt, /自然期限/);
   assert.match(prompt, /不得靠关键词猜测/);
   assert.match(prompt, /万物外应：当前输入未记录耳闻目见的现场原始事实/);
+  assert.match(prompt, /饮食专项：当前输入未明确饮食专项所需情境/);
 });
 
 test('小六壬提示词只保留时宫主证、顺数计算和规则边界', () => {

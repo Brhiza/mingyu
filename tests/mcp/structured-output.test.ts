@@ -3309,6 +3309,14 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               missingObservationFields: string[];
               promptText: string;
             };
+            foodContextFact: {
+              status: string;
+              requiredContextFields: string[];
+              availableContextFields: string[];
+              missingContextFields: string[];
+              availableChartFields: string[];
+              promptText: string;
+            };
             transitionFacts: Array<{
               key: string;
               status: string;
@@ -3346,6 +3354,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               responseInteractionFactCount: number;
               motionFactCount: number;
               sensoryOmenFactCount: number;
+              foodContextFactCount: number;
               transitionFactCount: number;
               traditionalFactCount: number;
               counterEvidenceCount: number;
@@ -3464,6 +3473,29 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     for (const key of ['eventPhase', 'omen', 'date', 'score', 'weight', 'probability']) {
       assert.equal(key in result.evidenceAnalysis.sensoryOmenFact, false);
     }
+    assert.equal(result.evidenceAnalysis.foodContextFact.status, '资料不足');
+    assert.deepEqual(result.evidenceAnalysis.foodContextFact.availableContextFields, []);
+    assert.deepEqual(
+      result.evidenceAnalysis.foodContextFact.missingContextFields,
+      result.evidenceAnalysis.foodContextFact.requiredContextFields,
+    );
+    assert.equal(result.evidenceAnalysis.foodContextFact.requiredContextFields.length, 5);
+    assert.equal(result.evidenceAnalysis.foodContextFact.availableChartFields.length, 4);
+    for (const key of [
+      'food',
+      'dish',
+      'taste',
+      'cookingMethod',
+      'guest',
+      'host',
+      'canEat',
+      'illness',
+      'score',
+      'weight',
+      'probability',
+    ]) {
+      assert.equal(key in result.evidenceAnalysis.foodContextFact, false);
+    }
     assert.ok(
       result.evidenceAnalysis.interResponseFacts.every(
         (item) => item.originalTi.name === result.tiGua.name && item.relation.includes('原体'),
@@ -3570,6 +3602,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     );
     assert.equal(result.evidenceAnalysis.summaryFact.motionFactCount, 2);
     assert.equal(result.evidenceAnalysis.summaryFact.sensoryOmenFactCount, 1);
+    assert.equal(result.evidenceAnalysis.summaryFact.foodContextFactCount, 1);
     assert.equal(
       result.evidenceAnalysis.summaryFact.transitionFactCount,
       result.evidenceAnalysis.transitionFacts.length,
@@ -3582,7 +3615,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       result.evidenceAnalysis.summaryFact.timingFactCount,
       result.evidenceAnalysis.timingFacts.length,
     );
-    assert.equal(result.evidenceAnalysis.limitationFacts.length, 9);
+    assert.equal(result.evidenceAnalysis.limitationFacts.length, 10);
     assert.equal(
       result.evidenceAnalysis.limitations.length,
       result.evidenceAnalysis.limitationFacts.length,

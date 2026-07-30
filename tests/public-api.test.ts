@@ -4249,6 +4249,29 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   for (const key of ['eventPhase', 'omen', 'date', 'score', 'weight', 'probability']) {
     assert.equal(key in chart.body.data.evidenceAnalysis.sensoryOmenFact, false);
   }
+  assert.equal(chart.body.data.evidenceAnalysis.foodContextFact.status, '资料不足');
+  assert.deepEqual(chart.body.data.evidenceAnalysis.foodContextFact.availableContextFields, []);
+  assert.deepEqual(
+    chart.body.data.evidenceAnalysis.foodContextFact.missingContextFields,
+    chart.body.data.evidenceAnalysis.foodContextFact.requiredContextFields,
+  );
+  assert.equal(chart.body.data.evidenceAnalysis.foodContextFact.requiredContextFields.length, 5);
+  assert.equal(chart.body.data.evidenceAnalysis.foodContextFact.availableChartFields.length, 4);
+  for (const key of [
+    'food',
+    'dish',
+    'taste',
+    'cookingMethod',
+    'guest',
+    'host',
+    'canEat',
+    'illness',
+    'score',
+    'weight',
+    'probability',
+  ]) {
+    assert.equal(key in chart.body.data.evidenceAnalysis.foodContextFact, false);
+  }
   const resultStage = chart.body.data.evidenceAnalysis.stages.find(
     (item: { stage: string }) => item.stage === 'result',
   );
@@ -4361,11 +4384,12 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   );
   assert.equal(chart.body.data.evidenceAnalysis.summaryFact.motionFactCount, 2);
   assert.equal(chart.body.data.evidenceAnalysis.summaryFact.sensoryOmenFactCount, 1);
+  assert.equal(chart.body.data.evidenceAnalysis.summaryFact.foodContextFactCount, 1);
   assert.equal(
     chart.body.data.evidenceAnalysis.summaryFact.transitionFactCount,
     chart.body.data.evidenceAnalysis.transitionFacts.length,
   );
-  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 9);
+  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 10);
   assert.equal(
     chart.body.data.evidenceAnalysis.limitations.length,
     chart.body.data.evidenceAnalysis.limitationFacts.length,
@@ -4385,6 +4409,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.match(chart.body.data.evidenceAnalysis.promptText, /体用党与应卦制化：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /体用动静：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /万物外应：/);
+  assert.match(chart.body.data.evidenceAnalysis.promptText, /饮食专项：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /解释限制：/);
   assertPromptIsPortableTaskText(chart.body.data.evidenceAnalysis.promptText);
   assert.equal(chart.body.data.evidenceAnalysis.calculationFact.status, '完整');

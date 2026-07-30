@@ -17,6 +17,8 @@
  *    当前输入不含这些资料，不由主互变卦方位、题目文字、设备位置或行政地名补造。
  * 6. 察万物外应：耳闻目见须保留现场原始记录，区分成卦前后、观察时序、
  *    对象类别与实际状态后，才能与原卦及所占事项合参；当前输入不含这些资料。
+ * 7. 占饮食：须另行确认具体饮食或宴请之占、判断对象、专项角色、动静原始记录、
+ *    宴食时间及主客关系；当前底本句读尚待校勘，不从通用体用与卦内动爻套结论。
  */
 
 import type { MeihuaData, MeihuaSettings } from '../../../types/divination';
@@ -432,6 +434,7 @@ export type {
   MeihuaEvidenceStageKey,
   MeihuaHexagramFact,
   MeihuaExternalMotionFact,
+  MeihuaFoodContextFact,
   MeihuaInternalMotionFact,
   MeihuaInternalMotionReference,
   MeihuaInternalMotionRole,
