@@ -429,6 +429,7 @@ const systems: SystemCapability[] = [
       '主互变体用推进链',
       '逐阶段月令支持与限制',
       '现场坐端应兆资料边界',
+      '全卦克应候选与事项情境边界',
     ],
     supports: randomSupports,
   },

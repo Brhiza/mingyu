@@ -258,6 +258,7 @@ export interface MeihuaTimingFact {
     | '动爻层位'
     | '卦数资料'
     | '体用生克'
+    | '全卦克应关系'
     | '月建旺衰'
     | '体卦状态'
     | '原应期条件'
@@ -266,9 +267,28 @@ export interface MeihuaTimingFact {
   sourceStatus: '原结果提供' | '由盘面补齐' | '资料不足' | '统一边界';
   ownerFactKeys: string[];
   rawText?: string;
+  expectedResponseRoles?: MeihuaResponseRole[];
+  actualResponseRoles?: MeihuaResponseRole[];
+  missingResponseRoles?: MeihuaResponseRole[];
+  relationCandidates?: MeihuaTimingRelationCandidate[];
+  requiredContextFields?: string[];
+  availableContextFields?: string[];
+  missingContextFields?: string[];
   promptText: string;
   sources: string[];
-  limitation: '应期事实只登记动爻层位、卦数、体用生克、月令旺衰及传统克应所缺现实条件；不得把爻位、卦数、体用生克、阶段数量或旺衰单独换算唯一日期或统一快慢，也不证明事件必然发生';
+  limitation: '应期事实只登记动爻层位、卦数、体用互变全卦生克候选、月令旺衰及传统克应所缺事项情境；不得把爻位、卦数、生克候选、阶段数量或旺衰单独换算唯一日期或统一快慢，也不证明事件必然发生';
+}
+
+export interface MeihuaTimingRelationCandidate {
+  responseKey: string;
+  ownerFactKey: string;
+  role: MeihuaResponseRole;
+  name: string;
+  element: string;
+  seasonState: string;
+  relationToOriginalTi: MeihuaResponseReference['relationToOriginalTi'];
+  direction: '传统吉应方向候选' | '传统凶应方向候选' | '非本条直接刻期候选';
+  interactionFactKeys: string[];
 }
 
 export interface MeihuaTimingSummaryFact {
@@ -277,7 +297,7 @@ export interface MeihuaTimingSummaryFact {
   factKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '应期汇总只说明当前保存了哪些盘面事实以及还缺哪些传统克应条件；必要条件未齐时不得按条件数量、动爻、卦数、体用生克或旺衰生成统一快慢、固定天数、绝对日期或事件概率';
+  limitation: '应期汇总只说明当前保存了哪些盘面事实、全卦生克候选以及还缺哪些传统克应事项情境；必要条件未齐时不得按条件数量、动爻、卦数、生克候选或旺衰生成统一快慢、固定天数、绝对日期或事件概率';
 }
 
 export interface MeihuaTraditionalFact {
@@ -456,9 +476,17 @@ const COUNTER_FACT_LIMITATION =
 const COUNTER_SUMMARY_LIMITATION =
   '反证汇总只说明当前阶段核验是否发现明确限制；同一原体月令条件只登记一次，未见明确反证不代表现实风险为零，也不得按反证数量换算吉凶总分或成功率' as const;
 const TIMING_FACT_LIMITATION =
-  '应期事实只登记动爻层位、卦数、体用生克、月令旺衰及传统克应所缺现实条件；不得把爻位、卦数、体用生克、阶段数量或旺衰单独换算唯一日期或统一快慢，也不证明事件必然发生' as const;
+  '应期事实只登记动爻层位、卦数、体用互变全卦生克候选、月令旺衰及传统克应所缺事项情境；不得把爻位、卦数、生克候选、阶段数量或旺衰单独换算唯一日期或统一快慢，也不证明事件必然发生' as const;
 const TIMING_SUMMARY_LIMITATION =
-  '应期汇总只说明当前保存了哪些盘面事实以及还缺哪些传统克应条件；必要条件未齐时不得按条件数量、动爻、卦数、体用生克或旺衰生成统一快慢、固定天数、绝对日期或事件概率' as const;
+  '应期汇总只说明当前保存了哪些盘面事实、全卦生克候选以及还缺哪些传统克应事项情境；必要条件未齐时不得按条件数量、动爻、卦数、生克候选或旺衰生成统一快慢、固定天数、绝对日期或事件概率' as const;
+const TIMING_REQUIRED_CONTEXT_FIELDS = [
+  '所占事项类型与具体对象',
+  '此问只断吉凶成败还是确需刻定应期',
+  '事项自然期限、远近及采用年/月/日/时时间尺度',
+  '所求应验方向（吉应、凶应、成事、败事、归期等）',
+  '数克或理克的采用口径；若数克，事物数是否入卦及原始数值',
+  '对象材质或耐久性（屋宅、坟墓、器物等适用时）',
+] as const;
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只证明起卦取数、主互变卦象、六爻动爻、主变体用、互卦响应、推进、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期' as const;
 const SUMMARY_FACT_LIMITATION =
@@ -1654,6 +1682,8 @@ function buildCounterEvidenceFacts(
 function buildTimingFacts(
   data: MeihuaData,
   stages: MeihuaStageEvidence[],
+  responseReferences: MeihuaResponseReference[],
+  responseInteractionFacts: MeihuaResponseInteractionFact[],
   monthBranch: string,
   calculationFact: MeihuaCalculationFact,
   yaoCoverageFact: MeihuaYaoCoverageFact,
@@ -1703,6 +1733,57 @@ function buildTimingFacts(
     sources: ['当前主卦体用五行生克关系'],
     limitation: TIMING_FACT_LIMITATION,
   });
+  const expectedResponseRoles: MeihuaResponseRole[] = ['主卦用卦', '体互', '用互', '变卦用卦'];
+  const actualResponseRoles = expectedResponseRoles.filter((role) =>
+    responseReferences.some((item) => item.role === role),
+  );
+  const missingResponseRoles = expectedResponseRoles.filter(
+    (role) => !actualResponseRoles.includes(role),
+  );
+  const relationCandidates: MeihuaTimingRelationCandidate[] = responseReferences.map(
+    (response) => ({
+      responseKey: response.key,
+      ownerFactKey: response.ownerFactKey,
+      role: response.role,
+      name: response.name,
+      element: response.element,
+      seasonState: response.seasonState,
+      relationToOriginalTi: response.relationToOriginalTi,
+      direction:
+        response.relationToOriginalTi === '生体' || response.relationToOriginalTi === '与体比和'
+          ? '传统吉应方向候选'
+          : response.relationToOriginalTi === '克体'
+            ? '传统凶应方向候选'
+            : '非本条直接刻期候选',
+      interactionFactKeys: responseInteractionFacts
+        .filter((fact) => fact.target.key === response.key)
+        .map((fact) => fact.key),
+    }),
+  );
+  add({
+    key: 'meihua:timing:whole-hexagram-relations',
+    type: '全卦克应关系',
+    sourceStatus: missingResponseRoles.length ? '资料不足' : '由盘面补齐',
+    ownerFactKeys: Array.from(
+      new Set([
+        calculationFact.key,
+        ...relationCandidates.map((item) => item.ownerFactKey),
+        ...relationCandidates.flatMap((item) => item.interactionFactKeys),
+      ]),
+    ),
+    expectedResponseRoles,
+    actualResponseRoles,
+    missingResponseRoles,
+    relationCandidates,
+    promptText: missingResponseRoles.length
+      ? `全卦克应候选缺少${missingResponseRoles.join('、')}；现有关系只登记传统吉应、凶应或非本条直接刻期方向候选，不得补造缺失角色或直接生成日期`
+      : `全卦克应候选：${relationCandidates.map((item) => `${item.role}${item.name}${item.element}（月令${item.seasonState}）${item.relationToOriginalTi}，列为${item.direction}${item.interactionFactKeys.length ? `，另有${item.interactionFactKeys.length}项制化事实须合看` : ''}`).join('；')}；仍须结合旺衰、制化、事项情境、远近和时间尺度，不直接生成日期`,
+    sources: [
+      '《梅花易数》卷三《占卜克应之诀》从体、用、互、变全卦寻找生体、比和与克体之应',
+      '主卦用卦、体互、用互、变卦用卦对原体的五行关系及应卦制化事实',
+    ],
+    limitation: TIMING_FACT_LIMITATION,
+  });
   add({
     key: 'meihua:timing:month-state',
     type: '月建旺衰',
@@ -1717,8 +1798,11 @@ function buildTimingFacts(
     type: '克应资料覆盖',
     sourceStatus: '资料不足',
     ownerFactKeys: [externalMotionFact.key],
+    requiredContextFields: [...TIMING_REQUIRED_CONTEXT_FIELDS],
+    availableContextFields: [],
+    missingContextFields: [...TIMING_REQUIRED_CONTEXT_FIELDS],
     promptText:
-      '现有盘面未含求测者行卧坐立或外应动静、事件远近及年/月/日/时尺度，不能单独计算传统克应',
+      '现有排盘未结构化记录所占事项与对象、是否确需刻期、自然期限与远近、年/月/日/时时间尺度、应验方向、数克或理克口径以及适用时的材质耐久性；问题文字若明确提供，只可逐项核对，不得靠关键词猜测，资料未齐时不能计算传统克应',
     sources: ['当前起卦输入与传统克应必要条件逐项对照'],
     limitation: TIMING_FACT_LIMITATION,
   });
@@ -1728,7 +1812,7 @@ function buildTimingFacts(
     sourceStatus: '统一边界',
     ownerFactKeys: [calculationFact.key, yaoCoverageFact.key, internalMotionFact.key],
     promptText:
-      '克应资料补足前，只能保留动爻、卦数、体用和月令盘面事实，不能计算具体日期或统一快慢',
+      '克应事项情境补足前，只能保留动爻、卦数、全卦生克候选、制化和月令盘面事实，不能裁定年/月/日/时单位、计算具体日期或统一快慢',
     sources: ['盘面事实与传统克应条件分离原则'],
     limitation: TIMING_FACT_LIMITATION,
   });
@@ -2074,8 +2158,8 @@ function buildLimitationFacts(params: {
       type: '应期边界',
       ownerFactKeys: [params.timingSummaryFact.key, ...params.timingFacts.map((item) => item.key)],
       promptText:
-        '动爻、卦数、体用生克与月令旺衰只是盘面事实；缺少行卧坐立或外应动静、事件远近和时间尺度时，不能形成完整传统克应判断，不得裁定统一快慢或换算唯一日期',
-      sources: ['动爻层位、卦数、月令旺衰、体用关系、克应资料覆盖与期限边界'],
+        '动爻、卦数、全卦生克候选、制化与月令旺衰只是盘面事实；事项类型、是否确需刻期、自然期限、材质、远近、时间尺度、数克或理克口径及应验方向未齐时，不能形成完整传统克应判断，不得裁定时间单位、统一快慢或换算唯一日期',
+      sources: ['动爻层位、卦数、月令旺衰、全卦生克候选、克应资料覆盖与期限边界'],
     },
     {
       key: 'meihua:limitation:tradition-risk',
@@ -2197,6 +2281,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
   const timingFacts = buildTimingFacts(
     data,
     stages,
+    responseReferences,
+    responseInteractionFacts,
     monthBranch,
     calculationFact,
     yaoCoverageFact,
@@ -2209,8 +2295,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     key: 'meihua:timing-summary',
     status: '资料不足',
     factKeys: timingFacts.map((item) => item.key),
-    promptText: `应期状态：待补充现实条件；已登记${timingFacts.length}项盘面、资料覆盖与期限边界事实，待结合行卧坐立或外应动静、事件远近和时间尺度再论传统克应`,
-    sources: ['逐项动爻、卦数、月令、体用、克应资料覆盖与期限边界汇总'],
+    promptText: `应期状态：待补充事项情境；已登记${timingFacts.length}项盘面、全卦生克候选、资料覆盖与期限边界事实，待明确事项类型、是否确需刻期、自然期限、材质、远近、时间尺度、数克或理克口径及应验方向后再论传统克应`,
+    sources: ['逐项动爻、卦数、月令、全卦生克候选、克应资料覆盖与期限边界汇总'],
     limitation: TIMING_SUMMARY_LIMITATION,
   };
   const counterEvidenceFacts = buildCounterEvidenceFacts(
@@ -2536,7 +2622,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       '体党、用党只比较体互、用互和变卦用卦与原体、原用的同五行聚集；应卦制化逐项登记其他应卦对生体、克体之卦的克制路径，并保留月令强弱待综合。',
       '内卦动静按原体、体互、用互为静，主卦用卦、变卦响应为动逐项登记；这不等同于现场物体实际动静。',
       '坐端八方只接受以求测者所在处为中心的现场方位与真实兆象；缺少观察资料时，不以主互变卦方位、题目文字或设备位置补造人物、病位或吉凶。',
-      '动爻只标记变化层位，卦数只保留原始计算资料；缺少外应对象及实际动静、行卧坐立、事件远近和时间尺度时，不裁定统一快慢或换算绝对日期。',
+      '动爻只标记变化层位，卦数只保留原始计算资料；主卦用卦、体互、用互、变卦用卦的生克只作传统应验方向候选，并须合看旺衰与制化。',
+      '事项类型、是否确需刻期、自然期限、材质、远近、时间尺度、数克或理克口径及应验方向未齐时，不从问题关键词猜测，不裁定时间单位、统一快慢或换算绝对日期。',
       '只输出支持、反证、盘面事实与资料边界，不生成吉凶总分、成功率或无依据应期。',
     ],
   };

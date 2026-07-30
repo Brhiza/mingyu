@@ -77,9 +77,9 @@ function getInterRelationToOriginalTi(
 /**
  * 整理应期可用事实与资料边界。
  *
- * 《梅花易数》的克应须先区分事件远近与年、月、日、时尺度，并结合求测者
- * 行卧坐立或外应动静。当前排盘没有这些结构化输入，因此这里只登记盘面事实，
- * 不计算统一快慢或具体日期。
+ * 《梅花易数》的克应须从体、用、互、变全卦寻找生体、比和、克体之应，
+ * 并先明确事项自然期限、远近、数克或理克口径及年、月、日、时尺度。
+ * 当前排盘没有这些事项情境输入，因此这里只登记全卦关系候选，不计算日期。
  */
 function estimateYingQi(params: {
   movingYaoIndex: number;
@@ -87,6 +87,11 @@ function estimateYingQi(params: {
   lowerTrigramIndex: number;
   tiElement: string;
   yongElement: string;
+  responses: Array<{
+    role: '主卦用卦' | '体互' | '用互' | '变卦用卦';
+    name: string;
+    element: string;
+  }>;
   seasonState: '旺' | '相' | '休' | '囚' | '死' | '平';
 }): string[] {
   const periods: string[] = [];
@@ -96,6 +101,7 @@ function estimateYingQi(params: {
     lowerTrigramIndex,
     tiElement,
     yongElement,
+    responses,
     seasonState,
   } = params;
 
@@ -114,11 +120,36 @@ function estimateYingQi(params: {
   const tiYongRelation = getTiYongRelation(yongElement, tiElement);
   periods.push(`主卦体用关系为${tiYongRelation}，只作生克事实，不单独裁定应期快慢`);
 
-  // 4. 旺衰只登记体卦盛衰，不把旺相、休囚死机械等同于快慢。
+  // 4. 体、用、互、变全卦均须对原体核验，只登记传统克应方向候选。
+  const responseText = responses.map((response) => {
+    const rawRelation = getTiYongRelation(response.element, tiElement);
+    const relation =
+      rawRelation === '用生体'
+        ? '生体'
+        : rawRelation === '比和'
+          ? '与体比和'
+          : rawRelation === '用克体'
+            ? '克体'
+            : rawRelation === '体生用'
+              ? '体生应卦'
+              : '体克应卦';
+    const direction =
+      relation === '生体' || relation === '与体比和'
+        ? '传统吉应方向候选'
+        : relation === '克体'
+          ? '传统凶应方向候选'
+          : '非本条直接刻期候选';
+    return `${response.role}${response.name}${response.element}${relation}，列为${direction}`;
+  });
+  periods.push(
+    `全卦克应候选：${responseText.join('；')}；仍须结合旺衰、制化与事项情境，不直接生成日期`,
+  );
+
+  // 5. 旺衰只登记体卦盛衰，不把旺相、休囚死机械等同于快慢。
   periods.push(`体卦月令状态为${seasonState}，只作盛衰事实，不单独裁定应期快慢`);
 
   periods.push(
-    '现有盘面未含求测者行卧坐立或外应动静、事件远近及年/月/日/时尺度，不能单独计算传统克应',
+    '现有排盘未结构化记录所占事项与对象、是否确需刻期、自然期限与远近、年/月/日/时时间尺度、应验方向、数克或理克口径以及适用时的材质耐久性；资料未齐时不能计算传统克应',
   );
 
   return periods;
@@ -363,6 +394,16 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
         lowerTrigramIndex,
         tiElement: tiGua.element,
         yongElement: yongGua.element,
+        responses: [
+          { role: '主卦用卦', name: yongGua.name, element: yongGua.element },
+          { role: '体互', name: interTiGua.name, element: interTiGua.element },
+          { role: '用互', name: interYongGua.name, element: interYongGua.element },
+          {
+            role: '变卦用卦',
+            name: changedTiYong.yongGua.name,
+            element: changedTiYong.yongGua.element,
+          },
+        ],
         seasonState: tiSeasonState,
       }),
     },
@@ -400,6 +441,7 @@ export type {
   MeihuaStageEvidence,
   MeihuaStageCoverageFact,
   MeihuaTimingFact,
+  MeihuaTimingRelationCandidate,
   MeihuaTimingSummaryFact,
   MeihuaTraditionalFact,
   MeihuaTransitionFact,

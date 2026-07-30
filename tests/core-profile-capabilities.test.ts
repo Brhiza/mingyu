@@ -227,6 +227,7 @@ test('能力清单可序列化且返回副本', () => {
   assert.equal(liuyao?.supports.seed, true);
   assert.equal(liuyao?.supports.replay, true);
   assert.ok(liuyao?.methods?.some((item) => item.value === 'coins'));
+  assert.ok(getSystemCapability('meihua')?.outputs.includes('全卦克应候选与事项情境边界'));
   const packageJson = JSON.parse(
     readFileSync(new URL('../packages/core/package.json', import.meta.url), 'utf8'),
   ) as { version: string };

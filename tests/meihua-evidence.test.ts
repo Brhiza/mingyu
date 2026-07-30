@@ -784,11 +784,45 @@ test('梅花克应资料不足时只登记盘面事实，不把动爻和卦数�
       (item) => item.type === '克应资料覆盖' && item.sourceStatus === '资料不足',
     ),
   );
-  assert.match(evidence.promptText, /行卧坐立或外应动静、事件远近和时间尺度/);
-  assert.match(evidence.promptText, /不能计算具体日期或统一快慢/);
+  const relationFact = evidence.timingFacts.find((item) => item.type === '全卦克应关系');
+  const contextFact = evidence.timingFacts.find((item) => item.type === '克应资料覆盖');
+  assert.ok(relationFact);
+  assert.equal(relationFact.sourceStatus, '由盘面补齐');
+  assert.deepEqual(relationFact.expectedResponseRoles, ['主卦用卦', '体互', '用互', '变卦用卦']);
+  assert.deepEqual(relationFact.actualResponseRoles, relationFact.expectedResponseRoles);
+  assert.deepEqual(relationFact.missingResponseRoles, []);
+  assert.equal(relationFact.relationCandidates?.length, 4);
+  for (const candidate of relationFact.relationCandidates ?? []) {
+    const reference = evidence.responseReferences.find(
+      (item) => item.key === candidate.responseKey,
+    );
+    assert.ok(reference);
+    const expectedRelation = expectedResponseRelation(reference.element, data.tiGua.element);
+    const expectedDirection =
+      expectedRelation === '生体' || expectedRelation === '与体比和'
+        ? '传统吉应方向候选'
+        : expectedRelation === '克体'
+          ? '传统凶应方向候选'
+          : '非本条直接刻期候选';
+    assert.equal(candidate.relationToOriginalTi, expectedRelation);
+    assert.equal(candidate.direction, expectedDirection);
+    assert.deepEqual(
+      candidate.interactionFactKeys,
+      evidence.responseInteractionFacts
+        .filter((item) => item.target.key === candidate.responseKey)
+        .map((item) => item.key),
+    );
+  }
+  assert.ok(contextFact);
+  assert.equal(contextFact.requiredContextFields?.length, 6);
+  assert.deepEqual(contextFact.availableContextFields, []);
+  assert.deepEqual(contextFact.missingContextFields, contextFact.requiredContextFields);
+  assert.match(evidence.promptText, /所占事项与对象、是否确需刻期、自然期限与远近/);
+  assert.match(evidence.promptText, /不能裁定年\/月\/日\/时单位、计算具体日期或统一快慢/);
+  assert.match(evidence.promptText, /不得靠关键词猜测/);
   assert.doesNotMatch(
-    evidence.promptText,
-    /事情刚开始|内部配合|核心决策|应期快于常规|应期迟缓|\d+日内|\d+月左右|成功率[：=]?\d/,
+    JSON.stringify(evidence.timingFacts),
+    /事情刚开始|内部配合|核心决策|应期快于常规|应期迟缓|\d+日内|\d+月左右|成功率[：=]?\d|"(?:date|deadline|duration|timeUnit|score|weight|probability)"\s*:/,
   );
 });
 

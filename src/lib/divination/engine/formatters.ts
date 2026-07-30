@@ -385,7 +385,11 @@ function formatMeihuaInfo(data: MeihuaData) {
     data.evidenceAnalysis?.traditionalFacts &&
     data.evidenceAnalysis.internalMotionFact &&
     data.evidenceAnalysis.externalMotionFact &&
-    data.evidenceAnalysis.spatialOmenFact
+    data.evidenceAnalysis.spatialOmenFact &&
+    data.evidenceAnalysis.timingFacts?.some((item) => item.type === '全卦克应关系') &&
+    data.evidenceAnalysis.timingFacts.some(
+      (item) => item.type === '克应资料覆盖' && item.requiredContextFields?.length,
+    )
       ? data.evidenceAnalysis
       : analyzeMeihuaEvidence(data);
   const timingEvidence = createMeihuaTimingEvidence(evidenceAnalysis);

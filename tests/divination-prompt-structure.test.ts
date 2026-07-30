@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { taiyi } from 'mingyu-core';
 import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
+import { analyzeMeihuaEvidence } from 'mingyu-core/divination/meihua';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
@@ -23,6 +24,7 @@ import type {
   LiuyaoTemplateType,
   LiurenData,
   LiurenTemplateType,
+  MeihuaData,
   SupplementaryInfo,
 } from '../src/types';
 
@@ -1193,9 +1195,9 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /变卦：地火明夷；变后体卦坤（土）；变后用卦离（火）；变后体用体克用/);
   assert.match(prompt, /坐端应兆：当前输入未记录以求测者所在处为中心/);
   assert.match(prompt, /月令与起卦：春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
-  assert.match(prompt, /应期资料：应期状态：待补充现实条件/);
+  assert.match(prompt, /应期资料：应期状态：待补充事项情境/);
   assert.match(prompt, /第3爻为变化层位/);
-  assert.match(prompt, /不能单独计算传统克应/);
+  assert.match(prompt, /资料未齐时不能计算传统克应/);
   assert.match(prompt, /主卦卦辞分类：.*(?:传统.*标签|未见明确吉凶或进退标签)/);
   assert.match(prompt, /动爻传统辅助：.*当前爻位已发动/);
   assert.match(prompt, /未发动，不展开爻辞解释/);
@@ -1219,6 +1221,37 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
     ),
   );
   assert.match(prompt, /第3爻.*动.*属用/);
+});
+
+test('梅花旧缓存缺少全卦克应与情境字段时应自动重建', () => {
+  const data = createData('meihua') as MeihuaData;
+  const evidence = analyzeMeihuaEvidence(data);
+  data.evidenceAnalysis = {
+    ...evidence,
+    timingFacts: evidence.timingFacts
+      .filter((item) => item.type !== '全卦克应关系')
+      .map((item) =>
+        item.type === '克应资料覆盖'
+          ? {
+              ...item,
+              requiredContextFields: undefined,
+              availableContextFields: undefined,
+              missingContextFields: undefined,
+            }
+          : item,
+      ),
+  };
+
+  const prompt = buildDivinationPrompt(
+    'meihua',
+    '这件事接下来该怎么推进？',
+    data,
+    createSupplementaryInfo(),
+  );
+
+  assert.match(prompt, /全卦克应候选：/);
+  assert.match(prompt, /自然期限/);
+  assert.match(prompt, /不得靠关键词猜测/);
 });
 
 test('小六壬提示词只保留时宫主证、顺数计算和规则边界', () => {

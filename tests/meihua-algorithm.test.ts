@@ -146,7 +146,9 @@ test('梅花：应期字段只登记盘面事实，不把体用生克或旺衰�
     data.analysis.yingQi?.includes('主卦体用关系为用生体，只作生克事实，不单独裁定应期快慢'),
   );
   assert.ok(data.analysis.yingQi?.includes('体卦月令状态为旺，只作盛衰事实，不单独裁定应期快慢'));
-  assert.ok(data.analysis.yingQi?.some((item) => item.includes('不能单独计算传统克应')));
+  assert.ok(data.analysis.yingQi?.some((item) => item.startsWith('全卦克应候选：')));
+  assert.match(data.analysis.yingQi?.join('\n') ?? '', /主卦用卦.*体互.*用互.*变卦用卦/);
+  assert.ok(data.analysis.yingQi?.some((item) => item.includes('资料未齐时不能计算传统克应')));
   assert.doesNotMatch(data.analysis.yingQi?.join('\n') ?? '', /应期快于常规|应期迟缓/);
 });
 
@@ -161,7 +163,8 @@ test('梅花：六个动爻与五种月令状态均不得套用固定现实阶�
     movingYaoPositions.add(data.movingYao.position);
     seasonStates.add(data.analysis.tiSeasonState);
     assert.match(timingText, new RegExp(`第${data.movingYao.position}爻为变化层位`));
-    assert.match(timingText, /不能单独计算传统克应/);
+    assert.match(timingText, /资料未齐时不能计算传统克应/);
+    assert.match(timingText, /全卦克应候选：/);
     assert.doesNotMatch(
       timingText,
       /事情刚开始|基层条件|内部配合|近端条件|由内向外|外部环境开始介入|核心决策|主导条件|事情末端|退出|重新定局|应期快于常规|应期迟缓/,

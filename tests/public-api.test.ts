@@ -4300,6 +4300,21 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
         item.type === '克应资料覆盖' && item.sourceStatus === '资料不足',
     ),
   );
+  const wholeHexagramTiming = chart.body.data.evidenceAnalysis.timingFacts.find(
+    (item: Record<string, unknown>) => item.type === '全卦克应关系',
+  );
+  const timingContext = chart.body.data.evidenceAnalysis.timingFacts.find(
+    (item: Record<string, unknown>) => item.type === '克应资料覆盖',
+  );
+  assert.deepEqual(wholeHexagramTiming.actualResponseRoles, [
+    '主卦用卦',
+    '体互',
+    '用互',
+    '变卦用卦',
+  ]);
+  assert.equal(wholeHexagramTiming.relationCandidates.length, 4);
+  assert.equal(timingContext.requiredContextFields.length, 6);
+  assert.deepEqual(timingContext.missingContextFields, timingContext.requiredContextFields);
   assert.ok(
     chart.body.data.evidenceAnalysis.timingFacts.every(
       (item: Record<string, unknown>) =>
@@ -4405,8 +4420,9 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.match(prompt.body.data.prompt, /体用动静：卦内动静分工/);
   assert.match(prompt.body.data.prompt, /外应动静：当前输入未记录起卦现场/);
   assert.match(prompt.body.data.prompt, /坐端应兆：当前输入未记录以求测者所在处为中心/);
-  assert.match(prompt.body.data.prompt, /应期资料：应期状态：待补充现实条件/);
-  assert.match(prompt.body.data.prompt, /不能单独计算传统克应/);
+  assert.match(prompt.body.data.prompt, /应期资料：应期状态：待补充事项情境/);
+  assert.match(prompt.body.data.prompt, /全卦克应候选：/);
+  assert.match(prompt.body.data.prompt, /资料未齐时不能计算传统克应/);
   assert.doesNotMatch(prompt.body.data.prompt, /结构化证据|计算链|证据汇总|解释边界/);
   assert.doesNotMatch(prompt.body.data.prompt, /妇三岁不孕|焚如，死如|至于八月有凶/);
   assert.doesNotMatch(
