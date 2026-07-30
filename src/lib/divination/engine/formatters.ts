@@ -395,6 +395,7 @@ function formatMeihuaInfo(data: MeihuaData) {
     data.evidenceAnalysis.objectContextFact.bodySelectionRuleFields?.length &&
     data.evidenceAnalysis.objectContextFact.lineStructureRuleFields?.length &&
     data.evidenceAnalysis.objectContextFact.changeObservationRuleFields?.length &&
+    data.evidenceAnalysis.objectContextFact.responseOmenRuleFields?.length &&
     data.evidenceAnalysis.objectContextFact.sourceLineFields?.length &&
     data.evidenceAnalysis.topicResponseContextFact &&
     data.evidenceAnalysis.hexagramDispositionFacts?.length &&

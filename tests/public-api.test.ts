@@ -4295,19 +4295,23 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     chart.body.data.evidenceAnalysis.objectContextFact.changeObservationRuleFields.length,
     5,
   );
-  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.sourceLineFields.length, 6);
-  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 13);
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.responseOmenRuleFields.length, 6);
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.sourceLineFields.length, 7);
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 16);
   assert.match(
     chart.body.data.evidenceAnalysis.objectContextFact.promptText,
-    /观物看变爻为主.*第942至943行/,
+    /观物克应法.*第944至945行/,
   );
   for (const key of [
+    'observedObject',
+    'externalObject',
     'object',
     'material',
     'shape',
     'color',
     'smell',
     'hardness',
+    'decay',
     'motion',
     'position',
     'damage',
@@ -4322,6 +4326,9 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     'yangCount',
     'yinCount',
     'flying',
+    'success',
+    'failure',
+    'result',
     'score',
     'weight',
     'probability',
