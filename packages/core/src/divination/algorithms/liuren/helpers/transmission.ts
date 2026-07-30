@@ -283,24 +283,41 @@ const REGISTERED_GUA_TI_RULES: LiurenGuaTiRule[] = [
     id: 'zhuo-lun',
     name: '斫轮卦',
     category: '发用临地',
-    sourceTitle: '《六壬指南》卷一·三传课体',
-    sourceUrl: LIUREN_GUIDE_VOLUME_ONE_URL,
-    sourceQuote: '卯加申发用曰斫轮卦。',
-    detect: (context) =>
-      context.transmissionBranches[0] === '卯' && context.initialGroundBranch === '申'
-        ? { branches: ['卯', '申'], matchedConditions: ['初传卯加临地盘申发用'] }
-        : null,
+    sourceTitle: '《六壬大全》卷七·课经集一·斫轮课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_SEVEN_URL,
+    sourceQuote: '斫轮，卯加庚辛申酉发用。卯为车轮，金为斧斤，木就金斫，故名斫轮。',
+    detect(context) {
+      if (context.transmissionBranches[0] !== '卯') return null;
+      if (context.initialGroundBranch && ['申', '酉'].includes(context.initialGroundBranch)) {
+        return {
+          branches: ['卯', context.initialGroundBranch],
+          matchedConditions: [`初传卯加临地盘${context.initialGroundBranch}发用`],
+        };
+      }
+      const stemLesson = context.fourLessons?.find(
+        (lesson) => lesson.upper === '卯' && ['庚', '辛'].includes(lesson.lower),
+      );
+      return stemLesson
+        ? {
+            branches: ['卯'],
+            matchedConditions: [`初传卯从日干${stemLesson.lower}上发用`],
+          }
+        : null;
+    },
   },
   {
     id: 'zhu-yin',
     name: '铸印卦',
-    category: '发用临地',
-    sourceTitle: '《六壬指南》卷一·三传课体',
-    sourceUrl: LIUREN_GUIDE_VOLUME_ONE_URL,
-    sourceQuote: '戌加巳发用曰铸印卦。',
+    category: '三传支类',
+    sourceTitle: '《六壬大全》卷七·课经集一·铸印课',
+    sourceUrl: LIUREN_DAQUAN_VOLUME_SEVEN_URL,
+    sourceQuote: '凡课得戌加巳中传，为铸印课。\n铸印，三传巳戌卯，巳为炉，戌为印，卯为印模。',
     detect: (context) =>
-      context.transmissionBranches[0] === '戌' && context.initialGroundBranch === '巳'
-        ? { branches: ['戌', '巳'], matchedConditions: ['初传戌加临地盘巳发用'] }
+      context.transmissionBranches.join('') === '巳戌卯'
+        ? {
+            branches: ['巳', '戌', '卯'],
+            matchedConditions: ['三传依次为巳、戌、卯，戌加巳为中传'],
+          }
         : null,
   },
   {

@@ -385,13 +385,13 @@ test('大六壬新增六类课体应按完整起课条件命中', () => {
     },
     {
       name: '斫轮卦',
-      sourceOldId: '854504',
+      sourceOldId: '854575',
       context: { transmissionBranches: ['卯', '辰', '巳'], initialGroundBranch: '申' },
     },
     {
       name: '铸印卦',
-      sourceOldId: '854504',
-      context: { transmissionBranches: ['戌', '亥', '子'], initialGroundBranch: '巳' },
+      sourceOldId: '854575',
+      context: { transmissionBranches: ['巳', '戌', '卯'] },
     },
     {
       name: '高盖乘轩卦',
@@ -427,6 +427,35 @@ test('大六壬新增六类课体应按完整起课条件命中', () => {
     assert.match(fact.stableKey, /^liuren:verified-guati:/);
     assert.match(fact.sourceUrl, new RegExp(`oldid=${item.sourceOldId}`));
   }
+
+  const zhuYin = getLiurenGuaTiFacts({ transmissionBranches: ['巳', '戌', '卯'] }).find(
+    (candidate) => candidate.name === '铸印卦',
+  );
+  assert.ok(zhuYin);
+  assert.deepEqual(zhuYin.branches, ['巳', '戌', '卯']);
+  assert.deepEqual(zhuYin.matchedConditions, ['三传依次为巳、戌、卯，戌加巳为中传']);
+  assert.match(zhuYin.sourceQuote, /戌加巳中传[\s\S]*三传巳戌卯/);
+
+  const zhuoLunVariants = [
+    {
+      context: { transmissionBranches: ['卯', '辰', '巳'], initialGroundBranch: '酉' },
+      condition: '初传卯加临地盘酉发用',
+    },
+    {
+      context: {
+        transmissionBranches: ['卯', '辰', '巳'],
+        initialGroundBranch: '戌',
+        fourLessons: [{ upper: '卯', lower: '辛' }],
+      },
+      condition: '初传卯从日干辛上发用',
+    },
+  ] as const;
+  for (const { context, condition } of zhuoLunVariants) {
+    const zhuoLun = getLiurenGuaTiFacts(context).find((candidate) => candidate.name === '斫轮卦');
+    assert.ok(zhuoLun);
+    assert.deepEqual(zhuoLun.matchedConditions, [condition]);
+    assert.match(zhuoLun.sourceQuote, /卯加庚辛申酉发用/);
+  }
 });
 
 test('大六壬新增六类课体不得由相似三传或缺失起课条件误判', () => {
@@ -442,11 +471,11 @@ test('大六壬新增六类课体不得由相似三传或缺失起课条件误�
     },
     {
       name: '斫轮卦',
-      context: { transmissionBranches: ['卯', '辰', '巳'], initialGroundBranch: '酉' },
+      context: { transmissionBranches: ['卯', '辰', '巳'], initialGroundBranch: '午' },
     },
     {
       name: '铸印卦',
-      context: { transmissionBranches: ['戌', '亥', '子'], initialGroundBranch: '辰' },
+      context: { transmissionBranches: ['戌', '亥', '子'], initialGroundBranch: '巳' },
     },
     {
       name: '高盖乘轩卦',
@@ -476,6 +505,15 @@ test('大六壬新增六类课体不得由相似三传或缺失起课条件误�
       `${item.name}不应因近似条件误命中`,
     );
   }
+
+  assert.ok(
+    !getLiurenGuaTiFacts({
+      transmissionBranches: ['卯', '辰', '巳'],
+      initialGroundBranch: '戌',
+      fourLessons: [{ upper: '卯', lower: '壬' }],
+    }).some((candidate) => candidate.name === '斫轮卦'),
+    '卯临戌且并非从庚辛干上发用时不应误判为斫轮卦',
+  );
 });
 
 test('大六壬伏吟返吟只按天地盘取传规则识别，不以三传首尾关系替代', () => {
@@ -520,6 +558,7 @@ test('大六壬天地盘会把月将加在占时地盘上，并保持天地互�
 
 test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取传', () => {
   const ruleCounts = new Map<string, number>();
+  const guaTiCounts = new Map<string, number>();
   let caseCount = 0;
 
   for (const monthLeader of DIZHI) {
@@ -559,6 +598,24 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
             getUpperByUnder(heavenlyPlate, getUpperByUnder(heavenlyPlate, initial.initial)),
           ];
           const label = `${monthLeader}将 ${day}${hourStem}${hourBranch} ${dayNight}`;
+
+          for (const yearBranch of DIZHI) {
+            const guaTiFacts = getLiurenGuaTiFacts({
+              transmissionBranches: branches,
+              initialGroundBranch: getPlateItemByBranch(heavenlyPlate, branches[0]).under,
+              yearBranch,
+              monthLeader,
+              noblemanBranch: getNoblemanBranch(dayStem, dayNight),
+              noblemanGroundBranch: getPlateItemByBranch(
+                heavenlyPlate,
+                getNoblemanBranch(dayStem, dayNight),
+              ).under,
+              fourLessons: lessons,
+            });
+            for (const fact of guaTiFacts) {
+              guaTiCounts.set(fact.name, (guaTiCounts.get(fact.name) || 0) + 1);
+            }
+          }
 
           assert.equal(getUpperByUnder(heavenlyPlate, hourBranch), monthLeader, label);
           assert.equal(new Set(heavenlyPlate.map((item) => item.under)).size, 12, label);
@@ -623,6 +680,14 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
   }
 
   assert.equal(caseCount, 17_280);
+  assert.equal(
+    guaTiCounts.size,
+    REGISTERED_LIUREN_GUA_TI_COUNT,
+    `全部登记课体都应能由合法月将、占时、日柱、昼夜和太岁组合命中，实际为${JSON.stringify(
+      Object.fromEntries([...guaTiCounts].sort()),
+    )}`,
+  );
+  assert.ok((guaTiCounts.get('铸印卦') || 0) > 0, '铸印卦不得成为仅人工上下文可命中的死规则');
   assert.deepEqual(Object.fromEntries([...ruleCounts].sort()), {
     伏吟法: 1440,
     元首法: 2856,
