@@ -90,6 +90,7 @@ test('大六壬应输出分层取用与应期证据', () => {
   );
   const factKeys = new Set([
     evidence.calculationFact.key,
+    evidence.foundationConventionFact.key,
     evidence.plateFact.key,
     ...evidence.platePositionFacts.map((item) => item.key),
     evidence.transmissionRuleFact.key,
@@ -704,6 +705,35 @@ test('大六壬月将按中气切换，不按整个月支粗略取值', () => {
   assert.equal(afterGuyu.monthLeader, '酉');
 });
 
+test('大六壬十二中气月将应完整采用实际交节后的通行对应', () => {
+  const cases: Array<[string, string]> = [
+    ['2026-02-19T12:00:00+08:00', '亥'],
+    ['2026-03-21T12:00:00+08:00', '戌'],
+    ['2026-04-21T12:00:00+08:00', '酉'],
+    ['2026-05-22T12:00:00+08:00', '申'],
+    ['2026-06-22T12:00:00+08:00', '未'],
+    ['2026-07-24T12:00:00+08:00', '午'],
+    ['2026-08-24T12:00:00+08:00', '巳'],
+    ['2026-09-24T12:00:00+08:00', '辰'],
+    ['2026-10-24T12:00:00+08:00', '卯'],
+    ['2026-11-23T12:00:00+08:00', '寅'],
+    ['2026-12-23T12:00:00+08:00', '丑'],
+    ['2027-01-21T12:00:00+08:00', '子'],
+  ];
+
+  for (const [date, expectedMonthLeader] of cases) {
+    assert.equal(generateLiuren(new Date(date)).monthLeader, expectedMonthLeader, date);
+  }
+});
+
+test('大六壬十日干昼夜贵人应完整采用通行表', () => {
+  for (const dayStem of TIANGAN) {
+    const expected = GUIREN_BRANCH_BY_STEM[dayStem];
+    assert.equal(getNoblemanBranch(dayStem, '昼占'), expected.day, `${dayStem}日昼贵`);
+    assert.equal(getNoblemanBranch(dayStem, '夜占'), expected.night, `${dayStem}日夜贵`);
+  }
+});
+
 test('大六壬逐月神煞应按月建起，且与日支支马分层保存', () => {
   const result = generateLiuren(new Date('2026-01-01T12:00:00+08:00'));
   const facts = new Map(result.shenShaFacts?.map((item) => [item.name, item]));
@@ -771,6 +801,37 @@ test('大六壬天将应按贵人所临地盘定顺逆，不是简单昼顺夜�
   assert.equal(getGodByUpper(result.heavenlyPlate, '丑'), '贵人');
   assert.equal(getGodByUpper(result.heavenlyPlate, '寅'), '天后');
   assert.equal(getGodByUpper(result.heavenlyPlate, '子'), '螣蛇');
+});
+
+test('大六壬贵人临十二地盘应按亥至辰顺布、巳至戌逆布天将', () => {
+  const forwardGroundBranches = ['亥', '子', '丑', '寅', '卯', '辰'];
+  const reverseGroundBranches = ['巳', '午', '未', '申', '酉', '戌'];
+
+  for (const ground of forwardGroundBranches) {
+    const plate = buildHeavenlyPlate({
+      monthLeader: '丑',
+      divinationBranch: ground,
+      noblemanBranch: '丑',
+      dayNight: '昼占',
+    });
+    assert.equal(getUnderByUpper(plate, '丑'), ground, `贵人应临地盘${ground}`);
+    assert.equal(getGodByUpper(plate, '丑'), '贵人', `地盘${ground}顺布贵人`);
+    assert.equal(getGodByUpper(plate, '寅'), '螣蛇', `地盘${ground}顺布下一将`);
+    assert.equal(getGodByUpper(plate, '子'), '天后', `地盘${ground}顺布前一将`);
+  }
+
+  for (const ground of reverseGroundBranches) {
+    const plate = buildHeavenlyPlate({
+      monthLeader: '丑',
+      divinationBranch: ground,
+      noblemanBranch: '丑',
+      dayNight: '昼占',
+    });
+    assert.equal(getUnderByUpper(plate, '丑'), ground, `贵人应临地盘${ground}`);
+    assert.equal(getGodByUpper(plate, '丑'), '贵人', `地盘${ground}逆布贵人`);
+    assert.equal(getGodByUpper(plate, '寅'), '天后', `地盘${ground}逆布下一支`);
+    assert.equal(getGodByUpper(plate, '子'), '螣蛇', `地盘${ground}逆布前一支`);
+  }
 });
 
 test('昼夜贵人落地会跟随日干规则切换', () => {

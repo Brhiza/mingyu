@@ -654,6 +654,7 @@ function formatQimenInfo(data: QimenData) {
 
 function formatLiurenInfo(data: LiurenData) {
   const evidenceAnalysis = analyzeLiurenEvidence(data);
+  const foundationConventionFact = evidenceAnalysis.foundationConventionFact;
   const traditionalFacts = evidenceAnalysis.traditionalFacts;
   const firstTransmission = data.threeTransmissions[0];
   const lastTransmission = data.threeTransmissions[2];
@@ -719,6 +720,7 @@ function formatLiurenInfo(data: LiurenData) {
     '占法：大六壬',
     `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
     `核心结构：盘面摘要：${plateSummaryText.join('；')}`,
+    `起盘口径：${foundationConventionFact.promptText}`,
     data.earthlyPlate?.length ? `地盘：${data.earthlyPlate.join('、')}` : '',
     heavenlyPlateText ? `天盘：${heavenlyPlateText}` : '',
     data.dayStemResidence ? `日干寄宫：${data.ganzhi.day.charAt(0)}寄${data.dayStemResidence}` : '',

@@ -897,7 +897,7 @@ export interface LiurenShenShaFact {
 }
 
 export interface LiurenData {
-  /** 四课取传、三传推进、旺衰空亡及反证限制。 */
+  /** 起盘口径版本、四课取传、三传推进、旺衰空亡及反证限制。 */
   evidenceAnalysis?: import('../divination/liuren-evidence').LiurenEvidenceAnalysis;
   /** 四柱干支（年/月/日/时） */
   ganzhi: BaseGanZhi;

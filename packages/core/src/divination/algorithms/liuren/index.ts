@@ -12,6 +12,8 @@ import {
   getPlateItemByBranch,
   getUnderByUpper,
   getUpperByUnder,
+  LIUREN_DAYTIME_BRANCHES,
+  LIUREN_MONTH_LEADER_BY_ZHONGQI,
   TIANJIANG_ATTRIBUTES,
   type TianJiangName,
 } from './helpers/plate';
@@ -25,22 +27,6 @@ import {
   getTransmissionPattern,
 } from './helpers/transmission';
 import { analyzeLiurenEvidence } from '../../liuren-evidence';
-
-const MONTH_LEADER_BY_ZHONGQI: Record<string, string> = {
-  雨水: '亥',
-  春分: '戌',
-  谷雨: '酉',
-  小满: '申',
-  夏至: '未',
-  大暑: '午',
-  处暑: '巳',
-  秋分: '辰',
-  霜降: '卯',
-  小雪: '寅',
-  冬至: '丑',
-  大寒: '子',
-};
-const DAYTIME_BRANCHES = new Set(['卯', '辰', '巳', '午', '未', '申']);
 
 /**
  * 按《六壬大全》分层计算无需本命资料即可确定的月煞和日煞。
@@ -398,7 +384,7 @@ function getMonthLeaderByZhongqi(timeInfo: ReturnType<typeof getDivinationTime>[
     }
   }
 
-  const monthLeader = MONTH_LEADER_BY_ZHONGQI[activeZhongqi];
+  const monthLeader = LIUREN_MONTH_LEADER_BY_ZHONGQI[activeZhongqi];
   if (!monthLeader) {
     throw new Error(`找不到中气 "${activeZhongqi}" 对应的大六壬月将。`);
   }
@@ -426,7 +412,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
   const dayBranch = ganzhi.day.charAt(1);
   const hourStem = ganzhi.hour.charAt(0);
   const hourBranch = ganzhi.hour.charAt(1);
-  const dayNight: '昼占' | '夜占' = DAYTIME_BRANCHES.has(hourBranch) ? '昼占' : '夜占';
+  const dayNight: '昼占' | '夜占' = LIUREN_DAYTIME_BRANCHES.has(hourBranch) ? '昼占' : '夜占';
   const monthLeader = getMonthLeaderByZhongqi(timeInfo);
   const noblemanBranch = getNoblemanBranch(dayStem, dayNight);
   const xunKong = getVoidBranches(ganzhi.day);
@@ -628,12 +614,17 @@ export {
   REGISTERED_LIUREN_GUA_TI_COUNT,
 } from './helpers/transmission';
 export type {
+  LiurenCalculationFact,
   LiurenCounterEvidenceFact,
   LiurenCounterSummaryFact,
+  LiurenEvidenceCalculationStep,
   LiurenEvidenceAnalysis,
+  LiurenFoundationConventionFact,
   LiurenFocusFact,
   LiurenFocusSummaryFact,
   LiurenLessonEvidence,
+  LiurenPlateCoverageFact,
+  LiurenPlateFact,
   LiurenRelationEvidenceFact,
   LiurenTimingFact,
   LiurenTraditionalFact,

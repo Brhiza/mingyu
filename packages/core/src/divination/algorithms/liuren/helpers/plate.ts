@@ -11,6 +11,44 @@ export const TIANGAN = HEAVENLY_STEMS;
 const VALID_WUXING = new Set(['木', '火', '土', '金', '水']);
 
 /**
+ * 月将采用《六壬粹言》《六壬指南》及《六壬指南注解》所载十二中气换将口径。
+ * 《大六壬大全》当前电子底本功曹条作“大雪后”，与前三书“小雪后”异文，
+ * 此处以三书可互证的“小雪后寅将”为主版本，不静默混入另一底本。
+ */
+export const LIUREN_MONTH_LEADER_BY_ZHONGQI: Readonly<Record<string, string>> = {
+  雨水: '亥',
+  春分: '戌',
+  谷雨: '酉',
+  小满: '申',
+  夏至: '未',
+  大暑: '午',
+  处暑: '巳',
+  秋分: '辰',
+  霜降: '卯',
+  小雪: '寅',
+  冬至: '丑',
+  大寒: '子',
+};
+
+/** 《六壬粹言》：卯至申用昼贵，酉至寅用夜贵。 */
+export const LIUREN_DAYTIME_BRANCHES: ReadonlySet<string> = new Set([
+  '卯',
+  '辰',
+  '巳',
+  '午',
+  '未',
+  '申',
+]);
+export const LIUREN_NIGHTTIME_BRANCHES: ReadonlySet<string> = new Set([
+  '酉',
+  '戌',
+  '亥',
+  '子',
+  '丑',
+  '寅',
+]);
+
+/**
  * 十二天将（《大六壬大全》天将体系）：
  * 贵人、螣蛇、朱雀、六合、勾陈、青龙、天空、白虎、太常、玄武、太阴、天后。
  * 十二天将分属各干支，以下只保留可由《天将总论》《十二将释》直接核验的属性。
@@ -147,7 +185,23 @@ export const GUIREN_BRANCH_BY_STEM: Record<string, { day: string; night: string 
   癸: { day: '巳', night: '卯' },
   辛: { day: '午', night: '寅' },
 };
-const REVERSE_GENERAL_GROUND_BRANCHES = new Set(['巳', '午', '未', '申', '酉', '戌']);
+/** 《六壬粹言》：贵人临亥至辰顺布，临巳至戌逆布十二天将。 */
+export const FORWARD_GENERAL_GROUND_BRANCHES: ReadonlySet<string> = new Set([
+  '亥',
+  '子',
+  '丑',
+  '寅',
+  '卯',
+  '辰',
+]);
+export const REVERSE_GENERAL_GROUND_BRANCHES: ReadonlySet<string> = new Set([
+  '巳',
+  '午',
+  '未',
+  '申',
+  '酉',
+  '戌',
+]);
 export const DAY_STEM_RESIDENCE_MAP: Record<string, string> = {
   甲: '寅',
   乙: '辰',

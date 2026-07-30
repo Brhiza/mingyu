@@ -4333,6 +4333,20 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
               sources: string[];
               limitation: string;
             };
+            foundationConventionFact: {
+              key: string;
+              status: string;
+              monthLeaderRules: Array<{ zhongqi: string; monthLeader: string }>;
+              noblemanRules: Array<{ dayStems: string[]; dayBranch: string; nightBranch: string }>;
+              generalOrder: string[];
+              forwardGroundBranches: string[];
+              reverseGroundBranches: string[];
+              alternativeVersionFields: string[];
+              textualVariantFields: string[];
+              promptText: string;
+              sources: string[];
+              limitation: string;
+            };
             plateFact: { key: string; status: string; actualCount: number; limitation: string };
             platePositionFacts: Array<{
               key: string;
@@ -4360,6 +4374,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
               lessonFactCount: number;
               transmissionFactCount: number;
               transitionFactCount: number;
+              foundationConventionFactCount: number;
             };
           };
         };
@@ -4454,6 +4469,51 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     assert.ok(liurenData.evidenceAnalysis.calculationFact.monthLeader);
     assert.ok(liurenData.evidenceAnalysis.calculationFact.sources.length >= 3);
     assert.match(liurenData.evidenceAnalysis.calculationFact.limitation, /不单独证明现实事件/);
+    assert.equal(
+      liurenData.evidenceAnalysis.foundationConventionFact.key,
+      'liuren:foundation-convention',
+    );
+    assert.equal(liurenData.evidenceAnalysis.foundationConventionFact.status, '已登记版本边界');
+    assert.equal(liurenData.evidenceAnalysis.foundationConventionFact.monthLeaderRules.length, 12);
+    assert.equal(
+      new Set(
+        liurenData.evidenceAnalysis.foundationConventionFact.noblemanRules.flatMap(
+          (item) => item.dayStems,
+        ),
+      ).size,
+      10,
+    );
+    assert.equal(liurenData.evidenceAnalysis.foundationConventionFact.generalOrder.length, 12);
+    assert.deepEqual(liurenData.evidenceAnalysis.foundationConventionFact.forwardGroundBranches, [
+      '亥',
+      '子',
+      '丑',
+      '寅',
+      '卯',
+      '辰',
+    ]);
+    assert.deepEqual(liurenData.evidenceAnalysis.foundationConventionFact.reverseGroundBranches, [
+      '巳',
+      '午',
+      '未',
+      '申',
+      '酉',
+      '戌',
+    ]);
+    assert.ok(
+      liurenData.evidenceAnalysis.foundationConventionFact.alternativeVersionFields.some((item) =>
+        item.includes('《六壬寻源》'),
+      ),
+    );
+    assert.ok(
+      liurenData.evidenceAnalysis.foundationConventionFact.textualVariantFields.some((item) =>
+        item.includes('大雪'),
+      ),
+    );
+    assert.match(
+      liurenData.evidenceAnalysis.foundationConventionFact.limitation,
+      /异说不得与主版本拼接使用.*整体重排/,
+    );
     assert.equal(liurenData.evidenceAnalysis.plateFact.status, '完整');
     assert.equal(liurenData.evidenceAnalysis.plateFact.actualCount, 12);
     assert.equal(liurenData.evidenceAnalysis.platePositionFacts.length, 12);
@@ -4486,6 +4546,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
       liurenData.evidenceAnalysis.summaryFact.transitionFactCount,
       liurenData.evidenceAnalysis.transitionFacts.length,
     );
+    assert.equal(liurenData.evidenceAnalysis.summaryFact.foundationConventionFactCount, 1);
     assert.equal(liurenData.evidenceAnalysis.limitationFacts.length, 6);
     assert.equal(
       liurenData.evidenceAnalysis.limitations.length,
@@ -4493,6 +4554,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     );
     const factKeys = new Set([
       liurenData.evidenceAnalysis.calculationFact.key,
+      liurenData.evidenceAnalysis.foundationConventionFact.key,
       liurenData.evidenceAnalysis.plateFact.key,
       ...liurenData.evidenceAnalysis.platePositionFacts.map((item) => item.key),
       liurenData.evidenceAnalysis.transmissionRuleFact.key,
@@ -4536,6 +4598,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
     assert.doesNotMatch(liurenPrompt, /主婚姻|主官非|主疾病|主死丧|主虚而不实/);
     assert.match(liurenPrompt, /古籍依据：/);
     assert.match(liurenPrompt, /应期资料：/);
+    assert.match(liurenPrompt, /起盘口径：/);
     assert.doesNotMatch(liurenPrompt, /【分析思路】/);
     assert.doesNotMatch(liurenPrompt, /关注重点：|岗位路径、协作阻力、窗口时机/);
     assertPromptIsPortableTaskText(liurenPrompt);

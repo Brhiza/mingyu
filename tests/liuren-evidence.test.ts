@@ -132,6 +132,64 @@ test('大六壬排盘应内置四课取传与三传推进结构化证据', () =>
   assert.doesNotMatch(evidence.promptText, /权重[：=]?\d|总分[：=]?\d|成功率[：=]?\d/);
 });
 
+test('大六壬证据应公开起盘口径主版本、异说与底本文字边界', () => {
+  const evidence = generateLiuren(fixedDate).evidenceAnalysis;
+
+  assert.ok(evidence);
+  const fact = evidence.foundationConventionFact;
+  assert.equal(fact.key, 'liuren:foundation-convention');
+  assert.equal(fact.status, '已登记版本边界');
+  assert.match(fact.adoptedVersion, /《六壬粹言》.*《大六壬大全》正文/);
+  assert.equal(fact.monthLeaderSwitchRule, '按十二中气的实际交节时刻换将');
+  assert.deepEqual(
+    fact.monthLeaderRules.map((item) => `${item.zhongqi}${item.monthLeader}`),
+    [
+      '雨水亥',
+      '春分戌',
+      '谷雨酉',
+      '小满申',
+      '夏至未',
+      '大暑午',
+      '处暑巳',
+      '秋分辰',
+      '霜降卯',
+      '小雪寅',
+      '冬至丑',
+      '大寒子',
+    ],
+  );
+  assert.deepEqual(fact.dayBranches, ['卯', '辰', '巳', '午', '未', '申']);
+  assert.deepEqual(fact.nightBranches, ['酉', '戌', '亥', '子', '丑', '寅']);
+  assert.deepEqual(
+    new Set(fact.noblemanRules.flatMap((item) => item.dayStems)),
+    new Set(['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']),
+  );
+  assert.equal(fact.generalOrder.length, 12);
+  assert.equal(new Set(fact.generalOrder).size, 12);
+  assert.deepEqual(fact.forwardGroundBranches, ['亥', '子', '丑', '寅', '卯', '辰']);
+  assert.deepEqual(fact.reverseGroundBranches, ['巳', '午', '未', '申', '酉', '戌']);
+  assert.deepEqual(
+    new Set(fact.stemResidenceRules.flatMap((item) => item.dayStems)),
+    new Set(['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']),
+  );
+  assert.ok(fact.alternativeVersionFields.some((item) => /《六壬寻源》.*先天.*后天/.test(item)));
+  assert.ok(
+    fact.textualVariantFields.some((item) =>
+      /《六壬粹言》《六壬指南》及《六壬指南注解》.*小雪/.test(item),
+    ),
+  );
+  assert.ok(fact.textualVariantFields.some((item) => /《大六壬大全》.*大雪/.test(item)));
+  assert.match(fact.limitation, /异说不得与主版本拼接使用/);
+  assert.match(fact.limitation, /整体重排/);
+  assert.equal(evidence.summaryFact.foundationConventionFactCount, 1);
+  assert.ok(evidence.summaryFact.factKeys.includes(fact.key));
+  assert.ok(evidence.evidence.items.some((item) => item.title === '大六壬起盘口径与版本边界'));
+  assert.match(evidence.promptText, /起盘口径与版本边界：/);
+  assert.match(evidence.promptText, /《六壬寻源》先后天贵人/);
+  assert.match(evidence.promptText, /异说不得混用，换用其他版本须整盘重排/);
+  assert.ok(evidence.limitationFacts.some((item) => item.ownerFactKeys.includes(fact.key)));
+});
+
 test('大六壬证据应以旬空地支复核三传空亡，避免冗余字段冲突', () => {
   const data = generateLiuren(fixedDate);
   const initialBranch = data.threeTransmissions[0].branch;
