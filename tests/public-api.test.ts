@@ -4204,6 +4204,28 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
         String(item.promptText).includes('实际效力仍须合看旺衰与其他应卦路径'),
     ),
   );
+  assert.equal(chart.body.data.evidenceAnalysis.internalMotionFact.status, '已计算');
+  assert.deepEqual(
+    chart.body.data.evidenceAnalysis.internalMotionFact.references.map(
+      (item: { role: string; motion: string }) => [item.role, item.motion],
+    ),
+    [
+      ['原体', '静'],
+      ['主卦用卦', '动'],
+      ['体互', '静'],
+      ['用互', '静'],
+      ['变卦用卦', '动'],
+    ],
+  );
+  assert.equal(chart.body.data.evidenceAnalysis.externalMotionFact.status, '资料不足');
+  assert.deepEqual(
+    chart.body.data.evidenceAnalysis.externalMotionFact.availableObservationFields,
+    [],
+  );
+  assert.deepEqual(
+    chart.body.data.evidenceAnalysis.externalMotionFact.missingObservationFields,
+    chart.body.data.evidenceAnalysis.externalMotionFact.requiredObservationFields,
+  );
   const resultStage = chart.body.data.evidenceAnalysis.stages.find(
     (item: { stage: string }) => item.stage === 'result',
   );
@@ -4299,11 +4321,12 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     chart.body.data.evidenceAnalysis.summaryFact.responseInteractionFactCount,
     chart.body.data.evidenceAnalysis.responseInteractionFacts.length,
   );
+  assert.equal(chart.body.data.evidenceAnalysis.summaryFact.motionFactCount, 2);
   assert.equal(
     chart.body.data.evidenceAnalysis.summaryFact.transitionFactCount,
     chart.body.data.evidenceAnalysis.transitionFacts.length,
   );
-  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 6);
+  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 7);
   assert.equal(
     chart.body.data.evidenceAnalysis.limitations.length,
     chart.body.data.evidenceAnalysis.limitationFacts.length,
@@ -4321,6 +4344,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.match(chart.body.data.evidenceAnalysis.promptText, /【梅花主互变关系推进结构化证据】/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /证据汇总：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /体用党与应卦制化：/);
+  assert.match(chart.body.data.evidenceAnalysis.promptText, /体用动静：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /解释限制：/);
   assertPromptIsPortableTaskText(chart.body.data.evidenceAnalysis.promptText);
   assert.equal(chart.body.data.evidenceAnalysis.calculationFact.status, '完整');
@@ -4368,6 +4392,8 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.match(prompt.body.data.prompt, /互卦/);
   assert.match(prompt.body.data.prompt, /变卦/);
   assert.match(prompt.body.data.prompt, /体用：/);
+  assert.match(prompt.body.data.prompt, /体用动静：卦内动静分工/);
+  assert.match(prompt.body.data.prompt, /外应动静：当前输入未记录起卦现场/);
   assert.match(prompt.body.data.prompt, /应期资料：应期状态：待补充现实条件/);
   assert.match(prompt.body.data.prompt, /不能单独计算传统克应/);
   assert.doesNotMatch(prompt.body.data.prompt, /结构化证据|计算链|证据汇总|解释边界/);

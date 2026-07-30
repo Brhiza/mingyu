@@ -3282,6 +3282,19 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               effectDirection: string;
               promptText: string;
             }>;
+            internalMotionFact: {
+              status: string;
+              movingYaoPosition: number;
+              references: Array<{ role: string; motion: string }>;
+              movingRoles: string[];
+              stillRoles: string[];
+            };
+            externalMotionFact: {
+              status: string;
+              requiredObservationFields: string[];
+              availableObservationFields: string[];
+              missingObservationFields: string[];
+            };
             transitionFacts: Array<{
               key: string;
               status: string;
@@ -3317,6 +3330,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               interResponseFactCount: number;
               partyFactCount: number;
               responseInteractionFactCount: number;
+              motionFactCount: number;
               transitionFactCount: number;
               traditionalFactCount: number;
               counterEvidenceCount: number;
@@ -3388,6 +3402,32 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
           item.effectDirection === '克体之患受制' &&
           item.promptText.includes('实际效力仍须合看旺衰与其他应卦路径'),
       ),
+    );
+    assert.equal(result.evidenceAnalysis.internalMotionFact.status, '已计算');
+    assert.deepEqual(
+      result.evidenceAnalysis.internalMotionFact.references.map((item) => [item.role, item.motion]),
+      [
+        ['原体', '静'],
+        ['主卦用卦', '动'],
+        ['体互', '静'],
+        ['用互', '静'],
+        ['变卦用卦', '动'],
+      ],
+    );
+    assert.deepEqual(result.evidenceAnalysis.internalMotionFact.movingRoles, [
+      '主卦用卦',
+      '变卦用卦',
+    ]);
+    assert.deepEqual(result.evidenceAnalysis.internalMotionFact.stillRoles, [
+      '原体',
+      '体互',
+      '用互',
+    ]);
+    assert.equal(result.evidenceAnalysis.externalMotionFact.status, '资料不足');
+    assert.deepEqual(result.evidenceAnalysis.externalMotionFact.availableObservationFields, []);
+    assert.deepEqual(
+      result.evidenceAnalysis.externalMotionFact.missingObservationFields,
+      result.evidenceAnalysis.externalMotionFact.requiredObservationFields,
     );
     assert.ok(
       result.evidenceAnalysis.interResponseFacts.every(
@@ -3478,6 +3518,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       result.evidenceAnalysis.summaryFact.responseInteractionFactCount,
       result.evidenceAnalysis.responseInteractionFacts.length,
     );
+    assert.equal(result.evidenceAnalysis.summaryFact.motionFactCount, 2);
     assert.equal(
       result.evidenceAnalysis.summaryFact.transitionFactCount,
       result.evidenceAnalysis.transitionFacts.length,
@@ -3490,7 +3531,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       result.evidenceAnalysis.summaryFact.timingFactCount,
       result.evidenceAnalysis.timingFacts.length,
     );
-    assert.equal(result.evidenceAnalysis.limitationFacts.length, 6);
+    assert.equal(result.evidenceAnalysis.limitationFacts.length, 7);
     assert.equal(
       result.evidenceAnalysis.limitations.length,
       result.evidenceAnalysis.limitationFacts.length,
@@ -3523,6 +3564,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.match(result.evidenceAnalysis.promptText, /【梅花主互变关系推进结构化证据】/);
     assert.match(result.evidenceAnalysis.promptText, /证据汇总：/);
     assert.match(result.evidenceAnalysis.promptText, /体用党与应卦制化：/);
+    assert.match(result.evidenceAnalysis.promptText, /体用动静：/);
     assert.match(result.evidenceAnalysis.promptText, /解释限制：/);
     assertPromptIsPortableTaskText(result.evidenceAnalysis.promptText);
     assert.equal(result.evidenceAnalysis.calculationFact.status, '完整');
@@ -3566,6 +3608,8 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     const promptText = String(prompt.structuredContent?.prompt);
     assert.match(promptText, /占法：梅花易数/);
     assert.match(promptText, /核心结构：主卦[\s\S]*体用：[\s\S]*结构明细：/);
+    assert.match(promptText, /体用动静：卦内动静分工/);
+    assert.match(promptText, /外应动静：当前输入未记录起卦现场/);
     assert.match(promptText, /应期资料：应期状态：待补充现实条件/);
     assert.match(promptText, /不能单独计算传统克应/);
     assert.doesNotMatch(promptText, /结构化证据|计算链|证据汇总|解释限制|解释边界/);

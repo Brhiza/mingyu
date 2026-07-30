@@ -110,6 +110,34 @@ test('梅花：爻位详情应从初爻往上排列并准确标出动爻', () =>
   );
 });
 
+test('梅花：八个纯卦的六个动爻均应按上下位置区分体用', () => {
+  const pureMotionCases = new Set<string>();
+
+  for (let seedIndex = 1; seedIndex <= 20000 && pureMotionCases.size < 48; seedIndex += 1) {
+    const data = generateMeihua(SAMPLE_DATE, {
+      method: 'random',
+      seed: `纯卦体用回归-${seedIndex}`,
+    });
+    if (data.mainHexagram.upper !== data.mainHexagram.lower) continue;
+
+    const movingYao = data.movingYao.position;
+    const movingInLower = movingYao <= 3;
+    const expectedTiYong = movingInLower
+      ? ['用', '用', '用', '体', '体', '体']
+      : ['体', '体', '体', '用', '用', '用'];
+
+    assert.deepEqual(
+      data.yaosDetail.map((yao) => yao.tiYong),
+      expectedTiYong,
+    );
+    assert.equal(data.yaosDetail.find((yao) => yao.isChanging)?.tiYong, '用');
+    assert.ok(data.yaosDetail.filter((yao) => yao.tiYong === '体').every((yao) => !yao.isChanging));
+    pureMotionCases.add(`${data.mainHexagram.upper}:${movingYao}`);
+  }
+
+  assert.equal(pureMotionCases.size, 48);
+});
+
 test('梅花：应期字段只登记盘面事实，不把体用生克或旺衰直接裁定为快慢', () => {
   const data = generateMeihua(SAMPLE_DATE, { method: 'number', number: 1 });
 

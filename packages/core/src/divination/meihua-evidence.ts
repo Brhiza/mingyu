@@ -79,6 +79,45 @@ export interface MeihuaResponseInteractionFact {
   limitation: '应卦制化事实只登记用卦、互卦、变卦之间可复算的五行克制路径，以及其削弱生体之助或缓解克体之患的方向；月令旺衰与其他路径仍须并看，不得按路径数量、多数票或先后顺序裁定最终强弱、现实吉凶或成功率';
 }
 
+export type MeihuaInternalMotionRole = '原体' | MeihuaResponseRole;
+
+export interface MeihuaInternalMotionReference {
+  key: string;
+  ownerFactKey: string;
+  stage: MeihuaEvidenceStageKey;
+  role: MeihuaInternalMotionRole;
+  name: string;
+  element: string;
+  motion: '动' | '静';
+  basis: '体卦为静' | '互卦为静' | '用卦为动' | '变卦为动';
+}
+
+export interface MeihuaInternalMotionFact {
+  key: 'meihua:internal-motion';
+  status: '已计算' | '资料不足';
+  movingYaoPosition: number;
+  expectedRoles: MeihuaInternalMotionRole[];
+  actualRoles: MeihuaInternalMotionRole[];
+  missingRoles: MeihuaInternalMotionRole[];
+  references: MeihuaInternalMotionReference[];
+  movingRoles: MeihuaInternalMotionRole[];
+  stillRoles: MeihuaInternalMotionRole[];
+  promptText: string;
+  sources: string[];
+  limitation: '内卦动静事实只按《体用动静之诀》登记原体与互卦为静、主卦用卦与变卦响应为动，并与唯一动爻位置交叉核验；这里的动静是卦内角色，不等同于现场物体实际动静，也不得单独换算应验快慢、吉凶或现实事件';
+}
+
+export interface MeihuaExternalMotionFact {
+  key: 'meihua:external-motion';
+  status: '资料不足';
+  requiredObservationFields: string[];
+  availableObservationFields: string[];
+  missingObservationFields: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '外应动静必须来自起卦现场对人事、器物、天地地理及求测者行卧坐立的实际观察；当前时间、数字、随机方式、问题文本与卦内动爻均不能替代现场资料，不得据缺失资料补造外应、应验快慢或吉凶';
+}
+
 export interface MeihuaStageEvidence {
   key: string;
   status: '已计算' | '卦象资料缺失';
@@ -302,13 +341,14 @@ export interface MeihuaSummaryFact {
   interResponseFactCount: number;
   partyFactCount: number;
   responseInteractionFactCount: number;
+  motionFactCount: number;
   transitionFactCount: number;
   traditionalFactCount: number;
   counterEvidenceCount: number;
   timingFactCount: number;
   promptText: string;
   sources: string[];
-  limitation: '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图或唯一日期';
+  limitation: '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、内外动静、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图或唯一日期';
 }
 
 export interface MeihuaLimitationFact {
@@ -317,6 +357,7 @@ export interface MeihuaLimitationFact {
     | '起卦与随机来源边界'
     | '卦象与逐爻资料边界'
     | '阶段关系边界'
+    | '体用动静边界'
     | '阶段推进与反证边界'
     | '应期边界'
     | '传统文本与高风险输出边界';
@@ -347,6 +388,8 @@ export interface MeihuaEvidenceAnalysis {
   responseReferences: MeihuaResponseReference[];
   partyFact: MeihuaPartyFact;
   responseInteractionFacts: MeihuaResponseInteractionFact[];
+  internalMotionFact: MeihuaInternalMotionFact;
+  externalMotionFact: MeihuaExternalMotionFact;
   transitionFacts: MeihuaTransitionFact[];
   transitions: string[];
   timingFacts: MeihuaTimingFact[];
@@ -378,6 +421,10 @@ const PARTY_FACT_LIMITATION =
   '体党、用党事实只比较体互、用互、变卦用卦与原体、原用是否同五行；两项及以上才登记“党多”方向，资料缺失或体用同五行时不作相反裁断，也不得按党数换算强弱分数、吉凶或成功率' as const;
 const RESPONSE_INTERACTION_FACT_LIMITATION =
   '应卦制化事实只登记用卦、互卦、变卦之间可复算的五行克制路径，以及其削弱生体之助或缓解克体之患的方向；月令旺衰与其他路径仍须并看，不得按路径数量、多数票或先后顺序裁定最终强弱、现实吉凶或成功率' as const;
+const INTERNAL_MOTION_FACT_LIMITATION =
+  '内卦动静事实只按《体用动静之诀》登记原体与互卦为静、主卦用卦与变卦响应为动，并与唯一动爻位置交叉核验；这里的动静是卦内角色，不等同于现场物体实际动静，也不得单独换算应验快慢、吉凶或现实事件' as const;
+const EXTERNAL_MOTION_FACT_LIMITATION =
+  '外应动静必须来自起卦现场对人事、器物、天地地理及求测者行卧坐立的实际观察；当前时间、数字、随机方式、问题文本与卦内动爻均不能替代现场资料，不得据缺失资料补造外应、应验快慢或吉凶' as const;
 const HEXAGRAM_FACT_LIMITATION =
   '主互变卦象事实只记录当前上下经卦、卦名与卦符；不得由卦名或阶段位置直接推断现实事件、人物、吉凶、成败或应期' as const;
 const YAO_FACT_LIMITATION =
@@ -399,7 +446,7 @@ const TIMING_SUMMARY_LIMITATION =
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只证明起卦取数、主互变卦象、六爻动爻、主变体用、互卦响应、推进、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期' as const;
 const SUMMARY_FACT_LIMITATION =
-  '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图或唯一日期' as const;
+  '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、内外动静、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图或唯一日期' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束梅花起卦、卦象、逐爻、体用、推进、传统卦爻辞与应期资料能够支持的解释范围，不得被反向当作现实吉凶、婚育疾病、伤亡诉讼、事件概率或固定应期的证据' as const;
 
@@ -983,6 +1030,101 @@ function buildResponseInteractionFacts(
   return facts;
 }
 
+function buildInternalMotionFact(
+  stages: MeihuaStageEvidence[],
+  responseReferences: MeihuaResponseReference[],
+  movingYaoPosition: number,
+): MeihuaInternalMotionFact {
+  const expectedRoles: MeihuaInternalMotionRole[] = [
+    '原体',
+    '主卦用卦',
+    '体互',
+    '用互',
+    '变卦用卦',
+  ];
+  const origin = stages.find((item) => item.stage === 'origin');
+  const references: MeihuaInternalMotionReference[] = [];
+  if (origin?.ti) {
+    references.push({
+      key: 'meihua:internal-motion:original-ti',
+      ownerFactKey: origin.key,
+      stage: 'origin',
+      role: '原体',
+      name: origin.ti.name,
+      element: origin.ti.element,
+      motion: '静',
+      basis: '体卦为静',
+    });
+  }
+  for (const response of responseReferences) {
+    const isInter = response.role === '体互' || response.role === '用互';
+    references.push({
+      key: `meihua:internal-motion:${response.key.split(':').at(-1)}`,
+      ownerFactKey: response.ownerFactKey,
+      stage: response.stage,
+      role: response.role,
+      name: response.name,
+      element: response.element,
+      motion: isInter ? '静' : '动',
+      basis: isInter ? '互卦为静' : response.role === '主卦用卦' ? '用卦为动' : '变卦为动',
+    });
+  }
+  const actualRoles = expectedRoles.filter((role) =>
+    references.some((reference) => reference.role === role),
+  );
+  const missingRoles = expectedRoles.filter((role) => !actualRoles.includes(role));
+  const status = missingRoles.length ? '资料不足' : '已计算';
+  const movingRoles = references
+    .filter((reference) => reference.motion === '动')
+    .map((reference) => reference.role);
+  const stillRoles = references
+    .filter((reference) => reference.motion === '静')
+    .map((reference) => reference.role);
+  return {
+    key: 'meihua:internal-motion',
+    status,
+    movingYaoPosition,
+    expectedRoles,
+    actualRoles,
+    missingRoles,
+    references,
+    movingRoles,
+    stillRoles,
+    promptText:
+      status === '已计算'
+        ? `卦内动静分工：第${movingYaoPosition}爻所在主卦用卦与变卦响应为动，原体、体互、用互为静；这是体用角色层次，不是现场物体动静，也不单独裁定应验快慢`
+        : `卦内动静资料不完整：缺少${missingRoles.join('、')}，只保留${references.map((reference) => `${reference.role}为${reference.motion}`).join('、') || '未见可复算角色'}，不得补造缺失角色或应验快慢`,
+    sources: [
+      '《梅花易数》卷三《体用动静之诀》体卦为静、互卦为静、用卦变卦则动',
+      '主卦唯一动爻与原体、主用、体互、用互、变卦用卦结构逐项核验',
+    ],
+    limitation: INTERNAL_MOTION_FACT_LIMITATION,
+  };
+}
+
+function buildExternalMotionFact(): MeihuaExternalMotionFact {
+  const requiredObservationFields = [
+    '外应对象或起卦触发物',
+    '外应所属人事、器物或天地地理类别',
+    '外应对象实际动静',
+    '求测者行卧坐立姿态',
+  ];
+  return {
+    key: 'meihua:external-motion',
+    status: '资料不足',
+    requiredObservationFields,
+    availableObservationFields: [],
+    missingObservationFields: [...requiredObservationFields],
+    promptText:
+      '当前输入未记录起卦现场的外应对象、对象类别、实际动静及求测者行卧坐立；不得把数字、时间、随机方式、问题文本或卦内动爻补写成外应，也不能据此裁定应验快慢',
+    sources: [
+      '《梅花易数》卷三《体用动静之诀》外应须区分人事、器物、天地地理及其实际动静',
+      '当前梅花起卦输入字段与现场观察必要资料逐项对照',
+    ],
+    limitation: EXTERNAL_MOTION_FACT_LIMITATION,
+  };
+}
+
 function stageRelations(stage: MeihuaStageEvidence) {
   return stage.kind === '互卦响应关系'
     ? (stage.responses ?? []).map((item) => item.relation)
@@ -1267,9 +1409,25 @@ function buildHexagramStructureFacts(data: MeihuaData): MeihuaHexagramFact[] {
 
 function buildYaoStructureFacts(data: MeihuaData): MeihuaYaoFact[] {
   const occurrences = new Map<number, number>();
+  const movingYao = data.movingYao.position;
+  const canResolveTiYong = Number.isInteger(movingYao) && movingYao >= 1 && movingYao <= 6;
+  const movingInLower = movingYao <= 3;
   return (data.yaosDetail ?? []).map((item) => {
     const occurrence = (occurrences.get(item.position) ?? 0) + 1;
     occurrences.set(item.position, occurrence);
+    const tiYong =
+      canResolveTiYong &&
+      Number.isInteger(item.position) &&
+      item.position >= 1 &&
+      item.position <= 6
+        ? movingInLower
+          ? item.position <= 3
+            ? '用'
+            : '体'
+          : item.position <= 3
+            ? '体'
+            : '用'
+        : item.tiYong;
     return {
       key:
         occurrence === 1
@@ -1278,9 +1436,9 @@ function buildYaoStructureFacts(data: MeihuaData): MeihuaYaoFact[] {
       status: '已计算',
       position: item.position,
       yaoType: item.yaoType,
-      tiYong: item.tiYong,
+      tiYong,
       isChanging: item.isChanging,
-      promptText: `第${item.position}爻为${item.yaoType}爻，属${item.tiYong}${item.isChanging ? '，本爻发动' : ''}`,
+      promptText: `第${item.position}爻为${item.yaoType}爻，属${tiYong}${item.isChanging ? '，本爻发动' : ''}`,
       sources: ['主卦六爻自下而上阴阳序列', '动爻所在上下经卦与体用归属'],
       limitation: YAO_FACT_LIMITATION,
     };
@@ -1462,6 +1620,8 @@ function buildTimingFacts(
   calculationFact: MeihuaCalculationFact,
   yaoCoverageFact: MeihuaYaoCoverageFact,
   yaoFacts: MeihuaYaoFact[],
+  internalMotionFact: MeihuaInternalMotionFact,
+  externalMotionFact: MeihuaExternalMotionFact,
 ): MeihuaTimingFact[] {
   const facts: MeihuaTimingFact[] = [];
   const add = (fact: Omit<MeihuaTimingFact, 'order'>) => {
@@ -1518,7 +1678,7 @@ function buildTimingFacts(
     key: 'meihua:timing:input-coverage',
     type: '克应资料覆盖',
     sourceStatus: '资料不足',
-    ownerFactKeys: [calculationFact.key],
+    ownerFactKeys: [externalMotionFact.key],
     promptText:
       '现有盘面未含求测者行卧坐立或外应动静、事件远近及年/月/日/时尺度，不能单独计算传统克应',
     sources: ['当前起卦输入与传统克应必要条件逐项对照'],
@@ -1528,7 +1688,7 @@ function buildTimingFacts(
     key: 'meihua:timing:deadline-boundary',
     type: '期限边界',
     sourceStatus: '统一边界',
-    ownerFactKeys: [calculationFact.key, yaoCoverageFact.key],
+    ownerFactKeys: [calculationFact.key, yaoCoverageFact.key, internalMotionFact.key],
     promptText:
       '克应资料补足前，只能保留动爻、卦数、体用和月令盘面事实，不能计算具体日期或统一快慢',
     sources: ['盘面事实与传统克应条件分离原则'],
@@ -1548,6 +1708,8 @@ function buildSummaryFact(params: {
   interResponseFacts: MeihuaInterResponseEvidence[];
   partyFact: MeihuaPartyFact;
   responseInteractionFacts: MeihuaResponseInteractionFact[];
+  internalMotionFact: MeihuaInternalMotionFact;
+  externalMotionFact: MeihuaExternalMotionFact;
   transitionFacts: MeihuaTransitionFact[];
   traditionalFacts: MeihuaTraditionalFact[];
   counterEvidenceFacts: MeihuaCounterEvidenceFact[];
@@ -1567,6 +1729,8 @@ function buildSummaryFact(params: {
       ...params.interResponseFacts.map((item) => item.key),
       params.partyFact.key,
       ...params.responseInteractionFacts.map((item) => item.key),
+      params.internalMotionFact.key,
+      params.externalMotionFact.key,
       ...params.transitionFacts.map((item) => item.key),
       ...params.traditionalFacts.map((item) => item.key),
       params.counterSummaryFact.key,
@@ -1592,13 +1756,14 @@ function buildSummaryFact(params: {
     interResponseFactCount: params.interResponseFacts.length,
     partyFactCount: 1,
     responseInteractionFactCount: params.responseInteractionFacts.length,
+    motionFactCount: 2,
     transitionFactCount: params.transitionFacts.length,
     traditionalFactCount: params.traditionalFacts.length,
     counterEvidenceCount: params.counterEvidenceFacts.length,
     timingFactCount: params.timingFacts.length,
-    promptText: `证据状态${status}：主互变卦象${params.hexagramStructureFacts.length}项、逐爻${params.yaoStructureFacts.length}项、阶段关系${params.stages.length}项、互卦响应${params.interResponseFacts.length}项、体用党1项、应卦制化${params.responseInteractionFacts.length}项、阶段推进${params.transitionFacts.length}项、传统卦爻辞${params.traditionalFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
+    promptText: `证据状态${status}：主互变卦象${params.hexagramStructureFacts.length}项、逐爻${params.yaoStructureFacts.length}项、阶段关系${params.stages.length}项、互卦响应${params.interResponseFacts.length}项、体用党1项、应卦制化${params.responseInteractionFacts.length}项、内外动静2项、阶段推进${params.transitionFacts.length}项、传统卦爻辞${params.traditionalFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
     sources: [
-      '全部起卦、主互变卦象、逐爻、主变体用、互卦响应、体用党、应卦制化、推进、传统文本、反证与应期事实逐项汇总',
+      '全部起卦、主互变卦象、逐爻、主变体用、互卦响应、体用党、应卦制化、内外动静、推进、传统文本、反证与应期事实逐项汇总',
     ],
     limitation: SUMMARY_FACT_LIMITATION,
   };
@@ -1614,6 +1779,8 @@ function buildCalculationSteps(params: {
   stages: MeihuaStageEvidence[];
   partyFact: MeihuaPartyFact;
   responseInteractionFacts: MeihuaResponseInteractionFact[];
+  internalMotionFact: MeihuaInternalMotionFact;
+  externalMotionFact: MeihuaExternalMotionFact;
   transitionFacts: MeihuaTransitionFact[];
   counterEvidenceFacts: MeihuaCounterEvidenceFact[];
   timingFacts: MeihuaTimingFact[];
@@ -1692,10 +1859,15 @@ function buildCalculationSteps(params: {
         incompleteStages: params.stageCoverageFact.incompleteStages,
         partyStatus: params.partyFact.status,
         responseInteractionFactCount: params.responseInteractionFacts.length,
+        internalMotionStatus: params.internalMotionFact.status,
+        internalMotionReferenceCount: params.internalMotionFact.references.length,
+        externalMotionStatus: params.externalMotionFact.status,
       },
       dependsOnStepKeys: ['meihua:calculation:hexagrams', 'meihua:calculation:yaos'],
-      promptText: `${params.stageCoverageFact.promptText}；计算主变体用、体互与用互对原体的关系、体用党及应卦间制化路径`,
-      sources: ['主卦、互卦、变卦上下经卦与原动爻所在经卦的体用、体互、用互、体用党和应卦制化规则'],
+      promptText: `${params.stageCoverageFact.promptText}；计算主变体用、体互与用互对原体的关系、体用党、应卦间制化路径及内卦动静分工；外应动静保持资料不足`,
+      sources: [
+        '主卦、互卦、变卦上下经卦与原动爻所在经卦的体用、体互、用互、体用党、应卦制化及体用动静规则',
+      ],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
@@ -1746,6 +1918,7 @@ function buildCalculationSteps(params: {
         interResponseFactCount: params.summaryFact.interResponseFactCount,
         partyFactCount: params.summaryFact.partyFactCount,
         responseInteractionFactCount: params.summaryFact.responseInteractionFactCount,
+        motionFactCount: params.summaryFact.motionFactCount,
         transitionFactCount: params.summaryFact.transitionFactCount,
         counterEvidenceCount: params.summaryFact.counterEvidenceCount,
         timingFactCount: params.summaryFact.timingFactCount,
@@ -1776,6 +1949,8 @@ function buildLimitationFacts(params: {
   interResponseFacts: MeihuaInterResponseEvidence[];
   partyFact: MeihuaPartyFact;
   responseInteractionFacts: MeihuaResponseInteractionFact[];
+  internalMotionFact: MeihuaInternalMotionFact;
+  externalMotionFact: MeihuaExternalMotionFact;
   transitionFacts: MeihuaTransitionFact[];
   traditionalFacts: MeihuaTraditionalFact[];
   counterEvidenceFacts: MeihuaCounterEvidenceFact[];
@@ -1820,6 +1995,14 @@ function buildLimitationFacts(params: {
       promptText:
         '体用生克、体用党与应卦制化只描述卦内关系和方向，不按同党数、制化路径数或阶段先后裁定最终强弱与现实吉凶；起因、过程和结果标签只表示分析层级，不证明现实必然按同样阶段发生',
       sources: ['主变体用、互卦响应、体用党、应卦制化与逐阶段月令事实'],
+    },
+    {
+      key: 'meihua:limitation:motion',
+      type: '体用动静边界',
+      ownerFactKeys: [params.internalMotionFact.key, params.externalMotionFact.key],
+      promptText:
+        '卦内原体、主用、互卦与变卦响应的动静分工可以从盘面重算，但它不等同于起卦现场实际动静；外应对象、对象类别、实际动静及求测者行卧坐立均未输入时，只能明确资料不足，不得据卦内动爻补造外应或应验快慢',
+      sources: ['《梅花易数》体用动静内外分层与当前现场观察资料覆盖'],
     },
     {
       key: 'meihua:limitation:transitions-counters',
@@ -1948,6 +2131,12 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
   const responseReferences = buildResponseReferences(stages, interResponseFacts);
   const partyFact = buildPartyFact(stages, responseReferences);
   const responseInteractionFacts = buildResponseInteractionFacts(responseReferences);
+  const internalMotionFact = buildInternalMotionFact(
+    stages,
+    responseReferences,
+    data.movingYao.position,
+  );
+  const externalMotionFact = buildExternalMotionFact();
   const stageCoverageFact = buildStageCoverageFact(stages);
   const transitionFacts = buildTransitionFacts(stages);
   const transitions = transitionFacts.map((item) => item.promptText);
@@ -1958,6 +2147,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     calculationFact,
     yaoCoverageFact,
     yaoStructureFacts,
+    internalMotionFact,
+    externalMotionFact,
   );
   const timingConditions = timingFacts.map((item) => item.promptText);
   const timingSummaryFact: MeihuaTimingSummaryFact = {
@@ -2005,6 +2196,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     interResponseFacts,
     partyFact,
     responseInteractionFacts,
+    internalMotionFact,
+    externalMotionFact,
     transitionFacts,
     traditionalFacts,
     counterEvidenceFacts,
@@ -2022,6 +2215,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     stages,
     partyFact,
     responseInteractionFacts,
+    internalMotionFact,
+    externalMotionFact,
     transitionFacts,
     counterEvidenceFacts,
     timingFacts,
@@ -2041,6 +2236,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     interResponseFacts,
     partyFact,
     responseInteractionFacts,
+    internalMotionFact,
+    externalMotionFact,
     transitionFacts,
     traditionalFacts,
     counterEvidenceFacts,
@@ -2156,6 +2353,20 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       tags: ['应卦制化', fact.effectDirection, fact.controller.role, fact.target.role],
     })),
     {
+      level: internalMotionFact.status === '已计算' ? '辅证' : '限制',
+      title: '内卦体用动静分工',
+      detail: `${internalMotionFact.promptText}；边界：${internalMotionFact.limitation}`,
+      source: internalMotionFact.sources.join('、'),
+      tags: ['体用动静', '内卦动静', internalMotionFact.status],
+    },
+    {
+      level: '限制',
+      title: '外应动静资料覆盖',
+      detail: `${externalMotionFact.promptText}；边界：${externalMotionFact.limitation}`,
+      source: externalMotionFact.sources.join('、'),
+      tags: ['体用动静', '外应动静', externalMotionFact.status],
+    },
+    {
       level: '应期',
       title: '应期资料覆盖与边界',
       detail: `${timingSummaryFact.promptText}；${timingFacts.map((item) => item.promptText).join('；')}；统一边界：${timingSummaryFact.limitation}`,
@@ -2209,6 +2420,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     `计算链：${calculationChain.join(' → ')}。`,
     `证据汇总：${summaryFact.promptText}。`,
     `体用党与应卦制化：${partyFact.promptText}；${responseInteractionFacts.map((item) => item.promptText).join('；') || '未见生体或克体应卦被其他应卦克制的路径'}。`,
+    `体用动静：${internalMotionFact.promptText}；${externalMotionFact.promptText}。`,
     `推进关系：${transitionFacts.map((item) => item.promptText).join('；') || '只有主卦阶段，未形成可核验的互变推进链'}`,
     `应期资料：${timingFacts.map((item) => item.promptText).join('；')}`,
     `解释限制：${limitations.join('；')}。`,
@@ -2233,6 +2445,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     responseReferences,
     partyFact,
     responseInteractionFacts,
+    internalMotionFact,
+    externalMotionFact,
     transitionFacts,
     transitions,
     timingFacts,
@@ -2254,7 +2468,8 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       '起卦输入、取余算式、六爻阴阳、互卦构造和动爻翻转均作为可复核计算事实保留。',
       '主卦与变卦计算体用生克，互卦分别计算体互、用互对原体的关系与月建旺衰，不在互卦内部重分体用。',
       '体党、用党只比较体互、用互和变卦用卦与原体、原用的同五行聚集；应卦制化逐项登记其他应卦对生体、克体之卦的克制路径，并保留月令强弱待综合。',
-      '动爻只标记变化层位，卦数只保留原始计算资料；缺少行卧坐立或外应动静、事件远近和时间尺度时，不裁定统一快慢或换算绝对日期。',
+      '内卦动静按原体、体互、用互为静，主卦用卦、变卦响应为动逐项登记；这不等同于现场物体实际动静。',
+      '动爻只标记变化层位，卦数只保留原始计算资料；缺少外应对象及实际动静、行卧坐立、事件远近和时间尺度时，不裁定统一快慢或换算绝对日期。',
       '只输出支持、反证、盘面事实与资料边界，不生成吉凶总分、成功率或无依据应期。',
     ],
   };

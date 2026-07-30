@@ -546,7 +546,7 @@ export interface MeihuaCalculation {
 }
 
 export interface MeihuaData extends BaseHexagramData {
-  /** 主卦与变卦体用、互卦体互/用互分别响应原体的阶段关系及支持/限制证据。 */
+  /** 主互变体用、体用党、应卦制化、内外动静资料边界及支持/限制证据。 */
   evidenceAnalysis?: import('../divination/meihua-evidence').MeihuaEvidenceAnalysis;
   /** 体卦（代表问卦者） */
   tiGua: {

@@ -106,7 +106,13 @@ function buildMeihuaCase(
       position: index + 1,
       yaoType: (line === 1 ? '阳' : '阴') as '阳' | '阴',
       isChanging: index === movingYao - 1,
-      tiYong: (index < 3 ? lower.name : upper.name) === ti.name ? ('体' as const) : ('用' as const),
+      tiYong: movingInLower
+        ? index < 3
+          ? ('用' as const)
+          : ('体' as const)
+        : index < 3
+          ? ('体' as const)
+          : ('用' as const),
     })),
     evidenceAnalysis: undefined,
   };
@@ -162,6 +168,23 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     evidence.summaryFact.responseInteractionFactCount,
     evidence.responseInteractionFacts.length,
   );
+  assert.equal(evidence.summaryFact.motionFactCount, 2);
+  assert.equal(evidence.internalMotionFact.status, '已计算');
+  assert.deepEqual(
+    evidence.internalMotionFact.references.map((item) => [item.role, item.motion]),
+    [
+      ['原体', '静'],
+      ['主卦用卦', '动'],
+      ['体互', '静'],
+      ['用互', '静'],
+      ['变卦用卦', '动'],
+    ],
+  );
+  assert.equal(evidence.externalMotionFact.status, '资料不足');
+  assert.deepEqual(
+    evidence.externalMotionFact.missingObservationFields,
+    evidence.externalMotionFact.requiredObservationFields,
+  );
   assert.equal(evidence.summaryFact.transitionFactCount, evidence.transitionFacts.length);
   assert.equal(evidence.summaryFact.traditionalFactCount, evidence.traditionalFacts.length);
   assert.equal(evidence.summaryFact.counterEvidenceCount, evidence.counterEvidenceFacts.length);
@@ -171,7 +194,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     .map((item) => item.type);
   assert.ok(processCounterTypes.includes('互卦响应关系限制'));
   assert.ok(processCounterTypes.includes('互卦响应月令限制'));
-  assert.equal(evidence.limitationFacts.length, 6);
+  assert.equal(evidence.limitationFacts.length, 7);
   assert.deepEqual(
     evidence.limitations,
     evidence.limitationFacts.map((item) => item.promptText),
@@ -183,6 +206,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.match(evidence.promptText, /【梅花主互变关系推进结构化证据】/);
   assert.match(evidence.promptText, /计算链：/);
   assert.match(evidence.promptText, /证据汇总：/);
+  assert.match(evidence.promptText, /体用动静：/);
   assert.match(evidence.promptText, /解释限制：/);
   assert.match(evidence.promptText, /起因.*→.*过程.*；.*过程.*→.*结果/);
   assert.doesNotMatch(evidence.promptText, /权重[：=]?\d|总分[：=]?\d|成功率[：=]?\d/);
@@ -276,6 +300,65 @@ test('梅花六十四卦六动爻的原体、体互、用互与变卦体位应�
       );
       assert.equal(process?.relation, undefined);
       assert.equal(evidence.interResponseFacts.length, 2);
+      checked += 1;
+    }
+  }
+
+  assert.equal(checked, 384);
+});
+
+test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补造现场外应', () => {
+  const base = generateMeihua(fixedDate, { method: 'number', number: 123 });
+  let checked = 0;
+
+  for (const main of hexagramsData) {
+    for (let movingYao = 1; movingYao <= 6; movingYao += 1) {
+      const data = buildMeihuaCase(base, main, movingYao);
+      const evidence = analyzeMeihuaEvidence(data);
+      const motion = evidence.internalMotionFact;
+      const origin = evidence.stages.find((item) => item.stage === 'origin');
+      const result = evidence.stages.find((item) => item.stage === 'result');
+
+      assert.equal(motion.status, '已计算');
+      assert.equal(motion.movingYaoPosition, movingYao);
+      assert.deepEqual(motion.missingRoles, []);
+      assert.deepEqual(motion.actualRoles, motion.expectedRoles);
+      assert.deepEqual(motion.movingRoles, ['主卦用卦', '变卦用卦']);
+      assert.deepEqual(motion.stillRoles, ['原体', '体互', '用互']);
+      assert.deepEqual(
+        motion.references.map((item) => [item.role, item.motion, item.basis]),
+        [
+          ['原体', '静', '体卦为静'],
+          ['主卦用卦', '动', '用卦为动'],
+          ['体互', '静', '互卦为静'],
+          ['用互', '静', '互卦为静'],
+          ['变卦用卦', '动', '变卦为动'],
+        ],
+      );
+      assert.equal(motion.references.find((item) => item.role === '原体')?.name, origin?.ti?.name);
+      assert.equal(
+        motion.references.find((item) => item.role === '主卦用卦')?.name,
+        origin?.yong?.name,
+      );
+      assert.equal(
+        motion.references.find((item) => item.role === '变卦用卦')?.name,
+        result?.yong?.name,
+      );
+      assert.equal(evidence.yaoStructureFacts.find((item) => item.isChanging)?.tiYong, '用');
+      assert.equal(evidence.externalMotionFact.status, '资料不足');
+      assert.deepEqual(evidence.externalMotionFact.availableObservationFields, []);
+      assert.deepEqual(
+        evidence.externalMotionFact.missingObservationFields,
+        evidence.externalMotionFact.requiredObservationFields,
+      );
+      assert.match(
+        evidence.externalMotionFact.promptText,
+        /不得把数字、时间、随机方式、问题文本或卦内动爻补写成外应/,
+      );
+      assert.doesNotMatch(
+        JSON.stringify({ motion, external: evidence.externalMotionFact }),
+        /"score"\s*:|"probability"\s*:|应吉之速|应凶之速|应期快于|应期迟缓/,
+      );
       checked += 1;
     }
   }
@@ -618,6 +701,10 @@ test('梅花证据应重算主互变关系，不采信伪造的体用与互卦�
     interYongGua: fake,
     changedTiGua: fake,
     changedYongGua: fake,
+    yaosDetail: data.yaosDetail.map((item) => ({
+      ...item,
+      tiYong: item.tiYong === '体' ? ('用' as const) : ('体' as const),
+    })),
     analysis: {
       ...data.analysis,
       tiYongRelation: '伪造主卦关系',
@@ -643,6 +730,21 @@ test('梅花证据应重算主互变关系，不采信伪造的体用与互卦�
     ],
   );
   assert.equal(result?.ti?.name, '离');
+  assert.deepEqual(
+    rebuilt.internalMotionFact.references.map((item) => [item.role, item.name, item.motion]),
+    [
+      ['原体', '离', '静'],
+      ['主卦用卦', '坤', '动'],
+      ['体互', '坎', '静'],
+      ['用互', '艮', '静'],
+      ['变卦用卦', result?.yong?.name, '动'],
+    ],
+  );
+  assert.deepEqual(
+    rebuilt.yaoStructureFacts.map((item) => item.tiYong),
+    ['用', '用', '用', '体', '体', '体'],
+  );
+  assert.equal(rebuilt.yaoStructureFacts.find((item) => item.isChanging)?.tiYong, '用');
   assert.doesNotMatch(rebuilt.promptText, /伪造/);
 });
 
@@ -703,6 +805,8 @@ test('梅花起卦算式、六爻结构、卦象来源和克应资料边界应�
   assert.ok(items.some((item) => item.title === '体互对原体关系'));
   assert.ok(items.some((item) => item.title === '用互对原体关系'));
   assert.ok(items.some((item) => item.title === '体党与用党'));
+  assert.ok(items.some((item) => item.title === '内卦体用动静分工'));
+  assert.ok(items.some((item) => item.title === '外应动静资料覆盖'));
   assert.equal(
     items.filter((item) => item.tags?.includes('应卦制化')).length,
     evidence.responseInteractionFacts.length,
@@ -776,6 +880,9 @@ test('梅花旧结果缺少逐爻或互卦阶段时应明确标记缺口且不�
   assert.deepEqual(rebuilt.partyFact.missingResponseRoles, ['体互', '用互']);
   assert.deepEqual(rebuilt.partyFact.support, []);
   assert.deepEqual(rebuilt.partyFact.constraints, []);
+  assert.equal(rebuilt.internalMotionFact.status, '资料不足');
+  assert.deepEqual(rebuilt.internalMotionFact.missingRoles, ['体互', '用互']);
+  assert.equal(rebuilt.externalMotionFact.status, '资料不足');
   assert.equal(
     rebuilt.calculationSteps.find((item) => item.stage === '阶段推进核验')?.status,
     '资料不足',
@@ -823,10 +930,12 @@ test('梅花四种起卦入口都应生成完整可移植的对象化证据', ()
     assert.equal(evidence.yaoCoverageFact.status, '完整');
     assert.equal(evidence.transitionFacts.length, 2);
     assert.equal(evidence.timingSummaryFact.status, '资料不足');
+    assert.equal(evidence.internalMotionFact.status, '已计算');
+    assert.equal(evidence.externalMotionFact.status, '资料不足');
     assert.equal(evidence.counterSummaryFact.factKeys.length, evidence.counterEvidenceFacts.length);
     assert.equal(evidence.summaryFact.status, '证据链完整');
     assert.equal(evidence.calculationSteps.length, 7);
-    assert.equal(evidence.limitationFacts.length, 6);
+    assert.equal(evidence.limitationFacts.length, 7);
     assertPromptIsPortableTaskText(evidence.promptText);
   }
 });

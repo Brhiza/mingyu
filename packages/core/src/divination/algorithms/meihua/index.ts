@@ -11,6 +11,8 @@
  * 3. 论生克：以体卦为中心，分别核验用卦、体互、用互、变卦与原体的五行关系。
  *    生克必须结合体卦旺衰、生体或克体之卦的旺衰以及现实问事资料，不由单项关系
  *    直接生成现实吉凶、成败或应期。
+ * 4. 分动静：卦内按体与互为静、用与变为动登记角色；现场外应动静及求测者行卧坐立
+ *    需要另有观察输入，不能由动爻、数字或时间起卦方式反推。
  */
 
 import type { MeihuaData, MeihuaSettings } from '../../../types/divination';
@@ -253,8 +255,7 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
     position: index + 1,
     yaoType: (line === 1 ? '阳' : '阴') as '阳' | '阴',
     isChanging: index === movingYaoIndex - 1,
-    tiYong: ((index < 3 ? lowerTrigram.name : upperTrigram.name) === tiGua.name ? '体' : '用') as
-      '体' | '用',
+    tiYong: (movingInLower ? (index < 3 ? '用' : '体') : index < 3 ? '体' : '用') as '体' | '用',
   }));
 
   // 四时旺衰：按《梅花易数》以月建地支定旺相休囚死，比季节粗分更精确。
@@ -385,6 +386,10 @@ export type {
   MeihuaEvidenceAnalysis,
   MeihuaEvidenceStageKey,
   MeihuaHexagramFact,
+  MeihuaExternalMotionFact,
+  MeihuaInternalMotionFact,
+  MeihuaInternalMotionReference,
+  MeihuaInternalMotionRole,
   MeihuaInterResponseEvidence,
   MeihuaPartyFact,
   MeihuaResponseInteractionFact,

@@ -381,11 +381,14 @@ function formatMeihuaInfo(data: MeihuaData) {
     data.changedTiGua && data.changedYongGua
       ? `；变后体卦${data.changedTiGua.name}（${data.changedTiGua.element}）；变后用卦${data.changedYongGua.name}（${data.changedYongGua.element}）；变后体用${data.analysis.changedTiYongRelation}`
       : '';
-  const evidenceAnalysis = data.evidenceAnalysis?.traditionalFacts
-    ? data.evidenceAnalysis
-    : analyzeMeihuaEvidence(data);
+  const evidenceAnalysis =
+    data.evidenceAnalysis?.traditionalFacts &&
+    data.evidenceAnalysis.internalMotionFact &&
+    data.evidenceAnalysis.externalMotionFact
+      ? data.evidenceAnalysis
+      : analyzeMeihuaEvidence(data);
   const timingEvidence = createMeihuaTimingEvidence(evidenceAnalysis);
-  const yaoLines = [...data.yaosDetail]
+  const yaoLines = [...evidenceAnalysis.yaoStructureFacts]
     .sort((a, b) => b.position - a.position)
     .map((item) => {
       const fact = evidenceAnalysis.traditionalFacts.find(
@@ -420,6 +423,8 @@ function formatMeihuaInfo(data: MeihuaData) {
     `互卦：${processHexagram}${interRoleText}；${data.analysis.inter1Relation}；${data.analysis.inter2Relation}`,
     `变卦：${resultHexagram}${changedTiYongText}；结果关系${data.analysis.changedRelation}`,
     `月令与起卦：${seasonBasis}，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}；起卦法${methodLabel}${typeof calculation?.number === 'number' ? `；起卦数字${calculation.number}` : ''}`,
+    `体用动静：${evidenceAnalysis.internalMotionFact.promptText}`,
+    `外应动静：${evidenceAnalysis.externalMotionFact.promptText}`,
     `应期资料：${timingEvidence}`,
     '结构明细：',
     `- 月令旺衰：${seasonBasis}，体卦${data.analysis.tiSeasonState}，用卦${data.analysis.yongSeasonState}`,
