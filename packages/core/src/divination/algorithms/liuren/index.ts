@@ -47,7 +47,7 @@ function buildShenShaFacts(
     '只定位神煞所在干支',
     '须核对是否入课、入传或临干支',
     '不得单项定吉凶',
-    '当前只登记二十四项可复算神煞，不代表《六壬大全》神煞总目录已经穷尽',
+    '当前只登记三十一项可复算神煞，不代表《六壬大全》神煞总目录已经穷尽',
   ];
   const addFact = (
     fact: Omit<LiurenShenShaFact, 'sources' | 'limitations'> & {
@@ -458,6 +458,66 @@ function buildShenShaFacts(
         rule: table.rule,
         source,
         extraSources,
+        extraLimitations: 'extraLimitations' in table ? [...table.extraLimitations] : [],
+      });
+    }
+
+    const guideDayStemShenShaTables = [
+      {
+        name: '日合',
+        targets: ['未', '申', '戌', '亥', '丑', '寅', '辰', '巳', '未', '巳'],
+        rule: '取与日干五合之干所寄宫：甲未、乙申、丙戌、丁亥、戊丑、己寅、庚辰、辛巳、壬未、癸巳',
+        extraSources: ['《六壬大全》别责课“刚日取干合上神”及日合用例'],
+        extraLimitations: [
+          '《大六壬神煞指南》表作“合”、正文作“干合”；本结果用《六壬大全》正文通称“日合”，均指日干五合之干的寄宫',
+        ],
+      },
+      {
+        name: '长生',
+        targets: ['亥', '亥', '寅', '寅', '申', '申', '巳', '巳', '申', '申'],
+        rule: '六壬按五行长生有顺无逆：甲乙木亥、丙丁火寅、戊己土申、庚辛金巳、壬癸水申',
+        extraLimitations: [
+          '采用《大六壬神煞指南》庄氏所定五行长生、有顺无逆的六壬口径，不采用命理十干阴阳顺逆长生法',
+        ],
+      },
+      {
+        name: '恩赦',
+        targets: ['寅', '辰', '巳', '未', '巳', '未', '申', '戌', '亥', '丑'],
+        rule: '甲寅、乙辰、丙巳、丁未、戊巳、己未、庚申、辛戌、壬亥、癸丑',
+      },
+      {
+        name: '贤贵',
+        targets: ['丑', '申', '寅', '寅', '午', '丑', '申', '寅', '寅', '午'],
+        rule: '甲丑、乙申、丙寅、丁寅、戊午，己至癸同甲至戊',
+      },
+      {
+        name: '文星',
+        targets: ['亥', '亥', '寅', '寅', '午', '午', '巳', '巳', '申', '申'],
+        rule: '甲乙亥、丙丁寅、戊己午、庚辛巳、壬癸申',
+      },
+      {
+        name: '日奸',
+        targets: ['亥', '酉', '辰', '申', '巳', '亥', '酉', '辰', '申', '巳'],
+        rule: '甲亥、乙酉、丙辰、丁申、戊巳，己至癸同甲至戊',
+      },
+      {
+        name: '日淫',
+        targets: ['午', '午', '未', '未', '戌', '戌', '寅', '寅', '巳', '巳'],
+        rule: '甲乙午、丙丁未、戊己戌、庚辛寅、壬癸巳',
+      },
+    ] as const;
+
+    for (const table of guideDayStemShenShaTables) {
+      addFact({
+        name: table.name,
+        target: table.targets[dayStemIndex],
+        targetType: '地支',
+        category: '十天干神煞',
+        basis: '日干',
+        input: dayStem,
+        rule: table.rule,
+        source,
+        extraSources: 'extraSources' in table ? [...table.extraSources] : [],
         extraLimitations: 'extraLimitations' in table ? [...table.extraLimitations] : [],
       });
     }

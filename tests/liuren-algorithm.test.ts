@@ -957,7 +957,7 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
         item.rule &&
         item.sources.length > 0 &&
         item.limitations.length >= 4 &&
-        item.limitations.some((limitation) => limitation.includes('二十四项可复算神煞')),
+        item.limitations.some((limitation) => limitation.includes('三十一项可复算神煞')),
     ),
   );
 });
@@ -1076,6 +1076,13 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     日盗: ['子', '亥', '卯', '申', '巳', '子', '亥', '卯', '申', '巳'],
     鲁都: ['未', '午', '申', '亥', '寅', '未', '午', '申', '亥', '寅'],
     飞刃: ['酉', '戌', '子', '丑', '子', '丑', '卯', '辰', '午', '未'],
+    日合: ['未', '申', '戌', '亥', '丑', '寅', '辰', '巳', '未', '巳'],
+    长生: ['亥', '亥', '寅', '寅', '申', '申', '巳', '巳', '申', '申'],
+    恩赦: ['寅', '辰', '巳', '未', '巳', '未', '申', '戌', '亥', '丑'],
+    贤贵: ['丑', '申', '寅', '寅', '午', '丑', '申', '寅', '寅', '午'],
+    文星: ['亥', '亥', '寅', '寅', '午', '午', '巳', '巳', '申', '申'],
+    日奸: ['亥', '酉', '辰', '申', '巳', '亥', '酉', '辰', '申', '巳'],
+    日淫: ['午', '午', '未', '未', '戌', '戌', '寅', '寅', '巳', '巳'],
   };
   const start = new Date('2026-01-01T12:00:00+08:00').getTime();
   for (let dayOffset = 0; dayOffset < 60; dayOffset += 1) {
@@ -1090,7 +1097,7 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const dayBranchIndex = DIZHI.indexOf(dayBranch as (typeof DIZHI)[number]);
     const dayStemIndex = TIANGAN.indexOf(dayStem as (typeof TIANGAN)[number]);
 
-    assert.equal(shenShaFacts.length, 24, `${result.ganzhi.day}应有二十四项已登记神煞`);
+    assert.equal(shenShaFacts.length, 31, `${result.ganzhi.day}应有三十一项已登记神煞`);
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(
       ['支马', '天罗', '地网', '日德', '日禄'].map((name) => facts.get(name)?.target),
@@ -1121,7 +1128,9 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       `${result.ganzhi.day}新增神煞均应按日干定位到实际地支`,
     );
     assert.ok(
-      ['直符', '仪神', '天盗', '天贼', '天解', '稼穑', '三奇'].every((name) => !facts.has(name)),
+      ['直符', '仪神', '天盗', '天贼', '天解', '日官', '稼穑', '三奇'].every(
+        (name) => !facts.has(name),
+      ),
       `${result.ganzhi.day}不得混入异名或尚未闭合的规则`,
     );
   }
@@ -1137,6 +1146,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
   assert.ok(sampleFacts.get('日盗')?.limitations.some((item) => item.includes('天盗')));
   assert.ok(sampleFacts.get('日贼')?.limitations.some((item) => item.includes('天贼')));
   assert.ok(sampleFacts.get('日解')?.limitations.some((item) => item.includes('表头缺字')));
+  assert.ok(sampleFacts.get('日合')?.limitations.some((item) => item.includes('干合')));
+  assert.ok(sampleFacts.get('长生')?.limitations.some((item) => item.includes('有顺无逆')));
   assert.match(sampleFacts.get('鲁都')?.rule ?? '', /游都对冲/);
   assert.match(sampleFacts.get('飞刃')?.rule ?? '', /羊刃对冲/);
 });
