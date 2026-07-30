@@ -231,6 +231,7 @@ test('能力清单可序列化且返回副本', () => {
   assert.ok(getSystemCapability('meihua')?.outputs.includes('成卦前后耳目外应资料边界'));
   assert.ok(getSystemCapability('meihua')?.outputs.includes('饮食专项适用与版本资料边界'));
   assert.ok(getSystemCapability('meihua')?.outputs.includes('观物专项适用、取主与版本资料边界'));
+  assert.ok(getSystemCapability('meihua')?.outputs.includes('诸事响应专项情境与高风险边界'));
   const packageJson = JSON.parse(
     readFileSync(new URL('../packages/core/package.json', import.meta.url), 'utf8'),
   ) as { version: string };

@@ -3326,6 +3326,18 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               unresolvedRuleFields: string[];
               promptText: string;
             };
+            topicResponseContextFact: {
+              status: string;
+              requiredContextFields: string[];
+              availableContextFields: string[];
+              missingContextFields: string[];
+              availableChartFields: string[];
+              topicScopes: string[];
+              crossTopicConflictFields: string[];
+              highRiskRuleFields: string[];
+              unresolvedRuleFields: string[];
+              promptText: string;
+            };
             transitionFacts: Array<{
               key: string;
               status: string;
@@ -3365,6 +3377,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               sensoryOmenFactCount: number;
               foodContextFactCount: number;
               objectContextFactCount: number;
+              topicResponseContextFactCount: number;
               transitionFactCount: number;
               traditionalFactCount: number;
               counterEvidenceCount: number;
@@ -3535,6 +3548,32 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     ]) {
       assert.equal(key in result.evidenceAnalysis.objectContextFact, false);
     }
+    const topicResponse = result.evidenceAnalysis.topicResponseContextFact;
+    assert.equal(topicResponse.status, '资料不足');
+    assert.deepEqual(topicResponse.availableContextFields, []);
+    assert.deepEqual(topicResponse.missingContextFields, topicResponse.requiredContextFields);
+    assert.equal(topicResponse.requiredContextFields.length, 4);
+    assert.equal(topicResponse.availableChartFields.length, 4);
+    assert.equal(topicResponse.topicScopes.length, 17);
+    assert.equal(topicResponse.crossTopicConflictFields.length, 4);
+    assert.equal(topicResponse.highRiskRuleFields.length, 5);
+    assert.equal(topicResponse.unresolvedRuleFields.length, 1);
+    assert.match(topicResponse.unresolvedRuleFields[0] ?? '', /比和凶则有救星/);
+    for (const key of [
+      'topic',
+      'target',
+      'fetalSex',
+      'diagnosis',
+      'prescription',
+      'lawsuitResult',
+      'marriageResult',
+      'financialResult',
+      'score',
+      'weight',
+      'probability',
+    ]) {
+      assert.equal(key in topicResponse, false);
+    }
     assert.ok(
       result.evidenceAnalysis.interResponseFacts.every(
         (item) => item.originalTi.name === result.tiGua.name && item.relation.includes('原体'),
@@ -3643,6 +3682,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.equal(result.evidenceAnalysis.summaryFact.sensoryOmenFactCount, 1);
     assert.equal(result.evidenceAnalysis.summaryFact.foodContextFactCount, 1);
     assert.equal(result.evidenceAnalysis.summaryFact.objectContextFactCount, 1);
+    assert.equal(result.evidenceAnalysis.summaryFact.topicResponseContextFactCount, 1);
     assert.equal(
       result.evidenceAnalysis.summaryFact.transitionFactCount,
       result.evidenceAnalysis.transitionFacts.length,
@@ -3655,7 +3695,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       result.evidenceAnalysis.summaryFact.timingFactCount,
       result.evidenceAnalysis.timingFacts.length,
     );
-    assert.equal(result.evidenceAnalysis.limitationFacts.length, 11);
+    assert.equal(result.evidenceAnalysis.limitationFacts.length, 12);
     assert.equal(
       result.evidenceAnalysis.limitations.length,
       result.evidenceAnalysis.limitationFacts.length,

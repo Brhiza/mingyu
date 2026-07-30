@@ -432,6 +432,7 @@ const systems: SystemCapability[] = [
       '成卦前后耳目外应资料边界',
       '饮食专项适用与版本资料边界',
       '观物专项适用、取主与版本资料边界',
+      '诸事响应专项情境与高风险边界',
       '全卦克应候选与事项情境边界',
     ],
     supports: randomSupports,

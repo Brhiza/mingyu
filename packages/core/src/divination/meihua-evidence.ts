@@ -165,6 +165,22 @@ export interface MeihuaObjectContextFact {
   limitation: '《观物玄妙歌诀》只适用于明确的观物、射覆或具体物件辨识，并须先确定待辨对象范围、起卦取象来源及体用互变的观物取主口径；问题关键词和通用盘面不能自动补齐专项方法。当前通行底本将山石、土瓦、门途等艮象段题作“离”，且未见另一卦的完整独立段落；在与后续《占物类例》《观物看变爻为主》等规则合校前，不得据此生成物件种类、材质、形状、颜色、气味、软硬、动静、位置、完整缺损、价值、可用可食或数量等结论';
 }
 
+export interface MeihuaTopicResponseContextFact {
+  key: 'meihua:topic-response-context';
+  status: '资料不足';
+  requiredContextFields: string[];
+  availableContextFields: string[];
+  missingContextFields: string[];
+  availableChartFields: string[];
+  topicScopes: string[];
+  crossTopicConflictFields: string[];
+  highRiskRuleFields: string[];
+  unresolvedRuleFields: string[];
+  promptText: string;
+  sources: string[];
+  limitation: '《诸事响应歌》按天气、人事、家宅、生产、婚姻、饮食、求谋、求名、求财、交易、出行、行人、谒人、疾病、公讼与墓穴等不同事项分别立意；同一体用关系跨事项可能含义相反，问题关键词和通用盘面不能自动确定事项、判断目标、现实状态或角色。当前入口没有结构化专项情境，且“比和凶则有救星”句义未完成独立版本互证，不得套用事项歌诀生成胎儿性别、疾病诊断、药物冷热温补处方、鬼神或自伤落水血刃原因、诉讼胜负、确定婚姻财务结果、吉凶评分、权重或概率';
+}
+
 export interface MeihuaStageEvidence {
   key: string;
   status: '已计算' | '卦象资料缺失';
@@ -413,13 +429,14 @@ export interface MeihuaSummaryFact {
   sensoryOmenFactCount: number;
   foodContextFactCount: number;
   objectContextFactCount: number;
+  topicResponseContextFactCount: number;
   transitionFactCount: number;
   traditionalFactCount: number;
   counterEvidenceCount: number;
   timingFactCount: number;
   promptText: string;
   sources: string[];
-  limitation: '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图、身体病位、具体物件或唯一日期';
+  limitation: '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、事项响应情境、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图、身体病位、具体物件、专项现实结论或唯一日期';
 }
 
 export interface MeihuaLimitationFact {
@@ -433,6 +450,7 @@ export interface MeihuaLimitationFact {
     | '万物外应边界'
     | '饮食专项边界'
     | '观物专项边界'
+    | '事项响应情境边界'
     | '阶段推进与反证边界'
     | '应期边界'
     | '传统文本与高风险输出边界';
@@ -469,6 +487,7 @@ export interface MeihuaEvidenceAnalysis {
   sensoryOmenFact: MeihuaSensoryOmenFact;
   foodContextFact: MeihuaFoodContextFact;
   objectContextFact: MeihuaObjectContextFact;
+  topicResponseContextFact: MeihuaTopicResponseContextFact;
   transitionFacts: MeihuaTransitionFact[];
   transitions: string[];
   timingFacts: MeihuaTimingFact[];
@@ -512,6 +531,8 @@ const FOOD_CONTEXT_FACT_LIMITATION =
   '《饮食篇》只适用于明确的具体饮食、宴请、食物或能否得食之占，并须先校定己、人、客、酒、食物等专项角色及动静语义；普通体用、问题关键词、卦内动爻与通用盘面事实均不能自动替代专项资料。当前底本艮、坎段落及末段角色句读尚未完成版本校勘，不得据此生成具体食材、菜品、口味、烹法、器皿、宾客身份、食量、有无得食、疾病、谁请谁或来去先后等结论' as const;
 const OBJECT_CONTEXT_FACT_LIMITATION =
   '《观物玄妙歌诀》只适用于明确的观物、射覆或具体物件辨识，并须先确定待辨对象范围、起卦取象来源及体用互变的观物取主口径；问题关键词和通用盘面不能自动补齐专项方法。当前通行底本将山石、土瓦、门途等艮象段题作“离”，且未见另一卦的完整独立段落；在与后续《占物类例》《观物看变爻为主》等规则合校前，不得据此生成物件种类、材质、形状、颜色、气味、软硬、动静、位置、完整缺损、价值、可用可食或数量等结论' as const;
+const TOPIC_RESPONSE_CONTEXT_FACT_LIMITATION =
+  '《诸事响应歌》按天气、人事、家宅、生产、婚姻、饮食、求谋、求名、求财、交易、出行、行人、谒人、疾病、公讼与墓穴等不同事项分别立意；同一体用关系跨事项可能含义相反，问题关键词和通用盘面不能自动确定事项、判断目标、现实状态或角色。当前入口没有结构化专项情境，且“比和凶则有救星”句义未完成独立版本互证，不得套用事项歌诀生成胎儿性别、疾病诊断、药物冷热温补处方、鬼神或自伤落水血刃原因、诉讼胜负、确定婚姻财务结果、吉凶评分、权重或概率' as const;
 const HEXAGRAM_FACT_LIMITATION =
   '主互变卦象事实只记录当前上下经卦、卦名与卦符；不得由卦名或阶段位置直接推断现实事件、人物、吉凶、成败或应期' as const;
 const YAO_FACT_LIMITATION =
@@ -541,7 +562,7 @@ const TIMING_REQUIRED_CONTEXT_FIELDS = [
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只证明起卦取数、主互变卦象、六爻动爻、主变体用、互卦响应、推进、反证与应期事实如何形成当前证据；不证明现实吉凶、预测有效性、事件概率或固定应期' as const;
 const SUMMARY_FACT_LIMITATION =
-  '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图、身体病位、具体物件或唯一日期' as const;
+  '梅花证据汇总只统计起卦、主互变卦象、六爻动爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、事项响应情境、推进、传统文本、反证与应期事实的覆盖情况；不得按数量生成吉凶总分、成功率、人物意图、身体病位、具体物件、专项现实结论或唯一日期' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束梅花起卦、卦象、逐爻、体用、推进、传统卦爻辞与应期资料能够支持的解释范围，不得被反向当作现实吉凶、婚育疾病、伤亡诉讼、事件概率或固定应期的证据' as const;
 
@@ -1332,6 +1353,75 @@ function buildObjectContextFact(): MeihuaObjectContextFact {
   };
 }
 
+function buildTopicResponseContextFact(): MeihuaTopicResponseContextFact {
+  const requiredContextFields = [
+    '明确的事项类别、具体对象与适用范围',
+    '精确判断目标（如问晴或问雨、问出行或归来、问是否到达或何时到达）',
+    '当前现实状态、所处阶段及体用对应的现实角色关系',
+    '健康、生育、法律、安全等高风险事项所需的专业资料与现实核验边界',
+  ];
+  const topicScopes = [
+    '天气晴雨',
+    '一般人事与人物方位物品响应',
+    '家宅',
+    '生产与生育',
+    '婚姻',
+    '饮食',
+    '求谋',
+    '求名',
+    '求财',
+    '交易',
+    '出行',
+    '行人归期',
+    '谒人',
+    '疾病与用药',
+    '公讼',
+    '墓穴',
+    '现场旁言与美物外应',
+  ];
+  const crossTopicConflictFields = [
+    '一般人事称“体克用”可作顺利条件，行人归期却称“克用必来迟”',
+    '求名、求财、出行、谒人、疾病、公讼与墓穴等事项各有不同“体克用”语义，不能共用一个现实吉凶结论',
+    '天气判断还依赖所问为晴或雨、坎兑艮离等经卦出现或缺失及贲卦，不能由通用体用关系替代',
+    '生产、婚姻、饮食等篇内规则使用各自对象和角色，不能由普通体用自动套用',
+  ];
+  const highRiskRuleFields = [
+    '阴阳爻数量不得用于推定现实胎儿性别',
+    '疾病段不得用于诊断、判断病因或裁定能否痊愈',
+    '离热、坎冷、坤土温补等句不得生成药物冷热温补处方',
+    '鬼神、自缢、落水、血刃等句不得生成超自然、自伤、事故或伤害原因事实',
+    '公讼、求财、交易、婚姻等事项不得输出诉讼胜负或确定财务婚姻结果',
+  ];
+  const unresolvedRuleFields = [
+    '“比和凶则有救星”在已核通行文本中句式一致，但同源转载不能构成独立版本互证，句义暂不闭合',
+  ];
+  return {
+    key: 'meihua:topic-response-context',
+    status: '资料不足',
+    requiredContextFields,
+    availableContextFields: [],
+    missingContextFields: [...requiredContextFields],
+    availableChartFields: [
+      '起卦时点、方式与取数算式',
+      '主卦、互卦、变卦上下经卦',
+      '动爻位置、普通体用与卦内动静',
+      '起卦月份与四时旺衰',
+    ],
+    topicScopes,
+    crossTopicConflictFields,
+    highRiskRuleFields,
+    unresolvedRuleFields,
+    promptText:
+      '当前输入只有起卦方式、主互变卦、动爻、普通体用和月令旺衰等盘面事实，没有《诸事响应歌》所需的结构化事项类别、具体对象、精确判断目标、现实状态与角色关系，也没有健康、生育、法律、安全等高风险事项的专业资料。歌中同一“体克用”在一般人事与行人归期等事项含义不同，天气又须先区分问晴或问雨并核对特定经卦；“比和凶则有救星”句义尚未完成独立版本互证。不得从问题关键词或通用体用套用专项歌诀，也不得生成胎儿性别、疾病诊断或痊愈、药物冷热温补处方、鬼神或自伤落水血刃原因、诉讼胜负、确定婚姻财务结果、评分、权重或概率',
+    sources: [
+      '《梅花易数》卷三《诸事响应歌》天气、人事、家宅、生产、婚姻、饮食、求谋、求名、求财、交易、出行、行人、谒人、疾病、公讼与墓穴分项规则',
+      '当前梅花起卦输入字段与事项响应必要情境逐项对照',
+      '“比和凶则有救星”通行文本句义与版本互证状态',
+    ],
+    limitation: TOPIC_RESPONSE_CONTEXT_FACT_LIMITATION,
+  };
+}
+
 function stageRelations(stage: MeihuaStageEvidence) {
   return stage.kind === '互卦响应关系'
     ? (stage.responses ?? []).map((item) => item.relation)
@@ -1977,6 +2067,7 @@ function buildSummaryFact(params: {
   sensoryOmenFact: MeihuaSensoryOmenFact;
   foodContextFact: MeihuaFoodContextFact;
   objectContextFact: MeihuaObjectContextFact;
+  topicResponseContextFact: MeihuaTopicResponseContextFact;
   transitionFacts: MeihuaTransitionFact[];
   traditionalFacts: MeihuaTraditionalFact[];
   counterEvidenceFacts: MeihuaCounterEvidenceFact[];
@@ -2002,6 +2093,7 @@ function buildSummaryFact(params: {
       params.sensoryOmenFact.key,
       params.foodContextFact.key,
       params.objectContextFact.key,
+      params.topicResponseContextFact.key,
       ...params.transitionFacts.map((item) => item.key),
       ...params.traditionalFacts.map((item) => item.key),
       params.counterSummaryFact.key,
@@ -2032,13 +2124,14 @@ function buildSummaryFact(params: {
     sensoryOmenFactCount: 1,
     foodContextFactCount: 1,
     objectContextFactCount: 1,
+    topicResponseContextFactCount: 1,
     transitionFactCount: params.transitionFacts.length,
     traditionalFactCount: params.traditionalFacts.length,
     counterEvidenceCount: params.counterEvidenceFacts.length,
     timingFactCount: params.timingFacts.length,
-    promptText: `证据状态${status}：主互变卦象${params.hexagramStructureFacts.length}项、逐爻${params.yaoStructureFacts.length}项、阶段关系${params.stages.length}项、互卦响应${params.interResponseFacts.length}项、体用党1项、应卦制化${params.responseInteractionFacts.length}项、内外动静2项、坐端应兆1项、万物耳目外应1项、饮食专项1项、观物专项1项、阶段推进${params.transitionFacts.length}项、传统卦爻辞${params.traditionalFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
+    promptText: `证据状态${status}：主互变卦象${params.hexagramStructureFacts.length}项、逐爻${params.yaoStructureFacts.length}项、阶段关系${params.stages.length}项、互卦响应${params.interResponseFacts.length}项、体用党1项、应卦制化${params.responseInteractionFacts.length}项、内外动静2项、坐端应兆1项、万物耳目外应1项、饮食专项1项、观物专项1项、事项响应情境1项、阶段推进${params.transitionFacts.length}项、传统卦爻辞${params.traditionalFacts.length}项、反证${params.counterEvidenceFacts.length}项、应期${params.timingFacts.length}项`,
     sources: [
-      '全部起卦、主互变卦象、逐爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、推进、传统文本、反证与应期事实逐项汇总',
+      '全部起卦、主互变卦象、逐爻、主变体用、互卦响应、体用党、应卦制化、内外动静、坐端应兆、万物耳目外应、饮食专项、观物专项、事项响应情境、推进、传统文本、反证与应期事实逐项汇总',
     ],
     limitation: SUMMARY_FACT_LIMITATION,
   };
@@ -2060,6 +2153,7 @@ function buildCalculationSteps(params: {
   sensoryOmenFact: MeihuaSensoryOmenFact;
   foodContextFact: MeihuaFoodContextFact;
   objectContextFact: MeihuaObjectContextFact;
+  topicResponseContextFact: MeihuaTopicResponseContextFact;
   transitionFacts: MeihuaTransitionFact[];
   counterEvidenceFacts: MeihuaCounterEvidenceFact[];
   timingFacts: MeihuaTimingFact[];
@@ -2145,9 +2239,10 @@ function buildCalculationSteps(params: {
         sensoryOmenStatus: params.sensoryOmenFact.status,
         foodContextStatus: params.foodContextFact.status,
         objectContextStatus: params.objectContextFact.status,
+        topicResponseContextStatus: params.topicResponseContextFact.status,
       },
       dependsOnStepKeys: ['meihua:calculation:hexagrams', 'meihua:calculation:yaos'],
-      promptText: `${params.stageCoverageFact.promptText}；计算主变体用、体互与用互对原体的关系、体用党、应卦间制化路径及内卦动静分工；外应动静、坐端八方应兆、万物耳目外应、饮食专项与观物专项保持资料不足`,
+      promptText: `${params.stageCoverageFact.promptText}；计算主变体用、体互与用互对原体的关系、体用党、应卦间制化路径及内卦动静分工；外应动静、坐端八方应兆、万物耳目外应、饮食专项、观物专项与事项响应情境保持资料不足`,
       sources: [
         '主卦、互卦、变卦上下经卦与原动爻所在经卦的体用、体互、用互、体用党、应卦制化、体用动静及现场坐端、耳目外应资料边界',
       ],
@@ -2206,6 +2301,7 @@ function buildCalculationSteps(params: {
         sensoryOmenFactCount: params.summaryFact.sensoryOmenFactCount,
         foodContextFactCount: params.summaryFact.foodContextFactCount,
         objectContextFactCount: params.summaryFact.objectContextFactCount,
+        topicResponseContextFactCount: params.summaryFact.topicResponseContextFactCount,
         transitionFactCount: params.summaryFact.transitionFactCount,
         counterEvidenceCount: params.summaryFact.counterEvidenceCount,
         timingFactCount: params.summaryFact.timingFactCount,
@@ -2242,6 +2338,7 @@ function buildLimitationFacts(params: {
   sensoryOmenFact: MeihuaSensoryOmenFact;
   foodContextFact: MeihuaFoodContextFact;
   objectContextFact: MeihuaObjectContextFact;
+  topicResponseContextFact: MeihuaTopicResponseContextFact;
   transitionFacts: MeihuaTransitionFact[];
   traditionalFacts: MeihuaTraditionalFact[];
   counterEvidenceFacts: MeihuaCounterEvidenceFact[];
@@ -2326,6 +2423,14 @@ function buildLimitationFacts(params: {
       promptText:
         '《观物玄妙歌诀》须先确认所占确为观物、射覆或具体物件辨识，并明确待辨对象范围、可见遮覆状态和所需属性范围；当前三项情境均未输入，通行底本的艮离段落又未闭合，本篇也未独立交代体用互变的观物取主顺序。与后续占物规则完成合校前，不得以问题关键词或通用盘面套出具体物件及其材质、形色、状态、价值、用途或数量',
       sources: ['《梅花易数》卷三《观物玄妙歌诀》、后续占物取主规则与当前观物专项资料覆盖'],
+    },
+    {
+      key: 'meihua:limitation:topic-response-context',
+      type: '事项响应情境边界',
+      ownerFactKeys: [params.topicResponseContextFact.key],
+      promptText:
+        '《诸事响应歌》须先明确事项类别与具体对象、精确判断目标、现实状态及角色关系；当前四项情境均未输入，同一“体克用”在一般人事和行人归期等事项又有不同语义，天气也须区分问晴或问雨并核对特定经卦，“比和凶则有救星”句义尚未独立互证。不得靠问题关键词或通用体用套用事项歌诀，更不得输出胎儿性别、疾病诊断或用药、鬼神或自伤事故原因、诉讼胜负、确定婚姻财务结果及任意量化结论',
+      sources: ['《梅花易数》卷三《诸事响应歌》与当前事项响应情境资料覆盖'],
     },
     {
       key: 'meihua:limitation:transitions-counters',
@@ -2464,6 +2569,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
   const sensoryOmenFact = buildSensoryOmenFact();
   const foodContextFact = buildFoodContextFact();
   const objectContextFact = buildObjectContextFact();
+  const topicResponseContextFact = buildTopicResponseContextFact();
   const stageCoverageFact = buildStageCoverageFact(stages);
   const transitionFacts = buildTransitionFacts(stages);
   const transitions = transitionFacts.map((item) => item.promptText);
@@ -2531,6 +2637,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     sensoryOmenFact,
     foodContextFact,
     objectContextFact,
+    topicResponseContextFact,
     transitionFacts,
     traditionalFacts,
     counterEvidenceFacts,
@@ -2554,6 +2661,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     sensoryOmenFact,
     foodContextFact,
     objectContextFact,
+    topicResponseContextFact,
     transitionFacts,
     counterEvidenceFacts,
     timingFacts,
@@ -2579,6 +2687,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     sensoryOmenFact,
     foodContextFact,
     objectContextFact,
+    topicResponseContextFact,
     transitionFacts,
     traditionalFacts,
     counterEvidenceFacts,
@@ -2736,6 +2845,20 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       tags: ['观物玄妙歌诀', '观物专项', '射覆', '版本校勘', objectContextFact.status],
     },
     {
+      level: '限制',
+      title: '诸事响应专项情境与风险边界',
+      detail: `${topicResponseContextFact.promptText}；边界：${topicResponseContextFact.limitation}`,
+      source: topicResponseContextFact.sources.join('、'),
+      tags: [
+        '诸事响应歌',
+        '事项专项',
+        '跨事项冲突',
+        '高风险边界',
+        '版本互证',
+        topicResponseContextFact.status,
+      ],
+    },
+    {
       level: '应期',
       title: '应期资料覆盖与边界',
       detail: `${timingSummaryFact.promptText}；${timingFacts.map((item) => item.promptText).join('；')}；统一边界：${timingSummaryFact.limitation}`,
@@ -2794,6 +2917,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     `万物外应：${sensoryOmenFact.promptText}。`,
     `饮食专项：${foodContextFact.promptText}。`,
     `观物专项：${objectContextFact.promptText}。`,
+    `诸事响应专项：${topicResponseContextFact.promptText}。`,
     `推进关系：${transitionFacts.map((item) => item.promptText).join('；') || '只有主卦阶段，未形成可核验的互变推进链'}`,
     `应期资料：${timingFacts.map((item) => item.promptText).join('；')}`,
     `解释限制：${limitations.join('；')}。`,
@@ -2824,6 +2948,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
     sensoryOmenFact,
     foodContextFact,
     objectContextFact,
+    topicResponseContextFact,
     transitionFacts,
     transitions,
     timingFacts,
@@ -2850,6 +2975,7 @@ export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis 
       '《万物赋》耳目外应须保留现场原始事实，区分成卦前后、观察先后、对象类别与实际状态，再与原卦及所占事项合参；资料缺失时不套用笑语哭泣、人物鸟兽、器物饮食等例断。',
       '《饮食篇》只用于明确的具体饮食、宴请、食物或能否得食之占；须另行明确判断对象、己人客酒食物专项角色、动静所指与原始记录、宴食时间及主客关系，且在艮、坎段落与末段句读完成版本校勘前不生成具体饮食或宾主结论。',
       '《观物玄妙歌诀》只用于明确的观物、射覆或具体物件辨识；须另行明确待辨对象范围、可见遮覆状态和所需属性范围。通行底本艮离段落未闭合，且本篇未独立交代体用互变的观物取主顺序，因此在与后续占物规则合校前不生成具体物件、形色材质、状态、用途或数量。',
+      '《诸事响应歌》必须先明确事项类别、具体对象、精确判断目标、现实状态及角色；同一体用关系在不同事项可有不同含义，天气另须区分问晴或问雨并核对特定经卦。当前情境不足且“比和凶则有救星”句义未独立互证时，不套用专项歌诀，不生成胎儿性别、疾病与用药、鬼神或自伤事故原因、诉讼胜负、确定婚姻财务结果或任意量化结论。',
       '动爻只标记变化层位，卦数只保留原始计算资料；主卦用卦、体互、用互、变卦用卦的生克只作传统应验方向候选，并须合看旺衰与制化。',
       '事项类型、是否确需刻期、自然期限、材质、远近、时间尺度、数克或理克口径及应验方向未齐时，不从问题关键词猜测，不裁定时间单位、统一快慢或换算绝对日期。',
       '只输出支持、反证、盘面事实与资料边界，不生成吉凶总分、成功率或无依据应期。',

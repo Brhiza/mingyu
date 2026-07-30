@@ -21,6 +21,8 @@
  *    宴食时间及主客关系；当前底本句读尚待校勘，不从通用体用与卦内动爻套结论。
  * 8. 察物类：观物、射覆须另行确认待辨对象范围与专项取主口径；当前通行底本的
  *    艮离段落未闭合，且后续占物规则尚待合校，不从通用盘面生成具体物件属性。
+ * 9. 诸事响应：须先明确事项、对象、判断目标、现实状态与角色；同一体用关系跨事项
+ *    可有不同含义，医疗、生育、法律与安全类歌诀只登记边界，不生成现实结论。
  */
 
 import type { MeihuaData, MeihuaSettings } from '../../../types/divination';
@@ -438,6 +440,7 @@ export type {
   MeihuaExternalMotionFact,
   MeihuaFoodContextFact,
   MeihuaObjectContextFact,
+  MeihuaTopicResponseContextFact,
   MeihuaInternalMotionFact,
   MeihuaInternalMotionReference,
   MeihuaInternalMotionRole,
