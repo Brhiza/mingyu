@@ -4296,11 +4296,15 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     5,
   );
   assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.responseOmenRuleFields.length, 6);
-  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.sourceLineFields.length, 7);
-  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 16);
+  assert.equal(
+    chart.body.data.evidenceAnalysis.objectContextFact.seasonalObservationRuleFields.length,
+    7,
+  );
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.sourceLineFields.length, 8);
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 24);
   assert.match(
     chart.body.data.evidenceAnalysis.objectContextFact.promptText,
-    /观物克应法.*第944至945行/,
+    /观物趣时诀.*第946至947行/,
   );
   for (const key of [
     'observedObject',

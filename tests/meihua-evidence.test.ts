@@ -265,6 +265,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.equal(evidence.objectContextFact.lineStructureRuleFields.length, 3);
   assert.equal(evidence.objectContextFact.changeObservationRuleFields.length, 5);
   assert.equal(evidence.objectContextFact.responseOmenRuleFields.length, 6);
+  assert.equal(evidence.objectContextFact.seasonalObservationRuleFields.length, 7);
   assert.match(
     evidence.objectContextFact.changeObservationRuleFields[0] ?? '',
     /凡观物.*不是所有梅花问题/,
@@ -285,8 +286,36 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.match(evidence.objectContextFact.responseOmenRuleFields[3] ?? '', /圆物.*圆形候选/);
   assert.match(evidence.objectContextFact.responseOmenRuleFields[4] ?? '', /负土者.*土中之物候选/);
   assert.match(evidence.objectContextFact.responseOmenRuleFields[5] ?? '', /刚健或柔腐.*属性候选/);
-  assert.equal(evidence.objectContextFact.sourceLineFields.length, 7);
-  assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 16);
+  assert.match(
+    evidence.objectContextFact.seasonalObservationRuleFields[0] ?? '',
+    /趣时察理.*四时与卦象/,
+  );
+  assert.match(
+    evidence.objectContextFact.seasonalObservationRuleFields[1] ?? '',
+    /春时得震、离.*花类候选/,
+  );
+  assert.match(
+    evidence.objectContextFact.seasonalObservationRuleFields[2] ?? '',
+    /夏时得震.*有声之物候选/,
+  );
+  assert.match(
+    evidence.objectContextFact.seasonalObservationRuleFields[3] ?? '',
+    /秋时得兑.*毁折成器/,
+  );
+  assert.match(
+    evidence.objectContextFact.seasonalObservationRuleFields[4] ?? '',
+    /冬时得坤.*无用土物候选/,
+  );
+  assert.match(
+    evidence.objectContextFact.seasonalObservationRuleFields[5] ?? '',
+    /“得”.*不用通用盘面自动匹配/,
+  );
+  assert.match(
+    evidence.objectContextFact.seasonalObservationRuleFields[6] ?? '',
+    /未列卦象.*不得类推/,
+  );
+  assert.equal(evidence.objectContextFact.sourceLineFields.length, 8);
+  assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 24);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[0] ?? '', /艮象.*题作“离”/);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[1] ?? '', /困于株林.*困于株木/);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[2] ?? '', /体生方圆曲直/);
@@ -312,6 +341,23 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     evidence.objectContextFact.unresolvedRuleFields[15] ?? '',
     /第一所见.*2025年现代编辑本/,
   );
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[16] ?? '', /趣时察理.*旺衰修正/);
+  assert.match(
+    evidence.objectContextFact.unresolvedRuleFields[17] ?? '',
+    /四次“得”.*主卦.*任意出现/,
+  );
+  assert.match(
+    evidence.objectContextFact.unresolvedRuleFields[18] ?? '',
+    /春得震、离.*任一即成.*组合同见/,
+  );
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[19] ?? '', /夏震.*震雷声类象/);
+  assert.match(
+    evidence.objectContextFact.unresolvedRuleFields[20] ?? '',
+    /毁折成器.*两类并列.*复合状态/,
+  );
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[21] ?? '', /冬坤.*旺衰.*体用生克/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[22] ?? '', /节气.*农历月.*月建地支/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[23] ?? '', /其他卦象.*完整规则表/);
   for (const key of [
     'observedObject',
     'externalObject',
@@ -699,8 +745,9 @@ test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补�
       assert.equal(evidence.objectContextFact.lineStructureRuleFields.length, 3);
       assert.equal(evidence.objectContextFact.changeObservationRuleFields.length, 5);
       assert.equal(evidence.objectContextFact.responseOmenRuleFields.length, 6);
-      assert.equal(evidence.objectContextFact.sourceLineFields.length, 7);
-      assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 16);
+      assert.equal(evidence.objectContextFact.seasonalObservationRuleFields.length, 7);
+      assert.equal(evidence.objectContextFact.sourceLineFields.length, 8);
+      assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 24);
       for (const key of [
         'observedObject',
         'externalObject',
@@ -1256,7 +1303,9 @@ test('梅花起卦算式、六爻结构、卦象来源和克应资料边界应�
   assert.ok(items.some((item) => item.title === '坐端八方应兆资料覆盖'));
   assert.ok(items.some((item) => item.title === '万物耳目外应资料覆盖'));
   assert.ok(
-    items.some((item) => item.title === '观物专项、占物类例、物数为体、变爻与现场克应取象版本覆盖'),
+    items.some(
+      (item) => item.title === '观物专项、占物类例、物数为体、变爻、现场克应与趣时取象版本覆盖',
+    ),
   );
   assert.ok(items.some((item) => item.title === '诸事响应专项情境与风险边界'));
   assert.equal(items.filter((item) => item.title.includes('反对性情卦画资料')).length, 3);
