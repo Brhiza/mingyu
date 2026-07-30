@@ -28,7 +28,7 @@ export function registerLiurenTool(server: McpServer) {
     'divine_liuren',
     {
       description:
-        '大六壬排盘：基于当前时间或自定义时间生成完整的天盘、四课、三传、月将、贵人、旬空等信息，含起盘口径、四课与九宗门取传版本边界、格局标签和断课模板',
+        '大六壬排盘：基于当前时间或自定义时间生成完整的天盘、四课、三传、月将、贵人、旬空等信息，含起盘口径、四课与九宗门取传版本边界、逐传日干六亲、有方向关系、条件化旬空、格局标签和断课模板',
       inputSchema: liurenSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -49,7 +49,7 @@ export function registerLiurenTool(server: McpServer) {
     'liuren_prompt',
     {
       description:
-        '大六壬排盘并生成 AI 解读提示词：一次调用返回含起盘口径、四课与九宗门取传版本边界的课盘数据和可直接复制给 AI 的提示词',
+        '大六壬排盘并生成 AI 解读提示词：一次调用返回含起盘口径、四课与九宗门取传版本边界、逐传日干六亲、有方向关系及条件化旬空的课盘数据和可直接复制给 AI 的提示词',
       inputSchema: liurenPromptSchema.shape,
       outputSchema: {
         result: z.unknown().describe('大六壬课盘数据'),

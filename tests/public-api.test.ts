@@ -4834,7 +4834,7 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
       (item: Record<string, unknown>) =>
         String(item.key).startsWith('liuren:transmission:') &&
         Array.isArray(item.relationFacts) &&
-        item.relationFacts.length === 4 &&
+        item.relationFacts.length >= 6 &&
         item.promptText &&
         Array.isArray(item.sources) &&
         item.sources.length > 0 &&
@@ -4862,7 +4862,7 @@ test('公开 API 六爻与大六壬提示词接口保留用户模板范围', asy
         item.promptText &&
         Array.isArray(item.sources) &&
         item.sources.length >= 2 &&
-        String(item.limitation).includes('不得换算唯一日期'),
+        String(item.limitation).includes('不得判断确定快慢'),
     ),
   );
   assert.equal(liurenChart.body.data.evidenceAnalysis.focusSummaryFact.status, '已提供焦点');

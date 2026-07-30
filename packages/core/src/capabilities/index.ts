@@ -518,7 +518,7 @@ const systems: SystemCapability[] = [
       '课体',
       '神煞',
       '四课取传依据与初传发用',
-      '三传推进支持与反证限制',
+      '逐传日干六亲、有方向生克、相邻关系、旺衰与条件化旬空',
     ],
     supports: {
       seed: false,

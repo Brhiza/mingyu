@@ -12,17 +12,34 @@ import {
   TIANJIANG,
   TIANGAN,
 } from './algorithms/liuren/helpers/plate';
+import {
+  buildTransmissionNote,
+  describeTransmissionDayBranchRelation,
+  describeTransmissionDayStemRelation,
+  describeTransmissionTransition,
+  getLiurenBranchPairRelations,
+  getLiurenKinship,
+} from './algorithms/liuren/helpers/transmission';
 
 export interface LiurenRelationEvidenceFact {
   key: string;
   scope: '四课' | '三传';
   ownerKey: string;
-  basis: '上下神关系' | '旬空' | '月令旺衰' | '日支关系' | '相邻传关系';
+  basis:
+    | '上下神关系'
+    | '旬空'
+    | '月令旺衰'
+    | '日干六亲'
+    | '日干五行关系'
+    | '日支五行关系'
+    | '日支地支关系'
+    | '相邻传五行关系'
+    | '相邻传地支关系';
   status: '支持' | '限制' | '中性';
   value: string;
   promptText: string;
   sources: string[];
-  limitation: '课传关系事实只说明上下神、月令、旬空、日支或相邻传之间的盘内关系；支持或限制不得直接解释为现实吉凶、成功率或必然结果';
+  limitation: '课传关系事实只说明六亲、五行方向、月令、旬空、日支或相邻传之间的盘内关系；空亡和固定地支关系须结合类神与事项辨用，不得直接解释为现实吉凶、成功率或必然结果';
 }
 
 export interface LiurenLessonEvidence extends LiurenLesson {
@@ -45,7 +62,7 @@ export interface LiurenTransmissionEvidence extends LiurenTransmission {
   relationFacts: LiurenRelationEvidenceFact[];
   promptText: string;
   sources: string[];
-  limitation: '三传事实只记录初中末传的地支、天将、月令、旬空、日支关系与相邻推进；阶段顺序不证明现实事件必然按同样方式发生';
+  limitation: '三传事实只记录各传相对日干的六亲与五行方向，以及地支、天将、月令、旬空、日支关系与相邻推进；阶段顺序不证明现实事件必然按同样方式发生';
 }
 
 export interface LiurenTransitionFact {
@@ -87,7 +104,7 @@ export interface LiurenCounterEvidenceFact {
   status: '已触发';
   promptText: string;
   sources: string[];
-  limitation: '反证事实只表示盘内存在空亡、休囚、冲克或其他限制条件；不得把单项反证直接写成现实失败、灾祸或必然结果';
+  limitation: '反证事实只表示盘内存在经当前口径确认的限制条件；旬空、生克及固定地支关系不得脱离类神、事项和作用方向自动列为反证，也不得把单项反证直接写成现实失败、灾祸或必然结果';
 }
 
 export interface LiurenCounterSummaryFact {
@@ -107,7 +124,7 @@ export interface LiurenTimingFact {
   rawText?: string;
   promptText: string;
   sources: string[];
-  limitation: '应期事实只提供先后、快慢、空亡填实、冲合与旺衰等触发条件；未给期限时不得换算唯一日期，也不证明事件必然发生';
+  limitation: '应期事实只登记三传阶段、旺衰及出空、填实、冲实、冲合等候选触发；未选类神和期限时不得判断确定快慢或换算唯一日期，也不证明事件必然发生';
 }
 
 export interface LiurenFocusFact {
@@ -333,21 +350,21 @@ const PLATE_FACT_LIMITATION =
 const PLATE_COVERAGE_LIMITATION =
   '天地盘覆盖状态只说明当前结果能否完整核验十二位对应；缺少逐位资料时不得反推或补造天盘支、地盘支与天将' as const;
 const RELATION_FACT_LIMITATION =
-  '课传关系事实只说明上下神、月令、旬空、日支或相邻传之间的盘内关系；支持或限制不得直接解释为现实吉凶、成功率或必然结果' as const;
+  '课传关系事实只说明六亲、五行方向、月令、旬空、日支或相邻传之间的盘内关系；空亡和固定地支关系须结合类神与事项辨用，不得直接解释为现实吉凶、成功率或必然结果' as const;
 const LESSON_FACT_LIMITATION =
   '四课事实只记录上下神、乘将、关系、课注及其是否参与初传来源；不单独证明现实事件、人物、吉凶或结果' as const;
 const TRANSMISSION_FACT_LIMITATION =
-  '三传事实只记录初中末传的地支、天将、月令、旬空、日支关系与相邻推进；阶段顺序不证明现实事件必然按同样方式发生' as const;
+  '三传事实只记录各传相对日干的六亲与五行方向，以及地支、天将、月令、旬空、日支关系与相邻推进；阶段顺序不证明现实事件必然按同样方式发生' as const;
 const TRANSITION_FACT_LIMITATION =
   '相邻传推进事实只描述三传先后与地支关系，不证明现实事件必然推进、停滞、成功或失败' as const;
 const RULE_FACT_LIMITATION =
   '取传规则事实只说明当前四课如何形成初传及三传模式；缺少规则名时不得按结果反推九宗门名称，也不单独证明现实吉凶或应期' as const;
 const COUNTER_FACT_LIMITATION =
-  '反证事实只表示盘内存在空亡、休囚、冲克或其他限制条件；不得把单项反证直接写成现实失败、灾祸或必然结果' as const;
+  '反证事实只表示盘内存在经当前口径确认的限制条件；旬空、生克及固定地支关系不得脱离类神、事项和作用方向自动列为反证，也不得把单项反证直接写成现实失败、灾祸或必然结果' as const;
 const COUNTER_SUMMARY_LIMITATION =
   '反证汇总只说明当前结构化核验是否发现盘内限制，不代表现实风险为零，也不表示证据数量可换算为吉凶总分' as const;
 const TIMING_FACT_LIMITATION =
-  '应期事实只提供先后、快慢、空亡填实、冲合与旺衰等触发条件；未给期限时不得换算唯一日期，也不证明事件必然发生' as const;
+  '应期事实只登记三传阶段、旺衰及出空、填实、冲实、冲合等候选触发；未选类神和期限时不得判断确定快慢或换算唯一日期，也不证明事件必然发生' as const;
 const FOCUS_FACT_LIMITATION =
   '类神焦点事实只记录当前结果已选出的关注对象、角色、依据与限制；未选定具体问题类神时不得把日支、天将或神煞固定当作用神' as const;
 const FOCUS_SUMMARY_LIMITATION =
@@ -488,35 +505,18 @@ function buildTraditionalFacts(
   ];
 }
 
-function lessonConstraints(lesson: LiurenLesson, xunKong: string[]) {
-  return [
-    xunKong.includes(lesson.upper) ? `上神${lesson.upper}空亡` : '',
-    xunKong.includes(lesson.lower) ? `下位${lesson.lower}空亡` : '',
-    lesson.relation.includes('克') ? `${lesson.relation}形成牵制` : '',
-  ].filter(Boolean);
+function lessonConstraints() {
+  return [];
 }
 
 function transmissionSupport(item: LiurenTransmission) {
-  return [
-    item.seasonState === '旺' || item.seasonState === '相' ? `月令${item.seasonState}` : '',
-    item.dayRelation === '比和' || item.dayRelation?.includes('生')
-      ? `与日支${item.dayRelation}`
-      : '',
-    item.relation === '比和' || item.relation.includes('生') ? item.relation : '',
-  ].filter(Boolean);
+  return item.seasonState === '旺' || item.seasonState === '相' ? [`月令${item.seasonState}`] : [];
 }
 
 function transmissionConstraints(item: LiurenTransmission) {
-  return [
-    item.isVoid ? `${item.stage}${item.branch}空亡` : '',
-    item.seasonState === '休' || item.seasonState === '囚' || item.seasonState === '死'
-      ? `月令${item.seasonState}`
-      : '',
-    item.dayRelation?.includes('克') || item.dayRelation?.includes('冲')
-      ? `与日支${item.dayRelation}`
-      : '',
-    item.relation.includes('克') || item.relation.includes('冲') ? item.relation : '',
-  ].filter(Boolean);
+  return item.seasonState === '休' || item.seasonState === '囚' || item.seasonState === '死'
+    ? [`月令${item.seasonState}`]
+    : [];
 }
 
 function classifyRelationStatus(value: string): LiurenRelationEvidenceFact['status'] {
@@ -538,7 +538,7 @@ function buildLessonEvidence(
       scope: '四课',
       ownerKey: key,
       basis: '上下神关系',
-      status: classifyRelationStatus(lesson.relation),
+      status: '中性',
       value: lesson.relation,
       promptText: `${lesson.name}${lesson.upper}临${lesson.lower}，上下神关系${lesson.relation}`,
       sources: ['日干寄宫、日支与天地盘逐课推导', '五行生克与地支关系'],
@@ -551,7 +551,7 @@ function buildLessonEvidence(
             scope: '四课' as const,
             ownerKey: key,
             basis: '旬空' as const,
-            status: '限制' as const,
+            status: '中性' as const,
             value: `上神${lesson.upper}空亡`,
             promptText: `${lesson.name}上神${lesson.upper}落日柱旬空`,
             sources: ['日柱旬空与四课上神核验'],
@@ -566,7 +566,7 @@ function buildLessonEvidence(
             scope: '四课' as const,
             ownerKey: key,
             basis: '旬空' as const,
-            status: '限制' as const,
+            status: '中性' as const,
             value: `下位${lesson.lower}空亡`,
             promptText: `${lesson.name}下位${lesson.lower}落日柱旬空`,
             sources: ['日柱旬空与四课下位核验'],
@@ -575,7 +575,7 @@ function buildLessonEvidence(
         ]
       : []),
   ];
-  const constraints = lessonConstraints(lesson, xunKong);
+  const constraints = lessonConstraints();
   return {
     ...lesson,
     key,
@@ -593,21 +593,55 @@ function buildTransmissionEvidence(
   item: LiurenTransmission,
   index: number,
   xunKong: string[],
+  dayStem: string,
+  dayBranch: string,
+  previousTransmission?: LiurenTransmission,
 ): LiurenTransmissionEvidence {
   const stageLabels = ['起点', '过程', '落点'] as const;
-  const normalized = { ...item, isVoid: xunKong.includes(item.branch) };
+  const normalized: LiurenTransmission = {
+    ...item,
+    kinship: getLiurenKinship(dayStem, item.branch),
+    dayStemRelation: describeTransmissionDayStemRelation(item.stage, item.branch, dayStem),
+    previousRelation: previousTransmission
+      ? describeTransmissionTransition(
+          previousTransmission.stage,
+          previousTransmission.branch,
+          item.stage,
+          item.branch,
+        )
+      : undefined,
+    previousBranchRelations: previousTransmission
+      ? getLiurenBranchPairRelations(previousTransmission.branch, item.branch)
+      : [],
+    dayRelation: describeTransmissionDayBranchRelation(item.stage, item.branch, dayBranch),
+    dayBranchRelations: getLiurenBranchPairRelations(item.branch, dayBranch),
+    isVoid: xunKong.includes(item.branch),
+    relation: describeTransmissionDayStemRelation(item.stage, item.branch, dayStem),
+  };
+  normalized.note = buildTransmissionNote(normalized);
   const key = `liuren:transmission:${item.stage}:${item.branch}`;
   const formattedTransmission = `${normalized.stage}${normalized.branch}乘${normalized.god}（${normalized.wuxing || '五行未列'}、月令${normalized.seasonState || '未定'}${normalized.isVoid ? '、空亡' : ''}）`;
   const relationFacts: LiurenRelationEvidenceFact[] = [
     {
-      key: `${key}:adjacent-relation`,
+      key: `${key}:kinship`,
       scope: '三传',
       ownerKey: key,
-      basis: '相邻传关系',
-      status: classifyRelationStatus(item.relation),
-      value: item.relation,
-      promptText: `${item.stage}${item.branch}与前位关系${item.relation}`,
-      sources: ['三传先后次序与相邻地支关系'],
+      basis: '日干六亲',
+      status: '中性',
+      value: normalized.kinship!,
+      promptText: `${normalized.stage}${normalized.branch}以日干${dayStem}为中心取六亲${normalized.kinship}`,
+      sources: ['三传逐传与日干五行生克核验', '《六壬指南》三传六亲口径'],
+      limitation: RELATION_FACT_LIMITATION,
+    },
+    {
+      key: `${key}:day-stem-relation`,
+      scope: '三传',
+      ownerKey: key,
+      basis: '日干五行关系',
+      status: '中性',
+      value: normalized.dayStemRelation!,
+      promptText: `${normalized.stage}${normalized.branch}与日干的有方向五行关系为${normalized.dayStemRelation}`,
+      sources: ['三传地支与日干五行生克方向核验'],
       limitation: RELATION_FACT_LIMITATION,
     },
     {
@@ -622,14 +656,25 @@ function buildTransmissionEvidence(
       limitation: RELATION_FACT_LIMITATION,
     },
     {
-      key: `${key}:day-relation`,
+      key: `${key}:day-element-relation`,
       scope: '三传',
       ownerKey: key,
-      basis: '日支关系',
-      status: classifyRelationStatus(item.dayRelation ?? '未列'),
-      value: item.dayRelation ?? '未列',
-      promptText: `${item.stage}${item.branch}与日支关系${item.dayRelation ?? '未列'}`,
-      sources: ['三传地支与日支生克冲合关系'],
+      basis: '日支五行关系',
+      status: '中性',
+      value: normalized.dayRelation!,
+      promptText: `${normalized.stage}${normalized.branch}与日支的有方向五行关系为${normalized.dayRelation}`,
+      sources: ['三传地支与日支五行生克方向核验'],
+      limitation: RELATION_FACT_LIMITATION,
+    },
+    {
+      key: `${key}:day-branch-relations`,
+      scope: '三传',
+      ownerKey: key,
+      basis: '日支地支关系',
+      status: '中性',
+      value: normalized.dayBranchRelations!.join('、') || '无固定关系',
+      promptText: `${normalized.stage}${normalized.branch}与日支${dayBranch}的固定地支关系为${normalized.dayBranchRelations!.join('、') || '无'}`,
+      sources: ['同支、六合、六冲、六害、六破与相刑固定表逐项核验'],
       limitation: RELATION_FACT_LIMITATION,
     },
     {
@@ -637,12 +682,38 @@ function buildTransmissionEvidence(
       scope: '三传',
       ownerKey: key,
       basis: '旬空',
-      status: normalized.isVoid ? '限制' : '支持',
+      status: '中性',
       value: normalized.isVoid ? '空亡' : '不空',
-      promptText: `${item.stage}${item.branch}${normalized.isVoid ? '落日柱旬空' : '不在日柱旬空内'}`,
-      sources: ['日柱旬空与三传地支逐项核验'],
+      promptText: `${item.stage}${item.branch}${normalized.isVoid ? '落日柱旬空' : '不在日柱旬空内'}；空亡有宜有忌，须结合类神与事项辨用`,
+      sources: ['日柱旬空与三传地支逐项核验', '《六壬大全》喜惧空亡口径'],
       limitation: RELATION_FACT_LIMITATION,
     },
+    ...(previousTransmission
+      ? [
+          {
+            key: `${key}:previous-element-relation`,
+            scope: '三传' as const,
+            ownerKey: key,
+            basis: '相邻传五行关系' as const,
+            status: '中性' as const,
+            value: normalized.previousRelation!,
+            promptText: `${previousTransmission.stage}${previousTransmission.branch}至${normalized.stage}${normalized.branch}的有方向五行关系为${normalized.previousRelation}`,
+            sources: ['三传先后次序与相邻地支五行生克方向核验'],
+            limitation: RELATION_FACT_LIMITATION,
+          },
+          {
+            key: `${key}:previous-branch-relations`,
+            scope: '三传' as const,
+            ownerKey: key,
+            basis: '相邻传地支关系' as const,
+            status: '中性' as const,
+            value: normalized.previousBranchRelations!.join('、') || '无固定关系',
+            promptText: `${previousTransmission.stage}${previousTransmission.branch}至${normalized.stage}${normalized.branch}的固定地支关系为${normalized.previousBranchRelations!.join('、') || '无'}`,
+            sources: ['同支、六合、六冲、六害、六破与相刑固定表逐项核验'],
+            limitation: RELATION_FACT_LIMITATION,
+          },
+        ]
+      : []),
   ];
   return {
     ...normalized,
@@ -652,8 +723,8 @@ function buildTransmissionEvidence(
     support: transmissionSupport(normalized),
     constraints: transmissionConstraints(normalized),
     relationFacts,
-    promptText: `${formattedTransmission}；与前位关系${item.relation}；与日支关系${item.dayRelation || '未列'}；${conditionLiurenTraditionalText(item.note || '传注未列')}`,
-    sources: ['三传、天将、月令旺衰、旬空与日支关系核验'],
+    promptText: `${formattedTransmission}；相对日干为${normalized.kinship}，${normalized.dayStemRelation}；${normalized.previousRelation ? `相邻推进${normalized.previousRelation}；` : ''}与日支关系${normalized.dayRelation}，固定地支关系${normalized.dayBranchRelations!.join('、') || '无'}；${conditionLiurenTraditionalText(normalized.note || '传注未列')}`,
+    sources: ['三传六亲、五行方向、天将、月令旺衰、旬空、日支与相邻关系核验'],
     limitation: TRANSMISSION_FACT_LIMITATION,
   };
 }
@@ -669,10 +740,10 @@ function buildTransitionFacts(transmissions: LiurenTransmissionEvidence[]): Liur
       toStage: item.stage,
       fromBranch: previous.branch,
       toBranch: item.branch,
-      relation: item.relation,
-      status: classifyRelationStatus(item.relation),
-      promptText: `${previous.stage}${previous.branch} → ${item.stage}${item.branch}：${item.relation}`,
-      sources: ['三传先后次序与相邻地支关系'],
+      relation: item.previousRelation!,
+      status: '中性',
+      promptText: `${previous.stage}${previous.branch} → ${item.stage}${item.branch}：${item.previousRelation}；固定地支关系${item.previousBranchRelations?.join('、') || '无'}；前后两传六亲分别为${previous.kinship}、${item.kinship}`,
+      sources: ['三传先后次序、逐传日干六亲、相邻五行方向与固定地支关系'],
       limitation: TRANSITION_FACT_LIMITATION,
     };
   });
@@ -685,7 +756,9 @@ function buildTimingFacts(
   const initial = transmissions[0];
   const normalizedInput = Array.from(new Set(data.timingEvidence ?? [])).filter((item) => {
     if (!item.includes(`初传${initial.branch}`)) return true;
-    return initial.isVoid ? !item.includes('不空') : !item.includes('空亡');
+    return initial.isVoid
+      ? !new RegExp(`初传${initial.branch}不空`).test(item)
+      : !new RegExp(`初传${initial.branch}(?:空亡|落旬空)`).test(item);
   });
   const definitions: Array<{
     type: Exclude<LiurenTimingFact['type'], '补充条件'>;
@@ -696,10 +769,8 @@ function buildTimingFacts(
     {
       type: '初传状态',
       matcher: (text) => text.startsWith('一级发用：'),
-      computed: initial.isVoid
-        ? `一级发用：先看初传${initial.branch}空亡，待出空、填实、冲实或现实条件落实再验`
-        : `一级发用：先看初传${initial.branch}不空，可作为当前起始信号，但仍须现实事件验证`,
-      sources: ['初传地支与日柱旬空核验'],
+      computed: `一级发用：初传${initial.branch}${initial.isVoid ? '落旬空' : '不空'}；空亡有宜有忌，须结合类神与事项判断，出空、填实、冲实仅作候选触发`,
+      sources: ['初传地支与日柱旬空核验', '《六壬大全》喜惧空亡口径'],
     },
     {
       type: '三传顺序',
@@ -715,8 +786,9 @@ function buildTimingFacts(
     },
     {
       type: '期限边界',
-      matcher: (text) => /未给.*期限|不硬换成唯一日期/.test(text),
-      computed: '未给出目标期限时，只判断先后、快慢和触发条件，不换算唯一日期',
+      matcher: (text) => /未给.*期限|未选定类神|不硬换成唯一日期/.test(text),
+      computed:
+        '未选定类神和目标期限时，只登记三传阶段、旺衰及候选触发，不判断确定快慢，也不换算唯一日期',
       sources: ['应期解释边界'],
     },
   ];
@@ -730,7 +802,7 @@ function buildTimingFacts(
       type: definition.type,
       sourceStatus: rawText ? '原结果提供' : '由盘面补齐',
       ...(rawText ? { rawText } : {}),
-      promptText: rawText ?? definition.computed,
+      promptText: definition.computed,
       sources: rawText
         ? ['当前大六壬结果已保存的应期条件', ...definition.sources]
         : definition.sources,
@@ -751,22 +823,51 @@ function buildTimingFacts(
         limitation: TIMING_FACT_LIMITATION,
       });
     });
-  return { timingFacts, normalizedInput };
+  return {
+    timingFacts,
+    normalizedInput: normalizedInput.map(
+      (text) => definitions.find((definition) => definition.matcher(text))?.computed ?? text,
+    ),
+  };
 }
 
-function buildFocusFacts(data: LiurenData): LiurenFocusFact[] {
-  return (data.focusEvidence ?? []).map((item, index) => ({
-    key: `liuren:focus:${index + 1}:${item.target}:${item.role}`,
-    target: item.target,
-    role: item.role,
-    level: item.level,
-    evidence: [...item.evidence],
-    limitations: [...item.limitations],
-    sourceStatus: '原结果提供',
-    promptText: `${item.target}${item.role}：依据${item.evidence.join('、') || '未列独立证据'}；限制${item.limitations.join('、') || '仍须结合实际问题选择类神'}`,
-    sources: ['当前结果已保存的盘面焦点对象、类神角色与课传依据'],
-    limitation: FOCUS_FACT_LIMITATION,
-  }));
+function buildFocusFacts(
+  data: LiurenData,
+  transmissions: LiurenTransmissionEvidence[],
+): LiurenFocusFact[] {
+  const initial = transmissions[0];
+  return (data.focusEvidence ?? []).map((item, index) => {
+    const isInitialFocus = item.target.startsWith(`初传${initial.branch}`);
+    const evidence = isInitialFocus
+      ? [
+          data.transmissionRule
+            ? `${data.transmissionRule}取为初传`
+            : `初传${initial.branch}为发用`,
+          `月令${initial.seasonState ?? '未定'}`,
+          `六亲${initial.kinship}`,
+          initial.dayRelation!,
+        ]
+      : [...item.evidence];
+    const limitations = isInitialFocus
+      ? [
+          initial.isVoid
+            ? '初传落旬空；空亡有宜有忌，须结合所问事项、类神及出空、填实、冲实等候选条件辨用'
+            : '初传不空不等于现实事件已经发动，仍须结合类神与事项核验',
+        ]
+      : [...item.limitations];
+    return {
+      key: `liuren:focus:${index + 1}:${item.target}:${item.role}`,
+      target: item.target,
+      role: item.role,
+      level: item.level,
+      evidence,
+      limitations,
+      sourceStatus: '原结果提供',
+      promptText: `${item.target}${item.role}：依据${evidence.join('、') || '未列独立证据'}；限制${limitations.join('、') || '仍须结合实际问题选择类神'}`,
+      sources: ['当前结果已保存的盘面焦点对象、类神角色与课传依据'],
+      limitation: FOCUS_FACT_LIMITATION,
+    };
+  });
 }
 
 function buildFoundationConventionFact(): LiurenFoundationConventionFact {
@@ -1276,7 +1377,7 @@ function buildLimitationFacts(params: {
         ...params.transitionFacts.map((item) => item.key),
       ],
       promptText:
-        '初传、中传、末传及相邻关系只描述盘内发用、过程与落点结构；三传顺序、旺衰、旬空与生克不得直接写成现实事件必然按同样顺序推进、停滞、成功或失败',
+        '初传、中传、末传的六亲均以日干为中心逐传计算，日干、日支及相邻传的五行关系须保留作用方向，固定地支关系另列；这些关系只描述盘内发用、过程与落点结构，不得直接写成现实事件必然推进、停滞、成功或失败',
       sources: ['三传阶段、逐传关系与相邻推进事实'],
     },
     {
@@ -1290,7 +1391,7 @@ function buildLimitationFacts(params: {
         ...params.timingFacts.map((item) => item.key),
       ],
       promptText:
-        '空亡、休囚、冲克等反证必须与主证并列；未按具体问题选定类神时，不得把日支或任一神煞固定当作用神，天将也只能结合课传与问题使用；应期只保留先后、快慢、填实、冲合、旺衰与现实触发条件，不换算唯一日期或事件概率',
+        '月令休囚死等已确认限制须与主证并列；空亡有宜有忌，生克、冲合刑害破也须结合类神、事项与作用方向，不得自动列为支持或反证。未按具体问题选定类神时，应期只登记阶段、旺衰及出空、填实、冲实等候选触发，不判断确定快慢、唯一日期或事件概率',
       sources: ['课传反证、类神焦点覆盖与应期触发事实'],
     },
     {
@@ -1358,8 +1459,17 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
   const initialSourceLessons = lessons
     .filter((item) => item.isInitialSource)
     .map((item) => item.name);
+  const dayStem = data.ganzhi.day.charAt(0);
+  const dayBranch = data.ganzhi.day.charAt(1);
   const transmissions = data.threeTransmissions.map((item, index) =>
-    buildTransmissionEvidence(item, index, xunKong),
+    buildTransmissionEvidence(
+      item,
+      index,
+      xunKong,
+      dayStem,
+      dayBranch,
+      data.threeTransmissions[index - 1],
+    ),
   );
   const transitionFacts = buildTransitionFacts(transmissions);
   const transitions = transitionFacts.map((item) => item.promptText);
@@ -1407,12 +1517,12 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     factKeys: counterEvidenceFacts.map((item) => item.key),
     promptText: counterEvidenceFacts.length
       ? `共核验到${counterEvidenceFacts.length}项盘内限制，须与主证并列使用`
-      : '当前结构化核验未见明确空亡、休囚或冲克限制；不代表现实风险为零',
+      : '当前结构化核验未见按既定口径成立的月令休囚死限制；旬空、生克及固定地支关系均保留为中性条件，不代表现实风险为零',
     sources: ['四课与三传关系事实逐项筛选'],
     limitation: COUNTER_SUMMARY_LIMITATION,
   };
   const focusEvidence = data.focusEvidence ?? [];
-  const focusFacts = buildFocusFacts(data);
+  const focusFacts = buildFocusFacts(data, transmissions);
   const focusSummaryFact: LiurenFocusSummaryFact = {
     key: 'liuren:focus-summary',
     status: focusFacts.length ? '已提供焦点' : '缺少焦点',
@@ -1425,12 +1535,10 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
   };
   const { timingFacts, normalizedInput: timingEvidence } = buildTimingFacts(data, transmissions);
   const timingConditions = [
-    transmissions[0].isVoid
-      ? `初传${initial.branch}空亡，先等待填实、冲实或现实条件落实再验`
-      : `初传${initial.branch}不空，可作为当前起始信号，但仍须现实事件验证`,
+    `初传${initial.branch}${transmissions[0].isVoid ? '落旬空' : '不空'}；空亡有宜有忌，须结合类神与事项判断，出空、填实、冲实只作候选触发`,
     `三传顺序${transmissions.map((item) => `${item.stage}${item.branch}`).join(' → ')}只表示阶段推进`,
     `月支${data.ganzhi.month.slice(-1)}与日支${data.ganzhi.day.slice(-1)}用于核验旺衰、同支、冲合及空亡触发`,
-    '未给期限时不换算唯一日期，不以神煞或课体单项指定应期',
+    '未选定类神和期限时不判断确定快慢、不换算唯一日期，也不以神煞或课体单项指定应期',
     ...timingEvidence,
   ];
   const classicalRuleKeys = traditionalFacts
@@ -1757,7 +1865,8 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
     methodology: [
       '先确认当前课盘采用十二中气实际交节换将、固定地支分昼夜、通行贵人表和贵人临地顺逆布将的主版本；《六壬寻源》先后天贵人等异说只登记边界，不与当前课盘混用，换版本须整盘重排。',
       '再按日干寄宫与日支递取四课，依贼克、比用、涉害古法及九宗门特殊取法确认初传；直接取孟仲、择比等异说不得拼接，换版本须从初传到中末传整体重排。',
-      '初传、中传、末传分别作为起点、过程、落点，逐传保留天将、旺衰、旬空和日支关系。',
+      '初传、中传、末传分别作为起点、过程、落点，六亲均以日干为中心逐传计算；日干、日支和相邻传的五行关系保留作用方向，固定地支关系另列。',
+      '旬空只登记是否命中，空亡有宜有忌；出空、填实、冲实仅作候选触发，未选定类神和期限时不判断确定快慢或唯一日期。',
       '月将加时、昼夜贵人、天地盘、日干寄宫、课体、神煞与天将属性均保留为结构化辅证。',
       '课体与神煞只作辅助标签，不覆盖发用和三传主线。',
       '未按问题选择类神时保留限制，不生成吉凶总分、成功率或绝对日期。',

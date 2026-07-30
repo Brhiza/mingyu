@@ -662,16 +662,20 @@ function formatLiurenInfo(data: LiurenData) {
   const lessonText = data.fourLessons
     .map((item) => `${item.name}${item.upper}临${item.lower}乘${item.god}，${item.relation}`)
     .join('；');
-  const transmissionText = data.threeTransmissions
+  const transmissionText = evidenceAnalysis.transmissions
     .map(
       (item) =>
-        `${item.stage}${item.branch}乘${item.god}，${item.relation}，${conditionLiurenTraditionalText(item.note)}`,
+        `${item.stage}${item.branch}乘${item.god}，六亲${item.kinship}，${item.dayStemRelation}，月令${item.seasonState ?? '未定'}，${item.isVoid ? '落旬空' : '不空'}（空亡有宜有忌）${item.previousRelation ? `，与上一传关系${item.previousRelation}` : ''}，与日支五行关系${item.dayRelation}${item.dayBranchRelations?.length ? `，固定地支关系${item.dayBranchRelations.join('、')}` : ''}`,
     )
     .join('；');
   const voidHits = data.threeTransmissions
     .filter((item) => data.xunKong?.includes(item.branch))
     .map((item) => `${item.stage}${item.branch}`);
-  const summaryText = [data.lessonSummary, data.transmissionSummary, data.transmissionDetail]
+  const summaryText = [
+    `四课依次为${data.fourLessons.map((item) => `${item.name}${item.upper}临${item.lower}`).join('、')}`,
+    `三传${data.transmissionPattern ?? '模式未列'}，依次为${evidenceAnalysis.transmissions.map((item) => `${item.stage}${item.branch}`).join('→')}`,
+    data.transmissionDetail,
+  ]
     .filter(Boolean)
     .map((item) => conditionLiurenTraditionalText(item || ''))
     .join('；');

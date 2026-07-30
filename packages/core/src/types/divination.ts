@@ -853,6 +853,8 @@ export interface LiurenLesson {
   note: string;
 }
 
+export type LiurenKinship = '父母' | '子孙' | '妻财' | '官鬼' | '兄弟';
+
 export interface LiurenTransmission {
   stage: '初传' | '中传' | '末传';
   branch: string;
@@ -862,7 +864,18 @@ export interface LiurenTransmission {
   wuxing?: string;
   seasonState?: '旺' | '相' | '休' | '囚' | '死';
   isVoid?: boolean;
+  /** 本传相对日干所得六亲。 */
+  kinship?: LiurenKinship;
+  /** 本传与日干的有方向五行关系。 */
+  dayStemRelation?: string;
+  /** 中、末传与上一传的有方向五行关系；初传不设。 */
+  previousRelation?: string;
+  /** 中、末传与上一传的固定地支关系；初传为空数组。 */
+  previousBranchRelations?: string[];
+  /** 本传与日支的有方向五行关系。 */
   dayRelation?: string;
+  /** 本传与日支的固定地支关系。 */
+  dayBranchRelations?: string[];
 }
 
 export interface LiurenClassicalRule {
@@ -897,7 +910,7 @@ export interface LiurenShenShaFact {
 }
 
 export interface LiurenData {
-  /** 起盘口径版本、四课取传、三传推进、旺衰空亡及反证限制。 */
+  /** 起盘口径版本、四课取传、逐传日干六亲、有方向关系、旺衰及条件化旬空证据。 */
   evidenceAnalysis?: import('../divination/liuren-evidence').LiurenEvidenceAnalysis;
   /** 四柱干支（年/月/日/时） */
   ganzhi: BaseGanZhi;

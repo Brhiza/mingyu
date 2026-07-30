@@ -1374,7 +1374,8 @@ test('大六壬提示词会给出精简课传资料，避免重复堆叠', () =>
   assert.match(prompt, /课传主线：取传比用法；传态递传；发用亥乘贵人；末传寅/);
   assert.match(prompt, /古籍依据：《大六壬大全》九宗门取传法：知一\/比用/);
   assert.match(prompt, /四课：一课亥临卯乘贵人，水生木/);
-  assert.match(prompt, /三传：初传亥乘贵人，生扶，起因来自外部推动/);
+  assert.match(prompt, /三传：初传亥乘贵人，六亲官鬼，初传亥水克日干丙火/);
+  assert.match(prompt, /空亡有宜有忌/);
   assert.match(prompt, /旬空：戌、亥，命中初传亥/);
   assert.doesNotMatch(prompt, /主虚而不实/);
   assert.doesNotMatch(prompt, /断课抓手：/);

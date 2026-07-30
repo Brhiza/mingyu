@@ -6,7 +6,6 @@ import { getBranchWuxing, getSeasonState, getYiMa } from '../../../ganzhi';
 import {
   buildHeavenlyPlate,
   DIZHI,
-  describeRelation,
   getDayStemResidence,
   getNoblemanBranch,
   getPlateItemByBranch,
@@ -22,7 +21,12 @@ import { resolveLiurenClassicalRules } from './helpers/classical-rules';
 import {
   buildTransmissionDetail,
   buildTransmissionNote,
+  describeTransmissionDayBranchRelation,
+  describeTransmissionDayStemRelation,
+  describeTransmissionTransition,
+  getLiurenBranchPairRelations,
   getLiurenGuaTiFacts,
+  getLiurenKinship,
   getPatternTag,
   getTransmissionPattern,
 } from './helpers/transmission';
@@ -458,21 +462,43 @@ export function generateLiuren(customDate?: Date): LiurenData {
   const transmissionStages: LiurenTransmission['stage'][] = ['初传', '中传', '末传'];
   const threeTransmissions = transmissionBranches.map((branch, index) => {
     const plateItem = getPlateItemByBranch(heavenlyPlate, branch);
-    const previousBranch = index === 0 ? fourLessons[0].lower : transmissionBranches[index - 1];
-    const relation = describeRelation(branch, previousBranch);
+    const previousBranch = index > 0 ? transmissionBranches[index - 1] : undefined;
     const wuxing = getBranchWuxing(branch);
-
-    return {
+    const transmission: LiurenTransmission = {
       stage: transmissionStages[index],
       branch,
       god: plateItem.god,
-      relation,
-      note: buildTransmissionNote(transmissionStages[index], relation),
+      kinship: getLiurenKinship(dayStem, branch),
+      dayStemRelation: describeTransmissionDayStemRelation(
+        transmissionStages[index],
+        branch,
+        dayStem,
+      ),
+      previousRelation: previousBranch
+        ? describeTransmissionTransition(
+            transmissionStages[index - 1],
+            previousBranch,
+            transmissionStages[index],
+            branch,
+          )
+        : undefined,
+      previousBranchRelations: previousBranch
+        ? getLiurenBranchPairRelations(previousBranch, branch)
+        : [],
+      relation: describeTransmissionDayStemRelation(transmissionStages[index], branch, dayStem),
+      note: '',
       wuxing,
       seasonState: getSeasonState(wuxing, ganzhi.month.charAt(1)),
       isVoid: xunKong.includes(branch),
-      dayRelation: describeRelation(branch, dayBranch),
+      dayRelation: describeTransmissionDayBranchRelation(
+        transmissionStages[index],
+        branch,
+        dayBranch,
+      ),
+      dayBranchRelations: getLiurenBranchPairRelations(branch, dayBranch),
     };
+    transmission.note = buildTransmissionNote(transmission);
+    return transmission;
   }) satisfies LiurenTransmission[];
   const classicalRules = resolveLiurenClassicalRules(initialResult.rule);
 
@@ -524,9 +550,12 @@ export function generateLiuren(customDate?: Date): LiurenData {
       evidence: [
         `${initialResult.rule}取为初传`,
         `月令${firstTransmission.seasonState}`,
-        firstTransmission.dayRelation,
+        `六亲${firstTransmission.kinship}`,
+        firstTransmission.dayRelation!,
       ],
-      limitations: firstTransmission.isVoid ? ['初传空亡，主证需待填实'] : [],
+      limitations: firstTransmission.isVoid
+        ? ['初传落旬空；空亡有宜有忌，须结合所问事项、类神及出空、填实、冲实等候选条件辨用']
+        : ['初传不空不等于现实事件已经发动，仍须结合类神与事项核验'],
     },
     {
       target: `日干${dayStem}寄${dayStemResidence}`,
@@ -544,10 +573,10 @@ export function generateLiuren(customDate?: Date): LiurenData {
     },
   ];
   const timingEvidence = [
-    `一级发用：先看初传${firstTransmission.branch}${firstTransmission.isVoid ? '空亡，待出空或冲实' : '不空，可直接作为起始信号'}`,
+    `一级发用：初传${firstTransmission.branch}${firstTransmission.isVoid ? '落旬空' : '不空'}；空亡有宜有忌，须结合类神与事项判断，出空、填实、冲实仅作候选触发`,
     `二级三传：${threeTransmissions.map((item) => `${item.stage}${item.branch}（月令${item.seasonState}${item.isVoid ? '、空' : ''}）`).join('→')}`,
     `三级日月：以日支${dayBranch}、月支${ganzhi.month.charAt(1)}对初传和类神的同支、冲合与旺衰作为触发条件`,
-    '未给出目标期限时，只判断先后、快慢和触发条件，不硬换成唯一日期',
+    '未选定类神和目标期限时，只登记三传阶段、旺衰及候选触发，不判断确定快慢，也不换算唯一日期',
   ];
 
   // 为入传天将附加可核验的基础属性。

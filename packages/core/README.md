@@ -21,14 +21,14 @@
 
 所有算法均对照传统古籍实现，并在源码中标注法理依据：
 
-| 术数     | 古籍依据                                         |
-| -------- | ------------------------------------------------ |
-| 八字     | 《渊海子平》《三命通会》《子平真诠》《穷通宝鉴》 |
-| 六爻     | 《卜筮正宗》《增删卜易》                         |
-| 梅花易数 | 《梅花易数》                                     |
-| 奇门遁甲 | 《烟波钓叟歌》《遁甲演义》《奇门遁甲秘籍大全》   |
-| 大六壬   | 《六壬粹言》《大六壬大全》《六壬指南》           |
-| 择日     | 《协纪辨方书》《象吉通书》                       |
+| 术数     | 古籍依据                                                                                |
+| -------- | --------------------------------------------------------------------------------------- |
+| 八字     | 《渊海子平》《三命通会》《子平真诠》《穷通宝鉴》                                        |
+| 六爻     | 《卜筮正宗》《增删卜易》                                                                |
+| 梅花易数 | 《梅花易数》                                                                            |
+| 奇门遁甲 | 《烟波钓叟歌》《遁甲演义》《奇门遁甲秘籍大全》                                          |
+| 大六壬   | 《六壬粹言》《大六壬大全》《六壬指南》                                                  |
+| 择日     | 《协纪辨方书》《象吉通书》                                                              |
 | 紫微斗数 | 基础排盘委托 `iztro`；固定版本传统目录登记 87 项，其中 55 条可复算、32 项只登记原典边界 |
 
 ---
@@ -110,35 +110,35 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 
 ## 模块总览
 
-| 模块                   | 子路径                                                                                                                                        | 说明                                                                                                   |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| **八字 Bazi**          | `mingyu-core/bazi`                                                                                                                            | 四柱排盘、神煞、调候用神、格局、大运、五行强度，含透干根气、十神结构、合化评估、命卦、小运等增强分析   |
-| **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | 十二宫、星曜、四化、运限、证据池，以及双盘宫位叠盘与生年四化跨盘落点                                   |
+| 模块                   | 子路径                                                                                                                                        | 说明                                                                                                                         |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **八字 Bazi**          | `mingyu-core/bazi`                                                                                                                            | 四柱排盘、神煞、调候用神、格局、大运、五行强度，含透干根气、十神结构、合化评估、命卦、小运等增强分析                         |
+| **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | 十二宫、星曜、四化、运限、证据池，以及双盘宫位叠盘与生年四化跨盘落点                                                         |
 | **六爻 Liuyao**        | `mingyu-core/divination/liuyao`                                                                                                               | 京房八宫法、纳甲、世应、六亲六神、月破日破、化进退神、合起合绊化扶、三合成立条件、分层用神作用链、原忌效力条件与病药应期证据 |
-| **梅花易数 Meihua**    | `mingyu-core/divination/meihua`                                                                                                               | 时间/数字/随机起卦，timeTrigram 兼容、体用生克与主互变阶段推进证据                                     |
-| **奇门遁甲 Qimen**     | `mingyu-core/divination/qimen`                                                                                                                | 转盘法、拆补定局、经典格局、节令背景、节气黄经核验、复合格局、方位与条件触发式应期证据                 |
-| **大六壬 Liuren**      | `mingyu-core/divination/liuren`                                                                                                               | 月将、贵人、四课与九宗门版本边界、三传、天将、神煞及取传推进证据                                       |
-| **小六壬 Xiaoliuren**  | `mingyu-core/divination/xiaoliuren`                                                                                                           | 六宫掌诀、通行/华山流派、五行生克、完整课象、月令旺衰                                                   |
-| **择日 Almanac**       | `mingyu-core/divination/almanac`                                                                                                              | 黄历宜忌、参与人冲突、候选时辰、透明约束证据、二十八宿与彭祖百忌                                       |
-| **灵签 SSGW**          | `mingyu-core/divination/ssgw`                                                                                                                 | 三山国王 92 签、掷筊确认、随机重放与文本证据分层                                                       |
-| **雷诺曼 Lenormand**   | `mingyu-core/divination/lenormand`                                                                                                            | 36 张牌、8 种牌阵、牌义组合                                                                            |
-| **西洋占星 Astrolabe** | `mingyu-core/divination/astrolabe`                                                                                                            | 本命盘、Placidus 宫位、行星、扩展点、相位偏差、容许度分层、行运与太阳返照求根证据                      |
-| **西占双盘 Synastry**  | `mingyu-core/divination/astrolabe-synastry`                                                                                                   | 双方主要跨盘相位、实际夹角、精确角、可配置容许度、紧密等级、跨盘落宫与结构化证据                       |
-| **历法 Calendar**      | `mingyu-core/calendar`                                                                                                                        | 农历、干支、节气黄经核验、朔弦望月相、太阳高度与曙暮光、真太阳时及 UTC/UT/TT 时间尺度证据              |
-| **出生档案 Profile**   | `mingyu-core/profile`                                                                                                                         | 统一公农历、闰月、时辰、地点与真太阳时输入，并提供既有算法适配器                                       |
-| **能力发现**           | `mingyu-core/capabilities`                                                                                                                    | 查询算法输入、输出、起法、依赖、随机复现和出生时间要求                                                 |
-| **结果协议 Result**    | `mingyu-core/result`                                                                                                                          | 稳定序列化、结果身份、结构版本与统一诊断                                                               |
-| **随机能力 Random**    | `mingyu-core/random`                                                                                                                          | 种子、自定义随机源、原始样本记录与完整重放                                                             |
-| **类型 Types**         | `mingyu-core/types`                                                                                                                           | 所有共享类型定义                                                                                       |
-| **占法配置 Config**    | `mingyu-core/divination/config`                                                                                                               | 占法列表、起盘方式和前端共享配置                                                                       |
-| **占法提示文本**       | `mingyu-core/divination/engine/method-text`、`mingyu-core/divination/engine/liuyao-template`、`mingyu-core/divination/engine/liuren-template` | 占法方法说明与六爻、大六壬问题范围提示                                                                 |
-| **原始数据 Data**      | `mingyu-core/divination/divination-data`                                                                                                      | 五行、六亲、纳甲、星曜等配置数据                                                                       |
-| **六十四卦数据**       | `mingyu-core/divination/hexagram-data`                                                                                                        | 六爻卦象数据、梅花八卦索引                                                                             |
-| **塔罗 Tarot**         | `mingyu-core/divination/tarot`                                                                                                                | 塔罗抽牌、牌阵、关键字                                                                                 |
-| **塔罗牌数据**         | `mingyu-core/divination/tarot-data`                                                                                                           | 塔罗牌定义与牌阵配置                                                                                   |
-| **占卜辅助工具**       | `mingyu-core/divination/divination-helpers`                                                                                                   | 占卜通用格式与计算工具                                                                                 |
-| **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | iztro 十二宫、星曜、四化、证据池与大限时间线；评估 55 条可复算格局并登记 32 项原典边界                  |
-| **七政四余 Qizheng**   | `mingyu-core/qizheng`                                                                                                                         | 十一星、真实距星二十八宿界、命身十二宫、庙旺吊照、天文事实与分层精度证据                              |
+| **梅花易数 Meihua**    | `mingyu-core/divination/meihua`                                                                                                               | 时间/数字/随机起卦，timeTrigram 兼容、体用生克与主互变阶段推进证据                                                           |
+| **奇门遁甲 Qimen**     | `mingyu-core/divination/qimen`                                                                                                                | 转盘法、拆补定局、经典格局、节令背景、节气黄经核验、复合格局、方位与条件触发式应期证据                                       |
+| **大六壬 Liuren**      | `mingyu-core/divination/liuren`                                                                                                               | 月将、贵人、四课与九宗门版本边界、逐传日干六亲、有方向生克、天将、神煞及取传推进证据                                         |
+| **小六壬 Xiaoliuren**  | `mingyu-core/divination/xiaoliuren`                                                                                                           | 六宫掌诀、通行/华山流派、五行生克、完整课象、月令旺衰                                                                        |
+| **择日 Almanac**       | `mingyu-core/divination/almanac`                                                                                                              | 黄历宜忌、参与人冲突、候选时辰、透明约束证据、二十八宿与彭祖百忌                                                             |
+| **灵签 SSGW**          | `mingyu-core/divination/ssgw`                                                                                                                 | 三山国王 92 签、掷筊确认、随机重放与文本证据分层                                                                             |
+| **雷诺曼 Lenormand**   | `mingyu-core/divination/lenormand`                                                                                                            | 36 张牌、8 种牌阵、牌义组合                                                                                                  |
+| **西洋占星 Astrolabe** | `mingyu-core/divination/astrolabe`                                                                                                            | 本命盘、Placidus 宫位、行星、扩展点、相位偏差、容许度分层、行运与太阳返照求根证据                                            |
+| **西占双盘 Synastry**  | `mingyu-core/divination/astrolabe-synastry`                                                                                                   | 双方主要跨盘相位、实际夹角、精确角、可配置容许度、紧密等级、跨盘落宫与结构化证据                                             |
+| **历法 Calendar**      | `mingyu-core/calendar`                                                                                                                        | 农历、干支、节气黄经核验、朔弦望月相、太阳高度与曙暮光、真太阳时及 UTC/UT/TT 时间尺度证据                                    |
+| **出生档案 Profile**   | `mingyu-core/profile`                                                                                                                         | 统一公农历、闰月、时辰、地点与真太阳时输入，并提供既有算法适配器                                                             |
+| **能力发现**           | `mingyu-core/capabilities`                                                                                                                    | 查询算法输入、输出、起法、依赖、随机复现和出生时间要求                                                                       |
+| **结果协议 Result**    | `mingyu-core/result`                                                                                                                          | 稳定序列化、结果身份、结构版本与统一诊断                                                                                     |
+| **随机能力 Random**    | `mingyu-core/random`                                                                                                                          | 种子、自定义随机源、原始样本记录与完整重放                                                                                   |
+| **类型 Types**         | `mingyu-core/types`                                                                                                                           | 所有共享类型定义                                                                                                             |
+| **占法配置 Config**    | `mingyu-core/divination/config`                                                                                                               | 占法列表、起盘方式和前端共享配置                                                                                             |
+| **占法提示文本**       | `mingyu-core/divination/engine/method-text`、`mingyu-core/divination/engine/liuyao-template`、`mingyu-core/divination/engine/liuren-template` | 占法方法说明与六爻、大六壬问题范围提示                                                                                       |
+| **原始数据 Data**      | `mingyu-core/divination/divination-data`                                                                                                      | 五行、六亲、纳甲、星曜等配置数据                                                                                             |
+| **六十四卦数据**       | `mingyu-core/divination/hexagram-data`                                                                                                        | 六爻卦象数据、梅花八卦索引                                                                                                   |
+| **塔罗 Tarot**         | `mingyu-core/divination/tarot`                                                                                                                | 塔罗抽牌、牌阵、关键字                                                                                                       |
+| **塔罗牌数据**         | `mingyu-core/divination/tarot-data`                                                                                                           | 塔罗牌定义与牌阵配置                                                                                                         |
+| **占卜辅助工具**       | `mingyu-core/divination/divination-helpers`                                                                                                   | 占卜通用格式与计算工具                                                                                                       |
+| **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | iztro 十二宫、星曜、四化、证据池与大限时间线；评估 55 条可复算格局并登记 32 项原典边界                                       |
+| **七政四余 Qizheng**   | `mingyu-core/qizheng`                                                                                                                         | 十一星、真实距星二十八宿界、命身十二宫、庙旺吊照、天文事实与分层精度证据                                                     |
 
 ---
 
@@ -414,42 +414,42 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 
 ### 八字（`mingyu-core/bazi`）
 
-| 导出                            | 类型 | 说明                                     |
-| ------------------------------- | ---- | ---------------------------------------- |
-| `baziCalculator`                | 实例 | 调用 `calculateBazi(person)`             |
-| `BaziCalculator`                | 类   | 同上的类形式                             |
-| `analyzeTenGodStructure`        | 函数 | 十神分布与家族聚合                       |
-| `analyzeStemRootProfile`        | 函数 | 透干通根分析                             |
-| `analyzeExposedStemProfile`     | 函数 | 透干综合画像                             |
-| `analyzeRelationStructure`      | 函数 | 地支关系完整评估                         |
-| `assessAllHarmonyTransforms`    | 函数 | 自动扫描天干五合、地支六合并核验条件     |
-| `assessStemHarmonyTransform`    | 函数 | 核验单组天干五合是否符合成化条件         |
-| `assessBranchHarmonyTransform`  | 函数 | 评估单组地支六合及冲破，不直接裁定成化   |
-| `analyzeKongWangProfile`        | 函数 | 空亡全分析                               |
-| `analyzeTombStorage`            | 函数 | 辰戌丑未墓库分析                         |
-| `analyzeLifeStageProfile`       | 函数 | 十二长生分布                             |
-| `analyzeTenGodLifeStageProfile` | 函数 | 十神十二长生分析                         |
-| `analyzeUsefulGodPlacement`     | 函数 | 用神落点分析                             |
-| `analyzeNayinProfile`           | 函数 | 纳音五行分析                             |
-| `analyzeMonthQiProfile`         | 函数 | 月令气数（旺相休囚死）                   |
-| `calculateMingGua`              | 函数 | 命卦计算                                 |
-| `calculateXiaoYunProfile`       | 函数 | 小运（童限逐年）                         |
-| `buildLuckDirectionProfile`     | 函数 | 大运顺逆方向                             |
+| 导出                            | 类型 | 说明                                   |
+| ------------------------------- | ---- | -------------------------------------- |
+| `baziCalculator`                | 实例 | 调用 `calculateBazi(person)`           |
+| `BaziCalculator`                | 类   | 同上的类形式                           |
+| `analyzeTenGodStructure`        | 函数 | 十神分布与家族聚合                     |
+| `analyzeStemRootProfile`        | 函数 | 透干通根分析                           |
+| `analyzeExposedStemProfile`     | 函数 | 透干综合画像                           |
+| `analyzeRelationStructure`      | 函数 | 地支关系完整评估                       |
+| `assessAllHarmonyTransforms`    | 函数 | 自动扫描天干五合、地支六合并核验条件   |
+| `assessStemHarmonyTransform`    | 函数 | 核验单组天干五合是否符合成化条件       |
+| `assessBranchHarmonyTransform`  | 函数 | 评估单组地支六合及冲破，不直接裁定成化 |
+| `analyzeKongWangProfile`        | 函数 | 空亡全分析                             |
+| `analyzeTombStorage`            | 函数 | 辰戌丑未墓库分析                       |
+| `analyzeLifeStageProfile`       | 函数 | 十二长生分布                           |
+| `analyzeTenGodLifeStageProfile` | 函数 | 十神十二长生分析                       |
+| `analyzeUsefulGodPlacement`     | 函数 | 用神落点分析                           |
+| `analyzeNayinProfile`           | 函数 | 纳音五行分析                           |
+| `analyzeMonthQiProfile`         | 函数 | 月令气数（旺相休囚死）                 |
+| `calculateMingGua`              | 函数 | 命卦计算                               |
+| `calculateXiaoYunProfile`       | 函数 | 小运（童限逐年）                       |
+| `buildLuckDirectionProfile`     | 函数 | 大运顺逆方向                           |
 
 ### 占卜（`mingyu-core/divination/*`）
 
 | 导出                                                                 | 说明                                                                         |
 | -------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `generateLiuyao(date?, options?)`                                    | 六爻时间种子模拟、手工爻值或三钱记录/模拟，并保留来源轨迹                     |
+| `generateLiuyao(date?, options?)`                                    | 六爻时间种子模拟、手工爻值或三钱记录/模拟，并保留来源轨迹                    |
 | `analyzeLiuyaoSanheFormations(yaosDetail, monthBranch, dayBranch)`   | 重算三合参与爻、成立模式、月日补局、虚一待用及空破墓状态                     |
-| `analyzeLiuyaoEvidence(data, options?)`                              | 六爻分层用神候选、原忌效力条件、生克制化路径、逐爻支持/反证及病药应期证据                  |
+| `analyzeLiuyaoEvidence(data, options?)`                              | 六爻分层用神候选、原忌效力条件、生克制化路径、逐爻支持/反证及病药应期证据    |
 | `generateMeihua(date?, settings?)`                                   | 梅花易数起卦                                                                 |
 | `analyzeMeihuaEvidence(data)`                                        | 主卦、互卦、变卦逐阶段体用、旺衰与支持/限制证据                              |
 | `generateQimen(date?, method?, scope?)`                              | 奇门遁甲排盘，并内置用神宫与宫间作用结构化证据                               |
 | `analyzeQimenEvidence(data)`                                         | 值符值使、日时干候选宫及门星神干、反证和触发条件                             |
 | `createQimenPriorityPalaces(data)`                                   | 按值符、宫位洞察、格局等证据来源归集奇门重点宫位候选                         |
 | `generateLiuren(date?)`                                              | 大六壬排盘                                                                   |
-| `analyzeLiurenEvidence(data)`                                        | 起盘与取传版本、初传发用、三传旺衰空亡及反证限制                             |
+| `analyzeLiurenEvidence(data)`                                        | 起盘与取传版本、逐传日干六亲、有方向关系、旺衰及条件化旬空证据               |
 | `generateXiaoliuren(params?)`                                        | 小六壬起课                                                                   |
 | `generateAlmanacSelection(params)`                                   | 黄历择日，并内置透明约束与候选证据                                           |
 | `analyzeAlmanacEvidence(data)`                                       | 日期分组、事项宜忌、参与人冲突、时辰与现实约束证据                           |

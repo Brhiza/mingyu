@@ -4436,7 +4436,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
       liurenData.evidenceAnalysis.transmissions.every(
         (item) =>
           item.key.startsWith('liuren:transmission:') &&
-          item.relationFacts.length === 4 &&
+          item.relationFacts.length >= 6 &&
           item.relationFacts.every(
             (fact) => fact.ownerKey === item.key && fact.sources.length > 0,
           ) &&
@@ -4476,7 +4476,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
           item.sourceStatus === '原结果提供' &&
           item.promptText &&
           item.sources.length >= 2 &&
-          item.limitation.includes('不得换算唯一日期'),
+          item.limitation.includes('不得判断确定快慢'),
       ),
     );
     assert.equal(liurenData.evidenceAnalysis.focusSummaryFact.status, '已提供焦点');

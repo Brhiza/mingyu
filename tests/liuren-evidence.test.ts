@@ -44,7 +44,7 @@ test('大六壬排盘应内置四课取传与三传推进结构化证据', () =>
     evidence.transmissions.every(
       (item) =>
         item.key.startsWith('liuren:transmission:') &&
-        item.relationFacts.length === 4 &&
+        item.relationFacts.length >= 6 &&
         item.relationFacts.every(
           (fact) =>
             fact.ownerKey === item.key &&
@@ -102,7 +102,7 @@ test('大六壬排盘应内置四课取传与三传推进结构化证据', () =>
         item.rawText &&
         item.promptText &&
         item.sources.length >= 2 &&
-        item.limitation.includes('不得换算唯一日期'),
+        item.limitation.includes('不得判断确定快慢'),
     ),
   );
   assert.equal(evidence.focusFacts.length, data.focusEvidence?.length);
@@ -269,16 +269,71 @@ test('大六壬证据应以旬空地支复核三传空亡，避免冗余字段�
   assert.equal(evidence.transmissions[0].isVoid, true);
   assert.equal(
     evidence.transmissions[0].relationFacts.find((item) => item.basis === '旬空')?.status,
-    '限制',
+    '中性',
   );
   assert.ok(
-    evidence.counterEvidenceFacts.some(
+    !evidence.counterEvidenceFacts.some(
       (item) => item.ownerKey === evidence.transmissions[0].key && item.basis === '旬空',
     ),
   );
-  assert.match(evidence.timingFacts[0].promptText, new RegExp(`初传${initialBranch}空亡`));
-  assert.match(evidence.promptText, new RegExp(`初传${initialBranch}空亡`));
+  assert.match(evidence.timingFacts[0].promptText, new RegExp(`初传${initialBranch}落旬空`));
+  assert.match(evidence.promptText, new RegExp(`初传${initialBranch}落旬空`));
   assert.doesNotMatch(evidence.promptText, new RegExp(`初传${initialBranch}不空`));
+  assert.match(evidence.promptText, /空亡有宜有忌/);
+});
+
+test('大六壬旧结果应逐传重算日干六亲与有方向关系，不沿用旧版中末传关系', () => {
+  const data = generateLiuren(fixedDate);
+  for (const item of data.threeTransmissions) {
+    delete item.kinship;
+    delete item.dayStemRelation;
+    delete item.previousRelation;
+    delete item.previousBranchRelations;
+    delete item.dayBranchRelations;
+    item.relation = '旧版无方向关系';
+    item.dayRelation = '旧版混合关系';
+  }
+  data.timingEvidence = [
+    `一级发用：先看初传${data.threeTransmissions[0].branch}不空，可直接作为起始信号`,
+    '未给出目标期限时，只判断先后、快慢和触发条件，不硬换成唯一日期',
+  ];
+  data.focusEvidence![0].evidence = ['旧版三传关系'];
+  data.focusEvidence![0].limitations = ['初传空亡，主证需待填实'];
+
+  const evidence = analyzeLiurenEvidence(data);
+
+  assert.ok(
+    evidence.transmissions.every(
+      (item) =>
+        item.kinship &&
+        item.dayStemRelation?.includes(`日干${data.ganzhi.day.charAt(0)}`) &&
+        item.relation === item.dayStemRelation &&
+        item.dayRelation !== '旧版混合关系',
+    ),
+  );
+  assert.ok(evidence.transmissions.slice(1).every((item) => item.previousRelation));
+  assert.equal(evidence.transmissions[0].previousRelation, undefined);
+  assert.match(evidence.timingFacts[0].promptText, /空亡有宜有忌/);
+  assert.match(evidence.timingFacts[3].promptText, /不判断确定快慢/);
+  assert.doesNotMatch(evidence.timingEvidence.join('；'), /可直接作为起始信号|只判断先后、快慢/);
+  assert.match(evidence.focusFacts[0].promptText, /六亲/);
+  assert.doesNotMatch(evidence.focusFacts[0].promptText, /旧版三传关系|主证需待填实/);
+});
+
+test('大六壬旬空与生克只登记条件，不自动换算支持或反证', () => {
+  const data = generateLiuren(fixedDate);
+  data.xunKong = [...new Set([...(data.xunKong ?? []), data.threeTransmissions[0].branch])];
+  const evidence = analyzeLiurenEvidence(data);
+
+  assert.ok(
+    evidence.transmissions.every((item) =>
+      item.relationFacts
+        .filter((fact) => fact.basis !== '月令旺衰')
+        .every((fact) => fact.status === '中性'),
+    ),
+  );
+  assert.ok(evidence.counterEvidenceFacts.every((item) => item.basis === '月令旺衰'));
+  assert.match(evidence.promptText, /不判断确定快慢/);
 });
 
 test('大六壬旧结果缺少取传名、应期与焦点时应明确标记来源缺口', () => {
@@ -315,7 +370,7 @@ test('大六壬证据应保留类神未选定限制，不把日支或神煞固�
   const evidence = analyzeLiurenEvidence(generateLiuren(fixedDate));
 
   assert.match(evidence.promptText, /未按具体问题选定类神/);
-  assert.match(evidence.promptText, /不得把日支或任一神煞固定当作用神/);
+  assert.match(evidence.promptText, /不得把日支、天将或神煞固定当作用神/);
   assert.match(evidence.promptText, /未给期限时不换算唯一日期/);
 });
 

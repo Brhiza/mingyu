@@ -2,18 +2,108 @@ import type {
   LiurenClassicalRule,
   LiurenData,
   LiurenGuaTiFact,
+  LiurenKinship,
   LiurenLesson,
   LiurenTransmission,
 } from '../../../../types/divination';
-import { isBranchKe } from './plate';
+import {
+  BRANCH_SANXING,
+  LIUCHONG_MAP,
+  LIUHAI_MAP,
+  LIUHE_MAP,
+  LIUPO_MAP,
+  isKe,
+  isSheng,
+} from '../../../../ganzhi';
+import { getGanZhiWuxing, isBranchKe } from './plate';
 
-export function buildTransmissionNote(stage: LiurenTransmission['stage'], relation: string) {
-  const comparedPosition: Record<LiurenTransmission['stage'], string> = {
-    初传: '一课下位',
-    中传: '初传',
-    末传: '中传',
-  };
-  return `${stage}与${comparedPosition[stage]}的五行关系为${relation}。`;
+function describeDirectedElementRelation(
+  sourceLabel: string,
+  sourceValue: string,
+  targetLabel: string,
+  targetValue: string,
+) {
+  const sourceElement = getGanZhiWuxing(sourceValue);
+  const targetElement = getGanZhiWuxing(targetValue);
+  const source = `${sourceLabel}${sourceValue}${sourceElement}`;
+  const target = `${targetLabel}${targetValue}${targetElement}`;
+  if (sourceElement === targetElement) return `${source}与${target}比和`;
+  if (isSheng(sourceElement, targetElement)) return `${source}生${target}`;
+  if (isSheng(targetElement, sourceElement)) return `${target}生${source}`;
+  if (isKe(sourceElement, targetElement)) return `${source}克${target}`;
+  if (isKe(targetElement, sourceElement)) return `${target}克${source}`;
+  throw new Error(`无法判断${sourceLabel}${sourceValue}与${targetLabel}${targetValue}的五行关系。`);
+}
+
+/** 三传六亲一律以日干为比较中心，不以初中末传彼此替代。 */
+export function getLiurenKinship(dayStem: string, transmissionBranch: string): LiurenKinship {
+  const dayElement = getGanZhiWuxing(dayStem);
+  const transmissionElement = getGanZhiWuxing(transmissionBranch);
+  if (dayElement === transmissionElement) return '兄弟';
+  if (isSheng(transmissionElement, dayElement)) return '父母';
+  if (isSheng(dayElement, transmissionElement)) return '子孙';
+  if (isKe(dayElement, transmissionElement)) return '妻财';
+  if (isKe(transmissionElement, dayElement)) return '官鬼';
+  throw new Error(`无法判断日干${dayStem}与三传${transmissionBranch}的六亲。`);
+}
+
+export function describeTransmissionDayStemRelation(
+  stage: LiurenTransmission['stage'],
+  branch: string,
+  dayStem: string,
+) {
+  return describeDirectedElementRelation(`日干`, dayStem, stage, branch);
+}
+
+export function describeTransmissionDayBranchRelation(
+  stage: LiurenTransmission['stage'],
+  branch: string,
+  dayBranch: string,
+) {
+  return describeDirectedElementRelation(stage, branch, '日支', dayBranch);
+}
+
+export function describeTransmissionTransition(
+  previousStage: LiurenTransmission['stage'],
+  previousBranch: string,
+  stage: LiurenTransmission['stage'],
+  branch: string,
+) {
+  return describeDirectedElementRelation(previousStage, previousBranch, stage, branch);
+}
+
+/** 只登记两支可复算的固定关系，不把关系名称直接换算成吉凶。 */
+export function getLiurenBranchPairRelations(sourceBranch: string, targetBranch: string) {
+  const relations: string[] = [];
+  if (sourceBranch === targetBranch) relations.push('同支');
+  if (LIUHE_MAP[sourceBranch] === targetBranch) relations.push('六合');
+  if (LIUCHONG_MAP[sourceBranch] === targetBranch) relations.push('六冲');
+  if (LIUHAI_MAP[sourceBranch] === targetBranch) relations.push('六害');
+  if (LIUPO_MAP[sourceBranch] === targetBranch) relations.push('六破');
+  if (
+    BRANCH_SANXING[sourceBranch]?.includes(targetBranch) ||
+    BRANCH_SANXING[targetBranch]?.includes(sourceBranch)
+  ) {
+    relations.push('相刑');
+  }
+  return relations;
+}
+
+export function buildTransmissionNote(
+  transmission: Pick<
+    LiurenTransmission,
+    'stage' | 'branch' | 'kinship' | 'dayStemRelation' | 'previousRelation'
+  >,
+) {
+  return (
+    [
+      `${transmission.stage}${transmission.branch}相对日干为${transmission.kinship}`,
+      transmission.dayStemRelation,
+      transmission.previousRelation ? `与上一传的五行关系为${transmission.previousRelation}` : '',
+    ]
+      .filter(Boolean)
+      .join('；') + '。'
+  );
 }
 
 export function getTransmissionPattern(

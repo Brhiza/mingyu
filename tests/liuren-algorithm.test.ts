@@ -3,9 +3,15 @@ import assert from 'node:assert/strict';
 
 import type { LiurenLesson, LiurenPlateItem } from 'mingyu-core/types';
 import { analyzeLiurenEvidence, generateLiuren } from 'mingyu-core/divination/liuren';
+import { getVoidBranches } from '../packages/core/src/calendar/lunar.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 import {
   getLiurenGuaTiFacts,
+  getLiurenBranchPairRelations,
+  getLiurenKinship,
+  describeTransmissionDayBranchRelation,
+  describeTransmissionDayStemRelation,
+  describeTransmissionTransition,
   getLiurenTransmissionGuaTi,
   getTransmissionPattern,
   REGISTERED_LIUREN_GUA_TI_COUNT,
@@ -259,6 +265,77 @@ test('大六壬会输出完整的四课三传与天盘结构', () => {
   assert.equal(mo, getUpperByUnder(result.heavenlyPlate, zhong));
 });
 
+test('大六壬三传六亲均以日干为中心，并与相邻传关系分字段保存', () => {
+  const elementByValue: Record<string, string> = {
+    甲: '木',
+    乙: '木',
+    丙: '火',
+    丁: '火',
+    戊: '土',
+    己: '土',
+    庚: '金',
+    辛: '金',
+    壬: '水',
+    癸: '水',
+    子: '水',
+    丑: '土',
+    寅: '木',
+    卯: '木',
+    辰: '土',
+    巳: '火',
+    午: '火',
+    未: '土',
+    申: '金',
+    酉: '金',
+    戌: '土',
+    亥: '水',
+  };
+  const generates: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
+  const controls: Record<string, string> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+  const expectedKinship = (stem: string, branch: string) => {
+    const day = elementByValue[stem];
+    const transmission = elementByValue[branch];
+    if (day === transmission) return '兄弟';
+    if (generates[transmission] === day) return '父母';
+    if (generates[day] === transmission) return '子孙';
+    if (controls[day] === transmission) return '妻财';
+    return '官鬼';
+  };
+
+  const seen = new Set<string>();
+  for (const stem of TIANGAN) {
+    for (const branch of DIZHI) {
+      const actual = getLiurenKinship(stem, branch);
+      assert.equal(actual, expectedKinship(stem, branch));
+      seen.add(actual);
+    }
+  }
+  assert.deepEqual([...seen].sort(), ['兄弟', '妻财', '子孙', '官鬼', '父母'].sort());
+
+  const result = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
+  const dayStem = result.ganzhi.day.charAt(0);
+  assert.ok(
+    result.threeTransmissions.every(
+      (item) =>
+        item.kinship === expectedKinship(dayStem, item.branch) &&
+        item.relation === item.dayStemRelation &&
+        item.dayStemRelation?.includes(`日干${dayStem}`),
+    ),
+  );
+  assert.equal(result.threeTransmissions[0].previousRelation, undefined);
+  assert.ok(result.threeTransmissions.slice(1).every((item) => item.previousRelation));
+});
+
+test('大六壬固定地支关系应分列同支、合冲害破刑，不与五行方向混写', () => {
+  assert.deepEqual(getLiurenBranchPairRelations('子', '子'), ['同支']);
+  assert.deepEqual(getLiurenBranchPairRelations('子', '丑'), ['六合']);
+  assert.deepEqual(getLiurenBranchPairRelations('子', '午'), ['六冲']);
+  assert.deepEqual(getLiurenBranchPairRelations('子', '未'), ['六害']);
+  assert.deepEqual(getLiurenBranchPairRelations('子', '酉'), ['六破']);
+  assert.deepEqual(getLiurenBranchPairRelations('子', '卯'), ['相刑']);
+  assert.deepEqual(getLiurenBranchPairRelations('辰', '辰'), ['同支', '相刑']);
+});
+
 test('大六壬三传成局应按六壬指南输出课体标签', () => {
   const cases: Array<{ branches: string[]; guaTi: string }> = [
     { branches: ['子', '午', '卯'], guaTi: '三交卦' },
@@ -493,6 +570,50 @@ test('大六壬全部月将、占时、日柱和昼夜组合应完整成课取�
             branches.every((branch) => DIZHI.includes(branch as (typeof DIZHI)[number])),
             label,
           );
+          const xunKong = getVoidBranches(day);
+          assert.equal(xunKong.length, 2, label);
+          branches.forEach((branch, index) => {
+            assert.ok(
+              ['父母', '子孙', '妻财', '官鬼', '兄弟'].includes(getLiurenKinship(dayStem, branch)),
+              label,
+            );
+            assert.match(
+              describeTransmissionDayStemRelation(
+                ['初传', '中传', '末传'][index] as '初传' | '中传' | '末传',
+                branch,
+                dayStem,
+              ),
+              /生|克|比和/,
+              label,
+            );
+            assert.match(
+              describeTransmissionDayBranchRelation(
+                ['初传', '中传', '末传'][index] as '初传' | '中传' | '末传',
+                branch,
+                dayBranch,
+              ),
+              /生|克|比和/,
+              label,
+            );
+            assert.ok(
+              getLiurenBranchPairRelations(branch, dayBranch).every((relation) =>
+                ['同支', '六合', '六冲', '六害', '六破', '相刑'].includes(relation),
+              ),
+              label,
+            );
+            if (index > 0) {
+              assert.match(
+                describeTransmissionTransition(
+                  index === 1 ? '初传' : '中传',
+                  branches[index - 1],
+                  index === 1 ? '中传' : '末传',
+                  branch,
+                ),
+                /生|克|比和/,
+                label,
+              );
+            }
+          });
 
           ruleCounts.set(initial.rule, (ruleCounts.get(initial.rule) || 0) + 1);
           caseCount += 1;

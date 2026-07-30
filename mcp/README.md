@@ -34,7 +34,7 @@
 | `divine_qimen`               | 奇门遁甲排盘 | 返回九宫盘及值符值使、日时干候选宫、宫间作用、反证与触发条件                   |
 | `qimen_prompt`               | 奇门提示词   | 返回不含数字评分的用神宫证据及可直接用于 AI 解读的结构化提示词                 |
 | `divine_liuren`              | 大六壬排盘   | 排盘并返回起盘、四课与九宗门取传主版本及异说边界                               |
-| `liuren_prompt`              | 大六壬提示词 | 返回四课取传、三传推进、版本边界及可直接解读的结构化提示词                     |
+| `liuren_prompt`              | 大六壬提示词 | 返回四课取传、逐传日干六亲、有方向关系、条件化旬空及可直接解读的结构化提示词   |
 | `divine_tarot`               | 塔罗抽牌     | 78 张塔罗，支持单牌/时间流/爱情/事业/选择牌阵                                  |
 | `tarot_prompt`               | 塔罗提示词   | 塔罗抽牌并返回可直接用于 AI 解读的结构化提示词                                 |
 | `divine_ssgw`                | 灵签求签     | 模拟传统摇签、掷筊流程，圣杯确认后方出签；三连阴杯则拒绝起卦，返回 ritual 记录 |
@@ -51,7 +51,7 @@
 | `bazhai_prompt`              | 八宅提示词   | 八宅排盘并返回含测量稳定性和证据边界的 AI 解读提示词                           |
 | `metaphysics_zodiac`         | 生肖流年     | 返回犯太岁、三合六合、五行关系和解释边界                                       |
 | `zodiac_prompt`              | 生肖提示词   | 生肖流年排盘并返回可直接用于 AI 解读的提示词                                   |
-| `metaphysics_taiyi`          | 太乙年计     | 按积年与阳遁七十二局立成返回年计式盘；月、日、时计完成古籍历法链校勘后再开放     |
+| `metaphysics_taiyi`          | 太乙年计     | 按积年与阳遁七十二局立成返回年计式盘；月、日、时计完成古籍历法链校勘后再开放   |
 | `taiyi_prompt`               | 太乙提示词   | 太乙排盘并返回可直接用于 AI 解读的提示词                                       |
 | `metaphysics_qizheng`        | 七政四余     | 返回十一星、真实距星宿界、命身十二宫、庙旺吊照与分层天文证据                   |
 | `qizheng_prompt`             | 七政提示词   | 七政四余排盘并返回可直接用于 AI 解读的结构化提示词                             |
@@ -84,7 +84,7 @@
 | 紫微宫位、四化、运限             | `ziwei_prompt`              | `promptTopic`、`promptScope`                                             |
 | 一事一问、短期成败、应期         | `liuyao_prompt`             | `question`、可选 `customDate`                                            |
 | 项目推进、方向、方位、谈判       | `qimen_prompt`              | `question`、可选 `qimenMethod`、`customDate`                             |
-| 临时小事快速判断                 | `xiaoliuren_prompt`         | `question`、可选 `xiaoliurenMethod: "time"`、`customDate` |
+| 临时小事快速判断                 | `xiaoliuren_prompt`         | `question`、可选 `xiaoliurenMethod: "time"`、`customDate`                |
 | 时间或数字象意判断               | `meihua_prompt`             | `question`、可选 `method`、`number`、`customDate`                        |
 | 传统复杂事项推演                 | `liuren_prompt`             | `question`、可选 `liurenTemplate`、`customDate`                          |
 | 结婚、搬家、开业、签约、安葬择日 | `almanac_prompt`            | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize` |
