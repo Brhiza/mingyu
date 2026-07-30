@@ -328,8 +328,16 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     evidence.objectContextFact.usageExampleFields[6] ?? '',
     /声价气势.*锺覆物.*历史实例/,
   );
-  assert.equal(evidence.objectContextFact.sourceLineFields.length, 10);
-  assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 36);
+  assert.equal(evidence.objectContextFact.handGuessRuleFields.length, 10);
+  assert.match(evidence.objectContextFact.handGuessRuleFields[0] ?? '', /凡猜手中物.*不是普通观物/);
+  assert.match(evidence.objectContextFact.handGuessRuleFields[3] ?? '', /艮.*逢兑克.*不自动合并/);
+  assert.match(evidence.objectContextFact.handGuessRuleFields[4] ?? '', /遇兑之属可食.*句读/);
+  assert.match(evidence.objectContextFact.handGuessRuleFields[6] ?? '', /离色亦.*不补字/);
+  assert.match(evidence.objectContextFact.handGuessRuleFields[8] ?? '', /春震巽.*秋乾兑.*否则/);
+  assert.match(evidence.objectContextFact.handGuessRuleFields[9] ?? '', /六虚冲破.*不自动判定空手/);
+  assert.equal(evidence.objectContextFact.sourceLineFields.length, 11);
+  assert.match(evidence.objectContextFact.sourceLineFields[10] ?? '', /凡猜手中物.*六虚冲破/);
+  assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 48);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[0] ?? '', /艮象.*题作“离”/);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[1] ?? '', /困于株林.*困于株木/);
   assert.match(evidence.objectContextFact.unresolvedRuleFields[2] ?? '', /体生方圆曲直/);
@@ -387,7 +395,23 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     evidence.objectContextFact.unresolvedRuleFields[35] ?? '',
     /合并及优先顺序.*自动匹配/,
   );
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[36] ?? '', /猜手中物.*如何起卦/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[37] ?? '', /有气.*现有四时旺衰/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[38] ?? '', /无价.*价值判断/);
+  assert.match(
+    evidence.objectContextFact.unresolvedRuleFields[39] ?? '',
+    /逢兑克.*不能自动判定破损/,
+  );
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[40] ?? '', /遇兑之属可食.*承接/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[41] ?? '', /有气柔.*承接/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[42] ?? '', /震、巽遇坎.*主互变组合/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[43] ?? '', /离色亦.*同源/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[44] ?? '', /有水有木.*同时出现/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[45] ?? '', /春震巽.*否则/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[46] ?? '', /六虚冲破.*六爻空破/);
+  assert.match(evidence.objectContextFact.unresolvedRuleFields[47] ?? '', /优先顺序.*自动猜物/);
   for (const key of [
+    'handObject',
     'matchedHistoricalExample',
     'predictedObject',
     'revealedObject',
@@ -401,10 +425,14 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     'sound',
     'smell',
     'hardness',
+    'wetness',
     'decay',
+    'burned',
     'motion',
     'position',
     'damage',
+    'damaged',
+    'opening',
     'value',
     'use',
     'utility',
@@ -414,6 +442,9 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     'dominantTrigram',
     'dominantElement',
     'changedObservation',
+    'seasonalCandidate',
+    'hasQi',
+    'emptyHand',
     'yangCount',
     'yinCount',
     'flying',
@@ -816,9 +847,11 @@ test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补�
       assert.equal(evidence.objectContextFact.responseOmenRuleFields.length, 6);
       assert.equal(evidence.objectContextFact.seasonalObservationRuleFields.length, 7);
       assert.equal(evidence.objectContextFact.usageExampleFields.length, 7);
-      assert.equal(evidence.objectContextFact.sourceLineFields.length, 10);
-      assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 36);
+      assert.equal(evidence.objectContextFact.handGuessRuleFields.length, 10);
+      assert.equal(evidence.objectContextFact.sourceLineFields.length, 11);
+      assert.equal(evidence.objectContextFact.unresolvedRuleFields.length, 48);
       for (const key of [
+        'handObject',
         'matchedHistoricalExample',
         'predictedObject',
         'revealedObject',
@@ -832,10 +865,14 @@ test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补�
         'sound',
         'smell',
         'hardness',
+        'wetness',
         'decay',
+        'burned',
         'motion',
         'position',
         'damage',
+        'damaged',
+        'opening',
         'value',
         'use',
         'utility',
@@ -845,6 +882,9 @@ test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补�
         'dominantTrigram',
         'dominantElement',
         'changedObservation',
+        'seasonalCandidate',
+        'hasQi',
+        'emptyHand',
         'yangCount',
         'yinCount',
         'flying',

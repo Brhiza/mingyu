@@ -232,7 +232,7 @@ test('能力清单可序列化且返回副本', () => {
   assert.ok(getSystemCapability('meihua')?.outputs.includes('饮食专项适用与版本资料边界'));
   assert.ok(
     getSystemCapability('meihua')?.outputs.includes(
-      '观物专项、占物类例、物数为体、变爻取象、现场克应、趣时与历史用易实例边界',
+      '观物专项、占物类例、物数为体、变爻取象、现场克应、趣时、历史用易实例与手中物规则边界',
     ),
   );
   assert.ok(getSystemCapability('meihua')?.outputs.includes('诸事响应专项情境与高风险边界'));

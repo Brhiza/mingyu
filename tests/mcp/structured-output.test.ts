@@ -3332,6 +3332,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               responseOmenRuleFields: string[];
               seasonalObservationRuleFields: string[];
               usageExampleFields: string[];
+              handGuessRuleFields: string[];
               sourceLineFields: string[];
               unresolvedRuleFields: string[];
               promptText: string;
@@ -3568,13 +3569,15 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.equal(result.evidenceAnalysis.objectContextFact.responseOmenRuleFields.length, 6);
     assert.equal(result.evidenceAnalysis.objectContextFact.seasonalObservationRuleFields.length, 7);
     assert.equal(result.evidenceAnalysis.objectContextFact.usageExampleFields.length, 7);
-    assert.equal(result.evidenceAnalysis.objectContextFact.sourceLineFields.length, 10);
-    assert.equal(result.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 36);
+    assert.equal(result.evidenceAnalysis.objectContextFact.handGuessRuleFields.length, 10);
+    assert.equal(result.evidenceAnalysis.objectContextFact.sourceLineFields.length, 11);
+    assert.equal(result.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 48);
     assert.match(
       result.evidenceAnalysis.objectContextFact.promptText,
-      /观物用易例.*第948至950行.*历史实例/,
+      /万物戏验.*第951至952行.*手中物目录/,
     );
     for (const key of [
+      'handObject',
       'matchedHistoricalExample',
       'predictedObject',
       'revealedObject',
@@ -3588,10 +3591,14 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       'sound',
       'smell',
       'hardness',
+      'wetness',
       'decay',
+      'burned',
       'motion',
       'position',
       'damage',
+      'damaged',
+      'opening',
       'value',
       'use',
       'utility',
@@ -3601,6 +3608,9 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       'dominantTrigram',
       'dominantElement',
       'changedObservation',
+      'seasonalCandidate',
+      'hasQi',
+      'emptyHand',
       'yangCount',
       'yinCount',
       'flying',

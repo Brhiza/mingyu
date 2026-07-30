@@ -4301,13 +4301,15 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     7,
   );
   assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.usageExampleFields.length, 7);
-  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.sourceLineFields.length, 10);
-  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 36);
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.handGuessRuleFields.length, 10);
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.sourceLineFields.length, 11);
+  assert.equal(chart.body.data.evidenceAnalysis.objectContextFact.unresolvedRuleFields.length, 48);
   assert.match(
     chart.body.data.evidenceAnalysis.objectContextFact.promptText,
-    /观物用易例.*第948至950行.*历史实例/,
+    /万物戏验.*第951至952行.*手中物目录/,
   );
   for (const key of [
+    'handObject',
     'matchedHistoricalExample',
     'predictedObject',
     'revealedObject',
@@ -4321,10 +4323,14 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     'sound',
     'smell',
     'hardness',
+    'wetness',
     'decay',
+    'burned',
     'motion',
     'position',
     'damage',
+    'damaged',
+    'opening',
     'value',
     'use',
     'utility',
@@ -4334,6 +4340,9 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     'dominantTrigram',
     'dominantElement',
     'changedObservation',
+    'seasonalCandidate',
+    'hasQi',
+    'emptyHand',
     'yangCount',
     'yinCount',
     'flying',
