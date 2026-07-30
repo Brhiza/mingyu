@@ -957,7 +957,7 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
         item.rule &&
         item.sources.length > 0 &&
         item.limitations.length >= 4 &&
-        item.limitations.some((limitation) => limitation.includes('七十三项可复算神煞规则')),
+        item.limitations.some((limitation) => limitation.includes('七十七项可复算神煞规则')),
     ),
   );
 });
@@ -1462,6 +1462,10 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     '浴盆',
     '丧魄',
     '游魂',
+    '圣心',
+    '受死',
+    '罪至',
+    '血忌',
   ];
   const addedMonthFactNames = [
     '天合',
@@ -1491,20 +1495,24 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     '浴盆',
     '丧魄',
     '游魂',
+    '圣心',
+    '受死',
+    '罪至',
+    '血忌',
   ];
   const addedMonthTargets: Record<string, readonly string[]> = {
-    寅: ['戌', '巳', '辰', '未', '亥'],
-    卯: ['戌', '巳', '辰', '辰', '子'],
-    辰: ['戌', '巳', '辰', '丑', '丑'],
-    巳: ['丑', '申', '未', '戌', '寅'],
-    午: ['丑', '申', '未', '未', '卯'],
-    未: ['丑', '申', '未', '辰', '辰'],
-    申: ['辰', '亥', '戌', '丑', '巳'],
-    酉: ['辰', '亥', '戌', '戌', '午'],
-    戌: ['辰', '亥', '戌', '未', '未'],
-    亥: ['未', '寅', '丑', '辰', '申'],
-    子: ['未', '寅', '丑', '丑', '酉'],
-    丑: ['未', '寅', '丑', '戌', '戌'],
+    寅: ['戌', '巳', '辰', '未', '亥', '亥', '戌', '午', '丑'],
+    卯: ['戌', '巳', '辰', '辰', '子', '巳', '辰', '子', '未'],
+    辰: ['戌', '巳', '辰', '丑', '丑', '子', '亥', '未', '寅'],
+    巳: ['丑', '申', '未', '戌', '寅', '午', '巳', '丑', '申'],
+    午: ['丑', '申', '未', '未', '卯', '丑', '子', '申', '卯'],
+    未: ['丑', '申', '未', '辰', '辰', '未', '午', '寅', '酉'],
+    申: ['辰', '亥', '戌', '丑', '巳', '寅', '丑', '酉', '辰'],
+    酉: ['辰', '亥', '戌', '戌', '午', '申', '未', '卯', '戌'],
+    戌: ['辰', '亥', '戌', '未', '未', '卯', '寅', '戌', '巳'],
+    亥: ['未', '寅', '丑', '辰', '申', '酉', '申', '辰', '亥'],
+    子: ['未', '寅', '丑', '丑', '酉', '辰', '卯', '亥', '午'],
+    丑: ['未', '寅', '丑', '戌', '戌', '戌', '酉', '巳', '子'],
   };
 
   for (const [date, monthBranch, expectedTargets, expectedTianHe] of monthCases) {
@@ -1552,6 +1560,9 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       '丧门',
       '魄化',
       '飞魂',
+      '血支',
+      '玉字',
+      '金堂',
     ]) {
       assert.equal(facts.has(deferredName), false, `${deferredName}暂缓或异名不应重复登记`);
     }
@@ -1634,6 +1645,33 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
   assert.match(
     boundaryFacts.get('游魂')?.limitations.join('；') ?? '',
     /“飞魂”.+不重复生成飞魂事实/,
+  );
+  assert.match(boundaryFacts.get('圣心')?.rule ?? '', /正月亥起.+单月顺行.+双月.+冲位/);
+  assert.match(boundaryFacts.get('圣心')?.sources.join('；') ?? '', /六壬指南注解.+六壬大全/);
+  assert.match(boundaryFacts.get('圣心')?.limitations.join('；') ?? '', /“巳”被识作“己”/);
+  assert.match(boundaryFacts.get('圣心')?.limitations.join('；') ?? '', /不因单项出现自动判断和合/);
+  assert.match(boundaryFacts.get('受死')?.sources.join('；') ?? '', /六壬大全.+六壬兵占/);
+  assert.match(
+    boundaryFacts.get('受死')?.limitations.join('；') ?? '',
+    /还须核对日支.+当前日已经命中/,
+  );
+  assert.match(
+    boundaryFacts.get('受死')?.limitations.join('；') ?? '',
+    /不因单项出现自动判断一切大凶/,
+  );
+  assert.match(boundaryFacts.get('罪至')?.sources.join('；') ?? '', /六壬大全.+六壬兵占/);
+  assert.match(boundaryFacts.get('罪至')?.limitations.join('；') ?? '', /“辰”被识作“胡”/);
+  assert.match(boundaryFacts.get('罪至')?.limitations.join('；') ?? '', /不因单项出现自动判断诉讼/);
+  assert.match(boundaryFacts.get('血忌')?.rule ?? '', /正月丑起.+单月顺行.+双月.+冲位/);
+  assert.match(boundaryFacts.get('血忌')?.sources.join('；') ?? '', /六壬大全.+六壬心镜/);
+  assert.match(
+    boundaryFacts.get('血忌')?.limitations.join('；') ?? '',
+    /血支是正月丑起逐月顺行十二支.+不把血支作为异名/,
+  );
+  assert.match(boundaryFacts.get('血忌')?.limitations.join('；') ?? '', /五月占案.+应为血支/);
+  assert.match(
+    boundaryFacts.get('血忌')?.limitations.join('；') ?? '',
+    /胎神、养神、蛇虎、刑煞、日辰、年命/,
   );
 
   const tianSheCases = [
@@ -1753,8 +1791,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const hasTianShe = facts.has('天赦');
     assert.equal(
       shenShaFacts.length,
-      71 + Number(hasTianHe) + Number(hasTianShe),
-      `${result.ganzhi.day}应有七十一项固定神煞及条件性天合、天赦`,
+      75 + Number(hasTianHe) + Number(hasTianShe),
+      `${result.ganzhi.day}应有七十五项固定神煞及条件性天合、天赦`,
     );
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(
