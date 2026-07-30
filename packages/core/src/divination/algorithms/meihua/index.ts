@@ -445,6 +445,7 @@ export type {
   MeihuaTopicResponseContextFact,
   MeihuaTenResponseContextFact,
   MeihuaMatterTenResponseContextFact,
+  MeihuaTrigramResponseCatalogFact,
   MeihuaHexagramDispositionFact,
   MeihuaHexagramDispositionVersionFact,
   MeihuaInternalMotionFact,

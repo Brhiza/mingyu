@@ -177,6 +177,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.equal(evidence.summaryFact.topicResponseContextFactCount, 1);
   assert.equal(evidence.summaryFact.tenResponseContextFactCount, 1);
   assert.equal(evidence.summaryFact.matterTenResponseContextFactCount, 1);
+  assert.equal(evidence.summaryFact.trigramResponseCatalogFactCount, 1);
   assert.equal(
     evidence.summaryFact.hexagramDispositionFactCount,
     evidence.hexagramDispositionFacts.length,
@@ -602,6 +603,76 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   ]) {
     assert.equal(key in evidence.matterTenResponseContextFact, false);
   }
+  assert.equal(evidence.trigramResponseCatalogFact.key, 'meihua:trigram-response-catalog');
+  assert.equal(evidence.trigramResponseCatalogFact.status, '资料不足');
+  assert.deepEqual(evidence.trigramResponseCatalogFact.trigramCatalogFields, [
+    '乾',
+    '坤',
+    '震',
+    '巽',
+    '坎',
+    '离',
+    '艮',
+    '兑',
+  ]);
+  assert.deepEqual(evidence.trigramResponseCatalogFact.qianDetailCategoryFields, [
+    '天文',
+    '天气',
+    '凶盗',
+    '官贵',
+    '身体',
+    '性情',
+    '声音',
+    '信音',
+    '事意',
+    '疾病',
+    '附药',
+  ]);
+  assert.deepEqual(evidence.trigramResponseCatalogFact.availableContextFields, []);
+  assert.deepEqual(
+    evidence.trigramResponseCatalogFact.missingContextFields,
+    evidence.trigramResponseCatalogFact.requiredContextFields,
+  );
+  assert.equal(evidence.trigramResponseCatalogFact.requiredContextFields.length, 7);
+  assert.equal(evidence.trigramResponseCatalogFact.availableChartFields.length, 3);
+  assert.equal(evidence.trigramResponseCatalogFact.sourceLineFields.length, 21);
+  assert.equal(evidence.trigramResponseCatalogFact.canonicalCrosscheckFields.length, 8);
+  assert.equal(evidence.trigramResponseCatalogFact.unresolvedRuleFields.length, 12);
+  assert.equal(evidence.trigramResponseCatalogFact.highRiskRuleFields.length, 7);
+  assert.match(evidence.trigramResponseCatalogFact.sourceLineFields[14] ?? '', /＄足/);
+  assert.match(evidence.trigramResponseCatalogFact.sourceLineFields[15] ?? '', /三位/);
+  assert.match(evidence.trigramResponseCatalogFact.sourceLineFields[17] ?? '', /干卦/);
+  assert.match(evidence.trigramResponseCatalogFact.sourceLineFields[19] ?? '', /坚多节/);
+  assert.match(evidence.trigramResponseCatalogFact.promptText, /21个非空底本文本行/);
+  assert.match(evidence.trigramResponseCatalogFact.promptText, /不自动匹配或补齐类象/);
+  for (const key of [
+    'matchedTrigram',
+    'matchedCatalog',
+    'weather',
+    'weatherForecast',
+    'thief',
+    'official',
+    'personIdentity',
+    'occupation',
+    'personality',
+    'motive',
+    'messageEvent',
+    'bodyPart',
+    'illness',
+    'diagnosis',
+    'medicine',
+    'prescription',
+    'objectAttribute',
+    'auspicious',
+    'result',
+    'score',
+    'weight',
+    'probability',
+    'timing',
+    'responseDate',
+  ]) {
+    assert.equal(key in evidence.trigramResponseCatalogFact, false);
+  }
   assert.equal(evidence.hexagramDispositionFacts.length, 3);
   assert.deepEqual(
     evidence.hexagramDispositionFacts.map((item) => item.label),
@@ -649,7 +720,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
     .map((item) => item.type);
   assert.ok(processCounterTypes.includes('互卦响应关系限制'));
   assert.ok(processCounterTypes.includes('互卦响应月令限制'));
-  assert.equal(evidence.limitationFacts.length, 15);
+  assert.equal(evidence.limitationFacts.length, 16);
   assert.deepEqual(
     evidence.limitations,
     evidence.limitationFacts.map((item) => item.promptText),
@@ -669,6 +740,7 @@ test('梅花排盘应内置主互变三阶段结构化证据', () => {
   assert.match(evidence.promptText, /诸事响应专项：/);
   assert.match(evidence.promptText, /占卜十应：/);
   assert.match(evidence.promptText, /论事十大应：/);
+  assert.match(evidence.promptText, /卦应八卦目录：/);
   assert.match(evidence.promptText, /反对性情资料：/);
   assert.match(evidence.promptText, /解释限制：/);
   assert.match(evidence.promptText, /起因.*→.*过程.*；.*过程.*→.*结果/);
@@ -1100,6 +1172,35 @@ test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补�
       ]) {
         assert.equal(key in evidence.matterTenResponseContextFact, false);
       }
+      assert.equal(evidence.trigramResponseCatalogFact.status, '资料不足');
+      assert.deepEqual(evidence.trigramResponseCatalogFact.availableContextFields, []);
+      assert.deepEqual(
+        evidence.trigramResponseCatalogFact.missingContextFields,
+        evidence.trigramResponseCatalogFact.requiredContextFields,
+      );
+      assert.equal(evidence.trigramResponseCatalogFact.trigramCatalogFields.length, 8);
+      assert.equal(evidence.trigramResponseCatalogFact.qianDetailCategoryFields.length, 11);
+      assert.equal(evidence.trigramResponseCatalogFact.sourceLineFields.length, 21);
+      assert.equal(evidence.trigramResponseCatalogFact.canonicalCrosscheckFields.length, 8);
+      assert.equal(evidence.trigramResponseCatalogFact.unresolvedRuleFields.length, 12);
+      assert.equal(evidence.trigramResponseCatalogFact.highRiskRuleFields.length, 7);
+      for (const key of [
+        'matchedTrigram',
+        'weatherForecast',
+        'personIdentity',
+        'personality',
+        'bodyPart',
+        'diagnosis',
+        'medicine',
+        'objectAttribute',
+        'auspicious',
+        'score',
+        'weight',
+        'probability',
+        'timing',
+      ]) {
+        assert.equal(key in evidence.trigramResponseCatalogFact, false);
+      }
       assert.doesNotMatch(
         JSON.stringify({
           motion,
@@ -1110,6 +1211,7 @@ test('梅花六十四卦六动爻应逐案区分卦内角色动静且不得补�
           topicResponse: evidence.topicResponseContextFact,
           tenResponse: evidence.tenResponseContextFact,
           matterTenResponse: evidence.matterTenResponseContextFact,
+          trigramResponseCatalog: evidence.trigramResponseCatalogFact,
         }),
         /"score"\s*:|"probability"\s*:|应吉之速|应凶之速|应期快于|应期迟缓/,
       );
@@ -1737,7 +1839,8 @@ test('梅花四种起卦入口都应生成完整可移植的对象化证据', ()
     assert.equal(evidence.calculationSteps.length, 7);
     assert.equal(evidence.hexagramDispositionFacts.length, 3);
     assert.equal(evidence.hexagramDispositionVersionFact.status, '底本异文待校');
-    assert.equal(evidence.limitationFacts.length, 15);
+    assert.equal(evidence.limitationFacts.length, 16);
+    assert.equal(evidence.trigramResponseCatalogFact.trigramCatalogFields.length, 8);
     assertPromptIsPortableTaskText(evidence.promptText);
   }
 });

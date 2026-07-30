@@ -4456,6 +4456,38 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   ]) {
     assert.equal(key in matterTenResponse, false);
   }
+  const trigramResponseCatalog = chart.body.data.evidenceAnalysis.trigramResponseCatalogFact;
+  assert.equal(trigramResponseCatalog.key, 'meihua:trigram-response-catalog');
+  assert.equal(trigramResponseCatalog.status, '资料不足');
+  assert.deepEqual(trigramResponseCatalog.availableContextFields, []);
+  assert.deepEqual(
+    trigramResponseCatalog.missingContextFields,
+    trigramResponseCatalog.requiredContextFields,
+  );
+  assert.equal(trigramResponseCatalog.trigramCatalogFields.length, 8);
+  assert.equal(trigramResponseCatalog.qianDetailCategoryFields.length, 11);
+  assert.equal(trigramResponseCatalog.sourceLineFields.length, 21);
+  assert.equal(trigramResponseCatalog.canonicalCrosscheckFields.length, 8);
+  assert.equal(trigramResponseCatalog.unresolvedRuleFields.length, 12);
+  assert.equal(trigramResponseCatalog.highRiskRuleFields.length, 7);
+  assert.match(trigramResponseCatalog.promptText, /不自动匹配或补齐类象/);
+  for (const key of [
+    'matchedTrigram',
+    'weatherForecast',
+    'personIdentity',
+    'personality',
+    'bodyPart',
+    'diagnosis',
+    'medicine',
+    'objectAttribute',
+    'auspicious',
+    'score',
+    'weight',
+    'probability',
+    'timing',
+  ]) {
+    assert.equal(key in trigramResponseCatalog, false);
+  }
   const dispositionFacts = chart.body.data.evidenceAnalysis.hexagramDispositionFacts;
   const dispositionVersion = chart.body.data.evidenceAnalysis.hexagramDispositionVersionFact;
   assert.equal(dispositionFacts.length, 3);
@@ -4610,6 +4642,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.equal(chart.body.data.evidenceAnalysis.summaryFact.topicResponseContextFactCount, 1);
   assert.equal(chart.body.data.evidenceAnalysis.summaryFact.tenResponseContextFactCount, 1);
   assert.equal(chart.body.data.evidenceAnalysis.summaryFact.matterTenResponseContextFactCount, 1);
+  assert.equal(chart.body.data.evidenceAnalysis.summaryFact.trigramResponseCatalogFactCount, 1);
   assert.equal(
     chart.body.data.evidenceAnalysis.summaryFact.hexagramDispositionFactCount,
     dispositionFacts.length,
@@ -4619,7 +4652,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
     chart.body.data.evidenceAnalysis.summaryFact.transitionFactCount,
     chart.body.data.evidenceAnalysis.transitionFacts.length,
   );
-  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 15);
+  assert.equal(chart.body.data.evidenceAnalysis.limitationFacts.length, 16);
   assert.equal(
     chart.body.data.evidenceAnalysis.limitations.length,
     chart.body.data.evidenceAnalysis.limitationFacts.length,
@@ -4644,6 +4677,7 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.match(chart.body.data.evidenceAnalysis.promptText, /诸事响应专项：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /占卜十应：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /论事十大应：/);
+  assert.match(chart.body.data.evidenceAnalysis.promptText, /卦应八卦目录：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /反对性情资料：/);
   assert.match(chart.body.data.evidenceAnalysis.promptText, /解释限制：/);
   assertPromptIsPortableTaskText(chart.body.data.evidenceAnalysis.promptText);
@@ -4699,6 +4733,8 @@ test('公开 API 梅花排盘与提示词应返回主互变体用推进证据', 
   assert.match(prompt.body.data.prompt, /占卜十应：《占卜十应诀》第954至978行/);
   assert.match(prompt.body.data.prompt, /疾病末段不得生成诊断、痊愈或生死结论/);
   assert.match(prompt.body.data.prompt, /论事十大应：《论事十大应（论日辰秘文）》第979至989行/);
+  assert.match(prompt.body.data.prompt, /卦应八卦目录：《卦应》第990至1018行/);
+  assert.match(prompt.body.data.prompt, /坤至兑没有乾卦同类分项/);
   assert.match(prompt.body.data.prompt, /应期资料：应期状态：待补充事项情境/);
   assert.match(prompt.body.data.prompt, /全卦克应候选：/);
   assert.match(prompt.body.data.prompt, /资料未齐时不能计算传统克应/);

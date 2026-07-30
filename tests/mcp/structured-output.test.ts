@@ -3374,6 +3374,21 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               highRiskRuleFields: string[];
               promptText: string;
             };
+            trigramResponseCatalogFact: {
+              key: string;
+              status: string;
+              trigramCatalogFields: string[];
+              qianDetailCategoryFields: string[];
+              requiredContextFields: string[];
+              availableContextFields: string[];
+              missingContextFields: string[];
+              availableChartFields: string[];
+              sourceLineFields: string[];
+              canonicalCrosscheckFields: string[];
+              unresolvedRuleFields: string[];
+              highRiskRuleFields: string[];
+              promptText: string;
+            };
             hexagramDispositionFacts: Array<{
               status: string;
               stage: string;
@@ -3436,6 +3451,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
               topicResponseContextFactCount: number;
               tenResponseContextFactCount: number;
               matterTenResponseContextFactCount: number;
+              trigramResponseCatalogFactCount: number;
               hexagramDispositionFactCount: number;
               hexagramDispositionVersionFactCount: number;
               transitionFactCount: number;
@@ -3754,6 +3770,38 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     ]) {
       assert.equal(key in matterTenResponse, false);
     }
+    const trigramResponseCatalog = result.evidenceAnalysis.trigramResponseCatalogFact;
+    assert.equal(trigramResponseCatalog.key, 'meihua:trigram-response-catalog');
+    assert.equal(trigramResponseCatalog.status, '资料不足');
+    assert.deepEqual(trigramResponseCatalog.availableContextFields, []);
+    assert.deepEqual(
+      trigramResponseCatalog.missingContextFields,
+      trigramResponseCatalog.requiredContextFields,
+    );
+    assert.equal(trigramResponseCatalog.trigramCatalogFields.length, 8);
+    assert.equal(trigramResponseCatalog.qianDetailCategoryFields.length, 11);
+    assert.equal(trigramResponseCatalog.sourceLineFields.length, 21);
+    assert.equal(trigramResponseCatalog.canonicalCrosscheckFields.length, 8);
+    assert.equal(trigramResponseCatalog.unresolvedRuleFields.length, 12);
+    assert.equal(trigramResponseCatalog.highRiskRuleFields.length, 7);
+    assert.match(trigramResponseCatalog.promptText, /不自动匹配或补齐类象/);
+    for (const key of [
+      'matchedTrigram',
+      'weatherForecast',
+      'personIdentity',
+      'personality',
+      'bodyPart',
+      'diagnosis',
+      'medicine',
+      'objectAttribute',
+      'auspicious',
+      'score',
+      'weight',
+      'probability',
+      'timing',
+    ]) {
+      assert.equal(key in trigramResponseCatalog, false);
+    }
     const dispositionFacts = result.evidenceAnalysis.hexagramDispositionFacts;
     const dispositionVersion = result.evidenceAnalysis.hexagramDispositionVersionFact;
     assert.equal(dispositionFacts.length, 3);
@@ -3902,6 +3950,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.equal(result.evidenceAnalysis.summaryFact.topicResponseContextFactCount, 1);
     assert.equal(result.evidenceAnalysis.summaryFact.tenResponseContextFactCount, 1);
     assert.equal(result.evidenceAnalysis.summaryFact.matterTenResponseContextFactCount, 1);
+    assert.equal(result.evidenceAnalysis.summaryFact.trigramResponseCatalogFactCount, 1);
     assert.equal(
       result.evidenceAnalysis.summaryFact.hexagramDispositionFactCount,
       dispositionFacts.length,
@@ -3919,7 +3968,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
       result.evidenceAnalysis.summaryFact.timingFactCount,
       result.evidenceAnalysis.timingFacts.length,
     );
-    assert.equal(result.evidenceAnalysis.limitationFacts.length, 15);
+    assert.equal(result.evidenceAnalysis.limitationFacts.length, 16);
     assert.equal(
       result.evidenceAnalysis.limitations.length,
       result.evidenceAnalysis.limitationFacts.length,
@@ -3956,6 +4005,7 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.match(result.evidenceAnalysis.promptText, /万物外应：/);
     assert.match(result.evidenceAnalysis.promptText, /占卜十应：/);
     assert.match(result.evidenceAnalysis.promptText, /论事十大应：/);
+    assert.match(result.evidenceAnalysis.promptText, /卦应八卦目录：/);
     assert.match(result.evidenceAnalysis.promptText, /反对性情资料：/);
     assert.match(result.evidenceAnalysis.promptText, /解释限制：/);
     assertPromptIsPortableTaskText(result.evidenceAnalysis.promptText);
@@ -4007,6 +4057,8 @@ test('MCP 梅花排盘与提示词应返回主互变体用推进证据', async (
     assert.match(promptText, /占卜十应：《占卜十应诀》第954至978行/);
     assert.match(promptText, /疾病末段不得生成诊断、痊愈或生死结论/);
     assert.match(promptText, /论事十大应：《论事十大应（论日辰秘文）》第979至989行/);
+    assert.match(promptText, /卦应八卦目录：《卦应》第990至1018行/);
+    assert.match(promptText, /坤至兑没有乾卦同类分项/);
     assert.match(promptText, /反对性情资料：/);
     assert.match(promptText, /应期资料：应期状态：待补充事项情境/);
     assert.match(promptText, /全卦克应候选：/);

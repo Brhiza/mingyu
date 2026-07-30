@@ -412,6 +412,13 @@ function formatMeihuaInfo(data: MeihuaData) {
     data.evidenceAnalysis.matterTenResponseContextFact.sourceLineFields?.length === 11 &&
     data.evidenceAnalysis.matterTenResponseContextFact.unresolvedRuleFields?.length &&
     data.evidenceAnalysis.matterTenResponseContextFact.highRiskRuleFields?.length &&
+    data.evidenceAnalysis.trigramResponseCatalogFact &&
+    data.evidenceAnalysis.trigramResponseCatalogFact.trigramCatalogFields?.length === 8 &&
+    data.evidenceAnalysis.trigramResponseCatalogFact.qianDetailCategoryFields?.length === 11 &&
+    data.evidenceAnalysis.trigramResponseCatalogFact.sourceLineFields?.length === 21 &&
+    data.evidenceAnalysis.trigramResponseCatalogFact.canonicalCrosscheckFields?.length &&
+    data.evidenceAnalysis.trigramResponseCatalogFact.unresolvedRuleFields?.length &&
+    data.evidenceAnalysis.trigramResponseCatalogFact.highRiskRuleFields?.length &&
     data.evidenceAnalysis.hexagramDispositionFacts?.length &&
     data.evidenceAnalysis.hexagramDispositionVersionFact &&
     data.evidenceAnalysis.timingFacts?.some((item) => item.type === '全卦克应关系') &&
@@ -465,6 +472,7 @@ function formatMeihuaInfo(data: MeihuaData) {
     `诸事响应专项：${evidenceAnalysis.topicResponseContextFact.promptText}`,
     `占卜十应：${evidenceAnalysis.tenResponseContextFact.promptText}`,
     `论事十大应：${evidenceAnalysis.matterTenResponseContextFact.promptText}`,
+    `卦应八卦目录：${evidenceAnalysis.trigramResponseCatalogFact.promptText}`,
     `反对性情资料：${evidenceAnalysis.hexagramDispositionFacts.map((item) => item.promptText).join('；')}；${evidenceAnalysis.hexagramDispositionVersionFact.promptText}`,
     `应期资料：${timingEvidence}`,
     '结构明细：',
