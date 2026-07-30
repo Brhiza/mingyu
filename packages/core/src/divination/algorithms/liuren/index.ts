@@ -47,7 +47,7 @@ function buildShenShaFacts(
     '只定位神煞所在干支',
     '须核对是否入课、入传或临干支',
     '不得单项定吉凶',
-    '当前只登记三十一项可复算神煞，不代表《六壬大全》神煞总目录已经穷尽',
+    '当前只登记三十九项可复算神煞，不代表《六壬大全》神煞总目录已经穷尽',
   ];
   const addFact = (
     fact: Omit<LiurenShenShaFact, 'sources' | 'limitations'> & {
@@ -76,6 +76,86 @@ function buildShenShaFacts(
       rule: '日支所属三合局取支马：申子辰寅、亥卯未巳、寅午戌申、巳酉丑亥',
       source: '《六壬大全》卷一“十二地支神煞”支马表',
     });
+  }
+
+  const dayBranchShenShaIndex = DIZHI.findIndex((branch) => branch === dayBranch);
+  if (dayBranchShenShaIndex >= 0) {
+    const dayBranchShenShaTables = [
+      {
+        name: '支德',
+        targets: ['巳', '午', '未', '申', '酉', '戌', '亥', '子', '丑', '寅', '卯', '辰'],
+        rule: '日支前五支为支德：子巳、丑午、寅未、卯申、辰酉、巳戌、午亥、未子、申丑、酉寅、戌卯、亥辰',
+        extraSources: [
+          '《六壬大全》卷一“十二地支神煞”支德表',
+          '《六壬粹言》“德庆课”支前五位为支德',
+        ],
+      },
+      {
+        name: '支仪',
+        targets: ['午', '巳', '辰', '卯', '寅', '丑', '未', '申', '酉', '戌', '亥', '子'],
+        rule: '子日午起逆行至巳日丑，午日未起顺行至亥日子',
+        extraSources: ['《六壬大全》卷一“十二地支神煞”支仪表与“六仪课”'],
+      },
+      {
+        name: '支破',
+        targets: ['酉', '辰', '亥', '午', '丑', '申', '卯', '戌', '巳', '子', '未', '寅'],
+        rule: '日支属阳则退三位，属阴则进三位：子酉、丑辰、寅亥、卯午、辰丑、巳申、午卯、未戌、申巳、酉子、戌未、亥寅',
+        extraSources: [
+          '《六壬大全》卷一“十二地支神煞”支破表',
+          '《六壬粹言》“冲破格”阳日后三辰、阴日前三辰',
+        ],
+      },
+      {
+        name: '支破碎',
+        targets: ['巳', '丑', '酉', '巳', '丑', '酉', '巳', '丑', '酉', '巳', '丑', '酉'],
+        rule: '日支四孟在酉、四仲在巳、四季在丑',
+        extraSources: ['《六壬大全》卷一“十二地支神煞”金神表'],
+        extraLimitations: [
+          '《大六壬神煞指南》表作“破碎”，《六壬大全》同一日支表作“金神”；本结果加“支”字，避免与逐月“破碎”重名',
+        ],
+      },
+      {
+        name: '勾神',
+        targets: ['卯', '戌', '巳', '子', '未', '寅', '酉', '辰', '亥', '午', '丑', '申'],
+        rule: '阳支日从卯起隔支顺行六阴支，阴支日从戌起隔支顺行六阳支',
+        extraSources: ['《六壬粹言》勾神起法'],
+      },
+      {
+        name: '绞神',
+        targets: ['酉', '辰', '亥', '午', '丑', '申', '卯', '戌', '巳', '子', '未', '寅'],
+        rule: '勾神对冲为绞神',
+        extraSources: ['《六壬粹言》“勾神对宫为绞神”'],
+        extraLimitations: ['绞神与支破同支，但名称与起法层级不同，不合并为一项'],
+      },
+      {
+        name: '四煞',
+        targets: ['未', '辰', '丑', '戌', '未', '辰', '丑', '戌', '未', '辰', '丑', '戌'],
+        rule: '申子辰日未、巳酉丑日辰、寅午戌日丑、亥卯未日戌',
+        extraSources: ['《六壬大全》“金神四煞占来凶”注'],
+      },
+      {
+        name: '支亡',
+        targets: ['亥', '申', '巳', '寅', '亥', '申', '巳', '寅', '亥', '申', '巳', '寅'],
+        rule: '申子辰日亥、巳酉丑日申、寅午戌日巳、亥卯未日寅',
+        extraLimitations: ['本项以日支起，名称用“支亡”以区别月建所起的“亡神”'],
+      },
+    ] as const;
+    const source = '《六壬指南注解》卷四《大六壬神煞指南》“支煞”表与歌诀';
+
+    for (const table of dayBranchShenShaTables) {
+      addFact({
+        name: table.name,
+        target: table.targets[dayBranchShenShaIndex],
+        targetType: '地支',
+        category: '十二地支神煞',
+        basis: '日支',
+        input: dayBranch,
+        rule: table.rule,
+        source,
+        extraSources: 'extraSources' in table ? [...table.extraSources] : [],
+        extraLimitations: 'extraLimitations' in table ? [...table.extraLimitations] : [],
+      });
+    }
   }
 
   const monthHorse = getYiMa(monthBranch);

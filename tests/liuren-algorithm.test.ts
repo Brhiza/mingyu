@@ -957,7 +957,7 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
         item.rule &&
         item.sources.length > 0 &&
         item.limitations.length >= 4 &&
-        item.limitations.some((limitation) => limitation.includes('三十一项可复算神煞')),
+        item.limitations.some((limitation) => limitation.includes('三十九项可复算神煞')),
     ),
   );
 });
@@ -1084,6 +1084,16 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     日奸: ['亥', '酉', '辰', '申', '巳', '亥', '酉', '辰', '申', '巳'],
     日淫: ['午', '午', '未', '未', '戌', '戌', '寅', '寅', '巳', '巳'],
   };
+  const dayBranchShenShaTargets: Record<string, readonly string[]> = {
+    支德: ['巳', '午', '未', '申', '酉', '戌', '亥', '子', '丑', '寅', '卯', '辰'],
+    支仪: ['午', '巳', '辰', '卯', '寅', '丑', '未', '申', '酉', '戌', '亥', '子'],
+    支破: ['酉', '辰', '亥', '午', '丑', '申', '卯', '戌', '巳', '子', '未', '寅'],
+    支破碎: ['巳', '丑', '酉', '巳', '丑', '酉', '巳', '丑', '酉', '巳', '丑', '酉'],
+    勾神: ['卯', '戌', '巳', '子', '未', '寅', '酉', '辰', '亥', '午', '丑', '申'],
+    绞神: ['酉', '辰', '亥', '午', '丑', '申', '卯', '戌', '巳', '子', '未', '寅'],
+    四煞: ['未', '辰', '丑', '戌', '未', '辰', '丑', '戌', '未', '辰', '丑', '戌'],
+    支亡: ['亥', '申', '巳', '寅', '亥', '申', '巳', '寅', '亥', '申', '巳', '寅'],
+  };
   const start = new Date('2026-01-01T12:00:00+08:00').getTime();
   for (let dayOffset = 0; dayOffset < 60; dayOffset += 1) {
     const result = generateLiuren(new Date(start + dayOffset * 86_400_000));
@@ -1097,7 +1107,7 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const dayBranchIndex = DIZHI.indexOf(dayBranch as (typeof DIZHI)[number]);
     const dayStemIndex = TIANGAN.indexOf(dayStem as (typeof TIANGAN)[number]);
 
-    assert.equal(shenShaFacts.length, 31, `${result.ganzhi.day}应有三十一项已登记神煞`);
+    assert.equal(shenShaFacts.length, 39, `${result.ganzhi.day}应有三十九项已登记神煞`);
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(
       ['支马', '天罗', '地网', '日德', '日禄'].map((name) => facts.get(name)?.target),
@@ -1127,6 +1137,23 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       }),
       `${result.ganzhi.day}新增神煞均应按日干定位到实际地支`,
     );
+    assert.deepEqual(
+      Object.keys(dayBranchShenShaTargets).map((name) => facts.get(name)?.target),
+      Object.values(dayBranchShenShaTargets).map((targets) => targets[dayBranchIndex]),
+      `${result.ganzhi.day}新增十二地支神煞表`,
+    );
+    assert.ok(
+      Object.keys(dayBranchShenShaTargets).every((name) => {
+        const fact = facts.get(name);
+        return (
+          fact?.basis === '日支' &&
+          fact.input === dayBranch &&
+          fact.category === '十二地支神煞' &&
+          fact.targetType === '地支'
+        );
+      }),
+      `${result.ganzhi.day}新增神煞均应按日支定位到实际地支`,
+    );
     assert.ok(
       ['直符', '仪神', '天盗', '天贼', '天解', '日官', '稼穑', '三奇'].every(
         (name) => !facts.has(name),
@@ -1148,6 +1175,10 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
   assert.ok(sampleFacts.get('日解')?.limitations.some((item) => item.includes('表头缺字')));
   assert.ok(sampleFacts.get('日合')?.limitations.some((item) => item.includes('干合')));
   assert.ok(sampleFacts.get('长生')?.limitations.some((item) => item.includes('有顺无逆')));
+  assert.ok(sampleFacts.get('支破碎')?.limitations.some((item) => item.includes('金神')));
+  assert.ok(sampleFacts.get('支亡')?.limitations.some((item) => item.includes('亡神')));
+  assert.ok(sampleFacts.get('绞神')?.limitations.some((item) => item.includes('支破同支')));
+  assert.equal(sampleFacts.get('绞神')?.target, sampleFacts.get('支破')?.target);
   assert.match(sampleFacts.get('鲁都')?.rule ?? '', /游都对冲/);
   assert.match(sampleFacts.get('飞刃')?.rule ?? '', /羊刃对冲/);
 });
