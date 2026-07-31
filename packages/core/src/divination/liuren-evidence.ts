@@ -1743,7 +1743,7 @@ export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis 
               .filter((item) => item.kind === '神煞')
               .map((item) => `${item.promptText}；边界：${item.limitation}`)
               .join('；')}。神煞仅作辅助定位，不覆盖四课取传与三传主线。`,
-            source: '年支、月支、日支与日干神煞规则逐项定位',
+            source: '年干、年支、月建、日柱、日支与日干神煞规则逐项定位',
             tags: ['神煞', '辅助证据'],
           },
         ]

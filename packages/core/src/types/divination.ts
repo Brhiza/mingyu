@@ -901,8 +901,9 @@ export interface LiurenShenShaFact {
   name: string;
   target: string;
   targetType: '天干' | '地支' | '八卦方位';
-  category: '岁神煞' | '十天干神煞' | '十二地支神煞' | '逐月神煞' | '四时神煞' | '罗网神煞';
-  basis: '年干' | '年支' | '日干' | '日支' | '月建' | '月建与日柱';
+  category:
+    '岁神煞' | '旬神煞' | '十天干神煞' | '十二地支神煞' | '逐月神煞' | '四时神煞' | '罗网神煞';
+  basis: '年干' | '年支' | '日柱' | '日干' | '日支' | '月建' | '月建与日柱';
   input: string;
   rule: string;
   sources: string[];

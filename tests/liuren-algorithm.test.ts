@@ -957,7 +957,7 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
         item.rule &&
         item.sources.length > 0 &&
         item.limitations.length >= 4 &&
-        item.limitations.some((limitation) => limitation.includes('一百五十九项可复算神煞规则')),
+        item.limitations.some((limitation) => limitation.includes('一百六十六项可复算神煞规则')),
     ),
   );
 });
@@ -3084,6 +3084,22 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     支晴朗: ['午', '未', '申', '酉', '戌', '亥', '子', '丑', '寅', '卯', '辰', '巳'],
     白衣翰林: ['酉', '未', '巳', '卯', '丑', '亥', '酉', '未', '巳', '卯', '丑', '亥'],
   };
+  const xunShenShaOffsets = {
+    旬仪: 0,
+    旬盗神: 1,
+    旬丁: 3,
+    旬响动: 6,
+    旬五亡: 7,
+    旬闭口: 9,
+  } as const;
+  const xunQiByStart: Record<string, string> = {
+    子: '丑',
+    戌: '丑',
+    申: '子',
+    午: '子',
+    辰: '亥',
+    寅: '亥',
+  };
   const start = new Date('2026-01-01T12:00:00+08:00').getTime();
   for (let dayOffset = 0; dayOffset < 60; dayOffset += 1) {
     const result = generateLiuren(new Date(start + dayOffset * 86_400_000));
@@ -3096,6 +3112,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     );
     const dayBranchIndex = DIZHI.indexOf(dayBranch as (typeof DIZHI)[number]);
     const dayStemIndex = TIANGAN.indexOf(dayStem as (typeof TIANGAN)[number]);
+    const xunStartBranchIndex = (dayBranchIndex - dayStemIndex + DIZHI.length) % DIZHI.length;
+    const xunStartBranch = DIZHI[xunStartBranchIndex];
 
     const hasTianHe = facts.has('天合');
     const hasTianShe = facts.has('天赦');
@@ -3103,8 +3121,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const hasDiZhuan = facts.has('地转');
     assert.equal(
       shenShaFacts.length,
-      155 + Number(hasTianHe) + Number(hasTianShe) + Number(hasTianZhuan) + Number(hasDiZhuan),
-      `${result.ganzhi.day}应有一百五十五项固定神煞及条件性天合、天赦、天转、地转`,
+      162 + Number(hasTianHe) + Number(hasTianShe) + Number(hasTianZhuan) + Number(hasDiZhuan),
+      `${result.ganzhi.day}应有一百六十二项固定神煞及条件性天合、天赦、天转、地转`,
     );
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(
@@ -3152,12 +3170,48 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       }),
       `${result.ganzhi.day}新增神煞均应按日支定位到实际地支`,
     );
+    assert.deepEqual(
+      Object.entries(xunShenShaOffsets).map(([name, offset]) => [name, facts.get(name)?.target]),
+      Object.entries(xunShenShaOffsets).map(([name, offset]) => [
+        name,
+        DIZHI[(xunStartBranchIndex + offset) % DIZHI.length],
+      ]),
+      `${result.ganzhi.day}六项旬干位置`,
+    );
+    assert.equal(facts.get('旬奇')?.target, xunQiByStart[xunStartBranch]);
     assert.ok(
-      ['直符', '仪神', '天盗', '天贼', '雨师', '雷电', '晴朗', '日官', '稼穑', '三奇'].every(
-        (name) => !facts.has(name),
-      ),
+      [...Object.keys(xunShenShaOffsets), '旬奇'].every((name) => {
+        const fact = facts.get(name);
+        return (
+          fact?.basis === '日柱' &&
+          fact.input === result.ganzhi.day &&
+          fact.category === '旬神煞' &&
+          fact.targetType === '地支'
+        );
+      }),
+      `${result.ganzhi.day}旬神煞均应按完整日柱定位到实际地支`,
+    );
+    assert.ok(
+      [
+        '直符',
+        '仪神',
+        '天盗',
+        '天贼',
+        '雨师',
+        '雷电',
+        '晴朗',
+        '日官',
+        '稼穑',
+        '三奇',
+        '六仪',
+        '盗神',
+        '响动',
+        '五亡',
+        '闭口',
+      ].every((name) => !facts.has(name)),
       `${result.ganzhi.day}不得混入异名或尚未闭合的规则`,
     );
+    assert.ok(!result.guaTi.includes('六仪') && !result.guaTi.includes('三奇'));
   }
 
   const sampleFacts = new Map(
@@ -3182,6 +3236,42 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
   assert.ok(sampleFacts.get('支雷电')?.limitations.some((item) => item.includes('直接断现实雷电')));
   assert.ok(sampleFacts.get('支晴朗')?.limitations.some((item) => item.includes('直接断现实天气')));
   assert.ok(sampleFacts.get('白衣翰林')?.limitations.some((item) => item.includes('第二底本')));
+  assert.match(
+    sampleFacts.get('旬仪')?.sources.join('；') ?? '',
+    /六壬指南注解.+六壬心镜.+六壬寻源.+六壬大全/,
+  );
+  assert.match(
+    sampleFacts.get('旬奇')?.sources.join('；') ?? '',
+    /六壬指南注解.+六壬心镜.+六壬寻源.+六壬粹言/,
+  );
+  assert.match(
+    sampleFacts.get('旬五亡')?.sources.join('；') ?? '',
+    /六壬大全.+六壬指南注解.+六壬秘本/,
+  );
+  assert.match(
+    sampleFacts.get('旬丁')?.sources.join('；') ?? '',
+    /六壬指南注解.+六壬心镜.+六壬大全.+六壬粹言/,
+  );
+  assert.match(
+    sampleFacts.get('旬闭口')?.sources.join('；') ?? '',
+    /六壬指南注解.+六壬粹言.+六壬直指御定/,
+  );
+  assert.match(
+    sampleFacts.get('旬盗神')?.limitations.join('；') ?? '',
+    /六壬心镜.+另称“亡神”.+不覆盖月建所起的亡神.+玄武阴神.+不生成普通“盗神”/,
+  );
+  assert.match(
+    sampleFacts.get('旬仪')?.limitations.join('；') ?? '',
+    /发用或入传.+六仪课.+只有支仪而无旬仪不能单独称六仪课/,
+  );
+  assert.match(
+    sampleFacts.get('旬奇')?.limitations.join('；') ?? '',
+    /发用或入传.+三奇课.+不与现有干奇合并/,
+  );
+  assert.match(
+    sampleFacts.get('旬闭口')?.limitations.join('；') ?? '',
+    /旬尾加旬首发用.+旬首乘玄武.+不因旬癸每日存在而自动生成“闭口课”/,
+  );
   assert.match(sampleFacts.get('白衣翰林')?.rule ?? '', /每日逆行二支/);
   assert.equal(sampleFacts.get('绞神')?.target, sampleFacts.get('支破')?.target);
   assert.match(sampleFacts.get('鲁都')?.rule ?? '', /游都对冲/);

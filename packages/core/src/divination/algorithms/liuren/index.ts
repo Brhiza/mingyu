@@ -49,7 +49,7 @@ function buildShenShaFacts(
     '只定位神煞所在干支或方位',
     '须按目标类型核对是否入课、入传、临干支或涉及对应方位',
     '不得单项定吉凶',
-    '当前只登记一百五十九项可复算神煞规则；天合、天赦、天转及地转均为条件性事实，不代表《六壬大全》神煞总目录已经穷尽',
+    '当前只登记一百六十六项可复算神煞规则；天合、天赦、天转及地转均为条件性事实，不代表《六壬大全》神煞总目录已经穷尽',
   ];
   const addFact = (
     fact: Omit<LiurenShenShaFact, 'sources' | 'limitations'> & {
@@ -2125,6 +2125,137 @@ function buildShenShaFacts(
   }
 
   const dayStemIndex = TIANGAN.findIndex((stem) => stem === dayStem);
+  if (dayStemIndex >= 0 && dayBranchIndex >= 0) {
+    const xunStartBranchIndex = (dayBranchIndex - dayStemIndex + DIZHI.length) % DIZHI.length;
+    const xunStartBranch = DIZHI[xunStartBranchIndex];
+    const xunQiByStart: Partial<Record<(typeof DIZHI)[number], (typeof DIZHI)[number]>> = {
+      子: '丑',
+      戌: '丑',
+      申: '子',
+      午: '子',
+      辰: '亥',
+      寅: '亥',
+    };
+    const xunQi = xunQiByStart[xunStartBranch];
+    const xunShenShaRules = [
+      {
+        name: '旬仪',
+        offset: 0,
+        rule: '旬仪取日柱所属六甲旬的旬首：甲子旬子、甲戌旬戌、甲申旬申、甲午旬午、甲辰旬辰、甲寅旬寅',
+        source: '《六壬指南注解》卷四《大六壬神煞指南》以旬首为仪神，并以甲子旬仪神在子为例',
+        extraSources: [
+          '《六壬心镜》“六仪卦”称“旬仪即旬首”',
+          '《六壬寻源》“六仪”列甲子旬用子之例',
+          '《四库全书》本《六壬大全》“六仪课”完整列六旬旬仪',
+        ],
+        extraLimitations: [
+          '本项只登记旬首所在支；《六壬大全》《六壬寻源》均要求旬仪发用或入传才构成六仪课，不因旬仪位置每日存在而自动生成“六仪课”',
+          '支仪属于日支所起的另一项事实；只有支仪而无旬仪不能单独称六仪课，本项不与支仪合并',
+        ],
+      },
+      {
+        name: '旬盗神',
+        offset: 1,
+        rule: '旬盗神取旬乙，即从所属六甲旬的旬首顺行一支',
+        source: '《六壬指南注解》卷四《大六壬神煞指南》“旬乙为盗神”',
+        extraSources: ['《六壬心镜》占盗章另称“亡神旬内常居乙”'],
+        extraLimitations: [
+          '本结果依《六壬指南注解》命名为“旬盗神”；《六壬心镜》同位另称“亡神”，异名并存，不另生成旬亡神，也不覆盖月建所起的亡神',
+          '玄武阴神及逐月卯起四仲的盗神属于其他起法；本项加“旬”字分层，不生成普通“盗神”事实',
+        ],
+      },
+      {
+        name: '旬丁',
+        offset: 3,
+        rule: '旬丁取旬内丁干所在支，即从所属六甲旬的旬首顺行三支',
+        source: '《六壬指南注解》卷四《大六壬神煞指南》“旬丁须视六亲”',
+        extraSources: [
+          '《六壬心镜》“斩关卦”完整列六旬旬丁为丁卯、丁丑、丁亥、丁酉、丁未、丁巳',
+          '《六壬大全》“任信丁马须言动”及《六壬粹言》伏吟课均以旬内丁神入课传为动因条件',
+        ],
+        extraLimitations: [
+          '本项只登记旬内丁干所在支；原典还须核对是否入课、入传、临干支、年命及所乘神将，不能仅凭每日固定位置判断已经发生变动',
+          '不因旬丁每日存在而自动生成斩关、游子、任信丁马或其他课体，也不推断具体六亲与现实事件',
+        ],
+      },
+      {
+        name: '旬响动',
+        offset: 6,
+        rule: '旬响动取旬庚，即从所属六甲旬的旬首顺行六支',
+        source: '《六壬指南注解》卷四《大六壬神煞指南》“旬庚为响动”',
+        extraSources: ['《六壬粹言》病占例明确使用“虎乘旬庚”的旬内庚干位置'],
+        extraLimitations: [
+          '本项采用《六壬指南注解》“响动”名，只登记旬庚所在支；不得仅凭每日固定位置判断官病、动作或其他现实事件',
+          '旬庚乘白虎而成为遁鬼等组合另有完整条件，本项不自动生成组合格局或普通“响动”事实',
+        ],
+      },
+      {
+        name: '旬五亡',
+        offset: 7,
+        rule: '旬五亡取旬辛，即从所属六甲旬的旬首顺行七支',
+        source: '《六壬大全》卷一“旬中六辛便是五亡煞”',
+        extraSources: [
+          '《六壬指南注解》卷四《大六壬神煞指南》“旬辛为五亡七煞”',
+          '《六壬秘本》“六辛便是五亡神”',
+        ],
+        extraLimitations: [
+          '本项加“旬”字，以区别其他体系可能出现的同名五亡；只登记旬辛位置，不生成普通“五亡”事实',
+          '是否刑克日辰、年命、入课传或并空亡须另行核对，不因每日固定位置推断盗亡、走失或其他现实事件',
+        ],
+      },
+      {
+        name: '旬闭口',
+        offset: 9,
+        rule: '旬闭口取旬癸，即从所属六甲旬的旬首顺行九支',
+        source: '《六壬指南注解》卷四《大六壬神煞指南》“旬癸为闭口”',
+        extraSources: [
+          '《六壬粹言》求财门以“酉遁干癸”为财作闭口例',
+          '《六壬直指御定》占例以“遁旬癸”说明闭口',
+        ],
+        extraLimitations: [
+          '本项只登记旬癸所在支，并采用“旬闭口”名；旬尾加旬首发用、旬首乘玄武等闭口课另有完整条件，不因旬癸每日存在而自动生成“闭口课”',
+          '不与禄作闭口、财作闭口、破碎为闭口等组合混合，也不生成普通“闭口”事实或推断不言、不食等现实状态',
+        ],
+      },
+    ] as const;
+
+    for (const rule of xunShenShaRules) {
+      addFact({
+        name: rule.name,
+        target: DIZHI[(xunStartBranchIndex + rule.offset) % DIZHI.length],
+        targetType: '地支',
+        category: '旬神煞',
+        basis: '日柱',
+        input: `${dayStem}${dayBranch}`,
+        rule: rule.rule,
+        source: rule.source,
+        extraSources: [...rule.extraSources],
+        extraLimitations: [...rule.extraLimitations],
+      });
+    }
+
+    if (xunQi) {
+      addFact({
+        name: '旬奇',
+        target: xunQi,
+        targetType: '地支',
+        category: '旬神煞',
+        basis: '日柱',
+        input: `${dayStem}${dayBranch}`,
+        rule: '旬奇按六旬三轮：甲子、甲戌旬在丑，甲申、甲午旬在子，甲辰、甲寅旬在亥',
+        source: '《六壬指南注解》卷四《大六壬神煞指南》以奇神为旬煞，并列六旬三轮位置',
+        extraSources: [
+          '《六壬心镜》“三奇卦”完整列旬奇三轮',
+          '《六壬寻源》“三奇”与《六壬粹言》“旬奇格”均列同表',
+        ],
+        extraLimitations: [
+          '本项只登记旬奇所在支；《六壬指南注解》《六壬寻源》《六壬粹言》均要求旬奇发用或入传才构成相应三奇课，不因旬奇位置每日存在而自动生成“三奇课”',
+          '干奇、遁干乙丙丁或甲戊庚三奇属于其他层级，本项不与现有干奇合并，也不生成普通“三奇”事实',
+        ],
+      });
+    }
+  }
+
   if (dayStemIndex >= 0) {
     const dayStemShenShaTables = [
       {
