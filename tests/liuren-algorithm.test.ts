@@ -957,7 +957,7 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
         item.rule &&
         item.sources.length > 0 &&
         item.limitations.length >= 4 &&
-        item.limitations.some((limitation) => limitation.includes('一百五十项可复算神煞规则')),
+        item.limitations.some((limitation) => limitation.includes('一百五十五项可复算神煞规则')),
     ),
   );
 });
@@ -1138,6 +1138,81 @@ test('大六壬十四项岁神煞应按年支完整循环，并与同位别名�
     /尚未闭合的逐月“豹尾”.+不据岁煞表补造/,
   );
   assert.match(sampleFacts.get('岁煞')?.limitations.join('；') ?? '', /不代替.+月煞、灾煞、劫煞/);
+});
+
+test('大六壬岁方四神与岁五鬼应按年支定位，并与同名异层规则分开', () => {
+  const cases = [
+    [2020, '子', ['艮', '坤', '乾', '巽', '辰']],
+    [2021, '丑', ['艮', '坤', '乾', '巽', '卯']],
+    [2022, '寅', ['巽', '乾', '艮', '坤', '寅']],
+    [2023, '卯', ['巽', '乾', '艮', '坤', '丑']],
+    [2024, '辰', ['巽', '乾', '艮', '坤', '子']],
+    [2025, '巳', ['坤', '艮', '巽', '乾', '亥']],
+    [2026, '午', ['坤', '艮', '巽', '乾', '戌']],
+    [2027, '未', ['坤', '艮', '巽', '乾', '酉']],
+    [2028, '申', ['乾', '巽', '坤', '艮', '申']],
+    [2029, '酉', ['乾', '巽', '坤', '艮', '未']],
+    [2030, '戌', ['乾', '巽', '坤', '艮', '午']],
+    [2031, '亥', ['艮', '坤', '乾', '巽', '巳']],
+  ] as const;
+  const names = ['力士', '蚕室', '奏书', '博士', '岁五鬼'] as const;
+
+  for (const [year, yearBranch, targets] of cases) {
+    const result = generateLiuren(new Date(`${year}-02-20T12:00:00+08:00`));
+    const facts = new Map(result.shenShaFacts?.map((item) => [item.name, item]));
+    assert.deepEqual(
+      names.map((name) => [facts.get(name)?.target, facts.get(name)?.targetType]),
+      targets.map((target, index) => [target, index === 4 ? '地支' : '八卦方位']),
+      `${yearBranch}年岁方四神与岁五鬼`,
+    );
+    assert.ok(
+      names.every(
+        (name) =>
+          facts.get(name)?.category === '岁神煞' &&
+          facts.get(name)?.basis === '年支' &&
+          facts.get(name)?.input === yearBranch,
+      ),
+    );
+    assert.equal(facts.get('五鬼')?.basis, '月建', `${yearBranch}年普通五鬼仍应属于逐月层`);
+  }
+
+  const sampleFacts = new Map(
+    generateLiuren(new Date('2020-02-20T12:00:00+08:00')).shenShaFacts?.map((item) => [
+      item.name,
+      item,
+    ]),
+  );
+  assert.match(
+    sampleFacts.get('力士')?.sources.join('；') ?? '',
+    /太岁前维力士位.+协纪辨方书.+玉匣记/,
+  );
+  assert.match(sampleFacts.get('蚕室')?.sources.join('；') ?? '', /对冲蚕室.+常与力士对冲.+玉匣记/);
+  assert.match(
+    sampleFacts.get('奏书')?.sources.join('；') ?? '',
+    /奏书后维.+蓬瀛书.+六十年表.+玉匣记/,
+  );
+  assert.match(
+    sampleFacts.get('博士')?.sources.join('；') ?? '',
+    /冲博士.+常与奏书对冲.+六十年表.+玉匣记/,
+  );
+  assert.match(
+    sampleFacts.get('岁五鬼')?.sources.join('；') ?? '',
+    /五鬼逆行子加辰.+子年在辰逆行十二辰.+卜筮全书/,
+  );
+  assert.match(
+    sampleFacts.get('力士')?.limitations.join('；') ?? '',
+    /“前维”.+艮、巽、坤、乾四隅.+不换算成单一地支/,
+  );
+  assert.match(sampleFacts.get('蚕室')?.limitations.join('；') ?? '', /蚕女行年加太岁.+蚕官、蚕命/);
+  assert.match(sampleFacts.get('奏书')?.limitations.join('；') ?? '', /功曹、天空.+普通奏章文书/);
+  assert.match(
+    sampleFacts.get('博士')?.limitations.join('；') ?? '',
+    /职业称谓、太常类象.+博士十二神/,
+  );
+  assert.match(
+    sampleFacts.get('岁五鬼')?.limitations.join('；') ?? '',
+    /区别.+按月建定位的“五鬼”.+破败五鬼/,
+  );
 });
 
 test('大六壬罗网应按日干寄宫前一支与日支前一支定位，并保留异说边界', () => {
@@ -2735,8 +2810,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const hasDiZhuan = facts.has('地转');
     assert.equal(
       shenShaFacts.length,
-      146 + Number(hasTianHe) + Number(hasTianShe) + Number(hasTianZhuan) + Number(hasDiZhuan),
-      `${result.ganzhi.day}应有一百四十六项固定神煞及条件性天合、天赦、天转、地转`,
+      151 + Number(hasTianHe) + Number(hasTianShe) + Number(hasTianZhuan) + Number(hasDiZhuan),
+      `${result.ganzhi.day}应有一百五十一项固定神煞及条件性天合、天赦、天转、地转`,
     );
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(
