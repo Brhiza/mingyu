@@ -110,11 +110,39 @@ test('现代星盘不得用真太阳时改写实际出生瞬间和盘面', () =>
   assert.deepEqual(withTrueSolarEvidence.aspects, standard.aspects);
 });
 
-test('星盘应返回筛选阈值内全部相位，不得只截取最强十二条', () => {
+test('星盘应完整穷举全部选定点对，不按派生强度筛选或截断', () => {
   const result = generateAstrolabe(validInput);
+  const calculation = result.aspectCalculation;
+  const boundaryAspect = result.aspects.find(
+    (item) => item.body1 === '太阳' && item.body2 === '土星' && item.type === '六合',
+  );
 
+  assert.ok(calculation);
+  assert.equal(calculation.enumeration, '完整穷举');
+  assert.equal(calculation.selectedPointNames.length, 24);
+  assert.equal(calculation.aspectDefinitions.length, 10);
+  assert.equal(calculation.evaluatedPairCount, 276);
+  assert.equal(calculation.matchedAspectCount, result.aspects.length);
   assert.ok(result.aspects.length > 12);
   assert.equal(result.evidenceAnalysis?.aspectFacts.length, result.aspects.length);
+  assert.ok(boundaryAspect);
+  assert.equal(boundaryAspect.actualAngle, 65.7523);
+  assert.equal(boundaryAspect.orb, 5.75);
+  assert.equal(boundaryAspect.allowedOrb, 6);
+  assert.ok(
+    result.aspects.every(
+      (item) => !('strength' in item) && !('closeness' in item) && !('normalizedOrbRatio' in item),
+    ),
+  );
+  assert.match(
+    result.evidenceAnalysis?.promptText ?? '',
+    /穷举276组无序点对.*不按派生强度筛选或截断/,
+  );
+  assert.ok(
+    (result.evidenceAnalysis?.promptText ?? '').includes(
+      result.evidenceAnalysis?.aspectFacts.at(-1)?.promptText ?? '不会命中',
+    ),
+  );
 });
 
 test('星盘应返回可复用的位置、相位、计算链与限制证据', () => {
@@ -179,8 +207,8 @@ test('星盘应返回可复用的位置、相位、计算链与限制证据', ()
         typeof item.allowedOrb === 'number' &&
         item.allowedOrb > 0 &&
         item.orb <= item.allowedOrb &&
-        item.normalizedOrbRatio >= 0 &&
-        item.normalizedOrbRatio <= 1 &&
+        !('closeness' in item) &&
+        !('normalizedOrbRatio' in item) &&
         item.promptText.includes('实际夹角') &&
         item.limitation.includes('不代表事件概率'),
     ),
@@ -214,7 +242,7 @@ test('星盘应返回可复用的位置、相位、计算链与限制证据', ()
   assert.ok(evidence.supportingFacts.length > 0);
   assert.ok(evidence.limitations.some((item) => item.includes('不代表事件概率')));
   assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
-  assert.ok(evidence.limitationFacts.length >= 7);
+  assert.ok(evidence.limitationFacts.length >= 5);
   assert.equal(evidence.summaryFact.key, 'astrolabe:evidence-summary');
   assert.equal(evidence.summaryFact.status, '证据链完整');
   assert.equal(evidence.summaryFact.primaryFactCount, evidence.primaryPointFacts.length);
@@ -249,12 +277,13 @@ test('星盘应返回可复用的位置、相位、计算链与限制证据', ()
   assert.ok(evidence.methodology.every((item) => !item.includes('输入敏感性')));
   assert.match(evidence.promptText, /【西方星盘位置与相位结构化证据】/);
   assert.match(evidence.promptText, /完整星体与计算点位置/);
-  assert.match(evidence.promptText, /实际夹角.*精确角.*允许容许度.*距精确角偏差/);
+  assert.match(evidence.promptText, /实际夹角.*精确角.*采用容许度.*距精确角偏差/);
   assert.match(evidence.promptText, /十二宫宫头/);
   assert.match(evidence.promptText, /元素模式与逆行分布/);
   assert.match(evidence.promptText, /出生地点太阳光照背景/);
   assert.match(evidence.promptText, /证据汇总：[\s\S]*解释限制（方法限制）：/);
   assert.doesNotMatch(evidence.promptText, /成功率|吉凶总分|能量分数[：=]\d/);
+  assert.doesNotMatch(evidence.promptText, /紧密等级|中等等级|宽松等级|归一化容许度/);
   assert.doesNotMatch(evidence.promptText, /命语|当前结果|工程|接口|API|MCP/);
   assertPromptIsPortableTaskText(evidence.promptText);
 });
@@ -282,7 +311,7 @@ test('旧星盘缺少相位几何量时不得反推伪精确字段', () => {
         item.actualAngle === undefined &&
         item.exactAngle === undefined &&
         item.allowedOrb === undefined &&
-        item.promptText.includes('旧结果未记录实际夹角、精确角或允许容许度'),
+        item.promptText.includes('旧结果未记录实际夹角、精确角或采用容许度'),
     ),
   );
   legacy.birth.isTrueSolarTime = true;

@@ -1293,14 +1293,25 @@ export interface AstrolabeAspect {
   /** 两计算点黄经的实际最小夹角。旧结果可能缺少。 */
   actualAngle?: number;
   orb: number;
-  /** 本次相位筛选采用的允许容许度。旧结果可能缺少。 */
+  /** 本次相位筛选采用的容许度。旧结果可能缺少。 */
   allowedOrb?: number;
-  closeness?: '紧密' | '中等' | '宽松';
-  normalizedOrbRatio?: number;
   /** 是否为跨星座相位。旧结果可能缺少。 */
   isOutOfSign?: boolean;
   source?: string;
   applying: boolean | null;
+}
+
+export interface AstrolabeAspectCalculation {
+  selectedPointNames: string[];
+  aspectDefinitions: Array<{
+    type: string;
+    symbol: string;
+    exactAngle: number;
+    allowedOrb: number;
+  }>;
+  evaluatedPairCount: number;
+  matchedAspectCount: number;
+  enumeration: '完整穷举';
 }
 
 export interface AstrolabeData {
@@ -1325,6 +1336,8 @@ export interface AstrolabeData {
   angles: AstrolabePoint[];
   houses: AstrolabePoint[];
   aspects: AstrolabeAspect[];
+  /** 当前本命相位所用点位、相位定义与完整穷举数量。旧结果可能缺少。 */
+  aspectCalculation?: AstrolabeAspectCalculation;
   solarIllumination?: SolarIlluminationEvidence;
   summary: {
     elements: Record<string, string[]>;

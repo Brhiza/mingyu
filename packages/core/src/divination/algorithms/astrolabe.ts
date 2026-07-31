@@ -1,4 +1,4 @@
-import { AspectType, calculateChart } from 'celestine';
+import { AspectType, calculateAspects, calculateChart } from 'celestine';
 import type {
   AstrolabeAspect,
   AstrolabeBirthInput,
@@ -9,7 +9,6 @@ import { daysInSolarMonth } from '../../calendar/date-validation';
 import { resolveHistoricalTimezone } from '../../calendar/historical-timezone';
 import { calculateSolarIlluminationEvidence } from '../../calendar/solar-illumination-evidence';
 import { resolveTrueSolarBirthTime } from '../../calendar/true-solar-time';
-import { classifyAspectClosenessByRatio } from '../astrolabe-aspect-evidence';
 import { analyzeAstrolabeEvidence } from '../astrolabe-evidence';
 
 export { analyzeAstrolabeEvidence } from '../astrolabe-evidence';
@@ -93,6 +92,33 @@ const ASPECT_LABELS: Record<string, string> = {
   biquintile: '倍五分相',
 };
 
+const NATAL_ASPECT_DEFINITIONS = [
+  { type: AspectType.Conjunction, label: '合相', symbol: '☌', exactAngle: 0, allowedOrb: 8 },
+  { type: AspectType.SemiSextile, label: '半六合', symbol: '⚺', exactAngle: 30, allowedOrb: 2 },
+  { type: AspectType.SemiSquare, label: '半刑', symbol: '∠', exactAngle: 45, allowedOrb: 2 },
+  { type: AspectType.Sextile, label: '六合', symbol: '⚹', exactAngle: 60, allowedOrb: 6 },
+  { type: AspectType.Quintile, label: '五分相', symbol: 'Q', exactAngle: 72, allowedOrb: 2 },
+  { type: AspectType.Square, label: '刑相', symbol: '□', exactAngle: 90, allowedOrb: 7 },
+  { type: AspectType.Trine, label: '拱相', symbol: '△', exactAngle: 120, allowedOrb: 8 },
+  {
+    type: AspectType.Sesquiquadrate,
+    label: '补八分相',
+    symbol: '⚼',
+    exactAngle: 135,
+    allowedOrb: 2,
+  },
+  {
+    type: AspectType.Biquintile,
+    label: '倍五分相',
+    symbol: 'bQ',
+    exactAngle: 144,
+    allowedOrb: 2,
+  },
+  { type: AspectType.Opposition, label: '冲相', symbol: '☍', exactAngle: 180, allowedOrb: 8 },
+] as const;
+
+const NATAL_ASPECT_TYPES = NATAL_ASPECT_DEFINITIONS.map((item) => item.type);
+
 function requireNumber(value: unknown, label: string) {
   if (typeof value !== 'string') {
     throw new Error(`星盘需要填写有效的${label}`);
@@ -175,24 +201,20 @@ function mapAspect(aspect: {
   separation: number;
   deviation: number;
   orb: number;
-  strength: number;
   isApplying: boolean | null;
   isOutOfSign: boolean;
 }): AstrolabeAspect {
-  const normalizedOrbRatio = Number((aspect.deviation / aspect.orb).toFixed(4));
   return {
-    body1: PLANET_LABELS[aspect.body1] ?? aspect.body1,
-    body2: PLANET_LABELS[aspect.body2] ?? aspect.body2,
+    body1: PLANET_LABELS[aspect.body1] ?? ANGLE_LABELS[aspect.body1] ?? aspect.body1,
+    body2: PLANET_LABELS[aspect.body2] ?? ANGLE_LABELS[aspect.body2] ?? aspect.body2,
     type: ASPECT_LABELS[aspect.type] ?? aspect.type,
     symbol: aspect.symbol,
     exactAngle: Number(aspect.angle.toFixed(4)),
     actualAngle: Number(aspect.separation.toFixed(4)),
     orb: Number(aspect.deviation.toFixed(2)),
     allowedOrb: Number(aspect.orb.toFixed(4)),
-    closeness: classifyAspectClosenessByRatio(normalizedOrbRatio),
-    normalizedOrbRatio,
     isOutOfSign: aspect.isOutOfSign,
-    source: 'celestine 本命相位计算；紧密等级按偏差占本次允许容许度的比例换算',
+    source: 'celestine 黄经最小夹角计算；按当前列明的精确角与容许度完整筛选',
     applying: aspect.isApplying,
   };
 }
@@ -323,21 +345,9 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
       includeLilith: 'true' as const,
       includeNodes: 'true' as const,
       includeLots: true,
-      aspectTypes: [
-        AspectType.Conjunction,
-        AspectType.Sextile,
-        AspectType.Square,
-        AspectType.Trine,
-        AspectType.Opposition,
-        AspectType.SemiSextile,
-        AspectType.SemiSquare,
-        AspectType.Quintile,
-        AspectType.Sesquiquadrate,
-        AspectType.Biquintile,
-      ],
-      // 相位强度过滤阈值（celestine 0-100 strength，基于容许度偏离）；
-      // 调整需结合占星容许度口径评估，调低会纳入更多弱相位、调高会丢失有效相位。
-      minimumAspectStrength: 30,
+      aspectTypes: NATAL_ASPECT_TYPES,
+      // 不使用 celestine 的派生强度门槛；相位命中只由逐项公开的精确角和容许度决定。
+      minimumAspectStrength: 0,
     },
   );
 
@@ -350,6 +360,43 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
   const calculatedPoints = [...chart.planets, ...chart.nodes, ...chart.lilith, ...chart.lots].map(
     mapPlanet,
   );
+  const aspectBodies = [
+    ...chart.planets.map((point) => ({
+      name: point.name,
+      longitude: point.longitude,
+      longitudeSpeed: point.longitudeSpeed,
+    })),
+    ...chart.nodes.map((point) => ({ name: point.name, longitude: point.longitude })),
+    ...chart.lilith.map((point) => ({ name: point.name, longitude: point.longitude })),
+    ...chart.lots.map((point) => ({ name: point.name, longitude: point.longitude })),
+    ...[
+      chart.angles.ascendant,
+      chart.angles.midheaven,
+      chart.angles.descendant,
+      chart.angles.imumCoeli,
+    ].map((point) => ({ name: point.name, longitude: point.longitude })),
+  ];
+  const aspectResult = calculateAspects(aspectBodies, {
+    aspectTypes: NATAL_ASPECT_TYPES,
+    minimumStrength: 0,
+    includeOutOfSign: true,
+    includeApplying: true,
+  });
+  const pointOrder = new Map(aspectBodies.map((point, index) => [point.name, index]));
+  const aspectOrder = new Map<AspectType, number>(
+    NATAL_ASPECT_TYPES.map((type, index) => [type, index]),
+  );
+  const aspects = [...aspectResult.aspects]
+    .sort(
+      (first, second) =>
+        (pointOrder.get(first.body1) ?? Number.MAX_SAFE_INTEGER) -
+          (pointOrder.get(second.body1) ?? Number.MAX_SAFE_INTEGER) ||
+        (pointOrder.get(first.body2) ?? Number.MAX_SAFE_INTEGER) -
+          (pointOrder.get(second.body2) ?? Number.MAX_SAFE_INTEGER) ||
+        (aspectOrder.get(first.type) ?? Number.MAX_SAFE_INTEGER) -
+          (aspectOrder.get(second.type) ?? Number.MAX_SAFE_INTEGER),
+    )
+    .map(mapAspect);
 
   const result: AstrolabeData = {
     birth: {
@@ -397,7 +444,21 @@ export function generateAstrolabe(input: AstrolabeBirthInput): AstrolabeData {
       house: cusp.house,
       formatted: formatPosition(cusp.signName, cusp.degree, cusp.minute),
     })),
-    aspects: [...chart.aspects.all].sort((a, b) => b.strength - a.strength).map(mapAspect),
+    aspects,
+    aspectCalculation: {
+      selectedPointNames: aspectBodies.map(
+        (point) => PLANET_LABELS[point.name] ?? ANGLE_LABELS[point.name] ?? point.name,
+      ),
+      aspectDefinitions: NATAL_ASPECT_DEFINITIONS.map((item) => ({
+        type: item.label,
+        symbol: item.symbol,
+        exactAngle: item.exactAngle,
+        allowedOrb: item.allowedOrb,
+      })),
+      evaluatedPairCount: aspectResult.pairsChecked,
+      matchedAspectCount: aspects.length,
+      enumeration: '完整穷举',
+    },
     solarIllumination,
     summary: {
       elements: {

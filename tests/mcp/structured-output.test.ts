@@ -1677,7 +1677,7 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
         question: '请看我 2028 年事业机会。',
         astrolabeTopic: 'job-change',
         astrolabeScopeText:
-          '分析对象：流年2028。\n行运证据：土星□太阳（刑相，偏差0.50°，紧密等级，归一化容许度位置0.08，入相）。',
+          '分析对象：流年2028。\n行运证据：土星□太阳（刑相，实际夹角89.50°，精确角90.00°，偏差0.50°，采用容许度7.00°）。',
       },
     });
 
@@ -1710,10 +1710,19 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
           houses?: unknown[];
           aspects?: Array<{
             strength?: number;
+            closeness?: string;
+            normalizedOrbRatio?: number;
             actualAngle?: number;
             exactAngle?: number;
             allowedOrb?: number;
           }>;
+          aspectCalculation?: {
+            selectedPointNames: string[];
+            aspectDefinitions: unknown[];
+            evaluatedPairCount: number;
+            matchedAspectCount: number;
+            enumeration: string;
+          };
           evidenceAnalysis?: {
             key?: string;
             status?: string;
@@ -1784,10 +1793,16 @@ test('MCP 星盘提示词应透传分析对象文本', async () => {
     ).result;
     for (const aspect of chart?.aspects ?? []) {
       assert.equal(aspect.strength, undefined);
+      assert.equal(aspect.closeness, undefined);
+      assert.equal(aspect.normalizedOrbRatio, undefined);
       assert.equal(typeof aspect.actualAngle, 'number');
       assert.equal(typeof aspect.exactAngle, 'number');
       assert.equal(typeof aspect.allowedOrb, 'number');
     }
+    assert.equal(chart?.aspectCalculation?.enumeration, '完整穷举');
+    assert.equal(chart?.aspectCalculation?.selectedPointNames.length, 24);
+    assert.equal(chart?.aspectCalculation?.evaluatedPairCount, 276);
+    assert.equal(chart?.aspectCalculation?.matchedAspectCount, chart?.aspects?.length);
     assert.equal(chart?.evidenceAnalysis?.evidence?.title, '西方星盘位置与相位结构化证据');
     assert.equal(chart?.evidenceAnalysis?.key, 'astrolabe:evidence');
     assert.equal(chart?.evidenceAnalysis?.status, '已计算');
@@ -2804,7 +2819,11 @@ test('MCP 八字与紫微工具应支持真太阳时入参', async () => {
       7,
     );
     assert.ok(astrolabePromptResultData.result?.evidenceAnalysis?.trueSolarTimeFact?.key);
-    assert.match(astrolabePromptResultData.prompt ?? '', /出生时间校正：[\s\S]*采用真太阳时/);
+    assert.match(
+      astrolabePromptResultData.prompt ?? '',
+      /出生时间参考：民用时间.*进入现代星历计算；真太阳时.*仅作传统时间参考/,
+    );
+    assert.doesNotMatch(astrolabePromptResultData.prompt ?? '', /采用真太阳时排盘/);
     assert.doesNotMatch(
       astrolabePromptResultData.prompt ?? '',
       /结构化证据|计算链|证据汇总|解释限制/,

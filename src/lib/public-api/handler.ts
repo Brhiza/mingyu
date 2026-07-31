@@ -2780,7 +2780,13 @@ function calculateAstrolabeSynastryApi(input: JsonRecord) {
   assertNoRandomOptions(input, '西占双盘是确定性计算，不接受 seed 或 replay。');
   const { chart1, chart2 } = readAstrolabeSynastryCharts(input);
   const synastry = analyzeAstrolabeSynastry(chart1, chart2);
-  return { charts: { person1: chart1, person2: chart2 }, synastry };
+  const person1 = { ...chart1 };
+  const person2 = { ...chart2 };
+  // 双盘已返回自身完整证据；移除两份可由盘面事实重新生成的本命证据副本，
+  // 避免在完整保留本命和跨盘相位时重复占用公开 API 响应体。
+  delete person1.evidenceAnalysis;
+  delete person2.evidenceAnalysis;
+  return { charts: { person1, person2 }, synastry };
 }
 
 function buildAstrolabeSynastryPromptApi(input: JsonRecord) {

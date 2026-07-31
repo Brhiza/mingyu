@@ -15,7 +15,6 @@ import {
   type AstronomicalTimeEvidence,
 } from '../calendar/astronomical-time';
 import { resolveHistoricalTimezone } from '../calendar/historical-timezone';
-import { classifyAspectClosenessFromStrength } from './astrolabe-aspect-evidence';
 
 export type AstrolabeScopeContext = {
   scope: AstrolabeScopeMode;
@@ -54,13 +53,11 @@ export interface AstrolabeAdvancedAspectFact {
   exactAngle: number;
   deviation: number;
   allowedOrb: number;
-  normalizedOrbRatio: number;
-  closeness: '紧密' | '中等' | '宽松';
   ownerFactKeys: string[];
   ownerStepKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '高级时限相位只描述推进点或返照点与本命点在设定容许度内的几何关系；偏差、紧密等级和数量不代表事件概率、吉凶比例或必然结果';
+  limitation: '高级时限相位只描述推进点或返照点与本命点在设定容许度内的几何关系；偏差和数量不代表事件概率、吉凶比例或必然结果';
 }
 
 export interface AstrolabeAdvancedAspectSummaryFact {
@@ -69,7 +66,7 @@ export interface AstrolabeAdvancedAspectSummaryFact {
   factKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '高级时限相位汇总只说明当前筛选范围内是否列出主要几何相位；未见不等于没有其他弱相位，有相位也不等于现实事件必然发生';
+  limitation: '高级时限相位汇总只说明当前筛选范围内是否列出主要几何相位；未见不等于没有其他角度关系，有相位也不等于现实事件必然发生';
 }
 
 export interface AstrolabeAdvancedLimitationFact {
@@ -161,9 +158,9 @@ export interface SolarArcEvidence {
 const ADVANCED_STEP_LIMITATION =
   '高级时限步骤只证明太阳返照、次限推进或太阳弧的时间映射、位置计算与相位筛选如何形成；不得把数值精度解释为事件必然性或预测成功率' as const;
 const ADVANCED_ASPECT_LIMITATION =
-  '高级时限相位只描述推进点或返照点与本命点在设定容许度内的几何关系；偏差、紧密等级和数量不代表事件概率、吉凶比例或必然结果' as const;
+  '高级时限相位只描述推进点或返照点与本命点在设定容许度内的几何关系；偏差和数量不代表事件概率、吉凶比例或必然结果' as const;
 const ADVANCED_SUMMARY_LIMITATION =
-  '高级时限相位汇总只说明当前筛选范围内是否列出主要几何相位；未见不等于没有其他弱相位，有相位也不等于现实事件必然发生' as const;
+  '高级时限相位汇总只说明当前筛选范围内是否列出主要几何相位；未见不等于没有其他角度关系，有相位也不等于现实事件必然发生' as const;
 const ADVANCED_LIMITATION_FACT_LIMITATION =
   '限制事实用于约束太阳返照、次限推进和太阳弧可以支持的时间与解释范围，不得被反向当作现实事件、吉凶或固定应期证据' as const;
 const ADVANCED_EVIDENCE_SUMMARY_LIMITATION =
@@ -251,12 +248,6 @@ const ASPECT_LABELS: Record<string, string> = {
   opposition: '冲相',
 };
 
-const PHASE_LABELS: Record<Transit['phase'], string> = {
-  applying: '入相',
-  exact: '精准',
-  separating: '出相',
-};
-
 const TRANSITING_BODIES = [
   CelestialBody.Jupiter,
   CelestialBody.Saturn,
@@ -268,6 +259,14 @@ const TRANSITING_BODIES = [
   CelestialBody.Mercury,
   CelestialBody.Sun,
   CelestialBody.Moon,
+];
+
+const TRANSIT_ASPECT_TYPES = [
+  AspectType.Conjunction,
+  AspectType.Sextile,
+  AspectType.Square,
+  AspectType.Trine,
+  AspectType.Opposition,
 ];
 
 function parseDateParts(dateStr: string) {
@@ -394,24 +393,7 @@ function buildNatalPoint(point: AstrolabePoint): NatalPoint | null {
 }
 
 function buildNatalPoints(data: AstrolabeData): NatalPoint[] {
-  const planetNames = new Set([
-    'Sun',
-    'Moon',
-    'Mercury',
-    'Venus',
-    'Mars',
-    'Jupiter',
-    'Saturn',
-    'Uranus',
-    'Neptune',
-    'Pluto',
-  ]);
-  const angleNames = new Set(['Ascendant', 'Midheaven']);
-
-  return [
-    ...data.planets.filter((item) => planetNames.has(item.name)),
-    ...data.angles.filter((item) => angleNames.has(item.name)),
-  ]
+  return [...data.planets, ...data.angles]
     .map(buildNatalPoint)
     .filter((item): item is NatalPoint => Boolean(item));
 }
@@ -423,10 +405,9 @@ function formatTransitLine(transit: Transit) {
     transit.transitingBody;
   const natalPoint = NATAL_POINT_NAME_MAP[transit.natalPoint] ?? transit.natalPoint;
   const aspect = ASPECT_LABELS[transit.aspectType] ?? transit.aspectType;
-  const phase = PHASE_LABELS[transit.phase] ?? transit.phase;
   const retrograde = transit.isRetrograde ? '，逆行' : '';
-  const closeness = classifyAspectClosenessFromStrength(transit.strength);
-  return `${transitingBody}${transit.symbol}${natalPoint}（${aspect}，偏差${transit.deviation.toFixed(2)}°，${closeness}，${phase}${retrograde}）`;
+  const outOfSign = transit.isOutOfSign ? '，跨星座相位' : '';
+  return `${transitingBody}${transit.symbol}${natalPoint}（${aspect}，实际夹角${transit.separation.toFixed(2)}°，精确角${transit.aspectAngle.toFixed(2)}°，偏差${transit.deviation.toFixed(2)}°，采用容许度${transit.orb.toFixed(2)}°${retrograde}${outOfSign}）`;
 }
 
 function getNatalHouseCusps(data: AstrolabeData) {
@@ -460,15 +441,13 @@ function signedLongitudeDifference(first: number, second: number) {
   return ((normalizeLongitude(first) - normalizeLongitude(second) + 540) % 360) - 180;
 }
 
-function resolveAdvancedAspect(first: number, second: number) {
+function resolveAdvancedAspects(first: number, second: number) {
   const distance = longitudeDistance(first, second);
   return ADVANCED_ASPECTS.map((aspect) => ({
     ...aspect,
     actualAngle: distance,
     deviation: Math.abs(distance - aspect.angle),
-  }))
-    .filter((aspect) => aspect.deviation <= aspect.orb)
-    .sort((a, b) => a.deviation / a.orb - b.deviation / b.orb)[0];
+  })).filter((aspect) => aspect.deviation <= aspect.orb);
 }
 
 function parseBirthDateTime(data: AstrolabeData) {
@@ -484,12 +463,11 @@ function parseBirthDateTime(data: AstrolabeData) {
   };
 }
 
-function calculateScopePlanets(
+function resolveScopeTimezone(
   data: AstrolabeData,
   date: { year: number; month: number; day: number; hour: number; minute: number },
 ) {
-  const coordinates = parseBirthCoordinates(data);
-  const timezone = data.birth.timeZoneId
+  return data.birth.timeZoneId
     ? resolveHistoricalTimezone({
         ...date,
         second: 0,
@@ -497,6 +475,14 @@ function calculateScopePlanets(
         fixedOffsetHours: data.birth.timezone,
       }).resolvedOffsetHours
     : data.birth.timezone;
+}
+
+function calculateScopePlanets(
+  data: AstrolabeData,
+  date: { year: number; month: number; day: number; hour: number; minute: number },
+) {
+  const coordinates = parseBirthCoordinates(data);
+  const timezone = resolveScopeTimezone(data, date);
   return calculatePlanets(
     {
       ...date,
@@ -529,45 +515,33 @@ function buildAdvancedAspectFacts(
   moving: Array<{ name: string; longitude: number }>,
   natal: Array<{ name: string; longitude: number }>,
   ownerStepKey: string,
-  limit = 8,
 ): AstrolabeAdvancedAspectFact[] {
   const techniqueKey = advancedTechniqueKey(technique);
-  return moving
-    .flatMap((movingPoint) =>
-      natal.flatMap((natalPoint) => {
-        const aspect = resolveAdvancedAspect(movingPoint.longitude, natalPoint.longitude);
-        if (!aspect) return [];
-        const normalizedOrbRatio = Math.min(1, aspect.deviation / aspect.orb);
-        const closeness: AstrolabeAdvancedAspectFact['closeness'] =
-          normalizedOrbRatio <= 0.35 ? '紧密' : normalizedOrbRatio <= 0.7 ? '中等' : '宽松';
-        const movingLabel = CELESTIAL_BODY_LABELS[movingPoint.name] ?? movingPoint.name;
-        const natalLabel = NATAL_POINT_NAME_MAP[natalPoint.name] ?? natalPoint.name;
-        return [
-          {
-            key: `${techniqueKey}:aspect:${movingPoint.name}:${natalPoint.name}:${aspect.name}`,
-            technique,
-            status: '命中容许度' as const,
-            movingPoint: movingLabel,
-            natalPoint: natalLabel,
-            aspectName: aspect.name,
-            actualAngle: Number(aspect.actualAngle.toFixed(6)),
-            exactAngle: aspect.angle,
-            deviation: Number(aspect.deviation.toFixed(6)),
-            allowedOrb: aspect.orb,
-            normalizedOrbRatio: Number(normalizedOrbRatio.toFixed(6)),
-            closeness,
-            ownerFactKeys: [ownerStepKey],
-            ownerStepKeys: [ownerStepKey],
-            promptText: `${movingLabel}${aspect.name}${natalLabel}（实际夹角${aspect.actualAngle.toFixed(2)}°，精确角${aspect.angle}°，偏差${aspect.deviation.toFixed(2)}°，允许容许度${aspect.orb}°，${closeness}）`,
-            sources: ['celestine 推进或返照位置', '主要相位精确角与容许度表'],
-            limitation: ADVANCED_ASPECT_LIMITATION,
-          },
-        ];
-      }),
-    )
-    .sort((a, b) => a.deviation - b.deviation)
-    .slice(0, limit)
-    .map((item) => item);
+  return moving.flatMap((movingPoint) =>
+    natal.flatMap((natalPoint) => {
+      const movingLabel = CELESTIAL_BODY_LABELS[movingPoint.name] ?? movingPoint.name;
+      const natalLabel = NATAL_POINT_NAME_MAP[natalPoint.name] ?? natalPoint.name;
+      return resolveAdvancedAspects(movingPoint.longitude, natalPoint.longitude).map(
+        (aspect): AstrolabeAdvancedAspectFact => ({
+          key: `${techniqueKey}:aspect:${movingPoint.name}:${natalPoint.name}:${aspect.name}`,
+          technique,
+          status: '命中容许度',
+          movingPoint: movingLabel,
+          natalPoint: natalLabel,
+          aspectName: aspect.name,
+          actualAngle: Number(aspect.actualAngle.toFixed(6)),
+          exactAngle: aspect.angle,
+          deviation: Number(aspect.deviation.toFixed(6)),
+          allowedOrb: aspect.orb,
+          ownerFactKeys: [ownerStepKey],
+          ownerStepKeys: [ownerStepKey],
+          promptText: `${movingLabel}${aspect.name}${natalLabel}（实际夹角${aspect.actualAngle.toFixed(2)}°，精确角${aspect.angle}°，偏差${aspect.deviation.toFixed(2)}°，采用容许度${aspect.orb}°）`,
+          sources: ['celestine 推进或返照位置', '主要相位精确角与容许度表'],
+          limitation: ADVANCED_ASPECT_LIMITATION,
+        }),
+      );
+    }),
+  );
 }
 
 function buildAdvancedAspectSummaryFact(
@@ -1141,7 +1115,6 @@ export function calculateSolarArcEvidence(
       directed,
       buildNatalPoints(data),
       aspectStepKey,
-      6,
     );
     calculationSteps[4].result.selectedAspectCount = aspectFacts.length;
     const limitations = [
@@ -1496,7 +1469,6 @@ export function calculateSolarReturnEvidence(
       returnPlanets,
       buildNatalPoints(data),
       aspectStepKey,
-      8,
     );
     calculationSteps[4].result.selectedAspectCount = aspectFacts.length;
     const aspects = aspectFacts.map((item) => item.promptText);
@@ -1650,28 +1622,7 @@ function buildTransitHouseEvidence(
   }
 
   try {
-    const coordinates = parseBirthCoordinates(data);
-    const planets = calculatePlanets(
-      {
-        year: target.year,
-        month: target.month,
-        day: target.day,
-        hour: 12,
-        minute: 0,
-        second: 0,
-        timezone: 8,
-        latitude: coordinates.latitude,
-        longitude: coordinates.longitude,
-      },
-      {
-        houseSystem: 'placidus',
-        includeAsteroids: false,
-        includeChiron: false,
-        includeLilith: false,
-        includeNodes: false,
-        includeLots: false,
-      },
-    );
+    const planets = calculateScopePlanets(data, { ...target, hour: 12, minute: 0 });
     const allowedBodies = getTransitBodiesForScope(scope);
     const lines = planets
       .filter((planet) => allowedBodies.has(planet.name))
@@ -1701,39 +1652,42 @@ function buildTransitEvidence(
   }
 
   try {
+    const targetDateTime = { ...target, hour: 12, minute: 0 };
+    const timezone = resolveScopeTimezone(data, targetDateTime);
     const julianDate = time.toJulianDate({
-      year: target.year,
-      month: target.month,
-      day: target.day,
-      hour: 12,
-      minute: 0,
+      ...targetDateTime,
       second: 0,
-      timezone: 8,
+      timezone,
     });
     const result = calculateTransits(natalPoints, julianDate, {
-      aspectTypes: [
-        AspectType.Conjunction,
-        AspectType.Sextile,
-        AspectType.Square,
-        AspectType.Trine,
-        AspectType.Opposition,
-      ],
+      aspectTypes: TRANSIT_ASPECT_TYPES,
       transitingBodies: TRANSITING_BODIES,
-      minimumStrength: 35,
+      minimumStrength: 0,
       includeOutOfSign: true,
     });
-    const transitLines = result.transits
+    const transitingBodyOrder = new Map(TRANSITING_BODIES.map((body, index) => [body, index]));
+    const natalPointOrder = new Map(natalPoints.map((point, index) => [point.name, index]));
+    const aspectTypeOrder = new Map(
+      TRANSIT_ASPECT_TYPES.map((aspectType, index) => [aspectType, index]),
+    );
+    const transitLines = [...result.transits]
       .sort(
-        (first, second) => second.strength - first.strength || first.deviation - second.deviation,
+        (first, second) =>
+          (transitingBodyOrder.get(first.transitingBodyEnum) ?? Number.MAX_SAFE_INTEGER) -
+            (transitingBodyOrder.get(second.transitingBodyEnum) ?? Number.MAX_SAFE_INTEGER) ||
+          (natalPointOrder.get(first.natalPoint) ?? Number.MAX_SAFE_INTEGER) -
+            (natalPointOrder.get(second.natalPoint) ?? Number.MAX_SAFE_INTEGER) ||
+          (aspectTypeOrder.get(first.aspectType) ?? Number.MAX_SAFE_INTEGER) -
+            (aspectTypeOrder.get(second.aspectType) ?? Number.MAX_SAFE_INTEGER),
       )
-      .slice(0, 10)
       .map(formatTransitLine);
+    const evaluatedPairCount = TRANSITING_BODIES.length * natalPoints.length;
 
     if (transitLines.length === 0) {
-      return '主要行运相位：所选日期未见当前容许度内的主要相位。';
+      return `主要行运相位：已穷举${TRANSITING_BODIES.length}个行运星体与${natalPoints.length}个本命点的${evaluatedPairCount}组组合，所选日期未见当前容许度内的五种主要相位。`;
     }
 
-    return `主要行运相位：${transitLines.join('；')}。`;
+    return `主要行运相位：已穷举${TRANSITING_BODIES.length}个行运星体与${natalPoints.length}个本命点的${evaluatedPairCount}组组合，完整列出${transitLines.length}组命中项；${transitLines.join('；')}。`;
   } catch {
     return '主要行运相位：计算失败。';
   }
@@ -1802,6 +1756,8 @@ export function buildAstrolabeScopeContext(
   const scopeLabel = SCOPE_LABEL_MAP[scope];
   const displayText = `${scopeLabel} · ${normalizedDateStr}`;
   const anchorDate = formatAnchorDate(target);
+  const targetTimezone = resolveScopeTimezone(data, { ...target, hour: 12, minute: 0 });
+  const timezoneLabel = `UTC${targetTimezone >= 0 ? '+' : ''}${targetTimezone}`;
   const transitEvidence = buildTransitEvidence(data, target);
   const transitHouseEvidence = buildTransitHouseEvidence(data, scope, target);
   const solarReturnEvidence =
@@ -1823,7 +1779,7 @@ export function buildAstrolabeScopeContext(
     displayLabel: `${scopeLabel}${normalizedDateStr}`,
     promptText: [
       `分析对象：${scopeLabel}${normalizedDateStr}。`,
-      `取样时间：${anchorDate}（按北京时间中午取样，用于计算行运行星触发）。`,
+      `取样时间：${anchorDate}（出生资料对应地点的当地民用时间，${timezoneLabel}，用于计算该时刻行运行星位置）。`,
       houseRulerChain,
       transitEvidence,
       transitHouseEvidence,

@@ -986,36 +986,36 @@ function formatLenormandInfo(data: LenormandData) {
 }
 
 export function formatAstrolabeInfo(data: AstrolabeData) {
-  const describeAspectCloseness = (item: AstrolabeData['aspects'][number]) => {
-    if (item.closeness) return item.closeness;
-    const ratio = item.normalizedOrbRatio ?? 1;
-    return ratio <= 1 / 3 ? '紧密' : ratio <= 2 / 3 ? '中等' : '宽松';
-  };
   const sun = data.planets.find((item) => item.name === 'Sun');
   const moon = data.planets.find((item) => item.name === 'Moon');
   const ascendant = data.angles.find((item) => item.name === 'Ascendant');
-  const aspectSummary = data.aspects
-    .slice(0, 3)
-    .map(
-      (item) =>
-        `${item.body1}${item.symbol}${item.body2}（${item.type}，${describeAspectCloseness(item)}等级）`,
-    )
-    .join('；');
+  const formatAspect = (item: AstrolabeData['aspects'][number]) => {
+    const geometry =
+      item.actualAngle !== undefined &&
+      item.exactAngle !== undefined &&
+      item.allowedOrb !== undefined
+        ? `实际夹角${item.actualAngle.toFixed(2)}°，精确角${item.exactAngle.toFixed(2)}°，偏差${item.orb.toFixed(2)}°，采用容许度${item.allowedOrb.toFixed(2)}°`
+        : `偏差${item.orb.toFixed(2)}°，旧结果未记录完整几何量`;
+    const phase = item.applying === null ? '入出相未判定' : item.applying ? '入相' : '出相';
+    return `${item.body1}${item.symbol}${item.body2}（${item.type}，${geometry}，${phase}${item.isOutOfSign ? '，跨星座相位' : ''}）`;
+  };
+  const aspectCalculation = data.aspectCalculation;
 
   return [
     '占法：星盘',
     `出生信息：${data.birth.name}，${data.birth.gender || '性别未填'}，${data.birth.dateTime}，位置${data.birth.location}，时区 UTC${data.birth.timezone >= 0 ? '+' : ''}${data.birth.timezone}`,
     data.birth.isTrueSolarTime
-      ? `出生时间校正：当地钟表时间${data.birth.standardDateTime || '未记录'}，采用真太阳时${data.birth.trueSolarDateTime || data.birth.dateTime}排盘。`
+      ? `出生时间参考：民用时间${data.birth.standardDateTime || data.birth.dateTime}进入现代星历计算；真太阳时${data.birth.trueSolarDateTime || '未记录'}仅作传统时间参考。`
       : '',
     `核心结构：太阳${sun?.formatted || '未列'}；月亮${moon?.formatted || '未列'}；上升${ascendant?.formatted || '未列'}；共${data.planets.length}颗星体、${data.houses.length}个宫位、${data.aspects.length}组主要相位`,
     `关键提示：逆行星体${data.summary.retrograde.join('、') || '无'}；格局${data.summary.patterns.join('、') || '未见明显格局'}`,
-    `核心位置：太阳${sun?.formatted || '未列'}；月亮${moon?.formatted || '未列'}；上升${ascendant?.formatted || '未列'}；主要相位${aspectSummary || '无'}`,
+    `核心位置：太阳${sun?.formatted || '未列'}；月亮${moon?.formatted || '未列'}；上升${ascendant?.formatted || '未列'}`,
     `星体位置：${data.planets.map((item) => `${item.label}${item.formatted}，第${item.house}宫${item.retrograde ? '，逆行' : ''}`).join('；')}`,
     `宫头位置：${data.houses.map((item) => `${item.label}${item.formatted}`).join('；')}`,
-    data.aspects.length
-      ? `相位明细：${data.aspects.map((item) => `${item.body1}${item.symbol}${item.body2}（${item.type}，容许度${item.orb.toFixed(2)}°）`).join('；')}`
+    aspectCalculation
+      ? `本命相位穷举：选定点位${aspectCalculation.selectedPointNames.join('、')}；共核验${aspectCalculation.evaluatedPairCount}组无序点对，完整保留${aspectCalculation.matchedAspectCount}组命中项；相位定义${aspectCalculation.aspectDefinitions.map((item) => `${item.type}${item.exactAngle}°±${item.allowedOrb}°`).join('、')}。`
       : '',
+    data.aspects.length ? `相位明细：${data.aspects.map(formatAspect).join('；')}` : '',
   ]
     .filter(Boolean)
     .join('\n');

@@ -36,14 +36,12 @@ export interface AstrolabeAspectFact {
   actualAngle?: number;
   orb: number;
   allowedOrb?: number;
-  normalizedOrbRatio: number;
-  closeness: '紧密' | '中等' | '宽松';
   phase: '入相' | '出相' | '未判定';
   isOutOfSign?: boolean;
   promptText: string;
   source: string;
   sources: string[];
-  limitation: '相位字段只描述两计算点在设定容许度内的几何关系；紧密等级、入相出相和跨星座状态不代表事件概率、匹配率、吉凶比例或必然结果';
+  limitation: '相位字段只描述两计算点在设定容许度内的几何关系；偏差、入相出相和跨星座状态不代表事件概率、匹配率、吉凶比例或必然结果';
 }
 
 export interface AstrolabeCalculationStep {
@@ -98,7 +96,7 @@ export interface AstrolabeCalculationFact {
   models: {
     ephemeris: 'celestine';
     houseSystem: 'Placidus';
-    aspectSelection: '主要相位按相位角与容许度筛选';
+    aspectSelection: '选定点对按列明相位角与容许度完整穷举';
   };
   steps: AstrolabeCalculationStep[];
   missing: string[];
@@ -162,14 +160,7 @@ export interface AstrolabeCounterSummaryFact {
 
 export interface AstrolabeLimitationFact {
   key: string;
-  type:
-    | '时区诊断'
-    | '几何解释边界'
-    | '相位强度边界'
-    | '相位筛选边界'
-    | '分布边界'
-    | '宫位输入边界'
-    | '光照边界';
+  type: '时区诊断' | '几何解释边界' | '相位筛选边界' | '分布边界' | '宫位输入边界' | '光照边界';
   status: '适用';
   ownerFactKeys: string[];
   promptText: string;
@@ -228,7 +219,7 @@ const POSITION_FACT_LIMITATION =
   '位置字段是黄经、星座、宫位与四轴的计算事实，只限定占星解释所依据的盘面位置，不单独证明人格、心理状态、现实事件或命运结果' as const;
 
 const ASPECT_FACT_LIMITATION =
-  '相位字段只描述两计算点在设定容许度内的几何关系；紧密等级、入相出相和跨星座状态不代表事件概率、匹配率、吉凶比例或必然结果' as const;
+  '相位字段只描述两计算点在设定容许度内的几何关系；偏差、入相出相和跨星座状态不代表事件概率、匹配率、吉凶比例或必然结果' as const;
 const CALCULATION_FACT_LIMITATION =
   '计算链只证明出生输入、时间处理、天文位置、宫位与相位筛选如何形成当前盘面，不证明占星解释有效性、人格诊断、现实事件或命运结果' as const;
 const DISTRIBUTION_FACT_LIMITATION =
@@ -255,12 +246,6 @@ const ASPECT_BODY_ALIASES: Record<string, string> = {
   'True South Node': '南交点',
   'Mean South Node': '南交点',
 };
-
-function classifyCloseness(ratio: number): AstrolabeAspectFact['closeness'] {
-  if (ratio <= 1 / 3) return '紧密';
-  if (ratio <= 2 / 3) return '中等';
-  return '宽松';
-}
 
 function buildPositionFact(
   item: AstrolabeData['planets'][number],
@@ -294,10 +279,6 @@ function buildAspectFact(
   item: AstrolabeData['aspects'][number],
   positionFacts: AstrolabePositionFact[],
 ): AstrolabeAspectFact {
-  const normalizedOrbRatio =
-    item.normalizedOrbRatio ??
-    (item.allowedOrb && item.allowedOrb > 0 ? Number((item.orb / item.allowedOrb).toFixed(4)) : 1);
-  const closeness = item.closeness ?? classifyCloseness(normalizedOrbRatio);
   const phase = item.applying === null ? '未判定' : item.applying ? '入相' : '出相';
   const body1Lookup = ASPECT_BODY_ALIASES[item.body1] ?? item.body1;
   const body2Lookup = ASPECT_BODY_ALIASES[item.body2] ?? item.body2;
@@ -314,8 +295,8 @@ function buildAspectFact(
     .filter((key, index, values) => values.indexOf(key) === index);
   const geometry =
     item.actualAngle !== undefined && item.exactAngle !== undefined && item.allowedOrb !== undefined
-      ? `实际夹角${item.actualAngle.toFixed(2)}°，精确角${item.exactAngle.toFixed(2)}°，允许容许度${item.allowedOrb.toFixed(2)}°，距精确角偏差${item.orb.toFixed(2)}°`
-      : `旧结果未记录实际夹角、精确角或允许容许度，仅保留距精确角偏差${item.orb.toFixed(2)}°`;
+      ? `实际夹角${item.actualAngle.toFixed(2)}°，精确角${item.exactAngle.toFixed(2)}°，采用容许度${item.allowedOrb.toFixed(2)}°，距精确角偏差${item.orb.toFixed(2)}°`
+      : `旧结果未记录实际夹角、精确角或采用容许度，仅保留距精确角偏差${item.orb.toFixed(2)}°`;
   return {
     key: `${item.body1}:${item.type}:${item.body2}`,
     status:
@@ -335,11 +316,9 @@ function buildAspectFact(
     actualAngle: item.actualAngle,
     orb: item.orb,
     allowedOrb: item.allowedOrb,
-    normalizedOrbRatio,
-    closeness,
     phase,
     isOutOfSign: item.isOutOfSign,
-    promptText: `${item.body1}${item.symbol}${item.body2}（${item.type}）：${geometry}，${closeness}等级，归一化容许度位置${normalizedOrbRatio.toFixed(2)}，${phase}${item.isOutOfSign ? '，跨星座相位' : ''}`,
+    promptText: `${item.body1}${item.symbol}${item.body2}（${item.type}）：${geometry}，${phase}${item.isOutOfSign ? '，跨星座相位' : ''}`,
     source: item.source ?? 'celestine 本命相位计算',
     sources: [item.source ?? 'celestine 本命相位计算', '两计算点位置事实与相位几何量核验'],
     limitation: ASPECT_FACT_LIMITATION,
@@ -357,6 +336,8 @@ function buildCalculationFact(
       item.allowedOrb !== undefined,
   ).length;
   const effectiveDateTime = data.birth.standardDateTime ?? data.birth.dateTime;
+  const selectedPointCount = data.aspectCalculation?.selectedPointNames.length;
+  const evaluatedPairCount = data.aspectCalculation?.evaluatedPairCount;
   const missing = [
     !data.birth.dateTime ? '出生民用时间' : '',
     !data.birth.location ? '出生地点' : '',
@@ -439,13 +420,20 @@ function buildCalculationFact(
         data.aspects.length === 0 || geometricRecordCount === data.aspects.length
           ? '完整'
           : '缺少记录',
-      inputs: { positionCount: data.planets.length + data.angles.length },
+      inputs: {
+        selectedPointCount: selectedPointCount ?? data.planets.length + data.angles.length,
+        aspectDefinitionCount: data.aspectCalculation?.aspectDefinitions.length ?? 0,
+      },
       outputs: {
+        ...(evaluatedPairCount === undefined ? {} : { evaluatedPairCount }),
         selectedAspectCount: data.aspects.length,
         geometricRecordCount,
       },
       dependsOnStepKeys: ['astrolabe:calculation:chart'],
-      promptText: `按相位角与容许度筛选${data.aspects.length}组主要相位，并保留可用的角度偏差、紧密等级和入相出相状态`,
+      promptText:
+        data.aspectCalculation?.enumeration === '完整穷举'
+          ? `对${selectedPointCount}个选定点穷举${evaluatedPairCount}组无序点对，按${data.aspectCalculation.aspectDefinitions.length}种相位精确角与容许度完整保留${data.aspects.length}组命中项，不按派生强度筛选或截断`
+          : `按相位精确角与容许度保留${data.aspects.length}组命中项，并逐项记录实际夹角、精确角、偏差、采用容许度和入相出相状态`,
       sources: ['celestine 本命相位计算', '相位几何量与容许度核验'],
       limitation: STEP_FACT_LIMITATION,
     },
@@ -485,7 +473,7 @@ function buildCalculationFact(
     models: {
       ephemeris: 'celestine',
       houseSystem: 'Placidus',
-      aspectSelection: '主要相位按相位角与容许度筛选',
+      aspectSelection: '选定点对按列明相位角与容许度完整穷举',
     },
     steps,
     missing,
@@ -763,7 +751,7 @@ function buildLimitationFacts(
   push(
     'astrolabe:limitation:geometry',
     '几何解释边界',
-    '星体、宫位与相位是几何和规则计算结果，不等于现实事件、人格诊断或命运必然性',
+    '星体、宫位与相位是几何和规则计算结果，不代表事件概率，也不等于人格诊断或命运必然性',
     [
       calculationFact.key,
       ...positionFacts.map((fact) => fact.key),
@@ -772,25 +760,11 @@ function buildLimitationFacts(
     ['位置、宫位与相位几何事实'],
   );
   push(
-    'astrolabe:limitation:aspect-closeness',
-    '相位强度边界',
-    '相位紧密等级只描述容许度内的位置，不代表事件概率、匹配率、吉凶比例或作用强度百分比',
-    aspectFacts.map((fact) => fact.key),
-    ['相位容许度与紧密等级计算'],
-  );
-  push(
-    'astrolabe:limitation:aspect-ratio',
-    '相位强度边界',
-    '归一化容许度位置不代表事件概率、匹配率、吉凶比例或必然结果',
-    aspectFacts.map((fact) => fact.key),
-    ['相位归一化容许度记录'],
-  );
-  push(
     'astrolabe:limitation:aspect-selection',
     '相位筛选边界',
-    '结果只保留筛选后排序靠前的十二组相位；未列出不等于两点之间不存在其他角度关系',
+    '结果完整保留所列点位和相位定义在采用容许度内的全部命中项；未命中只表示不在这些定义的容许度内，不等于两点之间不存在其他角度关系',
     ['astrolabe:calculation:aspects', ...aspectFacts.map((fact) => fact.key)],
-    ['主要相位筛选范围与排序记录'],
+    ['相位定义、容许度与点对穷举记录'],
   );
   push(
     'astrolabe:limitation:distribution',
@@ -1037,7 +1011,7 @@ export function analyzeAstrolabeEvidence(
       title: `${item.body1}与${item.body2}${item.type}`,
       detail: `${item.promptText}；边界：${item.limitation}`,
       source: item.sources.join('、'),
-      tags: [item.type, item.closeness, item.phase, item.isOutOfSign ? '跨星座' : '同星座条件'],
+      tags: [item.type, item.phase, item.isOutOfSign ? '跨星座' : '同星座条件'],
     })),
     {
       level: '辅证',
@@ -1128,7 +1102,7 @@ export function analyzeAstrolabeEvidence(
     methodology: [
       '先固定出生时间、地点、时区及是否采用真太阳时。',
       '以太阳、月亮、上升和天顶作为位置主证。',
-      '相位逐项保留角度偏差、紧密等级与入相出相，不换算概率或强度分。',
+      '相位对所列点位完整穷举，逐项保留实际夹角、精确角、偏差、采用容许度与入相出相，不计算强弱等级或概率。',
       '元素、模式、逆行和光照资料只作盘面构成辅证。',
       '强制输出筛选范围、输入精度边界与现代实证边界，不生成候选出生时间或敏感性结果。',
     ],

@@ -28,6 +28,10 @@ export function AstrolabeChart({
     'Pluto',
   ]);
   const visiblePlanets = data.planets.filter((planet) => majorPlanetNames.has(planet.name));
+  const visiblePlanetByLabel = new Map(visiblePlanets.map((planet) => [planet.label, planet]));
+  const visibleAspects = data.aspects.filter(
+    (aspect) => visiblePlanetByLabel.has(aspect.body1) && visiblePlanetByLabel.has(aspect.body2),
+  );
   const zodiacSigns = [
     '白羊',
     '金牛',
@@ -88,9 +92,9 @@ export function AstrolabeChart({
             />
           );
         })}
-        {data.aspects.slice(0, 10).map((aspect, index) => {
-          const body1 = data.planets.find((planet) => planet.label === aspect.body1);
-          const body2 = data.planets.find((planet) => planet.label === aspect.body2);
+        {visibleAspects.map((aspect, index) => {
+          const body1 = visiblePlanetByLabel.get(aspect.body1);
+          const body2 = visiblePlanetByLabel.get(aspect.body2);
           if (!body1 || !body2) {
             return null;
           }

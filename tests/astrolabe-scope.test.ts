@@ -48,7 +48,13 @@ function assertAdvancedEvidenceReferences(evidence: AdvancedEvidence) {
         item.ownerFactKeys.length > 0 &&
         item.ownerFactKeys.every((key) => factKeys.has(key)) &&
         item.ownerStepKeys.every((key) => stepKeys.has(key)) &&
-        item.ownerFactKeys.join('|') === item.ownerStepKeys.join('|'),
+        item.ownerFactKeys.join('|') === item.ownerStepKeys.join('|') &&
+        !('closeness' in item) &&
+        !('normalizedOrbRatio' in item) &&
+        item.promptText.includes('实际夹角') &&
+        item.promptText.includes('精确角') &&
+        item.promptText.includes('偏差') &&
+        item.promptText.includes('采用容许度'),
     ),
   );
   assert.ok(
@@ -109,6 +115,14 @@ test('星盘流年分析对象会生成行运证据和展示文本', () => {
   assert.match(context.promptText, /次限推进：/);
   assert.match(context.promptText, /太阳弧：/);
   assert.match(context.promptText, /落本命第\d+宫/);
+  assert.match(
+    context.promptText,
+    /已穷举10个行运星体与24个本命点的240组组合，完整列出(\d+)组命中项/,
+  );
+  const transitCount = Number(/完整列出(\d+)组命中项/.exec(context.promptText)?.[1]);
+  assert.ok(transitCount > 10);
+  assert.match(context.promptText, /主要行运相位：[\s\S]*实际夹角.*精确角.*偏差.*采用容许度/);
+  assert.doesNotMatch(context.promptText, /紧密等级|中等等级|宽松等级|归一化容许度/);
   assert.doesNotMatch(context.promptText, /计算链|证据汇总|解释限制|时间边界|不得|不代表/);
   assert.equal(context.solarReturnEvidence?.status, 'exact');
   assert.equal(context.secondaryProgressionEvidence?.status, 'calculated');
@@ -135,6 +149,8 @@ test('太阳返照应返回可复核的求根过程和精度边界', () => {
   assert.equal(evidence.calculationSteps.length, 5);
   assert.equal(evidence.limitations.length, evidence.limitationFacts.length);
   assert.equal(evidence.aspectSummaryFact.factKeys.length, evidence.aspectFacts.length);
+  assert.equal(evidence.aspects.length, evidence.aspectFacts.length);
+  assert.ok(evidence.aspectFacts.length > 8);
   assert.equal(evidence.summaryFact.status, '证据链完整');
   assert.ok(evidence.summaryFact.factKeys.includes(evidence.timeScale?.summaryFact.key ?? ''));
   assert.deepEqual(
@@ -157,6 +173,8 @@ test('次限与太阳弧应返回稳定键、计算链、相位事实和限制�
   assert.equal(secondary.calculationSteps.length, 4);
   assert.equal(secondary.limitations.length, secondary.limitationFacts.length);
   assert.equal(secondary.summaryFact.status, '证据链完整');
+  assert.equal(secondary.aspects.length, secondary.aspectFacts.length);
+  assert.ok(secondary.aspectFacts.length > 8);
   assert.deepEqual(
     secondary.limitationFacts.map((item) => item.ownerStepKeys),
     [
@@ -172,6 +190,8 @@ test('次限与太阳弧应返回稳定键、计算链、相位事实和限制�
   assert.equal(solarArc.calculationSteps.length, 5);
   assert.equal(solarArc.limitations.length, solarArc.limitationFacts.length);
   assert.equal(solarArc.summaryFact.status, '证据链完整');
+  assert.equal(solarArc.aspects.length, solarArc.aspectFacts.length);
+  assert.ok(solarArc.aspectFacts.length > 6);
   assert.deepEqual(
     solarArc.limitationFacts.map((item) => item.ownerStepKeys),
     [
@@ -252,6 +272,27 @@ test('星盘行运范围应支持 2100 年以后的有效年份', () => {
   assert.equal(yearlyContext.dateStr, '2101');
   assert.equal(monthlyContext.dateStr, '2101-02');
   assert.equal(dailyContext.dateStr, '2101-02-28');
+});
+
+test('星盘行运取样应使用出生地点在目标日期的历史时区', () => {
+  const newYorkData = generateAstrolabe({
+    name: '本人',
+    gender: '女',
+    year: '1995',
+    month: '5',
+    day: '20',
+    hour: '12',
+    minute: '30',
+    latitude: '40.7128',
+    longitude: '-74.006',
+    timezone: '-4',
+    timeZoneId: 'America/New_York',
+    locationName: '纽约',
+  });
+  const context = buildAstrolabeScopeContext(newYorkData, 'yearly', '2028');
+
+  assert.match(context.promptText, /取样时间：2028-07-01 12:00.*UTC-4/);
+  assert.doesNotMatch(context.promptText, /北京时间|UTC\+8/);
 });
 
 test('星盘资料缺少经度时应退回保守提示而不是报错', () => {

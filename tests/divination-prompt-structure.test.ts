@@ -208,9 +208,10 @@ function createAstrolabeData(
         symbol: '△',
         body2: '月亮',
         type: '三分',
+        actualAngle: 123.2,
+        exactAngle: 120,
         orb: 3.2,
-        closeness: '紧密',
-        normalizedOrbRatio: 0.14,
+        allowedOrb: 8,
         applying: true,
       },
       {
@@ -218,12 +219,23 @@ function createAstrolabeData(
         symbol: '合',
         body2: '水星',
         type: '合相',
+        actualAngle: 4.1,
+        exactAngle: 0,
         orb: 4.1,
-        closeness: '紧密',
-        normalizedOrbRatio: 0.26,
+        allowedOrb: 8,
         applying: false,
       },
     ],
+    aspectCalculation: {
+      selectedPointNames: ['太阳', '月亮', '水星', '上升', '天顶'],
+      aspectDefinitions: [
+        { type: '合相', symbol: '合', exactAngle: 0, allowedOrb: 8 },
+        { type: '三分', symbol: '△', exactAngle: 120, allowedOrb: 8 },
+      ],
+      evaluatedPairCount: 10,
+      matchedAspectCount: 2,
+      enumeration: '完整穷举',
+    },
     summary: {
       retrograde: [],
       patterns: ['土象偏强'],
@@ -1520,13 +1532,22 @@ test('星盘提示词应直接给出太阳月亮上升和主要相位资料', ()
   );
 
   assert.match(prompt, /核心结构：太阳金牛座 29°；月亮处女座 08°；上升狮子座 12°/);
+  assert.match(prompt, /核心位置：太阳金牛座 29°；月亮处女座 08°；上升狮子座 12°/);
+  assert.match(prompt, /关键提示：逆行星体无；格局土象偏强/);
   assert.match(
     prompt,
-    /核心位置：太阳金牛座 29°；月亮处女座 08°；上升狮子座 12°；主要相位太阳△月亮（三分，紧密等级）；太阳合水星（合相，紧密等级）/,
+    /本命相位穷举：选定点位太阳、月亮、水星、上升、天顶；共核验10组无序点对，完整保留2组命中项/,
   );
-  assert.match(prompt, /关键提示：逆行星体无；格局土象偏强/);
-  assert.match(prompt, /相位明细：/);
+  assert.match(
+    prompt,
+    /相位明细：太阳△月亮（三分，实际夹角123\.20°，精确角120\.00°，偏差3\.20°，采用容许度8\.00°，入相）/,
+  );
+  assert.match(
+    prompt,
+    /太阳合水星（合相，实际夹角4\.10°，精确角0\.00°，偏差4\.10°，采用容许度8\.00°，出相）/,
+  );
   assert.doesNotMatch(prompt, /强度\d+%/);
+  assert.doesNotMatch(prompt, /紧密等级|中等等级|宽松等级|归一化容许度/);
   assert.doesNotMatch(
     prompt,
     /星盘要点|只使用上方|本次按本命盘|星盘回答只按|结构化证据|证据汇总|解释边界/,

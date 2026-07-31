@@ -3541,6 +3541,10 @@ test('公开 API 星盘应附带真太阳时参考且不改写现代星历时刻
     /民用出生时间.*进入现代星历.*仅作为传统时间参考/,
   );
   assert.ok(body.data.aspects.length > 0);
+  assert.equal(body.data.aspectCalculation.enumeration, '完整穷举');
+  assert.equal(body.data.aspectCalculation.selectedPointNames.length, 24);
+  assert.equal(body.data.aspectCalculation.evaluatedPairCount, 276);
+  assert.equal(body.data.aspectCalculation.matchedAspectCount, body.data.aspects.length);
   assert.equal(body.data.evidenceAnalysis.evidence.title, '西方星盘位置与相位结构化证据');
   assert.equal(body.data.evidenceAnalysis.calculationFact.status, '完整');
   assert.equal(body.data.evidenceAnalysis.calculationFact.steps.length, 5);
@@ -3658,11 +3662,15 @@ test('公开 API 星盘应附带真太阳时参考且不改写现代星历时刻
   body.data.aspects.forEach(
     (aspect: {
       strength?: number;
+      closeness?: string;
+      normalizedOrbRatio?: number;
       actualAngle?: number;
       exactAngle?: number;
       allowedOrb?: number;
     }) => {
       assert.equal(aspect.strength, undefined);
+      assert.equal(aspect.closeness, undefined);
+      assert.equal(aspect.normalizedOrbRatio, undefined);
       assert.equal(typeof aspect.actualAngle, 'number');
       assert.equal(typeof aspect.exactAngle, 'number');
       assert.equal(typeof aspect.allowedOrb, 'number');
@@ -3705,6 +3713,9 @@ test('公开 API 星盘提示词支持完整输出版行运资料', async () => 
   assert.match(body.data.prompt, /分析对象：流年\d{4}。/);
   assert.match(body.data.prompt, /分析对象：流月\d{4}-\d{2}。/);
   assert.match(body.data.prompt, /分析对象：流日\d{4}-\d{2}-\d{2}。/);
+  assert.match(body.data.prompt, /本命相位穷举：.*共核验276组无序点对/);
+  assert.match(body.data.prompt, /相位明细：.*实际夹角.*精确角.*偏差.*采用容许度/s);
+  assert.doesNotMatch(body.data.prompt, /紧密等级|中等等级|宽松等级|归一化容许度/);
   assertPromptIsPortableTaskText(body.data.prompt);
 
   const detailed = await callApi('divination/astrolabe/prompt', {
