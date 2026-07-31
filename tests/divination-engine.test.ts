@@ -743,16 +743,15 @@ test('奇门定局、值符值使、宫间作用与应期前提应进入统一�
   );
   assertPromptIsPortableTaskText(analysis.promptText);
 
-  const incomplete = analyzeQimenEvidence({
-    ...data,
-    jiuGongGe: data.jiuGongGe.filter((item) => item.gong !== 5),
-    evidenceAnalysis: undefined,
-  });
-  assert.equal(incomplete.palaceCoverageFact.status, '缺少宫位');
-  assert.equal(incomplete.summaryFact.status, '部分盘面资料缺失');
-  assert.equal(incomplete.summaryFact.palaceFactCount, 8);
-  assert.deepEqual(incomplete.palaceCoverageFact.missingGongs, [5]);
-  assert.match(incomplete.palaceCoverageFact.promptText, /不得补造缺失宫位内容/);
+  assert.throws(
+    () =>
+      analyzeQimenEvidence({
+        ...data,
+        jiuGongGe: data.jiuGongGe.filter((item) => item.gong !== 5),
+        evidenceAnalysis: undefined,
+      }),
+    /需要一至九宫各一项；当前8项，缺少5.*已禁止计算派生规则/,
+  );
 });
 
 test('奇门证据与最终提示资料应重算派生字段并拒绝旧缓存污染', () => {

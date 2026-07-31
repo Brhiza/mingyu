@@ -11,11 +11,17 @@ import { getClassicPatterns, getStemRelations } from './algorithms/qimen/helpers
 import { buildPatternDetails, getQimenPatternTags } from './algorithms/qimen/helpers/patterns';
 import { AUDITED_QIMEN_CLASSIC_PATTERN_NAMES } from './algorithms/qimen/helpers/stem-pair-patterns';
 import { detectQimenPatternCombos } from './algorithms/qimen/helpers/pattern-combos';
-import { checkSpecialHourConditions, getDunJiaStem } from './algorithms/qimen/helpers/jushu';
+import {
+  checkSpecialHourConditions,
+  getDunJiaStem,
+  getZhiFuZhiShiByGanZhi,
+} from './algorithms/qimen/helpers/jushu';
+import { arrangeJiuGongGe } from './algorithms/qimen/helpers/layout';
 import { diPanPalaces, STEM_TOMB_MAP } from './algorithms/qimen/helpers/_constants';
 import { buildSeasonality } from './algorithms/qimen/helpers/seasonality';
 import { getVoidBranches } from '../calendar/lunar';
 import { TimeManager } from '../calendar/timeManager';
+import { isValidGanZhi } from '../ganzhi';
 
 export type QimenPalaceIndexSource = '值符落宫' | '值使落宫' | '日干落宫' | '时干落宫' | '经典格局';
 
@@ -455,6 +461,173 @@ function getHorseBranch(sourceBranch: string): string {
   return '';
 }
 
+const QIMEN_SCOPE_LABELS = {
+  year: '年柱',
+  month: '月柱',
+  day: '日柱',
+  hour: '时柱',
+} as const;
+
+function assertCompleteQimenPalaces(input: QimenData): void {
+  if (!Array.isArray(input.jiuGongGe)) {
+    throw new Error('奇门审核重建需要九宫数组，已禁止计算派生规则。');
+  }
+
+  const rawGongs = input.jiuGongGe.map((item) => item?.gong);
+  const missingGongs = Array.from({ length: 9 }, (_, index) => index + 1).filter(
+    (gong) => !rawGongs.includes(gong),
+  );
+  const duplicateGongs = Array.from(new Set(rawGongs)).filter(
+    (gong) => rawGongs.filter((item) => item === gong).length > 1,
+  );
+  const invalidGongs = rawGongs.filter((gong) => !Number.isInteger(gong) || gong < 1 || gong > 9);
+
+  if (
+    input.jiuGongGe.length !== 9 ||
+    missingGongs.length ||
+    duplicateGongs.length ||
+    invalidGongs.length
+  ) {
+    throw new Error(
+      `奇门审核重建需要一至九宫各一项；当前${input.jiuGongGe.length}项，缺少${missingGongs.join('、') || '无'}，重复${duplicateGongs.join('、') || '无'}，越界${invalidGongs.join('、') || '无'}，已禁止计算派生规则。`,
+    );
+  }
+}
+
+function assertQimenPalaceShape(palace: QimenJiuGongGe): void {
+  if (
+    !palace ||
+    typeof palace.name !== 'string' ||
+    typeof palace.direction !== 'string' ||
+    typeof palace.element !== 'string' ||
+    !palace.tianPan ||
+    typeof palace.tianPan.star !== 'string' ||
+    typeof palace.tianPan.stem !== 'string' ||
+    !palace.diPan ||
+    typeof palace.diPan.stem !== 'string' ||
+    !palace.renPan ||
+    typeof palace.renPan.door !== 'string' ||
+    !palace.shenPan ||
+    typeof palace.shenPan.god !== 'string'
+  ) {
+    throw new Error(
+      `奇门第${String(palace?.gong ?? '未知')}宫原始盘字段不完整，已禁止计算派生规则。`,
+    );
+  }
+}
+
+function assertQimenPalaceMatches(actual: QimenJiuGongGe, expected: QimenJiuGongGe): void {
+  const actualFields = [
+    actual.name,
+    actual.direction,
+    actual.element,
+    actual.tianPan.star,
+    actual.tianPan.stem,
+    actual.tianPan.companionStar ?? '',
+    actual.tianPan.companionStem ?? '',
+    actual.diPan.stem,
+    actual.renPan.door,
+    actual.shenPan.god,
+  ];
+  const expectedFields = [
+    expected.name,
+    expected.direction,
+    expected.element,
+    expected.tianPan.star,
+    expected.tianPan.stem,
+    expected.tianPan.companionStar ?? '',
+    expected.tianPan.companionStem ?? '',
+    expected.diPan.stem,
+    expected.renPan.door,
+    expected.shenPan.god,
+  ];
+
+  if (actualFields.some((value, index) => value !== expectedFields[index])) {
+    throw new Error(
+      `奇门第${actual.gong}宫原始盘与声明的遁局、值符值使及排盘法不一致，已禁止计算派生规则。`,
+    );
+  }
+}
+
+function assertAuditableQimenInput(input: QimenData): void {
+  const scope = input.scope ?? 'hour';
+  if (!['hour', 'day', 'month', 'year'].includes(scope)) {
+    throw new Error(`奇门审核重建无法识别排盘级别“${String(input.scope)}”。`);
+  }
+  const method = input.method ?? 'zhuanpan';
+  if (!['zhuanpan', 'feipan'].includes(method)) {
+    throw new Error(`奇门审核重建无法识别排盘法“${String(input.method)}”。`);
+  }
+  if (typeof input.isYangDun !== 'boolean') {
+    throw new Error('奇门审核重建缺少明确的阴阳遁标记。');
+  }
+  if (!Number.isInteger(input.juShu) || input.juShu < 1 || input.juShu > 9) {
+    throw new Error(`奇门审核重建局数必须是1至9的整数，当前为“${String(input.juShu)}”。`);
+  }
+  if (!Number.isFinite(input.timestamp) || Number.isNaN(new Date(input.timestamp).getTime())) {
+    throw new Error('奇门审核重建时间戳无效，已禁止重建节令事实。');
+  }
+  if (!input.ganzhi || typeof input.ganzhi !== 'object') {
+    throw new Error('奇门审核重建缺少完整四柱干支。');
+  }
+  for (const key of ['year', 'month', 'day', 'hour'] as const) {
+    const ganZhi = input.ganzhi[key];
+    if (!isValidGanZhi(ganZhi)) {
+      throw new Error(
+        `奇门审核重建的${QIMEN_SCOPE_LABELS[key]}必须是有效六十甲子，当前为“${String(ganZhi)}”。`,
+      );
+    }
+  }
+
+  assertCompleteQimenPalaces(input);
+  input.jiuGongGe.forEach(assertQimenPalaceShape);
+
+  const activeGanZhi = getActiveGanZhi(input);
+  const expectedLeaders = getZhiFuZhiShiByGanZhi(activeGanZhi, {
+    isYangDun: input.isYangDun,
+    juShu: input.juShu,
+  });
+  if (input.zhiFu !== expectedLeaders.zhiFu) {
+    throw new Error(
+      `奇门值符“${String(input.zhiFu)}”与主动干支、阴阳遁及局数重算结果“${expectedLeaders.zhiFu}”不一致。`,
+    );
+  }
+  if (input.zhiShi !== expectedLeaders.zhiShi) {
+    throw new Error(
+      `奇门值使“${String(input.zhiShi)}”与主动干支、阴阳遁及局数重算结果“${expectedLeaders.zhiShi}”不一致。`,
+    );
+  }
+
+  const zhiFuPalaces = input.jiuGongGe.filter((palace) => hasTianPanStar(palace, input.zhiFu));
+  if (zhiFuPalaces.length !== 1) {
+    throw new Error(
+      `奇门值符星“${input.zhiFu}”必须有且只有一个落宫，当前定位到${zhiFuPalaces.length}处。`,
+    );
+  }
+  const zhiShiPalaces = input.jiuGongGe.filter((palace) => palace.renPan.door === input.zhiShi);
+  if (zhiShiPalaces.length !== 1) {
+    throw new Error(
+      `奇门值使门“${input.zhiShi}”必须有且只有一个落宫，当前定位到${zhiShiPalaces.length}处。`,
+    );
+  }
+
+  const expectedPalaces = arrangeJiuGongGe(
+    input.isYangDun,
+    input.juShu,
+    input.zhiFu,
+    input.zhiShi,
+    { hour: activeGanZhi },
+    method,
+  );
+  for (const actual of input.jiuGongGe) {
+    const expected = expectedPalaces.find((palace) => palace.gong === actual.gong);
+    if (!expected) {
+      throw new Error(`奇门第${actual.gong}宫缺少可复算的标准盘面，已禁止计算派生规则。`);
+    }
+    assertQimenPalaceMatches(actual, expected);
+  }
+}
+
 function rebuildSpecialConditions(
   data: QimenData,
   activeGanZhi: string,
@@ -487,6 +660,7 @@ function rebuildSpecialConditions(
  * 旧缓存或外部输入中的格局摘要、宫位评级、方位、应期与现实断语均不得旁路恢复。
  */
 export function rebuildAuditedQimenData(input: QimenData): QimenData {
+  assertAuditableQimenInput(input);
   const {
     evidenceAnalysis: _legacyEvidenceAnalysis,
     patternTags: _legacyPatternTags,
@@ -511,45 +685,48 @@ export function rebuildAuditedQimenData(input: QimenData): QimenData {
   const activeGanZhi = getActiveGanZhi(input);
   const zhiFuPalace = input.jiuGongGe.find((palace) => hasTianPanStar(palace, input.zhiFu));
   const zhiShiPalace = input.jiuGongGe.find((palace) => palace.renPan.door === input.zhiShi);
-  const voidBranches = getVoidBranches(activeGanZhi) ?? [];
-  const voidPalaces = voidBranches.flatMap((branch) => {
+  if (!zhiFuPalace || !zhiShiPalace) {
+    throw new Error('奇门值符值使落宫复核失败，已禁止计算格局标签。');
+  }
+  const voidBranches = getVoidBranches(activeGanZhi);
+  if (voidBranches.length !== 2 || new Set(voidBranches).size !== 2) {
+    throw new Error(`奇门主动干支“${activeGanZhi}”未取得两个唯一旬空地支。`);
+  }
+  const voidPalaces = voidBranches.map((branch) => {
     const palace = diPanPalaces[branch];
-    if (!palace) return [];
-    return [
-      {
-        branch,
-        palace,
-        name: input.jiuGongGe.find((item) => item.gong === palace)?.name ?? `${palace}宫`,
-      },
-    ];
+    const palaceData = input.jiuGongGe.find((item) => item.gong === palace);
+    if (!palace || !palaceData) {
+      throw new Error(`奇门旬空地支“${branch}”无法映射到完整九宫。`);
+    }
+    return {
+      branch,
+      palace,
+      name: palaceData.name,
+    };
   });
   const sourceBranch = activeGanZhi.charAt(1);
   const horseBranch = getHorseBranch(sourceBranch);
-  const horsePalaceNumber = horseBranch ? diPanPalaces[horseBranch] : undefined;
-  const horsePalace =
-    horsePalaceNumber === undefined
-      ? undefined
-      : {
-          sourceBranch,
-          branch: horseBranch,
-          palace: horsePalaceNumber,
-          name:
-            input.jiuGongGe.find((item) => item.gong === horsePalaceNumber)?.name ??
-            `${horsePalaceNumber}宫`,
-        };
-  const patternTags =
-    zhiFuPalace && zhiShiPalace
-      ? getQimenPatternTags({
-          zhiFu: input.zhiFu,
-          zhiShi: input.zhiShi,
-          zhiFuLandingPalace: zhiFuPalace.gong,
-          zhiShiLandingPalace: zhiShiPalace.gong,
-          jiuGongGe: input.jiuGongGe,
-          hourGanForFind: getDunJiaStem(activeGanZhi),
-          horsePalace: horsePalace?.palace,
-          horsePalaceName: horsePalace?.name,
-        })
-      : [];
+  const horsePalaceNumber = diPanPalaces[horseBranch];
+  const horsePalaceData = input.jiuGongGe.find((item) => item.gong === horsePalaceNumber);
+  if (!horseBranch || !horsePalaceNumber || !horsePalaceData) {
+    throw new Error(`奇门主动地支“${sourceBranch}”的驿马无法映射到完整九宫。`);
+  }
+  const horsePalace = {
+    sourceBranch,
+    branch: horseBranch,
+    palace: horsePalaceNumber,
+    name: horsePalaceData.name,
+  };
+  const patternTags = getQimenPatternTags({
+    zhiFu: input.zhiFu,
+    zhiShi: input.zhiShi,
+    zhiFuLandingPalace: zhiFuPalace.gong,
+    zhiShiLandingPalace: zhiShiPalace.gong,
+    jiuGongGe: input.jiuGongGe,
+    hourGanForFind: getDunJiaStem(activeGanZhi),
+    horsePalace: horsePalace.palace,
+    horsePalaceName: horsePalace.name,
+  });
   const stemRelations = getStemRelations(input.jiuGongGe).map((item) => ({
     gong: item.palace,
     heavenStem: item.heaven,
@@ -922,9 +1099,6 @@ function buildLimitationFacts(params: {
 }
 
 export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
-  if (!input.jiuGongGe.length) {
-    throw new Error('奇门证据分析至少需要一个宫位数据。');
-  }
   const data = rebuildAuditedQimenData(input);
   const patternFacts = buildPatternFacts(data);
   const indexSourceMap = collectPalaceIndexSources(data, patternFacts);

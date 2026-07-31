@@ -140,3 +140,96 @@ test('奇门审核重建应删除旧方位应期并重算经典格局', () => {
   assert.equal(rebuilt.yingQi, undefined);
   assert.doesNotMatch(JSON.stringify(rebuilt.classicPatterns), /伪造|必胜/);
 });
+
+test('奇门审核重建应在派生规则前拒绝残缺或重复九宫', () => {
+  const clean = generateQimen(fixedDate);
+  const missing = structuredClone(clean);
+  missing.jiuGongGe = missing.jiuGongGe.filter((item) => item.gong !== 5);
+  assert.throws(
+    () => rebuildAuditedQimenData(missing),
+    /需要一至九宫各一项；当前8项，缺少5.*已禁止计算派生规则/,
+  );
+
+  const duplicate = structuredClone(clean);
+  duplicate.jiuGongGe[4] = structuredClone(duplicate.jiuGongGe[0]);
+  assert.throws(
+    () => rebuildAuditedQimenData(duplicate),
+    /需要一至九宫各一项；当前9项，缺少5，重复1.*已禁止计算派生规则/,
+  );
+});
+
+test('奇门审核重建应拒绝非法四柱、范围、排盘法与局数', () => {
+  const clean = generateQimen(fixedDate);
+  const pillarLabels = {
+    year: '年柱',
+    month: '月柱',
+    day: '日柱',
+    hour: '时柱',
+  } as const;
+
+  for (const key of ['year', 'month', 'day', 'hour'] as const) {
+    const corrupted = structuredClone(clean);
+    corrupted.ganzhi[key] = '甲丑';
+    assert.throws(
+      () => rebuildAuditedQimenData(corrupted),
+      new RegExp(`${pillarLabels[key]}必须是有效六十甲子`),
+    );
+  }
+
+  assert.throws(
+    () =>
+      rebuildAuditedQimenData({
+        ...clean,
+        scope: 'unknown' as typeof clean.scope,
+      }),
+    /无法识别排盘级别/,
+  );
+  assert.throws(
+    () =>
+      rebuildAuditedQimenData({
+        ...clean,
+        method: 'unknown' as typeof clean.method,
+      }),
+    /无法识别排盘法/,
+  );
+  assert.throws(() => rebuildAuditedQimenData({ ...clean, juShu: 0 }), /局数必须是1至9的整数/);
+  assert.throws(() => rebuildAuditedQimenData({ ...clean, timestamp: Number.NaN }), /时间戳无效/);
+});
+
+test('奇门审核重建应拒绝值符值使落点缺失与原始盘污染', () => {
+  const clean = generateQimen(fixedDate);
+
+  const missingZhiFu = structuredClone(clean);
+  const zhiFuPalace = missingZhiFu.jiuGongGe.find(
+    (item) =>
+      item.tianPan.star === missingZhiFu.zhiFu || item.tianPan.companionStar === missingZhiFu.zhiFu,
+  );
+  assert.ok(zhiFuPalace);
+  if (zhiFuPalace.tianPan.star === missingZhiFu.zhiFu) {
+    zhiFuPalace.tianPan.star = '';
+  } else {
+    zhiFuPalace.tianPan.companionStar = undefined;
+  }
+  assert.throws(
+    () => rebuildAuditedQimenData(missingZhiFu),
+    /值符星.*必须有且只有一个落宫，当前定位到0处/,
+  );
+
+  const missingZhiShi = structuredClone(clean);
+  const zhiShiPalace = missingZhiShi.jiuGongGe.find(
+    (item) => item.renPan.door === missingZhiShi.zhiShi,
+  );
+  assert.ok(zhiShiPalace);
+  zhiShiPalace.renPan.door = '';
+  assert.throws(
+    () => rebuildAuditedQimenData(missingZhiShi),
+    /值使门.*必须有且只有一个落宫，当前定位到0处/,
+  );
+
+  const pollutedPalace = structuredClone(clean);
+  pollutedPalace.jiuGongGe[0].name = '伪造吉宫';
+  assert.throws(
+    () => rebuildAuditedQimenData(pollutedPalace),
+    /第1宫原始盘与声明的遁局、值符值使及排盘法不一致/,
+  );
+});

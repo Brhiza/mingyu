@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { taiyi } from 'mingyu-core';
 import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import { analyzeMeihuaEvidence } from 'mingyu-core/divination/meihua';
+import { generateQimen } from 'mingyu-core/divination/qimen';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
@@ -469,51 +470,7 @@ function createData(method: FixtureMethod): DivinationData {
         customDate: new Date('2025-06-29T08:00:00+08:00'),
       });
     case 'qimen':
-      return {
-        jiuGongGe: [
-          {
-            gong: 1,
-            name: '坎一宫',
-            direction: '北',
-            element: '水',
-            tianPan: { star: '天蓬', stem: '壬' },
-            diPan: { stem: '癸' },
-            renPan: { door: '休门' },
-            shenPan: { god: '值符' },
-          },
-          {
-            gong: 9,
-            name: '离九宫',
-            direction: '南',
-            element: '火',
-            tianPan: { star: '天英', stem: '丙' },
-            diPan: { stem: '丁' },
-            renPan: { door: '景门' },
-            shenPan: { god: '九天' },
-          },
-        ],
-        ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-        isYangDun: true,
-        juShu: 3,
-        zhiFu: '天蓬',
-        zhiShi: '休门',
-        patternTags: ['门生宫', '星旺'],
-        patternDetails: [{ tag: '门生宫', summary: '休门得地，利于稳步推进' }],
-        palaceInsights: [{ gong: 1, name: '坎一宫', level: '有利', summary: '适合谋划与沟通' }],
-        voidBranches: ['子', '丑'],
-        voidPalaces: [
-          { branch: '子', palace: 1, name: '坎一宫' },
-          { branch: '丑', palace: 8, name: '艮八宫' },
-        ],
-        horseStar: {
-          sourceBranch: '卯',
-          branch: '巳',
-          palace: 4,
-          name: '巽四宫',
-        },
-        timeInfo: { solarTerm: '春分', epoch: '上元' },
-        timestamp: Date.now(),
-      };
+      return generateQimen(new Date('2025-06-18T10:30:00+08:00'));
     case 'liuren':
       return {
         ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
@@ -1037,47 +994,23 @@ test('占卜提示词的当前时间应来自起盘结果而不是运行环境�
 });
 
 test('奇门提示词会输出值符值使、旬空马星和格局资料', () => {
-  const base = createData('qimen');
-  const qimenData = {
-    ...base,
-    jiuGongGe: base.jiuGongGe.map((palace) =>
-      palace.gong === 9
-        ? {
-            ...palace,
-            tianPan: { ...palace.tianPan, stem: '庚', companionStem: '丁' },
-            diPan: { stem: '丙' },
-          }
-        : palace,
-    ),
-    classicPatterns: [
-      {
-        name: '太白入荧',
-        type: 'bad' as const,
-        score: -18,
-        summary: '庚加丙主阻力外显。',
-        palaces: [9],
-      },
-    ],
-    stemRelations: [
-      {
-        gong: 9,
-        heavenStem: '庚',
-        earthStem: '丙',
-        relation: '金火相战',
-        pattern: '太白入荧',
-      },
-    ],
-  };
+  const qimenData = createData('qimen');
   const prompt = buildDivinationPrompt('qimen', '这次换工作该不该主动推进？', qimenData, {
     gender: '男',
     birthYear: 1995,
   });
 
-  assert.match(prompt, /核心结构：阳遁3局；值符天蓬；值使休门/);
+  assert.match(prompt, /核心结构：[阴阳]遁[1-9]局；值符\S+；值使\S+/);
   assert.match(prompt, /位置索引：/);
-  assert.match(prompt, /值符值使与时干：值符天蓬落坎一宫；值使休门落坎一宫；时干丁见于离九宫/);
-  assert.match(prompt, /旬空与马星：旬空戌空落6宫、亥空落6宫；马星卯时驿马在巳，落4宫/);
-  assert.match(prompt, /太白入荧/);
+  assert.match(
+    prompt,
+    /值符值使与时干：值符\S+落\S+宫；值使\S+落\S+宫；时干[甲乙丙丁戊己庚辛壬癸](?:见于\S+宫|未见落宫)/,
+  );
+  assert.match(
+    prompt,
+    /旬空与马星：旬空[子丑寅卯辰巳午未申酉戌亥]空落\S+宫、[子丑寅卯辰巳午未申酉戌亥]空落\S+宫；马星[子丑寅卯辰巳午未申酉戌亥]时驿马在[子丑寅卯辰巳午未申酉戌亥]，落\S+宫/,
+  );
+  assert.match(prompt, /位置与五行事实：|经典格局：|已校勘组合规则：/);
   assert.match(prompt, /先根据具体问题选择日干、年命或事项类神作为用神并说明取用口径/);
   assert.match(prompt, /取用依据未闭合时保留待定，不强行给出方向、时机或现实结果/);
   assert.doesNotMatch(prompt, /主宫评分：|辅宫评分：|评分-?\d+|（-?\d+分|应期范围\d/);
@@ -1089,32 +1022,7 @@ test('奇门提示词会输出值符值使、旬空马星和格局资料', () =>
 });
 
 test('奇门提示词不再根据问题词表输出问事参考', () => {
-  const data = {
-    ...createData('qimen'),
-    jiuGongGe: [
-      ...createData('qimen').jiuGongGe,
-      {
-        gong: 6,
-        name: '乾六宫',
-        direction: '西北',
-        element: '金',
-        tianPan: { star: '天心', stem: '辛' },
-        diPan: { stem: '庚' },
-        renPan: { door: '开门' },
-        shenPan: { god: '六合' },
-      },
-      {
-        gong: 8,
-        name: '艮八宫',
-        direction: '东北',
-        element: '土',
-        tianPan: { star: '天任', stem: '戊' },
-        diPan: { stem: '己' },
-        renPan: { door: '生门' },
-        shenPan: { god: '九地' },
-      },
-    ],
-  } satisfies DivinationData;
+  const data = createData('qimen');
 
   const prompt = buildDivinationPrompt('qimen', '这次换工作该不该主动推进？', data, {
     gender: '男',
@@ -1123,7 +1031,7 @@ test('奇门提示词不再根据问题词表输出问事参考', () => {
 
   assert.doesNotMatch(prompt, /问事参考/);
   assert.doesNotMatch(prompt, /事业参考|首看开门|兼看生门/);
-  assert.match(prompt, /值符值使与时干：值符天蓬落坎一宫；值使休门落坎一宫/);
+  assert.match(prompt, /值符值使与时干：值符\S+落\S+宫；值使\S+落\S+宫/);
 });
 
 test('六爻提示词会保留世应、动变、空亡、伏神和月日资料', () => {
