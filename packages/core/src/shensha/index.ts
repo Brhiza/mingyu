@@ -42,9 +42,9 @@ export interface ShenshaEvidenceMetadata {
   inputDependencies: ShenshaContextKey[];
   /** 可公开说明的固定起法，不包含内部函数名。 */
   ruleText: string;
-  /** 固定资料或算法来源；动态注册项缺省时会显式标记来源未声明。 */
+  /** 固定资料或算法来源；缺少时只能登记目录，不允许计算。 */
   sources: string[];
-  /** 旧注册函数返回值的语义；默认沿用“返回即命中”。 */
+  /** 注册函数返回值的明确语义；缺少时不允许计算。 */
   resultMeaning?: 'hit' | 'target-branches';
 }
 
@@ -197,7 +197,8 @@ export function computeShensha(ids: string[], ctx: ShenshaContext): ShenshaResul
   const out: ShenshaResult[] = [];
   for (const id of requestedIds) {
     const def = REGISTRY.get(id)!;
-    const r = def.compute(ctx);
+    const metadata = requireAuditedShenshaEvidence(def);
+    const r = validateComputedShenshaResult(def, def.compute(ctx), metadata);
     if (r) out.push(r);
   }
   return out;
@@ -213,6 +214,69 @@ const PILLAR_LABELS: Record<ShenshaContextKey, ShenshaPillarFact['label']> = {
   dayGanZhi: '日柱',
   hourGanZhi: '时柱',
 };
+
+function requireAuditedShenshaEvidence(definition: ShenshaDefinition): ShenshaEvidenceMetadata {
+  const metadata = definition.evidence;
+  if (!metadata) {
+    throw new Error(`神煞${definition.id}缺少公开起法与来源，已禁止计算。`);
+  }
+  if (
+    !Array.isArray(metadata.inputDependencies) ||
+    metadata.inputDependencies.length === 0 ||
+    metadata.inputDependencies.some(
+      (key) => !Object.prototype.hasOwnProperty.call(PILLAR_LABELS, key),
+    )
+  ) {
+    throw new Error(`神煞${definition.id}的四柱输入依赖未完整声明，已禁止计算。`);
+  }
+  if (new Set(metadata.inputDependencies).size !== metadata.inputDependencies.length) {
+    throw new Error(`神煞${definition.id}的四柱输入依赖存在重复，已禁止计算。`);
+  }
+  if (typeof metadata.ruleText !== 'string' || !metadata.ruleText.trim()) {
+    throw new Error(`神煞${definition.id}缺少公开起法，已禁止计算。`);
+  }
+  if (
+    !Array.isArray(metadata.sources) ||
+    metadata.sources.length === 0 ||
+    metadata.sources.some((source) => typeof source !== 'string' || !source.trim())
+  ) {
+    throw new Error(`神煞${definition.id}缺少可复核来源，已禁止计算。`);
+  }
+  if (metadata.resultMeaning !== 'hit' && metadata.resultMeaning !== 'target-branches') {
+    throw new Error(`神煞${definition.id}未声明计算结果语义，已禁止计算。`);
+  }
+  return metadata;
+}
+
+function validateComputedShenshaResult(
+  definition: ShenshaDefinition,
+  result: ShenshaResult | null,
+  metadata: ShenshaEvidenceMetadata,
+): ShenshaResult | null {
+  if (result === null) return null;
+  if (typeof result !== 'object') {
+    throw new Error(`神煞${definition.id}返回了非法计算结果。`);
+  }
+  if (result.id !== definition.id || result.name !== definition.name) {
+    throw new Error(`神煞${definition.id}的计算结果与登记编号或名称不一致。`);
+  }
+  const values = Array.isArray(result.value) ? result.value : [result.value];
+  if (values.length === 0 || values.some((value) => typeof value !== 'string' || !value.trim())) {
+    throw new Error(`神煞${definition.id}返回了空白或非法计算值。`);
+  }
+  if (metadata.resultMeaning === 'target-branches') {
+    if (values.some((value) => !(EARTHLY_BRANCHES as readonly string[]).includes(value))) {
+      throw new Error(`神煞${definition.id}返回了非法目标地支。`);
+    }
+    if (new Set(values).size !== values.length) {
+      throw new Error(`神煞${definition.id}返回了重复目标地支。`);
+    }
+  }
+  if (result.detail !== undefined && (typeof result.detail !== 'string' || !result.detail.trim())) {
+    throw new Error(`神煞${definition.id}返回了非法计算说明。`);
+  }
+  return result;
+}
 
 const SHENSHA_STEP_LIMITATION =
   '神煞计算步骤只证明规则如何从四柱取得目标并逐柱核对；不得把步骤完整度解释为吉凶、性格、事件概率或必然结果' as const;
@@ -362,31 +426,29 @@ export function analyzeShenshaEvidence(
 
   for (const id of requestedIds) {
     const definition = REGISTRY.get(id)!;
-    const result = definition.compute(ctx);
+    const metadata = requireAuditedShenshaEvidence(definition);
+    const result = validateComputedShenshaResult(definition, definition.compute(ctx), metadata);
     const ruleStepKey = `foundation:shensha:calculation:${id}:rule`;
     const matchStepKey = `foundation:shensha:calculation:${id}:match`;
-    const metadata = definition.evidence;
-    const evidenceStatus: ShenshaMatchFact['evidenceStatus'] = metadata?.sources.length
-      ? '来源已声明'
-      : '来源未声明';
+    const evidenceStatus: ShenshaMatchFact['evidenceStatus'] = '来源已声明';
     const targetBranches =
-      metadata?.resultMeaning === 'target-branches' ? getTargetBranches(result) : [];
+      metadata.resultMeaning === 'target-branches' ? getTargetBranches(result) : [];
     const matchedPillars =
-      metadata?.resultMeaning === 'target-branches'
+      metadata.resultMeaning === 'target-branches'
         ? pillarFacts
             .filter((pillar) => targetBranches.includes(pillar.branch))
             .map(({ pillar, label, ganZhi, branch }) => ({ pillar, label, ganZhi, branch }))
         : [];
     const status: ShenshaMatchFact['status'] =
-      metadata?.resultMeaning === 'target-branches'
+      metadata.resultMeaning === 'target-branches'
         ? matchedPillars.length > 0
           ? '命中'
           : '未命中'
         : result
           ? '命中'
           : '未命中';
-    const ruleText = metadata?.ruleText || '当前动态注册规则未声明公开起法';
-    const sources = metadata?.sources.length ? [...metadata.sources] : ['动态注册项未声明来源'];
+    const ruleText = metadata.ruleText;
+    const sources = [...metadata.sources];
     const targetText = targetBranches.length > 0 ? targetBranches.join('、') : '未返回目标地支';
     const matchText =
       matchedPillars.length > 0
@@ -399,7 +461,7 @@ export function analyzeShenshaEvidence(
         stage: '规则取值',
         status: '已计算',
         dependsOnStepKeys: [inputStepKey],
-        promptText: `${definition.name}：${result?.detail || ruleText}${metadata?.resultMeaning === 'target-branches' ? `，目标地支为${targetText}` : ''}`,
+        promptText: `${definition.name}：${result?.detail || ruleText}${metadata.resultMeaning === 'target-branches' ? `，目标地支为${targetText}` : ''}`,
         sources,
         limitation: SHENSHA_STEP_LIMITATION,
       },
@@ -408,7 +470,7 @@ export function analyzeShenshaEvidence(
         stage: '逐柱定位',
         status: '已定位',
         dependsOnStepKeys: [ruleStepKey],
-        promptText: `${definition.name}${status}：${metadata?.resultMeaning === 'target-branches' ? matchText : result?.detail || '注册函数未返回命中结果'}`,
+        promptText: `${definition.name}${status}：${metadata.resultMeaning === 'target-branches' ? matchText : result?.detail || '注册函数未返回命中结果'}`,
         sources,
         limitation: SHENSHA_STEP_LIMITATION,
       },
@@ -420,13 +482,13 @@ export function analyzeShenshaEvidence(
       scope: definition.scope,
       status,
       evidenceStatus,
-      inputDependencies: [...(metadata?.inputDependencies ?? [])],
+      inputDependencies: [...metadata.inputDependencies],
       targetBranches,
       matchedPillars,
       ...(result ? { result } : {}),
       ruleText,
       ownerStepKeys: [ruleStepKey, matchStepKey],
-      promptText: `${definition.name}${status}；起法：${ruleText}；${metadata?.resultMeaning === 'target-branches' ? `目标地支${targetText}；${matchText}` : result?.detail || '未返回命中结果'}`,
+      promptText: `${definition.name}${status}；起法：${ruleText}；${metadata.resultMeaning === 'target-branches' ? `目标地支${targetText}；${matchText}` : result?.detail || '未返回命中结果'}`,
       sources,
       limitation: SHENSHA_MATCH_FACT_LIMITATION,
     });
@@ -446,7 +508,7 @@ export function analyzeShenshaEvidence(
   const limitations = [
     '本入口只统一空亡、驿马、桃花等已注册公共规则；八字、六壬、奇门、七政四余等体系的特有起法仍由各自算法独立核验。',
     '神煞命中只能作为传统辅助资料，必须与所属体系的主线结构、反证和现实信息并列，不得凭单项神煞定吉凶、性格、健康、婚恋、财富或事件结果。',
-    '动态注册规则若未声明公开起法与来源，会明确标为来源未声明，不得补造出处或把该结果当作完整证据。',
+    '动态注册规则若未完整声明输入依赖、公开起法、来源和结果语义，将在执行规则前失败关闭，不进入计算结果或提示词。',
   ];
   const limitationFacts: ShenshaLimitationFact[] = [
     {

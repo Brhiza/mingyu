@@ -30,27 +30,62 @@ export function normalizeScopeMutagenStars(
   return normalized;
 }
 
+export function normalizeScopePalaceNames(palaceNames: readonly string[]): string[] {
+  if (!Array.isArray(palaceNames)) {
+    throw new Error('紫微运限十二宫名称必须是按本命宫位索引排列的数组。');
+  }
+  if (palaceNames.length !== 12) {
+    throw new Error('紫微运限十二宫名称必须恰好提供12项，并按本命宫位索引排列。');
+  }
+
+  const normalized = palaceNames.map((name, index) => {
+    if (typeof name !== 'string' || !name.trim()) {
+      throw new Error(`紫微运限第${index + 1}个宫位名称无效。`);
+    }
+    return name.trim();
+  });
+  if (new Set(normalized).size !== normalized.length) {
+    throw new Error('紫微运限十二宫名称不得重复。');
+  }
+  return normalized;
+}
+
 export function mapScopeMutagenMap(
   stars: string[],
   astrolabe: IztroAstrolabe,
   dynamicPalaceNames: string[] = [],
   options: { allowEmpty?: boolean } = {},
 ): ScopeMutagenItem[] {
-  return normalizeScopeMutagenStars(stars, options).map((star, index) => {
+  const normalizedStars = normalizeScopeMutagenStars(stars, options);
+  if (normalizedStars.length === 0) {
+    return [];
+  }
+  const normalizedPalaceNames = normalizeScopePalaceNames(dynamicPalaceNames);
+
+  return normalizedStars.map((star, index) => {
     let palace;
     try {
       palace = astrolabe.star(star as never).palace();
     } catch {
       throw new Error(`iztro 未能定位${star}的本命落宫。`);
     }
+    const mappedPalace = astrolabe.palaces.find((candidate) => candidate.index === palace?.index);
+    if (
+      !palace ||
+      !Number.isInteger(palace.index) ||
+      palace.index < 0 ||
+      palace.index >= normalizedPalaceNames.length ||
+      !mappedPalace
+    ) {
+      throw new Error(`iztro 未能把${star}的本命落宫映射到十二宫。`);
+    }
 
     return {
       mutagen: MUTAGEN_ORDER[index],
       star,
-      palace_index: palace?.index,
-      palace_name: palace?.name,
-      dynamic_palace_name:
-        palace?.index === undefined ? undefined : dynamicPalaceNames[palace.index],
+      palace_index: palace.index,
+      palace_name: mappedPalace.name,
+      dynamic_palace_name: normalizedPalaceNames[palace.index],
     };
   });
 }

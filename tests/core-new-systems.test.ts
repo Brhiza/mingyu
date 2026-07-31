@@ -123,11 +123,17 @@ test('shensha: 可扩展 registry（不破坏既有系统）', () => {
       }),
     /至少需要查询一个神煞/,
   );
-  // 自定义神煞可自由注册（地基可继续拓展）
+  // 自定义神煞在声明可复核依据后可继续拓展
   core.shensha.registerShensha({
     id: 'demo',
     name: '示例',
     scope: 'bazhai',
+    evidence: {
+      inputDependencies: ['dayGanZhi'],
+      ruleText: '按日柱执行测试用固定规则',
+      sources: ['测试用固定规则资料'],
+      resultMeaning: 'hit',
+    },
     compute: () => ({ id: 'demo', name: '示例', value: 'ok' }),
   });
   assert.ok(core.shensha.listShensha('bazhai').some((d) => d.id === 'demo'));

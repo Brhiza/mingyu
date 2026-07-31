@@ -15,7 +15,10 @@ import {
   shiftLocalDate,
   shiftLunarYear,
 } from '@core/ziwei/iztro';
-import { mapScopeMutagenMap } from '../packages/core/src/ziwei/iztro/build-analysis-payload/helpers/mappers';
+import {
+  mapScopeMutagenMap,
+  normalizeScopePalaceNames,
+} from '../packages/core/src/ziwei/iztro/build-analysis-payload/helpers/mappers';
 
 const DEFAULT_CHART_INPUT = {
   name: '测试',
@@ -112,6 +115,37 @@ test('紫微运限四化映射应严格要求禄权科忌四项且拒绝静默�
   assert.throws(
     () => mapScopeMutagenMap([stars[0], ' ', stars[2], stars[3]], astrolabe),
     /第2个星曜名称无效/,
+  );
+  assert.throws(() => mapScopeMutagenMap(stars, astrolabe, []), /必须恰好提供12项/);
+  assert.throws(
+    () => mapScopeMutagenMap(stars, astrolabe, horoscope.yearly.palaceNames.slice(0, 11)),
+    /必须恰好提供12项/,
+  );
+  assert.throws(
+    () => mapScopeMutagenMap(stars, astrolabe, [...horoscope.yearly.palaceNames, '额外宫位']),
+    /必须恰好提供12项/,
+  );
+  assert.throws(
+    () =>
+      mapScopeMutagenMap(stars, astrolabe, [
+        horoscope.yearly.palaceNames[0],
+        horoscope.yearly.palaceNames[0],
+        ...horoscope.yearly.palaceNames.slice(2),
+      ]),
+    /十二宫名称不得重复/,
+  );
+  assert.throws(
+    () =>
+      mapScopeMutagenMap(stars, astrolabe, [
+        horoscope.yearly.palaceNames[0],
+        ' ',
+        ...horoscope.yearly.palaceNames.slice(2),
+      ]),
+    /第2个宫位名称无效/,
+  );
+  assert.deepEqual(
+    normalizeScopePalaceNames(horoscope.yearly.palaceNames),
+    horoscope.yearly.palaceNames,
   );
 });
 

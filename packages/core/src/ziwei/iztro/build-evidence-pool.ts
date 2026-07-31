@@ -17,7 +17,10 @@ import {
   getCurrentScopeLandingPalace,
   resolveScopeLabel,
 } from './build-analysis-payload/helpers/scope';
-import { normalizeScopeMutagenStars } from './build-analysis-payload/helpers/mappers';
+import {
+  normalizeScopeMutagenStars,
+  normalizeScopePalaceNames,
+} from './build-analysis-payload/helpers/mappers';
 
 type EvidenceDraft = Omit<
   EvidenceFact,
@@ -157,38 +160,42 @@ function collectScopeStructureEvidence(params: {
     description: `${scopeLabel}${stemBranch ? `干支为${stemBranch}，` : ''}命宫由运限对象定位到本命${formatPalaceName(palace.name)}。`,
   });
 
+  const scopePalaceNames = normalizeScopePalaceNames(item.palaceNames);
   normalizeScopeMutagenStars(item.mutagen).forEach((starName, index) => {
     const mutagen = MUTAGEN_LIST[index];
     let nativeTargetPalace: IFunctionalPalace | undefined;
     try {
       nativeTargetPalace = astrolabe.star(starName as never).palace();
     } catch {
-      nativeTargetPalace = undefined;
+      throw new Error(`iztro 未能定位${starName}的本命落宫。`);
     }
-    const targetPalace = palaces.find((candidate) => candidate.index === nativeTargetPalace?.index);
-    const dynamicPalaceName = targetPalace ? item.palaceNames[targetPalace.index] : undefined;
-    const palaceIndexes = targetPalace
-      ? Array.from(new Set([palace.index, targetPalace.index]))
-      : [palace.index];
-    const palaceNames = targetPalace
-      ? Array.from(new Set([palace.name, targetPalace.name]))
-      : [palace.name];
+    if (
+      !nativeTargetPalace ||
+      !Number.isInteger(nativeTargetPalace.index) ||
+      nativeTargetPalace.index < 0 ||
+      nativeTargetPalace.index >= scopePalaceNames.length
+    ) {
+      throw new Error(`iztro 未能把${starName}的本命落宫映射到十二宫。`);
+    }
+    const targetPalace = palaces.find((candidate) => candidate.index === nativeTargetPalace.index);
+    if (!targetPalace) {
+      throw new Error(`iztro 未能把${starName}的本命落宫映射到十二宫资料。`);
+    }
+    const dynamicPalaceName = scopePalaceNames[targetPalace.index];
+    const palaceIndexes = Array.from(new Set([palace.index, targetPalace.index]));
+    const palaceNames = Array.from(new Set([palace.name, targetPalace.name]));
 
     drafts.push({
       stable_key: buildStableKey(['scope-mutagen-destination', currentScope, starName, mutagen]),
       type: 'scope_mutagen_destination',
-      title: targetPalace
-        ? `${scopeLabel}${starName}化${mutagen}入本命${formatPalaceName(targetPalace.name)}${dynamicPalaceName ? `（当前${scopeLabel}${formatPalaceName(dynamicPalaceName)}）` : ''}`
-        : `${scopeLabel}${starName}化${mutagen}`,
+      title: `${scopeLabel}${starName}化${mutagen}入本命${formatPalaceName(targetPalace.name)}（当前${scopeLabel}${formatPalaceName(dynamicPalaceName)}）`,
       scope: currentScope,
       palace_indexes: palaceIndexes,
       palace_names: palaceNames,
       star_names: [starName],
       mutagens: [mutagen],
-      description: targetPalace
-        ? `${scopeLabel}四化序列中的${starName}对应化${mutagen}；该星的本命物理落宫为${formatPalaceName(targetPalace.name)}${dynamicPalaceName ? `，当前对应${scopeLabel}${formatPalaceName(dynamicPalaceName)}` : ''}，运限命宫落于本命${formatPalaceName(palace.name)}。`
-        : `${scopeLabel}四化序列中的${starName}对应化${mutagen}，但该星未能通过本命星曜对象定位宫位。`,
-      status: targetPalace ? '已记录' : '资料缺口',
+      description: `${scopeLabel}四化序列中的${starName}对应化${mutagen}；该星的本命物理落宫为${formatPalaceName(targetPalace.name)}，当前对应${scopeLabel}${formatPalaceName(dynamicPalaceName)}，运限命宫落于本命${formatPalaceName(palace.name)}。`,
+      status: '已记录',
     });
   });
 
@@ -700,7 +707,7 @@ export function buildEvidenceAnalysis(params: {
       notes: [
         '本命证据按十二宫主星、空宫、生年四化、自化、飞化与三方四正逐项采集。',
         '运限证据按所选层级读取原生落宫与四化序列，再由星曜对象定位本命目标宫位与动态宫名。',
-        '未定位星曜与跳过分析状态保留为资料缺口，不补造宫位、四化或应期。',
+        '运限宫名结构异常或四化星曜无法定位时停止生成证据；仅跳过分析状态保留为资料缺口。',
         '证据数量只用于覆盖统计，不转换为吉凶总分、概率或必然结论。',
       ],
     },

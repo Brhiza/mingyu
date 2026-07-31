@@ -538,6 +538,14 @@ test('紫微证据池只应输出所选流年层级的落宫与运限四化飞�
     ...palaces[8],
     major_stars: [{ name: '文昌', kind: 'major' }],
   };
+  palaces[2] = {
+    ...palaces[2],
+    major_stars: [{ name: '天机', kind: 'major' }],
+  };
+  palaces[6] = {
+    ...palaces[6],
+    major_stars: [{ name: '廉贞', kind: 'major' }],
+  };
 
   const astrolabe = {
     palace: (nameOrIndex: string | number) =>
@@ -642,6 +650,35 @@ test('紫微证据池只应输出所选流年层级的落宫与运限四化飞�
   assert.equal(legacyTarget?.index, 1, '旧遍历会先命中兄弟宫的同名流耀');
   assert.equal(astrolabe.star('天同').palace()?.index, 4, '原生星曜对象应定位本命财帛宫');
 
+  const missingStarAstrolabe = {
+    ...astrolabe,
+    star: (starName: string) =>
+      starName === '天机' ? { palace: () => undefined } : astrolabe.star(starName),
+  } as never;
+  assert.throws(
+    () =>
+      buildEvidencePool({
+        astrolabe: missingStarAstrolabe,
+        horoscope,
+        currentScope: 'yearly',
+        palaces,
+      }),
+    /未能把天机的本命落宫映射到十二宫/,
+  );
+  assert.throws(
+    () =>
+      buildEvidencePool({
+        astrolabe,
+        horoscope: {
+          ...horoscope,
+          yearly: { ...horoscope.yearly, palaceNames: [] },
+        } as never,
+        currentScope: 'yearly',
+        palaces,
+      }),
+    /运限十二宫名称必须恰好提供12项/,
+  );
+
   const evidence = buildEvidencePool({
     astrolabe,
     horoscope,
@@ -694,7 +731,8 @@ test('紫微证据池只应输出所选流年层级的落宫与运限四化飞�
   });
   const factKeys = new Set([analysis.summaryFact.key, ...analysis.summaryFact.factKeys]);
   assert.equal(analysis.key, 'ziwei:evidence');
-  assert.equal(analysis.status, '存在资料缺口');
+  assert.equal(analysis.status, '已计算');
+  assert.ok(evidence.every((item) => item.status === '已记录'));
   assert.equal(analysis.calculationSteps.length, 4);
   assert.ok(
     analysis.calculationSteps.every((step) =>

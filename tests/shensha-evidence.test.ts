@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   analyzeShenshaEvidence,
+  computeShensha,
   listShenshaCatalog,
   registerShensha,
 } from '../packages/core/src/shensha/index.ts';
@@ -65,12 +66,16 @@ test('通用神煞证据应拒绝未知编号、缺柱与非法六十甲子', ()
   assert.throws(() => analyzeShenshaEvidence(context, []), /至少需要查询一个神煞/);
 });
 
-test('动态注册规则未声明来源时应显式保留证据缺口', () => {
+test('动态注册规则未声明来源时应在执行前失败关闭', () => {
+  let computed = false;
   registerShensha({
     id: 'evidence-gap-demo',
     name: '来源缺口示例',
     scope: 'bazi',
-    compute: () => ({ id: 'evidence-gap-demo', name: '来源缺口示例', value: '命中' }),
+    compute: () => {
+      computed = true;
+      return { id: 'evidence-gap-demo', name: '来源缺口示例', value: '命中' };
+    },
   });
 
   const catalog = listShenshaCatalog('bazi');
@@ -78,10 +83,33 @@ test('动态注册规则未声明来源时应显式保留证据缺口', () => {
   assert.equal(catalogItem?.evidenceStatus, '来源未声明');
   assert.deepEqual(catalogItem?.sources, []);
 
-  const analysis = analyzeShenshaEvidence(context, ['evidence-gap-demo']);
-  assert.equal(analysis.matchFacts[0]?.status, '命中');
-  assert.equal(analysis.matchFacts[0]?.evidenceStatus, '来源未声明');
-  assert.equal(analysis.summaryFact.status, '存在来源未声明');
-  assert.equal(analysis.summaryFact.undeclaredSourceRuleCount, 1);
-  assert.match(analysis.promptText, /本次规则存在未声明来源/);
+  assert.throws(
+    () => computeShensha(['evidence-gap-demo'], context),
+    /缺少公开起法与来源，已禁止计算/,
+  );
+  assert.throws(
+    () => analyzeShenshaEvidence(context, ['evidence-gap-demo']),
+    /缺少公开起法与来源，已禁止计算/,
+  );
+  assert.equal(computed, false);
+});
+
+test('已声明来源的动态神煞也应拒绝非法目标地支', () => {
+  registerShensha({
+    id: 'invalid-branch-demo',
+    name: '非法地支示例',
+    scope: 'bazi',
+    evidence: {
+      inputDependencies: ['dayGanZhi'],
+      ruleText: '按日柱取固定目标地支',
+      sources: ['测试用固定规则资料'],
+      resultMeaning: 'target-branches',
+    },
+    compute: () => ({ id: 'invalid-branch-demo', name: '非法地支示例', value: '风' }),
+  });
+
+  assert.throws(
+    () => analyzeShenshaEvidence(context, ['invalid-branch-demo']),
+    /返回了非法目标地支/,
+  );
 });
