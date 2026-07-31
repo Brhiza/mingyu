@@ -466,6 +466,26 @@ test('大六壬传统事实应保留原文并为提示词生成条件化副本',
   assert.ok(
     shenShaFacts.some((item) => item.sources.some((source) => source.includes('逐月神煞'))),
   );
+  const yearGuanFuFact = shenShaFacts.find((item) => item.name === '岁官符');
+  const yearSiFuFact = shenShaFacts.find((item) => item.name === '岁死符');
+  assert.ok(yearGuanFuFact);
+  assert.ok(yearSiFuFact);
+  assert.match(yearGuanFuFact.promptText, /年支.+按“岁官符取岁前四辰.+第五辰”定位岁官符/);
+  assert.match(yearSiFuFact.promptText, /年支.+按“岁死符取岁前五辰.+病符对冲”定位岁死符/);
+  assert.match(yearGuanFuFact.sources.join('；'), /六壬大全.+五行精纪.+奇门遁甲统宗/);
+  assert.match(yearSiFuFact.sources.join('；'), /六壬大全.+奇门遁甲统宗.+病符对冲/);
+  assert.match(yearGuanFuFact.limitation, /不证明现实事件/);
+  assert.match(yearSiFuFact.limitation, /不证明现实事件/);
+  assert.ok(
+    data.shenShaFacts
+      ?.find((item) => item.name === '岁官符')
+      ?.limitations.some((item) => /逐月官符.+不生成普通“官符”/.test(item)),
+  );
+  assert.ok(
+    data.shenShaFacts
+      ?.find((item) => item.name === '岁死符')
+      ?.limitations.some((item) => /逐月死符.+不生成普通“死符”/.test(item)),
+  );
   assert.ok(
     evidence.traditionalFacts.every(
       (item) =>
