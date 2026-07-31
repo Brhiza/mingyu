@@ -105,8 +105,9 @@
 | 函数                                                                                                | 参数                                     | 返回                        | 说明                                                     |
 | --------------------------------------------------------------------------------------------------- | ---------------------------------------- | --------------------------- | -------------------------------------------------------- |
 | `analyzeTenGodStructure(pillars, dayMaster, getTenGod)`                                             | 四柱、日干、十神函数                     | `TenGodStructureProfile`    | 十神分布与五大家族聚合                                   |
+| `analyzeTenGodFlow(structure)`                                                                      | 已校验的十神结构                         | `TenGodFlowProfile`         | 五类十神固定的五生五克事实，不裁定实际流通               |
 | `analyzeStemRootProfile(pillars, dayMaster, getWuxing, getTenGod)`                                  | 四柱、日干、五行函数、十神函数           | `StemRootProfile`           | 透干通根分析（本根/同气根/无根）                         |
-| `analyzeExposedStemProfile(pillars, dayMaster, getWuxing, getTenGod, commanderStem?, monthBranch?)` | 同上 + 司令、月支                        | `ExposedStemProfile`        | 透干月令地位与力量                                       |
+| `analyzeExposedStemProfile(pillars, dayMaster, getWuxing, getTenGod, commanderStem, monthBranch)`   | 同上 + 可空司令、必填月支                | `ExposedStemProfile`        | 透干月令、司令和四支通根事实，不合成力量                 |
 | `analyzeRelationStructure(pillars)`                                                                 | 四柱                                     | `RelationStructureProfile`  | 地支关系（三合/三会/半合/拱局/六合/六冲/六害/三刑/相破） |
 | `assessAllHarmonyTransforms(pillars, monthBranch?)`                                                 | 四柱、可选月支                           | `HarmonyTransformProfile[]` | 自动扫描天干五合、地支六合并核验条件                     |
 | `assessStemHarmonyTransform(stem1, pillar1, stem2, pillar2, monthBranch, allPillars)`               | 天干、柱位、月支、四柱                   | `HarmonyTransformProfile`   | 按日干、紧贴、规定月令、克破与争合核验天干成化           |
@@ -114,8 +115,8 @@
 | `analyzeKongWangProfile(pillars, dayMasterStem)`                                                    | 四柱、日干                               | `KongWangProfile`           | 空亡全分析                                               |
 | `analyzeTombStorage(pillars, dayMaster, getWuxing, getTenGod)`                                      | 四柱、日干、五行函数、十神函数           | `TombStorageProfile`        | 辰戌丑未墓库分析                                         |
 | `analyzeLifeStageProfile(pillars)`                                                                  | 四柱                                     | `LifeStageItem[]`           | 各柱十二长生                                             |
-| `analyzeTenGodLifeStageProfile(pillars, dayMaster, getTenGod)`                                      | 四柱、日干、十神函数                     | `TenGodLifeStageProfile`    | 十神在十二长生的旺弱分布                                 |
-| `analyzeUsefulGodPlacement(pillars, dayMaster, getTenGod, favorableWuxing, unfavorableWuxing)`      | 四柱、日干、十神函数、喜用五行、忌神五行 | `UsefulGodPlacementProfile` | 用神落点（喜神得力/受制/忌神等）                         |
+| `analyzeTenGodLifeStageProfile(pillars, dayMaster, getTenGod)`                                      | 四柱、日干、十神函数                     | `TenGodLifeStageProfile`    | 实际天干去重后逐干逐支列出十二长生，不做旺弱加权         |
+| `analyzeUsefulGodPlacement(pillars, dayMaster, getTenGod, favorableWuxing, unfavorableWuxing)`      | 旧兼容参数                               | `UsefulGodPlacementProfile` | 自动用神落点规则固定关闭，不返回喜忌落点结论             |
 | `analyzeNayinProfile(pillars)`                                                                      | 四柱                                     | `NayinProfile`              | 各柱纳音五行                                             |
 | `analyzeMonthQiProfile(monthBranch, commanderStem?)`                                                | 月支、司令                               | `MonthQiProfile`            | 月令气数（五行旺相休囚死）                               |
 | `calculateMingGua(birthYear, gender)`                                                               | 出生年、性别                             | `MingGuaProfile`            | 命卦（东四命/西四命）                                    |

@@ -15,51 +15,65 @@ import type {
   ExposedStemProfile,
 } from '../types/analysis';
 import { HIDDEN_STEMS } from './baziMappingsData';
-import { WUXING } from './baziTypes';
-import { assertEarthlyBranch, assertHeavenlyStem } from './baziUtils';
-
-const STEM_ELEMENT: Record<string, string> = {
-  甲: '木',
-  乙: '木',
-  丙: '火',
-  丁: '火',
-  戊: '土',
-  己: '土',
-  庚: '金',
-  辛: '金',
-  壬: '水',
-  癸: '水',
-};
+import { SEASON_STATUS } from './baziElementData';
+import {
+  assertEarthlyBranch,
+  assertHeavenlyStem,
+  getTenGod as getStandardTenGod,
+  getWuxing as getStandardWuxing,
+} from './baziUtils';
+import {
+  assertDayMasterMatchesPillars,
+  assertFourPillarInputs,
+  assertTenGodResolver,
+  assertWuxingResolver,
+  FOUR_PILLAR_NAMES,
+} from './tenGodFactValidation';
 
 function assertPillarInputs(pillars: Array<{ gan: string; zhi: string }>): void {
-  if (pillars.length !== 4) {
-    throw new Error(`四柱数量无效：${pillars.length}`);
-  }
-
-  pillars.forEach((pillar, index) => {
-    assertHeavenlyStem(pillar.gan, `第${index + 1}柱天干`);
-    assertEarthlyBranch(pillar.zhi, `第${index + 1}柱地支`);
-  });
+  assertFourPillarInputs(pillars);
 }
 
-function resolveWuxing(getWuxing: (s: string) => string, value: string, label: string): string {
-  const wuxing = getWuxing(value);
-  if (!(WUXING as readonly string[]).includes(wuxing)) {
-    throw new Error(`${label}五行无效：${wuxing}`);
+function resolveWuxing(value: string, label: string): string {
+  const wuxing = getStandardWuxing(value);
+  if (wuxing === '未知') {
+    throw new Error(`${label}五行数据缺失：${value}`);
   }
   return wuxing;
 }
 
-function resolveTenGod(
-  getTenGod: (g: string, d: string) => string,
+function resolveRootStatus(
+  pillars: Array<{ gan: string; zhi: string }>,
   stem: string,
-  dayMaster: string,
-): string {
-  const tenGod = getTenGod(stem, dayMaster);
-  if (!tenGod || tenGod === '未知') {
-    throw new Error(`十神数据缺失：${dayMaster}/${stem}`);
+): '有本根' | '有同气根' | '未见同气根' {
+  const stemElement = resolveWuxing(stem, '透干');
+  let hasSameElement = false;
+
+  for (const pillar of pillars) {
+    const hiddenStems = HIDDEN_STEMS[pillar.zhi];
+    if (!hiddenStems) {
+      throw new Error(`藏干数据缺失：${pillar.zhi}`);
+    }
+    if (hiddenStems.includes(stem)) {
+      return '有本根';
+    }
+    if (hiddenStems.some((hiddenStem) => resolveWuxing(hiddenStem, '藏干') === stemElement)) {
+      hasSameElement = true;
+    }
   }
-  return tenGod;
+
+  return hasSameElement ? '有同气根' : '未见同气根';
+}
+
+function resolveSeasonStatus(
+  monthBranch: string,
+  element: string,
+): ExposedStemItem['seasonStatus'] {
+  const status = SEASON_STATUS[monthBranch]?.[element];
+  if (!status || !['旺', '相', '休', '囚', '死'].includes(status)) {
+    throw new Error(`月令五行状态数据缺失：${monthBranch}/${element}`);
+  }
+  return status as ExposedStemItem['seasonStatus'];
 }
 
 export function analyzeStemRootProfile(
@@ -69,51 +83,28 @@ export function analyzeStemRootProfile(
   getTenGod: (g: string, d: string) => string,
 ): StemRootProfile {
   assertPillarInputs(pillars);
-  assertHeavenlyStem(dayMaster, '日主');
+  assertDayMasterMatchesPillars(pillars, dayMaster);
+  assertWuxingResolver(getWuxing);
+  assertTenGodResolver(dayMaster, getTenGod);
 
-  const pillarNames = ['year', 'month', 'day', 'hour'];
   const items: VisibleStemRootItem[] = [];
 
   pillars.forEach((p, idx) => {
     const visibleStem = p.gan;
-    const visibleElement =
-      STEM_ELEMENT[visibleStem] || resolveWuxing(getWuxing, visibleStem, '透干');
-    let hasSameStem = false;
-    let hasSameElement = false;
-
-    pillars.forEach((rootPillar) => {
-      const stems = HIDDEN_STEMS[rootPillar.zhi];
-      if (!stems) {
-        throw new Error(`藏干数据缺失：${rootPillar.zhi}`);
-      }
-      stems.forEach((stem) => {
-        const isSameStem = stem === visibleStem;
-        const isSameElement = STEM_ELEMENT[stem] === visibleElement && stem !== visibleStem;
-        if (isSameStem) {
-          hasSameStem = true;
-        } else if (isSameElement) {
-          hasSameElement = true;
-        }
-      });
-    });
-
-    const status: VisibleStemRootItem['status'] = hasSameStem
-      ? '有本根'
-      : hasSameElement
-        ? '有同气根'
-        : '无根';
+    const rootStatus = resolveRootStatus(pillars, visibleStem);
+    const status: VisibleStemRootItem['status'] = rootStatus === '未见同气根' ? '无根' : rootStatus;
 
     items.push({
-      pillar: pillarNames[idx],
+      pillar: FOUR_PILLAR_NAMES[idx],
       stem: visibleStem,
-      tenGod: resolveTenGod(getTenGod, visibleStem, dayMaster),
+      tenGod: getStandardTenGod(visibleStem, dayMaster),
       status,
       summary:
         status === '有本根'
-          ? '四柱地支见本根支撑'
+          ? '四柱藏干见同一透干'
           : status === '有同气根'
-            ? '四柱地支见同气根支撑'
-            : '无根漂浮',
+            ? '四柱藏干未见同一透干，但见同五行天干'
+            : '四柱藏干未见同一透干或同五行天干',
     });
   });
 
@@ -126,14 +117,22 @@ export function analyzeStemRootProfile(
 }
 
 /**
- * 透干综合画像：每个透出天干的月令地位、力量状态
+ * 逐项登记透干的月令五行状态、月令藏干/司令关系与四支通根事实。
  *
  * commandStatus:
  *   - 司令透出：透干与月令司令同干
  *   - 月令藏干透出：透干为月支藏干之一
- *   - 得月令同气：透干与月令同五行
- *   - 不得月令：以上都不是
+ *   - 月支主气同五行：透干与月支主气同五行
+ *   - 未见月令同干同气：以上都不是
  */
+export function analyzeExposedStemProfile(
+  pillars: Array<{ gan: string; zhi: string }>,
+  dayMaster: string,
+  getWuxing: (s: string) => string,
+  getTenGod: (g: string, d: string) => string,
+  commanderStem: string | undefined,
+  monthBranch: string,
+): ExposedStemProfile;
 export function analyzeExposedStemProfile(
   pillars: Array<{ gan: string; zhi: string }>,
   dayMaster: string,
@@ -143,35 +142,55 @@ export function analyzeExposedStemProfile(
   monthBranch?: string,
 ): ExposedStemProfile {
   assertPillarInputs(pillars);
-  assertHeavenlyStem(dayMaster, '日主');
+  assertDayMasterMatchesPillars(pillars, dayMaster);
+  assertWuxingResolver(getWuxing);
+  assertTenGodResolver(dayMaster, getTenGod);
   if (commanderStem) assertHeavenlyStem(commanderStem, '司令天干');
-  if (monthBranch) assertEarthlyBranch(monthBranch, '月支');
+  if (!monthBranch) throw new Error('月支缺失');
+  assertEarthlyBranch(monthBranch, '月支');
+  if (monthBranch !== pillars[1].zhi) {
+    throw new Error(`传入月支与月柱地支不一致：月支${monthBranch}，月柱${pillars[1].zhi}`);
+  }
 
-  const pillarNames = ['year', 'month', 'day', 'hour'];
-  const monthStems = monthBranch ? HIDDEN_STEMS[monthBranch] || [] : [];
+  const monthStems = HIDDEN_STEMS[monthBranch];
+  if (!monthStems) throw new Error(`月支藏干数据缺失：${monthBranch}`);
+  if (commanderStem && !monthStems.includes(commanderStem)) {
+    throw new Error(`司令天干不属于月支藏干：${monthBranch}/${commanderStem}`);
+  }
+  const monthPrincipalElement = resolveWuxing(monthStems[0], '月支主气');
   const items: ExposedStemItem[] = [];
 
   pillars.forEach((p, idx) => {
-    const stemElement = STEM_ELEMENT[p.gan] || resolveWuxing(getWuxing, p.gan, '透干');
-    let commandStatus = '不得月令';
+    const stemElement = resolveWuxing(p.gan, '透干');
+    let commandStatus: ExposedStemItem['commandStatus'] = '未见月令同干同气';
     if (commanderStem && p.gan === commanderStem) {
       commandStatus = '司令透出';
     } else if (monthStems.includes(p.gan)) {
       commandStatus = '月令藏干透出';
-    } else if (monthBranch && resolveWuxing(getWuxing, monthBranch, '月支') === stemElement) {
-      commandStatus = '得月令同气';
+    } else if (monthPrincipalElement === stemElement) {
+      commandStatus = '月支主气同五行';
     }
+    const seasonStatus = resolveSeasonStatus(monthBranch, stemElement);
+    const rootStatus = resolveRootStatus(pillars, p.gan);
 
     items.push({
-      pillar: pillarNames[idx],
+      pillar: FOUR_PILLAR_NAMES[idx],
       stem: p.gan,
-      tenGod: resolveTenGod(getTenGod, p.gan, dayMaster),
-      seasonStatus: '平',
+      tenGod: getStandardTenGod(p.gan, dayMaster),
+      seasonStatus,
       commandStatus,
-      rootStatus: '待定',
-      summary: `${p.gan}透于${pillarNames[idx]}，${commandStatus}`,
+      rootStatus,
+      summary: `${p.gan}透于${FOUR_PILLAR_NAMES[idx]}；月令五行状态为${seasonStatus}；${commandStatus}；${rootStatus}`,
+      sources: ['旺相休囚死月令固定表', '十二地支藏干固定表'],
+      limitation:
+        '这里只登记月令五行状态、司令或藏干透出关系及四支是否见同干同气，不合成为力量分数，也不判断格局、喜忌、吉凶或现实事件',
     });
   });
 
-  return { items, summary: '天干透出画像' };
+  return {
+    items,
+    summary: '透干月令、司令与通根事实',
+    sources: ['旺相休囚死月令固定表', '十二地支藏干固定表'],
+    limitation: '本结果是逐项结构事实，不表示各透干的综合力量、格局成败、喜忌、吉凶或现实事件',
+  };
 }

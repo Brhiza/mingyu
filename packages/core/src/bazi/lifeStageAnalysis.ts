@@ -1,6 +1,15 @@
 import type { TenGodLifeStageProfile } from '../types/analysis';
 import { TWELVE_STAGES_MAP } from './baziMappingsData';
-import { assertEarthlyBranch, assertHeavenlyStem } from './baziUtils';
+import {
+  assertEarthlyBranch,
+  assertHeavenlyStem,
+  getTenGod as getStandardTenGod,
+} from './baziUtils';
+import {
+  assertTenGodFactInputs,
+  FOUR_PILLAR_NAMES,
+  type TenGodFactPillar,
+} from './tenGodFactValidation';
 
 function getLifeStage(stem: string, branch: string): string {
   assertHeavenlyStem(stem, '天干');
@@ -27,45 +36,53 @@ export function analyzeLifeStageProfile(
 }
 
 export function analyzeTenGodLifeStageProfile(
-  pillars: Array<{ gan: string; zhi: string; hiddenStems: string[] }>,
+  pillars: TenGodFactPillar[],
   dayMaster: string,
   getTenGod: (g: string, d: string) => string,
 ): TenGodLifeStageProfile {
-  assertHeavenlyStem(dayMaster, '日主');
-  const stageScores: Record<string, number> = { 临官: 1, 帝旺: 1, 长生: 0.5, 冠带: 0.5 };
-  const lowScores: Record<string, number> = { 死: 1, 绝: 1, 病: 0.5, 墓: 0.5 };
+  assertTenGodFactInputs(pillars, dayMaster, getTenGod);
 
-  const tenGodMap: Record<string, { strong: number; low: number }> = {};
-
-  const processStem = (stem: string) => {
-    assertHeavenlyStem(stem, '天干');
-    if (stem === dayMaster) return;
-    const tg = getTenGod(stem, dayMaster);
-    if (!tg || tg === '未知') {
-      throw new Error(`十神数据缺失：${dayMaster}/${stem}`);
-    }
-    if (!tenGodMap[tg]) tenGodMap[tg] = { strong: 0, low: 0 };
-    pillars.forEach((p) => {
-      const stage = getLifeStage(stem, p.zhi);
-      if (stageScores[stage]) tenGodMap[tg].strong += stageScores[stage];
-      if (lowScores[stage]) tenGodMap[tg].low += lowScores[stage];
-    });
+  type SourcePosition = {
+    pillar: (typeof FOUR_PILLAR_NAMES)[number];
+    source: '透干' | '藏干';
+  };
+  const sourceMap = new Map<string, SourcePosition[]>();
+  const recordSource = (stem: string, position: SourcePosition) => {
+    const positions = sourceMap.get(stem) ?? [];
+    positions.push(position);
+    sourceMap.set(stem, positions);
   };
 
-  pillars.forEach((p) => {
-    processStem(p.gan);
-  });
-  pillars.forEach((p) => {
-    (p.hiddenStems || []).forEach((s) => processStem(s));
+  pillars.forEach((pillar, pillarIndex) => {
+    const pillarName = FOUR_PILLAR_NAMES[pillarIndex];
+    if (pillarIndex !== 2) {
+      recordSource(pillar.gan, { pillar: pillarName, source: '透干' });
+    }
+    pillar.hiddenStems.forEach((stem) => {
+      recordSource(stem, { pillar: pillarName, source: '藏干' });
+    });
   });
 
-  const items = Object.entries(tenGodMap).map(([tenGod, v]) => ({
-    stem: '',
-    tenGod,
-    strongCount: v.strong,
-    lowCount: v.low,
-    summary: v.strong > v.low ? '旺位多于弱位' : v.low > v.strong ? '弱位多于旺位' : '旺弱相当',
-  }));
+  const items = [...sourceMap.entries()].map(([stem, sourcePositions]) => {
+    const stages = pillars.map((pillar, pillarIndex) => ({
+      pillar: FOUR_PILLAR_NAMES[pillarIndex],
+      branch: pillar.zhi,
+      stage: getLifeStage(stem, pillar.zhi),
+    }));
+    return {
+      stem,
+      tenGod: getStandardTenGod(stem, dayMaster),
+      sourcePositions,
+      stages,
+      summary: `${stem}在年、月、日、时四支所临十二长生依次为${stages.map((item) => item.stage).join('、')}`,
+      sources: ['十干十二长生固定表（阳干顺行、阴干逆行）'],
+      limitation:
+        '这里只逐项登记该天干在四支所临十二长生，不设置权重，不汇总为强弱分数，也不据此判断喜忌、吉凶或现实事件',
+    };
+  });
 
-  return { items, summary: '十神十二长生分析' };
+  return {
+    items,
+    summary: `逐干逐支十二长生事实：共${items.length}个实际出现的天干`,
+  };
 }

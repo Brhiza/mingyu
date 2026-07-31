@@ -12,6 +12,8 @@ import type {
   TenGodFlowItem,
   TenGodFlowProfile,
 } from '../types/analysis';
+import { getTenGod as getStandardTenGod } from './baziUtils';
+import { assertTenGodFactInputs } from './tenGodFactValidation';
 
 const TEN_GODS = [
   '比肩',
@@ -52,11 +54,91 @@ function resolvePresenceStatus(item: {
   return '透藏并见';
 }
 
+function assertCount(value: number, label: string): void {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`${label}必须是非负整数：${value}`);
+  }
+}
+
+function assertTenGodStructureProfile(structure: TenGodStructureProfile): void {
+  if (!structure || !Array.isArray(structure.distributions)) {
+    throw new Error('十神分布缺失');
+  }
+  if (!Array.isArray(structure.familyDistributions)) {
+    throw new Error('十神家族分布缺失');
+  }
+
+  const distributionMap = new Map<string, TenGodDistributionItem>();
+  structure.distributions.forEach((item) => {
+    if (!(TEN_GODS as readonly string[]).includes(item.tenGod)) {
+      throw new Error(`十神分布名称无效：${item.tenGod}`);
+    }
+    if (distributionMap.has(item.tenGod)) {
+      throw new Error(`十神分布重复：${item.tenGod}`);
+    }
+    assertCount(item.visibleCount, `${item.tenGod}透干次数`);
+    assertCount(item.hiddenCount, `${item.tenGod}藏干次数`);
+    assertCount(item.totalCount, `${item.tenGod}总次数`);
+    if (item.totalCount !== item.visibleCount + item.hiddenCount) {
+      throw new Error(`${item.tenGod}总次数与透干、藏干次数不一致`);
+    }
+    if (item.status !== resolvePresenceStatus(item)) {
+      throw new Error(`${item.tenGod}出现状态与次数不一致`);
+    }
+    distributionMap.set(item.tenGod, item);
+  });
+  for (const tenGod of TEN_GODS) {
+    if (!distributionMap.has(tenGod)) {
+      throw new Error(`十神分布缺少：${tenGod}`);
+    }
+  }
+
+  const familyMap = new Map<string, TenGodFamilyDistribution>();
+  structure.familyDistributions.forEach((item) => {
+    if (!TEN_GOD_FAMILY_ORDER.includes(item.family)) {
+      throw new Error(`十神家族名称无效：${item.family}`);
+    }
+    if (familyMap.has(item.family)) {
+      throw new Error(`十神家族分布重复：${item.family}`);
+    }
+    assertCount(item.visibleCount, `${item.family}透干次数`);
+    assertCount(item.hiddenCount, `${item.family}藏干次数`);
+    assertCount(item.totalCount, `${item.family}总次数`);
+    if (item.totalCount !== item.visibleCount + item.hiddenCount) {
+      throw new Error(`${item.family}总次数与透干、藏干次数不一致`);
+    }
+    if (item.status !== resolvePresenceStatus(item)) {
+      throw new Error(`${item.family}出现状态与次数不一致`);
+    }
+    familyMap.set(item.family, item);
+  });
+
+  for (const family of TEN_GOD_FAMILY_ORDER) {
+    const actual = familyMap.get(family);
+    if (!actual) {
+      throw new Error(`十神家族分布缺少：${family}`);
+    }
+    const familyItems = TEN_GODS.map((tenGod) => distributionMap.get(tenGod)!).filter(
+      (item) => TEN_GOD_TO_FAMILY[item.tenGod] === family,
+    );
+    const expectedVisible = familyItems.reduce((sum, item) => sum + item.visibleCount, 0);
+    const expectedHidden = familyItems.reduce((sum, item) => sum + item.hiddenCount, 0);
+    if (
+      actual.visibleCount !== expectedVisible ||
+      actual.hiddenCount !== expectedHidden ||
+      actual.totalCount !== expectedVisible + expectedHidden
+    ) {
+      throw new Error(`${family}家族次数与十神分布不一致`);
+    }
+  }
+}
+
 export function analyzeTenGodStructure(
   pillars: Array<{ gan: string; zhi: string; hiddenStems: string[] }>,
   dayMaster: string,
   getTenGod: (g: string, d: string) => string,
 ): TenGodStructureProfile {
+  assertTenGodFactInputs(pillars, dayMaster, getTenGod);
   const distributionMap = new Map<string, TenGodDistributionItem>();
 
   const ensure = (tenGod: string): TenGodDistributionItem => {
@@ -76,16 +158,15 @@ export function analyzeTenGodStructure(
 
   TEN_GODS.forEach((t) => ensure(t));
 
-  pillars.forEach((p) => {
-    const tg = getTenGod(p.gan, dayMaster);
-    if (tg && tg !== '未知' && tg !== '日主') {
+  pillars.forEach((p, pillarIndex) => {
+    if (pillarIndex !== 2) {
+      const tg = getStandardTenGod(p.gan, dayMaster);
       const item = ensure(tg);
       item.visibleCount += 1;
       item.totalCount += 1;
     }
-    (p.hiddenStems || []).forEach((stem) => {
-      const ht = getTenGod(stem, dayMaster);
-      if (!ht || ht === '未知' || ht === '日主') return;
+    p.hiddenStems.forEach((stem) => {
+      const ht = getStandardTenGod(stem, dayMaster);
       const item = ensure(ht);
       item.hiddenCount += 1;
       item.totalCount += 1;
@@ -96,12 +177,7 @@ export function analyzeTenGodStructure(
     item.status = resolvePresenceStatus(item);
   });
 
-  const distributions = [...distributionMap.values()].sort((a, b) => {
-    if (b.totalCount !== a.totalCount) return b.totalCount - a.totalCount;
-    if (b.visibleCount !== a.visibleCount) return b.visibleCount - a.visibleCount;
-    if (b.hiddenCount !== a.hiddenCount) return b.hiddenCount - a.hiddenCount;
-    return a.tenGod.localeCompare(b.tenGod, 'zh-Hans-CN');
-  });
+  const distributions = TEN_GODS.map((tenGod) => distributionMap.get(tenGod)!);
 
   // Family aggregation
   const familyMap = new Map<
@@ -139,48 +215,50 @@ export function analyzeTenGodStructure(
 }
 
 /**
- * 十神流动关系：识别十神家族之间构成的标准生克链条
- * - 比劫泄秀：比劫→食伤
- * - 食伤生财：食伤→财才
- * - 财生官杀：财才→官杀
- * - 印比相生：印绶→比劫
+ * 十神家族生克事实：仅在两个家族同时出现时登记其固定五行生克关系。
+ * 共覆盖五条相生关系与五条相克关系，不据此裁定实际流通、强弱或吉凶。
  */
 export function analyzeTenGodFlow(structure: TenGodStructureProfile): TenGodFlowProfile {
+  assertTenGodStructureProfile(structure);
   const familyMap = new Map(structure.familyDistributions.map((item) => [item.family, item]));
   const has = (family: string) => (familyMap.get(family)?.totalCount ?? 0) > 0;
 
-  const flows: TenGodFlowItem[] = [];
-  if (has('比劫') && has('食伤')) {
-    flows.push({
-      name: '比劫泄秀',
-      description: '比劫同党与食伤承接，可能靠技能、表达输出',
-      caution: '食伤为用则吉，食伤为忌则泄身太过',
-    });
-  }
-  if (has('食伤') && has('财才')) {
-    flows.push({
-      name: '食伤生财',
-      description: '才华、技能可转化为财富',
-      caution: '需日主能担财',
-    });
-  }
-  if (has('财才') && has('官杀')) {
-    flows.push({
-      name: '财生官杀',
-      description: '财富可带来地位、权力',
-      caution: '官杀为用则贵，官杀为忌则压力',
-    });
-  }
-  if (has('印绶') && has('比劫')) {
-    flows.push({
-      name: '印比相生',
-      description: '人脉、资源相互支撑',
-      caution: '印重则依赖性强',
-    });
-  }
+  const relations: Array<{
+    sourceFamily: string;
+    targetFamily: string;
+    relation: '生' | '克';
+  }> = [
+    { sourceFamily: '印绶', targetFamily: '比劫', relation: '生' },
+    { sourceFamily: '比劫', targetFamily: '食伤', relation: '生' },
+    { sourceFamily: '食伤', targetFamily: '财才', relation: '生' },
+    { sourceFamily: '财才', targetFamily: '官杀', relation: '生' },
+    { sourceFamily: '官杀', targetFamily: '印绶', relation: '生' },
+    { sourceFamily: '印绶', targetFamily: '食伤', relation: '克' },
+    { sourceFamily: '食伤', targetFamily: '官杀', relation: '克' },
+    { sourceFamily: '官杀', targetFamily: '比劫', relation: '克' },
+    { sourceFamily: '比劫', targetFamily: '财才', relation: '克' },
+    { sourceFamily: '财才', targetFamily: '印绶', relation: '克' },
+  ];
+
+  const flows: TenGodFlowItem[] = relations
+    .filter(({ sourceFamily, targetFamily }) => has(sourceFamily) && has(targetFamily))
+    .map(({ sourceFamily, targetFamily, relation }) => ({
+      name: `${sourceFamily}${relation}${targetFamily}`,
+      sourceFamily,
+      targetFamily,
+      relation,
+      sourceCount: familyMap.get(sourceFamily)!.totalCount,
+      targetCount: familyMap.get(targetFamily)!.totalCount,
+      description: `${sourceFamily}与${targetFamily}同时出现，按十神五类的固定五行关系登记为${sourceFamily}${relation}${targetFamily}`,
+      sources: ['五行生克与十神五类定义的固定映射'],
+      limitation:
+        '这里只证明两个十神家族同时出现及其固定生克方向，不证明实际发生流通，也不据此判断强弱、喜忌、吉凶或现实事件',
+    }));
 
   return {
     items: flows,
-    summary: flows.length ? '十神流动关系分析' : '十神流动特征不明显',
+    summary: flows.length
+      ? `十神家族固定生克关系：共登记${flows.length}项`
+      : '未见两个同时出现的十神家族，未登记生克关系',
   };
 }

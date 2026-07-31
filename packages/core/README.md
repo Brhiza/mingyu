@@ -387,11 +387,12 @@ console.log(qizhengChart.shenshaFacts); // 8 项生年干/年支起例目标支�
 
 七政四余的天乙昼贵与玉堂夜贵分开按生年干起例，驿马、华盖、劫煞、咸池、孤辰、寡宿按生年支起例。农历年干支与立春年柱不一致时，`shenshaFacts` 为空并保留完整规则目录与分歧证据。启用真太阳时时，固定 `timezone` 被视为已确认的标准时偏移；若使用 IANA 历史时区，必须另给 `standardMeridian`，系统不会把法定钟表偏移猜成标准经线。
 
-### 八字增强分析（从 vibebazi 整合）
+### 八字事实分析
 
 ```typescript
 import {
   analyzeTenGodStructure, // 十神结构分布
+  analyzeTenGodFlow, // 十神家族固定生克事实
   analyzeStemRootProfile, // 透干通根
   analyzeRelationStructure, // 地支关系（三合/三会/六合/六冲/六害/三刑/相破）
   assessAllHarmonyTransforms, // 天干成化条件与地支六合关系
@@ -401,12 +402,15 @@ import {
 
 const pillars = [/* 四柱 */];
 const tenGod = analyzeTenGodStructure(pillars, '乙', getTenGod);
+const tenGodRelations = analyzeTenGodFlow(tenGod);
 const harmony = assessAllHarmonyTransforms(pillars);
 const mingGua = calculateMingGua(1990, 'male'); // { number:1, gua:'坎', eastWest:'东四命' }
 const luckDir = buildLuckDirectionProfile('male', '庚'); // { direction:'顺行' }
 ```
 
-`analyzeTenGodStructure` 分别返回透干、藏支和合计次数；状态只标记“缺位、仅藏、透出、透藏并见”，不再用隐藏权重推断“有力”或“偏重”。
+`analyzeTenGodStructure` 分别返回透干、藏支和合计次数；状态只标记“缺位、仅藏、透出、透藏并见”，不再用隐藏权重推断“有力”或“偏重”。输入必须是有效四柱，藏干须与固定地支藏干表一致，日主须与日柱天干一致，传入的十神函数也须与核心标准映射一致。
+
+`analyzeTenGodFlow` 穷举五类十神之间固定的五条相生、五条相克关系，只在两个家族同时出现时登记方向，不把同时出现解释成实际流通、力量、喜忌、吉凶或现实事件。`analyzeTenGodLifeStageProfile` 对实际出现的天干去重，逐干列出其在年、月、日、时四支所临十二长生，不设置旺弱权重。
 
 ### 历法工具
 
@@ -428,8 +432,9 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `baziCalculator`                | 实例 | 调用 `calculateBazi(person)`           |
 | `BaziCalculator`                | 类   | 同上的类形式                           |
 | `analyzeTenGodStructure`        | 函数 | 十神分布与家族聚合                     |
+| `analyzeTenGodFlow`             | 函数 | 十神家族固定生克事实                   |
 | `analyzeStemRootProfile`        | 函数 | 透干通根分析                           |
-| `analyzeExposedStemProfile`     | 函数 | 透干综合画像                           |
+| `analyzeExposedStemProfile`     | 函数 | 透干月令、司令与通根事实               |
 | `analyzeRelationStructure`      | 函数 | 地支关系完整评估                       |
 | `assessAllHarmonyTransforms`    | 函数 | 自动扫描天干五合、地支六合并核验条件   |
 | `assessStemHarmonyTransform`    | 函数 | 核验单组天干五合是否符合成化条件       |
@@ -437,8 +442,8 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `analyzeKongWangProfile`        | 函数 | 空亡全分析                             |
 | `analyzeTombStorage`            | 函数 | 辰戌丑未墓库分析                       |
 | `analyzeLifeStageProfile`       | 函数 | 十二长生分布                           |
-| `analyzeTenGodLifeStageProfile` | 函数 | 十神十二长生分析                       |
-| `analyzeUsefulGodPlacement`     | 函数 | 用神落点分析                           |
+| `analyzeTenGodLifeStageProfile` | 函数 | 逐干逐支十二长生事实                   |
+| `analyzeUsefulGodPlacement`     | 函数 | 旧兼容入口，自动规则固定关闭           |
 | `analyzeNayinProfile`           | 函数 | 纳音五行分析                           |
 | `analyzeMonthQiProfile`         | 函数 | 月令气数（旺相休囚死）                 |
 | `calculateMingGua`              | 函数 | 命卦计算                               |

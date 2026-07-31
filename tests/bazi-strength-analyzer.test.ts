@@ -10,7 +10,7 @@ import {
 } from '@core/bazi/baziStrengthAnalyzer';
 import { analyzeMonthQiProfile } from '@core/bazi/monthCommand';
 import { analyzeTenGodStructure } from '@core/bazi/tenGodAnalysis';
-import { getSeasonStatus, getWuxing } from '@core/bazi/baziUtils';
+import { getSeasonStatus, getTenGod, getWuxing } from '@core/bazi/baziUtils';
 import { SEASON_STATUS } from '@core/bazi/baziDefinitions';
 import type { Wuxing } from '@core/bazi/baziTypes';
 import {
@@ -142,9 +142,8 @@ test('十神结构应按透干与藏支事实分类，不以隐藏权重裁定�
       { gan: '戊', zhi: '午', hiddenStems: ['丁', '己'] },
       { gan: '庚', zhi: '申', hiddenStems: ['庚', '壬', '戊'] },
     ],
-    '甲',
-    (stem, dayMaster) =>
-      stem === dayMaster ? '日主' : stem === '癸' ? '正印' : stem === '丙' ? '食神' : '正财',
+    '戊',
+    getTenGod,
   );
 
   assert.ok(profile.distributions.length > 0);
@@ -152,15 +151,15 @@ test('十神结构应按透干与藏支事实分类，不以隐藏权重裁定�
   assert.ok(profile.distributions.every((item) => !('score' in item)));
   assert.ok(profile.familyDistributions.every((item) => !('score' in item)));
   assert.ok(profile.distributions.every((item) => item.tenGod !== '日主'));
-  assert.equal(profile.distributions.find((item) => item.tenGod === '正印')?.status, '仅藏');
+  assert.equal(profile.distributions.find((item) => item.tenGod === '正财')?.status, '仅藏');
   assert.equal(profile.distributions.find((item) => item.tenGod === '食神')?.status, '透藏并见');
   assert.deepEqual(
-    profile.familyDistributions.find((item) => item.family === '印绶'),
+    profile.familyDistributions.find((item) => item.family === '财才'),
     {
-      family: '印绶',
+      family: '财才',
       visibleCount: 0,
-      hiddenCount: 1,
-      totalCount: 1,
+      hiddenCount: 2,
+      totalCount: 2,
       status: '仅藏',
     },
   );

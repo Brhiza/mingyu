@@ -34,9 +34,17 @@ import { analyzeLifeStageProfile } from '../packages/core/src/bazi/lifeStageAnal
 import { analyzeNayinProfile } from '../packages/core/src/bazi/nayinAnalysis';
 import { getLifeStage as getBaziValueLifeStage } from '../packages/core/src/bazi/baziValues';
 import { analyzeRelationStructure } from '../packages/core/src/bazi/relationStructure';
-import { analyzeStemRootProfile } from '../packages/core/src/bazi/stemRootAnalysis';
+import {
+  analyzeExposedStemProfile,
+  analyzeStemRootProfile,
+} from '../packages/core/src/bazi/stemRootAnalysis';
 import { analyzeTombStorage } from '../packages/core/src/bazi/tombStorage';
-import { getTenGod, getTenGodForBranch, getWuxing } from '../packages/core/src/bazi/baziUtils';
+import {
+  getSeasonStatus,
+  getTenGod,
+  getTenGodForBranch,
+  getWuxing,
+} from '../packages/core/src/bazi/baziUtils';
 import { analyzeGanzhiInteractions as analyzeAppQimenGanzhi } from '../packages/core/src/divination/algorithms/qimen/helpers/seasonality';
 import { analyzeGanzhiInteractions as analyzeCoreQimenGanzhi } from '../packages/core/src/divination/algorithms/qimen/helpers/seasonality';
 import { LIU_HE_BRANCH as ziweiLiuHeBranch } from '../packages/core/src/ziwei/iztro/build-analysis-payload/helpers/palace-lookup';
@@ -392,9 +400,9 @@ test('八字透干通根应扫描四柱地支，不应只看本柱坐支', () =>
       { gan: '甲', zhi: '子' },
       { gan: '丙', zhi: '辰' },
       { gan: '庚', zhi: '寅' },
-      { gan: '辛', zhi: '午' },
+      { gan: '辛', zhi: '未' },
     ],
-    '甲',
+    '庚',
     getWuxing,
     getTenGod,
   );
@@ -414,7 +422,7 @@ test('八字透干通根应扫描四柱地支，不应只看本柱坐支', () =>
           { gan: '丙', zhi: '辰' },
           { gan: '庚', zhi: '寅' },
         ],
-        '甲',
+        '庚',
         getWuxing,
         getTenGod,
       ),
@@ -427,14 +435,135 @@ test('八字透干通根应扫描四柱地支，不应只看本柱坐支', () =>
           { gan: '甲', zhi: '子' },
           { gan: '丙', zhi: '辰' },
           { gan: '风', zhi: '寅' },
-          { gan: '辛', zhi: '午' },
+          { gan: '辛', zhi: '未' },
         ],
-        '甲',
+        '庚',
         getWuxing,
         getTenGod,
       ),
     /第3柱天干无效/,
   );
+  assert.throws(
+    () =>
+      analyzeStemRootProfile(
+        [
+          { gan: '甲', zhi: '子' },
+          { gan: '丙', zhi: '辰' },
+          { gan: '庚', zhi: '寅' },
+          { gan: '辛', zhi: '未' },
+        ],
+        '甲',
+        getWuxing,
+        getTenGod,
+      ),
+    /日主与日柱天干不一致/,
+  );
+});
+
+test('八字透干事实应真实计算月令、司令与四支通根，不保留占位状态', () => {
+  const pillars = [
+    { gan: '甲', zhi: '子' },
+    { gan: '戊', zhi: '辰' },
+    { gan: '庚', zhi: '寅' },
+    { gan: '辛', zhi: '未' },
+  ];
+  const profile = analyzeExposedStemProfile(pillars, '庚', getWuxing, getTenGod, '戊', '辰');
+
+  assert.deepEqual(
+    profile.items.map((item) => [
+      item.stem,
+      item.seasonStatus,
+      item.commandStatus,
+      item.rootStatus,
+    ]),
+    [
+      ['甲', '囚', '未见月令同干同气', '有本根'],
+      ['戊', '旺', '司令透出', '有本根'],
+      ['庚', '相', '未见月令同干同气', '未见同气根'],
+      ['辛', '相', '未见月令同干同气', '未见同气根'],
+    ],
+  );
+  assert.ok(profile.items.every((item) => item.seasonStatus !== ('平' as string)));
+  assert.ok(profile.items.every((item) => item.rootStatus !== ('待定' as string)));
+  assert.match(profile.limitation, /不表示.*综合力量/);
+
+  assert.throws(
+    () => analyzeExposedStemProfile(pillars, '庚', getWuxing, getTenGod, undefined, '寅'),
+    /传入月支与月柱地支不一致/,
+  );
+  assert.throws(
+    () => analyzeExposedStemProfile(pillars, '庚', getWuxing, getTenGod, '甲', '辰'),
+    /司令天干不属于月支藏干/,
+  );
+  assert.throws(
+    () => analyzeExposedStemProfile(pillars, '庚', () => '木', getTenGod, '戊', '辰'),
+    /五行函数与项目标准映射不一致/,
+  );
+  assert.throws(
+    () => analyzeExposedStemProfile(pillars, '庚', getWuxing, () => '正财', '戊', '辰'),
+    /十神函数与项目标准映射不一致/,
+  );
+});
+
+test('八字透干事实应穷举十干与十二月支的120种月令组合', () => {
+  const seasonStatuses = new Set<string>();
+  const commandStatuses = new Set<string>();
+  const rootStatuses = new Set<string>();
+
+  for (const monthBranch of EARTHLY_BRANCHES) {
+    const monthGanZhi = SIXTY_CYCLE.find((ganZhi) => ganZhi[1] === monthBranch);
+    assert.ok(monthGanZhi, `缺少${monthBranch}月干支夹具`);
+
+    for (const stem of HEAVENLY_STEMS) {
+      const yearGanZhi = SIXTY_CYCLE.find((ganZhi) => ganZhi[0] === stem);
+      assert.ok(yearGanZhi, `缺少${stem}年干支夹具`);
+      const pillars = [
+        { gan: yearGanZhi[0], zhi: yearGanZhi[1] },
+        { gan: monthGanZhi[0], zhi: monthGanZhi[1] },
+        { gan: '戊', zhi: '午' },
+        { gan: '庚', zhi: '申' },
+      ];
+      const item = analyzeExposedStemProfile(
+        pillars,
+        '戊',
+        getWuxing,
+        getTenGod,
+        undefined,
+        monthBranch,
+      ).items[0];
+      const element = getWuxing(stem);
+      const monthHiddenStems = HIDDEN_STEMS[monthBranch];
+      const allHiddenStems = pillars.flatMap((pillar) => HIDDEN_STEMS[pillar.zhi]);
+      const expectedCommandStatus = monthHiddenStems.includes(stem)
+        ? '月令藏干透出'
+        : getWuxing(monthHiddenStems[0]) === element
+          ? '月支主气同五行'
+          : '未见月令同干同气';
+      const expectedRootStatus = allHiddenStems.includes(stem)
+        ? '有本根'
+        : allHiddenStems.some((hiddenStem) => getWuxing(hiddenStem) === element)
+          ? '有同气根'
+          : '未见同气根';
+
+      assert.equal(
+        item.seasonStatus,
+        getSeasonStatus(monthBranch)[element],
+        `${stem}/${monthBranch}`,
+      );
+      assert.equal(item.commandStatus, expectedCommandStatus, `${stem}/${monthBranch}`);
+      assert.equal(item.rootStatus, expectedRootStatus, `${stem}/${monthBranch}`);
+      seasonStatuses.add(item.seasonStatus);
+      commandStatuses.add(item.commandStatus);
+      rootStatuses.add(item.rootStatus);
+    }
+  }
+
+  assert.deepEqual(seasonStatuses, new Set(['旺', '相', '休', '囚', '死']));
+  assert.deepEqual(
+    commandStatuses,
+    new Set(['月令藏干透出', '月支主气同五行', '未见月令同干同气']),
+  );
+  assert.deepEqual(rootStatuses, new Set(['有本根', '有同气根', '未见同气根']));
 });
 
 test('占法共享半合判断不应把重复地支当作两个成员', () => {

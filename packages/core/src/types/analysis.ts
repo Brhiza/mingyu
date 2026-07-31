@@ -338,14 +338,18 @@ export interface ExposedStemItem {
   pillar: string;
   stem: string;
   tenGod: string;
-  seasonStatus: string;
-  commandStatus: string;
-  rootStatus: string;
+  seasonStatus: '旺' | '相' | '休' | '囚' | '死';
+  commandStatus: '司令透出' | '月令藏干透出' | '月支主气同五行' | '未见月令同干同气';
+  rootStatus: '有本根' | '有同气根' | '未见同气根';
   summary: string;
+  sources: string[];
+  limitation: string;
 }
 export interface ExposedStemProfile {
   items: ExposedStemItem[];
   summary: string;
+  sources: string[];
+  limitation: string;
 }
 export type TenGodPresenceStatus = '缺位' | '仅藏' | '透出' | '透藏并见';
 
@@ -371,8 +375,14 @@ export interface TenGodStructureProfile {
 }
 export interface TenGodFlowItem {
   name: string;
+  sourceFamily: string;
+  targetFamily: string;
+  relation: '生' | '克';
+  sourceCount: number;
+  targetCount: number;
   description: string;
-  caution: string;
+  sources: string[];
+  limitation: string;
 }
 export interface TenGodFlowProfile {
   items: TenGodFlowItem[];
@@ -444,9 +454,18 @@ export interface UsefulGodPlacementProfile {
 export interface TenGodLifeStageItem {
   stem: string;
   tenGod: string;
-  strongCount: number;
-  lowCount: number;
+  sourcePositions: Array<{
+    pillar: 'year' | 'month' | 'day' | 'hour';
+    source: '透干' | '藏干';
+  }>;
+  stages: Array<{
+    pillar: 'year' | 'month' | 'day' | 'hour';
+    branch: string;
+    stage: string;
+  }>;
   summary: string;
+  sources: string[];
+  limitation: string;
 }
 export interface TenGodLifeStageProfile {
   items: TenGodLifeStageItem[];
