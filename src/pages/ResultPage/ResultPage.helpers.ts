@@ -284,7 +284,7 @@ function formatZiweiScopeHits(payload: AnalysisPayloadV1) {
     )
     .filter(Boolean);
 
-  return hits.length ? hits.slice(0, 8).join('；') : '未标出明显运限落宫';
+  return hits.length ? hits.join('；') : '未标出明显运限落宫';
 }
 
 export function formatZiweiFullScopeText(

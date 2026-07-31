@@ -421,7 +421,6 @@ function buildZiweiCompatibilityInfo(result: ReturnType<typeof analyzeZiweiCompa
         (name) => item.sourcePalace.includes(name) || item.targetPalace.includes(name),
       ),
     )
-    .slice(0, 12)
     .map((item) => {
       const sourceStars = item.sourceMajorStars.length
         ? `，主星${item.sourceMajorStars.join('、')}`
@@ -431,12 +430,10 @@ function buildZiweiCompatibilityInfo(result: ReturnType<typeof analyzeZiweiCompa
         : '';
       return `- ${result.people[item.sourcePerson]}${item.sourcePalace}与${result.people[item.targetPerson]}${item.targetPalace}同在${item.earthlyBranch}轴${sourceStars}${targetStars}`;
     });
-  const mutagenLines = result.crossMutagenPlacements
-    .slice(0, 12)
-    .map(
-      (item) =>
-        `- ${result.people[item.sourcePerson]}${item.sourcePalace}的${item.star}生年化${item.mutagen}，对应${result.people[item.targetPerson]}${item.targetPalace}`,
-    );
+  const mutagenLines = result.crossMutagenPlacements.map(
+    (item) =>
+      `- ${result.people[item.sourcePerson]}${item.sourcePalace}的${item.star}生年化${item.mutagen}，对应${result.people[item.targetPerson]}${item.targetPalace}`,
+  );
 
   return [
     overlayLines.length ? '宫位对应：' : '',

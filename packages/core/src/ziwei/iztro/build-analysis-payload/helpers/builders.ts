@@ -150,6 +150,9 @@ export function buildActiveScope(params: {
   currentScopeItem?: HoroscopeScopeItem;
 }): ActiveScopeInfo {
   const { astrolabe, horoscope, currentScope, currentScopeItem } = params;
+  if (currentScope !== 'origin' && !currentScopeItem) {
+    throw new Error(`紫微${resolveScopeLabel(currentScope)}资料缺失。`);
+  }
   const landingPalace =
     currentScope === 'origin'
       ? astrolabe.palace('命宫' as never)
@@ -169,6 +172,7 @@ export function buildActiveScope(params: {
       currentScopeItem?.mutagen ?? [],
       astrolabe,
       currentScopeItem?.palaceNames ?? [],
+      { allowEmpty: currentScope === 'origin' },
     ),
   };
 }
@@ -194,6 +198,9 @@ function buildScopeHits(
 
 function buildMutagedPlaces(palace: IztroPalace): MutagedPlaceItem[] {
   const targets = palace.mutagedPlaces();
+  if (targets.length !== MUTAGEN_ORDER.length) {
+    throw new Error(`${palace.name}宫的宫干四化目标必须恰好返回4项。`);
+  }
 
   return targets.map((target, index) => {
     if (!target) {
@@ -277,6 +284,7 @@ export function buildPalaceFacts(params: {
     currentScopeItem?.mutagen ?? [],
     astrolabe,
     currentScopeItem?.palaceNames ?? [],
+    { allowEmpty: params.currentScope === 'origin' },
   );
 
   return astrolabe.palaces.map((palace) => {

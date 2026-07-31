@@ -1069,7 +1069,7 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
         '《奇门宝鉴御定》刑德开阖将兵条文：阖为主、开为客',
       ],
       promptText:
-        '专项规则边界：当前盘只提供九宫、奇仪、星门神等原始事实；出军交战、主客攻守、劫营下营、突围避寇、三岔迷路及相关战略择方规则未取得所需专项情境，不得自动生成；刑德开阖主客版本相反，不得替用户选择版本',
+        '专项规则边界：当前盘只提供九宫、奇仪、星门神等原始事实；出军交战、主客攻守、劫营下营、突围避寇、三岔迷路及相关战略择方规则未取得所需专项情境，不得自动生成；刑德开阖主客版本相反，版本冲突时不选定任一口径',
       limitation: RULE_SOURCE_LIMITATION,
     },
     {
@@ -1324,13 +1324,29 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
     source: item.sources.join('、'),
     tags: ['宫间关系', item.relation, item.from, item.to],
   }));
+  const calculationRuleSourceKeys = unique(
+    calculationEvidenceFacts.flatMap((item) => item.sourceKeys),
+  );
+  const calculationRuleSources = calculationRuleSourceKeys.map((key) => {
+    const source = ruleSourceFacts.find((item) => item.key === key);
+    if (!source) {
+      throw new Error(`奇门计算事实引用了不存在的规则来源：${key}`);
+    }
+    return source;
+  });
+  const ruleSourceItems: PromptEvidenceItem[] = ruleSourceFacts.map((item) => ({
+    level: item.category.includes('边界') ? '限制' : '辅证',
+    title: `规则依据：${item.category}`,
+    detail: `${item.promptText}；适用于${item.appliesTo.join('、')}；边界：${item.limitation}`,
+    source: item.sources.join('、'),
+    tags: ['奇门规则来源', item.category],
+  }));
   const items: PromptEvidenceItem[] = [
     {
       level: calculationEvidenceFacts.some((item) => item.status === '落宫缺失') ? '反证' : '辅证',
       title: '定局计算事实',
       detail: `${calculationEvidenceFacts.map((item) => item.promptText).join('；')}；统一边界：${CALCULATION_FACT_LIMITATION}`,
-      source: ruleSourceFacts
-        .slice(0, 2)
+      source: calculationRuleSources
         .map((item) => `${item.key} ${item.sources.join('、')}；${item.promptText}`)
         .join('；'),
       tags: [
@@ -1341,6 +1357,7 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
         `${data.juShu}局`,
       ],
     },
+    ...ruleSourceItems,
     {
       level: palaceCoverageFact.status === '完整' ? '辅证' : '反证',
       title: '九宫资料覆盖状态',

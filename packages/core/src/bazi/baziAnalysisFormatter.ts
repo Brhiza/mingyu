@@ -72,7 +72,7 @@ function formatPromptLuckOverview(baziResult: BaziChartResult): string {
   const currentLuck = getLuckCycleForDate(cycles, now);
 
   const lines = [`起运: ${baziResult.luckInfo.startInfo}`];
-  const cycleOverview = cycles.slice(0, 13).map((cycle, index) => {
+  const cycleOverview = cycles.map((cycle, index) => {
     const years = cycle.years ?? [];
     const firstYear = years[0]?.year;
     const lastYear = years[years.length - 1]?.year;

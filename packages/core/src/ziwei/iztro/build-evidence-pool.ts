@@ -15,7 +15,9 @@ import type {
 import {
   getCurrentScopeItem,
   getCurrentScopeLandingPalace,
+  resolveScopeLabel,
 } from './build-analysis-payload/helpers/scope';
+import { normalizeScopeMutagenStars } from './build-analysis-payload/helpers/mappers';
 
 type EvidenceDraft = Omit<
   EvidenceFact,
@@ -129,9 +131,15 @@ function collectScopeStructureEvidence(params: {
 
   const item = getCurrentScopeItem(horoscope, currentScope);
   const landingPalace = getCurrentScopeLandingPalace(horoscope, currentScope);
-  const palace = palaces.find((candidate) => candidate.index === landingPalace?.index);
-  if (!item || !palace) {
-    return drafts;
+  if (!item) {
+    throw new Error(`紫微${resolveScopeLabel(currentScope)}资料缺失，无法建立运限证据。`);
+  }
+  if (!landingPalace) {
+    throw new Error(`紫微${resolveScopeLabel(currentScope, item)}命宫定位失败。`);
+  }
+  const palace = palaces.find((candidate) => candidate.index === landingPalace.index);
+  if (!palace) {
+    throw new Error(`紫微${resolveScopeLabel(currentScope, item)}落宫无法映射到十二宫资料。`);
   }
 
   const scopeLabel = buildScopeTitle(currentScope, item.name);
@@ -149,7 +157,7 @@ function collectScopeStructureEvidence(params: {
     description: `${scopeLabel}${stemBranch ? `干支为${stemBranch}，` : ''}命宫由运限对象定位到本命${formatPalaceName(palace.name)}。`,
   });
 
-  item.mutagen?.slice(0, MUTAGEN_LIST.length).forEach((starName, index) => {
+  normalizeScopeMutagenStars(item.mutagen).forEach((starName, index) => {
     const mutagen = MUTAGEN_LIST[index];
     let nativeTargetPalace: IFunctionalPalace | undefined;
     try {

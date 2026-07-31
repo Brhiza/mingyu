@@ -795,7 +795,6 @@ function createEvidence(
     })),
     ...relations
       .filter((item) => !dayBranchRelations.includes(item))
-      .slice(0, 24)
       .map((relation): PromptEvidenceItem => ({
         level:
           relation.person1Pillar === 'day' || relation.person2Pillar === 'day' ? '主证' : '辅证',

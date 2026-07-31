@@ -77,6 +77,22 @@ test('奇门排盘应内置九宫位置与宫间关系结构化证据', () => {
   assert.match(evidence.promptText, /证据汇总：/);
   assert.match(evidence.promptText, /解释限制：/);
   assert.match(evidence.promptText, /门.+、星.+、神.+、天盘.+、地盘/);
+  const ruleSourceItems = evidence.evidence.items.filter((item) =>
+    item.tags?.includes('奇门规则来源'),
+  );
+  assert.equal(ruleSourceItems.length, evidence.ruleSourceFacts.length);
+  evidence.ruleSourceFacts.forEach((item) => {
+    assert.match(
+      evidence.promptText,
+      new RegExp(item.promptText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    );
+  });
+  const calculationItem = evidence.evidence.items.find((item) => item.title === '定局计算事实');
+  assert.ok(calculationItem);
+  const calculationSourceKeys = new Set(
+    evidence.calculationEvidenceFacts.flatMap((item) => item.sourceKeys),
+  );
+  calculationSourceKeys.forEach((key) => assert.match(calculationItem.source, new RegExp(key)));
   assert.doesNotMatch(
     evidence.promptText,
     /主宫评分|辅宫评分|权重[：=]?\d|评分-?\d+|（-?\d+分|成功率[：=]?\d|应期范围\d/,

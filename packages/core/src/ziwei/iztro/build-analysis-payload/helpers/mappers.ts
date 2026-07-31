@@ -4,12 +4,39 @@ import { normalizeStarName } from './palace-lookup';
 
 export const MUTAGEN_ORDER: MutagenName[] = ['禄', '权', '科', '忌'];
 
+export function normalizeScopeMutagenStars(
+  stars: readonly string[],
+  options: { allowEmpty?: boolean } = {},
+): string[] {
+  if (!Array.isArray(stars)) {
+    throw new Error('紫微运限四化星曜必须是按禄、权、科、忌排列的数组。');
+  }
+  if (stars.length === 0 && options.allowEmpty) {
+    return [];
+  }
+  if (stars.length !== MUTAGEN_ORDER.length) {
+    throw new Error('紫微运限四化星曜必须恰好提供4项，并按禄、权、科、忌排列。');
+  }
+
+  const normalized = stars.map((star, index) => {
+    if (typeof star !== 'string' || !star.trim()) {
+      throw new Error(`紫微运限四化第${index + 1}个星曜名称无效。`);
+    }
+    return star.trim();
+  });
+  if (new Set(normalized).size !== normalized.length) {
+    throw new Error('紫微运限四化的禄、权、科、忌星曜不得重复。');
+  }
+  return normalized;
+}
+
 export function mapScopeMutagenMap(
   stars: string[],
   astrolabe: IztroAstrolabe,
   dynamicPalaceNames: string[] = [],
+  options: { allowEmpty?: boolean } = {},
 ): ScopeMutagenItem[] {
-  return stars.slice(0, 4).map((star, index) => {
+  return normalizeScopeMutagenStars(stars, options).map((star, index) => {
     let palace;
     try {
       palace = astrolabe.star(star as never).palace();

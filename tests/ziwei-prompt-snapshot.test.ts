@@ -505,6 +505,25 @@ test('紫微合盘内嵌盘面资料不应重复使用顶层 section 标题', ()
   assert.match(prompt, /重点宫位资料：\n/);
 });
 
+test('紫微合盘提示词应保留超过旧上限的全部关键宫位叠盘', () => {
+  const primaryPayload = createPayload();
+  const partnerPayload = createPayload();
+  primaryPayload.palaces[1].is_body_palace = true;
+  partnerPayload.palaces[1].is_body_palace = true;
+
+  const prompt = buildCombinedZiweiCompatibilityPrompt({
+    primaryPayload,
+    partnerPayload,
+    topic: 'career-wealth',
+    question: '我们适合长期合作吗？',
+  });
+  const overlayLines = prompt.match(/^- .*同在.+轴.*$/gm) ?? [];
+
+  assert.equal(overlayLines.length, 14);
+  assert.match(prompt, /第二人官禄与第一人父母同在子轴/);
+  assert.match(prompt, /第二人福德与第一人父母同在子轴/);
+});
+
 test('紫微证据池只应输出所选流年层级的落宫与运限四化飞入证据', () => {
   const palaces = createPayload().palaces;
   palaces[1] = {

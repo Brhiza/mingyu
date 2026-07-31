@@ -15,6 +15,7 @@ import {
   shiftLocalDate,
   shiftLunarYear,
 } from '@core/ziwei/iztro';
+import { mapScopeMutagenMap } from '../packages/core/src/ziwei/iztro/build-analysis-payload/helpers/mappers';
 
 const DEFAULT_CHART_INPUT = {
   name: '测试',
@@ -88,6 +89,30 @@ test('紫微运行期日期位移应保持合法日期并处理月底', () => {
   assert.equal(shiftLocalDate('2024-02-29', 1, 'day'), '2024-03-01');
   assert.equal(shiftLocalDate('2024-03-31', -1, 'month'), '2024-02-29');
   assert.equal(shiftLocalDate('2024-03-01', -1, 'day'), '2024-02-29');
+});
+
+test('紫微运限四化映射应严格要求禄权科忌四项且拒绝静默截断', async () => {
+  const astrolabe = await buildAstrolabeFromInput(DEFAULT_CHART_INPUT);
+  const horoscope = buildHoroscope(astrolabe, '2026-07-27', 6);
+  const stars = horoscope.yearly.mutagen;
+  const mapped = mapScopeMutagenMap(stars, astrolabe, horoscope.yearly.palaceNames);
+
+  assert.deepEqual(
+    mapped.map((item) => item.mutagen),
+    ['禄', '权', '科', '忌'],
+  );
+  assert.deepEqual(mapScopeMutagenMap([], astrolabe, [], { allowEmpty: true }), []);
+  assert.throws(() => mapScopeMutagenMap([], astrolabe), /必须恰好提供4项/);
+  assert.throws(() => mapScopeMutagenMap(stars.slice(0, 3), astrolabe), /必须恰好提供4项/);
+  assert.throws(() => mapScopeMutagenMap([...stars, stars[0]], astrolabe), /必须恰好提供4项/);
+  assert.throws(
+    () => mapScopeMutagenMap([stars[0], stars[0], stars[2], stars[3]], astrolabe),
+    /星曜不得重复/,
+  );
+  assert.throws(
+    () => mapScopeMutagenMap([stars[0], ' ', stars[2], stars[3]], astrolabe),
+    /第2个星曜名称无效/,
+  );
 });
 
 test('紫微运行期日期位移不应因目标年份超过出生日期范围而失败', () => {

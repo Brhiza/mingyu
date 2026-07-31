@@ -136,6 +136,39 @@ test('八字双盘证据应计算日主、日支和四柱交叉关系', () => {
   assertEvidenceReferences(result);
 });
 
+test('八字双盘提示词应保留超过旧上限的全部跨柱关系', () => {
+  const { chart1, chart2 } = createPair();
+  const person1Pillar = { gan: '甲', zhi: '子', ganZhi: '甲子' };
+  const person2Pillar = { gan: '己', zhi: '卯', ganZhi: '己卯' };
+  chart1.pillars = {
+    year: { ...person1Pillar },
+    month: { ...person1Pillar },
+    day: { ...person1Pillar },
+    hour: { ...person1Pillar },
+  };
+  chart2.pillars = {
+    year: { ...person2Pillar },
+    month: { ...person2Pillar },
+    day: { ...person2Pillar },
+    hour: { ...person2Pillar },
+  };
+  chart1.dayMaster = { gan: '甲', element: '木', yinYang: '阳' };
+  chart2.dayMaster = { gan: '己', element: '土', yinYang: '阴' };
+
+  const result = analyzeBaziCompatibility(chart1, chart2);
+  const ordinaryRelations = result.crossPillarRelations.filter(
+    (item) =>
+      !(item.layer === '地支' && item.person1Pillar === 'day' && item.person2Pillar === 'day'),
+  );
+  const promptRelationItems = result.evidence.items.filter((item) =>
+    item.tags?.includes('跨盘关系'),
+  );
+
+  assert.ok(ordinaryRelations.length > 24);
+  assert.equal(promptRelationItems.length, ordinaryRelations.length);
+  assert.match(result.promptText, /第一人时柱子与第二人时柱卯构成三刑/);
+});
+
 test('八字双盘证据应记录跨盘三会来源但不声称成化', () => {
   const { chart1, chart2 } = createPair();
   const result = analyzeBaziCompatibility(chart1, chart2);

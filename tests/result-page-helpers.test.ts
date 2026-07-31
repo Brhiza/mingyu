@@ -332,6 +332,10 @@ test('紫微完整输出版会整理本命与各层运限资料', async () => {
     }),
   );
 
+  ziweiRuntime.payloadByScope.yearly.palaces.forEach((palace, index) => {
+    palace.scope_hits = index < 9 ? [`第${index + 1}项流年落宫`] : [];
+  });
+
   const text = formatZiweiFullScopeText(ziweiRuntime.payloadByScope);
 
   assert.match(text, /完整紫微运限资料：/);
@@ -342,6 +346,7 @@ test('紫微完整输出版会整理本命与各层运限资料', async () => {
   assert.match(text, /流日：分析对象：/);
   assert.match(text, /当前四化：/);
   assert.match(text, /运限命中：/);
+  assert.match(text, /第9项流年落宫/);
 });
 
 test('星盘完整输出版会整理本命与行运资料', () => {

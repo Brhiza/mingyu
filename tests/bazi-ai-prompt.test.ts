@@ -236,6 +236,25 @@ test('八字提示词未选择年限时输出本命资料且不输出岁运重�
   assert.doesNotMatch(prompt.user, /资料说明：|本次未指定|不得自行指定/);
 });
 
+test('八字大运总览应保留上游提供的全部运程', () => {
+  const result = createBaziResult();
+  const cycles = result.luckInfo?.cycles;
+  assert.ok(cycles?.length);
+  const lastCycle = cycles.at(-1);
+  assert.ok(lastCycle);
+  cycles.push({
+    ...structuredClone(lastCycle),
+    ganZhi: '甲午',
+    year: lastCycle.year + 10,
+    age: lastCycle.age + 10,
+  });
+
+  const chartText = formatBaziForPromptCore(result);
+
+  assert.ok(cycles.length > 13);
+  assert.match(chartText, /14\. 甲午大运:/);
+});
+
 test('合盘提示词不应误要求使用单盘核心用神句式', () => {
   const { result1, result2 } = createCompatibilityBaziResults();
 
