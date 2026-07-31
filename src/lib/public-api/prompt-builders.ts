@@ -298,7 +298,7 @@ function formatPublicZiweiScopeHits(payload: AnalysisPayloadV1) {
     )
     .filter(Boolean);
 
-  return hits.length > 0 ? hits.slice(0, 8).join('；') : '未标出明显运限落宫';
+  return hits.length > 0 ? hits.join('；') : '未标出明显运限落宫';
 }
 
 export function formatPublicZiweiFullScopeText(result: ZiweiRuntime) {
@@ -422,17 +422,34 @@ function buildPublicZiweiTaskText() {
 }
 
 function formatPublicZiweiStar(star: StarFact) {
-  return [star.name, star.brightness ? `(${star.brightness})` : ''].join('');
+  const tags = [
+    star.brightness,
+    star.birth_mutagen ? `生年化${star.birth_mutagen}` : '',
+    star.horoscope_mutagen ? `流耀化${star.horoscope_mutagen}` : '',
+    star.active_scope_mutagen ? `当前运限化${star.active_scope_mutagen}` : '',
+  ].filter(Boolean);
+  return tags.length > 0 ? `${star.name}(${tags.join('/')})` : star.name;
+}
+
+function getPublicZiweiStars(palace: PalaceFact | undefined) {
+  if (!palace) return [];
+  return [
+    ...palace.major_stars,
+    ...palace.minor_stars,
+    ...palace.other_stars,
+    ...palace.scope_stars,
+  ];
+}
+
+function formatPublicZiweiStars(palace: PalaceFact | undefined) {
+  return getPublicZiweiStars(palace).map(formatPublicZiweiStar).filter(Boolean).join('、');
 }
 
 function formatPublicZiweiPalaceBrief(palace: PalaceFact) {
-  const stars = [...palace.major_stars, ...palace.minor_stars]
-    .map(formatPublicZiweiStar)
-    .filter(Boolean)
-    .slice(0, 8);
+  const stars = formatPublicZiweiStars(palace);
   const tags = palace.summary_tags.length > 0 ? `；标记：${palace.summary_tags.join('、')}` : '';
   const details = [
-    stars.length > 0 ? `星曜：${stars.join('、')}` : '',
+    stars ? `星曜：${stars}` : '',
     palace.changsheng12 ? `长生：${palace.changsheng12}` : '',
     palace.boshi12 ? `博士：${palace.boshi12}` : '',
   ].filter(Boolean);
@@ -453,9 +470,7 @@ function buildPublicZiweiKeyPalaceSection(params: {
 }) {
   const scopeHitPalaces = params.isOriginScope
     ? []
-    : [...params.palaces]
-        .filter((palace) => palace.scope_hits.length > 0)
-        .sort((left, right) => right.scope_hits.length - left.scope_hits.length);
+    : params.palaces.filter((palace) => palace.scope_hits.length > 0);
   const palaceNames = [
     params.activePalace?.name,
     params.lifePalace?.name,
@@ -471,7 +486,7 @@ function buildPublicZiweiKeyPalaceSection(params: {
         .filter((palace): palace is PalaceFact => Boolean(palace))
         .map((palace) => [palace.index, palace]),
     ).values(),
-  ).slice(0, 7);
+  );
 
   return selected.length > 0
     ? `【重点宫位】\n${selected.map(formatPublicZiweiPalaceBrief).join('\n')}`
@@ -500,14 +515,8 @@ export function buildPublicZiweiPromptForRuntime(params: {
   );
   const lifePalace = payload.palaces.find((palace) => palace.name === '命宫');
   const bodyPalace = payload.palaces.find((palace) => palace.is_body_palace);
-  const formatStars = (palace: (typeof payload.palaces)[number] | undefined) => {
-    const stars = [...(palace?.major_stars ?? []), ...(palace?.minor_stars ?? [])]
-      .map((star) => star.name)
-      .filter(Boolean)
-      .slice(0, 8);
-
-    return stars.join('、');
-  };
+  const lifeStarsText = formatPublicZiweiStars(lifePalace);
+  const bodyStarsText = formatPublicZiweiStars(bodyPalace);
   const mutagenText =
     payload.active_scope.mutagen_map.length > 0
       ? payload.active_scope.mutagen_map
@@ -526,12 +535,8 @@ export function buildPublicZiweiPromptForRuntime(params: {
   const trueSolarEvidenceText = formatZiweiTrueSolarEvidence(params.result.trueSolarEvidence);
   const chartLines = [
     `出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}`,
-    lifePalace
-      ? `命宫：${lifePalace.name}${formatStars(lifePalace) ? `；星曜：${formatStars(lifePalace)}` : ''}`
-      : '',
-    bodyPalace
-      ? `身宫：${bodyPalace.name}${formatStars(bodyPalace) ? `；星曜：${formatStars(bodyPalace)}` : ''}`
-      : '',
+    lifePalace ? `命宫：${lifePalace.name}${lifeStarsText ? `；星曜：${lifeStarsText}` : ''}` : '',
+    bodyPalace ? `身宫：${bodyPalace.name}${bodyStarsText ? `；星曜：${bodyStarsText}` : ''}` : '',
     activePalace ? `当前落宫：${activePalace.name}` : '',
     mutagenText ? `当前四化：${mutagenText}` : '',
     `排盘口径：${formatPublicZiweiCalculationConfig(payload)}`,
@@ -590,14 +595,8 @@ function formatPublicZiweiEvidenceText(params: {
   );
   const lifePalace = payload.palaces.find((palace) => palace.name === '命宫');
   const bodyPalace = payload.palaces.find((palace) => palace.is_body_palace);
-  const formatStars = (palace: (typeof payload.palaces)[number] | undefined) => {
-    const stars = [...(palace?.major_stars ?? []), ...(palace?.minor_stars ?? [])]
-      .map((star) => star.name)
-      .filter(Boolean)
-      .slice(0, 8);
-
-    return stars.join('、');
-  };
+  const lifeStarsText = formatPublicZiweiStars(lifePalace);
+  const bodyStarsText = formatPublicZiweiStars(bodyPalace);
   const mutagenText =
     payload.active_scope.mutagen_map.length > 0
       ? payload.active_scope.mutagen_map
@@ -622,12 +621,8 @@ function formatPublicZiweiEvidenceText(params: {
     `参考日期：${payload.active_scope.solar_date}`,
     `虚岁：${payload.active_scope.nominal_age}`,
     `出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}`,
-    lifePalace
-      ? `命宫：${lifePalace.name}${formatStars(lifePalace) ? `；星曜：${formatStars(lifePalace)}` : ''}`
-      : '',
-    bodyPalace
-      ? `身宫：${bodyPalace.name}${formatStars(bodyPalace) ? `；星曜：${formatStars(bodyPalace)}` : ''}`
-      : '',
+    lifePalace ? `命宫：${lifePalace.name}${lifeStarsText ? `；星曜：${lifeStarsText}` : ''}` : '',
+    bodyPalace ? `身宫：${bodyPalace.name}${bodyStarsText ? `；星曜：${bodyStarsText}` : ''}` : '',
     activePalace ? `当前落宫：${activePalace.name}` : '',
     mutagenText ? `当前四化：${mutagenText}` : '',
     `排盘口径：${formatPublicZiweiCalculationConfig(payload)}`,

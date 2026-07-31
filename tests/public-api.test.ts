@@ -6,9 +6,12 @@ import { buildZiweiChartInput, calculateFullZiweiChart } from '../src/lib/full-c
 import {
   buildBaziZiweiPromptForResults,
   buildBaziPromptForResult,
+  buildPublicZiweiPromptForRuntime,
   buildZiweiPromptForRuntime,
+  formatPublicZiweiFullScopeText,
   type BaziPromptTopic,
 } from '../src/lib/public-api/prompt-builders';
+import type { StarFact } from '../src/types/analysis';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
@@ -1799,6 +1802,86 @@ test('公开 API 紫微提示词接口只生成所需范围，避免线上函数
   assert.match(prompt, /【任务】/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界|计算链/);
   assertPromptIsPortableTaskText(prompt);
+});
+
+test('公开 API 紫微提示词应保留全部运限命中宫位与星曜事实', async () => {
+  const runtime = await calculateFullZiweiChart(
+    buildZiweiChartInput({
+      name: '测试',
+      gender: 'female',
+      dateType: 'solar',
+      year: '1992',
+      month: '8',
+      day: '21',
+      timeIndex: 4,
+      isLeapMonth: false,
+      useTrueSolarTime: false,
+    }),
+  );
+  const payload = runtime.payloadByScope.yearly;
+  const lifePalaceIndex = payload.palaces.find((palace) => palace.name === '命宫')?.index;
+  const bodyPalaceIndex = payload.palaces.find((palace) => palace.is_body_palace)?.index;
+  const activePalaceIndex = payload.active_scope.palace_index;
+  const highHitPalace = payload.palaces.findLast(
+    (palace) =>
+      palace.index !== lifePalaceIndex &&
+      palace.index !== bodyPalaceIndex &&
+      palace.index !== activePalaceIndex,
+  );
+  assert.ok(highHitPalace);
+  payload.palaces = payload.palaces.map((palace) => ({
+    ...palace,
+    scope_hits: Array.from(
+      { length: palace.index === highHitPalace.index ? 3 : 1 },
+      (_, index) => `${palace.name}第${index + 1}项运限落宫`,
+    ),
+  }));
+  const lifePalace = payload.palaces.find((palace) => palace.index === lifePalaceIndex);
+  const makeStars = (prefix: string, count: number, kind: string): StarFact[] =>
+    Array.from({ length: count }, (_, index) => ({
+      name: `${prefix}${index + 1}`,
+      kind,
+      brightness: index === count - 1 ? '旺' : undefined,
+      birth_mutagen: index === count - 1 ? '禄' : undefined,
+    }));
+  if (lifePalace) {
+    lifePalace.major_stars = makeStars('完整主星', 4, 'major');
+    lifePalace.minor_stars = makeStars('完整辅星', 3, 'minor');
+    lifePalace.other_stars = makeStars('完整杂曜', 2, 'other');
+    lifePalace.scope_stars = makeStars('完整运限星', 1, 'scope');
+  }
+
+  const prompt = buildPublicZiweiPromptForRuntime({
+    result: runtime,
+    question: '请完整核对盘面依据。',
+    topic: 'life',
+    scope: 'yearly',
+  });
+  const keyPalaceSection = prompt.match(/【重点宫位】\n([\s\S]*?)\n\n【/)?.[1] ?? '';
+  const nonPrimaryPalaces = payload.palaces.filter(
+    (palace) =>
+      palace.index !== lifePalaceIndex &&
+      palace.index !== bodyPalaceIndex &&
+      palace.index !== activePalaceIndex,
+  );
+
+  assert.equal((keyPalaceSection.match(/^- /gm) ?? []).length, 12);
+  payload.palaces.forEach((palace) => {
+    assert.match(keyPalaceSection, new RegExp(`- ${palace.name}（`));
+  });
+  const nonPrimaryPositions = nonPrimaryPalaces.map((palace) =>
+    keyPalaceSection.indexOf(`- ${palace.name}（`),
+  );
+  assert.deepEqual(
+    nonPrimaryPositions,
+    [...nonPrimaryPositions].sort((left, right) => left - right),
+  );
+  assert.match(keyPalaceSection, /完整杂曜2\(旺\/生年化禄\)/);
+  assert.match(keyPalaceSection, /完整运限星1\(旺\/生年化禄\)/);
+  assert.match(
+    formatPublicZiweiFullScopeText(runtime),
+    new RegExp(`${highHitPalace.name}第3项运限落宫`),
+  );
 });
 
 test('公开 API 紫微提示词支持完整输出版范围', async () => {

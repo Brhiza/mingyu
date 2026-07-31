@@ -265,7 +265,7 @@ export function buildScopeStructureSummary(payload: AnalysisPayloadV1) {
       本命落宫: formatPalaceName(palace.name),
       当前动态宫名: palace.dynamic_scope_name || undefined,
       宫位干支: `${palace.heavenly_stem}${palace.earthly_branch}`,
-      关键标签: palace.summary_tags.slice(0, 5),
+      关键标签: uniqueStrings(palace.summary_tags),
       主星: palace.major_stars.map(formatStarFact),
     })),
   );
@@ -310,7 +310,7 @@ export function buildScopeHitSummary(payload: AnalysisPayloadV1) {
   const focusLine = currentPalace
     ? `${payload.active_scope.label || scopeLabel}当前落宫为本命${formatPalaceName(currentPalace.name)}。`
     : '';
-  return [focusLine, ...landingLines.slice(0, 6), ...mutagenLines.slice(0, 8)];
+  return [focusLine, ...landingLines, ...mutagenLines];
 }
 
 export function buildPalaceIndex(payload: AnalysisPayloadV1) {
@@ -320,9 +320,9 @@ export function buildPalaceIndex(payload: AnalysisPayloadV1) {
     宫位: formatPalaceName(item.name),
     主星: item.major_stars.map(formatStarFact),
     当前动态宫名: includeScope ? item.dynamic_scope_name || undefined : undefined,
-    关键标签: [
+    关键标签: uniqueStrings([
       ...filterScopeTagsForOrigin(payload, item.summary_tags),
       ...(includeScope ? item.scope_hits : []),
-    ].slice(0, 4),
+    ]),
   }));
 }

@@ -9,6 +9,7 @@ import {
   buildEvidenceAnalysis,
   buildEvidencePool,
   buildPatternAnalysis,
+  buildScopeFocusPalaces,
   detectPatterns,
   DEFAULT_ZIWEI_CALCULATION_CONFIG,
 } from '@core/ziwei/iztro';
@@ -827,17 +828,130 @@ test('紫微关键判断线索应保留主题范围内全部事实而不按采�
   assert.match(readable, /判断线索：命宫线索10/);
 });
 
+test('紫微运限重点宫位应按盘面顺序保留全部命中宫位', () => {
+  const payload = createPayload();
+  payload.active_scope = {
+    ...payload.active_scope,
+    scope: 'yearly',
+    label: '2026流年',
+    palace_index: 0,
+  };
+  payload.palaces = payload.palaces.map((palace, index) => ({
+    ...palace,
+    dynamic_scope_name: `动态宫位${index + 1}`,
+    scope_hits: Array.from(
+      { length: 12 - index },
+      (_, hitIndex) => `第${index + 1}宫第${hitIndex + 1}项落宫`,
+    ),
+    summary_tags: Array.from(
+      { length: index + 1 },
+      (_, tagIndex) => `第${index + 1}宫标签${tagIndex + 1}`,
+    ),
+  }));
+
+  const focusPalaces = buildScopeFocusPalaces(payload);
+
+  assert.equal(focusPalaces.length, 12);
+  assert.deepEqual(
+    focusPalaces.map((palace) => palace.index),
+    Array.from({ length: 12 }, (_, index) => index),
+  );
+});
+
+test('紫微运限提示词应保留十二宫全部命中、四化与标签事实', () => {
+  const payload = createPayload();
+  const mutagens = ['禄', '权', '科', '忌'] as const;
+  payload.active_scope = {
+    ...payload.active_scope,
+    scope: 'yearly',
+    label: '2026流年',
+    palace_index: 0,
+    mutagen_map: payload.palaces.map((palace, index) => ({
+      star: `运限四化星${index + 1}`,
+      mutagen: mutagens[index % mutagens.length],
+      palace_index: palace.index,
+      palace_name: palace.name,
+      dynamic_palace_name: `动态宫位${index + 1}`,
+    })),
+  };
+  payload.palaces = payload.palaces.map((palace, index) => ({
+    ...palace,
+    dynamic_scope_name: `动态宫位${index + 1}`,
+    scope_hits: [`第${index + 1}项运限落宫`],
+    summary_tags: Array.from({ length: 6 }, (_, tagIndex) => `第${index + 1}宫标签${tagIndex + 1}`),
+  }));
+  const reportContext = createReportContext({
+    report_key: 'life:yearly:2026-05-16',
+    report_title: '流年分析',
+    report_type: 'scope',
+    scope_type: 'yearly',
+    scope_label: '流年',
+  });
+
+  const snapshot = buildPromptContextSnapshot({ payload, reportContext });
+  const readable = buildZiweiReadableSnapshot({ payload, reportContext });
+  const firstLanding = snapshot.运限结构.find((item) => item.类型 === '运限落宫');
+  const lastPalaceIndex = snapshot.全盘宫位索引.at(-1);
+
+  assert.equal(snapshot.重点宫位摘要.length, 12);
+  assert.equal(snapshot.运限命中摘要.length, 25);
+  assert.equal(snapshot.运限结构.length, 24);
+  assert.deepEqual(firstLanding?.关键标签, [
+    '第1宫标签1',
+    '第1宫标签2',
+    '第1宫标签3',
+    '第1宫标签4',
+    '第1宫标签5',
+    '第1宫标签6',
+  ]);
+  assert.deepEqual(lastPalaceIndex?.关键标签, [
+    '第12宫标签1',
+    '第12宫标签2',
+    '第12宫标签3',
+    '第12宫标签4',
+    '第12宫标签5',
+    '第12宫标签6',
+    '第12项运限落宫',
+  ]);
+  assert.match(snapshot.运限命中摘要.at(-1) ?? '', /运限四化星12化忌/);
+  assert.match(readable, /第12项运限落宫/);
+  assert.match(readable, /运限四化星12/);
+});
+
+test('紫微通用本命提示词应保留全部实际四化宫位', () => {
+  const payload = createPayload();
+  const mutagens = ['禄', '权', '科', '忌'] as const;
+  payload.palaces = payload.palaces.map((palace, index) => ({
+    ...palace,
+    major_stars: [
+      {
+        name: `生年四化星${index + 1}`,
+        kind: 'major',
+        birth_mutagen: mutagens[index % mutagens.length],
+      },
+    ],
+  }));
+
+  const snapshot = buildPromptContextSnapshot({
+    payload,
+    reportContext: createReportContext(),
+  });
+
+  assert.equal(snapshot.重点宫位摘要.length, 12);
+  assert.ok(
+    snapshot.重点宫位摘要.some((palace) =>
+      palace.主星.some((star) => star.startsWith('生年四化星12')),
+    ),
+  );
+});
+
 test('紫微提示词应保留专题已选重点宫位而不再二次截断', () => {
   const payload = createPayload();
-  payload.palaces = payload.palaces.map((palace, index) =>
-    index < 5
-      ? {
-          ...palace,
-          major_stars: [{ name: `四化星${index + 1}`, kind: 'major', birth_mutagen: '禄' }],
-        }
-      : palace,
-  );
-  payload.evidence_pool = payload.palaces.slice(0, 5).map((palace, index) => ({
+  payload.palaces = payload.palaces.map((palace, index) => ({
+    ...palace,
+    major_stars: [{ name: `四化星${index + 1}`, kind: 'major', birth_mutagen: '禄' }],
+  }));
+  payload.evidence_pool = payload.palaces.map((palace, index) => ({
     id: `E${index + 1}`,
     stable_key: `mutagen-palace-${index + 1}`,
     type: 'palace_birth_mutagen',
@@ -858,9 +972,9 @@ test('紫微提示词应保留专题已选重点宫位而不再二次截断', ()
 
   const snapshot = buildPromptContextSnapshot({ payload, reportContext });
 
-  assert.equal(snapshot.重点宫位摘要.length, 5);
-  assert.equal(snapshot.关键证据摘要.length, 5);
-  assert.equal(snapshot.关键证据摘要.at(-1)?.判断线索, '财帛见生年化禄');
+  assert.equal(snapshot.重点宫位摘要.length, 12);
+  assert.equal(snapshot.关键证据摘要.length, 12);
+  assert.equal(snapshot.关键证据摘要.at(-1)?.判断线索, '父母见生年化禄');
 });
 
 test('紫微本命提示词不应混入大限流年流月流日运限结构', () => {

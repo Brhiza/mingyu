@@ -62,22 +62,12 @@ export function collectMutagenStars(
 }
 
 /**
- * 从结构化运限命中中选择最值得优先查看的宫位。
+ * 汇总结构化运限命中与本命主线宫位。
  * 只返回宫位事实，不生成报告文案，适合页面、API 和提示词共同复用。
  */
 export function buildScopeFocusPalaces(payload: AnalysisPayloadV1): PalaceFact[] {
   const activePalace = getPalaceByIndex(payload, payload.active_scope.palace_index);
-  const hitPalaces = [...payload.palaces]
-    .filter((item) => item.scope_hits.length > 0)
-    .sort((left, right) => {
-      const scoreLeft =
-        left.scope_hits.length * 10 + (left.dynamic_scope_name ? 3 : 0) + left.summary_tags.length;
-      const scoreRight =
-        right.scope_hits.length * 10 +
-        (right.dynamic_scope_name ? 3 : 0) +
-        right.summary_tags.length;
-      return scoreRight - scoreLeft || left.index - right.index;
-    });
+  const hitPalaces = payload.palaces.filter((item) => item.scope_hits.length > 0);
 
   return dedupePalaces([
     activePalace,
@@ -85,5 +75,5 @@ export function buildScopeFocusPalaces(payload: AnalysisPayloadV1): PalaceFact[]
     getPalaceByName(payload, '命宫'),
     getBodyPalace(payload),
     getPalaceByName(payload, '福德'),
-  ]).slice(0, 6);
+  ]);
 }

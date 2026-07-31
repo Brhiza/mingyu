@@ -76,7 +76,7 @@ export function buildFocusTaskBundle(
         ...buildScopeFocusPalaces(payload),
         mingPalace,
         bodyPalace,
-      ]).slice(0, 6),
+      ]),
       avoid: buildCommonBoundary(),
     };
   }
@@ -89,7 +89,7 @@ export function buildFocusTaskBundle(
       mingPalace,
       bodyPalace,
       ...(!isOriginScope ? buildScopeFocusPalaces(payload) : []),
-    ]).slice(0, 8);
+    ]);
     return {
       focusSummary:
         '围绕生年四化、运限四化、自化与飞化落宫组织专题主线，先定四化牵动，再看落宫与三方会照条件。',
@@ -98,24 +98,22 @@ export function buildFocusTaskBundle(
     };
   }
 
-  const generalPalaces = (
-    isOriginScope
-      ? dedupePalaces([
-          activePalace,
-          mingPalace,
-          bodyPalace,
-          getPalaceByName(payload, '福德'),
-          getPalaceByName(payload, '迁移'),
-          ...buildMutagenFocusPalaces(payload).slice(0, 2),
-        ])
-      : dedupePalaces([
-          activePalace,
-          ...buildScopeFocusPalaces(payload),
-          mingPalace,
-          bodyPalace,
-          ...buildMutagenFocusPalaces(payload).slice(0, 2),
-        ])
-  ).slice(0, 6);
+  const generalPalaces = isOriginScope
+    ? dedupePalaces([
+        activePalace,
+        mingPalace,
+        bodyPalace,
+        getPalaceByName(payload, '福德'),
+        getPalaceByName(payload, '迁移'),
+        ...buildMutagenFocusPalaces(payload),
+      ])
+    : dedupePalaces([
+        activePalace,
+        ...buildScopeFocusPalaces(payload),
+        mingPalace,
+        bodyPalace,
+        ...buildMutagenFocusPalaces(payload),
+      ]);
 
   return {
     focusSummary: isOriginScope
