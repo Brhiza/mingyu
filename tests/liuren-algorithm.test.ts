@@ -957,7 +957,7 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
         item.rule &&
         item.sources.length > 0 &&
         item.limitations.length >= 4 &&
-        item.limitations.some((limitation) => limitation.includes('一百三十一项可复算神煞规则')),
+        item.limitations.some((limitation) => limitation.includes('一百三十二项可复算神煞规则')),
     ),
   );
 });
@@ -1642,20 +1642,21 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     '雌虎',
     '梦神',
     '黄幡',
+    '阴煞',
   ];
   const finalAuditedMonthTargets: Record<string, readonly string[]> = {
-    寅: ['未', '亥', '卯', '酉', '戌', '丑', '卯', '寅', '辰', '辰', '辰', '戌'],
-    卯: ['辰', '午', '卯', '酉', '戌', '寅', '子', '卯', '辰', '巳', '戌', '未'],
-    辰: ['丑', '丑', '卯', '酉', '戌', '卯', '酉', '辰', '辰', '午', '丑', '辰'],
-    巳: ['戌', '申', '午', '子', '未', '辰', '午', '巳', '未', '未', '未', '丑'],
-    午: ['未', '卯', '午', '子', '未', '巳', '卯', '午', '未', '申', '辰', '戌'],
-    未: ['辰', '戌', '午', '子', '未', '午', '子', '未', '未', '酉', '戌', '未'],
-    申: ['丑', '巳', '酉', '卯', '辰', '未', '酉', '申', '戌', '戌', '丑', '辰'],
-    酉: ['戌', '子', '酉', '卯', '辰', '申', '午', '酉', '戌', '亥', '未', '丑'],
-    戌: ['未', '未', '酉', '卯', '辰', '酉', '卯', '戌', '戌', '子', '辰', '戌'],
-    亥: ['辰', '寅', '子', '午', '丑', '戌', '子', '亥', '丑', '丑', '戌', '未'],
-    子: ['丑', '酉', '子', '午', '丑', '亥', '酉', '子', '丑', '寅', '丑', '辰'],
-    丑: ['戌', '辰', '子', '午', '丑', '子', '午', '丑', '丑', '卯', '未', '丑'],
+    寅: ['未', '亥', '卯', '酉', '戌', '丑', '卯', '寅', '辰', '辰', '辰', '戌', '巳'],
+    卯: ['辰', '午', '卯', '酉', '戌', '寅', '子', '卯', '辰', '巳', '戌', '未', '辰'],
+    辰: ['丑', '丑', '卯', '酉', '戌', '卯', '酉', '辰', '辰', '午', '丑', '辰', '卯'],
+    巳: ['戌', '申', '午', '子', '未', '辰', '午', '巳', '未', '未', '未', '丑', '寅'],
+    午: ['未', '卯', '午', '子', '未', '巳', '卯', '午', '未', '申', '辰', '戌', '丑'],
+    未: ['辰', '戌', '午', '子', '未', '午', '子', '未', '未', '酉', '戌', '未', '子'],
+    申: ['丑', '巳', '酉', '卯', '辰', '未', '酉', '申', '戌', '戌', '丑', '辰', '亥'],
+    酉: ['戌', '子', '酉', '卯', '辰', '申', '午', '酉', '戌', '亥', '未', '丑', '戌'],
+    戌: ['未', '未', '酉', '卯', '辰', '酉', '卯', '戌', '戌', '子', '辰', '戌', '酉'],
+    亥: ['辰', '寅', '子', '午', '丑', '戌', '子', '亥', '丑', '丑', '戌', '未', '申'],
+    子: ['丑', '酉', '子', '午', '丑', '亥', '酉', '子', '丑', '寅', '丑', '辰', '未'],
+    丑: ['戌', '辰', '子', '午', '丑', '子', '午', '丑', '丑', '卯', '未', '丑', '午'],
   };
 
   for (const [date, monthBranch, expectedTargets, expectedTianHe] of monthCases) {
@@ -1740,7 +1741,6 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       '小煞',
       '豹尾',
       '天机',
-      '阴煞',
       '地狱',
       '市曹',
       '绳索',
@@ -1782,6 +1782,19 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
   assert.match(boundaryFacts.get('黄幡')?.sources.join('；') ?? '', /黄幡戌未辰丑/);
   assert.match(boundaryFacts.get('黄幡')?.limitations.join('；') ?? '', /太岁三合局墓支.+逐月层/);
   assert.match(boundaryFacts.get('黄幡')?.limitations.join('；') ?? '', /不因单项出现自动判断昏暗/);
+  assert.match(boundaryFacts.get('阴煞')?.rule ?? '', /正月从巳起逐月逆行一支/);
+  assert.match(boundaryFacts.get('阴煞')?.sources.join('；') ?? '', /游祸巳逆十二.+阴煞/);
+  assert.match(boundaryFacts.get('阴煞')?.sources.join('；') ?? '', /巳为正月之阴煞/);
+  assert.match(boundaryFacts.get('阴煞')?.limitations.join('；') ?? '', /阴煞寅亥申巳三轮.+异文/);
+  assert.match(
+    boundaryFacts.get('阴煞')?.limitations.join('；') ?? '',
+    /电子转录月表把辰错移至十二月/,
+  );
+  assert.match(
+    boundaryFacts.get('阴煞')?.limitations.join('；') ?? '',
+    /易冒.+六爻体系.+不跨术式合并/,
+  );
+  assert.match(boundaryFacts.get('阴煞')?.limitations.join('；') ?? '', /不因单项出现自动判断阴谋/);
   assert.match(boundaryFacts.get('天解')?.limitations.join('；') ?? '', /申、戌、子.+不合并两表/);
   assert.match(boundaryFacts.get('解神')?.limitations.join('；') ?? '', /题作“地解”.+不另生成地解/);
   assert.match(boundaryFacts.get('飞祸')?.limitations.join('；') ?? '', /不因单项出现自动判断灾祸/);
@@ -2459,8 +2472,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const hasTianShe = facts.has('天赦');
     assert.equal(
       shenShaFacts.length,
-      129 + Number(hasTianHe) + Number(hasTianShe),
-      `${result.ganzhi.day}应有一百二十九项固定神煞及条件性天合、天赦`,
+      130 + Number(hasTianHe) + Number(hasTianShe),
+      `${result.ganzhi.day}应有一百三十项固定神煞及条件性天合、天赦`,
     );
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(
