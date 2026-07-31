@@ -4,6 +4,7 @@ import { taiyi } from 'mingyu-core';
 import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import { analyzeMeihuaEvidence } from 'mingyu-core/divination/meihua';
 import { generateQimen } from 'mingyu-core/divination/qimen';
+import { generateLiuren } from 'mingyu-core/divination/liuren';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
@@ -472,89 +473,7 @@ function createData(method: FixtureMethod): DivinationData {
     case 'qimen':
       return generateQimen(new Date('2025-06-18T10:30:00+08:00'));
     case 'liuren':
-      return {
-        ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-        timestamp: Date.now(),
-        dayNight: '昼占',
-        monthLeader: '亥',
-        divinationBranch: '卯',
-        dayOfficer: '贵人',
-        noblemanBranch: '亥',
-        noblemanGroundBranch: '卯',
-        xunKong: ['戌', '亥'],
-        earthlyPlate: ['子', '丑', '寅'],
-        dayStemResidence: '巳',
-        transmissionRule: '比用法',
-        transmissionPattern: '递传',
-        transmissionDetail: '取传采用比用法，以一课上神亥为初传发用。',
-        fourLessons: [
-          {
-            name: '一课',
-            upper: '亥',
-            lower: '卯',
-            god: '贵人',
-            relation: '水生木',
-            note: '外援先动',
-          },
-          {
-            name: '二课',
-            upper: '子',
-            lower: '辰',
-            god: '螣蛇',
-            relation: '土克水',
-            note: '过程有牵制',
-          },
-          {
-            name: '三课',
-            upper: '丑',
-            lower: '巳',
-            god: '朱雀',
-            relation: '火生土',
-            note: '沟通带动变化',
-          },
-          {
-            name: '四课',
-            upper: '寅',
-            lower: '午',
-            god: '六合',
-            relation: '木生火',
-            note: '后续利于协同',
-          },
-        ],
-        threeTransmissions: [
-          { stage: '初传', branch: '亥', god: '贵人', relation: '生扶', note: '起因来自外部推动' },
-          {
-            stage: '中传',
-            branch: '丑',
-            god: '朱雀',
-            relation: '承压',
-            note: '中段要处理沟通与执行偏差',
-          },
-          {
-            stage: '末传',
-            branch: '寅',
-            god: '六合',
-            relation: '转合',
-            note: '结果更利于合作收束',
-          },
-        ],
-        heavenlyPlate: [
-          { branch: '子', under: '丑', god: '青龙' },
-          { branch: '丑', under: '寅', god: '天空' },
-          { branch: '寅', under: '卯', god: '白虎' },
-        ],
-        patternTags: ['贵人发用', '顺传', '比用'],
-        classicalRules: [
-          {
-            source: '《大六壬大全》九宗门取传法',
-            rule: '知一/比用',
-            category: '知一法',
-            summary: '多处贼克时，先取与日干阴阳同类者；若形成知一变格，则按变格取用。',
-          },
-        ],
-        lessonSummary: '四课由生入克，先得助后承压，再转协同。',
-        transmissionSummary: '三传顺传，事情会逐步推进，但中段要过一道沟通关。',
-      } satisfies LiurenData;
+      return generateLiuren(new Date('2025-06-18T10:30:00+08:00'));
     case 'tarot':
       return {
         spreadType: 'single',
@@ -1306,13 +1225,13 @@ test('大六壬提示词会给出精简课传资料，避免重复堆叠', () =>
   );
 
   assert.match(prompt, /【排盘信息】/);
-  assert.match(prompt, /核心结构：盘面摘要：月将亥；占时卯；昼占；贵人亥临卯；旬空戌、亥/);
-  assert.match(prompt, /课传主线：取传比用法；传态递传；发用亥乘贵人；末传寅/);
-  assert.match(prompt, /古籍依据：《大六壬大全》九宗门取传法：知一\/比用/);
-  assert.match(prompt, /四课：一课亥临卯乘贵人，水生木/);
-  assert.match(prompt, /三传：初传亥乘贵人，六亲官鬼，初传亥水克日干丙火/);
+  assert.match(prompt, /核心结构：盘面摘要：月将申；占时巳；昼占；贵人丑临戌；旬空子、丑/);
+  assert.match(prompt, /课传主线：取传重审法；传态递传；发用酉乘勾陈；末传卯/);
+  assert.match(prompt, /古籍依据：《六壬粹言》《大六壬大全》《六壬指南》九宗门取传法：重审/);
+  assert.match(prompt, /四课：一课申临戊乘青龙，土生金/);
+  assert.match(prompt, /三传：初传酉乘勾陈，六亲子孙，日干戊土生初传酉金/);
   assert.match(prompt, /空亡有宜有忌/);
-  assert.match(prompt, /旬空：戌、亥，命中初传亥/);
+  assert.match(prompt, /旬空：子、丑，命中中传子/);
   assert.doesNotMatch(prompt, /主虚而不实/);
   assert.doesNotMatch(prompt, /断课抓手：/);
   assert.doesNotMatch(prompt, /发用主线：/);
@@ -1337,12 +1256,20 @@ test('大六壬提示词使用简短任务与输出要求', () => {
   assert.doesNotMatch(prompt, /反证限制|证据不足|不硬给日期|取证顺序|回答口径/);
 });
 
-test('大六壬提示词会吸收课体与神煞补充信息', () => {
+test('大六壬提示词只使用重建课体与神煞，不吸收旧结果注入内容', () => {
+  const cleanData = createData('liuren') as LiurenData;
   const data = {
-    ...createData('liuren'),
-    guaTi: ['龙德卦', '连珠卦'],
-    shenShaSummary: ['旬奇临初传', '天马并发', '末传逢月德'],
+    ...cleanData,
+    guaTi: ['伪造龙德卦', '伪造连珠卦'],
+    shenShaSummary: ['伪造旬奇临初传', '伪造天马并发', '伪造末传逢月德'],
   } satisfies LiurenData;
+
+  const cleanPrompt = buildDivinationPrompt(
+    'liuren',
+    '这件事接下来该怎么推进？',
+    cleanData,
+    createSupplementaryInfo(),
+  );
 
   const prompt = buildDivinationPrompt(
     'liuren',
@@ -1351,11 +1278,11 @@ test('大六壬提示词会吸收课体与神煞补充信息', () => {
     createSupplementaryInfo(),
   );
 
-  assert.match(prompt, /课体：龙德卦、连珠卦/);
+  assert.equal(prompt, cleanPrompt);
+  assert.match(prompt, /课体：三交卦/);
   assert.match(prompt, /神煞：/);
+  assert.doesNotMatch(prompt, /伪造龙德卦|伪造连珠卦|伪造旬奇|伪造天马|伪造末传/);
   assert.doesNotMatch(prompt, /辅证：/);
-  assert.doesNotMatch(prompt, /课体补充：龙德卦、连珠卦/);
-  assert.doesNotMatch(prompt, /神煞补充：旬奇临初传；天马并发；末传逢月德/);
 });
 
 test('大六壬未知专项模板应回落到通用断课，避免输出 undefined', () => {

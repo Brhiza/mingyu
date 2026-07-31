@@ -2,7 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import type { LiurenLesson, LiurenPlateItem } from 'mingyu-core/types';
-import { analyzeLiurenEvidence, generateLiuren } from 'mingyu-core/divination/liuren';
+import {
+  analyzeLiurenEvidence,
+  generateLiuren,
+  rebuildAuditedLiurenData,
+} from 'mingyu-core/divination/liuren';
 import { getVoidBranches } from '../packages/core/src/calendar/lunar.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 import {
@@ -133,20 +137,34 @@ test('大六壬应输出分层取用与应期证据', () => {
   }
 });
 
-test('大六壬旧资料缺少取传规则名时应保留证据缺口，不按三传反推九宗门', () => {
+test('大六壬统一重建应覆盖闰年每日与十二时辰，并与实时排盘逐字段一致', () => {
+  const dates = [
+    ...Array.from({ length: 366 }, (_, dayOffset) => new Date(2024, 0, dayOffset + 1, 12, 30)),
+    ...Array.from({ length: 12 }, (_, branchIndex) => new Date(2025, 5, 18, branchIndex * 2, 30)),
+  ];
+
+  for (const date of dates) {
+    const generated = generateLiuren(date);
+    const { evidenceAnalysis: _evidenceAnalysis, ...expected } = generated;
+    assert.deepEqual(rebuildAuditedLiurenData(generated), expected, date.toISOString());
+  }
+});
+
+test('大六壬旧资料缺少取传派生字段时应从时间戳完整重建，不按旧三传反推', () => {
   const data = generateLiuren(new Date('2026-04-10T08:26:00+08:00'));
+  const expectedRule = data.transmissionRule;
+  const expectedPattern = data.transmissionPattern;
   data.transmissionRule = undefined;
   data.transmissionPattern = undefined;
   data.evidenceAnalysis = undefined;
 
   const evidence = analyzeLiurenEvidence(data);
 
-  assert.equal(evidence.transmissionRuleFact.status, '缺少规则名');
-  assert.equal(evidence.transmissionRuleFact.rule, null);
-  assert.equal(evidence.summaryFact.status, '证据链有缺口');
-  assert.equal(evidence.calculationSteps[3]?.status, '资料不足');
-  assert.equal(evidence.calculationSteps[6]?.status, '资料不足');
-  assert.match(evidence.transmissionRuleFact.promptText, /不得按三传结果反推九宗门名称/);
+  assert.equal(evidence.transmissionRuleFact.status, '已确定');
+  assert.equal(evidence.transmissionRuleFact.rule, expectedRule);
+  assert.equal(evidence.transmissionRuleFact.pattern, expectedPattern);
+  assert.equal(evidence.summaryFact.status, '证据链完整');
+  assert.ok(evidence.calculationSteps.every((item) => item.status === '已计算'));
   assertPromptIsPortableTaskText(evidence.promptText);
 });
 

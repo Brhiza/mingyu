@@ -306,6 +306,16 @@ test('大六壬证据重建应拒绝非法四柱', () => {
   }
 });
 
+test('大六壬证据重建应拒绝与时间戳不一致的有效四柱和非法时间戳', () => {
+  const mismatched = generateLiuren(fixedDate);
+  mismatched.ganzhi.day = mismatched.ganzhi.day === '甲子' ? '乙丑' : '甲子';
+  assert.throws(() => analyzeLiurenEvidence(mismatched), /日柱.+与时间戳重算结果.+不一致/);
+
+  const invalidTimestamp = generateLiuren(fixedDate);
+  invalidTimestamp.timestamp = Number.NaN;
+  assert.throws(() => analyzeLiurenEvidence(invalidTimestamp), /有效的毫秒时间戳/);
+});
+
 test('大六壬旧结果应逐传重算日干六亲与有方向关系，不沿用旧版中末传关系', () => {
   const data = generateLiuren(fixedDate);
   for (const item of data.threeTransmissions) {
@@ -360,8 +370,9 @@ test('大六壬旬空与生克只登记条件，不自动换算支持或反证',
   assert.match(evidence.promptText, /不判断确定快慢/);
 });
 
-test('大六壬旧结果缺少取传名、应期与焦点时应明确标记来源缺口', () => {
+test('大六壬旧结果缺少取传名、应期与焦点时应从时间戳统一重建', () => {
   const data = generateLiuren(fixedDate);
+  const expected = analyzeLiurenEvidence(data);
   data.transmissionRule = undefined;
   data.transmissionPattern = undefined;
   data.transmissionDetail = undefined;
@@ -371,23 +382,11 @@ test('大六壬旧结果缺少取传名、应期与焦点时应明确标记来�
 
   const evidence = analyzeLiurenEvidence(data);
 
-  assert.equal(evidence.transmissionRuleFact.status, '缺少规则名');
-  assert.equal(evidence.transmissionRuleFact.rule, null);
-  assert.equal(evidence.transmissionRuleFact.pattern, null);
-  assert.equal(evidence.transmissionRuleFact.classicalRuleKeys.length, 0);
-  assert.match(evidence.transmissionRuleFact.promptText, /不得按三传结果反推九宗门名称/);
-  assert.deepEqual(evidence.timingEvidence, []);
-  assert.equal(evidence.timingFacts.length, 4);
-  assert.ok(
-    evidence.timingFacts.every(
-      (item) => item.sourceStatus === '由盘面补齐' && item.rawText === undefined,
-    ),
-  );
-  assert.equal(evidence.focusFacts.length, 0);
-  assert.equal(evidence.focusSummaryFact.status, '缺少焦点');
-  assert.match(evidence.focusSummaryFact.promptText, /不得自行把日支、天将或神煞固定当作用神/);
-  assert.match(evidence.promptText, /由盘面补齐/);
-  assert.match(evidence.promptText, /类神焦点资料缺失/);
+  assert.deepEqual(evidence.transmissionRuleFact, expected.transmissionRuleFact);
+  assert.deepEqual(evidence.timingFacts, expected.timingFacts);
+  assert.deepEqual(evidence.focusFacts, expected.focusFacts);
+  assert.equal(evidence.summaryFact.status, '证据链完整');
+  assert.equal(evidence.focusSummaryFact.status, '已提供焦点');
 });
 
 test('大六壬证据应保留类神未选定限制，不把日支或神煞固定当作用神', () => {
@@ -456,20 +455,22 @@ test('大六壬起盘链、天地盘、课体神煞与天将属性应进入统�
   );
 });
 
-test('大六壬旧结果缺少天地盘时应明确标为证据缺口，不反推逐位事实', () => {
+test('大六壬旧结果缺少天地盘时应从时间戳重建完整标准盘', () => {
   const data = generateLiuren(fixedDate);
+  const expectedPlate = structuredClone(data.heavenlyPlate);
   data.heavenlyPlate = data.heavenlyPlate.slice(0, 11);
 
   const evidence = analyzeLiurenEvidence(data);
-  assert.equal(evidence.plateFact.status, '缺少');
+  assert.equal(evidence.plateFact.status, '完整');
   assert.equal(evidence.plateFact.expectedCount, 12);
-  assert.equal(evidence.plateFact.actualCount, 11);
-  assert.match(evidence.plateFact.promptText, /仅保留11\/12位/);
-  assert.match(evidence.plateFact.limitation, /不得反推或补造/);
-  assert.ok(
-    evidence.evidence.items.some(
-      (item) => item.level === '反证' && item.title === '天地盘定位资料缺失',
-    ),
+  assert.equal(evidence.plateFact.actualCount, 12);
+  assert.deepEqual(
+    evidence.platePositionFacts.map((item) => ({
+      branch: item.heavenBranch,
+      under: item.earthBranch,
+      god: item.god,
+    })),
+    expectedPlate,
   );
 });
 
@@ -583,15 +584,21 @@ test('十二天将不得混入十二月将的五味、主数、地形和身体�
   });
 });
 
-test('大六壬旧结果缺少逐项神煞起法时应明确不可复算', () => {
+test('大六壬旧结果缺少逐项神煞起法时应从四柱重建全部已审核规则', () => {
   const data = generateLiuren(fixedDate);
+  const expectedFacts = structuredClone(data.shenShaFacts ?? []);
   data.shenShaFacts = undefined;
+  data.shenShaSummary = ['伪造神煞在伪'];
 
   const evidence = analyzeLiurenEvidence(data);
   const shenShaFacts = evidence.traditionalFacts.filter((item) => item.kind === '神煞');
-  assert.ok(shenShaFacts.length > 0);
-  assert.ok(shenShaFacts.every((item) => item.promptText.includes('未保存起法输入，不能据此复算')));
-  assert.ok(shenShaFacts.every((item) => item.sources.includes('旧结果未保存逐项起法与来源')));
+  assert.equal(shenShaFacts.length, expectedFacts.length);
+  assert.deepEqual(
+    shenShaFacts.map((item) => item.name),
+    expectedFacts.map((item) => item.name),
+  );
+  assert.doesNotMatch(evidence.promptText, /伪造神煞|在伪/);
+  assert.ok(shenShaFacts.every((item) => item.sources.length > 0));
 });
 
 test('十二天将阴阳应与所配天干一致', () => {

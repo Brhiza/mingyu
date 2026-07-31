@@ -24,7 +24,7 @@ import {
 } from 'mingyu-core/divination/lenormand';
 import { analyzeXiaoliurenEvidence } from 'mingyu-core/divination/xiaoliuren';
 import { rebuildAuditedQimenData } from 'mingyu-core/divination/qimen';
-import { analyzeLiurenEvidence } from 'mingyu-core/divination/liuren';
+import { analyzeLiurenEvidence, rebuildAuditedLiurenData } from 'mingyu-core/divination/liuren';
 import {
   analyzeLiuyaoActivityPattern,
   analyzeLiuyaoFanFuRelations,
@@ -404,39 +404,37 @@ export function getDivinationSummaryBlocks(
       };
     }
     case 'liuren': {
-      const liuren = data as LiurenData;
+      const liuren = rebuildAuditedLiurenData(data as LiurenData);
       const xunKong = analyzeLiurenEvidence(liuren).calculationFact.xunKong;
       return {
         title: '大六壬起课结果',
         tags: [
-          `时段：${'dayNight' in data && data.dayNight ? data.dayNight : '未知'}`,
-          `月将：${'monthLeader' in data ? data.monthLeader : '未知'}`,
-          `占时：${'divinationBranch' in data ? data.divinationBranch : '未知'}`,
-          `初传：${'threeTransmissions' in data ? data.threeTransmissions[0]?.branch || '未知' : '未知'}`,
-          `末传：${'threeTransmissions' in data ? data.threeTransmissions[2]?.branch || '未知' : '未知'}`,
+          `时段：${liuren.dayNight ?? '未知'}`,
+          `月将：${liuren.monthLeader}`,
+          `占时：${liuren.divinationBranch}`,
+          `初传：${liuren.threeTransmissions[0]?.branch || '未知'}`,
+          `末传：${liuren.threeTransmissions[2]?.branch || '未知'}`,
         ],
         lines: [
-          wrapMainEvidence(formatLiurenFocusSummary(data)),
-          formatLiurenNoblemanSummary(data),
-          `日干寄宫：${'dayStemResidence' in data && data.dayStemResidence ? `${data.ganzhi.day.charAt(0)}寄${data.dayStemResidence}` : '未知'}`,
+          wrapMainEvidence(formatLiurenFocusSummary(liuren)),
+          formatLiurenNoblemanSummary(liuren),
+          `日干寄宫：${liuren.dayStemResidence ? `${liuren.ganzhi.day.charAt(0)}寄${liuren.dayStemResidence}` : '未知'}`,
           `旬空：${xunKong.join('、')}`,
-          `取传法：${'transmissionRule' in data && data.transmissionRule ? data.transmissionRule : '未标注'}`,
+          `取传法：${liuren.transmissionRule ?? '未标注'}`,
           `古籍依据：${
-            'classicalRules' in data && data.classicalRules?.length
-              ? data.classicalRules
+            liuren.classicalRules?.length
+              ? liuren.classicalRules
                   .map((item) => `${item.source}之${item.rule}：${item.summary}`)
                   .join('；')
               : '未标注'
           }`,
-          `传态：${'transmissionPattern' in data && data.transmissionPattern ? data.transmissionPattern : '未标注'}`,
-          formatLiurenLessonShortSummary(data),
-          formatLiurenTransmissionShortSummary(data),
-          `课体标签：${'patternTags' in data && data.patternTags?.length ? data.patternTags.join('、') : '无明显标签'}`,
-          `课体：${'guaTi' in data && data.guaTi?.length ? data.guaTi.join('、') : '无'}`,
-          `神煞：${'shenShaSummary' in data && data.shenShaSummary?.length ? data.shenShaSummary.join('；') : '无'}`,
-          'transmissionDetail' in data && data.transmissionDetail
-            ? `取传说明：${data.transmissionDetail}`
-            : '',
+          `传态：${liuren.transmissionPattern ?? '未标注'}`,
+          formatLiurenLessonShortSummary(liuren),
+          formatLiurenTransmissionShortSummary(liuren),
+          `课体标签：${liuren.patternTags?.length ? liuren.patternTags.join('、') : '无明显标签'}`,
+          `课体：${liuren.guaTi?.length ? liuren.guaTi.join('、') : '无'}`,
+          `神煞：${liuren.shenShaSummary?.length ? liuren.shenShaSummary.join('；') : '无'}`,
+          liuren.transmissionDetail ? `取传说明：${liuren.transmissionDetail}` : '',
         ].filter(Boolean),
       };
     }

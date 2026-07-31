@@ -33,6 +33,7 @@ import { analyzeMeihuaEvidence } from '@core/divination/algorithms/meihua';
 import {
   analyzeLiurenEvidence,
   conditionLiurenTraditionalText,
+  rebuildAuditedLiurenData,
 } from '@core/divination/algorithms/liuren';
 import { analyzeXiaoliurenEvidence } from '@core/divination/algorithms/xiaoliuren';
 import { analyzeJinkoujueEvidence } from '@core/divination/algorithms/jinkoujue';
@@ -631,7 +632,8 @@ function formatQimenInfo(input: QimenData) {
     .join('\n');
 }
 
-function formatLiurenInfo(data: LiurenData) {
+function formatLiurenInfo(input: LiurenData) {
+  const data = rebuildAuditedLiurenData(input);
   const evidenceAnalysis = analyzeLiurenEvidence(data);
   const foundationConventionFact = evidenceAnalysis.foundationConventionFact;
   const transmissionConventionFact = evidenceAnalysis.transmissionConventionFact;

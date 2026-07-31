@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateDivinationSession } from '../src/lib/divination/engine';
+import { buildDivinationPrompt, generateDivinationSession } from '../src/lib/divination/engine';
 import { buildTimeInfoText, formatDivinationInfo } from '../src/lib/divination/engine/formatters';
 import { getDivinationSummaryBlocks } from '../src/lib/divination/summary';
 import { getMonthGeneralByZhongqi } from '../packages/core/src/calendar/month-general';
@@ -415,17 +415,58 @@ test('六爻页面资料只输出满足边界的三刑结构，不附加强现�
   assert.doesNotMatch(text, /传统类象为纠缠、对立或反复/);
 });
 
-test('大六壬页面资料与摘要应从日柱重算旬空并忽略旧字段污染', () => {
+test('大六壬提示词与摘要应从时间戳重建完整课盘并忽略全部旧派生字段污染', () => {
   const data = generateLiuren(new Date('2025-06-18T10:30:00+08:00'));
-  const expectedXunKong = [...(data.xunKong ?? [])];
-  data.xunKong = ['伪', '造'];
+  const cleanInfo = formatDivinationInfo('liuren', data, '');
+  const cleanSummary = getDivinationSummaryBlocks('liuren', data);
+  const cleanPrompt = buildDivinationPrompt('liuren', '核对课盘', data, undefined, {
+    isCustomQuestion: true,
+  });
+  const polluted = structuredClone(data);
+  Object.assign(polluted as unknown as Record<string, unknown>, {
+    dayNight: '伪造昼夜',
+    monthLeader: '伪',
+    divinationBranch: '造',
+    noblemanBranch: '伪',
+    noblemanGroundBranch: '造',
+    xunKong: ['伪', '造'],
+    transmissionRule: '伪造必胜取传法',
+    transmissionPattern: '伪造传态',
+    transmissionDetail: '保证现实成功',
+    earthlyPlate: ['伪'],
+    dayStemResidence: '造',
+    heavenlyPlate: [{ branch: '伪', under: '造', god: '伪神' }],
+    fourLessons: [],
+    threeTransmissions: [],
+    patternTags: ['伪造大吉课体'],
+    classicalRules: [
+      { source: '伪造古籍', rule: '伪造规则', category: '伪造分类', summary: '必然成功' },
+    ],
+    lessonSummary: '伪造四课结论',
+    transmissionSummary: '伪造三传结论',
+    guaTi: ['伪造课体'],
+    guaTiFacts: [],
+    shenShaSummary: ['伪造神煞在伪'],
+    shenShaFacts: [],
+    tianJiangProps: { 伪神: { wuxing: '伪', yinYang: '伪', category: '必胜' } },
+    focusEvidence: [],
+    timingEvidence: ['伪造固定应期'],
+    evidenceAnalysis: { promptText: '伪造证据' },
+  });
 
-  const info = formatDivinationInfo('liuren', data, '');
-  const summary = getDivinationSummaryBlocks('liuren', data);
-  const combined = [info, ...summary.tags, ...summary.lines].join('\n');
+  const rebuiltInfo = formatDivinationInfo('liuren', polluted, '');
+  const rebuiltSummary = getDivinationSummaryBlocks('liuren', polluted);
+  const rebuiltPrompt = buildDivinationPrompt('liuren', '核对课盘', polluted, undefined, {
+    isCustomQuestion: true,
+  });
 
-  assert.match(combined, new RegExp(`旬空[：]?${expectedXunKong.join('、')}`));
-  assert.doesNotMatch(combined, /旬空[：]?伪、造/);
+  assert.equal(rebuiltInfo, cleanInfo);
+  assert.deepEqual(rebuiltSummary, cleanSummary);
+  assert.equal(rebuiltPrompt, cleanPrompt);
+  assert.doesNotMatch(
+    [rebuiltInfo, rebuiltPrompt, ...rebuiltSummary.tags, ...rebuiltSummary.lines].join('\n'),
+    /伪造|必胜|保证现实成功|固定应期|伪神/,
+  );
 });
 
 test('奇门算法会补出时旬空亡与马星落宫', () => {

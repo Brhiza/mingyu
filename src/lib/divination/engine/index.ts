@@ -36,6 +36,7 @@ import { appendTraditionalResearchNotice } from 'mingyu-core/prompt-evidence';
 import { buildPromptGuidanceSections } from '../../prompt-guidance';
 import { tarotSpreads } from '@core/divination/tarot';
 import { LENORMAND_SPREADS } from '@core/divination/algorithms/lenormand';
+import { rebuildAuditedLiurenData } from '@core/divination/algorithms/liuren';
 
 const CONCRETE_DIVINATION_METHODS: Array<Exclude<DivinationMethodId, 'random'>> = [
   'liuyao',
@@ -50,7 +51,8 @@ const CONCRETE_DIVINATION_METHODS: Array<Exclude<DivinationMethodId, 'random'>> 
   'lenormand',
 ];
 
-function buildLiurenAnalysisObjectText(data: LiurenData) {
+function buildLiurenAnalysisObjectText(input: LiurenData) {
+  const data = rebuildAuditedLiurenData(input);
   const initial = data.threeTransmissions[0];
   return [
     '分析对象：大六壬起课盘',
