@@ -116,7 +116,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | 十二宫、星曜、四化、运限、证据池，以及双盘宫位叠盘与生年四化跨盘落点                                                         |
 | **六爻 Liuyao**        | `mingyu-core/divination/liuyao`                                                                                                               | 京房八宫法、纳甲、世应、六亲六神、月破日破、化进退神、合起合绊化扶、三合成立条件、分层用神作用链、原忌效力条件与病药应期证据 |
 | **梅花易数 Meihua**    | `mingyu-core/divination/meihua`                                                                                                               | 时间/数字/随机起卦，timeTrigram 兼容、体用生克与主互变阶段推进证据                                                           |
-| **奇门遁甲 Qimen**     | `mingyu-core/divination/qimen`                                                                                                                | 转盘法、拆补定局、经典格局、节令背景、节气黄经核验、复合格局、方位与条件触发式应期证据                                       |
+| **奇门遁甲 Qimen**     | `mingyu-core/divination/qimen`                                                                                                                | 转盘法、拆补定局、经典格局、节令背景、节气黄经核验、已校勘组合规则、方位与条件触发式应期证据                                 |
 | **大六壬 Liuren**      | `mingyu-core/divination/liuren`                                                                                                               | 月将、贵人、四课与九宗门版本边界、逐传日干六亲、有方向生克、天将、神煞及取传推进证据                                         |
 | **小六壬 Xiaoliuren**  | `mingyu-core/divination/xiaoliuren`                                                                                                           | 六宫掌诀、通行/华山流派、五行生克、完整课象、月令旺衰                                                                        |
 | **择日 Almanac**       | `mingyu-core/divination/almanac`                                                                                                              | 黄历宜忌、参与人冲突、候选时辰、透明约束证据、二十八宿与彭祖百忌                                                             |
@@ -260,7 +260,7 @@ const qimen = generateQimen(); // 当前时间，默认转盘法
 const qimenFeipan = generateQimen(undefined, 'feipan'); // 可选飞盘法
 const qimenYear = generateQimen(new Date('2026-07-02T08:00:00+08:00'), 'zhuanpan', 'year'); // 年家奇门
 console.log(qimen.seasonality); // 节令背景、月相、建除、四柱互动
-console.log(qimen.patternCombos); // 复合格局，如吉格逢空、伏吟叠驿马
+console.log(qimen.patternCombos); // 固定文献条件已闭合的门宫、主客、方位与时机组合规则
 console.log(createQimenPriorityPalaces(qimen)); // 结构化重点宫位候选
 
 // 大六壬

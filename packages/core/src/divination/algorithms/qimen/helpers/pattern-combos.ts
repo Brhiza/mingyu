@@ -1,19 +1,16 @@
 /**
- * @file 奇门复合格局识别
- * @description 在经典单格基础上识别同宫叠加、吉凶混杂、吉格逢空、
- * 以及三奇、伏吟、反吟等关键盘面组合。
+ * @file 奇门已校勘组合规则识别
+ * @description 只识别已有固定文献条件可闭合的奇门组合规则。
  *
  * 这里只输出结构化计算结果，不生成应用层报告、评分报告或具体场景话术。
  */
 
-import type { QimenBranchPalace, QimenJiuGongGe } from '../../../../types/divination';
+import type { QimenJiuGongGe } from '../../../../types/divination';
 import type { ClassicPattern } from './classic-patterns';
 import {
-  auspiciousDoors,
   branchElements,
   diPanPalaces,
   doorElements,
-  difficultDoors,
   difficultGods,
   branches,
   isControlling,
@@ -35,9 +32,6 @@ export interface QimenPatternCombo {
 
 export interface PatternComboContext {
   classicPatterns?: ClassicPattern[];
-  patternTags?: string[];
-  voidPalaces?: QimenBranchPalace[];
-  horseStar?: QimenBranchPalace;
   activeGanZhi?: string;
   zhiFu?: string;
   zhiShi?: string;
@@ -151,14 +145,6 @@ const doorObjectClues: Record<string, string> = {
   惊门: '主损伤缺口、歪斜惊惶',
   开门: '主通利刚健、圆转能动',
 };
-
-function hasName(patterns: ClassicPattern[], name: string): boolean {
-  return patterns.some((pattern) => pattern.name === name);
-}
-
-function hasTag(tags: string[], tag: string): boolean {
-  return tags.some((item) => item === tag || item.includes(tag));
-}
 
 function getPalaceName(jiuGongGe: QimenJiuGongGe[], palace: number): string {
   return jiuGongGe.find((item) => item.gong === palace)?.name || `${palace}宫`;
@@ -713,131 +699,8 @@ function getTingTingBaiJianLabels(
   };
 }
 
-function hasDoorGodCombo(
-  palace: QimenJiuGongGe | undefined,
-  doors: string[],
-  gods: string[],
-): palace is QimenJiuGongGe {
-  if (!palace) return false;
-  return doors.includes(palace.renPan.door) && gods.includes(palace.shenPan.god);
-}
-
-function getDoorGodSource(palace: QimenJiuGongGe): string {
-  return `${palace.renPan.door}、${palace.shenPan.god}`;
-}
-
-function isMenPoTagForPalace(tag: string, palace: QimenJiuGongGe): boolean {
-  return tag.startsWith('门迫') && tag.includes(`（${palace.name}`);
-}
-
-function pushPalaceCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): void {
-  const patterns = ctx.classicPatterns || [];
-  const voidPalaces = new Set((ctx.voidPalaces || []).map((item) => item.palace));
-  const byPalace = new Map<number, ClassicPattern[]>();
-
-  for (const pattern of patterns) {
-    if (!pattern.palace) continue;
-    byPalace.set(pattern.palace, [...(byPalace.get(pattern.palace) || []), pattern]);
-  }
-
-  for (const [palace, list] of byPalace.entries()) {
-    if (list.length < 2) continue;
-
-    const palaceName = getPalaceName(ctx.jiuGongGe, palace);
-    const goodPatterns = list.filter((pattern) => pattern.tone === 'good');
-    const badPatterns = list.filter((pattern) => pattern.tone === 'bad');
-    const palaceIsVoid = voidPalaces.has(palace);
-
-    if (goodPatterns.length > 0 && badPatterns.length > 0) {
-      out.push({
-        key: `combo:mixed:${palace}`,
-        name: `${palaceName}吉凶混杂`,
-        tone: 'mixed',
-        summary: `${palaceName}同时见吉格与凶格，气机不纯，需分清主次。`,
-        palace,
-        sources: [...goodPatterns, ...badPatterns].map((pattern) => pattern.name),
-      });
-    }
-
-    if (palaceIsVoid && goodPatterns.length > 0 && badPatterns.length === 0) {
-      out.push({
-        key: `combo:goodVoid:${palace}`,
-        name: `${palaceName}吉格逢空`,
-        tone: 'mixed',
-        summary: `${palaceName}虽见吉格，但宫位逢空亡，吉象有落空之忧。`,
-        palace,
-        sources: goodPatterns.map((pattern) => pattern.name),
-      });
-    }
-  }
-}
-
 function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): void {
   const patterns = ctx.classicPatterns || [];
-  const tags = ctx.patternTags || [];
-
-  if (
-    hasName(patterns, '乙奇升殿') &&
-    hasName(patterns, '丙奇升殿') &&
-    hasName(patterns, '丁奇升殿')
-  ) {
-    out.push({
-      key: 'combo:sanQiAllGood',
-      name: '三奇齐升',
-      tone: 'super-good',
-      summary: '乙、丙、丁三奇同时升殿得位，三奇之气齐显。',
-      sources: ['乙奇升殿', '丙奇升殿', '丁奇升殿'],
-    });
-  }
-
-  const yiQiBlocked = hasName(patterns, '日奇入墓') || hasName(patterns, '日奇被刑');
-  const bingQiBlocked = hasName(patterns, '月奇入墓') || hasName(patterns, '月奇悖师');
-  const dingQiBlocked = hasName(patterns, '星奇入墓');
-  if (yiQiBlocked && bingQiBlocked && dingQiBlocked) {
-    out.push({
-      key: 'combo:sanQiAllBad',
-      name: '三奇齐困',
-      tone: 'super-bad',
-      summary: '乙、丙、丁三奇同时受困，三奇之力闭塞。',
-      sources: patterns
-        .filter((pattern) => pattern.name.includes('奇') && pattern.tone === 'bad')
-        .map((pattern) => pattern.name),
-    });
-  }
-
-  const hasDunPattern = patterns.some(
-    (pattern) => pattern.name.endsWith('遁') && pattern.tone === 'good',
-  );
-  if (hasDunPattern && (hasName(patterns, '青龙返首') || hasName(patterns, '飞鸟跌穴'))) {
-    out.push({
-      key: 'combo:dunPlusReturning',
-      name: '遁格返首叠加',
-      tone: 'super-good',
-      summary: '遁格与青龙返首或飞鸟跌穴同盘，吉格叠加。',
-      sources: patterns
-        .filter(
-          (pattern) =>
-            pattern.name.endsWith('遁') || ['青龙返首', '飞鸟跌穴'].includes(pattern.name),
-        )
-        .map((pattern) => pattern.name),
-    });
-  }
-
-  const baihuBad = patterns.find((pattern) => {
-    if (pattern.name !== '白虎猖狂') return false;
-    return hasDoorGodCombo(getPalace(ctx.jiuGongGe, pattern.palace), difficultDoors, difficultGods);
-  });
-  if (baihuBad) {
-    const palace = getPalace(ctx.jiuGongGe, baihuBad.palace);
-    out.push({
-      key: 'combo:baihuPlusKill',
-      name: '白虎助凶',
-      tone: 'super-bad',
-      summary: `${palace?.name || ''}白虎猖狂叠加凶门凶神，凶象加重。`,
-      palace: baihuBad.palace,
-      sources: ['白虎猖狂', palace ? getDoorGodSource(palace) : '凶门凶神'],
-    });
-  }
 
   const baihuPatterns = patterns.filter((pattern) => pattern.name === '白虎猖狂' && pattern.palace);
   for (const pattern of baihuPatterns) {
@@ -867,151 +730,6 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
         sources: ['白虎猖狂', `${palace.name}休门`],
       });
     }
-  }
-
-  if (hasName(patterns, '月奇悖师') && hasName(patterns, '月奇入墓')) {
-    out.push({
-      key: 'combo:bingDoubleBad',
-      name: '月奇双困',
-      tone: 'super-bad',
-      summary: '丙奇既悖师又入墓，公开表达与外显之力受困。',
-      sources: ['月奇悖师', '月奇入墓'],
-    });
-  }
-
-  if (hasName(patterns, '太白入荧') && hasName(patterns, '荧入太白')) {
-    out.push({
-      key: 'combo:bingGengDual',
-      name: '主客互攻',
-      tone: 'super-bad',
-      summary: '太白入荧与荧入太白同盘，主客互克互攻。',
-      sources: ['太白入荧', '荧入太白'],
-    });
-  }
-
-  const dingRenPatterns = patterns.filter(
-    (pattern) => pattern.name === '丁壬化木' && pattern.palace,
-  );
-  for (const pattern of dingRenPatterns) {
-    const palace = getPalace(ctx.jiuGongGe, pattern.palace);
-    const door = palace?.renPan.door;
-    if (!palace || !door) continue;
-
-    if (door === '伤门' || door === '杜门') {
-      out.push({
-        key: `combo:dingRenBlocked:${palace.gong}`,
-        name: '丁壬逢伤杜',
-        tone: 'mixed',
-        summary: `${palace.name}丁壬化木同宫${door}，虽曰相生，但${door === '伤门' ? '防伤害牵连' : '防闭塞难通'}，不宜强用；偏逃亡、隐遁和兵事用门参考，不作通用吉凶评分。`,
-        palace: palace.gong,
-        sources: ['丁壬化木', `${palace.name}${door}`],
-      });
-      continue;
-    }
-
-    if (door === '生门') {
-      out.push({
-        key: `combo:dingRenShengMen:${palace.gong}`,
-        name: '丁壬生门利遁',
-        tone: 'mixed',
-        summary: `${palace.name}丁壬化木同宫生门，合“逃亡绝迹者逢之最利，生门吉助足成功”；偏逃亡、隐遁和避难参考，不作通用吉凶评分。`,
-        palace: palace.gong,
-        sources: ['丁壬化木', `${palace.name}生门`],
-      });
-    }
-  }
-
-  if (
-    hasName(patterns, '玉女守门') &&
-    patterns.some((pattern) => ['人遁', '地遁'].includes(pattern.name))
-  ) {
-    out.push({
-      key: 'combo:yunvPlusYinDe',
-      name: '阴德相扶',
-      tone: 'super-good',
-      summary: '玉女守门遇人遁或地遁，柔顺与暗助之象叠加。',
-      sources: patterns
-        .filter((pattern) => ['玉女守门', '人遁', '地遁'].includes(pattern.name))
-        .map((pattern) => pattern.name),
-    });
-  }
-
-  // 伏吟、反吟与凶格的并见关系按明确 tone 归集，不再以任意绝对分阈值筛“大凶格”。
-  const badPatterns = patterns.filter((pattern) => pattern.tone === 'bad');
-  if (hasTag(tags, '伏吟') && badPatterns.length > 0) {
-    out.push({
-      key: 'combo:fuyinPlusBad',
-      name: '伏吟带凶',
-      tone: 'super-bad',
-      summary: '伏吟主迟滞，又见明确凶格，阻滞与凶象并见。',
-      sources: ['伏吟', ...badPatterns.map((pattern) => pattern.name)],
-    });
-  }
-
-  if (hasTag(tags, '反吟') && badPatterns.length > 0) {
-    out.push({
-      key: 'combo:fanyinPlusBad',
-      name: '反吟翻覆',
-      tone: 'super-bad',
-      summary: '反吟主反复变动，又见明确凶格，翻覆与凶象并见。',
-      sources: ['反吟', ...badPatterns.map((pattern) => pattern.name)],
-    });
-  }
-
-  const menPoBadPalace = ctx.jiuGongGe.find(
-    (palace) =>
-      tags.some((tag) => isMenPoTagForPalace(tag, palace)) &&
-      hasDoorGodCombo(palace, difficultDoors, difficultGods),
-  );
-  if (menPoBadPalace) {
-    out.push({
-      key: 'combo:menpoPlusBad',
-      name: '迫上加凶',
-      tone: 'super-bad',
-      summary: `${menPoBadPalace.name}门迫叠加凶门凶神，行动受压且环境不利。`,
-      palace: menPoBadPalace.gong,
-      sources: ['门迫', getDoorGodSource(menPoBadPalace)],
-    });
-  }
-
-  const luckyQi = patterns.find((pattern) => {
-    if (!pattern.name.endsWith('奇得使')) return false;
-    return hasDoorGodCombo(
-      getPalace(ctx.jiuGongGe, pattern.palace),
-      auspiciousDoors,
-      supportiveGods,
-    );
-  });
-  if (luckyQi) {
-    const palace = getPalace(ctx.jiuGongGe, luckyQi.palace);
-    out.push({
-      key: 'combo:luckPlusQi',
-      name: '吉门三奇',
-      tone: 'super-good',
-      summary: `${palace?.name || ''}吉门吉神叠三奇得使，助力与关键资源同时出现。`,
-      palace: luckyQi.palace,
-      sources: [palace ? getDoorGodSource(palace) : '吉门吉神', luckyQi.name],
-    });
-  }
-
-  if (hasTag(tags, '伏吟') && ctx.horseStar) {
-    out.push({
-      key: 'combo:fuyinPlusHorse',
-      name: '静中藏动',
-      tone: 'mixed',
-      summary: '伏吟主静，驿马主动，表面停滞而内有变化。',
-      sources: ['伏吟', '驿马'],
-    });
-  }
-
-  if (hasTag(tags, '反吟') && ctx.horseStar) {
-    out.push({
-      key: 'combo:fanyinPlusHorse',
-      name: '动荡翻滚',
-      tone: 'super-bad',
-      summary: '反吟叠驿马，变动与反复之象并见。',
-      sources: ['反吟', '驿马'],
-    });
   }
 
   const qingLongReturningPatterns = patterns.filter(
@@ -1534,7 +1252,7 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
     out.push({
       key: 'combo:sanShengDi',
       name: '三胜地',
-      tone: 'super-good',
+      tone: 'mixed',
       summary: `值符星落${tianYiPalace.name}、九天在${jiuTianPalace.name}、生门在${shengMenPalace.name}，为三胜所取之地，可作为争取主动与择方参考。`,
       sources: [
         `值符星${ctx.zhiFu}落${tianYiPalace.name}`,
@@ -1582,7 +1300,7 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
     out.push({
       key: 'combo:quSan',
       name: '趋三',
-      tone: 'super-good',
+      tone: 'mixed',
       summary: `值使${ctx.zhiShi}到${zhiShiPalace.name}，合“值使到震宜向之”之法，可作为取向与出行择方参考。`,
       palace: zhiShiPalace.gong,
       sources: [`值使${ctx.zhiShi}落${zhiShiPalace.name}`],
@@ -2000,7 +1718,6 @@ function pushStrategicDirectionCombos(ctx: PatternComboContext, out: QimenPatter
 
 export function detectQimenPatternCombos(ctx: PatternComboContext): QimenPatternCombo[] {
   const out: QimenPatternCombo[] = [];
-  pushPalaceCombos(ctx, out);
   pushNamedCombos(ctx, out);
   pushXingDeKaiHeCombo(ctx, out);
   pushStarPalaceHostGuestCombo(ctx, out);

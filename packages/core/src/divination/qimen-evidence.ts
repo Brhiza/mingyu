@@ -373,7 +373,7 @@ function buildPatternFacts(data: QimenData): QimenPatternEvidenceFact[] {
         ? ('有利' as const)
         : item.tone === 'super-bad'
           ? ('风险' as const)
-          : ('混合' as const),
+          : ('中性' as const),
     originalText: item.summary,
     promptText: conditionQimenTraditionalText(item.summary),
     palaces: item.palace ? [item.palace] : [],
@@ -622,7 +622,7 @@ function buildPalaceFact(
     sources: [
       '奇门遁局九宫门、星、神与天地盘干排布',
       '当前旬空落宫、驿马落宫与天地盘干关系计算',
-      '基础格局、经典格局、复合格局与宫位洞察规则命中',
+      '基础格局、经典格局、已校勘组合规则与宫位洞察规则命中',
     ],
     limitation: PALACE_FACT_LIMITATION,
   };
@@ -758,7 +758,7 @@ function buildLimitationFacts(params: {
       ],
       promptText:
         '传统格局、空亡、特殊条件和风险洞察只证明当前规则命中或存在盘内限制；不得把单项命中写成现实成功、失败、灾祸、人物恶意或必然结果',
-      sources: ['基础格局、经典格局、复合格局与候选宫限制逐项核验'],
+      sources: ['基础格局、经典格局、已校勘组合规则与候选宫限制逐项核验'],
     },
     {
       key: 'qimen:limitation:timing',
@@ -1231,17 +1231,20 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
     summaryFact,
   });
   const limitations = limitationFacts.map((item) => item.promptText);
-  const patternItems: PromptEvidenceItem[] = patternFacts.map((pattern): PromptEvidenceItem => ({
-    level: pattern.traditionalTone === '风险' ? '反证' : '辅证',
-    title: `${pattern.kind}：${pattern.name}`,
-    detail: `${pattern.promptText}；传统分类：${pattern.traditionalTone}；命中宫位：${pattern.palaces.join('、') || '跨宫或全局'}；组成来源：${pattern.sources.join('、') || '未列明'}；边界：${pattern.limitation}`,
-    source: `${pattern.kind}规则命中链；原始传统文字另行保留，当前提示词只使用条件化文本`,
-    tags: [
-      pattern.kind,
-      pattern.traditionalTone,
-      ...pattern.palaces.map((palace) => `${palace}宫`),
-    ],
-  }));
+  const patternItems: PromptEvidenceItem[] = patternFacts.map((pattern): PromptEvidenceItem => {
+    const displayKind = pattern.kind === '复合格局' ? '已校勘组合规则' : pattern.kind;
+    return {
+      level: pattern.traditionalTone === '风险' ? '反证' : '辅证',
+      title: `${displayKind}：${pattern.name}`,
+      detail: `${pattern.promptText}；传统分类：${pattern.traditionalTone}；命中宫位：${pattern.palaces.join('、') || '跨宫或全局'}；组成来源：${pattern.sources.join('、') || '未列明'}；边界：${pattern.limitation}`,
+      source: `${displayKind}命中链；原始传统文字另行保留，当前提示词只使用条件化文本`,
+      tags: [
+        displayKind,
+        pattern.traditionalTone,
+        ...pattern.palaces.map((palace) => `${palace}宫`),
+      ],
+    };
+  });
   const relationItems: PromptEvidenceItem[] = relations.map((item) => ({
     level: item.status === '已归类' ? '辅证' : '反证',
     title: `${item.from}与${item.to}宫间作用`,
@@ -1384,7 +1387,7 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
     methodology: [
       '先定位值符、值使、日干和时干落宫，再补充盘面洞察与经典格局候选。',
       '逐宫保留门、星、神、天地盘干、空亡、马星、格局、支持与限制。',
-      '定局、值符值使、复合格局来源、宫间作用、应期和方位条件全部进入统一证据条目。',
+      '定局、值符值使、已校勘组合规则来源、宫间作用、应期和方位条件全部进入统一证据条目。',
       '传统格局原文保留在结构化结果中，提示词只读取条件化副本并注明传统分类与现代实证边界。',
       '候选宫之间只陈述可复核的五行生克关系，不用数字分数代替判断。',
       '未按问题选定用神时明确保留候选性质，不输出吉凶总分、成功率或绝对日期。',

@@ -228,7 +228,7 @@ curl -X POST https://aov.cc/api/v1/divination/qimen/prompt \
   -d '{"qimenMethod":"feipan","question":"项目现在能推进吗？"}'
 ```
 
-奇门排盘结果包含 `seasonality`（节气三元、节气五行、月相、建除十二神、四柱干支互动）和 `patternCombos`（吉凶同宫、吉格逢空、伏吟反吟叠马星等可复核的复合格局）。使用 `/prompt` 时，这些字段会进入提示词证据区；直接排盘可传 `detailMode: "compact"` 获取轻量结构。轻量结构只保留核心盘面、方位和少量关键组合，并返回完整数量，适合上游 AI 代理按需拆成多次请求。
+奇门排盘结果包含 `seasonality`（节气三元、节气五行、月相、建除十二神、四柱干支互动）和 `patternCombos`（固定文献条件可闭合的门宫、主客、方位与时机组合规则）。经典格、空亡、门迫、伏吟反吟和驿马分别保留在原字段中，不会被二次拼成新格名或叠加吉凶等级。使用 `/prompt` 时，这些字段会分别进入提示词证据区；直接排盘可传 `detailMode: "compact"` 获取轻量结构。轻量结构只保留核心盘面、方位和少量关键组合，并返回完整数量，适合上游 AI 代理按需拆成多次请求。
 
 如果调用方确实需要完整排盘和提示词同时返回，显式传 `responseMode: "full"`：
 
@@ -357,7 +357,7 @@ Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用�
 - 塔罗 `spreadType`：`single`（单牌指引）、`three`（时间流）、`love`（爱情）、`career`（事业）、`decision`（选择）、`celtic`（凯尔特十字）、`chakra`（七脉轮）、`year`（年运）、`mindBodySpirit`（身心灵）、`horseshoe`（马蹄铁）。
 - 六爻 `liuyaoTemplate`：`general`（通用）、`ganqing`（感情）、`shiye`（事业）、`caifu`（财运）、`guaishen`（鬼神怪异）。
 - 大六壬 `liurenTemplate`：`general`（通用）、`ganqing`（感情）、`shiye`（事业）、`caifu`（财富）。
-- 奇门遁甲 `qimenMethod`：`zhuanpan`（转盘法，默认）、`feipan`（飞盘法）。返回中可读取 `seasonality` 和 `patternCombos` 作为时令与复合格局证据。
+- 奇门遁甲 `qimenMethod`：`zhuanpan`（转盘法，默认）、`feipan`（飞盘法）。返回中可读取 `seasonality` 和 `patternCombos` 作为时令与已校勘组合规则证据。
 - 黄历择日 `topic`：`marriage`（嫁娶）、`move`（搬家）、`opening`（开业）、`contract`（签约）、`travel`（出行）、`medical`（求医）、`study`（求学）、`burial`（安葬修坟）、`renovation`（修造动土）、`custom`（自定义）。
 - 黄历择日 `startDate`、`endDate`：日期范围字符串，一次最多 31 天。`participants`：参与者数组，每人包含 `id`、`name`、`gender`、`year`、`month`、`day`、`timeIndex`、`dateType`、`isLeapMonth`，一次最多 30 位；更多日期或参与人请拆成多次请求。
 - 黄历择日 `page`、`pageSize`：分页参数，`pageSize` 最大 31。不传分页时返回全部日期；传分页后只返回当前页并带 `pagination`。`page` 超过总页数会返回 400，请按 `pagination.totalPages` 继续请求。

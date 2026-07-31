@@ -667,7 +667,7 @@ test('奇门应期按格局类别列出支持与限制，不读取内部评分�
   assert.doesNotMatch(text, /大吉格|大凶格|显著加快|显著延迟|评分|分值/);
 });
 
-test('奇门算法会输出节令背景与复合格局结构', () => {
+test('奇门算法会输出节令背景与已校勘组合规则且不生成叠加等级', () => {
   const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'));
 
   assert.ok(data.seasonality);
@@ -682,11 +682,14 @@ test('奇门算法会输出节令背景与复合格局结构', () => {
       (combo) =>
         combo.key &&
         combo.name &&
-        ['super-good', 'super-bad', 'mixed'].includes(combo.tone) &&
+        combo.tone === 'mixed' &&
         combo.score === undefined &&
         Array.isArray(combo.sources),
     ),
   );
+  const info = formatDivinationInfo('qimen', data, '');
+  assert.match(info, /已校勘组合规则：[\s\S]*需结合原始条件/);
+  assert.doesNotMatch(info, /已校勘组合规则：[^\n]*支持与限制并见/);
 });
 
 test('奇门定局、值符值使、宫间作用与触发条件应进入统一证据条目', () => {
@@ -843,7 +846,9 @@ test('奇门定局、值符值使、宫间作用与触发条件应进入统一�
   assert.ok(items.some((item) => item.title === '节令与四柱背景事实'));
   assert.ok(
     (data.patternCombos?.length ?? 0) === 0 ||
-      items.some((item) => item.tags?.includes('复合格局') && item.detail?.includes('组成来源')),
+      items.some(
+        (item) => item.tags?.includes('已校勘组合规则') && item.detail?.includes('组成来源'),
+      ),
   );
   assert.doesNotMatch(
     JSON.stringify(analysis.evidence),
@@ -891,23 +896,33 @@ test('奇门传统格局应保留原文并为提示词生成条件化副本', ()
   }
 });
 
-test('奇门复合格局应按同宫门神叠加识别', () => {
-  const baihuPattern = buildClassicPattern({
-    key: 'pattern:baihu:2',
-    name: '白虎猖狂',
-    tone: 'bad',
-    palace: 2,
-  });
-  const deShiPattern = buildClassicPattern({
-    key: 'pattern:deShi:1',
-    name: '日奇得使',
-    tone: 'good',
-    palace: 1,
-  });
-
-  const combos = detectQimenPatternCombos({
-    classicPatterns: [baihuPattern, deShiPattern],
-    patternTags: ['门迫（坤二宫伤门）'],
+test('奇门复合格局不得把基础事实二次拼成无独立依据的新格名', () => {
+  const specs: Array<[string, 'good' | 'bad', number]> = [
+    ['乙奇升殿', 'good', 2],
+    ['丙奇升殿', 'good', 2],
+    ['丁奇升殿', 'good', 2],
+    ['日奇入墓', 'bad', 3],
+    ['月奇入墓', 'bad', 3],
+    ['月奇悖师', 'bad', 3],
+    ['星奇入墓', 'bad', 3],
+    ['天遁', 'good', 1],
+    ['青龙返首', 'good', 1],
+    ['白虎猖狂', 'bad', 2],
+    ['太白入荧', 'bad', 5],
+    ['荧入太白', 'bad', 5],
+    ['丁壬化木', 'good', 4],
+    ['玉女守门', 'good', 6],
+    ['人遁', 'good', 6],
+    ['日奇得使', 'good', 1],
+  ];
+  const classicPatterns = specs.map(([name, tone, palace], index) =>
+    buildClassicPattern({ key: `pattern:legacy-combo:${index}`, name, tone, palace }),
+  );
+  const legacyContext = {
+    classicPatterns,
+    patternTags: ['门迫（坤二宫伤门）', '星伏吟', '门反吟'],
+    voidPalaces: [{ branch: '子', palace: 1, name: '坎一宫' }],
+    horseStar: { branch: '寅', palace: 8, name: '艮八宫' },
     jiuGongGe: [
       buildQimenPalace(1, '乙', {
         renPan: { door: '开门' },
@@ -917,36 +932,61 @@ test('奇门复合格局应按同宫门神叠加识别', () => {
         renPan: { door: '伤门' },
         shenPan: { god: '白虎' },
       }),
+      buildQimenPalace(3, '丙'),
+      buildQimenPalace(4, '丁', { renPan: { door: '生门' } }),
+      buildQimenPalace(5, '庚'),
+      buildQimenPalace(6, '己'),
     ],
-  });
+  };
 
-  assert.ok(combos.some((combo) => combo.name === '白虎助凶' && combo.palace === 2));
-  assert.ok(combos.some((combo) => combo.name === '迫上加凶' && combo.palace === 2));
-  assert.ok(combos.some((combo) => combo.name === '吉门三奇' && combo.palace === 1));
-  assert.ok(combos.every((combo) => !('score' in combo)));
+  const combos = detectQimenPatternCombos(legacyContext);
+  const serialized = JSON.stringify(combos);
+  const forbiddenNames = [
+    '吉凶混杂',
+    '吉格逢空',
+    '三奇齐升',
+    '三奇齐困',
+    '遁格返首叠加',
+    '白虎助凶',
+    '月奇双困',
+    '主客互攻',
+    '丁壬逢伤杜',
+    '丁壬生门利遁',
+    '阴德相扶',
+    '伏吟带凶',
+    '反吟翻覆',
+    '迫上加凶',
+    '吉门三奇',
+    '静中藏动',
+    '动荡翻滚',
+  ];
+  const forbiddenKeys = [
+    'combo:mixed:',
+    'combo:goodVoid:',
+    'combo:sanQiAllGood',
+    'combo:sanQiAllBad',
+    'combo:dunPlusReturning',
+    'combo:baihuPlusKill',
+    'combo:bingDoubleBad',
+    'combo:bingGengDual',
+    'combo:dingRenBlocked:',
+    'combo:dingRenShengMen:',
+    'combo:yunvPlusYinDe',
+    'combo:fuyinPlusBad',
+    'combo:fanyinPlusBad',
+    'combo:menpoPlusBad',
+    'combo:luckPlusQi',
+    'combo:fuyinPlusHorse',
+    'combo:fanyinPlusHorse',
+  ];
 
-  const crossPalace = detectQimenPatternCombos({
-    classicPatterns: [baihuPattern, deShiPattern],
-    patternTags: ['门迫（坤二宫伤门）'],
-    jiuGongGe: [
-      buildQimenPalace(1, '乙', {
-        renPan: { door: '杜门' },
-        shenPan: { god: '玄武' },
-      }),
-      buildQimenPalace(2, '辛', {
-        renPan: { door: '开门' },
-        shenPan: { god: '六合' },
-      }),
-      buildQimenPalace(3, '戊', {
-        renPan: { door: '死门' },
-        shenPan: { god: '白虎' },
-      }),
-    ],
-  });
-
-  assert.ok(!crossPalace.some((combo) => combo.name === '白虎助凶'));
-  assert.ok(!crossPalace.some((combo) => combo.name === '迫上加凶'));
-  assert.ok(!crossPalace.some((combo) => combo.name === '吉门三奇'));
+  forbiddenNames.forEach((name) => assert.doesNotMatch(serialized, new RegExp(name)));
+  forbiddenKeys.forEach((key) => assert.ok(!combos.some((combo) => combo.key.startsWith(key))));
+  assert.deepEqual(
+    classicPatterns.map((pattern) => pattern.name),
+    specs.map(([name]) => name),
+  );
+  assert.ok(combos.every((combo) => !('score' in combo) && !('weight' in combo)));
 });
 
 test('奇门复合格局不应按同宫吉凶格数量创造三吉三凶名称', () => {
@@ -967,63 +1007,6 @@ test('奇门复合格局不应按同宫吉凶格数量创造三吉三凶名称',
     });
     assert.ok(!combos.some((combo) => /三吉聚气|三凶集结/.test(combo.name)));
   }
-});
-
-test('奇门伏吟反吟并见凶格应按明确性质识别', () => {
-  const badPattern = buildClassicPattern({
-    name: '门迫',
-    tone: 'bad',
-    palace: 2,
-  });
-
-  const fuyinCombos = detectQimenPatternCombos({
-    classicPatterns: [badPattern],
-    patternTags: ['星伏吟'],
-    jiuGongGe: [buildQimenPalace(2, '辛')],
-  });
-  const fanyinCombos = detectQimenPatternCombos({
-    classicPatterns: [badPattern],
-    patternTags: ['门反吟'],
-    jiuGongGe: [buildQimenPalace(2, '辛')],
-  });
-
-  assert.ok(fuyinCombos.some((combo) => combo.name === '伏吟带凶'));
-  assert.ok(fanyinCombos.some((combo) => combo.name === '反吟翻覆'));
-});
-
-test('奇门复合格局应按丁壬化木同宫门类输出用门提示', () => {
-  const buildDingRenCombos = (door: string, palace = 4) =>
-    detectQimenPatternCombos({
-      classicPatterns: [
-        buildClassicPattern({
-          key: `pattern:dingRen:${door}`,
-          name: '丁壬化木',
-          tone: 'good',
-          palace,
-        }),
-      ],
-      jiuGongGe: [
-        buildQimenPalace(palace, '丁', {
-          renPan: { door },
-        }),
-      ],
-    });
-
-  const hurtCombo = buildDingRenCombos('伤门').find(
-    (combo) => combo.name === '丁壬逢伤杜' && combo.palace === 4,
-  );
-  assert.ok(hurtCombo);
-  assert.match(hurtCombo.summary, /伤门/);
-  assert.match(hurtCombo.summary, /防伤害|不宜强用/);
-
-  const shengMenCombo = buildDingRenCombos('生门', 6).find(
-    (combo) => combo.name === '丁壬生门利遁' && combo.palace === 6,
-  );
-  assert.ok(shengMenCombo);
-  assert.match(shengMenCombo.summary, /逃亡绝迹/);
-
-  const otherDoor = buildDingRenCombos('开门', 2);
-  assert.ok(!otherDoor.some((combo) => combo.name === '丁壬逢伤杜'));
 });
 
 test('奇门复合格局应按白虎猖狂同宫门类输出强弱提示', () => {
@@ -1267,7 +1250,7 @@ test('奇门复合格局应输出三胜地与五不击方位', () => {
   });
 
   const sanSheng = combos.find((combo) => combo.name === '三胜地');
-  assert.equal(sanSheng?.tone, 'super-good');
+  assert.equal(sanSheng?.tone, 'mixed');
   assert.ok(sanSheng?.sources.includes('值符星天英落离九宫'));
 
   const tianYiJiChong = combos.find((combo) => combo.name === '天乙击冲');
@@ -1294,7 +1277,11 @@ test('奇门复合格局应按值使落宫识别趋三避五', () => {
     ],
   });
 
-  assert.ok(quSanCombos.some((combo) => combo.name === '趋三' && combo.palace === 3));
+  assert.ok(
+    quSanCombos.some(
+      (combo) => combo.name === '趋三' && combo.palace === 3 && combo.tone === 'mixed',
+    ),
+  );
   assert.ok(!quSanCombos.some((combo) => combo.name === '避五'));
 
   const biWuCombos = detectQimenPatternCombos({

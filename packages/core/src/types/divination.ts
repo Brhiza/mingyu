@@ -805,7 +805,7 @@ export interface QimenData {
     relation: string;
     pattern?: string;
   }>;
-  /** 复合格局（同宫叠加、吉凶混杂、吉格逢空等） */
+  /** 固定文献条件已闭合的门宫、主客、方位与时机组合规则 */
   patternCombos?: QimenPatternCombo[];
   /** 方位吉凶建议 */
   directions?: {

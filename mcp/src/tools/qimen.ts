@@ -32,7 +32,7 @@ export function registerQimenTool(server: McpServer) {
     'divine_qimen',
     {
       description:
-        '奇门遁甲排盘：基于当前时间或自定义时间生成时家奇门盘，包含天地人神四盘、值符值使、格局标签、节令背景、复合格局与宫位洞察',
+        '奇门遁甲排盘：基于当前时间或自定义时间生成时家奇门盘，包含天地人神四盘、值符值使、格局标签、节令背景、已校勘组合规则与宫位洞察',
       inputSchema: qimenSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -57,7 +57,7 @@ export function registerQimenTool(server: McpServer) {
     'qimen_prompt',
     {
       description:
-        '奇门遁甲排盘并生成结构化 AI 解读提示词：一次调用返回奇门盘、节令背景、复合格局和可直接复制给 AI 的提示词',
+        '奇门遁甲排盘并生成结构化 AI 解读提示词：一次调用返回奇门盘、节令背景、已校勘组合规则和可直接复制给 AI 的提示词',
       inputSchema: qimenPromptSchema.shape,
       outputSchema: {
         result: z.unknown().describe('奇门盘数据'),

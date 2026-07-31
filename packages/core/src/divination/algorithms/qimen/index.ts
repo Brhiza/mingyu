@@ -407,13 +407,10 @@ export function generateQimen(
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 步骤 14：复合格局
+  // 步骤 14：已校勘组合规则
   // ──────────────────────────────────────────────────────────────────────────
   const patternCombos = detectQimenPatternCombos({
     classicPatterns: classicPatternsRaw,
-    patternTags,
-    voidPalaces,
-    horseStar: hasHorse ? horsePalace || undefined : undefined,
     activeGanZhi,
     zhiFu,
     zhiShi,

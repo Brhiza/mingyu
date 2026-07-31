@@ -20,14 +20,14 @@ test('黄历择日摘要应展示候选状态与限制，不暴露内部数字�
   assert.doesNotMatch(text, /评分\s*-?\d|成功率|匹配率/);
 });
 
-test('奇门摘要应把复合格局分数转换为证据条件标签', () => {
+test('奇门摘要应把已校勘组合规则标为需结合原始条件', () => {
   const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'));
   const summary = getDivinationSummaryBlocks('qimen', data);
   const text = [...summary.tags, ...summary.lines].join('\n');
 
-  assert.match(text, /复合格局：/);
-  assert.match(text, /支持条件较集中|限制条件较集中|支持与限制并存/);
-  assert.doesNotMatch(text, /复合格局：[^\n]*（-?\d+）/);
+  assert.match(text, /已校勘组合规则：/);
+  assert.match(text, /需结合原始条件/);
+  assert.doesNotMatch(text, /已校勘组合规则：[^\n]*（-?\d+）/);
 });
 
 test('小六壬摘要应展示时宫主证和顺数轨迹', () => {

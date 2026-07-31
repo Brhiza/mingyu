@@ -164,12 +164,12 @@ function formatQimenPatternComboSummary(data: DivinationData) {
   }
 
   const toneLabels = {
-    'super-good': '支持条件较集中',
-    'super-bad': '限制条件较集中',
-    mixed: '支持与限制并存',
+    'super-good': '传统有利条件',
+    'super-bad': '传统限制条件',
+    mixed: '需结合原始条件',
   } as const;
 
-  return `复合格局：${data.patternCombos
+  return `已校勘组合规则：${data.patternCombos
     .slice(0, 3)
     .map((item) => `${item.name}（${toneLabels[item.tone]}）`)
     .join('、')}`;

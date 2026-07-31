@@ -610,7 +610,7 @@ function formatQimenInfo(data: QimenData) {
               ? '支持条件集中'
               : item.traditionalTone === '风险'
                 ? '限制条件集中'
-                : '支持与限制并见';
+                : '需结合原始条件';
           return `${item.name}（${tone}）：${item.promptText}`;
         })
         .join('；')
@@ -644,7 +644,7 @@ function formatQimenInfo(data: QimenData) {
     specialConditionsText ? `特殊时辰：${specialConditionsText}` : '',
     patternSummary ? `判断依据：${patternSummary}` : '',
     classicPatternSummary ? `经典格局：${classicPatternSummary}` : '',
-    patternComboSummary ? `复合格局：${patternComboSummary}` : '',
+    patternComboSummary ? `已校勘组合规则：${patternComboSummary}` : '',
     stemRelationSummary ? `天地盘干：${stemRelationSummary}` : '',
     directionSummary ? `方位吉凶：${directionSummary}` : '',
   ]
