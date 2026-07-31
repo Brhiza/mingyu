@@ -866,7 +866,7 @@ test('qizheng: 独立紫炁均速模型保留可复算历元', () => {
   assert.equal(core.qizheng.ZIQI_MODEL_INFO.periodDays, 10227.1792);
 });
 
-test('qizheng: 完整传统盘应返回十一星、二十八宿界与结构化证据', () => {
+test('qizheng: 应返回十一星、二十八宿界、完整星对几何与传统规则审计', () => {
   const result = core.qizheng.generateQizheng({
     year: 2024,
     month: 6,
@@ -876,6 +876,11 @@ test('qizheng: 完整传统盘应返回十一星、二十八宿界与结构化�
   assert.equal(result.stars.length, 11);
   assert.equal(result.mansionBoundaries.length, 28);
   assert.equal(result.evidenceAnalysis.status, '已计算');
+  assert.equal(result.pairwiseAngles.length, 55);
+  assert.equal(result.evidenceAnalysis.pairGeometryFacts.length, 55);
+  assert.deepEqual(result.aspects, []);
+  assert.equal(result.traditionalRuleAudit.dignity.status, '未采用');
+  assert.equal(result.traditionalRuleAudit.aspects.status, '未采用');
   assert.equal(result.mansionModel.id, 'qizheng-mansion-stars-simbad-astronomy-engine');
 });
 

@@ -3069,19 +3069,33 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
       chartResponse.structuredContent as {
         result: {
           stars: Array<{ precisionClass: string }>;
+          pairwiseAngles: unknown[];
+          geometryCalculation: { complete: boolean };
+          traditionalRuleAudit: { dignity: { status: string }; aspects: { status: string } };
+          aspects: unknown[];
           mansionBoundaries: unknown[];
           mansionModel: { id: string };
-          evidenceAnalysis: { status: string; summaryFact: { status: string } };
+          evidenceAnalysis: {
+            status: string;
+            pairGeometryFacts: unknown[];
+            summaryFact: { status: string };
+          };
         };
       }
     ).result;
     assert.equal(chart.stars.length, 11);
     assert.equal(chart.mansionBoundaries.length, 28);
+    assert.equal(chart.pairwiseAngles.length, 55);
+    assert.equal(chart.evidenceAnalysis.pairGeometryFacts.length, 55);
+    assert.equal(chart.geometryCalculation.complete, true);
+    assert.deepEqual(chart.aspects, []);
+    assert.equal(chart.traditionalRuleAudit.dignity.status, '未采用');
+    assert.equal(chart.traditionalRuleAudit.aspects.status, '未采用');
     assert.equal(chart.mansionModel.id, 'qizheng-mansion-stars-simbad-astronomy-engine');
     assert.ok(chart.stars.some((star) => star.precisionClass === '现代天文计算'));
     assert.ok(chart.stars.some((star) => star.precisionClass === '传统均速模型'));
     assert.equal(chart.evidenceAnalysis.status, '已计算');
-    assert.equal(chart.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(chart.evidenceAnalysis.summaryFact.status, '可用事实链完整');
 
     const promptResponse = await client.callTool({
       name: 'qizheng_prompt',
@@ -3090,7 +3104,10 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
     assert.equal(promptResponse.isError, undefined);
     const prompt = String(promptResponse.structuredContent?.prompt);
     assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.qizheng);
-    assert.match(prompt, /【七政四余 · 果老星宗】[\s\S]*宿界模型[\s\S]*【问题】\n请分析本命结构。/);
+    assert.match(
+      prompt,
+      /【七政四余 · 果老星宗】[\s\S]*宿界模型[\s\S]*共55组无序星对[\s\S]*庙旺未采用[\s\S]*吊照未采用[\s\S]*【问题】\n请分析本命结构。/,
+    );
     assertPromptIsPortableTaskText(prompt);
   });
 });

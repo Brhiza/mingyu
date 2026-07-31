@@ -88,12 +88,15 @@ test('八宅、住宅风水、生肖、太乙与玄空提示词使用各自角�
   });
 });
 
-test('七政四余提示词指引应约束真实距星宿界与混合精度', () => {
+test('七政四余提示词指引应约束真实距星宿界、完整星对几何与未采用规则', () => {
   const guidance = PROMPT_GUIDANCE_TEXT.qizheng;
 
   assert.match(guidance.identity, /果老星宗.*现代天文坐标证据/);
   assert.match(guidance.analysis, /精度层级/);
-  assert.match(guidance.analysis, /十一星宿度与庙旺/);
+  assert.match(guidance.analysis, /十一星宿度、全部星对实际夹角/);
+  assert.match(guidance.analysis, /庙旺和吊照规则当前未采用，不得自行补算/);
+  assert.match(guidance.tradition, /55组无序星对只提供实际最小夹角/);
+  assert.match(guidance.tradition, /固定容许度吊照和简化庙旺表缺少闭合依据/);
   assert.match(guidance.tradition, /真实距星黄经划界.*真太阳时只用于传统命身十二宫/);
   assert.match(guidance.sources, /SIMBAD.*Astronomy Engine/);
   assert.match(guidance.output, /反证与限制/);

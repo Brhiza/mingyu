@@ -5599,7 +5599,13 @@ test('公开 API 七政四余应返回十一星、真实距星宿界、证据链
     'qizheng-mansion-stars-simbad-astronomy-engine',
   );
   assert.equal(calculate.body.data.evidenceAnalysis.status, '已计算');
-  assert.equal(calculate.body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(calculate.body.data.evidenceAnalysis.summaryFact.status, '可用事实链完整');
+  assert.equal(calculate.body.data.pairwiseAngles.length, 55);
+  assert.equal(calculate.body.data.evidenceAnalysis.pairGeometryFacts.length, 55);
+  assert.equal(calculate.body.data.geometryCalculation.complete, true);
+  assert.deepEqual(calculate.body.data.aspects, []);
+  assert.equal(calculate.body.data.traditionalRuleAudit.dignity.status, '未采用');
+  assert.equal(calculate.body.data.traditionalRuleAudit.aspects.status, '未采用');
   assert.ok(
     calculate.body.data.stars.some(
       (star: { precisionClass: string }) => star.precisionClass === '现代天文计算',
@@ -5620,7 +5626,7 @@ test('公开 API 七政四余应返回十一星、真实距星宿界、证据链
   assertPromptHasSingleRole(promptResponse.body.data.prompt, PROMPT_ROLE_TEXT.qizheng);
   assert.match(
     promptResponse.body.data.prompt,
-    /【七政四余 · 果老星宗】[\s\S]*宿界模型[\s\S]*【问题】\n请分析本命结构。/,
+    /【七政四余 · 果老星宗】[\s\S]*宿界模型[\s\S]*共55组无序星对[\s\S]*庙旺未采用[\s\S]*吊照未采用[\s\S]*【问题】\n请分析本命结构。/,
   );
   assertPromptIsPortableTaskText(promptResponse.body.data.prompt);
 });

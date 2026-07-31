@@ -122,7 +122,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **择日 Almanac**       | `mingyu-core/divination/almanac`                                                                                                              | 黄历宜忌、参与人冲突、候选时辰、透明约束证据、二十八宿与彭祖百忌                                                             |
 | **灵签 SSGW**          | `mingyu-core/divination/ssgw`                                                                                                                 | 三山国王 92 签、掷筊确认、随机重放与文本证据分层                                                                             |
 | **雷诺曼 Lenormand**   | `mingyu-core/divination/lenormand`                                                                                                            | 36 张牌、8 种牌阵、牌义组合                                                                                                  |
-| **西洋占星 Astrolabe** | `mingyu-core/divination/astrolabe`                                                                                                            | 本命盘、Placidus 宫位、24 点相位完整穷举、实际角距与采用容许度、完整行运与高级时限、太阳返照求根证据                          |
+| **西洋占星 Astrolabe** | `mingyu-core/divination/astrolabe`                                                                                                            | 本命盘、Placidus 宫位、24 点相位完整穷举、实际角距与采用容许度、完整行运与高级时限、太阳返照求根证据                         |
 | **西占双盘 Synastry**  | `mingyu-core/divination/astrolabe-synastry`                                                                                                   | 穷举双方所选点对，完整返回主要跨盘相位的实际夹角、精确角、偏差、可配置容许度、全部双向跨盘落宫与结构化证据                   |
 | **历法 Calendar**      | `mingyu-core/calendar`                                                                                                                        | 农历、干支、节气黄经核验、朔弦望月相、太阳高度与曙暮光、真太阳时及 UTC/UT/TT 时间尺度证据                                    |
 | **出生档案 Profile**   | `mingyu-core/profile`                                                                                                                         | 统一公农历、闰月、时辰、地点与真太阳时输入，并提供既有算法适配器                                                             |
@@ -138,7 +138,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **塔罗牌数据**         | `mingyu-core/divination/tarot-data`                                                                                                           | 塔罗牌定义与牌阵配置                                                                                                         |
 | **占卜辅助工具**       | `mingyu-core/divination/divination-helpers`                                                                                                   | 占卜通用格式与计算工具                                                                                                       |
 | **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | iztro 十二宫、星曜、四化、证据池与大限时间线；评估 55 条可复算格局并登记 32 项原典边界                                       |
-| **七政四余 Qizheng**   | `mingyu-core/qizheng`                                                                                                                         | 十一星、真实距星二十八宿界、命身十二宫、庙旺吊照、天文事实与分层精度证据                                                     |
+| **七政四余 Qizheng**   | `mingyu-core/qizheng`                                                                                                                         | 十一星、真实距星二十八宿界、命身十二宫、55组星对实际夹角、传统规则审计边界与分层精度证据                                     |
 
 ---
 

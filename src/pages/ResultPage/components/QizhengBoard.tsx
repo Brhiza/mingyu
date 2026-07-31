@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import type { QizhengAspect, QizhengResult, QizhengStar } from '@core/qi_zheng';
+import type { QizhengResult, QizhengStar } from '@core/qi_zheng';
 
 const EARTHLY_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
 const STAR_STYLES: Array<{ match: string; symbol: string; color: string }> = [
@@ -35,21 +35,6 @@ function starPoint(star: QizhengStar) {
   return polarPoint(star.longitude, star.kind === '七政' ? 132 : 105);
 }
 
-function aspectLine(aspect: QizhengAspect, stars: QizhengStar[]) {
-  const first = stars.find((star) => star.name === aspect.star1);
-  const second = stars.find((star) => star.name === aspect.star2);
-  if (!first || !second) return null;
-  const start = starPoint(first);
-  const end = starPoint(second);
-  return { start, end };
-}
-
-function aspectOpacity(aspect: QizhengAspect) {
-  if (aspect.closeness === '紧密') return 0.72;
-  if (aspect.closeness === '中等') return 0.5;
-  return 0.32;
-}
-
 function QizhengChart({ data }: { data: QizhengResult }) {
   const palaceBySign = new Map(data.twelvePalaces.map((item) => [item.signIndex, item.palace]));
   return (
@@ -83,20 +68,6 @@ function QizhengChart({ data }: { data: QizhengResult }) {
             </text>
           </g>
         );
-      })}
-      {data.aspects.slice(0, 12).map((aspect) => {
-        const line = aspectLine(aspect, data.stars);
-        return line ? (
-          <line
-            key={`${aspect.star1}-${aspect.star2}-${aspect.type}`}
-            x1={line.start.x}
-            y1={line.start.y}
-            x2={line.end.x}
-            y2={line.end.y}
-            className={`qizheng-aspect-line qizheng-aspect-${aspect.type}`}
-            style={{ opacity: aspectOpacity(aspect) }}
-          />
-        ) : null;
       })}
       {data.stars.map((star) => {
         const point = starPoint(star);
@@ -138,7 +109,6 @@ export const QizhengBoard = memo(function QizhengBoard({
   name: string;
   data: QizhengResult;
 }) {
-  const strongestAspects = data.aspects.slice(0, 8);
   const ziqiStar = data.stars.find((star) => star.name.startsWith('紫炁'));
   return (
     <section className="result-showcase-card qizheng-showcase-card">
@@ -149,7 +119,7 @@ export const QizhengBoard = memo(function QizhengBoard({
         </div>
         <div className="result-chip-row">
           <span className="result-chip">七政四余 {data.stars.length} 星</span>
-          <span className="result-chip">吊照 {data.aspects.length} 组</span>
+          <span className="result-chip">星对夹角 {data.pairwiseAngles.length} 组</span>
         </div>
       </div>
       <div className="result-summary-grid">
@@ -183,7 +153,7 @@ export const QizhengBoard = memo(function QizhengBoard({
           <div className="result-side-card astrolabe-chart-shell">
             <div className="result-side-head">
               <h3>十二宫星盘</h3>
-              <p>外圈为十二支宫位，实线与虚线呈现主要吊照关系。</p>
+              <p>外圈为十二支宫位，星体位置按目标日期黄经标注。</p>
             </div>
             <QizhengChart data={data} />
           </div>
@@ -208,7 +178,6 @@ export const QizhengBoard = memo(function QizhengBoard({
                   </strong>
                   <small>
                     {star.kind}
-                    {star.dignity ? ` · ${star.dignity}` : ''}
                     {star.retrograde ? ' · 逆行' : ' · 顺行'}
                   </small>
                 </div>
@@ -217,23 +186,33 @@ export const QizhengBoard = memo(function QizhengBoard({
           </div>
           <div className="result-side-card">
             <div className="result-side-head">
-              <h3>主要吊照</h3>
-              <p>按距精确相位的容许度位置排列。</p>
+              <h3>星对实际夹角</h3>
+              <p>十一星共 55 组无序星对，按稳定星序完整列出。</p>
             </div>
-            <div className="astrolabe-aspect-list">
-              {strongestAspects.map((aspect) => (
-                <div
-                  className="astrolabe-aspect-item"
-                  key={`${aspect.star1}-${aspect.star2}-${aspect.type}`}
-                >
-                  <strong>
-                    {aspect.star1}－{aspect.star2}
-                  </strong>
-                  <span>
-                    {aspect.type} · {aspect.closeness} · 偏差 {aspect.orb.toFixed(2)}°
-                  </span>
-                </div>
-              ))}
+            <details>
+              <summary>查看全部 {data.pairwiseAngles.length} 组</summary>
+              <div className="astrolabe-aspect-list">
+                {data.pairwiseAngles.map((pair) => (
+                  <div className="astrolabe-aspect-item" key={`${pair.star1}-${pair.star2}`}>
+                    <strong>
+                      {pair.star1}－{pair.star2}
+                    </strong>
+                    <span>
+                      实际最小夹角 {pair.actualAngle.toFixed(2)}° · {pair.precisionClass}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </details>
+            <div className="result-meta-lines">
+              <div>
+                <span>庙旺</span>
+                <strong>{data.traditionalRuleAudit.dignity.status}</strong>
+              </div>
+              <div>
+                <span>吊照</span>
+                <strong>{data.traditionalRuleAudit.aspects.status}</strong>
+              </div>
             </div>
           </div>
         </div>

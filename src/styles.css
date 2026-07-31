@@ -4616,17 +4616,6 @@ select {
   text-anchor: middle;
 }
 
-.qizheng-aspect-line {
-  stroke: var(--accent-strong);
-  stroke-width: 1.2;
-}
-
-.qizheng-aspect-四正,
-.qizheng-aspect-对照 {
-  stroke: var(--danger-text);
-  stroke-dasharray: 4 3;
-}
-
 .qizheng-core-title,
 .bazhai-core-title {
   fill: var(--text-strong);

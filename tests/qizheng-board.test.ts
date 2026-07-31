@@ -7,7 +7,7 @@ import {
   longitudeToQizhengMansion,
 } from '@core/qi_zheng';
 
-test('七政四余完整盘采用二十八宿真实距星边界并保持位置来源分层', () => {
+test('七政四余可用盘面采用二十八宿真实距星边界并保持位置来源分层', () => {
   const result = generateQizheng({
     year: 1990,
     month: 6,
@@ -45,6 +45,49 @@ test('七政四余完整盘采用二十八宿真实距星边界并保持位置�
   );
   assert.match(result.prompt, /宿界模型.*28颗距星/);
   assert.doesNotMatch(result.prompt, /366\.5|等比例换算/);
+  assert.equal(result.pairwiseAngles.length, 55);
+  assert.deepEqual(result.geometryCalculation, {
+    starCount: 11,
+    starOrder: result.stars.map((star) => star.name),
+    expectedPairCount: 55,
+    actualPairCount: 55,
+    enumeration: '全部无序星对',
+    angleFormula: 'min(abs(longitude1-longitude2), 360-abs(longitude1-longitude2))',
+    complete: true,
+  });
+  assert.deepEqual(
+    result.pairwiseAngles.map((pair) => [pair.star1, pair.star2]),
+    result.stars.flatMap((first, firstIndex) =>
+      result.stars.slice(firstIndex + 1).map((second) => [first.name, second.name]),
+    ),
+  );
+  assert.deepEqual(result.aspects, []);
+  assert.equal(result.traditionalRuleAudit.dignity.status, '未采用');
+  assert.equal(result.traditionalRuleAudit.aspects.status, '未采用');
+  assert.ok(result.stars.every((star) => !Object.hasOwn(star, 'dignity')));
+  assert.ok(
+    result.pairwiseAngles.every(
+      (pair) =>
+        !Object.hasOwn(pair, 'type') &&
+        !Object.hasOwn(pair, 'orb') &&
+        !Object.hasOwn(pair, 'allowedOrb') &&
+        !Object.hasOwn(pair, 'orbRatio') &&
+        !Object.hasOwn(pair, 'closeness') &&
+        !Object.hasOwn(pair, 'strength'),
+    ),
+  );
+  assert.equal(result.evidenceAnalysis.pairGeometryFacts.length, 55);
+  assert.equal(result.evidenceAnalysis.summaryFact.pairGeometryFactCount, 55);
+  const lastPair = result.pairwiseAngles.at(-1);
+  assert.ok(lastPair);
+  assert.ok(result.prompt.includes(`${lastPair.star1}与${lastPair.star2}实际最小夹角`));
+  assert.ok(
+    result.evidenceAnalysis.evidence.items.some(
+      (item) => item.title === `${lastPair.star1}与${lastPair.star2}实际夹角`,
+    ),
+  );
+  assert.match(result.prompt, /庙旺未采用[\s\S]*吊照未采用/);
+  assert.doesNotMatch(result.prompt, /紧密等级|中等等级|宽松等级|归一化容许度位置/);
 });
 
 test('二十八宿距星黄经与 Astropy ERFA 独立金标一致', () => {

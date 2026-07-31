@@ -31,7 +31,7 @@ export function registerQizhengTool(server: McpServer) {
     'metaphysics_qizheng',
     {
       description:
-        '七政四余（果老星宗）：计算十一星、真实距星二十八宿界、命身十二宫、庙旺、吊照及分层天文证据',
+        '七政四余（果老星宗）：计算十一星、真实距星二十八宿界、命身十二宫、全部55组星对实际夹角及分层天文证据；未校勘的庙旺与吊照规则不自动判定',
       inputSchema: qiZhengSchema.shape,
       outputSchema: resultOutputSchema,
     },
