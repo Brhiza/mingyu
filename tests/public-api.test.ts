@@ -2966,7 +2966,19 @@ test('公开 API 奇门默认转盘，可通过 qimenMethod 请求飞盘', async
   assert.equal(defaultResult.body.data.evidenceAnalysis.calculationEvidenceFacts.length, 5);
   assert.equal(defaultResult.body.data.evidenceAnalysis.calculationSteps.length, 5);
   assert.equal(defaultResult.body.data.evidenceAnalysis.calculationChain.length, 5);
-  assert.equal(defaultResult.body.data.evidenceAnalysis.ruleSourceFacts.length, 4);
+  assert.deepEqual(
+    defaultResult.body.data.evidenceAnalysis.ruleSourceFacts.map(
+      (item: Record<string, unknown>) => item.key,
+    ),
+    [
+      'rule:qimen:setup',
+      'rule:qimen:leaders',
+      'rule:qimen:layout',
+      'rule:qimen:relations',
+      'rule:qimen:retained-combo-versions',
+      'rule:qimen:special-context-boundary',
+    ],
+  );
   assert.equal(defaultResult.body.data.evidenceAnalysis.palaceCoverageFact.status, '完整');
   assert.deepEqual(
     defaultResult.body.data.evidenceAnalysis.palaceCoverageFact.actualGongs,

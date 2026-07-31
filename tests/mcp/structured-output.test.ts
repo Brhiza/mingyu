@@ -4900,7 +4900,17 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
     assert.equal(chart.evidenceAnalysis.calculationEvidenceFacts.length, 5);
     assert.equal(chart.evidenceAnalysis.calculationSteps.length, 5);
     assert.equal(chart.evidenceAnalysis.calculationChain.length, 5);
-    assert.equal(chart.evidenceAnalysis.ruleSourceFacts.length, 4);
+    assert.deepEqual(
+      chart.evidenceAnalysis.ruleSourceFacts.map((item) => item.key),
+      [
+        'rule:qimen:setup',
+        'rule:qimen:leaders',
+        'rule:qimen:layout',
+        'rule:qimen:relations',
+        'rule:qimen:retained-combo-versions',
+        'rule:qimen:special-context-boundary',
+      ],
+    );
     assert.equal(chart.evidenceAnalysis.palaceCoverageFact.status, '完整');
     assert.deepEqual(
       chart.evidenceAnalysis.palaceCoverageFact.actualGongs,

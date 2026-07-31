@@ -137,7 +137,13 @@ export interface QimenCalculationEvidenceFact {
 export interface QimenRuleSourceFact {
   key: string;
   status: '已声明';
-  category: '定局规则' | '值符值使规则' | '九宫排布规则' | '五行关系规则';
+  category:
+    | '定局规则'
+    | '值符值使规则'
+    | '九宫排布规则'
+    | '五行关系规则'
+    | '组合规则版本'
+    | '专项情境规则边界';
   rule: string;
   appliesTo: string[];
   sources: string[];
@@ -757,8 +763,11 @@ function buildLimitationFacts(params: {
         ...params.counterEvidenceFacts.map((item) => item.key),
       ],
       promptText:
-        '传统格局、空亡、特殊条件和风险洞察只证明当前规则命中或存在盘内限制；不得把单项命中写成现实成功、失败、灾祸、人物恶意或必然结果',
-      sources: ['基础格局、经典格局、已校勘组合规则与候选宫限制逐项核验'],
+        '传统格局、空亡、特殊条件和风险洞察只证明当前规则命中或存在盘内限制；不得把单项命中写成现实成功、失败、灾祸、人物恶意或必然结果。缺少专项情境或版本冲突的兵事、主客、迷路、下营与战略择方规则不得从原始盘面自行补算',
+      sources: [
+        '基础格局、经典格局、已校勘组合规则与候选宫限制逐项核验',
+        '专项情境规则失败关闭边界',
+      ],
     },
     {
       key: 'qimen:limitation:timing',
@@ -888,6 +897,38 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
       ],
       promptText:
         '天地盘干规则：八十一种组合完整保留天干、五行生克与标准五合结构；仅青龙返首、飞鸟跌穴、青龙逃走、白虎猖狂、朱雀投江、螣蛇跃蹻、荧入太白、太白入荧、大格、刑格、小格十一项按已校勘固定格输出，其余七十项不得补造传统名称或现实断语',
+      limitation: RULE_SOURCE_LIMITATION,
+    },
+    {
+      key: 'rule:qimen:retained-combo-versions',
+      status: '已声明',
+      category: '组合规则版本',
+      rule: '八门余气固定采用《奇门遁甲统宗》五态月令版，十干迫制采用同书固定表；两者只输出状态或受克结构事实',
+      appliesTo: ['八门余气', '十干迫制', '已校勘组合'],
+      sources: [
+        '《奇门遁甲统宗》卷十二“当时者为旺，我生者为相，我克者为休，克我者为囚，生我者为废”',
+        '《奇门遁甲统宗》卷十二“甲乙金宫、丙丁坎内、戊己惧杜伤、庚辛离上、壬癸生死方”',
+        '《奇门宝鉴御定》八门气应另有逐节旺、绝、胎、没、死、囚、休、废八态版，当前不混用',
+      ],
+      promptText:
+        '已校勘组合版本：八门余气只用《奇门遁甲统宗》五态月令版，不混用《奇门宝鉴御定》逐节八态版；十干迫制只按《奇门遁甲统宗》固定表记录奇仪落宫受克。两者不自动延伸兵事、年命、疾病或通用吉凶',
+      limitation: RULE_SOURCE_LIMITATION,
+    },
+    {
+      key: 'rule:qimen:special-context-boundary',
+      status: '已声明',
+      category: '专项情境规则边界',
+      rule: '通用入口缺少出军交战、主客攻守、劫营下营、突围避寇与三岔迷路等必要情境，不自动输出相关兵事、择方、迷路或下营规则；刑德开阖主客版本冲突时同样失败关闭',
+      appliesTo: ['经典格局附加断语', '战略方位规则', '主客兵事规则', '迷路与下营规则'],
+      sources: [
+        '《奇门遁甲统宗》卷三“兵事分主客：宫为主，星门为客”及“一克一生主客互伤”',
+        '《奇门旨归》卷三十六“奇门兵事”及卷三十七迷路、突围、避寇专项',
+        '《奇门遁甲秘笈大全》迷路法与“初兵出天门”兵事条文',
+        '《奇门法窍》刑德开阖将兵条文：开为主、阖为客',
+        '《奇门宝鉴御定》刑德开阖将兵条文：阖为主、开为客',
+      ],
+      promptText:
+        '专项规则边界：当前盘只提供九宫、奇仪、星门神等原始事实；出军交战、主客攻守、劫营下营、突围避寇、三岔迷路及相关战略择方规则未取得所需专项情境，不得自动生成；刑德开阖主客版本相反，不得替用户选择版本',
       limitation: RULE_SOURCE_LIMITATION,
     },
   ];

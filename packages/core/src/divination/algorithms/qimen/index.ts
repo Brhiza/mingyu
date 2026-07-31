@@ -26,7 +26,6 @@ import type { QimenData, QimenJiuGongGe, QimenScope } from '../../../types/divin
 import type { ClassicPattern, PatternContext, StemRelation } from './helpers/classic-patterns';
 import type { QimenMethod } from './helpers/layout';
 import { getDivinationTime } from '../../../calendar/timeManager';
-import { getMonthGeneralByZhongqi } from '../../../calendar/month-general';
 import { getVoidBranches } from '../../../calendar/lunar';
 import { diPanPalaces, STEM_TOMB_MAP } from './helpers/_constants';
 import {
@@ -256,7 +255,7 @@ export function generateQimen(
   // 步骤 2：定局数
   // ──────────────────────────────────────────────────────────────────────────
   const jushuResult = getJushuForScope(scope, ganzhi, timeInfo, juMethod);
-  const { isYangDun, juShu, yuan } = jushuResult;
+  const { isYangDun, juShu } = jushuResult;
 
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 3：寻值符与值使（旬首法）
@@ -328,11 +327,7 @@ export function generateQimen(
   // 步骤 8：经典格局
   // ──────────────────────────────────────────────────────────────────────────
   const dayStem = ganzhi.day.charAt(0);
-  const yearBranch = ganzhi.year.charAt(1);
-  const dayBranch = ganzhi.day.charAt(1);
   const monthBranch = ganzhi.month.charAt(1);
-  const hourStem = ganzhi.hour.charAt(0);
-  const hourBranch = ganzhi.hour.charAt(1);
   const classicPatternContext: PatternContext = {
     jiuGongGe,
     zhiFu,
@@ -411,21 +406,7 @@ export function generateQimen(
   // 步骤 14：已校勘组合规则
   // ──────────────────────────────────────────────────────────────────────────
   const patternCombos = detectQimenPatternCombos({
-    classicPatterns: classicPatternsRaw,
-    activeGanZhi,
-    zhiFu,
-    zhiShi,
-    dayGanZhi: ganzhi.day,
-    yearBranch,
-    dayStem,
-    dayBranch,
     monthBranch,
-    monthGeneral: getMonthGeneralByZhongqi(timeInfo.solar).monthGeneral,
-    solarTerm: jushuResult.jieQi || jieQi,
-    epoch: yuan,
-    hourGanZhi: ganzhi.hour,
-    hourStem,
-    hourBranch,
     jiuGongGe,
   });
 
