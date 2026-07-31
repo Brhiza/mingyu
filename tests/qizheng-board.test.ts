@@ -2,11 +2,116 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildQizhengTwelvePalaces,
+  calculateQizhengMingGong,
   calculateQizhengMansionBoundaries,
+  calculateQizhengShenGong,
   generateQizheng,
+  getQizhengMingZhu,
+  longitudeToQizhengBranch,
   longitudeToQizhengMansion,
+  QIZHENG_EARTHLY_BRANCHES,
+  QIZHENG_MING_ZHU_BY_BRANCH,
   QIZHENG_SHENSHA_RULE_CATALOG,
+  QIZHENG_TRADITIONAL_CHART_RULE_CATALOG,
+  QIZHENG_TROPICAL_ZODIAC_BRANCHES,
+  QIZHENG_TROPICAL_ZODIAC_SIGNS,
 } from '@core/qi_zheng';
+
+test('七政四余五项传统盘规则均有固定旧籍原文、入口与解释边界', () => {
+  assert.deepEqual(
+    QIZHENG_TRADITIONAL_CHART_RULE_CATALOG.map((rule) => rule.id),
+    ['zodiac-branch-mapping', 'ming-gong', 'shen-gong', 'twelve-palaces', 'ming-zhu'],
+  );
+  for (const rule of QIZHENG_TRADITIONAL_CHART_RULE_CATALOG) {
+    assert.equal(rule.status, '已校勘');
+    assert.ok(rule.rule.length > 0);
+    assert.ok(rule.sources.length > 0);
+    assert.ok(
+      rule.sources.every(
+        (source) =>
+          source.title.length > 0 &&
+          source.section.length > 0 &&
+          source.quote.length > 0 &&
+          source.url.startsWith('https://zh.wikisource.org/wiki/'),
+      ),
+    );
+    assert.match(rule.limitation, /不.*吉凶|不得扩张为吉凶/);
+  }
+});
+
+test('七政四余黄道十二星座到十二支宫应完整穷举并锁定全部边界', () => {
+  const expectedBranches = ['戌', '酉', '申', '未', '午', '巳', '辰', '卯', '寅', '丑', '子', '亥'];
+  assert.deepEqual(QIZHENG_TROPICAL_ZODIAC_BRANCHES, expectedBranches);
+  assert.equal(QIZHENG_TROPICAL_ZODIAC_SIGNS.length, 12);
+
+  for (let zodiacIndex = 0; zodiacIndex < 12; zodiacIndex += 1) {
+    for (const longitude of [
+      zodiacIndex * 30,
+      zodiacIndex * 30 + 15,
+      (zodiacIndex + 1) * 30 - 1e-9,
+    ]) {
+      const actual = longitudeToQizhengBranch(longitude);
+      assert.equal(actual.tropicalZodiacIndex, zodiacIndex, `黄经${longitude}°星座序错误`);
+      assert.equal(actual.tropicalZodiac, QIZHENG_TROPICAL_ZODIAC_SIGNS[zodiacIndex]);
+      assert.equal(actual.branch, expectedBranches[zodiacIndex]);
+      assert.equal(actual.branchIndex, QIZHENG_EARTHLY_BRANCHES.indexOf(actual.branch));
+    }
+  }
+
+  assert.deepEqual(longitudeToQizhengBranch(360), longitudeToQizhengBranch(0));
+  assert.equal(longitudeToQizhengBranch(-1e-9).branch, '亥');
+  assert.throws(() => longitudeToQizhengBranch(Number.NaN), /有限黄经/);
+});
+
+test('七政四余安命宫应穷举太阳十二宫乘十二生时并符合原典例', () => {
+  for (let sunBranch = 0; sunBranch < 12; sunBranch += 1) {
+    for (let hourBranch = 0; hourBranch < 12; hourBranch += 1) {
+      assert.equal(
+        calculateQizhengMingGong(sunBranch, hourBranch),
+        (sunBranch + 3 - hourBranch + 12) % 12,
+      );
+    }
+  }
+  assert.equal(calculateQizhengMingGong(0, 9), 6, '太阳子宫、酉时应安命于午宫');
+});
+
+test('七政四余身宫应逐宫取太阴所在宫且不引入生时分支', () => {
+  for (let moonBranch = 0; moonBranch < 12; moonBranch += 1) {
+    const resultsAcrossAllHours = Array.from({ length: 12 }, () =>
+      calculateQizhengShenGong(moonBranch),
+    );
+    assert.deepEqual(resultsAcrossAllHours, Array(12).fill(moonBranch));
+  }
+});
+
+test('七政四余十二职宫应对十二命宫完整逆布并覆盖全部十二支', () => {
+  for (let mingGong = 0; mingGong < 12; mingGong += 1) {
+    const palaces = buildQizhengTwelvePalaces(mingGong);
+    assert.equal(palaces.length, 12);
+    assert.equal(new Set(palaces.map((item) => item.branchIndex)).size, 12);
+    assert.deepEqual(
+      palaces.map((item) => item.branchIndex),
+      Array.from({ length: 12 }, (_, index) => (mingGong - index + 12) % 12),
+    );
+  }
+
+  assert.deepEqual(
+    buildQizhengTwelvePalaces(2)
+      .slice(0, 8)
+      .map((item) => `${item.palace}${item.branch}`),
+    ['命宫寅', '财帛丑', '兄弟子', '田宅亥', '男女戌', '奴仆酉', '妻妾申', '疾厄未'],
+  );
+});
+
+test('七政四余命主应穷举十二宫支固定映射', () => {
+  const expected = ['土', '土', '木', '火', '金', '水', '日', '月', '水', '金', '火', '木'];
+  assert.deepEqual(Object.values(QIZHENG_MING_ZHU_BY_BRANCH), expected);
+  assert.deepEqual(
+    QIZHENG_EARTHLY_BRANCHES.map((_, branchIndex) => getQizhengMingZhu(branchIndex)),
+    expected,
+  );
+});
 
 test('七政四余八项传统神煞目录完整覆盖十干或十二支', () => {
   const stems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
@@ -65,6 +170,30 @@ test('七政四余可用盘面采用二十八宿真实距星边界并保持位�
   assert.match(result.prompt, /宿界模型.*28颗距星/);
   assert.doesNotMatch(result.prompt, /366\.5|等比例换算/);
   assert.equal(result.pairwiseAngles.length, 55);
+  assert.deepEqual(
+    result.stars.map((star) => [star.name, star.tropicalZodiac, star.branch, star.palace]),
+    [
+      ['太阳', '双子', '申', '福德'],
+      ['太阴', '双鱼', '亥', '疾厄'],
+      ['辰星(水)', '双子', '申', '福德'],
+      ['太白(金)', '金牛', '酉', '官禄'],
+      ['荧惑(火)', '白羊', '戌', '迁移'],
+      ['岁星(木)', '巨蟹', '未', '相貌'],
+      ['镇星(土)', '磨羯', '丑', '奴仆'],
+      ['罗睺(火余)', '宝瓶', '子', '妻妾'],
+      ['计都(土余)', '狮子', '午', '命宫'],
+      ['月孛(水余)', '天蝎', '卯', '田宅'],
+      ['紫炁(木余)', '双女', '巳', '财帛'],
+    ],
+  );
+  assert.deepEqual(
+    {
+      mingGong: result.mingGongBranch,
+      shenGong: result.shenGongBranch,
+      mingZhu: result.mingZhu,
+    },
+    { mingGong: '午', shenGong: '亥', mingZhu: '日' },
+  );
   assert.deepEqual(result.geometryCalculation, {
     starCount: 11,
     starOrder: result.stars.map((star) => star.name),
@@ -83,7 +212,19 @@ test('七政四余可用盘面采用二十八宿真实距星边界并保持位�
   assert.deepEqual(result.aspects, []);
   assert.equal(result.traditionalRuleAudit.dignity.status, '未采用');
   assert.equal(result.traditionalRuleAudit.aspects.status, '未采用');
+  assert.equal(result.traditionalRuleAudit.chart.status, '已校勘');
   assert.equal(result.traditionalRuleAudit.shensha.status, '已校勘起例');
+  assert.equal(result.traditionalChartRuleCatalog.length, 5);
+  assert.equal(result.traditionalChartFacts.length, 5);
+  assert.equal(result.evidenceAnalysis.traditionalChartFacts.length, 5);
+  assert.equal(result.evidenceAnalysis.summaryFact.traditionalChartFactCount, 5);
+  assert.ok(
+    result.traditionalChartFacts.every(
+      (fact) =>
+        fact.status === '已计算' &&
+        fact.sources.some((source) => source.includes('zh.wikisource.org')),
+    ),
+  );
   assert.equal(result.traditionalYearBasis.status, '年干支口径一致');
   assert.equal(result.traditionalYearBasis.adoptedYearGanZhi, '庚午');
   assert.equal(result.shenshaRuleCatalog.length, 8);
@@ -136,7 +277,13 @@ test('七政四余可用盘面采用二十八宿真实距星边界并保持位�
     ),
   );
   assert.match(result.prompt, /庙旺未采用[\s\S]*吊照未采用/);
+  assert.match(result.prompt, /白羊戌/);
+  assert.match(result.prompt, /太阳宫，顺数遇卯/);
+  assert.match(result.prompt, /太阴所在十二支宫即为身宫/);
+  assert.match(result.prompt, /十二职宫自午宫起逆布/);
+  assert.match(result.prompt, /《五行精纪》[\s\S]*《灵台经》/);
   assert.match(result.prompt, /传统年界核验[\s\S]*传统神煞起例目标支/);
+  assert.doesNotMatch(result.prompt, /黄道第\s*\d+宫|生时加太阴|逆数见酉/);
   assert.doesNotMatch(result.prompt, /天乙贵人.*日干|神煞定位/);
   assert.doesNotMatch(result.prompt, /紧密等级|中等等级|宽松等级|归一化容许度位置/);
 });

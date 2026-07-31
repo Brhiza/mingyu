@@ -17,7 +17,10 @@ const qiZhengSchema = z.object({
   minute: z.number().int().min(0).max(59).optional().describe('分'),
   latitude: z.number().min(-90).max(90).optional().describe('纬度（默认北京）'),
   longitude: z.number().min(-180).max(180).optional().describe('经度（默认北京）'),
-  useTrueSolarTime: z.boolean().optional().describe('是否启用真太阳时仅校正传统命身十二宫'),
+  useTrueSolarTime: z
+    .boolean()
+    .optional()
+    .describe('是否用真太阳时校正命宫所用生时与可能跨日的传统年界；身宫仍取太阴所在宫'),
   timezone: z.number().min(-12).max(14).optional().describe('时区偏移（默认 +8）'),
   timeZoneId: z
     .string()
@@ -37,7 +40,7 @@ export function registerQizhengTool(server: McpServer) {
     'metaphysics_qizheng',
     {
       description:
-        '七政四余（果老星宗）：计算十一星、真实距星二十八宿界、命身十二宫、全部55组星对实际夹角、8项已校勘生年神煞起例及分层天文证据；庙旺与吊照规则不自动判定',
+        '七政四余（果老星宗）：计算十一星、真实距星二十八宿界、5项已校勘命身十二职宫规则、全部55组星对实际夹角、8项已校勘生年神煞起例及分层天文证据；庙旺与吊照规则不自动判定',
       inputSchema: qiZhengSchema.shape,
       outputSchema: resultOutputSchema,
     },

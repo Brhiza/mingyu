@@ -88,7 +88,7 @@
 | `POST /metaphysics/zodiac/prompt`            | 生肖流年关系排盘并生成含信息量限制的 AI 解读提示词                             |
 | `POST /metaphysics/taiyi/calculate`          | 太乙神数排盘                                                                   |
 | `POST /metaphysics/taiyi/prompt`             | 太乙神数排盘并生成 AI 解读提示词                                               |
-| `POST /metaphysics/qizheng/calculate`        | 七政四余十一星、真实距星宿界、命身十二宫、8项传统神煞起例与结构化证据          |
+| `POST /metaphysics/qizheng/calculate`        | 七政四余十一星、真实距星宿界、5项命身十二职宫规则、8项传统神煞起例与结构化证据 |
 | `POST /metaphysics/qizheng/prompt`           | 七政四余排盘并生成含分层天文证据的 AI 解读提示词                               |
 | `POST /ai/analyze`                           | AI 解读，返回 SSE 流式响应                                                     |
 | `POST /ai/models`                            | 获取当前 AI 配置可用的模型列表                                                 |
@@ -135,7 +135,7 @@
 | 仅八宅命卦、坐山吉凶               | `POST /metaphysics/bazhai/prompt`            | `birthYear`、`gender`、可选 `sitMountain`；实测可传 `doorToInteriorDegree`、`northReference`、`magneticDeclinationDegrees`、`measurementUncertaintyDegrees` | 返回磁北/真北换算、候选坐向与边界稳定性                                        |
 | 生肖犯太岁、流年贵人               | `POST /metaphysics/zodiac/prompt`            | `zodiac`、`year` 或 `yearGanZhi`                                                                                                                            | 生肖可传“鼠”或“子”                                                             |
 | 太乙神数                           | `POST /metaphysics/taiyi/prompt`             | 当前只接受 `scope: "year"` 与 `year`                                                                                                                        | 年计按积年与阳遁七十二局立成；结果含 `evidenceAnalysis` 结构化证据             |
-| 七政四余                           | `POST /metaphysics/qizheng/prompt`           | 精准出生年月日时、经纬度，并提供 `timezone` 或 `timeZoneId`；可选 `useTrueSolarTime`，使用 IANA 时区时还需 `standardMeridian`                                | 返回十一星、真实距星宿界、命身十二宫、8项已校勘生年起例和分层天文证据          |
+| 七政四余                           | `POST /metaphysics/qizheng/prompt`           | 精准出生年月日时、经纬度，并提供 `timezone` 或 `timeZoneId`；可选 `useTrueSolarTime`，使用 IANA 时区时还需 `standardMeridian`                               | 返回十一星、真实距星宿界、5项已校勘命身十二职宫规则、8项生年起例和分层天文证据 |
 | 玄空飞星                           | `POST /metaphysics/xuankong/prompt`          | `year`、`sitMountain`/`facingMountain` 或度数；可选 `guaType`（下卦或替卦）、测量误差；3° 至 4.5° 异说区间或误差跨阈值时须明确 `guaType`                    | 返回可复算的三元九运、三盘飞星、替星过程、当运星位置比较、到山到向与结构化证据 |
 
 参数选择建议：

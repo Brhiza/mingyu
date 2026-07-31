@@ -2,8 +2,10 @@
  * @file 七政四余（Qizheng Siyu / 果老星宗）
  * @description 中国占星：日、月、五星为七政；罗睺、计都、月孛、紫炁为四余。
  * 当前可用盘面采用可复算的现代天文位置与目标日期距星边界：
+ *   - 宫支映射：戌白羊、酉金牛、申双子、未巨蟹、午狮子、巳双女、辰天秤、卯天蝎、
+ *     寅人马、丑磨羯、子宝瓶、亥双鱼；热带黄道序号与子起十二支序号分开保存。
  *   - 安命宫：「以生时，加太阳宫，即从生时顺数见卯所临之宫，即为命宫。」（逢卯安命）
- *   - 安身宫：「以生时加太阴宫，即从生时逆数见酉所临之宫，即为身宫。」
+ *   - 安身宫：采用《五行精纪》《灵台经》明确起例，以太阴所在宫为身宫。
  *   - 安十二宫：自命宫逆数（命、财帛、兄弟、田宅、男女、奴仆、妻妾、疾厄、迁移、官禄、福德、相貌）。
  *   - 安命主：寅亥木、卯戌火、辰酉金、巳申水、子丑土、午日、未月。
  *   - 二十八宿按明清修订距星目录，以 J2000/ICRS 坐标、自行和目标日期真黄道变换求边界。
@@ -54,7 +56,7 @@ export {
 } from './mansion-boundaries';
 export type { QizhengMansionBoundary, QizhengMansionStar } from './mansion-boundaries';
 
-/** 黄道十二宫（七政四余职名，子丑寅卯…自命宫逆布十二职） */
+/** 十二职宫，自命宫起依十二支逆布。 */
 export const TWELVE_PALACES = [
   '命宫',
   '财帛',
@@ -68,10 +70,58 @@ export const TWELVE_PALACES = [
   '官禄',
   '福德',
   '相貌',
-];
+] as const;
+
+/** 十二支宫序；所有 branchIndex、mingGong、shenGong 均采用子0至亥11。 */
+export const QIZHENG_EARTHLY_BRANCHES = [
+  '子',
+  '丑',
+  '寅',
+  '卯',
+  '辰',
+  '巳',
+  '午',
+  '未',
+  '申',
+  '酉',
+  '戌',
+  '亥',
+] as const;
+
+/** 热带黄道十二星座序；0°白羊起，每30°一宫。 */
+export const QIZHENG_TROPICAL_ZODIAC_SIGNS = [
+  '白羊',
+  '金牛',
+  '双子',
+  '巨蟹',
+  '狮子',
+  '双女',
+  '天秤',
+  '天蝎',
+  '人马',
+  '磨羯',
+  '宝瓶',
+  '双鱼',
+] as const;
+
+/** 《张果星宗·宫分所属》的热带黄道星座到十二支宫映射。 */
+export const QIZHENG_TROPICAL_ZODIAC_BRANCHES = [
+  '戌',
+  '酉',
+  '申',
+  '未',
+  '午',
+  '巳',
+  '辰',
+  '卯',
+  '寅',
+  '丑',
+  '子',
+  '亥',
+] as const;
 
 /** 命主：十二宫序（子0…亥11）→ 主星 */
-const MING_ZHU: Record<number, string> = {
+export const QIZHENG_MING_ZHU_BY_BRANCH: Readonly<Record<number, string>> = {
   0: '土',
   1: '土',
   2: '木',
@@ -94,7 +144,12 @@ export interface QizhengStar {
   xiu: string;
   sevenStar: string;
   xiuDegree: number;
-  signIndex: number; // 十二宫序号 0-11
+  tropicalZodiacIndex: number; // 热带黄道序号：白羊0至双鱼11
+  tropicalZodiac: (typeof QIZHENG_TROPICAL_ZODIAC_SIGNS)[number];
+  branchIndex: number; // 十二支宫序：子0至亥11
+  branch: (typeof QIZHENG_EARTHLY_BRANCHES)[number];
+  /** @deprecated 请使用 branchIndex；兼容字段同为子0至亥11。 */
+  signIndex: number;
   palace: string;
   retrograde: boolean;
   /** @deprecated 庙旺原典按具体宿度等条件立表，当前不自动判定。 */
@@ -126,16 +181,49 @@ export interface QizhengGeometryCalculation {
 }
 
 export interface QizhengTraditionalRuleAuditItem {
-  status: '未采用' | '已校勘起例';
+  status: '未采用' | '已校勘' | '已校勘起例';
   reason: string;
   retainedFacts: string[];
   sources: string[];
 }
 
 export interface QizhengTraditionalRuleAudit {
+  chart: QizhengTraditionalRuleAuditItem;
   dignity: QizhengTraditionalRuleAuditItem;
   aspects: QizhengTraditionalRuleAuditItem;
   shensha: QizhengTraditionalRuleAuditItem;
+}
+
+export type QizhengTraditionalChartRuleId =
+  'zodiac-branch-mapping' | 'ming-gong' | 'shen-gong' | 'twelve-palaces' | 'ming-zhu';
+
+export interface QizhengTraditionalSourceExcerpt {
+  title: string;
+  url: string;
+  section: string;
+  quote: string;
+}
+
+export interface QizhengTraditionalChartRule {
+  id: QizhengTraditionalChartRuleId;
+  name: string;
+  status: '已校勘';
+  rule: string;
+  sources: readonly QizhengTraditionalSourceExcerpt[];
+  usage: string;
+  limitation: string;
+}
+
+export interface QizhengTraditionalChartFact {
+  key: string;
+  id: QizhengTraditionalChartRuleId;
+  name: string;
+  status: '已计算';
+  inputs: Record<string, string | number>;
+  result: Record<string, string | number>;
+  promptText: string;
+  sources: string[];
+  limitation: string;
 }
 
 export type QizhengShenshaRuleId =
@@ -230,6 +318,7 @@ export interface QizhengEvidenceAnalysis {
   positionSourceFacts: QizhengPositionSourceFact[];
   starFacts: QizhengStarFact[];
   pairGeometryFacts: QizhengPairGeometryFact[];
+  traditionalChartFacts: QizhengTraditionalChartFact[];
   traditionalYearBasis: QizhengTraditionalYearBasis;
   shenshaFacts: QizhengShenshaFact[];
   primaryFacts: string[];
@@ -254,6 +343,7 @@ export interface QizhengCalculationStep {
     | '紫炁古法计算'
     | '距星宿界换算'
     | '宿度与落宫'
+    | '传统命身宫与十二职宫'
     | '星对几何穷举'
     | '传统年界核验';
   status: '已计算';
@@ -262,7 +352,7 @@ export interface QizhengCalculationStep {
   dependsOnStepKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '七政四余计算步骤只记录民用时间、天文时间尺度、位置模型、距星宿界、宿度落宫、星对几何穷举与传统年界核验的形成过程；不得把步骤完整度解释为观测级精度、占星有效性、现实吉凶或事件概率';
+  limitation: '七政四余计算步骤只记录民用时间、天文时间尺度、位置模型、距星宿界、宿度宫支、传统命身十二职宫、星对几何穷举与传统年界核验的形成过程；不得把步骤完整度解释为观测级精度、占星有效性、现实吉凶或事件概率';
 }
 
 export interface QizhengCalculationFact {
@@ -309,6 +399,10 @@ export interface QizhengStarFact {
   xiu: string;
   sevenStar: string;
   xiuDegree: number;
+  tropicalZodiacIndex: number;
+  tropicalZodiac: QizhengStar['tropicalZodiac'];
+  branchIndex: number;
+  branch: QizhengStar['branch'];
   signIndex: number;
   palace: string;
   retrograde: boolean;
@@ -382,12 +476,13 @@ export interface QizhengSummaryFact {
   positionSourceFactCount: number;
   starFactCount: number;
   pairGeometryFactCount: number;
+  traditionalChartFactCount: number;
   shenshaFactCount: number;
   counterEvidenceCount: number;
   limitationFactCount: number;
   promptText: string;
   sources: string[];
-  limitation: '七政四余证据汇总只统计输入、时间尺度、位置来源、逐星、星对几何、传统年界与神煞起例、月相光照、反证及限制覆盖；不得按数量生成吉凶等级、可信度、事件概率、观测精度或固定应期';
+  limitation: '七政四余证据汇总只统计输入、时间尺度、位置来源、逐星、星对几何、传统命身十二职宫、传统年界与神煞起例、月相光照、反证及限制覆盖；不得按数量生成吉凶等级、可信度、事件概率、观测精度或固定应期';
 }
 
 const STAR_FACT_LIMITATION =
@@ -400,7 +495,7 @@ const CALCULATION_FACT_LIMITATION =
 const POSITION_SOURCE_FACT_LIMITATION =
   '位置来源事实只说明各星体采用的提供方、模型、坐标和精度层级；来源可追溯不等于结果达到观测级精度，也不证明占星解释、现实事件或吉凶结论' as const;
 const QIZHENG_CALCULATION_STEP_LIMITATION =
-  '七政四余计算步骤只记录民用时间、天文时间尺度、位置模型、距星宿界、宿度落宫、星对几何穷举与传统年界核验的形成过程；不得把步骤完整度解释为观测级精度、占星有效性、现实吉凶或事件概率' as const;
+  '七政四余计算步骤只记录民用时间、天文时间尺度、位置模型、距星宿界、宿度宫支、传统命身十二职宫、星对几何穷举与传统年界核验的形成过程；不得把步骤完整度解释为观测级精度、占星有效性、现实吉凶或事件概率' as const;
 const QIZHENG_COUNTER_FACT_LIMITATION =
   '反证事实只记录七政四余输入默认值、位置精度分层、55组星对覆盖与传统年界口径是否一致；默认值、混合模型、年界分歧或资料缺口不直接等于现实不利，有资料也不证明吉凶结果' as const;
 const QIZHENG_COUNTER_SUMMARY_LIMITATION =
@@ -408,7 +503,7 @@ const QIZHENG_COUNTER_SUMMARY_LIMITATION =
 const QIZHENG_LIMITATION_FACT_LIMITATION =
   '限制事实用于约束七政四余输入、时间尺度、位置来源、混合模型、传统规则、月相和光照资料可以支持的解释范围，不得被反向当作现实事件、吉凶或精度证据' as const;
 const QIZHENG_SUMMARY_FACT_LIMITATION =
-  '七政四余证据汇总只统计输入、时间尺度、位置来源、逐星、星对几何、传统年界与神煞起例、月相光照、反证及限制覆盖；不得按数量生成吉凶等级、可信度、事件概率、观测精度或固定应期' as const;
+  '七政四余证据汇总只统计输入、时间尺度、位置来源、逐星、星对几何、传统命身十二职宫、传统年界与神煞起例、月相光照、反证及限制覆盖；不得按数量生成吉凶等级、可信度、事件概率、观测精度或固定应期' as const;
 
 function conditionQizhengPortableText(text: string): string {
   return text
@@ -437,7 +532,8 @@ export interface QizhengInput {
    */
   standardMeridian?: number;
   /**
-   * 可选：启用后仅用真太阳时校正传统命身十二宫排布；
+   * 可选：启用后用真太阳时校正传统命宫所用生时与可能跨日的传统年界；
+   * 身宫直接取目标时刻太阴所在宫，不另受时辰分支影响；
    * 七政四余天体位置仍按现代星历与天文时间尺度计算。
    */
   useTrueSolarTime?: boolean;
@@ -454,9 +550,19 @@ export interface QizhengResult {
   /** @deprecated 固定容许度吊照缺少可靠统一依据，兼容字段恒为空。 */
   aspects: QizhengAspect[];
   mingGong: number;
+  mingGongBranch: QizhengStar['branch'];
   shenGong: number;
+  shenGongBranch: QizhengStar['branch'];
   mingZhu: string;
-  twelvePalaces: { palace: string; signIndex: number }[];
+  twelvePalaces: {
+    palace: (typeof TWELVE_PALACES)[number];
+    branchIndex: number;
+    branch: QizhengStar['branch'];
+    /** @deprecated 请使用 branchIndex；兼容字段同为子0至亥11。 */
+    signIndex: number;
+  }[];
+  traditionalChartRuleCatalog: readonly QizhengTraditionalChartRule[];
+  traditionalChartFacts: QizhengTraditionalChartFact[];
   traditionalYearBasis: QizhengTraditionalYearBasis;
   shenshaRuleCatalog: readonly QizhengShenshaRule[];
   shenshaFacts: QizhengShenshaFact[];
@@ -495,6 +601,23 @@ function buildQizhengPairwiseAngles(stars: QizhengStar[]): QizhengPairGeometry[]
 }
 
 export const QIZHENG_TRADITIONAL_RULE_AUDIT: QizhengTraditionalRuleAudit = {
+  chart: {
+    status: '已校勘',
+    reason:
+      '黄道宫支、安命宫、安身宫、十二职宫逆布与命主均按可核对旧籍原文分别建档；热带黄道序号与子起十二支宫序分开计算，身宫采用旧籍明确的太阴所在宫起例',
+    retainedFacts: [
+      '十二星座对应十二支宫',
+      '生时加太阳宫顺数遇卯安命',
+      '太阴所在宫安身',
+      '十二职宫自命宫逆布',
+      '命宫支对应命主星',
+    ],
+    sources: [
+      '《张果星宗》宫分所属、安命度法、十二宫与宫主条文',
+      '《五行精纪》起身宫例',
+      '《灵台经》身宫条文',
+    ],
+  },
   dignity: {
     status: '未采用',
     reason:
@@ -524,6 +647,107 @@ export const QIZHENG_TRADITIONAL_RULE_AUDIT: QizhengTraditionalRuleAudit = {
     ],
   },
 };
+
+const QIZHENG_CHART_SOURCE_URL =
+  'https://zh.wikisource.org/wiki/欽定古今圖書集成/博物彙編/藝術典/第567卷';
+const QIZHENG_WUXING_JINGJI_SOURCE_URL = 'https://zh.wikisource.org/wiki/五行精紀';
+const QIZHENG_LINGTAI_JING_SOURCE_URL = 'https://zh.wikisource.org/wiki/靈臺經';
+const QIZHENG_TRADITIONAL_CHART_LIMITATION =
+  '这里只计算旧籍条文能够唯一复算的宫支、命宫、身宫、十二职宫和命主位置；这些排盘事实不自动生成庙旺、强弱、性格、现实事件、吉凶或应期结论';
+
+export const QIZHENG_TRADITIONAL_CHART_RULE_CATALOG = [
+  {
+    id: 'zodiac-branch-mapping',
+    name: '黄道星座对应十二支宫',
+    status: '已校勘',
+    rule: '白羊戌、金牛酉、双子申、巨蟹未、狮子午、双女巳、天秤辰、天蝎卯、人马寅、磨羯丑、宝瓶子、双鱼亥。',
+    sources: [
+      {
+        title: '《张果星宗》',
+        url: QIZHENG_CHART_SOURCE_URL,
+        section: '宫分所属',
+        quote:
+          '子土宝瓶，丑土磨羯，寅木人马，卯火天蝎，辰金天秤，巳水双女，午日狮子，未月巨蟹，申水双子，酉金金牛，戌火白羊，亥木双鱼。',
+      },
+    ],
+    usage:
+      '先按回归黄经每30度确定热带黄道星座，再查询对应十二支宫；不得把白羊序号0直接当成子支序0。',
+    limitation: QIZHENG_TRADITIONAL_CHART_LIMITATION,
+  },
+  {
+    id: 'ming-gong',
+    name: '安命宫',
+    status: '已校勘',
+    rule: '以生时加太阳所在十二支宫，顺数遇卯所临之宫为命宫。',
+    sources: [
+      {
+        title: '《张果星宗》',
+        url: QIZHENG_CHART_SOURCE_URL,
+        section: '安命度法',
+        quote:
+          '以生时加太阳宫，顺数遇卯，即是命宫也。如太阳在子宫，酉时生人，以酉时加在子宫，顺数到午遇卯，即是命宫也。',
+      },
+    ],
+    usage: '命宫支序＝太阳宫支序＋卯支序－生时支序，按十二支取模。',
+    limitation: QIZHENG_TRADITIONAL_CHART_LIMITATION,
+  },
+  {
+    id: 'shen-gong',
+    name: '安身宫',
+    status: '已校勘',
+    rule: '太阴所在十二支宫即为身宫，不另以生时加减。',
+    sources: [
+      {
+        title: '《五行精纪》',
+        url: QIZHENG_WUXING_JINGJI_SOURCE_URL,
+        section: '起身宫例',
+        quote: '凡起身宫，看当生太阴在何宫，太阴坐宫处，即身宫也。',
+      },
+      {
+        title: '《灵台经》',
+        url: QIZHENG_LINGTAI_JING_SOURCE_URL,
+        section: '身宫',
+        quote: '但以历等，先定太阴所在之宫，便为身宫。',
+      },
+    ],
+    usage: '以目标时刻太阴黄经换算出的十二支宫作为身宫；生时只参与命宫计算。',
+    limitation:
+      '后世可见其他安身宫法，但旧加时公式未找到足以覆盖上述旧籍明文的固定版本依据，当前不采用；身宫位置本身仍不得扩张为吉凶或事件结论。',
+  },
+  {
+    id: 'twelve-palaces',
+    name: '十二职宫逆布',
+    status: '已校勘',
+    rule: '命宫、财帛、兄弟、田宅、男女、奴仆、妻妾、疾厄、迁移、官禄、福德、相貌，自命宫起沿十二支逆数轮转。',
+    sources: [
+      {
+        title: '《张果星宗》',
+        url: QIZHENG_CHART_SOURCE_URL,
+        section: '定十二宫',
+        quote:
+          '凡定十二宫者，逆数轮转。如命宫在寅，财帛在丑，兄弟在子，田宅在亥，男女在戌，奴仆在酉，妻妾在申，疾厄在未，余同此。',
+      },
+    ],
+    usage: '第i个职宫的宫支序＝命宫支序－i，按十二支取模。',
+    limitation: QIZHENG_TRADITIONAL_CHART_LIMITATION,
+  },
+  {
+    id: 'ming-zhu',
+    name: '安命主',
+    status: '已校勘',
+    rule: '子丑宫土、寅亥宫木、卯戌宫火、辰酉宫金、巳申宫水、午宫日、未宫月。',
+    sources: [
+      {
+        title: '《张果星宗》',
+        url: QIZHENG_CHART_SOURCE_URL,
+        section: '宫主',
+        quote: '宫主者，谓子丑宫土，寅亥宫木，卯戌宫火，辰酉宫金，巳申宫水，午宫日，未宫月。',
+      },
+    ],
+    usage: '按命宫所在十二支查询命主星。',
+    limitation: QIZHENG_TRADITIONAL_CHART_LIMITATION,
+  },
+] as const satisfies readonly QizhengTraditionalChartRule[];
 
 const QIZHENG_SHENSHA_SOURCE_URL =
   'https://zh.wikisource.org/wiki/欽定古今圖書集成/博物彙編/藝術典/第568卷';
@@ -900,6 +1124,153 @@ function normalizeLongitude(value: number): number {
   return ((value % 360) + 360) % 360;
 }
 
+export interface QizhengZodiacBranchPosition {
+  normalizedLongitude: number;
+  tropicalZodiacIndex: number;
+  tropicalZodiac: QizhengStar['tropicalZodiac'];
+  branchIndex: number;
+  branch: QizhengStar['branch'];
+}
+
+function assertQizhengBranchIndex(value: number, label: string): void {
+  if (!Number.isInteger(value) || value < 0 || value >= QIZHENG_EARTHLY_BRANCHES.length) {
+    throw new Error(`${label}必须是子0至亥11的十二支宫序。`);
+  }
+}
+
+/** 将回归黄经换算为热带黄道星座及《张果星宗》十二支宫。 */
+export function longitudeToQizhengBranch(longitude: number): QizhengZodiacBranchPosition {
+  if (!Number.isFinite(longitude)) {
+    throw new Error('七政四余宫支换算需要有限黄经。');
+  }
+  const normalizedLongitude = normalizeLongitude(longitude);
+  const tropicalZodiacIndex = Math.floor(normalizedLongitude / 30) % 12;
+  const tropicalZodiac = QIZHENG_TROPICAL_ZODIAC_SIGNS[tropicalZodiacIndex];
+  const branch = QIZHENG_TROPICAL_ZODIAC_BRANCHES[tropicalZodiacIndex];
+  const branchIndex = QIZHENG_EARTHLY_BRANCHES.indexOf(branch);
+  if (branchIndex < 0) {
+    throw new Error(`七政四余宫支目录缺失：${tropicalZodiac}。`);
+  }
+  return { normalizedLongitude, tropicalZodiacIndex, tropicalZodiac, branchIndex, branch };
+}
+
+/** 「以生时加太阳宫，顺数遇卯」的十二支宫序公式。 */
+export function calculateQizhengMingGong(sunBranchIndex: number, hourBranchIndex: number): number {
+  assertQizhengBranchIndex(sunBranchIndex, '太阳宫支序');
+  assertQizhengBranchIndex(hourBranchIndex, '生时支序');
+  const maoBranchIndex = QIZHENG_EARTHLY_BRANCHES.indexOf('卯');
+  return (sunBranchIndex + maoBranchIndex - hourBranchIndex + 12) % 12;
+}
+
+/** 《五行精纪》《灵台经》起例：太阴所在十二支宫即为身宫。 */
+export function calculateQizhengShenGong(moonBranchIndex: number): number {
+  assertQizhengBranchIndex(moonBranchIndex, '太阴宫支序');
+  return moonBranchIndex;
+}
+
+/** 自命宫起沿十二支逆数安十二职宫。 */
+export function buildQizhengTwelvePalaces(mingGong: number): QizhengResult['twelvePalaces'] {
+  assertQizhengBranchIndex(mingGong, '命宫支序');
+  return TWELVE_PALACES.map((palace, index) => {
+    const branchIndex = (mingGong - index + 12) % 12;
+    return {
+      palace,
+      branchIndex,
+      branch: QIZHENG_EARTHLY_BRANCHES[branchIndex],
+      signIndex: branchIndex,
+    };
+  });
+}
+
+/** 按命宫支取《张果星宗》宫主。 */
+export function getQizhengMingZhu(mingGong: number): string {
+  assertQizhengBranchIndex(mingGong, '命宫支序');
+  const mingZhu = QIZHENG_MING_ZHU_BY_BRANCH[mingGong];
+  if (!mingZhu) throw new Error(`七政四余命主资料缺失：命宫序号 ${mingGong}。`);
+  return mingZhu;
+}
+
+function buildQizhengTraditionalChartFacts(args: {
+  stars: QizhengStar[];
+  sun: QizhengStar;
+  moon: QizhengStar;
+  hourBranchIndex: number;
+  mingGong: number;
+  shenGong: number;
+  mingZhu: string;
+  twelvePalaces: QizhengResult['twelvePalaces'];
+}): QizhengTraditionalChartFact[] {
+  const ruleById = new Map(QIZHENG_TRADITIONAL_CHART_RULE_CATALOG.map((rule) => [rule.id, rule]));
+  const makeFact = (
+    id: QizhengTraditionalChartRuleId,
+    inputs: Record<string, string | number>,
+    result: Record<string, string | number>,
+    promptText: string,
+  ): QizhengTraditionalChartFact => {
+    const rule = ruleById.get(id);
+    if (!rule) throw new Error(`七政四余传统盘规则目录缺失：${id}。`);
+    return {
+      key: `qizheng:traditional-chart:${id}`,
+      id,
+      name: rule.name,
+      status: '已计算',
+      inputs,
+      result,
+      promptText,
+      sources: rule.sources.map((source) => `${source.title}${source.section}：${source.url}`),
+      limitation: rule.limitation,
+    };
+  };
+  const hourBranch = QIZHENG_EARTHLY_BRANCHES[args.hourBranchIndex];
+  const mingGongBranch = QIZHENG_EARTHLY_BRANCHES[args.mingGong];
+  const shenGongBranch = QIZHENG_EARTHLY_BRANCHES[args.shenGong];
+  return [
+    makeFact(
+      'zodiac-branch-mapping',
+      { starCount: args.stars.length },
+      {
+        mappedStarCount: args.stars.length,
+        mapping: QIZHENG_TROPICAL_ZODIAC_SIGNS.map(
+          (sign, index) => `${sign}${QIZHENG_TROPICAL_ZODIAC_BRANCHES[index]}`,
+        ).join('、'),
+      },
+      `十一星均先按热带黄道星座换算十二支宫；太阳${args.sun.tropicalZodiac}对应${args.sun.branch}宫，太阴${args.moon.tropicalZodiac}对应${args.moon.branch}宫`,
+    ),
+    makeFact(
+      'ming-gong',
+      {
+        sunBranchIndex: args.sun.branchIndex,
+        sunBranch: args.sun.branch,
+        hourBranchIndex: args.hourBranchIndex,
+        hourBranch,
+      },
+      { mingGong: args.mingGong, mingGongBranch },
+      `太阳在${args.sun.branch}宫，以${hourBranch}时加太阳宫顺数遇卯，命宫为${mingGongBranch}宫`,
+    ),
+    makeFact(
+      'shen-gong',
+      { moonBranchIndex: args.moon.branchIndex, moonBranch: args.moon.branch },
+      { shenGong: args.shenGong, shenGongBranch },
+      `太阴在${args.moon.branch}宫，按太阴所在宫起身，身宫为${shenGongBranch}宫`,
+    ),
+    makeFact(
+      'twelve-palaces',
+      { mingGong: args.mingGong, mingGongBranch },
+      {
+        palaceCount: args.twelvePalaces.length,
+        arrangement: args.twelvePalaces.map((item) => `${item.palace}${item.branch}宫`).join('、'),
+      },
+      `十二职宫自${mingGongBranch}宫起逆布：${args.twelvePalaces.map((item) => `${item.palace}=${item.branch}宫`).join('；')}`,
+    ),
+    makeFact(
+      'ming-zhu',
+      { mingGong: args.mingGong, mingGongBranch },
+      { mingZhu: args.mingZhu },
+      `命宫在${mingGongBranch}宫，按宫主表取命主${args.mingZhu}`,
+    ),
+  ];
+}
+
 function assertIntegerRange(value: number, label: string, min: number, max: number): void {
   if (!Number.isInteger(value) || value < min || value > max) {
     throw new Error(`${label}需在 ${min}-${max} 之间。`);
@@ -1154,6 +1525,8 @@ function buildCalculationContext(
       '紫炁按《七政算内篇》独立古法均速模型计算回归黄经',
       '二十八宿距星J2000坐标与自行由成熟天文库转换为目标日期真黄经',
       '各星目标日期黄经按相邻距星实际弧段换算宿度',
+      '各星回归黄经先定热带黄道星座，再按《张果星宗》映射十二支宫',
+      '命宫按生时加太阳宫顺数遇卯，身宫取太阴所在宫，十二职宫自命宫逆布',
       '十一星按稳定星序完整穷举55组无序星对并计算实际最小夹角',
       '庙旺与吊照规则因原典条件未闭合而登记为未采用，不自动生成结论',
     ],
@@ -1247,6 +1620,7 @@ function buildQizhengLimitationFacts(args: {
   positionSourceFacts: QizhengPositionSourceFact[];
   starFacts: QizhengStarFact[];
   pairGeometryFacts: QizhengPairGeometryFact[];
+  traditionalChartFacts: QizhengTraditionalChartFact[];
   context: QizhengCalculationContext;
   traditionalYearBasis: QizhengTraditionalYearBasis;
   shenshaFacts: QizhengShenshaFact[];
@@ -1302,9 +1676,13 @@ function buildQizhengLimitationFacts(args: {
     {
       key: 'qizheng:limitation:traditional-rules',
       type: '传统规则边界',
-      ownerFactKeys: pairGeometryOwnerKeys,
-      promptText: `${QIZHENG_TRADITIONAL_RULE_AUDIT.dignity.reason}；${QIZHENG_TRADITIONAL_RULE_AUDIT.aspects.reason}；${QIZHENG_TRADITIONAL_RULE_AUDIT.shensha.reason}；${args.traditionalYearBasis.limitation}`,
+      ownerFactKeys: [
+        ...args.traditionalChartFacts.map((fact) => fact.key),
+        ...pairGeometryOwnerKeys,
+      ],
+      promptText: `${QIZHENG_TRADITIONAL_RULE_AUDIT.chart.reason}；${QIZHENG_TRADITIONAL_RULE_AUDIT.dignity.reason}；${QIZHENG_TRADITIONAL_RULE_AUDIT.aspects.reason}；${QIZHENG_TRADITIONAL_RULE_AUDIT.shensha.reason}；${args.traditionalYearBasis.limitation}`,
       sources: [
+        ...QIZHENG_TRADITIONAL_RULE_AUDIT.chart.sources,
         ...QIZHENG_TRADITIONAL_RULE_AUDIT.dignity.sources,
         ...QIZHENG_TRADITIONAL_RULE_AUDIT.aspects.sources,
         ...QIZHENG_TRADITIONAL_RULE_AUDIT.shensha.sources,
@@ -1327,6 +1705,7 @@ function buildQizhengLimitationFacts(args: {
       ownerFactKeys: [
         args.calculationFact.key,
         ...args.starFacts.map((item) => item.key),
+        ...args.traditionalChartFacts.map((item) => item.key),
         ...pairGeometryOwnerKeys,
         ...args.shenshaFacts.map((item) => item.key),
       ],
@@ -1352,6 +1731,7 @@ function buildQizhengSummaryFact(args: {
   positionSourceFacts: QizhengPositionSourceFact[];
   starFacts: QizhengStarFact[];
   pairGeometryFacts: QizhengPairGeometryFact[];
+  traditionalChartFacts: QizhengTraditionalChartFact[];
   traditionalYearBasis: QizhengTraditionalYearBasis;
   shenshaFacts: QizhengShenshaFact[];
   counterEvidenceFacts: QizhengCounterEvidenceFact[];
@@ -1361,10 +1741,11 @@ function buildQizhengSummaryFact(args: {
 }): QizhengSummaryFact {
   const status =
     args.calculationFact.status === '输入明确' &&
-    args.calculationFact.steps.length === 8 &&
+    args.calculationFact.steps.length === 9 &&
     args.positionSourceFacts.length === 4 &&
     args.starFacts.length === 11 &&
     args.pairGeometryFacts.length === 55 &&
+    args.traditionalChartFacts.length === QIZHENG_TRADITIONAL_CHART_RULE_CATALOG.length &&
     args.traditionalYearBasis.status === '年干支口径一致' &&
     args.shenshaFacts.length === QIZHENG_SHENSHA_RULE_CATALOG.length
       ? '可用事实链完整'
@@ -1379,6 +1760,7 @@ function buildQizhengSummaryFact(args: {
         ...args.positionSourceFacts.map((item) => item.key),
         ...args.starFacts.map((item) => item.key),
         ...args.pairGeometryFacts.map((item) => item.key),
+        ...args.traditionalChartFacts.map((item) => item.key),
         'qizheng:calculation:traditional-year-boundary',
         ...args.shenshaFacts.map((item) => item.key),
         args.context.astronomicalTime.key,
@@ -1392,12 +1774,13 @@ function buildQizhengSummaryFact(args: {
     positionSourceFactCount: args.positionSourceFacts.length,
     starFactCount: args.starFacts.length,
     pairGeometryFactCount: args.pairGeometryFacts.length,
+    traditionalChartFactCount: args.traditionalChartFacts.length,
     shenshaFactCount: args.shenshaFacts.length,
     counterEvidenceCount: args.counterEvidenceFacts.length,
     limitationFactCount: args.limitationFacts.length,
-    promptText: `证据链状态：${status}；位置来源${args.positionSourceFacts.length}项、逐星${args.starFacts.length}项、星对几何${args.pairGeometryFacts.length}项、传统神煞起例${args.shenshaFacts.length}项、反证${args.counterEvidenceFacts.length}项、限制${args.limitationFacts.length}项`,
+    promptText: `证据链状态：${status}；位置来源${args.positionSourceFacts.length}项、逐星${args.starFacts.length}项、星对几何${args.pairGeometryFacts.length}项、传统命身宫规则${args.traditionalChartFacts.length}项、传统神煞起例${args.shenshaFacts.length}项、反证${args.counterEvidenceFacts.length}项、限制${args.limitationFacts.length}项`,
     sources: [
-      '七政四余输入、时间尺度、位置来源、逐星、星对几何、传统年界、神煞起例、月相光照、反证与限制事实逐项汇总',
+      '七政四余输入、时间尺度、位置来源、逐星、星对几何、传统命身十二职宫、传统年界、神煞起例、月相光照、反证与限制事实逐项汇总',
     ],
     limitation: QIZHENG_SUMMARY_FACT_LIMITATION,
   };
@@ -1411,6 +1794,8 @@ function buildQizhengEvidence(
     mingGong: number;
     shenGong: number;
     mingZhu: string;
+    twelvePalaces: QizhengResult['twelvePalaces'];
+    traditionalChartFacts: QizhengTraditionalChartFact[];
     traditionalYearBasis: QizhengTraditionalYearBasis;
     shenshaFacts: QizhengShenshaFact[];
     ziqi: ZiqiPosition;
@@ -1521,8 +1906,31 @@ function buildQizhengEvidence(
       inputs: { mansionStarCount: QIZHENG_MANSION_STARS.length },
       result: { starFactCount: stars.length, palaceCount: 12 },
       dependsOnStepKeys: ['qizheng:calculation:mansion-boundaries'],
-      promptText: '各星目标日期黄经按相邻距星实际弧段换算宿度，并映射十二宫、命宫与身宫',
-      sources: ['二十八宿距星目标日期真黄经边界', '十二宫映射与安命安身规则'],
+      promptText:
+        '各星目标日期黄经按相邻距星实际弧段换算宿度，并按《张果星宗》黄道星座对应关系换算十二支宫',
+      sources: ['二十八宿距星目标日期真黄经边界', '《张果星宗》宫分所属黄道星座与十二支宫映射'],
+      limitation: QIZHENG_CALCULATION_STEP_LIMITATION,
+    },
+    {
+      key: 'qizheng:calculation:traditional-chart',
+      stage: '传统命身宫与十二职宫',
+      status: '已计算',
+      inputs: {
+        sunBranch:
+          QIZHENG_EARTHLY_BRANCHES[stars.find((star) => star.name === '太阳')!.branchIndex],
+        moonBranch:
+          QIZHENG_EARTHLY_BRANCHES[stars.find((star) => star.name === '太阴')!.branchIndex],
+        chartRuleCount: QIZHENG_TRADITIONAL_CHART_RULE_CATALOG.length,
+      },
+      result: {
+        mingGongBranch: QIZHENG_EARTHLY_BRANCHES[structure.mingGong],
+        shenGongBranch: QIZHENG_EARTHLY_BRANCHES[structure.shenGong],
+        mingZhu: structure.mingZhu,
+        palaceCount: structure.twelvePalaces.length,
+      },
+      dependsOnStepKeys: ['qizheng:calculation:xiu-palace'],
+      promptText: structure.traditionalChartFacts.map((fact) => fact.promptText).join('；'),
+      sources: Array.from(new Set(structure.traditionalChartFacts.flatMap((fact) => fact.sources))),
       limitation: QIZHENG_CALCULATION_STEP_LIMITATION,
     },
     {
@@ -1531,7 +1939,7 @@ function buildQizhengEvidence(
       status: '已计算',
       inputs: { starCount: stars.length },
       result: { expectedPairCount: 55, actualPairCount: pairwiseAngles.length },
-      dependsOnStepKeys: ['qizheng:calculation:xiu-palace'],
+      dependsOnStepKeys: ['qizheng:calculation:traditional-chart'],
       promptText: `十一星共55组无序星对，已按稳定星序完整计算${pairwiseAngles.length}组实际最小夹角`,
       sources: ['十一星目标日期黄经', '无序星对组合穷举与最小夹角计算'],
       limitation: QIZHENG_CALCULATION_STEP_LIMITATION,
@@ -1575,7 +1983,8 @@ function buildQizhengEvidence(
       'UTC、JD与近似TT时间尺度换算',
       'celestine现代位置计算',
       structure.ziqiModel.name,
-      '距星自行、目标日期真黄道、二十八宿与十二宫换算',
+      '距星自行、目标日期真黄道、二十八宿与十二支宫换算',
+      '《张果星宗》《五行精纪》《灵台经》传统命身宫与十二职宫规则',
       '《张果星宗》传统神煞起例与年界双口径核验',
     ],
     limitation: CALCULATION_FACT_LIMITATION,
@@ -1614,13 +2023,17 @@ function buildQizhengEvidence(
     xiu: star.xiu,
     sevenStar: star.sevenStar,
     xiuDegree: star.xiuDegree,
+    tropicalZodiacIndex: star.tropicalZodiacIndex,
+    tropicalZodiac: star.tropicalZodiac,
+    branchIndex: star.branchIndex,
+    branch: star.branch,
     signIndex: star.signIndex,
     palace: star.palace,
     retrograde: star.retrograde,
     sourceId: star.sourceId,
     sourceLabel: star.sourceLabel,
     precisionClass: star.precisionClass,
-    promptText: `${star.name}（${star.kind}，${star.precisionClass}）：目标日期黄经${star.longitude.toFixed(3)}°，${star.xiu}宿${star.xiuDegree.toFixed(2)}度，落${star.palace}${star.retrograde ? '，逆行' : ''}`,
+    promptText: `${star.name}（${star.kind}，${star.precisionClass}）：目标日期黄经${star.longitude.toFixed(3)}°，热带黄道${star.tropicalZodiac}、对应${star.branch}宫，${star.xiu}宿${star.xiuDegree.toFixed(2)}度，落${star.palace}${star.retrograde ? '，逆行' : ''}`,
     sources: [
       star.sourceLabel,
       `位置源标识${star.sourceId}`,
@@ -1641,10 +2054,10 @@ function buildQizhengEvidence(
   }));
   const primaryFacts = starFacts.map(
     (fact) =>
-      `${fact.name}据${fact.sourceLabel}得${fact.precisionClass}位置，落${fact.palace}、${fact.xiu}宿`,
+      `${fact.name}据${fact.sourceLabel}得${fact.precisionClass}位置，在${fact.branch}宫，落${fact.palace}、${fact.xiu}宿`,
   );
   primaryFacts.push(
-    `命宫落黄道第${structure.mingGong + 1}宫，身宫落黄道第${structure.shenGong + 1}宫，命主${structure.mingZhu}`,
+    `${structure.traditionalChartFacts.map((fact) => fact.promptText).join('；')}；命宫在${QIZHENG_EARTHLY_BRANCHES[structure.mingGong]}宫，身宫在${QIZHENG_EARTHLY_BRANCHES[structure.shenGong]}宫，命主${structure.mingZhu}`,
   );
   const supportingFacts = pairGeometryFacts.map((pair) => pair.promptText);
   supportingFacts.push(
@@ -1670,6 +2083,7 @@ function buildQizhengEvidence(
     positionSourceFacts,
     starFacts,
     pairGeometryFacts,
+    traditionalChartFacts: structure.traditionalChartFacts,
     context,
     traditionalYearBasis: structure.traditionalYearBasis,
     shenshaFacts: structure.shenshaFacts,
@@ -1682,6 +2096,7 @@ function buildQizhengEvidence(
     positionSourceFacts,
     starFacts,
     pairGeometryFacts,
+    traditionalChartFacts: structure.traditionalChartFacts,
     traditionalYearBasis: structure.traditionalYearBasis,
     shenshaFacts: structure.shenshaFacts,
     counterEvidenceFacts,
@@ -1690,6 +2105,19 @@ function buildQizhengEvidence(
     context,
   });
   const calculationChain = calculationSteps.map((item) => item.promptText);
+  const traditionalChartEvidenceItems: PromptEvidenceItem[] = structure.traditionalChartFacts.map(
+    (fact) => {
+      const rule = QIZHENG_TRADITIONAL_CHART_RULE_CATALOG.find((item) => item.id === fact.id);
+      if (!rule) throw new Error(`七政四余传统盘规则目录缺失：${fact.id}。`);
+      return {
+        level: '主证',
+        title: `${fact.name}事实`,
+        detail: `${fact.promptText}；规则：${rule.rule}；原文：${rule.sources.map((source) => `${source.title}${source.section}“${source.quote}”`).join('；')}；边界：${fact.limitation}`,
+        source: fact.sources.join('；'),
+        tags: ['传统命身宫', fact.id, fact.status],
+      };
+    },
+  );
   const items: PromptEvidenceItem[] = [
     {
       level: calculationFact.status === '输入明确' ? '辅证' : '反证',
@@ -1712,6 +2140,7 @@ function buildQizhengEvidence(
       source: star.sources.join('；'),
       tags: [star.kind, star.precisionClass, star.xiu, star.palace],
     })),
+    ...traditionalChartEvidenceItems,
     ...pairGeometryFacts.map((pair): PromptEvidenceItem => ({
       level: '辅证',
       title: `${pair.star1}与${pair.star2}实际夹角`,
@@ -1803,6 +2232,7 @@ function buildQizhengEvidence(
     positionSourceFacts,
     starFacts,
     pairGeometryFacts,
+    traditionalChartFacts: structure.traditionalChartFacts,
     traditionalYearBasis: structure.traditionalYearBasis,
     shenshaFacts: structure.shenshaFacts,
     primaryFacts,
@@ -1818,7 +2248,9 @@ function buildQizhengEvidence(
     methodology: [
       '先固定民用时间、时区、地点和UTC计算时刻。',
       '逐星保留计算来源，区分现代天文位置与传统紫炁均速模型。',
-      '再按目标日期二十八宿距星真黄经边界换算宿度与十二宫；庙旺原典条件未闭合，当前不自动判定。',
+      '再按目标日期二十八宿距星真黄经边界换算宿度，并按《张果星宗》把热带黄道星座换成十二支宫。',
+      '命宫以生时加太阳宫顺数遇卯，身宫据《五行精纪》《灵台经》取太阴所在宫，十二职宫自命宫逆布；这些位置不扩张为吉凶。',
+      '庙旺原典条件未闭合，当前不自动判定。',
       '完整穷举十一星的55组无序星对并保留实际最小夹角；固定容许度吊照缺少可靠统一依据，当前不自动判定。',
       '按《张果星宗》逐项保留传统神煞起例目标支；先比较农历年干支与立春年柱，年界口径不一致时不自动选边。',
       '月相只保留日月黄经差、照明近似和前后朔弦望时刻，不把月相直接解释为吉凶。',
@@ -1851,7 +2283,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     minute: input.minute ?? 0,
     second: 0,
   };
-  let trueSolarNote = '传统命身十二宫按输入民用时间排布';
+  let trueSolarNote = '传统命宫所用生时与年界按输入民用时间记录；身宫直接取太阴所在宫';
   if (useTrueSolarTime) {
     if (input.longitude === undefined) {
       throw new Error('启用真太阳时时必须提供出生地经度。');
@@ -1883,7 +2315,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     traditionalDateParts = trueSolar.correctedTime;
     calculationContext.standardMeridian = standardMeridian;
     calculationContext.standardMeridianSource = standardMeridianSource;
-    trueSolarNote = `传统命身十二宫已按真太阳时校正（标准经线${standardMeridian}°，来源${standardMeridianSource}；经度修正 ${trueSolar.longitudeCorrectionMinutes.toFixed(2)} 分，均时差 ${trueSolar.equationOfTimeMinutes.toFixed(2)} 分）；七政四余位置仍用现代星历`;
+    trueSolarNote = `传统命宫所用生时与可能跨日的年界已按真太阳时校正（标准经线${standardMeridian}°，来源${standardMeridianSource}；经度修正 ${trueSolar.longitudeCorrectionMinutes.toFixed(2)} 分，均时差 ${trueSolar.equationOfTimeMinutes.toFixed(2)} 分）；身宫直接取太阴所在宫，七政四余位置仍用现代星历`;
     calculationContext.palaceTimeNote = trueSolarNote;
   } else {
     calculationContext.palaceTimeNote = trueSolarNote;
@@ -1929,7 +2361,7 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     const longitude = normalizeLongitude(tropical);
     const { xiu, xiuDegree } = longitudeToQizhengMansion(longitude, mansionBoundaries);
     const sevenStar = TwentyEightStar.fromName(xiu).getSevenStar().getName();
-    const signIndex = Math.floor(longitude / 30);
+    const zodiacBranch = longitudeToQizhengBranch(longitude);
     const source = QIZHENG_POSITION_SOURCES.find((item) => item.id === sourceId);
     if (!source) throw new Error(`七政四余位置来源缺失：${sourceId}。`);
     stars.push({
@@ -1940,7 +2372,11 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
       xiu,
       sevenStar,
       xiuDegree,
-      signIndex,
+      tropicalZodiacIndex: zodiacBranch.tropicalZodiacIndex,
+      tropicalZodiac: zodiacBranch.tropicalZodiac,
+      branchIndex: zodiacBranch.branchIndex,
+      branch: zodiacBranch.branch,
+      signIndex: zodiacBranch.branchIndex,
       palace: '',
       retrograde,
       sourceId,
@@ -1974,34 +2410,32 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
   if (!sun || !moon || stars.filter((star) => star.kind === '七政').length !== 7) {
     throw new Error('七政星体数据不完整：必须包含日、月与五星。');
   }
-  const sunSign = sun.signIndex;
-  const moonSign = moon.signIndex;
-
   // 生时地支序（子0…亥11）：复用公共十二时辰；晚子时索引 12 归并为子支序 0。
   const shichen = getShichenFromClock(palaceHour, palaceMinute);
   if (!shichen) throw new Error('七政四余无法根据输入时间确定时辰。');
   const hourIdx = shichen.index % 12;
-  const MAO = 3,
-    YOU = 9; // 卯、酉
 
-  // 安命宫：「生时加太阳宫，顺数见卯」→ 命宫 = 太阳宫 + (卯 - 生时) mod 12
-  const mingGong = (((sunSign + (MAO - hourIdx) + 12) % 12) + 12) % 12;
-  // 安身宫：「生时加太阴宫，逆数见酉」→ 身宫 = 太阴宫 + (生时 - 酉) mod 12
-  const shenGong = (((moonSign + (hourIdx - YOU) + 12) % 12) + 12) % 12;
-
-  const twelvePalaces = TWELVE_PALACES.map((palace, i) => ({
-    palace,
-    signIndex: (mingGong - i + 12) % 12, // 自命宫逆布
-  }));
-  const palaceBySign = new Map(twelvePalaces.map((t) => [t.signIndex, t.palace]));
+  const mingGong = calculateQizhengMingGong(sun.branchIndex, hourIdx);
+  const shenGong = calculateQizhengShenGong(moon.branchIndex);
+  const twelvePalaces = buildQizhengTwelvePalaces(mingGong);
+  const palaceByBranch = new Map(twelvePalaces.map((item) => [item.branchIndex, item.palace]));
   for (const s of stars) {
-    const palace = palaceBySign.get(s.signIndex);
+    const palace = palaceByBranch.get(s.branchIndex);
     if (!palace) throw new Error(`七政四余星体宫位映射缺失：${s.name}。`);
     s.palace = palace;
   }
 
-  const mingZhu = MING_ZHU[mingGong];
-  if (!mingZhu) throw new Error(`七政四余命主资料缺失：命宫序号 ${mingGong}。`);
+  const mingZhu = getQizhengMingZhu(mingGong);
+  const traditionalChartFacts = buildQizhengTraditionalChartFacts({
+    stars,
+    sun,
+    moon,
+    hourBranchIndex: hourIdx,
+    mingGong,
+    shenGong,
+    mingZhu,
+    twelvePalaces,
+  });
   const pairwiseAngles = buildQizhengPairwiseAngles(stars);
   const geometryCalculation: QizhengGeometryCalculation = {
     starCount: 11,
@@ -2029,6 +2463,8 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     mingGong,
     shenGong,
     mingZhu,
+    twelvePalaces,
+    traditionalChartFacts,
     traditionalYearBasis,
     shenshaFacts,
     ziqi,
@@ -2048,13 +2484,19 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     `紫炁位置：顺行，传统均速模型回归黄经${ziqi.tropicalLongitude.toFixed(3)}°。`,
     ...stars.map(
       (s) =>
-        `${s.kind} ${s.name}：目标日期黄经${s.longitude.toFixed(3)}°，在${s.xiu}宿${s.xiuDegree.toFixed(2)}度，落${s.palace}${s.retrograde ? '（逆）' : ''}；来源${s.sourceLabel}（${s.precisionClass}）`,
+        `${s.kind} ${s.name}：目标日期黄经${s.longitude.toFixed(3)}°，热带黄道${s.tropicalZodiac}对应${s.branch}宫，在${s.xiu}宿${s.xiuDegree.toFixed(2)}度，落${s.palace}${s.retrograde ? '（逆）' : ''}；来源${s.sourceLabel}（${s.precisionClass}）`,
     ),
     `十一星星对几何：共55组无序星对，完整列出如下：${pairwiseAngles.map((pair) => `${pair.star1}与${pair.star2}实际最小夹角${pair.actualAngle.toFixed(2)}°（${pair.precisionClass}）`).join('；')}。`,
+    `传统盘规则审计：${QIZHENG_TRADITIONAL_RULE_AUDIT.chart.reason}。`,
+    `传统盘计算事实：${traditionalChartFacts.map((fact) => fact.promptText).join('；')}。`,
+    `传统盘原典依据：${QIZHENG_TRADITIONAL_CHART_RULE_CATALOG.map((rule) => `${rule.name}规则为“${rule.rule}”，据${rule.sources.map((source) => `${source.title}${source.section}“${source.quote}”（${source.url}）`).join('、')}`).join('；')}。`,
+    `传统盘使用边界：${QIZHENG_TRADITIONAL_CHART_RULE_CATALOG.map((rule) => rule.limitation)
+      .filter((value, index, values) => values.indexOf(value) === index)
+      .join('；')}`,
     `传统规则审计：庙旺未采用，${QIZHENG_TRADITIONAL_RULE_AUDIT.dignity.reason}；吊照未采用，${QIZHENG_TRADITIONAL_RULE_AUDIT.aspects.reason}。`,
-    `命宫在${TWELVE_PALACES[0]}（黄道第 ${mingGong + 1} 宫），命主${mingZhu}；身宫在第 ${shenGong + 1} 宫。`,
+    `命宫在${QIZHENG_EARTHLY_BRANCHES[mingGong]}宫，命主${mingZhu}；身宫按太阴所在宫取${QIZHENG_EARTHLY_BRANCHES[shenGong]}宫。`,
     trueSolarNote,
-    `十二宫映射：${twelvePalaces.map((item) => `${item.palace}=黄道第${item.signIndex + 1}宫`).join('；')}。`,
+    `十二职宫逆布：${twelvePalaces.map((item) => `${item.palace}=${item.branch}宫`).join('；')}。`,
     `传统年界核验：${traditionalYearBasis.promptText}。`,
     shenshaFacts.length
       ? `传统神煞起例目标支：${shenshaFacts.map((fact) => `${fact.name}（生${fact.basis}${fact.basisValue}）→${fact.targetBranch}`).join('；')}。这些只是原典起例目标支，不代表已经落入具体宫位或与星曜相遇。`
@@ -2069,9 +2511,13 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     traditionalRuleAudit: QIZHENG_TRADITIONAL_RULE_AUDIT,
     aspects: [],
     mingGong,
+    mingGongBranch: QIZHENG_EARTHLY_BRANCHES[mingGong],
     shenGong,
+    shenGongBranch: QIZHENG_EARTHLY_BRANCHES[shenGong],
     mingZhu,
     twelvePalaces,
+    traditionalChartRuleCatalog: QIZHENG_TRADITIONAL_CHART_RULE_CATALOG,
+    traditionalChartFacts,
     traditionalYearBasis,
     shenshaRuleCatalog: QIZHENG_SHENSHA_RULE_CATALOG,
     shenshaFacts,
@@ -2094,8 +2540,18 @@ export const qizheng = {
   calculateZiqiPosition,
   ZIQI_MODEL_INFO,
   QIZHENG_POSITION_SOURCES,
+  QIZHENG_EARTHLY_BRANCHES,
+  QIZHENG_TROPICAL_ZODIAC_SIGNS,
+  QIZHENG_TROPICAL_ZODIAC_BRANCHES,
+  QIZHENG_MING_ZHU_BY_BRANCH,
+  QIZHENG_TRADITIONAL_CHART_RULE_CATALOG,
   QIZHENG_MANSION_STARS,
   QIZHENG_MANSION_MODEL,
   calculateQizhengMansionBoundaries,
   longitudeToQizhengMansion,
+  longitudeToQizhengBranch,
+  calculateQizhengMingGong,
+  calculateQizhengShenGong,
+  buildQizhengTwelvePalaces,
+  getQizhengMingZhu,
 };

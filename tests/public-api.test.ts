@@ -5604,9 +5604,19 @@ test('公开 API 七政四余应返回十一星、真实距星宿界、证据链
   assert.equal(calculate.body.data.evidenceAnalysis.pairGeometryFacts.length, 55);
   assert.equal(calculate.body.data.geometryCalculation.complete, true);
   assert.deepEqual(calculate.body.data.aspects, []);
+  assert.equal(calculate.body.data.traditionalRuleAudit.chart.status, '已校勘');
   assert.equal(calculate.body.data.traditionalRuleAudit.dignity.status, '未采用');
   assert.equal(calculate.body.data.traditionalRuleAudit.aspects.status, '未采用');
   assert.equal(calculate.body.data.traditionalRuleAudit.shensha.status, '已校勘起例');
+  assert.equal(calculate.body.data.traditionalChartRuleCatalog.length, 5);
+  assert.equal(calculate.body.data.traditionalChartFacts.length, 5);
+  assert.equal(calculate.body.data.evidenceAnalysis.traditionalChartFacts.length, 5);
+  assert.ok(
+    calculate.body.data.stars.every(
+      (star: { tropicalZodiac: string; branch: string; branchIndex: number }) =>
+        star.tropicalZodiac.length > 0 && star.branch.length === 1 && star.branchIndex >= 0,
+    ),
+  );
   assert.equal(calculate.body.data.traditionalYearBasis.status, '年干支口径一致');
   assert.equal(calculate.body.data.traditionalYearBasis.adoptedYearGanZhi, '甲辰');
   assert.equal(calculate.body.data.shenshaFacts.length, 8);
@@ -5644,7 +5654,13 @@ test('公开 API 七政四余应返回十一星、真实距星宿界、证据链
     promptResponse.body.data.prompt,
     /【七政四余 · 果老星宗】[\s\S]*共55组无序星对[\s\S]*天乙（昼贵）[\s\S]*玉堂（夜贵）[\s\S]*第568卷[\s\S]*目标支不等于已经落入[\s\S]*【问题】\n请分析本命结构。/,
   );
+  assert.match(promptResponse.body.data.prompt, /白羊戌/);
+  assert.match(promptResponse.body.data.prompt, /《五行精纪》[\s\S]*《灵台经》/);
   assert.doesNotMatch(promptResponse.body.data.prompt, /天乙.*日干|神煞定位/);
+  assert.doesNotMatch(
+    promptResponse.body.data.prompt,
+    /黄道第\s*\d+宫|生时加太阴|逆数见酉|身宫已按真太阳时校正/,
+  );
   assertPromptIsPortableTaskText(promptResponse.body.data.prompt);
 
   const yearBoundary = await callApi('metaphysics/qizheng/calculate', {

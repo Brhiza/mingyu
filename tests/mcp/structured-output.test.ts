@@ -3068,10 +3068,21 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
     const chart = (
       chartResponse.structuredContent as {
         result: {
-          stars: Array<{ precisionClass: string }>;
+          stars: Array<{
+            precisionClass: string;
+            tropicalZodiac: string;
+            branch: string;
+            branchIndex: number;
+          }>;
           pairwiseAngles: unknown[];
           geometryCalculation: { complete: boolean };
-          traditionalRuleAudit: { dignity: { status: string }; aspects: { status: string } };
+          traditionalRuleAudit: {
+            chart: { status: string };
+            dignity: { status: string };
+            aspects: { status: string };
+          };
+          traditionalChartRuleCatalog: unknown[];
+          traditionalChartFacts: unknown[];
           traditionalYearBasis: { status: string; adoptedYearGanZhi?: string };
           shenshaFacts: Array<{
             name: string;
@@ -3085,6 +3096,7 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
           evidenceAnalysis: {
             status: string;
             pairGeometryFacts: unknown[];
+            traditionalChartFacts: unknown[];
             summaryFact: { status: string };
           };
         };
@@ -3096,8 +3108,18 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
     assert.equal(chart.evidenceAnalysis.pairGeometryFacts.length, 55);
     assert.equal(chart.geometryCalculation.complete, true);
     assert.deepEqual(chart.aspects, []);
+    assert.equal(chart.traditionalRuleAudit.chart.status, '已校勘');
     assert.equal(chart.traditionalRuleAudit.dignity.status, '未采用');
     assert.equal(chart.traditionalRuleAudit.aspects.status, '未采用');
+    assert.equal(chart.traditionalChartRuleCatalog.length, 5);
+    assert.equal(chart.traditionalChartFacts.length, 5);
+    assert.equal(chart.evidenceAnalysis.traditionalChartFacts.length, 5);
+    assert.ok(
+      chart.stars.every(
+        (star) =>
+          star.tropicalZodiac.length > 0 && star.branch.length === 1 && star.branchIndex >= 0,
+      ),
+    );
     assert.equal(chart.traditionalYearBasis.status, '年干支口径一致');
     assert.equal(chart.traditionalYearBasis.adoptedYearGanZhi, '甲辰');
     assert.equal(chart.shenshaFacts.length, 8);
@@ -3130,7 +3152,10 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
       prompt,
       /【七政四余 · 果老星宗】[\s\S]*共55组无序星对[\s\S]*天乙（昼贵）[\s\S]*玉堂（夜贵）[\s\S]*第568卷[\s\S]*目标支不等于已经落入[\s\S]*【问题】\n请分析本命结构。/,
     );
+    assert.match(prompt, /白羊戌/);
+    assert.match(prompt, /《五行精纪》[\s\S]*《灵台经》/);
     assert.doesNotMatch(prompt, /天乙.*日干|神煞定位/);
+    assert.doesNotMatch(prompt, /黄道第\s*\d+宫|生时加太阴|逆数见酉|身宫已按真太阳时校正/);
     assertPromptIsPortableTaskText(prompt);
 
     const yearBoundaryResponse = await client.callTool({

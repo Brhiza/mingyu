@@ -879,8 +879,11 @@ test('qizheng: 应返回十一星、二十八宿界、完整星对几何与传�
   assert.equal(result.pairwiseAngles.length, 55);
   assert.equal(result.evidenceAnalysis.pairGeometryFacts.length, 55);
   assert.deepEqual(result.aspects, []);
+  assert.equal(result.traditionalRuleAudit.chart.status, '已校勘');
   assert.equal(result.traditionalRuleAudit.dignity.status, '未采用');
   assert.equal(result.traditionalRuleAudit.aspects.status, '未采用');
+  assert.equal(result.traditionalChartRuleCatalog.length, 5);
+  assert.equal(result.traditionalChartFacts.length, 5);
   assert.equal(result.mansionModel.id, 'qizheng-mansion-stars-simbad-astronomy-engine');
 });
 

@@ -203,6 +203,7 @@ test('能力清单可序列化且返回副本', () => {
   assert.deepEqual(qizheng?.supports.birthTimeModes, ['precise-clock-time']);
   assert.ok(qizheng?.outputs.includes('七政四余十一星'));
   assert.ok(qizheng?.outputs.includes('二十八宿真实距星边界'));
+  assert.ok(qizheng?.outputs.includes('五项已校勘命身十二职宫规则'));
   assert.ok(qizheng?.outputs.includes('位置来源与精度分层'));
   assert.ok(qizheng?.outputs.includes('十一星55组星对实际夹角'));
   assert.ok(qizheng?.outputs.includes('庙旺与吊照未采用边界'));

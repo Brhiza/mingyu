@@ -1,7 +1,11 @@
 import { memo } from 'react';
-import type { QizhengResult, QizhengStar } from '@core/qi_zheng';
+import {
+  QIZHENG_EARTHLY_BRANCHES,
+  QIZHENG_TROPICAL_ZODIAC_BRANCHES,
+  type QizhengResult,
+  type QizhengStar,
+} from '@core/qi_zheng';
 
-const EARTHLY_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
 const STAR_STYLES: Array<{ match: string; symbol: string; color: string }> = [
   { match: '太阳', symbol: '日', color: '#d97706' },
   { match: '太阴', symbol: '月', color: '#64748b' },
@@ -36,7 +40,7 @@ function starPoint(star: QizhengStar) {
 }
 
 function QizhengChart({ data }: { data: QizhengResult }) {
-  const palaceBySign = new Map(data.twelvePalaces.map((item) => [item.signIndex, item.palace]));
+  const palaceByBranch = new Map(data.twelvePalaces.map((item) => [item.branchIndex, item.palace]));
   return (
     <svg
       className="qizheng-chart-svg"
@@ -47,10 +51,11 @@ function QizhengChart({ data }: { data: QizhengResult }) {
       <circle cx="200" cy="200" r="184" className="qizheng-ring" />
       <circle cx="200" cy="200" r="148" className="qizheng-ring" />
       <circle cx="200" cy="200" r="78" className="qizheng-ring qizheng-ring-core" />
-      {EARTHLY_BRANCHES.map((branch, index) => {
-        const line = polarPoint(index * 30, 184);
-        const inner = polarPoint(index * 30, 78);
-        const label = polarPoint(index * 30 + 15, 166);
+      {QIZHENG_TROPICAL_ZODIAC_BRANCHES.map((branch, tropicalZodiacIndex) => {
+        const branchIndex = QIZHENG_EARTHLY_BRANCHES.indexOf(branch);
+        const line = polarPoint(tropicalZodiacIndex * 30, 184);
+        const inner = polarPoint(tropicalZodiacIndex * 30, 78);
+        const label = polarPoint(tropicalZodiacIndex * 30 + 15, 166);
         return (
           <g key={branch}>
             <line
@@ -63,7 +68,7 @@ function QizhengChart({ data }: { data: QizhengResult }) {
             <text x={label.x} y={label.y} className="qizheng-palace-label">
               <tspan>{branch}</tspan>
               <tspan x={label.x} dy="11">
-                {palaceBySign.get(index)}
+                {palaceByBranch.get(branchIndex)}
               </tspan>
             </text>
           </g>
@@ -88,10 +93,10 @@ function QizhengChart({ data }: { data: QizhengResult }) {
         );
       })}
       <text x="200" y="184" className="qizheng-core-title">
-        命宫 {EARTHLY_BRANCHES[data.mingGong]}
+        命宫 {data.mingGongBranch}
       </text>
       <text x="200" y="202" className="qizheng-core-title">
-        身宫 {EARTHLY_BRANCHES[data.shenGong]}
+        身宫 {data.shenGongBranch}
       </text>
       <text x="200" y="220" className="qizheng-core-subtitle">
         命主 {data.mingZhu}
@@ -125,17 +130,15 @@ export const QizhengBoard = memo(function QizhengBoard({
       <div className="result-summary-grid">
         <div className="result-stat-card result-stat-card-accent">
           <span>命宫</span>
-          <strong>{EARTHLY_BRANCHES[data.mingGong]}宫</strong>
+          <strong>{data.mingGongBranch}宫</strong>
           <small>
-            {data.twelvePalaces.find((item) => item.signIndex === data.mingGong)?.palace}
+            {data.twelvePalaces.find((item) => item.branchIndex === data.mingGong)?.palace}
           </small>
         </div>
         <div className="result-stat-card">
           <span>身宫</span>
-          <strong>{EARTHLY_BRANCHES[data.shenGong]}宫</strong>
-          <small>
-            {data.twelvePalaces.find((item) => item.signIndex === data.shenGong)?.palace}
-          </small>
+          <strong>{data.shenGongBranch}宫</strong>
+          <small>太阴所在宫</small>
         </div>
         <div className="result-stat-card">
           <span>命主</span>
@@ -153,7 +156,7 @@ export const QizhengBoard = memo(function QizhengBoard({
           <div className="result-side-card astrolabe-chart-shell">
             <div className="result-side-head">
               <h3>十二宫星盘</h3>
-              <p>外圈为十二支宫位，星体位置按目标日期黄经标注。</p>
+              <p>外圈十二支按《张果星宗》黄道宫支映射，星体按目标日期黄经标注。</p>
             </div>
             <QizhengChart data={data} />
           </div>
@@ -173,7 +176,7 @@ export const QizhengBoard = memo(function QizhengBoard({
                     {star.name}
                   </span>
                   <strong>
-                    {star.palace} · {star.xiu}
+                    {star.branch}宫 · {star.palace} · {star.xiu}
                     {star.xiuDegree.toFixed(2)}°
                   </strong>
                   <small>

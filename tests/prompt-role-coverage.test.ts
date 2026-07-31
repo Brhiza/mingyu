@@ -93,11 +93,15 @@ test('七政四余提示词指引应约束真实距星宿界、完整星对几�
 
   assert.match(guidance.identity, /果老星宗.*现代天文坐标证据/);
   assert.match(guidance.analysis, /精度层级/);
-  assert.match(guidance.analysis, /十一星宿度、全部星对实际夹角/);
+  assert.match(guidance.analysis, /黄道星座到十二支宫的映射.*十一星宿度、全部星对实际夹角/);
+  assert.match(guidance.analysis, /身宫按太阴所在宫，不另套加时公式/);
   assert.match(guidance.analysis, /庙旺和吊照规则当前未采用，不得自行补算/);
   assert.match(guidance.tradition, /55组无序星对只提供实际最小夹角/);
   assert.match(guidance.tradition, /固定容许度吊照和简化庙旺表缺少闭合依据/);
-  assert.match(guidance.tradition, /真实距星黄经划界.*真太阳时只用于传统命身十二宫/);
-  assert.match(guidance.sources, /SIMBAD.*Astronomy Engine/);
+  assert.match(
+    guidance.tradition,
+    /真实距星黄经划界.*戌白羊.*身宫据《五行精纪》《灵台经》取太阴所在宫.*真太阳时只校正命宫所用生时/,
+  );
+  assert.match(guidance.sources, /《张果星宗》.*《五行精纪》《灵台经》.*SIMBAD.*Astronomy Engine/);
   assert.match(guidance.output, /反证与限制/);
 });
