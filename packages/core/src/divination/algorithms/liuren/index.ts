@@ -34,10 +34,11 @@ import {
 import { analyzeLiurenEvidence } from '../../liuren-evidence';
 
 /**
- * 按《六壬大全》《六壬粹言》分层计算当前已登记、无需本命资料即可确定的月煞和日煞。
+ * 按《六壬大全》《六壬粹言》分层计算当前已登记、无需本命资料即可确定的岁煞、月煞和日煞。
  * 每项保留起法输入与来源，避免把八字常用的年、日支起法混入六壬逐月神煞。
  */
 function buildShenShaFacts(
+  yearBranch: string,
   monthBranch: string,
   dayBranch: string,
   dayStem: string,
@@ -47,7 +48,7 @@ function buildShenShaFacts(
     '只定位神煞所在干支',
     '须核对是否入课、入传或临干支',
     '不得单项定吉凶',
-    '当前只登记一百三十六项可复算神煞规则；天合、天赦、天转及地转均为条件性事实，不代表《六壬大全》神煞总目录已经穷尽',
+    '当前只登记一百四十三项可复算神煞规则；天合、天赦、天转及地转均为条件性事实，不代表《六壬大全》神煞总目录已经穷尽',
   ];
   const addFact = (
     fact: Omit<LiurenShenShaFact, 'sources' | 'limitations'> & {
@@ -63,6 +64,96 @@ function buildShenShaFacts(
       limitations: [...commonLimitations, ...extraLimitations],
     });
   };
+
+  const yearBranchIndex = DIZHI.findIndex((branch) => branch === yearBranch);
+  if (yearBranchIndex >= 0) {
+    const yearShenShaRules = [
+      {
+        name: '太岁',
+        offset: 0,
+        rule: '太岁取当前年支本位',
+        source: '《六壬大全》卷一岁煞表以年支本位为太岁',
+        extraSources: [],
+        extraLimitations: [
+          '只登记当前年支的太岁位置，不混入月建、日辰、本命、行年或值年太岁信仰层面的其他口径',
+        ],
+      },
+      {
+        name: '岁破',
+        offset: 6,
+        rule: '岁破取年支对冲，即从太岁前行六辰',
+        source: '《六壬大全》卷一“岁破大耗与年冲”',
+        extraSources: ['《六壬指南注解》岁破又名大耗'],
+        extraLimitations: [
+          '岁破又名大耗、破煞；本结果统一登记为“岁破”，不另生成同位别名“大耗”或“破煞”',
+        ],
+      },
+      {
+        name: '小耗',
+        offset: 5,
+        rule: '小耗取岁前五辰',
+        source: '《六壬大全》卷一岁煞歌诀与明表以岁前五辰为小耗',
+        extraSources: ['《六壬指南注解》小耗又名岁宅'],
+        extraLimitations: ['小耗又名岁宅；本结果统一登记为“小耗”，不另生成同位别名“岁宅”'],
+      },
+      {
+        name: '病符',
+        offset: 11,
+        rule: '病符取岁后一辰，即上一年太岁',
+        source: '《六壬大全》卷一“病符后一不离宗”及岁煞明表',
+        extraSources: ['《六壬指南注解》病符主旧事', '《六壬粹言》病符为旧太岁'],
+        extraLimitations: [
+          '本项以年支起，名称用“病符”；与日支表中的“支病符”分层保存，不合并或互相替代',
+        ],
+      },
+      {
+        name: '丧门',
+        offset: 2,
+        rule: '丧门取岁前二辰',
+        source: '《六壬大全》卷一“岁前二辰丧门”',
+        extraSources: ['《六壬秘本》“岁前二辰是丧门，岁后二辰是吊客”及子年丧门在寅的例示'],
+        extraLimitations: [
+          '只登记丧门所在年支相对位置，不因单项出现自动判断丧事、疾病、死亡或其他现实结果',
+        ],
+      },
+      {
+        name: '吊客',
+        offset: 10,
+        rule: '吊客取岁后二辰',
+        source: '《六壬大全》卷一岁煞歌诀以岁后二辰为吊客',
+        extraSources: ['《六壬秘本》“岁前二辰是丧门，岁后二辰是吊客”及子年吊客在戌的例示'],
+        extraLimitations: [
+          '只登记吊客所在年支相对位置，不因单项出现自动判断吊丧、疾病、死亡或其他现实结果',
+        ],
+      },
+      {
+        name: '岁虎',
+        offset: 8,
+        rule: '岁虎取岁后四辰',
+        source: '《六壬大全》卷一岁煞歌诀与明表以岁后四辰为白虎',
+        extraSources: ['《六壬大全》“灾厄课”以白虎为岁后四神', '《六壬大全》亥年未为岁虎的占例'],
+        extraLimitations: [
+          '本项名称用“岁虎”以区别十二天将白虎及旬虎；不另生成同位别名“白虎”',
+          '只登记岁虎所在年支相对位置，不因单项出现自动判断疾病、伤亡、灾厄或其他现实结果',
+        ],
+      },
+    ] as const;
+
+    for (const rule of yearShenShaRules) {
+      addFact({
+        name: rule.name,
+        target: DIZHI[(yearBranchIndex + rule.offset) % DIZHI.length],
+        targetType: '地支',
+        category: '岁神煞',
+        basis: '年支',
+        input: yearBranch,
+        rule: rule.rule,
+        source: rule.source,
+        extraSources: [...rule.extraSources],
+        extraLimitations: [...rule.extraLimitations],
+      });
+    }
+  }
 
   const branchHorse = getYiMa(dayBranch);
   if (branchHorse) {
@@ -2130,6 +2221,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     .map((item) => `${item.stage}${item.branch}`)
     .join(' → ')}。`;
   const shenShaFacts = buildShenShaFacts(
+    ganzhi.year.charAt(1),
     ganzhi.month.charAt(1),
     ganzhi.day.charAt(1),
     ganzhi.day.charAt(0),

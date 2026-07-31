@@ -957,8 +957,74 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
         item.rule &&
         item.sources.length > 0 &&
         item.limitations.length >= 4 &&
-        item.limitations.some((limitation) => limitation.includes('一百三十六项可复算神煞规则')),
+        item.limitations.some((limitation) => limitation.includes('一百四十三项可复算神煞规则')),
     ),
+  );
+});
+
+test('大六壬七项岁神煞应按年支完整循环，并与同位别名及其他层级分开', () => {
+  const cases = [
+    [2020, '子', ['子', '午', '巳', '亥', '寅', '戌', '申']],
+    [2021, '丑', ['丑', '未', '午', '子', '卯', '亥', '酉']],
+    [2022, '寅', ['寅', '申', '未', '丑', '辰', '子', '戌']],
+    [2023, '卯', ['卯', '酉', '申', '寅', '巳', '丑', '亥']],
+    [2024, '辰', ['辰', '戌', '酉', '卯', '午', '寅', '子']],
+    [2025, '巳', ['巳', '亥', '戌', '辰', '未', '卯', '丑']],
+    [2026, '午', ['午', '子', '亥', '巳', '申', '辰', '寅']],
+    [2027, '未', ['未', '丑', '子', '午', '酉', '巳', '卯']],
+    [2028, '申', ['申', '寅', '丑', '未', '戌', '午', '辰']],
+    [2029, '酉', ['酉', '卯', '寅', '申', '亥', '未', '巳']],
+    [2030, '戌', ['戌', '辰', '卯', '酉', '子', '申', '午']],
+    [2031, '亥', ['亥', '巳', '辰', '戌', '丑', '酉', '未']],
+  ] as const;
+  const names = ['太岁', '岁破', '小耗', '病符', '丧门', '吊客', '岁虎'] as const;
+
+  for (const [year, yearBranch, targets] of cases) {
+    const result = generateLiuren(new Date(`${year}-02-20T12:00:00+08:00`));
+    const shenShaFacts = result.shenShaFacts ?? [];
+    const facts = new Map(shenShaFacts.map((item) => [item.name, item]));
+    assert.equal(result.ganzhi.year.charAt(1), yearBranch, `${year}年立春后年支`);
+    assert.deepEqual(
+      names.map((name) => [
+        name,
+        facts.get(name)?.target,
+        facts.get(name)?.category,
+        facts.get(name)?.basis,
+        facts.get(name)?.input,
+        facts.get(name)?.targetType,
+      ]),
+      names.map((name, index) => [name, targets[index], '岁神煞', '年支', yearBranch, '地支']),
+      `${yearBranch}年七项岁神煞`,
+    );
+    assert.equal(new Set(shenShaFacts.map((item) => item.name)).size, shenShaFacts.length);
+    assert.ok(
+      ['大耗', '破煞', '岁宅', '白虎'].every((name) => !facts.has(name)),
+      `${yearBranch}年不得把岁神煞同位别名重复生成为事实`,
+    );
+  }
+
+  const sampleFacts = new Map(
+    generateLiuren(new Date('2020-02-20T12:00:00+08:00')).shenShaFacts?.map((item) => [
+      item.name,
+      item,
+    ]),
+  );
+  assert.match(sampleFacts.get('太岁')?.sources.join('；') ?? '', /六壬大全.+年支本位/);
+  assert.match(sampleFacts.get('岁破')?.sources.join('；') ?? '', /岁破大耗与年冲.+岁破又名大耗/);
+  assert.match(sampleFacts.get('小耗')?.sources.join('；') ?? '', /岁前五辰.+小耗又名岁宅/);
+  assert.match(sampleFacts.get('病符')?.sources.join('；') ?? '', /病符后一不离宗.+旧太岁/);
+  assert.match(sampleFacts.get('丧门')?.sources.join('；') ?? '', /岁前二辰丧门.+岁前二辰是丧门/);
+  assert.match(sampleFacts.get('吊客')?.sources.join('；') ?? '', /岁后二辰为吊客.+岁后二辰是吊客/);
+  assert.match(
+    sampleFacts.get('岁虎')?.sources.join('；') ?? '',
+    /岁后四辰.+岁后四神.+亥年未为岁虎/,
+  );
+  assert.match(sampleFacts.get('岁破')?.limitations.join('；') ?? '', /不另生成.+大耗.+破煞/);
+  assert.match(sampleFacts.get('小耗')?.limitations.join('；') ?? '', /不另生成.+岁宅/);
+  assert.match(sampleFacts.get('病符')?.limitations.join('；') ?? '', /支病符.+分层保存/);
+  assert.match(
+    sampleFacts.get('岁虎')?.limitations.join('；') ?? '',
+    /十二天将白虎及旬虎.+不另生成.+白虎/,
   );
 });
 
@@ -1724,7 +1790,6 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       '天耳',
       '丧魂',
       '丧车',
-      '丧门',
       '魄化',
       '飞魂',
       '玉字',
@@ -2558,8 +2623,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const hasDiZhuan = facts.has('地转');
     assert.equal(
       shenShaFacts.length,
-      132 + Number(hasTianHe) + Number(hasTianShe) + Number(hasTianZhuan) + Number(hasDiZhuan),
-      `${result.ganzhi.day}应有一百三十二项固定神煞及条件性天合、天赦、天转、地转`,
+      139 + Number(hasTianHe) + Number(hasTianShe) + Number(hasTianZhuan) + Number(hasDiZhuan),
+      `${result.ganzhi.day}应有一百三十九项固定神煞及条件性天合、天赦、天转、地转`,
     );
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(
@@ -2608,19 +2673,9 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       `${result.ganzhi.day}新增神煞均应按日支定位到实际地支`,
     );
     assert.ok(
-      [
-        '直符',
-        '仪神',
-        '天盗',
-        '天贼',
-        '病符',
-        '雨师',
-        '雷电',
-        '晴朗',
-        '日官',
-        '稼穑',
-        '三奇',
-      ].every((name) => !facts.has(name)),
+      ['直符', '仪神', '天盗', '天贼', '雨师', '雷电', '晴朗', '日官', '稼穑', '三奇'].every(
+        (name) => !facts.has(name),
+      ),
       `${result.ganzhi.day}不得混入异名或尚未闭合的规则`,
     );
   }
