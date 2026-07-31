@@ -38,6 +38,7 @@ import { analyzeLiurenEvidence } from '../../liuren-evidence';
  * 每项保留起法输入与来源，避免把八字常用的年、日支起法混入六壬逐月神煞。
  */
 function buildShenShaFacts(
+  yearStem: string,
   yearBranch: string,
   monthBranch: string,
   dayBranch: string,
@@ -48,7 +49,7 @@ function buildShenShaFacts(
     '只定位神煞所在干支或方位',
     '须按目标类型核对是否入课、入传、临干支或涉及对应方位',
     '不得单项定吉凶',
-    '当前只登记一百五十五项可复算神煞规则；天合、天赦、天转及地转均为条件性事实，不代表《六壬大全》神煞总目录已经穷尽',
+    '当前只登记一百五十七项可复算神煞规则；天合、天赦、天转及地转均为条件性事实，不代表《六壬大全》神煞总目录已经穷尽',
   ];
   const addFact = (
     fact: Omit<LiurenShenShaFact, 'sources' | 'limitations'> & {
@@ -64,6 +65,55 @@ function buildShenShaFacts(
       limitations: [...commonLimitations, ...extraLimitations],
     });
   };
+
+  const yearStemIndex = TIANGAN.findIndex((stem) => stem === yearStem);
+  if (yearStemIndex >= 0) {
+    const yearStemShenShaRules = [
+      {
+        name: '岁德',
+        targets: ['甲', '庚', '丙', '壬', '戊', '甲', '庚', '丙', '壬', '戊'],
+        rule: '岁德阳年取岁君同干，阴年从其五合阳干：甲甲、乙庚、丙丙、丁壬、戊戊、己甲、庚庚、辛丙、壬壬、癸戊',
+        source: '《六壬大全》卷一“岁德，即岁君，阴年从阳，如己年见甲之例”',
+        extraSources: [
+          '《四库全书》本《六壬大全》卷一同载“岁君：甲见甲之类”及岁德阴年从阳之例',
+          '《壬占汇选》丁丑年会试占明确以亥上所寄壬干为日德、岁德，互证丁年岁德取壬',
+        ],
+        extraLimitations: [
+          '本项只登记六壬岁神煞的岁德天干，不与命理中以年干配十神解释的“岁德正官”等规则合并',
+          '天干寄宫只在具体课盘核对入课、入传时另行处理；本项不把岁德天干直接改写成固定地支',
+        ],
+      },
+      {
+        name: '岁干合',
+        targets: ['己', '庚', '辛', '壬', '癸', '甲', '乙', '丙', '丁', '戊'],
+        rule: '岁干合取年干五合：甲己、乙庚、丙辛、丁壬、戊癸',
+        source: '《六壬大全》卷一“岁合，即甲年见己”',
+        extraSources: [
+          '《四库全书》本《六壬大全》卷一同载“岁合，即甲年见己”',
+          '《六壬兵占》明列甲己、乙庚、丙辛、丁壬、戊癸五合，并以甲申年“岁合在己”为例',
+        ],
+        extraLimitations: [
+          '原典名称为“岁合”；本结果命名为“岁干合”，以区别太岁地支与其六合支亦称“岁合”的另一层规则',
+          '只登记年干五合对象；兵占按月建以五子元遁把该干落到地支属于另一计算层，本项不补造固定地支',
+        ],
+      },
+    ] as const;
+
+    for (const rule of yearStemShenShaRules) {
+      addFact({
+        name: rule.name,
+        target: rule.targets[yearStemIndex],
+        targetType: '天干',
+        category: '岁神煞',
+        basis: '年干',
+        input: yearStem,
+        rule: rule.rule,
+        source: rule.source,
+        extraSources: [...rule.extraSources],
+        extraLimitations: [...rule.extraLimitations],
+      });
+    }
+  }
 
   const yearBranchIndex = DIZHI.findIndex((branch) => branch === yearBranch);
   if (yearBranchIndex >= 0) {
@@ -2397,6 +2447,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
     .map((item) => `${item.stage}${item.branch}`)
     .join(' → ')}。`;
   const shenShaFacts = buildShenShaFacts(
+    ganzhi.year.charAt(0),
     ganzhi.year.charAt(1),
     ganzhi.month.charAt(1),
     ganzhi.day.charAt(1),

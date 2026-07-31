@@ -461,7 +461,7 @@ test('大六壬传统事实应保留原文并为提示词生成条件化副本',
   const shenShaFacts = evidence.traditionalFacts.filter((item) => item.kind === '神煞');
   assert.equal(shenShaFacts.length, data.shenShaFacts?.length);
   assert.ok(
-    shenShaFacts.every((item) => /^(年支|日干|日支|月建).+按“.+”定位/.test(item.promptText)),
+    shenShaFacts.every((item) => /^(年干|年支|日干|日支|月建).+按“.+”定位/.test(item.promptText)),
   );
   assert.ok(
     shenShaFacts.some((item) => item.sources.some((source) => source.includes('逐月神煞'))),

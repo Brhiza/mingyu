@@ -957,7 +957,7 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
         item.rule &&
         item.sources.length > 0 &&
         item.limitations.length >= 4 &&
-        item.limitations.some((limitation) => limitation.includes('一百五十五项可复算神煞规则')),
+        item.limitations.some((limitation) => limitation.includes('一百五十七项可复算神煞规则')),
     ),
   );
 });
@@ -1138,6 +1138,75 @@ test('大六壬十四项岁神煞应按年支完整循环，并与同位别名�
     /尚未闭合的逐月“豹尾”.+不据岁煞表补造/,
   );
   assert.match(sampleFacts.get('岁煞')?.limitations.join('；') ?? '', /不代替.+月煞、灾煞、劫煞/);
+});
+
+test('大六壬岁德与岁干合应按十年干循环，并与岁支六合及落支算法分层', () => {
+  const cases = [
+    [2020, '庚', '庚', '乙'],
+    [2021, '辛', '丙', '丙'],
+    [2022, '壬', '壬', '丁'],
+    [2023, '癸', '戊', '戊'],
+    [2024, '甲', '甲', '己'],
+    [2025, '乙', '庚', '庚'],
+    [2026, '丙', '丙', '辛'],
+    [2027, '丁', '壬', '壬'],
+    [2028, '戊', '戊', '癸'],
+    [2029, '己', '甲', '甲'],
+  ] as const;
+
+  for (const [year, yearStem, expectedSuiDe, expectedSuiGanHe] of cases) {
+    const result = generateLiuren(new Date(`${year}-02-20T12:00:00+08:00`));
+    const facts = new Map(result.shenShaFacts?.map((item) => [item.name, item]));
+    assert.equal(result.ganzhi.year.charAt(0), yearStem, `${year}年立春后年干`);
+    assert.deepEqual(
+      ['岁德', '岁干合'].map((name) => [
+        facts.get(name)?.target,
+        facts.get(name)?.targetType,
+        facts.get(name)?.category,
+        facts.get(name)?.basis,
+        facts.get(name)?.input,
+      ]),
+      [expectedSuiDe, expectedSuiGanHe].map((target) => [
+        target,
+        '天干',
+        '岁神煞',
+        '年干',
+        yearStem,
+      ]),
+      `${yearStem}年岁德与岁干合`,
+    );
+  }
+
+  const dingYearFacts = new Map(
+    generateLiuren(new Date('2027-02-20T12:00:00+08:00')).shenShaFacts?.map((item) => [
+      item.name,
+      item,
+    ]),
+  );
+  assert.match(
+    dingYearFacts.get('岁德')?.sources.join('；') ?? '',
+    /岁德，即岁君，阴年从阳.+四库全书.+丁丑年.+丁年岁德取壬/,
+  );
+  assert.match(
+    dingYearFacts.get('岁德')?.limitations.join('；') ?? '',
+    /岁德正官.+不把岁德天干直接改写成固定地支/,
+  );
+
+  const jiaYearFacts = new Map(
+    generateLiuren(new Date('2024-02-20T12:00:00+08:00')).shenShaFacts?.map((item) => [
+      item.name,
+      item,
+    ]),
+  );
+  assert.match(
+    jiaYearFacts.get('岁干合')?.sources.join('；') ?? '',
+    /岁合，即甲年见己.+六壬兵占.+甲申年“岁合在己”/,
+  );
+  assert.match(
+    jiaYearFacts.get('岁干合')?.limitations.join('；') ?? '',
+    /原典名称为“岁合”.+太岁地支与其六合支.+五子元遁.+不补造固定地支/,
+  );
+  assert.equal(jiaYearFacts.has('岁合'), false, '不得重复生成边界不明的普通“岁合”事实');
 });
 
 test('大六壬岁方四神与岁五鬼应按年支定位，并与同名异层规则分开', () => {
@@ -2810,8 +2879,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const hasDiZhuan = facts.has('地转');
     assert.equal(
       shenShaFacts.length,
-      151 + Number(hasTianHe) + Number(hasTianShe) + Number(hasTianZhuan) + Number(hasDiZhuan),
-      `${result.ganzhi.day}应有一百五十一项固定神煞及条件性天合、天赦、天转、地转`,
+      153 + Number(hasTianHe) + Number(hasTianShe) + Number(hasTianZhuan) + Number(hasDiZhuan),
+      `${result.ganzhi.day}应有一百五十三项固定神煞及条件性天合、天赦、天转、地转`,
     );
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(
