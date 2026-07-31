@@ -9,7 +9,8 @@
  *   - 二十八宿按明清修订距星目录，以 J2000/ICRS 坐标、自行和目标日期真黄道变换求边界。
  *   - 庙旺：原典条件未闭合，当前只登记未采用边界。
  *   - 吊照：固定容许度缺少可靠统一依据，当前完整提供星对几何而不自动判定。
- *   - 神煞：天乙贵人（日干）、驿马/劫煞/咸池/华盖/孤辰/寡宿（年支）。
+ *   - 传统神煞起例：只在农历年干支与立春年柱一致时，按生年干列天乙、玉堂，按生年支列驿马、
+ *     华盖、劫煞、咸池、孤辰、寡宿的目标支；不把目标支冒充盘面命中或吉凶结论。
  *
  * 紫炁采用单一《七政算内篇》古法均速模型：周积 10227.1792 日，日行三分五十七秒一四二九，
  * 历元按 PlanetCalendar 对《七政算内篇》至元十八年立元数据的现代复原值换算。
@@ -18,7 +19,7 @@
  * 七政、罗计孛与紫炁保留来源和精度分层；可复算不代表占星解释有效。
  */
 import { calculateChart } from 'celestine';
-import { TwentyEightStar } from 'tyme4ts';
+import { SolarTime, TwentyEightStar } from 'tyme4ts';
 import { daysInGregorianMonth } from '../calendar/date-validation';
 import { getShichenFromClock } from '../calendar/dateUtils';
 import { calculateTrueSolarTime } from '../calendar/true-solar-time';
@@ -34,7 +35,7 @@ import {
   calculateSolarIlluminationEvidence,
   type SolarIlluminationEvidence,
 } from '../calendar/solar-illumination-evidence';
-import { getBranchIndex, getGanZhiFromDate, getStemIndex } from '../ganzhi';
+import { getBranchIndex, getStemIndex } from '../ganzhi';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import {
@@ -125,7 +126,7 @@ export interface QizhengGeometryCalculation {
 }
 
 export interface QizhengTraditionalRuleAuditItem {
-  status: '未采用';
+  status: '未采用' | '已校勘起例';
   reason: string;
   retainedFacts: string[];
   sources: string[];
@@ -134,6 +135,58 @@ export interface QizhengTraditionalRuleAuditItem {
 export interface QizhengTraditionalRuleAudit {
   dignity: QizhengTraditionalRuleAuditItem;
   aspects: QizhengTraditionalRuleAuditItem;
+  shensha: QizhengTraditionalRuleAuditItem;
+}
+
+export type QizhengShenshaRuleId =
+  | 'tianyi-day-noble'
+  | 'yutang-night-noble'
+  | 'yima'
+  | 'huagai'
+  | 'jiesha'
+  | 'xianchi'
+  | 'guchen'
+  | 'guasu';
+
+export interface QizhengShenshaRule {
+  id: QizhengShenshaRuleId;
+  name: string;
+  basis: '年干' | '年支';
+  targetByBasis: Readonly<Record<string, string>>;
+  sourceTitle: '《张果星宗》卷二·诸星起例';
+  sourceUrl: string;
+  sourceSection: string;
+  sourceQuote: string;
+  usage: string;
+  limitation: string;
+}
+
+export interface QizhengTraditionalYearBasis {
+  status: '年干支口径一致' | '年界口径分歧';
+  traditionalDateTime: string;
+  timeMode: '民用时间' | '真太阳时';
+  lunarYearGanZhi: string;
+  liChunYearGanZhi: string;
+  adoptedYearGanZhi?: string;
+  promptText: string;
+  sources: string[];
+  limitation: string;
+}
+
+export interface QizhengShenshaFact {
+  key: string;
+  id: QizhengShenshaRuleId;
+  name: string;
+  status: '已校勘起例';
+  basis: '年干' | '年支';
+  basisGanZhi: string;
+  basisValue: string;
+  targetBranch: string;
+  sourceSection: string;
+  sourceQuote: string;
+  promptText: string;
+  sources: string[];
+  limitation: string;
 }
 
 export type QizhengPositionSourceId =
@@ -160,6 +213,8 @@ export interface QizhengCalculationContext {
   longitude: number;
   locationSource: '用户提供' | '默认北京坐标' | '部分坐标使用默认值';
   timezoneSource: 'IANA历史时区' | '用户提供' | '默认东八区';
+  standardMeridian?: number;
+  standardMeridianSource?: '用户提供' | '固定时区换算';
   astronomicalTime: AstronomicalTimeEvidence;
   moonPhase: MoonPhaseEvidence;
   solarIllumination: SolarIlluminationEvidence;
@@ -175,6 +230,8 @@ export interface QizhengEvidenceAnalysis {
   positionSourceFacts: QizhengPositionSourceFact[];
   starFacts: QizhengStarFact[];
   pairGeometryFacts: QizhengPairGeometryFact[];
+  traditionalYearBasis: QizhengTraditionalYearBasis;
+  shenshaFacts: QizhengShenshaFact[];
   primaryFacts: string[];
   supportingFacts: string[];
   counterEvidence: string[];
@@ -197,14 +254,15 @@ export interface QizhengCalculationStep {
     | '紫炁古法计算'
     | '距星宿界换算'
     | '宿度与落宫'
-    | '星对几何穷举';
+    | '星对几何穷举'
+    | '传统年界核验';
   status: '已计算';
   inputs: Record<string, string | number | boolean>;
   result: Record<string, string | number | boolean>;
   dependsOnStepKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '七政四余计算步骤只记录民用时间、天文时间尺度、位置模型、距星宿界、宿度落宫与星对几何穷举的形成过程；不得把步骤完整度解释为观测级精度、占星有效性、现实吉凶或事件概率';
+  limitation: '七政四余计算步骤只记录民用时间、天文时间尺度、位置模型、距星宿界、宿度落宫、星对几何穷举与传统年界核验的形成过程；不得把步骤完整度解释为观测级精度、占星有效性、现实吉凶或事件概率';
 }
 
 export interface QizhengCalculationFact {
@@ -275,12 +333,20 @@ export interface QizhengPairGeometryFact {
 
 export interface QizhengCounterEvidenceFact {
   key: string;
-  type: '输入完整性' | '位置精度分层' | '星对几何覆盖';
-  status: '输入明确' | '含默认值' | '同层现代天文' | '混合模型' | '完整穷举' | '有缺口';
+  type: '输入完整性' | '位置精度分层' | '星对几何覆盖' | '传统年界口径';
+  status:
+    | '输入明确'
+    | '含默认值'
+    | '同层现代天文'
+    | '混合模型'
+    | '完整穷举'
+    | '有缺口'
+    | '年干支口径一致'
+    | '年界口径分歧';
   ownerFactKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '反证事实只记录七政四余输入是否使用默认值、位置来源是否混合精度及十一星的55组无序星对是否完整；默认值、混合模型或资料缺口不直接等于现实不利，有资料也不证明吉凶结果';
+  limitation: '反证事实只记录七政四余输入默认值、位置精度分层、55组星对覆盖与传统年界口径是否一致；默认值、混合模型、年界分歧或资料缺口不直接等于现实不利，有资料也不证明吉凶结果';
 }
 
 export interface QizhengCounterSummaryFact {
@@ -289,7 +355,7 @@ export interface QizhengCounterSummaryFact {
   factKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '反证汇总只用于防止忽略默认输入、混合精度和星对几何缺口；不得据反证数量生成吉凶总分、可信度、事件概率或精度评分';
+  limitation: '反证汇总只用于防止忽略默认输入、混合精度、星对几何缺口和传统年界分歧；不得据反证数量生成吉凶总分、可信度、事件概率或精度评分';
 }
 
 export interface QizhengLimitationFact {
@@ -316,11 +382,12 @@ export interface QizhengSummaryFact {
   positionSourceFactCount: number;
   starFactCount: number;
   pairGeometryFactCount: number;
+  shenshaFactCount: number;
   counterEvidenceCount: number;
   limitationFactCount: number;
   promptText: string;
   sources: string[];
-  limitation: '七政四余证据汇总只统计输入、时间尺度、位置来源、逐星、星对几何、月相光照、反证与限制覆盖；不得按数量生成吉凶等级、可信度、事件概率、观测精度或固定应期';
+  limitation: '七政四余证据汇总只统计输入、时间尺度、位置来源、逐星、星对几何、传统年界与神煞起例、月相光照、反证及限制覆盖；不得按数量生成吉凶等级、可信度、事件概率、观测精度或固定应期';
 }
 
 const STAR_FACT_LIMITATION =
@@ -333,15 +400,15 @@ const CALCULATION_FACT_LIMITATION =
 const POSITION_SOURCE_FACT_LIMITATION =
   '位置来源事实只说明各星体采用的提供方、模型、坐标和精度层级；来源可追溯不等于结果达到观测级精度，也不证明占星解释、现实事件或吉凶结论' as const;
 const QIZHENG_CALCULATION_STEP_LIMITATION =
-  '七政四余计算步骤只记录民用时间、天文时间尺度、位置模型、距星宿界、宿度落宫与星对几何穷举的形成过程；不得把步骤完整度解释为观测级精度、占星有效性、现实吉凶或事件概率' as const;
+  '七政四余计算步骤只记录民用时间、天文时间尺度、位置模型、距星宿界、宿度落宫、星对几何穷举与传统年界核验的形成过程；不得把步骤完整度解释为观测级精度、占星有效性、现实吉凶或事件概率' as const;
 const QIZHENG_COUNTER_FACT_LIMITATION =
-  '反证事实只记录七政四余输入是否使用默认值、位置来源是否混合精度及十一星的55组无序星对是否完整；默认值、混合模型或资料缺口不直接等于现实不利，有资料也不证明吉凶结果' as const;
+  '反证事实只记录七政四余输入默认值、位置精度分层、55组星对覆盖与传统年界口径是否一致；默认值、混合模型、年界分歧或资料缺口不直接等于现实不利，有资料也不证明吉凶结果' as const;
 const QIZHENG_COUNTER_SUMMARY_LIMITATION =
-  '反证汇总只用于防止忽略默认输入、混合精度和星对几何缺口；不得据反证数量生成吉凶总分、可信度、事件概率或精度评分' as const;
+  '反证汇总只用于防止忽略默认输入、混合精度、星对几何缺口和传统年界分歧；不得据反证数量生成吉凶总分、可信度、事件概率或精度评分' as const;
 const QIZHENG_LIMITATION_FACT_LIMITATION =
   '限制事实用于约束七政四余输入、时间尺度、位置来源、混合模型、传统规则、月相和光照资料可以支持的解释范围，不得被反向当作现实事件、吉凶或精度证据' as const;
 const QIZHENG_SUMMARY_FACT_LIMITATION =
-  '七政四余证据汇总只统计输入、时间尺度、位置来源、逐星、星对几何、月相光照、反证与限制覆盖；不得按数量生成吉凶等级、可信度、事件概率、观测精度或固定应期' as const;
+  '七政四余证据汇总只统计输入、时间尺度、位置来源、逐星、星对几何、传统年界与神煞起例、月相光照、反证及限制覆盖；不得按数量生成吉凶等级、可信度、事件概率、观测精度或固定应期' as const;
 
 function conditionQizhengPortableText(text: string): string {
   return text
@@ -365,6 +432,11 @@ export interface QizhengInput {
   timezone?: number;
   timeZoneId?: string;
   /**
+   * 真太阳时使用的当地标准经线（东经为正，西经为负）。
+   * 使用 IANA 历史时区时必须明确提供，禁止把法定钟表偏移直接猜成标准经线。
+   */
+  standardMeridian?: number;
+  /**
    * 可选：启用后仅用真太阳时校正传统命身十二宫排布；
    * 七政四余天体位置仍按现代星历与天文时间尺度计算。
    */
@@ -385,6 +457,10 @@ export interface QizhengResult {
   shenGong: number;
   mingZhu: string;
   twelvePalaces: { palace: string; signIndex: number }[];
+  traditionalYearBasis: QizhengTraditionalYearBasis;
+  shenshaRuleCatalog: readonly QizhengShenshaRule[];
+  shenshaFacts: QizhengShenshaFact[];
+  /** @deprecated 请使用 shenshaFacts；兼容字段只保留已校勘起例的名称与目标支。 */
   shensha: { name: string; value: string }[];
   ziqiModel: ZiqiModelInfo;
   ziqi: ZiqiPosition;
@@ -433,7 +509,229 @@ export const QIZHENG_TRADITIONAL_RULE_AUDIT: QizhengTraditionalRuleAudit = {
     retainedFacts: ['十一星目标日期黄经', '全部55组无序星对的实际最小夹角', '逐星位置精度层级'],
     sources: ['《张果星宗》同宫、合弔相关条文', '《星学大成》三方对照相关条文'],
   },
+  shensha: {
+    status: '已校勘起例',
+    reason:
+      '《张果星宗》卷二明确“诸星起例皆从年干为主”，天乙与玉堂分别为昼贵、夜贵；马前诸杀及地支吉凶星例按生年支列驿马、华盖、劫煞、咸池、孤辰、寡宿。当前只采用原典目标支，不自动声称盘面命中或吉凶成立',
+    retainedFacts: [
+      '天乙昼贵与玉堂夜贵的生年干目标支',
+      '驿马、华盖、劫煞、咸池、孤辰、寡宿的生年支目标支',
+      '农历年干支与立春年柱的年界口径核验',
+    ],
+    sources: [
+      '《张果星宗》卷二·诸星起例、天乙、玉堂、马前诸杀例、地支吉凶星例三',
+      '维基文库《钦定古今图书集成·艺术典》第568卷所收《张果星宗》正文',
+    ],
+  },
 };
+
+const QIZHENG_SHENSHA_SOURCE_URL =
+  'https://zh.wikisource.org/wiki/欽定古今圖書集成/博物彙編/藝術典/第568卷';
+const QIZHENG_SHENSHA_LIMITATION =
+  '这里只列《张果星宗》按生年干或生年支得到的起例目标支；目标支不等于已经落入命身、夫妻等宫位，也不等于某颗星曜已经命中，不得据此直接生成吉凶、事件、疾病、婚姻或应期结论';
+
+export const QIZHENG_SHENSHA_RULE_CATALOG = [
+  {
+    id: 'tianyi-day-noble',
+    name: '天乙（昼贵）',
+    basis: '年干',
+    targetByBasis: {
+      甲: '未',
+      乙: '申',
+      丙: '酉',
+      丁: '亥',
+      戊: '丑',
+      己: '子',
+      庚: '丑',
+      辛: '寅',
+      壬: '卯',
+      癸: '巳',
+    },
+    sourceTitle: '《张果星宗》卷二·诸星起例',
+    sourceUrl: QIZHENG_SHENSHA_SOURCE_URL,
+    sourceSection: '天乙、天干吉凶星例',
+    sourceQuote:
+      '天乙贵人甲见未，戊庚在丑乙申位；己子丙酉辛居寅，丁亥壬兔巳逢癸。天乙贵人者，即昼贵人也。',
+    usage: '按生年干查询天乙昼贵目标支；不与玉堂夜贵合并。',
+    limitation: QIZHENG_SHENSHA_LIMITATION,
+  },
+  {
+    id: 'yutang-night-noble',
+    name: '玉堂（夜贵）',
+    basis: '年干',
+    targetByBasis: {
+      甲: '丑',
+      乙: '子',
+      丙: '亥',
+      丁: '酉',
+      戊: '未',
+      己: '申',
+      庚: '未',
+      辛: '午',
+      壬: '巳',
+      癸: '卯',
+    },
+    sourceTitle: '《张果星宗》卷二·诸星起例',
+    sourceUrl: QIZHENG_SHENSHA_SOURCE_URL,
+    sourceSection: '玉堂、天干吉凶星例',
+    sourceQuote:
+      '玉堂贵人甲见丑，戊庚在未，丁居酉；丙亥乙子己逢申，壬巳癸卯辛午守。玉堂贵人者，即夜贵人也。',
+    usage: '按生年干查询玉堂夜贵目标支；不与天乙昼贵合并。',
+    limitation: QIZHENG_SHENSHA_LIMITATION,
+  },
+  {
+    id: 'yima',
+    name: '驿马',
+    basis: '年支',
+    targetByBasis: {
+      子: '寅',
+      丑: '亥',
+      寅: '申',
+      卯: '巳',
+      辰: '寅',
+      巳: '亥',
+      午: '申',
+      未: '巳',
+      申: '寅',
+      酉: '亥',
+      戌: '申',
+      亥: '巳',
+    },
+    sourceTitle: '《张果星宗》卷二·诸星起例',
+    sourceUrl: QIZHENG_SHENSHA_SOURCE_URL,
+    sourceSection: '马前诸杀例',
+    sourceQuote:
+      '马前诸杀例，以年支起驿马取；申子辰人马居寅，寅午戌人马居申，巳酉丑人马在亥，亥卯未人马在巳。',
+    usage: '按生年支三合组查询马前驿马目标支；不是“天马地驿”星曜变换算法。',
+    limitation: QIZHENG_SHENSHA_LIMITATION,
+  },
+  {
+    id: 'huagai',
+    name: '华盖',
+    basis: '年支',
+    targetByBasis: {
+      子: '辰',
+      丑: '丑',
+      寅: '戌',
+      卯: '未',
+      辰: '辰',
+      巳: '丑',
+      午: '戌',
+      未: '未',
+      申: '辰',
+      酉: '丑',
+      戌: '戌',
+      亥: '未',
+    },
+    sourceTitle: '《张果星宗》卷二·诸星起例',
+    sourceUrl: QIZHENG_SHENSHA_SOURCE_URL,
+    sourceSection: '马前诸杀例',
+    sourceQuote:
+      '马前诸杀例以年支起驿马横列，华盖为驿马后第二位：申子辰见辰、寅午戌见戌、巳酉丑见丑、亥卯未见未。',
+    usage: '按生年支查询马前诸杀表中的华盖目标支。',
+    limitation: QIZHENG_SHENSHA_LIMITATION,
+  },
+  {
+    id: 'jiesha',
+    name: '劫煞',
+    basis: '年支',
+    targetByBasis: {
+      子: '巳',
+      丑: '寅',
+      寅: '亥',
+      卯: '申',
+      辰: '巳',
+      巳: '寅',
+      午: '亥',
+      未: '申',
+      申: '巳',
+      酉: '寅',
+      戌: '亥',
+      亥: '申',
+    },
+    sourceTitle: '《张果星宗》卷二·诸星起例',
+    sourceUrl: QIZHENG_SHENSHA_SOURCE_URL,
+    sourceSection: '劫杀、地支吉凶星例三',
+    sourceQuote: '申子辰巳上化为尘，寅午戌亥上不须说，巳酉丑寅上休开口，亥卯未申上勿遭值。',
+    usage: '按生年支查询劫杀目标支。',
+    limitation: QIZHENG_SHENSHA_LIMITATION,
+  },
+  {
+    id: 'xianchi',
+    name: '咸池',
+    basis: '年支',
+    targetByBasis: {
+      子: '酉',
+      丑: '午',
+      寅: '卯',
+      卯: '子',
+      辰: '酉',
+      巳: '午',
+      午: '卯',
+      未: '子',
+      申: '酉',
+      酉: '午',
+      戌: '卯',
+      亥: '子',
+    },
+    sourceTitle: '《张果星宗》卷二·诸星起例',
+    sourceUrl: QIZHENG_SHENSHA_SOURCE_URL,
+    sourceSection: '咸池、地支吉凶星例三',
+    sourceQuote: '申子辰鸡叫乱人伦，寅午戌兔从茅里出；巳酉丑跃马南方走，亥卯未鼠子当头忌。',
+    usage: '按生年支查询咸池目标支。',
+    limitation: QIZHENG_SHENSHA_LIMITATION,
+  },
+  {
+    id: 'guchen',
+    name: '孤辰',
+    basis: '年支',
+    targetByBasis: {
+      子: '寅',
+      丑: '寅',
+      寅: '巳',
+      卯: '巳',
+      辰: '巳',
+      巳: '申',
+      午: '申',
+      未: '申',
+      申: '亥',
+      酉: '亥',
+      戌: '亥',
+      亥: '寅',
+    },
+    sourceTitle: '《张果星宗》卷二·诸星起例',
+    sourceUrl: QIZHENG_SHENSHA_SOURCE_URL,
+    sourceSection: '孤辰、地支吉凶星例三',
+    sourceQuote: '寅卯辰人怕巳丑，巳午未人畏申辰，申酉戌人嫌亥未，亥子丑人寅戌嗔。',
+    usage: '每组三会年支中，歌诀前一支为孤辰目标支。',
+    limitation: QIZHENG_SHENSHA_LIMITATION,
+  },
+  {
+    id: 'guasu',
+    name: '寡宿',
+    basis: '年支',
+    targetByBasis: {
+      子: '戌',
+      丑: '戌',
+      寅: '丑',
+      卯: '丑',
+      辰: '丑',
+      巳: '辰',
+      午: '辰',
+      未: '辰',
+      申: '未',
+      酉: '未',
+      戌: '未',
+      亥: '戌',
+    },
+    sourceTitle: '《张果星宗》卷二·诸星起例',
+    sourceUrl: QIZHENG_SHENSHA_SOURCE_URL,
+    sourceSection: '寡宿、地支吉凶星例三',
+    sourceQuote: '寅卯辰人怕巳丑，巳午未人畏申辰，申酉戌人嫌亥未，亥子丑人寅戌嗔。',
+    usage: '每组三会年支中，歌诀后一支为寡宿目标支。',
+    limitation: QIZHENG_SHENSHA_LIMITATION,
+  },
+] as const satisfies readonly QizhengShenshaRule[];
 
 export interface ZiqiSource {
   title: string;
@@ -627,6 +925,9 @@ function validateQizhengInput(input: QizhengInput, includeLocation: boolean): vo
   assertIntegerRange(input.hour, '小时', 0, 23);
   assertIntegerRange(input.minute ?? 0, '分钟', 0, 59);
   if (input.timezone !== undefined) assertNumberRange(input.timezone, '时区', -12, 14);
+  if (input.standardMeridian !== undefined) {
+    assertNumberRange(input.standardMeridian, '标准经线', -180, 180);
+  }
   if (input.timeZoneId !== undefined && !input.timeZoneId.trim()) {
     throw new Error('IANA 时区名不能为空。');
   }
@@ -703,71 +1004,96 @@ export function calculateZiqiPosition(input: QizhengInput): ZiqiPosition {
   };
 }
 
-/** 天乙贵人（日干） */
-function tianYiGuiRen(dayGan: string): string {
-  const map: Record<string, string> = {
-    甲: '丑未',
-    戊: '丑未',
-    庚: '丑未',
-    乙: '子申',
-    己: '子申',
-    丙: '亥酉',
-    丁: '亥酉',
-    壬: '卯巳',
-    癸: '卯巳',
-    辛: '寅午',
-  };
-  getStemIndex(dayGan);
-  const value = map[dayGan];
-  if (!value) throw new Error(`七政四余天乙贵人资料缺失：${dayGan}。`);
-  return value;
+function formatTraditionalDateTime(parts: {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second?: number;
+}): string {
+  return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}T${String(parts.hour).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}:${String(parts.second ?? 0).padStart(2, '0')}`;
 }
 
-/** 年支三合局 → 各项神煞地支 */
-function yearBranchShensha(yearBranch: string): {
-  yi: string;
-  jie: string;
-  chi: string;
-  hua: string;
-  gu: string;
-  gua: string;
-} {
+function buildQizhengTraditionalYearBasis(
+  parts: {
+    year: number;
+    month: number;
+    day: number;
+    hour: number;
+    minute: number;
+    second?: number;
+  },
+  timeMode: QizhengTraditionalYearBasis['timeMode'],
+): QizhengTraditionalYearBasis {
+  const traditionalDateTime = formatTraditionalDateTime(parts);
+  const lunarHour = SolarTime.fromYmdHms(
+    parts.year,
+    parts.month,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second ?? 0,
+  ).getLunarHour();
+  const lunarYearGanZhi = lunarHour
+    .getLunarDay()
+    .getLunarMonth()
+    .getLunarYear()
+    .getSixtyCycle()
+    .getName();
+  const liChunYearGanZhi = lunarHour.getEightChar().getYear().getName();
+  const status = lunarYearGanZhi === liChunYearGanZhi ? '年干支口径一致' : '年界口径分歧';
+  const adoptedYearGanZhi = status === '年干支口径一致' ? lunarYearGanZhi : undefined;
+  return {
+    status,
+    traditionalDateTime,
+    timeMode,
+    lunarYearGanZhi,
+    liChunYearGanZhi,
+    ...(adoptedYearGanZhi ? { adoptedYearGanZhi } : {}),
+    promptText: adoptedYearGanZhi
+      ? `${timeMode}${traditionalDateTime}的农历年干支与八字立春年柱均为${adoptedYearGanZhi}，可据共同年干支查询传统神煞起例目标支`
+      : `${timeMode}${traditionalDateTime}的农历年干支为${lunarYearGanZhi}、八字立春年柱为${liChunYearGanZhi}；《张果星宗》本组条文未在起例处明确春节或立春年界，当前不替用户自动选择`,
+    sources: [
+      'tyme4ts 农历年干支',
+      'tyme4ts 八字立春年柱',
+      '《张果星宗》卷二“诸星起例皆从年干为主”及地支吉凶星例的生年支表',
+    ],
+    limitation:
+      '年界核验只比较农历年干支与立春年柱；二者不一致时不自动选择传统生年口径，也不生成个人神煞目标支，避免把未闭合的岁首约定伪装成确定规则',
+  };
+}
+
+function buildQizhengShenshaFacts(yearBasis: QizhengTraditionalYearBasis): QizhengShenshaFact[] {
+  const adoptedYearGanZhi = yearBasis.adoptedYearGanZhi;
+  if (!adoptedYearGanZhi) return [];
+  const yearStem = adoptedYearGanZhi[0];
+  const yearBranch = adoptedYearGanZhi[1];
+  getStemIndex(yearStem);
   getBranchIndex(yearBranch);
-  const groups: Record<
-    string,
-    { yi: string; jie: string; chi: string; hua: string; gu: string; gua: string }
-  > = {
-    申: { yi: '寅', jie: '巳', chi: '酉', hua: '辰', gu: '巳', gua: '丑' },
-    子: { yi: '寅', jie: '巳', chi: '酉', hua: '辰', gu: '巳', gua: '丑' },
-    辰: { yi: '寅', jie: '巳', chi: '酉', hua: '辰', gu: '巳', gua: '丑' },
-    寅: { yi: '申', jie: '亥', chi: '卯', hua: '戌', gu: '申', gua: '戌' },
-    午: { yi: '申', jie: '亥', chi: '卯', hua: '戌', gu: '申', gua: '戌' },
-    戌: { yi: '申', jie: '亥', chi: '卯', hua: '戌', gu: '申', gua: '戌' },
-    巳: { yi: '亥', jie: '寅', chi: '午', hua: '丑', gu: '亥', gua: '未' },
-    酉: { yi: '亥', jie: '寅', chi: '午', hua: '丑', gu: '亥', gua: '未' },
-    丑: { yi: '亥', jie: '寅', chi: '午', hua: '丑', gu: '亥', gua: '未' },
-    亥: { yi: '巳', jie: '申', chi: '子', hua: '未', gu: '寅', gua: '辰' },
-    卯: { yi: '巳', jie: '申', chi: '子', hua: '未', gu: '寅', gua: '辰' },
-    未: { yi: '巳', jie: '申', chi: '子', hua: '未', gu: '寅', gua: '辰' },
-  };
-  const sanhui: Record<string, { gu: string; gua: string }> = {
-    亥: { gu: '寅', gua: '戌' },
-    子: { gu: '寅', gua: '戌' },
-    丑: { gu: '寅', gua: '戌' },
-    寅: { gu: '巳', gua: '丑' },
-    卯: { gu: '巳', gua: '丑' },
-    辰: { gu: '巳', gua: '丑' },
-    巳: { gu: '申', gua: '辰' },
-    午: { gu: '申', gua: '辰' },
-    未: { gu: '申', gua: '辰' },
-    申: { gu: '亥', gua: '未' },
-    酉: { gu: '亥', gua: '未' },
-    戌: { gu: '亥', gua: '未' },
-  };
-  const base = groups[yearBranch];
-  const guChen = sanhui[yearBranch];
-  if (!base || !guChen) throw new Error(`七政四余年支神煞资料缺失：${yearBranch}。`);
-  return { ...base, ...guChen };
+  return QIZHENG_SHENSHA_RULE_CATALOG.map((rule) => {
+    const basisValue = rule.basis === '年干' ? yearStem : yearBranch;
+    const targetByBasis: Readonly<Record<string, string>> = rule.targetByBasis;
+    const targetBranch = targetByBasis[basisValue];
+    if (!targetBranch) {
+      throw new Error(`七政四余${rule.name}${rule.basis}${basisValue}起例资料缺失。`);
+    }
+    return {
+      key: `qizheng:shensha:${rule.id}:${adoptedYearGanZhi}`,
+      id: rule.id,
+      name: rule.name,
+      status: '已校勘起例',
+      basis: rule.basis,
+      basisGanZhi: adoptedYearGanZhi,
+      basisValue,
+      targetBranch,
+      sourceSection: rule.sourceSection,
+      sourceQuote: rule.sourceQuote,
+      promptText: `${rule.name}按生${rule.basis}${basisValue}起例，目标支为${targetBranch}；${rule.usage}`,
+      sources: [rule.sourceTitle, rule.sourceSection, rule.sourceUrl],
+      limitation: rule.limitation,
+    };
+  });
 }
 
 const PLANET_NAMES: Record<string, { label: string }> = {
@@ -838,6 +1164,7 @@ function buildQizhengCounterEvidenceFacts(args: {
   calculationFact: QizhengCalculationFact;
   positionSourceFacts: QizhengPositionSourceFact[];
   pairGeometryFacts: QizhengPairGeometryFact[];
+  traditionalYearBasis: QizhengTraditionalYearBasis;
 }): QizhengCounterEvidenceFact[] {
   const hasMixedPrecision =
     args.positionSourceFacts.some((item) => item.precisionClass === '传统均速模型') ||
@@ -883,11 +1210,20 @@ function buildQizhengCounterEvidenceFacts(args: {
       sources: ['十一星目标日期黄经最小夹角完整穷举'],
       limitation: QIZHENG_COUNTER_FACT_LIMITATION,
     },
+    {
+      key: 'qizheng:counter:traditional-year-boundary',
+      type: '传统年界口径',
+      status: args.traditionalYearBasis.status,
+      ownerFactKeys: ['qizheng:calculation:traditional-year-boundary'],
+      promptText: args.traditionalYearBasis.promptText,
+      sources: args.traditionalYearBasis.sources,
+      limitation: QIZHENG_COUNTER_FACT_LIMITATION,
+    },
   ];
 }
 
 function isQizhengCounterIssue(item: QizhengCounterEvidenceFact) {
-  return !['输入明确', '同层现代天文', '完整穷举'].includes(item.status);
+  return !['输入明确', '同层现代天文', '完整穷举', '年干支口径一致'].includes(item.status);
 }
 
 function buildQizhengCounterSummaryFact(
@@ -912,6 +1248,8 @@ function buildQizhengLimitationFacts(args: {
   starFacts: QizhengStarFact[];
   pairGeometryFacts: QizhengPairGeometryFact[];
   context: QizhengCalculationContext;
+  traditionalYearBasis: QizhengTraditionalYearBasis;
+  shenshaFacts: QizhengShenshaFact[];
   locationSourceText: string;
   timezoneSourceText: string;
 }): QizhengLimitationFact[] {
@@ -965,10 +1303,12 @@ function buildQizhengLimitationFacts(args: {
       key: 'qizheng:limitation:traditional-rules',
       type: '传统规则边界',
       ownerFactKeys: pairGeometryOwnerKeys,
-      promptText: `${QIZHENG_TRADITIONAL_RULE_AUDIT.dignity.reason}；${QIZHENG_TRADITIONAL_RULE_AUDIT.aspects.reason}`,
+      promptText: `${QIZHENG_TRADITIONAL_RULE_AUDIT.dignity.reason}；${QIZHENG_TRADITIONAL_RULE_AUDIT.aspects.reason}；${QIZHENG_TRADITIONAL_RULE_AUDIT.shensha.reason}；${args.traditionalYearBasis.limitation}`,
       sources: [
         ...QIZHENG_TRADITIONAL_RULE_AUDIT.dignity.sources,
         ...QIZHENG_TRADITIONAL_RULE_AUDIT.aspects.sources,
+        ...QIZHENG_TRADITIONAL_RULE_AUDIT.shensha.sources,
+        ...args.traditionalYearBasis.sources,
       ],
     },
     {
@@ -988,9 +1328,10 @@ function buildQizhengLimitationFacts(args: {
         args.calculationFact.key,
         ...args.starFacts.map((item) => item.key),
         ...pairGeometryOwnerKeys,
+        ...args.shenshaFacts.map((item) => item.key),
       ],
       promptText:
-        '不得输出吉凶总分、成功率、疾病诊断、投资回报、人物意图、保证有效的化解方案或唯一应期；未校勘的庙旺与吊照不得补算，神煞只作辅证',
+        '不得输出吉凶总分、成功率、疾病诊断、投资回报、人物意图、保证有效的化解方案或唯一应期；未校勘的庙旺与吊照不得补算，神煞目标支不得冒充盘面命中或吉凶结论',
       sources: ['盘面位置、星对几何、传统规则审计、神煞与现实结果分离原则'],
     },
   ];
@@ -1011,6 +1352,8 @@ function buildQizhengSummaryFact(args: {
   positionSourceFacts: QizhengPositionSourceFact[];
   starFacts: QizhengStarFact[];
   pairGeometryFacts: QizhengPairGeometryFact[];
+  traditionalYearBasis: QizhengTraditionalYearBasis;
+  shenshaFacts: QizhengShenshaFact[];
   counterEvidenceFacts: QizhengCounterEvidenceFact[];
   counterSummaryFact: QizhengCounterSummaryFact;
   limitationFacts: QizhengLimitationFact[];
@@ -1018,10 +1361,12 @@ function buildQizhengSummaryFact(args: {
 }): QizhengSummaryFact {
   const status =
     args.calculationFact.status === '输入明确' &&
-    args.calculationFact.steps.length === 7 &&
+    args.calculationFact.steps.length === 8 &&
     args.positionSourceFacts.length === 4 &&
     args.starFacts.length === 11 &&
-    args.pairGeometryFacts.length === 55
+    args.pairGeometryFacts.length === 55 &&
+    args.traditionalYearBasis.status === '年干支口径一致' &&
+    args.shenshaFacts.length === QIZHENG_SHENSHA_RULE_CATALOG.length
       ? '可用事实链完整'
       : '可用事实链有缺口';
   return {
@@ -1034,6 +1379,8 @@ function buildQizhengSummaryFact(args: {
         ...args.positionSourceFacts.map((item) => item.key),
         ...args.starFacts.map((item) => item.key),
         ...args.pairGeometryFacts.map((item) => item.key),
+        'qizheng:calculation:traditional-year-boundary',
+        ...args.shenshaFacts.map((item) => item.key),
         args.context.astronomicalTime.key,
         args.context.moonPhase.key,
         args.context.solarIllumination.key,
@@ -1045,10 +1392,13 @@ function buildQizhengSummaryFact(args: {
     positionSourceFactCount: args.positionSourceFacts.length,
     starFactCount: args.starFacts.length,
     pairGeometryFactCount: args.pairGeometryFacts.length,
+    shenshaFactCount: args.shenshaFacts.length,
     counterEvidenceCount: args.counterEvidenceFacts.length,
     limitationFactCount: args.limitationFacts.length,
-    promptText: `证据链状态：${status}；位置来源${args.positionSourceFacts.length}项、逐星${args.starFacts.length}项、星对几何${args.pairGeometryFacts.length}项、反证${args.counterEvidenceFacts.length}项、限制${args.limitationFacts.length}项`,
-    sources: ['七政四余输入、时间尺度、位置来源、逐星、星对几何、月相光照、反证与限制事实逐项汇总'],
+    promptText: `证据链状态：${status}；位置来源${args.positionSourceFacts.length}项、逐星${args.starFacts.length}项、星对几何${args.pairGeometryFacts.length}项、传统神煞起例${args.shenshaFacts.length}项、反证${args.counterEvidenceFacts.length}项、限制${args.limitationFacts.length}项`,
+    sources: [
+      '七政四余输入、时间尺度、位置来源、逐星、星对几何、传统年界、神煞起例、月相光照、反证与限制事实逐项汇总',
+    ],
     limitation: QIZHENG_SUMMARY_FACT_LIMITATION,
   };
 }
@@ -1061,7 +1411,8 @@ function buildQizhengEvidence(
     mingGong: number;
     shenGong: number;
     mingZhu: string;
-    shensha: { name: string; value: string }[];
+    traditionalYearBasis: QizhengTraditionalYearBasis;
+    shenshaFacts: QizhengShenshaFact[];
     ziqi: ZiqiPosition;
     ziqiModel: ZiqiModelInfo;
   },
@@ -1185,6 +1536,25 @@ function buildQizhengEvidence(
       sources: ['十一星目标日期黄经', '无序星对组合穷举与最小夹角计算'],
       limitation: QIZHENG_CALCULATION_STEP_LIMITATION,
     },
+    {
+      key: 'qizheng:calculation:traditional-year-boundary',
+      stage: '传统年界核验',
+      status: '已计算',
+      inputs: {
+        traditionalDateTime: structure.traditionalYearBasis.traditionalDateTime,
+        timeMode: structure.traditionalYearBasis.timeMode,
+      },
+      result: {
+        lunarYearGanZhi: structure.traditionalYearBasis.lunarYearGanZhi,
+        liChunYearGanZhi: structure.traditionalYearBasis.liChunYearGanZhi,
+        status: structure.traditionalYearBasis.status,
+        shenshaFactCount: structure.shenshaFacts.length,
+      },
+      dependsOnStepKeys: [],
+      promptText: structure.traditionalYearBasis.promptText,
+      sources: structure.traditionalYearBasis.sources,
+      limitation: QIZHENG_CALCULATION_STEP_LIMITATION,
+    },
   ];
   const calculationFact: QizhengCalculationFact = {
     key: 'calculation:qizheng:chart',
@@ -1206,6 +1576,7 @@ function buildQizhengEvidence(
       'celestine现代位置计算',
       structure.ziqiModel.name,
       '距星自行、目标日期真黄道、二十八宿与十二宫换算',
+      '《张果星宗》传统神煞起例与年界双口径核验',
     ],
     limitation: CALCULATION_FACT_LIMITATION,
   };
@@ -1280,12 +1651,15 @@ function buildQizhengEvidence(
     `紫炁顺行回归黄经${structure.ziqi.tropicalLongitude.toFixed(3)}°，采用${structure.ziqiModel.name}并与现代天文位置分层`,
   );
   supportingFacts.push(
-    `神煞定位：${structure.shensha.map((item) => `${item.name}${item.value}`).join('、')}`,
+    structure.shenshaFacts.length
+      ? `传统神煞起例目标支：${structure.shenshaFacts.map((item) => `${item.name}${item.targetBranch}`).join('、')}`
+      : `传统神煞起例未自动生成：${structure.traditionalYearBasis.promptText}`,
   );
   const counterEvidenceFacts = buildQizhengCounterEvidenceFacts({
     calculationFact,
     positionSourceFacts,
     pairGeometryFacts,
+    traditionalYearBasis: structure.traditionalYearBasis,
   });
   const counterSummaryFact = buildQizhengCounterSummaryFact(counterEvidenceFacts);
   const counterEvidence = counterEvidenceFacts
@@ -1297,6 +1671,8 @@ function buildQizhengEvidence(
     starFacts,
     pairGeometryFacts,
     context,
+    traditionalYearBasis: structure.traditionalYearBasis,
+    shenshaFacts: structure.shenshaFacts,
     locationSourceText,
     timezoneSourceText,
   });
@@ -1306,6 +1682,8 @@ function buildQizhengEvidence(
     positionSourceFacts,
     starFacts,
     pairGeometryFacts,
+    traditionalYearBasis: structure.traditionalYearBasis,
+    shenshaFacts: structure.shenshaFacts,
     counterEvidenceFacts,
     counterSummaryFact,
     limitationFacts,
@@ -1360,11 +1738,25 @@ function buildQizhengEvidence(
     },
     {
       level: '辅证',
-      title: '紫炁与神煞定位',
-      detail: supportingFacts.slice(-2).join('；'),
-      source: '紫炁均速模型与年支、日干神煞规则',
-      tags: ['紫炁', '神煞'],
+      title: '紫炁传统均速位置',
+      detail: supportingFacts.at(-2) ?? '未生成紫炁位置',
+      source: structure.ziqiModel.name,
+      tags: ['紫炁', '传统均速模型'],
     },
+    {
+      level: structure.traditionalYearBasis.status === '年干支口径一致' ? '辅证' : '反证',
+      title: `传统神煞年界核验：${structure.traditionalYearBasis.status}`,
+      detail: `${structure.traditionalYearBasis.promptText}；边界：${structure.traditionalYearBasis.limitation}`,
+      source: structure.traditionalYearBasis.sources.join('；'),
+      tags: ['传统神煞', '年界核验', structure.traditionalYearBasis.status],
+    },
+    ...structure.shenshaFacts.map((fact): PromptEvidenceItem => ({
+      level: '辅证',
+      title: `${fact.name}起例目标支`,
+      detail: `${fact.promptText}；原文：${fact.sourceQuote}；边界：${fact.limitation}`,
+      source: fact.sources.join('；'),
+      tags: ['传统神煞', fact.basis, fact.basisValue, fact.targetBranch],
+    })),
     ...counterEvidenceFacts.filter(isQizhengCounterIssue).map((item): PromptEvidenceItem => ({
       level: '反证',
       title: `七政四余${item.type}${item.status}`,
@@ -1411,6 +1803,8 @@ function buildQizhengEvidence(
     positionSourceFacts,
     starFacts,
     pairGeometryFacts,
+    traditionalYearBasis: structure.traditionalYearBasis,
+    shenshaFacts: structure.shenshaFacts,
     primaryFacts,
     supportingFacts,
     counterEvidence,
@@ -1426,6 +1820,7 @@ function buildQizhengEvidence(
       '逐星保留计算来源，区分现代天文位置与传统紫炁均速模型。',
       '再按目标日期二十八宿距星真黄经边界换算宿度与十二宫；庙旺原典条件未闭合，当前不自动判定。',
       '完整穷举十一星的55组无序星对并保留实际最小夹角；固定容许度吊照缺少可靠统一依据，当前不自动判定。',
+      '按《张果星宗》逐项保留传统神煞起例目标支；先比较农历年干支与立春年柱，年界口径不一致时不自动选边。',
       '月相只保留日月黄经差、照明近似和前后朔弦望时刻，不把月相直接解释为吉凶。',
       '太阳高度与日出日落只作为地点相关的天文光照背景，不直接生成庙旺或吉凶结论。',
       '最终把输入缺省、模型差异和坐标近似作为强制限制证据。',
@@ -1448,12 +1843,30 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
   calculationContext.palaceTimeMode = useTrueSolarTime ? '真太阳时混合口径' : '民用时间';
   let palaceHour = input.hour;
   let palaceMinute = input.minute ?? 0;
+  let traditionalDateParts = {
+    year: input.year,
+    month: input.month,
+    day: input.day,
+    hour: input.hour,
+    minute: input.minute ?? 0,
+    second: 0,
+  };
   let trueSolarNote = '传统命身十二宫按输入民用时间排布';
   if (useTrueSolarTime) {
     if (input.longitude === undefined) {
       throw new Error('启用真太阳时时必须提供出生地经度。');
     }
-    const standardMeridian = tz * 15;
+    let standardMeridian = input.standardMeridian;
+    let standardMeridianSource: QizhengCalculationContext['standardMeridianSource'] = '用户提供';
+    if (standardMeridian === undefined) {
+      if (input.timeZoneId) {
+        throw new Error(
+          `IANA 时区 ${input.timeZoneId} 只能确定历史法定钟表偏移，不能可靠推定真太阳时标准经线；请明确提供 standardMeridian。`,
+        );
+      }
+      standardMeridianSource = '固定时区换算';
+      standardMeridian = tz * 15;
+    }
     const trueSolar = calculateTrueSolarTime(
       {
         year: input.year,
@@ -1467,7 +1880,10 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     );
     palaceHour = trueSolar.correctedTime.hour;
     palaceMinute = trueSolar.correctedTime.minute;
-    trueSolarNote = `传统命身十二宫已按真太阳时校正（经度修正 ${trueSolar.longitudeCorrectionMinutes.toFixed(2)} 分，均时差 ${trueSolar.equationOfTimeMinutes.toFixed(2)} 分）；七政四余位置仍用现代星历`;
+    traditionalDateParts = trueSolar.correctedTime;
+    calculationContext.standardMeridian = standardMeridian;
+    calculationContext.standardMeridianSource = standardMeridianSource;
+    trueSolarNote = `传统命身十二宫已按真太阳时校正（标准经线${standardMeridian}°，来源${standardMeridianSource}；经度修正 ${trueSolar.longitudeCorrectionMinutes.toFixed(2)} 分，均时差 ${trueSolar.equationOfTimeMinutes.toFixed(2)} 分）；七政四余位置仍用现代星历`;
     calculationContext.palaceTimeNote = trueSolarNote;
   } else {
     calculationContext.palaceTimeNote = trueSolarNote;
@@ -1600,27 +2016,21 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     throw new Error(`七政四余星对几何不完整：应有55组，实际${pairwiseAngles.length}组。`);
   }
 
-  // 神煞（年支 + 日干）
-  const dateGanZhi = getGanZhiFromDate(
-    new Date(input.year, input.month - 1, input.day, input.hour, input.minute ?? 0),
+  const traditionalYearBasis = buildQizhengTraditionalYearBasis(
+    traditionalDateParts,
+    useTrueSolarTime ? '真太阳时' : '民用时间',
   );
-  const yearBranch = dateGanZhi.year[1];
-  const dayGan = dateGanZhi.day[0];
-  const ys = yearBranchShensha(yearBranch);
-  const shensha = [
-    { name: '天乙贵人', value: tianYiGuiRen(dayGan) },
-    { name: '驿马', value: ys.yi },
-    { name: '劫煞', value: ys.jie },
-    { name: '咸池', value: ys.chi },
-    { name: '华盖', value: ys.hua },
-    { name: '孤辰', value: ys.gu },
-    { name: '寡宿', value: ys.gua },
-  ];
+  const shenshaFacts = buildQizhengShenshaFacts(traditionalYearBasis);
+  const shensha = shenshaFacts.map((fact) => ({
+    name: fact.name,
+    value: fact.targetBranch,
+  }));
   const evidenceAnalysis = buildQizhengEvidence(stars, pairwiseAngles, calculationContext, {
     mingGong,
     shenGong,
     mingZhu,
-    shensha,
+    traditionalYearBasis,
+    shenshaFacts,
     ziqi,
     ziqiModel: ZIQI_MODEL_INFO,
   });
@@ -1645,7 +2055,11 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     `命宫在${TWELVE_PALACES[0]}（黄道第 ${mingGong + 1} 宫），命主${mingZhu}；身宫在第 ${shenGong + 1} 宫。`,
     trueSolarNote,
     `十二宫映射：${twelvePalaces.map((item) => `${item.palace}=黄道第${item.signIndex + 1}宫`).join('；')}。`,
-    `神煞：天乙贵人${shensha[0].value}、驿马${shensha[1].value}、劫煞${shensha[2].value}、咸池${shensha[3].value}、华盖${shensha[4].value}、孤辰${shensha[5].value}、寡宿${shensha[6].value}。`,
+    `传统年界核验：${traditionalYearBasis.promptText}。`,
+    shenshaFacts.length
+      ? `传统神煞起例目标支：${shenshaFacts.map((fact) => `${fact.name}（生${fact.basis}${fact.basisValue}）→${fact.targetBranch}`).join('；')}。这些只是原典起例目标支，不代表已经落入具体宫位或与星曜相遇。`
+      : '传统神煞起例目标支：农历年干支与立春年柱存在分歧，原典起例处未闭合岁首口径，本次不自动生成个人目标支；完整规则表已随结果保留，供后续在明确生年口径后查询。',
+    `传统神煞起例来源：${QIZHENG_TRADITIONAL_RULE_AUDIT.shensha.sources.join('；')}；原典入口：${QIZHENG_SHENSHA_SOURCE_URL}。使用边界：${QIZHENG_SHENSHA_LIMITATION}。`,
   ].join('\n');
 
   return {
@@ -1658,6 +2072,9 @@ export function generateQizheng(input: QizhengInput): QizhengResult {
     shenGong,
     mingZhu,
     twelvePalaces,
+    traditionalYearBasis,
+    shenshaRuleCatalog: QIZHENG_SHENSHA_RULE_CATALOG,
+    shenshaFacts,
     shensha,
     ziqiModel: ZIQI_MODEL_INFO,
     ziqi,

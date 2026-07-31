@@ -138,7 +138,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **塔罗牌数据**         | `mingyu-core/divination/tarot-data`                                                                                                           | 塔罗牌定义与牌阵配置                                                                                                         |
 | **占卜辅助工具**       | `mingyu-core/divination/divination-helpers`                                                                                                   | 占卜通用格式与计算工具                                                                                                       |
 | **紫微斗数 Ziwei**     | `mingyu-core/ziwei/iztro`                                                                                                                     | iztro 十二宫、星曜、四化、证据池与大限时间线；评估 55 条可复算格局并登记 32 项原典边界                                       |
-| **七政四余 Qizheng**   | `mingyu-core/qizheng`                                                                                                                         | 十一星、真实距星二十八宿界、命身十二宫、55组星对实际夹角、传统规则审计边界与分层精度证据                                     |
+| **七政四余 Qizheng**   | `mingyu-core/qizheng`                                                                                                                         | 十一星、真实距星二十八宿界、命身十二宫、55组星对实际夹角、8项已校勘生年神煞起例、传统规则审计边界与分层精度证据              |
 
 ---
 
@@ -376,7 +376,10 @@ console.log(direction.getEightMansion('坎'));
 console.log(shensha.getHuangliShensha(2026, 7, 10));
 console.log(qizhengChart.stars.length, qizhengChart.mansionBoundaries.length); // 11 星、28 宿界
 console.log(qizhengChart.positionSources); // 现代天文与传统均速来源分层
+console.log(qizhengChart.shenshaFacts); // 8 项生年干/年支起例目标支；不是盘面命中或吉凶
 ```
+
+七政四余的天乙昼贵与玉堂夜贵分开按生年干起例，驿马、华盖、劫煞、咸池、孤辰、寡宿按生年支起例。农历年干支与立春年柱不一致时，`shenshaFacts` 为空并保留完整规则目录与分歧证据。启用真太阳时时，固定 `timezone` 被视为已确认的标准时偏移；若使用 IANA 历史时区，必须另给 `standardMeridian`，系统不会把法定钟表偏移猜成标准经线。
 
 ### 八字增强分析（从 vibebazi 整合）
 

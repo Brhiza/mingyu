@@ -5606,6 +5606,22 @@ test('公开 API 七政四余应返回十一星、真实距星宿界、证据链
   assert.deepEqual(calculate.body.data.aspects, []);
   assert.equal(calculate.body.data.traditionalRuleAudit.dignity.status, '未采用');
   assert.equal(calculate.body.data.traditionalRuleAudit.aspects.status, '未采用');
+  assert.equal(calculate.body.data.traditionalRuleAudit.shensha.status, '已校勘起例');
+  assert.equal(calculate.body.data.traditionalYearBasis.status, '年干支口径一致');
+  assert.equal(calculate.body.data.traditionalYearBasis.adoptedYearGanZhi, '甲辰');
+  assert.equal(calculate.body.data.shenshaFacts.length, 8);
+  assert.deepEqual(
+    calculate.body.data.shenshaFacts.map((fact: { name: string }) => fact.name),
+    ['天乙（昼贵）', '玉堂（夜贵）', '驿马', '华盖', '劫煞', '咸池', '孤辰', '寡宿'],
+  );
+  assert.ok(
+    calculate.body.data.shenshaFacts.every(
+      (fact: { basis: string; sourceQuote: string; limitation: string }) =>
+        ['年干', '年支'].includes(fact.basis) &&
+        fact.sourceQuote.length > 0 &&
+        fact.limitation.includes('目标支不等于已经落入'),
+    ),
+  );
   assert.ok(
     calculate.body.data.stars.some(
       (star: { precisionClass: string }) => star.precisionClass === '现代天文计算',
@@ -5626,9 +5642,19 @@ test('公开 API 七政四余应返回十一星、真实距星宿界、证据链
   assertPromptHasSingleRole(promptResponse.body.data.prompt, PROMPT_ROLE_TEXT.qizheng);
   assert.match(
     promptResponse.body.data.prompt,
-    /【七政四余 · 果老星宗】[\s\S]*宿界模型[\s\S]*共55组无序星对[\s\S]*庙旺未采用[\s\S]*吊照未采用[\s\S]*【问题】\n请分析本命结构。/,
+    /【七政四余 · 果老星宗】[\s\S]*共55组无序星对[\s\S]*天乙（昼贵）[\s\S]*玉堂（夜贵）[\s\S]*第568卷[\s\S]*目标支不等于已经落入[\s\S]*【问题】\n请分析本命结构。/,
   );
+  assert.doesNotMatch(promptResponse.body.data.prompt, /天乙.*日干|神煞定位/);
   assertPromptIsPortableTaskText(promptResponse.body.data.prompt);
+
+  const yearBoundary = await callApi('metaphysics/qizheng/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...input, year: 2024, month: 2, day: 5 }),
+  });
+  assert.equal(yearBoundary.response.status, 200);
+  assert.equal(yearBoundary.body.data.traditionalYearBasis.status, '年界口径分歧');
+  assert.deepEqual(yearBoundary.body.data.shenshaFacts, []);
 });
 test('公开 API 太乙应返回年计七十二局立成结果', async () => {
   const { response, body } = await callApi('metaphysics/taiyi/calculate', {

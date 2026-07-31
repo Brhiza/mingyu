@@ -3072,6 +3072,13 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
           pairwiseAngles: unknown[];
           geometryCalculation: { complete: boolean };
           traditionalRuleAudit: { dignity: { status: string }; aspects: { status: string } };
+          traditionalYearBasis: { status: string; adoptedYearGanZhi?: string };
+          shenshaFacts: Array<{
+            name: string;
+            basis: string;
+            sourceQuote: string;
+            limitation: string;
+          }>;
           aspects: unknown[];
           mansionBoundaries: unknown[];
           mansionModel: { id: string };
@@ -3091,6 +3098,21 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
     assert.deepEqual(chart.aspects, []);
     assert.equal(chart.traditionalRuleAudit.dignity.status, '未采用');
     assert.equal(chart.traditionalRuleAudit.aspects.status, '未采用');
+    assert.equal(chart.traditionalYearBasis.status, '年干支口径一致');
+    assert.equal(chart.traditionalYearBasis.adoptedYearGanZhi, '甲辰');
+    assert.equal(chart.shenshaFacts.length, 8);
+    assert.deepEqual(
+      chart.shenshaFacts.map((fact) => fact.name),
+      ['天乙（昼贵）', '玉堂（夜贵）', '驿马', '华盖', '劫煞', '咸池', '孤辰', '寡宿'],
+    );
+    assert.ok(
+      chart.shenshaFacts.every(
+        (fact) =>
+          ['年干', '年支'].includes(fact.basis) &&
+          fact.sourceQuote.length > 0 &&
+          fact.limitation.includes('目标支不等于已经落入'),
+      ),
+    );
     assert.equal(chart.mansionModel.id, 'qizheng-mansion-stars-simbad-astronomy-engine');
     assert.ok(chart.stars.some((star) => star.precisionClass === '现代天文计算'));
     assert.ok(chart.stars.some((star) => star.precisionClass === '传统均速模型'));
@@ -3106,9 +3128,23 @@ test('MCP 七政四余应返回十一星、真实距星宿界、证据链与提�
     assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.qizheng);
     assert.match(
       prompt,
-      /【七政四余 · 果老星宗】[\s\S]*宿界模型[\s\S]*共55组无序星对[\s\S]*庙旺未采用[\s\S]*吊照未采用[\s\S]*【问题】\n请分析本命结构。/,
+      /【七政四余 · 果老星宗】[\s\S]*共55组无序星对[\s\S]*天乙（昼贵）[\s\S]*玉堂（夜贵）[\s\S]*第568卷[\s\S]*目标支不等于已经落入[\s\S]*【问题】\n请分析本命结构。/,
     );
+    assert.doesNotMatch(prompt, /天乙.*日干|神煞定位/);
     assertPromptIsPortableTaskText(prompt);
+
+    const yearBoundaryResponse = await client.callTool({
+      name: 'metaphysics_qizheng',
+      arguments: { ...arguments_, month: 2, day: 5 },
+    });
+    assert.equal(yearBoundaryResponse.isError, undefined);
+    const yearBoundary = (
+      yearBoundaryResponse.structuredContent as {
+        result: { traditionalYearBasis: { status: string }; shenshaFacts: unknown[] };
+      }
+    ).result;
+    assert.equal(yearBoundary.traditionalYearBasis.status, '年界口径分歧');
+    assert.deepEqual(yearBoundary.shenshaFacts, []);
   });
 });
 

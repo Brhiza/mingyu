@@ -5,7 +5,26 @@ import {
   calculateQizhengMansionBoundaries,
   generateQizheng,
   longitudeToQizhengMansion,
+  QIZHENG_SHENSHA_RULE_CATALOG,
 } from '@core/qi_zheng';
+
+test('七政四余八项传统神煞目录完整覆盖十干或十二支', () => {
+  const stems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+  const branches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+
+  assert.equal(QIZHENG_SHENSHA_RULE_CATALOG.length, 8);
+  for (const [index, rule] of QIZHENG_SHENSHA_RULE_CATALOG.entries()) {
+    const expectedBasis = index < 2 ? stems : branches;
+    assert.deepEqual(Object.keys(rule.targetByBasis), expectedBasis, `${rule.name}起例表缺项`);
+    assert.ok(
+      Object.values(rule.targetByBasis).every((target) => branches.includes(target)),
+      `${rule.name}目标支存在非法值`,
+    );
+    assert.match(rule.sourceUrl, /第568卷/);
+    assert.ok(rule.sourceQuote.length > 0);
+    assert.match(rule.limitation, /不得据此直接生成吉凶/);
+  }
+});
 
 test('七政四余可用盘面采用二十八宿真实距星边界并保持位置来源分层', () => {
   const result = generateQizheng({
@@ -64,6 +83,36 @@ test('七政四余可用盘面采用二十八宿真实距星边界并保持位�
   assert.deepEqual(result.aspects, []);
   assert.equal(result.traditionalRuleAudit.dignity.status, '未采用');
   assert.equal(result.traditionalRuleAudit.aspects.status, '未采用');
+  assert.equal(result.traditionalRuleAudit.shensha.status, '已校勘起例');
+  assert.equal(result.traditionalYearBasis.status, '年干支口径一致');
+  assert.equal(result.traditionalYearBasis.adoptedYearGanZhi, '庚午');
+  assert.equal(result.shenshaRuleCatalog.length, 8);
+  assert.deepEqual(
+    result.shenshaFacts.map((fact) => [fact.name, fact.basis, fact.basisValue, fact.targetBranch]),
+    [
+      ['天乙（昼贵）', '年干', '庚', '丑'],
+      ['玉堂（夜贵）', '年干', '庚', '未'],
+      ['驿马', '年支', '午', '申'],
+      ['华盖', '年支', '午', '戌'],
+      ['劫煞', '年支', '午', '亥'],
+      ['咸池', '年支', '午', '卯'],
+      ['孤辰', '年支', '午', '申'],
+      ['寡宿', '年支', '午', '辰'],
+    ],
+  );
+  assert.ok(
+    result.shenshaFacts.every(
+      (fact) =>
+        fact.status === '已校勘起例' &&
+        fact.sourceQuote.length > 0 &&
+        fact.sources.some((source) => source.includes('第568卷')) &&
+        fact.limitation.includes('目标支不等于已经落入'),
+    ),
+  );
+  assert.deepEqual(
+    result.shensha,
+    result.shenshaFacts.map((fact) => ({ name: fact.name, value: fact.targetBranch })),
+  );
   assert.ok(result.stars.every((star) => !Object.hasOwn(star, 'dignity')));
   assert.ok(
     result.pairwiseAngles.every(
@@ -87,7 +136,114 @@ test('七政四余可用盘面采用二十八宿真实距星边界并保持位�
     ),
   );
   assert.match(result.prompt, /庙旺未采用[\s\S]*吊照未采用/);
+  assert.match(result.prompt, /传统年界核验[\s\S]*传统神煞起例目标支/);
+  assert.doesNotMatch(result.prompt, /天乙贵人.*日干|神煞定位/);
   assert.doesNotMatch(result.prompt, /紧密等级|中等等级|宽松等级|归一化容许度位置/);
+});
+
+test('七政四余传统神煞在春节与立春年界分歧时不自动选边', () => {
+  const result = generateQizheng({
+    year: 2024,
+    month: 2,
+    day: 5,
+    hour: 10,
+    minute: 30,
+    latitude: 39.9042,
+    longitude: 116.4074,
+    timezone: 8,
+  });
+
+  assert.deepEqual(
+    {
+      status: result.traditionalYearBasis.status,
+      lunar: result.traditionalYearBasis.lunarYearGanZhi,
+      liChun: result.traditionalYearBasis.liChunYearGanZhi,
+      adopted: result.traditionalYearBasis.adoptedYearGanZhi,
+    },
+    {
+      status: '年界口径分歧',
+      lunar: '癸卯',
+      liChun: '甲辰',
+      adopted: undefined,
+    },
+  );
+  assert.deepEqual(result.shenshaFacts, []);
+  assert.deepEqual(result.shensha, []);
+  assert.equal(result.shenshaRuleCatalog.length, 8);
+  assert.equal(result.evidenceAnalysis.summaryFact.status, '可用事实链有缺口');
+  assert.ok(
+    result.evidenceAnalysis.counterEvidenceFacts.some(
+      (fact) => fact.type === '传统年界口径' && fact.status === '年界口径分歧',
+    ),
+  );
+  assert.match(result.prompt, /农历年干支为癸卯、八字立春年柱为甲辰/);
+  assert.match(result.prompt, /不自动生成个人目标支/);
+});
+
+test('七政四余传统年干支按明确当地日期计算并跟随真太阳时跨日', () => {
+  const east = generateQizheng({
+    year: 1990,
+    month: 6,
+    day: 15,
+    hour: 10,
+    minute: 30,
+    latitude: 39.9042,
+    longitude: 116.4074,
+    timezone: 8,
+  });
+  const west = generateQizheng({
+    year: 1990,
+    month: 6,
+    day: 15,
+    hour: 10,
+    minute: 30,
+    latitude: 40.7128,
+    longitude: -74.006,
+    timezone: -5,
+  });
+  assert.equal(east.traditionalYearBasis.adoptedYearGanZhi, '庚午');
+  assert.equal(west.traditionalYearBasis.adoptedYearGanZhi, '庚午');
+  assert.deepEqual(
+    east.shenshaFacts.map((fact) => [fact.id, fact.targetBranch]),
+    west.shenshaFacts.map((fact) => [fact.id, fact.targetBranch]),
+  );
+
+  const crossed = generateQizheng({
+    year: 1990,
+    month: 1,
+    day: 1,
+    hour: 0,
+    minute: 15,
+    latitude: 30,
+    longitude: 105,
+    timezone: 8,
+    useTrueSolarTime: true,
+  });
+  assert.equal(crossed.traditionalYearBasis.timeMode, '真太阳时');
+  assert.match(crossed.traditionalYearBasis.traditionalDateTime, /^1989-12-31T23:/);
+  assert.equal(crossed.traditionalYearBasis.adoptedYearGanZhi, '己巳');
+});
+
+test('七政四余真太阳时不得把历史夏令时偏移冒充标准经线', () => {
+  const input = {
+    year: 1990,
+    month: 6,
+    day: 15,
+    hour: 10,
+    minute: 30,
+    latitude: 39.9042,
+    longitude: 116.4074,
+    timeZoneId: 'Asia/Shanghai',
+    useTrueSolarTime: true,
+  } as const;
+
+  assert.throws(() => generateQizheng(input), /不能可靠推定真太阳时标准经线.*standardMeridian/);
+
+  const result = generateQizheng({ ...input, standardMeridian: 120 });
+  assert.equal(result.calculationContext.timezone, 9);
+  assert.equal(result.calculationContext.standardMeridian, 120);
+  assert.equal(result.calculationContext.standardMeridianSource, '用户提供');
+  assert.match(result.calculationContext.palaceTimeNote ?? '', /标准经线120°，来源用户提供/);
 });
 
 test('二十八宿距星黄经与 Astropy ERFA 独立金标一致', () => {

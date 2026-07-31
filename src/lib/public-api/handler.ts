@@ -351,6 +351,12 @@ const DIVINATION_REQUEST_PROPERTIES = {
   longitude: { type: 'number', minimum: -180, maximum: 180 },
   timezone: { type: 'number', minimum: -12, maximum: 14 },
   timeZoneId: { type: 'string', example: 'Asia/Shanghai' },
+  standardMeridian: {
+    type: 'number',
+    minimum: -180,
+    maximum: 180,
+    description: '真太阳时采用的当地标准经线；使用 IANA 历史时区时必须提供',
+  },
   locationName: { type: 'string' },
   useTrueSolarTime: { type: 'boolean' },
   astrolabeTopic: { enum: [...ASTROLABE_PROMPT_TOPICS] },
@@ -1985,6 +1991,7 @@ function calculateQizhengApi(input: JsonRecord) {
   const timeZoneId =
     input.timeZoneId === undefined ? undefined : readString(input, 'timeZoneId', '');
   const useTrueSolarTime = readBoolean(input, 'useTrueSolarTime', false);
+  const standardMeridian = optNumber(input, 'standardMeridian', -180, 180);
   try {
     return qizheng.generateQizheng({
       year,
@@ -1996,6 +2003,7 @@ function calculateQizhengApi(input: JsonRecord) {
       ...(longitude !== undefined ? { longitude } : {}),
       ...(timezone !== undefined ? { timezone } : {}),
       ...(timeZoneId ? { timeZoneId } : {}),
+      ...(standardMeridian !== undefined ? { standardMeridian } : {}),
       ...(useTrueSolarTime ? { useTrueSolarTime: true } : {}),
     });
   } catch (error) {

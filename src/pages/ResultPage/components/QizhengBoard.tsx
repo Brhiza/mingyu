@@ -220,15 +220,20 @@ export const QizhengBoard = memo(function QizhengBoard({
       <div className="qizheng-detail-grid">
         <div className="result-side-card">
           <div className="result-side-head">
-            <h3>神煞</h3>
+            <h3>传统神煞起例</h3>
+            <p>只列《张果星宗》目标支，不代表已经落入具体宫位或形成吉凶。</p>
           </div>
           <div className="result-tag-cloud">
-            {data.shensha.map((item) => (
-              <span className="result-soft-tag" key={item.name}>
-                {item.name} · {item.value}
+            {data.shenshaFacts.map((item) => (
+              <span className="result-soft-tag" key={item.id}>
+                {item.name} · 生{item.basis}
+                {item.basisValue} → {item.targetBranch}
               </span>
             ))}
           </div>
+          {data.shenshaFacts.length === 0 ? (
+            <p>农历年干支与立春年柱存在分歧，当前没有替你自动选择年界口径。</p>
+          ) : null}
         </div>
         <div className="result-side-card">
           <div className="result-side-head">

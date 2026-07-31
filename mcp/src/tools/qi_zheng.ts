@@ -23,6 +23,12 @@ const qiZhengSchema = z.object({
     .string()
     .optional()
     .describe('IANA 历史时区，例如 Asia/Shanghai；提供后会自动解析当年的夏令时'),
+  standardMeridian: z
+    .number()
+    .min(-180)
+    .max(180)
+    .optional()
+    .describe('真太阳时采用的当地标准经线；使用 IANA 历史时区时必须明确提供'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
 
@@ -31,7 +37,7 @@ export function registerQizhengTool(server: McpServer) {
     'metaphysics_qizheng',
     {
       description:
-        '七政四余（果老星宗）：计算十一星、真实距星二十八宿界、命身十二宫、全部55组星对实际夹角及分层天文证据；未校勘的庙旺与吊照规则不自动判定',
+        '七政四余（果老星宗）：计算十一星、真实距星二十八宿界、命身十二宫、全部55组星对实际夹角、8项已校勘生年神煞起例及分层天文证据；庙旺与吊照规则不自动判定',
       inputSchema: qiZhengSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -47,6 +53,9 @@ export function registerQizhengTool(server: McpServer) {
           ...(args.longitude !== undefined ? { longitude: args.longitude } : {}),
           ...(args.timezone !== undefined ? { timezone: args.timezone } : {}),
           ...(args.timeZoneId ? { timeZoneId: args.timeZoneId } : {}),
+          ...(args.standardMeridian !== undefined
+            ? { standardMeridian: args.standardMeridian }
+            : {}),
           ...(args.useTrueSolarTime !== undefined
             ? { useTrueSolarTime: args.useTrueSolarTime }
             : {}),
@@ -77,6 +86,9 @@ export function registerQizhengTool(server: McpServer) {
           ...(args.longitude !== undefined ? { longitude: args.longitude } : {}),
           ...(args.timezone !== undefined ? { timezone: args.timezone } : {}),
           ...(args.timeZoneId ? { timeZoneId: args.timeZoneId } : {}),
+          ...(args.standardMeridian !== undefined
+            ? { standardMeridian: args.standardMeridian }
+            : {}),
           ...(args.useTrueSolarTime !== undefined
             ? { useTrueSolarTime: args.useTrueSolarTime }
             : {}),

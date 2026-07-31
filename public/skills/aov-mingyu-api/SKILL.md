@@ -134,7 +134,7 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 - `POST /metaphysics/bazhai/calculate`、`POST /metaphysics/bazhai/prompt`：八宅排盘与提示词。
 - `POST /metaphysics/zodiac/calculate`、`POST /metaphysics/zodiac/prompt`：生肖犯太岁与流年提示词。
 - `POST /metaphysics/taiyi/calculate`、`POST /metaphysics/taiyi/prompt`：年家太乙七十二局排盘与提示词；当前不提供未完整复原的月、日、时家。
-- `POST /metaphysics/qizheng/calculate`、`POST /metaphysics/qizheng/prompt`：七政四余十一星、真实距星二十八宿界、命身十二宫、庙旺吊照、分层天文证据与提示词。
+- `POST /metaphysics/qizheng/calculate`、`POST /metaphysics/qizheng/prompt`：七政四余十一星、真实距星二十八宿界、命身十二宫、55组星对夹角、8项已校勘生年神煞起例、分层天文证据与提示词；庙旺和吊照因依据未闭合而不自动判定。
 - `POST /ai/analyze`：AI 解读，返回 SSE 流式响应。
 - `POST /ai/models`：获取当前 AI 配置可用的模型列表。
 
