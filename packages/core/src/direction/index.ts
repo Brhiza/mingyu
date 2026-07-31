@@ -1,6 +1,6 @@
 /**
  * @file 方位 / 罗盘模块（地基层）
- * @description 八卦方位、二十四山、坐向→宅卦、八宅大游年（四吉四凶方）。
+ * @description 八卦方位、二十四山、坐向→宅卦、八宅大游年八宫传统标签。
  * 供八宅风水、奇门方位应期、玄空等系统复用。设计为可继续拓展。
  */
 
@@ -443,16 +443,10 @@ export function getHouseTrigramFromSitFacing(sitMountain: string): string {
   return getHouseTrigram(sitMountain);
 }
 
-/** 八宅大游年吉凶标签 */
+/** 八宅大游年八宫传统标签 */
 export type BaZhaiLabel = '伏位' | '生气' | '延年' | '天医' | '绝命' | '五鬼' | '六煞' | '祸害';
 
-const LUCKY_LABELS: BaZhaiLabel[] = ['伏位', '生气', '延年', '天医'];
-
-function isLucky(label: BaZhaiLabel): boolean {
-  return LUCKY_LABELS.includes(label);
-}
-
-/** 八宅大游年表：基准卦 → 八宫（坎艮震巽离坤兑乾顺序）的吉凶标签 */
+/** 八宅大游年表：基准卦 → 八宫（坎艮震巽离坤兑乾顺序）的传统标签 */
 const BA_ZHAI_TABLE: Record<string, BaZhaiLabel[]> = {
   乾: ['祸害', '天医', '五鬼', '六煞', '绝命', '延年', '生气', '伏位'],
   坎: ['伏位', '五鬼', '天医', '生气', '延年', '绝命', '祸害', '六煞'],
@@ -469,13 +463,12 @@ export interface BaZhaiPalace {
   direction: string;
   degree: number;
   label: BaZhaiLabel;
-  luck: '吉' | '凶';
 }
 
 /**
  * 八宅大游年盘
  * @param baseGua 基准卦（可为命卦或宅卦）
- * @returns 八个方位的吉凶
+ * @returns 八个宫位的原始传统标签
  */
 export function getBaZhaiPalace(baseGua: string): BaZhaiPalace[] {
   const row = BA_ZHAI_TABLE[baseGua];
@@ -485,7 +478,6 @@ export function getBaZhaiPalace(baseGua: string): BaZhaiPalace[] {
     direction: BAGUA_DIRECTION[gua],
     degree: BAGUA_DEGREE[gua],
     label: row[i],
-    luck: isLucky(row[i]) ? '吉' : '凶',
   }));
 }
 
@@ -500,25 +492,21 @@ export function getEastWestGroup(gua: string): '东四命' | '西四命' {
 export interface EightMansionResult {
   mingGua: string;
   group: '东四命' | '西四命';
-  lucky: BaZhaiPalace[];
-  unlucky: BaZhaiPalace[];
+  palaces: BaZhaiPalace[];
   summary: string;
 }
 
-/** 命卦 → 八宅四吉四凶方 */
+/** 命卦 → 八宅八宫传统标签 */
 export function getEightMansion(mingGua: string): EightMansionResult {
-  const palace = getBaZhaiPalace(mingGua);
-  const lucky = palace.filter((p) => p.luck === '吉');
-  const unlucky = palace.filter((p) => p.luck === '凶');
+  const palaces = getBaZhaiPalace(mingGua);
   const group = getEastWestGroup(mingGua);
   return {
     mingGua,
     group,
-    lucky,
-    unlucky,
-    summary: `命卦${mingGua}属${group}；四吉方：${lucky
-      .map((p) => `${p.direction}(${p.label})`)
-      .join('、')}；四凶方：${unlucky.map((p) => `${p.direction}(${p.label})`).join('、')}。`,
+    palaces,
+    summary: `命卦${mingGua}属${group}；八宫传统标签：${palaces
+      .map((palace) => `${palace.direction}(${palace.label})`)
+      .join('、')}。这些标签只保留传统查表结果，不直接生成现实方向或布置结论。`,
   };
 }
 

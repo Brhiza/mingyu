@@ -6,10 +6,8 @@ export interface BaZhaiDirectionComparison {
   direction: string;
   degree: number;
   mingLabel: string;
-  mingLuck: '吉' | '凶';
   houseLabel: string | null;
-  houseLuck: '吉' | '凶' | null;
-  relation: '同为吉方' | '同为凶方' | '命宅异判' | '仅命卦资料';
+  relation: '标签相同' | '标签不同' | '仅命卦资料';
 }
 
 export interface BaZhaiDirectionFact extends BaZhaiDirectionComparison {
@@ -22,7 +20,7 @@ export interface BaZhaiDirectionFact extends BaZhaiDirectionComparison {
   sources: string[];
   calculation: string;
   promptText: string;
-  limitation: '大游年吉凶只表示命卦或宅卦在目标宫位的传统空间分类；单一方位标签或命宅重合不证明房间适用性、健康效果、财富变化、事件结果或调整方案有效';
+  limitation: '大游年名称只表示命卦或宅卦在目标宫位查得的传统标签；单一标签或命宅标签相同不证明房间适用性、健康效果、财富变化、事件结果或调整方案有效';
 }
 
 export interface BaZhaiCalculationStep {
@@ -56,12 +54,12 @@ export interface BaZhaiMeasurementCandidateFact {
   facingMountain: string;
   houseGua: string;
   houseGroup: '东四命' | '西四命';
-  match: '相合' | '相冲';
+  groupRelation: '同组' | '异组';
   measurementFactKey: 'measurement:bazhai:door';
   calculationStepKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '候选坐向只表示测量误差范围内可能落入的二十四山与宅卦，不代表现场真实坐向已经确定，也不得据候选数量生成可信度、吉凶分或调整结论';
+  limitation: '候选坐向只表示测量误差范围内可能落入的二十四山与宅卦，不代表现场真实坐向已经确定，也不得据候选数量生成可信度、现实评价或调整结论';
 }
 
 export interface BaZhaiMeasurementFact {
@@ -98,14 +96,14 @@ export interface BaZhaiCounterEvidenceFact {
   type:
     | '命卦年界'
     | '宅卦资料覆盖'
-    | '命宅逐方一致性'
+    | '命宅逐方标签一致性'
     | '山向边界稳定性'
     | '宅卦边界稳定性'
     | '北向基准';
   status:
     | '已覆盖'
     | '未提供'
-    | '存在异判'
+    | '存在差异'
     | '边界敏感'
     | '不稳定'
     | '未声明'
@@ -116,7 +114,7 @@ export interface BaZhaiCounterEvidenceFact {
   ownerFactKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '反证事实只记录命卦年界、宅卦资料、逐方异判、测量边界和北向基准是否存在缺口；缺口不等于住宅必然不利，资料完整也不证明现实效果';
+  limitation: '反证事实只记录命卦年界、宅卦资料、逐方标签差异、测量边界和北向基准是否存在缺口；缺口不等于住宅效果，资料完整也不证明现实效果';
 }
 
 export interface BaZhaiCounterSummaryFact {
@@ -125,7 +123,7 @@ export interface BaZhaiCounterSummaryFact {
   factKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '反证汇总只用于防止把缺失资料、异判或边界敏感静默忽略；不得据反证数量生成吉凶分、可信度或调整结论';
+  limitation: '反证汇总只用于防止把缺失资料、标签差异或边界敏感静默忽略；不得据反证数量生成现实评价、可信度或调整结论';
 }
 
 export interface BaZhaiLimitationFact {
@@ -149,14 +147,14 @@ export interface BaZhaiSummaryFact {
   status: '命卦链完整' | '命宅链完整' | '证据链有缺口';
   factKeys: string[];
   directionFactCount: number;
-  alignedDirectionCount: number;
-  conflictingDirectionCount: number;
+  sameLabelDirectionCount: number;
+  differentLabelDirectionCount: number;
   measurementCandidateCount: number;
   counterEvidenceCount: number;
   limitationFactCount: number;
   promptText: string;
   sources: string[];
-  limitation: '八宅证据汇总只统计命卦年界、命卦宅卦、八宫逐方、测量候选、反证与限制覆盖；不得按数量生成住宅吉凶总分、可信度、健康概率、财富增幅或调整效果保证';
+  limitation: '八宅证据汇总只统计命卦年界、命卦宅卦、八宫逐方、测量候选、反证与限制覆盖；不得按数量生成住宅总分、可信度、健康概率、财富增幅或调整效果保证';
 }
 
 export interface BaZhaiEvidenceAnalysis {
@@ -167,8 +165,8 @@ export interface BaZhaiEvidenceAnalysis {
   calculationChain: string[];
   directionFacts: BaZhaiDirectionFact[];
   directionComparisons: BaZhaiDirectionComparison[];
-  alignedDirections: BaZhaiDirectionComparison[];
-  conflictingDirections: BaZhaiDirectionComparison[];
+  sameLabelDirections: BaZhaiDirectionComparison[];
+  differentLabelDirections: BaZhaiDirectionComparison[];
   measurementFact: BaZhaiMeasurementFact;
   measurementFacts: string[];
   measurementCandidateFacts: BaZhaiMeasurementCandidateFact[];
@@ -178,7 +176,7 @@ export interface BaZhaiEvidenceAnalysis {
     facingMountain: string;
     houseGua: string;
     houseGroup: '东四命' | '西四命';
-    match: '相合' | '相冲';
+    groupRelation: '同组' | '异组';
   }>;
   counterEvidence: string[];
   counterEvidenceFacts: BaZhaiCounterEvidenceFact[];
@@ -193,23 +191,23 @@ export interface BaZhaiEvidenceAnalysis {
 }
 
 const DIRECTION_FACT_LIMITATION =
-  '大游年吉凶只表示命卦或宅卦在目标宫位的传统空间分类；单一方位标签或命宅重合不证明房间适用性、健康效果、财富变化、事件结果或调整方案有效' as const;
+  '大游年名称只表示命卦或宅卦在目标宫位查得的传统标签；单一标签或命宅标签相同不证明房间适用性、健康效果、财富变化、事件结果或调整方案有效' as const;
 const CALCULATION_FACT_LIMITATION =
   '计算链只证明出生年界、命卦、宅卦和大游年八宫如何形成当前方位资料，不证明住宅适用性、健康效果、财富变化、事件结果或调整方案有效' as const;
 const MEASUREMENT_FACT_LIMITATION =
   '入户测量只证明指定站位、北向基准、磁偏角和误差范围如何换算当前坐山朝向候选；未声明北向、受环境干扰或跨边界时不得把中心读数当作唯一真实坐向' as const;
 const MEASUREMENT_CANDIDATE_LIMITATION =
-  '候选坐向只表示测量误差范围内可能落入的二十四山与宅卦，不代表现场真实坐向已经确定，也不得据候选数量生成可信度、吉凶分或调整结论' as const;
+  '候选坐向只表示测量误差范围内可能落入的二十四山与宅卦，不代表现场真实坐向已经确定，也不得据候选数量生成可信度、现实评价或调整结论' as const;
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只记录出生年界、命卦、宅卦、八宫排布与逐方比较的形成过程；不得把步骤完整度解释为住宅适用度、现实效果或结论可信度' as const;
 const COUNTER_FACT_LIMITATION =
-  '反证事实只记录命卦年界、宅卦资料、逐方异判、测量边界和北向基准是否存在缺口；缺口不等于住宅必然不利，资料完整也不证明现实效果' as const;
+  '反证事实只记录命卦年界、宅卦资料、逐方标签差异、测量边界和北向基准是否存在缺口；缺口不等于住宅效果，资料完整也不证明现实效果' as const;
 const COUNTER_SUMMARY_LIMITATION =
-  '反证汇总只用于防止把缺失资料、异判或边界敏感静默忽略；不得据反证数量生成吉凶分、可信度或调整结论' as const;
+  '反证汇总只用于防止把缺失资料、标签差异或边界敏感静默忽略；不得据反证数量生成现实评价、可信度或调整结论' as const;
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束八宅传统分类与现场测量可支持的解释范围，不得被反向当作住宅效果、健康变化、财富结果或调整有效性的证据' as const;
 const SUMMARY_FACT_LIMITATION =
-  '八宅证据汇总只统计命卦年界、命卦宅卦、八宫逐方、测量候选、反证与限制覆盖；不得按数量生成住宅吉凶总分、可信度、健康概率、财富增幅或调整效果保证' as const;
+  '八宅证据汇总只统计命卦年界、命卦宅卦、八宫逐方、测量候选、反证与限制覆盖；不得按数量生成住宅总分、可信度、健康概率、财富增幅或调整效果保证' as const;
 
 function buildCalculationFact(
   data: Omit<BaZhaiResult, 'prompt' | 'evidenceAnalysis'>,
@@ -316,12 +314,12 @@ function buildCalculationFact(
         houseDirectionCount: data.housePalace?.length ?? 0,
       },
       result: {
-        match: data.match,
+        groupRelation: data.groupRelation,
         comparisonScope: data.houseGua ? '命卦与宅卦逐方比较' : '仅命卦资料',
       },
       dependsOnStepKeys: ['bazhai:calculation:eight-directions'],
       promptText: data.houseGua
-        ? '逐方比较命卦与宅卦的重合、同凶与异判关系'
+        ? '逐方比较命卦与宅卦的传统标签是否相同'
         : '未提供宅卦，不执行命宅逐方比较',
       sources: ['当前命卦八宫与宅卦八宫逐宫对照'],
       limitation: CALCULATION_STEP_LIMITATION,
@@ -367,10 +365,10 @@ function buildMeasurementFact(measurement?: BaZhaiDoorMeasurement): BaZhaiMeasur
       facingMountain: item.facingMountain,
       houseGua: item.houseGua,
       houseGroup: item.houseGroup,
-      match: item.match,
+      groupRelation: item.groupRelation,
       measurementFactKey: 'measurement:bazhai:door',
       calculationStepKeys: ['bazhai:calculation:house-gua'],
-      promptText: `${item.label}：坐${item.sitMountain}山、向${item.facingMountain}向，归${item.houseGua}宅${item.houseGroup}，命宅${item.match}`,
+      promptText: `${item.label}：坐${item.sitMountain}山、向${item.facingMountain}向，归${item.houseGua}宅${item.houseGroup}，命宅分组${item.groupRelation}`,
       sources: ['真北入户角度、测量误差与二十四山覆盖范围', '坐山宅卦与命宅分组比较'],
       limitation: MEASUREMENT_CANDIDATE_LIMITATION,
     }),
@@ -417,7 +415,7 @@ function buildCounterEvidenceFacts(
   data: Omit<BaZhaiResult, 'prompt' | 'evidenceAnalysis'>,
   calculationFact: BaZhaiCalculationFact,
   directionFacts: BaZhaiDirectionFact[],
-  conflictingDirections: BaZhaiDirectionComparison[],
+  differentLabelDirections: BaZhaiDirectionComparison[],
   measurementFact: BaZhaiMeasurementFact,
 ): BaZhaiCounterEvidenceFact[] {
   const hasMeasurement = measurementFact.status !== '未提供';
@@ -449,20 +447,20 @@ function buildCounterEvidenceFacts(
       ownerFactKeys: ['bazhai:calculation:house-gua', ...directionFacts.map((item) => item.key)],
       promptText: data.houseGua
         ? `已取得宅卦${data.houseGua}与完整宅卦八宫，可执行命宅比较`
-        : '未提供住宅坐山或门向，只能输出命卦个人方位，不能判断宅卦和命宅配合',
+        : '未提供住宅坐山或门向，只能输出命卦八宫标签，不能生成宅卦或命宅分组资料',
       sources: ['宅卦计算步骤与宅卦八宫资料覆盖核验'],
       limitation: COUNTER_FACT_LIMITATION,
     },
     {
       key: 'bazhai:counter:direction-consistency',
-      type: '命宅逐方一致性',
-      status: !data.houseGua ? '不适用' : conflictingDirections.length ? '存在异判' : '已覆盖',
+      type: '命宅逐方标签一致性',
+      status: !data.houseGua ? '不适用' : differentLabelDirections.length ? '存在差异' : '已覆盖',
       ownerFactKeys: directionFacts.map((item) => item.key),
       promptText: !data.houseGua
-        ? '未提供宅卦，本次不执行命宅逐方一致性核验'
-        : conflictingDirections.length
-          ? `命卦与宅卦在${conflictingDirections.map((item) => item.direction).join('、')}存在异判，不得把其中一套八宫静默覆盖另一套`
-          : '命卦与宅卦八宫已逐方核验，本次未见命宅异判',
+        ? '未提供宅卦，本次不执行命宅逐方标签核验'
+        : differentLabelDirections.length
+          ? `命卦与宅卦在${differentLabelDirections.map((item) => item.direction).join('、')}所列传统标签不同，不得把其中一套八宫静默覆盖另一套`
+          : '命卦与宅卦八宫已逐方核验，本次八宫传统标签均相同',
       sources: ['命卦八宫与宅卦八宫逐宫对照'],
       limitation: COUNTER_FACT_LIMITATION,
     },
@@ -582,14 +580,14 @@ function buildLimitationFacts(
       type: '命宅分层边界',
       ownerFactKeys: ['bazhai:calculation:comparison', ...directionFactKeys],
       promptText:
-        '命卦八宫与宅卦八宫必须分开陈述；同方重合可作传统主证，异判时需说明采用哪套口径及现实理由',
+        '命卦八宫与宅卦八宫必须分开陈述；标签相同或不同都只是两份查表事实，不自动决定采用哪套口径或现实布置',
       sources: ['命卦八宫与宅卦八宫逐方对照'],
     },
     {
       key: 'bazhai:limitation:high-risk-output',
       type: '高风险输出边界',
       ownerFactKeys: allFactKeys,
-      promptText: '不得输出住宅吉凶总分、健康概率、财富增幅或保证有效的调整方案',
+      promptText: '不得输出住宅总分、健康概率、财富增幅、方向宜避或保证有效的调整方案',
       sources: ['传统分类、测量事实与现实结果分离原则'],
     },
   ];
@@ -603,8 +601,8 @@ function buildLimitationFacts(
 function buildSummaryFact(args: {
   calculationFact: BaZhaiCalculationFact;
   directionFacts: BaZhaiDirectionFact[];
-  alignedDirections: BaZhaiDirectionComparison[];
-  conflictingDirections: BaZhaiDirectionComparison[];
+  sameLabelDirections: BaZhaiDirectionComparison[];
+  differentLabelDirections: BaZhaiDirectionComparison[];
   measurementFact: BaZhaiMeasurementFact;
   measurementCandidateFacts: BaZhaiMeasurementCandidateFact[];
   counterEvidenceFacts: BaZhaiCounterEvidenceFact[];
@@ -639,12 +637,12 @@ function buildSummaryFact(args: {
       ]),
     ),
     directionFactCount: args.directionFacts.length,
-    alignedDirectionCount: args.alignedDirections.length,
-    conflictingDirectionCount: args.conflictingDirections.length,
+    sameLabelDirectionCount: args.sameLabelDirections.length,
+    differentLabelDirectionCount: args.differentLabelDirections.length,
     measurementCandidateCount: args.measurementCandidateFacts.length,
     counterEvidenceCount: args.counterEvidenceFacts.length,
     limitationFactCount: args.limitationFacts.length,
-    promptText: `证据链状态：${status}；逐方事实${args.directionFacts.length}项、同类方向${args.alignedDirections.length}项、命宅异判${args.conflictingDirections.length}项、测量候选${args.measurementCandidateFacts.length}项、反证${args.counterEvidenceFacts.length}项、限制${args.limitationFacts.length}项`,
+    promptText: `证据链状态：${status}；逐方事实${args.directionFacts.length}项、标签相同${args.sameLabelDirections.length}项、标签不同${args.differentLabelDirections.length}项、测量候选${args.measurementCandidateFacts.length}项、反证${args.counterEvidenceFacts.length}项、限制${args.limitationFacts.length}项`,
     sources: ['命卦年界、命卦宅卦、八宫逐方、测量候选、反证与限制事实逐项汇总'],
     limitation: SUMMARY_FACT_LIMITATION,
   };
@@ -659,11 +657,9 @@ export function analyzeBaZhaiEvidence(
     const housePalace = data.housePalace?.find((item) => item.gua === mingPalace.gua) ?? null;
     const relation = !housePalace
       ? '仅命卦资料'
-      : housePalace.luck === mingPalace.luck
-        ? mingPalace.luck === '吉'
-          ? '同为吉方'
-          : '同为凶方'
-        : '命宅异判';
+      : housePalace.label === mingPalace.label
+        ? '标签相同'
+        : '标签不同';
     return {
       key: `方位:${mingPalace.gua}`,
       status: '已计算',
@@ -672,36 +668,32 @@ export function analyzeBaZhaiEvidence(
       degree: mingPalace.degree,
       mingGua: data.mingGua,
       mingLabel: mingPalace.label,
-      mingLuck: mingPalace.luck,
       houseGua: data.houseGua,
       houseLabel: housePalace?.label ?? null,
-      houseLuck: housePalace?.luck ?? null,
       relation,
       calculationStepKeys: [
         'bazhai:calculation:eight-directions',
         ...(data.houseGua ? ['bazhai:calculation:comparison'] : []),
       ],
       sources: ['《八宅明镜》《阳宅十书》命卦与宅卦大游年八宫表', '后天八卦方位与中心度数表'],
-      calculation: `以命卦${data.mingGua}查大游年表的${mingPalace.gua}宫得${mingPalace.label}${housePalace && data.houseGua ? `；以宅卦${data.houseGua}查同一${mingPalace.gua}宫得${housePalace.label}；比较两者传统吉凶分类得${relation}` : '；本次未提供宅卦，不执行命宅逐方比较'}`,
-      promptText: `${mingPalace.direction}（${mingPalace.gua}宫，中心${mingPalace.degree}°）：命卦${data.mingGua}查表为${mingPalace.label}（传统${mingPalace.luck}方分类）${housePalace && data.houseGua ? `；宅卦${data.houseGua}查表为${housePalace.label}（传统${housePalace.luck}方分类）；逐方关系为${relation}` : '；未提供宅卦资料，仅保留命卦层事实'}`,
+      calculation: `以命卦${data.mingGua}查大游年表的${mingPalace.gua}宫得${mingPalace.label}${housePalace && data.houseGua ? `；以宅卦${data.houseGua}查同一${mingPalace.gua}宫得${housePalace.label}；逐字比较两份标签得${relation}` : '；本次未提供宅卦，不执行命宅逐方比较'}`,
+      promptText: `${mingPalace.direction}（${mingPalace.gua}宫，中心${mingPalace.degree}°）：命卦${data.mingGua}查表为${mingPalace.label}${housePalace && data.houseGua ? `；宅卦${data.houseGua}查表为${housePalace.label}；逐方关系为${relation}` : '；未提供宅卦资料，仅保留命卦层事实'}`,
       limitation: DIRECTION_FACT_LIMITATION,
     };
   });
   const directionComparisons: BaZhaiDirectionComparison[] = directionFacts.map(
-    ({ direction, degree, mingLabel, mingLuck, houseLabel, houseLuck, relation }) => ({
+    ({ direction, degree, mingLabel, houseLabel, relation }) => ({
       direction,
       degree,
       mingLabel,
-      mingLuck,
       houseLabel,
-      houseLuck,
       relation,
     }),
   );
-  const alignedDirections = directionComparisons.filter(
-    (item) => item.relation === '同为吉方' || item.relation === '同为凶方',
+  const sameLabelDirections = directionComparisons.filter((item) => item.relation === '标签相同');
+  const differentLabelDirections = directionComparisons.filter(
+    (item) => item.relation === '标签不同',
   );
-  const conflictingDirections = directionComparisons.filter((item) => item.relation === '命宅异判');
   const measurementFact = buildMeasurementFact(measurement);
   const measurementFacts = measurement
     ? [
@@ -718,13 +710,13 @@ export function analyzeBaZhaiEvidence(
     facingMountain: item.facingMountain,
     houseGua: item.houseGua,
     houseGroup: item.houseGroup,
-    match: item.match,
+    groupRelation: item.groupRelation,
   }));
   const counterEvidenceFacts = buildCounterEvidenceFacts(
     data,
     calculationFact,
     directionFacts,
-    conflictingDirections,
+    differentLabelDirections,
     measurementFact,
   );
   const counterSummaryFact = buildCounterSummaryFact(counterEvidenceFacts);
@@ -736,8 +728,8 @@ export function analyzeBaZhaiEvidence(
   const summaryFact = buildSummaryFact({
     calculationFact,
     directionFacts,
-    alignedDirections,
-    conflictingDirections,
+    sameLabelDirections,
+    differentLabelDirections,
     measurementFact,
     measurementCandidateFacts,
     counterEvidenceFacts,
@@ -780,7 +772,7 @@ export function analyzeBaZhaiEvidence(
         ]
       : []),
     ...directionFacts.map((item): PromptEvidenceItem => ({
-      level: item.relation === '同为吉方' ? '主证' : item.relation === '命宅异判' ? '反证' : '辅证',
+      level: item.relation === '标签不同' ? '限制' : '辅证',
       title: `${item.direction}${item.relation}`,
       detail: `${item.promptText}；边界：${item.limitation}`,
       source: `${item.sources.join('；')}；计算：${item.calculation}`,
@@ -822,13 +814,8 @@ export function analyzeBaZhaiEvidence(
     ...formatPromptEvidenceBundle(evidence),
     `计算链：${calculationChain.join(' → ')}。`,
     `测量事实：${measurementFacts.join('；') || '本次未提供可分析的入户角度测量资料'}。`,
-    `命宅同为吉方：${
-      alignedDirections
-        .filter((item) => item.relation === '同为吉方')
-        .map((item) => `${item.direction}${item.mingLabel}/${item.houseLabel}`)
-        .join('、') || '未见或未提供宅卦'
-    }。`,
-    `命宅异判：${conflictingDirections.map((item) => `${item.direction}命卦${item.mingLabel}${item.mingLuck}、宅卦${item.houseLabel}${item.houseLuck}`).join('；') || '未见或未提供宅卦'}。`,
+    `命宅标签相同：${sameLabelDirections.map((item) => `${item.direction}${item.mingLabel}`).join('、') || '未见或未提供宅卦'}。`,
+    `命宅标签不同：${differentLabelDirections.map((item) => `${item.direction}命卦${item.mingLabel}、宅卦${item.houseLabel}`).join('；') || '未见或未提供宅卦'}。`,
     `反证汇总：${counterSummaryFact.promptText}。`,
     `证据汇总：${summaryFact.promptText}。`,
     `解释限制：${limitations.join('；')}。`,
@@ -842,8 +829,8 @@ export function analyzeBaZhaiEvidence(
     calculationChain,
     directionFacts,
     directionComparisons,
-    alignedDirections,
-    conflictingDirections,
+    sameLabelDirections,
+    differentLabelDirections,
     measurementFact,
     measurementFacts,
     measurementCandidateFacts,
@@ -859,7 +846,7 @@ export function analyzeBaZhaiEvidence(
     promptText,
     methodology: [
       '先固定命卦年界与门向测量口径，再分别生成命卦盘和宅卦盘。',
-      '逐方保存命卦标签、宅卦标签与一致性，不用单一“命宅相合”覆盖八个方位的差异。',
+      '逐方保存命卦标签、宅卦标签及两者是否逐字相同，不把分组或标签差异改写成现实方向结论。',
       '测量误差跨界时并列候选坐向，现实安全、建筑条件和实际使用需求始终优先。',
     ],
   };

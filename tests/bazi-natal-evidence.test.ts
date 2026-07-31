@@ -29,7 +29,7 @@ test('八字本命旺衰未闭合时应在统一证据链中保留资料缺口',
   assert.equal(analysis.summaryFact.kinshipFactCount, analysis.kinshipFacts.length);
   assert.equal(analysis.summaryFact.relationFactCount, analysis.relationFacts.length);
   assert.equal(analysis.summaryFact.warningFactCount, result.warningFacts.length);
-  assert.equal(analysis.summaryFact.missingFactCount, 1);
+  assert.equal(analysis.summaryFact.missingFactCount, 2);
   assert.equal(analysis.summaryFact.status, '证据链有缺口');
 
   const calculationKeys = new Set(analysis.calculationSteps.map((item) => item.key));
@@ -61,6 +61,7 @@ test('八字本命旺衰未闭合时应在统一证据链中保留资料缺口',
     ),
   );
   assert.equal(analysis.analysisFacts.find((item) => item.type === '日主旺衰')?.status, '资料缺口');
+  assert.equal(analysis.analysisFacts.find((item) => item.type === '用神取忌')?.status, '资料缺口');
   assert.ok(analysis.analysisFacts.every((item) => item.promptText && item.sources.length > 0));
   assert.match(
     analysis.promptText,
@@ -808,7 +809,7 @@ test('八字真太阳时本命证据应引用校正后的唯一时间并采用�
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|候选盘|出生时间敏感性/);
 });
 
-test('丁火生巳月案例的劫财格应贯穿取用、证据与最终提示词，不得回退为正财格', () => {
+test('丁火生巳月案例的劫财格应贯穿证据与最终提示词，用神继续保留待定', () => {
   const result = baziCalculator.calculateBazi({
     year: 2002,
     month: 5,
@@ -831,18 +832,22 @@ test('丁火生巳月案例的劫财格应贯穿取用、证据与最终提示�
   assert.equal(result.monthCommander, '庚');
   assert.equal(result.analysis.mingGe.pattern, '劫财格');
   assert.match(result.analysis.mingGe.basis || '', /月令本气为丙/);
-  assert.ok(
-    result.analysis.usefulGod.strategyTrace?.some((item) => item.includes('普通格局:劫财格')),
-  );
+  assert.equal(result.analysis.usefulGod.primaryReason, '取用待定');
+  assert.deepEqual(result.analysis.usefulGod.matchedRules, []);
   assert.ok(result.evidenceAnalysis);
 
   const patternFact = result.evidenceAnalysis.analysisFacts.find((item) => item.type === '格局');
+  const usefulGodFact = result.evidenceAnalysis.analysisFacts.find(
+    (item) => item.type === '用神取忌',
+  );
   assert.equal(patternFact?.result, '劫财格');
   assert.match(patternFact?.promptText || '', /格局：劫财格/);
+  assert.equal(usefulGodFact?.status, '资料缺口');
 
   const prompt = formatBaziForPrompt(result);
   assert.match(prompt, /格局: 劫财格/);
-  assert.match(prompt, /取用脉络: 普通格局:劫财格/);
+  assert.match(prompt, /用神: 自动规则尚未完成逐条校勘，取用待定/);
+  assert.doesNotMatch(prompt, /取用脉络:/);
   assert.doesNotMatch(JSON.stringify(result), /正财格/);
   assert.doesNotMatch(prompt, /正财格/);
 });

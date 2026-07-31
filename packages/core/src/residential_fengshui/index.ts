@@ -1,7 +1,7 @@
 /**
  * @file 住宅风水（八宅 + 玄空飞星 一站式）
  * @description 产品入口收敛为“住宅风水”；算法仍分层计算八宅与玄空，再合成统一结果与提示词。
- * 不生成综合吉凶总分，不把两套体系互相改写。
+ * 不生成可执行方位取舍、具体布置方案或综合总分，不把两套体系互相改写。
  */
 
 import {
@@ -37,8 +37,8 @@ export interface ResidentialFengshuiInput {
   guaType?: '下卦' | '替卦';
 }
 
-export interface ResidentialFengshuiAgreement {
-  level: '一致关注' | '可互补' | '资料不足' | '口径不同需分述';
+export interface ResidentialFengshuiReviewNote {
+  level: '资料完整' | '资料不足' | '分层记录' | '边界敏感';
   title: string;
   detail: string;
 }
@@ -55,8 +55,7 @@ export interface ResidentialFengshuiResult {
   };
   bazhai: BaZhaiResult | null;
   xuankong: XuanKongResult | null;
-  agreements: ResidentialFengshuiAgreement[];
-  advice: string[];
+  reviewNotes: ResidentialFengshuiReviewNote[];
   prompt: string;
   evidencePromptText: string;
 }
@@ -190,12 +189,12 @@ function buildXuanKong(
   return generateXuanKong(xuanInput);
 }
 
-function buildAgreements(
+function buildReviewNotes(
   bazhai: BaZhaiResult | null,
   xuankong: XuanKongResult | null,
   xuankongStatus: ResidentialFengshuiResult['inputSummary']['xuankongStatus'],
-): ResidentialFengshuiAgreement[] {
-  const items: ResidentialFengshuiAgreement[] = [];
+): ResidentialFengshuiReviewNote[] {
+  const items: ResidentialFengshuiReviewNote[] = [];
 
   if (!bazhai && !xuankong) {
     return [
@@ -222,87 +221,46 @@ function buildAgreements(
     items.push({
       level: '资料不足',
       title: '仅完成玄空宅运层',
-      detail: '已有山向与运盘，但未提供居住人出生年性别或命卦，暂不做八宅人宅适配。',
+      detail: '已有山向与运盘，但未提供居住人出生年性别或命卦，暂不生成八宅命卦层资料。',
     });
   }
 
   if (bazhai && xuankong) {
     items.push({
-      level: '可互补',
-      title: '宅运与人宅分层并观',
-      detail: `玄空见${xuankong.period.label}、${xuankong.daoShanXiang.summary}；八宅命卦${bazhai.mingGua}、命宅关系${bazhai.match}。两者分别说明宅运结构与对人适配，不互相改写。`,
+      level: '分层记录',
+      title: '玄空与八宅资料分层保存',
+      detail: `玄空记录${xuankong.period.label}、${xuankong.daoShanXiang.summary}；八宅记录命卦${bazhai.mingGua}、宅卦${bazhai.houseGua ?? '未定'}、命宅分组${bazhai.groupRelation}。两套资料不互相改写，也不自动合成现实结论。`,
     });
 
-    if (bazhai.match === '相合') {
+    if (
+      xuankong.measurement?.stability === '山向边界敏感' ||
+      bazhai.evidenceAnalysis.measurementFact.status === '山向边界敏感' ||
+      bazhai.evidenceAnalysis.measurementFact.status === '宅卦不稳定'
+    ) {
       items.push({
-        level: '一致关注',
-        title: '命宅相合可提高关注优先级',
-        detail: '八宅显示命宅同组，可与玄空中的山向、当运结构一起作为优先关注，不代表必然吉利。',
-      });
-    } else if (bazhai.match === '相冲') {
-      items.push({
-        level: '口径不同需分述',
-        title: '命宅不同组需分开说明',
-        detail: '八宅显示命宅不同组，应分别说明个人吉方与住宅山向结构，不可直接合成单一结论。',
+        level: '边界敏感',
+        title: '山向或宅卦存在多个候选',
+        detail: '测量误差跨越边界，需保留全部候选山向与候选宅卦，中心读数不能作为唯一盘面。',
       });
     }
+  }
 
-    if (xuankong.measurement?.stability === '山向边界敏感' || bazhai.match === '未知') {
-      items.push({
-        level: '资料不足',
-        title: '山向或宅卦边界仍敏感',
-        detail: '测量接近边界或宅卦未完全确定时，应保留候选山向，不把中心读数当作唯一坐向。',
-      });
-    }
+  if (bazhai && xuankong && !items.some((item) => item.level === '边界敏感')) {
+    items.push({
+      level: '资料完整',
+      title: '两层基础资料已形成',
+      detail:
+        '当前已形成八宅命卦宅卦资料与玄空宅运资料；完整只表示输入链闭合，不证明住宅现实效果。',
+    });
   }
 
   return items;
 }
 
-function buildAdvice(
-  bazhai: BaZhaiResult | null,
-  xuankong: XuanKongResult | null,
-  agreements: ResidentialFengshuiAgreement[],
-  xuankongStatus: ResidentialFengshuiResult['inputSummary']['xuankongStatus'],
-): string[] {
-  const advice: string[] = [];
-  if (xuankong) {
-    advice.push(
-      `先看宅运：${xuankong.period.label}，坐${xuankong.sitMountain}向${xuankong.facingMountain}，${xuankong.guaType}，${xuankong.daoShanXiang.summary}。`,
-    );
-  }
-  if (bazhai) {
-    const lucky = bazhai.luckyDirections
-      .slice(0, 4)
-      .map((item) => `${item.direction}${item.label}`)
-      .join('、');
-    advice.push(
-      `再看人宅：命卦${bazhai.mingGua}（${bazhai.mingGroup}），命宅关系${bazhai.match}${
-        lucky ? `；命卦较利方位可参考 ${lucky}` : ''
-      }。`,
-    );
-  }
-  if (agreements.some((item) => item.level === '口径不同需分述')) {
-    advice.push('两边有分歧时，分别保留宅运结构与个人方位依据，不硬统一成一个总分。');
-  }
-  if (agreements.some((item) => item.level === '资料不足')) {
-    advice.push(
-      xuankongStatus === '缺少建造年或起运年'
-        ? '请先补充住宅建造年或起运年，再排玄空宅运盘并讨论具体布局。'
-        : '资料不足处先补山向或居住人信息，再做更细的布局讨论。',
-    );
-  }
-  if (!advice.length) {
-    advice.push('请补充山向或居住人信息后重新排盘。');
-  }
-  return advice;
-}
-
 function buildEvidencePrompt(params: {
   bazhai: BaZhaiResult | null;
   xuankong: XuanKongResult | null;
-  agreements: ResidentialFengshuiAgreement[];
-  advice: string[];
+  reviewNotes: ResidentialFengshuiReviewNote[];
 }) {
   const items: PromptEvidenceItem[] = [];
   if (params.xuankong) {
@@ -317,13 +275,18 @@ function buildEvidencePrompt(params: {
     items.push({
       level: '主证',
       title: '八宅人宅层',
-      detail: `命卦${params.bazhai.mingGua}，宅卦${params.bazhai.houseGua ?? '未定'}，命宅关系${params.bazhai.match}`,
+      detail: `命卦${params.bazhai.mingGua}，宅卦${params.bazhai.houseGua ?? '未定'}，命宅分组${params.bazhai.groupRelation}；八宫只保留传统标签`,
       source: '八宅大游年',
     });
   }
-  for (const item of params.agreements) {
+  for (const item of params.reviewNotes) {
     items.push({
-      level: item.level === '资料不足' ? '反证' : item.level === '口径不同需分述' ? '限制' : '辅证',
+      level:
+        item.level === '资料不足' || item.level === '边界敏感'
+          ? '反证'
+          : item.level === '分层记录'
+            ? '限制'
+            : '辅证',
       title: item.title,
       detail: item.detail,
       source: '住宅风水合参',
@@ -331,9 +294,9 @@ function buildEvidencePrompt(params: {
   }
   items.push({
     level: '限制',
-    title: '合参边界',
+    title: '分层资料边界',
     detail:
-      '住宅风水只分层并列八宅与玄空，不生成综合吉凶总分，也不覆盖形峦、阴宅或全套装修方案保证。',
+      '住宅风水只分层并列八宅与玄空，不生成综合总分、可执行方位取舍或具体布置方案，也不覆盖形峦、阴宅或装修方案保证。',
     source: '项目住宅风水 v1',
   });
   const bundle: PromptEvidenceBundle = { title: '住宅风水证据', items };
@@ -345,8 +308,7 @@ function buildPrompt(result: {
   houseYear: number | null;
   bazhai: BaZhaiResult | null;
   xuankong: XuanKongResult | null;
-  agreements: ResidentialFengshuiAgreement[];
-  advice: string[];
+  reviewNotes: ResidentialFengshuiReviewNote[];
   evidencePromptText: string;
   xuankongStatus: ResidentialFengshuiResult['inputSummary']['xuankongStatus'];
 }) {
@@ -358,12 +320,10 @@ function buildPrompt(result: {
       ? `玄空：${result.xuankong.period.label}；坐${result.xuankong.sitMountain}向${result.xuankong.facingMountain}；${result.xuankong.guaType}；${result.xuankong.daoShanXiang.summary}`
       : `玄空：未排盘（${result.xuankongStatus}）`,
     result.bazhai
-      ? `八宅：命卦${result.bazhai.mingGua}（${result.bazhai.mingGroup}），宅卦${result.bazhai.houseGua ?? '未定'}，命宅关系${result.bazhai.match}`
+      ? `八宅：命卦${result.bazhai.mingGua}（${result.bazhai.mingGroup}），宅卦${result.bazhai.houseGua ?? '未定'}，命宅分组${result.bazhai.groupRelation}`
       : '八宅：未排盘（缺少居住人出生信息或命卦）',
-    '合参要点：',
-    ...result.agreements.map((item) => `- ${item.title}：${item.detail}`),
-    '行动建议：',
-    ...result.advice.map((item) => `- ${item}`),
+    '资料与复核提示：',
+    ...result.reviewNotes.map((item) => `- ${item.title}：${item.detail}`),
     '【结构化证据】',
     result.evidencePromptText,
   ];
@@ -401,18 +361,16 @@ export function generateResidentialFengshui(
     : hasOrientationInput(input)
       ? '缺少建造年或起运年'
       : '缺少山向';
-  const agreements = buildAgreements(bazhai, xuankong, xuankongStatus);
-  const advice = buildAdvice(bazhai, xuankong, agreements, xuankongStatus);
+  const reviewNotes = buildReviewNotes(bazhai, xuankong, xuankongStatus);
   const houseYear = xuankong ? xuankong.period.year : (input.year ?? null);
   const orientationText = buildOrientationText({ bazhai, xuankong, input });
-  const evidencePromptText = buildEvidencePrompt({ bazhai, xuankong, agreements, advice });
+  const evidencePromptText = buildEvidencePrompt({ bazhai, xuankong, reviewNotes });
   const prompt = buildPrompt({
     orientationText,
     houseYear,
     bazhai,
     xuankong,
-    agreements,
-    advice,
+    reviewNotes,
     evidencePromptText,
     xuankongStatus,
   });
@@ -429,8 +387,7 @@ export function generateResidentialFengshui(
     },
     bazhai,
     xuankong,
-    agreements,
-    advice,
+    reviewNotes,
     prompt,
     evidencePromptText,
   };

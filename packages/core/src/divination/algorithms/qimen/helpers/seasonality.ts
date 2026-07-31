@@ -218,7 +218,7 @@ export function getDaySeasonRelation(
   if (element === seasonalElement) {
     return {
       relation: '得时',
-      description: `${dayStem}属${element}，与节令${seasonalElement}比和，当令而旺。`,
+      description: `${dayStem}属${element}，与节令${seasonalElement}五行比和。`,
     };
   }
 
@@ -226,7 +226,7 @@ export function getDaySeasonRelation(
   if (isGenerating(seasonalElement, element)) {
     return {
       relation: '受生',
-      description: `节令${seasonalElement}生${dayStem}之${element}，得令相助。`,
+      description: `节令${seasonalElement}生日干${dayStem}所属${element}。`,
     };
   }
 
@@ -234,7 +234,7 @@ export function getDaySeasonRelation(
   if (isGenerating(element, seasonalElement)) {
     return {
       relation: '被耗',
-      description: `${dayStem}之${element}生节令${seasonalElement}，泄气被耗。`,
+      description: `日干${dayStem}所属${element}生节令${seasonalElement}。`,
     };
   }
 
@@ -242,7 +242,7 @@ export function getDaySeasonRelation(
   if (isControlling(seasonalElement, element)) {
     return {
       relation: '受克',
-      description: `节令${seasonalElement}克${dayStem}之${element}，受制不吉。`,
+      description: `节令${seasonalElement}克日干${dayStem}所属${element}。`,
     };
   }
 
@@ -250,7 +250,7 @@ export function getDaySeasonRelation(
   if (isControlling(element, seasonalElement)) {
     return {
       relation: 'neutral',
-      description: `${dayStem}之${element}克节令${seasonalElement}，虽能克令但亦耗力，持平。`,
+      description: `日干${dayStem}所属${element}克节令${seasonalElement}。`,
     };
   }
 
@@ -541,7 +541,7 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
           type: '六合',
           pillars: [a.key, b.key],
           values: [a.zhi, b.zhi],
-          description: `${PILLAR_LABELS[a.key]}${a.zhi}与${PILLAR_LABELS[b.key]}${b.zhi}六合，主和合顺利。`,
+          description: `${PILLAR_LABELS[a.key]}${a.zhi}与${PILLAR_LABELS[b.key]}${b.zhi}构成六合。`,
         });
       }
 
@@ -551,7 +551,7 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
           type: '六冲',
           pillars: [a.key, b.key],
           values: [a.zhi, b.zhi],
-          description: `${PILLAR_LABELS[a.key]}${a.zhi}与${PILLAR_LABELS[b.key]}${b.zhi}六冲，主冲突变动。`,
+          description: `${PILLAR_LABELS[a.key]}${a.zhi}与${PILLAR_LABELS[b.key]}${b.zhi}构成六冲。`,
         });
       }
 
@@ -561,7 +561,7 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
           type: '相害',
           pillars: [a.key, b.key],
           values: [a.zhi, b.zhi],
-          description: `${PILLAR_LABELS[a.key]}${a.zhi}与${PILLAR_LABELS[b.key]}${b.zhi}相害，主暗伤不利。`,
+          description: `${PILLAR_LABELS[a.key]}${a.zhi}与${PILLAR_LABELS[b.key]}${b.zhi}构成相害。`,
         });
       }
 
@@ -572,7 +572,7 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
           type: '相刑',
           pillars: [a.key, b.key],
           values: [a.zhi, b.zhi],
-          description: `${PILLAR_LABELS[a.key]}${a.zhi}与${PILLAR_LABELS[b.key]}${b.zhi}${typeLabel}，主是非官非。`,
+          description: `${PILLAR_LABELS[a.key]}${a.zhi}与${PILLAR_LABELS[b.key]}${b.zhi}构成${typeLabel || '相刑'}。`,
         });
       }
 
@@ -585,7 +585,7 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
           type: '天干五合',
           pillars: [a.key, b.key],
           values: [a.gan, b.gan],
-          description: `${PILLAR_LABELS[a.key]}${a.gan}与${PILLAR_LABELS[b.key]}${b.gan}天干五合（化${heWuxing}），主合作契机。`,
+          description: `${PILLAR_LABELS[a.key]}${a.gan}与${PILLAR_LABELS[b.key]}${b.gan}构成天干五合，合化五行对应${heWuxing}；是否化成须另审条件。`,
         });
       }
 
@@ -595,7 +595,7 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
           type: '天干相冲',
           pillars: [a.key, b.key],
           values: [a.gan, b.gan],
-          description: `${PILLAR_LABELS[a.key]}${a.gan}与${PILLAR_LABELS[b.key]}${b.gan}天干相冲，主对立矛盾。`,
+          description: `${PILLAR_LABELS[a.key]}${a.gan}与${PILLAR_LABELS[b.key]}${b.gan}构成天干相冲。`,
         });
       }
     }
@@ -613,7 +613,7 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
       type: '三合',
       pillars: pillarKeys,
       values: members,
-      description: `${members.join('、')}合${group}，主气运凝聚。`,
+      description: `${members.join('、')}构成${group}三合局。`,
     });
   }
 

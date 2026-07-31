@@ -19,7 +19,6 @@ export { DEFAULT_SHENSHA_VARIANT_CONFIG, resolveShenShaVariantConfig } from './v
 export type {
   ShenShaCalculatorOptions,
   ShenShaKongWangBasis,
-  ShenShaTongZiScope,
   ShenShaVariantConfig,
   ShenShaYangRenMode,
 } from './variants';

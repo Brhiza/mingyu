@@ -17,10 +17,7 @@ import type {
 import { LunarUtil, getDivinationTime } from 'mingyu-core/calendar';
 import { resolveSsgwStoryContent } from '../ssgw-content';
 import { analyzeSsgwEvidence, conditionSsgwInterpretation } from 'mingyu-core/divination/ssgw';
-import {
-  analyzeQimenEvidence,
-  conditionQimenTraditionalText,
-} from '@core/divination/algorithms/qimen';
+import { analyzeQimenEvidence, rebuildAuditedQimenData } from '@core/divination/algorithms/qimen';
 import {
   analyzeAlmanacEvidence,
   isDeprecatedAlmanacTopicRuleText,
@@ -509,14 +506,15 @@ function formatXiaoliurenInfo(data: XiaoliurenData) {
     .join('\n');
 }
 
-function formatQimenInfo(data: QimenData) {
-  const evidenceAnalysis = data.evidenceAnalysis?.palaceFacts
-    ? data.evidenceAnalysis
-    : analyzeQimenEvidence(data);
-  const primaryUsefulPalace = evidenceAnalysis.candidates[0];
-  const focusText = primaryUsefulPalace
-    ? `取用主线：优先看${primaryUsefulPalace.name}（${primaryUsefulPalace.direction}，${primaryUsefulPalace.element}）；来源${primaryUsefulPalace.sources.join('、')}；门星神干为${[primaryUsefulPalace.palace.renPan.door, primaryUsefulPalace.palace.tianPan.star, primaryUsefulPalace.palace.tianPan.companionStar, primaryUsefulPalace.palace.shenPan.god, primaryUsefulPalace.palace.tianPan.stem, primaryUsefulPalace.palace.tianPan.companionStem, primaryUsefulPalace.palace.diPan.stem].filter(Boolean).join('、')}；支持${primaryUsefulPalace.support.join('、') || '盘面平稳'}；限制${primaryUsefulPalace.constraints.join('、') || '未见明显空亡入墓'}`
-    : '取用主线：以值符、值使、时干落宫为先，再看格局与宫间生克';
+function formatQimenInfo(input: QimenData) {
+  // 旧缓存或外部结果可能携带已退役摘要；提示词始终从原始盘面重新建立证据。
+  const data = rebuildAuditedQimenData(input);
+  const evidenceAnalysis = analyzeQimenEvidence(data);
+  const positionIndexText = evidenceAnalysis.positionIndexes.length
+    ? evidenceAnalysis.positionIndexes
+        .map((item) => `${item.name}（${item.indexSources.join('、')}）`)
+        .join('；')
+    : '未定位';
   const zhiFuPalace = data.jiuGongGe.find(
     (item) => item.tianPan.star === data.zhiFu || item.tianPan.companionStar === data.zhiFu,
   );
@@ -542,59 +540,33 @@ function formatQimenInfo(data: QimenData) {
   const patternSummary = basicPatternFacts
     .map((item) => `${item.name}：${item.promptText}`)
     .join('；');
-  // 经典格局（九遁、三奇得使等）—— 比一般格局标签更优先的判断依据
+  // 已按统一原典逐条校勘的十一项天地盘固定格。
   const classicPatternFacts = evidenceAnalysis.patternFacts.filter(
     (item) => item.kind === '经典格局',
   );
   const classicPatternSummary = classicPatternFacts.length
     ? classicPatternFacts
-        .slice(0, 4)
-        .map((item) => `${item.name}（${item.traditionalTone}）：${item.promptText}`)
+        .map((item) => `${item.name}（原典分类：${item.traditionalTone}）：${item.promptText}`)
         .join('；')
     : '';
-  // 天地盘干关系（八十一格精选）—— 取最有代表性的格式
-  const stemRelationSummary = data.stemRelations?.length
-    ? data.stemRelations
-        .filter(
-          (item) =>
-            item.pattern &&
-            /青龙返首|飞鸟跌穴|青龙逃走|白虎猖狂|朱雀投江|螣蛇跃蹻|荧入太白|太白入荧|大格|小格|刑格|天网四张|地网四张|伏干飞干|伏宫飞宫/.test(
-              item.pattern,
-            ),
-        )
-        .slice(0, 4)
-        .map(
-          (item) =>
-            `${item.heavenStem}${item.earthStem}落${item.gong}宫：${item.relation}，${item.pattern}`,
-        )
-        .join('；')
-    : '';
-  // 方位建议只保留方向、用途和依据，不向提示词暴露内部排序分数。
-  const directionSummary = data.directions?.goodDirections?.length
-    ? `吉方${data.directions.goodDirections
-        .slice(0, 3)
-        .map((d) => `${d.direction}（${d.name}：${d.use}）`)
-        .join('、')}${
-        data.directions.avoidDirections?.length
-          ? `；避${data.directions.avoidDirections
-              .slice(0, 2)
-              .map((d) => d.direction)
-              .join('、')}`
-          : ''
-      }`
-    : '';
+  const stemRelationSummary = evidenceAnalysis.palaceFacts
+    .flatMap((palace) =>
+      palace.stemRelationFacts.map(
+        (item) => `${item.heavenStem}${item.earthStem}落${palace.name}：${item.promptText}`,
+      ),
+    )
+    .join('；');
   const seasonalitySummary = data.seasonality
     ? [
         `${data.seasonality.currentJieQi}${data.seasonality.jieQiPhase.phase}`,
         `节气五行${data.seasonality.seasonalElement || '未列'}`,
         `日干${data.seasonality.dayStem}${data.seasonality.seasonRelation}`,
         `月相${data.seasonality.lunarPhaseDetail || data.seasonality.lunarPhase}`,
-        `建除${data.seasonality.dayOfficer}${data.seasonality.dayOfficerFortuneLabel}`,
+        `建除${data.seasonality.dayOfficer}`,
       ].join('；')
     : '';
   const ganzhiInteractionSummary = data.seasonality?.ganzhiInteractions?.length
     ? data.seasonality.ganzhiInteractions
-        .slice(0, 5)
         .map((item) => `${item.type}${item.values.join('、')}`)
         .join('；')
     : '';
@@ -603,31 +575,35 @@ function formatQimenInfo(data: QimenData) {
   );
   const patternComboSummary = comboPatternFacts.length
     ? comboPatternFacts
-        .slice(0, 4)
-        .map((item) => {
-          const tone =
-            item.traditionalTone === '有利'
-              ? '支持条件集中'
-              : item.traditionalTone === '风险'
-                ? '限制条件集中'
-                : '需结合原始条件';
-          return `${item.name}（${tone}）：${item.promptText}`;
-        })
+        .map(
+          (item) =>
+            `${item.name}（传统分类：${item.traditionalTone}，不等于现实吉凶）：${item.promptText}`,
+        )
         .join('；')
     : '';
-  const specialConditionsText = data.specialConditions?.description?.trim()
-    ? conditionQimenTraditionalText(data.specialConditions.description.trim())
-    : '';
+  const specialConditionsText =
+    evidenceAnalysis.calculationEvidenceFacts.find(
+      (item) => item.key === 'qimen:calculation:fixed-ganzhi-conditions',
+    )?.promptText ?? '';
   const solarTerm = data.seasonality?.jieQiPhase.solarTermEvidence;
   const moonPhase = data.seasonality?.moonPhaseEvidence;
   const juTerm = data.timeInfo?.juTerm || data.timeInfo?.solarTerm || '未列';
+  const palaceText = evidenceAnalysis.palaceFacts
+    .map(
+      (item) =>
+        `${item.name}（${item.direction}${item.element}）：天盘${[item.tianPan.stem, item.tianPan.companionStem, item.tianPan.star, item.tianPan.companionStar].filter(Boolean).join('、')}；地盘${item.diPan.stem}；人盘${item.renPan.door}；神盘${item.shenPan.god}；${item.isVoid ? `旬空${item.voidBranches.join('、')}` : '不空'}；${item.hasHorse ? `马星（源支${item.horseSourceBranch ?? '未列'}）` : '无马星'}`,
+    )
+    .join('；');
+  const palaceRelationText = evidenceAnalysis.palaceRelations
+    .map((item) => `${item.from}—${item.to}：${item.relation}`)
+    .join('；');
 
   return [
     '占法：奇门遁甲',
-    focusText,
+    `位置索引：${positionIndexText}。这些位置只标记值符、值使、日干、时干或已校勘格局所在宫，不自动指定具体问题的用神宫或方位结论`,
     `时间干支：${formatGanzhi(data.ganzhi).replace('干支：', '')}`,
     `核心结构：${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局；值符${data.zhiFu}；值使${data.zhiShi}`,
-    `关键提示：实际节气${data.timeInfo?.solarTerm || '未列'}；定局${`${juTerm} ${data.timeInfo?.epoch || ''}`.trim()}；格局标签${data.patternTags?.join('、') || '无'}`,
+    `关键提示：实际节气${data.timeInfo?.solarTerm || '未列'}；定局${`${juTerm} ${data.timeInfo?.epoch || ''}`.trim()}；位置标签${basicPatternFacts.map((item) => item.name).join('、') || '无'}`,
     seasonalitySummary ? `节令背景：${seasonalitySummary}` : '',
     solarTerm
       ? `节气交接：${solarTerm.name}交节时刻 ${solarTerm.utcDateTime}（UTC），太阳黄经${solarTerm.targetLongitudeDegrees.toFixed(0)}°。`
@@ -641,12 +617,15 @@ function formatQimenInfo(data: QimenData) {
     ganzhiInteractionSummary ? `四柱互动：${ganzhiInteractionSummary}` : '',
     `值符值使与时干：值符${data.zhiFu}${zhiFuPalace ? `落${zhiFuPalace.name}` : '未见落宫'}；值使${data.zhiShi}${zhiShiPalace ? `落${zhiShiPalace.name}` : '未见落宫'}；时干${hourStem}${hourStemPalaces.length ? `见于${hourStemPalaces.map((item) => item.name).join('、')}` : '未见落宫'}`,
     `旬空与马星：旬空${voidText}；马星${horseText}`,
-    specialConditionsText ? `特殊时辰：${specialConditionsText}` : '',
-    patternSummary ? `判断依据：${patternSummary}` : '',
+    `九宫原始盘：${palaceText}`,
+    `九宫宫对五行关系（全部36组无序宫对）：${palaceRelationText}`,
+    specialConditionsText,
+    patternSummary ? `位置与五行事实：${patternSummary}` : '',
     classicPatternSummary ? `经典格局：${classicPatternSummary}` : '',
     patternComboSummary ? `已校勘组合规则：${patternComboSummary}` : '',
     stemRelationSummary ? `天地盘干：${stemRelationSummary}` : '',
-    directionSummary ? `方位吉凶：${directionSummary}` : '',
+    `应期边界：${evidenceAnalysis.timingSummaryFact.promptText}`,
+    `方位边界：${evidenceAnalysis.directionBoundaryFact.promptText}`,
   ]
     .filter(Boolean)
     .join('\n');
@@ -869,11 +848,7 @@ function formatAlmanacInfo(data: AlmanacData) {
   const caution = evidenceAnalysis.cautionDates || [];
   const mainLine = `事项主线：围绕${data.topicLabel}，先核对原始宜忌，再并列查看建除、神煞、冲煞与参与人年支、日支刑冲破害参考关系；参与人双支关系不自动改变分组；可用候选${preferred.join('、') || '暂无'}，条件候选${conditional.join('、') || '暂无'}，慎用候选${caution.join('、') || '暂无'}；同组按日期先后列出，不按证据数量生成名次`;
   const participantLines = data.participants.map((item) => {
-    const usefulEvidenceAvailable =
-      item.usefulGods.length > 0 && item.usefulGods.length <= 3 && item.avoidGods.length > 0;
-    const useful = usefulEvidenceAvailable
-      ? `喜用资料${item.usefulGods.join('、')}，忌神资料${item.avoidGods.join('、')}（不用于本次简单加权）`
-      : '本次不采用喜忌五行作简单加权';
+    const useful = '自动喜忌规则保持关闭，本次不读取喜忌五行';
     return `- ${item.name}：${item.gender || '性别未填'}，公历${item.solarDate}，农历${item.lunarDate}，生肖${item.zodiac}，日主${item.dayMaster}${item.dayMasterElement}，四柱${item.pillars.year}年 ${item.pillars.month}月 ${item.pillars.day}日 ${item.pillars.hour}时，${useful}`;
   });
   const dayLines = candidateDays.map((item) => {
@@ -925,13 +900,7 @@ function formatAlmanacInfo(data: AlmanacData) {
               .filter((note) => note.includes(participant.name))
               .map((note) => `${day.date}${note}`),
           );
-          const usefulEvidenceAvailable =
-            participant.usefulGods.length > 0 &&
-            participant.usefulGods.length <= 3 &&
-            participant.avoidGods.length > 0;
-          const usefulText = usefulEvidenceAvailable
-            ? `喜用资料${participant.usefulGods.join('、')}，忌神资料${participant.avoidGods.join('、')}（不用于本次简单加权）`
-            : '本次不采用喜忌五行作简单加权';
+          const usefulText = '自动喜忌规则保持关闭，本次不读取喜忌五行';
           return `${participant.name}：日主${participant.dayMaster}${participant.dayMasterElement}，${usefulText}；${relatedNotes.join('；') || '候选日期未见参与人刑冲破害参考关系'}`;
         })
         .join('；')

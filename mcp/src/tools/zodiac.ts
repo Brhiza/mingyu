@@ -33,7 +33,7 @@ export function registerZodiacTool(server: McpServer) {
     'metaphysics_zodiac',
     {
       description:
-        '生肖流年关系：由年支逐项推算值/冲/刑/害/破、流年干支五行与三合六合三会关系，并返回证据和解释边界',
+        '生肖与流年固定关系：由年支逐项核验值/冲/刑/害/破、流年干支五行与三合六合三会关系，只返回关系事实、证据和解释边界',
       inputSchema: zodiacSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -46,7 +46,7 @@ export function registerZodiacTool(server: McpServer) {
         const result = zodiac.getZodiacYearFortune(branch, yearGanZhi);
         return createStructuredToolResult({ result });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生肖运程推算失败'));
+        return createErrorToolResult(getErrorMessage(error, '生肖与流年关系计算失败'));
       }
     },
   );
@@ -54,7 +54,8 @@ export function registerZodiacTool(server: McpServer) {
   server.registerTool(
     'zodiac_prompt',
     {
-      description: '生肖流年逐项关系证据，并生成结构化 AI 解读提示词',
+      description:
+        '生肖与流年逐项关系证据，并生成供 AI 结合问题继续推算的结构化提示词；不生成利弊、现实贵人或行动建议',
       inputSchema: zodiacSchema.shape,
       outputSchema: promptOutputSchema,
     },
@@ -70,7 +71,7 @@ export function registerZodiacTool(server: McpServer) {
           prompt: buildMetaphysicsPrompt(result.prompt, args.question, { method: 'zodiac' }),
         });
       } catch (error) {
-        return createErrorToolResult(getErrorMessage(error, '生成生肖运程提示词失败'));
+        return createErrorToolResult(getErrorMessage(error, '生成生肖与流年关系提示词失败'));
       }
     },
   );

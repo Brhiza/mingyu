@@ -389,16 +389,14 @@ function formatCompatibilityFacts(result: ReturnType<typeof analyzeBaziCompatibi
   const relationLines = result.crossPillarRelations.map((item) => item.promptText);
   const combinationLines = result.crossBranchCombinations.map((item) => item.promptText);
   const tenGodLines = result.tenGodMappings.map((item) => item.promptText);
-  const coverageLines = result.usefulGodCoverage
-    .filter((item) => item.status === '已计算')
-    .map((item) => item.promptText);
+  const coverageLines = result.usefulGodCoverage.map((item) => item.promptText);
 
   return [
     `日主关系：${result.dayMasterRelation.promptText}。`,
     `四柱关系：${relationLines.length ? relationLines.join('；') : '双方四柱未见列出的合冲刑害破关系'}。`,
     combinationLines.length ? `跨盘组合：${combinationLines.join('；')}。` : '',
     `双向十神：${tenGodLines.join('；')}。`,
-    coverageLines.length ? `喜忌五行对应：${coverageLines.join('；')}。` : '',
+    `喜忌资料状态：${coverageLines.join('；')}。`,
   ]
     .filter(Boolean)
     .join('\n');

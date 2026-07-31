@@ -86,7 +86,7 @@ export function registerResidentialFengshuiTool(server: McpServer) {
     'metaphysics_residential',
     {
       description:
-        '住宅风水一站式：分层计算八宅与玄空飞星，输出宅运结构、人宅适配、合参要点与证据；玄空层须提供建造年或起运年，不生成综合吉凶总分',
+        '住宅风水一站式：分层返回八宅传统标签、玄空宅运盘、山向测量与资料边界；玄空层须提供建造年或起运年，不自动生成方向宜避、布局建议或综合总分',
       inputSchema: residentialSchema.omit({ question: true }).shape,
       outputSchema: resultOutputSchema,
     },

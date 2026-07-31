@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { jiazi } from '../packages/core/src/divination/divination-data';
-import { generateQimen } from '../packages/core/src/divination/algorithms/qimen';
+import {
+  generateQimen,
+  rebuildAuditedQimenData,
+} from '../packages/core/src/divination/algorithms/qimen';
 import { getZhiFuZhiShiByGanZhi } from '../packages/core/src/divination/algorithms/qimen/helpers/jushu';
 import {
   arrangeJiuGongGe,
@@ -15,14 +18,24 @@ import {
   getClassicPatterns,
   getStemRelations,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/classic-patterns';
-import {
-  evaluateStarPalaces,
-  getZhiFuStarJudgement,
-} from '../packages/core/src/divination/algorithms/qimen/helpers/star-palace';
 
 const outerPalaces = [1, 8, 3, 4, 9, 2, 7, 6];
 const rotatingStars = ['天蓬', '天任', '天冲', '天辅', '天英', '天芮', '天柱', '天心'];
+const flyingStars = [...rotatingStars, '天禽'];
 const doors = ['休门', '生门', '伤门', '杜门', '景门', '死门', '惊门', '开门'];
+const auditedClassicPatternNames = new Set([
+  '青龙返首',
+  '飞鸟跌穴',
+  '青龙逃走',
+  '白虎猖狂',
+  '朱雀投江',
+  '螣蛇跃蹻',
+  '荧入太白',
+  '太白入荧',
+  '大格',
+  '刑格',
+  '小格',
+]);
 
 function byGong<T extends { gong: number }>(items: T[]): Record<number, T> {
   return Object.fromEntries(items.map((item) => [item.gong, item]));
@@ -115,16 +128,6 @@ test('奇门转盘天禽值符应随天芮落宫并保留自己所携中宫干',
     zhiFuPalace?.tianPan.companionStem,
   );
 
-  const starStates = evaluateStarPalaces({ jiuGongGe: palaces });
-  assert.equal(starStates.length, 9);
-  assert.ok(starStates.every((item) => !('score' in item)));
-  assert.equal(new Set(starStates.map((item) => item.star)).size, 9);
-  assert.equal(starStates.find((item) => item.star === '天禽')?.gong, zhiFuPalace?.gong);
-  assert.equal(
-    getZhiFuStarJudgement({ jiuGongGe: palaces, zhiFu: '天禽' })?.gong,
-    zhiFuPalace?.gong,
-  );
-
   const classicPatterns = getClassicPatterns({
     jiuGongGe: palaces,
     zhiFu: setup.zhiFu,
@@ -133,7 +136,7 @@ test('奇门转盘天禽值符应随天芮落宫并保留自己所携中宫干',
   assert.ok(classicPatterns.every((item) => !('score' in item)));
 });
 
-test('奇门转盘中宫干随天禽时应参与三奇、入墓、击刑与天地盘格局判断', () => {
+test('奇门转盘中宫干随天禽时应进入原始干关系与已审核固定格', () => {
   const findPalaces = (isYangDun: boolean, juShu: number, targetGong: number) => {
     for (const hour of jiazi) {
       const setup = getZhiFuZhiShiByGanZhi(hour, { isYangDun, juShu });
@@ -160,11 +163,14 @@ test('奇门转盘中宫干随天禽时应参与三奇、入墓、击刑与天�
   });
   const yiRelations = getStemRelations(yiRuMu.palaces);
   assert.equal(yiRuMu.palaces[1].tianPan.companionStem, '乙');
-  assert.ok(yiPatterns.some((pattern) => pattern.name === '日奇入墓' && pattern.palace === 2));
-  assert.ok(yiPatterns.some((pattern) => pattern.name === '乙入墓' && pattern.palace === 2));
+  assert.ok(!yiPatterns.some((pattern) => /奇入墓|乙入墓/.test(pattern.name)));
   assert.ok(
     yiRelations.some(
-      (relation) => relation.heaven === '乙' && relation.earth === '癸' && relation.palace === 2,
+      (relation) =>
+        relation.heaven === '乙' &&
+        relation.earth === '癸' &&
+        relation.palace === 2 &&
+        relation.type === '入墓',
     ),
   );
 
@@ -176,16 +182,17 @@ test('奇门转盘中宫干随天禽时应参与三奇、入墓、击刑与天�
   });
   assert.equal(yiDeShi.palaces[8].tianPan.companionStem, '乙');
   assert.equal(yiDeShi.palaces[8].diPan.stem, '辛');
-  assert.ok(deShiPatterns.some((pattern) => pattern.name === '日奇得使' && pattern.palace === 9));
+  assert.ok(deShiPatterns.some((pattern) => pattern.name === '青龙逃走' && pattern.palace === 9));
+  assert.ok(!deShiPatterns.some((pattern) => pattern.name === '日奇得使'));
 
   const gengJiXing = findPalaces(true, 3, 8);
-  const jiXingPatterns = getClassicPatterns({
-    jiuGongGe: gengJiXing.palaces,
-    zhiFu: gengJiXing.setup.zhiFu,
-    zhiShi: gengJiXing.setup.zhiShi,
-  });
+  const jiXingRelations = getStemRelations(gengJiXing.palaces);
   assert.equal(gengJiXing.palaces[7].tianPan.companionStem, '庚');
-  assert.ok(jiXingPatterns.some((pattern) => pattern.name === '庚击刑' && pattern.palace === 8));
+  assert.ok(
+    jiXingRelations.some(
+      (relation) => relation.heaven === '庚' && relation.type === '击刑' && relation.palace === 8,
+    ),
+  );
 });
 
 test('奇门证据提示词应完整展示天芮天禽及各自所携天盘干', () => {
@@ -198,49 +205,122 @@ test('奇门证据提示词应完整展示天芮天禽及各自所携天盘干',
   assert.match(companionFact.promptText, /天盘干癸、乙，九星天芮、天禽/);
 });
 
-test('奇门18局六十时辰转盘结构应始终完整且值符值使落点一致', () => {
-  for (const isYangDun of [true, false]) {
-    for (let juShu = 1; juShu <= 9; juShu++) {
-      for (const hour of jiazi) {
-        const { zhiFu, zhiShi, xunShouPalace } = getZhiFuZhiShiByGanZhi(hour, {
-          isYangDun,
-          juShu,
-        });
-        const palaces = arrangeJiuGongGe(isYangDun, juShu, zhiFu, zhiShi, { hour });
-        const center = palaces[4];
-        const outer = outerPalaces.map((gong) => palaces[gong - 1]);
+test('奇门18局六十时辰转盘与飞盘结构应始终完整且值符值使落点一致', () => {
+  for (const method of ['zhuanpan', 'feipan'] as const) {
+    for (const isYangDun of [true, false]) {
+      for (let juShu = 1; juShu <= 9; juShu++) {
+        for (const hour of jiazi) {
+          const { zhiFu, zhiShi, xunShouPalace } = getZhiFuZhiShiByGanZhi(hour, {
+            isYangDun,
+            juShu,
+          });
+          const palaces = arrangeJiuGongGe(isYangDun, juShu, zhiFu, zhiShi, { hour }, method);
+          const classicPatterns = getClassicPatterns({ jiuGongGe: palaces, zhiFu, zhiShi });
+          const center = palaces[4];
+          const outer = outerPalaces.map((gong) => palaces[gong - 1]);
 
-        assert.equal(new Set(palaces.map((palace) => palace.diPan.stem)).size, 9);
-        assert.equal(center.tianPan.star, '');
-        assert.equal(center.renPan.door, '');
-        assert.equal(center.shenPan.god, '');
-        assert.deepEqual(
-          new Set(outer.map((palace) => palace.tianPan.star)),
-          new Set(rotatingStars),
-        );
-        assert.deepEqual(new Set(outer.map((palace) => palace.renPan.door)), new Set(doors));
-        assert.equal(outer.filter((palace) => palace.shenPan.god).length, 8);
+          assert.equal(new Set(palaces.map((palace) => palace.diPan.stem)).size, 9);
+          if (method === 'zhuanpan') {
+            assert.equal(center.tianPan.star, '');
+            assert.deepEqual(
+              new Set(outer.map((palace) => palace.tianPan.star)),
+              new Set(rotatingStars),
+            );
+          } else {
+            assert.deepEqual(
+              new Set(palaces.map((palace) => palace.tianPan.star)),
+              new Set(flyingStars),
+            );
+          }
+          assert.equal(center.renPan.door, '');
+          assert.equal(center.shenPan.god, '');
+          assert.deepEqual(new Set(outer.map((palace) => palace.renPan.door)), new Set(doors));
+          assert.equal(outer.filter((palace) => palace.shenPan.god).length, 8);
+          assert.ok(
+            classicPatterns.every((pattern) => auditedClassicPatternNames.has(pattern.name)),
+            `${method}${isYangDun ? '阳' : '阴'}遁${juShu}局${hour}输出未审核格局`,
+          );
 
-        const tianRui = outer.find((palace) => palace.tianPan.star === '天芮');
-        assert.equal(tianRui?.tianPan.companionStar, '天禽');
-        assert.equal(tianRui?.tianPan.companionStem, center.diPan.stem);
+          if (method === 'zhuanpan') {
+            const tianRui = outer.find((palace) => palace.tianPan.star === '天芮');
+            assert.equal(tianRui?.tianPan.companionStar, '天禽');
+            assert.equal(tianRui?.tianPan.companionStem, center.diPan.stem);
+          }
 
-        const expectedZhiFuPalace = (() => {
-          const hourStem = hour.startsWith('甲')
-            ? { 甲子: '戊', 甲戌: '己', 甲申: '庚', 甲午: '辛', 甲辰: '壬', 甲寅: '癸' }[hour]
-            : hour.charAt(0);
-          const palace = palaces.find((item) => item.diPan.stem === hourStem)?.gong;
-          return palace === 5 ? 2 : palace;
-        })();
-        assert.equal(
-          palaces.find((palace) => hasTianPanStar(palace, zhiFu))?.gong,
-          expectedZhiFuPalace,
-        );
-        assert.equal(
-          palaces.find((palace) => palace.renPan.door === zhiShi)?.gong,
-          resolveZhiShiLandingPalace(isYangDun, zhiShi, hour, xunShouPalace, 'zhuanpan'),
-        );
+          const expectedZhiFuPalace = (() => {
+            const hourStem = hour.startsWith('甲')
+              ? { 甲子: '戊', 甲戌: '己', 甲申: '庚', 甲午: '辛', 甲辰: '壬', 甲寅: '癸' }[hour]
+              : hour.charAt(0);
+            const palace = palaces.find((item) => item.diPan.stem === hourStem)?.gong;
+            return method === 'zhuanpan' && palace === 5 ? 2 : palace;
+          })();
+          assert.equal(
+            palaces.find((palace) => hasTianPanStar(palace, zhiFu))?.gong,
+            expectedZhiFuPalace,
+          );
+          assert.equal(
+            palaces.find((palace) => palace.renPan.door === zhiShi)?.gong,
+            resolveZhiShiLandingPalace(isYangDun, zhiShi, hour, xunShouPalace, method),
+          );
+        }
       }
     }
+  }
+});
+
+test('奇门四级别应穷尽主动六十甲子并在两种排盘法中保持统一审计结果', () => {
+  const datesByScope = {
+    hour: Array.from({ length: 60 }, (_, index) => {
+      const date = new Date(2024, 0, 1, 0, 30);
+      date.setHours(date.getHours() + index * 2);
+      return date;
+    }),
+    day: Array.from({ length: 60 }, (_, index) => {
+      const date = new Date(2024, 0, 1, 12, 30);
+      date.setDate(date.getDate() + index);
+      return date;
+    }),
+    month: Array.from({ length: 60 }, (_, index) => {
+      const date = new Date(2021, 0, 15, 12, 30);
+      date.setMonth(date.getMonth() + index);
+      return date;
+    }),
+    year: Array.from({ length: 180 }, (_, index) => new Date(1920 + index, 6, 1, 12, 30)),
+  } as const;
+
+  for (const scope of ['hour', 'day', 'month', 'year'] as const) {
+    const activeGanZhi = new Set<string>();
+    const juMethods =
+      scope === 'hour' || scope === 'day' ? (['chaibu', 'zhirun'] as const) : (['chaibu'] as const);
+
+    for (const date of datesByScope[scope]) {
+      for (const method of ['zhuanpan', 'feipan'] as const) {
+        for (const juMethod of juMethods) {
+          const data = generateQimen(date, method, scope, juMethod);
+          activeGanZhi.add(data.ganzhi[scope]);
+
+          assert.equal(data.scope, scope);
+          assert.equal(data.method, method);
+          assert.equal(data.jiuGongGe.length, 9);
+          assert.equal(new Set(data.jiuGongGe.map((palace) => palace.gong)).size, 9);
+          assert.equal(new Set(data.jiuGongGe.map((palace) => palace.diPan.stem)).size, 9);
+          assert.ok(
+            (data.classicPatterns ?? []).every((pattern) =>
+              auditedClassicPatternNames.has(pattern.name),
+            ),
+          );
+          assert.equal((data as unknown as Record<string, unknown>).directions, undefined);
+          assert.equal((data as unknown as Record<string, unknown>).yingQi, undefined);
+          assert.equal(data.evidenceAnalysis?.timingSummaryFact.rhythm, null);
+          const expectedRebuilt = { ...data };
+          delete expectedRebuilt.evidenceAnalysis;
+          const rebuilt = rebuildAuditedQimenData(data);
+          assert.equal(rebuilt.evidenceAnalysis, undefined);
+          assert.deepEqual(rebuilt, expectedRebuilt);
+        }
+      }
+    }
+
+    assert.equal(activeGanZhi.size, 60, `${scope}级别未覆盖完整六十甲子`);
   }
 });

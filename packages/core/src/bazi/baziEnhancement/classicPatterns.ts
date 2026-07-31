@@ -450,8 +450,8 @@ const CLASSIC_PATTERNS: ClassicPatternDefinition[] = [
       dayStems: ['甲'],
       anyConditions: ['时柱为乙丑', '时柱为己巳', '时柱为癸酉'],
     },
-    favorableWuxing: ['火'],
-    unfavorableWuxing: ['水'],
+    favorableWuxing: [],
+    unfavorableWuxing: [],
     sourceRole: '其他古籍名目参考',
     source: {
       title: '《渊海子平·论金神》',

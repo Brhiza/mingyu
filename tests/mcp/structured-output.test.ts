@@ -9,6 +9,11 @@ import { getTimeIndexFromClock } from 'mingyu-core/calendar';
 import { assertPromptHasSingleRole, assertPromptIsPortableTaskText } from '../prompt-assertions';
 import { PROMPT_GUIDANCE_TEXT as PROMPT_ROLE_TEXT } from '../../src/lib/prompt-guidance';
 
+const AUTOMATIC_DIRECTION_CONCLUSION =
+  /四吉方[:：]|四凶方[:：]|(?:吉方|凶方)[:：]|较利方位[:：]|命宅相合|命宅相冲|(?:建议)?优先利用|(?:布置|布局|行动)建议[:：]/;
+const AUTOMATIC_ZODIAC_CONCLUSION =
+  /有利关系[:：]|风险关系[:：]|行动信号[:：]|六合贵人|三合贵人|重大变动前|重要决定多做|合同、规则和沟通内容尽量留痕|优先看对方/;
+
 function assertEvidenceOwnerReferences(evidence: unknown) {
   const data = evidence as {
     summaryFact?: { key?: string; factKeys?: string[] };
@@ -44,20 +49,33 @@ function assertUsefulGodDecisionOutput(usefulGod: unknown) {
   const data = usefulGod as {
     strategyTrace?: string[];
     matchedRules?: Array<Record<string, unknown>>;
+    favorable?: string[];
+    unfavorable?: string[];
+    favorableWuxing?: string[];
+    unfavorableWuxing?: string[];
+    primaryFavorableWuxing?: string;
+    primaryUnfavorableWuxing?: string;
+    useful?: string;
+    avoid?: string;
+    primaryReason?: string;
   };
-  const omittedPrefixes = ['成格层次:', '成格转轻:', '病药提示:', '运势警语:', '传统成格原文:'];
   const realWorldOutcomePattern =
     /富贵|贫贱|贫寒|贫苦|孤贫|孤苦|科甲|功名|鼎甲|金榜|衣锦|衣禄|显达|发达|荣华|恩荣|廪贡|生员|秀才|仕途|官位|禄位|夭折|寿夭|遭凶|僧道|常人|平人|下流|下品|愚顽|愚懦|奸诈|仁义|劳碌|奔波|漂泊|安乐|聪明|艺术|才略|名臣|一生|荣显|成名|题名|云程|雁塔|衣食|千金|虚名|虚利|名利|显贵|清贵|浊富|略富|家富|困顿|发福|减贵|定主|必主|多主|可期|堪图|可许|极品|之人|之士|之客|之流/;
 
-  assert.ok(data.strategyTrace?.length);
-  assert.ok(
-    data.strategyTrace?.every((item) =>
-      omittedPrefixes.every((prefix) => !item.trim().startsWith(prefix)),
-    ),
-  );
+  assert.deepEqual(data.strategyTrace, [
+    '自动用神规则尚未完成逐条来源、版本与适用边界校勘，底层保留待定',
+  ]);
   assert.doesNotMatch(data.strategyTrace?.join('\n') || '', realWorldOutcomePattern);
-  assert.ok(data.matchedRules?.length);
-  assert.ok(data.matchedRules?.every((rule) => Object.keys(rule).join(',') === 'id'));
+  assert.equal(data.primaryReason, '取用待定');
+  assert.deepEqual(data.matchedRules, []);
+  assert.deepEqual(data.favorable, []);
+  assert.deepEqual(data.unfavorable, []);
+  assert.deepEqual(data.favorableWuxing, []);
+  assert.deepEqual(data.unfavorableWuxing, []);
+  assert.equal(data.primaryFavorableWuxing, '');
+  assert.equal(data.primaryUnfavorableWuxing, '');
+  assert.equal(data.useful, '');
+  assert.equal(data.avoid, '');
 }
 
 const toolCalls: Array<[string, Record<string, unknown>]> = [
@@ -340,7 +358,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       measurementUncertaintyDegrees: 3,
       question: '办公桌朝向怎么选？',
     },
-    /【八宅风水排盘】[\s\S]*命卦：[\s\S]*四吉方：[\s\S]*【问题】\n办公桌朝向怎么选？/,
+    /【八宅风水排盘】[\s\S]*命卦：[\s\S]*命卦八宫传统标签：[\s\S]*【问题】\n办公桌朝向怎么选？/,
   ],
   [
     'residential_prompt',
@@ -351,7 +369,7 @@ const promptToolCalls: Array<[string, Record<string, unknown>, RegExp]> = [
       doorToInteriorDegree: 0,
       question: '这套房怎么看？',
     },
-    /【住宅风水排盘】[\s\S]*合参要点：[\s\S]*【问题】\n这套房怎么看？/,
+    /【住宅风水排盘】[\s\S]*资料与复核提示：[\s\S]*【问题】\n这套房怎么看？/,
   ],
   [
     'xuankong_prompt',
@@ -866,6 +884,10 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         assertEvidenceOwnerReferences(origin?.pattern_analysis);
       }
       if (name === 'metaphysics_bazhai') {
+        assert.doesNotMatch(
+          JSON.stringify((result.structuredContent as { result?: unknown }).result),
+          AUTOMATIC_DIRECTION_CONCLUSION,
+        );
         const chart = (
           result.structuredContent as {
             result?: {
@@ -1023,6 +1045,14 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
           /命语|本项目|项目统一|调用方|当前调用|工程|接口|API|MCP/,
         );
         assertPromptIsPortableTaskText(chart?.evidenceAnalysis?.promptText ?? '');
+      }
+      if (name === 'metaphysics_residential') {
+        const residential = (result.structuredContent as { result?: Record<string, unknown> })
+          .result;
+        assert.ok(Array.isArray(residential?.reviewNotes));
+        assert.equal('agreements' in (residential ?? {}), false);
+        assert.equal('advice' in (residential ?? {}), false);
+        assert.doesNotMatch(JSON.stringify(residential), AUTOMATIC_DIRECTION_CONCLUSION);
       }
       if (name === 'ziwei_compatibility') {
         const compatibility = (
@@ -1250,6 +1280,12 @@ test('MCP 一站式提示词工具应同时返回结果和 prompt', async () => 
       if (name === 'xiaoliuren_prompt') {
         assert.doesNotMatch(prompt, /应期触发条件：|换算固定日数/);
       }
+      if (name === 'bazhai_prompt' || name === 'residential_prompt') {
+        assert.doesNotMatch(
+          JSON.stringify(result.structuredContent),
+          AUTOMATIC_DIRECTION_CONCLUSION,
+        );
+      }
       assertPromptIsPortableTaskText(prompt);
 
       const text = result.content[0]?.type === 'text' ? result.content[0].text : '';
@@ -1412,7 +1448,7 @@ test('MCP 八字双盘应返回计算链、反证、汇总与限制对象', asyn
       }
     )?.compatibility;
     assert.equal(compatibility?.key, 'bazi:compatibility:evidence');
-    assert.equal(compatibility?.status, '已计算');
+    assert.equal(compatibility?.status, '存在资料缺口');
     assert.equal(compatibility?.calculationSteps?.length, 7);
     assert.ok(
       compatibility?.crossPillarRelations?.every(
@@ -4772,7 +4808,7 @@ test('MCP 六爻与大六壬提示词工具保留用户模板范围', async () =
   });
 });
 
-test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () => {
+test('MCP 奇门工具返回位置索引与九宫宫对结构化证据', async () => {
   await withMcpClient(async (client) => {
     const result = await client.callTool({
       name: 'qimen_prompt',
@@ -4812,8 +4848,8 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
               actualGongs: number[];
               missingGongs: number[];
             };
-            candidates: Array<{ palaceFactKey: string }>;
-            relations: Array<{
+            positionIndexes: Array<{ palaceFactKey: string; indexSources: string[] }>;
+            palaceRelations: Array<{
               key: string;
               fromPalaceFactKey: string;
               toPalaceFactKey: string;
@@ -4836,23 +4872,16 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
               limitation: string;
             }>;
             timingSummaryFact: { factKeys: string[] };
-            directionFacts: Array<{
-              key: string;
-              palaceFactKey: string;
-              promptText: string;
-              sources: string[];
-              limitation: string;
-            }>;
+            directionBoundaryFact: { status: string; promptText: string };
             summaryFact: {
               status: string;
               factKeys: string[];
               palaceFactCount: number;
-              candidateCount: number;
-              relationCount: number;
+              positionIndexCount: number;
+              palaceRelationCount: number;
               patternCount: number;
               counterEvidenceCount: number;
               timingFactCount: number;
-              directionFactCount: number;
             };
             limitations: string[];
             limitationFacts: Array<{
@@ -4874,32 +4903,21 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
                 sources: string[];
                 limitation: string;
               }>;
-              insights: Array<{
-                ownerPalaceFactKey: string;
-                status: string;
-                originalText: string;
-                promptText: string;
-                sources: string[];
-              }>;
               sources: string[];
               limitation: string;
             }>;
           };
           classicPatterns: Array<Record<string, unknown>>;
           patternCombos: Array<Record<string, unknown>>;
-          directions: {
-            goodDirections: Array<Record<string, unknown>>;
-            avoidDirections: Array<Record<string, unknown>>;
-          };
         };
       }
     ).result;
     assert.equal(chart.method, 'zhuanpan');
     assert.equal(chart.evidenceAnalysis.key, 'qimen:evidence');
     assert.equal(chart.evidenceAnalysis.status, '已计算');
-    assert.equal(chart.evidenceAnalysis.calculationEvidenceFacts.length, 5);
-    assert.equal(chart.evidenceAnalysis.calculationSteps.length, 5);
-    assert.equal(chart.evidenceAnalysis.calculationChain.length, 5);
+    assert.equal(chart.evidenceAnalysis.calculationEvidenceFacts.length, 6);
+    assert.equal(chart.evidenceAnalysis.calculationSteps.length, 6);
+    assert.equal(chart.evidenceAnalysis.calculationChain.length, 6);
     assert.deepEqual(
       chart.evidenceAnalysis.ruleSourceFacts.map((item) => item.key),
       [
@@ -4907,8 +4925,10 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
         'rule:qimen:leaders',
         'rule:qimen:layout',
         'rule:qimen:relations',
+        'rule:qimen:classic-pattern-audit-boundary',
         'rule:qimen:retained-combo-versions',
         'rule:qimen:special-context-boundary',
+        'rule:qimen:direction-boundary',
       ],
     );
     assert.equal(chart.evidenceAnalysis.palaceCoverageFact.status, '完整');
@@ -4940,13 +4960,10 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
         item.promptText.includes('转盘法九宫规则'),
       ),
     );
-    assert.ok(chart.evidenceAnalysis.candidates.length > 0);
-    assert.equal(
-      chart.evidenceAnalysis.relations.length,
-      Math.max(0, chart.evidenceAnalysis.candidates.length - 1),
-    );
+    assert.ok(chart.evidenceAnalysis.positionIndexes.length > 0);
+    assert.equal(chart.evidenceAnalysis.palaceRelations.length, 36);
     assert.ok(
-      chart.evidenceAnalysis.relations.every(
+      chart.evidenceAnalysis.palaceRelations.every(
         (item) =>
           item.key.startsWith('qimen:relation:') &&
           item.fromPalaceFactKey &&
@@ -4967,7 +4984,7 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
           item.status === '已触发' &&
           item.ownerPalaceFactKey &&
           item.sources.length > 0 &&
-          item.limitation.includes('不得把单项限制直接写成现实失败'),
+          item.limitation.includes('不得把单项位置限制直接写成现实失败'),
       ),
     );
     assert.ok(
@@ -4976,25 +4993,25 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
           item.key.startsWith('qimen:timing:') &&
           item.promptText &&
           item.sources.length > 0 &&
-          item.limitation.includes('不得换算唯一日期'),
+          item.limitation.includes('不生成相对节奏'),
       ),
     );
     assert.equal(
       chart.evidenceAnalysis.timingSummaryFact.factKeys.length,
       chart.evidenceAnalysis.timingFacts.length,
     );
-    assert.equal(chart.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(chart.evidenceAnalysis.summaryFact.status, '盘面资料完整');
     assert.equal(
       chart.evidenceAnalysis.summaryFact.palaceFactCount,
       chart.evidenceAnalysis.palaceFacts.length,
     );
     assert.equal(
-      chart.evidenceAnalysis.summaryFact.candidateCount,
-      chart.evidenceAnalysis.candidates.length,
+      chart.evidenceAnalysis.summaryFact.positionIndexCount,
+      chart.evidenceAnalysis.positionIndexes.length,
     );
     assert.equal(
-      chart.evidenceAnalysis.summaryFact.relationCount,
-      chart.evidenceAnalysis.relations.length,
+      chart.evidenceAnalysis.summaryFact.palaceRelationCount,
+      chart.evidenceAnalysis.palaceRelations.length,
     );
     assert.equal(
       chart.evidenceAnalysis.summaryFact.patternCount,
@@ -5007,10 +5024,6 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
     assert.equal(
       chart.evidenceAnalysis.summaryFact.timingFactCount,
       chart.evidenceAnalysis.timingFacts.length,
-    );
-    assert.equal(
-      chart.evidenceAnalysis.summaryFact.directionFactCount,
-      chart.evidenceAnalysis.directionFacts.length,
     );
     assert.equal(chart.evidenceAnalysis.limitationFacts.length, 6);
     assert.equal(
@@ -5032,15 +5045,14 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
           item.limitation.includes('不得被反向当作现实吉凶'),
       ),
     );
-    assert.ok(
-      chart.evidenceAnalysis.directionFacts.every(
-        (item) =>
-          item.key.startsWith('qimen:direction:') &&
-          item.palaceFactKey &&
-          item.promptText &&
-          item.sources.length > 0 &&
-          item.limitation.includes('必须核实现实路线'),
-      ),
+    assert.match(
+      chart.evidenceAnalysis.directionBoundaryFact.promptText,
+      /不生成吉方、避方或候选方向/,
+    );
+    assert.equal((chart as unknown as Record<string, unknown>).yingQi, undefined);
+    assert.doesNotMatch(
+      JSON.stringify({ chart, prompt }),
+      /天网四张|宜静不宜动|判断人事状态、方向和时机|吉门吉星需|凶象也要看|方向和时机均从/,
     );
     assert.equal(chart.evidenceAnalysis.palaceFacts.length, chart.jiuGongGe.length);
     assert.ok(
@@ -5057,32 +5069,21 @@ test('MCP 奇门工具返回用神宫与宫间作用结构化证据', async () =
               fact.sources.length > 0 &&
               fact.limitation.includes('不单独证明现实吉凶'),
           ) &&
-          item.insights.every(
-            (fact) =>
-              fact.ownerPalaceFactKey === item.key &&
-              fact.status === '已命中' &&
-              fact.originalText &&
-              fact.promptText &&
-              fact.sources.length > 0,
-          ) &&
           item.sources.length >= 3 &&
           item.limitation.includes('不单独证明现实吉凶'),
       ),
     );
     assert.ok(
-      chart.evidenceAnalysis.candidates.every((item) =>
+      chart.evidenceAnalysis.positionIndexes.every((item) =>
         chart.evidenceAnalysis.palaceFacts.some((fact) => fact.key === item.palaceFactKey),
       ),
     );
     assert.ok(chart.classicPatterns.every((item) => item.score === undefined));
     assert.ok(chart.patternCombos.every((item) => item.score === undefined));
-    assert.ok(
-      [...chart.directions.goodDirections, ...chart.directions.avoidDirections].every(
-        (item) => item.score === undefined,
-      ),
-    );
+    assert.equal((chart as unknown as Record<string, unknown>).directions, undefined);
     assert.match(prompt, /占法：奇门遁甲/);
     assert.match(prompt, /核心结构：[\s\S]*值符值使与时干：[\s\S]*旬空与马星：/);
+    assert.match(prompt, /九宫原始盘：[\s\S]*九宫宫对五行关系（全部36组无序宫对）/);
     assert.match(prompt, /节气交接：[\s\S]*月相：/);
     assert.doesNotMatch(prompt, /结构化证据|计算链|证据汇总|解释限制|证据边界/);
     assert.doesNotMatch(prompt, /主宫评分|辅宫评分|评分-?\d+|（-?\d+分|应期范围\d/);
@@ -5224,11 +5225,12 @@ test('MCP 生肖工具只返回逐项关系证据，不返回综合吉凶等级'
       /命语|本项目|项目统一|工程|接口|API|MCP/,
     );
     assert.match(chart.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制：/);
+    assert.doesNotMatch(JSON.stringify(chart), AUTOMATIC_ZODIAC_CONCLUSION);
     assertPromptIsPortableTaskText(chart.evidenceAnalysis.promptText);
   });
 });
 
-test('MCP 生肖工具返回三会固定关系且不改写为贵人或吉凶', async () => {
+test('MCP 生肖工具返回三会固定关系且不生成贵人、利弊或行动字段', async () => {
   await withMcpClient(async (client) => {
     const result = await client.callTool({
       name: 'metaphysics_zodiac',
@@ -5237,9 +5239,10 @@ test('MCP 生肖工具返回三会固定关系且不改写为贵人或吉凶', a
     assert.equal(result.isError, undefined, 'metaphysics_zodiac 不应返回错误');
     const chart = (result.structuredContent as { result: Record<string, any> }).result;
     assert.equal(chart.meeting, '三会关系（东方木）');
-    assert.equal(chart.noble, null);
-    assert.ok(!chart.favorableRelations.includes(chart.meeting));
-    assert.ok(!chart.riskRelations.includes(chart.meeting));
+    assert.equal(chart.harmony, null);
+    for (const removedField of ['noble', 'favorableRelations', 'riskRelations', 'actionSignals']) {
+      assert.equal(removedField in chart, false);
+    }
     assert.ok(
       chart.evidenceAnalysis.relations.some(
         (item: { category: string; relation: string }) =>
@@ -5247,6 +5250,7 @@ test('MCP 生肖工具返回三会固定关系且不改写为贵人或吉凶', a
       ),
     );
     assert.match(chart.evidenceAnalysis.promptText, /十二地支三会固定关系表/);
+    assert.doesNotMatch(JSON.stringify(chart), AUTOMATIC_ZODIAC_CONCLUSION);
   });
 });
 

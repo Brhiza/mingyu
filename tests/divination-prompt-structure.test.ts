@@ -910,6 +910,8 @@ test('择日提示词保留候选日期、事项和参与人资料', () => {
   assert.match(prompt, /候选日期：2026-06-02/);
   assert.doesNotMatch(prompt, /第\d+候选|首选日期：/);
   assert.match(prompt, /黄历忌项触及搬家入宅/);
+  assert.match(prompt, /自动喜忌规则保持关闭，本次不读取喜忌五行/);
+  assert.doesNotMatch(prompt, /喜用资料木、火|忌神资料水/);
   assert.doesNotMatch(prompt, /事项权重|优先匹配宜项|事项忌项命中|评分42|高分日期/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|反证|解释边界/);
 });
@@ -1035,8 +1037,18 @@ test('占卜提示词的当前时间应来自起盘结果而不是运行环境�
 });
 
 test('奇门提示词会输出值符值使、旬空马星和格局资料', () => {
+  const base = createData('qimen');
   const qimenData = {
-    ...createData('qimen'),
+    ...base,
+    jiuGongGe: base.jiuGongGe.map((palace) =>
+      palace.gong === 9
+        ? {
+            ...palace,
+            tianPan: { ...palace.tianPan, stem: '庚', companionStem: '丁' },
+            diPan: { stem: '丙' },
+          }
+        : palace,
+    ),
     classicPatterns: [
       {
         name: '太白入荧',
@@ -1062,11 +1074,15 @@ test('奇门提示词会输出值符值使、旬空马星和格局资料', () =>
   });
 
   assert.match(prompt, /核心结构：阳遁3局；值符天蓬；值使休门/);
-  assert.match(prompt, /取用主线：/);
+  assert.match(prompt, /位置索引：/);
   assert.match(prompt, /值符值使与时干：值符天蓬落坎一宫；值使休门落坎一宫；时干丁见于离九宫/);
-  assert.match(prompt, /旬空与马星：旬空子空落坎一宫、丑空落艮八宫；马星卯时驿马在巳，落巽四宫/);
+  assert.match(prompt, /旬空与马星：旬空戌空落6宫、亥空落6宫；马星卯时驿马在巳，落4宫/);
   assert.match(prompt, /太白入荧/);
+  assert.match(prompt, /先根据具体问题选择日干、年命或事项类神作为用神并说明取用口径/);
+  assert.match(prompt, /取用依据未闭合时保留待定，不强行给出方向、时机或现实结果/);
   assert.doesNotMatch(prompt, /主宫评分：|辅宫评分：|评分-?\d+|（-?\d+分|应期范围\d/);
+  assert.doesNotMatch(prompt, /判断人事状态、方向和时机|吉门吉星需|凶象也要看|方向和时机均从/);
+  assert.doesNotMatch(prompt, /建除(?:建|除|满|平|定|执|破|危|成|收|开|闭)(?:吉|凶|平)(?:；|\n)/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|反证|解释边界/);
   assert.doesNotMatch(prompt, /问事参考/);
   assert.doesNotMatch(prompt, /卦象|课传|牌阵|签诗|牌位/);

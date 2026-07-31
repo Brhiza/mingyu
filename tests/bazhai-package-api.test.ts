@@ -10,6 +10,9 @@ import { TWENTY_FOUR_MOUNTAINS } from '../packages/core/src/direction/index.ts';
 
 const TRIGRAMS = ['坎', '坤', '震', '巽', '乾', '兑', '艮', '离'];
 const EAST_TRIGRAMS = new Set(['坎', '震', '巽', '离']);
+const TRADITIONAL_LABELS = ['伏位', '生气', '延年', '天医', '绝命', '五鬼', '六煞', '祸害'];
+const AUTOMATIC_DIRECTION_CONCLUSION =
+  /四吉方[:：]|四凶方[:：]|(?:吉方|凶方)[:：]|较利方位[:：]|命宅相合|命宅相冲|(?:建议)?优先利用|(?:布置|布局|行动)建议[:：]/;
 
 test('八宅命卦应符合 2000 年前后传统九宫真值与五黄寄宫口径', () => {
   const cases = [
@@ -111,7 +114,7 @@ test('mingyu-core/bazhai 应公开入户度数便捷接口和完整类型结果'
     ),
   );
   assert.match(result.evidenceAnalysis.promptText, /测量误差±0°/);
-  assert.equal(result.evidenceAnalysis.counterSummaryFact.status, '未见额外反证');
+  assert.equal(result.evidenceAnalysis.counterSummaryFact.status, '存在需保留反证');
   assert.equal(
     result.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '命卦年界')?.status,
     '已核定',
@@ -120,6 +123,14 @@ test('mingyu-core/bazhai 应公开入户度数便捷接口和完整类型结果'
     result.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '北向基准')?.status,
     '已覆盖',
   );
+  assert.equal(
+    result.evidenceAnalysis.counterEvidenceFacts.find((item) => item.type === '命宅逐方标签一致性')
+      ?.status,
+    '存在差异',
+  );
+  assert.deepEqual(result.evidenceAnalysis.counterSummaryFact.factKeys, [
+    'bazhai:counter:direction-consistency',
+  ]);
   assert.equal(result.evidenceAnalysis.limitationFacts.length, 6);
   assert.equal(result.evidenceAnalysis.summaryFact.key, 'bazhai:evidence-summary');
   assert.equal(result.evidenceAnalysis.summaryFact.status, '命宅链完整');
@@ -128,12 +139,12 @@ test('mingyu-core/bazhai 应公开入户度数便捷接口和完整类型结果'
     result.evidenceAnalysis.directionFacts.length,
   );
   assert.equal(
-    result.evidenceAnalysis.summaryFact.alignedDirectionCount,
-    result.evidenceAnalysis.alignedDirections.length,
+    result.evidenceAnalysis.summaryFact.sameLabelDirectionCount,
+    result.evidenceAnalysis.sameLabelDirections.length,
   );
   assert.equal(
-    result.evidenceAnalysis.summaryFact.conflictingDirectionCount,
-    result.evidenceAnalysis.conflictingDirections.length,
+    result.evidenceAnalysis.summaryFact.differentLabelDirectionCount,
+    result.evidenceAnalysis.differentLabelDirections.length,
   );
   assert.equal(
     result.evidenceAnalysis.summaryFact.measurementCandidateCount,
@@ -166,6 +177,8 @@ test('mingyu-core/bazhai 应公开入户度数便捷接口和完整类型结果'
   assert.match(result.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制：/);
   assert.ok(result.housePalace);
   assert.equal(result.housePalace?.length, 8);
+  assert.ok(result.mingPalace.every((palace) => !('luck' in palace)));
+  assert.doesNotMatch(JSON.stringify(result), AUTOMATIC_DIRECTION_CONCLUSION);
 });
 
 test('八宅测量应换算磁北并识别跨宅卦边界的不稳定候选', () => {
@@ -194,8 +207,8 @@ test('八宅测量应换算磁北并识别跨宅卦边界的不稳定候选', ()
     result.directionMeasurement.candidateDirections.every((item) => item.housePalace.length === 8),
   );
   assert.deepEqual(
-    result.directionMeasurement.candidateDirections.map((item) => item.match),
-    ['相冲', '相合'],
+    result.directionMeasurement.candidateDirections.map((item) => item.groupRelation),
+    ['异组', '同组'],
   );
   assert.deepEqual(
     result.evidenceAnalysis.measurementCandidates.map((item) => item.sitMountain),
@@ -242,26 +255,35 @@ test('八宅磁北读数缺少磁偏角时应拒绝生成伪精确坐向', () =>
   );
 });
 
-test('八宅八命卦乘二十四山的 192 盘应保持八宫和命宅关系完整', () => {
+test('八宅八命卦乘二十四山的 192 盘应完整保留传统标签且不生成方向结论', () => {
   for (const mingGua of TRIGRAMS) {
     for (const sitMountain of TWENTY_FOUR_MOUNTAINS) {
       const result = analyzeBaZhai({ mingGua, sitMountain });
-      const expectedMatch =
+      const expectedGroupRelation =
         EAST_TRIGRAMS.has(result.mingGua) === EAST_TRIGRAMS.has(result.houseGua || '')
-          ? '相合'
-          : '相冲';
+          ? '同组'
+          : '异组';
 
       assert.equal(result.mingGua, mingGua);
       assert.ok(TRIGRAMS.includes(result.houseGua || ''));
       assert.equal(result.mingPalace.length, 8);
       assert.equal(result.housePalace?.length, 8);
-      assert.equal(result.luckyDirections.length, 4);
-      assert.equal(result.unluckyDirections.length, 4);
       assert.equal(new Set(result.mingPalace.map((palace) => palace.gua)).size, 8);
       assert.equal(new Set(result.mingPalace.map((palace) => palace.direction)).size, 8);
       assert.equal(new Set(result.housePalace?.map((palace) => palace.gua)).size, 8);
-      assert.equal(result.match, expectedMatch);
+      assert.deepEqual(
+        [...new Set(result.mingPalace.map((palace) => palace.label))].sort(),
+        [...TRADITIONAL_LABELS].sort(),
+      );
+      assert.deepEqual(
+        [...new Set(result.housePalace?.map((palace) => palace.label))].sort(),
+        [...TRADITIONAL_LABELS].sort(),
+      );
+      assert.ok(result.mingPalace.every((palace) => !('luck' in palace)));
+      assert.ok(result.housePalace?.every((palace) => !('luck' in palace)));
+      assert.equal(result.groupRelation, expectedGroupRelation);
       assert.equal(result.evidenceAnalysis.directionFacts.length, 8);
+      assert.doesNotMatch(JSON.stringify(result), AUTOMATIC_DIRECTION_CONCLUSION);
     }
   }
 });

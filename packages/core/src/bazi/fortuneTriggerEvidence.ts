@@ -82,12 +82,7 @@ export interface FortuneTriggerCalculationStep {
   limitation: '计算步骤只证明所列干支经过固定关系表逐项比对并形成关系事实，不证明关系对应现实事件、吉凶方向、发生概率或固定应期';
 }
 
-export type FortuneDirectPreference =
-  | '喜用五行直接对应候选'
-  | '忌神五行直接对应候选'
-  | '喜忌五行同时列入待复核'
-  | '未列入原局直接喜忌候选'
-  | '原局喜忌资料不足';
+export type FortuneDirectPreference = '自动喜忌规则已关闭';
 
 export interface FortuneLayerComponentFact {
   symbol: string;
@@ -120,7 +115,7 @@ export interface FortuneLayerStructureFact {
   calculationStepKey: string;
   promptText: string;
   sources: string[];
-  limitation: '分层事实只记录岁运天干、地支主五行与全部藏干的固定映射及原局喜忌五行直接对应候选；不得把运干、运支或同类五行机械等价，也不得据单项候选判定最终喜忌、成格变格、现实事件或吉凶';
+  limitation: '分层事实只记录岁运天干、地支主五行、全部藏干与十神的固定映射；自动喜忌规则保持关闭，不得把运干、运支或同类五行机械等价，也不得据单项符号判定最终喜忌、成格变格、现实事件或吉凶';
 }
 
 export interface FortuneHiddenStemRevealFact {
@@ -515,7 +510,7 @@ const RELATION_SUMMARY_LIMITATION =
 const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束岁运干支关系能够支持的解释范围，不得被反向当作现实事件、必然吉凶、发生概率或固定应期的证据' as const;
 const LAYER_STRUCTURE_LIMITATION =
-  '分层事实只记录岁运天干、地支主五行与全部藏干的固定映射及原局喜忌五行直接对应候选；不得把运干、运支或同类五行机械等价，也不得据单项候选判定最终喜忌、成格变格、现实事件或吉凶' as const;
+  '分层事实只记录岁运天干、地支主五行、全部藏干与十神的固定映射；自动喜忌规则保持关闭，不得把运干、运支或同类五行机械等价，也不得据单项符号判定最终喜忌、成格变格、现实事件或吉凶' as const;
 const HIDDEN_STEM_REVEAL_LIMITATION =
   '透出对应候选只证明某支藏干与原局或所选岁运明透天干同字；是否透清、能否发用及其喜忌仍须结合月令格局、合冲会局与全局复核，不得直接认定成格、变格或吉凶' as const;
 const OFFICER_PATTERN_RULE_LIMITATION =
@@ -537,8 +532,6 @@ const LU_PATTERN_RULE_LIMITATION =
 const MISC_PATTERN_RULE_LIMITATION =
   '杂格取运事实只把《子平真诠》已识别结构或现有从格结果与当前运干、运支藏干逐字对应；徐注改释只作为来源明确的复核事实，不覆盖现有月令格局；干支组合条件、从格真伪、化气成败及全局顺逆仍须另审，不得把单项候选定为最终喜忌、吉凶、贵贱或现实事件' as const;
 const HIDDEN_STEM_RANKS = ['本气', '中气', '余气'] as const;
-const WUXING_VALUES = new Set(['木', '火', '土', '金', '水']);
-
 function splitGanZhi(ganZhi: string) {
   if (ganZhi.length !== 2) throw new Error(`岁运干支必须是两个字符：${ganZhi}`);
   assertGanZhiPair(ganZhi[0], ganZhi[1], '岁运干支');
@@ -561,36 +554,19 @@ function resolveLayer(layer: FortuneTriggerLayer): FortuneTriggerResolvedLayer {
   };
 }
 
-function resolveUsefulWuxing(result: BaziChartResult) {
-  const usefulGod = result.analysis?.usefulGod;
-  const favorableAvailable = Array.isArray(usefulGod?.favorableWuxing);
-  const unfavorableAvailable = Array.isArray(usefulGod?.unfavorableWuxing);
+function resolveUsefulWuxing(_result: BaziChartResult) {
   return {
-    available: favorableAvailable && unfavorableAvailable,
-    favorable: new Set(
-      favorableAvailable
-        ? usefulGod.favorableWuxing?.filter((item) => WUXING_VALUES.has(item))
-        : [],
-    ),
-    unfavorable: new Set(
-      unfavorableAvailable
-        ? usefulGod.unfavorableWuxing?.filter((item) => WUXING_VALUES.has(item))
-        : [],
-    ),
+    available: false,
+    favorable: new Set<string>(),
+    unfavorable: new Set<string>(),
   };
 }
 
 function resolveDirectPreference(
-  wuxing: string,
-  usefulWuxing: ReturnType<typeof resolveUsefulWuxing>,
+  _wuxing: string,
+  _usefulWuxing: ReturnType<typeof resolveUsefulWuxing>,
 ): FortuneDirectPreference {
-  if (!usefulWuxing.available) return '原局喜忌资料不足';
-  const favorable = usefulWuxing.favorable.has(wuxing);
-  const unfavorable = usefulWuxing.unfavorable.has(wuxing);
-  if (favorable && unfavorable) return '喜忌五行同时列入待复核';
-  if (favorable) return '喜用五行直接对应候选';
-  if (unfavorable) return '忌神五行直接对应候选';
-  return '未列入原局直接喜忌候选';
+  return '自动喜忌规则已关闭';
 }
 
 function resolveTenGod(symbol: string, result: BaziChartResult) {
@@ -656,7 +632,7 @@ function buildLayerStructureFact(
     },
     calculationStepKey,
     promptText: `${layer.label}${layer.ganZhi}分层：天干${gan}${stemWuxing}为${stem.tenGod}（${stem.directPreference}）；地支${zhi}主五行${branchWuxing}（${resolveDirectPreference(branchWuxing, usefulWuxing)}），藏干${hiddenText}`,
-    sources: ['天干地支五行与地支藏干固定表', '十神固定映射', '原局结构化喜忌五行'],
+    sources: ['天干地支五行与地支藏干固定表', '十神固定映射', '自动用神规则审计状态'],
     limitation: LAYER_STRUCTURE_LIMITATION,
   };
 }
@@ -4632,7 +4608,7 @@ function buildCounterEvidenceFact(params: {
     majorRelationKeys: majorRelations.map((item) => item.key),
     supportingRelationKeys: supportingRelations.map((item) => item.key),
     promptText: majorRelations.length
-      ? `${params.source.label}与${params.target.label}命中${majorRelations.map((item) => item.label).join('、')}，仍须结合原局喜忌与现实问题解释`
+      ? `${params.source.label}与${params.target.label}命中${majorRelations.map((item) => item.label).join('、')}，仍须结合原局整体结构与现实问题解释`
       : `${params.source.label}与${params.target.label}未见岁运并临、天克地冲或同柱伏吟${supportingRelations.length ? `，但另有${supportingRelations.length}项同干、合冲刑害破等辅助关系` : '，也未命中当前规则列入的辅助关系'}；未见主要关系不等于没有较弱触发或必然平稳`,
     sources: ['岁运并临、天克地冲与同柱伏吟逐项覆盖核验'],
     limitation: COUNTER_FACT_LIMITATION,
@@ -4886,7 +4862,7 @@ function buildLimitationFacts(params: {
       type: '上下文边界',
       ownerFactKeys: [params.relationSummaryFact.key, ...relationKeys, ...formationKeys],
       promptText:
-        '关系解释必须结合原局喜忌、十神、旺衰、宫位及现实问题；当前关系核验不独立提供完整断事结论',
+        '关系解释必须结合原局整体结构、十神、旺衰、宫位及现实问题；当前关系核验不独立提供完整断事结论',
       sources: ['八字原局、岁运层级与现实问题联合解释要求'],
     },
     {
@@ -4894,8 +4870,8 @@ function buildLimitationFacts(params: {
       type: '喜忌候选边界',
       ownerFactKeys: [params.relationSummaryFact.key, ...structureKeys],
       promptText:
-        '岁运五行与原局喜用或忌神五行直接同类，只能列为待复核候选；似喜实忌、似忌实喜均可能存在，不得据单个五行、十神、运干或运支直接标成最终喜运或忌运',
-      sources: ['《子平真诠评注》“论行运”与原局结构化喜忌五行'],
+        '自动喜忌规则尚未完成逐条校勘，岁运分层不得读取旧缓存或外部对象中的喜忌字段；只能保留干支、五行与十神事实，交由后续结合全局复核',
+      sources: ['自动用神规则审计状态', '《子平真诠评注》“论行运”'],
     },
     {
       key: 'bazi:fortune-trigger:limitation:stem-branch-separation',
@@ -5082,12 +5058,12 @@ function buildEvidence(params: {
       ? [
           {
             level: '主证',
-            title: '岁运干支分层与喜忌候选',
+            title: '岁运干支分层事实',
             detail: `${params.layerStructureFacts.map((item) => item.promptText).join('；')}。统一边界：${LAYER_STRUCTURE_LIMITATION}`,
             source: Array.from(
               new Set(params.layerStructureFacts.flatMap((item) => item.sources)),
             ).join('、'),
-            tags: ['八字岁运', '干支分层', '喜忌候选'],
+            tags: ['八字岁运', '干支分层', '喜忌关闭'],
           } satisfies PromptEvidenceItem,
         ]
       : []),
@@ -5586,7 +5562,7 @@ export function analyzeFortuneTriggers(
         '原局四柱与所选大运、流年、流月、流日逐层比对天干同干、五合、相冲及地支同支、六合、六冲、刑、害、破。',
         '大运与流年干支完全相同时单列岁运并临；两层天干相冲且地支相冲时单列天克地冲。',
         '汇总原局与所选岁运层级的地支；仅在原局尚未完整、岁运补齐第三支时记录完整三合或三会结构，不据此断定成化。',
-        '所选岁运逐层拆分天干、地支主五行与全部藏干，分别记录十神及与原局喜忌五行的直接对应候选；候选不等于最终喜运或忌运。',
+        '所选岁运逐层拆分天干、地支主五行与全部藏干并分别记录十神；自动喜忌规则保持关闭，不读取旧喜忌字段。',
         '逐支核验藏干与原局、所选岁运明透天干是否同字，只记录透出对应候选，不直接认定透清、成格或变格。',
         '正官格另按原局用财、佩印、带伤食用印、带杀及合杀结构逐字列取运候选；无法客观闭合的强弱条件保留待复核，不固化为喜忌表。',
         '财格另按财生官、用食生、佩印、用食印、带伤官、带七杀及用杀印结构逐字列取运候选；财旺、身旺、身轻、财食轻重与印旺保留待复核，不以数量硬判。',

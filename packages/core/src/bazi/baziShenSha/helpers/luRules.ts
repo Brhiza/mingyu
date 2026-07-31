@@ -1,4 +1,4 @@
-import { REN_BRANCH_MAP, TWELVE_STAGES_MAP } from '../../baziDefinitions';
+import { REN_BRANCH_MAP, SIXTY_CYCLE, TWELVE_STAGES_MAP } from '../../baziDefinitions';
 import type { RuleContext, ShenShaRuleMap } from './types';
 
 const YI_MA_BY_BRANCH: Record<string, string> = {
@@ -84,7 +84,12 @@ const SHI_SHEN_DAI_LU_BY_STEM: Record<string, string> = {
   己: '辛酉',
 };
 
-const FEI_REN_PILLARS = ['丙子', '丁丑', '戊子', '己丑', '壬午', '癸未'];
+const MING_WEI_LU_BY_YEAR_STEM: Record<string, string> = {
+  甲: '丙寅',
+  乙: '丁卯',
+  庚: '壬申',
+  辛: '癸酉',
+};
 
 const GOU_CHEN_BY_STEM: Record<string, string[]> = {
   甲: ['巳', '亥'],
@@ -206,43 +211,32 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
   const yangRenMap = getYangRenMap(variants.yangRenMode === 'include-yin-ren');
   const forwardBranch = (branch: string, offset: number) => {
     const index = zhiIdx(branch);
-    return index < 0 ? '' : cdz[(index + offset) % cdz.length];
+    if (index < 0 || cdz.length === 0) return '';
+    const targetIndex = (((index + offset) % cdz.length) + cdz.length) % cdz.length;
+    return cdz[targetIndex];
   };
-  const mingWeiMaPillar = (stem: string, branch: string) =>
-    `${FOOD_GOD_BY_STEM[stem] ?? ''}${YI_MA_BY_BRANCH[branch] ?? ''}`;
-  // 名位禄「禄上带食神」：食神天干 + 日/年干本身的禄支（如甲人见丙寅，丙为甲食神、寅为甲禄）。
-  // 因阳干禄居阳支、阴干禄居阴支而食神与日干同阴阳，实际仅甲乙庚辛四干可组成六十甲子。
-  const mingWeiLuPillar = (stem: string) =>
-    `${FOOD_GOD_BY_STEM[stem] ?? ''}${LU_BRANCH_BY_STEM[stem] ?? ''}`;
+  const mingWeiMaPillar = (stem: string, branch: string) => {
+    const target = `${FOOD_GOD_BY_STEM[stem] ?? ''}${YI_MA_BY_BRANCH[branch] ?? ''}`;
+    return SIXTY_CYCLE.includes(target) ? target : '';
+  };
 
   return {
     禄神: () => {
       return LU_BRANCH_BY_STEM[riGan] === zhi;
     },
+    // 下列禄、马衍生规则采用《五行精纪》的年命旧法：“甲人”等以年干起例，
+    // “寅午戌人”等以年支起例，目标只查生月、生日、生时，不再静默并入日干、日支版本。
     生成禄: () =>
-      SHENG_CHENG_LU_BY_STEM[nianGan]?.includes(pillarGZ) ||
-      SHENG_CHENG_LU_BY_STEM[riGan]?.includes(pillarGZ),
-    名位禄: () => mingWeiLuPillar(nianGan) === pillarGZ || mingWeiLuPillar(riGan) === pillarGZ,
-    食神带禄: () =>
-      SHI_SHEN_DAI_LU_BY_STEM[nianGan] === pillarGZ || SHI_SHEN_DAI_LU_BY_STEM[riGan] === pillarGZ,
-    禄对神: () => {
-      return (
-        forwardBranch(LU_BRANCH_BY_STEM[nianGan], 6) === zhi ||
-        forwardBranch(LU_BRANCH_BY_STEM[riGan], 6) === zhi
-      );
-    },
-    禄头财: () =>
-      LU_TOU_CAI_BY_STEM[nianGan] === pillarGZ || LU_TOU_CAI_BY_STEM[riGan] === pillarGZ,
-    禄头鬼: () =>
-      LU_TOU_GUI_BY_STEM[nianGan] === pillarGZ || LU_TOU_GUI_BY_STEM[riGan] === pillarGZ,
-    刃头财: () =>
-      REN_TOU_CAI_BY_STEM[nianGan] === pillarGZ || REN_TOU_CAI_BY_STEM[riGan] === pillarGZ,
-    刃头鬼: () =>
-      REN_TOU_GUI_BY_STEM[nianGan] === pillarGZ || REN_TOU_GUI_BY_STEM[riGan] === pillarGZ,
-    库头财: () =>
-      KU_TOU_CAI_BY_STEM[nianGan] === pillarGZ || KU_TOU_CAI_BY_STEM[riGan] === pillarGZ,
-    库头鬼: () =>
-      KU_TOU_GUI_BY_STEM[nianGan] === pillarGZ || KU_TOU_GUI_BY_STEM[riGan] === pillarGZ,
+      pillarIndex >= 1 && (SHENG_CHENG_LU_BY_STEM[nianGan]?.includes(pillarGZ) ?? false),
+    名位禄: () => pillarIndex >= 1 && MING_WEI_LU_BY_YEAR_STEM[nianGan] === pillarGZ,
+    食神带禄: () => pillarIndex >= 1 && SHI_SHEN_DAI_LU_BY_STEM[nianGan] === pillarGZ,
+    禄对神: () => pillarIndex >= 1 && forwardBranch(LU_BRANCH_BY_STEM[nianGan], 6) === zhi,
+    禄头财: () => pillarIndex >= 1 && LU_TOU_CAI_BY_STEM[nianGan] === pillarGZ,
+    禄头鬼: () => pillarIndex >= 1 && LU_TOU_GUI_BY_STEM[nianGan] === pillarGZ,
+    刃头财: () => pillarIndex >= 1 && REN_TOU_CAI_BY_STEM[nianGan] === pillarGZ,
+    刃头鬼: () => pillarIndex >= 1 && REN_TOU_GUI_BY_STEM[nianGan] === pillarGZ,
+    库头财: () => pillarIndex >= 1 && KU_TOU_CAI_BY_STEM[nianGan] === pillarGZ,
+    库头鬼: () => pillarIndex >= 1 && KU_TOU_GUI_BY_STEM[nianGan] === pillarGZ,
     羊刃: () => {
       return yangRenMap[riGan] === zhi;
     },
@@ -263,67 +257,43 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
         亥: '巳',
       };
       const hasYangRenFeiRen = yangRenZhi ? clashMap[yangRenZhi] === zhi : false;
-      return (
-        hasYangRenFeiRen ||
-        ((pillarIndex === 2 || pillarIndex === 3) && FEI_REN_PILLARS.includes(pillarGZ))
-      );
+      return hasYangRenFeiRen;
     },
     驿马: () => {
-      return YI_MA_BY_BRANCH[nianZhi] === zhi || YI_MA_BY_BRANCH[riZhi] === zhi;
+      // 默认采用《命理探源》“以日主为主”的日支口径，不与《五行精纪》年命异法混算。
+      return YI_MA_BY_BRANCH[riZhi] === zhi;
     },
-    生成马: () =>
-      SHENG_CHENG_MA_BY_BRANCH[nianZhi] === pillarGZ ||
-      SHENG_CHENG_MA_BY_BRANCH[riZhi] === pillarGZ,
-    名位马: () =>
-      mingWeiMaPillar(nianGan, nianZhi) === pillarGZ || mingWeiMaPillar(riGan, riZhi) === pillarGZ,
+    生成马: () => pillarIndex >= 1 && SHENG_CHENG_MA_BY_BRANCH[nianZhi] === pillarGZ,
+    名位马: () => pillarIndex >= 1 && mingWeiMaPillar(nianGan, nianZhi) === pillarGZ,
     马财库: () => {
       const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
-      const riYiMa = YI_MA_BY_BRANCH[riZhi];
-      return (
-        MA_CAI_KU_BY_YI_MA_BRANCH[nianYiMa] === zhi || MA_CAI_KU_BY_YI_MA_BRANCH[riYiMa] === zhi
-      );
+      return pillarIndex >= 1 && MA_CAI_KU_BY_YI_MA_BRANCH[nianYiMa] === zhi;
     },
     攀鞍: () => {
       const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
-      const riYiMa = YI_MA_BY_BRANCH[riZhi];
-      return forwardBranch(nianYiMa, -1) === zhi || forwardBranch(riYiMa, -1) === zhi;
+      return pillarIndex >= 1 && forwardBranch(nianYiMa, -1) === zhi;
     },
     马天庭: () => {
       const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
-      const riYiMa = YI_MA_BY_BRANCH[riZhi];
-      return forwardBranch(nianYiMa, 1) === zhi || forwardBranch(riYiMa, 1) === zhi;
+      return pillarIndex >= 1 && forwardBranch(nianYiMa, 1) === zhi;
     },
     马九天: () => {
       const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
-      const riYiMa = YI_MA_BY_BRANCH[riZhi];
-      return forwardBranch(nianYiMa, -1) === zhi || forwardBranch(riYiMa, -1) === zhi;
+      return pillarIndex >= 1 && forwardBranch(nianYiMa, -1) === zhi;
     },
     马九地: () => {
       const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
-      const riYiMa = YI_MA_BY_BRANCH[riZhi];
-      return forwardBranch(nianYiMa, -2) === zhi || forwardBranch(riYiMa, -2) === zhi;
+      return pillarIndex >= 1 && forwardBranch(nianYiMa, -2) === zhi;
     },
-    勾陈: () => {
-      return GOU_CHEN_BY_STEM[nianGan]?.includes(zhi) || GOU_CHEN_BY_STEM[riGan]?.includes(zhi);
-    },
-    真武: () => {
-      return ZHEN_WU_BY_STEM[nianGan]?.includes(zhi) || ZHEN_WU_BY_STEM[riGan]?.includes(zhi);
-    },
-    命天庭: () => forwardBranch(nianZhi, 1) === zhi,
-    禄九天: () => {
-      return (
-        forwardBranch(LU_BRANCH_BY_STEM[nianGan], -1) === zhi ||
-        forwardBranch(LU_BRANCH_BY_STEM[riGan], -1) === zhi
-      );
-    },
-    离祖杀: () =>
-      pillarIndex === 3 &&
-      (forwardBranch(LU_BRANCH_BY_STEM[nianGan], -1) === zhi ||
-        forwardBranch(LU_BRANCH_BY_STEM[riGan], -1) === zhi),
-    禄九地: () => {
-      const stems = [nianGan, riGan].filter((stem) => !['戊', '己'].includes(stem));
-      return stems.some((stem) => forwardBranch(LU_BRANCH_BY_STEM[stem], -2) === zhi);
-    },
+    勾陈: () => pillarIndex >= 1 && (GOU_CHEN_BY_STEM[nianGan]?.includes(zhi) ?? false),
+    真武: () => pillarIndex >= 1 && (ZHEN_WU_BY_STEM[nianGan]?.includes(zhi) ?? false),
+    命天庭: () => pillarIndex >= 1 && forwardBranch(nianZhi, 1) === zhi,
+    禄九天: () => pillarIndex >= 1 && forwardBranch(LU_BRANCH_BY_STEM[nianGan], -1) === zhi,
+    离祖杀: () => pillarIndex === 3 && forwardBranch(LU_BRANCH_BY_STEM[nianGan], -1) === zhi,
+    禄九地: () =>
+      pillarIndex >= 1 &&
+      !['戊', '己'].includes(nianGan) &&
+      forwardBranch(LU_BRANCH_BY_STEM[nianGan], -2) === zhi,
     将星: () => {
       const map: Record<string, string> = {
         申: '子',
@@ -339,7 +309,7 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '酉',
         丑: '酉',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return map[riZhi] === zhi;
     },
     华盖: () => {
       const map: Record<string, string> = {
@@ -356,7 +326,7 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '丑',
         丑: '丑',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return map[riZhi] === zhi;
     },
     金舆: () => {
       const map: Record<string, string> = {
@@ -371,15 +341,9 @@ export function buildLuRules(ctx: RuleContext): ShenShaRuleMap {
         壬: '丑',
         癸: '寅',
       };
-      const nianYiMa = YI_MA_BY_BRANCH[nianZhi];
-      const riYiMa = YI_MA_BY_BRANCH[riZhi];
-      return (
-        map[riGan] === zhi ||
-        map[nianGan] === zhi ||
-        forwardBranch(nianZhi, 2) === zhi ||
-        forwardBranch(nianYiMa, 2) === zhi ||
-        forwardBranch(riYiMa, 2) === zhi
-      );
+      // 《命理探源》明确“以日主为主”，这里只保留禄前二辰的日干版本；
+      // 不与《五行精纪》的命前二辰、马前二辰年命异法混算。
+      return map[riGan] === zhi;
     },
     金神: () =>
       ['乙丑', '己巳', '癸酉'].includes(pillarGZ) && (pillarIndex === 2 || pillarIndex === 3),

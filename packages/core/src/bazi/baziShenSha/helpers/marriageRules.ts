@@ -1,7 +1,7 @@
 import type { RuleContext, ShenShaRuleMap } from './types';
 
 export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
-  const { zhi, nianZhi, riGan, riZhi, pillarGZ, isMan, cdz, zhiIdx } = ctx;
+  const { zhi, pillarIndex, nianZhi, riZhi, pillarGZ, isMan, cdz, zhiIdx } = ctx;
 
   return {
     桃花: () => {
@@ -19,7 +19,8 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '午',
         丑: '午',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      // 默认采用《命理探源》“以日主为主”的日支口径，不与《五行精纪》年命异法混算。
+      return map[riZhi] === zhi;
     },
     红鸾: () => {
       const map: Record<string, string> = {
@@ -36,7 +37,7 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         戌: '巳',
         亥: '辰',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return pillarIndex >= 1 && map[nianZhi] === zhi;
     },
     天喜: () => {
       const map: Record<string, string> = {
@@ -53,7 +54,7 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         戌: '亥',
         亥: '戌',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return pillarIndex >= 1 && map[nianZhi] === zhi;
     },
     孤辰: () => {
       const map: Record<string, string> = {
@@ -70,7 +71,9 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '亥',
         戌: '亥',
       };
-      return map[nianZhi] === zhi;
+      // 《三命通会》以本命所属三方起例，目标在其余月、日、时柱横取；
+      // 年柱只提供本命基准，不把基准柱自身再次当作目标柱。
+      return pillarIndex >= 1 && map[nianZhi] === zhi;
     },
     寡宿: () => {
       const map: Record<string, string> = {
@@ -87,23 +90,10 @@ export function buildMarriageRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '未',
         戌: '未',
       };
-      return map[nianZhi] === zhi;
+      return pillarIndex >= 1 && map[nianZhi] === zhi;
     },
-    红艳煞: () => {
-      const map: Record<string, string> = {
-        甲: '午',
-        乙: '午',
-        丙: '寅',
-        丁: '未',
-        戊: '子',
-        己: '辰',
-        庚: '戌',
-        辛: '酉',
-        壬: '巳',
-        癸: '申',
-      };
-      return map[riGan] === zhi;
-    },
+    // 《三命通会》先称男命得丙子、女命得戊午，继而另说“日上遇之”的婚配含义；
+    // 因此完整柱可在四柱命中，不能把日柱的附加解释误作唯一柱位限制。
     阴阳煞: () => (isMan ? pillarGZ === '丙子' : pillarGZ === '戊午'),
     勾绞煞: () => {
       const gouIdx = (zhiIdx(nianZhi) + 3) % 12;

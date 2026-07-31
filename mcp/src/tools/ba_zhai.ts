@@ -77,7 +77,7 @@ export function registerBaZhaiTool(server: McpServer) {
     'metaphysics_bazhai',
     {
       description:
-        '八宅风水排盘：以命卦（东四/西四命）与宅卦配合，排八宅大游年四吉四凶方，分析命宅配合与宜忌方位',
+        '八宅风水排盘：返回命卦、宅卦、东四西四分组、八宫传统标签、坐向测量与边界候选；不自动生成方向宜避或布置结论',
       inputSchema: baZhaiSchema.shape,
       outputSchema: resultOutputSchema,
     },

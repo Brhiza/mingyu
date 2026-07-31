@@ -10,6 +10,7 @@ import type {
   LenormandData,
   LiuyaoData,
   MeihuaData,
+  QimenData,
   TarotData,
   TaiyiResult,
   XiaoliurenData,
@@ -21,6 +22,7 @@ import {
   conditionLenormandTraditionalText,
 } from 'mingyu-core/divination/lenormand';
 import { analyzeXiaoliurenEvidence } from 'mingyu-core/divination/xiaoliuren';
+import { rebuildAuditedQimenData } from 'mingyu-core/divination/qimen';
 import {
   analyzeLiuyaoActivityPattern,
   analyzeLiuyaoFanFuRelations,
@@ -155,7 +157,7 @@ function formatQimenSeasonalitySummary(data: DivinationData) {
   }
 
   const seasonality = data.seasonality;
-  return `节令背景：${seasonality.currentJieQi}${seasonality.jieQiPhase.phase}，节气五行${seasonality.seasonalElement || '未知'}，日干${seasonality.dayStem}${seasonality.seasonRelation}，月相${seasonality.lunarPhaseDetail || seasonality.lunarPhase}，建除${seasonality.dayOfficer}${seasonality.dayOfficerFortuneLabel}`;
+  return `节令背景：${seasonality.currentJieQi}${seasonality.jieQiPhase.phase}，节气五行${seasonality.seasonalElement || '未知'}，日干${seasonality.dayStem}${seasonality.seasonRelation}，月相${seasonality.lunarPhaseDetail || seasonality.lunarPhase}，建除${seasonality.dayOfficer}`;
 }
 
 function formatQimenPatternComboSummary(data: DivinationData) {
@@ -163,15 +165,9 @@ function formatQimenPatternComboSummary(data: DivinationData) {
     return '';
   }
 
-  const toneLabels = {
-    'super-good': '传统有利条件',
-    'super-bad': '传统限制条件',
-    mixed: '需结合原始条件',
-  } as const;
-
   return `已校勘组合规则：${data.patternCombos
     .slice(0, 3)
-    .map((item) => `${item.name}（${toneLabels[item.tone]}）`)
+    .map((item) => `${item.name}（传统分类：${item.tone}，不等于现实吉凶）`)
     .join('、')}`;
 }
 
@@ -380,30 +376,31 @@ export function getDivinationSummaryBlocks(
         ].filter(Boolean),
       };
     }
-    case 'qimen':
+    case 'qimen': {
+      // 历史缓存和外部结果可能携带已退役派生字段；摘要也必须从原始盘面统一重建。
+      const qimen = rebuildAuditedQimenData(data as QimenData);
       return {
         title: '奇门起局结果',
         tags: [
-          `局数：${'isYangDun' in data ? `${data.isYangDun ? '阳遁' : '阴遁'}${data.juShu}局` : '未知'}`,
-          `值符：${'zhiFu' in data ? data.zhiFu : '未知'}`,
-          `值使：${'zhiShi' in data ? data.zhiShi : '未知'}`,
+          `局数：${qimen.isYangDun ? '阳遁' : '阴遁'}${qimen.juShu}局`,
+          `值符：${qimen.zhiFu}`,
+          `值使：${qimen.zhiShi}`,
         ],
         lines: [
-          wrapMainEvidence(formatQimenFocusSummary(data)),
-          `节气：${'timeInfo' in data ? data.timeInfo.solarTerm : '未知'}`,
-          'timeInfo' in data &&
-          data.timeInfo.juTerm &&
-          data.timeInfo.juTerm !== data.timeInfo.solarTerm
-            ? `定局节气：${data.timeInfo.juTerm}${data.timeInfo.epoch}`
+          wrapMainEvidence(formatQimenFocusSummary(qimen)),
+          `节气：${qimen.timeInfo.solarTerm}`,
+          qimen.timeInfo.juTerm && qimen.timeInfo.juTerm !== qimen.timeInfo.solarTerm
+            ? `定局节气：${qimen.timeInfo.juTerm}${qimen.timeInfo.epoch}`
             : '',
-          formatQimenSeasonalitySummary(data),
-          `格局标签：${'patternTags' in data && data.patternTags?.length ? data.patternTags.join('、') : '无明显标签'}`,
-          formatQimenPatternComboSummary(data),
-          formatQimenVoidSummary(data),
-          formatQimenHorseSummary(data),
-          formatQimenSpecialTimeSummary(data),
+          formatQimenSeasonalitySummary(qimen),
+          `位置标签：${qimen.patternTags?.length ? qimen.patternTags.join('、') : '无'}`,
+          formatQimenPatternComboSummary(qimen),
+          formatQimenVoidSummary(qimen),
+          formatQimenHorseSummary(qimen),
+          formatQimenSpecialTimeSummary(qimen),
         ].filter(Boolean),
       };
+    }
     case 'liuren':
       return {
         title: '大六壬起课结果',

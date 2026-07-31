@@ -4,7 +4,6 @@ import { buildPromptFromConfig, getCompatibilityPrompt } from '../src/utils/ai/a
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { formatBaziForPrompt as formatBaziForPromptLocal } from '@core/bazi/baziAnalysisFormatter';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
-import { generateAnalysisDimensionHints } from '@core/bazi/baziEnhancement';
 import { formatBaziForPrompt as formatBaziForPromptCore } from '../packages/core/src/bazi/baziAnalysisFormatter';
 import { identifyClassicPattern as identifyClassicPatternCore } from '../packages/core/src/bazi/baziEnhancement/classicPatterns';
 import { identifyClassicPattern as identifyClassicPatternLocal } from '@core/bazi/baziEnhancement/classicPatterns';
@@ -68,6 +67,8 @@ test('八字合盘不再附加系统提示词，并保留双盘资料与简明�
   assertPromptHasSingleRole(prompt.user, PROMPT_ROLE_TEXT['bazi-compatibility']);
   assert.match(prompt.user, /【双盘关系资料】/);
   assert.match(prompt.user, /日主关系：/);
+  assert.match(prompt.user, /喜忌资料状态：.*自动喜忌规则尚未完成逐条校勘/s);
+  assert.doesNotMatch(prompt.user, /喜忌五行对应：/);
   assert.match(prompt.user, /【任务】\n关系范围：合伙。请先判断关系主轴/);
   assert.doesNotMatch(prompt.user, /结构化证据|证据边界|不得编造|只基于/);
 });
@@ -280,8 +281,8 @@ test('八字提示词不应由五行百分比阈值自动生成病药结论', ()
   );
 
   assert.match(prompt.user, /旺衰: 待综合判断/);
-  assert.match(prompt.user, /用神: 主用水\+辅木.+\| 主忌无/);
-  assert.match(prompt.user, /取用主线: 调候/);
+  assert.match(prompt.user, /用神: 自动规则尚未完成逐条校勘，取用待定/);
+  assert.doesNotMatch(prompt.user, /用神: 主用|喜忌五行:|取用主线:|取用脉络:/);
   assert.doesNotMatch(prompt.user, /主忌火/);
   assert.match(prompt.user, /【五行结构】/);
   assert.doesNotMatch(prompt.user, /【病药法】/);
@@ -309,8 +310,8 @@ test('八字提示词不应把五行构成阈值包装为过强过弱病药断�
   );
 
   assert.match(prompt.user, /旺衰: 待综合判断/);
-  assert.match(prompt.user, /喜忌五行: 火、水 \| 无/);
-  assert.match(prompt.user, /取用主线: 调候/);
+  assert.match(prompt.user, /用神: 自动规则尚未完成逐条校勘，取用待定/);
+  assert.doesNotMatch(prompt.user, /用神: 主用|喜忌五行:|取用主线:|取用脉络:/);
   assert.doesNotMatch(prompt.user, /喜忌五行: 火、水、土、金 \| 木/);
   assert.doesNotMatch(prompt.user, /【病药法】|过弱为病|过旺为病/);
 });
@@ -575,7 +576,7 @@ test('月令确无用且干头无财官七杀时，真实排盘仍可输出经�
   assert.match(prompt.user, /服从月令无用、干头无财官杀的严格外格前提/);
 });
 
-test('八字提示词资料包中的取用脉络应保留判断依据，不直出内部成格强断语', () => {
+test('八字自动取用待定时不应输出旧取用脉络或内部成格强断语', () => {
   const result = baziCalculator.calculateBazi({
     year: 1988,
     month: 1,
@@ -598,13 +599,9 @@ test('八字提示词资料包中的取用脉络应保留判断依据，不直�
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /取用脉络:/);
-  assert.match(prompt.user, /调候优先:火 -> 水/);
-  const finalUsefulGodTrace = result.analysis.usefulGod.strategyTrace.find((item) =>
-    item.startsWith('最终取用:'),
-  );
-  assert.ok(finalUsefulGodTrace);
-  assert.ok(prompt.user.includes(finalUsefulGodTrace));
+  assert.match(prompt.user, /用神: 自动规则尚未完成逐条校勘，取用待定/);
+  assert.doesNotMatch(prompt.user, /用神: 主用|喜忌五行:|取用主线:|取用脉络:/);
+  assert.doesNotMatch(prompt.user, /调候优先:|最终取用:/);
   assert.doesNotMatch(prompt.user, /成格层次:/);
   assert.doesNotMatch(prompt.user, /病药提示:/);
   assert.doesNotMatch(prompt.user, /运势警语:|逢金水运反败/);
@@ -665,7 +662,7 @@ test('八字提示词不应由五行百分比阈值自动生成通关结论', ()
   assert.doesNotMatch(prompt.user, /【通关法】/);
 });
 
-test('柱位出现桃花时即使全局神煞没有桃花也应生成桃花详解', () => {
+test('柱位出现桃花时只保留神煞命中，不自动生成墙内墙外和现实感情推断', () => {
   const result = baziCalculator.calculateBazi({
     year: 1988,
     month: 1,
@@ -690,13 +687,12 @@ test('柱位出现桃花时即使全局神煞没有桃花也应生成桃花详�
     { isCustomQuestion: false },
   );
 
-  assert.match(prompt.user, /【桃花详解】命盘见桃花：月柱、时柱/);
-  assert.match(prompt.user, /月柱:墙外桃花/);
-  assert.match(prompt.user, /时柱:墙外桃花/);
-  assert.doesNotMatch(prompt.user, /【桃花详解】[\s\S]*利:/);
-  assert.doesNotMatch(prompt.user, /【桃花详解】[\s\S]*忌:/);
-  assert.match(prompt.user, /【桃花详解】[\s\S]*提示:/);
-  assert.match(prompt.user, /【桃花详解】[\s\S]*留意:/);
+  assert.match(prompt.user, /【神煞命中事实】[\s\S]*月柱：[^\n]*桃花[\s\S]*时柱：[^\n]*桃花/);
+  assert.match(prompt.user, /只记录既定神煞规则在各柱的命中位置/);
+  assert.doesNotMatch(
+    prompt.user,
+    /【桃花详解】|墙内桃花|墙外桃花|亲密关系表达|事业曝光|异性干扰|口舌是非/,
+  );
 });
 
 test('八字提示词的空亡详解应按实际空亡柱位显隐并写明证据', () => {
@@ -906,21 +902,6 @@ test('八字增强资料包不再按用户分类切换本地模板', () => {
   assert.doesNotMatch(generalSection, /月令旺衰权重|不代表概率|规则输入/);
   assert.doesNotMatch(healthSection, /【寿元分析】/);
   assert.doesNotMatch(careerSection, /【限运分析】/);
-});
-
-test('高风险旁证提示改为辅助研判框架，避免直接断语', () => {
-  assert.match(generateAnalysisDimensionHints('fuxin'), /辅助观察/);
-  assert.match(generateAnalysisDimensionHints('fuxin'), /不可脱离原局主线单独定吉凶/);
-
-  assert.match(generateAnalysisDimensionHints('kongwang'), /只作旁证/);
-  assert.match(generateAnalysisDimensionHints('kongwang'), /不可单凭空亡直接定吉凶/);
-  assert.doesNotMatch(generateAnalysisDimensionHints('kongwang'), /祖上无缘/);
-
-  assert.match(generateAnalysisDimensionHints('xingchong'), /不可见一项就直接下吉凶结论/);
-  assert.doesNotMatch(generateAnalysisDimensionHints('xingchong'), /主变动拖延/);
-
-  assert.match(generateAnalysisDimensionHints('lifespan'), /不得直接推断寿数/);
-  assert.doesNotMatch(generateAnalysisDimensionHints('lifespan'), /晚年孤寂/);
 });
 
 test('合盘分类只作为关系范围，不再插入本地专项框架', () => {

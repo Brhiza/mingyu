@@ -4679,15 +4679,6 @@ select {
   gap: 12px;
 }
 
-.bazhai-direction-label.is-lucky {
-  fill: var(--success-text);
-  font-weight: 800;
-}
-
-.bazhai-direction-label.is-unlucky {
-  fill: var(--danger-text);
-}
-
 .bazhai-facing-arrow {
   fill: var(--accent-strong);
 }

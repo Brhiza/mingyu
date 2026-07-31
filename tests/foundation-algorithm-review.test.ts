@@ -28,7 +28,8 @@ test('命卦与八宅分组不应把非法值静默降级', () => {
 
 test('生肖流年应识别三合成员并拒绝伪造流年干支', () => {
   const waterTrine = core.zodiac.getZodiacYearFortune('申', '甲子');
-  assert.equal(waterTrine.noble, '三合贵人（水局）');
+  assert.equal(waterTrine.harmony, '三合组成员关系（水局）');
+  assert.equal('noble' in waterTrine, false);
 
   assert.throws(() => core.zodiac.getZodiacYearFortune('申', '甲丑'), /流年干支无效：甲丑/);
   assert.throws(() => core.zodiac.getTaiSuiConflicts('申', '无'), /流年地支无效：无/);

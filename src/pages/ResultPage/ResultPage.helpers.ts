@@ -380,32 +380,12 @@ export function joinMultilineText(values: Array<string | undefined>, fallback = 
   return joinText(values, fallback).replaceAll('、', '\n');
 }
 
-export function formatUsefulGodPrioritySummary(result: BaziChartResult) {
-  const primary =
-    result.analysis.usefulGod.primaryFavorableWuxing ||
-    result.analysis.usefulGod.favorableWuxing?.[0] ||
-    '暂无';
-  const secondary = joinText(
-    result.analysis.usefulGod.secondaryFavorableWuxing ||
-      result.analysis.usefulGod.favorableWuxing?.slice(1) ||
-      [],
-    '暂无',
-  );
-  return `主用:${primary} / 辅助:${secondary}`;
+export function formatUsefulGodPrioritySummary(_result: BaziChartResult) {
+  return '自动规则未校勘';
 }
 
-export function formatAvoidGodPrioritySummary(result: BaziChartResult) {
-  const primary =
-    result.analysis.usefulGod.primaryUnfavorableWuxing ||
-    result.analysis.usefulGod.unfavorableWuxing?.[0] ||
-    '暂无';
-  const secondary = joinText(
-    result.analysis.usefulGod.secondaryUnfavorableWuxing ||
-      result.analysis.usefulGod.unfavorableWuxing?.slice(1) ||
-      [],
-    '暂无',
-  );
-  return `主忌:${primary} / 次忌:${secondary}`;
+export function formatAvoidGodPrioritySummary(_result: BaziChartResult) {
+  return '自动规则未校勘';
 }
 
 export function formatZiweiPromptScopeSummary(

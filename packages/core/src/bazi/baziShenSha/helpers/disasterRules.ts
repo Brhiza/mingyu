@@ -1,8 +1,9 @@
 import { calculateKongWangBranches } from '../../kongWang';
 import { isGanZhiPair } from '../../baziUtils';
+import { NAYIN_MAP } from '../../baziDefinitions';
 import type { RuleContext, ShenShaRuleMap } from './types';
 
-const AN_JIN_SHA_BY_YEAR_BRANCH: Record<
+const JIN_SHA_BY_YEAR_BRANCH: Record<
   string,
   { branch: string; name: '吟呻煞' | '破碎煞' | '白衣煞' }
 > = {
@@ -78,21 +79,6 @@ const TOU_DAI_SHA_BY_YEAR_BRANCH: Record<string, string> = {
   亥: '丑',
   卯: '丑',
   未: '丑',
-};
-
-const PO_JUN_BY_YEAR_BRANCH: Record<string, string> = {
-  申: '亥',
-  子: '亥',
-  辰: '亥',
-  亥: '寅',
-  卯: '寅',
-  未: '寅',
-  寅: '巳',
-  午: '巳',
-  戌: '巳',
-  巳: '申',
-  酉: '申',
-  丑: '申',
 };
 
 type YearBranchGroup = '寅午戌' | '巳酉丑' | '申子辰' | '亥卯未';
@@ -181,9 +167,9 @@ const SAN_GONG_SHA_BY_YEAR_BRANCH: Record<string, string> = {
   巳: '丙午',
   酉: '丙午',
   丑: '丙午',
-  申: '乙卯',
-  子: '乙卯',
-  辰: '乙卯',
+  申: '己卯',
+  子: '己卯',
+  辰: '己卯',
   亥: '辛酉',
   卯: '辛酉',
   未: '辛酉',
@@ -231,6 +217,19 @@ const ZHEN_GUI_XING_JI_STEMS_BY_YEAR_STEM: Record<string, string[]> = {
 };
 
 const WU_GUI_KONG_WANG_BRANCHES_BY_YEAR_STEM: Record<string, string[]> = {
+  甲: ['午'],
+  己: ['午'],
+  乙: ['辰', '巳'],
+  庚: ['辰', '巳'],
+  丙: ['寅', '卯'],
+  辛: ['寅', '卯'],
+  丁: ['子', '丑'],
+  壬: ['子', '丑'],
+  戊: ['申', '酉'],
+  癸: ['申', '酉'],
+};
+
+const YOU_WU_GUI_KONG_WANG_BRANCHES_BY_YEAR_STEM: Record<string, string[]> = {
   甲: ['巳', '午'],
   己: ['巳', '午'],
   乙: ['寅', '卯'],
@@ -346,7 +345,7 @@ const JING_DE_STEM_BY_MONTH_BRANCH: Record<string, string> = {
   未: '甲',
 };
 
-const JING_DE_HOUR_STEM_BY_YEAR_BRANCH: Record<string, string> = {
+const JING_DE_STEM_BY_YEAR_BRANCH: Record<string, string> = {
   寅: '辛',
   午: '辛',
   戌: '辛',
@@ -595,7 +594,7 @@ const JIAO_HAI_SHA_DAY_HOUR_BRANCH_PAIRS = [
   ['寅', '巳'],
 ];
 
-const GUI_MEN_BRANCH_BY_YEAR_BRANCH: Record<string, string> = {
+const ZI_YI_SHA_BRANCH_BY_YEAR_BRANCH: Record<string, string> = {
   子: '酉',
   酉: '子',
   丑: '午',
@@ -607,6 +606,17 @@ const GUI_MEN_BRANCH_BY_YEAR_BRANCH: Record<string, string> = {
   辰: '亥',
   亥: '辰',
   巳: '戌',
+  戌: '巳',
+};
+
+// 《五行精纪》“鬼门关”只列子见酉、丑见午、寅见未、申见卯、亥见辰、戌见巳，
+// 不是《三命通会》自缢煞的十二支成对互见表。
+const GUI_MEN_GUAN_BRANCH_BY_YEAR_BRANCH: Record<string, string> = {
+  子: '酉',
+  丑: '午',
+  寅: '未',
+  申: '卯',
+  亥: '辰',
   戌: '巳',
 };
 
@@ -677,20 +687,20 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     baziArray,
     variants,
   } = ctx;
-  const anJinSha = AN_JIN_SHA_BY_YEAR_BRANCH[nianZhi];
-  const anJinShaHits = anJinSha?.branch === zhi;
+  const jinSha = JIN_SHA_BY_YEAR_BRANCH[nianZhi];
+  const jinShaHits = jinSha?.branch === zhi;
   const sanQiuWuMu = SAN_QIU_WU_MU_BY_MONTH_BRANCH[yueZhi];
   const yearBranchGroup = YEAR_BRANCH_GROUP_BY_BRANCH[nianZhi];
   const jieTouShaPillar = JIE_TOU_SHA_BY_YEAR_GROUP[yearBranchGroup]?.[nianGan];
   const jieTouGuiPillar = JIE_TOU_GUI_BY_YEAR_GROUP[yearBranchGroup]?.[nianGan];
   const shiZhi = baziArray[3][1];
+  const tianXingBranch = cdz[(zhiIdx(shiZhi) + 1) % 12];
   const tianShangBranch = cdz[(zhiIdx(shiZhi) - 2 + 12) % 12];
   const riKongWangBranches = calculateOptionalKongWangBranches(riGan, riZhi);
-  const nianKongWangBranches =
-    variants.kongWangBasis === 'day-and-year'
-      ? calculateOptionalKongWangBranches(nianGan, nianZhi)
-      : [];
-  const kongWangBranches = [...riKongWangBranches, ...nianKongWangBranches];
+  const nianMingKongWangBranches = calculateOptionalKongWangBranches(nianGan, nianZhi);
+  const variantYearKongWangBranches =
+    variants.kongWangBasis === 'day-and-year' ? nianMingKongWangBranches : [];
+  const kongWangBranches = [...riKongWangBranches, ...variantYearKongWangBranches];
   const guXuBranches = kongWangBranches
     .map((branch) => cdz[(zhiIdx(branch) + 6) % 12])
     .filter(Boolean);
@@ -703,6 +713,7 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     return riZhi === dayBranch && shiZhi === hourBranch;
   });
   const annualPalace = (offset: number) => cdz[(zhiIdx(nianZhi) + offset + 12) % 12] === zhi;
+  const unsupportedFlowYearStar = () => false;
   const nianGanIsYang = ctg.indexOf(nianGan) % 2 === 0;
   const yuanChenOffset = (nianGanIsYang && isMan) || (!nianGanIsYang && !isMan) ? 5 : 7;
   const yuanChenBranch = cdz[(zhiIdx(nianZhi) + yuanChenOffset + 12) % 12];
@@ -720,43 +731,46 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     const index = zhiIdx(source);
     return index >= 0 && cdz[(index + 6) % 12] === target;
   };
+  const nianNayinWuxing = NAYIN_MAP[`${nianGan}${nianZhi}`]?.slice(-1);
 
   return {
     空亡: () => kongWangBranches.includes(zhi),
     孤虚: () => guXuBranches.includes(zhi),
+    // 默认采用《命理探源》口径：劫煞、亡神“以日主为主”，其中“申子辰日”的例子表明这里指日支。
+    // 《五行精纪》另有按生年支起例的旧法，此处不把两个版本同时混算。
     亡神: () => {
       const map: Record<string, string> = {
         申: '亥',
         子: '亥',
         辰: '亥',
-        亥: '申',
-        卯: '申',
-        未: '申',
+        亥: '寅',
+        卯: '寅',
+        未: '寅',
         寅: '巳',
         午: '巳',
         戌: '巳',
-        巳: '寅',
-        酉: '寅',
-        丑: '寅',
+        巳: '申',
+        酉: '申',
+        丑: '申',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return map[riZhi] === zhi;
     },
     劫煞: () => {
       const map: Record<string, string> = {
         申: '巳',
         子: '巳',
         辰: '巳',
-        亥: '寅',
-        卯: '寅',
-        未: '寅',
+        亥: '申',
+        卯: '申',
+        未: '申',
         寅: '亥',
         午: '亥',
         戌: '亥',
-        巳: '申',
-        酉: '申',
-        丑: '申',
+        巳: '寅',
+        酉: '寅',
+        丑: '寅',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return map[riZhi] === zhi;
     },
     劫头杀: () => jieTouShaPillar === pillarGZ,
     劫头鬼: () => jieTouGuiPillar === pillarGZ,
@@ -775,10 +789,11 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '卯',
         丑: '卯',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      return map[riZhi] === zhi;
     },
-    天杀: () => TIAN_SHA_BY_BRANCH[nianZhi] === zhi || TIAN_SHA_BY_BRANCH[riZhi] === zhi,
-    地杀: () => DI_SHA_BY_BRANCH[nianZhi] === zhi || DI_SHA_BY_BRANCH[riZhi] === zhi,
+    // 《五行精纪》把天杀、地杀列入以“本命”起的十二宫驿马例，故只按生年支取用。
+    天杀: () => TIAN_SHA_BY_BRANCH[nianZhi] === zhi,
+    地杀: () => DI_SHA_BY_BRANCH[nianZhi] === zhi,
     墓杀: () => MU_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
     害气杀: () => HAI_QI_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
     死气杀: () => cdz[(zhiIdx(nianZhi) + 4) % 12] === zhi,
@@ -786,14 +801,17 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
     暴败杀: () => BAO_BAI_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
     离乡杀: () => pillarIndex >= 2 && LI_XIANG_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
     破外杀: () => pillarIndex >= 2 && PO_WAI_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
-    血光杀: () =>
-      (pillarIndex >= 2 && XUE_GUANG_SHA_BY_YEAR_BRANCH[nianZhi]?.includes(zhi)) ||
-      (pillarIndex === 3 && XUE_GUANG_SHA_HOUR_BY_DAY_BRANCH[riZhi] === zhi),
+    // 《五行精纪》把日时固定表题作“血光杀”，把年命取日时表另题作“又血光杀”，
+    // 两套基准分别输出，避免同名规则静默合并。
+    血光杀: () => pillarIndex === 3 && XUE_GUANG_SHA_HOUR_BY_DAY_BRANCH[riZhi] === zhi,
+    又血光杀: () =>
+      pillarIndex >= 2 && (XUE_GUANG_SHA_BY_YEAR_BRANCH[nianZhi]?.includes(zhi) ?? false),
     截命杀: () => cdz[(zhiIdx(nianZhi) + 1) % 12] === zhi,
     推命杀: () => cdz[(zhiIdx(nianZhi) + 11) % 12] === zhi,
-    宅墓煞: () =>
-      pillarIndex >= 2 &&
-      (cdz[(zhiIdx(nianZhi) + 5) % 12] === zhi || cdz[(zhiIdx(nianZhi) + 7) % 12] === zhi),
+    // 《五行精纪》《三命通会》只确定命前五辰为宅、命后五辰为墓，并要求宅墓再受岁、劫等煞，
+    // 或进入行年岁运后才论相应结果；原文没有给出把任一本命日时支直接标成“宅墓煞”的完整条件。
+    // 目标位置仍可交给上层按原文继续推算，神煞层对旧简化规则失败关闭。
+    宅墓煞: () => false,
     建命杀: () => pillarIndex === 1 && pillarGZ === `${nianGan}${nianZhi}`,
     六厄: () => {
       const map: Record<string, string> = {
@@ -810,131 +828,122 @@ export function buildDisasterRules(ctx: RuleContext): ShenShaRuleMap {
         酉: '子',
         丑: '子',
       };
-      return map[nianZhi] === zhi || map[riZhi] === zhi;
+      // 《五行精纪》十二宫驿马例及“本命”用语均按生年支起六厄，不与日支异法混算。
+      return map[nianZhi] === zhi;
     },
     元辰: () => {
       return yuanChenBranch === zhi;
     },
-    血刃: () => {
-      const map: Record<string, string> = {
-        寅: '丑',
-        卯: '寅',
-        辰: '卯',
-        巳: '辰',
-        午: '巳',
-        未: '午',
-        申: '未',
-        酉: '申',
-        戌: '酉',
-        亥: '戌',
-        子: '亥',
-        丑: '子',
-      };
-      return map[yueZhi] === zhi;
-    },
-    流霞: () => {
-      const map: Record<string, string> = {
-        甲: '酉',
-        乙: '戌',
-        丙: '未',
-        丁: '申',
-        戊: '巳',
-        己: '午',
-        庚: '辰',
-        辛: '卯',
-        壬: '亥',
-        癸: '寅',
-      };
-      return map[riGan] === zhi;
-    },
-    天罗: () => {
-      const hasXu = baziArray.some((p) => p[1] === '戌');
-      const hasHai = baziArray.some((p) => p[1] === '亥');
-      return hasXu && hasHai && (zhi === '戌' || zhi === '亥');
-    },
-    地网: () => {
-      const hasChen = baziArray.some((p) => p[1] === '辰');
-      const hasSi = baziArray.some((p) => p[1] === '巳');
-      return hasChen && hasSi && (zhi === '辰' || zhi === '巳');
-    },
-    天医: () => {
-      const monthIdx = cdz.indexOf(yueZhi);
-      if (monthIdx === -1) return false;
-      const targetIdx = (monthIdx - 1 + 12) % 12;
-      return cdz[targetIdx] === zhi;
-    },
-    太岁: () => annualPalace(0),
-    剑锋: () => annualPalace(0),
-    伏尸: () => annualPalace(0),
-    太阳: () => annualPalace(1),
-    天空: () => annualPalace(1),
-    官符: () => pillarIndex >= 2 && annualPalace(4),
-    病符: () => annualPalace(-1),
-    死符: () => pillarIndex >= 1 && annualPalace(5),
-    吟呻煞: () => anJinSha?.name === '吟呻煞' && anJinShaHits,
-    破碎煞: () => anJinSha?.name === '破碎煞' && anJinShaHits,
-    白衣煞: () => anJinSha?.name === '白衣煞' && anJinShaHits,
-    金神大杀: () => anJinShaHits,
-    太白星: () => anJinShaHits,
-    斧劈星: () => anJinShaHits,
-    破军: () => PO_JUN_BY_YEAR_BRANCH[nianZhi] === zhi,
-    三公煞: () => SAN_GONG_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
+    // 默认采用《命理探源》所引《渊海子平》口径：年命纳音火见戌亥日为天罗，
+    // 年命纳音水土见辰巳日为地网，金木命无之。只标记日柱，不把《五行精纪》
+    // 的年、月、日、时交互版本静默并入同一名称。
+    天罗: () => pillarIndex === 2 && nianNayinWuxing === '火' && ['戌', '亥'].includes(zhi),
+    地网: () =>
+      pillarIndex === 2 &&
+      ['水', '土'].includes(nianNayinWuxing ?? '') &&
+      ['辰', '巳'].includes(zhi),
+    // 《神峰通考》《命理探源》均把太岁至病符这套十二宫明列为“流年星耀”，
+    // 其用法是把指定流年排入宫限，并非以出生年支横取本命四柱。《命理探源》还明确
+    // 反对舍干支生克而凭此断流年。《五行精纪》的“太岁十二杀”另有不同名称表，且未给出
+    // 当前这种四柱落位法；两表不能静默合并。因此八字本命神煞对整套流年星耀失败关闭。
+    天医: unsupportedFlowYearStar,
+    太岁: unsupportedFlowYearStar,
+    剑锋: unsupportedFlowYearStar,
+    伏尸: unsupportedFlowYearStar,
+    太阳: unsupportedFlowYearStar,
+    天空: unsupportedFlowYearStar,
+    官符: unsupportedFlowYearStar,
+    病符: unsupportedFlowYearStar,
+    死符: unsupportedFlowYearStar,
+    // 《五行精纪》金神大杀又称金杀，并明确“一杀而有三名”：巳为吟呻、酉为破碎、丑为白衣。
+    // 《神峰通考》另以太白星、斧劈星列出同一组三合年命位置；真正“暗金杀”是另一张十二支表，
+    // 不得因查表位置相近而混用名称。
+    吟呻煞: () => jinSha?.name === '吟呻煞' && jinShaHits,
+    破碎煞: () => jinSha?.name === '破碎煞' && jinShaHits,
+    白衣煞: () => jinSha?.name === '白衣煞' && jinShaHits,
+    金神大杀: () => jinShaHits,
+    太白星: () => jinShaHits,
+    斧劈星: () => jinShaHits,
+    // 《五行精纪》此表题为“天官符”，正文又说明它是年命版亡神、属破军星；
+    // 默认亡神已采用《命理探源》的日支口径，不能把另一版本改名“破军”后并列输出。
+    破军: () => false,
+    // 原文申子辰组为己卯，并解释“水土同位，故取己土卯木之克”；年柱只作本命基准。
+    三公煞: () => pillarIndex >= 1 && SAN_GONG_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
     官会杀: () => GUAN_HUI_SHA_BY_YEAR_STEM[nianGan] === pillarGZ,
     财会杀: () => CAI_HUI_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
     真鬼刑疾: () => pillarIndex >= 2 && ZHEN_GUI_XING_JI_STEMS_BY_YEAR_STEM[nianGan]?.includes(gan),
-    五鬼空亡: () => WU_GUI_KONG_WANG_BRANCHES_BY_YEAR_STEM[nianGan]?.includes(zhi),
-    破祖空亡: () => PO_ZU_KONG_WANG_BRANCH_BY_YEAR_STEM[nianGan] === zhi,
+    // 《五行精纪》连续列出“五鬼空亡”和“又五鬼空亡”两张不同表，分别输出。
+    五鬼空亡: () =>
+      pillarIndex >= 1 && (WU_GUI_KONG_WANG_BRANCHES_BY_YEAR_STEM[nianGan]?.includes(zhi) ?? false),
+    又五鬼空亡: () =>
+      pillarIndex >= 1 &&
+      (YOU_WU_GUI_KONG_WANG_BRANCHES_BY_YEAR_STEM[nianGan]?.includes(zhi) ?? false),
+    // 本段以生年干起例，原文例证另取日柱相见；与前后两张五鬼空亡一致，
+    // 年柱只作命的基准，不得用自身干支回标破祖空亡。
+    破祖空亡: () => pillarIndex >= 1 && PO_ZU_KONG_WANG_BRANCH_BY_YEAR_STEM[nianGan] === zhi,
     青龙杀: () => QING_LONG_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
     良会杀: () => LIANG_HUI_SHA_BY_YEAR_BRANCH[nianZhi] === pillarGZ,
-    扶生日: () => FU_SHENG_DAY_BY_MONTH_BRANCH[yueZhi] === zhi,
+    // 《五行精纪》把此项题作“扶生日”，并按正月至十二月逐月列出日支，
+    // 与紧邻的天赦日同属历日规则；不得把同支的年、月、时柱一并回标。
+    扶生日: () => pillarIndex === 2 && FU_SHENG_DAY_BY_MONTH_BRANCH[yueZhi] === zhi,
     天喜神: () => TIAN_XI_SHEN_BRANCH_BY_MONTH_BRANCH[yueZhi] === zhi,
     天瞽杀: () => TIAN_GU_SHA_BRANCH_BY_MONTH_BRANCH[yueZhi] === zhi,
     飞廉杀: () => TIAN_GU_SHA_BRANCH_BY_MONTH_BRANCH[yueZhi] === zhi,
-    旌德: () =>
-      (pillarIndex >= 2 && JING_DE_STEM_BY_MONTH_BRANCH[yueZhi] === gan) ||
-      (pillarIndex === 3 && JING_DE_HOUR_STEM_BY_YEAR_BRANCH[nianZhi] === gan),
-    旌钺: () =>
-      (pillarIndex === 3 && JING_YUE_HOUR_BRANCH_BY_YEAR_BRANCH[nianZhi] === zhi) ||
-      JING_YUE_PILLAR_BY_YEAR_MEETING_BRANCH[nianZhi] === pillarGZ,
+    旌德: () => pillarIndex >= 2 && JING_DE_STEM_BY_MONTH_BRANCH[yueZhi] === gan,
+    // 《五行精纪》《三命通会》均作“寅午戌人见辛……”；“生时犯之”只是时柱的附加说明，
+    // 不是成立条件，故按原文“见”检查四柱，不静默缩成仅时干。
+    又旌德: () => JING_DE_STEM_BY_YEAR_BRANCH[nianZhi] === gan,
+    旌钺: () => pillarIndex === 3 && JING_YUE_HOUR_BRANCH_BY_YEAR_BRANCH[nianZhi] === zhi,
+    又旌钺: () => JING_YUE_PILLAR_BY_YEAR_MEETING_BRANCH[nianZhi] === pillarGZ,
     真亡杀: () => ZHEN_WANG_SHA_BY_YEAR_BRANCH[nianZhi]?.includes(pillarGZ),
     月煞: () => YUE_SHA_BY_MONTH_BRANCH[yueZhi] === zhi,
     月厌: () => YUE_YAN_BY_MONTH_BRANCH[yueZhi] === zhi,
     头戴杀: () => pillarIndex >= 2 && TOU_DAI_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
-    妄语煞: () => pillarIndex >= 2 && annualPalace(4) && riKongWangBranches.includes(zhi),
+    // 《五行精纪》“官符落天中”与《三命通会》“太岁前五辰，是日时遇之”均属本命年起例；
+    // 天中因此取本命年柱旬空，不得改用日柱旬空。十二宫以太岁为第一位，官符为第五位，即顺行四支。
+    妄语煞: () => pillarIndex >= 2 && annualPalace(4) && nianMingKongWangBranches.includes(zhi),
+    // 《五行精纪》限定六个完整日时柱，并要求命中另带元辰，三项条件缺一不可。
     点头杀: () => pillarIndex >= 2 && hasYuanChen && DIAN_TOU_SHA_PILLARS.includes(pillarGZ),
+    // 原文只取月、日、时内同一完整干支重见；年柱不参与重叠，也不得把同支或同干当作重见。
     无形鬼: () =>
       pillarIndex >= 1 && WU_XING_GUI_PILLARS.includes(pillarGZ) && hasRepeatedWuXingGui,
     三丘: () => sanQiuWuMu?.sanQiu === zhi,
     五墓: () => sanQiuWuMu?.wuMu === zhi,
-    天刑: () => pillarIndex === 3 && TIAN_XING_HOUR_STEM_BY_YEAR_BRANCH[nianZhi] === gan,
-    天伤: () => tianShangBranch === zhi,
+    // 《三命通会》的年命配时干版，与《五行精纪》“时前一辰”版同名而条件不同，明确分名输出。
+    '天刑（三命通会年命时干版）': () =>
+      pillarIndex === 3 && TIAN_XING_HOUR_STEM_BY_YEAR_BRANCH[nianZhi] === gan,
+    // 《五行精纪》把天刑、天伤作为同一组时支前后位置，保留成对事实并标明版本，
+    // 不再把其中的天伤与《三命通会》异版天刑静默拼接。
+    '天刑（五行精纪时支版）': () => tianXingBranch === zhi,
+    '天伤（五行精纪时支版）': () => tianShangBranch === zhi,
     雷霆煞: () => LEI_TING_SHA_BRANCH_BY_MONTH_BRANCH[yueZhi] === zhi,
     破煞: () => hasPoSha,
     狡害杀: () => pillarIndex >= 2 && hasJiaoHaiSha,
-    自缢煞: () => GUI_MEN_BRANCH_BY_YEAR_BRANCH[nianZhi] === zhi,
-    鬼门: () => GUI_MEN_BRANCH_BY_YEAR_BRANCH[nianZhi] === zhi,
+    自缢煞: () => pillarIndex >= 1 && ZI_YI_SHA_BRANCH_BY_YEAR_BRANCH[nianZhi] === zhi,
+    鬼门: () => pillarIndex >= 1 && GUI_MEN_GUAN_BRANCH_BY_YEAR_BRANCH[nianZhi] === zhi,
     天罡杀: () => TIAN_GANG_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
     阴杀: () => YIN_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
     阳杀: () => YANG_SHA_BY_YEAR_BRANCH[nianZhi] === zhi,
+    // 《五行精纪》“年隔月一位，月隔时日二位”，即年支顺隔一支取月、月支顺隔二支取日时。
     鸱枭杀: () => pillarIndex >= 2 && yueZhi === chiXiaoMonthBranch && zhi === chiXiaoDayHourBranch,
     冲天杀: () =>
       (pillarIndex === 1 && clashes(nianZhi, zhi)) || (pillarIndex === 3 && clashes(riZhi, zhi)),
-    丧门: () => annualPalace(2),
-    地丧: () => annualPalace(2),
-    勾绞: () => annualPalace(3),
-    贯索: () => annualPalace(3),
-    吊客: () => annualPalace(-2),
+    丧门: unsupportedFlowYearStar,
+    地丧: unsupportedFlowYearStar,
+    勾绞: unsupportedFlowYearStar,
+    贯索: unsupportedFlowYearStar,
+    吊客: unsupportedFlowYearStar,
     披麻: () => annualPalace(-3),
-    五鬼: () => pillarIndex >= 2 && annualPalace(4),
-    小耗: () => pillarIndex >= 1 && annualPalace(5),
-    栏杆: () => annualPalace(6),
-    大耗: () => annualPalace(6),
-    暴败: () => annualPalace(7),
-    天厄: () => annualPalace(7),
-    飞廉: () => annualPalace(8),
-    白虎: () => annualPalace(8),
-    卷舌: () => annualPalace(9),
-    福星: () => annualPalace(9),
-    天狗: () => annualPalace(-2),
+    五鬼: unsupportedFlowYearStar,
+    小耗: unsupportedFlowYearStar,
+    栏杆: unsupportedFlowYearStar,
+    大耗: unsupportedFlowYearStar,
+    暴败: unsupportedFlowYearStar,
+    天厄: unsupportedFlowYearStar,
+    飞廉: unsupportedFlowYearStar,
+    白虎: unsupportedFlowYearStar,
+    卷舌: unsupportedFlowYearStar,
+    福星: unsupportedFlowYearStar,
+    天狗: unsupportedFlowYearStar,
   };
 }

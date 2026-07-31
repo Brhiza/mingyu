@@ -742,7 +742,7 @@ export interface QimenPatternCombo {
 export type QimenScope = 'hour' | 'day' | 'month' | 'year';
 
 export interface QimenData {
-  /** 用神宫候选、宫内组合、宫间作用、反证与触发条件。 */
+  /** 中性位置索引、宫内结构、九宫宫对、位置限制与推算边界。 */
   evidenceAnalysis?: import('../divination/qimen-evidence').QimenEvidenceAnalysis;
   /** 九宫排布方法：zhuanpan=转盘法，feipan=飞盘法。旧结果未记录时按转盘法兼容。 */
   method?: 'zhuanpan' | 'feipan';
@@ -762,18 +762,11 @@ export interface QimenData {
   zhiFu: string;
   /** 值使门名 */
   zhiShi: string;
-  /** 基础格局标签列表（如星伏吟、门迫、三奇得等） */
+  /** 可由九宫直接复算的位置与五行标签（如伏吟、反吟、门克宫、击刑、入墓、马星） */
   patternTags?: string[];
   /** 格局标签的详细解释 */
   patternDetails?: Array<{
     tag: string;
-    summary: string;
-  }>;
-  /** 各宫位综合洞察评估 */
-  palaceInsights?: Array<{
-    gong: number;
-    name: string;
-    level: '有利' | '风险' | '关注';
     summary: string;
   }>;
   /** 空亡地支 */
@@ -790,7 +783,7 @@ export interface QimenData {
   specialConditions?: QimenSpecialConditions;
   /** 节令背景（月相、建除、节气三元、四柱互动等） */
   seasonality?: QimenSeasonalityInfo;
-  /** 经典格局（九遁、三奇得使、天乙等） */
+  /** 已按统一原典逐条校勘的十一项天地盘固定格 */
   classicPatterns?: Array<{
     name: string;
     type: 'good' | 'bad' | 'neutral';
@@ -807,33 +800,6 @@ export interface QimenData {
   }>;
   /** 固定文献条件已闭合的门宫、主客、方位与时机组合规则 */
   patternCombos?: QimenPatternCombo[];
-  /** 方位吉凶建议 */
-  directions?: {
-    goodDirections: Array<{
-      gong: number;
-      name: string;
-      direction: string;
-      use: string;
-      reasons: string[];
-    }>;
-    avoidDirections: Array<{
-      gong: number;
-      name: string;
-      direction: string;
-      use: string;
-      reasons: string[];
-    }>;
-  };
-  /** 应期证据（相对节奏、触发条件与限制；不机械换算固定天数） */
-  yingQi?: {
-    minDays?: number;
-    maxDays?: number;
-    rhythm: '快' | '中' | '慢';
-    sources: string[];
-    triggerConditions: string[];
-    limitations: string[];
-    description: string;
-  };
   /** Unix 时间戳（毫秒） */
   timestamp: number;
 }

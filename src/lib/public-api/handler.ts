@@ -143,14 +143,12 @@ type AlmanacApiResult = Omit<AlmanacData, 'days'> & {
 
 const SHENSHA_KONG_WANG_BASIS = ['day', 'day-and-year'] as const;
 const SHENSHA_YANG_REN_MODE = ['yang-stems-only', 'include-yin-ren'] as const;
-const SHENSHA_TONG_ZI_SCOPE = ['day-hour', 'all-pillars'] as const;
 const MAX_PUBLIC_API_TEXT_FIELD_LENGTH = 5000;
 const MAX_PUBLIC_API_RESPONSE_BYTES = 1024 * 1024;
 const MAX_ALMANAC_PARTICIPANTS = 30;
 const MAX_ALMANAC_PAGE_SIZE = 31;
 const MAX_COMPACT_QIMEN_CLASSIC_PATTERNS = 8;
 const MAX_COMPACT_QIMEN_PATTERN_COMBOS = 10;
-const MAX_COMPACT_QIMEN_PALACE_INSIGHTS = 9;
 const PROMPT_RESPONSE_MODES = ['summary', 'full', 'prompt-only'] as const;
 const DETAIL_MODES = ['full', 'compact'] as const;
 const ASTROLABE_PROMPT_SCOPES = ['natal', 'full', 'yearly', 'monthly', 'daily'] as const;
@@ -741,7 +739,7 @@ export function getPublicApiOpenApiDocument(
         post: {
           summary: '八宅风水排盘',
           requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
-          responses: { '200': { description: '八宅大游年盘与吉凶方位' } },
+          responses: { '200': { description: '八宅命卦宅卦、八宫传统标签与测量证据' } },
         },
       },
       '/metaphysics/bazhai/prompt': {
@@ -753,16 +751,16 @@ export function getPublicApiOpenApiDocument(
       },
       '/metaphysics/zodiac/calculate': {
         post: {
-          summary: '生肖犯太岁与流年运程',
+          summary: '生肖与流年固定关系事实',
           requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
-          responses: { '200': { description: '犯太岁与运程等级' } },
+          responses: { '200': { description: '生肖年支与流年干支的逐项关系事实' } },
         },
       },
       '/metaphysics/zodiac/prompt': {
         post: {
-          summary: '生肖犯太岁与流年运程并生成提示词',
+          summary: '生肖与流年固定关系并生成提示词',
           requestBody: openApiJsonRequestBody('#/components/schemas/MetaphysicsRequest'),
-          responses: { '200': { description: '运程与提示词' } },
+          responses: { '200': { description: '关系事实与 AI 推算提示词' } },
         },
       },
       '/metaphysics/taiyi/calculate': {
@@ -1073,10 +1071,6 @@ export function getPublicApiOpenApiDocument(
               description:
                 '羊刃口径：yang-stems-only=只取阳干羊刃；include-yin-ren=阴干帝旺位作为阴刃并入。',
             },
-            tongZiScope: {
-              enum: [...SHENSHA_TONG_ZI_SCOPE],
-              description: '童子煞口径：day-hour=只查日柱时柱；all-pillars=四柱同查。',
-            },
           },
         },
         BaziRequest: {
@@ -1152,14 +1146,20 @@ export function getPublicApiOpenApiDocument(
               maximum: 45,
               description: '方位测量可能误差，用于判断跨山向或跨宅卦边界（八宅）',
             },
-            zodiac: { type: 'string', description: '生肖或地支，如「鼠」或「子」（生肖运程）' },
+            zodiac: {
+              type: 'string',
+              description: '生肖或地支，如「鼠」或「子」（生肖与流年关系）',
+            },
             year: {
               type: 'integer',
               minimum: 1900,
               maximum: 2200,
               description: '公元年（默认今年）',
             },
-            yearGanZhi: { type: 'string', description: '直接给定流年干支，如「甲辰」（生肖运程）' },
+            yearGanZhi: {
+              type: 'string',
+              description: '直接给定流年干支，如「甲辰」（生肖与流年关系）',
+            },
             scope: {
               enum: ['year'],
               description: '太乙计式：当前仅开放完成古籍历法链校勘的年计',
@@ -1845,7 +1845,12 @@ function buildMetaphysicsPrompt(
   method: 'zodiac' | 'taiyi' | 'qizheng' | 'xuankong' | 'residential',
 ): string {
   const question =
-    readString(input, 'question', '').trim() || '请综合解读本次排盘的重点、风险与行动建议。';
+    readString(input, 'question', '').trim() ||
+    (method === 'residential'
+      ? '请说明本次盘面的关键事实、可继续推算的条件与仍需补充的资料。'
+      : method === 'zodiac'
+        ? '请说明本次资料命中的固定关系、可继续推算的范围与仍需补充的信息。'
+        : '请综合解读本次排盘的重点、风险与行动建议。');
   return buildSharedMetaphysicsPrompt(basePrompt, question, { method });
 }
 
@@ -1915,7 +1920,8 @@ function buildBaZhaiPrompt(input: JsonRecord) {
     responseMode: readPromptResponseMode(input),
     prompt: buildSharedMetaphysicsPrompt(
       result.prompt,
-      readString(input, 'question', '').trim() || '请综合解读本次排盘的重点、风险与行动建议。',
+      readString(input, 'question', '').trim() ||
+        '请说明本次盘面的关键事实、可继续推算的条件与仍需补充的资料。',
       {
         method: 'bazhai',
         measurement: (result as { directionMeasurement?: { promptText: string } })
@@ -2221,15 +2227,20 @@ function readShenShaVariants(input: JsonRecord): Partial<ShenShaVariantConfig> |
   if (!isRecord(value)) {
     throw new ApiError(400, 'BAD_REQUEST', 'shenShaVariants 必须是对象。');
   }
+  if ('tongZiScope' in value) {
+    throw new ApiError(
+      400,
+      'BAD_REQUEST',
+      '童子煞规则尚无可逐条复核的依据，已停止生成且不再支持 tongZiScope。',
+    );
+  }
 
   const variants: Partial<ShenShaVariantConfig> = {};
   const kongWangBasis = readOptionalEnum(value, 'kongWangBasis', SHENSHA_KONG_WANG_BASIS);
   const yangRenMode = readOptionalEnum(value, 'yangRenMode', SHENSHA_YANG_REN_MODE);
-  const tongZiScope = readOptionalEnum(value, 'tongZiScope', SHENSHA_TONG_ZI_SCOPE);
 
   if (kongWangBasis) variants.kongWangBasis = kongWangBasis;
   if (yangRenMode) variants.yangRenMode = yangRenMode;
-  if (tongZiScope) variants.tongZiScope = tongZiScope;
 
   return variants;
 }
@@ -3190,8 +3201,6 @@ function buildCompactQimenResult(result: ReturnType<typeof generateQimen>) {
     zhiShi: result.zhiShi,
     patternTags: result.patternTags,
     patternDetails: result.patternDetails,
-    palaceInsights: (result.palaceInsights ?? []).slice(0, MAX_COMPACT_QIMEN_PALACE_INSIGHTS),
-    palaceInsightTotal: result.palaceInsights?.length ?? 0,
     voidBranches: result.voidBranches,
     voidPalaces: result.voidPalaces,
     horseStar: result.horseStar,
@@ -3223,25 +3232,6 @@ function buildCompactQimenResult(result: ReturnType<typeof generateQimen>) {
       summary: combo.summary,
       palace: combo.palace,
     })),
-    directions: result.directions
-      ? {
-          goodDirections: result.directions.goodDirections.map((item) => ({
-            gong: item.gong,
-            name: item.name,
-            direction: item.direction,
-            use: item.use,
-            reasons: item.reasons,
-          })),
-          avoidDirections: result.directions.avoidDirections.map((item) => ({
-            gong: item.gong,
-            name: item.name,
-            direction: item.direction,
-            use: item.use,
-            reasons: item.reasons,
-          })),
-        }
-      : undefined,
-    yingQi: result.yingQi,
     timestamp: result.timestamp,
   };
 }

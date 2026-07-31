@@ -42,8 +42,10 @@ test('金标准盘:1994-12-04 03:15 男 佳木斯(真太阳时) → 甲戌 乙�
   assert.equal(r.timing?.correctedTime.hour, 4);
   // 正常盘不应产生边界预警噪音
   assert.deepEqual(r.warnings, []);
-  // 甲木亥月调候:火为第一喜用
-  assert.equal(r.analysis.usefulGod.primaryFavorableWuxing, '火');
+  // 未逐条校勘的自动调候、用神规则必须失败关闭
+  assert.equal(r.analysis.usefulGod.primaryFavorableWuxing, '');
+  assert.equal(r.analysis.usefulGod.primaryReason, '取用待定');
+  assert.deepEqual(r.analysis.usefulGod.matchedRules, []);
 });
 
 test('回归:日支坐印计入帮扶(甲子日,upstream #27)', () => {

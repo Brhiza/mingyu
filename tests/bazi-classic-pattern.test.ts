@@ -22,7 +22,7 @@ function identify(pillars: Pillars) {
   );
 }
 
-test('金神只保留其他古籍来源参考，并区分甲己日喜忌口径', () => {
+test('金神只保留其他古籍结构来源，不固化甲己日喜忌五行', () => {
   const jiaPattern = identify({
     year: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
     month: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },
@@ -38,8 +38,8 @@ test('金神只保留其他古籍来源参考，并区分甲己日喜忌口径',
 
   assert.equal(jiaPattern?.name, '金神格');
   assert.equal(jiaPattern?.sourceRole, '其他古籍名目参考');
-  assert.deepEqual(jiaPattern?.favorableWuxing, ['火']);
-  assert.deepEqual(jiaPattern?.unfavorableWuxing, ['水']);
+  assert.deepEqual(jiaPattern?.favorableWuxing, []);
+  assert.deepEqual(jiaPattern?.unfavorableWuxing, []);
   assert.match(jiaPattern?.source?.quote ?? '', /入火乡为胜.*惧水乡/);
 
   assert.equal(jiPattern?.name, '金神格');

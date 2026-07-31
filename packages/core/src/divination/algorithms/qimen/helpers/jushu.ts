@@ -425,7 +425,7 @@ export function getQimenJuShu(
  *   另列乙未、丙戌、丁丑为日时干三奇入墓，其凶与墓制同。
  *
  * 五不遇时法理依据（《遁甲演义》）：
- *   时干克日干，名为五不遇，主事多不顺，好事被阻，凶时。
+ *   时干克日干，名为五不遇。这里只记录干克条件，不自动生成现实结果或行动建议。
  *
  * @param hourGanZhi 时辰干支字符串（如 "甲子"、"乙丑"）
  * @param dayGanZhi  日干支字符串（用于判断五不遇时）
@@ -473,7 +473,7 @@ export function checkSpecialHourConditions(
   const ruMuInfo = hourRuMuByGanZhi[hourGanZhi];
   if (ruMuInfo && hourZhi === ruMuInfo.branch) {
     result.isShiGanRuMu = true;
-    result.description += `${ruMuInfo.category}（${hourGanZhi}，${hourGan}入${ruMuInfo.palace}宫/${ruMuInfo.branch}支），事情停滞，不宜举事；`;
+    result.description += `${ruMuInfo.category}（${hourGanZhi}，${hourGan}入${ruMuInfo.palace}宫/${ruMuInfo.branch}支）；`;
   }
 
   // ── 4. 五不遇时 ──
@@ -482,7 +482,7 @@ export function checkSpecialHourConditions(
   const dayGan = dayGanZhi?.charAt(0);
   if (dayGan && wuBuYuHourStemByDayStem[dayGan] === hourGan) {
     result.isWuBuYuShi = true;
-    result.description += `五不遇时（日干${dayGan}遇时干${hourGan}克日干），事多不顺，不宜举事；`;
+    result.description += `五不遇时（日干${dayGan}遇时干${hourGan}克日干）；`;
   }
 
   return result;

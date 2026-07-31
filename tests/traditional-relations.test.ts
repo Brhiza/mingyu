@@ -39,7 +39,6 @@ import { analyzeTombStorage } from '../packages/core/src/bazi/tombStorage';
 import { getTenGod, getTenGodForBranch, getWuxing } from '../packages/core/src/bazi/baziUtils';
 import { analyzeGanzhiInteractions as analyzeAppQimenGanzhi } from '../packages/core/src/divination/algorithms/qimen/helpers/seasonality';
 import { analyzeGanzhiInteractions as analyzeCoreQimenGanzhi } from '../packages/core/src/divination/algorithms/qimen/helpers/seasonality';
-import { evaluateChangSheng } from '../packages/core/src/divination/algorithms/qimen/helpers/chang-sheng';
 import { LIU_HE_BRANCH as ziweiLiuHeBranch } from '../packages/core/src/ziwei/iztro/build-analysis-payload/helpers/palace-lookup';
 import { buildFortuneSelectionContext } from '@core/bazi/fortuneSelection';
 import type { BaziChartResult } from '@core/bazi/baziTypes';
@@ -545,32 +544,6 @@ test('占法共享五行长生统一土长生在寅（与八字/奇门/tyme4ts �
   assert.equal(getWuxingChangSheng('水'), '申');
   assert.throws(() => getWuxingChangSheng('风'), /五行无效/);
   // 注：六爻(liuyao)为独立占法体系，其土长生在申不在本共享表范围内，不受影响
-});
-
-test('奇门十二长生应与 tyme4ts 十干十二运保持一致', () => {
-  const palaceBranches: Record<number, string> = {
-    1: '子',
-    2: '未',
-    3: '卯',
-    4: '辰',
-    6: '戌',
-    7: '酉',
-    8: '丑',
-    9: '午',
-  };
-
-  for (const stem of ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']) {
-    for (const [palace, branch] of Object.entries(palaceBranches)) {
-      const expected = HeavenStem.fromName(stem).getTerrain(EarthBranch.fromName(branch)).getName();
-
-      const result = evaluateChangSheng(stem, Number(palace));
-      assert.equal(result.stage, expected);
-      assert.ok(!('scoreFactor' in result));
-    }
-  }
-
-  assert.throws(() => evaluateChangSheng('风', 1), /天干 "风" 无法识别/);
-  assert.throws(() => evaluateChangSheng('甲', 10), /宫位 "10" 无效/);
 });
 
 test('占法共享月令旺衰应按古籍口径区分囚死', () => {

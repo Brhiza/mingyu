@@ -314,9 +314,8 @@ function createParticipantProfiles(
           day: chart.pillars.day.ganZhi,
           hour: chart.pillars.hour.ganZhi,
         },
-        usefulGods: chart.analysis.usefulGod.favorableWuxing ?? chart.analysis.usefulGod.favorable,
-        avoidGods:
-          chart.analysis.usefulGod.unfavorableWuxing ?? chart.analysis.usefulGod.unfavorable,
+        usefulGods: [],
+        avoidGods: [],
       };
     });
 }
@@ -644,8 +643,6 @@ function buildDayFacts(params: {
       participantNotes.push(`${participant.name}：${branchConflict.text}`);
     }
 
-    const usefulGods = [...new Set(participant.usefulGods)].filter(Boolean);
-    const avoidGods = [...new Set(participant.avoidGods)].filter(Boolean);
     const candidateElements = [getStemWuxing(params.dayStem), getBranchWuxing(params.dayBranch)];
     participantRelationFacts.push({
       key: `${params.dateKey}:participant:${participant.id}:elements-not-adopted`,
@@ -654,12 +651,12 @@ function buildDayFacts(params: {
       scope: '候选日',
       basis: '整体',
       candidateValue: candidateElements.join('、'),
-      participantValues: [...usefulGods, ...avoidGods],
+      participantValues: [],
       relation: '未采用',
       status: '未采用',
-      detail: '仅凭候选日干支五行是否命中喜忌，不能替代完整择日合参',
-      promptText: `${participant.name}：不采用候选日干支五行简单命中喜忌作为排序或限制依据`,
-      sources: ['参与人八字资料', '候选日干支五行', '择日合参适用边界'],
+      detail: '自动喜忌规则尚未完成逐条校勘，不读取旧喜忌字段，也不作候选日五行命中',
+      promptText: `${participant.name}：自动喜忌规则保持关闭，不采用候选日干支五行命中作为排序或限制依据`,
+      sources: ['自动用神规则审计状态', '候选日干支五行', '择日合参适用边界'],
       limitation: PARTICIPANT_FACT_LIMITATION,
     });
 

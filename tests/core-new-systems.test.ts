@@ -10,6 +10,9 @@ import {
 import { tarotCards } from '../packages/core/src/divination/tarot-data.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
+const AUTOMATIC_ZODIAC_CONCLUSION =
+  /有利关系[:：]|风险关系[:：]|行动信号[:：]|六合贵人|三合贵人|重大变动前|重要决定多做|合同、规则和沟通内容尽量留痕|优先看对方/;
+
 test('ganzhi: 纳音/十二长生/六十甲子序号', () => {
   assert.equal(core.ganzhi.getNayin('甲子'), '海中金');
   assert.equal(core.ganzhi.getChangShengState('木', '亥'), '长生');
@@ -52,12 +55,16 @@ test('ganzhi: 十二长生（土长生在寅，与八字/奇门一致）', () =>
 test('direction: 八宅大游年', () => {
   const r = core.direction.getEightMansion('坎');
   assert.equal(r.group, '东四命');
-  assert.equal(r.lucky.length, 4);
-  assert.equal(r.unlucky.length, 4);
+  assert.equal(r.palaces.length, 8);
+  assert.equal(new Set(r.palaces.map((item) => item.gua)).size, 8);
+  assert.equal(new Set(r.palaces.map((item) => item.label)).size, 8);
+  assert.ok(r.palaces.every((item) => !('luck' in item)));
   assert.equal(core.direction.getHouseTrigram('子'), '坎');
-  assert.equal(r.unlucky.find((item) => item.gua === '艮')?.label, '五鬼');
-  assert.equal(r.unlucky.find((item) => item.gua === '兑')?.label, '祸害');
-  assert.equal(r.unlucky.find((item) => item.gua === '乾')?.label, '六煞');
+  assert.equal(r.palaces.find((item) => item.gua === '艮')?.label, '五鬼');
+  assert.equal(r.palaces.find((item) => item.gua === '兑')?.label, '祸害');
+  assert.equal(r.palaces.find((item) => item.gua === '乾')?.label, '六煞');
+  assert.equal('lucky' in r, false);
+  assert.equal('unlucky' in r, false);
   assert.equal(core.direction.NINE_STARS[0].name, '一白水');
   assert.deepEqual(core.direction.FOUR_ZONES, ['东', '北', '西', '南']);
 });
@@ -126,14 +133,14 @@ test('shensha: 可扩展 registry（不破坏既有系统）', () => {
   assert.ok(core.shensha.listShensha('bazhai').some((d) => d.id === 'demo'));
 });
 
-test('bazhai: 命宅配合', () => {
+test('bazhai: 命宅八宫标签与分组事实', () => {
   const r = core.bazhai.analyzeBaZhai({ birthYear: 1990, gender: 'male', sitMountain: '子' });
   assert.equal(r.mingGua, '坎');
   assert.equal(r.houseGua, '坎');
-  assert.equal(r.match, '相合');
+  assert.equal(r.groupRelation, '同组');
   assert.ok(r.prompt.includes('八宅风水'));
-  assert.ok(r.prompt.includes('命卦八宫明细'));
-  assert.ok(r.prompt.includes('宅卦八宫明细'));
+  assert.ok(r.prompt.includes('命卦八宫传统标签'));
+  assert.ok(r.prompt.includes('宅卦八宫传统标签'));
   assert.doesNotMatch(r.prompt, /结构化证据|证据边界|计算链|解释限制/);
   assert.equal(r.evidenceAnalysis.evidence.title, '八宅命宅方位与测量结构化证据');
   assert.equal(r.evidenceAnalysis.calculationFact.status, '命宅完整');
@@ -167,7 +174,7 @@ test('bazhai: 命宅配合', () => {
         item.calculationStepKeys.length > 0 &&
         item.sources.length >= 2 &&
         item.calculation.includes('查大游年表') &&
-        item.promptText.includes('传统') &&
+        item.promptText.includes('查表') &&
         item.limitation.includes('不证明房间适用性'),
     ),
   );
@@ -176,7 +183,7 @@ test('bazhai: 命宅配合', () => {
     [
       ['命卦年界', '待复核'],
       ['宅卦资料覆盖', '已覆盖'],
-      ['命宅逐方一致性', '已覆盖'],
+      ['命宅逐方标签一致性', '已覆盖'],
       ['山向边界稳定性', '不适用'],
       ['宅卦边界稳定性', '不适用'],
       ['北向基准', '不适用'],
@@ -195,13 +202,17 @@ test('bazhai: 命宅配合', () => {
         item.sources.length > 0,
     ),
   );
-  assert.match(r.evidenceAnalysis.promptText, /北（坎宫，中心0°）.*逐方关系为同为吉方/);
+  assert.match(r.evidenceAnalysis.promptText, /北（坎宫，中心0°）.*逐方关系为标签相同/);
   assert.doesNotMatch(
     r.evidenceAnalysis.promptText,
     /命语|本项目|项目统一|调用方|当前调用|工程|接口|API|MCP/,
   );
   assertPromptIsPortableTaskText(r.evidenceAnalysis.promptText);
-  assert.match(r.prompt, /命宅配合：相合/);
+  assert.match(r.prompt, /命宅分组关系：同组/);
+  assert.doesNotMatch(
+    JSON.stringify(r),
+    /四吉方[:：]|四凶方[:：]|(?:吉方|凶方)[:：]|较利方位[:：]|命宅相合|命宅相冲|(?:建议)?优先利用|(?:布置|布局|行动)建议[:：]/,
+  );
 });
 
 test('bazhai: 从大门面向屋内的度数可直接生成传统坐向与完整八宅结果', () => {
@@ -219,7 +230,7 @@ test('bazhai: 从大门面向屋内的度数可直接生成传统坐向与完整
   assert.equal(r.directionMeasurement.facingMountain, '午');
   assert.equal(r.directionMeasurement.label, '子山午向');
   assert.equal(r.houseGua, '坎');
-  assert.equal(r.match, '相合');
+  assert.equal(r.groupRelation, '同组');
   assert.match(r.directionMeasurement.promptText, /站在大门处面向屋内/);
   assert.match(r.evidenceAnalysis.promptText, /测量事实：从大门面向屋内实测0°/);
   assert.equal(r.evidenceAnalysis.measurementFacts.length, 4);
@@ -317,7 +328,6 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.deepEqual(r.elementRelation, {
     kind: '年干生生肖',
     label: '年干五行生生肖地支本气',
-    classification: '有利关系',
     yearStemWuxing: '木',
     zodiacWuxing: '火',
   });
@@ -417,11 +427,16 @@ test('zodiac: 犯太岁与流年运程', () => {
   assert.match(r.evidenceAnalysis.promptText, /流年年干甲[\s\S]*生肖年支本气午/);
   assert.match(r.evidenceAnalysis.promptText, /证据汇总：[\s\S]*解释限制：/);
   assert.match(r.prompt, /马（午）遇甲辰年/);
-  assert.match(r.prompt, /有利关系：年干五行生生肖地支本气/);
+  assert.match(r.prompt, /干支关系：年干五行生生肖地支本气/);
+  assert.match(r.prompt, /资料边界：/);
   assert.doesNotMatch(r.prompt, /结构化证据|证据汇总|计算链|解释限制/);
   assert.doesNotMatch(r.prompt, /综合定级：/);
   assert.doesNotMatch(r.prompt, /印星|财星|官杀|接口兼容/);
   assert.doesNotMatch(r.prompt, /完整的事业、财运、感情或健康断语/);
+  assert.doesNotMatch(JSON.stringify(r), AUTOMATIC_ZODIAC_CONCLUSION);
+  for (const removedField of ['noble', 'favorableRelations', 'riskRelations', 'actionSignals']) {
+    assert.equal(removedField in r, false);
+  }
   assert.doesNotMatch(r.evidenceAnalysis.promptText, /命语|本项目|项目统一|工程|接口|API|MCP/);
   assertPromptIsPortableTaskText(r.evidenceAnalysis.promptText);
 });
@@ -436,56 +451,176 @@ test('zodiac: 六十甲子太岁资料应完整、非空、无重名且不可被
   assert.deepEqual(core.zodiac.getYearTaiSui('甲辰'), { yearBranch: '辰', star: '李诚' });
 });
 
-test('zodiac: 五行利弊分类应由结构化关系驱动而非解析中文描述', () => {
+test('zodiac: 12个生肖年支与60个流年干支的720种组合应逐项符合固定关系表', () => {
+  const liuhe: Record<string, string> = {
+    子: '丑',
+    丑: '子',
+    寅: '亥',
+    亥: '寅',
+    卯: '戌',
+    戌: '卯',
+    辰: '酉',
+    酉: '辰',
+    巳: '申',
+    申: '巳',
+    午: '未',
+    未: '午',
+  };
+  const liuchong: Record<string, string> = {
+    子: '午',
+    午: '子',
+    丑: '未',
+    未: '丑',
+    寅: '申',
+    申: '寅',
+    卯: '酉',
+    酉: '卯',
+    辰: '戌',
+    戌: '辰',
+    巳: '亥',
+    亥: '巳',
+  };
+  const liuhai: Record<string, string> = {
+    子: '未',
+    未: '子',
+    丑: '午',
+    午: '丑',
+    寅: '巳',
+    巳: '寅',
+    卯: '辰',
+    辰: '卯',
+    申: '亥',
+    亥: '申',
+    酉: '戌',
+    戌: '酉',
+  };
+  const liupo: Record<string, string> = {
+    子: '酉',
+    酉: '子',
+    丑: '辰',
+    辰: '丑',
+    寅: '亥',
+    亥: '寅',
+    卯: '午',
+    午: '卯',
+    巳: '申',
+    申: '巳',
+    未: '戌',
+    戌: '未',
+  };
+  const sanheGroups = [
+    { name: '水局', members: ['申', '子', '辰'] },
+    { name: '木局', members: ['亥', '卯', '未'] },
+    { name: '火局', members: ['寅', '午', '戌'] },
+    { name: '金局', members: ['巳', '酉', '丑'] },
+  ];
+  const sanhuiGroups = [
+    { name: '东方木', members: ['寅', '卯', '辰'] },
+    { name: '南方火', members: ['巳', '午', '未'] },
+    { name: '西方金', members: ['申', '酉', '戌'] },
+    { name: '北方水', members: ['亥', '子', '丑'] },
+  ];
+  const isExpectedSanxing = (a: string, b: string) =>
+    (a !== b && ['寅', '巳', '申'].includes(a) && ['寅', '巳', '申'].includes(b)) ||
+    (a !== b && ['丑', '戌', '未'].includes(a) && ['丑', '戌', '未'].includes(b)) ||
+    (a === '子' && b === '卯') ||
+    (a === '卯' && b === '子') ||
+    (a === b && ['辰', '午', '酉', '亥'].includes(a));
+
+  let caseCount = 0;
+  for (const zodiacBranch of core.ganzhi.EARTHLY_BRANCHES) {
+    for (const yearGanZhi of core.ganzhi.SIXTY_CYCLE) {
+      caseCount += 1;
+      const yearBranch = yearGanZhi[1];
+      const result = core.zodiac.getZodiacYearFortune(zodiacBranch, yearGanZhi);
+      const expectedConflictTypes: string[] = [];
+      if (zodiacBranch === yearBranch) expectedConflictTypes.push('值太岁');
+      if (liuchong[zodiacBranch] === yearBranch) expectedConflictTypes.push('冲太岁');
+      if (isExpectedSanxing(zodiacBranch, yearBranch)) expectedConflictTypes.push('刑太岁');
+      if (liuhai[zodiacBranch] === yearBranch) expectedConflictTypes.push('害太岁');
+      if (liupo[zodiacBranch] === yearBranch) expectedConflictTypes.push('破太岁');
+
+      const sanhe = sanheGroups.find(
+        (group) =>
+          zodiacBranch !== yearBranch &&
+          group.members.includes(zodiacBranch) &&
+          group.members.includes(yearBranch),
+      );
+      const expectedHarmony =
+        liuhe[zodiacBranch] === yearBranch
+          ? '六合关系'
+          : sanhe
+            ? `三合组成员关系（${sanhe.name}）`
+            : null;
+      const sanhui = sanhuiGroups.find(
+        (group) =>
+          zodiacBranch !== yearBranch &&
+          group.members.includes(zodiacBranch) &&
+          group.members.includes(yearBranch),
+      );
+
+      assert.equal(result.yearBranch, yearBranch, `${zodiacBranch}/${yearGanZhi}流年年支`);
+      assert.deepEqual(
+        result.conflicts.map((item) => item.type),
+        expectedConflictTypes,
+        `${zodiacBranch}/${yearGanZhi}值冲刑害破`,
+      );
+      assert.equal(result.harmony, expectedHarmony, `${zodiacBranch}/${yearGanZhi}六合三合`);
+      assert.equal(
+        result.meeting,
+        sanhui ? `三会关系（${sanhui.name}）` : null,
+        `${zodiacBranch}/${yearGanZhi}三会`,
+      );
+      assert.equal(result.elementRelation.label, result.relation);
+      assert.equal(result.evidenceAnalysis.summaryFact.status, '证据链完整');
+      assert.doesNotMatch(JSON.stringify(result), AUTOMATIC_ZODIAC_CONCLUSION);
+      for (const removedField of [
+        'noble',
+        'favorableRelations',
+        'riskRelations',
+        'actionSignals',
+      ]) {
+        assert.equal(removedField in result, false);
+      }
+      assert.equal('classification' in result.elementRelation, false);
+    }
+  }
+  assert.equal(caseCount, 720);
+});
+
+test('zodiac: 五行生克只保留结构方向，不生成利弊分类', () => {
   const cases = [
     {
       result: core.zodiac.getZodiacYearFortune('午', '甲辰'),
       kind: '年干生生肖',
-      classification: '有利关系',
-      bucket: 'favorableRelations',
     },
     {
       result: core.zodiac.getZodiacYearFortune('寅', '丁卯'),
       kind: '生肖生年干',
-      classification: '风险关系',
-      bucket: 'riskRelations',
     },
     {
       result: core.zodiac.getZodiacYearFortune('寅', '庚子'),
       kind: '年干克生肖',
-      classification: '风险关系',
-      bucket: 'riskRelations',
     },
     {
       result: core.zodiac.getZodiacYearFortune('寅', '戊寅'),
       kind: '生肖克年干',
-      classification: '中性关系',
-      bucket: null,
     },
     {
       result: core.zodiac.getZodiacYearFortune('寅', '甲子'),
       kind: '同类',
-      classification: '中性关系',
-      bucket: null,
     },
   ] as const;
 
   for (const item of cases) {
     assert.equal(item.result.elementRelation.kind, item.kind);
-    assert.equal(item.result.elementRelation.classification, item.classification);
     assert.equal(item.result.elementRelation.label, item.result.relation);
-    assert.equal(
-      item.result.favorableRelations.includes(item.result.relation),
-      item.bucket === 'favorableRelations',
-    );
-    assert.equal(
-      item.result.riskRelations.includes(item.result.relation),
-      item.bucket === 'riskRelations',
-    );
+    assert.equal('classification' in item.result.elementRelation, false);
+    assert.doesNotMatch(JSON.stringify(item.result), AUTOMATIC_ZODIAC_CONCLUSION);
   }
 });
 
-test('zodiac: 冲太岁只作轻量风险关系，不生成综合吉凶等级', () => {
+test('zodiac: 冲太岁只作固定关系事实，不生成综合吉凶等级', () => {
   const result = core.zodiac.getZodiacYearFortune('午', '庚子');
   assert.ok(result.conflicts.some((item) => item.type === '冲太岁'));
   assert.ok(result.evidenceAnalysis.primaryEvidence.some((item) => item.relation === '冲太岁'));
@@ -502,14 +637,17 @@ test('zodiac: 冲太岁只作轻量风险关系，不生成综合吉凶等级', 
   assert.ok(!('level' in result));
   assert.equal(result.interpretationBoundary, '仅限生肖与流年关系');
   assert.ok(!('confidence' in result));
+  assert.equal(
+    result.conflicts.find((item) => item.type === '冲太岁')?.desc,
+    '生肖年支与流年年支命中十二地支六冲表。',
+  );
+  assert.doesNotMatch(JSON.stringify(result), AUTOMATIC_ZODIAC_CONCLUSION);
 });
 
 test('zodiac: 三会只记录固定同组关系，不冒充贵人或吉凶结论', () => {
   const eastWood = core.zodiac.getZodiacYearFortune('寅', '丁卯');
   assert.equal(eastWood.meeting, '三会关系（东方木）');
-  assert.equal(eastWood.noble, null);
-  assert.ok(!eastWood.favorableRelations.includes(eastWood.meeting));
-  assert.ok(!eastWood.riskRelations.includes(eastWood.meeting));
+  assert.equal(eastWood.harmony, null);
   assert.ok(
     eastWood.evidenceAnalysis.supportingEvidence.some(
       (item) => item.category === '地支会合' && item.relation === eastWood.meeting,
@@ -526,9 +664,8 @@ test('zodiac: 三会只记录固定同组关系，不冒充贵人或吉凶结论
 
   const southFire = core.zodiac.getZodiacYearFortune('午', '辛未');
   assert.equal(southFire.meeting, '三会关系（南方火）');
-  assert.equal(southFire.noble, '六合贵人');
-  assert.ok(!southFire.favorableRelations.includes(southFire.meeting));
-  assert.ok(!southFire.riskRelations.includes(southFire.meeting));
+  assert.equal(southFire.harmony, '六合关系');
+  assert.doesNotMatch(JSON.stringify(southFire), AUTOMATIC_ZODIAC_CONCLUSION);
 });
 
 test('tarot: 逐牌证据应区分正逆位、元素与牌阶', () => {

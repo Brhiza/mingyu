@@ -166,6 +166,15 @@ const AUDITED_NAMED_PATTERNS: Record<string, Omit<StemPairPattern, 'heavenStem' 
   }),
 };
 
+/** 正式入口允许输出的经典格名称；供生成端与证据消费端共用同一白名单。 */
+export const AUDITED_QIMEN_CLASSIC_PATTERN_NAMES: readonly string[] = Object.freeze(
+  Object.values(AUDITED_NAMED_PATTERNS).map((pattern) => pattern.name),
+);
+
+export function isAuditedQimenClassicPatternName(name: string): boolean {
+  return AUDITED_QIMEN_CLASSIC_PATTERN_NAMES.includes(name);
+}
+
 if (Object.keys(AUDITED_NAMED_PATTERNS).length !== 11) {
   throw new Error('奇门已校勘天地盘固定格数量必须为11项。');
 }

@@ -5,7 +5,7 @@
 
 import type { BaziChartResult } from './baziTypes';
 import { BASIC_MAPPINGS, SAN_HE_MAP, SAN_HUI_MAP } from './baziMappingsData';
-import { identifyClassicPattern, getPeachBlossomDetail } from './baziEnhancement';
+import { identifyClassicPattern } from './baziEnhancement/classicPatterns';
 import { assessAllHarmonyTransforms } from './harmonyTransform';
 
 type PillarKey = 'year' | 'month' | 'day' | 'hour';
@@ -175,33 +175,21 @@ function generateClassicPatternSection(chartResult: BaziChartResult): string {
   return `【${title}】${classicPattern.name} | 来源：${classicPattern.source.title} | ${eligibilityBoundary} | ${toClassicPatternPromptDescription(classicPattern.description)}`;
 }
 
-/**
- * 生成桃花详解片段
- */
-function generatePeachBlossomDetailSection(chartResult: BaziChartResult): string {
-  const globalTaohua = chartResult.shensha?.global?.filter((s) => s.includes('桃花')) || [];
-  const taohuaPillars = PILLAR_KEYS.filter((pillar) =>
-    chartResult.shensha?.[pillar]?.some((s) => s.includes('桃花')),
-  );
-
-  if (!globalTaohua.length && !taohuaPillars.length) return '';
-
-  const overview = globalTaohua.length
-    ? globalTaohua.join('、')
-    : taohuaPillars.map((pillar) => PILLAR_LABELS[pillar]).join('、');
-  const lines = [`【桃花详解】命盘见桃花：${overview}`];
-
+function generateShenshaFactSection(chartResult: BaziChartResult): string {
+  const lines: string[] = [];
   for (const pillar of PILLAR_KEYS) {
-    const pillarTaohua = chartResult.shensha?.[pillar]?.find((s) => s.includes('桃花'));
-    if (pillarTaohua) {
-      const d = getPeachBlossomDetail(pillar);
-      lines.push(
-        `${PILLAR_LABELS[pillar]}:${d.type} | ${d.description} | 提示:${d.favorable} | 留意:${d.unfavorable}`,
-      );
-    }
+    const names = Array.from(new Set(chartResult.shensha?.[pillar] ?? []));
+    if (names.length) lines.push(`${PILLAR_LABELS[pillar]}：${names.join('、')}`);
   }
+  const globalNames = Array.from(new Set(chartResult.shensha?.global ?? []));
+  if (globalNames.length) lines.push(`全局：${globalNames.join('、')}`);
+  if (!lines.length) return '';
 
-  return lines.join('\n');
+  return [
+    '【神煞命中事实】',
+    ...lines,
+    '资料边界：以上只记录既定神煞规则在各柱的命中位置，不据名称自动生成现实人物、关系、吉凶、应期或行动建议。',
+  ].join('\n');
 }
 
 function generateFuxinSection(chartResult: BaziChartResult): string {
@@ -284,8 +272,8 @@ export function generateEnhancedAnalysisSection(
   const classicSection = generateClassicPatternSection(chartResult);
   if (classicSection) sections.push(classicSection);
 
-  const taohuaSection = generatePeachBlossomDetailSection(chartResult);
-  if (taohuaSection) sections.push(taohuaSection);
+  const shenshaSection = generateShenshaFactSection(chartResult);
+  if (shenshaSection) sections.push(shenshaSection);
 
   const fuxinSection = generateFuxinSection(chartResult);
   if (fuxinSection) sections.push(fuxinSection);

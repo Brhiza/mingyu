@@ -58,7 +58,6 @@ export {
 export type {
   ShenShaCalculatorOptions,
   ShenShaKongWangBasis,
-  ShenShaTongZiScope,
   ShenShaVariantConfig,
   ShenShaYangRenMode,
 } from './baziShenSha/index';

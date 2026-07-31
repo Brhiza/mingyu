@@ -17,10 +17,6 @@ interface FormatBaziOptions {
 export type PromptChartScene =
   'general' | 'fortune' | 'compatibility' | 'comprehensive' | 'concise';
 
-function joinOrFallback(values: string[] | undefined, fallback = '无'): string {
-  return values && values.length > 0 ? values.join('、') : fallback;
-}
-
 function formatLunarDate(baziResult: BaziChartResult): string {
   const lunarDate = baziResult.lunarDate;
   return `${lunarDate.year}年${lunarDate.monthName}${lunarDate.dayName}`;
@@ -63,19 +59,6 @@ function formatKinshipSection(baziResult: BaziChartResult): string {
   tenGodFacts.forEach((item) => lines.push(`十神: ${item.promptText}`));
   lines.push(`边界: ${facts[0].limitation}`);
   return lines.join('\n');
-}
-
-function filterPromptStrategyTrace(strategyTrace: string[] | undefined): string[] {
-  if (!strategyTrace?.length) return [];
-
-  return strategyTrace.filter((trace) => {
-    const normalized = trace.trim();
-    if (!normalized) return false;
-
-    return !['成格层次:', '成格转轻:', '病药提示:', '运势警语:'].some((prefix) =>
-      normalized.startsWith(prefix),
-    );
-  });
 }
 
 function formatPromptLuckOverview(baziResult: BaziChartResult): string {
@@ -157,12 +140,9 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     nayin,
     pillarLifeStages,
     shensha,
-    shenShaAnalysis,
   } = baziResult;
   const {
-    includeRules = true,
     includeShensha = true,
-    includeShenShaAnalysis = false,
     includeWuxing = true,
     includeCurrentTiming = true,
     includeSpecialPillars = true,
@@ -212,47 +192,7 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
   if (analysis.mingGe.basis) {
     result += `格局依据: ${analysis.mingGe.basis}\n`;
   }
-  const hasUsefulGodDecision = Boolean(
-    analysis.usefulGod.primaryFavorableWuxing || analysis.usefulGod.favorableWuxing?.length,
-  );
-  if (hasUsefulGodDecision) {
-    const primaryFavorableWuxing =
-      analysis.usefulGod.primaryFavorableWuxing || analysis.usefulGod.favorableWuxing?.[0] || '无';
-    const secondaryFavorableWuxing =
-      analysis.usefulGod.secondaryFavorableWuxing ||
-      analysis.usefulGod.favorableWuxing?.slice(1) ||
-      [];
-    const primaryUnfavorableWuxing =
-      analysis.usefulGod.primaryUnfavorableWuxing ||
-      analysis.usefulGod.unfavorableWuxing?.[0] ||
-      '无';
-    const secondaryUnfavorableWuxing =
-      analysis.usefulGod.secondaryUnfavorableWuxing ||
-      analysis.usefulGod.unfavorableWuxing?.slice(1) ||
-      [];
-    const primaryFavorableTenGods =
-      analysis.usefulGod.primaryFavorable || analysis.usefulGod.primaryFavorableWuxing
-        ? analysis.usefulGod.primaryFavorable || analysis.usefulGod.favorable?.slice(0, 2) || []
-        : [];
-    const primaryUnfavorableTenGods =
-      analysis.usefulGod.primaryUnfavorable || analysis.usefulGod.primaryUnfavorableWuxing
-        ? analysis.usefulGod.primaryUnfavorable || analysis.usefulGod.unfavorable?.slice(0, 2) || []
-        : [];
-
-    result += `用神: 主用${primaryFavorableWuxing}${secondaryFavorableWuxing.length ? '+辅' + secondaryFavorableWuxing.join('、') : ''}(${joinOrFallback(primaryFavorableTenGods)}) | 主忌${primaryUnfavorableWuxing}${secondaryUnfavorableWuxing.length ? '+次' + secondaryUnfavorableWuxing.join('、') : ''}(${joinOrFallback(primaryUnfavorableTenGods)})\n`;
-    result += `喜忌五行: ${joinOrFallback(analysis.usefulGod.favorableWuxing)} | ${joinOrFallback(analysis.usefulGod.unfavorableWuxing)}\n`;
-    result += `喜忌十神: ${joinOrFallback(analysis.usefulGod.favorable)} | ${joinOrFallback(analysis.usefulGod.unfavorable)}\n`;
-    result += `十神归类: 喜${analysis.usefulGod.useful} 忌${analysis.usefulGod.avoid}\n`;
-    if (includeRules && analysis.usefulGod.primaryReason) {
-      result += `取用主线: ${analysis.usefulGod.primaryReason}\n`;
-    }
-    const promptStrategyTrace = filterPromptStrategyTrace(analysis.usefulGod.strategyTrace);
-    if (includeRules && promptStrategyTrace.length) {
-      result += `取用脉络: ${promptStrategyTrace.join(' -> ')}\n`;
-    }
-  } else {
-    result += '用神: 旺衰尚待综合，暂不作单向扶抑取用\n';
-  }
+  result += '用神: 自动规则尚未完成逐条校勘，取用待定\n';
 
   result += '\n【定盘口径】\n';
   result += '换日口径: 晚子时换日（23:00 起换日柱）\n';
@@ -283,8 +223,6 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
     const hiddenStr = hiddenStemValues
       .map((stem, idx) => `${stem}${hiddenTenGodValues[idx] ? `[${hiddenTenGodValues[idx]}]` : ''}`)
       .join('');
-    const shenShaExplain = shenShaAnalysis?.[key]?.join(' | ') || '';
-
     const pillarParts = [
       `${pillarNames[index]}: ${pillar.ganZhi}`,
       tenGod ? `[${tenGod}]` : '',
@@ -300,21 +238,11 @@ function buildBaziText(baziResult: BaziChartResult, options: FormatBaziOptions):
       result += `  日主十二运: ${dayMasterLifeStage || '无'} | 旬空: ${kongWangValue || '无'}\n`;
     }
     if (includeShensha && shenShaValue) result += `  神煞: ${shenShaValue}\n`;
-    if (includeShensha && shenShaExplain) result += `  传统旁证: ${shenShaExplain}\n`;
-    if (!includeShensha && includeShenShaAnalysis && shenShaExplain)
-      result += `  传统旁证: ${shenShaExplain}\n`;
   });
 
   const globalShenShaValue = shensha?.global?.join(',') || '';
-  const globalShenShaExplain = shenShaAnalysis?.global?.join(' | ') || '';
   if (includeShensha && globalShenShaValue) {
     result += `全局神煞: ${globalShenShaValue}\n`;
-    if (globalShenShaExplain) {
-      result += `  传统旁证: ${globalShenShaExplain}\n`;
-    }
-  }
-  if (!includeShensha && includeShenShaAnalysis && globalShenShaExplain) {
-    result += `全局传统旁证: ${globalShenShaExplain}\n`;
   }
 
   const kinshipSection = formatKinshipSection(baziResult);

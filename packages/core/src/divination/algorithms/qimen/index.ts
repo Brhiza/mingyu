@@ -1,7 +1,7 @@
 /**
  * @file 奇门遁甲排盘算法（主入口）
  * @description 基于转盘法或飞盘法，实现时家/日家/月家/年家奇门完整排盘，
- * 含定局、布盘、格局识别、方位建议、应期判断。
+ * 含定局、布盘与已校勘格局事实。
  * @流派 转盘奇门为默认口径，飞盘奇门为可选口径（拆补法定局）
  * @古籍依据 《烟波钓叟歌》《遁甲演义》《奇门遁甲秘籍大全》
  *
@@ -9,17 +9,18 @@
  * 1. 定局数（拆补法/月家法/年家法）：根据 scope 选择不同定局方式
  * 2. 寻值符值使：由对应级别的干支旬首定位值符星和值使门
  * 3. 排九宫格：布地盘三奇六仪 -> 定值符值使落宫 -> 排天盘九星 -> 排人盘八门 -> 排神盘八神
- * 4. 识格局：基础标签（伏吟/反吟/门迫等）+ 经典双元格局（九遁、三奇格局、门迫、击刑、入墓）
- * 5. 辅助分析：方位吉凶、应期估算
+ * 4. 识别可复算位置标签与已校勘十一项天地盘固定格
+ * 5. 辅助分析：保留九宫方位、旬空与马星等原始事实
  *
  * 《烟波钓叟歌》核心法理（下称《歌》）：
  *   "阴阳二遁分顺逆，一气三元人莫测"        —— 拆补法定局
  *   "直符直使各有时，时干直符时支使"        —— 旬首寻值符值使
  *   "星随符转，门随地转，八神随遁顺逆"      —— 转盘排盘
- *   "星反吟兮门反吟，门迫宫兮事难行"        —— 格局判读
- *   "天遁地遁与人遁，龙遁虎遁与风遁"        —— 九遁格局
- *   "三奇得使最为良，玉女守门喜非常"        —— 吉格判据
- *   "十干入墓主事迟，击刑之处防官非"        —— 凶格判据
+ *   "星反吟兮门反吟，门迫宫兮事难行"        —— 位置与五行关系来源
+ *   《遁甲演义》卷一、卷二                     —— 十一项天地盘固定格来源
+ *
+ * 九遁、三奇、三诈五假、符使、岁月日时格等旧规则尚未完成统一版本、
+ * 完整条件与适用边界审核，正式入口失败关闭，不据原始盘面自动补算。
  */
 
 import type { QimenData, QimenJiuGongGe, QimenScope } from '../../../types/divination';
@@ -37,29 +38,32 @@ import {
 import type { QimenJuMethod, QimenJuShuResult } from './helpers/jushu';
 import { getMonthQimenJuShu, getYearQimenJuShu } from './helpers/jushu-extended';
 import { arrangeJiuGongGe, resolveZhiShiLandingPalace } from './helpers/layout';
-import { getQimenPatternTags, buildPatternDetails, buildPalaceInsights } from './helpers/patterns';
+import { getQimenPatternTags, buildPatternDetails } from './helpers/patterns';
 import { getStemRelations, getClassicPatterns } from './helpers/classic-patterns';
-import { buildDirectionAdvice } from './helpers/directions';
-import { estimateYingQi } from './helpers/ying-qi';
 import { buildSeasonality } from './helpers/seasonality';
 import { detectQimenPatternCombos } from './helpers/pattern-combos';
 import { analyzeQimenEvidence } from '../../qimen-evidence';
-import { hasTianPanStar, hasTianPanStem } from './helpers/palace-utils';
+import { hasTianPanStar } from './helpers/palace-utils';
 
-export { createQimenPriorityPalaces } from './helpers/guidance';
-export type { QimenPriorityPalace } from './helpers/guidance';
-export { analyzeQimenEvidence, conditionQimenTraditionalText } from '../../qimen-evidence';
+export {
+  AUDITED_QIMEN_CLASSIC_PATTERN_NAMES,
+  isAuditedQimenClassicPatternName,
+} from './helpers/stem-pair-patterns';
+export {
+  analyzeQimenEvidence,
+  conditionQimenTraditionalText,
+  rebuildAuditedQimenData,
+} from '../../qimen-evidence';
 export type {
   QimenCalculationEvidenceFact,
   QimenCounterEvidenceFact,
   QimenCounterSummaryFact,
-  QimenDirectionFact,
-  QimenDirectionSummaryFact,
+  QimenDirectionBoundaryFact,
   QimenEvidenceAnalysis,
-  QimenPalaceEvidence,
+  QimenPalaceIndexFact,
+  QimenPalaceIndexSource,
   QimenPalaceFact,
   QimenPalaceCoverageFact,
-  QimenPalaceInsightFact,
   QimenPalaceRelationEvidence,
   QimenPatternEvidenceFact,
   QimenRuleSourceFact,
@@ -114,13 +118,6 @@ function getHorseBranch(sourceBranch: string): string {
   if (['亥', '卯', '未'].includes(sourceBranch)) return '巳';
   if (['巳', '酉', '丑'].includes(sourceBranch)) return '亥';
   return '';
-}
-
-function isHorseActivated(
-  horsePalace: number | undefined,
-  keyPalaces: Array<number | undefined>,
-): boolean {
-  return horsePalace !== undefined && keyPalaces.some((palace) => palace === horsePalace);
 }
 
 function assertQimenScope(scope: QimenScope): void {
@@ -182,8 +179,7 @@ function mapStemRelations(
  * 默认时家奇门（精确到时辰），使用拆补法定局。
  *
  * 遵循拆补法定局，并按所选转盘法或飞盘法完整输出九宫四盘（天地人神）、
- * 格局标签、经典格局（九遁、三奇、门迫、击刑、入墓等）、
- * 宫位洞察、方位吉凶指引和应期估算。
+ * 可复算位置标签、已校勘十一项天地盘固定格与中性位置索引。
  *
  * ── 排盘流程 ──
  *
@@ -203,20 +199,18 @@ function mapStemRelations(
  *
  * 5. **辅助数据**：空亡地支配对、驿马定位
  *
- * 6. **基础格局标签**：《歌》"星反吟兮门反吟，门迫宫兮事难行"
- *    - 伏吟/反吟、门迫、击刑、入墓、三奇得、符使同宫、三奇得使、马星
+ * 6. **可复算位置标签**
+ *    - 星门伏吟/反吟、门克宫、击刑落宫、入墓落宫、马星落宫
  *
- * 7. **经典格局**：《歌》"天遁地遁与人遁，龙遁虎遁与风遁"
- *    - 九大遁格、三奇得使/升殿/入墓/会甲、符使同宫等
+ * 7. **已校勘经典格局**：《遁甲演义》卷一、卷二
+ *    - 只输出十一项条件已闭合的天地盘固定格
  *
  * 8. **天地盘干关系**：每个宫位天盘干与地盘干的五行生克
  *
- * 9. **宫位洞察**：综合门、神、星、格局标签判定各宫等级
+ * 9. **位置索引**：只标记值符、值使等可复算位置，不自动指定用神或主次
  *
- * 10. **方位建议**：《歌》"八门若遇开休生，诸事逢之总称情"
- *     - 逐项保留门、神、星、三奇、空亡与格局依据，给出有明确证据的方位候选
- *
- * 11. **应期估算**：《奇门遁甲大全》庚格应期法
+ * 10. **方位事实**：保留九宫方向、门、星、神、干、空亡等原始数据；
+ *     通用入口不生成吉方、避方或现代事项用途
  *
  * @param customDate 自定义时间（可选，默认当前时间）
  * @param method     排盘方法，默认 'zhuanpan'（转盘法）
@@ -276,8 +270,6 @@ export function generateQimen(
     { hour: activeGanZhi },
     method,
   );
-  enrichLiuGuiTianWang(specialConditions, jiuGongGe);
-
   // ──────────────────────────────────────────────────────────────────────────
   // 步骤 5：辅助数据（空亡、驿马）
   // ──────────────────────────────────────────────────────────────────────────
@@ -324,7 +316,7 @@ export function generateQimen(
   const patternDetails = buildPatternDetails(patternTags);
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 步骤 8：经典格局
+  // 步骤 8：已校勘经典格局白名单
   // ──────────────────────────────────────────────────────────────────────────
   const dayStem = ganzhi.day.charAt(0);
   const monthBranch = ganzhi.month.charAt(1);
@@ -360,50 +352,11 @@ export function generateQimen(
   const seasonality = buildSeasonality(ganzhi, jushuResult.actualJieQi || jieQi, seasonalityDate);
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 步骤 11：宫位洞察
+  // 步骤 11：方位结论边界（通用入口失败关闭，九宫方向事实仍保留）
   // ──────────────────────────────────────────────────────────────────────────
-  const palaceInsights = buildPalaceInsights({
-    jiuGongGe,
-    zhiFu,
-    zhiShi,
-    patternTags,
-  });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 步骤 12：方位建议
-  // ──────────────────────────────────────────────────────────────────────────
-  const directions = buildDirectionAdvice(
-    jiuGongGe,
-    voidBranches,
-    classicPatternsRaw,
-    specialConditions,
-  );
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // 步骤 13：应期估算
-  // ──────────────────────────────────────────────────────────────────────────
-  const isFuyin = patternTags.some((t) => t.includes('伏吟'));
-  const isFanyin = patternTags.some((t) => t.includes('反吟'));
-  const yingQiVoidBranches = voidPalaces
-    .filter((item) => item.palace === zhiFuLandingPalace)
-    .map((item) => item.branch);
-  const hasVoid = yingQiVoidBranches.length > 0;
-  const hasHorse = isHorseActivated(horsePalace?.palace, [zhiFuLandingPalace, zhiShiLandingPalace]);
-  const yingQi = estimateYingQi(jiuGongGe, zhiFuLandingPalace, {
-    isFuyin,
-    isFanyin,
-    hasHorse,
-    hasVoid,
-    isYangDun,
-    zhiFuLandingPalace,
-    zhiShiLandingPalace,
-    dayGanZhi: ganzhi.day,
-    classicPatterns: classicPatternsRaw,
-    voidBranches: yingQiVoidBranches,
-  });
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // 步骤 14：已校勘组合规则
+  // 步骤 12：已校勘组合规则
   // ──────────────────────────────────────────────────────────────────────────
   const patternCombos = detectQimenPatternCombos({
     monthBranch,
@@ -411,7 +364,7 @@ export function generateQimen(
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 步骤 15：返回完整 QimenData
+  // 步骤 13：返回完整 QimenData
   // ──────────────────────────────────────────────────────────────────────────
   const result: QimenData = {
     method,
@@ -435,7 +388,6 @@ export function generateQimen(
     zhiShi,
     patternTags,
     patternDetails,
-    palaceInsights,
     voidBranches,
     voidPalaces,
     horseStar: horsePalace ? { ...horsePalace, sourceBranch: activeZhi } : undefined,
@@ -445,8 +397,6 @@ export function generateQimen(
     classicPatterns,
     stemRelations,
     patternCombos,
-    directions,
-    yingQi,
     timestamp,
   };
   result.evidenceAnalysis = analyzeQimenEvidence(result);
@@ -600,43 +550,7 @@ function checkDayRuMu(
   const ruMuInfo = ruMuMap[dayGan];
   if (ruMuInfo && dayZhi === ruMuInfo.branch) {
     conditions.isShiGanRuMu = true;
-    conditions.description += `日干${dayGan}入墓（${dayGan}入${ruMuInfo.palace}宫/${ruMuInfo.branch}支），大势迟滞，宜静不宜动；`;
-  }
-}
-
-/**
- * 六癸时补充天网高低与细分避忌。
- *
- * 《奇门遁甲统宗》：「天网者，六癸也。六癸时，不宜举动……临一二三四五宫低，可扬而出；
- * 临六七八九宫高过人，为四张无走路。」
- * 《奇门宝鉴御定》又细分四宫入墓、六宫触冠，故输出时单独提示，避免把入墓/触冠误作可出。
- */
-function enrichLiuGuiTianWang(
-  conditions: QimenData['specialConditions'],
-  jiuGongGe: QimenJiuGongGe[],
-): void {
-  if (!conditions?.isLiuGuiHour) return;
-
-  const guiPalace = jiuGongGe.find((palace) => hasTianPanStem(palace, '癸'));
-  if (!guiPalace) return;
-
-  switch (guiPalace.gong) {
-    case 1:
-    case 2:
-    case 3:
-      conditions.description += `天盘癸落${guiPalace.name}，天网临一至三宫为低，可取天上六癸方隐避，不宜主动举事；`;
-      return;
-    case 4:
-      conditions.description += `天盘癸落${guiPalace.name}，天网临巽四宫为入墓，不宜出避，宜静守；`;
-      return;
-    case 5:
-      conditions.description += `天盘癸落${guiPalace.name}，中五宫沿简分归低网，仍宜静守，不宜主动举事；`;
-      return;
-    case 6:
-      conditions.description += `天盘癸落${guiPalace.name}，天网临乾六宫为触冠，不宜出避，主动举事多阻；`;
-      return;
-    default:
-      conditions.description += `天盘癸落${guiPalace.name}，天网临七至九宫为高，古称天网四张，主动举事多阻；`;
+    conditions.description += `日干${dayGan}入墓（${dayGan}入${ruMuInfo.palace}宫/${ruMuInfo.branch}支）；`;
   }
 }
 

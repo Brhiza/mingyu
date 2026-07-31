@@ -101,7 +101,7 @@ test('八字双盘证据应计算日主、日支和四柱交叉关系', () => {
   assert.equal(result.dayMasterRelation.person1ToPerson2, '克对方');
   assert.equal(result.dayMasterRelation.person2ToPerson1, '受对方克');
   assert.equal(result.key, 'bazi:compatibility:evidence');
-  assert.equal(result.status, '已计算');
+  assert.equal(result.status, '存在资料缺口');
   assert.equal(result.dayMasterRelation.key, 'bazi:compatibility:day-master-relation');
   assert.equal(result.calculationSteps.length, 7);
   assert.ok(
@@ -152,7 +152,7 @@ test('八字双盘证据应记录跨盘三会来源但不声称成化', () => {
   assert.ok(combination.sourceLayerKeys.length >= 3);
 });
 
-test('八字双盘证据应双向映射十神和喜忌覆盖', () => {
+test('八字双盘证据应保留双向十神并关闭旧喜忌覆盖', () => {
   const { chart1, chart2 } = createPair();
   const result = analyzeBaziCompatibility(chart1, chart2);
 
@@ -167,26 +167,17 @@ test('八字双盘证据应双向映射十神和喜忌覆盖', () => {
       (item) => item.observer === 'person1' && item.pillar === 'day' && item.stem === '辛',
     ),
   );
-  assert.deepEqual(
-    result.usefulGodCoverage[0].favorable.map((item) => item.wuxing),
-    ['木', '火'],
-  );
-  assert.equal(result.usefulGodCoverage[0].status, '已计算');
+  assert.ok(result.usefulGodCoverage.every((item) => item.status === '资料不足'));
   assert.ok(
-    result.usefulGodCoverage
-      .flatMap((item) => [...item.favorable, ...item.unfavorable])
-      .every((item) => item.key && item.status === '已命中' && item.sourceLayerKeys.length),
-  );
-  assert.deepEqual(
-    result.usefulGodCoverage[1].unfavorable.map((item) => item.wuxing),
-    ['火'],
-  );
-  assert.ok(
-    result.usefulGodCoverage[0].favorable.every(
-      (item) => item.sources.length > 0 && item.sources.every((source) => source.pillar),
+    result.usefulGodCoverage.every(
+      (item) => item.favorable.length === 0 && item.unfavorable.length === 0,
     ),
   );
-  assert.match(result.promptText, /喜用五行.*木（.*柱(?:天干|地支|藏干).*）/s);
+  assert.equal(result.summaryFact.favorableCoverageCount, 0);
+  assert.equal(result.summaryFact.unfavorableCoverageCount, 0);
+  assert.equal(result.summaryFact.unavailableCoverageCount, 2);
+  assert.match(result.promptText, /自动喜忌规则尚未完成逐条校勘/);
+  assert.doesNotMatch(result.promptText, /盘面命中.*喜用|喜用五行木|忌神五行火/);
 });
 
 test('八字双盘提示词应区分事实和限制且不输出匹配总分', () => {
@@ -207,24 +198,45 @@ test('八字双盘提示词应区分事实和限制且不输出匹配总分', ()
   assert.doesNotMatch(result.promptText, /匹配(?:分数|率|百分比)|合化成功/);
 });
 
-test('八字双盘喜忌资料缺失时应保留缺口而不生成互补结论', () => {
+test('八字双盘应穷举旧喜忌子集并始终拒绝重新激活覆盖算法', () => {
   const { chart1, chart2 } = createPair();
-  chart1.analysis.usefulGod.favorableWuxing = [];
-  chart1.analysis.usefulGod.unfavorableWuxing = [];
+  const wuxings = ['木', '火', '土', '金', '水'];
+  const subsets = Array.from({ length: 1 << wuxings.length }, (_, mask) =>
+    wuxings.filter((_, index) => (mask & (1 << index)) !== 0),
+  );
+  let checked = 0;
+  let lastResult: ReturnType<typeof analyzeBaziCompatibility> | undefined;
 
-  const result = analyzeBaziCompatibility(chart1, chart2);
+  for (const favorable of subsets) {
+    for (const unfavorable of subsets) {
+      chart1.analysis.usefulGod.favorableWuxing = favorable;
+      chart1.analysis.usefulGod.unfavorableWuxing = unfavorable;
+      chart2.analysis.usefulGod.favorableWuxing = [...unfavorable].reverse();
+      chart2.analysis.usefulGod.unfavorableWuxing = [...favorable].reverse();
+      const result = analyzeBaziCompatibility(chart1, chart2);
+      assert.equal(result.status, '存在资料缺口');
+      assert.equal(result.summaryFact.status, '存在资料缺口');
+      assert.equal(result.summaryFact.unavailableCoverageCount, 2);
+      assert.ok(result.usefulGodCoverage.every((item) => item.status === '资料不足'));
+      assert.ok(
+        result.usefulGodCoverage.every(
+          (item) => item.favorable.length === 0 && item.unfavorable.length === 0,
+        ),
+      );
+      lastResult = result;
+      checked += 1;
+    }
+  }
 
-  assert.equal(result.status, '存在资料缺口');
-  assert.equal(result.summaryFact.status, '存在资料缺口');
-  assert.equal(result.summaryFact.unavailableCoverageCount, 1);
-  assert.ok(result.usefulGodCoverage.some((item) => item.status === '资料不足'));
+  assert.equal(checked, 1024);
+  assert.ok(lastResult);
   assert.ok(
-    result.counterEvidenceFacts.some(
+    lastResult.counterEvidenceFacts.some(
       (item) => item.type === '喜用资料覆盖' && item.status === '资料不足',
     ),
   );
-  assertEvidenceReferences(result);
-  assert.match(result.promptText, /缺少受益方结构化喜忌资料，不生成互补结论/);
+  assertEvidenceReferences(lastResult);
+  assert.match(lastResult.promptText, /旧喜忌字段已停用.*不生成互补结论/s);
 });
 
 test('八字双盘未命中关系或喜忌覆盖时仍应保留可追溯引用', () => {

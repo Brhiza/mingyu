@@ -187,7 +187,7 @@ test('岁运触发证据应逐层保留原局、大运和流年关系来源', ()
   assert.match(result.promptText, /岁运层级与应期边界/);
 });
 
-test('岁运证据应把天干、地支主五行与全部藏干分层并只列喜忌候选', () => {
+test('岁运证据应分层保留干支、藏干与十神并关闭旧喜忌候选', () => {
   const result = analyzeFortuneTriggers(createResult(), [
     { id: 'dayun', type: 'dayun', label: '丁亥大运', ganZhi: '丁亥' },
   ]);
@@ -199,7 +199,7 @@ test('岁运证据应把天干、地支主五行与全部藏干分层并只列�
     symbol: '丁',
     wuxing: '火',
     tenGod: '正官',
-    directPreference: '喜用五行直接对应候选',
+    directPreference: '自动喜忌规则已关闭',
   });
   assert.equal(fact.branch.symbol, '亥');
   assert.equal(fact.branch.wuxing, '水');
@@ -211,14 +211,47 @@ test('岁运证据应把天干、地支主五行与全部藏干分层并只列�
       ['中气', '甲', '偏财'],
     ],
   );
-  assert.equal(fact.branch.hiddenStems[1]?.directPreference, '喜用五行直接对应候选');
+  assert.equal(fact.branch.hiddenStems[1]?.directPreference, '自动喜忌规则已关闭');
   assert.ok(
     result.limitationFacts.some(
-      (item) => item.type === '喜忌候选边界' && item.promptText.includes('似喜实忌'),
+      (item) => item.type === '喜忌候选边界' && item.promptText.includes('不得读取旧缓存'),
     ),
   );
-  assert.match(result.promptText, /岁运干支分层与喜忌候选/);
-  assert.doesNotMatch(result.promptText, /判定为喜运|判定为忌运/);
+  assert.match(result.promptText, /岁运干支分层事实/);
+  assert.doesNotMatch(
+    result.promptText,
+    /喜用五行直接对应候选|忌神五行直接对应候选|判定为喜运|判定为忌运/,
+  );
+});
+
+test('六十甲子岁运应全部拒绝旧喜忌字段并只保留结构事实', () => {
+  const stems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+  const branches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+  const natal = createResult();
+  natal.analysis.usefulGod.favorableWuxing = ['木', '火', '土', '金', '水'];
+  natal.analysis.usefulGod.unfavorableWuxing = ['木', '火', '土', '金', '水'];
+  let checked = 0;
+
+  for (let index = 0; index < 60; index += 1) {
+    const ganZhi = `${stems[index % stems.length]}${branches[index % branches.length]}`;
+    const result = analyzeFortuneTriggers(natal, [
+      { id: `cycle-${index}`, type: 'dayun', label: `${ganZhi}大运`, ganZhi },
+    ]);
+    const fact = result.layerStructureFacts[0];
+    assert.ok(fact);
+    assert.equal(fact.stem.directPreference, '自动喜忌规则已关闭');
+    assert.equal(fact.branch.directPreference, '自动喜忌规则已关闭');
+    assert.ok(
+      fact.branch.hiddenStems.every((item) => item.directPreference === '自动喜忌规则已关闭'),
+    );
+    assert.doesNotMatch(
+      fact.promptText,
+      /喜用五行直接对应候选|忌神五行直接对应候选|喜忌五行同时列入待复核/,
+    );
+    checked += 1;
+  }
+
+  assert.equal(checked, 60);
 });
 
 test('同一运柱的运干与运支应分别保留十神和原局关系，不得机械等价', () => {

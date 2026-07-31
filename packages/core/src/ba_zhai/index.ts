@@ -1,6 +1,6 @@
 /**
  * @file 八宅风水（BaZhai）
- * @description 以命卦（东四/西四命）与宅卦配合，排八宅大游年四吉四凶方。
+ * @description 计算命卦、宅卦、东四西四分组与八宅大游年八宫传统标签。
  * 复用 bazi.calculateMingGua 与 direction 模块，返回结构化结果与提示词。
  * @古籍依据 《八宅明镜》《阳宅十书》
  */
@@ -46,6 +46,8 @@ export interface BaZhaiInput {
   sitMountain?: string;
 }
 
+export type BaZhaiGroupRelation = '同组' | '异组' | '未比较';
+
 export interface BaZhaiResult {
   calculationInput: {
     mingGuaSource: '出生年与性别计算' | '直接给定';
@@ -66,11 +68,8 @@ export interface BaZhaiResult {
   mingPalace: BaZhaiPalace[];
   /** 宅卦大游年盘（若有坐山） */
   housePalace: BaZhaiPalace[] | null;
-  /** 命宅配合 */
-  match: '相合' | '相冲' | '未知';
-  matchAdvice: string;
-  luckyDirections: BaZhaiPalace[];
-  unluckyDirections: BaZhaiPalace[];
+  /** 只比较东四/西四分组是否相同，不推导住宅效果。 */
+  groupRelation: BaZhaiGroupRelation;
   evidenceAnalysis: import('./evidence').BaZhaiEvidenceAnalysis;
   prompt: string;
 }
@@ -95,7 +94,7 @@ export interface BaZhaiDirectionCandidate {
   label: string;
   houseGua: string;
   houseGroup: '东四命' | '西四命';
-  match: '相合' | '相冲';
+  groupRelation: Exclude<BaZhaiGroupRelation, '未比较'>;
   housePalace: BaZhaiPalace[];
 }
 
@@ -288,28 +287,27 @@ function buildPrompt(r: Omit<BaZhaiResult, 'prompt'>): string {
   lines.push(`立春年界：${r.birthYearBoundaryNote}`);
   if (r.houseGua) {
     lines.push(`宅卦：${r.houseGua}（${r.houseGroup}）`);
-    lines.push(`命宅配合：${r.match}。${r.matchAdvice}`);
+    lines.push(`命宅分组关系：${r.groupRelation}`);
   } else {
     lines.push('宅卦：未提供');
   }
-  lines.push(`四吉方：${r.luckyDirections.map((p) => `${p.direction}(${p.label})`).join('、')}`);
-  lines.push(`四凶方：${r.unluckyDirections.map((p) => `${p.direction}(${p.label})`).join('、')}`);
-  lines.push('命卦八宫明细：');
+  lines.push('命卦八宫传统标签：');
   lines.push(
     ...r.mingPalace.map(
-      (palace) =>
-        `- ${palace.gua}宫：${palace.direction} ${palace.degree}°，${palace.label}（${palace.luck}）`,
+      (palace) => `- ${palace.gua}宫：${palace.direction} ${palace.degree}°，${palace.label}`,
     ),
   );
   if (r.housePalace) {
-    lines.push('宅卦八宫明细：');
+    lines.push('宅卦八宫传统标签：');
     lines.push(
       ...r.housePalace.map(
-        (palace) =>
-          `- ${palace.gua}宫：${palace.direction} ${palace.degree}°，${palace.label}（${palace.luck}）`,
+        (palace) => `- ${palace.gua}宫：${palace.direction} ${palace.degree}°，${palace.label}`,
       ),
     );
   }
+  lines.push(
+    '标签边界：以上只记录传统查表名称与分组同异，不直接生成现实方向、住宅效果或布置建议。',
+  );
   return lines.join('\n');
 }
 
@@ -319,27 +317,18 @@ export function analyzeBaZhai(input: BaZhaiInput): BaZhaiResult {
   const mingGua = resolvedMingGua.gua;
   const mingGroup = getEastWestGroup(mingGua);
   const mingMansion = getEightMansion(mingGua);
-  const mingPalace = mingMansion.lucky
-    .concat(mingMansion.unlucky)
-    .sort((a, b) => a.degree - b.degree);
+  const mingPalace = [...mingMansion.palaces].sort((a, b) => a.degree - b.degree);
 
   let houseGua: string | null = null;
   let houseGroup: '东四命' | '西四命' | null = null;
   let housePalace: BaZhaiPalace[] | null = null;
-  let match: BaZhaiResult['match'] = '未知';
-  let matchAdvice = '';
+  let groupRelation: BaZhaiGroupRelation = '未比较';
 
   if (input.sitMountain) {
     houseGua = getHouseTrigram(input.sitMountain);
     houseGroup = getEastWestGroup(houseGua);
     housePalace = getBaZhaiPalace(houseGua);
-    if (houseGroup === mingGroup) {
-      match = '相合';
-      matchAdvice = `命卦与宅卦同属${mingGroup}，东四命配东四宅/西四命配西四宅为"命宅相合"，吉方可尽量重合利用。`;
-    } else {
-      match = '相冲';
-      matchAdvice = `命卦属${mingGroup}、宅卦属${houseGroup}，命宅不同组（东四命住西四宅或反之），应以命卦吉方为主、宅卦为辅调和。`;
-    }
+    groupRelation = houseGroup === mingGroup ? '同组' : '异组';
   }
 
   const resultBase: Omit<BaZhaiResult, 'prompt' | 'evidenceAnalysis'> = {
@@ -360,10 +349,7 @@ export function analyzeBaZhai(input: BaZhaiInput): BaZhaiResult {
     houseGroup,
     mingPalace,
     housePalace,
-    match,
-    matchAdvice,
-    luckyDirections: mingMansion.lucky,
-    unluckyDirections: mingMansion.unlucky,
+    groupRelation,
   };
   const evidenceAnalysis = analyzeBaZhaiEvidence(resultBase);
   const result: Omit<BaZhaiResult, 'prompt'> = { ...resultBase, evidenceAnalysis };
@@ -395,7 +381,7 @@ export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiD
       return {
         ...item,
         houseGroup,
-        match: houseGroup === result.mingGroup ? '相合' : '相冲',
+        groupRelation: houseGroup === result.mingGroup ? '同组' : '异组',
         housePalace: getBaZhaiPalace(item.houseGua),
       };
     },
@@ -420,7 +406,7 @@ export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiD
       `测量方式：站在大门处面向屋内，指南针读数为 ${doorToInteriorDegree}°；北向基准为${measurement.reference === 'magnetic' ? `磁北，磁偏角 ${measurement.declination}°（东偏为正）` : measurement.reference === 'true' ? '真北' : '未声明'}。`,
       `真北口径入户方向为 ${measurement.trueNorthDegree}°，测量误差 ±${measurement.uncertainty}°，距最近二十四山边界 ${measurement.nearestBoundaryDistanceDegrees.toFixed(2)}°，稳定性为${measurement.stability}。`,
       `中心读数换算后住宅坐山 ${sit.degree}° 为${sit.mountain}山，传统朝向 ${facing.degree}° 为${facing.mountain}向，结果为${label}。`,
-      `误差候选：${candidateDirections.map((item) => `${item.label}（${item.houseGua}宅、${item.houseGroup}、命宅${item.match}）`).join('、')}。`,
+      `误差候选：${candidateDirections.map((item) => `${item.label}（${item.houseGua}宅、${item.houseGroup}、命宅分组${item.groupRelation}）`).join('、')}。`,
       ...(measurement.stability === '宅卦不稳定'
         ? candidateDirections.map(
             (item) =>

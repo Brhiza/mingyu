@@ -66,11 +66,7 @@ function BaZhaiCompass({
               y2={200 + Math.sin(boundaryAngle) * 184}
               className="bazhai-sector-line"
             />
-            <text
-              x={x}
-              y={y}
-              className={`bazhai-direction-label ${palace?.luck === '吉' ? 'is-lucky' : 'is-unlucky'}`}
-            >
+            <text x={x} y={y} className="bazhai-direction-label">
               <tspan>{direction}</tspan>
               <tspan x={x} dy="15">
                 {palace?.label ?? '—'}
@@ -304,7 +300,7 @@ export function MetaphysicsPanel({
                 ? result.inputSummary.orientationText
                 : bazhai
                   ? measurement
-                    ? result?.inputSummary.orientationText || '命宅合参'
+                    ? result?.inputSummary.orientationText || '命宅分层盘'
                     : '个人八宅方位'
                   : '人宅与宅运分层排盘'}
             </h2>
@@ -329,8 +325,8 @@ export function MetaphysicsPanel({
             <small>{bazhai?.houseGroup ?? '填写角度后自动生成'}</small>
           </div>
           <div className="result-stat-card">
-            <span>命宅关系</span>
-            <strong>{bazhai && measurement ? bazhai.match : bazhai ? '待合参' : '仅宅运'}</strong>
+            <span>命宅分组</span>
+            <strong>{bazhai?.groupRelation ?? '仅宅运'}</strong>
             <small>{xuankong ? xuankong.daoShanXiang.summary : '可先只看宅运'}</small>
           </div>
           <div className="result-stat-card">
@@ -356,8 +352,8 @@ export function MetaphysicsPanel({
                 {bazhai
                   ? measurement
                     ? '宅卦八方游年已生成，箭头指向从大门进入屋内的实测方向。'
-                    : '先按命卦显示个人四吉四凶方；补充住宅角度后自动切换为命宅合参。'
-                  : '没有出生信息时，可只看玄空宅运；补出生后会自动合参八宅。'}
+                    : '先按命卦显示八宫传统标签；补充住宅角度后并列显示宅卦标签。'
+                  : '没有出生信息时，可只看玄空宅运；补出生后会增加八宅资料层。'}
               </p>
             </div>
             {bazhai ? (
@@ -412,7 +408,7 @@ export function MetaphysicsPanel({
             <div className="result-side-card bazhai-direction-card">
               <div className="result-side-head">
                 <h3>{measurement || facingDegree.trim() ? '补充住宅信息' : '补充住宅角度'}</h3>
-                <p>有山向可先看宅运；有出生可看人宅。两边都有时自动合参。</p>
+                <p>有山向可看宅运，有出生可生成命卦；两边都有时分层保存。</p>
               </div>
               <label className="form-item" htmlFor="metaphysics-house-year">
                 <span>建造或起运年</span>
@@ -472,7 +468,7 @@ export function MetaphysicsPanel({
                 <div className="metaphysics-direction-preview">
                   <span>
                     {birthData
-                      ? '不填写也可查看个人命卦八方；补角度后会自动合参玄空。'
+                      ? '不填写也可查看个人命卦八宫标签；补角度后会增加住宅盘面资料。'
                       : '没有出生信息时，至少填写大门度数，才能生成宅运盘。'}
                   </span>
                 </div>
@@ -483,14 +479,14 @@ export function MetaphysicsPanel({
 
         {xuankong ? <XuanKongBoard xuankong={xuankong} /> : null}
 
-        {result?.agreements?.length ? (
+        {result?.reviewNotes?.length ? (
           <div className="result-side-card">
             <div className="result-side-head">
-              <h3>合参要点</h3>
-              <p>八宅与玄空分层并观，有分歧时分述，不硬统一。</p>
+              <h3>资料与复核提示</h3>
+              <p>八宅与玄空分别保留盘面事实，不自动合成现实结论。</p>
             </div>
             <div className="result-meta-lines">
-              {result.agreements.map((item) => (
+              {result.reviewNotes.map((item) => (
                 <div key={`${item.level}-${item.title}`}>
                   <span>{item.level}</span>
                   <strong>
@@ -506,45 +502,42 @@ export function MetaphysicsPanel({
           <div className="bazhai-result-grid">
             <div className="result-side-card">
               <div className="result-side-head">
-                <h3>四吉方</h3>
-                <p>{measurement ? '当前宅卦可优先利用的方向。' : '个人命卦可优先利用的方向。'}</p>
+                <h3>命卦八宫传统标签</h3>
+                <p>按命卦查表保留原始名称，不直接转换为现实方向结论。</p>
               </div>
               <div className="result-tag-cloud">
-                {bazhai.luckyDirections.map((item) => (
-                  <span
-                    className="result-soft-tag result-soft-tag-strong"
-                    key={`${item.direction}-${item.label}`}
-                  >
-                    {item.direction} · {item.label}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="result-side-card">
-              <div className="result-side-head">
-                <h3>四凶方</h3>
-                <p>布置时需要谨慎权衡的方向。</p>
-              </div>
-              <div className="result-tag-cloud">
-                {bazhai.unluckyDirections.map((item) => (
+                {bazhai.mingPalace.map((item) => (
                   <span className="result-soft-tag" key={`${item.direction}-${item.label}`}>
                     {item.direction} · {item.label}
                   </span>
                 ))}
               </div>
             </div>
+            {bazhai.housePalace ? (
+              <div className="result-side-card">
+                <div className="result-side-head">
+                  <h3>宅卦八宫传统标签</h3>
+                  <p>按坐山所得宅卦独立查表，与命卦层分开保留。</p>
+                </div>
+                <div className="result-tag-cloud">
+                  {bazhai.housePalace.map((item) => (
+                    <span className="result-soft-tag" key={`${item.direction}-${item.label}`}>
+                      {item.direction} · {item.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
         <div className="result-side-card">
           <div className="result-side-head">
-            <h3>{result ? '合参建议' : '基础说明'}</h3>
+            <h3>资料边界</h3>
           </div>
-          {(result?.advice ?? ['请补充出生信息或大门角度后查看住宅风水。']).map((item) => (
-            <p className="bazhai-advice" key={item}>
-              {item}
-            </p>
-          ))}
+          <p className="bazhai-advice">
+            八宫传统标签、命宅分组与玄空盘面只作为后续解读依据，不能单独证明住宅现实效果或替代建筑安全判断。
+          </p>
           {bazhai?.birthYearBoundaryNote ? (
             <p className="bazhai-boundary-note">{bazhai.birthYearBoundaryNote}</p>
           ) : null}

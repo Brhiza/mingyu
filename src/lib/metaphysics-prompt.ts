@@ -49,7 +49,15 @@ export function buildMetaphysicsPrompt(
   question: string | undefined,
   options: MetaphysicsPromptOptions,
 ): string {
-  const normalizedQuestion = question?.trim() || '请综合解读本次排盘的重点、风险与行动建议。';
+  const keepsResidentialFacts = options.method === 'bazhai' || options.method === 'residential';
+  const keepsZodiacFacts = options.method === 'zodiac';
+  const normalizedQuestion =
+    question?.trim() ||
+    (keepsResidentialFacts
+      ? '请说明本次盘面的关键事实、可继续推算的条件与仍需补充的资料。'
+      : keepsZodiacFacts
+        ? '请说明本次资料命中的固定关系、可继续推算的范围与仍需补充的信息。'
+        : '请综合解读本次排盘的重点、风险与行动建议。');
   const contextText = formatPromptRealWorldContext(options.context);
 
   return appendTraditionalResearchNotice(
@@ -67,10 +75,18 @@ export function buildMetaphysicsPrompt(
       normalizedQuestion,
       '',
       '【任务】',
-      '请直接回答【问题】，说明关键盘面依据，并给出可执行建议。',
+      keepsResidentialFacts
+        ? '请直接回答【问题】，先说明采用的传统对象与关键盘面依据，再继续推算；资料不闭合时保留待定，不得把单一八宫标签、命宅分组或玄空星盘直接改写成方向宜避、住宅现实效果或保证有效的布置结论。'
+        : keepsZodiacFacts
+          ? '请直接回答【问题】，先区分生肖年支、流年干支、固定地支关系与五行生克方向，再结合问题继续推算；不得把三合六合直接改写成现实贵人，不得把五行方向直接改写成利弊，也不得生成现实吉凶保证、固定应期或化解保证。'
+          : '请直接回答【问题】，说明关键盘面依据，并给出可执行建议。',
       '',
       '【输出要求】',
-      '使用简体中文，先说结论，再展开依据和建议。',
+      keepsResidentialFacts
+        ? '使用简体中文，区分盘面事实、后续推算、资料缺口与现实限制；不得补造未提供的山向、年份、流派或现场条件。'
+        : keepsZodiacFacts
+          ? '使用简体中文，区分固定关系事实、后续推算、资料缺口与现实条件；不补造出生月、日、时或未提供的现实信息。'
+          : '使用简体中文，先说结论，再展开依据和建议。',
     ].join('\n'),
   );
 }

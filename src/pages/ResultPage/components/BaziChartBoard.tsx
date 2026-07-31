@@ -150,16 +150,12 @@ export const BaziChartBoard = memo(function BaziChartBoard(props: {
         </div>
         <div className="result-stat-card">
           <span>核心用神</span>
-          <strong>
-            {result.analysis.usefulGod.primaryUseful || result.analysis.usefulGod.useful || '待定'}
-          </strong>
+          <strong>待定</strong>
           <small>{formatUsefulGodPrioritySummary(result)}</small>
         </div>
         <div className="result-stat-card">
           <span>核心忌神</span>
-          <strong>
-            {result.analysis.usefulGod.primaryAvoid || result.analysis.usefulGod.avoid || '待定'}
-          </strong>
+          <strong>待定</strong>
           <small>{formatAvoidGodPrioritySummary(result)}</small>
         </div>
       </div>

@@ -7,7 +7,6 @@ import {
   SANHUI_GROUPS,
   TIAN_GAN_CHONG,
   TIAN_GAN_HE,
-  BRANCH_HIDDEN_STEMS,
   isKe,
   isSanxing,
   isSheng,
@@ -127,7 +126,7 @@ export interface BaziUsefulGodCoverage {
   calculationStepKey: 'bazi:compatibility:calculation:useful-god-coverage';
   promptText: string;
   sources: string[];
-  limitation: '喜忌覆盖只证明提供方盘面是否出现受益方既有喜用或忌神五行，不比较伪精确强度，不证明互补、克制、婚配或合作结果';
+  limitation: '自动喜忌规则尚未完成逐条校勘，合盘固定不读取命盘中的旧喜忌字段，也不生成喜忌覆盖、互补、克制、婚配或合作结论';
 }
 
 export interface BaziUsefulGodCoverageItem {
@@ -159,7 +158,7 @@ export interface BaziCompatibilityCalculationStep {
   dependsOnStepKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '计算步骤只证明两份命盘经过固定干支、五行、十神与喜忌覆盖规则形成当前事实，不证明现实关系、婚恋成败、合作收益、发生概率或固定应期';
+  limitation: '计算步骤只证明两份命盘经过固定干支、五行与十神关系表形成当前事实；自动喜忌覆盖保持关闭，不证明现实关系、婚恋成败、合作收益、发生概率或固定应期';
 }
 
 export interface BaziCompatibilityCounterEvidenceFact {
@@ -169,7 +168,7 @@ export interface BaziCompatibilityCounterEvidenceFact {
   ownerFactKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '反证事实只记录夫妻宫关系、跨盘组合、喜用资料和喜忌并存的覆盖情况；未命中不等于关系有利或不利，命中也不证明现实结果';
+  limitation: '反证事实只记录夫妻宫关系、跨盘组合及自动喜忌覆盖的关闭状态；未命中不等于关系有利或不利，命中也不证明现实结果';
 }
 
 export interface BaziCompatibilitySummaryFact {
@@ -195,7 +194,7 @@ export interface BaziCompatibilityLimitationFact {
   ownerFactKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '限制事实用于约束双盘干支、十神和喜忌覆盖能够支持的解释范围，不得被反向当作现实关系结果、吉凶概率或保证有效建议的证据';
+  limitation: '限制事实用于约束双盘干支和十神能够支持的解释范围，并声明自动喜忌覆盖保持关闭；不得被反向当作现实关系结果、吉凶概率或保证有效建议的证据';
 }
 
 export interface BaziCompatibilityEvidenceResult {
@@ -229,15 +228,15 @@ const COMBINATION_LIMITATION =
 const TEN_GOD_LIMITATION =
   '双向十神映射只证明对方干支相对观察方日干的十神分类，不等于角色定性、人格标签、情感结果或行为因果' as const;
 const USEFUL_GOD_LIMITATION =
-  '喜忌覆盖只证明提供方盘面是否出现受益方既有喜用或忌神五行，不比较伪精确强度，不证明互补、克制、婚配或合作结果' as const;
+  '自动喜忌规则尚未完成逐条校勘，合盘固定不读取命盘中的旧喜忌字段，也不生成喜忌覆盖、互补、克制、婚配或合作结论' as const;
 const CALCULATION_STEP_LIMITATION =
-  '计算步骤只证明两份命盘经过固定干支、五行、十神与喜忌覆盖规则形成当前事实，不证明现实关系、婚恋成败、合作收益、发生概率或固定应期' as const;
+  '计算步骤只证明两份命盘经过固定干支、五行与十神关系表形成当前事实；自动喜忌覆盖保持关闭，不证明现实关系、婚恋成败、合作收益、发生概率或固定应期' as const;
 const COUNTER_FACT_LIMITATION =
-  '反证事实只记录夫妻宫关系、跨盘组合、喜用资料和喜忌并存的覆盖情况；未命中不等于关系有利或不利，命中也不证明现实结果' as const;
+  '反证事实只记录夫妻宫关系、跨盘组合及自动喜忌覆盖的关闭状态；未命中不等于关系有利或不利，命中也不证明现实结果' as const;
 const SUMMARY_LIMITATION =
   '双盘证据汇总只统计已计算事实与资料缺口，不得按命中数量生成匹配分、成功率、婚恋概率、合作收益或必然结论' as const;
 const LIMITATION_FACT_LIMITATION =
-  '限制事实用于约束双盘干支、十神和喜忌覆盖能够支持的解释范围，不得被反向当作现实关系结果、吉凶概率或保证有效建议的证据' as const;
+  '限制事实用于约束双盘干支和十神能够支持的解释范围，并声明自动喜忌覆盖保持关闭；不得被反向当作现实关系结果、吉凶概率或保证有效建议的证据' as const;
 
 function layerFactKey(person: 'person1' | 'person2', pillar: PillarKey) {
   return `bazi:compatibility:layer:${person}:${pillar}`;
@@ -416,75 +415,20 @@ function calculateTenGodMappings(
 function calculateUsefulGodCoverage(
   beneficiary: 'person1' | 'person2',
   provider: 'person1' | 'person2',
-  beneficiaryChart: BaziChartResult,
-  providerChart: BaziChartResult,
+  _beneficiaryChart: BaziChartResult,
+  _providerChart: BaziChartResult,
 ): BaziUsefulGodCoverage {
-  const favorable = beneficiaryChart.analysis?.usefulGod?.favorableWuxing;
-  const unfavorable = beneficiaryChart.analysis?.usefulGod?.unfavorableWuxing;
-  if (!favorable?.length && !unfavorable?.length) {
-    return {
-      key: `bazi:compatibility:useful-god-coverage:${beneficiary}:from:${provider}`,
-      status: '资料不足',
-      beneficiary,
-      provider,
-      favorable: [],
-      unfavorable: [],
-      unavailableReason: '命盘未提供结构化喜忌五行。',
-      calculationStepKey: 'bazi:compatibility:calculation:useful-god-coverage',
-      promptText: `${beneficiary === 'person1' ? '第一人' : '第二人'}命盘未提供结构化喜忌五行，无法核验${provider === 'person1' ? '第一人' : '第二人'}盘面的喜忌覆盖`,
-      sources: ['受益方命盘结构化喜忌五行'],
-      limitation: USEFUL_GOD_LIMITATION,
-    };
-  }
-  const sourcesByWuxing = new Map<string, BaziUsefulGodCoverageItem['sources']>();
-  for (const pillar of PILLAR_KEYS) {
-    const value = providerChart.pillars[pillar];
-    for (const [layer, symbol] of [
-      ['天干', value.gan],
-      ['地支', value.zhi],
-    ] as const) {
-      const wuxing = asWuxing(symbol);
-      sourcesByWuxing.set(wuxing, [
-        ...(sourcesByWuxing.get(wuxing) ?? []),
-        { pillar, layer, value: symbol },
-      ]);
-    }
-    for (const hiddenStem of BRANCH_HIDDEN_STEMS[value.zhi] ?? []) {
-      const wuxing = asWuxing(hiddenStem);
-      sourcesByWuxing.set(wuxing, [
-        ...(sourcesByWuxing.get(wuxing) ?? []),
-        { pillar, layer: '藏干', value: hiddenStem },
-      ]);
-    }
-  }
-  const match = (role: '喜用' | '忌神', elements: string[] | undefined) =>
-    [...new Set(elements ?? [])]
-      .filter((wuxing) => sourcesByWuxing.has(wuxing))
-      .map((wuxing): BaziUsefulGodCoverageItem => {
-        const sources = sourcesByWuxing.get(wuxing) ?? [];
-        return {
-          key: `bazi:compatibility:useful-god:${beneficiary}:from:${provider}:${role}:${wuxing}`,
-          status: '已命中',
-          role,
-          wuxing,
-          sources,
-          sourceLayerKeys: Array.from(
-            new Set(sources.map((source) => layerFactKey(provider, source.pillar))),
-          ),
-        };
-      });
-  const favorableCoverage = match('喜用', favorable);
-  const unfavorableCoverage = match('忌神', unfavorable);
   return {
     key: `bazi:compatibility:useful-god-coverage:${beneficiary}:from:${provider}`,
-    status: '已计算',
+    status: '资料不足',
     beneficiary,
     provider,
-    favorable: favorableCoverage,
-    unfavorable: unfavorableCoverage,
+    favorable: [],
+    unfavorable: [],
+    unavailableReason: '自动喜忌规则尚未完成逐条校勘，旧喜忌字段已停用。',
     calculationStepKey: 'bazi:compatibility:calculation:useful-god-coverage',
-    promptText: `${provider === 'person1' ? '第一人' : '第二人'}盘面命中${beneficiary === 'person1' ? '第一人' : '第二人'}喜用五行${favorableCoverage.map((item) => item.wuxing).join('、') || '无'}，忌神五行${unfavorableCoverage.map((item) => item.wuxing).join('、') || '无'}`,
-    sources: ['受益方结构化喜忌五行', '提供方四柱天干、地支与藏干五行来源'],
+    promptText: `${beneficiary === 'person1' ? '第一人' : '第二人'}的自动喜忌规则尚未完成逐条校勘，不读取旧喜忌字段，也不核验${provider === 'person1' ? '第一人' : '第二人'}盘面的喜忌覆盖`,
+    sources: ['自动用神规则审计状态'],
     limitation: USEFUL_GOD_LIMITATION,
   };
 }
@@ -594,8 +538,8 @@ function buildBaseCalculationSteps(params: {
         missingCoverageCount,
       },
       dependsOnStepKeys: ['bazi:compatibility:calculation:input'],
-      promptText: `双方喜忌五行与对方天干、地支、藏干已完成双向覆盖核验${missingCoverageCount ? `，其中${missingCoverageCount}个方向资料不足` : ''}`,
-      sources: ['双方既有结构化喜忌五行', '双方四柱与藏干五行来源'],
+      promptText: `自动喜忌规则尚未完成逐条校勘，双方${missingCoverageCount}个覆盖方向均保持关闭，不读取旧喜忌字段`,
+      sources: ['自动用神规则审计状态'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
   ];
@@ -650,7 +594,7 @@ function buildCounterEvidenceFacts(params: {
       ],
       promptText:
         item.status === '资料不足'
-          ? `${direction}缺少受益方结构化喜忌资料，不生成互补结论`
+          ? `${direction}${item.unavailableReason ?? '自动喜忌覆盖保持关闭'}，不生成互补结论`
           : item.favorable.length
             ? `${direction}命中喜用五行${item.favorable.map((entry) => entry.wuxing).join('、')}`
             : `${direction}未命中受益方已列喜用五行；未命中不等于关系不利`,
@@ -670,8 +614,8 @@ function buildCounterEvidenceFacts(params: {
       promptText:
         item.favorable.length && item.unfavorable.length
           ? `${direction}同时命中喜用${item.favorable.map((entry) => entry.wuxing).join('、')}与忌神${item.unfavorable.map((entry) => entry.wuxing).join('、')}，必须并列解释，不得只取有利一侧`
-          : `${direction}未形成喜用与忌神同时命中的双向条件；不得据此推断单向有利或不利`,
-      sources: ['喜用覆盖与忌神覆盖逐项对照'],
+          : `${direction}的自动喜忌覆盖保持关闭，不生成喜忌并存条件，也不得据此推断单向有利或不利`,
+      sources: ['自动用神规则审计状态'],
       limitation: COUNTER_FACT_LIMITATION,
     });
   });
@@ -725,8 +669,8 @@ function buildSummaryFact(params: {
     favorableCoverageCount,
     unfavorableCoverageCount,
     unavailableCoverageCount,
-    promptText: `已记录跨柱关系${params.relations.length}项（其中双方日支${params.spousePalaceRelations.length}项）、跨盘三合三会${params.combinations.length}项、双向十神${params.tenGodMappings.length}组、喜用覆盖${favorableCoverageCount}项、忌神覆盖${unfavorableCoverageCount}项${unavailableCoverageCount ? `；另有${unavailableCoverageCount}个喜忌覆盖方向资料不足` : ''}`,
-    sources: ['全部双盘关系、组合、十神与喜忌覆盖事实汇总'],
+    promptText: `已记录跨柱关系${params.relations.length}项（其中双方日支${params.spousePalaceRelations.length}项）、跨盘三合三会${params.combinations.length}项、双向十神${params.tenGodMappings.length}组；自动喜忌覆盖关闭${unavailableCoverageCount}个方向`,
+    sources: ['全部双盘关系、组合与十神事实汇总', '自动用神规则审计状态'],
     limitation: SUMMARY_LIMITATION,
   };
 }
@@ -794,8 +738,8 @@ function buildLimitationFacts(params: {
         ]),
       ],
       promptText:
-        '喜用或忌神五行在对方盘面出现只说明符号覆盖，不比较伪精确强度，不等于必然互补、克制或适合婚配合作',
-      sources: ['双方既有喜忌结论与对方五行来源交叉'],
+        '自动喜忌规则尚未完成逐条校勘，合盘不得读取旧缓存或外部对象中的喜忌字段，也不生成喜忌覆盖与互补结论',
+      sources: ['自动用神规则审计状态'],
     },
     {
       key: 'bazi:compatibility:limitation:high-risk-output',

@@ -178,18 +178,6 @@ function conditionPortableBasis(text: string) {
     .trim();
 }
 
-function filterPortableStrategyTrace(values: string[] | undefined) {
-  return (values ?? [])
-    .map(conditionPortableBasis)
-    .filter(
-      (value) =>
-        value &&
-        !['成格层次:', '成格转轻:', '病药提示:', '运势警语:'].some((prefix) =>
-          value.startsWith(prefix),
-        ),
-    );
-}
-
 function buildPillarFacts(data: BaziChartResult): BaziNatalPillarFact[] {
   return PILLAR_KEYS.map((key) => {
     const pillar = data.pillars[key];
@@ -248,32 +236,8 @@ function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
     ...strengthDetails.ruleBasis.map(conditionPortableBasis),
   ];
   const pattern = data.analysis.mingGe;
-  const usefulGod = data.analysis.usefulGod;
-  const usefulBasis = [
-    conditionPortableBasis(usefulGod.primaryReason ?? ''),
-    ...filterPortableStrategyTrace(usefulGod.strategyTrace),
-  ].filter(hasText);
-  const favorableWuxing = usefulGod.favorableWuxing ?? [];
-  const unfavorableWuxing = usefulGod.unfavorableWuxing ?? [];
-  const usefulResult = [
-    usefulGod.primaryFavorableWuxing
-      ? `主用${usefulGod.primaryFavorableWuxing}`
-      : favorableWuxing.length
-        ? `喜用五行${favorableWuxing.join('、')}`
-        : '',
-    usefulGod.secondaryFavorableWuxing?.length
-      ? `辅助${usefulGod.secondaryFavorableWuxing.join('、')}`
-      : '',
-    usefulGod.primaryUnfavorableWuxing
-      ? `主忌${usefulGod.primaryUnfavorableWuxing}`
-      : unfavorableWuxing.length
-        ? `忌五行${unfavorableWuxing.join('、')}`
-        : '',
-    usefulGod.useful ? `喜十神${usefulGod.useful}` : '',
-    usefulGod.avoid ? `忌十神${usefulGod.avoid}` : '',
-  ]
-    .filter(Boolean)
-    .join('；');
+  const usefulBasis = ['自动用神规则尚未完成逐条来源、版本与适用边界校勘，底层保持关闭'];
+  const usefulResult = '取用待定';
 
   return [
     {
@@ -309,13 +273,13 @@ function buildAnalysisFacts(data: BaziChartResult): BaziNatalAnalysisFact[] {
     },
     {
       key: 'bazi:natal:analysis:useful-god',
-      status: usefulResult ? '已记录' : '资料缺口',
+      status: '资料缺口',
       type: '用神取忌',
       result: usefulResult,
       basis: usefulBasis,
       calculationStepKeys: ['bazi:natal:calculation:core-analysis'],
-      promptText: `取用结果：${usefulResult || '未形成明确取用结果'}${usefulBasis.length ? `；依据：${usefulBasis.join('、')}` : ''}`,
-      sources: ['旺衰、格局、调候、扶抑、通关与病药取用规则链'],
+      promptText: `取用结果：${usefulResult}；说明：${usefulBasis.join('、')}`,
+      sources: ['自动用神规则审计状态'],
       limitation: ANALYSIS_FACT_LIMITATION,
     },
   ];
