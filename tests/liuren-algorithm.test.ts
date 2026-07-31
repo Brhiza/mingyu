@@ -957,7 +957,7 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
         item.rule &&
         item.sources.length > 0 &&
         item.limitations.length >= 4 &&
-        item.limitations.some((limitation) => limitation.includes('一百三十四项可复算神煞规则')),
+        item.limitations.some((limitation) => limitation.includes('一百三十六项可复算神煞规则')),
     ),
   );
 });
@@ -1752,8 +1752,6 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
       '喝散',
       '雨煞',
       '天咒',
-      '天转',
-      '地转',
       '天猴',
       '大煞',
       '进爵',
@@ -2411,6 +2409,62 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
   assert.ok(sameBranchWrongStem.shenShaFacts?.every((item) => item.name !== '天赦'));
   assert.ok(boundaryFacts.has('天赦') === false, '春季甲子日不得套用冬季天赦');
 
+  const tianDiZhuanCases = [
+    ['天转', '2018-03-24T12:00:00+08:00', '卯', '乙卯', '卯'],
+    ['天转', '2018-05-14T12:00:00+08:00', '巳', '丙午', '午'],
+    ['天转', '2018-09-26T12:00:00+08:00', '酉', '辛酉', '酉'],
+    ['天转', '2018-01-20T12:00:00+08:00', '丑', '壬子', '子'],
+    ['地转', '2018-02-28T12:00:00+08:00', '寅', '辛卯', '卯'],
+    ['地转', '2018-05-26T12:00:00+08:00', '巳', '戊午', '午'],
+    ['地转', '2018-08-09T12:00:00+08:00', '申', '癸酉', '酉'],
+    ['地转', '2018-12-10T12:00:00+08:00', '子', '丙子', '子'],
+  ] as const;
+  for (const [name, date, monthBranch, dayGanzhi, target] of tianDiZhuanCases) {
+    const result = generateLiuren(new Date(date));
+    const fact = result.shenShaFacts?.find((item) => item.name === name);
+    assert.equal(result.ganzhi.month.charAt(1), monthBranch, date);
+    assert.equal(result.ganzhi.day, dayGanzhi, date);
+    assert.deepEqual(
+      [fact?.target, fact?.category, fact?.basis, fact?.input, fact?.targetType],
+      [target, '四时神煞', '月建与日柱', `${monthBranch}月${dayGanzhi}日`, '地支'],
+      `${date}${name}须按季节与完整日柱成立`,
+    );
+    assert.match(
+      fact?.sources.join('；') ?? '',
+      name === '天转'
+        ? /六壬大全.+春乙卯夏丙午秋辛酉冬壬子.+六壬指南注解.+旺连天干/
+        : /六壬大全.+春辛卯夏戊午秋癸酉冬丙子.+六壬指南注解.+旺连纳音/,
+    );
+    assert.match(fact?.limitations.join('；') ?? '', /季节与完整日柱同时符合.+均不足以成立/);
+    assert.match(
+      fact?.limitations.join('；') ?? '',
+      /转煞只按月建固定.+另须完整日柱.+可以同支并存但不得合并或互相替代/,
+    );
+    assert.match(
+      fact?.limitations.join('；') ?? '',
+      /不因单项出现自动判断出行、赴任、家宅、疾病、死亡、吉凶/,
+    );
+  }
+  for (const [date, name] of [
+    ['2018-01-23T12:00:00+08:00', '天转'],
+    ['2018-06-28T12:00:00+08:00', '地转'],
+  ] as const) {
+    const result = generateLiuren(new Date(date));
+    assert.ok(
+      result.shenShaFacts?.every((item) => item.name !== name),
+      `${result.ganzhi.day}日柱处于错误季节时不得生成${name}`,
+    );
+  }
+  const sameBranchWrongZhuanStem = generateLiuren(new Date('2018-03-12T12:00:00+08:00'));
+  assert.equal(sameBranchWrongZhuanStem.ganzhi.month.charAt(1), '卯');
+  assert.equal(sameBranchWrongZhuanStem.ganzhi.day, '癸卯');
+  assert.ok(
+    sameBranchWrongZhuanStem.shenShaFacts?.every(
+      (item) => item.name !== '天转' && item.name !== '地转',
+    ),
+    '春季同为卯支但日干不符时不得生成天转或地转',
+  );
+
   const branchHorse: Record<string, string> = {
     子: '寅',
     丑: '亥',
@@ -2500,10 +2554,12 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
 
     const hasTianHe = facts.has('天合');
     const hasTianShe = facts.has('天赦');
+    const hasTianZhuan = facts.has('天转');
+    const hasDiZhuan = facts.has('地转');
     assert.equal(
       shenShaFacts.length,
-      132 + Number(hasTianHe) + Number(hasTianShe),
-      `${result.ganzhi.day}应有一百三十二项固定神煞及条件性天合、天赦`,
+      132 + Number(hasTianHe) + Number(hasTianShe) + Number(hasTianZhuan) + Number(hasDiZhuan),
+      `${result.ganzhi.day}应有一百三十二项固定神煞及条件性天合、天赦、天转、地转`,
     );
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(

@@ -47,7 +47,7 @@ function buildShenShaFacts(
     '只定位神煞所在干支',
     '须核对是否入课、入传或临干支',
     '不得单项定吉凶',
-    '当前只登记一百三十四项可复算神煞规则；天合及天赦均为条件性事实，不代表《六壬大全》神煞总目录已经穷尽',
+    '当前只登记一百三十六项可复算神煞规则；天合、天赦、天转及地转均为条件性事实，不代表《六壬大全》神煞总目录已经穷尽',
   ];
   const addFact = (
     fact: Omit<LiurenShenShaFact, 'sources' | 'limitations'> & {
@@ -1674,6 +1674,55 @@ function buildShenShaFacts(
           '天赦须季节与完整日柱同时符合；只见寅、午、申、子日支或神盘上出现该支均不足以成立',
           '只登记天赦条件成立，不因单项出现自动判断刑禁、灾祸或诉讼已经解除',
         ],
+      });
+    }
+
+    const seasonalDayShenShaRules = [
+      {
+        name: '天转',
+        days: ['乙卯', '丙午', '辛酉', '壬子'],
+        rule: '春乙卯日、夏丙午日、秋辛酉日、冬壬子日才成立',
+        source: '《六壬大全》卷一“天转春乙卯夏丙午秋辛酉冬壬子”四时日柱表',
+        extraSources: [
+          '《六壬指南注解》卷四“旺连天干为天转”及春乙卯、夏丙午、秋辛酉、冬壬子完整表',
+        ],
+        extraLimitations: [
+          '天转须季节与完整日柱同时符合；只见卯、午、酉、子旺支、只见对应天干或盘面上出现同支均不足以成立',
+          '现有转煞只按月建固定为春卯、夏午、秋酉、冬子；天转另须完整日柱，二者可以同支并存但不得合并或互相替代',
+          '本结果依原典完整日柱表复算，不从单独天干、地支或五行旺相关系外推未载日柱',
+          '只登记天转条件成立，不因单项出现自动判断出行、赴任、家宅、疾病、死亡、吉凶或其他现实结果',
+        ],
+      },
+      {
+        name: '地转',
+        days: ['辛卯', '戊午', '癸酉', '丙子'],
+        rule: '春辛卯日、夏戊午日、秋癸酉日、冬丙子日才成立',
+        source: '《六壬大全》卷一“地转春辛卯夏戊午秋癸酉冬丙子”四时日柱表',
+        extraSources: [
+          '《六壬指南注解》卷四“旺连纳音为地转”及春辛卯、夏戊午、秋癸酉、冬丙子完整表',
+        ],
+        extraLimitations: [
+          '地转须季节与完整日柱同时符合；只见卯、午、酉、子旺支、只见对应天干、纳音或盘面上出现同支均不足以成立',
+          '现有转煞只按月建固定为春卯、夏午、秋酉、冬子；地转另须完整日柱，二者可以同支并存但不得合并或互相替代',
+          '本结果依原典完整日柱表复算，不从单独天干、地支、纳音或五行旺相关系外推未载日柱',
+          '只登记地转条件成立，不因单项出现自动判断出行、赴任、家宅、疾病、死亡、吉凶或其他现实结果',
+        ],
+      },
+    ] as const;
+    const seasonIndex = Math.floor(monthShenShaIndex / 3);
+    for (const rule of seasonalDayShenShaRules) {
+      if (dayGanzhi !== rule.days[seasonIndex]) continue;
+      addFact({
+        name: rule.name,
+        target: dayBranch,
+        targetType: '地支',
+        category: '四时神煞',
+        basis: '月建与日柱',
+        input: `${monthBranch}月${dayGanzhi}日`,
+        rule: rule.rule,
+        source: rule.source,
+        extraSources: [...rule.extraSources],
+        extraLimitations: [...rule.extraLimitations],
       });
     }
   }
