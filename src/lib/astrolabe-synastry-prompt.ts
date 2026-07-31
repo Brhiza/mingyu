@@ -8,11 +8,11 @@ export type AstrolabeSynastryPromptMode = 'framework' | 'custom';
 function formatSynastryFacts(synastry: AstrolabeSynastryData) {
   const aspectLines = synastry.aspects.map(
     (aspect) =>
-      `- ${aspect.person1}${aspect.point1Name}与${aspect.person2}${aspect.point2Name}：${aspect.type}，实际夹角${aspect.actualAngle.toFixed(2)}°，容许度${aspect.orb.toFixed(2)}°，${aspect.closeness}。`,
+      `- ${aspect.person1}${aspect.point1}与${aspect.person2}${aspect.point2}：${aspect.type}，实际夹角${aspect.actualAngle.toFixed(2)}°，精确角${aspect.exactAngle.toFixed(2)}°，偏差${aspect.orb.toFixed(2)}°，采用容许度${aspect.allowedOrb.toFixed(2)}°。`,
   );
   const overlayLines = synastry.houseOverlays.map(
     (overlay) =>
-      `- ${overlay.visitor}${overlay.pointName}落入${overlay.owner}本命盘第${overlay.house}宫。`,
+      `- ${overlay.visitor}${overlay.point}落入${overlay.owner}本命盘第${overlay.house}宫。`,
   );
 
   return [

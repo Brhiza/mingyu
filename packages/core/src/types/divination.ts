@@ -1352,17 +1352,13 @@ export interface AstrolabeSynastryAspect {
   actualAngle: number;
   orb: number;
   allowedOrb: number;
-  closeness: '紧密' | '中等' | '宽松';
-  orbRatio: number;
   source: string;
   sourcePointKey: string;
   targetPointKey: string;
   calculationStepKey: 'astrolabe:synastry:calculation:aspect-filter';
   promptText: string;
   sources: string[];
-  limitation: '跨盘相位只证明双方计算点黄经最小夹角进入所设相位角与容许度范围；和谐或紧张标签不等于现实关系好坏、匹配程度、事件结果或发生概率';
-  tendency: '和谐' | '紧张' | '中性';
-  tags: string[];
+  limitation: '跨盘相位只证明双方计算点黄经最小夹角进入所设相位角与容许度范围；不等于现实关系好坏、匹配程度、事件结果或发生概率';
 }
 
 export interface AstrolabeHouseOverlay {
@@ -1407,13 +1403,12 @@ export interface AstrolabeSynastryCalculationStep {
 
 export interface AstrolabeSynastryCounterEvidenceFact {
   key: string;
-  type: '主要相位覆盖' | '跨盘落宫覆盖' | '关系类型覆盖' | '静态应期边界';
-  status:
-    '有可用证据' | '未命中' | '已关闭' | '资料不足' | '存在多类关系' | '单一类型' | '固有限制';
+  type: '主要相位覆盖' | '跨盘落宫覆盖' | '静态应期边界';
+  status: '有可用证据' | '未命中' | '已关闭' | '资料不足' | '固有限制';
   ownerFactKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '反证事实只记录主要相位、跨盘落宫、关系类型与静态应期的覆盖情况；未命中不等于关系有利或不利，命中也不证明现实结果';
+  limitation: '反证事实只记录主要相位、跨盘落宫与静态应期的覆盖情况；未命中不等于关系有利或不利，命中也不证明现实结果';
 }
 
 export interface AstrolabeSynastrySummaryFact {
@@ -1425,11 +1420,8 @@ export interface AstrolabeSynastrySummaryFact {
   evaluatedPairCount: number;
   matchedAspectCount: number;
   returnedAspectCount: number;
-  truncatedAspectCount: number;
   houseOverlayCount: number;
-  coreHouseOverlayCount: number;
   aspectTypeCounts: Partial<Record<AstrolabeSynastryAspectType, number>>;
-  tendencyCounts: Record<'和谐' | '紧张' | '中性', number>;
   promptText: string;
   sources: string[];
   limitation: '双盘证据汇总只统计几何相位、容许度筛选与落宫定位事实，不得按数量生成匹配分、成功率、关系概率、吉凶结论或唯一应期';
@@ -1437,13 +1429,7 @@ export interface AstrolabeSynastrySummaryFact {
 
 export interface AstrolabeSynastryLimitationFact {
   key: string;
-  type:
-    | '相位几何边界'
-    | '容许度与截断边界'
-    | '落宫资料边界'
-    | '关系类型边界'
-    | '静态应期边界'
-    | '高风险输出边界';
+  type: '相位几何边界' | '容许度口径边界' | '落宫资料边界' | '静态应期边界' | '高风险输出边界';
   status: '适用';
   ownerFactKeys: string[];
   promptText: string;
@@ -1461,11 +1447,7 @@ export interface AstrolabeSynastryData {
   houseOverlays: AstrolabeHouseOverlay[];
   summary: {
     totalAspects: number;
-    harmonious: number;
-    tense: number;
-    neutral: number;
-    tightAspects: number;
-    closestAspects: AstrolabeSynastryAspect[];
+    houseOverlayCount: number;
   };
   counterEvidence: string[];
   counterEvidenceFacts: AstrolabeSynastryCounterEvidenceFact[];

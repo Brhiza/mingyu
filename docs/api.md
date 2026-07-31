@@ -78,7 +78,7 @@
 | `POST /divination/lenormand/prompt`          | 雷诺曼抽牌并生成含证据缺口和解释边界的 AI 提示词                               |
 | `POST /divination/astrolabe`                 | 星盘生成                                                                       |
 | `POST /divination/astrolabe/prompt`          | 星盘生成并生成 AI 解读提示词                                                   |
-| `POST /divination/astrolabe/synastry`        | 西占双盘相位、落宫与证据计算                                                   |
+| `POST /divination/astrolabe/synastry`        | 西占双盘全部点对相位、双向落宫与证据计算                                       |
 | `POST /divination/astrolabe/synastry/prompt` | 西占双盘计算并生成证据提示词                                                   |
 | `POST /metaphysics/bazhai/calculate`         | 八宅命卦、宅卦、测量候选及命宅逐方结构化证据                                   |
 | `POST /metaphysics/bazhai/prompt`            | 八宅排盘并生成含测量和现实边界的 AI 解读提示词                                 |
@@ -128,7 +128,7 @@
 | 更传统复杂的一事一课               | `POST /divination/liuren/prompt`             | `question`，可选 `liurenTemplate` 和 `customDate`                                                                                                           | 大六壬适合较严肃的事项推演                                                     |
 | 结婚、搬家、开业、签约、出行、安葬 | `POST /divination/almanac/prompt`            | `topic`、`startDate`、`endDate`、可选 `participants`、`page`、`pageSize`                                                                                    | 只在候选日期范围内择优，不应让 AI 推荐范围外日期                               |
 | 星盘本命、行运、流年流月           | `POST /divination/astrolabe/prompt`          | 出生时间地点，经纬度，`astrolabeTopic`，`astrolabeScope: "full"` 或指定范围                                                                                 | 需要经纬度和时区，资料不足时应先补齐                                           |
-| 西占双方关系、合作或婚恋互动       | `POST /divination/astrolabe/synastry/prompt` | `person1`、`person2` 分别提供完整出生时间、经纬度和时区                                                                                                     | 返回跨盘相位、容许度、落宫和解释边界，不给虚假匹配分                           |
+| 西占双方关系、合作或婚恋互动       | `POST /divination/astrolabe/synastry/prompt` | `person1`、`person2` 分别提供完整出生时间、经纬度和时区                                                                                                     | 完整返回跨盘角距、容许度、双向落宫和解释边界，不给虚假匹配分                   |
 | 牌面灵感、关系牌阵、选择牌阵       | `POST /divination/tarot/prompt` 或雷诺曼     | `spreadType`、`question`                                                                                                                                    | 适合轻量启发，不作为长期命盘判断                                               |
 | 求签                               | `POST /divination/ssgw/prompt`               | `question`                                                                                                                                                  | 有三连阴杯等拒签情况时，应如实返回，不强行解释                                 |
 | 住宅风水（八宅+玄空）              | `POST /metaphysics/residential/prompt`       | 山向或居住人至少一项：`birthYear`+`gender`/`mingGua`，`sitMountain`/`facingDegree`/`doorToInteriorDegree`，可选 `year` 建造/起运年                          | 统一入口；可只做人宅、只做宅运或两者合参；不给综合吉凶总分                     |
@@ -256,7 +256,7 @@ curl -X POST https://aov.cc/api/v1/divination/astrolabe/prompt \
   -d '{"name":"本人","gender":"女","year":1995,"month":5,"day":20,"hour":12,"minute":30,"latitude":39.9042,"longitude":116.4074,"timezone":8,"locationName":"北京","question":"整体人生和近期重点怎么看？","astrolabeTopic":"life","astrolabeScope":"full"}'
 ```
 
-西占双盘接口要求 `person1`、`person2` 分别提供一份完整星盘出生资料，提示词会写入双方本命盘、跨盘相位的实际夹角与容许度、双方落宫和证据边界：
+西占双盘接口要求 `person1`、`person2` 分别提供一份完整星盘出生资料。核心会穷举双方全部所选点对，完整保留所有进入容许度的主要相位与全部双向落宫；提示词逐项写入实际夹角、精确角、偏差、采用容许度和落宫位置，不按偏差分级、排序或截断，也不预设关系吉凶：
 
 ```bash
 curl -X POST https://aov.cc/api/v1/divination/astrolabe/synastry/prompt \
@@ -409,7 +409,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 黄历候选日统一附带中国标准时间正午的月相背景；该背景不参与传统候选排序，其他时区或临近相位交接时应按实际地点时间另算。
 - 西占会根据真实经纬度附带太阳光照证据，包括参考时刻太阳高度、真北方位角、视太阳正午、日出日落和三类曙暮光。该数据只描述天文光照背景，不改变星体位置或占星判断；实际地形、建筑、海拔和气象折射仍需现场资料。
 - 八字节令月和奇门节令背景会附带节气交接证据：排盘边界采用 `tyme4ts` 历表，另以 Meeus/NOAA 太阳视黄经公式独立求根，并返回历表与模型差值、黄经残差及精度限制；模型核验不会静默覆盖现有排盘边界。
-- 西占双盘使用 `person1`、`person2` 包裹双方星盘参数。排盘结果包含主要跨盘相位、实际夹角、精确角、偏差、允许容许度、容许度位置、紧密等级和跨盘落宫；核心结果、公开 API、MCP 与提示词均不返回百分制相位强度，避免被误读为关系概率、匹配率或吉凶比例。
+- 西占双盘使用 `person1`、`person2` 包裹双方星盘参数。排盘结果穷举全部所选点对，完整返回所有命中主要跨盘相位的实际夹角、精确角、偏差、采用容许度及全部双向跨盘落宫；核心结果、公开 API、MCP 与提示词均不分级、不排序、不截断，也不派生关系强弱、匹配率或吉凶比例。
 - `/ai/analyze` 请求体支持 `{ "prompt": "..." }` 单轮解析，或 `{ "messages": [{ "role": "user", "content": "..." }] }` 多轮追问；可选 `aiConfig` 指定 `builtin` 或 `custom` 模式。成功时返回 `text/event-stream`，每条增量以 `data: {"content":"..."}` 形式输出。当前接口会拒绝过大的请求体，单次解析消息总内容最多 50000 字符，多轮消息最多 30 条；超限会直接返回 400，调用方应拆分请求。
 - `/ai/models` 请求体支持 `{ "aiConfig": { "mode": "builtin" } }` 或自定义 OpenAI 兼容配置，返回 `{ "ok": true, "models": ["模型 ID"] }`。
 

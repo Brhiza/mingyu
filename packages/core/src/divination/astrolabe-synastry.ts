@@ -12,20 +12,17 @@ import type {
   AstrolabeSynastryLimitationFact,
   AstrolabeSynastrySummaryFact,
 } from '../types/divination';
-import { classifyAspectClosenessByRatio } from './astrolabe-aspect-evidence';
-
 const ASPECT_DEFINITIONS: Array<{
   type: AstrolabeSynastryAspectType;
   symbol: string;
   angle: number;
   defaultOrb: number;
-  tendency: AstrolabeSynastryAspect['tendency'];
 }> = [
-  { type: '合相', symbol: '☌', angle: 0, defaultOrb: 8, tendency: '中性' },
-  { type: '六合', symbol: '⚹', angle: 60, defaultOrb: 4, tendency: '和谐' },
-  { type: '刑相', symbol: '□', angle: 90, defaultOrb: 6, tendency: '紧张' },
-  { type: '拱相', symbol: '△', angle: 120, defaultOrb: 6, tendency: '和谐' },
-  { type: '冲相', symbol: '☍', angle: 180, defaultOrb: 8, tendency: '紧张' },
+  { type: '合相', symbol: '☌', angle: 0, defaultOrb: 8 },
+  { type: '六合', symbol: '⚹', angle: 60, defaultOrb: 4 },
+  { type: '刑相', symbol: '□', angle: 90, defaultOrb: 6 },
+  { type: '拱相', symbol: '△', angle: 120, defaultOrb: 6 },
+  { type: '冲相', symbol: '☍', angle: 180, defaultOrb: 8 },
 ];
 
 const DEFAULT_POINT_NAMES = new Set([
@@ -49,16 +46,14 @@ const DEFAULT_POINT_NAMES = new Set([
   'Imum Coeli',
 ]);
 
-const CORE_POINT_LABELS = new Set(['太阳', '月亮', '水星', '金星', '火星', '上升', '下降']);
-
 const ASPECT_FACT_LIMITATION =
-  '跨盘相位只证明双方计算点黄经最小夹角进入所设相位角与容许度范围；和谐或紧张标签不等于现实关系好坏、匹配程度、事件结果或发生概率' as const;
+  '跨盘相位只证明双方计算点黄经最小夹角进入所设相位角与容许度范围；不等于现实关系好坏、匹配程度、事件结果或发生概率' as const;
 const HOUSE_OVERLAY_LIMITATION =
   '跨盘落宫只证明访客计算点黄经位于宫主本命盘某一宫头区间；不证明现实事件、关系角色、他人意图、匹配程度或固定应期' as const;
 const CALCULATION_STEP_LIMITATION =
   '计算步骤只证明双方本命计算点、黄经、容许度与宫头区间经过固定几何规则形成当前相位和落宫事实，不证明现实关系、匹配程度、事件概率或固定应期' as const;
 const COUNTER_FACT_LIMITATION =
-  '反证事实只记录主要相位、跨盘落宫、关系类型与静态应期的覆盖情况；未命中不等于关系有利或不利，命中也不证明现实结果' as const;
+  '反证事实只记录主要相位、跨盘落宫与静态应期的覆盖情况；未命中不等于关系有利或不利，命中也不证明现实结果' as const;
 const SUMMARY_LIMITATION =
   '双盘证据汇总只统计几何相位、容许度筛选与落宫定位事实，不得按数量生成匹配分、成功率、关系概率、吉凶结论或唯一应期' as const;
 const LIMITATION_FACT_LIMITATION =
@@ -68,7 +63,6 @@ export interface AstrolabeSynastryOptions {
   pointNames?: string[];
   aspectOrbs?: Partial<Record<AstrolabeSynastryAspectType, number>>;
   includeHouseOverlays?: boolean;
-  maxAspects?: number;
 }
 
 function normalizeLongitude(longitude: number) {
@@ -83,19 +77,6 @@ function angularDistance(left: number, right: number) {
 
 function readPoints(chart: AstrolabeData, pointNames: Set<string>) {
   return [...chart.planets, ...chart.angles].filter((point) => pointNames.has(point.name));
-}
-
-function aspectTags(point1: AstrolabePoint, point2: AstrolabePoint) {
-  const tags = ['西占合盘', '跨盘相位'];
-  if (CORE_POINT_LABELS.has(point1.label) || CORE_POINT_LABELS.has(point2.label)) {
-    tags.push('核心点');
-  }
-  if (point1.label === '月亮' || point2.label === '月亮') tags.push('情绪互动');
-  if (point1.label === '金星' || point2.label === '金星') tags.push('关系价值');
-  if (point1.label === '火星' || point2.label === '火星') tags.push('行动张力');
-  if (point1.label === '水星' || point2.label === '水星') tags.push('沟通方式');
-  if (point1.label === '土星' || point2.label === '土星') tags.push('责任边界');
-  return tags;
 }
 
 function calculateAspects(
@@ -113,12 +94,11 @@ function calculateAspects(
       const actualAngle = angularDistance(point1.longitude, point2.longitude);
       for (const definition of ASPECT_DEFINITIONS) {
         const allowedOrb = options.aspectOrbs?.[definition.type] ?? definition.defaultOrb;
-        if (!Number.isFinite(allowedOrb) || allowedOrb <= 0 || allowedOrb > 15) {
+        if (!Number.isFinite(allowedOrb) || allowedOrb < 0 || allowedOrb > 15) {
           throw new Error(`${definition.type}容许度需在 0 到 15 度之间。`);
         }
         const orb = Math.abs(actualAngle - definition.angle);
         if (orb > allowedOrb) continue;
-        const orbRatio = Number((orb / allowedOrb).toFixed(4));
         results.push({
           key: `astrolabe:synastry:aspect:${point1.name}:${point2.name}:${definition.type}`,
           status: '已命中',
@@ -134,8 +114,6 @@ function calculateAspects(
           actualAngle: Number(actualAngle.toFixed(4)),
           orb: Number(orb.toFixed(4)),
           allowedOrb,
-          closeness: classifyAspectClosenessByRatio(orbRatio),
-          orbRatio,
           source: '双方本命盘黄经最小夹角与当前相位允许容许度',
           sourcePointKey: `astrolabe:synastry:point:person1:${point1.name}`,
           targetPointKey: `astrolabe:synastry:point:person2:${point2.name}`,
@@ -143,23 +121,17 @@ function calculateAspects(
           promptText: `${chart1.birth.name}${point1.label}与${chart2.birth.name}${point2.label}实际夹角${actualAngle.toFixed(4)}°，距${definition.type}精确角${definition.angle}°偏差${orb.toFixed(4)}°，进入允许容许度${allowedOrb}°`,
           sources: ['双方本命计算点黄经', '主要相位精确角与当前容许度配置'],
           limitation: ASPECT_FACT_LIMITATION,
-          tendency: definition.tendency,
-          tags: aspectTags(point1, point2),
         });
-        break;
       }
     }
   }
 
-  const sorted = results.sort(
-    (left, right) => left.orbRatio - right.orbRatio || left.orb - right.orb,
-  );
   return {
-    aspects: sorted.slice(0, options.maxAspects ?? 40),
+    aspects: results,
     selectedPointCount1: points1.length,
     selectedPointCount2: points2.length,
     evaluatedPairCount: points1.length * points2.length,
-    matchedAspectCount: sorted.length,
+    matchedAspectCount: results.length,
   };
 }
 
@@ -222,10 +194,6 @@ function calculateOverlays(
   });
 }
 
-function isCoreOverlay(overlay: AstrolabeHouseOverlay) {
-  return CORE_POINT_LABELS.has(overlay.point);
-}
-
 function buildBaseCalculationSteps(params: {
   chart1: AstrolabeData;
   chart2: AstrolabeData;
@@ -237,7 +205,6 @@ function buildBaseCalculationSteps(params: {
   aspects: AstrolabeSynastryAspect[];
   overlays: AstrolabeHouseOverlay[];
 }): AstrolabeSynastryCalculationStep[] {
-  const maxAspects = params.options.maxAspects ?? 40;
   const houseOverlaysEnabled = params.options.includeHouseOverlays !== false;
   const customOrbTypes = Object.keys(params.options.aspectOrbs ?? {});
   return [
@@ -293,16 +260,14 @@ function buildBaseCalculationSteps(params: {
       inputs: {
         aspectTypes: ASPECT_DEFINITIONS.map((item) => item.type),
         customOrbTypes,
-        maxAspects,
       },
       result: {
         matchedAspectCount: params.matchedAspectCount,
         returnedAspectCount: params.aspects.length,
-        truncatedAspectCount: Math.max(0, params.matchedAspectCount - params.aspects.length),
       },
       dependsOnStepKeys: ['astrolabe:synastry:calculation:aspect-geometry'],
-      promptText: `按合、六合、刑、拱、冲的精确角和当前容许度筛出${params.matchedAspectCount}项相位，按归一化偏差排序后返回${params.aspects.length}项`,
-      sources: ['主要相位精确角', '默认或自定义容许度', '归一化容许度偏差排序'],
+      promptText: `按合、六合、刑、拱、冲的精确角和当前容许度筛出并完整返回${params.matchedAspectCount}项相位`,
+      sources: ['主要相位精确角', '默认或自定义容许度'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
@@ -336,7 +301,6 @@ function buildBaseCalculationSteps(params: {
       },
       result: {
         overlayCount: params.overlays.length,
-        coreOverlayCount: params.overlays.filter(isCoreOverlay).length,
       },
       dependsOnStepKeys: [
         'astrolabe:synastry:calculation:point-selection',
@@ -358,8 +322,6 @@ function buildCounterEvidenceFacts(params: {
   aspects: AstrolabeSynastryAspect[];
   overlays: AstrolabeHouseOverlay[];
 }): AstrolabeSynastryCounterEvidenceFact[] {
-  const harmonious = params.aspects.filter((item) => item.tendency === '和谐');
-  const tense = params.aspects.filter((item) => item.tendency === '紧张');
   const overlaysEnabled = params.options.includeHouseOverlays !== false;
   const houseDataComplete =
     params.chart1.houses.length === 12 && params.chart2.houses.length === 12;
@@ -404,28 +366,6 @@ function buildCounterEvidenceFacts(params: {
       limitation: COUNTER_FACT_LIMITATION,
     },
     {
-      key: 'astrolabe:synastry:counter:tendency-coverage',
-      type: '关系类型覆盖',
-      status:
-        harmonious.length && tense.length
-          ? '存在多类关系'
-          : params.aspects.length
-            ? '单一类型'
-            : '未命中',
-      ownerFactKeys: [
-        'astrolabe:synastry:calculation:aspect-filter',
-        ...params.aspects.map((item) => item.key),
-      ],
-      promptText:
-        harmonious.length && tense.length
-          ? `同时记录${harmonious.length}项和谐相位与${tense.length}项紧张相位，必须并列解释，不得只取单一方向`
-          : params.aspects.length
-            ? `当前返回相位未同时覆盖和谐与紧张两类；单一类型不等于关系整体好坏`
-            : '当前没有相位事实可供关系类型对照，不生成和谐或紧张结论',
-      sources: ['已返回相位的和谐、紧张与中性标签逐项汇总'],
-      limitation: COUNTER_FACT_LIMITATION,
-    },
-    {
       key: 'astrolabe:synastry:counter:static-timing',
       type: '静态应期边界',
       status: '固有限制',
@@ -452,14 +392,8 @@ function buildSummaryFact(params: {
   overlays: AstrolabeHouseOverlay[];
 }): AstrolabeSynastrySummaryFact {
   const aspectTypeCounts: Partial<Record<AstrolabeSynastryAspectType, number>> = {};
-  const tendencyCounts: Record<'和谐' | '紧张' | '中性', number> = {
-    和谐: 0,
-    紧张: 0,
-    中性: 0,
-  };
   params.aspects.forEach((item) => {
     aspectTypeCounts[item.type] = (aspectTypeCounts[item.type] ?? 0) + 1;
-    tendencyCounts[item.tendency] += 1;
   });
   const status = params.aspects.length
     ? params.overlays.length
@@ -468,7 +402,6 @@ function buildSummaryFact(params: {
     : params.overlays.length
       ? '仅见落宫证据'
       : '未见已列交叉事实';
-  const truncatedAspectCount = Math.max(0, params.matchedAspectCount - params.aspects.length);
   return {
     key: 'astrolabe:synastry:evidence-summary',
     status,
@@ -487,19 +420,15 @@ function buildSummaryFact(params: {
     evaluatedPairCount: params.evaluatedPairCount,
     matchedAspectCount: params.matchedAspectCount,
     returnedAspectCount: params.aspects.length,
-    truncatedAspectCount,
     houseOverlayCount: params.overlays.length,
-    coreHouseOverlayCount: params.overlays.filter(isCoreOverlay).length,
     aspectTypeCounts,
-    tendencyCounts,
-    promptText: `双方分别选取${params.selectedPointCount1}与${params.selectedPointCount2}个计算点，核验${params.evaluatedPairCount}组角距，命中${params.matchedAspectCount}项主要相位并返回${params.aspects.length}项${truncatedAspectCount ? `（另有${truncatedAspectCount}项因最大返回数截断）` : ''}；记录跨盘落宫${params.overlays.length}项，其中核心点落宫${params.overlays.filter(isCoreOverlay).length}项`,
-    sources: ['全部相位筛选、排序截断与跨盘落宫事实汇总'],
+    promptText: `双方分别选取${params.selectedPointCount1}与${params.selectedPointCount2}个计算点，穷举核验${params.evaluatedPairCount}组角距，命中并完整返回${params.matchedAspectCount}项主要相位；完整记录跨盘落宫${params.overlays.length}项`,
+    sources: ['全部跨盘点对角距、相位容许度筛选与跨盘落宫事实汇总'],
     limitation: SUMMARY_LIMITATION,
   };
 }
 
 function buildLimitationFacts(params: {
-  options: AstrolabeSynastryOptions;
   aspects: AstrolabeSynastryAspect[];
   overlays: AstrolabeHouseOverlay[];
   summaryFact: AstrolabeSynastrySummaryFact;
@@ -522,15 +451,16 @@ function buildLimitationFacts(params: {
       sources: ['圆周最小夹角与主要相位角定义'],
     },
     {
-      key: 'astrolabe:synastry:limitation:orb-truncation',
-      type: '容许度与截断边界',
+      key: 'astrolabe:synastry:limitation:orb-policy',
+      type: '容许度口径边界',
       ownerFactKeys: [
         params.summaryFact.key,
         'astrolabe:synastry:calculation:aspect-filter',
         ...params.aspects.map((item) => item.key),
       ],
-      promptText: `容许度是可配置口径，当前最多返回${params.options.maxAspects ?? 40}项相位；排序或截断只控制输出范围，不代表未返回相位不存在或不重要`,
-      sources: ['当前相位容许度与最大返回数配置'],
+      promptText:
+        '容许度是可配置的现代占星口径，不存在唯一通行数值；当前结果逐项公开实际夹角、精确角、偏差与采用容许度，并完整保留全部命中项',
+      sources: ['当前相位容许度配置与完整命中结果'],
     },
     {
       key: 'astrolabe:synastry:limitation:house-data',
@@ -542,17 +472,6 @@ function buildLimitationFacts(params: {
       ],
       promptText: '跨盘落宫沿用宫主本命盘的宫制和宫头区间；关闭落宫或宫头不完整时，不生成落宫结论',
       sources: ['宫主本命宫制、宫头区间与落宫开关'],
-    },
-    {
-      key: 'astrolabe:synastry:limitation:tendency',
-      type: '关系类型边界',
-      ownerFactKeys: [
-        'astrolabe:synastry:calculation:aspect-filter',
-        ...params.aspects.map((item) => item.key),
-      ],
-      promptText:
-        '不得把单一和谐相位写成必然适合，也不得把单一紧张相位写成必然冲突或分离；中性相位也不等于没有影响，必须结合双方现实问题并列解释',
-      sources: ['相位几何事实与关系评价分离原则'],
     },
     {
       key: 'astrolabe:synastry:limitation:static-timing',
@@ -586,23 +505,20 @@ function createEvidence(
   summaryFact: AstrolabeSynastrySummaryFact,
   limitationFacts: AstrolabeSynastryLimitationFact[],
 ): PromptEvidenceBundle {
-  const aspectItems = aspects.slice(0, 16).map((aspect): PromptEvidenceItem => ({
-    level: aspect.closeness === '紧密' && aspect.tags.includes('核心点') ? '主证' : '辅证',
+  const aspectItems = aspects.map((aspect): PromptEvidenceItem => ({
+    level: '辅证',
     title: `${aspect.person1}${aspect.point1}${aspect.symbol}${aspect.person2}${aspect.point2}`,
-    detail: `${aspect.promptText}，属于${aspect.closeness}等级；此处只记录跨盘相位事实，不单独推导关系吉凶；边界：${aspect.limitation}`,
+    detail: `${aspect.promptText}；此处只记录跨盘相位事实，不单独推导关系吉凶；边界：${aspect.limitation}`,
     source: aspect.sources.join('、'),
-    tags: [...aspect.tags, aspect.tendency],
+    tags: ['西占合盘', '跨盘相位', aspect.type, aspect.point1, aspect.point2],
   }));
-  const overlayItems = overlays
-    .filter(isCoreOverlay)
-    .slice(0, 12)
-    .map((overlay): PromptEvidenceItem => ({
-      level: '辅证',
-      title: `${overlay.visitor}${overlay.point}落入${overlay.owner}第${overlay.house}宫`,
-      detail: `${overlay.promptText}；边界：${overlay.limitation}`,
-      source: overlay.sources.join('、'),
-      tags: ['西占合盘', '跨盘落宫'],
-    }));
+  const overlayItems = overlays.map((overlay): PromptEvidenceItem => ({
+    level: '辅证',
+    title: `${overlay.visitor}${overlay.point}落入${overlay.owner}第${overlay.house}宫`,
+    detail: `${overlay.promptText}；边界：${overlay.limitation}`,
+    source: overlay.sources.join('、'),
+    tags: ['西占合盘', '跨盘落宫'],
+  }));
   return {
     title: '西洋占星双盘证据',
     items: [
@@ -656,12 +572,6 @@ export function analyzeAstrolabeSynastry(
   options: AstrolabeSynastryOptions = {},
 ): AstrolabeSynastryData {
   if (!chart1?.birth || !chart2?.birth) throw new Error('西占合盘需要两份完整本命盘。');
-  if (
-    options.maxAspects !== undefined &&
-    (!Number.isInteger(options.maxAspects) || options.maxAspects < 1 || options.maxAspects > 200)
-  ) {
-    throw new Error('西占合盘最大相位数需为 1 到 200 之间的整数。');
-  }
   const selectedNames = new Set(options.pointNames ?? DEFAULT_POINT_NAMES);
   const aspectCalculation = calculateAspects(chart1, chart2, options);
   const aspects = aspectCalculation.aspects;
@@ -706,9 +616,8 @@ export function analyzeAstrolabeSynastry(
     result: {
       status: summaryFact.status,
       returnedAspectCount: summaryFact.returnedAspectCount,
-      truncatedAspectCount: summaryFact.truncatedAspectCount,
       houseOverlayCount: summaryFact.houseOverlayCount,
-      tendencyCounts: Object.entries(summaryFact.tendencyCounts).map(
+      aspectTypeCounts: Object.entries(summaryFact.aspectTypeCounts).map(
         ([key, value]) => `${key}:${value}`,
       ),
     },
@@ -721,7 +630,6 @@ export function analyzeAstrolabeSynastry(
     limitation: CALCULATION_STEP_LIMITATION,
   });
   const limitationFacts = buildLimitationFacts({
-    options,
     aspects,
     overlays: houseOverlays,
     summaryFact,
@@ -750,11 +658,7 @@ export function analyzeAstrolabeSynastry(
     houseOverlays,
     summary: {
       totalAspects: aspects.length,
-      harmonious: aspects.filter((item) => item.tendency === '和谐').length,
-      tense: aspects.filter((item) => item.tendency === '紧张').length,
-      neutral: aspects.filter((item) => item.tendency === '中性').length,
-      tightAspects: aspects.filter((item) => item.closeness === '紧密').length,
-      closestAspects: [...aspects].sort((left, right) => left.orb - right.orb).slice(0, 5),
+      houseOverlayCount: houseOverlays.length,
     },
     counterEvidence,
     counterEvidenceFacts,
@@ -780,7 +684,7 @@ export function analyzeAstrolabeSynastry(
       notes: [
         '采用黄经最小夹角计算合、六合、刑、拱、冲五种主要跨盘相位。',
         '容许度为明确可配置参数，默认值随结果返回，便于复核不同占星口径。',
-        'closeness 与 orbRatio 描述偏差在允许容许度中的位置；结果不另行返回百分制强度，避免被误读为关系概率、匹配率或吉凶比例。',
+        '结果完整返回所有命中容许度的点对与相位，不按偏差排序、分级、截断或派生关系强弱。',
         '静态本命双盘不推断入相或出相；该判断需要星体速度与具体时间上下文。',
         '跨盘落宫按宫头黄经区间计算，宫制沿用输入本命盘。',
       ],

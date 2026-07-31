@@ -2079,6 +2079,9 @@ test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () =
               status: string;
               calculationStepKey: string;
               strength?: number;
+              closeness?: string;
+              orbRatio?: number;
+              tendency?: string;
             }>;
             houseOverlays?: Array<{ key: string; status: string; calculationStepKey: string }>;
             summary?: { strongAspects?: number };
@@ -2098,6 +2101,9 @@ test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () =
       assert.equal(aspect.status, '已命中');
       assert.equal(aspect.calculationStepKey, 'astrolabe:synastry:calculation:aspect-filter');
       assert.equal(aspect.strength, undefined);
+      assert.equal(aspect.closeness, undefined);
+      assert.equal(aspect.orbRatio, undefined);
+      assert.equal(aspect.tendency, undefined);
     }
     for (const overlay of chart?.synastry?.houseOverlays ?? []) {
       assert.match(overlay.key, /^astrolabe:synastry:house-overlay:/);
@@ -2105,8 +2111,8 @@ test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () =
       assert.equal(overlay.calculationStepKey, 'astrolabe:synastry:calculation:house-overlays');
     }
     assert.equal(chart?.synastry?.summary?.strongAspects, undefined);
-    assert.equal(chart?.synastry?.counterEvidenceFacts?.length, 4);
-    assert.equal(chart?.synastry?.limitationFacts?.length, 6);
+    assert.equal(chart?.synastry?.counterEvidenceFacts?.length, 3);
+    assert.equal(chart?.synastry?.limitationFacts?.length, 5);
     assertEvidenceOwnerReferences(chart?.synastry);
     assert.equal(
       chart?.synastry?.summaryFact?.returnedAspectCount,
@@ -2125,7 +2131,16 @@ test('MCP 西占双盘提示词应返回跨盘资料和简明任务', async () =
     assert.match(prompt, /【第一人本命盘】/);
     assert.match(prompt, /【跨盘相位】/);
     assert.match(prompt, /【跨盘落宫】/);
-    assert.match(prompt, /容许度/);
+    assert.match(
+      prompt,
+      /实际夹角\d+\.\d{2}°，精确角\d+\.\d{2}°，偏差\d+\.\d{2}°，采用容许度\d+\.\d{2}°/,
+    );
+    const crossAspectSection = prompt.match(/【跨盘相位】([\s\S]*?)【跨盘落宫】/)?.[1];
+    assert.ok(crossAspectSection);
+    assert.doesNotMatch(
+      crossAspectSection,
+      /紧密等级|中等等级|宽松等级|和谐相位|紧张相位|最近相位|最强相位|截断/,
+    );
     assert.match(prompt, /分析互动主轴、互补点、张力点与现实触发条件/);
     assert.doesNotMatch(prompt, /不得输出|不得编造|只依据/);
     assert.doesNotMatch(prompt, /结构化证据|计算链概览|证据汇总|解释限制/);

@@ -3808,6 +3808,9 @@ test('公开 API 西占双盘应返回跨盘相位、落宫和结构化证据', 
       assert.equal(aspect.status, '已命中');
       assert.equal(aspect.calculationStepKey, 'astrolabe:synastry:calculation:aspect-filter');
       assert.equal(aspect.strength, undefined);
+      assert.equal('closeness' in aspect, false);
+      assert.equal('orbRatio' in aspect, false);
+      assert.equal('tendency' in aspect, false);
     },
   );
   assert.equal(synastry.summary.strongAspects, undefined);
@@ -3821,8 +3824,8 @@ test('公开 API 西占双盘应返回跨盘相位、落宫和结构化证据', 
   );
   assert.equal(synastry.summaryFact.returnedAspectCount, synastry.aspects.length);
   assert.equal(synastry.summaryFact.houseOverlayCount, synastry.houseOverlays.length);
-  assert.equal(synastry.counterEvidenceFacts.length, 4);
-  assert.equal(synastry.limitationFacts.length, 6);
+  assert.equal(synastry.counterEvidenceFacts.length, 3);
+  assert.equal(synastry.limitationFacts.length, 5);
   assertEvidenceOwnerReferences(synastry);
   assert.doesNotMatch(synastry.promptText, /本项目|项目统一|工程|接口|API|MCP|astrolabe:synastry:/);
   assertPromptIsPortableTaskText(synastry.promptText);
@@ -3868,16 +3871,25 @@ test('公开 API 西占双盘提示词应携带双方本命盘与简明任务', 
   assert.equal(body.data.resultSummary.key, 'astrolabe:synastry:evidence');
   assert.equal(body.data.resultSummary.status, '已计算');
   assert.equal(body.data.resultSummary.calculationSteps.length, 7);
-  assert.equal(body.data.resultSummary.counterEvidenceFacts.length, 4);
-  assert.equal(body.data.resultSummary.limitationFacts.length, 6);
+  assert.equal(body.data.resultSummary.counterEvidenceFacts.length, 3);
+  assert.equal(body.data.resultSummary.limitationFacts.length, 5);
   assert.ok(body.data.resultSummary.summaryFact.returnedAspectCount > 0);
   assertPromptHasSingleRole(body.data.prompt, PROMPT_ROLE_TEXT['astrolabe-synastry']);
   assert.match(body.data.prompt, /【第一人本命盘】/);
   assert.match(body.data.prompt, /【第二人本命盘】/);
   assert.match(body.data.prompt, /【跨盘相位】/);
-  assert.match(body.data.prompt, /实际夹角\d+\.\d{2}°，容许度\d+\.\d{2}°，(?:紧密|中等|宽松)/);
+  assert.match(
+    body.data.prompt,
+    /实际夹角\d+\.\d{2}°，精确角\d+\.\d{2}°，偏差\d+\.\d{2}°，采用容许度\d+\.\d{2}°/,
+  );
   assert.match(body.data.prompt, /【跨盘落宫】/);
   assert.doesNotMatch(body.data.prompt, /强度\d+%|匹配率\d+%/);
+  const crossAspectSection = body.data.prompt.match(/【跨盘相位】([\s\S]*?)【跨盘落宫】/)?.[1];
+  assert.ok(crossAspectSection);
+  assert.doesNotMatch(
+    crossAspectSection,
+    /紧密等级|中等等级|宽松等级|和谐相位|紧张相位|最近相位|最强相位|截断/,
+  );
   assert.match(body.data.prompt, /分析互动主轴、互补点、张力点与现实触发条件/);
   assert.doesNotMatch(body.data.prompt, /不得输出|不得编造|只依据/);
   assert.doesNotMatch(body.data.prompt, /结构化证据|计算链概览|证据汇总|解释限制/);
