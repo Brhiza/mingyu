@@ -379,27 +379,8 @@ export function analyzeDayMasterStrength(
     (formation) => !SUPPORTING_FORMATION_EFFECTS.has(formation.effect),
   );
 
-  let status: DayMasterStrengthAnalysis['status'] = '待综合判断';
-  if (
-    monthTendency === '扶身' &&
-    rootAnalysis.strongRoot &&
-    constraintAnalysis.constraints.length === 0 &&
-    !hasConstrainingFormation
-  ) {
-    status = '极强';
-  } else if (
-    !rootAnalysis.hasRoot &&
-    monthTendency !== '扶身' &&
-    supportAnalysis.supporters.length === 0 &&
-    !hasSupportingFormation
-  ) {
-    status = '极弱';
-  } else if (!rootAnalysis.hasRoot && monthTendency !== '扶身' && !hasSupportingFormation) {
-    status = '身弱';
-  }
-
   return {
-    status,
+    status: '待综合判断',
     details: {
       timely: seasonalStatus.isTimely,
       seasonalEffect:
@@ -422,7 +403,7 @@ export function analyzeDayMasterStrength(
       hasConstraint: constraintAnalysis.hasConstraint,
       ruleBasis: [
         `月令与司令合看为${monthTendency}；通根条件为${rootTendency}；成局、帮扶与克泄耗分别登记`,
-        '无根失令且未见扶身成局时按身弱处理；扶身或制身条件单向闭合时可判极端状态；其余证据并见时保留待综合判断，不按成局、明根明透或中余气的出现数量裁定胜负',
+        '日主整体旺衰涉及月令、司令、根气、透干、成局、生克制化与位置层级的全局取舍；底层不按条件数量或少量布尔组合自动裁定身强、身弱及极端状态，固定交由后续综合判断',
       ],
     },
   };

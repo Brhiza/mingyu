@@ -165,7 +165,7 @@ test('十神结构应按透干与藏支事实分类，不以隐藏权重裁定�
   );
 });
 
-test('无根失令但仍有帮扶时，不应直接判为极弱', () => {
+test('无根失令但仍有帮扶时，整体旺衰应保留待综合判断', () => {
   const result = analyzeDayMasterStrength(
     { status: '休', isTimely: false },
     { formations: [] },
@@ -177,12 +177,12 @@ test('无根失令但仍有帮扶时，不应直接判为极弱', () => {
     { constraints: [], hasConstraint: false },
   );
 
-  assert.equal(result.status, '身弱');
+  assert.equal(result.status, '待综合判断');
   assert.equal(result.details.hasSupport, true);
   assert.ok(!('score' in result));
 });
 
-test('无根失令且无帮扶时，仍应判为极弱', () => {
+test('无根失令且无帮扶时，底层仍不自动裁定极弱', () => {
   const result = analyzeDayMasterStrength(
     { status: '休', isTimely: false },
     { formations: [] },
@@ -191,8 +191,94 @@ test('无根失令且无帮扶时，仍应判为极弱', () => {
     { constraints: [], hasConstraint: false },
   );
 
-  assert.equal(result.status, '极弱');
+  assert.equal(result.status, '待综合判断');
   assert.ok(!('score' in result));
+});
+
+test('月令、司令、根气、帮扶、克泄耗与成局条件穷举时均不自动裁定整体旺衰', () => {
+  const seasonalStatuses = ['旺', '相', '休', '囚', '死'];
+  const commanderEffects = ['助身', '生身', '泄身', '耗身', '克身', '中性'] as const;
+  const roots = [
+    { roots: [], hasRoot: false, strongRoot: false },
+    { roots: [{ position: 'day', branch: '辰' }], hasRoot: true, strongRoot: false },
+    { roots: [{ position: 'day', branch: '寅' }], hasRoot: true, strongRoot: true },
+  ];
+  const formations = [
+    { formations: [] },
+    {
+      formations: [
+        {
+          type: '三合',
+          branches: ['亥', '卯', '未'],
+          wuxing: '木' as const,
+          effect: '助身' as const,
+        },
+      ],
+    },
+    {
+      formations: [
+        {
+          type: '三合',
+          branches: ['巳', '酉', '丑'],
+          wuxing: '金' as const,
+          effect: '克身' as const,
+        },
+      ],
+    },
+    {
+      formations: [
+        {
+          type: '三合',
+          branches: ['亥', '卯', '未'],
+          wuxing: '木' as const,
+          effect: '助身' as const,
+        },
+        {
+          type: '三会',
+          branches: ['巳', '午', '未'],
+          wuxing: '火' as const,
+          effect: '泄身' as const,
+        },
+      ],
+    },
+  ];
+
+  let combinationCount = 0;
+  seasonalStatuses.forEach((status) => {
+    commanderEffects.forEach((commanderEffect) => {
+      roots.forEach((rootAnalysis) => {
+        [false, true].forEach((hasSupport) => {
+          [false, true].forEach((hasConstraint) => {
+            formations.forEach((formationAnalysis) => {
+              const result = analyzeDayMasterStrength(
+                { status, commanderEffect, isTimely: status === '旺' || status === '相' },
+                formationAnalysis,
+                rootAnalysis,
+                {
+                  supporters: hasSupport ? [{ position: 'hour', stem: '壬' }] : [],
+                  hasSupport,
+                },
+                {
+                  constraints: hasConstraint ? [{ position: 'year', stem: '庚' }] : [],
+                  hasConstraint,
+                },
+              );
+
+              combinationCount += 1;
+              assert.equal(result.status, '待综合判断');
+              assert.equal(result.details.hasRoot, rootAnalysis.hasRoot);
+              assert.equal(result.details.hasStrongRoot, rootAnalysis.strongRoot);
+              assert.equal(result.details.hasSupport, hasSupport);
+              assert.equal(result.details.hasConstraint, hasConstraint);
+              assert.equal(result.details.commanderEffect, commanderEffect);
+            });
+          });
+        });
+      });
+    });
+  });
+
+  assert.equal(combinationCount, 1440);
 });
 
 test('根、透、克泄耗证据并见时不应按出现数量多数决', () => {
@@ -228,7 +314,7 @@ test('根、透、克泄耗证据并见时不应按出现数量多数决', () =>
   assert.equal(result.status, '待综合判断');
   assert.ok(Object.values(args).every((analysis) => !('score' in analysis)));
   assert.ok(Object.values(args).every((analysis) => !('totalStrength' in analysis)));
-  assert.ok(result.details.ruleBasis.some((item) => item.includes('不按成局')));
+  assert.ok(result.details.ruleBasis.some((item) => item.includes('不按条件数量')));
 });
 
 test('印星落在地支主气或藏干时，也应计入帮扶，但不应把主气与同支本气重复计分', () => {
@@ -340,7 +426,7 @@ test('日支印星应计入帮扶，但日干自身不应重复计入', () => {
   assert.ok(!result.supporters.some((item) => item.stem === '子(癸)'));
 });
 
-test('极强判断不能无视克泄耗重压', () => {
+test('克泄耗重压存在时仍只登记条件，不自动裁定极强', () => {
   const result = analyzeDayMasterStrength(
     { status: '旺', isTimely: true },
     { formations: [] },
@@ -363,7 +449,7 @@ test('极强判断不能无视克泄耗重压', () => {
     },
   );
 
-  assert.notEqual(result.status, '极强');
+  assert.equal(result.status, '待综合判断');
   assert.equal(result.details.hasConstraint, true);
 });
 
@@ -496,7 +582,7 @@ test('克泄耗一方三合成局不能抹去已经存在的帮扶证据', () =>
   assert.ok(formation.formations.every((item) => !('strength' in item)));
   assert.ok(!('totalStrength' in formation));
   assert.equal(result.details.formationEffect, '削弱');
-  assert.equal(result.status, '身弱');
+  assert.equal(result.status, '待综合判断');
 });
 
 test('无根失令但扶身一方已经成局时，应保留综合判断而不直接判弱', () => {

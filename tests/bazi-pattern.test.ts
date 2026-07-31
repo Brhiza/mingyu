@@ -1453,7 +1453,7 @@ test('特殊格判断应把月令司权计入，不应只看月支藏干整体�
   assert.notEqual(result.pattern, '专旺格');
 });
 
-test('亥卯未木局成势且月令司权同党时，不应因未中副气而漏判专旺格', () => {
+test('亥卯未木局成势且月令司权同党时，仍不由底层自动判专旺格', () => {
   const pillars: Pillars = {
     year: { gan: '癸', zhi: '亥', ganZhi: '癸亥' },
     month: { gan: '乙', zhi: '卯', ganZhi: '乙卯' },
@@ -1463,9 +1463,9 @@ test('亥卯未木局成势且月令司权同党时，不应因未中副气而�
 
   const result = determinePattern(pillars, '极强', getTenGod, '乙');
 
-  assert.equal(result.isSpecial, true);
-  assert.equal(result.pattern, '专旺格');
-  assert.match(result.basis || '', /局外未见明透或本气破格/);
+  assert.equal(result.isSpecial, false);
+  assert.notEqual(result.pattern, '专旺格');
+  assert.match(result.basis || '', /特殊格审核边界/);
 });
 
 test('从杀见丑中印星即保留不从反证，不以会局掩盖印星', () => {
@@ -1482,7 +1482,7 @@ test('从杀见丑中印星即保留不从反证，不以会局掩盖印星', ()
   assert.doesNotMatch(result.pattern, /^从/);
 });
 
-test('从财从杀须排除本章明列的印、官杀或食伤反证', () => {
+test('从财从杀等特殊格即使表面条件纯一也由底层失败关闭', () => {
   const pureWealth = createPillars('壬子', '壬子', '戊子', '壬子');
   const wealthWithOfficer = createPillars('庚戌', '戊戌', '甲戌', '戊戌');
   const wealthWithResidualKiller = createPillars('壬子', '壬子', '戊子', '癸亥');
@@ -1491,20 +1491,52 @@ test('从财从杀须排除本章明列的印、官杀或食伤反证', () => {
   const killerWithFood = createPillars('丁酉', '辛酉', '乙酉', '辛酉');
   const killerWithResource = createPillars('癸酉', '辛酉', '乙酉', '辛酉');
 
-  assert.equal(determinePattern(pureWealth, '极弱', getTenGod).pattern, '从财格');
-  assert.notEqual(determinePattern(wealthWithOfficer, '极弱', getTenGod).pattern, '从财格');
-  assert.equal(determinePattern(wealthWithResidualKiller, '极弱', getTenGod).pattern, '从势格');
+  [
+    pureWealth,
+    wealthWithOfficer,
+    wealthWithResidualKiller,
+    wealthWithHiddenResource,
+    pureKiller,
+    killerWithFood,
+    killerWithResource,
+  ].forEach((pillars) => {
+    const result = determinePattern(pillars, '极弱', getTenGod);
+    assert.equal(result.isSpecial, false);
+    assert.doesNotMatch(result.pattern, /^(?:专旺格|从财格|从杀格|从儿格|从势格)$/);
+    assert.match(result.basis || '', /特殊格审核边界/);
+  });
+});
 
-  const hiddenResourceResult = determinePattern(wealthWithHiddenResource, '极弱', getTenGod);
-  assert.equal(hiddenResourceResult.isSpecial, false);
-  assert.doesNotMatch(hiddenResourceResult.pattern, /^从/);
+test('外部旺衰标签穷举时均不能触发专旺或从格', () => {
+  const candidatePillars = [
+    createPillars('癸亥', '乙卯', '甲寅', '癸未'),
+    createPillars('壬子', '壬子', '戊子', '壬子'),
+    createPillars('辛酉', '辛酉', '乙酉', '辛酉'),
+  ];
+  const externalStatuses = [
+    '极强',
+    '身强',
+    '偏强',
+    '中和',
+    '偏弱',
+    '身弱',
+    '极弱',
+    '待综合判断',
+    '任意伪造值',
+  ];
 
-  assert.equal(determinePattern(pureKiller, '极弱', getTenGod).pattern, '从杀格');
-  assert.notEqual(determinePattern(killerWithFood, '极弱', getTenGod).pattern, '从杀格');
+  let combinationCount = 0;
+  candidatePillars.forEach((pillars) => {
+    externalStatuses.forEach((status) => {
+      const result = determinePattern(pillars, status, getTenGod);
+      combinationCount += 1;
+      assert.equal(result.isSpecial, false);
+      assert.doesNotMatch(result.pattern, /^(?:专旺格|从财格|从杀格|从儿格|从势格)$/);
+      assert.match(result.basis || '', /不接受外部旺衰标签触发/);
+    });
+  });
 
-  const resourceResult = determinePattern(killerWithResource, '极弱', getTenGod);
-  assert.equal(resourceResult.isSpecial, false);
-  assert.doesNotMatch(resourceResult.pattern, /^从/);
+  assert.equal(combinationCount, 27);
 });
 
 test('特殊格主气判断不应被任意数值缩放或七成阈值左右', () => {
