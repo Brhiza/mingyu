@@ -19,6 +19,7 @@ import type {
   JinkoujueYinYang,
 } from '../../types/divination';
 import { getDivinationTime } from '../../calendar/timeManager';
+import { getMonthGeneralByZhongqi } from '../../calendar/month-general';
 import { getVoidBranches } from '../../calendar/lunar';
 import {
   EARTHLY_BRANCHES,
@@ -30,7 +31,6 @@ import {
   isKe,
   isSheng,
 } from '../../ganzhi';
-import { SolarTerm, SolarTime } from 'tyme4ts';
 import { assertOptionalRecord } from '../../shared/validation';
 import type { RandomOptions, RandomTrace } from '../../shared/random';
 import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';
@@ -41,21 +41,6 @@ const METHOD_LABELS: Record<JinkoujueDivinationMethod, string> = {
   time: '时间起课',
   number: '数字起课',
   random: '随机起课',
-};
-
-const MONTH_LEADER_BY_ZHONGQI: Record<string, string> = {
-  雨水: '亥',
-  春分: '戌',
-  谷雨: '酉',
-  小满: '申',
-  夏至: '未',
-  大暑: '午',
-  处暑: '巳',
-  秋分: '辰',
-  霜降: '卯',
-  小雪: '寅',
-  冬至: '丑',
-  大寒: '子',
 };
 
 const DAYTIME_BRANCHES = new Set(['卯', '辰', '巳', '午', '未', '申']);
@@ -144,35 +129,7 @@ function assertMethod(method: JinkoujueDivinationMethod): void {
 }
 
 function getMonthLeaderByZhongqi(timeInfo: ReturnType<typeof getDivinationTime>['timeInfo']) {
-  const currentTime = SolarTime.fromYmdHms(
-    timeInfo.solar.year,
-    timeInfo.solar.month,
-    timeInfo.solar.day,
-    timeInfo.solar.hour,
-    timeInfo.solar.minute,
-    0,
-  );
-  const currentJulianDay = currentTime.getJulianDay().getDay();
-  const year = timeInfo.solar.year;
-  let activeZhongqi = '冬至';
-  let activeJulianDay = Number.NEGATIVE_INFINITY;
-
-  for (const scanYear of [year - 1, year, year + 1]) {
-    for (let termIndex = 0; termIndex < 24; termIndex += 2) {
-      const term = SolarTerm.fromIndex(scanYear, termIndex);
-      const termJulianDay = term.getJulianDay().getDay();
-      if (termJulianDay <= currentJulianDay && termJulianDay > activeJulianDay) {
-        activeJulianDay = termJulianDay;
-        activeZhongqi = term.getName();
-      }
-    }
-  }
-
-  const monthLeader = MONTH_LEADER_BY_ZHONGQI[activeZhongqi];
-  if (!monthLeader) {
-    throw new Error(`找不到中气 "${activeZhongqi}" 对应的金口诀月将。`);
-  }
-  return monthLeader;
+  return getMonthGeneralByZhongqi(timeInfo.solar).monthGeneral;
 }
 
 function getYuanStemOnBranch(dayStem: string, branch: string) {

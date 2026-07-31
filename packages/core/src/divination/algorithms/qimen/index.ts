@@ -26,6 +26,7 @@ import type { QimenData, QimenJiuGongGe, QimenScope } from '../../../types/divin
 import type { ClassicPattern, PatternContext, StemRelation } from './helpers/classic-patterns';
 import type { QimenMethod } from './helpers/layout';
 import { getDivinationTime } from '../../../calendar/timeManager';
+import { getMonthGeneralByZhongqi } from '../../../calendar/month-general';
 import { getVoidBranches } from '../../../calendar/lunar';
 import { diPanPalaces, STEM_TOMB_MAP } from './helpers/_constants';
 import {
@@ -419,6 +420,7 @@ export function generateQimen(
     dayStem,
     dayBranch,
     monthBranch,
+    monthGeneral: getMonthGeneralByZhongqi(timeInfo.solar).monthGeneral,
     solarTerm: jushuResult.jieQi || jieQi,
     epoch: yuan,
     hourGanZhi: ganzhi.hour,

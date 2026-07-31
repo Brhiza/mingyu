@@ -5,6 +5,7 @@ import {
   HEAVENLY_STEMS,
 } from '../../../../bazi/baziMappingsData';
 import { BRANCH_WUXING, getBranchIndex, isKe, isSheng } from '../../../../ganzhi';
+import { MONTH_GENERAL_BY_ZHONGQI } from '../../../../calendar/month-general';
 
 export const DIZHI = EARTHLY_BRANCHES;
 export const TIANGAN = HEAVENLY_STEMS;
@@ -15,20 +16,7 @@ const VALID_WUXING = new Set(['木', '火', '土', '金', '水']);
  * 《大六壬大全》当前电子底本功曹条作“大雪后”，与前三书“小雪后”异文，
  * 此处以三书可互证的“小雪后寅将”为主版本，不静默混入另一底本。
  */
-export const LIUREN_MONTH_LEADER_BY_ZHONGQI: Readonly<Record<string, string>> = {
-  雨水: '亥',
-  春分: '戌',
-  谷雨: '酉',
-  小满: '申',
-  夏至: '未',
-  大暑: '午',
-  处暑: '巳',
-  秋分: '辰',
-  霜降: '卯',
-  小雪: '寅',
-  冬至: '丑',
-  大寒: '子',
-};
+export const LIUREN_MONTH_LEADER_BY_ZHONGQI = MONTH_GENERAL_BY_ZHONGQI;
 
 /** 《六壬粹言》：卯至申用昼贵，酉至寅用夜贵。 */
 export const LIUREN_DAYTIME_BRANCHES: ReadonlySet<string> = new Set([

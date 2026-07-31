@@ -1,7 +1,7 @@
 import type { LiurenData, LiurenShenShaFact, LiurenTransmission } from '../../../types/divination';
 import { getDivinationTime } from '../../../calendar/timeManager';
+import { getMonthGeneralByZhongqi } from '../../../calendar/month-general';
 import { getVoidBranches } from '../../../calendar/lunar';
-import { SolarTerm, SolarTime } from 'tyme4ts';
 import { getBranchWuxing, getOppositeBranch, getSeasonState, getYiMa } from '../../../ganzhi';
 import {
   buildHeavenlyPlate,
@@ -12,7 +12,6 @@ import {
   getUnderByUpper,
   getUpperByUnder,
   LIUREN_DAYTIME_BRANCHES,
-  LIUREN_MONTH_LEADER_BY_ZHONGQI,
   TIANGAN,
   TIANJIANG_ATTRIBUTES,
   type TianJiangName,
@@ -2434,35 +2433,7 @@ function buildShenShaFacts(
 }
 
 function getMonthLeaderByZhongqi(timeInfo: ReturnType<typeof getDivinationTime>['timeInfo']) {
-  const currentTime = SolarTime.fromYmdHms(
-    timeInfo.solar.year,
-    timeInfo.solar.month,
-    timeInfo.solar.day,
-    timeInfo.solar.hour,
-    timeInfo.solar.minute,
-    0,
-  );
-  const currentJulianDay = currentTime.getJulianDay().getDay();
-  const year = timeInfo.solar.year;
-  let activeZhongqi = '冬至';
-  let activeJulianDay = Number.NEGATIVE_INFINITY;
-
-  for (const scanYear of [year - 1, year, year + 1]) {
-    for (let termIndex = 0; termIndex < 24; termIndex += 2) {
-      const term = SolarTerm.fromIndex(scanYear, termIndex);
-      const termJulianDay = term.getJulianDay().getDay();
-      if (termJulianDay <= currentJulianDay && termJulianDay > activeJulianDay) {
-        activeJulianDay = termJulianDay;
-        activeZhongqi = term.getName();
-      }
-    }
-  }
-
-  const monthLeader = LIUREN_MONTH_LEADER_BY_ZHONGQI[activeZhongqi];
-  if (!monthLeader) {
-    throw new Error(`找不到中气 "${activeZhongqi}" 对应的大六壬月将。`);
-  }
-  return monthLeader;
+  return getMonthGeneralByZhongqi(timeInfo.solar).monthGeneral;
 }
 
 /**
