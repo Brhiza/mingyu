@@ -1359,7 +1359,7 @@ test('MCP 八字年限提示词应返回逐层岁运触发证据', async () => {
         (item) =>
           item.stem?.symbol &&
           item.stem.tenGod &&
-          item.stem.directPreference?.includes('候选') &&
+          item.stem.directPreference === '自动喜忌规则已关闭' &&
           item.branch?.symbol &&
           item.branch.hiddenStems?.length,
       ),
