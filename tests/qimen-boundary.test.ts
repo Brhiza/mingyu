@@ -274,8 +274,9 @@ test('奇门十干格局应正常返回合法组合并拒绝非法输入', () =>
   const pattern = getStemPairPattern('壬', '癸');
   assert.ok(pattern);
   assert.ok(!('score' in pattern));
-  assert.equal(getStemPairPattern('甲', '癸').name, '生');
-  assert.equal(getNamedStemPairPattern('壬', '癸')?.name, '螣蛇飞空');
+  assert.equal(getStemPairPattern('甲', '癸').name, '五行结构事实');
+  assert.match(getStemPairPattern('甲', '癸').summary, /地盘癸.*生天盘甲/);
+  assert.equal(getNamedStemPairPattern('壬', '癸'), null);
   assert.throws(() => getStemPairPattern('A', '癸'), /合法十天干/);
   assert.throws(() => getNamedStemPairPattern('A', '癸'), /合法十天干/);
 });

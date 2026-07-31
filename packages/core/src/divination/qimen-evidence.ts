@@ -77,7 +77,7 @@ export interface QimenStemRelationFact {
   status: '已计算';
   promptText: string;
   sources: string[];
-  limitation: '天地盘干关系只记录当前宫天盘干与地盘干的生克、合、墓、刑或命名格局；不单独证明现实吉凶、人物关系、事件结果或固定应期';
+  limitation: '天地盘干关系只记录当前宫天盘干与地盘干的生克、标准天干五合、墓、刑，或十一项已校勘固定格；其余七十项组合不作为传统格局，不单独证明现实吉凶、人物关系、事件结果或固定应期';
 }
 
 export interface QimenPalaceCoverageFact {
@@ -302,7 +302,7 @@ const DIRECTION_SUMMARY_LIMITATION =
 const PALACE_INSIGHT_FACT_LIMITATION =
   '宫位洞察只记录当前规则对该宫门、星、神、干与格局组合的分类提示；不证明现实吉凶、人物意图、事件结果或成功概率' as const;
 const STEM_RELATION_FACT_LIMITATION =
-  '天地盘干关系只记录当前宫天盘干与地盘干的生克、合、墓、刑或命名格局；不单独证明现实吉凶、人物关系、事件结果或固定应期' as const;
+  '天地盘干关系只记录当前宫天盘干与地盘干的生克、标准天干五合、墓、刑，或十一项已校勘固定格；其余七十项组合不作为传统格局，不单独证明现实吉凶、人物关系、事件结果或固定应期' as const;
 const PALACE_COVERAGE_FACT_LIMITATION =
   '九宫覆盖状态只说明当前结果能否完整核验一至九宫；缺少、重复或越界宫位时不得反推门、星、神、天地盘干、空亡、马星或格局' as const;
 const SUMMARY_FACT_LIMITATION =
@@ -571,7 +571,14 @@ function buildPalaceFact(
       pattern: item.pattern ?? null,
       status: '已计算',
       promptText: `${item.heavenStem}临${item.earthStem}为${item.relation}${item.pattern ? `，见${item.pattern}` : ''}`,
-      sources: ['当前宫天盘干与地盘干', '天干生克、合、墓、刑与命名格局规则'],
+      sources:
+        item.relation === '命名格局'
+          ? [
+              '当前宫天盘干与地盘干',
+              '《遁甲演义》卷一：https://zh.wikisource.org/wiki/遁甲演義_(四庫全書本)/卷1',
+              '《遁甲演义》卷二：https://zh.wikisource.org/wiki/遁甲演義_(四庫全書本)/卷2',
+            ]
+          : ['当前宫天盘干与地盘干', 'mingyu-core 公共天干五行、天干五合与统一墓刑入口'],
       limitation: STEM_RELATION_FACT_LIMITATION,
     }));
   const patternFactKeys = patternFacts
@@ -872,10 +879,15 @@ export function analyzeQimenEvidence(data: QimenData): QimenEvidenceAnalysis {
       key: 'rule:qimen:relations',
       status: '已声明',
       category: '五行关系规则',
-      rule: '候选宫之间只按宫五行陈述比和、生、克关系',
-      appliesTo: ['候选宫关系'],
-      sources: ['五行生克公共关系', '当前候选宫五行字段'],
-      promptText: '五行生克规则：候选宫之间只按宫五行陈述比和、生、克关系',
+      rule: '三奇六仪九乘九共八十一种组合全部保留结构事实；只启用《遁甲演义》逐条闭环的十一项固定格，其余七十项不作为传统格局',
+      appliesTo: ['天地盘干关系', '经典格局', '候选宫证据'],
+      sources: [
+        'mingyu-core 公共天干五行与天干五合入口',
+        '《遁甲演义》卷一：https://zh.wikisource.org/wiki/遁甲演義_(四庫全書本)/卷1',
+        '《遁甲演义》卷二：https://zh.wikisource.org/wiki/遁甲演義_(四庫全書本)/卷2',
+      ],
+      promptText:
+        '天地盘干规则：八十一种组合完整保留天干、五行生克与标准五合结构；仅青龙返首、飞鸟跌穴、青龙逃走、白虎猖狂、朱雀投江、螣蛇跃蹻、荧入太白、太白入荧、大格、刑格、小格十一项按已校勘固定格输出，其余七十项不得补造传统名称或现实断语',
       limitation: RULE_SOURCE_LIMITATION,
     },
   ];

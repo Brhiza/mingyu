@@ -1077,7 +1077,7 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
   }
 
   const tengsheYaoyaoPatterns = patterns.filter(
-    (pattern) => pattern.name === '螣蛇夭矫' && pattern.palace,
+    (pattern) => pattern.name === '螣蛇跃蹻' && pattern.palace,
   );
   const wuPalace = findTianStemPalace(ctx.jiuGongGe, '戊');
   const jiPalace = findTianStemPalace(ctx.jiuGongGe, '己');
@@ -1087,11 +1087,11 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
 
     out.push({
       key: `combo:tengsheYaoyaoHold:${palace.gong}`,
-      name: '螣蛇夭矫宜守',
+      name: '螣蛇跃蹻宜守',
       tone: 'mixed',
-      summary: `${palace.name}螣蛇夭矫，合“主军宜固守”；遇敌勿轻战，亦合“蛇矫为客者不害”的活诀，偏兵事主客与守避参考，不替代通用凶格评分。`,
+      summary: `${palace.name}螣蛇跃蹻，合“主军宜固守”；遇敌勿轻战，亦合“蛇矫为客者不害”的活诀，偏兵事主客与守避参考，不替代通用凶格评分。`,
       palace: palace.gong,
-      sources: ['螣蛇夭矫', `${palace.name}`],
+      sources: ['螣蛇跃蹻', `${palace.name}`],
     });
 
     if (wuPalace && jiPalace) {
@@ -1099,9 +1099,9 @@ function pushNamedCombos(ctx: PatternComboContext, out: QimenPatternCombo[]): vo
         key: `combo:tengsheMoveWuJi:${palace.gong}:${wuPalace.gong}:${jiPalace.gong}`,
         name: '螣蛇迁戊己',
         tone: 'mixed',
-        summary: `${palace.name}螣蛇夭矫，古法急迁甲子戊、甲戌己两土宫；本盘取天盘戊所在${wuPalace.name}、天盘己所在${jiPalace.name}，以土制癸水，偏避兵迁营参考，不作通用吉凶评分。`,
+        summary: `${palace.name}螣蛇跃蹻，古法急迁甲子戊、甲戌己两土宫；本盘取天盘戊所在${wuPalace.name}、天盘己所在${jiPalace.name}，以土制癸水，偏避兵迁营参考，不作通用吉凶评分。`,
         palace: palace.gong,
-        sources: ['螣蛇夭矫', `甲子戊：天盘戊${wuPalace.name}`, `甲戌己：天盘己${jiPalace.name}`],
+        sources: ['螣蛇跃蹻', `甲子戊：天盘戊${wuPalace.name}`, `甲戌己：天盘己${jiPalace.name}`],
       });
     }
   }

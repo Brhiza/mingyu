@@ -24,8 +24,8 @@ import {
   isGenerating,
   isControlling,
 } from './_constants';
-import { isKe, SIX_XUN_HEADS } from '../../../../ganzhi';
-import { getNamedStemPairPattern } from './stem-pair-patterns';
+import { isKe, isTianGanHe, SIX_XUN_HEADS } from '../../../../ganzhi';
+import { getNamedStemPairPattern, getStemPairPattern } from './stem-pair-patterns';
 import {
   getDunJiaStem,
   getTianPanStemForStar,
@@ -1855,7 +1855,7 @@ export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
           earth,
           palace: palace.gong,
           type: '命名格局',
-          note: `${namedPattern.name}：${namedPattern.summary}`,
+          note: `${namedPattern.name}：${namedPattern.summary} 条件：${namedPattern.condition} 边界：${namedPattern.limitation}`,
         });
         continue;
       }
@@ -1871,7 +1871,7 @@ export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
           earth,
           palace: palace.gong,
           type: '入墓',
-          note: `${heaven}入${palace.name}墓库${tombBranch ? `（墓在${tombBranch}）` : ''}，能量收敛，事情容易停在原地`,
+          note: `天盘${heaven}落${palace.name}，命中统一入墓表${tombBranch ? `（墓支${tombBranch}）` : ''}；这里只记录落宫条件，不据此单独断事`,
         });
       }
 
@@ -1884,31 +1884,23 @@ export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
           earth,
           palace: palace.gong,
           type: '击刑',
-          note: `${heaven}在${palace.name}击刑，规则、口舌、文书方面要小心`,
+          note: `天盘${heaven}落${palace.name}，命中六仪击刑落宫表；这里只记录落宫条件，不据此单独断事`,
         });
       }
 
       // 入墓或击刑命中后，不再输出五行生克/奇仪相合（避免同宫关系过多）
       if (muHit || xingHit) continue;
 
-      // 奇仪相合
-      const heAndPairs: Array<[string, string, string]> = [
-        ['乙', '己', '乙己合（日月相合，主合作得宜）'],
-        ['丙', '辛', '丙辛合（威制之合，主达成共识）'],
-        ['丁', '壬', '丁壬合（仁义之合，主关系巩固）'],
-        ['戊', '癸', '戊癸合（无情之合，要看后续诚意）'],
-        ['甲', '己', '甲己合（中正之合，主稳定推进）'],
-      ];
-      const hePair = heAndPairs.find(
-        ([a, b]) => (heaven === a && earth === b) || (heaven === b && earth === a),
-      );
-      if (hePair) {
+      const structuralPattern = getStemPairPattern(heaven, earth);
+
+      // 标准天干五合；只陈述固定关系，不附会合作成败。
+      if (isTianGanHe(heaven, earth)) {
         relations.push({
           heaven,
           earth,
           palace: palace.gong,
           type: '奇仪相合',
-          note: `${palace.name}见${hePair[2]}`,
+          note: `${palace.name}天盘${heaven}与地盘${earth}为标准天干五合；${structuralPattern.summary}${structuralPattern.manifestation}`,
         });
         continue;
       }
@@ -1921,7 +1913,7 @@ export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
             earth,
             palace: palace.gong,
             type: '比和',
-            note: `${palace.name}天地干同气${heaven}，事情稳但不易变`,
+            note: `${palace.name}${structuralPattern.summary}${structuralPattern.manifestation}`,
           });
         } else if (isControlling(he, ee)) {
           relations.push({
@@ -1929,7 +1921,7 @@ export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
             earth,
             palace: palace.gong,
             type: '克下',
-            note: `${heaven}克${earth}（${palace.name}天克地，主上压下，可主动出手，但要顾及承接）`,
+            note: `${palace.name}${structuralPattern.summary}${structuralPattern.manifestation}`,
           });
         } else if (isControlling(ee, he)) {
           relations.push({
@@ -1937,7 +1929,7 @@ export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
             earth,
             palace: palace.gong,
             type: '克上',
-            note: `${earth}克${heaven}（${palace.name}地克天，主下顶上，外部环境压制，要先稳后动）`,
+            note: `${palace.name}${structuralPattern.summary}${structuralPattern.manifestation}`,
           });
         } else if (isGenerating(he, ee)) {
           relations.push({
@@ -1945,7 +1937,7 @@ export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
             earth,
             palace: palace.gong,
             type: '生下',
-            note: `${heaven}生${earth}（${palace.name}天生地，主上助下，资源能落地）`,
+            note: `${palace.name}${structuralPattern.summary}${structuralPattern.manifestation}`,
           });
         } else if (isGenerating(ee, he)) {
           relations.push({
@@ -1953,7 +1945,7 @@ export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
             earth,
             palace: palace.gong,
             type: '生上',
-            note: `${earth}生${heaven}（${palace.name}地生天，主下托上，根基会给力）`,
+            note: `${palace.name}${structuralPattern.summary}${structuralPattern.manifestation}`,
           });
         }
       }
