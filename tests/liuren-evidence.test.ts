@@ -258,15 +258,18 @@ test('大六壬证据应公开四课与九宗门取传主版本、异说和整�
   assert.ok(evidence.limitationFacts.some((item) => item.ownerFactKeys.includes(fact.key)));
 });
 
-test('大六壬证据应以旬空地支复核三传空亡，避免冗余字段冲突', () => {
+test('大六壬证据应从日柱重算旬空并忽略旧冗余字段冲突', () => {
   const data = generateLiuren(fixedDate);
+  const expectedXunKong = [...(data.xunKong ?? [])];
   const initialBranch = data.threeTransmissions[0].branch;
-  data.xunKong = Array.from(new Set([...(data.xunKong ?? []), initialBranch]));
-  data.threeTransmissions[0].isVoid = false;
+  const expectedInitialVoid = expectedXunKong.includes(initialBranch);
+  data.xunKong = ['伪', '造'];
+  data.threeTransmissions[0].isVoid = !expectedInitialVoid;
 
   const evidence = analyzeLiurenEvidence(data);
 
-  assert.equal(evidence.transmissions[0].isVoid, true);
+  assert.deepEqual(evidence.calculationFact.xunKong, expectedXunKong);
+  assert.equal(evidence.transmissions[0].isVoid, expectedInitialVoid);
   assert.equal(
     evidence.transmissions[0].relationFacts.find((item) => item.basis === '旬空')?.status,
     '中性',
@@ -276,10 +279,31 @@ test('大六壬证据应以旬空地支复核三传空亡，避免冗余字段�
       (item) => item.ownerKey === evidence.transmissions[0].key && item.basis === '旬空',
     ),
   );
-  assert.match(evidence.timingFacts[0].promptText, new RegExp(`初传${initialBranch}落旬空`));
-  assert.match(evidence.promptText, new RegExp(`初传${initialBranch}落旬空`));
-  assert.doesNotMatch(evidence.promptText, new RegExp(`初传${initialBranch}不空`));
+  assert.match(
+    evidence.timingFacts[0].promptText,
+    new RegExp(`初传${initialBranch}${expectedInitialVoid ? '落旬空' : '不空'}`),
+  );
+  assert.doesNotMatch(evidence.promptText, /伪、造|旬空伪/);
   assert.match(evidence.promptText, /空亡有宜有忌/);
+});
+
+test('大六壬证据重建应拒绝非法四柱', () => {
+  const clean = generateLiuren(fixedDate);
+  const pillarLabels = {
+    year: '年柱',
+    month: '月柱',
+    day: '日柱',
+    hour: '时柱',
+  } as const;
+
+  for (const key of ['year', 'month', 'day', 'hour'] as const) {
+    const corrupted = structuredClone(clean);
+    corrupted.ganzhi[key] = '甲丑';
+    assert.throws(
+      () => analyzeLiurenEvidence(corrupted),
+      new RegExp(`${pillarLabels[key]}必须是有效六十甲子`),
+    );
+  }
 });
 
 test('大六壬旧结果应逐传重算日干六亲与有方向关系，不沿用旧版中末传关系', () => {

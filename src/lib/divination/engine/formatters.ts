@@ -647,8 +647,9 @@ function formatLiurenInfo(data: LiurenData) {
         `${item.stage}${item.branch}乘${item.god}，六亲${item.kinship}，${item.dayStemRelation}，月令${item.seasonState ?? '未定'}，${item.isVoid ? '落旬空' : '不空'}（空亡有宜有忌）${item.previousRelation ? `，与上一传关系${item.previousRelation}` : ''}，与日支五行关系${item.dayRelation}${item.dayBranchRelations?.length ? `，固定地支关系${item.dayBranchRelations.join('、')}` : ''}`,
     )
     .join('；');
-  const voidHits = data.threeTransmissions
-    .filter((item) => data.xunKong?.includes(item.branch))
+  const xunKong = evidenceAnalysis.calculationFact.xunKong;
+  const voidHits = evidenceAnalysis.transmissions
+    .filter((item) => item.isVoid)
     .map((item) => `${item.stage}${item.branch}`);
   const summaryText = [
     `四课依次为${data.fourLessons.map((item) => `${item.name}${item.upper}临${item.lower}`).join('、')}`,
@@ -676,7 +677,7 @@ function formatLiurenInfo(data: LiurenData) {
     `占时${data.divinationBranch}`,
     data.dayNight || '',
     noblemanText,
-    data.xunKong?.length ? `旬空${data.xunKong.join('、')}` : '',
+    `旬空${xunKong.join('、')}`,
   ].filter(Boolean);
   const heavenlyPlateText = data.heavenlyPlate
     .map((item) => `${item.under}上${item.branch}乘${item.god}`)
@@ -721,9 +722,7 @@ function formatLiurenInfo(data: LiurenData) {
           .map(conditionLiurenTraditionalText)
           .join('；')}`
       : '',
-    data.xunKong?.length
-      ? `旬空：${data.xunKong.join('、')}${voidHits.length ? `，命中${voidHits.join('、')}` : ''}`
-      : '',
+    `旬空：${xunKong.join('、')}${voidHits.length ? `，命中${voidHits.join('、')}` : ''}`,
     summaryText ? `简要提示：${summaryText}` : '',
   ]
     .filter(Boolean)

@@ -8,6 +8,7 @@ import type {
   AstrolabeData,
   DivinationData,
   LenormandData,
+  LiurenData,
   LiuyaoData,
   MeihuaData,
   QimenData,
@@ -23,6 +24,7 @@ import {
 } from 'mingyu-core/divination/lenormand';
 import { analyzeXiaoliurenEvidence } from 'mingyu-core/divination/xiaoliuren';
 import { rebuildAuditedQimenData } from 'mingyu-core/divination/qimen';
+import { analyzeLiurenEvidence } from 'mingyu-core/divination/liuren';
 import {
   analyzeLiuyaoActivityPattern,
   analyzeLiuyaoFanFuRelations,
@@ -401,7 +403,9 @@ export function getDivinationSummaryBlocks(
         ].filter(Boolean),
       };
     }
-    case 'liuren':
+    case 'liuren': {
+      const liuren = data as LiurenData;
+      const xunKong = analyzeLiurenEvidence(liuren).calculationFact.xunKong;
       return {
         title: '大六壬起课结果',
         tags: [
@@ -415,7 +419,7 @@ export function getDivinationSummaryBlocks(
           wrapMainEvidence(formatLiurenFocusSummary(data)),
           formatLiurenNoblemanSummary(data),
           `日干寄宫：${'dayStemResidence' in data && data.dayStemResidence ? `${data.ganzhi.day.charAt(0)}寄${data.dayStemResidence}` : '未知'}`,
-          `旬空：${'xunKong' in data && data.xunKong?.length ? data.xunKong.join('、') : '未知'}`,
+          `旬空：${xunKong.join('、')}`,
           `取传法：${'transmissionRule' in data && data.transmissionRule ? data.transmissionRule : '未标注'}`,
           `古籍依据：${
             'classicalRules' in data && data.classicalRules?.length
@@ -435,6 +439,7 @@ export function getDivinationSummaryBlocks(
             : '',
         ].filter(Boolean),
       };
+    }
     case 'tarot': {
       const tarot = data as TarotData;
       return {

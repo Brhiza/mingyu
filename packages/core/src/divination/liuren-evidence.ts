@@ -1,6 +1,8 @@
 import type { LiurenData, LiurenLesson, LiurenTransmission } from '../types/divination';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
+import { getVoidBranches } from '../calendar/lunar';
+import { isValidGanZhi } from '../ganzhi';
 import {
   DAY_STEM_RESIDENCE_MAP,
   FORWARD_GENERAL_GROUND_BRANCHES,
@@ -1419,11 +1421,30 @@ function buildLimitationFacts(params: {
 }
 
 export function analyzeLiurenEvidence(data: LiurenData): LiurenEvidenceAnalysis {
+  if (!data?.ganzhi || typeof data.ganzhi !== 'object') {
+    throw new Error('大六壬证据重建缺少完整四柱干支。');
+  }
+  const pillarLabels = {
+    year: '年柱',
+    month: '月柱',
+    day: '日柱',
+    hour: '时柱',
+  } as const;
+  for (const key of ['year', 'month', 'day', 'hour'] as const) {
+    if (!isValidGanZhi(data.ganzhi[key])) {
+      throw new Error(
+        `大六壬证据重建的${pillarLabels[key]}必须是有效六十甲子，当前为“${String(data.ganzhi[key])}”。`,
+      );
+    }
+  }
   if (data.fourLessons.length !== 4 || data.threeTransmissions.length !== 3) {
     throw new Error('大六壬证据分析需要完整四课与三传。');
   }
   const initial = data.threeTransmissions[0];
-  const xunKong = data.xunKong ?? [];
+  const xunKong = getVoidBranches(data.ganzhi.day);
+  if (xunKong.length !== 2 || new Set(xunKong).size !== 2) {
+    throw new Error(`大六壬日柱“${data.ganzhi.day}”未取得两个唯一旬空地支。`);
+  }
   const calculationFact = buildCalculationFact(data, xunKong);
   const foundationConventionFact = buildFoundationConventionFact();
   const transmissionConventionFact = buildTransmissionConventionFact();

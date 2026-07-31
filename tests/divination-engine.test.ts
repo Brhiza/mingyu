@@ -415,6 +415,19 @@ test('六爻页面资料只输出满足边界的三刑结构，不附加强现�
   assert.doesNotMatch(text, /传统类象为纠缠、对立或反复/);
 });
 
+test('大六壬页面资料与摘要应从日柱重算旬空并忽略旧字段污染', () => {
+  const data = generateLiuren(new Date('2025-06-18T10:30:00+08:00'));
+  const expectedXunKong = [...(data.xunKong ?? [])];
+  data.xunKong = ['伪', '造'];
+
+  const info = formatDivinationInfo('liuren', data, '');
+  const summary = getDivinationSummaryBlocks('liuren', data);
+  const combined = [info, ...summary.tags, ...summary.lines].join('\n');
+
+  assert.match(combined, new RegExp(`旬空[：]?${expectedXunKong.join('、')}`));
+  assert.doesNotMatch(combined, /旬空[：]?伪、造/);
+});
+
 test('奇门算法会补出时旬空亡与马星落宫', () => {
   const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'));
 
