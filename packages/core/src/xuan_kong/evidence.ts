@@ -18,7 +18,6 @@ export interface XuanKongEvidenceSourceResult {
   replacementApplied: boolean;
   plates: { yun: number[]; shan: number[]; xiang: number[] };
   formation: string;
-  combinations: Array<{ name: string; kind: string; palaces?: number[]; note: string }>;
   engine: { name: string; version: string; mode: string };
   replacement?: {
     mountain: {
@@ -38,7 +37,11 @@ export interface XuanKongEvidenceSourceResult {
     verificationSourceUrl: string;
   };
   daoShanXiang: { summary: string };
-  measurement?: { stability: string };
+  measurement?: {
+    stability: string;
+    guaTypeStability?: string;
+    possibleCenterOffsetRangeDegrees?: { minimum: number; maximum: number };
+  };
 }
 
 export interface XuanKongEvidenceAnalysis {
@@ -105,7 +108,10 @@ export function analyzeXuanKongEvidence(
       key: 'xuankong:calculation:mountain',
       stage: '定山向',
       promptText: `坐山${result.sitMountain}，朝向${result.facingMountain}，采用${result.guaType}`,
-      sources: ['二十四山罗盘换算', '下卦中央九度与兼向替卦边界规则'],
+      sources: [
+        '二十四山罗盘换算',
+        '两份固定公开实现的共同区间；偏离山中心 3° 至 4.5° 的分歧区不自动判卦',
+      ],
       limitation: STEP_LIMIT,
     },
     {
@@ -120,7 +126,10 @@ export function analyzeXuanKongEvidence(
             result.replacement.verificationSourceUrl,
             '二十四山替星表与元龙阴阳顺逆规则',
           ]
-        : [`${result.engine.name}@${result.engine.version} 下卦引擎`, '玄空飞星元龙阴阳顺逆规则'],
+        : [
+            `${result.engine.name} ${result.engine.version} 透明飞布规则`,
+            '玄空飞星元龙阴阳顺逆规则',
+          ],
       limitation: STEP_LIMIT,
     },
   ];
@@ -128,8 +137,8 @@ export function analyzeXuanKongEvidence(
   const facts = [
     {
       key: 'xuankong:fact:formation',
-      type: '局型',
-      promptText: result.formation,
+      type: '当运星位置结构',
+      promptText: `${result.formation}；该名称只表示山向宫的当运山星、向星落点比较，不直接代表现实吉凶`,
       sources: ['山向宫当运山星、向星落点比较'],
       limitation: FACT_LIMIT,
     },
@@ -142,22 +151,12 @@ export function analyzeXuanKongEvidence(
     },
     {
       key: 'xuankong:fact:center',
-      type: '中宫组合',
+      type: '中宫三盘星位',
       promptText: `中宫运山向为 ${result.plates.yun[4]}-${result.plates.shan[4]}-${result.plates.xiang[4]}`,
       sources: ['三盘中宫飞星'],
       limitation: FACT_LIMIT,
     },
   ];
-  for (const combination of result.combinations) {
-    facts.push({
-      key: `xuankong:fact:combination:${combination.name}`,
-      type: '组合互参',
-      promptText: `${combination.name}${combination.palaces?.length ? `（宫位 ${combination.palaces.join('、')}）` : ''}：${combination.note}`,
-      sources: [`${result.engine.name}@${result.engine.version} 组合检测`],
-      limitation: FACT_LIMIT,
-    });
-  }
-
   const counterFacts = [];
   if (result.measurement?.stability && result.measurement.stability !== '稳定') {
     counterFacts.push({
@@ -168,6 +167,16 @@ export function analyzeXuanKongEvidence(
       limitation: COUNTER_LIMIT,
     });
   }
+  if (result.measurement?.guaTypeStability === '异说区间') {
+    const range = result.measurement.possibleCenterOffsetRangeDegrees;
+    counterFacts.push({
+      key: 'xuankong:counter:gua-type-threshold',
+      type: '卦型异说',
+      promptText: `测量范围偏离山中心 ${range?.minimum.toFixed(2)}°-${range?.maximum.toFixed(2)}°，涉及 3° 至 4.5° 的下卦、替卦分歧；本盘卦型来自输入明确指定，不代表唯一流派结论`,
+      sources: ['funfwo/Fengshui 与 weig19364/xuankongfeixing 固定提交的阈值差异'],
+      limitation: COUNTER_LIMIT,
+    });
+  }
 
   const limitationFacts = [
     {
@@ -175,8 +184,8 @@ export function analyzeXuanKongEvidence(
       type: '体系边界',
       promptText:
         result.formation === '替卦未成四正局'
-          ? '当前替卦三盘未形成旺山旺向、上山下水、双星到向或双星到坐，组合检测已保守跳过；不覆盖形峦、玄空大卦或不同门派的其他替卦口诀'
-          : '当前输出下卦及兼向替卦的运盘、山盘、向盘、局型与已登记组合；不覆盖形峦、玄空大卦或不同门派的其他替卦口诀',
+          ? '当前替卦三盘未形成四种已登记的当运星位置结构；不扩展检测来源未闭合的特殊组合，也不覆盖形峦、玄空大卦或其他门派替卦口诀'
+          : '当前只输出可复算的运盘、山盘、向盘、替星过程、当运星位置比较与测量边界；不扩展检测来源未闭合的特殊组合，也不覆盖形峦、玄空大卦或其他门派替卦口诀',
       sources: ['项目玄空飞星范围声明'],
       limitation: LIMIT_LIMIT,
     },
@@ -199,23 +208,27 @@ export function analyzeXuanKongEvidence(
 
   const sources = [
     {
-      title: '玄空飞星通行规则',
-      evidence: '三元九运、运盘顺飞、元龙阴阳定山向盘顺逆、下卦边界与兼向替星表',
+      title: '《青囊奥语》《天玉经》《地理辨正》传统框架',
+      evidence:
+        '支持二十四山、元运、阴阳顺逆、山水分层与挨星框架；古籍不直接无歧义证明本项目的完整现代阈值、替星表或组合断语',
       role: '传统规则来源' as const,
     },
     {
-      title: '@soul-atelier/xuankong 0.2.1',
-      evidence: '下卦三盘、局型与组合检测，包含公开金标盘回归测试',
+      title: 'mingyu-core 玄空三盘规则-v2',
+      evidence:
+        '本地透明实现运盘、山盘、向盘、元龙阴阳顺逆、替星过程与星位比较；下卦 216 盘及替卦 216 盘穷举验证',
       role: '公共算法来源' as const,
     },
     {
       title: 'funfwo/Fengshui 固定提交',
-      evidence: '固定提交 bd7d85e 的 getJianshanxiangpan：同元龙取本宫山、查替星并沿用原山阴阳顺逆',
+      evidence:
+        '固定提交 bd7d85e：交叉核验同元龙取本宫山、替星表与元龙顺逆；卦型阈值采用中央 9°，只作为公开实现互校',
       role: '公共算法来源' as const,
     },
     {
       title: 'weig19364/xuankongfeixing 固定提交',
-      evidence: '固定提交 324623c 的单文件 tiGuaMap：完整列出二十四山替星表，用于逐山交叉核验',
+      evidence:
+        '固定提交 324623c：交叉核验完整二十四山替星表；卦型阈值采用偏中心大于 3°，与另一实现的 4.5° 形成已公开保留的分歧',
       role: '公共算法来源' as const,
     },
     {

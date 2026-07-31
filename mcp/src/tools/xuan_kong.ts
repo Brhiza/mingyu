@@ -27,7 +27,10 @@ const xuanKongSchema = z.object({
     .max(45)
     .optional()
     .describe('测量误差，用于边界敏感判断'),
-  guaType: z.enum(['下卦', '替卦']).optional().describe('可选强制卦型'),
+  guaType: z
+    .enum(['下卦', '替卦'])
+    .optional()
+    .describe('可选明确卦型；3°至4.5°异说区间或测量误差跨阈值时必须提供'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
 
@@ -50,7 +53,7 @@ export function registerXuanKongTool(server: McpServer) {
     'metaphysics_xuankong',
     {
       description:
-        '玄空飞星 v1：按建造/起运年与山向生成运盘、山盘、向盘、到山到向及结构化证据；不做形峦或吉凶总分',
+        '玄空飞星 v2：按建造/起运年与山向生成可复算的运盘、山盘、向盘、替星过程、当运星位置比较及结构化证据；不输出来源未闭合的特殊组合、形峦或现实吉凶',
       inputSchema: xuanKongSchema.omit({ question: true }).shape,
       outputSchema: resultOutputSchema,
     },

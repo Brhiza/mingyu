@@ -209,6 +209,8 @@ test('能力清单可序列化且返回副本', () => {
       ?.inputs.find((input) => input.id === 'guaType')
       ?.options?.some((item) => item.value === '替卦'),
   );
+  assert.equal(getSystemCapability('xuankong')?.outputs.includes('组合互参'), false);
+  assert.ok(getSystemCapability('xuankong')?.outputs.includes('当运星位置结构'));
   assert.ok(
     getSystemCapability('residential')
       ?.inputs.find((input) => input.id === 'guaType')

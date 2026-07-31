@@ -3140,7 +3140,7 @@ test('MCP 玄空应返回可核验替卦和替星过程', async () => {
             };
             verificationSourceUrl: string;
           };
-          engine: { mode: string };
+          engine: { name: string; version: string; mode: string };
           evidenceAnalysis: { promptText: string };
         };
       }
@@ -3163,8 +3163,19 @@ test('MCP 玄空应返回可核验替卦和替星过程', async () => {
       chart.replacement.verificationSourceUrl,
       /324623c5460b035d537a8ff2da6b6567f9b85e9e/,
     );
+    assert.equal('combinations' in chart, false);
+    assert.equal(chart.engine.name, 'mingyu-core');
+    assert.equal(chart.engine.version, '玄空三盘规则-v2');
     assert.equal(chart.engine.mode, '替卦');
     assert.match(chart.evidenceAnalysis.promptText, /替星|巽山替为6顺飞|卯山替为2逆飞/);
+
+    const ambiguous = await client.callTool({
+      name: 'metaphysics_xuankong',
+      arguments: { year: 2024, sitDegree: 3.5 },
+    });
+    assert.equal(ambiguous.isError, true);
+    const errorText = ambiguous.content[0]?.type === 'text' ? ambiguous.content[0].text : '';
+    assert.match(errorText, /3° 至 4\.5°.*异说区间.*guaType/);
   });
 });
 

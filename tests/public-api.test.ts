@@ -5754,10 +5754,9 @@ test('公开 API 玄空飞星应返回真实下卦局型与可核验替卦', asy
   });
   assert.equal(valid.response.status, 200);
   assert.equal(valid.body.data.formation, '双星到向');
-  assert.ok(
-    valid.body.data.combinations.some((item: { name: string }) => item.name === '七星真打劫'),
-  );
-  assert.equal(valid.body.data.engine.name, '@soul-atelier/xuankong');
+  assert.equal('combinations' in valid.body.data, false);
+  assert.equal(valid.body.data.engine.name, 'mingyu-core');
+  assert.equal(valid.body.data.engine.version, '玄空三盘规则-v2');
 
   const replacement = await callApi('metaphysics/xuankong/calculate', {
     method: 'POST',
@@ -5777,6 +5776,14 @@ test('公开 API 玄空飞星应返回真实下卦局型与可核验替卦', asy
   );
   assert.equal(replacement.body.data.engine.mode, '替卦');
   assert.match(replacement.body.data.evidenceAnalysis.promptText, /巽山替为6顺飞|卯山替为2逆飞/);
+
+  const ambiguous = await callApi('metaphysics/xuankong/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ year: 2024, sitDegree: 3.5 }),
+  });
+  assert.equal(ambiguous.response.status, 400);
+  assert.match(ambiguous.body.error.message, /3° 至 4\.5°.*异说区间.*guaType/);
 });
 
 test('公开 API 新增术数应拒绝缺失组合和无效日期坐标', async () => {

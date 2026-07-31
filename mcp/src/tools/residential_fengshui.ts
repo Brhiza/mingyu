@@ -48,7 +48,10 @@ const residentialSchema = z.object({
     .describe('指南针读数的北向基准'),
   magneticDeclinationDegrees: z.number().min(-30).max(30).optional().describe('当地磁偏角'),
   measurementUncertaintyDegrees: z.number().min(0).max(45).optional().describe('测量可能误差'),
-  guaType: z.enum(['下卦', '替卦']).optional().describe('玄空卦型；不传时按坐山度数自动判断'),
+  guaType: z
+    .enum(['下卦', '替卦'])
+    .optional()
+    .describe('玄空卦型；3°至4.5°异说区间或测量误差跨阈值时必须提供'),
   question: z.string().optional().describe('希望 AI 重点解读的问题'),
 });
 

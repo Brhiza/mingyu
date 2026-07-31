@@ -130,7 +130,7 @@ test('飞星入中：方向由调用方明确提供，不再按星数奇偶猜�
   assert.notDeepEqual(twoForward, twoReverse);
 });
 
-test('玄空飞星使用元龙阴阳下卦引擎生成金标盘、局型与组合', () => {
+test('玄空飞星使用本地透明元龙阴阳规则生成下卦三盘和位置结构', () => {
   const result = generateXuanKong({ year: 2008, sitMountain: '子' });
   assert.equal(result.sitMountain, '子');
   assert.equal(result.facingMountain, '午');
@@ -139,18 +139,19 @@ test('玄空飞星使用元龙阴阳下卦引擎生成金标盘、局型与组�
   assert.equal(result.plates.xiang.length, 9);
   assert.equal(result.palaces.length, 9);
   assert.equal(result.formation, '双星到向');
-  assert.ok(result.combinations.some((item) => item.name === '七星真打劫'));
   assert.deepEqual(result.engine, {
-    name: '@soul-atelier/xuankong',
-    version: '0.2.1',
+    name: 'mingyu-core',
+    version: '玄空三盘规则-v2',
     mode: '下卦',
   });
+  assert.equal('combinations' in result, false);
   assert.ok(result.prompt.includes('玄空飞星'));
   assert.equal(result.evidenceAnalysis.key, 'xuankong:evidence');
-  assert.match(result.evidenceAnalysis.promptText, /元龙阴阳|双星到向|七星真打劫/);
+  assert.match(result.evidenceAnalysis.promptText, /元龙阴阳|双星到向|不直接代表现实吉凶/);
+  assert.doesNotMatch(result.prompt, /七星真打劫|伏吟|反吟|入囚|组合：/);
 });
 
-test('玄空飞星拒绝缺年和不相对坐向，并按兼向边界切换替卦', () => {
+test('玄空飞星拒绝缺年和不相对坐向，并只在无分歧区间自动判断卦型', () => {
   assert.throws(
     () => generateXuanKong({ sitMountain: '子' } as Parameters<typeof generateXuanKong>[0]),
     /year 必须是/,
@@ -159,9 +160,18 @@ test('玄空飞星拒绝缺年和不相对坐向，并按兼向边界切换替�
     () => generateXuanKong({ year: 2024, sitMountain: '子', facingMountain: '卯' }),
     /坐向必须严格相对/,
   );
-  assert.equal(generateXuanKong({ year: 2024, sitDegree: 7 }).guaType, '替卦');
+  assert.equal(generateXuanKong({ year: 2024, sitDegree: 0 }).guaType, '下卦');
+  assert.equal(generateXuanKong({ year: 2024, sitDegree: 3 }).guaType, '下卦');
+  assert.throws(
+    () => generateXuanKong({ year: 2024, sitDegree: 3.01 }),
+    /3° 至 4\.5°.*异说区间.*guaType/,
+  );
+  assert.throws(
+    () => generateXuanKong({ year: 2024, sitDegree: 4.49 }),
+    /3° 至 4\.5°.*异说区间.*guaType/,
+  );
   assert.equal(generateXuanKong({ year: 2024, sitDegree: 4.5 }).guaType, '替卦');
-  assert.doesNotThrow(() => generateXuanKong({ year: 2024, sitDegree: 4.49 }));
+  assert.equal(generateXuanKong({ year: 2024, sitDegree: 7.5 }).guaType, '替卦');
   assert.throws(
     () =>
       generateXuanKong({
@@ -223,18 +233,6 @@ test('玄空八运子山替卦应按入中星本宫同元龙取巽卯替星', ()
   assert.equal(result.plates.xiang[4], 2);
 });
 
-test('玄空替卦未成四正局时不得借用其他局型生成组合', () => {
-  for (let yun = 1; yun <= 9; yun += 1) {
-    const year = 1864 + (yun - 1) * 20;
-    for (const sitMountain of TWENTY_FOUR_MOUNTAINS) {
-      const result = generateXuanKong({ year, sitMountain, guaType: '替卦' });
-      if (result.formation !== '替卦未成四正局') continue;
-      assert.deepEqual(result.combinations, []);
-      assert.match(result.evidenceAnalysis.promptText, /组合检测已保守跳过/);
-    }
-  }
-});
-
 test('测量误差跨边界时标记山向边界敏感', () => {
   const result = generateXuanKong({
     year: 2024,
@@ -244,6 +242,53 @@ test('测量误差跨边界时标记山向边界敏感', () => {
   });
   assert.ok(result.measurement);
   assert.equal(result.measurement?.stability, '山向边界敏感');
+});
+
+test('测量误差跨越卦型共同区间时不得按中心读数强判', () => {
+  assert.equal(
+    generateXuanKong({
+      year: 2024,
+      sitDegree: 2,
+      measurementUncertaintyDegrees: 1,
+    }).guaType,
+    '下卦',
+  );
+  assert.throws(
+    () =>
+      generateXuanKong({
+        year: 2024,
+        sitDegree: 2,
+        measurementUncertaintyDegrees: 1.01,
+      }),
+    /异说区间.*guaType/,
+  );
+  assert.equal(
+    generateXuanKong({
+      year: 2024,
+      sitDegree: 5,
+      measurementUncertaintyDegrees: 0.5,
+    }).guaType,
+    '替卦',
+  );
+  assert.throws(
+    () =>
+      generateXuanKong({
+        year: 2024,
+        sitDegree: 5,
+        measurementUncertaintyDegrees: 0.51,
+      }),
+    /异说区间.*guaType/,
+  );
+
+  const explicit = generateXuanKong({
+    year: 2024,
+    sitDegree: 3.5,
+    measurementUncertaintyDegrees: 0.25,
+    guaType: '替卦',
+  });
+  assert.equal(explicit.measurement?.guaTypeStability, '异说区间');
+  assert.match(explicit.prompt, /异说区间/);
+  assert.match(explicit.evidenceAnalysis.promptText, /卦型异说|不代表唯一流派结论/);
 });
 
 test('玄空边界敏感时应输出候选山向', () => {
@@ -293,6 +338,7 @@ test('玄空九运乘二十四山的 216 盘应保持三盘、九宫和坐向完
       assert.equal(result.facingMountain, expectedFacing);
       assert.equal(result.guaType, '下卦');
       assert.equal(result.replacementApplied, false);
+      assert.notEqual(result.formation, '替卦未成四正局');
       assert.deepEqual([...result.plates.yun].sort(), NINE_STARS);
       assert.deepEqual([...result.plates.shan].sort(), NINE_STARS);
       assert.deepEqual([...result.plates.xiang].sort(), NINE_STARS);
@@ -303,11 +349,8 @@ test('玄空九运乘二十四山的 216 盘应保持三盘、九宫和坐向完
         assert.equal(palace.shanStar, result.plates.shan[palace.gong - 1]);
         assert.equal(palace.xiangStar, result.plates.xiang[palace.gong - 1]);
       }
-      assert.ok(
-        result.combinations.every((item) =>
-          (item.palaces || []).every((gong) => NINE_STARS.includes(gong)),
-        ),
-      );
+      assert.equal('combinations' in result, false);
+      assert.doesNotMatch(result.prompt, /七星真打劫|三般卦|合十|伏吟|反吟|入囚|组合：/);
       assert.equal(result.evidenceAnalysis.key, 'xuankong:evidence');
     }
   }
@@ -356,6 +399,8 @@ test('玄空替卦九运乘二十四山的 216 盘应保持替星来源、三盘
       assert.deepEqual([...result.plates.shan].sort(), NINE_STARS);
       assert.deepEqual([...result.plates.xiang].sort(), NINE_STARS);
       assert.equal(result.palaces.length, 9);
+      assert.equal('combinations' in result, false);
+      assert.doesNotMatch(result.prompt, /七星真打劫|三般卦|合十|组合：/);
       assert.ok([1, 2, 6, 7, 9].includes(result.replacement.mountain.replacementStar));
       assert.ok([1, 2, 6, 7, 9].includes(result.replacement.facing.replacementStar));
     }
