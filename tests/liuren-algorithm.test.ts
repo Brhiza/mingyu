@@ -957,27 +957,41 @@ test('大六壬逐月神煞应按月建起，且与日支支马分层保存', ()
         item.rule &&
         item.sources.length > 0 &&
         item.limitations.length >= 4 &&
-        item.limitations.some((limitation) => limitation.includes('一百四十三项可复算神煞规则')),
+        item.limitations.some((limitation) => limitation.includes('一百四十九项可复算神煞规则')),
     ),
   );
 });
 
-test('大六壬七项岁神煞应按年支完整循环，并与同位别名及其他层级分开', () => {
+test('大六壬十三项岁神煞应按年支完整循环，并与同位别名及其他层级分开', () => {
   const cases = [
-    [2020, '子', ['子', '午', '巳', '亥', '寅', '戌', '申']],
-    [2021, '丑', ['丑', '未', '午', '子', '卯', '亥', '酉']],
-    [2022, '寅', ['寅', '申', '未', '丑', '辰', '子', '戌']],
-    [2023, '卯', ['卯', '酉', '申', '寅', '巳', '丑', '亥']],
-    [2024, '辰', ['辰', '戌', '酉', '卯', '午', '寅', '子']],
-    [2025, '巳', ['巳', '亥', '戌', '辰', '未', '卯', '丑']],
-    [2026, '午', ['午', '子', '亥', '巳', '申', '辰', '寅']],
-    [2027, '未', ['未', '丑', '子', '午', '酉', '巳', '卯']],
-    [2028, '申', ['申', '寅', '丑', '未', '戌', '午', '辰']],
-    [2029, '酉', ['酉', '卯', '寅', '申', '亥', '未', '巳']],
-    [2030, '戌', ['戌', '辰', '卯', '酉', '子', '申', '午']],
-    [2031, '亥', ['亥', '巳', '辰', '戌', '丑', '酉', '未']],
+    [2020, '子', ['子', '午', '巳', '亥', '寅', '戌', '申', '卯', '酉', '未', '辰', '戌', '未']],
+    [2021, '丑', ['丑', '未', '午', '子', '卯', '亥', '酉', '戌', '酉', '申', '丑', '未', '辰']],
+    [2022, '寅', ['寅', '申', '未', '丑', '辰', '子', '戌', '巳', '子', '酉', '戌', '辰', '丑']],
+    [2023, '卯', ['卯', '酉', '申', '寅', '巳', '丑', '亥', '子', '子', '戌', '未', '丑', '戌']],
+    [2024, '辰', ['辰', '戌', '酉', '卯', '午', '寅', '子', '辰', '子', '亥', '辰', '戌', '未']],
+    [2025, '巳', ['巳', '亥', '戌', '辰', '未', '卯', '丑', '申', '卯', '子', '丑', '未', '辰']],
+    [2026, '午', ['午', '子', '亥', '巳', '申', '辰', '寅', '午', '卯', '丑', '戌', '辰', '丑']],
+    [2027, '未', ['未', '丑', '子', '午', '酉', '巳', '卯', '丑', '卯', '寅', '未', '丑', '戌']],
+    [2028, '申', ['申', '寅', '丑', '未', '戌', '午', '辰', '寅', '午', '卯', '辰', '戌', '未']],
+    [2029, '酉', ['酉', '卯', '寅', '申', '亥', '未', '巳', '酉', '午', '辰', '丑', '未', '辰']],
+    [2030, '戌', ['戌', '辰', '卯', '酉', '子', '申', '午', '未', '午', '巳', '戌', '辰', '丑']],
+    [2031, '亥', ['亥', '巳', '辰', '戌', '丑', '酉', '未', '亥', '酉', '午', '未', '丑', '戌']],
   ] as const;
-  const names = ['太岁', '岁破', '小耗', '病符', '丧门', '吊客', '岁虎'] as const;
+  const names = [
+    '太岁',
+    '岁破',
+    '小耗',
+    '病符',
+    '丧门',
+    '吊客',
+    '岁虎',
+    '岁刑',
+    '大将军',
+    '岁墓',
+    '岁黄幡',
+    '岁豹尾',
+    '岁煞',
+  ] as const;
 
   for (const [year, yearBranch, targets] of cases) {
     const result = generateLiuren(new Date(`${year}-02-20T12:00:00+08:00`));
@@ -994,12 +1008,18 @@ test('大六壬七项岁神煞应按年支完整循环，并与同位别名及�
         facts.get(name)?.targetType,
       ]),
       names.map((name, index) => [name, targets[index], '岁神煞', '年支', yearBranch, '地支']),
-      `${yearBranch}年七项岁神煞`,
+      `${yearBranch}年十三项岁神煞`,
     );
     assert.equal(new Set(shenShaFacts.map((item) => item.name)).size, shenShaFacts.length);
     assert.ok(
-      ['大耗', '破煞', '岁宅', '白虎'].every((name) => !facts.has(name)),
+      ['大耗', '破煞', '岁宅', '白虎', '将军', '豹尾'].every((name) => !facts.has(name)),
       `${yearBranch}年不得把岁神煞同位别名重复生成为事实`,
+    );
+    assert.equal(facts.get('黄幡')?.basis, '月建', `${yearBranch}年普通黄幡仍应属于逐月层`);
+    assert.equal(
+      LIUCHONG_MAP[facts.get('岁黄幡')?.target ?? ''],
+      facts.get('岁豹尾')?.target,
+      `${yearBranch}年岁黄幡与岁豹尾应保持对冲`,
     );
   }
 
@@ -1019,6 +1039,21 @@ test('大六壬七项岁神煞应按年支完整循环，并与同位别名及�
     sampleFacts.get('岁虎')?.sources.join('；') ?? '',
     /岁后四辰.+岁后四神.+亥年未为岁虎/,
   );
+  assert.match(
+    sampleFacts.get('岁刑')?.sources.join('；') ?? '',
+    /六壬大全.+六壬指南注解.+太岁所刑/,
+  );
+  assert.match(
+    sampleFacts.get('大将军')?.sources.join('；') ?? '',
+    /三年一移.+六壬兵占.+六壬粹言.+六壬银河櫂/,
+  );
+  assert.match(
+    sampleFacts.get('岁墓')?.sources.join('；') ?? '',
+    /岁后五位.+子年未、卯年戌、午年丑、酉年辰/,
+  );
+  assert.match(sampleFacts.get('岁黄幡')?.sources.join('；') ?? '', /黄幡只向三合来.+其冲名黄幡/);
+  assert.match(sampleFacts.get('岁豹尾')?.sources.join('；') ?? '', /岁豹尾四组位置.+六壬兵占/);
+  assert.match(sampleFacts.get('岁煞')?.sources.join('；') ?? '', /未、辰、丑、戌三轮.+六壬心镜/);
   assert.match(sampleFacts.get('岁破')?.limitations.join('；') ?? '', /不另生成.+大耗.+破煞/);
   assert.match(sampleFacts.get('小耗')?.limitations.join('；') ?? '', /不另生成.+岁宅/);
   assert.match(sampleFacts.get('病符')?.limitations.join('；') ?? '', /支病符.+分层保存/);
@@ -1026,6 +1061,21 @@ test('大六壬七项岁神煞应按年支完整循环，并与同位别名及�
     sampleFacts.get('岁虎')?.limitations.join('；') ?? '',
     /十二天将白虎及旬虎.+不另生成.+白虎/,
   );
+  assert.match(sampleFacts.get('岁刑')?.limitations.join('；') ?? '', /不因单项出现自动判断刑责/);
+  assert.match(
+    sampleFacts.get('大将军')?.limitations.join('；') ?? '',
+    /不另生成简称“将军”.+行人归期/,
+  );
+  assert.match(
+    sampleFacts.get('岁墓')?.limitations.join('；') ?? '',
+    /不把岁墓与日干墓、五墓、墓门或天将蛇虎合并/,
+  );
+  assert.match(sampleFacts.get('岁黄幡')?.limitations.join('；') ?? '', /按月表的“黄幡”分层保存/);
+  assert.match(
+    sampleFacts.get('岁豹尾')?.limitations.join('；') ?? '',
+    /尚未闭合的逐月“豹尾”.+不据岁煞表补造/,
+  );
+  assert.match(sampleFacts.get('岁煞')?.limitations.join('；') ?? '', /不代替.+月煞、灾煞、劫煞/);
 });
 
 test('大六壬罗网应按日干寄宫前一支与日支前一支定位，并保留异说边界', () => {
@@ -2623,8 +2673,8 @@ test('大六壬已登记神煞应覆盖十二月建与六十日柱固定表', ()
     const hasDiZhuan = facts.has('地转');
     assert.equal(
       shenShaFacts.length,
-      139 + Number(hasTianHe) + Number(hasTianShe) + Number(hasTianZhuan) + Number(hasDiZhuan),
-      `${result.ganzhi.day}应有一百三十九项固定神煞及条件性天合、天赦、天转、地转`,
+      145 + Number(hasTianHe) + Number(hasTianShe) + Number(hasTianZhuan) + Number(hasDiZhuan),
+      `${result.ganzhi.day}应有一百四十五项固定神煞及条件性天合、天赦、天转、地转`,
     );
     assert.equal(facts.size, shenShaFacts.length, `${result.ganzhi.day}神煞名称不得重复`);
     assert.deepEqual(
