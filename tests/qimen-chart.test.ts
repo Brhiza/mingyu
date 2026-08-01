@@ -52,6 +52,7 @@ const auditedClassicPatternNames = new Set([
   '天假',
   '地假',
   '鬼假',
+  '玉女守门',
 ]);
 
 test('奇门值符值使公开入口应拒绝非法干支、缺局数与坏局数', () => {
@@ -202,15 +203,7 @@ test('奇门转盘中宫干随天禽时应进入原始干关系与已审核固�
   const yiRelations = getStemRelations(yiRuMu.palaces);
   assert.equal(yiRuMu.palaces[1].tianPan.companionStem, '乙');
   assert.ok(!yiPatterns.some((pattern) => /奇入墓|乙入墓/.test(pattern.name)));
-  assert.ok(
-    yiRelations.some(
-      (relation) =>
-        relation.heaven === '乙' &&
-        relation.earth === '癸' &&
-        relation.palace === 2 &&
-        relation.type === '入墓',
-    ),
-  );
+  assert.ok(!yiRelations.some((relation) => relation.type === '入墓'));
 
   const yiDeShi = findPalaces(true, 6, 9);
   const deShiPatterns = getClassicPatterns({

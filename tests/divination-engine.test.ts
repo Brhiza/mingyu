@@ -17,7 +17,7 @@ import type {
   TaiyiResult,
   TarotData,
 } from '../packages/core/src/types/divination';
-import { STEM_TOMB_MAP } from '../packages/core/src/divination/algorithms/qimen/helpers/_constants';
+import { jiazi } from '../packages/core/src/divination/divination-data';
 import {
   getClassicPatterns,
   getStemRelations,
@@ -504,22 +504,12 @@ test('奇门五不遇时应按日干克应判断，不只看时辰干支', () =>
   assert.equal(trueCase.specialConditions?.isWuBuYuShi, true);
 });
 
-test('奇门时干入墓应按宝鉴校正时辰表判断', () => {
-  for (const ganZhi of ['戊辰', '壬辰', '己未', '癸未', '辛丑']) {
+test('奇门六十时柱全部关闭三奇与时干入墓自动标记', () => {
+  for (const ganZhi of jiazi) {
     const conditions = checkSpecialHourConditions(ganZhi);
-    assert.equal(conditions.isShiGanRuMu, true, `${ganZhi}应判为时干入墓`);
-    assert.match(conditions.description, /时干入墓/);
+    assert.equal(conditions.isShiGanRuMu, false, `${ganZhi}不得自动判为时干入墓`);
+    assert.doesNotMatch(conditions.description, /三奇.*入墓|时干入墓|十干入墓/);
   }
-
-  for (const ganZhi of ['乙未', '丙戌', '丁丑']) {
-    const conditions = checkSpecialHourConditions(ganZhi);
-    assert.equal(conditions.isShiGanRuMu, true, `${ganZhi}应判为三奇日时干入墓`);
-    assert.match(conditions.description, /三奇日时干入墓/);
-  }
-
-  const oldWrongCase = checkSpecialHourConditions('戊戌');
-  assert.equal(oldWrongCase.isShiGanRuMu, false);
-  assert.doesNotMatch(oldWrongCase.description, /时干入墓/);
 });
 
 test('奇门值符值使应按当前局地盘旬首落宫定位', () => {
@@ -672,7 +662,7 @@ test('奇门定局、值符值使、宫间作用与应期前提应进入统一�
         item.limitation.includes('不证明现实吉凶'),
     ),
   );
-  assert.equal(analysis.ruleSourceFacts.length, 16);
+  assert.equal(analysis.ruleSourceFacts.length, 21);
   assert.ok(
     analysis.ruleSourceFacts.some(
       (item) =>
@@ -1412,17 +1402,16 @@ test('年家奇门在年初干支未切换时应沿用匹配干支的三元周�
   assert.equal(beforeYearChange.juShu, sameGanzhiYear.juShu);
 });
 
-test('奇门天地盘干入墓关系与统一天干入墓表一致', () => {
-  for (const [stem, tomb] of Object.entries(STEM_TOMB_MAP)) {
-    const relations = getStemRelations([buildQimenPalace(tomb.palace, stem)]);
-
-    assert.ok(
-      relations.some(
-        (relation) =>
-          relation.heaven === stem && relation.type === '入墓' && relation.palace === tomb.palace,
-      ),
-      `${stem}应在${tomb.palace}宫/${tomb.branch}支入墓`,
-    );
+test('奇门九干乘九宫全部关闭未经版本选择的入墓关系', () => {
+  const stems = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙'];
+  for (const stem of stems) {
+    for (let gong = 1; gong <= 9; gong += 1) {
+      const relations = getStemRelations([buildQimenPalace(gong, stem)]);
+      assert.ok(
+        !relations.some((relation) => relation.type === '入墓'),
+        `天盘${stem}落${gong}宫不得自动标记入墓`,
+      );
+    }
   }
 });
 
@@ -1556,7 +1545,7 @@ test('奇门基础标签只保留可复算位置事实并关闭未审核格局�
   const serialized = JSON.stringify(tags);
 
   assert.doesNotMatch(serialized, /三奇得|三奇游六仪|符使同宫|宝鉴三奇/);
-  assert.ok(tags.every((tag) => /伏吟|反吟|门克宫|击刑落宫|入墓落宫|马星落宫/.test(tag)));
+  assert.ok(tags.every((tag) => /伏吟|反吟|门克宫|击刑落宫|马星落宫/.test(tag)));
   assert.ok(
     buildPatternDetails(tags).every((detail) => /只记录|不得|需结合具体用神/.test(detail.summary)),
   );
@@ -1588,6 +1577,7 @@ test('奇门跨年跨月跨时辰与两种排盘法只输出已审核格局事�
     '天假',
     '地假',
     '鬼假',
+    '玉女守门',
   ]);
   const retiredPattern =
     /九遁|天遁|地遁|人遁|神遁|鬼遁|龙遁|虎遁|风遁|云遁|三奇得|三奇游六仪|三诈|真诈|重诈|休诈|人假|物假|神假|升殿|奇入墓|奇受制|三奇会甲|符使同宫|相佐|守户|天乙飞宫|天乙伏宫|月格|时格|勃格|地罗遮蔽|天辅时|五合时|玉女守门/;

@@ -48,20 +48,6 @@ const wuBuYuHourStemByDayStem: Record<string, string> = {
   壬: '戊',
   癸: '己',
 };
-const hourRuMuByGanZhi: Record<
-  string,
-  { branch: string; palace: number; category: '三奇日时干入墓' | '时干入墓' }
-> = {
-  乙未: { branch: '未', palace: 2, category: '三奇日时干入墓' },
-  丙戌: { branch: '戌', palace: 6, category: '三奇日时干入墓' },
-  丁丑: { branch: '丑', palace: 8, category: '三奇日时干入墓' },
-  戊辰: { branch: '辰', palace: 4, category: '时干入墓' },
-  壬辰: { branch: '辰', palace: 4, category: '时干入墓' },
-  己未: { branch: '未', palace: 2, category: '时干入墓' },
-  癸未: { branch: '未', palace: 2, category: '时干入墓' },
-  辛丑: { branch: '丑', palace: 8, category: '时干入墓' },
-};
-
 export type QimenJuMethod = 'chaibu' | 'zhirun';
 export type QimenResolvedJuMethod = QimenJuMethod | 'yuejia' | 'nianjia';
 
@@ -428,11 +414,9 @@ export function getQimenJuShu(
 /**
  * 检查特殊时辰情况
  *
- * 包括：六甲时、六癸时、时干入墓、五不遇时。
- *
- * 时干入墓法理依据：
- *   《奇门宝鉴御定》校正为戊辰、壬辰、己未、癸未、辛丑五时；
- *   另列乙未、丙戌、丁丑为日时干三奇入墓，其凶与墓制同。
+ * 包括：六甲时、六癸时、五不遇时。
+ * 时干入墓与三奇入墓因原典把时柱、日干前提与天盘落宫混为多套条件，
+ * 当前失败关闭；兼容字段 isShiGanRuMu 固定为 false。
  *
  * 五不遇时法理依据（《遁甲演义》）：
  *   时干克日干，名为五不遇。这里只记录干克条件，不自动生成现实结果或行动建议。
@@ -454,7 +438,6 @@ export function checkSpecialHourConditions(
   assertValidJiazi(hourGanZhi, '时辰干支');
   if (dayGanZhi !== undefined) assertValidJiazi(dayGanZhi, '日干支');
   const hourGan = hourGanZhi.charAt(0);
-  const hourZhi = hourGanZhi.charAt(1);
 
   const result = {
     isLiuJiaHour: false,
@@ -480,15 +463,7 @@ export function checkSpecialHourConditions(
     result.description += '六癸时辰，癸为阴干之末；';
   }
 
-  // ── 3. 时干入墓 ──
-  // 《奇门宝鉴御定》明言旧本有误，时辰级入墓采用校正后的干支专表。
-  const ruMuInfo = hourRuMuByGanZhi[hourGanZhi];
-  if (ruMuInfo && hourZhi === ruMuInfo.branch) {
-    result.isShiGanRuMu = true;
-    result.description += `${ruMuInfo.category}（${hourGanZhi}，${hourGan}入${ruMuInfo.palace}宫/${ruMuInfo.branch}支）；`;
-  }
-
-  // ── 4. 五不遇时 ──
+  // ── 3. 五不遇时 ──
   // 《遁甲演义》："五不遇时者，时干克日干也。"
   // 五不遇必须同时比较日干与时干，不能只凭时辰干支固定列表判断。
   const dayGan = dayGanZhi?.charAt(0);

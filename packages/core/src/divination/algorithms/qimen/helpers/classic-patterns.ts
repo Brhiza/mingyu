@@ -11,7 +11,7 @@
 
 import type { QimenJiuGongGe, QimenScope } from '../../../../types/divination';
 import { getXunHead, isTianGanHe } from '../../../../ganzhi';
-import { isControlling, isGenerating, stemElements, STEM_TOMB_MAP } from './_constants';
+import { isControlling, isGenerating, stemElements } from './_constants';
 import { getNamedStemPairPattern, getStemPairPattern } from './stem-pair-patterns';
 import {
   getDunJiaStem,
@@ -129,7 +129,7 @@ function getStemPairNamedPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[]
 /**
  * 识别天地盘干关系。
  *
- * 已校勘固定格优先按命名格局记录；其余组合只输出入墓、击刑、标准天干五合
+ * 已校勘固定格优先按命名格局记录；其余组合只输出击刑、标准天干五合
  * 或五行生克结构，不据此生成现实事件、人物意图、吉凶、成败或行动建议。
  */
 export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
@@ -154,18 +154,6 @@ export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
         });
       }
 
-      const tomb = STEM_TOMB_MAP[heaven];
-      const isTomb = tomb?.palace === palace.gong;
-      if (isTomb) {
-        relations.push({
-          heaven,
-          earth,
-          palace: palace.gong,
-          type: '入墓',
-          note: `天盘${heaven}落${palace.name}，命中统一入墓表（墓支${tomb.branch}）；这里只记录落宫条件，不据此单独断事`,
-        });
-      }
-
       const isJiXing = STEM_JI_XING_PALACES[heaven]?.includes(palace.gong) ?? false;
       if (isJiXing) {
         relations.push({
@@ -177,7 +165,7 @@ export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
         });
       }
 
-      if (namedPattern || isTomb || isJiXing) continue;
+      if (namedPattern || isJiXing) continue;
 
       const structuralPattern = getStemPairPattern(heaven, earth);
       const boundary = structuralPattern.manifestation;

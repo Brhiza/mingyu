@@ -1666,3 +1666,52 @@ test('天网相关六十时柱乘九落宫条件全部失败关闭并公开版�
   assert.match(rule.promptText, /只保留完整时柱、阴阳遁局、天盘癸落宫、地盘癸和值符旬首事实/);
   assert.doesNotMatch(rule.promptText, /宜出|必成|必胜|百事皆吉/);
 });
+
+test('三奇与时干入墓按九干乘九宫全部关闭并公开版本冲突', () => {
+  const stems = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙'] as const;
+  let checked = 0;
+
+  for (const heavenStem of stems) {
+    for (let gong = 1; gong <= 9; gong += 1) {
+      const palace = buildPalaceAt(gong, heavenStem);
+      const patterns = getClassicPatterns({
+        jiuGongGe: [palace],
+        zhiFu: '',
+        zhiShi: '',
+        scope: 'hour',
+        hourGanZhi: '甲子',
+      });
+      const relations = getStemRelations([palace]);
+
+      assert.ok(
+        !patterns.some((pattern) => /三奇入墓|时干入墓|十干入墓/.test(pattern.name)),
+        `天盘${heavenStem}落${gong}宫不得自动命名入墓`,
+      );
+      assert.ok(
+        !relations.some((relation) => relation.type === '入墓'),
+        `天盘${heavenStem}落${gong}宫不得自动标记入墓关系`,
+      );
+      checked += 1;
+    }
+  }
+
+  assert.equal(checked, 9 * 9);
+  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const rule = analysis.ruleSourceFacts.find(
+    (item) => item.key === 'rule:qimen:tomb-version-boundary',
+  );
+  const fixedConditions = analysis.calculationEvidenceFacts.find(
+    (item) => item.key === 'qimen:calculation:fixed-ganzhi-conditions',
+  );
+
+  assert.ok(rule);
+  assert.equal(rule.category, '三奇与时干入墓版本冲突边界');
+  assert.match(rule.promptText, /天盘位置/);
+  assert.match(rule.promptText, /时柱表还附加乙庚日、丙辛日分组/);
+  assert.match(rule.promptText, /旧固定时柱表既漏掉日干前提又与原文表项不符/);
+  assert.match(rule.promptText, /完整日柱、时柱及天地盘干落宫事实/);
+  assert.doesNotMatch(rule.promptText, /百事皆吉|必成|必胜/);
+  assert.ok(fixedConditions);
+  assert.equal(fixedConditions.result.isShiGanRuMu, false);
+  assert.match(fixedConditions.promptText, /三奇与时干入墓因版本冲突不自动标记/);
+});

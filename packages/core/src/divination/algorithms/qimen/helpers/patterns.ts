@@ -9,7 +9,6 @@ import type { QimenJiuGongGe } from '../../../../types/divination';
 import { qimen } from '../../../../divination/divination-data';
 import { isKe } from '../../../../ganzhi';
 import { getDoorElement, getOppositePalace } from './palace-utils';
-import { STEM_TOMB_MAP } from './_constants';
 
 const { palaceStars, doorPalaceMap } = qimen;
 
@@ -29,7 +28,6 @@ const AUDITED_PATTERN_TAG_PREFIXES = [
   '门反吟',
   '门克宫',
   '击刑落宫',
-  '入墓落宫',
   '马星落宫',
 ] as const;
 
@@ -49,13 +47,6 @@ function getJiXingTag(stem: string, palace: number, palaceName: string): string 
   return JI_XING_MAP[stem] === palace ? `击刑落宫（时干${stem}落${palaceName}）` : null;
 }
 
-function getRuMuTag(stem: string, palace: number, palaceName: string): string | null {
-  const tomb = STEM_TOMB_MAP[stem];
-  return tomb?.palace === palace
-    ? `入墓落宫（时干${stem}落${palaceName}，墓支${tomb.branch}）`
-    : null;
-}
-
 export interface QimenPatternTagParams {
   zhiFu: string;
   zhiShi: string;
@@ -70,7 +61,7 @@ export interface QimenPatternTagParams {
 /**
  * 返回正式允许进入提示词的位置标签。
  *
- * 星门伏吟/反吟、门克宫、击刑、入墓和马星均只记录可复算命中条件；不在此处解释
+ * 星门伏吟/反吟、门克宫、击刑和马星均只记录可复算命中条件；不在此处解释
  * 吉凶和现实后果。三奇得、三奇得使、三奇游六仪、符使同宫等旧标签失败关闭。
  */
 export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
@@ -112,9 +103,6 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
   if (zhiFuLandingGong) {
     const jiXingTag = getJiXingTag(hourGanForFind, zhiFuLandingPalace, zhiFuLandingGong.name);
     if (jiXingTag) tags.push(jiXingTag);
-
-    const ruMuTag = getRuMuTag(hourGanForFind, zhiFuLandingPalace, zhiFuLandingGong.name);
-    if (ruMuTag) tags.push(ruMuTag);
   }
 
   if (horsePalace !== undefined) {
@@ -150,9 +138,6 @@ function getPatternSummary(tag: string): string {
   }
   if (tag.startsWith('击刑落宫')) {
     return '时干命中六仪击刑固定落宫表；这里只记录命中条件，不据此单独断事。';
-  }
-  if (tag.startsWith('入墓落宫')) {
-    return '时干命中统一入墓落宫表；这里只记录命中条件，不据此单独断事。';
   }
   if (tag.startsWith('马星落宫')) {
     return '驿马所在宫位已记录；是否与问题相关、是否发动及如何取用需结合具体用神。';
