@@ -56,12 +56,18 @@ export function matchDistinctStemGroupCounts(
       return true;
     }
 
+    if (groupRule.scope === 'visible' && !visibleStems) return false;
+    if (groupRule.scope === 'hidden' && !hiddenStems) return false;
+    if (groupRule.scope !== 'visible' && groupRule.scope !== 'hidden') {
+      if (!visibleStems || !hiddenStems) return false;
+    }
+
     const sourceStems =
       groupRule.scope === 'visible'
-        ? visibleStems || []
+        ? visibleStems!
         : groupRule.scope === 'hidden'
-          ? hiddenStems || []
-          : [...(visibleStems || []), ...(hiddenStems || [])];
+          ? hiddenStems!
+          : [...visibleStems!, ...hiddenStems!];
 
     const distinctCount = new Set(sourceStems.filter((stem) => groupRule.stems.includes(stem)))
       .size;
@@ -170,6 +176,8 @@ export function matchMinTenGodCategoryTotalCounts(
     return true;
   }
 
+  if (!visibleStems || !hiddenStems) return false;
+
   const categoryCounts = mergeCategoryCounts(
     buildTenGodCategoryCounts(dayStem, visibleStems, true),
     buildTenGodCategoryCounts(dayStem, hiddenStems, false),
@@ -192,6 +200,8 @@ export function matchMaxTenGodCategoryTotalCounts(
   if (!requiredCounts || Object.keys(requiredCounts).length === 0) {
     return true;
   }
+
+  if (!visibleStems || !hiddenStems) return false;
 
   const categoryCounts = mergeCategoryCounts(
     buildTenGodCategoryCounts(dayStem, visibleStems, true),
@@ -254,6 +264,8 @@ export function matchMinTenGodCategoryTotalDistinctCounts(
     return true;
   }
 
+  if (!visibleStems || !hiddenStems) return false;
+
   const distinctCounts = mergeDistinctCategoryCounts(
     buildTenGodCategoryDistinctStemSets(dayStem, visibleStems, true),
     buildTenGodCategoryDistinctStemSets(dayStem, hiddenStems, false),
@@ -276,6 +288,8 @@ export function matchMaxTenGodCategoryTotalDistinctCounts(
   if (!requiredCounts || Object.keys(requiredCounts).length === 0) {
     return true;
   }
+
+  if (!visibleStems || !hiddenStems) return false;
 
   const distinctCounts = mergeDistinctCategoryCounts(
     buildTenGodCategoryDistinctStemSets(dayStem, visibleStems, true),
@@ -321,6 +335,8 @@ export function matchMinTotalStemCounts(
     return true;
   }
 
+  if (!visibleStems || !hiddenStems) return false;
+
   const stemCounts = [...(visibleStems || []), ...(hiddenStems || [])].reduce<
     Record<string, number>
   >((counts, stem) => {
@@ -342,7 +358,7 @@ export function matchMaxTotalStemCounts(
     return true;
   }
 
-  if (!visibleStems && !hiddenStems) {
+  if (!visibleStems || !hiddenStems) {
     return false;
   }
 
@@ -410,7 +426,9 @@ export function matchMaxStemCounts(
     return true;
   }
 
-  const stemCounts = (stems || []).reduce<Record<string, number>>((counts, stem) => {
+  if (!stems) return false;
+
+  const stemCounts = stems.reduce<Record<string, number>>((counts, stem) => {
     counts[stem] = (counts[stem] || 0) + 1;
     return counts;
   }, {});

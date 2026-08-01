@@ -72,7 +72,11 @@ export function matchForbiddenVisibleStemPillarPairs(
     return true;
   }
 
-  if (!visibleStemSources || visibleStemSources.length === 0) {
+  if (!visibleStemSources) {
+    return false;
+  }
+
+  if (visibleStemSources.length === 0) {
     return true;
   }
 
@@ -175,6 +179,10 @@ export function matchForbiddenVisibleStemBranchPairs(
     return true;
   }
 
+  if (!visibleStemSources || !hiddenStemSources) {
+    return false;
+  }
+
   return pairRules.every(
     (pairRule) => !hasVisibleStemBranchPair(pairRule, visibleStemSources, hiddenStemSources),
   );
@@ -257,7 +265,11 @@ export function matchForbiddenVisibleStemDistancePairs(
     return true;
   }
 
-  if (!visibleStemSources || visibleStemSources.length === 0) {
+  if (!visibleStemSources) {
+    return false;
+  }
+
+  if (visibleStemSources.length === 0) {
     return true;
   }
 

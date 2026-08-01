@@ -53,7 +53,11 @@ export function excludesAll(values: string[] | undefined, targets: string[] | un
     return true;
   }
 
-  if (!targets || targets.length === 0) {
+  if (!targets) {
+    return false;
+  }
+
+  if (targets.length === 0) {
     return true;
   }
 
@@ -105,9 +109,12 @@ export function buildFormationTenGodCategories(
   dayStem: string | undefined,
   formationWuxings: string[] | undefined,
 ): string[] | undefined {
-  if (!dayStem || !formationWuxings || formationWuxings.length === 0) {
+  if (!formationWuxings) {
     return undefined;
   }
+
+  if (formationWuxings.length === 0) return [];
+  if (!dayStem) return undefined;
 
   const categories = [
     ...new Set(
@@ -123,9 +130,11 @@ export function buildTenGodCategoryCounts(
   stems: string[] | undefined,
   excludeDayStemSelf: boolean,
 ): Record<string, number> | null {
-  if (!dayStem || !stems || stems.length === 0) {
+  if (!dayStem || !stems) {
     return null;
   }
+
+  if (stems.length === 0) return {};
 
   const categoryCounts = stems.reduce<Record<string, number>>((counts, stem) => {
     const category = getStemTenGodCategory(dayStem, stem);
@@ -165,9 +174,11 @@ export function buildTenGodCategoryDistinctStemSets(
   stems: string[] | undefined,
   excludeDayStemSelf: boolean,
 ): Record<string, Set<string>> | null {
-  if (!dayStem || !stems || stems.length === 0) {
+  if (!dayStem || !stems) {
     return null;
   }
+
+  if (stems.length === 0) return {};
 
   const categoryStemSets = stems.reduce<Record<string, Set<string>>>((sets, stem) => {
     if (excludeDayStemSelf && stem === dayStem) {
@@ -186,7 +197,7 @@ export function buildTenGodCategoryDistinctStemSets(
     return sets;
   }, {});
 
-  return Object.keys(categoryStemSets).length > 0 ? categoryStemSets : null;
+  return categoryStemSets;
 }
 
 export function buildTenGodCategoryDistinctStemCounts(

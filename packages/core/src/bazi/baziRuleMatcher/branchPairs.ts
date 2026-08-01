@@ -80,6 +80,10 @@ export function matchForbiddenBranchPillarPairs(
     return true;
   }
 
+  if (!hiddenStemSources) {
+    return false;
+  }
+
   return pairRules.every((pairRule) => !hasBranchPillarPair(pairRule, hiddenStemSources));
 }
 
@@ -111,6 +115,10 @@ export function matchForbiddenHiddenStemBranchPairs(
 ): boolean {
   if (!pairRules || pairRules.length === 0) {
     return true;
+  }
+
+  if (!hiddenStemSources) {
+    return false;
   }
 
   return pairRules.every((pairRule) => !hasHiddenStemBranchPair(pairRule, hiddenStemSources));

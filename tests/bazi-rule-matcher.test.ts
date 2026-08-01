@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { matchesRule } from '@core/bazi/baziRuleMatcher';
+import { matchesRule, type MatchableRule, type RuleMatchContext } from '@core/bazi/baziRuleMatcher';
 
 test('要求外格资格的规则只有在统一资格明确成立时才可命中', () => {
   const rule = {
@@ -12,6 +12,137 @@ test('要求外格资格的规则只有在统一资格明确成立时才可命�
   assert.equal(matchesRule(rule, {}), false);
   assert.equal(matchesRule(rule, { externalPatternEligible: false }), false);
   assert.equal(matchesRule(rule, { externalPatternEligible: true }), true);
+});
+
+test('规则排除项与最大值应穷举失败关闭缺失的实际盘面资料', () => {
+  const cases: MatchableRule[] = [
+    { id: 'forbidden-formation-category', forbiddenFormationTenGodCategories: ['财星'] },
+    { id: 'forbidden-visible-stem', forbiddenVisibleStems: ['甲'] },
+    { id: 'forbidden-hidden-stem', forbiddenHiddenStems: ['甲'] },
+    {
+      id: 'forbidden-visible-pillar-pair',
+      forbiddenVisibleStemPillarPairs: [{ stem: '甲', pillars: ['hour'] }],
+    },
+    {
+      id: 'forbidden-visible-branch-pair',
+      forbiddenVisibleStemBranchPairs: [{ stem: '甲', branch: '寅' }],
+    },
+    {
+      id: 'forbidden-visible-distance-pair',
+      forbiddenVisibleStemDistancePairs: [{ stems: ['甲', '己'] }],
+    },
+    { id: 'forbidden-branch-pair', forbiddenBranchPillarPairs: [{ branch: '寅' }] },
+    {
+      id: 'forbidden-hidden-branch-pair',
+      forbiddenHiddenStemBranchPairs: [{ stem: '甲', branch: '寅' }],
+    },
+    { id: 'max-hidden-count', maxHiddenStemCounts: { 甲: 0 } },
+    { id: 'min-total-count', minStemTotalCounts: { 甲: 0 } },
+    { id: 'max-total-count', maxStemTotalCounts: { 甲: 0 } },
+    {
+      id: 'visible-distinct-count',
+      distinctStemGroupCounts: [{ stems: ['甲'], maxDistinctCount: 0, scope: 'visible' }],
+    },
+    {
+      id: 'hidden-distinct-count',
+      distinctStemGroupCounts: [{ stems: ['甲'], maxDistinctCount: 0, scope: 'hidden' }],
+    },
+    {
+      id: 'total-distinct-count',
+      distinctStemGroupCounts: [{ stems: ['甲'], maxDistinctCount: 0, scope: 'total' }],
+    },
+    { id: 'max-total-category', maxTenGodCategoryTotalCounts: { 财星: 0 } },
+    {
+      id: 'max-total-distinct-category',
+      maxTenGodCategoryTotalDistinctCounts: { 财星: 0 },
+    },
+  ];
+
+  for (const rule of cases) {
+    assert.equal(matchesRule(rule, {}), false, rule.id);
+  }
+});
+
+test('规则排除项与最大值只在明确提供空盘面资料时认定为零', () => {
+  const cases: Array<{ rule: MatchableRule; context: RuleMatchContext }> = [
+    {
+      rule: {
+        id: 'forbidden-formation-category',
+        forbiddenFormationTenGodCategories: ['财星'],
+      },
+      context: { formationWuxings: [] },
+    },
+    {
+      rule: { id: 'forbidden-visible-stem', forbiddenVisibleStems: ['甲'] },
+      context: { visibleStems: [] },
+    },
+    {
+      rule: { id: 'forbidden-hidden-stem', forbiddenHiddenStems: ['甲'] },
+      context: { hiddenStems: [] },
+    },
+    {
+      rule: {
+        id: 'forbidden-visible-pillar-pair',
+        forbiddenVisibleStemPillarPairs: [{ stem: '甲', pillars: ['hour'] }],
+      },
+      context: { visibleStemSources: [] },
+    },
+    {
+      rule: {
+        id: 'forbidden-visible-branch-pair',
+        forbiddenVisibleStemBranchPairs: [{ stem: '甲', branch: '寅' }],
+      },
+      context: { visibleStemSources: [], hiddenStemSources: [] },
+    },
+    {
+      rule: {
+        id: 'forbidden-visible-distance-pair',
+        forbiddenVisibleStemDistancePairs: [{ stems: ['甲', '己'] }],
+      },
+      context: { visibleStemSources: [] },
+    },
+    {
+      rule: { id: 'forbidden-branch-pair', forbiddenBranchPillarPairs: [{ branch: '寅' }] },
+      context: { hiddenStemSources: [] },
+    },
+    {
+      rule: {
+        id: 'forbidden-hidden-branch-pair',
+        forbiddenHiddenStemBranchPairs: [{ stem: '甲', branch: '寅' }],
+      },
+      context: { hiddenStemSources: [] },
+    },
+    {
+      rule: { id: 'max-hidden-count', maxHiddenStemCounts: { 甲: 0 } },
+      context: { hiddenStems: [] },
+    },
+    {
+      rule: {
+        id: 'visible-distinct-count',
+        distinctStemGroupCounts: [{ stems: ['甲'], maxDistinctCount: 0, scope: 'visible' }],
+      },
+      context: { visibleStems: [] },
+    },
+    {
+      rule: { id: 'max-total-count', maxStemTotalCounts: { 甲: 0 } },
+      context: { visibleStems: [], hiddenStems: [] },
+    },
+    {
+      rule: { id: 'max-total-category', maxTenGodCategoryTotalCounts: { 财星: 0 } },
+      context: { dayStem: '甲', visibleStems: [], hiddenStems: [] },
+    },
+    {
+      rule: {
+        id: 'max-total-distinct-category',
+        maxTenGodCategoryTotalDistinctCounts: { 财星: 0 },
+      },
+      context: { dayStem: '甲', visibleStems: [], hiddenStems: [] },
+    },
+  ];
+
+  for (const { rule, context } of cases) {
+    assert.equal(matchesRule(rule, context), true, rule.id);
+  }
 });
 
 test('十神类别透干计数中，比劫不应把日主自身算作额外比劫', () => {
