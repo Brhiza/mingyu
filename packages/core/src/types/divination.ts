@@ -1433,13 +1433,20 @@ export interface TaiyiResult {
   dateTime: string;
   accumulatedValue: number;
   accumulatedLabel: '积年' | '积月' | '积日' | '积时';
-  /** @deprecated 年家兼容字段；其他计式与 accumulatedValue 相同。 */
-  accumulatedYears: number;
-  entryYears: number;
-  /** @deprecated 360 周期内的 72 数段序号，不等同于已经统一版本口径的“元”。 */
-  yuan: number;
-  /** @deprecated 360 周期内的 60 数段序号，不等同于已经统一版本口径的“纪”。 */
-  ji: number;
+  /** 积数在 360 周期内的一基余数，余零按 360 计。 */
+  cycleRemainder360: number;
+  /** 360 周期余数所在的一基 72 数段。 */
+  segment72: number;
+  /** 360 周期余数所在的一基 60 数段。 */
+  segment60: number;
+  /** @deprecated 仅供读取旧结果；当前使用 accumulatedValue。 */
+  accumulatedYears?: number;
+  /** @deprecated 仅供读取旧结果；当前使用 cycleRemainder360。 */
+  entryYears?: number;
+  /** @deprecated 仅供读取旧结果；该值只是 segment72，不代表已统一版本口径的“元”。 */
+  yuan?: number;
+  /** @deprecated 仅供读取旧结果；该值只是 segment60，不代表已统一版本口径的“纪”。 */
+  ji?: number;
   yinYang: '阳遁' | '阴遁';
   bureau: number;
   taiyiPosition: string;

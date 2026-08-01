@@ -764,10 +764,11 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   const r = core.taiyi.generateTaiyi({ year: 2004, scope: 'year' });
   assert.equal(r.year, 2004);
   assert.equal(r.ganZhi, '甲申');
-  assert.equal(r.accumulatedYears, 10155921);
-  assert.equal(r.entryYears, 321);
-  assert.equal(r.yuan, 5);
-  assert.equal(r.ji, 6);
+  assert.equal(r.accumulatedValue, 10155921);
+  assert.equal(r.cycleRemainder360, 321);
+  assert.equal(r.segment72, 5);
+  assert.equal(r.segment60, 6);
+  assert.ok(['accumulatedYears', 'entryYears', 'yuan', 'ji'].every((field) => !(field in r)));
   assert.equal(r.bureau, 33);
   assert.equal(r.yinYang, '阳遁');
   assert.equal(r.taiyiPosition, '艮');
@@ -1020,6 +1021,12 @@ test('taiyi: 穷举公元 1 至 9999 年时只输出可复算位置条件', () =
 
     bureaus.add(result.bureau);
     assert.equal('judgments' in result, false);
+    assert.ok(
+      ['accumulatedYears', 'entryYears', 'yuan', 'ji'].every((field) => !(field in result)),
+    );
+    assert.equal(result.cycleRemainder360, ((result.accumulatedValue - 1) % 360) + 1);
+    assert.equal(result.segment72, Math.ceil(result.cycleRemainder360 / 72));
+    assert.equal(result.segment60, Math.ceil(result.cycleRemainder360 / 60));
     assert.equal(conditions.掩.matched, result.shiJiPalace === result.taiyiPalace);
     assert.equal(conditions.囚.matched, imprisoned);
     assert.equal(
@@ -1046,6 +1053,10 @@ test('taiyi: 审核重建只信任原始年份并隔离全部旧盘污染', () =
   polluted.ganZhi = '伪造干支';
   polluted.dateTime = '伪造时间';
   polluted.accumulatedValue = -1;
+  polluted.accumulatedYears = -2;
+  polluted.entryYears = -3;
+  polluted.yuan = -4;
+  polluted.ji = -5;
   polluted.bureau = 72;
   polluted.yinYang = '阴遁';
   polluted.taiyiPosition = '伪造太乙位';
@@ -1061,6 +1072,11 @@ test('taiyi: 审核重建只信任原始年份并隔离全部旧盘污染', () =
   polluted.prompt = '伪造旧提示词';
 
   assert.deepEqual(core.taiyi.rebuildAuditedTaiyiData(polluted), expected);
+  assert.ok(
+    ['accumulatedYears', 'entryYears', 'yuan', 'ji'].every(
+      (field) => !(field in core.taiyi.rebuildAuditedTaiyiData(polluted)),
+    ),
+  );
   assert.deepEqual(core.taiyi.analyzeTaiyiEvidence(polluted), expected.evidenceAnalysis);
   assert.equal('buildTaiyiEvidence' in core.taiyi.taiyi, false);
   assert.equal('rebuildAuditedTaiyiData' in core.taiyi.taiyi, true);
@@ -1082,7 +1098,7 @@ test('taiyi: 核心年份边界不应把公元 1-99 年当成 1901-1999 年', ()
   const modernYear = core.taiyi.generateTaiyi({ year: 1901 });
 
   assert.notEqual(earlyYear.ganZhi, modernYear.ganZhi);
-  assert.equal(earlyYear.accumulatedYears, 10153918);
+  assert.equal(earlyYear.accumulatedValue, 10153918);
 });
 
 test('qizheng: 独立紫炁均速模型保留可复算历元', () => {

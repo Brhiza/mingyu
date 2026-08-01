@@ -8,9 +8,9 @@ export interface TaiyiEvidenceInput {
   ganZhi: string;
   accumulatedLabel: '积年' | '积月' | '积日' | '积时';
   accumulatedValue: number;
-  entryYears: number;
-  yuan: number;
-  ji: number;
+  cycleRemainder360: number;
+  segment72: number;
+  segment60: number;
   yinYang: '阳遁' | '阴遁';
   bureau: number;
   taiyiPosition: string;
@@ -468,42 +468,42 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
   const conditionFacts = buildConditionFacts(data);
   const calculationSteps: TaiyiCalculationStep[] = [
     {
-      key: 'taiyi:calculation:entry',
+      key: 'taiyi:calculation:remainder360',
       name: '360周期余数',
       status: '已复算',
       input: data.accumulatedValue,
       operation: `(${data.accumulatedValue} - 1) mod 360 + 1`,
-      result: data.entryYears,
+      result: data.cycleRemainder360,
       dependsOnStepKeys: [],
       basis:
         '积数按三百六十数循环，余零按三百六十计；这里只记录周期余数，不命名为统一版本的入纪元数',
-      promptText: `360周期余数：${data.accumulatedValue}按三百六十循环得${data.entryYears}`,
+      promptText: `360周期余数：${data.accumulatedValue}按三百六十循环得${data.cycleRemainder360}`,
       sources: [`${scopeLabel}${data.accumulatedLabel}规则`, '太乙三百六十数入纪循环规则'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
-      key: 'taiyi:calculation:yuan',
+      key: 'taiyi:calculation:segment72',
       name: '72数段',
       status: '已复算',
-      input: data.entryYears,
-      operation: `ceil(${data.entryYears} / 72)`,
-      result: data.yuan,
-      dependsOnStepKeys: ['taiyi:calculation:entry'],
+      input: data.cycleRemainder360,
+      operation: `ceil(${data.cycleRemainder360} / 72)`,
+      result: data.segment72,
+      dependsOnStepKeys: ['taiyi:calculation:remainder360'],
       basis: '三百六十周期余数每七十二数分段；不据此宣称已经统一“元”的版本口径',
-      promptText: `72数段：360周期余数${data.entryYears}落在第${data.yuan}段`,
+      promptText: `72数段：360周期余数${data.cycleRemainder360}落在第${data.segment72}段`,
       sources: ['太乙七十二局循环规则', data.model.name],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
-      key: 'taiyi:calculation:ji',
+      key: 'taiyi:calculation:segment60',
       name: '60数段',
       status: '已复算',
-      input: data.entryYears,
-      operation: `ceil(${data.entryYears} / 60)`,
-      result: data.ji,
-      dependsOnStepKeys: ['taiyi:calculation:entry'],
+      input: data.cycleRemainder360,
+      operation: `ceil(${data.cycleRemainder360} / 60)`,
+      result: data.segment60,
+      dependsOnStepKeys: ['taiyi:calculation:remainder360'],
       basis: '三百六十周期余数每六十数分段；不据此宣称已经统一“纪”的版本口径',
-      promptText: `60数段：360周期余数${data.entryYears}落在第${data.ji}段`,
+      promptText: `60数段：360周期余数${data.cycleRemainder360}落在第${data.segment60}段`,
       sources: ['太乙六十数循环规则', data.model.name],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -514,7 +514,7 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
       input: data.accumulatedValue,
       operation: `(${data.accumulatedValue} - 1) mod 72 + 1`,
       result: data.bureau,
-      dependsOnStepKeys: ['taiyi:calculation:entry'],
+      dependsOnStepKeys: ['taiyi:calculation:remainder360'],
       basis: '积数按七十二局循环，余零按第七十二局计',
       promptText: `局数：${data.accumulatedValue}按七十二局循环得${data.yinYang}第${data.bureau}局`,
       sources: [`${scopeLabel}${data.accumulatedLabel}与阴阳遁规则`, '太乙七十二局循环规则'],
@@ -522,17 +522,17 @@ export function buildTaiyiEvidence(data: TaiyiEvidenceInput): TaiyiEvidenceAnaly
     },
   ];
   if (
-    positiveOneBased(data.accumulatedValue, 360) !== data.entryYears ||
-    Math.ceil(data.entryYears / 72) !== data.yuan ||
-    Math.ceil(data.entryYears / 60) !== data.ji ||
+    positiveOneBased(data.accumulatedValue, 360) !== data.cycleRemainder360 ||
+    Math.ceil(data.cycleRemainder360 / 72) !== data.segment72 ||
+    Math.ceil(data.cycleRemainder360 / 60) !== data.segment60 ||
     positiveOneBased(data.accumulatedValue, 72) !== data.bureau
   ) {
     throw new Error('太乙积数、360周期余数、数段或局数计算链不一致。');
   }
   const calculationChain = [
     `${scopeLabel}以${data.dateTime}及本计干支${data.ganZhi}作为时间输入`,
-    `按${scopeLabel}独立规则得到${data.accumulatedLabel}${data.accumulatedValue}，折算360周期余数${data.entryYears}`,
-    `360周期余数${data.entryYears}分别落在第${data.yuan}个72数段、第${data.ji}个60数段；数段不冒充已统一口径的元纪`,
+    `按${scopeLabel}独立规则得到${data.accumulatedLabel}${data.accumulatedValue}，折算360周期余数${data.cycleRemainder360}`,
+    `360周期余数${data.cycleRemainder360}分别落在第${data.segment72}个72数段、第${data.segment60}个60数段；数段不冒充已统一口径的元纪`,
     `积数按七十二局循环定位${data.yinYang}第${data.bureau}局`,
     '按对应阴阳遁七十二局立成表读取太乙、文昌、始击及主客定算',
     '由主客定算余数定位主客定大将与参将，计神及十六神作为辅助定位资料',

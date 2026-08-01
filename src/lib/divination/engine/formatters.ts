@@ -927,7 +927,7 @@ export function formatTaiyiInfo(data: TaiyiResult) {
   return [
     `占法：太乙神数（${scopeLabel}）`,
     `起局时间：${audited.dateTime}；本计干支：${audited.ganZhi}；${audited.accumulatedLabel}：${audited.accumulatedValue}`,
-    `第${audited.yuan}个72数段、第${audited.ji}个60数段；${audited.yinYang}第${audited.bureau}局`,
+    `360周期余数${audited.cycleRemainder360}；第${audited.segment72}个72数段、第${audited.segment60}个60数段；${audited.yinYang}第${audited.bureau}局`,
     `太乙：${audited.taiyiPosition}（第${audited.taiyiPalace}宫，${audited.taiyiGua}卦，${audited.taiyiDir}）`,
     `文昌（主目）：${audited.wenChangPosition}；始击（客目）：${audited.shiJiPosition}；计神：${audited.jiShenPosition}`,
     `主客定算：主算${audited.lordCount}；客算${audited.guestCount}；定算${audited.setCount}`,

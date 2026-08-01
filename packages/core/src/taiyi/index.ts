@@ -405,7 +405,7 @@ function calculateAccumulatedValue(year: number): number {
 export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   const { scope, year, date, ganZhi } = validateInput(input);
   const accumulatedValue = calculateAccumulatedValue(year);
-  const entryYears = positiveOneBased(accumulatedValue, 360);
+  const cycleRemainder360 = positiveOneBased(accumulatedValue, 360);
   const bureau = positiveOneBased(accumulatedValue, 72);
   const index = bureau - 1;
   const yinYang = '阳遁' as const;
@@ -429,8 +429,8 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   const guestAssistant = assistantPalaceFromGeneral(guestGeneral);
   const setGeneral = generalPalaceFromCount(setCount, 'set');
   const setAssistant = assistantPalaceFromGeneral(setGeneral);
-  const yuan = Math.ceil(entryYears / 72);
-  const ji = Math.ceil(entryYears / 60);
+  const segment72 = Math.ceil(cycleRemainder360 / 72);
+  const segment60 = Math.ceil(cycleRemainder360 / 60);
 
   const sixteenGods = TAIYI_16_GODS.map(({ branch, name }) => ({ branch, god: name }));
   const taiyiProfile = TAIYI_PALACES[taiyiPalace];
@@ -443,9 +443,9 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
     ganZhi,
     accumulatedLabel: scopeInfo.accumulated,
     accumulatedValue,
-    entryYears,
-    yuan,
-    ji,
+    cycleRemainder360,
+    segment72,
+    segment60,
     yinYang,
     bureau,
     taiyiPosition,
@@ -475,7 +475,7 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
     `【太乙神数 · ${scopeInfo.title}】`,
     `起局时间：${dateTime}；本计干支：${ganZhi}。`,
     `推算口径：${TAIYI_MODEL_INFO.name}；${TAIYI_MODEL_INFO.precision}。`,
-    `太乙${scopeInfo.accumulated}：${accumulatedValue}；360 周期余数：${entryYears}；第 ${yuan} 个 72 数段、第 ${ji} 个 60 数段；${yinYang}第 ${bureau} 局。`,
+    `太乙${scopeInfo.accumulated}：${accumulatedValue}；360 周期余数：${cycleRemainder360}；第 ${segment72} 个 72 数段、第 ${segment60} 个 60 数段；${yinYang}第 ${bureau} 局。`,
     `核心宫位：太乙在${taiyiPosition}（第${taiyiPalace}宫，${taiyiProfile.gua}卦，${taiyiProfile.dir}，五行${taiyiProfile.wu}）；文昌（主目）在${wenChangPosition}（第${wenChangPalace}宫）；始击（客目）在${shiJiPosition}（第${shiJiPalace}宫）；计神在${jiShenPosition}（第${jiShenPalace}宫）。`,
     `主客定算：主算 ${lordCount}；客算 ${guestCount}；定算 ${setCount}；算数属性待明确底本版本后继续核验。`,
     `将参：主大将${formatGeneralPalace(lordGeneral)}、主参将${formatGeneralPalace(lordAssistant)}；客大将${formatGeneralPalace(guestGeneral)}、客参将${formatGeneralPalace(guestAssistant)}；定大将${formatGeneralPalace(setGeneral)}、定参将${formatGeneralPalace(setAssistant)}。`,
@@ -490,10 +490,9 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
     dateTime,
     accumulatedValue,
     accumulatedLabel: scopeInfo.accumulated,
-    accumulatedYears: accumulatedValue,
-    entryYears,
-    yuan,
-    ji,
+    cycleRemainder360,
+    segment72,
+    segment60,
     yinYang,
     bureau,
     taiyiPosition,

@@ -556,7 +556,7 @@ export function getDivinationSummaryBlocks(
           wrapMainEvidence(
             `太乙${taiyi.taiyiPosition}；文昌${taiyi.wenChangPosition}；始击${taiyi.shiJiPosition}`,
           ),
-          `周期分段：第${taiyi.yuan}个72数段、第${taiyi.ji}个60数段`,
+          `周期分段：360周期余数${taiyi.cycleRemainder360}，第${taiyi.segment72}个72数段、第${taiyi.segment60}个60数段`,
           `主客定算：主算${taiyi.lordCount}，客算${taiyi.guestCount}，定算${taiyi.setCount}`,
           `计神：${taiyi.jiShenPosition}`,
           `位置条件：${taiyi.evidenceAnalysis.conditionFacts
