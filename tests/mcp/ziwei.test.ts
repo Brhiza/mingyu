@@ -21,7 +21,7 @@ test('紫微 MCP 返回结果应为可 JSON 序列化的纯数据', async () => 
   });
 
   const runtime = await calculateFullZiweiChart(input);
-  const result = buildSerializableZiweiResult(runtime);
+  const result = await buildSerializableZiweiResult(runtime);
   const parsed = JSON.parse(JSON.stringify(result));
 
   assert.equal(parsed.basicInfo.gender, '男');

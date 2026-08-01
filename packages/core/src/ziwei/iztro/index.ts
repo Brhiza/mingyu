@@ -49,6 +49,22 @@ export {
   type ZiweiTrueSolarBirth,
   type ZiweiTrueSolarInput,
 } from '../true-solar-input';
+export {
+  buildZiweiChartInputFromSources,
+  createZiweiBirthSource,
+  createZiweiCalculationSource,
+  createZiweiGenerationSource,
+  normalizeZiweiBirthSource,
+  normalizeZiweiCalculationSource,
+  normalizeZiweiGenerationSource,
+} from '../generation';
+export type {
+  ZiweiBirthSource,
+  ZiweiCalculationSource,
+  ZiweiGenerationSource,
+  ZiweiTraditionalBirthSource,
+  ZiweiTrueSolarBirthSource,
+} from '../../types/chart';
 export { analyzeZiweiCompatibility } from './compatibility-evidence';
 export type {
   ZiweiCompatibilityCalculationStep,

@@ -8,10 +8,8 @@ import {
   buildBaziPromptForResult,
   buildPublicZiweiPromptForRuntime,
   buildZiweiPromptForRuntime,
-  formatPublicZiweiFullScopeText,
   type BaziPromptTopic,
 } from '../src/lib/public-api/prompt-builders';
-import type { StarFact } from '../src/types/analysis';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { calculateTrueSolarTime } from '@core/bazi/trueSolarTime';
 import { getTimeIndexFromClock } from 'mingyu-core/calendar';
@@ -1412,7 +1410,7 @@ test('八字紫微合参提示词自定义模式不额外拼接任务框架', as
     }),
   );
 
-  const prompt = buildBaziZiweiPromptForResults({
+  const prompt = await buildBaziZiweiPromptForResults({
     baziResult,
     ziweiResult,
     question: '只看今年是否适合跳槽。',
@@ -1675,6 +1673,9 @@ test('公开 API 紫微提示词接口默认返回轻量摘要和提示词', asy
   assert.equal(body.ok, true);
   assert.equal(body.data.result, undefined);
   assert.deepEqual(body.data.resultSummary.scopeNames, ['origin']);
+  assert.equal(body.data.resultSummary.generation.birth.method, 'time-index');
+  assert.equal(body.data.resultSummary.generation.birth.birthTimeIndex, 4);
+  assert.ok(Number.isSafeInteger(body.data.resultSummary.generation.timestamp));
   assert.equal(body.data.resultSummary.activeScopes.origin.active_scope.scope, 'origin');
   const prompt = body.data.prompt;
   assertPromptHasSingleRole(prompt, PROMPT_ROLE_TEXT.ziwei);
@@ -1820,7 +1821,7 @@ test('公开 API 紫微提示词接口只生成所需范围，避免线上函数
   assertPromptIsPortableTaskText(prompt);
 });
 
-test('公开 API 紫微提示词应保留全部运限命中宫位与星曜事实', async () => {
+test('公开 API 紫微提示词应忽略已生成盘面的宫位、命中与星曜污染', async () => {
   const runtime = await calculateFullZiweiChart(
     buildZiweiChartInput({
       name: '测试',
@@ -1834,70 +1835,24 @@ test('公开 API 紫微提示词应保留全部运限命中宫位与星曜事实
       useTrueSolarTime: false,
     }),
   );
-  const payload = runtime.payloadByScope.yearly;
-  const lifePalaceIndex = payload.palaces.find((palace) => palace.name === '命宫')?.index;
-  const bodyPalaceIndex = payload.palaces.find((palace) => palace.is_body_palace)?.index;
-  const activePalaceIndex = payload.active_scope.palace_index;
-  const highHitPalace = payload.palaces.findLast(
-    (palace) =>
-      palace.index !== lifePalaceIndex &&
-      palace.index !== bodyPalaceIndex &&
-      palace.index !== activePalaceIndex,
-  );
-  assert.ok(highHitPalace);
-  payload.palaces = payload.palaces.map((palace) => ({
-    ...palace,
-    scope_hits: Array.from(
-      { length: palace.index === highHitPalace.index ? 3 : 1 },
-      (_, index) => `${palace.name}第${index + 1}项运限落宫`,
-    ),
-  }));
-  const lifePalace = payload.palaces.find((palace) => palace.index === lifePalaceIndex);
-  const makeStars = (prefix: string, count: number, kind: string): StarFact[] =>
-    Array.from({ length: count }, (_, index) => ({
-      name: `${prefix}${index + 1}`,
-      kind,
-      brightness: index === count - 1 ? '旺' : undefined,
-      birth_mutagen: index === count - 1 ? '禄' : undefined,
-    }));
-  if (lifePalace) {
-    lifePalace.major_stars = makeStars('完整主星', 4, 'major');
-    lifePalace.minor_stars = makeStars('完整辅星', 3, 'minor');
-    lifePalace.other_stars = makeStars('完整杂曜', 2, 'other');
-    lifePalace.scope_stars = makeStars('完整运限星', 1, 'scope');
-  }
-
-  const prompt = buildPublicZiweiPromptForRuntime({
+  const cleanPrompt = await buildPublicZiweiPromptForRuntime({
     result: runtime,
     question: '请完整核对盘面依据。',
     topic: 'life',
     scope: 'yearly',
   });
-  const keyPalaceSection = prompt.match(/【重点宫位】\n([\s\S]*?)\n\n【/)?.[1] ?? '';
-  const nonPrimaryPalaces = payload.palaces.filter(
-    (palace) =>
-      palace.index !== lifePalaceIndex &&
-      palace.index !== bodyPalaceIndex &&
-      palace.index !== activePalaceIndex,
-  );
-
-  assert.equal((keyPalaceSection.match(/^- /gm) ?? []).length, 12);
-  payload.palaces.forEach((palace) => {
-    assert.match(keyPalaceSection, new RegExp(`- ${palace.name}（`));
+  runtime.payloadByScope.yearly.palaces[0].name = '伪造宫位';
+  runtime.payloadByScope.yearly.palaces[0].scope_hits = ['伪造运限命中'];
+  runtime.payloadByScope.yearly.palaces[0].major_stars = [{ name: '伪造星曜', kind: 'major' }];
+  const pollutedPrompt = await buildPublicZiweiPromptForRuntime({
+    result: runtime,
+    question: '请完整核对盘面依据。',
+    topic: 'life',
+    scope: 'yearly',
   });
-  const nonPrimaryPositions = nonPrimaryPalaces.map((palace) =>
-    keyPalaceSection.indexOf(`- ${palace.name}（`),
-  );
-  assert.deepEqual(
-    nonPrimaryPositions,
-    [...nonPrimaryPositions].sort((left, right) => left - right),
-  );
-  assert.match(keyPalaceSection, /完整杂曜2\(旺\/生年化禄\)/);
-  assert.match(keyPalaceSection, /完整运限星1\(旺\/生年化禄\)/);
-  assert.match(
-    formatPublicZiweiFullScopeText(runtime),
-    new RegExp(`${highHitPalace.name}第3项运限落宫`),
-  );
+
+  assert.equal(pollutedPrompt, cleanPrompt);
+  assert.doesNotMatch(pollutedPrompt, /伪造宫位|伪造运限命中|伪造星曜/);
 });
 
 test('公开 API 紫微提示词支持完整输出版范围', async () => {
@@ -1973,7 +1928,7 @@ test('紫微公开 API prompt builder 空问题走通用问题，主题只作为
     }),
   );
 
-  const prompt = buildZiweiPromptForRuntime({
+  const prompt = await buildZiweiPromptForRuntime({
     result: runtime,
     question: '',
     topic: 'career-wealth',
@@ -2001,7 +1956,7 @@ test('紫微公开 API 工作变动主题只切换范围，不补固定问题', 
     }),
   );
 
-  const prompt = buildZiweiPromptForRuntime({
+  const prompt = await buildZiweiPromptForRuntime({
     result: runtime,
     question: '',
     topic: 'job-change',
@@ -2124,6 +2079,8 @@ test('公开 API 紫微排盘接口支持按需返回指定范围', async () => 
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
+  assert.equal(body.data.generation.birth.method, 'time-index');
+  assert.equal(body.data.generation.birth.birthTimeIndex, 4);
   assert.deepEqual(body.data.scopeNames, ['origin', 'monthly']);
   assert.equal(body.data.payloadByScope.monthly.active_scope.scope, 'monthly');
   assert.equal(body.data.payloadByScope.yearly, undefined);
@@ -2220,6 +2177,7 @@ test('公开 API 紫微排盘支持轻量模式，减少默认响应体积', asy
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
+  assert.equal(body.data.generation.birth.method, 'time-index');
   assert.deepEqual(body.data.scopeNames, ['origin', 'monthly']);
   assert.equal(body.data.payloadByScope, undefined);
   assert.equal(body.data.gongList, undefined);

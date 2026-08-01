@@ -10,6 +10,7 @@ import {
 import {
   buildCombinedZiweiPrompt,
   formatZiweiTrueSolarEvidence,
+  rebuildAuditedZiweiRuntime,
   type ZiweiRuntime,
 } from '../full-chart-engine/ziwei';
 import { formatPalaceName, mapScopeLabel, mapTopicLabel } from '../ziwei-prompts/labels';
@@ -223,16 +224,18 @@ export function buildBaziPromptForResult(params: {
   return baseText;
 }
 
-export function buildSerializableZiweiResult(result: ZiweiRuntime) {
-  const originPayload = result.payloadByScope.origin ?? Object.values(result.payloadByScope)[0]!;
+export async function buildSerializableZiweiResult(result: ZiweiRuntime) {
+  const audited = await rebuildAuditedZiweiRuntime(result);
+  const originPayload = audited.payloadByScope.origin ?? Object.values(audited.payloadByScope)[0]!;
   const compatibility = buildZiweiCompatibilityFields(originPayload);
 
   return {
+    generation: audited.generation,
     basicInfo: originPayload.basic_info,
     calculationConfig: originPayload.calculation_config,
-    scopeNames: Object.keys(result.payloadByScope),
-    payloadByScope: result.payloadByScope,
-    trueSolarEvidence: result.trueSolarEvidence,
+    scopeNames: Object.keys(audited.payloadByScope),
+    payloadByScope: audited.payloadByScope,
+    trueSolarEvidence: audited.trueSolarEvidence,
     ...compatibility,
   };
 }
@@ -378,7 +381,7 @@ function buildZiweiCompatibilityFields(payload: ZiweiRuntime['payloadByScope']['
   };
 }
 
-export function buildZiweiPromptForRuntime(params: {
+export async function buildZiweiPromptForRuntime(params: {
   result: ZiweiRuntime;
   question?: string;
   topic?: ZiweiPromptTopic;
@@ -386,11 +389,12 @@ export function buildZiweiPromptForRuntime(params: {
   mode?: PromptMode;
   school?: ZiweiSchool;
 }) {
+  const result = await rebuildAuditedZiweiRuntime(params.result);
   const scope = params.scope ?? 'origin';
   const payload =
     scope === 'full'
-      ? params.result.payloadByScope.origin
-      : (params.result.payloadByScope[scope as ScopeType] ?? params.result.payloadByScope.origin);
+      ? result.payloadByScope.origin
+      : (result.payloadByScope[scope as ScopeType] ?? result.payloadByScope.origin);
   const fallbackTopic = params.mode === 'custom' ? 'chat' : 'life';
   const baseText = buildCombinedZiweiPrompt(
     payload,
@@ -398,12 +402,13 @@ export function buildZiweiPromptForRuntime(params: {
     params.question ?? '',
     {
       isCustomQuestion: params.mode === 'custom',
-      trueSolarEvidence: params.result.trueSolarEvidence,
+      trueSolarEvidence: result.trueSolarEvidence,
+      generatedAt: result.generation.timestamp,
     },
   );
   const promptText =
     scope === 'full'
-      ? insertZiweiFullScopeSection(baseText, formatPublicZiweiFullScopeText(params.result))
+      ? insertZiweiFullScopeSection(baseText, formatPublicZiweiFullScopeText(result))
       : baseText;
   const schoolGuidance = getZiweiSchoolGuidance(params.school);
   if (schoolGuidance) {
@@ -488,7 +493,7 @@ function buildPublicZiweiKeyPalaceSection(params: {
     : '';
 }
 
-export function buildPublicZiweiPromptForRuntime(params: {
+export async function buildPublicZiweiPromptForRuntime(params: {
   result: ZiweiRuntime;
   question?: string;
   topic?: ZiweiPromptTopic;
@@ -496,13 +501,14 @@ export function buildPublicZiweiPromptForRuntime(params: {
   mode?: PromptMode;
   school?: ZiweiSchool;
 }) {
+  const result = await rebuildAuditedZiweiRuntime(params.result);
   const scope = params.scope ?? 'origin';
   const mode = params.mode ?? 'framework';
   const topic = params.topic ?? (mode === 'custom' ? 'chat' : 'life');
   const payload =
     scope === 'full'
-      ? params.result.payloadByScope.origin
-      : (params.result.payloadByScope[scope as ScopeType] ?? params.result.payloadByScope.origin);
+      ? result.payloadByScope.origin
+      : (result.payloadByScope[scope as ScopeType] ?? result.payloadByScope.origin);
   const scopeLabel = mapZiweiPromptScopeLabel(scope);
   const topicLabel = mapTopicLabel(topic);
   const activePalace = payload.palaces.find(
@@ -527,7 +533,7 @@ export function buildPublicZiweiPromptForRuntime(params: {
           })
           .join('；')
       : '';
-  const trueSolarEvidenceText = formatZiweiTrueSolarEvidence(params.result.trueSolarEvidence);
+  const trueSolarEvidenceText = formatZiweiTrueSolarEvidence(result.trueSolarEvidence);
   const chartLines = [
     `出生日期：${payload.basic_info.solar_date}；农历：${payload.basic_info.lunar_date}；时辰：${payload.basic_info.birth_time_label}`,
     lifePalace ? `命宫：${lifePalace.name}${lifeStarsText ? `；星曜：${lifeStarsText}` : ''}` : '',
@@ -548,7 +554,7 @@ export function buildPublicZiweiPromptForRuntime(params: {
       isOriginScope: payload.active_scope.scope === 'origin',
     }),
     trueSolarEvidenceText ? `【出生时间校正】\n${trueSolarEvidenceText}` : '',
-    scope === 'full' ? `【完整运限资料】\n${formatPublicZiweiFullScopeText(params.result)}` : '',
+    scope === 'full' ? `【完整运限资料】\n${formatPublicZiweiFullScopeText(result)}` : '',
     `【问题】\n${params.question ?? ''}`,
   ]
     .filter(Boolean)
@@ -635,7 +641,7 @@ function formatPublicZiweiEvidenceText(params: {
     .join('\n');
 }
 
-export function buildBaziZiweiPromptForResults(params: {
+export async function buildBaziZiweiPromptForResults(params: {
   baziResult: BaziChartResult;
   ziweiResult: ZiweiRuntime;
   question: string;
@@ -646,13 +652,14 @@ export function buildBaziZiweiPromptForResults(params: {
   baziSchool?: BaziSchool;
   ziweiSchool?: ZiweiSchool;
 }) {
+  const ziweiResult = await rebuildAuditedZiweiRuntime(params.ziweiResult);
   const mode = params.mode ?? 'framework';
   const baziTopic = params.baziTopic ?? 'general';
   const ziweiTopic = params.ziweiTopic ?? 'life';
   const ziweiScope = params.ziweiScope ?? 'origin';
   const baziText = formatBaziForPrompt(params.baziResult, null, 'general');
   const ziweiText = formatPublicZiweiEvidenceText({
-    result: params.ziweiResult,
+    result: ziweiResult,
     topic: ziweiTopic,
     scope: ziweiScope,
   });
@@ -664,7 +671,7 @@ export function buildBaziZiweiPromptForResults(params: {
   const baseSections = [
     buildPromptGuidanceSections('bazi-ziwei'),
     guidance.length ? `【流派】\n${guidance.join('\n')}` : '',
-    `【当前时间】\n${formatPromptCurrentTime()}`,
+    `【当前时间】\n${formatPromptCurrentTime(new Date(ziweiResult.generation.timestamp))}`,
     `【分析对象】\n八字主题：${BAZI_TOPIC_LABELS[baziTopic]}\n紫微主题：${mapTopicLabel(ziweiTopic)}\n紫微范围：${mapZiweiPromptScopeLabel(ziweiScope)}`,
     `【八字排盘信息】\n${baziText}`,
     `【紫微盘面信息】\n${ziweiText}`,

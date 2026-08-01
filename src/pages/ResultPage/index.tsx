@@ -760,6 +760,10 @@ export function ResultPage() {
         partnerAstrolabe: partnerZiweiRuntime.astrolabe,
         primaryTrueSolarEvidence: ziweiRuntime.trueSolarEvidence,
         partnerTrueSolarEvidence: partnerZiweiRuntime.trueSolarEvidence,
+        generatedAt: Math.max(
+          ziweiRuntime.generation.timestamp,
+          partnerZiweiRuntime.generation.timestamp,
+        ),
         topic: promptState.ziweiTopic,
         question,
         isCustomQuestion: activeZiweiShortcutMode === '自定义',
@@ -773,6 +777,7 @@ export function ResultPage() {
       {
         isCustomQuestion: activeZiweiShortcutMode === '自定义',
         trueSolarEvidence: ziweiRuntime?.trueSolarEvidence,
+        generatedAt: ziweiRuntime?.generation.timestamp,
       },
     );
     if (promptState.ziweiScope !== 'full' || !activeZiweiPayloadByScope) {

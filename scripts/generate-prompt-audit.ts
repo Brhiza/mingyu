@@ -431,7 +431,7 @@ async function buildSamples(): Promise<PromptSample[]> {
         birthLongitude: '103.8198',
       }),
     );
-    const ziweiPrompt = buildZiweiPromptForRuntime({
+    const ziweiPrompt = await buildZiweiPromptForRuntime({
       result: ziweiRuntime,
       topic: 'life',
       scope: 'origin',

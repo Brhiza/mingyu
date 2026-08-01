@@ -113,14 +113,14 @@ export function registerBaziZiweiTool(server: McpServer) {
           buildCombinedZiweiInput(args),
           scopes,
         );
-        const serializableZiweiResult = buildSerializableZiweiResult(ziweiResult);
+        const serializableZiweiResult = await buildSerializableZiweiResult(ziweiResult);
 
         return createStructuredToolResult({
           result: {
             bazi: baziResult,
             ziwei: serializableZiweiResult,
           },
-          prompt: buildBaziZiweiPromptForResults({
+          prompt: await buildBaziZiweiPromptForResults({
             baziResult,
             ziweiResult,
             question: args.question,

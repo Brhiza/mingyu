@@ -10,6 +10,7 @@ export const promptOutputSchema = {
 };
 
 export const ziweiOutputSchema = {
+  generation: z.record(z.string(), z.unknown()).describe('紫微可信出生来源、排盘口径与生成上下文'),
   basicInfo: z.record(z.string(), z.unknown()).describe('紫微命盘基础信息'),
   calculationConfig: z.record(z.string(), z.unknown()).describe('本次实际采用的紫微排盘口径'),
   scopeNames: z.array(z.string()).describe('本次返回包含的运限范围'),

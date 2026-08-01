@@ -1,4 +1,3 @@
-import { resolveZiweiTrueSolarBirth } from '../ziwei/true-solar-input';
 import type { ChartInput } from '../../types/chart';
 import type { AnalysisPayloadV1, ScopeType } from '../../types/analysis';
 import type { IztroAstrolabe, IztroHoroscope } from '../../types/iztro';
@@ -11,6 +10,11 @@ import {
   getDefaultHoroscopeContext,
   analyzeZiweiCompatibility,
   buildVerifiedDecadalTimelineOptions,
+  buildZiweiChartInputFromSources,
+  createZiweiGenerationSource,
+  normalizeZiweiGenerationSource,
+  type ZiweiBirthSource,
+  type ZiweiGenerationSource,
 } from '@core/ziwei/iztro';
 import {
   getZiweiCompatibilityDefaultQuestion,
@@ -21,6 +25,7 @@ import { formatPromptCurrentTime } from '../prompt-time';
 import { buildPromptGuidanceSections } from '../prompt-guidance';
 
 export type ZiweiRuntime = {
+  generation: ZiweiGenerationSource;
   astrolabe: IztroAstrolabe;
   horoscope: IztroHoroscope;
   payloadByScope: Record<ScopeType, AnalysisPayloadV1>;
@@ -78,10 +83,6 @@ function readZiweiBirthDate(input: {
   return { year, month, day };
 }
 
-function formatZiweiBirthDate(year: number, month: number, day: number) {
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-}
-
 export function buildZiweiPayloadByScope(params: {
   astrolabe: IztroAstrolabe;
   horoscope: IztroHoroscope;
@@ -108,11 +109,47 @@ export function buildZiweiPayloadByScope(params: {
   ) as Record<ScopeType, AnalysisPayloadV1>;
 }
 
+const ALL_ZIWEI_SCOPES: ScopeType[] = [
+  'origin',
+  'decadal',
+  'yearly',
+  'monthly',
+  'daily',
+  'hourly',
+  'age',
+];
+
+async function calculateZiweiFromGeneration(source: ZiweiGenerationSource): Promise<ZiweiRuntime> {
+  const generation = normalizeZiweiGenerationSource(source);
+  const input = buildZiweiChartInputFromSources(generation.birth, generation.calculation);
+  const astrolabe = await buildAstrolabeFromInput(input);
+  const { dateStr, hourIndex } = getDefaultHoroscopeContext(new Date(generation.timestamp));
+  const horoscope = await buildHoroscopeFromInput(astrolabe, input, dateStr, hourIndex);
+  const calculationConfig = buildZiweiCalculationConfig(input);
+  const payloadByScope = buildZiweiPayloadByScope({
+    astrolabe,
+    horoscope,
+    scopes: generation.scopes,
+    calculationConfig,
+    skipAnalysis: generation.skipAnalysis,
+  });
+  const decadalTimeline = await buildVerifiedDecadalTimelineOptions(astrolabe, input);
+
+  return {
+    generation,
+    astrolabe,
+    horoscope,
+    payloadByScope,
+    decadalTimeline,
+    trueSolarEvidence: input.trueSolarEvidence,
+  };
+}
+
 export async function calculateFullZiweiChart(
   input: ChartInput,
   skipAnalysis?: boolean,
 ): Promise<ZiweiRuntime> {
-  return calculateZiweiChartForScopes(input, undefined, skipAnalysis);
+  return calculateZiweiChartForScopes(input, ALL_ZIWEI_SCOPES, skipAnalysis);
 }
 
 export async function calculateZiweiChartForScopes(
@@ -120,52 +157,42 @@ export async function calculateZiweiChartForScopes(
   scopes?: ScopeType[],
   skipAnalysis?: boolean,
 ): Promise<ZiweiRuntime> {
-  const astrolabe = await buildAstrolabeFromInput(input);
-  const { dateStr, hourIndex } = getDefaultHoroscopeContext();
-  const horoscope = await buildHoroscopeFromInput(astrolabe, input, dateStr, hourIndex);
-  const calculationConfig = buildZiweiCalculationConfig(input);
-  const payloadByScope = buildZiweiPayloadByScope({
-    astrolabe,
-    horoscope,
-    scopes,
-    calculationConfig,
-    skipAnalysis,
-  });
-  const decadalTimeline = await buildVerifiedDecadalTimelineOptions(astrolabe, input);
-
-  return {
-    astrolabe,
-    horoscope,
-    payloadByScope,
-    decadalTimeline,
-    trueSolarEvidence: input.trueSolarEvidence,
-  };
+  const requestedScopes = scopes?.length ? scopes : ALL_ZIWEI_SCOPES;
+  return calculateZiweiFromGeneration(
+    createZiweiGenerationSource({
+      input,
+      timestamp: Date.now(),
+      scopes: requestedScopes,
+      skipAnalysis,
+    }),
+  );
 }
 
 export async function calculatePublicZiweiChartForScopes(
   input: ChartInput,
   scopes?: ScopeType[],
 ): Promise<ZiweiRuntime> {
-  const astrolabe = await buildAstrolabeFromInput(input);
-  const { dateStr, hourIndex } = getDefaultHoroscopeContext();
-  const horoscope = await buildHoroscopeFromInput(astrolabe, input, dateStr, hourIndex);
   const requestedScopes = Array.from(new Set(['origin' as const, ...(scopes ?? [])]));
-  const calculationConfig = buildZiweiCalculationConfig(input);
-  const payloadByScope = buildZiweiPayloadByScope({
-    astrolabe,
-    horoscope,
-    scopes: requestedScopes,
-    calculationConfig,
-  });
-  const decadalTimeline = await buildVerifiedDecadalTimelineOptions(astrolabe, input);
+  return calculateZiweiFromGeneration(
+    createZiweiGenerationSource({
+      input,
+      timestamp: Date.now(),
+      scopes: requestedScopes,
+    }),
+  );
+}
 
-  return {
-    astrolabe,
-    horoscope,
-    payloadByScope,
-    decadalTimeline,
-    trueSolarEvidence: input.trueSolarEvidence,
-  };
+/** 只凭出生资料、排盘口径、生成时间与范围重建完整紫微运行结果。 */
+export async function rebuildAuditedZiweiRuntime(
+  input: Pick<ZiweiRuntime, 'generation'>,
+): Promise<ZiweiRuntime> {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('紫微审核重建必须提供结果对象。');
+  }
+  if (!Object.prototype.hasOwnProperty.call(input, 'generation')) {
+    throw new Error('紫微旧结果缺少可信原始输入，无法审核重建。');
+  }
+  return calculateZiweiFromGeneration(normalizeZiweiGenerationSource(input.generation));
 }
 
 export async function calculateZiweiPayloadByScope(input: ChartInput) {
@@ -223,37 +250,42 @@ export function buildZiweiChartInput(input: {
   const birthDateParts = readZiweiBirthDate(input);
   const birthTimeIndex = input.useTrueSolarTime ? 0 : readTimeIndex(input.timeIndex);
   const gender = input.gender === 'male' ? '男' : '女';
-  const trueSolarBirth = input.useTrueSolarTime
-    ? resolveZiweiTrueSolarBirth({
+  const birthSource: ZiweiBirthSource = input.useTrueSolarTime
+    ? {
+        method: 'true-solar-time',
+        name: input.name,
+        gender,
         dateType: input.dateType,
-        year: input.year,
-        month: input.month,
-        day: input.day,
+        year: birthDateParts.year,
+        month: birthDateParts.month,
+        day: birthDateParts.day,
         isLeapMonth: input.isLeapMonth,
-        birthHour: input.birthHour ?? '',
-        birthMinute: input.birthMinute ?? '',
-        birthLongitude: input.birthLongitude ?? '',
-      })
-    : null;
-  const birthDate =
-    trueSolarBirth?.birthDate ??
-    formatZiweiBirthDate(birthDateParts.year, birthDateParts.month, birthDateParts.day);
+        birthHour: readInteger(input.birthHour ?? '', '出生小时'),
+        birthMinute: readInteger(input.birthMinute ?? '', '出生分钟'),
+        birthLongitude: Number(input.birthLongitude),
+        timezone: 8,
+        applyChinaDst: false,
+      }
+    : {
+        method: 'time-index',
+        name: input.name,
+        gender,
+        dateType: input.dateType,
+        year: birthDateParts.year,
+        month: birthDateParts.month,
+        day: birthDateParts.day,
+        isLeapMonth: input.isLeapMonth,
+        birthTimeIndex,
+      };
 
-  return {
-    name: input.name,
-    gender,
-    dateType: input.useTrueSolarTime ? 'solar' : input.dateType,
-    birthDate,
-    birthTimeIndex: trueSolarBirth?.birthTimeIndex ?? birthTimeIndex,
-    trueSolarEvidence: trueSolarBirth?.trueSolarEvidence,
-    isLeapMonth: input.useTrueSolarTime ? false : input.isLeapMonth,
+  return buildZiweiChartInputFromSources(birthSource, {
     fixLeap: true,
     algorithm: 'default',
     yearDivide: 'normal',
     horoscopeDivide: 'normal',
     ageDivide: 'normal',
     dayDivide: 'forward',
-  };
+  });
 }
 
 function createZiweiReportContext(payload: AnalysisPayloadV1, topic: string): PromptContext {
@@ -461,6 +493,7 @@ export function buildCombinedZiweiPrompt(
   options: {
     isCustomQuestion?: boolean;
     trueSolarEvidence?: ZiweiTrueSolarEvidence;
+    generatedAt?: number;
   } = {},
 ) {
   const isCustomQuestion = Boolean(options.isCustomQuestion);
@@ -483,7 +516,7 @@ export function buildCombinedZiweiPrompt(
 
   return [
     buildPromptGuidanceSections('ziwei'),
-    `【当前时间】\n${formatPromptCurrentTime()}`,
+    `【当前时间】\n${formatPromptCurrentTime(options.generatedAt === undefined ? undefined : new Date(options.generatedAt))}`,
     '',
     packWithPriority,
     ...(trueSolarEvidenceText ? ['', `【出生时间校正】\n${trueSolarEvidenceText}`] : []),
@@ -512,6 +545,7 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
   partnerName?: string;
   primaryTrueSolarEvidence?: ZiweiTrueSolarEvidence;
   partnerTrueSolarEvidence?: ZiweiTrueSolarEvidence;
+  generatedAt?: number;
 }) {
   const isCustomQuestion = Boolean(params.isCustomQuestion);
   const primaryContext = createZiweiReportContext(params.primaryPayload, params.topic);
@@ -554,7 +588,7 @@ export function buildCombinedZiweiCompatibilityPrompt(params: {
 
   return [
     buildPromptGuidanceSections('ziwei-compatibility'),
-    `【当前时间】\n${formatPromptCurrentTime()}`,
+    `【当前时间】\n${formatPromptCurrentTime(params.generatedAt === undefined ? undefined : new Date(params.generatedAt))}`,
     `【${primaryName}盘面】`,
     primaryEmbeddedPack,
     ...(primaryTrueSolarEvidenceText

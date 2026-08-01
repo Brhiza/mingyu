@@ -150,7 +150,7 @@ export function registerZiweiTool(server: McpServer) {
           new Set(['origin' as ScopeType, ...getZiweiPromptCalculationScopes(scope)]),
         );
         const result = await calculateZiweiChartForScopes(input, scopes);
-        return createStructuredToolResult(buildSerializableZiweiResult(result));
+        return createStructuredToolResult(await buildSerializableZiweiResult(result));
       } catch (error) {
         return createErrorToolResult(getErrorMessage(error, '排盘失败'));
       }
@@ -177,8 +177,8 @@ export function registerZiweiTool(server: McpServer) {
         );
         const result = await calculateZiweiChartForScopes(input, scopes);
         return createStructuredToolResult({
-          result: buildSerializableZiweiResult(result),
-          prompt: buildZiweiPromptForRuntime({
+          result: await buildSerializableZiweiResult(result),
+          prompt: await buildZiweiPromptForRuntime({
             result,
             question: args.question,
             topic: args.promptTopic ? (args.promptTopic as ZiweiPromptTopic) : undefined,
@@ -220,10 +220,14 @@ export function registerZiweiTool(server: McpServer) {
             astrolabe2: person2.astrolabe,
           },
         );
+        const [serializablePerson1, serializablePerson2] = await Promise.all([
+          buildSerializableZiweiResult(person1),
+          buildSerializableZiweiResult(person2),
+        ]);
         return createStructuredToolResult({
           charts: {
-            person1: buildSerializableZiweiResult(person1),
-            person2: buildSerializableZiweiResult(person2),
+            person1: serializablePerson1,
+            person2: serializablePerson2,
           },
           compatibility,
         });
@@ -260,10 +264,14 @@ export function registerZiweiTool(server: McpServer) {
             astrolabe2: person2.astrolabe,
           },
         );
+        const [serializablePerson1, serializablePerson2] = await Promise.all([
+          buildSerializableZiweiResult(person1),
+          buildSerializableZiweiResult(person2),
+        ]);
         const result = {
           charts: {
-            person1: buildSerializableZiweiResult(person1),
-            person2: buildSerializableZiweiResult(person2),
+            person1: serializablePerson1,
+            person2: serializablePerson2,
           },
           compatibility,
         };
@@ -276,6 +284,7 @@ export function registerZiweiTool(server: McpServer) {
             partnerAstrolabe: person2.astrolabe,
             primaryTrueSolarEvidence: person1.trueSolarEvidence,
             partnerTrueSolarEvidence: person2.trueSolarEvidence,
+            generatedAt: Math.max(person1.generation.timestamp, person2.generation.timestamp),
             primaryName: args.person1.name,
             partnerName: args.person2.name,
             topic: args.promptTopic ?? 'relationship',

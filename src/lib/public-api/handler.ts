@@ -2411,7 +2411,7 @@ async function calculateZiweiRuntime(input: JsonRecord, scopes: ScopeType[] = ['
 
 async function calculateZiwei(input: JsonRecord) {
   const scope = readEnum(input, 'promptScope', ZIWEI_PROMPT_SCOPES, 'origin') as ZiweiPromptScope;
-  const result = buildSerializableZiweiResult(
+  const result = await buildSerializableZiweiResult(
     await calculateZiweiRuntime(input, getZiweiPromptCalculationScopes(scope)),
   );
   return readDetailMode(input) === 'compact' ? buildCompactZiweiResult(result) : result;
@@ -2430,8 +2430,8 @@ async function buildZiweiPrompt(input: JsonRecord) {
     typeof schoolValue === 'string' && (ZIWEI_SCHOOLS as readonly string[]).includes(schoolValue)
       ? (schoolValue as ZiweiSchool)
       : undefined;
-  const serializableResult = buildSerializableZiweiResult(result);
-  const prompt = buildPublicZiweiPromptForRuntime({
+  const serializableResult = await buildSerializableZiweiResult(result);
+  const prompt = await buildPublicZiweiPromptForRuntime({
     result,
     question: readRequiredString(input, 'question'),
     topic: promptTopic,
@@ -2476,10 +2476,14 @@ async function calculateZiweiCompatibilityApi(input: JsonRecord) {
       astrolabe2: charts.person2.astrolabe,
     },
   );
+  const [serializablePerson1, serializablePerson2] = await Promise.all([
+    buildSerializableZiweiResult(charts.person1),
+    buildSerializableZiweiResult(charts.person2),
+  ]);
   return {
     charts: {
-      person1: buildSerializableZiweiResult(charts.person1),
-      person2: buildSerializableZiweiResult(charts.person2),
+      person1: serializablePerson1,
+      person2: serializablePerson2,
     },
     compatibility,
   };
@@ -2506,16 +2510,21 @@ async function buildZiweiCompatibilityPromptApi(input: JsonRecord) {
     partnerAstrolabe: charts.person2.astrolabe,
     primaryTrueSolarEvidence: charts.person1.trueSolarEvidence,
     partnerTrueSolarEvidence: charts.person2.trueSolarEvidence,
+    generatedAt: Math.max(charts.person1.generation.timestamp, charts.person2.generation.timestamp),
     primaryName: charts.person1Name,
     partnerName: charts.person2Name,
     topic,
     question: readString(input, 'question', ''),
     isCustomQuestion: readEnum(input, 'promptMode', PROMPT_MODES, 'framework') === 'custom',
   });
+  const [serializablePerson1, serializablePerson2] = await Promise.all([
+    buildSerializableZiweiResult(charts.person1),
+    buildSerializableZiweiResult(charts.person2),
+  ]);
   const fullResult = {
     charts: {
-      person1: buildSerializableZiweiResult(charts.person1),
-      person2: buildSerializableZiweiResult(charts.person2),
+      person1: serializablePerson1,
+      person2: serializablePerson2,
     },
     compatibility,
   };
@@ -2565,8 +2574,8 @@ async function buildBaziZiweiPrompt(input: JsonRecord) {
     (ZIWEI_SCHOOLS as readonly string[]).includes(ziweiSchoolValue)
       ? (ziweiSchoolValue as ZiweiSchool)
       : undefined;
-  const serializableZiweiResult = buildSerializableZiweiResult(ziweiResult);
-  const prompt = buildBaziZiweiPromptForResults({
+  const serializableZiweiResult = await buildSerializableZiweiResult(ziweiResult);
+  const prompt = await buildBaziZiweiPromptForResults({
     baziResult,
     ziweiResult,
     question: readRequiredString(input, 'question'),
@@ -3127,8 +3136,9 @@ function buildCompactBaziResult(result: BaziChartResult) {
   };
 }
 
-function buildCompactZiweiResult(result: ReturnType<typeof buildSerializableZiweiResult>) {
+function buildCompactZiweiResult(result: Awaited<ReturnType<typeof buildSerializableZiweiResult>>) {
   return {
+    generation: result.generation,
     basicInfo: result.basicInfo,
     calculationConfig: result.calculationConfig,
     scopeNames: result.scopeNames,
