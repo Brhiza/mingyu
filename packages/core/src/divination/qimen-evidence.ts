@@ -161,6 +161,7 @@ export interface QimenRuleSourceFact {
     | '天网版本冲突边界'
     | '三奇与时干入墓版本冲突边界'
     | '三奇受制与会甲证据边界'
+    | '六仪击刑时家位置规则'
     | '经典格局审核边界'
     | '组合规则版本'
     | '专项情境规则边界'
@@ -817,6 +818,7 @@ export function rebuildAuditedQimenData(input: QimenData): QimenData {
     zhiShiLandingPalace: zhiShiPalace.gong,
     jiuGongGe: input.jiuGongGe,
     hourGanForFind: getDunJiaStem(activeGanZhi),
+    scope: input.scope ?? 'hour',
     horsePalace: horsePalace.palace,
     horsePalaceName: horsePalace.name,
   });
@@ -1553,6 +1555,23 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
       ],
       promptText:
         '三奇受制/会甲证据边界：当前不得从天盘乙丙丁落宫、门、地盘干或月令状态任一组合自动补成“三奇受制”或“三奇会甲”。《奇门宝鉴御定》把三奇受制写成乙临乾六/兑七、丙丁临坎一的位置表；《遁甲演义》则只明列乙临乾并见惊门庚辛囚死、丙临坎并见休门壬癸囚死，条件层级不同且未明确闭合丁奇；当前资料也尚未找到可核验的“三奇会甲”原文条件。提示词只保留天盘乙丙丁、地盘干、门、宫位和月令状态原始事实，待 AI 明确原典版本或取得可靠原文后继续核验；不得据名称生成吉凶、用途或现实结果',
+      limitation: RULE_SOURCE_LIMITATION,
+    },
+    {
+      key: 'rule:qimen:instrument-punishment-hour-position',
+      status: '已声明',
+      category: '六仪击刑时家位置规则',
+      rule: '六仪击刑仅作为时家当前时干所遁六仪的固定落宫事实：甲子戊临震三、甲戌己临坤二、甲申庚临艮八、甲午辛临离九、甲辰壬与甲寅癸临巽四',
+      appliesTo: ['时家奇门', '天盘六仪', '六仪击刑', '九宫位置'],
+      sources: [
+        '《遁甲符应经》“甲子直符时加卯……甲戌直符时加未……甲申直符时加寅……甲辰时加辰……甲午时加午……甲寅时加巳”',
+        '《奇门遁甲统宗》六仪击刑表：甲子值符三、甲申值符八、甲戌值符二、甲午值符九、甲辰值符四、甲寅值符四',
+        '《奇门旨归》甲子临震、甲戌临坤、甲申临艮、甲午临离、甲辰甲寅临巽',
+        '《奇门法窍》“六仪击刑”同列上述六组落宫',
+        '当前时家时干、旬首值符及其所遁六仪实际落宫复算记录',
+      ],
+      promptText:
+        '六仪击刑位置规则：仅当时家当前时干所属旬首所遁六仪明确落在对应刑宫，即甲子戊临震三、甲戌己临坤二、甲申庚临艮八、甲午辛临离九、甲辰壬或甲寅癸临巽四时，才可把“六仪击刑”作为中性位置事实引用。盘上其他六仪即使落在同一固定宫位，也不得脱离当前旬首身份扩大命中。四书的六组落宫一致，但所载不利用兵、安营、出行或谋为属于原典用途，当前通用入口不得直接继承为现实吉凶、成败或行动建议；月家、年家不得套用',
       limitation: RULE_SOURCE_LIMITATION,
     },
     {

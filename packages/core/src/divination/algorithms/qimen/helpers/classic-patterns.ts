@@ -4,7 +4,7 @@
  * 完整时家上下文中识别的伏干格、飞干格、岁格、格勃、三奇升殿、三诈、
  * 天假/严格地假/鬼假与玉女守门中性结构事实。九遁与三奇得使已经确认存在版本定义冲突；其余三奇、
  * 人假、物假、神假、值符值使、
- * 月日时格、普通勃格、门迫、击刑、入墓等旧规则
+ * 月日时格、普通勃格、门迫、入墓等旧规则
  * 在版本、条件或适用情境完成校勘前失败关闭；可复算的落宫与五行事实仍由九宫、
  * 基础标签、组合事实和天地盘干关系提供，供后续 AI 结合具体问题继续推算。
  */
@@ -87,20 +87,6 @@ export interface StemRelation {
   note: string;
 }
 
-/**
- * 六仪击刑固定落宫表。
- * 这里只记录命中条件，不把它包装成通用官非、成败或行动建议。
- */
-const STEM_JI_XING_PALACES: Readonly<Record<string, readonly number[]>> = {
-  甲: [3],
-  戊: [3],
-  己: [2],
-  庚: [8],
-  辛: [9],
-  壬: [4],
-  癸: [4],
-};
-
 function getStemPairNamedPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[] {
   const patterns: ClassicPattern[] = [];
 
@@ -129,8 +115,9 @@ function getStemPairNamedPatterns(jiuGongGe: QimenJiuGongGe[]): ClassicPattern[]
 /**
  * 识别天地盘干关系。
  *
- * 已校勘固定格优先按命名格局记录；其余组合只输出击刑、标准天干五合
- * 或五行生克结构，不据此生成现实事件、人物意图、吉凶、成败或行动建议。
+ * 已校勘固定格优先按命名格局记录；其余组合只输出标准天干五合或五行生克结构，
+ * 不据此生成现实事件、人物意图、吉凶、成败或行动建议。六仪击刑只由带当前时干
+ * 上下文的基础标签入口计算，不在这里把盘上任意六仪扩大命中。
  */
 export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
   const relations: StemRelation[] = [];
@@ -154,18 +141,7 @@ export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
         });
       }
 
-      const isJiXing = STEM_JI_XING_PALACES[heaven]?.includes(palace.gong) ?? false;
-      if (isJiXing) {
-        relations.push({
-          heaven,
-          earth,
-          palace: palace.gong,
-          type: '击刑',
-          note: `天盘${heaven}落${palace.name}，命中六仪击刑落宫表；这里只记录落宫条件，不据此单独断事`,
-        });
-      }
-
-      if (namedPattern || isJiXing) continue;
+      if (namedPattern) continue;
 
       const structuralPattern = getStemPairPattern(heaven, earth);
       const boundary = structuralPattern.manifestation;

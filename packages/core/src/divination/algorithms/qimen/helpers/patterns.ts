@@ -5,14 +5,21 @@
  * 都禁止直接扩写成现实吉凶、人物意图、成败、行动建议或固定应期。
  */
 
-import type { QimenJiuGongGe } from '../../../../types/divination';
+import type { QimenJiuGongGe, QimenScope } from '../../../../types/divination';
 import { qimen } from '../../../../divination/divination-data';
 import { isKe } from '../../../../ganzhi';
 import { getDoorElement, getOppositePalace } from './palace-utils';
 
 const { palaceStars, doorPalaceMap } = qimen;
 
-const JI_XING_MAP: Readonly<Record<string, number>> = {
+/**
+ * 六仪击刑固定落宫表。
+ *
+ * 《遁甲符应经》《奇门遁甲统宗》《奇门旨归》《奇门法窍》均列：
+ * 甲子戊临震三、甲戌己临坤二、甲申庚临艮八、甲午辛临离九、
+ * 甲辰壬与甲寅癸同临巽四。该规则只用于时家盘面的位置事实。
+ */
+export const QIMEN_INSTRUMENT_PUNISHMENT_PALACES: Readonly<Record<string, number>> = {
   戊: 3,
   己: 2,
   庚: 8,
@@ -20,6 +27,11 @@ const JI_XING_MAP: Readonly<Record<string, number>> = {
   壬: 4,
   癸: 4,
 };
+
+/** 判断时家天盘六仪是否命中六仪击刑固定落宫。 */
+export function isQimenInstrumentPunishment(stem: string, palace: number): boolean {
+  return QIMEN_INSTRUMENT_PUNISHMENT_PALACES[stem] === palace;
+}
 
 const AUDITED_PATTERN_TAG_PREFIXES = [
   '星伏吟',
@@ -44,7 +56,9 @@ function getMenPoTags(jiuGongGe: QimenJiuGongGe[]): string[] {
 }
 
 function getJiXingTag(stem: string, palace: number, palaceName: string): string | null {
-  return JI_XING_MAP[stem] === palace ? `击刑落宫（时干${stem}落${palaceName}）` : null;
+  return isQimenInstrumentPunishment(stem, palace)
+    ? `击刑落宫（时干所遁六仪${stem}落${palaceName}）`
+    : null;
 }
 
 export interface QimenPatternTagParams {
@@ -54,6 +68,7 @@ export interface QimenPatternTagParams {
   zhiShiLandingPalace: number;
   jiuGongGe: QimenJiuGongGe[];
   hourGanForFind: string;
+  scope?: QimenScope;
   horsePalace?: number;
   horsePalaceName?: string;
 }
@@ -72,6 +87,7 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
     zhiShiLandingPalace,
     jiuGongGe,
     hourGanForFind,
+    scope = 'hour',
     horsePalace,
     horsePalaceName,
   } = params;
@@ -100,7 +116,7 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
   tags.push(...getMenPoTags(jiuGongGe));
 
   const zhiFuLandingGong = jiuGongGe.find((palace) => palace.gong === zhiFuLandingPalace);
-  if (zhiFuLandingGong) {
+  if (scope === 'hour' && zhiFuLandingGong) {
     const jiXingTag = getJiXingTag(hourGanForFind, zhiFuLandingPalace, zhiFuLandingGong.name);
     if (jiXingTag) tags.push(jiXingTag);
   }
@@ -137,7 +153,7 @@ function getPatternSummary(tag: string): string {
     return '门五行克所在宫五行；这里只记录同宫五行关系，不自动换算成吉凶或方位建议。';
   }
   if (tag.startsWith('击刑落宫')) {
-    return '时干命中六仪击刑固定落宫表；这里只记录命中条件，不据此单独断事。';
+    return '时家时干所遁六仪命中六仪击刑固定落宫表；这里只记录命中条件，不据此单独断事。';
   }
   if (tag.startsWith('马星落宫')) {
     return '驿马所在宫位已记录；是否与问题相关、是否发动及如何取用需结合具体用神。';

@@ -19,6 +19,10 @@ import {
   listAllStemPairs,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/stem-pair-patterns';
 import {
+  getQimenPatternTags,
+  isQimenInstrumentPunishment,
+} from '../packages/core/src/divination/algorithms/qimen/helpers/patterns';
+import {
   analyzeQimenEvidence,
   generateQimen,
 } from '../packages/core/src/divination/algorithms/qimen';
@@ -1762,4 +1766,81 @@ test('三奇受制与会甲按三奇九宫八门九地盘干全组合失败关�
   assert.match(rule.promptText, /尚未找到可核验的“三奇会甲”原文条件/);
   assert.match(rule.promptText, /只保留天盘乙丙丁、地盘干、门、宫位和月令状态原始事实/);
   assert.doesNotMatch(rule.promptText, /万事不可举|必成|必胜|百事皆吉/);
+});
+
+test('六仪击刑按九干九宫穷举且只在时家保留六组中性位置事实', () => {
+  const expectedPalaces: Readonly<Record<string, number>> = {
+    戊: 3,
+    己: 2,
+    庚: 8,
+    辛: 9,
+    壬: 4,
+    癸: 4,
+  };
+  const stems = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙'] as const;
+  let checked = 0;
+  let hourHits = 0;
+
+  for (const stem of stems) {
+    for (let gong = 1; gong <= 9; gong += 1) {
+      const expected = expectedPalaces[stem] === gong;
+      const palace = buildPalaceAt(gong, stem);
+
+      assert.equal(isQimenInstrumentPunishment(stem, gong), expected, `${stem}/${gong}宫`);
+
+      assert.ok(
+        !getStemRelations([palace]).some((relation) => relation.type === '击刑'),
+        `盘上普通六仪${stem}/${gong}宫不得脱离当前旬首身份扩大命中`,
+      );
+
+      const hourTags = getQimenPatternTags({
+        zhiFu: '天蓬',
+        zhiShi: '休门',
+        zhiFuLandingPalace: gong,
+        zhiShiLandingPalace: 1,
+        jiuGongGe: [palace],
+        hourGanForFind: stem,
+        scope: 'hour',
+      });
+      assert.equal(
+        hourTags.some((tag) => tag.startsWith('击刑落宫')),
+        expected,
+        `时家标签${stem}/${gong}宫`,
+      );
+
+      for (const scope of ['month', 'year'] as const) {
+        assert.ok(
+          !getQimenPatternTags({
+            zhiFu: '天蓬',
+            zhiShi: '休门',
+            zhiFuLandingPalace: gong,
+            zhiShiLandingPalace: 1,
+            jiuGongGe: [palace],
+            hourGanForFind: stem,
+            scope,
+          }).some((tag) => tag.startsWith('击刑落宫')),
+          `${scope}不得套用${stem}/${gong}宫击刑标签`,
+        );
+      }
+
+      if (expected) hourHits += 1;
+      checked += 1;
+    }
+  }
+
+  assert.equal(checked, 9 * 9);
+  assert.equal(hourHits, 6);
+  assert.equal(isQimenInstrumentPunishment('甲', 3), false);
+
+  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const rule = analysis.ruleSourceFacts.find(
+    (item) => item.key === 'rule:qimen:instrument-punishment-hour-position',
+  );
+  assert.ok(rule);
+  assert.equal(rule.category, '六仪击刑时家位置规则');
+  assert.match(rule.promptText, /甲子戊临震三/);
+  assert.match(rule.promptText, /甲辰壬或甲寅癸临巽四/);
+  assert.match(rule.promptText, /其他六仪.*不得.*扩大命中/);
+  assert.match(rule.promptText, /月家、年家不得套用/);
+  assert.doesNotMatch(rule.promptText, /必成|必败|必胜|万事皆凶/);
 });

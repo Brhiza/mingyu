@@ -762,7 +762,7 @@ export interface QimenData {
   zhiFu: string;
   /** 值使门名 */
   zhiShi: string;
-  /** 可由九宫直接复算的位置与五行标签（如伏吟、反吟、门克宫、击刑、入墓、马星） */
+  /** 可由九宫直接复算的位置与五行标签（如伏吟、反吟、门克宫、时家击刑、马星） */
   patternTags?: string[];
   /** 格局标签的详细解释 */
   patternDetails?: Array<{
@@ -790,7 +790,7 @@ export interface QimenData {
     summary: string;
     palaces: number[];
   }>;
-  /** 各宫天地盘干关系（生克/合/墓/刑） */
+  /** 各宫天地盘干关系（生克/合；六仪击刑由带当前时干上下文的位置标签单独提供） */
   stemRelations?: Array<{
     gong: number;
     heavenStem: string;

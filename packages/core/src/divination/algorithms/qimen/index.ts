@@ -211,7 +211,7 @@ function mapStemRelations(
  * 5. **辅助数据**：空亡地支配对、驿马定位
  *
  * 6. **可复算位置标签**
- *    - 星门伏吟/反吟、门克宫、击刑落宫、马星落宫
+ *    - 星门伏吟/反吟、门克宫、马星落宫；六仪击刑落宫仅限时家
  *
  * 7. **已校勘经典格局**：《遁甲演义》卷一、卷二
  *    - 输出十一项条件已闭合的天地盘固定格
@@ -325,6 +325,7 @@ export function generateQimen(
     zhiShiLandingPalace,
     jiuGongGe,
     hourGanForFind: activeGanForFind,
+    scope,
     horsePalace: horsePalace?.palace,
     horsePalaceName: horsePalace?.name,
   });

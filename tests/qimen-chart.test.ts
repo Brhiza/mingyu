@@ -220,9 +220,8 @@ test('奇门转盘中宫干随天禽时应进入原始干关系与已审核固�
   const jiXingRelations = getStemRelations(gengJiXing.palaces);
   assert.equal(gengJiXing.palaces[7].tianPan.companionStem, '庚');
   assert.ok(
-    jiXingRelations.some(
-      (relation) => relation.heaven === '庚' && relation.type === '击刑' && relation.palace === 8,
-    ),
+    !jiXingRelations.some((relation) => relation.type === '击刑'),
+    '盘上天禽伴随的庚不得脱离当前旬首身份扩大命中六仪击刑',
   );
 });
 
