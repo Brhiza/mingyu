@@ -7,7 +7,6 @@
 
 import type { QimenJiuGongGe } from '../../../../types/divination';
 import { branchElements, doorElements, isControlling, isGenerating } from './_constants';
-import { getTianPanStems } from './palace-utils';
 
 export interface QimenPatternCombo {
   key: string;
@@ -24,26 +23,6 @@ export interface PatternComboContext {
 }
 
 type DoorSeasonQiState = '旺' | '相' | '休' | '囚' | '废';
-
-type StemPressureRule = {
-  stemElement: string;
-  palaceElement: string;
-  palaces: number[];
-  issue: string;
-};
-
-const stemPressureRules: Record<string, StemPressureRule> = {
-  甲: { stemElement: '木', palaceElement: '金', palaces: [6, 7], issue: '木被金克' },
-  乙: { stemElement: '木', palaceElement: '金', palaces: [6, 7], issue: '木被金克' },
-  丙: { stemElement: '火', palaceElement: '水', palaces: [1], issue: '火被水克' },
-  丁: { stemElement: '火', palaceElement: '水', palaces: [1], issue: '火被水克' },
-  戊: { stemElement: '土', palaceElement: '木', palaces: [3, 4], issue: '土被木克' },
-  己: { stemElement: '土', palaceElement: '木', palaces: [3, 4], issue: '土被木克' },
-  庚: { stemElement: '金', palaceElement: '火', palaces: [9], issue: '金被火克' },
-  辛: { stemElement: '金', palaceElement: '火', palaces: [9], issue: '金被火克' },
-  壬: { stemElement: '水', palaceElement: '土', palaces: [2, 8], issue: '水被土克' },
-  癸: { stemElement: '水', palaceElement: '土', palaces: [2, 8], issue: '水被土克' },
-};
 
 function getDoorSeasonQiState(
   doorElement: string,
@@ -94,41 +73,9 @@ function pushDoorSeasonQiCombo(ctx: PatternComboContext, out: QimenPatternCombo[
   });
 }
 
-function pushStemPressureCombo(ctx: PatternComboContext, out: QimenPatternCombo[]): void {
-  const entries = ctx.jiuGongGe
-    .flatMap((palace) =>
-      getTianPanStems(palace).map((stem) => {
-        const rule = stemPressureRules[stem];
-        if (!rule || !rule.palaces.includes(palace.gong)) return undefined;
-
-        return {
-          gong: palace.gong,
-          text: `${palace.name}天盘${stem}属${rule.stemElement}临${rule.palaceElement}宫，${rule.issue}`,
-        };
-      }),
-    )
-    .filter((entry): entry is { gong: number; text: string } => Boolean(entry));
-
-  if (!entries.length) return;
-
-  out.push({
-    key: `combo:stemPressure:${entries.map((entry) => entry.gong).join(':')}`,
-    name: '十干迫制',
-    tone: 'mixed',
-    summary: `奇仪临受克之宫：${entries
-      .map((entry) => entry.text)
-      .join(
-        '；',
-      )}。依《奇门遁甲统宗》卷十二“甲乙金宫、丙丁坎内、戊己惧杜伤、庚辛离上、壬癸生死方”的固定表；只作奇仪落宫受克的结构事实，不自动延伸年命、疾病或通用吉凶。`,
-    palace: entries.length === 1 ? entries[0].gong : undefined,
-    sources: ['《奇门遁甲统宗》卷十二十干迫制固定表', ...entries.map((entry) => entry.text)],
-  });
-}
-
 export function detectQimenPatternCombos(ctx: PatternComboContext): QimenPatternCombo[] {
   const out: QimenPatternCombo[] = [];
   pushDoorSeasonQiCombo(ctx, out);
-  pushStemPressureCombo(ctx, out);
 
   const seen = new Set<string>();
   return out.filter((combo) => {

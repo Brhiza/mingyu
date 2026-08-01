@@ -716,7 +716,10 @@ test('奇门定局、值符值使、宫间作用与应期前提应进入统一�
         item.key === 'rule:qimen:retained-combo-versions' &&
         item.promptText.includes('五态月令版') &&
         item.promptText.includes('不混用《奇门宝鉴御定》') &&
-        item.promptText.includes('十干迫制'),
+        item.promptText.includes('十干迫制') &&
+        item.promptText.includes('年命宫') &&
+        item.promptText.includes('双方旺衰') &&
+        item.promptText.includes('不得仅凭奇仪落宫受克自动命名'),
     ),
   );
   assert.ok(
@@ -1225,6 +1228,139 @@ test('奇门复合格局应按月令输出八门余气旺相休囚废', () => {
   assert.ok(!noMonthBranch.some((combo) => combo.name === '八门余气'));
 });
 
+test('八门余气应穷举八门十二月支且每组唯一落入五态之一', () => {
+  const expectedStates: Record<string, Record<string, string>> = {
+    休门: {
+      子: '旺',
+      丑: '囚',
+      寅: '相',
+      卯: '相',
+      辰: '囚',
+      巳: '休',
+      午: '休',
+      未: '囚',
+      申: '废',
+      酉: '废',
+      戌: '囚',
+      亥: '旺',
+    },
+    生门: {
+      子: '休',
+      丑: '旺',
+      寅: '囚',
+      卯: '囚',
+      辰: '旺',
+      巳: '废',
+      午: '废',
+      未: '旺',
+      申: '相',
+      酉: '相',
+      戌: '旺',
+      亥: '休',
+    },
+    伤门: {
+      子: '废',
+      丑: '休',
+      寅: '旺',
+      卯: '旺',
+      辰: '休',
+      巳: '相',
+      午: '相',
+      未: '休',
+      申: '囚',
+      酉: '囚',
+      戌: '休',
+      亥: '废',
+    },
+    杜门: {
+      子: '废',
+      丑: '休',
+      寅: '旺',
+      卯: '旺',
+      辰: '休',
+      巳: '相',
+      午: '相',
+      未: '休',
+      申: '囚',
+      酉: '囚',
+      戌: '休',
+      亥: '废',
+    },
+    景门: {
+      子: '囚',
+      丑: '相',
+      寅: '废',
+      卯: '废',
+      辰: '相',
+      巳: '旺',
+      午: '旺',
+      未: '相',
+      申: '休',
+      酉: '休',
+      戌: '相',
+      亥: '囚',
+    },
+    死门: {
+      子: '休',
+      丑: '旺',
+      寅: '囚',
+      卯: '囚',
+      辰: '旺',
+      巳: '废',
+      午: '废',
+      未: '旺',
+      申: '相',
+      酉: '相',
+      戌: '旺',
+      亥: '休',
+    },
+    惊门: {
+      子: '相',
+      丑: '废',
+      寅: '休',
+      卯: '休',
+      辰: '废',
+      巳: '囚',
+      午: '囚',
+      未: '废',
+      申: '旺',
+      酉: '旺',
+      戌: '废',
+      亥: '相',
+    },
+    开门: {
+      子: '相',
+      丑: '废',
+      寅: '休',
+      卯: '休',
+      辰: '废',
+      巳: '囚',
+      午: '囚',
+      未: '废',
+      申: '旺',
+      酉: '旺',
+      戌: '废',
+      亥: '相',
+    },
+  };
+
+  for (const [door, branchStates] of Object.entries(expectedStates)) {
+    for (const [monthBranch, expectedState] of Object.entries(branchStates)) {
+      const combos = detectQimenPatternCombos({
+        monthBranch,
+        jiuGongGe: [buildQimenPalace(1, '戊', { renPan: { door } })],
+      });
+      const matched = combos.filter((combo) => combo.name === '八门余气');
+      assert.equal(matched.length, 1, `${door}在${monthBranch}月应且只应输出一项八门余气`);
+      assert.match(matched[0].summary, new RegExp(`${door}属.+为${expectedState}`));
+      const states = [
+        ...matched[0].summary.matchAll(new RegExp(`${door}属[^；。]+为([旺相休囚废])`, 'g')),
+      ].map((item) => item[1]);
+      assert.deepEqual(states, [expectedState], `${door}在${monthBranch}月只能落入一种状态`);
+    }
+  }
+});
+
 test('奇门通用盘不得在缺少射覆专项情境时输出物象克应', () => {
   const combos = detectQimenPatternCombos({
     jiuGongGe: [
@@ -1244,34 +1380,18 @@ test('奇门通用盘不得在缺少射覆专项情境时输出物象克应', ()
   assert.ok(!combos.some((combo) => /物形|颜色|材质/.test(combo.summary)));
 });
 
-test('奇门复合格局应按明列宫位输出十干迫制', () => {
-  const combos = detectQimenPatternCombos({
-    jiuGongGe: [
-      buildQimenPalace(6, '乙'),
-      buildQimenPalace(1, '丙'),
-      buildQimenPalace(3, '戊'),
-      buildQimenPalace(9, '庚'),
-      buildQimenPalace(2, '壬'),
-    ],
-  });
-
-  const stemPressure = combos.find((combo) => combo.name === '十干迫制');
-  assert.equal(stemPressure?.tone, 'mixed');
-  assert.match(stemPressure?.summary || '', /乾六宫天盘乙属木临金宫，木被金克/);
-  assert.match(stemPressure?.summary || '', /坎一宫天盘丙属火临水宫，火被水克/);
-  assert.match(stemPressure?.summary || '', /震三宫天盘戊属土临木宫，土被木克/);
-  assert.match(stemPressure?.summary || '', /离九宫天盘庚属金临火宫，金被火克/);
-  assert.match(stemPressure?.summary || '', /坤二宫天盘壬属水临土宫，水被土克/);
-  assert.match(stemPressure?.summary || '', /甲乙金宫/);
-  assert.match(stemPressure?.summary || '', /壬癸生死方/);
-  assert.match(stemPressure?.summary || '', /《奇门遁甲统宗》卷十二/);
-  assert.match(stemPressure?.summary || '', /只作奇仪落宫受克的结构事实/);
-  assert.ok(stemPressure?.sources.some((source) => source.includes('十干迫制固定表')));
-
-  const noPressure = detectQimenPatternCombos({
-    jiuGongGe: [buildQimenPalace(5, '壬'), buildQimenPalace(6, '丙')],
-  });
-  assert.ok(!noPressure.some((combo) => combo.name === '十干迫制'));
+test('十干九宫组合在缺少年命与旺衰前提时应全部关闭自动迫制名称', () => {
+  for (const stem of '甲乙丙丁戊己庚辛壬癸') {
+    for (let gong = 1; gong <= 9; gong += 1) {
+      const palace = buildQimenPalace(gong, stem);
+      assert.deepEqual(getTianPanStems(palace), [stem], `${stem}临${gong}宫的原始天盘干应保留`);
+      const combos = detectQimenPatternCombos({ jiuGongGe: [palace] });
+      assert.ok(
+        !combos.some((combo) => combo.name === '十干迫制'),
+        `${stem}临${gong}宫不得在缺少年命与旺衰时自动命名十干迫制`,
+      );
+    }
+  }
 });
 
 test('公共月将按实际中气切换且奇门通用盘不再消费专项月将规则', () => {
