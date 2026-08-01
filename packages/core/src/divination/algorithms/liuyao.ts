@@ -663,10 +663,6 @@ function buildLiuyaoData(customDate?: Date, options?: LiuyaoGenerationOptions): 
     .filter((yao) => yao.isChanging);
 
   const activityPattern = analyzeLiuyaoActivityPattern(rawYaos, mainHexagram.name);
-  const specialPattern =
-    activityPattern.scriptureReference ??
-    (activityPattern.kind === '多爻发动' ? undefined : activityPattern.kind);
-  const specialAdvice = activityPattern.guidance;
   const hexagramRelations = getLiuyaoHexagramRelations(
     mainHexagram.name,
     changedHexagram.name,
@@ -814,9 +810,6 @@ function buildLiuyaoData(customDate?: Date, options?: LiuyaoGenerationOptions): 
     palaceStage,
     ganzhi,
     activityPattern,
-    specialPattern,
-    specialAdvice,
-    isChaotic: false,
     yaosDetail,
     hiddenSpirits,
     hexagramRelations,

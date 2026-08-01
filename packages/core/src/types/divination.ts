@@ -425,13 +425,13 @@ export interface LiuyaoData extends BaseHexagramData {
   fanfuRelations?: LiuyaoFanFuRelations;
   /** 从原始爻值计算的动静结构；旧结果可能没有此字段。 */
   activityPattern?: LiuyaoActivityPattern;
-  /** @deprecated 旧版特殊卦式兼容字段，请改用 activityPattern。 */
+  /** @deprecated 仅供读取旧结果，当前生成结果不再输出；请改用 activityPattern。 */
   specialPattern?: '静卦' | '独发卦' | '独静卦' | '全动卦' | '乾卦用九' | '坤卦用六';
-  /** @deprecated 旧版说明兼容字段，请改用 activityPattern.guidance。 */
+  /** @deprecated 仅供读取旧结果，当前生成结果不再输出；请改用 activityPattern.guidance。 */
   specialAdvice?: string;
-  /** @deprecated “乱动”无跨原典一致的客观阈值，保留字段只为兼容。 */
+  /** @deprecated “乱动”无跨原典一致的客观阈值，仅供读取旧结果。 */
   isChaotic?: boolean;
-  /** @deprecated “乱动”无跨原典一致的客观阈值，保留字段只为兼容。 */
+  /** @deprecated “乱动”无跨原典一致的客观阈值，仅供读取旧结果。 */
   chaoticReason?: string;
   /** 与日支的三合局 */
   sanheWithDay?: {

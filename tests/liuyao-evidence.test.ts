@@ -60,10 +60,18 @@ test('六爻审核重建不得吸收旧卦盘、纳甲旺衰、组合或完整�
   polluted.hiddenSpirits = [];
   polluted.sanheFormations = [];
   polluted.sanxingInYaos = [];
+  polluted.specialPattern = '全动卦';
   polluted.specialAdvice = '伪造现实结论';
+  polluted.isChaotic = true;
+  polluted.chaoticReason = '伪造的乱动结论';
   polluted.evidenceAnalysis!.promptText = '伪造完整旧证据';
 
-  assert.deepEqual(rebuildAuditedLiuyaoData(polluted), clean);
+  const rebuilt = rebuildAuditedLiuyaoData(polluted);
+  assert.deepEqual(rebuilt, clean);
+  assert.equal('specialPattern' in rebuilt, false);
+  assert.equal('specialAdvice' in rebuilt, false);
+  assert.equal('isChaotic' in rebuilt, false);
+  assert.equal('chaoticReason' in rebuilt, false);
   assert.deepEqual(analyzeLiuyaoEvidence(polluted), clean.evidenceAnalysis);
 });
 

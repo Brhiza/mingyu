@@ -70,22 +70,68 @@ test('六爻：动静结构应区分静卦、独发、独静和全动，不硬�
   assert.throws(() => analyzeLiuyaoActivityPattern([7, 8, 7]), /需要六个有效爻值/);
 });
 
-test('六爻：排盘应输出动静结构并保留克制的旧字段兼容值', () => {
+test('六爻：排盘只输出可信动静结构，不再生成旧兼容建议字段', () => {
   const single = generateSampleLiuyao([7, 8, 9, 8, 7, 8]);
   const qian = generateSampleLiuyao([9, 9, 9, 9, 9, 9]);
   const kun = generateSampleLiuyao([6, 6, 6, 6, 6, 6]);
 
   assert.equal(single.activityPattern?.kind, '独发卦');
-  assert.equal(single.specialPattern, '独发卦');
-  assert.equal(single.isChaotic, false);
-  assert.equal(single.chaoticReason, undefined);
   assert.equal(qian.activityPattern?.kind, '全动卦');
   assert.equal(qian.activityPattern?.scriptureReference, '乾卦用九');
-  assert.equal(qian.specialPattern, '乾卦用九');
-  assert.doesNotMatch(qian.specialAdvice ?? '', /为主|不按常规/);
   assert.equal(kun.activityPattern?.scriptureReference, '坤卦用六');
-  assert.equal(kun.specialPattern, '坤卦用六');
-  assert.equal(kun.isChaotic, false);
+
+  for (const data of [single, qian, kun]) {
+    assert.equal('specialPattern' in data, false);
+    assert.equal('specialAdvice' in data, false);
+    assert.equal('isChaotic' in data, false);
+    assert.equal('chaoticReason' in data, false);
+  }
+});
+
+test('六爻：穷举 4096 个爻值组合时动静结构与原始爻值严格一致', () => {
+  const values = [6, 7, 8, 9] as const;
+
+  for (let caseIndex = 0; caseIndex < 4 ** 6; caseIndex += 1) {
+    let remainder = caseIndex;
+    const yaos = Array.from({ length: 6 }, () => {
+      const value = values[remainder % values.length];
+      remainder = Math.floor(remainder / values.length);
+      return value;
+    });
+    const movingPositions = yaos
+      .map((value, index) => (value === 6 || value === 9 ? index + 1 : 0))
+      .filter((position) => position > 0);
+    const stillPositions = [1, 2, 3, 4, 5, 6].filter(
+      (position) => !movingPositions.includes(position),
+    );
+    const movingCount = movingPositions.length;
+    const originalName = yaos.every((value) => value === 9)
+      ? '乾为天'
+      : yaos.every((value) => value === 6)
+        ? '坤为地'
+        : '';
+    const pattern = analyzeLiuyaoActivityPattern(yaos, originalName);
+    const expectedKind =
+      movingCount === 0
+        ? '静卦'
+        : movingCount === 1
+          ? '独发卦'
+          : movingCount === 5
+            ? '独静卦'
+            : movingCount === 6
+              ? '全动卦'
+              : '多爻发动';
+
+    assert.equal(pattern.kind, expectedKind);
+    assert.equal(pattern.movingCount, movingCount);
+    assert.deepEqual(pattern.movingPositions, movingPositions);
+    assert.deepEqual(pattern.stillPositions, stillPositions);
+    assert.equal(
+      pattern.scriptureReference,
+      originalName === '乾为天' ? '乾卦用九' : originalName === '坤为地' ? '坤卦用六' : undefined,
+    );
+    assert.doesNotMatch(pattern.guidance, /必胜|必败|成功率|应期为|应在第/);
+  }
 });
 
 function makeYao(
