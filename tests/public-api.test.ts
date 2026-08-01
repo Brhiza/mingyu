@@ -5451,6 +5451,25 @@ test('公开 API 黄历日期参数错误应返回 400 而不是内部错误', a
   }
 });
 
+test('公开 API 八宅应拒绝混用来源和不完整出生日期', async () => {
+  const cases = [
+    { birthYear: 1990, gender: 'male', mingGua: '坎' },
+    { birthYear: 1990, birthMonth: 6, gender: 'male' },
+    { mingGua: '坎', sitMountain: '子', doorToInteriorDegree: 0 },
+  ];
+
+  for (const payload of cases) {
+    const { response, body } = await callApi('metaphysics/bazhai/calculate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    assert.equal(response.status, 400, JSON.stringify(payload));
+    assert.equal(body.ok, false);
+    assert.equal(body.error.code, 'BAD_REQUEST');
+  }
+});
+
 test('公开 API 新增术数提示词应包含用户问题和统一章节', async () => {
   const { response, body } = await callApi('metaphysics/bazhai/prompt', {
     method: 'POST',
@@ -5481,6 +5500,14 @@ test('公开 API 新增术数提示词应包含用户问题和统一章节', asy
   );
   assert.match(body.data.prompt, /候选寅山申向：艮宅八宫/);
   assert.match(body.data.prompt, /候选甲山庚向：震宅八宫/);
+  assert.deepEqual(body.data.result.generation, {
+    method: 'door-measurement',
+    person: { source: 'birth', birthYear: 1990, gender: 'male' },
+    doorToInteriorDegree: 64,
+    northReference: 'magnetic',
+    magneticDeclinationDegrees: 1,
+    measurementUncertaintyDegrees: 3,
+  });
   assert.equal(body.data.result.directionMeasurement.stability, '宅卦不稳定');
   assert.equal(body.data.result.evidenceAnalysis.evidence.title, '八宅命宅方位与测量结构化证据');
   assert.equal(body.data.result.evidenceAnalysis.key, 'bazhai:evidence');

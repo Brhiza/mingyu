@@ -648,7 +648,8 @@ function buildSummaryFact(args: {
   };
 }
 
-export function analyzeBaZhaiEvidence(
+/** 仅供八宅生成器在可信来源完成重建后组装证据。 */
+export function buildBaZhaiEvidence(
   data: Omit<BaZhaiResult, 'prompt' | 'evidenceAnalysis'>,
   measurement?: BaZhaiDoorMeasurement,
 ): BaZhaiEvidenceAnalysis {

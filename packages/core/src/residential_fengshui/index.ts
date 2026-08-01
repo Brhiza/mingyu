@@ -8,6 +8,7 @@ import {
   analyzeBaZhai,
   analyzeBaZhaiByDoorDegree,
   getBaZhaiSitFacingFromDoorDegree,
+  rebuildAuditedBaZhaiData,
   type BaZhaiDoorDegreeInput,
   type BaZhaiInput,
   type BaZhaiResult,
@@ -123,7 +124,7 @@ function buildBazhai(input: ResidentialFengshuiInput): BaZhaiResult | null {
         ? { measurementUncertaintyDegrees: input.measurementUncertaintyDegrees }
         : {}),
     };
-    return analyzeBaZhaiByDoorDegree(doorInput);
+    return rebuildAuditedBaZhaiData(analyzeBaZhaiByDoorDegree(doorInput));
   }
 
   const sitMountain =
@@ -132,11 +133,11 @@ function buildBazhai(input: ResidentialFengshuiInput): BaZhaiResult | null {
 
   // 若只给了朝向山名，则由玄空侧推坐山后，再回填八宅。
   if (sitMountain) {
-    return analyzeBaZhai({ ...base, sitMountain });
+    return rebuildAuditedBaZhaiData(analyzeBaZhai({ ...base, sitMountain }));
   }
 
   // 无明确坐山时，仍可先算命卦盘。
-  return analyzeBaZhai(base);
+  return rebuildAuditedBaZhaiData(analyzeBaZhai(base));
 }
 
 function buildXuanKong(
@@ -346,14 +347,16 @@ export function generateResidentialFengshui(
 
   // 若八宅只有命卦、但玄空已推出坐山，则回填八宅宅卦。
   if (bazhai && !bazhai.houseGua && xuankong?.sitMountain && hasPersonInput(input)) {
-    bazhai = analyzeBaZhai({
-      ...(input.birthYear != null ? { birthYear: input.birthYear } : {}),
-      ...(input.birthMonth != null ? { birthMonth: input.birthMonth } : {}),
-      ...(input.birthDay != null ? { birthDay: input.birthDay } : {}),
-      ...(input.gender ? { gender: input.gender } : {}),
-      ...(input.mingGua ? { mingGua: input.mingGua } : {}),
-      sitMountain: xuankong.sitMountain,
-    });
+    bazhai = rebuildAuditedBaZhaiData(
+      analyzeBaZhai({
+        ...(input.birthYear != null ? { birthYear: input.birthYear } : {}),
+        ...(input.birthMonth != null ? { birthMonth: input.birthMonth } : {}),
+        ...(input.birthDay != null ? { birthDay: input.birthDay } : {}),
+        ...(input.gender ? { gender: input.gender } : {}),
+        ...(input.mingGua ? { mingGua: input.mingGua } : {}),
+        sitMountain: xuankong.sitMountain,
+      }),
+    );
   }
 
   const xuankongStatus: ResidentialFengshuiResult['inputSummary']['xuankongStatus'] = xuankong

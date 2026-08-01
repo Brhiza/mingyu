@@ -61,15 +61,17 @@ function calculateBaZhai(args: z.infer<typeof baZhaiSchema>) {
     gender: args.gender,
     mingGua: args.mingGua,
   };
-  return args.doorToInteriorDegree !== undefined
-    ? bazhai.analyzeBaZhaiByDoorDegree({
-        ...baseInput,
-        doorToInteriorDegree: args.doorToInteriorDegree,
-        northReference: args.northReference,
-        magneticDeclinationDegrees: args.magneticDeclinationDegrees,
-        measurementUncertaintyDegrees: args.measurementUncertaintyDegrees,
-      })
-    : bazhai.analyzeBaZhai({ ...baseInput, sitMountain: args.sitMountain });
+  const generated =
+    args.doorToInteriorDegree !== undefined
+      ? bazhai.analyzeBaZhaiByDoorDegree({
+          ...baseInput,
+          doorToInteriorDegree: args.doorToInteriorDegree,
+          northReference: args.northReference,
+          magneticDeclinationDegrees: args.magneticDeclinationDegrees,
+          measurementUncertaintyDegrees: args.measurementUncertaintyDegrees,
+        })
+      : bazhai.analyzeBaZhai({ ...baseInput, sitMountain: args.sitMountain });
+  return bazhai.rebuildAuditedBaZhaiData(generated);
 }
 
 export function registerBaZhaiTool(server: McpServer) {

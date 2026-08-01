@@ -80,8 +80,8 @@
 | `POST /divination/astrolabe/prompt`          | 星盘生成并生成 AI 解读提示词                                                   |
 | `POST /divination/astrolabe/synastry`        | 西占双盘全部点对相位、双向落宫与证据计算                                       |
 | `POST /divination/astrolabe/synastry/prompt` | 西占双盘计算并生成证据提示词                                                   |
-| `POST /metaphysics/bazhai/calculate`         | 八宅命卦、宅卦、测量候选及命宅逐方结构化证据                                   |
-| `POST /metaphysics/bazhai/prompt`            | 八宅排盘并生成含测量和现实边界的 AI 解读提示词                                 |
+| `POST /metaphysics/bazhai/calculate`         | 从可信出生/命卦与坐山/门向来源重建八宅命卦、宅卦、测量候选及逐方证据            |
+| `POST /metaphysics/bazhai/prompt`            | 从可信来源重建八宅排盘并生成含测量和现实边界的 AI 解读提示词                    |
 | `POST /metaphysics/residential/calculate`    | 住宅风水：八宅与玄空飞星分层合参结果                                           |
 | `POST /metaphysics/residential/prompt`       | 住宅风水合参并生成 AI 解读提示词                                               |
 | `POST /metaphysics/zodiac/calculate`         | 从可信生肖年支和六十甲子重建值冲刑害破、三合六合及结构化关系证据               |
@@ -276,6 +276,8 @@ curl -X POST https://aov.cc/api/v1/metaphysics/bazhai/prompt \
   -d '{"birthYear":1990,"gender":"male","sitMountain":"子","question":"住宅办公方位怎么安排？"}'
 
 ```
+
+八宅的出生资料与直接命卦只能选择一种来源，固定坐山与门向度数也不能混用。结果中的 `generation` 只保存所选居住人来源，以及固定坐山或完整门向测量来源；公开证据和提示词会先据此重建命卦、宅卦、八宫、测量候选与边界资料，不采信调用方附带的旧派生盘面。磁北读数必须提供磁偏角，出生月日必须同时提供；来源缺失、夹带、混用或非法时会明确拒绝。
 
 塔罗抽牌并生成提示词：
 

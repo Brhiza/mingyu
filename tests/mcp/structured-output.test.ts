@@ -906,6 +906,14 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
         const chart = (
           result.structuredContent as {
             result?: {
+              generation?: {
+                method: string;
+                person: Record<string, unknown>;
+                doorToInteriorDegree?: number;
+                northReference?: string;
+                magneticDeclinationDegrees?: number | null;
+                measurementUncertaintyDegrees?: number;
+              };
               evidenceAnalysis?: {
                 calculationFact?: {
                   status: string;
@@ -971,6 +979,14 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
             };
           }
         ).result;
+        assert.deepEqual(chart?.generation, {
+          method: 'door-measurement',
+          person: { source: 'birth', birthYear: 1990, gender: 'male' },
+          doorToInteriorDegree: 0,
+          northReference: 'unspecified',
+          magneticDeclinationDegrees: null,
+          measurementUncertaintyDegrees: 0,
+        });
         assert.equal(chart?.evidenceAnalysis?.key, 'bazhai:evidence');
         assert.equal(chart?.evidenceAnalysis?.status, '已计算');
         assert.equal(chart?.evidenceAnalysis?.calculationFact?.status, '命宅完整');

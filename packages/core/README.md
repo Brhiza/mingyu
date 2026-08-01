@@ -301,6 +301,7 @@ import {
 } from 'mingyu-core';
 
 const house = bazhai.analyzeBaZhai({ birthYear: 1990, gender: 'male', sitMountain: '子' });
+const auditedHouse = bazhai.rebuildAuditedBaZhaiData(house); // 只凭 generation 重建全部派生盘面
 console.log(house.mingPalace, house.housePalace); // 命卦、宅卦各自的八宫传统标签
 console.log(house.groupRelation); // 同组 / 异组 / 未比较；只记录分组事实
 const foundationCapabilities = foundation.getFoundationCapabilities();
@@ -506,6 +507,8 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | ------------------------------------------------- | -------------------------------------------------------------------- |
 | `calendar.resolveTrueSolarBirthTime(input)`       | 公历/农历出生真太阳时、夏令时、跨日和时辰索引统一换算                |
 | `bazhai.analyzeBaZhaiByDoorDegree(input)`         | 按入户实测度数、北向基准、磁偏角和测量误差生成八宫传统标签与候选坐向 |
+| `bazhai.rebuildAuditedBaZhaiData(data)`           | 只凭出生/命卦与坐山/门向可信来源重建全部八宅派生盘面                 |
+| `bazhai.analyzeBaZhaiEvidence(data)`              | 先审核重建八宅结果，再返回命宅、逐方、测量候选与限制证据             |
 | `bazhai.getBaZhaiSitFacingFromDoorDegree(degree)` | 将入户实测度数换算成传统坐山、朝向与二十四山                         |
 | `resolveZiweiTrueSolarBirth(input)`               | 紫微出生资料真太阳时日期与时辰索引适配                               |
 | `zodiac.getZodiacYearFortune(branch, ganZhi)`     | 从生肖年支与合法六十甲子生成固定关系资料                             |

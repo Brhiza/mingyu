@@ -19,7 +19,7 @@ import { buildAstrolabeScopeContext } from '../src/lib/astrolabe-scope';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import { baziCalculator } from '@core/bazi/baziCalculator';
-import { analyzeBaZhai } from '@core/ba_zhai';
+import { analyzeBaZhai, rebuildAuditedBaZhaiData } from '@core/ba_zhai';
 import { generateResidentialFengshui } from '@core/residential_fengshui';
 import { generateXuanKong } from '@core/xuan_kong';
 import { getZodiacYearFortune, rebuildAuditedZodiacData } from '@core/zodiac';
@@ -548,13 +548,15 @@ async function buildSamples(): Promise<PromptSample[]> {
       almanacData,
     );
 
-    const bazhaiData = analyzeBaZhai({
-      birthYear: 1990,
-      birthMonth: 6,
-      birthDay: 15,
-      gender: 'male',
-      sitMountain: '子',
-    });
+    const bazhaiData = rebuildAuditedBaZhaiData(
+      analyzeBaZhai({
+        birthYear: 1990,
+        birthMonth: 6,
+        birthDay: 15,
+        gender: 'male',
+        sitMountain: '子',
+      }),
+    );
     const bazhaiPrompt = buildMetaphysicsPrompt(
       bazhaiData.prompt,
       '住宅的大门、卧室和书房应该怎样安排方位？',

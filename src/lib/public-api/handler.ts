@@ -1879,6 +1879,15 @@ function calculateBaZhaiApi(input: JsonRecord) {
   if (birthYear !== undefined && !gender) {
     throw new ApiError(400, 'BAD_REQUEST', '使用 birthYear 推命卦时必须同时提供 gender。');
   }
+  if (
+    mingGua &&
+    (birthYear !== undefined || birthMonth !== undefined || birthDay !== undefined || gender)
+  ) {
+    throw new ApiError(400, 'BAD_REQUEST', '出生资料与直接命卦只能选择一种来源。');
+  }
+  if ((birthMonth !== undefined) !== (birthDay !== undefined)) {
+    throw new ApiError(400, 'BAD_REQUEST', '八宅立春换年需同时提供 birthMonth 和 birthDay。');
+  }
   if (birthYear === undefined && !mingGua) {
     throw new ApiError(400, 'BAD_REQUEST', '需提供 birthYear+gender 或直接给定 mingGua。');
   }
@@ -1904,15 +1913,17 @@ function calculateBaZhaiApi(input: JsonRecord) {
     ...(birthYear !== undefined ? { birthYear, gender, birthMonth, birthDay } : {}),
     mingGua: mingGua || undefined,
   };
-  return doorToInteriorDegree !== undefined
-    ? bazhai.analyzeBaZhaiByDoorDegree({
-        ...baseInput,
-        doorToInteriorDegree,
-        northReference: northReference as 'unspecified' | 'magnetic' | 'true' | undefined,
-        magneticDeclinationDegrees,
-        measurementUncertaintyDegrees,
-      })
-    : bazhai.analyzeBaZhai({ ...baseInput, sitMountain: sitMountain || undefined });
+  const generated =
+    doorToInteriorDegree !== undefined
+      ? bazhai.analyzeBaZhaiByDoorDegree({
+          ...baseInput,
+          doorToInteriorDegree,
+          northReference: northReference as 'unspecified' | 'magnetic' | 'true' | undefined,
+          magneticDeclinationDegrees,
+          measurementUncertaintyDegrees,
+        })
+      : bazhai.analyzeBaZhai({ ...baseInput, sitMountain: sitMountain || undefined });
+  return bazhai.rebuildAuditedBaZhaiData(generated);
 }
 
 function buildBaZhaiPrompt(input: JsonRecord) {

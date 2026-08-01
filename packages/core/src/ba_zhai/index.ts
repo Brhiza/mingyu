@@ -8,6 +8,8 @@ import { calculateMingGua } from '../bazi/mingGua';
 import { daysInGregorianMonth } from '../calendar/date-validation';
 import { getGanZhiFromDate } from '../ganzhi';
 import {
+  BAGUA,
+  TWENTY_FOUR_MOUNTAINS,
   getHouseTrigram,
   getEightMansion,
   getEastWestGroup,
@@ -16,9 +18,8 @@ import {
   type BaZhaiPalace,
   type SitFacingPosition,
 } from '../direction';
-import { analyzeBaZhaiEvidence } from './evidence';
+import { buildBaZhaiEvidence } from './evidence';
 
-export { analyzeBaZhaiEvidence } from './evidence';
 export type {
   BaZhaiCalculationFact,
   BaZhaiCalculationStep,
@@ -48,7 +49,38 @@ export interface BaZhaiInput {
 
 export type BaZhaiGroupRelation = '同组' | '异组' | '未比较';
 
+export type BaZhaiPersonGenerationSource =
+  | {
+      source: 'birth';
+      birthYear: number;
+      birthMonth?: number;
+      birthDay?: number;
+      gender: 'male' | 'female';
+    }
+  | {
+      source: 'ming-gua';
+      mingGua: string;
+    };
+
+/** 八宅审核重建所需的唯一可信来源；固定坐山与门向测量不可混用。 */
+export type BaZhaiGenerationSource =
+  | {
+      method: 'fixed-sit-mountain';
+      person: BaZhaiPersonGenerationSource;
+      sitMountain?: string;
+    }
+  | {
+      method: 'door-measurement';
+      person: BaZhaiPersonGenerationSource;
+      doorToInteriorDegree: number;
+      northReference: 'unspecified' | 'magnetic' | 'true';
+      magneticDeclinationDegrees: number | null;
+      measurementUncertaintyDegrees: number;
+    };
+
 export interface BaZhaiResult {
+  /** 审核重建所需的唯一可信来源；其余字段均为派生结果。 */
+  generation: BaZhaiGenerationSource;
   calculationInput: {
     mingGuaSource: '出生年与性别计算' | '直接给定';
     birthYear?: number;
@@ -121,6 +153,226 @@ export interface BaZhaiDoorMeasurement {
 
 export interface BaZhaiDoorDegreeResult extends BaZhaiResult {
   directionMeasurement: BaZhaiDoorMeasurement;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function assertExactKeys(
+  value: Record<string, unknown>,
+  allowedKeys: readonly string[],
+  label: string,
+): void {
+  const allowed = new Set(allowedKeys);
+  const unexpected = Object.keys(value).filter((key) => !allowed.has(key));
+  if (unexpected.length) {
+    throw new Error(`${label}包含不受支持的字段：${unexpected.join('、')}`);
+  }
+}
+
+function normalizePersonInput(input: Record<string, unknown>): BaZhaiPersonGenerationSource {
+  const hasMingGua = input.mingGua !== undefined;
+  const hasBirthData =
+    input.birthYear !== undefined ||
+    input.birthMonth !== undefined ||
+    input.birthDay !== undefined ||
+    input.gender !== undefined;
+  if (hasMingGua && hasBirthData) {
+    throw new Error('八宅出生资料与直接命卦只能选择一种来源。');
+  }
+  if (hasMingGua) {
+    if (typeof input.mingGua !== 'string') {
+      throw new Error('直接命卦必须是原始字符串。');
+    }
+    if (!BAGUA.includes(input.mingGua)) {
+      throw new Error(`命卦无效：${input.mingGua}`);
+    }
+    return { source: 'ming-gua', mingGua: input.mingGua };
+  }
+  if (input.birthYear === undefined || input.gender === undefined) {
+    throw new Error('需提供 birthYear+gender 或直接给定 mingGua。');
+  }
+  if (input.gender !== 'male' && input.gender !== 'female') {
+    throw new Error('性别只能是 male 或 female。');
+  }
+  const birthInput: BaZhaiInput = {
+    birthYear: input.birthYear as number,
+    ...(input.birthMonth !== undefined ? { birthMonth: input.birthMonth as number } : {}),
+    ...(input.birthDay !== undefined ? { birthDay: input.birthDay as number } : {}),
+    gender: input.gender,
+  };
+  // 在来源进入结果前完成年份、日期以及月日成对约束验证。
+  resolveEffectiveBirthYear(birthInput);
+  return {
+    source: 'birth',
+    birthYear: birthInput.birthYear!,
+    ...(birthInput.birthMonth !== undefined ? { birthMonth: birthInput.birthMonth } : {}),
+    ...(birthInput.birthDay !== undefined ? { birthDay: birthInput.birthDay } : {}),
+    gender: birthInput.gender!,
+  };
+}
+
+function normalizePersonGenerationSource(source: unknown): BaZhaiPersonGenerationSource {
+  if (!isRecord(source)) {
+    throw new Error('八宅可信生成来源缺少有效的居住人原始资料。');
+  }
+  if (source.source === 'birth') {
+    assertExactKeys(
+      source,
+      ['source', 'birthYear', 'birthMonth', 'birthDay', 'gender'],
+      '八宅出生可信来源',
+    );
+    return normalizePersonInput(source);
+  }
+  if (source.source === 'ming-gua') {
+    assertExactKeys(source, ['source', 'mingGua'], '八宅直接命卦可信来源');
+    return normalizePersonInput(source);
+  }
+  throw new Error('八宅可信生成来源的居住人来源只能是 birth 或 ming-gua。');
+}
+
+function assertDoorDegree(value: unknown): asserts value is number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 360) {
+    throw new Error('大门朝向屋内的度数必须是 0-360 之间的有限数字。');
+  }
+}
+
+function normalizeBaZhaiGenerationSource(source: unknown): BaZhaiGenerationSource {
+  if (!isRecord(source)) {
+    throw new Error('八宅审核重建必须提供可信生成来源。');
+  }
+  if (source.method === 'fixed-sit-mountain') {
+    assertExactKeys(source, ['method', 'person', 'sitMountain'], '八宅固定坐山可信来源');
+    const person = normalizePersonGenerationSource(source.person);
+    if (source.sitMountain !== undefined) {
+      if (typeof source.sitMountain !== 'string') {
+        throw new Error('八宅可信来源的坐山必须是原始字符串。');
+      }
+      if (!TWENTY_FOUR_MOUNTAINS.includes(source.sitMountain)) {
+        throw new Error(`坐山无效：${source.sitMountain}`);
+      }
+    }
+    return {
+      method: 'fixed-sit-mountain',
+      person,
+      ...(source.sitMountain !== undefined ? { sitMountain: source.sitMountain } : {}),
+    };
+  }
+  if (source.method === 'door-measurement') {
+    assertExactKeys(
+      source,
+      [
+        'method',
+        'person',
+        'doorToInteriorDegree',
+        'northReference',
+        'magneticDeclinationDegrees',
+        'measurementUncertaintyDegrees',
+      ],
+      '八宅门向测量可信来源',
+    );
+    const person = normalizePersonGenerationSource(source.person);
+    assertDoorDegree(source.doorToInteriorDegree);
+    if (
+      source.northReference !== 'unspecified' &&
+      source.northReference !== 'magnetic' &&
+      source.northReference !== 'true'
+    ) {
+      throw new Error('northReference 只能是 unspecified、magnetic 或 true。');
+    }
+    if (
+      typeof source.measurementUncertaintyDegrees !== 'number' ||
+      !Number.isFinite(source.measurementUncertaintyDegrees) ||
+      source.measurementUncertaintyDegrees < 0 ||
+      source.measurementUncertaintyDegrees > 45
+    ) {
+      throw new Error('测量误差必须是 0-45 之间的有限数字。');
+    }
+    if (source.northReference === 'magnetic') {
+      if (source.magneticDeclinationDegrees === null) {
+        throw new Error('读数采用磁北时必须提供当地磁偏角。');
+      }
+      if (
+        typeof source.magneticDeclinationDegrees !== 'number' ||
+        !Number.isFinite(source.magneticDeclinationDegrees) ||
+        source.magneticDeclinationDegrees < -30 ||
+        source.magneticDeclinationDegrees > 30
+      ) {
+        throw new Error('磁偏角必须是 -30 至 30 之间的有限数字，东偏为正、西偏为负。');
+      }
+    } else if (source.magneticDeclinationDegrees !== null) {
+      throw new Error('只有 northReference 为 magnetic 时才应提供磁偏角。');
+    }
+    return {
+      method: 'door-measurement',
+      person,
+      doorToInteriorDegree: source.doorToInteriorDegree,
+      northReference: source.northReference,
+      magneticDeclinationDegrees: source.magneticDeclinationDegrees as number | null,
+      measurementUncertaintyDegrees: source.measurementUncertaintyDegrees,
+    };
+  }
+  throw new Error('八宅可信生成来源的 method 只能是 fixed-sit-mountain 或 door-measurement。');
+}
+
+function normalizeBaZhaiInput(
+  input: unknown,
+): Extract<BaZhaiGenerationSource, { method: 'fixed-sit-mountain' }> {
+  if (!isRecord(input)) throw new Error('八宅排盘必须提供输入对象。');
+  assertExactKeys(
+    input,
+    ['birthYear', 'birthMonth', 'birthDay', 'gender', 'mingGua', 'sitMountain'],
+    '八宅排盘输入',
+  );
+  if (input.sitMountain !== undefined) {
+    if (typeof input.sitMountain !== 'string') throw new Error('坐山必须是原始字符串。');
+    if (!TWENTY_FOUR_MOUNTAINS.includes(input.sitMountain)) {
+      throw new Error(`坐山无效：${input.sitMountain}`);
+    }
+  }
+  return {
+    method: 'fixed-sit-mountain',
+    person: normalizePersonInput(input),
+    ...(input.sitMountain !== undefined ? { sitMountain: input.sitMountain } : {}),
+  };
+}
+
+function normalizeDoorInput(
+  input: unknown,
+): Extract<BaZhaiGenerationSource, { method: 'door-measurement' }> {
+  if (!isRecord(input)) throw new Error('八宅门向排盘必须提供输入对象。');
+  assertExactKeys(
+    input,
+    [
+      'birthYear',
+      'birthMonth',
+      'birthDay',
+      'gender',
+      'mingGua',
+      'doorToInteriorDegree',
+      'northReference',
+      'magneticDeclinationDegrees',
+      'measurementUncertaintyDegrees',
+    ],
+    '八宅门向排盘输入',
+  );
+  const northReference = input.northReference === undefined ? 'unspecified' : input.northReference;
+  if (input.magneticDeclinationDegrees === null) {
+    throw new Error('门向排盘输入的磁偏角必须是有限数字，不能用 null 代替未填写。');
+  }
+  const magneticDeclinationDegrees =
+    input.magneticDeclinationDegrees === undefined ? null : input.magneticDeclinationDegrees;
+  const measurementUncertaintyDegrees =
+    input.measurementUncertaintyDegrees === undefined ? 0 : input.measurementUncertaintyDegrees;
+  return normalizeBaZhaiGenerationSource({
+    method: 'door-measurement',
+    person: normalizePersonInput(input),
+    doorToInteriorDegree: input.doorToInteriorDegree,
+    northReference,
+    magneticDeclinationDegrees,
+    measurementUncertaintyDegrees,
+  }) as Extract<BaZhaiGenerationSource, { method: 'door-measurement' }>;
 }
 
 /**
@@ -311,8 +563,26 @@ function buildPrompt(r: Omit<BaZhaiResult, 'prompt'>): string {
   return lines.join('\n');
 }
 
-/** 八宅风水分析 */
-export function analyzeBaZhai(input: BaZhaiInput): BaZhaiResult {
+function personSourceToInput(person: BaZhaiPersonGenerationSource): BaZhaiInput {
+  return person.source === 'ming-gua'
+    ? { mingGua: person.mingGua }
+    : {
+        birthYear: person.birthYear,
+        ...(person.birthMonth !== undefined ? { birthMonth: person.birthMonth } : {}),
+        ...(person.birthDay !== undefined ? { birthDay: person.birthDay } : {}),
+        gender: person.gender,
+      };
+}
+
+function buildBaZhaiFromPerson(
+  person: BaZhaiPersonGenerationSource,
+  sitMountain: string | undefined,
+  generation: BaZhaiGenerationSource,
+): BaZhaiResult {
+  const input: BaZhaiInput = {
+    ...personSourceToInput(person),
+    ...(sitMountain !== undefined ? { sitMountain } : {}),
+  };
   const resolvedMingGua = resolveMingGua(input);
   const mingGua = resolvedMingGua.gua;
   const mingGroup = getEastWestGroup(mingGua);
@@ -332,8 +602,9 @@ export function analyzeBaZhai(input: BaZhaiInput): BaZhaiResult {
   }
 
   const resultBase: Omit<BaZhaiResult, 'prompt' | 'evidenceAnalysis'> = {
+    generation,
     calculationInput: {
-      mingGuaSource: input.mingGua ? '直接给定' : '出生年与性别计算',
+      mingGuaSource: person.source === 'ming-gua' ? '直接给定' : '出生年与性别计算',
       ...(input.birthYear !== undefined ? { birthYear: input.birthYear } : {}),
       ...(input.birthMonth !== undefined ? { birthMonth: input.birthMonth } : {}),
       ...(input.birthDay !== undefined ? { birthDay: input.birthDay } : {}),
@@ -351,9 +622,15 @@ export function analyzeBaZhai(input: BaZhaiInput): BaZhaiResult {
     housePalace,
     groupRelation,
   };
-  const evidenceAnalysis = analyzeBaZhaiEvidence(resultBase);
+  const evidenceAnalysis = buildBaZhaiEvidence(resultBase);
   const result: Omit<BaZhaiResult, 'prompt'> = { ...resultBase, evidenceAnalysis };
   return { ...result, prompt: buildPrompt(result) };
+}
+
+/** 八宅风水分析。输入先规范化为可信来源，再生成全部派生盘面。 */
+export function analyzeBaZhai(input: BaZhaiInput): BaZhaiResult {
+  const generation = normalizeBaZhaiInput(input);
+  return buildBaZhaiFromPerson(generation.person, generation.sitMountain, generation);
 }
 
 /**
@@ -361,20 +638,23 @@ export function analyzeBaZhai(input: BaZhaiInput): BaZhaiResult {
  * 调用方无需自行换算相反方向或二十四山。
  */
 export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiDoorDegreeResult {
-  const {
-    doorToInteriorDegree,
-    northReference: _northReference,
-    magneticDeclinationDegrees: _magneticDeclinationDegrees,
-    measurementUncertaintyDegrees: _measurementUncertaintyDegrees,
-    ...birthInput
-  } = input;
-  const measurement = resolveDoorMeasurement(input);
+  const generation = normalizeDoorInput(input);
+  const doorInput: BaZhaiDoorDegreeInput = {
+    ...personSourceToInput(generation.person),
+    doorToInteriorDegree: generation.doorToInteriorDegree,
+    northReference: generation.northReference,
+    ...(generation.magneticDeclinationDegrees !== null
+      ? { magneticDeclinationDegrees: generation.magneticDeclinationDegrees }
+      : {}),
+    measurementUncertaintyDegrees: generation.measurementUncertaintyDegrees,
+  };
+  const measurement = resolveDoorMeasurement(doorInput);
   const { facing, sit, label } = getBaZhaiSitFacingFromDoorDegree(measurement.trueNorthDegree);
   if (facing.isBoundary && measurement.uncertainty === 0) {
     const boundary = facing.boundaryMountains?.join('向与') ?? '两个二十四山';
     throw new Error(`当前度数正好位于${boundary}向的分界线，请重新测量。`);
   }
-  const result = analyzeBaZhai({ ...birthInput, sitMountain: sit.mountain });
+  const result = buildBaZhaiFromPerson(generation.person, sit.mountain, generation);
   const candidateDirections: BaZhaiDirectionCandidate[] = measurement.candidateDirections.map(
     (item) => {
       const houseGroup = getEastWestGroup(item.houseGua);
@@ -388,7 +668,7 @@ export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiD
   );
   const directionMeasurement: BaZhaiDoorMeasurement = {
     method: '站在大门处面向屋内测量',
-    measuredDegree: doorToInteriorDegree,
+    measuredDegree: generation.doorToInteriorDegree,
     northReference: measurement.reference,
     magneticDeclinationDegrees: measurement.declination,
     trueNorthDegree: measurement.trueNorthDegree,
@@ -403,7 +683,7 @@ export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiD
     sitMountain: sit.mountain,
     label,
     promptText: [
-      `测量方式：站在大门处面向屋内，指南针读数为 ${doorToInteriorDegree}°；北向基准为${measurement.reference === 'magnetic' ? `磁北，磁偏角 ${measurement.declination}°（东偏为正）` : measurement.reference === 'true' ? '真北' : '未声明'}。`,
+      `测量方式：站在大门处面向屋内，指南针读数为 ${generation.doorToInteriorDegree}°；北向基准为${measurement.reference === 'magnetic' ? `磁北，磁偏角 ${measurement.declination}°（东偏为正）` : measurement.reference === 'true' ? '真北' : '未声明'}。`,
       `真北口径入户方向为 ${measurement.trueNorthDegree}°，测量误差 ±${measurement.uncertainty}°，距最近二十四山边界 ${measurement.nearestBoundaryDistanceDegrees.toFixed(2)}°，稳定性为${measurement.stability}。`,
       `中心读数换算后住宅坐山 ${sit.degree}° 为${sit.mountain}山，传统朝向 ${facing.degree}° 为${facing.mountain}向，结果为${label}。`,
       `误差候选：${candidateDirections.map((item) => `${item.label}（${item.houseGua}宅、${item.houseGroup}、命宅分组${item.groupRelation}）`).join('、')}。`,
@@ -419,7 +699,7 @@ export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiD
       .join('\n'),
   };
   const { prompt: _prompt, evidenceAnalysis: _evidenceAnalysis, ...resultFacts } = result;
-  const evidenceAnalysis = analyzeBaZhaiEvidence(resultFacts, directionMeasurement);
+  const evidenceAnalysis = buildBaZhaiEvidence(resultFacts, directionMeasurement);
   return {
     ...result,
     evidenceAnalysis,
@@ -428,8 +708,43 @@ export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiD
   };
 }
 
+/** 只凭规范化出生/命卦来源及固定坐山或门向测量来源重建完整八宅结果。 */
+export function rebuildAuditedBaZhaiData(
+  input: Pick<BaZhaiResult, 'generation'>,
+): BaZhaiResult | BaZhaiDoorDegreeResult {
+  if (!isRecord(input)) throw new Error('八宅审核重建必须提供结果对象。');
+  if (!Object.prototype.hasOwnProperty.call(input, 'generation')) {
+    throw new Error('八宅旧结果缺少可信原始输入，无法审核重建。');
+  }
+  const generation = normalizeBaZhaiGenerationSource(input.generation);
+  if (generation.method === 'door-measurement') {
+    return analyzeBaZhaiByDoorDegree({
+      ...personSourceToInput(generation.person),
+      doorToInteriorDegree: generation.doorToInteriorDegree,
+      northReference: generation.northReference,
+      ...(generation.magneticDeclinationDegrees !== null
+        ? { magneticDeclinationDegrees: generation.magneticDeclinationDegrees }
+        : {}),
+      measurementUncertaintyDegrees: generation.measurementUncertaintyDegrees,
+    });
+  }
+  return analyzeBaZhai({
+    ...personSourceToInput(generation.person),
+    ...(generation.sitMountain !== undefined ? { sitMountain: generation.sitMountain } : {}),
+  });
+}
+
+/** 先从可信来源审核重建完整盘面，再返回结构化证据。 */
+export function analyzeBaZhaiEvidence(
+  input: Pick<BaZhaiResult, 'generation'>,
+): BaZhaiResult['evidenceAnalysis'] {
+  return rebuildAuditedBaZhaiData(input).evidenceAnalysis;
+}
+
 export const bazhai = {
   analyzeBaZhai,
   analyzeBaZhaiByDoorDegree,
+  rebuildAuditedBaZhaiData,
+  analyzeBaZhaiEvidence,
   getBaZhaiSitFacingFromDoorDegree,
 };
