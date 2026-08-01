@@ -1,8 +1,9 @@
 /**
  * @file 奇门已校勘经典格局与天地盘干结构事实
  * @description 正式入口输出已经逐条闭环的十一项天地盘固定格，以及只在
- * 完整时家上下文中识别的伏干格、飞干格、岁格、格勃、三奇升殿与三诈中性结构事实。
- * 九遁、其余三奇、五假、值符值使、月日时格、普通勃格、门迫、击刑、入墓等旧规则
+ * 完整时家上下文中识别的伏干格、飞干格、岁格、格勃、三奇升殿、三诈与
+ * 天假/严格地假/鬼假中性结构事实。九遁、其余三奇、人假、物假、神假、值符值使、
+ * 月日时格、普通勃格、门迫、击刑、入墓等旧规则
  * 在版本、条件或适用情境完成校勘前失败关闭；可复算的落宫与五行事实仍由九宫、
  * 基础标签、组合事实和天地盘干关系提供，供后续 AI 结合具体问题继续推算。
  */
@@ -30,6 +31,9 @@ export const AUDITED_QIMEN_CONTEXT_PATTERN_NAMES = [
   '真诈',
   '重诈',
   '休诈',
+  '天假',
+  '地假',
+  '鬼假',
 ] as const;
 
 export function isAuditedQimenContextPatternName(
@@ -436,11 +440,45 @@ function getSanZhaPatterns({ jiuGongGe, scope }: PatternContext): ClassicPattern
   return patterns;
 }
 
+const AUDITED_WU_JIA_CONFIGS = [
+  { name: '天假', stems: ['乙', '丙', '丁'], door: '景门', god: '九天' },
+  { name: '地假', stems: ['丁', '己', '癸'], door: '杜门', god: '九地' },
+  { name: '鬼假', stems: ['丁', '己', '癸'], door: '死门', god: '九地' },
+] as const;
+
+function getAuditedWuJiaPatterns({ jiuGongGe, scope }: PatternContext): ClassicPattern[] {
+  // 四书只在这三项核心条件上名称与奇仪、门、神三层完全一致；年月家不外推。
+  if (scope !== 'hour') return [];
+
+  const patterns: ClassicPattern[] = [];
+  for (const palace of jiuGongGe) {
+    for (const config of AUDITED_WU_JIA_CONFIGS) {
+      if (palace.renPan.door !== config.door || palace.shenPan.god !== config.god) continue;
+
+      const stems = [...new Set(getTianPanStems(palace))].filter((stem) =>
+        (config.stems as readonly string[]).includes(stem),
+      );
+      if (stems.length === 0) continue;
+
+      patterns.push({
+        key: `pattern:wuJia:${config.name}:${palace.gong}`,
+        name: config.name,
+        tone: 'neutral',
+        summary: `天盘${stems.join('、')}、${config.door}与${config.god}同临${palace.name}，命中《遁甲演义》《奇门法窍》《奇门旨归》《奇门遁甲秘笈大全》共同记载的“${config.name}”核心位置条件。这里只登记天盘干、门、神三层可复算结构；人假、物假、神假以及地假太阴/六合扩展存在版本冲突，不得混入，也不得据格名生成吉凶、用途、方位、行动或现实结果`,
+        palace: palace.gong,
+        tokens: stems,
+      });
+    }
+  }
+
+  return patterns;
+}
+
 /**
  * 返回正式允许输出的经典格局。
  *
  * 当前白名单包括十一项天地盘固定格，以及独立校勘的伏干格、飞干格、岁格、
- * 格勃、三奇升殿与三诈时家上下文结构。它们只在所需干支、值符身份、天盘落宫或
+ * 格勃、三奇升殿、三诈与三项条件一致的五假时家上下文结构。它们只在所需干支、值符身份、天盘落宫或
  * 奇门神三层可复算时登记中性结构，不继承互有差异的现实断语。月格因“月干/月朔干”不一，时格因
  * “本时干/仅三奇/庚值符管十时”不一，普通勃格因“丙临年月日时干/丙加值符庚”
  * 不一而继续关闭；AI 如需采用，应从原始九宫事实和明示版本继续推算。
@@ -453,5 +491,6 @@ export function getClassicPatterns(context: PatternContext): ClassicPattern[] {
     ...getGengValueSymbolPattern(context),
     ...getSanQiShengDianPatterns(context),
     ...getSanZhaPatterns(context),
+    ...getAuditedWuJiaPatterns(context),
   ];
 }

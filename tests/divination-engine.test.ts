@@ -672,7 +672,7 @@ test('奇门定局、值符值使、宫间作用与应期前提应进入统一�
         item.limitation.includes('不证明现实吉凶'),
     ),
   );
-  assert.equal(analysis.ruleSourceFacts.length, 13);
+  assert.equal(analysis.ruleSourceFacts.length, 14);
   assert.ok(
     analysis.ruleSourceFacts.some(
       (item) =>
@@ -681,8 +681,20 @@ test('奇门定局、值符值使、宫间作用与应期前提应进入统一�
         item.promptText.includes('伏干格、飞干格、岁格') &&
         item.promptText.includes('乙奇到震三/丙奇到离九/丁奇到兑七') &&
         item.promptText.includes('真诈/重诈/休诈') &&
+        item.promptText.includes('天假/严格地假/鬼假') &&
         item.promptText.includes('月干/月朔干') &&
         item.promptText.includes('不得从原始盘面自动补算'),
+    ),
+  );
+  assert.ok(
+    analysis.ruleSourceFacts.some(
+      (item) =>
+        item.key === 'rule:qimen:audited-wu-jia-position' &&
+        item.category === '条件一致五假位置规则' &&
+        item.promptText.includes('天假要求天盘乙丙丁任一、景门与九天同宫') &&
+        item.promptText.includes('地假只采用天盘丁己癸任一、杜门与九地同宫的严格条件') &&
+        item.promptText.includes('鬼假要求天盘丁己癸任一、死门与九地同宫') &&
+        item.promptText.includes('人假、物假、神假及地假太阴/六合扩展存在版本冲突'),
     ),
   );
   assert.ok(
@@ -1394,39 +1406,34 @@ test('奇门天地盘干入墓关系与统一天干入墓表一致', () => {
   }
 });
 
-test('奇门其余未审核三奇与五假规则即使条件齐全也应失败关闭', () => {
+test('奇门未审核三奇及人假物假神假与五假冲突扩展即使条件齐全也应失败关闭', () => {
   const patterns = getClassicPatterns({
     jiuGongGe: [
-      buildQimenPalace(1, '乙', { renPan: { door: '开门' }, shenPan: { god: '太阴' } }),
+      buildQimenPalace(1, '乙', {
+        tianPan: { star: '天蓬', stem: '乙' },
+        renPan: { door: '开门' },
+        shenPan: { god: '太阴' },
+      }),
       buildQimenPalace(2, '丙', { renPan: { door: '休门' }, shenPan: { god: '九地' } }),
       buildQimenPalace(3, '丁', { renPan: { door: '生门' }, shenPan: { god: '六合' } }),
       buildQimenPalace(4, '庚', { renPan: { door: '伤门' }, shenPan: { god: '玄武' } }),
       buildQimenPalace(6, '丁', { diPan: { stem: '己' }, renPan: { door: '杜门' } }),
       buildQimenPalace(7, '己', { renPan: { door: '死门' }, shenPan: { god: '九地' } }),
     ],
-    zhiFu: '天蓬',
+    zhiFu: '',
     zhiShi: '休门',
     yearGanZhi: '辛丑',
     monthGanZhi: '甲子',
     dayStem: '甲',
     dayGanZhi: '甲子',
     hourGanZhi: '甲戌',
+    scope: 'hour',
   });
-  const serialized = JSON.stringify(patterns);
+  const patternNames = patterns.map((pattern) => pattern.name);
 
-  [
-    '日奇入墓',
-    '月奇入墓',
-    '星奇入墓',
-    '三奇受制',
-    '三奇会甲',
-    '天假',
-    '地假',
-    '人假',
-    '物假',
-    '鬼假',
-    '神假',
-  ].forEach((name) => assert.doesNotMatch(serialized, new RegExp(name)));
+  ['日奇入墓', '月奇入墓', '星奇入墓', '三奇受制', '三奇会甲', '人假', '物假', '神假'].forEach(
+    (name) => assert.ok(!patternNames.includes(name), `${name}不得作为格局命中`),
+  );
 });
 
 test('奇门小格应按庚临壬判定，不应误判壬己', () => {
@@ -1558,9 +1565,12 @@ test('奇门跨年跨月跨时辰与两种排盘法只输出已审核格局事�
     '真诈',
     '重诈',
     '休诈',
+    '天假',
+    '地假',
+    '鬼假',
   ]);
   const retiredPattern =
-    /九遁|天遁|地遁|人遁|神遁|鬼遁|龙遁|虎遁|风遁|云遁|三奇得|三奇游六仪|三诈|真诈|重诈|休诈|天假|地假|人假|物假|鬼假|神假|升殿|奇入墓|奇受制|三奇会甲|符使同宫|相佐|守户|天乙飞宫|天乙伏宫|月格|时格|勃格|地罗遮蔽|天辅时|五合时|玉女守门/;
+    /九遁|天遁|地遁|人遁|神遁|鬼遁|龙遁|虎遁|风遁|云遁|三奇得|三奇游六仪|三诈|真诈|重诈|休诈|人假|物假|神假|升殿|奇入墓|奇受制|三奇会甲|符使同宫|相佐|守户|天乙飞宫|天乙伏宫|月格|时格|勃格|地罗遮蔽|天辅时|五合时|玉女守门/;
 
   for (const method of ['zhuanpan', 'feipan'] as const) {
     for (const year of [2024, 2025, 2026, 2027]) {
@@ -1613,7 +1623,7 @@ test('奇门跨年跨月跨时辰与两种排盘法只输出已审核格局事�
   }
 });
 
-test('月家与年家奇门不外推时家上下文格、三奇升殿与三诈位置结构', () => {
+test('月家与年家奇门不外推时家上下文格、三奇升殿、三诈与三项条件一致五假位置结构', () => {
   const hourOnlyPatternNames = new Set([
     '伏干格',
     '飞干格',
@@ -1625,6 +1635,9 @@ test('月家与年家奇门不外推时家上下文格、三奇升殿与三诈�
     '真诈',
     '重诈',
     '休诈',
+    '天假',
+    '地假',
+    '鬼假',
   ]);
   for (const scope of ['month', 'year'] as const) {
     for (const method of ['zhuanpan', 'feipan'] as const) {

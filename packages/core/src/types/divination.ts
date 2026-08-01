@@ -783,7 +783,7 @@ export interface QimenData {
   specialConditions?: QimenSpecialConditions;
   /** 节令背景（月相、建除、节气三元、四柱互动等） */
   seasonality?: QimenSeasonalityInfo;
-  /** 已逐条校勘的十一项天地盘固定格，以及时家上下文、三奇升殿和三诈位置结构 */
+  /** 已逐条校勘的十一项天地盘固定格，以及时家上下文、三奇升殿、三诈和三项条件一致五假位置结构 */
   classicPatterns?: Array<{
     name: string;
     type: 'good' | 'bad' | 'neutral';
