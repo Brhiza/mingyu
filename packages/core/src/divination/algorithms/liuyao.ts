@@ -985,7 +985,6 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
 }
 
 export { buildHiddenSpirits };
-export { conditionLiuyaoTraditionalText } from '../liuyao-evidence';
 export {
   analyzeLiuyaoActivityPattern,
   analyzeLiuyaoFanFuRelations,

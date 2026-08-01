@@ -279,11 +279,7 @@ export function generateLiuren(customDate?: Date): LiurenData {
   return result;
 }
 
-export {
-  analyzeLiurenEvidence,
-  conditionLiurenTraditionalText,
-  rebuildAuditedLiurenData,
-} from '../../liuren-evidence';
+export { analyzeLiurenEvidence, rebuildAuditedLiurenData } from '../../liuren-evidence';
 export {
   getLiurenGuaTiFacts,
   getLiurenTransmissionGuaTi,

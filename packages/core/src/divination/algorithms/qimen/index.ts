@@ -57,11 +57,7 @@ export {
   AUDITED_QIMEN_CONTEXT_PATTERN_NAMES,
   isAuditedQimenContextPatternName,
 } from './helpers/classic-patterns';
-export {
-  analyzeQimenEvidence,
-  conditionQimenTraditionalText,
-  rebuildAuditedQimenData,
-} from '../../qimen-evidence';
+export { analyzeQimenEvidence, rebuildAuditedQimenData } from '../../qimen-evidence';
 export type {
   QimenCalculationEvidenceFact,
   QimenCounterEvidenceFact,

@@ -36,9 +36,9 @@ import {
 } from '@core/divination/algorithms/meihua';
 import {
   analyzeLiurenEvidence,
-  conditionLiurenTraditionalText,
   rebuildAuditedLiurenData,
 } from '@core/divination/algorithms/liuren';
+import { conditionLiurenTraditionalText } from '@core/divination/liuren-evidence';
 import { rebuildAuditedXiaoliurenData } from '@core/divination/algorithms/xiaoliuren';
 import { rebuildAuditedJinkoujueData } from '@core/divination/algorithms/jinkoujue';
 import { rebuildAuditedTarotData } from '@core/divination/tarot';

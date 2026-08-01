@@ -40,11 +40,8 @@ import {
   hasTianPanStem,
   getTianPanStems,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/palace-utils';
-import {
-  analyzeLiuyaoEvidence,
-  conditionLiuyaoTraditionalText,
-  generateLiuyao,
-} from 'mingyu-core/divination/liuyao';
+import { analyzeLiuyaoEvidence, generateLiuyao } from 'mingyu-core/divination/liuyao';
+import { conditionLiuyaoTraditionalText } from '../packages/core/src/divination/liuyao-evidence.ts';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
 import {
@@ -61,10 +58,10 @@ import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import {
   analyzeQimenEvidence,
-  conditionQimenTraditionalText,
   generateQimen,
   resolveZhiShiLandingPalace,
 } from 'mingyu-core/divination/qimen';
+import { conditionQimenTraditionalText } from '../packages/core/src/divination/qimen-evidence.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 type DivinationDraftInput = Parameters<typeof generateDivinationSession>[0];

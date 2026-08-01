@@ -548,7 +548,6 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   };
 }
 
-export { conditionMeihuaTraditionalText } from '../../meihua-evidence';
 export type {
   MeihuaCounterEvidenceFact,
   MeihuaCounterSummaryFact,
