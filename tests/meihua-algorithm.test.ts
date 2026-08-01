@@ -1,8 +1,11 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 
-import { generateMeihua } from '../packages/core/src/divination/algorithms/meihua/index.ts';
-import { analyzeMeihuaEvidence } from '../packages/core/src/divination/meihua-evidence.ts';
+import {
+  analyzeMeihuaEvidence,
+  generateMeihua,
+  rebuildAuditedMeihuaData,
+} from '../packages/core/src/divination/algorithms/meihua/index.ts';
 import {
   findHexagramByTrigrams,
   resolveTiYongByMovingYao,
@@ -274,21 +277,148 @@ test('梅花：仅随机起卦应把重放轨迹接入统一证据', () => {
   );
 });
 
-test('梅花：旧结果缺少取数中间参数时应保留已定卦象并标记证据缺口', () => {
+test('梅花：公开证据入口应拒绝缺少原始取数资料的旧结果', () => {
   const data = generateMeihua(SAMPLE_DATE, { method: 'number', number: 123 });
   data.calculation = undefined;
   data.evidenceAnalysis = undefined;
 
-  const rebuilt = analyzeMeihuaEvidence(data);
-  assert.equal(rebuilt.calculationFact.status, '缺少中间参数');
-  assert.equal(rebuilt.calculationFact.steps.length, 0);
-  assert.equal(rebuilt.calculationFact.resolvedResult.upperTrigram, data.mainHexagram.upper);
-  assert.match(rebuilt.calculationFact.promptText, /计算过程未附/);
-  assert.ok(
-    rebuilt.evidence.items.some(
-      (item) => item.level === '反证' && item.title === '起卦方式与取数算式',
-    ),
+  assert.throws(() => analyzeMeihuaEvidence(data), /未知的梅花易数起卦方式/);
+  assert.throws(() => MeihuaHelpers.analyzeMeihuaHexagram(data), /未知的梅花易数起卦方式/);
+  assert.throws(
+    () => MeihuaHelpers.generateMeihuaInterpretationPoints(data),
+    /未知的梅花易数起卦方式/,
   );
+});
+
+test('梅花：四种起卦入口都应只凭可信原始输入重建完整卦盘', () => {
+  const cases = [
+    generateMeihua(SAMPLE_DATE, { method: 'time' }),
+    generateMeihua(SAMPLE_DATE, { method: 'timeTrigram' }),
+    generateMeihua(SAMPLE_DATE, { method: 'number', number: 123 }),
+    generateMeihua(SAMPLE_DATE, { method: 'random', seed: '梅花审核重建' }),
+  ];
+
+  for (const data of cases) {
+    assert.deepEqual(rebuildAuditedMeihuaData(data), data);
+    assert.deepEqual(analyzeMeihuaEvidence(data), data.evidenceAnalysis);
+  }
+});
+
+test('梅花：审核重建不得吸收旧主互变、体用、旺衰或完整证据污染', () => {
+  const clean = generateMeihua(SAMPLE_DATE, { method: 'number', number: 123 });
+  const polluted = structuredClone(clean);
+  polluted.originalName = '伪造主卦';
+  polluted.interName = '伪造互卦';
+  polluted.changedName = '伪造变卦';
+  polluted.ganzhi = { year: '伪造', month: '伪造', day: '伪造', hour: '伪造' };
+  polluted.tiGua = { name: '伪造体卦', element: '木', nature: '伪造' };
+  polluted.yongGua = { name: '伪造用卦', element: '金', nature: '伪造' };
+  polluted.interTiGua = { name: '伪造体互', element: '土', nature: '伪造' };
+  polluted.interYongGua = { name: '伪造用互', element: '水', nature: '伪造' };
+  polluted.changedTiGua = { name: '伪造变体', element: '火', nature: '伪造' };
+  polluted.changedYongGua = { name: '伪造变用', element: '木', nature: '伪造' };
+  polluted.mainHexagram.name = '伪造主卦';
+  polluted.interHexagram!.name = '伪造互卦';
+  polluted.changedHexagram!.name = '伪造变卦';
+  polluted.movingYao = { position: 6, description: '伪造动爻', yaoName: '伪造上爻' };
+  polluted.yaosDetail = polluted.yaosDetail.map((item) => ({
+    ...item,
+    yaoType: item.yaoType === '阳' ? '阴' : '阳',
+    isChanging: item.position === 6,
+    tiYong: item.tiYong === '体' ? '用' : '体',
+  }));
+  polluted.analysis = {
+    ...polluted.analysis,
+    season: '夏',
+    monthBranch: '伪',
+    monthElement: '伪',
+    tiYongRelation: '伪造必胜关系',
+    tiSeasonState: '伪造大旺',
+    yongSeasonState: '伪造大衰',
+    inter1Relation: '伪造过程一',
+    inter2Relation: '伪造过程二',
+    changedRelation: '伪造结果',
+    changedTiYongRelation: '伪造变后关系',
+    yingQi: ['伪造三日必应'],
+  };
+  polluted.calculation!.method = '伪造起卦法';
+  polluted.calculation!.upperTrigramIndex = 8;
+  polluted.calculation!.lowerTrigramIndex = 8;
+  polluted.calculation!.movingYaoIndex = 6;
+  polluted.evidenceAnalysis!.promptText = '伪造完整旧证据';
+  polluted.evidenceAnalysis!.calculationFact.promptText = '伪造完整计算链';
+
+  assert.deepEqual(rebuildAuditedMeihuaData(polluted), clean);
+  assert.deepEqual(analyzeMeihuaEvidence(polluted), clean.evidenceAnalysis);
+  assert.deepEqual(
+    MeihuaHelpers.analyzeMeihuaHexagram(polluted),
+    MeihuaHelpers.analyzeMeihuaHexagram(clean),
+  );
+  assert.deepEqual(
+    MeihuaHelpers.generateMeihuaInterpretationPoints(polluted),
+    MeihuaHelpers.generateMeihuaInterpretationPoints(clean),
+  );
+});
+
+test('梅花：审核重建应拒绝缺失、夹带或互相矛盾的原始起卦资料', () => {
+  const number = generateMeihua(SAMPLE_DATE, { method: 'number', number: 123 });
+  const random = generateMeihua(SAMPLE_DATE, { method: 'random', seed: '梅花轨迹核验' });
+
+  assert.throws(() => rebuildAuditedMeihuaData(null as unknown as typeof number), /结果必须是对象/);
+  assert.throws(() => rebuildAuditedMeihuaData({ ...number, timestamp: Number.NaN }), /时间戳无效/);
+  assert.throws(
+    () => rebuildAuditedMeihuaData({ ...number, calculation: undefined }),
+    /未知的梅花易数起卦方式/,
+  );
+  assert.throws(
+    () =>
+      rebuildAuditedMeihuaData({
+        ...number,
+        calculation: { ...number.calculation!, methodKey: 'unknown' as never },
+      }),
+    /未知的梅花易数起卦方式/,
+  );
+  assert.throws(
+    () =>
+      rebuildAuditedMeihuaData({
+        ...number,
+        calculation: { ...number.calculation!, number: undefined },
+      }),
+    /缺少安全范围内的原始正整数/,
+  );
+  assert.throws(
+    () =>
+      rebuildAuditedMeihuaData({
+        ...number,
+        meta: { ...number.meta!, random: random.meta!.random },
+      }),
+    /数字起卦不应携带随机轨迹/,
+  );
+
+  const missingTrace = structuredClone(random);
+  delete missingTrace.meta!.random;
+  assert.throws(() => rebuildAuditedMeihuaData(missingTrace), /缺少原始随机轨迹/);
+
+  const mismatchedCopies = structuredClone(random) as typeof random & {
+    randomTrace: NonNullable<typeof random.meta>['random'];
+  };
+  mismatchedCopies.randomTrace = structuredClone(random.meta!.random!);
+  mismatchedCopies.randomTrace!.samples[0] =
+    mismatchedCopies.randomTrace!.samples[0] === 0.25 ? 0.5 : 0.25;
+  assert.throws(() => rebuildAuditedMeihuaData(mismatchedCopies), /两份随机轨迹不一致/);
+
+  const extraSamples = structuredClone(random);
+  extraSamples.meta!.random!.samples.push(0.25);
+  assert.throws(() => rebuildAuditedMeihuaData(extraSamples), /应记录3个原始随机样本/);
+
+  const missingSeed = structuredClone(random);
+  delete missingSeed.meta!.random!.seed;
+  assert.throws(() => rebuildAuditedMeihuaData(missingSeed), /seeded 随机轨迹缺少种子/);
+
+  const seedMismatch = structuredClone(random);
+  seedMismatch.meta!.random!.samples[0] =
+    seedMismatch.meta!.random!.samples[0] === 0.25 ? 0.5 : 0.25;
+  assert.throws(() => rebuildAuditedMeihuaData(seedMismatch), /与保存的种子不一致/);
 });
 
 test('梅花：数字起卦应拒绝超出安全整数范围的数字', () => {

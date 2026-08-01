@@ -29,7 +29,10 @@ import {
   analyzeLiuyaoFanFuRelations,
   getLiuyaoFlyingHiddenRelation,
 } from '@core/divination/algorithms/liuyao';
-import { analyzeMeihuaEvidence } from '@core/divination/algorithms/meihua';
+import {
+  analyzeMeihuaEvidence,
+  rebuildAuditedMeihuaData,
+} from '@core/divination/algorithms/meihua';
 import {
   analyzeLiurenEvidence,
   conditionLiurenTraditionalText,
@@ -367,7 +370,8 @@ function formatLiuyaoInfo(
     .join('\n');
 }
 
-function formatMeihuaInfo(data: MeihuaData) {
+function formatMeihuaInfo(input: MeihuaData) {
+  const data = rebuildAuditedMeihuaData(input);
   const calculation = data.calculation;
   const methodLabel = getMeihuaMethodLabel(calculation);
   const processHexagram = data.interHexagram?.name || data.interName || '无';
@@ -380,52 +384,7 @@ function formatMeihuaInfo(data: MeihuaData) {
     data.changedTiGua && data.changedYongGua
       ? `；变后体卦${data.changedTiGua.name}（${data.changedTiGua.element}）；变后用卦${data.changedYongGua.name}（${data.changedYongGua.element}）；变后体用${data.analysis.changedTiYongRelation}`
       : '';
-  const evidenceAnalysis =
-    data.evidenceAnalysis?.traditionalFacts &&
-    data.evidenceAnalysis.internalMotionFact &&
-    data.evidenceAnalysis.externalMotionFact &&
-    data.evidenceAnalysis.spatialOmenFact &&
-    data.evidenceAnalysis.sensoryOmenFact &&
-    data.evidenceAnalysis.foodContextFact &&
-    data.evidenceAnalysis.objectContextFact &&
-    data.evidenceAnalysis.objectContextFact.selectionOrderFields?.length &&
-    data.evidenceAnalysis.objectContextFact.relationRuleFields?.length &&
-    data.evidenceAnalysis.objectContextFact.quantityRuleFields?.length &&
-    data.evidenceAnalysis.objectContextFact.bodySelectionRuleFields?.length &&
-    data.evidenceAnalysis.objectContextFact.lineStructureRuleFields?.length &&
-    data.evidenceAnalysis.objectContextFact.changeObservationRuleFields?.length &&
-    data.evidenceAnalysis.objectContextFact.responseOmenRuleFields?.length &&
-    data.evidenceAnalysis.objectContextFact.seasonalObservationRuleFields?.length &&
-    data.evidenceAnalysis.objectContextFact.usageExampleFields?.length &&
-    data.evidenceAnalysis.objectContextFact.handGuessRuleFields?.length &&
-    data.evidenceAnalysis.objectContextFact.sourceLineFields?.length &&
-    data.evidenceAnalysis.topicResponseContextFact &&
-    data.evidenceAnalysis.tenResponseContextFact &&
-    data.evidenceAnalysis.tenResponseContextFact.responseCatalogFields?.length === 10 &&
-    data.evidenceAnalysis.tenResponseContextFact.reusedInternalResponseFields?.length === 3 &&
-    data.evidenceAnalysis.tenResponseContextFact.sourceLineFields?.length === 25 &&
-    data.evidenceAnalysis.tenResponseContextFact.unresolvedRuleFields?.length &&
-    data.evidenceAnalysis.tenResponseContextFact.highRiskRuleFields?.length &&
-    data.evidenceAnalysis.matterTenResponseContextFact &&
-    data.evidenceAnalysis.matterTenResponseContextFact.responseCatalogFields?.length === 10 &&
-    data.evidenceAnalysis.matterTenResponseContextFact.sourceLineFields?.length === 11 &&
-    data.evidenceAnalysis.matterTenResponseContextFact.unresolvedRuleFields?.length &&
-    data.evidenceAnalysis.matterTenResponseContextFact.highRiskRuleFields?.length &&
-    data.evidenceAnalysis.trigramResponseCatalogFact &&
-    data.evidenceAnalysis.trigramResponseCatalogFact.trigramCatalogFields?.length === 8 &&
-    data.evidenceAnalysis.trigramResponseCatalogFact.qianDetailCategoryFields?.length === 11 &&
-    data.evidenceAnalysis.trigramResponseCatalogFact.sourceLineFields?.length === 21 &&
-    data.evidenceAnalysis.trigramResponseCatalogFact.canonicalCrosscheckFields?.length &&
-    data.evidenceAnalysis.trigramResponseCatalogFact.unresolvedRuleFields?.length &&
-    data.evidenceAnalysis.trigramResponseCatalogFact.highRiskRuleFields?.length &&
-    data.evidenceAnalysis.hexagramDispositionFacts?.length &&
-    data.evidenceAnalysis.hexagramDispositionVersionFact &&
-    data.evidenceAnalysis.timingFacts?.some((item) => item.type === '全卦克应关系') &&
-    data.evidenceAnalysis.timingFacts.some(
-      (item) => item.type === '克应资料覆盖' && item.requiredContextFields?.length,
-    )
-      ? data.evidenceAnalysis
-      : analyzeMeihuaEvidence(data);
+  const evidenceAnalysis = data.evidenceAnalysis ?? analyzeMeihuaEvidence(data);
   const timingEvidence = createMeihuaTimingEvidence(evidenceAnalysis);
   const yaoLines = [...evidenceAnalysis.yaoStructureFacts]
     .sort((a, b) => b.position - a.position)

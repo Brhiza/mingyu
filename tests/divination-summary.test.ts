@@ -3,6 +3,7 @@ import test from 'node:test';
 import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
+import { generateMeihua } from 'mingyu-core/divination/meihua';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import { getDivinationSummaryBlocks } from '../src/lib/divination/summary';
@@ -93,6 +94,31 @@ test('小六壬摘要应展示时宫主证和顺数轨迹', () => {
   assert.doesNotMatch(
     [...rebuilt.tags, ...rebuilt.lines].join('\n'),
     /伪造起课法|伪造时宫歌诀|伪造主证歌诀|伪造旧主证/,
+  );
+});
+
+test('梅花摘要应从原始起卦资料重建，不复活旧盘派生字段污染', () => {
+  const data = generateMeihua(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'number',
+    number: 123,
+  });
+  const clean = getDivinationSummaryBlocks('meihua', data);
+  const polluted = structuredClone(data);
+  polluted.originalName = '伪造主卦';
+  polluted.interName = '伪造互卦';
+  polluted.changedName = '伪造变卦';
+  polluted.tiGua.name = '伪造体卦';
+  polluted.yongGua.name = '伪造用卦';
+  polluted.movingYao.position = 6;
+  polluted.analysis.tiYongRelation = '伪造必胜关系';
+  polluted.analysis.inter1Relation = '伪造过程关系';
+  polluted.analysis.changedRelation = '伪造结果关系';
+
+  const rebuilt = getDivinationSummaryBlocks('meihua', polluted);
+  assert.deepEqual(rebuilt, clean);
+  assert.doesNotMatch(
+    [...rebuilt.tags, ...rebuilt.lines].join('\n'),
+    /伪造主卦|伪造互卦|伪造变卦|伪造体卦|伪造用卦|伪造必胜|伪造过程|伪造结果/,
   );
 });
 

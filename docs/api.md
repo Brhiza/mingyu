@@ -387,8 +387,8 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 紫微 `school` 支持 `sanhe`（三合派三方四正）、`feixing`（飞星派四化飞星链路）、`sihua`（四化派生年四化主线）。它只改变提示词的解读侧重点，不改变底层安星算法；本次实际采用的 `iztro` 算法、闰月、分年、运限月份、小限年龄和晚子时口径以 `calculationConfig` / `payloadByScope.*.calculation_config` 为准。
 - `customDate` 用于指定时间类占卜的起卦或排盘时间，支持六爻、梅花易数、小六壬、奇门遁甲、大六壬；不传时使用服务器当前时间。该字段必须使用带时区的 ISO 8601 时间字符串，例如 `2025-01-01T08:00:00+08:00` 或 `2025-01-01T00:00:00Z`。
 - Python `urllib` 默认 `User-Agent` 可能被 Cloudflare 拦截；Python 调用时请显式设置正常 `User-Agent`，例如 `curl/8.0.0` 或业务自己的客户端名称。
-- 梅花易数 `method` 支持 `time`、`number`、`random`、`timeTrigram`。数字起卦使用 `number`；`timeTrigram` 为历史兼容入口，按《梅花易数》年月日时起卦法计算，不再使用时辰地支方位自定义映射。
-- 梅花排盘结果的 `evidenceAnalysis` 返回主卦起因、互卦过程、变卦结果三阶段体用关系、月建旺衰、推进变化、支持项、限制项和触发条件。动爻与卦数只保留为层位和取数旁证，不机械换算绝对日期，也不输出吉凶总分或成功率。
+- 梅花易数 `method` 支持 `time`、`number`、`random`、`timeTrigram`。数字起卦使用 `number`；`timeTrigram` 为历史兼容入口，按《梅花易数》年月日时起卦法计算，不再使用时辰地支方位自定义映射。公开证据、提示词、摘要和辅助分析只保留时间、方法、用户数字或可重放随机轨迹作为原始输入，主互变、动爻、体用、旺衰与旧证据全部重新计算；随机轨迹缺失、矛盾、样本数不符或种子无法复算时明确拒绝。
+- 梅花排盘结果的 `evidenceAnalysis` 返回主卦起因、互卦过程、变卦结果三阶段体用关系、月建旺衰、推进变化、支持项、限制项和触发条件。动爻与卦数只保留为层位和取数旁证，不机械换算绝对日期，也不输出吉凶总分或成功率；公开 `analyzeMeihuaEvidence` 同样先执行审核重建，不采信调用方附带的派生盘面。
 - 小六壬 `xiaoliurenMethod` 当前仅支持 `time`（默认）；可用 `customDate` 指定起课时间。数字、随机、流派参数已移除，因为未取得足以支持这些扩展的可靠出处。证据与提示词只保留时间起课标识和时间戳作为原始输入，农历、时辰、月日时三宫、歌诀与证据均重新计算，不信任旧缓存派生字段。
 - 金口诀 `jinkoujueMethod` 支持 `time`、`number`、`random`，数字起课时使用 `jinkoujueNumber`；排盘结果含地分、将神、贵神、人元四位、取用主线与结构化证据。证据与提示词会从起课时间、用户数字或可重放随机轨迹重新计算，不信任旧缓存中的四位、动爻和派生证据；随机轨迹缺失或互相矛盾时明确拒绝。
 - 塔罗 `spreadType` 支持 `single`、`three`、`love`、`career`、`decision`、`celtic`、`chakra`、`year`、`mindBodySpirit`、`horseshoe`。

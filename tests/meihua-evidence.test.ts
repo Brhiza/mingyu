@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  analyzeMeihuaEvidence,
-  conditionMeihuaTraditionalText,
-  generateMeihua,
-} from 'mingyu-core/divination/meihua';
+import { conditionMeihuaTraditionalText, generateMeihua } from 'mingyu-core/divination/meihua';
+import { analyzeRebuiltMeihuaEvidence as analyzeMeihuaEvidence } from '../packages/core/src/divination/meihua-evidence.ts';
 import { hexagramsData, trigramsByIndex } from '../packages/core/src/divination/hexagram-data.ts';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 

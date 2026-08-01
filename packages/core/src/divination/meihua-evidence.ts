@@ -3292,7 +3292,8 @@ function buildLimitationFacts(params: {
   }));
 }
 
-export function analyzeMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis {
+/** 仅供已按原始起卦输入重建的卦盘使用；公开入口位于梅花算法模块。 */
+export function analyzeRebuiltMeihuaEvidence(data: MeihuaData): MeihuaEvidenceAnalysis {
   if (!data?.mainHexagram || !data?.movingYao || !data?.ganzhi?.month) {
     throw new Error('梅花关系推进证据缺少主卦、动爻或月建资料。');
   }

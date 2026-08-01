@@ -32,6 +32,7 @@ import {
   analyzeLiuyaoFanFuRelations,
   getLiuyaoFlyingHiddenRelation,
 } from 'mingyu-core/divination/liuyao';
+import { rebuildAuditedMeihuaData } from 'mingyu-core/divination/meihua';
 import { rebuildAuditedSsgwData } from 'mingyu-core/divination/ssgw';
 import { resolveSsgwStoryContent } from './ssgw-content';
 
@@ -321,7 +322,7 @@ export function getDivinationSummaryBlocks(
       };
     }
     case 'meihua': {
-      const meihua = data as MeihuaData;
+      const meihua = rebuildAuditedMeihuaData(data as MeihuaData);
       return {
         title: '梅花起卦结果',
         tags: [

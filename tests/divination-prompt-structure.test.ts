@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { taiyi } from 'mingyu-core';
 import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
-import { analyzeMeihuaEvidence } from 'mingyu-core/divination/meihua';
+import { analyzeMeihuaEvidence, generateMeihua } from 'mingyu-core/divination/meihua';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
@@ -410,66 +410,10 @@ function createData(method: FixtureMethod): DivinationData {
         specialAdvice: '宜统观全局，不宜逐爻碎断。',
       };
     case 'meihua':
-      return {
-        originalName: '雷火丰',
-        changedName: '地火明夷',
-        interName: '泽风大过',
-        ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-        timestamp: Date.now(),
-        tiGua: { name: '离', element: '火', nature: '明' },
-        yongGua: { name: '震', element: '木', nature: '动' },
-        changedTiGua: { name: '坤', element: '土', nature: '顺' },
-        changedYongGua: { name: '离', element: '火', nature: '明' },
-        interTiGua: { name: '兑', element: '金', nature: '泽' },
-        interYongGua: { name: '巽', element: '木', nature: '风' },
-        movingYao: { position: 3, description: '三爻发动', yaoName: '九三' },
-        analysis: {
-          season: '春',
-          tiYongRelation: '用生体，主有助力',
-          tiSeasonState: '相',
-          yongSeasonState: '旺',
-          inter1Relation: '原体克体互',
-          inter2Relation: '用互生原体',
-          changedRelation: '体生变，后续需付出',
-          changedTiYongRelation: '体克用',
-        },
-        mainHexagram: {
-          name: '雷火丰',
-          symbol: '䷶',
-          upper: '震',
-          lower: '离',
-          description: '先盛后谨',
-          yaoCi: ['初爻背景', '二爻背景', '三爻发动取象', '四爻背景', '五爻背景', '上爻背景'],
-          movingYaoCi: '三爻发动取象',
-        },
-        interHexagram: {
-          name: '泽风大过',
-          symbol: '䷛',
-          upper: '兑',
-          lower: '巽',
-          description: '中间承压',
-        },
-        changedHexagram: {
-          name: '地火明夷',
-          symbol: '䷣',
-          upper: '坤',
-          lower: '离',
-          description: '宜守光待时',
-        },
-        yaosDetail: [
-          { position: 1, yaoType: '阳', isChanging: false, tiYong: '体' },
-          { position: 2, yaoType: '阴', isChanging: false, tiYong: '体' },
-          { position: 3, yaoType: '阳', isChanging: true, tiYong: '体' },
-          { position: 4, yaoType: '阳', isChanging: false, tiYong: '用' },
-          { position: 5, yaoType: '阴', isChanging: false, tiYong: '用' },
-          { position: 6, yaoType: '阴', isChanging: false, tiYong: '用' },
-        ],
-        calculation: {
-          method: 'number',
-          methodKey: 'number',
-          number: 123,
-        },
-      };
+      return generateMeihua(new Date('2025-01-01T08:00:00+08:00'), {
+        method: 'number',
+        number: 123,
+      });
     case 'xiaoliuren':
       return generateXiaoliuren({
         method: 'time',
@@ -1029,9 +973,9 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
     createSupplementaryInfo(),
   );
 
-  assert.match(prompt, /体用：体卦离（火）；用卦震（木）；动爻第3爻；体用关系用生体/);
-  assert.match(prompt, /互卦：泽风大过；体互兑（金）；用互巽（木）；原体克体互；用互生原体/);
-  assert.match(prompt, /变卦：地火明夷；变后体卦坤（土）；变后用卦离（火）；变后体用体克用/);
+  assert.match(prompt, /体用：体卦离（火）；用卦坤（土）；动爻第2爻；体用关系体生用/);
+  assert.match(prompt, /互卦：水山蹇；体互坎（水）；用互艮（土）；体互克原体；原体生用互/);
+  assert.match(prompt, /变卦：火水未济；变后体卦离（火）；变后用卦坎（水）；变后体用用克体/);
   assert.match(prompt, /坐端应兆：当前输入未记录以求测者所在处为中心/);
   assert.match(prompt, /万物外应：当前输入未记录耳闻目见的现场原始事实/);
   assert.match(prompt, /饮食专项：当前输入未明确饮食专项所需情境/);
@@ -1053,9 +997,9 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
   assert.match(prompt, /不自动匹配或补齐类象/);
   assert.match(prompt, /不得把“附药：丸子”扩写为药物、剂型、处方、服药或替代就医建议/);
   assert.match(prompt, /反对性情资料：主卦.*综卦为.*错卦为/);
-  assert.match(prompt, /月令与起卦：春季，体卦相，用卦旺；起卦法数字起卦法；起卦数字123/);
+  assert.match(prompt, /月令与起卦：子月（水令），体卦死，用卦囚；起卦法数字起卦法；起卦数字123/);
   assert.match(prompt, /应期资料：应期状态：待补充事项情境/);
-  assert.match(prompt, /第3爻为变化层位/);
+  assert.match(prompt, /第2爻为变化层位/);
   assert.match(prompt, /资料未齐时不能计算传统克应/);
   assert.match(prompt, /主卦卦辞分类：.*(?:传统.*标签|未见明确吉凶或进退标签)/);
   assert.match(prompt, /动爻传统辅助：.*当前爻位已发动/);
@@ -1079,7 +1023,7 @@ test('梅花提示词会保留体用、互卦、变卦与起卦细节', () => {
         .join('|'),
     ),
   );
-  assert.match(prompt, /第3爻.*动.*属用/);
+  assert.match(prompt, /第2爻.*动.*属用/);
 });
 
 test('梅花旧缓存缺少全卦克应、观物、十应与卦应字段时应自动重建', () => {
@@ -1147,6 +1091,49 @@ test('梅花旧缓存缺少全卦克应、观物、十应与卦应字段时应�
   assert.match(prompt, /坤至兑没有乾卦同类分项/);
   assert.match(prompt, /震“＄足”、巽“三位”、离“干卦”/);
   assert.match(prompt, /反对性情资料：主卦.*综卦为.*错卦为/);
+});
+
+test('梅花提示词只使用原始起卦资料重建，不吸收完整旧盘与旧证据污染', () => {
+  const clean = generateMeihua(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'number',
+    number: 123,
+  });
+  const polluted = structuredClone(clean);
+  polluted.originalName = '伪造主卦';
+  polluted.interName = '伪造互卦';
+  polluted.changedName = '伪造变卦';
+  polluted.ganzhi = { year: '伪造', month: '伪造', day: '伪造', hour: '伪造' };
+  polluted.mainHexagram.name = '伪造主卦';
+  polluted.interHexagram!.name = '伪造互卦';
+  polluted.changedHexagram!.name = '伪造变卦';
+  polluted.tiGua.name = '伪造体卦';
+  polluted.yongGua.name = '伪造用卦';
+  polluted.movingYao = { position: 6, description: '伪造动爻', yaoName: '伪造上爻' };
+  polluted.analysis.tiYongRelation = '伪造必胜关系';
+  polluted.analysis.inter1Relation = '伪造过程关系';
+  polluted.analysis.changedRelation = '伪造结果关系';
+  polluted.analysis.yingQi = ['伪造三日必应'];
+  polluted.evidenceAnalysis!.promptText = '伪造完整旧证据';
+  polluted.evidenceAnalysis!.traditionalFacts[0]!.promptText = '伪造传统事实';
+
+  const cleanPrompt = buildDivinationPrompt(
+    'meihua',
+    PROJECT_DECISION_QUESTION,
+    clean,
+    createProjectSupplementaryInfo(),
+  );
+  const pollutedPrompt = buildDivinationPrompt(
+    'meihua',
+    PROJECT_DECISION_QUESTION,
+    polluted,
+    createProjectSupplementaryInfo(),
+  );
+
+  assert.equal(pollutedPrompt, cleanPrompt);
+  assert.doesNotMatch(
+    pollutedPrompt,
+    /伪造主卦|伪造互卦|伪造变卦|伪造体卦|伪造用卦|伪造必胜|伪造三日必应|伪造完整旧证据|伪造传统事实/,
+  );
 });
 
 test('小六壬提示词只保留时宫主证、顺数计算和规则边界', () => {

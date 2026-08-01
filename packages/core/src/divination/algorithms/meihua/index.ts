@@ -27,12 +27,16 @@
  *    当前底本异文单独登记，不由卦义词推断人物性格、动机、事件或吉凶。
  */
 
-import type { MeihuaData, MeihuaSettings } from '../../../types/divination';
+import type { MeihuaData, MeihuaDivinationMethod, MeihuaSettings } from '../../../types/divination';
 import { trigramsByIndex } from '../../../divination/hexagram-data';
-import { MeihuaHelpers } from '../../../divination/divination-helpers';
 import { getDivinationTime } from '../../../calendar/timeManager';
 import { getBranchWuxing, getSeasonState, isSheng, isKe } from '../../../ganzhi';
 import { assertOptionalRecord } from '../../../shared/validation';
+import {
+  getMeihuaElementRelation,
+  getMeihuaSeasonByJieQi,
+  getMeihuaSeasonByMonth,
+} from './helpers/analysis';
 import { findHexagramByTrigrams, resolveTiYongByMovingYao } from './helpers/hexagram';
 import {
   resolveTimeTrigramMethod,
@@ -41,9 +45,9 @@ import {
   resolveTimeMethod,
   type MeihuaMethodResult,
 } from './helpers/methods';
-import { attachResultMeta } from '../../../shared/result';
-import { hasRandomOptions } from '../../../shared/random';
-import { analyzeMeihuaEvidence } from '../../meihua-evidence';
+import { attachResultMeta, createResultMeta, stableStringify } from '../../../shared/result';
+import { createSeededRandom, hasRandomOptions, type RandomTrace } from '../../../shared/random';
+import { analyzeRebuiltMeihuaEvidence } from '../../meihua-evidence';
 
 const trigrams = trigramsByIndex;
 const VALID_WUXING = new Set(['木', '火', '土', '金', '水']);
@@ -184,7 +188,7 @@ function estimateYingQi(params: {
  * const result = generateMeihua(undefined, { method: 'number', number: 123 });
  * ```
  */
-export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): MeihuaData {
+function buildMeihuaData(customDate?: Date, settings?: MeihuaSettings): MeihuaData {
   assertOptionalRecord(settings, '梅花易数起卦设置');
   // 1. 获取占卜时间的农历及干支信息
   const { ganzhi, timeInfo, timestamp } = getDivinationTime(customDate);
@@ -307,11 +311,11 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
   const monthElement = getBranchWuxing(monthBranch);
   const tiSeasonState = getSeasonState(tiGua.element, monthBranch);
   const yongSeasonState = getSeasonState(yongGua.element, monthBranch);
-  const seasonByJieQi = MeihuaHelpers.getSeasonByJieQi(timeInfo.jieQi);
+  const seasonByJieQi = getMeihuaSeasonByJieQi(timeInfo.jieQi);
   const season: '春' | '夏' | '秋' | '冬' =
     seasonByJieQi !== '未知'
       ? (seasonByJieQi as '春' | '夏' | '秋' | '冬')
-      : MeihuaHelpers.getSeasonByMonth(lunar.monthNumber);
+      : getMeihuaSeasonByMonth(lunar.monthNumber);
 
   const result: MeihuaData = {
     originalName: mainHexagram.name,
@@ -383,17 +387,17 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
       season,
       monthBranch,
       monthElement,
-      tiYongRelation: MeihuaHelpers.getElementRelation(yongGua.element, tiGua.element),
+      tiYongRelation: getMeihuaElementRelation(yongGua.element, tiGua.element),
       tiSeasonState,
       yongSeasonState,
       // 体互最紧、用互次之，二者分别与原体核验，不把上下互的位置写反。
       inter1Relation: getInterRelationToOriginalTi('体互', interTiGua.element, tiGua.element),
       inter2Relation: getInterRelationToOriginalTi('用互', interYongGua.element, tiGua.element),
-      changedRelation: MeihuaHelpers.getElementRelation(
+      changedRelation: getMeihuaElementRelation(
         changedTiYong.yongGua.element,
         changedTiYong.tiGua.element,
       ),
-      changedTiYongRelation: MeihuaHelpers.getElementRelation(
+      changedTiYongRelation: getMeihuaElementRelation(
         changedTiYong.yongGua.element,
         changedTiYong.tiGua.element,
       ),
@@ -429,10 +433,122 @@ export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): Me
     calculatedAt: timestamp,
     random: randomTrace,
   });
-  return { ...resultWithMeta, evidenceAnalysis: analyzeMeihuaEvidence(resultWithMeta) };
+  return resultWithMeta;
 }
 
-export { analyzeMeihuaEvidence, conditionMeihuaTraditionalText } from '../../meihua-evidence';
+function assertMeihuaTimestamp(timestamp: number): number {
+  if (!Number.isFinite(timestamp) || Number.isNaN(new Date(timestamp).getTime())) {
+    throw new Error('梅花易数结果时间戳无效，无法审核重建。');
+  }
+  return timestamp;
+}
+
+function resolveAuditedMeihuaMethod(input: MeihuaData): MeihuaDivinationMethod {
+  const method = input.calculation?.methodKey;
+  if (!method || !['time', 'timeTrigram', 'number', 'random'].includes(method)) {
+    throw new Error(`未知的梅花易数起卦方式: ${String(method)}`);
+  }
+  return method;
+}
+
+function normalizeMeihuaRandomTrace(input: MeihuaData, timestamp: number): RandomTrace {
+  const directTrace = (input as MeihuaData & { randomTrace?: RandomTrace }).randomTrace;
+  const metaTrace = input.meta?.random;
+  if (directTrace && metaTrace && stableStringify(directTrace) !== stableStringify(metaTrace)) {
+    throw new Error('梅花易数结果中的两份随机轨迹不一致，无法审核重建。');
+  }
+  const rawTrace = directTrace ?? metaTrace;
+  if (!rawTrace) {
+    throw new Error('梅花易数随机起卦缺少原始随机轨迹，无法审核重建。');
+  }
+  const trace = createResultMeta({
+    algorithm: 'meihua.audit.trace',
+    input: { method: 'random' },
+    calculatedAt: timestamp,
+    random: rawTrace,
+  }).random!;
+  if (trace.samples.length !== 3) {
+    throw new Error(`梅花易数随机起卦应记录3个原始随机样本，当前为${trace.samples.length}个。`);
+  }
+  if (trace.mode === 'seeded') {
+    if (trace.seed === undefined) {
+      throw new Error('梅花易数 seeded 随机轨迹缺少种子，无法核验。');
+    }
+    const seededRandom = createSeededRandom(trace.seed);
+    if (trace.samples.some((sample) => seededRandom() !== sample)) {
+      throw new Error('梅花易数随机轨迹与保存的种子不一致。');
+    }
+  } else if (trace.seed !== undefined) {
+    throw new Error('梅花易数非 seeded 随机轨迹不应携带种子。');
+  }
+  return trace;
+}
+
+/**
+ * 只保留起卦方式、时间、用户数字或可重放随机轨迹，其余卦盘与证据全部重算。
+ */
+export function rebuildAuditedMeihuaData(input: MeihuaData): MeihuaData {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('梅花易数结果必须是对象。');
+  }
+  const timestamp = assertMeihuaTimestamp(input.timestamp);
+  const customDate = new Date(timestamp);
+  const method = resolveAuditedMeihuaMethod(input);
+  const directTrace = (input as MeihuaData & { randomTrace?: RandomTrace }).randomTrace;
+  let rebuilt: MeihuaData;
+
+  if (method === 'time' || method === 'timeTrigram') {
+    if (directTrace || input.meta?.random) {
+      throw new Error('梅花易数时间起卦不应携带随机轨迹。');
+    }
+    rebuilt = buildMeihuaData(customDate, { method });
+  } else if (method === 'number') {
+    if (directTrace || input.meta?.random) {
+      throw new Error('梅花易数数字起卦不应携带随机轨迹。');
+    }
+    const number = input.calculation?.number;
+    if (!Number.isSafeInteger(number) || (number ?? 0) <= 0) {
+      throw new Error('梅花易数数字起卦缺少安全范围内的原始正整数，无法审核重建。');
+    }
+    rebuilt = buildMeihuaData(customDate, { method: 'number', number });
+  } else {
+    const trace = normalizeMeihuaRandomTrace(input, timestamp);
+    const replayed = buildMeihuaData(customDate, {
+      method: 'random',
+      replay: trace.samples,
+    });
+    rebuilt = {
+      ...replayed,
+      meta: createResultMeta({
+        algorithm: 'meihua',
+        input: { method: 'random', number: undefined, timestamp },
+        calculatedAt: timestamp,
+        random: trace,
+      }),
+    };
+  }
+
+  return {
+    ...rebuilt,
+    evidenceAnalysis: analyzeRebuiltMeihuaEvidence(rebuilt),
+  };
+}
+
+/** 所有公开证据分析先从原始起卦输入重建，禁止旧派生字段进入提示词。 */
+export function analyzeMeihuaEvidence(input: MeihuaData) {
+  return rebuildAuditedMeihuaData(input).evidenceAnalysis!;
+}
+
+/** 生成梅花易数完整卦盘。 */
+export function generateMeihua(customDate?: Date, settings?: MeihuaSettings): MeihuaData {
+  const result = buildMeihuaData(customDate, settings);
+  return {
+    ...result,
+    evidenceAnalysis: analyzeRebuiltMeihuaEvidence(result),
+  };
+}
+
+export { conditionMeihuaTraditionalText } from '../../meihua-evidence';
 export type {
   MeihuaCounterEvidenceFact,
   MeihuaCounterSummaryFact,
