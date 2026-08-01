@@ -69,22 +69,19 @@ import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 type DivinationDraftInput = Parameters<typeof generateDivinationSession>[0];
 
-test('三山国王九十二签应逐签具备八类完整解读', () => {
+test('三山国王灵签在签谱来源闭合前只保留九十二个签号', () => {
   assert.equal(SSGW_SIGNS.length, 92);
   assert.deepEqual(
     SSGW_SIGNS.map((sign) => sign.id),
     Array.from({ length: 92 }, (_, index) => index + 1),
   );
   SSGW_SIGNS.forEach((sign) => {
+    assert.equal(sign.title, `第${sign.id}签（签谱待校）`);
+    assert.equal(sign.qianwen, '');
+    assert.equal(sign.story, '');
     SSGW_INTERPRETATION_FIELDS.forEach((field) => {
-      assert.ok(sign.details[field]?.trim(), `第${sign.id}签缺少${field}`);
+      assert.equal(sign.details[field], '', `第${sign.id}签不应公开待校${field}`);
     });
-    assert.match(sign.details.核心寓意, /[\u4e00-\u9fff]/, `第${sign.id}签核心寓意无效`);
-  });
-
-  SSGW_INTERPRETATION_FIELDS.forEach((field) => {
-    const values = SSGW_SIGNS.map((sign) => sign.details[field].trim());
-    assert.equal(new Set(values).size, 92, `${field}存在重复套话，应按每支签诗单独编写`);
   });
 });
 
@@ -1795,7 +1792,7 @@ test('时间型占卜算法应拒绝无效自定义时间对象', () => {
   assert.throws(() => drawRandomSign(invalidDate), /自定义时间不是有效日期/);
 });
 
-test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊仪式', () => {
+test('三山国王灵签应保留可重放抽签仪式并失败关闭待校签谱', () => {
   const confirmed = drawRandomSign(new Date('2025-01-01T00:00:00+08:00'), {
     replay: [0.1, 0.1, 0.9],
   });
@@ -1823,14 +1820,13 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
   assert.ok(
     confirmed.evidenceAnalysis?.calculationSteps.every(
       (item) =>
-        item.status === '已计算' &&
         item.dependsOnStepKeys.every((key) => calculationStepKeys.has(key)) &&
         item.sources.length > 0 &&
         item.limitation.includes('不证明神意来源'),
     ),
   );
   assert.equal(confirmed.evidenceAnalysis?.drawFact.status, '可核验');
-  assert.equal(confirmed.evidenceAnalysis?.signFact.status, '完整');
+  assert.equal(confirmed.evidenceAnalysis?.signFact.status, '签诗为空');
   assert.equal(confirmed.evidenceAnalysis?.signFact.number, confirmed.number);
   assert.equal(confirmed.evidenceAnalysis?.coverageFact.key, 'ssgw:interpretation-coverage');
   assert.ok(
@@ -1860,8 +1856,8 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
   assert.equal(confirmed.evidenceAnalysis?.randomFact.sampleCount, 3);
   assert.deepEqual(confirmed.evidenceAnalysis?.randomFact.samples, [0.1, 0.1, 0.9]);
   assert.ok(confirmed.evidenceAnalysis?.drawFacts.some((item) => item.includes('随机索引')));
-  assert.match(confirmed.evidenceAnalysis?.promptText || '', /签诗原文/);
-  assert.match(confirmed.evidenceAnalysis?.promptText || '', /典故/);
+  assert.match(confirmed.evidenceAnalysis?.promptText || '', /签谱状态：来源尚未闭合/);
+  assert.doesNotMatch(confirmed.evidenceAnalysis?.promptText || '', /明月千山|朱买臣|大吉之兆/);
   assert.ok(
     confirmed.evidenceAnalysis?.interpretations.every(
       (item) => item.originalText && item.promptText && item.limitation.includes('不是事实结论'),
@@ -1871,19 +1867,19 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
   assert.deepEqual(
     confirmed.evidenceAnalysis?.counterEvidenceFacts.map((item) => [item.type, item.status]),
     [
-      ['签诗覆盖', '已覆盖'],
-      ['典故覆盖', '已覆盖'],
-      ['分类释义覆盖', '已覆盖'],
+      ['签诗覆盖', '存在缺口'],
+      ['典故覆盖', '存在缺口'],
+      ['分类释义覆盖', '存在缺口'],
       ['抽签索引', '可核验'],
       ['仪式确认', '已确认'],
       ['随机轨迹', '可重放'],
     ],
   );
-  assert.equal(confirmed.evidenceAnalysis?.counterSummaryFact.status, '未见额外反证');
-  assert.equal(confirmed.evidenceAnalysis?.counterSummaryFact.factKeys.length, 0);
+  assert.equal(confirmed.evidenceAnalysis?.counterSummaryFact.status, '存在需保留反证');
+  assert.equal(confirmed.evidenceAnalysis?.counterSummaryFact.factKeys.length, 3);
   assert.equal(confirmed.evidenceAnalysis?.limitationFacts.length, 6);
   assert.equal(confirmed.evidenceAnalysis?.summaryFact.key, 'ssgw:evidence-summary');
-  assert.equal(confirmed.evidenceAnalysis?.summaryFact.status, '证据链完整');
+  assert.equal(confirmed.evidenceAnalysis?.summaryFact.status, '证据链有缺口');
   assert.equal(
     confirmed.evidenceAnalysis?.summaryFact.interpretationFactCount,
     confirmed.evidenceAnalysis?.interpretationFacts.length,
@@ -1931,7 +1927,7 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
     confirmed.evidenceAnalysis?.sourceFacts.every(
       (item) =>
         item.key &&
-        item.status === '已声明' &&
+        ['已声明', '待校'].includes(item.status) &&
         item.promptText &&
         item.sources.length > 0 &&
         item.limitation,
@@ -1978,7 +1974,7 @@ test('三山国王灵签应区分签诗主证、典故辅证与可重放掷筊�
   assert.match(rejectedRitual?.detail || '', /未获圣杯/);
 });
 
-test('三山国王九十二签应逐签从标准资料重建并忽略旧文本与干支污染', () => {
+test('三山国王九十二签应逐签失败关闭并忽略外部文本与干支污染', () => {
   const date = new Date('2025-01-01T00:00:00+08:00');
   SSGW_SIGNS.forEach((reference) => {
     const manual = resolveSignByNumber(reference.id, date);
@@ -2041,11 +2037,11 @@ test('三山国王灵签随机来源应严格重放签号、掷筊终止状态�
 
   const info = formatDivinationInfo('ssgw', polluted, '测试问题');
   const summary = getDivinationSummaryBlocks('ssgw', polluted);
-  assert.ok(info.includes(reference.title));
-  assert.ok(info.includes(reference.qianwen));
+  assert.match(info, /签号：第\d+签/);
+  assert.match(info, /签谱状态：来源尚未完成校勘/);
   assert.doesNotMatch(info, /污染签题|污染签诗|污染典故|污染核心寓意|污染仪式结论/);
-  assert.ok(summary.tags.join('；').includes(reference.title));
-  assert.ok(summary.lines.join('\n').includes(reference.qianwen));
+  assert.ok(summary.tags.includes('签谱待校'));
+  assert.match(summary.lines.join('\n'), /只保留签号与抽取记录/);
   assert.doesNotMatch(summary.lines.join('\n'), /污染签题|污染签诗|污染典故|污染核心寓意/);
 
   const twelveSmiles = drawRandomSign(date, {
@@ -2157,10 +2153,10 @@ test('三山国王灵签条件化工具只处理文本，公开证据入口应�
     title: reference.title,
     poem: reference.qianwen,
   });
-  assert.equal(analysis.story, reference.story);
-  assert.equal(analysis.signFact.status, '完整');
-  assert.equal(analysis.coverageFact.status, '完整');
-  assert.equal(analysis.missingFields.length, 0);
+  assert.equal(analysis.story, undefined);
+  assert.equal(analysis.signFact.status, '签诗为空');
+  assert.equal(analysis.coverageFact.status, '存在缺口');
+  assert.equal(analysis.missingFields.length, SSGW_INTERPRETATION_FIELDS.length);
   assert.doesNotMatch(analysis.promptText, /污染签题|污染典故|污染核心寓意/);
 });
 

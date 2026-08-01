@@ -38,7 +38,6 @@ import { rebuildAuditedSsgwData } from 'mingyu-core/divination/ssgw';
 import { rebuildAuditedJinkoujueData } from 'mingyu-core/divination/jinkoujue';
 import { rebuildAuditedTaiyiData } from 'mingyu-core/taiyi';
 import { rebuildAuditedAstrolabeData } from 'mingyu-core/divination/astrolabe';
-import { resolveSsgwStoryContent } from './ssgw-content';
 
 export interface DivinationSummaryBlocks {
   title: string;
@@ -287,14 +286,6 @@ function formatTarotFocusSummary(data: TarotData) {
     .join('；');
 }
 
-function formatSsgwFocusSummary(data: DivinationData) {
-  if (!('poem' in data) || !data.poem) {
-    return '';
-  }
-
-  return `签诗“${data.poem}”`;
-}
-
 export function getDivinationSummaryBlocks(
   method: DivinationDraft['method'],
   data: DivinationData,
@@ -471,23 +462,10 @@ export function getDivinationSummaryBlocks(
           ],
         };
       }
-      const storyContent = resolveSsgwStoryContent(audited);
-
       return {
         title: '灵签结果',
-        tags: [`签号：第 ${audited.number} 签`, `签题：${audited.title}`],
-        lines: [
-          wrapMainEvidence(formatSsgwFocusSummary(audited)),
-          `签题：${audited.title}`,
-          `签诗：${audited.poem}`,
-          storyContent.canonicalStory ? `典故：${storyContent.canonicalStory}` : '',
-          storyContent.extraStory ? `补充：${storyContent.extraStory}` : '',
-          ...(audited.details
-            ? Object.entries(audited.details)
-                .filter(([key]) => key !== '典故')
-                .map(([key, value]) => `${key}：${value}`)
-            : []),
-        ].filter(Boolean),
+        tags: [`签号：第 ${audited.number} 签`, '签谱待校'],
+        lines: ['签谱来源尚未完成校勘，本次只保留签号与抽取记录，不提供签文解释。'],
       };
     }
     case 'almanac': {

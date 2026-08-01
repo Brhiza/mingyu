@@ -8,7 +8,7 @@ import { generateLiuren } from 'mingyu-core/divination/liuren';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
-import { conditionSsgwInterpretation, resolveSignByNumber } from 'mingyu-core/divination/ssgw';
+import { resolveSignByNumber } from 'mingyu-core/divination/ssgw';
 import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 
@@ -1092,7 +1092,7 @@ test('塔罗提示词保留牌阵、牌位、关键词与牌义', () => {
   );
 });
 
-test('灵签提示词保留签诗、典故和现有签文条目', () => {
+test('灵签提示词在签谱来源闭合前只保留签号与轨迹', () => {
   const sign = resolveSignByNumber(18, new Date('2025-06-29T08:00:00+08:00'));
   const prompt = buildDivinationPrompt(
     'ssgw',
@@ -1102,14 +1102,12 @@ test('灵签提示词保留签诗、典故和现有签文条目', () => {
   );
 
   assert.match(prompt, /签号：第18签/);
-  assert.ok(prompt.includes(`签诗：${sign.poem}`));
-  assert.ok(prompt.includes(`典故：${conditionSsgwInterpretation(sign.story || '')}`));
-  assert.match(prompt, /签意：/);
-  assert.ok(prompt.includes(`- 核心寓意：${sign.details?.核心寓意}`));
+  assert.match(prompt, /签谱状态：来源尚未完成校勘/);
+  assert.doesNotMatch(prompt, /签题：|签诗：|典故：|签意：|核心寓意：/);
   assert.doesNotMatch(prompt, /吉凶层级|宜忌条件|事项映射|现实映射|典故映射|证据汇总|非事实结论/);
 });
 
-test('灵签提示词应忽略外部签文与典故注入并使用标准签本', () => {
+test('灵签提示词应忽略外部签文与典故注入并保持失败关闭', () => {
   const canonical = resolveSignByNumber(9, new Date('2025-06-29T08:00:00+08:00'));
   const prompt = buildDivinationPrompt(
     'ssgw',
@@ -1128,8 +1126,8 @@ test('灵签提示词应忽略外部签文与典故注入并使用标准签本',
     createSupplementaryInfo(),
   );
 
-  assert.ok(prompt.includes(canonical.title));
-  assert.ok(prompt.includes(canonical.poem));
+  assert.match(prompt, /签号：第9签/);
+  assert.match(prompt, /签谱状态：来源尚未完成校勘/);
   assert.doesNotMatch(prompt, /典故去重测试|静待云开见月明|韩信受胯下之辱|宜暂避锋芒/);
 });
 

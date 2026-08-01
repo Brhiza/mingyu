@@ -121,7 +121,7 @@ console.log(first.meta.schemaVersion); // 公共结果结构版本
 | **金口诀 Jinkoujue**   | `mingyu-core/divination/jinkoujue`                                                                                                            | 地分、将神、贵神、人元、五子元遁、阴阳发用与五动三动；证据从时间、数字或可重放随机轨迹重新计算                                                                         |
 | **小六壬 Xiaoliuren**  | `mingyu-core/divination/xiaoliuren`                                                                                                           | 通行时间课的月、日、时逐宫顺数；只以时宫为占得宫，不采用华山派完整课、宫间五行或月令旺衰扩展                                                                           |
 | **择日 Almanac**       | `mingyu-core/divination/almanac`                                                                                                              | 黄历宜忌、参与人冲突、候选时辰、二十八宿与彭祖百忌；公开结果只凭原始事项、日期和出生输入审核重建                                                                       |
-| **灵签 SSGW**          | `mingyu-core/divination/ssgw`                                                                                                                 | 三山国王 92 签、掷筊确认、随机重放与文本证据分层                                                                                                                       |
+| **灵签 SSGW**          | `mingyu-core/divination/ssgw`                                                                                                                 | 三山国王 1 至 92 签号池、掷筊确认与随机重放；待校签谱文本失败关闭                                                                                                      |
 | **雷诺曼 Lenormand**   | `mingyu-core/divination/lenormand`                                                                                                            | 36 张牌、8 种牌阵、牌义组合                                                                                                                                            |
 | **西洋占星 Astrolabe** | `mingyu-core/divination/astrolabe`                                                                                                            | 本命盘、Placidus 宫位、24 点相位完整穷举、实际角距与采用容许度、完整行运与高级时限、太阳返照求根证据；公开入口从原始出生来源审核重建                                   |
 | **西占双盘 Synastry**  | `mingyu-core/divination/astrolabe-synastry`                                                                                                   | 穷举双方所选点对，完整返回主要跨盘相位的实际夹角、精确角、偏差、可配置容许度、全部双向跨盘落宫与结构化证据；公开入口从双方出生来源和完整参数审核重建                   |
@@ -495,7 +495,7 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 | `selectAuditedAlmanacData(data, view)`                               | 完整重算并排序后截取可复算分页视图                                           |
 | `analyzeAlmanacEvidence(data)`                                       | 先审核重建，再返回日期分组、事项宜忌、参与人冲突、时辰与现实约束证据         |
 | `drawSingleCard(options?)` / `drawSpreadCards(spreadType, options?)` | 塔罗抽牌；支持 `seed` 和 `replay` 完整复现                                   |
-| `drawRandomSign(date?, options?)`                                    | 三山国王灵签；抽签后模拟掷筊确认，支持 `seed`、`replay` 和结构化证据完整复现 |
+| `drawRandomSign(date?, options?)`                                    | 三山国王灵签；抽签后模拟掷筊确认，支持 `seed`、`replay` 和轨迹复现；待校签谱文本为空 |
 | `drawLenormandSpread(spreadType?, options?)`                         | 雷诺曼牌阵；支持 `seed` 和 `replay` 完整复现                                 |
 | `generateAstrolabe(input)`                                           | 西洋星盘                                                                     |
 | `rebuildAuditedAstrolabeData(data)`                                  | 只凭规范化出生输入和生成时间重建完整本命盘                                   |

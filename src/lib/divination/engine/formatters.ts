@@ -15,8 +15,7 @@ import type {
   JinkoujueData,
 } from '../../../types/divination';
 import { LunarUtil, getDivinationTime } from 'mingyu-core/calendar';
-import { resolveSsgwStoryContent } from '../ssgw-content';
-import { conditionSsgwInterpretation, rebuildAuditedSsgwData } from 'mingyu-core/divination/ssgw';
+import { rebuildAuditedSsgwData } from 'mingyu-core/divination/ssgw';
 import { analyzeQimenEvidence, rebuildAuditedQimenData } from '@core/divination/algorithms/qimen';
 import {
   analyzeAlmanacEvidence,
@@ -740,49 +739,16 @@ function formatSsgwInfo(data: SsgwData) {
     ].join('\n');
   }
 
-  const { canonicalStory, extraStory } = resolveSsgwStoryContent(audited);
-  const promptCanonicalStory = canonicalStory
-    ? conditionSsgwInterpretation(canonicalStory)
-    : evidenceAnalysis.promptStory;
-  const promptExtraStory = extraStory ? conditionSsgwInterpretation(extraStory) : '';
   const ritualLog = audited.ritual?.throws?.length
     ? `掷筊记录：${audited.ritual.throws.map((t) => t.result).join(' → ')}${audited.ritual.reason ? `（${audited.ritual.reason}）` : ''}`
     : '';
-  const interpretationFields = [
-    '核心寓意',
-    '事业',
-    '财运',
-    '感情',
-    '学业',
-    '健康',
-    '行动建议',
-    '风险提醒',
-  ];
-  const preferredFields = ['吉凶', ...interpretationFields].filter((key) =>
-    evidenceAnalysis.interpretations.some((item) => item.field === key),
-  );
-  const selectedInterpretations =
-    preferredFields.length > 1
-      ? preferredFields
-          .map((field) => evidenceAnalysis.interpretations.find((item) => item.field === field))
-          .filter((item): item is NonNullable<typeof item> => Boolean(item))
-      : evidenceAnalysis.interpretations;
-  const detailLines = selectedInterpretations.map(
-    (item) =>
-      `- ${item.field}：${item.promptText || conditionSsgwInterpretation(item.originalText || item.text)}`,
-  );
-
   return [
     '占法：三山国王灵签',
     `时间干支：${formatGanzhi(audited.ganzhi).replace('干支：', '')}`,
     `签号：第${audited.number}签`,
-    `签题：《${audited.title}》`,
     ritualLog,
-    `签诗：${audited.poem}`,
-    promptCanonicalStory ? `典故：${promptCanonicalStory}` : '',
-    promptExtraStory ? `补充签意：${promptExtraStory}` : '',
-    detailLines.length ? '签意：' : '',
-    ...detailLines,
+    '签谱状态：来源尚未完成校勘，本次不提供签题、签诗、典故或分类释义，不得自行补造。',
+    evidenceAnalysis.randomFact.promptText,
   ]
     .filter(Boolean)
     .join('\n');

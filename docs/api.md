@@ -71,7 +71,7 @@
 | `POST /divination/tarot`                     | 塔罗抽牌，返回牌位、正逆位、牌序与结构化证据                                   |
 | `POST /divination/tarot/prompt`              | 塔罗抽牌并生成含解释边界的 AI 解读提示词                                       |
 | `POST /divination/ssgw`                      | 三山国王灵签求签：模拟传统摇签、掷筊流程，圣杯确认后方出签；三连阴杯则拒绝起卦 |
-| `POST /divination/ssgw/prompt`               | 三山国王灵签求签并生成含签诗主证、典故辅证、仪式反证与现实限制的 AI 提示词     |
+| `POST /divination/ssgw/prompt`               | 三山国王灵签求签并生成只含签号、随机轨迹、掷筊记录与签谱待校边界的 AI 提示词   |
 | `POST /divination/almanac`                   | 黄历择日                                                                       |
 | `POST /divination/almanac/prompt`            | 黄历择日并生成 AI 解读提示词                                                   |
 | `POST /divination/lenormand`                 | 雷诺曼抽牌，分层返回固定组合、相邻合读与布局证据                               |

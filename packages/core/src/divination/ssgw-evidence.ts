@@ -27,7 +27,7 @@ export interface SsgwSignFact {
   poem: string;
   promptText: string;
   sources: string[];
-  limitation: '签号、签题和签诗只证明所用资料版本中的文本对应关系；不证明神意来源、预测有效性、现实事件或唯一解释';
+  limitation: '签号只证明本次编号与抽取索引一致；签谱来源未闭合时不提供签题或签诗，也不证明神意来源、预测有效性、现实事件或唯一解释';
 }
 
 export interface SsgwRitualThrowFact {
@@ -106,13 +106,13 @@ export interface SsgwCoverageFact {
 
 export interface SsgwSourceFact {
   key: string;
-  status: '已声明';
+  status: '已声明' | '待校';
   title: string;
   evidence: string;
-  role: '传统签本' | '整理资料' | '随机协议';
+  role: '签号池' | '签谱资料' | '随机协议';
   promptText: string;
   sources: string[];
-  limitation: '来源声明只标明文本、分类释义或随机记录的出处层级；不等于现代实证验证、神意证明或现实结果保证';
+  limitation: '来源状态只说明签号池、签谱资料或随机记录能否核验；待校资料不得进入提示词，也不构成神意证明或现实结果保证';
 }
 
 export interface SsgwCounterEvidenceFact {
@@ -223,7 +223,7 @@ export interface SsgwEvidenceAnalysis {
   sources: Array<{
     title: string;
     evidence: string;
-    role: '传统签本' | '整理资料' | '随机协议';
+    role: '签号池' | '签谱资料' | '随机协议';
   }>;
   counterEvidence: string[];
   counterEvidenceFacts: SsgwCounterEvidenceFact[];
@@ -240,7 +240,7 @@ const DRAW_FACT_LIMITATION =
   '签池大小、随机索引和签号对应关系只证明本次抽签过程及结果一致；不证明签文有效性、神意来源、现实事件或预测结果' as const;
 
 const SIGN_FACT_LIMITATION =
-  '签号、签题和签诗只证明所用资料版本中的文本对应关系；不证明神意来源、预测有效性、现实事件或唯一解释' as const;
+  '签号只证明本次编号与抽取索引一致；签谱来源未闭合时不提供签题或签诗，也不证明神意来源、预测有效性、现实事件或唯一解释' as const;
 
 const RITUAL_FACT_LIMITATION =
   '掷筊记录只证明模拟仪式的执行顺序和确认状态；圣杯、笑杯或阴杯不证明疾病、法律、财务、隐私、未来事件、神意来源或预测有效性' as const;
@@ -258,7 +258,7 @@ const COVERAGE_FACT_LIMITATION =
   '资料覆盖状态只说明签诗、典故和分类释义是否齐备；完整不代表解释正确，缺失时也不得从签号、签诗或其他分类反推缺失内容' as const;
 
 const SOURCE_FACT_LIMITATION =
-  '来源声明只标明文本、分类释义或随机记录的出处层级；不等于现代实证验证、神意证明或现实结果保证' as const;
+  '来源状态只说明签号池、签谱资料或随机记录能否核验；待校资料不得进入提示词，也不构成神意证明或现实结果保证' as const;
 const COUNTER_FACT_LIMITATION =
   '反证事实只记录签文资料、抽签索引、掷筊确认和随机轨迹是否存在缺口；缺口不等于现实必然不利，资料完整也不证明预测有效' as const;
 const COUNTER_SUMMARY_LIMITATION =
@@ -634,8 +634,11 @@ function buildLimitationFacts(args: {
       key: 'ssgw:limitation:sign-primary',
       type: '签诗主证边界',
       ownerFactKeys: [args.signFact.key, args.coverageFact.key],
-      promptText: '签诗原文是文本主证；典故只提供类比背景，不得覆盖或改写签诗原意',
-      sources: ['签诗原文与签附典故的证据层级'],
+      promptText:
+        args.signFact.status === '完整'
+          ? '已校签诗原文才可作为文本主证；典故只提供类比背景，不得覆盖或改写签诗原意'
+          : '签谱来源尚未完成校勘，不得补造、引用或解释签题、签诗、典故与分类断语',
+      sources: ['签谱来源与文本校勘状态'],
     },
     {
       key: 'ssgw:limitation:random-replay',
@@ -669,8 +672,8 @@ function buildLimitationFacts(args: {
       key: 'ssgw:limitation:source-version',
       type: '资料版本边界',
       ownerFactKeys: args.sourceFacts.map((item) => item.key),
-      promptText: '不同庙本可能存在签序、题名和字句差异，引用时应注明所用签文资料版本',
-      sources: ['传统签本与整理资料版本差异'],
+      promptText: '旧签谱缺少可定位来源，完成具体庙本或出版物的逐签校勘前只保留签号与抽取轨迹',
+      sources: ['签谱来源闭合检查'],
     },
   ];
   return definitions.map((definition) => ({
@@ -870,7 +873,7 @@ function analyzeRebuiltSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     promptText: data.poem.trim()
       ? `第${data.number}签《${data.title}》已记录签诗原文`
       : `第${data.number}签《${data.title}》未提供签诗原文，不得补造签诗`,
-    sources: ['三山国王九十二签资料版本'],
+    sources: ['签谱来源闭合检查'],
     limitation: SIGN_FACT_LIMITATION,
   };
   const interpretations = Object.entries(details)
@@ -923,8 +926,8 @@ function analyzeRebuiltSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
           ? `签池共${data.draw.poolSize}签，用户录入第${data.draw.selectedNumber}签；结果核验为第${data.number}签《${data.title}》`
           : `签池共${data.draw.poolSize}签，随机索引${data.draw.selectedIndex}（从0起）对应第${data.draw.selectedNumber}签；结果核验为第${data.number}签《${data.title}》`,
         sources: isManual
-          ? ['三山国王九十二签签池', '用户手工录入的签号']
-          : ['三山国王九十二签签池', '统一随机整数抽取与签号索引记录'],
+          ? ['系统九十二签编号池', '用户手工录入的签号']
+          : ['系统九十二签编号池', '统一随机整数抽取与签号索引记录'],
         limitation: DRAW_FACT_LIMITATION,
       }
     : {
@@ -1046,23 +1049,23 @@ function analyzeRebuiltSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       : ['本次资料未附随机轨迹，无法验证抽签与掷筊的重放过程'];
   const sourceFacts: SsgwSourceFact[] = [
     {
-      key: 'ssgw:source:traditional-signbook',
+      key: 'ssgw:source:number-pool',
       status: '已声明',
-      title: '三山国王祖庙九十二签体系',
-      evidence: '签号、签题、签诗及求签仪式的传统材料框架',
-      role: '传统签本',
-      promptText: '传统签本来源：三山国王祖庙九十二签体系，提供签号、签题、签诗及仪式材料框架',
-      sources: ['三山国王祖庙九十二签传统体系'],
+      title: '九十二签编号池',
+      evidence: '系统只保留1至92的连续签号，用于抽取索引和重放核验',
+      role: '签号池',
+      promptText: '签号池状态：保留1至92的连续编号，仅用于抽取索引与重放核验',
+      sources: ['系统签号池定义'],
       limitation: SOURCE_FACT_LIMITATION,
     },
     {
-      key: 'ssgw:source:compiled-material',
-      status: '已声明',
-      title: '九十二签整理资料版本',
-      evidence: '所用资料版本收录的签诗、典故与八类分类解读',
-      role: '整理资料',
-      promptText: '整理资料来源：九十二签资料版本，收录签诗、典故与八类分类解读',
-      sources: ['九十二签整理资料版本'],
+      key: 'ssgw:source:signbook-pending',
+      status: '待校',
+      title: '签谱文本来源待校',
+      evidence: '旧资料没有具体庙本、出版物、页码或网页存档，无法核验签题、签诗、典故与分类释义',
+      role: '签谱资料',
+      promptText: '签谱状态：来源尚未闭合；本次不提供签题、签诗、典故或分类释义，不得自行补造',
+      sources: ['签谱来源闭合检查'],
       limitation: SOURCE_FACT_LIMITATION,
     },
     {
@@ -1163,13 +1166,25 @@ function analyzeRebuiltSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
       source: drawFact.sources.join('；'),
       tags: ['签池', '抽签索引', '可重放'],
     },
-    {
-      level: '主证',
-      title: `第${data.number}签《${data.title}》签诗原文`,
-      detail: data.poem,
-      source: '三山国王九十二签资料版本',
-      tags: ['签诗原文', `第${data.number}签`],
-    },
+    ...(data.poem.trim()
+      ? [
+          {
+            level: '主证' as const,
+            title: `第${data.number}签《${data.title}》签诗原文`,
+            detail: data.poem,
+            source: '已校签谱资料',
+            tags: ['签诗原文', `第${data.number}签`],
+          },
+        ]
+      : [
+          {
+            level: '反证' as const,
+            title: `第${data.number}签签谱来源待校`,
+            detail: '本次只保留签号与抽取轨迹，不提供签题、签诗、典故或分类释义。',
+            source: '签谱来源闭合检查',
+            tags: ['签谱待校', `第${data.number}签`],
+          },
+        ]),
     ...(promptStory
       ? [
           {
@@ -1299,9 +1314,9 @@ function analyzeRebuiltSsgwEvidence(data: SsgwData): SsgwEvidenceAnalysis {
     evidence,
     promptText,
     methodology: [
-      '先核对签号、签题和签诗原文，再读取典故与分类字段。',
-      '签诗作为文本主证，典故与分类解读只作分层辅助，不互相替代。',
-      '分类释义保留原始资料文本，同时另生成条件化提示词文本，避免把传统断语包装成结果保证。',
+      '先核对签号与抽取轨迹；签谱来源未闭合时停止读取签题、签诗、典故与分类字段。',
+      '只有完成来源校勘的签诗才可作为文本主证，典故与分类解读只能作分层辅助。',
+      '未校勘分类释义保持缺失，不用条件化改写掩盖来源缺口。',
       '独立记录抽签随机轨迹和掷筊仪式状态；未获圣杯时停止签文解释。',
       '所有象征解释均须回到用户问题和现实资料复核。',
     ],

@@ -57,7 +57,7 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 - 用户问一件事现在能不能成、要不要推进、对方态度、短期应期：优先用六爻 `POST /divination/liuyao/prompt`；涉及方位、项目路径、谈判、出行和时空窗口时优先用奇门 `POST /divination/qimen/prompt`。
 - 用户要从日期范围里挑日子：调用 `POST /divination/almanac/prompt`，日期多或参与人多时分页。
 - 用户提供一人的西方星盘资料：调用 `POST /divination/astrolabe/prompt`；提供双方完整资料并询问关系：调用 `POST /divination/astrolabe/synastry/prompt`。
-- 用户没有出生信息，只想要轻量启发、牌阵或签文：调用塔罗、雷诺曼或三山国王灵签提示词接口。
+- 用户没有出生信息，只想要轻量启发或牌阵：调用塔罗或雷诺曼提示词接口。三山国王灵签当前只返回签号与仪式轨迹，不提供待校签文解释。
 - 用户明确要求八宅、生肖犯太岁、太乙或七政四余：调用对应的 `POST /metaphysics/{method}/prompt`；只要结构化排盘时改用 `/calculate`。
 
 问题到接口速查：
@@ -121,8 +121,8 @@ description: 通过 aov.cc 公开 API 调用真太阳时换算、命理、占卜
 - `POST /divination/liuren/prompt`：大六壬排盘并生成结构化 AI 解读提示词。
 - `POST /divination/tarot`：塔罗抽牌。
 - `POST /divination/tarot/prompt`：塔罗抽牌并生成结构化 AI 解读提示词。
-- `POST /divination/ssgw`：三山国王灵签求签。模拟传统摇签、掷筊流程，圣杯确认后出签；三连阴杯则拒绝起卦并返回拒绝原因。
-- `POST /divination/ssgw/prompt`：三山国王灵签求签并生成结构化 AI 解读提示词。
+- `POST /divination/ssgw`：三山国王灵签求签。模拟摇签、掷筊流程，圣杯确认后返回签号；三连阴杯则拒绝起卦并返回拒绝原因。签谱来源完成校勘前不返回签文解释。
+- `POST /divination/ssgw/prompt`：生成只含签号、仪式轨迹和签谱待校边界的结构化提示词。
 - `POST /divination/almanac`：黄历择日。
 - `POST /divination/almanac/prompt`：黄历择日并生成结构化 AI 解读提示词。
 - `POST /divination/lenormand`：雷诺曼抽牌。
