@@ -1844,3 +1844,133 @@ test('六仪击刑按九干九宫穷举且只在时家保留六组中性位置�
   assert.match(rule.promptText, /月家、年家不得套用/);
   assert.doesNotMatch(rule.promptText, /必成|必败|必胜|万事皆凶/);
 });
+
+test('星门伏吟反吟按实际落宫穷举且关闭六甲时捷径天禽寄宫与月年外推', () => {
+  const starHomes: Readonly<Record<string, number>> = {
+    天蓬: 1,
+    天芮: 2,
+    天冲: 3,
+    天辅: 4,
+    天禽: 5,
+    天心: 6,
+    天柱: 7,
+    天任: 8,
+    天英: 9,
+  };
+  const doorHomes: Readonly<Record<string, number>> = {
+    休门: 1,
+    死门: 2,
+    伤门: 3,
+    杜门: 4,
+    开门: 6,
+    惊门: 7,
+    生门: 8,
+    景门: 9,
+  };
+  const opposites: Readonly<Record<number, number>> = {
+    1: 9,
+    2: 8,
+    3: 7,
+    4: 6,
+    6: 4,
+    7: 3,
+    8: 2,
+    9: 1,
+  };
+  let starChecks = 0;
+  let doorChecks = 0;
+
+  for (const [star, home] of Object.entries(starHomes)) {
+    for (let gong = 1; gong <= 9; gong += 1) {
+      const tags = getQimenPatternTags({
+        zhiFu: star,
+        zhiShi: '休门',
+        zhiFuLandingPalace: gong,
+        zhiShiLandingPalace: 2,
+        jiuGongGe: [],
+        hourGanForFind: '戊',
+        scope: 'hour',
+      });
+      const starTags = tags.filter((tag) => tag.startsWith('星'));
+
+      if (star === '天禽') {
+        assert.deepEqual(starTags, [], `天禽落${gong}宫不得自动命名伏反吟`);
+      } else if (gong === home) {
+        assert.deepEqual(starTags, ['星伏吟（值符星回原宫）']);
+      } else if (gong === opposites[home]) {
+        assert.deepEqual(starTags, ['星反吟（值符星落原宫对冲宫）']);
+      } else {
+        assert.deepEqual(starTags, []);
+      }
+
+      for (const scope of ['month', 'year'] as const) {
+        assert.ok(
+          !getQimenPatternTags({
+            zhiFu: star,
+            zhiShi: '休门',
+            zhiFuLandingPalace: gong,
+            zhiShiLandingPalace: 2,
+            jiuGongGe: [],
+            hourGanForFind: '戊',
+            scope,
+          }).some((tag) => /^星[伏反]吟/.test(tag)),
+          `${scope}/${star}/${gong}宫不得外推星伏反吟`,
+        );
+      }
+      starChecks += 1;
+    }
+  }
+
+  for (const [door, home] of Object.entries(doorHomes)) {
+    for (let gong = 1; gong <= 9; gong += 1) {
+      const tags = getQimenPatternTags({
+        zhiFu: '天蓬',
+        zhiShi: door,
+        zhiFuLandingPalace: 2,
+        zhiShiLandingPalace: gong,
+        jiuGongGe: [],
+        hourGanForFind: '戊',
+        scope: 'hour',
+      });
+      const doorTags = tags.filter((tag) => tag.startsWith('门伏吟') || tag.startsWith('门反吟'));
+
+      if (gong === home) {
+        assert.deepEqual(doorTags, ['门伏吟（值使门回本宫）']);
+      } else if (gong === opposites[home]) {
+        assert.deepEqual(doorTags, ['门反吟（值使门落本宫对冲宫）']);
+      } else {
+        assert.deepEqual(doorTags, []);
+      }
+
+      for (const scope of ['month', 'year'] as const) {
+        assert.ok(
+          !getQimenPatternTags({
+            zhiFu: '天蓬',
+            zhiShi: door,
+            zhiFuLandingPalace: 2,
+            zhiShiLandingPalace: gong,
+            jiuGongGe: [],
+            hourGanForFind: '戊',
+            scope,
+          }).some((tag) => /^门[伏反]吟/.test(tag)),
+          `${scope}/${door}/${gong}宫不得外推门伏反吟`,
+        );
+      }
+      doorChecks += 1;
+    }
+  }
+
+  assert.equal(starChecks, 9 * 9);
+  assert.equal(doorChecks, 8 * 9);
+
+  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const rule = analysis.ruleSourceFacts.find(
+    (item) => item.key === 'rule:qimen:star-door-fuyin-fanyin-hour-position',
+  );
+  assert.ok(rule);
+  assert.equal(rule.category, '星门伏吟反吟时家位置规则');
+  assert.match(rule.promptText, /只采用两书共同的实际位置定义/);
+  assert.match(rule.promptText, /天禽.*关闭/);
+  assert.match(rule.promptText, /月家、年家.*不得套用/);
+  assert.doesNotMatch(rule.promptText, /万事皆凶|必败|必成|必胜/);
+});

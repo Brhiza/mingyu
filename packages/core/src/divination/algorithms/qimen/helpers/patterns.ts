@@ -76,8 +76,9 @@ export interface QimenPatternTagParams {
 /**
  * 返回正式允许进入提示词的位置标签。
  *
- * 星门伏吟/反吟、门克宫、击刑和马星均只记录可复算命中条件；不在此处解释
- * 吉凶和现实后果。三奇得、三奇得使、三奇游六仪、符使同宫等旧标签失败关闭。
+ * 时家星门伏吟/反吟、门克宫、时家击刑和马星均只记录可复算命中条件；不在此处解释
+ * 吉凶和现实后果。六甲时直接视为伏吟、天禽寄宫伏反吟、月家年家伏反吟，以及三奇得、
+ * 三奇得使、三奇游六仪、符使同宫等旧标签失败关闭。
  */
 export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
   const {
@@ -97,20 +98,25 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
   if (zhiFu && zhiFuOriginalPalace === 0) {
     throw new Error(`值符星 "${zhiFu}" 无法识别。`);
   }
-  if (zhiFu && zhiFuLandingPalace === zhiFuOriginalPalace) {
-    tags.push('星伏吟（值符星回原宫）');
-  } else if (zhiFu && getOppositePalace(zhiFuOriginalPalace) === zhiFuLandingPalace) {
-    tags.push('星反吟（值符星落原宫对冲宫）');
-  }
 
   const zhiShiOriginalPalace = doorPalaceMap[zhiShi as keyof typeof doorPalaceMap];
   if (!zhiShiOriginalPalace) {
     throw new Error(`值使门 "${zhiShi}" 无法识别。`);
   }
-  if (zhiShiLandingPalace === zhiShiOriginalPalace) {
-    tags.push('门伏吟（值使门回本宫）');
-  } else if (getOppositePalace(zhiShiOriginalPalace) === zhiShiLandingPalace) {
-    tags.push('门反吟（值使门落本宫对冲宫）');
+
+  if (scope === 'hour') {
+    // 天禽居中五，转盘又涉及寄宫版本；完成单一寄宫口径校勘前不自动命名伏反吟。
+    if (zhiFu !== '天禽' && zhiFuLandingPalace === zhiFuOriginalPalace) {
+      tags.push('星伏吟（值符星回原宫）');
+    } else if (zhiFu !== '天禽' && getOppositePalace(zhiFuOriginalPalace) === zhiFuLandingPalace) {
+      tags.push('星反吟（值符星落原宫对冲宫）');
+    }
+
+    if (zhiShiLandingPalace === zhiShiOriginalPalace) {
+      tags.push('门伏吟（值使门回本宫）');
+    } else if (getOppositePalace(zhiShiOriginalPalace) === zhiShiLandingPalace) {
+      tags.push('门反吟（值使门落本宫对冲宫）');
+    }
   }
 
   tags.push(...getMenPoTags(jiuGongGe));
