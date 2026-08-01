@@ -507,10 +507,10 @@ function formatQimenInfo(input: QimenData) {
     ? data.voidPalaces.map((item) => `${item.branch}空落${item.name}`).join('、')
     : data.voidBranches?.length
       ? `${data.voidBranches.join('、')}空`
-      : '无';
-  const horseText = data.horseStar
-    ? `${data.horseStar.sourceBranch}时驿马在${data.horseStar.branch}，落${data.horseStar.name}`
-    : '无';
+      : (data.scope ?? 'hour') === 'hour'
+        ? '时旬空复核未定位'
+        : '适用层级未闭合，未自动推算';
+  const horseText = '起例层级未闭合，未自动推算';
   const basicPatternFacts = evidenceAnalysis.patternFacts.filter(
     (item) => item.kind === '基础格局',
   );
@@ -568,7 +568,7 @@ function formatQimenInfo(input: QimenData) {
   const palaceText = evidenceAnalysis.palaceFacts
     .map(
       (item) =>
-        `${item.name}（${item.direction}${item.element}）：天盘${[item.tianPan.stem, item.tianPan.companionStem, item.tianPan.star, item.tianPan.companionStar].filter(Boolean).join('、')}；地盘${item.diPan.stem}；人盘${item.renPan.door}；神盘${item.shenPan.god}；${item.isVoid ? `旬空${item.voidBranches.join('、')}` : '不空'}；${item.hasHorse ? `马星（源支${item.horseSourceBranch ?? '未列'}）` : '无马星'}`,
+        `${item.name}（${item.direction}${item.element}）：天盘${[item.tianPan.stem, item.tianPan.companionStem, item.tianPan.star, item.tianPan.companionStar].filter(Boolean).join('、')}；地盘${item.diPan.stem}；人盘${item.renPan.door}；神盘${item.shenPan.god}；${item.isVoid ? `时旬空${item.voidBranches.join('、')}` : (data.scope ?? 'hour') === 'hour' ? '未逢已审核时旬空' : '旬空未自动推算'}`,
     )
     .join('；');
   const palaceRelationText = evidenceAnalysis.palaceRelations
@@ -593,7 +593,7 @@ function formatQimenInfo(input: QimenData) {
       : '',
     ganzhiInteractionSummary ? `四柱互动：${ganzhiInteractionSummary}` : '',
     `值符值使与时干：值符${data.zhiFu}${zhiFuPalace ? `落${zhiFuPalace.name}` : '未见落宫'}；值使${data.zhiShi}${zhiShiPalace ? `落${zhiShiPalace.name}` : '未见落宫'}；时干${hourStem}${hourStemPalaces.length ? `见于${hourStemPalaces.map((item) => item.name).join('、')}` : '未见落宫'}`,
-    `旬空与马星：旬空${voidText}；马星${horseText}`,
+    `旬空与马星边界：旬空${voidText}；马星${horseText}`,
     `九宫原始盘：${palaceText}`,
     `九宫宫对五行关系（全部36组无序宫对）：${palaceRelationText}`,
     specialConditionsText,

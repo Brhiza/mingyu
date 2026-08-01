@@ -762,18 +762,18 @@ export interface QimenData {
   zhiFu: string;
   /** 值使门名 */
   zhiShi: string;
-  /** 可由九宫直接复算的位置与五行标签（如伏吟、反吟、门克宫、时家击刑、马星） */
+  /** 可由九宫直接复算的位置与五行标签（如伏吟、反吟、门克宫、时家击刑） */
   patternTags?: string[];
   /** 格局标签的详细解释 */
   patternDetails?: Array<{
     tag: string;
     summary: string;
   }>;
-  /** 空亡地支 */
+  /** 已审核旬空地支；当前只在时家保存时旬空，月家、年家为空数组。 */
   voidBranches?: string[];
-  /** 空亡对应的宫位 */
+  /** 已审核旬空对应的宫位；当前只在时家保存。 */
   voidPalaces?: QimenBranchPalace[];
-  /** 驿马（马星）信息 */
+  /** @deprecated 仅兼容旧结果输入；审核重建不采信，当前不自动计算驿马（马星）。 */
   horseStar?: QimenBranchPalace & {
     sourceBranch: string;
   };

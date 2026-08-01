@@ -476,16 +476,15 @@ test('大六壬提示词与摘要应从时间戳重建完整课盘并忽略全�
   );
 });
 
-test('奇门算法会补出时旬空亡与马星落宫', () => {
+test('奇门算法只补出两个时旬空并关闭自动马星', () => {
   const data = generateQimen(new Date('2025-01-01T08:00:00+08:00'));
 
-  assert.ok(data.voidBranches?.length);
+  assert.equal(data.voidBranches?.length, 2);
+  assert.equal(new Set(data.voidBranches).size, 2);
   assert.ok(data.voidPalaces?.length);
   assert.ok(data.voidPalaces.every((item) => item.branch && item.palace && item.name));
-  assert.ok(data.horseStar?.branch);
-  assert.ok(data.horseStar?.palace);
-  assert.ok(data.horseStar?.name);
-  assert.ok(data.horseStar?.sourceBranch);
+  assert.equal(data.horseStar, undefined);
+  assert.ok(data.patternTags?.every((tag) => !tag.includes('马星')));
 });
 
 test('奇门五不遇时应按日干克应判断，不只看时辰干支', () => {
@@ -1544,12 +1543,11 @@ test('奇门基础标签只保留可复算位置事实并关闭未审核格局�
     zhiShiLandingPalace: 1,
     jiuGongGe: palaces,
     hourGanForFind: '戊',
-    horsePalace: 3,
   });
   const serialized = JSON.stringify(tags);
 
   assert.doesNotMatch(serialized, /三奇得|三奇游六仪|符使同宫|宝鉴三奇/);
-  assert.ok(tags.every((tag) => /伏吟|反吟|门克宫|击刑落宫|马星落宫/.test(tag)));
+  assert.ok(tags.every((tag) => /伏吟|反吟|门克宫|击刑落宫/.test(tag)));
   assert.ok(
     buildPatternDetails(tags).every((detail) => /只记录|不得|需结合具体用神/.test(detail.summary)),
   );

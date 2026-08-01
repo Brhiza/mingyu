@@ -10,7 +10,7 @@
  * 2. 寻值符值使：由对应级别的干支旬首定位值符星和值使门
  * 3. 排九宫格：布地盘三奇六仪 -> 定值符值使落宫 -> 排天盘九星 -> 排人盘八门 -> 排神盘八神
  * 4. 识别可复算位置标签、十一项天地盘固定格、时家上下文格、三奇升殿、三诈与三项条件一致五假位置结构
- * 5. 辅助分析：保留九宫方位、旬空与马星等原始事实
+ * 5. 辅助分析：保留九宫方位与已审核时家时旬空；跨层级旬空和自动马星失败关闭
  *
  * 《烟波钓叟歌》核心法理（下称《歌》）：
  *   "阴阳二遁分顺逆，一气三元人莫测"        —— 拆补法定局
@@ -28,7 +28,6 @@ import type { QimenData, QimenJiuGongGe, QimenScope } from '../../../types/divin
 import type { ClassicPattern, PatternContext, StemRelation } from './helpers/classic-patterns';
 import type { QimenMethod } from './helpers/layout';
 import { getDivinationTime } from '../../../calendar/timeManager';
-import { getVoidBranches } from '../../../calendar/lunar';
 import { diPanPalaces } from './helpers/_constants';
 import {
   getQimenJuShu,
@@ -39,7 +38,11 @@ import {
 import type { QimenJuMethod, QimenJuShuResult } from './helpers/jushu';
 import { getMonthQimenJuShu, getYearQimenJuShu } from './helpers/jushu-extended';
 import { arrangeJiuGongGe, resolveZhiShiLandingPalace } from './helpers/layout';
-import { getQimenPatternTags, buildPatternDetails } from './helpers/patterns';
+import {
+  getAuditedQimenVoidBranches,
+  getQimenPatternTags,
+  buildPatternDetails,
+} from './helpers/patterns';
 import { getStemRelations, getClassicPatterns } from './helpers/classic-patterns';
 import { buildSeasonality } from './helpers/seasonality';
 import { detectQimenPatternCombos } from './helpers/pattern-combos';
@@ -105,24 +108,6 @@ function resolveQimenBranchPalace(
   const palace = diPanPalaces[branch];
   if (!palace) return null;
   return { branch, palace, name: getPalaceName(jiuGongGe, palace) };
-}
-
-/**
- * 获取驿马地支
- *
- * 《烟波钓叟歌》：「天马方为动应之神，驿马冲则事速」
- * 寅午戌马在申，申子辰马在寅，
- * 巳酉丑马在亥，亥卯未马在巳。
- *
- * @param sourceBranch 时支
- * @returns 驿马地支，无匹配时返回空字符串
- */
-function getHorseBranch(sourceBranch: string): string {
-  if (['申', '子', '辰'].includes(sourceBranch)) return '寅';
-  if (['寅', '午', '戌'].includes(sourceBranch)) return '申';
-  if (['亥', '卯', '未'].includes(sourceBranch)) return '巳';
-  if (['巳', '酉', '丑'].includes(sourceBranch)) return '亥';
-  return '';
 }
 
 function assertQimenScope(scope: QimenScope): void {
@@ -208,10 +193,10 @@ function mapStemRelations(
  * 4. **排九宫格（转盘法或飞盘法）**：按所选方法排列九星、八门、八神与天地盘干
  *    - 布地盘三奇六仪 -> 定值符值使落宫 -> 排天盘九星 -> 排人盘八门 -> 排神盘八神
  *
- * 5. **辅助数据**：空亡地支配对、驿马定位
+ * 5. **辅助数据**：时家时旬空地支配对；月家、年家旬空及所有马星自动定位失败关闭
  *
  * 6. **可复算位置标签**
- *    - 星门伏吟/反吟与六仪击刑落宫仅限时家；门克宫、马星落宫保留结构事实
+ *    - 星门伏吟/反吟与六仪击刑落宫仅限时家；门克宫保留结构事实
  *
  * 7. **已校勘经典格局**：《遁甲演义》卷一、卷二
  *    - 输出十一项条件已闭合的天地盘固定格
@@ -261,7 +246,7 @@ export function generateQimen(
   const { timeInfo, ganzhi, timestamp } = getDivinationTime(customDate);
   const { jieQi } = timeInfo;
 
-  // 根据 scope 确定"主动干支"（用于定局、寻符使、空亡、驿马）
+  // 根据 scope 确定"主动干支"（用于定局、寻符使及时家时旬空）
   const activeGanZhi = getActiveGanZhi(ganzhi, scope);
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -290,18 +275,14 @@ export function generateQimen(
     method,
   );
   // ──────────────────────────────────────────────────────────────────────────
-  // 步骤 5：辅助数据（空亡、驿马）
+  // 步骤 5：辅助数据（仅时家时旬空；马星因起例层级未闭合失败关闭）
   // ──────────────────────────────────────────────────────────────────────────
-  const activeZhi = activeGanZhi.charAt(1);
   const activeGanForFind = getDunJiaStem(activeGanZhi);
 
-  const voidBranches = getVoidBranches(activeGanZhi) || [];
+  const voidBranches = getAuditedQimenVoidBranches(scope, activeGanZhi);
   const voidPalaces = voidBranches
     .map((branch: string) => resolveQimenBranchPalace(branch, jiuGongGe))
     .filter((item): item is { branch: string; palace: number; name: string } => Boolean(item));
-
-  const horseBranch = getHorseBranch(activeZhi);
-  const horsePalace = horseBranch ? resolveQimenBranchPalace(horseBranch, jiuGongGe) : null;
 
   const zhiFuLandingPalace = jiuGongGe.find((gong) => hasTianPanStar(gong, zhiFu))?.gong;
   if (zhiFuLandingPalace === undefined) {
@@ -326,8 +307,6 @@ export function generateQimen(
     jiuGongGe,
     hourGanForFind: activeGanForFind,
     scope,
-    horsePalace: horsePalace?.palace,
-    horsePalaceName: horsePalace?.name,
   });
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -411,7 +390,6 @@ export function generateQimen(
     patternDetails,
     voidBranches,
     voidPalaces,
-    horseStar: horsePalace ? { ...horsePalace, sourceBranch: activeZhi } : undefined,
     specialConditions,
     seasonality,
     jiuGongGe,
@@ -552,4 +530,4 @@ export type { QimenScope, QimenMethod }; // re-export for consumer convenience
 // 导出内部工具（供外部模块或测试使用）
 // ============================================================================
 
-export { getHorseBranch, resolveQimenBranchPalace, resolveZhiShiLandingPalace };
+export { resolveQimenBranchPalace, resolveZhiShiLandingPalace };

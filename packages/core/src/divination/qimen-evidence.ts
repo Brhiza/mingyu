@@ -12,7 +12,11 @@ import {
   getStemRelations,
   isAuditedQimenContextPatternName,
 } from './algorithms/qimen/helpers/classic-patterns';
-import { buildPatternDetails, getQimenPatternTags } from './algorithms/qimen/helpers/patterns';
+import {
+  buildPatternDetails,
+  getAuditedQimenVoidBranches,
+  getQimenPatternTags,
+} from './algorithms/qimen/helpers/patterns';
 import { AUDITED_QIMEN_CLASSIC_PATTERN_NAMES } from './algorithms/qimen/helpers/stem-pair-patterns';
 import { detectQimenPatternCombos } from './algorithms/qimen/helpers/pattern-combos';
 import {
@@ -24,7 +28,6 @@ import { getMonthQimenJuShu, getYearQimenJuShu } from './algorithms/qimen/helper
 import { arrangeJiuGongGe } from './algorithms/qimen/helpers/layout';
 import { diPanPalaces } from './algorithms/qimen/helpers/_constants';
 import { buildSeasonality } from './algorithms/qimen/helpers/seasonality';
-import { getVoidBranches } from '../calendar/lunar';
 import { TimeManager } from '../calendar/timeManager';
 import { isValidGanZhi } from '../ganzhi';
 
@@ -68,7 +71,7 @@ export interface QimenPalaceFact {
   constraints: string[];
   promptText: string;
   sources: string[];
-  limitation: '逐宫字段是奇门九宫门、星、神、天地盘干、空亡、马星与规则命中的计算事实，只提供可复核位置与结构，不单独证明现实吉凶、事件结果、人物意图、方位安全或固定应期';
+  limitation: '逐宫字段是奇门九宫门、星、神、天地盘干、已审核时家时旬空与规则命中的计算事实；马星因起例层级未闭合不自动定位。资料只提供可复核位置与结构，不单独证明现实吉凶、事件结果、人物意图、方位安全或固定应期';
 }
 
 export interface QimenStemRelationFact {
@@ -96,7 +99,7 @@ export interface QimenPalaceCoverageFact {
   palaceFactKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '九宫覆盖状态只说明当前结果能否完整核验一至九宫；缺少、重复或越界宫位时不得反推门、星、神、天地盘干、空亡、马星或格局';
+  limitation: '九宫覆盖状态只说明当前结果能否完整核验一至九宫；缺少、重复或越界宫位时不得反推门、星、神、天地盘干、已审核旬空或格局，马星在起例层级明确前不得自动定位';
 }
 
 export interface QimenPalaceRelationEvidence {
@@ -164,6 +167,7 @@ export interface QimenRuleSourceFact {
     | '六仪击刑时家位置规则'
     | '星门伏吟反吟时家位置规则'
     | '门宫五行结构规则'
+    | '旬空与驿马适用边界'
     | '经典格局审核边界'
     | '组合规则版本'
     | '专项情境规则边界'
@@ -213,7 +217,7 @@ export interface QimenTimingSummaryFact {
   factKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '应期汇总只声明当前缺少具体问题用神与目标期限；不得把位置索引、空亡、马星、伏吟反吟、宫数或局数直接换算为快慢、固定天数、绝对日期或事件概率';
+  limitation: '应期汇总只声明当前缺少具体问题用神与目标期限；不得把位置索引、已审核旬空、伏吟反吟、宫数或局数直接换算为快慢、固定天数、绝对日期或事件概率，马星在起例层级明确前不得参与推算';
 }
 
 export interface QimenDirectionBoundaryFact {
@@ -287,7 +291,7 @@ export interface QimenEvidenceAnalysis {
 }
 
 const PALACE_FACT_LIMITATION =
-  '逐宫字段是奇门九宫门、星、神、天地盘干、空亡、马星与规则命中的计算事实，只提供可复核位置与结构，不单独证明现实吉凶、事件结果、人物意图、方位安全或固定应期' as const;
+  '逐宫字段是奇门九宫门、星、神、天地盘干、已审核时家时旬空与规则命中的计算事实；马星因起例层级未闭合不自动定位。资料只提供可复核位置与结构，不单独证明现实吉凶、事件结果、人物意图、方位安全或固定应期' as const;
 const CALCULATION_FACT_LIMITATION =
   '定局与定位字段只证明排盘范围、主动干支、节气三元、阴阳遁局数和值符值使如何形成当前盘面，不证明现实吉凶、事件结果、人物意图、方位安全或固定应期' as const;
 const RULE_SOURCE_LIMITATION =
@@ -301,13 +305,13 @@ const COUNTER_SUMMARY_LIMITATION =
 const TIMING_FACT_LIMITATION =
   '通用盘只保留推算应期所需的原始位置事实；未按问题选定用神并取得目标期限前，不生成相对节奏、触发事件、固定天数或绝对日期' as const;
 const TIMING_SUMMARY_LIMITATION =
-  '应期汇总只声明当前缺少具体问题用神与目标期限；不得把位置索引、空亡、马星、伏吟反吟、宫数或局数直接换算为快慢、固定天数、绝对日期或事件概率' as const;
+  '应期汇总只声明当前缺少具体问题用神与目标期限；不得把位置索引、已审核旬空、伏吟反吟、宫数或局数直接换算为快慢、固定天数、绝对日期或事件概率，马星在起例层级明确前不得参与推算' as const;
 const DIRECTION_SUMMARY_LIMITATION =
   '方位取用边界只声明通用入口未生成取用结论；九宫原始方向不等于吉方、避方或现实路线建议' as const;
 const STEM_RELATION_FACT_LIMITATION =
   '天地盘干关系只记录当前宫天盘干与地盘干的生克、标准天干五合、刑，或十一项已校勘固定格；入墓因版本条件冲突关闭，其余七十项不能单凭二元组合命名为传统格局，不单独证明现实吉凶、人物关系、事件结果或固定应期' as const;
 const PALACE_COVERAGE_FACT_LIMITATION =
-  '九宫覆盖状态只说明当前结果能否完整核验一至九宫；缺少、重复或越界宫位时不得反推门、星、神、天地盘干、空亡、马星或格局' as const;
+  '九宫覆盖状态只说明当前结果能否完整核验一至九宫；缺少、重复或越界宫位时不得反推门、星、神、天地盘干、已审核旬空或格局，马星在起例层级明确前不得自动定位' as const;
 const SUMMARY_FACT_LIMITATION =
   '奇门证据汇总只统计排盘、九宫、位置索引、格局、位置限制、应期前提与方位边界的资料覆盖情况；不得按数量生成吉凶总分、成功率、人物意图、方位保证或唯一日期' as const;
 const LIMITATION_FACT_LIMITATION =
@@ -530,14 +534,6 @@ function getActiveGanZhi(data: QimenData): string {
     default:
       return data.ganzhi.hour;
   }
-}
-
-function getHorseBranch(sourceBranch: string): string {
-  if (['申', '子', '辰'].includes(sourceBranch)) return '寅';
-  if (['寅', '午', '戌'].includes(sourceBranch)) return '申';
-  if (['亥', '卯', '未'].includes(sourceBranch)) return '巳';
-  if (['巳', '酉', '丑'].includes(sourceBranch)) return '亥';
-  return '';
 }
 
 const QIMEN_SCOPE_LABELS = {
@@ -784,10 +780,8 @@ export function rebuildAuditedQimenData(input: QimenData): QimenData {
   if (!zhiFuPalace || !zhiShiPalace) {
     throw new Error('奇门值符值使落宫复核失败，已禁止计算格局标签。');
   }
-  const voidBranches = getVoidBranches(activeGanZhi);
-  if (voidBranches.length !== 2 || new Set(voidBranches).size !== 2) {
-    throw new Error(`奇门主动干支“${activeGanZhi}”未取得两个唯一旬空地支。`);
-  }
+  const scope = input.scope ?? 'hour';
+  const voidBranches = getAuditedQimenVoidBranches(scope, activeGanZhi);
   const voidPalaces = voidBranches.map((branch) => {
     const palace = diPanPalaces[branch];
     const palaceData = input.jiuGongGe.find((item) => item.gong === palace);
@@ -800,19 +794,6 @@ export function rebuildAuditedQimenData(input: QimenData): QimenData {
       name: palaceData.name,
     };
   });
-  const sourceBranch = activeGanZhi.charAt(1);
-  const horseBranch = getHorseBranch(sourceBranch);
-  const horsePalaceNumber = diPanPalaces[horseBranch];
-  const horsePalaceData = input.jiuGongGe.find((item) => item.gong === horsePalaceNumber);
-  if (!horseBranch || !horsePalaceNumber || !horsePalaceData) {
-    throw new Error(`奇门主动地支“${sourceBranch}”的驿马无法映射到完整九宫。`);
-  }
-  const horsePalace = {
-    sourceBranch,
-    branch: horseBranch,
-    palace: horsePalaceNumber,
-    name: horsePalaceData.name,
-  };
   const patternTags = getQimenPatternTags({
     zhiFu: input.zhiFu,
     zhiShi: input.zhiShi,
@@ -820,9 +801,7 @@ export function rebuildAuditedQimenData(input: QimenData): QimenData {
     zhiShiLandingPalace: zhiShiPalace.gong,
     jiuGongGe: input.jiuGongGe,
     hourGanForFind: getDunJiaStem(activeGanZhi),
-    scope: input.scope ?? 'hour',
-    horsePalace: horsePalace.palace,
-    horsePalaceName: horsePalace.name,
+    scope,
   });
   const stemRelations = getStemRelations(input.jiuGongGe).map((item) => ({
     gong: item.palace,
@@ -867,7 +846,6 @@ export function rebuildAuditedQimenData(input: QimenData): QimenData {
     patternDetails: buildPatternDetails(patternTags),
     voidBranches,
     voidPalaces,
-    horseStar: horsePalace,
     specialConditions: rebuildSpecialConditions(input, activeGanZhi),
     seasonality,
     classicPatterns,
@@ -928,7 +906,7 @@ function buildPalaceIndexFact(
   patternFacts: QimenPatternEvidenceFact[],
 ): QimenPalaceIndexFact {
   const isVoid = Boolean(data.voidPalaces?.some((item) => item.palace === palace.gong));
-  const hasHorse = data.horseStar?.palace === palace.gong;
+  const hasHorse = false;
   const patterns = unique(
     patternFacts
       .filter((item) => item.palaces.includes(palace.gong))
@@ -1009,7 +987,6 @@ function buildPalaceFact(
     evidence.stemRelations.length ? `天地盘干${evidence.stemRelations.join('、')}` : '',
     evidence.patterns.length ? `规则命中${evidence.patterns.join('、')}` : '',
     evidence.isVoid ? `空亡${voidBranches.join('、') || '命中但地支未列'}` : '',
-    evidence.hasHorse ? `马星同宫（来源支${data.horseStar?.sourceBranch || '未列'}）` : '',
     indexSources.length ? `位置索引来源${indexSources.join('、')}` : '无额外位置索引',
   ]
     .filter(Boolean)
@@ -1029,7 +1006,6 @@ function buildPalaceFact(
     isVoid: evidence.isVoid,
     voidBranches,
     hasHorse: evidence.hasHorse,
-    horseSourceBranch: evidence.hasHorse ? data.horseStar?.sourceBranch : undefined,
     patterns: evidence.patterns,
     patternFactKeys,
     stemRelations: evidence.stemRelations,
@@ -1038,7 +1014,7 @@ function buildPalaceFact(
     promptText,
     sources: [
       '奇门遁局九宫门、星、神与天地盘干排布',
-      '当前旬空落宫、驿马落宫与天地盘干关系计算',
+      '当前已审核时家时旬空落宫与天地盘干关系计算',
       '基础格局、经典格局与已校勘组合规则命中',
     ],
     limitation: PALACE_FACT_LIMITATION,
@@ -1143,7 +1119,7 @@ function buildLimitationFacts(params: {
         ]),
       ],
       promptText:
-        '九宫事实只记录门、星、神、天地盘干、空亡、马星和规则命中；宫位缺失、重复或越界时不得补造内容，资料完整也不直接证明现实吉凶',
+        '九宫事实只记录门、星、神、天地盘干、已审核时家时旬空和规则命中；马星因日马、时马起例层级未闭合不自动定位。宫位缺失、重复或越界时不得补造内容，资料完整也不直接证明现实吉凶',
       sources: ['九宫覆盖核验与逐宫门星神干事实'],
     },
     {
@@ -1179,7 +1155,7 @@ function buildLimitationFacts(params: {
       type: '应期边界',
       ownerFactKeys: [params.timingSummaryFact.key, ...params.timingFacts.map((item) => item.key)],
       promptText:
-        '当前只保留旬空、马星、伏吟反吟等原始位置事实；未按具体问题选定用神并取得目标期限前，不生成应期快慢、触发事件、唯一日期、固定天数或事件概率',
+        '当前只保留已审核旬空、伏吟反吟等原始位置事实；马星须先明确日马、时马或其他版本才可继续推算。未按具体问题选定用神并取得目标期限前，不生成应期快慢、触发事件、唯一日期、固定天数或事件概率',
       sources: ['具体问题用神与目标期限缺失边界'],
     },
     {
@@ -1298,7 +1274,7 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
       status: '已声明',
       category: '九宫排布规则',
       rule: `${layoutMethodLabel}排列门、星、神及天地盘干后逐宫核验`,
-      appliesTo: ['九宫事实', '空亡与马星', '格局命中'],
+      appliesTo: ['九宫事实', '已审核旬空', '马星关闭边界', '格局命中'],
       sources:
         layoutMethod === 'feipan'
           ? ['洛书九宫飞布路径与飞盘争议口径', '飞盘九星、八门、八神与天地盘干排布计算']
@@ -1611,6 +1587,23 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
       limitation: RULE_SOURCE_LIMITATION,
     },
     {
+      key: 'rule:qimen:void-hour-and-horse-scope-boundary',
+      status: '已声明',
+      category: '旬空与驿马适用边界',
+      rule: '时家只按完整时柱所属旬计算两个旬空地支；月家、年家旬空及所有开放层级的马星自动定位失败关闭',
+      appliesTo: ['时家时旬空', '月家奇门', '年家奇门', '驿马', '提示词推算边界'],
+      sources: [
+        '《奇门法窍》“有日旬空亡，有时旬空亡……大约日奇重日旬空亡，而时奇重时旬空亡”',
+        '《奇门旨归》旬空方六旬表：甲子空戌亥、甲戌空申酉、甲申空午未、甲午空辰巳、甲辰空寅卯、甲寅空子丑',
+        '《奇门遁甲秘笈大全》旬空六旬表同列上述六组',
+        '《奇门遁甲秘笈大全》驿马起例明确写作“寅午戌日马在申”等日马四组',
+        '当前排盘完整年、月、日、时四柱原始事实',
+      ],
+      promptText:
+        '旬空与驿马适用边界：时家只按当前完整时柱所属六旬计算两个时旬空地支，并映射到九宫；六十时柱逐项只应落入固定六组旬空。日家尚未开放，月家、年家也没有取得把主动月柱或年柱直接作为旬空依据的闭合原文，因此两者不自动输出旬空。《奇门遁甲秘笈大全》现有可核验起例明确写作“日马”，不能证明旧实现按时支、月支、年支一律外推马星，故当前所有开放层级均关闭自动马星与马星落宫标签。提示词保留完整四柱和九宫原始事实，AI 如需继续推算，必须先明确采用日马、时马或其他版本，不得把未定位写成无马星或现实静止',
+      limitation: RULE_SOURCE_LIMITATION,
+    },
+    {
       key: 'rule:qimen:classic-pattern-audit-boundary',
       status: '已声明',
       category: '经典格局审核边界',
@@ -1625,7 +1618,7 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
         '《遁甲演义》《奇门法窍》《奇门旨归》《奇门遁甲秘笈大全》三诈奇门神同宫条件互证结果',
         '《遁甲演义》《奇门法窍》《奇门旨归》《奇门遁甲秘笈大全》天假、严格地假、鬼假奇仪门神同宫条件互证结果',
         '《武经总要》《遁甲演义》《奇门宝鉴御定》玉女守门六时、值使门与地盘丁条件互证结果',
-        '当前九宫门、星、神、天地盘干、空亡、马星与五行关系原始事实',
+        '当前九宫门、星、神、天地盘干、已审核时家时旬空与五行关系原始事实',
       ],
       promptText:
         '经典格局审核边界：当前把青龙返首、飞鸟跌穴、青龙逃走、白虎猖狂、朱雀投江、螣蛇跃蹻、荧入太白、太白入荧、大格、刑格、小格十一项固定格，以及仅限时家复算的伏干格、飞干格、岁格、六庚值符临丙格勃、乙奇到震三/丙奇到离九/丁奇到兑七三项升殿位置结构、真诈/重诈/休诈三项奇门神同宫结构、天假/严格地假/鬼假三项条件一致结构和六个固定时柱且值使临地盘丁的玉女守门结构视为已校勘命中。所有时家上下文格只登记中性结构，不采用互有差异的现实断语。月格存在“月干/月朔干”差异，时格存在“本时干/仅三奇/庚值符管十时”差异，普通勃格存在“丙临年月日时干/丙加值符庚”等冲突，天辅时存在主表与《太白阴经》同条异说冲突，五合时存在与天辅时混称，天网/天网四张存在六癸时、天盘癸落宫、值符临地癸及特定局数等定义冲突，三奇/时干入墓存在宫位表、时柱表与日干前提混用，三奇受制存在位置表与门干囚死复合条件差异，三奇会甲缺少可核验闭合原文，均继续失败关闭；九遁、三奇得使、三奇游六仪、人假、物假、神假、五假扩展、三奇入墓/受制/会甲、符使同宫、相佐守户、天乙飞伏宫、天辅时、五合时、天网、天网四张、门宫相生等旧规则也不得从原始盘面自动补算为既定格局或现实结论',
@@ -1837,7 +1830,9 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
     factKeys: counterEvidenceFacts.map((item) => item.key),
     promptText: counterEvidenceFacts.length
       ? `当前${counterEvidenceFacts.length}项九宫旬空位置限制已逐项记录`
-      : '当前九宫未见旬空位置限制；这不构成现实吉凶判断',
+      : scope === 'hour'
+        ? '当前时家九宫未见时旬空位置限制；这不构成现实吉凶判断'
+        : `当前${scopeLabel}旬空适用层级未闭合，未自动推算；不得写成“不空”`,
     sources: ['九宫 constraints 字段逐项汇总'],
     limitation: COUNTER_SUMMARY_LIMITATION,
   };
@@ -1848,7 +1843,7 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
       sourceStatus: '统一边界',
       rhythm: null,
       promptText:
-        '当前通用盘未按具体问题选定用神，也未取得目标期限；只保留旬空、马星、伏吟反吟等原始位置事实，不自动生成应期快慢、触发事件或唯一日期',
+        '当前通用盘未按具体问题选定用神，也未取得目标期限；只保留已审核旬空、伏吟反吟等原始位置事实，马星因起例层级未闭合不自动定位，也不生成应期快慢、触发事件或唯一日期',
       sources: ['用神、目标期限与现实事件未由通用排盘提供'],
       limitation: TIMING_FACT_LIMITATION,
     },
@@ -1973,8 +1968,8 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
       level: '主证',
       title: '奇门九宫逐宫计算事实',
       detail: `${palaceFacts.map((item) => item.promptText).join('；')}；统一边界：${PALACE_FACT_LIMITATION}`,
-      source: '奇门遁局九宫排布、旬空驿马、天地盘干与格局规则逐宫映射',
-      tags: ['九宫事实', '门星神干', '空亡', '马星', '规则命中'],
+      source: '奇门遁局九宫排布、已审核时家时旬空、天地盘干与格局规则逐宫映射',
+      tags: ['九宫事实', '门星神干', '时旬空', '马星关闭边界', '规则命中'],
     },
     ...positionIndexes.map((item): PromptEvidenceItem => ({
       level: '辅证',
@@ -2069,7 +2064,7 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
     promptText,
     methodology: [
       '定位值符、值使、日干、时干与已校勘经典格局所在宫，只作位置索引，不自动指定具体问题的用神。',
-      '逐宫保留门、星、神、天地盘干、空亡、马星与已审核规则命中事实。',
+      '逐宫保留门、星、神、天地盘干、已审核时家时旬空与规则命中事实；月家、年家旬空及所有自动马星均按适用层级边界失败关闭。',
       '定局、值符值使、已校勘组合规则来源、宫间作用、应期和方位条件全部进入统一证据条目。',
       '传统格局原文保留在结构化结果中，提示词只读取条件化副本并注明传统分类与现代实证边界。',
       '九宫宫对只陈述可复核的五行生克关系，不按位置索引制造主次，也不用数字分数代替判断。',

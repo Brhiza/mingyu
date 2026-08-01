@@ -7,6 +7,7 @@
 
 import type { QimenJiuGongGe, QimenScope } from '../../../../types/divination';
 import { qimen } from '../../../../divination/divination-data';
+import { getVoidBranches } from '../../../../calendar/lunar';
 import { isKe } from '../../../../ganzhi';
 import { getDoorElement, getOppositePalace } from './palace-utils';
 
@@ -33,6 +34,21 @@ export function isQimenInstrumentPunishment(stem: string, palace: number): boole
   return QIMEN_INSTRUMENT_PUNISHMENT_PALACES[stem] === palace;
 }
 
+/**
+ * 返回当前已审核层级允许公开的旬空地支。
+ *
+ * 《奇门法窍》明确区分“日奇重日旬空亡，时奇重时旬空亡”。当前日家未开放，
+ * 月家、年家也没有取得把主动月柱或年柱直接当作旬空依据的闭合原文，因此只保留时家时旬空。
+ */
+export function getAuditedQimenVoidBranches(scope: QimenScope, activeGanZhi: string): string[] {
+  if (scope !== 'hour') return [];
+  const branches = getVoidBranches(activeGanZhi);
+  if (branches.length !== 2 || new Set(branches).size !== 2) {
+    throw new Error(`奇门时家时柱“${activeGanZhi}”未取得两个唯一旬空地支。`);
+  }
+  return branches;
+}
+
 const AUDITED_PATTERN_TAG_PREFIXES = [
   '星伏吟',
   '星反吟',
@@ -40,7 +56,6 @@ const AUDITED_PATTERN_TAG_PREFIXES = [
   '门反吟',
   '门克宫',
   '击刑落宫',
-  '马星落宫',
 ] as const;
 
 /** 判断标签是否属于正式允许输出的可复算位置或五行事实。 */
@@ -75,15 +90,13 @@ export interface QimenPatternTagParams {
   jiuGongGe: QimenJiuGongGe[];
   hourGanForFind: string;
   scope?: QimenScope;
-  horsePalace?: number;
-  horsePalaceName?: string;
 }
 
 /**
  * 返回正式允许进入提示词的位置标签。
  *
- * 时家星门伏吟/反吟、门克宫、时家击刑和马星均只记录可复算命中条件；不在此处解释
- * 吉凶和现实后果。六甲时直接视为伏吟、天禽寄宫伏反吟、月家年家伏反吟，以及三奇得、
+ * 时家星门伏吟/反吟、门克宫和时家击刑只记录可复算命中条件；不在此处解释吉凶和现实
+ * 后果。六甲时直接视为伏吟、天禽寄宫伏反吟、月家年家伏反吟、跨层级马星，以及三奇得、
  * 三奇得使、三奇游六仪、符使同宫等旧标签失败关闭。
  */
 export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
@@ -95,8 +108,6 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
     jiuGongGe,
     hourGanForFind,
     scope = 'hour',
-    horsePalace,
-    horsePalaceName,
   } = params;
   const tags: string[] = [];
 
@@ -133,13 +144,6 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
     if (jiXingTag) tags.push(jiXingTag);
   }
 
-  if (horsePalace !== undefined) {
-    const horseGong = jiuGongGe.find((palace) => palace.gong === horsePalace);
-    if (horseGong) {
-      tags.push(`马星落宫（驿马落${horsePalaceName || horseGong.name}）`);
-    }
-  }
-
   return tags;
 }
 
@@ -166,9 +170,6 @@ function getPatternSummary(tag: string): string {
   }
   if (tag.startsWith('击刑落宫')) {
     return '时家时干所遁六仪命中六仪击刑固定落宫表；这里只记录命中条件，不据此单独断事。';
-  }
-  if (tag.startsWith('马星落宫')) {
-    return '驿马所在宫位已记录；是否与问题相关、是否发动及如何取用需结合具体用神。';
   }
   return '当前标签没有已声明的正式解释，不得补造现实断语。';
 }

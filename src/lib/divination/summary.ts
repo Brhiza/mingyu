@@ -116,15 +116,15 @@ function formatQimenVoidSummary(data: DivinationData) {
     return `旬空：${data.voidBranches.join('、')}`;
   }
 
-  return '旬空：无';
-}
-
-function formatQimenHorseSummary(data: DivinationData) {
-  if (!('horseStar' in data) || !data.horseStar) {
-    return '马星：未定位';
+  if ('scope' in data && data.scope && data.scope !== 'hour') {
+    return '旬空：适用层级未闭合，未自动推算';
   }
 
-  return `马星：${data.horseStar.sourceBranch}时驿马在${data.horseStar.branch}，落${data.horseStar.name}`;
+  return '旬空：时旬空复核未定位';
+}
+
+function formatQimenHorseSummary(_data: DivinationData) {
+  return '马星：起例层级未闭合，未自动推算';
 }
 
 function formatQimenFocusSummary(data: DivinationData) {

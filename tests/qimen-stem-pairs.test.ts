@@ -20,12 +20,14 @@ import {
 } from '../packages/core/src/divination/algorithms/qimen/helpers/stem-pair-patterns';
 import {
   buildPatternDetails,
+  getAuditedQimenVoidBranches,
   getQimenPatternTags,
   isQimenInstrumentPunishment,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/patterns';
 import {
   analyzeQimenEvidence,
   generateQimen,
+  rebuildAuditedQimenData,
 } from '../packages/core/src/divination/algorithms/qimen';
 
 const AUDITED_STEM_PAIRS = [
@@ -2044,4 +2046,55 @@ test('门克宫按八门九宫穷举只保留中性五行结构且关闭争议�
   assert.match(rule.promptText, /门迫、宫迫或迫制和义格/);
   assert.match(rule.promptText, /时家、月家、年家均只保留/);
   assert.doesNotMatch(rule.promptText, /必成|必败|必胜|吉事成凶/);
+});
+
+test('旬空按六十时柱固定六组穷举并关闭跨层级旬空与自动马星', () => {
+  const expectedByXun = [
+    ['戌', '亥'],
+    ['申', '酉'],
+    ['午', '未'],
+    ['辰', '巳'],
+    ['寅', '卯'],
+    ['子', '丑'],
+  ];
+
+  jiazi.forEach((ganZhi, index) => {
+    const hourVoid = getAuditedQimenVoidBranches('hour', ganZhi);
+    assert.deepEqual(hourVoid, expectedByXun[Math.floor(index / 10)], ganZhi);
+    assert.equal(new Set(hourVoid).size, 2, ganZhi);
+    assert.deepEqual(getAuditedQimenVoidBranches('month', ganZhi), [], ganZhi);
+    assert.deepEqual(getAuditedQimenVoidBranches('year', ganZhi), [], ganZhi);
+  });
+
+  const date = new Date('2025-01-01T08:00:00+08:00');
+  const hour = generateQimen(date);
+  const month = generateQimen(date, 'zhuanpan', 'month');
+  const year = generateQimen(date, 'zhuanpan', 'year');
+  assert.equal(hour.voidBranches?.length, 2);
+  assert.equal(hour.horseStar, undefined);
+  for (const chart of [month, year]) {
+    assert.deepEqual(chart.voidBranches, []);
+    assert.deepEqual(chart.voidPalaces, []);
+    assert.equal(chart.horseStar, undefined);
+    assert.ok(chart.patternTags?.every((tag) => !tag.includes('马星')));
+  }
+
+  const rebuiltMonth = rebuildAuditedQimenData({
+    ...month,
+    voidBranches: ['子'],
+    voidPalaces: [{ branch: '子', palace: 1, name: '伪造旬空宫' }],
+    horseStar: { sourceBranch: '寅', branch: '申', palace: 2, name: '伪造马星宫' },
+  });
+  assert.deepEqual(rebuiltMonth.voidBranches, []);
+  assert.deepEqual(rebuiltMonth.voidPalaces, []);
+  assert.equal(rebuiltMonth.horseStar, undefined);
+
+  const analysis = analyzeQimenEvidence(hour);
+  const rule = analysis.ruleSourceFacts.find(
+    (item) => item.key === 'rule:qimen:void-hour-and-horse-scope-boundary',
+  );
+  assert.ok(rule);
+  assert.equal(rule.category, '旬空与驿马适用边界');
+  assert.match(rule.promptText, /六十时柱|月家、年家|日马|时马|关闭自动马星/);
+  assert.match(rule.promptText, /不得把未定位写成无马星或现实静止/);
 });
