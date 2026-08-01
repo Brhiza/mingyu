@@ -2425,7 +2425,7 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
   assert.ok(
     body.data.evidenceAnalysis.calculationSteps.every(
       (item: Record<string, any>) =>
-        item.status === '已计算' &&
+        ['已计算', '资料不足'].includes(item.status) &&
         item.promptText &&
         Array.isArray(item.sources) &&
         item.sources.length > 0 &&
@@ -2455,7 +2455,7 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
   assert.deepEqual(body.data.evidenceAnalysis.sequenceFacts, []);
   assert.deepEqual(body.data.evidenceAnalysis.elementInteractionFacts, []);
   assert.deepEqual(body.data.evidenceAnalysis.elementInteractions, []);
-  assert.ok(body.data.evidenceAnalysis.themeFacts.length > 0);
+  assert.equal(body.data.evidenceAnalysis.themeFacts.length, 0);
   assert.equal(
     body.data.evidenceAnalysis.recurringThemes.length,
     body.data.evidenceAnalysis.recurringThemeFacts.length,
@@ -2464,9 +2464,7 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
     body.data.evidenceAnalysis.counterEvidence.length,
     body.data.evidenceAnalysis.counterEvidenceFacts.length,
   );
-  assert.ok(
-    ['有逆位约束', '未见逆位约束'].includes(body.data.evidenceAnalysis.counterSummaryFact.status),
-  );
+  assert.equal(body.data.evidenceAnalysis.counterSummaryFact.status, '解释规则待校');
   assert.equal(body.data.evidenceAnalysis.limitationFacts.length, 6);
   assert.ok(
     body.data.evidenceAnalysis.limitationFacts.every(
@@ -2490,13 +2488,11 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
     body.data.meta.random.samples.length,
   );
   assert.ok(body.data.evidenceAnalysis.randomFact.sources.length >= 2);
-  assert.equal(body.data.evidenceAnalysis.traditionalFacts.length, 1);
-  assert.equal(
-    body.data.evidenceAnalysis.cards[0].traditionalFactKey,
-    body.data.evidenceAnalysis.traditionalFacts[0].key,
-  );
+  assert.equal(body.data.evidenceAnalysis.traditionalFacts.length, 0);
+  assert.equal(body.data.evidenceAnalysis.cards[0].traditionalFactKey, null);
+  assert.deepEqual(body.data.evidenceAnalysis.cards[0].keywords, []);
   assert.equal(body.data.evidenceAnalysis.summaryFact.key, 'tarot:evidence-summary');
-  assert.equal(body.data.evidenceAnalysis.summaryFact.status, '证据链完整');
+  assert.equal(body.data.evidenceAnalysis.summaryFact.status, '证据链有缺口');
   assert.equal(
     body.data.evidenceAnalysis.summaryFact.cardFactCount,
     body.data.evidenceAnalysis.cards.length,
@@ -2529,16 +2525,6 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
     body.data.evidenceAnalysis.summaryFact.traditionalFactCount,
     body.data.evidenceAnalysis.traditionalFacts.length,
   );
-  assert.ok(
-    body.data.evidenceAnalysis.traditionalFacts.every(
-      (item: Record<string, unknown>) =>
-        item.originalText &&
-        item.promptText &&
-        Array.isArray(item.sources) &&
-        item.sources.length > 0 &&
-        String(item.limitation).includes('不证明现实事件'),
-    ),
-  );
   const tarotPromptResponse = await callApi('divination/tarot/prompt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -2552,6 +2538,8 @@ test('公开 API 单牌塔罗接口应返回结构化牌面', async () => {
   assert.match(tarotPromptResponse.body.data.prompt, /占法：塔罗/);
   assert.match(tarotPromptResponse.body.data.prompt, /核心结构：牌阵/);
   assert.match(tarotPromptResponse.body.data.prompt, /正位|逆位/);
+  assert.match(tarotPromptResponse.body.data.prompt, /牌义状态：.*尚未完成校勘/);
+  assert.doesNotMatch(tarotPromptResponse.body.data.prompt, /关键词：|牌义：|元素主题：|牌阶主题：/);
   assert.doesNotMatch(
     tarotPromptResponse.body.data.prompt,
     /结构化证据|计算链|证据汇总|解释限制|解释边界/,

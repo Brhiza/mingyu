@@ -163,9 +163,12 @@ export function buildDivinationPrompt(
     { liuyaoTemplate },
   );
   const isSsgw = method === 'ssgw';
-  const outputRequirementText = isSsgw
-    ? '只说明可核验的签号、抽取与掷筊记录及签谱待校边界；不得补造签谱内容或给出由签号推导的判断。'
-    : isAlmanac
+  const isTarot = method === 'tarot';
+  const outputRequirementText = isTarot
+    ? '只说明可核验的项目内部牌号、牌名、牌位、正逆位、抽取顺序与随机轨迹，以及牌义版本待校边界；不得补造牌义或给出趋势与行动结论。'
+    : isSsgw
+      ? '只说明可核验的签号、抽取与掷筊记录及签谱待校边界；不得补造签谱内容或给出由签号推导的判断。'
+      : isAlmanac
       ? '按可用候选、条件候选和慎用候选分组说明；同组按日期先后，不生成首选、备选或唯一最佳结论；说明取舍依据与执行建议。'
       : '使用简体中文，先回答【问题】，再说明主要依据、时机条件和行动建议。';
   const liurenTemplateSection =

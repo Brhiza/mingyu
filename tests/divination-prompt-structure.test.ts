@@ -1068,7 +1068,7 @@ test('大六壬未知专项模板应回落到通用断课，避免输出 undefin
   assert.doesNotMatch(prompt, /undefined|null/);
 });
 
-test('塔罗提示词保留牌阵、牌位、关键词与牌义', () => {
+test('塔罗提示词在牌义版本闭合前只保留抽牌事实', () => {
   const prompt = buildDivinationPrompt(
     'tarot',
     '这件事接下来该怎么推进？',
@@ -1078,13 +1078,15 @@ test('塔罗提示词保留牌阵、牌位、关键词与牌义', () => {
 
   assert.match(prompt, /核心结构：牌阵/);
   assert.match(prompt, /牌位顺序：/);
-  assert.match(prompt, /- 过去：恋人（正位）；关键词：/);
-  assert.match(prompt, /- 现在：战车（逆位）；关键词：/);
-  assert.match(prompt, /牌义：/);
+  assert.match(prompt, /- 过去：项目内部牌号7，恋人（正位）/);
+  assert.match(prompt, /- 现在：项目内部牌号8，战车（逆位）/);
+  assert.match(prompt, /牌义状态：.*尚未完成校勘/);
+  assert.match(prompt, /不得自行补造或使用关键词、牌义、元素、牌阶/);
+  assert.match(prompt, /不得补造牌义或给出趋势与行动结论/);
   assert.doesNotMatch(prompt, /断牌口径|现实边界|结构化证据|证据汇总|解释边界/);
   assert.doesNotMatch(
     prompt,
-    /牌组层级|宫廷人物|叙事权重|元素数字|表示这些能量正在直接发挥作用|信息被隐藏/,
+    /关键词：|牌义：|元素主题：|牌阶主题：|牌组层级|宫廷人物|叙事权重|元素数字|表示这些能量正在直接发挥作用|信息被隐藏/,
   );
 });
 

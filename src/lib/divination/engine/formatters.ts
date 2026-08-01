@@ -705,11 +705,10 @@ function formatLiurenInfo(input: LiurenData) {
 
 function formatTarotInfo(data: TarotData) {
   const audited = rebuildAuditedTarotData(data);
-  const evidenceAnalysis = audited.evidenceAnalysis!;
-  const cardLines = audited.cards.map((card, index) => {
-    const fact = evidenceAnalysis.traditionalFacts.find((item) => item.index === index + 1);
-    return `- ${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}${card.keywords.length ? `；关键词：${card.keywords.join('、')}` : ''}${card.element ? `；元素主题：${card.element}` : ''}${card.archetype ? `；牌阶主题：${card.archetype}` : ''}${fact ? `；牌义：${fact.promptText}` : ''}`;
-  });
+  const cardLines = audited.cards.map(
+    (card) =>
+      `- ${card.position}：项目内部牌号${card.id}，${card.name}${card.reversed ? '（逆位）' : '（正位）'}`,
+  );
 
   return [
     '占法：塔罗',
@@ -718,6 +717,7 @@ function formatTarotInfo(data: TarotData) {
     `牌位顺序：${audited.cards.map((card) => card.position).join(' → ')}`,
     '牌位明细：',
     ...cardLines,
+    '牌义状态：具体牌组版本、逐牌原文、页码、牌阵定义与正逆位规则尚未完成校勘',
   ]
     .filter(Boolean)
     .join('\n');

@@ -37,7 +37,7 @@ export function registerTarotTool(server: McpServer) {
   server.registerTool(
     'divine_tarot',
     {
-      description: '塔罗牌抽牌：从 78 张塔罗牌中洗牌抽牌，支持单牌指引和多种牌阵，含正逆位与关键词',
+      description: '塔罗抽牌记录：从项目内部1至78牌号目录中抽牌，返回牌号、牌名、牌位、正逆位、抽取顺序和随机轨迹。逐牌牌义版本校勘完成前不返回关键词、牌义、元素、牌阶或组合结论',
       inputSchema: tarotSchema.shape,
       outputSchema: resultOutputSchema,
     },
@@ -55,7 +55,7 @@ export function registerTarotTool(server: McpServer) {
     'tarot_prompt',
     {
       description:
-        '塔罗抽牌并生成结构化 AI 解读提示词：一次调用返回牌阵数据和可直接复制给 AI 的提示词',
+        '塔罗抽牌并生成结构化 AI 核对提示词：返回可复算的牌号、牌名、牌位、正逆位与抽取轨迹，并要求 AI 先明确牌组版本和牌义文献后再继续解读',
       inputSchema: tarotPromptSchema.shape,
       outputSchema: {
         result: z.unknown().describe('塔罗牌阵数据'),

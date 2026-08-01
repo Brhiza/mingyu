@@ -2341,7 +2341,7 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     assert.ok(
       tarotData.evidenceAnalysis.calculationSteps.every(
         (item: Record<string, any>) =>
-          item.status === '已计算' &&
+          ['已计算', '资料不足'].includes(item.status) &&
           item.promptText &&
           Array.isArray(item.sources) &&
           item.sources.length > 0 &&
@@ -2376,7 +2376,7 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
           item.fromCardKey && item.toCardKey && String(item.limitation).includes('不得把牌阵顺序'),
       ),
     );
-    assert.ok(tarotData.evidenceAnalysis.themeFacts.length > 0);
+    assert.equal(tarotData.evidenceAnalysis.themeFacts.length, 0);
     assert.equal(
       tarotData.evidenceAnalysis.recurringThemes.length,
       tarotData.evidenceAnalysis.recurringThemeFacts.length,
@@ -2408,9 +2408,12 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
       tarotData.meta.random.samples.length,
     );
     assert.doesNotMatch(tarotData.evidenceAnalysis.randomFact.promptText, /MCP塔罗证据样例/);
-    assert.equal(tarotData.evidenceAnalysis.traditionalFacts.length, 3);
+    assert.equal(tarotData.evidenceAnalysis.elementInteractionFacts.length, 0);
+    assert.equal(tarotData.evidenceAnalysis.counterEvidenceFacts.length, 0);
+    assert.equal(tarotData.evidenceAnalysis.counterSummaryFact.status, '解释规则待校');
+    assert.equal(tarotData.evidenceAnalysis.traditionalFacts.length, 0);
     assert.equal(tarotData.evidenceAnalysis.summaryFact.key, 'tarot:evidence-summary');
-    assert.equal(tarotData.evidenceAnalysis.summaryFact.status, '证据链完整');
+    assert.equal(tarotData.evidenceAnalysis.summaryFact.status, '证据链有缺口');
     assert.equal(
       tarotData.evidenceAnalysis.summaryFact.cardFactCount,
       tarotData.evidenceAnalysis.cards.length,
@@ -2441,18 +2444,10 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     );
     assert.ok(
       tarotData.evidenceAnalysis.cards.every(
-        (item: Record<string, unknown>, index: number) =>
-          item.traditionalFactKey === tarotData.evidenceAnalysis.traditionalFacts[index].key,
-      ),
-    );
-    assert.ok(
-      tarotData.evidenceAnalysis.traditionalFacts.every(
         (item: Record<string, unknown>) =>
-          item.originalText &&
-          item.promptText &&
-          Array.isArray(item.sources) &&
-          item.sources.length > 0 &&
-          String(item.limitation).includes('不证明现实事件'),
+          item.traditionalFactKey === null &&
+          Array.isArray(item.keywords) &&
+          item.keywords.length === 0,
       ),
     );
 
@@ -2463,8 +2458,9 @@ test('MCP 塔罗与雷诺曼应返回分层结构化证据并写入提示词', a
     const tarotPrompt = String(tarotPromptResult.structuredContent?.prompt);
     assert.match(tarotPrompt, /占法：塔罗/);
     assert.match(tarotPrompt, /核心结构：牌阵[\s\S]*牌位明细：/);
+    assert.match(tarotPrompt, /牌义状态：.*尚未完成校勘/);
     assert.doesNotMatch(tarotPrompt, /结构化证据|计算链|证据汇总|解释限制|解释边界/);
-    assert.doesNotMatch(tarotPrompt, /表示这些能量正在直接发挥作用|信息被隐藏/);
+    assert.doesNotMatch(tarotPrompt, /关键词：|牌义：|元素主题：|牌阶主题：|表示这些能量正在直接发挥作用|信息被隐藏/);
     assertPromptIsPortableTaskText(tarotPrompt);
 
     const lenormand = await client.callTool({
