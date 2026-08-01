@@ -388,10 +388,9 @@ export function getCategorizedYearShenSha(
   yearData: { ganZhi?: string },
   baziResult: BaziChartResult,
   calculateAllShenSha: (baziArray: [string, string][], gender: string) => ShenShaResult,
-  getShenShaType: (shensha: string) => '吉' | '凶' | '中性',
-): { lucky: string[]; unlucky: string[]; neutral: string[] } {
+): { unclassified: string[] } {
   if (!yearData?.ganZhi || !baziResult?.pillars) {
-    return { lucky: [], unlucky: [], neutral: [] };
+    return { unclassified: [] };
   }
 
   assertGanZhiName(yearData.ganZhi, '流年干支');
@@ -407,9 +406,5 @@ export function getCategorizedYearShenSha(
   const shenShaResult = calculateAllShenSha(baziArray, baziResult.gender);
   const yearShenSha = [...(shenShaResult.global || []), ...(shenShaResult.year || [])];
 
-  return {
-    lucky: yearShenSha.filter((shensha) => getShenShaType(shensha) === '吉'),
-    unlucky: yearShenSha.filter((shensha) => getShenShaType(shensha) === '凶'),
-    neutral: yearShenSha.filter((shensha) => getShenShaType(shensha) === '中性'),
-  };
+  return { unclassified: yearShenSha };
 }

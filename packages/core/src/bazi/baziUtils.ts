@@ -3,7 +3,7 @@
  * @description Contains stateless utility functions for Bazi calculations.
  */
 
-import { BASIC_MAPPINGS, HIDDEN_STEMS, SEASON_STATUS, shenShaTypes } from './baziDefinitions';
+import { BASIC_MAPPINGS, HIDDEN_STEMS, SEASON_STATUS } from './baziDefinitions';
 import type { HiddenStems, Pillars, Wuxing } from './baziTypes';
 
 const ctg = BASIC_MAPPINGS.HEAVENLY_STEMS as readonly string[];
@@ -171,16 +171,7 @@ export function getSeasonStatus(monthBranch: string): Record<string, string> {
   return SEASON_STATUS[monthBranch] || {};
 }
 /**
- * 获取神煞属性 (吉/凶/中性)
- * @param shensha 神煞名称
- * @returns 属性名称
+ * 获取神煞分级状态。
+ * 旧吉凶表缺少统一底本与版本，当前只登记名称，统一返回“未分级”。
  */
-export const getShenShaType = (shensha: string): '吉' | '凶' | '中性' => {
-  if (shenShaTypes.lucky.includes(shensha)) {
-    return '吉';
-  } else if (shenShaTypes.unlucky.includes(shensha)) {
-    return '凶';
-  } else {
-    return '中性';
-  }
-};
+export const getShenShaType = (_shensha: string): '未分级' => '未分级';

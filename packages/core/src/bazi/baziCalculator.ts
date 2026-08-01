@@ -17,7 +17,6 @@ import {
   getTenGod,
   getTenGodForBranch,
   getSeasonStatus,
-  getShenShaType,
   assertBaziGender,
   assertEarthlyBranch,
   assertHeavenlyStem,
@@ -803,22 +802,17 @@ export class BaziCalculator {
     return calculateSeasonInfo(solarTime);
   }
 
-  /**
-   * 计算并分类流年神煞
-   */
+  /** 计算流年神煞名称；旧吉凶分类缺少闭合来源，统一标记为未分级。 */
   public getCategorizedYearShenSha(
     yearData: Pick<LiunianInfo, 'ganZhi'> | null | undefined,
     baziResult: BaziChartResult,
-  ): { lucky: string[]; unlucky: string[]; neutral: string[] } {
+  ): { unclassified: string[] } {
     if (!yearData?.ganZhi || !baziResult?.pillars) {
-      return { lucky: [], unlucky: [], neutral: [] };
+      return { unclassified: [] };
     }
 
-    return getCategorizedYearShenSha(
-      yearData,
-      baziResult,
-      (baziArray, gender) => this.shenShaCalculator.calculateAllShenSha(baziArray, gender),
-      getShenShaType,
+    return getCategorizedYearShenSha(yearData, baziResult, (baziArray, gender) =>
+      this.shenShaCalculator.calculateAllShenSha(baziArray, gender),
     );
   }
 

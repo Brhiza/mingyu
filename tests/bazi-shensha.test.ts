@@ -2647,11 +2647,22 @@ test('孤鸾只保留三命通会可复核的八个日柱', () => {
 });
 
 test('神煞名称不再自动分类吉凶或现实领域', () => {
-  assert.equal(getShenShaType('天乙贵人'), '中性');
-  assert.equal(getShenShaType('十恶大败'), '中性');
+  assert.equal(getShenShaType('天乙贵人'), '未分级');
+  assert.equal(getShenShaType('十恶大败'), '未分级');
   assert.equal(getShenShaCategory('天乙贵人'), '传统神煞');
   assert.equal(getShenShaCategory('十恶大败'), '传统神煞');
   assert.equal(getShenShaCategory(''), '其他');
+
+  const chart = baziCalculator.calculateBazi({
+    year: 1990,
+    month: 1,
+    day: 1,
+    timeIndex: 0,
+    gender: 'male',
+  });
+  const categorized = baziCalculator.getCategorizedYearShenSha({ ganZhi: '丙午' }, chart);
+  assert.ok(categorized.unclassified.length > 0);
+  assert.deepEqual(Object.keys(categorized), ['unclassified']);
 });
 
 test('空亡默认只按日柱旬空判断，不应再把年柱旬空并入', () => {
