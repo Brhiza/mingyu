@@ -19,6 +19,7 @@ import {
   LIUCHONG_MAP,
   LIUHAI_MAP,
   LIUHE_MAP,
+  SANHE_GROUPS,
   TIAN_GAN_HE as coreDivinationGanHe,
   TIAN_GAN_CHONG as coreDivinationChong,
   getBranchWuxing,
@@ -120,8 +121,8 @@ test('奇门干支互动不应把戊己识别为天干相冲', () => {
   }
 });
 
-test('奇门干支互动中的三刑不应因柱位顺序不同而漏判', () => {
-  const ganzhi = {
+test('奇门干支互动只登记子卯、自刑与三支齐见的完整三刑结构', () => {
+  const partial = {
     year: '乙巳',
     month: '丙寅',
     day: '丁未',
@@ -129,17 +130,117 @@ test('奇门干支互动中的三刑不应因柱位顺序不同而漏判', () =>
   };
 
   for (const analyze of [analyzeAppQimenGanzhi, analyzeCoreQimenGanzhi]) {
-    const punishments = analyze(ganzhi).filter((item) => item.type === '相刑');
-    assert.ok(
-      punishments.some(
-        (item) => item.values.join('') === '巳寅' && item.description.includes('无恩之刑'),
-      ),
-    );
-    assert.ok(
-      punishments.some(
-        (item) => item.values.join('') === '未戌' && item.description.includes('恃势之刑'),
-      ),
-    );
+    assert.equal(analyze(partial).filter((item) => item.type === '相刑').length, 0);
+
+    const complete = analyze({
+      year: '甲寅',
+      month: '己巳',
+      day: '壬申',
+      hour: '戊辰',
+    }).filter((item) => item.type === '相刑');
+    assert.equal(complete.length, 1);
+    assert.deepEqual(complete[0].values, ['寅', '巳', '申']);
+    assert.match(complete[0].description, /无恩之刑.*三支齐见.*不把任意两支自动命名/);
+  }
+});
+
+test('奇门四柱两两关系应穷举六十甲子乘六十甲子并拒绝半合拱局旁路', () => {
+  const selfPunishments = new Set(['辰', '午', '酉', '亥']);
+
+  for (const first of SIXTY_CYCLE) {
+    for (const second of SIXTY_CYCLE) {
+      const firstBranch = first.charAt(1);
+      const secondBranch = second.charAt(1);
+      const excludedBranches = new Set([firstBranch, secondBranch]);
+      const fillers = SIXTY_CYCLE.filter(
+        (ganZhi, index, values) =>
+          !excludedBranches.has(ganZhi.charAt(1)) &&
+          values.findIndex((item) => item.charAt(1) === ganZhi.charAt(1)) === index,
+      ).slice(0, 2);
+      const relations = analyzeCoreQimenGanzhi({
+        year: first,
+        month: second,
+        day: fillers[0],
+        hour: fillers[1],
+      });
+      const actual = new Set(
+        relations
+          .filter(
+            (item) =>
+              item.pillars.length === 2 &&
+              item.pillars.includes('year') &&
+              item.pillars.includes('month'),
+          )
+          .map((item) => item.type),
+      );
+      const expected = new Set<string>();
+
+      if (LIUHE_MAP[firstBranch] === secondBranch) expected.add('六合');
+      if (LIUCHONG_MAP[firstBranch] === secondBranch) expected.add('六冲');
+      if (LIUHAI_MAP[firstBranch] === secondBranch) expected.add('相害');
+      if (
+        (firstBranch === '子' && secondBranch === '卯') ||
+        (firstBranch === '卯' && secondBranch === '子') ||
+        (firstBranch === secondBranch && selfPunishments.has(firstBranch))
+      ) {
+        expected.add('相刑');
+      }
+      if (coreDivinationGanHe[first.charAt(0)]?.partner === second.charAt(0)) {
+        expected.add('天干五合');
+      }
+      if (coreDivinationChong[first.charAt(0)] === second.charAt(0)) {
+        expected.add('天干相冲');
+      }
+
+      assert.deepEqual([...actual].sort(), [...expected].sort(), `${first}与${second}的固定关系`);
+      assert.ok(relations.every((item) => !['半合', '拱局'].includes(item.type)));
+    }
+  }
+});
+
+test('奇门完整三合与三刑应覆盖全部支组排列并保留重复支柱位', () => {
+  const representativeByBranch = Object.fromEntries(
+    EARTHLY_BRANCHES.map((branch) => [
+      branch,
+      SIXTY_CYCLE.find((ganZhi) => ganZhi.charAt(1) === branch)!,
+    ]),
+  );
+  const uniquePermutations = (values: string[]): string[][] => {
+    if (values.length <= 1) return [values];
+    const results = new Map<string, string[]>();
+    values.forEach((value, index) => {
+      for (const tail of uniquePermutations(values.filter((_, current) => current !== index))) {
+        const result = [value, ...tail];
+        results.set(result.join('|'), result);
+      }
+    });
+    return [...results.values()];
+  };
+
+  for (const [group, members] of Object.entries(SANHE_GROUPS)) {
+    for (const branches of uniquePermutations([...members, members[0]])) {
+      const [year, month, day, hour] = branches.map((branch) => representativeByBranch[branch]);
+      const matches = analyzeCoreQimenGanzhi({ year, month, day, hour }).filter(
+        (item) => item.type === '三合' && item.values.join('') === members.join(''),
+      );
+      assert.equal(matches.length, 1, `${group}/${branches.join('')}`);
+      assert.deepEqual(matches[0].pillars, ['year', 'month', 'day', 'hour']);
+      assert.match(matches[0].description, /三支齐见.*不等于已经成局、合化或产生吉凶/);
+    }
+  }
+
+  for (const punishment of [
+    { name: '无恩之刑', members: ['寅', '巳', '申'] },
+    { name: '恃势之刑', members: ['丑', '戌', '未'] },
+  ]) {
+    for (const branches of uniquePermutations([...punishment.members, punishment.members[0]])) {
+      const [year, month, day, hour] = branches.map((branch) => representativeByBranch[branch]);
+      const matches = analyzeCoreQimenGanzhi({ year, month, day, hour }).filter(
+        (item) => item.type === '相刑' && item.values.join('') === punishment.members.join(''),
+      );
+      assert.equal(matches.length, 1, `${punishment.name}/${branches.join('')}`);
+      assert.deepEqual(matches[0].pillars, ['year', 'month', 'day', 'hour']);
+    }
   }
 });
 
@@ -575,15 +676,14 @@ test('占法共享半合判断不应把重复地支当作两个成员', () => {
   assert.equal(isSanheArch(['申', '子']), null);
 });
 
-test('奇门干支互动应区分含帝旺支的半合与缺帝旺支的拱局', () => {
+test('奇门干支互动在相邻冲破透干条件不足时应关闭半合与拱局命名', () => {
   const arch = analyzeCoreQimenGanzhi({
     year: '甲寅',
     month: '甲戌',
     day: '甲子',
     hour: '乙丑',
   });
-  assert.ok(arch.some((item) => item.type === '拱局' && item.values.join('') === '寅戌'));
-  assert.ok(!arch.some((item) => item.type === '半合' && item.values.join('') === '寅戌'));
+  assert.ok(arch.every((item) => !['半合', '拱局'].includes(item.type)));
 
   const half = analyzeCoreQimenGanzhi({
     year: '甲寅',
@@ -591,7 +691,7 @@ test('奇门干支互动应区分含帝旺支的半合与缺帝旺支的拱局',
     day: '甲子',
     hour: '乙丑',
   });
-  assert.ok(half.some((item) => item.type === '半合' && item.values.join('') === '寅午'));
+  assert.ok(half.every((item) => !['半合', '拱局'].includes(item.type)));
 });
 
 test('占法共享三刑关系应按同组三刑互见判断，不因传入顺序漏判', () => {

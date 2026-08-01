@@ -2,7 +2,7 @@
  * @file 节令背景（Seasonal Context）分析
  * @description 奇门遁甲节气背景分析：二十四节气五行属性映射、
  * 实际节气证据、日干与月令五行的旺相休囚死状态、精确月相、
- * 十二建除名称，以及干支互动（六合/三合/半合/拱局/六冲/相刑/相害）。
+ * 十二建除名称，以及条件闭合的干支关系事实（六合/三合三支齐见/六冲/相刑/相害）。
  *
  * 古籍依据：
  *   - 《协纪辨方书》卷三"二十四节气"篇：「立春寅月节……大寒丑月中」
@@ -32,10 +32,9 @@ import {
   LIUHAI_MAP,
   SANHE_GROUPS,
   TIAN_GAN_CHONG,
-  getSanxingType,
   getTianGanHeWuxing,
-  isSanxing,
   isTianGanHe,
+  isValidGanZhi,
 } from '../../../../ganzhi';
 import type { BaseGanZhi } from '../../../../types/divination';
 
@@ -346,7 +345,7 @@ export function buildSeasonality(ganzhi: BaseGanZhi, date: Date): SeasonalityInf
  */
 export interface GanzhiInteraction {
   /** 互动类型 */
-  type: '六合' | '三合' | '半合' | '拱局' | '六冲' | '相刑' | '相害' | '天干五合' | '天干相冲';
+  type: '六合' | '三合' | '六冲' | '相刑' | '相害' | '天干五合' | '天干相冲';
   /** 涉及的四柱字段（如 "year"、"month"、"day"、"hour"） */
   pillars: string[];
   /** 涉及的具体干支值 */
@@ -365,11 +364,18 @@ const PILLAR_LABELS: Record<string, string> = {
   hour: '时柱',
 };
 
+const PILLAR_KEYS = ['year', 'month', 'day', 'hour'] as const;
+const SELF_PUNISHMENT_BRANCHES = ['辰', '午', '酉', '亥'] as const;
+const COMPLETE_THREE_PUNISHMENTS = [
+  { name: '无恩之刑', members: ['寅', '巳', '申'] },
+  { name: '恃势之刑', members: ['丑', '戌', '未'] },
+] as const;
+
 /**
  * 分析四柱干支之间的互动关系
  *
  * 涵盖：
- *   地支：六合、三合、半合、拱局、六冲、相刑、相害
+ *   地支：六合、三合三支齐见、六冲、条件闭合的相刑、相害
  *   天干：天干五合、天干相冲
  *
  * 《协纪辨方书》论三合六合：
@@ -387,18 +393,22 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
   const interactions: GanzhiInteraction[] = [];
   const pillars: Array<{ key: string; gan: string; zhi: string }> = [];
 
-  // ── 缓存四柱的天干地支 ──
-  for (const [key, value] of Object.entries(ganzhi)) {
-    if (!value || value.length < 2) continue;
+  if (!ganzhi || typeof ganzhi !== 'object' || Array.isArray(ganzhi)) {
+    throw new Error('奇门四柱干支必须是完整对象。');
+  }
+
+  // ── 只按固定年、月、日、时四柱顺序读取，并拒绝伪干支 ──
+  for (const key of PILLAR_KEYS) {
+    const value = ganzhi[key];
+    if (!isValidGanZhi(value)) {
+      throw new Error(`${PILLAR_LABELS[key]}必须是完整且合法的六十甲子。`);
+    }
     pillars.push({
       key,
       gan: value.charAt(0),
       zhi: value.charAt(1),
     });
   }
-
-  // 需要至少两根柱子才能产生互动
-  if (pillars.length < 2) return interactions;
 
   // ── 遍历两两配对 ──
   for (let i = 0; i < pillars.length; i++) {
@@ -438,17 +448,6 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
         });
       }
 
-      // 相刑
-      if (isSanxing(a.zhi, b.zhi)) {
-        const typeLabel = getSanxingType(a.zhi) ?? '';
-        interactions.push({
-          type: '相刑',
-          pillars: [a.key, b.key],
-          values: [a.zhi, b.zhi],
-          description: `${PILLAR_LABELS[a.key]}${a.zhi}与${PILLAR_LABELS[b.key]}${b.zhi}构成${typeLabel || '相刑'}。`,
-        });
-      }
-
       // ── 天干互动 ──
 
       // 天干五合
@@ -474,35 +473,56 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
     }
   }
 
-  // ── 三合、半合与拱局（需要两两配对后聚合成组） ──
-  const branchValues = pillars.map((p) => p.zhi);
-  const pillarByBranch = Object.fromEntries(pillars.map((p) => [p.zhi, p.key]));
-
-  // 三合
-  const completeSanhe = findCompleteSanhe(branchValues);
-  for (const { group, members } of completeSanhe) {
-    const pillarKeys = members.map((b) => pillarByBranch[b]).filter(Boolean);
+  // ── 子卯相刑：两支互见的固定双支关系 ──
+  const ziMaoPillars = pillars.filter((pillar) => pillar.zhi === '子' || pillar.zhi === '卯');
+  if (
+    ziMaoPillars.some((pillar) => pillar.zhi === '子') &&
+    ziMaoPillars.some((pillar) => pillar.zhi === '卯')
+  ) {
     interactions.push({
-      type: '三合',
-      pillars: pillarKeys,
-      values: members,
-      description: `${members.join('、')}构成${group}三合局。`,
+      type: '相刑',
+      pillars: ziMaoPillars.map((pillar) => pillar.key),
+      values: ['子', '卯'],
+      description: '子、卯两支齐见，构成子卯相刑固定支对；这里只记录支对，不直接推断吉凶。',
     });
   }
 
-  // 半合与拱局（排除已被三合覆盖的组合）
-  const sanheMembers = new Set(completeSanhe.flatMap((s) => s.members));
-  const partialSanhe = findPartialSanhe(branchValues.filter((b) => !sanheMembers.has(b)));
-  for (const { group, members, type } of partialSanhe) {
-    const pillarKeys = members.map((b) => pillarByBranch[b]).filter(Boolean);
+  // ── 自刑：同一自刑支至少在两柱重复出现 ──
+  for (const branch of SELF_PUNISHMENT_BRANCHES) {
+    const matchedPillars = pillars.filter((pillar) => pillar.zhi === branch);
+    if (matchedPillars.length < 2) continue;
     interactions.push({
-      type,
-      pillars: pillarKeys,
+      type: '相刑',
+      pillars: matchedPillars.map((pillar) => pillar.key),
+      values: [branch, branch],
+      description: `${branch}支在${matchedPillars.map((pillar) => PILLAR_LABELS[pillar.key]).join('、')}重复出现，构成${branch}${branch}自刑固定结构；这里只记录重复支，不直接推断吉凶。`,
+    });
+  }
+
+  // ── 寅巳申、丑戌未三刑：三支全见才登记，二支版本失败关闭 ──
+  const branchValues = pillars.map((pillar) => pillar.zhi);
+  for (const punishment of COMPLETE_THREE_PUNISHMENTS) {
+    if (!punishment.members.every((branch) => branchValues.includes(branch))) continue;
+    const matchedPillars = pillars.filter((pillar) =>
+      (punishment.members as readonly string[]).includes(pillar.zhi),
+    );
+    interactions.push({
+      type: '相刑',
+      pillars: matchedPillars.map((pillar) => pillar.key),
+      values: [...punishment.members],
+      description: `${punishment.members.join('、')}三支齐见，为${punishment.name}的完整成员结构；这里只记录三支齐见，不把任意两支自动命名为相刑，也不直接推断吉凶。`,
+    });
+  }
+
+  // ── 三合：只登记生、旺、墓三支全见，不自动裁定成局或合化 ──
+  const completeSanhe = findCompleteSanhe(branchValues);
+  for (const { group, members } of completeSanhe) {
+    const matchedPillars = pillars.filter((pillar) => members.includes(pillar.zhi));
+    interactions.push({
+      type: '三合',
+      pillars: matchedPillars.map((pillar) => pillar.key),
       values: members,
-      description:
-        type === '半合'
-          ? `${members.join('、')}半合${group}，两支含帝旺支，只记录三合缺一的结构。`
-          : `${members.join('、')}拱${group}，生地与墓库同见而缺帝旺支，只记拱局候选，不与半合等同。`,
+      description: `${members.join('、')}为${group}所需生、旺、墓三支齐见；这里只记录完整支组，不等于已经成局、合化或产生吉凶。`,
     });
   }
 
@@ -514,42 +534,11 @@ export function analyzeGanzhiInteractions(ganzhi: BaseGanZhi): GanzhiInteraction
  */
 function findCompleteSanhe(branches: string[]): Array<{ group: string; members: string[] }> {
   const results: Array<{ group: string; members: string[] }> = [];
-  const used = new Set<string>();
+  const branchSet = new Set(branches);
 
   for (const [group, members] of Object.entries(SANHE_GROUPS)) {
-    const membersArr = members as string[];
-    const present = membersArr.filter((m) => branches.includes(m));
-    if (present.length === 3 && !used.has(group)) {
-      results.push({ group, members: present });
-      used.add(group);
-    }
-  }
-
-  // 如果已经找到完整三合，优先只返回一个（最多两个三合同时出现的情况极罕见）
-  return results;
-}
-
-/**
- * 查找四柱中构成半合或拱局的地支组合。
- * 三合组按生地、帝旺、墓库排列：含帝旺支为半合；缺帝旺支为拱局。
- */
-function findPartialSanhe(
-  branches: string[],
-): Array<{ group: string; members: string[]; type: '半合' | '拱局' }> {
-  const results: Array<{ group: string; members: string[]; type: '半合' | '拱局' }> = [];
-  const usedGroups = new Set<string>();
-
-  // 对每个三合局检查是否有两个地支出现
-  for (const [group, members] of Object.entries(SANHE_GROUPS)) {
-    const membersArr = members as string[];
-    const present = membersArr.filter((m) => branches.includes(m));
-    if (present.length === 2 && !usedGroups.has(group)) {
-      results.push({
-        group,
-        members: present,
-        type: present.includes(membersArr[1]) ? '半合' : '拱局',
-      });
-      usedGroups.add(group);
+    if (members.every((member) => branchSet.has(member))) {
+      results.push({ group, members: [...members] });
     }
   }
 

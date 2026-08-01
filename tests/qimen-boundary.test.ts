@@ -5,6 +5,7 @@ import { jiazi } from '../packages/core/src/divination/divination-data.ts';
 import { generateQimen } from '../packages/core/src/divination/algorithms/qimen/index.ts';
 import { getDunJiaStem } from '../packages/core/src/divination/algorithms/qimen/helpers/palace-utils.ts';
 import {
+  analyzeGanzhiInteractions,
   getDaySeasonRelation,
   getSeasonalElement,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/seasonality.ts';
@@ -209,6 +210,16 @@ test('奇门节令：十干乘五种月令五行应完整落入旺相休囚死',
   assert.throws(() => getDaySeasonRelation('假', '木'), /无法识别日干 "假" 的五行属性/);
   assert.throws(() => getDaySeasonRelation('甲', ''), /无法识别节令五行/);
   assert.throws(() => getDaySeasonRelation('甲', '假'), /无法识别节令五行/);
+  assert.throws(
+    () =>
+      analyzeGanzhiInteractions({
+        year: '甲丑',
+        month: '丙寅',
+        day: '丁卯',
+        hour: '戊辰',
+      }),
+    /年柱必须是完整且合法的六十甲子/,
+  );
 });
 
 test('奇门节令背景不得再造自然日三元、粗四相或建除吉凶建议', () => {
