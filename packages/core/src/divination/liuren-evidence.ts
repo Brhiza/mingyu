@@ -397,42 +397,14 @@ const LIMITATION_FACT_LIMITATION =
   '限制事实用于约束大六壬占时、天地盘、四课取传、三传、类神、课体、天将、神煞与应期资料能够支持的解释范围，不得被反向当作现实吉凶、人物身份、疾病灾祸、事件概率或固定应期的证据' as const;
 
 export function conditionLiurenTraditionalText(text: string): string {
-  return text
-    .replace(
-      /凶丧之神，主疾病、死丧、血光、刀兵、破财/g,
-      '传统属性归为风险类，传统类象涉及健康、损伤、安全与财物风险等议题',
+  if (
+    /传统类象|传统类神|凶丧之神|争斗纠纷之神|盗贼隐秘之神|和合之神|恩泽之神|财喜之神|虚诈孤独之神|主反复动荡|主伏而不动|事情会逐步推进|结果更利于|必然|必定|主(?:婚姻|官非|疾病|死丧|失窃|欺骗)/.test(
+      text,
     )
-    .replace(
-      /争斗纠纷之神，主官非、土地、契约、争执/g,
-      '传统属性归为纠纷类，传统类象涉及法律、土地、契约与争议等议题',
-    )
-    .replace(
-      /盗贼隐秘之神，主失窃、欺骗、隐私、阴私/g,
-      '传统属性归为隐秘类，传统类象涉及财物安全、信息真实性、隐私与隐情等议题',
-    )
-    .replace(
-      /和合之神，主婚姻、合作、合同、中介、子息/g,
-      '传统属性归为和合类，传统类象涉及婚恋、合作、合同、中介与子女等议题',
-    )
-    .replace(
-      /恩泽之神，主婚姻、恩宠、庇护、女性、长辈/g,
-      '传统属性归为恩泽类，传统类象涉及婚恋、支持、照护、女性与长辈等议题',
-    )
-    .replace(
-      /财喜之神，主升迁、钱财、喜事、贵人、仁德/g,
-      '传统属性归为财喜类，传统类象涉及职位、财物、喜庆、助力与仁德等议题',
-    )
-    .replace(
-      /虚诈孤独之神，主空亡、欺骗、孤寡、无成/g,
-      '传统属性归为虚空类，传统类象涉及落空、信息真实性、疏离与推进受阻等议题',
-    )
-    .replace(/主反复动荡/g, '传统类象涉及反复与变动')
-    .replace(/主伏而不动/g, '传统类象涉及停滞与不动')
-    .replace(/事情会逐步推进/g, '传统解释可从逐步推进角度核验')
-    .replace(/结果更利于/g, '传统上可关注')
-    .replace(/必然/g, '可能')
-    .replace(/必定/g, '较可能')
-    .replace(/主(?!(?:轴|证|线|要|客|动))/g, '传统类象涉及');
+  ) {
+    return '未采用传统解释；当前只保留可复算盘面事实';
+  }
+  return text;
 }
 
 function buildTraditionalFacts(
@@ -476,13 +448,13 @@ function buildTraditionalFacts(
         const props = data.tianJiangProps?.[transmission.god];
         if (!props) return facts;
         const previous = facts.get(transmission.god);
-        const originalText = props.description || `${props.category}类`;
+        const originalText = `${props.wuxing}${props.yinYang}`;
         facts.set(transmission.god, {
           key: `tianjiang:${transmission.god}`,
           kind: '天将属性',
           name: transmission.god,
           originalText,
-          promptText: `${props.wuxing}${props.yinYang}，传统分类为${props.category}；${conditionLiurenTraditionalText(originalText)}`,
+          promptText: `${props.wuxing}${props.yinYang}；类象解释未进入提示词，只保留三传天将落点与属性事实`,
           sources: ['《六壬大全》卷二《天将总论》《十二将释》'],
           stages: [...(previous?.stages ?? []), transmission.stage],
           branches: [...(previous?.branches ?? []), transmission.branch],

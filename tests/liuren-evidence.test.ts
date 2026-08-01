@@ -554,7 +554,7 @@ test('大六壬登记课体应以稳定键、固定古籍版本进入统一证�
   }
 });
 
-test('十二天将传统属性进入提示词时不得直接证明疾病、死亡、犯罪或婚姻结果', () => {
+test('十二天将类象解释不得软化后继续进入提示词', () => {
   const originalTexts = Object.values(TIANJIANG_ATTRIBUTES).map((item) => item.description);
   const promptTexts = originalTexts.map(conditionLiurenTraditionalText);
 
@@ -562,15 +562,27 @@ test('十二天将传统属性进入提示词时不得直接证明疾病、死�
   assert.ok(originalTexts.some((item) => /疾病/.test(item)));
   assert.ok(originalTexts.some((item) => /盗贼/.test(item)));
   promptTexts.forEach((text) => {
-    assert.doesNotMatch(text, /主婚姻|主官非|主疾病|主死丧|主失窃|主欺骗|必然|必定/);
+    assert.equal(text, '未采用传统解释；当前只保留可复算盘面事实');
   });
 
   const dangerousText = conditionLiurenTraditionalText(
     '白虎为凶丧之神，主疾病、死丧、血光、刀兵、破财；六合主婚姻；勾陈主官非。',
   );
-  assert.match(dangerousText, /传统类象涉及健康、损伤、安全与财物风险等议题/);
-  assert.match(dangerousText, /六合传统类象涉及婚姻/);
-  assert.match(dangerousText, /勾陈传统类象涉及官非/);
+  assert.equal(dangerousText, '未采用传统解释；当前只保留可复算盘面事实');
+
+  const data = generateLiuren(fixedDate);
+  const tianJiangFacts = data.evidenceAnalysis?.traditionalFacts.filter(
+    (item) => item.kind === '天将属性',
+  );
+  assert.ok(tianJiangFacts?.length);
+  tianJiangFacts.forEach((fact) => {
+    assert.match(fact.originalText, /^[金木水火土][阴阳]$/);
+    assert.match(fact.promptText, /类象解释未进入提示词/);
+    assert.doesNotMatch(
+      `${fact.originalText}${fact.promptText}`,
+      /婚姻|疾病|盗贼|官非|欺诈|升迁|财帛|死丧|传统类象/,
+    );
+  });
 });
 
 test('十二天将不得混入十二月将的五味、主数、地形和身体属性', () => {
