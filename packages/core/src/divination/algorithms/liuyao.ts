@@ -26,9 +26,14 @@ import {
 import { getDivinationTime } from '../../calendar/timeManager';
 import { assertOptionalRecord } from '../../shared/validation';
 import type { RandomOptions, RandomTrace } from '../../shared/random';
-import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';
-import { attachResultMeta } from '../../shared/result';
-import { analyzeLiuyaoEvidence } from '../liuyao-evidence';
+import {
+  createRandomContext,
+  createSeededRandom,
+  hasRandomOptions,
+  randomInt,
+} from '../../shared/random';
+import { attachResultMeta, createResultMeta, stableStringify } from '../../shared/result';
+import { analyzeRebuiltLiuyaoEvidence, type LiuyaoEvidenceOptions } from '../liuyao-evidence';
 import {
   analyzeLiuyaoActivityPattern,
   analyzeLiuyaoHiddenSpiritConditions,
@@ -598,7 +603,7 @@ function toHexagramBinary(yaos: string[]): string {
   return [...lines.slice(3, 6), ...lines.slice(0, 3)].join('');
 }
 
-export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOptions) {
+function buildLiuyaoData(customDate?: Date, options?: LiuyaoGenerationOptions): LiuyaoData {
   // 1. 获取占卜时间的干支信息
   const { ganzhi, timestamp } = getDivinationTime(customDate);
   const resolvedGeneration = resolveRawYaos(timestamp, options);
@@ -837,11 +842,155 @@ export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOpti
     calculatedAt: timestamp,
     random: resolvedGeneration.randomTrace,
   });
-  return { ...resultWithMeta, evidenceAnalysis: analyzeLiuyaoEvidence(resultWithMeta) };
+  return resultWithMeta;
+}
+
+function assertLiuyaoTimestamp(timestamp: number): number {
+  if (!Number.isFinite(timestamp) || Number.isNaN(new Date(timestamp).getTime())) {
+    throw new Error('六爻结果时间戳无效，无法审核重建。');
+  }
+  return timestamp;
+}
+
+function resolveAuditedLiuyaoGeneration(input: LiuyaoData): LiuyaoGeneration {
+  const generation = input.generation;
+  if (!generation || !['time', 'manual', 'coins'].includes(generation.method)) {
+    throw new Error(`未知的六爻起卦方式: ${String(generation?.method)}`);
+  }
+  return generation;
+}
+
+function assertCompatibleLiuyaoSource(
+  generation: LiuyaoGeneration,
+  expected: NonNullable<LiuyaoGeneration['source']>,
+): void {
+  if (generation.source !== undefined && generation.source !== expected) {
+    throw new Error(
+      `六爻起卦方式与原始来源矛盾：${generation.method}/${generation.source}，无法审核重建。`,
+    );
+  }
+}
+
+function normalizeLiuyaoRandomTrace(input: LiuyaoData, timestamp: number): RandomTrace {
+  const rawTrace = input.meta?.random;
+  if (!rawTrace) {
+    throw new Error('六爻随机三钱起卦缺少原始随机轨迹，无法审核重建。');
+  }
+  const trace = createResultMeta({
+    algorithm: 'liuyao.audit.trace',
+    input: { method: 'coins' },
+    calculatedAt: timestamp,
+    random: rawTrace,
+  }).random!;
+  if (trace.samples.length !== 18) {
+    throw new Error(`六爻随机三钱起卦应记录18个原始随机样本，当前为${trace.samples.length}个。`);
+  }
+  if (trace.mode === 'seeded') {
+    if (trace.seed === undefined) {
+      throw new Error('六爻 seeded 随机轨迹缺少种子，无法核验。');
+    }
+    const seededRandom = createSeededRandom(trace.seed);
+    if (trace.samples.some((sample) => seededRandom() !== sample)) {
+      throw new Error('六爻随机轨迹与保存的种子不一致。');
+    }
+  } else if (trace.seed !== undefined) {
+    throw new Error('六爻非 seeded 随机轨迹不应携带种子。');
+  }
+  return trace;
+}
+
+/**
+ * 只保留起卦时间、起卦方式与手工爻值、实投三钱记录或可重放随机轨迹，
+ * 其余卦盘和证据全部重新计算。
+ */
+export function rebuildAuditedLiuyaoData(input: LiuyaoData): LiuyaoData {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('六爻结果必须是对象。');
+  }
+  const timestamp = assertLiuyaoTimestamp(input.timestamp);
+  const customDate = new Date(timestamp);
+  const generation = resolveAuditedLiuyaoGeneration(input);
+  let rebuilt: LiuyaoData;
+
+  if (generation.method === 'time') {
+    assertCompatibleLiuyaoSource(generation, 'time-seeded-coin-simulation');
+    rebuilt = buildLiuyaoData(customDate, { method: 'time' });
+    if (
+      input.meta?.random &&
+      stableStringify(
+        createResultMeta({
+          algorithm: 'liuyao.audit.time-trace',
+          input: { method: 'time' },
+          calculatedAt: timestamp,
+          random: input.meta.random,
+        }).random,
+      ) !== stableStringify(rebuilt.meta?.random)
+    ) {
+      throw new Error('六爻时间种子轨迹与起卦时间不一致，无法审核重建。');
+    }
+  } else if (generation.method === 'manual') {
+    assertCompatibleLiuyaoSource(generation, 'manual-yao-values');
+    if (input.meta?.random) {
+      throw new Error('六爻手工起卦不应携带随机轨迹。');
+    }
+    rebuilt = buildLiuyaoData(customDate, { method: 'manual', yaos: input.yaoArray });
+  } else if (generation.source === 'provided-coin-throws') {
+    if (input.meta?.random) {
+      throw new Error('六爻实投三钱记录不应携带随机轨迹。');
+    }
+    if (!generation.coinThrows) {
+      throw new Error('六爻实投三钱起卦缺少六组原始铜钱记录，无法审核重建。');
+    }
+    rebuilt = buildLiuyaoData(customDate, {
+      method: 'coins',
+      coinThrows: generation.coinThrows,
+    });
+  } else if (generation.source === 'random-coin-simulation') {
+    const trace = normalizeLiuyaoRandomTrace(input, timestamp);
+    const replayed = buildLiuyaoData(customDate, { method: 'coins', replay: trace.samples });
+    rebuilt = {
+      ...replayed,
+      meta: createResultMeta({
+        algorithm: 'liuyao',
+        input: {
+          method: 'coins',
+          source: 'random-coin-simulation',
+          timestamp,
+          yaos: undefined,
+          coinThrows: undefined,
+        },
+        calculatedAt: timestamp,
+        random: trace,
+      }),
+    };
+  } else {
+    throw new Error(
+      `六爻三钱起卦缺少可核验的原始来源：${String(generation.source)}，无法审核重建。`,
+    );
+  }
+
+  return {
+    ...rebuilt,
+    evidenceAnalysis: analyzeRebuiltLiuyaoEvidence(rebuilt),
+  };
+}
+
+/** 所有公开证据分析先从原始起卦输入重建，禁止旧派生字段进入提示词。 */
+export function analyzeLiuyaoEvidence(input: LiuyaoData, options: LiuyaoEvidenceOptions = {}) {
+  return analyzeRebuiltLiuyaoEvidence(rebuildAuditedLiuyaoData(input), options);
+}
+
+/** 生成六爻完整卦盘。 */
+export function generateLiuyao(customDate?: Date, options?: LiuyaoGenerationOptions) {
+  const result = buildLiuyaoData(customDate, options);
+  return {
+    ...result,
+    evidenceAnalysis: analyzeRebuiltLiuyaoEvidence(result),
+  };
 }
 
 export { buildHiddenSpirits };
-export { analyzeLiuyaoEvidence, conditionLiuyaoTraditionalText } from '../liuyao-evidence';
+export { conditionLiuyaoTraditionalText } from '../liuyao-evidence';
 export {
   analyzeLiuyaoActivityPattern,
   analyzeLiuyaoFanFuRelations,

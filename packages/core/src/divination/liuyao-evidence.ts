@@ -2574,7 +2574,7 @@ function buildLimitationFacts(params: {
   }));
 }
 
-export function analyzeLiuyaoEvidence(
+export function analyzeRebuiltLiuyaoEvidence(
   data: LiuyaoData,
   options: LiuyaoEvidenceOptions = {},
 ): LiuyaoEvidenceAnalysis {

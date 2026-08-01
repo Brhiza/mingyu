@@ -28,6 +28,7 @@ import {
   analyzeLiuyaoEvidence,
   analyzeLiuyaoFanFuRelations,
   getLiuyaoFlyingHiddenRelation,
+  rebuildAuditedLiuyaoData,
 } from '@core/divination/algorithms/liuyao';
 import {
   analyzeMeihuaEvidence,
@@ -258,9 +259,10 @@ function createMeihuaTimingEvidence(evidenceAnalysis: ReturnType<typeof analyzeM
 }
 
 function formatLiuyaoInfo(
-  data: LiuyaoData,
+  input: LiuyaoData,
   topic: 'general' | 'ganqing' | 'shiye' | 'caifu' | 'guaishen' = 'general',
 ) {
+  const data = rebuildAuditedLiuyaoData(input);
   const dayBranch = getGanzhiBranch(data.ganzhi.day);
   const movingYaos = data.changingYaos?.length
     ? data.changingYaos

@@ -31,9 +31,11 @@ import {
   analyzeLiuyaoActivityPattern,
   analyzeLiuyaoFanFuRelations,
   getLiuyaoFlyingHiddenRelation,
+  rebuildAuditedLiuyaoData,
 } from 'mingyu-core/divination/liuyao';
 import { rebuildAuditedMeihuaData } from 'mingyu-core/divination/meihua';
 import { rebuildAuditedSsgwData } from 'mingyu-core/divination/ssgw';
+import { rebuildAuditedJinkoujueData } from 'mingyu-core/divination/jinkoujue';
 import { resolveSsgwStoryContent } from './ssgw-content';
 
 export interface DivinationSummaryBlocks {
@@ -297,7 +299,7 @@ export function getDivinationSummaryBlocks(
 ): DivinationSummaryBlocks {
   switch (method) {
     case 'liuyao': {
-      const liuyao = data as LiuyaoData;
+      const liuyao = rebuildAuditedLiuyaoData(data as LiuyaoData);
       const hexagramRelationText = formatLiuyaoHexagramRelationSummary(liuyao);
       const fanfuRelationText = formatLiuyaoFanFuRelationSummary(liuyao);
       const activityPattern = analyzeLiuyaoActivityPattern(liuyao.yaoArray, liuyao.originalName);
@@ -360,7 +362,7 @@ export function getDivinationSummaryBlocks(
       };
     }
     case 'jinkoujue': {
-      const jinkoujue = data as JinkoujueData;
+      const jinkoujue = rebuildAuditedJinkoujueData(data as JinkoujueData);
       const p = jinkoujue.positions;
       return {
         title: '金口诀起课结果',

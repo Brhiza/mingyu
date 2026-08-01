@@ -1,11 +1,146 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateLiuyao, analyzeLiuyaoEvidence } from 'mingyu-core/divination/liuyao';
+import {
+  generateLiuyao,
+  analyzeLiuyaoEvidence,
+  rebuildAuditedLiuyaoData,
+} from 'mingyu-core/divination/liuyao';
 import { isKe, isSheng } from 'mingyu-core/ganzhi';
 import { assertPromptIsPortableTaskText } from './prompt-assertions';
 
 const fixedDate = new Date('2025-06-18T10:30:00+08:00');
 const fixedYaos = [7, 8, 9, 6, 7, 8] as const;
+
+const fixedCoinThrows = [
+  { coins: [2, 2, 2], total: 6 },
+  { coins: [2, 2, 3], total: 7 },
+  { coins: [2, 3, 3], total: 8 },
+  { coins: [3, 3, 3], total: 9 },
+  { coins: [2, 2, 3], total: 7 },
+  { coins: [2, 3, 3], total: 8 },
+] as const;
+
+test('六爻四类起卦来源都应只凭可信原始输入重建完整卦盘', () => {
+  const cases = [
+    generateLiuyao(fixedDate, { method: 'time' }),
+    generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos }),
+    generateLiuyao(fixedDate, { method: 'coins', coinThrows: fixedCoinThrows }),
+    generateLiuyao(fixedDate, { method: 'coins', seed: '六爻审核重建' }),
+  ];
+
+  for (const data of cases) {
+    assert.deepEqual(rebuildAuditedLiuyaoData(data), data);
+    assert.deepEqual(analyzeLiuyaoEvidence(data), data.evidenceAnalysis);
+  }
+});
+
+test('六爻审核重建不得吸收旧卦盘、纳甲旺衰、组合或完整证据污染', () => {
+  const clean = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
+  const polluted = structuredClone(clean);
+  polluted.originalName = '伪造主卦';
+  polluted.changedName = '伪造变卦';
+  polluted.interName = '伪造互卦';
+  polluted.ganzhi = { year: '伪造', month: '伪造', day: '伪造', hour: '伪造' };
+  polluted.changingYaos = [{ position: 1, isChanging: true, type: '伪造动爻' }];
+  polluted.sixGods = ['伪造六神'];
+  polluted.sixRelatives = ['伪造六亲'];
+  polluted.najiaDizhi = ['伪造纳甲'];
+  polluted.voidBranches = ['伪'];
+  polluted.palace = { name: '伪造宫', wuxing: '伪造五行' };
+  polluted.yaosDetail[0] = {
+    ...polluted.yaosDetail[0],
+    sixGod: '伪造六神',
+    sixRelative: '伪造六亲',
+    najiaDizhi: '伪造纳甲',
+    isWorld: false,
+    isResponse: true,
+    isVoid: true,
+    seasonState: '伪造旺衰',
+  };
+  polluted.hiddenSpirits = [];
+  polluted.sanheFormations = [];
+  polluted.sanxingInYaos = [];
+  polluted.specialAdvice = '伪造现实结论';
+  polluted.evidenceAnalysis!.promptText = '伪造完整旧证据';
+
+  assert.deepEqual(rebuildAuditedLiuyaoData(polluted), clean);
+  assert.deepEqual(analyzeLiuyaoEvidence(polluted), clean.evidenceAnalysis);
+});
+
+test('六爻审核重建应拒绝缺失、夹带或互相矛盾的原始起卦资料', () => {
+  const manual = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
+  const provided = generateLiuyao(fixedDate, {
+    method: 'coins',
+    coinThrows: fixedCoinThrows,
+  });
+  const random = generateLiuyao(fixedDate, { method: 'coins', seed: '六爻轨迹核验' });
+  const time = generateLiuyao(fixedDate, { method: 'time' });
+
+  assert.throws(() => rebuildAuditedLiuyaoData(null as unknown as typeof manual), /结果必须是对象/);
+  assert.throws(() => rebuildAuditedLiuyaoData({ ...manual, timestamp: Number.NaN }), /时间戳无效/);
+  assert.throws(
+    () => rebuildAuditedLiuyaoData({ ...manual, generation: undefined }),
+    /未知的六爻起卦方式/,
+  );
+  assert.throws(
+    () =>
+      rebuildAuditedLiuyaoData({
+        ...manual,
+        generation: { ...manual.generation!, source: 'provided-coin-throws' },
+      }),
+    /起卦方式与原始来源矛盾/,
+  );
+  assert.throws(
+    () =>
+      rebuildAuditedLiuyaoData({
+        ...manual,
+        meta: { ...manual.meta!, random: random.meta!.random },
+      }),
+    /手工起卦不应携带随机轨迹/,
+  );
+  assert.throws(
+    () =>
+      rebuildAuditedLiuyaoData({
+        ...provided,
+        generation: { ...provided.generation!, coinThrows: undefined },
+      }),
+    /缺少六组原始铜钱记录/,
+  );
+  assert.throws(
+    () =>
+      rebuildAuditedLiuyaoData({
+        ...provided,
+        meta: { ...provided.meta!, random: random.meta!.random },
+      }),
+    /实投三钱记录不应携带随机轨迹/,
+  );
+
+  const missingSource = structuredClone(random);
+  delete missingSource.generation!.source;
+  assert.throws(() => rebuildAuditedLiuyaoData(missingSource), /缺少可核验的原始来源/);
+
+  const missingTrace = structuredClone(random);
+  delete missingTrace.meta!.random;
+  assert.throws(() => rebuildAuditedLiuyaoData(missingTrace), /缺少原始随机轨迹/);
+
+  const extraSamples = structuredClone(random);
+  extraSamples.meta!.random!.samples.push(0.25);
+  assert.throws(() => rebuildAuditedLiuyaoData(extraSamples), /应记录18个原始随机样本/);
+
+  const missingSeed = structuredClone(random);
+  delete missingSeed.meta!.random!.seed;
+  assert.throws(() => rebuildAuditedLiuyaoData(missingSeed), /seeded 随机轨迹缺少种子/);
+
+  const seedMismatch = structuredClone(random);
+  seedMismatch.meta!.random!.samples[0] =
+    seedMismatch.meta!.random!.samples[0] === 0.25 ? 0.5 : 0.25;
+  assert.throws(() => rebuildAuditedLiuyaoData(seedMismatch), /与保存的种子不一致/);
+
+  const timeTraceMismatch = structuredClone(time);
+  timeTraceMismatch.meta!.random!.samples[0] =
+    timeTraceMismatch.meta!.random!.samples[0] === 0.25 ? 0.5 : 0.25;
+  assert.throws(() => rebuildAuditedLiuyaoData(timeTraceMismatch), /与起卦时间不一致/);
+});
 
 test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
   const data = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
@@ -181,15 +316,15 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
     hiddenSpirits: undefined,
     evidenceAnalysis: undefined,
   });
-  assert.equal(incomplete.lineCoverageFact.status, '缺少爻位');
-  assert.deepEqual(incomplete.lineCoverageFact.missingPositions, [6]);
-  assert.equal(incomplete.hiddenSpiritCoverageFact.status, '字段缺失');
-  assert.equal(incomplete.summaryFact.status, '部分资料缺失');
+  assert.equal(incomplete.lineCoverageFact.status, '完整');
+  assert.deepEqual(incomplete.lineCoverageFact.missingPositions, []);
+  assert.deepEqual(incomplete.lineFacts, evidence.lineFacts);
+  assert.deepEqual(incomplete.hiddenSpiritFacts, evidence.hiddenSpiritFacts);
+  assert.equal(incomplete.summaryFact.status, evidence.summaryFact.status);
   assert.equal(
     incomplete.calculationSteps.find((item) => item.stage === '六爻逐爻计算')?.status,
-    '资料不足',
+    '已计算',
   );
-  assert.match(incomplete.hiddenSpiritCoverageFact.promptText, /不得反推伏神位置/);
 });
 
 test('六爻通用与感情主题在关系语义不足时不得硬取用神', () => {
@@ -245,19 +380,17 @@ test('六爻明确六亲后应按本卦、变爻、月日、伏神逐层取用',
     yaos: [8, 7, 7, 7, 7, 7],
   });
   const calendar = analyzeLiuyaoEvidence(
-    {
-      ...hiddenData,
-      ganzhi: { ...hiddenData.ganzhi, month: '甲寅' },
-      evidenceAnalysis: undefined,
-    },
+    generateLiuyao(new Date('2024-02-05T12:00:00+08:00'), {
+      method: 'manual',
+      yaos: [8, 7, 7, 7, 7, 7],
+    }),
     { usefulGodRelative: '妻财' },
   );
   const calendarPair = analyzeLiuyaoEvidence(
-    {
-      ...hiddenData,
-      ganzhi: { ...hiddenData.ganzhi, month: '甲寅', day: '乙卯' },
-      evidenceAnalysis: undefined,
-    },
+    generateLiuyao(new Date('2024-02-09T12:00:00+08:00'), {
+      method: 'manual',
+      yaos: [8, 7, 7, 7, 7, 7],
+    }),
     { usefulGodRelative: '妻财' },
   );
   const hidden = analyzeLiuyaoEvidence(hiddenData, { usefulGodRelative: '妻财' });
@@ -311,10 +444,9 @@ test('六爻明确六亲后应按本卦、变爻、月日、伏神逐层取用',
     ['伏神'],
   );
 
-  assert.equal(missing.selectionFact.status, '缺少可用候选');
-  assert.equal(missing.selectionFact.matchingTier, null);
-  assert.equal(missing.selectedCandidate, null);
-  assert.equal(missing.godChain.length, 0);
+  assert.deepEqual(missing.selectionFact, hidden.selectionFact);
+  assert.deepEqual(missing.selectedCandidate, hidden.selectedCandidate);
+  assert.deepEqual(missing.godChain, hidden.godChain);
 });
 
 test('六爻同一六亲多现时仅唯一明动爻可直接选定', () => {
@@ -673,23 +805,16 @@ test('六爻生克制化应登记碎金赋四类闭合路径并允许并见', ()
 });
 
 test('六爻全局作用态应分类生扶克制并明确保留可用性待综合', () => {
-  const date = new Date('2025-01-01T08:00:00+08:00');
-  const analyze = (yaos: number[], month: string, day: string, usefulGodRelative: string) => {
-    const data = generateLiuyao(date, { method: 'manual', yaos });
-    return analyzeLiuyaoEvidence(
-      {
-        ...data,
-        ganzhi: { ...data.ganzhi, month, day },
-        evidenceAnalysis: undefined,
-      },
-      { usefulGodRelative },
-    );
-  };
-  const noPath = analyze([7, 7, 7, 7, 7, 7], '甲子', '甲子', '兄弟');
-  const mixed = analyze([7, 7, 7, 7, 7, 7], '甲子', '甲子', '官鬼');
-  const supportOnly = analyze([7, 7, 7, 7, 7, 7], '甲子', '甲子', '妻财');
-  const restraintOnly = analyze([7, 7, 7, 7, 7, 7], '甲子', '己巳', '兄弟');
-  const calendarIngress = analyze([8, 7, 7, 7, 7, 7], '甲子', '丙寅', '妻财');
+  const analyze = (date: string, yaos: number[], usefulGodRelative: string) =>
+    analyzeLiuyaoEvidence(generateLiuyao(new Date(date), { method: 'manual', yaos }), {
+      usefulGodRelative,
+    });
+  const sameMonthDay = '2024-01-01T12:00:00+08:00';
+  const noPath = analyze(sameMonthDay, [7, 7, 7, 7, 7, 7], '兄弟');
+  const mixed = analyze(sameMonthDay, [7, 7, 7, 7, 7, 7], '官鬼');
+  const supportOnly = analyze(sameMonthDay, [7, 7, 7, 7, 7, 7], '妻财');
+  const restraintOnly = analyze('2024-12-07T12:00:00+08:00', [7, 7, 7, 7, 7, 7], '兄弟');
+  const calendarIngress = analyze('2024-01-03T12:00:00+08:00', [8, 7, 7, 7, 7, 7], '妻财');
 
   assert.deepEqual(
     [noPath, mixed, supportOnly, restraintOnly, calendarIngress].map(
@@ -845,18 +970,11 @@ test('六爻旺相静爻只记录得力条件，不冒充已经作用', () => {
 });
 
 test('六爻用神月破又受日克时应保留无根同类条件', () => {
-  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+  const data = generateLiuyao(new Date('2024-11-08T12:00:00+08:00'), {
     method: 'manual',
     yaos: [6, 6, 6, 6, 6, 6],
   });
-  const evidence = analyzeLiuyaoEvidence(
-    {
-      ...data,
-      ganzhi: { ...data.ganzhi, month: '乙亥', day: '甲子' },
-      evidenceAnalysis: undefined,
-    },
-    { usefulGodRelative: '父母' },
-  );
+  const evidence = analyzeLiuyaoEvidence(data, { usefulGodRelative: '父母' });
   const usefulLine = evidence.godChain
     .find((item) => item.role === '用神')
     ?.effectFacts.find((item) => item.referenceKey === 'liuyao:reference:line:2');

@@ -6,6 +6,8 @@ import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { generateMeihua } from 'mingyu-core/divination/meihua';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { drawTarotSpread } from 'mingyu-core/divination/tarot';
+import { generateJinkoujue } from 'mingyu-core/divination/jinkoujue';
+import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 import { getDivinationSummaryBlocks } from '../src/lib/divination/summary';
 
 test('黄历择日摘要应展示候选状态与限制，不暴露内部数字评分', () => {
@@ -120,6 +122,52 @@ test('梅花摘要应从原始起卦资料重建，不复活旧盘派生字段�
     [...rebuilt.tags, ...rebuilt.lines].join('\n'),
     /伪造主卦|伪造互卦|伪造变卦|伪造体卦|伪造用卦|伪造必胜|伪造过程|伪造结果/,
   );
+});
+
+test('六爻摘要应从原始摇卦资料重建，不复活旧盘派生字段污染', () => {
+  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: [9, 7, 8, 8, 7, 6],
+  });
+  const clean = getDivinationSummaryBlocks('liuyao', data);
+  const polluted = structuredClone(data);
+  polluted.originalName = '伪造主卦';
+  polluted.changedName = '伪造变卦';
+  polluted.interName = '伪造互卦';
+  polluted.changingYaos = [{ position: 6, isChanging: true, type: '伪造动爻' }];
+  polluted.palace = { name: '伪造宫', wuxing: '伪造五行' };
+  polluted.voidBranches = ['伪'];
+  polluted.specialAdvice = '伪造现实结论';
+  polluted.evidenceAnalysis!.promptText = '伪造旧证据';
+
+  const rebuilt = getDivinationSummaryBlocks('liuyao', polluted);
+  assert.deepEqual(rebuilt, clean);
+  assert.doesNotMatch([...rebuilt.tags, ...rebuilt.lines].join('\n'), /伪造|现实结论/);
+});
+
+test('金口诀摘要应从原始起课资料重建，不复活旧课盘派生字段污染', () => {
+  const data = generateJinkoujue({
+    method: 'number',
+    number: 5,
+    customDate: new Date('2025-01-01T08:00:00+08:00'),
+  });
+  const clean = getDivinationSummaryBlocks('jinkoujue', data);
+  const polluted = structuredClone(data);
+  polluted.methodLabel = '伪造起课法';
+  polluted.positions.diFen.branch = '伪';
+  polluted.positions.jiangShen.branch = '造';
+  polluted.positions.guiShen.god = '伪造贵神';
+  polluted.positions.renYuan.stem = '伪';
+  polluted.mainLine = '伪造主线';
+  polluted.yinYangUse.rule = '伪造发用';
+  polluted.movements = [{ name: '伪造动爻', trigger: '保证成功' }];
+  polluted.relations.guiToJiang = '伪造关系';
+  polluted.summary = '伪造现实结论';
+  polluted.evidenceAnalysis!.promptText = '伪造旧证据';
+
+  const rebuilt = getDivinationSummaryBlocks('jinkoujue', polluted);
+  assert.deepEqual(rebuilt, clean);
+  assert.doesNotMatch([...rebuilt.tags, ...rebuilt.lines].join('\n'), /伪造|保证成功|现实结论/);
 });
 
 test('雷诺曼摘要应使用关键词核验范围而非原始牌义断语', () => {

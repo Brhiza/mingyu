@@ -9,6 +9,7 @@ import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { conditionSsgwInterpretation, resolveSignByNumber } from 'mingyu-core/divination/ssgw';
+import { generateLiuyao } from 'mingyu-core/divination/liuyao';
 
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
 import {
@@ -263,152 +264,10 @@ function createAstrolabeData(
 function createData(method: FixtureMethod): DivinationData {
   switch (method) {
     case 'liuyao':
-      return {
-        originalName: '乾为天',
-        changedName: '坤为地',
-        interName: '风山渐',
-        ganzhi: { year: '甲子', month: '乙丑', day: '丙寅', hour: '丁卯' },
-        timestamp: Date.now(),
-        yaoArray: [9, 7, 8, 8, 7, 6],
-        changingYaos: [
-          { position: 1, isChanging: true, type: '老阳' },
-          { position: 6, isChanging: true, type: '老阴' },
-        ],
-        sixGods: ['青龙', '朱雀', '勾陈', '螣蛇', '白虎', '玄武'],
-        sixRelatives: ['兄弟', '子孙', '妻财', '官鬼', '父母', '兄弟'],
-        najiaDizhi: ['子', '寅', '辰', '午', '申', '戌'],
-        wuxing: ['水', '木', '土', '火', '金', '土'],
-        worldAndResponse: ['世', '', '', '', '', '应'],
-        voidBranches: ['戌', '亥'],
-        palace: { name: '乾', wuxing: '金' },
-        palaceStage: '首卦',
-        yaosDetail: [
-          {
-            position: 1,
-            yaoType: '阳',
-            isChanging: true,
-            rawValue: 9,
-            changeType: '老阳',
-            sixGod: '青龙',
-            sixRelative: '兄弟',
-            najiaDizhi: '子',
-            wuxing: '水',
-            isWorld: true,
-            isResponse: false,
-            isVoid: false,
-            changedYao: null,
-          },
-          {
-            position: 2,
-            yaoType: '阳',
-            isChanging: false,
-            rawValue: 7,
-            changeType: '',
-            sixGod: '朱雀',
-            sixRelative: '子孙',
-            najiaDizhi: '寅',
-            wuxing: '木',
-            isWorld: false,
-            isResponse: false,
-            isVoid: false,
-            changedYao: null,
-          },
-          {
-            position: 3,
-            yaoType: '阴',
-            isChanging: false,
-            rawValue: 8,
-            changeType: '',
-            sixGod: '勾陈',
-            sixRelative: '妻财',
-            najiaDizhi: '辰',
-            wuxing: '土',
-            isWorld: false,
-            isResponse: false,
-            isVoid: false,
-            changedYao: null,
-          },
-          {
-            position: 4,
-            yaoType: '阴',
-            isChanging: false,
-            rawValue: 8,
-            changeType: '',
-            sixGod: '螣蛇',
-            sixRelative: '官鬼',
-            najiaDizhi: '午',
-            wuxing: '火',
-            isWorld: false,
-            isResponse: false,
-            isVoid: false,
-            changedYao: null,
-          },
-          {
-            position: 5,
-            yaoType: '阳',
-            isChanging: false,
-            rawValue: 7,
-            changeType: '',
-            sixGod: '白虎',
-            sixRelative: '父母',
-            najiaDizhi: '申',
-            wuxing: '金',
-            isWorld: false,
-            isResponse: false,
-            isVoid: false,
-            changedYao: null,
-          },
-          {
-            position: 6,
-            yaoType: '阴',
-            isChanging: true,
-            rawValue: 6,
-            changeType: '老阴',
-            sixGod: '玄武',
-            sixRelative: '兄弟',
-            najiaDizhi: '戌',
-            wuxing: '土',
-            isWorld: false,
-            isResponse: true,
-            isVoid: true,
-            changedYao: null,
-          },
-        ],
-        hiddenSpirits: [
-          {
-            sixRelative: '子孙',
-            position: 2,
-            najiaDizhi: '寅',
-            wuxing: '木',
-            isVoid: false,
-            underYao: {
-              position: 2,
-              sixRelative: '子孙',
-              najiaDizhi: '寅',
-              wuxing: '木',
-            },
-          },
-        ],
-        hexagramRelations: {
-          original: '六冲卦',
-          changed: '六冲卦',
-          transition: '六冲变六冲',
-        },
-        fanfuRelations: {
-          fanyin: [
-            {
-              kind: '卦反吟',
-              scope: '内外',
-              label: '内外反吟',
-              description: '内卦乾变巽，外卦乾变巽，按乾巽、坎离、震兑、坤艮相变',
-            },
-          ],
-          fuyin: [],
-          labels: ['内外反吟'],
-        },
-        specialPattern: '全动卦',
-        specialAdvice: '宜统观全局，不宜逐爻碎断。',
-      };
+      return generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+        method: 'manual',
+        yaos: [9, 7, 8, 8, 7, 6],
+      });
     case 'meihua':
       return generateMeihua(new Date('2025-01-01T08:00:00+08:00'), {
         method: 'number',
@@ -890,21 +749,60 @@ test('六爻提示词会保留世应、动变、空亡、伏神和月日资料',
   );
 
   assert.match(prompt, /核心结构：主卦/);
-  assert.match(prompt, /六亲持世：第1爻兄弟持世/);
-  assert.match(prompt, /世应动变：世爻第1爻兄弟子水；应爻第6爻兄弟戌土；动变/);
+  assert.match(prompt, /六亲持世：第1爻妻财持世/);
+  assert.match(prompt, /世应动变：世爻第1爻妻财丁巳火；应爻第4爻父母戊申金；动变/);
   assert.match(prompt, /空亡与伏神：/);
   assert.doesNotMatch(prompt, /兄弟持世，主竞争、破财、朋友/);
   assert.doesNotMatch(prompt, /取用评分表|权重\d/);
   assert.match(
     prompt,
-    /月日触发：月建丑：未直接同支入爻；日辰寅：同支第2爻子孙寅木，冲第5爻父母申金/,
+    /月日触发：月建子：同支第6爻兄弟戊子水；日辰午：未直接同支入爻，冲第6爻兄弟戊子水/,
   );
-  assert.match(prompt, /应期资料：动爻作用：第1爻兄弟子发动，用神爻位尚未闭合，仅作变化点/);
+  assert.match(
+    prompt,
+    /应期资料：动爻作用：第1爻妻财丁巳发动化子孙戊寅，用神爻位尚未闭合，仅作变化点/,
+  );
   assert.match(prompt, /当前问题关系不足，尚未确定用神六亲/);
   assert.doesNotMatch(prompt, /逢出空、冲实或用神透出时才可作为应期/);
   assert.match(prompt, /用神主线：/);
   assert.doesNotMatch(prompt, /结构化证据|证据汇总|解释边界|只使用上方/);
   assert.doesNotMatch(prompt, /课传|盘局|牌阵|签诗|牌位/);
+});
+
+test('六爻提示词只使用原始摇卦资料重建，不吸收完整旧盘与旧证据污染', () => {
+  const data = generateLiuyao(new Date('2025-01-01T08:00:00+08:00'), {
+    method: 'manual',
+    yaos: [9, 7, 8, 8, 7, 6],
+  });
+  const supplementary = createSupplementaryInfo();
+  const clean = buildDivinationPrompt('liuyao', PROJECT_DECISION_QUESTION, data, supplementary);
+  const polluted = structuredClone(data);
+  polluted.originalName = '伪造主卦';
+  polluted.changedName = '伪造变卦';
+  polluted.interName = '伪造互卦';
+  polluted.ganzhi = { year: '伪造', month: '伪造', day: '伪造', hour: '伪造' };
+  polluted.changingYaos = [{ position: 6, isChanging: true, type: '伪造动爻' }];
+  polluted.palace = { name: '伪造宫', wuxing: '伪造五行' };
+  polluted.yaosDetail[0] = {
+    ...polluted.yaosDetail[0],
+    sixGod: '伪造六神',
+    sixRelative: '伪造六亲',
+    najiaDizhi: '伪造纳甲',
+    isWorld: false,
+    isResponse: true,
+  };
+  polluted.hiddenSpirits = [];
+  polluted.specialAdvice = '伪造现实必胜结论';
+  polluted.evidenceAnalysis!.promptText = '伪造完整旧证据';
+
+  const rebuilt = buildDivinationPrompt(
+    'liuyao',
+    PROJECT_DECISION_QUESTION,
+    polluted,
+    supplementary,
+  );
+  assert.equal(rebuilt, clean);
+  assert.doesNotMatch(rebuilt, /伪造|现实必胜/);
 });
 
 test('六爻提示词不再按问题词表补充取用参考', () => {

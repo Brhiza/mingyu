@@ -1,7 +1,10 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 
-import { generateLiuyao } from '../packages/core/src/divination/algorithms/liuyao.ts';
+import {
+  generateLiuyao,
+  rebuildAuditedLiuyaoData,
+} from '../packages/core/src/divination/algorithms/liuyao.ts';
 import {
   generateMeihua,
   rebuildAuditedMeihuaData,
@@ -142,6 +145,7 @@ test('梅花与六爻的 64 卦乘 6 动爻应得到相同主卦、互卦和变�
           [expectedMain, expectedInter, expectedChanged],
           `${label}六爻主互变`,
         );
+        assert.deepEqual(rebuildAuditedLiuyaoData(liuyao), liuyao, `${label}六爻审核重建`);
       }
     }
   }
