@@ -85,8 +85,20 @@ test('三山国王灵签在签谱来源闭合前只保留九十二个签号', ()
   });
 });
 
-test('三山国王九十二签进入证据提示词时不应保留绝对结果保证', () => {
+test('三山国王签谱来源未闭合时不得软化后继续输出任何旧解释', () => {
   const forbidden = /必然(?:会|是|失败|走向|两败俱伤)|必定成功|必能|必败|必然后悔/;
+
+  [
+    '所求之事必定成功，无需多虑。',
+    '结果必然失败。',
+    '此签提醒谨慎推进。',
+  ].forEach((text) => {
+    assert.equal(
+      conditionSsgwInterpretation(text),
+      '未采用签谱解释；当前签谱来源未闭合，只保留签号、抽取轨迹与掷筊记录',
+    );
+  });
+  assert.equal(conditionSsgwInterpretation(''), '');
 
   SSGW_SIGNS.forEach((sign) => {
     const analysis = resolveSignByNumber(
@@ -2142,10 +2154,17 @@ test('三山国王灵签应拒绝来源矛盾、缺失轨迹与无效时间', ()
   assert.throws(() => rebuildAuditedSsgwData({ ...manual, number: 0 }), /签号需为1至92/);
 });
 
-test('三山国王灵签条件化工具只处理文本，公开证据入口应覆盖旧派生字段污染', () => {
-  assert.match(conditionSsgwInterpretation('所求之事必定成功，无需多虑。'), /较有机会成功/);
-  assert.match(conditionSsgwInterpretation('明知风险仍投入，结果必然失败。'), /失败风险很高/);
-  assert.match(conditionSsgwInterpretation('互不相让必然两败俱伤。'), /容易两败俱伤/);
+test('三山国王灵签条件化工具与公开证据入口都应失败关闭旧派生字段污染', () => {
+  [
+    '所求之事必定成功，无需多虑。',
+    '明知风险仍投入，结果必然失败。',
+    '互不相让必然两败俱伤。',
+  ].forEach((text) => {
+    assert.equal(
+      conditionSsgwInterpretation(text),
+      '未采用签谱解释；当前签谱来源未闭合，只保留签号、抽取轨迹与掷筊记录',
+    );
+  });
 
   const canonical = resolveSignByNumber(1, new Date('2025-01-01T00:00:00+08:00'));
   const analysis = analyzeSsgwEvidence({

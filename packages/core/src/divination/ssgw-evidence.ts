@@ -277,19 +277,8 @@ function conditionSsgwRitualReason(reason?: string) {
 }
 
 export function conditionSsgwInterpretation(text: string): string {
-  return text
-    .replace(/成功是必然的结果/g, '传统象意偏向成功，但结果仍取决于现实条件')
-    .replace(/结果必然失败/g, '失败风险很高')
-    .replace(/必然两败俱伤/g, '容易两败俱伤')
-    .replace(/必然会/g, '很可能会')
-    .replace(/必然是/g, '容易形成')
-    .replace(/必然走向/g, '可能走向')
-    .replace(/必然失败/g, '失败风险很高')
-    .replace(/必然后悔/g, '后悔风险很高')
-    .replace(/必定成功/g, '较有机会成功')
-    .replace(/必能/g, '较有机会')
-    .replace(/必败/g, '失败风险很高')
-    .replace(/必然/g, '往往');
+  if (!text.trim()) return '';
+  return '未采用签谱解释；当前签谱来源未闭合，只保留签号、抽取轨迹与掷筊记录';
 }
 
 function buildCounterEvidenceFacts(args: {
