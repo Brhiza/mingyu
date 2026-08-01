@@ -17,7 +17,7 @@ import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 import { generateAstrolabe } from 'mingyu-core/divination/astrolabe';
 import { buildAstrolabeScopeContext } from '../src/lib/astrolabe-scope';
 import { drawRandomSign } from 'mingyu-core/divination/ssgw';
-import { drawSpreadCards, getCardKeywords } from 'mingyu-core/divination/tarot';
+import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { analyzeBaZhai } from '@core/ba_zhai';
 import { generateResidentialFengshui } from '@core/residential_fengshui';
@@ -517,19 +517,8 @@ async function buildSamples(): Promise<PromptSample[]> {
       { xiaoliurenFocus: 'career' },
     );
 
-    const tarotDraw = withSeed(20260519, () => drawSpreadCards('decision'));
-    const tarotData = {
-      spreadType: tarotDraw.spreadType,
-      spreadName: tarotDraw.spreadName,
-      cards: tarotDraw.cards.map((item) => ({
-        id: item.card.number,
-        name: item.card.name,
-        position: item.position,
-        reversed: item.isReversed,
-        keywords: getCardKeywords(item.card.name).split(','),
-      })),
-      timestamp: fixedNow.getTime(),
-    };
+    const tarotData = withSeed(20260519, () => drawTarotSpread('decision'));
+    tarotData.timestamp = fixedNow.getTime();
     const tarotPrompt = buildDivinationPrompt('tarot', commonQuestion, tarotData, commonInfo);
 
     const lenormandData = withSeed(20260520, () => drawLenormandSpread('decision'));

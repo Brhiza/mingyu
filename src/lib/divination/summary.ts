@@ -19,9 +19,10 @@ import type {
 } from '../../types/divination';
 import { analyzeAlmanacEvidence } from 'mingyu-core/divination/almanac';
 import {
-  analyzeLenormandEvidence,
   conditionLenormandTraditionalText,
+  rebuildAuditedLenormandData,
 } from 'mingyu-core/divination/lenormand';
+import { rebuildAuditedTarotData } from 'mingyu-core/divination/tarot';
 import { analyzeXiaoliurenEvidence } from 'mingyu-core/divination/xiaoliuren';
 import { rebuildAuditedQimenData } from 'mingyu-core/divination/qimen';
 import { analyzeLiurenEvidence, rebuildAuditedLiurenData } from 'mingyu-core/divination/liuren';
@@ -439,7 +440,7 @@ export function getDivinationSummaryBlocks(
       };
     }
     case 'tarot': {
-      const tarot = data as TarotData;
+      const tarot = rebuildAuditedTarotData(data as TarotData);
       return {
         title: '塔罗抽牌结果',
         tags: [`牌阵：${tarot.spreadName}`, `张数：${tarot.cards.length} 张`],
@@ -525,12 +526,8 @@ export function getDivinationSummaryBlocks(
       };
     }
     case 'lenormand': {
-      const lenormand = data as LenormandData;
-      const evidence =
-        lenormand.evidenceAnalysis?.traditionalFacts &&
-        lenormand.evidenceAnalysis.structuredLayoutFacts
-          ? lenormand.evidenceAnalysis
-          : analyzeLenormandEvidence(lenormand);
+      const lenormand = rebuildAuditedLenormandData(data as LenormandData);
+      const evidence = lenormand.evidenceAnalysis!;
       return {
         title: '雷诺曼抽牌结果',
         tags: [`牌阵：${lenormand.spreadName}`, `张数：${lenormand.cards.length} 张`],

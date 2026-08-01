@@ -1122,7 +1122,8 @@ function buildLimitationFacts(params: {
   }));
 }
 
-export function analyzeLenormandEvidence(data: LenormandData): LenormandEvidenceAnalysis {
+/** 仅供标准数据重建后的内部调用；公开入口必须先执行可信重建。 */
+export function analyzeRebuiltLenormandEvidence(data: LenormandData): LenormandEvidenceAnalysis {
   if (!data.cards.length) throw new Error('雷诺曼结构化证据至少需要一张牌。');
   const cards = data.cards.map((card, index): LenormandCardEvidence => {
     const key = `lenormand:card:${index + 1}:${card.id}`;

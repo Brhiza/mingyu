@@ -4,6 +4,7 @@ import { generateAlmanacSelection } from 'mingyu-core/divination/almanac';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
 import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
+import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import { getDivinationSummaryBlocks } from '../src/lib/divination/summary';
 
 test('黄历择日摘要应展示候选状态与限制，不暴露内部数字评分', () => {
@@ -87,4 +88,42 @@ test('雷诺曼摘要应使用关键词核验范围而非原始牌义断语', ()
 
   assert.match(text, /传统单牌|解释范围|现实线索/);
   for (const card of data.cards) assert.doesNotMatch(text, new RegExp(card.meaning));
+});
+
+test('塔罗与雷诺曼摘要应忽略派生字段和旧证据污染', () => {
+  const tarot = drawTarotSpread('three', { seed: '摘要塔罗污染重建' });
+  const tarotPolluted = structuredClone(tarot);
+  tarotPolluted.spreadName = '伪造塔罗牌阵';
+  tarotPolluted.cards[0] = {
+    ...tarotPolluted.cards[0],
+    name: '伪造塔罗牌',
+    position: '伪造牌位',
+    keywords: ['保证成功'],
+    uprightMeaning: '伪造现实结论',
+  };
+  tarotPolluted.evidenceAnalysis!.promptText = '伪造旧塔罗证据';
+  assert.deepEqual(
+    getDivinationSummaryBlocks('tarot', tarotPolluted),
+    getDivinationSummaryBlocks('tarot', tarot),
+  );
+
+  const lenormand = drawLenormandSpread('nine', { seed: '摘要雷诺曼污染重建' });
+  const lenormandPolluted = structuredClone(lenormand);
+  lenormandPolluted.spreadName = '伪造雷诺曼牌阵';
+  lenormandPolluted.cards[0] = {
+    ...lenormandPolluted.cards[0],
+    name: '伪造雷诺曼牌',
+    position: '伪造牌位',
+    keywords: ['必然获利'],
+    meaning: '伪造现实结论',
+    row: 9,
+    column: 9,
+  };
+  lenormandPolluted.combinations = [{ card1: '伪造甲', card2: '伪造乙', meaning: '伪造组合' }];
+  lenormandPolluted.layoutEvidence = ['伪造布局'];
+  lenormandPolluted.evidenceAnalysis!.promptText = '伪造旧雷诺曼证据';
+  assert.deepEqual(
+    getDivinationSummaryBlocks('lenormand', lenormandPolluted),
+    getDivinationSummaryBlocks('lenormand', lenormand),
+  );
 });

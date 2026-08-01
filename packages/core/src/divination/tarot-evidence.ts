@@ -2,11 +2,16 @@ import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
 import type { PromptEvidenceBundle, PromptEvidenceItem } from '../prompt-evidence/types';
 import {
   buildRandomTraceFact,
+  createSeededRandom,
   formatLegacyRandomFacts,
+  type RandomTrace,
   type RandomTraceFact,
 } from '../shared/random';
+import { createResultMeta } from '../shared/result';
 import type { TarotData } from '../types/divination';
-import { tarotSpreads } from './tarot-data';
+import type { TarotSpreadType } from '../types/divination';
+import { tarotCards, tarotSpreads } from './tarot-data';
+import { getCardEvidence } from './tarot-reference';
 
 export interface TarotCardEvidence {
   key: string;
@@ -880,7 +885,196 @@ function buildLimitationFacts(params: {
   }));
 }
 
-export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
+type AuditedTarotSource = 'manual' | 'interactive' | 'random';
+
+function assertTarotTimestamp(timestamp: number): number {
+  if (
+    !Number.isSafeInteger(timestamp) ||
+    timestamp < 0 ||
+    Number.isNaN(new Date(timestamp).getTime())
+  ) {
+    throw new Error('塔罗结果时间戳无效，无法重建可信证据。');
+  }
+  return timestamp;
+}
+
+function normalizeTarotRandomTrace(input: TarotData, timestamp: number): RandomTrace | undefined {
+  const rawTrace = input.meta?.random;
+  if (rawTrace === undefined) return undefined;
+  const trace = createResultMeta({
+    algorithm: 'tarot.audit.trace',
+    input: { spreadType: input.spreadType },
+    calculatedAt: timestamp,
+    random: rawTrace,
+  }).random!;
+  if (trace.mode === 'seeded' && trace.seed === undefined) {
+    throw new Error('塔罗 seeded 随机轨迹缺少种子，无法核验。');
+  }
+  if (trace.mode !== 'seeded' && trace.seed !== undefined) {
+    throw new Error('塔罗非 seeded 随机轨迹不应携带种子。');
+  }
+  if (trace.mode === 'seeded') {
+    const seeded = createSeededRandom(trace.seed!);
+    trace.samples.forEach((sample, index) => {
+      if (seeded() !== sample) {
+        throw new Error(`塔罗随机轨迹第${index + 1}个样本与种子不一致。`);
+      }
+    });
+    return trace;
+  }
+  return { mode: 'replay', samples: [...trace.samples] };
+}
+
+function replayTarotCards(
+  spreadType: TarotSpreadType,
+  trace: RandomTrace,
+): {
+  source: Exclude<AuditedTarotSource, 'manual'>;
+  cards: Array<{ id: number; reversed: boolean }>;
+} {
+  const spread = tarotSpreads[spreadType];
+  const randomSampleCount = tarotCards.length - 1 + spread.cardCount;
+  const interactiveSampleCount = spread.cardCount * 2;
+  if (trace.samples.length === randomSampleCount) {
+    const deck = [...tarotCards];
+    for (let index = deck.length - 1, sampleIndex = 0; index > 0; index--, sampleIndex++) {
+      const targetIndex = Math.floor(trace.samples[sampleIndex] * (index + 1));
+      [deck[index], deck[targetIndex]] = [deck[targetIndex], deck[index]];
+    }
+    return {
+      source: 'random',
+      cards: deck.slice(0, spread.cardCount).map((card, index) => ({
+        id: card.number,
+        reversed: trace.samples[tarotCards.length - 1 + index] < 0.5,
+      })),
+    };
+  }
+  if (trace.samples.length === interactiveSampleCount) {
+    const remaining = [...tarotCards];
+    const cards = Array.from({ length: spread.cardCount }, (_, index) => {
+      const drawSample = trace.samples[index * 2];
+      const orientationSample = trace.samples[index * 2 + 1];
+      const cardIndex = Math.floor(drawSample * remaining.length);
+      const [card] = remaining.splice(cardIndex, 1);
+      if (!card) throw new Error(`塔罗互动抽牌第${index + 1}张无法映射到剩余牌组。`);
+      return { id: card.number, reversed: orientationSample < 0.5 };
+    });
+    return { source: 'interactive', cards };
+  }
+  throw new Error(
+    `${spread.name}随机轨迹应为${randomSampleCount}个完整洗牌样本或${interactiveSampleCount}个逐张抽牌样本，当前为${trace.samples.length}个。`,
+  );
+}
+
+function buildAuditedTarotDraw(
+  cards: TarotData['cards'],
+  source: AuditedTarotSource,
+): NonNullable<TarotData['draw']> {
+  return {
+    deckSize: tarotCards.length,
+    method:
+      source === 'manual'
+        ? '用户按牌位手工录入'
+        : source === 'interactive'
+          ? '用户逐张触发前端随机抽取'
+          : 'Fisher-Yates洗牌后依牌位顺序取顶牌',
+    orientationRule:
+      source === 'manual'
+        ? '正逆位由用户逐张录入'
+        : '每张牌独立取随机数，小于0.5为逆位，否则为正位',
+    order: cards.map((card, index) => ({
+      index: index + 1,
+      position: card.position,
+      cardId: card.id,
+      cardName: card.name,
+      orientation: card.reversed ? '逆位' : '正位',
+    })),
+  };
+}
+
+/** 只保留牌阵、牌号、正逆位与可核验来源，其余牌面事实一律按标准资料重建。 */
+export function rebuildAuditedTarotData(input: TarotData): TarotData {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('塔罗结果必须是对象。');
+  }
+  const spread = tarotSpreads[input.spreadType as TarotSpreadType];
+  if (!spread) throw new Error(`未知的牌阵类型: ${String(input.spreadType)}`);
+  if (!Array.isArray(input.cards) || input.cards.length !== spread.cardCount) {
+    throw new Error(`${spread.name}必须完整记录${spread.cardCount}张牌。`);
+  }
+  const timestamp = assertTarotTimestamp(input.timestamp);
+  const rawCards = input.cards.map((card, index) => {
+    if (!card || typeof card !== 'object' || !Number.isSafeInteger(card.id)) {
+      throw new Error(`第${index + 1}张塔罗牌号无效。`);
+    }
+    if (!tarotCards.some((reference) => reference.number === card.id)) {
+      throw new Error(`第${index + 1}张塔罗牌号不在标准78张牌组中。`);
+    }
+    if (typeof card.reversed !== 'boolean') {
+      throw new Error(`第${index + 1}张塔罗牌正逆位必须是布尔值。`);
+    }
+    return { id: card.id, reversed: card.reversed };
+  });
+  if (new Set(rawCards.map((card) => card.id)).size !== rawCards.length) {
+    throw new Error('同一次塔罗牌阵不能出现重复牌号。');
+  }
+
+  const trace = normalizeTarotRandomTrace(input, timestamp);
+  let source: AuditedTarotSource;
+  if (trace) {
+    const replayed = replayTarotCards(input.spreadType as TarotSpreadType, trace);
+    source = replayed.source;
+    replayed.cards.forEach((card, index) => {
+      const actual = rawCards[index];
+      if (actual.id !== card.id || actual.reversed !== card.reversed) {
+        throw new Error(`第${index + 1}张塔罗牌与随机轨迹重放结果不一致。`);
+      }
+    });
+  } else if (input.draw?.method === '用户按牌位手工录入') {
+    source = 'manual';
+  } else {
+    throw new Error('塔罗随机抽牌缺少完整随机轨迹，且未声明为手工录入，无法建立可信来源。');
+  }
+
+  const cards: TarotData['cards'] = rawCards.map((rawCard, index) => {
+    const reference = tarotCards.find((card) => card.number === rawCard.id)!;
+    return {
+      id: reference.number,
+      name: reference.name,
+      position: spread.positions[index],
+      reversed: rawCard.reversed,
+      ...getCardEvidence(reference.name),
+    };
+  });
+  const algorithm =
+    source === 'manual'
+      ? 'tarot.spread.manual'
+      : source === 'interactive'
+        ? 'tarot.spread.interactive'
+        : input.spreadType === 'single'
+          ? 'tarot.single'
+          : 'tarot.spread';
+  const rebuilt: TarotData = {
+    spreadType: input.spreadType,
+    spreadName: spread.name,
+    cards,
+    draw: buildAuditedTarotDraw(cards, source),
+    timestamp,
+    meta: createResultMeta({
+      algorithm,
+      input:
+        source === 'manual'
+          ? { spreadType: input.spreadType, manualCards: rawCards }
+          : { spreadType: input.spreadType },
+      calculatedAt: timestamp,
+      ...(trace ? { random: trace } : {}),
+    }),
+  };
+  rebuilt.evidenceAnalysis = analyzeRebuiltTarotEvidence(rebuilt);
+  return rebuilt;
+}
+
+function analyzeRebuiltTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
   if (!data.cards.length) throw new Error('塔罗结构化证据至少需要一张牌。');
   const sources: TarotEvidenceAnalysis['sources'] = [
     {
@@ -1196,4 +1390,9 @@ export function analyzeTarotEvidence(data: TarotData): TarotEvidenceAnalysis {
       '所有象征解释均须回到用户问题和现实资料复核。',
     ],
   };
+}
+
+/** 所有公开证据分析均先经过可信重建，禁止旧派生字段直接进入提示词。 */
+export function analyzeTarotEvidence(input: TarotData): TarotEvidenceAnalysis {
+  return rebuildAuditedTarotData(input).evidenceAnalysis!;
 }

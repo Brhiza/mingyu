@@ -37,7 +37,8 @@ import {
 } from '@core/divination/algorithms/liuren';
 import { analyzeXiaoliurenEvidence } from '@core/divination/algorithms/xiaoliuren';
 import { analyzeJinkoujueEvidence } from '@core/divination/algorithms/jinkoujue';
-import { analyzeTarotEvidence } from '@core/divination/tarot';
+import { rebuildAuditedTarotData } from '@core/divination/tarot';
+import { rebuildAuditedLenormandData } from '@core/divination/algorithms/lenormand';
 
 function resolveDivinationTimestamp(data?: DivinationData): number | null {
   if (
@@ -732,10 +733,9 @@ function formatLiurenInfo(input: LiurenData) {
 }
 
 function formatTarotInfo(data: TarotData) {
-  const evidenceAnalysis = data.evidenceAnalysis?.traditionalFacts
-    ? data.evidenceAnalysis
-    : analyzeTarotEvidence(data);
-  const cardLines = data.cards.map((card, index) => {
+  const audited = rebuildAuditedTarotData(data);
+  const evidenceAnalysis = audited.evidenceAnalysis!;
+  const cardLines = audited.cards.map((card, index) => {
     const fact = evidenceAnalysis.traditionalFacts.find((item) => item.index === index + 1);
     return `- ${card.position}：${card.name}${card.reversed ? '（逆位）' : '（正位）'}${card.keywords.length ? `；关键词：${card.keywords.join('、')}` : ''}${card.element ? `；元素主题：${card.element}` : ''}${card.archetype ? `；牌阶主题：${card.archetype}` : ''}${fact ? `；牌义：${fact.promptText}` : ''}`;
   });
@@ -743,8 +743,8 @@ function formatTarotInfo(data: TarotData) {
   return [
     '占法：塔罗',
     '时间干支：以【当前时间】为准',
-    `核心结构：牌阵${data.spreadName}；共${data.cards.length}张牌`,
-    `牌位顺序：${data.cards.map((card) => card.position).join(' → ')}`,
+    `核心结构：牌阵${audited.spreadName}；共${audited.cards.length}张牌`,
+    `牌位顺序：${audited.cards.map((card) => card.position).join(' → ')}`,
     '牌位明细：',
     ...cardLines,
   ]
@@ -932,11 +932,12 @@ function formatAlmanacInfo(data: AlmanacData) {
 }
 
 function formatLenormandInfo(data: LenormandData) {
-  const cardLines = data.cards.map(
+  const audited = rebuildAuditedLenormandData(data);
+  const cardLines = audited.cards.map(
     (card) =>
       `- ${card.position}：${card.name}；关键词：${card.keywords.join('、')}；牌义：${card.meaning}`,
   );
-  const combinationLines = (data.combinations ?? []).map((item) => {
+  const combinationLines = (audited.combinations ?? []).map((item) => {
     const positions =
       item.position1 && item.position2 ? `${item.position1} ↔ ${item.position2}；` : '';
     const relation = item.relation ? `${item.relation}；` : '';
@@ -945,8 +946,8 @@ function formatLenormandInfo(data: LenormandData) {
   return [
     '占法：雷诺曼',
     '时间干支：以【当前时间】为准',
-    `核心结构：牌阵${data.spreadName}；共${data.cards.length}张牌`,
-    `牌位顺序：${data.cards.map((card) => card.position).join(' → ')}`,
+    `核心结构：牌阵${audited.spreadName}；共${audited.cards.length}张牌`,
+    `牌位顺序：${audited.cards.map((card) => card.position).join(' → ')}`,
     '牌位明细：',
     ...cardLines,
     ...(combinationLines.length ? ['组合明细：', ...combinationLines] : []),

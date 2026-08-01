@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   analyzeTarotEvidence,
   drawTarotSpread,
+  rebuildAuditedTarotData,
   resolveInteractiveTarotCards,
   tarotSpreads,
 } from 'mingyu-core/divination/tarot';
@@ -275,15 +276,13 @@ test('塔罗手动抽取应按样本逐张无重复翻牌并保留可重放轨�
 });
 
 test('塔罗逆位应形成指向所属牌面的反证事实与汇总', () => {
-  const data = drawTarotSpread('three', { seed: '塔罗逆位反证' });
-  data.cards = data.cards.map((card, index) => ({ ...card, reversed: index === 1 }));
-  data.draw = {
-    ...data.draw!,
-    order: data.draw!.order.map((item, index) => ({
-      ...item,
-      orientation: index === 1 ? '逆位' : '正位',
-    })),
-  };
+  const data = drawTarotSpread('three', {
+    manualCards: [
+      { id: 1, reversed: false },
+      { id: 2, reversed: true },
+      { id: 3, reversed: false },
+    ],
+  });
   const evidence = analyzeTarotEvidence(data);
 
   assert.equal(evidence.counterEvidenceFacts.length, 1);
@@ -299,21 +298,19 @@ test('塔罗逆位应形成指向所属牌面的反证事实与汇总', () => {
   );
   assert.equal(evidence.drawFact.status, '可核验');
 
-  const allUpright = analyzeTarotEvidence({
-    ...data,
-    cards: data.cards.map((card) => ({ ...card, reversed: false })),
-    draw: {
-      ...data.draw!,
-      order: data.draw!.order.map((item) => ({ ...item, orientation: '正位' })),
-    },
-    evidenceAnalysis: undefined,
-  });
+  const allUpright = drawTarotSpread('three', {
+    manualCards: [
+      { id: 1, reversed: false },
+      { id: 2, reversed: false },
+      { id: 3, reversed: false },
+    ],
+  }).evidenceAnalysis!;
   assert.equal(allUpright.counterEvidenceFacts.length, 0);
   assert.equal(allUpright.counterSummaryFact.status, '未见逆位约束');
   assert.match(allUpright.counterSummaryFact.promptText, /不代表结果必然有利/);
 });
 
-test('塔罗旧资料缺少抽牌记录时不得反推来源链', () => {
+test('塔罗旧派生抽牌记录缺失时应从随机轨迹完整重建', () => {
   const data = drawTarotSpread('three', { seed: '塔罗缺少抽牌记录' });
   const evidence = analyzeTarotEvidence({
     ...data,
@@ -321,19 +318,15 @@ test('塔罗旧资料缺少抽牌记录时不得反推来源链', () => {
     evidenceAnalysis: undefined,
   });
 
-  assert.equal(evidence.drawFact.status, '来源链缺失');
-  assert.equal(evidence.drawFact.recordedCardCount, 0);
-  assert.deepEqual(evidence.drawFact.missingIndexes, [1, 2, 3]);
-  assert.deepEqual(evidence.drawOrderFacts, []);
-  assert.equal(evidence.summaryFact.status, '证据链有缺口');
-  assert.equal(evidence.calculationSteps[1]?.status, '资料不足');
-  assert.equal(evidence.calculationSteps[6]?.status, '资料不足');
-  assert.match(evidence.drawFact.promptText, /现有资料未附.*不能反推完整抽牌来源链/);
+  assert.deepEqual(evidence, data.evidenceAnalysis);
+  assert.equal(evidence.drawFact.status, '可核验');
+  assert.equal(evidence.drawFact.recordedCardCount, 3);
+  assert.deepEqual(evidence.drawFact.missingIndexes, []);
   assert.doesNotMatch(evidence.promptText, /当前结果|当前数据|接口|API|MCP|工程/);
   assertPromptIsPortableTaskText(evidence.promptText);
 });
 
-test('塔罗抽牌序号或牌面被篡改时应标记来源链不一致', () => {
+test('塔罗派生抽牌记录被污染时应忽略并按可信来源重建', () => {
   const data = drawTarotSpread('three', { seed: '塔罗来源一致性' });
   const tampered: TarotData = structuredClone(data);
   tampered.draw!.order[1].index = 1;
@@ -341,60 +334,45 @@ test('塔罗抽牌序号或牌面被篡改时应标记来源链不一致', () =>
   tampered.evidenceAnalysis = undefined;
   const evidence = analyzeTarotEvidence(tampered);
 
-  assert.equal(evidence.drawFact.status, '来源链不一致');
-  assert.deepEqual(evidence.drawFact.mismatchIndexes, [2]);
-  assert.equal(evidence.drawOrderFacts[1].status, '不一致');
-  assert.deepEqual(evidence.drawOrderFacts[1].mismatches, [
-    '记录序号应为2',
-    `牌名应为${data.cards[1].name}`,
-  ]);
-  assert.ok(
-    evidence.evidence.items.some(
-      (item) => item.level === '反证' && item.title === '抽牌来源链不一致',
-    ),
-  );
+  assert.deepEqual(evidence, data.evidenceAnalysis);
+  assert.equal(evidence.drawFact.status, '可核验');
 });
 
-test('塔罗牌位、顺序和牌号异常时应给出可定位的覆盖事实', () => {
+test('塔罗派生字段污染应被覆盖，牌号、牌数和牌阵异常应失败关闭', () => {
   const data = drawTarotSpread('three', { seed: '塔罗牌阵覆盖异常' });
   const tampered: TarotData = structuredClone(data);
   tampered.cards[1].position = tampered.cards[0].position;
+  tampered.cards[1].name = '伪造牌名';
+  tampered.cards[1].keywords = ['伪造关键词'];
+  tampered.cards[1].uprightMeaning = '伪造牌义';
+  tampered.spreadName = '伪造牌阵';
+  tampered.evidenceAnalysis = structuredClone(data.evidenceAnalysis);
+  tampered.evidenceAnalysis!.promptText = '伪造旧证据';
+  const rebuilt = rebuildAuditedTarotData(tampered);
+
+  assert.deepEqual(rebuilt, rebuildAuditedTarotData(data));
+
   tampered.cards[1].id = tampered.cards[0].id;
   tampered.evidenceAnalysis = undefined;
-  const evidence = analyzeTarotEvidence(tampered);
-
-  assert.equal(evidence.spreadCoverageFact.status, '牌位异常');
-  assert.equal(evidence.summaryFact.status, '证据链有缺口');
-  assert.equal(evidence.calculationSteps[2]?.status, '资料不足');
-  assert.equal(evidence.calculationSteps[6]?.status, '资料不足');
-  assert.deepEqual(evidence.spreadCoverageFact.missingPositions, ['现在']);
-  assert.deepEqual(evidence.spreadCoverageFact.duplicatePositions, ['过去']);
-  assert.deepEqual(evidence.spreadCoverageFact.positionOrderMismatches, [2]);
-  assert.deepEqual(evidence.spreadCoverageFact.duplicateCardIds, [tampered.cards[0].id]);
-
-  const missingCard = analyzeTarotEvidence({
-    ...data,
-    cards: data.cards.slice(0, 2),
-    evidenceAnalysis: undefined,
-  });
-  assert.equal(missingCard.spreadCoverageFact.status, '牌数不符');
-  assert.equal(missingCard.spreadCoverageFact.actualCardCount, 2);
-
-  const unknownSpread = analyzeTarotEvidence({
-    ...data,
-    spreadType: 'unknown',
-    spreadName: '未声明牌阵',
-    evidenceAnalysis: undefined,
-  });
-  assert.equal(unknownSpread.spreadCoverageFact.status, '未知牌阵');
-  assert.equal(unknownSpread.spreadCoverageFact.expectedCardCount, null);
+  assert.throws(() => analyzeTarotEvidence(tampered), /不能出现重复牌号/);
+  assert.throws(
+    () => analyzeTarotEvidence({ ...data, cards: data.cards.slice(0, 2) }),
+    /必须完整记录3张牌/,
+  );
+  assert.throws(() => analyzeTarotEvidence({ ...data, spreadType: 'unknown' }), /未知的牌阵类型/);
 });
 
-test('塔罗主题对象只做标签计数，不生成权重或吉凶评分', () => {
-  const data = drawTarotSpread('three', { seed: '塔罗重复主题' });
+test('塔罗主题对象只按标准牌组重建，不接受外部元素标签和评分', () => {
+  const data = drawTarotSpread('three', {
+    manualCards: [
+      { id: 23, reversed: false },
+      { id: 24, reversed: false },
+      { id: 2, reversed: false },
+    ],
+  });
   data.cards = data.cards.map((card, index) => ({
     ...card,
-    element: index < 2 ? '火（行动、动力、创造）' : '大阿卡纳（核心课题与阶段转折）',
+    element: index < 2 ? '伪造元素' : '伪造大阿卡纳',
   }));
   const evidence = analyzeTarotEvidence(data);
   const fire = evidence.themeFacts.find((fact) => fact.theme === '火');
@@ -408,4 +386,43 @@ test('塔罗主题对象只做标签计数，不生成权重或吉凶评分', ()
     JSON.stringify(evidence),
     /成功率为\d|吉凶总分[：=]\d|能量分数[：=]\d|主题权重[：=]\d/,
   );
+});
+
+test('塔罗78张标准牌应逐张按牌号重建唯一名称与完整牌义资料', () => {
+  const rows = Array.from({ length: 78 }, (_, index) => {
+    const rebuilt = rebuildAuditedTarotData(
+      drawTarotSpread('single', {
+        manualCards: [{ id: index + 1, reversed: index % 2 === 1 }],
+      }),
+    );
+    const card = rebuilt.cards[0];
+    assert.equal(card.id, index + 1);
+    assert.equal(card.position, '当前指引');
+    assert.equal(card.keywords.length, 3);
+    assert.ok(card.uprightMeaning && card.reversedMeaning && card.element && card.archetype);
+    return [card.id, card.name];
+  });
+  assert.equal(new Set(rows.map((row) => row[0])).size, 78);
+  assert.equal(new Set(rows.map((row) => row[1])).size, 78);
+});
+
+test('塔罗随机轨迹应重放牌号与正逆位，缺样本或污染原始事实直接报错', () => {
+  const data = drawTarotSpread('three', { seed: '塔罗随机轨迹严格重放' });
+  const cardTampered = structuredClone(data);
+  cardTampered.cards[0].id = Array.from({ length: 78 }, (_, index) => index + 1).find(
+    (id) => !cardTampered.cards.some((card) => card.id === id),
+  )!;
+  assert.throws(() => rebuildAuditedTarotData(cardTampered), /与随机轨迹重放结果不一致/);
+
+  const orientationTampered = structuredClone(data);
+  orientationTampered.cards[0].reversed = !orientationTampered.cards[0].reversed;
+  assert.throws(() => rebuildAuditedTarotData(orientationTampered), /与随机轨迹重放结果不一致/);
+
+  const traceTampered = structuredClone(data);
+  traceTampered.meta!.random!.samples.pop();
+  assert.throws(() => rebuildAuditedTarotData(traceTampered), /随机轨迹应为/);
+
+  const seedTampered = structuredClone(data);
+  seedTampered.meta!.random!.seed = '伪造种子';
+  assert.throws(() => rebuildAuditedTarotData(seedTampered), /样本与种子不一致/);
 });

@@ -1,10 +1,15 @@
 import type { LenormandData, LenormandSpreadType } from '../../types/divination';
-import type { RandomOptions, RandomSource } from '../../shared/random';
-import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';
-import { attachResultMeta } from '../../shared/result';
-import { analyzeLenormandEvidence } from '../lenormand-evidence';
+import type { RandomOptions, RandomSource, RandomTrace } from '../../shared/random';
+import {
+  createRandomContext,
+  createSeededRandom,
+  hasRandomOptions,
+  randomInt,
+} from '../../shared/random';
+import { attachResultMeta, createResultMeta } from '../../shared/result';
+import { analyzeRebuiltLenormandEvidence } from '../lenormand-evidence';
 
-export { analyzeLenormandEvidence, conditionLenormandTraditionalText } from '../lenormand-evidence';
+export { conditionLenormandTraditionalText } from '../lenormand-evidence';
 export type {
   LenormandCardEvidence,
   LenormandCounterEvidenceFact,
@@ -426,6 +431,236 @@ export function validateLenormandReferenceData(): void {
 
 validateLenormandReferenceData();
 
+type LenormandReferenceCard = (typeof LENORMAND_CARDS)[number];
+type AuditedLenormandSource = 'manual' | 'interactive' | 'random';
+
+function buildLenormandCards(
+  spreadType: LenormandSpreadType,
+  selectedCards: readonly LenormandReferenceCard[],
+): LenormandData['cards'] {
+  const spread = LENORMAND_SPREADS[spreadType];
+  return selectedCards.map((card, index) => {
+    const columns = spreadType === 'grandTableau' ? 9 : spreadType === 'nine' ? 3 : 0;
+    const houseCard = spreadType === 'grandTableau' ? LENORMAND_CARDS[index] : undefined;
+    if (spreadType === 'grandTableau' && !houseCard) {
+      throw new Error(`雷诺曼第${index + 1}宫缺少对应宫位牌`);
+    }
+    return {
+      ...card,
+      keywords: [...card.keywords],
+      position: spread.positions[index],
+      house: houseCard?.name,
+      row: columns ? Math.floor(index / columns) + 1 : undefined,
+      column: columns ? (index % columns) + 1 : undefined,
+    };
+  });
+}
+
+function buildLenormandLayoutEvidence(
+  spreadType: LenormandSpreadType,
+  cards: LenormandData['cards'],
+): string[] {
+  const layoutEvidence: string[] = [];
+  if (spreadType === 'nine') {
+    const center = cards[4];
+    layoutEvidence.push(
+      `中心牌${center.name}是九宫主轴；上排为背景与思考，中排为当下，下排为落地走向`,
+      `横向：${cards
+        .slice(3, 6)
+        .map((card) => card.name)
+        .join('→')}；纵向：${[cards[1], cards[4], cards[7]].map((card) => card.name).join('→')}`,
+      `对角线：${[cards[0], cards[4], cards[8]].map((card) => card.name).join('→')}；${[cards[2], cards[4], cards[6]].map((card) => card.name).join('→')}`,
+    );
+  }
+  if (spreadType === 'grandTableau') {
+    for (const name of ['男士', '女士']) {
+      const index = cards.findIndex((card) => card.name === name);
+      if (index < 0) continue;
+      const card = cards[index];
+      const neighbors = cards.filter((candidate) => {
+        if (!candidate.row || !candidate.column || !card.row || !card.column) return false;
+        const rowDistance = Math.abs(candidate.row - card.row);
+        const columnDistance = Math.abs(candidate.column - card.column);
+        return rowDistance <= 1 && columnDistance <= 1 && rowDistance + columnDistance > 0;
+      });
+      layoutEvidence.push(
+        `${name}落第${index + 1}宫（${card.house}宫，第${card.row}排第${card.column}列）；近身牌${neighbors.map((item) => item.name).join('、')}`,
+      );
+    }
+    const houseMatches = cards.filter((card) => card.house === card.name);
+    if (houseMatches.length) {
+      layoutEvidence.push(
+        `归宫牌：${houseMatches.map((card) => `${card.name}回到本宫`).join('、')}`,
+      );
+    }
+  }
+  return layoutEvidence;
+}
+
+function buildLenormandDraw(
+  cards: LenormandData['cards'],
+  source: AuditedLenormandSource,
+): NonNullable<LenormandData['draw']> {
+  return {
+    deckSize: LENORMAND_CARDS.length,
+    method:
+      source === 'manual'
+        ? '用户按牌位手工录入'
+        : source === 'interactive'
+          ? '用户逐张触发前端随机抽取'
+          : 'Fisher-Yates洗牌后依牌位顺序取顶牌',
+    order: cards.map((card, index) => ({
+      index: index + 1,
+      position: card.position,
+      cardId: card.id,
+      cardName: card.name,
+      house: card.house,
+      row: card.row,
+      column: card.column,
+    })),
+  };
+}
+
+function assertLenormandTimestamp(timestamp: number): number {
+  if (
+    !Number.isSafeInteger(timestamp) ||
+    timestamp < 0 ||
+    Number.isNaN(new Date(timestamp).getTime())
+  ) {
+    throw new Error('雷诺曼结果时间戳无效，无法重建可信证据。');
+  }
+  return timestamp;
+}
+
+function normalizeLenormandRandomTrace(
+  input: LenormandData,
+  timestamp: number,
+): RandomTrace | undefined {
+  const rawTrace = input.meta?.random;
+  if (rawTrace === undefined) return undefined;
+  const trace = createResultMeta({
+    algorithm: 'lenormand.audit.trace',
+    input: { spreadType: input.spreadType },
+    calculatedAt: timestamp,
+    random: rawTrace,
+  }).random!;
+  if (trace.mode === 'seeded' && trace.seed === undefined) {
+    throw new Error('雷诺曼 seeded 随机轨迹缺少种子，无法核验。');
+  }
+  if (trace.mode !== 'seeded' && trace.seed !== undefined) {
+    throw new Error('雷诺曼非 seeded 随机轨迹不应携带种子。');
+  }
+  if (trace.mode === 'seeded') {
+    const seeded = createSeededRandom(trace.seed!);
+    trace.samples.forEach((sample, index) => {
+      if (seeded() !== sample) {
+        throw new Error(`雷诺曼随机轨迹第${index + 1}个样本与种子不一致。`);
+      }
+    });
+    return trace;
+  }
+  return { mode: 'replay', samples: [...trace.samples] };
+}
+
+function replayLenormandCards(
+  spreadType: LenormandSpreadType,
+  trace: RandomTrace,
+): { source: Exclude<AuditedLenormandSource, 'manual'>; ids: number[] } {
+  const cardCount = LENORMAND_SPREADS[spreadType].positions.length;
+  const shuffleSampleCount = LENORMAND_CARDS.length - 1;
+  if (trace.samples.length === shuffleSampleCount) {
+    const deck = [...LENORMAND_CARDS];
+    for (let index = deck.length - 1, sampleIndex = 0; index > 0; index--, sampleIndex++) {
+      const targetIndex = Math.floor(trace.samples[sampleIndex] * (index + 1));
+      [deck[index], deck[targetIndex]] = [deck[targetIndex], deck[index]];
+    }
+    return { source: 'random', ids: deck.slice(0, cardCount).map((card) => card.id) };
+  }
+  if (trace.samples.length === cardCount) {
+    return {
+      source: 'interactive',
+      ids: resolveInteractiveLenormandCards(spreadType, trace.samples).map((card) => card.id),
+    };
+  }
+  throw new Error(
+    `${LENORMAND_SPREADS[spreadType].name}随机轨迹应为${shuffleSampleCount}个完整洗牌样本或${cardCount}个逐张抽牌样本，当前为${trace.samples.length}个。`,
+  );
+}
+
+/** 只保留牌阵、牌号与可核验来源，其余牌面、组合和布局事实一律按标准资料重建。 */
+export function rebuildAuditedLenormandData(input: LenormandData): LenormandData {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('雷诺曼结果必须是对象。');
+  }
+  const spread = LENORMAND_SPREADS[input.spreadType];
+  if (!spread) throw new Error(`未知的雷诺曼牌阵类型: ${String(input.spreadType)}`);
+  if (!Array.isArray(input.cards) || input.cards.length !== spread.positions.length) {
+    throw new Error(`${spread.name}必须完整记录${spread.positions.length}张牌。`);
+  }
+  const timestamp = assertLenormandTimestamp(input.timestamp);
+  const ids = input.cards.map((card, index) => {
+    if (!card || typeof card !== 'object' || !Number.isSafeInteger(card.id)) {
+      throw new Error(`第${index + 1}张雷诺曼牌号无效。`);
+    }
+    if (!LENORMAND_CARDS.some((reference) => reference.id === card.id)) {
+      throw new Error(`第${index + 1}张雷诺曼牌号不在标准36张牌组中。`);
+    }
+    return card.id;
+  });
+  if (new Set(ids).size !== ids.length) throw new Error('同一次雷诺曼牌阵不能出现重复牌号。');
+
+  const trace = normalizeLenormandRandomTrace(input, timestamp);
+  let source: AuditedLenormandSource;
+  if (trace) {
+    const replayed = replayLenormandCards(input.spreadType, trace);
+    source = replayed.source;
+    replayed.ids.forEach((id, index) => {
+      if (ids[index] !== id) {
+        throw new Error(`第${index + 1}张雷诺曼牌与随机轨迹重放结果不一致。`);
+      }
+    });
+  } else if (input.draw?.method === '用户按牌位手工录入') {
+    source = 'manual';
+  } else {
+    throw new Error('雷诺曼随机抽牌缺少完整随机轨迹，且未声明为手工录入，无法建立可信来源。');
+  }
+
+  const selectedCards = ids.map((id) => LENORMAND_CARDS.find((card) => card.id === id)!);
+  const cards = buildLenormandCards(input.spreadType, selectedCards);
+  const combinations = buildLenormandCombinations(input.spreadType, cards);
+  const layoutEvidence = buildLenormandLayoutEvidence(input.spreadType, cards);
+  const rebuilt: LenormandData = {
+    spreadType: input.spreadType,
+    spreadName: spread.name,
+    draw: buildLenormandDraw(cards, source),
+    cards,
+    combinations,
+    layoutEvidence,
+    timestamp,
+    meta: createResultMeta({
+      algorithm:
+        source === 'manual'
+          ? 'lenormand.spread.manual'
+          : source === 'interactive'
+            ? 'lenormand.spread.interactive'
+            : 'lenormand.spread',
+      input:
+        source === 'manual'
+          ? { spreadType: input.spreadType, manualCardIds: ids }
+          : { spreadType: input.spreadType },
+      calculatedAt: timestamp,
+      ...(trace ? { random: trace } : {}),
+    }),
+  };
+  rebuilt.evidenceAnalysis = analyzeRebuiltLenormandEvidence(rebuilt);
+  return rebuilt;
+}
+
+/** 所有公开证据分析均先经过可信重建，禁止旧派生字段直接进入提示词。 */
+export function analyzeLenormandEvidence(input: LenormandData) {
+  return rebuildAuditedLenormandData(input).evidenceAnalysis!;
+}
+
 /**
  * 抽取雷诺曼牌阵
  *
@@ -485,81 +720,17 @@ export function drawLenormandSpread(
     : interactiveSamples
       ? resolveInteractiveLenormandCards(spreadType, interactiveSamples)
       : shuffleCards(context!.random).slice(0, spread.positions.length);
-  const cards = selectedCards.map((card, index) => {
-    const columns = spreadType === 'grandTableau' ? 9 : spreadType === 'nine' ? 3 : 0;
-    const houseCard = spreadType === 'grandTableau' ? LENORMAND_CARDS[index] : undefined;
-    if (spreadType === 'grandTableau' && !houseCard) {
-      throw new Error(`雷诺曼第${index + 1}宫缺少对应宫位牌`);
-    }
-    return {
-      ...card,
-      position: spread.positions[index],
-      house: houseCard?.name,
-      row: columns ? Math.floor(index / columns) + 1 : undefined,
-      column: columns ? (index % columns) + 1 : undefined,
-    };
-  });
+  const cards = buildLenormandCards(spreadType, selectedCards);
 
   const combinations = buildLenormandCombinations(spreadType, cards);
 
-  const layoutEvidence: string[] = [];
-  if (spreadType === 'nine') {
-    const center = cards[4];
-    layoutEvidence.push(
-      `中心牌${center.name}是九宫主轴；上排为背景与思考，中排为当下，下排为落地走向`,
-    );
-    layoutEvidence.push(
-      `横向：${cards
-        .slice(3, 6)
-        .map((card) => card.name)
-        .join('→')}；纵向：${[cards[1], cards[4], cards[7]].map((card) => card.name).join('→')}`,
-    );
-    layoutEvidence.push(
-      `对角线：${[cards[0], cards[4], cards[8]].map((card) => card.name).join('→')}；${[cards[2], cards[4], cards[6]].map((card) => card.name).join('→')}`,
-    );
-  }
-  if (spreadType === 'grandTableau') {
-    const keyCards = ['男士', '女士'];
-    keyCards.forEach((name) => {
-      const index = cards.findIndex((card) => card.name === name);
-      if (index < 0) return;
-      const card = cards[index];
-      const neighbors = cards.filter((candidate) => {
-        if (!candidate.row || !candidate.column || !card.row || !card.column) return false;
-        const rowDistance = Math.abs(candidate.row - card.row);
-        const columnDistance = Math.abs(candidate.column - card.column);
-        return rowDistance <= 1 && columnDistance <= 1 && rowDistance + columnDistance > 0;
-      });
-      layoutEvidence.push(
-        `${name}落第${index + 1}宫（${card.house}宫，第${card.row}排第${card.column}列）；近身牌${neighbors.map((item) => item.name).join('、')}`,
-      );
-    });
-    const houseMatches = cards.filter((card) => card.house === card.name);
-    if (houseMatches.length) {
-      layoutEvidence.push(
-        `归宫牌：${houseMatches.map((card) => `${card.name}回到本宫`).join('、')}`,
-      );
-    }
-  }
+  const layoutEvidence = buildLenormandLayoutEvidence(spreadType, cards);
 
   const timestamp = Date.now();
-  const draw: NonNullable<LenormandData['draw']> = {
-    deckSize: LENORMAND_CARDS.length,
-    method: manualCardIds
-      ? '用户按牌位手工录入'
-      : interactiveSamples
-        ? '用户逐张触发前端随机抽取'
-        : 'Fisher-Yates洗牌后依牌位顺序取顶牌',
-    order: cards.map((card, index) => ({
-      index: index + 1,
-      position: card.position,
-      cardId: card.id,
-      cardName: card.name,
-      house: card.house,
-      row: card.row,
-      column: card.column,
-    })),
-  };
+  const draw = buildLenormandDraw(
+    cards,
+    manualCardIds ? 'manual' : interactiveSamples ? 'interactive' : 'random',
+  );
   const result = attachResultMeta(
     {
       spreadType,

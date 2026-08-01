@@ -6,6 +6,8 @@ import { analyzeMeihuaEvidence } from 'mingyu-core/divination/meihua';
 import { generateQimen } from 'mingyu-core/divination/qimen';
 import { generateLiuren } from 'mingyu-core/divination/liuren';
 import { generateXiaoliuren } from 'mingyu-core/divination/xiaoliuren';
+import { drawTarotSpread } from 'mingyu-core/divination/tarot';
+import { drawLenormandSpread } from 'mingyu-core/divination/lenormand';
 
 import { buildDivinationPrompt } from '../src/lib/divination/engine';
 import {
@@ -26,8 +28,10 @@ import type {
   LiuyaoTemplateType,
   LiurenData,
   LiurenTemplateType,
+  LenormandData,
   MeihuaData,
   SupplementaryInfo,
+  TarotData,
 } from '../src/types';
 
 const PROJECT_DECISION_QUESTION = '我现在应该继续推进这个项目，还是先调整策略再行动？';
@@ -475,15 +479,13 @@ function createData(method: FixtureMethod): DivinationData {
     case 'liuren':
       return generateLiuren(new Date('2025-06-18T10:30:00+08:00'));
     case 'tarot':
-      return {
-        spreadType: 'single',
-        spreadName: '单牌指引',
-        cards: [
-          { id: 1, name: '恋人', position: '现状', reversed: false, keywords: ['选择', '连接'] },
-          { id: 2, name: '战车', position: '建议', reversed: true, keywords: ['控制', '节奏'] },
+      return drawTarotSpread('three', {
+        manualCards: [
+          { id: 7, reversed: false },
+          { id: 8, reversed: true },
+          { id: 19, reversed: false },
         ],
-        timestamp: Date.now(),
-      };
+      });
     case 'ssgw':
       return {
         number: 18,
@@ -500,16 +502,7 @@ function createData(method: FixtureMethod): DivinationData {
 }
 
 function createLenormandData(): DivinationData {
-  return {
-    spreadType: 'relationship',
-    spreadName: '关系牌阵',
-    cards: [
-      { position: '现状', name: '骑士', keywords: ['消息', '推进'], meaning: '事情开始动起来。' },
-      { position: '阻碍', name: '山', keywords: ['阻碍', '拖延'], meaning: '进程会被卡住。' },
-      { position: '结果', name: '太阳', keywords: ['明朗', '成功'], meaning: '后续有机会转明。' },
-    ],
-    timestamp: Date.now(),
-  };
+  return drawLenormandSpread('relationship', { manualCardIds: [1, 21, 31, 24, 25] });
 }
 
 function createAlmanacData(): DivinationData {
@@ -1310,8 +1303,8 @@ test('塔罗提示词保留牌阵、牌位、关键词与牌义', () => {
 
   assert.match(prompt, /核心结构：牌阵/);
   assert.match(prompt, /牌位顺序：/);
-  assert.match(prompt, /- 现状：恋人（正位）；关键词：/);
-  assert.match(prompt, /- 建议：战车（逆位）；关键词：/);
+  assert.match(prompt, /- 过去：恋人（正位）；关键词：/);
+  assert.match(prompt, /- 现在：战车（逆位）；关键词：/);
   assert.match(prompt, /牌义：/);
   assert.doesNotMatch(prompt, /断牌口径|现实边界|结构化证据|证据汇总|解释边界/);
   assert.doesNotMatch(
@@ -1369,10 +1362,46 @@ test('雷诺曼提示词保留牌序、关键词、牌义与组合资料', () =>
 
   assert.match(prompt, /核心结构：牌阵/);
   assert.match(prompt, /牌位顺序：/);
-  assert.match(prompt, /现状：骑士.*牌义：/s);
-  assert.match(prompt, /阻碍：山.*牌义：/s);
+  assert.match(prompt, /你的状态：骑士.*牌义：/s);
+  assert.match(prompt, /对方状态：山.*牌义：/s);
   assert.doesNotMatch(prompt, /断牌口径|组合证据|不得把|结构化证据|证据汇总|解释边界/);
   assert.doesNotMatch(prompt, /核心牌|人物牌|事件链证据|组合权重/);
+});
+
+test('塔罗与雷诺曼提示词应由原始牌号重建，不吸收派生字段和旧证据污染', () => {
+  const tarot = createData('tarot') as TarotData;
+  const tarotPolluted = structuredClone(tarot);
+  tarotPolluted.spreadName = '伪造塔罗牌阵';
+  tarotPolluted.cards[0] = {
+    ...tarotPolluted.cards[0],
+    name: '伪造塔罗牌',
+    position: '伪造牌位',
+    keywords: ['保证成功'],
+    uprightMeaning: '伪造现实结论',
+  };
+  tarotPolluted.evidenceAnalysis!.promptText = '伪造旧塔罗证据';
+  assert.equal(
+    buildDivinationPrompt('tarot', '这件事接下来该怎么推进？', tarotPolluted),
+    buildDivinationPrompt('tarot', '这件事接下来该怎么推进？', tarot),
+  );
+
+  const lenormand = createLenormandData() as LenormandData;
+  const lenormandPolluted = structuredClone(lenormand);
+  lenormandPolluted.spreadName = '伪造雷诺曼牌阵';
+  lenormandPolluted.cards[0] = {
+    ...lenormandPolluted.cards[0],
+    name: '伪造雷诺曼牌',
+    position: '伪造牌位',
+    keywords: ['必然获利'],
+    meaning: '伪造现实结论',
+  };
+  lenormandPolluted.combinations = [{ card1: '伪造甲', card2: '伪造乙', meaning: '伪造组合' }];
+  lenormandPolluted.layoutEvidence = ['伪造布局'];
+  lenormandPolluted.evidenceAnalysis!.promptText = '伪造旧雷诺曼证据';
+  assert.equal(
+    buildDivinationPrompt('lenormand', '这件事接下来该怎么推进？', lenormandPolluted),
+    buildDivinationPrompt('lenormand', '这件事接下来该怎么推进？', lenormand),
+  );
 });
 
 test('星盘提示词应直接给出太阳月亮上升和主要相位资料', () => {

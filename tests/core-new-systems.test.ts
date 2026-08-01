@@ -687,18 +687,10 @@ test('tarot: 逐牌证据应区分正逆位、元素与牌阶', () => {
 
 test('tarot: 全部牌义应保留原文并生成条件化解释事实', () => {
   const facts = tarotCards.flatMap((card, index) => {
-    const cardEvidence = getCardEvidence(card.name);
     return [false, true].flatMap((reversed) => {
-      const data = drawTarotSpread('single', { seed: `牌义证据-${index}-${reversed}` });
-      data.cards = [
-        {
-          id: card.number,
-          name: card.name,
-          position: '当前指引',
-          reversed,
-          ...cardEvidence,
-        },
-      ];
+      const data = drawTarotSpread('single', {
+        manualCards: [{ id: index + 1, reversed }],
+      });
       return analyzeTarotEvidence(data).traditionalFacts;
     });
   });
@@ -722,7 +714,7 @@ test('tarot: 全部牌义应保留原文并生成条件化解释事实', () => {
   );
 });
 
-test('tarot: 旧结果缺少抽牌来源时应明确标记来源链缺失', () => {
+test('tarot: 旧派生抽牌记录缺失时应从随机轨迹完整重建', () => {
   const result = drawTarotSpread('single', { seed: '旧塔罗抽牌来源' });
   const evidence = analyzeTarotEvidence({
     ...result,
@@ -730,14 +722,8 @@ test('tarot: 旧结果缺少抽牌来源时应明确标记来源链缺失', () =
     evidenceAnalysis: undefined,
   });
 
-  assert.equal(evidence.drawFact.status, '来源链缺失');
-  assert.equal(evidence.drawFact.recordedCardCount, 0);
-  assert.match(evidence.drawFact.promptText, /不能反推完整抽牌来源链/);
-  assert.ok(
-    evidence.evidence.items.some(
-      (item) => item.level === '反证' && item.title === '抽牌来源链缺失',
-    ),
-  );
+  assert.deepEqual(evidence, result.evidenceAnalysis);
+  assert.equal(evidence.drawFact.status, '可核验');
 });
 
 test('tarot: 条件化牌义不得把象征解释写成现实事实', () => {

@@ -7,6 +7,7 @@ import {
   drawLenormandSpread,
   LENORMAND_CARDS,
   LENORMAND_FIXED_COMBINATIONS,
+  rebuildAuditedLenormandData,
   resolveInteractiveLenormandCards,
 } from '../packages/core/src/divination/algorithms/lenormand.ts';
 import type { LenormandData, LenormandSpreadType } from '../packages/core/src/types/divination.ts';
@@ -247,12 +248,7 @@ test('雷诺曼手动抽取应按样本逐张无重复翻牌并保留可重放�
 
 test('雷诺曼全部单牌应保留原文并生成关键词核验范围', () => {
   const facts = LENORMAND_CARDS.flatMap((card) => {
-    const data: LenormandData = {
-      spreadType: 'single',
-      spreadName: '单牌线索',
-      cards: [{ ...card, position: '核心线索' }],
-      timestamp: 0,
-    };
+    const data = drawLenormandSpread('single', { manualCardIds: [card.id] });
     return analyzeLenormandEvidence(data).traditionalFacts;
   });
 
@@ -276,23 +272,17 @@ test('雷诺曼全部单牌应保留原文并生成关键词核验范围', () =>
 });
 
 test('雷诺曼全部固定组合应保留原文并生成条件化核验事实', () => {
-  const facts = Object.entries(LENORMAND_FIXED_COMBINATIONS).flatMap(([pair, meaning], index) => {
+  const facts = Object.entries(LENORMAND_FIXED_COMBINATIONS).flatMap(([pair, meaning]) => {
     const [firstName, secondName] = pair.split('+');
     const first = LENORMAND_CARDS.find((card) => card.name === firstName);
     const second = LENORMAND_CARDS.find((card) => card.name === secondName);
     assert.ok(first && second, `${pair} 应引用有效牌名`);
-    const data: LenormandData = {
-      spreadType: 'three',
-      spreadName: '组合审计',
-      cards: [
-        { ...first, position: '前牌' },
-        { ...second, position: '后牌' },
-      ],
-      combinations: [{ card1: first.name, card2: second.name, meaning, source: '固定组合' }],
-      timestamp: index,
-    };
+    const third = LENORMAND_CARDS.find((card) => card.id !== first.id && card.id !== second.id)!;
+    const data = drawLenormandSpread('three', {
+      manualCardIds: [first.id, second.id, third.id],
+    });
     return analyzeLenormandEvidence(data).traditionalFacts.filter(
-      (item) => item.kind === '固定组合',
+      (item) => item.kind === '固定组合' && item.originalText === meaning,
     );
   });
 
@@ -332,22 +322,16 @@ test('雷诺曼条件化函数应区分固定组合与普通相邻合读', () =>
   assert.doesNotMatch(adjacent, /先看房子，再看孩子/);
 });
 
-test('雷诺曼旧数据缺少抽牌来源时应明确保留证据缺口', () => {
+test('雷诺曼旧派生抽牌记录缺失时应从随机轨迹完整重建', () => {
   const result = drawLenormandSpread('single', { seed: 1 });
   const legacyData = { ...result, draw: undefined, evidenceAnalysis: undefined };
   const analysis = result.evidenceAnalysis;
 
   assert.ok(analysis);
   const legacyAnalysis = analyzeLenormandEvidence(legacyData);
-  const missingItem = legacyAnalysis.evidence.items.find((item) => item.title === '抽牌来源链缺失');
-  assert.equal(legacyAnalysis.drawFact.status, '来源链缺失');
-  assert.equal(legacyAnalysis.drawFact.recordedCardCount, 0);
-  assert.equal(legacyAnalysis.summaryFact.status, '证据链有缺口');
-  assert.equal(legacyAnalysis.calculationSteps[1]?.status, '资料不足');
-  assert.equal(legacyAnalysis.calculationSteps[7]?.status, '资料不足');
-  assert.match(legacyAnalysis.drawFact.promptText, /不能反推完整抽牌来源链/);
-  assert.equal(missingItem?.level, '反证');
-  assert.match(missingItem?.detail || '', /不能反推完整抽牌来源链/);
+  assert.deepEqual(legacyAnalysis, analysis);
+  assert.equal(legacyAnalysis.drawFact.status, '可核验');
+  assert.equal(legacyAnalysis.drawFact.recordedCardCount, 1);
 });
 
 test('雷诺曼未知牌阵应明确报错，不应静默退回单牌', () => {
@@ -471,7 +455,7 @@ test('雷诺曼单牌不应伪造相邻关系，多牌应逐对引用相邻牌�
   );
 });
 
-test('雷诺曼抽牌序号、牌面或布局落点不一致时应明确标记', () => {
+test('雷诺曼派生抽牌与布局记录被污染时应忽略并按可信来源重建', () => {
   const result = drawLenormandSpread('nine', { seed: '雷诺曼来源一致性' });
   const tampered: LenormandData = structuredClone(result);
   tampered.draw!.order[1].index = 1;
@@ -480,109 +464,56 @@ test('雷诺曼抽牌序号、牌面或布局落点不一致时应明确标记',
   tampered.evidenceAnalysis = undefined;
   const evidence = analyzeLenormandEvidence(tampered);
 
-  assert.equal(evidence.drawFact.status, '来源链不一致');
-  assert.deepEqual(evidence.drawFact.mismatchIndexes, [2]);
-  assert.equal(evidence.drawOrderFacts[1].status, '不一致');
-  assert.deepEqual(evidence.drawOrderFacts[1].mismatches, [
-    '记录序号应为2',
-    `牌名应为${result.cards[1].name}`,
-    '行号应为1',
-  ]);
-  assert.ok(
-    evidence.evidence.items.some(
-      (item) => item.level === '反证' && item.title === '抽牌来源链不一致',
-    ),
-  );
+  assert.deepEqual(evidence, result.evidenceAnalysis);
+  assert.equal(evidence.drawFact.status, '可核验');
 });
 
-test('雷诺曼牌位、顺序和牌号异常时应给出可定位的覆盖事实', () => {
+test('雷诺曼派生字段污染应被覆盖，牌号、牌数和牌阵异常应失败关闭', () => {
   const result = drawLenormandSpread('three', { seed: '雷诺曼覆盖异常' });
   const tampered: LenormandData = structuredClone(result);
   tampered.cards[1].position = tampered.cards[0].position;
+  tampered.cards[1].name = '伪造牌名';
+  tampered.cards[1].keywords = ['伪造关键词'];
+  tampered.cards[1].meaning = '伪造牌义';
+  tampered.spreadName = '伪造牌阵';
+  tampered.combinations = [{ card1: '伪造甲', card2: '伪造乙', meaning: '伪造组合' }];
+  tampered.layoutEvidence = ['伪造布局'];
+  tampered.evidenceAnalysis = structuredClone(result.evidenceAnalysis);
+  tampered.evidenceAnalysis!.promptText = '伪造旧证据';
+  assert.deepEqual(rebuildAuditedLenormandData(tampered), rebuildAuditedLenormandData(result));
+
   tampered.cards[1].id = tampered.cards[0].id;
-  tampered.evidenceAnalysis = undefined;
-  const evidence = analyzeLenormandEvidence(tampered);
-
-  assert.equal(evidence.spreadCoverageFact.status, '牌位异常');
-  assert.equal(evidence.summaryFact.status, '证据链有缺口');
-  assert.equal(evidence.calculationSteps[2]?.status, '资料不足');
-  assert.equal(evidence.calculationSteps[7]?.status, '资料不足');
-  assert.deepEqual(evidence.spreadCoverageFact.missingPositions, ['现状']);
-  assert.deepEqual(evidence.spreadCoverageFact.duplicatePositions, ['起因']);
-  assert.deepEqual(evidence.spreadCoverageFact.positionOrderMismatches, [2]);
-  assert.deepEqual(evidence.spreadCoverageFact.duplicateCardIds, [tampered.cards[0].id]);
-
-  const missingCard = analyzeLenormandEvidence({
-    ...result,
-    cards: result.cards.slice(0, 2),
-    evidenceAnalysis: undefined,
-  });
-  assert.equal(missingCard.spreadCoverageFact.status, '牌数不符');
-  assert.equal(missingCard.spreadCoverageFact.actualCardCount, 2);
-
-  const unknownSpread = analyzeLenormandEvidence({
-    ...result,
-    spreadType: 'unknown' as LenormandSpreadType,
-    spreadName: '未声明牌阵',
-    evidenceAnalysis: undefined,
-  });
-  assert.equal(unknownSpread.spreadCoverageFact.status, '未知牌阵');
-  assert.equal(unknownSpread.spreadCoverageFact.expectedCardCount, null);
+  assert.throws(() => analyzeLenormandEvidence(tampered), /不能出现重复牌号/);
+  assert.throws(
+    () => analyzeLenormandEvidence({ ...result, cards: result.cards.slice(0, 2) }),
+    /必须完整记录3张牌/,
+  );
+  assert.throws(
+    () => analyzeLenormandEvidence({ ...result, spreadType: 'unknown' as LenormandSpreadType }),
+    /未知的雷诺曼牌阵类型/,
+  );
 });
 
-test('雷诺曼旧布局文字只能兼容展示，不得反推结构化布局', () => {
+test('雷诺曼布局派生字段缺失或污染时应按牌阵与牌序重建', () => {
   const result = drawLenormandSpread('nine', { seed: '雷诺曼旧布局兼容' });
-  const legacy = analyzeLenormandEvidence({
+  const rebuilt = rebuildAuditedLenormandData({
     ...result,
-    cards: result.cards.slice(0, 8),
-    draw: undefined,
-    evidenceAnalysis: undefined,
-  });
-
-  assert.equal(legacy.layoutCoverageFact.status, '旧版字符串兼容');
-  assert.equal(legacy.layoutCoverageFact.structuredFactCount, 0);
-  assert.ok(legacy.layoutCoverageFact.legacyFactCount > 0);
-  assert.match(legacy.layoutCoverageFact.promptText, /不得反推缺失的行列、宫位或距离事实/);
-
-  const missing = analyzeLenormandEvidence({
-    ...result,
-    cards: result.cards.slice(0, 8),
-    draw: undefined,
     layoutEvidence: undefined,
+    combinations: undefined,
+    cards: result.cards.map((card) => ({ ...card, row: 9, column: 9, house: '伪造宫位' })),
     evidenceAnalysis: undefined,
   });
-  assert.equal(missing.layoutCoverageFact.status, '结构缺失');
-  assert.equal(missing.summaryFact.status, '证据链有缺口');
-  assert.equal(missing.calculationSteps[5]?.status, '资料不足');
-  assert.equal(missing.calculationSteps[7]?.status, '资料不足');
-  assert.equal(
-    missing.counterEvidenceFacts.find((fact) => fact.type === '布局覆盖')?.status,
-    '存在缺口',
-  );
+  assert.deepEqual(rebuilt, rebuildAuditedLenormandData(result));
+  assert.equal(rebuilt.evidenceAnalysis?.layoutCoverageFact.status, '结构化覆盖');
 });
 
 test('雷诺曼固定组合事实应引用两张所属牌并进入反证汇总', () => {
   const heart = LENORMAND_CARDS.find((card) => card.name === '心');
   const ring = LENORMAND_CARDS.find((card) => card.name === '戒指');
   assert.ok(heart && ring);
-  const evidence = analyzeLenormandEvidence({
-    spreadType: 'three',
-    spreadName: '固定组合引用',
-    cards: [
-      { ...heart, position: '起因' },
-      { ...ring, position: '现状' },
-      { ...LENORMAND_CARDS[0], position: '走向' },
-    ],
-    combinations: [
-      {
-        card1: heart.name,
-        card2: ring.name,
-        meaning: LENORMAND_FIXED_COMBINATIONS['心+戒指'],
-        source: '固定组合',
-      },
-    ],
-    timestamp: 0,
-  });
+  const evidence = analyzeLenormandEvidence(
+    drawLenormandSpread('three', { manualCardIds: [heart.id, ring.id, 1] }),
+  );
   const fixed = evidence.traditionalFacts.find((fact) => fact.kind === '固定组合');
 
   assert.ok(fixed);
@@ -595,4 +526,35 @@ test('雷诺曼固定组合事实应引用两张所属牌并进入反证汇总',
     evidence.counterEvidenceFacts.find((fact) => fact.type === '固定组合覆盖')?.ownerFactKeys,
     [fixed.key],
   );
+});
+
+test('雷诺曼36张标准牌应逐张按牌号重建唯一名称与基础牌义', () => {
+  const rows = LENORMAND_CARDS.map((reference) => {
+    const rebuilt = rebuildAuditedLenormandData(
+      drawLenormandSpread('single', { manualCardIds: [reference.id] }),
+    );
+    const card = rebuilt.cards[0];
+    assert.equal(card.id, reference.id);
+    assert.equal(card.position, '核心线索');
+    assert.equal(card.keywords.length, 3);
+    assert.ok(card.meaning);
+    return [card.id, card.name];
+  });
+  assert.equal(new Set(rows.map((row) => row[0])).size, 36);
+  assert.equal(new Set(rows.map((row) => row[1])).size, 36);
+});
+
+test('雷诺曼随机轨迹应重放牌号，缺样本或污染原始牌序直接报错', () => {
+  const data = drawLenormandSpread('nine', { seed: '雷诺曼随机轨迹严格重放' });
+  const cardTampered = structuredClone(data);
+  cardTampered.cards[0].id = cardTampered.cards[0].id === 1 ? 2 : 1;
+  assert.throws(() => rebuildAuditedLenormandData(cardTampered), /与随机轨迹重放结果不一致/);
+
+  const traceTampered = structuredClone(data);
+  traceTampered.meta!.random!.samples.pop();
+  assert.throws(() => rebuildAuditedLenormandData(traceTampered), /随机轨迹应为/);
+
+  const seedTampered = structuredClone(data);
+  seedTampered.meta!.random!.seed = '伪造种子';
+  assert.throws(() => rebuildAuditedLenormandData(seedTampered), /样本与种子不一致/);
 });
