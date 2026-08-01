@@ -1053,6 +1053,7 @@ export interface AlmanacDayCandidate {
     source: string;
   } | null;
   nineStar: string;
+  /** @deprecated 仅供读取旧结果；当前不输出依赖库未注明底本版本的九星属性详情。 */
   nineStarDetail?: {
     fullName: string;
     color: string;
@@ -1064,9 +1065,13 @@ export interface AlmanacDayCandidate {
   gods: string[];
   recommends: string[];
   avoids: string[];
-  pengZu: string;
+  /** @deprecated 仅供读取旧结果；当前不输出底本与版本未闭合的彭祖百忌。 */
+  pengZu?: string;
+  /** @deprecated 仅供读取旧结果；当前不输出底本与版本未闭合的彭祖百忌。 */
   pengZuGan?: string;
+  /** @deprecated 仅供读取旧结果；当前不输出底本与版本未闭合的彭祖百忌。 */
   pengZuZhi?: string;
+  /** 当前仅保存可复算的日支固定相冲，例如“冲午”。 */
   clash: string;
   annualDirectionGods?: AlmanacAnnualDirectionGod[];
   highlights: string[];

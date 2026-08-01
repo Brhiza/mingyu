@@ -5,8 +5,6 @@ import { SolarDay } from 'tyme4ts';
 import {
   generateAlmanacSelection,
   getAlmanacAnnualDirectionGods,
-  getAlmanacNineStarDetail,
-  getAlmanacPengZuDetails,
   getAlmanacTwentyEightStarDetail,
 } from '../packages/core/src/divination/algorithms/almanac.ts';
 import { classifyAlmanacHourCandidate } from '../packages/core/src/divination/almanac-evidence.ts';
@@ -45,13 +43,10 @@ const HOUR_BRANCHES = [
 
 test('黄历基础资料缺失或输入非法时应明确报错', () => {
   assert.throws(() => getAlmanacTwentyEightStarDetail('未知宿'), /二十八宿资料缺失/);
-  assert.throws(() => getAlmanacNineStarDetail('十白'), /九星资料缺失/);
-  assert.throws(() => getAlmanacPengZuDetails('甲', '无'), /彭祖地支百忌资料缺失/);
-  assert.throws(() => getAlmanacPengZuDetails('无', '子'), /彭祖天干百忌资料缺失/);
   assert.throws(() => getAlmanacAnnualDirectionGods('无'), /年支无效/);
 });
 
-test('黄历择日：二十八宿与九星只保留可复算原生位置属性', () => {
+test('黄历择日：只保留已闭合的宿曜详情、九星名称与日支相冲', () => {
   const result = generateAlmanacSelection({
     topic: 'move',
     startDate: '2026-06-01',
@@ -64,9 +59,11 @@ test('黄历择日：二十八宿与九星只保留可复算原生位置属性',
     assert.ok(day.moonPhaseEvidence.phaseAngleDegrees >= 0);
     assert.ok(day.moonPhaseEvidence.phaseAngleDegrees < 360);
     assert.ok(day.nineStar, `${day.date} 应有九星名称`);
-    assert.ok(day.nineStarDetail, `${day.date} 的九星 ${day.nineStar} 应有详情`);
-    assert.match(day.nineStarDetail.fullName, new RegExp(`^${day.nineStar}`));
-    assert.equal(day.nineStarDetail.source, 'tyme4ts NineStar 原生属性');
+    assert.equal(day.nineStarDetail, undefined);
+    assert.equal(day.pengZu, undefined);
+    assert.equal(day.pengZuGan, undefined);
+    assert.equal(day.pengZuZhi, undefined);
+    assert.match(day.clash, /^冲[子丑寅卯辰巳午未申酉戌亥]$/);
     assert.ok(day.twentyEightStarDetail);
     assert.match(day.twentyEightStarDetail.fullName, new RegExp(`^${day.twentyEightStar}`));
     assert.equal(day.twentyEightStarDetail.source, 'tyme4ts TwentyEightStar 原生属性');
@@ -497,8 +494,6 @@ test('黄历择日：跨世纪与交节日期应符合独立历法真值', () =>
       HOUR_BRANCHES,
     );
     assert.ok(candidate.hours?.every((hour) => hour.ganzhi.endsWith(hour.branch)));
-    assert.match(candidate.pengZuGan || '', new RegExp(`^${day[0]}`));
-    assert.match(candidate.pengZuZhi || '', new RegExp(`^${day[1]}`));
   }
 });
 

@@ -102,7 +102,7 @@ export interface AlmanacCalendarFact {
   clash: string;
   promptText: string;
   sources: string[];
-  limitation: '公历、农历、干支、建除、十二神与冲煞是当前候选日的历法和规则字段，只用于确定比较条件，不单独证明现实吉凶或事项结果';
+  limitation: '公历、农历、干支、建除、十二神与日支相冲是当前候选日的历法和规则字段，只用于确定比较条件，不单独证明现实吉凶或事项结果';
 }
 
 export interface AlmanacCandidateEvidence {
@@ -249,7 +249,7 @@ function isDeprecatedAlmanacTopicRuleFact(fact: AlmanacTopicMatchFact): boolean 
 const TRADITIONAL_FACT_LIMITATION =
   '传统择日资料只用于当前事项的候选比较，不证明现实中的疾病、死亡、灾祸、官非、财损、婚姻或生育结果' as const;
 const CALENDAR_FACT_LIMITATION =
-  '公历、农历、干支、建除、十二神与冲煞是当前候选日的历法和规则字段，只用于确定比较条件，不单独证明现实吉凶或事项结果' as const;
+  '公历、农历、干支、建除、十二神与日支相冲是当前候选日的历法和规则字段，只用于确定比较条件，不单独证明现实吉凶或事项结果' as const;
 const HOUR_FACT_LIMITATION =
   '逐时时课只用于当前候选日内比较事项宜忌；十二神原生黄黑道分类只登记、不参与候选分组，参与人冲、固定刑、害、破关系仅在候选日层记录参考，不类推到时支；不证明该时辰必然成功、吉利或适合所有人' as const;
 const RAW_TABOO_FACT_LIMITATION =
@@ -294,20 +294,6 @@ function buildTraditionalFacts(day: AlmanacDayCandidate): AlmanacTraditionalFact
       limitation: TRADITIONAL_FACT_LIMITATION,
     });
   }
-  if (day.nineStarDetail) {
-    const detail = day.nineStarDetail;
-    const originalText = `${detail.fullName}，北斗${detail.dipper}，方位${detail.direction}`;
-    facts.push({
-      key: `${day.date}:nine-star:${day.nineStar}`,
-      date: day.date,
-      kind: '九星',
-      name: day.nineStar,
-      originalText,
-      promptText: originalText,
-      sources: [detail.source],
-      limitation: TRADITIONAL_FACT_LIMITATION,
-    });
-  }
   (day.annualDirectionGods ?? []).forEach((item) => {
     facts.push({
       key: `${day.date}:direction-god:${item.god}:${item.branch}`,
@@ -319,27 +305,6 @@ function buildTraditionalFacts(day: AlmanacDayCandidate): AlmanacTraditionalFact
       sources: ['岁支起太岁顺排十二神方位表'],
       branch: item.branch,
       direction: item.direction,
-      limitation: TRADITIONAL_FACT_LIMITATION,
-    });
-  });
-  const separatedPengZu = unique([day.pengZuGan ?? '', day.pengZuZhi ?? '']);
-  const pengZuTexts = separatedPengZu.length
-    ? separatedPengZu
-    : unique(
-        day.pengZu
-          .split(/\s+/)
-          .filter((text) => /^[甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥]不/.test(text)),
-      );
-  pengZuTexts.forEach((text, index) => {
-    if (!text) return;
-    facts.push({
-      key: `${day.date}:pengzu:${index}:${text.slice(0, 1)}`,
-      date: day.date,
-      kind: '彭祖百忌',
-      name: text.slice(0, 1),
-      originalText: text,
-      promptText: conditionAlmanacTraditionalText(text),
-      sources: ['彭祖百忌日干日支表（底本与版本未闭合）'],
       limitation: TRADITIONAL_FACT_LIMITATION,
     });
   });
@@ -446,7 +411,7 @@ export function classifyAlmanacCandidate(day: AlmanacDayCandidate): {
 }
 
 function buildCalendarFact(day: AlmanacDayCandidate): AlmanacCalendarFact {
-  const promptText = `${day.weekday}，${day.lunarDate}；年柱${day.ganzhi.year}、月柱${day.ganzhi.month}、日柱${day.ganzhi.day}，生肖${day.zodiac}；建除值日${day.dayOfficer}，十二神${day.twelveStar}，冲煞${day.clash}`;
+  const promptText = `${day.weekday}，${day.lunarDate}；年柱${day.ganzhi.year}、月柱${day.ganzhi.month}、日柱${day.ganzhi.day}，生肖${day.zodiac}；建除值日${day.dayOfficer}，十二神${day.twelveStar}，日支${day.clash}`;
   return {
     key: `${day.date}:calendar`,
     date: day.date,
@@ -458,7 +423,7 @@ function buildCalendarFact(day: AlmanacDayCandidate): AlmanacCalendarFact {
     twelveStar: day.twelveStar,
     clash: day.clash,
     promptText,
-    sources: ['tyme4ts 公历、农历与干支历换算', '建除值日、十二神、生肖与冲煞公共规则'],
+    sources: ['tyme4ts 公历、农历与干支历换算', '建除值日、十二神、生肖与日支相冲公共规则'],
     limitation: CALENDAR_FACT_LIMITATION,
   };
 }
@@ -907,23 +872,15 @@ function buildCandidateEvidence(
     calendarFacts: [
       `${day.weekday}，${day.lunarDate}`,
       `年柱${calendarFact.ganzhi.year}、月柱${calendarFact.ganzhi.month}、日柱${calendarFact.ganzhi.day}，生肖${calendarFact.zodiac}`,
-      `建除值日${calendarFact.dayOfficer}，十二神${calendarFact.twelveStar}，冲煞${calendarFact.clash}`,
+      `建除值日${calendarFact.dayOfficer}，十二神${calendarFact.twelveStar}，日支${calendarFact.clash}`,
     ],
     traditionalRuleFacts: [
       traditionalFacts.find((item) => item.kind === '二十八宿')
         ? `二十八宿：${traditionalFacts.find((item) => item.kind === '二十八宿')?.promptText}`
         : `二十八宿${day.twentyEightStar}（未附详情）`,
-      traditionalFacts.find((item) => item.kind === '九星')
-        ? `九星：${traditionalFacts.find((item) => item.kind === '九星')?.promptText}`
-        : `九星${day.nineStar}（未附详情）`,
+      `九星名称：${day.nineStar}（未附属性解释）`,
       `值日神煞：${day.gods.join('、') || '未列'}`,
       `原始宜项：${day.recommends.join('、') || '未列'}；原始忌项：${day.avoids.join('、') || '未列'}`,
-      `彭祖百忌：${
-        traditionalFacts
-          .filter((item) => item.kind === '彭祖百忌')
-          .map((item) => item.promptText)
-          .join('；') || '未列'
-      }`,
     ],
     directionFacts,
     topicMatches,
@@ -1150,7 +1107,7 @@ function buildCalculationSteps(params: {
         moonPhaseFactCount: params.candidates.length,
       },
       dependsOnStepKeys: ['almanac:calculation:scope'],
-      promptText: `逐日保存公农历、干支、建除、十二神、冲煞与中国标准时间正午月相，共${candidateCount}日`,
+      promptText: `逐日保存公农历、干支、建除、十二神、日支相冲与中国标准时间正午月相，共${candidateCount}日`,
       sources: unique([
         '逐日历法与月相资料完整性检查',
         ...params.candidates.flatMap((item) => [
@@ -1279,7 +1236,7 @@ function buildLimitationFacts(params: {
         ...params.candidates.flatMap((item) => [item.calendarFact.key, item.moonPhaseFact.key]),
       ]),
       promptText:
-        '只比较用户给定日期范围和事项；公农历、干支、建除、十二神、冲煞与月相只确定候选的历法和天文背景，不单独证明现实吉凶或事项结果',
+        '只比较用户给定日期范围和事项；公农历、干支、建除、十二神、日支相冲与月相只确定候选的历法和天文背景，不单独证明现实吉凶或事项结果',
       sources: ['候选范围、逐日历法事实与月相背景'],
     },
     {
@@ -1339,8 +1296,8 @@ function buildLimitationFacts(params: {
         ]),
       ]),
       promptText:
-        '月相只作为中国标准时间正午的天文背景，不参与候选排序；二十八宿、九星、全年方位神和彭祖百忌属于传统比较资料，不证明疾病、死亡、灾祸、官非、财损、婚姻或生育结果',
-      sources: ['逐日月相、二十八宿、九星、全年方位神与彭祖百忌事实'],
+        '月相只作为中国标准时间正午的天文背景，不参与候选排序；二十八宿位置属性、九星名称和全年方位神属于传统比较资料，不证明疾病、死亡、灾祸、官非、财损、婚姻或生育结果',
+      sources: ['逐日月相、二十八宿位置属性、九星名称与全年方位神事实'],
     },
     {
       key: 'almanac:limitation:reality-high-risk',
@@ -1443,7 +1400,7 @@ export function analyzeAlmanacEvidence(data: AlmanacData): AlmanacEvidenceAnalys
       level: item.status === '慎用候选' ? '反证' : item.status === '可用候选' ? '主证' : '辅证',
       title: `${item.date}${item.status}`,
       detail: formatCandidate(item),
-      source: `${item.calendarFact.sources.join('、')}；二十八宿、九星、彭祖百忌、全年方位神、事项宜忌、参与人冲、固定刑、害、破；${item.usableHours[0]?.sources.join('、') ?? '逐时时课'}；月相取中国标准时间正午的celestine日月黄经`,
+      source: `${item.calendarFact.sources.join('、')}；二十八宿位置属性、九星名称、全年方位神、事项宜忌、参与人冲、固定刑、害、破；${item.usableHours[0]?.sources.join('、') ?? '逐时时课'}；月相取中国标准时间正午的celestine日月黄经`,
       tags: [item.status, data.topicLabel],
     })),
     {

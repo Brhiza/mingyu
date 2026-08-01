@@ -774,7 +774,7 @@ function formatAlmanacInfo(input: AlmanacData) {
   const preferred = evidenceAnalysis.preferredDates || [];
   const conditional = evidenceAnalysis.conditionalDates || [];
   const caution = evidenceAnalysis.cautionDates || [];
-  const mainLine = `事项主线：围绕${data.topicLabel}，先核对原始宜忌，再并列查看建除、神煞、冲煞与参与人年支、日支的冲、固定刑、害、破参考关系；寅巳申、丑戌未任意二支不命名相刑，参与人双支关系不自动改变分组；可用候选${preferred.join('、') || '暂无'}，条件候选${conditional.join('、') || '暂无'}，慎用候选${caution.join('、') || '暂无'}；同组按日期先后列出，不按证据数量生成名次`;
+  const mainLine = `事项主线：围绕${data.topicLabel}，先核对原始宜忌，再并列查看建除、神煞、日支相冲与参与人年支、日支的冲、固定刑、害、破参考关系；寅巳申、丑戌未任意二支不命名相刑，参与人双支关系不自动改变分组；可用候选${preferred.join('、') || '暂无'}，条件候选${conditional.join('、') || '暂无'}，慎用候选${caution.join('、') || '暂无'}；同组按日期先后列出，不按证据数量生成名次`;
   const participantLines = data.participants.map((item) => {
     const useful = '自动喜忌规则保持关闭，本次不读取喜忌五行';
     return `- ${item.name}：${item.gender || '性别未填'}，公历${item.solarDate}，农历${item.lunarDate}，生肖${item.zodiac}，日主${item.dayMaster}${item.dayMasterElement}，四柱${item.pillars.year}年 ${item.pillars.month}月 ${item.pillars.day}日 ${item.pillars.hour}时，${useful}`;
@@ -784,16 +784,10 @@ function formatAlmanacInfo(input: AlmanacData) {
       (candidateItem) => candidateItem.date === item.date,
     );
     const starFact = candidate?.traditionalFacts.find((fact) => fact.kind === '二十八宿');
-    const nineStarFact = candidate?.traditionalFacts.find((fact) => fact.kind === '九星');
     const starDetail = starFact
       ? `（${starFact.promptText}）`
       : item.twentyEightStarDetail
         ? `（${item.twentyEightStarDetail.fullName}，${item.twentyEightStarDetail.zone}方七宿）`
-        : '';
-    const nineStarDetail = nineStarFact
-      ? `（${nineStarFact.promptText}）`
-      : item.nineStarDetail
-        ? `（${item.nineStarDetail.fullName}，北斗${item.nineStarDetail.dipper}，方位${item.nineStarDetail.direction}）`
         : '';
     const godText = formatAlmanacGodFacts(item.godFacts, item.gods);
     const annualDirectionGodsText = formatAlmanacAnnualDirectionGods(candidate);
@@ -817,7 +811,7 @@ function formatAlmanacInfo(input: AlmanacData) {
         : '',
     ].filter(Boolean);
     const status = candidate?.status;
-    return `- 候选日期：${item.date} ${item.weekday}${status ? `，${status}` : ''}，${item.lunarDate}，${item.ganzhi.year}年 ${item.ganzhi.month}月 ${item.ganzhi.day}日；${item.dayOfficer}执日，十二神${item.twelveStar}，二十八宿${item.twentyEightStar}${starDetail}，九星${item.nineStar}${nineStarDetail}，${item.clash}；${evidence.join('；')}`;
+    return `- 候选日期：${item.date} ${item.weekday}${status ? `，${status}` : ''}，${item.lunarDate}，${item.ganzhi.year}年 ${item.ganzhi.month}月 ${item.ganzhi.day}日；${item.dayOfficer}执日，十二神${item.twelveStar}，二十八宿${item.twentyEightStar}${starDetail}，九星名称${item.nineStar}（未附属性解释），日支${item.clash}；${evidence.join('；')}`;
   });
   const topicScopeEvidence = data.topic === 'custom' ? '' : `事项范围：${data.topicLabel}`;
   const participantFitEvidence = data.participants.length

@@ -249,7 +249,7 @@ test('黄历择日候选资料为空时应明确标记缺失，不生成伪最�
   assert.ok(evidence.limitationFacts.every((item) => item.ownerFactKeys.length > 0));
 });
 
-test('择日证据应保留日课、宿曜、九星、百忌、方位神与逐时时课来源', () => {
+test('择日证据应保留日课、宿曜、九星名称、方位神与逐时时课来源', () => {
   const result = generateAlmanacSelection({
     topic: 'travel',
     startDate: '2025-01-01',
@@ -262,7 +262,7 @@ test('择日证据应保留日课、宿曜、九星、百忌、方位神与逐�
   assert.ok(candidate.calendarFacts.some((item) => item.includes('建除值日')));
   assert.ok(candidate.traditionalRuleFacts.some((item) => item.includes('二十八宿')));
   assert.ok(candidate.traditionalRuleFacts.some((item) => item.includes('九星')));
-  assert.ok(candidate.traditionalRuleFacts.some((item) => item.includes('彭祖百忌')));
+  assert.ok(candidate.traditionalRuleFacts.every((item) => !item.includes('彭祖百忌')));
   assert.ok(candidate.directionFacts.some((item) => item.includes('太岁')));
   assert.ok(candidate.usableHours.length > 0);
   assert.ok(
@@ -709,7 +709,7 @@ test('择日传统资料应保留原文并为提示词生成条件化事实', ()
   assert.ok(evidence.traditionalFacts.length > 0);
   assert.deepEqual(
     new Set(evidence.traditionalFacts.map((item) => item.kind)),
-    new Set(['二十八宿', '九星', '全年方位神', '彭祖百忌']),
+    new Set(['二十八宿', '全年方位神']),
   );
   assert.ok(
     evidence.traditionalFacts.every(
@@ -743,7 +743,7 @@ test('择日传统资料应保留原文并为提示词生成条件化事实', ()
   );
 });
 
-test('九星、全年方位神与彭祖百忌高风险解释不得软化后继续输出', () => {
+test('遗留传统高风险解释文本不得软化后继续输出', () => {
   const traditionalTexts = [
     '二黑巨门星，主疾病、破财、是非',
     '五黄廉贞星，大凶，主凶灾、病患',
@@ -762,31 +762,6 @@ test('九星、全年方位神与彭祖百忌高风险解释不得软化后继�
 
   const safeFact = '二黑巨门星位于西南方；当前只记录名称与位置。';
   assert.equal(conditionAlmanacTraditionalText(safeFact), safeFact);
-});
-
-test('旧黄历只有合并彭祖百忌时也应拆分并失败关闭未校解释', () => {
-  const data = generateAlmanacSelection({
-    topic: 'renovation',
-    startDate: '2026-04-28',
-    endDate: '2026-04-28',
-  });
-  const day = data.days[0];
-  day.pengZuGan = undefined;
-  day.pengZuZhi = undefined;
-  day.pengZu = '壬不泱水更难提防 申不安床鬼祟入房';
-
-  const evidence = analyzeAlmanacEvidence(data);
-  const pengZuFacts = evidence.traditionalFacts.filter((item) => item.kind === '彭祖百忌');
-
-  assert.equal(pengZuFacts.length, 2);
-  assert.deepEqual(
-    pengZuFacts.map((item) => item.promptText),
-    [
-      '未采用传统解释；当前只保留可复算历法与位置事实，待明确底本、版本和适用条件后继续核验',
-      '未采用传统解释；当前只保留可复算历法与位置事实，待明确底本、版本和适用条件后继续核验',
-    ],
-  );
-  assert.doesNotMatch(evidence.promptText, /鬼祟入房|更难提防/);
 });
 
 test('择日公开证据不得暴露内部加分措辞', () => {

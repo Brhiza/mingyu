@@ -1,9 +1,9 @@
-import { NineStar, SolarDay, SolarTime, TwentyEightStar } from 'tyme4ts';
+import { SolarDay, SolarTime, TwentyEightStar } from 'tyme4ts';
 import { baziCalculator } from '../../bazi/baziCalculator';
 import { getBirthDateValidationMessage } from '../../calendar/date-validation';
 import { SHICHEN_PERIODS } from '../../calendar/dateUtils';
 import { calculateMoonPhaseEvidence } from '../../calendar/moon-phase-evidence';
-import { EARTHLY_BRANCHES, HEAVENLY_STEMS } from '../../ganzhi/data';
+import { EARTHLY_BRANCHES } from '../../ganzhi/data';
 import {
   getBranchWuxing,
   getOppositeBranch,
@@ -375,23 +375,6 @@ export function getAlmanacTwentyEightStarDetail(name: string) {
   }
 }
 
-export function getAlmanacNineStarDetail(name: string) {
-  const normalizedName = name.slice(0, 1);
-  try {
-    const star = NineStar.fromName(normalizedName);
-    return {
-      fullName: star.toString(),
-      color: star.getColor(),
-      wuxing: star.getElement().getName(),
-      dipper: star.getDipper().getName(),
-      direction: star.getDirection().getName(),
-      source: 'tyme4ts NineStar 原生属性',
-    };
-  } catch {
-    throw new Error(`黄历九星资料缺失：${name || '空值'}`);
-  }
-}
-
 export function getAlmanacAnnualDirectionGods(yearBranch: string): AlmanacAnnualDirectionGod[] {
   const startIndex = (EARTHLY_BRANCHES as readonly string[]).indexOf(yearBranch);
   if (startIndex < 0) {
@@ -413,37 +396,6 @@ export function getAlmanacAnnualDirectionGods(yearBranch: string): AlmanacAnnual
  * 先胜(吉)、友引(吉)、先负(凶)、佛灭(凶)、大安(吉)、赤口(凶)
  */
 
-/**
- * 彭祖百忌（每日天干地支对应的禁忌）：
- */
-const PENGZU_DAY_GAN: Record<string, string> = {
-  甲: '甲不开仓财物耗散',
-  乙: '乙不栽植千株不长',
-  丙: '丙不修灶必见灾殃',
-  丁: '丁不剃头头必生疮',
-  戊: '戊不受田田主不祥',
-  己: '己不破券二比并亡',
-  庚: '庚不经络织机虚张',
-  辛: '辛不合酱主人不尝',
-  壬: '壬不汲水更难提防',
-  癸: '癸不词讼理弱敌强',
-};
-
-const PENGZU_DAY_ZHI: Record<string, string> = {
-  子: '子不问卜自惹祸殃',
-  丑: '丑不冠带主不还乡',
-  寅: '寅不祭祀神鬼不尝',
-  卯: '卯不穿井水泉不香',
-  辰: '辰不哭泣必主重丧',
-  巳: '巳不远行财物伏藏',
-  午: '午不苫盖屋主更张',
-  未: '未不服药毒气入肠',
-  申: '申不安床鬼祟入房',
-  酉: '酉不宴客醉坐颠狂',
-  戌: '戌不吃狗作怪上床',
-  亥: '亥不嫁娶不利新郎',
-};
-
 function assertExactReferenceKeys(
   label: string,
   record: Record<string, unknown>,
@@ -462,8 +414,6 @@ function assertExactReferenceKeys(
 }
 
 export function validateAlmanacReferenceData(): void {
-  assertExactReferenceKeys('彭祖天干百忌', PENGZU_DAY_GAN, HEAVENLY_STEMS);
-  assertExactReferenceKeys('彭祖地支百忌', PENGZU_DAY_ZHI, EARTHLY_BRANCHES);
   assertExactReferenceKeys('地支方位', BRANCH_DIRECTIONS, EARTHLY_BRANCHES);
   if (
     ANNUAL_DIRECTION_GOD_SEQUENCE.length !== EARTHLY_BRANCHES.length ||
@@ -471,13 +421,6 @@ export function validateAlmanacReferenceData(): void {
   ) {
     throw new Error('黄历岁支十二神资料表必须恰好包含 12 个不重复神名');
   }
-}
-
-export function getAlmanacPengZuDetails(dayStem: string, dayBranch: string) {
-  return {
-    gan: requireReferenceValue(PENGZU_DAY_GAN, dayStem, '彭祖天干百忌'),
-    zhi: requireReferenceValue(PENGZU_DAY_ZHI, dayBranch, '彭祖地支百忌'),
-  };
 }
 
 validateAlmanacReferenceData();
@@ -846,12 +789,8 @@ function buildDayCandidate(
     participants,
   });
 
-  // 彭祖百忌完整：天干+地支
-  const dayStemName = dayCycle.getHeavenStem().getName();
-  const dayZhiName = dayCycle.getEarthBranch().getName();
   const twentyEightStar = lunarDay.getTwentyEightStar().getName();
   const nineStar = lunarDay.getNineStar().getName();
-  const pengZuDetails = getAlmanacPengZuDetails(dayStemName, dayZhiName);
   const hours = buildHourCandidates(dateKey, lunarDay, topic);
   // bestHours 是兼容既有调用方的字段名，不表示算法裁定了唯一“最佳时辰”。
   // 仅按可复核的状态分组：先列无明确限制时辰，再列有条件时辰；组内保持自然时序，
@@ -881,15 +820,10 @@ function buildDayCandidate(
     twentyEightStar,
     twentyEightStarDetail: getAlmanacTwentyEightStarDetail(twentyEightStar),
     nineStar,
-    nineStarDetail: getAlmanacNineStarDetail(nineStar),
     gods,
     recommends,
     avoids,
-    pengZu: dayCycle.getPengZu().getName(),
-    // 彭祖百忌完整：天干+地支
-    pengZuGan: pengZuDetails.gan,
-    pengZuZhi: pengZuDetails.zhi,
-    clash: `冲${dayBranch.getOpposite().getName()}，煞${dayBranch.getOminous().getName()}`,
+    clash: `冲${dayBranch.getOpposite().getName()}`,
     annualDirectionGods: getAlmanacAnnualDirectionGods(
       noonEightChar.getYear().getEarthBranch().getName(),
     ),
@@ -907,8 +841,8 @@ function buildDayCandidate(
 /**
  * 生成黄历择日结果
  *
- * 对指定日期范围内逐日分析宜忌、神煞、冲煞、建除十二值、
- * 二十八宿、彭祖百忌等，并记录参与人年支、日支与候选日支的冲、固定刑、害、破关系供参考。
+ * 对指定日期范围内逐日分析宜忌、神煞、日支相冲、建除十二值、
+ * 二十八宿和九星名称，并记录参与人年支、日支与候选日支的冲、固定刑、害、破关系供参考。
  *
  * @param params 择日参数：
  *   - topic: 事项类型（marriage/move/opening/…）
