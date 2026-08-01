@@ -319,42 +319,6 @@ function pointToPalace(point: string): number {
   return palace;
 }
 
-function countNature(value: number): string | undefined {
-  const map: Record<number, string> = {
-    1: '杂阴',
-    2: '纯阴',
-    3: '纯阳',
-    4: '杂阳',
-    6: '纯阴',
-    7: '杂阴',
-    8: '杂阳',
-    9: '纯阳',
-    11: '阴中重阳',
-    12: '下和',
-    13: '杂重阳',
-    14: '上和',
-    16: '下和',
-    17: '阴中重阳',
-    18: '上和',
-    19: '杂重阳',
-    22: '纯阴',
-    23: '次和',
-    24: '杂重阴',
-    26: '纯阴',
-    27: '下和',
-    28: '杂重阴',
-    29: '次和',
-    31: '杂重阳',
-    32: '次和',
-    33: '纯阳',
-    34: '下和',
-    37: '杂重阳',
-    38: '下和',
-    39: '纯阳',
-  };
-  return map[value];
-}
-
 function generalPalaceFromCount(value: number, side: 'lord' | 'guest' | 'set'): number {
   if (side === 'lord' && value % 10 === 0) return 1;
   const remainder = value % 10;
@@ -480,12 +444,6 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
   ].filter((item): item is string => item !== undefined);
   if (imprisonedRoles.length > 0)
     judgments.push(`囚：${imprisonedRoles.join('、')}与太乙同宫；只表示传统位置条件成立。`);
-  const lordNature = countNature(lordCount);
-  const guestNature = countNature(guestCount);
-  const setNature = countNature(setCount);
-  if (lordNature) judgments.push(`主算 ${lordCount} 为${lordNature}。`);
-  if (guestNature) judgments.push(`客算 ${guestCount} 为${guestNature}。`);
-  if (setNature) judgments.push(`定算 ${setCount} 为${setNature}。`);
   if (lordGeneral === 5 || lordAssistant === 5) {
     judgments.push('主大将或主参将居中宫；只记录将参位置条件。');
   }
@@ -521,11 +479,6 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
     lordCount,
     guestCount,
     setCount,
-    countNatures: {
-      lord: lordNature,
-      guest: guestNature,
-      set: setNature,
-    },
     lordGeneral,
     lordAssistant,
     guestGeneral,
@@ -541,7 +494,7 @@ export function generateTaiyi(input: TaiyiInput): TaiyiResult {
     `推算口径：${TAIYI_MODEL_INFO.name}；${TAIYI_MODEL_INFO.precision}。`,
     `太乙${scopeInfo.accumulated}：${accumulatedValue}；360 周期余数：${entryYears}；第 ${yuan} 个 72 数段、第 ${ji} 个 60 数段；${yinYang}第 ${bureau} 局。`,
     `核心宫位：太乙在${taiyiPosition}（第${taiyiPalace}宫，${taiyiProfile.gua}卦，${taiyiProfile.dir}，五行${taiyiProfile.wu}）；文昌（主目）在${wenChangPosition}（第${wenChangPalace}宫）；始击（客目）在${shiJiPosition}（第${shiJiPalace}宫）；计神在${jiShenPosition}（第${jiShenPalace}宫）。`,
-    `主客定算：主算 ${lordCount}${lordNature ? `（${lordNature}）` : ''}；客算 ${guestCount}${guestNature ? `（${guestNature}）` : ''}；定算 ${setCount}${setNature ? `（${setNature}）` : ''}。`,
+    `主客定算：主算 ${lordCount}；客算 ${guestCount}；定算 ${setCount}；算数属性待明确底本版本后继续核验。`,
     `将参：主大将${formatGeneralPalace(lordGeneral)}、主参将${formatGeneralPalace(lordAssistant)}；客大将${formatGeneralPalace(guestGeneral)}、客参将${formatGeneralPalace(guestAssistant)}；定大将${formatGeneralPalace(setGeneral)}、定参将${formatGeneralPalace(setAssistant)}。`,
     `判断：${judgments.join('；')}`,
     `十六神：${sixteenGodsText}。`,

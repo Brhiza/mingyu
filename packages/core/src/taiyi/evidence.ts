@@ -24,11 +24,6 @@ export interface TaiyiEvidenceInput {
   lordCount: number;
   guestCount: number;
   setCount: number;
-  countNatures?: {
-    lord?: string;
-    guest?: string;
-    set?: string;
-  };
   lordGeneral: number;
   lordAssistant: number;
   guestGeneral: number;
@@ -86,7 +81,7 @@ export interface TaiyiForceFact {
   calculationStepKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '主客定算、算数属性与将参宫位是传统规则计算结果，只用于比较三方盘面条件，不直接证明现实胜负、行动成败、吉凶比例或人物强弱';
+  limitation: '主客定算与将参宫位是当前已校勘的传统规则计算结果；算数属性尚未闭合具体底本版本，当前不输出；已有事实只用于比较三方盘面条件，不直接证明现实胜负、行动成败、吉凶比例或人物强弱';
 }
 
 export interface TaiyiSixteenGodFact {
@@ -176,7 +171,7 @@ const POSITION_FACT_LIMITATION =
   '核心定位字段是七十二局立成与计神规则的计算事实，只限定太乙盘面取证位置，不单独证明现实吉凶、攻守结果、人物处境或固定应期' as const;
 
 const FORCE_FACT_LIMITATION =
-  '主客定算、算数属性与将参宫位是传统规则计算结果，只用于比较三方盘面条件，不直接证明现实胜负、行动成败、吉凶比例或人物强弱' as const;
+  '主客定算与将参宫位是当前已校勘的传统规则计算结果；算数属性尚未闭合具体底本版本，当前不输出；已有事实只用于比较三方盘面条件，不直接证明现实胜负、行动成败、吉凶比例或人物强弱' as const;
 
 const SIXTEEN_GOD_FACT_LIMITATION =
   '十六神固定定位只作为太乙基础盘辅助索引，未结合具体类神和完整古法细目时不得单独生成现实结论' as const;
@@ -230,21 +225,20 @@ function buildPositionFacts(data: TaiyiEvidenceInput): TaiyiPositionFact[] {
 
 function buildForceFacts(data: TaiyiEvidenceInput): TaiyiForceFact[] {
   return [
-    ['主', data.lordCount, data.countNatures?.lord, data.lordGeneral, data.lordAssistant],
-    ['客', data.guestCount, data.countNatures?.guest, data.guestGeneral, data.guestAssistant],
-    ['定', data.setCount, data.countNatures?.set, data.setGeneral, data.setAssistant],
-  ].map(([side, count, nature, generalPalace, assistantPalace]) => ({
+    ['主', data.lordCount, data.lordGeneral, data.lordAssistant],
+    ['客', data.guestCount, data.guestGeneral, data.guestAssistant],
+    ['定', data.setCount, data.setGeneral, data.setAssistant],
+  ].map(([side, count, generalPalace, assistantPalace]) => ({
     key: `三方算将参:${side}`,
     status: '已计算' as const,
     side,
     count,
-    nature,
     generalPalace,
     assistantPalace,
     generalInCenter: generalPalace === 5,
     assistantInCenter: assistantPalace === 5,
     calculationStepKeys: ['taiyi:calculation:bureau'],
-    promptText: `${side}算${count}${nature ? `（传统算数属性${nature}）` : '（未列算数属性）'}；${side}大将第${generalPalace}宫，${side}参将第${assistantPalace}宫${generalPalace === 5 || assistantPalace === 5 ? '；将或参落中宫' : ''}`,
+    promptText: `${side}算${count}；${side}大将第${generalPalace}宫，${side}参将第${assistantPalace}宫${generalPalace === 5 || assistantPalace === 5 ? '；将或参落中宫' : ''}；算数属性待明确底本版本后继续核验`,
     sources: ['七十二局主算、客算、定算立成表', '定算余数定位大将与大将乘三定位参将规则'],
     limitation: FORCE_FACT_LIMITATION,
   })) as TaiyiForceFact[];

@@ -780,6 +780,12 @@ test('taiyi: 年家七十二局立成（依古籍与 Kintaiyi 逐局表校订）
   assert.equal(r.lordCount, 24);
   assert.equal(r.guestCount, 3);
   assert.equal(r.setCount, 15);
+  assert.doesNotMatch(
+    JSON.stringify([r.prompt, r.judgments, r.evidenceAnalysis.forceFacts]),
+    /杂阴|纯阴|纯阳|杂阳|阴中重阳|下和|杂重阳|上和|次和|杂重阴/,
+  );
+  assert.match(r.prompt, /算数属性待明确底本版本后继续核验/);
+  assert.ok(r.evidenceAnalysis.forceFacts.every((item) => item.nature === undefined));
   assert.equal(r.lordGeneral, 4);
   assert.equal(r.lordAssistant, 2);
   assert.equal(r.guestGeneral, 3);
