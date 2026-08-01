@@ -65,7 +65,7 @@ export type LiuyaoUsefulGodMatchingTier = '本卦明现' | '变爻显出' | '月
 
 export interface LiuyaoEvidenceOptions {
   topic?: LiuyaoEvidenceTopic;
-  /** 用户或上层明确指定的用神六亲；优先于主题默认候选。 */
+  /** 用户或上层依据明确底本与问题角色指定的用神六亲。 */
   usefulGodRelative?: string;
 }
 
@@ -101,7 +101,7 @@ export interface LiuyaoYaoReference {
 export interface LiuyaoUsefulGodCandidate {
   key: string;
   status: '已匹配' | '未匹配';
-  sourceStatus: '用户指定' | '主题默认' | '盘面补齐';
+  sourceStatus: '用户指定' | '盘面补齐';
   candidateRole: '用神候选' | '辅助观察';
   matchingTier: LiuyaoUsefulGodMatchingTier | null;
   label: string;
@@ -2080,7 +2080,6 @@ interface LiuyaoCandidateSpec {
 }
 
 function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions): LiuyaoCandidateSpec[] {
-  const topic = options.topic ?? 'general';
   const world = data.yaosDetail.find((item) => item.isWorld);
   const response = data.yaosDetail.find((item) => item.isResponse);
   if (options.usefulGodRelative) {
@@ -2093,122 +2092,34 @@ function candidateSpecs(data: LiuyaoData, options: LiuyaoEvidenceOptions): Liuya
       },
     ];
   }
-  if (topic === 'shiye') {
-    return [
-      {
-        label: '事业用神',
-        relative: '官鬼',
-        candidateRole: '用神候选' as const,
-        reason: '事业职位与工作事项按官鬼取用。',
-      },
-      {
-        label: '文书辅证',
-        relative: '父母',
-        candidateRole: '辅助观察' as const,
-        reason: '父母爻只作为文书、单位与消息的辅助观察。',
-      },
-    ];
-  }
-  if (topic === 'caifu') {
-    return [
-      {
-        label: '财运用神',
-        relative: '妻财',
-        candidateRole: '用神候选' as const,
-        reason: '钱财与交易事项按妻财取用。',
-      },
-      {
-        label: '财源辅证',
-        relative: '子孙',
-        candidateRole: '辅助观察' as const,
-        reason: '子孙爻只作为财源与产出的辅助观察。',
-      },
-    ];
-  }
-  if (topic === 'guaishen') {
-    return [
-      {
-        label: '怪异事项候选',
-        relative: '官鬼',
-        candidateRole: '用神候选' as const,
-        reason: '仅按传统取官鬼为候选，不能据此证明超自然原因。',
-      },
-      ...(world
-        ? [
-            {
-              label: '求测者主轴',
-              position: world.position,
-              candidateRole: '辅助观察' as const,
-              reason: '仍须先检查世爻状态与现实因素。',
-            },
-          ]
-        : []),
-    ];
-  }
-  if (topic === 'ganqing') {
-    return [
-      {
-        label: '关系对象候选（妻财）',
-        relative: '妻财',
-        candidateRole: '用神候选' as const,
-        reason: '传统关系取用可能落在妻财，须结合求测者身份与所问对象确认。',
-      },
-      {
-        label: '关系对象候选（官鬼）',
-        relative: '官鬼',
-        candidateRole: '用神候选' as const,
-        reason: '传统关系取用可能落在官鬼，须结合求测者身份与所问对象确认。',
-      },
-      ...(world
-        ? [
-            {
-              label: '关系我方',
-              position: world.position,
-              candidateRole: '辅助观察' as const,
-              reason: '感情关系以世爻为我方。',
-            },
-          ]
-        : []),
-      ...(response
-        ? [
-            {
-              label: '关系对方',
-              position: response.position,
-              candidateRole: '辅助观察' as const,
-              reason: '感情关系以应爻为对方。',
-            },
-          ]
-        : []),
-    ];
-  }
   return [
     ...(world
       ? [
           {
-            label: '通用主轴',
+            label: '世爻位置',
             position: world.position,
             candidateRole: '辅助观察' as const,
-            reason: '未按具体事项确定用神时，世爻只作为求测者主轴。',
+            reason: '只保留可复算的世爻位置，不据此确定现实角色或六亲用神。',
           },
         ]
       : []),
     ...(response
       ? [
           {
-            label: '应爻辅轴',
+            label: '应爻位置',
             position: response.position,
             candidateRole: '辅助观察' as const,
-            reason: '应爻只用于观察对方与外部条件。',
+            reason: '只保留可复算的应爻位置，不据此确定现实角色或六亲用神。',
           },
         ]
       : []),
     ...data.yaosDetail
       .filter((item) => item.isChanging)
       .map((item) => ({
-        label: `动爻触发第${item.position}爻`,
+        label: `动爻位置第${item.position}爻`,
         position: item.position,
         candidateRole: '辅助观察' as const,
-        reason: '动爻只作为事件变化触发点，并回扣世应与已定用神。',
+        reason: '只保留可复算的动爻位置；未明确用神时不推导现实事件含义。',
       })),
   ];
 }
@@ -2593,9 +2504,7 @@ export function analyzeRebuiltLiuyaoEvidence(
   const hiddenSpiritCoverageFact = buildHiddenSpiritCoverageFact(data, hiddenSpiritFacts);
   const candidateSourceStatus: LiuyaoUsefulGodCandidate['sourceStatus'] = options.usefulGodRelative
     ? '用户指定'
-    : topic === 'general'
-      ? '盘面补齐'
-      : '主题默认';
+    : '盘面补齐';
   const candidates = candidateSpecs(data, options).map((spec, index): LiuyaoUsefulGodCandidate => {
     const { references: matched, matchingTier } = matchCandidateSpec(spec, referenceGroups);
     const constraints = matched.length
@@ -2619,10 +2528,12 @@ export function analyzeRebuiltLiuyaoEvidence(
       promptText: matched.length
         ? `${spec.label}由${candidateSourceStatus}提出，性质为${spec.candidateRole}${matchingTier ? `，按${matchingTier}匹配` : ''}：${spec.reason}；匹配${matched.map(formatYao).join('、')}；支持${support.join('、') || '未见额外增强'}；限制${constraints.join('、') || '未见明显空破墓退'}`
         : `${spec.label}由${candidateSourceStatus}提出：${spec.reason}；${constraints.join('、')}`,
-      sources: [
-        '《增删卜易》《卜筮正宗》六亲取用与世应分工',
-        '本卦明现、变爻显出、月日入用、伏神检索逐层核验',
-      ],
+      sources: options.usefulGodRelative
+        ? [
+            '《增删卜易》《卜筮正宗》六亲取用与世应分工',
+            '本卦明现、变爻显出、月日入用、伏神检索逐层核验',
+          ]
+        : ['当前本卦世爻、应爻与动爻位置逐项重算'],
       limitation: CANDIDATE_FACT_LIMITATION,
     };
   });
@@ -2670,9 +2581,7 @@ export function analyzeRebuiltLiuyaoEvidence(
       : selectionStatus === '用神爻位待择' && soleUsefulGodCandidate
         ? `本次用神六亲已确定为${targetRelative}，按${soleUsefulGodCandidate.matchingTier}见${soleUsefulGodCandidate.references.map(formatYao).join('、')}；同层多现且现有条件不能闭合唯一爻位，不按数组顺序强选`
         : selectionStatus === '取用范围待定'
-          ? topic === 'ganqing'
-            ? '感情主题尚缺求测者身份与所问对象关系；妻财、官鬼只列取用范围，世应只列双方位置，当前不硬定唯一用神'
-            : '通用主题尚未按具体问题与求测关系确定六亲用神；世爻、应爻和动爻只作辅助观察，当前不冒充唯一用神'
+          ? '当前主题不能代替已校勘底本、版本与问题角色来确定六亲用神；只保留世爻、应爻和动爻位置，待取用依据闭合后继续推算'
           : `本次用神六亲取${targetRelative ?? '未定'}，但本卦、变爻、月日与伏神各层均未见匹配，不改以世应或动爻硬取`;
   const selectionFact: LiuyaoUsefulGodSelectionFact = {
     key: 'liuyao:useful-god-selection',
@@ -2685,11 +2594,16 @@ export function analyzeRebuiltLiuyaoEvidence(
     selectedReferenceKey: selectedReference?.key ?? null,
     candidateKeys: candidates.map((item) => item.key),
     promptText: selectionPrompt,
-    sources: [
-      '《增删卜易·用神章、两现章、飞伏神章》',
-      '《卜筮正宗·用神分类定例、世应论用神、伏神正传》',
-      '当前取用主题与本卦、变爻、月日、伏神逐层匹配',
-    ],
+    sources: options.usefulGodRelative
+      ? [
+          '《增删卜易·用神章、两现章、飞伏神章》',
+          '《卜筮正宗·用神分类定例、世应论用神、伏神正传》',
+          '用户指定六亲与本卦、变爻、月日、伏神逐层匹配',
+        ]
+      : [
+          '当前主题未提供已校勘底本、版本与问题角色对应的六亲取用依据',
+          '当前本卦世爻、应爻与动爻位置逐项重算',
+        ],
     limitation: SELECTION_FACT_LIMITATION,
   };
   const usefulElement = soleUsefulGodCandidate?.references[0]?.wuxing ?? '';

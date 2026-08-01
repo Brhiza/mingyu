@@ -327,37 +327,28 @@ test('六爻排盘应内置无总分的用神作用链结构化证据', () => {
   );
 });
 
-test('六爻通用与感情主题在关系语义不足时不得硬取用神', () => {
+test('六爻主题不得绕过底本版本与问题角色自动指定六亲用神', () => {
   const data = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
-  const general = analyzeLiuyaoEvidence(data);
-  const relationship = analyzeLiuyaoEvidence(data, { topic: 'ganqing' });
+  const topics = ['general', 'ganqing', 'shiye', 'caifu', 'guaishen'] as const;
 
-  assert.equal(general.selectionFact.status, '取用范围待定');
-  assert.equal(general.selectedCandidate, null);
-  assert.equal(general.godChain.length, 0);
-  assert.ok(general.candidates.every((item) => item.candidateRole === '辅助观察'));
-  assert.deepEqual(
-    new Set(general.candidates.map((item) => item.label)),
-    new Set(['通用主轴', '应爻辅轴', '动爻触发第3爻', '动爻触发第4爻']),
-  );
-
-  assert.equal(relationship.selectionFact.status, '取用范围待定');
-  assert.equal(relationship.selectionFact.targetRelative, null);
-  assert.equal(relationship.selectedCandidate, null);
-  assert.equal(relationship.godChain.length, 0);
-  assert.deepEqual(
-    relationship.candidates
-      .filter((item) => item.candidateRole === '用神候选')
-      .map((item) => item.relative),
-    ['妻财', '官鬼'],
-  );
-  assert.deepEqual(
-    relationship.candidates
-      .filter((item) => item.candidateRole === '辅助观察')
-      .map((item) => item.label),
-    ['关系我方', '关系对方'],
-  );
-  assert.match(relationship.selectionFact.promptText, /尚缺求测者身份与所问对象关系/);
+  for (const topic of topics) {
+    const evidence = analyzeLiuyaoEvidence(data, { topic });
+    assert.equal(evidence.selectionFact.status, '取用范围待定');
+    assert.equal(evidence.selectionFact.targetRelative, null);
+    assert.equal(evidence.selectedCandidate, null);
+    assert.equal(evidence.godChain.length, 0);
+    assert.ok(evidence.candidates.every((item) => item.candidateRole === '辅助观察'));
+    assert.ok(evidence.candidates.every((item) => item.sourceStatus === '盘面补齐'));
+    assert.deepEqual(
+      evidence.candidates.map((item) => item.label),
+      ['世爻位置', '应爻位置', '动爻位置第3爻', '动爻位置第4爻'],
+    );
+    assert.match(evidence.selectionFact.promptText, /当前主题不能代替已校勘底本、版本与问题角色/);
+    assert.doesNotMatch(
+      JSON.stringify(evidence.candidates),
+      /事业用神|财运用神|怪异事项候选|关系对象候选|主题默认/,
+    );
+  }
 
   assert.throws(
     () => analyzeLiuyaoEvidence(data, { usefulGodRelative: '世爻' }),
@@ -650,7 +641,7 @@ test('六爻证据应从原始盘面重算综合旺衰并兼容旧结果', () =>
 
 test('六爻原神忌神仇神应按生克作用链推导', () => {
   const data = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
-  const evidence = analyzeLiuyaoEvidence(data, { topic: 'shiye' });
+  const evidence = analyzeLiuyaoEvidence(data, { topic: 'shiye', usefulGodRelative: '官鬼' });
   const useful = evidence.godChain.find((item) => item.role === '用神');
   const source = evidence.godChain.find((item) => item.role === '原神');
   const taboo = evidence.godChain.find((item) => item.role === '忌神');
@@ -1235,7 +1226,7 @@ test('鬼神怪异主题必须保留现实解释限制', () => {
   const data = generateLiuyao(fixedDate, { method: 'manual', yaos: fixedYaos });
   const evidence = analyzeLiuyaoEvidence(data, { topic: 'guaishen' });
 
-  assert.equal(evidence.candidates[0].relative, '官鬼');
-  assert.match(evidence.promptText, /不能据此证明超自然原因/);
+  assert.ok(evidence.candidates.every((item) => item.relative === undefined));
+  assert.equal(evidence.selectionFact.status, '取用范围待定');
   assert.match(evidence.promptText, /不得仅凭官鬼、白虎、螣蛇/);
 });
