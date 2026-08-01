@@ -28,19 +28,14 @@ import { SolarDay, SolarTerm, SolarTime } from 'tyme4ts';
 import { tiangan, jiazi, qimen } from '../../../../divination/divination-data';
 import { SIX_XUN_HEADS } from '../../../../ganzhi/data';
 import { sanQiLiuYi } from './_constants';
+import { SIX_JIA_DUN_STEMS } from './palace-utils';
+
+export { getDunJiaStem } from './palace-utils';
 
 const { dizhi, palaceStars, palaceDoorMap, jieQiJuShuMap } = qimen;
 type TymeSolarDay = ReturnType<typeof SolarDay.fromYmd>;
 type TymeSolarTerm = ReturnType<typeof SolarTerm.fromIndex>;
 const tenStems = tiangan;
-const dunJiaStemByXun: Record<string, string> = {
-  甲子: '戊',
-  甲戌: '己',
-  甲申: '庚',
-  甲午: '辛',
-  甲辰: '壬',
-  甲寅: '癸',
-};
 const wuBuYuHourStemByDayStem: Record<string, string> = {
   甲: '庚',
   乙: '辛',
@@ -244,7 +239,7 @@ function getXunShouPalace(ganZhi: string, layout: QimenLayoutContext): number {
   const xunShouZhi = getXunShouBranch(ganZhi);
   const xunShou = `甲${xunShouZhi}`;
   assertQimenLayoutContext(layout);
-  const dunStem = dunJiaStemByXun[xunShou];
+  const dunStem = SIX_JIA_DUN_STEMS[xunShou];
   if (!dunStem) {
     throw new Error(`无法识别旬首 "${xunShou}" 的遁干。`);
   }
@@ -591,56 +586,4 @@ export function getZhiFuZhiShiByGanZhi(
   const zhiShi = getDoorByXunShouPalace(xunShouPalace);
 
   return { zhiFu, zhiShi, xunShouPalace };
-}
-
-// ============================================================================
-// 5. 遁干（甲遁于六仪之下）
-// ============================================================================
-
-/**
- * 获取时辰的遁干（甲遁于六仪之下）
- *
- * 法理依据（《烟波钓叟歌》）：
- *   "六甲元号六仪名，三奇即是乙丙丁。
- *    阳遁顺仪奇逆布，阴遁逆仪奇顺行。"
- *
- * 六甲所遁：
- *   甲子遁戊、甲戌遁己、甲申遁庚、
- *   甲午遁辛、甲辰遁壬、甲寅遁癸。
- *
- * 非六甲时辰（时干不为"甲"）返回时干本身。
- *
- * @param hourGanZhi 时辰干支（如 "甲子"、"乙丑"）
- * @returns 遁干后的天干名
- *
- * @example
- *   getDunJiaStem('甲子') // => '戊'
- *   getDunJiaStem('甲戌') // => '己'
- *   getDunJiaStem('乙丑') // => '乙'（非六甲时返回时干本身）
- */
-export function getDunJiaStem(hourGanZhi: string): string {
-  if (!jiazi.includes(hourGanZhi)) {
-    throw new Error(`无法识别干支 "${hourGanZhi}" 的遁甲天干。`);
-  }
-
-  // 非六甲时：时干不为"甲"，返回时干本身
-  if (!hourGanZhi.startsWith('甲')) {
-    return hourGanZhi.charAt(0);
-  }
-
-  // 六甲时：甲遁于六仪之下
-  const dunJiaMap: Record<string, string> = {
-    甲子: '戊',
-    甲戌: '己',
-    甲申: '庚',
-    甲午: '辛',
-    甲辰: '壬',
-    甲寅: '癸',
-  };
-
-  const dunStem = dunJiaMap[hourGanZhi];
-  if (!dunStem) {
-    throw new Error(`无法识别六甲干支 "${hourGanZhi}" 的遁甲天干。`);
-  }
-  return dunStem;
 }

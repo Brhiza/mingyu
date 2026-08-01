@@ -9,7 +9,7 @@
  * 1. 定局数（时家拆补或置闰/月家五年段三元/年家一百八十年三元）
  * 2. 寻值符值使：由对应级别的干支旬首定位值符星和值使门
  * 3. 排九宫格：布地盘三奇六仪 -> 定值符值使落宫 -> 排天盘九星 -> 排人盘八门 -> 排神盘八神
- * 4. 识别可复算位置标签与已校勘十一项天地盘固定格
+ * 4. 识别可复算位置标签、十一项天地盘固定格与两项时家日干上下文格
  * 5. 辅助分析：保留九宫方位、旬空与马星等原始事实
  *
  * 《烟波钓叟歌》核心法理（下称《歌》）：
@@ -49,6 +49,10 @@ export {
   AUDITED_QIMEN_CLASSIC_PATTERN_NAMES,
   isAuditedQimenClassicPatternName,
 } from './helpers/stem-pair-patterns';
+export {
+  AUDITED_QIMEN_CONTEXT_PATTERN_NAMES,
+  isAuditedQimenContextPatternName,
+} from './helpers/classic-patterns';
 export {
   analyzeQimenEvidence,
   conditionQimenTraditionalText,
@@ -185,7 +189,7 @@ function mapStemRelations(
  * 默认时家奇门（精确到时辰），使用拆补法定局。
  *
  * 遵循拆补法定局，并按所选转盘法或飞盘法完整输出九宫四盘（天地人神）、
- * 可复算位置标签、已校勘十一项天地盘固定格与中性位置索引。
+ * 可复算位置标签、已校勘十一项天地盘固定格、两项时家日干上下文格与中性位置索引。
  *
  * ── 排盘流程 ──
  *
@@ -209,7 +213,8 @@ function mapStemRelations(
  *    - 星门伏吟/反吟、门克宫、击刑落宫、入墓落宫、马星落宫
  *
  * 7. **已校勘经典格局**：《遁甲演义》卷一、卷二
- *    - 只输出十一项条件已闭合的天地盘固定格
+ *    - 输出十一项条件已闭合的天地盘固定格
+ *    - 时家另按完整日柱输出伏干格、飞干格两项中性结构事实
  *
  * 8. **天地盘干关系**：每个宫位天盘干与地盘干的五行生克
  *
@@ -332,6 +337,7 @@ export function generateQimen(
     jiuGongGe,
     zhiFu,
     zhiShi,
+    scope,
     yearGanZhi: ganzhi.year,
     monthGanZhi: ganzhi.month,
     dayStem,

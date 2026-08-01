@@ -35,8 +35,10 @@ import {
 } from '../packages/core/src/divination/algorithms/qimen/helpers/jushu';
 import { arrangeJiuGongGe } from '../packages/core/src/divination/algorithms/qimen/helpers/layout';
 import {
+  getDunJiaStem,
   hasTianPanStar,
   hasTianPanStem,
+  getTianPanStems,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/palace-utils';
 import {
   analyzeLiuyaoEvidence,
@@ -670,12 +672,13 @@ test('奇门定局、值符值使、宫间作用与应期前提应进入统一�
         item.limitation.includes('不证明现实吉凶'),
     ),
   );
-  assert.equal(analysis.ruleSourceFacts.length, 8);
+  assert.equal(analysis.ruleSourceFacts.length, 9);
   assert.ok(
     analysis.ruleSourceFacts.some(
       (item) =>
         item.key === 'rule:qimen:classic-pattern-audit-boundary' &&
-        item.promptText.includes('十一项') &&
+        item.promptText.includes('十一项固定格') &&
+        item.promptText.includes('伏干格、飞干格') &&
         item.promptText.includes('不得从原始盘面自动补算'),
     ),
   );
@@ -1451,7 +1454,7 @@ test('奇门天地盘干命名格局应进入实际排盘输出', () => {
   );
 });
 
-test('奇门未审核符使、飞伏、时格与勃格规则不得进入经典格局', () => {
+test('奇门未审核符使、飞宫伏宫、时格与勃格规则不得进入经典格局', () => {
   const contexts = [
     {
       jiuGongGe: [
@@ -1482,8 +1485,6 @@ test('奇门未审核符使、飞伏、时格与勃格规则不得进入经典�
   [
     '天乙飞宫',
     '天乙伏宫',
-    '伏干格',
-    '飞干格',
     '岁格',
     '月格',
     '时格',
@@ -1549,9 +1550,11 @@ test('奇门跨年跨月跨时辰与两种排盘法只输出已审核格局事�
     '大格',
     '刑格',
     '小格',
+    '伏干格',
+    '飞干格',
   ]);
   const retiredPattern =
-    /九遁|天遁|地遁|人遁|神遁|鬼遁|龙遁|虎遁|风遁|云遁|三奇得|三奇游六仪|三诈|真诈|重诈|休诈|天假|地假|人假|物假|鬼假|神假|升殿|奇入墓|奇受制|三奇会甲|符使同宫|相佐|守户|天乙飞宫|天乙伏宫|伏干格|飞干格|岁格|月格|时格|勃格|格勃|地罗遮蔽|天辅时|五合时|玉女守门/;
+    /九遁|天遁|地遁|人遁|神遁|鬼遁|龙遁|虎遁|风遁|云遁|三奇得|三奇游六仪|三诈|真诈|重诈|休诈|天假|地假|人假|物假|鬼假|神假|升殿|奇入墓|奇受制|三奇会甲|符使同宫|相佐|守户|天乙飞宫|天乙伏宫|岁格|月格|时格|勃格|格勃|地罗遮蔽|天辅时|五合时|玉女守门/;
 
   for (const method of ['zhuanpan', 'feipan'] as const) {
     for (const year of [2024, 2025, 2026, 2027]) {
@@ -1560,10 +1563,32 @@ test('奇门跨年跨月跨时辰与两种排盘法只输出已审核格局事�
           for (let hour = 0; hour < 24; hour += 2) {
             const data = generateQimen(new Date(year, month, day, hour), method);
             const names = (data.classicPatterns ?? []).map((pattern) => pattern.name);
+            const dayDunStem = getDunJiaStem(data.ganzhi.day);
+            const expectedDayStemPatterns = new Set<string>();
+            data.jiuGongGe.forEach((palace) => {
+              for (const heavenStem of new Set(getTianPanStems(palace))) {
+                if (heavenStem === '庚' && palace.diPan.stem === dayDunStem) {
+                  expectedDayStemPatterns.add(`伏干格:${palace.gong}`);
+                }
+                if (heavenStem === dayDunStem && palace.diPan.stem === '庚') {
+                  expectedDayStemPatterns.add(`飞干格:${palace.gong}`);
+                }
+              }
+            });
+            const actualDayStemPatterns = new Set(
+              (data.classicPatterns ?? [])
+                .filter((pattern) => pattern.name === '伏干格' || pattern.name === '飞干格')
+                .flatMap((pattern) => pattern.palaces.map((palace) => `${pattern.name}:${palace}`)),
+            );
 
             assert.ok(
               names.every((name) => allowedClassicPatterns.has(name)),
               `${method} ${year}-${month + 1}-${day} ${hour}时输出未审核格局：${names.join('、')}`,
+            );
+            assert.deepEqual(
+              actualDayStemPatterns,
+              expectedDayStemPatterns,
+              `${method} ${year}-${month + 1}-${day} ${hour}时伏干飞干命中不完整`,
             );
             assert.doesNotMatch(JSON.stringify(data.patternTags), retiredPattern);
             assert.ok(
@@ -1577,6 +1602,22 @@ test('奇门跨年跨月跨时辰与两种排盘法只输出已审核格局事�
             assert.equal(data.evidenceAnalysis?.timingSummaryFact.rhythm, null);
           }
         }
+      }
+    }
+  }
+});
+
+test('月家与年家奇门不外推时家伏干飞干规则', () => {
+  for (const scope of ['month', 'year'] as const) {
+    for (const method of ['zhuanpan', 'feipan'] as const) {
+      for (let month = 0; month < 12; month += 1) {
+        const data = generateQimen(new Date(2025, month, 15, 12), method, scope);
+        assert.ok(
+          (data.classicPatterns ?? []).every(
+            (pattern) => pattern.name !== '伏干格' && pattern.name !== '飞干格',
+          ),
+          `${scope}/${method}/${month + 1}月不应外推时家日干格`,
+        );
       }
     }
   }

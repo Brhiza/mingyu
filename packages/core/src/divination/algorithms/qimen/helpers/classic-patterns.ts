@@ -1,16 +1,28 @@
 /**
  * @file 奇门已校勘经典格局与天地盘干结构事实
- * @description 正式入口只输出已经按同一原典逐条闭环的十一项天地盘固定格。
+ * @description 正式入口输出已经逐条闭环的十一项天地盘固定格，以及只在
+ * 完整时家日柱上下文中识别的伏干格、飞干格两项中性结构事实。
  * 九遁、三奇、三诈五假、值符值使、岁月日时格、门迫、击刑、入墓等旧规则
  * 在版本、条件或适用情境完成校勘前失败关闭；可复算的落宫与五行事实仍由九宫、
  * 基础标签、组合事实和天地盘干关系提供，供后续 AI 结合具体问题继续推算。
  */
 
-import type { QimenJiuGongGe } from '../../../../types/divination';
+import type { QimenJiuGongGe, QimenScope } from '../../../../types/divination';
 import { isTianGanHe } from '../../../../ganzhi';
 import { isControlling, isGenerating, stemElements, STEM_TOMB_MAP } from './_constants';
 import { getNamedStemPairPattern, getStemPairPattern } from './stem-pair-patterns';
-import { getTianPanStems } from './palace-utils';
+import { getDunJiaStem, getTianPanStems } from './palace-utils';
+
+/** 已校勘、但不能退化为固定天地盘干二元映射的日干上下文格。 */
+export const AUDITED_QIMEN_CONTEXT_PATTERN_NAMES = ['伏干格', '飞干格'] as const;
+
+export function isAuditedQimenContextPatternName(
+  name: string,
+): name is (typeof AUDITED_QIMEN_CONTEXT_PATTERN_NAMES)[number] {
+  return AUDITED_QIMEN_CONTEXT_PATTERN_NAMES.includes(
+    name as (typeof AUDITED_QIMEN_CONTEXT_PATTERN_NAMES)[number],
+  );
+}
 
 /** 已校勘经典格局命中。 */
 export interface ClassicPattern {
@@ -189,24 +201,86 @@ export function getStemRelations(jiuGongGe: QimenJiuGongGe[]): StemRelation[] {
   return relations;
 }
 
-/** 经典格局识别上下文；历史字段保留以兼容既有调用，但不再驱动未审核规则。 */
+/** 经典格局识别上下文；缺少明确时家级别或完整日柱时，日干上下文格失败关闭。 */
 export interface PatternContext {
   jiuGongGe: QimenJiuGongGe[];
   zhiFu: string;
   zhiShi: string;
+  scope?: QimenScope;
   yearGanZhi?: string;
   monthGanZhi?: string;
+  /** @deprecated 不能单独驱动日干格；甲日必须由完整日柱确定所遁六仪。 */
   dayStem?: string;
   dayGanZhi?: string;
   hourGanZhi?: string;
 }
 
+function getDayStemContextPatterns({
+  jiuGongGe,
+  scope,
+  dayStem,
+  dayGanZhi,
+}: PatternContext): ClassicPattern[] {
+  if (scope !== undefined && !['hour', 'day', 'month', 'year'].includes(scope)) {
+    throw new Error(`未知的奇门格局上下文级别: ${String(scope)}`);
+  }
+
+  // 原典条文与古例均以时家盘的“今日之干”为条件；年月家不外推此规则。
+  if (scope !== 'hour' || !dayGanZhi) return [];
+
+  const originalDayStem = dayGanZhi.charAt(0);
+  if (dayStem !== undefined && dayStem !== originalDayStem) {
+    throw new Error(`奇门日干“${dayStem}”与完整日柱“${dayGanZhi}”不一致。`);
+  }
+
+  const dayDunStem = getDunJiaStem(dayGanZhi);
+  const dayStemBasis = dayGanZhi.startsWith('甲')
+    ? `本日日柱${dayGanZhi}，六甲按旬首遁于${dayDunStem}`
+    : `本日日柱${dayGanZhi}，日干为${dayDunStem}`;
+  const limitation =
+    '这里只登记可复算的时家盘面结构；原典附带的兵占、出行及主客利弊断语不泛化为通用吉凶、现实结果或行动建议';
+  const patterns: ClassicPattern[] = [];
+
+  for (const palace of jiuGongGe) {
+    const earth = palace.diPan.stem;
+    if (!earth) continue;
+
+    for (const heaven of new Set(getTianPanStems(palace))) {
+      if (heaven === '庚' && earth === dayDunStem) {
+        patterns.push({
+          key: `pattern:dayStem:fuGan:${dayGanZhi}:${palace.gong}`,
+          name: '伏干格',
+          tone: 'neutral',
+          summary: `天盘庚加地盘${dayDunStem}于${palace.name}；${dayStemBasis}。原典固定条件为“庚加日干为伏干格”。${limitation}`,
+          palace: palace.gong,
+          tokens: [heaven, earth],
+        });
+      }
+
+      if (heaven === dayDunStem && earth === '庚') {
+        patterns.push({
+          key: `pattern:dayStem:feiGan:${dayGanZhi}:${palace.gong}`,
+          name: '飞干格',
+          tone: 'neutral',
+          summary: `天盘${dayDunStem}加地盘庚于${palace.name}；${dayStemBasis}。原典固定条件为“日干加庚飞干格”。${limitation}`,
+          palace: palace.gong,
+          tokens: [heaven, earth],
+        });
+      }
+    }
+  }
+
+  return patterns;
+}
+
 /**
  * 返回正式允许输出的经典格局。
  *
- * 当前白名单只有《遁甲演义》逐项校勘的十一项天地盘固定格。任何尚未闭合版本、
- * 条件和使用情境的旧规则都不进入结果；AI 如需继续推算，应从原始九宫事实出发。
+ * 当前白名单包括十一项天地盘固定格，以及《遁甲演义》《奇门遁甲统宗》与
+ * 《奇门法窍》互证的伏干格、飞干格。后两项只在时家、完整日柱和六甲遁干均
+ * 可复算时登记中性结构，不继承互有差异的现实断语。其余尚未闭合版本、条件和
+ * 使用情境的旧规则都不进入结果；AI 如需继续推算，应从原始九宫事实出发。
  */
-export function getClassicPatterns({ jiuGongGe }: PatternContext): ClassicPattern[] {
-  return getStemPairNamedPatterns(jiuGongGe);
+export function getClassicPatterns(context: PatternContext): ClassicPattern[] {
+  return [...getStemPairNamedPatterns(context.jiuGongGe), ...getDayStemContextPatterns(context)];
 }
