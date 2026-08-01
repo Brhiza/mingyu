@@ -1,8 +1,8 @@
 /**
  * @file 奇门已校勘经典格局与天地盘干结构事实
  * @description 正式入口输出已经逐条闭环的十一项天地盘固定格，以及只在
- * 完整时家上下文中识别的伏干格、飞干格、岁格、格勃、三奇升殿、三诈与
- * 天假/严格地假/鬼假中性结构事实。九遁与三奇得使已经确认存在版本定义冲突；其余三奇、
+ * 完整时家上下文中识别的伏干格、飞干格、岁格、格勃、三奇升殿、三诈、
+ * 天假/严格地假/鬼假与玉女守门中性结构事实。九遁与三奇得使已经确认存在版本定义冲突；其余三奇、
  * 人假、物假、神假、值符值使、
  * 月日时格、普通勃格、门迫、击刑、入墓等旧规则
  * 在版本、条件或适用情境完成校勘前失败关闭；可复算的落宫与五行事实仍由九宫、
@@ -35,6 +35,7 @@ export const AUDITED_QIMEN_CONTEXT_PATTERN_NAMES = [
   '天假',
   '地假',
   '鬼假',
+  '玉女守门',
 ] as const;
 
 export function isAuditedQimenContextPatternName(
@@ -475,11 +476,42 @@ function getAuditedWuJiaPatterns({ jiuGongGe, scope }: PatternContext): ClassicP
   return patterns;
 }
 
+const YU_NV_SHOU_MEN_HOURS = new Set(['庚午', '己卯', '戊子', '丁酉', '丙午', '乙卯']);
+
+function getYuNvShouMenPattern({
+  jiuGongGe,
+  zhiShi,
+  scope,
+  hourGanZhi,
+}: PatternContext): ClassicPattern[] {
+  // 三书共同限定为六个固定时柱，且值使门须实际落到地盘丁；缺任一条件均不命名。
+  if (scope !== 'hour' || !hourGanZhi || !YU_NV_SHOU_MEN_HOURS.has(hourGanZhi) || !zhiShi) {
+    return [];
+  }
+
+  const valueDoorPalaces = jiuGongGe.filter((palace) => palace.renPan.door === zhiShi);
+  if (valueDoorPalaces.length !== 1) return [];
+
+  const palace = valueDoorPalaces[0];
+  if (palace.diPan.stem !== '丁') return [];
+
+  return [
+    {
+      key: `pattern:valueDoor:yuNvShouMen:${hourGanZhi}:${palace.gong}`,
+      name: '玉女守门',
+      tone: 'neutral',
+      summary: `当前时柱${hourGanZhi}属于庚午、己卯、戊子、丁酉、丙午、乙卯六时之一，值使门${zhiShi}落${palace.name}且该宫地盘干为丁，命中《武经总要》《遁甲演义》《奇门宝鉴御定》共同支持的“玉女守门”核心结构。这里只登记固定时柱、值使门与地盘丁的可复算事实，不采用原典附带的宴会、阴私、出行或吉凶断语`,
+      palace: palace.gong,
+      tokens: ['丁'],
+    },
+  ];
+}
+
 /**
  * 返回正式允许输出的经典格局。
  *
  * 当前白名单包括十一项天地盘固定格，以及独立校勘的伏干格、飞干格、岁格、
- * 格勃、三奇升殿、三诈与三项条件一致的五假时家上下文结构。它们只在所需干支、值符身份、天盘落宫或
+ * 格勃、三奇升殿、三诈、三项条件一致的五假与玉女守门时家上下文结构。它们只在所需干支、值符身份、天盘落宫或
  * 奇门神三层可复算时登记中性结构，不继承互有差异的现实断语。月格因“月干/月朔干”不一，时格因
  * “本时干/仅三奇/庚值符管十时”不一，普通勃格因“丙临年月日时干/丙加值符庚”
  * 不一而继续关闭；AI 如需采用，应从原始九宫事实和明示版本继续推算。
@@ -493,5 +525,6 @@ export function getClassicPatterns(context: PatternContext): ClassicPattern[] {
     ...getSanQiShengDianPatterns(context),
     ...getSanZhaPatterns(context),
     ...getAuditedWuJiaPatterns(context),
+    ...getYuNvShouMenPattern(context),
   ];
 }

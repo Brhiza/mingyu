@@ -1356,7 +1356,7 @@ test('奇门提示词证据声明11项固定格与其余70项结构事实边界'
   assert.match(relationRule.promptText, /其余七十项不得单凭二元组合补造传统名称/);
   assert.match(
     relationRule.promptText,
-    /时家另按独立上下文规则核验伏干格、飞干格、岁格、六庚值符临丙格勃、三奇升殿、三诈与天假\/严格地假\/鬼假位置结构/,
+    /时家另按独立上下文规则核验伏干格、飞干格、岁格、六庚值符临丙格勃、三奇升殿、三诈、天假\/严格地假\/鬼假与玉女守门位置结构/,
   );
   assert.ok(relationRule.sources.some((source) => source.includes('《遁甲演义》卷一')));
   assert.ok(relationRule.sources.some((source) => source.includes('《遁甲演义》卷二')));
@@ -1388,4 +1388,176 @@ test('奇门证据应公开九遁与三奇得使的具体版本冲突及失败�
   assert.match(sanQiDeShi.promptText, /不得从天盘三奇加地盘六仪/);
   assert.match(sanQiDeShi.promptText, /提示词只引用天盘三奇、地盘六仪、当前门、值使和值符/);
   assert.match(sanQiDeShi.promptText, /不得继承“百事吉”等断语/);
+});
+
+test('玉女守门穷举60时柱乘8值使门乘9地盘干仅命中六时临地丁', () => {
+  const doors = ['休门', '死门', '伤门', '杜门', '开门', '惊门', '生门', '景门'] as const;
+  const earthStems = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙'] as const;
+  const expectedHours = new Set(['庚午', '己卯', '戊子', '丁酉', '丙午', '乙卯']);
+  let checked = 0;
+  let matched = 0;
+
+  for (const hourGanZhi of jiazi) {
+    for (const door of doors) {
+      for (const earthStem of earthStems) {
+        const palace = {
+          ...buildPalaceAt(1, '', earthStem),
+          renPan: { door },
+        };
+        const patterns = getClassicPatterns({
+          jiuGongGe: [palace],
+          zhiFu: '',
+          zhiShi: door,
+          scope: 'hour',
+          hourGanZhi,
+        }).filter((pattern) => pattern.name === '玉女守门');
+        const expected = expectedHours.has(hourGanZhi) && earthStem === '丁';
+
+        assert.equal(patterns.length, expected ? 1 : 0, `${hourGanZhi}/${door}/地盘${earthStem}`);
+        patterns.forEach((pattern) => {
+          assert.equal(pattern.tone, 'neutral');
+          assert.equal(pattern.palace, 1);
+          assert.deepEqual(pattern.tokens, ['丁']);
+          assert.match(pattern.summary, /固定时柱、值使门与地盘丁的可复算事实/);
+          assert.doesNotMatch(pattern.summary, /大吉|必成|必胜|百事皆吉/);
+        });
+        checked += 1;
+        matched += patterns.length;
+      }
+    }
+  }
+
+  assert.equal(checked, 4_320);
+  assert.equal(matched, 48);
+});
+
+test('玉女守门缺少唯一值使落宫、非时家或条件不全时失败关闭', () => {
+  const valueDoorPalace = {
+    ...buildPalaceAt(1, '', '丁'),
+    renPan: { door: '休门' },
+  };
+  const getYuNv = (context: Parameters<typeof getClassicPatterns>[0]) =>
+    getClassicPatterns(context).filter((pattern) => pattern.name === '玉女守门');
+  const base = {
+    jiuGongGe: [valueDoorPalace],
+    zhiFu: '',
+    zhiShi: '休门',
+    scope: 'hour' as const,
+    hourGanZhi: '庚午',
+  };
+
+  assert.equal(getYuNv(base).length, 1);
+  assert.deepEqual(getYuNv({ ...base, zhiShi: '' }), []);
+  assert.deepEqual(
+    getYuNv({
+      ...base,
+      jiuGongGe: [valueDoorPalace, { ...buildPalaceAt(2, '', '丁'), renPan: { door: '休门' } }],
+    }),
+    [],
+  );
+  assert.deepEqual(getYuNv({ ...base, scope: 'month' }), []);
+  assert.deepEqual(getYuNv({ ...base, hourGanZhi: '辛未' }), []);
+  assert.deepEqual(
+    getYuNv({ ...base, jiuGongGe: [{ ...valueDoorPalace, diPan: { stem: '丙' } }] }),
+    [],
+  );
+});
+
+test('玉女守门在真实转盘飞盘中与六时及值使临地丁独立复算一致', () => {
+  const start = new Date('2024-01-01T00:00:00+08:00');
+  const expectedHours = new Set(['庚午', '己卯', '戊子', '丁酉', '丙午', '乙卯']);
+  const reached = new Set<string>();
+  let evidenceSample: ReturnType<typeof generateQimen> | undefined;
+
+  for (const method of ['zhuanpan', 'feipan'] as const) {
+    for (let hourOffset = 0; hourOffset < 60; hourOffset += 1) {
+      const date = new Date(start);
+      date.setHours(date.getHours() + hourOffset * 2);
+      const chart = generateQimen(date, method);
+      const valueDoorPalaces = chart.jiuGongGe.filter(
+        (palace) => palace.renPan.door === chart.zhiShi,
+      );
+      const expected =
+        expectedHours.has(chart.ganzhi.hour) &&
+        valueDoorPalaces.length === 1 &&
+        valueDoorPalaces[0].diPan.stem === '丁';
+      const actual = (chart.classicPatterns ?? []).filter((pattern) => pattern.name === '玉女守门');
+
+      assert.equal(actual.length, expected ? 1 : 0, `${method} ${date.toISOString()}`);
+      if (actual.length > 0) {
+        reached.add(method);
+        evidenceSample ??= chart;
+      }
+    }
+  }
+
+  assert.deepEqual([...reached].sort(), ['feipan', 'zhuanpan']);
+  assert.ok(evidenceSample);
+  const analysis = analyzeQimenEvidence(evidenceSample);
+  const fact = analysis.patternFacts.find((item) => item.name === '玉女守门');
+  const rule = analysis.ruleSourceFacts.find((item) => item.key === 'rule:qimen:yu-nv-shou-men');
+
+  assert.ok(fact);
+  assert.equal(fact.traditionalTone, '中性');
+  assert.ok(fact.sources.some((source) => source.includes('《武经总要》')));
+  assert.ok(fact.sources.some((source) => source.includes('《遁甲演义》')));
+  assert.ok(fact.sources.some((source) => source.includes('《奇门宝鉴御定》')));
+  assert.match(fact.promptText, /只供 AI 结合完整盘面继续核验/);
+  assert.doesNotMatch(fact.promptText, /大吉|必成|必胜|百事皆吉/);
+  assert.ok(rule);
+  assert.equal(rule.category, '玉女守门时家结构规则');
+  assert.match(rule.promptText, /值使门在九宫中只有一个落宫/);
+  assert.match(rule.promptText, /宴会、阴私、出行或吉凶断语/);
+});
+
+test('天辅时120种日干时支组合全部失败关闭并公开版本冲突', () => {
+  const dayStems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'] as const;
+  const hourBranches = [
+    '子',
+    '丑',
+    '寅',
+    '卯',
+    '辰',
+    '巳',
+    '午',
+    '未',
+    '申',
+    '酉',
+    '戌',
+    '亥',
+  ] as const;
+  let checked = 0;
+
+  for (const dayStem of dayStems) {
+    const dayGanZhi = jiazi.find((item) => item.startsWith(dayStem));
+    assert.ok(dayGanZhi);
+    for (const hourBranch of hourBranches) {
+      const hourGanZhi = jiazi.find((item) => item.endsWith(hourBranch));
+      assert.ok(hourGanZhi);
+      const patterns = getClassicPatterns({
+        jiuGongGe: [buildPalace('', '')],
+        zhiFu: '',
+        zhiShi: '',
+        scope: 'hour',
+        dayGanZhi,
+        hourGanZhi,
+      });
+
+      assert.ok(!patterns.some((pattern) => pattern.name === '天辅时'));
+      checked += 1;
+    }
+  }
+
+  assert.equal(checked, 120);
+  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const rule = analysis.ruleSourceFacts.find(
+    (item) => item.key === 'rule:qimen:tian-fu-hour-version-boundary',
+  );
+
+  assert.ok(rule);
+  assert.equal(rule.category, '天辅时版本冲突边界');
+  assert.match(rule.promptText, /甲己日己巳、乙庚日甲申/);
+  assert.match(rule.promptText, /戊癸日申时/);
+  assert.match(rule.promptText, /只保留日柱、时柱原始事实/);
+  assert.doesNotMatch(rule.promptText, /大吉|必成|必胜|百事皆吉/);
 });
