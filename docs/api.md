@@ -390,7 +390,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - 梅花易数 `method` 支持 `time`、`number`、`random`、`timeTrigram`。数字起卦使用 `number`；`timeTrigram` 为历史兼容入口，按《梅花易数》年月日时起卦法计算，不再使用时辰地支方位自定义映射。
 - 梅花排盘结果的 `evidenceAnalysis` 返回主卦起因、互卦过程、变卦结果三阶段体用关系、月建旺衰、推进变化、支持项、限制项和触发条件。动爻与卦数只保留为层位和取数旁证，不机械换算绝对日期，也不输出吉凶总分或成功率。
 - 小六壬 `xiaoliurenMethod` 当前仅支持 `time`（默认）；可用 `customDate` 指定起课时间。数字、随机、流派参数已移除，因为未取得足以支持这些扩展的可靠出处。
-- 金口诀 `jinkoujueMethod` 支持 `time`、`number`、`random`，数字起课时使用 `jinkoujueNumber`；排盘结果含地分、将神、贵神、人元四位、取用主线与结构化证据。
+- 金口诀 `jinkoujueMethod` 支持 `time`、`number`、`random`，数字起课时使用 `jinkoujueNumber`；排盘结果含地分、将神、贵神、人元四位、取用主线与结构化证据。证据与提示词会从起课时间、用户数字或可重放随机轨迹重新计算，不信任旧缓存中的四位、动爻和派生证据；随机轨迹缺失或互相矛盾时明确拒绝。
 - 塔罗 `spreadType` 支持 `single`、`three`、`love`、`career`、`decision`、`celtic`、`chakra`、`year`、`mindBodySpirit`、`horseshoe`。
 - 六爻 `liuyaoTemplate` 支持 `general`、`ganqing`、`shiye`、`caifu`、`guaishen`。
 - 六爻排盘结果的 `evidenceAnalysis` 返回分层用神候选、本卦与伏神爻位、原神忌神仇神作用链、月日和动变支持、空破墓退反证及病药触发条件。作用链的 `effectFacts` 按每个用神、原神、忌神引用返回真实活动状态、有力/有气条件和无力/无根条件；`godInteractionFacts` 以引用键和逐步五行关系返回直接生克、忌原接续相生、原神受制得助及忌神受制得助路径。静爻旺相不等于已经作用，原忌同动与忌仇同动只按重算后的明动或暗动成立，条件和路径并见时不按数量裁定有效无效。`sanheFormations` 分别记录三爻齐动、两动一静、初三/四六爻动变、日月补局和虚一待用，并保留参与爻、缺支、空破墓与静爻待值状态；同一爻的本支、变支不能冒充日月补局所需的两个活动爻。结构事实通过 `sanheFormationKey`、`sanhePattern`、`sanheStatus`、`sanheRole` 和 `referenceKeys` 关联三合与用神链；静爻逢月日合记合起，明动或暗动逢合记合绊，两活动爻相合记合好，动化六合另记化扶。变爻只通过本位动爻形成回头生克冲、进退空墓破等条件，不跨位充当独立原忌仇神；应期事实用 `role`、`effect` 和 `referenceKeys` 区分用神受制待解、原神助用待验、忌神制化待辨及边界。提示词会按 `liuyaoTemplate` 重新选择对应主题候选；整卦冲合、三合须结合事项、用忌、世爻和旺衰辨向，取用未闭合时不套空破合冲公式，也不输出吉凶总分、成功率或固定日期。

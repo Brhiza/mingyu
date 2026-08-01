@@ -4,6 +4,7 @@ import { strict as assert } from 'node:assert';
 import {
   analyzeJinkoujueEvidence,
   generateJinkoujue,
+  rebuildAuditedJinkoujueData,
 } from '../packages/core/src/divination/algorithms/jinkoujue.ts';
 
 const SAMPLE_DATE = new Date('2025-01-01T08:00:00+08:00');
@@ -232,6 +233,108 @@ test('金口诀：同种子随机起课可复现，并保留随机轨迹', () =>
   assert.equal(a.diFenBranch, b.diFenBranch);
   assert.ok(a.randomTrace?.samples.length);
   assert.deepEqual(a.randomTrace?.samples, b.randomTrace?.samples);
+});
+
+test('金口诀：审核重建应只凭时间、数字或随机轨迹恢复完整课盘', () => {
+  const cases = [
+    generateJinkoujue({ method: 'time', customDate: SAMPLE_DATE }),
+    generateJinkoujue({ method: 'number', number: 29, customDate: SAMPLE_DATE }),
+    generateJinkoujue({ method: 'random', seed: 'audit-seed', customDate: SAMPLE_DATE }),
+  ];
+
+  for (const data of cases) {
+    assert.deepEqual(rebuildAuditedJinkoujueData(data), data);
+    assert.deepEqual(analyzeJinkoujueEvidence(data), data.evidenceAnalysis);
+  }
+});
+
+test('金口诀：审核重建不得吸收旧课盘派生字段或旧证据污染', () => {
+  const clean = generateJinkoujue({ method: 'number', number: 5, customDate: SAMPLE_DATE });
+  const polluted = structuredClone(clean);
+  polluted.methodLabel = '伪造起课法';
+  polluted.ganzhi.day = '甲子';
+  polluted.monthLeader = '子';
+  polluted.noblemanBranch = '亥';
+  polluted.positions.diFen.promptText = '伪造地分现实结论';
+  polluted.positions.guiShen.god = '伪造贵神';
+  polluted.relations.guiToJiang = '保证成功';
+  polluted.yinYangUse.rule = '伪造发用规则';
+  polluted.movements = [];
+  polluted.mainLine = '伪造课盘主线';
+  polluted.calculation.guiShenRule = '伪造贵神起例';
+  polluted.focusEvidence = [];
+  polluted.summary = '伪造现实结果';
+  polluted.evidenceAnalysis!.promptText = '伪造旧证据';
+
+  assert.deepEqual(rebuildAuditedJinkoujueData(polluted), clean);
+  assert.deepEqual(analyzeJinkoujueEvidence(polluted), clean.evidenceAnalysis);
+});
+
+test('金口诀：审核重建应拒绝缺失或互相矛盾的原始起课资料', () => {
+  const number = generateJinkoujue({ method: 'number', number: 5, customDate: SAMPLE_DATE });
+  assert.throws(
+    () => rebuildAuditedJinkoujueData(null as unknown as typeof number),
+    /结果必须是对象/,
+  );
+  assert.throws(
+    () => rebuildAuditedJinkoujueData({ ...number, timestamp: Number.NaN }),
+    /时间戳无效/,
+  );
+  assert.throws(
+    () => rebuildAuditedJinkoujueData({ ...number, method: 'manual' as typeof number.method }),
+    /未知的金口诀起课方式/,
+  );
+  assert.throws(
+    () =>
+      rebuildAuditedJinkoujueData({
+        ...number,
+        calculation: { ...number.calculation, inputBaseSource: '随机数' },
+      }),
+    /缺少原始用户数字标识/,
+  );
+  assert.throws(
+    () =>
+      rebuildAuditedJinkoujueData({
+        ...number,
+        calculation: { ...number.calculation, inputBase: 0 },
+      }),
+    /原始用户数字必须是不小于1的安全整数/,
+  );
+
+  const time = generateJinkoujue({ method: 'time', customDate: SAMPLE_DATE });
+  assert.throws(
+    () =>
+      rebuildAuditedJinkoujueData({
+        ...time,
+        randomTrace: { mode: 'system', samples: [0.5] },
+      }),
+    /时间起课不应携带随机轨迹/,
+  );
+
+  const random = generateJinkoujue({
+    method: 'random',
+    seed: 'audit-seed',
+    customDate: SAMPLE_DATE,
+  });
+  const missingTrace = structuredClone(random);
+  delete missingTrace.randomTrace;
+  if (missingTrace.meta) delete missingTrace.meta.random;
+  assert.throws(() => rebuildAuditedJinkoujueData(missingTrace), /缺少原始随机轨迹/);
+
+  const mismatchedCopies = structuredClone(random);
+  mismatchedCopies.randomTrace!.samples[0] = 0.25;
+  assert.throws(() => rebuildAuditedJinkoujueData(mismatchedCopies), /两份随机轨迹不一致/);
+
+  const extraSamples = structuredClone(random);
+  extraSamples.randomTrace!.samples.push(0.25);
+  extraSamples.meta!.random!.samples.push(0.25);
+  assert.throws(() => rebuildAuditedJinkoujueData(extraSamples), /应记录1个原始随机样本/);
+
+  const seedMismatch = structuredClone(random);
+  const replacement = seedMismatch.randomTrace!.samples[0] === 0.25 ? 0.5 : 0.25;
+  seedMismatch.randomTrace!.samples[0] = replacement;
+  seedMismatch.meta!.random!.samples[0] = replacement;
+  assert.throws(() => rebuildAuditedJinkoujueData(seedMismatch), /与保存的种子不一致/);
 });
 
 test('金口诀：证据层应以阴阳发用位为唯一四位主证，生克保持中性', () => {

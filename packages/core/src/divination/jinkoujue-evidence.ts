@@ -174,7 +174,8 @@ function buildRelationFact(
   };
 }
 
-export function analyzeJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidenceAnalysis {
+/** 仅供已按原始起课输入重建的课盘使用；公开入口位于算法模块。 */
+export function analyzeRebuiltJinkoujueEvidence(data: JinkoujueData): JinkoujueEvidenceAnalysis {
   const positions = [
     data.positions.diFen,
     data.positions.jiangShen,

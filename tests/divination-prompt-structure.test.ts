@@ -1487,3 +1487,45 @@ test('金口诀提示词应写入阴阳发用、贵神本属与五动三动且�
   assert.doesNotMatch(prompt, /你是资深|取证顺序|证据边界|待核|可疑|暂无/);
   assertPromptIsPortableTaskText(prompt);
 });
+
+test('金口诀提示词只使用原始起课输入重建，不吸收旧课盘与证据污染', async () => {
+  const { generateJinkoujue } =
+    await import('../packages/core/src/divination/algorithms/jinkoujue.ts');
+  const { buildDivinationPrompt } = await import('../src/lib/divination/engine/index.ts');
+  const clean = generateJinkoujue({
+    method: 'number',
+    number: 5,
+    customDate: new Date('2025-01-01T08:00:00+08:00'),
+  });
+  const polluted = structuredClone(clean);
+  polluted.methodLabel = '伪造起课法';
+  polluted.ganzhi.day = '甲子';
+  polluted.positions.guiShen.god = '伪造贵神';
+  polluted.relations.guiToJiang = '保证成功';
+  polluted.yinYangUse.rule = '伪造发用规则';
+  polluted.movements = [];
+  polluted.mainLine = '伪造课盘主线';
+  polluted.summary = '伪造现实结论';
+  polluted.evidenceAnalysis!.promptText = '伪造旧证据';
+
+  const cleanPrompt = buildDivinationPrompt(
+    'jinkoujue',
+    PROJECT_DECISION_QUESTION,
+    clean,
+    createProjectSupplementaryInfo(),
+    { isCustomQuestion: true },
+  );
+  const pollutedPrompt = buildDivinationPrompt(
+    'jinkoujue',
+    PROJECT_DECISION_QUESTION,
+    polluted,
+    createProjectSupplementaryInfo(),
+    { isCustomQuestion: true },
+  );
+
+  assert.equal(pollutedPrompt, cleanPrompt);
+  assert.doesNotMatch(
+    pollutedPrompt,
+    /伪造起课法|伪造贵神|保证成功|伪造发用规则|伪造课盘主线|伪造现实结论|伪造旧证据/,
+  );
+});

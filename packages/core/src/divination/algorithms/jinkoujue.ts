@@ -32,10 +32,16 @@ import {
   isSheng,
 } from '../../ganzhi';
 import { assertOptionalRecord } from '../../shared/validation';
-import type { RandomOptions, RandomTrace } from '../../shared/random';
-import { createRandomContext, hasRandomOptions, randomInt } from '../../shared/random';
-import { attachResultMeta } from '../../shared/result';
-import { analyzeJinkoujueEvidence } from '../jinkoujue-evidence';
+import {
+  createRandomContext,
+  createSeededRandom,
+  hasRandomOptions,
+  randomInt,
+  type RandomOptions,
+  type RandomTrace,
+} from '../../shared/random';
+import { attachResultMeta, createResultMeta, stableStringify } from '../../shared/result';
+import { analyzeRebuiltJinkoujueEvidence } from '../jinkoujue-evidence';
 
 const METHOD_LABELS: Record<JinkoujueDivinationMethod, string> = {
   time: '时间起课',
@@ -387,7 +393,7 @@ function resolveDiFenBranch(params: {
 /**
  * 生成金口诀完整课盘。
  */
-export function generateJinkoujue(
+function buildJinkoujueData(
   params?: {
     method?: JinkoujueDivinationMethod;
     number?: number;
@@ -575,13 +581,128 @@ export function generateJinkoujue(
     calculatedAt: timestamp,
     random: randomTrace,
   });
+  return resultWithMeta;
+}
+
+function assertJinkoujueTimestamp(timestamp: number): number {
+  if (!Number.isFinite(timestamp) || Number.isNaN(new Date(timestamp).getTime())) {
+    throw new Error('金口诀结果时间戳无效，无法审核重建。');
+  }
+  return timestamp;
+}
+
+function normalizeJinkoujueRandomTrace(input: JinkoujueData): RandomTrace {
+  const directTrace = input.randomTrace;
+  const metaTrace = input.meta?.random;
+  if (directTrace && metaTrace && stableStringify(directTrace) !== stableStringify(metaTrace)) {
+    throw new Error('金口诀结果中的两份随机轨迹不一致，无法审核重建。');
+  }
+  const rawTrace = directTrace ?? metaTrace;
+  if (!rawTrace) {
+    throw new Error('金口诀随机起课缺少原始随机轨迹，无法审核重建。');
+  }
+  const trace = createResultMeta({
+    algorithm: 'jinkoujue.audit.trace',
+    input: { method: 'random' },
+    calculatedAt: assertJinkoujueTimestamp(input.timestamp),
+    random: rawTrace,
+  }).random!;
+  if (trace.samples.length !== 1) {
+    throw new Error(`金口诀随机起课应记录1个原始随机样本，当前为${trace.samples.length}个。`);
+  }
+  if (trace.mode === 'seeded') {
+    if (trace.seed === undefined) {
+      throw new Error('金口诀 seeded 随机轨迹缺少种子，无法核验。');
+    }
+    if (createSeededRandom(trace.seed)() !== trace.samples[0]) {
+      throw new Error('金口诀随机轨迹与保存的种子不一致。');
+    }
+  } else if (trace.seed !== undefined) {
+    throw new Error('金口诀非 seeded 随机轨迹不应携带种子。');
+  }
+  return trace;
+}
+
+/**
+ * 只保留起课方式、时间、数字或随机轨迹这些原始输入，其余课盘与证据全部重算。
+ */
+export function rebuildAuditedJinkoujueData(input: JinkoujueData): JinkoujueData {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('金口诀结果必须是对象。');
+  }
+  const timestamp = assertJinkoujueTimestamp(input.timestamp);
+  const customDate = new Date(timestamp);
+  let rebuilt: JinkoujueData;
+
+  if (input.method === 'time') {
+    if (input.randomTrace || input.meta?.random) {
+      throw new Error('金口诀时间起课不应携带随机轨迹。');
+    }
+    rebuilt = buildJinkoujueData({ method: 'time', customDate });
+  } else if (input.method === 'number') {
+    if (input.randomTrace || input.meta?.random) {
+      throw new Error('金口诀数字起课不应携带随机轨迹。');
+    }
+    const number = input.calculation?.inputBase;
+    if (input.calculation?.inputBaseSource !== '用户数字') {
+      throw new Error('金口诀数字起课缺少原始用户数字标识，无法审核重建。');
+    }
+    if (!Number.isSafeInteger(number) || number < 1) {
+      throw new Error('金口诀数字起课的原始用户数字必须是不小于1的安全整数。');
+    }
+    rebuilt = buildJinkoujueData({ method: 'number', number, customDate });
+  } else if (input.method === 'random') {
+    const trace = normalizeJinkoujueRandomTrace(input);
+    const replayed = buildJinkoujueData({
+      method: 'random',
+      customDate,
+      replay: trace.samples,
+    });
+    rebuilt = {
+      ...replayed,
+      randomTrace: trace,
+      meta: createResultMeta({
+        algorithm: 'jinkoujue',
+        input: {
+          method: 'random',
+          number: null,
+          timestamp,
+          diFenBranch: replayed.diFenBranch,
+        },
+        calculatedAt: timestamp,
+        random: trace,
+      }),
+    };
+  } else {
+    throw new Error(`未知的金口诀起课方式: ${String(input.method)}`);
+  }
+
+  rebuilt.evidenceAnalysis = analyzeRebuiltJinkoujueEvidence(rebuilt);
+  return rebuilt;
+}
+
+/** 所有公开证据分析先从原始起课输入重建，禁止旧派生字段进入提示词。 */
+export function analyzeJinkoujueEvidence(input: JinkoujueData) {
+  return rebuildAuditedJinkoujueData(input).evidenceAnalysis!;
+}
+
+/**
+ * 生成金口诀完整课盘。
+ */
+export function generateJinkoujue(
+  params?: {
+    method?: JinkoujueDivinationMethod;
+    number?: number;
+    customDate?: Date;
+  } & RandomOptions,
+): JinkoujueData {
+  const result = buildJinkoujueData(params);
   return {
-    ...resultWithMeta,
-    evidenceAnalysis: analyzeJinkoujueEvidence(resultWithMeta),
+    ...result,
+    evidenceAnalysis: analyzeRebuiltJinkoujueEvidence(result),
   };
 }
 
-export { analyzeJinkoujueEvidence } from '../jinkoujue-evidence';
 export type {
   JinkoujueEvidenceAnalysis,
   JinkoujuePositionFact,

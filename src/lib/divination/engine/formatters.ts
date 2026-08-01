@@ -36,7 +36,7 @@ import {
   rebuildAuditedLiurenData,
 } from '@core/divination/algorithms/liuren';
 import { analyzeXiaoliurenEvidence } from '@core/divination/algorithms/xiaoliuren';
-import { analyzeJinkoujueEvidence } from '@core/divination/algorithms/jinkoujue';
+import { rebuildAuditedJinkoujueData } from '@core/divination/algorithms/jinkoujue';
 import { rebuildAuditedTarotData } from '@core/divination/tarot';
 import { rebuildAuditedLenormandData } from '@core/divination/algorithms/lenormand';
 
@@ -1010,21 +1010,22 @@ export function formatTaiyiInfo(data: TaiyiResult) {
 }
 
 function formatJinkoujueInfo(data: JinkoujueData) {
-  const evidenceAnalysis = data.evidenceAnalysis ?? analyzeJinkoujueEvidence(data);
-  const p = data.positions;
+  const audited = rebuildAuditedJinkoujueData(data);
+  const evidenceAnalysis = audited.evidenceAnalysis!;
+  const p = audited.positions;
   return [
     '占法：金口诀',
-    `起课方式：${data.methodLabel}`,
-    `起课时间：日柱${data.ganzhi.day}，时支${data.divinationBranch}，${data.dayNight}`,
-    `月将贵人：月将${data.monthLeader}；${data.dayNight}贵人起${data.noblemanBranch}${data.calculation.noblemanDirection}`,
-    evidenceAnalysis.mainLine || data.mainLine,
-    `阴阳发用：${data.yinYangUse.rule}；发用位${data.yinYangUse.usePosition}${data.yinYangUse.isVoid ? '旬空' : '不空'}`,
+    `起课方式：${audited.methodLabel}`,
+    `起课时间：日柱${audited.ganzhi.day}，时支${audited.divinationBranch}，${audited.dayNight}`,
+    `月将贵人：月将${audited.monthLeader}；${audited.dayNight}贵人起${audited.noblemanBranch}${audited.calculation.noblemanDirection}`,
+    evidenceAnalysis.mainLine,
+    `阴阳发用：${audited.yinYangUse.rule}；发用位${audited.yinYangUse.usePosition}${audited.yinYangUse.isVoid ? '旬空' : '不空'}`,
     `四位：地分${p.diFen.branch}（${p.diFen.yinYang}${p.diFen.element}，按${p.diFen.elementBasis}，月令${p.diFen.seasonState}${p.diFen.isVoid ? '，空' : ''}）；将神${p.jiangShen.stem || ''}${p.jiangShen.branch}（${p.jiangShen.yinYang}${p.jiangShen.element}，按${p.jiangShen.elementBasis}，月令${p.jiangShen.seasonState}${p.jiangShen.isVoid ? '，空' : ''}）；贵神${p.guiShen.stem || ''}${p.guiShen.branch}乘${p.guiShen.god || ''}（${p.guiShen.yinYang}${p.guiShen.element}，按${p.guiShen.elementBasis}，月令${p.guiShen.seasonState}${p.guiShen.isVoid ? '，空' : ''}）；人元${p.renYuan.stem || ''}${p.renYuan.branch}（${p.renYuan.yinYang}${p.renYuan.element}，按${p.renYuan.elementBasis}，月令${p.renYuan.seasonState}${p.renYuan.isVoid ? '，空' : ''}）`,
-    `动爻：${data.movements.map((item) => `${item.category}${item.name}（${item.trigger}）`).join('；') || '未触发五动或三动'}`,
-    `四位关系：贵将${data.relations.guiToJiang}；贵人${data.relations.guiToRen}；将地${data.relations.jiangToDi}；人地${data.relations.renToDi}；贵地${data.relations.guiToDi}`,
-    data.xunKong?.length ? `旬空：${data.xunKong.join('、')}` : '',
+    `动爻：${audited.movements.map((item) => `${item.category}${item.name}（${item.trigger}）`).join('；') || '未触发五动或三动'}`,
+    `四位关系：贵将${audited.relations.guiToJiang}；贵人${audited.relations.guiToRen}；将地${audited.relations.jiangToDi}；人地${audited.relations.renToDi}；贵地${audited.relations.guiToDi}`,
+    audited.xunKong.length ? `旬空：${audited.xunKong.join('、')}` : '',
     evidenceAnalysis.promptText ? `结构化证据：${evidenceAnalysis.promptText}` : '',
-    data.summary ? `简要提示：${data.summary}` : '',
+    audited.summary ? `简要提示：${audited.summary}` : '',
   ]
     .filter(Boolean)
     .join('\n');
