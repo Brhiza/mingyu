@@ -594,7 +594,10 @@ test('奇门通用排盘不自动生成应期快慢、触发事件或固定日�
   assert.equal(runtimeData.yingQi, undefined);
   assert.equal(data.evidenceAnalysis?.timingSummaryFact.rhythm, null);
   assert.equal(data.evidenceAnalysis?.timingSummaryFact.status, '仅有期限边界');
-  assert.match(data.evidenceAnalysis?.timingSummaryFact.promptText ?? '', /待按具体问题选定用神/);
+  assert.match(
+    data.evidenceAnalysis?.timingSummaryFact.promptText ?? '',
+    /待明确具体底本版本、事项角色、完整取用规则、已指定用神对象并取得目标期限/,
+  );
   assert.doesNotMatch(
     data.evidenceAnalysis?.promptText ?? '',
     /内宫速应|外宫迟应|应期虽快|事在近期|事在远日|待填实.*方应/,

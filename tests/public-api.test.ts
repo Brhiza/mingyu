@@ -3443,7 +3443,7 @@ test('公开 API 奇门不生成自动应期且小六壬只保留原始时间事
   assert.equal(qimen.body.data.evidenceAnalysis.timingSummaryFact.rhythm, null);
   assert.match(
     qimen.body.data.evidenceAnalysis.timingSummaryFact.promptText,
-    /待按具体问题选定用神/,
+    /待明确具体底本版本、事项角色、完整取用规则、已指定用神对象并取得目标期限/,
   );
 
   const xiaoliuren = await callApi('divination/xiaoliuren', {

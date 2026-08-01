@@ -208,7 +208,7 @@ export interface QimenTimingFact {
   rhythm: null;
   promptText: string;
   sources: string[];
-  limitation: '通用盘只保留推算应期所需的原始位置事实；未按问题选定用神并取得目标期限前，不生成相对节奏、触发事件、固定天数或绝对日期';
+  limitation: '通用盘只保留推算应期所需的原始位置事实；未同时明确具体底本版本、事项角色、完整取用规则、已指定用神对象和目标期限前，不生成相对节奏、触发事件、固定天数或绝对日期';
 }
 
 export interface QimenTimingSummaryFact {
@@ -218,7 +218,7 @@ export interface QimenTimingSummaryFact {
   factKeys: string[];
   promptText: string;
   sources: string[];
-  limitation: '应期汇总只声明当前缺少具体问题用神与目标期限；不得把位置索引、已审核旬空、伏吟反吟、宫数或局数直接换算为快慢、固定天数、绝对日期或事件概率，马星在起例层级明确前不得参与推算';
+  limitation: '应期汇总只声明当前缺少具体底本版本、事项角色、完整取用规则、已指定用神对象与目标期限；不得把问题文字、出生年份、位置索引、已审核旬空、伏吟反吟、宫数或局数直接换算为快慢、固定天数、绝对日期或事件概率，马星在起例层级明确前不得参与推算';
 }
 
 export interface QimenDirectionBoundaryFact {
@@ -304,9 +304,9 @@ const COUNTER_FACT_LIMITATION =
 const COUNTER_SUMMARY_LIMITATION =
   '位置限制汇总只说明九宫是否命中旬空等可复算条件；未见位置限制不代表现实风险为零，也不得按限制数量换算吉凶分或成功率' as const;
 const TIMING_FACT_LIMITATION =
-  '通用盘只保留推算应期所需的原始位置事实；未按问题选定用神并取得目标期限前，不生成相对节奏、触发事件、固定天数或绝对日期' as const;
+  '通用盘只保留推算应期所需的原始位置事实；未同时明确具体底本版本、事项角色、完整取用规则、已指定用神对象和目标期限前，不生成相对节奏、触发事件、固定天数或绝对日期' as const;
 const TIMING_SUMMARY_LIMITATION =
-  '应期汇总只声明当前缺少具体问题用神与目标期限；不得把位置索引、已审核旬空、伏吟反吟、宫数或局数直接换算为快慢、固定天数、绝对日期或事件概率，马星在起例层级明确前不得参与推算' as const;
+  '应期汇总只声明当前缺少具体底本版本、事项角色、完整取用规则、已指定用神对象与目标期限；不得把问题文字、出生年份、位置索引、已审核旬空、伏吟反吟、宫数或局数直接换算为快慢、固定天数、绝对日期或事件概率，马星在起例层级明确前不得参与推算' as const;
 const DIRECTION_SUMMARY_LIMITATION =
   '方位取用边界只声明通用入口未生成取用结论；九宫原始方向不等于吉方、避方或现实路线建议' as const;
 const STEM_RELATION_FACT_LIMITATION =
@@ -1123,7 +1123,7 @@ function buildLimitationFacts(params: {
         ]),
       ),
       promptText:
-        '以上宫位只用于索引值符、值使、日干、时干与已校勘格局所在位置，不等于已经按具体问题选定用神；不得把索引顺序或宫间五行关系写成现实主次、支持阻碍或人物意图',
+        '以上宫位只用于索引值符、值使、日干、时干与已校勘格局所在位置，不等于已经选定用神；问题文字、主题或出生年份也不能替代具体底本版本、事项角色、完整取用规则和已指定用神对象，不得把索引顺序或宫间五行关系写成现实主次、支持阻碍或人物意图',
       sources: ['位置索引来源与九宫宫对五行关系'],
     },
     {
@@ -1146,15 +1146,15 @@ function buildLimitationFacts(params: {
       type: '应期边界',
       ownerFactKeys: [params.timingSummaryFact.key, ...params.timingFacts.map((item) => item.key)],
       promptText:
-        '当前只保留已审核旬空、伏吟反吟等原始位置事实；马星须先明确日马、时马或其他版本才可继续推算。未按具体问题选定用神并取得目标期限前，不生成应期快慢、触发事件、唯一日期、固定天数或事件概率',
-      sources: ['具体问题用神与目标期限缺失边界'],
+        '当前只保留已审核旬空、伏吟反吟等原始位置事实；马星须先明确日马、时马或其他版本才可继续推算。未同时明确具体底本版本、事项角色、完整取用规则、已指定用神对象和目标期限前，不生成应期快慢、触发事件、唯一日期、固定天数或事件概率',
+      sources: ['取用版本、事项角色、完整规则、指定用神与目标期限缺失边界'],
     },
     {
       key: 'qimen:limitation:direction-risk',
       type: '方位与高风险输出边界',
       ownerFactKeys: [params.summaryFact.key, params.directionBoundaryFact.key],
       promptText:
-        '九宫方向只表示固定空间方位，不等于吉方、避方或现实路线建议；必须由后续解读先按具体问题选定用神并结合现实安全、权限与天气，不得输出吉凶总分、成功率、医疗法律财务定论或保证有效建议',
+        '九宫方向只表示固定空间方位，不等于吉方、避方或现实路线建议；未同时明确具体底本版本、事项角色、完整取用规则和已指定用神对象时，不得继续生成方位、现实结果或行动建议，也不得输出吉凶总分、成功率、医疗法律财务定论或保证有效建议',
       sources: ['九宫固定方向与现实安全、高风险输出约束'],
     },
   ];
@@ -1675,10 +1675,10 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
       appliesTo: ['九宫方向事实', '具体问题取用', '现实路线与安全条件'],
       sources: [
         '当前九宫方向、门、星、神、天地盘干与空亡原始数据',
-        '具体事项用神、出行路线与现实安全条件需由后续问题上下文提供',
+        '具体底本版本、事项角色、完整取用规则、已指定用神对象、出行路线与现实安全条件需由调用方明确提供',
       ],
       promptText:
-        '方位取用边界：不得仅凭开休生门、伤死惊门、八神、空亡或格局，把某宫自动写成求职、投资、合作吉方或宜避之方。先保留九宫方向事实，再按具体问题选定用神并核对现实路线、安全和时空条件；条件不足时明确不下方位结论',
+        '方位取用边界：不得仅凭问题文字、出生年份、开休生门、伤死惊门、八神、空亡或格局，把某宫自动写成求职、投资、合作吉方或宜避之方。先保留九宫方向事实；只有具体底本版本、事项角色、完整取用规则和已指定用神对象全部明确后，才可按该口径继续核对现实路线、安全和时空条件；条件不足时明确不下方位结论',
       limitation: RULE_SOURCE_LIMITATION,
     },
   ];
@@ -1854,8 +1854,8 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
       sourceStatus: '统一边界',
       rhythm: null,
       promptText:
-        '当前通用盘未按具体问题选定用神，也未取得目标期限；只保留已审核旬空、伏吟反吟等原始位置事实，马星因起例层级未闭合不自动定位，也不生成应期快慢、触发事件或唯一日期',
-      sources: ['用神、目标期限与现实事件未由通用排盘提供'],
+        '当前通用盘未取得具体底本版本、事项角色、完整取用规则、已指定用神对象和目标期限；只保留已审核旬空、伏吟反吟等原始位置事实，马星因起例层级未闭合不自动定位，也不生成应期快慢、触发事件或唯一日期',
+      sources: ['取用版本、事项角色、完整规则、指定用神、目标期限与现实事件未由通用排盘提供'],
       limitation: TIMING_FACT_LIMITATION,
     },
   ];
@@ -1865,8 +1865,9 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
     status: '仅有期限边界',
     rhythm: null,
     factKeys: timingFacts.map((item) => item.key),
-    promptText: '应期状态：待按具体问题选定用神并取得目标期限；当前不生成快慢或日期结论',
-    sources: ['通用排盘的用神与期限资料边界'],
+    promptText:
+      '应期状态：待明确具体底本版本、事项角色、完整取用规则、已指定用神对象并取得目标期限；当前不生成快慢或日期结论',
+    sources: ['通用排盘的取用版本、事项角色、完整规则、指定用神与期限资料边界'],
     limitation: TIMING_SUMMARY_LIMITATION,
   };
   const directionBoundaryFact: QimenDirectionBoundaryFact = {
@@ -2074,12 +2075,12 @@ export function analyzeQimenEvidence(input: QimenData): QimenEvidenceAnalysis {
     evidence,
     promptText,
     methodology: [
-      '定位值符、值使、日干、时干与已校勘经典格局所在宫，只作位置索引，不自动指定具体问题的用神。',
+      '定位值符、值使、日干、时干与已校勘经典格局所在宫，只作位置索引，不自动指定用神。',
       '逐宫保留门、星、神、天地盘干、已审核时家时旬空与规则命中事实；月家、年家旬空及所有自动马星均按适用层级边界失败关闭。',
       '定局、值符值使、已校勘组合规则来源、宫间作用、应期和方位条件全部进入统一证据条目。',
       '传统格局原文保留在结构化结果中；提示词遇到强断、固定应期或泛化吉凶解释时失败关闭，只保留可复算命中事实。',
       '九宫宫对只陈述可复核的五行生克关系，不按位置索引制造主次，也不用数字分数代替判断。',
-      '未按问题选定用神时不指定用神宫，不输出吉凶总分、成功率、方位结论或绝对日期。',
+      '未同时明确具体底本版本、事项角色、完整取用规则和已指定用神对象时，不指定用神宫，不输出吉凶总分、成功率、方位结论、应期、现实结果或行动建议。',
     ],
   };
 }

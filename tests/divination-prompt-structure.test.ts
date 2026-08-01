@@ -594,8 +594,11 @@ test('奇门提示词会输出值符值使、旬空、马星边界和格局资�
     /旬空与马星边界：旬空[子丑寅卯辰巳午未申酉戌亥]空落\S+宫、[子丑寅卯辰巳午未申酉戌亥]空落\S+宫；马星起例层级未闭合，未自动推算/,
   );
   assert.match(prompt, /位置与五行事实：|经典格局：|已校勘组合规则：/);
-  assert.match(prompt, /先根据具体问题选择日干、年命或事项类神作为用神并说明取用口径/);
-  assert.match(prompt, /取用依据未闭合时保留待定，不强行给出方向、时机或现实结果/);
+  assert.match(prompt, /具体底本版本、事项角色、完整取用规则和已指定用神对象/);
+  assert.match(prompt, /问题文字、主题、出生年份或位置索引不能替代这四项资料/);
+  assert.match(prompt, /缺少任一项时，用神保持待定/);
+  assert.match(prompt, /不生成方位、应期、现实结果或行动建议/);
+  assert.doesNotMatch(prompt, /先根据具体问题选择.*作为用神|先依问题选取.*用神/);
   assert.doesNotMatch(prompt, /主宫评分：|辅宫评分：|评分-?\d+|（-?\d+分|应期范围\d/);
   assert.doesNotMatch(prompt, /判断人事状态、方向和时机|吉门吉星需|凶象也要看|方向和时机均从/);
   assert.doesNotMatch(prompt, /建除(?:建|除|满|平|定|执|破|危|成|收|开|闭)(?:吉|凶|平)(?:；|\n)/);

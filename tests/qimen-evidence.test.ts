@@ -101,14 +101,21 @@ test('奇门排盘应内置九宫位置与宫间关系结构化证据', () => {
   assertPromptIsPortableTaskText(evidence.promptText);
 });
 
-test('奇门证据应明确位置索引不等于已按问题选定用神', () => {
+test('奇门证据应在四项取用资料不全时失败关闭', () => {
   const evidence = analyzeQimenEvidence(generateQimen(fixedDate));
 
-  assert.match(evidence.promptText, /不自动指定具体问题的用神宫/);
-  assert.match(evidence.promptText, /不等于已经按具体问题选定用神/);
-  assert.match(evidence.promptText, /未按具体问题选定用神并取得目标期限前，不生成应期快慢/);
+  assert.match(evidence.promptText, /不自动指定用神/);
+  assert.match(
+    evidence.promptText,
+    /问题文字、主题或出生年份也不能替代具体底本版本、事项角色、完整取用规则和已指定用神对象/,
+  );
+  assert.match(
+    evidence.promptText,
+    /未同时明确具体底本版本、事项角色、完整取用规则、已指定用神对象和目标期限前，不生成应期快慢/,
+  );
   assert.match(evidence.promptText, /通用入口不生成吉方、避方或候选方向/);
   assert.match(evidence.promptText, /不得输出吉凶总分、成功率/);
+  assert.match(evidence.promptText, /不输出.*方位结论、应期、现实结果或行动建议/);
 });
 
 test('奇门证据应保留真实空亡与宫间五行反证', () => {

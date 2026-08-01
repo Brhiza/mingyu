@@ -168,6 +168,7 @@ export function buildDivinationPrompt(
   const isTaiyi = method === 'taiyi';
   const isXiaoliuren = method === 'xiaoliuren';
   const isJinkoujue = method === 'jinkoujue';
+  const isQimen = method === 'qimen';
   const outputRequirementText = isTarot
     ? '只说明可核验的项目内部牌号、牌名、牌位、正逆位、抽取顺序与随机轨迹，以及牌义版本待校边界；不得补造牌义或给出趋势与行动结论。'
     : isLenormand
@@ -180,9 +181,11 @@ export function buildDivinationPrompt(
             ? '只核对时间、干支、农历月日、时辰与历法口径；未明确具体底本、版本和完整起数规则时，不得生成月宫、日宫、时宫、占得宫、六宫歌诀、吉凶、方位、应期或行动建议。'
             : isJinkoujue
               ? '只核对起课方式、时间、四柱、用户原始数字或随机轨迹；未明确具体底本、版本、原文位置和完整起课规则时，不得生成地分、四位、发用、五动三动、吉凶、时机或行动建议。'
-              : isAlmanac
-                ? '按可用候选、条件候选和慎用候选分组说明；同组按日期先后，不生成首选、备选或唯一最佳结论；说明取舍依据与执行建议。'
-                : '使用简体中文，先回答【问题】，再说明主要依据、时机条件和行动建议。';
+              : isQimen
+                ? '先核对具体底本版本、事项角色、完整取用规则和已指定用神对象是否同时齐全；缺少任一项时，只说明可复算盘面事实与资料缺口，不生成方位、应期、现实结果或行动建议。'
+                : isAlmanac
+                  ? '按可用候选、条件候选和慎用候选分组说明；同组按日期先后，不生成首选、备选或唯一最佳结论；说明取舍依据与执行建议。'
+                  : '使用简体中文，先回答【问题】，再说明主要依据、时机条件和行动建议。';
   const liurenTemplateSection =
     method === 'liuren'
       ? buildSection('【问题范围】', buildLiurenTemplateText(liurenTemplate, data as LiurenData))
