@@ -60,7 +60,7 @@ function createCompatibilityBaziResults() {
   };
 }
 
-test('八字合盘不再附加系统提示词，并保留双盘资料与简明任务', () => {
+test('八字合盘提示词应只输出双盘可复算事实并关闭现实解释旁路', () => {
   const { result1, result2 } = createCompatibilityBaziResults();
 
   const prompt = getCompatibilityPrompt('请分析我们适不适合长期合伙。', result1, result2, 'career');
@@ -71,8 +71,23 @@ test('八字合盘不再附加系统提示词，并保留双盘资料与简明�
   assert.match(prompt.user, /日主关系：/);
   assert.match(prompt.user, /喜忌资料状态：.*自动喜忌规则尚未完成逐条校勘/s);
   assert.doesNotMatch(prompt.user, /喜忌五行对应：/);
-  assert.match(prompt.user, /【任务】\n关系范围：合伙。请先判断关系主轴/);
-  assert.doesNotMatch(prompt.user, /结构化证据|证据边界|不得编造|只基于/);
+  assert.match(prompt.user, /这些字段只证明位置与固定结构，不证明关系好坏、现实冲突、事件结果、概率或应期/);
+  assert.match(prompt.user, /【任务】\n关系范围：合伙。请核对已列出的双方命盘/);
+  assert.match(prompt.user, /不得超出随盘列出的事实与限制，不直接判断现实关系结果或给出行动建议/);
+  assert.doesNotMatch(
+    prompt.user,
+    /请先判断关系主轴|相处模式、互补点、冲突点|先直接回答【问题】|触发条件和现实建议/,
+  );
+
+  const customPrompt = getCompatibilityPrompt(
+    '我们现在更适合继续推进合作，还是先保持距离？',
+    result1,
+    result2,
+    'career',
+    { isCustomQuestion: true },
+  );
+  assert.match(customPrompt.user, /这些字段只证明位置与固定结构，不证明关系好坏、现实冲突、事件结果、概率或应期/);
+  assert.doesNotMatch(customPrompt.user, /【任务】|【输出要求】/);
 });
 
 test('八字输出提示词应是可复制给在线 AI 的独立任务书，不暴露工程提示词', () => {
@@ -969,11 +984,11 @@ test('合盘分类只作为关系范围，不再插入本地专项框架', () =>
   assert.doesNotMatch(careerPrompt.user, /【合盘分析思路】/);
   assert.match(
     careerPrompt.user,
-    /【任务】\n关系范围：合伙。请先判断关系主轴，再说明相处模式、互补点、冲突点和建议。/,
+    /【任务】\n关系范围：合伙。请核对已列出的双方命盘、日主双向关系、四柱固定关系、跨盘组合候选与双向十神映射，只说明可复算事实及其限制。/,
   );
   assert.match(
     careerPrompt.user,
-    /【输出要求】\n先直接回答【问题】，再说明关系主轴、互补点、冲突点、触发条件和现实建议，并结合双方盘面资料说明。/,
+    /【输出要求】\n使用简体中文，按“依据状态、双方可复算事实、交叉结构、待补资料、条件性后续推算”的顺序回答；不得超出随盘列出的事实与限制，不直接判断现实关系结果或给出行动建议。/,
   );
 
   const friendshipPrompt = getCompatibilityPrompt(
@@ -993,7 +1008,7 @@ test('合盘分类只作为关系范围，不再插入本地专项框架', () =>
   assert.doesNotMatch(childrenPrompt.user, /【合盘分析思路】|【子女缘分】/);
   assert.match(
     childrenPrompt.user,
-    /【输出要求】\n先直接回答【问题】，再说明关系主轴、互补点、冲突点、触发条件和现实建议，并结合双方盘面资料说明。/,
+    /【输出要求】\n使用简体中文，按“依据状态、双方可复算事实、交叉结构、待补资料、条件性后续推算”的顺序回答；不得超出随盘列出的事实与限制，不直接判断现实关系结果或给出行动建议。/,
   );
 
   const parentsPrompt = getCompatibilityPrompt('请分析双方父母情况。', result1, result2, 'parents');

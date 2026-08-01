@@ -395,12 +395,12 @@ function getCompatibilityTask(compatType?: CompatType): string {
   };
   const label = compatType ? labelMap[compatType] : '';
   const prefix = label ? `关系范围：${label}。` : '';
-  return `${prefix}请先判断关系主轴，再说明相处模式、互补点、冲突点和建议。`;
+  return `${prefix}请核对已列出的双方命盘、日主双向关系、四柱固定关系、跨盘组合候选与双向十神映射，只说明可复算事实及其限制。`;
 }
 
 function getCompatibilityOutputRequirement(compatType?: CompatType): string {
   void compatType;
-  return '先直接回答【问题】，再说明关系主轴、互补点、冲突点、触发条件和现实建议，并结合双方盘面资料说明。';
+  return '使用简体中文，按“依据状态、双方可复算事实、交叉结构、待补资料、条件性后续推算”的顺序回答；不得超出随盘列出的事实与限制，不直接判断现实关系结果或给出行动建议。';
 }
 
 function formatCompatibilityFacts(result: ReturnType<typeof analyzeBaziCompatibility>): string {
