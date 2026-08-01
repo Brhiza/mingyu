@@ -105,26 +105,26 @@
 
 ### 八字增强分析函数
 
-| 函数                                                                                                | 参数                                     | 返回                        | 说明                                                     |
-| --------------------------------------------------------------------------------------------------- | ---------------------------------------- | --------------------------- | -------------------------------------------------------- |
-| `analyzeTenGodStructure(pillars, dayMaster, getTenGod)`                                             | 四柱、日干、十神函数                     | `TenGodStructureProfile`    | 十神分布与五大家族聚合                                   |
-| `analyzeTenGodFlow(structure)`                                                                      | 已校验的十神结构                         | `TenGodFlowProfile`         | 五类十神固定的五生五克事实，不裁定实际流通               |
-| `analyzeStemRootProfile(pillars, dayMaster, getWuxing, getTenGod)`                                  | 四柱、日干、五行函数、十神函数           | `StemRootProfile`           | 透干通根分析（本根/同气根/无根）                         |
-| `analyzeExposedStemProfile(pillars, dayMaster, getWuxing, getTenGod, commanderStem, monthBranch)`   | 同上 + 可空司令、必填月支                | `ExposedStemProfile`        | 透干月令、司令和四支通根事实，不合成力量                 |
-| `analyzeRelationStructure(pillars)`                                                                 | 四柱                                     | `RelationStructureProfile`  | 地支关系（三合/三会/半合/拱局/六合/六冲/六害/三刑/相破） |
-| `assessAllHarmonyTransforms(pillars, monthBranch?)`                                                 | 四柱、可选月支                           | `HarmonyTransformProfile[]` | 自动扫描天干五合、地支六合并核验条件                     |
-| `assessStemHarmonyTransform(stem1, pillar1, stem2, pillar2, monthBranch, allPillars)`               | 天干、柱位、月支、四柱                   | `HarmonyTransformProfile`   | 按日干、紧贴、规定月令、克破与争合核验天干成化           |
-| `assessBranchHarmonyTransform(branch1, pillar1, branch2, pillar2, monthBranch, allPillars)`         | 地支、柱位、月支、四柱                   | `HarmonyTransformProfile`   | 评估地支六合及冲破；地支不直接按化神五行成化             |
-| `analyzeKongWangProfile(pillars, dayMasterStem)`                                                    | 四柱、日干                               | `KongWangProfile`           | 空亡全分析                                               |
-| `analyzeTombStorage(pillars, dayMaster, getWuxing, getTenGod)`                                      | 四柱、日干、五行函数、十神函数           | `TombStorageProfile`        | 辰戌丑未墓库分析                                         |
-| `analyzeLifeStageProfile(pillars)`                                                                  | 四柱                                     | `LifeStageItem[]`           | 各柱十二长生                                             |
-| `analyzeTenGodLifeStageProfile(pillars, dayMaster, getTenGod)`                                      | 四柱、日干、十神函数                     | `TenGodLifeStageProfile`    | 实际天干去重后逐干逐支列出十二长生，不做旺弱加权         |
-| `analyzeUsefulGodPlacement(pillars, dayMaster, getTenGod, favorableWuxing, unfavorableWuxing)`      | 旧兼容参数                               | `UsefulGodPlacementProfile` | 自动用神落点规则固定关闭，不返回喜忌落点结论             |
-| `analyzeNayinProfile(pillars)`                                                                      | 四柱                                     | `NayinProfile`              | 各柱纳音五行                                             |
-| `analyzeMonthQiProfile(monthBranch, commanderStem?)`                                                | 月支、司令                               | `MonthQiProfile`            | 月令气数（五行旺相休囚死）                               |
-| `calculateMingGua(birthYear, gender)`                                                               | 出生年、性别                             | `MingGuaProfile`            | 命卦（东四命/西四命）                                    |
-| `calculateXiaoYunProfile(solarTime, gender, dayMasterGan, getTenGod)`                               | 太阳时、性别、日干、十神函数             | `XiaoYunProfile`            | 小运（童限逐年干支）                                     |
-| `buildLuckDirectionProfile(gender, yearStem)`                                                       | 性别、年干                               | `LuckDirectionProfile`      | 大运顺逆方向                                             |
+| 函数                                                                                              | 参数                           | 返回                        | 说明                                                     |
+| ------------------------------------------------------------------------------------------------- | ------------------------------ | --------------------------- | -------------------------------------------------------- |
+| `analyzeTenGodStructure(pillars, dayMaster, getTenGod)`                                           | 四柱、日干、十神函数           | `TenGodStructureProfile`    | 十神分布与五大家族聚合                                   |
+| `analyzeTenGodFlow(structure)`                                                                    | 已校验的十神结构               | `TenGodFlowProfile`         | 五类十神固定的五生五克事实，不裁定实际流通               |
+| `analyzeStemRootProfile(pillars, dayMaster, getWuxing, getTenGod)`                                | 四柱、日干、五行函数、十神函数 | `StemRootProfile`           | 透干通根分析（本根/同气根/无根）                         |
+| `analyzeExposedStemProfile(pillars, dayMaster, getWuxing, getTenGod, commanderStem, monthBranch)` | 同上 + 可空司令、必填月支      | `ExposedStemProfile`        | 透干月令、司令和四支通根事实，不合成力量                 |
+| `analyzeRelationStructure(pillars)`                                                               | 四柱                           | `RelationStructureProfile`  | 地支关系（三合/三会/半合/拱局/六合/六冲/六害/三刑/相破） |
+| `assessAllHarmonyTransforms(pillars, monthBranch?)`                                               | 四柱、可选月支                 | `HarmonyTransformProfile[]` | 自动扫描天干五合、地支六合并核验条件                     |
+| `assessStemHarmonyTransform(stem1, pillar1, stem2, pillar2, monthBranch, allPillars)`             | 天干、柱位、月支、四柱         | `HarmonyTransformProfile`   | 按日干、紧贴、规定月令、克破与争合核验天干成化           |
+| `assessBranchHarmonyTransform(branch1, pillar1, branch2, pillar2, monthBranch, allPillars)`       | 地支、柱位、月支、四柱         | `HarmonyTransformProfile`   | 评估地支六合及冲破；地支不直接按化神五行成化             |
+| `analyzeKongWangProfile(pillars, dayMasterStem)`                                                  | 四柱、日干                     | `KongWangProfile`           | 空亡全分析                                               |
+| `analyzeTombStorage(pillars, dayMaster, getWuxing, getTenGod)`                                    | 四柱、日干、五行函数、十神函数 | `TombStorageProfile`        | 辰戌丑未墓库分析                                         |
+| `analyzeLifeStageProfile(pillars)`                                                                | 四柱                           | `LifeStageItem[]`           | 各柱十二长生                                             |
+| `analyzeTenGodLifeStageProfile(pillars, dayMaster, getTenGod)`                                    | 四柱、日干、十神函数           | `TenGodLifeStageProfile`    | 实际天干去重后逐干逐支列出十二长生，不做旺弱加权         |
+| `analyzeUsefulGodPlacement(pillars, dayMaster, getTenGod, favorableWuxing, unfavorableWuxing)`    | 旧兼容参数                     | `UsefulGodPlacementProfile` | 自动用神落点规则固定关闭，不返回喜忌落点结论             |
+| `analyzeNayinProfile(pillars)`                                                                    | 四柱                           | `NayinProfile`              | 各柱纳音五行                                             |
+| `analyzeMonthQiProfile(monthBranch, commanderStem?)`                                              | 月支、司令                     | `MonthQiProfile`            | 月令气数（五行旺相休囚死）                               |
+| `calculateMingGua(birthYear, gender)`                                                             | 出生年、性别                   | `MingGuaProfile`            | 命卦（东四命/西四命）                                    |
+| `calculateXiaoYunProfile(solarTime, gender, dayMasterGan, getTenGod)`                             | 太阳时、性别、日干、十神函数   | `XiaoYunProfile`            | 小运（童限逐年干支）                                     |
+| `buildLuckDirectionProfile(gender, yearStem)`                                                     | 性别、年干                     | `LuckDirectionProfile`      | 大运顺逆方向                                             |
 
 ---
 
@@ -383,9 +383,9 @@
 
 ## 八宅、玄空与住宅风水资料边界
 
-`bazhai.analyzeBaZhai(input)` 与 `bazhai.analyzeBaZhaiByDoorDegree(input)` 返回命卦、宅卦、东四西四分组、命卦和宅卦各自的八宫传统标签，以及可复算的坐向测量证据。`groupRelation` 只取 `同组`、`异组` 或 `未比较`，表示两份分组资料是否相同；它不代表住宅效果。
+`bazhai.analyzeBaZhai(input)`、`bazhai.analyzeBaZhaiByDoorDegree(input)` 与 `bazhai.analyzeBaZhaiByTrueNorthDegree(input)` 返回命卦、宅卦、东四西四分组、命卦和宅卦各自的八宫传统标签，以及可复算的坐向测量证据。`groupRelation` 只取 `同组`、`异组` 或 `未比较`，表示两份分组资料是否相同；它不代表住宅效果。
 
-结果的 `generation` 只保存出生资料或直接命卦，以及固定坐山或完整门向测量来源。`bazhai.rebuildAuditedBaZhaiData(result)` 与 `bazhai.analyzeBaZhaiEvidence(result)` 只凭该来源重建命卦、宅卦、八宫、分组、测量候选、证据和提示词；调用方附带的旧派生字段均不采信。出生资料与直接命卦、固定坐山与门向测量不能混用；来源缺失、夹带未知字段、伪枚举对象、非有限数字或不完整时失败关闭。
+结果的 `generation` 只保存出生资料或直接命卦，以及固定坐山、真北坐向度数或完整门向测量之一。`bazhai.rebuildAuditedBaZhaiData(result)` 与 `bazhai.analyzeBaZhaiEvidence(result)` 只凭该来源重建命卦、宅卦、八宫、分组、测量候选、证据和提示词；调用方附带的旧派生字段均不采信。出生资料与直接命卦、三类坐向来源不能混用；来源缺失、夹带未知字段、伪枚举对象、非有限数字或不完整时失败关闭。
 
 八宫项只含 `gua`、`direction`、`degree` 与 `label`。旧的 `luck`、`luckyDirections`、`unluckyDirections`、`match` 和 `matchAdvice` 已删除，避免底层把传统名称自动转换成方向宜避或布置建议。测量误差跨越二十四山或宅卦边界时，`candidateDirections` 完整保留全部候选盘。
 
@@ -393,7 +393,9 @@
 
 九运乘二十四山的默认下卦、显式下卦和替卦共 648 盘，以及 0 至 360 度坐山来源，均逐项验证审核重建等价。3° 至 4.5° 的下卦、替卦异说区间继续要求调用方明确 `guaType`，不把任一公开实现静默当成唯一流派真值。
 
-`residentialFengshui.generateResidentialFengshui(input)` 通过 `reviewNotes` 记录资料完整度、分层关系和边界缺口；八宅与玄空结果分开保存，不自动合成布局建议、现实结果或综合总分。
+`residentialFengshui.generateResidentialFengshui(input)` 先把输入规范化为 `generation`：居住人只保留出生资料或直接命卦，山向只保留山名、真北坐向度数或门向测量之一，另保留宅运年份和显式卦型口径。`residentialFengshui.rebuildAuditedResidentialFengshuiData(result)` 只凭该来源重建八宅、玄空、`reviewNotes`、证据和提示词，旧派生字段不采信。八宅与玄空结果分开保存，不自动合成布局建议、现实结果或综合总分；来源混用、不完整、附属字段脱离所属来源或非法时失败关闭。
+
+住宅组合入口已逐项验证九运乘二十四山三种玄空口径 648 组、八命卦乘二十四山 192 组、0 至 360 度门向和 0 至 360 度真北朝向的审核重建等价。直接真北度数即使缺少宅运年份，也会在八宅层保留测量误差跨越的全部宅卦候选。
 
 ---
 
@@ -403,17 +405,17 @@
 
 结果的 `generation` 只保存生肖年支与合法六十甲子。`zodiac.rebuildAuditedZodiacData(result)` 与 `zodiac.analyzeZodiacEvidence(result)` 只凭该来源重建全部固定关系、证据和提示词；旧结果中的生肖名称、流年年支、值冲刑害破、三合六合三会、五行关系、证据及提示词均不采信。来源缺失、夹带未知字段、伪枚举对象或非法干支时失败关闭。
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `generation` | `ZodiacGenerationSource` | 唯一可信来源，只含 `zodiacBranch` 与 `yearGanZhi` |
-| `zodiacBranch` / `zodiac` | `string` | 生肖年支及对应生肖 |
-| `yearGanZhi` / `yearBranch` | `string` | 流年干支及年支 |
-| `conflicts` | `TaiSuiConflict[]` | 值、冲、刑、害、破固定关系的逐项命中事实 |
-| `harmony` | `string \| null` | 六合或两支同属三合组；不表示完整三合成局或现实贵人 |
-| `meeting` | `string \| null` | 两支同属三会组；不表示三支齐全或成局 |
-| `elementRelation` | `ZodiacElementRelation` | 流年年干五行与生肖地支本气五行的生克方向，不含利弊分类 |
-| `evidenceAnalysis` | `ZodiacEvidenceAnalysis` | 计算链、逐项关系证据、未命中事实与解释限制 |
-| `prompt` | `string` | 可交给 AI 结合问题继续推算的基础资料 |
+| 字段                        | 类型                     | 说明                                                   |
+| --------------------------- | ------------------------ | ------------------------------------------------------ |
+| `generation`                | `ZodiacGenerationSource` | 唯一可信来源，只含 `zodiacBranch` 与 `yearGanZhi`      |
+| `zodiacBranch` / `zodiac`   | `string`                 | 生肖年支及对应生肖                                     |
+| `yearGanZhi` / `yearBranch` | `string`                 | 流年干支及年支                                         |
+| `conflicts`                 | `TaiSuiConflict[]`       | 值、冲、刑、害、破固定关系的逐项命中事实               |
+| `harmony`                   | `string \| null`         | 六合或两支同属三合组；不表示完整三合成局或现实贵人     |
+| `meeting`                   | `string \| null`         | 两支同属三会组；不表示三支齐全或成局                   |
+| `elementRelation`           | `ZodiacElementRelation`  | 流年年干五行与生肖地支本气五行的生克方向，不含利弊分类 |
+| `evidenceAnalysis`          | `ZodiacEvidenceAnalysis` | 计算链、逐项关系证据、未命中事实与解释限制             |
+| `prompt`                    | `string`                 | 可交给 AI 结合问题继续推算的基础资料                   |
 
 旧字段 `noble`、`favorableRelations`、`riskRelations`、`actionSignals` 及 `elementRelation.classification` 已删除。底层不把三合、六合改写成现实人物，不根据五行方向生成有利或风险分类，也不生成行动建议、化解结论、现实吉凶、概率或固定应期。
 

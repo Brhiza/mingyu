@@ -56,29 +56,31 @@ const residentialSchema = z.object({
 });
 
 function calculateResidential(args: z.infer<typeof residentialSchema>) {
-  return residentialFengshui.generateResidentialFengshui({
-    ...(args.year !== undefined ? { year: args.year } : {}),
-    ...(args.birthYear !== undefined ? { birthYear: args.birthYear } : {}),
-    ...(args.birthMonth !== undefined ? { birthMonth: args.birthMonth } : {}),
-    ...(args.birthDay !== undefined ? { birthDay: args.birthDay } : {}),
-    ...(args.gender ? { gender: args.gender } : {}),
-    ...(args.mingGua ? { mingGua: args.mingGua } : {}),
-    ...(args.sitMountain ? { sitMountain: args.sitMountain } : {}),
-    ...(args.facingMountain ? { facingMountain: args.facingMountain } : {}),
-    ...(args.facingDegree !== undefined ? { facingDegree: args.facingDegree } : {}),
-    ...(args.sitDegree !== undefined ? { sitDegree: args.sitDegree } : {}),
-    ...(args.doorToInteriorDegree !== undefined
-      ? { doorToInteriorDegree: args.doorToInteriorDegree }
-      : {}),
-    ...(args.northReference ? { northReference: args.northReference } : {}),
-    ...(args.magneticDeclinationDegrees !== undefined
-      ? { magneticDeclinationDegrees: args.magneticDeclinationDegrees }
-      : {}),
-    ...(args.measurementUncertaintyDegrees !== undefined
-      ? { measurementUncertaintyDegrees: args.measurementUncertaintyDegrees }
-      : {}),
-    ...(args.guaType ? { guaType: args.guaType } : {}),
-  });
+  return residentialFengshui.rebuildAuditedResidentialFengshuiData(
+    residentialFengshui.generateResidentialFengshui({
+      ...(args.year !== undefined ? { year: args.year } : {}),
+      ...(args.birthYear !== undefined ? { birthYear: args.birthYear } : {}),
+      ...(args.birthMonth !== undefined ? { birthMonth: args.birthMonth } : {}),
+      ...(args.birthDay !== undefined ? { birthDay: args.birthDay } : {}),
+      ...(args.gender ? { gender: args.gender } : {}),
+      ...(args.mingGua ? { mingGua: args.mingGua } : {}),
+      ...(args.sitMountain ? { sitMountain: args.sitMountain } : {}),
+      ...(args.facingMountain ? { facingMountain: args.facingMountain } : {}),
+      ...(args.facingDegree !== undefined ? { facingDegree: args.facingDegree } : {}),
+      ...(args.sitDegree !== undefined ? { sitDegree: args.sitDegree } : {}),
+      ...(args.doorToInteriorDegree !== undefined
+        ? { doorToInteriorDegree: args.doorToInteriorDegree }
+        : {}),
+      ...(args.northReference ? { northReference: args.northReference } : {}),
+      ...(args.magneticDeclinationDegrees !== undefined
+        ? { magneticDeclinationDegrees: args.magneticDeclinationDegrees }
+        : {}),
+      ...(args.measurementUncertaintyDegrees !== undefined
+        ? { measurementUncertaintyDegrees: args.measurementUncertaintyDegrees }
+        : {}),
+      ...(args.guaType ? { guaType: args.guaType } : {}),
+    }),
+  );
 }
 
 export function registerResidentialFengshuiTool(server: McpServer) {

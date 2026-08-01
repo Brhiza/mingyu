@@ -66,7 +66,7 @@ export interface BaZhaiMeasurementFact {
   key: 'measurement:bazhai:door';
   status: '未提供' | BaZhaiMeasurementStability;
   referenceStatus: '未提供' | '已声明' | '未声明';
-  method?: '站在大门处面向屋内测量';
+  method?: '站在大门处面向屋内测量' | '直接提供真北坐向度数';
   input?: {
     measuredDegree: number;
     northReference: 'unspecified' | 'magnetic' | 'true';
@@ -88,7 +88,7 @@ export interface BaZhaiMeasurementFact {
   warnings: string[];
   promptText: string;
   sources: string[];
-  limitation: '入户测量只证明指定站位、北向基准、磁偏角和误差范围如何换算当前坐山朝向候选；未声明北向、受环境干扰或跨边界时不得把中心读数当作唯一真实坐向';
+  limitation: '坐向测量只证明指定输入口径、北向基准和误差范围如何换算当前坐山朝向候选；未声明北向、受环境干扰或跨边界时不得把中心读数当作唯一真实坐向';
 }
 
 export interface BaZhaiCounterEvidenceFact {
@@ -195,7 +195,7 @@ const DIRECTION_FACT_LIMITATION =
 const CALCULATION_FACT_LIMITATION =
   '计算链只证明出生年界、命卦、宅卦和大游年八宫如何形成当前方位资料，不证明住宅适用性、健康效果、财富变化、事件结果或调整方案有效' as const;
 const MEASUREMENT_FACT_LIMITATION =
-  '入户测量只证明指定站位、北向基准、磁偏角和误差范围如何换算当前坐山朝向候选；未声明北向、受环境干扰或跨边界时不得把中心读数当作唯一真实坐向' as const;
+  '坐向测量只证明指定输入口径、北向基准和误差范围如何换算当前坐山朝向候选；未声明北向、受环境干扰或跨边界时不得把中心读数当作唯一真实坐向' as const;
 const MEASUREMENT_CANDIDATE_LIMITATION =
   '候选坐向只表示测量误差范围内可能落入的二十四山与宅卦，不代表现场真实坐向已经确定，也不得据候选数量生成可信度、现实评价或调整结论' as const;
 const CALCULATION_STEP_LIMITATION =
@@ -350,8 +350,8 @@ function buildMeasurementFact(measurement?: BaZhaiDoorMeasurement): BaZhaiMeasur
       candidateFactKeys: [],
       calculationStepKeys: [],
       warnings: [],
-      promptText: '本次未提供可分析的入户角度测量资料',
-      sources: ['输入资料未提供入户度数、北向基准与测量误差'],
+      promptText: '本次未提供可分析的坐向角度测量资料',
+      sources: ['输入资料未提供入户度数或真北坐向度数及测量误差'],
       limitation: MEASUREMENT_FACT_LIMITATION,
     };
   }
@@ -369,7 +369,12 @@ function buildMeasurementFact(measurement?: BaZhaiDoorMeasurement): BaZhaiMeasur
       measurementFactKey: 'measurement:bazhai:door',
       calculationStepKeys: ['bazhai:calculation:house-gua'],
       promptText: `${item.label}：坐${item.sitMountain}山、向${item.facingMountain}向，归${item.houseGua}宅${item.houseGroup}，命宅分组${item.groupRelation}`,
-      sources: ['真北入户角度、测量误差与二十四山覆盖范围', '坐山宅卦与命宅分组比较'],
+      sources: [
+        measurement.method === '站在大门处面向屋内测量'
+          ? '真北入户角度、测量误差与二十四山覆盖范围'
+          : '真北朝向度数、测量误差与二十四山覆盖范围',
+        '坐山宅卦与命宅分组比较',
+      ],
       limitation: MEASUREMENT_CANDIDATE_LIMITATION,
     }),
   );
@@ -397,14 +402,21 @@ function buildMeasurementFact(measurement?: BaZhaiDoorMeasurement): BaZhaiMeasur
     candidateFactKeys: candidates.map((item) => item.key),
     calculationStepKeys: ['bazhai:calculation:house-gua'],
     warnings: measurement.warnings,
-    promptText: `${measurement.method}：实测${measurement.measuredDegree}°，真北口径${measurement.trueNorthDegree}°，误差±${measurement.measurementUncertaintyDegrees}°，中心结果${measurement.label}，稳定性${measurement.stability}，候选${candidates.map((item) => item.label).join('、') || '无'}`,
+    promptText:
+      measurement.method === '站在大门处面向屋内测量'
+        ? `${measurement.method}：实测${measurement.measuredDegree}°，真北口径入户方向${measurement.trueNorthDegree}°，误差±${measurement.measurementUncertaintyDegrees}°，中心结果${measurement.label}，稳定性${measurement.stability}，候选${candidates.map((item) => item.label).join('、') || '无'}`
+        : `${measurement.method}：规范化真北朝向${measurement.facingDegree}°、坐山${measurement.sitDegree}°，误差±${measurement.measurementUncertaintyDegrees}°，中心结果${measurement.label}，稳定性${measurement.stability}，候选${candidates.map((item) => item.label).join('、') || '无'}`,
     sources: [
-      '现场入户指南针读数与指定测量站位',
-      measurement.northReference === 'magnetic'
-        ? '当地磁偏角换算真北'
-        : measurement.northReference === 'true'
-          ? '真北读数直接归一化'
-          : '北向基准未声明的原始读数',
+      measurement.method === '站在大门处面向屋内测量'
+        ? '现场入户指南针读数与指定测量站位'
+        : '直接提供的真北坐山或朝向度数',
+      measurement.method === '直接提供真北坐向度数'
+        ? '真北坐向度数直接归一化'
+        : measurement.northReference === 'magnetic'
+          ? '当地磁偏角换算真北'
+          : measurement.northReference === 'true'
+            ? '真北读数直接归一化'
+            : '北向基准未声明的原始读数',
       '二十四山边界、测量误差与坐向反转计算',
     ],
     limitation: MEASUREMENT_FACT_LIMITATION,
@@ -557,8 +569,13 @@ function buildLimitationFacts(
       type: '测量方法边界',
       ownerFactKeys: [measurementFact.key],
       promptText:
-        '门向测量须固定“站在大门处面向屋内”的口径；不同站位、手机壳、金属门、电器和钢筋可能干扰指南针',
-      sources: ['入户测量站位与现场指南针干扰条件'],
+        measurementFact.method === '直接提供真北坐向度数'
+          ? '直接坐向度数必须已经换算为真北口径，并明确坐山或朝向含义；测量站位、设备和现场干扰仍需另行复核'
+          : '门向测量须固定“站在大门处面向屋内”的口径；不同站位、手机壳、金属门、电器和钢筋可能干扰指南针',
+      sources:
+        measurementFact.method === '直接提供真北坐向度数'
+          ? ['真北坐向定义、测量站位与现场指南针干扰条件']
+          : ['入户测量站位与现场指南针干扰条件'],
     },
     {
       key: 'bazhai:limitation:north-reference',
@@ -698,7 +715,9 @@ export function buildBaZhaiEvidence(
   const measurementFact = buildMeasurementFact(measurement);
   const measurementFacts = measurement
     ? [
-        `从大门面向屋内实测${measurement.measuredDegree}°，换算真北口径为${measurement.trueNorthDegree}°`,
+        measurement.method === '站在大门处面向屋内测量'
+          ? `从大门面向屋内实测${measurement.measuredDegree}°，换算真北口径入户方向为${measurement.trueNorthDegree}°`
+          : `直接提供真北坐向度数，规范化朝向为${measurement.facingDegree}°、坐山为${measurement.sitDegree}°`,
         `传统坐向为${measurement.label}，坐${measurement.sitMountain}山、向${measurement.facingMountain}向`,
         `测量误差±${measurement.measurementUncertaintyDegrees}°，距最近二十四山边界${measurement.nearestBoundaryDistanceDegrees.toFixed(2)}°`,
         `稳定性为${measurement.stability}，候选坐向${measurement.candidateDirections.map((item) => item.label).join('、')}`,
@@ -846,7 +865,7 @@ export function buildBaZhaiEvidence(
     evidence,
     promptText,
     methodology: [
-      '先固定命卦年界与门向测量口径，再分别生成命卦盘和宅卦盘。',
+      '先固定命卦年界与坐向测量口径，再分别生成命卦盘和宅卦盘。',
       '逐方保存命卦标签、宅卦标签及两者是否逐字相同，不把分组或标签差异改写成现实方向结论。',
       '测量误差跨界时并列候选坐向，现实安全、建筑条件和实际使用需求始终优先。',
     ],

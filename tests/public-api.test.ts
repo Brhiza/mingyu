@@ -6193,6 +6193,24 @@ test('公开 API 住宅风水接口返回八宅与玄空分层事实', async () 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
   assert.equal(body.data.result.key, 'residential-fengshui');
+  assert.deepEqual(body.data.result.generation, {
+    person: {
+      source: 'birth',
+      birthYear: 1990,
+      birthMonth: 5,
+      birthDay: 12,
+      gender: 'male',
+    },
+    orientation: {
+      source: 'door-measurement',
+      doorToInteriorDegree: 0,
+      northReference: 'unspecified',
+      magneticDeclinationDegrees: null,
+      measurementUncertaintyDegrees: 0,
+    },
+    year: 2024,
+    guaType: null,
+  });
   assert.ok(body.data.result.bazhai);
   assert.ok(body.data.result.xuankong);
   assert.ok(body.data.result.reviewNotes.length >= 1);
@@ -6232,4 +6250,52 @@ test('公开 API 住宅风水缺建造或起运年时不得静默生成玄空盘
   assert.equal(orientationOnly.response.status, 400);
   assert.equal(orientationOnly.body.ok, false);
   assert.match(orientationOnly.body.error.message, /必须提供住宅建造年或起运年/);
+});
+
+test('公开 API 住宅风水应校正磁北门向并拒绝来源混用和不完整资料', async () => {
+  const corrected = await callApi('metaphysics/residential/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      year: 2024,
+      doorToInteriorDegree: 0,
+      northReference: 'magnetic',
+      magneticDeclinationDegrees: 10,
+      guaType: '下卦',
+    }),
+  });
+  assert.equal(corrected.response.status, 200);
+  assert.deepEqual(corrected.body.data.generation, {
+    person: null,
+    orientation: {
+      source: 'door-measurement',
+      doorToInteriorDegree: 0,
+      northReference: 'magnetic',
+      magneticDeclinationDegrees: 10,
+      measurementUncertaintyDegrees: 0,
+    },
+    year: 2024,
+    guaType: '下卦',
+  });
+  assert.equal(corrected.body.data.xuankong.generation.orientation.sitDegree, 10);
+  assert.equal(corrected.body.data.xuankong.generation.orientation.facingDegree, 190);
+
+  const invalidPayloads = [
+    { year: 2024, sitMountain: '子', sitDegree: 0 },
+    { year: 2024, facingDegree: 180, doorToInteriorDegree: 0 },
+    { year: 2024, sitMountain: '子', birthYear: 1990 },
+    { year: 2024, sitMountain: '子', birthYear: 1990, gender: 'unknown' },
+    { mingGua: '坎', year: 2024 },
+    { year: 2024, sitMountain: '子', northReference: 'true' },
+    { year: 2024, sitDegree: 0, facingDegree: 181 },
+  ];
+  for (const payload of invalidPayloads) {
+    const invalid = await callApi('metaphysics/residential/calculate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    assert.equal(invalid.response.status, 400, JSON.stringify(payload));
+    assert.equal(invalid.body.error.code, 'BAD_REQUEST', JSON.stringify(payload));
+  }
 });

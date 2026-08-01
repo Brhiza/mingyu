@@ -20,7 +20,10 @@ import { drawRandomSign } from 'mingyu-core/divination/ssgw';
 import { drawTarotSpread } from 'mingyu-core/divination/tarot';
 import { baziCalculator } from '@core/bazi/baziCalculator';
 import { analyzeBaZhai, rebuildAuditedBaZhaiData } from '@core/ba_zhai';
-import { generateResidentialFengshui } from '@core/residential_fengshui';
+import {
+  generateResidentialFengshui,
+  rebuildAuditedResidentialFengshuiData,
+} from '@core/residential_fengshui';
 import { generateXuanKong, rebuildAuditedXuanKongData } from '@core/xuan_kong';
 import { getZodiacYearFortune, rebuildAuditedZodiacData } from '@core/zodiac';
 import { generateTaiyi } from '@core/taiyi';
@@ -577,14 +580,16 @@ async function buildSamples(): Promise<PromptSample[]> {
       { method: 'taiyi', currentTime: fixedNow },
     );
 
-    const residentialData = generateResidentialFengshui({
-      birthYear: 1990,
-      birthMonth: 6,
-      birthDay: 15,
-      gender: 'male',
-      year: 2024,
-      doorToInteriorDegree: 0,
-    });
+    const residentialData = rebuildAuditedResidentialFengshuiData(
+      generateResidentialFengshui({
+        birthYear: 1990,
+        birthMonth: 6,
+        birthDay: 15,
+        gender: 'male',
+        year: 2024,
+        doorToInteriorDegree: 0,
+      }),
+    );
     const residentialPrompt = buildMetaphysicsPrompt(
       residentialData.prompt,
       '这套房的宅运和人宅关系怎么看？',

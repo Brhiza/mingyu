@@ -76,6 +76,13 @@ export type BaZhaiGenerationSource =
       northReference: 'unspecified' | 'magnetic' | 'true';
       magneticDeclinationDegrees: number | null;
       measurementUncertaintyDegrees: number;
+    }
+  | {
+      method: 'true-north-degree';
+      person: BaZhaiPersonGenerationSource;
+      sitDegree: number | null;
+      facingDegree: number | null;
+      measurementUncertaintyDegrees: number;
     };
 
 export interface BaZhaiResult {
@@ -118,6 +125,22 @@ export interface BaZhaiDoorDegreeInput extends Omit<BaZhaiInput, 'sitMountain'> 
   measurementUncertaintyDegrees?: number;
 }
 
+/** 已换算为真北口径的坐山或朝向度数；与入户门向测量来源分开保存。 */
+export interface BaZhaiTrueNorthDegreeInput extends Omit<BaZhaiInput, 'sitMountain'> {
+  sitDegree?: number;
+  facingDegree?: number;
+  measurementUncertaintyDegrees?: number;
+}
+
+/** 不依赖居住人资料的门向测量输入，供组合入口复用同一磁北校正规则。 */
+export type BaZhaiDoorMeasurementInput = Pick<
+  BaZhaiDoorDegreeInput,
+  | 'doorToInteriorDegree'
+  | 'northReference'
+  | 'magneticDeclinationDegrees'
+  | 'measurementUncertaintyDegrees'
+>;
+
 export type BaZhaiMeasurementStability = '稳定' | '山向边界敏感' | '宅卦不稳定';
 
 export interface BaZhaiDirectionCandidate {
@@ -132,7 +155,7 @@ export interface BaZhaiDirectionCandidate {
 
 /** 入户测量读数换算成传统坐山朝向后的完整资料。 */
 export interface BaZhaiDoorMeasurement {
-  method: '站在大门处面向屋内测量';
+  method: '站在大门处面向屋内测量' | '直接提供真北坐向度数';
   measuredDegree: number;
   northReference: 'unspecified' | 'magnetic' | 'true';
   magneticDeclinationDegrees: number | null;
@@ -238,6 +261,24 @@ function assertDoorDegree(value: unknown): asserts value is number {
   }
 }
 
+function normalizeCompassDegree(value: unknown, label: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 360) {
+    throw new Error(`${label} 必须是 0-360 之间的有限数字。`);
+  }
+  return value === 360 ? 0 : value;
+}
+
+function assertOppositeDegrees(sitDegree: number, facingDegree: number): void {
+  const expectedFacing = (sitDegree + 180) % 360;
+  const difference = Math.abs(expectedFacing - facingDegree);
+  const circularDifference = Math.min(difference, 360 - difference);
+  if (circularDifference > Number.EPSILON * 360 * 32) {
+    throw new Error(
+      `坐向度数必须严格相差 180°；当前坐山 ${sitDegree}° 应朝向 ${expectedFacing}°，不能朝向 ${facingDegree}°。`,
+    );
+  }
+}
+
 function normalizeBaZhaiGenerationSource(source: unknown): BaZhaiGenerationSource {
   if (!isRecord(source)) {
     throw new Error('八宅审核重建必须提供可信生成来源。');
@@ -313,7 +354,50 @@ function normalizeBaZhaiGenerationSource(source: unknown): BaZhaiGenerationSourc
       measurementUncertaintyDegrees: source.measurementUncertaintyDegrees,
     };
   }
-  throw new Error('八宅可信生成来源的 method 只能是 fixed-sit-mountain 或 door-measurement。');
+  if (source.method === 'true-north-degree') {
+    assertExactKeys(
+      source,
+      ['method', 'person', 'sitDegree', 'facingDegree', 'measurementUncertaintyDegrees'],
+      '八宅真北坐向可信来源',
+    );
+    const person = normalizePersonGenerationSource(source.person);
+    if (!Object.prototype.hasOwnProperty.call(source, 'sitDegree')) {
+      throw new Error('八宅真北坐向可信来源缺少 sitDegree。');
+    }
+    if (!Object.prototype.hasOwnProperty.call(source, 'facingDegree')) {
+      throw new Error('八宅真北坐向可信来源缺少 facingDegree。');
+    }
+    const sitDegree =
+      source.sitDegree === null ? null : normalizeCompassDegree(source.sitDegree, 'sitDegree');
+    const facingDegree =
+      source.facingDegree === null
+        ? null
+        : normalizeCompassDegree(source.facingDegree, 'facingDegree');
+    if (sitDegree === null && facingDegree === null) {
+      throw new Error('八宅真北坐向至少需要 sitDegree 或 facingDegree。');
+    }
+    if (sitDegree !== null && facingDegree !== null) {
+      assertOppositeDegrees(sitDegree, facingDegree);
+    }
+    if (
+      typeof source.measurementUncertaintyDegrees !== 'number' ||
+      !Number.isFinite(source.measurementUncertaintyDegrees) ||
+      source.measurementUncertaintyDegrees < 0 ||
+      source.measurementUncertaintyDegrees > 45
+    ) {
+      throw new Error('测量误差必须是 0-45 之间的有限数字。');
+    }
+    return {
+      method: 'true-north-degree',
+      person,
+      sitDegree,
+      facingDegree,
+      measurementUncertaintyDegrees: source.measurementUncertaintyDegrees,
+    };
+  }
+  throw new Error(
+    '八宅可信生成来源的 method 只能是 fixed-sit-mountain、door-measurement 或 true-north-degree。',
+  );
 }
 
 function normalizeBaZhaiInput(
@@ -375,6 +459,37 @@ function normalizeDoorInput(
   }) as Extract<BaZhaiGenerationSource, { method: 'door-measurement' }>;
 }
 
+function normalizeTrueNorthDegreeInput(
+  input: unknown,
+): Extract<BaZhaiGenerationSource, { method: 'true-north-degree' }> {
+  if (!isRecord(input)) throw new Error('八宅真北坐向排盘必须提供输入对象。');
+  assertExactKeys(
+    input,
+    [
+      'birthYear',
+      'birthMonth',
+      'birthDay',
+      'gender',
+      'mingGua',
+      'sitDegree',
+      'facingDegree',
+      'measurementUncertaintyDegrees',
+    ],
+    '八宅真北坐向排盘输入',
+  );
+  if (input.sitDegree === null || input.facingDegree === null) {
+    throw new Error('真北坐向排盘输入不能用 null 代替未填写。');
+  }
+  return normalizeBaZhaiGenerationSource({
+    method: 'true-north-degree',
+    person: normalizePersonInput(input),
+    sitDegree: input.sitDegree === undefined ? null : input.sitDegree,
+    facingDegree: input.facingDegree === undefined ? null : input.facingDegree,
+    measurementUncertaintyDegrees:
+      input.measurementUncertaintyDegrees === undefined ? 0 : input.measurementUncertaintyDegrees,
+  }) as Extract<BaZhaiGenerationSource, { method: 'true-north-degree' }>;
+}
+
 /**
  * 将“从大门面向屋内”的指南针读数换算为八宅传统坐山朝向。
  * 例如读数 0° 表示从大门向屋内看正北，对应子山午向。
@@ -408,7 +523,9 @@ function nearestMountainBoundaryDistance(degree: number) {
   return minimum;
 }
 
-function resolveDoorMeasurement(input: BaZhaiDoorDegreeInput) {
+/** 只处理门向原始读数、北向基准、磁偏角与误差，不需要伪造居住人资料。 */
+export function resolveBaZhaiDoorMeasurement(input: BaZhaiDoorMeasurementInput) {
+  assertDoorDegree(input.doorToInteriorDegree);
   const reference = input.northReference ?? 'unspecified';
   const declination = input.magneticDeclinationDegrees;
   const uncertainty = input.measurementUncertaintyDegrees ?? 0;
@@ -469,6 +586,51 @@ function resolveDoorMeasurement(input: BaZhaiDoorDegreeInput) {
     uncertainty,
     trueNorthDegree,
     nearestBoundaryDistanceDegrees: nearestMountainBoundaryDistance(trueNorthDegree),
+    stability,
+    candidateDirections,
+    warnings,
+  };
+}
+
+function resolveBaZhaiTrueNorthDirectionMeasurement(
+  generation: Extract<BaZhaiGenerationSource, { method: 'true-north-degree' }>,
+) {
+  const facingDegree =
+    generation.facingDegree ?? normalizeDegree((generation.sitDegree as number) + 180);
+  const uncertainty = generation.measurementUncertaintyDegrees;
+  const candidateDirections: Array<
+    Pick<BaZhaiDirectionCandidate, 'sitMountain' | 'facingMountain' | 'label' | 'houseGua'>
+  > = [];
+  for (let index = 0; index < 24; index += 1) {
+    const facingCenter = index * 15;
+    if (circularDistance(facingDegree, facingCenter) > uncertainty + 7.5 + Number.EPSILON * 32) {
+      continue;
+    }
+    const position = getSitFacingFromFacingDegree(facingCenter);
+    candidateDirections.push({
+      sitMountain: position.sit.mountain,
+      facingMountain: position.facing.mountain,
+      label: position.label,
+      houseGua: getHouseTrigram(position.sit.mountain),
+    });
+  }
+  const houseGuas = new Set(candidateDirections.map((item) => item.houseGua));
+  const stability: BaZhaiMeasurementStability =
+    houseGuas.size > 1 ? '宅卦不稳定' : candidateDirections.length > 1 ? '山向边界敏感' : '稳定';
+  const warnings = [
+    ...(stability === '山向边界敏感'
+      ? ['测量误差范围跨越二十四山边界，但候选山向仍属于同一宅卦']
+      : []),
+    ...(stability === '宅卦不稳定'
+      ? ['测量误差范围跨越宅卦边界，不能只采用单一八宅盘，应重新测量或并列比较候选盘']
+      : []),
+  ];
+  return {
+    reference: 'true' as const,
+    declination: null,
+    uncertainty,
+    trueNorthDegree: facingDegree,
+    nearestBoundaryDistanceDegrees: nearestMountainBoundaryDistance(facingDegree),
     stability,
     candidateDirections,
     warnings,
@@ -633,23 +795,12 @@ export function analyzeBaZhai(input: BaZhaiInput): BaZhaiResult {
   return buildBaZhaiFromPerson(generation.person, generation.sitMountain, generation);
 }
 
-/**
- * 直接使用“从大门面向屋内”的指南针读数生成完整八宅结果。
- * 调用方无需自行换算相反方向或二十四山。
- */
-export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiDoorDegreeResult {
-  const generation = normalizeDoorInput(input);
-  const doorInput: BaZhaiDoorDegreeInput = {
-    ...personSourceToInput(generation.person),
-    doorToInteriorDegree: generation.doorToInteriorDegree,
-    northReference: generation.northReference,
-    ...(generation.magneticDeclinationDegrees !== null
-      ? { magneticDeclinationDegrees: generation.magneticDeclinationDegrees }
-      : {}),
-    measurementUncertaintyDegrees: generation.measurementUncertaintyDegrees,
-  };
-  const measurement = resolveDoorMeasurement(doorInput);
-  const { facing, sit, label } = getBaZhaiSitFacingFromDoorDegree(measurement.trueNorthDegree);
+function buildMeasuredBaZhaiResult(
+  generation: Extract<BaZhaiGenerationSource, { method: 'door-measurement' | 'true-north-degree' }>,
+  measurement: ReturnType<typeof resolveBaZhaiDoorMeasurement>,
+  position: SitFacingPosition,
+): BaZhaiDoorDegreeResult {
+  const { facing, sit, label } = position;
   if (facing.isBoundary && measurement.uncertainty === 0) {
     const boundary = facing.boundaryMountains?.join('向与') ?? '两个二十四山';
     throw new Error(`当前度数正好位于${boundary}向的分界线，请重新测量。`);
@@ -666,9 +817,20 @@ export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiD
       };
     },
   );
+  const isDoorMeasurement = generation.method === 'door-measurement';
+  const measuredDegree = isDoorMeasurement
+    ? generation.doorToInteriorDegree
+    : measurement.trueNorthDegree;
+  const method = isDoorMeasurement ? '站在大门处面向屋内测量' : '直接提供真北坐向度数';
+  const inputDescription = isDoorMeasurement
+    ? `测量方式：站在大门处面向屋内，指南针读数为 ${generation.doorToInteriorDegree}°；北向基准为${measurement.reference === 'magnetic' ? `磁北，磁偏角 ${measurement.declination}°（东偏为正）` : measurement.reference === 'true' ? '真北' : '未声明'}。`
+    : `坐向来源：直接提供真北口径度数；坐山${generation.sitDegree === null ? '未单独提供' : `${generation.sitDegree}°`}，朝向${generation.facingDegree === null ? '未单独提供' : `${generation.facingDegree}°`}。`;
+  const normalizedDescription = isDoorMeasurement
+    ? `真北口径入户方向为 ${measurement.trueNorthDegree}°，测量误差 ±${measurement.uncertainty}°，距最近二十四山边界 ${measurement.nearestBoundaryDistanceDegrees.toFixed(2)}°，稳定性为${measurement.stability}。`
+    : `规范化后的真北朝向为 ${facing.degree}°、坐山为 ${sit.degree}°，测量误差 ±${measurement.uncertainty}°，距最近二十四山边界 ${measurement.nearestBoundaryDistanceDegrees.toFixed(2)}°，稳定性为${measurement.stability}。`;
   const directionMeasurement: BaZhaiDoorMeasurement = {
-    method: '站在大门处面向屋内测量',
-    measuredDegree: generation.doorToInteriorDegree,
+    method,
+    measuredDegree,
     northReference: measurement.reference,
     magneticDeclinationDegrees: measurement.declination,
     trueNorthDegree: measurement.trueNorthDegree,
@@ -683,8 +845,8 @@ export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiD
     sitMountain: sit.mountain,
     label,
     promptText: [
-      `测量方式：站在大门处面向屋内，指南针读数为 ${generation.doorToInteriorDegree}°；北向基准为${measurement.reference === 'magnetic' ? `磁北，磁偏角 ${measurement.declination}°（东偏为正）` : measurement.reference === 'true' ? '真北' : '未声明'}。`,
-      `真北口径入户方向为 ${measurement.trueNorthDegree}°，测量误差 ±${measurement.uncertainty}°，距最近二十四山边界 ${measurement.nearestBoundaryDistanceDegrees.toFixed(2)}°，稳定性为${measurement.stability}。`,
+      inputDescription,
+      normalizedDescription,
       `中心读数换算后住宅坐山 ${sit.degree}° 为${sit.mountain}山，传统朝向 ${facing.degree}° 为${facing.mountain}向，结果为${label}。`,
       `误差候选：${candidateDirections.map((item) => `${item.label}（${item.houseGua}宅、${item.houseGroup}、命宅分组${item.groupRelation}）`).join('、')}。`,
       ...(measurement.stability === '宅卦不稳定'
@@ -708,6 +870,42 @@ export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiD
   };
 }
 
+/**
+ * 直接使用“从大门面向屋内”的指南针读数生成完整八宅结果。
+ * 调用方无需自行换算相反方向或二十四山。
+ */
+export function analyzeBaZhaiByDoorDegree(input: BaZhaiDoorDegreeInput): BaZhaiDoorDegreeResult {
+  const generation = normalizeDoorInput(input);
+  const doorInput: BaZhaiDoorDegreeInput = {
+    ...personSourceToInput(generation.person),
+    doorToInteriorDegree: generation.doorToInteriorDegree,
+    northReference: generation.northReference,
+    ...(generation.magneticDeclinationDegrees !== null
+      ? { magneticDeclinationDegrees: generation.magneticDeclinationDegrees }
+      : {}),
+    measurementUncertaintyDegrees: generation.measurementUncertaintyDegrees,
+  };
+  const measurement = resolveBaZhaiDoorMeasurement(doorInput);
+  return buildMeasuredBaZhaiResult(
+    generation,
+    measurement,
+    getBaZhaiSitFacingFromDoorDegree(measurement.trueNorthDegree),
+  );
+}
+
+/** 直接使用真北口径的坐山或朝向度数生成八宅结果，并保留误差候选。 */
+export function analyzeBaZhaiByTrueNorthDegree(
+  input: BaZhaiTrueNorthDegreeInput,
+): BaZhaiDoorDegreeResult {
+  const generation = normalizeTrueNorthDegreeInput(input);
+  const measurement = resolveBaZhaiTrueNorthDirectionMeasurement(generation);
+  return buildMeasuredBaZhaiResult(
+    generation,
+    measurement,
+    getSitFacingFromFacingDegree(measurement.trueNorthDegree),
+  );
+}
+
 /** 只凭规范化出生/命卦来源及固定坐山或门向测量来源重建完整八宅结果。 */
 export function rebuildAuditedBaZhaiData(
   input: Pick<BaZhaiResult, 'generation'>,
@@ -728,6 +926,14 @@ export function rebuildAuditedBaZhaiData(
       measurementUncertaintyDegrees: generation.measurementUncertaintyDegrees,
     });
   }
+  if (generation.method === 'true-north-degree') {
+    return analyzeBaZhaiByTrueNorthDegree({
+      ...personSourceToInput(generation.person),
+      ...(generation.sitDegree !== null ? { sitDegree: generation.sitDegree } : {}),
+      ...(generation.facingDegree !== null ? { facingDegree: generation.facingDegree } : {}),
+      measurementUncertaintyDegrees: generation.measurementUncertaintyDegrees,
+    });
+  }
   return analyzeBaZhai({
     ...personSourceToInput(generation.person),
     ...(generation.sitMountain !== undefined ? { sitMountain: generation.sitMountain } : {}),
@@ -744,7 +950,9 @@ export function analyzeBaZhaiEvidence(
 export const bazhai = {
   analyzeBaZhai,
   analyzeBaZhaiByDoorDegree,
+  analyzeBaZhaiByTrueNorthDegree,
   rebuildAuditedBaZhaiData,
   analyzeBaZhaiEvidence,
   getBaZhaiSitFacingFromDoorDegree,
+  resolveBaZhaiDoorMeasurement,
 };

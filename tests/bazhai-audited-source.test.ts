@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   analyzeBaZhai,
   analyzeBaZhaiByDoorDegree,
+  analyzeBaZhaiByTrueNorthDegree,
   analyzeBaZhaiEvidence,
   rebuildAuditedBaZhaiData,
   type BaZhaiResult,
@@ -69,6 +70,29 @@ test('八宅门向应保存完整测量来源并可等价重建候选盘', () =>
   assert.equal(defaults.generation.northReference, 'unspecified');
   assert.equal(defaults.generation.magneticDeclinationDegrees, null);
   assert.equal(defaults.generation.measurementUncertaintyDegrees, 0);
+});
+
+test('八宅真北坐向度数应保存独立来源并完整保留误差候选', () => {
+  const result = analyzeBaZhaiByTrueNorthDegree({
+    mingGua: '坎',
+    facingDegree: 245,
+    measurementUncertaintyDegrees: 3,
+  });
+
+  assert.deepEqual(result.generation, {
+    method: 'true-north-degree',
+    person: { source: 'ming-gua', mingGua: '坎' },
+    sitDegree: null,
+    facingDegree: 245,
+    measurementUncertaintyDegrees: 3,
+  });
+  assert.equal(result.directionMeasurement.method, '直接提供真北坐向度数');
+  assert.equal(result.directionMeasurement.stability, '宅卦不稳定');
+  assert.deepEqual(
+    result.directionMeasurement.candidateDirections.map((item) => item.label),
+    ['寅山申向', '甲山庚向'],
+  );
+  assert.deepEqual(rebuildAuditedBaZhaiData(result), result);
 });
 
 test('八宅审核重建与证据入口应隔离命卦宅卦、候选盘、证据和提示词污染', () => {
@@ -262,5 +286,16 @@ test('八宅 0 至 360 度门向结果均应由原始测量来源等价重建', 
       measurementUncertaintyDegrees: 0.25,
     });
     assert.deepEqual(rebuildAuditedBaZhaiData(result), result, `${degree}°门向审核重建不等价`);
+  }
+});
+
+test('八宅 0 至 360 度真北朝向均应由原始度数来源等价重建', () => {
+  for (let degree = 0; degree <= 360; degree += 1) {
+    const result = analyzeBaZhaiByTrueNorthDegree({
+      mingGua: '坎',
+      facingDegree: degree,
+      measurementUncertaintyDegrees: 0.25,
+    });
+    assert.deepEqual(rebuildAuditedBaZhaiData(result), result, `${degree}°真北朝向审核重建不等价`);
   }
 });

@@ -1080,6 +1080,7 @@ test('MCP 工具调用应同时返回 structuredContent 和文本 JSON', async (
       if (name === 'metaphysics_residential') {
         const residential = (result.structuredContent as { result?: Record<string, unknown> })
           .result;
+        assert.ok(residential?.generation);
         assert.ok(Array.isArray(residential?.reviewNotes));
         assert.equal('agreements' in (residential ?? {}), false);
         assert.equal('advice' in (residential ?? {}), false);
@@ -3419,6 +3420,96 @@ test('MCP 玄空应返回可核验替卦和替星过程', async () => {
     assert.equal(mixed.isError, true);
     const mixedText = mixed.content[0]?.type === 'text' ? mixed.content[0].text : '';
     assert.match(mixedText, /山名与度数测量.*不能混用/);
+  });
+});
+
+test('MCP 住宅风水应返回可信来源、校正磁北并拒绝来源混用', async () => {
+  await withMcpClient(async (client) => {
+    const corrected = await client.callTool({
+      name: 'metaphysics_residential',
+      arguments: {
+        year: 2024,
+        doorToInteriorDegree: 0,
+        northReference: 'magnetic',
+        magneticDeclinationDegrees: 10,
+        guaType: '下卦',
+      },
+    });
+    assert.equal(corrected.isError, undefined);
+    const result = (
+      corrected.structuredContent as {
+        result: {
+          generation: Record<string, unknown>;
+          xuankong: {
+            generation: {
+              orientation: { source: string; sitDegree: number; facingDegree: number };
+            };
+          };
+        };
+      }
+    ).result;
+    assert.deepEqual(result.generation, {
+      person: null,
+      orientation: {
+        source: 'door-measurement',
+        doorToInteriorDegree: 0,
+        northReference: 'magnetic',
+        magneticDeclinationDegrees: 10,
+        measurementUncertaintyDegrees: 0,
+      },
+      year: 2024,
+      guaType: '下卦',
+    });
+    assert.equal(result.xuankong.generation.orientation.source, 'degree');
+    assert.equal(result.xuankong.generation.orientation.sitDegree, 10);
+    assert.equal(result.xuankong.generation.orientation.facingDegree, 190);
+
+    const direct = await client.callTool({
+      name: 'metaphysics_residential',
+      arguments: {
+        mingGua: '坎',
+        facingDegree: 245,
+        measurementUncertaintyDegrees: 3,
+      },
+    });
+    assert.equal(direct.isError, undefined);
+    const directResult = (
+      direct.structuredContent as {
+        result: {
+          bazhai: {
+            generation: { method: string };
+            directionMeasurement: {
+              stability: string;
+              candidateDirections: Array<{ label: string }>;
+            };
+          };
+          xuankong: null;
+        };
+      }
+    ).result;
+    assert.equal(directResult.bazhai.generation.method, 'true-north-degree');
+    assert.equal(directResult.bazhai.directionMeasurement.stability, '宅卦不稳定');
+    assert.deepEqual(
+      directResult.bazhai.directionMeasurement.candidateDirections.map((item) => item.label),
+      ['寅山申向', '甲山庚向'],
+    );
+    assert.equal(directResult.xuankong, null);
+
+    const invalidCalls = [
+      { year: 2024, sitMountain: '子', sitDegree: 0 },
+      { year: 2024, facingDegree: 180, doorToInteriorDegree: 0 },
+      { year: 2024, sitMountain: '子', birthYear: 1990 },
+      { year: 2024, sitMountain: '子', birthYear: 1990, gender: 'unknown' },
+      { mingGua: '坎', year: 2024 },
+      { year: 2024, sitMountain: '子', northReference: 'true' },
+    ];
+    for (const args of invalidCalls) {
+      const invalid = await client.callTool({
+        name: 'metaphysics_residential',
+        arguments: args,
+      });
+      assert.equal(invalid.isError, true, JSON.stringify(args));
+    }
   });
 });
 

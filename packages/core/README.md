@@ -503,23 +503,26 @@ const voidBranches = getVoidBranches('甲子'); // ['戌','亥'] 旬空
 
 ### 历法与术数便捷入口
 
-| 导出                                              | 说明                                                                 |
-| ------------------------------------------------- | -------------------------------------------------------------------- |
-| `calendar.resolveTrueSolarBirthTime(input)`       | 公历/农历出生真太阳时、夏令时、跨日和时辰索引统一换算                |
-| `bazhai.analyzeBaZhaiByDoorDegree(input)`         | 按入户实测度数、北向基准、磁偏角和测量误差生成八宫传统标签与候选坐向 |
-| `bazhai.rebuildAuditedBaZhaiData(data)`           | 只凭出生/命卦与坐山/门向可信来源重建全部八宅派生盘面                 |
-| `bazhai.analyzeBaZhaiEvidence(data)`              | 先审核重建八宅结果，再返回命宅、逐方、测量候选与限制证据             |
-| `bazhai.getBaZhaiSitFacingFromDoorDegree(degree)` | 将入户实测度数换算成传统坐山、朝向与二十四山                         |
-| `resolveZiweiTrueSolarBirth(input)`               | 紫微出生资料真太阳时日期与时辰索引适配                               |
-| `zodiac.getZodiacYearFortune(branch, ganZhi)`     | 从生肖年支与合法六十甲子生成固定关系资料                             |
-| `zodiac.rebuildAuditedZodiacData(data)`           | 只凭可信来源重建全部生肖流年关系、证据和提示词                       |
-| `zodiac.analyzeZodiacEvidence(data)`              | 先审核重建生肖流年结果，再返回结构化证据                             |
-| `taiyi.generateTaiyi({ year, scope: 'year' })`    | 生成已校勘的太乙年计七十二局                                         |
-| `taiyi.rebuildAuditedTaiyiData(data)`             | 只凭原始公历年份重建太乙年计，忽略全部旧派生盘面与旧证据             |
-| `taiyi.analyzeTaiyiEvidence(data)`                | 先审核重建太乙年计，再返回结构化证据                                 |
-| `xuankong.generateXuanKong(input)`                | 从建造/起运年与单一山向来源生成玄空三盘和边界资料                    |
-| `xuankong.rebuildAuditedXuanKongData(data)`       | 只凭可信年份、山向与卦型口径重建全部玄空派生盘面                     |
-| `xuankong.analyzeXuanKongEvidence(data)`          | 先审核重建玄空结果，再返回三盘、替星、局型与限制证据                 |
+| 导出                                                              | 说明                                                                 |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `calendar.resolveTrueSolarBirthTime(input)`                       | 公历/农历出生真太阳时、夏令时、跨日和时辰索引统一换算                |
+| `bazhai.analyzeBaZhaiByDoorDegree(input)`                         | 按入户实测度数、北向基准、磁偏角和测量误差生成八宫传统标签与候选坐向 |
+| `bazhai.analyzeBaZhaiByTrueNorthDegree(input)`                    | 按真北坐山或朝向度数和测量误差生成八宫传统标签与全部候选坐向         |
+| `bazhai.rebuildAuditedBaZhaiData(data)`                           | 只凭出生/命卦与单一坐山来源重建全部八宅派生盘面                      |
+| `bazhai.analyzeBaZhaiEvidence(data)`                              | 先审核重建八宅结果，再返回命宅、逐方、测量候选与限制证据             |
+| `bazhai.getBaZhaiSitFacingFromDoorDegree(degree)`                 | 将入户实测度数换算成传统坐山、朝向与二十四山                         |
+| `resolveZiweiTrueSolarBirth(input)`                               | 紫微出生资料真太阳时日期与时辰索引适配                               |
+| `zodiac.getZodiacYearFortune(branch, ganZhi)`                     | 从生肖年支与合法六十甲子生成固定关系资料                             |
+| `zodiac.rebuildAuditedZodiacData(data)`                           | 只凭可信来源重建全部生肖流年关系、证据和提示词                       |
+| `zodiac.analyzeZodiacEvidence(data)`                              | 先审核重建生肖流年结果，再返回结构化证据                             |
+| `taiyi.generateTaiyi({ year, scope: 'year' })`                    | 生成已校勘的太乙年计七十二局                                         |
+| `taiyi.rebuildAuditedTaiyiData(data)`                             | 只凭原始公历年份重建太乙年计，忽略全部旧派生盘面与旧证据             |
+| `taiyi.analyzeTaiyiEvidence(data)`                                | 先审核重建太乙年计，再返回结构化证据                                 |
+| `xuankong.generateXuanKong(input)`                                | 从建造/起运年与单一山向来源生成玄空三盘和边界资料                    |
+| `xuankong.rebuildAuditedXuanKongData(data)`                       | 只凭可信年份、山向与卦型口径重建全部玄空派生盘面                     |
+| `xuankong.analyzeXuanKongEvidence(data)`                          | 先审核重建玄空结果，再返回三盘、替星、局型与限制证据                 |
+| `residentialFengshui.generateResidentialFengshui(input)`          | 从居住人、单一山向、宅运年份与卦型来源生成八宅玄空分层结果           |
+| `residentialFengshui.rebuildAuditedResidentialFengshuiData(data)` | 只凭统一可信来源重建两层盘面、证据和提示词                           |
 
 ### 类型（`mingyu-core/types`）
 

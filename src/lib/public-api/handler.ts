@@ -2078,7 +2078,9 @@ function calculateResidentialApi(input: JsonRecord) {
   const birthMonth = optInt(input, 'birthMonth', 1, 12);
   const birthDay = optInt(input, 'birthDay', 1, 31);
   const gender =
-    input.gender === 'female' ? 'female' : input.gender === 'male' ? 'male' : undefined;
+    input.gender === undefined
+      ? undefined
+      : (readEnum(input, 'gender', ['male', 'female']) as 'male' | 'female');
   const mingGua = input.mingGua === undefined ? undefined : readString(input, 'mingGua', '');
   const sitMountain =
     input.sitMountain === undefined ? undefined : readString(input, 'sitMountain', '');
@@ -2119,25 +2121,27 @@ function calculateResidentialApi(input: JsonRecord) {
   }
 
   try {
-    return residentialFengshui.generateResidentialFengshui({
-      ...(year !== undefined ? { year } : {}),
-      ...(birthYear !== undefined ? { birthYear } : {}),
-      ...(birthMonth !== undefined ? { birthMonth } : {}),
-      ...(birthDay !== undefined ? { birthDay } : {}),
-      ...(gender ? { gender } : {}),
-      ...(mingGua ? { mingGua } : {}),
-      ...(sitMountain ? { sitMountain } : {}),
-      ...(facingMountain ? { facingMountain } : {}),
-      ...(facingDegree !== undefined ? { facingDegree } : {}),
-      ...(sitDegree !== undefined ? { sitDegree } : {}),
-      ...(doorToInteriorDegree !== undefined ? { doorToInteriorDegree } : {}),
-      ...(northReference
-        ? { northReference: northReference as 'unspecified' | 'magnetic' | 'true' }
-        : {}),
-      ...(magneticDeclinationDegrees !== undefined ? { magneticDeclinationDegrees } : {}),
-      ...(measurementUncertaintyDegrees !== undefined ? { measurementUncertaintyDegrees } : {}),
-      ...(guaType ? { guaType } : {}),
-    });
+    return residentialFengshui.rebuildAuditedResidentialFengshuiData(
+      residentialFengshui.generateResidentialFengshui({
+        ...(year !== undefined ? { year } : {}),
+        ...(birthYear !== undefined ? { birthYear } : {}),
+        ...(birthMonth !== undefined ? { birthMonth } : {}),
+        ...(birthDay !== undefined ? { birthDay } : {}),
+        ...(gender ? { gender } : {}),
+        ...(mingGua ? { mingGua } : {}),
+        ...(sitMountain ? { sitMountain } : {}),
+        ...(facingMountain ? { facingMountain } : {}),
+        ...(facingDegree !== undefined ? { facingDegree } : {}),
+        ...(sitDegree !== undefined ? { sitDegree } : {}),
+        ...(doorToInteriorDegree !== undefined ? { doorToInteriorDegree } : {}),
+        ...(northReference
+          ? { northReference: northReference as 'unspecified' | 'magnetic' | 'true' }
+          : {}),
+        ...(magneticDeclinationDegrees !== undefined ? { magneticDeclinationDegrees } : {}),
+        ...(measurementUncertaintyDegrees !== undefined ? { measurementUncertaintyDegrees } : {}),
+        ...(guaType ? { guaType } : {}),
+      }),
+    );
   } catch (error) {
     throw new ApiError(
       400,

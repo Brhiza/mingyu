@@ -1,5 +1,6 @@
 import {
   generateResidentialFengshui,
+  rebuildAuditedResidentialFengshuiData,
   type ResidentialFengshuiInput,
   type ResidentialFengshuiResult,
 } from '@core/residential_fengshui';
@@ -54,7 +55,9 @@ export function calculateResidentialChart(input: ResidentialChartInput = {}): {
   bazhai: BaZhaiResult | null;
   xuankong: XuanKongResult | null;
 } {
-  const result = generateResidentialFengshui(toCoreInput(input));
+  const result = rebuildAuditedResidentialFengshuiData(
+    generateResidentialFengshui(toCoreInput(input)),
+  );
   const measurement =
     (result.bazhai as { directionMeasurement?: ResidentialMeasurement } | null)
       ?.directionMeasurement ?? null;
