@@ -202,7 +202,7 @@ curl -X POST https://aov.cc/api/v1/bazi/prompt \
   -d '{"gender":"male","year":1990,"month":5,"day":15,"timeIndex":1,"dateType":"solar","question":"我适合创业还是上班？","promptTopic":"career"}'
 ```
 
-八字双盘接口使用 `person1`、`person2` 包裹两份八字出生资料。结果会逐项返回双方日主五行与十神、日支关系、四柱交叉合冲刑害破、跨盘三合三会候选、双向十神映射和喜忌五行覆盖。五合、三合、三会只记录候选关系，不直接判定成化，也不生成匹配总分。
+八字双盘接口使用 `person1`、`person2` 包裹两份八字出生资料。结果会逐项返回双方日主五行与十神、日支关系、四柱交叉固定合冲刑害破、跨盘三合、三会与三刑完整成员、双向十神映射和喜忌五行覆盖。三合、三会三支齐见只登记完整成员，不直接判定成局、合化或吉凶；寅巳申、丑戌未任意二支相刑、半合和拱局因条件不足失败关闭，也不生成匹配总分。
 
 八字神煞争议口径默认使用主流算法；如需兼容其他系统，可通过 `shenShaVariants` 指定：
 
@@ -388,7 +388,7 @@ curl -X POST https://aov.cc/api/v1/ai/models \
 - `/prompt` 支持 `responseMode`：`summary` 默认只返回提示词和轻量摘要；`full` 返回完整排盘和提示词；`prompt-only` 只返回提示词。
 - 八字、紫微、奇门和黄历择日排盘接口支持 `detailMode`：`full` 返回完整结构；`compact` 返回轻量结构，适合自动化或多次分页请求。
 - 八字 `promptTopic` 支持 `general`、`career`、`wealth`、`marriage`、`children`、`health`、`relationship-push`、`relationship-decision`、`job-change`、`startup-partnership`、`investment-partnership`、`recent`、`home-move`、`settle-relocate`、`study-advance`、`exam-landing`、`reconciliation-decision`、`emotion`、`talent`、`growth`、`social`。
-- 八字 `/bazi/prompt` 可传 `baziFortuneScope` 指定命限范围，支持 `natal`、`full`、`dayun`、`year`、`month`、`day`；选择 `dayun`、`year`、`month`、`day` 时可配合 `baziFortuneCycleIndex`、`baziFortuneYear`、`baziFortuneMonth`、`baziFortuneDay`。
+- 八字 `/bazi/prompt` 可传 `baziFortuneScope` 指定命限范围，支持 `natal`、`full`、`dayun`、`year`、`month`、`day`；选择 `dayun`、`year`、`month`、`day` 时可配合 `baziFortuneCycleIndex`、`baziFortuneYear`、`baziFortuneMonth`、`baziFortuneDay`。岁运关系只登记固定支对，或岁运补齐原局所缺的三合、三会、三刑完整成员；任意二支三刑、半合和拱局不自动命名，完整成员也不等于成局、合化或吉凶。
 - 紫微 `promptTopic` 支持 `destiny`、`relationship`、`relationship-push`、`relationship-decision`、`children`、`career-wealth`、`job-change`、`startup-partnership`、`investment-partnership`、`recent`、`family`、`home-move`、`settle-relocate`、`social`、`emotion`、`health`、`study`、`study-advance`、`exam-landing`、`reconciliation-decision`、`growth`、`talent`、`life`、`chat`。
 - 紫微 `promptScope` 支持 `origin`、`full`、`decadal`、`yearly`、`monthly`、`daily`、`hourly`、`age`；`full` 会返回并写入本命、大限、流年、流月、流日、流时资料。
 - 紫微公开 API 默认只返回 `origin`（本命）范围；如果请求传入 `promptScope`，接口会返回 `origin` 加指定范围。各范围统一读取 `iztro` 原生宫位对象与运限对象，包含落宫、动态宫名、运限星曜、四化、自化、宫干飞化和三方四正，不再另建一份简化盘面。

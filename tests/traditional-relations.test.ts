@@ -19,7 +19,9 @@ import {
   LIUCHONG_MAP,
   LIUHAI_MAP,
   LIUHE_MAP,
+  COMPLETE_SANXING_GROUPS,
   SANHE_GROUPS,
+  SANHUI_GROUPS,
   TIAN_GAN_HE as coreDivinationGanHe,
   TIAN_GAN_CHONG as coreDivinationChong,
   getBranchWuxing,
@@ -35,6 +37,7 @@ import { analyzeLifeStageProfile } from '../packages/core/src/bazi/lifeStageAnal
 import { analyzeNayinProfile } from '../packages/core/src/bazi/nayinAnalysis';
 import { getLifeStage as getBaziValueLifeStage } from '../packages/core/src/bazi/baziValues';
 import { analyzeRelationStructure } from '../packages/core/src/bazi/relationStructure';
+import { analyzePillarRelations } from '../packages/core/src/bazi/baziPromptEnhancement';
 import {
   analyzeExposedStemProfile,
   analyzeStemRootProfile,
@@ -244,25 +247,27 @@ test('奇门完整三合与三刑应覆盖全部支组排列并保留重复支�
   }
 });
 
-test('八字关系结构中的三刑应复用共享口径', () => {
+test('八字关系结构只登记子卯、自刑与三支齐见的完整三刑成员', () => {
   const first = analyzeRelationStructure([
     { zhi: '申' },
     { zhi: '寅' },
     { zhi: '辰' },
     { zhi: '辰' },
   ]);
-  const firstPunishments = first.items.filter((item) => item.name === '三刑');
-  assert.ok(firstPunishments.some((item) => item.values.join('') === '申寅'));
-  assert.ok(firstPunishments.some((item) => item.values.join('') === '辰辰'));
+  assert.ok(!first.items.some((item) => ['无恩之刑', '恃势之刑'].includes(item.name)));
+  assert.ok(first.items.some((item) => item.name === '自刑' && item.values.join('') === '辰辰'));
 
   const second = analyzeRelationStructure([
-    { zhi: '戌' },
-    { zhi: '未' },
-    { zhi: '子' },
-    { zhi: '午' },
+    { zhi: '寅' },
+    { zhi: '巳' },
+    { zhi: '申' },
+    { zhi: '寅' },
   ]);
-  const secondPunishments = second.items.filter((item) => item.name === '三刑');
-  assert.ok(secondPunishments.some((item) => item.values.join('') === '戌未'));
+  const complete = second.items.filter((item) => item.name === '无恩之刑');
+  assert.equal(complete.length, 1);
+  assert.deepEqual(complete[0].values, ['寅', '巳', '申']);
+  assert.deepEqual(complete[0].pillars, ['year', 'month', 'day', 'hour']);
+  assert.match(complete[0].evidence, /三支齐见.*不把任意两支自动命名/);
 });
 
 test('八字岁运提示不应把戊流年与己原局误写成天干冲', () => {
@@ -454,7 +459,7 @@ test('核心纳音分析应拒绝非法四柱，不应默认未知或土五行',
   );
 });
 
-test('八字关系结构应识别寅午火局生地半合', () => {
+test('八字关系结构在相邻冲破透干条件不足时应关闭半合与拱局命名', () => {
   const relation = analyzeRelationStructure([
     { zhi: '寅' },
     { zhi: '午' },
@@ -462,37 +467,92 @@ test('八字关系结构应识别寅午火局生地半合', () => {
     { zhi: '丑' },
   ]);
 
-  assert.ok(
-    relation.items.some(
-      (item) =>
-        item.category === '半合拱局' &&
-        item.name === '生地半合' &&
-        item.element === '火' &&
-        item.values.join('') === '寅午',
-    ),
-  );
+  assert.ok(relation.items.every((item) => item.category !== '半合拱局'));
+  assert.ok(relation.items.every((item) => !/半合|拱局/.test(item.name + item.evidence)));
 });
 
-test('八字关系结构应把生地与墓库记为拱局而非半合', () => {
-  const relation = analyzeRelationStructure([
-    { zhi: '寅' },
-    { zhi: '戌' },
-    { zhi: '子' },
-    { zhi: '丑' },
-  ]);
+test('八字本命四支关系应穷举十二支四次方并只输出条件闭合结构', () => {
+  const representativeByBranch = Object.fromEntries(
+    EARTHLY_BRANCHES.map((branch) => [
+      branch,
+      SIXTY_CYCLE.find((ganZhi) => ganZhi.charAt(1) === branch)!,
+    ]),
+  );
+  const toPillar = (branch: string) => {
+    const ganZhi = representativeByBranch[branch];
+    return { gan: ganZhi.charAt(0), zhi: branch, ganZhi };
+  };
 
-  assert.ok(
-    relation.items.some(
-      (item) =>
-        item.category === '半合拱局' &&
-        item.name === '生墓拱局' &&
-        item.element === '火' &&
-        item.values.join('') === '寅戌',
-    ),
-  );
-  assert.ok(
-    !relation.items.some((item) => item.name.includes('半合') && item.values.join('') === '寅戌'),
-  );
+  for (const year of EARTHLY_BRANCHES) {
+    for (const month of EARTHLY_BRANCHES) {
+      for (const day of EARTHLY_BRANCHES) {
+        for (const hour of EARTHLY_BRANCHES) {
+          const branches = [year, month, day, hour];
+          const label = branches.join('');
+          const relation = analyzeRelationStructure(branches.map((zhi) => ({ zhi })));
+          const promptRelations = analyzePillarRelations({
+            pillars: {
+              year: toPillar(year),
+              month: toPillar(month),
+              day: toPillar(day),
+              hour: toPillar(hour),
+            },
+          });
+          const expectedSanhe = Object.values(SANHE_GROUPS).filter((members) =>
+            members.every((branch) => branches.includes(branch)),
+          ).length;
+          const expectedSanhui = Object.values(SANHUI_GROUPS).filter((members) =>
+            members.every((branch) => branches.includes(branch)),
+          ).length;
+          const expectedPunishments =
+            (branches.includes('子') && branches.includes('卯') ? 1 : 0) +
+            ['辰', '午', '酉', '亥'].filter(
+              (branch) => branches.filter((value) => value === branch).length >= 2,
+            ).length +
+            Object.values(COMPLETE_SANXING_GROUPS).filter((members) =>
+              members.every((branch) => branches.includes(branch)),
+            ).length;
+          const actualPunishments = relation.items.filter((item) =>
+            ['子卯相刑', '自刑', '无恩之刑', '恃势之刑'].includes(item.name),
+          );
+          const promptPunishments = promptRelations.xingChong.filter((item) =>
+            /相刑固定支对|自刑固定结构|完整成员结构/.test(item),
+          );
+
+          assert.equal(
+            relation.items.filter((item) => item.name === '三合三支齐见').length,
+            expectedSanhe,
+            `${label}/三合`,
+          );
+          assert.equal(
+            relation.items.filter((item) => item.name === '三会三支齐见').length,
+            expectedSanhui,
+            `${label}/三会`,
+          );
+          assert.equal(actualPunishments.length, expectedPunishments, `${label}/三刑`);
+          assert.equal(promptPunishments.length, expectedPunishments, `${label}/提示词三刑`);
+          assert.equal(
+            promptRelations.xingChong.filter((item) => item.includes('三合所需三支齐见')).length,
+            expectedSanhe,
+            `${label}/提示词三合`,
+          );
+          assert.equal(
+            promptRelations.xingChong.filter((item) => item.includes('三会所需三支齐见')).length,
+            expectedSanhui,
+            `${label}/提示词三会`,
+          );
+          assert.ok(
+            relation.items.every((item) => !/半合|拱局|合成|会合/.test(item.name + item.evidence)),
+            `${label}/关系边界`,
+          );
+          assert.ok(
+            promptRelations.xingChong.every((item) => !/半合|拱局|地支成/.test(item)),
+            `${label}/提示词边界`,
+          );
+        }
+      }
+    }
+  }
 });
 
 test('八字透干通根应扫描四柱地支，不应只看本柱坐支', () => {

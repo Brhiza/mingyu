@@ -10,7 +10,7 @@ import {
 } from './baziPatternStemFacts';
 import type { Pillars, Wuxing } from './baziTypes';
 import { getTenGod } from './baziUtils';
-import { SANHE_GROUPS, isTianGanHe } from '../ganzhi/relations';
+import { isTianGanHe } from '../ganzhi/relations';
 
 export interface LuPatternHiddenFact {
   position: keyof Pillars;
@@ -20,7 +20,7 @@ export interface LuPatternHiddenFact {
 }
 
 export interface LuPatternBranchFormationFact {
-  type: '三合' | '三会' | '半合' | '拱局';
+  type: '三合' | '三会';
   branches: string[];
   wuxing: Wuxing;
   includesMonthBranch: boolean;
@@ -96,8 +96,7 @@ function collectHiddenFacts(
 }
 
 function collectBranchFormationFacts(pillars: Pillars): LuPatternBranchFormationFact[] {
-  const uniqueBranches = [...new Set(Object.values(pillars).map((pillar) => pillar.zhi))];
-  const completeFacts = collectCompleteBranchFormations(pillars).map(
+  return collectCompleteBranchFormations(pillars).map(
     (formation) =>
       ({
         type: formation.type,
@@ -106,19 +105,6 @@ function collectBranchFormationFacts(pillars: Pillars): LuPatternBranchFormation
         includesMonthBranch: formation.includesMonthBranch,
       }) satisfies LuPatternBranchFormationFact,
   );
-  const pairFacts = Object.entries(SANHE_GROUPS).flatMap(([group, members]) => {
-    const present = members.filter((branch) => uniqueBranches.includes(branch));
-    if (present.length !== 2) return [];
-    return [
-      {
-        type: present.includes(members[1]) ? '半合' : '拱局',
-        branches: present,
-        wuxing: group[0] as Wuxing,
-        includesMonthBranch: present.includes(pillars.month.zhi),
-      } satisfies LuPatternBranchFormationFact,
-    ];
-  });
-  return [...completeFacts, ...pairFacts];
 }
 
 function collectCombinations(

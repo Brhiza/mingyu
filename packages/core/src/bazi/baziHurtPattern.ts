@@ -12,7 +12,7 @@ import {
 import { getStemWuxing } from './baziRuleMatcher/helpers';
 import type { Pillars, Wuxing } from './baziTypes';
 import { getTenGod } from './baziUtils';
-import { LIUHE_MAP, LIUHE_WUXING, SANHE_GROUPS, isTianGanHe } from '../ganzhi/relations';
+import { LIUHE_MAP, LIUHE_WUXING, isTianGanHe } from '../ganzhi/relations';
 
 export interface HurtPatternHiddenFact {
   position: keyof Pillars;
@@ -22,7 +22,7 @@ export interface HurtPatternHiddenFact {
 }
 
 export interface HurtPatternBranchTransformationFact {
-  type: '三合' | '三会' | '半合' | '拱局' | '六合';
+  type: '三合' | '三会' | '六合';
   branches: string[];
   wuxing: Wuxing;
 }
@@ -98,10 +98,6 @@ function collectHiddenFacts(
   });
 }
 
-function getFormationWuxing(group: string): Wuxing {
-  return group[0] as Wuxing;
-}
-
 function collectWealthTransformationFacts(
   pillars: Pillars,
   getTenGodFn: PatternGetTenGodFn,
@@ -125,19 +121,6 @@ function collectWealthTransformationFacts(
         ]
       : [],
   );
-  const sanhePairFacts = Object.entries(SANHE_GROUPS).flatMap(([group, members]) => {
-    const present = members.filter((branch) => uniqueBranches.includes(branch));
-    if (present.length !== 2 || !present.includes(monthBranch)) return [];
-    const wuxing = getFormationWuxing(group);
-    if (!isWealthWuxing(wuxing)) return [];
-    return [
-      {
-        type: present.includes(members[1]) ? '半合' : '拱局',
-        branches: present,
-        wuxing,
-      } satisfies HurtPatternBranchTransformationFact,
-    ];
-  });
   const liuhePartner = LIUHE_MAP[monthBranch];
   const liuheWuxing = LIUHE_WUXING[monthBranch] as Wuxing | undefined;
   const liuheFacts =
@@ -154,7 +137,7 @@ function collectWealthTransformationFacts(
         ]
       : [];
 
-  return [...completeFacts, ...sanhePairFacts, ...liuheFacts];
+  return [...completeFacts, ...liuheFacts];
 }
 
 /**

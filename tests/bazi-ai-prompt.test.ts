@@ -882,7 +882,7 @@ test('八字提示词的刑冲合会破段应直接写入盘面证据', () => {
 
   assert.match(prompt.user, /【刑冲合会破】命盘见：/);
   assert.match(prompt.user, /年柱丁与月柱壬合/);
-  assert.match(prompt.user, /年柱卯与月柱子刑/);
+  assert.match(prompt.user, /年柱卯、月柱子、日柱卯、时柱子构成子卯相刑固定支对/);
 });
 
 test('八字提示词输出全部相合条件，避免把相合结构直接当成成化', () => {

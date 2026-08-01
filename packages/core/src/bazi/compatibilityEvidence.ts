@@ -1,4 +1,5 @@
 import {
+  COMPLETE_SANXING_GROUPS,
   LIUCHONG_MAP,
   LIUHAI_MAP,
   LIUHE_MAP,
@@ -7,8 +8,8 @@ import {
   SANHUI_GROUPS,
   TIAN_GAN_CHONG,
   TIAN_GAN_HE,
+  isAuditedSanxingPair,
   isKe,
-  isSanxing,
   isSheng,
 } from '../ganzhi/relations';
 import { formatPromptEvidenceBundle } from '../prompt-evidence/format';
@@ -27,7 +28,7 @@ const PILLAR_LABELS: Record<PillarKey, string> = {
 type PillarKey = (typeof PILLAR_KEYS)[number];
 type ElementRelation = '同类' | '生对方' | '受对方生' | '克对方' | '受对方克';
 type StemRelationType = '五合候选' | '天干冲';
-type BranchRelationType = '同支' | '六合' | '六冲' | '三刑' | '六害' | '六破';
+type BranchRelationType = '同支' | '六合' | '六冲' | '相刑' | '六害' | '六破';
 type BaziCrossPillarRelationDraft = Omit<
   BaziCrossPillarRelation,
   | 'key'
@@ -84,7 +85,7 @@ export interface BaziCrossPillarRelation {
 export interface BaziCrossBranchCombination {
   key: string;
   status: '组合齐备';
-  type: '三合' | '三会';
+  type: '三合' | '三会' | '三刑';
   name: string;
   members: Array<{
     branch: string;
@@ -95,7 +96,7 @@ export interface BaziCrossBranchCombination {
   calculationStepKey: 'bazi:compatibility:calculation:branch-combinations';
   promptText: string;
   sources: string[];
-  limitation: '跨盘三合三会只证明三个地支成员齐备且来源跨越双方，不证明成局、成化、关系稳定或现实结果';
+  limitation: '跨盘三合、三会或三刑只证明三个地支成员齐备且来源跨越双方，不证明成局、成化、关系稳定、现实冲突或吉凶结果';
 }
 
 export interface BaziTenGodMapping {
@@ -224,7 +225,7 @@ const DAY_MASTER_LIMITATION =
 const CROSS_PILLAR_LIMITATION =
   '跨盘干支关系只证明固定关系表在指定柱位命中；合不等于合化，冲刑害破不等于现实冲突、伤害、分离或失败' as const;
 const COMBINATION_LIMITATION =
-  '跨盘三合三会只证明三个地支成员齐备且来源跨越双方，不证明成局、成化、关系稳定或现实结果' as const;
+  '跨盘三合、三会或三刑只证明三个地支成员齐备且来源跨越双方，不证明成局、成化、关系稳定、现实冲突或吉凶结果' as const;
 const TEN_GOD_LIMITATION =
   '双向十神映射只证明对方干支相对观察方日干的十神分类，不等于角色定性、人格标签、情感结果或行为因果' as const;
 const USEFUL_GOD_LIMITATION =
@@ -288,7 +289,7 @@ function collectBranchRelations(left: Pillar, right: Pillar): BaziCrossPillarRel
   if (left.zhi === right.zhi) relations.push('同支');
   if (LIUHE_MAP[left.zhi] === right.zhi) relations.push('六合');
   if (LIUCHONG_MAP[left.zhi] === right.zhi) relations.push('六冲');
-  if (isSanxing(left.zhi, right.zhi)) relations.push('三刑');
+  if (isAuditedSanxingPair(left.zhi, right.zhi)) relations.push('相刑');
   if (LIUHAI_MAP[left.zhi] === right.zhi) relations.push('六害');
   if (LIUPO_MAP[left.zhi] === right.zhi) relations.push('六破');
   return relations.map((type) => ({
@@ -325,7 +326,10 @@ function calculateCrossRelations(chart1: BaziChartResult, chart2: BaziChartResul
           sources:
             relation.layer === '天干'
               ? ['天干五合与相冲固定关系', '双方四柱天干逐项交叉']
-              : ['地支同支、六合、六冲、三刑、六害与六破固定关系', '双方四柱地支逐项交叉'],
+              : [
+                  '地支同支、六合、六冲、子卯相刑、自刑、六害与六破固定关系',
+                  '双方四柱地支逐项交叉',
+                ],
           limitation: CROSS_PILLAR_LIMITATION,
         };
         result.push(resolved);
@@ -347,10 +351,15 @@ function calculateCombinations(chart1: BaziChartResult, chart2: BaziChartResult)
     }
   }
   const combinations: BaziCrossBranchCombination[] = [];
-  for (const [type, groups] of [
-    ['三合', SANHE_GROUPS],
-    ['三会', SANHUI_GROUPS],
-  ] as const) {
+  const combinationGroups: Array<{
+    type: BaziCrossBranchCombination['type'];
+    groups: Record<string, readonly string[]>;
+  }> = [
+    { type: '三合', groups: SANHE_GROUPS },
+    { type: '三会', groups: SANHUI_GROUPS },
+    { type: '三刑', groups: COMPLETE_SANXING_GROUPS },
+  ];
+  for (const { type, groups } of combinationGroups) {
     for (const [name, branches] of Object.entries(groups)) {
       if (!branches.every((branch) => sources.has(branch))) continue;
       const members = branches.map((branch) => ({ branch, sources: sources.get(branch) ?? [] }));
@@ -371,11 +380,17 @@ function calculateCombinations(chart1: BaziChartResult, chart2: BaziChartResult)
         type,
         name,
         members,
-        note: `两盘地支共同构成${type}组合；只记录组合齐备，不直接判定成局或成化。`,
+        note:
+          type === '三刑'
+            ? '两盘地支共同提供三刑完整成员；只记录三支齐备，不把任意两支自动命名相刑，也不推断现实冲突或吉凶。'
+            : `两盘地支共同提供${type}完整成员；只记录三支齐备，不直接判定成局或成化。`,
         sourceLayerKeys,
         calculationStepKey: 'bazi:compatibility:calculation:branch-combinations',
-        promptText: `双方八个地支共同提供${branches.join('、')}，命中${name}${type}组合`,
-        sources: ['地支三合与三会固定成员表', '双方八个地支联合枚举'],
+        promptText:
+          type === '三刑'
+            ? `双方八个地支共同提供${branches.join('、')}，为${name}完整成员结构`
+            : `双方八个地支共同提供${branches.join('、')}，为${name}${type}所需三支完整结构`,
+        sources: ['地支三合、三会与三刑固定成员表', '双方八个地支联合枚举'],
         limitation: COMBINATION_LIMITATION,
       });
     }
@@ -489,7 +504,7 @@ function buildBaseCalculationSteps(params: {
         ).length,
       },
       dependsOnStepKeys: ['bazi:compatibility:calculation:input'],
-      promptText: `双方四柱完成16组交叉比对，命中${params.relations.length}项天干五合候选、天干冲、同支、六合、六冲、三刑、六害或六破关系`,
+      promptText: `双方四柱完成16组交叉比对，命中${params.relations.length}项天干五合候选、天干冲、同支、六合、六冲、固定相刑、六害或六破关系`,
       sources: ['双方年、月、日、时四柱逐项交叉', '天干地支固定关系表'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
@@ -500,11 +515,13 @@ function buildBaseCalculationSteps(params: {
       inputs: { combinedBranchCount: 8 },
       result: {
         combinationCount: params.combinations.length,
-        combinationNames: params.combinations.map((item) => `${item.name}${item.type}`),
+        combinationNames: params.combinations.map((item) =>
+          item.type === '三刑' ? item.name : `${item.name}${item.type}`,
+        ),
       },
       dependsOnStepKeys: ['bazi:compatibility:calculation:cross-pillars'],
-      promptText: `双方八个地支已联合核验三合与三会成员，记录${params.combinations.length}项跨盘组合`,
-      sources: ['地支三合与三会固定成员表', '双方八个地支联合枚举'],
+      promptText: `双方八个地支已联合核验三合、三会与三刑完整成员，记录${params.combinations.length}项跨盘组合`,
+      sources: ['地支三合、三会与三刑固定成员表', '双方八个地支联合枚举'],
       limitation: CALCULATION_STEP_LIMITATION,
     },
     {
@@ -561,7 +578,7 @@ function buildCounterEvidenceFacts(params: {
       ],
       promptText: params.spousePalaceRelations.length
         ? `双方日支命中${params.spousePalaceRelations.map((item) => item.type).join('、')}关系，已保留逐项夫妻宫事实`
-        : '双方日支未命中同支、六合、六冲、三刑、六害或六破；未命中不代表夫妻关系有利或不利',
+        : '双方日支未命中同支、六合、六冲、子卯相刑、自刑、六害或六破；任意二支三刑不在交叉配对层命名，未命中也不代表夫妻关系有利或不利',
       sources: ['双方日柱地支固定关系逐项核验'],
       limitation: COUNTER_FACT_LIMITATION,
     },
@@ -574,9 +591,11 @@ function buildCounterEvidenceFacts(params: {
         ...params.combinations.map((item) => item.key),
       ],
       promptText: params.combinations.length
-        ? `双方八个地支共同命中${params.combinations.map((item) => `${item.name}${item.type}`).join('、')}`
-        : '双方八个地支未共同凑齐跨盘三合或三会成员；未命中不代表缺乏其他互动关系',
-      sources: ['地支三合三会成员与双方来源联合核验'],
+        ? `双方八个地支共同命中${params.combinations
+            .map((item) => (item.type === '三刑' ? item.name : `${item.name}${item.type}`))
+            .join('、')}`
+        : '双方八个地支未共同凑齐跨盘三合、三会或三刑完整成员；未命中不代表缺乏其他互动关系',
+      sources: ['地支三合、三会、三刑成员与双方来源联合核验'],
       limitation: COUNTER_FACT_LIMITATION,
     },
   ];
@@ -669,7 +688,7 @@ function buildSummaryFact(params: {
     favorableCoverageCount,
     unfavorableCoverageCount,
     unavailableCoverageCount,
-    promptText: `已记录跨柱关系${params.relations.length}项（其中双方日支${params.spousePalaceRelations.length}项）、跨盘三合三会${params.combinations.length}项、双向十神${params.tenGodMappings.length}组；自动喜忌覆盖关闭${unavailableCoverageCount}个方向`,
+    promptText: `已记录跨柱固定关系${params.relations.length}项（其中双方日支${params.spousePalaceRelations.length}项）、跨盘三支完整组合${params.combinations.length}项、双向十神${params.tenGodMappings.length}组；自动喜忌覆盖关闭${unavailableCoverageCount}个方向`,
     sources: ['全部双盘关系、组合与十神事实汇总', '自动用神规则审计状态'],
     limitation: SUMMARY_LIMITATION,
   };
@@ -712,7 +731,7 @@ function buildLimitationFacts(params: {
         ...params.combinations.map((item) => item.key),
       ],
       promptText:
-        '天干五合、地支六合、三合与三会只记录关系或成员齐备；是否合化、成局及实际作用必须结合双方原局月令、透干、根气和制化',
+        '天干五合、地支六合、三合与三会只记录关系或成员齐备；三刑只在子卯固定支对、自刑重复支或寅巳申/丑戌未三支完整齐见时登记。是否合化、成局及实际作用必须结合双方原局月令、透干、根气和制化',
       sources: ['合关系与合化成立条件分离原则'],
     },
     {

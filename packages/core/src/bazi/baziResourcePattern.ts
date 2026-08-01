@@ -80,7 +80,7 @@ export function isResourcePatternName(patternName: string): boolean {
 
 /**
  * 汇总《子平真诠》印格章节可由四柱客观闭合的明透、完整会局、财根与取清组件。
- * 这里只记录固定结构，不以十神数量替代身、印、财的强弱，也不认定五合或半合已经成化。
+ * 这里只记录固定结构，不以十神数量替代身、印、财的强弱，也不认定五合已经成化；半合与拱局条件不足时不登记。
  */
 export function analyzeResourcePatternStructure(
   pillars: Pillars,

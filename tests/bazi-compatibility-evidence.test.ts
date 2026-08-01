@@ -166,7 +166,33 @@ test('八字双盘提示词应保留超过旧上限的全部跨柱关系', () =>
 
   assert.ok(ordinaryRelations.length > 24);
   assert.equal(promptRelationItems.length, ordinaryRelations.length);
-  assert.match(result.promptText, /第一人时柱子与第二人时柱卯构成三刑/);
+  assert.match(result.promptText, /第一人时柱子与第二人时柱卯命中相刑/);
+});
+
+test('八字双盘任意二支三刑应失败关闭，三支跨盘齐见才登记完整成员', () => {
+  const { chart1, chart2 } = createPair();
+  const yin = { gan: '甲', zhi: '寅', ganZhi: '甲寅' };
+  const si = { gan: '己', zhi: '巳', ganZhi: '己巳' };
+  chart1.pillars = { year: { ...yin }, month: { ...yin }, day: { ...yin }, hour: { ...yin } };
+  chart2.pillars = { year: { ...si }, month: { ...si }, day: { ...si }, hour: { ...si } };
+  chart1.dayMaster = { gan: '甲', element: '木', yinYang: '阳' };
+  chart2.dayMaster = { gan: '己', element: '土', yinYang: '阴' };
+
+  const partial = analyzeBaziCompatibility(chart1, chart2);
+  assert.ok(partial.crossPillarRelations.every((item) => item.type !== '相刑'));
+  assert.ok(partial.crossBranchCombinations.every((item) => item.type !== '三刑'));
+
+  chart1.pillars.hour = { gan: '壬', zhi: '申', ganZhi: '壬申' };
+  const complete = analyzeBaziCompatibility(chart1, chart2);
+  const punishment = complete.crossBranchCombinations.filter(
+    (item) => item.type === '三刑' && item.name === '无恩之刑',
+  );
+  assert.equal(punishment.length, 1);
+  assert.deepEqual(
+    punishment[0].members.map((item) => item.branch),
+    ['寅', '巳', '申'],
+  );
+  assert.match(punishment[0].note, /三支齐备.*不把任意两支自动命名/);
 });
 
 test('八字双盘证据应记录跨盘三会来源但不声称成化', () => {

@@ -4,6 +4,7 @@ import type { BaziChartResult } from '../baziTypes';
 import { getTenGod, getTenGodForBranch, isGanZhiPair } from '../baziUtils';
 import { formatPromptEvidenceBundle } from '../../prompt-evidence/format';
 import type { PromptEvidenceItem } from '../../prompt-evidence/types';
+import { findCompleteSanxingGroups, isAuditedSanxingPair } from '../../ganzhi/relations';
 import {
   analyzeFortuneTriggers,
   type FortuneTriggerEvidenceResult,
@@ -117,7 +118,7 @@ function buildGanZhiTriggerSummary(
     if (BASIC_MAPPINGS.DI_ZHI_CHONG[parts.zhi] === pillar.zhi) {
       triggers.push(`地支${parts.zhi}冲${pillarLabel}${pillar.zhi}`);
     }
-    if (BASIC_MAPPINGS.DI_ZHI_XING[parts.zhi]?.includes(pillar.zhi)) {
+    if (isAuditedSanxingPair(parts.zhi, pillar.zhi)) {
       triggers.push(`地支${parts.zhi}刑${pillarLabel}${pillar.zhi}`);
     }
     if (BASIC_MAPPINGS.DI_ZHI_HAI[parts.zhi] === pillar.zhi) {
@@ -127,6 +128,19 @@ function buildGanZhiTriggerSummary(
       triggers.push(`地支${parts.zhi}破${pillarLabel}${pillar.zhi}`);
     }
   });
+
+  const natalBranches = PILLAR_KEYS.map((key) => result.pillars[key].zhi);
+  for (const punishment of findCompleteSanxingGroups([...natalBranches, parts.zhi])) {
+    if (
+      !punishment.members.includes(parts.zhi) ||
+      punishment.members.every((branch) => natalBranches.includes(branch))
+    ) {
+      continue;
+    }
+    triggers.push(
+      `地支${parts.zhi}参与${punishment.members.join('、')}三支齐见，为${punishment.name}完整成员结构`,
+    );
+  }
 
   return `${scopeLabel}触发：${triggers.length ? triggers.join('；') : '未见明显合冲刑害破，重点看十神生克、原局喜忌与岁运层级。'}`;
 }

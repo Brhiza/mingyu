@@ -18,8 +18,9 @@ import {
   BRANCH_WUXING,
   SANHE_GROUPS,
   SANHUI_GROUPS,
+  findCompleteSanxingGroups,
+  isAuditedSanxingPair,
   isLiuchong,
-  isSanxing,
   isTianGanHe,
 } from '../ganzhi/relations';
 
@@ -827,8 +828,20 @@ function buildOfficerPatternRuleAnalysis(params: {
         `运干${activeStem.symbol}正官再次明透，构成重官候选`,
       );
     }
+    const natalBranches = [
+      params.result.pillars.year.zhi,
+      params.result.pillars.month.zhi,
+      params.result.pillars.day.zhi,
+      params.result.pillars.hour.zhi,
+    ];
+    const completePunishment = findCompleteSanxingGroups([...natalBranches, activeBranch]).some(
+      (punishment) =>
+        punishment.members.includes(monthBranch) &&
+        punishment.members.includes(activeBranch) &&
+        !punishment.members.every((branch) => natalBranches.includes(branch)),
+    );
     const branchRelations = [
-      ...(isSanxing(monthBranch, activeBranch) ? ['相刑'] : []),
+      ...(isAuditedSanxingPair(monthBranch, activeBranch) || completePunishment ? ['相刑'] : []),
       ...(isLiuchong(monthBranch, activeBranch) ? ['相冲'] : []),
     ];
     if (branchRelations.length > 0) {
@@ -4476,7 +4489,7 @@ function compareLayers(
       ),
     );
   }
-  if (BASIC_MAPPINGS.DI_ZHI_XING[sourceParts.zhi]?.includes(targetParts.zhi)) {
+  if (isAuditedSanxingPair(sourceParts.zhi, targetParts.zhi)) {
     items.push(
       relation(
         'branch-punishment',
@@ -4484,7 +4497,7 @@ function compareLayers(
         source,
         target,
         calculationStepKey,
-        '地支刑关系成立',
+        '子卯相刑固定支对或自刑重复支成立；任意二支三刑不在两层配对中命名',
         { branchRelation: 'punishment' },
       ),
     );

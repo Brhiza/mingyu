@@ -19,7 +19,7 @@ const PILLAR_FACT_LIMITATION =
 const ANALYSIS_FACT_LIMITATION =
   '旺衰、格局与取用事实只记录当前规则链已经闭合的分类结果和依据；证据并见而不能定向时必须保留待定，不得补造数量权重，也不得转写为绝对命格、成功率、疾病判断或现实保证' as const;
 const RELATION_FACT_LIMITATION =
-  '伏吟、反吟及合冲刑害破只证明原局柱间存在对应干支结构；不直接证明现实事件性质、发生时间、人物意图或吉凶结果' as const;
+  '伏吟、反吟及合冲刑害破只证明原局柱间存在对应干支结构；三合三会三支齐见不等于成局或合化，半合、拱局及寅巳申、丑戌未任意二支相刑不自动命名；不得直接推出现实事件、人物意图或吉凶结果' as const;
 const COUNTER_FACT_LIMITATION =
   '八字本命反证只记录四柱与核心分析资料是否完整、柱间主要关系是否命中以及排盘边界是否有提示；未命中不代表现实有利或不利，资料完整也不证明结论必然成立' as const;
 const SUMMARY_FACT_LIMITATION =
@@ -303,7 +303,7 @@ function buildRelationFacts(data: BaziChartResult): BaziNatalRelationFact[] {
       relation,
       calculationStepKeys: ['bazi:natal:calculation:derived'],
       promptText: `${group.type}：${relation}`,
-      sources: ['原局四柱干支逐对关系与三合三会完整成员核验'],
+      sources: ['原局四柱固定两支关系与三合、三会、三刑完整成员核验'],
       limitation: RELATION_FACT_LIMITATION,
     })),
   );
@@ -472,8 +472,8 @@ function buildCounterEvidenceFacts(args: {
       ownerFactKeys: ['bazi:natal:calculation:derived', ...relationFacts.map((item) => item.key)],
       promptText: relationFacts.length
         ? `原局记录${relationFacts.length}项伏吟、反吟或刑冲合害破关系`
-        : '原局未命中当前已登记的伏吟、反吟、刑冲合害破及三合三会关系；不代表没有其他较弱互动',
-      sources: ['四柱干支逐对关系与三合三会成员核验'],
+        : '原局未命中当前已登记的伏吟、反吟、固定刑冲合害破及三支完整关系；半合、拱局和任意二支三刑仍保留原始四柱供明确口径后推算',
+      sources: ['四柱干支固定两支关系与三合、三会、三刑完整成员核验'],
       limitation: COUNTER_FACT_LIMITATION,
     },
     {

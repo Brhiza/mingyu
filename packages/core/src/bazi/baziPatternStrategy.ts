@@ -15,7 +15,14 @@ import { getStemWuxing, getWuxingTenGodCategory } from './baziRuleMatcher/helper
 import type { PatternAnalysis, Pillars, Wuxing } from './baziTypes';
 import { assertHeavenlyStem, assertPillars } from './baziUtils';
 import { analyzeWealthPatternStructure } from './baziWealthPattern';
-import { LIUCHONG_MAP, isLiuchong, isLiuhai, isLiupo, isSanxing } from '../ganzhi/relations';
+import {
+  LIUCHONG_MAP,
+  findCompleteSanxingGroups,
+  isAuditedSanxingPair,
+  isLiuchong,
+  isLiuhai,
+  isLiupo,
+} from '../ganzhi/relations';
 
 type GetTenGodFn = (gan: string, dayMaster: string) => string;
 
@@ -268,7 +275,7 @@ function collectOfficerPatternNotes(
   (['year', 'day', 'hour'] as const).forEach((position) => {
     const branch = pillars[position].zhi;
     const relations = [
-      ...(isSanxing(pillars.month.zhi, branch) ? ['相刑'] : []),
+      ...(isAuditedSanxingPair(pillars.month.zhi, branch) ? ['相刑'] : []),
       ...(isLiuchong(pillars.month.zhi, branch) ? ['相冲'] : []),
       ...(isLiupo(pillars.month.zhi, branch) ? ['相破'] : []),
       ...(isLiuhai(pillars.month.zhi, branch) ? ['相害'] : []),
@@ -278,6 +285,14 @@ function collectOfficerPatternNotes(
         `${positionLabels[position]}${branch}与月令${pillars.month.zhi}${relations.join('、')}`,
       );
     }
+  });
+  const completeMonthPunishments = findCompleteSanxingGroups(
+    (['year', 'month', 'day', 'hour'] as const).map((position) => pillars[position].zhi),
+  ).filter((punishment) => punishment.members.includes(pillars.month.zhi));
+  completeMonthPunishments.forEach((punishment) => {
+    branchRelations.push(
+      `${punishment.members.join('、')}三支齐见，为${punishment.name}完整成员结构`,
+    );
   });
   if (branchRelations.length > 0) {
     notes.push(
@@ -721,7 +736,7 @@ function collectResourcePatternNotes(
     },
     {
       pillars: ['丙午', '庚寅', '丙午', '癸巳'],
-      note: '原典化印为劫精确例型丙午、庚寅、丙午、癸巳，只记录寅午半合与比财官明透的组成边界；半合不作为完整三合火局运行，也不据此认定印已化劫或弃印就财官',
+      note: '原典化印为劫精确例型丙午、庚寅、丙午、癸巳，只记录寅、午两支与比财官明透的原始事实；两支条件不足，不自动命名半合，也不据此认定印已化劫或弃印就财官',
     },
     {
       pillars: ['庚戌', '戊子', '甲戌', '乙亥'],
@@ -1086,7 +1101,7 @@ function collectHurtPatternNotes(
     },
     {
       pillars: ['甲子', '乙亥', '辛未', '戊子'],
-      note: '原典罗状元精确例型甲子、乙亥、辛未、戊子，亥中壬伤官与甲财同藏，亥未为三合拱木固定关系；只列化伤为财候选，不因拱局直接认定已经化木或推导功名',
+      note: '原典罗状元精确例型甲子、乙亥、辛未、戊子，亥中壬伤官与甲财同藏且亥、未两支齐见；两支条件不足，不自动命名拱局或据此认定已经化木、推导功名',
     },
     {
       pillars: ['己卯', '丁丑', '丙寅', '庚寅'],
@@ -1114,11 +1129,11 @@ function collectHurtPatternNotes(
     },
     {
       pillars: ['丙申', '己亥', '辛未', '己亥'],
-      note: '原典郑丞相精确例型丙申、己亥、辛未、己亥，冬金亥月藏壬伤官，丙正官明透且亥未为三合拱木固定关系；只保存用官兼化伤为财候选，不认定拱局已经化木或推导富贵',
+      note: '原典郑丞相精确例型丙申、己亥、辛未、己亥，冬金亥月藏壬伤官，丙正官明透且亥、未两支齐见；两支条件不足，不自动命名拱局或据此认定已经化木、推导富贵',
     },
     {
       pillars: ['甲子', '壬申', '己亥', '辛未'],
-      note: '原典章丞相精确例型甲子、壬申、己亥、辛未，非金日主申月藏庚伤官，申子半合水为财星固定关系且甲正官明透；只保存化伤为财若成立后转按财生官复核的条件，不直接排除伤官见官或推导贵格',
+      note: '原典章丞相精确例型甲子、壬申、己亥、辛未，非金日主申月藏庚伤官，申、子两支齐见且甲正官明透；两支条件不足，不自动命名半合，只保留化伤为财须另行复核的条件',
     },
   ];
   exactExamples.forEach((example) => {
@@ -1146,7 +1161,7 @@ function collectHurtPatternNotes(
         )
         .join(
           '、',
-        )}，列“化伤为财”的关系候选；三合、三会、半合、拱局或六合事实均不等于已经合化，财旺与生官结果亦须另审`,
+        )}，列“化伤为财”的关系候选；三合、三会或六合事实均不等于已经合化，半合与拱局条件不足时不登记，财旺与生官结果亦须另审`,
     );
   }
 
@@ -1333,15 +1348,15 @@ function collectLuPatternNotes(
     },
     {
       pillars: ['己未', '己巳', '丁未', '辛丑'],
-      note: '原典建禄化劫为财精确例型己未、己巳、丁未、辛丑，丁日巳月本气丙为劫财，属于月劫而非禄位，巳丑构成拱金固定关系且辛偏财明透；只保存化劫为财候选，不认定拱局已经合化',
+      note: '原典建禄化劫为财精确例型己未、己巳、丁未、辛丑，丁日巳月本气丙为劫财，属于月劫而非禄位，巳、丑两支齐见且辛偏财明透；两支条件不足，不自动命名拱局或认定已经合化',
     },
     {
       pillars: ['庚子', '甲申', '庚子', '甲申'],
-      note: '原典建禄化劫为生精确例型庚子、甲申、庚子、甲申，庚日申月真禄，申子半合水食神并见甲偏财明透；只保存化劫为生及食神生财候选，不认定半合已经合化',
+      note: '原典建禄化劫为生精确例型庚子、甲申、庚子、甲申，庚日申月真禄，申、子两支齐见且甲偏财明透；两支条件不足，不自动命名半合或据此认定食神已经形成、合化',
     },
     {
       pillars: ['丁巳', '壬子', '癸卯', '己未'],
-      note: '原典建禄用杀制伏精确例型丁巳、壬子、癸卯、己未，癸日子月真禄，己七杀明透、卯未半合木食伤且丁财与壬劫财五合；只保存制杀与财被合的固定组件，不认定半合或五合已经成化',
+      note: '原典建禄用杀制伏精确例型丁巳、壬子、癸卯、己未，癸日子月真禄，己七杀明透、卯与未两支齐见且丁财与壬劫财五合；两支条件不足，不自动命名半合，只保存七杀与五合固定组件',
     },
     {
       pillars: ['戊辰', '癸亥', '壬午', '丙午'],
@@ -1463,12 +1478,12 @@ function collectLuPatternNotes(
 
   if (structure.monthWealthTransformationFacts.length > 0) {
     notes.push(
-      `${structure.isLuPattern ? '月支禄位' : '月劫月支'}参与${formatFormations(structure.monthWealthTransformationFacts)}，列“化劫为财”的固定结构候选；半合、拱局或三支齐全都不等于已经合化、财格成立或最终取用完成`,
+      `${structure.isLuPattern ? '月支禄位' : '月劫月支'}参与${formatFormations(structure.monthWealthTransformationFacts)}，列“化劫为财”的完整成员候选；三支齐全不等于已经合化、财格成立或最终取用完成`,
     );
   }
   if (structure.monthOutputTransformationFacts.length > 0) {
     notes.push(
-      `${structure.isLuPattern ? '月支禄位' : '月劫月支'}参与${formatFormations(structure.monthOutputTransformationFacts)}，列“化劫为生”的固定结构候选；半合、拱局或三支齐全都不等于已经合化、食伤有力或最终取用完成`,
+      `${structure.isLuPattern ? '月支禄位' : '月劫月支'}参与${formatFormations(structure.monthOutputTransformationFacts)}，列“化劫为生”的完整成员候选；三支齐全不等于已经合化、食伤有力或最终取用完成`,
     );
   }
 
@@ -2436,7 +2451,7 @@ export function determinePattern(
     getTenGod,
   );
   if (resourcePatternNotes.length > 0) {
-    basis += `；印格成败边界：${resourcePatternNotes.join('；')}；以上只记录《子平真诠》“论印”中能够由当前四柱闭合的明透、财根、完整会局、固定制约与取清组件，不改变既有格名；身旺身弱、身印财轻重、财根深浅、五合或半合成化及最终取舍仍须全局复核，也不推导富贵贫贱、官职、灾祸、现实财富婚姻、分数或概率`;
+    basis += `；印格成败边界：${resourcePatternNotes.join('；')}；以上只记录《子平真诠》“论印”中能够由当前四柱闭合的明透、财根、完整会局、固定制约与取清组件，不改变既有格名；身旺身弱、身印财轻重、财根深浅、五合成化及最终取舍仍须全局复核，半合与拱局条件不足时不登记，也不推导富贵贫贱、官职、灾祸、现实财富婚姻、分数或概率`;
   }
 
   const foodPatternNotes = collectFoodPatternNotes(pillars, patternName, getTenGod);
@@ -2451,7 +2466,7 @@ export function determinePattern(
 
   const luPatternNotes = collectLuPatternNotes(pillars, patternName, getTenGod);
   if (luPatternNotes.length > 0) {
-    basis += `；建禄月劫成败边界：${luPatternNotes.join('；')}；以上只记录《子平真诠》“论建禄月劫”中能够由当前四柱闭合的真禄、财官杀食明透、财印藏根、半合拱局、完整会支、天干五合与取清组件，不改变既有格名；财官杀食印轻重、根多根少、制伏力度、合化去留及最终取舍仍须全局复核，也不推导性情、职业、富贵贫贱、官职品级、现实事件、分数或概率`;
+    basis += `；建禄月劫成败边界：${luPatternNotes.join('；')}；以上只记录《子平真诠》“论建禄月劫”中能够由当前四柱闭合的真禄、财官杀食明透、财印藏根、完整会支、天干五合与取清组件，不改变既有格名；半合与拱局条件不足时不登记，财官杀食印轻重、根多根少、制伏力度、合化去留及最终取舍仍须全局复核，也不推导性情、职业、富贵贫贱、官职品级、现实事件、分数或概率`;
   }
 
   const bladePatternNotes = collectBladePatternNotes(pillars, patternName, getTenGod);

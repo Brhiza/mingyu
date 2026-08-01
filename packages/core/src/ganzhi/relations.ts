@@ -250,6 +250,31 @@ export const BRANCH_SANXING: Record<string, string[]> = {
   亥: ['亥'],
 };
 
+/** 只有三支全部齐见时才登记的三刑完整成员组。 */
+export const COMPLETE_SANXING_GROUPS = {
+  无恩之刑: ['寅', '巳', '申'],
+  恃势之刑: ['丑', '戌', '未'],
+} as const;
+
+/** 两支即可闭合的固定相刑结构；寅巳申、丑戌未不在此列。 */
+export function isAuditedSanxingPair(a: string, b: string): boolean {
+  if ((a === '子' && b === '卯') || (a === '卯' && b === '子')) return true;
+  return a === b && ['辰', '午', '酉', '亥'].includes(a);
+}
+
+/** 查找当前地支集合中三支完整齐见的三刑成员组。 */
+export function findCompleteSanxingGroups(
+  branches: readonly string[],
+): Array<{ name: keyof typeof COMPLETE_SANXING_GROUPS; members: string[] }> {
+  const branchSet = new Set(branches);
+  return Object.entries(COMPLETE_SANXING_GROUPS)
+    .filter(([, members]) => members.every((branch) => branchSet.has(branch)))
+    .map(([name, members]) => ({
+      name: name as keyof typeof COMPLETE_SANXING_GROUPS,
+      members: [...members],
+    }));
+}
+
 export enum SanxingType {
   WULI = '无礼之刑', // 子卯
   WUEN = '无恩之刑', // 寅巳申

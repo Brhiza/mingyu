@@ -5,6 +5,7 @@
 
 import type { BaziChartResult } from './baziTypes';
 import { BASIC_MAPPINGS, SAN_HE_MAP, SAN_HUI_MAP } from './baziMappingsData';
+import { findCompleteSanxingGroups } from '../ganzhi/relations';
 import { identifyClassicPattern } from './baziEnhancement/classicPatterns';
 import { assessAllHarmonyTransforms } from './harmonyTransform';
 
@@ -113,9 +114,6 @@ export function analyzePillarRelations(
       if (branchChong) {
         xingChong.add(`${leftLabel}${left.zhi}与${rightLabel}${right.zhi}冲`);
       }
-      if (BASIC_MAPPINGS.DI_ZHI_XING[left.zhi]?.includes(right.zhi)) {
-        xingChong.add(`${leftLabel}${left.zhi}与${rightLabel}${right.zhi}刑`);
-      }
       if (BASIC_MAPPINGS.DI_ZHI_HAI[left.zhi] === right.zhi) {
         xingChong.add(`${leftLabel}${left.zhi}与${rightLabel}${right.zhi}害`);
       }
@@ -126,14 +124,34 @@ export function analyzePillarRelations(
   }
 
   const allBranches = PILLAR_KEYS.map((pillar) => pillars[pillar].zhi);
+  const ziMaoPillars = PILLAR_KEYS.filter(
+    (pillar) => pillars[pillar].zhi === '子' || pillars[pillar].zhi === '卯',
+  );
+  if (allBranches.includes('子') && allBranches.includes('卯')) {
+    xingChong.add(
+      `${ziMaoPillars.map((pillar) => `${PILLAR_LABELS[pillar]}${pillars[pillar].zhi}`).join('、')}构成子卯相刑固定支对`,
+    );
+  }
+  for (const branch of ['辰', '午', '酉', '亥']) {
+    const positions = PILLAR_KEYS.filter((pillar) => pillars[pillar].zhi === branch);
+    if (positions.length < 2) continue;
+    xingChong.add(
+      `${positions.map((pillar) => `${PILLAR_LABELS[pillar]}${branch}`).join('、')}构成${branch}${branch}自刑固定结构`,
+    );
+  }
+  for (const punishment of findCompleteSanxingGroups(allBranches)) {
+    xingChong.add(
+      `${punishment.members.join('、')}三支齐见，为${punishment.name}完整成员结构（不把任意两支自动命名相刑）`,
+    );
+  }
   for (const [name, branches] of Object.entries(SAN_HE_MAP)) {
     if (branches.every((branch) => allBranches.includes(branch))) {
-      xingChong.add(`地支成${name}三合`);
+      xingChong.add(`地支${branches.join('、')}为${name}三合所需三支齐见（不等于已经成局或合化）`);
     }
   }
   for (const [name, branches] of Object.entries(SAN_HUI_MAP)) {
     if (branches.every((branch) => allBranches.includes(branch))) {
-      xingChong.add(`地支成${name}三会`);
+      xingChong.add(`地支${branches.join('、')}为${name}三会所需三支齐见（不等于已经成局）`);
     }
   }
 

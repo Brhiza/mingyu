@@ -1043,7 +1043,7 @@ test('论印十三个原典例型只保存精确结构且半合不得自动化�
     ['己未', '甲戌', '辛未', '癸巳', /原典合财存食精确例型.*财合印存食/],
     ['辛亥', '庚子', '甲辰', '乙亥', /原典合杀留官精确例型.*合杀留官候选/],
     ['壬子', '癸卯', '丙子', '己亥', /原典官杀有制精确例型.*食伤制官杀/],
-    ['丙午', '庚寅', '丙午', '癸巳', /原典化印为劫精确例型.*半合不作为完整三合火局运行/],
+    ['丙午', '庚寅', '丙午', '癸巳', /原典化印为劫精确例型.*两支条件不足，不自动命名半合/],
     ['庚戌', '戊子', '甲戌', '乙亥', /原典劫财存杀印精确例型.*劫财制财以存杀印/],
   ] as const;
 
@@ -2197,7 +2197,7 @@ test('论阳刃五个原典例型应保存精确结构并禁止高风险强断',
   });
 });
 
-test('建禄结构分析应区分完整会支、半合拱局、外干隔位与固定五合', () => {
+test('建禄结构分析应关闭半合拱局并保留完整会支、外干隔位与固定五合', () => {
   const separatedPillars = createPillars('庚午', '戊子', '癸卯', '丁巳');
   const separated = analyzeLuPatternStructure(separatedPillars, '建禄格', getTenGod);
   const arched = analyzeLuPatternStructure(
@@ -2218,10 +2218,8 @@ test('建禄结构分析应区分完整会支、半合拱局、外干隔位与�
 
   assert.equal(separated.isLuPattern, true);
   assert.equal(separated.officerSeparationFacts.length, 1);
-  assert.equal(arched.monthWealthTransformationFacts[0]?.type, '拱局');
-  assert.deepEqual(arched.monthWealthTransformationFacts[0]?.branches, ['巳', '丑']);
-  assert.equal(halfCombined.monthOutputTransformationFacts[0]?.type, '半合');
-  assert.deepEqual(halfCombined.monthOutputTransformationFacts[0]?.branches, ['申', '子']);
+  assert.deepEqual(arched.monthWealthTransformationFacts, []);
+  assert.deepEqual(halfCombined.monthOutputTransformationFacts, []);
   assert.equal(hurtCombined.resourceHurtCombinationFacts.length, 1);
 });
 
@@ -2285,10 +2283,10 @@ test('建禄用财应区分食伤转关、转关缺项、化劫为财与化劫�
 
   assert.match(redirected.basis || '', /食伤转劫生财的组成候选/);
   assert.match(missingOutput.basis || '', /用财无食伤.*转关缺项/);
-  assert.match(transformedWealth.basis || '', /巳丑拱局金固定关系.*化劫为财/);
-  assert.match(transformedWealth.basis || '', /不等于已经合化/);
-  assert.match(transformedOutput.basis || '', /申子半合水固定关系.*化劫为生/);
-  assert.match(transformedOutput.basis || '', /不等于已经合化、食伤有力或最终取用完成/);
+  assert.match(transformedWealth.basis || '', /巳、丑两支齐见.*不自动命名拱局/);
+  assert.doesNotMatch(transformedWealth.basis || '', /巳丑拱局金固定关系/);
+  assert.match(transformedOutput.basis || '', /申、子两支齐见.*不自动命名半合/);
+  assert.doesNotMatch(transformedOutput.basis || '', /申子半合水固定关系/);
 });
 
 test('建禄用杀应保留制伏、财党杀、合杀存财及无制伏边界', () => {
@@ -2308,8 +2306,8 @@ test('建禄用杀应保留制伏、财党杀、合杀存财及无制伏边界',
     getTenGod,
   );
 
-  assert.match(controlled.basis || '', /卯未半合木固定关系.*食伤制伏七杀/);
-  assert.match(controlled.basis || '', /制杀力度、杀食轻重与制伏是否适度仍须全局复核/);
+  assert.match(controlled.basis || '', /卯与未两支齐见.*不自动命名半合/);
+  assert.match(controlled.basis || '', /用杀无制伏/);
   assert.match(preservedWealth.basis || '', /财党杀.*冲突候选/);
   assert.match(preservedWealth.basis || '', /戊七杀与月干癸劫财五合.*合杀存财/);
   assert.match(uncontrolled.basis || '', /用杀无制伏.*不据当前缺项直接判定七杀重、身危/);
