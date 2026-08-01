@@ -1381,12 +1381,14 @@ test('公开 API 应支持八字紫微合参提示词', async () => {
   assert.match(body.data.prompt, /【八字排盘信息】/);
   assert.match(body.data.prompt, /【紫微盘面信息】/);
   assert.match(body.data.prompt, /【任务】/);
+  assert.match(body.data.prompt, /两套体系各自待定项保持待定/);
   assert.match(body.data.prompt, /我现在适合换工作还是继续等待/);
+  assert.doesNotMatch(body.data.prompt, /说明两者一致或分歧|现实建议/);
   assert.doesNotMatch(body.data.prompt, /结构化证据|证据汇总|解释边界|计算链/);
   assertPromptIsPortableTaskText(body.data.prompt);
 });
 
-test('八字紫微合参提示词自定义模式不额外拼接任务框架', async () => {
+test('八字紫微合参提示词应只并列可靠事实并关闭现实解释旁路', async () => {
   const person = {
     gender: 'male' as const,
     year: 1990,
@@ -1412,21 +1414,46 @@ test('八字紫微合参提示词自定义模式不额外拼接任务框架', as
     }),
   );
 
-  const prompt = await buildBaziZiweiPromptForResults({
+  const frameworkPrompt = await buildBaziZiweiPromptForResults({
     baziResult,
     ziweiResult,
-    question: '只看今年是否适合跳槽。',
+    question: '只核对今年的两套盘面事实。',
+    baziTopic: 'job-change',
+    ziweiTopic: 'job-change',
+    ziweiScope: 'yearly',
+    mode: 'framework',
+    baziSchool: 'traditional',
+    ziweiSchool: 'sanhe',
+  });
+  const customPrompt = await buildBaziZiweiPromptForResults({
+    baziResult,
+    ziweiResult,
+    question: '只核对今年的两套盘面事实。',
     baziTopic: 'job-change',
     ziweiTopic: 'job-change',
     ziweiScope: 'yearly',
     mode: 'custom',
+    baziSchool: 'traditional',
+    ziweiSchool: 'sanhe',
   });
 
-  assert.match(prompt, /【八字排盘信息】/);
-  assert.match(prompt, /【紫微盘面信息】/);
-  assert.match(prompt, /【问题】\n只看今年是否适合跳槽。/);
-  assert.doesNotMatch(prompt, /【任务】/);
-  assert.doesNotMatch(prompt, /【输出要求】/);
+  for (const prompt of [frameworkPrompt, customPrompt]) {
+    assert.match(prompt, /【八字排盘信息】/);
+    assert.match(prompt, /【紫微盘面信息】/);
+    assert.match(prompt, /【十二宫事实】/);
+    assert.match(prompt, /【问题】\n只核对今年的两套盘面事实。/);
+    assert.match(prompt, /两套体系分别列示，不把相似表述当作互相验证/);
+    assert.match(prompt, /具体解释体系、底本版本、可定位来源和完整解释规则/);
+    assert.match(prompt, /缺少任一项时保持事实层/);
+    assert.match(prompt, /当前没有可据以生成跨体系因果映射或统一结论的完整规则/);
+    assert.doesNotMatch(
+      prompt,
+      /结构强弱、喜忌取用|整合成一致结论|说明两者一致或分歧|先直接回答问题|现实建议/,
+    );
+  }
+  assert.match(frameworkPrompt, /【任务】\n分别核对八字可复算事实与紫微完整十二宫/);
+  assert.doesNotMatch(customPrompt, /【任务】/);
+  assert.doesNotMatch(customPrompt, /【输出要求】/);
 });
 
 test('公开 API 八字空问题应返回 400，保持 question 必填契约', async () => {
@@ -2029,12 +2056,8 @@ test('紫微公开 API 提示词应穷举十二宫事实并关闭现实解释旁
   });
   for (const prompt of [frameworkPrompt, customPrompt]) {
     assert.match(prompt, /【十二宫事实】/);
-    const palaceSection =
-      prompt.match(/【十二宫事实】\n([\s\S]*?)(?=\n\n【|\n【|$)/)?.[1] ?? '';
-    assert.equal(
-      palaceSection.split('\n').filter((line) => line.startsWith('- ')).length,
-      12,
-    );
+    const palaceSection = prompt.match(/【十二宫事实】\n([\s\S]*?)(?=\n\n【|\n【|$)/)?.[1] ?? '';
+    assert.equal(palaceSection.split('\n').filter((line) => line.startsWith('- ')).length, 12);
     assert.match(prompt, /紫微资料口径标签：三合派/);
     assert.match(prompt, /该标签不提供完整解释规则/);
     assert.match(prompt, /缺少任一项时保持事实层/);

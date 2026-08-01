@@ -24,7 +24,7 @@
 | `ziwei_prompt`               | 紫微提示词   | 紫微斗数排盘并返回可直接用于 AI 解读的结构化提示词                                                               |
 | `ziwei_compatibility`        | 紫微双盘     | 返回双方本命盘、关键宫位叠盘、生年四化跨盘落宫与证据包                                                           |
 | `ziwei_compatibility_prompt` | 双盘提示词   | 紫微双盘计算并返回可直接用于 AI 解读的完整证据任务书                                                             |
-| `bazi_ziwei_prompt`          | 八字紫微合参 | 同一出生信息同时返回八字、紫微数据和合参解读提示词                                                               |
+| `bazi_ziwei_prompt`          | 八字紫微核对 | 同一出生信息同时返回八字、紫微可复算事实、各自边界和条件性后续推算提示词                                         |
 | `divine_liuyao`              | 六爻起卦     | 支持时间种子模拟、手工爻值和逐爻三钱记录                                                                         |
 | `liuyao_prompt`              | 六爻提示词   | 六爻起卦并返回用神作用链、逐爻证据及可直接用于 AI 解读的结构化提示词                                             |
 | `divine_meihua`              | 梅花易数起卦 | 支持时间/数字/随机三种起卦方式，兼容旧 timeTrigram 参数                                                          |
@@ -38,7 +38,7 @@
 | `divine_tarot`               | 塔罗抽牌     | 78 张塔罗，支持单牌/时间流/爱情/事业/选择牌阵                                                                    |
 | `tarot_prompt`               | 塔罗提示词   | 塔罗抽牌并返回可直接用于 AI 解读的结构化提示词                                                                   |
 | `divine_ssgw`                | 灵签求签     | 模拟传统摇签、掷筊流程，圣杯确认后方出签；三连阴杯则拒绝起卦，返回 ritual 记录                                   |
-| `ssgw_prompt`                | 灵签提示词   | 三山国王灵签求签，返回签号、可重放掷筊记录与签谱待校边界                                                       |
+| `ssgw_prompt`                | 灵签提示词   | 三山国王灵签求签，返回签号、可重放掷筊记录与签谱待校边界                                                         |
 | `divine_almanac`             | 黄历择日     | 按事项、参与人冲突、时辰和现实限制返回可用、条件与慎用候选                                                       |
 | `almanac_prompt`             | 择日提示词   | 返回不含数字评分的透明约束证据及可直接用于 AI 解读的结构化提示词                                                 |
 | `divine_lenormand`           | 雷诺曼抽牌   | 支持单牌、三牌、五牌十字、关系、选择、九宫、元素和大桌牌阵                                                       |
@@ -47,10 +47,10 @@
 | `astrolabe_prompt`           | 星盘提示词   | 星盘生成并返回可直接用于 AI 解读的结构化提示词                                                                   |
 | `astrolabe_synastry`         | 西占双盘     | 穷举所选点对，返回完整跨盘角距、容许度、双向落宫与证据包                                                         |
 | `astrolabe_synastry_prompt`  | 双盘提示词   | 西占双盘计算并返回可直接用于 AI 解读的证据任务书                                                                 |
-| `metaphysics_bazhai`         | 八宅排盘     | 返回命卦、宅卦、东四西四分组、八宫传统标签、磁北/真北换算、测量误差与候选坐向                                   |
+| `metaphysics_bazhai`         | 八宅排盘     | 返回命卦、宅卦、东四西四分组、八宫传统标签、磁北/真北换算、测量误差与候选坐向                                    |
 | `bazhai_prompt`              | 八宅提示词   | 返回传统标签和测量证据，由 AI 按问题继续推算；不自动生成方向宜避或布置结论                                       |
 | `metaphysics_residential`    | 住宅风水     | 分层返回八宅传统标签、玄空宅运盘、山向测量和资料边界                                                             |
-| `residential_prompt`         | 住宅提示词   | 返回八宅与玄空分层资料，由 AI 继续推算；不自动生成布局建议或综合总分                                               |
+| `residential_prompt`         | 住宅提示词   | 返回八宅与玄空分层资料，由 AI 继续推算；不自动生成布局建议或综合总分                                             |
 | `metaphysics_zodiac`         | 生肖流年     | 从可信生肖年支和六十甲子重建值冲刑害破、三合六合三会、五行方向及解释边界                                         |
 | `zodiac_prompt`              | 生肖提示词   | 从可信来源重建固定关系和提示词，不采信旧派生结果，也不把三合六合改写成现实贵人                                   |
 | `metaphysics_taiyi`          | 太乙年计     | 按积年与阳遁七十二局立成返回年计式盘；月、日、时计完成古籍历法链校勘后再开放                                     |
@@ -66,7 +66,7 @@
 
 默认优先级：
 
-1. 用户提供完整出生信息，并询问人生、事业、财运、婚恋、亲子、健康、迁居、学习、考试、合作、近期趋势或某一年某阶段走势时，优先调用 `bazi_ziwei_prompt`。这是深度解读首选工具，用八字定主线，用紫微校验宫位、四化、三方四正和运限。
+1. 用户提供完整出生信息，并希望同时核对八字与紫微资料时，可调用 `bazi_ziwei_prompt`。工具分别列出两套体系的可复算事实与资料边界，不自动生成命局主线、喜忌、跨体系验证或统一现实结论。
 2. 用户明确只看单人八字时调用 `bazi_prompt`；询问两人婚恋、合作或亲属互动时调用 `bazi_compatibility_prompt`；长期或完整阶段分析优先传 `baziFortuneScope: "full"`。出生时间由输入约束保证符合排盘要求，不基于模糊时间范围继续排盘。
 3. 用户明确只看紫微时，调用 `ziwei_prompt`；长期或完整阶段分析优先传 `promptScope: "full"`。
 4. 用户问单件事情当前能否推进、对方态度、短期成败或应期，优先调用 `liuyao_prompt`；涉及项目路径、方位、谈判、出行和时空窗口时，优先调用 `qimen_prompt`。
@@ -79,9 +79,8 @@
 
 | 用户问题类型                     | 首选工具                    | 推荐参数                                                                 |
 | -------------------------------- | --------------------------- | ------------------------------------------------------------------------ |
-| 整体人生、长期事业、财运、婚恋   | `bazi_ziwei_prompt`         | `baziPromptTopic`、`ziweiPromptTopic`、`promptScope: "full"` 或 `origin` |
-| 今年运势、当前阶段、某年趋势     | `bazi_ziwei_prompt`         | `promptScope: "yearly"`，主题按事业、财运、感情等选择                    |
-| 换工作、创业、合伙、投资         | `bazi_ziwei_prompt`         | `job-change`、`startup-partnership`、`investment-partnership`            |
+| 同时核对八字与紫微出生盘资料     | `bazi_ziwei_prompt`         | `baziPromptTopic`、`ziweiPromptTopic`、`promptScope: "full"` 或 `origin` |
+| 同时核对某年或当前阶段资料       | `bazi_ziwei_prompt`         | `promptScope: "yearly"`，主题按所需资料范围选择                          |
 | 八字格局、用神、大运流年         | `bazi_prompt`               | `promptTopic`、`baziFortuneScope`                                        |
 | 紫微宫位、四化、运限             | `ziwei_prompt`              | `promptTopic`、`promptScope`                                             |
 | 一事一问、短期成败、应期         | `liuyao_prompt`             | `question`、可选 `customDate`                                            |
@@ -200,7 +199,7 @@ npm run mcp
 
 `ziwei_prompt` 工具支持 `school` 参数：`sanhe`（三合派三方四正）、`feixing`（飞星派四化飞星链路）、`sihua`（四化派生年四化主线）。不传则不附加流派指引。
 
-`bazi_ziwei_prompt` 工具使用同一份出生信息，同时计算八字和紫微斗数。它支持 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope`、`promptMode`、`baziSchool`、`ziweiSchool`，适合需要先用八字判断命局主线，再用紫微校验宫位、四化和运限的深度问题。
+`bazi_ziwei_prompt` 工具使用同一份出生信息，同时计算八字和紫微斗数。它支持 `baziPromptTopic`、`ziweiPromptTopic`、`promptScope`、`promptMode`、`baziSchool`、`ziweiSchool`，分别提供两套体系的可复算事实与待定项；当前没有可据以生成跨体系因果映射、互相验证或统一现实结论的完整规则。
 
 紫微格局当前评估 55 条可复算规则的命中结果，每条包含《紫微斗数全书》固定版本、卷次、原文、盘面条件与解释边界；另登记 32 项因原文含糊或依赖运限而不能唯一复算的边界。原 84 条未校勘项目规则继续停用；空列表只表示当前可复算规则未命中，不表示命盘没有其他传统格局。十二宫、星曜、四化、三方四正和运限继续正常返回。
 

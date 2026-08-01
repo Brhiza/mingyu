@@ -46,7 +46,7 @@ const baziZiweiPromptSchema = z.object({
   birthMinute: z.number().optional().describe('精准出生分钟，启用真太阳时时必填'),
   birthPlace: z.string().optional().describe('出生地名称，启用真太阳时时可选'),
   birthLongitude: z.number().optional().describe('出生地经度，启用真太阳时时必填'),
-  question: z.string().describe('用户希望围绕八字和紫微合参解读的问题'),
+  question: z.string().describe('用户希望围绕八字和紫微资料核对的问题'),
   baziPromptTopic: z
     .enum(BAZI_PROMPT_TOPICS)
     .optional()
@@ -98,7 +98,7 @@ export function registerBaziZiweiTool(server: McpServer) {
     'bazi_ziwei_prompt',
     {
       description:
-        '八字紫微合参提示词：同一份出生信息同时计算八字和紫微斗数，返回双盘数据和可直接用于 AI 深度解读的合参提示词',
+        '八字紫微资料核对提示词：同一份出生信息同时计算八字和紫微斗数，返回两套可复算事实、各自边界与条件性后续推算提示词',
       inputSchema: baziZiweiPromptSchema.shape,
       outputSchema: promptOutputSchema,
     },

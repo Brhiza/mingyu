@@ -613,9 +613,9 @@ export function getPublicApiOpenApiDocument(
       },
       '/bazi-ziwei/prompt': {
         post: {
-          summary: '八字紫微合参并生成 AI 解读提示词',
+          summary: '八字紫微分别计算并生成事实核对提示词',
           description:
-            '同一份出生信息同时计算八字和紫微斗数，并生成合参提示词。适合需要先用八字定主线、再用紫微校验宫位与运限的深度分析。',
+            '同一份出生信息同时计算八字和紫微斗数，分别返回可复算事实与资料边界；不以一套体系补成另一套体系的待定项，也不自动生成跨体系统一结论。',
           requestBody: openApiJsonRequestBody('#/components/schemas/BaziZiweiPromptRequest'),
           responses: { '200': { description: '八字、紫微轻量摘要和合参结构化提示词' } },
         },
