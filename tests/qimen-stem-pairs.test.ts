@@ -270,6 +270,122 @@ test('奇门三奇升殿缺少时家级别、误用地盘或采用旧乙到巽�
   );
 });
 
+test('奇门三诈按9种天盘奇仪乘8门乘8神共576组独立穷举且仅27组命中', () => {
+  const tianPanStems = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙'] as const;
+  const doors = ['休门', '死门', '伤门', '杜门', '开门', '惊门', '生门', '景门'] as const;
+  const gods = ['值符', '九天', '九地', '玄武', '白虎', '六合', '太阴', '螣蛇'] as const;
+  const sanQi = new Set(['乙', '丙', '丁']);
+  const sanJiDoors = new Set(['开门', '休门', '生门']);
+  const expectedByGod = new Map([
+    ['太阴', '真诈'],
+    ['九地', '重诈'],
+    ['六合', '休诈'],
+  ]);
+  let checked = 0;
+  let matched = 0;
+
+  for (const heavenStem of tianPanStems) {
+    for (const door of doors) {
+      for (const god of gods) {
+        const patterns = getClassicPatterns({
+          jiuGongGe: [
+            {
+              ...buildPalaceAt(1, heavenStem),
+              renPan: { door },
+              shenPan: { god },
+            },
+          ],
+          zhiFu: '',
+          zhiShi: '',
+          scope: 'hour',
+        }).filter((pattern) => ['真诈', '重诈', '休诈'].includes(pattern.name));
+        const expectedName =
+          sanQi.has(heavenStem) && sanJiDoors.has(door) ? expectedByGod.get(god) : undefined;
+
+        assert.deepEqual(
+          patterns.map((pattern) => pattern.name),
+          expectedName ? [expectedName] : [],
+          `天盘${heavenStem}/${door}/${god}`,
+        );
+        patterns.forEach((pattern) => {
+          assert.equal(pattern.tone, 'neutral');
+          assert.deepEqual(pattern.tokens, [heavenStem]);
+          assert.match(pattern.summary, /奇、门、神三层可复算结构/);
+          assert.match(pattern.summary, /缺少任一层只保留原始盘面事实/);
+          assert.match(pattern.summary, /不得据格名生成吉凶、用途、方位、行动或现实结果/);
+          assert.doesNotMatch(pattern.summary, /百事皆吉|万事皆吉|大吉|必成|必胜/);
+        });
+        checked += 1;
+        matched += patterns.length;
+      }
+    }
+  }
+
+  assert.equal(checked, 576);
+  assert.equal(matched, 27);
+});
+
+test('奇门三诈缺少时家级别、任一同宫层或只在地盘见三奇时失败关闭', () => {
+  const getSanZha = (context: Parameters<typeof getClassicPatterns>[0]) =>
+    getClassicPatterns(context).filter((pattern) =>
+      ['真诈', '重诈', '休诈'].includes(pattern.name),
+    );
+  const completePalace = {
+    ...buildPalaceAt(1, '乙'),
+    renPan: { door: '开门' },
+    shenPan: { god: '太阴' },
+  };
+
+  assert.deepEqual(getSanZha({ jiuGongGe: [completePalace], zhiFu: '', zhiShi: '' }), []);
+  for (const scope of ['day', 'month', 'year'] as const) {
+    assert.deepEqual(
+      getSanZha({ jiuGongGe: [completePalace], zhiFu: '', zhiShi: '', scope }),
+      [],
+      `${scope}级别不得外推三诈`,
+    );
+  }
+  assert.deepEqual(
+    getSanZha({
+      jiuGongGe: [
+        {
+          ...buildPalaceAt(1, '戊', '乙'),
+          renPan: { door: '开门' },
+          shenPan: { god: '太阴' },
+        },
+      ],
+      zhiFu: '',
+      zhiShi: '',
+      scope: 'hour',
+    }),
+    [],
+    '地盘乙不得冒充天盘三奇',
+  );
+  for (const palace of [
+    { ...completePalace, renPan: { door: '景门' } },
+    { ...completePalace, shenPan: { god: '九天' } },
+    { ...completePalace, tianPan: { star: '', stem: '戊' } },
+  ]) {
+    assert.deepEqual(getSanZha({ jiuGongGe: [palace], zhiFu: '', zhiShi: '', scope: 'hour' }), []);
+  }
+
+  const companionStemPattern = getSanZha({
+    jiuGongGe: [
+      {
+        ...completePalace,
+        tianPan: { star: '天芮', stem: '戊', companionStar: '天禽', companionStem: '乙' },
+      },
+    ],
+    zhiFu: '',
+    zhiShi: '',
+    scope: 'hour',
+  });
+  assert.deepEqual(
+    companionStemPattern.map((pattern) => pattern.name),
+    ['真诈'],
+  );
+  assert.deepEqual(companionStemPattern[0]?.tokens, ['乙']);
+});
+
 test('奇门伏干飞干按60日柱乘81种天地盘组合独立穷举且甲日使用六甲遁干', () => {
   const stemPairs = listAllStemPairs();
   let checked = 0;
@@ -761,6 +877,80 @@ test('奇门三奇升殿在真实转盘飞盘中与天盘落宫独立复算一�
   }
 });
 
+test('奇门三诈在真实转盘飞盘中与奇门神三层同宫独立复算一致且三项均可达', () => {
+  const start = new Date('2024-01-01T00:00:00+08:00');
+  const sanQi = new Set(['乙', '丙', '丁']);
+  const sanJiDoors = new Set(['开门', '休门', '生门']);
+  const nameByGod = new Map([
+    ['太阴', '真诈'],
+    ['九地', '重诈'],
+    ['六合', '休诈'],
+  ]);
+  const reached = new Set<string>();
+  const evidenceSamples = new Map<string, ReturnType<typeof generateQimen>>();
+
+  for (const method of ['zhuanpan', 'feipan'] as const) {
+    for (let hourOffset = 0; hourOffset < 60; hourOffset += 1) {
+      const date = new Date(start);
+      date.setHours(date.getHours() + hourOffset * 2);
+      const chart = generateQimen(date, method);
+      const expected = chart.jiuGongGe
+        .flatMap((palace) => {
+          const name = nameByGod.get(palace.shenPan.god);
+          const hasSanQi = getTianPanStems(palace).some((stem) => sanQi.has(stem));
+          return name && hasSanQi && sanJiDoors.has(palace.renPan.door)
+            ? [`${name}:${palace.gong}`]
+            : [];
+        })
+        .sort();
+      const actual = (chart.classicPatterns ?? [])
+        .filter((pattern) => ['真诈', '重诈', '休诈'].includes(pattern.name))
+        .flatMap((pattern) => pattern.palaces.map((gong) => `${pattern.name}:${gong}`))
+        .sort();
+
+      assert.deepEqual(actual, expected, `${method} ${date.toISOString()}`);
+      for (const value of actual) {
+        const name = value.split(':')[0];
+        reached.add(`${method}:${name}`);
+        evidenceSamples.set(name, chart);
+      }
+    }
+  }
+
+  assert.deepEqual([...reached].sort(), [
+    'feipan:休诈',
+    'feipan:真诈',
+    'feipan:重诈',
+    'zhuanpan:休诈',
+    'zhuanpan:真诈',
+    'zhuanpan:重诈',
+  ]);
+  for (const name of ['真诈', '重诈', '休诈']) {
+    const sample = evidenceSamples.get(name);
+    assert.ok(sample, `${name}应有真实生成盘样本`);
+    const analysis = analyzeQimenEvidence(sample);
+    const fact = analysis.patternFacts.find((item) => item.name === name);
+    const rule = analysis.ruleSourceFacts.find(
+      (item) => item.key === 'rule:qimen:san-zha-position',
+    );
+
+    assert.ok(fact);
+    assert.equal(fact.traditionalTone, '中性');
+    assert.ok(fact.sources.some((source) => source.includes('《遁甲演义》')));
+    assert.ok(fact.sources.some((source) => source.includes('《奇门法窍》')));
+    assert.ok(fact.sources.some((source) => source.includes('《奇门旨归》')));
+    assert.ok(fact.sources.some((source) => source.includes('《奇门遁甲秘笈大全》')));
+    assert.match(fact.promptText, /只供 AI 结合完整盘面继续核验/);
+    assert.match(fact.promptText, /奇、门、神三层可复算结构/);
+    assert.doesNotMatch(fact.promptText, /百事皆吉|万事皆吉|大吉|必成|必胜/);
+    assert.ok(rule);
+    assert.equal(rule.category, '三诈位置规则');
+    assert.match(rule.promptText, /缺少奇、门、神任一层/);
+    assert.match(rule.promptText, /不得据格名生成吉凶、用途、方位、行动或现实结果/);
+    assert.match(rule.promptText, /月家、年家不得套用/);
+  }
+});
+
 test('奇门60日柱乘12时辰的位置索引均按六甲遁干定位日干与时干', () => {
   const start = new Date('2024-01-01T00:00:00+08:00');
   const checkedDayPillars = new Set<string>();
@@ -814,7 +1004,7 @@ test('奇门提示词证据声明11项固定格与其余70项结构事实边界'
   assert.match(relationRule.promptText, /其余七十项不得单凭二元组合补造传统名称/);
   assert.match(
     relationRule.promptText,
-    /时家另按独立上下文规则核验伏干格、飞干格、岁格、六庚值符临丙格勃与三奇升殿位置结构/,
+    /时家另按独立上下文规则核验伏干格、飞干格、岁格、六庚值符临丙格勃、三奇升殿与三诈位置结构/,
   );
   assert.ok(relationRule.sources.some((source) => source.includes('《遁甲演义》卷一')));
   assert.ok(relationRule.sources.some((source) => source.includes('《遁甲演义》卷二')));

@@ -46,6 +46,9 @@ const auditedClassicPatternNames = new Set([
   '乙奇升殿',
   '丙奇升殿',
   '丁奇升殿',
+  '真诈',
+  '重诈',
+  '休诈',
 ]);
 
 test('奇门值符值使公开入口应拒绝非法干支、缺局数与坏局数', () => {
@@ -344,12 +347,15 @@ test('奇门三个已开放级别应穷尽主动六十甲子并在两种排盘�
               '乙奇升殿',
               '丙奇升殿',
               '丁奇升殿',
+              '真诈',
+              '重诈',
+              '休诈',
             ]);
             assert.ok(
               (data.classicPatterns ?? []).every(
                 (pattern) => !hourOnlyPatternNames.has(pattern.name),
               ),
-              `${scope}/${method}不得外推时家上下文与升殿位置结构`,
+              `${scope}/${method}不得外推时家上下文、升殿与三诈位置结构`,
             );
           }
           assert.equal((data as unknown as Record<string, unknown>).directions, undefined);

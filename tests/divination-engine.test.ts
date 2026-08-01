@@ -672,14 +672,15 @@ test('奇门定局、值符值使、宫间作用与应期前提应进入统一�
         item.limitation.includes('不证明现实吉凶'),
     ),
   );
-  assert.equal(analysis.ruleSourceFacts.length, 12);
+  assert.equal(analysis.ruleSourceFacts.length, 13);
   assert.ok(
     analysis.ruleSourceFacts.some(
       (item) =>
         item.key === 'rule:qimen:classic-pattern-audit-boundary' &&
         item.promptText.includes('十一项固定格') &&
         item.promptText.includes('伏干格、飞干格、岁格') &&
-        item.promptText.includes('乙奇到震三、丙奇到离九、丁奇到兑七') &&
+        item.promptText.includes('乙奇到震三/丙奇到离九/丁奇到兑七') &&
+        item.promptText.includes('真诈/重诈/休诈') &&
         item.promptText.includes('月干/月朔干') &&
         item.promptText.includes('不得从原始盘面自动补算'),
     ),
@@ -1393,7 +1394,7 @@ test('奇门天地盘干入墓关系与统一天干入墓表一致', () => {
   }
 });
 
-test('奇门其余未审核三奇、三诈与五假规则即使条件齐全也应失败关闭', () => {
+test('奇门其余未审核三奇与五假规则即使条件齐全也应失败关闭', () => {
   const patterns = getClassicPatterns({
     jiuGongGe: [
       buildQimenPalace(1, '乙', { renPan: { door: '开门' }, shenPan: { god: '太阴' } }),
@@ -1419,9 +1420,6 @@ test('奇门其余未审核三奇、三诈与五假规则即使条件齐全也�
     '星奇入墓',
     '三奇受制',
     '三奇会甲',
-    '真诈',
-    '重诈',
-    '休诈',
     '天假',
     '地假',
     '人假',
@@ -1557,6 +1555,9 @@ test('奇门跨年跨月跨时辰与两种排盘法只输出已审核格局事�
     '乙奇升殿',
     '丙奇升殿',
     '丁奇升殿',
+    '真诈',
+    '重诈',
+    '休诈',
   ]);
   const retiredPattern =
     /九遁|天遁|地遁|人遁|神遁|鬼遁|龙遁|虎遁|风遁|云遁|三奇得|三奇游六仪|三诈|真诈|重诈|休诈|天假|地假|人假|物假|鬼假|神假|升殿|奇入墓|奇受制|三奇会甲|符使同宫|相佐|守户|天乙飞宫|天乙伏宫|月格|时格|勃格|地罗遮蔽|天辅时|五合时|玉女守门/;
@@ -1612,7 +1613,7 @@ test('奇门跨年跨月跨时辰与两种排盘法只输出已审核格局事�
   }
 });
 
-test('月家与年家奇门不外推时家上下文格与三奇升殿位置结构', () => {
+test('月家与年家奇门不外推时家上下文格、三奇升殿与三诈位置结构', () => {
   const hourOnlyPatternNames = new Set([
     '伏干格',
     '飞干格',
@@ -1621,6 +1622,9 @@ test('月家与年家奇门不外推时家上下文格与三奇升殿位置结�
     '乙奇升殿',
     '丙奇升殿',
     '丁奇升殿',
+    '真诈',
+    '重诈',
+    '休诈',
   ]);
   for (const scope of ['month', 'year'] as const) {
     for (const method of ['zhuanpan', 'feipan'] as const) {
