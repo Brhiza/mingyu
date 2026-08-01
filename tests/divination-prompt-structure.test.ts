@@ -333,6 +333,9 @@ test('太乙提示词只凭原始年份重建，不吸收旧盘与旧证据污�
   const data = taiyi.generateTaiyi({ scope: 'year', year: 2004 });
   const supplementary = createSupplementaryInfo();
   const clean = buildDivinationPrompt('taiyi', '请分析本年局势。', data, supplementary);
+  assert.match(clean, /纯阴、纯阳、上和、下和等算数属性尚未闭合具体底本版本/);
+  assert.match(clean, /不得生成总体态势、胜负、时机或行动建议/);
+  assert.doesNotMatch(clean, /分析总体态势与主客关系|主客与定算主线优先|条件变化、行动建议/);
   const polluted = structuredClone(data);
   polluted.scope = 'month';
   polluted.ganZhi = '伪造干支';

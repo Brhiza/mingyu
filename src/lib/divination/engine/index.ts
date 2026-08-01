@@ -165,15 +165,18 @@ export function buildDivinationPrompt(
   const isSsgw = method === 'ssgw';
   const isTarot = method === 'tarot';
   const isLenormand = method === 'lenormand';
+  const isTaiyi = method === 'taiyi';
   const outputRequirementText = isTarot
     ? '只说明可核验的项目内部牌号、牌名、牌位、正逆位、抽取顺序与随机轨迹，以及牌义版本待校边界；不得补造牌义或给出趋势与行动结论。'
     : isLenormand
       ? '只说明可核验的项目内部牌号、牌名、牌位、抽取顺序与随机轨迹，以及牌义版本待校边界；不得补造关键词、牌义、组合或布局趋势，不得给出行动结论。'
-    : isSsgw
-      ? '只说明可核验的签号、抽取与掷筊记录及签谱待校边界；不得补造签谱内容或给出由签号推导的判断。'
-      : isAlmanac
-      ? '按可用候选、条件候选和慎用候选分组说明；同组按日期先后，不生成首选、备选或唯一最佳结论；说明取舍依据与执行建议。'
-      : '使用简体中文，先回答【问题】，再说明主要依据、时机条件和行动建议。';
+      : isSsgw
+        ? '只说明可核验的签号、抽取与掷筊记录及签谱待校边界；不得补造签谱内容或给出由签号推导的判断。'
+        : isTaiyi
+          ? '只核对年计积数、七十二局、核心落宫、主客定算数值、将参宫位和十六神位置；未明确解释底本版本、所问事项及主客现实角色时，不得生成总体态势、胜负、时机或行动建议。'
+          : isAlmanac
+            ? '按可用候选、条件候选和慎用候选分组说明；同组按日期先后，不生成首选、备选或唯一最佳结论；说明取舍依据与执行建议。'
+            : '使用简体中文，先回答【问题】，再说明主要依据、时机条件和行动建议。';
   const liurenTemplateSection =
     method === 'liuren'
       ? buildSection('【问题范围】', buildLiurenTemplateText(liurenTemplate, data as LiurenData))

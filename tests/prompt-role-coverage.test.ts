@@ -103,6 +103,18 @@ test('生肖未提供问题时仍只要求基于固定关系继续推算', () =>
   assert.doesNotMatch(prompt, /请综合解读本次排盘的重点、风险与行动建议/);
 });
 
+test('太乙未提供问题时只核对已校勘年计事实', () => {
+  const prompt = buildMetaphysicsPrompt('【太乙年计】\n测试资料', undefined, {
+    method: 'taiyi',
+    currentTime: new Date('2026-07-16T12:00:00+08:00'),
+  });
+
+  assert.match(prompt, /【问题】\n请核对本次太乙年计的可复算事实、来源边界与继续解释所需资料。/);
+  assert.match(prompt, /不得生成总体态势、胜负、时机或行动建议/);
+  assert.match(prompt, /不补造算数属性、月日时计或现实主客含义/);
+  assert.doesNotMatch(prompt, /请综合解读本次排盘的重点、风险与行动建议/);
+});
+
 test('七政四余提示词指引应约束真实距星宿界、完整星对几何与未采用规则', () => {
   const guidance = PROMPT_GUIDANCE_TEXT.qizheng;
 
