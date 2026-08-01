@@ -1233,7 +1233,7 @@ export function getPublicApiOpenApiDocument(
                 school: {
                   enum: [...BAZI_SCHOOLS],
                   description:
-                    '八字流派指引：traditional=传统派（子平正法、格局调候）, mangpai=盲派（十神象法、年限分段）, xinpai=新派（调候流通）。不传则不附加流派指引。',
+                    '八字流派偏好标签：traditional=传统派, mangpai=盲派, xinpai=新派。标签不改变已校勘事实和失败关闭边界；不传则不附加。',
                 },
               },
             },

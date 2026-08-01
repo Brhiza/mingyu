@@ -106,9 +106,12 @@ const FULL_ZIWEI_SCOPE_ORDER: ScopeType[] = [
 ];
 
 const BAZI_SCHOOL_GUIDANCE: Record<BaziSchool, string> = {
-  traditional: '八字流派：传统派（子平、格局调候）',
-  mangpai: '八字流派：盲派（十神象法、年限分段）',
-  xinpai: '八字流派：新派（旺衰、调候流通）',
+  traditional:
+    '八字流派偏好：传统派。此标签不改变已校勘事实与失败关闭边界，不据此补算整体旺衰、自动用神、喜忌或调候。',
+  mangpai:
+    '八字流派偏好：盲派。此标签不改变已校勘事实与失败关闭边界，不据此补造未逐条校勘的象法、年限或现实结论。',
+  xinpai:
+    '八字流派偏好：新派。此标签不改变已校勘事实与失败关闭边界，不据此补算整体旺衰、自动用神、喜忌、调候或流通结论。',
 };
 
 const ZIWEI_SCHOOL_GUIDANCE: Record<ZiweiSchool, string> = {

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { buildMetaphysicsPrompt } from '../src/lib/metaphysics-prompt';
+import { getBaziSchoolGuidance } from '../src/lib/public-api/prompt-builders';
 import { PROMPT_GUIDANCE_TEXT, type MetaphysicsPromptMethod } from '../src/lib/prompt-guidance';
 import {
   VERIFIED_ZIWEI_PATTERN_RULE_COUNT,
@@ -37,7 +38,14 @@ test('全部体系都提供传统判断规则与传统依据', () => {
 
 test('核心传统术数包含判断优先级、冲突处理和流派边界', () => {
   const expectedTerms = {
-    bazi: ['月令', '格局', '调候', '不同取法', '神煞只作旁证'],
+    bazi: [
+      '月令和司令',
+      '已校勘月令格局',
+      '待综合判断',
+      '自动用神、喜忌与调候规则当前失败关闭',
+      '泛化书名',
+      '神煞只作旁证',
+    ],
     liuyao: ['确定用神', '月建', '动爻', '多条信息冲突', '六神和卦名辅助'],
     ziwei: ['问题对应宫位', '三方会照', '生年四化', '不同流派', '单颗星', '不.*补造.*格局'],
     qimen: ['选取日干', '值符、值使', '旬空', '不.*直接升级为现实吉凶', '方向和时机'],
@@ -56,6 +64,31 @@ test('核心传统术数包含判断优先级、冲突处理和流派边界', ()
     assert.ok('sources' in guidance, `${method} 应提供传统依据`);
     terms.forEach((term) => assert.match(guidance.tradition, new RegExp(term)));
   });
+});
+
+test('八字单盘、合盘、紫微合参和流派标签均关闭未校取用旁路', () => {
+  const single = PROMPT_GUIDANCE_TEXT.bazi;
+  const compatibility = PROMPT_GUIDANCE_TEXT['bazi-compatibility'];
+  const combined = PROMPT_GUIDANCE_TEXT['bazi-ziwei'];
+
+  assert.match(single.analysis, /日主整体旺衰、自动用神、喜忌与调候保持待定/);
+  assert.match(single.tradition, /不能用五行数量.*自动定强弱/);
+  assert.match(single.sources, /泛化书名不能替代具体底本、版本、原文位置和适用边界/);
+  assert.doesNotMatch(single.analysis, /旺衰、格局与调候确定命局主线/);
+
+  assert.match(compatibility.tradition, /不得重新生成.*喜忌互补结论/);
+  assert.doesNotMatch(compatibility.analysis, /喜忌互补/);
+  assert.doesNotMatch(compatibility.tradition, /各自完成月令、日主旺衰/);
+
+  assert.match(combined.tradition, /八字侧日主整体旺衰保持“待综合判断”/);
+  assert.match(combined.tradition, /不得用紫微结论.*补成八字侧待定项/);
+  assert.doesNotMatch(combined.tradition, /八字按月令、旺衰、格局调候/);
+
+  for (const school of ['traditional', 'mangpai', 'xinpai'] as const) {
+    const guidance = getBaziSchoolGuidance(school);
+    assert.match(guidance, /不改变已校勘事实与失败关闭边界/);
+    assert.match(guidance, /不据此/);
+  }
 });
 
 test('紫微提示指引中的格局目录数量应与核心登记同步', () => {
