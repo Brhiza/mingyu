@@ -1496,7 +1496,8 @@ test('八字公开 API prompt builder 空问题走通用问题，不复用本地
   });
 
   assert.match(prompt, /【问题】\n请先做整体解读。/);
-  assert.match(prompt, /【任务】\n请重点分析事业，并直接回答【问题】。/);
+  assert.match(prompt, /【任务】\n请重点核对事业相关的已列事实与资料缺口；【问题】只限定核对范围。/);
+  assert.match(prompt, /不得超出随盘列出的事实与限制，不直接生成性格、健康、财富、婚恋、现实事件、概率、应期或行动建议/);
   assert.doesNotMatch(prompt, /若【问题】|按通用.*口径|问题未限定/);
   assert.doesNotMatch(prompt, /【问题】\n判断命局更适合守成/);
   assert.doesNotMatch(prompt, /【任务】\n判断命局更适合守成/);
@@ -1532,9 +1533,10 @@ test('八字公开 API 不同主题只切换范围，空问题仍使用通用任
     assert.match(prompt, /【问题】\n请先做整体解读。/, `${topic} 应使用通用默认问题`);
     assert.match(
       prompt,
-      /【任务】\n请重点分析[^，]+，并直接回答【问题】。/,
+      /【任务】\n请重点核对[^，；]+相关的已列事实与资料缺口；【问题】只限定核对范围。/,
       `${topic} 应只把主题作为范围`,
     );
+    assert.doesNotMatch(prompt, /并直接回答【问题】|先回答【问题】|时机条件和现实建议/);
     assert.doesNotMatch(prompt, /若【问题】|按通用.*口径|问题未限定/);
   }
 });
