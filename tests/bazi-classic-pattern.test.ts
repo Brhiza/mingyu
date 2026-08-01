@@ -40,6 +40,23 @@ test('经典外格模糊强弱词不得在缺少实际强弱证据时自动通�
   }
 });
 
+test('经典外格不得把天干出现直接改写为发用或自动裁决争合', () => {
+  const pillars: Pillars = {
+    year: { gan: '甲', zhi: '子', ganZhi: '甲子' },
+    month: { gan: '己', zhi: '丑', ganZhi: '己丑' },
+    day: { gan: '戊', zhi: '寅', ganZhi: '戊寅' },
+    hour: { gan: '辛', zhi: '卯', ganZhi: '辛卯' },
+  };
+
+  for (const condition of ['甲木发用', '无甲己争合']) {
+    assert.equal(
+      checkCondition(condition, pillars.day.gan, pillars, EMPTY_HIDDEN_STEMS),
+      false,
+      condition,
+    );
+  }
+});
+
 test('金神只保留其他古籍结构来源，不固化甲己日喜忌五行', () => {
   const jiaPattern = identify({
     year: { gan: '壬', zhi: '寅', ganZhi: '壬寅' },

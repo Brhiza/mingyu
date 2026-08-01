@@ -2,14 +2,7 @@ import type { BaziChartResult } from '../baziTypes';
 import { sanHeMatcher, sanHuiMatcher, siKuMatcher } from './formationMatchers';
 import { shiZhuMatcher, shiZhiMatcher, riZhiMatcher, riZhuMatcher } from './pillarMatchers';
 import { chongMatcher, jianZhiMatcher, noJianZhiMatcher, diZhiDuoMatcher } from './branchMatchers';
-import {
-  touGanMatcher,
-  faYongMatcher,
-  tianGanDuoMatcher,
-  wuHeMatcher,
-  noZhengHeMatcher,
-  noTouGanMatcher,
-} from './stemMatchers';
+import { touGanMatcher, tianGanDuoMatcher, wuHeMatcher, noTouGanMatcher } from './stemMatchers';
 import type { CheckContext, Matcher } from './types';
 
 export { branchesContain } from './helpers';
@@ -27,12 +20,10 @@ const MATCHERS: Matcher[] = [
   jianZhiMatcher,
   noJianZhiMatcher,
   touGanMatcher,
-  faYongMatcher,
   tianGanDuoMatcher,
   noTouGanMatcher,
   diZhiDuoMatcher,
   wuHeMatcher,
-  noZhengHeMatcher,
 ];
 
 export function checkCondition(
