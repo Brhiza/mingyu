@@ -9,44 +9,52 @@ export const TEN_GODS_DEFINITIONS: Record<
   比肩: {
     wuxing: '同我',
     yinyang: '同性',
-    description: '传统可取兄弟、同辈类象；具体关系须结合宫位、格局与喜忌。',
+    description: '与日主同五行、同阴阳的十神名称；这里只登记固定映射。',
   },
   劫财: {
     wuxing: '同我',
     yinyang: '异性',
-    description: '传统可取同辈、竞争者类象；不按十神名称直接断定现实关系。',
+    description: '与日主同五行、异阴阳的十神名称；这里只登记固定映射。',
   },
-  食神: { wuxing: '我生', yinyang: '同性', description: '代表福气、才华、口福，主温和、享受。' },
-  伤官: { wuxing: '我生', yinyang: '异性', description: '代表智慧、技艺、叛逆，主聪明、傲气。' },
+  食神: {
+    wuxing: '我生',
+    yinyang: '同性',
+    description: '日主所生五行中与日主同阴阳的十神名称；这里只登记固定映射。',
+  },
+  伤官: {
+    wuxing: '我生',
+    yinyang: '异性',
+    description: '日主所生五行中与日主异阴阳的十神名称；这里只登记固定映射。',
+  },
   偏财: {
     wuxing: '我克',
     yinyang: '同性',
-    description: '传统可取父亲星与偏财类象；须结合宫位、格局与喜忌。',
+    description: '日主所克五行中与日主同阴阳的十神名称；这里只登记固定映射。',
   },
   正财: {
     wuxing: '我克',
     yinyang: '异性',
-    description: '男命传统可取妻星与正财类象；女命配偶取象须另按对应口径复核。',
+    description: '日主所克五行中与日主异阴阳的十神名称；这里只登记固定映射。',
   },
   七杀: {
     wuxing: '克我',
     yinyang: '同性',
-    description: '传统官杀可取子女星及压力、约束类象；不得据单一十神直接断事。',
+    description: '克日主五行中与日主同阴阳的十神名称；这里只登记固定映射。',
   },
   正官: {
     wuxing: '克我',
     yinyang: '异性',
-    description: '传统官杀可取子女星及秩序、约束类象；不得据单一十神直接断事。',
+    description: '克日主五行中与日主异阴阳的十神名称；这里只登记固定映射。',
   },
   偏印: {
     wuxing: '生我',
     yinyang: '同性',
-    description: '传统可取偏印与非正统资源类象；不固定等同于某一现实亲属。',
+    description: '生日主五行中与日主同阴阳的十神名称；这里只登记固定映射。',
   },
   正印: {
     wuxing: '生我',
     yinyang: '异性',
-    description: '传统可取母亲星与正印类象；须结合宫位、格局与喜忌。',
+    description: '生日主五行中与日主异阴阳的十神名称；这里只登记固定映射。',
   },
 };
 

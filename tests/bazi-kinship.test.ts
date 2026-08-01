@@ -150,11 +150,18 @@ test('六亲事实应贯穿本命证据、汇总、限制与最终提示词', ()
   assert.match(prompt, /不得由单柱、单一十神或缺位直接断定亲属有无/);
 });
 
-test('十神基础文案不得固定写成继母、情人或异性朋友', () => {
+test('十神基础文案只登记五行与阴阳映射，不输出人物类象或性格结论', () => {
   const descriptions = Object.values(TEN_GODS_DEFINITIONS)
     .map((item) => item.description)
     .join('\n');
 
-  assert.doesNotMatch(descriptions, /继母|情人|异性朋友/);
-  assert.match(TEN_GODS_DEFINITIONS.正财.description, /女命配偶取象须另按对应口径复核/);
+  assert.doesNotMatch(
+    descriptions,
+    /兄弟|同辈|竞争者|父亲|妻|配偶|子女|母亲|继母|情人|异性朋友|福气|才华|温和|叛逆|聪明|傲气/,
+  );
+  assert.ok(
+    Object.values(TEN_GODS_DEFINITIONS).every((item) =>
+      item.description.endsWith('这里只登记固定映射。'),
+    ),
+  );
 });
