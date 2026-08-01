@@ -198,5 +198,17 @@ test('七政四余提示词指引应约束真实距星宿界、完整星对几�
     /真实距星黄经划界.*戌白羊.*身宫据《五行精纪》《灵台经》取太阴所在宫.*真太阳时只校正命宫所用生时/,
   );
   assert.match(guidance.sources, /《张果星宗》.*《五行精纪》《灵台经》.*SIMBAD.*Astronomy Engine/);
-  assert.match(guidance.output, /反证与限制/);
+  assert.match(guidance.output, /继续推算所需资料/);
+
+  const prompt = buildMetaphysicsPrompt('【七政四余】\n测试盘面', '请分析事业并给建议。', {
+    method: 'qizheng',
+    currentTime: new Date('2026-07-16T12:00:00+08:00'),
+  });
+  assert.match(prompt, /问题文字不能指定所谓重点宫位/);
+  assert.match(
+    prompt,
+    /具体解释底本、版本与可定位原文、完整庙旺吊照及宫星神煞解释规则、已指定判断对象、明确出生地点时区与资料精度/,
+  );
+  assert.match(prompt, /不得补造庙旺、吊照、强弱或神煞命中/);
+  assert.doesNotMatch(prompt, /给出可执行建议|先说结论，再展开依据和建议|现实建议/);
 });
