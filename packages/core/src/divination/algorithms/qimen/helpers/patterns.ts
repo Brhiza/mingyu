@@ -48,7 +48,13 @@ export function isAuditedQimenPatternTag(tag: string): boolean {
   return AUDITED_PATTERN_TAG_PREFIXES.some((prefix) => tag.startsWith(prefix));
 }
 
-function getMenPoTags(jiuGongGe: QimenJiuGongGe[]): string[] {
+/**
+ * 只记录八门五行克所在宫五行的直接结构。
+ *
+ * 古籍对“门迫/宫迫”的名称互有倒置，且“迫制和义格”的命名层级并不统一，
+ * 因此这里不借用任何争议格名，也不附加吉凶、主客或行动断语。
+ */
+function getDoorControlsPalaceTags(jiuGongGe: QimenJiuGongGe[]): string[] {
   return jiuGongGe
     .filter((palace) => palace.renPan.door)
     .filter((palace) => isKe(getDoorElement(palace.renPan.door), palace.element))
@@ -119,7 +125,7 @@ export function getQimenPatternTags(params: QimenPatternTagParams): string[] {
     }
   }
 
-  tags.push(...getMenPoTags(jiuGongGe));
+  tags.push(...getDoorControlsPalaceTags(jiuGongGe));
 
   const zhiFuLandingGong = jiuGongGe.find((palace) => palace.gong === zhiFuLandingPalace);
   if (scope === 'hour' && zhiFuLandingGong) {
@@ -156,7 +162,7 @@ function getPatternSummary(tag: string): string {
     return '值使门落在本宫的对冲宫；这里只记录八门位置关系，不据此单独判断现实变化。';
   }
   if (tag.startsWith('门克宫')) {
-    return '门五行克所在宫五行；这里只记录同宫五行关系，不自动换算成吉凶或方位建议。';
+    return '门五行克所在宫五行；这里只记录同宫五行关系，不自动命名门迫、宫迫或迫制和义格，也不换算成吉凶或方位建议。';
   }
   if (tag.startsWith('击刑落宫')) {
     return '时家时干所遁六仪命中六仪击刑固定落宫表；这里只记录命中条件，不据此单独断事。';

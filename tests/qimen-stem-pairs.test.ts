@@ -19,6 +19,7 @@ import {
   listAllStemPairs,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/stem-pair-patterns';
 import {
+  buildPatternDetails,
   getQimenPatternTags,
   isQimenInstrumentPunishment,
 } from '../packages/core/src/divination/algorithms/qimen/helpers/patterns';
@@ -1973,4 +1974,74 @@ test('星门伏吟反吟按实际落宫穷举且关闭六甲时捷径天禽寄�
   assert.match(rule.promptText, /天禽.*关闭/);
   assert.match(rule.promptText, /月家、年家.*不得套用/);
   assert.doesNotMatch(rule.promptText, /万事皆凶|必败|必成|必胜/);
+});
+
+test('门克宫按八门九宫穷举只保留中性五行结构且关闭争议迫名', () => {
+  const doors = ['休门', '死门', '伤门', '杜门', '开门', '惊门', '生门', '景门'] as const;
+  const palaceElements = ['', '水', '土', '木', '木', '土', '金', '金', '土', '火'] as const;
+  const expectedPairs = new Set([
+    '休门:9',
+    '死门:1',
+    '伤门:2',
+    '伤门:5',
+    '伤门:8',
+    '杜门:2',
+    '杜门:5',
+    '杜门:8',
+    '开门:3',
+    '开门:4',
+    '惊门:3',
+    '惊门:4',
+    '生门:1',
+    '景门:6',
+    '景门:7',
+  ]);
+  let checked = 0;
+
+  for (const scope of ['hour', 'month', 'year'] as const) {
+    for (const door of doors) {
+      for (let gong = 1; gong <= 9; gong += 1) {
+        const palace = {
+          ...buildPalaceAt(gong, '', '戊'),
+          element: palaceElements[gong],
+          renPan: { door },
+        };
+        const tags = getQimenPatternTags({
+          zhiFu: '天蓬',
+          zhiShi: '休门',
+          zhiFuLandingPalace: 2,
+          zhiShiLandingPalace: 2,
+          jiuGongGe: [palace],
+          hourGanForFind: '戊',
+          scope,
+        }).filter((tag) => tag.startsWith('门克宫'));
+        const expected = expectedPairs.has(`${door}:${gong}`);
+
+        assert.equal(tags.length, expected ? 1 : 0, `${scope}/${door}/${gong}宫`);
+        tags.forEach((tag) => {
+          assert.match(tag, /^门克宫/);
+          assert.doesNotMatch(tag, /门迫|宫迫|迫制和义/);
+          const details = buildPatternDetails([tag]);
+          assert.equal(details.length, 1);
+          assert.match(details[0].summary, /中性|五行关系/);
+          assert.match(details[0].summary, /不自动命名门迫、宫迫或迫制和义格/);
+          assert.doesNotMatch(details[0].summary, /必成|必败|必胜|吉事成凶/);
+        });
+        checked += 1;
+      }
+    }
+  }
+
+  assert.equal(checked, 8 * 9 * 3);
+
+  const analysis = analyzeQimenEvidence(generateQimen(new Date('2025-01-01T05:00:00+08:00')));
+  const rule = analysis.ruleSourceFacts.find(
+    (item) => item.key === 'rule:qimen:door-controls-palace-structure',
+  );
+  assert.ok(rule);
+  assert.equal(rule.category, '门宫五行结构规则');
+  assert.match(rule.promptText, /八门与九宫共 72 种组合/);
+  assert.match(rule.promptText, /门迫、宫迫或迫制和义格/);
+  assert.match(rule.promptText, /时家、月家、年家均只保留/);
+  assert.doesNotMatch(rule.promptText, /必成|必败|必胜|吉事成凶/);
 });
